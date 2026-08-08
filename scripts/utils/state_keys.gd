@@ -1,8 +1,17 @@
 class_name GameStateKeys
 extends RefCounted
 
-# GameManager.get_state() が返すDictionaryのトップレベルキー。
+# GameManager.get_state() が返すDictionaryのキー。
 # DATA_SCHEMA.md の各項目に対応。文字列リテラルではなくこの定数経由で組み立てる。
+#
+# 【重要】トップレベルだけでなく、ネストしたDictionaryのキーもここに定義する。
+# Dictionaryは存在しないキーを読んでもエラーにならず null を返すため、
+# キー名を推測して書くと実行するまで誤りに気づけない。必ずここの定数を使うこと。
+# 構造の全体像は AGENTS.md「GameManagerの状態構造」を参照。
+
+# ============================================================
+# トップレベルキー
+# ============================================================
 
 const GOLD: String = "gold"
 const GEMS: String = "gems"
@@ -28,3 +37,115 @@ const CHARACTER_GROWTH: String = "character_growth"
 const RESEARCH_TREE: String = "research_tree"
 const RECIPES_UNLOCKED: String = "recipes_unlocked"
 const CRAFTING_QUEUE: String = "crafting_queue"
+
+# ============================================================
+# ネストしたキー
+# 命名規則：親キー名_子キー名（例：STAMINA 配下の "current" → STAMINA_CURRENT）
+# ============================================================
+
+# STAMINA: {"current": int, "max": int}
+const STAMINA_CURRENT: String = "current"
+const STAMINA_MAX: String = "max"
+
+# INVENTORY: {item_id: {count, type, slot_position, properties}}
+const ITEM_COUNT: String = "count"
+const ITEM_TYPE: String = "type"
+const ITEM_SLOT_POSITION: String = "slot_position"
+const ITEM_PROPERTIES: String = "properties"
+# slot_position: {"x": int, "y": int}
+const POS_X: String = "x"
+const POS_Y: String = "y"
+
+# ITEM_TYPE に入る値（DATA_SCHEMA.md 1. inventory.type）
+const ITEM_TYPE_EQUIPMENT: String = "equipment"
+const ITEM_TYPE_CONSUMABLE: String = "consumable"
+const ITEM_TYPE_KEY_ITEM: String = "key_item"
+const ITEM_TYPE_GIFT: String = "gift"
+const ITEM_TYPE_UNKNOWN: String = ""
+
+# PENDING_CHESTS: [{chest_id, chest_type, source, obtained_at, opened, rewards}]
+const CHEST_ID: String = "chest_id"
+const CHEST_TYPE: String = "chest_type"
+const CHEST_SOURCE: String = "source"
+const CHEST_OBTAINED_AT: String = "obtained_at"
+const CHEST_OPENED: String = "opened"
+const CHEST_REWARDS: String = "rewards"
+
+# 報酬Dictionary（宝箱・ポモドーロ・戦闘で共通）
+# {gold, gems, stamina, materials, inventory}
+const REWARD_GOLD: String = "gold"
+const REWARD_GEMS: String = "gems"
+const REWARD_STAMINA: String = "stamina"
+const REWARD_MATERIALS: String = "materials"
+const REWARD_INVENTORY: String = "inventory"
+
+# 戦闘結果: {victory, waves_cleared, rewards}
+const BATTLE_VICTORY: String = "victory"
+const BATTLE_WAVES_CLEARED: String = "waves_cleared"
+const BATTLE_REWARDS: String = "rewards"
+
+# STORY: {"current_chapter": int, "stages": {stage_id: {cleared, stars}}}
+const STORY_CURRENT_CHAPTER: String = "current_chapter"
+const STORY_STAGES: String = "stages"
+const STAGE_CLEARED: String = "cleared"
+const STAGE_STARS: String = "stars"
+
+# CODEX: {item_id: {discovered, obtained_at}}
+const CODEX_DISCOVERED: String = "discovered"
+const CODEX_OBTAINED_AT: String = "obtained_at"
+
+# 各SHOP: {"refresh_at": String, "line_up": Array}
+const SHOP_REFRESH_AT: String = "refresh_at"
+const SHOP_LINE_UP: String = "line_up"
+# line_up の各要素: {slot_id, item_id, cost, stock_limit, purchased_count}
+const SHOP_SLOT_ID: String = "slot_id"
+const SHOP_ITEM_ID: String = "item_id"
+const SHOP_COST: String = "cost"
+const SHOP_STOCK_LIMIT: String = "stock_limit"
+const SHOP_PURCHASED_COUNT: String = "purchased_count"
+# cost: {"currency_type": String, "amount": int}
+const COST_CURRENCY_TYPE: String = "currency_type"
+const COST_AMOUNT: String = "amount"
+
+# CHARACTER_GROWTH: {character_id: {level, stats, skills, equipment}}
+const GROWTH_LEVEL: String = "level"
+const GROWTH_STATS: String = "stats"
+const GROWTH_SKILLS: String = "skills"
+const GROWTH_EQUIPMENT: String = "equipment"
+# stats: {hp, atk, def, spd}
+const STAT_HP: String = "hp"
+const STAT_ATK: String = "atk"
+const STAT_DEF: String = "def"
+const STAT_SPD: String = "spd"
+# equipment スロット名
+const EQUIP_WEAPON: String = "weapon"
+const EQUIP_ARMOR: String = "armor"
+const EQUIP_ACCESSORY: String = "accessory"
+
+# RESEARCH_TREE: {node_id: {unlocked, effect_type, effect_value, prerequisites}}
+const NODE_UNLOCKED: String = "unlocked"
+const NODE_EFFECT_TYPE: String = "effect_type"
+const NODE_EFFECT_VALUE: String = "effect_value"
+const NODE_PREREQUISITES: String = "prerequisites"
+const NODE_TARGET_STAT: String = "target_stat"
+# effect_type に入る値
+const EFFECT_LEVEL_CAP_UNLOCK: String = "level_cap_unlock"
+const EFFECT_STAT_BOOST_ALL: String = "stat_boost_all"
+
+# CRAFTING_QUEUE: [{queue_id, recipe_id, recipe_type, started_at, duration_sec, status, output_item_id}]
+const CRAFT_QUEUE_ID: String = "queue_id"
+const CRAFT_RECIPE_ID: String = "recipe_id"
+const CRAFT_RECIPE_TYPE: String = "recipe_type"
+const CRAFT_STARTED_AT: String = "started_at"
+const CRAFT_DURATION_SEC: String = "duration_sec"
+const CRAFT_STATUS: String = "status"
+const CRAFT_OUTPUT_ITEM_ID: String = "output_item_id"
+# status に入る値
+const CRAFT_STATUS_IN_PROGRESS: String = "in_progress"
+const CRAFT_STATUS_COMPLETED: String = "completed"
+const CRAFT_STATUS_COLLECTED: String = "collected"
+
+# ショップ種別（get_shop_lineup 等の引数）
+const SHOP_TYPE_DAILY: String = "daily"
+const SHOP_TYPE_WEEKLY: String = "weekly"
+const SHOP_TYPE_MONTHLY: String = "monthly"

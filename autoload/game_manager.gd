@@ -38,7 +38,7 @@ func _init_from_config(config: InitialStateConfig) -> void:
 	_state = {
 		GameStateKeys.GOLD: config.starting_gold,
 		GameStateKeys.GEMS: config.starting_gems,
-		GameStateKeys.STAMINA: {"current": config.starting_stamina_current, "max": config.starting_stamina_max},
+		GameStateKeys.STAMINA: {GameStateKeys.STAMINA_CURRENT: config.starting_stamina_current, GameStateKeys.STAMINA_MAX: config.starting_stamina_max},
 		GameStateKeys.MATERIALS: config.starting_materials.duplicate(true),
 		GameStateKeys.INVENTORY: {},
 		GameStateKeys.PENDING_CHESTS: [],
@@ -50,12 +50,12 @@ func _init_from_config(config: InitialStateConfig) -> void:
 		GameStateKeys.LAST_POMODORO_END_AT: "",
 		GameStateKeys.SAVE_VERSION: config.save_version,
 		GameStateKeys.LAST_SAVED_AT: "",
-		GameStateKeys.STORY: {"current_chapter": config.starting_scenario_chapter, "stages": {}},
+		GameStateKeys.STORY: {GameStateKeys.STORY_CURRENT_CHAPTER: config.starting_scenario_chapter, GameStateKeys.STORY_STAGES: {}},
 		GameStateKeys.TRAINING_MODE_UNLOCKED: false,
 		GameStateKeys.CODEX: {},
-		GameStateKeys.DAILY_SHOP: {"refresh_at": "", "line_up": []},
-		GameStateKeys.WEEKLY_SHOP: {"refresh_at": "", "line_up": []},
-		GameStateKeys.MONTHLY_SHOP: {"refresh_at": "", "line_up": []},
+		GameStateKeys.DAILY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
+		GameStateKeys.WEEKLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
+		GameStateKeys.MONTHLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.CHARACTER_GROWTH: {},
 		GameStateKeys.RESEARCH_TREE: {},
 		GameStateKeys.RECIPES_UNLOCKED: {},
@@ -66,7 +66,7 @@ func _init_empty() -> void:
 	_state = {
 		GameStateKeys.GOLD: 0,
 		GameStateKeys.GEMS: 0,
-		GameStateKeys.STAMINA: {"current": 0, "max": 0},
+		GameStateKeys.STAMINA: {GameStateKeys.STAMINA_CURRENT: 0, GameStateKeys.STAMINA_MAX: 0},
 		GameStateKeys.MATERIALS: {},
 		GameStateKeys.INVENTORY: {},
 		GameStateKeys.PENDING_CHESTS: [],
@@ -78,12 +78,12 @@ func _init_empty() -> void:
 		GameStateKeys.LAST_POMODORO_END_AT: "",
 		GameStateKeys.SAVE_VERSION: 1,
 		GameStateKeys.LAST_SAVED_AT: "",
-		GameStateKeys.STORY: {"current_chapter": 1, "stages": {}},
+		GameStateKeys.STORY: {GameStateKeys.STORY_CURRENT_CHAPTER: 1, GameStateKeys.STORY_STAGES: {}},
 		GameStateKeys.TRAINING_MODE_UNLOCKED: false,
 		GameStateKeys.CODEX: {},
-		GameStateKeys.DAILY_SHOP: {"refresh_at": "", "line_up": []},
-		GameStateKeys.WEEKLY_SHOP: {"refresh_at": "", "line_up": []},
-		GameStateKeys.MONTHLY_SHOP: {"refresh_at": "", "line_up": []},
+		GameStateKeys.DAILY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
+		GameStateKeys.WEEKLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
+		GameStateKeys.MONTHLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.CHARACTER_GROWTH: {},
 		GameStateKeys.RESEARCH_TREE: {},
 		GameStateKeys.RECIPES_UNLOCKED: {},
@@ -130,22 +130,22 @@ func add_stamina(amount: int) -> void:
 	# NOTE: max を超えたぶんを切り捨てるかどうかは未確定。
 	# 現状は切り捨てず加算する。仕様が決まったら PLAN_POMODORO_CORE_LOOP.md と合わせて修正すること。
 	var stamina: Dictionary = _copy_dict(GameStateKeys.STAMINA)
-	stamina["current"] = int(stamina.get("current", 0)) + amount
+	stamina[GameStateKeys.STAMINA_CURRENT] = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0)) + amount
 	_state[GameStateKeys.STAMINA] = stamina
-	print("[GameManager] add_stamina(%d) -> current=%d" % [amount, int(stamina["current"])])
-	resource_changed.emit(GameStateKeys.STAMINA, stamina["current"])
+	print("[GameManager] add_stamina(%d) -> current=%d" % [amount, int(stamina[GameStateKeys.STAMINA_CURRENT])])
+	resource_changed.emit(GameStateKeys.STAMINA, stamina[GameStateKeys.STAMINA_CURRENT])
 
 func spend_stamina(amount: int) -> bool:
 	# 足りなければ何もせずfalseを返す
 	var stamina: Dictionary = _copy_dict(GameStateKeys.STAMINA)
-	var current: int = int(stamina.get("current", 0))
+	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0))
 	if current < amount:
 		print("[GameManager] spend_stamina(%d) -> false (have %d)" % [amount, current])
 		return false
-	stamina["current"] = current - amount
+	stamina[GameStateKeys.STAMINA_CURRENT] = current - amount
 	_state[GameStateKeys.STAMINA] = stamina
-	print("[GameManager] spend_stamina(%d) -> true (current=%d)" % [amount, int(stamina["current"])])
-	resource_changed.emit(GameStateKeys.STAMINA, stamina["current"])
+	print("[GameManager] spend_stamina(%d) -> true (current=%d)" % [amount, int(stamina[GameStateKeys.STAMINA_CURRENT])])
+	resource_changed.emit(GameStateKeys.STAMINA, stamina[GameStateKeys.STAMINA_CURRENT])
 	return true
 
 func add_material(material_id: String, amount: int) -> void:
@@ -165,31 +165,31 @@ func get_material_count(material_id: String) -> int:
 # item_type を省略した場合は "" （種別不明）として登録する。
 # 勝手に "equipment" 等を推測すると、消費アイテムまで装備扱いになるため。
 # 種別が分かる呼び出し元（ショップ・作業場・宝箱など）は必ず明示的に渡すこと。
-func add_to_inventory(item_id: String, count: int, item_type: String = "") -> void:
+func add_to_inventory(item_id: String, count: int, item_type: String = GameStateKeys.ITEM_TYPE_UNKNOWN) -> void:
 	# 初出のitem_idであれば、図鑑（codex）のdiscoveredも自動でtrueにする
 	var inventory: Dictionary = _copy_dict(GameStateKeys.INVENTORY)
 	var entry: Dictionary = {}
 	if inventory.has(item_id) and inventory[item_id] is Dictionary:
 		entry = (inventory[item_id] as Dictionary).duplicate(true)
-	entry["count"] = int(entry.get("count", 0)) + count
-	if item_type != "":
-		entry["type"] = item_type
-	elif not entry.has("type"):
-		entry["type"] = ""
-	if not entry.has("slot_position"):
-		entry["slot_position"] = {"x": 0, "y": 0}
-	if not entry.has("properties"):
-		entry["properties"] = {}
+	entry[GameStateKeys.ITEM_COUNT] = int(entry.get(GameStateKeys.ITEM_COUNT, 0)) + count
+	if item_type != GameStateKeys.ITEM_TYPE_UNKNOWN:
+		entry[GameStateKeys.ITEM_TYPE] = item_type
+	elif not entry.has(GameStateKeys.ITEM_TYPE):
+		entry[GameStateKeys.ITEM_TYPE] = GameStateKeys.ITEM_TYPE_UNKNOWN
+	if not entry.has(GameStateKeys.ITEM_SLOT_POSITION):
+		entry[GameStateKeys.ITEM_SLOT_POSITION] = {GameStateKeys.POS_X: 0, GameStateKeys.POS_Y: 0}
+	if not entry.has(GameStateKeys.ITEM_PROPERTIES):
+		entry[GameStateKeys.ITEM_PROPERTIES] = {}
 	inventory[item_id] = entry
 	_state[GameStateKeys.INVENTORY] = inventory
 
 	var codex: Dictionary = _copy_dict(GameStateKeys.CODEX)
 	var newly_discovered: bool = not codex.has(item_id)
 	if newly_discovered:
-		codex[item_id] = {"discovered": true, "obtained_at": str(Time.get_unix_time_from_system())}
+		codex[item_id] = {GameStateKeys.CODEX_DISCOVERED: true, GameStateKeys.CODEX_OBTAINED_AT: str(Time.get_unix_time_from_system())}
 		_state[GameStateKeys.CODEX] = codex
 	print("[GameManager] add_to_inventory('%s', %d, type='%s') -> count=%d newly_discovered=%s" % [
-		item_id, count, str(entry["type"]), int(entry["count"]), newly_discovered])
+		item_id, count, str(entry[GameStateKeys.ITEM_TYPE]), int(entry[GameStateKeys.ITEM_COUNT]), newly_discovered])
 	inventory_changed.emit(item_id)
 
 # --- 画面アンロック ---
@@ -221,26 +221,26 @@ func open_chest(chest_id: String) -> bool:
 		if not (chests[i] is Dictionary):
 			continue
 		var chest: Dictionary = (chests[i] as Dictionary).duplicate(true)
-		if str(chest.get("chest_id", "")) != chest_id:
+		if str(chest.get(GameStateKeys.CHEST_ID, "")) != chest_id:
 			continue
-		if bool(chest.get("opened", false)):
+		if bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
 			print("[GameManager] open_chest('%s') -> false (already opened)" % chest_id)
 			return false
-		chest["opened"] = true
+		chest[GameStateKeys.CHEST_OPENED] = true
 		chests[i] = chest
 		_state[GameStateKeys.PENDING_CHESTS] = chests
 		# rewards を反映（既存の add_* 関数を使い回し、重複実装を避ける）
-		var rewards: Dictionary = chest.get("rewards", {})
-		if rewards.has("gold"):
-			add_gold(int(rewards["gold"]))
-		if rewards.has("gems"):
-			add_gems(int(rewards["gems"]))
-		if rewards.has("materials") and rewards["materials"] is Dictionary:
-			var mats: Dictionary = rewards["materials"]
+		var rewards: Dictionary = chest.get(GameStateKeys.CHEST_REWARDS, {})
+		if rewards.has(GameStateKeys.REWARD_GOLD):
+			add_gold(int(rewards[GameStateKeys.REWARD_GOLD]))
+		if rewards.has(GameStateKeys.REWARD_GEMS):
+			add_gems(int(rewards[GameStateKeys.REWARD_GEMS]))
+		if rewards.has(GameStateKeys.REWARD_MATERIALS) and rewards[GameStateKeys.REWARD_MATERIALS] is Dictionary:
+			var mats: Dictionary = rewards[GameStateKeys.REWARD_MATERIALS]
 			for mat_id: String in mats:
 				add_material(mat_id, int(mats[mat_id]))
-		if rewards.has("inventory") and rewards["inventory"] is Dictionary:
-			var items: Dictionary = rewards["inventory"]
+		if rewards.has(GameStateKeys.REWARD_INVENTORY) and rewards[GameStateKeys.REWARD_INVENTORY] is Dictionary:
+			var items: Dictionary = rewards[GameStateKeys.REWARD_INVENTORY]
 			for item_id: String in items:
 				add_to_inventory(item_id, int(items[item_id]))
 		print("[GameManager] open_chest('%s') -> true" % chest_id)
@@ -254,7 +254,7 @@ func get_pending_chest_count() -> int:
 	var chests: Array = _state.get(GameStateKeys.PENDING_CHESTS, [])
 	var count: int = 0
 	for chest: Dictionary in chests:
-		if not bool(chest.get("opened", false)):
+		if not bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
 			count += 1
 	return count
 
@@ -264,12 +264,12 @@ func apply_pomodoro_rewards(reward_data: Dictionary) -> void:
 	# gold/stamina/materialsの反映、total_pomodoro_completedの加算、
 	# last_pomodoro_end_atの更新、SignalBus.pomodoro_session_completedの発火までを一括で行う
 	print("[GameManager] apply_pomodoro_rewards(%s)" % reward_data)
-	if reward_data.has("gold"):
-		add_gold(int(reward_data["gold"]))
-	if reward_data.has("stamina"):
-		add_stamina(int(reward_data["stamina"]))
-	if reward_data.has("materials") and reward_data["materials"] is Dictionary:
-		var mats: Dictionary = reward_data["materials"]
+	if reward_data.has(GameStateKeys.REWARD_GOLD):
+		add_gold(int(reward_data[GameStateKeys.REWARD_GOLD]))
+	if reward_data.has(GameStateKeys.REWARD_STAMINA):
+		add_stamina(int(reward_data[GameStateKeys.REWARD_STAMINA]))
+	if reward_data.has(GameStateKeys.REWARD_MATERIALS) and reward_data[GameStateKeys.REWARD_MATERIALS] is Dictionary:
+		var mats: Dictionary = reward_data[GameStateKeys.REWARD_MATERIALS]
 		for mat_id: String in mats:
 			add_material(mat_id, int(mats[mat_id]))
 	# total_pomodoro_completed +1
@@ -286,11 +286,11 @@ func apply_battle_rewards(result_data: Dictionary) -> void:
 	# gold/materialsの反映、SignalBus.battle_finishedの発火までを一括で行う
 	# ※ expは扱わない（レベル上げは専用素材消費型。DATA_SCHEMA.md 4-3準拠）
 	print("[GameManager] apply_battle_rewards(%s)" % result_data)
-	var rewards: Dictionary = result_data.get("rewards", {})
-	if rewards.has("gold"):
-		add_gold(int(rewards["gold"]))
-	if rewards.has("materials") and rewards["materials"] is Dictionary:
-		var mats: Dictionary = rewards["materials"]
+	var rewards: Dictionary = result_data.get(GameStateKeys.BATTLE_REWARDS, {})
+	if rewards.has(GameStateKeys.REWARD_GOLD):
+		add_gold(int(rewards[GameStateKeys.REWARD_GOLD]))
+	if rewards.has(GameStateKeys.REWARD_MATERIALS) and rewards[GameStateKeys.REWARD_MATERIALS] is Dictionary:
+		var mats: Dictionary = rewards[GameStateKeys.REWARD_MATERIALS]
 		for mat_id: String in mats:
 			add_material(mat_id, int(mats[mat_id]))
 	# 発火元をGameManagerに一本化（呼び出し元の戦闘画面側では発火させない・二重発火防止）
@@ -309,7 +309,7 @@ func update_inventory_slot_position(item_id: String, position: Vector2i) -> void
 		print("[GameManager] update_inventory_slot_position('%s') -> item not in inventory" % item_id)
 		return
 	var entry: Dictionary = (inventory[item_id] as Dictionary).duplicate(true)
-	entry["slot_position"] = {"x": position.x, "y": position.y}
+	entry[GameStateKeys.ITEM_SLOT_POSITION] = {GameStateKeys.POS_X: position.x, GameStateKeys.POS_Y: position.y}
 	inventory[item_id] = entry
 	_state[GameStateKeys.INVENTORY] = inventory
 	print("[GameManager] update_inventory_slot_position('%s', %s)" % [item_id, position])
@@ -319,11 +319,11 @@ func update_inventory_slot_position(item_id: String, position: Vector2i) -> void
 
 func _shop_key(shop_type: String) -> String:
 	match shop_type:
-		"daily":
+		GameStateKeys.SHOP_TYPE_DAILY:
 			return GameStateKeys.DAILY_SHOP
-		"weekly":
+		GameStateKeys.SHOP_TYPE_WEEKLY:
 			return GameStateKeys.WEEKLY_SHOP
-		"monthly":
+		GameStateKeys.SHOP_TYPE_MONTHLY:
 			return GameStateKeys.MONTHLY_SHOP
 	return ""
 
@@ -333,7 +333,7 @@ func get_shop_lineup(shop_type: String) -> Array:
 		print("[GameManager] get_shop_lineup('%s') -> unknown shop_type" % shop_type)
 		return []
 	var shop: Dictionary = _state.get(key, {})
-	var line_up: Variant = shop.get("line_up", [])
+	var line_up: Variant = shop.get(GameStateKeys.SHOP_LINE_UP, [])
 	if line_up is Array:
 		return (line_up as Array).duplicate(true)
 	return []
@@ -383,8 +383,8 @@ func get_effective_level_cap(character_id: String) -> int:
 	var cap: int = 0
 	for node_id: String in tree:
 		var node: Dictionary = tree[node_id]
-		if bool(node.get("unlocked", false)) and str(node.get("effect_type", "")) == "level_cap_unlock":
-			cap += int(node.get("effect_value", 0))
+		if bool(node.get(GameStateKeys.NODE_UNLOCKED, false)) and str(node.get(GameStateKeys.NODE_EFFECT_TYPE, "")) == GameStateKeys.EFFECT_LEVEL_CAP_UNLOCK:
+			cap += int(node.get(GameStateKeys.NODE_EFFECT_VALUE, 0))
 	return cap
 
 func get_stat_boost_all() -> Dictionary:
@@ -395,9 +395,9 @@ func get_stat_boost_all() -> Dictionary:
 	var boosts: Dictionary = {}
 	for node_id: String in tree:
 		var node: Dictionary = tree[node_id]
-		if bool(node.get("unlocked", false)) and str(node.get("effect_type", "")) == "stat_boost_all":
-			var stat: String = str(node.get("target_stat", "all"))
-			boosts[stat] = int(boosts.get(stat, 0)) + int(node.get("effect_value", 0))
+		if bool(node.get(GameStateKeys.NODE_UNLOCKED, false)) and str(node.get(GameStateKeys.NODE_EFFECT_TYPE, "")) == GameStateKeys.EFFECT_STAT_BOOST_ALL:
+			var stat: String = str(node.get(GameStateKeys.NODE_TARGET_STAT, "all"))
+			boosts[stat] = int(boosts.get(stat, 0)) + int(node.get(GameStateKeys.NODE_EFFECT_VALUE, 0))
 	return boosts
 
 # --- 作業場 ---

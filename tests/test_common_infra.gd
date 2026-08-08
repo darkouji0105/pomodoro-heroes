@@ -53,8 +53,8 @@ func _test_chests() -> void:
 	var fired: Array = []
 	var callable: Callable = func(count: int) -> void: fired.append(count)
 	GameManager.pending_chests_changed.connect(callable)
-	GameManager.add_pending_chest({"chest_id": "chest_1", "chest_type": "normal", "source": "test", "opened": false, "rewards": {"gold": 50}})
-	GameManager.add_pending_chest({"chest_id": "chest_2", "chest_type": "rare", "source": "test", "opened": false, "rewards": {"gold": 100}})
+	GameManager.add_pending_chest({GameStateKeys.CHEST_ID: "chest_1", GameStateKeys.CHEST_TYPE: "normal", GameStateKeys.CHEST_SOURCE: "test", GameStateKeys.CHEST_OPENED: false, GameStateKeys.CHEST_REWARDS: {GameStateKeys.REWARD_GOLD: 50}})
+	GameManager.add_pending_chest({GameStateKeys.CHEST_ID: "chest_2", GameStateKeys.CHEST_TYPE: "rare", GameStateKeys.CHEST_SOURCE: "test", GameStateKeys.CHEST_OPENED: false, GameStateKeys.CHEST_REWARDS: {GameStateKeys.REWARD_GOLD: 100}})
 	var count_before: int = GameManager.get_pending_chest_count()
 	GameManager.open_chest("chest_1")
 	var count_after: int = GameManager.get_pending_chest_count()
@@ -67,23 +67,23 @@ func _test_pomodoro_rewards() -> void:
 	print("\n--- TEST #5: apply_pomodoro_rewards ---")
 	var before: Dictionary = GameManager.get_state()
 	var gold_before: int = int(before[GameStateKeys.GOLD])
-	var stamina_before: int = int(before[GameStateKeys.STAMINA]["current"])
+	var stamina_before: int = int(before[GameStateKeys.STAMINA][GameStateKeys.STAMINA_CURRENT])
 	var total_before: int = int(before[GameStateKeys.TOTAL_POMODORO_COMPLETED])
 	var bus_fired: Array = []
 	var callable: Callable = func(data: Dictionary) -> void: bus_fired.append(data)
 	SignalBus.pomodoro_session_completed.connect(callable)
-	GameManager.apply_pomodoro_rewards({"gold": 200, "stamina": 3, "materials": {"construction_material": 5}})
+	GameManager.apply_pomodoro_rewards({GameStateKeys.REWARD_GOLD: 200, GameStateKeys.REWARD_STAMINA: 3, GameStateKeys.REWARD_MATERIALS: {"construction_material": 5}})
 	SignalBus.pomodoro_session_completed.disconnect(callable)
 	var after: Dictionary = GameManager.get_state()
 	var ok: bool = (
 		int(after[GameStateKeys.GOLD]) == gold_before + 200
-		and int(after[GameStateKeys.STAMINA]["current"]) == stamina_before + 3
+		and int(after[GameStateKeys.STAMINA][GameStateKeys.STAMINA_CURRENT]) == stamina_before + 3
 		and int(after[GameStateKeys.TOTAL_POMODORO_COMPLETED]) == total_before + 1
 		and bus_fired.size() == 1
 	)
 	print("[TEST #5] %s | gold %d->%d | stamina %d->%d | total %d->%d | bus_fired=%d" % [
 		"PASS" if ok else "FAIL", gold_before, int(after[GameStateKeys.GOLD]),
-		stamina_before, int(after[GameStateKeys.STAMINA]["current"]),
+		stamina_before, int(after[GameStateKeys.STAMINA][GameStateKeys.STAMINA_CURRENT]),
 		total_before, int(after[GameStateKeys.TOTAL_POMODORO_COMPLETED]), bus_fired.size()])
 
 # --- TEST #6: apply_battle_rewards ---
@@ -95,7 +95,7 @@ func _test_battle_rewards() -> void:
 	var bus_fired: Array = []
 	var callable: Callable = func(data: Dictionary) -> void: bus_fired.append(data)
 	SignalBus.battle_finished.connect(callable)
-	GameManager.apply_battle_rewards({"victory": true, "rewards": {"gold": 150, "materials": {"construction_material": 10}}})
+	GameManager.apply_battle_rewards({GameStateKeys.BATTLE_VICTORY: true, GameStateKeys.BATTLE_REWARDS: {GameStateKeys.REWARD_GOLD: 150, GameStateKeys.REWARD_MATERIALS: {"construction_material": 10}}})
 	SignalBus.battle_finished.disconnect(callable)
 	var after: Dictionary = GameManager.get_state()
 	var ok: bool = (
@@ -110,7 +110,7 @@ func _test_battle_rewards() -> void:
 # --- TEST #7: failure paths return false ---
 func _test_failure_paths() -> void:
 	print("\n--- TEST #7: failure paths return false ---")
-	var r1: bool = GameManager.purchase_shop_item("daily", 0)
+	var r1: bool = GameManager.purchase_shop_item(GameStateKeys.SHOP_TYPE_DAILY, 0)
 	var r2: bool = GameManager.level_up_character("char_1")
 	var r3: bool = GameManager.unlock_research_node("node_1")
 	var r4: bool = GameManager.start_craft("recipe_1")
@@ -165,12 +165,12 @@ func _test_inventory_type() -> void:
 	# 種別を省略 -> "" （不明）になること。勝手に "equipment" にしないこと
 	GameManager.add_to_inventory("test_item_unknown", 1)
 	# 種別を明示 -> その値が入ること
-	GameManager.add_to_inventory("test_item_potion", 3, "consumable")
+	GameManager.add_to_inventory("test_item_potion", 3, GameStateKeys.ITEM_TYPE_CONSUMABLE)
 	var inv: Dictionary = GameManager.get_state()[GameStateKeys.INVENTORY]
-	var unknown_type: String = str(inv.get("test_item_unknown", {}).get("type", "MISSING"))
-	var potion_type: String = str(inv.get("test_item_potion", {}).get("type", "MISSING"))
+	var unknown_type: String = str(inv.get("test_item_unknown", {}).get(GameStateKeys.ITEM_TYPE, "MISSING"))
+	var potion_type: String = str(inv.get("test_item_potion", {}).get(GameStateKeys.ITEM_TYPE, "MISSING"))
 	# 図鑑にも自動登録されているか
-	var codex_ok: bool = bool(GameManager.get_codex_entry("test_item_potion").get("discovered", false))
-	var ok: bool = unknown_type == "" and potion_type == "consumable" and codex_ok
+	var codex_ok: bool = bool(GameManager.get_codex_entry("test_item_potion").get(GameStateKeys.CODEX_DISCOVERED, false))
+	var ok: bool = unknown_type == "" and potion_type == GameStateKeys.ITEM_TYPE_CONSUMABLE and codex_ok
 	print("[TEST #16] %s | 省略時type='%s'（期待:空） 明示時type='%s'（期待:consumable） codex=%s" % [
 		"PASS" if ok else "FAIL", unknown_type, potion_type, codex_ok])

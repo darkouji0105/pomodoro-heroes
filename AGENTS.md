@@ -108,7 +108,42 @@ Project SettingsのAutoloadタブでは、必ず以下の順に登録するこ�
 
 - `GameManager.get_state()`は、内部Dictionaryそのものではなく`duplicate(true)`した**読み取り専用スナップショット**を返す。GDScriptのDictionaryは参照渡しのため、そのまま返すと呼び出し側から内部状態を直接書き換えられてしまい、「必ず関数経由」というルールが構造的に守れなくなるため。
 - 状態を変更したい場合は、必ず`add_gold()`等の専用関数を経由すること。
-- `get_state()`が返すDictionaryのキーは、文字列リテラルではなく`GameStateKeys`（`res://scripts/utils/state_keys.gd`）の定数経由で組み立て・参照すること。画面間で使うキーも同様に`TransferKeys`（`res://scripts/utils/transfer_keys.gd`）に集約する。
+- `get_state()`が返すDictionaryのキーは、文字列リテラルではなく`GameStateKeys`（`res://scripts/utils/state_keys.gd`）の定数経由で組み立て・参照すること。**トップレベルだけでなくネストしたキーも同様**。画面間で使うキーも`TransferKeys`（`res://scripts/utils/transfer_keys.gd`）に集約する。
+- `_state`内のネストしたDictionary/Arrayを更新するときは、取り出したものを直接書き換えない。複製してから変更し、`_state`へ代入し直す（GDScriptのDictionary/Arrayは参照渡しのため）。
+
+### GameManagerの状態構造（ネストのキー）
+
+Dictionaryは存在しないキーを読んでもエラーにならず`null`を返すため、キー名を推測して書くと**実行するまで誤りに気づけない**。以下の構造を推測で補わず、必ず`GameStateKeys`の定数を使うこと。定義は`res://scripts/utils/state_keys.gd`にすべて揃っている。
+
+| トップレベル | 中身 |
+|---|---|
+| `GOLD` / `GEMS` | `int` |
+| `STAMINA` | `{current: int, max: int}` |
+| `MATERIALS` | `{material_id: int}` |
+| `INVENTORY` | `{item_id: {count, type, slot_position: {x, y}, properties}}` |
+| `PENDING_CHESTS` | `[{chest_id, chest_type, source, obtained_at, opened, rewards}]` |
+| `UNLOCKED_SCREENS` | `{screen_id: bool}` |
+| `STORY` | `{current_chapter: int, stages: {stage_id: {cleared, stars}}}` |
+| `CODEX` | `{item_id: {discovered, obtained_at}}` |
+| `DAILY_SHOP` / `WEEKLY_SHOP` / `MONTHLY_SHOP` | `{refresh_at, line_up: [{slot_id, item_id, cost: {currency_type, amount}, stock_limit, purchased_count}]}` |
+| `CHARACTER_GROWTH` | `{character_id: {level, stats: {hp, atk, def, spd}, skills, equipment: {weapon, armor, accessory}}}` |
+| `RESEARCH_TREE` | `{node_id: {unlocked, effect_type, effect_value, prerequisites}}` |
+| `RECIPES_UNLOCKED` | `{recipe_id: bool}` |
+| `CRAFTING_QUEUE` | `[{queue_id, recipe_id, recipe_type, started_at, duration_sec, status, output_item_id}]` |
+
+報酬Dictionary（宝箱・ポモドーロ・戦闘で共通）：`{gold, gems, stamina, materials, inventory}`
+
+### GameManagerのシグナル
+
+| シグナル | 用途 |
+|---|---|
+| `resource_changed(resource_type, new_value)` | gold / gems / stamina の変化。`resource_type`は`GameStateKeys.GOLD`等の定数 |
+| `material_changed(material_id, new_amount)` | 素材の変化。素材は種類ごとに表示先が分かれるため専用シグナルにしている |
+| `screen_unlocked(screen_id)` | 画面のアンロック |
+| `inventory_changed(item_id)` | インベントリの変化 |
+| `pending_chests_changed(pending_count)` | 未開封の宝箱件数の変化 |
+
+`SignalBus`の`pomodoro_session_completed` / `battle_finished`は、**GameManagerの`apply_*_rewards()`内からのみ発火する**。呼び出し元の画面から直接発火しないこと（二重発火防止）。
 
 ---
 
@@ -153,5 +188,6 @@ Project SettingsのAutoloadタブでは、必ず以下の順に登録するこ�
 - 第3層はタスクごとに別ファイルにする方針に変更したため、実行指示書の内容はこのファイルから分離
 - 追記：`resources/balance/master/`（スキル・ウェーブ・敵ステータス等のマスターデータ置き場）をフォルダ構造に追加。`PLAN_BATTLE_SCREEN.md`の10章決定に対応
 - 追記：Zivaはシステムプロンプトを持たないため、実装完了ごとに`IMPL_LOG_TEMPLATE.md`の型で実装ログを生成するルールを追加。EXECファイルは今後`AGENTS.md` + `EXEC_◯◯.md` + `IMPL_LOG_TEMPLATE.md`の3点セットで渡す
+- 追記（実コードレビュー反映）：「GameManagerの状態構造（ネストのキー）」「GameManagerのシグナル」の表を追加。ネストしたキーも`GameStateKeys`定数を使うルール、ネスト更新時の複製ルールを明記
 - 追記：フォルダ構造に`theme/`（main_theme.tres置き場）・`localization/`・`docs/`を明記。UIパーツの置き場所ルール（2画面以上で使うものだけ`scenes/ui/components/`へ）とThemeの扱いを追加
 - 追記（整合性レビュー反映）：ファイル名はsnake_case・`class_name`とノード名はPascalCaseに統一するルールを明記。Autoloadの登録順（`Balance`を`GameManager`より先）を厳守事項として追加。`get_state()`は`duplicate(true)`のスナップショットを返すルール、`GameStateKeys` / `TransferKeys`経由でのキーアクセスルールを追加
