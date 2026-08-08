@@ -4,3 +4,13 @@
 
 [resource]
 script = ExtResource("1_xhmuq")
+starting_gold = 100
+starting_gems = 0
+starting_stamina_max = 10
+starting_stamina_current = 10
+starting_materials = {
+"construction_material": 5
+}
+initially_unlocked_screens = ["guild", "adventure_select", "pomodoro", "settings", "scenario"]
+starting_scenario_chapter = 1
+save_version = 1

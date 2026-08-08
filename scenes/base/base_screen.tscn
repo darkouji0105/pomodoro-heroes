@@ -1,0 +1,55 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/base/base_screen.gd" id="1_base"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_button"]
+
+[node name="BaseScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_base")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.0784314, 0.0941176, 1)
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -200.0
+offset_right = 200.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="PlaceholderLabel" type="Label" parent="Layout"]
+layout_mode = 2
+text = "ui_base_placeholder"
+horizontal_alignment = 1
+
+[node name="StateLabel" type="Label" parent="Layout"]
+layout_mode = 2
+text = "gold: 0..."
+horizontal_alignment = 1
+
+[node name="SaveButton" parent="Layout" instance=ExtResource("2_button")]
+layout_mode = 2
+label_key = "ui_base_save"
+
+[node name="BackToTitleButton" parent="Layout" instance=ExtResource("2_button")]
+layout_mode = 2
+label_key = "ui_base_back_to_title"

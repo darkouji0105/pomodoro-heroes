@@ -22,7 +22,7 @@ func _ready() -> void:
 		_init_from_config(Balance.initial_state)
 	else:
 		push_warning("[GameManager] Balance.initial_state is null — using empty defaults")
-		_init_empty()
+		_state = _empty_state_template()
 	print("[GameManager] init complete. gold=%d stamina=%s unlocked_screens=%s" % [
 		int(_state.get(GameStateKeys.GOLD, 0)),
 		_state.get(GameStateKeys.STAMINA, {}),
@@ -32,38 +32,29 @@ func _ready() -> void:
 # --- 初期化 ---
 
 func _init_from_config(config: InitialStateConfig) -> void:
+	_state = _empty_state_template()
+	
 	var unlocked: Dictionary = {}
 	for screen_id: String in config.initially_unlocked_screens:
 		unlocked[screen_id] = true
-	_state = {
-		GameStateKeys.GOLD: config.starting_gold,
-		GameStateKeys.GEMS: config.starting_gems,
-		GameStateKeys.STAMINA: {GameStateKeys.STAMINA_CURRENT: config.starting_stamina_current, GameStateKeys.STAMINA_MAX: config.starting_stamina_max},
-		GameStateKeys.MATERIALS: config.starting_materials.duplicate(true),
-		GameStateKeys.INVENTORY: {},
-		GameStateKeys.PENDING_CHESTS: [],
-		GameStateKeys.UNLOCKED_SCREENS: unlocked,
-		GameStateKeys.SCENARIO_CHAPTER: config.starting_scenario_chapter,
-		GameStateKeys.BOSS_UNLOCKED: false,
-		GameStateKeys.PITY_COUNTERS: {},
-		GameStateKeys.TOTAL_POMODORO_COMPLETED: 0,
-		GameStateKeys.LAST_POMODORO_END_AT: "",
-		GameStateKeys.SAVE_VERSION: config.save_version,
-		GameStateKeys.LAST_SAVED_AT: "",
-		GameStateKeys.STORY: {GameStateKeys.STORY_CURRENT_CHAPTER: config.starting_scenario_chapter, GameStateKeys.STORY_STAGES: {}},
-		GameStateKeys.TRAINING_MODE_UNLOCKED: false,
-		GameStateKeys.CODEX: {},
-		GameStateKeys.DAILY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
-		GameStateKeys.WEEKLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
-		GameStateKeys.MONTHLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
-		GameStateKeys.CHARACTER_GROWTH: {},
-		GameStateKeys.RESEARCH_TREE: {},
-		GameStateKeys.RECIPES_UNLOCKED: {},
-		GameStateKeys.CRAFTING_QUEUE: [],
+	
+	_state[GameStateKeys.GOLD] = config.starting_gold
+	_state[GameStateKeys.GEMS] = config.starting_gems
+	_state[GameStateKeys.STAMINA] = {
+		GameStateKeys.STAMINA_CURRENT: config.starting_stamina_current,
+		GameStateKeys.STAMINA_MAX: config.starting_stamina_max
 	}
+	_state[GameStateKeys.MATERIALS] = config.starting_materials.duplicate(true)
+	_state[GameStateKeys.SCENARIO_CHAPTER] = config.starting_scenario_chapter
+	_state[GameStateKeys.STORY][GameStateKeys.STORY_CURRENT_CHAPTER] = config.starting_scenario_chapter
+	_state[GameStateKeys.SAVE_VERSION] = config.save_version
+	_state[GameStateKeys.UNLOCKED_SCREENS] = unlocked
 
 func _init_empty() -> void:
-	_state = {
+	_state = _empty_state_template()
+
+func _empty_state_template() -> Dictionary:
+	return {
 		GameStateKeys.GOLD: 0,
 		GameStateKeys.GEMS: 0,
 		GameStateKeys.STAMINA: {GameStateKeys.STAMINA_CURRENT: 0, GameStateKeys.STAMINA_MAX: 0},
@@ -377,7 +368,7 @@ func unlock_research_node(node_id: String) -> bool:
 	print("[GameManager] unlock_research_node('%s') -> false (dummy: prerequisites not met)" % node_id)
 	return false
 
-func get_effective_level_cap(character_id: String) -> int:
+func get_effective_level_cap(_character_id: String) -> int:
 	# 保存された値ではなく、research_treeを都度走査して計算する
 	var tree: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
 	var cap: int = 0
@@ -414,3 +405,67 @@ func collect_craft(queue_id: String) -> bool:
 	# 完了前なら何もせずfalse。完了後は成功しinventoryへ反映（空実装：常にfalse）
 	print("[GameManager] collect_craft('%s') -> false (dummy: not completed)" % queue_id)
 	return false
+
+# --- セーブ・ロード ---
+
+# セーブデータから状態を復元する。
+# SaveManagerからのみ呼ばれることを想定。
+func load_state(data: Dictionary) -> bool:
+	if data == null or not (data is Dictionary):
+		return false
+	
+	if not data.has(GameStateKeys.SAVE_VERSION):
+		push_warning("[GameManager] load_state: missing save_version")
+		return false
+	
+	# テンプレで初期化してから上書き（将来のキー追加対策）
+	var new_state: Dictionary = _empty_state_template()
+	for key: String in data:
+		if new_state.has(key):
+			new_state[key] = data[key]
+	
+	# 数値の int() キャスト（JSON復元時は float になるため）
+	# §6-2 の決定事項に従い、対象を限定する。
+	if new_state.has(GameStateKeys.GOLD):
+		new_state[GameStateKeys.GOLD] = int(new_state[GameStateKeys.GOLD])
+	if new_state.has(GameStateKeys.GEMS):
+		new_state[GameStateKeys.GEMS] = int(new_state[GameStateKeys.GEMS])
+	if new_state.has(GameStateKeys.STAMINA) and new_state[GameStateKeys.STAMINA] is Dictionary:
+		var stamina: Dictionary = new_state[GameStateKeys.STAMINA]
+		if stamina.has(GameStateKeys.STAMINA_CURRENT):
+			stamina[GameStateKeys.STAMINA_CURRENT] = int(stamina[GameStateKeys.STAMINA_CURRENT])
+		if stamina.has(GameStateKeys.STAMINA_MAX):
+			stamina[GameStateKeys.STAMINA_MAX] = int(stamina[GameStateKeys.STAMINA_MAX])
+	if new_state.has(GameStateKeys.TOTAL_POMODORO_COMPLETED):
+		new_state[GameStateKeys.TOTAL_POMODORO_COMPLETED] = int(new_state[GameStateKeys.TOTAL_POMODORO_COMPLETED])
+	if new_state.has(GameStateKeys.SCENARIO_CHAPTER):
+		new_state[GameStateKeys.SCENARIO_CHAPTER] = int(new_state[GameStateKeys.SCENARIO_CHAPTER])
+	if new_state.has(GameStateKeys.SAVE_VERSION):
+		new_state[GameStateKeys.SAVE_VERSION] = int(new_state[GameStateKeys.SAVE_VERSION])
+	if new_state.has(GameStateKeys.MATERIALS) and new_state[GameStateKeys.MATERIALS] is Dictionary:
+		var mats: Dictionary = new_state[GameStateKeys.MATERIALS]
+		for mat_id: String in mats:
+			mats[mat_id] = int(mats[mat_id])
+	
+	# 状態反映（外部参照を断つため duplicate）
+	_state = new_state.duplicate(true)
+	print("[GameManager] load_state success. version=%d" % int(_state[GameStateKeys.SAVE_VERSION]))
+	
+	# 主要なシグナルを発火（再描画用）
+	resource_changed.emit(GameStateKeys.GOLD, _state[GameStateKeys.GOLD])
+	resource_changed.emit(GameStateKeys.GEMS, _state[GameStateKeys.GEMS])
+	var stamina_dict: Dictionary = _state[GameStateKeys.STAMINA]
+	resource_changed.emit(GameStateKeys.STAMINA, int(stamina_dict.get(GameStateKeys.STAMINA_CURRENT, 0)))
+	
+	var materials: Dictionary = _state[GameStateKeys.MATERIALS]
+	for mat_id: String in materials:
+		material_changed.emit(mat_id, int(materials[mat_id]))
+	
+	pending_chests_changed.emit(get_pending_chest_count())
+	
+	return true
+
+# 保存直前に呼ばれ、last_saved_atを更新する
+func mark_saved() -> void:
+	_state[GameStateKeys.LAST_SAVED_AT] = str(Time.get_unix_time_from_system())
+	print("[GameManager] mark_saved -> last_saved_at=%s" % _state[GameStateKeys.LAST_SAVED_AT])

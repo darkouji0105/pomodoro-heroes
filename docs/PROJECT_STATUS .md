@@ -74,6 +74,7 @@
 | `IMPL_LOG_TEMPLATE.md` | Zivaが実装完了ごとに生成する実装ログの型。全EXECタスク共通で使う | ✅ 完了 |
 | `EXEC_UI_COMMON.md` | Theme・共通UIコンポーネント3つの実行指示書（完了条件13項目） | ✅ 完了 |
 | 拠点画面（表示のみ）の実行指示書 | - | ⬜ 未着手（次） |
+| `EXEC_TITLE_TO_BASE.md` | タイトル画面＋SaveManager実装＋拠点仮シーン（完了条件14項目） | ✅ 完了 |
 | タイトル→拠点画面の実行指示書 | - | ⬜ 未着手 |
 | ポモドーロ最小ループの実行指示書 | - | ⬜ 未着手 |
 | 戦闘画面（本番用）の実行指示書 | - | ⬜ 未着手 |
@@ -161,7 +162,7 @@ PLANドキュメント（第2層）はあくまで「意図」の記録であり
 | ポモドーロのプリセット表現 | `PLAN_POMODORO_CORE_LOOP.md`、`PLAN_COMMON_INFRA.md` | **決定済み：`PomodoroPreset`Resourceの配列**として`PomodoroConfig`が保持（単一の`focus_duration_sec`では3プリセットを表現できないため） |
 | 冒険選択・パーティ選択・設定・シナリオ画面の設計 | `SCENES.md`、`DEMO_CHECKLIST.md` | **未着手（第2層ごと無し）**。着手時にPLANとEXECをまとめて作成する |
 | Steam Rich Presence（フレンド欄への状態表示） | `DATA_SCHEMA.md` 2-7、`PLAN_POMODORO_CORE_LOOP.md` 6-2、`GODOT_SETUP.md` 6章 | **仕様は決定済み・実装は後回し**。セットごとの任意タイトル＋経過/残り時間を表示。振り返り内容は絶対に含めない。`get_presence_status()`の口だけMVPで用意する |
-| セーブファイルの保存先 | `GODOT_SETUP.md` 6章、`PLAN_COMMON_INFRA.md`（SaveManager） | **決定済み：`user://saves/`**。Steamクラウドセーブがフォルダ単位の同期のため、先に確定させた。保存**形式**は未定 |
+| セーブファイルの保存先・形式 | `GODOT_SETUP.md` 6章、`PLAN_COMMON_INFRA.md`、`EXEC_TITLE_TO_BASE.md` | **決定済み：`user://saves/save_slot_0.json`、JSON形式**。`EXEC_TITLE_TO_BASE.md`で実装する。保存タイミング（オートセーブ）は未定 |
 | セッションタイトルの文字数上限 | `PLAN_POMODORO_CORE_LOOP.md` | 未決定（20〜30文字程度を想定）。`Balance.pomodoro`に`@export`で持たせる |
 | 新規開始時のGameManagerデフォルト値をどこに定義するか | `PLAN_TITLE_TO_BASE.md`、`PLAN_COMMON_INFRA.md` | 決定済み（`Balance.initial_state` / `InitialStateConfig`） |
 | ショップのラインナップ再生成（抽選テーブル・重み付け） | `PLAN_GUILD_SHOP.md` | 未決定 |
@@ -178,6 +179,7 @@ PLANドキュメント（第2層）はあくまで「意図」の記録であり
 - 初版作成：第1層完了、第2層（共通基盤・UI共通）完了時点のスナップショット
 - 更新：第2層が全画面ぶん完了（タイトル→拠点・拠点表示・ポモドーロ最小ループ・戦闘・ギルド5画面）。`CLAUDE.md`を`AGENTS.md`にリネーム。第3層は`EXEC_◯◯.md`としてタスクごとに分割する方針に決定し、共通基盤（`EXEC_COMMON_INFRA.md`）が完了
 - 更新：共通基盤の実装完了。進行ゲート突破（完了条件14項目クリア）。実コードレビューで4点を修正（シグナルの種別を定数化、`material_changed`シグナル新設、`add_to_inventory`のアイテム種別引数、ネストDictionaryの複製ルール）。`GameStateKeys`にネストのキーを追加し、`AGENTS.md`に状態構造の表を追記
+- 追記：`EXEC_TITLE_TO_BASE.md`を作成。空実装のままだった`SaveManager`をここで実装する方針に決定（`has_save()`が常にfalseだと「つづきから」を永久に検証できないため）。あわせて`GameManager.load_state()`が存在しない欠落を発見し追加
 - 追記：`EXEC_UI_COMMON.md`を作成。配色（トマト基調ダーク）とフォント（Noto Sans JP・差し替え前提）を確定
 - 追記：UIパーツの置き場所ルール（2画面以上で使うものだけ`components/`へ）とThemeの置き場所（`res://theme/`）を確定し、`AGENTS.md`のフォルダ構造に`theme/`・`localization/`・`docs/`を明記
 - 追記（Steam連携の先行検討）：ポモドーロ中の状態をフレンド欄に表示する仕様（Steam Rich Presence）を`DATA_SCHEMA.md` 2-7に定義。セットごとの任意タイトル＋経過/残り時間を表示し、振り返り内容は絶対に含めない方針を確定。あわせてセーブ保存先を`user://saves/`に確定（クラウドセーブ対応のため）。実装自体はApp ID取得後で、MVPでは`get_presence_status()`の口だけ用意する

@@ -38,6 +38,10 @@
 ### できること（倉庫：図鑑・インベントリ整理）
 - 図鑑の1エントリの情報（発見済みか等）を取得する（`get_codex_entry`）
 - インベントリ内アイテムの並び位置を更新する（`update_inventory_slot_position`）
+
+### できること（セーブ／ロード連携）
+- セーブデータから状態を復元する（`load_state`）。復元後、表示更新用に主要なシグナルを発火する。必須キー（`save_version`）が無ければ何もせず失敗を返す
+- 保存直前に最終保存日時を更新する（`mark_saved`）
 - ※ 図鑑の発見フラグは、アイテムを初めてインベントリに追加する処理（`add_to_inventory`）の中で自動的に更新される。呼び出し側で別途図鑑を更新する必要はない
 
 ### できること（ショップ）
@@ -115,10 +119,15 @@
 
 ### 公開関数
 ```gdscript
-func save_game() -> void
+func save_game() -> bool   # 書き込み成功でtrue（呼び出し元が失敗を検知できるようboolに変更）
 func load_game() -> bool   # セーブがあればtrueで読み込み、なければfalse
 func has_save() -> bool
+func delete_save() -> bool # テスト・デバッグ用
 ```
+
+- 保存形式は**JSON**。`GameManager.get_state()`の返り値をそのまま`JSON.stringify()`する
+- **JSONは整数をfloatとして復元する**ため、読み込み時に`int()`で明示変換すること
+- セーブが壊れていた場合は、警告を出して`false`を返すのみ。**ゲームを止めない**（`DEMO_CHECKLIST.md`「時刻を極端に操作した場合、警告表示のみ行い進行は停止しない」と同じ方針）
 
 ### 保存先（決定済み）
 - セーブは必ず `user://saves/` 配下に保存する。実行ファイルと同じ場所や、複数の場所に分散させない
@@ -189,6 +198,7 @@ signal character_tapped(character_id: String)
 - 追記：拠点画面（表示のみ）作戦計画書でのチェストバッジ実装に伴い、GameManagerに`pending_chests`関連の関数・シグナルを追加
 - 追記：ポモドーロ最小ループ作戦計画書に伴い、GameManagerに`apply_pomodoro_rewards()`を追加。Balance（PomodoroConfig）に加護のしきい値・倍率と報酬換算レートを追加
 - 追記：戦闘画面（本番用）作戦計画書に伴い、SceneManagerに画面間データ受け渡し用の`change_scene_with_data()` / `consume_transfer_data()`を追加（画面ごとの専用クラスは作らず、汎用Dictionary1つで統一する方針）
+- 追記：`SaveManager`の保存形式をJSONに確定し、`save_game`の戻り値を`bool`に変更。`delete_save`を追加。GameManagerに`load_state` / `mark_saved`を追加（セーブから状態を復元する関数が存在しなかったため）
 - 改訂（実コードレビュー反映）：`material_changed`シグナルを追加（`resource_changed`で素材辞書ごと渡していたため、どの素材が変わったか特定できなかった）。`add_to_inventory`にアイテム種別の引数を追加（種別を勝手に`equipment`と推測していたため）。`add_gems` / `get_material_count`を追加。ネストしたDictionary更新時の複製ルールを明記
 - 改訂（整合性レビュー反映）：`battle_finished`の発火元をGameManagerに一本化（従来はPLAN_BATTLE_SCREEN側で戦闘画面が発火する記述と矛盾していた）。`apply_battle_rewards`から`exp`を削除（DATA_SCHEMA 4-3の素材消費型と矛盾していたため）。`Balance`に`initial_state`（`InitialStateConfig`）を追加。`PomodoroConfig`にプリセット配列（`PomodoroPreset`）を追加。`get_state()`をスナップショット返却に変更
 - 改訂：ギルド各箱（倉庫・ショップ・育成・研究・作業場）の作戦計画書に伴い、GameManagerの責務を「拠点共通データ」から「全画面が参照する永続データ全般」に拡張。図鑑・ショップ・育成・研究ツリー・製作キューをGameManagerに集約し、関連機能を追加。あわせて、GameManagerの「できること」一覧を関数シグネチャ形式から人が読める説明形式に書き換え（第2層は人が読める記法、コード形式への変換は第3層で行う方針に統一）
