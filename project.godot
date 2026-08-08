@@ -14,9 +14,18 @@ config/name="pomodoro-heroes"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
+[autoload]
+
+Balance="*res://autoload/balance.tscn"
+GameManager="*res://autoload/game_manager.gd"
+SaveManager="*res://autoload/save_manager.gd"
+SceneManager="*res://autoload/scene_manager.gd"
+SignalBus="*res://autoload/signal_bus.gd"
+
 [display]
 
 window/size/viewport_width="1280"
+window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
@@ -37,11 +46,3 @@ pomodoro_pause_toggle={
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-
-[autoload]
-
-Balance="*res://autoload/balance.tscn"
-GameManager="*res://autoload/game_manager.gd"
-SaveManager="*res://autoload/save_manager.gd"
-SceneManager="*res://autoload/scene_manager.gd"
-SignalBus="*res://autoload/signal_bus.gd"

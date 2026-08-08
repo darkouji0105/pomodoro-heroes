@@ -6,7 +6,12 @@ extends Node
 
 var _state: Dictionary = {}
 
+# resource_type には GameStateKeys の定数（GOLD / GEMS / STAMINA）を渡す。
+# 文字列リテラルを直接渡さないこと（typoしても実行時まで気づけないため）。
 signal resource_changed(resource_type: String, new_value: Variant)
+# 素材は種類ごとに表示先が分かれるため、辞書全体ではなく
+# 「どの素材がいくつになったか」を個別に通知する専用シグナルを分けている。
+signal material_changed(material_id: String, new_amount: int)
 signal screen_unlocked(screen_id: String)
 signal inventory_changed(item_id: String)
 signal pending_chests_changed(pending_count: int)
@@ -85,6 +90,25 @@ func _init_empty() -> void:
 		GameStateKeys.CRAFTING_QUEUE: [],
 	}
 
+# --- 内部ヘルパー ---
+
+# _state 内のネストしたDictionary/Arrayを取り出す。
+# GDScriptのDictionary・Arrayは参照渡しのため、.get() で取り出したものを直接書き換えると
+# _state へ代入し直す前に内部状態が変わってしまう。
+# 必ず複製を返し、呼び出し側が明示的に _state へ代入し直す形にする
+# （「変更前の値と比較する」処理を後から足しても壊れないようにするため）。
+func _copy_dict(key: String) -> Dictionary:
+	var value: Variant = _state.get(key, {})
+	if value is Dictionary:
+		return (value as Dictionary).duplicate()
+	return {}
+
+func _copy_array(key: String) -> Array:
+	var value: Variant = _state.get(key, [])
+	if value is Array:
+		return (value as Array).duplicate()
+	return []
+
 # --- 基本リソース ---
 
 func get_state() -> Dictionary:
@@ -95,59 +119,83 @@ func get_state() -> Dictionary:
 func add_gold(amount: int) -> void:
 	_state[GameStateKeys.GOLD] = int(_state.get(GameStateKeys.GOLD, 0)) + amount
 	print("[GameManager] add_gold(%d) -> %d" % [amount, _state[GameStateKeys.GOLD]])
-	resource_changed.emit("gold", _state[GameStateKeys.GOLD])
+	resource_changed.emit(GameStateKeys.GOLD, _state[GameStateKeys.GOLD])
+
+func add_gems(amount: int) -> void:
+	_state[GameStateKeys.GEMS] = int(_state.get(GameStateKeys.GEMS, 0)) + amount
+	print("[GameManager] add_gems(%d) -> %d" % [amount, _state[GameStateKeys.GEMS]])
+	resource_changed.emit(GameStateKeys.GEMS, _state[GameStateKeys.GEMS])
 
 func add_stamina(amount: int) -> void:
-	var stamina: Dictionary = _state.get(GameStateKeys.STAMINA, {"current": 0, "max": 0})
+	# NOTE: max を超えたぶんを切り捨てるかどうかは未確定。
+	# 現状は切り捨てず加算する。仕様が決まったら PLAN_POMODORO_CORE_LOOP.md と合わせて修正すること。
+	var stamina: Dictionary = _copy_dict(GameStateKeys.STAMINA)
 	stamina["current"] = int(stamina.get("current", 0)) + amount
 	_state[GameStateKeys.STAMINA] = stamina
-	print("[GameManager] add_stamina(%d) -> current=%d" % [amount, stamina["current"]])
-	resource_changed.emit("stamina", stamina["current"])
+	print("[GameManager] add_stamina(%d) -> current=%d" % [amount, int(stamina["current"])])
+	resource_changed.emit(GameStateKeys.STAMINA, stamina["current"])
 
 func spend_stamina(amount: int) -> bool:
 	# 足りなければ何もせずfalseを返す
-	var stamina: Dictionary = _state.get(GameStateKeys.STAMINA, {"current": 0, "max": 0})
+	var stamina: Dictionary = _copy_dict(GameStateKeys.STAMINA)
 	var current: int = int(stamina.get("current", 0))
 	if current < amount:
 		print("[GameManager] spend_stamina(%d) -> false (have %d)" % [amount, current])
 		return false
 	stamina["current"] = current - amount
 	_state[GameStateKeys.STAMINA] = stamina
-	print("[GameManager] spend_stamina(%d) -> true (current=%d)" % [amount, stamina["current"]])
-	resource_changed.emit("stamina", stamina["current"])
+	print("[GameManager] spend_stamina(%d) -> true (current=%d)" % [amount, int(stamina["current"])])
+	resource_changed.emit(GameStateKeys.STAMINA, stamina["current"])
 	return true
 
 func add_material(material_id: String, amount: int) -> void:
-	var materials: Dictionary = _state.get(GameStateKeys.MATERIALS, {})
-	materials[material_id] = int(materials.get(material_id, 0)) + amount
+	var materials: Dictionary = _copy_dict(GameStateKeys.MATERIALS)
+	var new_amount: int = int(materials.get(material_id, 0)) + amount
+	materials[material_id] = new_amount
 	_state[GameStateKeys.MATERIALS] = materials
-	print("[GameManager] add_material('%s', %d) -> %d" % [material_id, amount, materials[material_id]])
-	resource_changed.emit("materials", materials)
+	print("[GameManager] add_material('%s', %d) -> %d" % [material_id, amount, new_amount])
+	# 辞書全体ではなく「どの素材がいくつになったか」を通知する。
+	# 拠点画面は素材の種類ごとにラベルを持つため、種類が特定できないと差分更新できない。
+	material_changed.emit(material_id, new_amount)
 
-func add_to_inventory(item_id: String, count: int) -> void:
+func get_material_count(material_id: String) -> int:
+	var materials: Dictionary = _state.get(GameStateKeys.MATERIALS, {})
+	return int(materials.get(material_id, 0))
+
+# item_type を省略した場合は "" （種別不明）として登録する。
+# 勝手に "equipment" 等を推測すると、消費アイテムまで装備扱いになるため。
+# 種別が分かる呼び出し元（ショップ・作業場・宝箱など）は必ず明示的に渡すこと。
+func add_to_inventory(item_id: String, count: int, item_type: String = "") -> void:
 	# 初出のitem_idであれば、図鑑（codex）のdiscoveredも自動でtrueにする
-	var inventory: Dictionary = _state.get(GameStateKeys.INVENTORY, {})
-	var entry: Dictionary = inventory.get(item_id, {})
+	var inventory: Dictionary = _copy_dict(GameStateKeys.INVENTORY)
+	var entry: Dictionary = {}
+	if inventory.has(item_id) and inventory[item_id] is Dictionary:
+		entry = (inventory[item_id] as Dictionary).duplicate(true)
 	entry["count"] = int(entry.get("count", 0)) + count
-	if not entry.has("type"):
-		entry["type"] = "equipment"
+	if item_type != "":
+		entry["type"] = item_type
+	elif not entry.has("type"):
+		entry["type"] = ""
 	if not entry.has("slot_position"):
 		entry["slot_position"] = {"x": 0, "y": 0}
 	if not entry.has("properties"):
 		entry["properties"] = {}
 	inventory[item_id] = entry
 	_state[GameStateKeys.INVENTORY] = inventory
-	var codex: Dictionary = _state.get(GameStateKeys.CODEX, {})
-	if not codex.has(item_id):
-		codex[item_id] = {"discovered": true, "obtained_at": ""}
+
+	var codex: Dictionary = _copy_dict(GameStateKeys.CODEX)
+	var newly_discovered: bool = not codex.has(item_id)
+	if newly_discovered:
+		codex[item_id] = {"discovered": true, "obtained_at": str(Time.get_unix_time_from_system())}
 		_state[GameStateKeys.CODEX] = codex
-	print("[GameManager] add_to_inventory('%s', %d) -> count=%d codex_discovered=%s" % [item_id, count, entry["count"], codex.has(item_id)])
+	print("[GameManager] add_to_inventory('%s', %d, type='%s') -> count=%d newly_discovered=%s" % [
+		item_id, count, str(entry["type"]), int(entry["count"]), newly_discovered])
 	inventory_changed.emit(item_id)
 
 # --- 画面アンロック ---
 
 func unlock_screen(screen_id: String) -> void:
-	var unlocked: Dictionary = _state.get(GameStateKeys.UNLOCKED_SCREENS, {})
+	var unlocked: Dictionary = _copy_dict(GameStateKeys.UNLOCKED_SCREENS)
 	unlocked[screen_id] = true
 	_state[GameStateKeys.UNLOCKED_SCREENS] = unlocked
 	print("[GameManager] unlock_screen('%s')" % screen_id)
@@ -160,7 +208,7 @@ func is_screen_unlocked(screen_id: String) -> bool:
 # --- 宝箱 ---
 
 func add_pending_chest(chest_data: Dictionary) -> void:
-	var chests: Array = _state.get(GameStateKeys.PENDING_CHESTS, [])
+	var chests: Array = _copy_array(GameStateKeys.PENDING_CHESTS)
 	chests.append(chest_data.duplicate(true))
 	_state[GameStateKeys.PENDING_CHESTS] = chests
 	print("[GameManager] add_pending_chest() -> pending_count=%d" % get_pending_chest_count())
@@ -168,30 +216,36 @@ func add_pending_chest(chest_data: Dictionary) -> void:
 
 func open_chest(chest_id: String) -> bool:
 	# 存在しなければ何もせずfalse。存在すればopened=trueにしてrewardsを反映
-	var chests: Array = _state.get(GameStateKeys.PENDING_CHESTS, [])
+	var chests: Array = _copy_array(GameStateKeys.PENDING_CHESTS)
 	for i: int in range(chests.size()):
-		var chest: Dictionary = chests[i]
-		if str(chest.get("chest_id", "")) == chest_id:
-			if bool(chest.get("opened", false)):
-				print("[GameManager] open_chest('%s') -> false (already opened)" % chest_id)
-				return false
-			chest["opened"] = true
-			chests[i] = chest
-			_state[GameStateKeys.PENDING_CHESTS] = chests
-			# rewards を反映（既存の add_* 関数を使い回し、重複実装を避ける）
-			var rewards: Dictionary = chest.get("rewards", {})
-			if rewards.has("gold"):
-				add_gold(int(rewards["gold"]))
-			if rewards.has("gems"):
-				_state[GameStateKeys.GEMS] = int(_state.get(GameStateKeys.GEMS, 0)) + int(rewards["gems"])
-				resource_changed.emit("gems", _state[GameStateKeys.GEMS])
-			if rewards.has("materials") and rewards["materials"] is Dictionary:
-				var mats: Dictionary = rewards["materials"]
-				for mat_id: String in mats:
-					add_material(mat_id, int(mats[mat_id]))
-			print("[GameManager] open_chest('%s') -> true" % chest_id)
-			pending_chests_changed.emit(get_pending_chest_count())
-			return true
+		if not (chests[i] is Dictionary):
+			continue
+		var chest: Dictionary = (chests[i] as Dictionary).duplicate(true)
+		if str(chest.get("chest_id", "")) != chest_id:
+			continue
+		if bool(chest.get("opened", false)):
+			print("[GameManager] open_chest('%s') -> false (already opened)" % chest_id)
+			return false
+		chest["opened"] = true
+		chests[i] = chest
+		_state[GameStateKeys.PENDING_CHESTS] = chests
+		# rewards を反映（既存の add_* 関数を使い回し、重複実装を避ける）
+		var rewards: Dictionary = chest.get("rewards", {})
+		if rewards.has("gold"):
+			add_gold(int(rewards["gold"]))
+		if rewards.has("gems"):
+			add_gems(int(rewards["gems"]))
+		if rewards.has("materials") and rewards["materials"] is Dictionary:
+			var mats: Dictionary = rewards["materials"]
+			for mat_id: String in mats:
+				add_material(mat_id, int(mats[mat_id]))
+		if rewards.has("inventory") and rewards["inventory"] is Dictionary:
+			var items: Dictionary = rewards["inventory"]
+			for item_id: String in items:
+				add_to_inventory(item_id, int(items[item_id]))
+		print("[GameManager] open_chest('%s') -> true" % chest_id)
+		pending_chests_changed.emit(get_pending_chest_count())
+		return true
 	print("[GameManager] open_chest('%s') -> false (not found)" % chest_id)
 	return false
 
@@ -250,32 +304,39 @@ func get_codex_entry(item_id: String) -> Dictionary:
 	return entry.duplicate(true)
 
 func update_inventory_slot_position(item_id: String, position: Vector2i) -> void:
-	var inventory: Dictionary = _state.get(GameStateKeys.INVENTORY, {})
-	if inventory.has(item_id):
-		var entry: Dictionary = inventory[item_id]
-		entry["slot_position"] = {"x": position.x, "y": position.y}
-		inventory[item_id] = entry
-		_state[GameStateKeys.INVENTORY] = inventory
-		print("[GameManager] update_inventory_slot_position('%s', %s)" % [item_id, position])
-	else:
+	var inventory: Dictionary = _copy_dict(GameStateKeys.INVENTORY)
+	if not inventory.has(item_id):
 		print("[GameManager] update_inventory_slot_position('%s') -> item not in inventory" % item_id)
+		return
+	var entry: Dictionary = (inventory[item_id] as Dictionary).duplicate(true)
+	entry["slot_position"] = {"x": position.x, "y": position.y}
+	inventory[item_id] = entry
+	_state[GameStateKeys.INVENTORY] = inventory
+	print("[GameManager] update_inventory_slot_position('%s', %s)" % [item_id, position])
+	inventory_changed.emit(item_id)
 
 # --- ショップ ---
 
-func get_shop_lineup(shop_type: String) -> Array:
-	var key: String = ""
+func _shop_key(shop_type: String) -> String:
 	match shop_type:
 		"daily":
-			key = GameStateKeys.DAILY_SHOP
+			return GameStateKeys.DAILY_SHOP
 		"weekly":
-			key = GameStateKeys.WEEKLY_SHOP
+			return GameStateKeys.WEEKLY_SHOP
 		"monthly":
-			key = GameStateKeys.MONTHLY_SHOP
-		_:
-			print("[GameManager] get_shop_lineup('%s') -> unknown shop_type" % shop_type)
-			return []
+			return GameStateKeys.MONTHLY_SHOP
+	return ""
+
+func get_shop_lineup(shop_type: String) -> Array:
+	var key: String = _shop_key(shop_type)
+	if key == "":
+		print("[GameManager] get_shop_lineup('%s') -> unknown shop_type" % shop_type)
+		return []
 	var shop: Dictionary = _state.get(key, {})
-	return shop.get("line_up", []).duplicate(true)
+	var line_up: Variant = shop.get("line_up", [])
+	if line_up is Array:
+		return (line_up as Array).duplicate(true)
+	return []
 
 func purchase_shop_item(shop_type: String, slot_id: int) -> bool:
 	# 残高不足・売り切れなら何もせずfalse（空実装：ラインナップが空のため常にfalse）
@@ -327,14 +388,16 @@ func get_effective_level_cap(character_id: String) -> int:
 	return cap
 
 func get_stat_boost_all() -> Dictionary:
-	# 保存された値ではなく、research_treeを都度走査して計算する
+	# 保存された値ではなく、research_treeを都度走査して計算する。
+	# 返り値の形は { "hp": 10, "atk": 5, ... }。target_stat未指定のノードは "all" に集約する。
+	# TODO: 実際にどのステータスへどう加算するかは PLAN_GUILD_RESEARCH.md 側で未確定。
 	var tree: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
 	var boosts: Dictionary = {}
 	for node_id: String in tree:
 		var node: Dictionary = tree[node_id]
 		if bool(node.get("unlocked", false)) and str(node.get("effect_type", "")) == "stat_boost_all":
-			# effect_value を集約する想定だが、詳細ロジックは各ギルドEXECで確定するため現状は空
-			pass
+			var stat: String = str(node.get("target_stat", "all"))
+			boosts[stat] = int(boosts.get(stat, 0)) + int(node.get("effect_value", 0))
 	return boosts
 
 # --- 作業場 ---

@@ -16,7 +16,9 @@
 - スタミナを増やす（`add_stamina`）
 - スタミナを消費する。足りなければ何もせず失敗を返す（`spend_stamina`）
 - 素材を増やす（`add_material`）
-- アイテムをインベントリに追加する（`add_to_inventory`）
+- アイテムをインベントリに追加する（`add_to_inventory`）。アイテム種別（equipment / consumable / key_item / gift）は引数で明示的に渡す。省略時は「種別不明」として登録し、**呼び出し側の意図を勝手に推測しない**
+- 素材の所持数を取得する（`get_material_count`）
+- ジェムを増やす（`add_gems`）
 
 ### できること（画面アンロック）
 - 画面をアンロックする（`unlock_screen`）
@@ -61,7 +63,8 @@
 - 完成した製作物を受け取り、インベントリへ反映する。まだ完了していなければ何もせず失敗を返す（`collect_craft`）
 
 ### 通知（変化があったときに知らせるもの）
-- リソース（gold・gems・stamina等）が変化したことを知らせる（`resource_changed`）
+- リソース（gold・gems・stamina）が変化したことを知らせる（`resource_changed`）。種別は`GameStateKeys`の定数で渡す（文字列リテラル禁止）
+- 素材が変化したことを、**どの素材がいくつになったか**の形で知らせる（`material_changed`）。素材は種類ごとに表示先が分かれるため、辞書全体を渡す`resource_changed`では差分更新できないため専用シグナルを分ける
 - 画面がアンロックされたことを知らせる（`screen_unlocked`）
 - インベントリの中身が変化したことを知らせる（`inventory_changed`）
 - 未開封の宝箱件数が変化したことを知らせる（`pending_chests_changed`）
@@ -73,7 +76,8 @@
 - 宝箱の中身を反映するときや、ポモドーロ・戦闘の報酬を反映するときは、ゴールド追加・素材追加といった基本操作を内部で使い回し、同じような更新処理をあちこちに重複して書かない。
 - ポモドーロの報酬反映（`apply_pomodoro_rewards`）は、反映からセッション完了通知の発火までを一つの処理としてまとめて行う。呼び出し元（ポモドーロ画面側）で個別に通知を発火しない（二重発火防止のため、発火元はGameManagerに一本化する）。
 - 戦闘の報酬反映（`apply_battle_rewards`）も同様に、反映から戦闘終了通知（`battle_finished`）の発火までを一つの処理としてまとめて行う。呼び出し元（戦闘画面側）で個別に通知を発火しない。
-- 状態のキー名は文字列リテラルで散らさず、`GameStateKeys`（`scripts/utils/state_keys.gd`）の定数に集約する。
+- 状態のキー名は文字列リテラルで散らさず、`GameStateKeys`（`scripts/utils/state_keys.gd`）の定数に集約する。**シグナルで渡す種別名（`resource_changed`の第1引数）も同じ定数を使う。**
+- `_state`内のネストしたDictionary/Arrayを更新するときは、取り出したものを直接書き換えない。複製してから変更し、`_state`へ代入し直す（GDScriptのDictionary/Arrayは参照渡しのため、直接書き換えると代入前に内部状態が変わってしまう）。
 
 ---
 
@@ -185,5 +189,6 @@ signal character_tapped(character_id: String)
 - 追記：拠点画面（表示のみ）作戦計画書でのチェストバッジ実装に伴い、GameManagerに`pending_chests`関連の関数・シグナルを追加
 - 追記：ポモドーロ最小ループ作戦計画書に伴い、GameManagerに`apply_pomodoro_rewards()`を追加。Balance（PomodoroConfig）に加護のしきい値・倍率と報酬換算レートを追加
 - 追記：戦闘画面（本番用）作戦計画書に伴い、SceneManagerに画面間データ受け渡し用の`change_scene_with_data()` / `consume_transfer_data()`を追加（画面ごとの専用クラスは作らず、汎用Dictionary1つで統一する方針）
+- 改訂（実コードレビュー反映）：`material_changed`シグナルを追加（`resource_changed`で素材辞書ごと渡していたため、どの素材が変わったか特定できなかった）。`add_to_inventory`にアイテム種別の引数を追加（種別を勝手に`equipment`と推測していたため）。`add_gems` / `get_material_count`を追加。ネストしたDictionary更新時の複製ルールを明記
 - 改訂（整合性レビュー反映）：`battle_finished`の発火元をGameManagerに一本化（従来はPLAN_BATTLE_SCREEN側で戦闘画面が発火する記述と矛盾していた）。`apply_battle_rewards`から`exp`を削除（DATA_SCHEMA 4-3の素材消費型と矛盾していたため）。`Balance`に`initial_state`（`InitialStateConfig`）を追加。`PomodoroConfig`にプリセット配列（`PomodoroPreset`）を追加。`get_state()`をスナップショット返却に変更
 - 改訂：ギルド各箱（倉庫・ショップ・育成・研究・作業場）の作戦計画書に伴い、GameManagerの責務を「拠点共通データ」から「全画面が参照する永続データ全般」に拡張。図鑑・ショップ・育成・研究ツリー・製作キューをGameManagerに集約し、関連機能を追加。あわせて、GameManagerの「できること」一覧を関数シグネチャ形式から人が読める説明形式に書き換え（第2層は人が読める記法、コード形式への変換は第3層で行う方針に統一）

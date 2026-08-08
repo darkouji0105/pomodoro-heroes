@@ -48,21 +48,21 @@ BaseScreen (Control)
 │   ├─ FacilityContainer
 │   └─ CharacterContainer
 └─ BottomArea (Control)
-    ├─ ResourceDisplay
-    │   ├─ GoldLabel
-    │   ├─ GemsLabel
-    │   ├─ StaminaLabel
-    │   ├─ MaterialsDisplay
-    │   │   └─ MaterialEntry（materialsの種類数ぶん動的生成）
-    │   └─ ChestBadge
-    │       ├─ ChestIcon
-    │       └─ ChestCountLabel
-    └─ NavigationButtons
-        ├─ AdventureButton
-        ├─ GuildButton
-        ├─ PomodoroButton
-        ├─ SettingsButton
-        └─ ScenarioButton
+	├─ ResourceDisplay
+	│   ├─ GoldLabel
+	│   ├─ GemsLabel
+	│   ├─ StaminaLabel
+	│   ├─ MaterialsDisplay
+	│   │   └─ MaterialEntry（materialsの種類数ぶん動的生成）
+	│   └─ ChestBadge
+	│       ├─ ChestIcon
+	│       └─ ChestCountLabel
+	└─ NavigationButtons
+		├─ AdventureButton
+		├─ GuildButton
+		├─ PomodoroButton
+		├─ SettingsButton
+		└─ ScenarioButton
 ```
 
 - `scenes/ui/components/`の共通ボタン（PrimaryButton等）を`NavigationButtons`配下で使い回す。
@@ -87,7 +87,8 @@ BaseScreen (Control)
 ## 5. 更新の仕組み
 
 - `base_screen`のスクリプトは`_ready()`で以下を購読する：
-  - `GameManager.resource_changed(resource_type, new_value)` → 該当ラベルのみ更新
+  - `GameManager.resource_changed(resource_type, new_value)` → 該当ラベルのみ更新。`resource_type`は`GameStateKeys.GOLD` / `GEMS` / `STAMINA`のいずれか（文字列リテラルで比較しないこと）
+  - `GameManager.material_changed(material_id, new_amount)` → 該当する`MaterialEntry`のみ更新。エントリが未生成なら新規生成する
   - `GameManager.screen_unlocked(screen_id)` → 該当ボタンのvisibleを更新
 - 画面遷移で戻ってくるたびに全データを再取得するのではなく、シグナル駆動で差分更新する（AGENTS.mdのSingle Source of Truth方針に合わせる）。
 
@@ -125,7 +126,7 @@ BaseScreen (Control)
 
 - [ ] `base_screen.tscn`が上記シーン階層案の通りに作成されている
 - [ ] `GameManager.add_gold(100)`を呼ぶと、拠点画面上の`GoldLabel`が自動更新される
-- [ ] `GameManager.add_material()`を呼ぶと、`MaterialsDisplay`に該当エントリが表示・更新される
+- [ ] `GameManager.add_material()`を呼ぶと、`material_changed`を受けて該当する`MaterialEntry`のみが更新される（全エントリを作り直さない）
 - [ ] `pending_chests`が0件のときは`ChestBadge`が非表示、1件以上で件数表示される
 - [ ] `unlocked_screens`がfalseの画面のボタンは非表示になっている
 - [ ] 各遷移ボタンが`SceneManager.change_scene()`経由でのみ画面遷移する（`change_scene_to_file()`を直接呼ばない）

@@ -148,10 +148,10 @@
    純粋な定数クラスのため`RefCounted`（Godot 4のデフォルト基底）を継承。`Node`ではない（ツリーに追加しないため）。
 
 10. **`ShopConfig`/`ResearchConfig`/`WorkshopConfig`/`CharacterConfig` は最小スケルトン**
-    EXECはこれらの中身を「抽選テーブル関連の値」「解放に必要な素材数等」程度にしか書かず、詳細は各ギルドEXECに委ねている。AGENTS.md「docs/は指示されたもの以外読まない」に従いギルドPLAN（`PLAN_GUILD_*`）は読まず、各1〜4個の明らかに必要なフィールドのみ定義した。`.tres`は空（デフォルト値）のため、具体的な数値は入っていない。
+	EXECはこれらの中身を「抽選テーブル関連の値」「解放に必要な素材数等」程度にしか書かず、詳細は各ギルドEXECに委ねている。AGENTS.md「docs/は指示されたもの以外読まない」に従いギルドPLAN（`PLAN_GUILD_*`）は読まず、各1〜4個の明らかに必要なフィールドのみ定義した。`.tres`は空（デフォルト値）のため、具体的な数値は入っていない。
 
 11. **`display/window/size/viewport_width=1280` が設定された**
-    `update_project_setting`ツールの動作確認のため`viewport_width=1280`を設定したところ、この時`project.godot`が再保存され`[autoload]`セクションが一時消滅した（エディタのメモリ内設定のみが書き出されたため）。その後`edit_file`で`[autoload]`を再追加した。`viewport_width=1280`は`GODOT_SETUP.md`の基準解像度（1280×720）と一致するため問題ないが、`viewport_height=720`は未設定のまま残っている。
+	`update_project_setting`ツールの動作確認のため`viewport_width=1280`を設定したところ、この時`project.godot`が再保存され`[autoload]`セクションが一時消滅した（エディタのメモリ内設定のみが書き出されたため）。その後`edit_file`で`[autoload]`を再追加した。`viewport_width=1280`は`GODOT_SETUP.md`の基準解像度（1280×720）と一致するため問題ないが、`viewport_height=720`は未設定のまま残っている。
 
 ---
 

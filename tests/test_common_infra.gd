@@ -13,6 +13,8 @@ func _ready() -> void:
 	_test_pomodoro_rewards()
 	_test_battle_rewards()
 	_test_failure_paths()
+	_test_material_signal()
+	_test_inventory_type()
 	_test_state_snapshot()
 	_test_balance_init()
 	print("================================================")
@@ -39,8 +41,11 @@ func _test_add_gold() -> void:
 	GameManager.add_gold(100)
 	GameManager.resource_changed.disconnect(callable)
 	var state: Dictionary = GameManager.get_state()
-	var ok: bool = fired.size() > 0 and int(state[GameStateKeys.GOLD]) >= 100
-	print("[TEST #3] %s | gold=%d | signals=%s" % ["PASS" if ok else "FAIL", int(state[GameStateKeys.GOLD]), fired])
+	# resource_type が GameStateKeys の定数と一致するか（文字列リテラル混入の検出）
+	var type_ok: bool = fired.size() > 0 and str(fired[0][0]) == GameStateKeys.GOLD
+	var ok: bool = fired.size() > 0 and type_ok and int(state[GameStateKeys.GOLD]) >= 100
+	print("[TEST #3] %s | gold=%d | resource_type==GameStateKeys.GOLD: %s | signals=%s" % [
+		"PASS" if ok else "FAIL", int(state[GameStateKeys.GOLD]), type_ok, fired])
 
 # --- TEST #4: add_pending_chest -> open_chest -> pending_chests_changed ---
 func _test_chests() -> void:
@@ -135,3 +140,37 @@ func _test_balance_init() -> void:
 	var ok: bool = has_keys and balance_ready
 	print("[TEST #13] %s | Balance.initial_state assigned=%s | state has keys=%s" % [
 		"PASS" if ok else "FAIL", balance_ready, has_keys])
+
+# --- TEST #15: add_material -> material_changed（素材IDが特定できるか）---
+func _test_material_signal() -> void:
+	print("\n--- TEST #15: add_material -> material_changed ---")
+	var fired: Array = []
+	var callable: Callable = func(mat_id: String, amount: int) -> void: fired.append([mat_id, amount])
+	GameManager.material_changed.connect(callable)
+	var before: int = GameManager.get_material_count("test_material")
+	GameManager.add_material("test_material", 7)
+	GameManager.material_changed.disconnect(callable)
+	var after: int = GameManager.get_material_count("test_material")
+	var ok: bool = (
+		fired.size() == 1
+		and str(fired[0][0]) == "test_material"
+		and int(fired[0][1]) == before + 7
+		and after == before + 7
+	)
+	print("[TEST #15] %s | %d->%d | signal=%s" % ["PASS" if ok else "FAIL", before, after, fired])
+
+# --- TEST #16: add_to_inventory の type が勝手に決まらないか ---
+func _test_inventory_type() -> void:
+	print("\n--- TEST #16: add_to_inventory item_type ---")
+	# 種別を省略 -> "" （不明）になること。勝手に "equipment" にしないこと
+	GameManager.add_to_inventory("test_item_unknown", 1)
+	# 種別を明示 -> その値が入ること
+	GameManager.add_to_inventory("test_item_potion", 3, "consumable")
+	var inv: Dictionary = GameManager.get_state()[GameStateKeys.INVENTORY]
+	var unknown_type: String = str(inv.get("test_item_unknown", {}).get("type", "MISSING"))
+	var potion_type: String = str(inv.get("test_item_potion", {}).get("type", "MISSING"))
+	# 図鑑にも自動登録されているか
+	var codex_ok: bool = bool(GameManager.get_codex_entry("test_item_potion").get("discovered", false))
+	var ok: bool = unknown_type == "" and potion_type == "consumable" and codex_ok
+	print("[TEST #16] %s | 省略時type='%s'（期待:空） 明示時type='%s'（期待:consumable） codex=%s" % [
+		"PASS" if ok else "FAIL", unknown_type, potion_type, codex_ok])
