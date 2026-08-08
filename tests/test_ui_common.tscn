@@ -1,0 +1,76 @@
+[gd_scene format=3 uid="uid://cc1fitkh0w4dq"]
+
+[ext_resource type="Script" uid="uid://csw6vtmjpqcnt" path="res://tests/test_ui_common.gd" id="1_test_ui_common"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/resource_display.tscn" id="3_resource_dsp"]
+[ext_resource type="PackedScene" uid="uid://bimexmmwcrrjy" path="res://scenes/ui/components/dialog_base.tscn" id="4_dialog_base"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.102, 0.078, 0.094, 1)
+
+[node name="TestUICommon" type="Control" unique_id=69641610]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_test_ui_common")
+
+[node name="Background" type="PanelContainer" parent="." unique_id=30199965]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="Layout" type="VBoxContainer" parent="." unique_id=664099217]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -200.0
+offset_right = 300.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="SectionLabel" type="Label" parent="Layout" unique_id=1414252519]
+layout_mode = 2
+text = "Test UI Common — 完了条件#5〜#10 自動検証"
+
+[node name="NormalButton" parent="Layout" unique_id=164831894 instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+text = "通常ボタン"
+
+[node name="DisabledButton" parent="Layout" unique_id=655606028 instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+disabled = true
+text = "無効ボタン"
+
+[node name="LongButton" parent="Layout" unique_id=915037805 instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+text = "ui_ok (label_key経由)"
+label_key = "ui_ok"
+
+[node name="OpenDialogButton" parent="Layout" unique_id=100502367 instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+text = "ダイアログを開く"
+
+[node name="GoldDisplay" parent="Layout" unique_id=2082346759 instance=ExtResource("3_resource_dsp")]
+layout_mode = 2
+
+[node name="StaminaDisplay" parent="Layout" unique_id=679085205 instance=ExtResource("3_resource_dsp")]
+layout_mode = 2
+
+[node name="MaterialDisplay" parent="Layout" unique_id=1315996993 instance=ExtResource("3_resource_dsp")]
+layout_mode = 2
+
+[node name="DialogBase" parent="." unique_id=1673384632 instance=ExtResource("4_dialog_base")]
+layout_mode = 1

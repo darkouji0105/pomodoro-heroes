@@ -29,6 +29,10 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[gui]
+
+theme/custom="res://theme/main_theme.tres"
+
 [input]
 
 pomodoro_pause_toggle={

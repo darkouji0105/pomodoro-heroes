@@ -1,0 +1,39 @@
+[gd_scene format=3 uid="uid://bimexmmwcrrjy"]
+
+[ext_resource type="Script" uid="uid://tlnxaibuud4s" path="res://scenes/ui/components/dialog_base.gd" id="1_dialog_base"]
+
+[node name="DialogBase" type="Control" unique_id=2012149635]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_dialog_base")
+
+[node name="Backdrop" type="ColorRect" parent="." unique_id=1179789005]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=2075991932]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=1363078344]
+layout_mode = 2
+
+[node name="ContentContainer" type="VBoxContainer" parent="CenterContainer/PanelContainer" unique_id=522301444]
+layout_mode = 2
+mouse_filter = 2
+
+[connection signal="gui_input" from="Backdrop" to="." method="_on_backdrop_gui_input"]

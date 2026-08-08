@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1primary_btn01"]
+
+[ext_resource type="Script" path="res://scenes/ui/components/primary_button.gd" id="1_primary_btn"]
+
+[node name="PrimaryButton" type="Button"]
+script = ExtResource("1_primary_btn")

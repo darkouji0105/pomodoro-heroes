@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1resource_dsp01"]
+
+[ext_resource type="Script" path="res://scenes/ui/components/resource_display.gd" id="1_resource_dsp"]
+
+[node name="ResourceDisplay" type="HBoxContainer"]
+script = ExtResource("1_resource_dsp")
+
+[node name="Icon" type="TextureRect" parent="."]
+custom_minimum_size = Vector2(24, 24)
+expand_mode = 0
+stretch_mode = 5
+
+[node name="ValueLabel" type="Label" parent="."]
+text = "0"

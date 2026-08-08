@@ -66,11 +66,14 @@
 | `ステージウェーブ＆ボス拡張プラン.txt` | ウェーブ／ボス構成の設計思想は採用済み（DATA_SCHEMA.mdに反映済み）。実行指示書自体は未作成 |
 
 ### 第3層（実行指示書）── 着手済み・タスクごとに別ファイル
+
+**共通基盤（`EXEC_COMMON_INFRA.md`）は実装完了・進行ゲート突破済み**（完了条件14項目クリア。レビューで指摘した4点も修正済み）。
 | ファイル | 内容 | 状態 |
 |---|---|---|
 | `EXEC_COMMON_INFRA.md` | 共通基盤（5つのAutoload）の空実装指示書 | ✅ 完了（完了条件14項目。キー定数化・スナップショット化・Autoload登録順・IMPL_LOG生成を条件に追加済み） |
 | `IMPL_LOG_TEMPLATE.md` | Zivaが実装完了ごとに生成する実装ログの型。全EXECタスク共通で使う | ✅ 完了 |
-| 拠点画面（表示のみ）の実行指示書 | - | ⬜ 未着手 |
+| `EXEC_UI_COMMON.md` | Theme・共通UIコンポーネント3つの実行指示書（完了条件13項目） | ✅ 完了 |
+| 拠点画面（表示のみ）の実行指示書 | - | ⬜ 未着手（次） |
 | タイトル→拠点画面の実行指示書 | - | ⬜ 未着手 |
 | ポモドーロ最小ループの実行指示書 | - | ⬜ 未着手 |
 | 戦闘画面（本番用）の実行指示書 | - | ⬜ 未着手 |
@@ -127,7 +130,7 @@ PLANドキュメント（第2層）はあくまで「意図」の記録であり
 第2層（作戦計画）はすべて完了している。ここからは第3層（実行指示書）をタスクごとに書き、Zivaに渡して実装 → 動作確認、を繰り返す段階。
 
 1. ~~`PLAN_COMMON_INFRA.md`を渡して、5つのAutoloadを空実装で作る~~ → `EXEC_COMMON_INFRA.md`として完了。実際にZivaへ渡して実装させ、完了条件（14項目）を満たすか確認する
-2. `PLAN_UI_COMMON.md`を渡して、Theme・共通ボタン等の実行指示書を書いてから実装
+2. ~~`PLAN_UI_COMMON.md`を渡して、Theme・共通ボタン等の実行指示書を書く~~ → `EXEC_UI_COMMON.md`として完了。Zivaに渡して実装させる段階
 3. 「タイトル→拠点画面（遷移だけ）」の実行指示書を`PLAN_TITLE_TO_BASE.md`から書いてから実装
 4. 「拠点画面（表示のみ）」の実行指示書を`PLAN_BASE_SCREEN.md`から書いてから実装
 5. 「ポモドーロ最小ループ」の実行指示書を`PLAN_POMODORO_CORE_LOOP.md`から書いてから実装
@@ -153,6 +156,8 @@ PLANドキュメント（第2層）はあくまで「意図」の記録であり
 | UIパーツの置き場所 | `PLAN_UI_COMMON.md`、`AGENTS.md` | **決定済み：2画面以上で使うものだけ`scenes/ui/components/`へ。1画面専用はその画面のフォルダ**。迷ったら画面フォルダに置く |
 | Themeの置き場所 | `PLAN_UI_COMMON.md`、`AGENTS.md` | **決定済み：`res://theme/main_theme.tres`**。Project Settingsでプロジェクト全体のデフォルトThemeに設定し、個別シーンで色を指定しない |
 | ファイル名の命名規則 | 全ファイル | **決定済み：ファイル名はsnake_case、`class_name`とノード名はPascalCase**（`AGENTS.md`命名規則に明記） |
+| UI共通パーツのスコープ | `PLAN_UI_COMMON.md`、`EXEC_UI_COMMON.md` | **決定済み**：今回はTheme + `primary_button` / `resource_display` / `dialog_base` の3つ。`cooldown_button`（戦闘）と`notification_label`（拠点）は、使う画面の実装時に一緒に設計する |
+| 配色・フォント | `PLAN_UI_COMMON.md` | **決定済み**：トマト基調のダーク配色8色（2章）。フォントはNoto Sans JP（アセット確定後に差し替える前提） |
 | ポモドーロのプリセット表現 | `PLAN_POMODORO_CORE_LOOP.md`、`PLAN_COMMON_INFRA.md` | **決定済み：`PomodoroPreset`Resourceの配列**として`PomodoroConfig`が保持（単一の`focus_duration_sec`では3プリセットを表現できないため） |
 | 冒険選択・パーティ選択・設定・シナリオ画面の設計 | `SCENES.md`、`DEMO_CHECKLIST.md` | **未着手（第2層ごと無し）**。着手時にPLANとEXECをまとめて作成する |
 | Steam Rich Presence（フレンド欄への状態表示） | `DATA_SCHEMA.md` 2-7、`PLAN_POMODORO_CORE_LOOP.md` 6-2、`GODOT_SETUP.md` 6章 | **仕様は決定済み・実装は後回し**。セットごとの任意タイトル＋経過/残り時間を表示。振り返り内容は絶対に含めない。`get_presence_status()`の口だけMVPで用意する |
@@ -172,6 +177,8 @@ PLANドキュメント（第2層）はあくまで「意図」の記録であり
 ## 更新履歴
 - 初版作成：第1層完了、第2層（共通基盤・UI共通）完了時点のスナップショット
 - 更新：第2層が全画面ぶん完了（タイトル→拠点・拠点表示・ポモドーロ最小ループ・戦闘・ギルド5画面）。`CLAUDE.md`を`AGENTS.md`にリネーム。第3層は`EXEC_◯◯.md`としてタスクごとに分割する方針に決定し、共通基盤（`EXEC_COMMON_INFRA.md`）が完了
+- 更新：共通基盤の実装完了。進行ゲート突破（完了条件14項目クリア）。実コードレビューで4点を修正（シグナルの種別を定数化、`material_changed`シグナル新設、`add_to_inventory`のアイテム種別引数、ネストDictionaryの複製ルール）。`GameStateKeys`にネストのキーを追加し、`AGENTS.md`に状態構造の表を追記
+- 追記：`EXEC_UI_COMMON.md`を作成。配色（トマト基調ダーク）とフォント（Noto Sans JP・差し替え前提）を確定
 - 追記：UIパーツの置き場所ルール（2画面以上で使うものだけ`components/`へ）とThemeの置き場所（`res://theme/`）を確定し、`AGENTS.md`のフォルダ構造に`theme/`・`localization/`・`docs/`を明記
 - 追記（Steam連携の先行検討）：ポモドーロ中の状態をフレンド欄に表示する仕様（Steam Rich Presence）を`DATA_SCHEMA.md` 2-7に定義。セットごとの任意タイトル＋経過/残り時間を表示し、振り返り内容は絶対に含めない方針を確定。あわせてセーブ保存先を`user://saves/`に確定（クラウドセーブ対応のため）。実装自体はApp ID取得後で、MVPでは`get_presence_status()`の口だけ用意する
 - **改訂（整合性レビュー反映）**：全ドキュメントを横断チェックし、以下を修正
