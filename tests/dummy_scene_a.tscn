@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/dummy_scene_a.gd" id="1_dsa"]
+
+[node name="DummySceneA" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_dsa")
+
+[node name="Label" type="Label" parent="."]
+offset_left = 40.0
+offset_top = 40.0
+offset_right = 1000.0
+offset_bottom = 80.0
+text = "Dummy Scene A — consumed transfer data. Auto-transitions to DummyB in 2s."
