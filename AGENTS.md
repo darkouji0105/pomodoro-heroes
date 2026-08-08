@@ -35,7 +35,7 @@ res://
 │   └── utils/            # 汎用ヘルパー
 ├── autoload/              # シングルトン（GameManager, Balance等）
 ├── theme/                 # main_theme.tres（配色・フォント・ボタン等の基本スタイル）
-├── localization/          # .po / .pot（翻訳ファイル）
+├── localization/          # ja.csv（翻訳表）。詳細は「翻訳キーの運用」参照
 ├── resources/
 │   └── balance/           # 数値調整用 .tres ファイル置き場（下記ルール参照）
 │       └── master/        # スキル・ウェーブ・敵ステータス等のマスターデータ（IDで引く量産型データ）。Balanceの@exportではなくMasterDataLoaderが読み込む（PLAN_BATTLE_SCREEN.md参照）
@@ -156,9 +156,45 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 - **ファイル名（`.gd` / `.tscn` / `.tres`）: すべて snake_case**（例: `title_screen.tscn`, `game_manager.gd`, `pomodoro_config.tres`）
 - **`class_name`: PascalCase**（例: `class_name PomodoroConfig`）
 - ノード名（シーンツリー内）: PascalCase（例: `GoldLabel`, `NavigationButtons`）
-- 全てのテキストは `tr()` で囲む（日本語ハードコード禁止）
+- 全てのテキストは `tr()` で囲む（日本語ハードコード禁止）。詳細は下記「翻訳キーの運用」参照
 
 > **注意**：ファイル名は snake_case、`class_name`とノード名は PascalCase。この2つを混同しないこと。過去のドキュメントに`Title.tscn`のようなPascalCaseのファイル名表記が残っていた場合は、snake_case（`title_screen.tscn`）が正。
+
+### 翻訳キーの運用（厳守）
+
+表示テキストは日本語を直接書かず、翻訳キーを `tr()` に渡す。翻訳表は `res://localization/ja.csv` に集約する。
+
+**キーの命名規則**：`ui_<領域>_<用途>` の形。すべて snake_case。
+
+| 接頭辞 | 用途 | 例 |
+|---|---|---|
+| `ui_common_` | 全画面で使う汎用語 | `ui_common_ok`, `ui_common_close` |
+| `ui_res_` | リソース名 | `ui_res_gold`, `ui_res_stamina` |
+| `ui_nav_` | 画面遷移ボタン | `ui_nav_guild`, `ui_nav_pomodoro` |
+| `ui_title_` | タイトル画面 | `ui_title_start_new` |
+| `ui_base_` | 拠点画面 | `ui_base_placeholder` |
+| `ui_pomodoro_` | ポモドーロ画面 | `ui_pomodoro_focus` |
+| `ui_battle_` | 戦闘画面 | `ui_battle_victory` |
+| `ui_guild_` | ギルド各画面 | `ui_guild_shop_sold_out` |
+
+**新しいテキストを追加するときの手順**：
+
+1. `res://localization/ja.csv` に `キー名,日本語` の行を追記する
+2. コード側では `tr("キー名")` を使う（`PrimaryButton` なら `label_key` に入れる）
+3. **1と2を必ずセットで行う。** キーだけ使って翻訳表に追記しないと、画面にキー名（`ui_xxx`）がそのまま表示される
+
+**`tr()` を使わないもの**：
+
+- 数値のみの表示（`"100"`、`"3/10"` 等）
+- `print()` のデバッグログ（開発者向けであり画面に出ないため）
+- `push_warning` / `push_error` のメッセージ
+
+**編集時の注意**：
+
+- `ja.csv` は **UTF-8（BOMなし）** で保存する。BOM付きだと1行目のキーが `\ufeffkeys` になり全滅する
+- 日本語にカンマ（`,`）を含める場合はセル全体を `"` で囲む
+- キーの重複を作らない。同じ意味のテキストは既存キーを使い回す
+- 英語列（`en`）は今回作らない。多言語対応が必要になった時点で列を追加する
 
 ---
 
@@ -188,6 +224,7 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 - 第3層はタスクごとに別ファイルにする方針に変更したため、実行指示書の内容はこのファイルから分離
 - 追記：`resources/balance/master/`（スキル・ウェーブ・敵ステータス等のマスターデータ置き場）をフォルダ構造に追加。`PLAN_BATTLE_SCREEN.md`の10章決定に対応
 - 追記：Zivaはシステムプロンプトを持たないため、実装完了ごとに`IMPL_LOG_TEMPLATE.md`の型で実装ログを生成するルールを追加。EXECファイルは今後`AGENTS.md` + `EXEC_◯◯.md` + `IMPL_LOG_TEMPLATE.md`の3点セットで渡す
+- 追記：「翻訳キーの運用」を追加。翻訳表を`res://localization/ja.csv`に集約し、キーの命名規則（`ui_<領域>_<用途>`）と追加手順を明記。`.po`ではなくCSV方式に決定
 - 追記（実コードレビュー反映）：「GameManagerの状態構造（ネストのキー）」「GameManagerのシグナル」の表を追加。ネストしたキーも`GameStateKeys`定数を使うルール、ネスト更新時の複製ルールを明記
 - 追記：フォルダ構造に`theme/`（main_theme.tres置き場）・`localization/`・`docs/`を明記。UIパーツの置き場所ルール（2画面以上で使うものだけ`scenes/ui/components/`へ）とThemeの扱いを追加
 - 追記（整合性レビュー反映）：ファイル名はsnake_case・`class_name`とノード名はPascalCaseに統一するルールを明記。Autoloadの登録順（`Balance`を`GameManager`より先）を厳守事項として追加。`get_state()`は`duplicate(true)`のスナップショットを返すルール、`GameStateKeys` / `TransferKeys`経由でのキーアクセスルールを追加

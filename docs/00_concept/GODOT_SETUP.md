@@ -70,12 +70,25 @@ PC・マウス中心のUI操作が主体のため、独自アクションは最�
 
 ---
 
-## 5. 翻訳（ローカライズ）準備
+## 5. 翻訳（ローカライズ）設定
 
-- `res://localization/` フォルダを作成し、`.po` / `.pot` ファイルをここに配置
-- デフォルトロケールは日本語（`ja`）
-- AGENTS.mdの命名規則ルールにある通り、**すべてのテキストは`tr()`で囲む**（実装時点から徹底。後回しにすると全シーンの修正が必要になるため）
-- Godotエディタの Project Settings → Localization → POT Generation で、`tr()`を使用しているシーン／スクリプトを自動収集する設定を有効化する
+**方式（決定済み）**：`.po` / `.pot` ではなく **CSV** を使う。理由：テキストエディタで直接編集でき、キーの一覧性が高く、Godotが自動で`.translation`に変換してくれるため。
+
+### 設定手順
+
+1. `res://localization/ja.csv` を配置する（1列目 `keys`、2列目 `ja`）
+2. Godotが自動でインポートし、`ja.translation` が生成される
+3. **Project Settings → Localization → Translations** タブで `res://localization/ja.translation` を追加する
+4. **Project Settings → Internationalization → Locale → Test** を `ja` に設定する（エディタ上でも日本語で表示させるため）
+
+> **CSVを編集したあとは、Godotが再インポートするまで反映されません。** FileSystemパネルで`ja.csv`を選び、右クリック → 再インポート、またはGodotを再起動してください。
+
+### 運用ルール
+
+- すべての表示テキストは `tr()` で囲む（実装時点から徹底。後回しにすると全シーンの修正が必要になるため）
+- キーの命名規則と追加手順は `AGENTS.md`「翻訳キーの運用」に定義済み
+- CSVは **UTF-8（BOMなし）** で保存する。BOM付きだと1行目のキーが壊れて全滅する
+- POT Generation（`.pot`自動収集）は**使わない**。CSV方式と併用すると二重管理になるため
 
 ---
 
@@ -121,5 +134,6 @@ Steam側の作業（ストアページ・審査・トレーラー）はリリー
 - 戦闘画面固有の入力アクション（トレーニングモード実装時に確定）
 
 ## 更新履歴
+- 改訂：翻訳方式を`.po`からCSVに変更（`res://localization/ja.csv`）。設定手順とインポートの注意点を明記
 - 追記：6章「Steam連携の前提」を追加。セーブ保存先を`user://saves/`に確定（クラウドセーブ対応のため）。Rich Presence・実績の前提と着手順序を明記
 - 改訂（整合性レビュー反映）：`pomodoro_pause_toggle`のキーをSpaceからPへ変更（`ui_accept`との衝突回避）。`pause_menu_toggle`を廃止し`ui_cancel`に統合。Autoloadの登録順を明記
