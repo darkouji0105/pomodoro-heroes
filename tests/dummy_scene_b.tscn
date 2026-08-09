@@ -1,14 +1,18 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://b3eswipyofw7t"]
 
-[ext_resource type="Script" path="res://tests/dummy_scene_b.gd" id="1_dsb"]
+[ext_resource type="Script" uid="uid://dwlbryjj6a0bn" path="res://tests/dummy_scene_b.gd" id="1_dsb"]
 
-[node name="DummySceneB" type="Control"]
+[node name="DummySceneB" type="Control" unique_id=159219500]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_dsb")
 
-[node name="Label" type="Label" parent="."]
+[node name="Label" type="Label" parent="." unique_id=1594768018]
+layout_mode = 0
 offset_left = 40.0
 offset_top = 40.0
 offset_right = 1000.0

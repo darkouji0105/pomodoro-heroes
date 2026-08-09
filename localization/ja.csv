@@ -19,8 +19,11 @@ ui_res_gold,ゴールド
 ui_res_gems,ジェム
 ui_res_stamina,スタミナ
 ui_res_construction_material,建築素材
-ui_nav_adventure,冒険
+ui_nav_adventure_select,冒険
 ui_nav_guild,ギルド
 ui_nav_pomodoro,ポモドーロ
 ui_nav_settings,設定
 ui_nav_scenario,シナリオ
+ui_placeholder_suffix,（未実装）
+ui_base_chest,宝箱
+ui_res_material_unknown,不明な素材

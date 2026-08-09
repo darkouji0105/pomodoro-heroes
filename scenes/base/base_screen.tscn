@@ -1,18 +1,19 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://dwn0r400shdkt"]
 
-[ext_resource type="Script" path="res://scenes/base/base_screen.gd" id="1_base"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_button"]
+[ext_resource type="Script" uid="uid://bpifkrpnu4gld" path="res://scenes/base/base_screen.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/resource_display.tscn" id="2_resource_dsp"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="3_button"]
 
-[node name="BaseScreen" type="Control"]
+[node name="BaseScreen" type="Control" unique_id=789240081]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_base")
+script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=1864520574]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -21,35 +22,104 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.101961, 0.0784314, 0.0941176, 1)
 
-[node name="Layout" type="VBoxContainer" parent="."]
+[node name="Layout" type="VBoxContainer" parent="." unique_id=237510971]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -200.0
-offset_top = -200.0
-offset_right = 200.0
-offset_bottom = 200.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 8
 
-[node name="PlaceholderLabel" type="Label" parent="Layout"]
+[node name="TopArea" type="Control" parent="Layout" unique_id=1986708654]
 layout_mode = 2
-text = "ui_base_placeholder"
-horizontal_alignment = 1
+size_flags_vertical = 3
 
-[node name="StateLabel" type="Label" parent="Layout"]
+[node name="BottomArea" type="PanelContainer" parent="Layout" unique_id=150811097]
+custom_minimum_size = Vector2(0, 160)
 layout_mode = 2
-text = "gold: 0..."
-horizontal_alignment = 1
 
-[node name="SaveButton" parent="Layout" instance=ExtResource("2_button")]
+[node name="BottomLayout" type="VBoxContainer" parent="Layout/BottomArea" unique_id=1174182404]
+layout_mode = 2
+
+[node name="ResourceRow" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout" unique_id=1573716456]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+
+[node name="GoldEntry" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=654662709]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="Layout/BottomArea/BottomLayout/ResourceRow/GoldEntry" unique_id=985052570]
+layout_mode = 2
+text = "ui_res_gold"
+
+[node name="Value" parent="Layout/BottomArea/BottomLayout/ResourceRow/GoldEntry" unique_id=398660606 instance=ExtResource("2_resource_dsp")]
+layout_mode = 2
+
+[node name="StaminaEntry" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=933364303]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="Layout/BottomArea/BottomLayout/ResourceRow/StaminaEntry" unique_id=1017591108]
+layout_mode = 2
+text = "ui_res_stamina"
+
+[node name="Value" parent="Layout/BottomArea/BottomLayout/ResourceRow/StaminaEntry" unique_id=1248665530 instance=ExtResource("2_resource_dsp")]
+layout_mode = 2
+
+[node name="MaterialsDisplay" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=374044714]
+layout_mode = 2
+
+[node name="Spacer" type="Control" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1140693099]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ChestBadge" type="Button" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1098589026]
+layout_mode = 2
+text = "ui_base_chest"
+
+[node name="ChestCountLabel" type="Label" parent="Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge" unique_id=426545088]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -20.0
+offset_bottom = 23.0
+grow_horizontal = 0
+
+[node name="SaveButton" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=296771634 instance=ExtResource("3_button")]
 layout_mode = 2
 label_key = "ui_base_save"
 
-[node name="BackToTitleButton" parent="Layout" instance=ExtResource("2_button")]
+[node name="BackToTitleButton" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1704690069 instance=ExtResource("3_button")]
 layout_mode = 2
 label_key = "ui_base_back_to_title"
+
+[node name="NavigationButtons" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout" unique_id=763492719]
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AdventureButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=1292228329 instance=ExtResource("3_button")]
+layout_mode = 2
+size_flags_horizontal = 3
+label_key = "ui_nav_adventure_select"
+
+[node name="GuildButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=819410225 instance=ExtResource("3_button")]
+layout_mode = 2
+size_flags_horizontal = 3
+label_key = "ui_nav_guild"
+
+[node name="PomodoroButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=457427584 instance=ExtResource("3_button")]
+layout_mode = 2
+size_flags_horizontal = 3
+label_key = "ui_nav_pomodoro"
+
+[node name="SettingsButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=1311972806 instance=ExtResource("3_button")]
+layout_mode = 2
+size_flags_horizontal = 3
+label_key = "ui_nav_settings"
+
+[node name="ScenarioButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=785895846 instance=ExtResource("3_button")]
+layout_mode = 2
+size_flags_horizontal = 3
+label_key = "ui_nav_scenario"
