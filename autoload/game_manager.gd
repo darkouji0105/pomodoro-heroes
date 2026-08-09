@@ -84,6 +84,7 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.UNCLAIMED_CHESTS: [],
 		GameStateKeys.LAST_PROTECTION_SELECTED_AT: "",
 		GameStateKeys.SELECTED_PROTECTION_TYPE: "",
+		GameStateKeys.POTION_FOCUS_REMAINDER: 0,
 	}
 
 # --- 内部ヘルパー ---
@@ -602,3 +603,45 @@ func load_state(data: Dictionary) -> bool:
 func mark_saved() -> void:
 	_state[GameStateKeys.LAST_SAVED_AT] = str(Time.get_unix_time_from_system())
 	print("[GameManager] mark_saved -> last_saved_at=%s" % _state[GameStateKeys.LAST_SAVED_AT])
+
+func grant_stamina_potions(focus_minutes: int) -> int:
+	var unit_per_min: int = int(Balance.pomodoro.potion_focus_minutes_per_unit)
+	if unit_per_min <= 0:
+		push_warning("[GameManager] invalid potion rate")
+		return 0
+	var remainder: int = int(_state.get(GameStateKeys.POTION_FOCUS_REMAINDER, 0))
+	var total_min: int = focus_minutes + remainder
+	var count: int = total_min / unit_per_min
+	_state[GameStateKeys.POTION_FOCUS_REMAINDER] = total_min % unit_per_min
+	if count > 0:
+		add_to_inventory(GameStateKeys.ITEM_STAMINA_POTION, count, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+	return count
+
+func get_stamina_potion_count() -> int:
+	var inventory: Dictionary = _state.get(GameStateKeys.INVENTORY, {})
+	if not inventory.has(GameStateKeys.ITEM_STAMINA_POTION):
+		return 0
+	var entry: Dictionary = inventory[GameStateKeys.ITEM_STAMINA_POTION]
+	return int(entry.get(GameStateKeys.ITEM_COUNT, 0))
+
+func use_stamina_potion() -> bool:
+	print("[potion] before materials=", _state.get(GameStateKeys.MATERIALS, {}))
+	var count: int = get_stamina_potion_count()
+	if count <= 0:
+		return false
+	var inventory: Dictionary = _copy_dict(GameStateKeys.INVENTORY)
+	var entry: Dictionary = (inventory[GameStateKeys.ITEM_STAMINA_POTION] as Dictionary).duplicate(true)
+	if count == 1:
+		inventory.erase(GameStateKeys.ITEM_STAMINA_POTION)
+	else:
+		entry[GameStateKeys.ITEM_COUNT] = count - 1
+		inventory[GameStateKeys.ITEM_STAMINA_POTION] = entry
+	_state[GameStateKeys.INVENTORY] = inventory
+	inventory_changed.emit(GameStateKeys.ITEM_STAMINA_POTION)
+	var stamina: Dictionary = _copy_dict(GameStateKeys.STAMINA)
+	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0)) + int(Balance.pomodoro.stamina_potion_recovery)
+	stamina[GameStateKeys.STAMINA_CURRENT] = current
+	_state[GameStateKeys.STAMINA] = stamina
+	resource_changed.emit(GameStateKeys.STAMINA, current)
+	print("[potion] before materials=", _state.get(GameStateKeys.MATERIALS, {}))
+	return true

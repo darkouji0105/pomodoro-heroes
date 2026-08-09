@@ -189,3 +189,7 @@ const CHEST_TYPE_BONUS_MEDIUM: String = "bonus_medium"
 const CHEST_TYPE_BONUS_LARGE: String = "bonus_large"
 
 const CHEST_SOURCE_POMODORO: String = "pomodoro"
+
+# スタミナポーション
+const POTION_FOCUS_REMAINDER: String = "potion_focus_remainder"
+const ITEM_STAMINA_POTION: String = "stamina_potion"

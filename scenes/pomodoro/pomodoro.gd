@@ -244,12 +244,10 @@ func quit_session() -> void:
 func _return_to_base() -> void:
 	_stop_phase_timer()
 
-	var stamina_reward: int = int(session_accumulated_focus_min * Balance.pomodoro.stamina_per_focus_minute)
-	var reward_data: Dictionary = {
-		GameStateKeys.REWARD_STAMINA: stamina_reward
-	}
-	GameManager.apply_pomodoro_rewards(reward_data)
-	GameManager.claim_pending_chests()
+	var potion_count: int = GameManager.grant_stamina_potions(session_accumulated_focus_min)
+	GameManager.apply_pomodoro_rewards({})
+	var claimed_chest_count: int = GameManager.claim_pending_chests()
+	print("[Pomodoro] potions=%d, claimed_chests=%d" % [potion_count, claimed_chest_count])
 
 	SceneManager.change_scene(BASE_PATH)
 

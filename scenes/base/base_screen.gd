@@ -24,6 +24,8 @@ const SCREEN_SCENES: Dictionary = {
 # ノード参照
 @onready var gold_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/GoldEntry/Value
 @onready var stamina_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/StaminaEntry/Value
+@onready var potion_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/Value
+@onready var potion_use_button: PrimaryButton = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/UseButton
 @onready var materials_display: HBoxContainer = $Layout/BottomArea/BottomLayout/ResourceRow/MaterialsDisplay
 @onready var chest_badge: Button = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge
 @onready var chest_count_label: Label = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge/ChestCountLabel
@@ -61,6 +63,8 @@ func _init_resource_displays(state: Dictionary) -> void:
 	var current_stamina: int = int(stamina_data.get(GameStateKeys.STAMINA_CURRENT, 0))
 	var max_stamina: int = int(stamina_data.get(GameStateKeys.STAMINA_MAX, 0))
 	stamina_value.set_value_with_max(current_stamina, max_stamina)
+	potion_value.set_value(GameManager.get_stamina_potion_count())
+	potion_use_button.disabled = GameManager.get_stamina_potion_count() <= 0
 
 func _init_materials(state: Dictionary) -> void:
 	var materials: Dictionary = state.get(GameStateKeys.MATERIALS, {})
@@ -93,6 +97,8 @@ func _connect_signals() -> void:
 	GameManager.material_changed.connect(_on_material_changed)
 	GameManager.screen_unlocked.connect(_on_screen_unlocked)
 	GameManager.pending_chests_changed.connect(_on_pending_chests_changed)
+	GameManager.inventory_changed.connect(_on_inventory_changed)
+	potion_use_button.pressed.connect(_on_use_potion_pressed)
 	
 	# その他ボタン
 	chest_badge.pressed.connect(_on_chest_badge_pressed)
@@ -133,6 +139,16 @@ func _on_screen_unlocked(screen_id: String) -> void:
 
 func _on_pending_chests_changed(pending_count: int) -> void:
 	_update_chest_badge(pending_count)
+
+func _on_inventory_changed(item_id: String) -> void:
+	if item_id != GameStateKeys.ITEM_STAMINA_POTION:
+		return
+	var count: int = GameManager.get_stamina_potion_count()
+	potion_value.set_value(count)
+	potion_use_button.disabled = count <= 0
+
+func _on_use_potion_pressed() -> void:
+	GameManager.use_stamina_potion()
 
 # --- ヘルパー ---
 
