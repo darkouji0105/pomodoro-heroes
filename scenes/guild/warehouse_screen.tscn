@@ -1,0 +1,88 @@
+[gd_scene format=3 uid="uid://vndu5ub0xpmy"]
+
+[ext_resource type="Script" uid="uid://c7jbw7wxonlkd" path="res://scenes/guild/warehouse_screen.gd" id="1_warehouse"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+
+[node name="WarehouseScreen" type="Control" unique_id=901550676]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_warehouse")
+
+[node name="Background" type="ColorRect" parent="." unique_id=861184797]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.0784314, 0.0941176, 1)
+
+[node name="Layout" type="VBoxContainer" parent="." unique_id=1641179782]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Header" type="HBoxContainer" parent="Layout" unique_id=1239824026]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Layout/Header" unique_id=1819993143]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "ui_guild_warehouse"
+
+[node name="BackButton" parent="Layout/Header" unique_id=511040966 instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_common_back"
+
+[node name="Tabs" type="TabContainer" parent="Layout" unique_id=1276131879]
+layout_mode = 2
+size_flags_vertical = 3
+current_tab = 0
+
+[node name="InventoryTab" type="ScrollContainer" parent="Layout/Tabs" unique_id=872988731]
+layout_mode = 2
+metadata/_tab_index = 0
+
+[node name="InventoryGrid" type="GridContainer" parent="Layout/Tabs/InventoryTab" unique_id=1116162287]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+columns = 4
+
+[node name="CodexTab" type="ScrollContainer" parent="Layout/Tabs" unique_id=611441194]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 1
+
+[node name="CodexList" type="VBoxContainer" parent="Layout/Tabs/CodexTab" unique_id=293125764]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ChestTab" type="VBoxContainer" parent="Layout/Tabs" unique_id=1584410220]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 2
+
+[node name="OpenAllButton" parent="Layout/Tabs/ChestTab" unique_id=456327758 instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_warehouse_open_all"
+
+[node name="ChestScroll" type="ScrollContainer" parent="Layout/Tabs/ChestTab" unique_id=1667416384]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ChestList" type="VBoxContainer" parent="Layout/Tabs/ChestTab/ChestScroll" unique_id=2110479442]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ResultLabel" type="Label" parent="Layout/Tabs/ChestTab" unique_id=451351769]
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3

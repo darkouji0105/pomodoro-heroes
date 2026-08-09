@@ -15,7 +15,7 @@ const RESOURCE_DISPLAY_SCENE: PackedScene = preload("res://scenes/ui/components/
 
 const SCREEN_SCENES: Dictionary = {
 	GameStateKeys.SCREEN_ADVENTURE_SELECT: PLACEHOLDER_PATH,
-	GameStateKeys.SCREEN_GUILD: PLACEHOLDER_PATH,
+		GameStateKeys.SCREEN_GUILD: "res://scenes/guild/guild_screen.tscn",
 	GameStateKeys.SCREEN_POMODORO: "res://scenes/pomodoro/pomodoro.tscn",
 	GameStateKeys.SCREEN_SETTINGS: PLACEHOLDER_PATH,
 	GameStateKeys.SCREEN_SCENARIO: PLACEHOLDER_PATH,
@@ -187,9 +187,11 @@ func _go_to_screen(screen_id: String) -> void:
 	SceneManager.change_scene_with_data(path, {TransferKeys.SCREEN_ID: screen_id})
 
 func _on_chest_badge_pressed() -> void:
-	# 宝箱はギルド画面にある想定
-	_go_to_screen(GameStateKeys.SCREEN_GUILD)
-
+	SceneManager.change_scene_with_data(
+		"res://scenes/guild/warehouse_screen.tscn",
+		{TransferKeys.WAREHOUSE_TAB: "chest"}
+	)
+	
 func _on_save_pressed() -> void:
 	var success: bool = SaveManager.save_game()
 	print("Save Game: ", success)

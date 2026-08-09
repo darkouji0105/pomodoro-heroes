@@ -1,9 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://btg2mq3xnyh7v"]
 
-[ext_resource type="Script" path="res://scenes/ui/placeholder_screen.gd" id="1_script"]
-[ext_resource type="PackedScene" uid="uid://c6v2d1n4p6p3r" path="res://scenes/ui/components/primary_button.tscn" id="2_button"]
+[ext_resource type="Script" uid="uid://cpu5ixuae8pnh" path="res://scenes/ui/placeholder_screen.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_button"]
 
-[node name="PlaceholderScreen" type="Control"]
+[node name="PlaceholderScreen" type="Control" unique_id=448866987]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -12,7 +12,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=2083905283]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -21,7 +21,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.101961, 0.0784314, 0.0941176, 1)
 
-[node name="Layout" type="VBoxContainer" parent="."]
+[node name="Layout" type="VBoxContainer" parent="." unique_id=273333874]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -36,10 +36,10 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 16
 
-[node name="TitleLabel" type="Label" parent="Layout"]
+[node name="TitleLabel" type="Label" parent="Layout" unique_id=393622840]
 layout_mode = 2
 horizontal_alignment = 1
 
-[node name="BackButton" parent="Layout" instance=ExtResource("2_button")]
+[node name="BackButton" parent="Layout" unique_id=68791669 instance=ExtResource("2_button")]
 layout_mode = 2
 label_key = "ui_common_back"
