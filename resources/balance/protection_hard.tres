@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ProtectionTypeConfig" format=3 uid="uid://dkko5cxyck4wo"]
+
+[ext_resource type="Script" uid="uid://qns703ukkrru" path="res://resources/balance/chest_schedule_entry.gd" id="1_nt8ku"]
+[ext_resource type="Script" uid="uid://cn7lljtfwq825" path="res://resources/balance/protection_type_config.gd" id="2_h0cln"]
+
+[sub_resource type="Resource" id="Resource_yqiko"]
+script = ExtResource("1_nt8ku")
+threshold_min = 45
+chest_type = "generic"
+
+[sub_resource type="Resource" id="Resource_xepvj"]
+script = ExtResource("1_nt8ku")
+threshold_min = 90
+chest_type = "generic"
+
+[sub_resource type="Resource" id="Resource_6ibw5"]
+script = ExtResource("1_nt8ku")
+threshold_min = 135
+chest_type = "generic"
+
+[sub_resource type="Resource" id="Resource_pb3rw"]
+script = ExtResource("1_nt8ku")
+threshold_min = 180
+chest_type = "bonus_large"
+
+[resource]
+script = ExtResource("2_h0cln")
+schedule = Array[ExtResource("1_nt8ku")]([SubResource("Resource_yqiko"), SubResource("Resource_xepvj"), SubResource("Resource_6ibw5"), SubResource("Resource_pb3rw")])

@@ -1,16 +1,15 @@
-[gd_resource type="Resource" script_class="InitialStateConfig" format=3]
+[gd_resource type="Resource" script_class="InitialStateConfig" format=3 uid="uid://2u5sjh3mgvg3"]
 
-[ext_resource type="Script" path="res://resources/balance/initial_state_config.gd" id="1_xhmuq"]
+[ext_resource type="Script" uid="uid://0jffyte6gty2" path="res://resources/balance/initial_state_config.gd" id="1_xhmuq"]
 
 [resource]
 script = ExtResource("1_xhmuq")
 starting_gold = 100
-starting_gems = 0
-starting_stamina_max = 10
-starting_stamina_current = 10
+starting_stamina_max = 100
+starting_stamina_current = 20
 starting_materials = {
 "construction_material": 5
 }
-initially_unlocked_screens = ["guild", "adventure_select", "pomodoro", "settings", "scenario"]
+initially_unlocked_screens = Array[String](["guild", "adventure_select", "pomodoro", "settings", "scenario"])
 starting_scenario_chapter = 1
 save_version = 1

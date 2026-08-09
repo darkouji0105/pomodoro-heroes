@@ -17,3 +17,5 @@ extends Resource
 @export var max_long_break_minutes: int
 @export var min_long_break_interval: int
 @export var max_long_break_interval: int
+@export var chest_contents: Array[ChestContentConfig]
+@export var session_title_max_length: int

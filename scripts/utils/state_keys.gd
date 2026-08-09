@@ -8,6 +8,9 @@ extends RefCounted
 # Dictionaryは存在しないキーを読んでもエラーにならず null を返すため、
 # キー名を推測して書くと実行するまで誤りに気づけない。必ずここの定数を使うこと。
 # 構造の全体像は AGENTS.md「GameManagerの状態構造」を参照。
+#
+# 【編集ルール】このファイルは追記のみ。既存の定数を削除・改名しないこと。
+# 定数が1つ消えるだけで、その定数を使う画面が起動できなくなる。
 
 # ============================================================
 # トップレベルキー
@@ -37,6 +40,13 @@ const CHARACTER_GROWTH: String = "character_growth"
 const RESEARCH_TREE: String = "research_tree"
 const RECIPES_UNLOCKED: String = "recipes_unlocked"
 const CRAFTING_QUEUE: String = "crafting_queue"
+
+# ポモドーロ（当日の進捗・受け取り待ちの宝箱）
+const CUMULATIVE_FOCUS_MINUTES_TODAY: String = "cumulative_focus_minutes_today"
+const REACHED_CHEST_THRESHOLDS: String = "reached_chest_thresholds"
+const UNCLAIMED_CHESTS: String = "unclaimed_chests"
+const LAST_PROTECTION_SELECTED_AT: String = "last_protection_selected_at"
+const SELECTED_PROTECTION_TYPE: String = "selected_protection_type"
 
 # ============================================================
 # ネストしたキー
@@ -149,3 +159,33 @@ const CRAFT_STATUS_COLLECTED: String = "collected"
 const SHOP_TYPE_DAILY: String = "daily"
 const SHOP_TYPE_WEEKLY: String = "weekly"
 const SHOP_TYPE_MONTHLY: String = "monthly"
+
+# ============================================================
+# 画面ID（UNLOCKED_SCREENS のキー、および画面遷移の識別子）
+# initial_state_config.tres の initially_unlocked_screens と綴りを一致させること。
+# ============================================================
+
+const SCREEN_GUILD: String = "guild"
+const SCREEN_ADVENTURE_SELECT: String = "adventure_select"
+const SCREEN_POMODORO: String = "pomodoro"
+const SCREEN_SETTINGS: String = "settings"
+const SCREEN_SCENARIO: String = "scenario"
+
+# ============================================================
+# 加護の種類
+# ============================================================
+
+const PROTECTION_LIGHT: String = "light"
+const PROTECTION_MIDDLE: String = "middle"
+const PROTECTION_HARD: String = "hard"
+
+# ============================================================
+# 宝箱の種類（chest_type）と入手元（source）
+# ============================================================
+
+const CHEST_TYPE_GENERIC: String = "generic"
+const CHEST_TYPE_BONUS_SMALL: String = "bonus_small"
+const CHEST_TYPE_BONUS_MEDIUM: String = "bonus_medium"
+const CHEST_TYPE_BONUS_LARGE: String = "bonus_large"
+
+const CHEST_SOURCE_POMODORO: String = "pomodoro"

@@ -79,6 +79,11 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.RESEARCH_TREE: {},
 		GameStateKeys.RECIPES_UNLOCKED: {},
 		GameStateKeys.CRAFTING_QUEUE: [],
+		GameStateKeys.CUMULATIVE_FOCUS_MINUTES_TODAY: 0,
+		GameStateKeys.REACHED_CHEST_THRESHOLDS: [],
+		GameStateKeys.UNCLAIMED_CHESTS: [],
+		GameStateKeys.LAST_PROTECTION_SELECTED_AT: "",
+		GameStateKeys.SELECTED_PROTECTION_TYPE: "",
 	}
 
 # --- 内部ヘルパー ---
@@ -118,13 +123,18 @@ func add_gems(amount: int) -> void:
 	resource_changed.emit(GameStateKeys.GEMS, _state[GameStateKeys.GEMS])
 
 func add_stamina(amount: int) -> void:
-	# NOTE: max を超えたぶんを切り捨てるかどうかは未確定。
-	# 現状は切り捨てず加算する。仕様が決まったら PLAN_POMODORO_CORE_LOOP.md と合わせて修正すること。
 	var stamina: Dictionary = _copy_dict(GameStateKeys.STAMINA)
-	stamina[GameStateKeys.STAMINA_CURRENT] = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0)) + amount
+	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0))
+	var max_stamina: int = int(stamina.get(GameStateKeys.STAMINA_MAX, 0))
+	
+	current += amount
+	if current > max_stamina:
+		current = max_stamina
+	
+	stamina[GameStateKeys.STAMINA_CURRENT] = current
 	_state[GameStateKeys.STAMINA] = stamina
-	print("[GameManager] add_stamina(%d) -> current=%d" % [amount, int(stamina[GameStateKeys.STAMINA_CURRENT])])
-	resource_changed.emit(GameStateKeys.STAMINA, stamina[GameStateKeys.STAMINA_CURRENT])
+	print("[GameManager] add_stamina(%d) -> current=%d" % [amount, current])
+	resource_changed.emit(GameStateKeys.STAMINA, current)
 
 func spend_stamina(amount: int) -> bool:
 	# 足りなければ何もせずfalseを返す
@@ -270,6 +280,129 @@ func apply_pomodoro_rewards(reward_data: Dictionary) -> void:
 	print("[GameManager] total_pomodoro_completed -> %d" % _state[GameStateKeys.TOTAL_POMODORO_COMPLETED])
 	# 発火元をGameManagerに一本化（呼び出し元のポモドーロ画面側では発火させない・二重発火防止）
 	SignalBus.pomodoro_session_completed.emit(reward_data)
+
+# --- ポモドーロ：しきい値と宝箱 ---
+
+# その日の累計作業分を加算する。振り返りが確定したセットのみ呼ばれる想定。
+func add_focus_minutes(minutes: int) -> void:
+	_refresh_daily_pomodoro_stats_if_needed()
+	
+	var current: int = int(_state.get(GameStateKeys.CUMULATIVE_FOCUS_MINUTES_TODAY, 0))
+	var new_total: int = current + minutes
+	_state[GameStateKeys.CUMULATIVE_FOCUS_MINUTES_TODAY] = new_total
+	print("[GameManager] add_focus_minutes(%d) -> total=%d" % [minutes, new_total])
+	# ここでしきい値判定を自動で行わず、PomodoroController 側で明示的に跨ぎを制御できるように口を開けておく
+	# (指示書 7-6 は PomodoroController 側で判定する手順になっている)
+
+# その日の累計作業分を取得する
+func get_cumulative_focus_minutes() -> int:
+	_refresh_daily_pomodoro_stats_if_needed()
+	return int(_state.get(GameStateKeys.CUMULATIVE_FOCUS_MINUTES_TODAY, 0))
+
+# しきい値に到達済みか（同じしきい値で二重に宝箱を発生させないため）
+func has_reached_threshold(threshold_min: int) -> bool:
+	var reached: Array = _state.get(GameStateKeys.REACHED_CHEST_THRESHOLDS, [])
+	return int(threshold_min) in reached
+
+# しきい値到達を記録し、受け取り待ちの宝箱を積む。
+# この時点では add_pending_chest() を呼ばない（受け取りは拠点帰還時）。
+func record_reached_threshold(threshold_min: int, chest_type: String) -> void:
+	var reached: Array = _copy_array(GameStateKeys.REACHED_CHEST_THRESHOLDS)
+	var unclaimed: Array = _copy_array(GameStateKeys.UNCLAIMED_CHESTS)
+	
+	if not (int(threshold_min) in reached):
+		reached.append(int(threshold_min))
+		unclaimed.append(chest_type)
+		_state[GameStateKeys.REACHED_CHEST_THRESHOLDS] = reached
+		_state[GameStateKeys.UNCLAIMED_CHESTS] = unclaimed
+		print("[GameManager] recorded threshold: %d min -> %s" % [threshold_min, chest_type])
+
+# 受け取り待ちの宝箱の一覧を取得する
+func get_unclaimed_chests() -> Array:
+	return _state.get(GameStateKeys.UNCLAIMED_CHESTS, []).duplicate(true)
+
+# 受け取り待ちの宝箱をすべて pending_chests へ移し、unclaimed_chests を空にする。
+# 付与した件数を返す。
+func claim_pending_chests() -> int:
+	var unclaimed: Array = _copy_array(GameStateKeys.UNCLAIMED_CHESTS)
+	if unclaimed.is_empty():
+		return 0
+	
+	var count: int = 0
+	for chest_type: String in unclaimed:
+		var content_config: ChestContentConfig = null
+		for c in Balance.pomodoro.chest_contents:
+			if c.chest_type == chest_type:
+				content_config = c
+				break
+		
+		if content_config == null:
+			push_warning("[GameManager] chest_type not found in config: " + chest_type)
+			continue
+			
+		var chest_data: Dictionary = {
+			GameStateKeys.CHEST_ID: str(Time.get_unix_time_from_system()) + "_" + str(randi()),
+			GameStateKeys.CHEST_TYPE: chest_type,
+			GameStateKeys.CHEST_SOURCE: GameStateKeys.CHEST_SOURCE_POMODORO,
+			GameStateKeys.CHEST_OBTAINED_AT: str(Time.get_unix_time_from_system()),
+			GameStateKeys.CHEST_OPENED: false,
+			GameStateKeys.CHEST_REWARDS: {
+				GameStateKeys.REWARD_GOLD: 0,
+				GameStateKeys.REWARD_GEMS: 0,
+				GameStateKeys.REWARD_STAMINA: 0,
+				GameStateKeys.REWARD_MATERIALS: content_config.materials.duplicate(true),
+				GameStateKeys.REWARD_INVENTORY: {}
+			}
+		}
+		add_pending_chest(chest_data)
+		count += 1
+	
+	_state[GameStateKeys.UNCLAIMED_CHESTS] = []
+	print("[GameManager] claimed %d chests" % count)
+	return count
+
+# 加護の選択を記録する（選択時刻も記録し、翌日の再表示判定に使う）
+func set_protection_type(protection_id: String) -> void:
+	_refresh_daily_pomodoro_stats_if_needed()
+	_state[GameStateKeys.SELECTED_PROTECTION_TYPE] = protection_id
+	_state[GameStateKeys.LAST_PROTECTION_SELECTED_AT] = str(Time.get_unix_time_from_system())
+	print("[GameManager] set_protection_type('%s')" % protection_id)
+
+# 今日すでに加護を選んでいるか（毎朝4:00基準）
+func has_selected_protection_today() -> bool:
+	var last_at: String = str(_state.get(GameStateKeys.LAST_PROTECTION_SELECTED_AT, ""))
+	if last_at == "":
+		return false
+	return GameDate.is_same_game_day(float(last_at), Time.get_unix_time_from_system())
+
+# 日付が変わっていれば当日データをリセットする。
+func reset_daily_pomodoro_state_if_needed() -> void:
+	_refresh_daily_pomodoro_stats_if_needed()
+
+# 日付が変わっていたら累計作業分としきい値をリセットする内部関数
+func _refresh_daily_pomodoro_stats_if_needed() -> void:
+	var last_at: String = str(_state.get(GameStateKeys.LAST_PROTECTION_SELECTED_AT, ""))
+	if last_at != "" and not GameDate.is_same_game_day(float(last_at), Time.get_unix_time_from_system()):
+		print("[GameManager] new day detected - resetting daily pomodoro stats")
+		_state[GameStateKeys.CUMULATIVE_FOCUS_MINUTES_TODAY] = 0
+		_state[GameStateKeys.REACHED_CHEST_THRESHOLDS] = []
+		_state[GameStateKeys.SELECTED_PROTECTION_TYPE] = ""
+		# UNCLAIMED_CHESTS はリセットしない
+
+func _check_chest_thresholds(_old_total: int, new_total: int) -> void:
+	pass # PomodoroController 側で呼ぶため不要になったが互換性のために残すか、削除する
+
+func add_cumulative_focus_minutes(minutes: int) -> void:
+	add_focus_minutes(minutes)
+
+func claim_unclaimed_chests() -> void:
+	var _cnt = claim_pending_chests()
+
+func is_protection_selected_today() -> bool:
+	return has_selected_protection_today()
+
+func get_cumulative_focus_minutes_today() -> int:
+	return get_cumulative_focus_minutes()
 
 # --- 戦闘報酬 ---
 

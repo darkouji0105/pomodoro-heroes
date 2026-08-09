@@ -1,7 +1,79 @@
-[gd_resource type="Resource" script_class="PomodoroConfig" format=3]
+[gd_resource type="Resource" script_class="PomodoroConfig" format=3 uid="uid://bcd2xhqnqtwn1"]
 
-[ext_resource type="Script" path="res://resources/balance/pomodoro_preset.gd" id="1_vgqft"]
-[ext_resource type="Script" path="res://resources/balance/pomodoro_config.gd" id="2_qspct"]
+[ext_resource type="Script" uid="uid://de5vd55mteqj8" path="res://resources/balance/chest_content_config.gd" id="1_qs7fj"]
+[ext_resource type="Script" uid="uid://bp23ijj0n5ts0" path="res://resources/balance/pomodoro_config.gd" id="1_x"]
+[ext_resource type="Script" uid="uid://blkstfcogedp7" path="res://resources/balance/pomodoro_preset.gd" id="2_rtril"]
+[ext_resource type="Resource" path="res://resources/balance/protection_light.tres" id="3_light"]
+[ext_resource type="Resource" path="res://resources/balance/protection_middle.tres" id="4_middle"]
+[ext_resource type="Resource" path="res://resources/balance/protection_hard.tres" id="5_hard"]
+
+[sub_resource type="Resource" id="Chest_generic"]
+script = ExtResource("1_qs7fj")
+chest_type = "generic"
+materials = {
+"construction_material": 4
+}
+
+[sub_resource type="Resource" id="Chest_bonus_small"]
+script = ExtResource("1_qs7fj")
+chest_type = "bonus_small"
+materials = {
+"construction_material": 10
+}
+
+[sub_resource type="Resource" id="Chest_bonus_medium"]
+script = ExtResource("1_qs7fj")
+chest_type = "bonus_medium"
+materials = {
+"construction_material": 25
+}
+
+[sub_resource type="Resource" id="Chest_bonus_large"]
+script = ExtResource("1_qs7fj")
+chest_type = "bonus_large"
+materials = {
+"construction_material": 30
+}
+
+[sub_resource type="Resource" id="Preset_short"]
+script = ExtResource("2_rtril")
+preset_id = "short"
+focus_duration_sec = 900
+short_break_sec = 180
+long_break_sec = 1800
+long_break_interval = 4
+default_total_sets = 4
+
+[sub_resource type="Resource" id="Preset_standard"]
+script = ExtResource("2_rtril")
+preset_id = "standard"
+focus_duration_sec = 1500
+short_break_sec = 300
+long_break_sec = 1800
+long_break_interval = 4
+default_total_sets = 4
+
+[sub_resource type="Resource" id="Preset_long"]
+script = ExtResource("2_rtril")
+preset_id = "long"
+focus_duration_sec = 3000
+short_break_sec = 600
+long_break_sec = 1800
+long_break_interval = 4
+default_total_sets = 3
 
 [resource]
-script = ExtResource("2_qspct")
+script = ExtResource("1_x")
+protection_light = ExtResource("3_light")
+protection_middle = ExtResource("4_middle")
+protection_hard = ExtResource("5_hard")
+stamina_per_focus_minute = 0.2
+presets = Array[ExtResource("2_rtril")]([SubResource("Preset_short"), SubResource("Preset_standard"), SubResource("Preset_long")])
+min_sets = 1
+max_sets = 12
+min_long_break_minutes = 5
+max_long_break_minutes = 60
+min_long_break_interval = 2
+max_long_break_interval = 8
+chest_contents = Array[ExtResource("1_qs7fj")]([SubResource("Chest_generic"), SubResource("Chest_bonus_small"), SubResource("Chest_bonus_medium"), SubResource("Chest_bonus_large")])
+session_title_max_length = 30

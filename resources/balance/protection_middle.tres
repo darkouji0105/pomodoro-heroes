@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ProtectionTypeConfig" format=3 uid="uid://b16gnqk03eool"]
+
+[ext_resource type="Script" uid="uid://qns703ukkrru" path="res://resources/balance/chest_schedule_entry.gd" id="1_jqrp6"]
+[ext_resource type="Script" uid="uid://cn7lljtfwq825" path="res://resources/balance/protection_type_config.gd" id="2_nt058"]
+
+[sub_resource type="Resource" id="Resource_nyftj"]
+script = ExtResource("1_jqrp6")
+threshold_min = 45
+chest_type = "generic"
+
+[sub_resource type="Resource" id="Resource_f7jgl"]
+script = ExtResource("1_jqrp6")
+threshold_min = 90
+chest_type = "bonus_medium"
+
+[resource]
+script = ExtResource("2_nt058")
+schedule = Array[ExtResource("1_jqrp6")]([SubResource("Resource_nyftj"), SubResource("Resource_f7jgl")])

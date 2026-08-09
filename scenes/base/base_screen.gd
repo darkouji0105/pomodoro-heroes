@@ -16,7 +16,7 @@ const RESOURCE_DISPLAY_SCENE: PackedScene = preload("res://scenes/ui/components/
 const SCREEN_SCENES: Dictionary = {
 	GameStateKeys.SCREEN_ADVENTURE_SELECT: PLACEHOLDER_PATH,
 	GameStateKeys.SCREEN_GUILD: PLACEHOLDER_PATH,
-	GameStateKeys.SCREEN_POMODORO: PLACEHOLDER_PATH,
+	GameStateKeys.SCREEN_POMODORO: "res://scenes/pomodoro/pomodoro.tscn",
 	GameStateKeys.SCREEN_SETTINGS: PLACEHOLDER_PATH,
 	GameStateKeys.SCREEN_SCENARIO: PLACEHOLDER_PATH,
 }
