@@ -60,3 +60,7 @@ ui_pomodoro_reflection_instruction,今回やったことを20文字以上で書�
 ui_pomodoro_reflection_warning,あと{0}秒で自動的にスキップされます
 ui_pomodoro_reflection_complete,確定する
 ui_pomodoro_break_skip,休憩をスキップ
+ui_res_stamina_potion,スタミナポーション
+ui_base_use_potion,使う
+ui_res_stamina_potion,スタミナポーション
+ui_base_use_potion,使う
