@@ -1,0 +1,30 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1unit_view_001"]
+
+[ext_resource type="Script" path="res://scenes/adventure/unit_view.gd" id="1_unit_view"]
+
+[node name="UnitView" type="Node2D"]
+script = ExtResource("1_unit_view")
+
+[node name="Body" type="ColorRect" parent="."]
+offset_left = -32.0
+offset_top = -32.0
+offset_right = 32.0
+offset_bottom = 32.0
+color = Color(0.5, 0.5, 0.5, 1)
+
+[node name="HpBar" type="ProgressBar" parent="."]
+offset_left = -32.0
+offset_top = -40.0
+offset_right = 32.0
+offset_bottom = -32.0
+show_percentage = false
+max_value = 100.0
+value = 100.0
+
+[node name="NameLabel" type="Label" parent="."]
+offset_left = -60.0
+offset_top = 36.0
+offset_right = 60.0
+offset_bottom = 52.0
+horizontal_alignment = 1
+text = ""

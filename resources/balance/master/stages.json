@@ -1,0 +1,13 @@
+{
+  "stage_1": {
+    "party_id": "party_default",
+    "rewards": { "gold": 50, "materials": { "construction_material": 3 } },
+    "waves": [
+      { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 } ] },
+      { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 3 } ] },
+      { "wave_index": 3, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
+      { "wave_index": 4, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
+      { "wave_index": 5, "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true } ] }
+    ]
+  }
+}

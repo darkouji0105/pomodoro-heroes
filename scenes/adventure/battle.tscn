@@ -1,0 +1,70 @@
+[gd_scene format=3 uid="uid://dx2mf42b21wkg"]
+
+[ext_resource type="Script" uid="uid://bvlbknyg1te0s" path="res://scenes/adventure/battle_controller.gd" id="1_battle_ctrl"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+
+[node name="Battle" type="Node2D" unique_id=486331460]
+script = ExtResource("1_battle_ctrl")
+
+[node name="Background" type="ColorRect" parent="." unique_id=294196434]
+offset_right = 1280.0
+offset_bottom = 720.0
+color = Color(0.12, 0.12, 0.16, 1)
+
+[node name="PartyUnitsContainer" type="Node2D" parent="." unique_id=625846521]
+
+[node name="EnemyUnitsContainer" type="Node2D" parent="." unique_id=1634056509]
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=347567322]
+
+[node name="WaveLabel" type="Label" parent="HUD" unique_id=143107562]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 200.0
+offset_bottom = 40.0
+text = "1 / 5"
+
+[node name="ResultView" type="Control" parent="." unique_id=234142154]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+
+[node name="DimPanel" type="ColorRect" parent="ResultView" unique_id=1659633242]
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+color = Color(0, 0, 0, 0.6)
+
+[node name="ResultLabel" type="Label" parent="ResultView" unique_id=1953451758]
+layout_mode = 0
+offset_left = 440.0
+offset_top = 200.0
+offset_right = 840.0
+offset_bottom = 260.0
+horizontal_alignment = 1
+
+[node name="RewardLabel" type="Label" parent="ResultView" unique_id=116060537]
+layout_mode = 0
+offset_left = 440.0
+offset_top = 280.0
+offset_right = 840.0
+offset_bottom = 360.0
+horizontal_alignment = 1
+
+[node name="RetryButton" parent="ResultView" unique_id=121349274 instance=ExtResource("2_primary_btn")]
+layout_mode = 0
+offset_left = 440.0
+offset_top = 400.0
+offset_right = 600.0
+offset_bottom = 460.0
+label_key = "ui_battle_retry"
+
+[node name="BackButton" parent="ResultView" unique_id=1303301017 instance=ExtResource("2_primary_btn")]
+layout_mode = 0
+offset_left = 680.0
+offset_top = 400.0
+offset_right = 840.0
+offset_bottom = 460.0
+label_key = "ui_battle_back"
