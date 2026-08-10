@@ -1,0 +1,56 @@
+[gd_scene load_steps=3 format=3 uid="uid://bmodal001"]
+
+[ext_resource type="Script" path="res://scenes/ui/components/modal_dialog.gd" id="1_modal_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_button"]
+
+[node name="ModalDialog" type="CanvasLayer"]
+layer = 200
+script = ExtResource("1_modal_script")
+
+[node name="Blocker" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dimmer" type="ColorRect" parent="Blocker"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="Panel" type="PanelContainer" parent="Blocker"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+custom_minimum_size = Vector2(400, 0)
+
+[node name="Margin" type="MarginContainer" parent="Blocker/Panel"]
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Blocker/Panel/Margin"]
+theme_override_constants/separation = 16
+
+[node name="MessageLabel" type="Label" parent="Blocker/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(400, 0)
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Blocker/Panel/Margin/VBox"]
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="ConfirmButton" parent="Blocker/Panel/Margin/VBox/Buttons" instance=ExtResource("2_primary_button")]
+visible = false
+
+[node name="CloseButton" parent="Blocker/Panel/Margin/VBox/Buttons" instance=ExtResource("2_primary_button")]

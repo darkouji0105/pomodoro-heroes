@@ -193,8 +193,12 @@ func _on_chest_badge_pressed() -> void:
 	)
 	
 func _on_save_pressed() -> void:
-	var success: bool = SaveManager.save_game()
-	print("Save Game: ", success)
+	if SaveManager.save_game():
+		Modal.notify(self, "ui_base_save_completed")
+	else:
+		Modal.notify(self, "ui_base_save_failed")
+	
+
 
 func _on_back_to_title_pressed() -> void:
 	SceneManager.change_scene(TITLE_PATH)
