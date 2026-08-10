@@ -193,3 +193,10 @@ const CHEST_SOURCE_POMODORO: String = "pomodoro"
 # スタミナポーション
 const POTION_FOCUS_REMAINDER: String = "potion_focus_remainder"
 const ITEM_STAMINA_POTION: String = "stamina_potion"
+
+# ============================================================
+# ステージ種別（BattleSession.stage_type / 冒険選択画面で使用）
+# ============================================================
+
+const STAGE_TYPE_STORY: String = "story"
+const STAGE_TYPE_TRAINING: String = "training"

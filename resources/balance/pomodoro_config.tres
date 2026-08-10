@@ -1,4 +1,4 @@
-[gd_resource type="Resource" format=3 uid="uid://bcd2xhqnqtwn1"]
+[gd_resource type="Resource" script_class="PomodoroConfig" format=3 uid="uid://bcd2xhqnqtwn1"]
 
 [ext_resource type="Script" uid="uid://de5vd55mteqj8" path="res://resources/balance/chest_content_config.gd" id="1_qs7fj"]
 [ext_resource type="Script" uid="uid://bp23ijj0n5ts0" path="res://resources/balance/pomodoro_config.gd" id="1_x"]

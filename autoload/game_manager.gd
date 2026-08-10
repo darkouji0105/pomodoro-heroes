@@ -645,3 +645,25 @@ func use_stamina_potion() -> bool:
 	resource_changed.emit(GameStateKeys.STAMINA, current)
 	print("[potion] before materials=", _state.get(GameStateKeys.MATERIALS, {}))
 	return true
+
+# --- ストーリーステージ ---
+
+# 戦闘勝利時にステージのクリア状態を記録する。
+# stars は判定基準が未確定のため、当面は常に 0 が渡される。
+# 既存の stars より小さい値で上書きしないよう maxi で比較する。
+func mark_stage_cleared(stage_id: String, stars: int = 0) -> void:
+	var story: Dictionary = _copy_dict(GameStateKeys.STORY)
+	var stages: Dictionary = (story.get(GameStateKeys.STORY_STAGES, {}) as Dictionary).duplicate(true)
+	var entry: Dictionary = (stages.get(stage_id, {}) as Dictionary).duplicate(true)
+	entry[GameStateKeys.STAGE_CLEARED] = true
+	entry[GameStateKeys.STAGE_STARS] = maxi(int(entry.get(GameStateKeys.STAGE_STARS, 0)), stars)
+	stages[stage_id] = entry
+	story[GameStateKeys.STORY_STAGES] = stages
+	_state[GameStateKeys.STORY] = story
+	print("[GameManager] mark_stage_cleared('%s', %d)" % [stage_id, stars])
+
+func is_stage_cleared(stage_id: String) -> bool:
+	var story: Dictionary = _state.get(GameStateKeys.STORY, {})
+	var stages: Dictionary = story.get(GameStateKeys.STORY_STAGES, {})
+	var entry: Dictionary = stages.get(stage_id, {})
+	return bool(entry.get(GameStateKeys.STAGE_CLEARED, false))

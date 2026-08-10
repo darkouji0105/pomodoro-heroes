@@ -14,7 +14,7 @@ const TITLE_PATH: String = "res://scenes/title/title_screen.tscn"
 const RESOURCE_DISPLAY_SCENE: PackedScene = preload("res://scenes/ui/components/resource_display.tscn")
 
 const SCREEN_SCENES: Dictionary = {
-	GameStateKeys.SCREEN_ADVENTURE_SELECT: PLACEHOLDER_PATH,
+	GameStateKeys.SCREEN_ADVENTURE_SELECT: "res://scenes/adventure/battle.tscn",
 		GameStateKeys.SCREEN_GUILD: "res://scenes/guild/guild_screen.tscn",
 	GameStateKeys.SCREEN_POMODORO: "res://scenes/pomodoro/pomodoro.tscn",
 	GameStateKeys.SCREEN_SETTINGS: PLACEHOLDER_PATH,
@@ -189,7 +189,7 @@ func _go_to_screen(screen_id: String) -> void:
 func _on_chest_badge_pressed() -> void:
 	SceneManager.change_scene_with_data(
 		"res://scenes/guild/warehouse_screen.tscn",
-		{TransferKeys.WAREHOUSE_TAB: "chest"}
+		{TransferKeys.WAREHOUSE_TAB: "WarehouseScreen.TAB_CHEST"}
 	)
 	
 func _on_save_pressed() -> void:

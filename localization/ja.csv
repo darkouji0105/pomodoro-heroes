@@ -81,3 +81,13 @@ ui_warehouse_empty,なにもありません
 ui_warehouse_undiscovered,？？？
 ui_warehouse_no_chest,受け取れる宝箱はありません
 ui_warehouse_opened,開けました
+ui_battle_victory,勝利
+ui_battle_defeat,敗北
+ui_battle_retry,もう一度
+ui_battle_back,拠点へ戻る
+ui_battle_reward_gold,ゴールド
+ui_battle_char_swordsman,剣士
+ui_battle_char_archer,弓兵
+ui_battle_enemy_slime,スライム
+ui_battle_enemy_wolf,ウルフ
+ui_battle_enemy_slime_king,スライムキング
