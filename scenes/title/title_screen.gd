@@ -1,8 +1,5 @@
 extends Control
 
-# 警告を読む時間を確保するための待機秒数
-const WARNING_DISPLAY_SEC: float = 2.0
-
 @onready var start_button: PrimaryButton = $ButtonContainer/StartButton
 @onready var delete_save_button: PrimaryButton = $ButtonContainer/DeleteSaveButton
 @onready var title_label: Label = $TitleLabel
@@ -28,24 +25,26 @@ func _on_start_pressed() -> void:
 	if SaveManager.has_save():
 		var ok: bool = SaveManager.load_game()
 		if not ok:
-			# 読み込み失敗。警告を出してから新規開始として続行する。
-			# 遷移を待たずに change_scene すると警告が1フレームも表示されないため、
-			# 読む時間を確保してから遷移する。
-			_show_message(tr("ui_title_load_failed"))
+			# 読み込み失敗。閉じるまで待ってから新規開始として続行する。
+			# 以前は2秒待つ実装だったが、読み切る前に消えるおそれがあった。
+			# モーダルなら本人が閉じるまで残る。
 			start_button.disabled = true
 			delete_save_button.disabled = true
-			await get_tree().create_timer(WARNING_DISPLAY_SEC).timeout
+			var dlg: ModalDialog = Modal.notify(self, "ui_title_load_failed")
+			if dlg != null:
+				await dlg.closed
 	SceneManager.change_scene("res://scenes/base/base_screen.tscn")
 
+# セーブの削除は取り返しがつかない。必ず確認する。
 func _on_delete_save_pressed() -> void:
+	var confirmed: bool = await Modal.confirm(self, "ui_title_delete_confirm")
+	if not confirmed:
+		return
+
 	var ok: bool = SaveManager.delete_save()
 	# _refresh_ui() が error_label を隠すため、必ずメッセージ表示より先に呼ぶ
 	_refresh_ui()
 	if ok:
-		_show_message(tr("ui_title_delete_done"))
+		Modal.notify(self, "ui_title_delete_done")
 	else:
-		_show_message(tr("ui_title_delete_failed"))
-
-func _show_message(message: String) -> void:
-	error_label.text = message
-	error_label.visible = true
+		Modal.notify(self, "ui_title_delete_failed")

@@ -21,8 +21,15 @@ static var _queue_scene: Node = null
 
 
 # 通知。閉じるまで残る。
-static func notify(caller: Node, message_key: String, format_args: Array = [], pause: bool = false) -> void:
-	_enqueue(caller, message_key, format_args, false, pause)
+#
+# 生成したダイアログを返す。閉じるまで待ちたい場合は
+#   var d := Modal.notify(self, "key")
+#   if d != null:
+#       await d.closed
+# と書く。戻り値を使わなくてよい呼び出しのほうが多いので、
+# await を強制しない形にしている。
+static func notify(caller: Node, message_key: String, format_args: Array = [], pause: bool = false) -> ModalDialog:
+	return _enqueue(caller, message_key, format_args, false, pause)
 
 
 # 確認。await で結果を受け取る。

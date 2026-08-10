@@ -12,3 +12,7 @@ const WAREHOUSE_TAB: String = "warehouse_tab"
 const STAGE_ID: String = "stage_id"
 const PARTY_ID: String = "party_id"
 const STAGE_TYPE: String = "stage_type"
+
+# ポモドーロから拠点へ渡す受け取り数（PLAN_MODAL.md タスク2）
+const POMODORO_POTIONS: String = "pomodoro_potions"
+const POMODORO_CHESTS: String = "pomodoro_chests"

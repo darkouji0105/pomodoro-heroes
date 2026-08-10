@@ -10,7 +10,7 @@ func save_game() -> bool:
 	if not DirAccess.dir_exists_absolute(SAVE_DIR):
 		DirAccess.make_dir_recursive_absolute(SAVE_DIR)
 	
-	GameManager.mark_saved()
+	
 	var snapshot: Dictionary = GameManager.get_state()
 	var json_text: String = JSON.stringify(snapshot, "\t")
 	
@@ -21,6 +21,7 @@ func save_game() -> bool:
 	
 	f.store_string(json_text)
 	f.close()
+	GameManager.mark_saved()
 	print("[SaveManager] save_game -> %s" % SAVE_PATH)
 	return true
 

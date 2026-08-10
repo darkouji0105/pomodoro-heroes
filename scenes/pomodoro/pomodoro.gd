@@ -249,7 +249,12 @@ func _return_to_base() -> void:
 	var claimed_chest_count: int = GameManager.claim_pending_chests()
 	print("[Pomodoro] potions=%d, claimed_chests=%d" % [potion_count, claimed_chest_count])
 
-	SceneManager.change_scene(BASE_PATH)
+	# 受け取り報告は拠点に着いてから出す。
+	# ここでモーダルを出しても直後の遷移で消えるため、数だけ渡す。
+	SceneManager.change_scene_with_data(BASE_PATH, {
+		TransferKeys.POMODORO_POTIONS: potion_count,
+		TransferKeys.POMODORO_CHESTS: claimed_chest_count,
+	})
 
 
 func get_presence_status() -> Dictionary:

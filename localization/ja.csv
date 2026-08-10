@@ -114,3 +114,5 @@ ui_base_save_completed,セーブしました
 ui_base_save_failed,セーブに失敗しました
 ui_base_chest_received,宝箱を%d個受け取りました
 ui_title_back_confirm,タイトルに戻りますか？ 保存していない進行状況は失われます
+ui_base_pomodoro_rewards,ポーションを%d個、宝箱を%d個受け取りました
+ui_title_delete_confirm,セーブデータを削除しますか？ この操作は取り消せません
