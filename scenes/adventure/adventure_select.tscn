@@ -1,10 +1,10 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3 uid="uid://2bxywltbodjy"]
 
-[ext_resource type="Script" path="res://scenes/adventure/adventure_select.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://cggrx1i1db1ii" path="res://scenes/adventure/adventure_select.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/resource_display.tscn" id="2_resource_dsp"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="3_button"]
 
-[node name="AdventureSelect" type="Control"]
+[node name="AdventureSelect" type="Control" unique_id=1158994887]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -13,15 +13,16 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=1109209626]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+color = Color(0.101960786, 0.078431375, 0.09411765, 1)
 
-[node name="Layout" type="VBoxContainer" parent="."]
+[node name="Layout" type="VBoxContainer" parent="." unique_id=663940200]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -32,43 +33,43 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 8
 
-[node name="Header" type="HBoxContainer" parent="Layout"]
+[node name="Header" type="HBoxContainer" parent="Layout" unique_id=1970278672]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="TitleLabel" type="Label" parent="Layout/Header"]
+[node name="TitleLabel" type="Label" parent="Layout/Header" unique_id=1206824545]
 layout_mode = 2
 text = "ui_adventure_title"
 
-[node name="Spacer" type="Control" parent="Layout/Header"]
+[node name="Spacer" type="Control" parent="Layout/Header" unique_id=70985714]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="StaminaNameLabel" type="Label" parent="Layout/Header"]
+[node name="StaminaNameLabel" type="Label" parent="Layout/Header" unique_id=227865914]
 layout_mode = 2
 text = "ui_res_stamina"
 
-[node name="StaminaValue" parent="Layout/Header" instance=ExtResource("2_resource_dsp")]
+[node name="StaminaValue" parent="Layout/Header" unique_id=1786640006 instance=ExtResource("2_resource_dsp")]
 layout_mode = 2
 
-[node name="MessageLabel" type="Label" parent="Layout"]
+[node name="MessageLabel" type="Label" parent="Layout" unique_id=1931134563]
 layout_mode = 2
 
-[node name="StageList" type="VBoxContainer" parent="Layout"]
+[node name="StageList" type="VBoxContainer" parent="Layout" unique_id=1429959084]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Spacer2" type="Control" parent="Layout"]
+[node name="Spacer2" type="Control" parent="Layout" unique_id=715718882]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Footer" type="HBoxContainer" parent="Layout"]
+[node name="Footer" type="HBoxContainer" parent="Layout" unique_id=1056123556]
 layout_mode = 2
 
-[node name="TrainingButton" parent="Layout/Footer" instance=ExtResource("3_button")]
+[node name="TrainingButton" parent="Layout/Footer" unique_id=20796935 instance=ExtResource("3_button")]
 layout_mode = 2
 label_key = "ui_adventure_training"
 
-[node name="BackButton" parent="Layout/Footer" instance=ExtResource("3_button")]
+[node name="BackButton" parent="Layout/Footer" unique_id=899698363 instance=ExtResource("3_button")]
 layout_mode = 2
 label_key = "ui_adventure_back"

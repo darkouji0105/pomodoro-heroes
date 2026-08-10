@@ -99,12 +99,12 @@ ui_battle_skill_arrow_rain,矢の雨
 ui_battle_skill_healing_light,癒しの光
 ui_battle_skill_holy_ray,聖光
 ui_battle_just,JUST!
-ui_adventure_title	冒険
-ui_adventure_stamina_short	スタミナが足りません
-ui_adventure_locked	前のステージをクリアすると解放されます
-ui_adventure_training	トレーニング
-ui_adventure_back	拠点へ戻る
-ui_stage_1	1. 草原のスライム
-ui_stage_2	2. 荒野の群れ
-ui_stage_3	3. 森の主
+ui_adventure_title,冒険
+ui_adventure_stamina_short,スタミナが足りません
+ui_adventure_locked,前のステージをクリアすると解放されます
+ui_adventure_training,トレーニング
+ui_adventure_back,拠点へ戻る
 ui_adventure_challenge,挑戦
+ui_stage_1,1. 草原のスライム
+ui_stage_2,2. 荒野の群れ
+ui_stage_3,3. 森の主
