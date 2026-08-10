@@ -108,3 +108,9 @@ ui_adventure_challenge,挑戦
 ui_stage_1,1. 草原のスライム
 ui_stage_2,2. 荒野の群れ
 ui_stage_3,3. 森の主
+ui_common_yes,はい
+ui_common_no,いいえ
+ui_base_save_completed,セーブしました
+ui_base_save_failed,セーブに失敗しました
+ui_base_chest_received,宝箱を%d個受け取りました
+ui_title_back_confirm,タイトルに戻りますか？ 保存していない進行状況は失われます
