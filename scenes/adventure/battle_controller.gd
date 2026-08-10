@@ -3,7 +3,8 @@ extends Node2D
 # BattleController
 # battle.tscn に張り付くコントローラ。
 # 戦闘ループ・ウェーブ進行・勝敗確定・結果表示を一元管理する。
-# フェーズ2（スキル・ボス）＋チャージスキル・3列レイアウトを反映済み。
+# フェーズ2（スキル・ボス）＋チャージスキル・3列レイアウト・
+# 勝利時のスタミナ消費を反映済み。
 
 # ユニットを並べる y 位置。
 # 画面下部はスキルボタン3列ぶんの高さを使うため、その上に収まる位置に置く。
@@ -722,6 +723,7 @@ func _enter_victory() -> void:
 	_result_applied = true
 	_cancel_charge()
 	_session.state = BattleSession.STATE_VICTORY
+	_consume_stage_stamina()
 
 	var result_data: Dictionary = {
 		GameStateKeys.BATTLE_VICTORY: true,
@@ -732,6 +734,32 @@ func _enter_victory() -> void:
 	GameManager.mark_stage_cleared(_stage_id, 0)
 
 	_show_result(true, result_data)
+
+
+# スタミナは勝ったときだけ消費する。
+#
+# 入場時は冒険選択画面が残量を確認するだけで、実際には減らしていない。
+# 負けても減らないので、詰まったときに素材集めができなくなる詰みが起きない。
+# 「もう一度」も勝つまでは無料であり、これは仕様。
+#
+# 消費量は冒険選択画面と同じ Balance.adventure から読む。
+# 画面から転送データで受け取らないこと。値を1箇所で変えられる状態を保つため。
+func _consume_stage_stamina() -> void:
+	if _session == null:
+		return
+	# トレーニングは消費しない（現状は story のみ到達する）
+	if _session.stage_type != GameStateKeys.STAGE_TYPE_STORY:
+		return
+	if Balance.adventure == null:
+		push_warning("[Battle] Balance.adventure が未設定のためスタミナを消費しない")
+		return
+	var cost: int = int(Balance.adventure.stamina_cost_per_stage)
+	if cost <= 0:
+		return
+	if not GameManager.spend_stamina(cost):
+		# 入場時に残量を確認しているので通常は起きない。
+		# 起きても報酬は取り消さない（勝った手応えを奪わない）。
+		push_warning("[Battle] 勝利時のスタミナ消費に失敗した（cost=%d）" % cost)
 
 
 func _enter_defeat() -> void:

@@ -132,12 +132,10 @@ func _on_challenge_pressed(stage_id: String) -> void:
 
 	# スタミナ消費（EXEC §5.2 / §5.3）
 	var cost: int = int(Balance.adventure.stamina_cost_per_stage)
-	var ok: bool = GameManager.spend_stamina(cost)
-	if not ok:
-		# スタミナ不足。遷移しない、スタミナも減っていない（EXEC §5.5 / 完了条件 10）
-		var state: Dictionary = GameManager.get_state()
-		var stamina: Dictionary = state.get(GameStateKeys.STAMINA, {})
-		var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0))
+	var state: Dictionary = GameManager.get_state()
+	var stamina: Dictionary = state.get(GameStateKeys.STAMINA, {})
+	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0))
+	if current < cost:
 		message_label.text = tr("ui_adventure_stamina_short") + " (%d / %d)" % [cost, current]
 		return
 
