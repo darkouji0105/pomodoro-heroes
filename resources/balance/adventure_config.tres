@@ -1,0 +1,7 @@
+[gd_resource type="Resource" format=3 uid="uid://m4udodmat0ai"]
+
+[ext_resource type="Script" uid="uid://rj1mgbs5nxhs" path="res://resources/balance/adventure_config.gd" id="1_i278k"]
+
+[resource]
+script = ExtResource("1_i278k")
+stamina_cost_per_stage = 5

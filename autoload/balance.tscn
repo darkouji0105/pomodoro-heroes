@@ -1,12 +1,12 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://vubm6lojl3fc"]
 
-[ext_resource type="Script" path="res://autoload/balance.gd" id="1_f7mko"]
-[ext_resource type="Resource" path="res://resources/balance/pomodoro_config.tres" id="2_851iv"]
+[ext_resource type="Script" uid="uid://bynuctdl4el10" path="res://autoload/balance.gd" id="1_f7mko"]
+[ext_resource type="Resource" uid="uid://bcd2xhqnqtwn1" path="res://resources/balance/pomodoro_config.tres" id="2_851iv"]
 [ext_resource type="Resource" path="res://resources/balance/shop_config.tres" id="3_n4bcj"]
 [ext_resource type="Resource" path="res://resources/balance/research_config.tres" id="4_k8sgk"]
 [ext_resource type="Resource" path="res://resources/balance/workshop_config.tres" id="5_e0mho"]
 [ext_resource type="Resource" path="res://resources/balance/character_config.tres" id="6_152xf"]
-[ext_resource type="Resource" path="res://resources/balance/initial_state_config.tres" id="7_kqclt"]
+[ext_resource type="Resource" uid="uid://2u5sjh3mgvg3" path="res://resources/balance/initial_state_config.tres" id="7_kqclt"]
 
 [node name="Balance" type="Node" unique_id=1091634713]
 script = ExtResource("1_f7mko")

@@ -625,7 +625,6 @@ func get_stamina_potion_count() -> int:
 	return int(entry.get(GameStateKeys.ITEM_COUNT, 0))
 
 func use_stamina_potion() -> bool:
-	print("[potion] before materials=", _state.get(GameStateKeys.MATERIALS, {}))
 	var count: int = get_stamina_potion_count()
 	if count <= 0:
 		return false
@@ -638,12 +637,7 @@ func use_stamina_potion() -> bool:
 		inventory[GameStateKeys.ITEM_STAMINA_POTION] = entry
 	_state[GameStateKeys.INVENTORY] = inventory
 	inventory_changed.emit(GameStateKeys.ITEM_STAMINA_POTION)
-	var stamina: Dictionary = _copy_dict(GameStateKeys.STAMINA)
-	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0)) + int(Balance.pomodoro.stamina_potion_recovery)
-	stamina[GameStateKeys.STAMINA_CURRENT] = current
-	_state[GameStateKeys.STAMINA] = stamina
-	resource_changed.emit(GameStateKeys.STAMINA, current)
-	print("[potion] before materials=", _state.get(GameStateKeys.MATERIALS, {}))
+	_add_stamina_uncapped(int(Balance.pomodoro.stamina_potion_recovery))
 	return true
 
 # --- ストーリーステージ ---
@@ -667,3 +661,31 @@ func is_stage_cleared(stage_id: String) -> bool:
 	var stages: Dictionary = story.get(GameStateKeys.STORY_STAGES, {})
 	var entry: Dictionary = stages.get(stage_id, {})
 	return bool(entry.get(GameStateKeys.STAGE_CLEARED, false))
+
+
+# --- 上限を超えられるスタミナ加算 ---
+
+# max で切り捨てずにスタミナを増やす。
+#
+# 通常の add_stamina() は max で切り捨てる。上限の意味は
+# 「放っておいても max までしか溜まらない」ことであり、
+# 自然回復・宝箱・ポモドーロ報酬はすべてそちらを通す。
+#
+# 上限を超えてよいのは「プレイヤーが能動的に使ったぶん」だけ。
+# 現状はスタミナポーションと、戦闘敗北時の返却の2つ。
+func _add_stamina_uncapped(amount: int) -> int:
+	var stamina: Dictionary = _copy_dict(GameStateKeys.STAMINA)
+	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0)) + amount
+	stamina[GameStateKeys.STAMINA_CURRENT] = current
+	_state[GameStateKeys.STAMINA] = stamina
+	resource_changed.emit(GameStateKeys.STAMINA, current)
+	return current
+
+# 戦闘に敗北したときのスタミナ返却。
+# ポーションで上限を超えている状態から払った場合、add_stamina() では
+# max で切り捨てられて戻らないため、上限を超えられる経路を使う。
+func refund_stamina(amount: int) -> void:
+	if amount <= 0:
+		return
+	var current: int = _add_stamina_uncapped(amount)
+	print("[GameManager] refund_stamina(%d) -> current=%d" % [amount, current])

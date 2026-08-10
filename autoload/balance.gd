@@ -9,3 +9,4 @@ extends Node
 @export var workshop: WorkshopConfig
 @export var character: CharacterConfig
 @export var initial_state: InitialStateConfig
+@export var adventure: AdventureConfig
