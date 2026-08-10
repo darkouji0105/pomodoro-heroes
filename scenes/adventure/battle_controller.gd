@@ -15,6 +15,7 @@ const ENEMY_BASE_X: float = 900.0
 const ENEMY_STEP_X: float = 100.0
 
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
+const DEBUG_PANEL_SCRIPT: GDScript = preload("res://scenes/adventure/battle_debug_panel.gd")
 
 # ノード参照
 @onready var party_container: Node2D = $PartyUnitsContainer
@@ -38,8 +39,13 @@ var _enemy_views: Array = []
 # ただし「もう一度」リトライ時は作り直すので、party_views も同じ仕組みを持つ。
 var _party_views: Array = []
 
+# unit_id -> UnitView。ダメージ数値の表示先を引くために持つ。
+var _views_by_unit_id: Dictionary = {}
+
 # 報酬二重適用防止フラグ（EXEC §7-1）
 var _result_applied: bool = false
+
+var _debug_panel: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -75,7 +81,28 @@ func _ready() -> void:
 	result_view.hide()
 	retry_button.pressed.connect(_on_retry_pressed)
 	back_button.pressed.connect(_on_back_pressed)
+	_setup_debug_panel()
 	_enter_wave_intro()
+
+
+# デバッグ実行時のみパネルを生成する。リリースビルドには出ない。
+func _setup_debug_panel() -> void:
+	if not OS.is_debug_build():
+		return
+	_debug_panel = CanvasLayer.new()
+	_debug_panel.set_script(DEBUG_PANEL_SCRIPT)
+	add_child(_debug_panel)
+	_debug_panel.setup(self)
+
+
+# Engine.time_scale は Autoload と同じくグローバル。
+# 戻さずに画面を離れると拠点もポモドーロも 8 倍速のままになる。
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0
+
+
+func get_session() -> BattleSession:
+	return _session
 
 
 # 味方の BattleUnit と UnitView を生成する。
@@ -83,7 +110,7 @@ func _ready() -> void:
 func _init_party_units() -> void:
 	# 既存があれば破棄（リトライ対応）
 	for v in _party_views:
-		if v is Node:
+		if v is Node and is_instance_valid(v):
 			v.queue_free()
 	_party_views.clear()
 	for v in party_container.get_children():
@@ -124,7 +151,7 @@ func _init_party_units() -> void:
 			float(spd),
 			false
 		)
-		unit.x = PARTY_BASE_X + i * PARTY_STEP_X
+		unit.x = _party_start_x(i)
 		_session.party_units.append(unit)
 
 		var view: Node = UNIT_VIEW_SCENE.instantiate()
@@ -132,6 +159,26 @@ func _init_party_units() -> void:
 		party_container.add_child(view)
 		view.setup(unit)
 		_party_views.append(view)
+		_views_by_unit_id[unit.unit_id] = view
+
+
+func _party_start_x(index: int) -> float:
+	return PARTY_BASE_X + index * PARTY_STEP_X
+
+
+# ウェーブが切り替わるときに味方を左端の初期位置へ戻す。
+#
+# 戻すのは位置・ターゲット・攻撃タイマーだけ。
+# HP は絶対に戻さないこと。戻すと連戦でなくなり、完了条件8が意味を失う。
+# 死亡した味方は復活させず、位置も動かさない。
+func _reset_party_positions() -> void:
+	for i: int in range(_session.party_units.size()):
+		var unit: BattleUnit = _session.party_units[i]
+		if unit == null or not unit.is_alive():
+			continue
+		unit.x = _party_start_x(i)
+		unit.target_unit_id = ""
+		unit.attack_timer = 0.0
 
 
 # 現在ウェーブの敵を生成する。
@@ -145,6 +192,9 @@ func _spawn_current_wave_enemies() -> void:
 	# コンテナ側の子も念のため（_enemy_views と二重に持つため）
 	for v in enemy_container.get_children():
 		v.queue_free()
+	for u in _session.enemy_units:
+		if u is BattleUnit:
+			_views_by_unit_id.erase(u.unit_id)
 	_session.enemy_units.clear()
 
 	var waves_array: Array = _stage_data.get("waves", [])
@@ -190,6 +240,7 @@ func _spawn_current_wave_enemies() -> void:
 			enemy_container.add_child(view)
 			view.setup(unit)
 			_enemy_views.append(view)
+			_views_by_unit_id[unit.unit_id] = view
 			local_index += 1
 
 
@@ -293,6 +344,7 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 		if unit.attack_timer >= unit.attack_interval_sec:
 			var dmg: int = _compute_damage(unit, target)
 			target.take_damage(dmg)
+			_pop_damage(target, dmg)
 			unit.attack_timer = 0.0
 	else:
 		# 射程外：対象方向へ移動
@@ -307,6 +359,15 @@ func _compute_damage(attacker: BattleUnit, target: BattleUnit) -> int:
 	return max(1, raw)
 
 
+# 被弾したユニットの頭上にダメージ数値を出す
+func _pop_damage(target: BattleUnit, amount: int) -> void:
+	if not _views_by_unit_id.has(target.unit_id):
+		return
+	var view: Node = _views_by_unit_id[target.unit_id]
+	if is_instance_valid(view) and view.has_method("pop_damage"):
+		view.pop_damage(amount)
+
+
 # ウェーブクリア処理（_enter_wave_clear → コルーチンで次ウェーブ or 勝利）
 func _enter_wave_clear() -> void:
 	_session.state = BattleSession.STATE_WAVE_CLEAR
@@ -315,7 +376,8 @@ func _enter_wave_clear() -> void:
 		return
 	_session.current_wave += 1
 	_update_wave_label()
-	# 次のウェーブ紹介へ
+	# 次ウェーブは味方を左端から再スタートさせる（HP は引き継ぐ）
+	_reset_party_positions()
 	_enter_wave_intro()
 
 
@@ -386,6 +448,7 @@ func _init_session() -> void:
 	# 既存の _session から引き継ぐ（リトライ時に stage_type を変えない）
 	if _session != null:
 		stage_type = _session.stage_type
+	_views_by_unit_id.clear()
 	_session = BattleSession.new(_stage_id, stage_type, _stage_data.get("party_id", ""), total_waves)
 	_init_party_units()
 
@@ -394,3 +457,61 @@ func _init_session() -> void:
 func _on_back_pressed() -> void:
 	# SceneManager.go_back() は履歴がダミー実装のため使わない
 	SceneManager.change_scene("res://scenes/base/base_screen.tscn")
+
+
+# ============================================================
+# デバッグ用（BattleDebugPanel から呼ばれる）
+# 本番のロジックからは呼ばない。
+# 状態を直接書き換えず、通常と同じ take_damage / 状態遷移を通す。
+# ============================================================
+
+func debug_kill_one_enemy() -> void:
+	if _session == null:
+		return
+	for u in _session.enemy_units:
+		if u is BattleUnit and u.is_alive():
+			var dmg: int = u.hp
+			u.take_damage(dmg)
+			_pop_damage(u, dmg)
+			print("[BattleDebug] %s をたおした" % u.unit_id)
+			return
+	print("[BattleDebug] 生存している敵がいない")
+
+
+func debug_kill_all_enemies() -> void:
+	if _session == null:
+		return
+	for u in _session.enemy_units:
+		if u is BattleUnit and u.is_alive():
+			var dmg: int = u.hp
+			u.take_damage(dmg)
+			_pop_damage(u, dmg)
+	print("[BattleDebug] ウェーブ %d の敵を全滅させた" % _session.current_wave)
+
+
+func debug_damage_party(amount: int) -> void:
+	if _session == null:
+		return
+	for u in _session.party_units:
+		if u is BattleUnit and u.is_alive():
+			u.take_damage(amount)
+			_pop_damage(u, amount)
+	print("[BattleDebug] 味方全員に %d ダメージ" % amount)
+
+
+# 通常の勝利経路をそのまま通す。報酬もステージクリアも本番と同じに入る。
+func debug_force_victory() -> void:
+	if _session == null or _result_applied:
+		return
+	_session.current_wave = _session.total_waves
+	_update_wave_label()
+	_enter_victory()
+
+
+func debug_force_defeat() -> void:
+	if _session == null or _result_applied:
+		return
+	for u in _session.party_units:
+		if u is BattleUnit and u.is_alive():
+			u.take_damage(u.hp)
+	_enter_defeat()
