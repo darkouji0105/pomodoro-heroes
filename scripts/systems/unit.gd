@@ -75,3 +75,37 @@ func heal(amount: int) -> void:
 
 func is_alive() -> bool:
 	return hp > 0
+
+# ========================================================================
+# スキル関連（EXEC §3）。既存フィールド・メソッドには触らず、末尾に追記。
+# ========================================================================
+
+# 所持スキルID（順序を保つため配列で持つ。ボタンの並び順になる）
+var skill_ids: Array = []
+# skill_id -> cooldown_remaining(float)
+var skill_cooldowns: Dictionary = {}
+
+
+# 全スキルの残り時間を delta だけ減らす。0.0 を下限とする。
+func tick_cooldowns(delta: float) -> void:
+	for skill_id in skill_cooldowns:
+		skill_cooldowns[skill_id] = max(0.0, float(skill_cooldowns[skill_id]) - delta)
+
+
+# skill_id が skill_ids に無い場合は false を返す（含まれていないスキルを発動可能と誤判定しない）。
+func is_skill_ready(skill_id: String) -> bool:
+	if not (skill_id in skill_ids):
+		return false
+	return float(skill_cooldowns.get(skill_id, 0.0)) <= 0.0
+
+
+# クールダウン残り時間をセットする。skill_ids 外の ID は何もしない。
+func start_cooldown(skill_id: String, sec: float) -> void:
+	if not (skill_id in skill_ids):
+		return
+	skill_cooldowns[skill_id] = sec
+
+
+# クールダウン残り時間を返す。未登録の ID は 0.0。
+func get_cooldown(skill_id: String) -> float:
+	return float(skill_cooldowns.get(skill_id, 0.0))

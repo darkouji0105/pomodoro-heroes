@@ -57,6 +57,7 @@ func _build_ui() -> void:
 		"[K] 敵を1体たおす",
 		"[L] このウェーブの敵を全滅",
 		"[J] 味方全員に10ダメージ",
+		"[S] スキルCD全リセット",
 		"[V] 強制的に勝利  [B] 強制的に敗北",
 	])
 	box.add_child(_help_label)
@@ -122,6 +123,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_call_controller("debug_kill_one_enemy")
 		KEY_L:
 			_call_controller("debug_kill_all_enemies")
+		KEY_S:
+			_call_controller("debug_reset_cooldowns")
 		KEY_J:
 			_call_controller("debug_damage_party", 10)
 		KEY_V:

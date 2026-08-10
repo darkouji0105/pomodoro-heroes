@@ -2,11 +2,19 @@
   "char_swordsman": {
     "name_key": "ui_battle_char_swordsman",
     "hp": 120, "atk": 18, "def": 6, "spd": 60,
-    "attack_range": 60, "attack_interval_sec": 1.2
+    "attack_range": 60, "attack_interval_sec": 1.2,
+    "skills": ["skill_power_slash", "skill_wide_sweep"]
   },
   "char_archer": {
     "name_key": "ui_battle_char_archer",
     "hp": 80, "atk": 14, "def": 3, "spd": 70,
-    "attack_range": 300, "attack_interval_sec": 1.5
+    "attack_range": 300, "attack_interval_sec": 1.5,
+    "skills": ["skill_snipe", "skill_arrow_rain"]
+  },
+  "char_priest": {
+    "name_key": "ui_battle_char_priest",
+    "hp": 70, "atk": 10, "def": 3, "spd": 65,
+    "attack_range": 250, "attack_interval_sec": 1.6,
+    "skills": ["skill_healing_light", "skill_holy_ray"]
   }
 }

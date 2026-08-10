@@ -91,3 +91,10 @@ ui_battle_char_archer,弓兵
 ui_battle_enemy_slime,スライム
 ui_battle_enemy_wolf,ウルフ
 ui_battle_enemy_slime_king,スライムキング
+ui_battle_char_priest,僧侶
+ui_battle_skill_power_slash,強撃
+ui_battle_skill_wide_sweep,横薙ぎ
+ui_battle_skill_snipe,狙撃
+ui_battle_skill_arrow_rain,矢の雨
+ui_battle_skill_healing_light,癒しの光
+ui_battle_skill_holy_ray,聖光

@@ -3,7 +3,7 @@ extends Node2D
 # BattleController
 # battle.tscn に張り付くコントローラ。
 # 戦闘ループ・ウェーブ進行・勝敗確定・結果表示を一元管理する。
-# PRE_PLAN §7 の人間による決定事項を最優先で反映。
+# フェーズ2（スキル・ボス）を反映済み。
 
 # 画面中央 y 位置
 const GROUND_Y: float = 360.0
@@ -16,11 +16,13 @@ const ENEMY_STEP_X: float = 100.0
 
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
 const DEBUG_PANEL_SCRIPT: GDScript = preload("res://scenes/adventure/battle_debug_panel.gd")
+const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
 
 # ノード参照
 @onready var party_container: Node2D = $PartyUnitsContainer
 @onready var enemy_container: Node2D = $EnemyUnitsContainer
 @onready var wave_label: Label = $HUD/WaveLabel
+@onready var skill_buttons_container: HBoxContainer = $HUD/SkillButtons
 @onready var result_view: Control = $ResultView
 @onready var result_label: Label = $ResultView/ResultLabel
 @onready var reward_label: Label = $ResultView/RewardLabel
@@ -32,17 +34,20 @@ var _stage_id: String = "stage_1"
 var _stage_data: Dictionary = {}
 var _session: BattleSession = null
 
-# PRE_PLAN §7-4: 敵 UnitView の参照配列。ウェーブ切替時に queue_free して clear する。
+# 敵 UnitView の参照配列。ウェーブ切替時に queue_free して clear する。
 var _enemy_views: Array = []
 
 # 味方の UnitView は wave 間で破棄しない（連戦のため）。
-# ただし「もう一度」リトライ時は作り直すので、party_views も同じ仕組みを持つ。
+# ただし「もう一度」リトライ時は作り直す。
 var _party_views: Array = []
 
 # unit_id -> UnitView。ダメージ数値の表示先を引くために持つ。
 var _views_by_unit_id: Dictionary = {}
 
-# 報酬二重適用防止フラグ（EXEC §7-1）
+# スキルボタン。各要素は {button, user, skill_id, name_key, cooldown_sec}
+var _skill_buttons: Array = []
+
+# 報酬二重適用防止フラグ
 var _result_applied: bool = false
 
 var _debug_panel: CanvasLayer = null
@@ -50,7 +55,7 @@ var _debug_panel: CanvasLayer = null
 
 func _ready() -> void:
 	# 起動時に SceneManager から transfer_data を 1 回だけ取り出す。
-	# 2 回呼ぶと 2 回目は空 dict になる（EXEC §6-1）。
+	# 2 回呼ぶと 2 回目は空 dict になる。
 	var data: Dictionary = SceneManager.consume_transfer_data()
 
 	_stage_id = str(data.get(TransferKeys.STAGE_ID, ""))
@@ -58,8 +63,7 @@ func _ready() -> void:
 		push_warning("[Battle] stage_id が渡されていないため stage_1 で開始する")
 		_stage_id = "stage_1"
 
-	# PRE_PLAN §7-2: stage_type は TransferKeys.STAGE_TYPE 優先、無ければ STAGE_TYPE_STORY。
-	# push_warning は不要（stage_id 側で既に出る）。
+	# stage_type は TransferKeys.STAGE_TYPE 優先、無ければ STAGE_TYPE_STORY
 	var stage_type: String = str(data.get(TransferKeys.STAGE_TYPE, ""))
 	if stage_type == "":
 		stage_type = GameStateKeys.STAGE_TYPE_STORY
@@ -69,12 +73,10 @@ func _ready() -> void:
 		push_error("[Battle] stage_data が空: " + _stage_id)
 		return
 
-	# party_id は stage_data から取る（EXEC §6-1）
 	var party_id: String = str(_stage_data.get("party_id", ""))
 	var waves_array: Array = _stage_data.get("waves", [])
 	var total_waves: int = waves_array.size()
 
-	# PRE_PLAN §7-1: BattleSession._init は 4 引数。party_units / enemy_units は _init では空のまま。
 	_session = BattleSession.new(_stage_id, stage_type, party_id, total_waves)
 
 	_init_party_units()
@@ -106,7 +108,7 @@ func get_session() -> BattleSession:
 
 
 # 味方の BattleUnit と UnitView を生成する。
-# ウェーブをまたいで再生成しないが、リトライ時は _init_party_units を呼び直す。
+# ウェーブをまたいで再生成しないが、リトライ時は呼び直す。
 func _init_party_units() -> void:
 	# 既存があれば破棄（リトライ対応）
 	for v in _party_views:
@@ -129,7 +131,7 @@ func _init_party_units() -> void:
 			push_error("[Battle] character not found: " + character_id)
 			continue
 
-		# 育成データがあれば優先（EXEC §6-2 優先順）
+		# 育成データがあれば優先
 		var growth: Dictionary = GameManager.get_character_growth(character_id)
 		var has_growth: bool = not growth.is_empty() and growth.has(GameStateKeys.GROWTH_STATS) and (growth[GameStateKeys.GROWTH_STATS] is Dictionary) and not (growth[GameStateKeys.GROWTH_STATS] as Dictionary).is_empty()
 		var stats: Dictionary = growth.get(GameStateKeys.GROWTH_STATS, {}) if has_growth else {}
@@ -152,6 +154,14 @@ func _init_party_units() -> void:
 			false
 		)
 		unit.x = _party_start_x(i)
+
+		# スキルの割り当て。敵には設定しない。
+		var skill_list: Array = char_data.get("skills", [])
+		unit.skill_ids = skill_list.duplicate()
+		unit.skill_cooldowns = {}
+		for sid in unit.skill_ids:
+			unit.skill_cooldowns[str(sid)] = 0.0
+
 		_session.party_units.append(unit)
 
 		var view: Node = UNIT_VIEW_SCENE.instantiate()
@@ -161,6 +171,11 @@ func _init_party_units() -> void:
 		_party_views.append(view)
 		_views_by_unit_id[unit.unit_id] = view
 
+	# 味方が確定した直後に必ず作り直す。
+	# リトライで BattleUnit が作り直されるため、
+	# ここで作らないとボタンが古いユニットを掴んだままになる。
+	_build_skill_buttons()
+
 
 func _party_start_x(index: int) -> float:
 	return PARTY_BASE_X + index * PARTY_STEP_X
@@ -169,7 +184,7 @@ func _party_start_x(index: int) -> float:
 # ウェーブが切り替わるときに味方を左端の初期位置へ戻す。
 #
 # 戻すのは位置・ターゲット・攻撃タイマーだけ。
-# HP は絶対に戻さないこと。戻すと連戦でなくなり、完了条件8が意味を失う。
+# HP とスキルのクールダウンは絶対に戻さないこと。戻すと連戦でなくなる。
 # 死亡した味方は復活させず、位置も動かさない。
 func _reset_party_positions() -> void:
 	for i: int in range(_session.party_units.size()):
@@ -182,14 +197,11 @@ func _reset_party_positions() -> void:
 
 
 # 現在ウェーブの敵を生成する。
-# PRE_PLAN §7-4: ウェーブ切替時に古い UnitView を queue_free する。
 func _spawn_current_wave_enemies() -> void:
-	# 古い敵 UnitView をすべて破棄（PRE_PLAN §7-4）
 	for v in _enemy_views:
 		if v is Node and is_instance_valid(v):
 			v.queue_free()
 	_enemy_views.clear()
-	# コンテナ側の子も念のため（_enemy_views と二重に持つため）
 	for v in enemy_container.get_children():
 		v.queue_free()
 	for u in _session.enemy_units:
@@ -198,7 +210,6 @@ func _spawn_current_wave_enemies() -> void:
 	_session.enemy_units.clear()
 
 	var waves_array: Array = _stage_data.get("waves", [])
-	# current_wave は 1 始まり
 	var wave_index: int = _session.current_wave - 1
 	if wave_index < 0 or wave_index >= waves_array.size():
 		push_error("[Battle] wave_index out of range: " + str(wave_index))
@@ -214,10 +225,18 @@ func _spawn_current_wave_enemies() -> void:
 		var count: int = int(entry.get("count", 1))
 		var is_boss: bool = bool(entry.get("is_boss", false))
 
-		var enemy_data: Dictionary = MasterDataLoader.get_enemy(enemy_type_id)
-		if enemy_data.is_empty():
+		var base_data: Dictionary = MasterDataLoader.get_enemy(enemy_type_id)
+		if base_data.is_empty():
 			push_error("[Battle] enemy not found: " + enemy_type_id)
 			continue
+
+		# stat_overrides を基本値に被せる。
+		# 上書きされたキーが一目で分かるよう、複製してから差し替える。
+		var enemy_data: Dictionary = base_data.duplicate(true)
+		var overrides: Variant = entry.get("stat_overrides", {})
+		if overrides is Dictionary:
+			for key in (overrides as Dictionary):
+				enemy_data[key] = (overrides as Dictionary)[key]
 
 		for n: int in range(count):
 			var unit: BattleUnit = BattleUnit.new(
@@ -249,7 +268,6 @@ func _enter_wave_intro() -> void:
 	_session.state = BattleSession.STATE_WAVE_INTRO
 	_update_wave_label()
 	await get_tree().create_timer(0.5).timeout
-	# 待機中にリトライされて _session が変わっている可能性に備える
 	if _session == null:
 		return
 	_spawn_current_wave_enemies()
@@ -264,10 +282,21 @@ func _update_wave_label() -> void:
 func _process(delta: float) -> void:
 	if _session == null:
 		return
+
+	# ボタンの表示更新は状態に関わらず毎フレーム行う。
+	# ここを状態ガードの内側に置くと、結果画面が出たあとや
+	# ウェーブ間の待機中にボタンが押せる状態のまま固まる。
+	_update_skill_buttons()
+
 	if _result_applied:
 		return
 	if _session.state != BattleSession.STATE_BATTLE_ACTIVE:
 		return
+
+	# クールダウンは戦闘中だけ進む（決定事項 8-1）
+	for unit in _session.party_units:
+		if unit is BattleUnit:
+			unit.tick_cooldowns(delta)
 
 	# 1. 対象再選択（味方→敵の順）
 	for unit in _session.party_units:
@@ -281,7 +310,7 @@ func _process(delta: float) -> void:
 	for unit in _session.enemy_units:
 		_step_unit(unit, delta)
 
-	# 3. 勝敗判定（敗北判定を先に行う：EXEC §6-6）
+	# 3. 勝敗判定（敗北判定を先に行う）
 	if _session.is_party_wiped():
 		_enter_defeat()
 		return
@@ -290,8 +319,6 @@ func _process(delta: float) -> void:
 		return
 
 
-# 対象が未選択 or 死亡なら最も近い敵対を選び直す。
-# 敵対チームに生存者がいなければ何もしない（PRE_PLAN §7-5）。
 func _acquire_target_if_needed(unit: BattleUnit) -> void:
 	if not unit.is_alive():
 		return
@@ -339,7 +366,6 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 		return
 	var distance: float = abs(target.x - unit.x)
 	if distance <= unit.attack_range:
-		# 射程内
 		unit.attack_timer += delta
 		if unit.attack_timer >= unit.attack_interval_sec:
 			var dmg: int = _compute_damage(unit, target)
@@ -347,20 +373,20 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 			_pop_damage(target, dmg)
 			unit.attack_timer = 0.0
 	else:
-		# 射程外：対象方向へ移動
 		var dir: float = sign(target.x - unit.x)
 		unit.x += dir * unit.speed * delta
-		# 射程外では attack_timer を進めない
 
 
-# ダメージ計算。必ず max(1, ...) を入れる（EXEC §6-5）。
+# 通常攻撃のダメージ計算。必ず max(1, ...) を入れる。
+# スキルの計算式はここに書かない（SkillResolver に集約する）。
 func _compute_damage(attacker: BattleUnit, target: BattleUnit) -> int:
 	var raw: int = int(floor(attacker.atk * attacker.atk_multiplier)) - target.def
 	return max(1, raw)
 
 
-# 被弾したユニットの頭上にダメージ数値を出す
 func _pop_damage(target: BattleUnit, amount: int) -> void:
+	if target == null:
+		return
 	if not _views_by_unit_id.has(target.unit_id):
 		return
 	var view: Node = _views_by_unit_id[target.unit_id]
@@ -368,7 +394,98 @@ func _pop_damage(target: BattleUnit, amount: int) -> void:
 		view.pop_damage(amount)
 
 
-# ウェーブクリア処理（_enter_wave_clear → コルーチンで次ウェーブ or 勝利）
+# ============================================================
+# スキル
+# ============================================================
+
+# 味方が作り直されるたびに呼ぶ。既存のボタンは必ず捨てる。
+func _build_skill_buttons() -> void:
+	for entry in _skill_buttons:
+		var b: Variant = entry.get("button", null)
+		if b is Node and is_instance_valid(b):
+			b.queue_free()
+	_skill_buttons.clear()
+	for child in skill_buttons_container.get_children():
+		child.queue_free()
+
+	for unit in _session.party_units:
+		if not (unit is BattleUnit):
+			continue
+		for sid in unit.skill_ids:
+			var skill_id: String = str(sid)
+			var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
+			if skill_data.is_empty():
+				continue
+			var button: Button = PRIMARY_BUTTON_SCENE.instantiate()
+			# label_key は使わない。残り秒数を混ぜるため text を直接扱う。
+			button.text = tr(str(skill_data.get("name_key", "")))
+			skill_buttons_container.add_child(button)
+			button.pressed.connect(_on_skill_button_pressed.bind(unit, skill_id))
+			_skill_buttons.append({
+				"button": button,
+				"user": unit,
+				"skill_id": skill_id,
+				"name_key": str(skill_data.get("name_key", "")),
+				"cooldown_sec": float(skill_data.get("cooldown_sec", 0.0)),
+			})
+
+
+func _update_skill_buttons() -> void:
+	var active: bool = _session != null and _session.state == BattleSession.STATE_BATTLE_ACTIVE
+	for entry in _skill_buttons:
+		var button: Variant = entry.get("button", null)
+		if not (button is Button) or not is_instance_valid(button):
+			continue
+		var user: BattleUnit = entry.get("user", null)
+		var skill_id: String = str(entry.get("skill_id", ""))
+		var name_key: String = str(entry.get("name_key", ""))
+
+		var remaining: float = 0.0
+		var alive: bool = false
+		if user != null:
+			remaining = user.get_cooldown(skill_id)
+			alive = user.is_alive()
+
+		if remaining > 0.0:
+			button.text = "%s (%.1f)" % [tr(name_key), remaining]
+		else:
+			button.text = tr(name_key)
+
+		button.disabled = (not active) or (not alive) or (remaining > 0.0)
+
+
+# スキル発動。
+# クールダウンの開始は必ず最後。先に開始すると、対象なしで
+# 何も起きなかった場合にクールダウンだけ消費される。
+# 勝敗判定はここで行わない。_process の判定に一本化する。
+func _on_skill_button_pressed(user: BattleUnit, skill_id: String) -> void:
+	if _session == null:
+		return
+	if _session.state != BattleSession.STATE_BATTLE_ACTIVE:
+		return
+	if user == null or not user.is_alive():
+		return
+	if not user.is_skill_ready(skill_id):
+		return
+
+	var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
+	if skill_data.is_empty():
+		return
+
+	var results: Array = SkillResolver.resolve(skill_data, user, _session)
+	for r in results:
+		if not (r is Dictionary):
+			continue
+		var target: BattleUnit = _find_unit_by_id(str(r.get("unit_id", "")))
+		_pop_damage(target, int(r.get("amount", 0)))
+
+	user.start_cooldown(skill_id, float(skill_data.get("cooldown_sec", 0.0)))
+
+
+# ============================================================
+# ウェーブ進行・勝敗
+# ============================================================
+
 func _enter_wave_clear() -> void:
 	_session.state = BattleSession.STATE_WAVE_CLEAR
 	if _session.is_final_wave():
@@ -376,12 +493,11 @@ func _enter_wave_clear() -> void:
 		return
 	_session.current_wave += 1
 	_update_wave_label()
-	# 次ウェーブは味方を左端から再スタートさせる（HP は引き継ぐ）
+	# 次ウェーブは味方を左端から再スタートさせる（HP とクールダウンは引き継ぐ）
 	_reset_party_positions()
 	_enter_wave_intro()
 
 
-# 勝利処理（EXEC §7-1 報酬二重適用防止フラグ）
 func _enter_victory() -> void:
 	if _result_applied:
 		return
@@ -399,7 +515,6 @@ func _enter_victory() -> void:
 	_show_result(true, result_data)
 
 
-# 敗北処理（EXEC §7-4）
 func _enter_defeat() -> void:
 	if _result_applied:
 		return
@@ -409,7 +524,6 @@ func _enter_defeat() -> void:
 	_show_result(false, {})
 
 
-# 結果画面の表示
 func _show_result(victory: bool, result_data: Dictionary) -> void:
 	if victory:
 		result_label.text = tr("ui_battle_victory")
@@ -431,12 +545,9 @@ func _show_result(victory: bool, result_data: Dictionary) -> void:
 	back_button.show()
 
 
-# 「もう一度」：BattleSession を作り直し、ウェーブ 1 から再開。PRE_PLAN §6.8 通り。
 func _on_retry_pressed() -> void:
 	_result_applied = false
 	result_view.hide()
-	# 古い敵 UnitView を即座に消したいが、queue_free は遅延実行のため
-	# _init_session 内で clear し、新しい UnitView を上書きする。
 	_init_session()
 	_enter_wave_intro()
 
@@ -445,7 +556,6 @@ func _init_session() -> void:
 	_stage_data = MasterDataLoader.get_stage(_stage_id)
 	var total_waves: int = int(_stage_data.get("waves", []).size())
 	var stage_type: String = GameStateKeys.STAGE_TYPE_STORY
-	# 既存の _session から引き継ぐ（リトライ時に stage_type を変えない）
 	if _session != null:
 		stage_type = _session.stage_type
 	_views_by_unit_id.clear()
@@ -453,15 +563,12 @@ func _init_session() -> void:
 	_init_party_units()
 
 
-# 「拠点へ戻る」
 func _on_back_pressed() -> void:
-	# SceneManager.go_back() は履歴がダミー実装のため使わない
 	SceneManager.change_scene("res://scenes/base/base_screen.tscn")
 
 
 # ============================================================
 # デバッグ用（BattleDebugPanel から呼ばれる）
-# 本番のロジックからは呼ばない。
 # 状態を直接書き換えず、通常と同じ take_damage / 状態遷移を通す。
 # ============================================================
 
@@ -499,7 +606,17 @@ func debug_damage_party(amount: int) -> void:
 	print("[BattleDebug] 味方全員に %d ダメージ" % amount)
 
 
-# 通常の勝利経路をそのまま通す。報酬もステージクリアも本番と同じに入る。
+func debug_reset_cooldowns() -> void:
+	if _session == null:
+		return
+	for u in _session.party_units:
+		if not (u is BattleUnit):
+			continue
+		for sid in u.skill_ids:
+			u.start_cooldown(str(sid), 0.0)
+	print("[BattleDebug] スキルのクールダウンをリセットした")
+
+
 func debug_force_victory() -> void:
 	if _session == null or _result_applied:
 		return

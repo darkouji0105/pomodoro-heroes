@@ -18,12 +18,14 @@ const PATH_CHARACTERS: String = DIR_PATH + "characters.json"
 const PATH_ENEMIES: String = DIR_PATH + "enemies.json"
 const PATH_PARTIES: String = DIR_PATH + "parties.json"
 const PATH_STAGES: String = DIR_PATH + "stages.json"
+const PATH_SKILLS: String = DIR_PATH + "skills.json"
 
 static var _load_mode: String = ""     # "load" or "file_access" or ""（未試行）
 static var _cache_characters: Dictionary = {}
 static var _cache_enemies: Dictionary = {}
 static var _cache_parties: Dictionary = {}
 static var _cache_stages: Dictionary = {}
+static var _cache_skills: Dictionary = {}
 static var _cache_loaded: bool = false
 
 
@@ -69,6 +71,7 @@ static func _ensure_loaded() -> void:
 	_cache_enemies = _load_json(PATH_ENEMIES)
 	_cache_parties = _load_json(PATH_PARTIES)
 	_cache_stages = _load_json(PATH_STAGES)
+	_cache_skills = _load_json(PATH_SKILLS)
 
 
 # load() を試し、null なら FileAccess にフォールバック。
@@ -97,3 +100,17 @@ static func _load_json(path: String) -> Dictionary:
 		push_error("[MasterDataLoader] JSON.parse_string failed: " + path)
 		return {}
 	return (parsed as Dictionary).duplicate(true)
+
+
+# ========================================================================
+# スキル関連（EXEC §2）。既存関数には触らず、末尾に追記。
+# 既存4ファイルと同じタイミングでロードされる（_ensure_loaded() の末尾で
+# 一緒に _cache_skills を埋める）。
+# ========================================================================
+
+static func get_skill(skill_id: String) -> Dictionary:
+	_ensure_loaded()
+	if not _cache_skills.has(skill_id):
+		push_error("[MasterDataLoader] skill id not found: " + skill_id)
+		return {}
+	return (_cache_skills[skill_id] as Dictionary).duplicate(true)
