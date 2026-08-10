@@ -15,6 +15,10 @@ const DAMAGE_FONT_SIZE: int = 22
 const DAMAGE_RISE_PX: float = 48.0
 const DAMAGE_DURATION_SEC: float = 0.6
 
+# ジャスト成功の表示
+const JUST_COLOR: Color = Color(1.0, 0.95, 0.55)
+const JUST_FONT_SIZE: int = 30
+
 var _unit: BattleUnit = null
 
 
@@ -58,18 +62,28 @@ func _process(_delta: float) -> void:
 
 
 # 被弾した数値を頭上に浮かべて消す。
+func pop_damage(amount: int) -> void:
+	pop_label(str(amount), DAMAGE_COLOR, DAMAGE_FONT_SIZE)
+
+
+# ジャスト成功などの演出用。数値以外の文字を浮かべる。
+func pop_just() -> void:
+	pop_label(tr("ui_battle_just"), JUST_COLOR, JUST_FONT_SIZE)
+
+
+# 文字を頭上に浮かべて消す。
 # ラベルは自分の子ではなく親コンテナに乗せる。
 # 自分の子にすると、とどめの一撃で hide() された瞬間に
-# 数値も一緒に消えてしまい、最後のダメージが読めなくなるため。
-func pop_damage(amount: int) -> void:
+# 文字も一緒に消えてしまい、最後のダメージが読めなくなるため。
+func pop_label(text: String, color: Color, font_size: int) -> void:
 	var parent: Node = get_parent()
 	if parent == null:
 		return
 
 	var label: Label = Label.new()
-	label.text = str(amount)
-	label.add_theme_font_size_override("font_size", DAMAGE_FONT_SIZE)
-	label.add_theme_color_override("font_color", DAMAGE_COLOR)
+	label.text = text
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
 	label.z_index = 100
 	parent.add_child(label)
 	label.position = position + Vector2(0.0, -40.0)

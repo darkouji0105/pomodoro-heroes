@@ -1,44 +1,50 @@
 {
   "skill_power_slash": {
-    "name_key": "ui_battle_skill_power_slash",
-    "type": "single",
-    "multiplier": 2.0,
-    "cooldown_sec": 6.0,
-    "user_character_id": "char_swordsman"
+	"name_key": "ui_battle_skill_power_slash",
+	"type": "single",
+	"multiplier": 2.0,
+	"cooldown_sec": 6.0,
+	"user_character_id": "char_swordsman"
   },
   "skill_wide_sweep": {
-    "name_key": "ui_battle_skill_wide_sweep",
-    "type": "aoe",
-    "multiplier": 0.9,
-    "cooldown_sec": 8.0,
-    "user_character_id": "char_swordsman"
+	"name_key": "ui_battle_skill_wide_sweep",
+	"type": "aoe",
+	"multiplier": 0.9,
+	"cooldown_sec": 8.0,
+	"user_character_id": "char_swordsman",
+	"charge": {
+	  "just_sec": 1.0,
+	  "just_window_sec": 0.15,
+	  "min_ratio": 0.5,
+	  "just_bonus": 1.3
+	}
   },
   "skill_snipe": {
-    "name_key": "ui_battle_skill_snipe",
-    "type": "single",
-    "multiplier": 2.6,
-    "cooldown_sec": 11.0,
-    "user_character_id": "char_archer"
+	"name_key": "ui_battle_skill_snipe",
+	"type": "single",
+	"multiplier": 2.6,
+	"cooldown_sec": 11.0,
+	"user_character_id": "char_archer"
   },
   "skill_arrow_rain": {
-    "name_key": "ui_battle_skill_arrow_rain",
-    "type": "aoe",
-    "multiplier": 1.2,
-    "cooldown_sec": 9.0,
-    "user_character_id": "char_archer"
+	"name_key": "ui_battle_skill_arrow_rain",
+	"type": "aoe",
+	"multiplier": 1.2,
+	"cooldown_sec": 9.0,
+	"user_character_id": "char_archer"
   },
   "skill_healing_light": {
-    "name_key": "ui_battle_skill_healing_light",
-    "type": "heal",
-    "multiplier": 1.0,
-    "cooldown_sec": 8.0,
-    "user_character_id": "char_priest"
+	"name_key": "ui_battle_skill_healing_light",
+	"type": "heal",
+	"multiplier": 1.0,
+	"cooldown_sec": 8.0,
+	"user_character_id": "char_priest"
   },
   "skill_holy_ray": {
-    "name_key": "ui_battle_skill_holy_ray",
-    "type": "aoe",
-    "multiplier": 1.0,
-    "cooldown_sec": 12.0,
-    "user_character_id": "char_priest"
+	"name_key": "ui_battle_skill_holy_ray",
+	"type": "aoe",
+	"multiplier": 1.0,
+	"cooldown_sec": 12.0,
+	"user_character_id": "char_priest"
   }
 }

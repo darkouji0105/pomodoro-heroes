@@ -3,10 +3,11 @@ extends Node2D
 # BattleController
 # battle.tscn に張り付くコントローラ。
 # 戦闘ループ・ウェーブ進行・勝敗確定・結果表示を一元管理する。
-# フェーズ2（スキル・ボス）を反映済み。
+# フェーズ2（スキル・ボス）＋チャージスキル・3列レイアウトを反映済み。
 
-# 画面中央 y 位置
-const GROUND_Y: float = 360.0
+# ユニットを並べる y 位置。
+# 画面下部はスキルボタン3列ぶんの高さを使うため、その上に収まる位置に置く。
+const GROUND_Y: float = 240.0
 # 味方の初期 X 位置
 const PARTY_BASE_X: float = 200.0
 const PARTY_STEP_X: float = 100.0
@@ -17,6 +18,12 @@ const ENEMY_STEP_X: float = 100.0
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
 const DEBUG_PANEL_SCRIPT: GDScript = preload("res://scenes/adventure/battle_debug_panel.gd")
 const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
+
+# チャージゲージの色（本タスク限定の例外。main_theme.tres に対応する概念が無い）
+const CHARGE_COLOR_NORMAL: Color = Color(0.6, 0.7, 0.9)
+const CHARGE_COLOR_JUST: Color = Color(1.0, 0.9, 0.4)
+const CHARGE_COLOR_OVER: Color = Color(0.5, 0.5, 0.5)
+const CHARGE_GAUGE_HEIGHT: int = 8
 
 # ノード参照
 @onready var party_container: Node2D = $PartyUnitsContainer
@@ -44,8 +51,12 @@ var _party_views: Array = []
 # unit_id -> UnitView。ダメージ数値の表示先を引くために持つ。
 var _views_by_unit_id: Dictionary = {}
 
-# スキルボタン。各要素は {button, user, skill_id, name_key, cooldown_sec}
+# スキルボタン。各要素は {button, user, skill_id, name_key, cooldown_sec, charge}
 var _skill_buttons: Array = []
+
+# チャージ中のスキル。{entry: Dictionary, time: float}。未チャージ時は空。
+# 同時に1つしかチャージできない。
+var _charging: Dictionary = {}
 
 # 報酬二重適用防止フラグ
 var _result_applied: bool = false
@@ -283,9 +294,10 @@ func _process(delta: float) -> void:
 	if _session == null:
 		return
 
-	# ボタンの表示更新は状態に関わらず毎フレーム行う。
+	# チャージとボタンの表示更新は状態に関わらず毎フレーム行う。
 	# ここを状態ガードの内側に置くと、結果画面が出たあとや
 	# ウェーブ間の待機中にボタンが押せる状態のまま固まる。
+	_tick_charge(delta)
 	_update_skill_buttons()
 
 	if _result_applied:
@@ -399,7 +411,9 @@ func _pop_damage(target: BattleUnit, amount: int) -> void:
 # ============================================================
 
 # 味方が作り直されるたびに呼ぶ。既存のボタンは必ず捨てる。
+# キャラごとに1列、その列の中にスキルを縦に並べる。
 func _build_skill_buttons() -> void:
+	_cancel_charge()
 	for entry in _skill_buttons:
 		var b: Variant = entry.get("button", null)
 		if b is Node and is_instance_valid(b):
@@ -411,27 +425,69 @@ func _build_skill_buttons() -> void:
 	for unit in _session.party_units:
 		if not (unit is BattleUnit):
 			continue
+
+		var column: VBoxContainer = VBoxContainer.new()
+		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		column.add_theme_constant_override("separation", 4)
+		skill_buttons_container.add_child(column)
+
+		var name_label: Label = Label.new()
+		name_label.text = tr(unit.unit_name_key)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		column.add_child(name_label)
+
 		for sid in unit.skill_ids:
 			var skill_id: String = str(sid)
 			var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
 			if skill_data.is_empty():
 				continue
+
+			var charge: Dictionary = {}
+			var raw_charge: Variant = skill_data.get("charge", null)
+			if raw_charge is Dictionary:
+				charge = (raw_charge as Dictionary).duplicate(true)
+
 			var button: Button = PRIMARY_BUTTON_SCENE.instantiate()
-			# label_key は使わない。残り秒数を混ぜるため text を直接扱う。
+			# label_key は使わない。残り秒数やチャージ時間を混ぜるため text を直接扱う。
 			button.text = tr(str(skill_data.get("name_key", "")))
-			skill_buttons_container.add_child(button)
-			button.pressed.connect(_on_skill_button_pressed.bind(unit, skill_id))
-			_skill_buttons.append({
+			column.add_child(button)
+
+			# チャージスキルだけゲージを足す。
+			# 常に置いておくことで「これはためられる」と見て分かる。
+			var gauge: ProgressBar = null
+			if not charge.is_empty():
+				gauge = ProgressBar.new()
+				gauge.custom_minimum_size = Vector2(0, CHARGE_GAUGE_HEIGHT)
+				gauge.min_value = 0.0
+				gauge.max_value = 1.0
+				gauge.step = 0.01
+				gauge.value = 0.0
+				gauge.show_percentage = false
+				gauge.modulate = CHARGE_COLOR_NORMAL
+				column.add_child(gauge)
+
+			var entry: Dictionary = {
 				"button": button,
+				"gauge": gauge,
 				"user": unit,
 				"skill_id": skill_id,
 				"name_key": str(skill_data.get("name_key", "")),
 				"cooldown_sec": float(skill_data.get("cooldown_sec", 0.0)),
-			})
+				"charge": charge,
+			}
+			_skill_buttons.append(entry)
+
+			if charge.is_empty():
+				button.pressed.connect(_on_skill_button_pressed.bind(unit, skill_id))
+			else:
+				# チャージスキルは押した瞬間ではなく離した瞬間に発動する
+				button.button_down.connect(_on_charge_button_down.bind(entry))
+				button.button_up.connect(_on_charge_button_up.bind(entry))
 
 
 func _update_skill_buttons() -> void:
 	var active: bool = _session != null and _session.state == BattleSession.STATE_BATTLE_ACTIVE
+	var charging_entry: Variant = _charging.get("entry", null)
 	for entry in _skill_buttons:
 		var button: Variant = entry.get("button", null)
 		if not (button is Button) or not is_instance_valid(button):
@@ -446,6 +502,17 @@ func _update_skill_buttons() -> void:
 			remaining = user.get_cooldown(skill_id)
 			alive = user.is_alive()
 
+		if entry == charging_entry:
+			# チャージ中はボタンを押しっぱなしなので disabled にしない。
+			# disabled にすると button_up が飛ばず、離しても発動しなくなる。
+			var t: float = float(_charging.get("time", 0.0))
+			button.text = "%s %.2f%s" % [tr(name_key), t, _just_suffix(entry, t)]
+			button.disabled = false
+			_update_charge_gauge(entry, t)
+			continue
+
+		_update_charge_gauge(entry, 0.0)
+
 		if remaining > 0.0:
 			button.text = "%s (%.1f)" % [tr(name_key), remaining]
 		else:
@@ -454,11 +521,53 @@ func _update_skill_buttons() -> void:
 		button.disabled = (not active) or (not alive) or (remaining > 0.0)
 
 
+# ジャストの窓に入っているあいだだけボタンに出す目印。
+# 1秒を目で測るのは無理なので、フィードバックが無いと当てられない。
+func _just_suffix(entry: Dictionary, t: float) -> String:
+	var charge: Dictionary = entry.get("charge", {})
+	if charge.is_empty():
+		return ""
+	var just_sec: float = float(charge.get("just_sec", 1.0))
+	var window: float = float(charge.get("just_window_sec", 0.15))
+	if absf(t - just_sec) <= window:
+		return "  JUST"
+	return ""
+
+
+# チャージの進み具合をゲージに反映する。
+# 目盛りは just_sec を満タンとする。窓に入ると色が変わり、
+# 行き過ぎるとくすんだ色になる（威力が 100% に落ちたことの合図）。
+func _update_charge_gauge(entry: Dictionary, t: float) -> void:
+	var gauge: Variant = entry.get("gauge", null)
+	if not (gauge is ProgressBar) or not is_instance_valid(gauge):
+		return
+	var charge: Dictionary = entry.get("charge", {})
+	if charge.is_empty():
+		return
+
+	var just_sec: float = float(charge.get("just_sec", 1.0))
+	var window: float = float(charge.get("just_window_sec", 0.15))
+	if just_sec <= 0.0:
+		return
+
+	gauge.value = clampf(t / just_sec, 0.0, 1.0)
+	if absf(t - just_sec) <= window:
+		gauge.modulate = CHARGE_COLOR_JUST
+	elif t > just_sec:
+		gauge.modulate = CHARGE_COLOR_OVER
+	else:
+		gauge.modulate = CHARGE_COLOR_NORMAL
+
+
 # スキル発動。
 # クールダウンの開始は必ず最後。先に開始すると、対象なしで
 # 何も起きなかった場合にクールダウンだけ消費される。
 # 勝敗判定はここで行わない。_process の判定に一本化する。
 func _on_skill_button_pressed(user: BattleUnit, skill_id: String) -> void:
+	_fire_skill(user, skill_id, 1.0)
+
+
+func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> void:
 	if _session == null:
 		return
 	if _session.state != BattleSession.STATE_BATTLE_ACTIVE:
@@ -472,7 +581,13 @@ func _on_skill_button_pressed(user: BattleUnit, skill_id: String) -> void:
 	if skill_data.is_empty():
 		return
 
-	var results: Array = SkillResolver.resolve(skill_data, user, _session)
+	# チャージ倍率は multiplier に畳み込んでから渡す。
+	# こうすると SkillResolver 側は「倍率が違うスキル」を解くだけでよく、
+	# チャージという概念を知らずに済む。
+	var effective: Dictionary = skill_data.duplicate(true)
+	effective["multiplier"] = float(skill_data.get("multiplier", 1.0)) * power_ratio
+
+	var results: Array = SkillResolver.resolve(effective, user, _session)
 	for r in results:
 		if not (r is Dictionary):
 			continue
@@ -480,6 +595,109 @@ func _on_skill_button_pressed(user: BattleUnit, skill_id: String) -> void:
 		_pop_damage(target, int(r.get("amount", 0)))
 
 	user.start_cooldown(skill_id, float(skill_data.get("cooldown_sec", 0.0)))
+
+
+# ============================================================
+# チャージスキル
+# ============================================================
+
+func _on_charge_button_down(entry: Dictionary) -> void:
+	if _session == null or _session.state != BattleSession.STATE_BATTLE_ACTIVE:
+		return
+	if not _charging.is_empty():
+		return
+	var user: BattleUnit = entry.get("user", null)
+	var skill_id: String = str(entry.get("skill_id", ""))
+	if user == null or not user.is_alive():
+		return
+	if not user.is_skill_ready(skill_id):
+		return
+	_charging = {"entry": entry, "time": 0.0}
+
+
+func _on_charge_button_up(entry: Dictionary) -> void:
+	if _charging.is_empty():
+		return
+	if _charging.get("entry", null) != entry:
+		return
+	var t: float = float(_charging.get("time", 0.0))
+	var user: BattleUnit = entry.get("user", null)
+	var skill_id: String = str(entry.get("skill_id", ""))
+	_charging.clear()
+
+	# ジャストかどうかは発動の前に確かめる。
+	# 発動で敵が全滅すると、そのあとでは判定に使う情報が変わりうるため。
+	var is_just: bool = _is_just(entry, t)
+	_fire_skill(user, skill_id, _charge_power_ratio(entry, t))
+	if is_just:
+		_pop_just(user)
+
+
+func _is_just(entry: Dictionary, t: float) -> bool:
+	var charge: Dictionary = entry.get("charge", {})
+	if charge.is_empty():
+		return false
+	var just_sec: float = float(charge.get("just_sec", 1.0))
+	var window: float = float(charge.get("just_window_sec", 0.15))
+	return absf(t - just_sec) <= window
+
+
+# ジャスト成功を使用者の頭上に出す。
+# 敵側のダメージ数値とは別に、撃った本人のところに出したいので
+# _pop_damage とは経路を分けている。
+func _pop_just(user: BattleUnit) -> void:
+	if user == null:
+		return
+	if not _views_by_unit_id.has(user.unit_id):
+		return
+	var view: Node = _views_by_unit_id[user.unit_id]
+	if is_instance_valid(view) and view.has_method("pop_just"):
+		view.pop_just()
+
+
+# チャージ中に戦闘が終わったり使用者が死んだら、発動せず取り消す。
+# クールダウンも入らない。何も起きていないのに待たされる状態を作らないため。
+func _tick_charge(delta: float) -> void:
+	if _charging.is_empty():
+		return
+	var entry: Dictionary = _charging.get("entry", {})
+	var user: BattleUnit = entry.get("user", null)
+	if _session == null or _session.state != BattleSession.STATE_BATTLE_ACTIVE:
+		_cancel_charge()
+		return
+	if user == null or not user.is_alive():
+		_cancel_charge()
+		return
+	_charging["time"] = float(_charging.get("time", 0.0)) + delta
+
+
+func _cancel_charge() -> void:
+	_charging.clear()
+
+
+# チャージ時間から威力倍率を出す。
+#
+#   0秒            → min_ratio（既定 0.5）
+#   just_sec まで  → min_ratio から 1.0 へ直線的に増加
+#   ジャストの窓内 → just_bonus（既定 1.3）
+#   窓を過ぎたあと → 1.0（何秒ためても変わらない。ためすぎの罰は無い）
+func _charge_power_ratio(entry: Dictionary, t: float) -> float:
+	var charge: Dictionary = entry.get("charge", {})
+	if charge.is_empty():
+		return 1.0
+
+	var just_sec: float = float(charge.get("just_sec", 1.0))
+	var window: float = float(charge.get("just_window_sec", 0.15))
+	var min_ratio: float = float(charge.get("min_ratio", 0.5))
+	var just_bonus: float = float(charge.get("just_bonus", 1.3))
+
+	if absf(t - just_sec) <= window:
+		return just_bonus
+	if t > just_sec:
+		return 1.0
+	if just_sec <= 0.0:
+		return 1.0
+	return clampf(min_ratio + (1.0 - min_ratio) * (t / just_sec), min_ratio, 1.0)
 
 
 # ============================================================
@@ -502,6 +720,7 @@ func _enter_victory() -> void:
 	if _result_applied:
 		return
 	_result_applied = true
+	_cancel_charge()
 	_session.state = BattleSession.STATE_VICTORY
 
 	var result_data: Dictionary = {
@@ -519,6 +738,7 @@ func _enter_defeat() -> void:
 	if _result_applied:
 		return
 	_result_applied = true
+	_cancel_charge()
 	_session.state = BattleSession.STATE_DEFEAT
 	# apply_battle_rewards も mark_stage_cleared も呼ばない
 	_show_result(false, {})
