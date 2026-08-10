@@ -114,3 +114,30 @@ static func get_skill(skill_id: String) -> Dictionary:
 		push_error("[MasterDataLoader] skill id not found: " + skill_id)
 		return {}
 	return (_cache_skills[skill_id] as Dictionary).duplicate(true)
+
+
+# ========================================================================
+# ステージ並び順（EXEC §3）。既存関数・定数・static var には一切触らず、
+# 末尾追記だけで完結させる（PRE_PLAN §8-2 準拠）。
+# GDScript は const / static var の宣言を関数のあとに書ける。
+# ========================================================================
+
+const PATH_STAGE_ORDER: String = DIR_PATH + "stage_order.json"
+
+static var _cache_stage_order: Dictionary = {}
+static var _stage_order_loaded: bool = false
+
+
+static func get_stage_order(mode: String) -> Array:
+	# 遅延ロード。_ensure_loaded() には組み込まない（この関数だけが独立して動く形にする）
+	if not _stage_order_loaded:
+		_stage_order_loaded = true
+		_cache_stage_order = _load_json(PATH_STAGE_ORDER)
+	if not _cache_stage_order.has(mode):
+		push_error("[MasterDataLoader] stage_order mode not found: " + mode)
+		return []
+	var order: Variant = _cache_stage_order[mode]
+	if not (order is Array):
+		push_error("[MasterDataLoader] stage_order['" + mode + "'] is not Array: " + str(order))
+		return []
+	return (order as Array).duplicate(true)

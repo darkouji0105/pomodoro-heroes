@@ -1,0 +1,74 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scenes/adventure/adventure_select.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/resource_display.tscn" id="2_resource_dsp"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="3_button"]
+
+[node name="AdventureSelect" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_right = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TitleLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+text = "ui_adventure_title"
+
+[node name="Spacer" type="Control" parent="Layout/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="StaminaNameLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+text = "ui_res_stamina"
+
+[node name="StaminaValue" parent="Layout/Header" instance=ExtResource("2_resource_dsp")]
+layout_mode = 2
+
+[node name="MessageLabel" type="Label" parent="Layout"]
+layout_mode = 2
+
+[node name="StageList" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Spacer2" type="Control" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Footer" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+
+[node name="TrainingButton" parent="Layout/Footer" instance=ExtResource("3_button")]
+layout_mode = 2
+label_key = "ui_adventure_training"
+
+[node name="BackButton" parent="Layout/Footer" instance=ExtResource("3_button")]
+layout_mode = 2
+label_key = "ui_adventure_back"

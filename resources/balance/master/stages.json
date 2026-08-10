@@ -1,5 +1,6 @@
 {
   "stage_1": {
+    "name_key": "ui_stage_1",
     "party_id": "party_default",
     "rewards": { "gold": 50, "materials": { "construction_material": 3 } },
     "waves": [
@@ -8,6 +9,30 @@
       { "wave_index": 3, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
       { "wave_index": 4, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
       { "wave_index": 5, "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "atk": 26 } } ] }
+    ]
+  },
+  "stage_2": {
+    "name_key": "ui_stage_2",
+    "party_id": "party_default",
+    "rewards": { "gold": 80, "materials": { "construction_material": 5 } },
+    "waves": [
+      { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
+      { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
+      { "wave_index": 3, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3 } ] },
+      { "wave_index": 4, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 4, "stat_overrides": { "hp": 55 } } ] },
+      { "wave_index": 5, "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "hp": 400, "atk": 30 } }, { "enemy_type_id": "enemy_slime", "count": 2 } ] }
+    ]
+  },
+  "stage_3": {
+    "name_key": "ui_stage_3",
+    "party_id": "party_default",
+    "rewards": { "gold": 120, "materials": { "construction_material": 8 } },
+    "waves": [
+      { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3 } ] },
+      { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 3, "stat_overrides": { "hp": 60, "def": 4 } } ] },
+      { "wave_index": 3, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3, "stat_overrides": { "atk": 15 } } ] },
+      { "wave_index": 4, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 }, { "enemy_type_id": "enemy_slime", "count": 3, "stat_overrides": { "hp": 60 } } ] },
+      { "wave_index": 5, "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "hp": 550, "atk": 34, "def": 12 } }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] }
     ]
   }
 }
