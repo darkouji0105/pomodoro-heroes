@@ -1,0 +1,84 @@
+[gd_scene load_steps=3 format=3 uid="uid://btraining_scr01"]
+
+[ext_resource type="Script" path="res://scenes/guild/training_screen.gd" id="1_training"]
+[ext_resource type="PackedScene" uid="uid://b1primary_btn01" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+
+[node name="TrainingScreen" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_training")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.0784314, 0.0941176, 1)
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+text = "ui_training_title"
+horizontal_alignment = 1
+
+[node name="MaterialLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="ListPanel" type="VBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="DetailPanel" type="VBoxContainer" parent="Margin/Layout"]
+visible = false
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="Margin/Layout/DetailPanel"]
+layout_mode = 2
+
+[node name="LevelLabel" type="Label" parent="Margin/Layout/DetailPanel"]
+layout_mode = 2
+
+[node name="StatsLabel" type="Label" parent="Margin/Layout/DetailPanel"]
+layout_mode = 2
+
+[node name="CostLabel" type="Label" parent="Margin/Layout/DetailPanel"]
+layout_mode = 2
+
+[node name="NoticeLabel" type="Label" parent="Margin/Layout/DetailPanel"]
+layout_mode = 2
+
+[node name="LevelUpButton" parent="Margin/Layout/DetailPanel" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_training_level_up"
+
+[node name="SkillButton" parent="Margin/Layout/DetailPanel" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_training_skill"
+
+[node name="EquipButton" parent="Margin/Layout/DetailPanel" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_training_equipment"
+
+[node name="ToListButton" parent="Margin/Layout/DetailPanel" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_training_to_list"
+
+[node name="BackButton" parent="Margin/Layout" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_common_back"

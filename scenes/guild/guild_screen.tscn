@@ -1,9 +1,10 @@
-[gd_scene load_steps=8 format=3 uid="uid://bguild_screen01"]
+[gd_scene format=3 uid="uid://dc7j6hh0otwbi"]
 
-[ext_resource type="Script" path="res://scenes/guild/guild_screen.gd" id="1_guild"]
-[ext_resource type="PackedScene" uid="uid://b1primary_btn01" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+[ext_resource type="Script" uid="uid://ckse0fwbwc87o" path="res://scenes/guild/guild_screen.gd" id="1_guild"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
 
-[node name="GuildScreen" type="Control"]
+[node name="GuildScreen" type="Control" unique_id=1750307354]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -11,49 +12,49 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_guild")
 
-[node name="Background" type="ColorRect" parent="."]
-anchors_preset = 15
+[node name="Background" type="ColorRect" parent="." unique_id=1278690278]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.101961, 0.0784314, 0.0941176, 1)
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
-anchors_preset = 15
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=1052290858]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Layout" type="VBoxContainer" parent="CenterContainer"]
+[node name="Layout" type="VBoxContainer" parent="CenterContainer" unique_id=732381235]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="CenterContainer/Layout"]
+[node name="TitleLabel" type="Label" parent="CenterContainer/Layout" unique_id=1810181109]
 layout_mode = 2
 text = "ui_nav_guild"
 horizontal_alignment = 1
 
-[node name="WarehouseButton" parent="CenterContainer/Layout" instance=ExtResource("2_primary_btn")]
+[node name="WarehouseButton" parent="CenterContainer/Layout" unique_id=887596736 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_guild_warehouse"
 
-[node name="ShopButton" parent="CenterContainer/Layout" instance=ExtResource("2_primary_btn")]
+[node name="ShopButton" parent="CenterContainer/Layout" unique_id=1792454149 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_guild_shop"
 
-[node name="TrainingButton" parent="CenterContainer/Layout" instance=ExtResource("2_primary_btn")]
+[node name="TrainingButton" parent="CenterContainer/Layout" unique_id=754066460 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_guild_training"
 
-[node name="ResearchButton" parent="CenterContainer/Layout" instance=ExtResource("2_primary_btn")]
+[node name="ResearchButton" parent="CenterContainer/Layout" unique_id=489008989 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_guild_research"
 
-[node name="WorkshopButton" parent="CenterContainer/Layout" instance=ExtResource("2_primary_btn")]
+[node name="WorkshopButton" parent="CenterContainer/Layout" unique_id=437788127 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_guild_workshop"
 
-[node name="BackButton" parent="CenterContainer/Layout" instance=ExtResource("2_primary_btn")]
+[node name="BackButton" parent="CenterContainer/Layout" unique_id=2069511811 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_common_back"

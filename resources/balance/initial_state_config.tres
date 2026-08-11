@@ -8,7 +8,8 @@ starting_gold = 100
 starting_stamina_max = 100
 starting_stamina_current = 20
 starting_materials = {
-"construction_material": 5
+"construction_material": 5,
+"training_material": 50
 }
 initially_unlocked_screens = Array[String](["guild", "adventure_select", "pomodoro", "settings", "scenario"])
 starting_scenario_chapter = 1

@@ -15,6 +15,18 @@ signal material_changed(material_id: String, new_amount: int)
 signal screen_unlocked(screen_id: String)
 signal inventory_changed(item_id: String)
 signal pending_chests_changed(pending_count: int)
+# 育成データの変化。レベル・ステータス・装備・スキルのいずれかが変わったときに発火する。
+# 素材の増減は material_changed 側で通知されるため、こちらには含めない。
+signal character_growth_changed(character_id: String)
+
+# get_level_up_cost() が返す Dictionary のキー。
+# 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
+const LEVEL_UP_COST_MATERIAL_ID: String = "material_id"
+const LEVEL_UP_COST_AMOUNT: String = "amount"
+
+# get_stat_boost_all() が「全ステータス対象」の加算をまとめるキー。
+# 既存の get_stat_boost_all() が target_stat 未指定時に使う値と揃える必要がある。
+const STAT_BOOST_ALL_KEY: String = "all"
 
 func _ready() -> void:
 	print("[GameManager] _ready() — initializing from Balance.initial_state")
@@ -23,9 +35,12 @@ func _ready() -> void:
 	else:
 		push_warning("[GameManager] Balance.initial_state is null — using empty defaults")
 		_state = _empty_state_template()
-	print("[GameManager] init complete. gold=%d stamina=%s unlocked_screens=%s" % [
+	# materials も出す。initial_state に足した素材が届いているかを、
+	# セーブファイルを開かずに確認できるようにするため。
+	print("[GameManager] init complete. gold=%d stamina=%s materials=%s unlocked_screens=%s" % [
 		int(_state.get(GameStateKeys.GOLD, 0)),
 		_state.get(GameStateKeys.STAMINA, {}),
+		_state.get(GameStateKeys.MATERIALS, {}),
 		_state.get(GameStateKeys.UNLOCKED_SCREENS, {}),
 	])
 
@@ -473,15 +488,169 @@ func refresh_shop_if_needed(shop_type: String) -> void:
 
 # --- 育成 ---
 
+# 育成データを返す。エントリが無ければ characters.json から既定値（レベル1）を組み立てて返す。
+#
+# 既定値は _state に書き込まない。理由：
+#  - レベル1のキャラはセーブデータに現れず、キャラクターを追加しても移行処理が要らない
+#  - 「読んだだけで状態が変わる」getter を作らない
 func get_character_growth(character_id: String) -> Dictionary:
 	var growth: Dictionary = _state.get(GameStateKeys.CHARACTER_GROWTH, {})
 	var entry: Dictionary = growth.get(character_id, {})
+	if entry.is_empty():
+		return _default_growth_for(character_id)
 	return entry.duplicate(true)
 
+# 保存されている素の値に、研究のボーナスを合成した最終値を返す。
+# 表示と（将来的には）戦闘がこちらを使う。装備補正は装備実装時にここへ足す。
+#
+# stats そのものに研究の効果を混ぜないのは、研究ノードの効果値を変えたときに
+# 既存セーブの stats が実態とずれるのを避けるため。
+func get_effective_stats(character_id: String) -> Dictionary:
+	var growth: Dictionary = get_character_growth(character_id)
+	var raw: Dictionary = growth.get(GameStateKeys.GROWTH_STATS, {})
+	var boosts: Dictionary = get_stat_boost_all()
+	var boost_all: int = int(boosts.get(STAT_BOOST_ALL_KEY, 0))
+
+	var result: Dictionary = {}
+	for stat_key: String in _stat_keys():
+		result[stat_key] = int(raw.get(stat_key, 0)) + int(boosts.get(stat_key, 0)) + boost_all
+	return result
+
+# 現在のレベルから1つ上げるのに必要な素材を返す。
+# 戻り値: {material_id: String, amount: int}
+func get_level_up_cost(character_id: String) -> Dictionary:
+	var empty: Dictionary = {LEVEL_UP_COST_MATERIAL_ID: "", LEVEL_UP_COST_AMOUNT: 0}
+	if Balance == null or Balance.character == null:
+		push_warning("[GameManager] get_level_up_cost: Balance.character is null")
+		return empty
+
+	var config: CharacterConfig = Balance.character
+	var level: int = int(get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
+	var base: float = float(config.base_level_up_cost)
+	var growth: float = config.cost_growth_per_level
+	var fallback: float = base + growth * float(level - 1)
+
+	var amount: int = GrowthFormula.evaluate_int(
+		config.level_up_cost_formula,
+		{"base": base, "growth": growth, "level": float(level)},
+		fallback
+	)
+	if amount < 0:
+		amount = 0
+
+	return {
+		LEVEL_UP_COST_MATERIAL_ID: config.level_up_material_id,
+		LEVEL_UP_COST_AMOUNT: amount,
+	}
+
+# レベルを1つ上げる。上限到達・素材不足のときは何もせず false を返す。
+# 成功時は素材を消費し、stats を再計算して character_growth_changed を発火する。
 func level_up_character(character_id: String) -> bool:
-	# 素材不足なら何もせずfalse（空実装）
-	print("[GameManager] level_up_character('%s') -> false (dummy: insufficient materials)" % character_id)
-	return false
+	var growth: Dictionary = get_character_growth(character_id)
+	if growth.is_empty():
+		push_warning("[GameManager] level_up_character: unknown character_id: " + character_id)
+		return false
+
+	var level: int = int(growth.get(GameStateKeys.GROWTH_LEVEL, 1))
+	var cap: int = get_effective_level_cap(character_id)
+	if level >= cap:
+		print("[GameManager] level_up_character('%s') -> false (level %d >= cap %d)" % [character_id, level, cap])
+		return false
+
+	var cost: Dictionary = get_level_up_cost(character_id)
+	var material_id: String = str(cost.get(LEVEL_UP_COST_MATERIAL_ID, ""))
+	var amount: int = int(cost.get(LEVEL_UP_COST_AMOUNT, 0))
+	if material_id == "":
+		push_warning("[GameManager] level_up_character: level_up_material_id が未設定（character_config.tres）")
+		return false
+
+	# add_material() は残高を確認しないため、減算する前に必ずここで確認する。
+	var owned: int = get_material_count(material_id)
+	if owned < amount:
+		print("[GameManager] level_up_character('%s') -> false (material %s: %d < %d)" % [
+			character_id, material_id, owned, amount
+		])
+		return false
+
+	if amount > 0:
+		add_material(material_id, -amount)
+
+	var new_level: int = level + 1
+	# growth は get_character_growth() が返した複製なので、直接書き換えてよい。
+	growth[GameStateKeys.GROWTH_LEVEL] = new_level
+	growth[GameStateKeys.GROWTH_STATS] = _recalc_stats(character_id, new_level)
+
+	var all_growth: Dictionary = _copy_dict(GameStateKeys.CHARACTER_GROWTH)
+	all_growth[character_id] = growth
+	_state[GameStateKeys.CHARACTER_GROWTH] = all_growth
+
+	print("[GameManager] level_up_character('%s') -> true (level=%d stats=%s)" % [
+		character_id, new_level, growth[GameStateKeys.GROWTH_STATS]
+	])
+	character_growth_changed.emit(character_id)
+	return true
+
+# --- 育成：内部ヘルパー ---
+
+# stats のキー4つ。順序を固定したいので配列で持つ。
+func _stat_keys() -> Array[String]:
+	return [
+		GameStateKeys.STAT_HP,
+		GameStateKeys.STAT_ATK,
+		GameStateKeys.STAT_DEF,
+		GameStateKeys.STAT_SPD,
+	]
+
+# characters.json からレベル1の既定値を組み立てる。存在しないIDなら空を返す。
+#
+# MasterDataLoader は JSON をそのまま返すため、数値は float で来る。
+# int() で包まないと、セーブに "hp": 120.0 と書かれる。
+func _default_growth_for(character_id: String) -> Dictionary:
+	var char_data: Dictionary = MasterDataLoader.get_character(character_id)
+	if char_data.is_empty():
+		return {}
+
+	var stats: Dictionary = {}
+	for stat_key: String in _stat_keys():
+		stats[stat_key] = int(char_data.get(stat_key, 0))
+
+	return {
+		GameStateKeys.GROWTH_LEVEL: 1,
+		GameStateKeys.GROWTH_STATS: stats,
+		# skills の中身（slots）はスキル選択の実装時に入れる。
+		# 今そこに "slots" と書くと state_keys.gd に無いキーを文字列で書くことになるため空にしておく。
+		GameStateKeys.GROWTH_SKILLS: {},
+		GameStateKeys.GROWTH_EQUIPMENT: {
+			GameStateKeys.EQUIP_WEAPON: null,
+			GameStateKeys.EQUIP_ARMOR: null,
+			GameStateKeys.EQUIP_ACCESSORY: null,
+		},
+	}
+
+# 指定レベルにおける stats を、stat_growth_formula で計算し直す。
+# 差分を足し込むのではなく毎回レベルから計算するため、式を変えても既存データが追従する。
+func _recalc_stats(character_id: String, level: int) -> Dictionary:
+	var char_data: Dictionary = MasterDataLoader.get_character(character_id)
+	if char_data.is_empty():
+		return {}
+
+	var growth_table: Dictionary = char_data.get("growth_per_level", {})
+	var formula: String = ""
+	if Balance != null and Balance.character != null:
+		formula = Balance.character.stat_growth_formula
+
+	var stats: Dictionary = {}
+	for stat_key: String in _stat_keys():
+		var base: float = float(char_data.get(stat_key, 0))
+		# growth_per_level を持たないキャラは 0 として扱う（伸びないだけで、エラーにしない）。
+		var growth: float = float(growth_table.get(stat_key, 0))
+		var fallback: float = base + growth * float(level - 1)
+		stats[stat_key] = GrowthFormula.evaluate_int(
+			formula,
+			{"base": base, "growth": growth, "level": float(level)},
+			fallback
+		)
+	return stats
 
 func equip_item(character_id: String, slot: String, item_id: String) -> void:
 	print("[GameManager] equip_item('%s', '%s', '%s') (dummy)" % [character_id, slot, item_id])
@@ -503,9 +672,18 @@ func unlock_research_node(node_id: String) -> bool:
 	return false
 
 func get_effective_level_cap(_character_id: String) -> int:
-	# 保存された値ではなく、research_treeを都度走査して計算する
+	# 保存された値ではなく、research_treeを都度走査して計算する。
+	#
+	# 研究ツリーは未実装で常に空のため、走査結果だけだと 0 が返り、
+	# レベル1のキャラが即座に上限扱いになって育成画面が操作不能になる。
+	# base_level_cap を下駄として先に置く（EXEC_GUILD_TRAINING §5-3）。
+	# 研究が入っても、解放ノードの effect_value が加算されるだけで呼び出し側は変わらない。
 	var tree: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
 	var cap: int = 0
+	if Balance != null and Balance.character != null:
+		cap = int(Balance.character.base_level_cap)
+	else:
+		push_warning("[GameManager] get_effective_level_cap: Balance.character is null — base_level_cap を 0 として扱う")
 	for node_id: String in tree:
 		var node: Dictionary = tree[node_id]
 		if bool(node.get(GameStateKeys.NODE_UNLOCKED, false)) and str(node.get(GameStateKeys.NODE_EFFECT_TYPE, "")) == GameStateKeys.EFFECT_LEVEL_CAP_UNLOCK:
@@ -580,6 +758,21 @@ func load_state(data: Dictionary) -> bool:
 		var mats: Dictionary = new_state[GameStateKeys.MATERIALS]
 		for mat_id: String in mats:
 			mats[mat_id] = int(mats[mat_id])
+	# 育成データ。JSONから戻すと level も stats も float になるため int に戻す。
+	# これを飛ばすと、セーブ→ロード後に hp が 128.0 と表示され、レベル比較もずれる。
+	if new_state.has(GameStateKeys.CHARACTER_GROWTH) and new_state[GameStateKeys.CHARACTER_GROWTH] is Dictionary:
+		var growth_all: Dictionary = new_state[GameStateKeys.CHARACTER_GROWTH]
+		for character_id: String in growth_all:
+			if not (growth_all[character_id] is Dictionary):
+				continue
+			var entry: Dictionary = growth_all[character_id]
+			if entry.has(GameStateKeys.GROWTH_LEVEL):
+				entry[GameStateKeys.GROWTH_LEVEL] = int(entry[GameStateKeys.GROWTH_LEVEL])
+			if entry.has(GameStateKeys.GROWTH_STATS) and entry[GameStateKeys.GROWTH_STATS] is Dictionary:
+				var entry_stats: Dictionary = entry[GameStateKeys.GROWTH_STATS]
+				for stat_key: String in _stat_keys():
+					if entry_stats.has(stat_key):
+						entry_stats[stat_key] = int(entry_stats[stat_key])
 	
 	# 状態反映（外部参照を断つため duplicate）
 	_state = new_state.duplicate(true)

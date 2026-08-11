@@ -116,3 +116,19 @@ ui_base_chest_received,宝箱を%d個受け取りました
 ui_title_back_confirm,タイトルに戻りますか？ 保存していない進行状況は失われます
 ui_base_pomodoro_rewards,ポーションを%d個、宝箱を%d個受け取りました
 ui_title_delete_confirm,セーブデータを削除しますか？ この操作は取り消せません
+ui_res_training_material,修練の証
+ui_training_title,育成
+ui_training_level,Lv.%d
+ui_training_level_up,レベルアップ
+ui_training_cost,必要素材
+ui_training_owned,所持
+ui_training_max_level,研究で上限の解放が必要です
+ui_training_stat_hp,HP
+ui_training_stat_atk,攻撃
+ui_training_stat_def,防御
+ui_training_stat_spd,速さ
+ui_training_skill,スキル
+ui_training_equipment,装備
+ui_nav_training_skill,スキル
+ui_nav_training_equipment,装備
+ui_training_to_list,一覧へ
