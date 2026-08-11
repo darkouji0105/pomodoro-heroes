@@ -143,16 +143,17 @@ func _init_party_units() -> void:
 			push_error("[Battle] character not found: " + character_id)
 			continue
 
-		# 育成データがあれば優先
-		var growth: Dictionary = GameManager.get_character_growth(character_id)
-		var has_growth: bool = not growth.is_empty() and growth.has(GameStateKeys.GROWTH_STATS) and (growth[GameStateKeys.GROWTH_STATS] is Dictionary) and not (growth[GameStateKeys.GROWTH_STATS] as Dictionary).is_empty()
-		var stats: Dictionary = growth.get(GameStateKeys.GROWTH_STATS, {}) if has_growth else {}
+# レベル・研究・装備を合成した最終値。get_character_growth() の生の stats を
+		# 直接読まないこと（研究の stat_boost_all と装備の加算が乗らない）。
+		# エントリが無いキャラでも characters.json の既定値から組み立てて返るため、
+		# has_growth のフォールバック分岐は要らない。
+		var stats: Dictionary = GameManager.get_effective_stats(character_id)
 
-		var hp: int = int(stats.get(GameStateKeys.STAT_HP, char_data.get("hp", 0)))
-		var atk: int = int(stats.get(GameStateKeys.STAT_ATK, char_data.get("atk", 0)))
-		var def: int = int(stats.get(GameStateKeys.STAT_DEF, char_data.get("def", 0)))
-		var spd: int = int(stats.get(GameStateKeys.STAT_SPD, char_data.get("spd", 0)))
-
+		var hp: int = int(stats.get(GameStateKeys.STAT_HP, 0))
+		var atk: int = int(stats.get(GameStateKeys.STAT_ATK, 0))
+		var def: int = int(stats.get(GameStateKeys.STAT_DEF, 0))
+		var spd: int = int(stats.get(GameStateKeys.STAT_SPD, 0))
+		
 		var unit: BattleUnit = BattleUnit.new(
 			"party_%d" % i,
 			BattleUnit.TEAM_PARTY,

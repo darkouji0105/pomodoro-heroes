@@ -49,6 +49,33 @@
 	  "payout_type": "item",
 	  "count": 1,
 	  "item_type": "equipment"
-	}
+	},
+	 {
+	  "slot_id": 6,
+	  "item_id": "weapon_wooden_sword",
+	  "cost": { "currency_type": "gold", "amount": 0 },
+	  "stock_limit": 99,
+	  "payout_type": "item",
+	  "count": 1,
+	  "item_type": "equipment"
+	},
+	{
+	  "slot_id": 7,
+	  "item_id": "weapon_iron_sword",
+	  "cost": { "currency_type": "gold", "amount": 0 },
+	  "stock_limit": 99,
+	  "payout_type": "item",
+	  "count": 1,
+	  "item_type": "equipment"
+	},
+	{
+	  "slot_id": 8,
+	  "item_id": "weapon_steel_sword",
+	  "cost": { "currency_type": "gold", "amount": 0 },
+	  "stock_limit": 99,
+	  "payout_type": "item",
+	  "count": 1,
+	  "item_type": "equipment"
+	},
   ]
 }
