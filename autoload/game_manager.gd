@@ -79,6 +79,12 @@ const ITEM_MASTER_ITEM_TYPE: String = "item_type"
 const ITEM_STORAGE_MATERIAL: String = "material"
 const ITEM_STORAGE_INVENTORY: String = "inventory"
 
+# items.json の装備エントリだけが持つキー。
+# equipment.json を別に作らないのは、_item_storage() / _grant_item() が既に items.json を
+# 引いているため。性能値だけ別ファイルにすると、同期の型がもう1枚要る。
+const ITEM_MASTER_EQUIP_SLOT: String = "equip_slot"
+const ITEM_MASTER_EQUIP_STATS: String = "equip_stats"
+
 # Balance.workshop が読めなかったときの既定値。
 const DEFAULT_MAX_QUEUE_SLOTS: int = 1
 const DEFAULT_CRAFT_DURATION_SEC: int = 1800
@@ -815,20 +821,27 @@ func get_character_growth(character_id: String) -> Dictionary:
 		return _default_growth_for(character_id)
 	return entry.duplicate(true)
 
-# 保存されている素の値に、研究のボーナスを合成した最終値を返す。
-# 表示と（将来的には）戦闘がこちらを使う。装備補正は装備実装時にここへ足す。
+# 保存されている素の値に、研究と装備のボーナスを合成した最終値を返す。
+# 表示と戦闘の両方がこちらを使う。
 #
-# stats そのものに研究の効果を混ぜないのは、研究ノードの効果値を変えたときに
-# 既存セーブの stats が実態とずれるのを避けるため。
+# stats そのものに研究・装備の効果を混ぜないのは、研究ノードの効果値や装備の性能値を
+# 変えたときに、既存セーブの stats が実態とずれるのを避けるため。
+# 状態が持つのは「どのレベルか」「どの item_id を装備しているか」だけ。
 func get_effective_stats(character_id: String) -> Dictionary:
 	var growth: Dictionary = get_character_growth(character_id)
 	var raw: Dictionary = growth.get(GameStateKeys.GROWTH_STATS, {})
 	var boosts: Dictionary = get_stat_boost_all()
 	var boost_all: int = int(boosts.get(STAT_BOOST_ALL_KEY, 0))
+	var equip: Dictionary = get_equipment_bonus(character_id)
 
 	var result: Dictionary = {}
 	for stat_key: String in _stat_keys():
-		result[stat_key] = int(raw.get(stat_key, 0)) + int(boosts.get(stat_key, 0)) + boost_all
+		result[stat_key] = (
+			int(raw.get(stat_key, 0))
+			+ int(boosts.get(stat_key, 0))
+			+ boost_all
+			+ int(equip.get(stat_key, 0))
+		)
 	return result
 
 # 現在のレベルから1つ上げるのに必要な素材を返す。
@@ -967,11 +980,181 @@ func _recalc_stats(character_id: String, level: int) -> Dictionary:
 		)
 	return stats
 
-func equip_item(character_id: String, slot: String, item_id: String) -> void:
-	print("[GameManager] equip_item('%s', '%s', '%s') (dummy)" % [character_id, slot, item_id])
+# --- 装備 ---
 
-func unequip_item(character_id: String, slot: String) -> void:
-	print("[GameManager] unequip_item('%s', '%s') (dummy)" % [character_id, slot])
+# 装備できるスロット名。順序を固定したいので配列で持つ（_stat_keys() と同じ形）。
+# 第1弾で実際に使うのは weapon だけだが、状態側は3つとも null で作られているため
+# ここは最初から3つ返しておく（データを足すだけで armor / accessory が動く）。
+func _equip_slots() -> Array[String]:
+	return [
+		GameStateKeys.EQUIP_WEAPON,
+		GameStateKeys.EQUIP_ARMOR,
+		GameStateKeys.EQUIP_ACCESSORY,
+	]
+
+# 指定スロットに装備している item_id。何も装備していなければ ""。
+func get_equipped_item_id(character_id: String, slot: String) -> String:
+	var growth: Dictionary = get_character_growth(character_id)
+	var equipment: Dictionary = growth.get(GameStateKeys.GROWTH_EQUIPMENT, {})
+	var value: Variant = equipment.get(slot, null)
+	if value == null:
+		return ""
+	return str(value)
+
+# 装備しているアイテムのステータス加算の合計。{hp, atk, def, spd} を必ず4つ返す。
+#
+# 状態には item_id しか持たない。性能値は毎回 items.json から引き直す。
+# こうすると equip_stats を調整したときに既存セーブへも次の起動で反映される
+# （育成の stats・研究の effect_value と同じ扱い）。
+#
+# MasterDataLoader は JSON をそのまま返すため equip_stats の値は float で来る。
+# int() で包まないと get_effective_stats() が atk: 55.0 を返し、戦闘の計算にも .0 が乗る。
+func get_equipment_bonus(character_id: String) -> Dictionary:
+	var result: Dictionary = {}
+	for stat_key: String in _stat_keys():
+		result[stat_key] = 0
+
+	for slot: String in _equip_slots():
+		var item_id: String = get_equipped_item_id(character_id, slot)
+		if item_id == "":
+			continue
+		var definition: Dictionary = MasterDataLoader.get_item(item_id)
+		if definition.is_empty():
+			# items.json から消えたIDを装備したまま。装備は外れないが加算されない。
+			# リリース後にアイテムIDを改名しないこと（レシピIDと同じ制約）。
+			push_warning("[GameManager] get_equipment_bonus: items.json に無いIDを装備中: " + item_id)
+			continue
+		var equip_stats: Variant = definition.get(ITEM_MASTER_EQUIP_STATS, {})
+		if not (equip_stats is Dictionary):
+			continue
+		for stat_key: String in _stat_keys():
+			result[stat_key] = int(result[stat_key]) + int((equip_stats as Dictionary).get(stat_key, 0))
+	return result
+
+# 所持している装備のうち、指定スロットに着けられるものを返す。
+# 戻り値: [{item_id, count, equip_stats}] を sort_order の昇順。画面が一覧を描くために使う。
+#
+# 装備中のものはインベントリから消えているため、ここには出ない（外すと戻る）。
+func get_equippable_items(slot: String) -> Array:
+	var inventory: Dictionary = _state.get(GameStateKeys.INVENTORY, {})
+	var result: Array = []
+	for item_id: String in inventory:
+		var definition: Dictionary = MasterDataLoader.get_item(item_id)
+		if definition.is_empty():
+			continue
+		if str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_EQUIPMENT:
+			continue
+		if str(definition.get(ITEM_MASTER_EQUIP_SLOT, "")) != slot:
+			continue
+		var count: int = get_item_count(item_id)
+		if count <= 0:
+			continue
+		var equip_stats: Variant = definition.get(ITEM_MASTER_EQUIP_STATS, {})
+		result.append({
+			RECIPE_IO_ITEM_ID: item_id,
+			RECIPE_IO_COUNT: count,
+			ITEM_MASTER_EQUIP_STATS: (equip_stats as Dictionary).duplicate(true) if equip_stats is Dictionary else {},
+			RECIPE_SORT_ORDER: int(definition.get(RECIPE_SORT_ORDER, 0)),
+		})
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get(RECIPE_SORT_ORDER, 0)) < int(b.get(RECIPE_SORT_ORDER, 0)))
+	return result
+
+# 装備する。成功したら true。
+#
+# 判定の順番は start_craft() / purchase_shop_item() と揃える。
+# 状態を変える前に全部の判定を終える：
+#   キャラ存在 → スロット妥当 → items.json に存在 → 装備品である → スロット一致 → 所持
+# 「装備品でないアイテムを装備できてしまう」を、ここで確実に潰す。
+func equip_item(character_id: String, slot: String, item_id: String) -> bool:
+	var growth: Dictionary = get_character_growth(character_id)
+	if growth.is_empty():
+		print("[GameManager] equip_item('%s') -> false (unknown character)" % character_id)
+		return false
+
+	if not _equip_slots().has(slot):
+		print("[GameManager] equip_item('%s') -> false (unknown slot: %s)" % [character_id, slot])
+		return false
+
+	var definition: Dictionary = MasterDataLoader.get_item(item_id)
+	if definition.is_empty():
+		print("[GameManager] equip_item('%s') -> false (item not in items.json: %s)" % [character_id, item_id])
+		return false
+
+	if str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_EQUIPMENT:
+		print("[GameManager] equip_item('%s') -> false (not equipment: %s)" % [character_id, item_id])
+		return false
+
+	var item_slot: String = str(definition.get(ITEM_MASTER_EQUIP_SLOT, ""))
+	if item_slot != slot:
+		print("[GameManager] equip_item('%s') -> false (slot mismatch: item=%s requested=%s)" % [
+			character_id, item_slot, slot
+		])
+		return false
+
+	if get_item_count(item_id) < 1:
+		print("[GameManager] equip_item('%s') -> false (not owned: %s)" % [character_id, item_id])
+		return false
+
+	# --- ここから状態を変える ---
+
+	# 既に着けているものがあれば先に在庫へ戻す。
+	# 同じ item_id を着け直した場合は戻して減らすので差し引きゼロになる。
+	var previous: String = get_equipped_item_id(character_id, slot)
+	if previous != "":
+		_grant_item(previous, 1)
+	_consume_item(item_id, 1)
+
+	var equipment: Dictionary = (growth.get(GameStateKeys.GROWTH_EQUIPMENT, {}) as Dictionary).duplicate(true)
+	equipment[slot] = item_id
+	growth[GameStateKeys.GROWTH_EQUIPMENT] = equipment
+	_write_growth(character_id, growth)
+
+	print("[GameManager] equip_item('%s', '%s', '%s') -> true (previous=%s bonus=%s)" % [
+		character_id, slot, item_id, previous, get_equipment_bonus(character_id)
+	])
+	character_growth_changed.emit(character_id)
+	return true
+
+# 外す。何も装備していなければ false。外したものは在庫へ戻る。
+func unequip_item(character_id: String, slot: String) -> bool:
+	var growth: Dictionary = get_character_growth(character_id)
+	if growth.is_empty():
+		print("[GameManager] unequip_item('%s') -> false (unknown character)" % character_id)
+		return false
+
+	if not _equip_slots().has(slot):
+		print("[GameManager] unequip_item('%s') -> false (unknown slot: %s)" % [character_id, slot])
+		return false
+
+	var current: String = get_equipped_item_id(character_id, slot)
+	if current == "":
+		print("[GameManager] unequip_item('%s', '%s') -> false (nothing equipped)" % [character_id, slot])
+		return false
+
+	# --- ここから状態を変える ---
+
+	_grant_item(current, 1)
+
+	var equipment: Dictionary = (growth.get(GameStateKeys.GROWTH_EQUIPMENT, {}) as Dictionary).duplicate(true)
+	equipment[slot] = null
+	growth[GameStateKeys.GROWTH_EQUIPMENT] = equipment
+	_write_growth(character_id, growth)
+
+	print("[GameManager] unequip_item('%s', '%s') -> true (returned=%s bonus=%s)" % [
+		character_id, slot, current, get_equipment_bonus(character_id)
+	])
+	character_growth_changed.emit(character_id)
+	return true
+
+# 1キャラ分の育成データを _state へ書き戻す。
+# level_up_character() が直接書いていた3行と同じ処理。装備でも同じ形が要るため関数にした。
+# Dictionary は参照渡しのため、_copy_dict() で複製してから差し替える。
+func _write_growth(character_id: String, growth: Dictionary) -> void:
+	var all_growth: Dictionary = _copy_dict(GameStateKeys.CHARACTER_GROWTH)
+	all_growth[character_id] = growth
+	_state[GameStateKeys.CHARACTER_GROWTH] = all_growth
+
 
 func select_skill(character_id: String, slot_id: int, skill_id: String) -> void:
 	print("[GameManager] select_skill('%s', %d, '%s') (dummy)" % [character_id, slot_id, skill_id])

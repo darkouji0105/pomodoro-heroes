@@ -16,3 +16,4 @@ const STAGE_TYPE: String = "stage_type"
 # ポモドーロから拠点へ渡す受け取り数（PLAN_MODAL.md タスク2）
 const POMODORO_POTIONS: String = "pomodoro_potions"
 const POMODORO_CHESTS: String = "pomodoro_chests"
+const CHARACTER_ID: String = "character_id"

@@ -1,0 +1,81 @@
+[gd_scene format=3 uid="uid://c6reg23n05ey6"]
+
+[ext_resource type="Script" uid="uid://bnqek4jakj5l8" path="res://scenes/guild/equipment_screen.gd" id="1_equipment"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+
+[node name="EquipmentScreen" type="Control" unique_id=890168976]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_equipment")
+
+[node name="Background" type="ColorRect" parent="." unique_id=1379726586]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.0784314, 0.0941176, 1)
+
+[node name="Margin" type="MarginContainer" parent="." unique_id=618498176]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Margin" unique_id=729970024]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Margin/Layout" unique_id=522928341]
+layout_mode = 2
+text = "ui_equipment_title"
+horizontal_alignment = 1
+
+[node name="NameLabel" type="Label" parent="Margin/Layout" unique_id=370182]
+layout_mode = 2
+
+[node name="StatsLabel" type="Label" parent="Margin/Layout" unique_id=389851002]
+layout_mode = 2
+
+[node name="EquippedRow" type="HBoxContainer" parent="Margin/Layout" unique_id=194809402]
+layout_mode = 2
+
+[node name="EquippedLabel" type="Label" parent="Margin/Layout/EquippedRow" unique_id=1174334402]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="UnequipButton" type="Button" parent="Margin/Layout/EquippedRow" unique_id=1312330104]
+layout_mode = 2
+text = "外す"
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/Layout" unique_id=618165948]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Content" type="VBoxContainer" parent="Margin/Layout/Scroll" unique_id=1048117297]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ItemHeader" type="Label" parent="Margin/Layout/Scroll/Content" unique_id=1416877736]
+layout_mode = 2
+text = "ui_equipment_owned_header"
+
+[node name="ItemList" type="VBoxContainer" parent="Margin/Layout/Scroll/Content" unique_id=332910781]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NoticeLabel" type="Label" parent="Margin/Layout" unique_id=268999778]
+layout_mode = 2
+
+[node name="BackButton" parent="Margin/Layout" unique_id=430441959 instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_common_back"

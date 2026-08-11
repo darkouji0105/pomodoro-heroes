@@ -1,45 +1,54 @@
 {
   "daily": [
-    {
-      "slot_id": 0,
-      "item_id": "training_material",
-      "payout_type": "material",
-      "count": 10,
-      "cost": { "currency_type": "gold", "amount": 300 },
-      "stock_limit": 3
-    },
-    {
-      "slot_id": 1,
-      "item_id": "construction_material",
-      "payout_type": "material",
-      "count": 10,
-      "cost": { "currency_type": "gold", "amount": 300 },
-      "stock_limit": 3
-    },
-    {
-      "slot_id": 2,
-      "item_id": "stamina_potion",
-      "payout_type": "item",
-      "item_type": "consumable",
-      "count": 1,
-      "cost": { "currency_type": "gold", "amount": 500 },
-      "stock_limit": 2
-    },
-    {
-      "slot_id": 3,
-      "item_id": "training_material",
-      "payout_type": "material",
-      "count": 30,
-      "cost": { "currency_type": "gold", "amount": 800 },
-      "stock_limit": 1
-    },
-    {
-      "slot_id": 4,
-      "item_id": "construction_material",
-      "payout_type": "material",
-      "count": 30,
-      "cost": { "currency_type": "gold", "amount": 800 },
-      "stock_limit": 1
-    }
+	{
+	  "slot_id": 0,
+	  "item_id": "training_material",
+	  "payout_type": "material",
+	  "count": 10,
+	  "cost": { "currency_type": "gold", "amount": 300 },
+	  "stock_limit": 3
+	},
+	{
+	  "slot_id": 1,
+	  "item_id": "construction_material",
+	  "payout_type": "material",
+	  "count": 10,
+	  "cost": { "currency_type": "gold", "amount": 300 },
+	  "stock_limit": 3
+	},
+	{
+	  "slot_id": 2,
+	  "item_id": "stamina_potion",
+	  "payout_type": "item",
+	  "item_type": "consumable",
+	  "count": 1,
+	  "cost": { "currency_type": "gold", "amount": 500 },
+	  "stock_limit": 2
+	},
+	{
+	  "slot_id": 3,
+	  "item_id": "training_material",
+	  "payout_type": "material",
+	  "count": 30,
+	  "cost": { "currency_type": "gold", "amount": 800 },
+	  "stock_limit": 1
+	},
+	{
+	  "slot_id": 4,
+	  "item_id": "construction_material",
+	  "payout_type": "material",
+	  "count": 30,
+	  "cost": { "currency_type": "gold", "amount": 800 },
+	  "stock_limit": 1
+	},
+	{
+	  "slot_id": 5,
+	  "item_id": "weapon_debug_blade",
+	  "cost": { "currency_type": "gold", "amount": 100 },
+	  "stock_limit": 3,
+	  "payout_type": "item",
+	  "count": 1,
+	  "item_type": "equipment"
+	}
   ]
 }

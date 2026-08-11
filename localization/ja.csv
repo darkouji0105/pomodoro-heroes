@@ -164,3 +164,17 @@ ui_guild_workshop_done,完成
 ui_guild_workshop_started,製作を開始しました
 ui_guild_workshop_collected,受け取りました
 ui_guild_workshop_failed,実行できませんでした
+ui_res_weapon_wooden_sword,木の剣
+ui_res_weapon_iron_sword,鉄の剣
+ui_res_weapon_steel_sword,鋼の剣
+ui_res_weapon_debug_blade,【検証用】試し斬りの剣
+ui_equipment_title,装備
+ui_equipment_slot_weapon,武器
+ui_equipment_none,なし
+ui_equipment_equip,装備する
+ui_equipment_unequip,外す
+ui_equipment_owned_header,持っている装備
+ui_equipment_empty,装備できるものがありません
+ui_equipment_equipped,装備した
+ui_equipment_unequipped,外した
+ui_equipment_failed,装備できなかった

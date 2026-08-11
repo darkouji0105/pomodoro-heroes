@@ -1,22 +1,54 @@
 {
   "items": [
-    {
-      "item_id": "training_material",
-      "storage": "material",
-      "item_type": "material",
-      "sort_order": 0
-    },
-    {
-      "item_id": "construction_material",
-      "storage": "material",
-      "item_type": "material",
-      "sort_order": 1
-    },
-    {
-      "item_id": "stamina_potion",
-      "storage": "inventory",
-      "item_type": "consumable",
-      "sort_order": 10
-    }
+	{
+	  "item_id": "training_material",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 0
+	},
+	{
+	  "item_id": "construction_material",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 1
+	},
+	{
+	  "item_id": "stamina_potion",
+	  "storage": "inventory",
+	  "item_type": "consumable",
+	  "sort_order": 10
+	},
+	{
+	  "item_id": "weapon_wooden_sword",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "equip_stats": { "atk": 3 },
+	  "sort_order": 20
+	},
+	{
+	  "item_id": "weapon_iron_sword",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "equip_stats": { "atk": 8 },
+	  "sort_order": 21
+	},
+	{
+	  "item_id": "weapon_steel_sword",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "equip_stats": { "atk": 15 },
+	  "sort_order": 22
+	},
+	{
+	  "item_id": "weapon_debug_blade",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "equip_stats": { "atk": 50 },
+	  "sort_order": 99
+	}
   ]
 }

@@ -21,7 +21,7 @@ const CHARACTER_IDS: Array[String] = [
 
 # placeholder_screen に渡す screen_id。翻訳キーは "ui_nav_" + screen_id で引かれる。
 const SCREEN_ID_SKILL: String = "training_skill"
-const SCREEN_ID_EQUIPMENT: String = "training_equipment"
+const EQUIPMENT_PATH: String = "res://scenes/guild/equipment_screen.tscn"
 
 # 詳細を表示中のキャラクターID。一覧表示中は空文字。
 var _selected_id: String = ""
@@ -46,7 +46,7 @@ func _ready() -> void:
 
 	level_up_button.pressed.connect(_on_level_up_pressed)
 	skill_button.pressed.connect(_go_to_placeholder.bind(SCREEN_ID_SKILL))
-	equip_button.pressed.connect(_go_to_placeholder.bind(SCREEN_ID_EQUIPMENT))
+	equip_button.pressed.connect(_on_equip_pressed)
 	to_list_button.pressed.connect(_show_list)
 	back_button.pressed.connect(_on_back_pressed)
 
@@ -167,6 +167,12 @@ func _on_level_up_pressed() -> void:
 func _go_to_placeholder(screen_id: String) -> void:
 	SceneManager.change_scene_with_data(PLACEHOLDER_PATH, {TransferKeys.SCREEN_ID: screen_id})
 
+# 装備画面は独立した画面。どのキャラの装備を編集するかを TransferKeys で渡す。
+# 詳細を開いていないときは押せない位置にあるため _selected_id は必ず入っている。
+func _on_equip_pressed() -> void:
+	if _selected_id == "":
+		return
+	SceneManager.change_scene_with_data(EQUIPMENT_PATH, {TransferKeys.CHARACTER_ID: _selected_id})
 
 func _on_back_pressed() -> void:
 	SceneManager.change_scene(GUILD_PATH)
