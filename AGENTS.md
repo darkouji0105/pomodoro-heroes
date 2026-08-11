@@ -125,7 +125,7 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 | `UNLOCKED_SCREENS` | `{screen_id: bool}` |
 | `STORY` | `{current_chapter: int, stages: {stage_id: {cleared, stars}}}` |
 | `CODEX` | `{item_id: {discovered, obtained_at}}` |
-| `DAILY_SHOP` / `WEEKLY_SHOP` / `MONTHLY_SHOP` | `{refresh_at, line_up: [{slot_id, item_id, cost: {currency_type, amount}, stock_limit, purchased_count}]}` |
+| `DAILY_SHOP` / `WEEKLY_SHOP` / `MONTHLY_SHOP` | `{refresh_at, line_up: [{slot_id, item_id, cost: {currency_type, amount}, stock_limit, purchased_count, payout_type, count, item_type}]}`。`refresh_at`は**ゲーム内日付の文字列**（`"2026-08-11"`）。`payout_type` / `count` / `item_type`は`shop.json`側のキーで、`GameStateKeys`ではなく`GameManager`の定数を使う |
 | `CHARACTER_GROWTH` | `{character_id: {level, stats: {hp, atk, def, spd}, skills, equipment: {weapon, armor, accessory}}}` |
 | `RESEARCH_TREE` | `{node_id: {unlocked, effect_type, effect_value, prerequisites}}` |
 | `RECIPES_UNLOCKED` | `{recipe_id: bool}` |
@@ -146,6 +146,7 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 | `pending_chests_changed(pending_count)` | 未開封の宝箱件数の変化 |
 | `character_growth_changed(character_id)` | 育成データの変化（レベル・ステータス・装備・スキル）。素材の増減は`material_changed`側で通知されるため含まない |
 | `research_node_unlocked(node_id)` | 研究ノードの解放。実効レベル上限とステータス上昇は都度計算のため、この通知だけで全画面が追従できる |
+| `shop_changed(shop_type)` | ショップのラインナップの変化（購入・リフレッシュの両方）。`shop_type`は`GameStateKeys.SHOP_TYPE_DAILY`等の定数。所持金・素材・アイテムの増減は`resource_changed` / `material_changed` / `inventory_changed`側で通知されるため含まない |
 
 `SignalBus`の`pomodoro_session_completed` / `battle_finished`は、**GameManagerの`apply_*_rewards()`内からのみ発火する**。呼び出し元の画面から直接発火しないこと（二重発火防止）。
 
@@ -379,3 +380,25 @@ EXECに「ログで確認する」と書くなら、**その`print`が本当に�
 
 実装例：`GameManager._sync_research_tree_from_master()`。
 ショップ・作業場のレシピも同じ型で書く。
+
+- **追記（ショップの完了時点）**：
+  - 「GameManagerのシグナル」表に`shop_changed`を追記
+  - 「GameManagerの状態構造」のショップ行を実装に合わせて更新（`payout_type` / `count` / `item_type`、`refresh_at`の型）
+  - **1回の操作で複数のシグナルが飛ぶ画面の再描画**について下記を追加
+
+### 再描画は await を持たせない（1操作で複数のシグナルが飛ぶ場合）
+
+行をコードで生成する画面で、`queue_free()` + `await get_tree().process_frame`
+という形で作り直すと、**1回の操作で2本以上のシグナルが飛ぶ場合に行が二重に並ぶ。**
+
+`await`の間に2本目の再描画が削除を終えてしまい、1本目と2本目が
+それぞれ行を追加するため。
+
+対策：`remove_child()`してから`queue_free()`し、再描画関数に`await`を持たせない。
+`remove_child()`はその場で効く。
+
+実例：ショップの購入は`resource_changed`（所持金）と`shop_changed`（在庫）を
+続けて発火する。倉庫画面と同じ書き方をすると商品が10行並ぶ。
+
+> 倉庫画面（`_rebuild_inventory()`等）は`await`を持つ書き方のままだが、
+> 発火するシグナルが1本ずつのため表面化していない。**触るときは注意すること。**

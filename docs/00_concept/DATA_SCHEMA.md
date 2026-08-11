@@ -443,21 +443,32 @@
 ```json
 {
   "daily_shop": {
-	"refresh_at": "timestamp",
+	"refresh_at": "2026-08-11",
 	"line_up": [
 	  {
 		"slot_id": 0,
 		"item_id": "string",
 		"cost": { "currency_type": "gold", "amount": 0 },
 		"stock_limit": 0,
-		"purchased_count": 0
+		"purchased_count": 0,
+		"payout_type": "material | item",
+		"count": 1,
+		"item_type": "equipment | consumable | key_item | gift | \"\""
 	  }
 	]
   },
-  "weekly_shop": { "refresh_at": "timestamp", "line_up": [] },
-  "monthly_shop": { "refresh_at": "timestamp", "line_up": [] }
+  "weekly_shop": { "refresh_at": "", "line_up": [] },
+  "monthly_shop": { "refresh_at": "", "line_up": [] }
 }
 ```
+- **`refresh_at`はタイムスタンプではなく「ゲーム内日付の文字列」**（`"2026-08-11"`）。判定は`GameDate.get_game_date_string()`との文字列比較1回で済む。タイムスタンプで持つと比較のたびに「その時刻はどの"ゲーム内の日"か」を計算し直すことになり、4:00の基準がずれる余地ができる。未リフレッシュのショップは`""`
+- `payout_type`は受け取り先の指定。`"material"`なら`add_material()`（`materials`へ）、`"item"`なら`add_to_inventory()`（`inventory`へ）。**IDの綴りでは判別できないため必ず持つ**
+- `count`は1回の購入で受け取る個数。`item_type`は`payout_type: "item"`のときだけ意味を持つ（`inventory`の`type`にそのまま入る）
+- `stock_limit`が`0`以下のスロットは**「無制限」ではなく「買えない」**として扱う。`shop.json`の書き忘れが無限購入にならないようにするため
+- **スロットの定義は`resources/balance/master/shop.json`が正。** 状態側の`item_id` / `cost` / `stock_limit` / `payout_type` / `count` / `item_type`はその複製であり、起動時とロード時に`GameManager._sync_shop_from_master()`が上書きする。**状態側だけが持つのは`purchased_count`と`refresh_at`のみ**
+- **`shop.json`から消えた`slot_id`は状態からも消える。** `slot_id`を振り直すと購入回数が別の商品に付け替わるため、番号は使い回さないこと
+- 第1弾は`daily`のみ実装。`weekly_shop` / `monthly_shop`は器だけあり、`refresh_shop_if_needed()`は`daily`以外では何もしない（週・月の区切りが未確定のため）
+
 ※ イベント交換所・DLCショップは体験版スコープ外。
 
 ### 4-3. 育成（キャラ詳細）
@@ -536,6 +547,11 @@
 - ~~研究ツリーのノード数・具体的な効果値~~ → **決定済み。** 第1弾5ノード（上限解放+5を4つ、全ステータス+3を1つ）。定義は`research.json`
 
 ## 更新履歴
+- **改訂（ショップの完了時点）**：
+  - 4-2を全面改訂。`refresh_at`を`"timestamp"`から**ゲーム内日付の文字列**へ変更（実装に合わせた）
+  - 4-2の`line_up`要素に`payout_type` / `count` / `item_type`を追加。素材とアイテムで保存先が違うため、どちらに入れるかをデータ側が持つ必要がある
+  - 4-2に「マスターデータが正・状態は`purchased_count`と`refresh_at`のみ」の関係を明記（4-4の研究と同じ型）
+  - `stock_limit: 0`を「無制限」ではなく「買えない」と定義
 - **改訂（研究の完了時点）**：
   - 4-4に`target_stat`を追加。実コードの`get_stat_boost_all()`が既に読んでいたのにスキーマ側に無かった
   - 4-4に「マスターデータが正・状態は`unlocked`のみ」の関係を明記。`research.json`のキー（コスト・表示名・表示順）も追記
