@@ -13,6 +13,7 @@ const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
 const RESEARCH_PATH: String = "res://scenes/guild/research_screen.tscn"
 const SHOP_PATH: String = "res://scenes/guild/shop_screen.tscn"
+const WORKSHOP_PATH: String = "res://scenes/guild/workshop_screen.tscn"
 
 
 # sub_screen_id -> 遷移先パス
@@ -21,7 +22,7 @@ const GUILD_SCENES: Dictionary = {
 	"shop": SHOP_PATH,
 	"training": TRAINING_PATH,
 	"research": RESEARCH_PATH,
-	"workshop": PLACEHOLDER_PATH,
+	"workshop": WORKSHOP_PATH,
 }
 
 # sub_screen_id -> PrimaryButton（_ready で組み立てる）

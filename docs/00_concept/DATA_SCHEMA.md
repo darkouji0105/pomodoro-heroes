@@ -521,16 +521,57 @@
 	{
 	  "queue_id": "string",
 	  "recipe_id": "string",
-	  "recipe_type": "equipment | furniture_goods",
-	  "started_at": "timestamp",
+	  "recipe_type": "equipment | consumable | material",
+	  "started_at": 0,
 	  "duration_sec": 0,
-	  "status": "in_progress | completed | collected",
+	  "status": "in_progress | completed",
 	  "output_item_id": "string"
 	}
   ]
 }
 ```
 - 製作は時間投資型（即時完成ではない）
+- **`started_at`は`int`（Unix秒）。** `Time.get_unix_time_from_system()`を`int()`で包んだ値。**日付ではないため`GameDate`は使わない**（`GameDate`は1日の区切り専用で、経過時間の判定には使えない）
+- `duration_sec`は**開始時点のレシピの値をコピーして持つ**。`recipes.json`の所要時間を変えても、走行中の製作の残り時間が飛ばない
+- **`status`に`collected`は無い。** 受け取ったエントリはキューから削除する。残すとセーブが肥大し、キューのスロットが埋まったままになる
+- `recipe_type` / `output_item_id`は**表示とスキーマ互換のためだけに持つ**。実際に配るものは受け取り時に`recipes.json`の`outputs`から引き直す
+- **レシピの定義は`resources/balance/master/recipes.json`が正。** 状態側が持つのは`recipes_unlocked`の真偽値と`crafting_queue`だけで、消費・産出・所要時間は起動時とロード時に`GameManager._sync_recipes_from_master()`が読み直す
+- **`recipes.json`から消えたレシピIDは`recipes_unlocked`からもキューからも消える。** リリース後にIDを改名しないこと（走行中の製作が消える）
+
+#### アイテムIDの台帳（`items.json`）
+
+```json
+{
+  "items": [
+	{ "item_id": "training_material", "storage": "material", "item_type": "material", "sort_order": 0 }
+  ]
+}
+```
+
+- **そのIDが`materials`（`{id: 数値}`）と`inventory`（`{id: {count, type, ...}}`）のどちらに入るかを知っているのは`storage`だけ。** IDの綴りから推測して分岐しないこと
+- `item_type`は`inventory`側に書き込む値（`equipment` / `consumable` / `key_item` / `gift`）
+- `recipes.json`の`inputs` / `outputs`に、この台帳に無いIDが書かれたレシピは**起動時の同期で丸ごと捨ててログに出す**。実行時に気づくと「素材だけ減って何も貰えない」が起きる
+
+#### レシピ（`recipes.json`）
+
+```json
+{
+  "recipes": [
+	{
+	  "recipe_id": "convert_con_to_tra",
+	  "duration_sec": 1800,
+	  "inputs":  [ { "item_id": "construction_material", "count": 30 } ],
+	  "outputs": [ { "item_id": "training_material", "count": 20 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 0
+	}
+  ]
+}
+```
+
+- **`inputs` / `outputs`は配列。** 単数にすると「素材2種→装備1個」を書きたくなった時点でコードとセーブの両方を触ることになる
+- `duration_sec`を省略すると`WorkshopConfig.base_craft_duration_sec`が使われる
+- **交換レートは1未満にすること。** 往復で得になるレートを双方向に置くと、時間を払うだけで素材が無限に増える
 - 素材製作はポモドーロ進行によっても進む（詳細ロジックは未確定）
 
 ---

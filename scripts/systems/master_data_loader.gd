@@ -223,3 +223,98 @@ static func _ensure_shop_loaded() -> void:
 		return
 	_shop_loaded = true
 	_cache_shop = _load_json(PATH_SHOP)
+
+
+
+# ========================================================================
+# アイテム台帳・レシピ関連（EXEC_GUILD_WORKSHOP.md §5-1）。既存関数には触らず、末尾に追記。
+#
+# get_shop_slots() と同じく _ensure_loaded() には組み込まず、遅延ロードする。
+#
+# items.json の形：   { "items":   [ {item_id, storage, item_type, sort_order}, ... ] }
+# recipes.json の形： { "recipes": [ {recipe_id, duration_sec, inputs[], outputs[], ...}, ... ] }
+#
+# どちらも JSON 側は Array だが、ここで item_id / recipe_id をキーにした
+# Dictionary へ組み替えて返す。呼び出し側が毎回 for で探さなくて済むようにするため。
+# ========================================================================
+
+const PATH_ITEMS: String = DIR_PATH + "items.json"
+const PATH_RECIPES: String = DIR_PATH + "recipes.json"
+
+static var _cache_items: Dictionary = {}
+static var _items_loaded: bool = false
+static var _cache_recipes: Dictionary = {}
+static var _recipes_loaded: bool = false
+
+
+# アイテムIDの定義を返す。未登録なら空 Dictionary。
+# 「そのIDが素材なのかインベントリ品なのか」を知っているのはこの台帳だけ。
+static func get_item(item_id: String) -> Dictionary:
+	_ensure_items_loaded()
+	if not _cache_items.has(item_id):
+		return {}
+	return (_cache_items[item_id] as Dictionary).duplicate(true)
+
+
+# item_id -> 定義 の Dictionary を返す。
+static func get_all_items() -> Dictionary:
+	_ensure_items_loaded()
+	return _cache_items.duplicate(true)
+
+
+# レシピ定義を返す。未登録なら空 Dictionary。
+static func get_recipe(recipe_id: String) -> Dictionary:
+	_ensure_recipes_loaded()
+	if not _cache_recipes.has(recipe_id):
+		return {}
+	return (_cache_recipes[recipe_id] as Dictionary).duplicate(true)
+
+
+# recipe_id -> 定義 の Dictionary を返す。
+# GameManager がレシピを状態へ流し込むときに使う（get_all_research_nodes() と同じ役割）。
+static func get_all_recipes() -> Dictionary:
+	_ensure_recipes_loaded()
+	return _cache_recipes.duplicate(true)
+
+
+static func _ensure_items_loaded() -> void:
+	if _items_loaded:
+		return
+	_items_loaded = true
+	_cache_items = _index_by(_load_json(PATH_ITEMS), "items", "item_id", PATH_ITEMS)
+
+
+static func _ensure_recipes_loaded() -> void:
+	if _recipes_loaded:
+		return
+	_recipes_loaded = true
+	_cache_recipes = _index_by(_load_json(PATH_RECIPES), "recipes", "recipe_id", PATH_RECIPES)
+
+
+# { list_key: [ {id_key: "...", ...}, ... ] } を { "...": {...} } へ組み替える。
+# id が無い要素・重複した id はログを出して捨てる。
+# 黙って上書きすると、レシピを増やしたときに片方だけ消えて原因が分からなくなる。
+static func _index_by(root: Dictionary, list_key: String, id_key: String, path: String) -> Dictionary:
+	var result: Dictionary = {}
+	if root.is_empty():
+		push_error("[MasterDataLoader] empty or unreadable: " + path)
+		return result
+	var list: Variant = root.get(list_key, [])
+	if not (list is Array):
+		push_error("[MasterDataLoader] '" + list_key + "' is not Array: " + path)
+		return result
+	for entry: Variant in (list as Array):
+		if not (entry is Dictionary):
+			push_error("[MasterDataLoader] non-Dictionary entry in " + path)
+			continue
+		var definition: Dictionary = entry
+		var id: String = str(definition.get(id_key, ""))
+		if id == "":
+			push_error("[MasterDataLoader] entry without " + id_key + " in " + path)
+			continue
+		if result.has(id):
+			push_error("[MasterDataLoader] duplicated " + id_key + " '" + id + "' in " + path)
+			continue
+		result[id] = definition
+	print("[MasterDataLoader] loaded %d entries from %s" % [result.size(), path])
+	return result

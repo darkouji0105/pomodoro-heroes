@@ -1,0 +1,79 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/guild/workshop_screen.gd" id="1_workshop"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+
+[node name="WorkshopScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_workshop")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.0784314, 0.0941176, 1)
+
+[node name="Tick" type="Timer" parent="."]
+wait_time = 1.0
+autostart = true
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+text = "ui_guild_workshop"
+horizontal_alignment = 1
+
+[node name="MaterialLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Content" type="VBoxContainer" parent="Margin/Layout/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="QueueHeader" type="Label" parent="Margin/Layout/Scroll/Content"]
+layout_mode = 2
+text = "ui_guild_workshop_queue"
+
+[node name="QueueList" type="VBoxContainer" parent="Margin/Layout/Scroll/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RecipeHeader" type="Label" parent="Margin/Layout/Scroll/Content"]
+layout_mode = 2
+text = "ui_guild_workshop_recipes"
+
+[node name="RecipeList" type="VBoxContainer" parent="Margin/Layout/Scroll/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NoticeLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="BackButton" parent="Margin/Layout" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_common_back"

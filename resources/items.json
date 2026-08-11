@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "item_id": "training_material",
+      "storage": "material",
+      "item_type": "material",
+      "sort_order": 0
+    },
+    {
+      "item_id": "construction_material",
+      "storage": "material",
+      "item_type": "material",
+      "sort_order": 1
+    },
+    {
+      "item_id": "stamina_potion",
+      "storage": "inventory",
+      "item_type": "consumable",
+      "sort_order": 10
+    }
+  ]
+}

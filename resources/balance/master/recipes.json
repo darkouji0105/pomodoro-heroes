@@ -1,0 +1,52 @@
+{
+  "recipes": [
+    {
+      "recipe_id": "convert_con_to_tra",
+      "duration_sec": 1800,
+      "inputs": [
+        { "item_id": "construction_material", "count": 30 }
+      ],
+      "outputs": [
+        { "item_id": "training_material", "count": 20 }
+      ],
+      "unlocked_by_default": true,
+      "sort_order": 0
+    },
+    {
+      "recipe_id": "convert_tra_to_con",
+      "duration_sec": 1800,
+      "inputs": [
+        { "item_id": "training_material", "count": 30 }
+      ],
+      "outputs": [
+        { "item_id": "construction_material", "count": 20 }
+      ],
+      "unlocked_by_default": true,
+      "sort_order": 1
+    },
+    {
+      "recipe_id": "bulk_con_to_tra",
+      "duration_sec": 10800,
+      "inputs": [
+        { "item_id": "construction_material", "count": 100 }
+      ],
+      "outputs": [
+        { "item_id": "training_material", "count": 80 }
+      ],
+      "unlocked_by_default": true,
+      "sort_order": 2
+    },
+    {
+      "recipe_id": "debug_instant",
+      "duration_sec": 10,
+      "inputs": [
+        { "item_id": "construction_material", "count": 1 }
+      ],
+      "outputs": [
+        { "item_id": "training_material", "count": 1 }
+      ],
+      "unlocked_by_default": true,
+      "sort_order": 99
+    }
+  ]
+}

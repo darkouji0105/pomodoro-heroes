@@ -25,6 +25,10 @@ signal research_node_unlocked(node_id: String)
 # 所持金・素材・アイテムの増減は resource_changed / material_changed / inventory_changed 側で
 # 通知されるため、こちらは purchased_count と refresh_at の変化だけを担当する。
 signal shop_changed(shop_type: String)
+# 製作キューの変化（開始・完了への切り替え・受け取り）。
+# 素材・アイテムの増減は material_changed / inventory_changed 側で通知されるため、
+# こちらはキューの中身の変化だけを担当する。
+signal crafting_queue_changed()
 
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
@@ -56,6 +60,29 @@ const SHOP_SLOT_ITEM_TYPE: String = "item_type"
 const PAYOUT_TYPE_MATERIAL: String = "material"
 const PAYOUT_TYPE_ITEM: String = "item"
 
+# recipes.json 側だけにあるキー（状態には残らないため GameStateKeys には置かない）。
+# 画面側もこの定数を使う（文字列リテラルを2箇所に書かない）。
+const RECIPE_ID: String = "recipe_id"
+const RECIPE_DURATION_SEC: String = "duration_sec"
+const RECIPE_INPUTS: String = "inputs"
+const RECIPE_OUTPUTS: String = "outputs"
+const RECIPE_IO_ITEM_ID: String = "item_id"
+const RECIPE_IO_COUNT: String = "count"
+const RECIPE_UNLOCKED_BY_DEFAULT: String = "unlocked_by_default"
+const RECIPE_SORT_ORDER: String = "sort_order"
+
+# items.json 側だけにあるキー。
+# 「そのIDが materials に入るのか inventory に入るのか」はここでしか分からない。
+# IDの綴りから推測して分岐させないこと（ショップの payout_type と同じ理由）。
+const ITEM_MASTER_STORAGE: String = "storage"
+const ITEM_MASTER_ITEM_TYPE: String = "item_type"
+const ITEM_STORAGE_MATERIAL: String = "material"
+const ITEM_STORAGE_INVENTORY: String = "inventory"
+
+# Balance.workshop が読めなかったときの既定値。
+const DEFAULT_MAX_QUEUE_SLOTS: int = 1
+const DEFAULT_CRAFT_DURATION_SEC: int = 1800
+
 func _ready() -> void:
 	print("[GameManager] _ready() — initializing from Balance.initial_state")
 	if Balance != null and Balance.initial_state != null:
@@ -72,6 +99,11 @@ func _ready() -> void:
 	# 流し込んだ「あと」に日付を見る。順序が逆だと、リセットした購入回数を
 	# セーブ側の値で上書きしてしまう。
 	refresh_shop_if_needed(GameStateKeys.SHOP_TYPE_DAILY)
+	# レシピを recipes.json から流し込む。research_tree / line_up と同じ理由で、
+	# _empty_state_template() の recipes_unlocked は {} のため、これが無いと画面に1つも出ない。
+	_sync_recipes_from_master()
+	# 起動した時点で、閉じている間に完成した製作を completed にしておく。
+	refresh_crafting_queue_if_needed()
 	# materials も出す。initial_state に足した素材が届いているかを、
 	# セーブファイルを開かずに確認できるようにするため。
 	print("[GameManager] init complete. gold=%d stamina=%s materials=%s unlocked_screens=%s" % [
@@ -1136,18 +1168,378 @@ func get_stat_boost_all() -> Dictionary:
 
 # --- 作業場 ---
 
+# 製作キューのスナップショットを返す。
 func get_crafting_queue() -> Array:
 	return _state.get(GameStateKeys.CRAFTING_QUEUE, []).duplicate(true)
 
-func start_craft(recipe_id: String) -> bool:
-	# レシピ未解放・素材不足なら何もせずfalse（空実装）
-	print("[GameManager] start_craft('%s') -> false (dummy: recipe not unlocked)" % recipe_id)
-	return false
+# 同時に進行できる製作の本数。Balance から読めなければ既定値。
+#
+# balance.gd に workshop プロパティが実在するかは未確認のため、"in" で存在を確かめてから読む。
+# 名前が違っていた場合はここで push_warning が出る（画面は既定値1で動く）。
+func get_max_queue_slots() -> int:
+	if Balance != null and "workshop" in Balance and Balance.workshop != null:
+		var slots: int = int(Balance.workshop.max_queue_slots)
+		if slots > 0:
+			return slots
+	push_warning("[GameManager] get_max_queue_slots: Balance.workshop が読めない — %d を使う" % DEFAULT_MAX_QUEUE_SLOTS)
+	return DEFAULT_MAX_QUEUE_SLOTS
 
+# 解放済みで、かつ定義が妥当なレシピの一覧を返す（画面がレシピ一覧を描くために使う）。
+# sort_order の昇順。
+func get_available_recipes() -> Array:
+	var unlocked: Dictionary = _state.get(GameStateKeys.RECIPES_UNLOCKED, {})
+	var result: Array = []
+	for recipe_id: String in MasterDataLoader.get_all_recipes():
+		if not bool(unlocked.get(recipe_id, false)):
+			continue
+		var definition: Dictionary = _normalized_recipe(recipe_id)
+		if definition.is_empty():
+			continue
+		result.append(definition)
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get(RECIPE_SORT_ORDER, 0)) < int(b.get(RECIPE_SORT_ORDER, 0)))
+	return result
+
+# アイテムの所持数。items.json に無いIDでは -1 を返す（0 と区別するため）。
+# materials と inventory のどちらに入っているかは items.json の storage で決まる。
+func get_item_count(item_id: String) -> int:
+	var storage: String = _item_storage(item_id)
+	if storage == ITEM_STORAGE_MATERIAL:
+		return get_material_count(item_id)
+	if storage == ITEM_STORAGE_INVENTORY:
+		var inventory: Dictionary = _state.get(GameStateKeys.INVENTORY, {})
+		if not inventory.has(item_id):
+			return 0
+		var entry: Variant = inventory[item_id]
+		if not (entry is Dictionary):
+			return 0
+		return int((entry as Dictionary).get(GameStateKeys.ITEM_COUNT, 0))
+	return -1
+
+# 製作を開始する。
+#
+# 判定の順番は purchase_shop_item() と揃える：
+#   レシピ存在 → 解放済み → キューの空き → 定義の妥当性 → 素材 → （ここから状態を変える）
+# 定義の妥当性を素材より先に見る。素材だけ減って何も貰えない、を起こさないため。
+func start_craft(recipe_id: String) -> bool:
+	if MasterDataLoader.get_recipe(recipe_id).is_empty():
+		print("[GameManager] start_craft('%s') -> false (recipe not found)" % recipe_id)
+		return false
+
+	var unlocked: Dictionary = _state.get(GameStateKeys.RECIPES_UNLOCKED, {})
+	if not bool(unlocked.get(recipe_id, false)):
+		print("[GameManager] start_craft('%s') -> false (recipe not unlocked)" % recipe_id)
+		return false
+
+	var queue: Array = _state.get(GameStateKeys.CRAFTING_QUEUE, [])
+	var max_slots: int = get_max_queue_slots()
+	if queue.size() >= max_slots:
+		print("[GameManager] start_craft('%s') -> false (queue full: %d/%d)" % [recipe_id, queue.size(), max_slots])
+		return false
+
+	# 定義の妥当性。ここで弾かれるのは items.json に無いIDや count<=0 を書いたとき。
+	var definition: Dictionary = _normalized_recipe(recipe_id)
+	if definition.is_empty():
+		print("[GameManager] start_craft('%s') -> false (invalid recipe definition)" % recipe_id)
+		return false
+
+	var inputs: Array = definition.get(RECIPE_INPUTS, [])
+	for entry: Variant in inputs:
+		var input: Dictionary = entry
+		var item_id: String = str(input.get(RECIPE_IO_ITEM_ID, ""))
+		var need: int = int(input.get(RECIPE_IO_COUNT, 0))
+		var have: int = get_item_count(item_id)
+		if have < need:
+			print("[GameManager] start_craft('%s') -> false (%s: %d < %d)" % [recipe_id, item_id, have, need])
+			return false
+
+	# --- ここから状態を変える。以降に失敗する分岐を作らないこと ---
+	for entry: Variant in inputs:
+		var input: Dictionary = entry
+		_consume_item(str(input.get(RECIPE_IO_ITEM_ID, "")), int(input.get(RECIPE_IO_COUNT, 0)))
+
+	var started_at: int = int(Time.get_unix_time_from_system())
+	var duration_sec: int = int(definition.get(RECIPE_DURATION_SEC, DEFAULT_CRAFT_DURATION_SEC))
+	# outputs の先頭は表示・スキーマ互換のために持たせるだけ。
+	# 実際に配るものは受け取り時に recipes.json から引き直す（EXEC_GUILD_WORKSHOP.md §2-5）。
+	var first_output: Dictionary = (definition.get(RECIPE_OUTPUTS, []) as Array)[0]
+	var output_item_id: String = str(first_output.get(RECIPE_IO_ITEM_ID, ""))
+
+	var new_queue: Array = _copy_array(GameStateKeys.CRAFTING_QUEUE)
+	new_queue.append({
+		GameStateKeys.CRAFT_QUEUE_ID: "%d_%s" % [started_at, recipe_id],
+		GameStateKeys.CRAFT_RECIPE_ID: recipe_id,
+		GameStateKeys.CRAFT_RECIPE_TYPE: str(MasterDataLoader.get_item(output_item_id).get(ITEM_MASTER_ITEM_TYPE, "")),
+		GameStateKeys.CRAFT_STARTED_AT: started_at,
+		# 開始時点の所要時間をコピーして持つ。recipes.json を変えても走行中の残り時間が飛ばない。
+		GameStateKeys.CRAFT_DURATION_SEC: duration_sec,
+		GameStateKeys.CRAFT_STATUS: GameStateKeys.CRAFT_STATUS_IN_PROGRESS,
+		GameStateKeys.CRAFT_OUTPUT_ITEM_ID: output_item_id,
+	})
+	_state[GameStateKeys.CRAFTING_QUEUE] = new_queue
+
+	print("[GameManager] start_craft('%s') -> true (duration=%ds, queue=%d/%d)" % [
+		recipe_id, duration_sec, new_queue.size(), max_slots
+	])
+	crafting_queue_changed.emit()
+	return true
+
+# 完成した製作物を受け取る。完了前・存在しない queue_id なら何もせず false。
 func collect_craft(queue_id: String) -> bool:
-	# 完了前なら何もせずfalse。完了後は成功しinventoryへ反映（空実装：常にfalse）
-	print("[GameManager] collect_craft('%s') -> false (dummy: not completed)" % queue_id)
-	return false
+	# 受け取る前に完了判定を回す。画面を経由せずに呼ばれても正しく判定できるようにするため。
+	refresh_crafting_queue_if_needed()
+
+	var queue: Array = _state.get(GameStateKeys.CRAFTING_QUEUE, [])
+	var index: int = _find_craft_index(queue, queue_id)
+	if index < 0:
+		print("[GameManager] collect_craft('%s') -> false (not found)" % queue_id)
+		return false
+
+	var entry: Dictionary = queue[index]
+	if str(entry.get(GameStateKeys.CRAFT_STATUS, "")) != GameStateKeys.CRAFT_STATUS_COMPLETED:
+		print("[GameManager] collect_craft('%s') -> false (not completed)" % queue_id)
+		return false
+
+	var recipe_id: String = str(entry.get(GameStateKeys.CRAFT_RECIPE_ID, ""))
+	var definition: Dictionary = _normalized_recipe(recipe_id)
+	if definition.is_empty():
+		# _sync_recipes_from_master() が消し損ねた場合の保険。
+		push_warning("[GameManager] collect_craft: レシピ定義が無効: " + recipe_id)
+		return false
+
+	# --- ここから状態を変える。以降に失敗する分岐を作らないこと ---
+	# キューから先に消してから配る。inventory_changed を受けて再描画する画面が、
+	# 受け取り済みのキューを見られるようにするため（purchase_shop_item と同じ順番）。
+	var new_queue: Array = _copy_array(GameStateKeys.CRAFTING_QUEUE)
+	new_queue.remove_at(index)
+	_state[GameStateKeys.CRAFTING_QUEUE] = new_queue
+
+	var granted: Array[String] = []
+	for output: Variant in (definition.get(RECIPE_OUTPUTS, []) as Array):
+		var item: Dictionary = output
+		var item_id: String = str(item.get(RECIPE_IO_ITEM_ID, ""))
+		var count: int = int(item.get(RECIPE_IO_COUNT, 0))
+		_grant_item(item_id, count)
+		granted.append("%s x%d" % [item_id, count])
+
+	print("[GameManager] collect_craft('%s') -> true (%s, queue=%d)" % [
+		queue_id, ", ".join(granted), new_queue.size()
+	])
+	crafting_queue_changed.emit()
+	return true
+
+# 完了時刻を過ぎている in_progress のエントリを completed に切り替える。
+#
+# 日付ではなく経過時間で判定するため、GameDate は使わない。
+# 変化があったときだけ crafting_queue_changed を発火する。毎秒呼ばれるため、
+# ここで無条件に emit すると画面が毎秒作り直される。
+func refresh_crafting_queue_if_needed() -> void:
+	var queue: Variant = _state.get(GameStateKeys.CRAFTING_QUEUE, [])
+	if not (queue is Array) or (queue as Array).is_empty():
+		return
+
+	var now: int = int(Time.get_unix_time_from_system())
+	var new_queue: Array = (queue as Array).duplicate(true)
+	var changed: bool = false
+	for i: int in range(new_queue.size()):
+		if not (new_queue[i] is Dictionary):
+			continue
+		var entry: Dictionary = new_queue[i]
+		if str(entry.get(GameStateKeys.CRAFT_STATUS, "")) != GameStateKeys.CRAFT_STATUS_IN_PROGRESS:
+			continue
+		var finish_at: int = int(entry.get(GameStateKeys.CRAFT_STARTED_AT, 0)) + int(entry.get(GameStateKeys.CRAFT_DURATION_SEC, 0))
+		if now < finish_at:
+			continue
+		entry[GameStateKeys.CRAFT_STATUS] = GameStateKeys.CRAFT_STATUS_COMPLETED
+		new_queue[i] = entry
+		changed = true
+		print("[GameManager] refresh_crafting_queue_if_needed: '%s' -> completed" % str(entry.get(GameStateKeys.CRAFT_QUEUE_ID, "")))
+
+	if not changed:
+		return
+	_state[GameStateKeys.CRAFTING_QUEUE] = new_queue
+	crafting_queue_changed.emit()
+
+# --- 作業場：内部ヘルパー ---
+
+# queue_id が一致する要素の位置を返す。見つからなければ -1。
+func _find_craft_index(queue: Array, queue_id: String) -> int:
+	for i: int in range(queue.size()):
+		if not (queue[i] is Dictionary):
+			continue
+		if str((queue[i] as Dictionary).get(GameStateKeys.CRAFT_QUEUE_ID, "")) == queue_id:
+			return i
+	return -1
+
+# items.json の storage を返す。未登録・未知の値なら ""。
+func _item_storage(item_id: String) -> String:
+	var definition: Dictionary = MasterDataLoader.get_item(item_id)
+	if definition.is_empty():
+		return ""
+	var storage: String = str(definition.get(ITEM_MASTER_STORAGE, ""))
+	if storage != ITEM_STORAGE_MATERIAL and storage != ITEM_STORAGE_INVENTORY:
+		return ""
+	return storage
+
+# 残高の確認は呼び出し側で済ませてあること。この関数は確認しない
+# （_spend_currency() と同じ約束）。
+func _consume_item(item_id: String, count: int) -> void:
+	var storage: String = _item_storage(item_id)
+	if storage == ITEM_STORAGE_MATERIAL:
+		add_material(item_id, -count)
+		return
+	if storage == ITEM_STORAGE_INVENTORY:
+		_remove_from_inventory(item_id, count)
+		return
+	push_warning("[GameManager] _consume_item: items.json に無いID: " + item_id)
+
+func _grant_item(item_id: String, count: int) -> void:
+	var storage: String = _item_storage(item_id)
+	if storage == ITEM_STORAGE_MATERIAL:
+		add_material(item_id, count)
+		return
+	if storage == ITEM_STORAGE_INVENTORY:
+		add_to_inventory(item_id, count, str(MasterDataLoader.get_item(item_id).get(ITEM_MASTER_ITEM_TYPE, GameStateKeys.ITEM_TYPE_UNKNOWN)))
+		return
+	push_warning("[GameManager] _grant_item: items.json に無いID: " + item_id)
+
+# inventory から減らす。0 になったエントリは消す（use_stamina_potion() と同じ扱い）。
+func _remove_from_inventory(item_id: String, count: int) -> void:
+	var inventory: Dictionary = _copy_dict(GameStateKeys.INVENTORY)
+	if not inventory.has(item_id) or not (inventory[item_id] is Dictionary):
+		push_warning("[GameManager] _remove_from_inventory: 所持していない: " + item_id)
+		return
+	var entry: Dictionary = (inventory[item_id] as Dictionary).duplicate(true)
+	var remaining: int = int(entry.get(GameStateKeys.ITEM_COUNT, 0)) - count
+	if remaining > 0:
+		entry[GameStateKeys.ITEM_COUNT] = remaining
+		inventory[item_id] = entry
+	else:
+		inventory.erase(item_id)
+	_state[GameStateKeys.INVENTORY] = inventory
+	print("[GameManager] _remove_from_inventory('%s', %d) -> %d" % [item_id, count, maxi(remaining, 0)])
+	inventory_changed.emit(item_id)
+
+# recipes.json のレシピを検証して正規化した Dictionary を返す。妥当でなければ空。
+#
+# ここで弾くもの：inputs/outputs が空、items.json に無いID、count <= 0。
+# MasterDataLoader が返す数値は float のため int() で包む。包み忘れると
+# セーブに 1800.0 と書かれる。
+func _normalized_recipe(recipe_id: String) -> Dictionary:
+	var definition: Dictionary = MasterDataLoader.get_recipe(recipe_id)
+	if definition.is_empty():
+		return {}
+
+	var inputs: Array = _normalized_io(definition.get(RECIPE_INPUTS, []), recipe_id, RECIPE_INPUTS)
+	var outputs: Array = _normalized_io(definition.get(RECIPE_OUTPUTS, []), recipe_id, RECIPE_OUTPUTS)
+	if inputs.is_empty() or outputs.is_empty():
+		return {}
+
+	var duration_sec: int = int(definition.get(RECIPE_DURATION_SEC, 0))
+	if duration_sec <= 0:
+		duration_sec = _default_craft_duration_sec()
+
+	return {
+		RECIPE_ID: recipe_id,
+		RECIPE_DURATION_SEC: duration_sec,
+		RECIPE_INPUTS: inputs,
+		RECIPE_OUTPUTS: outputs,
+		RECIPE_SORT_ORDER: int(definition.get(RECIPE_SORT_ORDER, 0)),
+	}
+
+func _normalized_io(list: Variant, recipe_id: String, label: String) -> Array:
+	if not (list is Array) or (list as Array).is_empty():
+		push_warning("[GameManager] recipes.json: '%s' の %s が空" % [recipe_id, label])
+		return []
+	var result: Array = []
+	for entry: Variant in (list as Array):
+		if not (entry is Dictionary):
+			push_warning("[GameManager] recipes.json: '%s' の %s に Dictionary でない要素" % [recipe_id, label])
+			return []
+		var item: Dictionary = entry
+		var item_id: String = str(item.get(RECIPE_IO_ITEM_ID, ""))
+		var count: int = int(item.get(RECIPE_IO_COUNT, 0))
+		if _item_storage(item_id) == "":
+			push_warning("[GameManager] recipes.json: '%s' の %s に items.json へ無いID: '%s'" % [recipe_id, label, item_id])
+			return []
+		if count <= 0:
+			push_warning("[GameManager] recipes.json: '%s' の %s の count が 0 以下: '%s'" % [recipe_id, label, item_id])
+			return []
+		result.append({RECIPE_IO_ITEM_ID: item_id, RECIPE_IO_COUNT: count})
+	return result
+
+func _default_craft_duration_sec() -> int:
+	if Balance != null and "workshop" in Balance and Balance.workshop != null:
+		var value: int = int(Balance.workshop.base_craft_duration_sec)
+		if value > 0:
+			return value
+	return DEFAULT_CRAFT_DURATION_SEC
+
+# recipes.json の定義を recipes_unlocked へ流し込む。
+#
+# 状態側だけが持つのは「解放済みかどうか」と crafting_queue のみ。
+# 消費・産出・所要時間は毎回マスターデータが正（_sync_shop_from_master() と同じ型）。
+#
+# recipes.json から消えたレシピIDは recipes_unlocked からもキューからも消える。
+# レシピIDを改名すると走行中の製作が消えるため、リリース後に改名しないこと。
+func _sync_recipes_from_master() -> void:
+	var master: Dictionary = MasterDataLoader.get_all_recipes()
+	if master.is_empty():
+		push_warning("[GameManager] _sync_recipes_from_master: recipes.json が空か読み込めない")
+		return
+
+	var current: Dictionary = _state.get(GameStateKeys.RECIPES_UNLOCKED, {})
+	var synced: Dictionary = {}
+	var skipped: int = 0
+	for recipe_id: String in master:
+		# 定義が壊れているレシピはここで落とす。実行時に気づくと
+		# 「素材だけ減って何も貰えない」が起きる。
+		if _normalized_recipe(recipe_id).is_empty():
+			skipped += 1
+			continue
+		if current.has(recipe_id):
+			synced[recipe_id] = bool(current[recipe_id])
+		else:
+			var definition: Dictionary = master[recipe_id]
+			synced[recipe_id] = bool(definition.get(RECIPE_UNLOCKED_BY_DEFAULT, false))
+	_state[GameStateKeys.RECIPES_UNLOCKED] = synced
+
+	_normalize_crafting_queue(synced)
+
+	var unlocked_count: int = 0
+	for recipe_id: String in synced:
+		if bool(synced[recipe_id]):
+			unlocked_count += 1
+	print("[GameManager] _sync_recipes_from_master() -> %d recipes (unlocked=%d, skipped=%d)" % [
+		synced.size(), unlocked_count, skipped
+	])
+
+# キューの数値を int に戻し、消えたレシピのエントリを捨てる。
+#
+# JSON から復元すると started_at / duration_sec が float になる。時刻の比較は
+# float でも動いてしまうが、セーブに 1.7628e+09 と書かれると読めなくなる。
+func _normalize_crafting_queue(valid_recipes: Dictionary) -> void:
+	var queue: Variant = _state.get(GameStateKeys.CRAFTING_QUEUE, [])
+	if not (queue is Array):
+		_state[GameStateKeys.CRAFTING_QUEUE] = []
+		return
+
+	var normalized: Array = []
+	for entry: Variant in (queue as Array):
+		if not (entry is Dictionary):
+			continue
+		var item: Dictionary = (entry as Dictionary).duplicate(true)
+		var recipe_id: String = str(item.get(GameStateKeys.CRAFT_RECIPE_ID, ""))
+		if not valid_recipes.has(recipe_id):
+			push_warning("[GameManager] _normalize_crafting_queue: レシピが無いキューを捨てた: " + recipe_id)
+			continue
+		item[GameStateKeys.CRAFT_STARTED_AT] = int(item.get(GameStateKeys.CRAFT_STARTED_AT, 0))
+		item[GameStateKeys.CRAFT_DURATION_SEC] = int(item.get(GameStateKeys.CRAFT_DURATION_SEC, 0))
+		var status: String = str(item.get(GameStateKeys.CRAFT_STATUS, ""))
+		if status != GameStateKeys.CRAFT_STATUS_IN_PROGRESS and status != GameStateKeys.CRAFT_STATUS_COMPLETED:
+			item[GameStateKeys.CRAFT_STATUS] = GameStateKeys.CRAFT_STATUS_IN_PROGRESS
+		normalized.append(item)
+	_state[GameStateKeys.CRAFTING_QUEUE] = normalized
 
 # --- セーブ・ロード ---
 
@@ -1215,6 +1607,11 @@ func load_state(data: Dictionary) -> bool:
 	# JSON復元で float になった purchased_count も、ここで int() に戻る。
 	_sync_shops_from_master()
 	refresh_shop_if_needed(GameStateKeys.SHOP_TYPE_DAILY)
+	# レシピも同様。解放状態と crafting_queue だけが残る。
+	# JSON復元で float になった started_at / duration_sec も、ここで int() に戻る。
+	_sync_recipes_from_master()
+	# ロードした時点で、閉じている間に完成した製作を completed にしておく。
+	refresh_crafting_queue_if_needed()
 	print("[GameManager] load_state success. version=%d" % int(_state[GameStateKeys.SAVE_VERSION]))
 	
 	# 主要なシグナルを発火（再描画用）

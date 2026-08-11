@@ -154,3 +154,13 @@ ui_guild_shop_refreshed_at,更新日
 ui_guild_shop_purchased,購入しました
 ui_guild_shop_failed,購入できませんでした
 ui_guild_shop_empty,ショップのデータが読み込めませんでした
+ui_guild_workshop_queue,製作中
+ui_guild_workshop_recipes,レシピ
+ui_guild_workshop_queue_empty,製作中のものはありません
+ui_guild_workshop_recipe_empty,作れるものがありません
+ui_guild_workshop_start,作る
+ui_guild_workshop_collect,受け取る
+ui_guild_workshop_done,完成
+ui_guild_workshop_started,製作を開始しました
+ui_guild_workshop_collected,受け取りました
+ui_guild_workshop_failed,実行できませんでした
