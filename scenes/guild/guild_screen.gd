@@ -11,14 +11,14 @@ const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
 const WAREHOUSE_PATH: String = "res://scenes/guild/warehouse_screen.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
-
+const RESEARCH_PATH: String = "res://scenes/guild/research_screen.tscn"
 
 # sub_screen_id -> 遷移先パス
 const GUILD_SCENES: Dictionary = {
 	"warehouse": WAREHOUSE_PATH,
 	"shop": PLACEHOLDER_PATH,
 	"training": TRAINING_PATH,
-	"research": PLACEHOLDER_PATH,
+	"research": RESEARCH_PATH,
 	"workshop": PLACEHOLDER_PATH,
 }
 

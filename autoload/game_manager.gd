@@ -18,6 +18,9 @@ signal pending_chests_changed(pending_count: int)
 # 育成データの変化。レベル・ステータス・装備・スキルのいずれかが変わったときに発火する。
 # 素材の増減は material_changed 側で通知されるため、こちらには含めない。
 signal character_growth_changed(character_id: String)
+# 研究ノードの解放。素材の増減は material_changed 側で通知されるため、こちらには含めない。
+# 実効レベル上限・ステータス上昇は都度計算のため、解放の通知だけで全画面が追従できる。
+signal research_node_unlocked(node_id: String)
 
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
@@ -28,6 +31,15 @@ const LEVEL_UP_COST_AMOUNT: String = "amount"
 # 既存の get_stat_boost_all() が target_stat 未指定時に使う値と揃える必要がある。
 const STAT_BOOST_ALL_KEY: String = "all"
 
+# get_research_unlock_cost() が返す Dictionary のキー。
+# get_level_up_cost() と同じ形にそろえてある。
+const RESEARCH_COST_MATERIAL_ID: String = "material_id"
+const RESEARCH_COST_AMOUNT: String = "amount"
+
+# research.json 側のキー（状態ではなくマスターデータのため GameStateKeys には置かない）。
+const RESEARCH_NODE_COST_MATERIAL_ID: String = "cost_material_id"
+const RESEARCH_NODE_COST_AMOUNT: String = "cost_amount"
+
 func _ready() -> void:
 	print("[GameManager] _ready() — initializing from Balance.initial_state")
 	if Balance != null and Balance.initial_state != null:
@@ -35,6 +47,9 @@ func _ready() -> void:
 	else:
 		push_warning("[GameManager] Balance.initial_state is null — using empty defaults")
 		_state = _empty_state_template()
+	# 研究ツリーを research.json から流し込む。
+	# _empty_state_template() の research_tree は {} のため、これが無いと画面に1つも出ない。
+	_sync_research_tree_from_master()
 	# materials も出す。initial_state に足した素材が届いているかを、
 	# セーブファイルを開かずに確認できるようにするため。
 	print("[GameManager] init complete. gold=%d stamina=%s materials=%s unlocked_screens=%s" % [
@@ -666,10 +681,158 @@ func select_skill(character_id: String, slot_id: int, skill_id: String) -> void:
 func get_research_tree() -> Dictionary:
 	return _state.get(GameStateKeys.RESEARCH_TREE, {}).duplicate(true)
 
+# 解放に必要な素材を返す。戻り値: {material_id: String, amount: int}
+# コストは research.json 側に持つ（ノードごとに違うため .tres の単一値では表せない）。
+func get_research_unlock_cost(node_id: String) -> Dictionary:
+	var empty: Dictionary = {RESEARCH_COST_MATERIAL_ID: "", RESEARCH_COST_AMOUNT: 0}
+	var definition: Dictionary = MasterDataLoader.get_research_node(node_id)
+	if definition.is_empty():
+		return empty
+	# MasterDataLoader は JSON をそのまま返すため cost_amount は float で来る。int() 必須。
+	return {
+		RESEARCH_COST_MATERIAL_ID: str(definition.get(RESEARCH_NODE_COST_MATERIAL_ID, "")),
+		RESEARCH_COST_AMOUNT: int(definition.get(RESEARCH_NODE_COST_AMOUNT, 0)),
+	}
+
+# 前提条件を満たしているか（素材は見ない）。
+# 画面が「前提未解放」と「素材不足」を区別して表示するために分けてある。
+func can_unlock_research_node(node_id: String) -> bool:
+	var tree: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
+	if not tree.has(node_id) or not (tree[node_id] is Dictionary):
+		return false
+	var node: Dictionary = tree[node_id]
+	if bool(node.get(GameStateKeys.NODE_UNLOCKED, false)):
+		return false
+	return _prerequisites_met(node)
+
+# 研究ノードを解放する。存在しない・解放済み・前提未達・素材不足のときは
+# 何もせず false を返す。成功時は素材を消費して research_node_unlocked を発火する。
 func unlock_research_node(node_id: String) -> bool:
-	# 前提未解放・素材不足なら何もせずfalse（空実装）
-	print("[GameManager] unlock_research_node('%s') -> false (dummy: prerequisites not met)" % node_id)
-	return false
+	var tree: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
+	if not tree.has(node_id) or not (tree[node_id] is Dictionary):
+		push_warning("[GameManager] unlock_research_node: unknown node_id: " + node_id)
+		return false
+
+	var node: Dictionary = tree[node_id]
+	if bool(node.get(GameStateKeys.NODE_UNLOCKED, false)):
+		print("[GameManager] unlock_research_node('%s') -> false (already unlocked)" % node_id)
+		return false
+
+	# 前提の判定を素材の判定より先に行う。順序を入れ替えると、
+	# 前提未解放のノードで「素材不足」と表示されて画面の説明と食い違う。
+	if not _prerequisites_met(node):
+		print("[GameManager] unlock_research_node('%s') -> false (prerequisites not met: %s)" % [
+			node_id, node.get(GameStateKeys.NODE_PREREQUISITES, [])
+		])
+		return false
+
+	var cost: Dictionary = get_research_unlock_cost(node_id)
+	var material_id: String = str(cost.get(RESEARCH_COST_MATERIAL_ID, ""))
+	var amount: int = int(cost.get(RESEARCH_COST_AMOUNT, 0))
+	if amount > 0 and material_id == "":
+		push_warning("[GameManager] unlock_research_node: cost_material_id が未設定（research.json）: " + node_id)
+		return false
+
+	# add_material() は残高を確認しないため、減算する前に必ずここで確認する。
+	if amount > 0:
+		var owned: int = get_material_count(material_id)
+		if owned < amount:
+			print("[GameManager] unlock_research_node('%s') -> false (material %s: %d < %d)" % [
+				node_id, material_id, owned, amount
+			])
+			return false
+
+	# --- ここから状態を変える。以降に失敗する分岐を作らないこと ---
+	# _copy_dict() は浅いコピーのため、ノードのDictionaryをもう一段複製してから書き換える。
+	# これを飛ばすと _state 内の実体を直接書き換えることになる。
+	var new_tree: Dictionary = _copy_dict(GameStateKeys.RESEARCH_TREE)
+	var new_node: Dictionary = (new_tree[node_id] as Dictionary).duplicate(true)
+	new_node[GameStateKeys.NODE_UNLOCKED] = true
+	new_tree[node_id] = new_node
+	_state[GameStateKeys.RESEARCH_TREE] = new_tree
+
+	# 素材の減算はツリーを更新したあとに行う。
+	# material_changed を受けて再描画する画面が、解放済みの状態を見られるようにするため。
+	if amount > 0:
+		add_material(material_id, -amount)
+
+	print("[GameManager] unlock_research_node('%s') -> true (cost %s x%d, effect %s +%d)" % [
+		node_id, material_id, amount,
+		str(new_node.get(GameStateKeys.NODE_EFFECT_TYPE, "")),
+		int(new_node.get(GameStateKeys.NODE_EFFECT_VALUE, 0)),
+	])
+	research_node_unlocked.emit(node_id)
+	return true
+
+# --- 研究：内部ヘルパー ---
+
+# prerequisites に並ぶノードが全て unlocked か。空配列なら true。
+func _prerequisites_met(node: Dictionary) -> bool:
+	var tree: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
+	var prerequisites: Variant = node.get(GameStateKeys.NODE_PREREQUISITES, [])
+	if not (prerequisites is Array):
+		return true
+	for prerequisite_id: Variant in (prerequisites as Array):
+		var required: Variant = tree.get(str(prerequisite_id), null)
+		if not (required is Dictionary):
+			# research.json に存在しないIDが前提に書かれている。
+			# 解放できてしまうより、解放できないほうが安全。
+			push_warning("[GameManager] _prerequisites_met: unknown prerequisite: " + str(prerequisite_id))
+			return false
+		if not bool((required as Dictionary).get(GameStateKeys.NODE_UNLOCKED, false)):
+			return false
+	return true
+
+# research.json の定義を research_tree へ流し込む。
+#
+# unlocked だけは既存の値を残し、それ以外（effect_type / effect_value /
+# target_stat / prerequisites）は毎回マスターデータで上書きする。
+# これにより research.json の効果値を調整すると、既存セーブにも次の起動で反映される。
+# （initial_state_config.tres がセーブ済みだと反映されない罠を、研究では踏まない形にする）
+#
+# research.json から消えたノードは research_tree からも消える。
+# ノードIDを改名するとその解放状態は失われるため、リリース後は改名しないこと。
+func _sync_research_tree_from_master() -> void:
+	var master: Dictionary = MasterDataLoader.get_all_research_nodes()
+	if master.is_empty():
+		push_warning("[GameManager] _sync_research_tree_from_master: research.json が空か読み込めない")
+		return
+
+	var current: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
+	var synced: Dictionary = {}
+	for node_id: String in master:
+		if not (master[node_id] is Dictionary):
+			continue
+		var definition: Dictionary = master[node_id]
+
+		var was_unlocked: bool = false
+		if current.has(node_id) and current[node_id] is Dictionary:
+			was_unlocked = bool((current[node_id] as Dictionary).get(GameStateKeys.NODE_UNLOCKED, false))
+
+		# JSON の配列要素は Variant で来るため str() で包み直す。
+		var prerequisites: Array = []
+		var raw_prerequisites: Variant = definition.get(GameStateKeys.NODE_PREREQUISITES, [])
+		if raw_prerequisites is Array:
+			for prerequisite_id: Variant in (raw_prerequisites as Array):
+				prerequisites.append(str(prerequisite_id))
+
+		# effect_value は必ず int() で包む。包み忘れるとセーブに 5.0 と書かれ、
+		# get_effective_level_cap() の戻り値が 15.0 になる。
+		synced[node_id] = {
+			GameStateKeys.NODE_UNLOCKED: was_unlocked,
+			GameStateKeys.NODE_EFFECT_TYPE: str(definition.get(GameStateKeys.NODE_EFFECT_TYPE, "")),
+			GameStateKeys.NODE_EFFECT_VALUE: int(definition.get(GameStateKeys.NODE_EFFECT_VALUE, 0)),
+			GameStateKeys.NODE_TARGET_STAT: str(definition.get(GameStateKeys.NODE_TARGET_STAT, STAT_BOOST_ALL_KEY)),
+			GameStateKeys.NODE_PREREQUISITES: prerequisites,
+		}
+
+	_state[GameStateKeys.RESEARCH_TREE] = synced
+
+	var unlocked_count: int = 0
+	for node_id: String in synced:
+		if bool((synced[node_id] as Dictionary).get(GameStateKeys.NODE_UNLOCKED, false)):
+			unlocked_count += 1
+	print("[GameManager] _sync_research_tree_from_master() -> %d nodes (unlocked=%d)" % [synced.size(), unlocked_count])
 
 func get_effective_level_cap(_character_id: String) -> int:
 	# 保存された値ではなく、research_treeを都度走査して計算する。
@@ -776,6 +939,10 @@ func load_state(data: Dictionary) -> bool:
 	
 	# 状態反映（外部参照を断つため duplicate）
 	_state = new_state.duplicate(true)
+	# セーブから戻した research_tree を research.json と同期する。
+	# unlocked は残り、効果値・前提条件はマスターデータで上書きされる。
+	# JSON復元で float になった effect_value も、ここで int() に戻る。
+	_sync_research_tree_from_master()
 	print("[GameManager] load_state success. version=%d" % int(_state[GameStateKeys.SAVE_VERSION]))
 	
 	# 主要なシグナルを発火（再描画用）

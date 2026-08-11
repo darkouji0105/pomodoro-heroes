@@ -490,12 +490,17 @@
 	  "unlocked": false,
 	  "effect_type": "level_cap_unlock | stat_boost_all",
 	  "effect_value": 0,
+	  "target_stat": "all",
 	  "prerequisites": ["node_id"]
 	}
   }
 }
 ```
 - キャラの実効レベル上限は「解放済みlevel_cap_unlockノードのeffect_value合計」として都度計算（保存はしない）
+- `target_stat`は`stat_boost_all`のときだけ意味を持つ。`"all"`（既定）なら4ステータス全部に加算し、`"hp"`等を指定するとそのステータスだけに加算する。`get_stat_boost_all()`が`{"all": 3}`や`{"hp": 10}`の形で返す
+- **ノードの定義は`resources/balance/master/research.json`が正。** 状態側の`effect_type` / `effect_value` / `target_stat` / `prerequisites`はその複製であり、起動時とロード時に`GameManager._sync_research_tree_from_master()`が上書きする。**状態側だけが持つのは`unlocked`のみ**
+- `research.json`にはコスト（`cost_material_id` / `cost_amount`）・表示名（`name_key`）・表示順（`sort_order`）も持つ。これらは状態には保存しない
+- **`research.json`から消えたノードIDは状態からも消える。** リリース後にIDを改名しないこと
 
 ### 4-5. 作業場
 ```json
@@ -528,9 +533,13 @@
 - ストーリーステージ／トレーニングモード以外のstamina_cost設定値の具体的な数値
 - 作業場の「ポモドーロ進行で素材製作が進む」仕組みの詳細ロジック
 - シナリオ・設定画面のデータ構造（後回し）
-- 研究ツリーのノード数・具体的な効果値
+- ~~研究ツリーのノード数・具体的な効果値~~ → **決定済み。** 第1弾5ノード（上限解放+5を4つ、全ステータス+3を1つ）。定義は`research.json`
 
 ## 更新履歴
+- **改訂（研究の完了時点）**：
+  - 4-4に`target_stat`を追加。実コードの`get_stat_boost_all()`が既に読んでいたのにスキーマ側に無かった
+  - 4-4に「マスターデータが正・状態は`unlocked`のみ」の関係を明記。`research.json`のキー（コスト・表示名・表示順）も追記
+  - 「未確定」から研究ツリーのノード数・効果値を落とした
 - 追記：2-7「セッションタイトル・Steam Rich Presence」を追加。セットごとのタイトル入力（前セットから引き継ぎ・任意入力）と、振り返り内容を絶対に外部表示しないプライバシー制約を明記
 - 改訂（整合性レビュー反映）：戦闘報酬から`exp`を削除。3-1の参照先を`PLAN_BATTLE_SCREEN.md`に変更。冒険選択にステージ範囲（1〜10）とスタミナ消費の呼び出し規約を明記
 - **改訂（加護の仕組みを倍率から宝箱へ変更）**：

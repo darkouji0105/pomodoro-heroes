@@ -1,0 +1,48 @@
+{
+	"res_cap_1": {
+		"name_key": "ui_research_cap_1",
+		"effect_type": "level_cap_unlock",
+		"effect_value": 5,
+		"prerequisites": [],
+		"cost_material_id": "construction_material",
+		"cost_amount": 20,
+		"sort_order": 1
+	},
+	"res_cap_2": {
+		"name_key": "ui_research_cap_2",
+		"effect_type": "level_cap_unlock",
+		"effect_value": 5,
+		"prerequisites": ["res_cap_1"],
+		"cost_material_id": "construction_material",
+		"cost_amount": 40,
+		"sort_order": 2
+	},
+	"res_stat_1": {
+		"name_key": "ui_research_stat_1",
+		"effect_type": "stat_boost_all",
+		"effect_value": 3,
+		"target_stat": "all",
+		"prerequisites": ["res_cap_1"],
+		"cost_material_id": "construction_material",
+		"cost_amount": 30,
+		"sort_order": 3
+	},
+	"res_cap_3": {
+		"name_key": "ui_research_cap_3",
+		"effect_type": "level_cap_unlock",
+		"effect_value": 5,
+		"prerequisites": ["res_cap_2"],
+		"cost_material_id": "construction_material",
+		"cost_amount": 70,
+		"sort_order": 4
+	},
+	"res_cap_4": {
+		"name_key": "ui_research_cap_4",
+		"effect_type": "level_cap_unlock",
+		"effect_value": 5,
+		"prerequisites": ["res_cap_3"],
+		"cost_material_id": "construction_material",
+		"cost_amount": 110,
+		"sort_order": 5
+	}
+}

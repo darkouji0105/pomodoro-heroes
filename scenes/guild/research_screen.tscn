@@ -1,0 +1,60 @@
+[gd_scene load_steps=3 format=3 uid="uid://bresearch_scr01"]
+
+[ext_resource type="Script" path="res://scenes/guild/research_screen.gd" id="1_research"]
+[ext_resource type="PackedScene" uid="uid://b1primary_btn01" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+
+[node name="ResearchScreen" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_research")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.0784314, 0.0941176, 1)
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+text = "ui_research_title"
+horizontal_alignment = 1
+
+[node name="MaterialLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="CapLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="NodeList" type="VBoxContainer" parent="Margin/Layout/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NoticeLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="BackButton" parent="Margin/Layout" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_common_back"

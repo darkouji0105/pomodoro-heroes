@@ -132,3 +132,18 @@ ui_training_equipment,装備
 ui_nav_training_skill,スキル
 ui_nav_training_equipment,装備
 ui_training_to_list,一覧へ
+ui_research_title,研究
+ui_research_cap,現在のレベル上限 Lv.%d
+ui_research_cost,必要素材
+ui_research_owned,所持
+ui_research_unlock,解放する
+ui_research_unlocked,解放済み
+ui_research_locked,%s の解放が必要です
+ui_research_effect_cap,レベル上限 +%d
+ui_research_effect_stat,全ステータス +%d
+ui_research_empty,研究データが読み込めませんでした
+ui_research_cap_1,訓練場の拡張
+ui_research_cap_2,実戦形式の導入
+ui_research_cap_3,遠征訓練
+ui_research_cap_4,秘伝書の解読
+ui_research_stat_1,基礎体力の底上げ

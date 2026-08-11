@@ -141,3 +141,39 @@ static func get_stage_order(mode: String) -> Array:
 		push_error("[MasterDataLoader] stage_order['" + mode + "'] is not Array: " + str(order))
 		return []
 	return (order as Array).duplicate(true)
+
+
+# ========================================================================
+# 研究ノード（EXEC_GUILD_RESEARCH.md §5-2）。既存関数・定数・static var には
+# 一切触らず、末尾追記だけで完結させる。
+# get_stage_order() と同じく _ensure_loaded() には組み込まず、遅延ロードする。
+# 研究画面と GameManager._sync_research_tree_from_master() からのみ呼ばれる。
+# ========================================================================
+
+const PATH_RESEARCH: String = DIR_PATH + "research.json"
+
+static var _cache_research: Dictionary = {}
+static var _research_loaded: bool = false
+
+
+static func get_research_node(node_id: String) -> Dictionary:
+	_ensure_research_loaded()
+	if not _cache_research.has(node_id):
+		push_error("[MasterDataLoader] research node id not found: " + node_id)
+		return {}
+	return (_cache_research[node_id] as Dictionary).duplicate(true)
+
+
+# ノード定義を全件返す。GameManager が research_tree へ流し込むために使う。
+# キー一覧を返す関数が無いと、呼び出し側でノードIDを決め打ちすることになるため用意する
+# （training_screen.gd の CHARACTER_IDS と同じ問題を繰り返さない）。
+static func get_all_research_nodes() -> Dictionary:
+	_ensure_research_loaded()
+	return _cache_research.duplicate(true)
+
+
+static func _ensure_research_loaded() -> void:
+	if _research_loaded:
+		return
+	_research_loaded = true
+	_cache_research = _load_json(PATH_RESEARCH)
