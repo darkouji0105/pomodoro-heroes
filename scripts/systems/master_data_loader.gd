@@ -177,3 +177,49 @@ static func _ensure_research_loaded() -> void:
 		return
 	_research_loaded = true
 	_cache_research = _load_json(PATH_RESEARCH)
+
+
+# ========================================================================
+# ショップのラインナップ（EXEC_GUILD_SHOP.md §5-2）。既存関数・定数・static var には
+# 一切触らず、末尾追記だけで完結させる。
+# get_research_node() と同じく _ensure_loaded() には組み込まず、遅延ロードする。
+#
+# shop.json の形： { "daily": [ {slot_id, item_id, cost{...}, ...}, ... ] }
+# 他の4ファイルと違い、値が Dictionary ではなく Array であることに注意。
+# ========================================================================
+
+const PATH_SHOP: String = DIR_PATH + "shop.json"
+
+static var _cache_shop: Dictionary = {}
+static var _shop_loaded: bool = false
+
+
+# 指定したショップ種別のスロット定義を返す。定義が無ければ空配列。
+static func get_shop_slots(shop_type: String) -> Array:
+	_ensure_shop_loaded()
+	if not _cache_shop.has(shop_type):
+		push_error("[MasterDataLoader] shop type not found: " + shop_type)
+		return []
+	var slots: Variant = _cache_shop[shop_type]
+	if not (slots is Array):
+		push_error("[MasterDataLoader] shop['" + shop_type + "'] is not Array: " + str(slots))
+		return []
+	return (slots as Array).duplicate(true)
+
+
+# shop.json に定義されているショップ種別を全て返す。
+# GameManager がラインナップを流し込むときに使う。
+# 種別を決め打ちさせないために用意する（get_all_research_nodes() と同じ理由）。
+static func get_all_shop_types() -> Array:
+	_ensure_shop_loaded()
+	var types: Array = []
+	for shop_type: Variant in _cache_shop:
+		types.append(str(shop_type))
+	return types
+
+
+static func _ensure_shop_loaded() -> void:
+	if _shop_loaded:
+		return
+	_shop_loaded = true
+	_cache_shop = _load_json(PATH_SHOP)

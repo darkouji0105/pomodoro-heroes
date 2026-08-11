@@ -147,3 +147,10 @@ ui_research_cap_2,実戦形式の導入
 ui_research_cap_3,遠征訓練
 ui_research_cap_4,秘伝書の解読
 ui_research_stat_1,基礎体力の底上げ
+ui_guild_shop_buy,購入する
+ui_guild_shop_sold_out,売り切れ
+ui_guild_shop_stock,在庫
+ui_guild_shop_refreshed_at,更新日
+ui_guild_shop_purchased,購入しました
+ui_guild_shop_failed,購入できませんでした
+ui_guild_shop_empty,ショップのデータが読み込めませんでした

@@ -21,6 +21,10 @@ signal character_growth_changed(character_id: String)
 # 研究ノードの解放。素材の増減は material_changed 側で通知されるため、こちらには含めない。
 # 実効レベル上限・ステータス上昇は都度計算のため、解放の通知だけで全画面が追従できる。
 signal research_node_unlocked(node_id: String)
+# ショップのラインナップの変化（購入・リフレッシュの両方）。
+# 所持金・素材・アイテムの増減は resource_changed / material_changed / inventory_changed 側で
+# 通知されるため、こちらは purchased_count と refresh_at の変化だけを担当する。
+signal shop_changed(shop_type: String)
 
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
@@ -40,6 +44,18 @@ const RESEARCH_COST_AMOUNT: String = "amount"
 const RESEARCH_NODE_COST_MATERIAL_ID: String = "cost_material_id"
 const RESEARCH_NODE_COST_AMOUNT: String = "cost_amount"
 
+# shop.json 側だけにあるキー（状態には残らないため GameStateKeys には置かない）。
+# slot_id / item_id / cost / stock_limit は状態と同じ形のため GameStateKeys 側を使う。
+const SHOP_SLOT_PAYOUT_TYPE: String = "payout_type"
+const SHOP_SLOT_PAYOUT_COUNT: String = "count"
+const SHOP_SLOT_ITEM_TYPE: String = "item_type"
+
+# payout_type に入る値。
+# 素材（materials）とアイテム（inventory）は保存先が違うため、渡す関数を切り替える必要がある。
+# 「素材IDならadd_material」と推測で分岐させない（IDの綴りだけでは判別できない）。
+const PAYOUT_TYPE_MATERIAL: String = "material"
+const PAYOUT_TYPE_ITEM: String = "item"
+
 func _ready() -> void:
 	print("[GameManager] _ready() — initializing from Balance.initial_state")
 	if Balance != null and Balance.initial_state != null:
@@ -50,6 +66,12 @@ func _ready() -> void:
 	# 研究ツリーを research.json から流し込む。
 	# _empty_state_template() の research_tree は {} のため、これが無いと画面に1つも出ない。
 	_sync_research_tree_from_master()
+	# ショップのラインナップを shop.json から流し込む。research_tree と同じ理由で、
+	# _empty_state_template() の line_up は [] のため、これが無いと画面に1つも出ない。
+	_sync_shops_from_master()
+	# 流し込んだ「あと」に日付を見る。順序が逆だと、リセットした購入回数を
+	# セーブ側の値で上書きしてしまう。
+	refresh_shop_if_needed(GameStateKeys.SHOP_TYPE_DAILY)
 	# materials も出す。initial_state に足した素材が届いているかを、
 	# セーブファイルを開かずに確認できるようにするため。
 	print("[GameManager] init complete. gold=%d stamina=%s materials=%s unlocked_screens=%s" % [
@@ -493,13 +515,259 @@ func get_shop_lineup(shop_type: String) -> Array:
 		return (line_up as Array).duplicate(true)
 	return []
 
+# 商品を1つ購入する。
+# 不明な shop_type・存在しない slot_id・売り切れ・残高不足のときは
+# 何もせず false を返す。成功時は通貨を減らし、素材またはアイテムを増やして
+# shop_changed を発火する。
+#
+# 判定の順番は unlock_research_node() と揃える：
+#   存在 → 在庫 → 残高 → （ここから状態を変える）
+# add_gold() / add_gems() は残高を確認しないため、減算する前に必ずここで確認する。
 func purchase_shop_item(shop_type: String, slot_id: int) -> bool:
-	# 残高不足・売り切れなら何もせずfalse（空実装：ラインナップが空のため常にfalse）
-	print("[GameManager] purchase_shop_item('%s', %d) -> false (dummy: lineup empty)" % [shop_type, slot_id])
-	return false
+	var key: String = _shop_key(shop_type)
+	if key == "":
+		push_warning("[GameManager] purchase_shop_item: unknown shop_type: " + shop_type)
+		return false
 
+	var shop: Dictionary = _state.get(key, {})
+	var line_up: Variant = shop.get(GameStateKeys.SHOP_LINE_UP, [])
+	if not (line_up is Array):
+		push_warning("[GameManager] purchase_shop_item: line_up is not Array: " + shop_type)
+		return false
+
+	var index: int = _find_shop_slot_index(line_up as Array, slot_id)
+	if index < 0:
+		print("[GameManager] purchase_shop_item('%s', %d) -> false (slot not found)" % [shop_type, slot_id])
+		return false
+
+	var slot: Dictionary = (line_up as Array)[index]
+
+	# 在庫。stock_limit が 0 以下のスロットは「無制限」ではなく「買えない」として扱う。
+	# 0 を無制限にすると、shop.json の書き忘れがそのまま無限購入になる。
+	var stock_limit: int = int(slot.get(GameStateKeys.SHOP_STOCK_LIMIT, 0))
+	var purchased_count: int = int(slot.get(GameStateKeys.SHOP_PURCHASED_COUNT, 0))
+	if stock_limit <= 0 or purchased_count >= stock_limit:
+		print("[GameManager] purchase_shop_item('%s', %d) -> false (sold out: %d/%d)" % [
+			shop_type, slot_id, purchased_count, stock_limit
+		])
+		return false
+
+	# 受け取るもの。状態を変える前に不正な定義を弾いておく
+	# （通貨を減らしたあとで「渡せません」が起きないようにするため）。
+	var item_id: String = str(slot.get(GameStateKeys.SHOP_ITEM_ID, ""))
+	var payout_type: String = str(slot.get(SHOP_SLOT_PAYOUT_TYPE, PAYOUT_TYPE_ITEM))
+	var payout_count: int = int(slot.get(SHOP_SLOT_PAYOUT_COUNT, 1))
+	if item_id == "":
+		push_warning("[GameManager] purchase_shop_item: item_id が未設定（shop.json）: slot %d" % slot_id)
+		return false
+	if payout_count <= 0:
+		push_warning("[GameManager] purchase_shop_item: count が 0 以下（shop.json）: slot %d" % slot_id)
+		return false
+	if payout_type != PAYOUT_TYPE_MATERIAL and payout_type != PAYOUT_TYPE_ITEM:
+		push_warning("[GameManager] purchase_shop_item: 未知の payout_type: " + payout_type)
+		return false
+
+	# 残高
+	var cost: Dictionary = slot.get(GameStateKeys.SHOP_COST, {})
+	var currency_type: String = str(cost.get(GameStateKeys.COST_CURRENCY_TYPE, ""))
+	var amount: int = int(cost.get(GameStateKeys.COST_AMOUNT, 0))
+	if amount < 0:
+		push_warning("[GameManager] purchase_shop_item: cost.amount が負（shop.json）: slot %d" % slot_id)
+		return false
+	var balance: int = _get_currency_balance(currency_type)
+	if balance < 0:
+		push_warning("[GameManager] purchase_shop_item: 未知の currency_type: " + currency_type)
+		return false
+	if balance < amount:
+		print("[GameManager] purchase_shop_item('%s', %d) -> false (%s: %d < %d)" % [
+			shop_type, slot_id, currency_type, balance, amount
+		])
+		return false
+
+	# --- ここから状態を変える。以降に失敗する分岐を作らないこと ---
+	# _copy_dict() は浅いコピーのため、line_up の配列と各スロットを
+	# duplicate(true) してから書き換える。これを飛ばすと _state 内の実体を直接触る。
+	var new_shop: Dictionary = _copy_dict(key)
+	var new_line_up: Array = (line_up as Array).duplicate(true)
+	var new_slot: Dictionary = new_line_up[index]
+	new_slot[GameStateKeys.SHOP_PURCHASED_COUNT] = purchased_count + 1
+	new_line_up[index] = new_slot
+	new_shop[GameStateKeys.SHOP_LINE_UP] = new_line_up
+	_state[key] = new_shop
+
+	# 通貨の減算・受け取りはラインナップを更新したあとに行う。
+	# resource_changed / material_changed を受けて再描画する画面が、
+	# 購入済み回数が増えた状態を見られるようにするため。
+	if amount > 0:
+		_spend_currency(currency_type, amount)
+
+	if payout_type == PAYOUT_TYPE_MATERIAL:
+		add_material(item_id, payout_count)
+	else:
+		add_to_inventory(item_id, payout_count, str(slot.get(SHOP_SLOT_ITEM_TYPE, GameStateKeys.ITEM_TYPE_UNKNOWN)))
+
+	print("[GameManager] purchase_shop_item('%s', %d) -> true (%s x%d for %s %d, stock %d/%d)" % [
+		shop_type, slot_id, item_id, payout_count, currency_type, amount,
+		purchased_count + 1, stock_limit
+	])
+	shop_changed.emit(shop_type)
+	return true
+
+# ゲーム内の日付が変わっていれば購入回数を戻す。
+#
+# 第1弾はラインナップが固定のため、リフレッシュ＝「purchased_count を 0 に戻す」だけ。
+# 抽選を入れる場合も、この関数の中でラインナップを組み直せば呼び出し側は変わらない。
+#
+# 日付の判定は必ず GameDate を経由する。ここで Time を直接使うと、
+# ポモドーロの加護選択・ストリークと 4:00 の基準がずれる。
 func refresh_shop_if_needed(shop_type: String) -> void:
-	print("[GameManager] refresh_shop_if_needed('%s') (dummy)" % shop_type)
+	var key: String = _shop_key(shop_type)
+	if key == "":
+		push_warning("[GameManager] refresh_shop_if_needed: unknown shop_type: " + shop_type)
+		return
+
+	# 週替わり・月替わりは第1弾では未実装（週・月の区切りが未確定のため）。
+	# 誤って日単位でリセットしないよう、ここで明示的に何もせず返す。
+	if shop_type != GameStateKeys.SHOP_TYPE_DAILY:
+		print("[GameManager] refresh_shop_if_needed('%s') -> skip (第1弾は daily のみ)" % shop_type)
+		return
+
+	var shop: Dictionary = _state.get(key, {})
+	var last_refreshed: String = str(shop.get(GameStateKeys.SHOP_REFRESH_AT, ""))
+	var today: String = GameDate.get_game_date_string()
+	if last_refreshed == today:
+		print("[GameManager] refresh_shop_if_needed('%s') -> no refresh (%s)" % [shop_type, today])
+		return
+
+	var new_shop: Dictionary = _copy_dict(key)
+	var line_up: Variant = new_shop.get(GameStateKeys.SHOP_LINE_UP, [])
+	var new_line_up: Array = []
+	if line_up is Array:
+		new_line_up = (line_up as Array).duplicate(true)
+	for i: int in range(new_line_up.size()):
+		if not (new_line_up[i] is Dictionary):
+			continue
+		var slot: Dictionary = new_line_up[i]
+		slot[GameStateKeys.SHOP_PURCHASED_COUNT] = 0
+		new_line_up[i] = slot
+	new_shop[GameStateKeys.SHOP_LINE_UP] = new_line_up
+	new_shop[GameStateKeys.SHOP_REFRESH_AT] = today
+	_state[key] = new_shop
+
+	print("[GameManager] refresh_shop_if_needed('%s') -> refreshed (%s -> %s, %d slots)" % [
+		shop_type, last_refreshed, today, new_line_up.size()
+	])
+	shop_changed.emit(shop_type)
+
+# --- ショップ：内部ヘルパー ---
+
+# line_up の中から slot_id が一致する要素の位置を返す。見つからなければ -1。
+# 配列の添字と slot_id は一致するとは限らない（shop.json で歯抜けの番号を振れるため）。
+func _find_shop_slot_index(line_up: Array, slot_id: int) -> int:
+	for i: int in range(line_up.size()):
+		if not (line_up[i] is Dictionary):
+			continue
+		if int((line_up[i] as Dictionary).get(GameStateKeys.SHOP_SLOT_ID, -1)) == slot_id:
+			return i
+	return -1
+
+# 通貨の所持数。未知の currency_type では -1 を返す（0 と区別するため）。
+func _get_currency_balance(currency_type: String) -> int:
+	match currency_type:
+		GameStateKeys.GOLD:
+			return int(_state.get(GameStateKeys.GOLD, 0))
+		GameStateKeys.GEMS:
+			return int(_state.get(GameStateKeys.GEMS, 0))
+	return -1
+
+# 残高の確認は呼び出し側で済ませてあること。この関数は確認しない。
+func _spend_currency(currency_type: String, amount: int) -> void:
+	match currency_type:
+		GameStateKeys.GOLD:
+			add_gold(-amount)
+		GameStateKeys.GEMS:
+			add_gems(-amount)
+
+# shop.json の定義を各ショップの line_up へ流し込む。
+#
+# purchased_count だけは既存の値を残し、それ以外（item_id / cost / stock_limit /
+# payout_type / count / item_type）は毎回マスターデータで上書きする。
+# これで shop.json の価格を変えると、既存セーブにも次の起動で反映される。
+# 研究の _sync_research_tree_from_master() と同じ型（AGENTS.md「マスターデータと状態を同期する型」）。
+#
+# refresh_at には触らない。ここで消すと、起動するたびに購入回数が戻る。
+#
+# shop.json から消えた slot_id はラインナップからも消える。
+# slot_id を振り直すと購入回数が別の商品に付け替わるため、番号は使い回さないこと。
+func _sync_shops_from_master() -> void:
+	for shop_type: String in MasterDataLoader.get_all_shop_types():
+		_sync_shop_from_master(shop_type)
+
+func _sync_shop_from_master(shop_type: String) -> void:
+	var key: String = _shop_key(shop_type)
+	if key == "":
+		push_warning("[GameManager] _sync_shop_from_master: shop.json に未知の shop_type: " + shop_type)
+		return
+
+	var slots: Array = MasterDataLoader.get_shop_slots(shop_type)
+	if slots.is_empty():
+		push_warning("[GameManager] _sync_shop_from_master: shop.json の '%s' が空か読み込めない" % shop_type)
+		return
+
+	# 既存の購入回数を slot_id で引けるようにしておく
+	var current_shop: Dictionary = _state.get(key, {})
+	var current_counts: Dictionary = {}
+	var current_line_up: Variant = current_shop.get(GameStateKeys.SHOP_LINE_UP, [])
+	if current_line_up is Array:
+		for entry: Variant in (current_line_up as Array):
+			if not (entry is Dictionary):
+				continue
+			var existing: Dictionary = entry
+			var existing_slot_id: int = int(existing.get(GameStateKeys.SHOP_SLOT_ID, -1))
+			current_counts[existing_slot_id] = int(existing.get(GameStateKeys.SHOP_PURCHASED_COUNT, 0))
+
+	var synced: Array = []
+	for entry: Variant in slots:
+		if not (entry is Dictionary):
+			continue
+		var definition: Dictionary = entry
+		var slot_id: int = int(definition.get(GameStateKeys.SHOP_SLOT_ID, -1))
+		if slot_id < 0:
+			push_warning("[GameManager] _sync_shop_from_master: slot_id が無いスロットを飛ばした")
+			continue
+
+		# MasterDataLoader は JSON をそのまま返すため数値は float で来る。int() 必須。
+		# 包み忘れるとセーブに 100.0 と書かれる。
+		var stock_limit: int = int(definition.get(GameStateKeys.SHOP_STOCK_LIMIT, 0))
+		var purchased_count: int = int(current_counts.get(slot_id, 0))
+		# stock_limit を下げたとき、購入回数が上限を超えたまま残らないようにする
+		if purchased_count > stock_limit:
+			purchased_count = stock_limit
+
+		var cost_definition: Dictionary = definition.get(GameStateKeys.SHOP_COST, {})
+		synced.append({
+			GameStateKeys.SHOP_SLOT_ID: slot_id,
+			GameStateKeys.SHOP_ITEM_ID: str(definition.get(GameStateKeys.SHOP_ITEM_ID, "")),
+			GameStateKeys.SHOP_COST: {
+				GameStateKeys.COST_CURRENCY_TYPE: str(cost_definition.get(GameStateKeys.COST_CURRENCY_TYPE, GameStateKeys.GOLD)),
+				GameStateKeys.COST_AMOUNT: int(cost_definition.get(GameStateKeys.COST_AMOUNT, 0)),
+			},
+			GameStateKeys.SHOP_STOCK_LIMIT: stock_limit,
+			GameStateKeys.SHOP_PURCHASED_COUNT: purchased_count,
+			SHOP_SLOT_PAYOUT_TYPE: str(definition.get(SHOP_SLOT_PAYOUT_TYPE, PAYOUT_TYPE_ITEM)),
+			SHOP_SLOT_PAYOUT_COUNT: int(definition.get(SHOP_SLOT_PAYOUT_COUNT, 1)),
+			SHOP_SLOT_ITEM_TYPE: str(definition.get(SHOP_SLOT_ITEM_TYPE, GameStateKeys.ITEM_TYPE_UNKNOWN)),
+		})
+
+	var new_shop: Dictionary = _copy_dict(key)
+	new_shop[GameStateKeys.SHOP_LINE_UP] = synced
+	if not new_shop.has(GameStateKeys.SHOP_REFRESH_AT):
+		new_shop[GameStateKeys.SHOP_REFRESH_AT] = ""
+	_state[key] = new_shop
+
+	print("[GameManager] _sync_shop_from_master('%s') -> %d slots (refresh_at='%s')" % [
+		shop_type, synced.size(), str(new_shop.get(GameStateKeys.SHOP_REFRESH_AT, ""))
+	])
 
 # --- 育成 ---
 
@@ -943,6 +1211,10 @@ func load_state(data: Dictionary) -> bool:
 	# unlocked は残り、効果値・前提条件はマスターデータで上書きされる。
 	# JSON復元で float になった effect_value も、ここで int() に戻る。
 	_sync_research_tree_from_master()
+	# ショップも同様。価格・在庫は shop.json で上書きし、purchased_count だけ残る。
+	# JSON復元で float になった purchased_count も、ここで int() に戻る。
+	_sync_shops_from_master()
+	refresh_shop_if_needed(GameStateKeys.SHOP_TYPE_DAILY)
 	print("[GameManager] load_state success. version=%d" % int(_state[GameStateKeys.SAVE_VERSION]))
 	
 	# 主要なシグナルを発火（再描画用）
