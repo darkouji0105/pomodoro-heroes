@@ -60,7 +60,12 @@ JSONから読んだ値は `3.0` で来る。**`int()` で包み忘れるとセ�
 ### 7. インデントはタブ
 
 `.gd` はタブ。スペース混在でパースエラーになる。
+### 8. 装備の個体は add_to_inventory() だけが作る
 
+新しい入手経路を足すときは、必ず add_to_inventory() を通す。
+直接 inventory を書くと装備が個体にならず静かに消える。
+grep -n "_create_equipment_instance" autoload/game_manager.gd の
+呼び出し元が1箇所であることを保つ。
 ---
 
 ## 触ってよいもの・悪いもの
