@@ -13,6 +13,12 @@
 	  "sort_order": 1
 	},
 	{
+	  "item_id": "forging_material_1",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 2
+	},
+	{
 	  "item_id": "stamina_potion",
 	  "storage": "inventory",
 	  "item_type": "consumable",
@@ -41,6 +47,70 @@
 	  "equip_slot": "weapon",
 	  "equip_stats": { "atk": 15 },
 	  "sort_order": 22
+	},
+	{
+	  "item_id": "armor_leather_cap",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": { "def": 2 },
+	  "sort_order": 30
+	},
+	{
+	  "item_id": "armor_iron_helm",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": { "hp": 10, "def": 5 },
+	  "sort_order": 31
+	},
+	{
+	  "item_id": "armor_leather_vest",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": { "hp": 15, "def": 4 },
+	  "sort_order": 40
+	},
+	{
+	  "item_id": "armor_iron_mail",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": { "hp": 30, "def": 9 },
+	  "sort_order": 41
+	},
+	{
+	  "item_id": "armor_leather_boots",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": { "spd": 4 },
+	  "sort_order": 50
+	},
+	{
+	  "item_id": "armor_iron_greaves",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": { "def": 4, "spd": 2 },
+	  "sort_order": 51
+	},
+	{
+	  "item_id": "acc_ring_power",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": { "atk": 4 },
+	  "sort_order": 60
+	},
+	{
+	  "item_id": "acc_amulet_life",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": { "hp": 25 },
+	  "sort_order": 61
 	},
 	{
 	  "item_id": "weapon_debug_blade",

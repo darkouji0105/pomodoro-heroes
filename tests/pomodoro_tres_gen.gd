@@ -78,21 +78,27 @@ func _init() -> void:
 	config.max_long_break_interval = 8
 	
 	# 宝箱の中身
+	# equipment に書いた装備は、開封時に個体（eq_N）として作られる。
+	# 序盤に「作業場の30分待ち」以外の入手経路を作るのがねらい。
 	var c1 = ChestContentConfig.new()
 	c1.chest_type = "generic"
-	c1.materials = {"construction_material": 4}
+	c1.materials = {"construction_material": 4, "forging_material_1": 2}
+	c1.equipment = {}
 	
 	var c2 = ChestContentConfig.new()
 	c2.chest_type = "bonus_small"
-	c2.materials = {"construction_material": 10}
+	c2.materials = {"construction_material": 10, "forging_material_1": 5}
+	c2.equipment = {"armor_leather_cap": 1}
 	
 	var c3 = ChestContentConfig.new()
 	c3.chest_type = "bonus_medium"
-	c3.materials = {"construction_material": 25}
+	c3.materials = {"construction_material": 25, "forging_material_1": 10}
+	c3.equipment = {"armor_leather_vest": 1}
 	
 	var c4 = ChestContentConfig.new()
 	c4.chest_type = "bonus_large"
-	c4.materials = {"construction_material": 30}
+	c4.materials = {"construction_material": 30, "forging_material_1": 15}
+	c4.equipment = {"armor_leather_boots": 1, "acc_ring_power": 1}
 	
 	config.chest_contents = [c1, c2, c3, c4]
 	config.session_title_max_length = 30

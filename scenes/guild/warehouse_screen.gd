@@ -57,6 +57,8 @@ func _ready() -> void:
 	# 4. GameManager のシグナル購読
 	GameManager.inventory_changed.connect(_on_inventory_changed)
 	GameManager.pending_chests_changed.connect(_on_pending_chests_changed)
+	# 装備は inventory ではなく equipment_instances に入るため、こちらも購読する。
+	GameManager.equipment_instances_changed.connect(_on_equipment_instances_changed)
 
 	# 5. 初期描画
 	_rebuild_inventory()
@@ -70,15 +72,19 @@ func _on_back_pressed() -> void:
 
 # --- インベントリタブ ---
 
+# 装備は inventory に入らない（個体として equipment_instances に入る）ため、
+# 持ち物タブは「個数で持つアイテム」と「装備の個体」の2つを続けて並べる。
+#
+# remove_child してから queue_free する。await を挟むと、装備を素材に戻したときに
+# 飛ぶ2本のシグナルで再描画が並走し、行が二重に並ぶ。
 func _rebuild_inventory() -> void:
-	for child: Node in inventory_grid.get_children():
-		child.queue_free()
-	await get_tree().process_frame
+	_clear_container(inventory_grid)
 
 	var state: Dictionary = GameManager.get_state()
 	var inventory: Dictionary = state.get(GameStateKeys.INVENTORY, {})
+	var instances: Array = GameManager.get_owned_instances()
 
-	if inventory.is_empty():
+	if inventory.is_empty() and instances.is_empty():
 		_add_empty_label(inventory_grid)
 		return
 
@@ -88,6 +94,58 @@ func _rebuild_inventory() -> void:
 		if count <= 0:
 			continue
 		_create_inventory_entry(item_id, count)
+
+	for view: Variant in instances:
+		if view is Dictionary:
+			_create_instance_entry(view as Dictionary)
+
+# 子を消す。await を持たせない（AGENTS.md「再描画は await を持たせない」）。
+func _clear_container(container: Container) -> void:
+	for child: Node in container.get_children():
+		container.remove_child(child)
+		child.queue_free()
+
+# 装備の個体1つ分。等級と、装備しているキャラを出す。
+# 「素材にする」は装備中のものでは押せない（GameManager 側も同じ判定を持っている）。
+func _create_instance_entry(view: Dictionary) -> void:
+	var instance_id: String = str(view.get(GameManager.INSTANCE_VIEW_ID, ""))
+	var item_id: String = str(view.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+	var grade: int = int(view.get(GameStateKeys.INSTANCE_GRADE, 1))
+	var equipped_by: String = str(view.get(GameManager.INSTANCE_VIEW_EQUIPPED_BY, ""))
+
+	var entry: VBoxContainer = VBoxContainer.new()
+	entry.name = "Eq_" + instance_id
+
+	var name_label: Label = Label.new()
+	name_label.name = "NameLabel"
+	name_label.text = "%s %s" % [tr("ui_res_" + item_id), tr("ui_equipment_grade") % grade]
+	entry.add_child(name_label)
+
+	var state_label: Label = Label.new()
+	state_label.name = "StateLabel"
+	if equipped_by == "":
+		state_label.text = ""
+	else:
+		var char_data: Dictionary = MasterDataLoader.get_character(equipped_by)
+		state_label.text = tr("ui_equipment_equipped_by") % tr(str(char_data.get("name_key", equipped_by)))
+	entry.add_child(state_label)
+
+	var dismantle_button: Button = Button.new()
+	dismantle_button.name = "DismantleButton"
+	dismantle_button.text = "%s(%d)" % [
+		tr("ui_warehouse_dismantle"),
+		GameManager.get_dismantle_refund(instance_id),
+	]
+	dismantle_button.disabled = equipped_by != ""
+	dismantle_button.pressed.connect(_on_dismantle_pressed.bind(instance_id))
+	entry.add_child(dismantle_button)
+
+	inventory_grid.add_child(entry)
+
+func _on_dismantle_pressed(instance_id: String) -> void:
+	if not GameManager.dismantle_equipment(instance_id):
+		push_warning("[WarehouseScreen] dismantle_equipment failed: " + instance_id)
+	# 再描画は equipment_instances_changed 側で行う。
 
 func _create_inventory_entry(item_id: String, count: int) -> void:
 	var entry: VBoxContainer = VBoxContainer.new()
@@ -108,9 +166,7 @@ func _create_inventory_entry(item_id: String, count: int) -> void:
 # --- 図鑑タブ ---
 
 func _rebuild_codex() -> void:
-	for child: Node in codex_list.get_children():
-		child.queue_free()
-	await get_tree().process_frame
+	_clear_container(codex_list)
 
 	var state: Dictionary = GameManager.get_state()
 	var codex: Dictionary = state.get(GameStateKeys.CODEX, {})
@@ -141,9 +197,7 @@ func _create_codex_row(item_id: String, discovered: bool) -> void:
 # --- 宝箱タブ ---
 
 func _rebuild_chest_list() -> void:
-	for child: Node in chest_list.get_children():
-		child.queue_free()
-	await get_tree().process_frame
+	_clear_container(chest_list)
 
 	var state: Dictionary = GameManager.get_state()
 	var chests: Array = state.get(GameStateKeys.PENDING_CHESTS, [])
@@ -319,3 +373,7 @@ func _on_inventory_changed(_item_id: String) -> void:
 
 func _on_pending_chests_changed(_pending_count: int) -> void:
 	_rebuild_chest_list()
+
+func _on_equipment_instances_changed(_instance_id: String) -> void:
+	_rebuild_inventory()
+	_rebuild_codex()

@@ -200,3 +200,26 @@ const ITEM_STAMINA_POTION: String = "stamina_potion"
 
 const STAGE_TYPE_STORY: String = "story"
 const STAGE_TYPE_TRAINING: String = "training"
+
+# ============================================================
+# 装備の個体管理（第2弾）
+# ============================================================
+
+# トップレベル
+const EQUIPMENT_INSTANCES: String = "equipment_instances"
+const NEXT_EQUIPMENT_INSTANCE_ID: String = "next_equipment_instance_id"
+
+# equipment_instances の各エントリ: {item_id, grade, parts}
+const INSTANCE_ITEM_ID: String = "item_id"
+const INSTANCE_GRADE: String = "grade"
+const INSTANCE_PARTS: String = "parts"
+
+# equipment スロット名の追加ぶん。
+# EQUIP_WEAPON / EQUIP_ARMOR / EQUIP_ACCESSORY は既に上にある。
+# armor は「上半身」の内部キー。改名しない（既存セーブのキーが変わるため）。
+const EQUIP_HEAD: String = "head"
+const EQUIP_LEGS: String = "legs"
+
+# 鍛冶の素材。第1弾は1種だけだが、あとで _2 / _3 を足せるよう最初から連番にしている。
+# リリース後に改名できないため、ここを "forging_material" にしないこと。
+const ITEM_FORGING_MATERIAL_1: String = "forging_material_1"

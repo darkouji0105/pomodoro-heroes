@@ -42,6 +42,14 @@
 	  "stock_limit": 1
 	},
 	{
+	  "slot_id": 9,
+	  "item_id": "forging_material_1",
+	  "payout_type": "material",
+	  "count": 10,
+	  "cost": { "currency_type": "gold", "amount": 400 },
+	  "stock_limit": 3
+	},
+	{
 	  "slot_id": 5,
 	  "item_id": "weapon_debug_blade",
 	  "cost": { "currency_type": "gold", "amount": 100 },
@@ -50,7 +58,7 @@
 	  "count": 1,
 	  "item_type": "equipment"
 	},
-	 {
+	{
 	  "slot_id": 6,
 	  "item_id": "weapon_wooden_sword",
 	  "cost": { "currency_type": "gold", "amount": 0 },
@@ -77,5 +85,49 @@
 	  "count": 1,
 	  "item_type": "equipment"
 	},
+	{
+	  "slot_id": 10,
+	  "item_id": "armor_leather_cap",
+	  "cost": { "currency_type": "gold", "amount": 0 },
+	  "stock_limit": 99,
+	  "payout_type": "item",
+	  "count": 1,
+	  "item_type": "equipment"
+	},
+	{
+	  "slot_id": 11,
+	  "item_id": "armor_leather_vest",
+	  "cost": { "currency_type": "gold", "amount": 0 },
+	  "stock_limit": 99,
+	  "payout_type": "item",
+	  "count": 1,
+	  "item_type": "equipment"
+	},
+	{
+	  "slot_id": 12,
+	  "item_id": "armor_leather_boots",
+	  "cost": { "currency_type": "gold", "amount": 0 },
+	  "stock_limit": 99,
+	  "payout_type": "item",
+	  "count": 1,
+	  "item_type": "equipment"
+	},
+	{
+	  "slot_id": 13,
+	  "item_id": "acc_ring_power",
+	  "cost": { "currency_type": "gold", "amount": 0 },
+	  "stock_limit": 99,
+	  "payout_type": "item",
+	  "count": 1,
+	  "item_type": "equipment"
+	},
+	{
+	  "slot_id": 14,
+	  "item_id": "forging_material_1",
+	  "payout_type": "material",
+	  "count": 50,
+	  "cost": { "currency_type": "gold", "amount": 0 },
+	  "stock_limit": 99
+	}
   ]
 }

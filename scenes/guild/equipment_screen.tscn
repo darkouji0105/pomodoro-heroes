@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://bnqek4jakj5l8" path="res://scenes/guild/equipment_screen.gd" id="1_equipment"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
 
-[node name="EquipmentScreen" type="Control" unique_id=890168976]
+[node name="EquipmentScreen" type="Control" unique_id=974945554]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -12,7 +12,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_equipment")
 
-[node name="Background" type="ColorRect" parent="." unique_id=1379726586]
+[node name="Background" type="ColorRect" parent="." unique_id=135953798]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -20,7 +20,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.101961, 0.0784314, 0.0941176, 1)
 
-[node name="Margin" type="MarginContainer" parent="." unique_id=618498176]
+[node name="Margin" type="MarginContainer" parent="." unique_id=1674283018]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -32,50 +32,50 @@ theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
-[node name="Layout" type="VBoxContainer" parent="Margin" unique_id=729970024]
+[node name="Layout" type="VBoxContainer" parent="Margin" unique_id=2066185930]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="Margin/Layout" unique_id=522928341]
+[node name="TitleLabel" type="Label" parent="Margin/Layout" unique_id=879113985]
 layout_mode = 2
 text = "ui_equipment_title"
 horizontal_alignment = 1
 
-[node name="NameLabel" type="Label" parent="Margin/Layout" unique_id=370182]
+[node name="NameLabel" type="Label" parent="Margin/Layout" unique_id=1453819280]
 layout_mode = 2
 
-[node name="StatsLabel" type="Label" parent="Margin/Layout" unique_id=389851002]
+[node name="StatsLabel" type="Label" parent="Margin/Layout" unique_id=53264659]
 layout_mode = 2
 
-[node name="EquippedRow" type="HBoxContainer" parent="Margin/Layout" unique_id=194809402]
+[node name="MaterialLabel" type="Label" parent="Margin/Layout" unique_id=1789292108]
 layout_mode = 2
 
-[node name="EquippedLabel" type="Label" parent="Margin/Layout/EquippedRow" unique_id=1174334402]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="UnequipButton" type="Button" parent="Margin/Layout/EquippedRow" unique_id=1312330104]
-layout_mode = 2
-text = "外す"
-
-[node name="Scroll" type="ScrollContainer" parent="Margin/Layout" unique_id=618165948]
+[node name="Scroll" type="ScrollContainer" parent="Margin/Layout" unique_id=2040894243]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Content" type="VBoxContainer" parent="Margin/Layout/Scroll" unique_id=1048117297]
+[node name="Content" type="VBoxContainer" parent="Margin/Layout/Scroll" unique_id=226809608]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ItemHeader" type="Label" parent="Margin/Layout/Scroll/Content" unique_id=1416877736]
+[node name="SlotHeader" type="Label" parent="Margin/Layout/Scroll/Content" unique_id=645636650]
+layout_mode = 2
+text = "ui_equipment_slot_header"
+
+[node name="SlotList" type="VBoxContainer" parent="Margin/Layout/Scroll/Content" unique_id=1734537183]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ItemHeader" type="Label" parent="Margin/Layout/Scroll/Content" unique_id=839724309]
 layout_mode = 2
 text = "ui_equipment_owned_header"
 
-[node name="ItemList" type="VBoxContainer" parent="Margin/Layout/Scroll/Content" unique_id=332910781]
+[node name="ItemList" type="VBoxContainer" parent="Margin/Layout/Scroll/Content" unique_id=1203795758]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="NoticeLabel" type="Label" parent="Margin/Layout" unique_id=268999778]
+[node name="NoticeLabel" type="Label" parent="Margin/Layout" unique_id=828523728]
 layout_mode = 2
 
-[node name="BackButton" parent="Margin/Layout" unique_id=430441959 instance=ExtResource("2_primary_btn")]
+[node name="BackButton" parent="Margin/Layout" unique_id=1077680342 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_common_back"
