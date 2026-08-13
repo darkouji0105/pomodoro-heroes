@@ -167,7 +167,6 @@ ui_guild_workshop_failed,実行できませんでした
 ui_res_weapon_wooden_sword,木の剣
 ui_res_weapon_iron_sword,鉄の剣
 ui_res_weapon_steel_sword,鋼の剣
-ui_res_weapon_debug_blade,【検証用】試し斬りの剣
 ui_equipment_title,装備
 ui_equipment_slot_weapon,武器
 ui_equipment_none,なし

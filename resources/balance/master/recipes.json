@@ -173,18 +173,6 @@
 	  ],
 	  "unlocked_by_default": true,
 	  "sort_order": 33
-	},
-	{
-	  "recipe_id": "debug_instant",
-	  "duration_sec": 10,
-	  "inputs": [
-		{ "item_id": "construction_material", "count": 1 }
-	  ],
-	  "outputs": [
-		{ "item_id": "training_material", "count": 1 }
-	  ],
-	  "unlocked_by_default": true,
-	  "sort_order": 99
 	}
   ]
 }

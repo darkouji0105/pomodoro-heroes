@@ -111,14 +111,6 @@
 	  "equip_slot": "accessory",
 	  "equip_stats": { "hp": 25 },
 	  "sort_order": 61
-	},
-	{
-	  "item_id": "weapon_debug_blade",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "weapon",
-	  "equip_stats": { "atk": 50 },
-	  "sort_order": 99
 	}
   ]
 }
