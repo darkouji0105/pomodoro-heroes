@@ -167,6 +167,7 @@ func _on_timer_finished() -> void:
 			print("[Pomodoro] reflection timed out -> skipped")
 			_on_reflection_completed("", true)
 		State.BREAK:
+			_notify_break_finished()
 			_go_to_next_set()
 
 
@@ -231,8 +232,18 @@ func _go_to_next_set() -> void:
 # 作業終了をOSに知らせる。体験版向けの暫定対応。
 # 本番ではトースト通知など別方式を検討する（PROJECT_STATUS.md 未確定事項）。
 func _notify_focus_finished() -> void:
+	SoundManager.play_se(SoundIds.ALARM_FOCUS_END)
 	DisplayServer.window_request_attention()
 	print("[Pomodoro] focus finished - requested window attention")
+
+
+# 休憩終了を知らせる。休憩明けは自動開始せず「開始」ボタン待ちで止まるため、
+# ここで気づけないとセッションが止まりっぱなしになる。
+# スキップボタン経由では鳴らさない（自分で押したので終わりは分かっている）。
+func _notify_break_finished() -> void:
+	SoundManager.play_se(SoundIds.ALARM_BREAK_END)
+	DisplayServer.window_request_attention()
+	print("[Pomodoro] break finished - requested window attention")
 
 
 # --- 終了処理 ---
@@ -323,6 +334,11 @@ func _build_debug_panel() -> void:
 	skip_button.pressed.connect(_on_debug_skip_phase)
 	panel.add_child(skip_button)
 
+	var one_sec_button: Button = Button.new()
+	one_sec_button.text = "残り1秒にする"
+	one_sec_button.pressed.connect(_on_debug_one_second)
+	panel.add_child(one_sec_button)
+
 	var reset_button: Button = Button.new()
 	reset_button.text = "今日の累計をリセット"
 	reset_button.pressed.connect(_on_debug_reset_today)
@@ -358,6 +374,17 @@ func _on_debug_skip_phase() -> void:
 	is_timer_active = false
 	_update_view_timer()
 	_on_timer_finished()
+
+
+# 残り1秒にする。アラームの確認用。
+# 「このフェーズを終わらせる」は _on_timer_finished() を直接呼ぶため
+# _process() を通らず、本番と同じ経路にならない。音の確認にはこちらを使う。
+func _on_debug_one_second() -> void:
+	if not is_timer_active:
+		print("[Debug] タイマーが動いていません（開始ボタン待ちの可能性）")
+		return
+	_start_phase_timer(1.0)
+	print("[Debug] 残り1秒にしました")
 
 
 func _on_debug_reset_today() -> void:
