@@ -268,7 +268,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
-| `fe2695a` | `docs(skill): スキルのテンプレートを4軸＋2層で確定・スケール変数表を新設・介入点を2段構えに訂正`（**コードは触っていない**。`PLAN_SKILL_TEMPLATE.md` を決定へ格上げ、`GAME_DESIGN.md` に 3-4 コンボを新設、`NEXT_STEPS.md` を段階1に差し替え） | **EXECはまだ無い**（次に書く） |
+| `0c09c6c` | `docs(skill): スキルのテンプレートを4軸＋2層で確定・スケール変数表を新設・介入点を2段構えに訂正`（**コードは触っていない**。`PLAN_SKILL_TEMPLATE.md` を決定へ格上げ、`GAME_DESIGN.md` に 3-4 コンボを新設、`NEXT_STEPS.md` を段階1に差し替え） | **EXECはまだ無い**（次に書く） |
 | `eef8a92` | `docs(skill): スキルのテンプレートを3軸＋イベント発火の形で確定・次タスクを段階1に差し替え`（**コードは触っていない**） | — |
 | `a6a8efd` | `docs(skill): スキルのテンプレート案を PLAN に起こす（未確定・別途議論）` | — |
 | `7d6e300` | `docs(skill): スキル選択の完了をドキュメントへ反映・次タスクをパッシブに差し替え`（**コードは触っていない**。`EXEC_SKILL_SELECT.md` §10 の宿題6点） | `EXEC_SKILL_SELECT.md` §10 |
