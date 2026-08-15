@@ -83,9 +83,23 @@
 
 **「渡す物が無い」で止まっていた3つ（ショップ・作業場・宝箱）が全部解消した。** 宝箱からも装備が出る。
 
-**次はバランス調整。** ここまで数値を一度も実測していない。詳細は`NEXT_STEPS.md`。
+**ステータス10軸が入り、戦闘の式が置き換わった（2026-08-15）。** 前半（器）と後半（式）の2回に分けて完了。
 
-**ステータス10軸は入っていない。** 装備の第2弾と同じ会話でやる予定だったが、装備だけで終わった。`_stat_keys()`は`hp`/`atk`/`def`/`spd`の4本のまま（`game_manager.gd` 998行で確認）。**「軸が入った前提」で書かれた記述が残っているので注意すること。**（**当初は9軸で計画していたが、`mdef`を足して10軸になった。** `GAME_DESIGN.md` 8-1）
+```
+装備・研究・レベルで10軸が動く
+  → get_effective_stats() が10軸を合成する
+  → BattleUnit.create() が10軸を辞書のまま受け取る
+  → BattleFormula が除算・物理/魔法・会心・攻撃間隔・CDを計算する
+```
+
+- **ダメージは除算**（`damage × 100 / (100 + def)`）。減算ではなくなった
+- **物理と魔法がある**（`attack_type`）。`mdef`が生きている
+- `atkspd`（攻撃間隔）・`haste`（CD短縮）・`crit_rate`／`crit_dmg`（会心）が効く
+- 回復は`mag`参照（以前は`atk`参照だった）
+
+**次はレベルの役割転換**（割り振りポイント・パッシブ・スキル解放）。詳細は`NEXT_STEPS.md`。
+
+**バランス調整は着手可能になった**（`PLAN_IMPLEMENTATION.md` 3章の12番）。`def`が除算になったため、敵HP・スキル倍率は全部意味が変わっている。**まだ一度も実測していない。**
 
 | 層 | 状態 |
 |---|---|
@@ -119,6 +133,7 @@
 | 検証用のものの削除 | （EXECなし。旧`NEXT_STEPS.md`4章） | ✅ 完了（`debug_instant` / 0Gスロット9件 / `weapon_debug_blade`。**Claude Codeで実施した最初の作業**） |
 | 音の第1弾（共通基盤＋ポモドーロのアラーム） | `EXEC_SOUND.md` | ✅ 完了（音6項目・ログ4項目・ファイル5項目。**PLANから通しで作った最初のタスク**。第2層`PLAN_SOUND.md`を新設） |
 | ステータス10軸（**器だけ。式は次回**） | `EXEC_STATS_10_AXES.md` | ✅ 完了（画面10項目・ログ5項目・セーブ4項目。**10軸の器・セーブv2・研究の`boost_all`を実数軸に限定**。戦闘の式は入っていない。検証用のデバッグオーバーレイを追加） |
+| ステータス10軸の後半（**式を戦闘に反映**） | `EXEC_STATS_10_AXES_FORMULA.md` | ✅ 完了（画面12項目・ログ4項目。**`BattleUnit`を作り直し（位置引数を全廃）、`battle_formula.gd`を新設して式を1箇所に集約**。除算式・物理/魔法・`atkspd`・`haste`・会心・回復の`mag`参照） |
 
 ### 戦闘画面でできること
 
@@ -129,7 +144,8 @@
 - 最終ウェーブのボス（紫・1.5倍サイズ・`stat_overrides`）
 - 勝敗判定、報酬反映、ステージクリア記録、リトライ
 - ダメージ数値のポップアップ、チャージゲージ、ジャスト演出
-- **デバッグパネル**（`OS.is_debug_build()`時のみ。F3で表示）
+- **10軸の式**（除算の防御・物理/魔法・`atkspd`・`haste`・会心）。会心は数字が大きく色が変わる
+- **デバッグパネル**（`OS.is_debug_build()`時のみ。**F3で表示・画面の右上**）。1ユニット2行で10軸と実測ダメージを出す。`J`＝味方全員に物理の一撃／`M`＝魔法の一撃（**どちらも`BattleFormula`を通すので`def`と`mdef`の差が見える**）
 
 ### 汎用モーダルの使い方
 
@@ -151,7 +167,9 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 **キャラ強化ループの残り**（`PLAN_CHARACTER_GROWTH_LOOP.md`）。5部位・鍛冶は入った。**残っているのは宝石・ルーン（`parts`に刺さるもの）と、等級4〜10。** **決定事項の台帳であり、実装手順書ではない。** チェックが付いていない項目を先に決めること。
 
-**ステータス10軸**（`PLAN_STATS_AND_FORMULAS.md`）。**まだ1本も入っていない。** セーブ構造と`def`/`mdef`の計算式を触る。
+~~**ステータス10軸**（`PLAN_STATS_AND_FORMULAS.md`）~~ **✅ 完了（前半・後半とも）。**
+
+⚠ **`PLAN_STATS_AND_FORMULAS.md`は実装とズレたまま。** 1章「`_stat_keys()`に足せば全部追従する」（追従するのは合成側だけ）／5章「ダメージ確定の直前」が1箇所前提（実際は2箇所あり、`battle_formula.gd`に集約した）／研究の`boost_all`の話が丸ごと無い。**このPLANを次に使うときは先に直すこと。**
 
 **PLANは実コードを見ずに書かれている前提で扱う。** 育成・研究・ショップ・作業場・装備の**5回とも**、PLANの「対応済み」が事実と違っていた。EXECを書く前に必ず`grep`で突き合わせること。
 
@@ -280,7 +298,11 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **デバッグオーバーレイはリリース前に消す**（`res://tests/debug_overlay.gd`と`scene_manager.gd`の`_ready()`・`_spawn_debug_overlay()`・`DEBUG_OVERLAY_SCRIPT`）。`OS.is_debug_build()`のガード内だがコードは残る。詳細は`EXEC_STATS_10_AXES.md` §11-2
 - **`ja.csv`に`ui_common_yes`と`ui_common_no`が重複して2行ずつある。** 10軸のタスクより前から存在する（`git show HEAD`で確認済み）。実害は出ていないが、翻訳表の重複はキーを増やすほど探しにくくなる
 - **`save_version`の出どころが3箇所に散っている**（`save_manager.gd`の`CURRENT_SAVE_VERSION` / `initial_state_config.tres` / `game_manager.gd`の`_empty_state_template()`）。**上げるときは3つとも上げないと、新規開始したセーブが次回起動で自分に弾かれる。** 1本化は別タスク
-- **`_percent_stat_keys()`は毎回`Array`を作って`in`で線形探索する。** 10軸・4本なら問題ないが、**毎フレーム呼ぶ場所から呼ばないこと**（式の回で`battle_controller.gd`から呼びたくなる）
+- **`_percent_stat_keys()`は毎回`Array`を作って`in`で線形探索する。** 10軸・4本なら問題ないが、**毎フレーム呼ぶ場所から呼ばないこと**（式の回では呼ばずに済んだ。`BattleUnit`が生成時に派生値を確定させるため）
+- **`adventure_config.tres`に上限3値（`min_attack_interval_sec` / `max_haste` / `max_crit_rate`）が書かれていない。** `[resource]`の下が空のまま。**`.gd`の既定値（0.4 / 100 / 100）が効いているので動作に影響は無い**が、Inspectorから調整する前に一度入力が要る
+- **`atk_multiplier`が使われていない**（常に1.0）。`BattleFormula.damage()`に畳み込む形で渡してはいる。**バフを入れるときに、派生値（`attack_interval_sec`）の再計算とセットで設計する**（`BattleUnit`は生成時に一度だけ計算している）
+- **`char_priest`の通常攻撃が`magic`になった。** 射程250で`mag` 16 を撃つため、僧侶の火力の位置づけが変わる。**バランス調整の回で見る**
+- **パーティの並びが`[僧侶, 弓兵, 剣士]`になった**（`parties.json`）。剣士が最前列（右端）。**スキルボタンの並びもこの順**（画面の左右と一致する）
 
 ---
 
@@ -300,11 +322,19 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 **戦闘の式は入っていない。** ダメージは今も`atk - def`の減算のまま。`mag` `mdef` `atkspd` `haste` `crit_rate` `crit_dmg`は**セーブと画面には出るが戦闘では何もしない。**
 
-### 次：ステータス10軸の後半（式の反映）
+### ~~次：ステータス10軸の後半（式の反映）~~ ✅ 完了（2026-08-15）
 
-**`BattleUnit`の作り直しが本体。** 現在10個の位置引数で、6本足すと16個になる。
+**`BattleUnit`を作り直した。** 位置引数10個 → `stats: Dictionary`1本＋`static create()`。軸を増やしても`GameManager.get_stat_keys()`に足せば戦闘まで届く。
 
-内訳は`NEXT_STEPS.md`。調査は`EXEC_STATS_10_AXES.md` §2に済んでいる（**もう一度`grep`し直さなくてよい**）。
+**`scripts/systems/battle_formula.gd`を新設し、式を1箇所に集約した。** 通常攻撃・スキル・デバッグ表示の3経路が同じ関数を通る。**戦闘の式を直すときはまずここを見る。**
+
+### 次：レベルの役割転換（割り振りポイント・パッシブ・スキル解放）
+
+`PLAN_IMPLEMENTATION.md` 3章の**3番**。**セーブ構造にフィールドが増える回。**
+
+内訳と確認済みの事実は`NEXT_STEPS.md`（**`select_skill()`が空実装で呼び出し元0件・スキル画面が存在しない・戦闘のスキルはマスター直読み**など）。
+
+⚠ **`stat_growth_formula`を`"base"`にするのはこの回。** 割り振りポイントが動くようになってから変えること。順番を逆にするとレベルアップが完全に無意味になる。
 
 ### バランスの実測は後回しになった
 
@@ -343,18 +373,15 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 **同じ形の見落としが`attack_interval_sec`と`cooldown_sec`にもあった。✅ 確認済み（2026-08-15・10軸のタスク）。予想は当たっていた。**
 
-| 場所 | 何が起きているか |
-|---|---|
-| `battle_controller.gd` 165行 | `char_data.get("attack_interval_sec")`。**すぐ上の150行で`get_effective_stats()`を取っているのに、攻撃間隔だけマスターから直読み** |
-| 同 477行・599行 | `skill_data.get("cooldown_sec")`をskills.jsonから直読み。**`haste`が入る場所が無い** |
+| 場所 | 何が起きていたか | 対処 |
+|---|---|---|
+| `battle_controller.gd` 165行 | `char_data.get("attack_interval_sec")`。**すぐ上で`get_effective_stats()`を取っているのに、攻撃間隔だけマスターから直読み** | ✅ `BattleUnit.create()`が`atkspd`を適用して`attack_interval_sec`に入れる |
+| 同 477行・599行 | `skill_data.get("cooldown_sec")`をskills.jsonから直読み。**`haste`が入る場所が無い** | ✅ `BattleFormula.cooldown()`を通す |
+| ダメージ経路が**2箇所**（`battle_controller.gd` 397行と`skill_resolver.gd` 91行） | どちらも`atk - def`の減算を別々に書いていた | ✅ `battle_formula.gd`に集約。**3経路（通常攻撃・スキル・デバッグ表示）が同じ関数を通る** |
+| `skill_resolver.gd` 80行の回復量が`user.atk`参照 | 僧侶の回復が攻撃力依存だった | ✅ `mag`参照に変更 |
+| `skills.json`に参照欄も種別欄も無い | — | ✅ `attack_type`を追加（`characters.json`/`enemies.json`にも同じ欄） |
 
-**まだ直していない。** `atkspd`と`haste`が効く形にするのは式の回（10軸の後半）。
-
-**同じタスクで見つかった、これと同種のもの：**
-
-- **ダメージ経路は2箇所ある**（`battle_controller.gd` 397行と`skill_resolver.gd` 91行）。どちらも`atk - def`の減算。`PLAN_STATS_AND_FORMULAS.md` 5章は1箇所前提で書かれている
-- **`skill_resolver.gd` 80行の回復量が`user.atk`参照。** 僧侶の回復が攻撃力依存になっている
-- **`skills.json`に`atk`/`mag`の参照欄も物理／魔法の種別欄も無い**
+**5件とも10軸の後半で解消した（2026-08-15）。** 予想は全部当たっていた。**「すぐ上で正しい関数を呼んでいるのに、1つの値だけ直読み」という形は他にもありうる。**
 ### 実装の順番
 
 **`PLAN_IMPLEMENTATION.md` 3章が台帳。ここには置かない。**（`GAME_DESIGN.md` 15章も同じ理由でポインタにした）
@@ -454,6 +481,14 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 | **重複した装備の変換** | **手動**（倉庫の「素材にする」）。**装備中は不可。** 戻り量は基礎3＋等級を上げるのに払った全額 |
 | **第1弾のセーブの装備** | **捨てる。** `_normalize_equipment_from_save()`が個体IDでない値を`null`に戻す。**移行処理は書かない** |
 | **EXECにコードを載せない** | 差し替えるコードは**チャット上に出したものが正**。EXECは決定事項・罠・完了条件だけを持つ。同じコードが2箇所にあると、修正時にどちらが正か分からなくなる |
+| **`BattleUnit`の形** | **`stats: Dictionary`1本＋`static create()`＋`get_stat()`。** 位置引数は全廃（10個あり、10軸にすると16個になるため）。軸を増やしても`GameManager.get_stat_keys()`に足せば戦闘まで届く |
+| **戦闘の式の置き場** | **`scripts/systems/battle_formula.gd`（静的クラス）。** 攻撃間隔・CD・会心抽選・ダメージの4つ。**通常攻撃・スキル・デバッグ表示の3経路が同じ関数を通る** |
+| **`BattleFormula`の依存の向き** | **`BattleFormula`は`BattleUnit`を参照しない（引数は数値だけ）。** 相互参照はパースエラー（Cyclic reference）を踏む。**軸の対応付け**（物理→`atk`/`def`、魔法→`mag`/`mdef`）は`BattleUnit.get_power()` / `get_defense()`が持つ |
+| **物理／魔法の持たせ方** | **`attack_type`という文字列1本**（`"physical"` / `"magic"`）を`characters.json`・`enemies.json`・`skills.json`に共通で置く。**種別と参照ステータスを連動させる。** 欄を2つ（参照軸と種別）にしない |
+| **回復の参照** | **`mag`。** `type == "heal"`は常に`mag`を見る。`skills.json`に`attack_type`を書かない（2つの指定が食い違えるため） |
+| **`crit_rate`の超過分** | **捨てる。`crit_dmg`に変換しない。** ％系は`int`で持つため厳密に等価な+0.5%を表現できず、1:1にすると「上限に張り付いたほうが得」になる |
+| **ステータス上限の置き場** | **`AdventureConfig`（`Balance.adventure`）。`StatConfig`は作らない。** 新Configは「`.gd` → `.tres` → `Balance`の`@export` → Inspectorで割り当て」の4手が要り、1つ落とすと`null`参照で戦闘が起動しない |
+| **`atkspd`の上限** | **秒数の下限で持つ**（`min_attack_interval_sec` = 0.4）。％の上限にしない（速いキャラだけ壊れるため）。`max_haste`と`max_crit_rate`は100 |
 
 ### 未決定
 
@@ -462,7 +497,7 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 | 弓兵・僧侶の`growth_per_level` | `characters.json` | 仮の値のまま。剣士8/2/1/1、弓5/2/1/1、僧4/1/1/1 |
 | ステージ4〜10のウェーブ構成 | `stages.json` | 1〜3の手触りを確かめてから |
 | 星（`stars`）の判定基準 | 同上 | 当面は常に`0` |
-| 敵HP・スキル倍率のバランス | — | **ステータス10軸と式が入ってから。** `def`が除算になるため、いまの数値は全部意味が変わる |
+| 敵HP・スキル倍率のバランス | — | **10軸と式は入った（2026-08-15）。着手可能。** `def`が除算になったため、いまの数値は全部意味が変わっている |
 | スタミナの自然回復 | — | 未実装。やるかどうかも未決 |
 | トーストの要否 | — | 自動で消える軽い通知。セット完了通知の受け皿になりうる |
 | 入力欄つきダイアログ | — | セッションタイトル入力で要るかもしれない |
@@ -489,9 +524,10 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 | **バランスの計算道具を作るか** | `AGENTS.md`のフォルダ構成 | **`balance_report.py`は存在しない**（作りかけて捨てた）。**まず手で実測する方針にしたため後回し。** 作るときは`res://tests/`へ（`tools/`は構成に無く、承認が要る） |
 | **宝箱に装備を入れる形** | `ChestContentConfig` | 固定なら`@export`1つ。抽選なら`pity_counters`と同じ規模 |
 | **各機能がシナリオの第何章で開くか** | `unlocked_screens` / `scenario_chapter` | **順番は確定**（`GAME_DESIGN.md` 9-5）。**章の割り当てが未定** |
-| **敵の`mag`・`mdef`の設計** | `enemies.json` | 物理型／魔法型の差別化。**10軸と同時に入れる。片方だけだと`mdef`が死に軸になる** |
-| **`crit_rate`超過分の変換レート** | `StatConfig` | 100%を超えた分を`crit_dmg`に変換する（`GAME_DESIGN.md` 8-2）。レートが未定 |
-| **`min_attack_interval_sec`の値** | `StatConfig` | **全キャラ共通の1本で持つことは確定**（`GAME_DESIGN.md` 8-2-2）。値が未定 |
+| **魔法型の敵を作るか** | `enemies.json` | **暫定でボス`boss_slime_king`を`attack_type: "magic"`にしてある**（味方の`mdef`が効くことを実機で確かめる敵が他に無かったため）。ボスの火力は`atk` 20 ではなく`mag` 12 を見る。**魔法型の敵を別に作ったら戻すか決める** |
+| **敵に会心を持たせるか** | `enemies.json` | **現在は3体とも`crit_rate: 0`。** 乱数で「たまに固い」が起きると除算式の検証が難しくなるため0にした。バランス調整の回で決める |
+| **割り振りポイントの点数と軸ごとの効率** | `characters.json` / `character_config` | `hp`に1点で+1なのか+10なのか。**次のタスク（レベルの役割転換）で決める** |
+| **`allocatable_stats`の中身** | `characters.json` | キャラごとに振れる軸が違う（`GAME_DESIGN.md` 5-3）。**欄そのものがまだ無い** |
 | **等級帯と素材段階の刻み** | — | 装備10等級／装飾5等級を、素材4段階でどう割るか。**境界が等級5をまたぐとスロット解放の節目と混ざる**（`GAME_DESIGN.md` 6-3） |
 
 **運用ルール**：新しい未確定事項が見つかったら、まずこの表に追記する。
@@ -591,3 +627,14 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`gold_per_focus_minute` / `stamina_per_focus_minute` / `materials_per_focus_minute` が3つとも0のまま。** `pomodoro_config.gd` で初期値を書かずに宣言され、`.tres` にも書かれていない。**Inspectorを開いても0が並ぶだけで異常に見えない。** ポモドーロの分あたり報酬が死んでいる
 - **`GRADE_STAT_RATIO`（0.25）と`FORGE_COST_PER_GRADE`（4）が`game_manager.gd`の定数のまま。** 数値管理ルール上は`.tres`へ出すべき。**バランスのタスクで判断する**
 - **`.tres` は既定値を書き出さない。** 数値を確認するときは必ず `.gd` の `@export` 初期値も見ること。`adventure_config.tres` などは `script = ExtResource(...)` の1行しか無い
+
+- **ステータス10軸の後半（式の反映）の完了時点**：
+  - 「現在地」を10軸完了に差し替え。**「10軸は入っていない」という記述を全部除去**（4箇所）
+  - 実装済み表に`EXEC_STATS_10_AXES_FORMULA.md`を追加
+  - 「戦闘画面でできること」に除算式・物理/魔法・会心・デバッグパネルの`J`/`M`を追加
+  - **直読み5件が全部解消したことを表に反映**（`attack_interval_sec` / `cooldown_sec` / ダメージ経路2箇所 / 回復の`atk`参照 / `skills.json`の欄）
+  - 決定済み表に8件追加（`BattleUnit`の形／式の置き場／依存の向き／`attack_type`／回復は`mag`／`crit_rate`超過は捨てる／上限の置き場／`atkspd`の上限）
+  - 未決定表から3件削除（敵の`mag`/`mdef`の設計・`crit_rate`超過分の変換レート・`min_attack_interval_sec`の値）。4件追加（魔法型の敵・敵の会心・割り振りの点数・`allocatable_stats`）
+  - **`PLAN_STATS_AND_FORMULAS.md`が実装とズレていることを明記**（3箇所）
+  - 次のタスクを「レベルの役割転換」に差し替え。**`stat_growth_formula`を`"base"`にする順番の注意つき**
+  - **事故は0件。** 指示書の誤りも0件

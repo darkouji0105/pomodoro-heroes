@@ -880,6 +880,49 @@ func _call_controller(method: String, args: Array = []) -> void:
 
 ---
 
-## 13. 実施結果
+## 13. 実施結果（2026-08-15）
 
-（実装後に記入する）
+**実装役は使わず、設計役（Claude Code）が全ファイルを書いた。** 人間が§7（画面）・§8（ログ）を実機で確認し、コミット済み（`5150135 防御力等変更した`）。
+
+| ファイル | 結果 |
+|---|---|
+| `scripts/systems/battle_formula.gd` | **新規**（`attack_interval` / `cooldown` / `roll_crit` / `damage`） |
+| `scripts/systems/unit.gd` | **全面書き換え**（`_stats`辞書＋`create()`＋`get_stat()` / `get_power()` / `get_defense()`） |
+| `scripts/systems/skill_resolver.gd` | 変更（3箇所。`attack_type`の素通し／回復を`mag`参照／ダメージを`BattleFormula`へ） |
+| `scenes/adventure/battle_controller.gd` | 変更（6箇所＋`debug_damage_party()`） |
+| `scenes/adventure/unit_view.gd` | 変更（会心の色・サイズ、`pop_damage(amount, is_crit)`） |
+| `scenes/adventure/battle_debug_panel.gd` | 変更（2行表示・右上へ移動・`J`/`M`・`callv`・日本語名） |
+| `resources/balance/adventure_config.gd` | 変更（上限3つを追加） |
+| `resources/balance/master/characters.json` | 変更（`attack_type`。僧侶は`magic`） |
+| `resources/balance/master/enemies.json` | 変更（不足4軸＋`attack_type`。ボスは`magic`） |
+| `resources/balance/master/skills.json` | 変更（5スキルに`attack_type`。回復には付けない） |
+| `resources/balance/master/parties.json` | 変更（**指示書に無い**。§13-1の3） |
+| `autoload/game_manager.gd` | 変更（コメントのみ） |
+
+### 13-1. 指示書に無い追加（3件・すべて人間の指示）
+
+実装が通ったあとに出た要望。**どれも検証のしやすさが理由。**
+
+1. **`J`（味方全員に10ダメージ）を`J`＝物理／`M`＝魔法に割った。** `take_damage()`直呼びをやめ、`BattleFormula.damage()`を通す形にした。**これが無いと`def`と`mdef`の差をボタンで確かめられない。** 併せて`_call_controller()`を`callv`にした（引数2個を渡せなかった）
+2. **`F3`パネルを左上→右上へ移した。** 左上は味方ユニットに重なる。`CanvasLayer`の子はアンカーが効かないため、`debug_overlay.gd`と同じくビューポート幅から座標を計算し、**`_process()`からも置き直す**（行の幅が毎フレーム変わるため）
+3. **パーティの並びを`[僧侶, 弓兵, 剣士]`に変えて剣士を最前列（右端）にした。** `parties.json`の1行。**スキルボタンの並びもこの順になる**（画面の左右と一致する）
+
+### 13-2. この指示書の誤り（0件）
+
+§5のコードはそのまま通った。
+
+### 13-3. 設計時に指示書から変えた点（1件・実装前）
+
+**`BattleFormula`が`BattleUnit`を参照しない形にした**（§3-1）。提案時は`damage(attacker, target, ...)`だったが、相互参照でパースエラー（Cyclic reference）を踏む可能性があり、設計役は起動して確かめられないため。軸の対応付けを`BattleUnit.get_power()` / `get_defense()`に置き、`BattleFormula`は数値だけを受け取る。
+
+### 13-4. 未実施（人間の作業。§4）
+
+- **`adventure_config.tres`に3値が書かれていない。** `[resource]`の下が空のまま。**`.gd`の既定値（0.4 / 100 / 100）が効いているので動作に影響は無い**が、Inspectorから調整する前に一度入力が要る
+- **`GAME_DESIGN.md`が未修正**（487行の「超過分を`crit_dmg`に変換する」・861行の未決項目）。**決定4と食い違ったまま**
+
+### 13-5. このタスクで確定した、次回に効く事実
+
+- **`BattleUnit`の生成は`create()`1本になった。** 軸を増やしても`GameManager.get_stat_keys()`に足せば戦闘まで届く。ただし**「効かせる」には`BattleFormula`と`get_power()` / `get_defense()`も直す**
+- **戦闘の式は`battle_formula.gd`の1ファイルに集約された。** 通常攻撃・スキル・デバッグ表示の3経路が同じ関数を通る
+- **`CanvasLayer`の子はアンカーが効かない**（前半の§13-4-3と同じ事実を再確認）。右上・右下に置くならビューポート幅から計算する
+- **`F4`は届かないが`J`・`M`・`0`・`F3`は届く**（キーの追加は英字が安全）
