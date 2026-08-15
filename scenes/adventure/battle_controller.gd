@@ -149,21 +149,13 @@ func _init_party_units() -> void:
 		# has_growth のフォールバック分岐は要らない。
 		var stats: Dictionary = GameManager.get_effective_stats(character_id)
 
-		var hp: int = int(stats.get(GameStateKeys.STAT_HP, 0))
-		var atk: int = int(stats.get(GameStateKeys.STAT_ATK, 0))
-		var def: int = int(stats.get(GameStateKeys.STAT_DEF, 0))
-		var spd: int = int(stats.get(GameStateKeys.STAT_SPD, 0))
-		
-		var unit: BattleUnit = BattleUnit.new(
+		# 軸をここで1本ずつ取り出さないこと。10軸を辞書のまま create() に渡す。
+		# 軸が増えてもこの行は直さなくてよい。
+		var unit: BattleUnit = BattleUnit.create(
 			"party_%d" % i,
 			BattleUnit.TEAM_PARTY,
-			str(char_data.get("name_key", "")),
-			hp,
-			atk,
-			def,
-			float(char_data.get("attack_range", 0)),
-			float(char_data.get("attack_interval_sec", 0)),
-			float(spd),
+			char_data,
+			stats,
 			false
 		)
 		unit.x = _party_start_x(i)
@@ -252,16 +244,13 @@ func _spawn_current_wave_enemies() -> void:
 				enemy_data[key] = (overrides as Dictionary)[key]
 
 		for n: int in range(count):
-			var unit: BattleUnit = BattleUnit.new(
+			# 敵はマスターのエントリがそのまま能力値なので、
+			# p_source と p_stats に同じ辞書を渡す。
+			var unit: BattleUnit = BattleUnit.create(
 				"enemy_%d_%d" % [_session.current_wave, local_index],
 				BattleUnit.TEAM_ENEMY,
-				str(enemy_data.get("name_key", "")),
-				int(enemy_data.get("hp", 0)),
-				int(enemy_data.get("atk", 0)),
-				int(enemy_data.get("def", 0)),
-				float(enemy_data.get("attack_range", 0)),
-				float(enemy_data.get("attack_interval_sec", 0)),
-				float(enemy_data.get("spd", 0)),
+				enemy_data,
+				enemy_data,
 				is_boss
 			)
 			unit.x = ENEMY_BASE_X + local_index * ENEMY_STEP_X
@@ -381,31 +370,41 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 	var distance: float = abs(target.x - unit.x)
 	if distance <= unit.attack_range:
 		unit.attack_timer += delta
+		# attack_interval_sec は create() の時点で atkspd 適用済み。
+		# ここでマスターから読み直さないこと。
 		if unit.attack_timer >= unit.attack_interval_sec:
-			var dmg: int = _compute_damage(unit, target)
+			var is_crit: bool = BattleFormula.roll_crit(unit.get_stat(GameStateKeys.STAT_CRIT_RATE))
+			var dmg: int = _compute_damage(unit, target, is_crit)
 			target.take_damage(dmg)
-			_pop_damage(target, dmg)
+			_pop_damage(target, dmg, is_crit)
 			unit.attack_timer = 0.0
 	else:
 		var dir: float = sign(target.x - unit.x)
 		unit.x += dir * unit.speed * delta
 
 
-# 通常攻撃のダメージ計算。必ず max(1, ...) を入れる。
-# スキルの計算式はここに書かない（SkillResolver に集約する）。
-func _compute_damage(attacker: BattleUnit, target: BattleUnit) -> int:
-	var raw: int = int(floor(attacker.atk * attacker.atk_multiplier)) - target.def
-	return max(1, raw)
+# 通常攻撃のダメージ計算。式そのものは BattleFormula にある。
+# ここに式を書き戻さないこと（スキル側と2箇所に分かれるため）。
+# 会心の抽選は呼び出し側で行い、結果を受け取る（表示の色を変えるのに要る）。
+func _compute_damage(attacker: BattleUnit, target: BattleUnit, is_crit: bool) -> int:
+	var t: String = attacker.attack_type
+	return BattleFormula.damage(
+		attacker.get_power(t),
+		target.get_defense(t),
+		attacker.atk_multiplier,
+		attacker.get_stat(GameStateKeys.STAT_CRIT_DMG),
+		is_crit
+	)
 
 
-func _pop_damage(target: BattleUnit, amount: int) -> void:
+func _pop_damage(target: BattleUnit, amount: int, is_crit: bool = false) -> void:
 	if target == null:
 		return
 	if not _views_by_unit_id.has(target.unit_id):
 		return
 	var view: Node = _views_by_unit_id[target.unit_id]
 	if is_instance_valid(view) and view.has_method("pop_damage"):
-		view.pop_damage(amount)
+		view.pop_damage(amount, is_crit)
 
 
 # ============================================================
@@ -474,7 +473,11 @@ func _build_skill_buttons() -> void:
 				"user": unit,
 				"skill_id": skill_id,
 				"name_key": str(skill_data.get("name_key", "")),
-				"cooldown_sec": float(skill_data.get("cooldown_sec", 0.0)),
+				# haste 適用済みの実効 CD。base を入れないこと（表示に使うときにずれる）。
+				"cooldown_sec": BattleFormula.cooldown(
+					float(skill_data.get("cooldown_sec", 0.0)),
+					unit.get_stat(GameStateKeys.STAT_HASTE)
+				),
 				"charge": charge,
 			}
 			_skill_buttons.append(entry)
@@ -594,9 +597,13 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> void
 		if not (r is Dictionary):
 			continue
 		var target: BattleUnit = _find_unit_by_id(str(r.get("unit_id", "")))
-		_pop_damage(target, int(r.get("amount", 0)))
+		_pop_damage(target, int(r.get("amount", 0)), bool(r.get("is_crit", false)))
 
-	user.start_cooldown(skill_id, float(skill_data.get("cooldown_sec", 0.0)))
+	# skills.json の cooldown_sec は base。haste を通してから渡す。
+	user.start_cooldown(skill_id, BattleFormula.cooldown(
+		float(skill_data.get("cooldown_sec", 0.0)),
+		user.get_stat(GameStateKeys.STAT_HASTE)
+	))
 
 
 # ============================================================
@@ -845,14 +852,28 @@ func debug_kill_all_enemies() -> void:
 	print("[BattleDebug] ウェーブ %d の敵を全滅させた" % _session.current_wave)
 
 
-func debug_damage_party(amount: int) -> void:
+# 検証用：味方全員に「威力 power の一撃」を通す。
+#
+# take_damage(power) を直接呼ばないこと。通常攻撃と同じ BattleFormula を通すので、
+# 物理なら def、魔法なら mdef で割られた値が入る。
+# こうしないと「除算が効いているか」「mdef が生きているか」をここで確かめられない。
+# 会心はしない（毎回同じ値が出ないと比較できないため）。
+func debug_damage_party(power: int, attack_type: String) -> void:
 	if _session == null:
 		return
 	for u in _session.party_units:
-		if u is BattleUnit and u.is_alive():
-			u.take_damage(amount)
-			_pop_damage(u, amount)
-	print("[BattleDebug] 味方全員に %d ダメージ" % amount)
+		if not (u is BattleUnit) or not u.is_alive():
+			continue
+		var unit: BattleUnit = u
+		var defense: int = unit.get_defense(attack_type)
+		# 第4引数（crit_dmg）は is_crit が false のとき使われない。
+		var dmg: int = BattleFormula.damage(power, defense, 1.0, 0, false)
+		unit.take_damage(dmg)
+		_pop_damage(unit, dmg, false)
+		# ログも画面と同じ名前で出す（party_0 だと誰か読み替えが要る）。
+		print("[BattleDebug] %s に %s 威力%d → %d ダメージ（防御 %d）" % [
+			tr(unit.unit_name_key), attack_type, power, dmg, defense
+		])
 
 
 func debug_reset_cooldowns() -> void:

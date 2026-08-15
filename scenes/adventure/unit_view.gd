@@ -15,6 +15,11 @@ const DAMAGE_FONT_SIZE: int = 22
 const DAMAGE_RISE_PX: float = 48.0
 const DAMAGE_DURATION_SEC: float = 0.6
 
+# 会心の表示。通常のダメージより大きく・強い色にする。
+# 「会心」という文字は出さない（ja.csv に増やさない。数字が大きく跳ねるほうが読める）。
+const CRIT_COLOR: Color = Color(1.0, 0.55, 0.25)
+const CRIT_FONT_SIZE: int = 32
+
 # ジャスト成功の表示
 const JUST_COLOR: Color = Color(1.0, 0.95, 0.55)
 const JUST_FONT_SIZE: int = 30
@@ -62,8 +67,12 @@ func _process(_delta: float) -> void:
 
 
 # 被弾した数値を頭上に浮かべて消す。
-func pop_damage(amount: int) -> void:
-	pop_label(str(amount), DAMAGE_COLOR, DAMAGE_FONT_SIZE)
+# is_crit の既定値を false にしてあるので、既存の呼び出しは壊れない。
+func pop_damage(amount: int, is_crit: bool = false) -> void:
+	if is_crit:
+		pop_label(str(amount), CRIT_COLOR, CRIT_FONT_SIZE)
+	else:
+		pop_label(str(amount), DAMAGE_COLOR, DAMAGE_FONT_SIZE)
 
 
 # ジャスト成功などの演出用。数値以外の文字を浮かべる。

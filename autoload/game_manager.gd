@@ -1011,8 +1011,10 @@ func level_up_character(character_id: String) -> bool:
 #   get_effective_stats() / get_instance_stats() / get_equipment_bonus()
 #   _default_growth_for() / _recalc_stats() / load_state() の int() 正規化
 #
-# 追従しないもの（別のファイルを直す必要がある）：
-#   battle_controller.gd の BattleUnit.new()（引数がベタ書き。式の回で作り直す）
+# 戦闘も追従する（EXEC_STATS_10_AXES_FORMULA.md）：
+#   BattleUnit.create() が get_stat_keys() を回して 10軸を取り込む。
+#   ただし式（どの軸をどう使うか）は BattleFormula と BattleUnit.get_power() /
+#   get_defense() にあるので、新しい軸を「効かせる」にはそちらも直すこと。
 func _stat_keys() -> Array[String]:
 	return [
 		GameStateKeys.STAT_HP,

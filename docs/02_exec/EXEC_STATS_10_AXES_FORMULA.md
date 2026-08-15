@@ -685,6 +685,33 @@ func _format_damage_to_target(unit: BattleUnit) -> String:
 		"※ 2行目の dmg は非会心のダメージ（会心分は含まない）",
 ```
 
+#### 追加（人間の指示で後から入れた3点）
+
+**1. パネルを右上に移す。** 左上（`8, 8`）だと味方ユニットに重なる。
+
+`CanvasLayer`は`Control`ではないので**子のアンカー（`PRESET_TOP_RIGHT`）は効かない**（`EXEC_STATS_10_AXES.md` §13-4）。`debug_overlay.gd`と同じく、ビューポート幅から位置を計算する`_place_top_right()`を持たせ、`_process()`と`size_changed`の両方から呼ぶ（**表示する行の幅が毎フレーム変わるため、生成時の1回では足りない**）。
+
+⚠ **右上は`debug_overlay.gd`（`0`キー）も使っている。両方開くと重なる。** 戦闘中に資源を配る用事は少ないので、重なったらオーバーレイを`0`で閉じる。
+
+**2. `J`（味方全員に10ダメージ）を物理／魔法の2つに割る。**
+
+| キー | 効果 |
+|---|---|
+| `J` | 味方全員に**物理**の一撃（威力10 → 各自の`def`で割る） |
+| `M` | 味方全員に**魔法**の一撃（威力10 → 各自の`mdef`で割る） |
+
+**`take_damage(10)`を直接呼ばないこと。** `BattleFormula.damage()`を通す。そうしないと「除算が効いているか」「`mdef`が生きているか」をこのボタンで確かめられない。**会心はしない**（毎回同じ値が出ないと比較にならない）。
+
+`battle_controller.gd`の`debug_damage_party()`は`(power: int, attack_type: String)`の2引数になる。
+
+**3. `_call_controller()`を`callv`にする。** 従来は「引数1個か0個か」を`null`で分岐していて、2個を渡せない。
+
+```gdscript
+func _call_controller(method: String, args: Array = []) -> void:
+	...
+	_controller.callv(method, args)
+```
+
 ### 5-8. `res://resources/balance/master/characters.json`（3キャラに`attack_type`）
 
 各キャラの`"attack_range"`の行の直前に足す。
@@ -791,7 +818,9 @@ func _format_damage_to_target(unit: BattleUnit) -> String:
 **先にデバッグオーバーレイ（`0`キー）で「装備を全種類 1個ずつ」と「研究を全部解放」を押しておくと、軸が動いた状態で見られる。**
 
 1. 戦闘画面に入り、**エラーなく開始できる**（パースエラー・`Cyclic reference`が出ないこと）
-2. `F3`でデバッグパネルを開く。**1ユニットにつき2行**出ており、2行目に`atk` `mag` `def` `mdef` `as` `ha` `cr` `cd` `spd`と`dmg`が並んでいる
+2. `F3`でデバッグパネルを開く。**画面の右上**に出る（左上ではない）。**1ユニットにつき2行**出ており、2行目に`atk` `mag` `def` `mdef` `as` `ha` `cr` `cd` `spd`と`dmg`が並んでいる
+   - ウィンドウの大きさを変えても右上に貼り付いたままになる
+2-2. **`J`（物理の一撃）と`M`（魔法の一撃）で、同じ味方でもダメージが違う。** 威力はどちらも10。剣士（`def` 6 / `mdef` 4）なら物理 `10×100/106 = 9`、魔法 `10×100/104 = 9`。**装備で片方だけ上げると差が開く。** ログにも「`party_0 に physical 威力10 → 9 ダメージ（防御 6）`」と出る
 3. **2行目の`dmg`の値と、実際に頭上に出るダメージ数値が一致する**（会心が出たときを除く）
 4. **`dmg`が`atk - def`より大きい。** 例：`enemy_slime`（`def` 2）に剣士（`atk` 18）が殴ると、減算なら16。除算なら `18 × 100 / 102 = 17`。**装備と研究を積むほど差が開く**
 5. **僧侶（`char_priest`）の通常攻撃だけ、2行目の`attack_type`が`magic`になっている。** その`dmg`は`mag` 16 と敵の`mdef`から計算されている

@@ -2,16 +2,22 @@
   "enemy_slime": {
 	"name_key": "ui_battle_enemy_slime",
 	"hp": 40, "atk": 8, "mag": 2, "def": 2, "mdef": 2, "spd": 40,
+	"atkspd": 0, "haste": 0, "crit_rate": 0, "crit_dmg": 150,
+	"attack_type": "physical",
 	"attack_range": 50, "attack_interval_sec": 1.5
   },
   "enemy_wolf": {
 	"name_key": "ui_battle_enemy_wolf",
 	"hp": 55, "atk": 12, "mag": 2, "def": 3, "mdef": 1, "spd": 80,
+	"atkspd": 0, "haste": 0, "crit_rate": 0, "crit_dmg": 150,
+	"attack_type": "physical",
 	"attack_range": 50, "attack_interval_sec": 1.0
   },
   "boss_slime_king": {
 	"name_key": "ui_battle_enemy_slime_king",
 	"hp": 300, "atk": 20, "mag": 12, "def": 8, "mdef": 6, "spd": 30,
+	"atkspd": 0, "haste": 0, "crit_rate": 0, "crit_dmg": 150,
+	"attack_type": "magic",
 	"attack_range": 70, "attack_interval_sec": 1.8
   }
 }
