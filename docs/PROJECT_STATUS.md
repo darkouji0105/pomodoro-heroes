@@ -268,6 +268,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `7d6e300` | `docs(skill): スキル選択の完了をドキュメントへ反映・次タスクをパッシブに差し替え`（**コードは触っていない**。`EXEC_SKILL_SELECT.md` §10 の宿題6点） | `EXEC_SKILL_SELECT.md` §10 |
 | `c44cc79` | `feat(skill): スキル候補の解放と2枠の選択・戦闘への反映`（**上と同じメッセージだが中身は別**。枠と装備スロットの紐づけを撤回したドキュメント2ファイルのみ） | `EXEC_SKILL_SELECT.md` §12-6 |
 | `7f2deec` | `feat(skill): スキル候補の解放と2枠の選択・戦闘への反映`（実装本体・12ファイル） | `EXEC_SKILL_SELECT.md` |
 | `2efc0a2` | スキルツリー関連とステータスの伸び方（割り振りポイント） | `EXEC_LEVEL_ROLE_SHIFT.md` |
