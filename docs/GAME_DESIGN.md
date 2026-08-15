@@ -892,7 +892,6 @@
 ### 数値（実際に遊んでから決める）
 
 - 1ステージの所要時間の最終調整（目標2〜3分）
-- 割り振りポイントの1回あたりの点数、軸ごとの効率
 - 等級ごとの必要素材量、鍛冶素材4段階と等級10段階の対応
 - 装飾のランダムロールの振れ幅
 - ステージ報酬・抽選ドロップの確率
@@ -904,7 +903,7 @@
 
 - **移動系ルーンの振る舞い**（自動移動との衝突。**実装時に触ってから決める**）
 - パッシブ15個（3人×5個）の具体的な内容
-- キャラごとの`allocatable_stats`の中身
+- **スキル12個（3人×4個）の具体的な内容**（**器は入った**。`skills.json`は6件・全部`unlock_level: 1`のまま。**`skill_resolver.gd`のテンプレを決めてからでないと書けない**。現状動くのは`single`/`aoe`/`heal`の3種で、`aoe`は敵全員固定・`heal`は味方全員固定。`buff`/`dot`/`projectile`は空配列を返すstub）
 - 研究ボードのノード数、1周のノード数、周回ごとの内容の変わり方
 - 建築素材4種（木・石・鉄・金）の使い分け（どの施設・どの研究がどれを要求するか）
 - 拠点の施設の具体的な一覧
@@ -929,9 +928,7 @@
 
 `DATA_SCHEMA.md`の更新が要る。
 
-- `character_growth`に割り振りポイント（獲得済み・配分）
 - `character_growth`にパッシブの解放状態
-- `character_growth.skills`の実装（現在`{}`のまま。`select_skill()`も空実装）
 - キャラプリセット・編成プリセット
 - `equipment_instances.parts`を可変長に（現在は長さ2固定）
 - `parts`の要素を`{装飾ID, 等級, 出目}`のオブジェクトに
@@ -968,11 +965,11 @@
 | 箇所 | 何が変わるか |
 |---|---|
 | `_stat_keys()` | 4本 → **10本**（9軸＋`mdef`）。ここに足せば育成・研究・装備が全部追従する |
-| `stat_growth_formula` | `"base + growth * (level - 1)"` → **`"base"`** |
+| ~~`stat_growth_formula`~~ | **✅ 実装済み（2026-08-15）。** `character_config.gd` 48行が`"base"`。**レベルではステータスが伸びない**。伸ばすのは割り振り（`character_nodes.json` 180件） |
 | `MAX_EQUIPMENT_GRADE` | 3 → **10** |
 | `PART_SLOT_GRADES` | `[5, 10]` → **種類つきの配列に置き換え** |
 | `get_open_part_slot_count()` | 個数を返す → **種類つきの配列を返す** |
-| `select_skill()` | **空実装。呼び出し元0件。候補6個への拡張と同じタスクで実装する** |
+| ~~`select_skill()`~~ | **✅ 実装済み（2026-08-15）。** `growth.skills.slots`に2枠のIDを書く。**戦闘は`get_battle_skills()`だけを見る**（`characters.json`の`skills`直読みは消えた）。候補12個への拡張は`skill_resolver.gd`のテンプレを決めてから |
 | `battle_controller.gd` | クリティカル抽選・`def`の除算・`atkspd`・`haste`の反映。**移動系ルーンとの衝突** |
 | `recipes.json` | 装備製作レシピ7件を**削除** |
 | `research.json` | 縦1列5ノード → **カテゴリ別の周回ボード** |

@@ -97,7 +97,11 @@
 - `atkspd`（攻撃間隔）・`haste`（CD短縮）・`crit_rate`／`crit_dmg`（会心）が効く
 - 回復は`mag`参照（以前は`atk`参照だった）
 
-**次はレベルの役割転換**（割り振りポイント・パッシブ・スキル解放）。詳細は`NEXT_STEPS.md`。
+**レベルの役割転換が2/3まで進んだ**（2026-08-15）。**割り振りポイント**（`character_nodes.json` 180件・`stat_node_screen`）と**スキル選択**（2枠・`skill_select_screen`）が入り、**残りはパッシブだけ**。
+
+**レベルはもうステータスを伸ばさない**（`stat_growth_formula`が`"base"`）。伸ばすのは割り振り・研究・装備の3つ。
+
+**次はパッシブ**。詳細は`NEXT_STEPS.md`。**その前に`skill_resolver.gd`のテンプレ決めが要る**（下記）。
 
 **バランス調整は着手可能になった**（`PLAN_IMPLEMENTATION.md` 3章の12番）。`def`が除算になったため、敵HP・スキル倍率は全部意味が変わっている。**まだ一度も実測していない。**
 
@@ -134,6 +138,8 @@
 | 音の第1弾（共通基盤＋ポモドーロのアラーム） | `EXEC_SOUND.md` | ✅ 完了（音6項目・ログ4項目・ファイル5項目。**PLANから通しで作った最初のタスク**。第2層`PLAN_SOUND.md`を新設） |
 | ステータス10軸（**器だけ。式は次回**） | `EXEC_STATS_10_AXES.md` | ✅ 完了（画面10項目・ログ5項目・セーブ4項目。**10軸の器・セーブv2・研究の`boost_all`を実数軸に限定**。戦闘の式は入っていない。検証用のデバッグオーバーレイを追加） |
 | ステータス10軸の後半（**式を戦闘に反映**） | `EXEC_STATS_10_AXES_FORMULA.md` | ✅ 完了（画面12項目・ログ4項目。**`BattleUnit`を作り直し（位置引数を全廃）、`battle_formula.gd`を新設して式を1箇所に集約**。除算式・物理/魔法・`atkspd`・`haste`・会心・回復の`mag`参照） |
+| レベルの役割転換①：**割り振りポイント** | `EXEC_LEVEL_ROLE_SHIFT.md` | ✅ 完了（`character_nodes.json` 180件・`stat_node_screen`新規・`GameManager`にノード関数7本。**`stat_growth_formula`が`"base"`になり、レベルではステータスが伸びなくなった**。セーブ`v3`） |
+| レベルの役割転換②：**スキル解放と選択**（スコープA′） | `EXEC_SKILL_SELECT.md` | ✅ 完了（ログ2項目・セーブ4項目・画面13項目。**`battle_controller.gd`のマスター直読みを`get_battle_skills()`へ付け替えたのが本題**。`skill_select_screen`新規・`growth.skills.slots`に2枠。**`save_version`は3のまま**） |
 
 ### 戦闘画面でできること
 
@@ -262,6 +268,8 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `c44cc79` | `feat(skill): スキル候補の解放と2枠の選択・戦闘への反映`（**上と同じメッセージだが中身は別**。枠と装備スロットの紐づけを撤回したドキュメント2ファイルのみ） | `EXEC_SKILL_SELECT.md` §12-6 |
+| `7f2deec` | `feat(skill): スキル候補の解放と2枠の選択・戦闘への反映`（実装本体・12ファイル） | `EXEC_SKILL_SELECT.md` |
 | `2efc0a2` | スキルツリー関連とステータスの伸び方（割り振りポイント） | `EXEC_LEVEL_ROLE_SHIFT.md` |
 | `a426e20` | ステータス10軸の器・セーブv2・検証用デバッグオーバーレイ | `EXEC_STATS_10_AXES.md` |
 
@@ -321,6 +329,15 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`char_priest`の通常攻撃が`magic`になった。** 射程250で`mag` 16 を撃つため、僧侶の火力の位置づけが変わる。**バランス調整の回で見る**
 - **パーティの並びが`[僧侶, 弓兵, 剣士]`になった**（`parties.json`）。剣士が最前列（右端）。**スキルボタンの並びもこの順**（画面の左右と一致する）
 
+### スキル選択の回で見つかったもの（2026-08-15）
+
+- **`skills.json`は6件のまま・全部`unlock_level: 1`。** 1キャラ2個・枠2個なので、**画面上は実質選ぶ余地が無い**（入れ替えしかできない）。「Lv%d で解放」のグレー表示（`ui_skill_select_locked`）も**現データでは一度も出ない＝未検証**。スキル12個（スコープB）で初めて動く
+- **`SceneManager`のログが`[SceneManager] DebugOverlay を生成した（[F4] で表示）`と出るが、`F4`は`_unhandled_input`に届かない。** 実際の切替は`0`キー。**案内文が実態と食い違っている**
+- **セーブの`current_chapter`が`1.0`（float）。** `state_keys.gd` 97行のコメントは`int`と書いてある。`.gd`側にこのキーを読み書きするコードが無く、`int()`正規化も通っていない（`CLAUDE.md` 3番）。実害はまだ無い
+- **`DATA_SCHEMA.md`に別タスク由来のズレが2件残っている**（今回は注記だけ入れて直していない）。4-3の`stats`が4軸のまま（実装は10軸）／3-1のスキル定義が`name`表記で`name_key`・`attack_type`・`charge`を欠く
+- **`EXEC_SKILL_SELECT.md` §11-A 1（`[MasterDataLoader] loaded 6 entries ... skills.json`が出る）は誤り。** `skills.json`は`_load_json()`で読まれており、**このログを出すのは`_index_by()`だけ**（通るのは`items.json`と`recipes.json`のみ）。characters / enemies / parties / stages / skills は全部出ない
+- **旧セーブの正規化（`_normalize_skill_slots_from_save()`が実際に枠を生やす経路）は未検証。** 検証時のセーブに`character_growth`が0件で、`-> 0 / 0`しか出なかった。**未リリースのため旧セーブが存在せず、見送ると判断した**（人間の決定）。コードは残してある
+
 ---
 
 ## 次に何をすべきか
@@ -345,13 +362,25 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 **`scripts/systems/battle_formula.gd`を新設し、式を1箇所に集約した。** 通常攻撃・スキル・デバッグ表示の3経路が同じ関数を通る。**戦闘の式を直すときはまずここを見る。**
 
-### 次：レベルの役割転換（割り振りポイント・パッシブ・スキル解放）
+### ~~次：レベルの役割転換（割り振りポイント・パッシブ・スキル解放）~~ 🟡 2/3 完了（2026-08-15）
 
-`PLAN_IMPLEMENTATION.md` 3章の**3番**。**セーブ構造にフィールドが増える回。**
+`PLAN_IMPLEMENTATION.md` 3章の**3番**。**3つに分けて、2つが終わった。**
 
-内訳と確認済みの事実は`NEXT_STEPS.md`（**`select_skill()`が空実装で呼び出し元0件・スキル画面が存在しない・戦闘のスキルはマスター直読み**など）。
+| レベル | 何が起きるか | 実装 |
+|---|---|---|
+| 1レベルごと | 割り振りポイントを1点 | **✅ 完了**（`EXEC_LEVEL_ROLE_SHIFT.md`） |
+| 5・10・15・20 | スキル候補が1つ解放 | **✅ 器は完了**（`EXEC_SKILL_SELECT.md`）。**中身のスキル12個は未着手** |
+| 20レベルごと | パッシブが1つ解放（計5個） | **無い** |
 
-⚠ **`stat_growth_formula`を`"base"`にするのはこの回。** 割り振りポイントが動くようになってから変えること。順番を逆にするとレベルアップが完全に無意味になる。
+割り振りで`stat_growth_formula`が`"base"`になり、**レベルではステータスが伸びなくなった。** スキルでは`battle_controller.gd`のマスター直読みが消え、**戦闘は`GameManager.get_battle_skills()`だけを見る。**
+
+### 次：パッシブ（**その前にスキルのテンプレ決めが要る**）
+
+`GAME_DESIGN.md` 5-4。1キャラ5個・Lv20/40/60/80/100。
+
+⚠ **戦闘に「条件発動」の層が無い。** `battle_formula.gd`は式を4つ持っているだけで、**条件を評価する場所が存在しない**（HP半分以下で…など）。パッシブは戦闘に新しい層を足す回になる。
+
+⚠ **先に`skill_resolver.gd`のテンプレを決めること**（109行）。実際に動くのは`single`/`aoe`/`heal`の3種類だけで、**`aoe`は「敵全員固定」・`heal`は「味方全員固定」。単体回復も貫通も書けない。** `buff`/`dot`/`projectile`は`push_warning`して空配列を返すstub。**スキル12個（スコープB）はテンプレが決まってからでないと書けない。**
 
 ### バランスの実測は後回しになった
 
@@ -645,6 +674,17 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`GRADE_STAT_RATIO`（0.25）と`FORGE_COST_PER_GRADE`（4）が`game_manager.gd`の定数のまま。** 数値管理ルール上は`.tres`へ出すべき。**バランスのタスクで判断する**
 - **`.tres` は既定値を書き出さない。** 数値を確認するときは必ず `.gd` の `@export` 初期値も見ること。`adventure_config.tres` などは `script = ExtResource(...)` の1行しか無い
 
+- **割り振りポイント＋スキル選択の完了時点（2026-08-15・2回ぶんをまとめて反映）**：
+  - 「現在地」をレベルの役割転換2/3に差し替え。**レベルではステータスが伸びなくなったことを明記**
+  - 実装済み表に`EXEC_LEVEL_ROLE_SHIFT.md`と`EXEC_SKILL_SELECT.md`を追加（**割り振りぶんは記録が漏れていた**）
+  - Git章のコミット表に`7f2deec`と`c44cc79`を追加。**同じメッセージのコミットが2本並ぶため、中身の違いを表に書き分けた**
+  - 「次に何をすべきか」をパッシブに差し替え。**その前に`skill_resolver.gd`のテンプレ決めが要ることを明記**（`aoe`は敵全員固定・`heal`は味方全員固定で、単体回復も貫通も書けない）
+  - 宿題に7件追加（スキル6件のまま／`F4`の案内文／`current_chapter`が`1.0`／`DATA_SCHEMA.md`のズレ2件／`EXEC_SKILL_SELECT.md` §11-A 1が誤り／旧セーブ正規化が未検証）
+  - `GAME_DESIGN.md` 14章から未決4件を削除（割り振りの点数・`allocatable_stats`・`character_growth`の割り振りポイント・`character_growth.skills`）。**スキル12個の内容を未決として追加**
+  - `GAME_DESIGN.md` 15章の`select_skill()`と`stat_growth_formula`を実装済みに更新
+  - `DATA_SCHEMA.md` 4-3の`skills`を全面改訂。**書かれていたオブジェクト配列は実装されなかった**（実際はIDの文字列配列）
+  - `PLAN_IMPLEMENTATION.md` 3章の表に**状態列を新設**（1番✅・2番✅・3番🟡）
+  - **事故は0件。** ただし**指示書の誤りが2件**（`GAME_DESIGN.md` 3-2の「スキル1は武器スロット」／`EXEC_SKILL_SELECT.md` §11-A 1のログ）
 - **ステータス10軸の後半（式の反映）の完了時点**：
   - 「現在地」を10軸完了に差し替え。**「10軸は入っていない」という記述を全部除去**（4箇所）
   - 実装済み表に`EXEC_STATS_10_AXES_FORMULA.md`を追加

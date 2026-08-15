@@ -394,11 +394,14 @@
 	"type": "single | aoe | heal | buff | dot | projectile",
 	"multiplier": 1.0,
 	"cooldown_sec": 3.0,
-	"user_character_id": "string"
+	"user_character_id": "string",
+	"unlock_level": 1
   }
 }
 ```
 - ダメージ計算共通式：`最終ダメージ = max(1, 攻撃力 - 防御力)`、`攻撃力 = 素のATK × atk_multiplier`
+- **`unlock_level`**（2026-08-15）：そのスキルが候補に出るレベル。**`int()`で包んで読む**（JSONから`1.0`で来る）。現在は6件とも`1`
+- ⚠ **上のブロックは`unlock_level`以外が古い。** 実際の`skills.json`は`name`ではなく**`name_key`**を持ち、`attack_type`（`physical`/`magic`）と`charge`（チャージスキル）もある。戦闘の式が入った回の積み残しで、`PROJECT_STATUS.md`の宿題にある
 
 ### ウェーブデータ（マスターデータ・ステージごと）
 ```json
@@ -477,21 +480,27 @@
   "character_id": {
 	"level": 1,
 	"stats": { "hp": 0, "atk": 0, "def": 0, "spd": 0 },
-	"skills": {
-	  "slots": [
-		{
-		  "slot_id": 0,
-		  "selected_skill_id": null,
-		  "available_options": ["skill_id_a", "skill_id_b", "skill_id_c"]
-		}
-	  ]
-	},
+	"nodes": ["node_char_swordsman_hp_01"],
+	"skills": { "slots": ["skill_power_slash", "skill_wide_sweep"] },
 	"equipment": { "head": null, "armor": null, "legs": null, "weapon": null, "accessory": null }
   }
 }
 ```
 - レベル上げは専用素材消費型（expフィールドなし）
 - レベル上限は個別キャラではなく研究ツリー側で管理
+
+#### `skills`（2026-08-15・`EXEC_SKILL_SELECT.md`）
+
+**`slots`は「選んだスキルIDの文字列配列」で、長さは枠数（現在2）で固定。** 未選択の枠は空文字`""`。
+
+- **枠に装備スロットの意味は無い。** `slots[0]`がスキル1、`slots[1]`がスキル2。武器・アクセサリーとの紐づきは**ルーン側だけの話**（`GAME_DESIGN.md` 7-5。向きはルーン→スキル）
+- **候補の一覧と並び順は状態に持たない。** `characters.json`の`skills`が正で、毎回引き直す。倍率・CD・`unlock_level`も`skills.json`から毎回引く（**状態にマスターを複製しない**）
+- **未選択のまま戦闘に出ても空にならない。** `GameManager.get_battle_skills()`が空の枠を候補の先頭で埋める。**そのため初期2個をセーブに書き込む必要が無い**
+- 枠の位置はそのまま戦闘に出る。枠1だけに入れれば選んだものが左、枠2だけなら右
+- 旧セーブ（`skills`が`{}`）は`_normalize_skill_slots_from_save()`がロード時に埋める。**`save_version`は3のまま**
+- ⚠ **代償としてスキルIDを改名できない**（`item_id` / `recipe_id` / ノードIDと同じ）
+
+> ⚠ 上の`stats`は**4軸のまま古い。実装は10軸**（`hp` `atk` `mag` `def` `mdef` `atkspd` `haste` `crit_rate` `crit_dmg` `spd`）。10軸のタスクの積み残しで、`PROJECT_STATUS.md`の宿題にある。
 - **`equipment`の各枠に入るのは`item_id`ではなく`instance_id`**（4-6参照）。装備は個体として持つため
 - **5部位。順序は頭・上半身・下半身・武器・アクセサリーで固定**（`_equip_slots()`）。**`armor`は「上半身」の内部キー。改名しないこと**（既存セーブのキーが変わる）
 
@@ -619,9 +628,7 @@
 
 | 増えるもの | `GAME_DESIGN.md` |
 |---|---|
-| `character_growth`に割り振りポイント（獲得済み・配分） | 5-3 |
 | `character_growth`にパッシブの解放状態 | 5-4 |
-| `character_growth.skills`（**現在`{}`のまま。`select_skill()`も空実装**） | 3-2 |
 | キャラプリセット・編成プリセット（**参照方式**。編成はキャラプリセットのIDを持つ） | 5-5 |
 | `stats`を4軸 → **10軸** | 8-1 |
 | `equipment_instances.parts`を**可変長**に（現在は長さ2固定） | 6-4 |
@@ -654,6 +661,12 @@
 - ~~研究ツリーのノード数・具体的な効果値~~ → **決定済み。** 第1弾5ノード（上限解放+5を4つ、全ステータス+3を1つ）。定義は`research.json`
 
 ## 更新履歴
+- **改訂（割り振りポイント・スキル選択の完了時点／2026-08-15）**：
+  - 4-3に`nodes`（解放済みステータスノードのID配列）を追加
+  - **4-3の`skills`を全面的に書き直した。** 書かれていた`{slot_id, selected_skill_id, available_options}`のオブジェクト配列は**実装されなかった**。実際は**IDの文字列配列**（`{"slots": ["skill_a", "skill_b"]}`）で、候補一覧は状態に持たず`characters.json`から毎回引く
+  - 3-1のスキル定義に`unlock_level`を追加
+  - 5章から2行を1〜4章へ移した（`character_growth`の割り振りポイント → 4-3の`nodes`、`character_growth.skills` → 4-3の`skills`）
+  - **4-3の`stats`が4軸のまま・3-1のスキル定義が`name_key`/`attack_type`/`charge`を欠いていることを、注記として明示した**（別タスクの積み残し。直していない）
 - **改訂（ショップの完了時点）**：
   - 4-2を全面改訂。`refresh_at`を`"timestamp"`から**ゲーム内日付の文字列**へ変更（実装に合わせた）
   - 4-2の`line_up`要素に`payout_type` / `count` / `item_type`を追加。素材とアイテムで保存先が違うため、どちらに入れるかをデータ側が持つ必要がある

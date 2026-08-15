@@ -213,12 +213,13 @@ skill_button.pressed.connect(_on_skill_pressed)
 
 `EXEC_LEVEL_ROLE_SHIFT.md` §4-4 の未了分。**スキルぶんの更新と一緒に1回で書く。**
 
-- [ ] `GAME_DESIGN.md` **14章の未決を削除**（割り振り・スキルで決まったもの）
-- [ ] `GAME_DESIGN.md` **15章**（更新履歴）
-- [ ] `DATA_SCHEMA.md`（`growth.skills` の構造・`skills.json` の `unlock_level`）
-- [ ] `PROJECT_STATUS.md`（現在地・宿題・**Git章のコミット表に今回のぶんを追記**）
-- [ ] `PLAN_IMPLEMENTATION.md` 3章のチェック
-- [ ] `NEXT_STEPS.md` を**次のタスク（パッシブ）**に書き換える
+- [x] `GAME_DESIGN.md` **14章の未決を削除**（4件削除・スキル12個の内容を追加）
+- [x] `GAME_DESIGN.md` **15章**（`select_skill()` と `stat_growth_formula` を実装済みに）
+  - ⚠ **15章は「更新履歴」ではなく「実装上の注意（既存コードとの接続）」。** このファイルに更新履歴の節は存在しない
+- [x] `DATA_SCHEMA.md`（4-3 の `skills` を全面改訂・3-1 に `unlock_level`・5章から2行を移動・更新履歴）
+- [x] `PROJECT_STATUS.md`（現在地・実装済み表2行・Git章の表2行・宿題7件・次のタスク・更新履歴）
+- [x] `PLAN_IMPLEMENTATION.md` 3章（**状態列を新設**。表に完了を記録する欄が無かった）
+- [x] `NEXT_STEPS.md` を**次のタスク（テンプレ決定 → パッシブ）**に書き換える
 
 ---
 
