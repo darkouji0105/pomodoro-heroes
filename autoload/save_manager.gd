@@ -3,8 +3,10 @@ extends Node
 const SAVE_DIR: String = "user://saves/"
 const SAVE_PATH: String = "user://saves/save_slot_0.json"
 # 10軸化で character_growth.stats のキーが4本から10本に増えたため2へ。
+# さらに character_growth に nodes（解放済みステータスノード）が増え、
+# stat_growth_formula が "base" になって stats の意味が変わったため3へ。
 # 旧バージョンは読み込まず捨てる（GAME_DESIGN.md 14章）。移行処理は書かない。
-const CURRENT_SAVE_VERSION: int = 2
+const CURRENT_SAVE_VERSION: int = 3
 
 # GameManagerの現在の状態をJSONで保存する。
 # 保存前にlast_saved_atを更新すること。

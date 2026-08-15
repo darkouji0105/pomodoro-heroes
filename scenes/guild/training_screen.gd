@@ -22,6 +22,7 @@ const CHARACTER_IDS: Array[String] = [
 # placeholder_screen に渡す screen_id。翻訳キーは "ui_nav_" + screen_id で引かれる。
 const SCREEN_ID_SKILL: String = "training_skill"
 const EQUIPMENT_PATH: String = "res://scenes/guild/equipment_screen.tscn"
+const STAT_NODE_PATH: String = "res://scenes/guild/stat_node_screen.tscn"
 
 # 詳細を表示中のキャラクターID。一覧表示中は空文字。
 var _selected_id: String = ""
@@ -35,6 +36,7 @@ var _selected_id: String = ""
 @onready var cost_label: Label = $Margin/Layout/DetailPanel/CostLabel
 @onready var notice_label: Label = $Margin/Layout/DetailPanel/NoticeLabel
 @onready var level_up_button: PrimaryButton = $Margin/Layout/DetailPanel/LevelUpButton
+@onready var stat_node_button: PrimaryButton = $Margin/Layout/DetailPanel/StatNodeButton
 @onready var skill_button: PrimaryButton = $Margin/Layout/DetailPanel/SkillButton
 @onready var equip_button: PrimaryButton = $Margin/Layout/DetailPanel/EquipButton
 @onready var to_list_button: PrimaryButton = $Margin/Layout/DetailPanel/ToListButton
@@ -45,6 +47,7 @@ func _ready() -> void:
 	_build_character_list()
 
 	level_up_button.pressed.connect(_on_level_up_pressed)
+	stat_node_button.pressed.connect(_on_stat_node_pressed)
 	skill_button.pressed.connect(_go_to_placeholder.bind(SCREEN_ID_SKILL))
 	equip_button.pressed.connect(_on_equip_pressed)
 	to_list_button.pressed.connect(_show_list)
@@ -167,6 +170,13 @@ func _on_level_up_pressed() -> void:
 
 func _go_to_placeholder(screen_id: String) -> void:
 	SceneManager.change_scene_with_data(PLACEHOLDER_PATH, {TransferKeys.SCREEN_ID: screen_id})
+
+# ステータスノード画面も独立した画面。装備画面と同じ形で ID を渡す。
+# 3枝×20段のツリーが詳細パネルに収まらないため、ここには置かない。
+func _on_stat_node_pressed() -> void:
+	if _selected_id == "":
+		return
+	SceneManager.change_scene_with_data(STAT_NODE_PATH, {TransferKeys.CHARACTER_ID: _selected_id})
 
 # 装備画面は独立した画面。どのキャラの装備を編集するかを TransferKeys で渡す。
 # 詳細を開いていないときは押せない位置にあるため _selected_id は必ず入っている。

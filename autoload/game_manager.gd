@@ -52,6 +52,15 @@ const RESEARCH_COST_AMOUNT: String = "amount"
 const RESEARCH_NODE_COST_MATERIAL_ID: String = "cost_material_id"
 const RESEARCH_NODE_COST_AMOUNT: String = "cost_amount"
 
+# character_nodes.json 側のキー（同じくマスターデータ。EXEC_LEVEL_ROLE_SHIFT.md §5-1）。
+# セーブに残るのはノードIDだけで、これらの値は毎回ここから引き直す。
+const STAT_NODE_CHARACTER_ID: String = "character_id"
+const STAT_NODE_STAT: String = "stat"
+const STAT_NODE_TIER: String = "tier"
+const STAT_NODE_COST: String = "cost"
+const STAT_NODE_VALUE: String = "value"
+const STAT_NODE_PREREQUISITES: String = "prerequisites"
+
 # shop.json 側だけにあるキー（状態には残らないため GameStateKeys には置かない）。
 # slot_id / item_id / cost / stock_limit は状態と同じ形のため GameStateKeys 側を使う。
 const SHOP_SLOT_PAYOUT_TYPE: String = "payout_type"
@@ -200,7 +209,7 @@ func _empty_state_template() -> Dictionary:
 		#   3. initial_state_config.tres の save_version（新規開始で実際に効くのはこれ）
 		# SaveManager.CURRENT_SAVE_VERSION を参照しないこと。GameManager は Autoload 2番目、
 		# SaveManager は3番目で、_ready() の時点でまだ初期化されていない。
-		GameStateKeys.SAVE_VERSION: 2,
+		GameStateKeys.SAVE_VERSION: 3,
 		GameStateKeys.LAST_SAVED_AT: "",
 		GameStateKeys.STORY: {GameStateKeys.STORY_CURRENT_CHAPTER: 1, GameStateKeys.STORY_STAGES: {}},
 		GameStateKeys.TRAINING_MODE_UNLOCKED: false,
@@ -913,6 +922,9 @@ func get_effective_stats(character_id: String) -> Dictionary:
 	var boosts: Dictionary = get_stat_boost_all()
 	var boost_all: int = int(boosts.get(STAT_BOOST_ALL_KEY, 0))
 	var equip: Dictionary = get_equipment_bonus(character_id)
+	# 割り振り（ステータスノード）。5項目めとして足す。
+	# これを忘れると「ノードを押しても戦闘にも育成画面にも出ない」になる。
+	var nodes: Dictionary = get_stat_node_bonus(character_id)
 
 	var result: Dictionary = {}
 	var percent_keys: Array[String] = _percent_stat_keys()
@@ -925,6 +937,7 @@ func get_effective_stats(character_id: String) -> Dictionary:
 			+ int(boosts.get(stat_key, 0))
 			+ all_bonus
 			+ int(equip.get(stat_key, 0))
+			+ int(nodes.get(stat_key, 0))
 		)
 	return result
 
@@ -1074,6 +1087,9 @@ func _default_growth_for(character_id: String) -> Dictionary:
 	return {
 		GameStateKeys.GROWTH_LEVEL: 1,
 		GameStateKeys.GROWTH_STATS: stats,
+		# 解放済みステータスノードのID配列。レベル1では空。
+		# 効果値はここに複製せず、character_nodes.json から毎回引く。
+		GameStateKeys.GROWTH_NODES: [],
 		# skills の中身（slots）はスキル選択の実装時に入れる。
 		# 今そこに "slots" と書くと state_keys.gd に無いキーを文字列で書くことになるため空にしておく。
 		GameStateKeys.GROWTH_SKILLS: {},
@@ -1110,6 +1126,28 @@ func _recalc_stats(character_id: String, level: int) -> Dictionary:
 			fallback
 		)
 	return stats
+
+# セーブから戻した stats を、現在の stat_growth_formula で全キャラ計算し直す。
+# load_state() から呼ぶ（_sync_research_tree_from_master() と同じ位置づけ）。
+#
+# これが無いと、式や characters.json の基礎値を変えたときに
+# 「新規開始では効くが、ロードすると古い値のまま」になる。
+# PLAN_IMPLEMENTATION.md 1章の未チェック項目「ロード時に _recalc_stats() を通る経路がある」はこれ。
+#
+# _state を直接触る。load_state() が _state へ代入したあとにしか呼ばれない。
+func _resync_growth_stats_from_master() -> void:
+	var growth_all: Dictionary = _state.get(GameStateKeys.CHARACTER_GROWTH, {})
+	for character_id: String in growth_all:
+		if not (growth_all[character_id] is Dictionary):
+			continue
+		var entry: Dictionary = growth_all[character_id]
+		var level: int = int(entry.get(GameStateKeys.GROWTH_LEVEL, 1))
+		var recalculated: Dictionary = _recalc_stats(character_id, level)
+		# characters.json から消えたキャラは _recalc_stats() が {} を返す。
+		# 空で上書きすると全ステータスが 0 になるため、そのまま残す。
+		if recalculated.is_empty():
+			continue
+		entry[GameStateKeys.GROWTH_STATS] = recalculated
 
 # --- 装備：スロット ---
 
@@ -1524,6 +1562,167 @@ func _write_growth(character_id: String, growth: Dictionary) -> void:
 	var all_growth: Dictionary = _copy_dict(GameStateKeys.CHARACTER_GROWTH)
 	all_growth[character_id] = growth
 	_state[GameStateKeys.CHARACTER_GROWTH] = all_growth
+
+
+# --- 育成：ステータスノード（EXEC_LEVEL_ROLE_SHIFT.md） ---
+#
+# 割り振りポイントはノードを解放するのに使う。セーブが持つのは
+# character_growth.<id>.nodes（解放済みノードIDの配列）だけ。
+# 総ポイントも効果値も保存せず、level と character_nodes.json から毎回引く。
+#
+# character_nodes.json の1件：
+#   {character_id, stat, tier, cost, value, prerequisites[]}
+# MasterDataLoader は JSON をそのまま返すため、数値は float で来る。int() 必須。
+
+# 現在のレベルで得られる総ポイント（GAME_DESIGN.md 5-2）。
+# 1レベルにつき1点。最大レベル到達時のみ追加で1点（Lv100 でちょうど100点）。
+func get_stat_node_total_points(character_id: String) -> int:
+	var level: int = int(get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
+	var points: int = level - 1
+	if points < 0:
+		points = 0
+	var max_level: int = 100
+	if Balance != null and Balance.character != null:
+		max_level = Balance.character.max_character_level
+	if level >= max_level:
+		points += 1
+	return points
+
+
+# 解放済みノードのIDを返す（順序は解放した順）。
+func get_stat_nodes(character_id: String) -> Array:
+	var growth: Dictionary = get_character_growth(character_id)
+	var nodes: Variant = growth.get(GameStateKeys.GROWTH_NODES, [])
+	if not (nodes is Array):
+		return []
+	return (nodes as Array).duplicate(true)
+
+
+# 解放済みノードが使っているポイントの合計。
+func get_stat_node_spent_points(character_id: String) -> int:
+	var spent: int = 0
+	for node_id: Variant in get_stat_nodes(character_id):
+		var definition: Dictionary = MasterDataLoader.get_character_node(str(node_id))
+		# character_nodes.json から消えたIDがセーブに残っていても落とさない。
+		# push_error は MasterDataLoader 側で出ている。
+		if definition.is_empty():
+			continue
+		spent += int(definition.get(STAT_NODE_COST, 0))
+	return spent
+
+
+# 残ポイント。画面が出す数字はこれ。
+func get_stat_node_remaining_points(character_id: String) -> int:
+	return get_stat_node_total_points(character_id) - get_stat_node_spent_points(character_id)
+
+
+# 解放済みノードのステータス合計。get_effective_stats() の5項目め。
+# 戻り値は stat_key -> int。振っていない軸はキーごと入れない。
+func get_stat_node_bonus(character_id: String) -> Dictionary:
+	var bonus: Dictionary = {}
+	for node_id: Variant in get_stat_nodes(character_id):
+		var definition: Dictionary = MasterDataLoader.get_character_node(str(node_id))
+		if definition.is_empty():
+			continue
+		var stat_key: String = str(definition.get(STAT_NODE_STAT, ""))
+		if stat_key == "":
+			continue
+		bonus[stat_key] = int(bonus.get(stat_key, 0)) + int(definition.get(STAT_NODE_VALUE, 0))
+	return bonus
+
+
+# 前提条件を満たしているか（ポイントは見ない）。
+# 画面が「前提未解放」と「ポイント不足」を区別して出すために分ける
+# （can_unlock_research_node() と同じ形）。
+func can_unlock_stat_node(character_id: String, node_id: String) -> bool:
+	var definition: Dictionary = MasterDataLoader.get_character_node(node_id)
+	if definition.is_empty():
+		return false
+	if str(definition.get(STAT_NODE_CHARACTER_ID, "")) != character_id:
+		return false
+	var unlocked: Array = get_stat_nodes(character_id)
+	if node_id in unlocked:
+		return false
+	var prerequisites: Variant = definition.get(STAT_NODE_PREREQUISITES, [])
+	if not (prerequisites is Array):
+		return true
+	for required: Variant in (prerequisites as Array):
+		if not (str(required) in unlocked):
+			return false
+	return true
+
+
+# ノードを1つ解放する。
+#
+# ⚠ 状態を変える前に全部の判定を終える（CLAUDE.md 6番）。
+# 途中で nodes に append してから弾くと、ポイントだけ減った状態が残る。
+func unlock_stat_node(character_id: String, node_id: String) -> bool:
+	var growth: Dictionary = get_character_growth(character_id)
+	if growth.is_empty():
+		push_warning("[GameManager] unlock_stat_node: unknown character_id: " + character_id)
+		return false
+
+	var definition: Dictionary = MasterDataLoader.get_character_node(node_id)
+	if definition.is_empty():
+		# 存在しないIDぶんの push_error は MasterDataLoader 側で出ている。
+		print("[GameManager] unlock_stat_node('%s', '%s') -> false (unknown node)" % [character_id, node_id])
+		return false
+
+	if str(definition.get(STAT_NODE_CHARACTER_ID, "")) != character_id:
+		print("[GameManager] unlock_stat_node('%s', '%s') -> false (node belongs to '%s')" % [
+			character_id, node_id, str(definition.get(STAT_NODE_CHARACTER_ID, ""))
+		])
+		return false
+
+	var unlocked: Array = get_stat_nodes(character_id)
+	if node_id in unlocked:
+		print("[GameManager] unlock_stat_node('%s', '%s') -> false (already unlocked)" % [character_id, node_id])
+		return false
+
+	if not can_unlock_stat_node(character_id, node_id):
+		print("[GameManager] unlock_stat_node('%s', '%s') -> false (prerequisite not met)" % [character_id, node_id])
+		return false
+
+	var cost: int = int(definition.get(STAT_NODE_COST, 0))
+	var remaining: int = get_stat_node_remaining_points(character_id)
+	if remaining < cost:
+		print("[GameManager] unlock_stat_node('%s', '%s') -> false (points %d < %d)" % [
+			character_id, node_id, remaining, cost
+		])
+		return false
+
+	# ここから状態を変える。
+	unlocked.append(node_id)
+	growth[GameStateKeys.GROWTH_NODES] = unlocked
+	_write_growth(character_id, growth)
+
+	print("[GameManager] unlock_stat_node('%s', '%s') -> true (spent=%d remaining=%d)" % [
+		character_id, node_id, get_stat_node_spent_points(character_id),
+		get_stat_node_remaining_points(character_id)
+	])
+	character_growth_changed.emit(character_id)
+	return true
+
+
+# 全解除。無料（GAME_DESIGN.md 5-3「いつでも無料で振り直せる」）。
+# nodes を空にするだけ。ポイントは level から引いているので自動で戻る。
+func reset_stat_nodes(character_id: String) -> bool:
+	var growth: Dictionary = get_character_growth(character_id)
+	if growth.is_empty():
+		push_warning("[GameManager] reset_stat_nodes: unknown character_id: " + character_id)
+		return false
+
+	var cleared: int = get_stat_nodes(character_id).size()
+	if cleared == 0:
+		print("[GameManager] reset_stat_nodes('%s') -> false (nothing to clear)" % character_id)
+		return false
+
+	growth[GameStateKeys.GROWTH_NODES] = []
+	_write_growth(character_id, growth)
+
+	print("[GameManager] reset_stat_nodes('%s') -> true (cleared %d nodes)" % [character_id, cleared])
+	character_growth_changed.emit(character_id)
+	return true
 
 
 func select_skill(character_id: String, slot_id: int, skill_id: String) -> void:
@@ -2208,9 +2407,17 @@ func load_state(data: Dictionary) -> bool:
 				for stat_key: String in _stat_keys():
 					if entry_stats.has(stat_key):
 						entry_stats[stat_key] = int(entry_stats[stat_key])
+			# 解放済みステータスノード。中身は文字列なので int() 正規化は要らないが、
+			# 型だけ見る。配列でなければ捨てて空に戻す（不正なセーブで落とさない）。
+			if not (entry.get(GameStateKeys.GROWTH_NODES, []) is Array):
+				push_warning("[GameManager] load_state: %s.nodes is not Array - resetting" % character_id)
+				entry[GameStateKeys.GROWTH_NODES] = []
 	
 	# 状態反映（外部参照を断つため duplicate）
 	_state = new_state.duplicate(true)
+	# セーブに入っている stats を、現在の stat_growth_formula で計算し直す。
+	# _sync_research_tree_from_master() と同じ考え方で、マスター＋式を正とする。
+	_resync_growth_stats_from_master()
 	# 装備の個体を正規化する。JSONから戻すと grade が float になる。
 	# 第1弾の装備（equipment に item_id の文字列が入っている）はここで捨てる。
 	_normalize_equipment_from_save()

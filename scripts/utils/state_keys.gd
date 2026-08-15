@@ -117,11 +117,18 @@ const SHOP_PURCHASED_COUNT: String = "purchased_count"
 const COST_CURRENCY_TYPE: String = "currency_type"
 const COST_AMOUNT: String = "amount"
 
-# CHARACTER_GROWTH: {character_id: {level, stats, skills, equipment}}
+# CHARACTER_GROWTH: {character_id: {level, stats, nodes, skills, equipment}}
 const GROWTH_LEVEL: String = "level"
 const GROWTH_STATS: String = "stats"
 const GROWTH_SKILLS: String = "skills"
 const GROWTH_EQUIPMENT: String = "equipment"
+# 解放済みステータスノードのID配列（EXEC_LEVEL_ROLE_SHIFT.md）。
+# 中身はノードIDの文字列だけ。効果値・コスト・前提条件は character_nodes.json から
+# 毎回引く（CLAUDE.md 4番「状態にマスターデータを複製しない」）。
+#
+# 代償として、リリース後にノードIDを改名できない。
+# 改名すると解放済みノードが黙って消え、ステータスが減る。
+const GROWTH_NODES: String = "nodes"
 # stats: 10軸（GAME_DESIGN.md 8-1）。並びは 8-1 の表と同じ順。
 # 実数6本（hp/atk/mag/def/mdef/spd）＋％系4本（atkspd/haste/crit_rate/crit_dmg）。
 #

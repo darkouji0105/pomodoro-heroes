@@ -318,3 +318,48 @@ static func _index_by(root: Dictionary, list_key: String, id_key: String, path: 
 		result[id] = definition
 	print("[MasterDataLoader] loaded %d entries from %s" % [result.size(), path])
 	return result
+
+
+# ========================================================================
+# ステータスノード（EXEC_LEVEL_ROLE_SHIFT.md §5-2）。既存関数・定数・static var には
+# 一切触らず、末尾追記だけで完結させる。
+# get_research_node() と同じく _ensure_loaded() には組み込まず、遅延ロードする。
+#
+# character_nodes.json の形：
+#   { node_id: {character_id, stat, tier, cost, value, prerequisites[]} }
+# research.json と同じく node_id をキーにした Dictionary。_index_by() は要らない。
+#
+# ⚠ 数値（tier / cost / value）は float で来る。呼び出し側で int() を付けること。
+# ========================================================================
+
+const PATH_CHARACTER_NODES: String = DIR_PATH + "character_nodes.json"
+
+static var _cache_character_nodes: Dictionary = {}
+static var _character_nodes_loaded: bool = false
+
+
+static func get_character_node(node_id: String) -> Dictionary:
+	_ensure_character_nodes_loaded()
+	if not _cache_character_nodes.has(node_id):
+		push_error("[MasterDataLoader] character node id not found: " + node_id)
+		return {}
+	return (_cache_character_nodes[node_id] as Dictionary).duplicate(true)
+
+
+# ノード定義を全件返す。GameManager がボーナスを合計するときと、
+# 画面が枝を組み立てるときに使う。
+# キー一覧を返す関数が無いと呼び出し側でノードIDを決め打ちすることになるため用意する
+# （get_all_research_nodes() と同じ理由）。
+static func get_all_character_nodes() -> Dictionary:
+	_ensure_character_nodes_loaded()
+	return _cache_character_nodes.duplicate(true)
+
+
+static func _ensure_character_nodes_loaded() -> void:
+	if _character_nodes_loaded:
+		return
+	_character_nodes_loaded = true
+	_cache_character_nodes = _load_json(PATH_CHARACTER_NODES)
+	print("[MasterDataLoader] loaded %d entries from %s" % [
+		_cache_character_nodes.size(), PATH_CHARACTER_NODES
+	])

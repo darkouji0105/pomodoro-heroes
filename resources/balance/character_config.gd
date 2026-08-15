@@ -14,13 +14,30 @@ extends Resource
 # 研究ツリーが空でも 0 にならないようにするための下駄。
 @export var base_level_cap: int = 10
 
+# --- 設計上の最大レベル ---
+# get_effective_level_cap() が返す「今このセーブで上げられる上限」とは別物。
+# こちらは GAME_DESIGN.md 5-2 が定める天井（100）で、
+# 「最大レベル到達時のみ割り振りポイントが1点多く入る」判定に使う。
+#
+# ⚠ .tres は @export の既定値を書き出さないため、character_config.tres に
+# この行は現れない。実際に効いているのはここの 100（CLAUDE.md 6番の罠）。
+@export var max_character_level: int = 100
+
 # --- 成長・コストの計算式 ---
 # GrowthFormula が Expression で評価する。式そのものを Inspector から差し替えられる。
 #
 # stat_growth_formula で使える変数:
-#   base   … characters.json の基本値（hp / atk / def / spd のいずれか）
+#   base   … characters.json の基本値（10軸のいずれか）
 #   growth … characters.json の growth_per_level の該当値
 #   level  … 計算対象のレベル
+#
+# ⚠ stat_growth_formula は "base"（レベルで伸びない）。
+# GAME_DESIGN.md 5-2「レベルアップでステータスは自動で上がらない」。
+# レベルで増えるのは割り振りポイントで、ステータスはノードを解放して伸ばす。
+#
+# そのため characters.json の growth_per_level は現在どこにも効いていない。
+# 消していないのは、式を戻したときに全キャラ伸びなくなるため
+# （EXEC_LEVEL_ROLE_SHIFT.md §12 の宿題）。
 #
 # level_up_cost_formula で使える変数:
 #   base   … base_level_up_cost
@@ -28,5 +45,5 @@ extends Resource
 #   level  … 現在のレベル（このレベルから1つ上げるのに必要な数）
 #
 # 空文字にすると線形（base + growth * (level - 1)）にフォールバックする。
-@export var stat_growth_formula: String = "base + growth * (level - 1)"
+@export var stat_growth_formula: String = "base"
 @export var level_up_cost_formula: String = "base + growth * (level - 1)"

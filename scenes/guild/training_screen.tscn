@@ -68,6 +68,10 @@ layout_mode = 2
 layout_mode = 2
 label_key = "ui_training_level_up"
 
+[node name="StatNodeButton" parent="Margin/Layout/DetailPanel" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_training_nodes"
+
 [node name="SkillButton" parent="Margin/Layout/DetailPanel" unique_id=993944560 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_training_skill"

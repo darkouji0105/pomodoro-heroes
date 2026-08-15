@@ -204,3 +204,7 @@ ui_equipment_forged,等級が上がった
 ui_equipment_max_grade,最大
 ui_equipment_equipped_by,装備中：%s
 ui_warehouse_dismantle,素材にする
+ui_training_nodes,ステータスノード
+ui_nav_stat_node,ステータスノード
+ui_stat_node_points,残ポイント %d / %d
+ui_stat_node_reset,振り直す
