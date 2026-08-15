@@ -87,8 +87,9 @@ res://
 | `SaveManager` | セーブ／ロード処理 |
 | `SceneManager` | 画面遷移の一元管理。各所で直接`change_scene_to_file()`を呼ばない。画面間のデータ受け渡しも一元管理する |
 | `SignalBus` | 画面間通信用のグローバルシグナル中継。循環参照回避のため、画面同士は直接参照しない |
+| `SoundManager` | 効果音の再生（`play_se(sound_id)`）。音源と音量は持たず、`Balance.sound`（`SoundConfig`）から毎回引く。**IDは`SoundIds`の定数を渡す** |
 
-AIはこの5つ以外のAutoloadを勝手に追加しない。追加が必要な場合は人間に提案してから登録すること。詳細は`GODOT_SETUP.md`参照。
+AIはこの6つ以外のAutoloadを勝手に追加しない。追加が必要な場合は人間に提案してから登録すること。詳細は`GODOT_SETUP.md`参照。
 
 ### Autoloadの登録順（厳守）
 
@@ -100,9 +101,12 @@ Project SettingsのAutoloadタブでは、必ず以下の順に登録するこ�
 3. SaveManager
 4. SceneManager
 5. SignalBus
+6. SoundManager
 ```
 
-理由：`GameManager`は`_ready()`で`Balance.initial_state`（`InitialStateConfig`）を参照して自身を初期化するため、`Balance`が先に初期化済みでなければならない。Godotは登録順に初期化するため、この順序を崩すとnull参照になる。
+理由：`GameManager`は`_ready()`で`Balance.initial_state`（`InitialStateConfig`）を参照して自身を初期化するため、`Balance`が先に初期化済みでなければならない。Godotは登録順に初期化するため、この順序を崩すとnull参照になる。**`SoundManager`も`_ready()`で`Balance.sound`を読むため、`Balance`より後（末尾）に置く。**
+
+> `project.godot`では`SoundManager="*uid://..."`とUID形式で書かれている。**Godot 4.4以降の通常の書き方であり、他の5つがパス形式なのと混在していても正常。**
 
 ### 状態アクセスのルール
 
@@ -321,6 +325,17 @@ tr() は静的関数から呼べない。 静的クラスでは TranslationServe
 
 > 以前は「A章＝実装役が`print`で確認／B章＝人間が画面で確認」と分けていた。**担当者で分ける書き方は、実装役を使わないタスクでは機能しない。** 場所で分けること。
 
+### `.tres`のネストしたResourceはInspectorで2階層になる
+
+`Array[SomeResource]`型の`@export`に、配列の要素として**別の型のリソースを直接ドロップできない。**
+
+実例：`SoundConfig.entries`（`Array[SoundEntry]`）に`.wav`をドラッグして
+「選択されたリソース (AudioStreamWAV) は、このプロパティ (SoundEntry) が求める型に一致していません」で止まった。
+
+**正しい手順**：要素の欄で「新規 `SoundEntry`」を作る → その中を開く → `Stream`欄に`.wav`を入れる。
+
+**人間に`.tres`の作成を依頼するときは、この2階層を手順に書くこと。** 「配列に音源を入れる」と書くと必ず1階層目に入れようとする。
+
 ### 検証手順は、その出力が実在することを確かめてから書く
 
 EXECに「ログで確認する」と書くなら、**その`print`が本当に存在するかコードを見てから書く。**
@@ -355,6 +370,11 @@ EXECに「ログで確認する」と書くなら、**その`print`が本当に�
 - 原因を「環境の問題」と結論づけさせない。観測した事実だけ報告させる
 - 切り分けのために本番コードを書き換えさせない
 - 検証のためにテストコードの仕様を変えさせない
+
+- **追記（音の第1弾＝ポモドーロのアラームの完了時点）**：
+  - Autoload一覧に`SoundManager`を追加し、「この5つ以外」を**6つ**に修正。登録順にも`6. SoundManager`を追加（`Balance.sound`を読むため末尾）
+  - `project.godot`のAutoloadがUID形式で書かれることを注記（Godot 4.4以降）
+  - **「`.tres`のネストしたResourceはInspectorで2階層になる」を追加**（`Array[SoundEntry]`に`.wav`を直接入れようとして型エラーになった事例）
 
 - **追記（研究の完了時点）**：
   - 「GameManagerのシグナル」表に`character_growth_changed`と`research_node_unlocked`を追記（育成の時点で追記漏れがあった）

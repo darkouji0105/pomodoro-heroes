@@ -1,6 +1,6 @@
 # 【実行指示書】音（第1弾：ポモドーロのアラーム）
 
-**状態：未着手。**
+**状態：✅ 完了（2026-08-15）。** §7（音6項目）・§8（ログ4項目）・§9（ファイル5項目）すべて確認済み。実施結果は§13。
 
 第3層。対応する第2層は`PLAN_SOUND.md`（実コードと突き合わせ済み）。
 
@@ -520,3 +520,47 @@ func _on_debug_one_second() -> void:
 - BGMの再生（`play_bgm()`は今回作らない。バスだけ用意済み）
 - 戦闘SE・UI SE（`SoundManager.play_se()`を呼ぶ行と`SoundIds`の定数を足すだけ）
 - ウィンドウ非フォーカス時に鳴らすか、`window_request_attention()`を残すか（音を聴いてから人間が判断する）
+
+---
+
+## 13. 実施結果（2026-08-15）
+
+**実装役は使わず、設計役（Claude Code）が全ファイルを書いた。** 指示書からの逸脱なし。§5のコードをそのまま適用した。
+
+| ファイル | 結果 |
+|---|---|
+| `scripts/utils/sound_ids.gd` | 新規。§5-1のまま |
+| `resources/balance/sound_entry.gd` | 新規。§5-2のまま |
+| `resources/balance/sound_config.gd` | 新規。§5-3のまま |
+| `autoload/sound_manager.gd` | 新規。§5-4のまま |
+| `autoload/balance.gd` | 13行 → 14行 |
+| `scenes/pomodoro/pomodoro.gd` | 383行 → 397行。4箇所（170・235・243・338/382行目） |
+| `resources/balance/sound_config.tres` | 人間がInspectorで作成 |
+
+`ja.csv`・`state_keys.gd`・`.import`はAIが触っていない。
+
+### 13-1. 詰まった箇所（2件。どちらも人間の作業側）
+
+**① `Parser Error: Identifier "SoundManager" not declared in the current scope.`**
+
+原因：Autoload登録（§3-5）より先に`pomodoro.gd`を保存したため。**Autoload名は登録して初めてグローバルな識別子になる。** コードの誤りではない。§6の順番どおりに進めれば起きない。
+
+**② 音が鳴らず、ログが1行も出ない**
+
+原因：`sound_config.tres`が未作成で`balance.tscn`にも未割当（§3-3・§3-4が未実施）。`Balance.sound`が`null`のため`play_se()`が**最初の1行で`return`し、print も警告も出ない**。
+
+> **この症状の切り分け方**：起動時の`[Sound] Balance.sound is not assigned.`の警告が根拠になる。**「1行も出ない」のはこの経路だけ**（IDが違う・音源が無い場合は再生時に警告が出る）。
+
+**③ `.tres`作成時の型エラー**
+
+`Entries`の要素に`.wav`を直接ドロップし、「選択されたリソース (AudioStreamWAV) は、このプロパティ (SoundEntry) が求める型に一致していません」で止まった。
+
+**`Array[SoundEntry]`の要素は`SoundEntry`であり、`.wav`はその中の`Stream`欄に入る。2階層。** §3-3の手順に「新規`SoundEntry`を作ってから中を開く」と書いてあったが、**配列に音源を入れる形と誤読される。** `AGENTS.md`に一般則として追記した。
+
+### 13-2. この指示書の誤り（1件）
+
+**§9-1（旧版）に「`project.godot`に`audio/buses/default_bus_layout`の行がある」と書いていたが、出ない。** `res://default_bus_layout.tres`はGodotの既定パスであり、**既定値と同じ設定は書き出されない**（`.tres`が既定値を書かないのと同じ罠）。着手中に発見し、§2-3と§9-2に修正済み。
+
+### 13-3. 想定と違った実装環境
+
+`project.godot`のAutoload登録が`SoundManager="*uid://clh4p505vy3dk"`と**UID形式**で書かれた。他の5つはパス形式。**Godot 4.4以降の通常の挙動で、混在していても正常。** `AGENTS.md`に注記済み。
