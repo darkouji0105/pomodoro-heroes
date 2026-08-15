@@ -118,6 +118,7 @@
 | ギルド：装備の第2弾（5部位・個体管理・鍛冶・宝箱） | `EXEC_GUILD_EQUIPMENT_V2.md` | ✅ 完了（コード8項目・ログ8項目・ファイル8項目・画面13項目。**6回連続で事故ゼロ**。設計役が全文を書く最後のタスク） |
 | 検証用のものの削除 | （EXECなし。旧`NEXT_STEPS.md`4章） | ✅ 完了（`debug_instant` / 0Gスロット9件 / `weapon_debug_blade`。**Claude Codeで実施した最初の作業**） |
 | 音の第1弾（共通基盤＋ポモドーロのアラーム） | `EXEC_SOUND.md` | ✅ 完了（音6項目・ログ4項目・ファイル5項目。**PLANから通しで作った最初のタスク**。第2層`PLAN_SOUND.md`を新設） |
+| ステータス10軸（**器だけ。式は次回**） | `EXEC_STATS_10_AXES.md` | ✅ 完了（画面10項目・ログ5項目・セーブ4項目。**10軸の器・セーブv2・研究の`boost_all`を実数軸に限定**。戦闘の式は入っていない。検証用のデバッグオーバーレイを追加） |
 
 ### 戦闘画面でできること
 
@@ -276,6 +277,10 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`PomodoroConfig.reflection_time_limit_sec`と`reflection_min_chars`が使われていない。** `pomodoro.gd`が`const REFLECTION_TIME_LIMIT_SEC: float = 120.0`をハードコードしている。**数値管理ルール違反。** 値が一致しているため実害は出ていない（`EXEC_SOUND.md` §11）
 - **音量設定・ミュートのUIが無い。** `SoundConfig`の`master_volume_db` / `se_volume_db` / `bgm_volume_db`が起動時に各バスへ適用されるだけ。**設定画面を作る回に、セーブ構造ごと決める**
 - **BGMは鳴らせない。** `SoundManager`に`play_bgm()`は無い。バス`BGM`と音量欄だけ用意済み
+- **デバッグオーバーレイはリリース前に消す**（`res://tests/debug_overlay.gd`と`scene_manager.gd`の`_ready()`・`_spawn_debug_overlay()`・`DEBUG_OVERLAY_SCRIPT`）。`OS.is_debug_build()`のガード内だがコードは残る。詳細は`EXEC_STATS_10_AXES.md` §11-2
+- **`ja.csv`に`ui_common_yes`と`ui_common_no`が重複して2行ずつある。** 10軸のタスクより前から存在する（`git show HEAD`で確認済み）。実害は出ていないが、翻訳表の重複はキーを増やすほど探しにくくなる
+- **`save_version`の出どころが3箇所に散っている**（`save_manager.gd`の`CURRENT_SAVE_VERSION` / `initial_state_config.tres` / `game_manager.gd`の`_empty_state_template()`）。**上げるときは3つとも上げないと、新規開始したセーブが次回起動で自分に弾かれる。** 1本化は別タスク
+- **`_percent_stat_keys()`は毎回`Array`を作って`in`で線形探索する。** 10軸・4本なら問題ないが、**毎フレーム呼ぶ場所から呼ばないこと**（式の回で`battle_controller.gd`から呼びたくなる）
 
 ---
 
@@ -287,9 +292,19 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 同時に**音の共通基盤ができた。** 以降のSE/BGMは`SoundManager.play_se()`を呼ぶ行と`SoundIds`の定数を足すだけになる。
 
-### 次：ステータス10軸
+### ~~次：ステータス10軸~~ ✅ 前半（器）だけ完了
 
-`PLAN_IMPLEMENTATION.md` 3章の2番。**セーブ構造と`def`/`mdef`の式を触る、いちばん大きい回。**
+`PLAN_IMPLEMENTATION.md` 3章の2番。**大きいので2回に分けた。前半（器）が完了（2026-08-15）。**
+
+前半で入ったもの：`_stat_keys()`が10本、`state_keys.gd`の定数、`characters.json`/`enemies.json`の軸、育成・装備画面の10行表示、**研究の`boost_all`を実数軸だけに限定**、セーブを`v2`にして旧セーブを弾く。
+
+**戦闘の式は入っていない。** ダメージは今も`atk - def`の減算のまま。`mag` `mdef` `atkspd` `haste` `crit_rate` `crit_dmg`は**セーブと画面には出るが戦闘では何もしない。**
+
+### 次：ステータス10軸の後半（式の反映）
+
+**`BattleUnit`の作り直しが本体。** 現在10個の位置引数で、6本足すと16個になる。
+
+内訳は`NEXT_STEPS.md`。調査は`EXEC_STATS_10_AXES.md` §2に済んでいる（**もう一度`grep`し直さなくてよい**）。
 
 ### バランスの実測は後回しになった
 
@@ -326,7 +341,20 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 **戦闘は`get_effective_stats()`を呼んでいなかった。** `battle_controller.gd`が`get_character_growth()`の生の`stats`を直接読んでいたため、**研究の全ステータス+3が戦闘に効いていなかった。** 装備のタスクで修正済み。
 
-**同じ形の見落としが`attack_interval_sec`と`cooldown_sec`にある可能性が高い。** ステータス10軸のタスクで`grep`して確認する。
+**同じ形の見落としが`attack_interval_sec`と`cooldown_sec`にもあった。✅ 確認済み（2026-08-15・10軸のタスク）。予想は当たっていた。**
+
+| 場所 | 何が起きているか |
+|---|---|
+| `battle_controller.gd` 165行 | `char_data.get("attack_interval_sec")`。**すぐ上の150行で`get_effective_stats()`を取っているのに、攻撃間隔だけマスターから直読み** |
+| 同 477行・599行 | `skill_data.get("cooldown_sec")`をskills.jsonから直読み。**`haste`が入る場所が無い** |
+
+**まだ直していない。** `atkspd`と`haste`が効く形にするのは式の回（10軸の後半）。
+
+**同じタスクで見つかった、これと同種のもの：**
+
+- **ダメージ経路は2箇所ある**（`battle_controller.gd` 397行と`skill_resolver.gd` 91行）。どちらも`atk - def`の減算。`PLAN_STATS_AND_FORMULAS.md` 5章は1箇所前提で書かれている
+- **`skill_resolver.gd` 80行の回復量が`user.atk`参照。** 僧侶の回復が攻撃力依存になっている
+- **`skills.json`に`atk`/`mag`の参照欄も物理／魔法の種別欄も無い**
 ### 実装の順番
 
 **`PLAN_IMPLEMENTATION.md` 3章が台帳。ここには置かない。**（`GAME_DESIGN.md` 15章も同じ理由でポインタにした）

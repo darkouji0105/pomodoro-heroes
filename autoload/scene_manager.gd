@@ -6,6 +6,33 @@ extends Node
 var _transfer_data: Dictionary = {}
 var _history: Array[String] = []
 
+# ⚠ ここから _spawn_debug_overlay() の終わりまでは検証用。リリース前に消す。
+# 消すのはこの _ready() と _spawn_debug_overlay()、それと res://tests/debug_overlay.gd の3つだけ。
+#
+# 画面を持たない Autoload の中でいちばん「画面の器」に近いのが SceneManager なので、
+# ここに置いている。新しい Autoload を足すと project.godot と登録順のルール
+# （AGENTS.md「Autoloadの登録順」）を触ることになり、消すときの手数が増える。
+const DEBUG_OVERLAY_SCRIPT: GDScript = preload("res://tests/debug_overlay.gd")
+
+
+func _ready() -> void:
+	if not OS.is_debug_build():
+		return
+	# root の子として足す。current_scene ではなく root に付けるので、
+	# change_scene_to_file() で画面が入れ替わってもオーバーレイは残る。
+	#
+	# call_deferred なのは、Autoload の _ready() の時点では
+	# root の構築（メインシーンの追加）がまだ終わっていないため。
+	_spawn_debug_overlay.call_deferred()
+
+
+func _spawn_debug_overlay() -> void:
+	# スクリプトが CanvasLayer を継承しているので、.new() で CanvasLayer が返る。
+	var overlay: CanvasLayer = DEBUG_OVERLAY_SCRIPT.new()
+	overlay.name = "DebugOverlay"
+	get_tree().root.add_child(overlay)
+	print("[SceneManager] DebugOverlay を生成した（[F4] で表示）")
+
 func change_scene(scene_path: String) -> void:
 	print("[SceneManager] change_scene -> %s" % scene_path)
 	_record_history()

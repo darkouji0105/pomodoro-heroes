@@ -130,7 +130,7 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 | `STORY` | `{current_chapter: int, stages: {stage_id: {cleared, stars}}}` |
 | `CODEX` | `{item_id: {discovered, obtained_at}}` |
 | `DAILY_SHOP` / `WEEKLY_SHOP` / `MONTHLY_SHOP` | `{refresh_at, line_up: [{slot_id, item_id, cost: {currency_type, amount}, stock_limit, purchased_count, payout_type, count, item_type}]}`。`refresh_at`は**ゲーム内日付の文字列**（`"2026-08-11"`）。`payout_type` / `count` / `item_type`は`shop.json`側のキーで、`GameStateKeys`ではなく`GameManager`の定数を使う |
-| `CHARACTER_GROWTH` | `{character_id: {level, stats: {hp, atk, def, spd}, skills, equipment: {weapon, armor, accessory}}}` |
+| `CHARACTER_GROWTH` | `{character_id: {level, stats, skills, equipment: {head, armor, legs, weapon, accessory}}}`。`stats`は**10軸**（`hp` `atk` `mag` `def` `mdef` `atkspd` `haste` `crit_rate` `crit_dmg` `spd`）。並びと意味は`GAME_DESIGN.md` 8-1。**軸を増やすときは`game_manager.gd`の`_stat_keys()`だけ直せば、育成・研究・装備の合成は追従する**（戦闘と画面は追従しない。`EXEC_STATS_10_AXES.md` §2-1） |
 | `RESEARCH_TREE` | `{node_id: {unlocked, effect_type, effect_value, prerequisites}}` |
 | `RECIPES_UNLOCKED` | `{recipe_id: bool}` |
 | `CRAFTING_QUEUE` | `[{queue_id, recipe_id, recipe_type, started_at, duration_sec, status, output_item_id}]` |

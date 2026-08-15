@@ -108,12 +108,13 @@ func _refresh_detail() -> void:
 
 	name_label.text = tr(str(char_data.get("name_key", "")))
 	level_label.text = tr("ui_training_level") % level
-	stats_label.text = "\n".join([
-		"%s  %d" % [tr("ui_training_stat_hp"), int(stats.get(GameStateKeys.STAT_HP, 0))],
-		"%s  %d" % [tr("ui_training_stat_atk"), int(stats.get(GameStateKeys.STAT_ATK, 0))],
-		"%s  %d" % [tr("ui_training_stat_def"), int(stats.get(GameStateKeys.STAT_DEF, 0))],
-		"%s  %d" % [tr("ui_training_stat_spd"), int(stats.get(GameStateKeys.STAT_SPD, 0))],
-	])
+	var lines: Array[String] = []
+	for stat_key: String in GameManager.get_stat_keys():
+		lines.append("%s  %s" % [
+			tr("ui_training_stat_" + stat_key),
+			_stat_value_text(stat_key, int(stats.get(stat_key, 0))),
+		])
+	stats_label.text = "\n".join(lines)
 
 	var cost: Dictionary = GameManager.get_level_up_cost(_selected_id)
 	var material_id: String = str(cost.get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
@@ -197,3 +198,12 @@ func _on_material_changed(_material_id: String, _new_amount: int) -> void:
 
 func _level_of(character_id: String) -> int:
 	return int(GameManager.get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
+
+
+# ％系は "25%" と出す。実数はそのまま。
+# 翻訳キーは "ui_training_stat_" + stat_key で機械的に引く（AGENTS.md 翻訳キーの運用）。
+# 軸を足したら ja.csv に1行足すだけで、この画面は直さなくてよい。
+func _stat_value_text(stat_key: String, value: int) -> String:
+	if GameManager.is_percent_stat(stat_key):
+		return "%d%%" % value
+	return str(value)

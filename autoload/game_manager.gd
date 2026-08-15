@@ -194,7 +194,13 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.PITY_COUNTERS: {},
 		GameStateKeys.TOTAL_POMODORO_COMPLETED: 0,
 		GameStateKeys.LAST_POMODORO_END_AT: "",
-		GameStateKeys.SAVE_VERSION: 1,
+		# ⚠ save_version の出どころは3箇所ある。上げるときは3つとも上げること。
+		#   1. ここ（Balance.initial_state が無いときのフォールバック）
+		#   2. save_manager.gd の CURRENT_SAVE_VERSION
+		#   3. initial_state_config.tres の save_version（新規開始で実際に効くのはこれ）
+		# SaveManager.CURRENT_SAVE_VERSION を参照しないこと。GameManager は Autoload 2番目、
+		# SaveManager は3番目で、_ready() の時点でまだ初期化されていない。
+		GameStateKeys.SAVE_VERSION: 2,
 		GameStateKeys.LAST_SAVED_AT: "",
 		GameStateKeys.STORY: {GameStateKeys.STORY_CURRENT_CHAPTER: 1, GameStateKeys.STORY_STAGES: {}},
 		GameStateKeys.TRAINING_MODE_UNLOCKED: false,
@@ -909,11 +915,15 @@ func get_effective_stats(character_id: String) -> Dictionary:
 	var equip: Dictionary = get_equipment_bonus(character_id)
 
 	var result: Dictionary = {}
+	var percent_keys: Array[String] = _percent_stat_keys()
 	for stat_key: String in _stat_keys():
+		# 研究の「全ステータス+N」は実数軸だけに乗せる。
+		# ％軸に乗せると1ノードで会心率とCD短縮が同時に上がる（_percent_stat_keys()）。
+		var all_bonus: int = 0 if stat_key in percent_keys else boost_all
 		result[stat_key] = (
 			int(raw.get(stat_key, 0))
 			+ int(boosts.get(stat_key, 0))
-			+ boost_all
+			+ all_bonus
 			+ int(equip.get(stat_key, 0))
 		)
 	return result
@@ -994,14 +1004,57 @@ func level_up_character(character_id: String) -> bool:
 
 # --- 育成：内部ヘルパー ---
 
-# stats のキー4つ。順序を固定したいので配列で持つ。
+# stats のキー10本（GAME_DESIGN.md 8-1）。並びは 8-1 の表と同じ順。
+# 順序を固定したいので配列で持つ。
+#
+# ここに足すと追従するもの：
+#   get_effective_stats() / get_instance_stats() / get_equipment_bonus()
+#   _default_growth_for() / _recalc_stats() / load_state() の int() 正規化
+#
+# 追従しないもの（別のファイルを直す必要がある）：
+#   battle_controller.gd の BattleUnit.new()（引数がベタ書き。式の回で作り直す）
 func _stat_keys() -> Array[String]:
 	return [
 		GameStateKeys.STAT_HP,
 		GameStateKeys.STAT_ATK,
+		GameStateKeys.STAT_MAG,
 		GameStateKeys.STAT_DEF,
+		GameStateKeys.STAT_MDEF,
+		GameStateKeys.STAT_ATKSPD,
+		GameStateKeys.STAT_HASTE,
+		GameStateKeys.STAT_CRIT_RATE,
+		GameStateKeys.STAT_CRIT_DMG,
 		GameStateKeys.STAT_SPD,
 	]
+
+# 画面がステータスをこの順で並べるために公開する（get_equip_slots() と同じ形）。
+# 画面側に軸の配列を複製させないこと。以前 equipment_screen.gd に
+# _stat_labels() という2本目の4軸配列があり、片方だけ直す事故の元になっていた。
+func get_stat_keys() -> Array[String]:
+	return _stat_keys()
+
+# ％で持つ軸（GAME_DESIGN.md 8-1）。実数軸と同じ stats 辞書に入るが、扱いが2箇所だけ違う。
+#
+#  1. 研究の「全ステータス+N」（stat_boost_all の target_stat = "all"）の対象にしない
+#  2. 画面に "%" を付けて出す
+#
+# 1 を守らないと、研究ノード1つで crit_rate と haste が同時に上がる。
+# ％系は装備と装飾だけで動かす前提（PLAN_STATS_AND_FORMULAS.md 4章）なので、
+# 研究で上がると装飾を刺す理由が消える。
+#
+# なお target_stat で名指しされた加算（boosts.get(stat_key)）は％軸にも効かせる。
+# 「会心率を上げる研究ノード」を将来置けるようにするため。
+func _percent_stat_keys() -> Array[String]:
+	return [
+		GameStateKeys.STAT_ATKSPD,
+		GameStateKeys.STAT_HASTE,
+		GameStateKeys.STAT_CRIT_RATE,
+		GameStateKeys.STAT_CRIT_DMG,
+	]
+
+# 画面が "%" を付けるかどうかの判定に使う。
+func is_percent_stat(stat_key: String) -> bool:
+	return stat_key in _percent_stat_keys()
 
 # characters.json からレベル1の既定値を組み立てる。存在しないIDなら空を返す。
 #

@@ -1,17 +1,17 @@
 {
   "enemy_slime": {
 	"name_key": "ui_battle_enemy_slime",
-	"hp": 40, "atk": 8, "def": 2, "spd": 40,
+	"hp": 40, "atk": 8, "mag": 2, "def": 2, "mdef": 2, "spd": 40,
 	"attack_range": 50, "attack_interval_sec": 1.5
   },
   "enemy_wolf": {
 	"name_key": "ui_battle_enemy_wolf",
-	"hp": 55, "atk": 12, "def": 3, "spd": 80,
+	"hp": 55, "atk": 12, "mag": 2, "def": 3, "mdef": 1, "spd": 80,
 	"attack_range": 50, "attack_interval_sec": 1.0
   },
   "boss_slime_king": {
 	"name_key": "ui_battle_enemy_slime_king",
-	"hp": 300, "atk": 20, "def": 8, "spd": 30,
+	"hp": 300, "atk": 20, "mag": 12, "def": 8, "mdef": 6, "spd": 30,
 	"attack_range": 70, "attack_interval_sec": 1.8
   }
 }

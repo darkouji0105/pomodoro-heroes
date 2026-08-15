@@ -86,14 +86,16 @@ func _update_header() -> void:
 	var stats: Dictionary = GameManager.get_effective_stats(_character_id)
 	var bonus: Dictionary = GameManager.get_equipment_bonus(_character_id)
 	var lines: Array[String] = []
-	for pair: Array in _stat_labels():
-		var stat_key: String = str(pair[0])
+	for stat_key: String in GameManager.get_stat_keys():
+		var label: String = tr("ui_training_stat_" + stat_key)
 		var value: int = int(stats.get(stat_key, 0))
 		var added: int = int(bonus.get(stat_key, 0))
 		if added > 0:
-			lines.append("%s  %d  (+%d)" % [tr(str(pair[1])), value, added])
+			lines.append("%s  %s  (+%s)" % [
+				label, _stat_value_text(stat_key, value), _stat_value_text(stat_key, added)
+			])
 		else:
-			lines.append("%s  %d" % [tr(str(pair[1])), value])
+			lines.append("%s  %s" % [label, _stat_value_text(stat_key, value)])
 	stats_label.text = "\n".join(lines)
 
 	# 鍛冶に使う素材の所持数。鍛冶で減るので、この画面に出しておく。
@@ -219,10 +221,15 @@ func _stats_text(stats: Variant) -> String:
 	if not (stats is Dictionary):
 		return ""
 	var parts: Array[String] = []
-	for pair: Array in _stat_labels():
-		var value: int = int((stats as Dictionary).get(str(pair[0]), 0))
-		if value != 0:
-			parts.append("%s %+d" % [tr(str(pair[1])), value])
+	for stat_key: String in GameManager.get_stat_keys():
+		var value: int = int((stats as Dictionary).get(stat_key, 0))
+		# 0 の軸は出さない。10軸ぶん並べると1行が読めなくなる。
+		if value == 0:
+			continue
+		var sign_text: String = "+" if value > 0 else ""
+		parts.append("%s %s%s" % [
+			tr("ui_training_stat_" + stat_key), sign_text, _stat_value_text(stat_key, value)
+		])
 	return "  ".join(parts)
 
 # 「鍛える(4)」。上限に達していれば「最大」。
@@ -235,13 +242,11 @@ func _forge_button_text(instance_id: String) -> String:
 		return tr("ui_equipment_max_grade")
 	return "%s(%d)" % [tr("ui_equipment_forge"), amount]
 
-func _stat_labels() -> Array:
-	return [
-		[GameStateKeys.STAT_HP, "ui_training_stat_hp"],
-		[GameStateKeys.STAT_ATK, "ui_training_stat_atk"],
-		[GameStateKeys.STAT_DEF, "ui_training_stat_def"],
-		[GameStateKeys.STAT_SPD, "ui_training_stat_spd"],
-	]
+# ％系は "25%" と出す。実数はそのまま（training_screen.gd と同じ形）。
+func _stat_value_text(stat_key: String, value: int) -> String:
+	if GameManager.is_percent_stat(stat_key):
+		return "%d%%" % value
+	return str(value)
 
 # --- 操作 ---
 

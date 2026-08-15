@@ -122,10 +122,20 @@ const GROWTH_LEVEL: String = "level"
 const GROWTH_STATS: String = "stats"
 const GROWTH_SKILLS: String = "skills"
 const GROWTH_EQUIPMENT: String = "equipment"
-# stats: {hp, atk, def, spd}
+# stats: 10軸（GAME_DESIGN.md 8-1）。並びは 8-1 の表と同じ順。
+# 実数6本（hp/atk/mag/def/mdef/spd）＋％系4本（atkspd/haste/crit_rate/crit_dmg）。
+#
+# ％系は int で持つ（crit_rate: 25 ＝ 25%）。float だとセーブに 25.0 と書かれる。
+# 実数も％も同じ stats 辞書に入れる（別バケットにしない。PLAN_STATS_AND_FORMULAS.md 1章）。
 const STAT_HP: String = "hp"
 const STAT_ATK: String = "atk"
+const STAT_MAG: String = "mag"
 const STAT_DEF: String = "def"
+const STAT_MDEF: String = "mdef"
+const STAT_ATKSPD: String = "atkspd"
+const STAT_HASTE: String = "haste"
+const STAT_CRIT_RATE: String = "crit_rate"
+const STAT_CRIT_DMG: String = "crit_dmg"
 const STAT_SPD: String = "spd"
 # equipment スロット名
 const EQUIP_WEAPON: String = "weapon"

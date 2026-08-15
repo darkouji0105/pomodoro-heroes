@@ -2,7 +2,9 @@ extends Node
 
 const SAVE_DIR: String = "user://saves/"
 const SAVE_PATH: String = "user://saves/save_slot_0.json"
-const CURRENT_SAVE_VERSION: int = 1
+# 10軸化で character_growth.stats のキーが4本から10本に増えたため2へ。
+# 旧バージョンは読み込まず捨てる（GAME_DESIGN.md 14章）。移行処理は書かない。
+const CURRENT_SAVE_VERSION: int = 2
 
 # GameManagerの現在の状態をJSONで保存する。
 # 保存前にlast_saved_atを更新すること。
@@ -54,8 +56,13 @@ func load_game() -> bool:
 	
 	var loaded_version: int = int(data[GameStateKeys.SAVE_VERSION])
 	if loaded_version != CURRENT_SAVE_VERSION:
-		push_warning("[SaveManager] load_game: version mismatch (have=%d, expected=%d) - continuing" % [loaded_version, CURRENT_SAVE_VERSION])
-	
+		# 読み込まずに false を返す。以前は warning を出して続行していたが、
+		# それだと4軸のセーブが10軸のコードに流れ込み、新6軸が 0 のまま
+		# 「バグなのか仕様なのか」判別できない状態になる。
+		# ファイルは消さない。消すのはタイトル画面の「セーブを削除」だけ。
+		push_warning("[SaveManager] load_game: version mismatch (have=%d, expected=%d) - refusing to load" % [loaded_version, CURRENT_SAVE_VERSION])
+		return false
+
 	return GameManager.load_state(data as Dictionary)
 
 # セーブファイルが存在するか

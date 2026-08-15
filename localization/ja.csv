@@ -125,8 +125,14 @@ ui_training_owned,所持
 ui_training_max_level,研究で上限の解放が必要です
 ui_training_stat_hp,HP
 ui_training_stat_atk,攻撃
-ui_training_stat_def,防御
-ui_training_stat_spd,速さ
+ui_training_stat_mag,魔力
+ui_training_stat_def,物理防御
+ui_training_stat_mdef,魔法防御
+ui_training_stat_atkspd,攻撃速度
+ui_training_stat_haste,CD短縮
+ui_training_stat_crit_rate,会心率
+ui_training_stat_crit_dmg,会心倍率
+ui_training_stat_spd,移動速度
 ui_training_skill,スキル
 ui_training_equipment,装備
 ui_nav_training_skill,スキル
