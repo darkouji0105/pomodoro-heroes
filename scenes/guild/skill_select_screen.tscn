@@ -1,0 +1,70 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/guild/skill_select_screen.gd" id="1_skill_select"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+
+[node name="SkillSelectScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_skill_select")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.0784314, 0.0941176, 1)
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+text = "ui_nav_training_skill"
+horizontal_alignment = 1
+
+[node name="NameLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="NoticeLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="SlotsLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+text = "ui_skill_select_slots_header"
+
+[node name="Slots" type="VBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="CandidatesLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+text = "ui_skill_select_candidates_header"
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Candidates" type="VBoxContainer" parent="Margin/Layout/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BackButton" parent="Margin/Layout" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_common_back"

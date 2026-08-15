@@ -161,7 +161,15 @@ func _init_party_units() -> void:
 		unit.x = _party_start_x(i)
 
 		# スキルの割り当て。敵には設定しない。
-		var skill_list: Array = char_data.get("skills", [])
+		#
+		# characters.json の "skills" を直接読まないこと。それはそのキャラの
+		# 「候補一覧」であって、プレイヤーが選んだ2枠ではない
+		# （EXEC_SKILL_SELECT.md §7）。上の stats が get_effective_stats() から
+		# 来ているのと同じ理由で、スキルも状態から引く。
+		#
+		# 未選択の枠は get_battle_skills() 側が候補の先頭で埋めるため、
+		# ここでフォールバックを書かない。
+		var skill_list: Array = GameManager.get_battle_skills(character_id)
 		unit.skill_ids = skill_list.duplicate()
 		unit.skill_cooldowns = {}
 		for sid in unit.skill_ids:

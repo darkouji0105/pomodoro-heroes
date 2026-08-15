@@ -5,7 +5,8 @@
 	"multiplier": 2.0,
 	"cooldown_sec": 6.0,
 	"attack_type": "physical",
-	"user_character_id": "char_swordsman"
+	"user_character_id": "char_swordsman",
+	"unlock_level": 1
   },
   "skill_wide_sweep": {
 	"name_key": "ui_battle_skill_wide_sweep",
@@ -14,6 +15,7 @@
 	"cooldown_sec": 8.0,
 	"attack_type": "physical",
 	"user_character_id": "char_swordsman",
+	"unlock_level": 1,
 	"charge": {
 	  "just_sec": 1.0,
 	  "just_window_sec": 0.15,
@@ -27,7 +29,8 @@
 	"multiplier": 2.6,
 	"cooldown_sec": 11.0,
 	"attack_type": "physical",
-	"user_character_id": "char_archer"
+	"user_character_id": "char_archer",
+	"unlock_level": 1
   },
   "skill_arrow_rain": {
 	"name_key": "ui_battle_skill_arrow_rain",
@@ -35,14 +38,16 @@
 	"multiplier": 1.2,
 	"cooldown_sec": 9.0,
 	"attack_type": "physical",
-	"user_character_id": "char_archer"
+	"user_character_id": "char_archer",
+	"unlock_level": 1
   },
   "skill_healing_light": {
 	"name_key": "ui_battle_skill_healing_light",
 	"type": "heal",
 	"multiplier": 1.0,
 	"cooldown_sec": 8.0,
-	"user_character_id": "char_priest"
+	"user_character_id": "char_priest",
+	"unlock_level": 1
   },
   "skill_holy_ray": {
 	"name_key": "ui_battle_skill_holy_ray",
@@ -50,6 +55,7 @@
 	"multiplier": 1.0,
 	"cooldown_sec": 12.0,
 	"attack_type": "magic",
-	"user_character_id": "char_priest"
+	"user_character_id": "char_priest",
+	"unlock_level": 1
   }
 }

@@ -6,7 +6,6 @@
 class_name TrainingScreen
 extends Control
 
-const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
 const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
 
@@ -19,10 +18,9 @@ const CHARACTER_IDS: Array[String] = [
 	"char_priest",
 ]
 
-# placeholder_screen に渡す screen_id。翻訳キーは "ui_nav_" + screen_id で引かれる。
-const SCREEN_ID_SKILL: String = "training_skill"
 const EQUIPMENT_PATH: String = "res://scenes/guild/equipment_screen.tscn"
 const STAT_NODE_PATH: String = "res://scenes/guild/stat_node_screen.tscn"
+const SKILL_SELECT_PATH: String = "res://scenes/guild/skill_select_screen.tscn"
 
 # 詳細を表示中のキャラクターID。一覧表示中は空文字。
 var _selected_id: String = ""
@@ -48,7 +46,7 @@ func _ready() -> void:
 
 	level_up_button.pressed.connect(_on_level_up_pressed)
 	stat_node_button.pressed.connect(_on_stat_node_pressed)
-	skill_button.pressed.connect(_go_to_placeholder.bind(SCREEN_ID_SKILL))
+	skill_button.pressed.connect(_on_skill_pressed)
 	equip_button.pressed.connect(_on_equip_pressed)
 	to_list_button.pressed.connect(_show_list)
 	back_button.pressed.connect(_on_back_pressed)
@@ -168,15 +166,19 @@ func _on_level_up_pressed() -> void:
 	GameManager.level_up_character(_selected_id)
 
 
-func _go_to_placeholder(screen_id: String) -> void:
-	SceneManager.change_scene_with_data(PLACEHOLDER_PATH, {TransferKeys.SCREEN_ID: screen_id})
-
 # ステータスノード画面も独立した画面。装備画面と同じ形で ID を渡す。
 # 3枝×20段のツリーが詳細パネルに収まらないため、ここには置かない。
 func _on_stat_node_pressed() -> void:
 	if _selected_id == "":
 		return
 	SceneManager.change_scene_with_data(STAT_NODE_PATH, {TransferKeys.CHARACTER_ID: _selected_id})
+
+# スキル選択画面も独立した画面（EXEC_SKILL_SELECT.md §8-3）。
+# 枠2つ＋候補一覧が詳細パネルに収まらないため、ステータスノードと同じ形にした。
+func _on_skill_pressed() -> void:
+	if _selected_id == "":
+		return
+	SceneManager.change_scene_with_data(SKILL_SELECT_PATH, {TransferKeys.CHARACTER_ID: _selected_id})
 
 # 装備画面は独立した画面。どのキャラの装備を編集するかを TransferKeys で渡す。
 # 詳細を開いていないときは押せない位置にあるため _selected_id は必ず入っている。

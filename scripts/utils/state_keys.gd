@@ -129,6 +129,19 @@ const GROWTH_EQUIPMENT: String = "equipment"
 # 代償として、リリース後にノードIDを改名できない。
 # 改名すると解放済みノードが黙って消え、ステータスが減る。
 const GROWTH_NODES: String = "nodes"
+# growth.skills の中身（EXEC_SKILL_SELECT.md §5）。{"slots": [skill_id, skill_id]}。
+#
+# slots[0]=スキル1、slots[1]=スキル2。表示順を安定させるために配列で持つ。
+# ⚠ 枠は装備スロットに対応しない。スキルはそのまま持ち込むだけで、
+# 武器・アクセサリーとの紐づきはルーン側だけの話（2026-08-15に確認）。
+# "" は未選択。空の枠は戦闘時に候補の先頭で埋める（GameManager.get_battle_skills()）。
+#
+# 中身はスキルIDの文字列だけ。倍率・CD・解放レベルは skills.json から毎回引く
+# （CLAUDE.md 4番「状態にマスターデータを複製しない」）。
+#
+# 代償として、リリース後にスキルIDを改名できない。
+# 改名すると選択が黙って消え、フォールバックで別のスキルに戻る。
+const GROWTH_SKILL_SLOTS: String = "slots"
 # stats: 10軸（GAME_DESIGN.md 8-1）。並びは 8-1 の表と同じ順。
 # 実数6本（hp/atk/mag/def/mdef/spd）＋％系4本（atkspd/haste/crit_rate/crit_dmg）。
 #

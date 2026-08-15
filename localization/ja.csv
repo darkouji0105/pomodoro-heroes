@@ -208,3 +208,8 @@ ui_training_nodes,ステータスノード
 ui_nav_stat_node,ステータスノード
 ui_stat_node_points,残ポイント %d / %d
 ui_stat_node_reset,振り直す
+ui_skill_select_slots_header,持ち込むスキル
+ui_skill_select_candidates_header,スキル候補
+ui_skill_select_slot,スキル%d
+ui_skill_select_empty,未選択
+ui_skill_select_locked,（Lv%d で解放）

@@ -61,6 +61,15 @@ const STAT_NODE_COST: String = "cost"
 const STAT_NODE_VALUE: String = "value"
 const STAT_NODE_PREREQUISITES: String = "prerequisites"
 
+# skills.json 側のキー（マスターデータ。EXEC_SKILL_SELECT.md §4）。
+# セーブに残るのはスキルIDだけで、これらの値は毎回ここから引き直す。
+#
+# characters.json 側の "skills"（そのキャラの候補一覧・並び順つき）も
+# ここで名前を持つ。allocatable_stats と同じく、配列の順序が画面の並び順になる。
+const SKILL_USER_CHARACTER_ID: String = "user_character_id"
+const SKILL_UNLOCK_LEVEL: String = "unlock_level"
+const CHARACTER_SKILLS: String = "skills"
+
 # shop.json 側だけにあるキー（状態には残らないため GameStateKeys には置かない）。
 # slot_id / item_id / cost / stock_limit は状態と同じ形のため GameStateKeys 側を使う。
 const SHOP_SLOT_PAYOUT_TYPE: String = "payout_type"
@@ -1090,9 +1099,11 @@ func _default_growth_for(character_id: String) -> Dictionary:
 		# 解放済みステータスノードのID配列。レベル1では空。
 		# 効果値はここに複製せず、character_nodes.json から毎回引く。
 		GameStateKeys.GROWTH_NODES: [],
-		# skills の中身（slots）はスキル選択の実装時に入れる。
-		# 今そこに "slots" と書くと state_keys.gd に無いキーを文字列で書くことになるため空にしておく。
-		GameStateKeys.GROWTH_SKILLS: {},
+		# 選択したスキルIDの2枠（EXEC_SKILL_SELECT.md §5）。レベル1では両方 ""。
+		# 空の枠は戦闘時に候補の先頭で埋めるため、ここでマスターを複製しない。
+		GameStateKeys.GROWTH_SKILLS: {
+			GameStateKeys.GROWTH_SKILL_SLOTS: _empty_skill_slots(),
+		},
 		GameStateKeys.GROWTH_EQUIPMENT: {
 			GameStateKeys.EQUIP_HEAD: null,
 			GameStateKeys.EQUIP_ARMOR: null,
@@ -1725,8 +1736,283 @@ func reset_stat_nodes(character_id: String) -> bool:
 	return true
 
 
-func select_skill(character_id: String, slot_id: int, skill_id: String) -> void:
-	print("[GameManager] select_skill('%s', %d, '%s') (dummy)" % [character_id, slot_id, skill_id])
+# --- 育成：スキル選択（EXEC_SKILL_SELECT.md） ---
+#
+# 候補6個から2枠を選んで戦闘に持ち込む（GAME_DESIGN.md 3-2）。
+# セーブが持つのは character_growth.<id>.skills.slots（選んだスキルIDの配列）だけ。
+# 倍率・CD・解放レベルは skills.json から毎回引く。
+#
+# 候補の一覧と並び順は characters.json の "skills" が決める
+# （allocatable_stats と同じ思想。ここで候補を決め打ちしない）。
+
+# 戦闘に持ち込める枠の数。
+#
+# ⚠ 枠は装備スロットに対応しない。スキルはそのまま持ち込むだけで、
+# 武器・アクセサリーとの紐づきはルーン側だけの話（2026-08-15に確認）。
+# ここに EQUIP_WEAPON / EQUIP_ACCESSORY を持ち込まないこと。
+#
+# .tres に置かないのは、これがバランス数値ではなく構造だから
+# （_equip_slots() と同じ扱い）。枠を増やすときはここだけ直せば、
+# 正規化・画面・戦闘への受け渡しは追従する。
+const SKILL_SLOT_COUNT: int = 2
+
+# 画面が枠を並べるために公開する。枠に名前は無いので、番号で並べる。
+func get_skill_slot_count() -> int:
+	return SKILL_SLOT_COUNT
+
+# 未選択の枠だけの配列。_default_growth_for() と正規化の両方から使う。
+func _empty_skill_slots() -> Array:
+	var slots: Array = []
+	for _i: int in range(SKILL_SLOT_COUNT):
+		slots.append("")
+	return slots
+
+# growth.skills を必ず {"slots": [長さ=枠数の文字列配列]} の形に直す。
+# 渡された growth を直接書き換える。戻り値は「直したかどうか」。
+#
+# 旧セーブ（skills が {}）と、将来枠数を変えたあとのセーブを、ここで吸収する。
+# これがあるおかげで save_version を上げなくてよい（EXEC_SKILL_SELECT.md §9）。
+func _normalize_skill_slots(growth: Dictionary) -> bool:
+	var changed: bool = false
+	var count: int = SKILL_SLOT_COUNT
+
+	var skills_raw: Variant = growth.get(GameStateKeys.GROWTH_SKILLS, null)
+	if not (skills_raw is Dictionary):
+		skills_raw = {}
+		changed = true
+	var skills: Dictionary = skills_raw
+
+	var slots_raw: Variant = skills.get(GameStateKeys.GROWTH_SKILL_SLOTS, null)
+	if not (slots_raw is Array):
+		slots_raw = []
+		changed = true
+	var slots: Array = (slots_raw as Array).duplicate()
+
+	# 長さを枠数に合わせる。足りなければ "" で埋め、多ければ切る。
+	while slots.size() < count:
+		slots.append("")
+		changed = true
+	if slots.size() > count:
+		slots.resize(count)
+		changed = true
+
+	# 中身は必ず String にする。JSON から戻すと null が混ざりうる。
+	for i: int in range(slots.size()):
+		var normalized: String = "" if slots[i] == null else str(slots[i])
+		if slots[i] != normalized:
+			changed = true
+		slots[i] = normalized
+
+	skills[GameStateKeys.GROWTH_SKILL_SLOTS] = slots
+	growth[GameStateKeys.GROWTH_SKILLS] = skills
+	return changed
+
+# ロード時に全キャラの skills を正規化する。
+# _resync_growth_stats_from_master() と同じ位置から呼ぶ。
+func _normalize_skill_slots_from_save() -> void:
+	var growth_all: Dictionary = _state.get(GameStateKeys.CHARACTER_GROWTH, {})
+	var fixed: int = 0
+	for character_id: String in growth_all:
+		if not (growth_all[character_id] is Dictionary):
+			continue
+		if _normalize_skill_slots(growth_all[character_id]):
+			fixed += 1
+	print("[GameManager] _normalize_skill_slots_from_save() -> %d / %d entries normalized" % [
+		fixed, growth_all.size()
+	])
+
+# そのキャラの候補を全部返す（レベルで絞らない）。並び順は characters.json のまま。
+# 画面が「まだ解放されていない候補」を灰色で見せるために要る。
+func get_all_skill_candidates(character_id: String) -> Array:
+	var char_data: Dictionary = MasterDataLoader.get_character(character_id)
+	var raw: Variant = char_data.get(CHARACTER_SKILLS, [])
+	if not (raw is Array):
+		push_warning("[GameManager] get_all_skill_candidates: skills が配列ではない: " + character_id)
+		return []
+	var result: Array = []
+	for entry: Variant in (raw as Array):
+		result.append(str(entry))
+	return result
+
+# 現在のレベルで解放済みの候補だけを返す。
+# skills.json に無いIDは落とす（characters.json 側だけ書き換えたときの保険）。
+func get_skill_candidates(character_id: String) -> Array:
+	var level: int = int(get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
+	var result: Array = []
+	for skill_id: String in get_all_skill_candidates(character_id):
+		var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
+		if skill_data.is_empty():
+			continue
+		if int(skill_data.get(SKILL_UNLOCK_LEVEL, 1)) <= level:
+			result.append(skill_id)
+	return result
+
+# skills.json の unlock_level。画面が「Lv5 で解放」と出すために公開する。
+# MasterDataLoader は float を返すため int() で包む（CLAUDE.md 3番）。
+# 欄が無いスキルは 1（初期解放）として扱う。
+func get_skill_unlock_level(skill_id: String) -> int:
+	var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
+	if skill_data.is_empty():
+		return 0
+	return int(skill_data.get(SKILL_UNLOCK_LEVEL, 1))
+
+# 保存されている選択をそのまま返す。長さは必ず枠数。未選択は ""。
+# 空欄を埋めないので、画面はこちらを使う（「未選択」と表示できる）。
+func get_selected_skills(character_id: String) -> Array:
+	var growth: Dictionary = get_character_growth(character_id)
+	# growth は get_character_growth() が複製したものなので、直接直してよい。
+	_normalize_skill_slots(growth)
+	var skills: Dictionary = growth.get(GameStateKeys.GROWTH_SKILLS, {})
+	return (skills.get(GameStateKeys.GROWTH_SKILL_SLOTS, []) as Array).duplicate()
+
+# 戦闘に渡す確定版。空の枠を候補の先頭で埋め、"" を落として返す。
+#
+# battle_controller.gd はこれだけを見る。characters.json の "skills" を
+# 直接読まないこと（選択が反映されなくなる。EXEC_SKILL_SELECT.md §7）。
+#
+# 状態にマスターを複製しないための仕組みでもある。未選択のまま戦闘に出ても
+# スキルが空にならないので、初期2個をセーブに書き込む必要がない。
+func get_battle_skills(character_id: String) -> Array:
+	var selected: Array = get_selected_skills(character_id)
+	var candidates: Array = get_skill_candidates(character_id)
+
+	# 先に選択済みを確定させる。マスターから消えたIDと未解放のIDはここで落ちる。
+	var slots: Array = []
+	for entry: Variant in selected:
+		var skill_id: String = str(entry)
+		if skill_id != "" and skill_id in candidates and not (skill_id in slots):
+			slots.append(skill_id)
+		else:
+			slots.append("")
+
+	# 空の枠を、まだ使っていない候補の先頭で埋める。
+	for i: int in range(slots.size()):
+		if str(slots[i]) != "":
+			continue
+		for candidate: Variant in candidates:
+			var candidate_id: String = str(candidate)
+			if not (candidate_id in slots):
+				slots[i] = candidate_id
+				break
+
+	# 候補が枠数に足りないときは "" が残るため、ここで落とす。
+	var result: Array = []
+	for entry: Variant in slots:
+		if str(entry) != "":
+			result.append(str(entry))
+	return result
+
+# 選べない理由を返す。選べるなら "" を返す。
+#
+# 判定はすべてここに集める。状態を変える前に全部の判定を終えるため
+# （CLAUDE.md 6番）、select_skill() は先頭でこれを1回呼ぶだけでよい。
+func _skill_select_error(character_id: String, slot_index: int, skill_id: String) -> String:
+	var growth: Dictionary = get_character_growth(character_id)
+	if growth.is_empty():
+		return "character not found: " + character_id
+	if slot_index < 0 or slot_index >= SKILL_SLOT_COUNT:
+		return "slot_index out of range: %d" % slot_index
+	if skill_id == "":
+		return "skill_id is empty"
+
+	var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
+	if skill_data.is_empty():
+		return "skill not found: " + skill_id
+
+	var owner_id: String = str(skill_data.get(SKILL_USER_CHARACTER_ID, ""))
+	if owner_id != character_id:
+		return "skill '%s' belongs to '%s'" % [skill_id, owner_id]
+	# user_character_id が合っていても、characters.json の候補一覧に無ければ選ばせない。
+	# 候補一覧が正（get_battle_skills() もそちらで絞るため、ここを緩めると
+	# 「選べたのに戦闘に出ない」になる）。
+	if not (skill_id in get_all_skill_candidates(character_id)):
+		return "skill '%s' is not a candidate of '%s'" % [skill_id, character_id]
+
+	var level: int = int(growth.get(GameStateKeys.GROWTH_LEVEL, 1))
+	var unlock_level: int = int(skill_data.get(SKILL_UNLOCK_LEVEL, 1))
+	if unlock_level > level:
+		return "unlock_level %d > level %d" % [unlock_level, level]
+
+	return ""
+
+# 判定のみ。状態を触らない（can_unlock_stat_node() と同じ形）。
+func can_select_skill(character_id: String, slot_index: int, skill_id: String) -> bool:
+	return _skill_select_error(character_id, slot_index, skill_id) == ""
+
+# 枠にスキルを入れる。
+#
+# 選んだスキルが既に別の枠に入っている場合は、2つの枠を入れ替える。弾かない。
+# 枠の順番に意味がある（GAME_DESIGN.md 3-2）ため、「Bを1番に置きたい」という
+# 操作がそのまま入れ替えになる。swap 専用の関数は作らない。
+func select_skill(character_id: String, slot_index: int, skill_id: String) -> bool:
+	var error: String = _skill_select_error(character_id, slot_index, skill_id)
+	if error != "":
+		print("[GameManager] select_skill('%s', %d, '%s') -> false (%s)" % [
+			character_id, slot_index, skill_id, error
+		])
+		return false
+
+	var growth: Dictionary = get_character_growth(character_id)
+	_normalize_skill_slots(growth)
+	var skills: Dictionary = growth[GameStateKeys.GROWTH_SKILLS]
+	var slots: Array = (skills[GameStateKeys.GROWTH_SKILL_SLOTS] as Array).duplicate()
+
+	if str(slots[slot_index]) == skill_id:
+		print("[GameManager] select_skill('%s', %d, '%s') -> false (already in this slot)" % [
+			character_id, slot_index, skill_id
+		])
+		return false
+
+	var existing: int = slots.find(skill_id)
+	if existing >= 0:
+		# 入れ替え。押した枠に入っていたものを、元の枠へ移す。
+		slots[existing] = slots[slot_index]
+	slots[slot_index] = skill_id
+
+	skills[GameStateKeys.GROWTH_SKILL_SLOTS] = slots
+	growth[GameStateKeys.GROWTH_SKILLS] = skills
+	_write_growth(character_id, growth)
+
+	print("[GameManager] select_skill('%s', %d, '%s') -> true (slots=%s)" % [
+		character_id, slot_index, skill_id, str(slots)
+	])
+	character_growth_changed.emit(character_id)
+	return true
+
+# 枠を未選択に戻す。空にしても戦闘には候補の先頭が入る（get_battle_skills()）。
+func clear_skill_slot(character_id: String, slot_index: int) -> bool:
+	var growth: Dictionary = get_character_growth(character_id)
+	if growth.is_empty():
+		print("[GameManager] clear_skill_slot('%s', %d) -> false (character not found)" % [
+			character_id, slot_index
+		])
+		return false
+	if slot_index < 0 or slot_index >= SKILL_SLOT_COUNT:
+		print("[GameManager] clear_skill_slot('%s', %d) -> false (slot_index out of range)" % [
+			character_id, slot_index
+		])
+		return false
+
+	_normalize_skill_slots(growth)
+	var skills: Dictionary = growth[GameStateKeys.GROWTH_SKILLS]
+	var slots: Array = (skills[GameStateKeys.GROWTH_SKILL_SLOTS] as Array).duplicate()
+
+	if str(slots[slot_index]) == "":
+		print("[GameManager] clear_skill_slot('%s', %d) -> false (already empty)" % [
+			character_id, slot_index
+		])
+		return false
+
+	slots[slot_index] = ""
+	skills[GameStateKeys.GROWTH_SKILL_SLOTS] = slots
+	growth[GameStateKeys.GROWTH_SKILLS] = skills
+	_write_growth(character_id, growth)
+
+	print("[GameManager] clear_skill_slot('%s', %d) -> true (slots=%s)" % [
+		character_id, slot_index, str(slots)
+	])
+	character_growth_changed.emit(character_id)
+	return true
 
 # --- 研究 ---
 
@@ -2418,6 +2704,10 @@ func load_state(data: Dictionary) -> bool:
 	# セーブに入っている stats を、現在の stat_growth_formula で計算し直す。
 	# _sync_research_tree_from_master() と同じ考え方で、マスター＋式を正とする。
 	_resync_growth_stats_from_master()
+	# skills を {"slots": ["", ""]} の形に揃える。
+	# 旧セーブは skills が {} のため、ここで枠が生える（EXEC_SKILL_SELECT.md §6-1）。
+	# これがあるので save_version は 3 のままでよい。
+	_normalize_skill_slots_from_save()
 	# 装備の個体を正規化する。JSONから戻すと grade が float になる。
 	# 第1弾の装備（equipment に item_id の文字列が入っている）はここで捨てる。
 	_normalize_equipment_from_save()
