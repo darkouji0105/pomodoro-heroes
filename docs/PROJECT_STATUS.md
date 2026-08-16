@@ -268,7 +268,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
-| （ハッシュ未記録） | `docs(skill): 段階1の EXEC を起こす（器の付け替え・挙動不変が完了条件）`（**コードは触っていない**。`EXEC_SKILL_TEMPLATE_PHASE1.md` の新設と、この表への追記のみ） | `EXEC_SKILL_TEMPLATE_PHASE1.md` |
+| `7dd97d3` | `docs(skill): 段階1の EXEC を起こす（器の付け替え・挙動不変が完了条件）`（**コードは触っていない**。`EXEC_SKILL_TEMPLATE_PHASE1.md` の新設と、この表への追記のみ） | `EXEC_SKILL_TEMPLATE_PHASE1.md` |
 | `0c09c6c` | `docs(skill): スキルのテンプレートを4軸＋2層で確定・スケール変数表を新設・介入点を2段構えに訂正`（**コードは触っていない**。`PLAN_SKILL_TEMPLATE.md` を決定へ格上げ、`GAME_DESIGN.md` に 3-4 コンボを新設、`NEXT_STEPS.md` を段階1に差し替え） | **EXECはまだ無い**（次に書く） |
 | `eef8a92` | `docs(skill): スキルのテンプレートを3軸＋イベント発火の形で確定・次タスクを段階1に差し替え`（**コードは触っていない**） | — |
 | `a6a8efd` | `docs(skill): スキルのテンプレート案を PLAN に起こす（未確定・別途議論）` | — |
@@ -339,9 +339,16 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`skills.json`は6件のまま・全部`unlock_level: 1`。** 1キャラ2個・枠2個なので、**画面上は実質選ぶ余地が無い**（入れ替えしかできない）。「Lv%d で解放」のグレー表示（`ui_skill_select_locked`）も**現データでは一度も出ない＝未検証**。スキル12個（スコープB）で初めて動く
 - **`SceneManager`のログが`[SceneManager] DebugOverlay を生成した（[F4] で表示）`と出るが、`F4`は`_unhandled_input`に届かない。** 実際の切替は`0`キー。**案内文が実態と食い違っている**
 - **セーブの`current_chapter`が`1.0`（float）。** `state_keys.gd` 97行のコメントは`int`と書いてある。`.gd`側にこのキーを読み書きするコードが無く、`int()`正規化も通っていない（`CLAUDE.md` 3番）。実害はまだ無い
-- **`DATA_SCHEMA.md`に別タスク由来のズレが2件残っている**（今回は注記だけ入れて直していない）。4-3の`stats`が4軸のまま（実装は10軸）／3-1のスキル定義が`name`表記で`name_key`・`attack_type`・`charge`を欠く
+- **`DATA_SCHEMA.md`に別タスク由来のズレが2件残っていた。** 4-3の`stats`が4軸のまま（実装は10軸）／~~3-1のスキル定義が`name`表記で`name_key`・`attack_type`・`charge`を欠く~~ **✅ 3-1は段階1の回で差し替え済み（2026-08-16）。残るのは4-3**
 - **`EXEC_SKILL_SELECT.md` §11-A 1（`[MasterDataLoader] loaded 6 entries ... skills.json`が出る）は誤り。** `skills.json`は`_load_json()`で読まれており、**このログを出すのは`_index_by()`だけ**（通るのは`items.json`と`recipes.json`のみ）。characters / enemies / parties / stages / skills は全部出ない
 - **旧セーブの正規化（`_normalize_skill_slots_from_save()`が実際に枠を生やす経路）は未検証。** 検証時のセーブに`character_growth`が0件で、`-> 0 / 0`しか出なかった。**未リリースのため旧セーブが存在せず、見送ると判断した**（人間の決定）。コードは残してある
+
+### スキルの器の付け替え（段階1）の回で見つかったもの（2026-08-16）
+
+- **`DATA_SCHEMA.md` 3-1 のダメージ計算式が古い。** `最終ダメージ = max(1, 攻撃力 - 防御力)`と書いてあるが、**実際は除算**（`battle_formula.gd` 62〜67行の`max(1, floor(power * multiplier * 100 / (100 + def)))`）。3-1のスキル定義ブロック自体は**この回で直した**（`EXEC_SKILL_TEMPLATE_PHASE1.md` §10）が、式の行は範囲外なので残した
+- **`sort`の`farthest` / `lowest_hp` / `highest_hp`は実装したが、使うスキルが1件も無いので実機で1度も通っていない**（`EXEC_SKILL_TEMPLATE_PHASE1.md` §11 C-5）。スキル12個を書く回で初めて画面に出る
+- **`target.range`と介入点（`_step_crit_override` / `_step_reduction`）も利用者ゼロの受け口のまま。** `range`の数値は座標定数（味方200・敵900）とセットで後決め（PLAN 4-5）
+- **`PLAN_SKILL_TEMPLATE.md` 5-2 の表の「`scale_from`の省略時」と17章の「6件とも書かない」の1文が、実装（決定1-5＝省略不可）と食い違ったまま残っている。** 文言案は`EXEC_SKILL_TEMPLATE_PHASE1.md` §12-1。**直すかどうかは人間が決める**
 
 ---
 

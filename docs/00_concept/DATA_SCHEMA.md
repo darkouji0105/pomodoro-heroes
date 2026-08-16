@@ -387,21 +387,46 @@
 - ターゲットは「毎フレーム最も近い敵対ユニット」を自動選択
 
 ### スキル定義（マスターデータ・参照専用）
+
+**器の決定台帳は `docs/01_plan/PLAN_SKILL_TEMPLATE.md`。ここには複製しない。**
+下は「セーブとの関係」を見るための形だけ。
+
 ```json
 {
   "skill_id": {
-	"name": "string",
-	"type": "single | aoe | heal | buff | dot | projectile",
-	"multiplier": 1.0,
-	"cooldown_sec": 3.0,
+	"name_key": "string",
 	"user_character_id": "string",
-	"unlock_level": 1
+	"unlock_level": 1,
+	"cooldown_sec": 8.0,
+
+	"activation": "instant | charge | recast | toggle",
+	"charge": { "just_sec": 1.0, "just_window_sec": 0.15, "min_ratio": 0.5, "just_bonus": 1.3 },
+
+	"target": {
+	  "team": "enemy | ally | self | source",
+	  "mode": "select | area",
+	  "sort": "nearest | farthest | lowest_hp | highest_hp | all",
+	  "count": 1,
+	  "range": 500.0
+	},
+	"effects": [
+	  { "type": "damage", "multiplier": 2.0, "attack_type": "physical | magic | true", "scale_from": "atk" }
+	]
   }
 }
 ```
-- ダメージ計算共通式：`最終ダメージ = max(1, 攻撃力 - 防御力)`、`攻撃力 = 素のATK × atk_multiplier`
-- **`unlock_level`**（2026-08-15）：そのスキルが候補に出るレベル。**`int()`で包んで読む**（JSONから`1.0`で来る）。現在は6件とも`1`
-- ⚠ **上のブロックは`unlock_level`以外が古い。** 実際の`skills.json`は`name`ではなく**`name_key`**を持ち、`attack_type`（`physical`/`magic`）と`charge`（チャージスキル）もある。戦闘の式が入った回の積み残しで、`PROJECT_STATUS.md`の宿題にある
+
+- **`type`（旧欄）は廃止した。** `single` / `aoe` / `heal` は `target` と `effects[]` に割れた
+- **ネストは3階層まで**（skill → phase → effect）。`phases` は省略できる（省略＝1段）
+- `activation: charge` のときだけ `charge{}` を読む。**`charge` 欄の有無で分岐しない**
+- `range` は**対象の母集団を絞る**。絞った結果が0体なら発動しない（発動可否と一本化）
+- `attack_type` は「**どの防御で受けるか**」だけを決める。攻撃側の参照元は `scale_from`
+- ⚠ **`scale_from` は `damage` / `heal` で必須。既定値は無い**（書かないとロード時に赤）。文字列（`"atk"`）は `[{ "source": "atk", "of": "user", "weight": 1.0 }]` の省略形
+- **`heal` に `attack_type` の欄は作らない**（回復が攻撃力依存だった事故の再発防止）
+- **`unlock_level`**：そのスキルが候補に出るレベル。**`int()` で包んで読む**（JSONから `1.0` で来る）。現在は6件とも `1`
+- ⚠ **`MasterDataLoader` が返す数値は `float`。`count` は `int()` 必須**
+- **セーブが持つのはスキルIDだけ**（4-3）。**欄の名前を変えてもセーブは壊れない。改名できないのはスキルID**
+- 起動後に最初にマスターデータを引いた時点で**全件検証**が走る（`MasterDataLoader._validate_all_skills()`）
 
 ### ウェーブデータ（マスターデータ・ステージごと）
 ```json

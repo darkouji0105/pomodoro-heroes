@@ -72,6 +72,12 @@ static func _ensure_loaded() -> void:
 	_cache_parties = _load_json(PATH_PARTIES)
 	_cache_stages = _load_json(PATH_STAGES)
 	_cache_skills = _load_json(PATH_SKILLS)
+	# skills.json は自由度が高いぶん「書けるが壊れている」組み合わせが増えた。
+	# resolver 側だけで防ぐと実戦で撃つまで気づけないので、読んだ直後に全件見る
+	# （PLAN_SKILL_TEMPLATE.md 5-4）。characters.json も読み終わっているので、
+	# 射程と attack_range のクロス検証もここでできる。
+	# ⚠ _cache_characters を読むので、この行は _ensure_loaded() の最終行であること。
+	_validate_all_skills()
 
 
 # load() を試し、null なら FileAccess にフォールバック。
@@ -362,4 +368,57 @@ static func _ensure_character_nodes_loaded() -> void:
 	_cache_character_nodes = _load_json(PATH_CHARACTER_NODES)
 	print("[MasterDataLoader] loaded %d entries from %s" % [
 		_cache_character_nodes.size(), PATH_CHARACTER_NODES
+	])
+
+
+# ========================================================================
+# スキルのロード時検証（EXEC_SKILL_TEMPLATE_PHASE1.md §8）。
+# 器が4軸（activation / target / effects[]）になり、「書けるが壊れている」
+# 組み合わせが増えた。resolver 側だけの防御にすると実戦で撃つまで分からないので、
+# 読んだ直後に全件見る（PLAN_SKILL_TEMPLATE.md 5-4）。
+#
+# ⚠ 検証が走るのは「最初にマスターデータを引いたとき」であって、ゲームの起動直後
+#   ではない。GameManager._ready() は research / shop / recipes の別キャッシュしか
+#   触らないため、_ensure_loaded() は育成画面か戦闘画面に入って初めて動く。
+# ========================================================================
+
+# skills.json のエントリを全件返す。get_all_research_nodes() と同じ形。
+static func get_all_skills() -> Dictionary:
+	_ensure_loaded()
+	return _cache_skills.duplicate(true)
+
+
+static func _validate_all_skills() -> void:
+	var error_count: int = 0
+	var warning_count: int = 0
+	for skill_id: Variant in _cache_skills:
+		var entry: Variant = _cache_skills[skill_id]
+		var data: Dictionary = (entry as Dictionary) if entry is Dictionary else {}
+		for issue: Variant in SkillSchema.validate(str(skill_id), data):
+			if not (issue is Dictionary):
+				continue
+			var message: String = "[MasterDataLoader] skills.json " + str((issue as Dictionary).get("message", ""))
+			if str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				error_count += 1
+				push_error(message)
+			else:
+				warning_count += 1
+				push_warning(message)
+		# 射程 × 攻撃射程のクロス検証。スキル射程が通常攻撃の射程より短いと、
+		# 移動AIが attack_range で止まるため足が止まって永久に撃てない（無音で死ぬ）。
+		if data.has("target") and (data["target"] is Dictionary):
+			var target: Dictionary = data["target"] as Dictionary
+			if target.has("range"):
+				var cid: String = str(data.get("user_character_id", ""))
+				if _cache_characters.has(cid) and (_cache_characters[cid] is Dictionary):
+					var attack_range: float = float((_cache_characters[cid] as Dictionary).get("attack_range", 0.0))
+					if float(target.get("range", 0.0)) < attack_range:
+						error_count += 1
+						push_error("[MasterDataLoader] skills.json %s: target.range が %s の attack_range (%.1f) より短い" % [
+							str(skill_id), cid, attack_range
+						])
+
+	# _load_json() は成功時に何も出さない。これが唯一の「読めた」の合図。
+	print("[MasterDataLoader] skills validated: %d entries, %d errors, %d warnings" % [
+		_cache_skills.size(), error_count, warning_count
 	])

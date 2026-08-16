@@ -456,6 +456,9 @@ func _build_skill_buttons() -> void:
 			if raw_charge is Dictionary:
 				charge = (raw_charge as Dictionary).duplicate(true)
 
+			# 発動の型は activation を見る。charge 欄の有無で分岐しないこと（PLAN 8章）。
+			var activation: String = str(skill_data.get("activation", SkillSchema.ACTIVATION_INSTANT))
+
 			var button: Button = PRIMARY_BUTTON_SCENE.instantiate()
 			# label_key は使わない。残り秒数やチャージ時間を混ぜるため text を直接扱う。
 			button.text = tr(str(skill_data.get("name_key", "")))
@@ -464,7 +467,7 @@ func _build_skill_buttons() -> void:
 			# チャージスキルだけゲージを足す。
 			# 常に置いておくことで「これはためられる」と見て分かる。
 			var gauge: ProgressBar = null
-			if not charge.is_empty():
+			if activation == SkillSchema.ACTIVATION_CHARGE:
 				gauge = ProgressBar.new()
 				gauge.custom_minimum_size = Vector2(0, CHARGE_GAUGE_HEIGHT)
 				gauge.min_value = 0.0
@@ -490,12 +493,16 @@ func _build_skill_buttons() -> void:
 			}
 			_skill_buttons.append(entry)
 
-			if charge.is_empty():
-				button.pressed.connect(_on_skill_button_pressed.bind(unit, skill_id))
-			else:
+			if activation == SkillSchema.ACTIVATION_CHARGE and not charge.is_empty():
 				# チャージスキルは押した瞬間ではなく離した瞬間に発動する
 				button.button_down.connect(_on_charge_button_down.bind(entry))
 				button.button_up.connect(_on_charge_button_up.bind(entry))
+			else:
+				if activation == SkillSchema.ACTIVATION_CHARGE:
+					# 押しても離しても反応しないボタンを作らない。
+					# ロード時検証（E6）でも捕まえるが、ここでも instant として繋ぐ。
+					push_error("[BattleController] activation: charge なのに charge{} が空: " + skill_id)
+				button.pressed.connect(_on_skill_button_pressed.bind(unit, skill_id))
 
 
 func _update_skill_buttons() -> void:
@@ -573,32 +580,28 @@ func _update_charge_gauge(entry: Dictionary, t: float) -> void:
 
 
 # スキル発動。
-# クールダウンの開始は必ず最後。先に開始すると、対象なしで
-# 何も起きなかった場合にクールダウンだけ消費される。
+# 撃てるかの判定は SkillActivation に集約してある。
+# クールダウンの開始は必ず最後。撃てなかった場合はクールダウンを回さない
+# （対象が0体でも消費される形だったのを、決定1-6 で「押せなかっただけ」に変えた）。
 # 勝敗判定はここで行わない。_process の判定に一本化する。
 func _on_skill_button_pressed(user: BattleUnit, skill_id: String) -> void:
 	_fire_skill(user, skill_id, 1.0)
 
 
 func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> void:
-	if _session == null:
-		return
-	if _session.state != BattleSession.STATE_BATTLE_ACTIVE:
-		return
-	if user == null or not user.is_alive():
-		return
-	if not user.is_skill_ready(skill_id):
-		return
-
 	var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
-	if skill_data.is_empty():
+
+	# 撃てるかの判定は SkillActivation に集約してある。
+	# ここに条件を書き足さないこと（PLAN_SKILL_TEMPLATE.md 12章）。
+	# 撃てなかったらクールダウンは回さない。押せなかっただけ。
+	var reason: String = SkillActivation.blocked_reason(user, skill_id, skill_data, _session)
+	if reason != SkillActivation.REASON_OK:
 		return
 
-	# チャージ倍率は multiplier に畳み込んでから渡す。
+	# チャージ倍率は effects[].multiplier に畳み込んでから渡す。
 	# こうすると SkillResolver 側は「倍率が違うスキル」を解くだけでよく、
 	# チャージという概念を知らずに済む。
-	var effective: Dictionary = skill_data.duplicate(true)
-	effective["multiplier"] = float(skill_data.get("multiplier", 1.0)) * power_ratio
+	var effective: Dictionary = SkillResolver.fold_charge_ratio(skill_data, power_ratio)
 
 	var results: Array = SkillResolver.resolve(effective, user, _session)
 	for r in results:
