@@ -1,8 +1,8 @@
-[gd_scene format=3 uid="uid://bstatusregtest1"]
+[gd_scene format=3 uid="uid://bodsaop2vygqq"]
 
-[ext_resource type="Script" path="res://tests/battle/test_status_registry.gd" id="1_status_registry_test"]
+[ext_resource type="Script" uid="uid://r8jwvycrvdxv" path="res://tests/battle/test_status_registry.gd" id="1_status_registry_test"]
 
-[node name="TestStatusRegistry" type="Control"]
+[node name="TestStatusRegistry" type="Control" unique_id=2099012265]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_status_registry_test")
 
-[node name="Label" type="Label" parent="."]
+[node name="Label" type="Label" parent="." unique_id=1820582983]
 layout_mode = 0
 offset_left = 40.0
 offset_top = 40.0
