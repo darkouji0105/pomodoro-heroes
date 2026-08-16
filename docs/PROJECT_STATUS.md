@@ -268,6 +268,8 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `4e4bd11` | `feat(skill): スキルの器を4軸に付け替え（段階1・対象選択と発動可否と介入点の受け口）`（実装本体・10ファイル。新規は `skill_schema.gd` / `skill_activation.gd`） | `EXEC_SKILL_TEMPLATE_PHASE1.md` |
+| `e093c20` | `docs(skill): 段階1の EXEC に人間の決定4件を反映（実装役を使わない体制へ）`（**コードは触っていない**。決定1-5〜1-8と §2 の担当表） | `EXEC_SKILL_TEMPLATE_PHASE1.md` §1 |
 | `7dd97d3` | `docs(skill): 段階1の EXEC を起こす（器の付け替え・挙動不変が完了条件）`（**コードは触っていない**。`EXEC_SKILL_TEMPLATE_PHASE1.md` の新設と、この表への追記のみ） | `EXEC_SKILL_TEMPLATE_PHASE1.md` |
 | `0c09c6c` | `docs(skill): スキルのテンプレートを4軸＋2層で確定・スケール変数表を新設・介入点を2段構えに訂正`（**コードは触っていない**。`PLAN_SKILL_TEMPLATE.md` を決定へ格上げ、`GAME_DESIGN.md` に 3-4 コンボを新設、`NEXT_STEPS.md` を段階1に差し替え） | **EXECはまだ無い**（次に書く） |
 | `eef8a92` | `docs(skill): スキルのテンプレートを3軸＋イベント発火の形で確定・次タスクを段階1に差し替え`（**コードは触っていない**） | — |
@@ -396,11 +398,20 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`scale_from` とスケール変数表。** `spd` でも `hp_lost_ratio` でも `distance` でもスケールできる。**DLCで増える唯一の場所**
 - **実装は段階1〜6に分ける。器は全部決め、実装は順に**
 
-### 次：**スキルの器の付け替え（段階1）**
+### ~~次：**スキルの器の付け替え（段階1）**~~ ✅ **完了（2026-08-16）**
 
-**着手の起点は `NEXT_STEPS.md`。** `PLAN_SKILL_TEMPLATE.md` 19章の段階1。
+**指示書は `EXEC_SKILL_TEMPLATE_PHASE1.md`。実機確認（§11-A・§11-B）まで通過した。**
 
-⚠ **完了条件は「挙動が1件も変わらないこと」**（PLAN 17-1）。段階1に足すものは**全部、段階1時点では利用者ゼロの受け口**（射程・介入点・変数表・`attack_type: true`）。
+- `skills.json` の6件が `activation` / `target` / `effects[]` になった（`type` 欄は1件も残っていない）
+- **`SkillSchema`（新規・語彙とロード時の全件検証）** と **`SkillActivation`（新規・発動可否を1箇所）** が入った
+- `SkillResolver` は**入口2つ**（`select_targets()` / `resolve()`）に作り直し、ダメージは**2段構え**（確定は1回だけ）
+- **挙動は変わっていない。** 唯一の意図した差は、対象が0体のときクールダウンを回さなくなったこと（EXEC 決定1-6）
+
+### 次：**実行中のスキル層と `trigger`（段階2）**
+
+**着手の起点は `NEXT_STEPS.md`。** `PLAN_SKILL_TEMPLATE.md` 19章の段階2。これで**多段と遅延**が書けるようになる。
+
+⚠ **段階2を「タイマー専用」で作らないこと**（PLAN 6-5）。**待ち行列は外から取り消せる形にすること**（PLAN 6-8・20章の6番。**後から変えられない**）。
 
 ⚠ **パッシブは段階3の後ろになった。** 条件発動が要求する層は `buff` / `dot` が要求する層と**同一**で、2回に分けて作る意味が無い（PLAN 7-2・19章）。
 
