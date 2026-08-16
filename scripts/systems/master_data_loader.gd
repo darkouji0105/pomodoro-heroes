@@ -432,7 +432,14 @@ static func _ensure_character_nodes_loaded() -> void:
 #
 # ⚠ 検証が走るのは「最初にマスターデータを引いたとき」であって、ゲームの起動直後
 #   ではない。GameManager._ready() は research / shop / recipes の別キャッシュしか
-#   触らないため、_ensure_loaded() は育成画面か戦闘画面に入って初めて動く。
+#   触らない。
+#
+# ⚠ ただし「つづきから」では、その時点で走る（2026-08-16・実機で確認）。
+#   経路は GameManager.load_state() → _resync_growth_stats_from_master()
+#         → _recalc_stats() → get_character() → _ensure_loaded()。
+#   ⚠ 回るのは character_growth のエントリぶんなので、育成データが1件も無い
+#     セーブでは呼ばれず、育成画面か戦闘画面に入るまで出ない。
+#   完了条件に「ロード時のログ」を書くときは、どちらのセーブで見るかまで書くこと。
 # ========================================================================
 
 # スキルのエントリを全件返す（マージ後）。get_all_research_nodes() と同じ形。

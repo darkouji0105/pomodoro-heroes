@@ -320,6 +320,22 @@ grep -c '"user_character_id"' resources/balance/master/skills_debug.json
 
 ## 11. 完了条件
 
+### ⚠ 実施結果（2026-08-16・**全項目通った**）
+
+- **ログ** … `skills validated: 36 entries, 0 errors, 1 warnings`（黄1本は `skill_dbg_dot_odd` の端数。**出るのが正解**）
+- **ファイル** … 分割前後でIDの集合が一致（6 / 6 / 6 / 18）。⚠ **突き合わせは設計役が機械的に実施**
+- **画面** … 11項目とも通った（割り振り画面も落ちず、`#1`/`#2` の違い・`#3` の攻撃間隔・`#7` のチャージ・`#14` の遅延・戻せることまで確認）
+
+**§11-A の「どこでログが出るか」の食い違いは決着した**（下記）。⚠ **「つづきから」で出る。** `master_data_loader.gd` のコメントを実測に合わせて直した（人間の指示）。
+
+```
+つづきから → GameManager.load_state() → _resync_growth_stats_from_master()
+          → _recalc_stats() → get_character() → _ensure_loaded()
+```
+
+⚠ **回るのは `character_growth` のエントリぶんなので、育成データが0件のセーブでは「つづきから」では出ず、育成画面か戦闘画面に入るまで出ない。** 元のコメントは `_ready()` しか見ておらず、`load_state()` を見落としていた。**両方の記述が部分的に正しかった。**
+
+
 ### 11-A. ログ（**出力パネル**）
 
 1. `[MasterDataLoader] skills validated: 36 entries, 0 errors, 0 warnings` **以外**の件数が出たら NG（18 ＋ 18 ＝ **36**）

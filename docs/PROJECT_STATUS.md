@@ -145,6 +145,7 @@
 | **実行中のスキル層と `trigger`（段階2）** | `EXEC_SKILL_TEMPLATE_PHASE2.md` | ✅ 完了（2026-08-16。**`skill_runtime.gd` 新設**＝待ち行列1本・発火経路1本・取り消し3種。`resolve()` が対象IDを外から受け取る形に。`delivery`（種別タグ）を新設。**速射が2連射になった＝多段と遅延が実際に動いた**） |
 | **状態の器と `buff` / `dot`（段階3の前半）** | `EXEC_SKILL_TEMPLATE_PHASE3A.md` | ✅ 完了（2026-08-16。**`status_registry.gd` 新設**。`stack` / `until` を新設、`BattleUnit.get_stat()` が補正込みに、`resolve()` の引数が5つに。⚠ **実装した回はロード時検証しか通っておらず、挙動は次の回で初めて確認した**） |
 | **状態の検証手段**（コンソール出力 ＋ テストシーン） | （EXECなし。旧`NEXT_STEPS.md`） | ✅ 完了（2026-08-16。F3 パネルに `P` キー＝`snapshot()` を1回だけ `print`・素の値→実効値も出す。**`tests/battle/` を新設**して `test_status_registry` 13項目。**NG 0件**） |
+| **skills の複数ファイル化 ＋ 検証用キャラ3体** | `EXEC_SKILL_MULTIFILE.md` | ✅ 完了（2026-08-16。`skills.json`（18件）をキャラ別3ファイルへ分割し、`skills_debug.json`（18件）と検証用キャラ3体を新設。`MasterDataLoader` が複数ファイルをマージし**重複IDを赤で弾く**。**ログ・ファイル・画面の全項目が通った**。⚠ **設計役が全部書いた**（実装役に渡す予定を人間の判断で変更）） |
 
 ### 戦闘画面でできること
 
@@ -275,6 +276,9 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `30f0ab7` | `feat(skill): skills をキャラ別に分割し、検証用キャラ3体×18スキルを追加`（10ファイル。`skills.json` を削除して4ファイルへ。`MasterDataLoader` にマージと重複IDの赤。`training_screen.gd` の `CHARACTER_IDS` に3行）＋ `85a3ea8`（再インポート）| `EXEC_SKILL_MULTIFILE.md` |
+| `754e86d` | `docs(skill): 複数ファイル化と検証用キャラ3体の EXEC を起こす`（**コードは触っていない**） | `EXEC_SKILL_MULTIFILE.md` |
+| `6cf1859` | `docs(next): 次タスクを「複数ファイル化 ＋ 検証用キャラ」に差し替え`（**コードは触っていない**） | — |
 | `9e7d825` | `test(skill): 状態の器の検証手段（F3パネルの P キー ＋ テストシーン13項目）`（`battle_debug_panel.gd` に `P` キー、`tests/battle/` を新設。**13項目 NG 0件で段階3前半が実機で確認済みになった**） | （EXECなし） |
 | `db7b1e7` | `feat(skill): 状態の器と buff/dot（段階3前半・stack と until）`（12ファイル。新規は `status_registry.gd`。`stack` / `until` を新設、`BattleUnit.get_stat()` が補正込みに、`resolve()` の引数が5つに。⚠ **この時点では通過したのがロード時検証のみで、挙動は次のコミットで初めて確認した**） | `EXEC_SKILL_TEMPLATE_PHASE3A.md` |
 | `9bb357b` | `feat(skill): 実行中のスキル層と trigger（段階2・多段と遅延）`（9ファイル。新規は `skill_runtime.gd`。`resolve()` の引数が変わり、`delivery` を新設。速射が2連射に） | `EXEC_SKILL_TEMPLATE_PHASE2.md` |
@@ -340,7 +344,17 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`PomodoroConfig.reflection_time_limit_sec`と`reflection_min_chars`が使われていない。** `pomodoro.gd`が`const REFLECTION_TIME_LIMIT_SEC: float = 120.0`をハードコードしている。**数値管理ルール違反。** 値が一致しているため実害は出ていない（`EXEC_SOUND.md` §11）
 - **音量設定・ミュートのUIが無い。** `SoundConfig`の`master_volume_db` / `se_volume_db` / `bgm_volume_db`が起動時に各バスへ適用されるだけ。**設定画面を作る回に、セーブ構造ごと決める**
 - **BGMは鳴らせない。** `SoundManager`に`play_bgm()`は無い。バス`BGM`と音量欄だけ用意済み
+### skills の複数ファイル化の回で見つかったもの（2026-08-16）
+
+- ⚠ **ロード時検証がいつ走るかの記述が間違っていた。** `master_data_loader.gd` のコメントは「育成画面か戦闘画面に入って初めて動く」と書いていたが、**「つづきから」でも走る**（`load_state()` → `_resync_growth_stats_from_master()` → `_recalc_stats()` → `get_character()`）。⚠ **回るのは `character_growth` のエントリぶんなので、育成データが0件のセーブでは出ない。両方の記述が部分的に正しかった。** コメントは実測に合わせて修正済み
+- ⚠ **削除したはずの `skills.json` がディスク上に復活していた**（未追跡）。ローダーは読んでいないので実害は無かったが、**「編集しても何も変わらないファイル」**が残る形だった。削除済み。⚠ **Godot を開いたまま消すとまた戻る可能性がある**
+- ⚠ **コメント中の「`skills.json`」が8ファイルに残っている**（`skill_resolver` / `skill_runtime` / `status_registry` / `battle_controller` / `game_manager` / `state_keys` / `skill_select_screen` / `unit`）。**ファイルはもう存在しない。** 意味は通るので今回は触っていない
+- ⚠ **`CHARACTER_IDS` の決め打ちが3件から6件になった**（`training_screen.gd`）。`MasterDataLoader.get_all_characters()` で消す案は据え置き
+- ⚠ **検証用キャラに `character_nodes.json` のノードが0件。** 割り振り画面は空で開く（**落ちないことは実機で確認済み**）
+- **`independent` に上限が無いことを、`skill_dbg_buff_stack` で実演できるようになった**（撃つたびに1本ずつ増え続ける）
+
 - **状態の検証用のものもリリース前に消す**（`battle_debug_panel.gd` の `P` キー＝`_print_statuses()` / `_format_entry_line()` / `_print_stat_diffs()` と、`tests/battle/` フォルダごと、`battle_controller.get_status_registry()`）。**デバッグパネルは `OS.is_debug_build()` のガード内だがコードは残る**
+- **検証用キャラとスキルもリリース前に消す**（`skills_debug.json`・`characters.json` の3件・`ja.csv` の21行・`training_screen.gd` の `CHARACTER_IDS` 3行・`master_data_loader.gd` の `PATHS_SKILLS_OPTIONAL`）
 - **デバッグオーバーレイはリリース前に消す**（`res://tests/debug_overlay.gd`と`scene_manager.gd`の`_ready()`・`_spawn_debug_overlay()`・`DEBUG_OVERLAY_SCRIPT`）。`OS.is_debug_build()`のガード内だがコードは残る。詳細は`EXEC_STATS_10_AXES.md` §11-2
 - **`ja.csv`に`ui_common_yes`と`ui_common_no`が重複して2行ずつある。** 10軸のタスクより前から存在する（`git show HEAD`で確認済み）。実害は出ていないが、翻訳表の重複はキーを増やすほど探しにくくなる
 - **`save_version`の出どころが3箇所に散っている**（`save_manager.gd`の`CURRENT_SAVE_VERSION` / `initial_state_config.tres` / `game_manager.gd`の`_empty_state_template()`）。**上げるときは3つとも上げないと、新規開始したセーブが次回起動で自分に弾かれる。** 1本化は別タスク
@@ -516,9 +530,17 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
   - ⚠ **`tick()` に渡す delta は 0.5 / 1.0 / 2.0 だけ。** 0.1 を60回足すと 5.999… になり、器の不具合とテスト側の誤差を区別できなくなる
   - ⚠ **失敗は `push_error` にしない。** 3項目は「赤が出るのが正解」なので、混ざると読めない。行頭の `NG!` で見る
 
-### 次：**skills を複数ファイル化（キャラ別 ＋ debug）＋ 検証用キャラ**
+### ~~次：**skills を複数ファイル化（キャラ別 ＋ debug）＋ 検証用キャラ**~~ ✅ **完了（2026-08-16）**
 
-⚠ **「枠を無視して撃つキー」は落とした。** 検証用キャラを1体作り、その候補6件をギルドのスキル選択画面で付け替えるほうが安く済む（`.gd` がほぼゼロ行）。**パーティの入れ替え機能も要らない** — パーティは状態に入っておらず、`parties.json` の `members` を書き換えて再起動すれば入れ替わる。
+**指示書は `EXEC_SKILL_MULTIFILE.md`。** ログ・ファイル・画面の**全項目が通った**。
+
+- **`skills.json` を消し、`skills_char_swordsman` / `_archer` / `_priest` の3本へ**（各6件・IDの改名なし）
+- **`skills_debug.json`（18件）＋ 検証用キャラ3体**（`char_debug_status` / `_life` / `_mix`）。**HP 9999 / atk 1 / crit_rate 0** で、死なず・敵も倒さず・会心も振らない
+- ⚠ **「枠を無視して撃つキー」は作らなかった。** 検証用キャラの候補6件をギルドで付け替えるほうが安い（`.gd` がほぼゼロ行）
+- ⚠ **パーティの入れ替え機能も要らない。** パーティは状態に入っておらず、`parties.json` の `members` を書き換えて再起動すれば入れ替わる
+- ⚠ **`MasterDataLoader` は重複IDを赤で弾き、先に読んだほうを残す**（後勝ちにすると無音で片方が消える）。**`skills_debug.json` は「無いのが正常」**
+
+**検証時の手順**：`parties.json` の `members` を `["char_debug_status", "char_debug_life", "char_debug_mix"]` に差し替えて再起動。⚠ **戻し忘れると本編の検証が全部おかしくなる。**
 
 **`skills.json` は315行 / 18スキル / 24効果。** 段階3の後半で購読と条件が乗ると**1スキルが30〜50行**になり、4人目のキャラで500行を超える。
 
