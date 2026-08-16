@@ -271,6 +271,9 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `b58a434` | `feat(skill): 3人ぶんの残り12スキルを追加（Lv5/10/15/20 解放）`（8ファイル。⚠ **`.gd` を1行も触っていない**。`skills.json` 6→18件・`characters.json`・`ja.csv` ＋ `PLAN_SKILL_CONTENT.md` / `EXEC_SKILL_CONTENT.md` 新設 ＋ `PROJECT_STATUS.md` / `NEXT_STEPS.md` を更新） | `EXEC_SKILL_CONTENT.md` |
+| `078428d` | `docs(skill): PLAN の scale_from を省略不可に統一（実装との食い違いを解消）`（**コードは触っていない**） | `PLAN_SKILL_TEMPLATE.md` 5-2・17章 |
+| `1704ee3` | `docs(status): 段階1の完了を反映・Git章にハッシュを記録・次タスクを段階2に差し替え`（**コードは触っていない**） | — |
 | `4e4bd11` | `feat(skill): スキルの器を4軸に付け替え（段階1・対象選択と発動可否と介入点の受け口）`（実装本体・10ファイル。新規は `skill_schema.gd` / `skill_activation.gd`） | `EXEC_SKILL_TEMPLATE_PHASE1.md` |
 | `e093c20` | `docs(skill): 段階1の EXEC に人間の決定4件を反映（実装役を使わない体制へ）`（**コードは触っていない**。決定1-5〜1-8と §2 の担当表） | `EXEC_SKILL_TEMPLATE_PHASE1.md` §1 |
 | `7dd97d3` | `docs(skill): 段階1の EXEC を起こす（器の付け替え・挙動不変が完了条件）`（**コードは触っていない**。`EXEC_SKILL_TEMPLATE_PHASE1.md` の新設と、この表への追記のみ） | `EXEC_SKILL_TEMPLATE_PHASE1.md` |
