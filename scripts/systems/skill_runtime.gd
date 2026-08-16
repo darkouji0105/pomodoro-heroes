@@ -1,0 +1,348 @@
+class_name SkillRuntime
+extends RefCounted
+
+# 「実行中のスキル」層（PLAN_SKILL_TEMPLATE.md 7-1・段階2）。
+#
+#   battle_controller  … 入力と表示だけ
+#          ↓ cast() を1回呼ぶ
+#   SkillRuntime(ここ) … 待ち行列。trigger・タイムアウト・中断・演出シーンとの往復
+#          ↓ 「今この瞬間・この効果・この対象」
+#   SkillResolver      … 1つの効果を確定した対象に当てる。時間を知らない
+#
+# 【なぜ static にしないか】待ち行列という状態を持つため。
+# BattleController が1体だけ持つ。ノードツリーには入れない。
+#
+# 【この層はビューを知ってよい】SkillResolver は今後も知らない（PLAN 7-3）。
+# 今回は effects_applied シグナルで結果を投げるところまで。
+#
+# ⚠ 待ち行列は1本しか作らない（PLAN 6-8・後から変えられない）。
+#   「スキルごとの private な待ち行列」にすると外から取り消せない。中断は
+#   自分で自分を捨てるだけなので private でも成立してしまい、気づかずに
+#   閉じた作りにしやすい。段階3の効果 cancel（飛び道具の無効化）と
+#   詠唱中断は、どちらも「他人の待ち行列を取り消す」操作になる。
+#
+# ⚠ この層を「タイマー」にしないこと（PLAN 6-5）。発火の経路は _fire() の1本で、
+#   tick() はその呼び出し元の1つにすぎない。アニメーションが入るときに足すのは
+#   notify_event() を呼ぶ側だけで、この層も SkillResolver も JSON も変わらない。
+
+# resolve() の戻り値をそのまま流す。battle_controller が pop_damage する。
+signal effects_applied(results: Array)
+
+# 待ち行列の要素が「何を待っているか」。
+const WAIT_DELAY: String = "delay"
+const WAIT_EVENT: String = "event"
+
+# 合図が来ないまま何秒待つか。
+# ⚠ 演出シーンが存在しないので event: を書いたスキルは0件。今は実戦で通らない。
+const EVENT_TIMEOUT_SEC: float = 5.0
+
+var _session: BattleSession = null
+
+# 待ち行列。要素の形は _make_entry() を見ること。
+var _pending: Array = []
+
+# 1回の発動を識別する番号。同じ発動の残りをまとめて取り消すのに使う。
+var _next_cast_id: int = 1
+
+
+func _init(p_session: BattleSession) -> void:
+	_session = p_session
+
+
+# セッションを差し替え、待ち行列を捨てる。
+#
+# ⚠ 「もう一度」で BattleSession が作り直される（battle_controller.gd の
+#   _init_session()）。古いセッションを掴んだままだと、リトライ後のスキルが
+#   前の戦闘のユニットを探して見つからず、無音で空振りする。エラーは出ない。
+# ⚠ 差し替えと破棄を同時にやること。片方だけの関数を作るともう片方を忘れる。
+func reset(p_session: BattleSession) -> void:
+	_pending.clear()
+	_session = p_session
+
+
+# ============================================================
+# 入れる（発火源ごとに1本ずつ。出口は全部 _fire()）
+# ============================================================
+
+# 発動1回ぶん。効果を待ち行列に置き、trigger: "cast" のものはその場で発火する。
+#
+# ⚠ cast を次のフレームに回さないこと。回すとダメージの表示が1フレーム遅れ、
+#   勝敗判定との順序も変わる。既存スキルの挙動が静かに変わる。
+func cast(user: BattleUnit, skill_id: String, skill_data: Dictionary, power_ratio: float) -> void:
+	if user == null or _session == null:
+		push_error("[SkillRuntime] cast: user または session が null")
+		return
+	if skill_data == null or skill_data.is_empty():
+		push_error("[SkillRuntime] cast: skill_data が空 (skill_id=%s)" % skill_id)
+		return
+
+	# チャージ倍率は effects[].multiplier に畳み込んでから割る。
+	var effective: Dictionary = SkillResolver.fold_charge_ratio(skill_data, power_ratio)
+	var raw_effects: Variant = effective.get("effects", null)
+	if not (raw_effects is Array) or (raw_effects as Array).is_empty():
+		push_error("[SkillRuntime] cast: effects が無い (skill_id=%s)" % skill_id)
+		return
+
+	var skill_target: Dictionary = {}
+	if effective.get("target", null) is Dictionary:
+		skill_target = effective["target"] as Dictionary
+
+	var cast_id: int = _next_cast_id
+	_next_cast_id += 1
+
+	# 先頭から順に。effects の並び順が多段の順番になる（PLAN 6-2）。
+	for raw_effect: Variant in (raw_effects as Array):
+		if not (raw_effect is Dictionary):
+			push_error("[SkillRuntime] cast: effects の要素が Dictionary でない (skill_id=%s)" % skill_id)
+			continue
+		var effect: Dictionary = raw_effect as Dictionary
+		var trigger: String = str(effect.get("trigger", SkillSchema.TRIGGER_CAST))
+
+		# charge_start は charge_start() の担当。ここでは扱わない。
+		if trigger == SkillSchema.TRIGGER_CHARGE_START:
+			continue
+
+		var entry: Dictionary = _make_entry(cast_id, user, skill_id, effect, skill_target)
+
+		if trigger == SkillSchema.TRIGGER_CAST:
+			_fire(entry)
+		elif trigger.begins_with(SkillSchema.TRIGGER_PREFIX_DELAY):
+			# ⚠ 文字列から取り出す。is_valid_float() → float() の順
+			#   （SkillSchema._is_trigger_shape() が同じ判定をしている）。
+			var raw_sec: String = trigger.substr(SkillSchema.TRIGGER_PREFIX_DELAY.length())
+			if not raw_sec.is_valid_float():
+				push_error("[SkillRuntime] delay の秒数が数値でない: '%s' (skill_id=%s)" % [trigger, skill_id])
+				continue
+			entry["wait"] = WAIT_DELAY
+			entry["remaining"] = float(raw_sec)
+			_pending.append(entry)
+		elif trigger.begins_with(SkillSchema.TRIGGER_PREFIX_EVENT):
+			entry["wait"] = WAIT_EVENT
+			entry["remaining"] = EVENT_TIMEOUT_SEC
+			entry["event_name"] = trigger.substr(SkillSchema.TRIGGER_PREFIX_EVENT.length())
+			_pending.append(entry)
+		else:
+			# ロード時検証（E24）が守っているので通常は来ない。二重に守る。
+			push_error("[SkillRuntime] 不明な trigger: '%s' (skill_id=%s)" % [trigger, skill_id])
+
+
+# trigger: "charge_start" の効果だけを、チャージ開始時に発火させる。
+#
+# ⚠ fold_charge_ratio() を通さない。チャージ開始時点では倍率が存在しない。
+# ⚠ チャージを途中でやめても、既に発火した効果は戻らない。本命の用途
+#   （チャージ中のダメージ軽減）は状態＝段階3なので、今の利用者はゼロ。
+func charge_start(user: BattleUnit, skill_id: String, skill_data: Dictionary) -> void:
+	if user == null or _session == null:
+		return
+	if skill_data == null or skill_data.is_empty():
+		return
+	var raw_effects: Variant = skill_data.get("effects", null)
+	if not (raw_effects is Array):
+		return
+
+	var skill_target: Dictionary = {}
+	if skill_data.get("target", null) is Dictionary:
+		skill_target = skill_data["target"] as Dictionary
+
+	var cast_id: int = _next_cast_id
+	_next_cast_id += 1
+
+	for raw_effect: Variant in (raw_effects as Array):
+		if not (raw_effect is Dictionary):
+			continue
+		var effect: Dictionary = raw_effect as Dictionary
+		if str(effect.get("trigger", SkillSchema.TRIGGER_CAST)) != SkillSchema.TRIGGER_CHARGE_START:
+			continue
+		_fire(_make_entry(cast_id, user, skill_id, effect, skill_target))
+
+
+# 演出シーンからの合図の受け口（PLAN 6-3 / 6-5）。
+#
+# ⚠ 呼び出し元はまだ存在しない。アニメーションが無いため（PLAN 6-4）。
+#   それでも今作るのは、ここが空だと tick() が唯一の発火経路になり、
+#   この層が「時間で進むもの」になってしまうため（PLAN 6-5 が禁じている形）。
+#   アニメが入るときに書くのは「この関数を呼ぶ側」だけで済む。
+func notify_event(cast_id: int, event_name: String) -> void:
+	var ready: Array = []
+	var rest: Array = []
+	for entry: Dictionary in _pending:
+		var hit: bool = (
+			str(entry.get("wait", "")) == WAIT_EVENT
+			and int(entry.get("cast_id", 0)) == cast_id
+			and str(entry.get("event_name", "")) == event_name
+		)
+		if hit:
+			ready.append(entry)
+		else:
+			rest.append(entry)
+	_pending = rest
+	for entry: Dictionary in ready:
+		_fire(entry)
+
+
+# ============================================================
+# 進める
+# ============================================================
+
+# 毎フレーム。⚠ 順番が要件。
+#   1. 中断の掃除（使用者が死んだ・居ない）
+#   2. 時間を進める
+#   3. 時間切れになったものを、待ち行列の順のまま取り出す
+#   4. 取り出したものを順に発火する
+#
+# 3と4を分けるのは、回しながら消すと順番が飛ぶため。
+func tick(delta: float) -> void:
+	if _pending.is_empty():
+		return
+
+	# 1. 中断。⚠ 警告を出さない（正常系・PLAN 6-6）。
+	#    ユニットの死を知らせるシグナルが無いので毎フレーム走査する。
+	#    要素は多くても数件なので速度は問題にならない。
+	_drop_dead_users()
+
+	# 2〜3.
+	var ready: Array = []
+	var rest: Array = []
+	for entry: Dictionary in _pending:
+		entry["remaining"] = float(entry.get("remaining", 0.0)) - delta
+		if float(entry["remaining"]) > 0.0:
+			rest.append(entry)
+			continue
+		# ⚠ 合図待ちの時間切れだけが異常。delay は時間が来て発火するのが正常。
+		if str(entry.get("wait", "")) == WAIT_EVENT:
+			push_warning("[SkillRuntime] 合図 'event:%s' が来ないままタイムアウトした。発火させる (skill=%s, user=%s)" % [
+				str(entry.get("event_name", "")), str(entry.get("skill_id", "")), str(entry.get("user_id", ""))
+			])
+		ready.append(entry)
+	_pending = rest
+
+	# 4.
+	for entry: Dictionary in ready:
+		_fire(entry)
+
+
+# ============================================================
+# 取り消す（PLAN 6-8・外から取り消せる形）
+# ============================================================
+
+# その使用者の残りを捨てる。捨てた件数を返す。
+# ⚠ 正常系なので警告を出さない（決定1-6）。
+func cancel_for_user(unit_id: String) -> int:
+	var rest: Array = []
+	for entry: Dictionary in _pending:
+		if str(entry.get("user_id", "")) != unit_id:
+			rest.append(entry)
+	var dropped: int = _pending.size() - rest.size()
+	_pending = rest
+	return dropped
+
+
+# 種別タグで取り消す。捨てた件数を返す。
+# ⚠ 呼び出し元はまだ無い。段階3の効果 cancel（飛び道具の無効化）と詠唱中断が使う。
+#   「飛んでいる矢」の正体は待ち行列に載っている発火待ちの効果であって、壁ではない。
+func cancel_by_delivery(delivery: String) -> int:
+	var rest: Array = []
+	for entry: Dictionary in _pending:
+		if str(entry.get("delivery", "")) != delivery:
+			rest.append(entry)
+	var dropped: int = _pending.size() - rest.size()
+	_pending = rest
+	return dropped
+
+
+# 全部捨てる。ウェーブ交代・勝敗確定で呼ぶ。捨てた件数を返す。
+func clear_all() -> int:
+	var dropped: int = _pending.size()
+	_pending.clear()
+	return dropped
+
+
+# 外から中を見る（PLAN 6-8）。
+func pending_count() -> int:
+	return _pending.size()
+
+
+func pending_snapshot() -> Array:
+	return _pending.duplicate(true)
+
+
+# ============================================================
+# 内部
+# ============================================================
+
+# 待ち行列の要素を作る。対象はここで確定する。
+#
+# ⚠ 対象は cast 時に確定し、以降選び直さない（PLAN 4-4）。
+#   発火時に選び直すと、多段の2発目が「生き残っている別の敵」に吸われる。
+#   数字は出るので気づきにくい。
+# ⚠ 保持するのは参照ではなく ID。参照だと解放された瞬間に壊れる。
+# ⚠ 対象が0体でも積む。空振りは正常系（PLAN 4-2）。積まないと
+#   pending_count() が実態と合わなくなる。
+func _make_entry(
+		cast_id: int, user: BattleUnit, skill_id: String, effect: Dictionary, skill_target: Dictionary
+) -> Dictionary:
+	# 効果ごとの target 上書きが無ければ、スキルの target を使う。
+	# ⚠ ここでマスターを引き直さない。渡された実効スキルデータの target を使う
+	#   （引き直すと「渡されたデータ」と「マスター」の2つの正ができる）。
+	var target_def: Dictionary = skill_target
+	var raw_target: Variant = effect.get("target", null)
+	if raw_target is Dictionary:
+		target_def = raw_target as Dictionary
+
+	var target_ids: Array = []
+	if target_def.is_empty():
+		push_error("[SkillRuntime] target が無い (skill_id=%s)" % skill_id)
+	else:
+		target_ids = SkillResolver.select_targets(target_def, user, _session)
+
+	return {
+		"cast_id": cast_id,
+		"user_id": user.unit_id,
+		"skill_id": skill_id,
+		"effect": effect,
+		"target_ids": target_ids,
+		"delivery": str(effect.get("delivery", SkillSchema.DELIVERY_MELEE)),
+		"wait": "",
+		"remaining": 0.0,
+		"event_name": "",
+	}
+
+
+# 発火。⚠ 経路はここ1本（PLAN 6-5）。cast も delay も event も charge_start も
+#   最後はここへ入る。この関数は時間を知らない。
+func _fire(entry: Dictionary) -> void:
+	var user: BattleUnit = _find_unit(str(entry.get("user_id", "")))
+	if user == null or not user.is_alive():
+		# 中断の掃除で消えているはず。二重に守る（正常系なので警告しない）。
+		return
+
+	# ⚠ SkillResolver に渡すのは「効果1つぶんの実効スキルデータ」だけ。
+	#   歯止め（PLAN 7-3）：実効スキルデータは skills.json に書ける欄しか含まない。
+	#   対象 ID は skill_data の中に入れず、引数で横から渡す。
+	var one: Dictionary = { "effects": [entry.get("effect", {})] }
+	var results: Array = SkillResolver.resolve(one, user, _session, entry.get("target_ids", []))
+	if results.is_empty():
+		return
+	effects_applied.emit(results)
+
+
+# 使用者が死んだ／居なくなった要素を捨てる（中断・PLAN 6-6）。
+func _drop_dead_users() -> void:
+	var rest: Array = []
+	for entry: Dictionary in _pending:
+		var user: BattleUnit = _find_unit(str(entry.get("user_id", "")))
+		if user != null and user.is_alive():
+			rest.append(entry)
+	_pending = rest
+
+
+func _find_unit(unit_id: String) -> BattleUnit:
+	if _session == null or unit_id == "":
+		return null
+	for u in _session.party_units:
+		if u is BattleUnit and (u as BattleUnit).unit_id == unit_id:
+			return u
+	for u in _session.enemy_units:
+		if u is BattleUnit and (u as BattleUnit).unit_id == unit_id:
+			return u
+	return null

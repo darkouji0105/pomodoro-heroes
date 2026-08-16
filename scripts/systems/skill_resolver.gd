@@ -162,10 +162,23 @@ static func _sort_key(unit: BattleUnit, user: BattleUnit, sort_kind: String) -> 
 # 入口2：効果を当てる
 # ============================================================
 
-# effects[] を先頭から順に処理し、適用結果の配列を返す。
-# ⚠ 未実装の効果に当たっても配列ごと捨てない。その効果だけ飛ばして、
-#   同じ配列の他の効果は当てる（壊れ方を小さくするのが段階1の狙いの1つ）。
-static func resolve(skill_data: Dictionary, user: BattleUnit, session: BattleSession) -> Array:
+# 効果を、確定した対象に当てる。
+#
+# 【段階2で変わったこと】
+#   ・対象は cast 時に確定させ、ID で持ち回す（PLAN 4-4）。ここで選び直さない。
+#     選び直すと、多段の2発目が「生き残っている別の敵」に吸われる。
+#   ・trigger はここで読まない。SkillRuntime が持つ。
+#     2箇所で解釈すると、片方だけ直す事故になる。
+#
+# ⚠ target_ids は必須。既定値を作らない（黙って全員に当たる形を作らないため）。
+# ⚠ 契約は変わっていない（PLAN 7-3）：時間を持たず、次のフレームを知らず、ノードを触らない。
+#   入口も2つのまま（select_targets / resolve）。ID は skill_data の外を通るので、
+#   「実効スキルデータは skills.json に書ける欄しか含まない」という歯止めも無傷。
+#
+# ⚠ 未実装の効果に当たっても配列ごと捨てない。その効果だけ飛ばす。
+static func resolve(
+		skill_data: Dictionary, user: BattleUnit, session: BattleSession, target_ids: Array
+) -> Array:
 	var results: Array = []
 	if skill_data == null or skill_data.is_empty():
 		push_error("[SkillResolver] skill_data が空")
@@ -179,16 +192,23 @@ static func resolve(skill_data: Dictionary, user: BattleUnit, session: BattleSes
 		push_error("[SkillResolver] effects が無い、配列でない、または空")
 		return results
 
+	# 段階2以降、resolve() は「1つの効果」を解く。SkillRuntime が effects を1件ずつに割る。
+	# 2件以上来たのは、割り忘れか、新層を通さずに呼ばれたか。処理は続ける
+	# （全効果に同じ target_ids を当てる）が、黙って通さない。
+	if (raw_effects as Array).size() != 1:
+		push_warning("[SkillResolver] resolve() に効果が %d 件来た（1件ずつ渡すこと）" % (raw_effects as Array).size())
+
+	var targets: Array = _units_from_ids(target_ids, session)
+
 	for raw_effect: Variant in (raw_effects as Array):
 		if not (raw_effect is Dictionary):
 			push_error("[SkillResolver] effects の要素が Dictionary でない")
 			continue
 		var effect: Dictionary = raw_effect as Dictionary
 
-		var trigger: String = str(effect.get("trigger", SkillSchema.TRIGGER_CAST))
-		if trigger != SkillSchema.TRIGGER_CAST:
-			push_warning("[SkillResolver] trigger: '%s' は段階2。この効果を飛ばす" % trigger)
-			continue
+		# ⚠ trigger はここで読まない。SkillRuntime が「いつ発火するか」を持つ。
+		#   ここに残すと、新層が delay を待って発火させたのに resolve() が
+		#   「cast じゃない」と言って飛ばし、ダメージが完全に消える。
 
 		var host: String = str(effect.get("host", SkillSchema.HOST_NONE))
 		if host != SkillSchema.HOST_NONE:
@@ -198,20 +218,8 @@ static func resolve(skill_data: Dictionary, user: BattleUnit, session: BattleSes
 		if float(effect.get("chance", 1.0)) < 1.0:
 			push_warning("[SkillResolver] chance は段階1では読まない（必ず当てる）")
 
-		# 効果ごとの target 上書きが無ければ、スキルの target を使う。
-		var target_def: Dictionary = {}
-		var raw_target: Variant = effect.get("target", null)
-		if raw_target is Dictionary:
-			target_def = raw_target as Dictionary
-		else:
-			var skill_target: Variant = skill_data.get("target", null)
-			if skill_target is Dictionary:
-				target_def = skill_target as Dictionary
-		if target_def.is_empty():
-			push_error("[SkillResolver] target が無い")
-			continue
-
-		var targets: Array = _units_from_ids(select_targets(target_def, user, session), session)
+		# ⚠ 効果ごとの target 上書きもここでは読まない。cast 時に SkillRuntime が
+		#   解釈して target_ids に落としてある（PLAN 4-4）。
 
 		var effect_type: String = str(effect.get("type", ""))
 		if effect_type == SkillSchema.EFFECT_DAMAGE:

@@ -59,6 +59,10 @@ var _skill_buttons: Array = []
 # 同時に1つしかチャージできない。
 var _charging: Dictionary = {}
 
+# 実行中のスキル層（段階2）。多段・遅延の待ち行列を持つ。
+# ここに待ち行列を直接持たないこと。battle_controller は入力と表示だけ（PLAN 7-1）。
+var _skill_runtime: SkillRuntime = null
+
 # 報酬二重適用防止フラグ
 var _result_applied: bool = false
 
@@ -90,6 +94,9 @@ func _ready() -> void:
 	var total_waves: int = waves_array.size()
 
 	_session = BattleSession.new(_stage_id, stage_type, party_id, total_waves)
+
+	_skill_runtime = SkillRuntime.new(_session)
+	_skill_runtime.effects_applied.connect(_on_skill_effects_applied)
 
 	_init_party_units()
 	result_view.hide()
@@ -321,7 +328,17 @@ func _process(delta: float) -> void:
 	for unit in _session.enemy_units:
 		_step_unit(unit, delta)
 
-	# 3. 勝敗判定（敗北判定を先に行う）
+	# 3. 実行中のスキル（多段・遅延の待ち行列）
+	#
+	# ここに置く理由が2つある。
+	#  ・勝敗判定より前 … 遅延で入った止めの一撃が同じフレームの判定に反映される。
+	#    後ろに置くと「死んでいるのに1フレーム戦闘が続く」
+	#  ・攻撃/移動より後 … distance でスケールする効果が、通常攻撃と同じ
+	#    「そのフレームの移動後の距離」を読む
+	# ⚠ 状態ガードの内側であること。ウェーブ間や結果画面で待ち行列を進めない。
+	_skill_runtime.tick(delta)
+
+	# 4. 勝敗判定（敗北判定を先に行う）
 	if _session.is_party_wiped():
 		_enter_defeat()
 		return
@@ -598,23 +615,27 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> void
 	if reason != SkillActivation.REASON_OK:
 		return
 
-	# チャージ倍率は effects[].multiplier に畳み込んでから渡す。
-	# こうすると SkillResolver 側は「倍率が違うスキル」を解くだけでよく、
-	# チャージという概念を知らずに済む。
-	var effective: Dictionary = SkillResolver.fold_charge_ratio(skill_data, power_ratio)
+	# 発動を1個作って新層に渡す。チャージ倍率の畳み込みも、効果を trigger ごとに
+	# 待ち行列へ割るのも新層の仕事（PLAN 7-1）。ここに待ち行列を持たないこと。
+	# 結果は effects_applied シグナルで返ってくる（cast の効果はこの行の中で発火する）。
+	_skill_runtime.cast(user, skill_id, skill_data, power_ratio)
 
-	var results: Array = SkillResolver.resolve(effective, user, _session)
+	# skills.json の cooldown_sec は base。haste を通してから渡す。
+	# ⚠ 待ち行列が空になるのを待たない。押した時点で回り始めるのが今の挙動。
+	user.start_cooldown(skill_id, BattleFormula.cooldown(
+		float(skill_data.get("cooldown_sec", 0.0)),
+		user.get_stat(GameStateKeys.STAT_HASTE)
+	))
+
+
+# 新層が効果を1つ当てたときに呼ばれる。表示だけを担当する。
+# cast の効果は _fire_skill() の中で、delay の効果は _process() の tick で発火する。
+func _on_skill_effects_applied(results: Array) -> void:
 	for r in results:
 		if not (r is Dictionary):
 			continue
 		var target: BattleUnit = _find_unit_by_id(str(r.get("unit_id", "")))
 		_pop_damage(target, int(r.get("amount", 0)), bool(r.get("is_crit", false)))
-
-	# skills.json の cooldown_sec は base。haste を通してから渡す。
-	user.start_cooldown(skill_id, BattleFormula.cooldown(
-		float(skill_data.get("cooldown_sec", 0.0)),
-		user.get_stat(GameStateKeys.STAT_HASTE)
-	))
 
 
 # ============================================================
@@ -633,6 +654,11 @@ func _on_charge_button_down(entry: Dictionary) -> void:
 	if not user.is_skill_ready(skill_id):
 		return
 	_charging = {"entry": entry, "time": 0.0}
+
+	# trigger: "charge_start" の効果だけがここで発火する（PLAN 6-2）。
+	# ⚠ 今は該当する効果を持つスキルが0件なので、実質何も起きない。
+	#   本命の用途（チャージ中のダメージ軽減）は状態＝段階3。
+	_skill_runtime.charge_start(user, skill_id, MasterDataLoader.get_skill(skill_id))
 
 
 func _on_charge_button_up(entry: Dictionary) -> void:
@@ -731,6 +757,10 @@ func _enter_wave_clear() -> void:
 		return
 	_session.current_wave += 1
 	_update_wave_label()
+	# ⚠ 待ち行列は _reset_party_positions() より前に捨てる。あとだと、味方が
+	#   左端へ瞬間移動したあとの距離で distance スケールの効果が計算される。
+	#   捨てるのは正常な中断なので警告を出さない（PLAN 6-6）。
+	_skill_runtime.clear_all()
 	# 次ウェーブは味方を左端から再スタートさせる（HP とクールダウンは引き継ぐ）
 	_reset_party_positions()
 	_enter_wave_intro()
@@ -741,6 +771,8 @@ func _enter_victory() -> void:
 		return
 	_result_applied = true
 	_cancel_charge()
+	# 勝利画面が出たあとにダメージ数値が出ないようにする。
+	_skill_runtime.clear_all()
 	_session.state = BattleSession.STATE_VICTORY
 	_consume_stage_stamina()
 
@@ -786,6 +818,7 @@ func _enter_defeat() -> void:
 		return
 	_result_applied = true
 	_cancel_charge()
+	_skill_runtime.clear_all()
 	_session.state = BattleSession.STATE_DEFEAT
 	# apply_battle_rewards も mark_stage_cleared も呼ばない
 	_show_result(false, {})
@@ -827,6 +860,10 @@ func _init_session() -> void:
 		stage_type = _session.stage_type
 	_views_by_unit_id.clear()
 	_session = BattleSession.new(_stage_id, stage_type, _stage_data.get("party_id", ""), total_waves)
+	# ⚠ セッションが作り直されるので新層にも差し替えを伝える。忘れると、リトライ後の
+	#   スキルが「前の戦闘のユニット」を探して見つからず、1発も出なくなる。
+	#   エラーは1つも出ない。
+	_skill_runtime.reset(_session)
 	_init_party_units()
 
 

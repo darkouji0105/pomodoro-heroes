@@ -78,10 +78,23 @@ const HOST_SPAWN: String = "spawn"
 const HOSTS_KNOWN: Array = [HOST_NONE, HOST_UNIT, HOST_POINT, HOST_BATTLE, HOST_SPAWN]
 
 # --- effects[].trigger（いつ発火するか） ---
+# 解釈するのは SkillRuntime。⚠ SkillResolver は trigger を読まない（2箇所で解釈すると必ずズレる）。
 const TRIGGER_CAST: String = "cast"
-const TRIGGER_CHARGE_START: String = "charge_start"   # 段階2
-const TRIGGER_PREFIX_EVENT: String = "event:"         # 段階2
-const TRIGGER_PREFIX_DELAY: String = "delay:"         # 段階2
+const TRIGGER_CHARGE_START: String = "charge_start"   # 段階2で実装
+const TRIGGER_PREFIX_EVENT: String = "event:"         # 受け口だけ（合図を出す側が居ない）
+const TRIGGER_PREFIX_DELAY: String = "delay:"         # 段階2で実装
+
+# --- effects[].delivery（どう届くか。待ち行列の種別タグ・PLAN 6-8） ---
+#
+# ⚠ attack_type（どの防御で受けるか）とは別物。混ぜないこと。
+#   attack_type は 5-2-1 で「防御の参照先だけ」に純化した欄で、送り方の意味は持たない。
+#   段階3の効果 cancel（飛び道具の無効化）と詠唱中断が、このタグで待ち行列を絞る。
+#
+# 省略時は melee。回復と自傷にも melee が入るが、投射する回復を作るまで実害は無い。
+const DELIVERY_MELEE: String = "melee"
+const DELIVERY_PROJECTILE: String = "projectile"
+const DELIVERY_MAGIC: String = "magic"
+const DELIVERIES_KNOWN: Array = [DELIVERY_MELEE, DELIVERY_PROJECTILE, DELIVERY_MAGIC]
 
 # --- scale_from の "of"（誰の値を見るか） ---
 const SCALE_OF_USER: String = "user"
@@ -304,12 +317,18 @@ static func _validate_effect(issues: Array, skill_id: String, effect: Dictionary
 	if effect.has("charge_scales") and not (effect.get("charge_scales", null) is bool):
 		_err(issues, skill_id, "%s.charge_scales が bool でない" % where)
 
+	# E28 delivery（書いてあって値が不明なら赤。省略は許す＝melee）
+	if effect.has("delivery") and not (str(effect.get("delivery", "")) in DELIVERIES_KNOWN):
+		_err(issues, skill_id, "%s.delivery が不明: '%s'" % [where, str(effect.get("delivery", ""))])
+
 	# E24 / W5 trigger
+	# cast / charge_start / delay:<数値> は段階2で実装した。警告を出さない。
+	# event:◯◯ だけは合図を出す側（演出シーン）が存在しないので黄のまま。
 	var trigger: String = str(effect.get("trigger", TRIGGER_CAST))
 	if not _is_trigger_shape(trigger):
 		_err(issues, skill_id, "%s.trigger の形が不正: '%s'" % [where, trigger])
-	elif trigger != TRIGGER_CAST:
-		_warn(issues, skill_id, "%s.trigger: '%s' は段階2。段階1では飛ばされる" % [where, trigger])
+	elif trigger.begins_with(TRIGGER_PREFIX_EVENT):
+		_warn(issues, skill_id, "%s.trigger: '%s' は合図を出す側が居ない（アニメ未実装）。タイムアウトで発火する" % [where, trigger])
 
 	# E25 / W6 host
 	var host: String = str(effect.get("host", HOST_NONE))
