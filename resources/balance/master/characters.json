@@ -5,7 +5,7 @@
 	"atkspd": 0, "haste": 0, "crit_rate": 5, "crit_dmg": 150,
 	"attack_type": "physical",
 	"attack_range": 60, "attack_interval_sec": 1.2,
-	"skills": ["skill_power_slash", "skill_wide_sweep"],
+	"skills": ["skill_power_slash", "skill_wide_sweep", "skill_reckless_strike", "skill_last_stand", "skill_shield_bash", "skill_helm_splitter"],
 	"allocatable_stats": ["hp", "atk", "def"],
 	"growth_per_level": { "hp": 8, "atk": 2, "def": 1, "spd": 1 }
   },
@@ -15,7 +15,7 @@
 	"atkspd": 0, "haste": 0, "crit_rate": 10, "crit_dmg": 150,
 	"attack_type": "physical",
 	"attack_range": 300, "attack_interval_sec": 1.5,
-	"skills": ["skill_snipe", "skill_arrow_rain"],
+	"skills": ["skill_snipe", "skill_arrow_rain", "skill_finisher", "skill_long_shot", "skill_rapid_volley", "skill_piercing_arrow"],
 	"allocatable_stats": ["hp", "atk", "atkspd"],
 	"growth_per_level": { "hp": 5, "atk": 2, "def": 1, "spd": 1 }
   },
@@ -25,7 +25,7 @@
 	"atkspd": 0, "haste": 0, "crit_rate": 5, "crit_dmg": 150,
 	"attack_type": "magic",
 	"attack_range": 250, "attack_interval_sec": 1.6,
-	"skills": ["skill_healing_light", "skill_holy_ray"],
+	"skills": ["skill_healing_light", "skill_holy_ray", "skill_mend", "skill_drain_life", "skill_purge_wave", "skill_judgement"],
 	"allocatable_stats": ["hp", "mag", "mdef"],
 	"growth_per_level": { "hp": 4, "atk": 1, "def": 1, "spd": 1 }
   }

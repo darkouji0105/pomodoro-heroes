@@ -140,12 +140,15 @@
 | ステータス10軸の後半（**式を戦闘に反映**） | `EXEC_STATS_10_AXES_FORMULA.md` | ✅ 完了（画面12項目・ログ4項目。**`BattleUnit`を作り直し（位置引数を全廃）、`battle_formula.gd`を新設して式を1箇所に集約**。除算式・物理/魔法・`atkspd`・`haste`・会心・回復の`mag`参照） |
 | レベルの役割転換①：**割り振りポイント** | `EXEC_LEVEL_ROLE_SHIFT.md` | ✅ 完了（`character_nodes.json` 180件・`stat_node_screen`新規・`GameManager`にノード関数7本。**`stat_growth_formula`が`"base"`になり、レベルではステータスが伸びなくなった**。セーブ`v3`） |
 | レベルの役割転換②：**スキル解放と選択**（スコープA′） | `EXEC_SKILL_SELECT.md` | ✅ 完了（ログ2項目・セーブ4項目・画面13項目。**`battle_controller.gd`のマスター直読みを`get_battle_skills()`へ付け替えたのが本題**。`skill_select_screen`新規・`growth.skills.slots`に2枠。**`save_version`は3のまま**） |
+| スキルの器の付け替え（**段階1**） | `EXEC_SKILL_TEMPLATE_PHASE1.md` | ✅ 完了（2026-08-16。`type`廃止・4軸へ。新規`skill_schema.gd`／`skill_activation.gd`、`skill_resolver.gd`を作り直し。**挙動不変**） |
+| **スキルの中身12個**（3人 × Lv5/10/15/20） | `EXEC_SKILL_CONTENT.md` | ✅ 完了（2026-08-16。**`.gd`を1行も触らないタスク**。`skills.json` 6→18件・`characters.json`の候補6件×3人・`ja.csv` 12行。**段階1の受け口が全部初めて実コードを通った**） |
 
 ### 戦闘画面でできること
 
 - 味方3人（剣士・弓兵・僧侶）のオートバトル。接近・通常攻撃・ターゲット自動選択
 - 5ウェーブ連戦。ウェーブ間はHPとスキルのクールダウンを引き継ぎ、位置だけ左端に戻る
-- スキル6つを手動発動（single / aoe / heal）。キャラごとに2つ、クールダウン制
+- **スキルは18候補**（キャラごとに6つ。Lv1×2 ＋ Lv5/10/15/20 で1つずつ解放）。**そこから2つ選んで持ち込み、手動発動**。クールダウン制
+  - 単体／全体／HPの高い敵・低い敵・遠い敵を狙う・2体同時・単体回復・吸血・自傷・確定ダメージ・距離やHPや`def`/`mdef`でのスケールが入っている
 - **チャージスキル**（剣士の横薙ぎ）。押している間ためて離すと発動。1.0秒でジャスト（±0.15秒）
 - 最終ウェーブのボス（紫・1.5倍サイズ・`stat_overrides`）
 - 勝敗判定、報酬反映、ステージクリア記録、リトライ
@@ -338,7 +341,7 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 ### スキル選択の回で見つかったもの（2026-08-15）
 
-- **`skills.json`は6件のまま・全部`unlock_level: 1`。** 1キャラ2個・枠2個なので、**画面上は実質選ぶ余地が無い**（入れ替えしかできない）。「Lv%d で解放」のグレー表示（`ui_skill_select_locked`）も**現データでは一度も出ない＝未検証**。スキル12個（スコープB）で初めて動く
+- ~~**`skills.json`は6件のまま・全部`unlock_level: 1`。**「Lv%d で解放」のグレー表示（`ui_skill_select_locked`）も一度も出ない＝未検証~~ **✅ 解消（2026-08-16・`EXEC_SKILL_CONTENT.md`）。** 18件になり、6候補から2つ選ぶ画面が成立した。グレー表示も実機で出た
 - **`SceneManager`のログが`[SceneManager] DebugOverlay を生成した（[F4] で表示）`と出るが、`F4`は`_unhandled_input`に届かない。** 実際の切替は`0`キー。**案内文が実態と食い違っている**
 - **セーブの`current_chapter`が`1.0`（float）。** `state_keys.gd` 97行のコメントは`int`と書いてある。`.gd`側にこのキーを読み書きするコードが無く、`int()`正規化も通っていない（`CLAUDE.md` 3番）。実害はまだ無い
 - **`DATA_SCHEMA.md`に別タスク由来のズレが2件残っていた。** 4-3の`stats`が4軸のまま（実装は10軸）／~~3-1のスキル定義が`name`表記で`name_key`・`attack_type`・`charge`を欠く~~ **✅ 3-1は段階1の回で差し替え済み（2026-08-16）。残るのは4-3**
@@ -348,10 +351,23 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 ### スキルの器の付け替え（段階1）の回で見つかったもの（2026-08-16）
 
 - **`DATA_SCHEMA.md` 3-1 のダメージ計算式が古い。** `最終ダメージ = max(1, 攻撃力 - 防御力)`と書いてあるが、**実際は除算**（`battle_formula.gd` 62〜67行の`max(1, floor(power * multiplier * 100 / (100 + def)))`）。3-1のスキル定義ブロック自体は**この回で直した**（`EXEC_SKILL_TEMPLATE_PHASE1.md` §10）が、式の行は範囲外なので残した
-- **`sort`の`farthest` / `lowest_hp` / `highest_hp`は実装したが、使うスキルが1件も無いので実機で1度も通っていない**（`EXEC_SKILL_TEMPLATE_PHASE1.md` §11 C-5）。スキル12個を書く回で初めて画面に出る
-- **`target.range`と介入点（`_step_crit_override` / `_step_reduction`）も利用者ゼロの受け口のまま。** `range`の数値は座標定数（味方200・敵900）とセットで後決め（PLAN 4-5）
+- ~~**`sort`の`farthest` / `lowest_hp` / `highest_hp`は実装したが、使うスキルが1件も無いので実機で1度も通っていない**~~ **✅ 解消（2026-08-16・`EXEC_SKILL_CONTENT.md`）**
+- **`target.range`と介入点（`_step_crit_override` / `_step_reduction`）は利用者ゼロの受け口のまま。** ⚠ **12スキルを書いても、この2つだけは埋まらなかった。** `range`の数値は座標定数（味方200・敵900）とセットで後決め（PLAN 4-5）、介入点は段階3
 - ~~**`PLAN_SKILL_TEMPLATE.md` 5-2 の表と17章が、実装（決定1-5＝省略不可）と食い違ったまま**~~ **✅ 人間の指示で修正済み（2026-08-16）。** 5-2の省略時欄・5-2の`heal`の注記・17章の移行表と1文・17-1の表に反映
 - ⚠ **`PLAN_SKILL_TEMPLATE.md` 21章の未確定4件が、実は段階1のEXECで決着している**（`sort`5値を全部実装／リソースは作らない／遮蔽は入れない／`count`の上限は設けない）。**PLAN側は未確定のまま。次にPLANを触るときに畳むこと**
+
+### スキルの中身12個の回で見つかったもの（2026-08-16）
+
+- ⚠ **`scale_from`は「和」しか書けない**（`PLAN_SKILL_TEMPLATE.md` 5-5-1 が `multiplier × Σ(weight × 変数)` と決めている）。**`atk × (1 + hp_lost_ratio)` が書けない。** よって割合の変数（`hp_ratio` / `hp_lost_ratio`）は**必ず「レベルで伸びない定数項」**にしかならない。
+  - 今回の回避：`skill_last_stand`は割合ではなく**生値の`hp_lost`**を使う（最大HPに比例するので`hp`に振れば伸びる）
+  - ⚠ **`skill_judgement`は回避できていない**（「対象が元気なほど痛い」は対象側の割合でしか書けない）
+  - **器の話なので`PLAN_SKILL_TEMPLATE.md`側の判断。** 候補は「`scale_from`の項に積の欄を足す」か「変数表に合成済みの行を足す」（後者はDLCで組み合わせぶん増えるので筋が悪い）
+- ⚠ **`PLAN_SKILL_TEMPLATE.md` 5-5-2 の「10軸の想定レンジ 50〜500」が実データと合わない。** Lv1の実データは`atk 14〜18` / `mag 16` / `def 3〜6`。**「割合の`weight`は数百」をそのまま使うと式が割合に支配される。** `EXEC_SKILL_CONTENT.md`は実データに合わせて下げてある（`hp_ratio × 40.0`）。**PLAN側は直していない**
+- **`target.range`が18件とも未設定。** 座標定数を決める回に、18件まとめて入れる（PLAN 4-5）
+- **倍率と`weight`は全部仮。** 特に怪しいのが3件：`skill_judgement`の`hp_ratio × 40.0`／`skill_long_shot`の`distance × 0.08`（距離0で28・距離700で140の5倍差）／`skill_shield_bash`の`def × 2.0`（`def`に振らないとただの弱い攻撃）
+- **`skill_reckless_strike`（捨て身の一撃）で自死できる。** 残HPが最大HPの12%未満で撃つと使用者が死ぬ（`EXEC_SKILL_CONTENT.md` 決定1-4で「止めない」と決めた）。⚠ **止めるなら`SkillActivation.blocked_reason()`に1行足すだけで、発動可否の一箇所化の実例になる**
+- **Lv15 / Lv20 のスキルは、研究でレベル上限を上げないと到達できない**（`base_level_cap` 10 ＋ `level_cap_unlock` 5×4 ＝ 最大30）
+- **段階2・段階3が入ったら12個を見直す。** ⚠ **`skill_rapid_volley`（速射・2体同時）は、段階2で「2連射」に書き換える最有力候補**（`effects[]`を2つ並べて片方に`trigger: "delay:N"`）。**段階2の`delay`を実スキルで検証する道具になる**
 
 ---
 
@@ -407,6 +423,18 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`SkillSchema`（新規・語彙とロード時の全件検証）** と **`SkillActivation`（新規・発動可否を1箇所）** が入った
 - `SkillResolver` は**入口2つ**（`select_targets()` / `resolve()`）に作り直し、ダメージは**2段構え**（確定は1回だけ）
 - **挙動は変わっていない。** 唯一の意図した差は、対象が0体のときクールダウンを回さなくなったこと（EXEC 決定1-6）
+
+### ~~次：**スキルの中身12個**（3人 × Lv5/10/15/20）~~ ✅ **完了（2026-08-16）**
+
+**指示書は `EXEC_SKILL_CONTENT.md`、決定台帳は `PLAN_SKILL_CONTENT.md`（新設）。実機確認まで通過した。**
+
+⚠ **段階2の前にこのタスクを挟んだのは人間の判断。** 段階1で足した受け口が**実機で1度も通っていない**まま段を積まないため。
+
+- `skills.json` **6件 → 18件**。`characters.json` の候補が各キャラ6件。`ja.csv` に12行
+- ⚠ **`.gd` を1行も触っていない**（マスターデータと翻訳だけ）
+- **段階1の受け口が初めて実コードを通った**：`sort`の`farthest`/`lowest_hp`/`highest_hp`・`attack_type: "true"`・`scale_from`のHP派生と`distance`と`of: target`・`count: 2`・効果ごとの`target`上書き・1スキル2効果・単体回復
+- **「Lv%d で解放」のグレー表示が初めて画面に出た**（`ui_skill_select_locked`。これまで一度も出たことがなかった）
+- ⚠ **埋まらなかった受け口は2つだけ**：`target.range`（座標定数待ち）と介入点（段階3）
 
 ### 次：**実行中のスキル層と `trigger`（段階2）**
 

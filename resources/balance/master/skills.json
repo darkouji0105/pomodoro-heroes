@@ -27,6 +27,73 @@
 			{ "type": "damage", "multiplier": 0.9, "attack_type": "physical", "scale_from": "atk" }
 		]
 	},
+	"skill_reckless_strike": {
+		"name_key": "ui_battle_skill_reckless_strike",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 5,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{ "type": "damage", "multiplier": 3.4, "attack_type": "physical", "scale_from": "atk" },
+			{
+				"type": "damage",
+				"target": { "team": "self" },
+				"attack_type": "true",
+				"multiplier": 0.12,
+				"scale_from": [ { "source": "hp", "of": "user", "weight": 1.0 } ]
+			}
+		]
+	},
+	"skill_last_stand": {
+		"name_key": "ui_battle_skill_last_stand",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 10,
+		"cooldown_sec": 9.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{
+				"type": "damage",
+				"attack_type": "physical",
+				"multiplier": 1.6,
+				"scale_from": [
+					{ "source": "atk", "of": "user", "weight": 1.2 },
+					{ "source": "hp_lost", "of": "user", "weight": 0.15 }
+				]
+			}
+		]
+	},
+	"skill_shield_bash": {
+		"name_key": "ui_battle_skill_shield_bash",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 15,
+		"cooldown_sec": 7.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{
+				"type": "damage",
+				"attack_type": "physical",
+				"multiplier": 1.5,
+				"scale_from": [
+					{ "source": "atk", "of": "user", "weight": 0.8 },
+					{ "source": "def", "of": "user", "weight": 2.0 }
+				]
+			}
+		]
+	},
+	"skill_helm_splitter": {
+		"name_key": "ui_battle_skill_helm_splitter",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 20,
+		"cooldown_sec": 14.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "highest_hp", "count": 1 },
+		"effects": [
+			{ "type": "damage", "multiplier": 2.2, "attack_type": "true", "scale_from": "atk" }
+		]
+	},
 	"skill_snipe": {
 		"name_key": "ui_battle_skill_snipe",
 		"user_character_id": "char_archer",
@@ -49,6 +116,66 @@
 			{ "type": "damage", "multiplier": 1.2, "attack_type": "physical", "scale_from": "atk" }
 		]
 	},
+	"skill_finisher": {
+		"name_key": "ui_battle_skill_finisher",
+		"user_character_id": "char_archer",
+		"unlock_level": 5,
+		"cooldown_sec": 7.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "lowest_hp", "count": 1 },
+		"effects": [
+			{ "type": "damage", "multiplier": 3.0, "attack_type": "physical", "scale_from": "atk" }
+		]
+	},
+	"skill_long_shot": {
+		"name_key": "ui_battle_skill_long_shot",
+		"user_character_id": "char_archer",
+		"unlock_level": 10,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{
+				"type": "damage",
+				"attack_type": "physical",
+				"multiplier": 2.0,
+				"scale_from": [
+					{ "source": "atk", "of": "user", "weight": 1.0 },
+					{ "source": "distance", "weight": 0.08 }
+				]
+			}
+		]
+	},
+	"skill_rapid_volley": {
+		"name_key": "ui_battle_skill_rapid_volley",
+		"user_character_id": "char_archer",
+		"unlock_level": 15,
+		"cooldown_sec": 8.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 2 },
+		"effects": [
+			{
+				"type": "damage",
+				"attack_type": "physical",
+				"multiplier": 1.3,
+				"scale_from": [
+					{ "source": "atk", "of": "user", "weight": 1.0 },
+					{ "source": "atkspd", "of": "user", "weight": 1.5 }
+				]
+			}
+		]
+	},
+	"skill_piercing_arrow": {
+		"name_key": "ui_battle_skill_piercing_arrow",
+		"user_character_id": "char_archer",
+		"unlock_level": 20,
+		"cooldown_sec": 13.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "farthest", "count": 1 },
+		"effects": [
+			{ "type": "damage", "multiplier": 2.4, "attack_type": "true", "scale_from": "atk" }
+		]
+	},
 	"skill_healing_light": {
 		"name_key": "ui_battle_skill_healing_light",
 		"user_character_id": "char_priest",
@@ -69,6 +196,72 @@
 		"target": { "team": "enemy", "mode": "select", "sort": "all" },
 		"effects": [
 			{ "type": "damage", "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag" }
+		]
+	},
+	"skill_mend": {
+		"name_key": "ui_battle_skill_mend",
+		"user_character_id": "char_priest",
+		"unlock_level": 5,
+		"cooldown_sec": 6.0,
+		"activation": "instant",
+		"target": { "team": "ally", "mode": "select", "sort": "lowest_hp", "count": 1 },
+		"effects": [
+			{ "type": "heal", "multiplier": 2.2, "scale_from": "mag" }
+		]
+	},
+	"skill_drain_life": {
+		"name_key": "ui_battle_skill_drain_life",
+		"user_character_id": "char_priest",
+		"unlock_level": 10,
+		"cooldown_sec": 9.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{ "type": "damage", "multiplier": 1.6, "attack_type": "magic", "scale_from": "mag" },
+			{
+				"type": "heal",
+				"target": { "team": "self" },
+				"multiplier": 0.8,
+				"scale_from": "mag"
+			}
+		]
+	},
+	"skill_purge_wave": {
+		"name_key": "ui_battle_skill_purge_wave",
+		"user_character_id": "char_priest",
+		"unlock_level": 15,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "all" },
+		"effects": [
+			{
+				"type": "damage",
+				"attack_type": "magic",
+				"multiplier": 1.0,
+				"scale_from": [
+					{ "source": "mag", "of": "user", "weight": 0.7 },
+					{ "source": "mdef", "of": "user", "weight": 1.5 }
+				]
+			}
+		]
+	},
+	"skill_judgement": {
+		"name_key": "ui_battle_skill_judgement",
+		"user_character_id": "char_priest",
+		"unlock_level": 20,
+		"cooldown_sec": 14.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{
+				"type": "damage",
+				"attack_type": "magic",
+				"multiplier": 1.4,
+				"scale_from": [
+					{ "source": "mag", "of": "user", "weight": 1.2 },
+					{ "source": "hp_ratio", "of": "target", "weight": 40.0 }
+				]
+			}
 		]
 	}
 }
