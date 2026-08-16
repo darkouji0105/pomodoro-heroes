@@ -40,13 +40,13 @@
 		"crit_dmg": 150,
 		"attack_type": "physical",
 		"attack_range": 50,
-		"attack_interval_sec": 1.0,
+		"attack_interval_sec": 0.7,
 		"basic_attack": {
 			"effects": [
 				{
 					"type": "damage",
 					"delivery": "melee",
-					"multiplier": 1.0,
+					"multiplier": 0.85,
 					"attack_type": "physical",
 					"scale_from": "atk"
 				}
@@ -67,13 +67,13 @@
 		"crit_dmg": 150,
 		"attack_type": "magic",
 		"attack_range": 70,
-		"attack_interval_sec": 1.8,
+		"attack_interval_sec": 2.2,
 		"basic_attack": {
 			"effects": [
 				{
 					"type": "damage",
 					"delivery": "magic",
-					"multiplier": 1.0,
+					"multiplier": 1.5,
 					"attack_type": "magic",
 					"scale_from": "mag",
 					"trigger": "event:hit"

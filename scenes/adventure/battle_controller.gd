@@ -465,9 +465,16 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 		return
 	# ⚠ 待ち行列を通す。直接 resolve() を呼ぶと、飛んでいる矢が待ち行列に乗らず、
 	#   飛び道具の無効化（cancel_by_delivery）が通常攻撃だけに効かなくなる。
-	# ⚠ 対象は固定で渡す。cast() に選ばせると sort: nearest が別人を選ぶ。
 	# ⚠ クールダウンは回さない。通常攻撃の間隔は attack_timer が持つ。
-	_skill_runtime.cast(unit, BASIC_ATTACK_SKILL_ID, unit.basic_attack, 1.0, [target.unit_id])
+	#
+	# ⚠ target を書いていない通常攻撃は、対象を固定で渡す。cast() に選ばせると
+	#   「歩いて近づいた相手」ではなく sort: nearest が選んだ相手に当たる。
+	# ⚠ target を書いてある通常攻撃は範囲攻撃（僧侶など）。固定を渡さず cast() に
+	#   選ばせる。⚠ ここで両方渡すと固定が勝ち、書いた target が黙って無視される。
+	var fixed_ids: Array = []
+	if not unit.basic_attack.has("target"):
+		fixed_ids = [target.unit_id]
+	_skill_runtime.cast(unit, BASIC_ATTACK_SKILL_ID, unit.basic_attack, 1.0, fixed_ids)
 
 
 func _pop_damage(target: BattleUnit, amount: int, is_crit: bool = false) -> void:

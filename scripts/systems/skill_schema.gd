@@ -181,8 +181,13 @@ static func scale_sources() -> Array:
 #
 # 【なぜ入口を分けるか】通常攻撃には target が無い。狙う相手は「歩いて近づいた
 # 相手」（BattleUnit.target_unit_id）で決まっており、撃つ瞬間に選び直さない。
-# ⚠ validate() に通すと target が必須なので、書いても効かない欄を1つ増やすことに
-#   なる。このプロジェクトで何度も刺さっている形なので、欄そのものを持たせない。
+# ⚠ validate() に通すと target が必須になるが、通常攻撃は「書かなければ
+#   歩いて近づいた相手を撃つ」が既定。必須にすると9件とも同じ target を
+#   書き写すことになり、書いても効かない欄が増える。
+#
+# 【target を書いたとき】範囲攻撃になる（人間の決定・2026-08-16）。
+# ⚠ 書いたユニットだけ「歩いて近づいた相手」以外にも当たる。射程の判定は
+#   変わらない（近づいた相手が attack_range に入ったら発動する）。
 #
 # ⚠ 効果1件ぶんの検証は _validate_effect() を共用する。ここに2本目の判定を
 #   書かないこと（scale_from や attack_type の規則が片方だけ古くなる）。
@@ -194,9 +199,19 @@ static func validate_basic_attack(owner_id: String, data: Dictionary) -> Array:
 		return issues
 
 	# ⚠ スキルの欄を書いても効かない。黙って無視すると「書いたのに変わらない」になる。
-	for field: Variant in ["target", "activation", "charge", "cooldown_sec", "unlock_level", "phases"]:
+	for field: Variant in ["activation", "charge", "cooldown_sec", "unlock_level", "phases"]:
 		if data.has(field):
 			_err(issues, owner_id, "basic_attack に %s は書けない（通常攻撃はスキルではない）" % str(field))
+
+	# target は省略可。書いた場合だけ検証する（範囲攻撃）。
+	# ⚠ range は書けない。通常攻撃の射程は characters.json の attack_range が持つ。
+	#   2箇所に射程があると、どちらが効いているか実機でしか分からなくなる。
+	if data.has("target"):
+		var raw_target: Variant = data.get("target", null)
+		if not (raw_target is Dictionary):
+			_err(issues, owner_id, "basic_attack.target が Dictionary でない")
+		else:
+			_validate_target(issues, owner_id, raw_target as Dictionary, "basic_attack.target", false)
 
 	var raw_effects: Variant = data.get("effects", null)
 	if not (raw_effects is Array) or (raw_effects as Array).is_empty():
