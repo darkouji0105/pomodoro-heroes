@@ -69,6 +69,7 @@ func _build_ui() -> void:
 		"[J] 味方全員に物理の一撃（威力%d）" % DEBUG_DAMAGE_POWER,
 		"[M] 味方全員に魔法の一撃（威力%d）" % DEBUG_DAMAGE_POWER,
 		"[S] スキルCD全リセット",
+		"[P] 状態の一覧をコンソールへ出す（1回だけ）",
 		"[V] 強制的に勝利  [B] 強制的に敗北",
 		"※ 2行目の dmg は非会心のダメージ（会心分は含まない）",
 	])
@@ -154,9 +155,7 @@ func _format_unit(unit: BattleUnit) -> String:
 #   「黙って剥がれた」「二重に付いた」「消えない」はどれもエラーが出ない。
 # ⚠ status_id をそのまま出す。翻訳キーを引かない（検証用。ja.csv を触らない）。
 func _format_statuses(unit: BattleUnit) -> String:
-	if _controller == null or not _controller.has_method("get_status_registry"):
-		return ""
-	var registry: StatusRegistry = _controller.get_status_registry()
+	var registry: StatusRegistry = _get_registry()
 	if registry == null:
 		return ""
 	var entries: Array = registry.query({
@@ -179,6 +178,105 @@ func _format_statuses(unit: BattleUnit) -> String:
 			text += " (until:%s)" % str(entry.get("life", ""))
 		parts.append(text)
 	return "    状態: " + " ".join(parts)
+
+
+# 状態の器。BattleController が持っていなければ null。
+func _get_registry() -> StatusRegistry:
+	if _controller == null or not _controller.has_method("get_status_registry"):
+		return null
+	return _controller.get_status_registry()
+
+
+# ============================================================
+# コンソール出力（[P]）
+# ============================================================
+
+# いま器に入っている状態を、押した瞬間に1回だけ出す。
+#
+# ⚠ 毎フレーム出さないこと。出力パネルが埋まると本物の異常が見えなくなる。
+# ⚠ パネルの3行目（_format_statuses）と役割が違う。あちらは host: unit だけを
+#   ユニットの行の下に出す。ここは器の中身を丸ごと出すので、host: point /
+#   host: battle も出る（どちらも画面には一切出ない）。
+# ⚠ 0件でも出すこと。「押したのに何も出ない」と「0件だった」を区別できなくなる。
+func _print_statuses() -> void:
+	var registry: StatusRegistry = _get_registry()
+	if registry == null:
+		print("[BattleDebug] 状態: registry が取れない（controller に get_status_registry が無い）")
+		return
+
+	var entries: Array = registry.snapshot()
+	print("[BattleDebug] ---- 状態 %d件（speed %.0fx）----" % [entries.size(), Engine.time_scale])
+	for entry: Dictionary in entries:
+		print("  " + _format_entry_line(entry))
+	_print_stat_diffs()
+	print("[BattleDebug] ---- ここまで ----")
+
+
+# 状態1件を1行にする。⚠ 器が持つ欄をそのまま出す。ここで計算し直さない。
+func _format_entry_line(entry: Dictionary) -> String:
+	var host: String = str(entry.get("host", ""))
+	var text: String = "#%d %s %s host=%s" % [
+		int(entry.get("instance_id", 0)),
+		str(entry.get("status_id", "")),
+		str(entry.get("kind", "")),
+		host,
+	]
+	if host == SkillSchema.HOST_UNIT:
+		text += "(%s)" % str(entry.get("host_unit_id", ""))
+	elif host == SkillSchema.HOST_POINT:
+		text += "(x=%.1f)" % float(entry.get("host_x", 0.0))
+
+	text += " 付与=%s stack=%s" % [str(entry.get("source_unit_id", "")), str(entry.get("stack", ""))]
+
+	if str(entry.get("life", "")) == StatusRegistry.LIFE_SEC:
+		text += " 経過 %.2f/%.2f秒" % [
+			float(entry.get("elapsed", 0.0)), float(entry.get("duration_sec", 0.0))
+		]
+	else:
+		text += " until=%s 経過 %.2f秒" % [str(entry.get("life", "")), float(entry.get("elapsed", 0.0))]
+
+	if str(entry.get("kind", "")) == StatusRegistry.KIND_BUFF:
+		text += " | %s %+d" % [str(entry.get("stat", "")), int(entry.get("value", 0))]
+	else:
+		var total: int = int(entry.get("fires_total", 0))
+		var total_text: String = "無制限" if total == StatusRegistry.FIRES_UNLIMITED else str(total)
+		var damage_effect: Dictionary = entry.get("damage_effect", {})
+		text += " | 周期 %.2f秒 発火 %d/%s mult %.2f %s" % [
+			float(entry.get("interval_sec", 0.0)),
+			int(entry.get("fires_done", 0)),
+			total_text,
+			float(damage_effect.get("multiplier", 0.0)),
+			str(damage_effect.get("attack_type", "")),
+		]
+	return text
+
+
+# 補正が乗っているユニットだけ、素の値と実効値の両方を出す。
+#
+# ⚠ これが無いと検証にならない。get_stat() は足したあとの値しか返さないので、
+#   F3 パネルの数字だけでは「バフが乗ったのか、元からその値なのか」が分からない。
+# ⚠ attack_interval_sec も出す。atkspd のバフは10軸の行ではなく1行目に効くため。
+func _print_stat_diffs() -> void:
+	if _controller == null:
+		return
+	var session: BattleSession = _controller.get_session()
+	if session == null:
+		return
+	for u in session.party_units + session.enemy_units:
+		if not (u is BattleUnit):
+			continue
+		var unit: BattleUnit = u as BattleUnit
+		var parts: Array[String] = []
+		for stat_key in GameManager.get_stat_keys():
+			var base_value: int = unit.get_base_stat(str(stat_key))
+			var effective: int = unit.get_stat(str(stat_key))
+			if base_value != effective:
+				parts.append("%s %d→%d" % [str(stat_key), base_value, effective])
+		if parts.is_empty():
+			continue
+		print("  補正 %s(%s): %s | 攻撃間隔 %.3f秒" % [
+			_unit_label(unit), unit.unit_id, " ".join(parts), unit.attack_interval_sec
+		])
 
 
 # 画面に出ている名前で表示する。unit_id（party_0 / enemy_1_0）だと
@@ -248,6 +346,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_call_controller("debug_kill_all_enemies")
 		KEY_S:
 			_call_controller("debug_reset_cooldowns")
+		KEY_P:
+			_print_statuses()
 		KEY_J:
 			_call_controller("debug_damage_party", [DEBUG_DAMAGE_POWER, BattleUnit.ATTACK_TYPE_PHYSICAL])
 		KEY_M:

@@ -143,6 +143,8 @@
 | スキルの器の付け替え（**段階1**） | `EXEC_SKILL_TEMPLATE_PHASE1.md` | ✅ 完了（2026-08-16。`type`廃止・4軸へ。新規`skill_schema.gd`／`skill_activation.gd`、`skill_resolver.gd`を作り直し。**挙動不変**） |
 | **スキルの中身12個**（3人 × Lv5/10/15/20） | `EXEC_SKILL_CONTENT.md` | ✅ 完了（2026-08-16。**`.gd`を1行も触らないタスク**。`skills.json` 6→18件・`characters.json`の候補6件×3人・`ja.csv` 12行。**段階1の受け口が全部初めて実コードを通った**） |
 | **実行中のスキル層と `trigger`（段階2）** | `EXEC_SKILL_TEMPLATE_PHASE2.md` | ✅ 完了（2026-08-16。**`skill_runtime.gd` 新設**＝待ち行列1本・発火経路1本・取り消し3種。`resolve()` が対象IDを外から受け取る形に。`delivery`（種別タグ）を新設。**速射が2連射になった＝多段と遅延が実際に動いた**） |
+| **状態の器と `buff` / `dot`（段階3の前半）** | `EXEC_SKILL_TEMPLATE_PHASE3A.md` | ✅ 完了（2026-08-16。**`status_registry.gd` 新設**。`stack` / `until` を新設、`BattleUnit.get_stat()` が補正込みに、`resolve()` の引数が5つに。⚠ **実装した回はロード時検証しか通っておらず、挙動は次の回で初めて確認した**） |
+| **状態の検証手段**（コンソール出力 ＋ テストシーン） | （EXECなし。旧`NEXT_STEPS.md`） | ✅ 完了（2026-08-16。F3 パネルに `P` キー＝`snapshot()` を1回だけ `print`・素の値→実効値も出す。**`tests/battle/` を新設**して `test_status_registry` 13項目。**NG 0件**） |
 
 ### 戦闘画面でできること
 
@@ -273,7 +275,8 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
-| `db7b1e7` | `feat(skill): 状態の器と buff/dot（段階3前半・stack と until）`（12ファイル。新規は `status_registry.gd`。`stack` / `until` を新設、`BattleUnit.get_stat()` が補正込みに、`resolve()` の引数が5つに。⚠ **通過したのはロード時検証のみ。EXEC §13-B の11項目は未確認**） | `EXEC_SKILL_TEMPLATE_PHASE3A.md` |
+| **（ハッシュ未記録）** | `test(skill): 状態の器の検証手段（F3パネルの P キー ＋ テストシーン13項目）`（`battle_debug_panel.gd` に `P` キー、`tests/battle/` を新設。**13項目 NG 0件で段階3前半が実機で確認済みになった**） | （EXECなし） |
+| `db7b1e7` | `feat(skill): 状態の器と buff/dot（段階3前半・stack と until）`（12ファイル。新規は `status_registry.gd`。`stack` / `until` を新設、`BattleUnit.get_stat()` が補正込みに、`resolve()` の引数が5つに。⚠ **この時点では通過したのがロード時検証のみで、挙動は次のコミットで初めて確認した**） | `EXEC_SKILL_TEMPLATE_PHASE3A.md` |
 | `9bb357b` | `feat(skill): 実行中のスキル層と trigger（段階2・多段と遅延）`（9ファイル。新規は `skill_runtime.gd`。`resolve()` の引数が変わり、`delivery` を新設。速射が2連射に） | `EXEC_SKILL_TEMPLATE_PHASE2.md` |
 | `b58a434` | `feat(skill): 3人ぶんの残り12スキルを追加（Lv5/10/15/20 解放）`（8ファイル。⚠ **`.gd` を1行も触っていない**。`skills.json` 6→18件・`characters.json`・`ja.csv` ＋ `PLAN_SKILL_CONTENT.md` / `EXEC_SKILL_CONTENT.md` 新設 ＋ `PROJECT_STATUS.md` / `NEXT_STEPS.md` を更新） | `EXEC_SKILL_CONTENT.md` |
 | `078428d` | `docs(skill): PLAN の scale_from を省略不可に統一（実装との食い違いを解消）`（**コードは触っていない**） | `PLAN_SKILL_TEMPLATE.md` 5-2・17章 |
@@ -337,6 +340,7 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`PomodoroConfig.reflection_time_limit_sec`と`reflection_min_chars`が使われていない。** `pomodoro.gd`が`const REFLECTION_TIME_LIMIT_SEC: float = 120.0`をハードコードしている。**数値管理ルール違反。** 値が一致しているため実害は出ていない（`EXEC_SOUND.md` §11）
 - **音量設定・ミュートのUIが無い。** `SoundConfig`の`master_volume_db` / `se_volume_db` / `bgm_volume_db`が起動時に各バスへ適用されるだけ。**設定画面を作る回に、セーブ構造ごと決める**
 - **BGMは鳴らせない。** `SoundManager`に`play_bgm()`は無い。バス`BGM`と音量欄だけ用意済み
+- **状態の検証用のものもリリース前に消す**（`battle_debug_panel.gd` の `P` キー＝`_print_statuses()` / `_format_entry_line()` / `_print_stat_diffs()` と、`tests/battle/` フォルダごと、`battle_controller.get_status_registry()`）。**デバッグパネルは `OS.is_debug_build()` のガード内だがコードは残る**
 - **デバッグオーバーレイはリリース前に消す**（`res://tests/debug_overlay.gd`と`scene_manager.gd`の`_ready()`・`_spawn_debug_overlay()`・`DEBUG_OVERLAY_SCRIPT`）。`OS.is_debug_build()`のガード内だがコードは残る。詳細は`EXEC_STATS_10_AXES.md` §11-2
 - **`ja.csv`に`ui_common_yes`と`ui_common_no`が重複して2行ずつある。** 10軸のタスクより前から存在する（`git show HEAD`で確認済み）。実害は出ていないが、翻訳表の重複はキーを増やすほど探しにくくなる
 - **`save_version`の出どころが3箇所に散っている**（`save_manager.gd`の`CURRENT_SAVE_VERSION` / `initial_state_config.tres` / `game_manager.gd`の`_empty_state_template()`）。**上げるときは3つとも上げないと、新規開始したセーブが次回起動で自分に弾かれる。** 1本化は別タスク
@@ -406,7 +410,8 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
   - `query()` の `source_unit_id` 絞り … 同上（自分が付けた毒だけ強化）
   - `StatusRegistry.clear_for_unit()` … 死亡の掃除は `tick()` がやる（死亡を知らせるシグナルが無いため）
 - **`unit_id` からユニットを引く `_find_unit()` が3ファイルに同じ形で3本ある**（`skill_resolver` / `skill_runtime` / `status_registry`）。`BattleSession` に寄せるかは別途
-- ⚠ **状態は画面に何も出ない。** F3 パネルの3行目が唯一の確認手段。**しかも `Label` に書いているだけで `print` を出していないので、Ziva（コンソールを読む）からは見えない**
+- ⚠ **状態は画面に何も出ない。** F3 パネルの3行目が唯一の確認手段だった。~~**しかも `Label` に書いているだけで `print` を出していないので、Ziva（コンソールを読む）からは見えない**~~ **✅ 解消（2026-08-16）。** `P` キーで `snapshot()` を `print` するようにした
+- ⚠ **`stack` の5部品のうち4つが未実装**（上限・消え方・再付与・閾値）。**`independent` に上限が無いので、CD より `duration` が長いスキルは無限に積める**（UIが先に音を上げる）
 
 ---
 
@@ -487,9 +492,9 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **中断は正常系なので警告を出さない。タイムアウトだけが異常で、発火させたうえで `push_warning`**
 - **速射が2体 × 2連射になった**（`delay:0.35`）＝多段と遅延が実際に動いた
 
-### ~~次：**状態の器（段階3の前半）**~~ 🟡 **実装は入った。実機での挙動確認が残っている（2026-08-16）**
+### ~~次：**状態の器（段階3の前半）**~~ ✅ **完了（2026-08-16）。検証手段を作って挙動を確認済み**
 
-**指示書は `EXEC_SKILL_TEMPLATE_PHASE3A.md`。** ⚠ **通過したのはロード時検証だけ**（`skills validated: 18 entries, 0 errors, 0 warnings`）。**EXEC §13-B の11項目は未確認。**
+**指示書は `EXEC_SKILL_TEMPLATE_PHASE3A.md`。** ロード時検証（`skills validated: 18 entries, 0 errors, 0 warnings`）に加え、**`tests/battle/test_status_registry.tscn` の13項目が NG 0件で通った**（下の「状態の検証手段」の節）。
 
 - **`scripts/systems/status_registry.gd` を新設した。** 状態の器（ユニット／座標／戦場に紐づく「残るもの」）
 - ⚠ **`SkillRuntime` と捨てる基準が正反対。** `SkillRuntime.tick()` は**使用者**が死んだら捨て、`StatusRegistry.tick()` は**宿主**が死んだら捨てる。**付与者の死では捨てない**（PLAN 7-2）
@@ -500,14 +505,18 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **能力値の補正は `BattleUnit.get_stat()` の1本に入る。** F3 パネルも `scale_from` も `BattleFormula` も自動でバフ込みになる
 - **検証用に3スキルへ効果を足した**（`skill_power_slash` に atk バフ・`skill_holy_ray` に dot・`skill_wide_sweep` にチャージ中の def バフ）。**スキルは18件のまま**
 
-### 次：**状態の検証手段（コンソール出力 ＋ テストシーン）**
+### ~~次：**状態の検証手段（コンソール出力 ＋ テストシーン）**~~ ✅ **完了（2026-08-16）**
 
-⚠ **段階3の後半（購読・条件）を先に始めないこと。** 器が実機未検証のまま購読を乗せると、不具合が出たときにどちらの層かの切り分けができない。
+**器の実装（段階3の前半）が入っただけで挙動を1つも確かめていなかったので、確かめる手段を先に作った。** 状態の事故は全部無音（黙って剥がれる／二重に付く／消えない／最後の1発が落ちる）で、しかも画面にほとんど出ない。
 
-- **F3 パネルにキーを1本足し、状態の一覧をコンソールへ1回だけ吐く**（毎フレームは出さない）。⚠ **今は `Label` にしか出ておらず、Ziva から見えない**
-- **`tests/test_status_registry.gd` + `.tscn`** … `RefCounted` だけで完結するのでシーンツリー不要。`stack` 2種・端数の切り捨て・速度8倍で1フレームに2発跨ぐ・宿主と付与者の死・補正の組み直し・赤で弾く条件
+- **F3 パネルに `P` キー**（`_print_statuses()`）。押した瞬間に1回だけ、`snapshot()` を丸ごと出す。⚠ **パネルの3行目に出ない `host: point` / `host: battle` もここには出る**
+  - **素の値 → 実効値**を並べて出す（`_print_stat_diffs()`）。`get_stat()` は足したあとしか返さないので、**パネルの数字だけでは「バフが乗った」と「元からその値」を区別できない**
+- **`tests/battle/test_status_registry.gd` + `.tscn`（新規フォルダ）** … 13項目。`RefCounted` だけで完結するのでシーンツリー不要。**NG 0件で通った**（赤は「弾かれるのが正解」の3項目だけ）
+  - `stack` 2種・付与者違いで2本・端数の切り捨て・**`duration 4 × interval 2` で最後の1発が落ちない**・1フレームに6秒ぶんの delta で3回発火・宿主の死で消えて補正も消える・付与者の死では止まらない・`atkspd` バフが累積せず剥がすと戻る
+  - ⚠ **`tick()` に渡す delta は 0.5 / 1.0 / 2.0 だけ。** 0.1 を60回足すと 5.999… になり、器の不具合とテスト側の誤差を区別できなくなる
+  - ⚠ **失敗は `push_error` にしない。** 3項目は「赤が出るのが正解」なので、混ざると読めない。行頭の `NG!` で見る
 
-### その次：**skills を複数ファイル化（キャラ別 ＋ debug）**
+### 次：**skills を複数ファイル化（キャラ別 ＋ debug）＋ 枠を無視して撃つキー**
 
 **`skills.json` は315行 / 18スキル / 24効果。** 段階3の後半で購読と条件が乗ると**1スキルが30〜50行**になり、4人目のキャラで500行を超える。
 

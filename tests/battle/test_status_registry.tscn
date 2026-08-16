@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://bstatusregtest1"]
+
+[ext_resource type="Script" path="res://tests/battle/test_status_registry.gd" id="1_status_registry_test"]
+
+[node name="TestStatusRegistry" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_status_registry_test")
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 40.0
+offset_right = 1000.0
+offset_bottom = 120.0
+text = "StatusRegistry Test — 結果は出力パネル（コンソール）に出る。
+行頭の NG! が失敗。最後の3項目は赤が3本出るのが正解。"
