@@ -1,4 +1,4 @@
-# 次にやること：**通常攻撃をデータ化して、スキルと同じ経路に載せる（挙動不変）**
+# 次にやること：**投射物を実際に飛ばす（着弾でダメージ・無効化の受け口を埋める）**
 
 **このファイルは「次の1タスク」だけを書く。** 終わったら次のタスクの内容に書き換える。全体の状況は`PROJECT_STATUS.md`、ルールは`AGENTS.md`と`CLAUDE.md`、**ゲームの中身は`GAME_DESIGN.md`**。
 
@@ -8,140 +8,103 @@
 
 ## 0. 前のタスクは終わっている（**全項目確認済み**）
 
-**skills の複数ファイル化と検証用キャラ3体（2026-08-16・`30f0ab7`）。** 指示書は **`docs/02_exec/EXEC_SKILL_MULTIFILE.md`**。
+**通常攻撃のデータ化（2026-08-16・`03a0d8e`）。** ログも戦闘の挙動も人間が確認済み。
 
-- `skills.json` を消して**キャラ別に分割**し、**検証用キャラ3体**（`char_debug_status` / `_life` / `_mix`・**HP 9999 / atk 1 / crit_rate 0**）を足した
-- `MasterDataLoader` が複数ファイルをマージし、**重複IDを赤で弾く**
+- `characters.json` / `enemies.json` の各エントリに **`basic_attack`（9件）**。形は skills の1件と同じ `{ "effects": [ ... ] }`
+- **`battle_controller._compute_damage()` を廃止**し、`_fire_basic_attack()` が `SkillResolver.resolve()` を呼ぶ
+- **`SkillSchema.validate_basic_attack()`** … `_validate_effect()` を共用
+- **`delivery` が全9件に入った**（剣士 `melee` / 弓兵 `projectile` / 僧侶 `magic` / スライム・狼 `melee` / スライム王 `magic` / 検証用3体 `projectile`）
 
-**続けて「1キャラ＝1フォルダ」へ移した（人間の決定・`5f2ae43` の次）。**
-
-```
-resources/balance/master/characters/char_swordsman/skills.json   (6件)
-resources/balance/master/characters/char_swordsman/nodes.json    (60件)
-resources/balance/master/characters/char_swordsman/passives.json ← 実装する回にここへ
-```
-
-- **`character_nodes.json`（1784行・180件）と `skills_debug.json` を解体**し、6フォルダへ。**分割前後でデータは完全一致**（機械で突き合わせ済み）
-- ⚠ **`characters.json`（能力値）は動かしていない。** `GameManager` が育成・装備・研究から何度も引いており、触ると挙動の話になる
-- ⚠ **走査しない。** フォルダを増やしたら `MasterDataLoader` の `CHARACTER_DIRS_REQUIRED` に1行足す。**足し忘れるとそのキャラのスキルとノードが無音で消える**
-- ⚠ **パッシブのファイルは作っていない**（実装がゼロのため。置き場だけ決めた）
-
-⚠ **検証するときは `parties.json` の `members` を検証用3体に差し替えて再起動する。戻し忘れないこと。**
+**これで通常攻撃とスキルが同じ経路を通るようになった。** 介入点（軽減・確定会心・シールド・反射）が両方に効く土台ができている。
 
 ---
 
-## 1. なぜ購読より先にこれをやるのか
+## 1. このタスク：**`delivery` に意味を持たせる**
 
-**購読（段階3の後半①）の前に潰しておかないと、反射を書いた段になって初めて「効かない」と分かる。**
+いま `delivery` は**タグでしかない**。飛ぶ絵も無ければ、飛翔中でもない。
 
-いま通常攻撃はこうなっている：
+**PLAN 6-7 / 6-8 が既に決定として持っている形**を実装する。**新しい決定は要らない。**
 
-```
-battle_controller._step_unit()（412〜434行）
-  → BattleFormula.roll_crit() → _compute_damage() → target.take_damage() → _pop_damage()
-```
+- **JSONに弾速も弧も書かない**（「いつ当たるか」の言い換えになるため）
+- **新層は演出シーンに対象IDを渡し、演出シーンは合図を返す**
+- **投射物は着弾点でのみ判定する**（⚠ 貫通は作らない）
+- **飛翔中に対象が消えたら、発射時の座標に飛び続けて空振り**
+- **飛んでいる矢の正体は「発火待ちの効果」。** 無効化は壁ではなく**待ち行列の取り消し**
 
-⚠ **`SkillResolver` を1ミリも通っていない。** 結果：
+### ⚠ 受け口が3つとも既にあり、呼び出し元がゼロのまま残っている
 
-- 段階1で作った**ダメージの介入点**（`_step_crit_override` / `_step_reduction`）が**通常攻撃に効かない**
-- したがって**シールドも軽減も反射も「スキルにだけ効く」**という、説明のつかない仕様になる
-- `delivery`（`melee` / `projectile` / `magic`）も付いていないので、**飛び道具の無効化（`cancel_by_delivery()`）が通常攻撃に効かない**
+| 受け口 | 場所 | 現状 |
+|---|---|---|
+| `SkillRuntime.notify_event(cast_id, event_name)` | `skill_runtime.gd` **175行** | ✅ 実装済み・**呼び出し元ゼロ** |
+| `SkillRuntime.cancel_by_delivery(delivery)` | 同 **253行** | ✅ 実装済み・**呼び出し元ゼロ** |
+| `trigger: "event:◯◯"` の語彙 ＋ `EVENT_TIMEOUT_SEC`（5.0秒） | 同 **37行 / 129〜133行** | ✅ 実装済み・**使うスキルゼロ** |
 
-⚠ **`PLAN_SKILL_TEMPLATE.md` 10-4 は「通常攻撃は『攻撃した』合図を出す」としか書いていない。式の経路が2本あることに触れていない。** PLAN側の穴。
+**このタスクは「新しく作る」より「埋める」に近い。** 作るのは**演出シーンと、それを出す配線だけ。**
 
-**そして人間の決定（2026-08-16）：通常攻撃もキャラごとに違う内容にしたい。** それは**データ化しない限り書けない**（いまは `attack_type` の1欄しか違いを持てない）。
+### 人間の決定（2026-08-16）
 
-⚠ **この2つは同じ工事。** 経路を1本にすると、通常攻撃は「効果1件のスキル」になり、キャラごとに `effects[]` を書けるようになる。
+- **`delivery: magic` も飛ばす。** 無効化・迎撃が魔法にも効くようにする（PLAN 799行が「敵に持たせない挙動の線は実践してから決める」としているので、まず全部飛ばして触ってから決める）
+- **演出シーンのIDは `delivery` から引く。** `melee` / `projectile` / `magic` → シーンの対応表を**1箇所**に持つ。⚠ **JSONを1文字も足さずに済む**（全9件＋全スキルに `delivery` が入っているため）。見た目を細かく分けたくなったら、そのとき欄を足す
+- **誘導する投射物（`mode: select`）だけ。** `mode: area`（誘導しない）は**段階4のまま**
 
 ---
 
-## 2. このタスク：**通常攻撃を `effects[]` で書けるようにする**
+## 2. ⚠ 今日入れた歯止めを1つ外す（**先に読むこと**）
 
-### ⚠ 完了条件は「挙動が1件も変わらない」
+`SkillSchema.validate_basic_attack()` に**「通常攻撃に `trigger` は書けない（待ち行列に載せない）」**を入れたばかりだが、**外す。**
 
-**段階1（器の付け替え）と同じ形にする。** データ化と経路の一本化までをやり、**ダメージの数字も攻撃間隔も1つも変えない。**
+**入れた理由は「攻撃間隔ごとに待ち行列が伸びる」だったが、これは的外れだった。** 待ち行列の要素は**着弾で発火して消える**（または5秒でタイムアウトして発火する）ので、飛翔中の数本しか溜まらない。
 
-⚠ **キャラごとに違う通常攻撃を実際に書くのは次の回。** 一緒にやると、数字が変わったとき「移し替えのミス」か「意図した変更」か分からなくなる。
+⚠ **外さないと、飛び道具の無効化が通常攻撃の矢に効かない。** 弓兵の矢は消せないのに弓兵のスキルの矢は消せる、という説明のつかない状態になる。**それは `03a0d8e` で直したばかりの「スキルにだけ効く」という病気の再発。**
 
-### やること
+### ⚠ そして `cast()` は対象を選び直す
+
+`SkillRuntime._make_entry()`（**291行**）は `SkillResolver.select_targets()` を呼ぶ。**通常攻撃を `cast()` に通すと、歩いて近づいた相手ではなく `sort: nearest` が選んだ相手に飛ぶ。**
+
+**`cast()` に「対象を外から渡す」道が要る**（例：`fixed_target_ids: Array = []`・空なら従来どおり選ぶ）。⚠ **新層の契約が1つ増える。** `cast_basic()` のような2本目の入口を作らないこと（発火経路は1本・PLAN 6-5）。
+
+---
+
+## 3. やること
 
 | # | やること | どこ |
 |---|---|---|
-| **1** | **通常攻撃をJSONで持つ**（味方3体・検証用3体・敵3体の**9件**） | `characters.json` / `enemies.json`（§3-1） |
-| **2** | **検証を足す**（`effects[]` は見るが `target` は書かせない） | `skill_schema.gd`（536行） |
-| **3** | **`_step_unit()` が `SkillResolver.resolve()` を呼ぶ形にする** | `battle_controller.gd`（1001行） |
-| **4** | **表示を `_on_skill_effects_applied()` に一本化する** | 同上 |
-
-⚠ **1番以外は全部「200行超の既存ファイルの途中」。設計役が書く。**
-
----
-
-## 3. 着手前に人間が決めること
-
-### 3-1. ⚠ 置き場（**決定済み：エントリの中に書く**）
-
-⚠ **新しいファイルもフォルダも要らない。** `characters.json` / `enemies.json` の各エントリの中に `basic_attack` を書く。
-
-```
-"char_swordsman": { ..., "basic_attack": { "effects": [ ... ] } }
-"enemy_slime":    { ..., "basic_attack": { "effects": [ ... ] } }
-```
-
-- **ローダーの新しいパスが1つも要らない**（characters と enemies は既に読まれている）
-- **敵3体の置き場問題が消える**（`enemy_slime` / `enemy_wolf` / `boss_slime_king`）
-- **1ユニットの定義が1箇所に収まる**
-
-⚠ **`characters/<id>/` フォルダには入れない。** あそこは「量が多くてキャラ別に閉じているもの」（スキル6件・ノード60件）の置き場で、**1ユニット1行の通常攻撃は能力値の隣にあるほうが読みやすい。**
-
-### 3-2. ⚠ 検証をどう通すか
-
-`SkillSchema.validate()` は **`target` を必須**にしている。通常攻撃は対象を**再選択してはいけない**（§4）ので、`target` を書く欄そのものが要らない。
-
-| 案 | やり方 | 代償 |
-|---|---|---|
-| **A（推奨）** | `SkillSchema.validate_basic_attack()` を足し、**`_validate_effect()` を共用**する | 検証の入口が2つになる |
-| B | `target` を書かせて無視する | ⚠ **「書いても効かない欄」は事故の元。** このプロジェクトで何度も刺さっている形 |
-
-### 3-3. 通常攻撃に `delivery` を書くか
-
-書けば**飛び道具の無効化が通常攻撃にも効く**ようになる（弓兵の矢を消す、など）。⚠ **挙動不変の範囲を出るので、今回は「欄だけ用意して使わない」か「最初から入れる」かを決めること。**
-
-⚠ **推奨：最初から入れる**（`melee` / `projectile` / `magic`）。**この回で入れないと、次に触るのは購読の回になり、そこで挙動が変わると切り分けが増える。**
+| **1** | **演出シーンを作る**（飛んで、着いたら合図を出す `Node2D`） | 新規（§4-1） |
+| **2** | **`SkillRuntime` が「投射物を出してくれ」と外へ知らせる** | `skill_runtime.gd`（358行） |
+| **3** | **`battle_controller` が受けてシーンを出し、着弾で `notify_event()` を呼ぶ** | `battle_controller.gd`（1006行） |
+| **4** | **`delivery` が `projectile` / `magic` の damage に `trigger: "event:hit"`** | 各 `skills.json` ＋ `characters.json` / `enemies.json` |
+| **5** | **`validate_basic_attack()` の `trigger` 禁止を外す**（§2） | `skill_schema.gd`（584行） |
+| **6** | **`cast()` に固定対象の道を足す**（§2） | `skill_runtime.gd` |
 
 ---
 
-## 4. ⚠ 事故りやすい箇所（**先に読むこと**）
+## 4. ⚠ 事故りやすい箇所
 
-### 4-1. ⚠ **対象を再選択させない**
+### 4-1. ⚠ **新層にノードを触らせない**
 
-通常攻撃が狙うのは `unit.target_unit_id`（**歩いて近づいた相手**）。`SkillResolver.select_targets()` に選ばせると **`sort: nearest` で別人に当たりうる。**
+`SkillRuntime` / `SkillResolver` / `StatusRegistry` は**全部 `RefCounted`。ノードツリーを知らない。** これは契約であって偶然ではない。
 
-**幸い、段階2で `resolve()` は対象IDを引数で受け取る形になっている**（`(skill_data, user, session, target_ids, registry)`）。**`[unit.target_unit_id]` をそのまま渡せばよい。**
+**`SkillRuntime` から `Node2D` を生成しないこと。** シグナル（例：`projectile_requested(cast_id, delivery, user_id, target_ids)`）を出し、**`battle_controller` が唯一のノード担当**として受ける（PLAN 7-1「データとビューが出会う場所」）。
 
-### 4-2. ⚠ **会心を二重に振らない**
+### 4-2. ⚠ **対象は既に確定している**
 
-いま `_step_unit()` が `BattleFormula.roll_crit()` を呼び（427行）、`SkillResolver._apply_damage()` も**対象1体につき1回**呼ぶ（298行）。
+`_make_entry()` が **cast 時に `target_ids` を確定させている**（PLAN 4-4）。**演出シーンに渡すIDはもう手元にある。** 飛翔中に選び直さないこと。
 
-⚠ **両方残すと乱数を振る回数が変わる。** `_step_unit()` 側を消すこと。
+### 4-3. ⚠ **合図が来なくてもダメージは消えない**（既に正しい）
 
-### 4-3. ⚠ **`atk_multiplier` を二重に掛けない**
+`tick()`（**204行**）は `remaining` が尽きると **`push_warning` して発火する**。⚠ **捨てない。** 演出シーンが壊れても**5秒後に当たる**だけで済む。**この安全網を外さないこと。**
 
-`_compute_damage()` は `attacker.atk_multiplier` を `multiplier` として渡している（445行）。
-`SkillResolver._apply_damage()` は `float(effect.multiplier) * user.atk_multiplier` を作る（295行）。
+### 4-4. ⚠ **挙動が変わる。これは挙動不変のタスクではない**
 
-⚠ **JSONの `multiplier` は `1.0`。** `atk_multiplier` は resolver 側が掛けるので、**データに書かない。**
+着弾までの時間ぶんダメージが遅れる。**倒す順番・過剰攻撃（死体に当たる）・ウェーブ切り替えのタイミングが変わる。** 前回と違い「数字が一致すること」は完了条件にならない。
 
-### 4-4. ⚠ **`SkillActivation` を通さない**
+### 4-5. ⚠ **速度8倍で破綻しないこと**
 
-通すと `no_target` や `cooldown` で**通常攻撃が止まる**。射程判定は `_step_unit()` が既に持っている（422行）。⚠ **判定を2箇所にしない。**
+デバッグパネルの `1`〜`4` で `Engine.time_scale` が最大8倍になる。**演出シーンが `_process(delta)` で動くなら自動で追従する**が、`Tween` や `Timer` の扱いは確認すること。⚠ **8倍で矢が追いつかないと、待ち行列が5秒のタイムアウトで発火する形になる。**
 
-### 4-5. ⚠ **攻撃間隔はCDではない**
+### 4-6. ⚠ **ウェーブ交代・勝敗確定で飛んでいる矢を捨てる**
 
-`attack_timer` / `attack_interval_sec` はそのまま。**`skill_cooldowns` に載せないこと**（`S` キーのCDリセットで通常攻撃まで即撃ちになる）。
-
-### 4-6. ⚠ **表示が二重に出ないこと**
-
-`_pop_damage()` を直接呼ぶ行（430行）を消し、**`effects_applied` 経由に寄せる。** ⚠ **消し忘れるとダメージ表示が2つ重なって出る。**
+`_skill_runtime.clear_all()` は既に3箇所で呼ばれている（**803 / 818 / 865行**）。⚠ **待ち行列は消えるが、演出シーンのノードは残る。** シーン側も一緒に消すこと。
 
 ---
 
@@ -149,35 +112,37 @@ battle_controller._step_unit()（412〜434行）
 
 | | 事実 |
 |---|---|
-| 通常攻撃 | `battle_controller._step_unit()` **412〜434行**。射程内なら `attack_timer += delta`、`attack_interval_sec` を超えたら1発 |
-| 通常攻撃の式 | `_compute_damage()` **440〜448行**。`BattleFormula.damage(get_power(t), get_defense(t), atk_multiplier, crit_dmg, is_crit)`。⚠ **`t` は `attacker.attack_type`** |
-| 等価なJSON | `{ "type": "damage", "multiplier": 1.0, "attack_type": <キャラの attack_type>, "scale_from": "atk" または "mag" }`。⚠ **`get_power()` は物理なら `atk`・魔法なら `mag`** |
-| `SkillResolver.resolve()` | 引数は `(skill_data, user, session, target_ids, registry)` の**5つ**。⚠ **`registry` の型は `RefCounted`** |
-| 結果の形 | `{ "unit_id", "amount", "is_heal", "is_crit" }`（`skill_resolver.gd` **321行**） |
-| 表示の経路 | `_on_skill_effects_applied()`（**659行**）が `SkillRuntime` と `StatusRegistry` の両方の `effects_applied` を受ける |
-| ⚠ F3 パネルの `dmg` | `_format_damage_to_target()` が **`BattleFormula.damage()` を直接呼ぶ**（`battle_debug_panel.gd`）。⚠ **resolver を通らないので、挙動不変の突き合わせに使える独立した基準になる** |
-| 敵 | **3体だけ**（`enemy_slime` / `enemy_wolf` / `boss_slime_king`）。`attack_type` はいずれも `physical` |
-| 味方 | 剣士・弓兵は `physical`、**僧侶は `magic`**（射程250で `mag` 16 を撃つ） |
-| 検証用キャラ | 3体とも `physical` / `attack_range` 300 / `attack_interval_sec` 2.0 |
-| `SkillSchema.validate()` | **174行**。`target` は必須。`_validate_effect()` は **302行**（効果1件ぶん・**共用できる**） |
-| スキルの置き場 | `characters/<character_id>/skills.json`（6キャラ × 6件＝**36件**）。ノードは同じフォルダの `nodes.json`（3キャラ × 60件＝**180件**） |
-| ロード時検証のログ | `[MasterDataLoader] skills validated: 36 entries, 0 errors, 1 warnings`。⚠ **黄1本は `skill_dbg_dot_odd` の端数（出るのが正解）** |
-| ロード時検証のタイミング | ⚠ **「つづきから」で出る**（`load_state()` → `_resync_growth_stats_from_master()` → `get_character()`）。⚠ **育成データが0件のセーブでは出ず、育成か戦闘に入るまで出ない** |
+| `notify_event()` | `skill_runtime.gd` **175行**。`(cast_id, event_name)` で `_pending` から一致するものを取り出して `_fire()` |
+| `cancel_by_delivery()` | **253行**。`entry["delivery"]` が一致するものを捨てて件数を返す |
+| 待ち行列の要素 | `_make_entry()` **291行**。`cast_id` / `user_id` / `skill_id` / `effect` / `target_ids` / `wait` / `remaining` / `delivery` |
+| `event:` の待ち方 | **129〜133行**。`wait = "event"`・`remaining = 5.0`・`event_name = trigger の "event:" 以降` |
+| タイムアウト | **204行の `tick()`**。⚠ **時間切れでも発火する**（`push_warning` 付き）。捨てない |
+| 中断 | `_drop_dead_users()`（**340行**）が**使用者**の死で捨てる。⚠ **対象の死では捨てない**（空振りは `_apply_damage()` が `target == null` で無視する形で成立する） |
+| `cast()` | **81行**。`(user, skill_id, skill_data, power_ratio)`・戻り値なし。⚠ **`cast_id` を外に出していない** |
+| 通常攻撃 | `_fire_basic_attack()`（`battle_controller.gd` **449行**）が `SkillResolver.resolve()` を直接呼ぶ。⚠ **待ち行列を通っていない** |
+| 表示 | `_on_skill_effects_applied()` が3経路（スキル・DoT・通常攻撃）を受ける1本 |
+| `clear_all()` の呼び出し | `battle_controller.gd` **803 / 818 / 865行** |
+| 見た目の層 | `scenes/adventure/unit_view.gd`（**105行**）。`setup()` / `pop_damage()` / `pop_just()` / `pop_label()`。⚠ **投射物の置き場は無い** |
+| 座標 | `PARTY_BASE_X 200` ＋ index×100／`ENEMY_BASE_X 900` ＋ index×100／`GROUND_Y 240` |
+| 速度 | デバッグパネルの `1`〜`4` で `Engine.time_scale` が 1 / 2 / 4 / 8 |
+| ロード時検証のログ | `skills validated: 36 entries, 0 errors, 1 warnings` ／ `basic attacks validated: 9 entries, 0 errors, 0 warnings`（どちらも「つづきから」で出る） |
+| ノードのログ | `loaded 180 character nodes ...`。⚠ **遅延ロード。割り振り画面を開いたときだけ出る** |
 
 ### 行数
 
 | ファイル | 行数 |
 |---|---|
 | `game_manager.gd` | **2832** |
-| `battle_controller.gd` | **1001** |
-| `status_registry.gd` | **567** |
-| `skill_schema.gd` | 536 |
+| `battle_controller.gd` | **1006** |
+| `skill_schema.gd` | **584** |
+| `status_registry.gd` | 567 |
 | `skill_resolver.gd` | 519 |
-| `master_data_loader.gd` | **457** |
+| `master_data_loader.gd` | **484** |
 | `battle_debug_panel.gd` | 380 |
-| `skill_runtime.gd` | 358 |
-| `unit.gd`（`BattleUnit`） | 236 |
-| `battle_formula.gd` | **67** |
+| `skill_runtime.gd` | **358** |
+| `unit.gd`（`BattleUnit`） | **246** |
+| `unit_view.gd` | **105** |
+| `battle_formula.gd` | 67 |
 | `skill_activation.gd` | 52 |
 
 ---
@@ -186,12 +151,11 @@ battle_controller._step_unit()（412〜434行）
 
 | 順 | 実装するもの | なぜその順か |
 |---|---|---|
-| **次** | **キャラごとに違う通常攻撃を実際に書く** | 経路が1本になってから。⚠ **数字が変わるのはここから** |
-| その次 | **段階3の後半①＝購読**（反射・追撃・撃破強化・マーク・コンボ） | ⚠ **横断ルール「反応から生まれた行動は、さらなる反応を生まない」と `target.team: source` を初回に含める**（PLAN 10-2 / 10-3） |
-| その次 | **段階3の後半②＝条件**（オーラ・HP依存強化・スタック閾値） | 購読が固まってから |
-| その次 | **段階3の後半③＝介入点3種**（回復・状態付与・死亡）＋ 復活 | ⚠ **死亡の介入点は全滅判定より先に置く**（PLAN 11-1）。戦闘が終わってから復活する事故が無音で起きる |
-| その次 | **変数表の追加**（`elapsed_sec` / `stack:<id>` / `combo_count`）＋ パッシブ ＋ コンボ | 購読と条件の両方が要る |
-| 5 | `mode: area` ／ `phases[]` / `recast` ／ `spawn` | |
+| **次** | **キャラごとに違う通常攻撃を実際に書く** | 経路も演出も揃ってから。⚠ **数字が変わるのはここから** |
+| その次 | **段階3の後半①＝購読**（反射・追撃・撃破強化・マーク・コンボ） | ⚠ **反射は飛んでいる矢を跳ね返す。投射物が先にあるほうが自然に書ける** |
+| その次 | **段階3の後半②＝条件** ／ **③＝介入点3種（回復・状態付与・死亡）＋復活** | ⚠ **死亡の介入点は全滅判定より先に置く**（PLAN 11-1） |
+| その次 | **変数表の追加 ＋ パッシブ ＋ コンボ** | 購読と条件の両方が要る |
+| 5 | `mode: area`（**誘導しない投射物**） ／ `phases[]` / `recast` ／ `spawn` | |
 
 ---
 
@@ -199,19 +163,15 @@ battle_controller._step_unit()（412〜434行）
 
 ### ドキュメントの「実装済み」を信じない
 
-**ズレが9回起きている**（直近は `master_data_loader.gd` のコメントが「育成画面か戦闘画面に入って初めて動く」と書いていた件。**実際は「つづきから」でも走る**）。`grep`で関数の中身を見てから判断する。**勝手に直さず報告する。**
+**ズレが9回起きている。** `grep`で関数の中身を見てから判断する。**勝手に直さず報告する。**
 
 ### 編集したら`grep`で当たったことを確認する
 
-「戦闘だけ反映されない」で1タスク溶かした事故がある。⚠ **今回は `battle_controller.gd` の途中を触るので、まさにその形。**
+⚠ **今回も `battle_controller.gd`（1006行）の途中を触る。**
 
 ### 正常系に警告を付けない
 
-⚠ **対象0体・射程外・死亡は全部正常系。** 毎フレーム走るので、警告を出すと出力パネルが埋まる。
-
-### `MasterDataLoader`が返す数値は`float`
-
-`int()`で包み忘れるとセーブに`.0`が乗る。
+⚠ **対象0体・空振り・ウェーブ交代の全消しは全部正常系。** ⚠ **合図のタイムアウトだけが異常**（既に黄が出る）。
 
 ### インデントはタブ
 
@@ -220,51 +180,40 @@ battle_controller._step_unit()（412〜434行）
 ### Godotを起動できない（設計役）
 
 ⚠ **「動きました」と書かない。** 完了条件は「ログ」「ファイル」「画面」の3つに分け、**同じことを2箇所に書かない。**
+⚠ **今回は「画面」の比重が大きい。** 飛ぶ絵が出ているかは人間にしか見えない。
 
 ---
 
-## 8. 検証の道具
+## 8. このタスクでやらないこと
 
-**戦闘画面は `F3` でデバッグパネル**（速度1〜8倍・`K`敵1体撃破・`L`全滅・`J`物理の一撃・`M`魔法の一撃・`V`強制勝利・`B`強制敗北・`S`CDリセット・**`P`状態の一覧をコンソールへ**）。
-
-⚠ **挙動不変の突き合わせは F3 パネルの `dmg` を使う。** あれは `BattleFormula` を直接呼んでいて **resolver を通らない**ので、**「パネルの表示値」と「実際に飛ぶダメージ」が一致すれば経路の移し替えが正しい**と言える。⚠ **会心のときだけ数字が大きくなるのは正常**（パネルは非会心のみ）。
-
-**`tests/battle/test_status_registry.tscn`** … 器の13項目。⚠ **今回も通ること**（器は触らない）。
-
-**検証用キャラ3体**（`parties.json` の `members` を差し替えて再起動）。⚠ **atk 1 なので通常攻撃のダメージは 1。挙動不変の確認には本編パーティを使うこと。**
-
----
-
-## 9. このタスクでやらないこと
-
-- **キャラごとに違う通常攻撃を実際に書く**（次の回。⚠ **今回は挙動不変**）
+- **`mode: area`（誘導しない投射物）**（段階4）
+- **貫通**（PLAN 6-7 が「高度の欄が決まるまで作らない」）
+- **効果 `cancel`（飛び道具の無効化）を実際に書く** … ⚠ **受け口（`cancel_by_delivery()`）を配線するところまで。撃つスキルは段階3の後半**
 - **購読・条件・介入点3種・復活・パッシブ・コンボ**
-- **通常攻撃に `trigger` や多段を持たせる**（`SkillRuntime` に載せない。⚠ **通常攻撃は待ち行列に入れない**）
-- **`attack_interval_sec` を `cooldown_sec` に寄せる**（§4-5）
-- **`mode: area`**（段階4）／**`phases[]` / `recast`**（段階5）／**`spawn`**（段階6）
+- **キャラごとに違う通常攻撃の中身**（次の回）
+- **弾速・弧をJSONに書く**（PLAN 6-7 の決定）
 - **バランス調整**
 
 ---
 
-## 10. 引き継いだ宿題
+## 9. 引き継いだ宿題
 
-`PROJECT_STATUS.md`にもあるが、**この回に関係しそうなものだけ**。
-
-1. ⚠ **`atk_multiplier` が常に 1.0 で、使っている場所が無い**（§4-3）。⚠ **今回この値が2箇所を通るので、意味を決めるならこの回**
+1. ⚠ **`atk_multiplier` が常に 1.0 で使い道が無い**
 2. ⚠ **`SkillResolver.resolve()` の `registry` が `RefCounted` 型**（相互参照を避けるため）
-3. ⚠ **`scale_from` は「和」しか書けない**（PLAN 5-5-1）。**器の穴。PLAN側で決める**
+3. ⚠ **`scale_from` は「和」しか書けない**（PLAN 5-5-1）。**器の穴**
 4. ⚠ **PLAN 5-2 の効果の欄の表に `delivery` / `stack` / `status_id` / `until` が無い**
-5. ⚠ **PLAN 10-4 が式の二重経路に触れていない**（このタスクの発端）。**PLAN側を直すこと**
-6. **`_find_unit()` が3ファイルに同じ形で3本ある**（`skill_resolver` / `skill_runtime` / `status_registry`）
+5. ⚠ **PLAN 10-4 が式の二重経路に触れていない**（`03a0d8e` で解消したが PLAN 側は未修正）
+6. **`_find_unit()` が3ファイルに同じ形で3本ある**
 7. **死亡中にCDが回る。** PLAN 14-4 の推奨は「停止」
-8. **`target.range` が18件とも未設定**（座標定数とセットで後決め）
+8. **`target.range` が18件とも未設定**
 9. ⚠ **コメント中の「`skills.json`」が8ファイルに残っている**（ファイルはもう無い）
-10. **`CHARACTER_IDS` の決め打ちが6件になった**（`training_screen.gd`）
-11. **状態のUIが無い**（F3 パネルの3行目と `P` キーだけ）
-12. **検証用のものはリリース前に消す**（デバッグオーバーレイ・デバッグパネル・`P` キー・`tests/battle/`・`skills_debug.json`・検証用キャラ3体・`PATHS_SKILLS_OPTIONAL`）
+10. **`CHARACTER_IDS` の決め打ちが6件**（`training_screen.gd`）
+11. ⚠ **キャラのフォルダを増やしたら `CHARACTER_DIRS_REQUIRED` に1行足す。** 忘れるとそのキャラのスキルとノードが無音で消える
+12. **状態のUIが無い**（F3 パネルの3行目と `P` キーだけ）
+13. **検証用のものはリリース前に消す**（デバッグオーバーレイ・デバッグパネル・`P` キー・`tests/battle/`・検証用キャラ3体のフォルダ・`CHARACTER_DIRS_OPTIONAL`）
 
 ---
 
-## 11. 終わったあと
+## 10. 終わったあと
 
 **このファイルを、次のタスク（キャラごとに違う通常攻撃を書く）の内容に書き換える。**
