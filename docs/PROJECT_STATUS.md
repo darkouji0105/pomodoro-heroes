@@ -275,7 +275,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
-| **（ハッシュ未記録）** | `test(skill): 状態の器の検証手段（F3パネルの P キー ＋ テストシーン13項目）`（`battle_debug_panel.gd` に `P` キー、`tests/battle/` を新設。**13項目 NG 0件で段階3前半が実機で確認済みになった**） | （EXECなし） |
+| `9e7d825` | `test(skill): 状態の器の検証手段（F3パネルの P キー ＋ テストシーン13項目）`（`battle_debug_panel.gd` に `P` キー、`tests/battle/` を新設。**13項目 NG 0件で段階3前半が実機で確認済みになった**） | （EXECなし） |
 | `db7b1e7` | `feat(skill): 状態の器と buff/dot（段階3前半・stack と until）`（12ファイル。新規は `status_registry.gd`。`stack` / `until` を新設、`BattleUnit.get_stat()` が補正込みに、`resolve()` の引数が5つに。⚠ **この時点では通過したのがロード時検証のみで、挙動は次のコミットで初めて確認した**） | `EXEC_SKILL_TEMPLATE_PHASE3A.md` |
 | `9bb357b` | `feat(skill): 実行中のスキル層と trigger（段階2・多段と遅延）`（9ファイル。新規は `skill_runtime.gd`。`resolve()` の引数が変わり、`delivery` を新設。速射が2連射に） | `EXEC_SKILL_TEMPLATE_PHASE2.md` |
 | `b58a434` | `feat(skill): 3人ぶんの残り12スキルを追加（Lv5/10/15/20 解放）`（8ファイル。⚠ **`.gd` を1行も触っていない**。`skills.json` 6→18件・`characters.json`・`ja.csv` ＋ `PLAN_SKILL_CONTENT.md` / `EXEC_SKILL_CONTENT.md` 新設 ＋ `PROJECT_STATUS.md` / `NEXT_STEPS.md` を更新） | `EXEC_SKILL_CONTENT.md` |
