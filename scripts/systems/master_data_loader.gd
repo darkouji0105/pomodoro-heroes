@@ -28,13 +28,32 @@ const PATH_STAGES: String = DIR_PATH + "stages.json"
 #   丸ごと消え、戦闘でボタンが出なくなるが、エラーが無いと原因を追えない）。
 # ⚠ キャラを増やすときはここに1行足す。ファイル名は user_character_id と
 #   綴りを揃えること（機械的に対応が取れなくなる）。
-const PATHS_SKILLS_REQUIRED: Array[String] = [
-	DIR_PATH + "skills_char_swordsman.json",
-	DIR_PATH + "skills_char_archer.json",
-	DIR_PATH + "skills_char_priest.json",
+# 【1キャラ＝1フォルダ】（人間の決定・2026-08-16）
+#
+#   characters/char_swordsman/skills.json    … そのキャラのスキル
+#   characters/char_swordsman/nodes.json     … そのキャラのステータスノード
+#   characters/char_swordsman/passives.json  … ⚠ パッシブを実装する回にここへ置く
+#
+# ⚠ 能力値（characters.json）はフォルダへ動かさない。GameManager が育成・装備・
+#   研究から何度も引いており、そこを触ると挙動の話になる。フォルダは「量が多くて
+#   キャラ別に閉じているもの」だけを持つ。
+#
+# ⚠ 走査しない。フォルダを増やしたらここに1行足す（人間の決定）。
+#   DirAccess で数えると、エクスポート後の .pck でフォルダが見えるかが未検証で、
+#   .json のエクスポートフィルタ自体も未決の宿題のため。
+# ⚠ 足し忘れると、そのキャラのスキルとノードが無音で消える（エラーが出ない）。
+const DIR_CHARACTERS: String = DIR_PATH + "characters/"
+
+const CHARACTER_DIRS_REQUIRED: Array[String] = [
+	DIR_CHARACTERS + "char_swordsman/",
+	DIR_CHARACTERS + "char_archer/",
+	DIR_CHARACTERS + "char_priest/",
 ]
-const PATHS_SKILLS_OPTIONAL: Array[String] = [
-	DIR_PATH + "skills_debug.json",
+# 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
+const CHARACTER_DIRS_OPTIONAL: Array[String] = [
+	DIR_CHARACTERS + "char_debug_status/",
+	DIR_CHARACTERS + "char_debug_life/",
+	DIR_CHARACTERS + "char_debug_mix/",
 ]
 
 static var _load_mode: String = ""     # "load" or "file_access" or ""（未試行）
@@ -88,7 +107,7 @@ static func _ensure_loaded() -> void:
 	_cache_enemies = _load_json(PATH_ENEMIES)
 	_cache_parties = _load_json(PATH_PARTIES)
 	_cache_stages = _load_json(PATH_STAGES)
-	_cache_skills = _load_skills_merged()
+	_cache_skills = _load_character_files("skills.json", "スキル")
 	# スキルは自由度が高いぶん「書けるが壊れている」組み合わせが増えた。
 	# resolver 側だけで防ぐと実戦で撃つまで気づけないので、読んだ直後に全件見る
 	# （PLAN_SKILL_TEMPLATE.md 5-4）。characters.json も読み終わっているので、
@@ -97,40 +116,44 @@ static func _ensure_loaded() -> void:
 	_validate_all_skills()
 
 
-# 複数ファイルのスキルを1つの辞書にまとめる。
+# キャラのフォルダから同じ名前のファイルを集めて1つの辞書にまとめる。
 #
-# ⚠ 重複IDは赤で弾き、先に読んだほうを残す。何もしないと「あとから読んだほうが
-#   黙って勝つ」形になり、同じIDを2ファイルに書いた事故が実戦まで表面化しない。
+# ⚠ スキルもノードもこの1本を通す。同じ形のマージを2本書くと、重複IDの扱いや
+#   「無いファイル」の扱いが片方だけ変わる。
 # ⚠ 中身の検証はここでやらない。_validate_all_skills() が1箇所で全件見る
 #   （マージの都合で検証が2箇所に分かれると、片方だけ直す事故になる）。
-static func _load_skills_merged() -> Dictionary:
+static func _load_character_files(file_name: String, what: String) -> Dictionary:
 	var merged: Dictionary = {}
-	for path: String in PATHS_SKILLS_REQUIRED:
-		_merge_skill_file(merged, path, true)
-	for path: String in PATHS_SKILLS_OPTIONAL:
-		_merge_skill_file(merged, path, false)
+	for dir_path: String in CHARACTER_DIRS_REQUIRED:
+		_merge_id_map(merged, dir_path + file_name, true, what)
+	# ⚠ 検証用キャラは nodes.json を持たない。だから「無い」を正常系にしてある。
+	for dir_path: String in CHARACTER_DIRS_OPTIONAL:
+		_merge_id_map(merged, dir_path + file_name, false, what)
 	return merged
 
 
 # 1ファイルぶんを merged へ足す。required が false なら「無い」を正常系として扱う。
-static func _merge_skill_file(merged: Dictionary, path: String, required: bool) -> void:
+#
+# ⚠ 重複IDは赤で弾き、先に読んだほうを残す。何もしないと「あとから読んだほうが
+#   黙って勝つ」形になり、同じIDを2ファイルに書いた事故が実戦まで表面化しない。
+static func _merge_id_map(merged: Dictionary, path: String, required: bool, what: String) -> void:
 	# ⚠ 先に存在を見る。_load_json() は無いファイルに対して赤を出すので、
 	#   任意のファイルをそのまま渡すと「消したら赤が出る」ことになる。
 	# ⚠ load() 方式のときは .import 経由なので ResourceLoader でしか見えない。
 	#   FileAccess だけで見ると、書き出し後のビルドで「無い」と誤判定しうる。
 	if not (ResourceLoader.exists(path) or FileAccess.file_exists(path)):
 		if required:
-			push_error("[MasterDataLoader] スキルのファイルが無い: " + path)
+			push_error("[MasterDataLoader] %s のファイルが無い: %s" % [what, path])
 		return
 
 	var one: Dictionary = _load_json(path)
-	for skill_id: Variant in one:
-		if merged.has(skill_id):
-			push_error("[MasterDataLoader] skill_id が2つのファイルに重複: '%s'（%s）。先に読んだほうを残す" % [
-				str(skill_id), path
+	for entry_id: Variant in one:
+		if merged.has(entry_id):
+			push_error("[MasterDataLoader] %s のIDが2つのファイルに重複: '%s'（%s）。先に読んだほうを残す" % [
+				what, str(entry_id), path
 			])
 			continue
-		merged[skill_id] = one[skill_id]
+		merged[entry_id] = one[entry_id]
 
 
 # load() を試し、null なら FileAccess にフォールバック。
@@ -384,14 +407,16 @@ static func _index_by(root: Dictionary, list_key: String, id_key: String, path: 
 # 一切触らず、末尾追記だけで完結させる。
 # get_research_node() と同じく _ensure_loaded() には組み込まず、遅延ロードする。
 #
-# character_nodes.json の形：
+# characters/<character_id>/nodes.json の形：
 #   { node_id: {character_id, stat, tier, cost, value, prerequisites[]} }
 # research.json と同じく node_id をキーにした Dictionary。_index_by() は要らない。
 #
+# ⚠ フォルダで分けたあとも、各エントリは character_id を持ったままにしてある。
+#   置き場と中身の二重管理になるが、GameManager 側が character_id で絞っており、
+#   消すと呼び出し側の書き換えまで波及する（今回は挙動を変えない）。
+#
 # ⚠ 数値（tier / cost / value）は float で来る。呼び出し側で int() を付けること。
 # ========================================================================
-
-const PATH_CHARACTER_NODES: String = DIR_PATH + "character_nodes.json"
 
 static var _cache_character_nodes: Dictionary = {}
 static var _character_nodes_loaded: bool = false
@@ -418,9 +443,10 @@ static func _ensure_character_nodes_loaded() -> void:
 	if _character_nodes_loaded:
 		return
 	_character_nodes_loaded = true
-	_cache_character_nodes = _load_json(PATH_CHARACTER_NODES)
-	print("[MasterDataLoader] loaded %d entries from %s" % [
-		_cache_character_nodes.size(), PATH_CHARACTER_NODES
+	# ⚠ スキルと同じマージを通す。件数は合計のまま1本に保つ（完了条件に使えるため）。
+	_cache_character_nodes = _load_character_files("nodes.json", "ステータスノード")
+	print("[MasterDataLoader] loaded %d character nodes from %s*/nodes.json" % [
+		_cache_character_nodes.size(), DIR_CHARACTERS
 	])
 
 

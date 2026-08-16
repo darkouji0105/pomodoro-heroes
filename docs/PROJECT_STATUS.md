@@ -551,6 +551,22 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **ロードログの `skills validated: N entries` は合計値のまま1本に保つ**（完了条件に使い続けられる）
 - **枠を無視して任意のデバッグスキルを撃つキー。** ⚠ **`StatusRegistry.add()` を直接叩かないこと。** 通常経路（`_fire_skill` → `SkillRuntime` → `resolve` → 器）を通らないと配線の事故を隠す
 
+### ~~次：**1キャラ＝1フォルダへ移す**~~ ✅ **完了（2026-08-16）**
+
+**人間の決定。** `character_nodes.json`（1784行・180件）と `skills_debug.json` を解体し、キャラのフォルダへ移した。
+
+```
+resources/balance/master/characters/char_swordsman/skills.json   (6件)
+resources/balance/master/characters/char_swordsman/nodes.json    (60件)
+resources/balance/master/characters/char_swordsman/passives.json ← 実装する回にここへ
+```
+
+- **分割前後でデータは完全一致**（機械で突き合わせ済み。skills 36件・nodes 180件）
+- ⚠ **`characters.json`（能力値）は動かしていない。** `GameManager` が育成・装備・研究から何度も引いており、触ると挙動の話になる。**フォルダは「量が多くてキャラ別に閉じているもの」だけを持つ**
+- ⚠ **パッシブのファイルは作っていない**（実装がゼロ。置き場だけ決めた）。**空ファイルを置くと「利用者ゼロの受け口」が1つ増えるだけ**
+- ⚠ **走査しない**（人間の決定）。フォルダを増やしたら `MasterDataLoader.CHARACTER_DIRS_REQUIRED` に1行足す。**足し忘れるとそのキャラのスキルとノードが無音で消える**
+- **マージは1本に統合**（`_load_character_files()` / `_merge_id_map()`）。スキルもノードも同じ経路を通る
+
 ### 次：**通常攻撃をデータ化して、スキルと同じ経路に載せる（挙動不変）**
 
 ⚠ **通常攻撃が `SkillResolver` を1ミリも通っていないことが分かった（2026-08-16）。** `battle_controller._step_unit()`（412〜434行）が `BattleFormula` → `take_damage()` → `_pop_damage()` と直行しており、**段階1で作ったダメージの介入点（`_step_crit_override` / `_step_reduction`）が通常攻撃に効かない。** このままだと**シールドも軽減も反射も「スキルにだけ効く」**という説明のつかない仕様になる。

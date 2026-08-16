@@ -1,0 +1,140 @@
+{
+	"skill_dbg_buff_refresh": {
+		"name_key": "ui_battle_skill_dbg_buff_refresh",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_dbg_atk_refresh",
+				"stat": "atk",
+				"value": 50,
+				"duration_sec": 20.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"skill_dbg_buff_stack": {
+		"name_key": "ui_battle_skill_dbg_buff_stack",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_dbg_atk_stack",
+				"stat": "atk",
+				"value": 50,
+				"duration_sec": 20.0,
+				"stack": "independent"
+			}
+		]
+	},
+	"skill_dbg_buff_atkspd": {
+		"name_key": "ui_battle_skill_dbg_buff_atkspd",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_dbg_atkspd",
+				"stat": "atkspd",
+				"value": 100,
+				"duration_sec": 10.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"skill_dbg_debuff_def": {
+		"name_key": "ui_battle_skill_dbg_debuff_def",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_dbg_def_down",
+				"stat": "def",
+				"value": -50,
+				"duration_sec": 20.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"skill_dbg_dot_long": {
+		"name_key": "ui_battle_skill_dbg_dot_long",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "dot",
+				"host": "unit",
+				"status_id": "status_dbg_dot_long",
+				"multiplier": 0.5,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"duration_sec": 30.0,
+				"interval_sec": 1.0,
+				"stack": "independent"
+			}
+		]
+	},
+	"skill_dbg_dot_odd": {
+		"name_key": "ui_battle_skill_dbg_dot_odd",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "dot",
+				"host": "unit",
+				"status_id": "status_dbg_dot_odd",
+				"multiplier": 0.5,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"duration_sec": 5.0,
+				"interval_sec": 2.0,
+				"stack": "independent"
+			}
+		]
+	}
+}

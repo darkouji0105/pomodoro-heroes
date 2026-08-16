@@ -1,0 +1,596 @@
+{
+	"node_char_archer_hp_01": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 1,
+		"cost": 1,
+		"value": 5,
+		"prerequisites": []
+	},
+	"node_char_archer_hp_02": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 2,
+		"cost": 1,
+		"value": 5,
+		"prerequisites": [
+			"node_char_archer_hp_01"
+		]
+	},
+	"node_char_archer_hp_03": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 3,
+		"cost": 1,
+		"value": 5,
+		"prerequisites": [
+			"node_char_archer_hp_02"
+		]
+	},
+	"node_char_archer_hp_04": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 4,
+		"cost": 1,
+		"value": 5,
+		"prerequisites": [
+			"node_char_archer_hp_03"
+		]
+	},
+	"node_char_archer_hp_05": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 5,
+		"cost": 1,
+		"value": 5,
+		"prerequisites": [
+			"node_char_archer_hp_04"
+		]
+	},
+	"node_char_archer_hp_06": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 6,
+		"cost": 2,
+		"value": 10,
+		"prerequisites": [
+			"node_char_archer_hp_05"
+		]
+	},
+	"node_char_archer_hp_07": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 7,
+		"cost": 2,
+		"value": 10,
+		"prerequisites": [
+			"node_char_archer_hp_06"
+		]
+	},
+	"node_char_archer_hp_08": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 8,
+		"cost": 2,
+		"value": 10,
+		"prerequisites": [
+			"node_char_archer_hp_07"
+		]
+	},
+	"node_char_archer_hp_09": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 9,
+		"cost": 2,
+		"value": 10,
+		"prerequisites": [
+			"node_char_archer_hp_08"
+		]
+	},
+	"node_char_archer_hp_10": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 10,
+		"cost": 2,
+		"value": 10,
+		"prerequisites": [
+			"node_char_archer_hp_09"
+		]
+	},
+	"node_char_archer_hp_11": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 11,
+		"cost": 3,
+		"value": 15,
+		"prerequisites": [
+			"node_char_archer_hp_10"
+		]
+	},
+	"node_char_archer_hp_12": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 12,
+		"cost": 3,
+		"value": 15,
+		"prerequisites": [
+			"node_char_archer_hp_11"
+		]
+	},
+	"node_char_archer_hp_13": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 13,
+		"cost": 3,
+		"value": 15,
+		"prerequisites": [
+			"node_char_archer_hp_12"
+		]
+	},
+	"node_char_archer_hp_14": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 14,
+		"cost": 3,
+		"value": 15,
+		"prerequisites": [
+			"node_char_archer_hp_13"
+		]
+	},
+	"node_char_archer_hp_15": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 15,
+		"cost": 3,
+		"value": 15,
+		"prerequisites": [
+			"node_char_archer_hp_14"
+		]
+	},
+	"node_char_archer_hp_16": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 16,
+		"cost": 4,
+		"value": 20,
+		"prerequisites": [
+			"node_char_archer_hp_15"
+		]
+	},
+	"node_char_archer_hp_17": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 17,
+		"cost": 4,
+		"value": 20,
+		"prerequisites": [
+			"node_char_archer_hp_16"
+		]
+	},
+	"node_char_archer_hp_18": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 18,
+		"cost": 4,
+		"value": 20,
+		"prerequisites": [
+			"node_char_archer_hp_17"
+		]
+	},
+	"node_char_archer_hp_19": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 19,
+		"cost": 4,
+		"value": 20,
+		"prerequisites": [
+			"node_char_archer_hp_18"
+		]
+	},
+	"node_char_archer_hp_20": {
+		"character_id": "char_archer",
+		"stat": "hp",
+		"tier": 20,
+		"cost": 4,
+		"value": 20,
+		"prerequisites": [
+			"node_char_archer_hp_19"
+		]
+	},
+	"node_char_archer_atk_01": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 1,
+		"cost": 1,
+		"value": 1,
+		"prerequisites": []
+	},
+	"node_char_archer_atk_02": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 2,
+		"cost": 1,
+		"value": 1,
+		"prerequisites": [
+			"node_char_archer_atk_01"
+		]
+	},
+	"node_char_archer_atk_03": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 3,
+		"cost": 1,
+		"value": 1,
+		"prerequisites": [
+			"node_char_archer_atk_02"
+		]
+	},
+	"node_char_archer_atk_04": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 4,
+		"cost": 1,
+		"value": 1,
+		"prerequisites": [
+			"node_char_archer_atk_03"
+		]
+	},
+	"node_char_archer_atk_05": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 5,
+		"cost": 1,
+		"value": 1,
+		"prerequisites": [
+			"node_char_archer_atk_04"
+		]
+	},
+	"node_char_archer_atk_06": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 6,
+		"cost": 2,
+		"value": 2,
+		"prerequisites": [
+			"node_char_archer_atk_05"
+		]
+	},
+	"node_char_archer_atk_07": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 7,
+		"cost": 2,
+		"value": 2,
+		"prerequisites": [
+			"node_char_archer_atk_06"
+		]
+	},
+	"node_char_archer_atk_08": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 8,
+		"cost": 2,
+		"value": 2,
+		"prerequisites": [
+			"node_char_archer_atk_07"
+		]
+	},
+	"node_char_archer_atk_09": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 9,
+		"cost": 2,
+		"value": 2,
+		"prerequisites": [
+			"node_char_archer_atk_08"
+		]
+	},
+	"node_char_archer_atk_10": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 10,
+		"cost": 2,
+		"value": 2,
+		"prerequisites": [
+			"node_char_archer_atk_09"
+		]
+	},
+	"node_char_archer_atk_11": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 11,
+		"cost": 3,
+		"value": 3,
+		"prerequisites": [
+			"node_char_archer_atk_10"
+		]
+	},
+	"node_char_archer_atk_12": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 12,
+		"cost": 3,
+		"value": 3,
+		"prerequisites": [
+			"node_char_archer_atk_11"
+		]
+	},
+	"node_char_archer_atk_13": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 13,
+		"cost": 3,
+		"value": 3,
+		"prerequisites": [
+			"node_char_archer_atk_12"
+		]
+	},
+	"node_char_archer_atk_14": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 14,
+		"cost": 3,
+		"value": 3,
+		"prerequisites": [
+			"node_char_archer_atk_13"
+		]
+	},
+	"node_char_archer_atk_15": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 15,
+		"cost": 3,
+		"value": 3,
+		"prerequisites": [
+			"node_char_archer_atk_14"
+		]
+	},
+	"node_char_archer_atk_16": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 16,
+		"cost": 4,
+		"value": 4,
+		"prerequisites": [
+			"node_char_archer_atk_15"
+		]
+	},
+	"node_char_archer_atk_17": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 17,
+		"cost": 4,
+		"value": 4,
+		"prerequisites": [
+			"node_char_archer_atk_16"
+		]
+	},
+	"node_char_archer_atk_18": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 18,
+		"cost": 4,
+		"value": 4,
+		"prerequisites": [
+			"node_char_archer_atk_17"
+		]
+	},
+	"node_char_archer_atk_19": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 19,
+		"cost": 4,
+		"value": 4,
+		"prerequisites": [
+			"node_char_archer_atk_18"
+		]
+	},
+	"node_char_archer_atk_20": {
+		"character_id": "char_archer",
+		"stat": "atk",
+		"tier": 20,
+		"cost": 4,
+		"value": 4,
+		"prerequisites": [
+			"node_char_archer_atk_19"
+		]
+	},
+	"node_char_archer_atkspd_01": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 1,
+		"cost": 1,
+		"value": 1,
+		"prerequisites": []
+	},
+	"node_char_archer_atkspd_02": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 2,
+		"cost": 1,
+		"value": 1,
+		"prerequisites": [
+			"node_char_archer_atkspd_01"
+		]
+	},
+	"node_char_archer_atkspd_03": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 3,
+		"cost": 1,
+		"value": 1,
+		"prerequisites": [
+			"node_char_archer_atkspd_02"
+		]
+	},
+	"node_char_archer_atkspd_04": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 4,
+		"cost": 1,
+		"value": 1,
+		"prerequisites": [
+			"node_char_archer_atkspd_03"
+		]
+	},
+	"node_char_archer_atkspd_05": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 5,
+		"cost": 1,
+		"value": 1,
+		"prerequisites": [
+			"node_char_archer_atkspd_04"
+		]
+	},
+	"node_char_archer_atkspd_06": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 6,
+		"cost": 2,
+		"value": 2,
+		"prerequisites": [
+			"node_char_archer_atkspd_05"
+		]
+	},
+	"node_char_archer_atkspd_07": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 7,
+		"cost": 2,
+		"value": 2,
+		"prerequisites": [
+			"node_char_archer_atkspd_06"
+		]
+	},
+	"node_char_archer_atkspd_08": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 8,
+		"cost": 2,
+		"value": 2,
+		"prerequisites": [
+			"node_char_archer_atkspd_07"
+		]
+	},
+	"node_char_archer_atkspd_09": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 9,
+		"cost": 2,
+		"value": 2,
+		"prerequisites": [
+			"node_char_archer_atkspd_08"
+		]
+	},
+	"node_char_archer_atkspd_10": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 10,
+		"cost": 2,
+		"value": 2,
+		"prerequisites": [
+			"node_char_archer_atkspd_09"
+		]
+	},
+	"node_char_archer_atkspd_11": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 11,
+		"cost": 3,
+		"value": 3,
+		"prerequisites": [
+			"node_char_archer_atkspd_10"
+		]
+	},
+	"node_char_archer_atkspd_12": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 12,
+		"cost": 3,
+		"value": 3,
+		"prerequisites": [
+			"node_char_archer_atkspd_11"
+		]
+	},
+	"node_char_archer_atkspd_13": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 13,
+		"cost": 3,
+		"value": 3,
+		"prerequisites": [
+			"node_char_archer_atkspd_12"
+		]
+	},
+	"node_char_archer_atkspd_14": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 14,
+		"cost": 3,
+		"value": 3,
+		"prerequisites": [
+			"node_char_archer_atkspd_13"
+		]
+	},
+	"node_char_archer_atkspd_15": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 15,
+		"cost": 3,
+		"value": 3,
+		"prerequisites": [
+			"node_char_archer_atkspd_14"
+		]
+	},
+	"node_char_archer_atkspd_16": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 16,
+		"cost": 4,
+		"value": 4,
+		"prerequisites": [
+			"node_char_archer_atkspd_15"
+		]
+	},
+	"node_char_archer_atkspd_17": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 17,
+		"cost": 4,
+		"value": 4,
+		"prerequisites": [
+			"node_char_archer_atkspd_16"
+		]
+	},
+	"node_char_archer_atkspd_18": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 18,
+		"cost": 4,
+		"value": 4,
+		"prerequisites": [
+			"node_char_archer_atkspd_17"
+		]
+	},
+	"node_char_archer_atkspd_19": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 19,
+		"cost": 4,
+		"value": 4,
+		"prerequisites": [
+			"node_char_archer_atkspd_18"
+		]
+	},
+	"node_char_archer_atkspd_20": {
+		"character_id": "char_archer",
+		"stat": "atkspd",
+		"tier": 20,
+		"cost": 4,
+		"value": 4,
+		"prerequisites": [
+			"node_char_archer_atkspd_19"
+		]
+	}
+}

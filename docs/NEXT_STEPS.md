@@ -10,9 +10,21 @@
 
 **skills の複数ファイル化と検証用キャラ3体（2026-08-16・`30f0ab7`）。** 指示書は **`docs/02_exec/EXEC_SKILL_MULTIFILE.md`**。
 
-- `skills.json` を消し、**`skills_char_swordsman` / `_archer` / `_priest`** の3本（各6件）＋ **`skills_debug.json`（18件）**へ
-- **検証用キャラ3体**（`char_debug_status` / `_life` / `_mix`）。**HP 9999 / atk 1 / crit_rate 0**
+- `skills.json` を消して**キャラ別に分割**し、**検証用キャラ3体**（`char_debug_status` / `_life` / `_mix`・**HP 9999 / atk 1 / crit_rate 0**）を足した
 - `MasterDataLoader` が複数ファイルをマージし、**重複IDを赤で弾く**
+
+**続けて「1キャラ＝1フォルダ」へ移した（人間の決定・`5f2ae43` の次）。**
+
+```
+resources/balance/master/characters/char_swordsman/skills.json   (6件)
+resources/balance/master/characters/char_swordsman/nodes.json    (60件)
+resources/balance/master/characters/char_swordsman/passives.json ← 実装する回にここへ
+```
+
+- **`character_nodes.json`（1784行・180件）と `skills_debug.json` を解体**し、6フォルダへ。**分割前後でデータは完全一致**（機械で突き合わせ済み）
+- ⚠ **`characters.json`（能力値）は動かしていない。** `GameManager` が育成・装備・研究から何度も引いており、触ると挙動の話になる
+- ⚠ **走査しない。** フォルダを増やしたら `MasterDataLoader` の `CHARACTER_DIRS_REQUIRED` に1行足す。**足し忘れるとそのキャラのスキルとノードが無音で消える**
+- ⚠ **パッシブのファイルは作っていない**（実装がゼロのため。置き場だけ決めた）
 
 ⚠ **検証するときは `parties.json` の `members` を検証用3体に差し替えて再起動する。戻し忘れないこと。**
 
@@ -55,7 +67,7 @@ battle_controller._step_unit()（412〜434行）
 
 | # | やること | どこ |
 |---|---|---|
-| **1** | **通常攻撃をJSONで持つ**（味方3体・検証用3体・敵3体の**9件**） | 新ファイル（§3-1） |
+| **1** | **通常攻撃をJSONで持つ**（味方3体・検証用3体・敵3体の**9件**） | `characters.json` / `enemies.json`（§3-1） |
 | **2** | **検証を足す**（`effects[]` は見るが `target` は書かせない） | `skill_schema.gd`（536行） |
 | **3** | **`_step_unit()` が `SkillResolver.resolve()` を呼ぶ形にする** | `battle_controller.gd`（1001行） |
 | **4** | **表示を `_on_skill_effects_applied()` に一本化する** | 同上 |
@@ -66,14 +78,20 @@ battle_controller._step_unit()（412〜434行）
 
 ## 3. 着手前に人間が決めること
 
-### 3-1. ⚠ 置き場（**2案**）
+### 3-1. ⚠ 置き場（**決定済み：エントリの中に書く**）
 
-| 案 | やり方 | 代償 |
-|---|---|---|
-| **A（推奨）** | **`basic_attacks.json` 1本**。`character_id` / `enemy_id` をキーに9件 | ⚠ **敵もここに入る。** キャラ別に割ると敵の置き場が無い |
-| B | `skills_char_*.json` に同居させる | ⚠ **ロードログの件数（いま36）が変わる。** スキル選択画面には出ない（候補は `characters.json` の `skills[]` が正）が、**「スキルではないものがスキルの表に混ざる」** |
+⚠ **新しいファイルもフォルダも要らない。** `characters.json` / `enemies.json` の各エントリの中に `basic_attack` を書く。
 
-⚠ **敵は3体しかいない**（`enemy_slime` / `enemy_wolf` / `boss_slime_king`）。**将来増えたときに割るのは後からできる。**
+```
+"char_swordsman": { ..., "basic_attack": { "effects": [ ... ] } }
+"enemy_slime":    { ..., "basic_attack": { "effects": [ ... ] } }
+```
+
+- **ローダーの新しいパスが1つも要らない**（characters と enemies は既に読まれている）
+- **敵3体の置き場問題が消える**（`enemy_slime` / `enemy_wolf` / `boss_slime_king`）
+- **1ユニットの定義が1箇所に収まる**
+
+⚠ **`characters/<id>/` フォルダには入れない。** あそこは「量が多くてキャラ別に閉じているもの」（スキル6件・ノード60件）の置き場で、**1ユニット1行の通常攻撃は能力値の隣にあるほうが読みやすい。**
 
 ### 3-2. ⚠ 検証をどう通すか
 
@@ -142,7 +160,7 @@ battle_controller._step_unit()（412〜434行）
 | 味方 | 剣士・弓兵は `physical`、**僧侶は `magic`**（射程250で `mag` 16 を撃つ） |
 | 検証用キャラ | 3体とも `physical` / `attack_range` 300 / `attack_interval_sec` 2.0 |
 | `SkillSchema.validate()` | **174行**。`target` は必須。`_validate_effect()` は **302行**（効果1件ぶん・**共用できる**） |
-| スキルの置き場 | `skills_char_swordsman` / `_archer` / `_priest`（各6件）＋ `skills_debug.json`（18件）。**合計36件** |
+| スキルの置き場 | `characters/<character_id>/skills.json`（6キャラ × 6件＝**36件**）。ノードは同じフォルダの `nodes.json`（3キャラ × 60件＝**180件**） |
 | ロード時検証のログ | `[MasterDataLoader] skills validated: 36 entries, 0 errors, 1 warnings`。⚠ **黄1本は `skill_dbg_dot_odd` の端数（出るのが正解）** |
 | ロード時検証のタイミング | ⚠ **「つづきから」で出る**（`load_state()` → `_resync_growth_stats_from_master()` → `get_character()`）。⚠ **育成データが0件のセーブでは出ず、育成か戦闘に入るまで出ない** |
 
@@ -155,7 +173,7 @@ battle_controller._step_unit()（412〜434行）
 | `status_registry.gd` | **567** |
 | `skill_schema.gd` | 536 |
 | `skill_resolver.gd` | 519 |
-| `master_data_loader.gd` | **442** |
+| `master_data_loader.gd` | **457** |
 | `battle_debug_panel.gd` | 380 |
 | `skill_runtime.gd` | 358 |
 | `unit.gd`（`BattleUnit`） | 236 |

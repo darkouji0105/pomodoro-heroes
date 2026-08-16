@@ -1,0 +1,178 @@
+{
+	"skill_dbg_mix_all": {
+		"name_key": "ui_battle_skill_dbg_mix_all",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"target": {
+					"team": "self"
+				},
+				"status_id": "status_dbg_mix_atk",
+				"stat": "atk",
+				"value": 30,
+				"duration_sec": 10.0,
+				"stack": "refresh"
+			},
+			{
+				"type": "dot",
+				"host": "unit",
+				"status_id": "status_dbg_mix_dot",
+				"multiplier": 0.5,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"duration_sec": 10.0,
+				"interval_sec": 2.0,
+				"stack": "independent"
+			}
+		]
+	},
+	"skill_dbg_delay": {
+		"name_key": "ui_battle_skill_dbg_delay",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			},
+			{
+				"type": "damage",
+				"trigger": "delay:1.0",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_dbg_delay_buff": {
+		"name_key": "ui_battle_skill_dbg_delay_buff",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"trigger": "delay:2.0",
+				"status_id": "status_dbg_delay_atk",
+				"stat": "atk",
+				"value": 50,
+				"duration_sec": 10.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"skill_dbg_drain": {
+		"name_key": "ui_battle_skill_dbg_drain",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			},
+			{
+				"type": "heal",
+				"target": {
+					"team": "self"
+				},
+				"multiplier": 5.0,
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_dbg_true": {
+		"name_key": "ui_battle_skill_dbg_true",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "true",
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_dbg_scale_sum": {
+		"name_key": "ui_battle_skill_dbg_scale_sum",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"attack_type": "physical",
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "atk",
+						"of": "user",
+						"weight": 1.0
+					},
+					{
+						"source": "hp_lost",
+						"of": "user",
+						"weight": 0.5
+					}
+				]
+			}
+		]
+	}
+}
