@@ -276,6 +276,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `5d2d64c` | `refactor(master): 1キャラ＝1フォルダへ移す（skills / nodes・データは完全一致）`（14ファイル。`character_nodes.json` 1784行と `skills_debug.json` を解体して6フォルダへ。マージを `_load_character_files()` の1本に統合）＋ `2707ca1`（ノードのログのタイミングをコメントに記録） | （EXECなし。人間の決定） |
 | `30f0ab7` | `feat(skill): skills をキャラ別に分割し、検証用キャラ3体×18スキルを追加`（10ファイル。`skills.json` を削除して4ファイルへ。`MasterDataLoader` にマージと重複IDの赤。`training_screen.gd` の `CHARACTER_IDS` に3行）＋ `85a3ea8`（再インポート）| `EXEC_SKILL_MULTIFILE.md` |
 | `754e86d` | `docs(skill): 複数ファイル化と検証用キャラ3体の EXEC を起こす`（**コードは触っていない**） | `EXEC_SKILL_MULTIFILE.md` |
 | `6cf1859` | `docs(next): 次タスクを「複数ファイル化 ＋ 検証用キャラ」に差し替え`（**コードは触っていない**） | — |
@@ -566,6 +567,9 @@ resources/balance/master/characters/char_swordsman/passives.json ← 実装す�
 - ⚠ **パッシブのファイルは作っていない**（実装がゼロ。置き場だけ決めた）。**空ファイルを置くと「利用者ゼロの受け口」が1つ増えるだけ**
 - ⚠ **走査しない**（人間の決定）。フォルダを増やしたら `MasterDataLoader.CHARACTER_DIRS_REQUIRED` に1行足す。**足し忘れるとそのキャラのスキルとノードが無音で消える**
 - **マージは1本に統合**（`_load_character_files()` / `_merge_id_map()`）。スキルもノードも同じ経路を通る
+- **実機で確認済み** … `skills validated: 36 entries`（つづきから）と `loaded 180 character nodes`（割り振り画面）
+
+⚠ **2つのログはタイミングが違う。** スキルは `_ensure_loaded()` に組み込んであるので「つづきから」で出る。**ノードは別キャッシュの遅延ロードで、`get_all_character_nodes()` を呼ぶのは割り振り画面だけ**（`get_character_node()` の4箇所は全部「解放済みノードを回すループ」の中なので、0件のセーブでは1回も呼ばれない）。**完了条件にノードのログを書くときは「割り振り画面を開く」まで書くこと。**
 
 ### 次：**通常攻撃をデータ化して、スキルと同じ経路に載せる（挙動不変）**
 
