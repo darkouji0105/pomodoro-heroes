@@ -3,7 +3,9 @@
 **第3層（実行指示書）。第2層は `docs/01_plan/PLAN_SKILL_TEMPLATE.md`（決定台帳）。着手の起点は `NEXT_STEPS.md`。**
 
 **このタスクの正体は「器の付け替え」。新しい機能は1つも足さない。**
-足すものは全部、**段階1時点では利用者がゼロの受け口**。
+足すものはほぼ全部、**段階1時点では利用者がゼロの受け口**。
+
+⚠ **例外は `scale_from` だけ**（決定1-5で**必須**にしたので6件とも書く）。**ただし書く値は「今そのスキルが実際に見ている軸」なので、数字は変わらない。**
 
 ⚠ **完了条件は「挙動が1件も変わらないこと」**（PLAN 17-1）。§11 を先に読むこと。
 
@@ -17,6 +19,10 @@
 | 1-2 | **`count` に上限を設けない** | ロード時検証は「**1以上の整数**」だけ見る。生存者が `count` に満たなければ居る分だけに当てる（PLAN 4-2 で決定済み）ので、ウェーブの敵数が増えても壊れない |
 | 1-3 | **リソース（マナ・スタック）は作らない** | 発動可否を「**撃てない理由を返す1関数**」にしておき、後から条件を1行足せる形にするだけ。マナの器はスタック＝状態のカウンター（段階3）と絡むため、今作ると段階3で作り直しになる |
 | 1-4 | **遮蔽は発動可否に入れない** | 座標は `x` の1次元だけで、壁・地形は PLAN 2章の「取らない」列。入れても常に「遮蔽なし」を返す空の条件にしかならない |
+| 1-5 | ⚠ **`scale_from` を省略させない** | `damage` と `heal` は **`scale_from` を必ず書く**。**既定値を作らない。** 書いていなければロード時に赤（§5-4 E27）。⚠ **これで PLAN 5-2 の「省略時＝`atk`」との食い違いが消える**（§12-1） |
+| 1-6 | ⚠ **対象がいなければ発動しない** | 対象指定スキルは、対象が0体なら**発動せず、クールダウンも回らない**（`REASON_NO_TARGET`・§7）。⚠ **今のコードは対象0体でもCDを回している。ここは意図して変える**（§12-2） |
+| 1-7 | **通常攻撃は今回触らない** | 「キャラによって変える」は将来やるが、**今は近距離と遠距離の区別だけでよい**。それは `unit.attack_range`（マスターの値）で**既に区別されている**。⚠ **通常攻撃を `effects[]` に乗せるのは PLAN 21章の担当外**（§13） |
+| 1-8 | ⚠ **実装役（MiniMax）を使わない** | **設計役が全部書く。PRE_PLAN も IMPL_LOG も作らない**（§2）。`WORKFLOW.md`【3】〜【7】を飛ばし、【2】から【8】実機確認へ直行する |
 
 > **1-1 の補足（人間からの質問への回答）**：`sort` の値は**後から増やしやすい**。PLAN 2-1 の「拡張しやすい＝**値を1個足す**」に当たる。`highest_atk` を足したいときに触るのは、`SkillSchema` の値の一覧と、`SkillResolver` の並べ替えの分岐**1本ずつ**。スキーマも resolver の構造も変わらない。
 
@@ -24,15 +30,21 @@
 
 ## 2. 触るファイルと担当
 
-| ファイル | 何をするか | 担当 |
+⚠ **決定1-8：このタスクは実装役（MiniMax）を使わない。設計役が全部書く。**
+
+| ファイル | 何をするか | 章 |
 |---|---|---|
-| `resources/balance/master/skills.json` | **全文差し替え**（6件を新しい形へ） | **実装役**（§4に全文あり。写すだけ） |
-| `scripts/systems/skill_schema.gd` | **新規**。語彙の定数とロード時検証 | **実装役**（§5） |
-| `scripts/systems/skill_resolver.gd` | **作り直し**（109行） | **実装役**（§6） |
-| `scripts/systems/skill_activation.gd` | **新規**。発動可否を1箇所に | **実装役**（§7） |
-| `scripts/systems/master_data_loader.gd` | 末尾追記2本 ＋ **`_ensure_loaded()` に1行** | **末尾追記＝実装役／1行の挿入＝設計役**（§8） |
-| `scenes/adventure/battle_controller.gd` | 2箇所の差し替え（912行） | ⚠ **設計役が全文を書く**（§9） |
-| `docs/00_concept/DATA_SCHEMA.md` 3-1 | スキル定義ブロックの差し替え | **設計役**（§10に全文あり） |
+| `resources/balance/master/skills.json` | **全文差し替え**（6件を新しい形へ） | §4（全文あり） |
+| `scripts/systems/skill_schema.gd` | **新規**。語彙の定数とロード時検証 | §5 |
+| `scripts/systems/skill_resolver.gd` | **作り直し**（109行） | §6 |
+| `scripts/systems/skill_activation.gd` | **新規**。発動可否を1箇所に | §7 |
+| `scripts/systems/master_data_loader.gd` | 末尾追記2本 ＋ **`_ensure_loaded()` に1行** | §8 |
+| `scenes/adventure/battle_controller.gd` | 3箇所の差し替え（912行） | §9 |
+| `docs/00_concept/DATA_SCHEMA.md` 3-1 | スキル定義ブロックの差し替え | §10（全文あり） |
+
+**PRE_PLAN も IMPL_LOG も作らない**（実装役がいないため。`WORKFLOW.md`【3】〜【7】を飛ばし、【2】から【8】実機確認へ直行する）。**直近3タスク（育成・研究・ショップ）と同じ体制で、3回連続で事故ゼロ。**
+
+⚠ **判断の根拠**：完了条件が「挙動が1件も変わらないこと」だけで、**事故点が仕様ではなく書き方の細部にある**（`roll_crit()` を振る回数と順番・安定ソート・`BattleFormula.damage()` の引数）。**どれが落ちても赤は出ず、数字だけが静かに変わる。** 仕様文から復元させる形に向かない。
 
 **新しいフォルダは作らない。** 新規2ファイルはどちらも既存の `scripts/systems/` に置く。
 
@@ -78,7 +90,7 @@
 
 ⚠ **`range` は書かない。** 座標定数（味方200・敵900 → 最短500）とセットで後決め（PLAN 4-5）。**数値を入れないこと。**
 
-⚠ **`scale_from` も書かない。** 6件とも既定のまま（§6-4）。
+⚠ **`scale_from` は6件とも書く**（決定1-5。**省略は赤**）。⚠ **書く値は「今そのスキルが実際に見ている軸」。** `physical` は `atk`、`magic` は `mag`、回復は `mag`。**ここを間違えると数字が変わり、完了条件が崩れる。**
 
 ```json
 {
@@ -90,7 +102,7 @@
 		"activation": "instant",
 		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
 		"effects": [
-			{ "type": "damage", "multiplier": 2.0, "attack_type": "physical" }
+			{ "type": "damage", "multiplier": 2.0, "attack_type": "physical", "scale_from": "atk" }
 		]
 	},
 	"skill_wide_sweep": {
@@ -107,7 +119,7 @@
 		},
 		"target": { "team": "enemy", "mode": "select", "sort": "all" },
 		"effects": [
-			{ "type": "damage", "multiplier": 0.9, "attack_type": "physical" }
+			{ "type": "damage", "multiplier": 0.9, "attack_type": "physical", "scale_from": "atk" }
 		]
 	},
 	"skill_snipe": {
@@ -118,7 +130,7 @@
 		"activation": "instant",
 		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
 		"effects": [
-			{ "type": "damage", "multiplier": 2.6, "attack_type": "physical" }
+			{ "type": "damage", "multiplier": 2.6, "attack_type": "physical", "scale_from": "atk" }
 		]
 	},
 	"skill_arrow_rain": {
@@ -129,7 +141,7 @@
 		"activation": "instant",
 		"target": { "team": "enemy", "mode": "select", "sort": "all" },
 		"effects": [
-			{ "type": "damage", "multiplier": 1.2, "attack_type": "physical" }
+			{ "type": "damage", "multiplier": 1.2, "attack_type": "physical", "scale_from": "atk" }
 		]
 	},
 	"skill_healing_light": {
@@ -140,7 +152,7 @@
 		"activation": "instant",
 		"target": { "team": "ally", "mode": "select", "sort": "all" },
 		"effects": [
-			{ "type": "heal", "multiplier": 1.0 }
+			{ "type": "heal", "multiplier": 1.0, "scale_from": "mag" }
 		]
 	},
 	"skill_holy_ray": {
@@ -151,14 +163,16 @@
 		"activation": "instant",
 		"target": { "team": "enemy", "mode": "select", "sort": "all" },
 		"effects": [
-			{ "type": "damage", "multiplier": 1.0, "attack_type": "magic" }
+			{ "type": "damage", "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag" }
 		]
 	}
 }
 ```
 
 - **`type` は1件も残さない**（旧欄。残っていたらロード時検証が `push_error` する・§5-4）
-- `skill_healing_light` に `attack_type` は**書かない**（PLAN 5-2。回復が攻撃力依存だった事故の再発防止）
+- `skill_healing_light` に `attack_type` は**書かない**（PLAN 5-2。回復が攻撃力依存だった事故の再発防止）。⚠ **`scale_from: "mag"` は書く**（決定1-5）。**「書かない欄」と「必ず書く欄」が隣り合っているので混同しないこと**
+- **`scale_from` の文字列は省略形**（`"atk"` ＝ `[{ "source": "atk", "of": "user", "weight": 1.0 }]`）。**省略形は「明示」に含まれる**（禁じたのは**欄ごと書かないこと**）
+- ⚠ **上の6件の `scale_from` は、今そのスキルが実際に見ている軸と同じ。** `physical` は `user.get_power("physical")` ＝ `atk`、`magic` は `mag`、回復は `mag`（`skill_resolver.gd` 89・102行）。**だから挙動は変わらない**
 - `skill_wide_sweep` の `charge{}` は**中身も位置も変えない**
 
 ---
@@ -248,6 +262,7 @@ GameManager.get_stat_keys()   ← 10軸。ここに軸名を並べた2本目の�
 | E20 | `type: damage` の `attack_type` が `physical` / `magic` / `true` 以外（**省略は許す＝`physical`**） |
 | E21 | **`type: heal` に `attack_type` が書かれている**（PLAN 5-2。欄を作らないという決定を検証で守る） |
 | E22 | `scale_from` が文字列でも配列でもない／配列の要素に `source` が無い／`source` が `scale_sources()` に無い／`of` が3値以外（省略は許す＝`user`）／`weight` が数値でない |
+| **E27** | ⚠ **`type: damage` / `heal` に `scale_from` が無い**（決定1-5。**既定値を作らない**）。⚠ **`buff` などの他の型には要らない**（`stat` / `value` を持つため） |
 | E23 | `chance` / `charge_scales` の型が違う（`chance`＝数値・`charge_scales`＝bool） |
 | E24 | `trigger` の形が `cast` / `event:◯◯` / `delay:<数値>` / `charge_start` のどれでもない |
 | E25 | `host` が5値以外 |
@@ -402,7 +417,7 @@ results.append({ "unit_id": ..., "amount": int(ctx["amount"]), "is_heal": false,
 var amount: int = int(floor(_scale_value_sum(effect, user, null) * multiplier))
 ```
 
-- 既定のスケール元は **`mag`**（PLAN 5-2）
+- ⚠ **スケール元は `scale_from` から引く。既定値を持たない**（決定1-5）。`skills.json` 側に `"scale_from": "mag"` と書いてある
 - ⚠ **会心を振らない。`atk_multiplier` を掛けない。介入点も通さない**（回復の介入点は段階3）
 - ⚠ **`attack_type` を読まない。** 欄自体が存在しない（`skills.json` にも書かない・§4）
 - `t.heal(amount)` して `{ "unit_id": ..., "amount": amount, "is_heal": true, "is_crit": false }` を積む
@@ -414,13 +429,13 @@ var amount: int = int(floor(_scale_value_sum(effect, user, null) * multiplier))
 power ＝ Σ( weight × 変数 )
 ```
 
-**書き方は3通り。**
+**書き方は2通り。⚠ 「書かない」は無い**（決定1-5）。
 
 | `scale_from` | 意味 |
 |---|---|
-| **欄が無い** | **既定**。§6-7 |
 | 文字列（`"atk"`） | `[{ "source": "atk", "of": "user", "weight": 1.0 }]` の省略形 |
 | 配列 | `{ "source", "of", "weight" }` の合成 |
+| **欄が無い** | ⚠ **エラー。**§6-7 |
 
 **変数の値**
 
@@ -437,14 +452,21 @@ power ＝ Σ( weight × 変数 )
 - 変数表に無い名前 → **`push_error` して 0.0**（ロード時検証でも捕まえる。二重に守る）
 - ⚠ **評価は「発火時」**（PLAN 5-5-3）。段階1は cast と発火が同時なので**差は出ない**。`resolve()` の中で毎回読むこと。**`fold_charge_ratio()` の時点で読まない**
 
-### 6-7. 既定のスケール元（⚠ **PLAN の表記とズレる。§12-1 を読むこと**）
+### 6-7. ⚠ 既定値を作らない（決定1-5）
 
-| 効果 | `scale_from` を書かないときの `power` |
+**`damage` と `heal` は `scale_from` を必ず持つ。** ロード時検証（E27）が赤で弾くので、正しい `skills.json` なら**欄が無い状態で resolver に来ることはない。**
+
+**それでも resolver 側の防御は残す**（PLAN 5-4「resolver 側の防御は残すが、主戦場はロード時」）。
+
+| 状況 | resolver の振る舞い |
 |---|---|
-| `damage` | **`user.get_power(attack_type)`**（`physical`→`atk` / `magic`→`mag` / `true`→`atk`） |
-| `heal` | `user.get_stat(GameStateKeys.STAT_MAG)` |
+| `scale_from` が無い | **`push_error`** した上で、`damage` は `user.get_power(attack_type)`、`heal` は `mag` を使って**続行する** |
 
-⚠ **`damage` の既定を「常に `atk`」にすると `skill_holy_ray`（`magic`）の数字が変わり、完了条件が崩れる。**
+⚠ **フォールバックの値を 0 にしないこと。** 0 にすると `BattleFormula.damage()` が必ず 1 を返し、**「なぜか1ダメージ」**になって原因を追いにくい。**赤は出ているので「黙って既定値」にはならない。**
+
+⚠ **このフォールバックを「既定値」と読み替えて `skills.json` の `scale_from` を省くのは禁止。** 省いた時点で赤が出る。
+
+> **なぜ既定値を作らないか**：既定を「常に `atk`」にすると `skill_holy_ray`（`magic`）が `mag` を見なくなって数字が変わる。既定を「`attack_type` が指す軸」にすると、**`attack_type` が「防御の参照先だけ」に純化したはずなのに、攻撃側の意味がこっそり残る**（PLAN 5-2-1 が治した病気の出戻り）。**書かせるのが一番安い。**
 
 ### 6-8. `fold_charge_ratio()`
 
@@ -483,7 +505,7 @@ static func blocked_reason(
 | `REASON_USER_DEAD` | `"user_dead"` | `user == null` または `not user.is_alive()` |
 | `REASON_SKILL_NOT_FOUND` | `"skill_not_found"` | `skill_data.is_empty()` |
 | `REASON_COOLDOWN` | `"cooldown"` | `not user.is_skill_ready(skill_id)` |
-| `REASON_NO_TARGET` | `"no_target"` | `SkillResolver.select_targets(skill_data.target, ...)` が**空**（＝射程・PLAN 4-5） |
+| `REASON_NO_TARGET` | `"no_target"` | `SkillResolver.select_targets(skill_data.target, ...)` が**空**（＝射程・PLAN 4-5）。⚠ **決定1-6。対象がいなければ発動せず、CDも回らない**（§12-2） |
 
 ⚠ **判定の順番は上の表のとおり。** `no_target` を最後にするのは、`select_targets()` が一番重いため。
 ⚠ **この関数は状態を1つも変えない**（`CLAUDE.md` 6番）。CD を回すのは呼び出し側。
@@ -497,14 +519,14 @@ static func blocked_reason(
 
 ⚠ **resolver 側だけの防御にしない。** 実戦で撃つまで壊れていることが分からない（PLAN 5-4）。
 
-### 8-1. 末尾に追記する（**実装役**）
+### 8-1. 末尾に追記する
 
 ```gdscript
 static func get_all_skills() -> Dictionary
 ```
 `_ensure_loaded()` を呼び、`_cache_skills.duplicate(true)` を返す。`get_all_research_nodes()` と同じ形。
 
-### 8-2. 検証本体（**実装役・末尾に追記**）
+### 8-2. 検証本体（**末尾に追記**）
 
 ```gdscript
 static func _validate_all_skills() -> void
@@ -523,7 +545,7 @@ print("[MasterDataLoader] skills validated: %d entries, %d errors, %d warnings" 
 
 ⚠ **この print が完了条件（§11-A）になる。** `_load_json()` は成功時に何も出さないので、**これが唯一の「読めた」の合図**。
 
-### 8-3. `_ensure_loaded()` に1行足す（⚠ **設計役が書く**）
+### 8-3. `_ensure_loaded()` に1行足す
 
 **66〜74行を、下の全文に差し替える。** 足すのは最終行の1本だけ。
 
@@ -564,7 +586,7 @@ range < attack_range なら push_error
 
 ---
 
-## 9. `scenes/adventure/battle_controller.gd`（⚠ **912行。設計役が全文を書く**）
+## 9. `scenes/adventure/battle_controller.gd`（⚠ **912行。触るのは3箇所だけ**）
 
 **触るのは3箇所だけ。** 他の行に触らないこと。
 
@@ -637,7 +659,7 @@ PLAN 4-5 の「射程外のボタンを暗くする」は、**`range` に数値�
 
 ---
 
-## 10. `docs/00_concept/DATA_SCHEMA.md` 3-1 の差し替え（設計役）
+## 10. `docs/00_concept/DATA_SCHEMA.md` 3-1 の差し替え
 
 **389〜404行の「スキル定義（マスターデータ・参照専用）」を、下の全文に差し替える。**
 
@@ -666,7 +688,7 @@ PLAN 4-5 の「射程外のボタンを暗くする」は、**`range` に数値�
       "range": 500.0
     },
     "effects": [
-      { "type": "damage", "multiplier": 2.0, "attack_type": "physical | magic | true" }
+      { "type": "damage", "multiplier": 2.0, "attack_type": "physical | magic | true", "scale_from": "atk" }
     ]
   }
 }
@@ -677,6 +699,7 @@ PLAN 4-5 の「射程外のボタンを暗くする」は、**`range` に数値�
 - `activation: charge` のときだけ `charge{}` を読む。**`charge` 欄の有無で分岐しない**
 - `range` は**対象の母集団を絞る**。絞った結果が0体なら発動しない（発動可否と一本化）
 - `attack_type` は「**どの防御で受けるか**」だけを決める。攻撃側の参照元は `scale_from`
+- ⚠ **`scale_from` は `damage` / `heal` で必須。既定値は無い**（書かないとロード時に赤）。文字列（`"atk"`）は `[{ "source": "atk", "of": "user", "weight": 1.0 }]` の省略形
 - **`heal` に `attack_type` の欄は作らない**（回復が攻撃力依存だった事故の再発防止）
 - **`unlock_level`**：そのスキルが候補に出るレベル。**`int()` で包んで読む**（JSONから `1.0` で来る）。現在は6件とも `1`
 - ⚠ **`MasterDataLoader` が返す数値は `float`。`count` は `int()` 必須**
@@ -733,6 +756,7 @@ PLAN 4-5 の「射程外のボタンを暗くする」は、**`range` に数値�
 
 - C-1. `skills.json` の1件の `sort` を `nearset` と書き間違えると、赤が1件出て件数が `1 errors` になる
 - C-2. `type: "single"` を書き戻すと、E2（旧欄の残骸）で赤が出る
+- C-2b. **`scale_from` を1件から消すと、E27 で赤が1件出る**（決定1-5。既定値で黙って動かない）
 - C-3. `effects[]` に `{"type": "buff", ...}` を足すと、**黄が1件出て、同じ配列の `damage` は今までどおり当たる**（今のコードは全部捨てる）
 - C-4. `target.range` に `100.0` を入れると、剣士の `attack_range` より短いため赤が出る（§8-4）
 - C-5. `sort: lowest_hp` / `farthest` / `highest_hp` は、使うスキルが無いので**この回では画面で確認できない**
@@ -741,26 +765,44 @@ PLAN 4-5 の「射程外のボタンを暗くする」は、**`range` に数値�
 
 ## 12. ⚠ PLAN とのズレ（**勝手に直していない。人間が判断すること**）
 
-### 12-1. `scale_from` の既定値（PLAN 5-2 の表）
+### 12-1. `scale_from` の省略（PLAN 5-2 の表・**決定1-5 で解決済み**）
 
 PLAN 5-2 の表は `scale_from` の省略時を **「damage＝`atk` / heal＝`mag`」** と書いている。
 
-**このまま実装すると `skill_holy_ray`（`attack_type: magic`）が `mag` ではなく `atk` を見るようになり、数字が変わる。** PLAN 17章の移行表は「6件とも `scale_from` を書かない」「この6件の付け替え自体は挙動を変えない」と書いているので、**2つの記述が食い違っている。**
+**これをそのまま実装すると `skill_holy_ray`（`attack_type: magic`）が `mag` ではなく `atk` を見るようになり、数字が変わる。** PLAN 17章の移行表は「6件とも `scale_from` を書かない」「この6件の付け替え自体は挙動を変えない」と書いているので、**2つの記述が食い違っていた。**
 
-**EXEC は挙動不変を優先し、既定を「`attack_type` が指す攻撃軸」（＝現行の `user.get_power(attack_type)`）とした**（§6-7）。
+> **人間の決定（1-5）で、この食い違いは消えた。`scale_from` を必須にし、既定値そのものを作らない。**
+> 6件には**今そのスキルが見ている軸**（`atk` / `atk` / `atk` / `atk` / `mag` / `mag`）を明示的に書く。**挙動は変わらない。**
 
-> **PLAN 5-2 の表記を直すかどうかは人間が決める。** 直す場合の文言案：
-> `scale_from` の省略時 … damage＝**`attack_type` が指す軸**（`physical`→`atk` / `magic`→`mag` / `true`→`atk`）／ heal＝`mag`
+⚠ **残るのは PLAN 側の表記だけ。** PLAN 5-2 の表の「省略時」の列と、17章の「6件とも書かない」の1文が、**実装と食い違ったまま残る。**
 
-### 12-2. 対象0体のときのクールダウン（**唯一の挙動差**）
+> **PLAN を直すかどうかは人間が決める**（合意なしに PLAN 本文を書き換えない）。直す場合の文言案：
+> - 5-2 の表：`scale_from` の省略時 → **「省略不可。`damage` / `heal` は必ず書く」**
+> - 17章：「**今の6件は書かない**（既定：damage＝`atk` / heal＝`mag`）」 → 「**今の6件にも書く**（`atk` ×4 / `mag` ×2）。**移行表の他の列は変わらない**」
+
+### 12-2. 対象0体のときのクールダウン（**意図した挙動差**・決定1-6）
 
 **今のコードは、対象が0体でもクールダウンを開始する**（`battle_controller.gd` 610〜614行。**ただし593行のコメントは「開始されない」と書いてある**＝コメントと実装がズレている）。
 
-段階1では PLAN 12-1「撃てなかったらCDは回らない」に従い、`REASON_NO_TARGET` で弾いた場合は**CDを回さない**。
+**人間の決定（1-6）により、`REASON_NO_TARGET` で弾いた場合は CD を回さない**（PLAN 12-1「撃てなかったらCDは回らない」）。**押せなかっただけ、という扱いにする。**
 
 **この差が画面に出る条件**：`range` を書いていない段階1では、**敵が0体のときだけ**。敵が全滅した瞬間に `_enter_wave_clear()` が状態を変えてボタンが灰色になるため、**その間の1フレームにクリックが刺さらないと再現しない。**
 
-> **実質到達不能だが、挙動差はゼロではない。** ここだけは「1件も変わらない」の例外として明記しておく。
+> **実質到達不能だが、挙動差はゼロではない。** 「1件も変わらない」の**唯一の例外**として、ここに明記しておく。
+
+⚠ **`range` に数値が入る回（段階1より後）から、この挙動が本番になる。** 射程外で押しても何も起きずCDだけ減る、が起きなくなる。
+
+### 12-3. 通常攻撃は今回触らない（決定1-7）
+
+**「対象がいなければ発動しない」は通常攻撃でも同じ**だが、**そこは既にそうなっている。**
+
+| | 現状 |
+|---|---|
+| 対象がいない／死んでいる | `_step_unit()` が `return`（`battle_controller.gd` 373〜377行）。**攻撃タイマーも進まない** |
+| 射程外 | 攻撃せず**近づく**（379・390〜391行） |
+| 近距離と遠距離の区別 | ✅ **`unit.attack_range`（マスターの値）で既にできている**（`unit.gd` 48・90行） |
+
+**よって今回は1行も触らない。** 「キャラによって通常攻撃を変える」（`effects[]` に乗せる・攻撃の合図を出す）は **PLAN 21章の担当外**で、接続点が3つ揃ってから判断する（§13）。
 
 ### 12-3. `skills.json` のインデント
 
@@ -776,6 +818,7 @@ PLAN 5-2 の表は `scale_from` の省略時を **「damage＝`atk` / heal＝`ma
 - 状態の器・`buff` / `dot`・購読・条件・回復/状態付与/死亡の介入点 … **段階3**
 - `mode: area` … 段階4／`phases[]` / `recast` … 段階5／`spawn` … 段階6
 - スキル18個の中身・パッシブ・ルーン・戦闘の2次元化・バランス調整
+- ⚠ **通常攻撃を `effects[]` に乗せること**（決定1-7・§12-3）。**PLAN 21章の担当外。** 今は `attack_range` による近距離／遠距離の区別だけでよい。接続点は既に2つある（**攻撃射程の数値**・**攻撃した合図**）。**3つ目が出たら乗せる判断をする**
 
 **宿題に送る**（`PROJECT_STATUS.md` に足す）
 
@@ -792,6 +835,7 @@ PLAN 5-2 の表は `scale_from` の省略時を **「damage＝`atk` / heal＝`ma
    - `grep -n "SkillActivation" scenes/adventure/battle_controller.gd` … **1件以上**
    - `grep -n "_validate_all_skills" scripts/systems/master_data_loader.gd` … **2件**（定義と呼び出し）
    - `grep -n "\"type\"" resources/balance/master/skills.json` … **6件**（`effects[]` の中だけ。スキル直下に残っていない）
+   - `grep -c "scale_from" resources/balance/master/skills.json` … **6件**（決定1-5。1件でも欠けると赤が出る）
    - `grep -n "TEAM_ENEMY\|TEAM_PARTY" scripts/systems/skill_resolver.gd` … **`user.team` から導く形になっていること**（定数の直書きが残っていない）
 2. ⚠ **`int()` の包み忘れ。** ネストが3階層になったぶん増える。**`count` は `int()` 必須**（`multiplier` / `value` / `range` は `float` のままでよい）
 3. ⚠ **インデントはタブ。** `.gd` も `.json` も
