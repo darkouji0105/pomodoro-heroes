@@ -66,6 +66,16 @@ var _base_attack_interval_sec: float = 0.0
 # 通常攻撃の種別（ATTACK_TYPE_*）
 var attack_type: String = ATTACK_TYPE_PHYSICAL
 
+# 通常攻撃の中身（characters.json / enemies.json の "basic_attack"）。
+# 形は skills の1件と同じ { "effects": [ ... ] }。⚠ target は持たない
+# （通常攻撃は歩いて近づいた相手を撃つ。対象を選び直さない）。
+#
+# ⚠ ここに持つのは「マスターの複製」だが、セーブには入らない。attack_range /
+#   _base_attack_interval_sec と同じ扱いで、create() が p_source から1回だけ写す。
+#   スキルのように毎回IDで引き直さないのは、BattleUnit が自分の character_id /
+#   enemy_type_id を持っていないため（持たせると create() の引数が増える）。
+var basic_attack: Dictionary = {}
+
 # --- 戦闘中に変わる状態 ---
 var hp: int = 0
 var atk_multiplier: float = 1.0
@@ -123,6 +133,12 @@ static func create(
 		push_error("[BattleUnit] 不明な attack_type: %s (unit_id=%s)" % [raw_type, p_unit_id])
 		raw_type = ATTACK_TYPE_PHYSICAL
 	unit.attack_type = raw_type
+
+	# ⚠ 空でも落とさない。ロード時検証（MasterDataLoader）が赤で言うので、
+	#   ここで二重に赤を出すと同じ事故で2本出る。撃たないだけにする。
+	var raw_basic: Variant = p_source.get("basic_attack", null)
+	if raw_basic is Dictionary:
+		unit.basic_attack = (raw_basic as Dictionary).duplicate(true)
 
 	return unit
 

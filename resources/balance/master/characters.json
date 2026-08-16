@@ -1,5 +1,6 @@
 {
   "char_swordsman": {
+	"basic_attack": { "effects": [ { "type": "damage", "delivery": "melee", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk" } ] },
 	"name_key": "ui_battle_char_swordsman",
 	"hp": 120, "atk": 18, "mag": 4, "def": 6, "mdef": 4, "spd": 60,
 	"atkspd": 0, "haste": 0, "crit_rate": 5, "crit_dmg": 150,
@@ -10,6 +11,7 @@
 	"growth_per_level": { "hp": 8, "atk": 2, "def": 1, "spd": 1 }
   },
   "char_archer": {
+	"basic_attack": { "effects": [ { "type": "damage", "delivery": "projectile", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk" } ] },
 	"name_key": "ui_battle_char_archer",
 	"hp": 80, "atk": 14, "mag": 6, "def": 3, "mdef": 3, "spd": 70,
 	"atkspd": 0, "haste": 0, "crit_rate": 10, "crit_dmg": 150,
@@ -20,6 +22,7 @@
 	"growth_per_level": { "hp": 5, "atk": 2, "def": 1, "spd": 1 }
   },
   "char_priest": {
+	"basic_attack": { "effects": [ { "type": "damage", "delivery": "magic", "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag" } ] },
 	"name_key": "ui_battle_char_priest",
 	"hp": 70, "atk": 10, "mag": 16, "def": 3, "mdef": 6, "spd": 65,
 	"atkspd": 0, "haste": 0, "crit_rate": 5, "crit_dmg": 150,
@@ -30,6 +33,7 @@
 	"growth_per_level": { "hp": 4, "atk": 1, "def": 1, "spd": 1 }
   },
   "char_debug_status": {
+	"basic_attack": { "effects": [ { "type": "damage", "delivery": "projectile", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk" } ] },
 	"name_key": "ui_battle_char_debug_status",
 	"hp": 9999, "atk": 1, "mag": 1, "def": 0, "mdef": 0, "spd": 60,
 	"atkspd": 0, "haste": 0, "crit_rate": 0, "crit_dmg": 150,
@@ -40,6 +44,7 @@
 	"growth_per_level": { "hp": 1, "atk": 1, "def": 1, "spd": 1 }
   },
   "char_debug_life": {
+	"basic_attack": { "effects": [ { "type": "damage", "delivery": "projectile", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk" } ] },
 	"name_key": "ui_battle_char_debug_life",
 	"hp": 9999, "atk": 1, "mag": 1, "def": 0, "mdef": 0, "spd": 60,
 	"atkspd": 0, "haste": 0, "crit_rate": 0, "crit_dmg": 150,
@@ -50,6 +55,7 @@
 	"growth_per_level": { "hp": 1, "atk": 1, "def": 1, "spd": 1 }
   },
   "char_debug_mix": {
+	"basic_attack": { "effects": [ { "type": "damage", "delivery": "projectile", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk" } ] },
 	"name_key": "ui_battle_char_debug_mix",
 	"hp": 9999, "atk": 1, "mag": 1, "def": 0, "mdef": 0, "spd": 60,
 	"atkspd": 0, "haste": 0, "crit_rate": 0, "crit_dmg": 150,

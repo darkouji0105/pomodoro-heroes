@@ -171,6 +171,53 @@ static func scale_sources() -> Array:
 # スキル1件ぶんの構造を検証する。
 # 戻り値は { "level": "error" or "warning", "message": String } の配列。空＝問題なし。
 # message には必ず skill_id を含める（どのスキルが壊れているか分からないと直せない）。
+# 通常攻撃（characters.json / enemies.json の "basic_attack"）を検証する。
+# 戻り値の形は validate() と同じ。
+#
+# 【なぜ入口を分けるか】通常攻撃には target が無い。狙う相手は「歩いて近づいた
+# 相手」（BattleUnit.target_unit_id）で決まっており、撃つ瞬間に選び直さない。
+# ⚠ validate() に通すと target が必須なので、書いても効かない欄を1つ増やすことに
+#   なる。このプロジェクトで何度も刺さっている形なので、欄そのものを持たせない。
+#
+# ⚠ 効果1件ぶんの検証は _validate_effect() を共用する。ここに2本目の判定を
+#   書かないこと（scale_from や attack_type の規則が片方だけ古くなる）。
+static func validate_basic_attack(owner_id: String, data: Dictionary) -> Array:
+	var issues: Array = []
+
+	if data == null or data.is_empty():
+		_err(issues, owner_id, "basic_attack が無い、または空（通常攻撃が撃てない）")
+		return issues
+
+	# ⚠ スキルの欄を書いても効かない。黙って無視すると「書いたのに変わらない」になる。
+	for field: Variant in ["target", "activation", "charge", "cooldown_sec", "unlock_level", "phases"]:
+		if data.has(field):
+			_err(issues, owner_id, "basic_attack に %s は書けない（通常攻撃はスキルではない）" % str(field))
+
+	var raw_effects: Variant = data.get("effects", null)
+	if not (raw_effects is Array) or (raw_effects as Array).is_empty():
+		_err(issues, owner_id, "basic_attack.effects が無い、配列でない、または空")
+		return issues
+
+	var index: int = 0
+	for raw_effect: Variant in (raw_effects as Array):
+		if not (raw_effect is Dictionary):
+			_err(issues, owner_id, "basic_attack.effects[%d] が Dictionary でない" % index)
+			index += 1
+			continue
+		var effect: Dictionary = raw_effect as Dictionary
+		# ⚠ trigger は書けない。通常攻撃は SkillRuntime（待ち行列）に載せない。
+		#   載せると「攻撃間隔ごとに待ち行列が伸びる」形になり、寿命の管理が二重になる。
+		if effect.has("trigger"):
+			_err(issues, owner_id, "basic_attack.effects[%d] に trigger は書けない（待ち行列に載せない）" % index)
+		# 効果ごとの target 上書きも同じ理由で持たせない。
+		if effect.has("target"):
+			_err(issues, owner_id, "basic_attack.effects[%d] に target は書けない" % index)
+		_validate_effect(issues, owner_id, effect, index, ACTIVATION_INSTANT)
+		index += 1
+
+	return issues
+
+
 static func validate(skill_id: String, data: Dictionary) -> Array:
 	var issues: Array = []
 

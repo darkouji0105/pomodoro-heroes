@@ -424,28 +424,38 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 		# attack_interval_sec は create() の時点で atkspd 適用済み。
 		# ここでマスターから読み直さないこと。
 		if unit.attack_timer >= unit.attack_interval_sec:
-			var is_crit: bool = BattleFormula.roll_crit(unit.get_stat(GameStateKeys.STAT_CRIT_RATE))
-			var dmg: int = _compute_damage(unit, target, is_crit)
-			target.take_damage(dmg)
-			_pop_damage(target, dmg, is_crit)
+			_fire_basic_attack(unit, target)
 			unit.attack_timer = 0.0
 	else:
 		var dir: float = sign(target.x - unit.x)
 		unit.x += dir * unit.speed * delta
 
 
-# 通常攻撃のダメージ計算。式そのものは BattleFormula にある。
-# ここに式を書き戻さないこと（スキル側と2箇所に分かれるため）。
-# 会心の抽選は呼び出し側で行い、結果を受け取る（表示の色を変えるのに要る）。
-func _compute_damage(attacker: BattleUnit, target: BattleUnit, is_crit: bool) -> int:
-	var t: String = attacker.attack_type
-	return BattleFormula.damage(
-		attacker.get_power(t),
-		target.get_defense(t),
-		attacker.atk_multiplier,
-		attacker.get_stat(GameStateKeys.STAT_CRIT_DMG),
-		is_crit
+# 通常攻撃を1発撃つ。
+#
+# ⚠ 式をここに書かない。スキルとまったく同じ経路（SkillResolver）を通す。
+#   通さないと、段階1で作ったダメージの介入点（軽減・確定会心・シールド・反射）が
+#   「スキルにだけ効く」という説明のつかない仕様になる。
+#   ⚠ 以前ここには _compute_damage() があり、BattleFormula を直接叩いていた。
+#     戻さないこと。
+#
+# ⚠ 対象を選び直さない。歩いて近づいた相手（target_unit_id）をそのまま渡す。
+#   SkillResolver.select_targets() に選ばせると sort: nearest で別人に当たりうる。
+# ⚠ SkillActivation を通さない。射程・生死の判定は _step_unit() が済ませている。
+#   通すと no_target / cooldown で通常攻撃が止まる（判定を2箇所にしない）。
+# ⚠ 会心をここで振らない。SkillResolver が対象1体につき1回振る。二重に振ると
+#   乱数を消費する回数が変わる。
+# ⚠ SkillRuntime（待ち行列）に載せない。載せると攻撃間隔ごとに行列が伸びる。
+func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
+	# 空なのはデータ側の問題。ロード時検証が赤で言っているので、ここでは黙って撃たない
+	# （毎フレーム走るので、ここで警告を出すと出力パネルが埋まる）。
+	if unit.basic_attack.is_empty():
+		return
+	var results: Array = SkillResolver.resolve(
+		unit.basic_attack, unit, _session, [target.unit_id], _status
 	)
+	# ⚠ 表示の経路は1本。スキルも DoT も通常攻撃もここを通る。
+	_on_skill_effects_applied(results)
 
 
 func _pop_damage(target: BattleUnit, amount: int, is_crit: bool = false) -> void:

@@ -114,6 +114,9 @@ static func _ensure_loaded() -> void:
 	# 射程と attack_range のクロス検証もここでできる。
 	# ⚠ _cache_characters を読むので、この行は _ensure_loaded() の最終行であること。
 	_validate_all_skills()
+	# ⚠ 通常攻撃も同じタイミングで見る。スキルと違って「撃てない」が無音なので
+	#   （攻撃間隔だけ回って何も起きない）、ロード時に言わないと気づけない。
+	_validate_all_basic_attacks()
 
 
 # キャラのフォルダから同じ名前のファイルを集めて1つの辞書にまとめる。
@@ -481,6 +484,38 @@ static func _ensure_character_nodes_loaded() -> void:
 static func get_all_skills() -> Dictionary:
 	_ensure_loaded()
 	return _cache_skills.duplicate(true)
+
+
+# characters.json と enemies.json の "basic_attack" を全件見る。
+#
+# ⚠ 味方と敵をまとめて回す。片方だけ検証する形にすると、敵に通常攻撃を
+#   書き忘れたときだけ無音になる（敵は殴ってこないだけで、エラーが出ない）。
+static func _validate_all_basic_attacks() -> void:
+	var error_count: int = 0
+	var warning_count: int = 0
+	var checked: int = 0
+
+	for source: Dictionary in [_cache_characters, _cache_enemies]:
+		for owner_id: Variant in source:
+			var entry: Variant = source[owner_id]
+			var data: Dictionary = (entry as Dictionary) if entry is Dictionary else {}
+			var basic: Variant = data.get("basic_attack", null)
+			var basic_data: Dictionary = (basic as Dictionary) if basic is Dictionary else {}
+			checked += 1
+			for issue: Variant in SkillSchema.validate_basic_attack(str(owner_id), basic_data):
+				if not (issue is Dictionary):
+					continue
+				var message: String = "[MasterDataLoader] basic_attack " + str((issue as Dictionary).get("message", ""))
+				if str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+					error_count += 1
+					push_error(message)
+				else:
+					warning_count += 1
+					push_warning(message)
+
+	print("[MasterDataLoader] basic attacks validated: %d entries, %d errors, %d warnings" % [
+		checked, error_count, warning_count
+	])
 
 
 static func _validate_all_skills() -> void:
