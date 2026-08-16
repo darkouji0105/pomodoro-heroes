@@ -416,6 +416,15 @@ static func _index_by(root: Dictionary, list_key: String, id_key: String, path: 
 #   消すと呼び出し側の書き換えまで波及する（今回は挙動を変えない）。
 #
 # ⚠ 数値（tier / cost / value）は float で来る。呼び出し側で int() を付けること。
+#
+# ⚠ いつ読まれるか（2026-08-16・呼び出し元を全部たどって確認）
+#   ・get_all_character_nodes() … stat_node_screen.gd だけ＝割り振り画面を開いたとき
+#   ・get_character_node() … GameManager の4箇所。どれも
+#     `for node_id in get_stat_nodes(character_id)` の中なので、
+#     ⚠ 解放済みノードが0件のセーブでは1回も呼ばれない
+#   したがって「つづきから」では出ない（スキルは _ensure_loaded() に
+#   組み込んであるので出る。⚠ 2つは別のキャッシュ・別のタイミング）。
+#   完了条件にこのログを書くときは「割り振り画面を開く」まで書くこと。
 # ========================================================================
 
 static var _cache_character_nodes: Dictionary = {}
