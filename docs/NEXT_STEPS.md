@@ -207,7 +207,7 @@
 
 `PROJECT_STATUS.md`にもあるが、**この回に関係しそうなものだけ**。
 
-- ⚠ **`PLAN_SKILL_TEMPLATE.md` 5-2 の表と17章の1文が、段階1の実装（`scale_from`は省略不可）と食い違ったまま。** 直すかどうかは人間が決める（文言案は`EXEC_SKILL_TEMPLATE_PHASE1.md` §12-1）
+- ⚠ **`PLAN_SKILL_TEMPLATE.md` 21章の未確定4件は、実は段階1のEXECで決着している**（`sort`5値を全部実装／リソースは作らない／遮蔽は入れない／`count`の上限は設けない）。**PLAN側は未確定のまま残っている。** 段階2で21章を読むときに引っかからないこと（`scale_from`の食い違いは2026-08-16に修正済み）
 - **`DATA_SCHEMA.md` 3-1 のダメージ計算式が古い**（減算と書いてあるが実際は除算）
 - **`DATA_SCHEMA.md` 4-3 の`stats`が4軸のまま**
 - **`sort`の`farthest`/`lowest_hp`/`highest_hp`は実機で1度も通っていない**

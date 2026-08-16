@@ -350,7 +350,8 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`DATA_SCHEMA.md` 3-1 のダメージ計算式が古い。** `最終ダメージ = max(1, 攻撃力 - 防御力)`と書いてあるが、**実際は除算**（`battle_formula.gd` 62〜67行の`max(1, floor(power * multiplier * 100 / (100 + def)))`）。3-1のスキル定義ブロック自体は**この回で直した**（`EXEC_SKILL_TEMPLATE_PHASE1.md` §10）が、式の行は範囲外なので残した
 - **`sort`の`farthest` / `lowest_hp` / `highest_hp`は実装したが、使うスキルが1件も無いので実機で1度も通っていない**（`EXEC_SKILL_TEMPLATE_PHASE1.md` §11 C-5）。スキル12個を書く回で初めて画面に出る
 - **`target.range`と介入点（`_step_crit_override` / `_step_reduction`）も利用者ゼロの受け口のまま。** `range`の数値は座標定数（味方200・敵900）とセットで後決め（PLAN 4-5）
-- **`PLAN_SKILL_TEMPLATE.md` 5-2 の表の「`scale_from`の省略時」と17章の「6件とも書かない」の1文が、実装（決定1-5＝省略不可）と食い違ったまま残っている。** 文言案は`EXEC_SKILL_TEMPLATE_PHASE1.md` §12-1。**直すかどうかは人間が決める**
+- ~~**`PLAN_SKILL_TEMPLATE.md` 5-2 の表と17章が、実装（決定1-5＝省略不可）と食い違ったまま**~~ **✅ 人間の指示で修正済み（2026-08-16）。** 5-2の省略時欄・5-2の`heal`の注記・17章の移行表と1文・17-1の表に反映
+- ⚠ **`PLAN_SKILL_TEMPLATE.md` 21章の未確定4件が、実は段階1のEXECで決着している**（`sort`5値を全部実装／リソースは作らない／遮蔽は入れない／`count`の上限は設けない）。**PLAN側は未確定のまま。次にPLANを触るときに畳むこと**
 
 ---
 

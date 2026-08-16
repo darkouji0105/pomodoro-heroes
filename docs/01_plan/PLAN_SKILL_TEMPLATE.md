@@ -288,7 +288,7 @@
 | `target` | **段の既定を上書きする**（吸血・自分バフ用） | 段の `target` |
 | `charge_scales` | チャージ倍率が掛かるか | `true` |
 | `chance` | 確率 | `1.0` |
-| `scale_from` | **何でスケールするか**（5-5） | damage＝`atk` / heal＝`mag` |
+| `scale_from` | **何でスケールするか**（5-5） | ⚠ **省略不可。`damage` / `heal` は必ず書く**（既定値を作らない） |
 
 **`type` ごとに読む欄**
 
@@ -306,8 +306,10 @@
 
 **`heal` に `attack_type` を作らない**のは既存の決定（`skill_resolver.gd` 88行）。回復が攻撃力依存だった事故を直したときのもの。**戻さないこと。**
 
-> ⚠ **ただし `heal` に `scale_from` は書ける。** 既定は `mag` のまま。**警告も出さない。**
+> ⚠ **ただし `heal` に `scale_from` は書ける——というより必ず書く**（省略不可・段階1の実装で確定）。回復スキルには `"scale_from": "mag"` と明示する。**警告は出さない。**
 > **過去の事故は「`heal` が黙って `atk` を見ていた」こと。** `scale_from` があれば `atk` を使うには**明示的に書かねばならず、「黙って」が構造上もう起きない。** 決定の趣旨は構造が守るので、禁止も警告も要らない。
+>
+> ⚠ **既定値そのものを作らなかった理由**（`EXEC_SKILL_TEMPLATE_PHASE1.md` 決定1-5）：既定を「常に `atk`」にすると `skill_holy_ray`（`magic`）が `mag` を見なくなって数字が変わる。既定を「`attack_type` が指す軸」にすると、**`attack_type` を「防御の参照先だけ」に純化したはずなのに攻撃側の意味がこっそり残る**（5-2-1 が治した病気の出戻り）。**書かせるのが一番安い。**
 
 ### 5-2-1. `attack_type` の意味を純化した（⚠ 1章の3件目・**足したら治ったタイプ**）
 
@@ -995,12 +997,12 @@ SkillResolver       … 1回ぶんの解決。時間を知らない ← 契約�
 
 | スキルID | 今 | → `activation` | → `target` | → `effects[]` |
 |---|---|---|---|---|
-| `skill_power_slash` | `single` | `instant` | `{team: enemy, mode: select, sort: nearest, count: 1}` | `[{type: damage, multiplier: 2.0, attack_type: physical}]` |
-| `skill_wide_sweep` | `aoe` ＋ `charge` | **`charge`**（`charge{}` は現状のまま） | `{team: enemy, mode: select, sort: all}` | `[{type: damage, multiplier: 0.9, attack_type: physical}]` |
-| `skill_snipe` | `single` | `instant` | `{team: enemy, mode: select, sort: nearest, count: 1}` | `[{type: damage, multiplier: 2.6, attack_type: physical}]` |
-| `skill_arrow_rain` | `aoe` | `instant` | `{team: enemy, mode: select, sort: all}` | `[{type: damage, multiplier: 1.2, attack_type: physical}]` |
-| `skill_healing_light` | `heal` | `instant` | `{team: ally, mode: select, sort: all}` | `[{type: heal, multiplier: 1.0}]` |
-| `skill_holy_ray` | `aoe` | `instant` | `{team: enemy, mode: select, sort: all}` | `[{type: damage, multiplier: 1.0, attack_type: magic}]` |
+| `skill_power_slash` | `single` | `instant` | `{team: enemy, mode: select, sort: nearest, count: 1}` | `[{type: damage, multiplier: 2.0, attack_type: physical, scale_from: atk}]` |
+| `skill_wide_sweep` | `aoe` ＋ `charge` | **`charge`**（`charge{}` は現状のまま） | `{team: enemy, mode: select, sort: all}` | `[{type: damage, multiplier: 0.9, attack_type: physical, scale_from: atk}]` |
+| `skill_snipe` | `single` | `instant` | `{team: enemy, mode: select, sort: nearest, count: 1}` | `[{type: damage, multiplier: 2.6, attack_type: physical, scale_from: atk}]` |
+| `skill_arrow_rain` | `aoe` | `instant` | `{team: enemy, mode: select, sort: all}` | `[{type: damage, multiplier: 1.2, attack_type: physical, scale_from: atk}]` |
+| `skill_healing_light` | `heal` | `instant` | `{team: ally, mode: select, sort: all}` | `[{type: heal, multiplier: 1.0, scale_from: mag}]` |
+| `skill_holy_ray` | `aoe` | `instant` | `{team: enemy, mode: select, sort: all}` | `[{type: damage, multiplier: 1.0, attack_type: magic, scale_from: mag}]` |
 
 **6件とも `mode: select` ／ `phases` 省略 ／ `trigger` 省略（＝`cast`）／`host` 省略（＝`none`）。**
 **`range` は当面省略（＝無制限）。** ⚠ **数値を入れるのは座標定数を決めてから**（4-5）。
@@ -1008,6 +1010,7 @@ SkillResolver       … 1回ぶんの解決。時間を知らない ← 契約�
 - `name_key` / `user_character_id` / `unlock_level` / `cooldown_sec` は**そのまま**
 - `skill_healing_light` に `attack_type` は**書かない**（5-2）
 - `skill_wide_sweep` の `charge{}` は**中身も位置も変えない**
+- ⚠ **`scale_from` は今の6件にも書く**（`atk` ×4 / `mag` ×2）。**省略不可**にしたため（5-2・`EXEC_SKILL_TEMPLATE_PHASE1.md` 決定1-5）。**書く値は「今そのスキルが実際に見ている軸」なので、移行表の他の列は変わらず、数字も変わらない**
 
 **この6件の付け替え自体は挙動を変えない。**
 
@@ -1024,6 +1027,7 @@ SkillResolver       … 1回ぶんの解決。時間を知らない ← 契約�
 | **発動可否の1箇所** | CDの判定が移るだけ | **無し** |
 | **ダメージの介入点** | **ゼロ**（シールド・軽減・反射・貫通・確定クリは全部段階3） | **無し** |
 | **ロード時検証** | 新しい警告のみ（既存6件は正しい） | **無し** |
+| **`scale_from`（省略不可）** | ⚠ **6件とも書く**（唯一「利用者ゼロ」でないもの） | **無し。書く値が今見ている軸と同じだから**（17章） |
 
 > **段階1は「太った」だけで、「挙動が1件も変わらない」という性質は保てる。**
 
