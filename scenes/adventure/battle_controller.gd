@@ -693,6 +693,7 @@ func _on_projectile_requested(
 	var user: BattleUnit = _find_unit_by_id(user_id)
 	if user == null:
 		return
+	_prune_projectiles()
 	for raw_id: Variant in target_ids:
 		var target: BattleUnit = _find_unit_by_id(str(raw_id))
 		if target == null:
@@ -742,12 +743,30 @@ func _projectile_color(delivery: String) -> Color:
 # ⚠ _skill_runtime.clear_all() と必ずセットで呼ぶこと。待ち行列だけ消すと
 #   矢が飛び続けて、着弾しても何も起きない（無音）。
 # ⚠ 再描画に await を持たせない（AGENTS.md）。remove_child してから queue_free。
+#
+# ⚠ この配列には解放済みの参照が必ず混じる。投射物は着弾すると自分から
+#   queue_free() するが、配列からは抜けないため。
+#   ⚠ `view is Node` を先に書くと「Left operand of 'is' is a previously freed
+#     instance」で赤が出る（実際に踏んだ）。is_instance_valid() を先に見ること。
 func _clear_projectiles() -> void:
 	for view: Variant in _projectile_views:
-		if view is Node and is_instance_valid(view):
-			remove_child(view)
-			(view as Node).queue_free()
+		if not is_instance_valid(view):
+			continue
+		var node: Node = view as Node
+		remove_child(node)
+		node.queue_free()
 	_projectile_views.clear()
+
+
+# 着弾して消えた投射物を配列から落とす。
+# ⚠ 発射のたびに呼ぶ。呼ばないと、1回の戦闘のあいだ配列が伸び続ける
+#   （中身は解放済みの参照なので見た目には何も起きず、気づけない）。
+func _prune_projectiles() -> void:
+	var alive: Array = []
+	for view: Variant in _projectile_views:
+		if is_instance_valid(view):
+			alive.append(view)
+	_projectile_views = alive
 
 
 # 新層が効果を1つ当てたときに呼ばれる。表示だけを担当する。
