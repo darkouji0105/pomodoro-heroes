@@ -273,6 +273,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `db7b1e7` | `feat(skill): 状態の器と buff/dot（段階3前半・stack と until）`（12ファイル。新規は `status_registry.gd`。`stack` / `until` を新設、`BattleUnit.get_stat()` が補正込みに、`resolve()` の引数が5つに。⚠ **通過したのはロード時検証のみ。EXEC §13-B の11項目は未確認**） | `EXEC_SKILL_TEMPLATE_PHASE3A.md` |
 | `9bb357b` | `feat(skill): 実行中のスキル層と trigger（段階2・多段と遅延）`（9ファイル。新規は `skill_runtime.gd`。`resolve()` の引数が変わり、`delivery` を新設。速射が2連射に） | `EXEC_SKILL_TEMPLATE_PHASE2.md` |
 | `b58a434` | `feat(skill): 3人ぶんの残り12スキルを追加（Lv5/10/15/20 解放）`（8ファイル。⚠ **`.gd` を1行も触っていない**。`skills.json` 6→18件・`characters.json`・`ja.csv` ＋ `PLAN_SKILL_CONTENT.md` / `EXEC_SKILL_CONTENT.md` 新設 ＋ `PROJECT_STATUS.md` / `NEXT_STEPS.md` を更新） | `EXEC_SKILL_CONTENT.md` |
 | `078428d` | `docs(skill): PLAN の scale_from を省略不可に統一（実装との食い違いを解消）`（**コードは触っていない**） | `PLAN_SKILL_TEMPLATE.md` 5-2・17章 |
