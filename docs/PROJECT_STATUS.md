@@ -273,6 +273,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `9bb357b` | `feat(skill): 実行中のスキル層と trigger（段階2・多段と遅延）`（9ファイル。新規は `skill_runtime.gd`。`resolve()` の引数が変わり、`delivery` を新設。速射が2連射に） | `EXEC_SKILL_TEMPLATE_PHASE2.md` |
 | `b58a434` | `feat(skill): 3人ぶんの残り12スキルを追加（Lv5/10/15/20 解放）`（8ファイル。⚠ **`.gd` を1行も触っていない**。`skills.json` 6→18件・`characters.json`・`ja.csv` ＋ `PLAN_SKILL_CONTENT.md` / `EXEC_SKILL_CONTENT.md` 新設 ＋ `PROJECT_STATUS.md` / `NEXT_STEPS.md` を更新） | `EXEC_SKILL_CONTENT.md` |
 | `078428d` | `docs(skill): PLAN の scale_from を省略不可に統一（実装との食い違いを解消）`（**コードは触っていない**） | `PLAN_SKILL_TEMPLATE.md` 5-2・17章 |
 | `1704ee3` | `docs(status): 段階1の完了を反映・Git章にハッシュを記録・次タスクを段階2に差し替え`（**コードは触っていない**） | — |
