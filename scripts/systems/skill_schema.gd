@@ -87,7 +87,12 @@ const HOSTS_KNOWN: Array = [HOST_NONE, HOST_UNIT, HOST_POINT, HOST_BATTLE, HOST_
 # 解釈するのは SkillRuntime。⚠ SkillResolver は trigger を読まない（2箇所で解釈すると必ずズレる）。
 const TRIGGER_CAST: String = "cast"
 const TRIGGER_CHARGE_START: String = "charge_start"   # 段階2で実装
-const TRIGGER_PREFIX_EVENT: String = "event:"         # 受け口だけ（合図を出す側が居ない）
+const TRIGGER_PREFIX_EVENT: String = "event:"
+
+# 唯一「合図を出す側が居る」イベント名。ProjectileView が着弾で返す（PLAN 6-7）。
+# ⚠ 語彙はここに置く。SkillSchema を参照する側（SkillRuntime）で定義すると、
+#   検証がイベント名を知るために相互参照になる。
+const EVENT_HIT: String = "hit"
 const TRIGGER_PREFIX_DELAY: String = "delay:"         # 段階2で実装
 
 # --- effects[].delivery（どう届くか。待ち行列の種別タグ・PLAN 6-8） ---
@@ -205,11 +210,13 @@ static func validate_basic_attack(owner_id: String, data: Dictionary) -> Array:
 			index += 1
 			continue
 		var effect: Dictionary = raw_effect as Dictionary
-		# ⚠ trigger は書けない。通常攻撃は SkillRuntime（待ち行列）に載せない。
-		#   載せると「攻撃間隔ごとに待ち行列が伸びる」形になり、寿命の管理が二重になる。
-		if effect.has("trigger"):
-			_err(issues, owner_id, "basic_attack.effects[%d] に trigger は書けない（待ち行列に載せない）" % index)
-		# 効果ごとの target 上書きも同じ理由で持たせない。
+		# ⚠ trigger は書ける（投射物の回に解禁した）。
+		#   一度「通常攻撃は待ち行列に載せない」と禁止したが、それは誤りだった。
+		#   要素は着弾で発火して消えるので伸び続けない。そして載せないと、
+		#   飛び道具の無効化（cancel_by_delivery）が通常攻撃の矢にだけ効かなくなる。
+		#
+		# ⚠ 効果ごとの target 上書きは引き続き書けない。通常攻撃が狙うのは
+		#   「歩いて近づいた相手」で、撃つ瞬間に選び直してはいけない。
 		if effect.has("target"):
 			_err(issues, owner_id, "basic_attack.effects[%d] に target は書けない" % index)
 		_validate_effect(issues, owner_id, effect, index, ACTIVATION_INSTANT)
@@ -408,6 +415,10 @@ static func _validate_effect(
 	var trigger: String = str(effect.get("trigger", TRIGGER_CAST))
 	if not _is_trigger_shape(trigger):
 		_err(issues, skill_id, "%s.trigger の形が不正: '%s'" % [where, trigger])
+	elif trigger == TRIGGER_PREFIX_EVENT + EVENT_HIT:
+		# ⚠ 'hit' だけは合図を出す側が居る（ProjectileView が着弾で返す）。
+		#   ここで黄を出さないこと。飛ぶ効果は十数件あるので、出すと本物の異常が埋まる。
+		pass
 	elif trigger.begins_with(TRIGGER_PREFIX_EVENT):
 		_warn(issues, skill_id, "%s.trigger: '%s' は合図を出す側が居ない（アニメ未実装）。タイムアウトで発火する" % [where, trigger])
 

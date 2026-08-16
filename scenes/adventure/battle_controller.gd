@@ -18,6 +18,7 @@ const ENEMY_STEP_X: float = 100.0
 
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
 const DEBUG_PANEL_SCRIPT: GDScript = preload("res://scenes/adventure/battle_debug_panel.gd")
+const PROJECTILE_VIEW_SCRIPT: GDScript = preload("res://scenes/adventure/projectile_view.gd")
 const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
 
 # チャージゲージの色（本タスク限定の例外。main_theme.tres に対応する概念が無い）
@@ -25,6 +26,11 @@ const CHARGE_COLOR_NORMAL: Color = Color(0.6, 0.7, 0.9)
 const CHARGE_COLOR_JUST: Color = Color(1.0, 0.9, 0.4)
 const CHARGE_COLOR_OVER: Color = Color(0.5, 0.5, 0.5)
 const CHARGE_GAUGE_HEIGHT: int = 8
+
+# 通常攻撃を待ち行列に積むときの skill_id。⚠ どのスキルファイルにも存在しない。
+# 警告文と待ち行列の中身にしか出ず、マスターを引くのには使わない
+# （通常攻撃の中身は BattleUnit.basic_attack が持っている）。
+const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
 
 # ノード参照
 @onready var party_container: Node2D = $PartyUnitsContainer
@@ -48,6 +54,9 @@ var _enemy_views: Array = []
 # 味方の UnitView は wave 間で破棄しない（連戦のため）。
 # ただし「もう一度」リトライ時は作り直す。
 var _party_views: Array = []
+# 飛んでいる投射物のビュー。⚠ 待ち行列（SkillRuntime）とは別物なので、
+#   捨てるときは _clear_projectiles() と clear_all() を必ずセットで呼ぶ。
+var _projectile_views: Array = []
 
 # unit_id -> UnitView。ダメージ数値の表示先を引くために持つ。
 var _views_by_unit_id: Dictionary = {}
@@ -108,6 +117,9 @@ func _ready() -> void:
 
 	_skill_runtime = SkillRuntime.new(_session, _status)
 	_skill_runtime.effects_applied.connect(_on_skill_effects_applied)
+	# ⚠ ここが「データとビューが出会う場所」（PLAN 7-1）。新層はノードを触らず、
+	#   投射物が要るときはシグナルで頼んでくる。生成はこの画面の担当。
+	_skill_runtime.projectile_requested.connect(_on_projectile_requested)
 
 	_init_party_units()
 	result_view.hide()
@@ -451,11 +463,11 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	# （毎フレーム走るので、ここで警告を出すと出力パネルが埋まる）。
 	if unit.basic_attack.is_empty():
 		return
-	var results: Array = SkillResolver.resolve(
-		unit.basic_attack, unit, _session, [target.unit_id], _status
-	)
-	# ⚠ 表示の経路は1本。スキルも DoT も通常攻撃もここを通る。
-	_on_skill_effects_applied(results)
+	# ⚠ 待ち行列を通す。直接 resolve() を呼ぶと、飛んでいる矢が待ち行列に乗らず、
+	#   飛び道具の無効化（cancel_by_delivery）が通常攻撃だけに効かなくなる。
+	# ⚠ 対象は固定で渡す。cast() に選ばせると sort: nearest が別人を選ぶ。
+	# ⚠ クールダウンは回さない。通常攻撃の間隔は attack_timer が持つ。
+	_skill_runtime.cast(unit, BASIC_ATTACK_SKILL_ID, unit.basic_attack, 1.0, [target.unit_id])
 
 
 func _pop_damage(target: BattleUnit, amount: int, is_crit: bool = false) -> void:
@@ -664,6 +676,80 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> void
 	))
 
 
+# ============================================================
+# 投射物（PLAN 6-7 / 6-8）
+# ============================================================
+
+# 新層から「投射物を出してくれ」と頼まれたときに呼ばれる。
+#
+# ⚠ ここが「データとビューが出会う場所」（PLAN 7-1）。新層は RefCounted で
+#   ノードを知らないので、生成はこの画面だけがやる。
+# ⚠ 演出シーンのIDは delivery から引く（人間の決定）。JSONに演出の欄を足さない。
+# ⚠ 対象1体につき1本出す。対象0体なら1本も出ないが、待ち行列の要素は積まれて
+#   いるので5秒後にタイムアウトで発火する（空振り。正常系）。
+func _on_projectile_requested(
+		cast_id: int, delivery: String, user_id: String, target_ids: Array
+) -> void:
+	var user: BattleUnit = _find_unit_by_id(user_id)
+	if user == null:
+		return
+	for raw_id: Variant in target_ids:
+		var target: BattleUnit = _find_unit_by_id(str(raw_id))
+		if target == null:
+			continue
+		var view: Node2D = Node2D.new()
+		view.set_script(PROJECTILE_VIEW_SCRIPT)
+		# ⚠ 味方のコンテナに入れない。ウェーブ交代で敵のビューごと消えるため。
+		add_child(view)
+		view.setup(
+			self,
+			cast_id,
+			target.unit_id,
+			Vector2(user.x, GROUND_Y),
+			Vector2(target.x, GROUND_Y),
+			_projectile_speed(delivery),
+			_projectile_color(delivery)
+		)
+		_projectile_views.append(view)
+
+
+# 着弾の合図。演出シーンから呼ばれる。
+#
+# ⚠ ダメージはここでも出さない。新層に「着いた」と伝えるだけで、
+#   待っていた効果は SkillRuntime が発火させる（経路は1本・PLAN 6-5）。
+# ⚠ 同じ cast_id の矢が複数本あっても、待ち行列から取り出すのは最初の1本だけ。
+#   2本目以降の合図は何も起こさない（全体攻撃で対象の数だけ矢が出るため）。
+func on_projectile_hit(cast_id: int) -> void:
+	if _skill_runtime == null:
+		return
+	_skill_runtime.notify_event(cast_id, SkillSchema.EVENT_HIT)
+
+
+func _projectile_speed(delivery: String) -> float:
+	if delivery == SkillSchema.DELIVERY_MAGIC:
+		return Balance.adventure.magic_speed_px_sec
+	return Balance.adventure.projectile_speed_px_sec
+
+
+func _projectile_color(delivery: String) -> Color:
+	if delivery == SkillSchema.DELIVERY_MAGIC:
+		return ProjectileView.COLOR_MAGIC
+	return ProjectileView.COLOR_PROJECTILE
+
+
+# 飛んでいる投射物を全部消す。ウェーブ交代・勝敗確定・リトライで呼ぶ。
+#
+# ⚠ _skill_runtime.clear_all() と必ずセットで呼ぶこと。待ち行列だけ消すと
+#   矢が飛び続けて、着弾しても何も起きない（無音）。
+# ⚠ 再描画に await を持たせない（AGENTS.md）。remove_child してから queue_free。
+func _clear_projectiles() -> void:
+	for view: Variant in _projectile_views:
+		if view is Node and is_instance_valid(view):
+			remove_child(view)
+			(view as Node).queue_free()
+	_projectile_views.clear()
+
+
 # 新層が効果を1つ当てたときに呼ばれる。表示だけを担当する。
 # cast の効果は _fire_skill() の中で、delay の効果は _process() の tick で発火する。
 func _on_skill_effects_applied(results: Array) -> void:
@@ -811,6 +897,7 @@ func _enter_wave_clear() -> void:
 	#   左端へ瞬間移動したあとの距離で distance スケールの効果が計算される。
 	#   捨てるのは正常な中断なので警告を出さない（PLAN 6-6）。
 	_skill_runtime.clear_all()
+	_clear_projectiles()
 	# ⚠ 状態も捨てる。HP とクールダウンとは扱いが違う（引き継がない）。
 	#   待ち行列と同じく _reset_party_positions() より前。
 	_status.clear_all()
@@ -826,6 +913,7 @@ func _enter_victory() -> void:
 	_cancel_charge()
 	# 勝利画面が出たあとにダメージ数値が出ないようにする。
 	_skill_runtime.clear_all()
+	_clear_projectiles()
 	_status.clear_all()
 	_session.state = BattleSession.STATE_VICTORY
 	_consume_stage_stamina()
@@ -873,6 +961,7 @@ func _enter_defeat() -> void:
 	_result_applied = true
 	_cancel_charge()
 	_skill_runtime.clear_all()
+	_clear_projectiles()
 	_status.clear_all()
 	_session.state = BattleSession.STATE_DEFEAT
 	# apply_battle_rewards も mark_stage_cleared も呼ばない
@@ -923,6 +1012,9 @@ func _init_session() -> void:
 	#   補正の組み直しが空振りする（こちらもエラーは出ない）。
 	_status.reset(_session)
 	_skill_runtime.reset(_session, _status)
+	# ⚠ 待ち行列を捨てただけでは、飛んでいる矢のノードは残る。着弾しても
+	#   待っている効果がもう無いので、無音で消えるだけの矢が前の戦闘から居座る。
+	_clear_projectiles()
 	_init_party_units()
 
 

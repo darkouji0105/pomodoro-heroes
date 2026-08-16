@@ -28,12 +28,25 @@ extends RefCounted
 # resolve() の戻り値をそのまま流す。battle_controller が pop_damage する。
 signal effects_applied(results: Array)
 
+# 投射物を出してほしい、という合図。⚠ この層はノードを触らない（契約）。
+#
+# battle_controller が受けて演出シーンを出し、着弾したら notify_event() を呼び返す
+# （PLAN 6-7「新層は演出シーンに対象IDを渡し、演出シーンは合図を返す」）。
+#
+# ⚠ ここで Node を作らないこと。SkillRuntime / SkillResolver / StatusRegistry は
+#   全部 RefCounted で、ノードツリーを知らない。これは偶然ではなく契約。
+signal projectile_requested(cast_id: int, delivery: String, user_id: String, target_ids: Array)
+
+# 飛ぶ送り方。melee はその場で当たるので飛ばさない。
+const DELIVERIES_FLYING: Array = [SkillSchema.DELIVERY_PROJECTILE, SkillSchema.DELIVERY_MAGIC]
+
 # 待ち行列の要素が「何を待っているか」。
 const WAIT_DELAY: String = "delay"
 const WAIT_EVENT: String = "event"
 
 # 合図が来ないまま何秒待つか。
-# ⚠ 演出シーンが存在しないので event: を書いたスキルは0件。今は実戦で通らない。
+# ⚠ 保険であって本命の経路ではない。着弾の合図（ProjectileView）が来れば
+#   その場で発火する。ここまで来たら演出シーン側が壊れている。
 const EVENT_TIMEOUT_SEC: float = 5.0
 
 var _session: BattleSession = null
@@ -78,7 +91,17 @@ func reset(p_session: BattleSession, p_registry: StatusRegistry) -> void:
 #
 # ⚠ cast を次のフレームに回さないこと。回すとダメージの表示が1フレーム遅れ、
 #   勝敗判定との順序も変わる。既存スキルの挙動が静かに変わる。
-func cast(user: BattleUnit, skill_id: String, skill_data: Dictionary, power_ratio: float) -> void:
+#
+# fixed_target_ids … 空でなければ対象選択を飛ばし、このIDをそのまま使う。
+#
+# ⚠ 通常攻撃のためにある。通常攻撃が狙うのは「歩いて近づいた相手」
+#   （BattleUnit.target_unit_id）で、撃つ瞬間に選び直してはいけない。
+#   select_targets() に選ばせると sort: nearest で別人に飛ぶ。
+# ⚠ 入口を2本にしないこと（発火経路は1本・PLAN 6-5）。cast_basic() を足さない。
+func cast(
+		user: BattleUnit, skill_id: String, skill_data: Dictionary, power_ratio: float,
+		fixed_target_ids: Array = []
+) -> void:
 	if user == null or _session == null:
 		push_error("[SkillRuntime] cast: user または session が null")
 		return
@@ -100,6 +123,11 @@ func cast(user: BattleUnit, skill_id: String, skill_data: Dictionary, power_rati
 	var cast_id: int = _next_cast_id
 	_next_cast_id += 1
 
+	# 1回の発動で出す投射物は、送り方1つにつき1本。
+	# ⚠ これが無いと、ダメージと DoT の2効果が同じ矢を待っているだけなのに
+	#   矢が2本飛ぶ（癒しの光の DoT 付きなど）。
+	var flying_sent: Dictionary = {}
+
 	# 先頭から順に。effects の並び順が多段の順番になる（PLAN 6-2）。
 	for raw_effect: Variant in (raw_effects as Array):
 		if not (raw_effect is Dictionary):
@@ -112,7 +140,7 @@ func cast(user: BattleUnit, skill_id: String, skill_data: Dictionary, power_rati
 		if trigger == SkillSchema.TRIGGER_CHARGE_START:
 			continue
 
-		var entry: Dictionary = _make_entry(cast_id, user, skill_id, effect, skill_target)
+		var entry: Dictionary = _make_entry(cast_id, user, skill_id, effect, skill_target, fixed_target_ids)
 
 		if trigger == SkillSchema.TRIGGER_CAST:
 			_fire(entry)
@@ -127,9 +155,17 @@ func cast(user: BattleUnit, skill_id: String, skill_data: Dictionary, power_rati
 			entry["remaining"] = float(raw_sec)
 			_pending.append(entry)
 		elif trigger.begins_with(SkillSchema.TRIGGER_PREFIX_EVENT):
+			# 合図待ち。⚠ 着弾待ちなら、ここで投射物を1本頼む。
+			#   合図を出す相手が居ないまま待つと、5秒のタイムアウトで発火する
+			#   （黄が出る。ダメージは消えない）。
+			var delivery: String = str(entry.get("delivery", ""))
+			var event_name: String = trigger.substr(SkillSchema.TRIGGER_PREFIX_EVENT.length())
+			if event_name == SkillSchema.EVENT_HIT and delivery in DELIVERIES_FLYING and not flying_sent.has(delivery):
+				flying_sent[delivery] = true
+				projectile_requested.emit(cast_id, delivery, user.unit_id, entry.get("target_ids", []))
 			entry["wait"] = WAIT_EVENT
 			entry["remaining"] = EVENT_TIMEOUT_SEC
-			entry["event_name"] = trigger.substr(SkillSchema.TRIGGER_PREFIX_EVENT.length())
+			entry["event_name"] = event_name
 			_pending.append(entry)
 		else:
 			# ロード時検証（E24）が守っているので通常は来ない。二重に守る。
@@ -168,10 +204,11 @@ func charge_start(user: BattleUnit, skill_id: String, skill_data: Dictionary) ->
 
 # 演出シーンからの合図の受け口（PLAN 6-3 / 6-5）。
 #
-# ⚠ 呼び出し元はまだ存在しない。アニメーションが無いため（PLAN 6-4）。
-#   それでも今作るのは、ここが空だと tick() が唯一の発火経路になり、
-#   この層が「時間で進むもの」になってしまうため（PLAN 6-5 が禁じている形）。
-#   アニメが入るときに書くのは「この関数を呼ぶ側」だけで済む。
+# ⚠ 呼び出し元は battle_controller.on_projectile_hit()（投射物の着弾）だけ。
+#   ここが空だと tick() が唯一の発火経路になり、この層が「時間で進むもの」に
+#   なってしまう（PLAN 6-5 が禁じている形）。
+# ⚠ 同じ cast_id の矢が複数本あっても、取り出すのは最初の1本の合図だけ。
+#   2本目以降は一致する要素が無いので何も起きない（全体攻撃で対象の数だけ飛ぶ）。
 func notify_event(cast_id: int, event_name: String) -> void:
 	var ready: Array = []
 	var rest: Array = []
@@ -289,8 +326,13 @@ func pending_snapshot() -> Array:
 # ⚠ 対象が0体でも積む。空振りは正常系（PLAN 4-2）。積まないと
 #   pending_count() が実態と合わなくなる。
 func _make_entry(
-		cast_id: int, user: BattleUnit, skill_id: String, effect: Dictionary, skill_target: Dictionary
+		cast_id: int, user: BattleUnit, skill_id: String, effect: Dictionary,
+		skill_target: Dictionary, fixed_target_ids: Array = []
 ) -> Dictionary:
+	# ⚠ 外から対象が来ていれば選び直さない（通常攻撃。cast() の注記を見ること）。
+	if not fixed_target_ids.is_empty():
+		return _entry_dict(cast_id, user, skill_id, effect, fixed_target_ids.duplicate())
+
 	# 効果ごとの target 上書きが無ければ、スキルの target を使う。
 	# ⚠ ここでマスターを引き直さない。渡された実効スキルデータの target を使う
 	#   （引き直すと「渡されたデータ」と「マスター」の2つの正ができる）。
@@ -305,6 +347,13 @@ func _make_entry(
 	else:
 		target_ids = SkillResolver.select_targets(target_def, user, _session)
 
+	return _entry_dict(cast_id, user, skill_id, effect, target_ids)
+
+
+# 要素の形はここ1箇所。⚠ 対象の決め方が2通りあるので、欄の並びを2箇所に書かない。
+func _entry_dict(
+		cast_id: int, user: BattleUnit, skill_id: String, effect: Dictionary, target_ids: Array
+) -> Dictionary:
 	return {
 		"cast_id": cast_id,
 		"user_id": user.unit_id,

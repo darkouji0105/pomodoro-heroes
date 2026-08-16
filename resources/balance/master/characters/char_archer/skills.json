@@ -5,9 +5,21 @@
 		"unlock_level": 1,
 		"cooldown_sec": 11.0,
 		"activation": "instant",
-		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
 		"effects": [
-			{ "type": "damage", "delivery": "projectile", "multiplier": 2.6, "attack_type": "physical", "scale_from": "atk" }
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 2.6,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit"
+			}
 		]
 	},
 	"skill_arrow_rain": {
@@ -16,9 +28,20 @@
 		"unlock_level": 1,
 		"cooldown_sec": 9.0,
 		"activation": "instant",
-		"target": { "team": "enemy", "mode": "select", "sort": "all" },
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
 		"effects": [
-			{ "type": "damage", "delivery": "projectile", "multiplier": 1.2, "attack_type": "physical", "scale_from": "atk" }
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 1.2,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit"
+			}
 		]
 	},
 	"skill_finisher": {
@@ -27,9 +50,21 @@
 		"unlock_level": 5,
 		"cooldown_sec": 7.0,
 		"activation": "instant",
-		"target": { "team": "enemy", "mode": "select", "sort": "lowest_hp", "count": 1 },
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "lowest_hp",
+			"count": 1
+		},
 		"effects": [
-			{ "type": "damage", "delivery": "projectile", "multiplier": 3.0, "attack_type": "physical", "scale_from": "atk" }
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 3.0,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit"
+			}
 		]
 	},
 	"skill_long_shot": {
@@ -38,7 +73,12 @@
 		"unlock_level": 10,
 		"cooldown_sec": 10.0,
 		"activation": "instant",
-		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
 		"effects": [
 			{
 				"type": "damage",
@@ -46,9 +86,17 @@
 				"attack_type": "physical",
 				"multiplier": 2.0,
 				"scale_from": [
-					{ "source": "atk", "of": "user", "weight": 1.0 },
-					{ "source": "distance", "weight": 0.08 }
-				]
+					{
+						"source": "atk",
+						"of": "user",
+						"weight": 1.0
+					},
+					{
+						"source": "distance",
+						"weight": 0.08
+					}
+				],
+				"trigger": "event:hit"
 			}
 		]
 	},
@@ -58,7 +106,12 @@
 		"unlock_level": 15,
 		"cooldown_sec": 8.0,
 		"activation": "instant",
-		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 2 },
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 2
+		},
 		"effects": [
 			{
 				"type": "damage",
@@ -66,9 +119,18 @@
 				"attack_type": "physical",
 				"multiplier": 0.65,
 				"scale_from": [
-					{ "source": "atk", "of": "user", "weight": 1.0 },
-					{ "source": "atkspd", "of": "user", "weight": 1.5 }
-				]
+					{
+						"source": "atk",
+						"of": "user",
+						"weight": 1.0
+					},
+					{
+						"source": "atkspd",
+						"of": "user",
+						"weight": 1.5
+					}
+				],
+				"trigger": "event:hit"
 			},
 			{
 				"type": "damage",
@@ -77,8 +139,16 @@
 				"attack_type": "physical",
 				"multiplier": 0.65,
 				"scale_from": [
-					{ "source": "atk", "of": "user", "weight": 1.0 },
-					{ "source": "atkspd", "of": "user", "weight": 1.5 }
+					{
+						"source": "atk",
+						"of": "user",
+						"weight": 1.0
+					},
+					{
+						"source": "atkspd",
+						"of": "user",
+						"weight": 1.5
+					}
 				]
 			}
 		]
@@ -89,9 +159,21 @@
 		"unlock_level": 20,
 		"cooldown_sec": 13.0,
 		"activation": "instant",
-		"target": { "team": "enemy", "mode": "select", "sort": "farthest", "count": 1 },
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "farthest",
+			"count": 1
+		},
 		"effects": [
-			{ "type": "damage", "delivery": "projectile", "multiplier": 2.4, "attack_type": "true", "scale_from": "atk" }
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 2.4,
+				"attack_type": "true",
+				"scale_from": "atk",
+				"trigger": "event:hit"
+			}
 		]
 	}
 }

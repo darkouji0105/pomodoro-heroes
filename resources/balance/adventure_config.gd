@@ -42,3 +42,20 @@ extends Resource
 ## crit_rate（会心率）の上限（％）。超過分は捨てる。
 ## GAME_DESIGN.md 8-2 は超過分を crit_dmg に変換する案だったが、変換しない決定になった。
 @export var max_crit_rate: int = 100
+
+## 投射物（delivery: projectile）の速度。1秒あたりのピクセル。
+##
+## ⚠ JSONに弾速を書かない決定（PLAN_SKILL_TEMPLATE.md 6-7）。弾速も弧も
+## 「いつ当たるか」の言い換えでしかなく、スキルごとに書けると
+## 「当たるまでの時間」がデータの2箇所に散る。速度はここ1箇所で持つ。
+##
+## 目安：味方 200 と敵 900 の間は最大 700px。1200 なら 0.6 秒弱で届く。
+@export var projectile_speed_px_sec: float = 1200.0
+
+## 魔法弾（delivery: magic）の速度。1秒あたりのピクセル。
+## 矢より少し遅くして、見た目で送り方の違いが分かるようにしている。
+@export var magic_speed_px_sec: float = 800.0
+
+## 投射物が対象に「着いた」とみなす距離（ピクセル）。
+## ⚠ 0 にしないこと。対象が動き続けると永久に追いつけない。
+@export var projectile_hit_distance_px: float = 12.0

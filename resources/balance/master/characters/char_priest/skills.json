@@ -5,9 +5,17 @@
 		"unlock_level": 1,
 		"cooldown_sec": 8.0,
 		"activation": "instant",
-		"target": { "team": "ally", "mode": "select", "sort": "all" },
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
 		"effects": [
-			{ "type": "heal", "multiplier": 1.0, "scale_from": "mag" }
+			{
+				"type": "heal",
+				"multiplier": 1.0,
+				"scale_from": "mag"
+			}
 		]
 	},
 	"skill_holy_ray": {
@@ -16,9 +24,20 @@
 		"unlock_level": 1,
 		"cooldown_sec": 12.0,
 		"activation": "instant",
-		"target": { "team": "enemy", "mode": "select", "sort": "all" },
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
 		"effects": [
-			{ "type": "damage", "delivery": "magic", "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag" },
+			{
+				"type": "damage",
+				"delivery": "magic",
+				"multiplier": 1.0,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "event:hit"
+			},
 			{
 				"type": "dot",
 				"host": "unit",
@@ -29,7 +48,8 @@
 				"scale_from": "mag",
 				"duration_sec": 6.0,
 				"interval_sec": 2.0,
-				"stack": "independent"
+				"stack": "independent",
+				"trigger": "event:hit"
 			}
 		]
 	},
@@ -39,9 +59,18 @@
 		"unlock_level": 5,
 		"cooldown_sec": 6.0,
 		"activation": "instant",
-		"target": { "team": "ally", "mode": "select", "sort": "lowest_hp", "count": 1 },
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "lowest_hp",
+			"count": 1
+		},
 		"effects": [
-			{ "type": "heal", "multiplier": 2.2, "scale_from": "mag" }
+			{
+				"type": "heal",
+				"multiplier": 2.2,
+				"scale_from": "mag"
+			}
 		]
 	},
 	"skill_drain_life": {
@@ -50,12 +79,26 @@
 		"unlock_level": 10,
 		"cooldown_sec": 9.0,
 		"activation": "instant",
-		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
 		"effects": [
-			{ "type": "damage", "delivery": "magic", "multiplier": 1.6, "attack_type": "magic", "scale_from": "mag" },
+			{
+				"type": "damage",
+				"delivery": "magic",
+				"multiplier": 1.6,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "event:hit"
+			},
 			{
 				"type": "heal",
-				"target": { "team": "self" },
+				"target": {
+					"team": "self"
+				},
 				"multiplier": 0.8,
 				"scale_from": "mag"
 			}
@@ -67,7 +110,11 @@
 		"unlock_level": 15,
 		"cooldown_sec": 12.0,
 		"activation": "instant",
-		"target": { "team": "enemy", "mode": "select", "sort": "all" },
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
 		"effects": [
 			{
 				"type": "damage",
@@ -75,9 +122,18 @@
 				"attack_type": "magic",
 				"multiplier": 1.0,
 				"scale_from": [
-					{ "source": "mag", "of": "user", "weight": 0.7 },
-					{ "source": "mdef", "of": "user", "weight": 1.5 }
-				]
+					{
+						"source": "mag",
+						"of": "user",
+						"weight": 0.7
+					},
+					{
+						"source": "mdef",
+						"of": "user",
+						"weight": 1.5
+					}
+				],
+				"trigger": "event:hit"
 			}
 		]
 	},
@@ -87,7 +143,12 @@
 		"unlock_level": 20,
 		"cooldown_sec": 14.0,
 		"activation": "instant",
-		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
 		"effects": [
 			{
 				"type": "damage",
@@ -95,9 +156,18 @@
 				"attack_type": "magic",
 				"multiplier": 1.4,
 				"scale_from": [
-					{ "source": "mag", "of": "user", "weight": 1.2 },
-					{ "source": "hp_ratio", "of": "target", "weight": 40.0 }
-				]
+					{
+						"source": "mag",
+						"of": "user",
+						"weight": 1.2
+					},
+					{
+						"source": "hp_ratio",
+						"of": "target",
+						"weight": 40.0
+					}
+				],
+				"trigger": "event:hit"
 			}
 		]
 	}
