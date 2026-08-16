@@ -144,6 +144,9 @@
 | **スキルの中身12個**（3人 × Lv5/10/15/20） | `EXEC_SKILL_CONTENT.md` | ✅ 完了（2026-08-16。**`.gd`を1行も触らないタスク**。`skills.json` 6→18件・`characters.json`の候補6件×3人・`ja.csv` 12行。**段階1の受け口が全部初めて実コードを通った**） |
 | **実行中のスキル層と `trigger`（段階2）** | `EXEC_SKILL_TEMPLATE_PHASE2.md` | ✅ 完了（2026-08-16。**`skill_runtime.gd` 新設**＝待ち行列1本・発火経路1本・取り消し3種。`resolve()` が対象IDを外から受け取る形に。`delivery`（種別タグ）を新設。**速射が2連射になった＝多段と遅延が実際に動いた**） |
 | **状態の器と `buff` / `dot`（段階3の前半）** | `EXEC_SKILL_TEMPLATE_PHASE3A.md` | ✅ 完了（2026-08-16。**`status_registry.gd` 新設**。`stack` / `until` を新設、`BattleUnit.get_stat()` が補正込みに、`resolve()` の引数が5つに。⚠ **実装した回はロード時検証しか通っておらず、挙動は次の回で初めて確認した**） |
+| **1キャラ＝1フォルダ**（skills / nodes） | （EXECなし。人間の決定） | ✅ 完了（2026-08-16。`character_nodes.json` 1784行と `skills_debug.json` を解体して6フォルダへ。**分割前後でデータ完全一致**） |
+| **通常攻撃のデータ化**（スキルと同じ経路へ） | （EXECなし。人間の決定） | ✅ 完了（2026-08-16。`basic_attack` 9件・`_compute_damage()` 廃止。**挙動不変**） |
+| **投射物**（着弾でダメージ・無効化の受け口） | （EXECなし。PLAN 6-7 / 6-8） | ✅ 完了（2026-08-16。`projectile_view.gd` 新設。**受け口3つの呼び出し元ゼロを埋めた**。⚠ **挙動が変わった**） |
 | **状態の検証手段**（コンソール出力 ＋ テストシーン） | （EXECなし。旧`NEXT_STEPS.md`） | ✅ 完了（2026-08-16。F3 パネルに `P` キー＝`snapshot()` を1回だけ `print`・素の値→実効値も出す。**`tests/battle/` を新設**して `test_status_registry` 13項目。**NG 0件**） |
 | **skills の複数ファイル化 ＋ 検証用キャラ3体** | `EXEC_SKILL_MULTIFILE.md` | ✅ 完了（2026-08-16。`skills.json`（18件）をキャラ別3ファイルへ分割し、`skills_debug.json`（18件）と検証用キャラ3体を新設。`MasterDataLoader` が複数ファイルをマージし**重複IDを赤で弾く**。**ログ・ファイル・画面の全項目が通った**。⚠ **設計役が全部書いた**（実装役に渡す予定を人間の判断で変更）） |
 
@@ -276,6 +279,8 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `3fb91b9` | `feat(battle): 投射物を実際に飛ばす（着弾でダメージ・無効化の受け口を配線）`（9ファイル。新規は `projectile_view.gd`。`cast()` に `fixed_target_ids`、通常攻撃も待ち行列へ、`event:hit` の黄を停止）＋ `9b202ff`（解放済み参照に `is` を当てて落ちるのを修正） | （EXECなし。PLAN 6-7 / 6-8） |
+| `03a0d8e` | `feat(battle): 通常攻撃をデータ化し、スキルと同じ経路に載せる（挙動不変）`（6ファイル。`basic_attack` 9件・`_compute_damage()` 廃止・`validate_basic_attack()` 新設） | （EXECなし。人間の決定） |
 | `5d2d64c` | `refactor(master): 1キャラ＝1フォルダへ移す（skills / nodes・データは完全一致）`（14ファイル。`character_nodes.json` 1784行と `skills_debug.json` を解体して6フォルダへ。マージを `_load_character_files()` の1本に統合）＋ `2707ca1`（ノードのログのタイミングをコメントに記録） | （EXECなし。人間の決定） |
 | `30f0ab7` | `feat(skill): skills をキャラ別に分割し、検証用キャラ3体×18スキルを追加`（10ファイル。`skills.json` を削除して4ファイルへ。`MasterDataLoader` にマージと重複IDの赤。`training_screen.gd` の `CHARACTER_IDS` に3行）＋ `85a3ea8`（再インポート）| `EXEC_SKILL_MULTIFILE.md` |
 | `754e86d` | `docs(skill): 複数ファイル化と検証用キャラ3体の EXEC を起こす`（**コードは触っていない**） | `EXEC_SKILL_MULTIFILE.md` |
@@ -571,7 +576,7 @@ resources/balance/master/characters/char_swordsman/passives.json ← 実装す�
 
 ⚠ **2つのログはタイミングが違う。** スキルは `_ensure_loaded()` に組み込んであるので「つづきから」で出る。**ノードは別キャッシュの遅延ロードで、`get_all_character_nodes()` を呼ぶのは割り振り画面だけ**（`get_character_node()` の4箇所は全部「解放済みノードを回すループ」の中なので、0件のセーブでは1回も呼ばれない）。**完了条件にノードのログを書くときは「割り振り画面を開く」まで書くこと。**
 
-### 次：**通常攻撃をデータ化して、スキルと同じ経路に載せる（挙動不変）**
+### ~~次：**通常攻撃をデータ化して、スキルと同じ経路に載せる（挙動不変）**~~ ✅ **完了（2026-08-16・`03a0d8e`）**
 
 ⚠ **通常攻撃が `SkillResolver` を1ミリも通っていないことが分かった（2026-08-16）。** `battle_controller._step_unit()`（412〜434行）が `BattleFormula` → `take_damage()` → `_pop_damage()` と直行しており、**段階1で作ったダメージの介入点（`_step_crit_override` / `_step_reduction`）が通常攻撃に効かない。** このままだと**シールドも軽減も反射も「スキルにだけ効く」**という説明のつかない仕様になる。
 
@@ -579,7 +584,39 @@ resources/balance/master/characters/char_swordsman/passives.json ← 実装す�
 
 **人間の決定（2026-08-16）：通常攻撃もキャラごとに違う内容にしたいので、スキルと同じ方式（データ化＋分割）にする。** ⚠ **経路の一本化とデータ化は同じ工事。** 購読の前に潰す（反射を書いた段になって「効かない」と分かるのが一番高くつく）。
 
-⚠ **完了条件は「挙動が1件も変わらない」**（段階1と同じ形）。**キャラごとに違う通常攻撃を実際に書くのは次の回。**
+⚠ **完了条件は「挙動が1件も変わらない」**（段階1と同じ形）。**人間がログと戦闘の挙動を確認済み。**
+
+入ったもの：`characters.json` / `enemies.json` の各エントリに **`basic_attack`（9件）**／**`_compute_damage()` を廃止**して `_fire_basic_attack()` へ／**`SkillSchema.validate_basic_attack()`**（`_validate_effect()` を共用）／**`delivery` が全9件に入った**。
+
+### ~~次：**投射物を実際に飛ばす**~~ ✅ **完了（2026-08-16・`3fb91b9` ＋ `9b202ff`）**
+
+**`delivery` がタグでしかなかったのを、実際に飛ぶものにした。** PLAN 6-7 / 6-8 が既に決定として持っていた形なので、新しい決定は入れていない。
+
+⚠ **受け口3つの呼び出し元がゼロだったのを埋めた**（`notify_event()` / `cancel_by_delivery()` / `trigger: "event:◯◯"`）。
+
+```
+SkillRuntime      効果を「着弾待ち」で積み、矢を1本頼む（シグナル）
+   ↓ projectile_requested        ⚠ この層はノードを触らない（契約）
+BattleController  演出シーンを出す（データとビューが出会う唯一の場所・PLAN 7-1）
+   ↓ setup()
+ProjectileView    飛ぶ。着いたら合図を返すだけ（ダメージは出さない）
+   ↓ on_projectile_hit → notify_event(cast_id, "hit")
+SkillRuntime      待っていた効果を発火（経路は _fire() の1本のまま）
+```
+
+- **`scenes/adventure/projectile_view.gd` 新設**（`.tscn` を作らずコードで組む）。誘導する。**対象が消えたら発射時の座標へ飛び続けて空振りし、それでも合図は返す**
+- **`cast()` に `fixed_target_ids` を追加**。⚠ **通常攻撃が「歩いて近づいた相手」を撃つため**。`cast_basic()` は作らない（発火経路は1本）
+- **通常攻撃も待ち行列を通す**。⚠ **`03a0d8e` で入れた「通常攻撃に `trigger` は書けない」を撤回した**（要素は着弾で消えるので伸び続けない。載せないと飛び道具の無効化が通常攻撃にだけ効かず、直したばかりの「スキルにだけ効く」が再発する）
+- **1回の発動で出す矢は送り方1つにつき1本**（癒しの光の `damage`+`dot` で2本飛ぶのを防ぐ）
+- **弾速は `Balance.adventure`**（JSONに弾速を書かない・PLAN 6-7）
+- ⚠ **`event:hit` の黄を止めた。** 合図を出す側ができたため。止めないと**17本の黄**が出て本物の異常が埋まる
+- **人間が8項目とも確認済み**（飛ぶ・着弾でダメージ・8倍速で追いつく・空振り・ウェーブ交代とリトライで残らない）
+
+⚠ **挙動が変わった。** 着弾までの遅れで**倒す順番と過剰攻撃**が変わっている。
+
+### 次：**キャラごとに違う通常攻撃を実際に書く**
+
+経路も演出も揃った。⚠ **数字が変わるのはここから。**
 
 ### その次：**段階3の後半（購読・条件・介入点3種・パッシブ・コンボ）**
 
