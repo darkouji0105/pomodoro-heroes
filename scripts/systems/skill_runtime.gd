@@ -38,6 +38,14 @@ const EVENT_TIMEOUT_SEC: float = 5.0
 
 var _session: BattleSession = null
 
+# 状態の器（段階3）。_fire() が SkillResolver へ中継するだけで、この層は中を見ない。
+#
+# ⚠ ここに置くのは、cast() / charge_start() / tick() / notify_event() の
+#   4つの入口が全部 _fire() を通るため（PLAN 6-5）。発火経路ごとに器を引数で
+#   運ぶ形にすると、「経路は1本」という決定が形骸化する。
+# ⚠ この層は器を触らない。状態の寿命は器が持つ（PLAN 7-2）。
+var _registry: StatusRegistry = null
+
 # 待ち行列。要素の形は _make_entry() を見ること。
 var _pending: Array = []
 
@@ -45,8 +53,9 @@ var _pending: Array = []
 var _next_cast_id: int = 1
 
 
-func _init(p_session: BattleSession) -> void:
+func _init(p_session: BattleSession, p_registry: StatusRegistry) -> void:
 	_session = p_session
+	_registry = p_registry
 
 
 # セッションを差し替え、待ち行列を捨てる。
@@ -55,9 +64,10 @@ func _init(p_session: BattleSession) -> void:
 #   _init_session()）。古いセッションを掴んだままだと、リトライ後のスキルが
 #   前の戦闘のユニットを探して見つからず、無音で空振りする。エラーは出ない。
 # ⚠ 差し替えと破棄を同時にやること。片方だけの関数を作るともう片方を忘れる。
-func reset(p_session: BattleSession) -> void:
+func reset(p_session: BattleSession, p_registry: StatusRegistry) -> void:
 	_pending.clear()
 	_session = p_session
+	_registry = p_registry
 
 
 # ============================================================
@@ -320,7 +330,7 @@ func _fire(entry: Dictionary) -> void:
 	#   歯止め（PLAN 7-3）：実効スキルデータは skills.json に書ける欄しか含まない。
 	#   対象 ID は skill_data の中に入れず、引数で横から渡す。
 	var one: Dictionary = { "effects": [entry.get("effect", {})] }
-	var results: Array = SkillResolver.resolve(one, user, _session, entry.get("target_ids", []))
+	var results: Array = SkillResolver.resolve(one, user, _session, entry.get("target_ids", []), _registry)
 	if results.is_empty():
 		return
 	effects_applied.emit(results)

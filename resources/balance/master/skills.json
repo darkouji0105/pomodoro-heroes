@@ -7,7 +7,17 @@
 		"activation": "instant",
 		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
 		"effects": [
-			{ "type": "damage", "multiplier": 2.0, "attack_type": "physical", "scale_from": "atk" }
+			{ "type": "damage", "multiplier": 2.0, "attack_type": "physical", "scale_from": "atk" },
+			{
+				"type": "buff",
+				"host": "unit",
+				"target": { "team": "self" },
+				"status_id": "status_power_slash_atk_up",
+				"stat": "atk",
+				"value": 6,
+				"duration_sec": 8.0,
+				"stack": "refresh"
+			}
 		]
 	},
 	"skill_wide_sweep": {
@@ -24,7 +34,18 @@
 		},
 		"target": { "team": "enemy", "mode": "select", "sort": "all" },
 		"effects": [
-			{ "type": "damage", "multiplier": 0.9, "attack_type": "physical", "scale_from": "atk" }
+			{ "type": "damage", "multiplier": 0.9, "attack_type": "physical", "scale_from": "atk" },
+			{
+				"type": "buff",
+				"host": "unit",
+				"trigger": "charge_start",
+				"target": { "team": "self" },
+				"status_id": "status_wide_sweep_guard",
+				"stat": "def",
+				"value": 20,
+				"until": "charge_end",
+				"stack": "refresh"
+			}
 		]
 	},
 	"skill_reckless_strike": {
@@ -208,7 +229,19 @@
 		"activation": "instant",
 		"target": { "team": "enemy", "mode": "select", "sort": "all" },
 		"effects": [
-			{ "type": "damage", "delivery": "magic", "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag" }
+			{ "type": "damage", "delivery": "magic", "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag" },
+			{
+				"type": "dot",
+				"host": "unit",
+				"delivery": "magic",
+				"status_id": "status_holy_burn",
+				"multiplier": 0.3,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"duration_sec": 6.0,
+				"interval_sec": 2.0,
+				"stack": "independent"
+			}
 		]
 	},
 	"skill_mend": {

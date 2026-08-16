@@ -119,6 +119,8 @@ func _build_info_text() -> String:
 # 1ユニットにつき2行出す。
 # 1行目 … 位置・HP・ターゲット・攻撃タイマー（右側は atkspd 適用済みの実効間隔）
 # 2行目 … 10軸と、いま狙っている相手に通る非会心ダメージ
+#         ⚠ 10軸は状態の補正込み（get_stat() が足す）。バフはここに出る
+# 3行目 … いま付いている状態。⚠ 0件のユニットには出さない（全員に空行が出ると読めない）
 #
 # ダメージの式はここに書かない。BattleFormula.damage() をそのまま呼ぶ。
 # 会心は抽選せず必ず false を渡すので、表示はフレームごとにぶれない。
@@ -140,7 +142,43 @@ func _format_unit(unit: BattleUnit) -> String:
 		unit.get_stat(GameStateKeys.STAT_SPD),
 		_format_damage_to_target(unit)
 	]
-	return line1 + "\n" + line2
+	var line3: String = _format_statuses(unit)
+	if line3 == "":
+		return line1 + "\n" + line2
+	return line1 + "\n" + line2 + "\n" + line3
+
+
+# そのユニットに付いている状態。0件なら空文字（行を出さない）。
+#
+# ⚠ 状態は画面に何も出ないので、ここが唯一の確認手段になる。
+#   「黙って剥がれた」「二重に付いた」「消えない」はどれもエラーが出ない。
+# ⚠ status_id をそのまま出す。翻訳キーを引かない（検証用。ja.csv を触らない）。
+func _format_statuses(unit: BattleUnit) -> String:
+	if _controller == null or not _controller.has_method("get_status_registry"):
+		return ""
+	var registry: StatusRegistry = _controller.get_status_registry()
+	if registry == null:
+		return ""
+	var entries: Array = registry.query({
+		"host": SkillSchema.HOST_UNIT,
+		"host_unit_id": unit.unit_id,
+	})
+	if entries.is_empty():
+		return ""
+
+	var parts: Array[String] = []
+	for entry: Dictionary in entries:
+		var text: String = str(entry.get("status_id", ""))
+		if str(entry.get("life", "")) == StatusRegistry.LIFE_SEC:
+			var left: float = float(entry.get("duration_sec", 0.0)) - float(entry.get("elapsed", 0.0))
+			text += " (%.1fs" % maxf(0.0, left)
+			if str(entry.get("kind", "")) == StatusRegistry.KIND_DOT:
+				text += "/%d発" % maxi(0, int(entry.get("fires_total", 0)) - int(entry.get("fires_done", 0)))
+			text += ")"
+		else:
+			text += " (until:%s)" % str(entry.get("life", ""))
+		parts.append(text)
+	return "    状態: " + " ".join(parts)
 
 
 # 画面に出ている名前で表示する。unit_id（party_0 / enemy_1_0）だと

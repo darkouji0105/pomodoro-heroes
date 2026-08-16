@@ -41,14 +41,28 @@ var is_boss: bool = false
 # エラーにならないため、必ず get_stat() を通す（AGENTS.md「キー名を推測して書かない」）。
 var _stats: Dictionary = {}
 
-# --- 生成時に一度だけ計算する派生値 ---
-# 戦闘中に能力値が変わる仕組みは今は無い。
-# バフを入れるときは、ここを計算し直す関数を足すこと。
+# --- 状態による能力値の補正（段階3・StatusRegistry が書く） ---
+# GameStateKeys.STAT_* をキーに int を持つ。get_stat() が素の値に足す。
+#
+# ⚠ ここを += / -= で更新しないこと。StatusRegistry が自分の持つ状態から
+#   毎回ゼロから組み直したものを、set_stat_mods() で丸ごと受け取る。
+#   差分更新にすると、剥がし忘れが「少し強いまま」として残り、エラーも出ず、
+#   F3 パネルの数字ももっともらしいので気づけない。
+# ⚠ 書いてよいのは StatusRegistry だけ。他所から set_stat_mods() を呼ばないこと。
+var _stat_mods: Dictionary = {}
+
+# --- 派生値 ---
+# 生成時に一度だけ計算し、状態で能力値が変わったら refresh_derived() で計算し直す。
 var max_hp: int = 0
 var attack_range: float = 0.0
 # atkspd を適用し、下限でクランプ済みの実効値。マスターの base ではない。
 var attack_interval_sec: float = 0.0
 var speed: float = 0.0
+# マスターの attack_interval_sec（atkspd 適用前）。refresh_derived() が使う。
+#
+# ⚠ これを持たずに attack_interval_sec だけ持つと、atkspd のバフが付くたびに
+#   実効値をさらに割ることになり、剥がしても戻らず累積で速くなる。
+var _base_attack_interval_sec: float = 0.0
 # 通常攻撃の種別（ATTACK_TYPE_*）
 var attack_type: String = ATTACK_TYPE_PHYSICAL
 
@@ -98,13 +112,11 @@ static func create(
 		# MasterDataLoader は JSON の数値を float で返す。int() で包む。
 		unit._stats[stat_key] = int(p_stats.get(stat_key, 0))
 
-	unit.max_hp = unit.get_stat(GameStateKeys.STAT_HP)
+	unit._base_attack_interval_sec = float(p_source.get("attack_interval_sec", 0))
+	# 派生値の式をここに書かない。refresh_derived() が唯一の計算場所
+	# （2箇所に書くと、状態で計算し直したときだけ式が違う形になる）。
+	unit.refresh_derived()
 	unit.hp = unit.max_hp
-	unit.speed = float(unit.get_stat(GameStateKeys.STAT_SPD))
-	unit.attack_interval_sec = BattleFormula.attack_interval(
-		float(p_source.get("attack_interval_sec", 0)),
-		unit.get_stat(GameStateKeys.STAT_ATKSPD)
-	)
 
 	var raw_type: String = str(p_source.get("attack_type", ATTACK_TYPE_PHYSICAL))
 	if raw_type != ATTACK_TYPE_PHYSICAL and raw_type != ATTACK_TYPE_MAGIC:
@@ -117,11 +129,49 @@ static func create(
 
 # 能力値を引く。未定義のキーは push_error して 0 を返す。
 # 静かに null や 0 が返ると、式が黙って壊れて実機で気づけないため。
+#
+# ⚠ 能力値を読む経路はここ1本。F3 パネルも SkillResolver の scale_from も
+#   BattleFormula への引数も全部ここを通るので、状態の補正をここで足せば
+#   呼び出し元を1つも触らずに全部へ行き渡る。
 func get_stat(stat_key: String) -> int:
 	if not _stats.has(stat_key):
 		push_error("[BattleUnit] 未定義のステータス軸: %s (unit_id=%s)" % [stat_key, unit_id])
 		return 0
+	# ⚠ 0 で切る。負の防御は BattleFormula 側でも切られるが、負の atk が
+	#   式に入ると表示まで意味が変わる。
+	return maxi(0, int(_stats[stat_key]) + int(_stat_mods.get(stat_key, 0)))
+
+
+# 素の能力値（状態の補正を含まない）。育成・装備・研究が乗った値。
+# ⚠ 通常はこちらを使わない。get_stat() が正。
+func get_base_stat(stat_key: String) -> int:
+	if not _stats.has(stat_key):
+		push_error("[BattleUnit] 未定義のステータス軸: %s (unit_id=%s)" % [stat_key, unit_id])
+		return 0
 	return int(_stats[stat_key])
+
+
+# 状態による補正を丸ごと差し替える。⚠ StatusRegistry だけが呼ぶ。
+func set_stat_mods(mods: Dictionary) -> void:
+	_stat_mods = mods.duplicate()
+	refresh_derived()
+
+
+# 派生値を、今の実効ステータスから計算し直す。
+#
+# ⚠ max_hp をここで動かす道はまだ無い。hp 軸のバフは StatusRegistry が赤で弾く。
+#   max_hp が動くと、現在HPのクランプと割合計算（sort: lowest_hp /
+#   scale_from: hp_ratio）が同時に動く。それは別の回でやる。
+#   ⚠ 禁止を外すなら、hp のクランプをこの関数に足すこと。忘れると
+#     「最大HPが減ったのに現在HPがはみ出したまま」になる。
+# ⚠ attack_range はマスター由来で能力値に依存しないので、ここには出てこない。
+func refresh_derived() -> void:
+	max_hp = get_stat(GameStateKeys.STAT_HP)
+	speed = float(get_stat(GameStateKeys.STAT_SPD))
+	attack_interval_sec = BattleFormula.attack_interval(
+		_base_attack_interval_sec,
+		get_stat(GameStateKeys.STAT_ATKSPD)
+	)
 
 
 # 攻撃側が使う軸。物理なら atk、魔法なら mag。

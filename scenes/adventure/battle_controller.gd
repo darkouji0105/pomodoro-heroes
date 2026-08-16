@@ -63,6 +63,12 @@ var _charging: Dictionary = {}
 # ここに待ち行列を直接持たないこと。battle_controller は入力と表示だけ（PLAN 7-1）。
 var _skill_runtime: SkillRuntime = null
 
+# 状態の器（段階3）。buff / dot が残る場所。
+#
+# ⚠ SkillRuntime と混ぜないこと（PLAN 7-2）。捨てる基準が正反対で、
+#   混ぜると術者が死んだ瞬間に敵に付けたDoTが消える。
+var _status: StatusRegistry = null
+
 # 報酬二重適用防止フラグ
 var _result_applied: bool = false
 
@@ -95,7 +101,12 @@ func _ready() -> void:
 
 	_session = BattleSession.new(_stage_id, stage_type, party_id, total_waves)
 
-	_skill_runtime = SkillRuntime.new(_session)
+	# ⚠ 器を先に作る。SkillRuntime が器を引数に取る。
+	_status = StatusRegistry.new(_session)
+	# ⚠ 表示の経路は1本。DoT のダメージも通常のスキルと同じ _pop_damage を通る。
+	_status.effects_applied.connect(_on_skill_effects_applied)
+
+	_skill_runtime = SkillRuntime.new(_session, _status)
 	_skill_runtime.effects_applied.connect(_on_skill_effects_applied)
 
 	_init_party_units()
@@ -124,6 +135,12 @@ func _exit_tree() -> void:
 
 func get_session() -> BattleSession:
 	return _session
+
+
+# 状態の器を返す。⚠ 検証用（BattleDebugPanel が状態の行を出すのに使う）。
+#   デバッグパネルと一緒にリリース前に消すもの。ゲームのロジックから呼ばないこと。
+func get_status_registry() -> StatusRegistry:
+	return _status
 
 
 # 味方の BattleUnit と UnitView を生成する。
@@ -337,6 +354,15 @@ func _process(delta: float) -> void:
 	#    「そのフレームの移動後の距離」を読む
 	# ⚠ 状態ガードの内側であること。ウェーブ間や結果画面で待ち行列を進めない。
 	_skill_runtime.tick(delta)
+
+	# 3-2. 状態（buff の寿命・dot の周期発火）
+	#
+	# ⚠ 待ち行列の直後・勝敗判定の前。DoT の止めの一撃が同じフレームの勝敗判定に
+	#   反映される。後ろに置くと「HPが0なのに1フレーム戦闘が続く」。
+	# ⚠ 状態ガードの内側であること。結果画面やウェーブ間で DoT を進めない。
+	# ⚠ バフの効き始めはこの位置と関係ない。付いた瞬間に set_stat_mods() が
+	#   走るので同じフレームの続きから効く。ここで進むのは寿命と周期だけ。
+	_status.tick(delta)
 
 	# 4. 勝敗判定（敗北判定を先に行う）
 	if _session.is_party_wiped():
@@ -670,6 +696,12 @@ func _on_charge_button_up(entry: Dictionary) -> void:
 	var user: BattleUnit = entry.get("user", null)
 	var skill_id: String = str(entry.get("skill_id", ""))
 	_charging.clear()
+	# ⚠ until: "charge_end" の状態をここで剥がす。_cancel_charge() を通らない
+	#   経路なので、あちらに書いても効かない（チャージが「成立」した側）。
+	# ⚠ _fire_skill() より前に剥がす。チャージ中だけの状態が、チャージ後の
+	#   一撃に乗らないようにする。
+	if user != null and _status != null:
+		_status.end_charge(user.unit_id)
 
 	# ジャストかどうかは発動の前に確かめる。
 	# 発動で敵が全滅すると、そのあとでは判定に使う情報が変わりうるため。
@@ -717,7 +749,15 @@ func _tick_charge(delta: float) -> void:
 	_charging["time"] = float(_charging.get("time", 0.0)) + delta
 
 
+# チャージを取り消す。⚠ until: "charge_end" の状態もここで剥がす。
+#
+# ⚠ _charging を clear する前に、誰がチャージしていたかを読むこと。
+#   clear してからでは剥がす相手が分からず、状態が永久に残る。エラーは出ない。
 func _cancel_charge() -> void:
+	var entry: Dictionary = _charging.get("entry", {})
+	var user: BattleUnit = entry.get("user", null)
+	if user != null and _status != null:
+		_status.end_charge(user.unit_id)
 	_charging.clear()
 
 
@@ -761,6 +801,9 @@ func _enter_wave_clear() -> void:
 	#   左端へ瞬間移動したあとの距離で distance スケールの効果が計算される。
 	#   捨てるのは正常な中断なので警告を出さない（PLAN 6-6）。
 	_skill_runtime.clear_all()
+	# ⚠ 状態も捨てる。HP とクールダウンとは扱いが違う（引き継がない）。
+	#   待ち行列と同じく _reset_party_positions() より前。
+	_status.clear_all()
 	# 次ウェーブは味方を左端から再スタートさせる（HP とクールダウンは引き継ぐ）
 	_reset_party_positions()
 	_enter_wave_intro()
@@ -773,6 +816,7 @@ func _enter_victory() -> void:
 	_cancel_charge()
 	# 勝利画面が出たあとにダメージ数値が出ないようにする。
 	_skill_runtime.clear_all()
+	_status.clear_all()
 	_session.state = BattleSession.STATE_VICTORY
 	_consume_stage_stamina()
 
@@ -819,6 +863,7 @@ func _enter_defeat() -> void:
 	_result_applied = true
 	_cancel_charge()
 	_skill_runtime.clear_all()
+	_status.clear_all()
 	_session.state = BattleSession.STATE_DEFEAT
 	# apply_battle_rewards も mark_stage_cleared も呼ばない
 	_show_result(false, {})
@@ -863,7 +908,11 @@ func _init_session() -> void:
 	# ⚠ セッションが作り直されるので新層にも差し替えを伝える。忘れると、リトライ後の
 	#   スキルが「前の戦闘のユニット」を探して見つからず、1発も出なくなる。
 	#   エラーは1つも出ない。
-	_skill_runtime.reset(_session)
+	# ⚠ 器を先に差し替えること。あとにすると SkillRuntime に古い器を渡す。
+	#   器を差し替え忘れると、リトライ後の状態が前の戦闘のユニットを宿主に持ち、
+	#   補正の組み直しが空振りする（こちらもエラーは出ない）。
+	_status.reset(_session)
+	_skill_runtime.reset(_session, _status)
 	_init_party_units()
 
 

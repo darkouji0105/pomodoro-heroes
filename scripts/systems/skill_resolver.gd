@@ -175,9 +175,25 @@ static func _sort_key(unit: BattleUnit, user: BattleUnit, sort_kind: String) -> 
 #   入口も2つのまま（select_targets / resolve）。ID は skill_data の外を通るので、
 #   「実効スキルデータは skills.json に書ける欄しか含まない」という歯止めも無傷。
 #
+# 【段階3で変わったこと】
+#   ・状態の器（StatusRegistry）を引数で受け取る。host が none 以外の効果は
+#     器に登録して終わる。⚠ 既定値（null 許容）を作らない。許すと、渡し忘れた
+#     ときに buff / dot が黙って飛ぶ。呼び出し元は2箇所しかない。
+#   ・契約は変わらない（PLAN 7-3）：時間を持たず、次のフレームを知らず、
+#     ノードを触らない。器は BattleSession と同じ「渡される入れ物」で、
+#     ここは1件登録するだけ。時間を進めるのは器の側。
+#   ・歯止めも無傷：器は skill_data の中ではなく引数で横から渡る（target_ids と同じ形）。
+#
 # ⚠ 未実装の効果に当たっても配列ごと捨てない。その効果だけ飛ばす。
+# ⚠ registry の型を StatusRegistry と書かないこと（RefCounted のまま渡す）。
+#   status_registry.gd は dot の発火で SkillResolver.resolve() を呼ぶので、
+#   ここで StatusRegistry を名指しすると2つのファイルが相互参照になり、
+#   Cyclic reference のパースエラーを踏みうる（battle_formula.gd 冒頭と同じ形）。
+#   代償は registry.add() が動的呼び出しになること。呼ぶのは _apply_status() の
+#   2行だけなので、そこだけ見ておけばよい。
 static func resolve(
-		skill_data: Dictionary, user: BattleUnit, session: BattleSession, target_ids: Array
+		skill_data: Dictionary, user: BattleUnit, session: BattleSession,
+		target_ids: Array, registry: RefCounted
 ) -> Array:
 	var results: Array = []
 	if skill_data == null or skill_data.is_empty():
@@ -185,6 +201,9 @@ static func resolve(
 		return results
 	if user == null or session == null:
 		push_error("[SkillResolver] user または session が null")
+		return results
+	if registry == null:
+		push_error("[SkillResolver] registry が null（状態の器は必須）")
 		return results
 
 	var raw_effects: Variant = skill_data.get("effects", null)
@@ -210,23 +229,35 @@ static func resolve(
 		#   ここに残すと、新層が delay を待って発火させたのに resolve() が
 		#   「cast じゃない」と言って飛ばし、ダメージが完全に消える。
 
+		# host は「効果がどこに残るか」（PLAN 9章）。残らない効果に宿主は無い。
+		# ⚠ ロード時検証（E29 / E30）が守っているので通常は来ない。二重に守る。
+		var effect_type_for_host: String = str(effect.get("type", ""))
 		var host: String = str(effect.get("host", SkillSchema.HOST_NONE))
-		if host != SkillSchema.HOST_NONE:
-			push_warning("[SkillResolver] host: '%s' は段階3。この効果を飛ばす" % host)
+		var is_status: bool = effect_type_for_host in SkillSchema.EFFECT_TYPES_STATUS
+		if is_status and host == SkillSchema.HOST_NONE:
+			push_error("[SkillResolver] '%s' に host が無い。この効果を飛ばす" % effect_type_for_host)
+			continue
+		if not is_status and host != SkillSchema.HOST_NONE:
+			push_error("[SkillResolver] '%s' に host: '%s' は書けない。この効果を飛ばす" % [effect_type_for_host, host])
 			continue
 
 		if float(effect.get("chance", 1.0)) < 1.0:
-			push_warning("[SkillResolver] chance は段階1では読まない（必ず当てる）")
+			push_warning("[SkillResolver] chance はまだ読まない（必ず当てる）")
 
 		# ⚠ 効果ごとの target 上書きもここでは読まない。cast 時に SkillRuntime が
 		#   解釈して target_ids に落としてある（PLAN 4-4）。
 
+		# ⚠ 効果の種類の分岐はここ1箇所（PLAN 9章）。
+		#   「状態は SkillRuntime が作る」形にしないこと。分岐が2箇所になり、
+		#   trigger を resolve() から追い出したのと同じ事故（片方だけ直す）が起きる。
 		var effect_type: String = str(effect.get("type", ""))
 		if effect_type == SkillSchema.EFFECT_DAMAGE:
 			for t: BattleUnit in targets:
 				_apply_damage(effect, user, t, results)
 		elif effect_type == SkillSchema.EFFECT_HEAL:
 			_apply_heal(effect, user, targets, results)
+		elif effect_type in SkillSchema.EFFECT_TYPES_STATUS:
+			_apply_status(effect, user, targets, session, registry)
 		elif effect_type in SkillSchema.EFFECT_TYPES_KNOWN:
 			push_warning("[SkillResolver] 未実装の効果: '%s'。この効果を飛ばす" % effect_type)
 		else:
@@ -325,6 +356,27 @@ static func _apply_heal(effect: Dictionary, user: BattleUnit, targets: Array, re
 			continue
 		t.heal(amount)
 		results.append({ "unit_id": t.unit_id, "amount": amount, "is_heal": true, "is_crit": false })
+
+
+# 状態を付ける（buff / dot・段階3）。器に1件登録するだけで、時間は進めない。
+#
+# ⚠ 対象0体なら何も起きない。警告を出さない（空振りは正常系・PLAN 4-2）。
+# ⚠ 数値の解釈も寿命の判定も器の側でやる。ここに2本目の判定を書かないこと。
+#
+# ⚠ registry は RefCounted として受ける（resolve() の注記と同じ理由）。
+#   add() が無いものを渡すと実行時に落ちる。渡すのは StatusRegistry だけ。
+static func _apply_status(
+		effect: Dictionary, user: BattleUnit, targets: Array,
+		session: BattleSession, registry: RefCounted
+) -> void:
+	# host: battle は戦場に1つ付く。対象の数だけ増やさない。
+	if str(effect.get("host", "")) == SkillSchema.HOST_BATTLE:
+		registry.add(effect, user, null, session)
+		return
+	for t: BattleUnit in targets:
+		if t == null:
+			continue
+		registry.add(effect, user, t, session)
 
 
 # ============================================================
