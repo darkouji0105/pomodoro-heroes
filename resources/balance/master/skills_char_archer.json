@@ -1,0 +1,97 @@
+{
+	"skill_snipe": {
+		"name_key": "ui_battle_skill_snipe",
+		"user_character_id": "char_archer",
+		"unlock_level": 1,
+		"cooldown_sec": 11.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{ "type": "damage", "delivery": "projectile", "multiplier": 2.6, "attack_type": "physical", "scale_from": "atk" }
+		]
+	},
+	"skill_arrow_rain": {
+		"name_key": "ui_battle_skill_arrow_rain",
+		"user_character_id": "char_archer",
+		"unlock_level": 1,
+		"cooldown_sec": 9.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "all" },
+		"effects": [
+			{ "type": "damage", "delivery": "projectile", "multiplier": 1.2, "attack_type": "physical", "scale_from": "atk" }
+		]
+	},
+	"skill_finisher": {
+		"name_key": "ui_battle_skill_finisher",
+		"user_character_id": "char_archer",
+		"unlock_level": 5,
+		"cooldown_sec": 7.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "lowest_hp", "count": 1 },
+		"effects": [
+			{ "type": "damage", "delivery": "projectile", "multiplier": 3.0, "attack_type": "physical", "scale_from": "atk" }
+		]
+	},
+	"skill_long_shot": {
+		"name_key": "ui_battle_skill_long_shot",
+		"user_character_id": "char_archer",
+		"unlock_level": 10,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"attack_type": "physical",
+				"multiplier": 2.0,
+				"scale_from": [
+					{ "source": "atk", "of": "user", "weight": 1.0 },
+					{ "source": "distance", "weight": 0.08 }
+				]
+			}
+		]
+	},
+	"skill_rapid_volley": {
+		"name_key": "ui_battle_skill_rapid_volley",
+		"user_character_id": "char_archer",
+		"unlock_level": 15,
+		"cooldown_sec": 8.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 2 },
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"attack_type": "physical",
+				"multiplier": 0.65,
+				"scale_from": [
+					{ "source": "atk", "of": "user", "weight": 1.0 },
+					{ "source": "atkspd", "of": "user", "weight": 1.5 }
+				]
+			},
+			{
+				"type": "damage",
+				"trigger": "delay:0.35",
+				"delivery": "projectile",
+				"attack_type": "physical",
+				"multiplier": 0.65,
+				"scale_from": [
+					{ "source": "atk", "of": "user", "weight": 1.0 },
+					{ "source": "atkspd", "of": "user", "weight": 1.5 }
+				]
+			}
+		]
+	},
+	"skill_piercing_arrow": {
+		"name_key": "ui_battle_skill_piercing_arrow",
+		"user_character_id": "char_archer",
+		"unlock_level": 20,
+		"cooldown_sec": 13.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "farthest", "count": 1 },
+		"effects": [
+			{ "type": "damage", "delivery": "projectile", "multiplier": 2.4, "attack_type": "true", "scale_from": "atk" }
+		]
+	}
+}

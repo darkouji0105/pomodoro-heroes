@@ -18,7 +18,24 @@ const PATH_CHARACTERS: String = DIR_PATH + "characters.json"
 const PATH_ENEMIES: String = DIR_PATH + "enemies.json"
 const PATH_PARTIES: String = DIR_PATH + "parties.json"
 const PATH_STAGES: String = DIR_PATH + "stages.json"
-const PATH_SKILLS: String = DIR_PATH + "skills.json"
+# スキルは複数ファイルに割ってある（EXEC_SKILL_MULTIFILE.md）。
+#
+# 【なぜ割るか】段階3の後半で購読と条件が乗ると1スキルが30〜50行になる。
+# 1本にまとめたままだと4人目のキャラで500行を超え、差分が読めなくなる。
+#
+# ⚠ 必須と任意を分けてある。debug は「無いのが正常」（リリース前に消すもの）で、
+#   無いことを警告しない。キャラ別のほうは無ければ赤（そのキャラのスキルが
+#   丸ごと消え、戦闘でボタンが出なくなるが、エラーが無いと原因を追えない）。
+# ⚠ キャラを増やすときはここに1行足す。ファイル名は user_character_id と
+#   綴りを揃えること（機械的に対応が取れなくなる）。
+const PATHS_SKILLS_REQUIRED: Array[String] = [
+	DIR_PATH + "skills_char_swordsman.json",
+	DIR_PATH + "skills_char_archer.json",
+	DIR_PATH + "skills_char_priest.json",
+]
+const PATHS_SKILLS_OPTIONAL: Array[String] = [
+	DIR_PATH + "skills_debug.json",
+]
 
 static var _load_mode: String = ""     # "load" or "file_access" or ""（未試行）
 static var _cache_characters: Dictionary = {}
@@ -71,13 +88,49 @@ static func _ensure_loaded() -> void:
 	_cache_enemies = _load_json(PATH_ENEMIES)
 	_cache_parties = _load_json(PATH_PARTIES)
 	_cache_stages = _load_json(PATH_STAGES)
-	_cache_skills = _load_json(PATH_SKILLS)
-	# skills.json は自由度が高いぶん「書けるが壊れている」組み合わせが増えた。
+	_cache_skills = _load_skills_merged()
+	# スキルは自由度が高いぶん「書けるが壊れている」組み合わせが増えた。
 	# resolver 側だけで防ぐと実戦で撃つまで気づけないので、読んだ直後に全件見る
 	# （PLAN_SKILL_TEMPLATE.md 5-4）。characters.json も読み終わっているので、
 	# 射程と attack_range のクロス検証もここでできる。
 	# ⚠ _cache_characters を読むので、この行は _ensure_loaded() の最終行であること。
 	_validate_all_skills()
+
+
+# 複数ファイルのスキルを1つの辞書にまとめる。
+#
+# ⚠ 重複IDは赤で弾き、先に読んだほうを残す。何もしないと「あとから読んだほうが
+#   黙って勝つ」形になり、同じIDを2ファイルに書いた事故が実戦まで表面化しない。
+# ⚠ 中身の検証はここでやらない。_validate_all_skills() が1箇所で全件見る
+#   （マージの都合で検証が2箇所に分かれると、片方だけ直す事故になる）。
+static func _load_skills_merged() -> Dictionary:
+	var merged: Dictionary = {}
+	for path: String in PATHS_SKILLS_REQUIRED:
+		_merge_skill_file(merged, path, true)
+	for path: String in PATHS_SKILLS_OPTIONAL:
+		_merge_skill_file(merged, path, false)
+	return merged
+
+
+# 1ファイルぶんを merged へ足す。required が false なら「無い」を正常系として扱う。
+static func _merge_skill_file(merged: Dictionary, path: String, required: bool) -> void:
+	# ⚠ 先に存在を見る。_load_json() は無いファイルに対して赤を出すので、
+	#   任意のファイルをそのまま渡すと「消したら赤が出る」ことになる。
+	# ⚠ load() 方式のときは .import 経由なので ResourceLoader でしか見えない。
+	#   FileAccess だけで見ると、書き出し後のビルドで「無い」と誤判定しうる。
+	if not (ResourceLoader.exists(path) or FileAccess.file_exists(path)):
+		if required:
+			push_error("[MasterDataLoader] スキルのファイルが無い: " + path)
+		return
+
+	var one: Dictionary = _load_json(path)
+	for skill_id: Variant in one:
+		if merged.has(skill_id):
+			push_error("[MasterDataLoader] skill_id が2つのファイルに重複: '%s'（%s）。先に読んだほうを残す" % [
+				str(skill_id), path
+			])
+			continue
+		merged[skill_id] = one[skill_id]
 
 
 # load() を試し、null なら FileAccess にフォールバック。
@@ -382,7 +435,7 @@ static func _ensure_character_nodes_loaded() -> void:
 #   触らないため、_ensure_loaded() は育成画面か戦闘画面に入って初めて動く。
 # ========================================================================
 
-# skills.json のエントリを全件返す。get_all_research_nodes() と同じ形。
+# スキルのエントリを全件返す（マージ後）。get_all_research_nodes() と同じ形。
 static func get_all_skills() -> Dictionary:
 	_ensure_loaded()
 	return _cache_skills.duplicate(true)
@@ -397,7 +450,9 @@ static func _validate_all_skills() -> void:
 		for issue: Variant in SkillSchema.validate(str(skill_id), data):
 			if not (issue is Dictionary):
 				continue
-			var message: String = "[MasterDataLoader] skills.json " + str((issue as Dictionary).get("message", ""))
+			# ⚠ ファイル名を出さない。マージ後は「どのファイルから来たか」を持っていない。
+			#   skill_id は message に必ず含まれるので、grep でファイルを特定できる。
+			var message: String = "[MasterDataLoader] skills " + str((issue as Dictionary).get("message", ""))
 			if str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
 				error_count += 1
 				push_error(message)
@@ -414,7 +469,7 @@ static func _validate_all_skills() -> void:
 					var attack_range: float = float((_cache_characters[cid] as Dictionary).get("attack_range", 0.0))
 					if float(target.get("range", 0.0)) < attack_range:
 						error_count += 1
-						push_error("[MasterDataLoader] skills.json %s: target.range が %s の attack_range (%.1f) より短い" % [
+						push_error("[MasterDataLoader] skills %s: target.range が %s の attack_range (%.1f) より短い" % [
 							str(skill_id), cid, attack_range
 						])
 

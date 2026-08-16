@@ -225,3 +225,24 @@ ui_skill_select_candidates_header,スキル候補
 ui_skill_select_slot,スキル%d
 ui_skill_select_empty,未選択
 ui_skill_select_locked,（Lv%d で解放）
+ui_battle_char_debug_status,検証用（状態）
+ui_battle_char_debug_life,検証用（寿命）
+ui_battle_char_debug_mix,検証用（複合）
+ui_battle_skill_dbg_buff_refresh,再付与バフ
+ui_battle_skill_dbg_buff_stack,独立スタックバフ
+ui_battle_skill_dbg_buff_atkspd,攻撃速度バフ
+ui_battle_skill_dbg_debuff_def,防御デバフ（全体）
+ui_battle_skill_dbg_dot_long,長寿命DoT（30発）
+ui_battle_skill_dbg_dot_odd,端数DoT（2発）
+ui_battle_skill_dbg_charge_guard,チャージ中ガード
+ui_battle_skill_dbg_dot_once,単発DoT
+ui_battle_skill_dbg_dot_all,全体DoT
+ui_battle_skill_dbg_buff_ally,味方全体バフ
+ui_battle_skill_dbg_dot_self,自分にDoT
+ui_battle_skill_dbg_buff_short,1秒バフ
+ui_battle_skill_dbg_mix_all,複合（打撃＋バフ＋DoT）
+ui_battle_skill_dbg_delay,遅延2発
+ui_battle_skill_dbg_delay_buff,遅延バフ
+ui_battle_skill_dbg_drain,吸血
+ui_battle_skill_dbg_true,確定ダメージ
+ui_battle_skill_dbg_scale_sum,スケール合成

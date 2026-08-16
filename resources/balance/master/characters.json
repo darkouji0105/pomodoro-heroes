@@ -28,5 +28,35 @@
 	"skills": ["skill_healing_light", "skill_holy_ray", "skill_mend", "skill_drain_life", "skill_purge_wave", "skill_judgement"],
 	"allocatable_stats": ["hp", "mag", "mdef"],
 	"growth_per_level": { "hp": 4, "atk": 1, "def": 1, "spd": 1 }
+  },
+  "char_debug_status": {
+	"name_key": "ui_battle_char_debug_status",
+	"hp": 9999, "atk": 1, "mag": 1, "def": 0, "mdef": 0, "spd": 60,
+	"atkspd": 0, "haste": 0, "crit_rate": 0, "crit_dmg": 150,
+	"attack_type": "physical",
+	"attack_range": 300, "attack_interval_sec": 2.0,
+	"skills": ["skill_dbg_buff_refresh", "skill_dbg_buff_stack", "skill_dbg_buff_atkspd", "skill_dbg_debuff_def", "skill_dbg_dot_long", "skill_dbg_dot_odd"],
+	"allocatable_stats": ["hp", "atk", "def"],
+	"growth_per_level": { "hp": 1, "atk": 1, "def": 1, "spd": 1 }
+  },
+  "char_debug_life": {
+	"name_key": "ui_battle_char_debug_life",
+	"hp": 9999, "atk": 1, "mag": 1, "def": 0, "mdef": 0, "spd": 60,
+	"atkspd": 0, "haste": 0, "crit_rate": 0, "crit_dmg": 150,
+	"attack_type": "physical",
+	"attack_range": 300, "attack_interval_sec": 2.0,
+	"skills": ["skill_dbg_charge_guard", "skill_dbg_dot_once", "skill_dbg_dot_all", "skill_dbg_buff_ally", "skill_dbg_dot_self", "skill_dbg_buff_short"],
+	"allocatable_stats": ["hp", "atk", "def"],
+	"growth_per_level": { "hp": 1, "atk": 1, "def": 1, "spd": 1 }
+  },
+  "char_debug_mix": {
+	"name_key": "ui_battle_char_debug_mix",
+	"hp": 9999, "atk": 1, "mag": 1, "def": 0, "mdef": 0, "spd": 60,
+	"atkspd": 0, "haste": 0, "crit_rate": 0, "crit_dmg": 150,
+	"attack_type": "physical",
+	"attack_range": 300, "attack_interval_sec": 2.0,
+	"skills": ["skill_dbg_mix_all", "skill_dbg_delay", "skill_dbg_delay_buff", "skill_dbg_drain", "skill_dbg_true", "skill_dbg_scale_sum"],
+	"allocatable_stats": ["hp", "atk", "def"],
+	"growth_per_level": { "hp": 1, "atk": 1, "def": 1, "spd": 1 }
   }
 }

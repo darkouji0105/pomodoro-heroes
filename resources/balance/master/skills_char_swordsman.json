@@ -1,0 +1,118 @@
+{
+	"skill_power_slash": {
+		"name_key": "ui_battle_skill_power_slash",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 1,
+		"cooldown_sec": 6.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{ "type": "damage", "multiplier": 2.0, "attack_type": "physical", "scale_from": "atk" },
+			{
+				"type": "buff",
+				"host": "unit",
+				"target": { "team": "self" },
+				"status_id": "status_power_slash_atk_up",
+				"stat": "atk",
+				"value": 6,
+				"duration_sec": 8.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"skill_wide_sweep": {
+		"name_key": "ui_battle_skill_wide_sweep",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 1,
+		"cooldown_sec": 8.0,
+		"activation": "charge",
+		"charge": {
+			"just_sec": 1.0,
+			"just_window_sec": 0.15,
+			"min_ratio": 0.5,
+			"just_bonus": 1.3
+		},
+		"target": { "team": "enemy", "mode": "select", "sort": "all" },
+		"effects": [
+			{ "type": "damage", "multiplier": 0.9, "attack_type": "physical", "scale_from": "atk" },
+			{
+				"type": "buff",
+				"host": "unit",
+				"trigger": "charge_start",
+				"target": { "team": "self" },
+				"status_id": "status_wide_sweep_guard",
+				"stat": "def",
+				"value": 20,
+				"until": "charge_end",
+				"stack": "refresh"
+			}
+		]
+	},
+	"skill_reckless_strike": {
+		"name_key": "ui_battle_skill_reckless_strike",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 5,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{ "type": "damage", "multiplier": 3.4, "attack_type": "physical", "scale_from": "atk" },
+			{
+				"type": "damage",
+				"target": { "team": "self" },
+				"attack_type": "true",
+				"multiplier": 0.12,
+				"scale_from": [ { "source": "hp", "of": "user", "weight": 1.0 } ]
+			}
+		]
+	},
+	"skill_last_stand": {
+		"name_key": "ui_battle_skill_last_stand",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 10,
+		"cooldown_sec": 9.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{
+				"type": "damage",
+				"attack_type": "physical",
+				"multiplier": 1.6,
+				"scale_from": [
+					{ "source": "atk", "of": "user", "weight": 1.2 },
+					{ "source": "hp_lost", "of": "user", "weight": 0.15 }
+				]
+			}
+		]
+	},
+	"skill_shield_bash": {
+		"name_key": "ui_battle_skill_shield_bash",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 15,
+		"cooldown_sec": 7.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "nearest", "count": 1 },
+		"effects": [
+			{
+				"type": "damage",
+				"attack_type": "physical",
+				"multiplier": 1.5,
+				"scale_from": [
+					{ "source": "atk", "of": "user", "weight": 0.8 },
+					{ "source": "def", "of": "user", "weight": 2.0 }
+				]
+			}
+		]
+	},
+	"skill_helm_splitter": {
+		"name_key": "ui_battle_skill_helm_splitter",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 20,
+		"cooldown_sec": 14.0,
+		"activation": "instant",
+		"target": { "team": "enemy", "mode": "select", "sort": "highest_hp", "count": 1 },
+		"effects": [
+			{ "type": "damage", "multiplier": 2.2, "attack_type": "true", "scale_from": "atk" }
+		]
+	}
+}

@@ -12,10 +12,16 @@ const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/pr
 # MasterDataLoader にキー一覧を返す関数が無いため、ここに列挙する。
 # このタスクで決め打ちを許した唯一の箇所（EXEC_GUILD_TRAINING §4-4）。
 # キャラクターを追加したらここにも足すこと。
+# ⚠ 下3件は検証用（EXEC_SKILL_MULTIFILE.md）。リリース前に消すこと。
+#   ここに無いと育成画面に出ず、スキル選択画面へ到達できない
+#   ＝検証用スキルを枠に付け替えられない。
 const CHARACTER_IDS: Array[String] = [
 	"char_swordsman",
 	"char_archer",
 	"char_priest",
+	"char_debug_status",
+	"char_debug_life",
+	"char_debug_mix",
 ]
 
 const EQUIPMENT_PATH: String = "res://scenes/guild/equipment_screen.tscn"
