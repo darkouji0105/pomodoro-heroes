@@ -477,6 +477,39 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - ⚠ **`ja.csv` に重複キーが2件ある**（`ui_common_yes` / `ui_common_no` が各2行）。**`AGENTS.md`「キーの重複を作らない」に反している。** ⚠ **Ziva が検証中に見つけたが、指示範囲外なので直していない**（正しい判断）。実害は「後の行が勝つ」だけで表示は壊れていない。**消すのは人間の判断**
 - **「画面を使わない検証」は Ziva に切り出せる**（`EXEC_INTERVENTION_ZIVA_CHECK.md` ＋ `IMPL_LOG_INTERVENTION_ZIVA_CHECK.md`）。**起動時のロード時検証と、データの静的な突き合わせ**が対象。⚠ **「やらないこと」を先頭に書き、`battle_last.jsonl` を読ませないこと**（戦闘を始めると人間の検証結果が消える）。**この型は次回以降も使える**
 
+### 変数表 ＋ パッシブ（段階3の後半④-a）の回で見つかったもの（2026-08-17）
+
+**器・語彙**
+
+- ⚠ **`activation` に `passive` が増えた**（語彙の追加はこの1つだけ）。⚠ **`recast` / `toggle` は今も器だけ**（段階5以降）
+- ⚠ **パッシブは「発動の型が違うだけのスキル」。** 定義は `skills.json`、読み込みも検証もキャッシュも既存のまま。⚠ **設計役は当初 `passives.json` ＋ 専用キャッシュに分ける案を書いたが、分けたせいで「敵はパッシブを持てない」という制約を自分で作っていた**（人間の指摘で撤回）。**分けなければ制約自体が存在しない**
+- ⚠ **枠が2種類になった**（スキル枠 ／ パッシブ枠）。`game_manager.gd` の枠の仕組みは `_slot_spec(kind)` で一般化してある。⚠ **3種類目を足すときは関数をもう一式作らず、`_slot_spec()` に1行足すこと**
+- ⚠ **「定義を分ける」と「枠を分ける」は別の話。** 分けたのは**枠だけ**で、定義・読み込み・検証・発動の経路はスキルと同じ1本
+- ⚠ **別枠にしたおかげで「弾く仕掛け」が2つとも要らなくなった。** `_try_enemy_skill()` も戦闘画面のボタンも `skill_ids` しか見ないので、`passive_ids` に置けば自動で外れる。⚠ **`SkillActivation` に `REASON_PASSIVE` を作らないこと**（混ぜて後段で弾く形に戻さない）
+- ⚠ **`BattleUnit.is_skill_ready()` は `skill_ids` と `passive_ids` の両方を見るが、`start_cooldown()` は `skill_ids` だけ**（意図的な非対称）。⚠ **揃えるとパッシブがCDを持つ／`is_skill_ready` 側を戻すとパッシブが `REASON_COOLDOWN` で無音で止まる**
+- ⚠ **`of` を読まない source が3つになった**（`distance` / `elapsed_sec` / `wave_index`）。`SkillSchema.SCALE_SOURCES_NO_OF` に集約してある。**4つ目を足すときは必ずこの配列に入れること**
+- ⚠ **`scale_from` の `of: "source"` は「実装しない」と決めて E68 で赤にした。** 定数 `SCALE_OF_SOURCE` は残っている。**将来実装するなら E68 を消すところから**
+- ⚠ **`stack` の上限（`max_stack`）だけ入れた。残り3つ（消え方・再付与・閾値）は未実装のまま。** ⚠ **`stack: "independent"` には `max_stack` が必須**（E69）。**必須をやめると `stack:<状態ID>` の閾値が一度真になったら二度と偽に戻らない**
+
+**パッシブの挙動**
+
+- ⚠ **パッシブは `dispel` で剥がせない**（走査が次フレームで戻すため）。**「パッシブ無効」を作るなら別の状態として設計する**
+- ⚠ **パッシブ枠だけ「未選択なら空」。** スキル枠は候補の先頭が勝手に入る（`get_battle_skills()` の `fill_empty`）。**挙動が2つに分かれている**
+- ⚠ **敵はパッシブ枠を持たない。** `enemies.json` の `"passives"` 配列がそのまま装備枠（味方の「候補→選んだ枠」の2段を真似ない）
+- ⚠ **`AGENTS.md` の「GameManagerの状態構造」の表の `CHARACTER_GROWTH` 行に `passives` を足すかは未対応**（人間の判断）
+
+**実測で判明したこと（ドキュメントを直した分）**
+
+- ⚠ **ウェーブ交代では `status_clear` が味方の状態も捨てる**（実測：`{"ev":"status_clear","count":7}`）。**ユニットを作り直さなくても状態は消える。** 設計役は「`party_units` は作り直さないから味方のパッシブは消えない」と EXEC に書いていたが**誤り**で、実測で訂正した
+- ⚠ **検証用キャラ `char_debug_status` は `hp: 9999` なので、HP割合を条件にした検証が成立しない**（`hp_lost_ratio >= 0.5` に到達できない）。**人間の指摘で `alive_count_enemy` を条件にする形へ差し替えた**
+- ⚠ **`scale_from` と `condition` は語彙が同じで評価器が別**（`SkillResolver._scale_variable()` ／ `StatusRegistry._condition_value()`）。**片方に枝を足し忘れても赤が1行出るだけで戦闘は続く。** 検証は必ず両方を通すこと（この回は条件側が2戦闘ぶん未検証のまま残りかけた）
+- ⚠ **設計役の検証データの組み方で2回ミスをした**：自分に付くバフを `of: "target"` で見ようとした／到達できない条件を書いた。**どちらも人間が気づいた。** 検証用データは「その値が実際に動くか」を先に確かめてから書くこと
+
+**片付け**
+
+- **検証用のもの（`stage_dbg_passive` ／ `passive_dbg_atk` ／ `passive_dbg_cond_alive` ／ `passive_edbg_def` ／ `passive_edbg_revive_mark` ／ `skill_dbg_scale_battle`）はリリース前に消す**
+- ⚠ **`ja.csv` の重複キー（`ui_common_yes` / `ui_common_no`）は削除済み**（2026-08-17・人間の承認あり）。**281キー・重複なし**
+
 ---
 
 ## 次に何をすべきか
@@ -733,12 +766,23 @@ SkillRuntime      待っていた効果を発火（経路は _fire() の1本の�
 
 **実測で取れた証拠**：`intervene kind:death` の `detail:"18"` ＝ `floor(60×0.3)` ／ `status_end`(`revive_clear`) が `intervene` の**直後**（PLAN 14-4 の「発火 → 全消し」）／ 同一キャストの回復が **20 / 10 / 20** ／ 免疫が `intervene kind:status` で2件弾いた。
 
-### 次：**段階3の後半④＝変数表の追加 ＋ パッシブ ＋ コンボ**
+### ~~次：**段階3の後半④＝変数表の追加 ＋ パッシブ ＋ コンボ**~~ 🟡 **④は2回に割った。④-a 完了（2026-08-17）**
 
-⚠ **`NEXT_STEPS.md` を見ること。** ①購読 → ②条件 → ③介入点3種 → **④変数表の追加**、の4つ目。
+⚠ **範囲が広かったので人間の判断で2回に割った。**
 
-⚠ **パッシブはこの中。** 条件発動が要求する層は `buff` / `dot` が要求する層と**同一**で、2回に分けて作る意味が無い（PLAN 7-2・19章）。
-⚠ **コンボは `host: battle`。** 購読が今 `host: unit` のみなので、そこを広げるのが本体になる。
+| 回 | 中身 | 状況 |
+|---|---|---|
+| **④-a** | 変数表の「戦闘」4つ ／ `stack` の変数と**上限** ／ `of: "source"` を赤に ／ **パッシブ** | ✅ **完了（2026-08-17）** |
+| **④-b** | **コンボ**（購読の `host: battle` 拡張 ＋ `combo_count`） | ⬜ **次。`NEXT_STEPS.md` を見ること** |
+
+**④-a で入ったもの**：`elapsed_sec` / `alive_count_ally` / `alive_count_enemy` / `wave_index` / `stack`（入れ子の `{ "source": "stack", "status_id": "..." }`）／ `max_stack`（`independent` に必須）／ `activation: "passive"` ＋ パッシブ枠 ＋ `_step_passives()` の走査。
+
+**実測で取れた証拠**：`skill_dbg_scale_battle` の威力が **62 → 76 → 99 → 52 → 72** と動き、**スタック+1だけの差が +20**（weight 20.0）／ **`wave_index` +1・スタック −3 の差が −47**（期待 −47）。⚠ **絶対値ではなく差で判定した。**
+`skill_dbg_buff_stack` を **51回撃って積まれたのは各波5件**（`max_stack: 5`）。
+復活の全消しで消えたパッシブが **同じフレーム（t=7.38）で戻った**（`intervene` → `status_end`(`revive_clear`) → `cast` → `status_add`）。
+条件付きパッシブが **敵2体→偽 / 1体→真** に切り替わった（`condition ... active:true why:"change"`）。
+
+⚠ **コンボ（④-b）は `host: battle`。** 購読が今も `host: unit` のみ（E51）なので、**そこを広げるのが本体**。⚠ **`combo_count` の変数と対なので、片方だけ作らないこと。**
 
 ### バランスの実測は後回しになった
 

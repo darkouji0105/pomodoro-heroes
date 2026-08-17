@@ -1,45 +1,51 @@
-# 次にやること：**変数表の追加 ＋ パッシブ ＋ コンボ**
+# 次にやること：**コンボ（`host: battle` の購読 ＋ `combo_count`）**
 
 **このファイルは「次の1タスク」だけを書く。** 終わったら次のタスクの内容に書き換える。全体の状況は`PROJECT_STATUS.md`、ルールは`AGENTS.md`と`CLAUDE.md`、**ゲームの中身は`GAME_DESIGN.md`**、**決定台帳は`docs/01_plan/PLAN_SKILL_TEMPLATE.md`**。
 
 **このファイルだけ読めば着手できるように書いてある。** 過去のタスクを知らない前提で読んでよい。
 
-これは**段階3の後半④＝最後の1つ**。①購読 → ②条件 → ③介入点3種 → **④これ**。
+これは**段階3の後半④-b＝段階3の最後の1つ**。①購読 → ②条件 → ③介入点3種 → ④-a変数表＋パッシブ → **④-b これ**。
 
 ---
 
 ## 0. 前のタスクは終わっている（**全項目確認済み**）
 
-**段階3の後半③ — 介入点3種（回復・状態付与・死亡）＋ 復活（2026-08-17）。**
+**段階3の後半④-a — 変数表の「戦闘」群 ＋ `stack` の上限 ＋ パッシブ（2026-08-17）。**
 
-**PLAN 11章の「割り込む場所は4つ」のうち3つが埋まった。** ⚠ **残るはダメージだけ**（`_step_crit_override` / `_step_reduction` は**今も `pass`**・利用者ゼロ）。
+⚠ **④は範囲が広かったので人間の判断で2回に割った。** ④-a が終わり、**残りはコンボだけ。**
 
-| 介入点 | 利用者 | 器の書き方 |
-|---|---|---|
-| 死亡 | **復活** | `buff` の `on_death: { revive_hp_ratio }` |
-| 状態の付与 | **免疫** | `buff` の `block_status: [status_id]` |
-| 回復 | **被回復増減** | `buff` の `heal_taken_pct`（負なら低下・**和**で積む） |
+| 入ったもの | 中身 |
+|---|---|
+| 変数（戦闘） | `elapsed_sec` / `alive_count_ally` / `alive_count_enemy` / `wave_index` |
+| 変数（状態） | ⚠ **`stack` は入れ子**：`{ "source": "stack", "status_id": "..." }`（前方一致にしない） |
+| `stack` の上限 | ⚠ **`stack: "independent"` に `max_stack` が必須**（E69） |
+| `of: "source"` | ⚠ **実装しないと決めて E68 で赤にした**（定数は残っている） |
+| パッシブ | ⚠ **`activation: "passive"`。「発動の型が違うだけのスキル」** |
 
-- ⚠ **この3欄は `buff` にしか書けない**（`type` の種類は増えていない）。⚠ **`host: unit` のみ**
-- ⚠ **`stat`/`value` を持たない buff を許した。** 代わりにロード時検証 **E63〜E67** が「何もしない buff」を赤にする
-- **死亡の走査は `battle_controller._process()` の勝敗判定の直前1箇所**（`_step_deaths()`）。⚠ **`BattleUnit.death_handled` を書いてよいのはここだけ**
-- ⚠ **`StatusRegistry._drop_dead_hosts()` は `death_handled` が真になるまで宿主の状態を捨てない**（下の 2-1）
-- 検証用ステージ **`stage_dbg_intervene`**（1波＝`enemy_dbg_revive` ／ 2波＝`enemy_dbg_immune` ／ 3波＝`enemy_dbg_heal` ＋ `enemy_dbg_recv` ＋ `enemy_dbg_buff`）
+### 0-1. ⚠ パッシブの作りは「コンボの前例」になる（**読むこと**）
+
+- ⚠ **定義は `skills.json` のまま。** 読み込みも検証もキャッシュも分けなかった。⚠ **設計役が当初「`passives.json` ＋ 専用キャッシュ」に分ける案を書き、そのせいで「敵はパッシブを持てない」という制約を自分で作った**（人間の指摘で撤回）
+- ⚠ **分けたのは「枠」だけ**（`BattleUnit.passive_ids` ／ 育成のパッシブ枠）。**枠を分けたおかげで、`_try_enemy_skill()` も戦闘画面のボタンも `skill_ids` しか見ないので、弾く仕掛けが1つも要らなくなった**
+- ⚠ **発動の経路はスキルと同じ `_fire_skill()` の1本。** 違うのは**引き金を引くのが誰か**だけ（味方＝ボタン ／ 敵＝攻撃拍 ／ **パッシブ＝`_step_passives()` の走査**）
+
+> **コンボでも同じ判断をすること。「新しい層」を作らず、既存の経路に載せられないかを先に考える。**
 
 ### ⚠ 検証の道具（この回でも使う）
 
 | 道具 | 使い方 |
 |---|---|
-| **`user://logs/battle_last.jsonl`** | 1行1イベント。実体は `C:/Users/<user>/AppData/Roaming/Godot/app_userdata/pomodoro-heroes/logs/`。⚠ **戦闘を始めるたびに空にして書き直す。読む前に別の戦闘を始めないこと。** ⚠ **設計役はこのファイルを直接読める**（ファイルの完了条件は設計役が判定できる） |
+| **`user://logs/battle_last.jsonl`** | 1行1イベント。実体は `C:/Users/<user>/AppData/Roaming/Godot/app_userdata/pomodoro-heroes/logs/`。⚠ **戦闘を始めるたびに空にして書き直す。読む前に別の戦闘を始めないこと。** ⚠ **設計役はこのファイルを直接読める**（ファイルの完了条件は設計役が判定する。人間にやらせない） |
 | **冒険選択の「編成」** | ⚠ **`parties.json` は触らない**。検証用3体はデバッグビルドでだけ候補に出る |
 | **`stage_order.json` の `"debug"` 列** | 常設・スタミナも報酬もクリア記録も付かない。⚠ **本番の `"story"` は触らない** |
 | `F3` パネル | `P` 状態一覧（**出力パネルに出る**）・`S` CDリセット・`1`〜`4` 速度（1x/2x/4x/8x・**一時停止は無い**）・`O` ログ・`K`/`L` 敵撃破・`J`/`M` 自傷・`V`/`B` 強制勝敗 |
 
-出る出来事：`battle_start` / `wave` / `cast` / `damage` / `heal` / `dot` / `react` / `status_add` / `status_end` / `status_clear` / `condition` / **`intervene`** / `result`。
+検証用ステージ：`stage_dbg_enemy_skill` ／ `stage_dbg_condition` ／ `stage_dbg_intervene` ／ **`stage_dbg_passive`**
+
+出る出来事：`battle_start` / `wave` / `cast` / `damage` / `heal` / `dot` / `react` / `status_add` / `status_end` / `status_clear` / `condition` / `intervene` / `result`。
 
 ```
-battle_controller  … 入力と表示。ノードを触る唯一の層。⚠ 死亡の走査もここ
-	  ↓ cast()（スキル・通常攻撃・購読とも）
+battle_controller  … 入力と表示。ノードを触る唯一の層。⚠ 死亡の走査とパッシブの走査もここ
+	  ↓ cast()（スキル・通常攻撃・購読・パッシブとも）
 SkillRuntime       … 待ち行列。trigger・購読の配布と発火・中断
 	  ↓ 効果1件ずつ（発火は _fire() の1本）
 SkillResolver      … 1つの効果を確定した対象に当てる。時間を知らない
@@ -51,83 +57,75 @@ BattleLog          … 静的クラス。どの層からも呼べる（Autoload 
 
 ---
 
-## 1. このタスク：**変数表の残り ＋ パッシブ ＋ コンボ**
+## 1. このタスク：**コンボ**（PLAN 15章・仕様は `GAME_DESIGN.md` 3-4）
 
-### 1-1. 変数表の「戦闘」と「状態」の群（PLAN 5-5-2）
+### 1-1. ⚠ 本体は「購読を `host: battle` に広げる」こと
 
-`scale_from` の `source` に書ける名前を足す。⚠ **段階1の分（10軸・HP派生・`distance`）は実装済み。**
+**コンボは戦場そのものに乗るカウンター。** 誰か1人に宿るものではない。
 
-| 群 | 変数 | 状況 |
-|---|---|---|
-| 10軸 | `hp` `atk` `mag` `def` `mdef` `atkspd` `haste` `crit_rate` `crit_dmg` `spd` | ✅ 実装済み |
-| HP派生 | `hp_current` / `hp_lost` / `hp_ratio` / `hp_lost_ratio` | ✅ 実装済み |
-| 位置 | `distance` | ✅ 実装済み |
-| **戦闘** | **`elapsed_sec` / `alive_count_ally` / `alive_count_enemy` / `wave_index`** | **この回** |
-| **状態** | **`stack:<状態ID>` / `combo_count`** | **この回** |
-| 高さ | `height` / `height_ratio` | ⚠ **2次元化待ち。やらない** |
+⚠ **`StatusRegistry.add()` は既に `host: battle` を受け付ける**（`status_registry.gd:97`）。**器はもうある。**
+⚠ **止まっているのは購読の側。** 下の 3 の表を見ること。
 
-⚠ **`stack:<状態ID>` だけ形が違う**（前方一致で状態IDを取る）。他は固定名。**`scale_sources()` の「列挙できる形」をどう保つかを先に決める**（PLAN 5-5-4 は「自由文字列にしない」と決めている）。
+### 1-2. `combo_count` の変数
 
-⚠ **`of: "source"` が未実装のまま**（`_scale_variable()` が黄を出して 0.0 を返す）。⚠ **この回で埋めるかは判断が要る**（購読の反射は `of: user` で書けているので今は困っていない）。
+⚠ **`scale_from` と `condition` の両方に効く**（語彙は `scale_sources()` の1本）。
+⚠ **1-1 と対。片方だけ作らないこと。**
 
-### 1-2. パッシブ（PLAN 7-2・19章）
+### 1-3. ⚠ 決めが要るところ（**着手前に人間に出す**）
 
-⚠ **PLAN は「条件発動が要求する層は `buff` / `dot` が要求する層と同一で、2回に分けて作る意味が無い」**と言っている。**器はもう全部ある**（状態・条件・購読・介入点）。
-→ ⚠ **「何が足りないか」を最初に確認すること。** 足りないのは器ではなく**「戦闘開始時に自動で付ける経路」**の可能性が高い。**`grep` で確かめてから決める。**
-
-### 1-3. コンボ（PLAN 15章・仕様は `GAME_DESIGN.md` 3-4）
-
-⚠ **`host: battle` に乗る。** **購読が今 `host: unit` のみ**（`skill_schema.gd` の E51 が赤で弾く）なので、**そこを広げるのが本体**。
-⚠ **`combo_count` の変数（1-1）と対になる。** 片方だけ作らないこと。
-
-### 着手前に人間が決めること
-
-- **3つ全部を1回でやるか、割るか**（⚠ **③は「介入点3種＋復活」で1回だった。④は範囲が広い**）
-- **`stack:<状態ID>` の書き方**（前方一致か、`{ "source": "stack", "status_id": "..." }` の入れ子か）
-- **`of: "source"` をこの回で埋めるか**
-- **パッシブを「戦闘開始時に付ける状態」として作るか、別の仕組みにするか**
+- **コンボが増える条件は何か**（攻撃を当てるたび？ 特定のスキルだけ？ 別々のキャラが続けたとき？）
+- **どうやって減るか／切れるか**（時間切れ？ 被弾？ ⚠ **「読むと消費される」は変数表に入れられない**・下の 2-2）
+- **上限はあるか**（⚠ **`stack` で上限を必須にした判断と揃えるか**）
+- **`host: battle` の状態は誰の `active`（条件）を見るか**（⚠ 宿主が居ないので `of: "host"` が指す相手が決まらない）
 
 ---
 
 ## 2. ⚠ 事故りやすい箇所
 
-### 2-1. ⚠ 死亡まわりの順序を崩さない（**③で苦労した所**）
+### 2-1. ⚠ `host: battle` を通すべき箇所は **4つある**（E51 だけではない）
 
-`StatusRegistry.tick()` の**先頭**の `_drop_dead_hosts()` は、**`BattleUnit.death_handled` が真になるまで宿主の状態を捨てない。**
-⚠ **この1条件を消すと、通常攻撃で死んだ相手の復活が黙って動かなくなる。** エラーは1つも出ない。
+| 場所 | 今どうなっているか |
+|---|---|
+| `skill_schema.gd` の **E51** | 購読は `host: "unit"` 以外を**赤で弾く** |
+| `skill_runtime.gd` の **`_notify()`** | ⚠ **`host_unit_id == ""` なら即 return**（`skill_runtime.gd:471`）。**`host: battle` は `host_unit_id` が空なので、器に載っても一生発火しない** |
+| `status_registry.gd` の `_fill_condition()` | condition は `host: "unit"` 以外を赤で弾く |
+| `status_registry.gd` の `_fire_intervals()` | 非 unit の dot を飛ばす |
 
-`battle_controller._process()` の並びは**この順でなければならない**：
-
-```
-_skill_runtime.tick()  … スキル
-_status.tick()         … 状態（先頭で _drop_dead_hosts）
-_step_deaths()         … ⚠ 死亡の介入点。勝敗判定より先
-勝敗判定
-```
+⚠ **`_notify()` が本丸。** E51 だけ外すと「赤は消えたのに何も起きない」になり、**エラーが1つも出ない。**
 
 ### 2-2. ⚠ 変数表に「読むと値が変わるもの」を入れない（PLAN 5-5-4）
 
 > **読んでも値が変わらないものだけを入れる。**
 
-- ✅ 乱数は**入れてよい**（1発につき第1段で1回しか評価されないため・PLAN 11-0）
-- ❌ **「前回からの差分」「読むと消費されるもの」**。「前回」がどこを指すか決まらない。**それは変数ではなく状態のカウンター**（PLAN 13-1）
+- ✅ 乱数は**入れてよい**（1発につき第1段で1回しか評価されない・PLAN 11-0）
+- ❌ **「読むと消費される」コンボ**は変数にできない。⚠ **消費するなら「効果として減らす」形にする**（変数は読むだけ）
 
 ### 2-3. ⚠ 変数名のtypoは「黙って0」になる
 
 **ロード時に全件突き合わせて `push_error`**（PLAN 5-5-4）。`scale_sources()` に足し忘れると、**なぜか弱いスキル**ができてエラーが出ない。
 
-### 2-4. ⚠ 評価は**発火時**（PLAN 5-5-3）
+### 2-4. ⚠ 語彙は1本・評価器は2本（**④-a で危うく落としかけた**）
 
-`multiplier` は cast 時、**変数は発火時**。⚠ **`fold_charge_ratio()` の時点で読まないこと。**
+`scale_sources()` を `condition_sources()` が流用している。**`scale_sources()` に足すと、その瞬間に `condition` にも書けるようになる。**
+評価器は別々の2本：**`SkillResolver._scale_variable()`** と **`StatusRegistry._condition_value()`**。
+⚠ **片方に枝を足し忘れると `push_error` ＋ 0.0。赤は1行出るが戦闘は続く。**
+⚠ **④-a では条件側の枝が2戦闘ぶん未検証のまま残りかけた。検証は必ず両方を通すこと。**
 
-### 2-5. ⚠ 効果の中の欄に「知らない欄」の検出が無い
+### 2-5. ⚠ 検証用データは「その値が実際に動くか」を先に確かめてから書く
 
-E26（`skill_schema.gd:363`）が見ているのは**スキル直下**（`SKILL_FIELDS_KNOWN`）だけ。**効果の中の typo は今も無音で無視される。**
+**④-a で設計役が2回間違えた（どちらも人間が気づいた）。**
 
-### 2-6. ⚠ 検証用の敵を作るときの定石（③で2回踏んだ）
+- **自分に付くバフを `of: "target"`（敵）で見ようとした** → 永遠に0
+- **`char_debug_status` は `hp: 9999`** なので `hp_lost_ratio >= 0.5` の条件に到達できなかった
+
+### 2-6. ⚠ 検証用の敵を作るときの定石
 
 - **敵の `cooldown_sec` が `attack_interval_sec` より短いと、その敵は通常攻撃を1度もしない**（`_try_enemy_skill()` が true を返すと `_fire_basic_attack()` へ行かない）
-- **敵はスキルを「射程内に入った最初の攻撃拍」でしか撃たない。** プレイヤーのほうが先に撃てるので、**「敵のバフが先に付く」前提の検証は成立しにくい**
+- **敵はスキルを「射程内に入った最初の攻撃拍」でしか撃たない。** ⚠ **それより早く倒すと、そのスキルは一度も撃たれない**（④-a で復活が起きず「壊れた」と誤判定しかけた）
+
+### 2-7. ⚠ 効果の中の欄に「知らない欄」の検出が無い
+
+E26 が見ているのは**スキル直下**（`SKILL_FIELDS_KNOWN`）だけ。**効果の中の typo は今も無音で無視される。**
 
 ---
 
@@ -135,15 +133,17 @@ E26（`skill_schema.gd:363`）が見ているのは**スキル直下**（`SKILL_
 
 | | 事実 |
 |---|---|
-| 変数の評価 | `skill_resolver.gd` の `_scale_variable(source, of, user, target)` の1本。⚠ **`distance` だけ `of` を読まない**（2者の間の値） |
-| 変数の一覧 | `skill_schema.gd` の `scale_sources()`。**10軸は `GameManager.get_stat_keys()` から組み立てている**（2本目の配列を作らない） |
-| ⚠ 未実装 | `of: "source"` は黄を出して 0.0 を返す |
-| 介入点 | ダメージ＝`skill_resolver.gd`（**2本とも `pass`**）／ 回復＝`_step_heal_taken()` ／ 状態付与＝`StatusRegistry._step_status_block()` ／ 死亡＝`StatusRegistry._step_death()` |
-| ⚠ 購読の制限 | **`host: unit` のみ**（E51 が赤で弾く）。**コンボ（`host: battle`）はここを広げる** |
+| ⚠ 購読の制限 | **E51 が `host: "unit"` 以外を赤で弾く**（`skill_schema.gd`） |
+| ⚠ **購読の発火** | **`_notify()` が `host_unit_id == ""` で即 return**（`skill_runtime.gd:471`）。⚠ **ここがコンボの本丸** |
+| 状態の器 | ⚠ **`add()` は既に `host: battle` を受け付ける**（`status_registry.gd:97`）。`host_unit` に `null` が来る前提で書かれている |
+| 変数の評価 | `SkillResolver._scale_variable(source, of, user, target, session, registry, status_id)` ／ `StatusRegistry._condition_value(cond, unit)` の**2本** |
+| 変数の一覧 | `skill_schema.gd` の `scale_sources()`。**10軸は `GameManager.get_stat_keys()` から組み立てている** |
+| `of` を読まない群 | `SkillSchema.SCALE_SOURCES_NO_OF`（`distance` / `elapsed_sec` / `wave_index`）。⚠ **例外の一覧はこの1本。足すときは必ずここに入れる** |
+| 介入点 | ダメージ＝`skill_resolver.gd`（⚠ **2本とも `pass`・利用者ゼロ**）／ 回復＝`_step_heal_taken()` ／ 状態付与＝`_step_status_block()` ／ 死亡＝`_step_death()` |
 | ⚠ DoT と購読 | **DoT の周期ダメージでは購読が発火しない**（`StatusRegistry` が `SkillRuntime` を通らない） |
-| ⚠ 数字の実測 | 検証用キャラの `atk` は 1 だが**与ダメージは 4**。**絶対値で期待値を書かないこと。差で見る** |
-| マスターの件数 | スキル **50件** ／ 通常攻撃 **19件**（⚠ 起動ログの期待値。**黄1本＝`skill_dbg_dot_odd` の端数が出るのが正解**） |
-| 行数 | `game_manager.gd` **2956** ／ `battle_controller.gd` **1279** ／ `status_registry.gd` **1060** ／ `skill_schema.gd` **863** ／ `master_data_loader.gd` 601 ／ `skill_resolver.gd` **602** ／ `skill_runtime.gd` 536 ／ `battle_debug_panel.gd` 390 ／ `adventure_select.gd` 360 ／ `battle_log.gd` **313** ／ `unit.gd` **261** ／ `unit_view.gd` 120 ／ `adventure_config.gd` 107 ／ `battle_formula.gd` 67 |
+| ⚠ 数字の実測 | 検証用キャラの `atk` は 1 だが**与ダメージは 4**。**絶対値で期待値を書かない。差で見る** |
+| ⚠ ウェーブ交代 | **`status_clear` が味方の状態も捨てる**（ユニットを作り直さなくても消える） |
+| 行数 | `game_manager.gd` **3048** ／ `battle_controller.gd` **1371** ／ `status_registry.gd` **1121** ／ `skill_schema.gd` **986** ／ `skill_resolver.gd` **650** ／ `skill_runtime.gd` 536 ／ `battle_log.gd` 313 ／ `unit.gd` **279** ／ `skill_select_screen.gd` **232** ／ `battle_session.gd` **80** ／ `skill_activation.gd` **52** |
 
 ---
 
@@ -151,9 +151,9 @@ E26（`skill_schema.gd:363`）が見ているのは**スキル直下**（`SKILL_
 
 | 順 | 実装するもの | なぜその順か |
 |---|---|---|
-| **次** | `mode: area` ／ `phases[]` / `recast` ／ `spawn` ／ **`point` の条件（オーラ）** | 段階4〜6 |
-| その次 | **ダメージの介入点の利用者**（シールド・軽減・反射・貫通%・確定クリティカル） | 受け口は段階1からある |
-| 3 | **バランスの実測**（⚠ ここで「量による色分け」も効く） | 構造が出揃ってから |
+| **次** | `mode: area` ／ `phases[]` / `recast` ／ `spawn` ／ **`point` の条件（オーラ）** | 段階4〜6。⚠ **段階3はコンボで終わり** |
+| その次 | **ダメージの介入点の利用者**（シールド・軽減・反射・貫通%・確定クリティカル） | 受け口は段階1からある。⚠ **4つのうちここだけ利用者ゼロ** |
+| 3 | **バランスの実測** | 構造が出揃ってから |
 
 ---
 
@@ -162,11 +162,10 @@ E26（`skill_schema.gd:363`）が見ているのは**スキル直下**（`SKILL_
 ### ドキュメントの「実装済み」を信じない
 
 **ズレが11回起きている。** `grep`で関数の中身を見てから判断する。**勝手に直さず報告する。**
-⚠ **③でも出た。** 「介入点の受け口は段階1で実装済み」は正しいが**中身は `pass` 2本**（＝利用者ゼロ）。
 
 ### PLAN の「保証される」も確かめる
 
-⚠ **③で踏んだ。** PLAN 14-4 の「復活の『1回だけ』は全消しで自動保証される。カウンター不要」は、実際には**「付与1回につき復活1回」**でしかなく、**付与元が撃ち直せば無限に復活した。**
+⚠ **③で踏んだ。** PLAN 14-4 の「復活の『1回だけ』は全消しで自動保証される」は、実際には**「付与1回につき復活1回」**でしかなかった。**PLAN 11-1 / 14-4 は2026-08-17 に人間の承認を得て修正済み。**
 
 ### 関数を足す前に `grep` する
 
@@ -176,6 +175,10 @@ E26（`skill_schema.gd:363`）が見ているのは**スキル直下**（`SKILL_
 
 元が LF の JSON に混ざって壊れる。**JSON に追記したら改行コードを確かめる。**
 
+### ⚠ 検証スクリプトの文字コード
+
+⚠ **Windows PowerShell の `Get-Content` は既定が ANSI。** `ja.csv` を読むと**途中までしか読めず**、「キーが無い」と誤判定する（④-a で1度踏んだ）。**`[System.IO.File]::ReadAllLines(path, [System.Text.Encoding]::UTF8)` を使うこと。**
+
 ### ⚠ `battle_last.jsonl` は戦闘のたびに上書きされる
 
 **読む前に別の戦闘を始めないこと。**
@@ -183,6 +186,7 @@ E26（`skill_schema.gd:363`）が見ているのは**スキル直下**（`SKILL_
 ### 正常系に警告を付けない・`print` を増やさない
 
 **出したい記録は `BattleLog` へ。** コンソールに流さない。
+⚠ **④-a で `condition` の黄を1本入れかけて取り消した**（条件は `of` が必須なので、正しい書き方のたびに黄が出るところだった）。
 
 ### インデントはタブ
 
@@ -191,7 +195,8 @@ E26（`skill_schema.gd:363`）が見ているのは**スキル直下**（`SKILL_
 ### Godotを起動できない（設計役）
 
 ⚠ **「動きました」と書かない。** 完了条件は「ログ」「ファイル」「画面」の3つに分け、**同じことを2箇所に書かない。**
-⚠ **「ログ」と一部の「ファイル」は Ziva に渡せる**（③では `EXEC_INTERVENTION_ZIVA_CHECK.md` として切り出した）。**画面の項目は人間だけ。**
+⚠ **「ファイル」（`battle_last.jsonl`）は設計役が直接読んで判定する。人間にやらせない。**
+⚠ **「ログ」と静的な突き合わせは Ziva に切り出せる**（`EXEC_INTERVENTION_ZIVA_CHECK.md` が型。**「やらないこと」を先頭に書き、`battle_last.jsonl` を読ませない**）。
 
 ---
 
@@ -201,46 +206,36 @@ E26（`skill_schema.gd:363`）が見ているのは**スキル直下**（`SKILL_
 
 ### 器の穴（この回で埋まりうるもの）
 
-1. ⚠ **`scale_from` は「和」しか書けない**（`multiplier × Σ(weight × 変数)`）。**`atk × (1 + hp_lost_ratio)` が書けない**
-2. ⚠ **`scale_from` の `of: "source"` が未実装**
-3. ⚠ **PLAN 5-5-2 の「10軸の想定レンジ 50〜500」が実データと合わない**（Lv1 は `atk 14〜18`）。**「割合の `weight` は数百」をそのまま使うと式が割合に支配される**
-4. ⚠ **購読は `host: unit` のみ**（コンボ・罠はまだ載らない）
-5. ⚠ **DoT の周期ダメージでは購読が発火しない**
-6. ⚠ **`stack` の5部品のうち4つが未実装**（上限・消え方・再付与・閾値）。⚠ **`stack:<状態ID>` の変数を作るなら「上限」が要る**（上限が無いまま閾値が書けると、一度真になったら二度と偽に戻らない）
-7. ⚠ **`point` の条件（オーラ）は真偽が「状態 × ユニットの対」ごとになる。** 今の `active`（状態1件につき1つ）では足りない
-
-### PLAN の記述の穴（③で見つけた）
-
-8. ⚠ **PLAN 11-1 は「全滅判定より先」としか書いていない。** 実際は「状態の掃除より先」も要る
-9. ⚠ **PLAN 14-4 の復活「1回だけ」は「付与1回につき1回」でしかない**
-10. ⚠ **PLAN 5-2 の効果の欄の表に `delivery` / `stack` / `status_id` / `until` / `condition` / `on_death` / `block_status` / `heal_taken_pct` が無い**
-11. ⚠ **PLAN 10-4 が式の二重経路に触れていない**
-12. ⚠ **PLAN 21章の未確定4件が、実は段階1のEXECで決着している**
+1. ⚠ **購読は `host: unit` のみ**（コンボ・罠がまだ載らない）← **この回の本体**
+2. ⚠ **`point` の条件（オーラ）は真偽が「状態 × ユニットの対」ごとになる。** 今の `active`（状態1件につき1つ）では足りない。⚠ **`host: battle` にも同じ問題が出るか先に考えること**
+3. ⚠ **`scale_from` は「和」しか書けない**（`multiplier × Σ(weight × 変数)`）。`atk × (1 + hp_lost_ratio)` が書けない
+4. ⚠ **DoT の周期ダメージでは購読が発火しない**
+5. ⚠ **`stack` の5部品のうち、上限だけ入れた。** 消え方・再付与・閾値は未実装
 
 ### 器の作り
 
-13. ⚠ **`buff` の介入の欄が3つ兄弟。4つ目が来たら `intervene{}` の入れ子に畳む**
-14. ⚠ **効果の中の欄に「知らない欄」の検出が無い**（typo が無音）
-15. ⚠ **ダメージの介入点だけ利用者ゼロ**（`_step_crit_override` / `_step_reduction` は `pass`）
-16. ⚠ **「死亡時発動」と「他人の蘇生」はまだ書けない**
-17. **死亡中にCDが回る**（PLAN 14-4 は「推奨：死亡中は停止」）
-18. **`_find_unit()` が3ファイルに同じ形で3本ある**
-19. ⚠ **`target.range` が50件とも未設定**
-20. ⚠ **`atk_multiplier` が常に 1.0**
-21. ⚠ **多段の2発目に投射物が出ない**（`skill_rapid_volley` の `delay:0.35`）
-22. ⚠ **`x is Node and is_instance_valid(x)` の順序が逆な箇所が3つ**
+6. ⚠ **ダメージの介入点だけ利用者ゼロ**（`_step_crit_override` / `_step_reduction` は `pass`）
+7. ⚠ **`buff` の介入の欄が3つ兄弟。4つ目が来たら `intervene{}` の入れ子に畳む**
+8. ⚠ **効果の中の欄に「知らない欄」の検出が無い**（typo が無音）
+9. ⚠ **「死亡時発動」と「他人の蘇生」はまだ書けない**
+10. **死亡中にCDが回る**（PLAN 14-4 は「推奨：死亡中は停止」）
+11. ⚠ **パッシブは `dispel` で剥がせない**（走査が次フレームで戻す）
+12. ⚠ **`is_skill_ready()` は `skill_ids` と `passive_ids` の両方を見るが、`start_cooldown()` は `skill_ids` だけ**（意図的な非対称。揃えると壊れる）
+13. **`_find_unit()` が3ファイルに同じ形で3本ある**
+14. ⚠ **`target.range` が未設定** ／ ⚠ **`atk_multiplier` が常に 1.0**
+15. ⚠ **多段の2発目に投射物が出ない**（`skill_rapid_volley` の `delay:0.35`）
 
 ### 片付け
 
-23. **検証用のものはリリース前に消す**（⚠ **`stage_dbg_intervene` と敵3体＝`enemy_dbg_revive` / `_immune` / `_recv` が増えた**）
-24. ⚠ **フォルダを増やしたら定数に1行足す**（`CHARACTER_DIRS_REQUIRED` / `ENEMY_DIRS_*`）。**足し忘れると無音で消える**
-25. **状態のUIが無い**（F3 パネルと `P` キーだけ）
-26. **Ziva が作った `.bak` が7件残っている**。**消すのは人間の判断**
-27. ⚠ **`AGENTS.md` に足すか人間が判断するもの**：CRLF の話 ／ 「数値ポップの色は `Balance.adventure`」の整理
+16. **検証用のものはリリース前に消す**（⚠ **`stage_dbg_passive` とパッシブ4件・`skill_dbg_scale_battle` が増えた**）
+17. ⚠ **フォルダを増やしたら定数に1行足す**（`CHARACTER_DIRS_REQUIRED` / `ENEMY_DIRS_*`）。**足し忘れると無音で消える**
+18. **状態のUIが無い**（F3 パネルと `P` キーだけ）
+19. **Ziva が作った `.bak` が7件残っている**。**消すのは人間の判断**
+20. ⚠ **`AGENTS.md` に足すか人間が判断するもの**：CRLF の話 ／ **`CHARACTER_GROWTH` の表に `passives` を足すか** ／ **PowerShell の文字コードの話**
 
 ---
 
 ## 7. 終わったあと
 
 **このファイルを、次のタスク（`mode: area` ／ `phases[]` ／ `spawn` ／ `point` の条件）の内容に書き換える。**
-⚠ **段階3はこれで終わり。** 次からは段階4以降。
+⚠ **コンボが終われば段階3は完了。** 次からは段階4以降。

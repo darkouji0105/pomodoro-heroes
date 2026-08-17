@@ -22,5 +22,25 @@
 				"stack": "refresh"
 			}
 		]
+	},
+	"passive_edbg_def": {
+		"name_key": "ui_battle_passive_edbg_def",
+		"user_character_id": "enemy_dbg_buff",
+		"unlock_level": 1,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_edbg_passive_def",
+				"stat": "def",
+				"value": 5,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
 	}
 }

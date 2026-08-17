@@ -37,7 +37,8 @@
 				"stat": "atk",
 				"value": 50,
 				"duration_sec": 20.0,
-				"stack": "independent"
+				"stack": "independent",
+				"max_stack": 5
 			}
 		]
 	},
@@ -107,7 +108,8 @@
 				"scale_from": "atk",
 				"duration_sec": 30.0,
 				"interval_sec": 1.0,
-				"stack": "independent"
+				"stack": "independent",
+				"max_stack": 5
 			}
 		]
 	},
@@ -133,7 +135,8 @@
 				"scale_from": "atk",
 				"duration_sec": 5.0,
 				"interval_sec": 2.0,
-				"stack": "independent"
+				"stack": "independent",
+				"max_stack": 5
 			}
 		]
 	},
@@ -197,6 +200,92 @@
 					"value": 1,
 					"status_id": "status_edbg_dot"
 				}
+			}
+		]
+	},
+	"passive_dbg_atk": {
+		"name_key": "ui_battle_passive_dbg_atk",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_dbg_passive_atk",
+				"stat": "atk",
+				"value": 30,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"passive_dbg_cond_alive": {
+		"name_key": "ui_battle_passive_dbg_cond_alive",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_dbg_passive_cond",
+				"stat": "atk",
+				"value": 100,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "alive_count_enemy",
+					"of": "host",
+					"op": "lte",
+					"value": 1
+				}
+			}
+		]
+	},
+	"skill_dbg_scale_battle": {
+		"name_key": "ui_battle_skill_dbg_scale_battle",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 3.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest"
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": [
+					{
+						"source": "elapsed_sec",
+						"weight": 2.0
+					},
+					{
+						"source": "wave_index",
+						"weight": 10.0
+					},
+					{
+						"source": "alive_count_enemy",
+						"of": "user",
+						"weight": 5.0
+					},
+					{
+						"source": "stack",
+						"of": "user",
+						"status_id": "status_dbg_atk_stack",
+						"weight": 20.0
+					}
+				]
 			}
 		]
 	}

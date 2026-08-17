@@ -31,6 +31,7 @@ const MARK_LOCKED: String = "✕"
 @onready var name_label: Label = $Margin/Layout/NameLabel
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
 @onready var slots: VBoxContainer = $Margin/Layout/Slots
+@onready var candidates_label: Label = $Margin/Layout/CandidatesLabel
 @onready var candidates: VBoxContainer = $Margin/Layout/Scroll/Candidates
 @onready var back_button: PrimaryButton = $Margin/Layout/BackButton
 
@@ -38,6 +39,13 @@ var _character_id: String = ""
 # 次に選んだスキルを入れる枠。既定は0（スキル1＝武器スロット）。
 # 状態ではなく画面の都合なのでセーブしない。
 var _active_slot: int = 0
+# 行き先がスキル枠かパッシブ枠か（EXEC_SKILL_PASSIVE_VARS.md §3-7）。
+#
+# ⚠ パッシブはスキル枠を消費しない別枠（人間の決定・2026-08-17）。
+# ⚠ 枠の番号だけでは足りない。種類と番号の対で「行き先」になる。
+# ⚠ 種類ごとに画面をもう1枚作らないこと。枠の仕組みが GameManager 側で
+#   1本に一般化してあるので、こちらも1本のまま回す。
+var _active_kind: String = GameManager.SLOT_KIND_SKILL
 
 
 func _ready() -> void:
@@ -76,14 +84,25 @@ func _rebuild() -> void:
 # 解除は「外す」側で、別のボタンに分けてある（枠を押す＝解除だと、
 # 行き先を変えるだけのつもりで選択が消える）。
 func _build_slots() -> void:
-	var selected: Array = GameManager.get_selected_skills(_character_id)
+	# ⚠ スキル枠とパッシブ枠を同じ関数で並べる。種類ごとに2本目を書かないこと。
+	_build_slot_rows(GameManager.SLOT_KIND_SKILL, "ui_skill_select_slot")
+	_build_slot_rows(GameManager.SLOT_KIND_PASSIVE, "ui_skill_select_passive_slot")
 
-	for i: int in range(GameManager.get_skill_slot_count()):
+
+func _build_slot_rows(kind: String, label_key: String) -> void:
+	var selected: Array = GameManager.get_selected_skills(_character_id, kind)
+	var count: int = (
+		GameManager.get_passive_slot_count() if kind == GameManager.SLOT_KIND_PASSIVE
+		else GameManager.get_skill_slot_count()
+	)
+
+	for i: int in range(count):
 		var row: HBoxContainer = HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		slots.add_child(row)
 
 		var skill_id: String = "" if i >= selected.size() else str(selected[i])
+		var is_active: bool = (kind == _active_kind and i == _active_slot)
 
 		var slot_button: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
 		row.add_child(slot_button)
@@ -91,11 +110,11 @@ func _build_slots() -> void:
 		slot_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		# label_key ではなく text を直接入れる（印・枠の番号・スキル名を1行にまとめるため）。
 		slot_button.text = "%s %s : %s" % [
-			MARK_ACTIVE if i == _active_slot else MARK_INACTIVE,
-			tr("ui_skill_select_slot") % (i + 1),
+			MARK_ACTIVE if is_active else MARK_INACTIVE,
+			tr(label_key) % (i + 1),
 			_skill_name_text(skill_id),
 		]
-		slot_button.pressed.connect(_on_slot_pressed.bind(i))
+		slot_button.pressed.connect(_on_slot_pressed.bind(kind, i))
 
 		var clear_button: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
 		row.add_child(clear_button)
@@ -104,14 +123,25 @@ func _build_slots() -> void:
 		# 空の枠を外しても何も起きないので、押せなくしておく
 		# （stat_node_screen の reset_button と同じ判断）。
 		clear_button.disabled = skill_id == ""
-		clear_button.pressed.connect(_on_clear_pressed.bind(i))
+		clear_button.pressed.connect(_on_clear_pressed.bind(kind, i))
 
 
 # 候補を縦に並べる。レベル不足のものも灰色で見せる（次に何が解放されるか分かる）。
+#
+# ⚠ 出すのは「今の行き先の種類」の候補だけ。スキル枠を押していればスキル、
+#   パッシブ枠を押していればパッシブ。混ぜて出すと、押した候補がどちらの枠に
+#   入るのか画面から読めなくなる。
 func _build_candidates() -> void:
-	var all_candidates: Array = GameManager.get_all_skill_candidates(_character_id)
-	var unlocked: Array = GameManager.get_skill_candidates(_character_id)
-	var selected: Array = GameManager.get_selected_skills(_character_id)
+	var kind: String = _active_kind
+	# ⚠ 見出しも入れ替える。「スキル候補」のままパッシブを並べると、
+	#   押したものがどこに入るのか読めない。
+	candidates_label.text = tr(
+		"ui_skill_select_passive_candidates_header" if kind == GameManager.SLOT_KIND_PASSIVE
+		else "ui_skill_select_candidates_header"
+	)
+	var all_candidates: Array = GameManager.get_all_skill_candidates(_character_id, kind)
+	var unlocked: Array = GameManager.get_skill_candidates(_character_id, kind)
+	var selected: Array = GameManager.get_selected_skills(_character_id, kind)
 
 	for entry: Variant in all_candidates:
 		var skill_id: String = str(entry)
@@ -131,7 +161,9 @@ func _build_candidates() -> void:
 		button.text = "%s %s%s" % [mark, _skill_name_text(skill_id), _lock_text(skill_id, is_unlocked)]
 		# 押せてから失敗するより、押せないほうが分かりやすい。
 		# 判定は GameManager 側と同じものを使う（画面で条件を作り直さない）。
-		button.disabled = not GameManager.can_select_skill(_character_id, _active_slot, skill_id)
+		button.disabled = not GameManager.can_select_skill(
+			_character_id, _active_slot, skill_id, kind
+		)
 		button.pressed.connect(_on_candidate_pressed.bind(skill_id))
 
 
@@ -165,11 +197,13 @@ func _clear(container: Node) -> void:
 
 # 枠を押す。状態は触らず、次にスキルを選んだときの行き先を変えるだけ。
 # character_growth_changed は飛ばないので、自分で描き直す。
-func _on_slot_pressed(slot_index: int) -> void:
-	if slot_index == _active_slot:
+func _on_slot_pressed(kind: String, slot_index: int) -> void:
+	if kind == _active_kind and slot_index == _active_slot:
 		return
+	_active_kind = kind
 	_active_slot = slot_index
 	notice_label.text = ""
+	# ⚠ 種類が変わると候補一覧も入れ替わるので、枠だけでなく全体を描き直す。
 	_rebuild()
 
 
@@ -178,13 +212,13 @@ func _on_candidate_pressed(skill_id: String) -> void:
 		return
 	# 戻り値は見ない。成功なら character_growth_changed 経由で描画し直される。
 	# 既に別の枠に入っているスキルを選ぶと、2つの枠が入れ替わる（GameManager 側の仕様）。
-	GameManager.select_skill(_character_id, _active_slot, skill_id)
+	GameManager.select_skill(_character_id, _active_slot, skill_id, _active_kind)
 
 
-func _on_clear_pressed(slot_index: int) -> void:
+func _on_clear_pressed(kind: String, slot_index: int) -> void:
 	if _character_id == "":
 		return
-	GameManager.clear_skill_slot(_character_id, slot_index)
+	GameManager.clear_skill_slot(_character_id, slot_index, kind)
 
 
 func _on_back_pressed() -> void:

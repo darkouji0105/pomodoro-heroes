@@ -150,6 +150,13 @@ const GROWTH_NODES: String = "nodes"
 # 代償として、リリース後にスキルIDを改名できない。
 # 改名すると選択が黙って消え、フォールバックで別のスキルに戻る。
 const GROWTH_SKILL_SLOTS: String = "slots"
+# growth.passives の中身（EXEC_SKILL_PASSIVE_VARS.md §3-4）。{"slots": [passive_id]}。
+#
+# ⚠ 内側のキー（"slots"）は GROWTH_SKILL_SLOTS を共用する。枠の仕組みが
+#   1本なので、キーも1本にしてある（_slot_spec() が外側のキーだけを切り替える）。
+# ⚠ スキル枠と違い、未選択の枠は戦闘時に埋めない。埋めると「外したつもりの
+#   パッシブが勝手に付く」（GameManager._slot_spec() の fill_empty）。
+const GROWTH_PASSIVES: String = "passives"
 # stats: 10軸（GAME_DESIGN.md 8-1）。並びは 8-1 の表と同じ順。
 # 実数6本（hp/atk/mag/def/mdef/spd）＋％系4本（atkspd/haste/crit_rate/crit_dmg）。
 #

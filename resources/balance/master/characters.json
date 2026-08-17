@@ -179,8 +179,13 @@
 			"skill_dbg_dot_long",
 			"skill_dbg_dot_odd",
 			"skill_dbg_react_followup",
-			"skill_dbg_cond_poison"
+			"skill_dbg_cond_poison",
+			"skill_dbg_scale_battle"
 
+		],
+		"passives": [
+			"passive_dbg_atk",
+			"passive_dbg_cond_alive"
 		],
 		"allocatable_stats": [
 			"hp",

@@ -95,6 +95,16 @@ var x: float = 0.0
 var target_unit_id: String = ""
 # 所持スキルID（順序を保つため配列で持つ。ボタンの並び順になる）
 var skill_ids: Array = []
+# 所持パッシブID（activation: "passive"・PLAN 7-2）。
+#
+# ⚠ skill_ids と別に持つ（人間の決定・2026-08-17）。混ぜて後段で弾く形に
+#   しないこと。別枠にしてあるおかげで、
+#     ・_try_enemy_skill() は skill_ids しか回さない → 敵が撃たない
+#     ・スキルボタンも skill_ids しか見ない → ボタンに並ばない
+#   の2つが「何もしなくても」成り立つ（EXEC_SKILL_PASSIVE_VARS.md §0-1-1）。
+# ⚠ 引き金を引くのは battle_controller._step_passives() だけ。その先は
+#   味方のボタン・敵の攻撃拍とまったく同じ _fire_skill() を通る。
+var passive_ids: Array = []
 # skill_id -> cooldown_remaining(float)
 var skill_cooldowns: Dictionary = {}
 
@@ -241,9 +251,17 @@ func tick_cooldowns(delta: float) -> void:
 		skill_cooldowns[skill_id] = max(0.0, float(skill_cooldowns[skill_id]) - delta)
 
 
-# skill_id が skill_ids に無い場合は false を返す（含まれていないスキルを発動可能と誤判定しない）。
+# skill_id が skill_ids にも passive_ids にも無い場合は false を返す
+# （含まれていないスキルを発動可能と誤判定しない）。
+#
+# ⚠ passive_ids を見るのを外さないこと。外すと _fire_skill() が
+#   REASON_COOLDOWN を返し、クールダウンを持たないパッシブが「クールダウン中」
+#   で弾かれる。理由が嘘になるうえエラーが1つも出ない
+#   （EXEC_SKILL_PASSIVE_VARS.md §1-6）。
+# ⚠ start_cooldown() は skill_ids のままにしてある（非対称）。パッシブに
+#   クールダウンを持たせないため。この非対称を揃えないこと。
 func is_skill_ready(skill_id: String) -> bool:
-	if not (skill_id in skill_ids):
+	if not (skill_id in skill_ids) and not (skill_id in passive_ids):
 		return false
 	return float(skill_cooldowns.get(skill_id, 0.0)) <= 0.0
 

@@ -27,6 +27,12 @@ var total_waves: int = 0   # stages.json の waves 要素数から取る。5 を
 var party_units: Array = []   # BattleUnit の配列。ウェーブ間で作り直さない（HP 引き継ぎ）
 var enemy_units: Array = []   # BattleUnit の配列。ウェーブごとに作り直す
 
+# 戦闘開始からの経過秒（scale_from / condition の elapsed_sec・PLAN 5-5-2）。
+# ⚠ 積むのは battle_controller._process() の1箇所だけ。2本目の時計を作らない。
+# ⚠ 状態1件ごとの elapsed（StatusRegistry の entry）とは別物。混同しないこと。
+# ⚠ ウェーブ交代では戻さない。「戦闘開始から」であって「ウェーブ開始から」ではない。
+var elapsed_sec: float = 0.0
+
 # {BATTLE_VICTORY, BATTLE_WAVES_CLEARED, BATTLE_REWARDS} を確定時にセット
 var result: Dictionary = {}
 
@@ -40,6 +46,7 @@ func _init(p_stage_id: String, p_stage_type: String, p_party_id: String, p_total
 	current_wave = 1
 	party_units = []
 	enemy_units = []
+	elapsed_sec = 0.0
 	result = {}
 
 

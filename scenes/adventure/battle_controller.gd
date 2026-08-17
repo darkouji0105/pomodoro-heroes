@@ -225,6 +225,12 @@ func _init_party_units() -> void:
 		for sid in unit.skill_ids:
 			unit.skill_cooldowns[str(sid)] = 0.0
 
+		# パッシブは別枠（PLAN 7-2）。⚠ skill_ids に混ぜないこと。混ぜるとボタンに
+		#   並び、敵側では _try_enemy_skill() が撃ってしまう。
+		# ⚠ skill_cooldowns には入れない。パッシブはCDを持たない
+		#   （BattleUnit.start_cooldown() が skill_ids しか見ないので自然にそうなる）。
+		unit.passive_ids = GameManager.get_battle_passives(character_id)
+
 		_session.party_units.append(unit)
 
 		var view: Node = UNIT_VIEW_SCENE.instantiate()
@@ -327,6 +333,15 @@ func _spawn_current_wave_enemies() -> void:
 				unit.skill_ids.append(sid)
 				unit.skill_cooldowns[sid] = 0.0
 
+			# 敵のパッシブ（EXEC_SKILL_PASSIVE_VARS.md §3-8）。
+			# ⚠ 敵には枠が無いので "passives" 配列がそのまま装備枠。味方の
+			#   get_battle_passives()（候補→選んだ枠の2段）を真似ない。
+			# ⚠ enemy_units はウェーブごとに作り直されるので、毎ウェーブここを通る。
+			#   そのぶんパッシブも毎ウェーブ付き直す。
+			unit.passive_ids = []
+			for raw_pid: Variant in enemy_data.get(GameManager.CHARACTER_PASSIVES, []):
+				unit.passive_ids.append(str(raw_pid))
+
 			_session.enemy_units.append(unit)
 
 			var view: Node = UNIT_VIEW_SCENE.instantiate()
@@ -381,6 +396,12 @@ func _process(delta: float) -> void:
 	# ⚠ 実時間を使わないこと。速度を上げると中の時計とズレる。
 	BattleLog.advance(delta)
 
+	# scale_from / condition の elapsed_sec（PLAN 5-5-2「戦闘」の群）。
+	# ⚠ 積むのはここ1箇所だけ。2本目の時計を作らないこと。
+	# ⚠ _status.tick(delta) と同じ delta を使う（速度変更に自動で追従する）。
+	# ⚠ ウェーブ交代で戻さない。「戦闘開始から」であって「ウェーブ開始から」ではない。
+	_session.elapsed_sec += delta
+
 	# クールダウンは戦闘中だけ進む（決定事項 8-1）
 	# ⚠ 敵も回すこと（EXEC_ENEMY_PARITY.md §4）。回さないと敵は最初の1回しか
 	#   撃てず、しかもエラーが1つも出ない。
@@ -431,6 +452,17 @@ func _process(delta: float) -> void:
 	#   _fire_intervals / F3 の自傷）に2本目の判定を作らないこと。
 	_step_deaths()
 
+	# 4-2. パッシブの引き金（PLAN 7-2・19章）
+	#
+	# ⚠ _step_deaths() より後。復活の全消し（clear_for_unit）はパッシブの状態も
+	#   消すので、同じフレームのうちにここで戻す。前に置くと1フレーム欠ける。
+	# ⚠ 走査はここ1箇所だけ。「復活のときだけ付け直す」を resolve_death() の側に
+	#   書かないこと。消す経路は4本あり（復活・死亡・ウェーブ交代・reset）、
+	#   1本ずつ対応すると必ず片方だけ直す事故になる。
+	# ⚠ 味方のボタン・敵の攻撃拍と同じ立場の「引き金」であって特別な経路ではない。
+	#   その先は3つとも同じ _fire_skill() を通る。
+	_step_passives()
+
 	# 5. 勝敗判定（敗北判定を先に行う）
 	if _session.is_party_wiped():
 		_enter_defeat()
@@ -469,6 +501,66 @@ func _resolve_one_death(unit: Variant) -> void:
 	#   そのあと _drop_dead_hosts() が「処理済みだから捨ててよい」と判断できる。
 	u.death_handled = true
 	_status.resolve_death(u)
+
+
+# パッシブが宿主に付いていなければ撃つ（PLAN 7-2・19章）。
+#
+# ⚠ これは「特別な経路」ではなく引き金。味方＝ボタン、敵＝攻撃拍、パッシブ＝これ。
+#   その先は3つとも同じ _fire_skill() を通る。専用の cast を作らないこと
+#   （purchase 経路を1本に保ったのと同じ理由。迂回すると購読の配布が揃わず、
+#   「パッシブに react を書いたのに発火しない」が無音で起きる）。
+# ⚠ 味方と敵で分岐しない。passive_ids は両方が持つ。
+# ⚠ 走査は1箇所だけ。消える経路（復活・死亡・ウェーブ交代・reset）ごとに
+#   付け直しを書かないこと。
+func _step_passives() -> void:
+	for unit in _session.party_units:
+		_restore_passives(unit)
+	for unit in _session.enemy_units:
+		_restore_passives(unit)
+
+
+func _restore_passives(unit: Variant) -> void:
+	if not (unit is BattleUnit):
+		return
+	var u: BattleUnit = unit
+	# ⚠ 死者には付け直さない。_drop_dead_hosts() と綱引きになり、毎フレーム
+	#   付けては捨てるが延々続く（ログが status_add で溢れる）。
+	if not u.is_alive():
+		return
+	for raw_pid: Variant in u.passive_ids:
+		var passive_id: String = str(raw_pid)
+		if passive_id == "":
+			continue
+		if _has_all_passive_statuses(u, passive_id):
+			continue
+		# ⚠ 戻り値を見ない。撃てなかった理由の判定は SkillActivation の担当で、
+		#   ここに条件を書き足さないこと（PLAN 12章「発動可否は1箇所」）。
+		_fire_skill(u, passive_id, 1.0)
+
+
+# そのパッシブが付ける状態が、宿主に全部載っているか。
+#
+# ⚠ 1つでも欠けていたら撃ち直す。ロード時検証（E75）がパッシブの効果を
+#   stack: "refresh" / host: "unit" に限っているので、既に付いている分は
+#   置き直されるだけで積み上がらない。
+func _has_all_passive_statuses(unit: BattleUnit, passive_id: String) -> bool:
+	var data: Dictionary = MasterDataLoader.get_skill(passive_id)
+	var raw_effects: Variant = data.get("effects", null)
+	if not (raw_effects is Array):
+		return true
+	for raw_effect: Variant in (raw_effects as Array):
+		if not (raw_effect is Dictionary):
+			continue
+		var status_id: String = str((raw_effect as Dictionary).get("status_id", ""))
+		if status_id == "":
+			continue
+		if not _status.has({
+			"host": SkillSchema.HOST_UNIT,
+			"host_unit_id": unit.unit_id,
+			"status_id": status_id,
+		}):
+			return false
+	return true
 
 
 func _acquire_target_if_needed(unit: BattleUnit) -> void:

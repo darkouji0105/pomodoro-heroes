@@ -39,7 +39,8 @@
 				"scale_from": "atk",
 				"duration_sec": 10.0,
 				"interval_sec": 2.0,
-				"stack": "independent"
+				"stack": "independent",
+				"max_stack": 5
 			}
 		]
 	},

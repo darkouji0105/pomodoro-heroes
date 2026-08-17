@@ -285,9 +285,9 @@ static func resolve(
 		var effect_type: String = str(effect.get("type", ""))
 		if effect_type == SkillSchema.EFFECT_DAMAGE:
 			for t: BattleUnit in targets:
-				_apply_damage(effect, user, t, results, is_dot)
+				_apply_damage(effect, user, t, results, session, registry, is_dot)
 		elif effect_type == SkillSchema.EFFECT_HEAL:
-			_apply_heal(effect, user, targets, results, registry)
+			_apply_heal(effect, user, targets, results, session, registry)
 		elif effect_type in SkillSchema.EFFECT_TYPES_STATUS:
 			_apply_status(effect, user, targets, session, registry)
 		elif effect_type in SkillSchema.EFFECT_TYPES_KNOWN:
@@ -304,9 +304,12 @@ static func resolve(
 #   【第2段】確定した数値を消費するだけ。式を2度と評価しない
 #
 # ⚠ roll_crit() は対象1体につき1回。乱数を振る回数と順番を変えないこと。
+# ⚠ session / registry は scale_from の変数を引くためだけに通している
+#   （戦闘の群＝elapsed_sec / alive_count_* / wave_index、状態の群＝stack）。
+#   ダメージの計算そのものには使わない。
 static func _apply_damage(
 		effect: Dictionary, user: BattleUnit, target: BattleUnit, results: Array,
-		is_dot: bool = false
+		session: BattleSession, registry: RefCounted, is_dot: bool = false
 ) -> void:
 	if target == null:
 		return
@@ -326,7 +329,9 @@ static func _apply_damage(
 		"user_id": user.unit_id,
 		"target_id": target.unit_id,
 		"attack_type": attack_type,
-		"power": _scale_value_sum(effect, user, target, float(user.get_power(attack_type))),
+		"power": _scale_value_sum(
+			effect, user, target, float(user.get_power(attack_type)), session, registry
+		),
 		"multiplier": float(effect.get("multiplier", 0.0)) * user.atk_multiplier,
 		"defense": defense,
 		"crit_dmg": user.get_stat(GameStateKeys.STAT_CRIT_DMG),
@@ -391,7 +396,8 @@ static func _step_reduction(_ctx: Dictionary) -> void:
 # ⚠ 素の量は全対象で同じだが、介入は対象ごと。被回復低下は「受け手の性質」で、
 #   誰が回復したかには関係しないため。
 static func _apply_heal(
-		effect: Dictionary, user: BattleUnit, targets: Array, results: Array, registry: RefCounted
+		effect: Dictionary, user: BattleUnit, targets: Array, results: Array,
+		session: BattleSession, registry: RefCounted
 ) -> void:
 	if targets.is_empty():
 		return
@@ -400,7 +406,9 @@ static func _apply_heal(
 	# フォールバックが mag なのは、欄が消えたときに「なぜか1ダメージ/1回復」に
 	# ならないようにするため（赤は出ているので黙って既定値にはならない）。
 	var base_amount: int = int(floor(
-		_scale_value_sum(effect, user, null, float(user.get_stat(GameStateKeys.STAT_MAG))) * multiplier
+		_scale_value_sum(
+			effect, user, null, float(user.get_stat(GameStateKeys.STAT_MAG)), session, registry
+		) * multiplier
 	))
 	for t: BattleUnit in targets:
 		if t == null:
@@ -474,8 +482,12 @@ static func _apply_status(
 #
 # ⚠ 評価は発火時。段階1は cast と発火が同時なので差は出ないが、
 #   fold_charge_ratio() の時点では読まないこと（PLAN 5-5-3）。
+# ⚠ session / registry は「戦闘の群」「状態の群」の変数を引くために通す
+#   （段階3の後半④）。呼び出し元は _apply_damage と _apply_heal の2箇所だけ。
+#   3箇所目を作らないこと。
 static func _scale_value_sum(
-		effect: Dictionary, user: BattleUnit, target: BattleUnit, fallback: float
+		effect: Dictionary, user: BattleUnit, target: BattleUnit, fallback: float,
+		session: BattleSession, registry: RefCounted
 ) -> float:
 	var raw: Variant = effect.get("scale_from", null)
 	if raw == null:
@@ -503,19 +515,36 @@ static func _scale_value_sum(
 		var source: String = str(entry.get("source", ""))
 		var of: String = str(entry.get("of", SkillSchema.SCALE_OF_USER))
 		var weight: float = float(entry.get("weight", 1.0))
-		total += weight * _scale_variable(source, of, user, target)
+		# ⚠ status_id は source: "stack" のときだけ意味を持つ（E71 / E72 が守る）。
+		var status_id: String = str(entry.get("status_id", ""))
+		total += weight * _scale_variable(source, of, user, target, session, registry, status_id)
 	return total
 
 
 # 変数1本ぶんの値。変数表に無い名前は push_error して 0.0
 # （ロード時検証でも捕まえる。二重に守る）。
-static func _scale_variable(source: String, of: String, user: BattleUnit, target: BattleUnit) -> float:
-	# distance は2者の間の値なので of を読まない。
-	# 対象が無い場合（回復・self）は 0.0。
-	if source == SkillSchema.SCALE_DISTANCE:
-		if target == null or user == null:
-			return 0.0
-		return absf(target.x - user.x)
+static func _scale_variable(
+		source: String, of: String, user: BattleUnit, target: BattleUnit,
+		session: BattleSession, registry: RefCounted, status_id: String = ""
+) -> float:
+	# --- of を読まない群（SkillSchema.SCALE_SOURCES_NO_OF が唯一の一覧） ---
+	# ⚠ 例外を各所に散らさないために、まとめてここで先に返す。
+	#   4つ目を足すときは必ず SCALE_SOURCES_NO_OF にも入れること。
+	if source in SkillSchema.SCALE_SOURCES_NO_OF:
+		match source:
+			SkillSchema.SCALE_DISTANCE:
+				# 2者の間の値。対象が無い場合（回復・self）は 0.0。
+				if target == null or user == null:
+					return 0.0
+				return absf(target.x - user.x)
+			SkillSchema.SCALE_ELAPSED_SEC:
+				return 0.0 if session == null else session.elapsed_sec
+			SkillSchema.SCALE_WAVE_INDEX:
+				# ⚠ 1 始まり。current_hp のような 0 始まりではない
+				#   （"wave_index >= 2" で「2波目以降」）。
+				return 0.0 if session == null else float(session.current_wave)
+		push_error("[SkillResolver] SCALE_SOURCES_NO_OF に入っているが枝が無い: " + source)
+		return 0.0
 
 	var u: BattleUnit = null
 	match of:
@@ -524,7 +553,9 @@ static func _scale_variable(source: String, of: String, user: BattleUnit, target
 		SkillSchema.SCALE_OF_TARGET:
 			u = target
 		SkillSchema.SCALE_OF_SOURCE:
-			push_warning("[SkillResolver] scale_from の of: source は段階3。0.0 として扱う")
+			# ⚠ 実装しないと決めた（人間の決定・2026-08-17）。ロード時検証 E68 が
+			#   赤で弾いているのでここへは来ないはず。二重に守るために残す。
+			push_error("[SkillResolver] scale_from の of: source は書けない（E68 が弾くはず）")
 			return 0.0
 		_:
 			push_error("[SkillResolver] scale_from の of が不明: " + of)
@@ -542,6 +573,23 @@ static func _scale_variable(source: String, of: String, user: BattleUnit, target
 			return 0.0 if u.max_hp <= 0 else float(u.hp) / float(u.max_hp)
 		SkillSchema.SCALE_HP_LOST_RATIO:
 			return 0.0 if u.max_hp <= 0 else 1.0 - float(u.hp) / float(u.max_hp)
+		SkillSchema.SCALE_ALIVE_ALLY:
+			# ⚠ 「of で指したユニットから見た」味方。絶対（party 固定）にしない。
+			#   敵が撃つスキルに書いたら敵の生存数になる。これが正しい。
+			return 0.0 if session == null else float(session.get_alive_units(u.team).size())
+		SkillSchema.SCALE_ALIVE_ENEMY:
+			if session == null:
+				return 0.0
+			var foe: String = (
+				BattleUnit.TEAM_ENEMY if u.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
+			)
+			return float(session.get_alive_units(foe).size())
+		SkillSchema.SCALE_STACK:
+			# ⚠ registry は StatusRegistry だが RefCounted で受けている
+			#   （名指しすると Cyclic reference になる。216-221行と同じ理由）。
+			if registry == null or status_id == "":
+				return 0.0
+			return float(registry.count_stacks(u.unit_id, status_id))
 
 	if source in GameManager.get_stat_keys():
 		return float(u.get_stat(source))

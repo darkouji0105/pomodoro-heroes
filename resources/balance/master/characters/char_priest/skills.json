@@ -49,6 +49,7 @@
 				"duration_sec": 6.0,
 				"interval_sec": 2.0,
 				"stack": "independent",
+				"max_stack": 5,
 				"trigger": "event:hit"
 			}
 		]

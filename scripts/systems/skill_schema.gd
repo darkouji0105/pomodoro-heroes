@@ -27,8 +27,18 @@ const ACTIVATION_CHARGE: String = "charge"
 # recast / toggle は器に載せるだけ。動くのは段階5以降。
 const ACTIVATION_RECAST: String = "recast"
 const ACTIVATION_TOGGLE: String = "toggle"
+# パッシブ（PLAN 7-2・19章）。⚠ 「発動の型」であって効果の trigger ではない。
+#   trigger は効果1件ごとの「いつ発火するか」なので、そちらに置くと1つのスキルの
+#   中に「cast の効果」と「パッシブの効果」が混在でき、撃てるものなのか決まらない。
+# ⚠ 発動の経路はスキルとまったく同じ（_fire_skill → cast → SkillResolver）。
+#   違うのは引き金を引くのが誰かだけ。味方＝ボタン／敵＝攻撃拍／
+#   パッシブ＝battle_controller._step_passives()。
+# ⚠ 枠が別（BattleUnit.passive_ids）なので、ボタンにも敵AIにも混ざらない。
+#   混ぜて後段で弾く形にしないこと（EXEC_SKILL_PASSIVE_VARS.md §0-1-1）。
+const ACTIVATION_PASSIVE: String = "passive"
 const ACTIVATIONS_KNOWN: Array = [
-	ACTIVATION_INSTANT, ACTIVATION_CHARGE, ACTIVATION_RECAST, ACTIVATION_TOGGLE
+	ACTIVATION_INSTANT, ACTIVATION_CHARGE, ACTIVATION_RECAST, ACTIVATION_TOGGLE,
+	ACTIVATION_PASSIVE
 ]
 
 # --- target.team（誰を狙うか。相対で解く） ---
@@ -192,6 +202,33 @@ const SCALE_HP_RATIO: String = "hp_ratio"
 const SCALE_HP_LOST_RATIO: String = "hp_lost_ratio"
 const SCALE_DISTANCE: String = "distance"
 
+# --- scale_from の source のうち、戦闘全体の値（PLAN 5-5-2「戦闘」の群） ---
+# ⚠ wave_index は 1 始まり（BattleSession.current_wave をそのまま返す）。
+#   名前が _index なので 0 始まりに読めるが、"wave_index >= 2" で「2波目以降」。
+const SCALE_ELAPSED_SEC: String = "elapsed_sec"
+const SCALE_ALIVE_ALLY: String = "alive_count_ally"
+const SCALE_ALIVE_ENEMY: String = "alive_count_enemy"
+const SCALE_WAVE_INDEX: String = "wave_index"
+
+# --- scale_from の source のうち、状態の群（PLAN 5-5-2） ---
+# ⚠ 入れ子で書く。{ "source": "stack", "status_id": "..." }（人間の決定）。
+#   前方一致（"stack:xxx"）にしない。scale_sources() の「列挙できる形」が崩れ、
+#   利用者すべて（condition_sources / E群 / 評価器2本）に前置き分岐が要る
+#   （PLAN 5-5-4「自由文字列にしない」）。
+# ⚠ condition の source: "status_has" + 兄弟の status_id 欄と同じ型。
+const SCALE_STACK: String = "stack"
+
+# of を読まない source。⚠ 例外の一覧はここ1本。分岐を各所に散らさないこと。
+#   distance … 2者の間の値 ／ elapsed_sec・wave_index … 戦闘全体の値
+const SCALE_SOURCES_NO_OF: Array = [SCALE_DISTANCE, SCALE_ELAPSED_SEC, SCALE_WAVE_INDEX]
+
+# independent の上限（PLAN 13-1・宿題6）。
+# ⚠ 上限に達したら「積まない」。古いものを捨てて積む形にしないこと
+#   （寿命が延び続けて実質無限になる）。
+# ⚠ これが無いと stack:<状態ID> の閾値が一度真になったら二度と偽に戻らない
+#   （EXEC_SKILL_CONDITION.md §2-3 が status_count を作らなかった理由）。
+const FIELD_MAX_STACK: String = "max_stack"
+
 # スキル直下に書いてよい欄。
 # ⚠ typo を黙って既定値にしないための最後の砦（E26）。
 const SKILL_FIELDS_KNOWN: Array = [
@@ -222,6 +259,15 @@ static func scale_sources() -> Array:
 	sources.append(SCALE_HP_RATIO)
 	sources.append(SCALE_HP_LOST_RATIO)
 	sources.append(SCALE_DISTANCE)
+	# 戦闘の群・状態の群（段階3の後半④）。
+	# ⚠ ここに足したら、評価器2本（SkillResolver._scale_variable と
+	#   StatusRegistry._condition_value）の両方に枝を足すこと。片方だけだと
+	#   「damage では効くのに condition では0」という壊れ方をする。
+	sources.append(SCALE_ELAPSED_SEC)
+	sources.append(SCALE_ALIVE_ALLY)
+	sources.append(SCALE_ALIVE_ENEMY)
+	sources.append(SCALE_WAVE_INDEX)
+	sources.append(SCALE_STACK)
 	return sources
 
 
@@ -325,18 +371,30 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	if str(data.get("user_character_id", "")) == "":
 		_err(issues, skill_id, "user_character_id が無い")
 
-	# E4
-	if not _is_num(data.get("unlock_level", null)):
-		_err(issues, skill_id, "unlock_level が数値でない")
-	if not _is_num(data.get("cooldown_sec", null)):
-		_err(issues, skill_id, "cooldown_sec が数値でない")
-
 	# E5 / W1
 	var activation: String = str(data.get("activation", ""))
 	if not (activation in ACTIVATIONS_KNOWN):
 		_err(issues, skill_id, "activation が不明: '%s'" % activation)
 	elif activation == ACTIVATION_RECAST or activation == ACTIVATION_TOGGLE:
 		_warn(issues, skill_id, "activation: '%s' は段階5以降。段階1では動かない" % activation)
+
+	var is_passive: bool = (activation == ACTIVATION_PASSIVE)
+
+	# E4
+	# ⚠ unlock_level はパッシブにも要る（育成の枠がレベルで解放を出す）。
+	# ⚠ cooldown_sec はパッシブには書けない（E73）。撃つものではないため。
+	if not _is_num(data.get("unlock_level", null)):
+		_err(issues, skill_id, "unlock_level が数値でない")
+	if not is_passive and not _is_num(data.get("cooldown_sec", null)):
+		_err(issues, skill_id, "cooldown_sec が数値でない")
+
+	# E73 パッシブに撃つための欄は書けない。
+	# ⚠ cooldown_sec を書いても BattleUnit.start_cooldown() は passive_ids を
+	#   見ないので何も起きない。無音で無視される欄を書かせない。
+	if is_passive:
+		for field: String in ["cooldown_sec", "charge", "phases"]:
+			if data.has(field):
+				_err(issues, skill_id, "activation: 'passive' に %s は書けない（撃つものではない）" % field)
 
 	# E6 / E7
 	var raw_charge: Variant = data.get("charge", null)
@@ -356,6 +414,11 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 		_err(issues, skill_id, "target が無い、または Dictionary でない")
 	else:
 		_validate_target(issues, skill_id, raw_target as Dictionary, "target", true)
+		# E74 パッシブは自分にしか効かない。
+		# ⚠ _step_passives() は「宿主に付いているか」で撃ち直すので、他人に
+		#   付く形にすると、相手が死ぬたびに撃ち直して無限に付け直す。
+		if is_passive and str((raw_target as Dictionary).get("team", "")) != TEAM_SELF:
+			_err(issues, skill_id, "activation: 'passive' の target.team は 'self' だけ")
 
 	# E17 effects
 	var raw_effects: Variant = data.get("effects", null)
@@ -535,6 +598,23 @@ static func _validate_effect(
 	if trigger == TRIGGER_CHARGE_START and activation != ACTIVATION_CHARGE:
 		_err(issues, skill_id, "%s.trigger: 'charge_start' は activation: charge のスキルにしか書けない" % where)
 
+	# E75 / E76 パッシブの効果の縛り（EXEC_SKILL_PASSIVE_VARS.md §2-6 / §2-7）
+	#
+	# ⚠ どれも「_step_passives() が毎フレーム撃ち直す」形になるのを防ぐもの。
+	#   走査は「宿主にその status_id が付いていなければ撃つ」しか見ていないので、
+	#   付き方がズレると毎フレーム cast が走り、フレームレートごと落ちる。
+	if activation == ACTIVATION_PASSIVE:
+		# E76 … 遅れて付くものは、付くまでの間ずっと「欠けている」と判定される
+		if trigger != TRIGGER_CAST:
+			_err(issues, skill_id, "%s.trigger: activation: 'passive' の効果は 'cast' だけ（遅れて付くと毎フレーム撃ち直す）" % where)
+		if effect.has("status_id"):
+			# E75 … independent だと撃つたびに新しい1件が積まれる
+			if str(effect.get("stack", "")) != STACK_REFRESH:
+				_err(issues, skill_id, "%s.stack: activation: 'passive' の効果は 'refresh' だけ（毎フレーム積み上がる）" % where)
+			# host: unit 以外だと「宿主に付いているか」で判定できない
+			if str(effect.get("host", HOST_NONE)) != HOST_UNIT:
+				_err(issues, skill_id, "%s.host: activation: 'passive' の効果は 'unit' だけ" % where)
+
 	# E25 / E30 / W6 / W9 host
 	var host: String = str(effect.get("host", HOST_NONE))
 	if not (host in HOSTS_KNOWN):
@@ -641,6 +721,22 @@ static func _validate_status_effect(
 		_err(issues, skill_id, "%s.stack が無い（independent / refresh を必ず書く）" % where)
 	elif not (str(effect.get("stack", "")) in STACKS_KNOWN):
 		_err(issues, skill_id, "%s.stack が不明: '%s'" % [where, str(effect.get("stack", ""))])
+
+	# E69 / E70 上限（PLAN 13-1・宿題6）
+	# ⚠ independent は上限が無いと無限に積む。stack:<状態ID> の変数を作った以上、
+	#   上限が無いと閾値が一度真になったら二度と偽に戻らない
+	#   （EXEC_SKILL_CONDITION.md §2-3）。だから必須にする。
+	var stack_rule: String = str(effect.get("stack", ""))
+	if stack_rule == STACK_INDEPENDENT:
+		var raw_max: Variant = effect.get(FIELD_MAX_STACK, null)
+		if not (raw_max is int) or int(raw_max) < 1:
+			_err(issues, skill_id, "%s.%s が無い、または1以上の整数でない（stack: 'independent' には必須）" % [
+				where, FIELD_MAX_STACK
+			])
+	elif effect.has(FIELD_MAX_STACK):
+		# ⚠ refresh は同一性のキーで置き直すので上限が意味を持たない。
+		#   何も起きない欄を書かせない（E39 と同じ考え方）。
+		_err(issues, skill_id, "%s.%s は stack: 'independent' のときだけ書ける" % [where, FIELD_MAX_STACK])
 
 	# E31 / E32 寿命は duration_sec か until のどちらか一方
 	var has_duration: bool = effect.has("duration_sec")
@@ -795,12 +891,19 @@ static func _validate_condition(
 	if not _is_num(cond.get("value", null)):
 		_err(issues, skill_id, "%s.condition.value が数値でない" % where)
 
-	# E60 … ⚠ ここの status_id は「見たい相手の状態のID」で、効果の status_id とは別物
-	if source == COND_SOURCE_STATUS_HAS:
+	# E60 / E71 … ⚠ ここの status_id は「見たい相手の状態のID」で、効果の status_id とは別物
+	# ⚠ status_has（付いているか）と stack（何件積まれているか）の2つが status_id を取る。
+	#   どちらも入れ子の形で書く（前方一致にしない・PLAN 5-5-4）。
+	if source == COND_SOURCE_STATUS_HAS or source == SCALE_STACK:
 		if str(cond.get("status_id", "")) == "":
-			_err(issues, skill_id, "%s.condition.source: 'status_has' に status_id が無い（見たい相手の状態のID）" % where)
+			_err(issues, skill_id, "%s.condition.source: '%s' に status_id が無い（見たい相手の状態のID）" % [where, source])
 	elif cond.has("status_id"):
-		_err(issues, skill_id, "%s.condition.status_id は source: 'status_has' のときだけ書ける" % where)
+		_err(issues, skill_id, "%s.condition.status_id は source: 'status_has' / 'stack' のときだけ書ける" % where)
+
+	# ⚠ ここに「of を読まない source」の黄（W12）を足さないこと。
+	#   condition の of は E57 が必須にしているので、elapsed_sec / wave_index を
+	#   書くたびに黄が出る＝正常系に警告を付けることになる。
+	#   scale_from 側は of が省略可なので、あちらにだけ W12 を置いてある。
 
 	# E61 … 宿り先は unit だけ。point（オーラ）は真偽が「状態 × ユニットの対」ごとに
 	#       なり、状態1件につき1つの真偽では足りない（段階3の後半②の担当外）。
@@ -837,6 +940,26 @@ static func _validate_scale_from(
 			_err(issues, skill_id, "%s.scale_from の of が不明: '%s'" % [where, str(entry.get("of", ""))])
 		if entry.has("weight") and not _is_num(entry.get("weight", null)):
 			_err(issues, skill_id, "%s.scale_from の weight が数値でない" % where)
+
+		# E68 … of: "source" は実装しないと決めた（人間の決定・2026-08-17）。
+		# ⚠ 定数 SCALE_OF_SOURCE は残してある。外すと「of が不明」という
+		#   別の文言で赤が出て、なぜ書けないのかが読み手に伝わらないため。
+		# ⚠ 書けるのに 0.0 になる経路を消すのがこの赤の目的。
+		if str(entry.get("of", "")) == SCALE_OF_SOURCE:
+			_err(issues, skill_id, "%s.scale_from の of: 'source' は実装しないと決めた。of: 'user' / 'target' で書くこと" % where)
+
+		# E71 / E72 … stack は入れ子で書く（{ source: "stack", status_id: "..." }）。
+		# ⚠ condition 側の status_has と同じ型。前方一致にしない。
+		if source == SCALE_STACK:
+			if str(entry.get("status_id", "")) == "":
+				_err(issues, skill_id, "%s.scale_from の source: 'stack' に status_id が無い" % where)
+		elif entry.has("status_id"):
+			_err(issues, skill_id, "%s.scale_from の status_id は source: 'stack' のときだけ書ける" % where)
+
+		# W12 … of を読まない source に of を書いても無視される。
+		# ⚠ 黄にしてある。赤にすると、既存の distance + of の書き方が全部止まる。
+		if entry.has("of") and (source in SCALE_SOURCES_NO_OF):
+			_warn(issues, skill_id, "%s.scale_from の source: '%s' は of を読まない（無視される）" % [where, source])
 
 
 # trigger は cast / charge_start / event:◯◯ / delay:<数値> のどれか。

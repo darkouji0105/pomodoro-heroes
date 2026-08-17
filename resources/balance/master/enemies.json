@@ -163,7 +163,8 @@
 				}
 			]
 		},
-		"skills": ["skill_edbg_buff"]
+		"skills": ["skill_edbg_buff"],
+		"passives": ["passive_edbg_def"]
 	},
 	"enemy_dbg_dot": {
 		"name_key": "ui_battle_enemy_dbg_dot",
@@ -303,7 +304,8 @@
 				}
 			]
 		},
-		"skills": ["skill_edbg_revive"]
+		"skills": ["skill_edbg_revive"],
+		"passives": ["passive_edbg_revive_mark"]
 	},
 	"enemy_dbg_immune": {
 		"name_key": "ui_battle_enemy_dbg_immune",

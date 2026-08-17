@@ -152,6 +152,10 @@ func add(
 
 	# --- 6. 種類ごとの欄 ---
 	var entry: Dictionary = _make_entry(kind, host, status_id, stack, life, duration_sec, source, host_unit)
+	# 上限は種類（buff / dot / react）に関係なく効くので、_fill_* ではなくここで写す。
+	# ⚠ ロード時検証 E69 が independent に必須・E70 が refresh に禁止を見ている。
+	if effect.has(SkillSchema.FIELD_MAX_STACK):
+		entry[SkillSchema.FIELD_MAX_STACK] = int(effect.get(SkillSchema.FIELD_MAX_STACK, 0))
 	if kind == KIND_BUFF:
 		if not _fill_buff(entry, effect):
 			return false
@@ -188,6 +192,19 @@ func add(
 			)
 			return false
 
+	# --- 6-4. スタックの上限（PLAN 13-2・段階3の後半④） ---
+	#
+	# ⚠ ここも「状態を1つも触っていない」うちに弾く（CLAUDE.md 6番）。
+	# ⚠ 上限に達したら積まない。古いものを捨てて積み直さないこと。捨てる形に
+	#   すると寿命が置き直され続けて実質無限になる。
+	# ⚠ 上限が無いと stack:<状態ID> の閾値が一度真になったら二度と偽に戻らない
+	#   （EXEC_SKILL_CONDITION.md §2-3）。ロード時検証 E69 と二重に守る。
+	# ⚠ ログを出さない。上限に達しているのは正常系（正常系に警告を付けない）。
+	if stack == SkillSchema.STACK_INDEPENDENT and host == SkillSchema.HOST_UNIT:
+		var max_stack: int = int(entry.get(SkillSchema.FIELD_MAX_STACK, 0))
+		if max_stack > 0 and count_stacks(host_unit.unit_id, status_id) >= max_stack:
+			return false
+
 	# --- 7. ここまで状態を1つも触っていない。ここで初めて入れる ---
 	#
 	# ⚠ 同一性のキーは (宿主, status_id, 付与者) の3つ組（決定1-5）。
@@ -201,7 +218,7 @@ func add(
 		else:
 			_entries.append(entry)
 	else:
-		# independent … 上限は設けない（PLAN 13-2 の「上限」は後から足せる部品）
+		# independent … 上限は 6-4 で既に見ている（ここで見ないこと。2箇所になる）
 		_entries.append(entry)
 
 	# 付いた時点で1回だけ評価する。⚠ 位置が要件（組み直しより前）。
@@ -251,6 +268,9 @@ func _make_entry(
 		"host_x": host_x,
 		"source_unit_id": source.unit_id,
 		"stack": stack,
+		# independent の上限（PLAN 13-2）。⚠ refresh の件にも 0 で必ず持たせる。
+		#   持たない件があると query() が黙って外す（"active" と同じ理由）。
+		SkillSchema.FIELD_MAX_STACK: 0,
 		"life": life,
 		"duration_sec": duration_sec,
 		# 寿命も周期も、この1本の時計から引く。
@@ -637,10 +657,9 @@ func _condition_value(cond: Dictionary, unit: BattleUnit) -> float:
 	var source: String = str(cond.get("source", ""))
 
 	# その状態が付いているか。⚠ 0 か 1 しか返さない。
-	#   件数を返す status_count を作らないこと。作るとスタック閾値がここから
-	#   書けてしまうが、stack の上限も消え方も未実装（宿題5）なので、
-	#   independent が無限に積む状態に閾値が乗り、一度真になったら二度と
-	#   偽に戻らない（EXEC_SKILL_CONDITION.md §2-3）。
+	#   ⚠ 件数は status_count ではなく source: "stack" が返す（段階3の後半④で
+	#   independent に上限（max_stack）を必須にしたので、閾値が一度真になったら
+	#   二度と偽に戻らない問題が消えた。上限の必須をやめるとこの前提が崩れる）。
 	if source == SkillSchema.COND_SOURCE_STATUS_HAS:
 		var found: bool = has({
 			"host": SkillSchema.HOST_UNIT,
@@ -649,6 +668,9 @@ func _condition_value(cond: Dictionary, unit: BattleUnit) -> float:
 		})
 		return 1.0 if found else 0.0
 
+	# ⚠ この枝は SkillResolver._scale_variable() と中身を揃えること。
+	#   語彙は scale_sources() の1本しか無いので、片方に足し忘れると
+	#   「damage では効くのに condition では0」という壊れ方をする（赤は出る）。
 	match source:
 		SkillSchema.SCALE_HP_CURRENT:
 			return float(unit.hp)
@@ -658,6 +680,25 @@ func _condition_value(cond: Dictionary, unit: BattleUnit) -> float:
 			return 0.0 if unit.max_hp <= 0 else float(unit.hp) / float(unit.max_hp)
 		SkillSchema.SCALE_HP_LOST_RATIO:
 			return 0.0 if unit.max_hp <= 0 else 1.0 - float(unit.hp) / float(unit.max_hp)
+		SkillSchema.SCALE_ELAPSED_SEC:
+			# ⚠ of を読まない（戦闘全体の値）。SCALE_SOURCES_NO_OF の一員。
+			return 0.0 if _session == null else _session.elapsed_sec
+		SkillSchema.SCALE_WAVE_INDEX:
+			# ⚠ 1 始まり（"wave_index >= 2" で「2波目以降」）。
+			return 0.0 if _session == null else float(_session.current_wave)
+		SkillSchema.SCALE_ALIVE_ALLY:
+			# ⚠ 「その unit から見た」味方。絶対（party 固定）にしない。
+			return 0.0 if _session == null else float(_session.get_alive_units(unit.team).size())
+		SkillSchema.SCALE_ALIVE_ENEMY:
+			if _session == null:
+				return 0.0
+			var foe: String = (
+				BattleUnit.TEAM_ENEMY if unit.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
+			)
+			return float(_session.get_alive_units(foe).size())
+		SkillSchema.SCALE_STACK:
+			# ⚠ status_id は「数えたい相手の状態のID」。E71 が空を弾いている。
+			return float(count_stacks(unit.unit_id, str(cond.get("status_id", ""))))
 
 	if source in GameManager.get_stat_keys():
 		return float(unit.get_stat(source))
@@ -940,6 +981,26 @@ func count(filter: Dictionary) -> int:
 
 func has(filter: Dictionary) -> bool:
 	return not query(filter).is_empty()
+
+
+# (宿主, status_id) に積まれている件数。scale_from / condition の
+# source: "stack" が唯一の利用者（段階3の後半④）。
+#
+# ⚠ active が偽の件も数える。「積まれている数」であって「効いている数」ではない。
+#   ここを active で絞ると、条件付きの状態のスタック数が条件で揺れて、
+#   「積んだのに数が減る」という説明のつかない挙動になる。
+# ⚠ has() と別の関数にしてある。has() は真偽しか返さない契約を保つため。
+# ⚠ query() を通す。ここで _entries を直接回すと、絞り方が2本になる。
+# ⚠ 呼び出し元は SkillResolver._scale_variable() の1箇所。あちらは registry を
+#   RefCounted として持つので動的に呼ばれる（count_heal_taken_pct と同じ形）。
+func count_stacks(host_unit_id: String, status_id: String) -> int:
+	if host_unit_id == "" or status_id == "":
+		return 0
+	return count({
+		"host": SkillSchema.HOST_UNIT,
+		"host_unit_id": host_unit_id,
+		"status_id": status_id,
+	})
 
 
 # そのユニットが受ける回復の増減（％）の合計。回復の介入点が読む。

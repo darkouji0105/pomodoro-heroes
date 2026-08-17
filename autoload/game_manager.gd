@@ -69,6 +69,9 @@ const STAT_NODE_PREREQUISITES: String = "prerequisites"
 const SKILL_USER_CHARACTER_ID: String = "user_character_id"
 const SKILL_UNLOCK_LEVEL: String = "unlock_level"
 const CHARACTER_SKILLS: String = "skills"
+# パッシブの候補（characters.json / enemies.json）。⚠ "skills" と別配列にする。
+#   同じ配列に入れると、スキルボタンにも敵AIにも混ざる（EXEC_SKILL_PASSIVE_VARS.md §0-1-1）。
+const CHARACTER_PASSIVES: String = "passives"
 
 # shop.json 側だけにあるキー（状態には残らないため GameStateKeys には置かない）。
 # slot_id / item_id / cost / stock_limit は状態と同じ形のため GameStateKeys 側を使う。
@@ -1110,7 +1113,12 @@ func _default_growth_for(character_id: String) -> Dictionary:
 		# 選択したスキルIDの2枠（EXEC_SKILL_SELECT.md §5）。レベル1では両方 ""。
 		# 空の枠は戦闘時に候補の先頭で埋めるため、ここでマスターを複製しない。
 		GameStateKeys.GROWTH_SKILLS: {
-			GameStateKeys.GROWTH_SKILL_SLOTS: _empty_skill_slots(),
+			GameStateKeys.GROWTH_SKILL_SLOTS: _empty_slots(SLOT_KIND_SKILL),
+		},
+		# パッシブ枠（EXEC_SKILL_PASSIVE_VARS.md §3-4）。⚠ スキル枠とは別枠。
+		# ⚠ 空の枠は戦闘時に埋めない（埋めると外したつもりのものが勝手に付く）。
+		GameStateKeys.GROWTH_PASSIVES: {
+			GameStateKeys.GROWTH_SKILL_SLOTS: _empty_slots(SLOT_KIND_PASSIVE),
 		},
 		GameStateKeys.GROWTH_EQUIPMENT: {
 			GameStateKeys.EQUIP_HEAD: null,
@@ -1764,33 +1772,73 @@ func reset_stat_nodes(character_id: String) -> bool:
 # 正規化・画面・戦闘への受け渡しは追従する。
 const SKILL_SLOT_COUNT: int = 2
 
+# パッシブの枠数（PLAN 7-2・段階3の後半④）。
+# ⚠ スキル枠とは別枠（人間の決定・2026-08-17）。パッシブはスキル枠を消費しない。
+const PASSIVE_SLOT_COUNT: int = 1
+
+# 枠の種類。⚠ 枠の仕組みを複製しないための識別子（EXEC_SKILL_PASSIVE_VARS.md §3-4）。
+#   3種類目を足すときも、関数をもう一式作らず _slot_spec() に1行足すこと。
+const SLOT_KIND_SKILL: String = "skill"
+const SLOT_KIND_PASSIVE: String = "passive"
+
+# 枠の種類ごとに違うのは、この4つだけ。
+#
+# state_key   … growth の中のどのキーに入るか
+# count       … 枠数
+# master_key  … characters.json のどの配列が候補か
+# fill_empty  … 未選択の枠を候補の先頭で埋めるか
+#               ⚠ スキルは埋める（セーブに初期2個を書かないための仕組み）。
+#                 パッシブは埋めない。埋めると「外したつもりのパッシブが勝手に付く」。
+func _slot_spec(kind: String) -> Dictionary:
+	if kind == SLOT_KIND_PASSIVE:
+		return {
+			"state_key": GameStateKeys.GROWTH_PASSIVES,
+			"count": PASSIVE_SLOT_COUNT,
+			"master_key": CHARACTER_PASSIVES,
+			"fill_empty": false,
+		}
+	return {
+		"state_key": GameStateKeys.GROWTH_SKILLS,
+		"count": SKILL_SLOT_COUNT,
+		"master_key": CHARACTER_SKILLS,
+		"fill_empty": true,
+	}
+
 # 画面が枠を並べるために公開する。枠に名前は無いので、番号で並べる。
 func get_skill_slot_count() -> int:
 	return SKILL_SLOT_COUNT
 
+func get_passive_slot_count() -> int:
+	return PASSIVE_SLOT_COUNT
+
 # 未選択の枠だけの配列。_default_growth_for() と正規化の両方から使う。
-func _empty_skill_slots() -> Array:
+func _empty_slots(kind: String = SLOT_KIND_SKILL) -> Array:
 	var slots: Array = []
-	for _i: int in range(SKILL_SLOT_COUNT):
+	for _i: int in range(int(_slot_spec(kind)["count"])):
 		slots.append("")
 	return slots
 
-# growth.skills を必ず {"slots": [長さ=枠数の文字列配列]} の形に直す。
+# growth の枠を必ず {"slots": [長さ=枠数の文字列配列]} の形に直す。
 # 渡された growth を直接書き換える。戻り値は「直したかどうか」。
 #
-# 旧セーブ（skills が {}）と、将来枠数を変えたあとのセーブを、ここで吸収する。
+# 旧セーブ（欄が無い／{}）と、将来枠数を変えたあとのセーブを、ここで吸収する。
 # これがあるおかげで save_version を上げなくてよい（EXEC_SKILL_SELECT.md §9）。
-func _normalize_skill_slots(growth: Dictionary) -> bool:
+#
+# ⚠ 種類ごとに2本目を書かないこと。パッシブ枠を足したときに書き分けると、
+#   片方だけ正規化されるセーブができる。
+func _normalize_slots(growth: Dictionary, kind: String = SLOT_KIND_SKILL) -> bool:
+	var spec: Dictionary = _slot_spec(kind)
+	var state_key: String = str(spec["state_key"])
+	var count: int = int(spec["count"])
 	var changed: bool = false
-	var count: int = SKILL_SLOT_COUNT
 
-	var skills_raw: Variant = growth.get(GameStateKeys.GROWTH_SKILLS, null)
-	if not (skills_raw is Dictionary):
-		skills_raw = {}
+	var holder_raw: Variant = growth.get(state_key, null)
+	if not (holder_raw is Dictionary):
+		holder_raw = {}
 		changed = true
-	var skills: Dictionary = skills_raw
+	var holder: Dictionary = holder_raw
 
-	var slots_raw: Variant = skills.get(GameStateKeys.GROWTH_SKILL_SLOTS, null)
+	var slots_raw: Variant = holder.get(GameStateKeys.GROWTH_SKILL_SLOTS, null)
 	if not (slots_raw is Array):
 		slots_raw = []
 		changed = true
@@ -1811,8 +1859,15 @@ func _normalize_skill_slots(growth: Dictionary) -> bool:
 			changed = true
 		slots[i] = normalized
 
-	skills[GameStateKeys.GROWTH_SKILL_SLOTS] = slots
-	growth[GameStateKeys.GROWTH_SKILLS] = skills
+	holder[GameStateKeys.GROWTH_SKILL_SLOTS] = slots
+	growth[state_key] = holder
+	return changed
+
+# 全種類の枠をまとめて正規化する。⚠ 呼ぶ側は種類を数えないこと。
+func _normalize_all_slots(growth: Dictionary) -> bool:
+	var changed: bool = _normalize_slots(growth, SLOT_KIND_SKILL)
+	if _normalize_slots(growth, SLOT_KIND_PASSIVE):
+		changed = true
 	return changed
 
 # ロード時に全キャラの skills を正規化する。
@@ -1934,7 +1989,9 @@ func _normalize_skill_slots_from_save() -> void:
 	for character_id: String in growth_all:
 		if not (growth_all[character_id] is Dictionary):
 			continue
-		if _normalize_skill_slots(growth_all[character_id]):
+		# ⚠ スキル枠とパッシブ枠の両方をここで直す。片方だけ直す形にしないこと
+		#   （旧セーブでパッシブ枠だけ生えないまま画面へ行く）。
+		if _normalize_all_slots(growth_all[character_id]):
 			fixed += 1
 	print("[GameManager] _normalize_skill_slots_from_save() -> %d / %d entries normalized" % [
 		fixed, growth_all.size()
@@ -1942,11 +1999,18 @@ func _normalize_skill_slots_from_save() -> void:
 
 # そのキャラの候補を全部返す（レベルで絞らない）。並び順は characters.json のまま。
 # 画面が「まだ解放されていない候補」を灰色で見せるために要る。
-func get_all_skill_candidates(character_id: String) -> Array:
+func get_all_skill_candidates(character_id: String, kind: String = SLOT_KIND_SKILL) -> Array:
 	var char_data: Dictionary = MasterDataLoader.get_character(character_id)
-	var raw: Variant = char_data.get(CHARACTER_SKILLS, [])
+	var master_key: String = str(_slot_spec(kind)["master_key"])
+	# ⚠ パッシブは欄そのものが無いキャラが普通にいる。無いのは正常系なので
+	#   警告を出さない（正常系に警告を付けない）。
+	if not char_data.has(master_key):
+		return []
+	var raw: Variant = char_data.get(master_key, [])
 	if not (raw is Array):
-		push_warning("[GameManager] get_all_skill_candidates: skills が配列ではない: " + character_id)
+		push_warning("[GameManager] get_all_skill_candidates: %s が配列ではない: %s" % [
+			master_key, character_id
+		])
 		return []
 	var result: Array = []
 	for entry: Variant in (raw as Array):
@@ -1955,10 +2019,11 @@ func get_all_skill_candidates(character_id: String) -> Array:
 
 # 現在のレベルで解放済みの候補だけを返す。
 # skills.json に無いIDは落とす（characters.json 側だけ書き換えたときの保険）。
-func get_skill_candidates(character_id: String) -> Array:
+# ⚠ パッシブも定義は skills.json にある（activation: "passive"）。読み先は同じ。
+func get_skill_candidates(character_id: String, kind: String = SLOT_KIND_SKILL) -> Array:
 	var level: int = int(get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
 	var result: Array = []
-	for skill_id: String in get_all_skill_candidates(character_id):
+	for skill_id: String in get_all_skill_candidates(character_id, kind):
 		var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
 		if skill_data.is_empty():
 			continue
@@ -1977,12 +2042,17 @@ func get_skill_unlock_level(skill_id: String) -> int:
 
 # 保存されている選択をそのまま返す。長さは必ず枠数。未選択は ""。
 # 空欄を埋めないので、画面はこちらを使う（「未選択」と表示できる）。
-func get_selected_skills(character_id: String) -> Array:
+func get_selected_skills(character_id: String, kind: String = SLOT_KIND_SKILL) -> Array:
 	var growth: Dictionary = get_character_growth(character_id)
 	# growth は get_character_growth() が複製したものなので、直接直してよい。
-	_normalize_skill_slots(growth)
-	var skills: Dictionary = growth.get(GameStateKeys.GROWTH_SKILLS, {})
-	return (skills.get(GameStateKeys.GROWTH_SKILL_SLOTS, []) as Array).duplicate()
+	_normalize_slots(growth, kind)
+	var holder: Dictionary = growth.get(str(_slot_spec(kind)["state_key"]), {})
+	return (holder.get(GameStateKeys.GROWTH_SKILL_SLOTS, []) as Array).duplicate()
+
+
+# 画面用。パッシブ枠の選択をそのまま返す（未選択は ""）。
+func get_selected_passives(character_id: String) -> Array:
+	return get_selected_skills(character_id, SLOT_KIND_PASSIVE)
 
 # 戦闘に渡す確定版。空の枠を候補の先頭で埋め、"" を落として返す。
 #
@@ -1991,9 +2061,9 @@ func get_selected_skills(character_id: String) -> Array:
 #
 # 状態にマスターを複製しないための仕組みでもある。未選択のまま戦闘に出ても
 # スキルが空にならないので、初期2個をセーブに書き込む必要がない。
-func get_battle_skills(character_id: String) -> Array:
-	var selected: Array = get_selected_skills(character_id)
-	var candidates: Array = get_skill_candidates(character_id)
+func get_battle_skills(character_id: String, kind: String = SLOT_KIND_SKILL) -> Array:
+	var selected: Array = get_selected_skills(character_id, kind)
+	var candidates: Array = get_skill_candidates(character_id, kind)
 
 	# 先に選択済みを確定させる。マスターから消えたIDと未解放のIDはここで落ちる。
 	var slots: Array = []
@@ -2005,14 +2075,17 @@ func get_battle_skills(character_id: String) -> Array:
 			slots.append("")
 
 	# 空の枠を、まだ使っていない候補の先頭で埋める。
-	for i: int in range(slots.size()):
-		if str(slots[i]) != "":
-			continue
-		for candidate: Variant in candidates:
-			var candidate_id: String = str(candidate)
-			if not (candidate_id in slots):
-				slots[i] = candidate_id
-				break
+	# ⚠ パッシブは埋めない（fill_empty が偽）。埋めると「外したつもりの
+	#   パッシブが勝手に付く」。スキルと挙動が違う唯一の点。
+	if bool(_slot_spec(kind)["fill_empty"]):
+		for i: int in range(slots.size()):
+			if str(slots[i]) != "":
+				continue
+			for candidate: Variant in candidates:
+				var candidate_id: String = str(candidate)
+				if not (candidate_id in slots):
+					slots[i] = candidate_id
+					break
 
 	# 候補が枠数に足りないときは "" が残るため、ここで落とす。
 	var result: Array = []
@@ -2021,15 +2094,24 @@ func get_battle_skills(character_id: String) -> Array:
 			result.append(str(entry))
 	return result
 
+
+# 戦闘に渡すパッシブの確定版。⚠ BattleUnit.passive_ids に入る。
+# ⚠ 空の枠は埋めない（上の fill_empty）。
+func get_battle_passives(character_id: String) -> Array:
+	return get_battle_skills(character_id, SLOT_KIND_PASSIVE)
+
 # 選べない理由を返す。選べるなら "" を返す。
 #
 # 判定はすべてここに集める。状態を変える前に全部の判定を終えるため
 # （CLAUDE.md 6番）、select_skill() は先頭でこれを1回呼ぶだけでよい。
-func _skill_select_error(character_id: String, slot_index: int, skill_id: String) -> String:
+func _skill_select_error(
+		character_id: String, slot_index: int, skill_id: String,
+		kind: String = SLOT_KIND_SKILL
+) -> String:
 	var growth: Dictionary = get_character_growth(character_id)
 	if growth.is_empty():
 		return "character not found: " + character_id
-	if slot_index < 0 or slot_index >= SKILL_SLOT_COUNT:
+	if slot_index < 0 or slot_index >= int(_slot_spec(kind)["count"]):
 		return "slot_index out of range: %d" % slot_index
 	if skill_id == "":
 		return "skill_id is empty"
@@ -2044,7 +2126,7 @@ func _skill_select_error(character_id: String, slot_index: int, skill_id: String
 	# user_character_id が合っていても、characters.json の候補一覧に無ければ選ばせない。
 	# 候補一覧が正（get_battle_skills() もそちらで絞るため、ここを緩めると
 	# 「選べたのに戦闘に出ない」になる）。
-	if not (skill_id in get_all_skill_candidates(character_id)):
+	if not (skill_id in get_all_skill_candidates(character_id, kind)):
 		return "skill '%s' is not a candidate of '%s'" % [skill_id, character_id]
 
 	var level: int = int(growth.get(GameStateKeys.GROWTH_LEVEL, 1))
@@ -2055,25 +2137,32 @@ func _skill_select_error(character_id: String, slot_index: int, skill_id: String
 	return ""
 
 # 判定のみ。状態を触らない（can_unlock_stat_node() と同じ形）。
-func can_select_skill(character_id: String, slot_index: int, skill_id: String) -> bool:
-	return _skill_select_error(character_id, slot_index, skill_id) == ""
+func can_select_skill(
+		character_id: String, slot_index: int, skill_id: String,
+		kind: String = SLOT_KIND_SKILL
+) -> bool:
+	return _skill_select_error(character_id, slot_index, skill_id, kind) == ""
 
 # 枠にスキルを入れる。
 #
 # 選んだスキルが既に別の枠に入っている場合は、2つの枠を入れ替える。弾かない。
 # 枠の順番に意味がある（GAME_DESIGN.md 3-2）ため、「Bを1番に置きたい」という
 # 操作がそのまま入れ替えになる。swap 専用の関数は作らない。
-func select_skill(character_id: String, slot_index: int, skill_id: String) -> bool:
-	var error: String = _skill_select_error(character_id, slot_index, skill_id)
+func select_skill(
+		character_id: String, slot_index: int, skill_id: String,
+		kind: String = SLOT_KIND_SKILL
+) -> bool:
+	var error: String = _skill_select_error(character_id, slot_index, skill_id, kind)
 	if error != "":
 		print("[GameManager] select_skill('%s', %d, '%s') -> false (%s)" % [
 			character_id, slot_index, skill_id, error
 		])
 		return false
 
+	var state_key: String = str(_slot_spec(kind)["state_key"])
 	var growth: Dictionary = get_character_growth(character_id)
-	_normalize_skill_slots(growth)
-	var skills: Dictionary = growth[GameStateKeys.GROWTH_SKILLS]
+	_normalize_slots(growth, kind)
+	var skills: Dictionary = growth[state_key]
 	var slots: Array = (skills[GameStateKeys.GROWTH_SKILL_SLOTS] as Array).duplicate()
 
 	if str(slots[slot_index]) == skill_id:
@@ -2089,7 +2178,7 @@ func select_skill(character_id: String, slot_index: int, skill_id: String) -> bo
 	slots[slot_index] = skill_id
 
 	skills[GameStateKeys.GROWTH_SKILL_SLOTS] = slots
-	growth[GameStateKeys.GROWTH_SKILLS] = skills
+	growth[state_key] = skills
 	_write_growth(character_id, growth)
 
 	print("[GameManager] select_skill('%s', %d, '%s') -> true (slots=%s)" % [
@@ -2099,21 +2188,24 @@ func select_skill(character_id: String, slot_index: int, skill_id: String) -> bo
 	return true
 
 # 枠を未選択に戻す。空にしても戦闘には候補の先頭が入る（get_battle_skills()）。
-func clear_skill_slot(character_id: String, slot_index: int) -> bool:
+func clear_skill_slot(
+		character_id: String, slot_index: int, kind: String = SLOT_KIND_SKILL
+) -> bool:
 	var growth: Dictionary = get_character_growth(character_id)
 	if growth.is_empty():
 		print("[GameManager] clear_skill_slot('%s', %d) -> false (character not found)" % [
 			character_id, slot_index
 		])
 		return false
-	if slot_index < 0 or slot_index >= SKILL_SLOT_COUNT:
+	if slot_index < 0 or slot_index >= int(_slot_spec(kind)["count"]):
 		print("[GameManager] clear_skill_slot('%s', %d) -> false (slot_index out of range)" % [
 			character_id, slot_index
 		])
 		return false
 
-	_normalize_skill_slots(growth)
-	var skills: Dictionary = growth[GameStateKeys.GROWTH_SKILLS]
+	var state_key: String = str(_slot_spec(kind)["state_key"])
+	_normalize_slots(growth, kind)
+	var skills: Dictionary = growth[state_key]
 	var slots: Array = (skills[GameStateKeys.GROWTH_SKILL_SLOTS] as Array).duplicate()
 
 	if str(slots[slot_index]) == "":
@@ -2124,7 +2216,7 @@ func clear_skill_slot(character_id: String, slot_index: int) -> bool:
 
 	slots[slot_index] = ""
 	skills[GameStateKeys.GROWTH_SKILL_SLOTS] = slots
-	growth[GameStateKeys.GROWTH_SKILLS] = skills
+	growth[state_key] = skills
 	_write_growth(character_id, growth)
 
 	print("[GameManager] clear_skill_slot('%s', %d) -> true (slots=%s)" % [

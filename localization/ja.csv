@@ -121,8 +121,6 @@ ui_adventure_party,編成
 ui_stage_1,1. 草原のスライム
 ui_stage_2,2. 荒野の群れ
 ui_stage_3,3. 森の主
-ui_common_yes,はい
-ui_common_no,いいえ
 ui_base_save_completed,セーブしました
 ui_base_save_failed,セーブに失敗しました
 ui_base_chest_received,宝箱を%d個受け取りました
@@ -224,6 +222,8 @@ ui_stat_node_reset,振り直す
 ui_skill_select_slots_header,持ち込むスキル
 ui_skill_select_candidates_header,スキル候補
 ui_skill_select_slot,スキル%d
+ui_skill_select_passive_slot,パッシブ%d
+ui_skill_select_passive_candidates_header,パッシブ候補
 ui_skill_select_empty,未選択
 ui_skill_select_locked,（Lv%d で解放）
 ui_battle_char_debug_status,検証用（状態）
@@ -274,3 +274,9 @@ ui_battle_skill_edbg_revive,不死の誓い（敵）
 ui_battle_skill_edbg_immune,毒への抵抗（敵）
 ui_battle_skill_edbg_recv_down,癒し拒み（敵）
 ui_stage_dbg_intervene,検証用・介入点
+ui_stage_dbg_passive,検証用・パッシブ
+ui_battle_passive_dbg_atk,常在の力（攻撃+30）
+ui_battle_passive_dbg_cond_alive,追い詰め（敵1体以下で攻撃+100）
+ui_battle_passive_edbg_def,硬い皮膚（敵）
+ui_battle_passive_edbg_revive_mark,不死の刻印（敵）
+ui_battle_skill_dbg_scale_battle,戦況依存（経過・波・敵数・スタック）
