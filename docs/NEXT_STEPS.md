@@ -32,11 +32,11 @@
 
 ```
 battle_controller  … 入力と表示。ノードを触る唯一の層
-      ↓ cast()（スキル・通常攻撃・購読とも）
+	  ↓ cast()（スキル・通常攻撃・購読とも）
 SkillRuntime       … 待ち行列。trigger・購読の配布と発火・中断
-      ↓ 効果1件ずつ（発火は _fire() の1本）
+	  ↓ 効果1件ずつ（発火は _fire() の1本）
 SkillResolver      … 1つの効果を確定した対象に当てる。時間を知らない
-      ↓ host が none 以外
+	  ↓ host が none 以外
 StatusRegistry     … 状態。寿命はスキルより長い
 
 BattleLog          … 静的クラス。どの層からも呼べる（Autoload ではない）

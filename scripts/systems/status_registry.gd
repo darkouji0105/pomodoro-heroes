@@ -626,7 +626,10 @@ func _fire_intervals(results: Array) -> void:
 				and elapsed >= float(int(entry.get("fires_done", 0)) + 1) * interval_sec:
 			entry["fires_done"] = int(entry.get("fires_done", 0)) + 1
 			var one: Dictionary = { "effects": [entry.get("damage_effect", {})] }
-			var fired: Array = SkillResolver.resolve(one, source, _session, [host_id], self)
+			# ⚠ 末尾の true が「これは DoT の発火」の印（EXEC_DAMAGE_POP_COLOR.md）。
+			#   表示側は results の is_dot だけを見て色を決める。ここを落とすと
+			#   毒のダメージが通常の色で出る（エラーは1つも出ない）。
+			var fired: Array = SkillResolver.resolve(one, source, _session, [host_id], self, true)
 			# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ この経路は SkillRuntime を
 			#   通らないので、ここに差さないと DoT のダメージだけログに出ない。
 			BattleLog.log_results(fired, source.unit_id, str(entry.get("status_id", "")))

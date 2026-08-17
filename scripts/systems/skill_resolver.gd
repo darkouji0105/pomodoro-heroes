@@ -17,10 +17,18 @@ extends RefCounted
 # 【器の語彙】値の一覧は SkillSchema が唯一の正。ここに2本目の一覧を作らない。
 
 # 効果の結果の形。battle_controller.gd がそのまま読むので変えないこと。
-#   { "unit_id": String, "amount": int, "is_heal": bool, "is_crit": bool }
+#   { "unit_id": String, "amount": int, "is_heal": bool, "is_crit": bool, "is_dot": bool }
 # ダメージのときだけ、購読（PLAN 10章）のために2つ足す。
 #   + { "source_unit_id": String, "attack_type": String }
 # ⚠ 回復には足さない（回復では合図を出さない）。読むのは SkillRuntime だけ。
+#
+# is_dot … 表示の色分け用（EXEC_DAMAGE_POP_COLOR.md）。周期ダメージなら true。
+#   ⚠ 値は resolve() の引数で外から渡る。呼び出し元（StatusRegistry か SkillRuntime か）
+#     しか「DoT の発火か」を知らないため。BattleLog が log_results() の引数で
+#     dot_status_id を受け取っているのと同じ形。
+#   ⚠ この欄を書くのはこのファイルだけ。受け取った側が後から fired に足す形にしない
+#     （結果の形を作る場所が2つになる）。
+#   ⚠ ダメージにも回復にも必ず入れる（読む側が has() を書かなくて済むように）。
 
 
 # ============================================================
@@ -211,9 +219,13 @@ static func _sort_key(unit: BattleUnit, user: BattleUnit, sort_kind: String) -> 
 #   Cyclic reference のパースエラーを踏みうる（battle_formula.gd 冒頭と同じ形）。
 #   代償は registry.add() が動的呼び出しになること。呼ぶのは _apply_status() の
 #   2行だけなので、そこだけ見ておけばよい。
+#
+# is_dot … この発火が状態の周期ダメージかどうか（表示の色分け用）。
+#   ⚠ 既定値 false。付けないと呼び出し元2箇所のうち片方が壊れる。
+#   ⚠ 計算には一切使わない。結果に載せて返すだけ（DoT だから弱い、等をここに書かない）。
 static func resolve(
 		skill_data: Dictionary, user: BattleUnit, session: BattleSession,
-		target_ids: Array, registry: RefCounted
+		target_ids: Array, registry: RefCounted, is_dot: bool = false
 ) -> Array:
 	var results: Array = []
 	if skill_data == null or skill_data.is_empty():
@@ -273,7 +285,7 @@ static func resolve(
 		var effect_type: String = str(effect.get("type", ""))
 		if effect_type == SkillSchema.EFFECT_DAMAGE:
 			for t: BattleUnit in targets:
-				_apply_damage(effect, user, t, results)
+				_apply_damage(effect, user, t, results, is_dot)
 		elif effect_type == SkillSchema.EFFECT_HEAL:
 			_apply_heal(effect, user, targets, results)
 		elif effect_type in SkillSchema.EFFECT_TYPES_STATUS:
@@ -292,7 +304,10 @@ static func resolve(
 #   【第2段】確定した数値を消費するだけ。式を2度と評価しない
 #
 # ⚠ roll_crit() は対象1体につき1回。乱数を振る回数と順番を変えないこと。
-static func _apply_damage(effect: Dictionary, user: BattleUnit, target: BattleUnit, results: Array) -> void:
+static func _apply_damage(
+		effect: Dictionary, user: BattleUnit, target: BattleUnit, results: Array,
+		is_dot: bool = false
+) -> void:
 	if target == null:
 		return
 
@@ -349,6 +364,7 @@ static func _apply_damage(effect: Dictionary, user: BattleUnit, target: BattleUn
 		"amount": int(ctx["amount"]),
 		"is_heal": false,
 		"is_crit": bool(ctx["is_crit"]),
+		"is_dot": is_dot,
 		"source_unit_id": user.unit_id,
 		"attack_type": attack_type,
 	})
@@ -383,7 +399,8 @@ static func _apply_heal(effect: Dictionary, user: BattleUnit, targets: Array, re
 		if t == null:
 			continue
 		t.heal(amount)
-		results.append({ "unit_id": t.unit_id, "amount": amount, "is_heal": true, "is_crit": false })
+		# ⚠ is_dot は回復にも入れる（形を揃える）。周期回復（HoT）はまだ無いので常に false。
+		results.append({ "unit_id": t.unit_id, "amount": amount, "is_heal": true, "is_crit": false, "is_dot": false })
 
 
 # 状態を付ける（buff / dot・段階3）。器に1件登録するだけで、時間は進めない。

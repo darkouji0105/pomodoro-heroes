@@ -59,3 +59,48 @@ extends Resource
 ## 投射物が対象に「着いた」とみなす距離（ピクセル）。
 ## ⚠ 0 にしないこと。対象が動き続けると永久に追いつけない。
 @export var projectile_hit_distance_px: float = 12.0
+
+# --- 頭上に浮かぶ数値の見た目（EXEC_DAMAGE_POP_COLOR.md） ---
+#
+# 【なぜ色が「数値調整用Config」に居るのか】
+# AGENTS.md「Themeの扱い」は「個別シーンで色を直接指定しない」と言っている。
+# だが main_theme.tres は Control の基本スタイル（ボタン・ラベル）を持つ場所で、
+# ここで要るのは「毒＝この色」という意味の対応表であり、しかも動的生成した
+# Label への add_theme_color_override なので、Theme 経由にすると
+# カスタム型（theme_type_variation）を人間が作る作業が発生する。
+# → Inspector から触れる形を優先し、Balance 側に置く（人間の決定・2026-08-17）。
+#
+# 【なぜ新しい Config を作らないか】上の「ステータスの上限」と同じ理由。
+# AdventureConfig は既に Balance に配線済みで、割り当て漏れの事故が起きない。
+#
+# ⚠ .tres は @export の既定値を書き出さないので、ここに欄を足すだけで
+#   Inspector に既定値付きで出る。adventure_config.tres を作り直す必要は無い。
+# ⚠ 種類で分ける（量では分けない）。毒の 2 と通常の 4 は量がほぼ同じなので、
+#   量で分けても見分けられない。量による色分けは段階4。
+
+## 通常のダメージ。
+@export var pop_damage_color: Color = Color(1.0, 0.85, 0.3)
+@export var pop_damage_font_size: int = 22
+
+## 会心。通常より大きく・強い色にする（「会心」という文字は出さない）。
+@export var pop_crit_color: Color = Color(1.0, 0.55, 0.25)
+@export var pop_crit_font_size: int = 32
+
+## DoT（毒などの周期ダメージ）。
+## 通常のダメージと同じ画面に並ぶので、黄〜橙の系統から最も遠い色にする。
+## ⚠ UnitView の COLOR_BOSS（紫・スクリプト内定数のまま）と系統が近い。
+## 通常より少し小さくして「軽い一撃」に見せる。
+@export var pop_dot_color: Color = Color(0.75, 0.45, 0.95)
+@export var pop_dot_font_size: int = 18
+
+## 回復。⚠ 大きさは通常のダメージと同じにする。見落とすと困る種類なので小さくしない。
+@export var pop_heal_color: Color = Color(0.4, 0.95, 0.5)
+@export var pop_heal_font_size: int = 22
+
+## チャージのジャスト成功。⚠ これだけ数値ではなく文字（ui_battle_just）が出る。
+@export var pop_just_color: Color = Color(1.0, 0.95, 0.55)
+@export var pop_just_font_size: int = 30
+
+## 浮かんで消えるまでの動き。種類で変えない（変えると読む速さが揃わない）。
+@export var pop_rise_px: float = 48.0
+@export var pop_duration_sec: float = 0.6

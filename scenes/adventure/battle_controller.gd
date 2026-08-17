@@ -545,14 +545,27 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	_skill_runtime.cast(unit, BASIC_ATTACK_SKILL_ID, unit.basic_attack, 1.0, fixed_ids)
 
 
-func _pop_damage(target: BattleUnit, amount: int, is_crit: bool = false) -> void:
+# ⚠ is_crit / is_dot は既定値を持つ。既定値を外すと、引数を渡していない
+#   F3 パネルの自傷3本（_pop_damage(u, dmg) の形）が壊れる。
+func _pop_damage(target: BattleUnit, amount: int, is_crit: bool = false, is_dot: bool = false) -> void:
 	if target == null:
 		return
 	if not _views_by_unit_id.has(target.unit_id):
 		return
 	var view: Node = _views_by_unit_id[target.unit_id]
 	if is_instance_valid(view) and view.has_method("pop_damage"):
-		view.pop_damage(amount, is_crit)
+		view.pop_damage(amount, is_crit, is_dot)
+
+
+# 回復の数値。_pop_damage と同じ形（見つからなければ黙って何もしない）。
+func _pop_heal(target: BattleUnit, amount: int) -> void:
+	if target == null:
+		return
+	if not _views_by_unit_id.has(target.unit_id):
+		return
+	var view: Node = _views_by_unit_id[target.unit_id]
+	if is_instance_valid(view) and view.has_method("pop_heal"):
+		view.pop_heal(amount)
 
 
 # ============================================================
@@ -855,7 +868,18 @@ func _on_skill_effects_applied(results: Array) -> void:
 		if not (r is Dictionary):
 			continue
 		var target: BattleUnit = _find_unit_by_id(str(r.get("unit_id", "")))
-		_pop_damage(target, int(r.get("amount", 0)), bool(r.get("is_crit", false)))
+		# 種類で色を分ける（EXEC_DAMAGE_POP_COLOR.md）。分岐はここ1箇所。
+		# ⚠ is_heal を先に見る。将来 HoT（周期回復）が来ると is_heal と is_dot が
+		#   両方立つが、回復として出すのが正しい。
+		if bool(r.get("is_heal", false)):
+			_pop_heal(target, int(r.get("amount", 0)))
+		else:
+			_pop_damage(
+				target,
+				int(r.get("amount", 0)),
+				bool(r.get("is_crit", false)),
+				bool(r.get("is_dot", false))
+			)
 
 
 # ============================================================
