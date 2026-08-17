@@ -1,0 +1,28 @@
+{
+	"skill_edbg_dot": {
+		"name_key": "ui_battle_skill_edbg_dot",
+		"user_character_id": "enemy_dbg_dot",
+		"unlock_level": 1,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "dot",
+				"host": "unit",
+				"status_id": "status_edbg_dot",
+				"multiplier": 0.5,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"duration_sec": 8.0,
+				"interval_sec": 2.0,
+				"stack": "independent"
+			}
+		]
+	}
+}

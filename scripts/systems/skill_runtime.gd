@@ -97,10 +97,14 @@ func reset(p_session: BattleSession, p_registry: StatusRegistry) -> void:
 # ⚠ 通常攻撃のためにある。通常攻撃が狙うのは「歩いて近づいた相手」
 #   （BattleUnit.target_unit_id）で、撃つ瞬間に選び直してはいけない。
 #   select_targets() に選ばせると sort: nearest で別人に飛ぶ。
+# react_ctx … 購読から入ってきたときだけ中身がある（PLAN 10章）。
+#   { "source_unit_id": String, "from_reaction": true }
+#
 # ⚠ 入口を2本にしないこと（発火経路は1本・PLAN 6-5）。cast_basic() を足さない。
+#   購読の発火も専用関数を作らず、ここから入って _fire() へ出る。
 func cast(
 		user: BattleUnit, skill_id: String, skill_data: Dictionary, power_ratio: float,
-		fixed_target_ids: Array = []
+		fixed_target_ids: Array = [], react_ctx: Dictionary = {}
 ) -> void:
 	if user == null or _session == null:
 		push_error("[SkillRuntime] cast: user または session が null")
@@ -123,6 +127,10 @@ func cast(
 	var cast_id: int = _next_cast_id
 	_next_cast_id += 1
 
+	# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ 撃った回数はここで1回。
+	#   効果ごと（_fire）に出すと多段で水増しされる。
+	BattleLog.log_cast(user.unit_id, skill_id, fixed_target_ids)
+
 	# 1回の発動で出す投射物は、送り方1つにつき1本。
 	# ⚠ これが無いと、ダメージと DoT の2効果が同じ矢を待っているだけなのに
 	#   矢が2本飛ぶ（癒しの光の DoT 付きなど）。
@@ -140,7 +148,9 @@ func cast(
 		if trigger == SkillSchema.TRIGGER_CHARGE_START:
 			continue
 
-		var entry: Dictionary = _make_entry(cast_id, user, skill_id, effect, skill_target, fixed_target_ids)
+		var entry: Dictionary = _make_entry(
+			cast_id, user, skill_id, effect, skill_target, fixed_target_ids, react_ctx
+		)
 
 		if trigger == SkillSchema.TRIGGER_CAST:
 			_fire(entry)
@@ -327,11 +337,17 @@ func pending_snapshot() -> Array:
 #   pending_count() が実態と合わなくなる。
 func _make_entry(
 		cast_id: int, user: BattleUnit, skill_id: String, effect: Dictionary,
-		skill_target: Dictionary, fixed_target_ids: Array = []
+		skill_target: Dictionary, fixed_target_ids: Array = [], react_ctx: Dictionary = {}
 ) -> Dictionary:
+	var source_unit_id: String = str(react_ctx.get("source_unit_id", ""))
+	var from_reaction: bool = bool(react_ctx.get("from_reaction", false))
+
 	# ⚠ 外から対象が来ていれば選び直さない（通常攻撃。cast() の注記を見ること）。
 	if not fixed_target_ids.is_empty():
-		return _entry_dict(cast_id, user, skill_id, effect, fixed_target_ids.duplicate())
+		return _entry_dict(
+			cast_id, user, skill_id, effect, fixed_target_ids.duplicate(),
+			source_unit_id, from_reaction
+		)
 
 	# 効果ごとの target 上書きが無ければ、スキルの target を使う。
 	# ⚠ ここでマスターを引き直さない。渡された実効スキルデータの target を使う
@@ -345,14 +361,18 @@ func _make_entry(
 	if target_def.is_empty():
 		push_error("[SkillRuntime] target が無い (skill_id=%s)" % skill_id)
 	else:
-		target_ids = SkillResolver.select_targets(target_def, user, _session)
+		target_ids = SkillResolver.select_targets(target_def, user, _session, source_unit_id)
 
-	return _entry_dict(cast_id, user, skill_id, effect, target_ids)
+	return _entry_dict(
+		cast_id, user, skill_id, effect, target_ids, source_unit_id, from_reaction
+	)
 
 
 # 要素の形はここ1箇所。⚠ 対象の決め方が2通りあるので、欄の並びを2箇所に書かない。
+#   購読の印（from_reaction）が漏れないのは、この関数が1本道だからである。
 func _entry_dict(
-		cast_id: int, user: BattleUnit, skill_id: String, effect: Dictionary, target_ids: Array
+		cast_id: int, user: BattleUnit, skill_id: String, effect: Dictionary, target_ids: Array,
+		source_unit_id: String = "", from_reaction: bool = false
 ) -> Dictionary:
 	return {
 		"cast_id": cast_id,
@@ -364,6 +384,9 @@ func _entry_dict(
 		"wait": "",
 		"remaining": 0.0,
 		"event_name": "",
+		# 購読（PLAN 10章）
+		"source_unit_id": source_unit_id,   # team: "source" が指す相手
+		"from_reaction": from_reaction,     # 10-2 の印
 	}
 
 
@@ -380,9 +403,111 @@ func _fire(entry: Dictionary) -> void:
 	#   対象 ID は skill_data の中に入れず、引数で横から渡す。
 	var one: Dictionary = { "effects": [entry.get("effect", {})] }
 	var results: Array = SkillResolver.resolve(one, user, _session, entry.get("target_ids", []), _registry)
+
+	# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ 観測点はここ（results を受け取る側）。
+	#   SkillResolver._apply_damage() は DoT からも呼ばれる static なので、
+	#   あちらに差すと発火点と観測点を取り違える。
+	BattleLog.log_results(results, str(entry.get("user_id", "")))
+
+	# ⚠ 10-2 の印。反応から生まれた行動は、さらなる反応を生まない。
+	#   判定はここ1箇所だけ。購読を探す側・撃つ側に散らさないこと。
+	#   この1行で、反射の無限ループ・追撃の発散・コンボの水増しが同時に止まる。
+	# ⚠ results.is_empty() の early return より前に置くこと。
+	#   空振り（対象0体）でも「攻撃した」は出る。
+	if not bool(entry.get("from_reaction", false)):
+		_dispatch_events(entry, results)
+
 	if results.is_empty():
 		return
 	effects_applied.emit(results)
+
+
+# ============================================================
+# 購読（PLAN 10章）
+# ============================================================
+
+# 起きたことを合図に変えて配る。⚠ ここは「何が起きたか」を知っている唯一の場所。
+#
+# ⚠ print を書かないこと（正常系が毎フレーム大量に起きる）。
+#   ログを出すのは、購読が実際に発火したとき（_notify）だけ。
+func _dispatch_events(entry: Dictionary, results: Array) -> void:
+	var user_id: String = str(entry.get("user_id", ""))
+	var effect: Dictionary = entry.get("effect", {}) as Dictionary
+
+	# 1. 攻撃した … 効果1件につき1回。⚠ 対象0体（空振り）でも出す。
+	#    多段は効果ごとに出る（effects[] が2件なら2回）。
+	if str(effect.get("type", "")) == SkillSchema.EFFECT_DAMAGE:
+		var first_target: String = ""
+		var target_ids: Array = entry.get("target_ids", [])
+		if not target_ids.is_empty():
+			first_target = str(target_ids[0])
+		_notify(SkillSchema.EVENT_ATTACKED, user_id, first_target)
+
+	# 2. ダメージを与えた／受けた … 確定した1件につき1回ずつ。
+	#    ⚠ 「攻撃した」と1つにしないこと。空振りと、当たったが0ダメージは別の出来事。
+	#    ⚠ 回復では出さない。
+	for raw: Variant in results:
+		if not (raw is Dictionary):
+			continue
+		var r: Dictionary = raw as Dictionary
+		if bool(r.get("is_heal", false)):
+			continue
+		var victim_id: String = str(r.get("unit_id", ""))
+		var attacker_id: String = str(r.get("source_unit_id", ""))
+		_notify(SkillSchema.EVENT_DEALT_DAMAGE, attacker_id, victim_id)
+		_notify(SkillSchema.EVENT_TOOK_DAMAGE, victim_id, attacker_id)
+
+
+# その出来事を購読しているものを探して撃つ。
+#
+# host_unit_id   … 合図を配る相手（その状態を宿しているユニット）
+# source_unit_id … きっかけになった相手（target.team: "source" が指す）
+#
+# ⚠ 購読が無いのは正常系。警告も print も出さない（毎フレーム大量に起きる）。
+# ⚠ query() は器の辞書を参照で返す（status_registry.gd）。書き換えないこと。
+# ⚠ 取り出してから発火する。回しながら撃つと、発火の中で器が増減したときに再入する。
+#   subs は query() が作った別の配列なので、この形で守れている。
+func _notify(event_name: String, host_unit_id: String, source_unit_id: String) -> void:
+	if _registry == null or host_unit_id == "":
+		return
+	var subs: Array = _registry.query({
+		"kind": StatusRegistry.KIND_REACT,
+		"host_unit_id": host_unit_id,
+	})
+	if subs.is_empty():
+		return
+
+	var host: BattleUnit = _find_unit(host_unit_id)
+	if host == null or not host.is_alive():
+		return
+
+	for raw: Variant in subs:
+		if not (raw is Dictionary):
+			continue
+		var sub: Dictionary = raw as Dictionary
+		var react: Dictionary = sub.get("react", {}) as Dictionary
+		if str(react.get("event", "")) != event_name:
+			continue
+		var effects: Variant = react.get("effects", null)
+		if not (effects is Array) or (effects as Array).is_empty():
+			continue
+
+		var status_id: String = str(sub.get("status_id", ""))
+		# ⚠ 出どころが分かる名前にする。タイムアウトの黄と発火のログに出る。
+		var react_skill_id: String = "%s#react:%s" % [status_id, event_name]
+
+		# ⚠ コンソールではなくファイルへ出す（EXEC_BATTLE_LOG.md §2-4）。
+		#   ここに print を戻さないこと。
+		BattleLog.log_react(
+			status_id, event_name, host_unit_id, source_unit_id, (effects as Array).size()
+		)
+
+		# ⚠ 専用の発火関数を作らない（PLAN 6-5）。既存の cast() から入る。
+		#   印を付けて渡すので、ここから生まれた行動はさらなる反応を生まない。
+		cast(
+			host, react_skill_id, { "effects": (effects as Array).duplicate(true) }, 1.0, [],
+			{ "source_unit_id": source_unit_id, "from_reaction": true }
+		)
 
 
 # 使用者が死んだ／居なくなった要素を捨てる（中断・PLAN 6-6）。

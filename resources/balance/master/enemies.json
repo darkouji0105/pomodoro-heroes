@@ -80,5 +80,173 @@
 				}
 			]
 		}
+	},
+	"enemy_dbg_react": {
+		"name_key": "ui_battle_enemy_dbg_react",
+		"hp": 80,
+		"atk": 5,
+		"mag": 5,
+		"def": 0,
+		"mdef": 0,
+		"spd": 40,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 50,
+		"attack_interval_sec": 2.0,
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		},
+		"skills": ["skill_edbg_react"]
+	},
+	"enemy_dbg_followup": {
+		"name_key": "ui_battle_enemy_dbg_followup",
+		"hp": 80,
+		"atk": 5,
+		"mag": 5,
+		"def": 0,
+		"mdef": 0,
+		"spd": 40,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 50,
+		"attack_interval_sec": 2.0,
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		},
+		"skills": ["skill_edbg_followup"]
+	},
+	"enemy_dbg_buff": {
+		"name_key": "ui_battle_enemy_dbg_buff",
+		"hp": 80,
+		"atk": 5,
+		"mag": 5,
+		"def": 0,
+		"mdef": 0,
+		"spd": 40,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 50,
+		"attack_interval_sec": 2.0,
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		},
+		"skills": ["skill_edbg_buff"]
+	},
+	"enemy_dbg_dot": {
+		"name_key": "ui_battle_enemy_dbg_dot",
+		"hp": 80,
+		"atk": 5,
+		"mag": 5,
+		"def": 0,
+		"mdef": 0,
+		"spd": 40,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 50,
+		"attack_interval_sec": 2.0,
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		},
+		"skills": ["skill_edbg_dot"]
+	},
+	"enemy_dbg_heal": {
+		"name_key": "ui_battle_enemy_dbg_heal",
+		"hp": 80,
+		"atk": 5,
+		"mag": 20,
+		"def": 0,
+		"mdef": 0,
+		"spd": 40,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 50,
+		"attack_interval_sec": 2.0,
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		},
+		"skills": ["skill_edbg_heal"]
+	},
+	"enemy_dbg_ranged": {
+		"name_key": "ui_battle_enemy_dbg_ranged",
+		"hp": 80,
+		"atk": 5,
+		"mag": 5,
+		"def": 0,
+		"mdef": 0,
+		"spd": 40,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 300,
+		"attack_interval_sec": 2.0,
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		},
+		"skills": ["skill_edbg_ranged"]
 	}
 }

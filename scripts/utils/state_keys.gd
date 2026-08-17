@@ -230,6 +230,11 @@ const ITEM_STAMINA_POTION: String = "stamina_potion"
 
 const STAGE_TYPE_STORY: String = "story"
 const STAGE_TYPE_TRAINING: String = "training"
+# 検証用ステージの別枠。stage_order.json の "debug" 列を引くためだけに使う。
+# ⚠ BattleSession.stage_type にはこれを入れない（入れるのは training）。
+#   スタミナ・報酬・クリア記録の分岐は「story かどうか」で見るため。
+# ⚠ リリース前にこの行と "debug" の列を消す（宿題16）。
+const STAGE_TYPE_DEBUG: String = "debug"
 
 # ============================================================
 # 装備の個体管理（第2弾）

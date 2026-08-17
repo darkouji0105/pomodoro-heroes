@@ -59,16 +59,17 @@ const EFFECT_DAMAGE: String = "damage"
 const EFFECT_HEAL: String = "heal"
 const EFFECT_BUFF: String = "buff"   # 段階3で実装
 const EFFECT_DOT: String = "dot"     # 段階3で実装
+const EFFECT_REACT: String = "react" # 段階3の後半①で実装（購読）
 const EFFECT_TYPES_KNOWN: Array = [
-	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT,
+	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT,
 	"dispel", "cancel", "transform", "move", "summon"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
-	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT
+	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT
 ]
 # 状態として残る効果。host / status_id / stack / 寿命の欄を読む（PLAN 13章）。
-const EFFECT_TYPES_STATUS: Array = [EFFECT_BUFF, EFFECT_DOT]
+const EFFECT_TYPES_STATUS: Array = [EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
 # ⚠ physical / magic は BattleUnit の定数を唯一の正とする。
@@ -94,6 +95,18 @@ const TRIGGER_PREFIX_EVENT: String = "event:"
 #   検証がイベント名を知るために相互参照になる。
 const EVENT_HIT: String = "hit"
 const TRIGGER_PREFIX_DELAY: String = "delay:"         # 段階2で実装
+
+# --- react.event（外の出来事＝購読・PLAN 10章） ---
+#
+# ⚠ EVENT_HIT（trigger の合図）と別の一覧にすること。演出シーンの合図と
+#   外の出来事は別物で、混ぜると trigger: "event:took_damage" が書けてしまう。
+#
+# ⚠ attacked と dealt_damage を1つにしないこと。空振り（対象0体）と、
+#   当たったが0ダメージは別の出来事。
+const EVENT_ATTACKED: String = "attacked"            # damage の効果が発火した（空振りでも出る）
+const EVENT_DEALT_DAMAGE: String = "dealt_damage"    # ダメージが1件確定した（攻撃者に配る）
+const EVENT_TOOK_DAMAGE: String = "took_damage"      # ダメージが1件確定した（被害者に配る）
+const EVENTS_KNOWN: Array = [EVENT_ATTACKED, EVENT_DEALT_DAMAGE, EVENT_TOOK_DAMAGE]
 
 # --- effects[].delivery（どう届くか。待ち行列の種別タグ・PLAN 6-8） ---
 #
@@ -328,9 +341,14 @@ static func _validate_target(
 		_err(issues, skill_id, "%s.team が不明: '%s'" % [where, team])
 		return
 
-	# W3
+	# E52 team: source に mode / sort / count / range を書かせない（PLAN 10-3）。
+	# ⚠ きっかけのユニットIDをそのまま使う欄なので、選び直す語彙を書けてはならない。
+	#   書ける形にすると「選び直さない」という決定が JSON 側から破れる。
 	if team == TEAM_SOURCE:
-		_warn(issues, skill_id, "%s.team: source は段階3。段階1では対象が0体になる" % where)
+		for field: Variant in ["mode", "sort", "count", "range"]:
+			if target.has(field):
+				_err(issues, skill_id, "%s.team: source に %s は書けない（きっかけのユニットを選び直さない）" % [where, str(field)])
+		return
 
 	# E10 team: self に mode / sort / count を書かせない
 	# （mode を読むかが team で決まる逆流を作らないため。PLAN 21章）
@@ -368,10 +386,17 @@ static func _validate_target(
 
 
 # effects[] の1要素ぶんの検証。
+#
+# where_prefix … react.effects[] から再帰で呼ぶときの位置（"effects[0].react" の形）。
+#                空なら "effects[%d]"。⚠ 表示のためだけの引数。判定に使わない。
+# in_react     … 購読の中を見ている（E53：購読の入れ子を禁じる）。
 static func _validate_effect(
-		issues: Array, skill_id: String, effect: Dictionary, index: int, activation: String
+		issues: Array, skill_id: String, effect: Dictionary, index: int, activation: String,
+		where_prefix: String = "", in_react: bool = false
 ) -> void:
 	var where: String = "effects[%d]" % index
+	if where_prefix != "":
+		where = "%s.effects[%d]" % [where_prefix, index]
 
 	# E18
 	var effect_type: String = str(effect.get("type", ""))
@@ -383,9 +408,17 @@ static func _validate_effect(
 	if not (effect_type in EFFECT_TYPES_IMPLEMENTED):
 		_warn(issues, skill_id, "%s.type: '%s' はまだ実装していない。飛ばされる" % [where, effect_type])
 
-	# E29〜E43 状態として残る効果（buff / dot）
+	# E29〜E43 状態として残る効果（buff / dot / react）
 	if effect_type in EFFECT_TYPES_STATUS:
 		_validate_status_effect(issues, skill_id, effect, where, activation)
+
+	# E46〜E53 購読（PLAN 10章）
+	if effect_type == EFFECT_REACT:
+		_validate_react_effect(issues, skill_id, effect, where, activation, in_react)
+	elif effect.has("react"):
+		# E50 … react{} は react 以外の効果には書けない。
+		# ⚠ trigger と購読を同じ欄にしないための歯止め（PLAN 10章）。
+		_err(issues, skill_id, "%s.type: '%s' に react{} は書けない（購読は type: 'react' だけ）" % [where, effect_type])
 
 	if effect_type == EFFECT_DAMAGE or effect_type == EFFECT_HEAL:
 		# E19
@@ -467,7 +500,61 @@ static func _validate_effect(
 			_validate_target(issues, skill_id, raw_target as Dictionary, where + ".target", false)
 
 
-# 状態として残る効果（buff / dot）の検証。E29〜E44 / W10 / W11。
+# 購読（type: "react"）の検証。E46〜E53。
+#
+# ⚠ 寿命・重ねがけ・status_id は _validate_status_effect() が共通で見る。
+#   ここで見るのは react{} の中身だけ（同じ判定を2箇所に書かない）。
+static func _validate_react_effect(
+		issues: Array, skill_id: String, effect: Dictionary, where: String,
+		activation: String, in_react: bool
+) -> void:
+	# E53 購読の入れ子。⚠ 再帰の深さを1段に固定する歯止め。
+	#    入れ子を許すと「反応の反応」が書けてしまい、10-2 の印だけでは止まらない。
+	if in_react:
+		_err(issues, skill_id, "%s: 購読の中に購読は書けない（反応から反応を生まない・PLAN 10-2）" % where)
+		return
+
+	# E51 宿り先は unit だけ。point（罠）は座標の規則が要る、battle（コンボ）は段階3の後半②以降。
+	var host: String = str(effect.get("host", HOST_NONE))
+	if host != HOST_UNIT:
+		_err(issues, skill_id, "%s.host: '%s' に購読は載せられない（今は host: 'unit' だけ）" % [where, host])
+
+	# E46
+	var raw_react: Variant = effect.get("react", null)
+	if not (raw_react is Dictionary):
+		_err(issues, skill_id, "%s に react{} が無い、または Dictionary でない" % where)
+		return
+	var react: Dictionary = raw_react as Dictionary
+
+	# E47 出来事の名前。⚠ trigger の合図（EVENT_HIT）は書けない（別の一覧）。
+	var event_name: String = str(react.get("event", ""))
+	if not (event_name in EVENTS_KNOWN):
+		_err(issues, skill_id, "%s.react.event が無い、または不明: '%s'" % [where, event_name])
+
+	# E48
+	var raw_effects: Variant = react.get("effects", null)
+	if not (raw_effects is Array) or (raw_effects as Array).is_empty():
+		_err(issues, skill_id, "%s.react.effects が無い、配列でない、または空" % where)
+		return
+
+	# E49 … 中身は effects[] と同じ検証を通す（2本目の語彙を作らない）。
+	var index: int = 0
+	for raw_effect: Variant in (raw_effects as Array):
+		if not (raw_effect is Dictionary):
+			_err(issues, skill_id, "%s.react.effects[%d] が Dictionary でない" % [where, index])
+		else:
+			# E54 … 購読にはスキルの target が無い（反応する側の効果は単独で立つ）。
+			# ⚠ 書き忘れると実行時に「target が無い」の赤が出るだけで、何も起きない。
+			if not (raw_effect as Dictionary).has("target"):
+				_err(issues, skill_id, "%s.react.effects[%d] に target が無い（購読の効果は各自に要る）" % [where, index])
+			_validate_effect(
+				issues, skill_id, raw_effect as Dictionary, index, activation,
+				where + ".react", true
+			)
+		index += 1
+
+
+# 状態として残る効果（buff / dot / react）の検証。E29〜E44 / W10 / W11。
 #
 # ⚠ ここで見るのは「無音で壊れる書き方」だけ。状態は、剥がれない・二重に付く・
 #   一度も発火しない のどれもエラーを出さないので、書いた時点で弾く。

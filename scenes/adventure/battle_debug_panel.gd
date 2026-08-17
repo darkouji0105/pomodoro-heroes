@@ -70,6 +70,7 @@ func _build_ui() -> void:
 		"[M] 味方全員に魔法の一撃（威力%d）" % DEBUG_DAMAGE_POWER,
 		"[S] スキルCD全リセット",
 		"[P] 状態の一覧をコンソールへ出す（1回だけ）",
+		"[O] 戦闘ログの記録 On/Off（user://logs/battle_last.jsonl）",
 		"[V] 強制的に勝利  [B] 強制的に敗北",
 		"※ 2行目の dmg は非会心のダメージ（会心分は含まない）",
 	])
@@ -348,6 +349,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_call_controller("debug_reset_cooldowns")
 		KEY_P:
 			_print_statuses()
+		KEY_O:
+			# ⚠ この print は残す。押した本人への返事であり、毎フレーム出ない
+			#   （_set_time_scale() と同じ扱い）。BattleLog 側が1行出す。
+			BattleLog.set_runtime_on(not BattleLog.is_on())
 		KEY_J:
 			_call_controller("debug_damage_party", [DEBUG_DAMAGE_POWER, BattleUnit.ATTACK_TYPE_PHYSICAL])
 		KEY_M:

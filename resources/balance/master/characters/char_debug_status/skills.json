@@ -136,5 +136,38 @@
 				"stack": "independent"
 			}
 		]
-	}
+	},
+		"skill_dbg_react_followup": {
+			"name_key": "ui_battle_skill_dbg_react_followup",
+			"user_character_id": "char_debug_status",
+			"unlock_level": 1,
+			"cooldown_sec": 20.0,
+			"activation": "instant",
+			"target": {
+				"team": "self"
+			},
+			"effects": [
+				{
+					"type": "react",
+					"host": "unit",
+					"status_id": "status_dbg_react_followup",
+					"stack": "refresh",
+					"duration_sec": 15.0,
+					"react": {
+						"event": "dealt_damage",
+						"effects": [
+							{
+								"type": "damage",
+								"multiplier": 0.5,
+								"attack_type": "physical",
+								"scale_from": "atk",
+								"target": {
+									"team": "source"
+								}
+							}
+						]
+					}
+				}
+			]
+		}
 }

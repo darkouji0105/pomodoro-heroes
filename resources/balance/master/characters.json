@@ -177,7 +177,8 @@
 			"skill_dbg_buff_atkspd",
 			"skill_dbg_debuff_def",
 			"skill_dbg_dot_long",
-			"skill_dbg_dot_odd"
+			"skill_dbg_dot_odd",
+			"skill_dbg_react_followup"
 		],
 		"allocatable_stats": [
 			"hp",
@@ -224,7 +225,8 @@
 			"skill_dbg_dot_all",
 			"skill_dbg_buff_ally",
 			"skill_dbg_dot_self",
-			"skill_dbg_buff_short"
+			"skill_dbg_buff_short",
+			"skill_dbg_react_warcry"
 		],
 		"allocatable_stats": [
 			"hp",
@@ -271,7 +273,8 @@
 			"skill_dbg_delay_buff",
 			"skill_dbg_drain",
 			"skill_dbg_true",
-			"skill_dbg_scale_sum"
+			"skill_dbg_scale_sum",
+			"skill_dbg_react_thorns"
 		],
 		"allocatable_stats": [
 			"hp",

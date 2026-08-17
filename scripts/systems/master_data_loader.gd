@@ -56,6 +56,28 @@ const CHARACTER_DIRS_OPTIONAL: Array[String] = [
 	DIR_CHARACTERS + "char_debug_mix/",
 ]
 
+# 敵のスキル（EXEC_ENEMY_PARITY.md）。⚠ キャラと同じ階層・同じ形にする（人間の決定）。
+#
+#   enemies/enemy_dbg_react/skills.json    … その敵のスキル
+#
+# ⚠ 走査しない。フォルダを増やしたらここに1行足す（キャラ側と同じ罠・宿題13）。
+# ⚠ 敵は nodes.json を持たない。任意扱いなので「無い」で警告は出ない。
+const DIR_ENEMIES: String = DIR_PATH + "enemies/"
+
+# ⚠ 今は空。本編の敵（enemy_slime など）にスキルを載せたらここに1行足す。
+#   足し忘れると、その敵のスキルが無音で消える（エラーが出ない）。
+const ENEMY_DIRS_REQUIRED: Array[String] = []
+
+# 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
+const ENEMY_DIRS_OPTIONAL: Array[String] = [
+	DIR_ENEMIES + "enemy_dbg_react/",
+	DIR_ENEMIES + "enemy_dbg_followup/",
+	DIR_ENEMIES + "enemy_dbg_buff/",
+	DIR_ENEMIES + "enemy_dbg_dot/",
+	DIR_ENEMIES + "enemy_dbg_heal/",
+	DIR_ENEMIES + "enemy_dbg_ranged/",
+]
+
 static var _load_mode: String = ""     # "load" or "file_access" or ""（未試行）
 static var _cache_characters: Dictionary = {}
 static var _cache_enemies: Dictionary = {}
@@ -131,6 +153,14 @@ static func _load_character_files(file_name: String, what: String) -> Dictionary
 		_merge_id_map(merged, dir_path + file_name, true, what)
 	# ⚠ 検証用キャラは nodes.json を持たない。だから「無い」を正常系にしてある。
 	for dir_path: String in CHARACTER_DIRS_OPTIONAL:
+		_merge_id_map(merged, dir_path + file_name, false, what)
+	# 敵も同じ辞書へ入れる（EXEC_ENEMY_PARITY.md §3-1）。
+	# ⚠ 敵用に2本目のマージを書かないこと。味方と敵でスキルIDが重複したときに
+	#   赤で弾く挙動が、片方だけ効く形になる。
+	# ⚠ 敵は nodes.json を持たないが、任意扱いなので「無い」で警告は出ない。
+	for dir_path: String in ENEMY_DIRS_REQUIRED:
+		_merge_id_map(merged, dir_path + file_name, true, what)
+	for dir_path: String in ENEMY_DIRS_OPTIONAL:
 		_merge_id_map(merged, dir_path + file_name, false, what)
 	return merged
 

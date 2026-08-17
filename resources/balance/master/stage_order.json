@@ -1,3 +1,4 @@
 {
-  "story": ["stage_1", "stage_2", "stage_3"]
+  "story": ["stage_1", "stage_2", "stage_3"],
+  "debug": ["stage_dbg_enemy_skill"]
 }

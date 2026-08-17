@@ -437,6 +437,27 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 ---
 
+### 購読（段階3の後半①）の回で見つかったもの（2026-08-17）
+
+- ⚠ **`skills.json` に足しただけではスキル選択画面に出ない。** 候補の一覧と並び順は **`characters.json` の `"skills"` 配列**が決める（`game_manager.gd:1745`）。⚠ **ロード時検証は `skills.json` しか見ないので、忘れてもログは `39 entries, 0 errors` と正常に見える。** 症状は「画面に出ない」だけ。**EXEC に書き忘れ、実機で踏んだ**
+- ⚠ **`SkillResolver` から購読を発火できない。** static クラスで待ち行列も器も持たないため、発火させると `SkillRuntime` との相互参照になる。**観測（`_apply_damage()` 第2段で結果にキーを足す）と発火（`SkillRuntime._fire()`）を分けた。** NEXT_STEPS の「どこで出せるか」の表は観測点であって発火点ではない
+- **10-2 の印（反応から生まれた行動は、さらなる反応を生まない）は `_fire()` の1箇所だけ。** `entry["from_reaction"]` を見て合図の配布を飛ばす。⚠ **`results.is_empty()` の early return より前**に置くこと（空振りでも `attacked` は出る）
+- ⚠ **DoT の周期ダメージでは購読が発火しない。** `StatusRegistry` が `SkillResolver.resolve()` を直接呼ぶ経路（`status_registry.gd:372`）は `SkillRuntime` を通らないため。**毒のダメージでは反射もカウンターも動かない**
+- ⚠ **購読は `host: unit` のみ。** `host: battle`（コンボ）・`host: point`（罠）はまだ載らない（E51 が赤で弾く）
+- ⚠ **`scale_from` の `of: "source"` は未実装のまま**（`_scale_variable()` の黄が残る）。反射の威力は `of: user` で書けるので今は困らない
+- ~~**敵にスキルが無い。**~~ ✅ **解消**（2026-08-17・`EXEC_ENEMY_PARITY.md`）。敵スキルは `enemies/<enemy_id>/skills.json`（`characters/` と同じ階層・同じ形）。`enemies.json` の `"skills"` は**そのまま装備枠**（味方の「候補一覧→選んだ2枠」の2段は無い）。敵は**攻撃間隔と同じ拍で、射程内でだけ、CDが空いたスキルを先頭から撃つ**（乱数なし）。⚠ **敵視点の `team` 解決（`ally` が敵の仲間を指す）が実際に通ったのはこの回が初めて**で、`heal` の `dst` が全て `enemy_` であることをログで確認済み
+- **検証用ステージは別枠で常設**（2026-08-17）。`stage_order.json` の `"debug"` 列 ＋ `adventure_select` の3関数。⚠ **本番の `"story"` 列を書き換えない**（以前は `"stage_1"` を差し替えて戻す運用で、実際に戻し忘れとセーブ汚染が起きた）。⚠ **`STAGE_TYPE_TRAINING` で入るので、スタミナ・報酬・クリア記録が付かない**（`_enter_victory()` が story のときだけ実行する）。テストしたいこと1つにつきステージ1本（`stage_dbg_enemy_skill`）
+- **検証用の敵6体もリリース前に消す**（宿題16番に含める）：`resources/balance/master/enemies/` フォルダごと、`enemies.json` の `enemy_dbg_*` 6体、`stages.json` の `stage_dbg_enemy_skill`、`stage_order.json` の `"debug"` 列、`ja.csv` の13行、`MasterDataLoader.ENEMY_DIRS_OPTIONAL`、`adventure_select.gd` の検証用3関数、`GameStateKeys.STAGE_TYPE_DEBUG`
+- ⚠ **`adventure_select.gd:4` のヘッダコメントが実装と逆。** 「スタミナの消費はこの画面でのみ行う（戦闘画面では消費しない）」と書いてあるが、実際に減らすのは `battle_controller._consume_stage_stamina()`（勝利時）で、この画面は残量を見ているだけ
+- ⚠ **Windows の bash で `cat >>` すると追記分が CRLF になる。** 元が LF の JSON に混ざって壊れる（`enemies.json` / `stages.json` で実際に踏み、Python で LF に統一し直して復旧）。**`AGENTS.md` の「ツールの制約」に1行足すかは人間の判断**
+- ⚠ **古いセーブに `stage_dbg` のクリア記録が残っている**（改名前に1回クリアしたため）。マスターに無いIDなので実害は無い
+- ~~⚠ **戦闘中の出来事が画面にしか出ない。**~~ ✅ **解消**（`BattleLog`・2026-08-17）。`user://logs/battle_last.jsonl` に1行1イベントで出る。反射が殴ってきた相手に返ったことは、**並びの推測ではなく `src` / `dst` のIDの一致で確定できる**ようになった（`IMPL_LOG_BATTLE_LOG.md` §4 の8番）
+- **戦闘ログもリリース前に消す**（宿題16番に含める）：`scripts/systems/battle_log.gd` ごと、各層の `BattleLog.` 呼び出し15箇所（`skill_runtime` 3 / `status_registry` 5 / `battle_controller` 7）、`battle_debug_panel.gd` の `O` キーと説明行。⚠ **`_notify()` の `print` を消してファイル側へ移してある。** ログを消すときは、購読の発火が**どこにも出なくなる**ことを承知の上で消すこと
+- **検証用スキル3件・状態4件はリリース前に消す**（宿題16番に含める）：`skill_dbg_react_thorns` / `_followup` / `_warcry`、`status_dbg_react_thorns` / `_followup` / `_warcry` / `_warcry_atk`
+- ⚠ **足した7件目だけ JSON のインデントが1タブ深い**（3ファイルとも）。パースは通る。見た目だけ
+
+---
+
 ## 次に何をすべきか
 
 ### ~~最優先：ポモドーロのアラーム音~~ ✅ 完了
@@ -573,6 +594,7 @@ resources/balance/master/characters/char_swordsman/passives.json ← 実装す�
 - ⚠ **`characters.json`（能力値）は動かしていない。** `GameManager` が育成・装備・研究から何度も引いており、触ると挙動の話になる。**フォルダは「量が多くてキャラ別に閉じているもの」だけを持つ**
 - ⚠ **パッシブのファイルは作っていない**（実装がゼロ。置き場だけ決めた）。**空ファイルを置くと「利用者ゼロの受け口」が1つ増えるだけ**
 - ⚠ **走査しない**（人間の決定）。フォルダを増やしたら `MasterDataLoader.CHARACTER_DIRS_REQUIRED` に1行足す。**足し忘れるとそのキャラのスキルとノードが無音で消える**
+- ⚠ **敵も同じ罠。** 本編の敵にスキルを載せたら `MasterDataLoader.ENEMY_DIRS_REQUIRED`（今は**空**）に1行足す。検証用の敵は `ENEMY_DIRS_OPTIONAL`（無いのが正常）
 - **マージは1本に統合**（`_load_character_files()` / `_merge_id_map()`）。スキルもノードも同じ経路を通る
 - **実機で確認済み** … `skills validated: 36 entries`（つづきから）と `loaded 180 character nodes`（割り振り画面）
 

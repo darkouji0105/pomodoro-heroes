@@ -18,6 +18,9 @@ extends RefCounted
 
 # 効果の結果の形。battle_controller.gd がそのまま読むので変えないこと。
 #   { "unit_id": String, "amount": int, "is_heal": bool, "is_crit": bool }
+# ダメージのときだけ、購読（PLAN 10章）のために2つ足す。
+#   + { "source_unit_id": String, "attack_type": String }
+# ⚠ 回復には足さない（回復では合図を出さない）。読むのは SkillRuntime だけ。
 
 
 # ============================================================
@@ -28,7 +31,14 @@ extends RefCounted
 #
 # ⚠ 返すのは参照ではなく ID。段階2で「発動時に対象を確定し、あとで発火する」形に
 #   なるため、今から ID で返す（PLAN 4-4）。
-static func select_targets(target_def: Dictionary, user: BattleUnit, session: BattleSession) -> Array:
+#
+# source_unit_id … team: "source"（購読のきっかけになったユニット）のときだけ読む。
+#   ⚠ 既定値を "" にしてあるのは、購読と関係ない呼び出し元（SkillActivation）を
+#     変えないため。空のまま team: source を解くと対象0体になる（正常系）。
+static func select_targets(
+		target_def: Dictionary, user: BattleUnit, session: BattleSession,
+		source_unit_id: String = ""
+) -> Array:
 	var ids: Array = []
 	if user == null or session == null:
 		push_error("[SkillResolver] user または session が null")
@@ -46,8 +56,18 @@ static func select_targets(target_def: Dictionary, user: BattleUnit, session: Ba
 			# self は mode / sort / count / range を読まない（PLAN 21章）。
 			return [user.unit_id]
 		SkillSchema.TEAM_SOURCE:
-			push_warning("[SkillResolver] team: source は段階3。対象なしとして扱う")
-			return ids
+			# 購読のきっかけになったユニット（PLAN 10-3）。
+			#
+			# ⚠ 選び直さない。_sorted_units() も射程も通さない。通すと、反射が
+			#   「殴ってきた相手」ではなく「一番近い敵」に返り、数字は出るので気づけない。
+			# ⚠ 居ない／死んでいるときは対象0体。警告を出さない（空振りは正常系）。
+			# ⚠ mode / sort / count / range は書けない（ロード時検証 E52 が赤で弾く）。
+			if source_unit_id == "":
+				return ids
+			var src: BattleUnit = _find_unit(session, source_unit_id)
+			if src == null or not src.is_alive():
+				return ids
+			return [src.unit_id]
 		SkillSchema.TEAM_ENEMY:
 			team = BattleUnit.TEAM_ENEMY if user.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
 		SkillSchema.TEAM_ALLY:
@@ -317,12 +337,20 @@ static func _apply_damage(effect: Dictionary, user: BattleUnit, target: BattleUn
 	# 【第2段】確定した数値を消費する。
 	# （シールドが吸う受け口はここに入る … 段階3。amount を減らせるのはそこだけ）
 	target.take_damage(int(ctx["amount"]))
-	# （反射の受け口はここに入る … 段階3。ctx["amount"] を読むだけ。式を再評価しない）
+	# 購読（PLAN 10章）が要る情報を、確定した結果に載せて返す。
+	#
+	# ⚠ ここで購読を発火させないこと。この層は static で、待ち行列も器も持たない
+	#   （PLAN 7-3：時間を持たず、次のフレームを知らない）。発火させると
+	#   SkillResolver → SkillRuntime の相互参照になり、188行と同じ形を踏む。
+	#   合図を配るのは SkillRuntime._fire()。ここは「何が起きたか」を書くだけ。
+	# ⚠ 既存の4キーの名前も意味も変えないこと（battle_controller がそのまま読む）。
 	results.append({
 		"unit_id": target.unit_id,
 		"amount": int(ctx["amount"]),
 		"is_heal": false,
 		"is_crit": bool(ctx["is_crit"]),
+		"source_unit_id": user.unit_id,
+		"attack_type": attack_type,
 	})
 
 

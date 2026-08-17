@@ -1,0 +1,35 @@
+{
+	"skill_edbg_followup": {
+		"name_key": "ui_battle_skill_edbg_followup",
+		"user_character_id": "enemy_dbg_followup",
+		"unlock_level": 1,
+		"cooldown_sec": 20.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_edbg_followup",
+				"stack": "refresh",
+				"duration_sec": 15.0,
+				"react": {
+					"event": "dealt_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 0.5,
+							"attack_type": "magic",
+							"scale_from": "mag",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	}
+}

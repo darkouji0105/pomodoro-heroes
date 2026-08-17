@@ -174,5 +174,38 @@
 				]
 			}
 		]
-	}
+	},
+		"skill_dbg_react_thorns": {
+			"name_key": "ui_battle_skill_dbg_react_thorns",
+			"user_character_id": "char_debug_mix",
+			"unlock_level": 1,
+			"cooldown_sec": 20.0,
+			"activation": "instant",
+			"target": {
+				"team": "self"
+			},
+			"effects": [
+				{
+					"type": "react",
+					"host": "unit",
+					"status_id": "status_dbg_react_thorns",
+					"stack": "refresh",
+					"duration_sec": 15.0,
+					"react": {
+						"event": "took_damage",
+						"effects": [
+							{
+								"type": "damage",
+								"multiplier": 1.0,
+								"attack_type": "magic",
+								"scale_from": "mag",
+								"target": {
+									"team": "source"
+								}
+							}
+						]
+					}
+				}
+			]
+		}
 }

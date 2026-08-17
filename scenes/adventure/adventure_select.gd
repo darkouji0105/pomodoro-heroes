@@ -50,6 +50,77 @@ func _build_stage_list() -> void:
 			push_error("[AdventureSelect] stage data not found for order entry: " + stage_id)
 			continue
 		_add_stage_row(stage_id, stage_data, i, order)
+	_build_debug_stage_list()
+
+
+# 検証用ステージの別枠（EXEC_ENEMY_PARITY.md §9）。
+#
+# ⚠ 本番の "story" 列を書き換えないための仕組み。以前は stage_order.json の
+#   "stage_1" を差し替えて検証していたが、戻し忘れると本編の1面が検証用のままになる。
+# ⚠ 解放判定の連鎖に入れない。ここで作る行は常に解放で、story 側の
+#   「前のステージをクリアしたか」に一切影響しない。
+# ⚠ テストしたいこと1つにつきステージ1本。増やすときは stage_order.json の
+#   "debug" 配列に1行足すだけ。
+# ⚠ リリース前に、この関数ごとと "debug" の列を消す（宿題16）。
+func _build_debug_stage_list() -> void:
+	if not OS.is_debug_build():
+		return
+	var order: Array = MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_DEBUG)
+	if order.is_empty():
+		return
+
+	var header: Label = Label.new()
+	header.name = "DebugHeader"
+	# 検証用なので tr() を通さない（リリース前に消すもの。ja.csv にキーを増やさない）
+	header.text = "▼ 検証用（デバッグビルドのみ）"
+	header.modulate = Color(0.7, 0.75, 0.8)
+	stage_list.add_child(header)
+
+	for stage_id: Variant in order:
+		var sid: String = str(stage_id)
+		var stage_data: Dictionary = MasterDataLoader.get_stage(sid)
+		if stage_data.is_empty():
+			push_error("[AdventureSelect] debug stage data not found: " + sid)
+			continue
+		_add_debug_stage_row(sid, stage_data)
+
+
+# 検証用の1行。⚠ _add_stage_row() と共通化しない。
+#   あちらは解放判定・クリア印・スタミナ表示を持つ本番の行で、混ぜると
+#   本番の行に検証用の分岐が入る。こちらはリリース前に丸ごと消す。
+func _add_debug_stage_row(stage_id: String, stage_data: Dictionary) -> void:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "DebugStageRow_" + stage_id
+
+	var name_label: Label = Label.new()
+	name_label.text = tr(str(stage_data.get("name_key", stage_id)))
+
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = 3
+
+	var button: PrimaryButton = PrimaryButton.new()
+	button.text = "ui_adventure_challenge"
+	button.pressed.connect(_on_debug_challenge_pressed.bind(stage_id))
+
+	row.add_child(name_label)
+	row.add_child(spacer)
+	row.add_child(button)
+	stage_list.add_child(row)
+
+
+# 検証用ステージへ入る。
+#
+# ⚠ 解放判定もスタミナの残量確認もしない（常に入れる）。
+# ⚠ STAGE_TYPE_TRAINING を渡す。story 以外は戦闘画面が
+#   スタミナ消費・報酬・クリア記録を全部飛ばすので、検証がセーブを汚さない。
+func _on_debug_challenge_pressed(stage_id: String) -> void:
+	SceneManager.change_scene_with_data(
+		BATTLE_PATH,
+		{
+			TransferKeys.STAGE_ID: stage_id,
+			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+		}
+	)
 
 func _add_stage_row(stage_id: String, stage_data: Dictionary, index: int, order: Array) -> void:
 	var row: HBoxContainer = HBoxContainer.new()

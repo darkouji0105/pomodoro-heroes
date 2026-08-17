@@ -156,5 +156,41 @@
 				"stack": "refresh"
 			}
 		]
-	}
+	},
+		"skill_dbg_react_warcry": {
+			"name_key": "ui_battle_skill_dbg_react_warcry",
+			"user_character_id": "char_debug_life",
+			"unlock_level": 1,
+			"cooldown_sec": 20.0,
+			"activation": "instant",
+			"target": {
+				"team": "self"
+			},
+			"effects": [
+				{
+					"type": "react",
+					"host": "unit",
+					"status_id": "status_dbg_react_warcry",
+					"stack": "refresh",
+					"duration_sec": 20.0,
+					"react": {
+						"event": "attacked",
+						"effects": [
+							{
+								"type": "buff",
+								"host": "unit",
+								"status_id": "status_dbg_react_warcry_atk",
+								"stat": "atk",
+								"value": 3,
+								"duration_sec": 6.0,
+								"stack": "refresh",
+								"target": {
+									"team": "self"
+								}
+							}
+						]
+					}
+				}
+			]
+		}
 }

@@ -32,6 +32,9 @@ signal effects_applied(results: Array)
 # 状態の種類。effects[].type から決まる。
 const KIND_BUFF: String = "buff"
 const KIND_DOT: String = "dot"
+# 購読（PLAN 10章）。⚠ 器は「持っている」だけ。探して撃つのは SkillRuntime。
+#   器から発火させると、発火の経路が _fire() の1本でなくなる（PLAN 6-5）。
+const KIND_REACT: String = "react"
 
 # 寿命の持ち方。秒数以外は SkillSchema.UNTIL_* が入る（PLAN 13-3）。
 const LIFE_SEC: String = "sec"
@@ -105,6 +108,8 @@ func add(
 		kind = KIND_BUFF
 	elif effect_type == SkillSchema.EFFECT_DOT:
 		kind = KIND_DOT
+	elif effect_type == SkillSchema.EFFECT_REACT:
+		kind = KIND_REACT
 	else:
 		push_error("[StatusRegistry] add: 状態にできない効果: '%s'" % effect_type)
 		return false
@@ -150,6 +155,9 @@ func add(
 	if kind == KIND_BUFF:
 		if not _fill_buff(entry, effect):
 			return false
+	elif kind == KIND_REACT:
+		if not _fill_react(entry, effect):
+			return false
 	else:
 		if not _fill_dot(entry, effect, duration_sec, life):
 			return false
@@ -172,6 +180,13 @@ func add(
 
 	if host == SkillSchema.HOST_UNIT:
 		_rebuild_unit_mods(str(entry.get("host_unit_id", "")))
+
+	# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ ここ（入れ終わったあと）で出す。
+	#   関数の先頭に置くと、弾かれた効果まで「付いた」ことになる。
+	BattleLog.log_status_add(
+		status_id, kind, str(entry.get("host_unit_id", "")),
+		str(entry.get("source_unit_id", "")), life, duration_sec
+	)
 	return true
 
 
@@ -210,6 +225,9 @@ func _make_entry(
 		"interval_sec": 0.0,
 		"fires_done": 0,
 		"fires_total": 0,
+		# 購読（kind: react）。{ "event": String, "effects": Array }。
+		# ⚠ 中身を読むのは SkillRuntime。器はここに置くだけで、event を解釈しない。
+		"react": {},
 		# 汎用カウンター（PLAN 13-1）。⚠ 呼び出し元はまだ無い（段階3の後半）。
 		"counter": 0,
 	}
@@ -231,6 +249,36 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		return false
 	entry["stat"] = stat_key
 	entry["value"] = value
+	return true
+
+
+# 購読を1件持たせる（PLAN 10章）。
+#
+# ⚠ ロード時検証（E46〜E49）が守っているので通常は赤にならない。二重に守る。
+# ⚠ duplicate(true) で複製すること。マスターの辞書を参照で握ると、
+#   撃つ側が effects[] を触ったときにマスターごと書き変わる。
+# ⚠ ここで event を解釈しない。器は「購読を持っている」だけ（KIND_REACT の注記）。
+func _fill_react(entry: Dictionary, effect: Dictionary) -> bool:
+	var raw: Variant = effect.get("react", null)
+	if not (raw is Dictionary):
+		push_error("[StatusRegistry] react に react{} が無い")
+		return false
+	var react: Dictionary = raw as Dictionary
+
+	var event_name: String = str(react.get("event", ""))
+	if not (event_name in SkillSchema.EVENTS_KNOWN):
+		push_error("[StatusRegistry] react.event が無い、または不明: '%s'" % event_name)
+		return false
+
+	var raw_effects: Variant = react.get("effects", null)
+	if not (raw_effects is Array) or (raw_effects as Array).is_empty():
+		push_error("[StatusRegistry] react.effects が無い、配列でない、または空")
+		return false
+
+	entry["react"] = {
+		"event": event_name,
+		"effects": (raw_effects as Array).duplicate(true),
+	}
 	return true
 
 
@@ -337,6 +385,11 @@ func _drop_dead_hosts(touched: Dictionary) -> void:
 			rest.append(entry)
 			continue
 		touched[str(entry.get("host_unit_id", ""))] = true
+		# ⚠ ここを出さないと「宿主が死んで消えた」が無音になり、status_add だけが
+		#   残って寿命の追跡が切れる。why で _expire() と区別する。
+		BattleLog.log_status_end(
+			str(entry.get("status_id", "")), str(entry.get("host_unit_id", "")), "host_dead"
+		)
 	_entries = rest
 
 
@@ -369,7 +422,11 @@ func _fire_intervals(results: Array) -> void:
 				and elapsed >= float(int(entry.get("fires_done", 0)) + 1) * interval_sec:
 			entry["fires_done"] = int(entry.get("fires_done", 0)) + 1
 			var one: Dictionary = { "effects": [entry.get("damage_effect", {})] }
-			for r: Variant in SkillResolver.resolve(one, source, _session, [host_id], self):
+			var fired: Array = SkillResolver.resolve(one, source, _session, [host_id], self)
+			# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ この経路は SkillRuntime を
+			#   通らないので、ここに差さないと DoT のダメージだけログに出ない。
+			BattleLog.log_results(fired, source.unit_id, str(entry.get("status_id", "")))
+			for r: Variant in fired:
 				results.append(r)
 
 		rest.append(entry)
@@ -389,6 +446,9 @@ func _expire(touched: Dictionary) -> void:
 			continue
 		if str(entry.get("host", "")) == SkillSchema.HOST_UNIT:
 			touched[str(entry.get("host_unit_id", ""))] = true
+		BattleLog.log_status_end(
+			str(entry.get("status_id", "")), str(entry.get("host_unit_id", "")), "expire"
+		)
 	_entries = rest
 
 
@@ -408,6 +468,9 @@ func clear_all() -> int:
 		for u in _session.enemy_units:
 			if u is BattleUnit:
 				_rebuild_unit_mods((u as BattleUnit).unit_id)
+	# ⚠ これが無いと、ウェーブ交代で消えた状態の status_add だけがログに残り、
+	#   「付いた状態が永久に残っている」ように読める（実測で踏んだ）。
+	BattleLog.log_status_clear(dropped)
 	return dropped
 
 

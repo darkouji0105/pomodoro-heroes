@@ -126,6 +126,9 @@ func _ready() -> void:
 	retry_button.pressed.connect(_on_retry_pressed)
 	back_button.pressed.connect(_on_back_pressed)
 	_setup_debug_panel()
+	# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ ウェーブ開始より前。ここで
+	#   ファイルを空にするので、あとに置くと1波目の頭が消える。
+	BattleLog.begin_battle(_stage_id, party_id, total_waves)
 	_enter_wave_intro()
 
 
@@ -143,6 +146,10 @@ func _setup_debug_panel() -> void:
 # 戻さずに画面を離れると拠点もポモドーロも 8 倍速のままになる。
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0
+	# ⚠ 戦闘ログの取りこぼし対策（EXEC_BATTLE_LOG.md §0）。節目（ウェーブ交代・
+	#   勝敗）だけだと、途中で「戻る」を押した戦闘・シーン遷移・通常終了で
+	#   溜めたぶんが丸ごと消える。
+	BattleLog.flush()
 
 
 func get_session() -> BattleSession:
@@ -196,7 +203,8 @@ func _init_party_units() -> void:
 		)
 		unit.x = _party_start_x(i)
 
-		# スキルの割り当て。敵には設定しない。
+		# スキルの割り当て。⚠ 敵は _spawn_current_wave_enemies() 側で別に割り当てる
+		# （enemies.json の "skills" はそのまま装備枠。プレイヤーが選ぶ2枠が無い）。
 		#
 		# characters.json の "skills" を直接読まないこと。それはそのキャラの
 		# 「候補一覧」であって、プレイヤーが選んだ2枠ではない
@@ -298,6 +306,21 @@ func _spawn_current_wave_enemies() -> void:
 				is_boss
 			)
 			unit.x = ENEMY_BASE_X + local_index * ENEMY_STEP_X
+
+			# スキルの割り当て（EXEC_ENEMY_PARITY.md §3-2）。
+			#
+			# ⚠ enemies.json の "skills" は味方と違って「候補一覧」ではなく
+			#   そのまま装備枠。敵にプレイヤーは居ないので、
+			#   get_battle_skills() の2段（候補→選んだ2枠）を真似ない。
+			# ⚠ stat_overrides と同じく enemy_data から読む（基本値ではなく、
+			#   ウェーブ側で上書きされたあとの辞書）。
+			unit.skill_ids = []
+			unit.skill_cooldowns = {}
+			for raw_sid: Variant in enemy_data.get("skills", []):
+				var sid: String = str(raw_sid)
+				unit.skill_ids.append(sid)
+				unit.skill_cooldowns[sid] = 0.0
+
 			_session.enemy_units.append(unit)
 
 			var view: Node = UNIT_VIEW_SCENE.instantiate()
@@ -307,6 +330,14 @@ func _spawn_current_wave_enemies() -> void:
 			_enemy_views.append(view)
 			_views_by_unit_id[unit.unit_id] = view
 			local_index += 1
+
+	# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ 生成し終わってから出す。
+	#   ここが jsonl の区切りになる（どこからが次の波か）。
+	var spawned_ids: Array = []
+	for u in _session.enemy_units:
+		if u is BattleUnit:
+			spawned_ids.append((u as BattleUnit).unit_id)
+	BattleLog.log_wave(_session.current_wave, _session.total_waves, spawned_ids)
 
 
 # ウェーブ開始演出。0.5秒待って敵を生成し、BATTLE_ACTIVE にする。
@@ -340,8 +371,17 @@ func _process(delta: float) -> void:
 	if _session.state != BattleSession.STATE_BATTLE_ACTIVE:
 		return
 
+	# ログの時計も戦闘中だけ進む（EXEC_BATTLE_LOG.md §4-5）。
+	# ⚠ 実時間を使わないこと。速度を上げると中の時計とズレる。
+	BattleLog.advance(delta)
+
 	# クールダウンは戦闘中だけ進む（決定事項 8-1）
+	# ⚠ 敵も回すこと（EXEC_ENEMY_PARITY.md §4）。回さないと敵は最初の1回しか
+	#   撃てず、しかもエラーが1つも出ない。
 	for unit in _session.party_units:
+		if unit is BattleUnit:
+			unit.tick_cooldowns(delta)
+	for unit in _session.enemy_units:
 		if unit is BattleUnit:
 			unit.tick_cooldowns(delta)
 
@@ -436,11 +476,33 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 		# attack_interval_sec は create() の時点で atkspd 適用済み。
 		# ここでマスターから読み直さないこと。
 		if unit.attack_timer >= unit.attack_interval_sec:
-			_fire_basic_attack(unit, target)
+			# 敵はここでスキルを試す（EXEC_ENEMY_PARITY.md §3-2）。
+			#
+			# ⚠ 攻撃間隔と同じ拍で撃つ。毎フレーム試すと、クールダウンが空いた
+			#   フレームに通常攻撃と同時に出て、拍が2本になる。
+			# ⚠ 射程内（この if の内側）でしか撃たない。歩いている間に撃たせると、
+			#   target.range が未設定（宿題11）なので画面端から当たる。
+			if not (unit.team == BattleUnit.TEAM_ENEMY and _try_enemy_skill(unit)):
+				_fire_basic_attack(unit, target)
 			unit.attack_timer = 0.0
 	else:
 		var dir: float = sign(target.x - unit.x)
 		unit.x += dir * unit.speed * delta
+
+
+# 敵のスキル発動（EXEC_ENEMY_PARITY.md §3-2）。撃てたら true。
+#
+# ⚠ 撃てるかの判定をここに書かない。_fire_skill() が SkillActivation に聞く。
+#   戻り値を見るだけにしてあるのは、判定を2箇所に増やさないため。
+# ⚠ 専用の cast を作らない（PLAN 6-5）。味方のボタンとまったく同じ
+#   _fire_skill() を通るので、クールダウンの開始も購読の配布も自動で揃う。
+# ⚠ 乱数で選ばない。skill_ids の先頭から、最初に撃てたものを撃つ。
+#   乱数を入れるとログの再現性が落ちて、事故を追えなくなる。
+func _try_enemy_skill(unit: BattleUnit) -> bool:
+	for raw_sid: Variant in unit.skill_ids:
+		if _fire_skill(unit, str(raw_sid), 1.0):
+			return true
+	return false
 
 
 # 通常攻撃を1発撃つ。
@@ -660,7 +722,10 @@ func _on_skill_button_pressed(user: BattleUnit, skill_id: String) -> void:
 	_fire_skill(user, skill_id, 1.0)
 
 
-func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> void:
+# ⚠ 戻り値は「撃てたか」。敵のAI（_try_enemy_skill）が、撃てなかったときに
+#   通常攻撃へ回すために見る。判定を呼び出し側にコピーさせないための戻り値であって、
+#   ここ以外に blocked_reason() を書かないこと（EXEC_ENEMY_PARITY.md §3-2）。
+func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool:
 	var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
 
 	# 撃てるかの判定は SkillActivation に集約してある。
@@ -668,7 +733,7 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> void
 	# 撃てなかったらクールダウンは回さない。押せなかっただけ。
 	var reason: String = SkillActivation.blocked_reason(user, skill_id, skill_data, _session)
 	if reason != SkillActivation.REASON_OK:
-		return
+		return false
 
 	# 発動を1個作って新層に渡す。チャージ倍率の畳み込みも、効果を trigger ごとに
 	# 待ち行列へ割るのも新層の仕事（PLAN 7-1）。ここに待ち行列を持たないこと。
@@ -681,6 +746,7 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> void
 		float(skill_data.get("cooldown_sec", 0.0)),
 		user.get_stat(GameStateKeys.STAT_HASTE)
 	))
+	return true
 
 
 # ============================================================
@@ -927,6 +993,8 @@ func _enter_wave_clear() -> void:
 	# ⚠ 状態も捨てる。HP とクールダウンとは扱いが違う（引き継がない）。
 	#   待ち行列と同じく _reset_party_positions() より前。
 	_status.clear_all()
+	# 節目の書き出し（EXEC_BATTLE_LOG.md §0）。ここまでのぶんをファイルへ落とす。
+	BattleLog.flush()
 	# 次ウェーブは味方を左端から再スタートさせる（HP とクールダウンは引き継ぐ）
 	_reset_party_positions()
 	_enter_wave_intro()
@@ -949,8 +1017,13 @@ func _enter_victory() -> void:
 		GameStateKeys.BATTLE_WAVES_CLEARED: _session.total_waves,
 		GameStateKeys.BATTLE_REWARDS: _stage_data.get("rewards", {}),
 	}
-	GameManager.apply_battle_rewards(result_data)
-	GameManager.mark_stage_cleared(_stage_id, 0)
+	# ⚠ 報酬もクリア記録も story のときだけ（人間の決定・2026-08-17）。
+	#   スタミナの消費（_consume_stage_stamina）が既に同じ判定をしている。
+	#   検証用ステージは training で入るので、セーブに痕跡が残らない。
+	#   ⚠ 結果画面は出す。出さないと勝ったのに何も起きない画面になる。
+	if _session.stage_type == GameStateKeys.STAGE_TYPE_STORY:
+		GameManager.apply_battle_rewards(result_data)
+		GameManager.mark_stage_cleared(_stage_id, 0)
 
 	_show_result(true, result_data)
 
@@ -995,6 +1068,11 @@ func _enter_defeat() -> void:
 
 
 func _show_result(victory: bool, result_data: Dictionary) -> void:
+	# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ ここは勝利と敗北の両方が通る唯一の場所。
+	#   _enter_victory() / _enter_defeat() の2箇所に書かない。
+	BattleLog.log_result(victory, _session.current_wave, _session.total_waves)
+	BattleLog.flush()
+
 	if victory:
 		result_label.text = tr("ui_battle_victory")
 		var reward_lines: Array = []
@@ -1042,6 +1120,8 @@ func _init_session() -> void:
 	#   待っている効果がもう無いので、無音で消えるだけの矢が前の戦闘から居座る。
 	_clear_projectiles()
 	_init_party_units()
+	# ⚠ リトライでも呼び直す。忘れると前の戦闘の続きに見え、時計も戻らない。
+	BattleLog.begin_battle(_stage_id, str(_stage_data.get("party_id", "")), total_waves)
 
 
 func _on_back_pressed() -> void:
