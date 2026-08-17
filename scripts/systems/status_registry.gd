@@ -162,6 +162,10 @@ func add(
 		if not _fill_dot(entry, effect, duration_sec, life):
 			return false
 
+	# --- 6-2. 条件（毎フレーム評価する発火源・PLAN 10章） ---
+	if not _fill_condition(entry, effect):
+		return false
+
 	# --- 7. ここまで状態を1つも触っていない。ここで初めて入れる ---
 	#
 	# ⚠ 同一性のキーは (宿主, status_id, 付与者) の3つ組（決定1-5）。
@@ -178,6 +182,12 @@ func add(
 		# independent … 上限は設けない（PLAN 13-2 の「上限」は後から足せる部品）
 		_entries.append(entry)
 
+	# 付いた時点で1回だけ評価する。⚠ 位置が要件（組み直しより前）。
+	#   ここを省いて既定の true のままにすると、条件が偽の状態が「1フレームだけ真」
+	#   として付く。補正が1フレーム乗って次のフレームで剥がれるので、数字がちらつく
+	#   だけでエラーは1つも出ない。
+	entry["active"] = _eval_one(entry)
+
 	if host == SkillSchema.HOST_UNIT:
 		_rebuild_unit_mods(str(entry.get("host_unit_id", "")))
 
@@ -187,6 +197,13 @@ func add(
 		status_id, kind, str(entry.get("host_unit_id", "")),
 		str(entry.get("source_unit_id", "")), life, duration_sec
 	)
+	# ⚠ 付いた時点の真偽を出しておくこと（EXEC_SKILL_CONDITION.md §3-1(c)）。
+	#   出さないと「一度も真にならなかった」のか「最初から常に真だった」のかが
+	#   ログから区別できない。どちらも無音の事故で、この回で一番あり得る。
+	if not (entry.get("condition", {}) as Dictionary).is_empty():
+		BattleLog.log_condition(
+			status_id, str(entry.get("host_unit_id", "")), bool(entry.get("active", true)), "add"
+		)
 	return true
 
 
@@ -228,6 +245,15 @@ func _make_entry(
 		# 購読（kind: react）。{ "event": String, "effects": Array }。
 		# ⚠ 中身を読むのは SkillRuntime。器はここに置くだけで、event を解釈しない。
 		"react": {},
+		# 条件（PLAN 10章の3つ目の発火源）。空なら「条件なし＝常に有効」。
+		# 形は { "source", "of", "op", "value", ("status_id") }（EXEC_SKILL_CONDITION.md §2-1）。
+		"condition": {},
+		# 条件が今どうか。⚠ 書くのは add() と _eval_conditions() の2箇所だけ。
+		#   読む側（補正の組み直し・周期発火・購読）は、この bool を読むだけにすること。
+		#   3箇所で別々に条件を評価すると、片方だけ古い真偽で動く（無音）。
+		# ⚠ 条件を持たない件も必ず持つこと。持たない件があると
+		#   query({"active": true}) がその件だけ黙って外す（query は文字列で比べる）。
+		"active": true,
 		# 汎用カウンター（PLAN 13-1）。⚠ 呼び出し元はまだ無い（段階3の後半）。
 		"counter": 0,
 	}
@@ -279,6 +305,56 @@ func _fill_react(entry: Dictionary, effect: Dictionary) -> bool:
 		"event": event_name,
 		"effects": (raw_effects as Array).duplicate(true),
 	}
+	return true
+
+
+# 条件を1件持たせる（PLAN 10章の3つ目の発火源）。
+#
+# ⚠ 条件が無いのは正常系。true を返して何もしない（既定の空辞書＝常に有効）。
+# ⚠ ロード時検証（E55〜E62）が守っているので通常は赤にならない。二重に守る。
+# ⚠ duplicate(true) で複製すること（_fill_react と同じ理由）。マスターの辞書を
+#   参照で握ると、器が触ったときにマスターごと書き変わる。
+# ⚠ ここで真偽を評価しない。評価するのは _eval_one() の1本だけ。
+func _fill_condition(entry: Dictionary, effect: Dictionary) -> bool:
+	if not effect.has("condition"):
+		return true
+
+	var raw: Variant = effect.get("condition", null)
+	if not (raw is Dictionary):
+		push_error("[StatusRegistry] condition が Dictionary でない")
+		return false
+	var cond: Dictionary = raw as Dictionary
+
+	var source: String = str(cond.get("source", ""))
+	if not (source in SkillSchema.condition_sources()):
+		push_error("[StatusRegistry] condition.source が無い、または不明: '%s'" % source)
+		return false
+	if not (str(cond.get("of", "")) in SkillSchema.COND_OF_KNOWN):
+		push_error("[StatusRegistry] condition.of が無い、または不明: '%s'" % str(cond.get("of", "")))
+		return false
+	if not (str(cond.get("op", "")) in SkillSchema.COND_OPS_KNOWN):
+		push_error("[StatusRegistry] condition.op が無い、または不明: '%s'" % str(cond.get("op", "")))
+		return false
+	if not cond.has("value"):
+		push_error("[StatusRegistry] condition.value が無い")
+		return false
+
+	# ⚠ ここの status_id は「見たい相手の状態のID」で、効果の status_id とは別物。
+	if source == SkillSchema.COND_SOURCE_STATUS_HAS:
+		if str(cond.get("status_id", "")) == "":
+			push_error("[StatusRegistry] condition.source: 'status_has' に status_id が無い")
+			return false
+	elif cond.has("status_id"):
+		push_error("[StatusRegistry] condition.status_id は source: 'status_has' のときだけ書ける")
+		return false
+
+	# ⚠ 宿り先は unit だけ（EXEC_SKILL_CONDITION.md §0）。point（オーラ）は真偽が
+	#   「状態 × ユニットの対」ごとになり、この active（状態1件につき1つ）では足りない。
+	if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
+		push_error("[StatusRegistry] condition は host: 'unit' にしか書けない: '%s'" % str(entry.get("host", "")))
+		return false
+
+	entry["condition"] = cond.duplicate(true)
 	return true
 
 
@@ -336,13 +412,17 @@ func _find_same(entry: Dictionary) -> int:
 # 毎フレーム。⚠ 順番が要件。
 #   1. 宿主が死んだ／居なくなった状態を捨てる
 #   2. 時計を進める
-#   3. 周期発火（dot）
-#   4. 寿命が切れたものを捨てる
-#   5. 変わったユニットの補正を組み直す
+#   3. 条件を評価する（active の更新）
+#   4. 周期発火（dot）
+#   5. 寿命が切れたものを捨てる
+#   6. 変わったユニットの補正を組み直す
 #
-# ⚠ 3を4より先にやること。duration 4秒 × interval 2秒 は最後の発火と
+# ⚠ 4を5より先にやること。duration 4秒 × interval 2秒 は最後の発火と
 #   寿命切れが同じフレームに来る。逆順だと最後の1発が黙って消え、
 #   総ダメージが暗算と合わなくなる。
+#
+# ⚠ 3を4より先にやること。逆順だと、条件が偽になったフレームに DoT が
+#   1発だけ余計に出る。1発なので数字を見ても気づけない。
 func tick(delta: float) -> void:
 	if _entries.is_empty():
 		return
@@ -358,6 +438,8 @@ func tick(delta: float) -> void:
 	# 2. 時計は1本。寿命も周期もここから引く。
 	for entry: Dictionary in _entries:
 		entry["elapsed"] = float(entry.get("elapsed", 0.0)) + delta
+
+	_eval_conditions(touched)
 
 	var results: Array = []
 	_fire_intervals(results)
@@ -393,6 +475,113 @@ func _drop_dead_hosts(touched: Dictionary) -> void:
 	_entries = rest
 
 
+# 条件を評価して active を更新する（PLAN 10章の3つ目の発火源）。
+#
+# ⚠ この回の決定は「真である間だけ効く」。真になった瞬間に別の状態を add() しない。
+#   混ぜると「剥がれないバフ」と「二重に乗るバフ」が同時に出る（NEXT_STEPS 2-1）。
+#
+# ⚠ 真偽が変わった buff の宿主を touched に入れること。入れないと、状態の配列は
+#   正しいのに能力値だけ古いまま残る。エラーも出ず、F3 パネルの数字も
+#   もっともらしいので気づけない（clear_all() で踏んだのと同じ形）。
+#
+# ⚠ ログは「変わったとき」だけ。毎フレーム出すと1戦で数万行になる
+#   （位置・移動を出さないのと同じ理由・EXEC_BATTLE_LOG.md）。
+func _eval_conditions(touched: Dictionary) -> void:
+	for entry: Dictionary in _entries:
+		# ⚠ 条件を持たない件はここで抜ける。今までと同じコストに保つ。
+		if (entry.get("condition", {}) as Dictionary).is_empty():
+			continue
+		var was: bool = bool(entry.get("active", true))
+		var now: bool = _eval_one(entry)
+		if now == was:
+			continue
+		entry["active"] = now
+		# 補正に効くのは buff だけ。dot / react は組み直しに関係しない。
+		if str(entry.get("kind", "")) == KIND_BUFF \
+				and str(entry.get("host", "")) == SkillSchema.HOST_UNIT:
+			touched[str(entry.get("host_unit_id", ""))] = true
+		BattleLog.log_condition(
+			str(entry.get("status_id", "")), str(entry.get("host_unit_id", "")), now, "change"
+		)
+
+
+# 条件1件ぶんの真偽。条件が無ければ常に true。
+#
+# ⚠ SkillResolver._scale_variable() を呼ばないこと。あちらは user と target の
+#   2者を取る契約で、状態には1者（宿主か付与者）しか居ない。呼べる形にすると
+#   of の語彙が2つの意味を持ち、「target って誰？」が無音でズレる。
+# ⚠ 見る相手が居なければ false。警告を出さない（宿主が死ぬフレームに必ず通る正常系）。
+func _eval_one(entry: Dictionary) -> bool:
+	var cond: Dictionary = entry.get("condition", {}) as Dictionary
+	if cond.is_empty():
+		return true
+
+	var of: String = str(cond.get("of", ""))
+	var unit_id: String = ""
+	if of == SkillSchema.COND_OF_HOST:
+		unit_id = str(entry.get("host_unit_id", ""))
+	elif of == SkillSchema.COND_OF_SOURCE:
+		unit_id = str(entry.get("source_unit_id", ""))
+	else:
+		push_error("[StatusRegistry] condition.of が不明: '%s'" % of)
+		return false
+
+	var unit: BattleUnit = _find_unit(unit_id)
+	if unit == null:
+		return false
+
+	var left: float = _condition_value(cond, unit)
+	var right: float = float(cond.get("value", 0.0))
+	match str(cond.get("op", "")):
+		SkillSchema.COND_OP_LT:
+			return left < right
+		SkillSchema.COND_OP_LTE:
+			return left <= right
+		SkillSchema.COND_OP_GT:
+			return left > right
+		SkillSchema.COND_OP_GTE:
+			return left >= right
+		SkillSchema.COND_OP_EQ:
+			return is_equal_approx(left, right)
+	push_error("[StatusRegistry] condition.op が不明: '%s'" % str(cond.get("op", "")))
+	return false
+
+
+# 条件の左辺。⚠ 語彙は SkillSchema.condition_sources() が唯一の正。
+#   ここに2本目の一覧を作らないこと。
+func _condition_value(cond: Dictionary, unit: BattleUnit) -> float:
+	var source: String = str(cond.get("source", ""))
+
+	# その状態が付いているか。⚠ 0 か 1 しか返さない。
+	#   件数を返す status_count を作らないこと。作るとスタック閾値がここから
+	#   書けてしまうが、stack の上限も消え方も未実装（宿題5）なので、
+	#   independent が無限に積む状態に閾値が乗り、一度真になったら二度と
+	#   偽に戻らない（EXEC_SKILL_CONDITION.md §2-3）。
+	if source == SkillSchema.COND_SOURCE_STATUS_HAS:
+		var found: bool = has({
+			"host": SkillSchema.HOST_UNIT,
+			"host_unit_id": unit.unit_id,
+			"status_id": str(cond.get("status_id", "")),
+		})
+		return 1.0 if found else 0.0
+
+	match source:
+		SkillSchema.SCALE_HP_CURRENT:
+			return float(unit.hp)
+		SkillSchema.SCALE_HP_LOST:
+			return float(unit.max_hp - unit.hp)
+		SkillSchema.SCALE_HP_RATIO:
+			return 0.0 if unit.max_hp <= 0 else float(unit.hp) / float(unit.max_hp)
+		SkillSchema.SCALE_HP_LOST_RATIO:
+			return 0.0 if unit.max_hp <= 0 else 1.0 - float(unit.hp) / float(unit.max_hp)
+
+	if source in GameManager.get_stat_keys():
+		return float(unit.get_stat(source))
+
+	push_error("[StatusRegistry] condition.source が不明: '%s'" % source)
+	return 0.0
+
+
 # 周期発火。⚠ 発火する回数は elapsed から引く。カウントダウンを別に持たない。
 func _fire_intervals(results: Array) -> void:
 	var rest: Array = []
@@ -415,6 +604,21 @@ func _fire_intervals(results: Array) -> void:
 		var interval_sec: float = float(entry.get("interval_sec", 0.0))
 		var elapsed: float = float(entry.get("elapsed", 0.0))
 		var total: int = int(entry.get("fires_total", 0))
+
+		# 条件が偽の間は発火しない（EXEC_SKILL_CONDITION.md §3-1(h)）。
+		#
+		# 【決定】時計は進める。偽の間に来た発火は捨てる。寿命は書いたとおりに切れる。
+		# ⚠ elapsed を止める案は採らない。「時計は1本」という不変条件
+		#   （_make_entry() の注記）が崩れ、寿命まで一緒に延びる。
+		# ⚠ fires_done を elapsed に追いつかせること。追いつかせないと、真に戻った
+		#   瞬間に下の while が回り、偽だった間ぶんを一気に連射する。総ダメージが
+		#   暗算と合わなくなるだけで、エラーは1つも出ない。
+		if not bool(entry.get("active", true)):
+			var skipped: int = int(floor(elapsed / interval_sec))
+			if int(entry.get("fires_done", 0)) < skipped:
+				entry["fires_done"] = skipped
+			rest.append(entry)
+			continue
 
 		# ⚠ while にするのは速度8倍で1フレームに複数回跨ぐため。if だと発火が落ちる。
 		# ⚠ ループの中で fires_done を必ず増やすこと。増やさないと固まる。
@@ -607,6 +811,13 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
 			continue
 		if str(entry.get("host_unit_id", "")) != unit_id:
+			continue
+		# 条件が偽の間は補正に乗せない（PLAN 10章の3つ目の発火源）。
+		# ⚠ この1行が条件の安全の本体。この関数は「ゼロから組み直す」形なので、
+		#   絞り込みを1つ足すだけで「剥がれないバフ」「二重に乗るバフ」が
+		#   構造的に起きない。add() や _eval_conditions() から
+		#   unit.set_stat_mods() を直接呼んで近道しないこと。
+		if not bool(entry.get("active", true)):
 			continue
 		var stat_key: String = str(entry.get("stat", ""))
 		mods[stat_key] = int(mods.get(stat_key, 0)) + int(entry.get("value", 0))

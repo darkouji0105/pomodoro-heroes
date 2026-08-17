@@ -205,6 +205,27 @@ static func log_react(
 	})
 
 
+# 条件の真偽（PLAN 10章の3つ目の発火源）。
+#
+# ⚠ 呼ぶのは「付いたとき」と「真偽が変わったとき」だけ。毎フレーム呼ぶと
+#   1戦で数万行になる（位置・移動を出さないのと同じ理由・§2-4）。
+# ⚠ 付いた時点（why: "add"）を必ず出すこと。出さないと「一度も真にならなかった」
+#   のか「最初から常に真だった」のかがログから区別できない。どちらも無音の事故。
+#
+# why … "add"（付いた時点）／ "change"（真偽が変わった）
+static func log_condition(
+		status_id: String, host_unit_id: String, active: bool, why: String
+) -> void:
+	if not is_on():
+		return
+	write("condition", {
+		"status": status_id,
+		"unit": host_unit_id,
+		"active": active,
+		"why": why,
+	})
+
+
 static func log_status_add(
 		status_id: String, kind: String, host_unit_id: String,
 		source_unit_id: String, life: String, duration_sec: float

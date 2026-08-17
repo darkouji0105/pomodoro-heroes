@@ -470,9 +470,13 @@ func _dispatch_events(entry: Dictionary, results: Array) -> void:
 func _notify(event_name: String, host_unit_id: String, source_unit_id: String) -> void:
 	if _registry == null or host_unit_id == "":
 		return
+	# ⚠ "active": true を落とさないこと。条件が偽の間も反応してしまう（無音）。
+	#   器は active を bool で持ち、query() は文字列に直して比べるので、この
+	#   1行だけで効く（query() 側に条件の判定を書き足さないこと）。
 	var subs: Array = _registry.query({
 		"kind": StatusRegistry.KIND_REACT,
 		"host_unit_id": host_unit_id,
+		"active": true,
 	})
 	if subs.is_empty():
 		return

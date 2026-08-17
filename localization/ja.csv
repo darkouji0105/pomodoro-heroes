@@ -263,3 +263,7 @@ ui_battle_skill_edbg_dot,毒の牙（敵）
 ui_battle_skill_edbg_heal,癒しの唱和（敵）
 ui_battle_skill_edbg_ranged,遠矢（敵）
 ui_stage_dbg_enemy_skill,検証・敵のスキル
+ui_battle_enemy_dbg_cond,検証・条件
+ui_battle_skill_edbg_cond_hp,窮鼠の牙（敵）
+ui_battle_skill_dbg_cond_poison,毒への備え
+ui_stage_dbg_condition,検証用・条件

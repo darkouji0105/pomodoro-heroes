@@ -178,7 +178,9 @@
 			"skill_dbg_debuff_def",
 			"skill_dbg_dot_long",
 			"skill_dbg_dot_odd",
-			"skill_dbg_react_followup"
+			"skill_dbg_react_followup",
+			"skill_dbg_cond_poison"
+
 		],
 		"allocatable_stats": [
 			"hp",

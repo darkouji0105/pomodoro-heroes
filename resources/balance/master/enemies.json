@@ -248,5 +248,33 @@
 			]
 		},
 		"skills": ["skill_edbg_ranged"]
+	},
+	"enemy_dbg_cond": {
+		"name_key": "ui_battle_enemy_dbg_cond",
+		"hp": 60,
+		"atk": 5,
+		"mag": 5,
+		"def": 0,
+		"mdef": 0,
+		"spd": 40,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 300,
+		"attack_interval_sec": 2.0,
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		},
+		"skills": ["skill_edbg_cond_hp"]
 	}
 }

@@ -169,5 +169,35 @@
 					}
 				}
 			]
-		}
+			},
+	"skill_dbg_cond_poison": {
+		"name_key": "ui_battle_skill_dbg_cond_poison",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_dbg_cond_poison_atk",
+				"stat": "atk",
+				"value": 50,
+				"duration_sec": 120.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "status_has",
+					"of": "host",
+					"op": "gte",
+					"value": 1,
+					"status_id": "status_edbg_dot"
+				}
+			}
+		]
+	}
 }

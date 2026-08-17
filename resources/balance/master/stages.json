@@ -46,5 +46,14 @@
 	  { "wave_index": 4, "enemies": [ { "enemy_type_id": "enemy_dbg_dot", "count": 1 } ] },
 	  { "wave_index": 5, "enemies": [ { "enemy_type_id": "enemy_dbg_ranged", "count": 1 } ] }
 	]
+  },
+  "stage_dbg_condition": {
+	"name_key": "ui_stage_dbg_condition",
+	"party_id": "party_default",
+	"rewards": { "gold": 1 },
+	"waves": [
+	  { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_dbg_cond", "count": 1 } ] },
+	  { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_dbg_dot", "count": 1 }, { "enemy_type_id": "enemy_dbg_buff", "count": 2 } ] }
+	]
   }
 }

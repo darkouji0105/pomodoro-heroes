@@ -229,6 +229,11 @@ func _format_entry_line(entry: Dictionary) -> String:
 
 	text += " 付与=%s stack=%s" % [str(entry.get("source_unit_id", "")), str(entry.get("stack", ""))]
 
+	# 条件（PLAN 10章）。⚠ 条件を持つ件だけ出す。持たない件に cond=on と出すと、
+	#   条件付きがどれか分からなくなる。
+	if not (entry.get("condition", {}) as Dictionary).is_empty():
+		text += " cond=%s" % ("on" if bool(entry.get("active", true)) else "off")
+
 	if str(entry.get("life", "")) == StatusRegistry.LIFE_SEC:
 		text += " 経過 %.2f/%.2f秒" % [
 			float(entry.get("elapsed", 0.0)), float(entry.get("duration_sec", 0.0))

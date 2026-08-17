@@ -140,6 +140,29 @@ const UNTIL_CHARGE_END: String = "charge_end"
 const UNTIL_SKILL_END: String = "skill_end"
 const UNTILS_KNOWN: Array = [UNTIL_CHARGE_END, UNTIL_SKILL_END]
 
+# --- effects[].condition（毎フレーム評価する発火源・PLAN 10章） ---
+#
+# ⚠ of は scale_from の of（user / target / source）と別の一覧にすること。
+#   状態には user も target も居ない（宿主と付与者しかいない）。同じ語を
+#   使い回すと「target って誰？」が無音でズレる。
+const COND_OF_HOST: String = "host"       # 宿主（付けられた側）
+const COND_OF_SOURCE: String = "source"   # 付与者（付けた側）
+const COND_OF_KNOWN: Array = [COND_OF_HOST, COND_OF_SOURCE]
+
+const COND_OP_LT: String = "lt"
+const COND_OP_LTE: String = "lte"
+const COND_OP_GT: String = "gt"
+const COND_OP_GTE: String = "gte"
+const COND_OP_EQ: String = "eq"
+const COND_OPS_KNOWN: Array = [COND_OP_LT, COND_OP_LTE, COND_OP_GT, COND_OP_GTE, COND_OP_EQ]
+
+# その状態が付いているか。⚠ 0 か 1 しか返さない。
+#   件数を返す status_count を作らないこと。作るとスタック閾値（Nスタックで別の
+#   効果）がここから書けてしまうが、stack の上限も消え方も未実装（宿題5）なので、
+#   independent が無限に積む状態に閾値が乗り、一度真になったら二度と偽に戻らない。
+#   「デバフの数だけ強く」は変数表の担当（段階3の後半④）。条件は bool だけを返す。
+const COND_SOURCE_STATUS_HAS: String = "status_has"
+
 # --- scale_from の "of"（誰の値を見るか） ---
 const SCALE_OF_USER: String = "user"
 const SCALE_OF_TARGET: String = "target"
@@ -183,6 +206,21 @@ static func scale_sources() -> Array:
 	sources.append(SCALE_HP_RATIO)
 	sources.append(SCALE_HP_LOST_RATIO)
 	sources.append(SCALE_DISTANCE)
+	return sources
+
+
+# condition の source に書ける名前。
+#
+# ⚠ scale_sources() を流用する（2本目の語彙を作らない）。
+# ⚠ distance だけ除く。あちらは「使用者と対象の間」の値だが、状態には対象が居ない
+#   ので、そのまま流用すると「宿主と付与者の距離」という別の意味になる。
+#   座標の規則は point のオーラを入れる回で決める。
+static func condition_sources() -> Array:
+	var sources: Array = []
+	for source_name: Variant in scale_sources():
+		if str(source_name) != SCALE_DISTANCE:
+			sources.append(str(source_name))
+	sources.append(COND_SOURCE_STATUS_HAS)
 	return sources
 
 
@@ -420,6 +458,12 @@ static func _validate_effect(
 		# ⚠ trigger と購読を同じ欄にしないための歯止め（PLAN 10章）。
 		_err(issues, skill_id, "%s.type: '%s' に react{} は書けない（購読は type: 'react' だけ）" % [where, effect_type])
 
+	# E62 … condition{} は残る効果（buff / dot / react）にしか書けない。
+	# ⚠ E50 と同じ形の歯止め。書ける場所を1箇所に閉じる。残らない効果に書くと、
+	#   毎フレーム評価する相手（状態）が存在しないので、黙って何も起きない。
+	if effect.has("condition") and not (effect_type in EFFECT_TYPES_STATUS):
+		_err(issues, skill_id, "%s.type: '%s' に condition{} は書けない（残らない効果は毎フレーム評価できない）" % [where, effect_type])
+
 	if effect_type == EFFECT_DAMAGE or effect_type == EFFECT_HEAL:
 		# E19
 		if not _is_num(effect.get("multiplier", null)):
@@ -568,6 +612,10 @@ static func _validate_status_effect(
 	if host == HOST_NONE:
 		_err(issues, skill_id, "%s.type: '%s' には host が要る（残らない状態は書けない）" % [where, effect_type])
 
+	# E55〜E61 条件（毎フレーム評価する発火源・PLAN 10章）
+	if effect.has("condition"):
+		_validate_condition(issues, skill_id, effect.get("condition", null), where, host)
+
 	# E36 identity
 	if str(effect.get("status_id", "")) == "":
 		_err(issues, skill_id, "%s.status_id が無い" % where)
@@ -639,6 +687,51 @@ static func _validate_status_effect(
 				_warn(issues, skill_id, "%s は duration_sec が interval_sec で割り切れない。端数は切り捨てで %d 回発火する" % [
 					where, int(floor(ratio))
 				])
+
+
+# 条件（condition{}）の検証。E55〜E61。
+#
+# ⚠ 条件は「一度も真にならない」「常に真」のどちらも実行時にエラーを出さず、
+#   画面を見ても分からない。書き方の誤りはここで全部弾く。
+static func _validate_condition(
+		issues: Array, skill_id: String, raw: Variant, where: String, host: String
+) -> void:
+	# E55
+	if not (raw is Dictionary):
+		_err(issues, skill_id, "%s.condition が Dictionary でない" % where)
+		return
+	var cond: Dictionary = raw as Dictionary
+
+	# E56 … 語彙は condition_sources() が唯一の正（distance は除いてある）
+	var source: String = str(cond.get("source", ""))
+	if not (source in condition_sources()):
+		_err(issues, skill_id, "%s.condition.source が無い、または不明: '%s'" % [where, source])
+
+	# E57 … ⚠ scale_from の of（user / target）と別の一覧
+	if not (str(cond.get("of", "")) in COND_OF_KNOWN):
+		_err(issues, skill_id, "%s.condition.of が無い、または不明: '%s'（host / source のどちらか）" % [
+			where, str(cond.get("of", ""))
+		])
+
+	# E58
+	if not (str(cond.get("op", "")) in COND_OPS_KNOWN):
+		_err(issues, skill_id, "%s.condition.op が無い、または不明: '%s'" % [where, str(cond.get("op", ""))])
+
+	# E59
+	if not _is_num(cond.get("value", null)):
+		_err(issues, skill_id, "%s.condition.value が数値でない" % where)
+
+	# E60 … ⚠ ここの status_id は「見たい相手の状態のID」で、効果の status_id とは別物
+	if source == COND_SOURCE_STATUS_HAS:
+		if str(cond.get("status_id", "")) == "":
+			_err(issues, skill_id, "%s.condition.source: 'status_has' に status_id が無い（見たい相手の状態のID）" % where)
+	elif cond.has("status_id"):
+		_err(issues, skill_id, "%s.condition.status_id は source: 'status_has' のときだけ書ける" % where)
+
+	# E61 … 宿り先は unit だけ。point（オーラ）は真偽が「状態 × ユニットの対」ごとに
+	#       なり、状態1件につき1つの真偽では足りない（段階3の後半②の担当外）。
+	if host != HOST_UNIT:
+		_err(issues, skill_id, "%s.host: '%s' に condition は書けない（今は host: 'unit' だけ）" % [where, host])
 
 
 # E22。文字列（省略形）か、{source, of, weight} の配列。

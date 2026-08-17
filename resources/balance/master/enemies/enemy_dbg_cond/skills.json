@@ -1,0 +1,29 @@
+{
+	"skill_edbg_cond_hp": {
+		"name_key": "ui_battle_skill_edbg_cond_hp",
+		"user_character_id": "enemy_dbg_cond",
+		"unlock_level": 1,
+		"cooldown_sec": 8.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_edbg_cond_atk",
+				"stat": "atk",
+				"value": 20,
+				"duration_sec": 60.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "lte",
+					"value": 0.5
+				}
+			}
+		]
+	}
+}

@@ -76,6 +76,7 @@ const ENEMY_DIRS_OPTIONAL: Array[String] = [
 	DIR_ENEMIES + "enemy_dbg_dot/",
 	DIR_ENEMIES + "enemy_dbg_heal/",
 	DIR_ENEMIES + "enemy_dbg_ranged/",
+	DIR_ENEMIES + "enemy_dbg_cond/",
 ]
 
 static var _load_mode: String = ""     # "load" or "file_access" or ""（未試行）
