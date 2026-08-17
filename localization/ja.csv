@@ -117,6 +117,7 @@ ui_adventure_locked,前のステージをクリアすると解放されます
 ui_adventure_training,トレーニング
 ui_adventure_back,拠点へ戻る
 ui_adventure_challenge,挑戦
+ui_adventure_party,編成
 ui_stage_1,1. 草原のスライム
 ui_stage_2,2. 荒野の群れ
 ui_stage_3,3. 森の主

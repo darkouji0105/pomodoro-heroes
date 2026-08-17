@@ -151,6 +151,11 @@ func _ready() -> void:
 	else:
 		push_warning("[GameManager] Balance.initial_state is null — using empty defaults")
 		_state = _empty_state_template()
+	# 編成を parties.json から流し込む。_empty_state_template() の party_members は
+	# [] のため、これが無いと戦闘にキャラが1人も出ない。
+	# ⚠ load_state() 側にも同じ呼び出しが要る。片方だけだと「新規開始で空」か
+	#   「ロードで空」のどちらかになり、どちらもエラーが出ない。
+	_ensure_party_members_from_master()
 	# 研究ツリーを research.json から流し込む。
 	# _empty_state_template() の research_tree は {} のため、これが無いと画面に1つも出ない。
 	_sync_research_tree_from_master()
@@ -227,6 +232,9 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.WEEKLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.MONTHLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.CHARACTER_GROWTH: {},
+		# 編成。⚠ 空配列で始めること。ここに既定の3体を書くと parties.json と
+		#   2箇所に初期値ができる。流し込むのは _ensure_party_members_from_master()。
+		GameStateKeys.PARTY_MEMBERS: [],
 		GameStateKeys.RESEARCH_TREE: {},
 		GameStateKeys.RECIPES_UNLOCKED: {},
 		GameStateKeys.CRAFTING_QUEUE: [],
@@ -1809,6 +1817,117 @@ func _normalize_skill_slots(growth: Dictionary) -> bool:
 
 # ロード時に全キャラの skills を正規化する。
 # _resync_growth_stats_from_master() と同じ位置から呼ぶ。
+# ============================================================
+# パーティの編成（EXEC_PARTY_MEMBERS.md）
+# ============================================================
+
+# 編成が空／壊れているときに流し込む既定。⚠ parties.json の唯一のエントリ。
+const DEFAULT_PARTY_ID: String = "party_default"
+
+
+# 編成の3枠。⚠ 複製を返す（get_state() と同じ理由。参照を返すと呼び出し側から
+#   _state を直接書き換えられ、「必ず関数経由」が構造的に破れる）。
+func get_party_members() -> Array:
+	var members: Variant = _state.get(GameStateKeys.PARTY_MEMBERS, [])
+	if not (members is Array):
+		return []
+	return (members as Array).duplicate(true)
+
+
+# 枠 index のキャラを差し替える。差し替えた（または既に同じだった）なら true。
+#
+# ⚠ 状態を変える前に全部の判定を終える（CLAUDE.md 6番）。途中で1枠だけ書いてから
+#   弾くと、重複した編成が残る。
+# ⚠ そのキャラが別の枠に居るときは「交換」する。片方を空にしない
+#   （空き枠を作らないのが不変条件。作ると「2人で挑む」が書けてしまう）。
+func set_party_member(index: int, character_id: String) -> bool:
+	if index < 0 or index >= GameStateKeys.PARTY_SLOT_COUNT:
+		push_error("[GameManager] set_party_member: index が範囲外: %d" % index)
+		return false
+	# ⚠ get_character() を使わないこと。見つからないと push_error を出す口なので、
+	#   「候補にあるか確かめる」用途に使うと正常系で赤が出る。
+	if not MasterDataLoader.get_all_characters().has(character_id):
+		push_error("[GameManager] set_party_member: 知らない character_id: " + character_id)
+		return false
+
+	var members: Array = get_party_members()
+	if members.size() != GameStateKeys.PARTY_SLOT_COUNT:
+		push_error("[GameManager] set_party_member: 編成の件数が %d（%d のはず）" % [
+			members.size(), GameStateKeys.PARTY_SLOT_COUNT
+		])
+		return false
+
+	# 変わらないのも成功（画面が同じ項目を選び直しただけ）。
+	if str(members[index]) == character_id:
+		return true
+
+	# ここまで判定だけ。ここから状態を作る。
+	var other: int = members.find(character_id)
+	if other >= 0:
+		members[other] = members[index]
+	members[index] = character_id
+
+	_state[GameStateKeys.PARTY_MEMBERS] = members.duplicate(true)
+	# ⚠ シグナルを飛ばさない。購読者は冒険選択の1画面だけで、押したハンドラの中で
+	#   描き直すほうが安い。character_growth_changed を流用しないこと（あれは
+	#   レベル・ステータス・装備・スキルの変化で、ギルドの4画面が聞いている）。
+	# ⚠ パーティ選択画面ができて購読者が2つになったら party_changed を足す。
+	#   そのとき AGENTS.md のシグナル表にも1行足すこと。
+	return true
+
+
+# セーブに編成が無い／壊れているときだけ、parties.json から流し込む。
+#
+# ⚠ research_tree / shop / recipes の「毎回マスターで上書き」とは逆（AGENTS.md
+#   「マスターデータと状態を同期する型」を真似ないこと）。編成は進捗ではなく
+#   プレイヤーの選択なので、毎回上書きすると入れ替えが起動のたびに巻き戻る。
+#   しかもエラーは1つも出ない。
+# ⚠ _normalize_skill_slots_from_save() と同じ位置づけ。旧セーブでもここで生えるので
+#   save_version は 3 のままでよい。
+# ⚠ 呼ぶ場所は _ready() と load_state() の2箇所。片方だけだと「新規開始で空」か
+#   「ロードで空」のどちらかになり、どちらもエラーが出ない。
+# ⚠ マスターに無いIDが1つでも混ざっていたら、その枠だけ直さず全体を既定に戻す。
+#   半端に埋めると「知らないキャラが1人だけ居る」状態が残る。
+func _ensure_party_members_from_master() -> void:
+	if _is_party_members_valid():
+		return
+
+	var party_data: Dictionary = MasterDataLoader.get_party(DEFAULT_PARTY_ID)
+	var raw: Variant = party_data.get("members", null)
+	if not (raw is Array) or (raw as Array).size() != GameStateKeys.PARTY_SLOT_COUNT:
+		# ⚠ 黙って既定を捏造しない。空のままにすると戦闘側が赤を出して気づける。
+		push_error("[GameManager] _ensure_party_members_from_master: parties.json の '%s' が %d 人でない" % [
+			DEFAULT_PARTY_ID, GameStateKeys.PARTY_SLOT_COUNT
+		])
+		return
+
+	var members: Array = []
+	for entry: Variant in (raw as Array):
+		members.append(str(entry))
+	_state[GameStateKeys.PARTY_MEMBERS] = members
+	print("[GameManager] _ensure_party_members_from_master() -> %s" % str(members))
+
+
+# 3枠ちょうどで、全部マスターに居て、重複が無いか。
+func _is_party_members_valid() -> bool:
+	var raw: Variant = _state.get(GameStateKeys.PARTY_MEMBERS, null)
+	if not (raw is Array):
+		return false
+	var members: Array = raw as Array
+	if members.size() != GameStateKeys.PARTY_SLOT_COUNT:
+		return false
+	var all_characters: Dictionary = MasterDataLoader.get_all_characters()
+	var seen: Dictionary = {}
+	for entry: Variant in members:
+		var character_id: String = str(entry)
+		if not all_characters.has(character_id):
+			return false
+		if seen.has(character_id):
+			return false
+		seen[character_id] = true
+	return true
+
+
 func _normalize_skill_slots_from_save() -> void:
 	var growth_all: Dictionary = _state.get(GameStateKeys.CHARACTER_GROWTH, {})
 	var fixed: int = 0
@@ -2708,6 +2827,11 @@ func load_state(data: Dictionary) -> bool:
 	# 旧セーブは skills が {} のため、ここで枠が生える（EXEC_SKILL_SELECT.md §6-1）。
 	# これがあるので save_version は 3 のままでよい。
 	_normalize_skill_slots_from_save()
+	# 編成を確かめる。旧セーブは party_members を持たないため、ここで生える
+	# （skills の枠と同じ理由で save_version は 3 のままでよい）。
+	# ⚠ 毎回 parties.json で上書きしないこと。上書きすると、入れ替えが
+	#   起動のたびに巻き戻る（EXEC_PARTY_MEMBERS.md §4-2）。
+	_ensure_party_members_from_master()
 	# 装備の個体を正規化する。JSONから戻すと grade が float になる。
 	# 第1弾の装備（equipment に item_id の文字列が入っている）はここで捨てる。
 	_normalize_equipment_from_save()

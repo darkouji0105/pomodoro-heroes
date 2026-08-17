@@ -41,6 +41,14 @@ const RESEARCH_TREE: String = "research_tree"
 const RECIPES_UNLOCKED: String = "recipes_unlocked"
 const CRAFTING_QUEUE: String = "crafting_queue"
 
+# パーティの編成（character_id の配列・3枠固定・EXEC_PARTY_MEMBERS.md）。
+# ⚠ 持つのはIDだけ（CLAUDE.md 4番）。能力値はマスターから毎回引き直す。
+# ⚠ 代償：リリース後に character_id を改名できない。改名すると編成が黙って既定に戻る。
+const PARTY_MEMBERS: String = "party_members"
+
+# 編成の枠数。⚠ PLAN_SKILL_TEMPLATE.md 873「パーティ枠は3枠のまま。触らない」。
+const PARTY_SLOT_COUNT: int = 3
+
 # ポモドーロ（当日の進捗・受け取り待ちの宝箱）
 const CUMULATIVE_FOCUS_MINUTES_TODAY: String = "cumulative_focus_minutes_today"
 const REACHED_CHEST_THRESHOLDS: String = "reached_chest_thresholds"

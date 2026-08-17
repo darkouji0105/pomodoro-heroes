@@ -173,11 +173,17 @@ func _init_party_units() -> void:
 	for v in party_container.get_children():
 		v.queue_free()
 
-	var party_data: Dictionary = MasterDataLoader.get_party(_session.party_id)
-	if party_data.is_empty():
-		push_error("[Battle] party_data が空: " + _session.party_id)
+	# 編成は状態が唯一の正（EXEC_PARTY_MEMBERS.md）。
+	#
+	# ⚠ MasterDataLoader.get_party() をここで読まないこと。stages.json の party_id は
+	#   もう戦闘のメンバーを決めない（セーブに編成が無いときの初期値にだけ使う）。
+	#   両方読むと編成が2箇所にある状態になり、どちらが効いているか実機でしか
+	#   分からなくなる。
+	# ⚠ _session.party_id は BattleLog の見出しとして残っているだけ。
+	var members: Array = GameManager.get_party_members()
+	if members.is_empty():
+		push_error("[Battle] 編成が空（GameManager.get_party_members()）")
 		return
-	var members: Array = party_data.get("members", [])
 
 	for i: int in range(members.size()):
 		var character_id: String = str(members[i])

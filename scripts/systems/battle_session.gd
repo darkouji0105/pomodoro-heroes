@@ -16,6 +16,9 @@ const STATE_DEFEAT: String = "defeat"
 
 var stage_id: String = ""
 var stage_type: String = ""
+# ⚠ BattleLog の見出しにしか使わない。メンバーは決めない（EXEC_PARTY_MEMBERS.md §2）。
+#   編成は GameManager.get_party_members() が唯一の正。stages.json の party_id を
+#   書き換えても戦闘の顔ぶれは変わらない。
 var party_id: String = ""
 var state: String = STATE_WAVE_INTRO
 var current_wave: int = 1   # 1 始まり

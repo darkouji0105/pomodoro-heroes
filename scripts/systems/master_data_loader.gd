@@ -95,6 +95,16 @@ static func get_character(id: String) -> Dictionary:
 	return (_cache_characters[id] as Dictionary).duplicate(true)
 
 
+# character_id -> 定義 の Dictionary を返す（編成の候補・EXEC_PARTY_MEMBERS.md）。
+#
+# ⚠ 並び順は characters.json の記述順（Godot 4 の Dictionary は挿入順を保つ）。
+#   順が乱れると、編成の候補が押すたびに入れ替わって見える。
+# ⚠ get_all_items() と同じ形にしてある。2本目の書き方を作らないこと。
+static func get_all_characters() -> Dictionary:
+	_ensure_loaded()
+	return _cache_characters.duplicate(true)
+
+
 static func get_enemy(id: String) -> Dictionary:
 	_ensure_loaded()
 	if not _cache_enemies.has(id):
