@@ -422,13 +422,53 @@ func _process(delta: float) -> void:
 	#   走るので同じフレームの続きから効く。ここで進むのは寿命と周期だけ。
 	_status.tick(delta)
 
-	# 4. 勝敗判定（敗北判定を先に行う）
+	# 4. 死亡の介入点（PLAN 11-1・復活はここ）
+	#
+	# ⚠ 勝敗判定より先。後ろに置くと「戦闘が終わってから復活する」事故になり、
+	#   無音で壊れる（PLAN 11-1 が名指しで警告している形）。
+	# ⚠ _status.tick() より後。DoT の止めの一撃も同じフレームで拾う。
+	# ⚠ 走査はここ1箇所だけ。ダメージを与える各所（_apply_damage /
+	#   _fire_intervals / F3 の自傷）に2本目の判定を作らないこと。
+	_step_deaths()
+
+	# 5. 勝敗判定（敗北判定を先に行う）
 	if _session.is_party_wiped():
 		_enter_defeat()
 		return
 	if _session.is_wave_cleared():
 		_enter_wave_clear()
 		return
+
+
+# HPが0になった全員に、死亡の介入点を1回だけ通す（PLAN 11-1）。
+#
+# ⚠ 死亡を知らせるシグナルが無いので毎フレーム走査する（StatusRegistry の
+#   _drop_dead_hosts() と同じ形）。件数は多くても数体。
+func _step_deaths() -> void:
+	for unit in _session.party_units:
+		_resolve_one_death(unit)
+	for unit in _session.enemy_units:
+		_resolve_one_death(unit)
+
+
+# ⚠ death_handled を書いてよいのはここだけ（unit.gd の注記）。
+# ⚠ 戻り値で分岐しない。HPを戻すのも状態を消すのも器の側の責務。
+func _resolve_one_death(unit: Variant) -> void:
+	if not (unit is BattleUnit):
+		return
+	var u: BattleUnit = unit
+	if u.is_alive():
+		# 復活した／まだ死んでいない。次の死亡で介入点を通せるように戻す。
+		# ⚠ ここで戻すこと。復活の直後に必ず通る。戻さないと2回目の死亡で
+		#   介入点を通らず、しかも _drop_dead_hosts() が状態を捨てられなくなる。
+		u.death_handled = false
+		return
+	if u.death_handled:
+		return
+	# ⚠ 印を先に立てる。resolve_death() の中で clear_for_unit() が走り、
+	#   そのあと _drop_dead_hosts() が「処理済みだから捨ててよい」と判断できる。
+	u.death_handled = true
+	_status.resolve_death(u)
 
 
 func _acquire_target_if_needed(unit: BattleUnit) -> void:

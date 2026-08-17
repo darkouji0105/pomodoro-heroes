@@ -1,0 +1,24 @@
+{
+	"skill_edbg_revive": {
+		"name_key": "ui_battle_skill_edbg_revive",
+		"user_character_id": "enemy_dbg_revive",
+		"unlock_level": 1,
+		"cooldown_sec": 999.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_edbg_revive",
+				"duration_sec": 300.0,
+				"stack": "refresh",
+				"on_death": {
+					"revive_hp_ratio": 0.3
+				}
+			}
+		]
+	}
+}

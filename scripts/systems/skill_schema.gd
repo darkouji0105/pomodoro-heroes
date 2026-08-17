@@ -71,6 +71,22 @@ const EFFECT_TYPES_IMPLEMENTED: Array = [
 # 状態として残る効果。host / status_id / stack / 寿命の欄を読む（PLAN 13章）。
 const EFFECT_TYPES_STATUS: Array = [EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT]
 
+# 介入点の欄（PLAN 11-1・段階3の後半③）。⚠ buff にしか書けない。
+#
+# ダメージの介入点だけは受け口が段階1からあり（SkillResolver._step_crit_override /
+# _step_reduction）、こちらは残る3つ（回復・状態の付与・死亡）。
+#
+# ⚠ 効果の種類は増えていない。EFFECT_TYPES_* に何も足さないこと。
+# ⚠ stat / value と同時に持ってよい（「攻撃力＋10かつ毒に免疫」）。
+#   3つを同時に持ってもよい。排他にしない。
+# ⚠ 4つ目が来たら intervene{} の入れ子に畳むこと（EXEC_SKILL_INTERVENTION.md §8）。
+const BUFF_ON_DEATH: String = "on_death"              # { revive_hp_ratio: float }
+const BUFF_BLOCK_STATUS: String = "block_status"      # Array[String]（status_id）
+const BUFF_HEAL_TAKEN_PCT: String = "heal_taken_pct"  # int（負なら低下）
+const BUFF_INTERVENE_FIELDS: Array = [
+	BUFF_ON_DEATH, BUFF_BLOCK_STATUS, BUFF_HEAL_TAKEN_PCT
+]
+
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
 # ⚠ physical / magic は BattleUnit の定数を唯一の正とする。
 #    ここに書き直さないこと（2本目の一覧を作ると片方だけ直して事故る）。
@@ -650,20 +666,78 @@ static func _validate_status_effect(
 		elif until == UNTIL_SKILL_END:
 			_warn(issues, skill_id, "%s.until: 'skill_end' は未実装（剥がす配線が無い）。この効果は飛ばされる" % where)
 
+	# 介入点の欄（PLAN 11-1・段階3の後半③）。buff にしか書けない。
+	# ⚠ 一覧はここ1本。status_registry.gd に2本目を作らないこと。
+	var has_intervene: bool = false
+	for field: String in BUFF_INTERVENE_FIELDS:
+		if effect.has(field):
+			has_intervene = true
+			# E67 … buff 以外・host: unit 以外には書けない。
+			# 宿主が居ないと「誰の死亡か」「誰への回復か」が決まらない。
+			if effect_type != EFFECT_BUFF:
+				_err(issues, skill_id, "%s.%s は buff にしか書けない（type: '%s'）" % [where, field, effect_type])
+			elif host != HOST_UNIT:
+				_err(issues, skill_id, "%s.%s は host: unit にしか書けない（host: '%s'）" % [where, field, host])
+
 	if effect_type == EFFECT_BUFF:
-		# E37 / E38
-		var stat_key: String = str(effect.get("stat", ""))
-		if not (stat_key in GameManager.get_stat_keys()):
-			_err(issues, skill_id, "%s.stat が10軸に無い: '%s'" % [where, stat_key])
-		elif stat_key == GameStateKeys.STAT_HP:
-			_err(issues, skill_id, "%s.stat に hp は書けない（max_hp を再計算しないため）" % where)
-		# E39 … 0 も禁止（何も起きない状態を書かせない）
-		var value: Variant = effect.get("value", null)
-		if not _is_num(value) or float(value) != floor(float(value)) or int(value) == 0:
-			_err(issues, skill_id, "%s.value が0以外の整数でない" % where)
+		# ⚠ stat は「書かれているときだけ」見る。介入だけを持つ buff（復活・免疫・
+		#   被回復増減）は stat も value も持たないため（段階3の後半③で緩めた）。
+		var has_stat: bool = effect.has("stat") or effect.has("value")
+		if has_stat:
+			# E37 / E38
+			var stat_key: String = str(effect.get("stat", ""))
+			if not (stat_key in GameManager.get_stat_keys()):
+				_err(issues, skill_id, "%s.stat が10軸に無い: '%s'" % [where, stat_key])
+			elif stat_key == GameStateKeys.STAT_HP:
+				_err(issues, skill_id, "%s.stat に hp は書けない（max_hp を再計算しないため）" % where)
+			# E39 … 0 も禁止（何も起きない状態を書かせない）
+			var value: Variant = effect.get("value", null)
+			if not _is_num(value) or float(value) != floor(float(value)) or int(value) == 0:
+				_err(issues, skill_id, "%s.value が0以外の整数でない" % where)
+		# E63 … 何もしない buff を書かせない。
+		# ⚠ これが無いと、stat を必須にしなくなった分だけ typo（"stt"）が
+		#   「介入だけを持つ buff」として黙って通る。
+		if not has_stat and not has_intervene:
+			# ⚠ 欄名は BUFF_INTERVENE_FIELDS が唯一の正。ここで並べ直さないこと。
+			var field_names: PackedStringArray = PackedStringArray()
+			for f: String in BUFF_INTERVENE_FIELDS:
+				field_names.append(f)
+			_err(issues, skill_id, "%s は buff なのに stat / value も介入の欄（%s）も無い" % [
+				where, ", ".join(field_names)
+			])
 		# ⚠ buff は multiplier を読まない（PLAN 5-2。意味を3つ持たせない）
 		if effect.has("multiplier"):
 			_err(issues, skill_id, "%s は buff なので multiplier を書けない（stat / value を使う）" % where)
+
+		# E64 … 復活。割合は 0 より大きく 1 以下。
+		# ⚠ 0 を許すと「復活した瞬間にまた死ぬ」を書けてしまい、走査が毎フレーム回る。
+		if effect.has(BUFF_ON_DEATH):
+			var raw_death: Variant = effect.get(BUFF_ON_DEATH, null)
+			if not (raw_death is Dictionary):
+				_err(issues, skill_id, "%s.%s が Dictionary でない" % [where, BUFF_ON_DEATH])
+			else:
+				var ratio: Variant = (raw_death as Dictionary).get("revive_hp_ratio", null)
+				if not _is_num(ratio) or float(ratio) <= 0.0 or float(ratio) > 1.0:
+					_err(issues, skill_id, "%s.%s.revive_hp_ratio が 0 より大きく 1 以下の数値でない" % [
+						where, BUFF_ON_DEATH
+					])
+
+		# E65 … 免疫。付けさせない status_id の配列。
+		if effect.has(BUFF_BLOCK_STATUS):
+			var raw_block: Variant = effect.get(BUFF_BLOCK_STATUS, null)
+			if not (raw_block is Array) or (raw_block as Array).is_empty():
+				_err(issues, skill_id, "%s.%s が配列でない、または空" % [where, BUFF_BLOCK_STATUS])
+			else:
+				for item: Variant in (raw_block as Array):
+					if not (item is String) or str(item) == "":
+						_err(issues, skill_id, "%s.%s の要素が空でない文字列でない" % [where, BUFF_BLOCK_STATUS])
+						break
+
+		# E66 … 被回復増減。0 は禁止（E39 と同じ考え方）。
+		if effect.has(BUFF_HEAL_TAKEN_PCT):
+			var pct: Variant = effect.get(BUFF_HEAL_TAKEN_PCT, null)
+			if not _is_num(pct) or float(pct) != floor(float(pct)) or int(pct) == 0:
+				_err(issues, skill_id, "%s.%s が0以外の整数でない" % [where, BUFF_HEAL_TAKEN_PCT])
 
 	elif effect_type == EFFECT_DOT:
 		# E40

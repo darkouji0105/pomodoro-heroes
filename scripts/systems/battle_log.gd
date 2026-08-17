@@ -242,7 +242,30 @@ static func log_status_add(
 	})
 
 
-# why … "expire"（寿命切れ）／ "host_dead"（宿主が死んだ）
+# 介入点が効いた（PLAN 11-1・段階3の後半③）。
+#
+# kind … "death"（復活）／ "status"（付与を弾いた）／ "heal"（被回復増減）
+# status_id … 介入の原因になった状態のID。⚠ "status" のときだけ意味が違い、
+#             「弾かれたほうのID」が入る（免疫そのもののIDではない）。
+#             どちらか一方しか出せないので、事故の側（弾かれたほう）を採る。
+# detail … 種類ごとの値を文字列で。"death"=戻したHP ／ "status"=弾いた状態のID
+#          ／ "heal"=元の量と後の量
+#
+# ⚠ 種類ごとに3本作らないこと。3本にすると片方だけ直す事故になる
+#   （表示経路を _on_skill_effects_applied の1本に保ったのと同じ理由）。
+# ⚠ 介入が「効いた」ときだけ出す。素通しは出さない（毎フレーム数十行になる）。
+static func log_intervene(kind: String, unit_id: String, status_id: String, detail: String) -> void:
+	if not is_on():
+		return
+	write("intervene", {
+		"kind": kind,
+		"unit": unit_id,
+		"status": status_id,
+		"detail": detail,
+	})
+
+
+# why … "expire"（寿命切れ）／ "host_dead"（宿主が死んだ）／ "revive_clear"（復活で全消し）
 static func log_status_end(status_id: String, host_unit_id: String, why: String) -> void:
 	if not is_on():
 		return

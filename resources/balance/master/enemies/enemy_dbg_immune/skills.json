@@ -1,0 +1,22 @@
+{
+	"skill_edbg_immune": {
+		"name_key": "ui_battle_skill_edbg_immune",
+		"user_character_id": "enemy_dbg_immune",
+		"unlock_level": 1,
+		"cooldown_sec": 999.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_edbg_immune",
+				"duration_sec": 300.0,
+				"stack": "refresh",
+				"block_status": ["status_dbg_dot_long"]
+			}
+		]
+	}
+}

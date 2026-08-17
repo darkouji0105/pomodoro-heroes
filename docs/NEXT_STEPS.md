@@ -1,37 +1,44 @@
-# 次にやること：**ダメージ数値を種類で色分けする**
+# 次にやること：**変数表の追加 ＋ パッシブ ＋ コンボ**
 
 **このファイルは「次の1タスク」だけを書く。** 終わったら次のタスクの内容に書き換える。全体の状況は`PROJECT_STATUS.md`、ルールは`AGENTS.md`と`CLAUDE.md`、**ゲームの中身は`GAME_DESIGN.md`**、**決定台帳は`docs/01_plan/PLAN_SKILL_TEMPLATE.md`**。
 
 **このファイルだけ読めば着手できるように書いてある。** 過去のタスクを知らない前提で読んでよい。
 
-⚠ **これは小さい回。** 段階3の後半③（介入点3種＋復活）の**前**に挟む。**③は回復・状態付与・死亡を扱う回で、画面で起きたことを種類で見分けたくなる回そのもの**だから、先に入れておくと③の検証が軽くなる。
+これは**段階3の後半④＝最後の1つ**。①購読 → ②条件 → ③介入点3種 → **④これ**。
 
 ---
 
 ## 0. 前のタスクは終わっている（**全項目確認済み**）
 
-**段階3の後半② — 条件（2026-08-17・`5be8399`）。** 4回のテストプレイでログを直読して確認済み（`EXEC_SKILL_CONDITION.md` §9〜§12）。
+**段階3の後半③ — 介入点3種（回復・状態付与・死亡）＋ 復活（2026-08-17）。**
 
-**PLAN 10章の発火源4つが全部揃った**（自分の実行 `trigger` ／ 購読 ／ **条件** ／ 周期）。
+**PLAN 11章の「割り込む場所は4つ」のうち3つが埋まった。** ⚠ **残るはダメージだけ**（`_step_crit_override` / `_step_reduction` は**今も `pass`**・利用者ゼロ）。
 
-- 条件は `effects[].condition{}` に書く。`buff` / `dot` / `react` に載る（**`host: unit` のみ**）
-- **真である間だけ効く**（`active` フラグ）。真になった瞬間に別の状態を付ける形は採っていない
-- ⚠ **`.gd` は4回のテストを通して1行も直していない。** 直したのは検証データだけ
-- 検証用ステージ **`stage_dbg_condition`**（1波＝`enemy_dbg_cond` ／ 2波＝`enemy_dbg_dot` ＋ `enemy_dbg_buff`×2）
+| 介入点 | 利用者 | 器の書き方 |
+|---|---|---|
+| 死亡 | **復活** | `buff` の `on_death: { revive_hp_ratio }` |
+| 状態の付与 | **免疫** | `buff` の `block_status: [status_id]` |
+| 回復 | **被回復増減** | `buff` の `heal_taken_pct`（負なら低下・**和**で積む） |
+
+- ⚠ **この3欄は `buff` にしか書けない**（`type` の種類は増えていない）。⚠ **`host: unit` のみ**
+- ⚠ **`stat`/`value` を持たない buff を許した。** 代わりにロード時検証 **E63〜E67** が「何もしない buff」を赤にする
+- **死亡の走査は `battle_controller._process()` の勝敗判定の直前1箇所**（`_step_deaths()`）。⚠ **`BattleUnit.death_handled` を書いてよいのはここだけ**
+- ⚠ **`StatusRegistry._drop_dead_hosts()` は `death_handled` が真になるまで宿主の状態を捨てない**（下の 2-1）
+- 検証用ステージ **`stage_dbg_intervene`**（1波＝`enemy_dbg_revive` ／ 2波＝`enemy_dbg_immune` ／ 3波＝`enemy_dbg_heal` ＋ `enemy_dbg_recv` ＋ `enemy_dbg_buff`）
 
 ### ⚠ 検証の道具（この回でも使う）
 
 | 道具 | 使い方 |
 |---|---|
-| **`user://logs/battle_last.jsonl`** | 1行1イベント。実体は `C:/Users/<user>/AppData/Roaming/Godot/app_userdata/pomodoro-heroes/logs/`。⚠ **戦闘を始めるたびに空にして書き直す。読む前に別の戦闘を始めないこと** |
-| **冒険選択の「編成」** | ⚠ **`parties.json` はもう触らない**（2026-08-17・`76660bd`）。検証用3体はデバッグビルドでだけ候補に出る |
-| **`stage_order.json` の `"debug"` 列** | 検証用ステージ。常設・スタミナも報酬もクリア記録も付かない。⚠ **本番の `"story"` は触らない** |
+| **`user://logs/battle_last.jsonl`** | 1行1イベント。実体は `C:/Users/<user>/AppData/Roaming/Godot/app_userdata/pomodoro-heroes/logs/`。⚠ **戦闘を始めるたびに空にして書き直す。読む前に別の戦闘を始めないこと。** ⚠ **設計役はこのファイルを直接読める**（ファイルの完了条件は設計役が判定できる） |
+| **冒険選択の「編成」** | ⚠ **`parties.json` は触らない**。検証用3体はデバッグビルドでだけ候補に出る |
+| **`stage_order.json` の `"debug"` 列** | 常設・スタミナも報酬もクリア記録も付かない。⚠ **本番の `"story"` は触らない** |
 | `F3` パネル | `P` 状態一覧（**出力パネルに出る**）・`S` CDリセット・`1`〜`4` 速度（1x/2x/4x/8x・**一時停止は無い**）・`O` ログ・`K`/`L` 敵撃破・`J`/`M` 自傷・`V`/`B` 強制勝敗 |
 
-出る出来事：`battle_start` / `wave` / `cast` / `damage` / `heal` / `dot` / `react` / `status_add` / `status_end` / `status_clear` / **`condition`** / `result`。
+出る出来事：`battle_start` / `wave` / `cast` / `damage` / `heal` / `dot` / `react` / `status_add` / `status_end` / `status_clear` / `condition` / **`intervene`** / `result`。
 
 ```
-battle_controller  … 入力と表示。ノードを触る唯一の層
+battle_controller  … 入力と表示。ノードを触る唯一の層。⚠ 死亡の走査もここ
 	  ↓ cast()（スキル・通常攻撃・購読とも）
 SkillRuntime       … 待ち行列。trigger・購読の配布と発火・中断
 	  ↓ 効果1件ずつ（発火は _fire() の1本）
@@ -44,77 +51,83 @@ BattleLog          … 静的クラス。どの層からも呼べる（Autoload 
 
 ---
 
-## 1. このタスク：**ダメージ数値を種類で色分けする**
+## 1. このタスク：**変数表の残り ＋ パッシブ ＋ コンボ**
 
-### なぜ要るか（**人間が実際に困った**）
+### 1-1. 変数表の「戦闘」と「状態」の群（PLAN 5-5-2）
 
-条件の回の検証中、**「毒でダメージを受けているのか画面で分からない」**と言われた。
+`scale_from` の `source` に書ける名前を足す。⚠ **段階1の分（10軸・HP派生・`distance`）は実装済み。**
 
-**数字は出ている。** DoT のダメージも通常のスキルと同じ `_pop_damage` を通る（`battle_controller.gd:115` のコメントのとおり）。
-⚠ **問題は色が「会心か否か」の2択しかないこと**（`unit_view.gd:71`）。
+| 群 | 変数 | 状況 |
+|---|---|---|
+| 10軸 | `hp` `atk` `mag` `def` `mdef` `atkspd` `haste` `crit_rate` `crit_dmg` `spd` | ✅ 実装済み |
+| HP派生 | `hp_current` / `hp_lost` / `hp_ratio` / `hp_lost_ratio` | ✅ 実装済み |
+| 位置 | `distance` | ✅ 実装済み |
+| **戦闘** | **`elapsed_sec` / `alive_count_ally` / `alive_count_enemy` / `wave_index`** | **この回** |
+| **状態** | **`stack:<状態ID>` / `combo_count`** | **この回** |
+| 高さ | `height` / `height_ratio` | ⚠ **2次元化待ち。やらない** |
 
-```gdscript
-func pop_damage(amount: int, is_crit: bool = false) -> void:
-	if is_crit:
-		pop_label(str(amount), CRIT_COLOR, CRIT_FONT_SIZE)
-	else:
-		pop_label(str(amount), DAMAGE_COLOR, DAMAGE_FONT_SIZE)
-```
+⚠ **`stack:<状態ID>` だけ形が違う**（前方一致で状態IDを取る）。他は固定名。**`scale_sources()` の「列挙できる形」をどう保つかを先に決める**（PLAN 5-5-4 は「自由文字列にしない」と決めている）。
 
-毒の `2` も通常攻撃の `4` も**まったく同じ色・同じ大きさ**で、しかも毒のほうが数字が小さいので埋もれる。
+⚠ **`of: "source"` が未実装のまま**（`_scale_variable()` が黄を出して 0.0 を返す）。⚠ **この回で埋めるかは判断が要る**（購読の反射は `of: user` で書けているので今は困っていない）。
 
-### ⚠ 「量に応じて」ではなく「種類で」分ける
+### 1-2. パッシブ（PLAN 7-2・19章）
 
-人間の最初の言い方は「**ダメージに応じて**色を変える」だったが、**量で分けても今回の困りごとは解決しない。**
-毒が `2`、通常が `4` で**量がほぼ同じ**だから。**分けるべきは種類。**
+⚠ **PLAN は「条件発動が要求する層は `buff` / `dot` が要求する層と同一で、2回に分けて作る意味が無い」**と言っている。**器はもう全部ある**（状態・条件・購読・介入点）。
+→ ⚠ **「何が足りないか」を最初に確認すること。** 足りないのは器ではなく**「戦闘開始時に自動で付ける経路」**の可能性が高い。**`grep` で確かめてから決める。**
 
-⚠ **量による色分けは段階4の「バランスの実測」のときに効く**（`GAME_DESIGN.md` 14章）。**この回ではやらない。**
+### 1-3. コンボ（PLAN 15章・仕様は `GAME_DESIGN.md` 3-4）
+
+⚠ **`host: battle` に乗る。** **購読が今 `host: unit` のみ**（`skill_schema.gd` の E51 が赤で弾く）なので、**そこを広げるのが本体**。
+⚠ **`combo_count` の変数（1-1）と対になる。** 片方だけ作らないこと。
 
 ### 着手前に人間が決めること
 
-- **どの種類に分けるか**（通常 ／ 会心 ／ **DoT** ／ 回復 ／ 味方が受けた・敵が受けたの別 ／ 物理と魔法の別）
-- **色をどこに置くか**
-  ⚠ `AGENTS.md` は「**個別シーンで色を直接指定しない。`theme/main_theme.tres` に一元化**」と言っている。
-  だが `unit_view.gd` は既に `DAMAGE_COLOR` / `CRIT_COLOR` / `JUST_COLOR` を**スクリプト内の定数で持っている**。
-  **既存に合わせるのか、`Balance` の `.tres` に出すのかを決める**（数値管理ルール的には `.tres` が筋だが、色は数値調整とは別物）
-- **大きさも変えるか**（今は `DAMAGE_FONT_SIZE` / `CRIT_FONT_SIZE` / `JUST_FONT_SIZE` の3つ）
+- **3つ全部を1回でやるか、割るか**（⚠ **③は「介入点3種＋復活」で1回だった。④は範囲が広い**）
+- **`stack:<状態ID>` の書き方**（前方一致か、`{ "source": "stack", "status_id": "..." }` の入れ子か）
+- **`of: "source"` をこの回で埋めるか**
+- **パッシブを「戦闘開始時に付ける状態」として作るか、別の仕組みにするか**
 
 ---
 
 ## 2. ⚠ 事故りやすい箇所
 
-### 2-1. ⚠ 表示側に「DoT かどうか」がまだ流れていない（**この回の本体**）
+### 2-1. ⚠ 死亡まわりの順序を崩さない（**③で苦労した所**）
 
-`_on_skill_effects_applied()`（`battle_controller.gd:853`）は results から **`amount` と `is_crit` しか読んでいない。**
+`StatusRegistry.tick()` の**先頭**の `_drop_dead_hosts()` は、**`BattleUnit.death_handled` が真になるまで宿主の状態を捨てない。**
+⚠ **この1条件を消すと、通常攻撃で死んだ相手の復活が黙って動かなくなる。** エラーは1つも出ない。
 
-```gdscript
-_pop_damage(target, int(r.get("amount", 0)), bool(r.get("is_crit", false)))
+`battle_controller._process()` の並びは**この順でなければならない**：
+
+```
+_skill_runtime.tick()  … スキル
+_status.tick()         … 状態（先頭で _drop_dead_hosts）
+_step_deaths()         … ⚠ 死亡の介入点。勝敗判定より先
+勝敗判定
 ```
 
-results の形は `{ unit_id, amount, is_heal, is_crit }` ＋ ダメージのときだけ `{ source_unit_id, attack_type }`。
-⚠ **「DoT か」を示す欄が無い。** `BattleLog` は `log_results(fired, src, dot_status_id)` の**引数**で外から区別している。
+### 2-2. ⚠ 変数表に「読むと値が変わるもの」を入れない（PLAN 5-5-4）
 
-→ **`SkillResolver` の戻り値に1欄足すことになる。**
-⚠ **既存の4キー（`unit_id` / `amount` / `is_heal` / `is_crit`）の名前も意味も変えないこと**（`skill_resolver.gd:19` の注記。`battle_controller` がそのまま読む）。**足すのは無害。**
+> **読んでも値が変わらないものだけを入れる。**
 
-### 2-2. ⚠ 表示の経路を2本にしない
+- ✅ 乱数は**入れてよい**（1発につき第1段で1回しか評価されないため・PLAN 11-0）
+- ❌ **「前回からの差分」「読むと消費されるもの」**。「前回」がどこを指すか決まらない。**それは変数ではなく状態のカウンター**（PLAN 13-1）
 
-`StatusRegistry.effects_applied` と `SkillRuntime.effects_applied` は**わざと同じ形にして、`_on_skill_effects_applied` の1本に繋いである**（`battle_controller.gd:115-119`）。
-⚠ **DoT 専用の表示シグナルを足さないこと。** 経路が2本になると、片方だけ直す事故になる。
+### 2-3. ⚠ 変数名のtypoは「黙って0」になる
 
-### 2-3. ⚠ `_pop_damage` の呼び出し元は4箇所ある
+**ロード時に全件突き合わせて `push_error`**（PLAN 5-5-4）。`scale_sources()` に足し忘れると、**なぜか弱いスキル**ができてエラーが出ない。
 
-`battle_controller.gd` の **555 / 1149 / 1162 / 1183**。
-⚠ **引数を増やすなら既定値を付ける**（`is_crit` が既にその形）。付けないと3箇所が壊れる。
-⚠ 1149 / 1162 / 1183 は **F3 パネルの `J` / `M`（デバッグ用の自傷）** 経路。**リリース前に消すもの**（宿題16）。
+### 2-4. ⚠ 評価は**発火時**（PLAN 5-5-3）
 
-### 2-4. ⚠ 回復の数字は別経路
+`multiplier` は cast 時、**変数は発火時**。⚠ **`fold_charge_ratio()` の時点で読まないこと。**
 
-`_pop_damage` とは経路を分けてある（`battle_controller.gd:919` の注記）。**回復も色分けするなら、そちらも見ること。**
+### 2-5. ⚠ 効果の中の欄に「知らない欄」の検出が無い
 
-### 2-5. ⚠ 数字は `tr()` を通さない
+E26（`skill_schema.gd:363`）が見ているのは**スキル直下**（`SKILL_FIELDS_KNOWN`）だけ。**効果の中の typo は今も無音で無視される。**
 
-数値のみの表示は翻訳しない（`AGENTS.md`）。**`ja.csv` に行を足す必要は無い**（「ジャスト」のような文字を足すなら別）。
+### 2-6. ⚠ 検証用の敵を作るときの定石（③で2回踏んだ）
+
+- **敵の `cooldown_sec` が `attack_interval_sec` より短いと、その敵は通常攻撃を1度もしない**（`_try_enemy_skill()` が true を返すと `_fire_basic_attack()` へ行かない）
+- **敵はスキルを「射程内に入った最初の攻撃拍」でしか撃たない。** プレイヤーのほうが先に撃てるので、**「敵のバフが先に付く」前提の検証は成立しにくい**
 
 ---
 
@@ -122,13 +135,15 @@ results の形は `{ unit_id, amount, is_heal, is_crit }` ＋ ダメージのと
 
 | | 事実 |
 |---|---|
-| 数字を浮かべる場所 | `unit_view.gd` の `pop_label(text, color, font_size)` の1本。`pop_damage()` / `pop_just()` がそれを呼ぶ |
-| ⚠ ラベルの親 | **自分の子ではなく親コンテナに乗せている。** とどめの一撃で `hide()` された瞬間に文字も消えるのを避けるため（`unit_view.gd:84` の注記）。**変えないこと** |
-| 色と大きさの定数 | `unit_view.gd` に `DAMAGE_COLOR` / `CRIT_COLOR` / `JUST_COLOR`、`DAMAGE_FONT_SIZE` / `CRIT_FONT_SIZE` / `JUST_FONT_SIZE` |
-| DoT の通り道 | `StatusRegistry._fire_intervals()` → `SkillResolver.resolve()` → `effects_applied` → `_on_skill_effects_applied()` → `_pop_damage()` |
-| ダメージの式 | `BattleFormula.damage()` ＝ `max(1, floor(power × multiplier × 100 / (100 + defense)))`。**防御は除算** |
-| ⚠ 数字の実測 | 検証用キャラの `atk` は 1 だが**与ダメージは 4**（研究・装備が乗る）。敵 `atk` 5 → **4**（味方の `def` が 4）。**絶対値で期待値を書かないこと。差で見る** |
-| 行数 | `game_manager.gd` **2956** ／ `battle_controller.gd` **1215** ／ `skill_schema.gd` **805** ／ `status_registry.gd` **849** ／ `master_data_loader.gd` **597** ／ `skill_resolver.gd` 548 ／ `skill_runtime.gd` 536 ／ `battle_debug_panel.gd` 390 ／ `adventure_select.gd` **360** ／ `battle_log.gd` 290 ／ `unit_view.gd` 約120 ／ `battle_formula.gd` 67 |
+| 変数の評価 | `skill_resolver.gd` の `_scale_variable(source, of, user, target)` の1本。⚠ **`distance` だけ `of` を読まない**（2者の間の値） |
+| 変数の一覧 | `skill_schema.gd` の `scale_sources()`。**10軸は `GameManager.get_stat_keys()` から組み立てている**（2本目の配列を作らない） |
+| ⚠ 未実装 | `of: "source"` は黄を出して 0.0 を返す |
+| 介入点 | ダメージ＝`skill_resolver.gd`（**2本とも `pass`**）／ 回復＝`_step_heal_taken()` ／ 状態付与＝`StatusRegistry._step_status_block()` ／ 死亡＝`StatusRegistry._step_death()` |
+| ⚠ 購読の制限 | **`host: unit` のみ**（E51 が赤で弾く）。**コンボ（`host: battle`）はここを広げる** |
+| ⚠ DoT と購読 | **DoT の周期ダメージでは購読が発火しない**（`StatusRegistry` が `SkillRuntime` を通らない） |
+| ⚠ 数字の実測 | 検証用キャラの `atk` は 1 だが**与ダメージは 4**。**絶対値で期待値を書かないこと。差で見る** |
+| マスターの件数 | スキル **50件** ／ 通常攻撃 **19件**（⚠ 起動ログの期待値。**黄1本＝`skill_dbg_dot_odd` の端数が出るのが正解**） |
+| 行数 | `game_manager.gd` **2956** ／ `battle_controller.gd` **1279** ／ `status_registry.gd` **1060** ／ `skill_schema.gd` **863** ／ `master_data_loader.gd` 601 ／ `skill_resolver.gd` **602** ／ `skill_runtime.gd` 536 ／ `battle_debug_panel.gd` 390 ／ `adventure_select.gd` 360 ／ `battle_log.gd` **313** ／ `unit.gd` **261** ／ `unit_view.gd` 120 ／ `adventure_config.gd` 107 ／ `battle_formula.gd` 67 |
 
 ---
 
@@ -136,10 +151,9 @@ results の形は `{ unit_id, amount, is_heal, is_crit }` ＋ ダメージのと
 
 | 順 | 実装するもの | なぜその順か |
 |---|---|---|
-| **次** | **③＝介入点3種（回復・状態付与・死亡）＋ 復活** | ⚠ **死亡の介入点は全滅判定より先に置く**（PLAN 11-1） |
-| その次 | **④＝変数表の追加 ＋ パッシブ ＋ コンボ** | 購読と条件の両方が要る |
-| 3 | `mode: area` ／ `phases[]` / `recast` ／ `spawn` ／ **`point` の条件（オーラ）** | |
-| 4 | **バランスの実測**（⚠ ここで「量による色分け」も効く） | 構造が出揃ってから |
+| **次** | `mode: area` ／ `phases[]` / `recast` ／ `spawn` ／ **`point` の条件（オーラ）** | 段階4〜6 |
+| その次 | **ダメージの介入点の利用者**（シールド・軽減・反射・貫通%・確定クリティカル） | 受け口は段階1からある |
+| 3 | **バランスの実測**（⚠ ここで「量による色分け」も効く） | 構造が出揃ってから |
 
 ---
 
@@ -147,28 +161,24 @@ results の形は `{ unit_id, amount, is_heal, is_crit }` ＋ ダメージのと
 
 ### ドキュメントの「実装済み」を信じない
 
-**ズレが10回起きている。** `grep`で関数の中身を見てから判断する。**勝手に直さず報告する。**
+**ズレが11回起きている。** `grep`で関数の中身を見てから判断する。**勝手に直さず報告する。**
+⚠ **③でも出た。** 「介入点の受け口は段階1で実装済み」は正しいが**中身は `pass` 2本**（＝利用者ゼロ）。
+
+### PLAN の「保証される」も確かめる
+
+⚠ **③で踏んだ。** PLAN 14-4 の「復活の『1回だけ』は全消しで自動保証される。カウンター不要」は、実際には**「付与1回につき復活1回」**でしかなく、**付与元が撃ち直せば無限に復活した。**
 
 ### 関数を足す前に `grep` する
 
-既にある `_exit_tree()` を見ずに2本目を宣言してパースエラーになった。
 **足す前に `grep -n "func <名前>"`、足したあとにも `grep` で当たったか確認する。**
 
 ### ⚠ Windows の bash で `cat >>` すると追記分が CRLF になる
 
 元が LF の JSON に混ざって壊れる。**JSON に追記したら改行コードを確かめる。**
 
-### ⚠ `battle_last.jsonl` は戦闘のたびに上書きされる（**条件の回で踏んだ**）
+### ⚠ `battle_last.jsonl` は戦闘のたびに上書きされる
 
-本編を回してログを読むつもりが、そのあと検証用ステージに入って**消えた。**
 **読む前に別の戦闘を始めないこと。**
-
-### ⚠ 検証データの数字を「意図」と書く前に、射程と時間を計算する（**条件の回で2回踏んだ**）
-
-- **近接（射程50）の敵を、射程300の味方の前に置いた** → 射程に入る前に死んでスキルを撃たなかった
-- **敵を2体にしたら状態が2件付き**、1件目が切れても2件目が残って条件が偽に戻らなかった
-- ⚠ **条件バフが効くと味方が強くなり、戦闘が短くなり、検証の窓が縮む**（負のフィードバック）。
-  「敵のHPを増やす」で押し切ろうとすると、増やすほど強化後の火力で削られるので効きが鈍い
 
 ### 正常系に警告を付けない・`print` を増やさない
 
@@ -181,49 +191,56 @@ results の形は `{ unit_id, amount, is_heal, is_crit }` ＋ ダメージのと
 ### Godotを起動できない（設計役）
 
 ⚠ **「動きました」と書かない。** 完了条件は「ログ」「ファイル」「画面」の3つに分け、**同じことを2箇所に書かない。**
-⚠ **`battle_last.jsonl` で判定できる項目は「ファイル」に書く。**
-⚠ **ただしこの回は「色」なので、画面の項目が多くなるのが正しい。** 無理にファイルへ寄せないこと。
+⚠ **「ログ」と一部の「ファイル」は Ziva に渡せる**（③では `EXEC_INTERVENTION_ZIVA_CHECK.md` として切り出した）。**画面の項目は人間だけ。**
 
 ---
 
 ## 6. 引き継いだ宿題
 
-1. ⚠ **多段の2発目に投射物が出ない**（`skill_rapid_volley` の `delay:0.35`）
-2. ⚠ **`x is Node and is_instance_valid(x)` の順序が逆な箇所が3つ**（`battle_controller.gd` 163 / 251 / 493行付近）
-3. ⚠ **僧侶の範囲攻撃は `sort: all` なので射程外にも当たる**
-4. ⚠ **`atk_multiplier` が常に 1.0**
-5. ⚠ **`stack` の5部品のうち4つが未実装**（上限・消え方・再付与・閾値）。⚠ **条件の回で `status_count` を作らなかったのはこれが理由**（上限が無いまま閾値が書けると、一度真になったら二度と偽に戻らない）
-6. ⚠ **`scale_from` は「和」しか書けない**
-7. ⚠ **PLAN 5-2 の効果の欄の表に `delivery` / `stack` / `status_id` / `until` / `condition` が無い**
-8. ⚠ **PLAN 10-4 が式の二重経路に触れていない**
-9. **`_find_unit()` が3ファイルに同じ形で3本ある**
-10. **死亡中にCDが回る**
-11. ⚠ **`target.range` が47件とも未設定**
-12. ⚠ **コメント中の「`skills.json`」が8ファイルに残っている**
-13. ⚠ **フォルダを増やしたら定数に1行足す**（キャラ＝`CHARACTER_DIRS_REQUIRED` ／ 敵＝`ENEMY_DIRS_REQUIRED`（今は空）／ 検証用は `*_OPTIONAL`）
-14. **`adventure_config.tres` が空**
-15. **状態のUIが無い**（F3 パネルと `P` キーだけ）
-16. **検証用のものはリリース前に消す**（デバッグオーバーレイ・デバッグパネル・`P`キー・`tests/battle/`・検証用キャラ3体・検証用スキルと状態・**戦闘ログ一式**・**検証用の敵7体と `enemies/` フォルダ**・**`"debug"` 列と `adventure_select` の3関数**・**`adventure_select._collect_party_candidates()` の `OS.is_debug_build()` 分岐**（⚠ 編成の行そのものは残す）・**`stage_dbg_condition`**）
-17. ⚠ **DoT の周期ダメージでは購読が発火しない**（`StatusRegistry` が `SkillRuntime` を通らない）
-18. ⚠ **`scale_from` の `of: "source"` が未実装**
-19. ⚠ **購読は `host: unit` のみ**（コンボ・罠はまだ載らない）
-20. ⚠ **足した7件目だけ JSON のインデントが1タブ深い**（3ファイル・見た目だけ）
-21. **戦闘ログの完了条件15（落ちた戦闘）が未検証**
-22. ⚠ **`adventure_select.gd:4` のヘッダコメントが実装と逆**（スタミナを減らすのは `battle_controller._consume_stage_stamina()`）
-23. **購読から生まれた `cast` の `targets` が空配列**（対象が確定する前にログを出しているため）
-24. **古いセーブに `stage_dbg` のクリア記録が残っている**（改名前のID。マスターに無いので実害なし）
-25. ⚠ **`AGENTS.md` の「ツールの制約」に CRLF の話を足すかは人間の判断**
-26. ⚠ **NEW：`stages.json` の `party_id` は戦闘のメンバーを決めない**（`BattleLog` の見出しだけ）。書き換えても何も起きない。将来「このステージは固定メンバー」をやるなら読む側を戻す
-27. ⚠ **NEW：`CLAUDE.md` 4番の「リリース後にIDを改名できない」に `character_id` が加わった**（改名すると編成が黙って既定に戻る）
-28. ⚠ **NEW：`status_add` の数え方。** 「切れてから付け直す」は `refresh` の貼り直しではなく**毎回が新しい件**。**同じ `status`+`unit`+`src` でまとめて数えてはいけない。** 引くのは「生きている間に上書きされた回数」だけ
-29. ⚠ **NEW：条件が偽の間の DoT は発火が失われる**（時計は進む）。「止まる」ほうが自然な効果を作りたくなったら、`elapsed` を止める2本目の時計ではなく **`interval` の基準を別に持つ形**で設計し直す
-30. ⚠ **NEW：`point` の条件（オーラ）は真偽が「状態 × ユニットの対」ごとになる。** 記憶の持ち方もログの持ち方も、今の `active`（状態1件につき1つ）では足りない
-31. **NEW：所持キャラの概念が無い。** 編成の候補に全キャラが出る
-32. **NEW：`party_changed` シグナルを足していない**（購読者が冒険選択の1画面だけのため）。**パーティ選択画面を作るときに足す**（そのとき `AGENTS.md` のシグナル表にも1行）
-33. **NEW：Ziva が作った `.bak` が7件残っている**（`localization/` と `resources/balance/master/` 配下）。**消すのは人間の判断**
+**⚠ 全件は `PROJECT_STATUS.md`「溜まっている宿題」を見ること。** ここには**この回に関係するものだけ**を写す。
+
+### 器の穴（この回で埋まりうるもの）
+
+1. ⚠ **`scale_from` は「和」しか書けない**（`multiplier × Σ(weight × 変数)`）。**`atk × (1 + hp_lost_ratio)` が書けない**
+2. ⚠ **`scale_from` の `of: "source"` が未実装**
+3. ⚠ **PLAN 5-5-2 の「10軸の想定レンジ 50〜500」が実データと合わない**（Lv1 は `atk 14〜18`）。**「割合の `weight` は数百」をそのまま使うと式が割合に支配される**
+4. ⚠ **購読は `host: unit` のみ**（コンボ・罠はまだ載らない）
+5. ⚠ **DoT の周期ダメージでは購読が発火しない**
+6. ⚠ **`stack` の5部品のうち4つが未実装**（上限・消え方・再付与・閾値）。⚠ **`stack:<状態ID>` の変数を作るなら「上限」が要る**（上限が無いまま閾値が書けると、一度真になったら二度と偽に戻らない）
+7. ⚠ **`point` の条件（オーラ）は真偽が「状態 × ユニットの対」ごとになる。** 今の `active`（状態1件につき1つ）では足りない
+
+### PLAN の記述の穴（③で見つけた）
+
+8. ⚠ **PLAN 11-1 は「全滅判定より先」としか書いていない。** 実際は「状態の掃除より先」も要る
+9. ⚠ **PLAN 14-4 の復活「1回だけ」は「付与1回につき1回」でしかない**
+10. ⚠ **PLAN 5-2 の効果の欄の表に `delivery` / `stack` / `status_id` / `until` / `condition` / `on_death` / `block_status` / `heal_taken_pct` が無い**
+11. ⚠ **PLAN 10-4 が式の二重経路に触れていない**
+12. ⚠ **PLAN 21章の未確定4件が、実は段階1のEXECで決着している**
+
+### 器の作り
+
+13. ⚠ **`buff` の介入の欄が3つ兄弟。4つ目が来たら `intervene{}` の入れ子に畳む**
+14. ⚠ **効果の中の欄に「知らない欄」の検出が無い**（typo が無音）
+15. ⚠ **ダメージの介入点だけ利用者ゼロ**（`_step_crit_override` / `_step_reduction` は `pass`）
+16. ⚠ **「死亡時発動」と「他人の蘇生」はまだ書けない**
+17. **死亡中にCDが回る**（PLAN 14-4 は「推奨：死亡中は停止」）
+18. **`_find_unit()` が3ファイルに同じ形で3本ある**
+19. ⚠ **`target.range` が50件とも未設定**
+20. ⚠ **`atk_multiplier` が常に 1.0**
+21. ⚠ **多段の2発目に投射物が出ない**（`skill_rapid_volley` の `delay:0.35`）
+22. ⚠ **`x is Node and is_instance_valid(x)` の順序が逆な箇所が3つ**
+
+### 片付け
+
+23. **検証用のものはリリース前に消す**（⚠ **`stage_dbg_intervene` と敵3体＝`enemy_dbg_revive` / `_immune` / `_recv` が増えた**）
+24. ⚠ **フォルダを増やしたら定数に1行足す**（`CHARACTER_DIRS_REQUIRED` / `ENEMY_DIRS_*`）。**足し忘れると無音で消える**
+25. **状態のUIが無い**（F3 パネルと `P` キーだけ）
+26. **Ziva が作った `.bak` が7件残っている**。**消すのは人間の判断**
+27. ⚠ **`AGENTS.md` に足すか人間が判断するもの**：CRLF の話 ／ 「数値ポップの色は `Balance.adventure`」の整理
 
 ---
 
 ## 7. 終わったあと
 
-**このファイルを、次のタスク（③＝介入点3種＋復活）の内容に書き換える。**
+**このファイルを、次のタスク（`mode: area` ／ `phases[]` ／ `spawn` ／ `point` の条件）の内容に書き換える。**
+⚠ **段階3はこれで終わり。** 次からは段階4以降。

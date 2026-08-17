@@ -267,3 +267,10 @@ ui_battle_enemy_dbg_cond,検証・条件
 ui_battle_skill_edbg_cond_hp,窮鼠の牙（敵）
 ui_battle_skill_dbg_cond_poison,毒への備え
 ui_stage_dbg_condition,検証用・条件
+ui_battle_enemy_dbg_revive,検証・復活する敵
+ui_battle_enemy_dbg_immune,検証・毒に免疫
+ui_battle_enemy_dbg_recv,検証・被回復低下
+ui_battle_skill_edbg_revive,不死の誓い（敵）
+ui_battle_skill_edbg_immune,毒への抵抗（敵）
+ui_battle_skill_edbg_recv_down,癒し拒み（敵）
+ui_stage_dbg_intervene,検証用・介入点

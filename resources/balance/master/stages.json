@@ -55,5 +55,15 @@
 	  { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_dbg_cond", "count": 1 } ] },
 	  { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_dbg_dot", "count": 1 }, { "enemy_type_id": "enemy_dbg_buff", "count": 2 } ] }
 	]
+  },
+  "stage_dbg_intervene": {
+	"name_key": "ui_stage_dbg_intervene",
+	"party_id": "party_default",
+	"rewards": { "gold": 1 },
+	"waves": [
+	  { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_dbg_revive", "count": 1 } ] },
+	  { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_dbg_immune", "count": 1 } ] },
+	  { "wave_index": 3, "enemies": [ { "enemy_type_id": "enemy_dbg_heal", "count": 1 }, { "enemy_type_id": "enemy_dbg_recv", "count": 1 }, { "enemy_type_id": "enemy_dbg_buff", "count": 1 } ] }
+	]
   }
 }

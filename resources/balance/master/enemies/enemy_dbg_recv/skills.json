@@ -1,0 +1,22 @@
+{
+	"skill_edbg_recv_down": {
+		"name_key": "ui_battle_skill_edbg_recv_down",
+		"user_character_id": "enemy_dbg_recv",
+		"unlock_level": 1,
+		"cooldown_sec": 999.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_edbg_recv_down",
+				"duration_sec": 300.0,
+				"stack": "refresh",
+				"heal_taken_pct": -50
+			}
+		]
+	}
+}

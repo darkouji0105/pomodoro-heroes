@@ -78,6 +78,16 @@ var basic_attack: Dictionary = {}
 
 # --- 戦闘中に変わる状態 ---
 var hp: int = 0
+# 死亡の介入点（復活）を通したか（PLAN 11-1・段階3の後半③）。
+#
+# ⚠ 書いてよいのは BattleController._step_deaths() だけ。他所から触らないこと。
+# ⚠ 復活したら false に戻す。戻さないと2回目の死亡で介入点を通らない。
+#   戻すのは走査の側（生きているなら false）。ここに戻す処理を書かない。
+# ⚠ StatusRegistry._drop_dead_hosts() がこれを読む。真になるまで宿主の状態を
+#   捨てない。捨てられると、通常攻撃で死んだ相手の復活が走査に着く前に消える
+#   （EXEC_SKILL_INTERVENTION.md §1-1）。
+# ⚠ セーブに入らない。ウェーブ交代・リトライは BattleUnit を作り直すので既定値でよい。
+var death_handled: bool = false
 var atk_multiplier: float = 1.0
 var attack_timer: float = 0.0
 var x: float = 0.0

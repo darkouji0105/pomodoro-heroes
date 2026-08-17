@@ -166,6 +166,28 @@ func add(
 	if not _fill_condition(entry, effect):
 		return false
 
+	# --- 6-3. 状態付与の介入点（PLAN 11-1）。免疫・CC耐性・デバフ無効はここ ---
+	#
+	# ⚠ ここまで状態を1つも触っていない。弾くならこの位置（CLAUDE.md 6番）。
+	# ⚠ 「付けさせない」であって「付けてから剥がす」ではない。登録してから消すと
+	#   status_add がログに出て「付いたのに消えた」と読める。
+	# ⚠ 弾くのは host: unit だけ。battle / point は宿主が居らず、誰の免疫が
+	#   効くのか決まらない。
+	if host == SkillSchema.HOST_UNIT:
+		var block_ctx: Dictionary = {
+			"status_id": status_id,
+			"kind": kind,
+			"host_unit_id": host_unit.unit_id,
+			"blocked": false,
+			"blocked_by": "",
+		}
+		_step_status_block(block_ctx)
+		if bool(block_ctx["blocked"]):
+			BattleLog.log_intervene(
+				"status", str(block_ctx["host_unit_id"]), status_id, str(block_ctx["blocked_by"])
+			)
+			return false
+
 	# --- 7. ここまで状態を1つも触っていない。ここで初めて入れる ---
 	#
 	# ⚠ 同一性のキーは (宿主, status_id, 付与者) の3つ組（決定1-5）。
@@ -256,25 +278,76 @@ func _make_entry(
 		"active": true,
 		# 汎用カウンター（PLAN 13-1）。⚠ 呼び出し元はまだ無い（段階3の後半）。
 		"counter": 0,
+		# 介入点（PLAN 11-1・段階3の後半③）。buff のときだけ中身が入る。
+		# ⚠ 持たない件にも必ず持たせること。持たない件があると query() が
+		#   その件だけ黙って外す（"active" の注記と同じ）。
+		"on_death": {},
+		"block_status": [],
+		"heal_taken_pct": 0,
 	}
 
 
+# buff の欄を埋める。
+#
+# ⚠ stat / value は「書かれているときだけ」必須になる（段階3の後半③で緩めた）。
+#   復活・免疫・被回復増減は能力値を動かさないので stat を持たない。
+#   代わりに介入の欄（on_death / block_status / heal_taken_pct）を持つ。
+# ⚠ どちらも無い buff は false。ロード時検証（E63）と二重に守る。
+#   ここを省くと、stat の typo が「介入だけを持つ buff」として黙って通る。
 func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
-	var stat_key: String = str(effect.get("stat", ""))
-	if not (stat_key in GameManager.get_stat_keys()):
-		push_error("[StatusRegistry] buff の stat が10軸に無い: '%s'" % stat_key)
+	var has_stat: bool = effect.has("stat") or effect.has("value")
+	if has_stat:
+		var stat_key: String = str(effect.get("stat", ""))
+		if not (stat_key in GameManager.get_stat_keys()):
+			push_error("[StatusRegistry] buff の stat が10軸に無い: '%s'" % stat_key)
+			return false
+		# ⚠ hp は禁止。max_hp を計算し直さないため（unit.gd の refresh_derived()）。
+		if stat_key == GameStateKeys.STAT_HP:
+			push_error("[StatusRegistry] buff の stat に hp は書けない（max_hp を再計算しないため）")
+			return false
+		# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
+		var value: int = int(effect.get("value", 0))
+		if value == 0:
+			push_error("[StatusRegistry] buff の value が0（何も起きない状態は書けない）")
+			return false
+		entry["stat"] = stat_key
+		entry["value"] = value
+
+	# 介入点（PLAN 11-1）。⚠ duplicate(true) で複製する（_fill_react と同じ理由。
+	#   参照で握ると、器が触ったときにマスターごと書き変わる）。
+	var has_intervene: bool = false
+	if effect.has(SkillSchema.BUFF_ON_DEATH):
+		var raw_death: Variant = effect.get(SkillSchema.BUFF_ON_DEATH, null)
+		if not (raw_death is Dictionary):
+			push_error("[StatusRegistry] buff の on_death が Dictionary でない")
+			return false
+		# ⚠ 0 以下・1 超は弾く。0 だと復活した瞬間にまた死に、走査が毎フレーム回る。
+		var ratio: float = float((raw_death as Dictionary).get("revive_hp_ratio", 0.0))
+		if ratio <= 0.0 or ratio > 1.0:
+			push_error("[StatusRegistry] on_death.revive_hp_ratio が 0 より大きく 1 以下でない: %f" % ratio)
+			return false
+		entry["on_death"] = (raw_death as Dictionary).duplicate(true)
+		has_intervene = true
+
+	if effect.has(SkillSchema.BUFF_BLOCK_STATUS):
+		var raw_block: Variant = effect.get(SkillSchema.BUFF_BLOCK_STATUS, null)
+		if not (raw_block is Array) or (raw_block as Array).is_empty():
+			push_error("[StatusRegistry] buff の block_status が配列でない、または空")
+			return false
+		entry["block_status"] = (raw_block as Array).duplicate(true)
+		has_intervene = true
+
+	if effect.has(SkillSchema.BUFF_HEAL_TAKEN_PCT):
+		var pct: int = int(effect.get(SkillSchema.BUFF_HEAL_TAKEN_PCT, 0))
+		if pct == 0:
+			push_error("[StatusRegistry] buff の heal_taken_pct が0（何も起きない介入は書けない）")
+			return false
+		entry["heal_taken_pct"] = pct
+		has_intervene = true
+
+	if not has_stat and not has_intervene:
+		push_error("[StatusRegistry] buff に stat / value も介入の欄も無い（何も起きない状態は書けない）")
 		return false
-	# ⚠ hp は禁止。max_hp を計算し直さないため（unit.gd の refresh_derived()）。
-	if stat_key == GameStateKeys.STAT_HP:
-		push_error("[StatusRegistry] buff の stat に hp は書けない（max_hp を再計算しないため）")
-		return false
-	# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
-	var value: int = int(effect.get("value", 0))
-	if value == 0:
-		push_error("[StatusRegistry] buff の value が0（何も起きない状態は書けない）")
-		return false
-	entry["stat"] = stat_key
-	entry["value"] = value
 	return true
 
 
@@ -464,6 +537,17 @@ func _drop_dead_hosts(touched: Dictionary) -> void:
 			continue
 		var host: BattleUnit = _find_unit(str(entry.get("host_unit_id", "")))
 		if host != null and host.is_alive():
+			rest.append(entry)
+			continue
+		# ⚠ 死んだが、死亡の介入点をまだ通していない → このフレームは捨てない。
+		#   捨てると、通常攻撃で死んだ相手の復活が、走査（BattleController の
+		#   勝敗判定の直前）に着く前に消える。この関数は tick() の先頭で走り、
+		#   走査より先に通るため（EXEC_SKILL_INTERVENTION.md §1-1）。
+		# ⚠ 走査を tick() の前に動かしても直らない。DoT で死ぬ経路は tick() の
+		#   中（_fire_intervals）なので、今度はそちらが1フレーム遅れて
+		#   次のフレームのここに食われる。鏡写しに壊れるだけ。
+		# ⚠ 介入点が処理済みの印を付けた次のフレームに、いつもどおり捨てる。
+		if host != null and not host.death_handled:
 			rest.append(entry)
 			continue
 		touched[str(entry.get("host_unit_id", ""))] = true
@@ -660,6 +744,103 @@ func _expire(touched: Dictionary) -> void:
 
 
 # ============================================================
+# 介入点（PLAN 11-1・段階3の後半③）
+# ============================================================
+#
+# 割り込む場所は4つ。ダメージだけは SkillResolver 側に受け口がある
+# （_step_crit_override / _step_reduction・利用者はまだゼロ）。
+# ここに置くのは「状態の付与」と「死亡」の2つ。回復は SkillResolver。
+#
+# ⚠ 作り方をダメージと揃えること（PLAN 11-1「ブレると4箇所バラバラになる」）。
+#   _step_* は ctx: Dictionary を1つ取って書き換える。戻り値で分岐しない。
+#   呼ぶ側が ctx の欄を読んで判断する。
+# ⚠ どの _step_* も active が偽の件を見ないこと。条件付きの免疫・復活が
+#   偽の間に効いてしまう（真である間だけ効く・段階3の後半②の決定）。
+
+
+# 状態の付与を弾くか（免疫・CC耐性・デバフ無効）。
+#
+# ctx … { status_id, kind, host_unit_id, blocked, blocked_by }
+# 宿主に付いている buff の block_status に status_id が入っていれば弾く。
+func _step_status_block(ctx: Dictionary) -> void:
+	var incoming: String = str(ctx.get("status_id", ""))
+	var host_unit_id: String = str(ctx.get("host_unit_id", ""))
+	if incoming == "" or host_unit_id == "":
+		return
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) != KIND_BUFF:
+			continue
+		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
+			continue
+		if str(entry.get("host_unit_id", "")) != host_unit_id:
+			continue
+		if not bool(entry.get("active", true)):
+			continue
+		var blocked: Array = entry.get("block_status", []) as Array
+		if incoming in blocked:
+			ctx["blocked"] = true
+			ctx["blocked_by"] = str(entry.get("status_id", ""))
+			return
+
+
+# 死亡に介入するか（復活・HP1で耐える）。
+#
+# ctx … { unit, revived, revive_hp, by }
+# 宿主に付いている buff の on_death を探す。
+# ⚠ 最初に見つかった1件で決める。2件目以降は見ない（全消しで両方消えるため、
+#   どちらが効いたかを競わせても次の死亡では両方無い）。
+func _step_death(ctx: Dictionary) -> void:
+	var unit: BattleUnit = ctx.get("unit", null)
+	if unit == null:
+		return
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) != KIND_BUFF:
+			continue
+		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
+			continue
+		if str(entry.get("host_unit_id", "")) != unit.unit_id:
+			continue
+		if not bool(entry.get("active", true)):
+			continue
+		var on_death: Dictionary = entry.get("on_death", {}) as Dictionary
+		if on_death.is_empty():
+			continue
+		var ratio: float = float(on_death.get("revive_hp_ratio", 0.0))
+		if ratio <= 0.0:
+			continue
+		# ⚠ 最低1。0 だと復活した直後に死に、走査が毎フレーム回る。
+		ctx["revived"] = true
+		ctx["revive_hp"] = maxi(1, int(floor(float(unit.max_hp) * ratio)))
+		ctx["by"] = str(entry.get("status_id", ""))
+		return
+
+
+# 死亡の介入点を1体ぶん通す。介入したら true。
+#
+# ⚠ 呼ぶのは BattleController._step_deaths() の1箇所だけ（PLAN 11-1）。
+#   ダメージを与える各所に2本目の判定を作らないこと。
+# ⚠ 順序は「復活の効果が発火 → その後に全消し」（PLAN 14-4）。逆にすると
+#   復活を与えていた状態が先に消えて発火しない。
+# ⚠ 「1回だけ」はこの全消しが保証する。カウンターを足さないこと（PLAN 14-4）。
+# ⚠ CD はリセットしない（PLAN 14-4）。ここで skill_cooldowns を触らないこと。
+func resolve_death(unit: BattleUnit) -> bool:
+	if unit == null:
+		return false
+	var ctx: Dictionary = { "unit": unit, "revived": false, "revive_hp": 0, "by": "" }
+	_step_death(ctx)
+	if not bool(ctx["revived"]):
+		return false
+
+	# ⚠ hp を直接書かない。heal() を通す（unit.gd「必ず take_damage / heal 経由」）。
+	unit.heal(int(ctx["revive_hp"]))
+	BattleLog.log_intervene("death", unit.unit_id, str(ctx["by"]), str(int(ctx["revive_hp"])))
+	# バフもデバフも全部消える（PLAN 14-4）。DoT の持ち越しで復活直後に
+	# また死ぬ事故が構造的に消える。
+	clear_for_unit(unit.unit_id, "revive_clear")
+	return true
+
+
+# ============================================================
 # 剥がす
 # ============================================================
 
@@ -682,7 +863,12 @@ func clear_all() -> int:
 
 
 # その宿主に付いた状態を捨てる。捨てた件数を返す。
-func clear_for_unit(unit_id: String) -> int:
+#
+# why … 空でなければ、捨てた1件ごとに status_end をこの理由で出す。
+#   ⚠ 既定は空（無音）。復活の全消し（"revive_clear"）だけが渡す。
+#     出さないと、復活した瞬間に消えた状態の status_add がログに残り続け、
+#     「付いた状態が永久に残っている」と読める（clear_all() で踏んだのと同じ形）。
+func clear_for_unit(unit_id: String, why: String = "") -> int:
 	var rest: Array = []
 	for entry: Dictionary in _entries:
 		var hit: bool = (
@@ -691,6 +877,9 @@ func clear_for_unit(unit_id: String) -> int:
 		)
 		if not hit:
 			rest.append(entry)
+			continue
+		if why != "":
+			BattleLog.log_status_end(str(entry.get("status_id", "")), unit_id, why)
 	var dropped: int = _entries.size() - rest.size()
 	_entries = rest
 	if dropped > 0:
@@ -751,6 +940,28 @@ func count(filter: Dictionary) -> int:
 
 func has(filter: Dictionary) -> bool:
 	return not query(filter).is_empty()
+
+
+# そのユニットが受ける回復の増減（％）の合計。回復の介入点が読む。
+#
+# ⚠ 合計する（掛け合わせない）。-50 と -30 で -80% であって -65% ではない。
+#   stat_mod() と同じ「積み上げは和」に揃えてある（scale_from も和・PLAN 5-5-1）。
+# ⚠ active が偽の件は数えない（_step_status_block / _step_death と同じ）。
+# ⚠ 呼び出し元は SkillResolver._step_heal_taken() の1箇所。あちらは registry を
+#   RefCounted として持つので、この関数は動的に呼ばれる（add() と同じ形）。
+func heal_taken_pct(unit_id: String) -> int:
+	var total: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) != KIND_BUFF:
+			continue
+		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
+			continue
+		if str(entry.get("host_unit_id", "")) != unit_id:
+			continue
+		if not bool(entry.get("active", true)):
+			continue
+		total += int(entry.get("heal_taken_pct", 0))
+	return total
 
 
 # そのユニットの、その軸への合計補正。
@@ -823,6 +1034,11 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 		if not bool(entry.get("active", true)):
 			continue
 		var stat_key: String = str(entry.get("stat", ""))
+		# ⚠ 介入だけを持つ buff（復活・免疫・被回復増減）は stat を持たない。
+		#   ガードが無いと mods[""] が生まれ、F3 パネルに空キーが出る
+		#   （get_stat() はキーで引くので実害は無いが、読む側が迷う）。
+		if stat_key == "":
+			continue
 		mods[stat_key] = int(mods.get(stat_key, 0)) + int(entry.get("value", 0))
 	unit.set_stat_mods(mods)
 

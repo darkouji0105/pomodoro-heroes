@@ -287,7 +287,7 @@ static func resolve(
 			for t: BattleUnit in targets:
 				_apply_damage(effect, user, t, results, is_dot)
 		elif effect_type == SkillSchema.EFFECT_HEAL:
-			_apply_heal(effect, user, targets, results)
+			_apply_heal(effect, user, targets, results, registry)
 		elif effect_type in SkillSchema.EFFECT_TYPES_STATUS:
 			_apply_status(effect, user, targets, session, registry)
 		elif effect_type in SkillSchema.EFFECT_TYPES_KNOWN:
@@ -382,25 +382,63 @@ static func _step_reduction(_ctx: Dictionary) -> void:
 	pass
 
 
-# 回復。会心を振らない・atk_multiplier を掛けない・介入点も通さない（段階3）。
+# 回復。会心を振らない・atk_multiplier を掛けない（段階3）。
 # attack_type は読まない（欄そのものが存在しない）。
-# 今と同じく、全対象に同じ数値を配る（対象ごとに計算し直さない）。
-static func _apply_heal(effect: Dictionary, user: BattleUnit, targets: Array, results: Array) -> void:
+#
+# 【段階3の後半③で変わったこと】回復の介入点（PLAN 11-1）を通すようになった。
+# ⚠ 素の回復量は今までどおり1回だけ計算する。介入は確定値に％を掛けるだけで、
+#   式を2度と評価しない（PLAN 11-0 の不変条件。ダメージの2段構えと同じ）。
+# ⚠ 素の量は全対象で同じだが、介入は対象ごと。被回復低下は「受け手の性質」で、
+#   誰が回復したかには関係しないため。
+static func _apply_heal(
+		effect: Dictionary, user: BattleUnit, targets: Array, results: Array, registry: RefCounted
+) -> void:
 	if targets.is_empty():
 		return
 	var multiplier: float = float(effect.get("multiplier", 0.0))
 	# スケール元は scale_from から引く。既定値を持たない（決定1-5）。
 	# フォールバックが mag なのは、欄が消えたときに「なぜか1ダメージ/1回復」に
 	# ならないようにするため（赤は出ているので黙って既定値にはならない）。
-	var amount: int = int(floor(
+	var base_amount: int = int(floor(
 		_scale_value_sum(effect, user, null, float(user.get_stat(GameStateKeys.STAT_MAG))) * multiplier
 	))
 	for t: BattleUnit in targets:
 		if t == null:
 			continue
+		var ctx: Dictionary = { "target": t, "base": base_amount, "amount": base_amount, "pct": 0 }
+		_step_heal_taken(ctx, registry)
+		var amount: int = int(ctx["amount"])
+		# ⚠ 介入が効いたときだけログを出す。素通しを出すと回復のたびに1行増える。
+		if int(ctx["pct"]) != 0:
+			BattleLog.log_intervene(
+				"heal", t.unit_id, "", "%d -> %d (%d%%)" % [base_amount, amount, int(ctx["pct"])]
+			)
+		# ⚠ heal(0) は unit.gd が弾く。被回復100%低下は「数字も出ない」が正しい。
 		t.heal(amount)
 		# ⚠ is_dot は回復にも入れる（形を揃える）。周期回復（HoT）はまだ無いので常に false。
 		results.append({ "unit_id": t.unit_id, "amount": amount, "is_heal": true, "is_crit": false, "is_dot": false })
+
+
+# 回復の介入点（PLAN 11-1）。被回復低下・回復量増加はここ。
+#
+# ctx … { target, base, amount, pct }。amount を書き換える。
+# ⚠ 作り方をダメージの受け口（_step_crit_override / _step_reduction）と揃える。
+#   ctx を1つ取って書き換える。戻り値で分岐しない。
+# ⚠ 0 未満にしない。負の回復（＝ダメージ）はここでは作らない。作りたくなったら
+#   damage の効果として書くこと（回復とダメージで介入点も表示の色も別なので、
+#   ここで符号を跨ぐと緑の数字でHPが減る）。
+# ⚠ registry の型は RefCounted のまま（resolve() 冒頭の Cyclic reference の注記）。
+static func _step_heal_taken(ctx: Dictionary, registry: RefCounted) -> void:
+	if registry == null:
+		return
+	var target: BattleUnit = ctx.get("target", null)
+	if target == null:
+		return
+	var pct: int = int(registry.heal_taken_pct(target.unit_id))
+	if pct == 0:
+		return
+	ctx["pct"] = pct
+	ctx["amount"] = maxi(0, int(floor(float(ctx["base"]) * (100.0 + float(pct)) / 100.0)))
 
 
 # 状態を付ける（buff / dot・段階3）。器に1件登録するだけで、時間は進めない。

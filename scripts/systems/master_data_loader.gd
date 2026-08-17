@@ -77,6 +77,10 @@ const ENEMY_DIRS_OPTIONAL: Array[String] = [
 	DIR_ENEMIES + "enemy_dbg_heal/",
 	DIR_ENEMIES + "enemy_dbg_ranged/",
 	DIR_ENEMIES + "enemy_dbg_cond/",
+	# 介入点3種（EXEC_SKILL_INTERVENTION.md）
+	DIR_ENEMIES + "enemy_dbg_revive/",
+	DIR_ENEMIES + "enemy_dbg_immune/",
+	DIR_ENEMIES + "enemy_dbg_recv/",
 ]
 
 static var _load_mode: String = ""     # "load" or "file_access" or ""（未試行）
