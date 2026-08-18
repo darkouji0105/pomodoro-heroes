@@ -283,6 +283,8 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `ec386f7` | `test(verify): 操作のいらないデバッグ起動シーンを1個作り、検証をヘッドレスへ移す`（9ファイル。新規は `tests/debug_boot.tscn` / `.gd`。⚠ **本番コードは1行も触っていない**。⚠ **設計役が Godot をヘッドレスで起動できることが実測で判明し、`AGENTS.md` に「誰が取るか」を追記・`CLAUDE.md` の「起動できない」を修正**）⚠ **ブランチ `feat/debug-boot-verify-tooling` に切ってある** | `EXEC_VERIFY_TOOLING.md` / `EXEC_DEBUG_BOOT.md` |
+| `a0433de` | `範囲スキル等`（段階4＝`mode: area`。⚠ **メッセージが型に沿っていない**。`origin` 新設・`select_targets()` の組み替え・E77〜E80・検証用データ一式） | `EXEC_SKILL_AREA.md` |
 | `51c09f6` | `feat(battle): 通常攻撃にキャラごとの個性を入れ、範囲攻撃を書けるようにする`（4ファイル。`basic_attack` に `target` を省略可で解禁。剣士＝重い一撃／弓兵＝最高DPS／僧侶＝範囲／狼＝速め／ボス＝重い単体） | （EXECなし。人間の決定） |
 | `3fb91b9` | `feat(battle): 投射物を実際に飛ばす（着弾でダメージ・無効化の受け口を配線）`（9ファイル。新規は `projectile_view.gd`。`cast()` に `fixed_target_ids`、通常攻撃も待ち行列へ、`event:hit` の黄を停止）＋ `9b202ff`（解放済み参照に `is` を当てて落ちるのを修正） | （EXECなし。PLAN 6-7 / 6-8） |
 | `03a0d8e` | `feat(battle): 通常攻撃をデータ化し、スキルと同じ経路に載せる（挙動不変）`（6ファイル。`basic_attack` 9件・`_compute_damage()` 廃止・`validate_basic_attack()` 新設） | （EXECなし。人間の決定） |
