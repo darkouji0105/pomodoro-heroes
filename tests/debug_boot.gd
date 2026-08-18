@@ -54,6 +54,39 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_dbg_area_heal", "prepare": PREPARE_DAMAGE_PARTY},
 		],
 	},
+	# 段階5（phases[] / recast）の検証。⚠ ステージは stage_dbg_area を使い回す。
+	# ⚠ 同じ skill を2行書くと2回撃つ（_fired はインデックスなので既にそうなっている）。
+	#   足りなかったのは間隔の上書きだけ（既定の FIRE_GAP_SEC=1.0 は窓より長くなりうる）。
+	"recast": {
+		"kind": KIND_BATTLE,
+		"note": "再発動。2段とも撃つ（phase 0 → 1。ダメージが 0.5倍 → 2.0倍 に変わる）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_recast_two", "skill_dbg_area_wide"],
+		},
+		"fire": [
+			{"skill": "skill_dbg_recast_two", "prepare": PREPARE_NONE},
+			# ⚠ window_sec は 3.0。0.5 秒後に撃てば窓の中に収まる。
+			{"skill": "skill_dbg_recast_two", "prepare": PREPARE_NONE, "gap": 0.5},
+		],
+	},
+	# ⚠ 窓切れ（人間の決定：そのまま終わる）の検証。1段目しか撃たない。
+	"recast_expire": {
+		"kind": KIND_BATTLE,
+		"note": "再発動を1段目だけ撃ち、window_sec を過ぎるまで待つ（expire が出るか）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_recast_two", "skill_dbg_area_wide"],
+		},
+		# ⚠ 2行目は「撃たずに待つ」ための行。撃ち終わると決着させてしまうので、
+		#   window_sec（3.0）を過ぎるまで別のスキルで時間を使う。
+		"fire": [
+			{"skill": "skill_dbg_recast_two", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_area_wide", "prepare": PREPARE_NONE, "gap": 4.0},
+		],
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -251,11 +284,17 @@ class Driver extends Node:
 			print("[DebugBoot] 合図：敵が動くのをやめた t=%.2f" % session.elapsed_sec)
 			return
 
-		if session.elapsed_sec - _last_fire_sec < FIRE_GAP_SEC:
-			return
-
 		var entry: Dictionary = skill_plan[_fired]
 		var skill_id: String = str(entry.get("skill", ""))
+
+		# ⚠ 行ごとに間隔を上書きできる（段階5で足した）。recast の2段目は
+		#   window_sec の中で撃つ必要があり、既定の FIRE_GAP_SEC では窓を跨ぐ。
+		#   逆に「窓が切れるまで待つ」検証では既定より長くする。
+		var gap: float = FIRE_GAP_SEC
+		if entry.has("gap"):
+			gap = float(entry["gap"])
+		if session.elapsed_sec - _last_fire_sec < gap:
+			return
 
 		# 撃つ前の下ごしらえ（回復のために味方を削る等）。1回だけ。
 		if str(entry.get("prepare", "")) == "damage_party" and not _prepared.has(skill_id):

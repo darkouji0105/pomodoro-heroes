@@ -231,6 +231,50 @@
 			}
 		]
 	},
+	"skill_dbg_recast_two": {
+		"name_key": "ui_battle_skill_dbg_recast_two",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 6.0,
+		"activation": "recast",
+		"recast": {
+			"window_sec": 3.0
+		},
+		"phases": [
+			{
+				"target": {
+					"team": "enemy",
+					"mode": "select",
+					"sort": "nearest",
+					"count": 1
+				},
+				"effects": [
+					{
+						"type": "damage",
+						"multiplier": 2.0,
+						"attack_type": "true",
+						"scale_from": "atk"
+					}
+				]
+			},
+			{
+				"target": {
+					"team": "enemy",
+					"mode": "select",
+					"sort": "nearest",
+					"count": 1
+				},
+				"effects": [
+					{
+						"type": "damage",
+						"multiplier": 8.0,
+						"attack_type": "true",
+						"scale_from": "atk"
+					}
+				]
+			}
+		]
+	},
 	"skill_dbg_area_wide": {
 		"name_key": "ui_battle_skill_dbg_area_wide",
 		"user_character_id": "char_debug_mix",

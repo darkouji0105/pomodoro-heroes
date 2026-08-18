@@ -285,3 +285,4 @@ ui_battle_skill_dbg_area_narrow,範囲・狭い（起点＝最寄り）
 ui_battle_skill_dbg_area_wide,範囲・広い（起点＝最寄り）
 ui_battle_skill_dbg_area_far,範囲・射程外まで巻き込む
 ui_battle_skill_dbg_area_heal,範囲回復（起点＝自分）
+ui_battle_skill_dbg_recast_two,再発動・2段（弱→強）

@@ -37,7 +37,12 @@ static func blocked_reason(
 		return REASON_USER_DEAD
 	if skill_data == null or skill_data.is_empty():
 		return REASON_SKILL_NOT_FOUND
-	if not user.is_skill_ready(skill_id):
+	# ⚠ 構え中（recast の2段目以降）はクールダウンを見ない。
+	#   クールダウンは1段目で回り始める（人間の決定・2026-08-18）ので、ここで見ると
+	#   「同じボタンをもう一度」という再発動の入力が必ず cooldown で弾かれる。
+	# ⚠ 「構え中か」は引数で受け取らない。撃てるかの判定はこの関数に集約してある
+	#   （PLAN 12章）。bool を引数にすると、呼び出し側が判定を持つことになる。
+	if user.recast_phase(skill_id) < 0 and not user.is_skill_ready(skill_id):
 		return REASON_COOLDOWN
 
 	# 射程で絞った結果が0体なら発動しない（決定1-6）。

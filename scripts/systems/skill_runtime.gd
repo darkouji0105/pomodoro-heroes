@@ -102,9 +102,12 @@ func reset(p_session: BattleSession, p_registry: StatusRegistry) -> void:
 #
 # ⚠ 入口を2本にしないこと（発火経路は1本・PLAN 6-5）。cast_basic() を足さない。
 #   購読の発火も専用関数を作らず、ここから入って _fire() へ出る。
+# phase … 段（activation: recast）の番号。⚠ この層は段を解釈しない。BattleLog へ
+#   そのまま渡すだけ。段を選ぶのは SkillSchema.phase_of() で、ここに届く skill_data は
+#   もう1段ぶんに畳まれている（この層も SkillResolver も段を知らないままにする契約）。
 func cast(
 		user: BattleUnit, skill_id: String, skill_data: Dictionary, power_ratio: float,
-		fixed_target_ids: Array = [], react_ctx: Dictionary = {}
+		fixed_target_ids: Array = [], react_ctx: Dictionary = {}, phase: int = -1
 ) -> void:
 	if user == null or _session == null:
 		push_error("[SkillRuntime] cast: user または session が null")
@@ -129,7 +132,7 @@ func cast(
 
 	# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ 撃った回数はここで1回。
 	#   効果ごと（_fire）に出すと多段で水増しされる。
-	BattleLog.log_cast(user.unit_id, skill_id, fixed_target_ids)
+	BattleLog.log_cast(user.unit_id, skill_id, fixed_target_ids, phase)
 
 	# 1回の発動で出す投射物は、送り方1つにつき1本。
 	# ⚠ これが無いと、ダメージと DoT の2効果が同じ矢を待っているだけなのに

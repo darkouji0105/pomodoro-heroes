@@ -138,13 +138,36 @@ static func flush() -> void:
 # 出来事ごとの入口（差し込み先を1行で済ませるため）
 # ============================================================
 
-static func log_cast(unit_id: String, skill_id: String, target_ids: Array) -> void:
+# phase … 段（activation: recast）の番号。
+# ⚠ 既定の -1 では欄を出さない。phases を書いていない既存スキルの行が
+#   1バイトも変わらないようにするため（段階1〜4の完了条件をそのまま検証できる）。
+static func log_cast(unit_id: String, skill_id: String, target_ids: Array, phase: int = -1) -> void:
 	if not is_on():
 		return
-	write("cast", {
+	var fields: Dictionary = {
 		"unit": unit_id,
 		"skill": skill_id,
 		"targets": _to_id_array(target_ids),
+	}
+	if phase >= 0:
+		fields["phase"] = phase
+	write("cast", fields)
+
+
+# 構えの出来事（activation: recast・段階5）。
+#
+# ⚠ 窓切れ（why: "expire"）も死亡（why: "death"）も、画面にも damage にも
+#   何も出ない。記録が無いと「そのまま終わった」のか「2段目を撃ち損ねた」のかを
+#   後から区別できない。
+# why … "begin"（構えた） / "expire"（窓が切れた） / "death"（死んで捨てた）
+static func log_recast(unit_id: String, skill_id: String, phase: int, why: String) -> void:
+	if not is_on():
+		return
+	write("recast", {
+		"unit": unit_id,
+		"skill": skill_id,
+		"phase": phase,
+		"why": why,
 	})
 
 

@@ -27,6 +27,11 @@ const CHARGE_COLOR_JUST: Color = Color(1.0, 0.9, 0.4)
 const CHARGE_COLOR_OVER: Color = Color(0.5, 0.5, 0.5)
 const CHARGE_GAUGE_HEIGHT: int = 8
 
+# 構え（activation: recast）の記録の理由。⚠ 文字列リテラルを散らさない。
+const RECAST_WHY_BEGIN: String = "begin"
+const RECAST_WHY_EXPIRE: String = "expire"
+const RECAST_WHY_DEATH: String = "death"
+
 # 通常攻撃を待ち行列に積むときの skill_id。⚠ どのスキルファイルにも存在しない。
 # 警告文と待ち行列の中身にしか出ず、マスターを引くのには使わない
 # （通常攻撃の中身は BattleUnit.basic_attack が持っている）。
@@ -412,6 +417,11 @@ func _process(delta: float) -> void:
 		if unit is BattleUnit:
 			unit.tick_cooldowns(delta)
 
+	# 構えの窓（activation: recast・段階5）。
+	# ⚠ クールダウンと同じ delta・同じ位置で進める。2本目の時計を作らない。
+	# ⚠ 切れたら「そのまま終わる」（人間の決定）。最終段を自動で出さない。
+	_step_recast_windows(delta)
+
 	# 1. 対象再選択（味方→敵の順）
 	for unit in _session.party_units:
 		_acquire_target_if_needed(unit)
@@ -483,6 +493,42 @@ func _step_deaths() -> void:
 		_resolve_one_death(unit)
 
 
+# 構えの窓を進め、切れたものを記録する（activation: recast・段階5）。
+#
+# ⚠ 味方と敵で分岐しない。敵も _fire_skill() を通るので同じ形で構える。
+# ⚠ 捨てるのは BattleUnit.tick_recast() の中。ここは記録するだけ。
+func _step_recast_windows(delta: float) -> void:
+	for unit in _session.party_units:
+		_tick_one_recast(unit, delta)
+	for unit in _session.enemy_units:
+		_tick_one_recast(unit, delta)
+
+
+func _tick_one_recast(unit: Variant, delta: float) -> void:
+	if not (unit is BattleUnit):
+		return
+	var u: BattleUnit = unit
+	for skill_id: Variant in u.tick_recast(delta):
+		# ⚠ 窓切れは画面にも damage にも何も出ない。記録が無いと
+		#   「そのまま終わった」のか「2段目を撃ち損ねた」のかを後から区別できない。
+		BattleLog.log_recast(u.unit_id, str(skill_id), -1, RECAST_WHY_EXPIRE)
+
+
+# 全員の構えを捨てる。ウェーブ交代・リトライ・勝敗確定で呼ぶ。
+#
+# ⚠ 捨てる経路は4本ある（窓切れ・死亡・ウェーブ交代・リトライ）。1本ずつ
+#   対応せず、消える場所からはこの1本を呼ぶこと（パッシブの付け直しで踏んだ形）。
+func _clear_all_recast() -> void:
+	if _session == null:
+		return
+	for unit in _session.party_units:
+		if unit is BattleUnit:
+			(unit as BattleUnit).clear_all_recast()
+	for unit in _session.enemy_units:
+		if unit is BattleUnit:
+			(unit as BattleUnit).clear_all_recast()
+
+
 # ⚠ death_handled を書いてよいのはここだけ（unit.gd の注記）。
 # ⚠ 戻り値で分岐しない。HPを戻すのも状態を消すのも器の側の責務。
 func _resolve_one_death(unit: Variant) -> void:
@@ -500,6 +546,12 @@ func _resolve_one_death(unit: Variant) -> void:
 	# ⚠ 印を先に立てる。resolve_death() の中で clear_for_unit() が走り、
 	#   そのあと _drop_dead_hosts() が「処理済みだから捨ててよい」と判断できる。
 	u.death_handled = true
+	# 構えを捨てる（人間の決定・2026-08-18）。⚠ 残りの段は出ない。CDは追加で回さない
+	#   （1段目で既に回っている）。⚠ 復活しても構えは戻らない。
+	# ⚠ ここで捨てないと、_drop_dead_hosts() が状態を捨てたあとも構えだけ残り、
+	#   復活した瞬間に古い段が撃てる（状態と段がズレる）。
+	for skill_id: Variant in u.clear_all_recast():
+		BattleLog.log_recast(u.unit_id, str(skill_id), -1, RECAST_WHY_DEATH)
 	_status.resolve_death(u)
 
 
@@ -803,9 +855,15 @@ func _update_skill_buttons() -> void:
 
 		var remaining: float = 0.0
 		var alive: bool = false
+		# 構え中（activation: recast の段の途中）か。⚠ 構え中はクールダウンが
+		#   回っていてもボタンを押せる状態に保つこと。disabled にすると、判定
+		#   （blocked_reason）を通しても押せず、再発動が無音でできなくなる。
+		var recast_left: float = 0.0
 		if user != null:
 			remaining = user.get_cooldown(skill_id)
 			alive = user.is_alive()
+			if user.recast_phase(skill_id) >= 0:
+				recast_left = user.recast_remaining(skill_id)
 
 		if entry == charging_entry:
 			# チャージ中はボタンを押しっぱなしなので disabled にしない。
@@ -818,12 +876,15 @@ func _update_skill_buttons() -> void:
 
 		_update_charge_gauge(entry, 0.0)
 
-		if remaining > 0.0:
+		if recast_left > 0.0:
+			# 構え中。⚠ 出すのはクールダウンではなく残りの窓（押せる時間）。
+			button.text = "%s ▶%.1f" % [tr(name_key), recast_left]
+		elif remaining > 0.0:
 			button.text = "%s (%.1f)" % [tr(name_key), remaining]
 		else:
 			button.text = tr(name_key)
 
-		button.disabled = (not active) or (not alive) or (remaining > 0.0)
+		button.disabled = (not active) or (not alive) or (remaining > 0.0 and recast_left <= 0.0)
 
 
 # ジャストの窓に入っているあいだだけボタンに出す目印。
@@ -879,24 +940,55 @@ func _on_skill_button_pressed(user: BattleUnit, skill_id: String) -> void:
 func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool:
 	var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
 
+	# 撃つ段を決める（段階5・PLAN 8章）。構えていなければ1段目。
+	# ⚠ phases が無いスキルでは phase_of() が skill_data をそのまま返すので、
+	#   ここから下は今までと1行も変わらない経路を通る。
+	var phase_index: int = maxi(user.recast_phase(skill_id), 0)
+	var phase_data: Dictionary = SkillSchema.phase_of(skill_data, phase_index)
+	var phase_total: int = SkillSchema.phase_count(skill_data)
+
 	# 撃てるかの判定は SkillActivation に集約してある。
 	# ここに条件を書き足さないこと（PLAN_SKILL_TEMPLATE.md 12章）。
 	# 撃てなかったらクールダウンは回さない。押せなかっただけ。
-	var reason: String = SkillActivation.blocked_reason(user, skill_id, skill_data, _session)
+	# ⚠ 渡すのは phase_data。skill_data を渡すと、recast スキルは target が
+	#   直下に無いので必ず skill_not_found で弾かれる（skill_activation.gd:45-49）。
+	var reason: String = SkillActivation.blocked_reason(user, skill_id, phase_data, _session)
 	if reason != SkillActivation.REASON_OK:
 		return false
+
+	# --- ここから状態を変える。判定は全部終わっている（CLAUDE.md 6番）---
 
 	# 発動を1個作って新層に渡す。チャージ倍率の畳み込みも、効果を trigger ごとに
 	# 待ち行列へ割るのも新層の仕事（PLAN 7-1）。ここに待ち行列を持たないこと。
 	# 結果は effects_applied シグナルで返ってくる（cast の効果はこの行の中で発火する）。
-	_skill_runtime.cast(user, skill_id, skill_data, power_ratio)
+	_skill_runtime.cast(
+		user, skill_id, phase_data, power_ratio, [], {},
+		-1 if phase_total <= 1 else phase_index
+	)
 
 	# skills.json の cooldown_sec は base。haste を通してから渡す。
 	# ⚠ 待ち行列が空になるのを待たない。押した時点で回り始めるのが今の挙動。
-	user.start_cooldown(skill_id, BattleFormula.cooldown(
-		float(skill_data.get("cooldown_sec", 0.0)),
-		user.get_stat(GameStateKeys.STAT_HASTE)
-	))
+	# ⚠ 回すのは1段目のときだけ（人間の決定・2026-08-18）。2段目以降で回し直すと
+	#   構えていた時間ぶんCDが伸びる。構え中は blocked_reason() がCDを見ないので、
+	#   回っていても再発動は通る（skill_activation.gd）。
+	if phase_index == 0:
+		user.start_cooldown(skill_id, BattleFormula.cooldown(
+			float(skill_data.get("cooldown_sec", 0.0)),
+			user.get_stat(GameStateKeys.STAT_HASTE)
+		))
+
+	# 構えを進める。次の段があれば window_sec のあいだ受け付ける。
+	# ⚠ 最終段まで撃ったら必ず捨てる。残すと窓が切れるまで撃ち直せてしまう。
+	if phase_index + 1 < phase_total:
+		var window_sec: float = 0.0
+		var raw_recast: Variant = skill_data.get("recast", null)
+		if raw_recast is Dictionary:
+			# ⚠ MasterDataLoader が返すのは float。float() で包む（E69 の事故）。
+			window_sec = float((raw_recast as Dictionary).get("window_sec", 0.0))
+		user.begin_recast(skill_id, phase_index + 1, window_sec)
+		BattleLog.log_recast(user.unit_id, skill_id, phase_index + 1, RECAST_WHY_BEGIN)
+	else:
+		user.clear_recast(skill_id)
 	return true
 
 
@@ -1155,6 +1247,9 @@ func _enter_wave_clear() -> void:
 	# ⚠ 状態も捨てる。HP とクールダウンとは扱いが違う（引き継がない）。
 	#   待ち行列と同じく _reset_party_positions() より前。
 	_status.clear_all()
+	# ⚠ 構えも捨てる（段階5）。状態と同じ扱い。残すと、次のウェーブの開始直後に
+	#   前のウェーブの2段目が撃てる。
+	_clear_all_recast()
 	# 節目の書き出し（EXEC_BATTLE_LOG.md §0）。ここまでのぶんをファイルへ落とす。
 	BattleLog.flush()
 	# 次ウェーブは味方を左端から再スタートさせる（HP とクールダウンは引き継ぐ）
@@ -1171,6 +1266,7 @@ func _enter_victory() -> void:
 	_skill_runtime.clear_all()
 	_clear_projectiles()
 	_status.clear_all()
+	_clear_all_recast()
 	_session.state = BattleSession.STATE_VICTORY
 	_consume_stage_stamina()
 
@@ -1224,6 +1320,7 @@ func _enter_defeat() -> void:
 	_skill_runtime.clear_all()
 	_clear_projectiles()
 	_status.clear_all()
+	_clear_all_recast()
 	_session.state = BattleSession.STATE_DEFEAT
 	# apply_battle_rewards も mark_stage_cleared も呼ばない
 	_show_result(false, {})

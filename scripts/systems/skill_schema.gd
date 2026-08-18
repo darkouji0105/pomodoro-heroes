@@ -24,7 +24,7 @@ const LEVEL_WARNING: String = "warning"
 # --- activation（発動の型） ---
 const ACTIVATION_INSTANT: String = "instant"
 const ACTIVATION_CHARGE: String = "charge"
-# recast / toggle は器に載せるだけ。動くのは段階5以降。
+# recast は段階5で動く。⚠ toggle は器に載せるだけ（まだ動かない）。
 const ACTIVATION_RECAST: String = "recast"
 const ACTIVATION_TOGGLE: String = "toggle"
 # パッシブ（PLAN 7-2・19章）。⚠ 「発動の型」であって効果の trigger ではない。
@@ -247,13 +247,74 @@ const FIELD_MAX_STACK: String = "max_stack"
 # ⚠ typo を黙って既定値にしないための最後の砦（E26）。
 const SKILL_FIELDS_KNOWN: Array = [
 	"name_key", "user_character_id", "unlock_level", "cooldown_sec",
-	"activation", "charge", "target", "effects", "phases"
+	"activation", "charge", "recast", "target", "effects", "phases"
 ]
 
 # charge{} の必須欄（数値）
 const CHARGE_FIELDS_REQUIRED: Array = [
 	"just_sec", "just_window_sec", "min_ratio", "just_bonus"
 ]
+
+# --- phases[] / recast（段階5・PLAN 3-2 / 8章） ---
+
+# 段の直下に書いてよい欄。⚠ typo を黙って既定値にしないための砦（E89）。
+# ⚠ target は段ごとに必須。1段目から引き継がない。段は独立した発動であり
+#   （cast_id も BattleLog の行も別）、引き継ぎを許すと2段目の対象が JSON から
+#   読めなくなる。effects[].target の「上書き」とは意味が違う。
+const PHASE_FIELDS_KNOWN: Array = ["target", "effects"]
+
+# recast{} の必須欄（数値）
+# ⚠ MasterDataLoader が返すのは float。is int で見ないこと（E69 の事故）。
+const RECAST_FIELDS_REQUIRED: Array = ["window_sec"]
+
+# 段の最小数。⚠ 1段の recast は window_sec が意味を持たず、「省略と同じ」の
+#   つもりなのか「2段目を書き忘れた」のかが読めない（既定値を作らない方針）。
+const PHASES_MIN: int = 2
+
+
+# ============================================================
+# 段（phases[]）の取り出し（段階5・PLAN 3-2）
+# ============================================================
+
+# 段の数。⚠ phases が無ければ 1（省略＝1段）。
+static func phase_count(skill_data: Dictionary) -> int:
+	var raw: Variant = skill_data.get("phases", null)
+	if not (raw is Array):
+		return 1
+	return maxi((raw as Array).size(), 1)
+
+
+# 段を1つ選び、その段の target / effects を直下に持つスキル定義を返す。
+#
+# ⚠ phases が無ければ引数をそのまま返す（複製もしない）。
+#   「phases 省略の既存スキル全件が1ミリも変わらない」を、注意ではなく構造で守るため。
+#   分岐を _fire_skill / blocked_reason / cast の3箇所に書くと、必ず1箇所だけ
+#   直す事故になる（状態を消す経路を1本ずつ対応して踏んだのと同じ形）。
+#
+# ⚠ ここが段を知る唯一の場所。SkillRuntime も SkillResolver も段を知らないまま。
+static func phase_of(skill_data: Dictionary, index: int) -> Dictionary:
+	var raw: Variant = skill_data.get("phases", null)
+	if not (raw is Array) or (raw as Array).is_empty():
+		return skill_data
+
+	var phases: Array = raw as Array
+	# ⚠ 範囲外は 0 に丸める。撃てないより1段目が出るほうが、壊れ方が見える。
+	var i: int = index
+	if i < 0 or i >= phases.size():
+		i = 0
+	var raw_phase: Variant = phases[i]
+	if not (raw_phase is Dictionary):
+		# ロード時検証（E88）が守っているので通常は来ない。二重に守る。
+		push_error("[SkillSchema] phases[%d] が Dictionary でない" % i)
+		return skill_data
+
+	var phase: Dictionary = raw_phase as Dictionary
+	# ⚠ 浅い複製。中の target / effects は差し替えるので触らない。
+	var out: Dictionary = skill_data.duplicate()
+	out.erase("phases")
+	out["target"] = phase.get("target", {})
+	out["effects"] = phase.get("effects", [])
+	return out
 
 
 # attack_type に書ける値。BattleUnit の定数から組み立てる（2本目の一覧を作らない）。
@@ -389,7 +450,7 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	var activation: String = str(data.get("activation", ""))
 	if not (activation in ACTIVATIONS_KNOWN):
 		_err(issues, skill_id, "activation が不明: '%s'" % activation)
-	elif activation == ACTIVATION_RECAST or activation == ACTIVATION_TOGGLE:
+	elif activation == ACTIVATION_TOGGLE:
 		_warn(issues, skill_id, "activation: '%s' は段階5以降。段階1では動かない" % activation)
 
 	var is_passive: bool = (activation == ACTIVATION_PASSIVE)
@@ -406,7 +467,8 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	# ⚠ cooldown_sec を書いても BattleUnit.start_cooldown() は passive_ids を
 	#   見ないので何も起きない。無音で無視される欄を書かせない。
 	if is_passive:
-		for field: String in ["cooldown_sec", "charge", "phases"]:
+		# E92 recast も同じ（パッシブは撃つものではないので構えようがない）。
+		for field: String in ["cooldown_sec", "charge", "recast", "phases"]:
 			if data.has(field):
 				_err(issues, skill_id, "activation: 'passive' に %s は書けない（撃つものではない）" % field)
 
@@ -422,9 +484,41 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	elif data.has("charge"):
 		_err(issues, skill_id, "activation が charge 以外なのに charge{} がある")
 
+	# E81 / E82 / E83 recast{}
+	# ⚠ charge と同じ形（軸が値を取ったときだけ読む欄）。E6 / E7 と対称に保つこと。
+	var raw_recast: Variant = data.get("recast", null)
+	if activation == ACTIVATION_RECAST:
+		if not (raw_recast is Dictionary):
+			_err(issues, skill_id, "activation: recast なのに recast{} が無い")
+		else:
+			for field: Variant in RECAST_FIELDS_REQUIRED:
+				# ⚠ MasterDataLoader が返すのは float。is int で見ないこと（E69）。
+				if not _is_num((raw_recast as Dictionary).get(field, null)):
+					_err(issues, skill_id, "recast.%s が数値でない" % str(field))
+				elif float((raw_recast as Dictionary).get(field, 0.0)) <= 0.0:
+					_err(issues, skill_id, "recast.%s は 0 より大きいこと（構える時間が無いと再発動できない）" % str(field))
+	elif data.has("recast"):
+		_err(issues, skill_id, "activation が recast 以外なのに recast{} がある")
+
+	# E84〜E91 phases[]
+	# ⚠ phases があるときは target / effects を段が持つ。直下には書けない（E86）。
+	var has_phases: bool = data.has("phases")
+	if activation == ACTIVATION_RECAST and not has_phases:
+		_err(issues, skill_id, "activation: recast なのに phases[] が無い（再発動する段が無い）")
+	elif has_phases and activation != ACTIVATION_RECAST:
+		_err(issues, skill_id, "phases[] は activation: recast のスキルにしか書けない")
+	if has_phases:
+		if data.has("target") or data.has("effects"):
+			_err(issues, skill_id, "phases[] と直下の target / effects は同居できない（どちらが効くか読めなくなる）")
+		_validate_phases(issues, skill_id, data.get("phases", null), activation)
+
 	# E8〜E15 target
+	# ⚠ phases があるときは走らせない。走らせると、正しく書いた recast スキルが
+	#   必ず E8 と E17 の2本を出す。
 	var raw_target: Variant = data.get("target", null)
-	if not (raw_target is Dictionary):
+	if has_phases:
+		pass
+	elif not (raw_target is Dictionary):
 		_err(issues, skill_id, "target が無い、または Dictionary でない")
 	else:
 		_validate_target(issues, skill_id, raw_target as Dictionary, "target", true)
@@ -435,8 +529,11 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 			_err(issues, skill_id, "activation: 'passive' の target.team は 'self' だけ")
 
 	# E17 effects
+	# ⚠ phases があるときは走らせない（E8 と同じ理由）。
 	var raw_effects: Variant = data.get("effects", null)
-	if not (raw_effects is Array) or (raw_effects as Array).is_empty():
+	if has_phases:
+		pass
+	elif not (raw_effects is Array) or (raw_effects as Array).is_empty():
 		_err(issues, skill_id, "effects が無い、配列でない、または空")
 	else:
 		var index: int = 0
@@ -449,16 +546,70 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 				_validate_effect(issues, skill_id, raw_effect as Dictionary, index, activation)
 			index += 1
 
-	# W7
-	if data.has("phases"):
-		_warn(issues, skill_id, "phases は段階5。段階1では読まれない")
-
 	# E26 知らない欄（typo をここで捕まえる）
 	for key: Variant in data:
 		if not (str(key) in SKILL_FIELDS_KNOWN):
 			_err(issues, skill_id, "知らない欄がある: '%s'" % str(key))
 
 	return issues
+
+
+# phases[] の検証（E87〜E91）。
+#
+# ⚠ 段の中身は _validate_target() / _validate_effect() をそのまま呼ぶ。
+#   段専用の検証を2本目として書かないこと（片方だけ古くなる）。
+static func _validate_phases(
+		issues: Array, skill_id: String, raw_phases: Variant, activation: String
+) -> void:
+	# E87
+	if not (raw_phases is Array):
+		_err(issues, skill_id, "phases が配列でない")
+		return
+	var phases: Array = raw_phases as Array
+	if phases.size() < PHASES_MIN:
+		_err(issues, skill_id, "phases[] は段が %d つ以上要る（今 %d つ。1段なら phases を書かないこと）" % [
+			PHASES_MIN, phases.size()
+		])
+
+	var index: int = 0
+	for raw_phase: Variant in phases:
+		var where: String = "phases[%d]" % index
+		# E88
+		if not (raw_phase is Dictionary):
+			_err(issues, skill_id, "%s が Dictionary でない" % where)
+			index += 1
+			continue
+		var phase: Dictionary = raw_phase as Dictionary
+
+		# E89 知らない欄
+		for key: Variant in phase:
+			if not (str(key) in PHASE_FIELDS_KNOWN):
+				_err(issues, skill_id, "%s に知らない欄がある: '%s'" % [where, str(key)])
+
+		# E90 target は段ごとに必須（1段目から引き継がない）
+		var raw_target: Variant = phase.get("target", null)
+		if not (raw_target is Dictionary):
+			_err(issues, skill_id, "%s.target が無い、または Dictionary でない" % where)
+		else:
+			_validate_target(issues, skill_id, raw_target as Dictionary, where + ".target", true)
+
+		# E91 effects
+		var raw_effects: Variant = phase.get("effects", null)
+		if not (raw_effects is Array) or (raw_effects as Array).is_empty():
+			_err(issues, skill_id, "%s.effects が無い、配列でない、または空" % where)
+		else:
+			var ei: int = 0
+			for raw_effect: Variant in (raw_effects as Array):
+				if not (raw_effect is Dictionary):
+					_err(issues, skill_id, "%s.effects[%d] が Dictionary でない" % [where, ei])
+				else:
+					# ⚠ where_prefix を渡すと "phases[0].effects[1]" と出る
+					#   （_validate_effect が ".effects[%d]" を足す）。
+					_validate_effect(
+						issues, skill_id, raw_effect as Dictionary, ei, activation, where
+					)
+				ei += 1
+		index += 1
 
 
 # target ブロックの検証。effects[].target からも呼ぶ（そちらは range を禁じる）。

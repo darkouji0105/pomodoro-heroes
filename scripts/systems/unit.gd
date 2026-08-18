@@ -108,6 +108,17 @@ var passive_ids: Array = []
 # skill_id -> cooldown_remaining(float)
 var skill_cooldowns: Dictionary = {}
 
+# 構え（activation: recast の段の途中・段階5・PLAN 8章）。
+#   skill_id -> {"phase": int（次に撃つ段）, "remaining": float（残りの窓）}
+#
+# ⚠ ここに置くのは SkillActivation.blocked_reason(user, ...) が user から
+#   到達できる必要があるため。SkillRuntime の待ち行列は「効果」の待ちであって
+#   「発動」の状態ではない。混ぜると「効果を取り消すと構えも消える」が無音で起きる。
+# ⚠ 捨てる経路は4本ある（窓切れ・死亡・ウェーブ交代・リトライ）。5本目を作るときは
+#   4本全部を見直すこと（状態を消す経路を1本ずつ対応して踏んだのと同じ形）。
+# ⚠ セーブされない。戦闘のあいだだけの状態。
+var recast_pending: Dictionary = {}
+
 
 # 生成の唯一の入口。BattleUnit.new() を直接呼ばないこと。
 #
@@ -277,3 +288,65 @@ func start_cooldown(skill_id: String, sec: float) -> void:
 # クールダウン残り時間を返す。未登録の ID は 0.0。
 func get_cooldown(skill_id: String) -> float:
 	return float(skill_cooldowns.get(skill_id, 0.0))
+
+
+# ========================================================================
+# 構え（activation: recast・段階5）
+# ========================================================================
+
+# 次に撃つ段の番号。構えていなければ -1。
+#
+# ⚠ 「構え中か」の判定はこの1本だけ。呼び出し側で recast_pending を直接見ないこと
+#   （SkillActivation に集約している「撃てるかの判定」が2箇所に散る）。
+func recast_phase(skill_id: String) -> int:
+	var entry: Variant = recast_pending.get(skill_id, null)
+	if not (entry is Dictionary):
+		return -1
+	return int((entry as Dictionary).get("phase", -1))
+
+
+# 構えを立てる（＝次の段を window_sec のあいだ受け付ける）。
+#
+# ⚠ 状態を変えるので、撃てるかの判定を全部終えてから呼ぶこと
+#   （CLAUDE.md「状態を変える前に全部の判定を終える」）。
+func begin_recast(skill_id: String, next_phase: int, window_sec: float) -> void:
+	recast_pending[skill_id] = {"phase": next_phase, "remaining": window_sec}
+
+
+# 構えの残り秒数。構えていなければ 0.0。⚠ 表示にしか使わない。
+func recast_remaining(skill_id: String) -> float:
+	var entry: Variant = recast_pending.get(skill_id, null)
+	if not (entry is Dictionary):
+		return 0.0
+	return float((entry as Dictionary).get("remaining", 0.0))
+
+
+func clear_recast(skill_id: String) -> void:
+	recast_pending.erase(skill_id)
+
+
+# 全部捨て、捨てた skill_id を返す（ログ用）。死亡・ウェーブ交代・リトライで呼ぶ。
+func clear_all_recast() -> Array:
+	var dropped: Array = recast_pending.keys()
+	recast_pending.clear()
+	return dropped
+
+
+# 窓の残りを delta だけ減らし、切れた skill_id を捨てて返す。
+#
+# ⚠ 切れたら「そのまま終わる」（人間の決定・2026-08-18）。最終段を自動で出さない。
+#   既に出たダメージも巻き戻さない（発火済みの効果は取り消せない）。
+# ⚠ Dictionary を回している最中に erase しない。消す ID を集めてから消すこと。
+func tick_recast(delta: float) -> Array:
+	var expired: Array = []
+	for raw_id: Variant in recast_pending:
+		var entry: Variant = recast_pending[raw_id]
+		if not (entry is Dictionary):
+			continue
+		var e: Dictionary = entry as Dictionary
+		e["remaining"] = float(e.get("remaining", 0.0)) - delta
+		if float(e["remaining"]) <= 0.0:
+			expired.append(str(raw_id))
+	for skill_id: Variant in expired:
+		recast_pending.erase(str(skill_id))
+	return expired
