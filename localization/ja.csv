@@ -280,3 +280,8 @@ ui_battle_passive_dbg_cond_alive,追い詰め（敵1体以下で攻撃+100）
 ui_battle_passive_edbg_def,硬い皮膚（敵）
 ui_battle_passive_edbg_revive_mark,不死の刻印（敵）
 ui_battle_skill_dbg_scale_battle,戦況依存（経過・波・敵数・スタック）
+ui_stage_dbg_area,検証用・範囲
+ui_battle_skill_dbg_area_narrow,範囲・狭い（起点＝最寄り）
+ui_battle_skill_dbg_area_wide,範囲・広い（起点＝最寄り）
+ui_battle_skill_dbg_area_far,範囲・射程外まで巻き込む
+ui_battle_skill_dbg_area_heal,範囲回復（起点＝自分）

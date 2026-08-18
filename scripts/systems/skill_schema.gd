@@ -51,8 +51,22 @@ const TEAMS_KNOWN: Array = [TEAM_ENEMY, TEAM_ALLY, TEAM_SELF, TEAM_SOURCE]
 
 # --- target.mode（母集団の絞り方） ---
 const MODE_SELECT: String = "select"
-const MODE_AREA: String = "area"   # 段階4
+const MODE_AREA: String = "area"   # 段階4で実装
 const MODES_KNOWN: Array = [MODE_SELECT, MODE_AREA]
+
+# --- target.origin（mode: area の円の中心・段階4） ---
+#
+# ⚠ mode: area のときだけ読む。mode: select に書いたら赤（E80）。
+# ⚠ 省略できない（E77）。既定値を作らないこと。既定を user にすると「敵の団を
+#   狙ったつもりが自分の足元で爆発」、target にすると逆が、どちらも書き忘れた
+#   だけで黙って起きる（stack の既定値を作らなかったのと同じ理由）。
+#
+# ⚠ radius は「中心からの距離」。range（使用者からの距離）と混ぜないこと。
+#   range は起点を1体選ぶときの絞りにしか効かず、radius は range を越えて
+#   巻き込む（人間の決定・EXEC_SKILL_AREA.md §0）。
+const ORIGIN_USER: String = "user"       # 使用者の位置が中心。sort / range は書けない（E78）
+const ORIGIN_TARGET: String = "target"   # sort で選んだ1体の位置が中心
+const ORIGINS_KNOWN: Array = [ORIGIN_USER, ORIGIN_TARGET]
 
 # --- target.sort（並べ替え） ---
 const SORT_NEAREST: String = "nearest"
@@ -467,10 +481,11 @@ static func _validate_target(
 				_err(issues, skill_id, "%s.team: source に %s は書けない（きっかけのユニットを選び直さない）" % [where, str(field)])
 		return
 
-	# E10 team: self に mode / sort / count を書かせない
+	# E10 team: self に mode / sort / count / origin を書かせない
 	# （mode を読むかが team で決まる逆流を作らないため。PLAN 21章）
+	# ⚠ origin も同じ。self は mode を読まないので、書いても1つも効かない。
 	if team == TEAM_SELF:
-		for field: Variant in ["mode", "sort", "count"]:
+		for field: Variant in ["mode", "sort", "count", "origin"]:
 			if target.has(field):
 				_err(issues, skill_id, "%s.team: self に %s は書けない" % [where, str(field)])
 	else:
@@ -479,11 +494,42 @@ static func _validate_target(
 		if not (mode in MODES_KNOWN):
 			_err(issues, skill_id, "%s.mode が無い、または不明: '%s'" % [where, mode])
 		elif mode == MODE_AREA:
-			# W2 / E15
-			_warn(issues, skill_id, "%s.mode: area は段階4。段階1では対象が0体になる" % where)
+			# ⚠ W2（「area は段階4」の黄）は段階4で実装したので消した。残すと
+			#   正しい JSON を書くたびに黄が出る（EXEC_SKILL_AREA.md §0-1 の8）。
+			#
+			# E15 radius … 中心からの距離。⚠ range（使用者からの距離）ではない。
 			if not _is_num(target.get("radius", null)) or float(target.get("radius", 0.0)) <= 0.0:
 				_err(issues, skill_id, "%s.mode: area なのに radius が正の数値でない" % where)
+
+			# E77 origin … 省略できない（既定値を作らない・ORIGINS_KNOWN の注記）
+			var origin: String = str(target.get("origin", ""))
+			if not (origin in ORIGINS_KNOWN):
+				_err(issues, skill_id, "%s.mode: area の origin が無い、または不明: '%s'（'user' か 'target'）" % [where, origin])
+			elif origin == ORIGIN_USER:
+				# E78 … origin: user は起点を選ばないので、選ぶための欄が1つも効かない。
+				# ⚠ range も同じ。radius が「近くに敵が居るときだけ撃てる」を兼ねる
+				#   （radius の中が0体なら select_targets() が空を返し no_target で弾かれる）。
+				for field: Variant in ["sort", "range"]:
+					if target.has(field):
+						_err(issues, skill_id, "%s.origin: user に %s は書けない（起点を選ばない）" % [where, str(field)])
+			else:
+				# E79 … all は起点が1体に決まらない
+				if str(target.get("sort", SORT_NEAREST)) == SORT_ALL:
+					_err(issues, skill_id, "%s.origin: target に sort: 'all' は書けない（起点が1体に決まらない）" % where)
+				# ⚠ sort そのものの綴りは下の共通の検証（E12）が見る
+
+			# E80 count … radius の中は全員に当たる（人間の決定）
+			if target.has("count"):
+				_err(issues, skill_id, "%s.mode: area に count は書けない（radius の中は全員）" % where)
+
+			# E12 と同じ綴りの検査を area にも掛ける（2本目の一覧を作らない）
+			var area_sort: String = str(target.get("sort", SORT_NEAREST))
+			if not (area_sort in SORTS_KNOWN):
+				_err(issues, skill_id, "%s.sort が不明: '%s'" % [where, area_sort])
 		else:
+			# E80 origin … mode: select では読まない欄
+			if target.has("origin"):
+				_err(issues, skill_id, "%s.origin は mode: 'area' のときだけ書ける" % where)
 			# E12 sort（省略は許す＝nearest）
 			var sort: String = str(target.get("sort", SORT_NEAREST))
 			if not (sort in SORTS_KNOWN):
@@ -729,7 +775,11 @@ static func _validate_status_effect(
 	var stack_rule: String = str(effect.get("stack", ""))
 	if stack_rule == STACK_INDEPENDENT:
 		var raw_max: Variant = effect.get(FIELD_MAX_STACK, null)
-		if not (raw_max is int) or int(raw_max) < 1:
+		# ⚠ `raw_max is int` と書かないこと。JSON の 5 は 5.0（float）で来るので
+		#   常に偽になり、正しく書いてある max_stack が全部赤になる（CLAUDE.md 3番）。
+		#   ⚠ 2026-08-18 に実機で発覚。④-a から9件ぶん赤が出続けていた。
+		#   整数かどうかは floor と比べて見る（E13 と同じ形）。
+		if not _is_num(raw_max) or float(raw_max) < 1.0 or float(raw_max) != floor(float(raw_max)):
 			_err(issues, skill_id, "%s.%s が無い、または1以上の整数でない（stack: 'independent' には必須）" % [
 				where, FIELD_MAX_STACK
 			])

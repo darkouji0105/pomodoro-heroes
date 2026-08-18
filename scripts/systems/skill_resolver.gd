@@ -85,30 +85,39 @@ static func select_targets(
 			return ids
 
 	# 2. 母集団（死者は入らない）
-	var pool: Array = []
+	#
+	# ⚠ pool_all は「射程で絞る前」。上書きしないこと（段階4）。
+	#   mode: area の巻き込みは range を越えて効くので、絞る前の母集団が要る
+	#   （人間の決定・EXEC_SKILL_AREA.md §0）。同じ変数を使い回すと、
+	#   「起点選び」と「巻き込み」のどちらかが必ず間違う。
+	var pool_all: Array = []
 	for u in session.get_alive_units(team):
 		if u is BattleUnit:
-			pool.append(u)
+			pool_all.append(u)
 
 	# 3. 射程で絞る。欄が無ければ絞らない（＝無制限）。
 	#    ⚠ 絞った結果が0体なら空配列。発動可否はこれを見る（PLAN 4-5）。
 	#    発動可否の側で別々に距離を測らないこと。
+	#    ⚠ range は「使用者からの距離」。radius（中心からの距離）と別物。
+	# ⚠ range が無いときは pool_all と同じ配列を指す（GDScript の Array は参照）。
+	#   どちらも以降1度も書き換えないので成立している。片方に append すると
+	#   もう片方も変わるので、絞り込みは必ず「新しい配列を作って差し替える」形にすること。
+	var pool_in: Array = pool_all
 	if target_def.has("range"):
 		var reach: float = float(target_def.get("range", 0.0))
 		var in_range: Array = []
-		for u: BattleUnit in pool:
+		for u: BattleUnit in pool_all:
 			if absf(u.x - user.x) <= reach:
 				in_range.append(u)
-		pool = in_range
+		pool_in = in_range
 
-	if pool.is_empty():
+	if pool_in.is_empty():
 		return ids
 
 	# 4. mode
 	var mode: String = str(target_def.get("mode", SkillSchema.MODE_SELECT))
 	if mode == SkillSchema.MODE_AREA:
-		push_warning("[SkillResolver] mode: area は段階4。対象なしとして扱う")
-		return ids
+		return _select_area(target_def, user, pool_all, pool_in)
 	if mode != SkillSchema.MODE_SELECT:
 		push_error("[SkillResolver] 不明な mode: " + mode)
 		return ids
@@ -117,11 +126,11 @@ static func select_targets(
 	var sort_kind: String = str(target_def.get("sort", SkillSchema.SORT_NEAREST))
 	if sort_kind == SkillSchema.SORT_ALL:
 		# all は count を読まない。全員返す。
-		for u: BattleUnit in pool:
+		for u: BattleUnit in pool_in:
 			ids.append(u.unit_id)
 		return ids
 
-	var ordered: Array = _sorted_units(pool, user, sort_kind)
+	var ordered: Array = _sorted_units(pool_in, user, sort_kind)
 	# ⚠ MasterDataLoader は数値を float で返す。int() 必須。
 	var count: int = int(target_def.get("count", 1))
 	if count < 1:
@@ -130,6 +139,53 @@ static func select_targets(
 	var taken: int = mini(count, ordered.size())
 	for i in range(taken):
 		ids.append((ordered[i] as BattleUnit).unit_id)
+	return ids
+
+
+# mode: area（段階4）。円の中心を1つ決め、radius に入る全員を返す。
+#
+# pool_all … 射程で絞る前の母集団。⚠ 巻き込みはこちらから拾う
+# pool_in  … 射程で絞ったあと。⚠ 起点を選ぶのはこちらから
+#
+# ⚠ 2つを取り違えないこと。取り違えても対象は返るので、エラーは1つも出ない。
+#   ・起点を pool_all から選ぶ → 射程外の敵を起点にできてしまう
+#   ・巻き込みを pool_in から拾う → 「radius は range を越える」という決定が消える
+#
+# ⚠ 味方は巻き込まない（人間の決定）。母集団は team で既に決まっており、
+#   この関数は母集団の外を1体も見ない。ここに team の分岐を書かないこと。
+# ⚠ 距離は1次元（absf の差）。_sort_key() / range の絞りと同じ形。
+#   ここだけ2次元にすると距離の意味が2つになる（2次元化は PLAN 16章・上流の話）。
+# ⚠ count は読まない。ロード時検証 E80 が赤で弾いている。
+static func _select_area(
+		target_def: Dictionary, user: BattleUnit, pool_all: Array, pool_in: Array
+) -> Array:
+	var ids: Array = []
+	# ⚠ MasterDataLoader は数値を float で返す。ここは int() ではない。
+	var radius: float = float(target_def.get("radius", 0.0))
+
+	# 1. 円の中心
+	var origin: String = str(target_def.get("origin", ""))
+	var center_x: float = 0.0
+	if origin == SkillSchema.ORIGIN_USER:
+		center_x = user.x
+	elif origin == SkillSchema.ORIGIN_TARGET:
+		# 起点を1体選ぶ。⚠ select と同じ選び方をする（既定は nearest）。
+		#   sort: "all" は起点が1体に決まらないので E79 が赤で弾いている。
+		# ⚠ 起点が居なければ対象0体。警告を出さない（空振りは正常系。
+		#   毎フレーム走るので、ここで警告を出すと出力パネルが埋まる）。
+		if pool_in.is_empty():
+			return ids
+		var sort_kind: String = str(target_def.get("sort", SkillSchema.SORT_NEAREST))
+		var ordered: Array = _sorted_units(pool_in, user, sort_kind)
+		center_x = (ordered[0] as BattleUnit).x
+	else:
+		push_error("[SkillResolver] 不明な origin: " + origin)
+		return ids
+
+	# 2. 巻き込む。⚠ pool_all から拾う（radius は range を越える）
+	for u: BattleUnit in pool_all:
+		if absf(u.x - center_x) <= radius:
+			ids.append(u.unit_id)
 	return ids
 
 

@@ -195,5 +195,48 @@
 					}
 				}
 			]
-		}
+		},
+	"skill_dbg_area_far": {
+		"name_key": "ui_battle_skill_dbg_area_far",
+		"user_character_id": "char_debug_life",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "target",
+			"sort": "nearest",
+			"radius": 450.0,
+			"range": 300.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_dbg_area_heal": {
+		"name_key": "ui_battle_skill_dbg_area_heal",
+		"user_character_id": "char_debug_life",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "area",
+			"origin": "user",
+			"radius": 250.0
+		},
+		"effects": [
+			{
+				"type": "heal",
+				"multiplier": 1.0,
+				"scale_from": "mag"
+			}
+		]
+	}
 }
