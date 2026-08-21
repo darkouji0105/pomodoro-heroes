@@ -122,7 +122,7 @@
 		"crit_rate": 5,
 		"crit_dmg": 150,
 		"attack_type": "magic",
-		"attack_range": 250,
+		"attack_range": 180,
 		"attack_interval_sec": 1.8,
 		"skills": [
 			"skill_healing_light",
@@ -169,7 +169,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "physical",
-		"attack_range": 300,
+		"attack_range": 60,
 		"attack_interval_sec": 2.0,
 		"skills": [
 			"skill_dbg_buff_refresh",
@@ -224,7 +224,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "physical",
-		"attack_range": 300,
+		"attack_range": 180,
 		"attack_interval_sec": 2.0,
 		"skills": [
 			"skill_dbg_charge_guard",

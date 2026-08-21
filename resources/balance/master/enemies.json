@@ -12,7 +12,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "physical",
-		"attack_range": 50,
+		"attack_range": 60,
 		"attack_interval_sec": 1.5,
 		"basic_attack": {
 			"effects": [
@@ -39,7 +39,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "physical",
-		"attack_range": 50,
+		"attack_range": 180,
 		"attack_interval_sec": 0.7,
 		"basic_attack": {
 			"effects": [
@@ -66,7 +66,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "magic",
-		"attack_range": 70,
+		"attack_range": 300,
 		"attack_interval_sec": 2.2,
 		"basic_attack": {
 			"effects": [
@@ -94,7 +94,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "physical",
-		"attack_range": 50,
+		"attack_range": 60,
 		"attack_interval_sec": 2.0,
 		"basic_attack": {
 			"effects": [
@@ -122,7 +122,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "physical",
-		"attack_range": 50,
+		"attack_range": 60,
 		"attack_interval_sec": 2.0,
 		"basic_attack": {
 			"effects": [
@@ -150,7 +150,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "physical",
-		"attack_range": 50,
+		"attack_range": 60,
 		"attack_interval_sec": 2.0,
 		"basic_attack": {
 			"effects": [
@@ -179,7 +179,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "physical",
-		"attack_range": 50,
+		"attack_range": 180,
 		"attack_interval_sec": 2.0,
 		"basic_attack": {
 			"effects": [
@@ -207,7 +207,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "physical",
-		"attack_range": 50,
+		"attack_range": 180,
 		"attack_interval_sec": 2.0,
 		"basic_attack": {
 			"effects": [

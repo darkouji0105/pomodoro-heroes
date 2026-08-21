@@ -131,6 +131,28 @@ const SCENARIOS: Dictionary = {
 			{"skill": "", "prepare": PREPARE_KILL_PARTY, "gap": 0.5},
 		],
 	},
+	# 立ち位置（射程の段）の検証。⚠ 本番の味方3人を並べるのはこのシナリオだけ。
+	#
+	# ⚠ スキルを1つも割り当てない。見たいのは「歩くのをやめたときの x」だけ。
+	# ⚠ fire を空配列にしないこと。空だと _fired(0) >= size(0) が最初のフレームで
+	#   成立し、合図を待たずに敵を全滅させる（_process() の最後の枝）。位置が1回も出ない。
+	# ⚠ stage_dbg_area を使うのは敵の atk が 1 だから。本番ステージだと本番の味方
+	#   （hp 70〜120）が位置を見る前に死ぬ。
+	"lineup": {
+		"kind": KIND_BATTLE,
+		"note": "立ち位置。本番の味方3人が射程の段（60/180/300）で散るか",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_swordsman", "char_archer", "char_priest"],
+		"skills": {},
+		# ⚠ 待つだけの行を2つ書く。1行目の gap は効かない（_last_fire_sec の初期値が
+		#   -999 なので、どんな gap でも最初のフレームで通ってしまう）。⚠ 実際に待つのは
+		#   2行目。剣士（射程 60・spd 60）は敵が止まってからさらに 6 秒ほど歩くため、
+		#   短いと止まる前に決着させてしまう（実測：t=5.80 で決着し、x=547.6 の途中だった）。
+		"fire": [
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 14.0},
+		],
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -270,6 +292,13 @@ class Driver extends Node:
 	var _signal_seen: bool = false
 	var _prev_enemy_x: Dictionary = {}
 	var _still_sec: float = 0.0
+	# ⚠ 「全員が動くのをやめた」は 合図（＝敵が動くのをやめた）とは別物。
+	#   実測：lineup で敵が止まった t=4.78 の時点で、味方の剣士（射程 60）はまだ
+	#   歩いていた（x=486.7 → 目標 840）。⚠ 敵の停止は味方の停止を保証しない。
+	# ⚠ 既存の 合図 の意味は変えないこと（段階4がその合図で数字を取っている）。
+	var _prev_all_x: Dictionary = {}
+	var _all_still_sec: float = 0.0
+	var _all_settled_seen: bool = false
 	var _prepared: Dictionary = {}
 	var _killed: bool = false
 	var _finished_sec: float = -1.0
@@ -292,6 +321,7 @@ class Driver extends Node:
 			if _finished_sec < 0.0:
 				_finished_sec = 0.0
 				print("[DebugBoot] 決着 state=%s t=%.2f" % [session.state, session.elapsed_sec])
+				_dump_positions(session, "決着")
 			_finished_sec += delta
 			if _finished_sec >= SETTLE_SEC:
 				print("[DebugBoot] 終了")
@@ -304,6 +334,12 @@ class Driver extends Node:
 			])
 			get_tree().quit()
 			return
+
+		# ⚠ 立ち位置を測る合図。撃つ合図（_step_fire の 合図）とは別に、1回だけ出す。
+		#   ここでしか「全員が射程ぴったりに落ち着いた x」は取れない。
+		if not _all_settled_seen and _all_settled(session, delta):
+			_all_settled_seen = true
+			_dump_positions(session, "静止")
 
 		if _fired < skill_plan.size():
 			_step_fire(session, delta)
@@ -329,6 +365,7 @@ class Driver extends Node:
 				return
 			_signal_seen = true
 			print("[DebugBoot] 合図：敵が動くのをやめた t=%.2f" % session.elapsed_sec)
+			_dump_positions(session, "合図")
 			return
 
 		var entry: Dictionary = skill_plan[_fired]
@@ -387,6 +424,63 @@ class Driver extends Node:
 		])
 
 
+	# 生きているユニットの立ち位置を x の昇順で出す。
+	#
+	# ⚠ これが要る理由：battle_last.jsonl で位置を持っているのは spawn の行だけ
+	#   （battle_log.gd:181-190）。damage にも cast にも x が無いので、
+	#   「射程の段で散ったか」を設計役が観測する手段が他に無い。
+	# ⚠ 本番の BattleLog には足さない（出来事の種類を増やさない）。検証の道具側に閉じる。
+	#
+	# ⚠ 「最小間隔」は同じチームの隣同士の x の差。⚠ 同じ型が複数体出ると必ず 0.0 になる
+	#   （人間の決定2で許容した状態）ので、⚠ 型をまたぐぶんだけの最小値も併せて出す。
+	#   型は unit_name_key で見分ける（同じマスターから作られた個体は同じキーを持つ）。
+	func _dump_positions(session: BattleSession, label: String) -> void:
+		print("[DebugBoot] 位置（%s）t=%.2f" % [label, session.elapsed_sec])
+		var groups: Array = [
+			["party", session.party_units],
+			["enemy", session.enemy_units],
+			["summon", session.summon_units],
+		]
+		var summary: Array = []
+		for group: Array in groups:
+			var team_label: String = str(group[0])
+			var rows: Array = []
+			for u in group[1]:
+				if not (u is BattleUnit) or not u.is_alive():
+					continue
+				# ⚠ 狙う相手も出す。battle_last.jsonl には target_unit_id が1件も出ないので、
+				#   「近くの敵を無視して後ろの敵へ行く」の切り分けがログからできない。
+				rows.append({
+					"id": u.unit_id, "key": u.unit_name_key, "x": u.x,
+					"range": u.attack_range, "target": u.target_unit_id,
+				})
+			if rows.is_empty():
+				continue
+			rows.sort_custom(func(a, b): return float(a["x"]) < float(b["x"]))
+
+			var min_gap: float = -1.0
+			var min_gap_cross: float = -1.0
+			for i: int in range(rows.size()):
+				var row: Dictionary = rows[i]
+				var gap_text: String = "—"
+				if i > 0:
+					var prev: Dictionary = rows[i - 1]
+					var gap: float = float(row["x"]) - float(prev["x"])
+					gap_text = "%.1f" % gap
+					if min_gap < 0.0 or gap < min_gap:
+						min_gap = gap
+					if str(prev["key"]) != str(row["key"]):
+						if min_gap_cross < 0.0 or gap < min_gap_cross:
+							min_gap_cross = gap
+				print("[DebugBoot]   %-6s %-20s x=%8.1f  range=%5.0f  間隔=%-7s 狙う=%s" % [
+					team_label, str(row["id"]), float(row["x"]), float(row["range"]),
+					gap_text, str(row["target"])
+				])
+			summary.append("%s=%.1f(型跨ぎ %.1f)" % [team_label, maxf(min_gap, 0.0), maxf(min_gap_cross, 0.0)])
+		if not summary.is_empty():
+			print("[DebugBoot]   最小間隔  %s" % " ".join(PackedStringArray(summary)))
+
+
 	func _find_battle():
 		var current: Node = get_tree().current_scene
 		if current == null:
@@ -419,6 +513,48 @@ class Driver extends Node:
 
 		_still_sec += delta
 		return _still_sec >= STILL_HOLD_SEC
+
+
+	# 生きている全ユニット（味方・敵・召喚）の x が STILL_HOLD_SEC のあいだ動かなかったか。
+	#
+	# ⚠ _enemies_settled() との違いは2つ。
+	#   ① 母集団（味方・敵・召喚の全員）。敵が止まっても味方はまだ歩いていることがある
+	#      （射程が短い者ほど遠くまで歩く）ので、立ち位置はこちらで測る。
+	#   ② ⚠ 「動いた」の測り方。_enemies_settled() は「前のフレームからの差」で見るが、
+	#      これはフレームレート依存で、⚠ ヘッドレスの高い fps では歩いている者を
+	#      止まったと誤判定する。実測：剣士（spd 60）は 486.8 で「静止」と判定されたが、
+	#      実際にはそのあと 547.6 まで歩いた（1フレームの移動量が STILL_EPSILON 未満）。
+	#      → ⚠ 「窓の始まりの位置」を基準に、窓のあいだの総移動量で見る。
+	#   ⚠ _enemies_settled() 側は直さない。段階4がその合図で数字を取っている。
+	func _all_settled(session: BattleSession, delta: float) -> bool:
+		var current: Dictionary = {}
+		for group: Array in [session.party_units, session.enemy_units, session.summon_units]:
+			for u in group:
+				if not (u is BattleUnit) or not u.is_alive():
+					continue
+				current[u.unit_id] = u.x
+
+		if current.is_empty():
+			_all_still_sec = 0.0
+			_prev_all_x = {}
+			return false
+
+		# 基準（窓の始まり）から動いた者が居るか。⚠ 顔ぶれが変わったら測り直す。
+		var moved: bool = _prev_all_x.size() != current.size()
+		if not moved:
+			for id in current.keys():
+				if not _prev_all_x.has(id) \
+						or absf(float(_prev_all_x[id]) - float(current[id])) > STILL_EPSILON:
+					moved = true
+					break
+
+		if moved:
+			_prev_all_x = current
+			_all_still_sec = 0.0
+			return false
+
+		_all_still_sec += delta
+		return _all_still_sec >= STILL_HOLD_SEC
 
 
 	func _find_user(session: BattleSession, skill_id: String) -> BattleUnit:

@@ -12,7 +12,7 @@
 		"crit_rate": 0,
 		"crit_dmg": 150,
 		"attack_type": "physical",
-		"attack_range": 400,
+		"attack_range": 420,
 		"attack_interval_sec": 0.5,
 		"basic_attack": {
 			"effects": [
