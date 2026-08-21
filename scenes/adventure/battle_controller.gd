@@ -781,8 +781,22 @@ func _acquire_target_if_needed(unit: BattleUnit) -> void:
 	if unit.target_unit_id != "":
 		var t: BattleUnit = _find_unit_by_id(unit.target_unit_id)
 		if t != null and t.is_alive():
-			return
-		unit.target_unit_id = ""
+			# ⚠ 攻撃を始めたら固定（人間の決定・案B。EXEC_BATTLE_RETARGET.md）。
+			#   射程に入るまでは、より近い相手が居たら下で乗り換える。
+			#
+			# ⚠ 「攻撃を始めた」の条件は _step_unit() が攻撃するかどうかを決めている
+			#   式とまったく同じにすること（battle_controller.gd の distance 判定）。
+			#   別の条件（攻撃回数・フラグ）を持たせると判定が2箇所になって食い違う。
+			#
+			# ⚠ 元は無条件の return だった。そのため狙う相手は戦闘開始の1回で決まり、
+			#   あとから追い越してきた敵の脇を通り過ぎて奥の敵を殴りに行っていた
+			#   （実測：剣士が 17.6 先の狼を無視して 59.8 先の敵を殴る）。
+			if absf(t.x - unit.x) <= unit.attack_range:
+				return
+		else:
+			# ⚠ else にすること。無条件で捨てると、射程外の生きている相手を捨てた
+			#   あとに下の選抜が同じ相手を選ばなかった場合、1フレーム対象が空になる。
+			unit.target_unit_id = ""
 
 	var opponents: Array = _session.get_alive_units(BattleUnit.TEAM_ENEMY if unit.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY)
 	if opponents.is_empty():
