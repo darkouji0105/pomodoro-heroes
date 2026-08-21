@@ -283,7 +283,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
-| **（未コミット）** | `feat(battle): 召喚（spawn）を足し、専用配列と座標の規則を入れる`（段階6。15ファイル。新規は `resources/balance/master/summons.json` と `docs/02_exec/EXEC_SKILL_SPAWN.md`。`type: "summon"` を実装・`host: "spawn"` を赤に格上げ・`BattleSession.summon_units` と `find_unit()` 新設・E93〜E101 / W13） | `EXEC_SKILL_SPAWN.md` |
+| `128f25d` | `feat(battle): 召喚（spawn）を足し、専用配列と座標の規則を入れる`（段階6。18ファイル。新規は `resources/balance/master/summons.json` と `docs/02_exec/EXEC_SKILL_SPAWN.md`。`type: "summon"` を実装・`host: "spawn"` を赤に格上げ・`BattleSession.summon_units` と `find_unit()` 新設・E93〜E101 / W13） | `EXEC_SKILL_SPAWN.md` |
 | `9df9546` | `feat(battle): 段（phases）と再発動（recast）を足し、構え中はCDを見ないようにする`（段階5。`phase_of()` / `phase_count()` 新設・`BattleUnit.recast_pending`・`BattleLog.log_recast()`・E81〜E92・`debug_boot` の `fire` に `gap` 欄） | `EXEC_SKILL_RECAST.md` |
 | `ec386f7` | `test(verify): 操作のいらないデバッグ起動シーンを1個作り、検証をヘッドレスへ移す`（9ファイル。新規は `tests/debug_boot.tscn` / `.gd`。⚠ **本番コードは1行も触っていない**。⚠ **設計役が Godot をヘッドレスで起動できることが実測で判明し、`AGENTS.md` に「誰が取るか」を追記・`CLAUDE.md` の「起動できない」を修正**）⚠ **ブランチ `feat/debug-boot-verify-tooling` に切ってある** | `EXEC_VERIFY_TOOLING.md` / `EXEC_DEBUG_BOOT.md` |
 | `a0433de` | `範囲スキル等`（段階4＝`mode: area`。⚠ **メッセージが型に沿っていない**。`origin` 新設・`select_targets()` の組み替え・E77〜E80・検証用データ一式） | `EXEC_SKILL_AREA.md` |
