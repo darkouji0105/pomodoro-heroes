@@ -15,7 +15,9 @@
 				"status_id": "status_edbg_immune",
 				"duration_sec": 300.0,
 				"stack": "refresh",
-				"block_status": ["status_dbg_dot_long"]
+				"intervene": {
+					"block_status": ["status_dbg_dot_long"]
+				}
 			}
 		]
 	}

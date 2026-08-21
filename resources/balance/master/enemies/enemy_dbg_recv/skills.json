@@ -15,7 +15,9 @@
 				"status_id": "status_edbg_recv_down",
 				"duration_sec": 300.0,
 				"stack": "refresh",
-				"heal_taken_pct": -50
+				"intervene": {
+					"heal_taken_pct": -50
+				}
 			}
 		]
 	}

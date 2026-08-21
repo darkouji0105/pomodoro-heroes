@@ -288,3 +288,14 @@ ui_battle_skill_dbg_area_heal,範囲回復（起点＝自分）
 ui_battle_skill_dbg_recast_two,再発動・2段（弱→強）
 ui_battle_skill_dbg_summon,召喚・2体（後衛）
 ui_battle_summon_dbg_guard,守護霊（検証用）
+ui_battle_skill_dbg_hit_true,確定打（検証用）
+ui_battle_skill_dbg_hit_true_b,確定打B（検証用）
+ui_battle_skill_dbg_hit_true_c,確定打C（検証用）
+ui_battle_skill_dbg_hit_phys,物理打（検証用）
+ui_battle_skill_dbg_hit_weak,弱打（検証用）
+ui_battle_skill_dbg_mit_reduce,軽減付与（検証用）
+ui_battle_skill_dbg_mit_pierce,貫通付与（検証用）
+ui_battle_skill_dbg_mit_crit,確定会心付与（検証用）
+ui_battle_skill_dbg_mit_shield,盾付与（検証用）
+ui_battle_skill_dbg_mit_reflect,反射付与（検証用）
+ui_battle_skill_dbg_mit_thorns,棘の盾付与（検証用）

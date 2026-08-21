@@ -384,6 +384,13 @@ static func _apply_damage(
 		defense = target.get_defense(attack_type)
 
 	var ctx: Dictionary = {
+		# ⚠ 実体を持たせる（EXEC_SKILL_MITIGATION.md §0-1 の1）。介入点は
+		#   「殴った側の状態（貫通・確定クリティカル）」と「殴られた側の状態
+		#   （軽減・シールド・反射）」の両方を読むので、IDだけでは足りない。
+		# ⚠ 回復の ctx が既に target の実体を持っており、形を揃えてある。
+		# ⚠ ID の欄は消さないこと。results の組み立てが読んでいる。
+		"user": user,
+		"target": target,
 		"user_id": user.unit_id,
 		"target_id": target.unit_id,
 		"attack_type": attack_type,
@@ -400,8 +407,8 @@ static func _apply_damage(
 	# 介入点。段階1は全部素通し。
 	# ⚠ 1本の固定式にまとめないこと（PLAN 11-0-1）。まとめると、割り込む位置が
 	#   増えるたびに式を書き換えることになり、途中の値も取り出せなくなる。
-	_step_crit_override(ctx)
-	_step_reduction(ctx)
+	_step_crit_override(ctx, registry)
+	_step_reduction(ctx, registry)
 
 	# ここで確定する。以降は再計算しない。
 	ctx["amount"] = BattleFormula.damage(
@@ -413,8 +420,17 @@ static func _apply_damage(
 	)
 
 	# 【第2段】確定した数値を消費する。
-	# （シールドが吸う受け口はここに入る … 段階3。amount を減らせるのはそこだけ）
+	# ⚠ シールドは take_damage() の前（amount を減らせるのはここだけ）。
+	# ⚠ 反射は take_damage() の後（「実際に減ったHP」を基準にするため）。
+	_step_shield(ctx, registry)
 	target.take_damage(int(ctx["amount"]))
+	_apply_reflect(ctx, registry, results, is_dot)
+
+	# ⚠ 吸い切ったときに results へ積まない。積むと頭上に「0」が浮かぶ
+	#   （緑でも赤でもない数字が出て、何が起きたのか画面から読めない）。
+	#   何が起きたかは intervene の kind: "shield" が記録している。
+	if int(ctx["amount"]) <= 0:
+		return
 	# 購読（PLAN 10章）が要る情報を、確定した結果に載せて返す。
 	#
 	# ⚠ ここで購読を発火させないこと。この層は static で、待ち行列も器も持たない
@@ -433,16 +449,131 @@ static func _apply_damage(
 	})
 
 
-# 確定クリティカルの受け口（段階3）。
+# 確定クリティカル（EXEC_SKILL_MITIGATION.md）。⚠ 読むのは「殴った側」の状態。
+#
 # ⚠ 位置が要件。roll_crit() のあと・BattleFormula.damage() の前でなければ、
 #   確定クリティカルを後から足せない（PLAN 11-2）。
-static func _step_crit_override(_ctx: Dictionary) -> void:
-	pass
+# ⚠ roll_crit() を振り直さないこと。結果を上書きするだけ。振り直すと乱数を
+#   引く回数が状態の有無で変わり、同じ入力で違うログが出る（PLAN 11-0）。
+# ⚠ 既に会心だったときは記録しない（素通しは出さない・battle_log.gd:302）。
+static func _step_crit_override(ctx: Dictionary, registry: RefCounted) -> void:
+	if registry == null:
+		return
+	if bool(ctx.get("is_crit", false)):
+		return
+	var user: BattleUnit = ctx.get("user", null)
+	if user == null:
+		return
+	if not bool(registry.has_crit_always(user.unit_id)):
+		return
+	ctx["is_crit"] = true
+	BattleLog.log_intervene("crit", user.unit_id, "", "forced")
 
 
-# 軽減% / 貫通% の受け口（段階3）。defense と multiplier を触れる位置。
-static func _step_reduction(_ctx: Dictionary) -> void:
-	pass
+# 軽減% / 貫通%（EXEC_SKILL_MITIGATION.md）。defense と multiplier を触れる位置。
+#
+# ⚠ 順は貫通 → 軽減。攻撃側を先に解決してから守備側を掛ける。
+# ⚠ 貫通は「殴った側」、軽減は「殴られた側」の状態。読み違えると
+#   「効いているのに効かない」になり、エラーは1つも出ない。
+# ⚠ 上限は registry 側（damage_taken_pct / pierce_pct）が掛けている。ここで2重に
+#   掛けないこと。
+static func _step_reduction(ctx: Dictionary, registry: RefCounted) -> void:
+	if registry == null:
+		return
+	var user: BattleUnit = ctx.get("user", null)
+	var target: BattleUnit = ctx.get("target", null)
+
+	if user != null:
+		var pierce: int = int(registry.pierce_pct(user.unit_id))
+		if pierce > 0 and int(ctx.get("defense", 0)) > 0:
+			var before: int = int(ctx["defense"])
+			ctx["defense"] = int(floor(float(before) * float(100 - pierce) / 100.0))
+			BattleLog.log_intervene("pierce", user.unit_id, "", "%d%% def %d->%d" % [
+				pierce, before, int(ctx["defense"])
+			])
+
+	if target != null:
+		var reduction: int = int(registry.damage_taken_pct(target.unit_id))
+		if reduction > 0:
+			ctx["multiplier"] = float(ctx.get("multiplier", 0.0)) * float(100 - reduction) / 100.0
+			BattleLog.log_intervene("reduction", target.unit_id, "", "%d%%" % reduction)
+
+
+# シールド（EXEC_SKILL_MITIGATION.md）。⚠ 確定した amount を肩代わりさせる。
+#
+# ⚠ take_damage() の前でなければならない。あとに置くと、HPが減ってから減らし直す
+#   ことになり、2段構え（確定したら再計算しない・PLAN 11-0）を破る。
+# ⚠ 残量を減らすのは registry の仕事。ここは金額を引くだけ。
+static func _step_shield(ctx: Dictionary, registry: RefCounted) -> void:
+	if registry == null:
+		return
+	var target: BattleUnit = ctx.get("target", null)
+	if target == null:
+		return
+	var amount: int = int(ctx.get("amount", 0))
+	if amount <= 0:
+		return
+	var absorbed: int = int(registry.consume_shield(target.unit_id, amount))
+	if absorbed <= 0:
+		return
+	ctx["amount"] = amount - absorbed
+	ctx["shielded"] = absorbed
+	BattleLog.log_intervene("shield", target.unit_id, "", "%d absorbed (%d->%d)" % [
+		absorbed, amount, int(ctx["amount"])
+	])
+
+
+# 反射（EXEC_SKILL_MITIGATION.md・人間の決定1・3・4）。
+#
+# ⚠ ここから _apply_damage() を呼ばないこと。反射を持つ者同士が殴り合うと
+#   止まらなくなる（フレームが落ちるだけで、エラーは1つも出ない）。
+#   深さの欄やカウンターで止めない。「呼ばない」ことで止める。
+# ⚠ reflect_pct は「実際に減ったHP」基準（シールドが全部吸ったら 0）。
+#   reflect_flat は殴られたら必ず返す（シールドが全部吸っても返る）。
+# ⚠ DoT は反射しない。毒を「殴り返す」相手が居ない（source は付けた本人で、
+#   その場に居るとは限らない）。
+# ⚠ 反射で攻撃者が死んでも、ここで死亡処理を書かないこと。
+#   BattleController._step_deaths() が次のフレームに全ユニットを走査して拾う
+#   （復活の介入点もそちらを通る）。
+static func _apply_reflect(
+		ctx: Dictionary, registry: RefCounted, results: Array, is_dot: bool
+) -> void:
+	if registry == null or is_dot:
+		return
+	var user: BattleUnit = ctx.get("user", null)
+	var target: BattleUnit = ctx.get("target", null)
+	if user == null or target == null:
+		return
+	# ⚠ 自分で自分を殴った場合は返さない（無限に往復する）。
+	if user.unit_id == target.unit_id:
+		return
+	if not user.is_alive():
+		return
+
+	var pct: int = int(registry.reflect_pct(target.unit_id))
+	var flat: int = int(registry.reflect_flat(target.unit_id))
+	if pct <= 0 and flat <= 0:
+		return
+
+	var back: int = flat
+	if pct > 0:
+		back += int(floor(float(int(ctx.get("amount", 0))) * float(pct) / 100.0))
+	if back <= 0:
+		return
+
+	user.take_damage(back)
+	BattleLog.log_intervene("reflect", target.unit_id, "", "%d to %s" % [back, user.unit_id])
+	# ⚠ 既存4キーの形をそのまま使う（skill_resolver.gd:424）。
+	#   unit_id ＝ 食らった側（＝殴ってきた者）／ source_unit_id ＝ 反射した側。
+	results.append({
+		"unit_id": user.unit_id,
+		"amount": back,
+		"is_heal": false,
+		"is_crit": false,
+		"is_dot": false,
+		"source_unit_id": target.unit_id,
+		"attack_type": SkillSchema.ATTACK_TYPE_TRUE,
+	})
 
 
 # 回復。会心を振らない・atk_multiplier を掛けない（段階3）。

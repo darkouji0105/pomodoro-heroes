@@ -291,6 +291,8 @@ static func log_status_add(
 # 介入点が効いた（PLAN 11-1・段階3の後半③）。
 #
 # kind … "death"（復活）／ "status"（付与を弾いた）／ "heal"（被回復増減）
+#        ／ "shield"（肩代わりした）／ "reduction"（軽減）／ "pierce"（貫通）
+#        ／ "crit"（確定クリティカル）／ "reflect"（殴り返した）
 # status_id … 介入の原因になった状態のID。⚠ "status" のときだけ意味が違い、
 #             「弾かれたほうのID」が入る（免疫そのもののIDではない）。
 #             どちらか一方しか出せないので、事故の側（弾かれたほう）を採る。
@@ -312,6 +314,7 @@ static func log_intervene(kind: String, unit_id: String, status_id: String, deta
 
 
 # why … "expire"（寿命切れ）／ "host_dead"（宿主が死んだ）／ "revive_clear"（復活で全消し）
+#       ／ "consumed"（シールドを吸い切った・EXEC_SKILL_MITIGATION.md）
 static func log_status_end(status_id: String, host_unit_id: String, why: String) -> void:
 	if not is_on():
 		return
