@@ -84,14 +84,30 @@ const EFFECT_HEAL: String = "heal"
 const EFFECT_BUFF: String = "buff"   # 段階3で実装
 const EFFECT_DOT: String = "dot"     # 段階3で実装
 const EFFECT_REACT: String = "react" # 段階3の後半①で実装（購読）
+const EFFECT_SUMMON: String = "summon" # 段階6で実装（召喚・分裂）
 const EFFECT_TYPES_KNOWN: Array = [
-	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT,
-	"dispel", "cancel", "transform", "move", "summon"
+	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
+	"dispel", "cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
-	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT
+	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON
 ]
+
+# 召喚（type: "summon"・段階6・PLAN 14-2）の欄。
+#
+# ⚠ 既定値を作らない（origin / stack / scale_from と同じ方針）。書き忘れが
+#   どちらに倒れても無音で挙動が変わる：count を省略して1体にすると
+#   「取り巻き3体のつもりが1体」、offset_x を省略して0にすると召喚者と
+#   完全に重なって数字が読めない（宿題28）。
+# ⚠ offset_x の符号は「敵に向かう向きが正」（前衛が正・後衛が負）。
+#   ワールド座標に直接足さないこと。味方は +1、敵は -1 を掛けてから足す。
+const SUMMON_FIELDS_REQUIRED: Array = ["unit_id", "count", "duration_sec", "offset_x"]
+# ⚠ 召喚は対象を取らず、威力の式も持たない。書けると「書いたのに効かない」が無音になる。
+const SUMMON_FIELDS_FORBIDDEN: Array = ["target", "scale_from", "multiplier", "attack_type"]
+# ⚠ summon 以外の効果に書いてあったら赤（E99）。unit_id は「召喚するID」の意味で、
+#   damage の results が持つ unit_id（＝殴られた側）と紛らわしい。
+const SUMMON_ONLY_FIELDS: Array = ["unit_id", "offset_x", "count"]
 # 状態として残る効果。host / status_id / stack / 寿命の欄を読む（PLAN 13章）。
 const EFFECT_TYPES_STATUS: Array = [EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT]
 
@@ -699,6 +715,52 @@ static func _validate_target(
 			_err(issues, skill_id, "%s.range が正の数値でない" % where)
 
 
+# 召喚の効果（type: "summon"・段階6・PLAN 14-2）の検証。
+#
+# ⚠ unit_id が summons.json に実在するかはここで見ない（E100）。この静的クラスは
+#   1スキルしか知らない。クロス検証は MasterDataLoader._validate_all_skills()
+#   （射程 × attack_range と同じ場所）。
+# ⚠ duration_sec / offset_x を is int で見ないこと。MasterDataLoader は JSON の
+#   数値を float で返す（E69 はこれで9件を誤って赤にした・CLAUDE.md 3番）。
+static func _validate_summon_effect(
+		issues: Array, skill_id: String, effect: Dictionary, where: String
+) -> void:
+	# E94 … 4つとも必須。既定値を作らない（origin / stack / scale_from と同じ方針）
+	for field: String in SUMMON_FIELDS_REQUIRED:
+		if not effect.has(field):
+			_err(issues, skill_id, "%s に %s が無い（召喚の欄に既定値は作らない）" % [where, field])
+
+	if str(effect.get("unit_id", "")) == "":
+		_err(issues, skill_id, "%s.unit_id が空（summons.json のID）" % where)
+
+	# E95 … 無期限を作らない。上限が無い（人間の決定5）ので、無期限を許すと消えない
+	if effect.has("duration_sec"):
+		if not _is_num(effect.get("duration_sec", null)):
+			_err(issues, skill_id, "%s.duration_sec が数値でない" % where)
+		elif float(effect.get("duration_sec", 0.0)) <= 0.0:
+			_err(issues, skill_id, "%s.duration_sec は 0 より大きいこと（無期限は作らない）" % where)
+
+	# E96 / W13 … 符号は「敵に向かう向きが正」（正＝前衛 / 負＝後衛）
+	if effect.has("offset_x"):
+		if not _is_num(effect.get("offset_x", null)):
+			_err(issues, skill_id, "%s.offset_x が数値でない（正＝前衛 / 負＝後衛）" % where)
+		elif is_zero_approx(float(effect.get("offset_x", 0.0))):
+			_warn(issues, skill_id, "%s.offset_x が 0（召喚者と完全に重なって数字が読めない）" % where)
+
+	# E97 … 小数を書かせない。N体目の位置が offset_x * (n+1) なので、体数は整数でないと意味が無い
+	if effect.has("count"):
+		var raw_count: Variant = effect.get("count", null)
+		if not _is_num(raw_count):
+			_err(issues, skill_id, "%s.count が数値でない" % where)
+		elif float(raw_count) != float(int(float(raw_count))) or int(float(raw_count)) < 1:
+			_err(issues, skill_id, "%s.count は 1 以上の整数であること: %s" % [where, str(raw_count)])
+
+	# E98 … 召喚は対象を取らず、威力の式も持たない
+	for forbidden: String in SUMMON_FIELDS_FORBIDDEN:
+		if effect.has(forbidden):
+			_err(issues, skill_id, "%s に %s は書けない（召喚は対象も威力の式も持たない）" % [where, forbidden])
+
+
 # effects[] の1要素ぶんの検証。
 #
 # where_prefix … react.effects[] から再帰で呼ぶときの位置（"effects[0].react" の形）。
@@ -739,6 +801,19 @@ static func _validate_effect(
 	#   毎フレーム評価する相手（状態）が存在しないので、黙って何も起きない。
 	if effect.has("condition") and not (effect_type in EFFECT_TYPES_STATUS):
 		_err(issues, skill_id, "%s.type: '%s' に condition{} は書けない（残らない効果は毎フレーム評価できない）" % [where, effect_type])
+
+	# E94〜E98 召喚（段階6・PLAN 14-2）
+	if effect_type == EFFECT_SUMMON:
+		_validate_summon_effect(issues, skill_id, effect, where)
+	else:
+		# E99 … 召喚だけの欄を他の効果に書かせない。
+		# ⚠ unit_id は「召喚するID」の意味で、results が持つ unit_id（＝殴られた側）と
+		#   紛らわしい。1つの語が2つの意味を持つ状態を作らない（PLAN 1章の病気）。
+		for summon_field: String in SUMMON_ONLY_FIELDS:
+			if effect.has(summon_field):
+				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（type: 'summon' だけの欄）" % [
+					where, effect_type, summon_field
+				])
 
 	if effect_type == EFFECT_DAMAGE or effect_type == EFFECT_HEAL:
 		# E19
@@ -818,15 +893,21 @@ static func _validate_effect(
 		_err(issues, skill_id, "%s.host が不明: '%s'" % [where, host])
 	elif host == HOST_NONE:
 		pass
-	elif not (effect_type in EFFECT_TYPES_STATUS) and host != HOST_SPAWN:
+	elif host == HOST_SPAWN:
+		# E93 … 段階6で type: "summon" を実装したので、書き方は1本に絞る（人間の決定7）。
+		#
+		# ⚠ 同じことが2通り書ける状態を残さない（phases と top-level の target を
+		#   同居させない E86 と同じ形）。⚠ HOST_SPAWN の定数は消さない。PLAN 9章の
+		#   分類語（何がどこに残るか）としては生きている。
+		# ⚠ この枝は E30 より前に置くこと。あとに置くと、damage に host: 'spawn' と
+		#   書いたときに E30 と2本出る。
+		_err(issues, skill_id, "%s.host: 'spawn' は書けない（召喚は type: 'summon' で書く）" % where)
+	elif not (effect_type in EFFECT_TYPES_STATUS):
 		# E30 … 残らないものに宿主は無い（damage / heal に host を書いている）
 		_err(issues, skill_id, "%s.type: '%s' に host: '%s' は書けない（残らない効果）" % [where, effect_type, host])
 	elif host == HOST_POINT or host == HOST_BATTLE:
 		# W9 … 器には載るが、参照する仕組み（条件・購読）が段階3の後半なので何も起きない
 		_warn(issues, skill_id, "%s.host: '%s' は器に載るだけ。参照する仕組み（条件・購読）は段階3の後半" % [where, host])
-	elif host == HOST_SPAWN:
-		# W6
-		_warn(issues, skill_id, "%s.host: 'spawn' は段階6。今は飛ばされる" % where)
 
 	# 効果ごとの target 上書き（range は書けない＝E16）
 	var raw_target: Variant = effect.get("target", null)

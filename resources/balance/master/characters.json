@@ -286,7 +286,8 @@
 			"skill_dbg_react_thorns",
 			"skill_dbg_area_narrow",
 			"skill_dbg_area_wide",
-			"skill_dbg_recast_two"
+			"skill_dbg_recast_two",
+			"skill_dbg_summon"
 		],
 		"allocatable_stats": [
 			"hp",

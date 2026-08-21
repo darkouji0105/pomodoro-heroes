@@ -18,6 +18,14 @@ const PATH_CHARACTERS: String = DIR_PATH + "characters.json"
 const PATH_ENEMIES: String = DIR_PATH + "enemies.json"
 const PATH_PARTIES: String = DIR_PATH + "parties.json"
 const PATH_STAGES: String = DIR_PATH + "stages.json"
+# 召喚ユニットの素データ（段階6・EXEC_SKILL_SPAWN.md §3-1）。
+#
+# ⚠ enemies.json と分けてある（人間の確認待ち・EXEC §0-1 の1）。混ぜると
+#   ウェーブの enemy_type_id にも書けてしまい、どちらの用途で置かれた行なのかを
+#   ロード時に判定できない。リリース後はIDを改名できないので後から分けられない。
+# ⚠ エントリの形は enemies.json の1件と同じ（BattleUnit.create() が読む欄が全部そこ）。
+# ⚠ skills / passives は書けない（E101）。段階6では召喚はスキルを撃たない。
+const PATH_SUMMONS: String = DIR_PATH + "summons.json"
 # スキルは複数ファイルに割ってある（EXEC_SKILL_MULTIFILE.md）。
 #
 # 【なぜ割るか】段階3の後半で購読と条件が乗ると1スキルが30〜50行になる。
@@ -88,6 +96,7 @@ static var _cache_characters: Dictionary = {}
 static var _cache_enemies: Dictionary = {}
 static var _cache_parties: Dictionary = {}
 static var _cache_stages: Dictionary = {}
+static var _cache_summons: Dictionary = {}
 static var _cache_skills: Dictionary = {}
 static var _cache_loaded: bool = false
 
@@ -126,6 +135,22 @@ static func get_party(id: String) -> Dictionary:
 	return (_cache_parties[id] as Dictionary).duplicate(true)
 
 
+# 召喚ユニットの素データ（段階6）。⚠ get_enemy() と同じ形にしてある。
+static func get_summon(id: String) -> Dictionary:
+	_ensure_loaded()
+	if not _cache_summons.has(id):
+		push_error("[MasterDataLoader] summon id not found: " + id)
+		return {}
+	return (_cache_summons[id] as Dictionary).duplicate(true)
+
+
+# ⚠ ロード時検証（E100）から呼ぶ。get_summon() を使うと、無いIDのたびに
+#   push_error が2本出る（検証の赤と getter の赤）。
+static func has_summon(id: String) -> bool:
+	_ensure_loaded()
+	return _cache_summons.has(id)
+
+
 static func get_stage(id: String) -> Dictionary:
 	_ensure_loaded()
 	if not _cache_stages.has(id):
@@ -144,6 +169,9 @@ static func _ensure_loaded() -> void:
 	_cache_enemies = _load_json(PATH_ENEMIES)
 	_cache_parties = _load_json(PATH_PARTIES)
 	_cache_stages = _load_json(PATH_STAGES)
+	# ⚠ _validate_all_skills() より前に読むこと。E100（summon の unit_id が
+	#   summons.json に無い）のクロス検証がこのキャッシュを見る。
+	_cache_summons = _load_json(PATH_SUMMONS)
 	_cache_skills = _load_character_files("skills.json", "スキル")
 	# スキルは自由度が高いぶん「書けるが壊れている」組み合わせが増えた。
 	# resolver 側だけで防ぐと実戦で撃つまで気づけないので、読んだ直後に全件見る
@@ -154,6 +182,28 @@ static func _ensure_loaded() -> void:
 	# ⚠ 通常攻撃も同じタイミングで見る。スキルと違って「撃てない」が無音なので
 	#   （攻撃間隔だけ回って何も起きない）、ロード時に言わないと気づけない。
 	_validate_all_basic_attacks()
+	# ⚠ 召喚は通常攻撃しか撃たないので、basic_attack の検証と同じ列に並べる。
+	_validate_all_summons()
+
+
+# 召喚ユニットの素データの検証（段階6・E101）。
+#
+# ⚠ 正常系では1行も出さない（print を増やさない・NEXT_STEPS §5）。
+# ⚠ 10軸や basic_attack の中身はここで見ない。前者は BattleUnit.create() が
+#   欠けを push_warning で言い、後者は _validate_all_basic_attacks() が見る。
+static func _validate_all_summons() -> void:
+	for summon_id: Variant in _cache_summons:
+		var entry: Variant = _cache_summons[summon_id]
+		if not (entry is Dictionary):
+			push_error("[MasterDataLoader] summons %s: エントリが Dictionary でない" % str(summon_id))
+			continue
+		# E101 … 書けてしまうと無音で無視され、「持たせたのに撃たない」を
+		#        実機で追うことになる（段階6では召喚はスキルを撃たない）。
+		for forbidden: String in ["skills", GameManager.CHARACTER_PASSIVES]:
+			if (entry as Dictionary).has(forbidden):
+				push_error("[MasterDataLoader] summons %s: '%s' は書けない（段階6では召喚はスキルを撃たない）" % [
+					str(summon_id), forbidden
+				])
 
 
 # キャラのフォルダから同じ名前のファイルを集めて1つの辞書にまとめる。
@@ -594,6 +644,30 @@ static func _validate_all_skills() -> void:
 						push_error("[MasterDataLoader] skills %s: target.range が %s の attack_range (%.1f) より短い" % [
 							str(skill_id), cid, attack_range
 						])
+		# 召喚のクロス検証（段階6・E100）。
+		#
+		# ⚠ SkillSchema 側に書けない。あちらは1スキルだけを見る静的検証で、
+		#   summons.json を知らない（射程 × attack_range と同じ理由でここに置く）。
+		# ⚠ 段（phases）の中の効果も見ること。phases が無いスキルでは
+		#   phase_of() が data をそのまま返すので、書き方は1本で済む。
+		for phase_index: int in range(SkillSchema.phase_count(data)):
+			var phase: Dictionary = SkillSchema.phase_of(data, phase_index)
+			var raw_effects: Variant = phase.get("effects", null)
+			if not (raw_effects is Array):
+				continue
+			for raw_effect: Variant in (raw_effects as Array):
+				if not (raw_effect is Dictionary):
+					continue
+				if str((raw_effect as Dictionary).get("type", "")) != SkillSchema.EFFECT_SUMMON:
+					continue
+				var summon_id: String = str((raw_effect as Dictionary).get("unit_id", ""))
+				# 空は SkillSchema の E94 が言う。ここで2本目を出さない。
+				if summon_id == "" or has_summon(summon_id):
+					continue
+				error_count += 1
+				push_error("[MasterDataLoader] skills %s: summon の unit_id が summons.json に無い: '%s'" % [
+					str(skill_id), summon_id
+				])
 
 	# _load_json() は成功時に何も出さない。これが唯一の「読めた」の合図。
 	print("[MasterDataLoader] skills validated: %d entries, %d errors, %d warnings" % [

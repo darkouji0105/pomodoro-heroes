@@ -119,6 +119,22 @@ var skill_cooldowns: Dictionary = {}
 # ⚠ セーブされない。戦闘のあいだだけの状態。
 var recast_pending: Dictionary = {}
 
+# --- 召喚（段階6・PLAN 14-2） ---
+#
+# ⚠ 書いてよいのは BattleController._spawn_summon() だけ。他所から触らないこと。
+# ⚠ 関数を足していないのは意図的。期限を減らすのも捨てるのも
+#   BattleController._step_summons() の1箇所で、判定する側がこのクラスの外に居る
+#   （構え＝recast は blocked_reason() が user から到達する必要があったので別）。
+# ⚠ セーブに入らない。戦闘のあいだだけの状態。
+#
+# 召喚ユニットか。⚠ 勝敗判定はこれを見ない。召喚は summon_units に居るので
+#   is_party_wiped() / is_wave_cleared() には最初から混ざらない。
+var is_summon: bool = false
+# 召喚者の unit_id。⚠ 召喚者が死んだら召喚も消える（人間の決定・2026-08-21）。
+var summon_owner_id: String = ""
+# 期限の残り秒。⚠ 0以下になったら「死亡ではなく」静かに消える（人間の決定）。
+var summon_remaining: float = 0.0
+
 
 # 生成の唯一の入口。BattleUnit.new() を直接呼ばないこと。
 #

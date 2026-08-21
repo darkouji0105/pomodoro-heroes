@@ -29,6 +29,11 @@ const KIND_SCREEN: String = "screen"
 #   （④-a で hp: 9999 に条件を書いて踏んだのと同じ形）。
 const PREPARE_NONE: String = ""
 const PREPARE_DAMAGE_PARTY: String = "damage_party"
+# ⚠ 味方を全滅させる（段階6）。召喚が生きていても敗北するか＝
+#   is_party_wiped() に召喚が混ざっていないかを見るためのもの。
+# ⚠ この下ごしらえを使う行は "skill": "" にすること。全滅後は撃てる者が
+#   居らず、_find_user() が null で赤を出す。
+const PREPARE_KILL_PARTY: String = "kill_party"
 
 
 const SCENARIOS: Dictionary = {
@@ -85,6 +90,45 @@ const SCENARIOS: Dictionary = {
 		"fire": [
 			{"skill": "skill_dbg_recast_two", "prepare": PREPARE_NONE},
 			{"skill": "skill_dbg_area_wide", "prepare": PREPARE_NONE, "gap": 4.0},
+		],
+	},
+	# 段階6（spawn）の検証。⚠ ステージは stage_dbg_area を使い回す。
+	# ⚠ 召喚は summon_units（専用配列）に入るので、勝敗判定には最初から混ざらない。
+	#   ここで見るのは「座標の規則」「期限で消える」「召喚自身のステータスで殴る」の3つ。
+	"summon": {
+		"kind": KIND_BATTLE,
+		"note": "召喚。2体が召喚者の x−60 / x−120 に出て、4.0秒で消える（damage は召喚の atk=50）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_summon", "skill_dbg_area_wide"],
+			# ⚠ 回復は「召喚が味方の母集団（get_alive_units）に入っているか」を
+			#   ログで見るためだけに入れてある。後衛の召喚は味方より後ろに立つので、
+			#   敵の nearest には選ばれず、狙われる側からは検証できない。
+			"char_debug_life": ["skill_dbg_area_far", "skill_dbg_area_heal"],
+		},
+		"fire": [
+			{"skill": "skill_dbg_summon", "prepare": PREPARE_NONE},
+			# ⚠ 召喚が生きているあいだに撃つこと（duration_sec は 4.0）。
+			{"skill": "skill_dbg_area_heal", "prepare": PREPARE_DAMAGE_PARTY, "gap": 0.5},
+			# ⚠ duration_sec を跨いで待たないと expire が出ないまま決着する。
+			{"skill": "skill_dbg_area_wide", "prepare": PREPARE_NONE, "gap": 6.0},
+		],
+	},
+	# ⚠ 召喚は頭数に入らない（人間の決定）の検証。味方だけ全滅させる。
+	# ⚠ 混ざっていると決着せず、GIVE_UP_SEC の赤が出る（無音で通らない）。
+	"summon_wipe": {
+		"kind": KIND_BATTLE,
+		"note": "召喚を出してから味方を全滅させる。召喚が生きていても敗北すること",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_summon", "skill_dbg_area_wide"],
+		},
+		"fire": [
+			{"skill": "skill_dbg_summon", "prepare": PREPARE_NONE},
+			# ⚠ 撃たない行（下ごしらえだけ）。skill を空にすること。
+			{"skill": "", "prepare": PREPARE_KILL_PARTY, "gap": 0.5},
 		],
 	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
@@ -206,6 +250,9 @@ class Driver extends Node:
 	const GIVE_UP_SEC: float = 180.0
 	# 回復の検証で味方を削る量。⚠ BattleFormula を通るので def で割られる。
 	const PREPARE_DAMAGE_POWER: int = 500
+	# 味方を全滅させる量（段階6）。⚠ char_debug_mix は hp 9999。def で割られても
+	#   確実に落ちる値にしてある。
+	const PREPARE_KILL_POWER: int = 999999
 
 	var battle_scene_path: String = ""
 	var skill_plan: Array = []
@@ -296,11 +343,30 @@ class Driver extends Node:
 		if session.elapsed_sec - _last_fire_sec < gap:
 			return
 
-		# 撃つ前の下ごしらえ（回復のために味方を削る等）。1回だけ。
-		if str(entry.get("prepare", "")) == "damage_party" and not _prepared.has(skill_id):
-			_prepared[skill_id] = true
-			print("[DebugBoot] 下ごしらえ：味方を削る（%s の前）" % skill_id)
-			_battle.debug_damage_party(PREPARE_DAMAGE_POWER, BattleUnit.ATTACK_TYPE_PHYSICAL)
+		# 撃つ前の下ごしらえ（回復のために味方を削る等）。行ごとに1回だけ。
+		#
+		# ⚠ 行の番号で覚える。skill_id で覚えると、同じスキルを2行書いたとき
+		#   （recast の2段目）に2行目の下ごしらえが飛ぶ。
+		# ⚠ 値は外側の PREPARE_* 定数と綴りを揃えること。内部クラスからは外側の
+		#   const を参照できないため、ここだけリテラルになっている。
+		var prepare: String = str(entry.get("prepare", ""))
+		if prepare != "" and not _prepared.has(_fired):
+			_prepared[_fired] = true
+			if prepare == "damage_party":
+				print("[DebugBoot] 下ごしらえ：味方を削る（%s の前）" % skill_id)
+				_battle.debug_damage_party(PREPARE_DAMAGE_POWER, BattleUnit.ATTACK_TYPE_PHYSICAL)
+			elif prepare == "kill_party":
+				print("[DebugBoot] 下ごしらえ：味方を全滅させる t=%.2f" % session.elapsed_sec)
+				_battle.debug_damage_party(PREPARE_KILL_POWER, BattleUnit.ATTACK_TYPE_PHYSICAL)
+			else:
+				push_error("[DebugBoot] 知らない prepare: '%s'" % prepare)
+			return
+
+		# ⚠ skill が空の行は「下ごしらえだけの行」。ここで消化しないと、この下の
+		#   _find_user() が null を返して赤を出す（全滅後は撃てる者が居ない）。
+		if skill_id == "":
+			_fired += 1
+			_last_fire_sec = session.elapsed_sec
 			return
 
 		var user: BattleUnit = _find_user(session, skill_id)

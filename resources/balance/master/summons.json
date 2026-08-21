@@ -1,0 +1,29 @@
+{
+	"summon_dbg_guard": {
+		"name_key": "ui_battle_summon_dbg_guard",
+		"hp": 200,
+		"atk": 50,
+		"mag": 1,
+		"def": 5,
+		"mdef": 5,
+		"spd": 300,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 400,
+		"attack_interval_sec": 0.5,
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "true",
+					"scale_from": "atk"
+				}
+			]
+		}
+	}
+}

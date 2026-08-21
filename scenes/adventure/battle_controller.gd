@@ -32,6 +32,13 @@ const RECAST_WHY_BEGIN: String = "begin"
 const RECAST_WHY_EXPIRE: String = "expire"
 const RECAST_WHY_DEATH: String = "death"
 
+# 召喚（type: "summon"・段階6）の記録の理由。⚠ 文字列リテラルを散らさない。
+const SPAWN_WHY_BEGIN: String = "begin"
+const SPAWN_WHY_EXPIRE: String = "expire"
+const SPAWN_WHY_OWNER_DEATH: String = "owner_death"
+const SPAWN_WHY_DEATH: String = "death"
+const SPAWN_WHY_CLEAR: String = "clear"
+
 # 通常攻撃を待ち行列に積むときの skill_id。⚠ どのスキルファイルにも存在しない。
 # 警告文と待ち行列の中身にしか出ず、マスターを引くのには使わない
 # （通常攻撃の中身は BattleUnit.basic_attack が持っている）。
@@ -62,6 +69,14 @@ var _party_views: Array = []
 # 飛んでいる投射物のビュー。⚠ 待ち行列（SkillRuntime）とは別物なので、
 #   捨てるときは _clear_projectiles() と clear_all() を必ずセットで呼ぶ。
 var _projectile_views: Array = []
+
+# 召喚の UnitView（段階6）。⚠ 味方・敵のコンテナに入れない。ウェーブ交代で
+#   敵のコンテナごと消えるため、消える理由が2本になる（§2-5）。投射物と同じく
+#   コントローラ直下に置き、この配列を唯一の後始末の手がかりにする。
+var _summon_views: Array = []
+# 召喚の通し番号。⚠ 減らさない・再利用しない。同じ unit_id が別の個体を指すと
+#   battle_last.jsonl から追えなくなる。
+var _next_summon_serial: int = 0
 
 # unit_id -> UnitView。ダメージ数値の表示先を引くために持つ。
 var _views_by_unit_id: Dictionary = {}
@@ -161,6 +176,39 @@ func get_session() -> BattleSession:
 	return _session
 
 
+# 走査に使う全ユニット（味方 → 敵 → 召喚 の順）。
+#
+# ⚠ 召喚（段階6）を足す場所をここ1本に閉じる。走査は8箇所ある
+#   （クールダウン・構えの窓・対象の選び直し・移動と攻撃・死亡・パッシブ・
+#   構えの全捨て・IDでの検索）。1つずつ書くと必ず1つ忘れ、しかも
+#   「召喚だけCDが回らない」のような無音の欠けになる。
+# ⚠ 並びを変えないこと。対象の選び直しと攻撃の順が変わると、同じ入力で
+#   違うログが出る（再現性が落ちる）。
+# ⚠ 勝敗判定はこれを使わない。あちらは party_units / enemy_units だけを見る
+#   （人間の決定・召喚は頭数に入らない）。
+func _all_units() -> Array:
+	if _session == null:
+		return []
+	var list: Array = []
+	list.append_array(_session.party_units)
+	list.append_array(_session.enemy_units)
+	list.append_array(_session.summon_units)
+	return list
+
+
+# UnitView を1つ作って、位置合わせと登録まで済ませる。
+#
+# ⚠ 生成の口をここ1本にする（味方・敵・召喚の3箇所目を作らないため）。
+#   _views_by_unit_id への登録を忘れると、そのユニットにダメージ数値が出ない。
+func _make_unit_view(unit: BattleUnit, parent: Node) -> Node:
+	var view: Node = UNIT_VIEW_SCENE.instantiate()
+	view.position = Vector2(unit.x, GROUND_Y)
+	parent.add_child(view)
+	view.setup(unit)
+	_views_by_unit_id[unit.unit_id] = view
+	return view
+
+
 # 状態の器を返す。⚠ 検証用（BattleDebugPanel が状態の行を出すのに使う）。
 #   デバッグパネルと一緒にリリース前に消すもの。ゲームのロジックから呼ばないこと。
 func get_status_registry() -> StatusRegistry:
@@ -238,12 +286,7 @@ func _init_party_units() -> void:
 
 		_session.party_units.append(unit)
 
-		var view: Node = UNIT_VIEW_SCENE.instantiate()
-		view.position = Vector2(unit.x, GROUND_Y)
-		party_container.add_child(view)
-		view.setup(unit)
-		_party_views.append(view)
-		_views_by_unit_id[unit.unit_id] = view
+		_party_views.append(_make_unit_view(unit, party_container))
 
 	# 味方が確定した直後に必ず作り直す。
 	# リトライで BattleUnit が作り直されるため、
@@ -349,12 +392,7 @@ func _spawn_current_wave_enemies() -> void:
 
 			_session.enemy_units.append(unit)
 
-			var view: Node = UNIT_VIEW_SCENE.instantiate()
-			view.position = Vector2(unit.x, GROUND_Y)
-			enemy_container.add_child(view)
-			view.setup(unit)
-			_enemy_views.append(view)
-			_views_by_unit_id[unit.unit_id] = view
+			_enemy_views.append(_make_unit_view(unit, enemy_container))
 			local_index += 1
 
 	# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ 生成し終わってから出す。
@@ -410,10 +448,9 @@ func _process(delta: float) -> void:
 	# クールダウンは戦闘中だけ進む（決定事項 8-1）
 	# ⚠ 敵も回すこと（EXEC_ENEMY_PARITY.md §4）。回さないと敵は最初の1回しか
 	#   撃てず、しかもエラーが1つも出ない。
-	for unit in _session.party_units:
-		if unit is BattleUnit:
-			unit.tick_cooldowns(delta)
-	for unit in _session.enemy_units:
+	# ⚠ 召喚も回す（段階6）。今の召喚はスキルを持たないので何も起きないが、
+	#   持たせたときに「召喚だけCDが回らない」を無音で作らないため。
+	for unit in _all_units():
 		if unit is BattleUnit:
 			unit.tick_cooldowns(delta)
 
@@ -422,17 +459,15 @@ func _process(delta: float) -> void:
 	# ⚠ 切れたら「そのまま終わる」（人間の決定）。最終段を自動で出さない。
 	_step_recast_windows(delta)
 
-	# 1. 対象再選択（味方→敵の順）
-	for unit in _session.party_units:
-		_acquire_target_if_needed(unit)
-	for unit in _session.enemy_units:
-		_acquire_target_if_needed(unit)
+	# 1. 対象再選択（味方→敵→召喚の順）
+	for unit in _all_units():
+		if unit is BattleUnit:
+			_acquire_target_if_needed(unit)
 
 	# 2. 攻撃 / 移動
-	for unit in _session.party_units:
-		_step_unit(unit, delta)
-	for unit in _session.enemy_units:
-		_step_unit(unit, delta)
+	for unit in _all_units():
+		if unit is BattleUnit:
+			_step_unit(unit, delta)
 
 	# 3. 実行中のスキル（多段・遅延の待ち行列）
 	#
@@ -462,6 +497,13 @@ func _process(delta: float) -> void:
 	#   _fire_intervals / F3 の自傷）に2本目の判定を作らないこと。
 	_step_deaths()
 
+	# 4-1. 召喚の始末（段階6・PLAN 14-2）
+	#
+	# ⚠ _step_deaths() より後。前に置くと、復活の介入点を通る前に召喚を消してしまう。
+	# ⚠ 勝敗判定より前。召喚は頭数に入らないので順序は結果を変えないが、
+	#   「消えたのに1フレーム殴る」を作らないため。
+	_step_summons(delta)
+
 	# 4-2. パッシブの引き金（PLAN 7-2・19章）
 	#
 	# ⚠ _step_deaths() より後。復活の全消し（clear_for_unit）はパッシブの状態も
@@ -487,9 +529,9 @@ func _process(delta: float) -> void:
 # ⚠ 死亡を知らせるシグナルが無いので毎フレーム走査する（StatusRegistry の
 #   _drop_dead_hosts() と同じ形）。件数は多くても数体。
 func _step_deaths() -> void:
-	for unit in _session.party_units:
-		_resolve_one_death(unit)
-	for unit in _session.enemy_units:
+	# ⚠ 召喚も通す（段階6）。通さないと、死んだ召喚が death_handled のまま残り、
+	#   StatusRegistry._drop_dead_hosts() が宿主の状態を捨てられない。
+	for unit in _all_units():
 		_resolve_one_death(unit)
 
 
@@ -498,9 +540,7 @@ func _step_deaths() -> void:
 # ⚠ 味方と敵で分岐しない。敵も _fire_skill() を通るので同じ形で構える。
 # ⚠ 捨てるのは BattleUnit.tick_recast() の中。ここは記録するだけ。
 func _step_recast_windows(delta: float) -> void:
-	for unit in _session.party_units:
-		_tick_one_recast(unit, delta)
-	for unit in _session.enemy_units:
+	for unit in _all_units():
 		_tick_one_recast(unit, delta)
 
 
@@ -521,10 +561,7 @@ func _tick_one_recast(unit: Variant, delta: float) -> void:
 func _clear_all_recast() -> void:
 	if _session == null:
 		return
-	for unit in _session.party_units:
-		if unit is BattleUnit:
-			(unit as BattleUnit).clear_all_recast()
-	for unit in _session.enemy_units:
+	for unit in _all_units():
 		if unit is BattleUnit:
 			(unit as BattleUnit).clear_all_recast()
 
@@ -555,6 +592,129 @@ func _resolve_one_death(unit: Variant) -> void:
 	_status.resolve_death(u)
 
 
+# ============================================================
+# 召喚（type: "summon"・段階6・PLAN 14-2）
+# ============================================================
+
+# results の1件から召喚を生やす。
+#
+# ⚠ ここが「データとビューが出会う場所」（PLAN 7-1）。SkillResolver は
+#   RefCounted でノードも BattleSession の配列の作り直しも知らないので、
+#   results に1件流してくるだけ。生成はこの画面の担当（投射物と同じ形）。
+# ⚠ 召喚は skill_ids も passive_ids も持たない（人間の決定・2026-08-21）。
+#   持たせるときは caster（PLAN 12-2）と発動判断（AI）を先に決めること。
+func _spawn_summon(r: Dictionary) -> void:
+	var owner: BattleUnit = _find_unit_by_id(str(r.get("source_unit_id", "")))
+	# ⚠ 召喚者が既に居ない／死んでいるなら生やさない。遅延（trigger: delay:）で
+	#   撃った本人が死んだあとに届くことがある。
+	if owner == null or not owner.is_alive():
+		return
+	var source_id: String = str(r.get("summon_unit_id", ""))
+	var data: Dictionary = MasterDataLoader.get_summon(source_id)
+	# 空なのはデータ側の問題。ロード時検証（E100）が赤で言っているので、
+	# ここで二重に赤を出さない。
+	if data.is_empty():
+		return
+
+	# ⚠ 符号は「敵に向かう向きが正」（人間の決定1）。ワールド座標に直接足さない。
+	#   味方は +x、敵は -x が敵方向。掛け忘れると敵の召喚だけ後ろ向きに出る。
+	var dir: float = 1.0 if owner.team == BattleUnit.TEAM_PARTY else -1.0
+	var offset_x: float = float(r.get("offset_x", 0.0))
+	var duration_sec: float = float(r.get("duration_sec", 0.0))
+
+	for n: int in range(int(r.get("count", 0))):
+		# ⚠ 素データと能力値に同じ辞書を渡す（敵の生成と同じ。summons.json の
+		#   エントリがそのまま能力値）。
+		var unit: BattleUnit = BattleUnit.create(
+			"summon_%d" % _next_summon_serial,
+			owner.team,
+			data,
+			data,
+			false
+		)
+		_next_summon_serial += 1
+		unit.is_summon = true
+		unit.summon_owner_id = owner.unit_id
+		unit.summon_remaining = duration_sec
+		# ⚠ N体目は offset_x * (n+1)。同じ x に重ねると数字が読めない（宿題28）。
+		unit.x = owner.x + dir * offset_x * float(n + 1)
+
+		_session.summon_units.append(unit)
+		_summon_views.append(_make_unit_view(unit, self))
+		BattleLog.log_spawn(owner.unit_id, unit.unit_id, source_id, unit.x, SPAWN_WHY_BEGIN)
+
+
+# 期限・召喚者の死亡・召喚自身の死亡をまとめて片付ける。
+#
+# ⚠ 配列を回しながら消さないこと。消す個体を集めてから消す（tick_recast と同じ）。
+# ⚠ 期限切れは「死亡ではない」（人間の決定3）。HPを0にしない。死亡の介入点
+#   （復活）を通さない。通すと「時間で消えた」と「殺された」が区別できなくなる。
+func _step_summons(delta: float) -> void:
+	if _session == null or _session.summon_units.is_empty():
+		return
+	var doomed: Array = []
+	for raw: Variant in _session.summon_units:
+		if not (raw is BattleUnit):
+			continue
+		var u: BattleUnit = raw as BattleUnit
+		# ⚠ 死亡は _step_deaths() が先に通してある。ここで見ているのは
+		#   「介入点まで通してなお死んでいる」個体（復活したら生きている）。
+		if not u.is_alive():
+			doomed.append({"unit": u, "why": SPAWN_WHY_DEATH})
+			continue
+		var owner: BattleUnit = _find_unit_by_id(u.summon_owner_id)
+		if owner == null or not owner.is_alive():
+			doomed.append({"unit": u, "why": SPAWN_WHY_OWNER_DEATH})
+			continue
+		u.summon_remaining -= delta
+		if u.summon_remaining <= 0.0:
+			doomed.append({"unit": u, "why": SPAWN_WHY_EXPIRE})
+	for entry: Variant in doomed:
+		_remove_summon((entry as Dictionary)["unit"], str((entry as Dictionary)["why"]))
+
+
+# 召喚を1体消す。⚠ 消える経路5本の唯一の出口
+#   （①期限切れ ②召喚者の死亡 ③召喚自身の死亡 ④ウェーブ交代 ⑤リトライ）。
+#
+# ⚠ 配列から外すだけではノードが残る。1本ずつ対応すると必ずどれかで残る
+#   （状態を消す経路を1本ずつ書いて踏んだのと同じ形）。
+func _remove_summon(unit: BattleUnit, why: String) -> void:
+	if unit == null:
+		return
+	BattleLog.log_spawn(unit.summon_owner_id, unit.unit_id, "", unit.x, why)
+	# 宿った状態も捨てる。⚠ 捨てないと、消えたユニットを宿主に持つ状態が
+	#   器に残り、補正の組み直しが毎フレーム空振りする。
+	_status.clear_for_unit(unit.unit_id, why)
+	_session.summon_units.erase(unit)
+	var view: Variant = _views_by_unit_id.get(unit.unit_id, null)
+	_views_by_unit_id.erase(unit.unit_id)
+	if view is Node and is_instance_valid(view):
+		_summon_views.erase(view)
+		# ⚠ remove_child してから queue_free する（CLAUDE.md 5番）。queue_free だけだと
+		#   同じフレームのうちはツリーに残り、次の _find_unit_by_id が拾える。
+		(view as Node).get_parent().remove_child(view as Node)
+		(view as Node).queue_free()
+
+
+# 全部消す。ウェーブ交代・リトライ・勝敗確定で呼ぶ。
+#
+# ⚠ _clear_all_recast() の隣で呼ぶこと。捨てるものが増えたときに、片方だけ
+#   足す事故を防ぐ（並べて書いてあれば目で気づける）。
+func _clear_all_summons() -> void:
+	if _session == null:
+		return
+	for raw: Variant in _session.summon_units.duplicate():
+		if raw is BattleUnit:
+			_remove_summon(raw as BattleUnit, SPAWN_WHY_CLEAR)
+	# ⚠ 念のためビューも掃く。_remove_summon() を通らずに残ったものがあれば
+	#   ここで消える（セッションを作り直したあとに呼ばれた場合）。
+	for v: Variant in _summon_views:
+		if v is Node and is_instance_valid(v):
+			(v as Node).get_parent().remove_child(v as Node)
+			(v as Node).queue_free()
+	_summon_views.clear()
+
+
 # パッシブが宿主に付いていなければ撃つ（PLAN 7-2・19章）。
 #
 # ⚠ これは「特別な経路」ではなく引き金。味方＝ボタン、敵＝攻撃拍、パッシブ＝これ。
@@ -565,9 +725,9 @@ func _resolve_one_death(unit: Variant) -> void:
 # ⚠ 走査は1箇所だけ。消える経路（復活・死亡・ウェーブ交代・reset）ごとに
 #   付け直しを書かないこと。
 func _step_passives() -> void:
-	for unit in _session.party_units:
-		_restore_passives(unit)
-	for unit in _session.enemy_units:
+	# ⚠ 召喚も通す（段階6）。今の召喚は passive_ids が空なので空回りするだけだが、
+	#   持たせたときに「召喚だけパッシブが付かない」を無音で作らないため。
+	for unit in _all_units():
 		_restore_passives(unit)
 
 
@@ -642,13 +802,11 @@ func _acquire_target_if_needed(unit: BattleUnit) -> void:
 
 
 func _find_unit_by_id(id: String) -> BattleUnit:
-	for u in _session.party_units:
-		if u is BattleUnit and u.unit_id == id:
-			return u
-	for u in _session.enemy_units:
-		if u is BattleUnit and u.unit_id == id:
-			return u
-	return null
+	# ⚠ 自分で配列を回さない。BattleSession.find_unit() が唯一の探し方（段階6）。
+	#   同じ形が4本あり、召喚を足したとき3本が置いていかれた。
+	if _session == null:
+		return null
+	return _session.find_unit(id)
 
 
 # 1 ユニットの 1 フレーム分の処理（攻撃 or 移動）
@@ -1091,6 +1249,12 @@ func _on_skill_effects_applied(results: Array) -> void:
 	for r in results:
 		if not (r is Dictionary):
 			continue
+		# 召喚（段階6）。⚠ ダメージ数値の経路より前に弾く。あとに置くと
+		#   _find_unit_by_id("") が走り、amount 0 の数字を出そうとする。
+		# ⚠ kind を持つのは召喚の1件だけ。既存の1件には kind を足していない。
+		if str(r.get("kind", "")) == SkillSchema.EFFECT_SUMMON:
+			_spawn_summon(r as Dictionary)
+			continue
 		var target: BattleUnit = _find_unit_by_id(str(r.get("unit_id", "")))
 		# 種類で色を分ける（EXEC_DAMAGE_POP_COLOR.md）。分岐はここ1箇所。
 		# ⚠ is_heal を先に見る。将来 HoT（周期回復）が来ると is_heal と is_dot が
@@ -1250,6 +1414,9 @@ func _enter_wave_clear() -> void:
 	# ⚠ 構えも捨てる（段階5）。状態と同じ扱い。残すと、次のウェーブの開始直後に
 	#   前のウェーブの2段目が撃てる。
 	_clear_all_recast()
+	# ⚠ 召喚も捨てる（人間の決定6）。残すと「連戦でHPを引き継ぐ」に
+	#   「召喚と残り時間も引き継ぐ」が混ざる。
+	_clear_all_summons()
 	# 節目の書き出し（EXEC_BATTLE_LOG.md §0）。ここまでのぶんをファイルへ落とす。
 	BattleLog.flush()
 	# 次ウェーブは味方を左端から再スタートさせる（HP とクールダウンは引き継ぐ）
@@ -1267,6 +1434,7 @@ func _enter_victory() -> void:
 	_clear_projectiles()
 	_status.clear_all()
 	_clear_all_recast()
+	_clear_all_summons()
 	_session.state = BattleSession.STATE_VICTORY
 	_consume_stage_stamina()
 
@@ -1321,6 +1489,7 @@ func _enter_defeat() -> void:
 	_clear_projectiles()
 	_status.clear_all()
 	_clear_all_recast()
+	_clear_all_summons()
 	_session.state = BattleSession.STATE_DEFEAT
 	# apply_battle_rewards も mark_stage_cleared も呼ばない
 	_show_result(false, {})
@@ -1360,6 +1529,10 @@ func _on_retry_pressed() -> void:
 
 
 func _init_session() -> void:
+	# ⚠ 召喚は _session を作り直す前に捨てる（人間の決定6）。あとにすると
+	#   新しい空の summon_units を見に行くので、前の戦闘のビューが残る
+	#   （BattleUnit は消えるのにノードだけ画面に居座り、エラーは出ない）。
+	_clear_all_summons()
 	_stage_data = MasterDataLoader.get_stage(_stage_id)
 	var total_waves: int = int(_stage_data.get("waves", []).size())
 	var stage_type: String = GameStateKeys.STAGE_TYPE_STORY

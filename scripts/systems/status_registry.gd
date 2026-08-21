@@ -1110,12 +1110,7 @@ func _rebuild_touched(touched: Dictionary) -> void:
 
 
 func _find_unit(unit_id: String) -> BattleUnit:
-	if _session == null or unit_id == "":
+	# ⚠ 自分で配列を回さない。BattleSession.find_unit() が唯一の探し方（段階6）。
+	if _session == null:
 		return null
-	for u in _session.party_units:
-		if u is BattleUnit and (u as BattleUnit).unit_id == unit_id:
-			return u
-	for u in _session.enemy_units:
-		if u is BattleUnit and (u as BattleUnit).unit_id == unit_id:
-			return u
-	return null
+	return _session.find_unit(unit_id)

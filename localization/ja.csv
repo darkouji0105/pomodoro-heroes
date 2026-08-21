@@ -286,3 +286,5 @@ ui_battle_skill_dbg_area_wide,範囲・広い（起点＝最寄り）
 ui_battle_skill_dbg_area_far,範囲・射程外まで巻き込む
 ui_battle_skill_dbg_area_heal,範囲回復（起点＝自分）
 ui_battle_skill_dbg_recast_two,再発動・2段（弱→強）
+ui_battle_skill_dbg_summon,召喚・2体（後衛）
+ui_battle_summon_dbg_guard,守護霊（検証用）

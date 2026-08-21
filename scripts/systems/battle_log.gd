@@ -171,6 +171,25 @@ static func log_recast(unit_id: String, skill_id: String, phase: int, why: Strin
 	})
 
 
+# 召喚の出来事（type: "summon"・段階6）。
+#
+# ⚠ 期限切れ（why: "expire"）も召喚者の死亡（why: "owner_death"）も、
+#   画面には「四角が消える」しか出ない。記録が無いと、消えた理由を
+#   設計役が区別できない（構え＝recast の log_recast と同じ理由）。
+# ⚠ x を出すこと。座標の規則（offset_x の符号と等間隔）はログでしか検証できない。
+# why … "begin" / "expire" / "owner_death" / "death"
+static func log_spawn(owner_id: String, unit_id: String, source_id: String, x: float, why: String) -> void:
+	if not is_on():
+		return
+	write("spawn", {
+		"owner": owner_id,
+		"unit": unit_id,
+		"src": source_id,
+		"x": snappedf(x, 0.01),
+		"why": why,
+	})
+
+
 # SkillResolver が返す results を damage / heal / dot に振り分ける。
 #
 # ⚠ results の形を知る場所をここ1箇所に閉じる（3つの差し込み先に同じループを
@@ -186,6 +205,10 @@ static func log_results(results: Array, src_fallback: String, dot_status_id: Str
 		if not (raw is Dictionary):
 			continue
 		var r: Dictionary = raw as Dictionary
+		# ⚠ kind を持つ1件は damage / heal ではない（段階6の召喚）。ここで弾かないと
+		#   amount: 0 の damage の行が出る。記録は _spawn_summon() が log_spawn() で出す。
+		if r.has("kind"):
+			continue
 		var src: String = str(r.get("source_unit_id", ""))
 		if src == "":
 			src = src_fallback

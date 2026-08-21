@@ -296,5 +296,27 @@
 				"scale_from": "atk"
 			}
 		]
+	},
+	"skill_dbg_summon": {
+		"name_key": "ui_battle_skill_dbg_summon",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 20.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "summon",
+				"unit_id": "summon_dbg_guard",
+				"count": 2,
+				"duration_sec": 4.0,
+				"offset_x": -60.0
+			}
+		]
 	}
 }

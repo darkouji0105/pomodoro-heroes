@@ -283,6 +283,8 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| **（未コミット）** | `feat(battle): 召喚（spawn）を足し、専用配列と座標の規則を入れる`（段階6。15ファイル。新規は `resources/balance/master/summons.json` と `docs/02_exec/EXEC_SKILL_SPAWN.md`。`type: "summon"` を実装・`host: "spawn"` を赤に格上げ・`BattleSession.summon_units` と `find_unit()` 新設・E93〜E101 / W13） | `EXEC_SKILL_SPAWN.md` |
+| `9df9546` | `feat(battle): 段（phases）と再発動（recast）を足し、構え中はCDを見ないようにする`（段階5。`phase_of()` / `phase_count()` 新設・`BattleUnit.recast_pending`・`BattleLog.log_recast()`・E81〜E92・`debug_boot` の `fire` に `gap` 欄） | `EXEC_SKILL_RECAST.md` |
 | `ec386f7` | `test(verify): 操作のいらないデバッグ起動シーンを1個作り、検証をヘッドレスへ移す`（9ファイル。新規は `tests/debug_boot.tscn` / `.gd`。⚠ **本番コードは1行も触っていない**。⚠ **設計役が Godot をヘッドレスで起動できることが実測で判明し、`AGENTS.md` に「誰が取るか」を追記・`CLAUDE.md` の「起動できない」を修正**）⚠ **ブランチ `feat/debug-boot-verify-tooling` に切ってある** | `EXEC_VERIFY_TOOLING.md` / `EXEC_DEBUG_BOOT.md` |
 | `a0433de` | `範囲スキル等`（段階4＝`mode: area`。⚠ **メッセージが型に沿っていない**。`origin` 新設・`select_targets()` の組み替え・E77〜E80・検証用データ一式） | `EXEC_SKILL_AREA.md` |
 | `51c09f6` | `feat(battle): 通常攻撃にキャラごとの個性を入れ、範囲攻撃を書けるようにする`（4ファイル。`basic_attack` に `target` を省略可で解禁。剣士＝重い一撃／弓兵＝最高DPS／僧侶＝範囲／狼＝速め／ボス＝重い単体） | （EXECなし。人間の決定） |
@@ -1154,7 +1156,9 @@ SkillRuntime      待っていた効果を発火（経路は _fire() の1本の�
 - ⚠ **セーブを絶対に書かない。** `set_party_member()` / `select_skill()` は本物の状態を触るので、保存すると人間の編成とスキル枠が黙って変わる
 - ⚠ **合図は「生きている敵全員の x が0.5秒動かない」＝全員が射程ぴったりに落ち着いた。時間で書かない**
   - ⚠ **初稿は「味方が殴られたら」だったが弱かった。** 最初に殴ってきたのは射程300の置物で、狼はまだ歩いていた。**殴られたことは配置を保証しない**
-- ⚠ **`fire` は1スキル1回しか撃たない。** 段階5（`recast`）の検証には改修が要る
+- ⚠ **同じ `skill` を2行書けば2回撃つ**（`_fired` はインデックス）。⚠ **行ごとに `gap` 欄で間隔を上書きできる**（段階5で追加）
+- ⚠ **`skill` が空の行は「下ごしらえだけの行」**（段階6で追加）。⚠ **`prepare` だけ書きたいときは必ず空にすること。** 書かないと `_find_user()` が null で赤を出す
+- ⚠ **`prepare` は `damage_party` と `kill_party` の2つ**（`kill_party` は段階6で追加）
 - ⚠ **セーブを読まない**（タイトルを通らないため）。**セーブ由来の不具合は再現しない**
 
 ### ⚠ 段階4で増えた器の宿題
@@ -1172,3 +1176,74 @@ SkillRuntime      待っていた効果を発火（経路は _fire() の1本の�
 - ⚠ **`tests/debug_boot.tscn` / `debug_boot.gd`**
 - ⚠ **`stage_dbg_area` ／ `skill_dbg_area_narrow` `_wide` `_far` `_heal`**
 - ⚠ **`tests/` の既存9件の棚卸し**（`my_test` / `modal_test` / `dummy_scene_a` / `dummy_scene_b` / `base_screen_debug` / `pomodoro_core_loop_debug` / `test_ui_common` / `test_common_infra` / `battle/test_status_registry`）
+
+---
+
+### 段（phases）と再発動（recast・段階5）の回で見つかったもの（2026-08-18・`9df9546`）
+
+**人間の決定**
+
+- ⚠ **`window_sec` が切れたら「そのまま終わる」。** 最終段を自動で出さない・巻き戻さない
+- ⚠ **再発動は同じスキルボタンをもう一度押す**（ボタンを増やさない）
+- ⚠ **クールダウンは1段目のあとに回り始める。** ⚠ **代わりに「構え中だけCDを見ない」を `blocked_reason()` に1本入れた。** ⚠ **窓のぶんCDが先食いされる**（最終段のあとに伸びない）
+- ⚠ **段の途中で死んだら構えを捨てる。復活しても戻らない**
+- ⚠ **`phases[]` と `charge` は同時に書けない**（ロード時に赤）
+
+**器・語彙**
+
+- ⚠ **段を取り出すのは `SkillSchema.phase_of()` 1本。`phases` が無ければ引数をそのまま返す**（複製もしない）。⚠ **分岐を各所に散らさないための構造。3箇所に書くと必ず1箇所だけ直す事故になる**
+- ⚠ **構えを捨てる経路が4本ある**（窓切れ・死亡・ウェーブ交代・リトライ）。⚠ **5本目を作るときは4本全部を見直すこと**
+- ⚠ **`activation: toggle` は黄のまま**（段階5では実装しない）
+- ⚠ **`phases` の段ごとに `charge` を書けない。** 必要になったら「段ごとの倍率の畳み方」を先に決める
+- ⚠ **構え中の見た目が無い**（ボタンの文字が `▶3.0` に変わるだけ。色もゲージも出ない）
+
+**実測で判明したこと**
+
+- ⚠ **台帳の「`charge` 欄の有無で分岐している」（PLAN 8章・旧 `NEXT_STEPS` §1-1）は実コードと違っていた。** もう `activation` で分岐している。⚠ **設計役は勝手に直さず報告した（台帳は未修正）**
+- ⚠ **検証用スキルは `characters.json` の候補一覧にも足さないと枠に入らない**（`game_manager.gd:2129`）。`skills.json` だけでは `is not a candidate` で弾かれる
+- ⚠ **`attack_type: physical` では段の違いが数値に出ない**（敵の `def` で両段とも `amount: 1` に潰れた）。⚠ **段や分岐を数値で見たいなら `"true"`**
+- ⚠ **`_update_skill_buttons()` はCD残りでボタンを `disabled` にしていた。** 判定を通しても押せず、再発動が無音でできない状態だった
+
+---
+
+### 召喚（spawn・段階6）の回で見つかったもの（2026-08-21）
+
+**人間の決定（7件）**
+
+- ⚠ **座標は JSON で指定する**（効果の `offset_x`・必須欄）。⚠ **前衛・後衛どちらもあり得る。符号は「敵に向かう向きが正」**（味方は `+x`、敵は `-x` が敵方向なので、チームで反転してから足す）
+- ⚠ **召喚は頭数に入らない。専用配列 `BattleSession.summon_units` を作った。** → ⚠ **`is_party_wiped()` / `is_wave_cleared()` は1行も触っていない**（混ざりようがない）
+- ⚠ **`duration_sec` 切れは死亡ではない**（静かに消える）。⚠ **HPが0なら普通の死亡**（復活の介入点も通る）。⚠ **召喚者が死んだら召喚も消える**
+- ⚠ **発動者は召喚ユニット自身。本体に何も戻さない。** `caster` 欄（PLAN 12-2）は作っていない
+- ⚠ **同時数の上限を作らない**（下の「残っている穴」を見ること）
+- ⚠ **ウェーブ交代とリトライで両方消える**
+- ⚠ **`type: "summon"` が正。`host: "spawn"` は赤**（W6 を E93 に格上げ。⚠ **`HOST_SPAWN` の定数は PLAN 9章の分類語として残してある**）
+
+**器・語彙**
+
+- ⚠ **マスターファイルが5本目になった**（`summons.json`）。⚠ **`enemies.json` と分けたのは設計役の判断で、人間の確認待ち**（`EXEC_SKILL_SPAWN.md` §0-1 の1）
+- ⚠ **`summons.json` のエントリの形は `enemies.json` の1件と同じ。** ⚠ **`skills` / `passives` は書けない**（E101）
+- ⚠ **`results` に `kind` を持つ1件が流れるようになった**（召喚だけ）。⚠ **表示（`_on_skill_effects_applied`）と記録（`log_results`）の両方で先に弾くこと。** 片方だけだと `amount: 0` の damage の行が出る
+- ⚠ **走査に召喚を通すのは `battle_controller._all_units()` 1本**（味方 → 敵 → 召喚の順）。⚠ **並びを変えると同じ入力で違うログが出る**
+- ⚠ **召喚を消す経路は5本**（期限切れ・召喚者の死亡・召喚自身の死亡・ウェーブ交代・リトライ）。⚠ **出口は `_remove_summon()` の1本に閉じてある**
+- ⚠ **`unit_id` は `summon_<通し番号>`。番号は再利用しない**
+
+**実測で判明したこと**
+
+- ⚠ **`_find_unit()` の複製が4本あり（宿題20）、うち3本が `summon_units` を知らずに置いていかれた。** ⚠ **症状は「`cast` の行だけ出て `damage` が1本も出ない」。エラーは1つも出ない**
+  → ⚠ **`BattleSession.find_unit()` を1本作って4本とも寄せた（宿題20は解消）。新しい配列を足したら直すのはこの1本だけ。**
+- ⚠ **後衛の召喚は敵に狙われない**（味方より後ろに立つので `nearest` で選ばれない）。⚠ **「狙われる母集団に入っているか」は画面から確かめられないので、支援される側（回復が5本＝味方3＋召喚2）から取った**（人間の指摘）
+- ⚠ **内部クラス（`debug_boot.gd` の `Driver`）から外側の `const` を参照できない。** `PREPARE_*` の値は外側の const と Driver のリテラルの2箇所に分かれている。**綴りを揃えること**
+
+**残っている穴**
+
+- ⚠ **召喚の同時数に上限が無い**（人間の決定）。⚠ **CDの短い召喚スキルを1本書くと無限に増え、フレームレートと選抜の母集団が同時に育つ。エラーは1つも出ない**（検証用スキルは `cooldown_sec: 20.0` にして踏まないようにしてある）
+- ⚠ **PLAN 14-5 の2欄（敵に狙われるか／味方の支援対象になるか）がまだ無い。今はどちらも「入る」で固定。** → ⚠ **ゾンビ型（支援を吸わない使い捨ての召喚）はまだ書けない**
+- ⚠ **召喚はスキルもパッシブも持てない**（通常攻撃だけ）。⚠ **持たせるときは `caster`（PLAN 12-2）と発動判断（AI）を先に決めること**
+- ⚠ **召喚スキルにも意味の無い `target` を書かされる**（`blocked_reason()` が `target` を要求するため。書いた `target` は選抜されるだけで当たらない）
+- ⚠ **召喚の x が既存のユニットと重なりうる**（下の「立ち位置」と同じ枠）
+- ⚠ **`W6` が欠番になった**（`W7` に続いて2件目）。⚠ **E は E101 まで／W は W13 まで使用済み**
+
+**片付け（リリース前に消すもの）**
+
+- ⚠ **`resources/balance/master/summons.json`（`summon_dbg_guard`）／ `skill_dbg_summon` ／ `ja.csv` の2行**
+- ⚠ **消すときは `MasterDataLoader` の `PATH_SUMMONS` / `_cache_summons` / `get_summon()` / `has_summon()` / `_validate_all_summons()` も一緒に**

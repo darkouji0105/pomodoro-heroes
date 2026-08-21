@@ -346,6 +346,8 @@ static func resolve(
 			_apply_heal(effect, user, targets, results, session, registry)
 		elif effect_type in SkillSchema.EFFECT_TYPES_STATUS:
 			_apply_status(effect, user, targets, session, registry)
+		elif effect_type == SkillSchema.EFFECT_SUMMON:
+			_apply_summon(effect, user, results)
 		elif effect_type in SkillSchema.EFFECT_TYPES_KNOWN:
 			push_warning("[SkillResolver] 未実装の効果: '%s'。この効果を飛ばす" % effect_type)
 		else:
@@ -481,6 +483,30 @@ static func _apply_heal(
 		t.heal(amount)
 		# ⚠ is_dot は回復にも入れる（形を揃える）。周期回復（HoT）はまだ無いので常に false。
 		results.append({ "unit_id": t.unit_id, "amount": amount, "is_heal": true, "is_crit": false, "is_dot": false })
+
+
+# 召喚（type: "summon"・段階6・PLAN 14-2）。
+#
+# ⚠ ここでユニットもノードも作らない。この層は RefCounted で、ノードツリーも
+#   BattleSession の配列の作り直しも知らない（契約・PLAN 7-3）。results に1件
+#   流すだけで、生やすのは battle_controller（投射物が signal で頼むのと同じ形）。
+# ⚠ target_ids を読まない。召喚は対象を取らない（E98 が target を赤で弾いている）。
+#   スキルの top-level に書いてある target は選抜されるだけで当たらない。
+# ⚠ 数値の欄は float() で包む。MasterDataLoader は JSON の数値を float で返す
+#   （CLAUDE.md 3番）。count だけは体数なので int() に落とす。
+# ⚠ "unit_id" の名前で入れないこと。既存の1件では「殴られた側」の意味で、
+#   battle_controller の _on_skill_effects_applied() が _find_unit_by_id() に渡す。
+static func _apply_summon(effect: Dictionary, user: BattleUnit, results: Array) -> void:
+	results.append({
+		# ⚠ kind を持つのは召喚の1件だけ。既存の damage / heal の1件には足さない
+		#   （battle_last.jsonl が1バイト変わる）。
+		"kind": SkillSchema.EFFECT_SUMMON,
+		"source_unit_id": user.unit_id,
+		"summon_unit_id": str(effect.get("unit_id", "")),
+		"count": int(float(effect.get("count", 0))),
+		"duration_sec": float(effect.get("duration_sec", 0.0)),
+		"offset_x": float(effect.get("offset_x", 0.0)),
+	})
 
 
 # 回復の介入点（PLAN 11-1）。被回復低下・回復量増加はここ。
@@ -695,12 +721,7 @@ static func _units_from_ids(ids: Array, session: BattleSession) -> Array:
 
 
 static func _find_unit(session: BattleSession, unit_id: String) -> BattleUnit:
-	if session == null or unit_id == "":
+	# ⚠ 自分で配列を回さない。BattleSession.find_unit() が唯一の探し方（段階6）。
+	if session == null:
 		return null
-	for u in session.party_units:
-		if u is BattleUnit and (u as BattleUnit).unit_id == unit_id:
-			return u
-	for u in session.enemy_units:
-		if u is BattleUnit and (u as BattleUnit).unit_id == unit_id:
-			return u
-	return null
+	return session.find_unit(unit_id)
