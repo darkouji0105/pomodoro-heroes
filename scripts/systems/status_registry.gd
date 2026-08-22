@@ -341,6 +341,8 @@ func _make_entry(
 		"on_death": {},
 		"block_status": [],
 		"heal_taken_pct": 0,
+		# 攻撃力の倍率（EXEC_SILENT_HOLES.md）。⚠ 持たない件にも必ず持たせる。
+		"atk_mult_pct": 0,
 		# ダメージの介入点（EXEC_SKILL_MITIGATION.md）。⚠ 持たない件にも必ず持たせる
 		#   （上の "active" と同じ理由。query() がその件だけ黙って外す）。
 		"shield_hp": 0,
@@ -410,6 +412,16 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 			return false
 		entry["block_status"] = (raw_block as Array).duplicate(true)
 		has_intervene = true
+
+	# 攻撃力の倍率。⚠ intervene{} の中ではない（介入点ではなく素の補正）。
+	#   ⚠ stat / value と同じ「buff が持つ補正」の仲間なので効果の直下に置く。
+	if effect.has(SkillSchema.BUFF_ATK_MULT_PCT):
+		var amp: int = int(effect.get(SkillSchema.BUFF_ATK_MULT_PCT, 0))
+		if amp == 0:
+			push_error("[StatusRegistry] buff の atk_mult_pct が0（何も起きない補正は書けない）")
+			return false
+		entry[SkillSchema.BUFF_ATK_MULT_PCT] = amp
+		has_stat = true
 
 	if effect_iv.has(SkillSchema.BUFF_HEAL_TAKEN_PCT):
 		var pct: int = int(effect_iv.get(SkillSchema.BUFF_HEAL_TAKEN_PCT, 0))
@@ -1303,6 +1315,11 @@ func _intervene_sum(unit_id: String, field: String) -> int:
 	return total
 
 
+# 攻撃力の倍率の合計（%）。⚠ _applies_to() を通すのでオーラ（host: point）でも効く。
+func atk_mult_pct(unit_id: String) -> int:
+	return _intervene_sum(unit_id, SkillSchema.BUFF_ATK_MULT_PCT)
+
+
 # 軽減%の合計。⚠ 上限は REDUCTION_PCT_MAX（100 にすると誰も死なない）。
 func damage_taken_pct(unit_id: String) -> int:
 	return mini(_intervene_sum(unit_id, SkillSchema.INTERVENE_REDUCTION_PCT), SkillSchema.REDUCTION_PCT_MAX)
@@ -1477,6 +1494,15 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 			continue
 		mods[stat_key] = int(mods.get(stat_key, 0)) + int(entry.get("value", 0))
 	unit.set_stat_mods(mods)
+
+	# 攻撃力の倍率（EXEC_SILENT_HOLES.md）。⚠ 書くのはここ1箇所だけ。
+	#
+	# ⚠ 「ゼロから組み直す」形に乗せる。2箇所目を作ると、条件が偽になった／
+	#   範囲から出た／寿命が切れた、のどれかで剥がれ方がズレる。
+	# ⚠ 積み上げは和（1.0 + 合計/100）。掛け合わせない。この器は全部そう
+	#   （stat_mod / heal_taken_pct / 軽減 / 貫通）。
+	# ⚠ 下限 0.0。マイナスを許すと符号が反転して「殴ると回復する」になる。
+	unit.atk_multiplier = maxf(0.0, 1.0 + float(atk_mult_pct(unit_id)) / 100.0)
 
 
 func _rebuild_touched(touched: Dictionary) -> void:

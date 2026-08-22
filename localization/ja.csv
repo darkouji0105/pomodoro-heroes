@@ -304,3 +304,5 @@ ui_battle_skill_dbg_aura_atk,オーラ（検証用）
 ui_battle_skill_dbg_aura_follow,追従オーラ（検証用）
 ui_battle_skill_dbg_pool_dmg,毒沼（検証用）
 ui_battle_skill_dbg_pool_heal,回復地帯（検証用）
+ui_battle_skill_dbg_atk_mult,攻撃力2倍（検証用）
+ui_battle_skill_dbg_dot_self_mix,自分に毒（検証用）

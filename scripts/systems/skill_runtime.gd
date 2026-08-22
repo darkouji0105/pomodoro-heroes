@@ -446,9 +446,18 @@ func _dispatch_events(entry: Dictionary, results: Array) -> void:
 			first_target = str(target_ids[0])
 		_notify(SkillSchema.EVENT_ATTACKED, user_id, first_target)
 
-	# 2. ダメージを与えた／受けた … 確定した1件につき1回ずつ。
-	#    ⚠ 「攻撃した」と1つにしないこと。空振りと、当たったが0ダメージは別の出来事。
-	#    ⚠ 回復では出さない。
+	# 2. ダメージを与えた／受けた
+	_dispatch_damage_events(results)
+
+
+# 確定したダメージ1件につき「与えた」「受けた」を1回ずつ配る。
+#
+# ⚠ 「攻撃した」（EVENT_ATTACKED）と1つにしないこと。空振りと、当たったが
+#   0ダメージは別の出来事。
+# ⚠ 回復では出さない。
+# ⚠ entry を取らないこと。DoT の発火（StatusRegistry から来る結果）には
+#   待ち行列の entry が無い。⚠ results だけで足りる形にしてある。
+func _dispatch_damage_events(results: Array) -> void:
 	for raw: Variant in results:
 		if not (raw is Dictionary):
 			continue
@@ -459,6 +468,22 @@ func _dispatch_events(entry: Dictionary, results: Array) -> void:
 		var attacker_id: String = str(r.get("source_unit_id", ""))
 		_notify(SkillSchema.EVENT_DEALT_DAMAGE, attacker_id, victim_id)
 		_notify(SkillSchema.EVENT_TOOK_DAMAGE, victim_id, attacker_id)
+
+
+# 待ち行列を通らない結果に、購読の合図を配る（EXEC_SILENT_HOLES.md）。
+#
+# 【なぜ要るか】DoT の周期ダメージは StatusRegistry が直接 SkillResolver を
+# 呼んで作るので、この層を1度も通らない。そのため「毒で削られても反射しない」
+# 「毒で削られてもカウンターが出ない」が無音で起きていた（宿題12）。
+#
+# ⚠ StatusRegistry からここを直接呼ばないこと。器（RefCounted）どうしを
+#   相互参照させない（PLAN 7-3。段階3で SkillResolver → SkillRuntime の
+#   相互参照を実際に踏んでいる）。⚠ 呼ぶのは battle_controller の1箇所だけ。
+# ⚠ EVENT_ATTACKED は出さない。毒の1発は「攻撃した」ではない。
+func notify_results(results: Array) -> void:
+	if results.is_empty():
+		return
+	_dispatch_damage_events(results)
 
 
 # その出来事を購読しているものを探して撃つ。
