@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://b1unit_view_001"]
+[gd_scene load_steps=3 format=3 uid="uid://b1unit_view_001"]
 
 [ext_resource type="Script" path="res://scenes/adventure/unit_view.gd" id="1_unit_view"]
+[ext_resource type="Script" path="res://scenes/adventure/status_chips.gd" id="2_status_chips"]
 
 [node name="UnitView" type="Node2D"]
 script = ExtResource("1_unit_view")
@@ -30,6 +31,14 @@ offset_bottom = -41.0
 show_percentage = false
 max_value = 100.0
 value = 100.0
+
+[node name="StatusChips" type="BoxContainer" parent="."]
+offset_left = -64.0
+offset_top = -62.0
+offset_right = 64.0
+offset_bottom = -50.0
+alignment = 1
+script = ExtResource("2_status_chips")
 
 [node name="NameLabel" type="Label" parent="."]
 offset_left = -60.0

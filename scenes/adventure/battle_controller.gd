@@ -84,6 +84,13 @@ var _views_by_unit_id: Dictionary = {}
 # スキルボタン。各要素は {button, user, skill_id, name_key, cooldown_sec, charge}
 var _skill_buttons: Array = []
 
+# 味方の状態の帯（スキルボタンの左・縦並び）。{unit_id: StatusChips}。
+# ⚠ _skill_buttons に混ぜないこと。あちらは1スキル1要素で、
+#   こちらは1キャラ1本。混ぜると _update_skill_buttons() が帯まで回す。
+# ⚠ 作り直しは _build_skill_buttons() の中だけ。捨て忘れると古い BattleUnit の
+#   unit_id を掴んだままリトライに入る。
+var _status_chips_by_unit_id: Dictionary = {}
+
 # チャージ中のスキル。{entry: Dictionary, time: float}。未チャージ時は空。
 # 同時に1つしかチャージできない。
 var _charging: Dictionary = {}
@@ -432,6 +439,9 @@ func _process(delta: float) -> void:
 	# ウェーブ間の待機中にボタンが押せる状態のまま固まる。
 	_tick_charge(delta)
 	_update_skill_buttons()
+	# 状態のマスも状態ガードの外で回す。⚠ 内側に置くと、勝敗が決まった瞬間に
+	#   マスが最後の顔ぶれのまま固まる（死んだ敵のマスが結果画面まで残る）。
+	_update_status_chips()
 
 	if _result_applied:
 		return
@@ -966,17 +976,35 @@ func _build_skill_buttons() -> void:
 		if b is Node and is_instance_valid(b):
 			b.queue_free()
 	_skill_buttons.clear()
+	_status_chips_by_unit_id.clear()
+	# ⚠ remove_child() してから queue_free()（CLAUDE.md 5番）。
+	#   queue_free() だけだと、同じフレームに2回呼ばれたとき古い列がまだ子に残り、
+	#   列が二重に並ぶ。
 	for child in skill_buttons_container.get_children():
+		skill_buttons_container.remove_child(child)
 		child.queue_free()
 
 	for unit in _session.party_units:
 		if not (unit is BattleUnit):
 			continue
 
+		# キャラ1人ぶんの枠。左＝状態の帯（縦）／右＝名前とスキルボタン。
+		# ⚠ 帯を列の中（名前の下）ではなく左に置くのは人間の指示（2026-08-22）。
+		#   スキルボタンがいずれ絵だけになる前提で、列が細くなっても壊れない形。
+		var row: HBoxContainer = HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_theme_constant_override("separation", 4)
+		skill_buttons_container.add_child(row)
+
+		var chips: StatusChips = StatusChips.new()
+		chips.setup(true, Balance.adventure.status_chip_party_max_px)
+		row.add_child(chips)
+		_status_chips_by_unit_id[unit.unit_id] = chips
+
 		var column: VBoxContainer = VBoxContainer.new()
 		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		column.add_theme_constant_override("separation", 4)
-		skill_buttons_container.add_child(column)
+		row.add_child(column)
 
 		var name_label: Label = Label.new()
 		name_label.text = tr(unit.unit_name_key)
@@ -1041,6 +1069,34 @@ func _build_skill_buttons() -> void:
 					# ロード時検証（E6）でも捕まえるが、ここでも instant として繋ぐ。
 					push_error("[BattleController] activation: charge なのに charge{} が空: " + skill_id)
 				button.pressed.connect(_on_skill_button_pressed.bind(unit, skill_id))
+
+
+# 状態のマスを配る（EXEC_STATUS_UI.md §3-D）。
+#
+# ⚠ 引くのは StatusRegistry.entries_for() の1本だけ。_entries を自分で回さないこと。
+#   オーラ（host: point）が画面に出ない／出続ける事故になる。
+# ⚠ 走査は _all_units()（味方 → 敵 → 召喚）。新しい配列を足したらあちらだけ直す。
+# ⚠ 味方は列の左の帯へ、敵と召喚は UnitView（HP バーの上）へ。
+#   味方の UnitView にも帯のノードはあるが、ここで配らないので空のまま描かれない。
+# ⚠ 毎フレーム呼んでよい。set_entries() が顔ぶれの署名で弾く。
+func _update_status_chips() -> void:
+	if _session == null or _status == null:
+		return
+	for unit in _all_units():
+		if not (unit is BattleUnit):
+			continue
+		var u: BattleUnit = unit as BattleUnit
+		var entries: Array = _status.entries_for(u.unit_id)
+		if _status_chips_by_unit_id.has(u.unit_id):
+			var chips: Variant = _status_chips_by_unit_id[u.unit_id]
+			if chips is StatusChips and is_instance_valid(chips):
+				(chips as StatusChips).set_entries(entries)
+			continue
+		if not _views_by_unit_id.has(u.unit_id):
+			continue
+		var view: Node = _views_by_unit_id[u.unit_id]
+		if is_instance_valid(view) and view.has_method("set_status_entries"):
+			view.set_status_entries(entries)
 
 
 func _update_skill_buttons() -> void:

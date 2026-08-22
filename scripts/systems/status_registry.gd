@@ -761,6 +761,18 @@ func _eval_conditions(touched: Dictionary) -> void:
 func _applies_to(entry: Dictionary, unit_id: String) -> bool:
 	if not bool(entry.get("active", true)):
 		return false
+	return _hosts(entry, unit_id)
+
+
+# 「この状態はこのユニットに載っているか」（宿主一致・範囲内だけを見る）。
+#
+# ⚠ _applies_to() から条件（active）のゲートだけを外したもの。分けてあるのは
+#   画面表示のためだけ（EXEC_STATUS_UI.md §0-1 の12）。条件が偽の状態を
+#   「消す」と、条件で切れたのか寿命で消えたのかが画面から区別できない。
+# ⚠ 効くかどうかを判断する側は、必ず _applies_to() を呼ぶこと。
+#   こちらを直接呼んでよいのは entries_for()（＝画面）だけ。
+# ⚠ 新しい host を足すときに直すのは、引き続きここ1箇所。
+func _hosts(entry: Dictionary, unit_id: String) -> bool:
 	var host: String = str(entry.get("host", ""))
 	if host == SkillSchema.HOST_UNIT:
 		return str(entry.get("host_unit_id", "")) == unit_id
@@ -1257,6 +1269,28 @@ func query(filter: Dictionary) -> Array:
 
 func count(filter: Dictionary) -> int:
 	return query(filter).size()
+
+
+# そのユニットに「いま効いている」状態を、付いた順に返す（EXEC_STATUS_UI.md §3-A）。
+#
+# ⚠ 効いているかの判定は _applies_to() の1本だけ。ここが唯一の口。
+#   query() では引けない。query() は host_unit_id の文字列一致しか見ないので、
+#   オーラ（host: point）が1件も引けず、画面に出ない。
+# ⚠ 呼ぶ側（UI）が _entries を自分で回さないこと。2本目の判定になり、
+#   範囲の出入りと画面が食い違う（この器で3回踏んでいる形）。
+#
+# ⚠ 返すのは参照（query() と同じ）。duplicate(true) しない。毎フレーム呼ぶ。
+# ⚠ active が偽の件も返す。呼ぶ側が半透明で描き分ける
+#   （消すと「条件で切れた」のか「寿命で消えた」のかが画面から区別できない）。
+# ⚠ 並べ替えない。_entries の順＝付いた順。並びが揺れるとマスが入れ替わる。
+func entries_for(unit_id: String) -> Array:
+	var found: Array = []
+	if unit_id == "":
+		return found
+	for entry: Dictionary in _entries:
+		if _hosts(entry, unit_id):
+			found.append(entry)
+	return found
 
 
 func has(filter: Dictionary) -> bool:

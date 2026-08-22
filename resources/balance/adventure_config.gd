@@ -104,3 +104,45 @@ extends Resource
 ## 浮かんで消えるまでの動き。種類で変えない（変えると読む速さが揃わない）。
 @export var pop_rise_px: float = 48.0
 @export var pop_duration_sec: float = 0.6
+
+# --- 状態のマス（EXEC_STATUS_UI.md） ---
+#
+# ⚠ 色は3つだけ（人間の決定・2026-08-22）。器に「良い状態か悪い状態か」の欄が
+#   無いため、攻撃力ダウンも防御ダウンも青で出る。分けるなら器に欄が要る。
+# ⚠ ここに欄を足すだけで既定値付きで Inspector に出る（.tres は触らない）。
+
+## 周期ダメージ（dot・heals: false）。頭上に浮かぶ毒の数値（紫）とは別物。
+## マスは 16px 角の中に漢字が1文字入るので、文字が読める濃さにする。
+@export var status_chip_dot_color: Color = Color(0.8, 0.2, 0.2)
+
+## 周期回復（dot・heals: true）。
+@export var status_chip_heal_color: Color = Color(0.2, 0.7, 0.35)
+
+## 補正と購読（buff / react）。⚠ react も青（決定4「色は3つだけ」）。
+@export var status_chip_buff_color: Color = Color(0.25, 0.45, 0.9)
+
+## マスの中の漢字の色。
+@export var status_chip_text_color: Color = Color(1.0, 1.0, 1.0)
+
+## 条件が偽の状態（active: false）の不透明度。
+## ⚠ 0.0 にしないこと。消すと「条件で切れた」のか「寿命で消えた」のかが
+##   画面から区別できなくなる。
+@export var status_chip_inactive_alpha: float = 0.4
+
+## マスの辺の長さ（px）。件数で3段に切り替える（人間の指示・2026-08-22）。
+## 上限は件数ではなく「置ける場所の大きさ」で決まる。
+## 1〜4件は large、5〜8件は medium、9件以上は small。
+@export var status_chip_size_large_px: int = 16
+@export var status_chip_size_medium_px: int = 12
+@export var status_chip_size_small_px: int = 8
+
+## マス同士の間隔（px）。
+@export var status_chip_separation_px: int = 2
+
+## 味方の帯（スキルボタンの左・縦並び）に使ってよい高さ（px）。
+## これを超えるぶんは最後のマスが「＋N」になる。
+@export var status_chip_party_max_px: float = 120.0
+
+## 敵の帯（HPバーの上・横並び）に使ってよい幅（px）。
+## ⚠ UnitView の Body は 64px。2倍まで許す。
+@export var status_chip_enemy_max_px: float = 128.0

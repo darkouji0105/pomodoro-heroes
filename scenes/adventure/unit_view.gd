@@ -61,6 +61,10 @@ func setup(unit: BattleUnit) -> void:
 	_paint_bar(hp_bar, COLOR_HP_PARTY if unit.team == BattleUnit.TEAM_PARTY else COLOR_HP_ENEMY)
 	_paint_bar($ShieldBar, COLOR_SHIELD)
 	$ShieldBar.hide()
+	# 状態のマスは横並び（HP バーの上）。⚠ 味方の帯はここではなくスキルボタンの左
+	#   （人間の指示・2026-08-22）。味方の UnitView にもノードはあるが、
+	#   BattleController が entry を配らないので空のまま何も描かない。
+	$StatusChips.setup(false, Balance.adventure.status_chip_enemy_max_px)
 	position.x = unit.x
 	show()
 
@@ -90,6 +94,16 @@ func set_shield(left: int, total: int) -> void:
 	bar.max_value = total
 	bar.value = left
 	bar.show()
+
+
+# 状態のマスを差し替える。⚠ 呼ぶのは BattleController の1箇所だけ。
+#
+# ⚠ set_shield() と同じ形。UnitView に StatusRegistry を持たせないこと
+#   （ビューは BattleUnit しか知らない。器を知るとリトライで古い参照を握る）。
+# ⚠ _process() の is_alive() ガードより外に置く。あちらは死ぬと return するので、
+#   中に書くと死んだ瞬間に更新が止まり、復活したとき古いマスが出る。
+func set_status_entries(entries: Array) -> void:
+	$StatusChips.set_entries(entries)
 
 
 # 毎フレーム位置と HP バーを同期する

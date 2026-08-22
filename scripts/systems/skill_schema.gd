@@ -1100,6 +1100,19 @@ static func _validate_status_effect(
 	# E36 identity
 	if str(effect.get("status_id", "")) == "":
 		_err(issues, skill_id, "%s.status_id が無い" % where)
+	else:
+		# W17 … 状態のマスに出す漢字1文字が翻訳表に無い（EXEC_STATUS_UI.md §3-E）。
+		#
+		# ⚠ 黄にする（赤にしない）。行が無くても戦闘は動く（マスに「？」が出る）。
+		# ⚠ 静的関数から tr() は呼べない。TranslationServer.translate() を使う（AGENTS.md）。
+		# ⚠ 「？」だけだと、漏れているのか本当にその状態なのかが画面から区別できない。
+		#   ここで件数が出るので、ロード時に漏れが分かる。
+		var status_id: String = str(effect.get("status_id", ""))
+		var chip_key: String = "ui_status_ch_" + status_id
+		if TranslationServer.translate(chip_key) == chip_key:
+			_warn(issues, skill_id, "%s.status_id: '%s' の漢字が翻訳表に無い（%s）。マスに「？」が出る" % [
+				where, status_id, chip_key
+			])
 
 	# E35 重ねがけ規則は省略不可
 	if not effect.has("stack"):

@@ -420,6 +420,59 @@ const SCENARIOS: Dictionary = {
 			{"skill": "", "prepare": PREPARE_NONE, "gap": 14.0},
 		],
 	},
+	# 状態のUI（EXEC_STATUS_UI.md）。⚠ ヘッドレスは絵を出さない。
+	#   ここで取れるのは「その瞬間に何が何件乗っていたか」だけで、色と漢字は人間が見る。
+	#
+	# ⚠ 見たいのは色の分岐3本が全部通ること。dot(ダメージ)＝赤 / dot(回復)＝緑 /
+	#   buff と react＝青。⚠ 4種類が同じ瞬間に乗っている必要がある。
+	# ⚠ 敵に付ける効果を混ぜない（前後の比較をしないので1件までの制約には触れないが、
+	#   敵が死ぬと決着して状態が出揃う前に終わる）。全部味方に乗せる。
+	"status_ui": {
+		"kind": KIND_BATTLE,
+		"note": "状態のマス。buff / dot(ダメージ) / dot(回復) / react の4種類が同時に乗るか",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			# ⚠ react と dot を同じ人に乗せる（1人の帯に2色並ぶことを見る）。
+			"char_debug_mix": ["skill_dbg_react_thorns", "skill_dbg_dot_self_mix"],
+			# ⚠ pool_heal は host: point・team: ally・radius 400。味方3人（x=200/300/400）が
+			#   全員入るので、緑のマスが3人に出る。
+			"char_debug_life": ["skill_dbg_pool_heal", "skill_dbg_buff_short"],
+			"char_debug_status": ["skill_dbg_buff_stack", "skill_dbg_buff_refresh"],
+		},
+		# ⚠ 寿命の短い順に後から撃つ。react は 15秒・dot_self_mix は 6秒・
+		#   pool_heal は 6秒・buff_stack は 20秒なので、最後の1発の時点で全部生きている。
+		"fire": [
+			{"skill": "skill_dbg_react_thorns", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_buff_stack", "prepare": PREPARE_NONE, "gap": 0.5},
+			{"skill": "skill_dbg_dot_self_mix", "prepare": PREPARE_NONE, "gap": 0.5},
+			{"skill": "skill_dbg_pool_heal", "prepare": PREPARE_NONE, "gap": 0.5},
+		],
+	},
+	# ⚠ 件数でマスの大きさが変わること（人間の指示・2026-08-22）の検証。
+	#   1人に7件乗せる。⚠ 「6個まで」のような決め打ちが残っていたら、ここで気づける。
+	# ⚠ ヘッドレスで取れるのは件数だけ。大きさが変わったかは人間が見る（§7-17）。
+	"status_ui_over": {
+		"kind": KIND_BATTLE,
+		"note": "状態のマス。1人に7件（buff_stack×5 ＋ refresh ＋ 回復地帯）乗ること",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_status": ["skill_dbg_buff_stack", "skill_dbg_buff_refresh"],
+			"char_debug_life": ["skill_dbg_pool_heal", "skill_dbg_buff_short"],
+		},
+		# ⚠ buff_stack は independent・max_stack 5・CD 1.0。gap を CD より短くすると
+		#   撃てずに黙って飛ぶので、1.0 以上にすること。duration は 20 秒なので全部残る。
+		"fire": [
+			{"skill": "skill_dbg_buff_stack", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_buff_stack", "prepare": PREPARE_NONE, "gap": 1.1},
+			{"skill": "skill_dbg_buff_stack", "prepare": PREPARE_NONE, "gap": 1.1},
+			{"skill": "skill_dbg_buff_stack", "prepare": PREPARE_NONE, "gap": 1.1},
+			{"skill": "skill_dbg_buff_stack", "prepare": PREPARE_NONE, "gap": 1.1},
+			{"skill": "skill_dbg_buff_refresh", "prepare": PREPARE_NONE, "gap": 1.1},
+			{"skill": "skill_dbg_pool_heal", "prepare": PREPARE_NONE, "gap": 0.5},
+		],
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
