@@ -504,6 +504,15 @@ func _process(delta: float) -> void:
 	#   「消えたのに1フレーム殴る」を作らないため。
 	_step_summons(delta)
 
+	# 4-1-2. シールドの残量をビューへ流す（EXEC_SKILL_MITIGATION.md・画面の指摘）
+	#
+	# ⚠ ビューに器（StatusRegistry）を持たせないための押し出し。UnitView は
+	#   BattleUnit しか知らない（器を持たせると、リトライで作り直したときに
+	#   古い参照を握る）。
+	# ⚠ _step_deaths() より後。先に置くと、死んだ個体のバーを1フレーム描く。
+	# ⚠ 走査はここ1箇所。ダメージを与える各所で個別に更新しないこと。
+	_step_shield_views()
+
 	# 4-2. パッシブの引き金（PLAN 7-2・19章）
 	#
 	# ⚠ _step_deaths() より後。復活の全消し（clear_for_unit）はパッシブの状態も
@@ -773,6 +782,23 @@ func _has_all_passive_statuses(unit: BattleUnit, passive_id: String) -> bool:
 		}):
 			return false
 	return true
+
+
+# シールドの残量を各ビューへ流す（EXEC_SKILL_MITIGATION.md）。
+#
+# ⚠ 表示だけ。ここで残量を減らさない（吸うのは StatusRegistry.consume_shield の1本）。
+# ⚠ 召喚も通す（_all_units）。新しい配列を足したらここは自動で付いてくる。
+func _step_shield_views() -> void:
+	for unit in _all_units():
+		if not (unit is BattleUnit):
+			continue
+		var view: Variant = _views_by_unit_id.get((unit as BattleUnit).unit_id, null)
+		if view == null:
+			continue
+		view.set_shield(
+			_status.shield_left((unit as BattleUnit).unit_id),
+			_status.shield_total((unit as BattleUnit).unit_id)
+		)
 
 
 func _acquire_target_if_needed(unit: BattleUnit) -> void:

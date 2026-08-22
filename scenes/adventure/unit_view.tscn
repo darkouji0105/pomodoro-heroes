@@ -21,6 +21,16 @@ show_percentage = false
 max_value = 100.0
 value = 100.0
 
+[node name="ShieldBar" type="ProgressBar" parent="."]
+visible = false
+offset_left = -32.0
+offset_top = -48.0
+offset_right = 32.0
+offset_bottom = -41.0
+show_percentage = false
+max_value = 100.0
+value = 100.0
+
 [node name="NameLabel" type="Label" parent="."]
 offset_left = -60.0
 offset_top = 36.0

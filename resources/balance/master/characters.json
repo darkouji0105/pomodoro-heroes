@@ -184,7 +184,8 @@
 			"skill_dbg_hit_true_b",
 			"skill_dbg_hit_weak",
 			"skill_dbg_mit_crit",
-			"skill_dbg_mit_thorns"
+			"skill_dbg_mit_thorns",
+			"skill_dbg_mit_reflect_self"
 		],
 		"passives": [
 			"passive_dbg_atk",

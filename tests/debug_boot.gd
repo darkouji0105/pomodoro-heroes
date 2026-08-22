@@ -235,6 +235,31 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_dbg_hit_true_c", "prepare": PREPARE_NONE, "gap": 3.0},
 		],
 	},
+	# ⚠ 反射を「画面で見られる形」にしたもの（人間の指摘・2026-08-21）。
+	#
+	# ⚠ これが要る理由：reflect シナリオは反射を敵に付けるので、画面では
+	#   「味方が殴ったら味方が減る」という読みにくい絵になる。⚠ 人間からは
+	#   「反射を持っているキャラが前衛じゃないので分からない」と言われた。
+	#   ⚠ 段階6で召喚に対して踏んだのと同じ形（後衛に付けた効果は画面で確かめられない）。
+	# ⚠ char_debug_status は射程 60 ＝ 前衛。敵の nearest に選ばれるのはこの1体だけなので、
+	#   自分に反射を付けると「敵が殴ってくる → 敵の頭上に数字が出る」が見える。
+	# ⚠ 味方の hp は 9999・敵の atk は 1 なので、% だけだと 0 になって何も返らない。
+	#   固定値 5 を併せて持たせてある。
+	"reflect_self": {
+		"kind": KIND_BATTLE,
+		"note": "反射：前衛の味方に自分がけの反射を付け、殴ってきた敵に返ること",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_status": ["skill_dbg_mit_reflect_self", ""],
+		},
+		# ⚠ 最後の「待つだけの行」で、敵が殴ってくる時間を作る。
+		"fire": [
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
+			{"skill": "skill_dbg_mit_reflect_self", "prepare": PREPARE_NONE, "gap": 6.0},
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 8.0},
+		],
+	},
 	# ⚠ 移設した既存3件（復活 / 免疫 / 被回復低下）が実行時にも効くことの確認。
 	#
 	# ⚠ これが要る理由：intervene{} へ畳んだ3件は stage_dbg_intervene にしか居らず、

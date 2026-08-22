@@ -1138,6 +1138,31 @@ func has_crit_always(unit_id: String) -> bool:
 	return false
 
 
+# シールドの合計（元の量）と残量。⚠ 表示のためだけに使う。
+#
+# ⚠ 戦闘の計算はここを読まない（吸うのは consume_shield の1本）。読ませると
+#   「表示用に足した関数」が判定に混ざり、直すときに両方を追うことになる。
+func shield_total(unit_id: String) -> int:
+	return _intervene_sum(unit_id, SkillSchema.INTERVENE_SHIELD_HP)
+
+
+func shield_left(unit_id: String) -> int:
+	var total: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) != KIND_BUFF:
+			continue
+		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
+			continue
+		if str(entry.get("host_unit_id", "")) != unit_id:
+			continue
+		if not bool(entry.get("active", true)):
+			continue
+		if int(entry.get(SkillSchema.INTERVENE_SHIELD_HP, 0)) <= 0:
+			continue
+		total += maxi(0, int(entry.get("counter", 0)))
+	return total
+
+
 # シールドに肩代わりさせる。吸えた量を返す。
 #
 # ⚠ 残量は counter が持つ（shield_hp は「元の量」で、記録と再付与のために残す）。

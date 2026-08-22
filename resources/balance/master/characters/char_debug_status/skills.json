@@ -381,5 +381,31 @@
 				}
 			}
 		]
+	},
+	"skill_dbg_mit_reflect_self": {
+		"name_key": "ui_battle_skill_dbg_mit_reflect_self",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_dbg_reflect_self",
+				"duration_sec": 60.0,
+				"stack": "refresh",
+				"intervene": {
+					"reflect_pct": 50,
+					"reflect_flat": 5
+				}
+			}
+		]
 	}
 }
