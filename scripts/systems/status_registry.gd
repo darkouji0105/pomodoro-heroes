@@ -49,6 +49,12 @@ var _entries: Array = []
 
 var _next_instance_id: int = 1
 
+# 前のフレームに「誰がどの範囲の中に居たか」（鍵は "instance_id|unit_id"）。
+# ⚠ zone の enter / leave を出すためだけに持つ。判定には使わない（判定は entry の inside）。
+# ⚠ これが器全体で1つあることが要件。entry ごとに持つと、entry が消えた瞬間に
+#   leave を出す相手も一緒に消える（人間のプレイのログで実際に踏んだ）。
+var _zone_seen: Dictionary = {}
+
 
 func _init(p_session: BattleSession) -> void:
 	_session = p_session
@@ -62,6 +68,7 @@ func _init(p_session: BattleSession) -> void:
 # ⚠ 差し替えと破棄を同時にやること。片方だけの関数を作るともう片方を忘れる。
 func reset(p_session: BattleSession) -> void:
 	clear_all()
+	_zone_seen = {}
 	_session = p_session
 
 
@@ -625,6 +632,15 @@ func _find_same(entry: Dictionary) -> int:
 #   1発だけ余計に出る。1発なので数字を見ても気づけない。
 func tick(delta: float) -> void:
 	if _entries.is_empty():
+		# ⚠ 空でも、範囲の顔ぶれが残っていたら leave を出し切ってから帰る。
+		#   ⚠ 実測で踏んだ：最後の1件（回復地帯）が消えたフレーム以降 tick() が
+		#   ここで帰るので、_eval_zones() が一度も走らず leave が出ないまま終わった。
+		#   ⚠ 「enter だけ出て leave が出ない」は、記録から「いつ効かなくなったか」を
+		#   消してしまう。⚠ 1件も無いときのコストは _zone_seen の空判定1回だけ。
+		if not _zone_seen.is_empty():
+			var flush_touched: Dictionary = {}
+			_eval_zones(flush_touched)
+			_rebuild_touched(flush_touched)
 		return
 
 	# unit_id -> true。補正を組み直す必要があるユニット。
@@ -765,7 +781,18 @@ func _touch_affected(entry: Dictionary, touched: Dictionary) -> void:
 #   補正の組み直しが走らず「入ったのに強くならない」になる（エラーは出ない）。
 # ⚠ 追従（follow）はここで host_x を更新する。付与者が死んだら更新を止める
 #   （最後の位置で固定・人間が見ていない決め4）。止め忘れると死者の x を読み続ける。
+#
+# ⚠ 出入りの記録は「器全体の顔ぶれ」を1つ持って差分で出す（_zone_seen）。
+#   消える経路ごとに leave を出す形にしないこと。経路は5本ある（寿命切れ・
+#   重ねがけの置き換え・宿主の死亡・clear_for_unit・clear_all）ので、
+#   1本忘れると「enter だけ出て leave が出ない」という同じ穴がまた開く。
+#   ⚠ 実測で踏んだ：人間のプレイのログで st_dbg_aura_atk/party_2 が
+#     enter → enter（置き換え）、st_dbg_pool_heal が enter だけ（寿命切れ）だった。
+#     ⚠ 補正はちゃんと剥がれていた。壊れていたのは記録のほうで、
+#     「いつ効かなくなったか」がログから読めなかった。
+# ⚠ 鍵は instance_id。status_id にすると independent で重ねたときに衝突する。
 func _eval_zones(touched: Dictionary) -> void:
+	var seen_now: Dictionary = {}
 	for entry: Dictionary in _entries:
 		var zone: Dictionary = entry.get("zone", {}) as Dictionary
 		if zone.is_empty():
@@ -795,17 +822,29 @@ func _eval_zones(touched: Dictionary) -> void:
 				continue
 			now[u.unit_id] = true
 
-		# 出入りしたものだけログと組み直しに回す。⚠ 毎フレーム出すと1戦で数万行。
+		# 補正の組み直しは entry ごとの差分で足りる（居る／居ないが変わった者だけ）。
 		for id in now.keys():
 			if not was.has(id):
 				touched[str(id)] = true
-				BattleLog.log_zone(str(entry.get("status_id", "")), str(id), "enter")
 		for id in was.keys():
 			if not now.has(id):
 				touched[str(id)] = true
-				BattleLog.log_zone(str(entry.get("status_id", "")), str(id), "leave")
 
 		entry["inside"] = now
+		# 記録用の顔ぶれ。⚠ 鍵に instance_id を使う（status_id だと重ねがけで衝突）。
+		var iid: int = int(entry.get("instance_id", 0))
+		for id in now.keys():
+			seen_now["%d|%s" % [iid, str(id)]] = str(entry.get("status_id", ""))
+
+	# ⚠ 器全体の差分でログを出す。⚠ 消えた件（寿命切れ・置き換え・宿主の死亡）は
+	#   _entries から居なくなるので、ここで自動的に leave になる。
+	for key in seen_now.keys():
+		if not _zone_seen.has(key):
+			BattleLog.log_zone(str(seen_now[key]), str(key).split("|")[1], "enter")
+	for key in _zone_seen.keys():
+		if not seen_now.has(key):
+			BattleLog.log_zone(str(_zone_seen[key]), str(key).split("|")[1], "leave")
+	_zone_seen = seen_now
 
 
 # zone.team を「付与者から見て」解く。

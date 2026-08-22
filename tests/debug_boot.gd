@@ -252,10 +252,13 @@ const SCENARIOS: Dictionary = {
 			"char_debug_status": ["skill_dbg_hit_true_b", ""],
 		},
 		# ⚠ 素で殴る → オーラを置く → もう一度殴る。⚠ 撃ち手を変えないこと。
+		# ⚠ 4行目でもう一度オーラを置く（重ねがけの置き換え）。人間のプレイのログで
+		#   「置き換えたときに leave が出ない」を踏んだので、ここで毎回見る。
 		"fire": [
 			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
 			{"skill": "skill_dbg_aura_atk", "prepare": PREPARE_NONE},
 			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_aura_atk", "prepare": PREPARE_NONE},
 			{"skill": "skill_dbg_hit_true_b", "prepare": PREPARE_NONE},
 		],
 	},
@@ -288,10 +291,13 @@ const SCENARIOS: Dictionary = {
 			"char_debug_life": ["skill_dbg_pool_dmg", "skill_dbg_pool_heal"],
 		},
 		# ⚠ 回復地帯は味方が満タンだと 0 になって何も出ない。先に削る。
+		# ⚠ 最後の待ちは duration_sec（6.0）より長く取る。寿命切れで zone の leave が
+		#   出ることを見るため（人間のプレイのログで「enter だけ出て leave が出ない」を
+		#   踏んだ箇所）。⚠ 短いと戦闘が先に終わって、消えたのか終わったのか分からない。
 		"fire": [
 			{"skill": "skill_dbg_pool_dmg", "prepare": PREPARE_NONE},
 			{"skill": "skill_dbg_pool_heal", "prepare": PREPARE_DAMAGE_PARTY},
-			{"skill": "", "prepare": PREPARE_NONE, "gap": 5.0},
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 9.0},
 		],
 	},
 	# ⚠ 反射を「画面で見られる形」にしたもの（人間の指摘・2026-08-21）。

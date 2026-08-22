@@ -345,7 +345,7 @@
 				"type": "dot",
 				"host": "point",
 				"status_id": "st_dbg_pool_dmg",
-				"duration_sec": 30.0,
+				"duration_sec": 6.0,
 				"interval_sec": 1.0,
 				"stack": "refresh",
 				"zone": {
@@ -373,7 +373,7 @@
 				"type": "dot",
 				"host": "point",
 				"status_id": "st_dbg_pool_heal",
-				"duration_sec": 30.0,
+				"duration_sec": 6.0,
 				"interval_sec": 1.0,
 				"stack": "refresh",
 				"zone": {
