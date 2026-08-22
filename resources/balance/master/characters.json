@@ -302,7 +302,9 @@
 			"skill_dbg_hit_true",
 			"skill_dbg_mit_reduce",
 			"skill_dbg_mit_shield",
-			"skill_dbg_aura_atk"
+			"skill_dbg_aura_atk",
+			"skill_dbg_atk_mult",
+			"skill_dbg_dot_self_mix"
 		],
 		"allocatable_stats": [
 			"hp",

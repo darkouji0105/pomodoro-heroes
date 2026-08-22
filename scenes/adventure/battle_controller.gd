@@ -133,7 +133,10 @@ func _ready() -> void:
 	# ⚠ 器を先に作る。SkillRuntime が器を引数に取る。
 	_status = StatusRegistry.new(_session)
 	# ⚠ 表示の経路は1本。DoT のダメージも通常のスキルと同じ _pop_damage を通る。
-	_status.effects_applied.connect(_on_skill_effects_applied)
+	# ⚠ 器から来る結果は専用の入口へ。表示は同じ1本に寄せるが、購読の配布は
+	#   器から来たものだけに掛ける（EXEC_SILENT_HOLES.md）。
+	# ⚠ SkillRuntime から来たものを配り直すと、購読が購読を呼ぶ（PLAN 10-2 を破る）。
+	_status.effects_applied.connect(_on_status_effects_applied)
 
 	_skill_runtime = SkillRuntime.new(_session, _status)
 	_skill_runtime.effects_applied.connect(_on_skill_effects_applied)
@@ -1285,6 +1288,19 @@ func _prune_projectiles() -> void:
 
 # 新層が効果を1つ当てたときに呼ばれる。表示だけを担当する。
 # cast の効果は _fire_skill() の中で、delay の効果は _process() の tick で発火する。
+# 状態の器（DoT の周期発火）から来た結果。
+#
+# ⚠ 表示は既存の1本に寄せる（_on_skill_effects_applied）。2本目の表示経路を作らない。
+# ⚠ そのうえで購読の合図を配る。DoT はこの層を通らないので、ここで配らないと
+#   「毒で削られても反射しない」が無音で起きる（宿題12）。
+# ⚠ 順は「表示 → 購読」。逆にすると、購読で撃った結果が先に画面へ出て
+#   毒の数字より前に反撃の数字が浮かぶ。
+func _on_status_effects_applied(results: Array) -> void:
+	_on_skill_effects_applied(results)
+	if _skill_runtime != null:
+		_skill_runtime.notify_results(results)
+
+
 func _on_skill_effects_applied(results: Array) -> void:
 	for r in results:
 		if not (r is Dictionary):

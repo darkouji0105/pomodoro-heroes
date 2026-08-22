@@ -235,6 +235,51 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_dbg_hit_true_c", "prepare": PREPARE_NONE, "gap": 3.0},
 		],
 	},
+	# ⚠ 攻撃力の倍率（EXEC_SILENT_HOLES.md）。空だった受け口 atk_multiplier を使う。
+	#
+	# ⚠ +100%（2倍）にしてある。倍率は元の値に比例するので、大きくすると damage が
+	#   万を超えて読みにくい。200 → 400 なら桁が変わらず読める。
+	"atk_mult": {
+		"kind": KIND_BATTLE,
+		"note": "攻撃力の倍率：素 200 → +100% で 400 → 切れて 200 に戻る",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_hit_true", "skill_dbg_atk_mult"],
+		},
+		# ⚠ 素で殴る → 倍率を付ける → もう一度殴る → 切れるまで待って もう一度殴る。
+		# ⚠ duration_sec は 6.0。3発目は 6 秒を跨いでから撃つ。
+		"fire": [
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_atk_mult", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE, "gap": 7.0},
+		],
+	},
+	# ⚠ 毒のダメージで購読（react）が発火するか（EXEC_SILENT_HOLES.md）。
+	#
+	# ⚠ 実測で踏んだ：初稿は skill_dbg_mit_reflect（介入点の反射）で試したが、
+	#   ⚠ あれは購読ではない。intervene の反射は _apply_damage の中で処理され、
+	#   しかも DoT では意図的に返さない設計なので、⚠ 宿題の経路を1ミリも通らない。
+	#   ⚠ 「反射」という言葉が2つの別の器を指していることに注意。
+	# ⚠ 購読は「毒を受ける本人」に付いていないと発火しない。
+	#   → char_debug_mix に skill_dbg_react_thorns（took_damage の購読）と
+	#     自分がけの毒の両方を持たせる。⚠ スキルはキャラに紐づくので他キャラのは使えない。
+	"dot_react": {
+		"kind": KIND_BATTLE,
+		"note": "毒の周期ダメージで購読（react）が発火すること。⚠ 連鎖しないこと",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_react_thorns", "skill_dbg_dot_self_mix"],
+		},
+		# ⚠ 購読を先に付ける。あとだと最初の数発が拾われない。
+		"fire": [
+			{"skill": "skill_dbg_react_thorns", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_dot_self_mix", "prepare": PREPARE_NONE},
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 7.0},
+		],
+	},
 	# ⚠ オーラ（host: point の条件・EXEC_SKILL_AURA.md）。
 	#
 	# ⚠ 数字の作り方：char_debug_* の atk は 1。オーラで atk+50 にすると、

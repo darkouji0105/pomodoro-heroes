@@ -274,6 +274,16 @@ func is_alive() -> bool:
 
 # 全スキルの残り時間を delta だけ減らす。0.0 を下限とする。
 func tick_cooldowns(delta: float) -> void:
+	# ⚠ 死亡中は進めない（EXEC_SILENT_HOLES.md）。
+	#
+	# ⚠ ガードは呼ぶ側ではなくここに置く。呼ぶ側（battle_controller の走査）で
+	#   弾く形にすると、次に「全員を回すループ」を足した人がまた死者を通す。
+	#   関数が自分で守れば、呼び出し元が増えても壊れない
+	#   （BattleSession.find_unit() / StatusRegistry._applies_to() と同じ考え方）。
+	# ⚠ 復活しても戻さない。「死亡中は時計が止まる」だけ。戻す形にすると
+	#   復活直後に全スキルが撃てて、復活の価値がバランスの話に化ける。
+	if not is_alive():
+		return
 	for skill_id in skill_cooldowns:
 		skill_cooldowns[skill_id] = max(0.0, float(skill_cooldowns[skill_id]) - delta)
 

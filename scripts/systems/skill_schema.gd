@@ -177,6 +177,35 @@ const ZONE_TEAMS_KNOWN: Array = [ZONE_TEAM_ALLY, ZONE_TEAM_ENEMY, ZONE_TEAM_ALL]
 #   HPが減る」と名指しで警告している。欄で分ければ表示の色も介入点も既存のまま分かれる。
 const FIELD_HEALS: String = "heals"
 
+# 攻撃力の倍率（EXEC_SILENT_HOLES.md）。⚠ buff にしか書けない。
+#
+# ⚠ 綴りを "multiplier" にしないこと。buff は multiplier を書けない（別の意味で
+#   既に埋まっている）。同じ綴りに2つの意味を持たせない。
+# ⚠ % の整数。積み上げは和（1.0 + 合計/100）。掛け合わせない
+#   （heal_taken_pct / reduction_pct / stat_mod と同じ）。
+# ⚠ 下限は 0.0。マイナスで符号を跨がせると「殴ると回復する」になる。
+const BUFF_ATK_MULT_PCT: String = "atk_mult_pct"
+
+# 効果の直下に書ける欄の全部（EXEC_SILENT_HOLES.md・W16）。
+#
+# 【なぜ要るか】typo（"stt" / "mutliplier"）が無音で無視される。書いたのに何も
+# 起きない状態は、画面を見てもログを見ても分からない（宿題11）。
+# ⚠ 一覧はここ1本。2本目を作ると、欄を足したときに片方だけ直す。
+# ⚠ 実データの全キー（24種）＋ コードが読む chance / charge_scales を
+#   grep で列挙して作った。⚠ 憶測で書かないこと。正しい欄が黄で出る。
+# ⚠ 欄を足したらここにも足すこと。
+const EFFECT_FIELDS_KNOWN: Array = [
+	# ⚠ max_stack はリテラル。FIELD_MAX_STACK の宣言がこの下にあり、
+	#   const は前方参照できない（並べ替えると他の参照が壊れるのでこちらを直した）。
+	"type", "host", "status_id", "stack", "max_stack",
+	"duration_sec", "until", "interval_sec",
+	"multiplier", "attack_type", "scale_from", "delivery",
+	"stat", "value", "target", "trigger", "chance", "charge_scales",
+	"react", "condition",
+	BUFF_INTERVENE, FIELD_ZONE, FIELD_HEALS, BUFF_ATK_MULT_PCT,
+	"unit_id", "count", "offset_x",
+]
+
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
 # ⚠ physical / magic は BattleUnit の定数を唯一の正とする。
 #    ここに書き直さないこと（2本目の一覧を作ると片方だけ直して事故る）。
@@ -967,6 +996,26 @@ static func _validate_effect(
 	# 範囲（zone{}）。⚠ host: point にしか書けず、host: point には必ず要る。
 	_validate_zone(issues, skill_id, effect, where, host, effect_type)
 
+	# W16 … 効果の直下の知らない欄（EXEC_SILENT_HOLES.md）。
+	#
+	# ⚠ 黄にする（赤にしない）。赤にすると、見落としが1件でもあった瞬間に
+	#   ゲームが起動しなくなる。⚠ 出た件数を見てから赤に上げるかを人間が決める。
+	for key: Variant in effect.keys():
+		if not (str(key) in EFFECT_FIELDS_KNOWN):
+			_warn(issues, skill_id, "%s に知らない欄がある: '%s'（書いても何も起きない）" % [where, str(key)])
+
+	# E116 / E117 … 攻撃力の倍率。
+	if effect.has(BUFF_ATK_MULT_PCT):
+		if effect_type != EFFECT_BUFF:
+			_err(issues, skill_id, "%s.%s は buff にしか書けない（type: '%s'）" % [
+				where, BUFF_ATK_MULT_PCT, effect_type
+			])
+		else:
+			# ⚠ 0 は禁止（何も起きない欄を書かせない・E39 と同じ）。
+			var mult: Variant = effect.get(BUFF_ATK_MULT_PCT, null)
+			if not _is_num(mult) or float(mult) != floor(float(mult)) or int(mult) == 0:
+				_err(issues, skill_id, "%s.%s が0以外の整数でない" % [where, BUFF_ATK_MULT_PCT])
+
 	# 効果ごとの target 上書き（range は書けない＝E16）
 	var raw_target: Variant = effect.get("target", null)
 	if raw_target != null:
@@ -1124,7 +1173,12 @@ static func _validate_status_effect(
 	if effect_type == EFFECT_BUFF:
 		# ⚠ stat は「書かれているときだけ」見る。介入だけを持つ buff（復活・免疫・
 		#   被回復増減）は stat も value も持たないため（段階3の後半③で緩めた）。
+		# ⚠ has_stat は「stat / value の検証を走らせるか」。⚠ 「何かする buff か」とは
+		#   別物にすること。混ぜると、atk_mult_pct だけを持つ buff に E37〜E39
+		#   （stat が10軸に無い／value が0以外の整数でない）が誤って出る（実測で踏んだ）。
 		var has_stat: bool = effect.has("stat") or effect.has("value")
+		# ⚠ 新しい補正の欄を足したら、E63（何もしない buff）の判定にも足すこと。
+		var has_atk_mult: bool = effect.has(BUFF_ATK_MULT_PCT)
 		if has_stat:
 			# E37 / E38
 			var stat_key: String = str(effect.get("stat", ""))
@@ -1139,8 +1193,10 @@ static func _validate_status_effect(
 		# E63 … 何もしない buff を書かせない。
 		# ⚠ これが無いと、stat を必須にしなくなった分だけ typo（"stt"）が
 		#   「介入だけを持つ buff」として黙って通る。
-		if not has_stat and not has_intervene:
-			_err(issues, skill_id, "%s は buff なのに stat / value も %s{} も無い" % [where, BUFF_INTERVENE])
+		if not has_stat and not has_atk_mult and not has_intervene:
+			_err(issues, skill_id, "%s は buff なのに stat / value も %s も %s{} も無い" % [
+				where, BUFF_ATK_MULT_PCT, BUFF_INTERVENE
+			])
 		# ⚠ buff は multiplier を読まない（PLAN 5-2。意味を3つ持たせない）
 		if effect.has("multiplier"):
 			_err(issues, skill_id, "%s は buff なので multiplier を書けない（stat / value を使う）" % where)
