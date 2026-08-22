@@ -11,6 +11,18 @@ const COLOR_PARTY: Color = Color(0.3, 0.5, 0.9)   # 青
 const COLOR_ENEMY: Color = Color(0.9, 0.35, 0.3)  # 赤
 const COLOR_BOSS: Color = Color(0.6, 0.3, 0.8)    # 紫
 
+# HP バーとシールドバーの色（人間の指示・2026-08-21）。
+#
+# ⚠ 体の色（上）とは別物。体は「どちらの陣営か」、バーは「残量の種類」を表す。
+# ⚠ 既定テーマのままだと味方も敵も同じ色で、⚠ シールドが吸っているのか
+#   HP が減っているのかが画面から区別できなかった（§7 の24が判定不能だった）。
+# ⚠ ボスは敵と同じ赤。体の色（紫）で区別が付くので、バーまで分けない。
+const COLOR_HP_PARTY: Color = Color(0.25, 0.8, 0.35)   # 緑
+const COLOR_HP_ENEMY: Color = Color(0.85, 0.2, 0.2)    # 赤
+const COLOR_SHIELD: Color = Color(1.0, 1.0, 1.0)       # 白
+# バーの下地。⚠ 残量が0に近いときに「バーがあること」が分かる濃さにする。
+const COLOR_BAR_BG: Color = Color(0.12, 0.12, 0.14)
+
 # 頭上に浮かぶ数値の色と大きさは Balance.adventure（AdventureConfig）から引く。
 # ⚠ ここに const で持たないこと。2箇所に数値があると、Inspector で直しても
 #   変わらない状態になり、どちらが効いているか実機でしか分からなくなる
@@ -44,8 +56,40 @@ func setup(unit: BattleUnit) -> void:
 
 	hp_bar.max_value = unit.max_hp
 	hp_bar.value = unit.hp
+	# ⚠ 色はテーマの上書きで入れる。main_theme.tres を触らないこと
+	#   （触ると全画面の ProgressBar が緑赤になる）。
+	_paint_bar(hp_bar, COLOR_HP_PARTY if unit.team == BattleUnit.TEAM_PARTY else COLOR_HP_ENEMY)
+	_paint_bar($ShieldBar, COLOR_SHIELD)
+	$ShieldBar.hide()
 	position.x = unit.x
 	show()
+
+
+# ProgressBar の塗りと下地を差し替える。
+# ⚠ ノードごとに StyleBoxFlat を新しく作ること。使い回すと、1体の色を変えたときに
+#   全体が変わる（StyleBox は参照で共有される）。
+func _paint_bar(bar: ProgressBar, fill_color: Color) -> void:
+	var fill: StyleBoxFlat = StyleBoxFlat.new()
+	fill.bg_color = fill_color
+	var back: StyleBoxFlat = StyleBoxFlat.new()
+	back.bg_color = COLOR_BAR_BG
+	bar.add_theme_stylebox_override("fill", fill)
+	bar.add_theme_stylebox_override("background", back)
+
+
+# シールドの残量を表示する。⚠ 呼ぶのは BattleController の1箇所だけ。
+#
+# ⚠ UnitView に StatusRegistry を持たせないこと。ビューは BattleUnit しか知らない
+#   （器を知ると、リトライで器が作り直されたときに古い参照を握る）。
+# total が 0 のときはバーごと隠す（シールドを持っていない）。
+func set_shield(left: int, total: int) -> void:
+	var bar: ProgressBar = $ShieldBar
+	if total <= 0 or left <= 0:
+		bar.hide()
+		return
+	bar.max_value = total
+	bar.value = left
+	bar.show()
 
 
 # 毎フレーム位置と HP バーを同期する

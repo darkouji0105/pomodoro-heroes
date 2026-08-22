@@ -304,6 +304,14 @@ func _make_entry(
 		"on_death": {},
 		"block_status": [],
 		"heal_taken_pct": 0,
+		# ダメージの介入点（EXEC_SKILL_MITIGATION.md）。⚠ 持たない件にも必ず持たせる
+		#   （上の "active" と同じ理由。query() がその件だけ黙って外す）。
+		"shield_hp": 0,
+		"reduction_pct": 0,
+		"pierce_pct": 0,
+		"crit_always": false,
+		"reflect_pct": 0,
+		"reflect_flat": 0,
 	}
 
 
@@ -333,11 +341,20 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		entry["stat"] = stat_key
 		entry["value"] = value
 
-	# 介入点（PLAN 11-1）。⚠ duplicate(true) で複製する（_fill_react と同じ理由。
-	#   参照で握ると、器が触ったときにマスターごと書き変わる）。
+	# 介入点（PLAN 11-1 ＋ EXEC_SKILL_MITIGATION.md）。⚠ duplicate(true) で複製する
+	#   （_fill_react と同じ理由。参照で握ると、器が触ったときにマスターごと書き変わる）。
+	#
+	# ⚠ 欄は intervene{} の中にある（人間の決定2で畳んだ）。⚠ 平置きはロード時検証
+	#   （E102）が赤にするので、ここには来ない。⚠ 二重に守るために効果の直下は読まない。
 	var has_intervene: bool = false
-	if effect.has(SkillSchema.BUFF_ON_DEATH):
-		var raw_death: Variant = effect.get(SkillSchema.BUFF_ON_DEATH, null)
+	var raw_iv: Variant = effect.get(SkillSchema.BUFF_INTERVENE, null)
+	if raw_iv != null and not (raw_iv is Dictionary):
+		push_error("[StatusRegistry] buff の intervene が Dictionary でない")
+		return false
+	var effect_iv: Dictionary = (raw_iv as Dictionary) if (raw_iv is Dictionary) else {}
+
+	if effect_iv.has(SkillSchema.BUFF_ON_DEATH):
+		var raw_death: Variant = effect_iv.get(SkillSchema.BUFF_ON_DEATH, null)
 		if not (raw_death is Dictionary):
 			push_error("[StatusRegistry] buff の on_death が Dictionary でない")
 			return false
@@ -349,20 +366,55 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		entry["on_death"] = (raw_death as Dictionary).duplicate(true)
 		has_intervene = true
 
-	if effect.has(SkillSchema.BUFF_BLOCK_STATUS):
-		var raw_block: Variant = effect.get(SkillSchema.BUFF_BLOCK_STATUS, null)
+	if effect_iv.has(SkillSchema.BUFF_BLOCK_STATUS):
+		var raw_block: Variant = effect_iv.get(SkillSchema.BUFF_BLOCK_STATUS, null)
 		if not (raw_block is Array) or (raw_block as Array).is_empty():
 			push_error("[StatusRegistry] buff の block_status が配列でない、または空")
 			return false
 		entry["block_status"] = (raw_block as Array).duplicate(true)
 		has_intervene = true
 
-	if effect.has(SkillSchema.BUFF_HEAL_TAKEN_PCT):
-		var pct: int = int(effect.get(SkillSchema.BUFF_HEAL_TAKEN_PCT, 0))
+	if effect_iv.has(SkillSchema.BUFF_HEAL_TAKEN_PCT):
+		var pct: int = int(effect_iv.get(SkillSchema.BUFF_HEAL_TAKEN_PCT, 0))
 		if pct == 0:
 			push_error("[StatusRegistry] buff の heal_taken_pct が0（何も起きない介入は書けない）")
 			return false
 		entry["heal_taken_pct"] = pct
+		has_intervene = true
+
+	# ダメージの介入点（EXEC_SKILL_MITIGATION.md）。
+	#
+	# ⚠ 上限（REDUCTION_PCT_MAX / PIERCE_PCT_MAX）はここで掛けない。合計してから
+	#   掛ける（1件ずつ丸めると、40+40 が 80 ではなく 80 のままか 95 かで揺れる）。
+	#   掛けるのは damage_taken_pct() / pierce_pct() の1箇所（下）。
+	for field: String in [
+		SkillSchema.INTERVENE_REDUCTION_PCT, SkillSchema.INTERVENE_PIERCE_PCT,
+		SkillSchema.INTERVENE_REFLECT_PCT, SkillSchema.INTERVENE_REFLECT_FLAT,
+	]:
+		if effect_iv.has(field):
+			var v: int = int(effect_iv.get(field, 0))
+			if v < 1:
+				push_error("[StatusRegistry] buff の %s が 1 未満（何も起きない介入は書けない）" % field)
+				return false
+			entry[field] = v
+			has_intervene = true
+
+	if effect_iv.has(SkillSchema.INTERVENE_CRIT_ALWAYS):
+		# ⚠ false は持たせない。持たせると「付いているのに効かない」件が器に残り、
+		#   query() で数えたときに数が合わなくなる（W14 が書き忘れを黄で言う）。
+		if bool(effect_iv.get(SkillSchema.INTERVENE_CRIT_ALWAYS, false)):
+			entry[SkillSchema.INTERVENE_CRIT_ALWAYS] = true
+			has_intervene = true
+
+	# ⚠ シールドの残量は counter に入れる（汎用カウンター・呼び出し元がゼロだった）。
+	#   2本目の残量の置き場を作らない。
+	if effect_iv.has(SkillSchema.INTERVENE_SHIELD_HP):
+		var shield: int = int(effect_iv.get(SkillSchema.INTERVENE_SHIELD_HP, 0))
+		if shield < 1:
+			push_error("[StatusRegistry] buff の shield_hp が 1 未満")
+			return false
+		entry[SkillSchema.INTERVENE_SHIELD_HP] = shield
+		entry["counter"] = shield
 		has_intervene = true
 
 	if not has_stat and not has_intervene:
@@ -1023,6 +1075,143 @@ func heal_taken_pct(unit_id: String) -> int:
 			continue
 		total += int(entry.get("heal_taken_pct", 0))
 	return total
+
+
+# ダメージの介入点が読む問い合わせ（EXEC_SKILL_MITIGATION.md）。
+#
+# ⚠ 4本とも heal_taken_pct() と同じ形にすること（PLAN 11-1「ブレると4箇所
+#   バラバラになる」）。⚠ どれも active が偽の件を数えない。
+# ⚠ 合計してから上限を掛ける。1件ずつ丸めない（40+40 が 80 になるべき場面で
+#   95 に化ける）。
+#
+# ⚠ 誰の状態かが欄で違う。読み違えると「効いているのに効かない」になる。
+#     殴られた側 … reduction_pct / reflect_pct / reflect_flat / shield_hp
+#     殴った側   … pierce_pct / crit_always
+func _intervene_sum(unit_id: String, field: String) -> int:
+	var total: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) != KIND_BUFF:
+			continue
+		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
+			continue
+		if str(entry.get("host_unit_id", "")) != unit_id:
+			continue
+		if not bool(entry.get("active", true)):
+			continue
+		total += int(entry.get(field, 0))
+	return total
+
+
+# 軽減%の合計。⚠ 上限は REDUCTION_PCT_MAX（100 にすると誰も死なない）。
+func damage_taken_pct(unit_id: String) -> int:
+	return mini(_intervene_sum(unit_id, SkillSchema.INTERVENE_REDUCTION_PCT), SkillSchema.REDUCTION_PCT_MAX)
+
+
+# 貫通%の合計。⚠ 上限は PIERCE_PCT_MAX。
+func pierce_pct(unit_id: String) -> int:
+	return mini(_intervene_sum(unit_id, SkillSchema.INTERVENE_PIERCE_PCT), SkillSchema.PIERCE_PCT_MAX)
+
+
+# 反射%の合計。⚠ 上限は掛けない（返す量は元のダメージに比例するので暴走しない）。
+func reflect_pct(unit_id: String) -> int:
+	return _intervene_sum(unit_id, SkillSchema.INTERVENE_REFLECT_PCT)
+
+
+# 固定値の反射の合計。⚠ シールドが全部吸っても返る（人間の決定4）。
+func reflect_flat(unit_id: String) -> int:
+	return _intervene_sum(unit_id, SkillSchema.INTERVENE_REFLECT_FLAT)
+
+
+# 確定クリティカルを持っているか。⚠ 1件でもあれば真（合計しない）。
+func has_crit_always(unit_id: String) -> bool:
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) != KIND_BUFF:
+			continue
+		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
+			continue
+		if str(entry.get("host_unit_id", "")) != unit_id:
+			continue
+		if not bool(entry.get("active", true)):
+			continue
+		if bool(entry.get(SkillSchema.INTERVENE_CRIT_ALWAYS, false)):
+			return true
+	return false
+
+
+# シールドの合計（元の量）と残量。⚠ 表示のためだけに使う。
+#
+# ⚠ 戦闘の計算はここを読まない（吸うのは consume_shield の1本）。読ませると
+#   「表示用に足した関数」が判定に混ざり、直すときに両方を追うことになる。
+func shield_total(unit_id: String) -> int:
+	return _intervene_sum(unit_id, SkillSchema.INTERVENE_SHIELD_HP)
+
+
+func shield_left(unit_id: String) -> int:
+	var total: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) != KIND_BUFF:
+			continue
+		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
+			continue
+		if str(entry.get("host_unit_id", "")) != unit_id:
+			continue
+		if not bool(entry.get("active", true)):
+			continue
+		if int(entry.get(SkillSchema.INTERVENE_SHIELD_HP, 0)) <= 0:
+			continue
+		total += maxi(0, int(entry.get("counter", 0)))
+	return total
+
+
+# シールドに肩代わりさせる。吸えた量を返す。
+#
+# ⚠ 残量は counter が持つ（shield_hp は「元の量」で、記録と再付与のために残す）。
+# ⚠ 0 になった件はここで消す（人間が見ていない決め6）。寿命を待つと、
+#   「守られているように見えて何も守らない状態」が画面に残る。
+# ⚠ 消すときの why は "consumed"。expire と区別できないと、
+#   「盾が切れた」のか「時間切れ」なのかログから読めない。
+# ⚠ 複数のシールドが付いているときは _entries の並び順に吸う（§8 の宿題）。
+func consume_shield(unit_id: String, amount: int) -> int:
+	if amount <= 0:
+		return 0
+	var remaining: int = amount
+	var absorbed: int = 0
+	var consumed_ids: Array = []
+	for entry: Dictionary in _entries:
+		if remaining <= 0:
+			break
+		if str(entry.get("kind", "")) != KIND_BUFF:
+			continue
+		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
+			continue
+		if str(entry.get("host_unit_id", "")) != unit_id:
+			continue
+		if not bool(entry.get("active", true)):
+			continue
+		if int(entry.get(SkillSchema.INTERVENE_SHIELD_HP, 0)) <= 0:
+			continue
+		var left: int = int(entry.get("counter", 0))
+		if left <= 0:
+			continue
+		var eaten: int = mini(left, remaining)
+		entry["counter"] = left - eaten
+		absorbed += eaten
+		remaining -= eaten
+		if int(entry["counter"]) <= 0:
+			consumed_ids.append(int(entry.get("instance_id", 0)))
+
+	# ⚠ 回しながら消さない。集めてから消す（段階6の _step_summons と同じ形）。
+	if not consumed_ids.is_empty():
+		var rest: Array = []
+		for entry: Dictionary in _entries:
+			if int(entry.get("instance_id", 0)) in consumed_ids:
+				BattleLog.log_status_end(
+					str(entry.get("status_id", "")), str(entry.get("host_unit_id", "")), "consumed"
+				)
+				continue
+			rest.append(entry)
+		_entries = rest
+	return absorbed
 
 
 # そのユニットの、その軸への合計補正。

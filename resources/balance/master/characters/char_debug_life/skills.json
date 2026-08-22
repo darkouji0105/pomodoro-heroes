@@ -160,42 +160,42 @@
 			}
 		]
 	},
-		"skill_dbg_react_warcry": {
-			"name_key": "ui_battle_skill_dbg_react_warcry",
-			"user_character_id": "char_debug_life",
-			"unlock_level": 1,
-			"cooldown_sec": 20.0,
-			"activation": "instant",
-			"target": {
-				"team": "self"
-			},
-			"effects": [
-				{
-					"type": "react",
-					"host": "unit",
-					"status_id": "status_dbg_react_warcry",
-					"stack": "refresh",
-					"duration_sec": 20.0,
-					"react": {
-						"event": "attacked",
-						"effects": [
-							{
-								"type": "buff",
-								"host": "unit",
-								"status_id": "status_dbg_react_warcry_atk",
-								"stat": "atk",
-								"value": 3,
-								"duration_sec": 6.0,
-								"stack": "refresh",
-								"target": {
-									"team": "self"
-								}
-							}
-						]
-					}
-				}
-			]
+	"skill_dbg_react_warcry": {
+		"name_key": "ui_battle_skill_dbg_react_warcry",
+		"user_character_id": "char_debug_life",
+		"unlock_level": 1,
+		"cooldown_sec": 20.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
 		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_dbg_react_warcry",
+				"stack": "refresh",
+				"duration_sec": 20.0,
+				"react": {
+					"event": "attacked",
+					"effects": [
+						{
+							"type": "buff",
+							"host": "unit",
+							"status_id": "status_dbg_react_warcry_atk",
+							"stat": "atk",
+							"value": 3,
+							"duration_sec": 6.0,
+							"stack": "refresh",
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
 	"skill_dbg_area_far": {
 		"name_key": "ui_battle_skill_dbg_area_far",
 		"user_character_id": "char_debug_life",
@@ -236,6 +236,98 @@
 				"type": "heal",
 				"multiplier": 1.0,
 				"scale_from": "mag"
+			}
+		]
+	},
+	"skill_dbg_hit_phys": {
+		"name_key": "ui_battle_skill_dbg_hit_phys",
+		"user_character_id": "char_debug_life",
+		"unlock_level": 1,
+		"cooldown_sec": 0.5,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 200.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_dbg_hit_true_c": {
+		"name_key": "ui_battle_skill_dbg_hit_true_c",
+		"user_character_id": "char_debug_life",
+		"unlock_level": 1,
+		"cooldown_sec": 0.5,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 200.0,
+				"attack_type": "true",
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_dbg_mit_pierce": {
+		"name_key": "ui_battle_skill_dbg_mit_pierce",
+		"user_character_id": "char_debug_life",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_dbg_pierce",
+				"duration_sec": 60.0,
+				"stack": "refresh",
+				"intervene": {
+					"pierce_pct": 100
+				}
+			}
+		]
+	},
+	"skill_dbg_mit_reflect": {
+		"name_key": "ui_battle_skill_dbg_mit_reflect",
+		"user_character_id": "char_debug_life",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_dbg_reflect",
+				"duration_sec": 60.0,
+				"stack": "refresh",
+				"intervene": {
+					"reflect_pct": 50
+				}
 			}
 		]
 	}

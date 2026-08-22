@@ -176,39 +176,39 @@
 			}
 		]
 	},
-		"skill_dbg_react_thorns": {
-			"name_key": "ui_battle_skill_dbg_react_thorns",
-			"user_character_id": "char_debug_mix",
-			"unlock_level": 1,
-			"cooldown_sec": 20.0,
-			"activation": "instant",
-			"target": {
-				"team": "self"
-			},
-			"effects": [
-				{
-					"type": "react",
-					"host": "unit",
-					"status_id": "status_dbg_react_thorns",
-					"stack": "refresh",
-					"duration_sec": 15.0,
-					"react": {
-						"event": "took_damage",
-						"effects": [
-							{
-								"type": "damage",
-								"multiplier": 1.0,
-								"attack_type": "magic",
-								"scale_from": "mag",
-								"target": {
-									"team": "source"
-								}
-							}
-						]
-					}
-				}
-			]
+	"skill_dbg_react_thorns": {
+		"name_key": "ui_battle_skill_dbg_react_thorns",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 20.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
 		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_dbg_react_thorns",
+				"stack": "refresh",
+				"duration_sec": 15.0,
+				"react": {
+					"event": "took_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 1.0,
+							"attack_type": "magic",
+							"scale_from": "mag",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
 	"skill_dbg_area_narrow": {
 		"name_key": "ui_battle_skill_dbg_area_narrow",
 		"user_character_id": "char_debug_mix",
@@ -316,6 +316,77 @@
 				"count": 2,
 				"duration_sec": 4.0,
 				"offset_x": -60.0
+			}
+		]
+	},
+	"skill_dbg_hit_true": {
+		"name_key": "ui_battle_skill_dbg_hit_true",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 0.5,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 200.0,
+				"attack_type": "true",
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_dbg_mit_reduce": {
+		"name_key": "ui_battle_skill_dbg_mit_reduce",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_dbg_reduce",
+				"duration_sec": 60.0,
+				"stack": "refresh",
+				"intervene": {
+					"reduction_pct": 40
+				}
+			}
+		]
+	},
+	"skill_dbg_mit_shield": {
+		"name_key": "ui_battle_skill_dbg_mit_shield",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_dbg_shield",
+				"duration_sec": 60.0,
+				"stack": "refresh",
+				"intervene": {
+					"shield_hp": 30
+				}
 			}
 		]
 	}

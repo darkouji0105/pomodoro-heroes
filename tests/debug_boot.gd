@@ -131,6 +131,163 @@ const SCENARIOS: Dictionary = {
 			{"skill": "", "prepare": PREPARE_KILL_PARTY, "gap": 0.5},
 		],
 	},
+	# ダメージの介入点（EXEC_SKILL_MITIGATION.md）。⚠ 3本に分けてある。
+	#
+	# ⚠ 分けている理由：スキル枠は2つ（SKILL_SLOT_COUNT）。1体につき
+	#   「介入を付ける」＋「殴る」で2枠を使い切るので、1シナリオに3件しか載らない。
+	# ⚠ もう1つ。敵に付ける介入（軽減・盾・反射）が同じ敵に重なると、
+	#   どれが効いた数値なのか読めなくなる。1シナリオに「敵へ付ける介入」は
+	#   1種類までにしてある（shield だけは盾を吸い切ってから棘を付けるので2件）。
+	#
+	# ⚠ 数値の作り方：char_debug_* は atk 1。multiplier 200 の確定ダメージで
+	#   ぴったり 200 になる（BattleFormula.damage は power * multiplier）。
+	#   200 を基準にすると、軽減40%→120 / 会心150%→300 が整数で出て読める。
+	# ⚠ 敵の hp は 400。1体に 400 を超えて当てると死んで、次の一撃が別の敵に飛ぶ。
+	#   実測で踏んだ：貫通の「素 → 貫通あり」を同じシナリオに入れたら、素の一撃で
+	#   敵が死に、貫通ありの一撃が別の敵（軽減が付いていない敵）に当たって
+	#   「116 → 200」という、貫通と軽減が混ざった数字になった。
+	# ⚠ 「敵に付ける介入 × 前後の比較」は1シナリオに1件まで。
+	"mitigate": {
+		"kind": KIND_BATTLE,
+		"note": "介入点：軽減40%（200→120）と確定会心（200→300）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_hit_true", "skill_dbg_mit_reduce"],
+			"char_debug_status": ["skill_dbg_hit_true_b", "skill_dbg_mit_crit"],
+		},
+		# ⚠ 必ず「素で殴る → 介入を付ける → もう一度殴る」の順。同じ撃ち手・同じ
+		#   スキルで前後を比べないと、対象が変わったのか介入が効いたのか分からない。
+		# ⚠ 会心を先、軽減をあと。実測で踏んだ：軽減を先にすると、会心の
+		#   「素の一撃」が軽減の付いた敵に当たって 200 ではなく 120 になり、
+		#   120 → 300 という「軽減が外れたのか会心が効いたのか読めない」比較になる。
+		# ⚠ 会心（200 + 300 = 500）は敵1体（hp 400）を殺すので、そのあとの軽減の
+		#   比較は無傷の敵で始まる。確定会心は自分に付ける介入なので、対象が
+		#   変わっても数字は動かない（確定ダメージなので敵の def を見ない）。
+		"fire": [
+			{"skill": "skill_dbg_hit_true_b", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_mit_crit", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_true_b", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_mit_reduce", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
+		],
+	},
+	# ⚠ 貫通だけ単独。物理で殴らないと def を無視したことが数字に出ないので、
+	#   「def を持つ敵に、同じ敵へ2回」当てる必要がある（合計 394 で 400 未満）。
+	# ⚠ 狼の def は 3。194（素）→ 200（貫通100%）＝ 確定ダメージと同じ値になる。
+	"pierce": {
+		"kind": KIND_BATTLE,
+		"note": "介入点：貫通100%（物理 194 → 200。敵の def 3 を無視する）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_life": ["skill_dbg_hit_phys", "skill_dbg_mit_pierce"],
+		},
+		"fire": [
+			{"skill": "skill_dbg_hit_phys", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_mit_pierce", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_phys", "prepare": PREPARE_NONE},
+		],
+	},
+	# ⚠ 盾。吸う → 吸い切って消える → 素に戻る、の3段を1本で見る。
+	# ⚠ 棘（盾＋固定値の反射）は、盾が全部吸っても固定値が返ることを見るためのもの
+	#   （人間の決定4）。弱打（multiplier 1 ＝ ダメージ1）で殴る。
+	"shield": {
+		"kind": KIND_BATTLE,
+		"note": "介入点：盾30が吸う→吸い切って消える→素に戻る／棘は盾ごしに固定値を返す",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_hit_true", "skill_dbg_mit_shield"],
+			"char_debug_status": ["skill_dbg_hit_weak", "skill_dbg_mit_thorns"],
+		},
+		"fire": [
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_mit_shield", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_mit_thorns", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_weak", "prepare": PREPARE_NONE},
+		],
+	},
+	# ⚠ 反射（%）。⚠ 単独のシナリオにしてある。盾と同じ敵に乗ると、
+	#   返ってきた量が「盾で減ったあとの50%」なのか「棘の固定値」なのか読めない。
+	"reflect": {
+		"kind": KIND_BATTLE,
+		"note": "介入点：反射50%（殴った側に返る。反射が反射を呼ばないこと）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_life": ["skill_dbg_hit_true_c", "skill_dbg_mit_reflect"],
+			# ⚠ DoT は反射しないこと（人間が見ていない決め4）を見るために入れてある。
+			#   毒を「殴り返す」相手が居ない（source は付けた本人で、その場に居るとは限らない）。
+			"char_debug_status": ["skill_dbg_dot_long", ""],
+		},
+		# ⚠ 素で殴る（反射なし）→ 反射を付ける → 毒を入れる → もう一度殴る、の順。
+		#   毒は反射の付いた敵に入り、周期ダメージのあいだ反射が1本も出ないことを見る。
+		# ⚠ 2発（200+200=400）で敵の hp とちょうど同じ。最後の一撃で死ぬが、
+		#   反射はその一撃で返ってから死ぬ。
+		"fire": [
+			{"skill": "skill_dbg_hit_true_c", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_mit_reflect", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_dot_long", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_true_c", "prepare": PREPARE_NONE, "gap": 3.0},
+		],
+	},
+	# ⚠ 反射を「画面で見られる形」にしたもの（人間の指摘・2026-08-21）。
+	#
+	# ⚠ これが要る理由：reflect シナリオは反射を敵に付けるので、画面では
+	#   「味方が殴ったら味方が減る」という読みにくい絵になる。⚠ 人間からは
+	#   「反射を持っているキャラが前衛じゃないので分からない」と言われた。
+	#   ⚠ 段階6で召喚に対して踏んだのと同じ形（後衛に付けた効果は画面で確かめられない）。
+	# ⚠ char_debug_status は射程 60 ＝ 前衛。敵の nearest に選ばれるのはこの1体だけなので、
+	#   自分に反射を付けると「敵が殴ってくる → 敵の頭上に数字が出る」が見える。
+	# ⚠ 味方の hp は 9999・敵の atk は 1 なので、% だけだと 0 になって何も返らない。
+	#   固定値 5 を併せて持たせてある。
+	"reflect_self": {
+		"kind": KIND_BATTLE,
+		"note": "反射：前衛の味方に自分がけの反射を付け、殴ってきた敵に返ること",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_status": ["skill_dbg_mit_reflect_self", ""],
+		},
+		# ⚠ 最後の「待つだけの行」で、敵が殴ってくる時間を作る。
+		"fire": [
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
+			{"skill": "skill_dbg_mit_reflect_self", "prepare": PREPARE_NONE, "gap": 6.0},
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 8.0},
+		],
+	},
+	# ⚠ 移設した既存3件（復活 / 免疫 / 被回復低下）が実行時にも効くことの確認。
+	#
+	# ⚠ これが要る理由：intervene{} へ畳んだ3件は stage_dbg_intervene にしか居らず、
+	#   既存のシナリオはどれも stage_dbg_area しか見ていない。ロード時検証が通っても
+	#   「読む側（status_registry）が新しい入れ子から読めているか」は分からない。
+	#   移設で一番怖いのは「無音で効かなくなる」ことなので、実行時に1回通す。
+	# ⚠ ウェーブ1が復活持ち、ウェーブ2が免疫持ち。
+	"intervene_legacy": {
+		"kind": KIND_BATTLE,
+		"note": "移設した既存3件：復活（death）と免疫（status）が intervene{} からでも効くこと",
+		"stage_id": "stage_dbg_intervene",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_hit_true", "skill_dbg_mit_reduce"],
+			"char_debug_status": ["skill_dbg_dot_long", "skill_dbg_hit_true_b"],
+		},
+		# ⚠ 待つだけの行を先頭に置く（1行目の gap は _last_fire_sec の初期値 -999 の
+		#   せいで効かない）。⚠ 実測で踏んだ：待たずに撃つと、敵が自分に復活バフを
+		#   掛ける前に殺してしまい、intervene が1行も出ないまま「通った」ように見える。
+		#   復活も免疫も、敵AIが射程内に入って拍が来たときに自分へ撃つ instant スキル。
+		# ⚠ 200 の確定ダメージで一撃で殺す（復活持ちは hp 60）。復活したらもう一度殺す。
+		"fire": [
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE, "gap": 6.0},
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE, "gap": 0.6},
+			{"skill": "skill_dbg_dot_long", "prepare": PREPARE_NONE, "gap": 6.0},
+		],
+	},
 	# 立ち位置（射程の段）の検証。⚠ 本番の味方3人を並べるのはこのシナリオだけ。
 	#
 	# ⚠ スキルを1つも割り当てない。見たいのは「歩くのをやめたときの x」だけ。
@@ -268,6 +425,9 @@ class Driver extends Node:
 	const FIRE_GAP_SEC: float = 1.0
 	# 決着してからログが出揃うまでの余裕。
 	const SETTLE_SEC: float = 1.0
+	# ⚠ 2回目以降の全滅までに置く間（ウェーブが複数あるステージ用）。
+	#   次のウェーブの敵が自分に状態を掛け、互いを回復するのを見るための時間。
+	const NEXT_WAVE_WATCH_SEC: float = 8.0
 	# ⚠ 合図が来ないまま戦闘が長引いたら諦める（ヘッドレスがぶら下がったままにならないように）。
 	const GIVE_UP_SEC: float = 180.0
 	# 回復の検証で味方を削る量。⚠ BattleFormula を通るので def で割られる。
@@ -300,7 +460,9 @@ class Driver extends Node:
 	var _all_still_sec: float = 0.0
 	var _all_settled_seen: bool = false
 	var _prepared: Dictionary = {}
-	var _killed: bool = false
+	# ⚠ 最後に「敵を全滅させた」時刻。⚠ bool にしないこと。ウェーブが複数ある
+	#   ステージでは2回目以降も殺す必要がある（_process() の最後の枝）。
+	var _last_kill_sec: float = -999.0
 	var _finished_sec: float = -1.0
 
 
@@ -347,9 +509,19 @@ class Driver extends Node:
 
 		# 撃ち終わった。⚠ このステージは放っておいても終わらない（敵 hp 400 / 味方の火力が低い）ので、
 		#   ログに result の行を出すために決着させる。
-		if not _killed and session.elapsed_sec - _last_fire_sec >= SETTLE_SEC:
-			_killed = true
-			print("[DebugBoot] 撃ち終わったので決着させる")
+		#
+		# ⚠ 1回きりにしないこと。⚠ 実測で踏んだ：ウェーブが複数あるステージでは、
+		#   1回目の全滅で次のウェーブが始まり、そのウェーブは誰も殺さないまま
+		#   GIVE_UP_SEC まで回って赤が出る（stage_dbg_intervene は敵同士が回復し合う）。
+		# ⚠ 1ウェーブのステージでは1回目で決着するので、挙動は変わらない。
+		# ⚠ 2回目以降だけ間を長く取る。⚠ 1回目を SETTLE_SEC のままにするのは、
+		#   1ウェーブのシナリオ（既存の全部）の所要時間を1秒も変えないため。
+		#   ⚠ 2回目以降を長くするのは、次のウェーブの敵が自分に状態を掛けたり
+		#   互いを回復したりするのを観測する時間が要るため（stage_dbg_intervene）。
+		var wait: float = SETTLE_SEC if _last_kill_sec < 0.0 else NEXT_WAVE_WATCH_SEC
+		if session.elapsed_sec - maxf(_last_kill_sec, _last_fire_sec) >= wait:
+			_last_kill_sec = session.elapsed_sec
+			print("[DebugBoot] 撃ち終わったので決着させる t=%.2f" % session.elapsed_sec)
 			_battle.debug_kill_all_enemies()
 
 

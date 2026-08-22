@@ -119,13 +119,39 @@ const EFFECT_TYPES_STATUS: Array = [EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT]
 # ⚠ 効果の種類は増えていない。EFFECT_TYPES_* に何も足さないこと。
 # ⚠ stat / value と同時に持ってよい（「攻撃力＋10かつ毒に免疫」）。
 #   3つを同時に持ってもよい。排他にしない。
-# ⚠ 4つ目が来たら intervene{} の入れ子に畳むこと（EXEC_SKILL_INTERVENTION.md §8）。
+# ⚠ 4つ目が来たので intervene{} の入れ子に畳んだ（EXEC_SKILL_MITIGATION.md・人間の決定2）。
+#   欄の名前と意味は1つも変えていない。場所だけ buff の直下から intervene{} の中へ移した。
+# ⚠ 平置きで書いたら赤（E102）。移し忘れが無音で消えるのを防ぐ（宿題11）。
 const BUFF_ON_DEATH: String = "on_death"              # { revive_hp_ratio: float }
 const BUFF_BLOCK_STATUS: String = "block_status"      # Array[String]（status_id）
 const BUFF_HEAL_TAKEN_PCT: String = "heal_taken_pct"  # int（負なら低下）
+# ⚠ 平置きを見つけるための一覧。⚠ E102 だけが使う。中身の検証には使わない。
 const BUFF_INTERVENE_FIELDS: Array = [
 	BUFF_ON_DEATH, BUFF_BLOCK_STATUS, BUFF_HEAL_TAKEN_PCT
 ]
+
+# ダメージの介入点の欄（EXEC_SKILL_MITIGATION.md）。⚠ intervene{} の中にだけ書ける。
+#
+# ⚠ 誰の状態を読むかが欄ごとに違う。読み違えると「効いているのに効いていない」になる。
+#   殴られた側 … shield_hp / reduction_pct / reflect_pct / reflect_flat
+#   殴った側   … pierce_pct / crit_always
+const BUFF_INTERVENE: String = "intervene"
+const INTERVENE_SHIELD_HP: String = "shield_hp"
+const INTERVENE_REDUCTION_PCT: String = "reduction_pct"
+const INTERVENE_PIERCE_PCT: String = "pierce_pct"
+const INTERVENE_CRIT_ALWAYS: String = "crit_always"
+const INTERVENE_REFLECT_PCT: String = "reflect_pct"
+const INTERVENE_REFLECT_FLAT: String = "reflect_flat"
+# ⚠ 知らない欄を赤にする（E107）ための唯一の正。⚠ 欄を足したらここにも足すこと。
+const INTERVENE_FIELDS_KNOWN: Array = [
+	INTERVENE_SHIELD_HP, INTERVENE_REDUCTION_PCT, INTERVENE_PIERCE_PCT,
+	INTERVENE_CRIT_ALWAYS, INTERVENE_REFLECT_PCT, INTERVENE_REFLECT_FLAT,
+	BUFF_ON_DEATH, BUFF_BLOCK_STATUS, BUFF_HEAL_TAKEN_PCT,
+]
+# ⚠ 軽減の上限。100 にすると amount が必ず 0 になり、誰も死なずに決着しない
+#   （GIVE_UP_SEC の赤で初めて気づく形になる）。⚠ データ側から触れないようにコードで持つ。
+const REDUCTION_PCT_MAX: int = 95
+const PIERCE_PCT_MAX: int = 100
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
 # ⚠ physical / magic は BattleUnit の定数を唯一の正とする。
@@ -1044,18 +1070,24 @@ static func _validate_status_effect(
 		elif until == UNTIL_SKILL_END:
 			_warn(issues, skill_id, "%s.until: 'skill_end' は未実装（剥がす配線が無い）。この効果は飛ばされる" % where)
 
-	# 介入点の欄（PLAN 11-1・段階3の後半③）。buff にしか書けない。
+	# 介入点の欄（PLAN 11-1・段階3の後半③ ＋ EXEC_SKILL_MITIGATION.md）。
 	# ⚠ 一覧はここ1本。status_registry.gd に2本目を作らないこと。
-	var has_intervene: bool = false
+	#
+	# E102 … 平置きは赤。intervene{} へ畳んだ（人間の決定2）ので、古い書き方が
+	#        残っていると無音で無視される（宿題11＝知らない欄の検出が無い）。
 	for field: String in BUFF_INTERVENE_FIELDS:
 		if effect.has(field):
-			has_intervene = true
-			# E67 … buff 以外・host: unit 以外には書けない。
-			# 宿主が居ないと「誰の死亡か」「誰への回復か」が決まらない。
-			if effect_type != EFFECT_BUFF:
-				_err(issues, skill_id, "%s.%s は buff にしか書けない（type: '%s'）" % [where, field, effect_type])
-			elif host != HOST_UNIT:
-				_err(issues, skill_id, "%s.%s は host: unit にしか書けない（host: '%s'）" % [where, field, host])
+			_err(issues, skill_id, "%s.%s は intervene{} の中に書くこと（平置きは書けない）" % [where, field])
+
+	var has_intervene: bool = false
+	if effect.has(BUFF_INTERVENE):
+		has_intervene = true
+		# E104 … buff 以外・host: unit 以外には書けない（旧 E67 の移設）。
+		# 宿主が居ないと「誰の死亡か」「誰への回復か」「誰の盾か」が決まらない。
+		if effect_type != EFFECT_BUFF:
+			_err(issues, skill_id, "%s.%s は buff にしか書けない（type: '%s'）" % [where, BUFF_INTERVENE, effect_type])
+		elif host != HOST_UNIT:
+			_err(issues, skill_id, "%s.%s は host: unit にしか書けない（host: '%s'）" % [where, BUFF_INTERVENE, host])
 
 	if effect_type == EFFECT_BUFF:
 		# ⚠ stat は「書かれているときだけ」見る。介入だけを持つ buff（復活・免疫・
@@ -1076,46 +1108,14 @@ static func _validate_status_effect(
 		# ⚠ これが無いと、stat を必須にしなくなった分だけ typo（"stt"）が
 		#   「介入だけを持つ buff」として黙って通る。
 		if not has_stat and not has_intervene:
-			# ⚠ 欄名は BUFF_INTERVENE_FIELDS が唯一の正。ここで並べ直さないこと。
-			var field_names: PackedStringArray = PackedStringArray()
-			for f: String in BUFF_INTERVENE_FIELDS:
-				field_names.append(f)
-			_err(issues, skill_id, "%s は buff なのに stat / value も介入の欄（%s）も無い" % [
-				where, ", ".join(field_names)
-			])
+			_err(issues, skill_id, "%s は buff なのに stat / value も %s{} も無い" % [where, BUFF_INTERVENE])
 		# ⚠ buff は multiplier を読まない（PLAN 5-2。意味を3つ持たせない）
 		if effect.has("multiplier"):
 			_err(issues, skill_id, "%s は buff なので multiplier を書けない（stat / value を使う）" % where)
 
-		# E64 … 復活。割合は 0 より大きく 1 以下。
-		# ⚠ 0 を許すと「復活した瞬間にまた死ぬ」を書けてしまい、走査が毎フレーム回る。
-		if effect.has(BUFF_ON_DEATH):
-			var raw_death: Variant = effect.get(BUFF_ON_DEATH, null)
-			if not (raw_death is Dictionary):
-				_err(issues, skill_id, "%s.%s が Dictionary でない" % [where, BUFF_ON_DEATH])
-			else:
-				var ratio: Variant = (raw_death as Dictionary).get("revive_hp_ratio", null)
-				if not _is_num(ratio) or float(ratio) <= 0.0 or float(ratio) > 1.0:
-					_err(issues, skill_id, "%s.%s.revive_hp_ratio が 0 より大きく 1 以下の数値でない" % [
-						where, BUFF_ON_DEATH
-					])
-
-		# E65 … 免疫。付けさせない status_id の配列。
-		if effect.has(BUFF_BLOCK_STATUS):
-			var raw_block: Variant = effect.get(BUFF_BLOCK_STATUS, null)
-			if not (raw_block is Array) or (raw_block as Array).is_empty():
-				_err(issues, skill_id, "%s.%s が配列でない、または空" % [where, BUFF_BLOCK_STATUS])
-			else:
-				for item: Variant in (raw_block as Array):
-					if not (item is String) or str(item) == "":
-						_err(issues, skill_id, "%s.%s の要素が空でない文字列でない" % [where, BUFF_BLOCK_STATUS])
-						break
-
-		# E66 … 被回復増減。0 は禁止（E39 と同じ考え方）。
-		if effect.has(BUFF_HEAL_TAKEN_PCT):
-			var pct: Variant = effect.get(BUFF_HEAL_TAKEN_PCT, null)
-			if not _is_num(pct) or float(pct) != floor(float(pct)) or int(pct) == 0:
-				_err(issues, skill_id, "%s.%s が0以外の整数でない" % [where, BUFF_HEAL_TAKEN_PCT])
+		# 介入点の中身（E103〜E107・W14）。⚠ 中身の検証は1本に閉じる。
+		if effect.has(BUFF_INTERVENE):
+			_validate_intervene(issues, skill_id, where, effect.get(BUFF_INTERVENE, null))
 
 	elif effect_type == EFFECT_DOT:
 		# E40
@@ -1139,6 +1139,95 @@ static func _validate_status_effect(
 				_warn(issues, skill_id, "%s は duration_sec が interval_sec で割り切れない。端数は切り捨てで %d 回発火する" % [
 					where, int(floor(ratio))
 				])
+
+
+# 介入点（intervene{}）の中身の検証。E103〜E107・W14。
+#
+# ⚠ 中身を見る場所はここ1本。status_registry.gd に2本目の検証を作らないこと
+#   （欄を足したときに片方だけ直す事故が、この器では13回起きている）。
+# ⚠ 数値は _is_num() で見る。MasterDataLoader は JSON の 3 を 3.0 で返すので、
+#   `is int` で見ると全部赤になる（CLAUDE.md 3番・E69 で9件やった）。
+static func _validate_intervene(
+		issues: Array, skill_id: String, where: String, raw: Variant
+) -> void:
+	# E103 … 空の intervene{} は「書いたのに何も起きない」。
+	if not (raw is Dictionary) or (raw as Dictionary).is_empty():
+		_err(issues, skill_id, "%s.%s が Dictionary でない、または空" % [where, BUFF_INTERVENE])
+		return
+	var iv: Dictionary = raw as Dictionary
+
+	# E107 … 知らない欄。⚠ typo が無音で消えるのを防ぐ唯一の網（宿題11）。
+	for key: Variant in iv.keys():
+		if not (str(key) in INTERVENE_FIELDS_KNOWN):
+			_err(issues, skill_id, "%s.%s に知らない欄がある: '%s'" % [where, BUFF_INTERVENE, str(key)])
+
+	# E105 … 量の欄は1以上の整数。0 を許すと「書いたのに何も起きない」が通る。
+	for field: String in [INTERVENE_SHIELD_HP, INTERVENE_REFLECT_PCT, INTERVENE_REFLECT_FLAT]:
+		if iv.has(field):
+			var v: Variant = iv.get(field, null)
+			if not _is_num(v) or float(v) != floor(float(v)) or int(v) < 1:
+				_err(issues, skill_id, "%s.%s.%s が 1 以上の整数でない" % [where, BUFF_INTERVENE, field])
+
+	# E106 … 割合の上限。⚠ 上限は REDUCTION_PCT_MAX / PIERCE_PCT_MAX が唯一の正。
+	#   軽減 100% は「誰も死なない戦闘」になり、GIVE_UP_SEC の赤でしか気づけない。
+	if iv.has(INTERVENE_REDUCTION_PCT):
+		var red: Variant = iv.get(INTERVENE_REDUCTION_PCT, null)
+		if not _is_num(red) or float(red) != floor(float(red)) \
+				or int(red) < 1 or int(red) > REDUCTION_PCT_MAX:
+			_err(issues, skill_id, "%s.%s.%s が 1〜%d の整数でない" % [
+				where, BUFF_INTERVENE, INTERVENE_REDUCTION_PCT, REDUCTION_PCT_MAX
+			])
+	if iv.has(INTERVENE_PIERCE_PCT):
+		var pierce: Variant = iv.get(INTERVENE_PIERCE_PCT, null)
+		if not _is_num(pierce) or float(pierce) != floor(float(pierce)) \
+				or int(pierce) < 1 or int(pierce) > PIERCE_PCT_MAX:
+			_err(issues, skill_id, "%s.%s.%s が 1〜%d の整数でない" % [
+				where, BUFF_INTERVENE, INTERVENE_PIERCE_PCT, PIERCE_PCT_MAX
+			])
+
+	# W14 … crit_always: false は書いても何も起きない。消し忘れの合図。
+	if iv.has(INTERVENE_CRIT_ALWAYS):
+		var crit: Variant = iv.get(INTERVENE_CRIT_ALWAYS, null)
+		if not (crit is bool):
+			_err(issues, skill_id, "%s.%s.%s が bool でない" % [
+				where, BUFF_INTERVENE, INTERVENE_CRIT_ALWAYS
+			])
+		elif not bool(crit):
+			_warn(issues, skill_id, "%s.%s.%s が false（書いても何も起きない）" % [
+				where, BUFF_INTERVENE, INTERVENE_CRIT_ALWAYS
+			])
+
+	# E64 … 復活。割合は 0 より大きく 1 以下。
+	# ⚠ 0 を許すと「復活した瞬間にまた死ぬ」を書けてしまい、走査が毎フレーム回る。
+	if iv.has(BUFF_ON_DEATH):
+		var raw_death: Variant = iv.get(BUFF_ON_DEATH, null)
+		if not (raw_death is Dictionary):
+			_err(issues, skill_id, "%s.%s.%s が Dictionary でない" % [where, BUFF_INTERVENE, BUFF_ON_DEATH])
+		else:
+			var ratio: Variant = (raw_death as Dictionary).get("revive_hp_ratio", null)
+			if not _is_num(ratio) or float(ratio) <= 0.0 or float(ratio) > 1.0:
+				_err(issues, skill_id, "%s.%s.%s.revive_hp_ratio が 0 より大きく 1 以下の数値でない" % [
+					where, BUFF_INTERVENE, BUFF_ON_DEATH
+				])
+
+	# E65 … 免疫。付けさせない status_id の配列。
+	if iv.has(BUFF_BLOCK_STATUS):
+		var raw_block: Variant = iv.get(BUFF_BLOCK_STATUS, null)
+		if not (raw_block is Array) or (raw_block as Array).is_empty():
+			_err(issues, skill_id, "%s.%s.%s が配列でない、または空" % [where, BUFF_INTERVENE, BUFF_BLOCK_STATUS])
+		else:
+			for item: Variant in (raw_block as Array):
+				if not (item is String) or str(item) == "":
+					_err(issues, skill_id, "%s.%s.%s の要素が空でない文字列でない" % [
+						where, BUFF_INTERVENE, BUFF_BLOCK_STATUS
+					])
+					break
+
+	# E66 … 被回復増減。0 は禁止（E39 と同じ考え方）。
+	if iv.has(BUFF_HEAL_TAKEN_PCT):
+		var pct: Variant = iv.get(BUFF_HEAL_TAKEN_PCT, null)
+		if not _is_num(pct) or float(pct) != floor(float(pct)) or int(pct) == 0:
+			_err(issues, skill_id, "%s.%s.%s が0以外の整数でない" % [where, BUFF_INTERVENE, BUFF_HEAL_TAKEN_PCT])
 
 
 # 条件（condition{}）の検証。E55〜E61。
