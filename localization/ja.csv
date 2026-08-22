@@ -18,7 +18,7 @@ ui_common_no,いいえ
 ui_res_gold,ゴールド
 ui_res_gems,ジェム
 ui_res_stamina,スタミナ
-ui_res_construction_material,建築素材
+ui_res_construction_material_1,木材
 ui_nav_adventure_select,冒険
 ui_nav_guild,ギルド
 ui_nav_pomodoro,ポモドーロ
@@ -127,7 +127,7 @@ ui_base_chest_received,宝箱を%d個受け取りました
 ui_title_back_confirm,タイトルに戻りますか？ 保存していない進行状況は失われます
 ui_base_pomodoro_rewards,ポーションを%d個、宝箱を%d個受け取りました
 ui_title_delete_confirm,セーブデータを削除しますか？ この操作は取り消せません
-ui_res_training_material,修練の証
+ui_res_training_material_1,修練の証
 ui_training_title,育成
 ui_training_level,Lv.%d
 ui_training_level_up,レベルアップ
@@ -354,3 +354,12 @@ ui_status_ch_status_edbg_passive_mark,印
 ui_status_ch_status_edbg_react,応
 ui_status_ch_status_edbg_recv_down,阻
 ui_status_ch_status_edbg_revive,蘇
+ui_res_construction_material_2,石材
+ui_res_construction_material_3,鉄材
+ui_res_construction_material_4,金材
+ui_res_training_material_2,鍛錬の証
+ui_res_training_material_3,練達の証
+ui_res_training_material_4,極意の証
+ui_res_forging_material_2,鍛冶の塊
+ui_res_forging_material_3,鍛冶の結晶
+ui_res_forging_material_4,鍛冶の極

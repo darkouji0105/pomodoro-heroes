@@ -114,9 +114,17 @@ const ITEM_MASTER_EQUIP_STATS: String = "equip_stats"
 
 const INSTANCE_ID_PREFIX: String = "eq_"
 
-# 等級の上限。第1弾は3で止める。
-# 4〜10の必要素材量はバランスの計算道具ができてから決める（勘で置くと全部やり直しになる）。
-const MAX_EQUIPMENT_GRADE: int = 3
+# ⚠ 等級の上限・鍛冶のコスト・分解の戻りは Balance.equipment（EquipmentConfig）へ移した
+#   （EXEC_MATERIAL_TIERS.md 決定C / G。AGENTS.md の数値管理ルール）。
+#   ここに定数として残すと二重管理になるため、MAX_EQUIPMENT_GRADE /
+#   FORGE_MATERIAL_ID / FORGE_COST_PER_GRADE / DISMANTLE_REFUND_BASE は消してある。
+#
+# ⚠ 移す前のコメントはこう書いていた：
+#     「4〜10の必要素材量はバランスの計算道具ができてから決める
+#       （勘で置くと全部やり直しになる）」
+#   ⚠ 実測はまだ来ていないので、4〜10は今も勘。ただし数値が
+#     equipment_config.gd の forge_cost_by_grade の1行に集まっているので、
+#     やり直すときに触るのはその行だけで済む。
 
 # 等級1つにつき、基礎値の何割を「加算」するか。
 # 乗算で重ねるとインフレするため加算にしている（PLAN_CHARACTER_GROWTH_LOOP.md 3-1）。
@@ -128,14 +136,9 @@ const GRADE_STAT_RATIO: float = 0.25
 const PART_SLOT_COUNT: int = 2
 const PART_SLOT_GRADES: Array[int] = [5, 10]
 
-# 鍛冶のコスト。等級 g へ上げるのに FORGE_COST_PER_GRADE * g。
-const FORGE_MATERIAL_ID: String = GameStateKeys.ITEM_FORGING_MATERIAL_1
-const FORGE_COST_PER_GRADE: int = 4
+# get_forge_cost() が返す Dictionary のキー。
 const FORGE_COST_MATERIAL_ID: String = "material_id"
 const FORGE_COST_AMOUNT: String = "amount"
-
-# 装備を素材に戻したときの基礎量。上げた等級ぶんは全額戻す。
-const DISMANTLE_REFUND_BASE: int = 3
 
 # get_equippable_instances() / get_owned_instances() が返す Dictionary のキー。
 const INSTANCE_VIEW_ID: String = "instance_id"
@@ -1473,17 +1476,100 @@ func unequip_instance(character_id: String, slot: String) -> bool:
 # --- 装備：鍛冶 ---
 
 # 等級を1つ上げるのに必要な素材。{material_id, amount}。上限に達していれば amount = 0。
+# --- 装備：等級と段階 ---
+
+# Balance.equipment を1本の口から引く。
+#
+# ⚠ 枠に equipment_config.tres を割り当て忘れると null になり、
+#   そのままだと「等級の上限が0」「鍛冶ができない」という静かな壊れ方をする
+#   （実際に踏んだ。EXEC_MATERIAL_TIERS.md §11-3）。
+#   何が起きたかと直し方をその場で言う。
+var _equipment_config_warned: bool = false
+
+func _equipment() -> EquipmentConfig:
+	if Balance.equipment == null:
+		if not _equipment_config_warned:
+			_equipment_config_warned = true
+			push_error("[GameManager] Balance.equipment が null。balance.tscn の Equipment の枠に resources/balance/equipment_config.tres を割り当てること（等級・鍛冶・分解が全部止まる）")
+		return null
+	return Balance.equipment
+
+#
+# ⚠ 「等級から段階を出す」判定はこの1本だけ。鍛冶・分解・（将来の）装飾が全部ここを通る。
+#   同じ形の判定を2本目に書かないこと（この器で3回踏んでいる形）。
+#
+# forge_material_tier_min_grades = [1, 4, 7, 10] なら
+#   2〜3 → 段階1 / 4〜6 → 段階2 / 7〜9 → 段階3 / 10 → 段階4。
+func get_forge_material_tier(grade: int) -> int:
+	var tier: int = 1
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return tier
+	var mins: Array[int] = config.forge_material_tier_min_grades
+	for i: int in range(mins.size()):
+		if grade >= mins[i]:
+			tier = i + 1
+	return tier
+
+
+# 等級から、その等級へ上げるのに要る鍛冶素材のIDを返す。
+func get_forge_material_id(grade: int) -> String:
+	return GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX + str(get_forge_material_tier(grade))
+
+
+func get_max_equipment_grade() -> int:
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return 1
+	return int(config.max_equipment_grade)
+
+
+# 鍛冶素材が何段階あるか。画面が「段階の数」を決め打ちしないための1本。
+func get_forge_material_tier_count() -> int:
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return 1
+	return config.forge_material_tier_min_grades.size()
+
+
+# 等級 grade へ上げるのに要る数。
+#
+# ⚠ forge_cost_by_grade の添字0が「等級2へ上げる数」。長さが足りないときは
+#   末尾の値で埋めるが、黙って埋めると「等級9から上がらない」が無音になるため赤を出す。
+func get_forge_cost_amount(grade: int) -> int:
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return 0
+	var costs: Array[int] = config.forge_cost_by_grade
+	if costs.is_empty():
+		push_error("[GameManager] forge_cost_by_grade が空。鍛冶ができない")
+		return 0
+	var index: int = grade - 2
+	if index < 0:
+		return 0
+	if index >= costs.size():
+		push_error("[GameManager] forge_cost_by_grade が短い（等級%d ぶんが無い。長さ=%d・上限=%d）。末尾の値で埋める" % [
+			grade, costs.size(), get_max_equipment_grade()
+		])
+		return int(costs[costs.size() - 1])
+	return int(costs[index])
+
+
 func get_forge_cost(instance_id: String) -> Dictionary:
-	var empty: Dictionary = {FORGE_COST_MATERIAL_ID: FORGE_MATERIAL_ID, FORGE_COST_AMOUNT: 0}
+	var empty: Dictionary = {
+		FORGE_COST_MATERIAL_ID: GameStateKeys.ITEM_FORGING_MATERIAL_1,
+		FORGE_COST_AMOUNT: 0,
+	}
 	var instance: Dictionary = get_equipment_instance(instance_id)
 	if instance.is_empty():
 		return empty
 	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
-	if grade >= MAX_EQUIPMENT_GRADE:
+	if grade >= get_max_equipment_grade():
 		return empty
+	var next_grade: int = grade + 1
 	return {
-		FORGE_COST_MATERIAL_ID: FORGE_MATERIAL_ID,
-		FORGE_COST_AMOUNT: FORGE_COST_PER_GRADE * (grade + 1),
+		FORGE_COST_MATERIAL_ID: get_forge_material_id(next_grade),
+		FORGE_COST_AMOUNT: get_forge_cost_amount(next_grade),
 	}
 
 func can_forge(instance_id: String) -> bool:
@@ -1507,9 +1593,9 @@ func forge_equipment(instance_id: String) -> bool:
 		return false
 
 	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
-	if grade >= MAX_EQUIPMENT_GRADE:
+	if grade >= get_max_equipment_grade():
 		print("[GameManager] forge_equipment('%s') -> false (grade %d >= max %d)" % [
-			instance_id, grade, MAX_EQUIPMENT_GRADE
+			instance_id, grade, get_max_equipment_grade()
 		])
 		return false
 
@@ -1539,16 +1625,47 @@ func forge_equipment(instance_id: String) -> bool:
 	equipment_instances_changed.emit(instance_id)
 	return true
 
-# 素材に戻したときの戻り量。基礎ぶん＋等級を上げるのに払った全額。
-func get_dismantle_refund(instance_id: String) -> int:
+# 素材に戻したときの戻り量。{material_id: count} を返す。
+#
+# ⚠ 戻り型は int ではない（EXEC_MATERIAL_TIERS.md 決定F / §0-2 の6）。
+#   等級10まで伸ばすと、払う素材が4段階にまたがる。段階①だけに返すと
+#   払った上位素材が消えるため、払った段階ごとに返す。
+#
+# ⚠ 返すのは払った量の dismantle_refund_ratio 倍（切り捨て）。
+#   この回より前は全額戻していた＝「上げて分解して付け替える」が無損失だった。
+#   ⚠ 切り上げにしないこと。1つ上げてすぐ分解すると素材が増える経路ができる。
+#
+# ⚠ 基礎ぶん（等級1の素の価値）は段階①へ返す。こちらにも率を掛ける。
+func get_dismantle_refund(instance_id: String) -> Dictionary:
+	var result: Dictionary = {}
 	var instance: Dictionary = get_equipment_instance(instance_id)
 	if instance.is_empty():
-		return 0
+		return result
+
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return result
+	var ratio: float = float(config.dismantle_refund_ratio)
+	var base_amount: int = int(floor(float(config.dismantle_refund_base) * ratio))
+	if base_amount > 0:
+		result[GameStateKeys.ITEM_FORGING_MATERIAL_1] = base_amount
+
 	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
-	var refund: int = DISMANTLE_REFUND_BASE
 	for g: int in range(2, grade + 1):
-		refund += FORGE_COST_PER_GRADE * g
-	return refund
+		var material_id: String = get_forge_material_id(g)
+		var amount: int = int(floor(float(get_forge_cost_amount(g)) * ratio))
+		if amount <= 0:
+			continue
+		result[material_id] = int(result.get(material_id, 0)) + amount
+	return result
+
+
+# 分解の戻りの合計。ボタンの表示のように「1つの数」で足りる側が使う。
+func get_dismantle_refund_total(instance_id: String) -> int:
+	var total: int = 0
+	for amount: Variant in get_dismantle_refund(instance_id).values():
+		total += int(amount)
+	return total
 
 # 重複した装備を鍛冶の素材に戻す。装備中のものは戻せない。
 #
@@ -1567,17 +1684,20 @@ func dismantle_equipment(instance_id: String) -> bool:
 
 	# --- ここから状態を変える ---
 
-	var refund: int = get_dismantle_refund(instance_id)
+	var refund: Dictionary = get_dismantle_refund(instance_id)
 	var instances: Dictionary = _copy_dict(GameStateKeys.EQUIPMENT_INSTANCES)
 	instances.erase(instance_id)
 	_state[GameStateKeys.EQUIPMENT_INSTANCES] = instances
 
-	if refund > 0:
-		add_material(FORGE_MATERIAL_ID, refund)
+	# ⚠ 段階ごとに add_material() を呼ぶので material_changed が段階の数だけ飛ぶ。
+	#   装備画面は equipment_instances_changed だけを見ているので二重描画にならない
+	#   （forge_equipment() のコメントと同じ理由）。
+	for material_id: Variant in refund:
+		add_material(str(material_id), int(refund[material_id]))
 
-	print("[GameManager] dismantle_equipment('%s') -> true (item=%s grade=%d refund=%s x%d)" % [
+	print("[GameManager] dismantle_equipment('%s') -> true (item=%s grade=%d refund=%s)" % [
 		instance_id, str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, "")),
-		int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)), FORGE_MATERIAL_ID, refund
+		int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)), str(refund)
 	])
 	equipment_instances_changed.emit(instance_id)
 	return true

@@ -132,9 +132,11 @@ func _create_instance_entry(view: Dictionary) -> void:
 
 	var dismantle_button: Button = Button.new()
 	dismantle_button.name = "DismantleButton"
+	# ⚠ 戻りは段階ごとの Dictionary（等級10まで伸びると4段階にまたがる）。
+	#   ボタンには入りきらないので合計だけ出す。内訳は分解したときのログに出る。
 	dismantle_button.text = "%s(%d)" % [
 		tr("ui_warehouse_dismantle"),
-		GameManager.get_dismantle_refund(instance_id),
+		GameManager.get_dismantle_refund_total(instance_id),
 	]
 	dismantle_button.disabled = equipped_by != ""
 	dismantle_button.pressed.connect(_on_dismantle_pressed.bind(instance_id))

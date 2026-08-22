@@ -1,28 +1,82 @@
 {
   "items": [
 	{
-	  "item_id": "training_material",
+	  "item_id": "construction_material_1",
 	  "storage": "material",
 	  "item_type": "material",
 	  "sort_order": 0
 	},
 	{
-	  "item_id": "construction_material",
+	  "item_id": "construction_material_2",
 	  "storage": "material",
 	  "item_type": "material",
 	  "sort_order": 1
 	},
 	{
-	  "item_id": "forging_material_1",
+	  "item_id": "construction_material_3",
 	  "storage": "material",
 	  "item_type": "material",
 	  "sort_order": 2
 	},
 	{
+	  "item_id": "construction_material_4",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 3
+	},
+	{
+	  "item_id": "training_material_1",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 4
+	},
+	{
+	  "item_id": "training_material_2",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 5
+	},
+	{
+	  "item_id": "training_material_3",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 6
+	},
+	{
+	  "item_id": "training_material_4",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 7
+	},
+	{
+	  "item_id": "forging_material_1",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 8
+	},
+	{
+	  "item_id": "forging_material_2",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 9
+	},
+	{
+	  "item_id": "forging_material_3",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 10
+	},
+	{
+	  "item_id": "forging_material_4",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 11
+	},
+	{
 	  "item_id": "stamina_potion",
 	  "storage": "inventory",
 	  "item_type": "consumable",
-	  "sort_order": 10
+	  "sort_order": 12
 	},
 	{
 	  "item_id": "weapon_wooden_sword",

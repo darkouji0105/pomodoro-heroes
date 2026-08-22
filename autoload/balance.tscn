@@ -9,6 +9,7 @@
 [ext_resource type="Resource" uid="uid://2u5sjh3mgvg3" path="res://resources/balance/initial_state_config.tres" id="7_kqclt"]
 [ext_resource type="Resource" uid="uid://m4udodmat0ai" path="res://resources/balance/adventure_config.tres" id="8_851iv"]
 [ext_resource type="Resource" uid="uid://cql411sm1io1n" path="res://resources/balance/sound_config.tres" id="9_n4bcj"]
+[ext_resource type="Resource" path="res://resources/balance/equipment_config.tres" id="10_eqcfg"]
 
 [node name="Balance" type="Node" unique_id=1091634713]
 script = ExtResource("1_f7mko")
@@ -20,3 +21,4 @@ character = ExtResource("6_152xf")
 initial_state = ExtResource("7_kqclt")
 adventure = ExtResource("8_851iv")
 sound = ExtResource("9_n4bcj")
+equipment = ExtResource("10_eqcfg")

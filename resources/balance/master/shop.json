@@ -2,7 +2,7 @@
   "daily": [
 	{
 	  "slot_id": 0,
-	  "item_id": "training_material",
+	  "item_id": "training_material_1",
 	  "payout_type": "material",
 	  "count": 10,
 	  "cost": { "currency_type": "gold", "amount": 300 },
@@ -10,7 +10,7 @@
 	},
 	{
 	  "slot_id": 1,
-	  "item_id": "construction_material",
+	  "item_id": "construction_material_1",
 	  "payout_type": "material",
 	  "count": 10,
 	  "cost": { "currency_type": "gold", "amount": 300 },
@@ -27,7 +27,7 @@
 	},
 	{
 	  "slot_id": 3,
-	  "item_id": "training_material",
+	  "item_id": "training_material_1",
 	  "payout_type": "material",
 	  "count": 30,
 	  "cost": { "currency_type": "gold", "amount": 800 },
@@ -35,7 +35,7 @@
 	},
 	{
 	  "slot_id": 4,
-	  "item_id": "construction_material",
+	  "item_id": "construction_material_1",
 	  "payout_type": "material",
 	  "count": 30,
 	  "cost": { "currency_type": "gold", "amount": 800 },
@@ -48,6 +48,54 @@
 	  "count": 10,
 	  "cost": { "currency_type": "gold", "amount": 400 },
 	  "stock_limit": 3
+	},
+	{
+	  "slot_id": 5,
+	  "item_id": "construction_material_3",
+	  "payout_type": "material",
+	  "count": 5,
+	  "cost": { "currency_type": "gold", "amount": 2000 },
+	  "stock_limit": 1
+	},
+	{
+	  "slot_id": 6,
+	  "item_id": "construction_material_4",
+	  "payout_type": "material",
+	  "count": 3,
+	  "cost": { "currency_type": "gold", "amount": 5000 },
+	  "stock_limit": 1
+	},
+	{
+	  "slot_id": 7,
+	  "item_id": "training_material_3",
+	  "payout_type": "material",
+	  "count": 5,
+	  "cost": { "currency_type": "gold", "amount": 2000 },
+	  "stock_limit": 1
+	},
+	{
+	  "slot_id": 8,
+	  "item_id": "training_material_4",
+	  "payout_type": "material",
+	  "count": 3,
+	  "cost": { "currency_type": "gold", "amount": 5000 },
+	  "stock_limit": 1
+	},
+	{
+	  "slot_id": 10,
+	  "item_id": "forging_material_3",
+	  "payout_type": "material",
+	  "count": 5,
+	  "cost": { "currency_type": "gold", "amount": 2000 },
+	  "stock_limit": 1
+	},
+	{
+	  "slot_id": 11,
+	  "item_id": "forging_material_4",
+	  "payout_type": "material",
+	  "count": 3,
+	  "cost": { "currency_type": "gold", "amount": 5000 },
+	  "stock_limit": 1
 	}
   ]
 }

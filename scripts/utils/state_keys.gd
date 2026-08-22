@@ -76,6 +76,9 @@ const POS_Y: String = "y"
 
 # ITEM_TYPE に入る値（DATA_SCHEMA.md 1. inventory.type）
 const ITEM_TYPE_EQUIPMENT: String = "equipment"
+# ⚠ items.json の素材（storage: "material"）。定数が無かったので足した
+#   （EXEC_MATERIAL_TIERS.md。素材が3件から12件になり、型で絞る側ができたため）。
+const ITEM_TYPE_MATERIAL: String = "material"
 const ITEM_TYPE_CONSUMABLE: String = "consumable"
 const ITEM_TYPE_KEY_ITEM: String = "key_item"
 const ITEM_TYPE_GIFT: String = "gift"
@@ -272,4 +275,10 @@ const EQUIP_LEGS: String = "legs"
 
 # 鍛冶の素材。第1弾は1種だけだが、あとで _2 / _3 を足せるよう最初から連番にしている。
 # リリース後に改名できないため、ここを "forging_material" にしないこと。
-const ITEM_FORGING_MATERIAL_1: String = "forging_material_1"
+#
+# ⚠ EXEC_MATERIAL_TIERS.md で _2 〜 _4 が実在するようになった。
+#   段階つきのIDは PREFIX + 段階 で組み立てる（GameManager.get_forge_material_id()）。
+#   ⚠ 12件ぶんの定数を並べないこと。使うのは「等級から引く」形の1本だけで、
+#     名指しで要るのは段階1（分解の基礎ぶんの戻り先）だけ。
+const ITEM_FORGING_MATERIAL_PREFIX: String = "forging_material_"
+const ITEM_FORGING_MATERIAL_1: String = ITEM_FORGING_MATERIAL_PREFIX + "1"

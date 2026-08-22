@@ -67,8 +67,9 @@ text = "ui_res_stamina"
 [node name="Value" parent="Layout/BottomArea/BottomLayout/ResourceRow/StaminaEntry" unique_id=1248665530 instance=ExtResource("2_resource_dsp")]
 layout_mode = 2
 
-[node name="MaterialsDisplay" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=374044714]
+[node name="MaterialsDisplay" type="GridContainer" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=374044714]
 layout_mode = 2
+columns = 4
 
 [node name="PotionEntry" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1360655837]
 layout_mode = 2

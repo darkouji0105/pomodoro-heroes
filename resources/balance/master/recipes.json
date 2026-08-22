@@ -4,10 +4,10 @@
 	  "recipe_id": "convert_con_to_tra",
 	  "duration_sec": 1800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 30 }
+		{ "item_id": "construction_material_1", "count": 30 }
 	  ],
 	  "outputs": [
-		{ "item_id": "training_material", "count": 20 }
+		{ "item_id": "training_material_1", "count": 20 }
 	  ],
 	  "unlocked_by_default": true,
 	  "sort_order": 0
@@ -16,10 +16,10 @@
 	  "recipe_id": "convert_tra_to_con",
 	  "duration_sec": 1800,
 	  "inputs": [
-		{ "item_id": "training_material", "count": 30 }
+		{ "item_id": "training_material_1", "count": 30 }
 	  ],
 	  "outputs": [
-		{ "item_id": "construction_material", "count": 20 }
+		{ "item_id": "construction_material_1", "count": 20 }
 	  ],
 	  "unlocked_by_default": true,
 	  "sort_order": 1
@@ -28,10 +28,10 @@
 	  "recipe_id": "bulk_con_to_tra",
 	  "duration_sec": 10800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 100 }
+		{ "item_id": "construction_material_1", "count": 100 }
 	  ],
 	  "outputs": [
-		{ "item_id": "training_material", "count": 80 }
+		{ "item_id": "training_material_1", "count": 80 }
 	  ],
 	  "unlocked_by_default": true,
 	  "sort_order": 2
@@ -40,7 +40,7 @@
 	  "recipe_id": "convert_con_to_forge",
 	  "duration_sec": 1800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 30 }
+		{ "item_id": "construction_material_1", "count": 30 }
 	  ],
 	  "outputs": [
 		{ "item_id": "forging_material_1", "count": 10 }
@@ -52,7 +52,7 @@
 	  "recipe_id": "craft_wooden_sword",
 	  "duration_sec": 1800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 20 }
+		{ "item_id": "construction_material_1", "count": 20 }
 	  ],
 	  "outputs": [
 		{ "item_id": "weapon_wooden_sword", "count": 1 }
@@ -64,8 +64,8 @@
 	  "recipe_id": "craft_iron_sword",
 	  "duration_sec": 10800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 60 },
-		{ "item_id": "training_material", "count": 20 }
+		{ "item_id": "construction_material_1", "count": 60 },
+		{ "item_id": "training_material_1", "count": 20 }
 	  ],
 	  "outputs": [
 		{ "item_id": "weapon_iron_sword", "count": 1 }
@@ -77,7 +77,7 @@
 	  "recipe_id": "craft_leather_cap",
 	  "duration_sec": 1800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 15 }
+		{ "item_id": "construction_material_1", "count": 15 }
 	  ],
 	  "outputs": [
 		{ "item_id": "armor_leather_cap", "count": 1 }
@@ -89,7 +89,7 @@
 	  "recipe_id": "craft_leather_vest",
 	  "duration_sec": 1800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 25 }
+		{ "item_id": "construction_material_1", "count": 25 }
 	  ],
 	  "outputs": [
 		{ "item_id": "armor_leather_vest", "count": 1 }
@@ -101,7 +101,7 @@
 	  "recipe_id": "craft_leather_boots",
 	  "duration_sec": 1800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 15 }
+		{ "item_id": "construction_material_1", "count": 15 }
 	  ],
 	  "outputs": [
 		{ "item_id": "armor_leather_boots", "count": 1 }
@@ -113,8 +113,8 @@
 	  "recipe_id": "craft_ring_power",
 	  "duration_sec": 3600,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 20 },
-		{ "item_id": "training_material", "count": 10 }
+		{ "item_id": "construction_material_1", "count": 20 },
+		{ "item_id": "training_material_1", "count": 10 }
 	  ],
 	  "outputs": [
 		{ "item_id": "acc_ring_power", "count": 1 }
@@ -126,8 +126,8 @@
 	  "recipe_id": "craft_iron_helm",
 	  "duration_sec": 10800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 40 },
-		{ "item_id": "training_material", "count": 15 }
+		{ "item_id": "construction_material_1", "count": 40 },
+		{ "item_id": "training_material_1", "count": 15 }
 	  ],
 	  "outputs": [
 		{ "item_id": "armor_iron_helm", "count": 1 }
@@ -139,8 +139,8 @@
 	  "recipe_id": "craft_iron_mail",
 	  "duration_sec": 10800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 60 },
-		{ "item_id": "training_material", "count": 20 }
+		{ "item_id": "construction_material_1", "count": 60 },
+		{ "item_id": "training_material_1", "count": 20 }
 	  ],
 	  "outputs": [
 		{ "item_id": "armor_iron_mail", "count": 1 }
@@ -152,8 +152,8 @@
 	  "recipe_id": "craft_iron_greaves",
 	  "duration_sec": 10800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 40 },
-		{ "item_id": "training_material", "count": 15 }
+		{ "item_id": "construction_material_1", "count": 40 },
+		{ "item_id": "training_material_1", "count": 15 }
 	  ],
 	  "outputs": [
 		{ "item_id": "armor_iron_greaves", "count": 1 }
@@ -165,7 +165,7 @@
 	  "recipe_id": "craft_amulet_life",
 	  "duration_sec": 10800,
 	  "inputs": [
-		{ "item_id": "construction_material", "count": 30 },
+		{ "item_id": "construction_material_1", "count": 30 },
 		{ "item_id": "forging_material_1", "count": 5 }
 	  ],
 	  "outputs": [

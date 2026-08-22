@@ -184,6 +184,101 @@ static func _ensure_loaded() -> void:
 	_validate_all_basic_attacks()
 	# ⚠ 召喚は通常攻撃しか撃たないので、basic_attack の検証と同じ列に並べる。
 	_validate_all_summons()
+	# ⚠ 素材・アイテムIDのクロス検証（E118）。改名漏れが「加算が黙って消える」形で
+	#   出るため、ロード時に言わないと実機でも気づけない。
+	_validate_all_item_refs()
+
+
+# マスターが参照する item_id / material_id が items.json に在るかを見る（E118）。
+#
+# ⚠ この器は素材を3件から12件へ増やした回（EXEC_MATERIAL_TIERS.md）で足した。
+#   それまで items.json への参照は1件も検証されておらず、IDを改名すると
+#   「装備は外れないが加算されない」「報酬が黙って落ちる」形で無音に壊れていた
+#   （game_manager.gd の get_instance_stats() のコメントが名指ししている問題）。
+#
+# ⚠ 見るのは stages / shop / research / recipes の4ファイル。
+#   initial_state_config.tres は .tres でマスターではないため、ここでは見ない。
+#
+# ⚠ 同じIDが複数箇所から参照されていれば、その数だけ赤を出す。重複を潰さない。
+#   潰すと「どのファイルのどの行で漏れたか」が消える（_validate_all_skills と同じ方針）。
+static func _validate_all_item_refs() -> void:
+	_ensure_items_loaded()
+	_ensure_shop_loaded()
+	_ensure_research_loaded()
+	_ensure_recipes_loaded()
+
+	var errors: int = 0
+
+	# stages.json … rewards.materials のキー
+	for stage_id: Variant in _cache_stages:
+		var stage: Variant = _cache_stages[stage_id]
+		if not (stage is Dictionary):
+			continue
+		var rewards: Variant = (stage as Dictionary).get("rewards", {})
+		if not (rewards is Dictionary):
+			continue
+		var materials: Variant = (rewards as Dictionary).get("materials", {})
+		if not (materials is Dictionary):
+			continue
+		for material_id: Variant in (materials as Dictionary):
+			errors += _report_missing_item(str(material_id), "stages.json", str(stage_id))
+
+	# shop.json … 各枠の item_id
+	for shop_type: Variant in _cache_shop:
+		var slots: Variant = _cache_shop[shop_type]
+		if not (slots is Array):
+			continue
+		for slot: Variant in (slots as Array):
+			if not (slot is Dictionary):
+				continue
+			errors += _report_missing_item(
+				str((slot as Dictionary).get("item_id", "")),
+				"shop.json",
+				"%s slot %s" % [str(shop_type), str((slot as Dictionary).get("slot_id", "?"))]
+			)
+
+	# research.json … cost_material_id
+	for node_id: Variant in _cache_research:
+		var node: Variant = _cache_research[node_id]
+		if not (node is Dictionary):
+			continue
+		errors += _report_missing_item(
+			str((node as Dictionary).get("cost_material_id", "")),
+			"research.json",
+			str(node_id)
+		)
+
+	# recipes.json … inputs / outputs
+	for recipe_id: Variant in _cache_recipes:
+		var recipe: Variant = _cache_recipes[recipe_id]
+		if not (recipe is Dictionary):
+			continue
+		for list_key: String in ["inputs", "outputs"]:
+			var list: Variant = (recipe as Dictionary).get(list_key, [])
+			if not (list is Array):
+				continue
+			for io: Variant in (list as Array):
+				if not (io is Dictionary):
+					continue
+				errors += _report_missing_item(
+					str((io as Dictionary).get("item_id", "")),
+					"recipes.json",
+					"%s.%s" % [str(recipe_id), list_key]
+				)
+
+	print("[MasterDataLoader] items validated: %d entries, %d errors" % [_cache_items.size(), errors])
+
+
+# E118 … 参照先が items.json に無い。1件につき1本。
+# ⚠ 空文字は「欄そのものが無い」であって改名漏れではないため、ここでは見ない
+#   （欄の有無はそれぞれの画面が既に弾いている）。
+static func _report_missing_item(item_id: String, where: String, context: String) -> int:
+	if item_id == "":
+		return 0
+	if _cache_items.has(item_id):
+		return 0
+	push_error("[MasterDataLoader] E118 %s (%s): items.json に無いID: %s" % [where, context, item_id])
+	return 1
 
 
 # 召喚ユニットの素データの検証（段階6・E101）。

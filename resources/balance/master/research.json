@@ -4,7 +4,7 @@
 		"effect_type": "level_cap_unlock",
 		"effect_value": 5,
 		"prerequisites": [],
-		"cost_material_id": "construction_material",
+		"cost_material_id": "construction_material_1",
 		"cost_amount": 20,
 		"sort_order": 1
 	},
@@ -13,7 +13,7 @@
 		"effect_type": "level_cap_unlock",
 		"effect_value": 5,
 		"prerequisites": ["res_cap_1"],
-		"cost_material_id": "construction_material",
+		"cost_material_id": "construction_material_1",
 		"cost_amount": 40,
 		"sort_order": 2
 	},
@@ -23,7 +23,7 @@
 		"effect_value": 3,
 		"target_stat": "all",
 		"prerequisites": ["res_cap_1"],
-		"cost_material_id": "construction_material",
+		"cost_material_id": "construction_material_1",
 		"cost_amount": 30,
 		"sort_order": 3
 	},
@@ -32,7 +32,7 @@
 		"effect_type": "level_cap_unlock",
 		"effect_value": 5,
 		"prerequisites": ["res_cap_2"],
-		"cost_material_id": "construction_material",
+		"cost_material_id": "construction_material_1",
 		"cost_amount": 70,
 		"sort_order": 4
 	},
@@ -41,7 +41,7 @@
 		"effect_type": "level_cap_unlock",
 		"effect_value": 5,
 		"prerequisites": ["res_cap_3"],
-		"cost_material_id": "construction_material",
+		"cost_material_id": "construction_material_1",
 		"cost_amount": 110,
 		"sort_order": 5
 	}

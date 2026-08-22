@@ -99,10 +99,16 @@ func _update_header() -> void:
 	stats_label.text = "\n".join(lines)
 
 	# 鍛冶に使う素材の所持数。鍛冶で減るので、この画面に出しておく。
-	material_label.text = "%s %d" % [
-		tr("ui_res_" + GameManager.FORGE_MATERIAL_ID),
-		GameManager.get_material_count(GameManager.FORGE_MATERIAL_ID),
-	]
+	# ⚠ 段階が4つあるので全段階を並べる。段階の数は決め打ちしない
+	#   （EquipmentConfig の対応表を伸ばせば増える）。
+	var material_parts: Array[String] = []
+	for tier: int in range(1, GameManager.get_forge_material_tier_count() + 1):
+		var material_id: String = GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX + str(tier)
+		material_parts.append("%s %d" % [
+			tr("ui_res_" + material_id),
+			GameManager.get_material_count(material_id),
+		])
+	material_label.text = "  ".join(material_parts)
 
 # --- 5部位のスロット ---
 
@@ -232,7 +238,10 @@ func _stats_text(stats: Variant) -> String:
 		])
 	return "  ".join(parts)
 
-# 「鍛える(4)」。上限に達していれば「最大」。
+# 「鍛える(鍛冶の欠片 8)」。上限に達していれば「最大」。
+#
+# ⚠ 素材名を出すのは、等級が上がると要求される段階が変わるため
+#   （4→段階2 / 7→段階3 / 10→段階4）。数だけだと何が要るのか画面で分からない。
 func _forge_button_text(instance_id: String) -> String:
 	if instance_id == "":
 		return tr("ui_equipment_forge")
@@ -240,7 +249,8 @@ func _forge_button_text(instance_id: String) -> String:
 	var amount: int = int(cost.get(GameManager.FORGE_COST_AMOUNT, 0))
 	if amount <= 0:
 		return tr("ui_equipment_max_grade")
-	return "%s(%d)" % [tr("ui_equipment_forge"), amount]
+	var material_id: String = str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, ""))
+	return "%s(%s %d)" % [tr("ui_equipment_forge"), tr("ui_res_" + material_id), amount]
 
 # ％系は "25%" と出す。実数はそのまま（training_screen.gd と同じ形）。
 func _stat_value_text(stat_key: String, value: int) -> String:

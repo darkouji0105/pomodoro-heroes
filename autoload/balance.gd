@@ -11,3 +11,6 @@ extends Node
 @export var initial_state: InitialStateConfig
 @export var adventure: AdventureConfig
 @export var sound: SoundConfig
+# ⚠ 等級・鍛冶・分解の数値（EXEC_MATERIAL_TIERS.md）。
+#   割り当てを忘れると null になり、装備画面と倉庫が落ちる。
+@export var equipment: EquipmentConfig

@@ -23,6 +23,10 @@ const SCENE_BATTLE: String = "res://scenes/adventure/battle.tscn"
 # ⚠ screen は窓あり専用。ヘッドレスでは描画がダミーなので何も分からない。
 const KIND_BATTLE: String = "battle"
 const KIND_SCREEN: String = "screen"
+# ⚠ 戦闘も画面も使わず、GameManager を直接叩いて print だけして終わる枝。
+#   素材・等級・鍛冶・分解のように「戦闘に1行も出ない」ものは、これが無いと
+#   検証の口が無い（EXEC_MATERIAL_TIERS.md §0-2 の8）。
+const KIND_REPORT: String = "report"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -37,6 +41,12 @@ const PREPARE_KILL_PARTY: String = "kill_party"
 
 
 const SCENARIOS: Dictionary = {
+	# 素材の4段階と装備の等級10の検証（EXEC_MATERIAL_TIERS.md §6-A / §6-B）。
+	# ⚠ 戦闘を1回も回さない。ここで見るのは GameManager が返す数値だけ。
+	"materials": {
+		"kind": KIND_REPORT,
+		"note": "素材12件 / 等級1〜10の鍛冶コストと段階 / 分解の戻り",
+	},
 	# 段階4（mode: area）の検証。EXEC_SKILL_AREA.md §6 の数字をそのまま見る。
 	"area": {
 		"kind": KIND_BATTLE,
@@ -498,6 +508,11 @@ func _ready() -> void:
 	_apply_party(scenario)
 	_apply_skills(scenario)
 
+	if str(scenario.get("kind", KIND_BATTLE)) == KIND_REPORT:
+		_report_materials()
+		get_tree().quit()
+		return
+
 	if str(scenario.get("kind", KIND_BATTLE)) == KIND_SCREEN:
 		print("[DebugBoot] kind=screen（⚠ 窓あり専用。ヘッドレスでは何も分からない）")
 		# ⚠ battle の枝と同じ理由で call_deferred。_ready() の中から遷移すると
@@ -575,6 +590,83 @@ func _apply_skills(scenario: Dictionary) -> void:
 			# ⚠ 既に同じ枠に入っている場合は false が返るが、それは正常
 			#   （game_manager.gd:2168 の "already in this slot"）。
 			GameManager.select_skill(character_id, slot, str(skill_ids[slot]))
+
+
+# --- kind=report ------------------------------------------------
+
+# 素材の4段階と装備の等級10を、数値で1画面に出す（EXEC_MATERIAL_TIERS.md §6-A / §6-B）。
+#
+# ⚠ 戦闘を回さないので battle_last.jsonl は書かれない。ここの出口は print だけ
+#   （tests/ は print が出口。NEXT_STEPS §4）。
+# ⚠ 状態は書き換えるが保存しない。SaveManager をこのファイルから呼ばないこと
+#   （_ready() の注意書きと同じ理由）。
+func _report_materials() -> void:
+	print("[DebugBoot] --- 素材（items.json）---")
+	var items: Dictionary = MasterDataLoader.get_all_items()
+	var material_ids: Array[String] = []
+	for item_id: Variant in items:
+		var definition: Dictionary = items[item_id]
+		if str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_MATERIAL:
+			continue
+		material_ids.append(str(item_id))
+	var sort_key: String = GameManager.INSTANCE_VIEW_SORT_ORDER
+	material_ids.sort_custom(func(a: String, b: String) -> bool:
+		return int(items[a].get(sort_key, 0)) < int(items[b].get(sort_key, 0)))
+	for material_id: String in material_ids:
+		print("  %-26s sort=%2d  %s" % [
+			material_id, int(items[material_id].get(sort_key, 0)), tr("ui_res_" + material_id)
+		])
+	print("  合計 %d 件" % material_ids.size())
+
+	var max_grade: int = GameManager.get_max_equipment_grade()
+	print("[DebugBoot] --- 鍛冶（上限=等級%d）---" % max_grade)
+	for grade: int in range(2, max_grade + 1):
+		var material_id: String = GameManager.get_forge_material_id(grade)
+		print("  等級%2d へ  段階%d  %-22s x%d" % [
+			grade, GameManager.get_forge_material_tier(grade),
+			material_id, GameManager.get_forge_cost_amount(grade)
+		])
+
+	print("[DebugBoot] --- 分解（実際に鍛えてから戻す）---")
+	# ⚠ 素材を配ってから鍛える。can_forge() が本番と同じ判定を通ることも一緒に見る。
+	for tier: int in range(1, GameManager.get_forge_material_tier_count() + 1):
+		GameManager.add_material(GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX + str(tier), 9999)
+
+	GameManager.add_to_inventory("weapon_iron_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var owned: Array = GameManager.get_owned_instances()
+	if owned.is_empty():
+		push_error("[DebugBoot] 個体が作られなかった（add_to_inventory が個体を作っていない）")
+		return
+	var instance_id: String = str(owned[owned.size() - 1].get(GameManager.INSTANCE_VIEW_ID, ""))
+
+	var paid: Dictionary = {}
+	for grade: int in range(1, max_grade + 1):
+		if grade in [1, 5, max_grade]:
+			print("  等級%2d の分解 → %s（合計 %d / 払った合計 %d）" % [
+				grade, str(GameManager.get_dismantle_refund(instance_id)),
+				GameManager.get_dismantle_refund_total(instance_id), _sum_values(paid)
+			])
+		if grade >= max_grade:
+			continue
+		var cost: Dictionary = GameManager.get_forge_cost(instance_id)
+		var cost_id: String = str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, ""))
+		paid[cost_id] = int(paid.get(cost_id, 0)) + int(cost.get(GameManager.FORGE_COST_AMOUNT, 0))
+		if not GameManager.forge_equipment(instance_id):
+			push_error("[DebugBoot] 等級%d から鍛えられなかった" % grade)
+			return
+
+	# ⚠ 上限に達したあと、もう1回叩いても上がらないこと。
+	if GameManager.forge_equipment(instance_id):
+		push_error("[DebugBoot] 上限（等級%d）を超えて鍛えられた" % max_grade)
+	else:
+		print("  等級%d で打ち止め（forge_equipment が false）" % max_grade)
+
+
+func _sum_values(table: Dictionary) -> int:
+	var total: int = 0
+	for value: Variant in table.values():
+		total += int(value)
+	return total
 
 
 # ============================================================

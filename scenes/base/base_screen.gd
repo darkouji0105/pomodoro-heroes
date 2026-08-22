@@ -26,7 +26,9 @@ const SCREEN_SCENES: Dictionary = {
 @onready var stamina_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/StaminaEntry/Value
 @onready var potion_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/Value
 @onready var potion_use_button: PrimaryButton = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/UseButton
-@onready var materials_display: HBoxContainer = $Layout/BottomArea/BottomLayout/ResourceRow/MaterialsDisplay
+# ⚠ GridContainer（4列）。素材が3件から12件に増えた回で HBoxContainer から変えた。
+#   横一列のままだと器が際限なく横へ伸びる（EXEC_MATERIAL_TIERS.md §12-3）。
+@onready var materials_display: GridContainer = $Layout/BottomArea/BottomLayout/ResourceRow/MaterialsDisplay
 @onready var chest_badge: Button = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge
 @onready var chest_count_label: Label = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge/ChestCountLabel
 
@@ -70,6 +72,11 @@ func _init_resource_displays(state: Dictionary) -> void:
 func _init_materials(state: Dictionary) -> void:
 	var materials: Dictionary = state.get(GameStateKeys.MATERIALS, {})
 	for mat_id: String in materials.keys():
+		# ⚠ 0 の素材は出さない。段階が4つになって12件並ぶようになり、
+		#   序盤は9件が 0 のまま場所だけ取っていた（EXEC_MATERIAL_TIERS.md §12-3）。
+		#   手に入った時点で _on_material_changed() が作る。
+		if int(materials[mat_id]) <= 0:
+			continue
 		_create_material_entry(mat_id, int(materials[mat_id]))
 
 func _init_navigation_buttons() -> void:
