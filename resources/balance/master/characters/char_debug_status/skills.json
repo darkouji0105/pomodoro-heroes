@@ -407,5 +407,31 @@
 				}
 			}
 		]
+	},
+	"skill_dbg_aura_follow": {
+		"name_key": "ui_battle_skill_dbg_aura_follow",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "point",
+				"status_id": "st_dbg_aura_follow",
+				"duration_sec": 30.0,
+				"stack": "refresh",
+				"zone": {
+					"radius": 100.0,
+					"team": "enemy",
+					"follow": true
+				},
+				"stat": "atk",
+				"value": 50
+			}
+		]
 	}
 }

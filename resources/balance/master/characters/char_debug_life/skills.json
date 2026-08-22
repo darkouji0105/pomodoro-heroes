@@ -330,5 +330,61 @@
 				}
 			}
 		]
+	},
+	"skill_dbg_pool_dmg": {
+		"name_key": "ui_battle_skill_dbg_pool_dmg",
+		"user_character_id": "char_debug_life",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "dot",
+				"host": "point",
+				"status_id": "st_dbg_pool_dmg",
+				"duration_sec": 30.0,
+				"interval_sec": 1.0,
+				"stack": "refresh",
+				"zone": {
+					"radius": 400.0,
+					"team": "enemy",
+					"follow": false
+				},
+				"multiplier": 20.0,
+				"scale_from": "atk",
+				"attack_type": "true"
+			}
+		]
+	},
+	"skill_dbg_pool_heal": {
+		"name_key": "ui_battle_skill_dbg_pool_heal",
+		"user_character_id": "char_debug_life",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "dot",
+				"host": "point",
+				"status_id": "st_dbg_pool_heal",
+				"duration_sec": 30.0,
+				"interval_sec": 1.0,
+				"stack": "refresh",
+				"zone": {
+					"radius": 400.0,
+					"team": "ally",
+					"follow": false
+				},
+				"multiplier": 20.0,
+				"scale_from": "atk",
+				"heals": true
+			}
+		]
 	}
 }

@@ -313,6 +313,23 @@ static func log_intervene(kind: String, unit_id: String, status_id: String, deta
 	})
 
 
+# 範囲（オーラ・毒沼・設置地帯）の出入り（EXEC_SKILL_AURA.md）。
+#
+# ⚠ これが要る理由：オーラは画面に何も出ない（補正は数字が変わるだけ）。
+#   記録が無いと「効いていない」のか「範囲の中に居ない」のかを切り分けられない。
+# ⚠ 出入りしたときだけ出す。毎フレーム出すと1戦で数万行になる
+#   （位置・移動を出さないのと同じ理由）。
+# why … "enter"（入った） / "leave"（出た）
+static func log_zone(status_id: String, unit_id: String, why: String) -> void:
+	if not is_on():
+		return
+	write("zone", {
+		"status": status_id,
+		"unit": unit_id,
+		"why": why,
+	})
+
+
 # why … "expire"（寿命切れ）／ "host_dead"（宿主が死んだ）／ "revive_clear"（復活で全消し）
 #       ／ "consumed"（シールドを吸い切った・EXEC_SKILL_MITIGATION.md）
 static func log_status_end(status_id: String, host_unit_id: String, why: String) -> void:

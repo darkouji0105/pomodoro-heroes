@@ -235,6 +235,65 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_dbg_hit_true_c", "prepare": PREPARE_NONE, "gap": 3.0},
 		],
 	},
+	# ⚠ オーラ（host: point の条件・EXEC_SKILL_AURA.md）。
+	#
+	# ⚠ 数字の作り方：char_debug_* の atk は 1。オーラで atk+50 にすると、
+	#   確定ダメージ multiplier 200 のスキルが 200 → 10200 になる。桁が違うので
+	#   「中に居たか」が damage の1行で読める。
+	# ⚠ 半径 150 で、味方は 60 / 180 / 300 の段に散っている（前々回）。付与者
+	#   （char_debug_mix・後衛）を中心にすると、中衛までが入り前衛は入らない。
+	"aura": {
+		"kind": KIND_BATTLE,
+		"note": "オーラ（固定・味方だけ・atk+50）。中に居る味方だけ数字が変わること",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_aura_atk", "skill_dbg_hit_true"],
+			"char_debug_status": ["skill_dbg_hit_true_b", ""],
+		},
+		# ⚠ 素で殴る → オーラを置く → もう一度殴る。⚠ 撃ち手を変えないこと。
+		"fire": [
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_aura_atk", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_true", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_hit_true_b", "prepare": PREPARE_NONE},
+		],
+	},
+	# ⚠ 追従。⚠ 半径 80 と狭くしてある。付与者が歩くと中の顔ぶれが変わる。
+	"aura_follow": {
+		"kind": KIND_BATTLE,
+		"note": "追従オーラ。付与者が歩くと enter / leave が出直すこと",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			# ⚠ 前衛（射程60）に持たせ、team: enemy にしてある。実測で踏んだ：
+			#   味方に効くオーラを味方に持たせると、隊列ごと歩くので相対距離が
+			#   変わらず、enter が1件も増えない（＝追従を証明できない）。
+			#   敵は先に止まるので、enter が出たら「中心が動いた」以外に説明が付かない。
+			"char_debug_status": ["skill_dbg_aura_follow", ""],
+		},
+		# ⚠ 置いたあとに待つ行で、前衛が歩く時間を作る。
+		"fire": [
+			{"skill": "skill_dbg_aura_follow", "prepare": PREPARE_NONE},
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 10.0},
+		],
+	},
+	# ⚠ 毒沼と回復地帯。⚠ 周期の効果が「範囲内の全員」に当たること。
+	"pool": {
+		"kind": KIND_BATTLE,
+		"note": "毒沼（敵だけ・周期ダメージ）と回復地帯（味方だけ・周期回復）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_life": ["skill_dbg_pool_dmg", "skill_dbg_pool_heal"],
+		},
+		# ⚠ 回復地帯は味方が満タンだと 0 になって何も出ない。先に削る。
+		"fire": [
+			{"skill": "skill_dbg_pool_dmg", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_pool_heal", "prepare": PREPARE_DAMAGE_PARTY},
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 5.0},
+		],
+	},
 	# ⚠ 反射を「画面で見られる形」にしたもの（人間の指摘・2026-08-21）。
 	#
 	# ⚠ これが要る理由：reflect シナリオは反射を敵に付けるので、画面では

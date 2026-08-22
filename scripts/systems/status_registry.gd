@@ -166,6 +166,29 @@ func add(
 		if not _fill_dot(entry, effect, duration_sec, life):
 			return false
 
+	# --- 6-1-2. 範囲（zone{}・EXEC_SKILL_AURA.md） ---
+	#
+	# ⚠ 種類（buff / dot / react）に関係なく効くので、_fill_* ではなくここで写す。
+	#   max_stack と同じ扱い。
+	# ⚠ ロード時検証（E108〜E113）が守っているので通常は赤にならない。二重に守る。
+	# ⚠ duplicate(true) で複製する（_fill_react と同じ理由）。
+	if host == SkillSchema.HOST_POINT:
+		var raw_zone: Variant = effect.get(SkillSchema.FIELD_ZONE, null)
+		if not (raw_zone is Dictionary) or (raw_zone as Dictionary).is_empty():
+			push_error("[StatusRegistry] host: point なのに zone{} が無い (status_id=%s)" % status_id)
+			return false
+		var zone: Dictionary = (raw_zone as Dictionary).duplicate(true)
+		if float(zone.get(SkillSchema.ZONE_RADIUS, 0.0)) <= 0.0:
+			push_error("[StatusRegistry] zone.radius が正でない (status_id=%s)" % status_id)
+			return false
+		if not (str(zone.get(SkillSchema.ZONE_TEAM, "")) in SkillSchema.ZONE_TEAMS_KNOWN):
+			push_error("[StatusRegistry] zone.team が不明 (status_id=%s)" % status_id)
+			return false
+		entry["zone"] = zone
+	elif effect.has(SkillSchema.FIELD_ZONE):
+		push_error("[StatusRegistry] zone{} は host: point にしか書けない (status_id=%s)" % status_id)
+		return false
+
 	# --- 6-2. 条件（毎フレーム評価する発火源・PLAN 10章） ---
 	if not _fill_condition(entry, effect):
 		return false
@@ -301,6 +324,13 @@ func _make_entry(
 		# 介入点（PLAN 11-1・段階3の後半③）。buff のときだけ中身が入る。
 		# ⚠ 持たない件にも必ず持たせること。持たない件があると query() が
 		#   その件だけ黙って外す（"active" の注記と同じ）。
+		# 範囲（EXEC_SKILL_AURA.md）。host: point のときだけ中身が入る。
+		# ⚠ 持たない件にも必ず持たせること（"active" の注記と同じ。query() が黙って外す）。
+		"zone": {},
+		# 今このユニットが範囲の中に居るか。⚠ 書くのは _eval_zones() の1箇所だけ。
+		"inside": {},
+		# 周期の効果を回復にする。⚠ multiplier の符号では分けない。
+		"heals": false,
 		"on_death": {},
 		"block_status": [],
 		"heal_taken_pct": 0,
@@ -493,10 +523,21 @@ func _fill_condition(entry: Dictionary, effect: Dictionary) -> bool:
 		push_error("[StatusRegistry] condition.status_id は source: 'status_has' のときだけ書ける")
 		return false
 
-	# ⚠ 宿り先は unit だけ（EXEC_SKILL_CONDITION.md §0）。point（オーラ）は真偽が
-	#   「状態 × ユニットの対」ごとになり、この active（状態1件につき1つ）では足りない。
-	if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
-		push_error("[StatusRegistry] condition は host: 'unit' にしか書けない: '%s'" % str(entry.get("host", "")))
+	# ⚠ 宿り先は unit か point（EXEC_SKILL_AURA.md で point を開けた）。
+	#
+	# ⚠ point の条件は「オーラそのものが働いているか」であって、範囲の内外ではない。
+	#   内外は inside（対ごと）が持ち、条件は active（1件につき1つ）が持つ。
+	#   両方真のときだけ効く（_applies_to）。
+	# ⚠ point には宿主が居ないので of: host は解けない。of: source だけ許す。
+	#   許してしまうと _eval_one() が毎フレーム null を引いて常に偽になり、
+	#   「オーラが一度も効かない」が無音で起きる。
+	var host_kind: String = str(entry.get("host", ""))
+	if host_kind == SkillSchema.HOST_POINT:
+		if str(cond.get("of", "")) != SkillSchema.COND_OF_SOURCE:
+			push_error("[StatusRegistry] host: point の condition は of: 'source' だけ（宿主が居ない）")
+			return false
+	elif host_kind != SkillSchema.HOST_UNIT:
+		push_error("[StatusRegistry] condition は host: 'unit' か 'point' にしか書けない: '%s'" % host_kind)
 		return false
 
 	entry["condition"] = cond.duplicate(true)
@@ -511,9 +552,13 @@ func _fill_dot(entry: Dictionary, effect: Dictionary, duration_sec: float, life:
 	if not effect.has("scale_from"):
 		push_error("[StatusRegistry] dot に scale_from が無い（damage と同じく必須）")
 		return false
-	if not (str(effect.get("attack_type", "")) in SkillSchema.attack_types_known()):
-		push_error("[StatusRegistry] dot の attack_type が不明: '%s'" % str(effect.get("attack_type", "")))
-		return false
+	# 周期の効果を回復にする（EXEC_SKILL_AURA.md）。⚠ attack_type は書けない（E114）。
+	var heals: bool = bool(effect.get(SkillSchema.FIELD_HEALS, false))
+	entry["heals"] = heals
+	if not heals:
+		if not (str(effect.get("attack_type", "")) in SkillSchema.attack_types_known()):
+			push_error("[StatusRegistry] dot の attack_type が不明: '%s'" % str(effect.get("attack_type", "")))
+			return false
 
 	entry["interval_sec"] = interval_sec
 	# 端数は切り捨て（決定1-4）。総ダメージが multiplier × floor(duration/interval)
@@ -526,12 +571,22 @@ func _fill_dot(entry: Dictionary, effect: Dictionary, duration_sec: float, life:
 	# 発火のたびに resolve() へ渡す実効効果。
 	# ⚠ skills.json に書ける欄しか含めない（PLAN 7-3 の歯止め）。
 	# ⚠ DoT 専用のダメージ計算を作らない（PLAN 11-0・式を2箇所に書かない）。
-	entry["damage_effect"] = {
-		"type": SkillSchema.EFFECT_DAMAGE,
-		"multiplier": float(effect.get("multiplier", 0.0)),
-		"attack_type": str(effect.get("attack_type", "")),
-		"scale_from": effect.get("scale_from", null),
-	}
+	# ⚠ heals: true なら type: heal を合成する。効果の種類を新しく足さないこと
+	#   （EFFECT_TYPES_* の一覧が全部増える）。resolve() は type で分岐するので通る。
+	# ⚠ heal には attack_type を入れない（回復は防御を見ない）。
+	if heals:
+		entry["damage_effect"] = {
+			"type": SkillSchema.EFFECT_HEAL,
+			"multiplier": float(effect.get("multiplier", 0.0)),
+			"scale_from": effect.get("scale_from", null),
+		}
+	else:
+		entry["damage_effect"] = {
+			"type": SkillSchema.EFFECT_DAMAGE,
+			"multiplier": float(effect.get("multiplier", 0.0)),
+			"attack_type": str(effect.get("attack_type", "")),
+			"scale_from": effect.get("scale_from", null),
+		}
 	return true
 
 
@@ -584,6 +639,9 @@ func tick(delta: float) -> void:
 	for entry: Dictionary in _entries:
 		entry["elapsed"] = float(entry.get("elapsed", 0.0)) + delta
 
+	# ⚠ 範囲は条件より前。条件が inside を読む形を将来足せるようにしておく。
+	#   逆にすると、入った同じフレームの条件が1フレーム古い inside を読む。
+	_eval_zones(touched)
 	_eval_conditions(touched)
 
 	var results: Array = []
@@ -653,12 +711,126 @@ func _eval_conditions(touched: Dictionary) -> void:
 			continue
 		entry["active"] = now
 		# 補正に効くのは buff だけ。dot / react は組み直しに関係しない。
-		if str(entry.get("kind", "")) == KIND_BUFF \
-				and str(entry.get("host", "")) == SkillSchema.HOST_UNIT:
-			touched[str(entry.get("host_unit_id", ""))] = true
+		# ⚠ point（オーラ）は中に居る全員を積む。宿主1体だけ積む形にすると、
+		#   条件が偽になってもオーラの補正が誰からも剥がれない（エラーは出ない）。
+		if str(entry.get("kind", "")) == KIND_BUFF:
+			_touch_affected(entry, touched)
 		BattleLog.log_condition(
 			str(entry.get("status_id", "")), str(entry.get("host_unit_id", "")), now, "change"
 		)
+
+
+# 「この状態はこのユニットに効いているか」（EXEC_SKILL_AURA.md §0-1 の1）。
+#
+# 【なぜこの1本に寄せるか】`host == HOST_UNIT and host_unit_id == id and active` という
+# 同じ3行が、補正・周期発火・介入点の問い合わせに合計10箇所あった。host: point を
+# 足すとき1つ忘れると「オーラなのに介入点だけ効かない」という無音の欠けになる
+# （段階6で _find_unit() の複製4本のうち3本を忘れたのと同じ形）。
+# ⚠ 新しい host を足したら、直すのはこの関数だけにすること。
+#
+# ⚠ active（条件）と inside（範囲）は両方真のときだけ効く。掛け合わせないと、
+#   condition{} が host: point でだけ黙って無視される。
+func _applies_to(entry: Dictionary, unit_id: String) -> bool:
+	if not bool(entry.get("active", true)):
+		return false
+	var host: String = str(entry.get("host", ""))
+	if host == SkillSchema.HOST_UNIT:
+		return str(entry.get("host_unit_id", "")) == unit_id
+	if host == SkillSchema.HOST_POINT:
+		return bool((entry.get("inside", {}) as Dictionary).get(unit_id, false))
+	# host: battle は読む側がまだ無い（宿題）。誰にも効かない。
+	return false
+
+
+# この状態が今 効いている相手を touched に積む。
+#
+# ⚠ 「補正を組み直す相手」を決める唯一の場所。host: unit は宿主1体、
+#   host: point は中に居る全員。⚠ 宿主だけ積む形にすると、オーラの条件が
+#   偽になっても寿命が切れても、補正が誰からも剥がれない（エラーは出ない）。
+func _touch_affected(entry: Dictionary, touched: Dictionary) -> void:
+	var host: String = str(entry.get("host", ""))
+	if host == SkillSchema.HOST_UNIT:
+		touched[str(entry.get("host_unit_id", ""))] = true
+		return
+	if host == SkillSchema.HOST_POINT:
+		for id in (entry.get("inside", {}) as Dictionary).keys():
+			touched[str(id)] = true
+
+
+# 範囲（zone{}）の出入りを判定する。⚠ inside を書くのはこの1箇所だけ。
+#
+# ⚠ 3箇所で別々に距離を測らないこと。既存の active と同じ設計
+#   （書くのは1箇所・読む側は _applies_to() を通すだけ）。
+# ⚠ 出入りしたユニットは touched に積む。積まないと、範囲に入っただけでは
+#   補正の組み直しが走らず「入ったのに強くならない」になる（エラーは出ない）。
+# ⚠ 追従（follow）はここで host_x を更新する。付与者が死んだら更新を止める
+#   （最後の位置で固定・人間が見ていない決め4）。止め忘れると死者の x を読み続ける。
+func _eval_zones(touched: Dictionary) -> void:
+	for entry: Dictionary in _entries:
+		var zone: Dictionary = entry.get("zone", {}) as Dictionary
+		if zone.is_empty():
+			continue
+
+		# 追従。⚠ 付与者が居ない／死んでいるなら最後の位置のまま。
+		if bool(zone.get(SkillSchema.ZONE_FOLLOW, false)):
+			var owner: BattleUnit = _find_unit(str(entry.get("source_unit_id", "")))
+			if owner != null and owner.is_alive():
+				entry["host_x"] = owner.x
+
+		var center: float = float(entry.get("host_x", 0.0))
+		var radius: float = float(zone.get(SkillSchema.ZONE_RADIUS, 0.0))
+		var was: Dictionary = entry.get("inside", {}) as Dictionary
+		var now: Dictionary = {}
+
+		for unit in _all_units():
+			if not (unit is BattleUnit):
+				continue
+			var u: BattleUnit = unit as BattleUnit
+			if not u.is_alive():
+				continue
+			if not _zone_team_matches(entry, u):
+				continue
+			# ⚠ 1次元（既存の area と同じ）。ここだけ2次元にすると radius の意味が食い違う。
+			if absf(u.x - center) > radius:
+				continue
+			now[u.unit_id] = true
+
+		# 出入りしたものだけログと組み直しに回す。⚠ 毎フレーム出すと1戦で数万行。
+		for id in now.keys():
+			if not was.has(id):
+				touched[str(id)] = true
+				BattleLog.log_zone(str(entry.get("status_id", "")), str(id), "enter")
+		for id in was.keys():
+			if not now.has(id):
+				touched[str(id)] = true
+				BattleLog.log_zone(str(entry.get("status_id", "")), str(id), "leave")
+
+		entry["inside"] = now
+
+
+# zone.team を「付与者から見て」解く。
+# ⚠ ここだけ「味方＝プレイヤー側」にしないこと。敵が置いた毒沼が敵を焼く。
+func _zone_team_matches(entry: Dictionary, unit: BattleUnit) -> bool:
+	var team: String = str((entry.get("zone", {}) as Dictionary).get(SkillSchema.ZONE_TEAM, ""))
+	if team == SkillSchema.ZONE_TEAM_ALL:
+		return true
+	var owner: BattleUnit = _find_unit(str(entry.get("source_unit_id", "")))
+	if owner == null:
+		return false
+	if team == SkillSchema.ZONE_TEAM_ALLY:
+		return unit.team == owner.team
+	return unit.team != owner.team
+
+
+# 味方・敵・召喚を1本で回す。⚠ 配列を足したらここも直す（BattleSession が正）。
+func _all_units() -> Array:
+	if _session == null:
+		return []
+	var list: Array = []
+	list.append_array(_session.party_units)
+	list.append_array(_session.enemy_units)
+	list.append_array(_session.summon_units)
+	return list
 
 
 # 条件1件ぶんの真偽。条件が無ければ常に true。
@@ -766,8 +938,19 @@ func _fire_intervals(results: Array) -> void:
 		if str(entry.get("kind", "")) != KIND_DOT:
 			rest.append(entry)
 			continue
-		# 座標・戦場に宿る dot は当てる相手が決まらない（条件は段階3の後半）。
-		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
+		# 当てる相手を決める。
+		#
+		# ⚠ host: unit は宿主1体。host: point は「今 範囲の中に居る全員」（毒沼・回復地帯）。
+		#   ⚠ inside を書くのは _eval_zones() の1箇所だけで、ここでは読むだけ。
+		# ⚠ host: battle は読む側がまだ無い（宿題）。飛ばす。
+		var entry_host: String = str(entry.get("host", ""))
+		var target_ids: Array = []
+		if entry_host == SkillSchema.HOST_UNIT:
+			target_ids.append(str(entry.get("host_unit_id", "")))
+		elif entry_host == SkillSchema.HOST_POINT:
+			for id in (entry.get("inside", {}) as Dictionary).keys():
+				target_ids.append(str(id))
+		else:
 			rest.append(entry)
 			continue
 
@@ -777,7 +960,6 @@ func _fire_intervals(results: Array) -> void:
 		if source == null:
 			continue
 
-		var host_id: String = str(entry.get("host_unit_id", ""))
 		var interval_sec: float = float(entry.get("interval_sec", 0.0))
 		var elapsed: float = float(entry.get("elapsed", 0.0))
 		var total: int = int(entry.get("fires_total", 0))
@@ -806,7 +988,10 @@ func _fire_intervals(results: Array) -> void:
 			# ⚠ 末尾の true が「これは DoT の発火」の印（EXEC_DAMAGE_POP_COLOR.md）。
 			#   表示側は results の is_dot だけを見て色を決める。ここを落とすと
 			#   毒のダメージが通常の色で出る（エラーは1つも出ない）。
-			var fired: Array = SkillResolver.resolve(one, source, _session, [host_id], self, true)
+			# ⚠ 範囲の場合は「今 中に居る全員」に当てる。1体だけに当てると、
+			#   毒沼が最初に入った1体しか焼かない（エラーは出ない）。
+			# ⚠ target_ids が空なら resolve() は空を返す（誰も中に居ない＝正常系）。
+			var fired: Array = SkillResolver.resolve(one, source, _session, target_ids, self, true)
 			# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ この経路は SkillRuntime を
 			#   通らないので、ここに差さないと DoT のダメージだけログに出ない。
 			BattleLog.log_results(fired, source.unit_id, str(entry.get("status_id", "")))
@@ -828,8 +1013,8 @@ func _expire(touched: Dictionary) -> void:
 		if float(entry.get("elapsed", 0.0)) < float(entry.get("duration_sec", 0.0)):
 			rest.append(entry)
 			continue
-		if str(entry.get("host", "")) == SkillSchema.HOST_UNIT:
-			touched[str(entry.get("host_unit_id", ""))] = true
+		# ⚠ point（オーラ）は中に居る全員を積む（_eval_conditions と同じ理由）。
+		_touch_affected(entry, touched)
 		BattleLog.log_status_end(
 			str(entry.get("status_id", "")), str(entry.get("host_unit_id", "")), "expire"
 		)
@@ -863,11 +1048,7 @@ func _step_status_block(ctx: Dictionary) -> void:
 	for entry: Dictionary in _entries:
 		if str(entry.get("kind", "")) != KIND_BUFF:
 			continue
-		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
-			continue
-		if str(entry.get("host_unit_id", "")) != host_unit_id:
-			continue
-		if not bool(entry.get("active", true)):
+		if not _applies_to(entry, host_unit_id):
 			continue
 		var blocked: Array = entry.get("block_status", []) as Array
 		if incoming in blocked:
@@ -889,11 +1070,7 @@ func _step_death(ctx: Dictionary) -> void:
 	for entry: Dictionary in _entries:
 		if str(entry.get("kind", "")) != KIND_BUFF:
 			continue
-		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
-			continue
-		if str(entry.get("host_unit_id", "")) != unit.unit_id:
-			continue
-		if not bool(entry.get("active", true)):
+		if not _applies_to(entry, unit.unit_id):
 			continue
 		var on_death: Dictionary = entry.get("on_death", {}) as Dictionary
 		if on_death.is_empty():
@@ -1063,18 +1240,7 @@ func count_stacks(host_unit_id: String, status_id: String) -> int:
 # ⚠ 呼び出し元は SkillResolver._step_heal_taken() の1箇所。あちらは registry を
 #   RefCounted として持つので、この関数は動的に呼ばれる（add() と同じ形）。
 func heal_taken_pct(unit_id: String) -> int:
-	var total: int = 0
-	for entry: Dictionary in _entries:
-		if str(entry.get("kind", "")) != KIND_BUFF:
-			continue
-		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
-			continue
-		if str(entry.get("host_unit_id", "")) != unit_id:
-			continue
-		if not bool(entry.get("active", true)):
-			continue
-		total += int(entry.get("heal_taken_pct", 0))
-	return total
+	return _intervene_sum(unit_id, "heal_taken_pct")
 
 
 # ダメージの介入点が読む問い合わせ（EXEC_SKILL_MITIGATION.md）。
@@ -1092,11 +1258,7 @@ func _intervene_sum(unit_id: String, field: String) -> int:
 	for entry: Dictionary in _entries:
 		if str(entry.get("kind", "")) != KIND_BUFF:
 			continue
-		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
-			continue
-		if str(entry.get("host_unit_id", "")) != unit_id:
-			continue
-		if not bool(entry.get("active", true)):
+		if not _applies_to(entry, unit_id):
 			continue
 		total += int(entry.get(field, 0))
 	return total
@@ -1127,11 +1289,7 @@ func has_crit_always(unit_id: String) -> bool:
 	for entry: Dictionary in _entries:
 		if str(entry.get("kind", "")) != KIND_BUFF:
 			continue
-		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
-			continue
-		if str(entry.get("host_unit_id", "")) != unit_id:
-			continue
-		if not bool(entry.get("active", true)):
+		if not _applies_to(entry, unit_id):
 			continue
 		if bool(entry.get(SkillSchema.INTERVENE_CRIT_ALWAYS, false)):
 			return true
@@ -1151,11 +1309,7 @@ func shield_left(unit_id: String) -> int:
 	for entry: Dictionary in _entries:
 		if str(entry.get("kind", "")) != KIND_BUFF:
 			continue
-		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
-			continue
-		if str(entry.get("host_unit_id", "")) != unit_id:
-			continue
-		if not bool(entry.get("active", true)):
+		if not _applies_to(entry, unit_id):
 			continue
 		if int(entry.get(SkillSchema.INTERVENE_SHIELD_HP, 0)) <= 0:
 			continue
@@ -1182,11 +1336,7 @@ func consume_shield(unit_id: String, amount: int) -> int:
 			break
 		if str(entry.get("kind", "")) != KIND_BUFF:
 			continue
-		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
-			continue
-		if str(entry.get("host_unit_id", "")) != unit_id:
-			continue
-		if not bool(entry.get("active", true)):
+		if not _applies_to(entry, unit_id):
 			continue
 		if int(entry.get(SkillSchema.INTERVENE_SHIELD_HP, 0)) <= 0:
 			continue
@@ -1220,9 +1370,7 @@ func stat_mod(unit_id: String, stat_key: String) -> int:
 	for entry: Dictionary in _entries:
 		if str(entry.get("kind", "")) != KIND_BUFF:
 			continue
-		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
-			continue
-		if str(entry.get("host_unit_id", "")) != unit_id:
+		if not _applies_to(entry, unit_id):
 			continue
 		if str(entry.get("stat", "")) != stat_key:
 			continue
@@ -1272,16 +1420,15 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 	for entry: Dictionary in _entries:
 		if str(entry.get("kind", "")) != KIND_BUFF:
 			continue
-		if str(entry.get("host", "")) != SkillSchema.HOST_UNIT:
-			continue
-		if str(entry.get("host_unit_id", "")) != unit_id:
-			continue
+		# ⚠ 効いているかの判定は _applies_to() の1本だけ（EXEC_SKILL_AURA.md §0-1 の1）。
+		#   宿主一致（host: unit）と範囲内（host: point）と条件（active）を全部含む。
+		#
 		# 条件が偽の間は補正に乗せない（PLAN 10章の3つ目の発火源）。
 		# ⚠ この1行が条件の安全の本体。この関数は「ゼロから組み直す」形なので、
 		#   絞り込みを1つ足すだけで「剥がれないバフ」「二重に乗るバフ」が
 		#   構造的に起きない。add() や _eval_conditions() から
 		#   unit.set_stat_mods() を直接呼んで近道しないこと。
-		if not bool(entry.get("active", true)):
+		if not _applies_to(entry, unit_id):
 			continue
 		var stat_key: String = str(entry.get("stat", ""))
 		# ⚠ 介入だけを持つ buff（復活・免疫・被回復増減）は stat を持たない。

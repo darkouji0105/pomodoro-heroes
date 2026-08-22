@@ -300,3 +300,7 @@ ui_battle_skill_dbg_mit_shield,盾付与（検証用）
 ui_battle_skill_dbg_mit_reflect,反射付与（検証用）
 ui_battle_skill_dbg_mit_thorns,棘の盾付与（検証用）
 ui_battle_skill_dbg_mit_reflect_self,自分に反射（検証用）
+ui_battle_skill_dbg_aura_atk,オーラ（検証用）
+ui_battle_skill_dbg_aura_follow,追従オーラ（検証用）
+ui_battle_skill_dbg_pool_dmg,毒沼（検証用）
+ui_battle_skill_dbg_pool_heal,回復地帯（検証用）
