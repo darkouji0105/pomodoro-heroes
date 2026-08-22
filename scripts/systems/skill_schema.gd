@@ -153,6 +153,30 @@ const INTERVENE_FIELDS_KNOWN: Array = [
 const REDUCTION_PCT_MAX: int = 95
 const PIERCE_PCT_MAX: int = 100
 
+# 範囲（オーラ・毒沼・設置地帯）の欄（EXEC_SKILL_AURA.md）。⚠ host: point 専用。
+#
+# ⚠ target.radius（mode: area）と混ぜないこと。あちらは「撃つ瞬間に誰を巻き込むか」、
+#   こちらは「毎フレーム誰が中に居るか」。同じ名前を平置きで並べると必ず取り違える。
+# ⚠ 3つとも必須。既定値を作らない（origin / stack / scale_from / 召喚の4欄と同じ方針）。
+#   follow の既定を作ると「動くはずのオーラが動かない」が無音になる。
+const FIELD_ZONE: String = "zone"
+const ZONE_RADIUS: String = "radius"
+const ZONE_TEAM: String = "team"
+const ZONE_FOLLOW: String = "follow"
+const ZONE_FIELDS_REQUIRED: Array = [ZONE_RADIUS, ZONE_TEAM, ZONE_FOLLOW]
+# ⚠ 付与者から見た向き。target.team と同じ語彙にする（ここだけ「味方＝プレイヤー側」に
+#   すると、敵が置いた毒沼が敵を焼く）。
+const ZONE_TEAM_ALLY: String = "ally"
+const ZONE_TEAM_ENEMY: String = "enemy"
+const ZONE_TEAM_ALL: String = "all"
+const ZONE_TEAMS_KNOWN: Array = [ZONE_TEAM_ALLY, ZONE_TEAM_ENEMY, ZONE_TEAM_ALL]
+
+# 周期の効果を回復にする（EXEC_SKILL_AURA.md）。⚠ dot にしか書けない。
+#
+# ⚠ multiplier の符号で分けないこと。skill_resolver.gd が「符号を跨ぐと緑の数字で
+#   HPが減る」と名指しで警告している。欄で分ければ表示の色も介入点も既存のまま分かれる。
+const FIELD_HEALS: String = "heals"
+
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
 # ⚠ physical / magic は BattleUnit の定数を唯一の正とする。
 #    ここに書き直さないこと（2本目の一覧を作ると片方だけ直して事故る）。
@@ -931,9 +955,17 @@ static func _validate_effect(
 	elif not (effect_type in EFFECT_TYPES_STATUS):
 		# E30 … 残らないものに宿主は無い（damage / heal に host を書いている）
 		_err(issues, skill_id, "%s.type: '%s' に host: '%s' は書けない（残らない効果）" % [where, effect_type, host])
-	elif host == HOST_POINT or host == HOST_BATTLE:
-		# W9 … 器には載るが、参照する仕組み（条件・購読）が段階3の後半なので何も起きない
-		_warn(issues, skill_id, "%s.host: '%s' は器に載るだけ。参照する仕組み（条件・購読）は段階3の後半" % [where, host])
+	elif host == HOST_BATTLE:
+		# W9 … 器には載るが、参照する仕組み（条件・購読）がまだ無いので何も起きない。
+		# ⚠ point はこの回（EXEC_SKILL_AURA.md）で読む側が入ったので外した。battle は残る。
+		_warn(issues, skill_id, "%s.host: '%s' は器に載るだけ。参照する仕組み（条件・購読）がまだ無い" % [where, host])
+	elif host == HOST_POINT and effect_type == EFFECT_REACT:
+		# W15 … 罠（point × 購読）。⚠ 購読の配布は host: unit のみ（宿題8）。
+		#   器には載るが1度も発火しない。⚠ buff / dot は読む側が入ったので黄を出さない。
+		_warn(issues, skill_id, "%s.host: 'point' の react は器に載るだけ。購読の配布は host: 'unit' のみ" % where)
+
+	# 範囲（zone{}）。⚠ host: point にしか書けず、host: point には必ず要る。
+	_validate_zone(issues, skill_id, effect, where, host, effect_type)
 
 	# 効果ごとの target 上書き（range は書けない＝E16）
 	var raw_target: Variant = effect.get("target", null)
@@ -1129,8 +1161,12 @@ static func _validate_status_effect(
 		if not effect.has("scale_from"):
 			_err(issues, skill_id, "%s に scale_from が無い（dot は damage と同じく必須）" % where)
 		# E43
-		if not (str(effect.get("attack_type", "")) in attack_types_known()):
-			_err(issues, skill_id, "%s.attack_type が無い、または不明: '%s'" % [where, str(effect.get("attack_type", ""))])
+		# ⚠ heals: true のときは書かせない（E114）ので、必須からも外す。
+		#   外し忘れると「回復にしたら attack_type が無いと怒られ、書いたら書くなと怒られる」
+		#   という、どう書いても赤になる状態になる。
+		if not bool(effect.get(FIELD_HEALS, false)):
+			if not (str(effect.get("attack_type", "")) in attack_types_known()):
+				_err(issues, skill_id, "%s.attack_type が無い、または不明: '%s'" % [where, str(effect.get("attack_type", ""))])
 		# W10 … 端数は切り捨て（発火は floor(duration / interval) 回）
 		if has_duration and _is_num(interval) and float(interval) > 0.0:
 			var duration: float = float(effect.get("duration_sec", 0.0))
@@ -1139,6 +1175,90 @@ static func _validate_status_effect(
 				_warn(issues, skill_id, "%s は duration_sec が interval_sec で割り切れない。端数は切り捨てで %d 回発火する" % [
 					where, int(floor(ratio))
 				])
+
+
+# 範囲（zone{}）の検証。E108〜E115。
+#
+# ⚠ 「書ける場所」と「中身」を1本で見る。2本に分けると、host: point に zone{} が
+#   無い場合（E109）だけ別の関数に置き忘れる。
+static func _validate_zone(
+		issues: Array, skill_id: String, effect: Dictionary, where: String,
+		host: String, effect_type: String
+) -> void:
+	var has_zone: bool = effect.has(FIELD_ZONE)
+
+	# E108 … host: point 以外には書けない（読む場所が無い＝無音で無視される）。
+	if has_zone and host != HOST_POINT:
+		_err(issues, skill_id, "%s.%s は host: 'point' にしか書けない（host: '%s'）" % [
+			where, FIELD_ZONE, host
+		])
+		return
+	# E109 … host: point には必ず要る。無いと誰が中に居るのか決まらない。
+	if host == HOST_POINT and not has_zone:
+		_err(issues, skill_id, "%s に %s{} が無い（host: 'point' は範囲が要る）" % [where, FIELD_ZONE])
+		return
+	if not has_zone:
+		# ⚠ heals は zone を持たない dot にも書けてしまうので、ここで見る。
+		_validate_heals(issues, skill_id, effect, where, effect_type)
+		return
+
+	var raw: Variant = effect.get(FIELD_ZONE, null)
+	if not (raw is Dictionary) or (raw as Dictionary).is_empty():
+		_err(issues, skill_id, "%s.%s が Dictionary でない、または空" % [where, FIELD_ZONE])
+		return
+	var zone: Dictionary = raw as Dictionary
+
+	# E113 … 知らない欄（E107 と同じ形。typo を無音にしない）。
+	for key: Variant in zone.keys():
+		if not (str(key) in ZONE_FIELDS_REQUIRED):
+			_err(issues, skill_id, "%s.%s に知らない欄がある: '%s'" % [where, FIELD_ZONE, str(key)])
+
+	for field: String in ZONE_FIELDS_REQUIRED:
+		if not zone.has(field):
+			_err(issues, skill_id, "%s.%s に %s が無い（範囲の欄に既定値は作らない）" % [
+				where, FIELD_ZONE, field
+			])
+
+	# E110 … 半径は正の数。0 だと誰も入れない（書いたのに何も起きない）。
+	if zone.has(ZONE_RADIUS):
+		var radius: Variant = zone.get(ZONE_RADIUS, null)
+		if not _is_num(radius) or float(radius) <= 0.0:
+			_err(issues, skill_id, "%s.%s.%s が正の数値でない" % [where, FIELD_ZONE, ZONE_RADIUS])
+	# E111 … 誰に効くか。⚠ 付与者から見た向き。
+	if zone.has(ZONE_TEAM):
+		if not (str(zone.get(ZONE_TEAM, "")) in ZONE_TEAMS_KNOWN):
+			_err(issues, skill_id, "%s.%s.%s が不明: '%s'（'ally' / 'enemy' / 'all'）" % [
+				where, FIELD_ZONE, ZONE_TEAM, str(zone.get(ZONE_TEAM, ""))
+			])
+	# E112 … 追従するか。⚠ bool 以外を許すと「文字列の \"false\" が真」になる。
+	if zone.has(ZONE_FOLLOW):
+		if not (zone.get(ZONE_FOLLOW, null) is bool):
+			_err(issues, skill_id, "%s.%s.%s が bool でない" % [where, FIELD_ZONE, ZONE_FOLLOW])
+
+	_validate_heals(issues, skill_id, effect, where, effect_type)
+
+
+# 周期の効果を回復にする欄（heals）。E114 / E115。
+static func _validate_heals(
+		issues: Array, skill_id: String, effect: Dictionary, where: String, effect_type: String
+) -> void:
+	if not effect.has(FIELD_HEALS):
+		return
+	# E115 … dot 以外に書いても読む場所が無い。
+	if effect_type != EFFECT_DOT:
+		_err(issues, skill_id, "%s.%s は dot にしか書けない（type: '%s'）" % [
+			where, FIELD_HEALS, effect_type
+		])
+		return
+	if not (effect.get(FIELD_HEALS, null) is bool):
+		_err(issues, skill_id, "%s.%s が bool でない" % [where, FIELD_HEALS])
+		return
+	# E114 … 回復は防御を見ないので attack_type は意味を持たない。
+	# ⚠ 書けてしまうと「魔法防御で減る回復」を書いたつもりになる（無音）。
+	if bool(effect.get(FIELD_HEALS, false)) and effect.has("attack_type"):
+		_err(issues, skill_id, "%s.%s: true に attack_type は書けない（回復は防御を見ない）" % [
+			where, FIELD_HEALS
+		])
 
 
 # 介入点（intervene{}）の中身の検証。E103〜E107・W14。

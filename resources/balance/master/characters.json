@@ -185,7 +185,8 @@
 			"skill_dbg_hit_weak",
 			"skill_dbg_mit_crit",
 			"skill_dbg_mit_thorns",
-			"skill_dbg_mit_reflect_self"
+			"skill_dbg_mit_reflect_self",
+			"skill_dbg_aura_follow"
 		],
 		"passives": [
 			"passive_dbg_atk",
@@ -243,7 +244,9 @@
 			"skill_dbg_hit_phys",
 			"skill_dbg_hit_true_c",
 			"skill_dbg_mit_pierce",
-			"skill_dbg_mit_reflect"
+			"skill_dbg_mit_reflect",
+			"skill_dbg_pool_dmg",
+			"skill_dbg_pool_heal"
 		],
 		"allocatable_stats": [
 			"hp",
@@ -298,7 +301,8 @@
 			"skill_dbg_summon",
 			"skill_dbg_hit_true",
 			"skill_dbg_mit_reduce",
-			"skill_dbg_mit_shield"
+			"skill_dbg_mit_shield",
+			"skill_dbg_aura_atk"
 		],
 		"allocatable_stats": [
 			"hp",
