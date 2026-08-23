@@ -4,6 +4,6 @@
 
 [resource]
 script = ExtResource("1_x644h")
-level_up_material_id = "training_material"
+level_up_material_id = "training_material_1"
 base_level_up_cost = 3
 cost_growth_per_level = 1.0
