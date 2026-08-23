@@ -1,5 +1,5 @@
 # res://scenes/guild/guild_screen.gd
-# ギルド画面：5つのサブ画面（倉庫/ショップ/育成/研究/作業場）への遷移ボタンと
+# ギルド画面：4つのサブ画面（倉庫/ショップ/育成/研究）への遷移ボタンと
 # 拠点への戻るボタンを持つ。指示書 EXEC_GUILD_WAREHOUSE.md §2 準拠。
 # 遷移先は GUILD_SCENES に集約し、ボタンごとに直書きしない（完了条件17）。
 
@@ -13,6 +13,11 @@ const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
 const RESEARCH_PATH: String = "res://scenes/guild/research_screen.tscn"
 const SHOP_PATH: String = "res://scenes/guild/shop_screen.tscn"
+# ⚠ 作業場は廃止中（EXEC_WORKSHOP_RETIRE.md）。recipes.json が 0 件になり
+#   到達しても空の画面が出るだけのため、GUILD_SCENES と _nav_buttons から外し、
+#   .tscn 側の WorkshopButton を visible = false にしてある。
+# ⚠ この定数とノード参照は消していない。GAME_DESIGN 9-3（中間素材の製作＋
+#   装飾のランダム製作）で復活させるとき、1行ずつ戻すだけで済むようにするため。
 const WORKSHOP_PATH: String = "res://scenes/guild/workshop_screen.tscn"
 
 
@@ -22,7 +27,6 @@ const GUILD_SCENES: Dictionary = {
 	"shop": SHOP_PATH,
 	"training": TRAINING_PATH,
 	"research": RESEARCH_PATH,
-	"workshop": WORKSHOP_PATH,
 }
 
 # sub_screen_id -> PrimaryButton（_ready で組み立てる）
@@ -37,13 +41,13 @@ var _nav_buttons: Dictionary = {}
 @onready var back_button: PrimaryButton = $CenterContainer/Layout/BackButton
 
 func _ready() -> void:
-	# 5つのボタンを Dictionary 化（5回同じコードを書かない）
+	# 4つのボタンを Dictionary 化（4回同じコードを書かない）
+	# ⚠ workshop は廃止中のため入れない（上の GUILD_SCENES のコメント）。
 	_nav_buttons = {
 		"warehouse": warehouse_button,
 		"shop": shop_button,
 		"training": training_button,
 		"research": research_button,
-		"workshop": workshop_button,
 	}
 	# ループでシグナル接続
 	for sub_id: String in _nav_buttons:

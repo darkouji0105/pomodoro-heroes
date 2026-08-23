@@ -361,6 +361,14 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **`PomodoroConfig.reflection_time_limit_sec`と`reflection_min_chars`が使われていない。** `pomodoro.gd`が`const REFLECTION_TIME_LIMIT_SEC: float = 120.0`をハードコードしている。**数値管理ルール違反。** 値が一致しているため実害は出ていない（`EXEC_SOUND.md` §11）
 - **音量設定・ミュートのUIが無い。** `SoundConfig`の`master_volume_db` / `se_volume_db` / `bgm_volume_db`が起動時に各バスへ適用されるだけ。**設定画面を作る回に、セーブ構造ごと決める**
 - **BGMは鳴らせない。** `SoundManager`に`play_bgm()`は無い。バス`BGM`と音量欄だけ用意済み
+
+### 作業場の廃止で足した宿題（2026-08-23・`EXEC_WORKSHOP_RETIRE.md`）
+
+- ⚠ **作業場が空のまま残っている。** 画面とコードは動くが `recipes.json` が0件で**到達経路が無い**（ギルドのボタンは `visible = false`）。復活は `GAME_DESIGN` 9-3＝**中間素材の製作＋装飾のランダム製作**
+- ⚠ **素材の変換経路が消えた。** `GAME_DESIGN` 9-3 は「ショップに一本化」と書いているが、**`shop.json` に変換に相当する枠があるかは未確認。** 段階12（バランス実測）の前に見ること
+- ⚠ **`_sync_recipes_from_master()` の「読めない」保険が `MasterDataLoader` 側の赤だけになった**（早期 return を外したため。`EXEC_WORKSHOP_RETIRE.md` 決め1）。`recipes.json` を復活させる回で、GameManager 側にも戻すか判断する
+- ⚠ **`guild_screen.gd` の `WORKSHOP_PATH` が未使用のまま残っている**（復活で1行ずつ戻すため意図的に残した）。復活しないと決めたら消す
+- ⚠ **`AGENTS.md`「GameManagerの状態構造」の `PENDING_CHESTS` の行が実装と違う**（ズレ26）。表は `{chest_id, chest_type, ...}` だが、実装は `{instance_id, chest_id, ...}`（`state_keys.gd:96`）。**`chest_type` は `ChestScheduleEntry`（`.tres`）の `@export` 名であって状態のキーではない。** 前回の宝箱1本化での追記漏れ。**次に `AGENTS.md` を触る回で直す**
 ### skills の複数ファイル化の回で見つかったもの（2026-08-16）
 
 - ⚠ **ロード時検証がいつ走るかの記述が間違っていた。** `master_data_loader.gd` のコメントは「育成画面か戦闘画面に入って初めて動く」と書いていたが、**「つづきから」でも走る**（`load_state()` → `_resync_growth_stats_from_master()` → `_recalc_stats()` → `get_character()`）。⚠ **回るのは `character_growth` のエントリぶんなので、育成データが0件のセーブでは出ない。両方の記述が部分的に正しかった。** コメントは実測に合わせて修正済み
@@ -823,6 +831,8 @@ SkillRuntime      待っていた効果を発火（経路は _fire() の1本の�
 将来の候補：拠点の拡張（`WorkshopConfig.max_queue_slots`が器として既にある）／ポモドーロ側の強化／記録と実績。**コスメティックはSDキャラの素材が無いので作れない。**
 
 > **⚠ 「デモ版では現状のまま止める」という判断は反転した。** 作業場は作り直す（`GAME_DESIGN.md` 9-3）。素材変換と装備製作を廃止し、中間素材と装飾のランダム製作にする。**「戦闘以外のインクリメンタル要素」という当初の目的には、掘削（デモ範囲外）で戻る。**
+
+> ⚠ **廃止まで入った（2026-08-23・`EXEC_WORKSHOP_RETIRE.md`）。** `recipes.json` は 14件 → **0件**。ギルドの「作業場」ボタンは `visible = false` で隠してある。⚠ **画面もコードも消していない**（`workshop_screen` / `CRAFTING_QUEUE` / `WorkshopConfig` / `start_craft()` / `collect_craft()`）。**次の回で中間素材の製作と装飾のランダム製作を入れて復活させる。**
 
 ### 装備で分かった重要な事実
 

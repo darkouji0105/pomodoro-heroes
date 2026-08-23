@@ -3621,10 +3621,13 @@ func _default_craft_duration_sec() -> int:
 # recipes.json から消えたレシピIDは recipes_unlocked からもキューからも消える。
 # レシピIDを改名すると走行中の製作が消えるため、リリース後に改名しないこと。
 func _sync_recipes_from_master() -> void:
+	# ⚠ 空でもそのまま流す（EXEC_WORKSHOP_RETIRE.md 決め1）。
+	#   作業場の廃止で recipes.json は 0 件になった。ここで早期 return すると
+	#   recipes_unlocked に消えたレシピIDが残り、_normalize_crafting_queue() にも
+	#   到達しないため、走行中のキューが落ちない。
+	# ⚠ 「ファイルが読めない」の保険は MasterDataLoader._index_by() が持っている
+	#   （root が空なら push_error("empty or unreadable")）。ここでは重ねない。
 	var master: Dictionary = MasterDataLoader.get_all_recipes()
-	if master.is_empty():
-		push_warning("[GameManager] _sync_recipes_from_master: recipes.json が空か読み込めない")
-		return
 
 	var current: Dictionary = _state.get(GameStateKeys.RECIPES_UNLOCKED, {})
 	var synced: Dictionary = {}

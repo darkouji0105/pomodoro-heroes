@@ -1,24 +1,24 @@
-# 次にやること：**③ 作業場の廃止**
+# 次にやること：**⑦ パーティ選択画面とプリセット**
 
 **このファイルは「次の1タスク」だけを書く。** 終わったら次のタスクの内容に書き換える。全体の状況は `PROJECT_STATUS.md`、ルールは `AGENTS.md` と `CLAUDE.md`、**ゲームの中身は `GAME_DESIGN.md`**、**順番の台帳は `docs/PLAN_IMPLEMENTATION.md` 3章**。
 
 **このファイルだけ読めば着手できるように書いてある。** 過去のタスクを知らない前提で読んでよい。
 
-⚠ **今回は「何をやるか」も「どこまでやるか」も決まっている**（§1）。⚠ **人間に聞くことは無い。**
+⚠ **「次に何をやるか」は設計役が決めた**（§1-0）。⚠ **人間が覆してよい。順番の判断なので差し替えが効く。**
 
 ---
 
-## 0. 前のタスクは終わっている（**2026-08-23・抽選ドロップと宝箱の1本化**）
+## 0. 前のタスクは終わっている（**2026-08-23・作業場の廃止**）
 
-**指示書は `docs/02_exec/EXEC_STAGE_DROPS.md` と `docs/02_exec/EXEC_CHEST_REGISTRY.md`。** ⚠ **両方とも完了条件が全部通っている**（⚠ **画面も人間が実施済み。⚠ 積み残しは無い**）。
+**指示書は `docs/02_exec/EXEC_WORKSHOP_RETIRE.md`。** ⚠ **ログ・ファイルの完了条件は全部通っている。⚠ 画面（§4-D の5項目）は人間の確認待ち。**
 
 ### 0-1. ⚠ 直近3回で入ったもの（**全件は `PROJECT_STATUS.md`**）
 
 | 回 | 入ったもの |
 |---|---|
-| **装飾** | ⚠ **宝石・護符・紋章の36件** ／ ⚠ **枠は長さ8の固定配列**（開く等級 `[3,4,5,5,6,7,8,9]`）／ ⚠ **刺す・外して壊れる・ロール・段階上げ** ／ ⚠ **`E119`** |
-| **抽選ドロップ** | ⚠ **ステージの宝箱**（`EXEC_STAGE_DROPS`）／ ⚠ **重み＋抽選回数の形** ／ ⚠ **`E120` `W19`** ／ ⚠ **`.tres` の素材IDが改名から漏れていた事故 → `E121` を新設** |
-| **宝箱の1本化** | ⚠ **`chests.json` を新設**（マスター6本目・7件）／ ⚠ **`GameManager.grant_chest()` が積む唯一の口** ／ ⚠ **`ChestContentConfig` を削除** ／ ⚠ **`E122` `W20`** |
+| **抽選ドロップ** | ⚠ **ステージの宝箱**（`EXEC_STAGE_DROPS`）／ ⚠ **重み＋抽選回数の形** ／ ⚠ **`E120` `W19`** |
+| **宝箱の1本化** | ⚠ **`chests.json` を新設**（マスター6本目・7件）／ ⚠ **`GameManager.grant_chest()` が積む唯一の口** ／ ⚠ **`ChestContentConfig` を削除** ／ ⚠ **`E121` `E122` `W20`** |
+| **作業場の廃止** | ⚠ **`recipes.json` が 14件 → 0件** ／ ⚠ **ギルドの「作業場」ボタンを `visible = false`** ／ ⚠ **`_sync_recipes_from_master()` の早期 return を外した** ／ ⚠ **画面もコードも消していない**（`GAME_DESIGN` 9-3 で復活予定） |
 
 ### 0-2. ⚠ 直近の人間の決定（**覆すときは影響範囲が広い**）
 
@@ -26,39 +26,54 @@
 2. ⚠ **`target.range` は触らない**
 3. ⚠ **素材IDは `<系統>_material_<1..4>` で固定**（2026-08-23。⚠ **段階1を無印に戻す案は却下。⚠ `get_forge_material_id()` が「接頭辞＋段階」で組み立てているため**）
 4. ⚠ **状態の色は3つだけ。⚠ デバフも青**
-5. ⚠ **③作業場の回は「廃止だけ」**（⚠ **中間素材も作らない。⚠ `recipes.json` は空になる。⚠ 進行中のキューは黙って落とすまま**）
-6. ⚠ **作業場の画面とコードは残す。⚠ ギルドの「作業場」ボタンだけ隠す**（2026-08-23。⚠ **`GAME_DESIGN` 9-3 で復活予定。⚠ 掘削も `crafting_queue` を使う**）
+5. ⚠ **作業場は「廃止だけ」で通した**（2026-08-23。⚠ **中間素材も装飾のくじも作っていない**）
+6. ⚠ **作業場の画面とコードは残す**（2026-08-23。⚠ **`GAME_DESIGN` 9-3 で復活予定。⚠ 掘削も `crafting_queue` を使う**）
 7. ⚠ **鍛冶のコストは式ではなく数値の配列**
 8. ⚠ **分解は半分しか返さない**
 
 ---
 
-## 1. ⚠ このタスク：**作業場の廃止**
+## 1. ⚠ このタスク：**パーティ選択画面とプリセット**
 
-⚠ **`PLAN_IMPLEMENTATION.md` 3章の段階11の前半。⚠ `GAME_DESIGN.md` 9-3。**
+⚠ **`PLAN_IMPLEMENTATION.md` 3章の段階7。⚠ `GAME_DESIGN.md` 7-7 の末尾（「設定はキャラプリセットに含める」）。**
 
-### 1-1. ⚠ やること（**これだけ**）
+### 1-0. ⚠ なぜ次がこれなのか（**設計役の判断・覆してよい**）
 
-| # | やること |
+⚠ **台帳では段階8（ルーン）が段階12（バランス実測）の唯一の未達依存**で、そちらが本命に見える。**それでも 7 を先に置いた理由：**
+
+- ⚠ **`GAME_DESIGN` 7-7 が「移動系ルーンの移動量はキャラプリセットに含める」と書いている。** ⚠ **プリセットが無いままルーンを実装すると、移動量の置き場が無く作り直しになる**
+- ⚠ **これは前回と同じ形の事故。** 前々回、⚠ **`GAME_DESIGN` 6-4 を読まずに枠を実装して丸ごと作り直しになった**
+- ⚠ **段階7 は「中」・段階8 は「大」。** 小さいほうを先に通して、⚠ **大きいほうを1回で通す**
+
+> ⚠ **台帳（`PLAN_IMPLEMENTATION.md` 3章）は段階8の依存を「3, 4」と書いており、7 が入っていない。** ⚠ **これはズレの可能性がある（§2-1 のズレ27）。⚠ 人間が「8を先」と決めるならそれでよい。**
+
+### 1-1. ⚠ いまの編成の実装（**これを置き換える**）
+
+| | 事実 |
 |---|---|
-| **1** | ⚠ **`resources/balance/master/recipes.json` を空にする**（⚠ **`{ "recipes": [] }`。⚠ 14件すべて削除**） |
-| **2** | ⚠ **`scenes/guild/guild_screen.gd` の「作業場」ボタンを隠す**（⚠ **`GUILD_SCENES` と `_nav_buttons` から `workshop` を外し、⚠ `.tscn` のボタンは `visible = false` にする**） |
-| **3** | ⚠ **宿題を `PROJECT_STATUS.md` に足す**（§5） |
+| ⚠ **専用画面が無い** | ⚠ **`scenes/adventure/adventure_select.gd`（358行）の中にある。⚠ `_build_party_row()` が `OptionButton` を3つ並べているだけ** |
+| ⚠ **枠の数** | ⚠ **`GameStateKeys.PARTY_SLOT_COUNT`**。⚠ **状態が唯一の正。⚠ `stages.json` の `party_id` では決まらない** |
+| ⚠ **書き込む口** | ⚠ **`GameManager.set_party_member(slot_index, character_id)` の1本** |
+| ⚠ **読む口** | ⚠ **`GameManager.get_party_members()`** |
+| ⚠ **候補の並び** | ⚠ **`_collect_party_candidates()`。⚠ `characters.json` の記述順のまま。⚠ 検証用キャラを混ぜる分岐があり、リリース前に消す（宿題16）** |
+| ⚠ **プリセットは0件** | ⚠ **状態にもマスターにも器が無い。⚠ `GameStateKeys` に該当の定数が無い** |
+| ⚠ **本番の編成** | ⚠ **`party_default` ＝ 僧侶(180) / 弓(300) / 剣士(60)** |
 
-### 1-2. ⚠ やらないこと（**決定5・決定6**）
+### 1-2. ⚠ 先に人間と決めること（**着手前**）
 
-- ⚠ **中間素材を作らない**（⚠ **`GAME_DESIGN` 9-3 の「中間素材の製作」は次の回**）
-- ⚠ **装飾のランダム製作を作らない**
-- ⚠ **`workshop_screen.gd` / `.tscn` を消さない**
-- ⚠ **`CRAFTING_QUEUE` / `RECIPES_UNLOCKED` / `WorkshopConfig` / `start_craft()` / `collect_craft()` を消さない**
-- ⚠ **`ja.csv` の `ui_guild_workshop_*` 10行を消さない**（⚠ **復活時にそのまま使う**）
+⚠ **このタスクは前回までと違い、⚠ 仕様が `GAME_DESIGN` に1行しか無い。⚠ 決めずに書くと作り直しになる。**
+
+1. ⚠ **プリセットは何本持つか**（固定本数か、増やせるか）
+2. ⚠ **プリセットに何が入るか**（⚠ **メンバー3人だけか、⚠ スキル枠2つも含むか、⚠ 将来のルーン移動量まで見込むか**）
+3. ⚠ **専用画面を作るか、`adventure_select` の中を作り替えるか**（⚠ **`AGENTS.md` のフォルダ構造に `scenes/adventure/` はある。⚠ 新しいフォルダは要らない**）
+4. ⚠ **切り替えはいつ効くか**（⚠ **戦闘に入る前だけか、⚠ 拠点でも変えられるか**）
 
 ### 1-3. ⚠ 予想できている落ち（**先に潰すこと**）
 
-- ⚠ **`_sync_recipes_from_master()` が `recipes_unlocked` を空にする。⚠ 起動ログが `-> 0 recipes (unlocked=0, skipped=0)` になる**（⚠ **赤ではない。正常**）
-- ⚠ **`_normalize_crafting_queue()` が既存のキューを黙って落とす**（⚠ **決定5でそれでよいと決まっている**）
-- ⚠ **`MasterDataLoader` の `_index_by()` が空配列でどう振る舞うか未確認。⚠ 先に見ること**
-- ⚠ **`E118` の `recipes.json` の枝が0件になる。⚠ 検証が素通りにならないか確かめること**
+- ⚠ **`_build_party_row()` は `queue_free()` + `remove_child()` の形になっている**（`adventure_select.gd:64-67`）。⚠ **`await` を持たせないこと**（`CLAUDE.md` 5番）
+- ⚠ **`_party_candidates` は「`OptionButton` の項目番号 → `character_id`」の変換表。⚠ 項目番号をそのままIDに使わない**（`adventure_select.gd:141` の注記）
+- ⚠ **プリセットを状態に足すなら `GameStateKeys` に定数を足し、⚠ `AGENTS.md`「GameManagerの状態構造」の表にも1行足す**（⚠ **前回この追記が漏れてズレ26になった**）
+- ⚠ **プリセットに `character_id` を持たせると、⚠ IDの改名で黙って壊れる**（`CLAUDE.md` 4番）。⚠ **`_sync_*_from_master()` と同じ型で毎回洗うか、⚠ 検証（`E123`）を足すか決めること**
 
 ---
 
@@ -66,17 +81,18 @@
 
 ### 2-1. ⚠ ドキュメントの「実装済み」を信じない
 
-**ズレが23回起きている。** ⚠ **`grep` で関数の中身を見てから判断する。⚠ 違っていたら報告する（勝手に直さない）。**
+**ズレが26回起きている。** ⚠ **`grep` で関数の中身を見てから判断する。⚠ 違っていたら報告する（勝手に直さない）。**
 
-⚠ **直近で実際に見つけたズレ**（⚠ **2026-08-23に6件まとめて修正済み**）：
-- ⚠ **`GAME_DESIGN` 15章・6-5 が「装備製作レシピ7件」と書いていた**（⚠ **実データは装備製作10件＋変換系4件＝14件。⚠ このタスクで踏むところだった**）
-- ⚠ **`PROJECT_STATUS` が「宝箱からも装備が出る」と書いていた**（⚠ **器はあったが実データは0件**）
-- ⚠ **`NEXT_STEPS` §3 の「素材が触れる場所」に `.tres` が2つ抜けていた**（⚠ **これが `E121` の事故の入口。§3 で直してある**）
+⚠ **未報告のズレは3件**（⚠ **2026-08-23に見つけたもの。⚠ まだ直していない**）：
+
+- ⚠ **ズレ24・25**（⚠ **このファイルの前の版の §1-3。⚠ 作業場の廃止で解消済み**）
+- ⚠ **ズレ26 — `AGENTS.md`「GameManagerの状態構造」の `PENDING_CHESTS` の行。** ⚠ **表は `{chest_id, chest_type, ...}` だが実装は `{instance_id, chest_id, ...}`**（`state_keys.gd:96`）。⚠ **`chest_type` は `ChestScheduleEntry`（`.tres`）の `@export` 名であって状態のキーではない。⚠ 次に `AGENTS.md` を触る回で直す**
+- ⚠ **ズレ27（未確定）— `PLAN_IMPLEMENTATION.md` 3章の段階8の依存に 7 が無い。** ⚠ **`GAME_DESIGN` 7-7 は「移動量はキャラプリセットに含める」と書いている**（§1-0）
 
 ### 2-2. ⚠ 触る器について、先に台帳を `grep` する
 
-⚠ **前回、⚠ `GAME_DESIGN` 6-4 を読まずに枠を実装して丸ごと作り直しになった。⚠ しかも「変えないもの」に台帳が「置き換えろ」と言っている値を書いて保護した。**
-→ ⚠ **`EXEC` の §4「変えないもの」に何か書く前に、⚠ `GAME_DESIGN` / `PLAN_IMPLEMENTATION` / `PROJECT_STATUS` を `grep` して「置き換えろ」が無いことを確かめる。**
+⚠ **`EXEC` の §「変えないもの」に何か書く前に、⚠ `GAME_DESIGN` / `PLAN_IMPLEMENTATION` / `PROJECT_STATUS` を `grep` して「置き換えろ」が無いことを確かめる。**
+⚠ **実例：⚠ 6-4 を読まずに枠を実装して丸ごと作り直しになった。⚠ しかも「変えないもの」に台帳が「置き換えろ」と言っている値を書いて保護した。**
 
 ### 2-3. ⚠ `@export` を改名すると `.tres` の値が黙って消える
 
@@ -98,6 +114,7 @@
 - ⚠ **`GameManager.get_part_reject_reason()`**（刺せるかの判定）
 - ⚠ **`GameManager.grant_chest()`**（⚠ **宝箱を積む唯一の口。ポモドーロも戦闘もここを通る**）
 - ⚠ **`GameManager._roll_chest_draw()`**（抽選）
+- ⚠ **`GameManager.set_party_member()`**（⚠ **編成を書き込む唯一の口。⚠ プリセットもここを通すこと**）
 
 ### 2-6. ⚠ E / W の次番号
 
@@ -107,33 +124,33 @@
 
 ## 3. 調査済みの事実（**`grep`し直さなくてよい**・2026-08-23確認）
 
-> ⚠ **ここは「実コードの現在の状態」であって仕様ではない。** ⚠ **仕様は `GAME_DESIGN.md`。⚠ 台帳が「置き換えろ」と言っている項目は、ここに書いてあっても変わる**（⚠ **前回この取り違えで1タスク溶けた**）。
+> ⚠ **ここは「実コードの現在の状態」であって仕様ではない。** ⚠ **仕様は `GAME_DESIGN.md`。⚠ 台帳が「置き換えろ」と言っている項目は、ここに書いてあっても変わる**（⚠ **前々回この取り違えで1タスク溶けた**）。
 
 | | 事実 |
 |---|---|
 | ⚠ ログの実体 | `C:/Users/admin/AppData/Roaming/Godot/app_userdata/pomodoro-heroes/logs/battle_last.jsonl`。⚠ **戦闘のたびに上書き** |
 | ⚠ 出力パネル | `.../logs/godot.log`。⚠ **保持5本。⚠ 読む前に自分でヘッドレスを走らせない** |
-| ロード時の正常な出力 | ⚠ **`skills validated: 79 entries, 0 errors, 1 warnings`**（黄1本は `skill_dbg_dot_odd` の端数＝**出るのが正解**）／ `basic attacks validated: 19 entries, 0 errors, 0 warnings` ／ ⚠ **`items validated: 64 entries, 0 errors`** ／ ⚠ **`balance item refs validated: 0 errors`** |
+| ロード時の正常な出力 | ⚠ **`skills validated: 79 entries, 0 errors, 1 warnings`**（黄1本は `skill_dbg_dot_odd` の端数＝**出るのが正解**）／ `basic attacks validated: 19 entries, 0 errors, 0 warnings` ／ ⚠ **`items validated: 64 entries, 0 errors`** ／ ⚠ **`balance item refs validated: 0 errors`** ／ ⚠ **`_sync_recipes_from_master() -> 0 recipes (unlocked=0, skipped=0)`**（⚠ **作業場の廃止で 0 になった。正常**） |
 | ⚠ **素材** | ⚠ **16件**。`construction_material_1..4`（木材/石材/鉄材/金材）／ `training_material_1..4`（修練/鍛錬/練達/極意の証）／ `forging_material_1..4`（鍛冶の欠片/塊/結晶/極）／ `decor_material_1..4`（飾り石/玉/晶/極） |
-| ⚠ **素材が触れる場所**（**全部**） | ⚠ **`items.json` ／ `stages.json` の `rewards.materials` ／ `shop.json` ／ `research.json` ／ `recipes.json` ／ `chests.json` の `rewards.materials` と `draw`** ／ ⚠ **`.tres` は `initial_state_config` ・ `character_config.level_up_material_id` ・ `research_config.unlock_material_id` ・ `shop_config.item_pool` の4つ** ／ ⚠ **`.gd` の直書きは `state_keys.gd` の `ITEM_FORGING_MATERIAL_PREFIX` と `ITEM_DECOR_MATERIAL_PREFIX` だけ**（⚠ **`.tres` の2つが抜けていて `E121` の事故になった。⚠ いまは `E121` が全部見る**） |
+| ⚠ **素材が触れる場所**（**全部**） | ⚠ **`items.json` ／ `stages.json` の `rewards.materials` ／ `shop.json` ／ `research.json` ／ `chests.json` の `rewards.materials` と `draw`** ／ ⚠ **`recipes.json` は0件になったが枝は残っている** ／ ⚠ **`.tres` は `initial_state_config` ・ `character_config.level_up_material_id` ・ `research_config.unlock_material_id` ・ `shop_config.item_pool` の4つ** ／ ⚠ **`.gd` の直書きは `state_keys.gd` の `ITEM_FORGING_MATERIAL_PREFIX` と `ITEM_DECOR_MATERIAL_PREFIX` だけ**（⚠ **`E121` が全部見る**） |
 | ⚠ **装備の等級** | ⚠ **1〜10**（`Balance.equipment.max_equipment_grade`）。⚠ コストは `forge_cost_by_grade`（9個の配列）。⚠ 段階は `forge_material_tier_min_grades = [1,4,7,10]` |
 | ⚠ **刺す枠** | ⚠ **長さ8の固定配列**（`null` 込み・**位置が枠を表す**）。⚠ **開く等級は `PartConfig.part_slot_min_grades = [3,4,5,5,6,7,8,9]`**。⚠ **等級3/4＝宝石 ／ 5＝特別枠（武器＝ルーン／防具＝ワイルド／アクセ＝ルーン×2）／ 6/7＝護符 ／ 8/9＝紋章**。⚠ **位置3はアクセサリーだけ開く**。⚠ **刺さる種類は部位ではなく枠で決まる**（`get_part_slot_defs()`） |
 | ⚠ **等級10** | ⚠ **枠は開かない。⚠ 「部位固有のパッシブ」が開く予定だが未実装**（`GAME_DESIGN` 6-4） |
 | ⚠ **装飾** | ⚠ **36件**（宝石・護符・紋章 × 軸 × 段階1〜4）。⚠ **ルーンは0件**（⚠ **枠は開くが何も刺さらない**） |
-| ⚠ **装備の入手経路** | ⚠ **ステージの抽選ドロップ**（`stage_1/2/3` の宝箱・当たり率30%）／ ⚠ **`F4` のデバッグパネル** ／ ⚠ **作業場のレシピ10件**（⚠ **このタスクで消える**）。⚠ **ショップは0件・ポモドーロの宝箱も0件** |
-| ⚠ **宝箱** | ⚠ **`chests.json` に7件**（ポモドーロ4＝固定 ／ 戦闘3＝抽選）。⚠ **積む口は `GameManager.grant_chest()` の1本**。⚠ **`pending_chests` は `{instance_id, chest_id, source, obtained_at, opened, rewards}`**（⚠ **`instance_id` が一意ID・`chest_id` が種類**） |
-| ⚠ **レシピ** | ⚠ **14件**（変換系4 ＋ 装備製作10）。⚠ **このタスクで空になる** |
+| ⚠ **装備の入手経路** | ⚠ **ステージの抽選ドロップ**（`stage_1/2/3` の宝箱・当たり率30%）／ ⚠ **`F4` のデバッグパネル**。⚠ **作業場のレシピ10件は廃止で消えた。⚠ ショップは0件・ポモドーロの宝箱も0件** |
+| ⚠ **宝箱** | ⚠ **`chests.json` に7件**（ポモドーロ4＝固定 ／ 戦闘3＝抽選）。⚠ **積む口は `GameManager.grant_chest()` の1本**。⚠ **`pending_chests` は `{instance_id, chest_id, source, obtained_at, opened, rewards}`**（⚠ **`instance_id` が一意ID・`chest_id` が種類。⚠ `AGENTS.md` の表はズレ26で古い**） |
+| ⚠ **レシピ** | ⚠ **0件**（⚠ **`{ "recipes": [] }`。⚠ 作業場は画面もコードも残っているが到達経路が無い**） |
 | ⚠ **研究** | ⚠ **5ノード・縦1列**（⚠ **`category` は無い。⚠ 作り替えは段階10**） |
 | ⚠ 座標の定数 | **`GROUND_Y = 240` ／ 味方 `PARTY_BASE_X=200` `STEP=100` ／ 敵 `ENEMY_BASE_X=900` `STEP=100`** |
 | ⚠ **射程の段** | ⚠ **`60`（前衛）／ `180`（中衛）／ `300`（後衛）／ `420`（最後衛）** |
-| ⚠ 編成 | ⚠ **状態が唯一の正**。⚠ **`stages.json` の `party_id` では決まらない**。⚠ **専用画面は無く `adventure_select.gd` の中にある** |
+| ⚠ **編成** | ⚠ **状態が唯一の正**。⚠ **`stages.json` の `party_id` では決まらない**。⚠ **専用画面は無く `adventure_select.gd` の `_build_party_row()` の中にある**（⚠ **§1-1 に詳細**） |
 | ⚠ スキル枠 | **`SKILL_SLOT_COUNT` は 2**。⚠ **パッシブ枠もある**（⚠ **本番キャラのパッシブは0件。検証用の `passive_dbg_*` だけ**） |
 | ⚠ **本番ステージ** | ⚠ **`stage_1` / `stage_2` / `stage_3` の3本 × 各5ウェーブ。⚠ 5波目が全部ボス** |
 | ⚠ **本番の編成** | ⚠ **`party_default` ＝ 僧侶(180) / 弓(300) / 剣士(60)** |
 | ⚠ **本番スキルの表示名** | ⚠ **剣士＝`強撃` / `横薙ぎ` ／ 僧侶＝`聖光`** |
 | ⚠ **画像素材が0件** | ⚠ **`assets/images/` は `.gitkeep` だけ** |
 | ⚠ **`F4` のデバッグパネル** | ⚠ **`tests/debug_overlay.gd`。⚠ 「素材を全種類」「装飾を全種類」「装備を全種類 1個ずつ」「研究を全部解放」「セーブする」** |
-| 行数 | `game_manager` 3937 ／ `battle_controller` 1753 ／ `debug_boot` 1452 ／ `master_data_loader` 992 |
+| 行数 | `game_manager` 3940 ／ `battle_controller` 1753 ／ `debug_boot` 1452 ／ `master_data_loader` 992 ／ ⚠ **`adventure_select` 358** |
 
 ```
 battle_controller  … 入力と表示。ノードを触る唯一の層
@@ -158,12 +175,15 @@ BattleLog          … 静的クラス。どの層からも呼べる（Autoload 
 - ⚠ **読むのは `[System.IO.File]::ReadAllLines(path, UTF8)`**（`Get-Content` は化ける）
 - ⚠ **CR を数えるのに `grep -c $'\r'` を使わない**（⚠ **Git Bash では全行に誤ヒットする。⚠ `python -c "print(open(p,'rb').read().count(b'\x0d'))"` を使う**）
 - ⚠ **警告とエラーは `-RedirectStandardError` のほう**（⚠ **`push_warning` / `push_error` は stdout に出ない**）
-- ⚠ **今あるシナリオ（23本）**：`area` / `recast` / `recast_expire` / `summon` / `summon_wipe` / `lineup` / `mitigate` / `pierce` / `shield` / `reflect` / `reflect_self` / `intervene_legacy` / `aura` / `aura_follow` / `pool` / `atk_mult` / `dot_react` / `status_ui` / `status_ui_over` / `materials` / **`parts`** / **`drops`** / `training`（⚠ **`training` は窓あり専用**）
+- ⚠ **赤黄を数えるときは行頭で絞る**（`^(ERROR|WARNING)`）。⚠ **スタックトレースの続き行（`at: push_warning ...`）を拾って誤検知する**
+- ⚠ **今あるシナリオ（23本）**：`area` / `recast` / `recast_expire` / `summon` / `summon_wipe` / `lineup` / `mitigate` / `pierce` / `shield` / `reflect` / `reflect_self` / `intervene_legacy` / `aura` / `aura_follow` / `pool` / `atk_mult` / `dot_react` / `status_ui` / `status_ui_over` / `materials` / `parts` / `drops` / `training`
+- ⚠ **`training` はヘッドレスで終わらない**（⚠ **窓あり専用。⚠ 2026-08-23に10分回して確認した。⚠ 全シナリオを回すときは除くこと**）
 - ⚠ **`materials` / `parts` / `drops` は戦闘を回さない**（`kind: "report"`）。⚠ **戦闘に出ない器を足したときはこの形を使う**
-- ⚠ **1本あたり10〜20秒。⚠ 全部回すと4分以上かかるので、⚠ PowerShell の既定タイムアウト（2分）に当たる。分けて回すこと**
+- ⚠ **`drops` は `grant_chest("chest_that_does_not_exist")` を意図的に呼ぶので黄が1本出る**（⚠ **出るのが正解**）
+- ⚠ **1本あたり10〜20秒。⚠ 22本で7分ほどかかる。分けて回すこと**
 - ⚠ **シナリオは `SCENARIOS` に1行足す。シーンを増やさない**
-- ⚠ **足した検証が本当に赤を出すか、データを一時的に壊して確かめる。⚠ しかも2箇所で確かめる**
-- ⚠ **人間に渡す前に、全シナリオを1回ずつ回す**
+- ⚠ **足した検証が本当に赤を出すか、データを一時的に壊して確かめる。⚠ しかも2箇所で確かめる。⚠ 確かめたら必ず元に戻し、`git diff` が空になることを見る**
+- ⚠ **人間に渡す前に、全シナリオを1回ずつ回す**（`training` を除く22本）
 
 ---
 
@@ -196,7 +216,7 @@ BattleLog          … 静的クラス。どの層からも呼べる（Autoload 
 
 ### ⚠ `--check-only --script` は Autoload を読まない
 
-⚠ **`Identifier not found: Balance` は構文エラーではない。⚠ `Parse Error` が0件なら通っている。**
+⚠ **`Identifier not found: Balance` / `: SceneManager` は構文エラーではない。⚠ `Parse Error` が0件なら通っている。**
 
 ### ⚠ 件数を増やす回では、既存の器の型を先に見る
 
@@ -206,10 +226,11 @@ BattleLog          … 静的クラス。どの層からも呼べる（Autoload 
 
 **出したい記録は `BattleLog` へ。**（⚠ **`tests/` は例外。あちらは `print` が出口**）
 ⚠ **確率で起きるもの（抽選のハズレなど）は特に出さない。⚠ ログが埋まる。**
+⚠ **「意図的に空のデータ」に毎回黄を出さない**（⚠ **作業場の廃止で `_sync_recipes_from_master()` の `push_warning` を消したのはこれ**）。
 
 ### インデントはタブ
 
-`.gd`はタブ。**`.json`も既存ファイルはタブ**（⚠ `stages.json` だけトップレベルが半角スペース2つ）。`ja.csv`はUTF-8（BOMなし・LF）。
+`.gd`はタブ。**`.json`も既存ファイルはタブ**（⚠ `stages.json` だけトップレベルが半角スペース2つ／⚠ **`recipes.json` は空になったので半角スペース2つ**）。`ja.csv`はUTF-8（BOMなし・LF）。
 
 ---
 
@@ -224,42 +245,47 @@ BattleLog          … 静的クラス。どの層からも呼べる（Autoload 
 3. ⚠ **`W16`（知らない欄）を赤に上げるか**
 4. ⚠ **godot MCP の設定を消すか** ／ **`tests/` の既存9件の棚卸し** ／ **Ziva の `.bak` が7件残っている**
 5. ⚠ **`ja.ja.translation` が 20427 → 8631 バイトに縮んだ理由が不明**（⚠ **キーの欠落は無いことを実測で確認済み**）
+6. ⚠ **作業場をいつ復活させるか**（⚠ **`recipes.json` が0件のまま。⚠ 画面もコードも生きている**）
+7. ⚠ **素材の変換経路が消えた。** ⚠ **`GAME_DESIGN` 9-3 は「ショップに一本化」と書いているが、⚠ `shop.json` に変換に相当する枠があるかは未確認**
 
 ### ⚠ 器の穴（**大きいものだけ**）
 
-6. ⚠ **本番キャラのパッシブが0件**（⚠ **枠と `get_battle_passives()` はある**）
-7. ⚠ **ルーンが0件**（⚠ **武器・アクセサリーの特別枠が空のまま**）
-8. ⚠ **等級10の「部位固有のパッシブ」が未実装**（⚠ **枠ではないので別の仕組みが要る**）
-9. ⚠ **護符が宝石と仕組み上同じ**（⚠ **軸で割って見分けている暫定。⚠ 回避が10軸に無い**）
-10. ⚠ **購読は `host: unit` のみ** ／ ⚠ **`host: battle` は誰も読まない**
-11. ⚠ **召喚の同時数に上限が無い** ／ ⚠ **召喚はスキルもパッシブも持てない**
-12. ⚠ **`stack` の5部品のうち上限だけ入れた**
-13. ⚠ **「死亡時発動」と「他人の蘇生」はまだ書けない** ／ ⚠ **多段の2発目に投射物が出ない**
-14. ⚠ **反射は1段だけ** ／ ⚠ **DoT は反射しない** ／ ⚠ **シールドが複数付いたときの吸う順が未定**
-15. ⚠ **オーラの範囲が画面に描かれない**
-16. ⚠ **状態の色が3つしかない**（デバフが青）／ ⚠ **状態の残り時間がマスに出ない**
-17. ⚠ **本番スキルに `react` と `host: point` が0件**
-18. ⚠ **`W18` が未実測**（⚠ **正規の経路では「刺さっているのに加算できない」状態を作れない**）
+8. ⚠ **本番キャラのパッシブが0件**（⚠ **枠と `get_battle_passives()` はある**）
+9. ⚠ **ルーンが0件**（⚠ **武器・アクセサリーの特別枠が空のまま。⚠ 段階8**）
+10. ⚠ **プリセットが0件**（⚠ **状態にもマスターにも器が無い。⚠ このタスク**）
+11. ⚠ **等級10の「部位固有のパッシブ」が未実装**（⚠ **枠ではないので別の仕組みが要る**）
+12. ⚠ **護符が宝石と仕組み上同じ**（⚠ **軸で割って見分けている暫定。⚠ 回避が10軸に無い**）
+13. ⚠ **購読は `host: unit` のみ** ／ ⚠ **`host: battle` は誰も読まない**
+14. ⚠ **召喚の同時数に上限が無い** ／ ⚠ **召喚はスキルもパッシブも持てない**
+15. ⚠ **`stack` の5部品のうち上限だけ入れた**
+16. ⚠ **「死亡時発動」と「他人の蘇生」はまだ書けない** ／ ⚠ **多段の2発目に投射物が出ない**
+17. ⚠ **反射は1段だけ** ／ ⚠ **DoT は反射しない** ／ ⚠ **シールドが複数付いたときの吸う順が未定**
+18. ⚠ **オーラの範囲が画面に描かれない**
+19. ⚠ **状態の色が3つしかない**（デバフが青）／ ⚠ **状態の残り時間がマスに出ない**
+20. ⚠ **本番スキルに `react` と `host: point` が0件**
+21. ⚠ **`W18` が未実測**（⚠ **正規の経路では「刺さっているのに加算できない」状態を作れない**）
 
 ### ⚠ 数値が全部「勘」
 
-19. ⚠ **等級4〜10の鍛冶コスト7個** ／ ⚠ **分解の返却率 0.5**
-20. ⚠ **装飾の `part_base` / `part_roll_max` 72個 ＋ `part_config.tres` の7個**
-21. ⚠ **宝箱の中身と `weight`**（⚠ **戦闘3件が全部30%で同じ。⚠ 進行度で美味しさが変わらない**）
-22. ⚠ **段階④の入口がショップだけ** ／ ⚠ **`decor_material_4` も同じ**
+22. ⚠ **等級4〜10の鍛冶コスト7個** ／ ⚠ **分解の返却率 0.5**
+23. ⚠ **装飾の `part_base` / `part_roll_max` 72個 ＋ `part_config.tres` の7個**
+24. ⚠ **宝箱の中身と `weight`**（⚠ **戦闘3件が全部30%で同じ。⚠ 進行度で美味しさが変わらない**）
+25. ⚠ **段階④の入口がショップだけ** ／ ⚠ **`decor_material_4` も同じ**
 
 ### ⚠ 表示の穴
 
-23. ⚠ **戦闘結果の報酬画面に `rewards.inventory` が出ない**（⚠ **gold と materials しか並べていない。⚠ 宝箱も出ない**）
-24. ⚠ **素材欄・倉庫の持ち物タブが Dictionary のキー順**（⚠ **`sort_order` ではない**）
-25. ⚠ **`apply_battle_rewards()` が `gems` と `stamina` を読まない** ／ ⚠ **`open_chest()` が `stamina` を読まない**
-26. ⚠ **`weapon_steel_sword` がどこからも出ない**（⚠ **`items.json` と `ja.csv` にはある**）
-27. ⚠ **`ChestScheduleEntry.chest_type` だけ語が揃っていない**（⚠ **中身は `chest_id` を指す。⚠ 改名すると `.tres` 7件が黙って空になる**）
+26. ⚠ **戦闘結果の報酬画面に `rewards.inventory` が出ない**（⚠ **gold と materials しか並べていない。⚠ 宝箱も出ない**）
+27. ⚠ **素材欄・倉庫の持ち物タブが Dictionary のキー順**（⚠ **`sort_order` ではない**）
+28. ⚠ **`apply_battle_rewards()` が `gems` と `stamina` を読まない** ／ ⚠ **`open_chest()` が `stamina` を読まない**
+29. ⚠ **`weapon_steel_sword` がどこからも出ない**（⚠ **`items.json` と `ja.csv` にはある**）
+30. ⚠ **`ChestScheduleEntry.chest_type` だけ語が揃っていない**（⚠ **中身は `chest_id` を指す。⚠ 改名すると `.tres` 7件が黙って空になる**）
 
 ### 片付け
 
-28. **検証用のものはリリース前に消す**（`stage_dbg_*` ／ `skill_dbg_*` ／ `st_dbg_*` ／ `char_debug_*` ／ `enemy_dbg_*` ／ `passive_dbg_*` ／ `summons.json` ／ `tests/debug_boot` ／ `tests/debug_overlay` ／ ⚠ **`ui_status_ch_*` の45行**）
-29. ⚠ **フォルダを増やしたら定数に1行足す**（`CHARACTER_DIRS_REQUIRED` / `ENEMY_DIRS_*`）
+31. **検証用のものはリリース前に消す**（`stage_dbg_*` ／ `skill_dbg_*` ／ `st_dbg_*` ／ `char_debug_*` ／ `enemy_dbg_*` ／ `passive_dbg_*` ／ `summons.json` ／ `tests/debug_boot` ／ `tests/debug_overlay` ／ ⚠ **`ui_status_ch_*` の45行** ／ ⚠ **`_collect_party_candidates()` の検証用キャラの分岐**）
+32. ⚠ **フォルダを増やしたら定数に1行足す**（`CHARACTER_DIRS_REQUIRED` / `ENEMY_DIRS_*`）
+33. ⚠ **`guild_screen.gd` の `WORKSHOP_PATH` が未使用のまま残っている**（⚠ **復活で1行ずつ戻すため意図的に残した**）
+34. ⚠ **`ja.csv` の `ui_guild_workshop*` 12行は残してある**（⚠ **`.tscn` の `label_key` が参照したまま。⚠ 消すと復活時に踏む**）
 
 ---
 
@@ -268,4 +294,4 @@ BattleLog          … 静的クラス。どの層からも呼べる（Autoload 
 **このファイルを、次のタスクの内容に書き換える。**
 ⚠ **`debug_boot` の `SCENARIOS` は消さない**（次の回で使い回す）。
 ⚠ **`PLAN_IMPLEMENTATION.md` 3章の状態列を1行だけ直す**（⚠ **段階単位の完了はあそこ1箇所で持つ**）。
-⚠ **次は段階7〜10 のどれか。⚠ 台帳の依存を見てから決める**（⚠ **バランス実測（段階12）は 8＝ルーンが未着手なので、まだ全部は測れない**）。
+⚠ **次は段階8（ルーン）が本命**（⚠ **段階12＝バランス実測の唯一の未達依存**）。⚠ **段階3のパッシブ・段階9・段階10 も未着手のまま。**
