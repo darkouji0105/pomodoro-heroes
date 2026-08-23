@@ -270,21 +270,22 @@ func _rebuild_chest_list() -> void:
 
 func _create_chest_row(chest: Dictionary) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
-	var chest_id: String = str(chest.get(GameStateKeys.CHEST_ID, ""))
-	row.name = "ChestRow_" + chest_id
+	var instance_id: String = str(chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
+	row.name = "ChestRow_" + instance_id
 
 	var name_label: Label = Label.new()
-	# ⚠ 接頭辞は ui_chest_（EXEC_STAGE_DROPS.md §3-E）。
-	#   ⚠ 以前は ui_pomodoro_chest_ だったが、戦闘の宝箱もここを通るようになったため
-	#     領域名を外した（AGENTS.md「翻訳キーの運用」）。ja.csv 側も4行改名してある。
-	name_label.text = tr("ui_chest_" + str(chest.get(GameStateKeys.CHEST_TYPE, "")))
+	# ⚠ 表示名は chests.json の name_key（EXEC_CHEST_REGISTRY.md §3-F）。
+	#   ⚠ 接頭辞を組み立てない。宝箱を増やしたときに .gd を触らず、
+	#     キーの紴りも chests.json 側だけで決まるようにするため。
+	var chest_def: Dictionary = MasterDataLoader.get_chest(str(chest.get(GameStateKeys.CHEST_ID, "")))
+	name_label.text = tr(str(chest_def.get(GameManager.CHEST_NAME_KEY, "")))
 	name_label.name = "ChestNameLabel"
 	row.add_child(name_label)
 
 	var open_button: Button = Button.new()
 	open_button.text = tr("ui_warehouse_open")
 	open_button.name = "OpenButton"
-	open_button.pressed.connect(_on_open_chest_pressed.bind(chest_id))
+	open_button.pressed.connect(_on_open_chest_pressed.bind(instance_id))
 	row.add_child(open_button)
 
 	chest_list.add_child(row)
@@ -297,17 +298,17 @@ func _add_empty_label(parent: Container) -> void:
 
 # --- 開封処理 ---
 
-func _on_open_chest_pressed(chest_id: String) -> void:
+func _on_open_chest_pressed(instance_id: String) -> void:
 	# 1. 開封前に rewards を読んでおく（open_chest は rewards を返さない）
-	var rewards: Dictionary = _read_chest_rewards(chest_id)
-	if rewards.is_empty() and not _chest_exists(chest_id):
-		push_warning("[WarehouseScreen] chest not found: " + chest_id)
+	var rewards: Dictionary = _read_chest_rewards(instance_id)
+	if rewards.is_empty() and not _chest_exists(instance_id):
+		push_warning("[WarehouseScreen] chest not found: " + instance_id)
 		return
 
 	# 2. open_chest を呼ぶ
-	var success: bool = GameManager.open_chest(chest_id)
+	var success: bool = GameManager.open_chest(instance_id)
 	if not success:
-		push_warning("[WarehouseScreen] open_chest failed: " + chest_id)
+		push_warning("[WarehouseScreen] open_chest failed: " + instance_id)
 		return
 
 	# 3. 整形して ResultLabel に表示
@@ -325,10 +326,10 @@ func _on_open_all_pressed() -> void:
 		var chest_dict: Dictionary = chest
 		if bool(chest_dict.get(GameStateKeys.CHEST_OPENED, false)):
 			continue
-		var chest_id: String = str(chest_dict.get(GameStateKeys.CHEST_ID, ""))
+		var instance_id: String = str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
 		var rewards: Dictionary = chest_dict.get(GameStateKeys.CHEST_REWARDS, {})
 
-		if GameManager.open_chest(chest_id):
+		if GameManager.open_chest(instance_id):
 			_merge_rewards(combined, rewards)
 			opened_count += 1
 
@@ -394,28 +395,28 @@ func _merge_rewards(combined: Dictionary, add: Dictionary) -> void:
 
 # --- ヘルパー ---
 
-func _read_chest_rewards(chest_id: String) -> Dictionary:
+func _read_chest_rewards(instance_id: String) -> Dictionary:
 	var state: Dictionary = GameManager.get_state()
 	var chests: Array = state.get(GameStateKeys.PENDING_CHESTS, [])
 	for chest: Variant in chests:
 		if not (chest is Dictionary):
 			continue
 		var chest_dict: Dictionary = chest
-		if str(chest_dict.get(GameStateKeys.CHEST_ID, "")) == chest_id:
+		if str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, "")) == instance_id:
 			var rewards_val: Variant = chest_dict.get(GameStateKeys.CHEST_REWARDS, {})
 			if rewards_val is Dictionary:
 				return rewards_val
 			return {}
 	return {}
 
-func _chest_exists(chest_id: String) -> bool:
+func _chest_exists(instance_id: String) -> bool:
 	var state: Dictionary = GameManager.get_state()
 	var chests: Array = state.get(GameStateKeys.PENDING_CHESTS, [])
 	for chest: Variant in chests:
 		if not (chest is Dictionary):
 			continue
 		var chest_dict: Dictionary = chest
-		if str(chest_dict.get(GameStateKeys.CHEST_ID, "")) == chest_id:
+		if str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, "")) == instance_id:
 			return true
 	return false
 

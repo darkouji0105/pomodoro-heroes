@@ -96,18 +96,17 @@ const RECIPE_IO_COUNT: String = "count"
 const RECIPE_UNLOCKED_BY_DEFAULT: String = "unlocked_by_default"
 const RECIPE_SORT_ORDER: String = "sort_order"
 
-# stages.json の rewards.chest_table 側だけにあるキー（EXEC_STAGE_DROPS.md §3-C）。
+# chests.json 側だけにあるキー（EXEC_CHEST_REGISTRY.md §3-D）。
 #
-# ⚠ chest_table を rewards の「中」に置いているのは、apply_battle_rewards() に
-#   stage_id が渡っていないため（battle_controller.gd:1553-1557 が渡すのは
-#   _stage_data.get("rewards") だけ）。rewards の中に入れれば BATTLE_REWARDS 経由で届く。
-#   ⚠ rewards の「隣」に移すと、宝箱が黙って積まれなくなる。
-const CHEST_TABLE: String = "chest_table"
-const CHEST_TABLE_ROLLS: String = "rolls"
-const CHEST_TABLE_LIST: String = "table"
-const CHEST_TABLE_ITEM_ID: String = "item_id"
-const CHEST_TABLE_WEIGHT: String = "weight"
-const CHEST_TABLE_COUNT: String = "count"
+# ⚠ 1エントリは rewards（固定）と draw（抽選）の両方を持てる
+#   （GAME_DESIGN.md 4-2 の「固定報酬＋抽選ドロップの二立て」がそのまま形になる）。
+const CHEST_NAME_KEY: String = "name_key"
+const CHEST_DRAW: String = "draw"
+const CHEST_DRAW_ROLLS: String = "rolls"
+const CHEST_DRAW_ENTRIES: String = "entries"
+const CHEST_DRAW_ITEM_ID: String = "item_id"
+const CHEST_DRAW_WEIGHT: String = "weight"
+const CHEST_DRAW_COUNT: String = "count"
 
 # items.json 側だけにあるキー。
 # 「そのIDが materials に入るのか inventory に入るのか」はここでしか分からない。
@@ -285,18 +284,9 @@ func _validate_balance_item_refs() -> void:
 		errors += _report_missing_balance_item(
 			str(Balance.character.level_up_material_id), "character_config.tres", "level_up_material_id")
 
-	# pomodoro_config.tres … 宝箱の中身（materials と equipment の両方）
-	if "pomodoro" in Balance and Balance.pomodoro != null:
-		for content: Variant in Balance.pomodoro.chest_contents:
-			if content == null:
-				continue
-			var chest_type: String = str(content.chest_type)
-			for material_id: Variant in content.materials:
-				errors += _report_missing_balance_item(
-					str(material_id), "pomodoro_config.tres", "%s.materials" % chest_type)
-			for item_id: Variant in content.equipment:
-				errors += _report_missing_balance_item(
-					str(item_id), "pomodoro_config.tres", "%s.equipment" % chest_type)
+	# ⚠ 宝箱の中身はここで見ない。chests.json へ移したので E118 が見る
+	#   （EXEC_CHEST_REGISTRY.md §3-B）。.tres に残っている chest_contents は
+	#   誰も読まない死んだ欄で、後半で @export ごと消す。
 
 	# initial_state_config.tres … 開始時の所持素材
 	if "initial_state" in Balance and Balance.initial_state != null:
@@ -549,17 +539,17 @@ func add_pending_chest(chest_data: Dictionary) -> void:
 	print("[GameManager] add_pending_chest() -> pending_count=%d" % get_pending_chest_count())
 	pending_chests_changed.emit(get_pending_chest_count())
 
-func open_chest(chest_id: String) -> bool:
+func open_chest(instance_id: String) -> bool:
 	# 存在しなければ何もせずfalse。存在すればopened=trueにしてrewardsを反映
 	var chests: Array = _copy_array(GameStateKeys.PENDING_CHESTS)
 	for i: int in range(chests.size()):
 		if not (chests[i] is Dictionary):
 			continue
 		var chest: Dictionary = (chests[i] as Dictionary).duplicate(true)
-		if str(chest.get(GameStateKeys.CHEST_ID, "")) != chest_id:
+		if str(chest.get(GameStateKeys.CHEST_INSTANCE_ID, "")) != instance_id:
 			continue
 		if bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
-			print("[GameManager] open_chest('%s') -> false (already opened)" % chest_id)
+			print("[GameManager] open_chest('%s') -> false (already opened)" % instance_id)
 			return false
 		chest[GameStateKeys.CHEST_OPENED] = true
 		chests[i] = chest
@@ -578,10 +568,10 @@ func open_chest(chest_id: String) -> bool:
 			var items: Dictionary = rewards[GameStateKeys.REWARD_INVENTORY]
 			for item_id: String in items:
 				add_to_inventory(item_id, int(items[item_id]))
-		print("[GameManager] open_chest('%s') -> true" % chest_id)
+		print("[GameManager] open_chest('%s') -> true" % instance_id)
 		pending_chests_changed.emit(get_pending_chest_count())
 		return true
-	print("[GameManager] open_chest('%s') -> false (not found)" % chest_id)
+	print("[GameManager] open_chest('%s') -> false (not found)" % instance_id)
 	return false
 
 func get_pending_chest_count() -> int:
@@ -651,12 +641,6 @@ func record_reached_threshold(threshold_min: int, chest_type: String) -> void:
 		_state[GameStateKeys.UNCLAIMED_CHESTS] = unclaimed
 		print("[GameManager] recorded threshold: %d min -> %s" % [threshold_min, chest_type])
 
-# 宝箱に入れる装備。export を足す前に保存した .tres でも落ちないよう null を潰す。
-func _chest_equipment(content_config: ChestContentConfig) -> Dictionary:
-	if content_config == null or content_config.equipment == null:
-		return {}
-	return content_config.equipment.duplicate(true)
-
 # 受け取り待ちの宝箱の一覧を取得する
 func get_unclaimed_chests() -> Array:
 	return _state.get(GameStateKeys.UNCLAIMED_CHESTS, []).duplicate(true)
@@ -668,38 +652,16 @@ func claim_pending_chests() -> int:
 	if unclaimed.is_empty():
 		return 0
 	
+	# ⚠ 中身は chests.json（EXEC_CHEST_REGISTRY.md §3-A）。もとは
+	#   Balance.pomodoro.chest_contents（.tres）から引いていたが、.tres は E118 が
+	#   見られず、素材IDの改名から漏れて無音で壊れた（EXEC_STAGE_DROPS.md §11）。
+	# ⚠ unclaimed の要素は chest_id。ChestScheduleEntry.chest_type が入れている
+	#   （あちらの @export 名は変えていない。改名すると .tres の値が黙って空になる）。
 	var count: int = 0
-	for chest_type: String in unclaimed:
-		var content_config: ChestContentConfig = null
-		for c in Balance.pomodoro.chest_contents:
-			if c.chest_type == chest_type:
-				content_config = c
-				break
-		
-		if content_config == null:
-			push_warning("[GameManager] chest_type not found in config: " + chest_type)
-			continue
-			
-		var chest_data: Dictionary = {
-			GameStateKeys.CHEST_ID: str(Time.get_unix_time_from_system()) + "_" + str(randi()),
-			GameStateKeys.CHEST_TYPE: chest_type,
-			GameStateKeys.CHEST_SOURCE: GameStateKeys.CHEST_SOURCE_POMODORO,
-			GameStateKeys.CHEST_OBTAINED_AT: str(Time.get_unix_time_from_system()),
-			GameStateKeys.CHEST_OPENED: false,
-			GameStateKeys.CHEST_REWARDS: {
-				GameStateKeys.REWARD_GOLD: 0,
-				GameStateKeys.REWARD_GEMS: 0,
-				GameStateKeys.REWARD_STAMINA: 0,
-				GameStateKeys.REWARD_MATERIALS: content_config.materials.duplicate(true),
-				# 装備は rewards の inventory に入れる。open_chest() がこれを
-				# add_to_inventory() に流し、そこで個体（eq_N）が作られる。
-				# ChestContentConfig に書くだけで済み、開封側のコードは要らない。
-				GameStateKeys.REWARD_INVENTORY: _chest_equipment(content_config)
-			}
-		}
-		add_pending_chest(chest_data)
-		count += 1
-	
+	for chest_id: String in unclaimed:
+		if grant_chest(chest_id, GameStateKeys.CHEST_SOURCE_POMODORO):
+			count += 1
+
 	_state[GameStateKeys.UNCLAIMED_CHESTS] = []
 	print("[GameManager] claimed %d chests" % count)
 	return count
@@ -752,15 +714,9 @@ func get_cumulative_focus_minutes_today() -> int:
 func apply_battle_rewards(result_data: Dictionary) -> void:
 	# gold/materialsの反映、SignalBus.battle_finishedの発火までを一括で行う
 	# ※ expは扱わない（レベル上げは専用素材消費型。DATA_SCHEMA.md 4-3準拠）
-	# ⚠ chest_table はログに出さない（EXEC_STAGE_DROPS.md §3-C）。
-	#   抽選テーブルは1ステージで5行以上あり、そのまま出すと戦闘1回ぶんのログが
-	#   テーブルで埋まって godot.log が読めなくなる。引いた結果は
-	#   add_pending_chest() が出すので、ここで出す必要も無い。
-	var log_data: Dictionary = result_data.duplicate(true)
-	var log_rewards: Variant = log_data.get(GameStateKeys.BATTLE_REWARDS, null)
-	if log_rewards is Dictionary:
-		(log_rewards as Dictionary).erase(CHEST_TABLE)
-	print("[GameManager] apply_battle_rewards(%s)" % log_data)
+	# ⚠ 抽選テーブルは chests.json へ移したので、rewards には chest_id の1行しか
+	#   残っていない（EXEC_CHEST_REGISTRY.md §3-E）。そのまま出して読める長さになった。
+	print("[GameManager] apply_battle_rewards(%s)" % result_data)
 	var rewards: Dictionary = result_data.get(GameStateKeys.BATTLE_REWARDS, {})
 	if rewards.has(GameStateKeys.REWARD_GOLD):
 		add_gold(int(rewards[GameStateKeys.REWARD_GOLD]))
@@ -790,33 +746,73 @@ func apply_battle_rewards(result_data: Dictionary) -> void:
 	# 発火元をGameManagerに一本化（呼び出し元の戦闘画面側では発火させない・二重発火防止）
 	SignalBus.battle_finished.emit(result_data)
 
-# rewards.chest_table を引き、当たりがあれば宝箱を1個積む。
+# rewards.chest_id を読み、その宝箱を1個積む。
 #
-# ⚠ chest_table を持たないステージでは何もしない（黄も出さない）。書いていないのは正常。
-# ⚠ 当たりが1件も無ければ宝箱を積まない（EXEC_STAGE_DROPS.md §0-1 の3）。
-#   空の宝箱を積むと「開けたのに何も出ない」になる。ハズレ枠の weight が
-#   そのまま「宝箱が出ない確率」になる。
-# ⚠ 状態を触るのは最後の1回だけ（CLAUDE.md 6番）。途中で積んでから取り消さない。
+# ⚠ chest_id を持たないステージでは何もしない（黄も出さない）。書いていないのは正常。
 func _grant_stage_chest(rewards: Dictionary) -> void:
-	var table_def: Variant = rewards.get(CHEST_TABLE, null)
-	if not (table_def is Dictionary):
+	var chest_id: String = str(rewards.get(GameStateKeys.CHEST_ID, ""))
+	if chest_id == "":
 		return
-	var drawn: Dictionary = _roll_chest_table(table_def as Dictionary)
-	if drawn.is_empty():
-		# ⚠ ハズレは正常系。print を出さない（NEXT_STEPS §4）。
+	var _granted: bool = grant_chest(chest_id, GameStateKeys.CHEST_SOURCE_BATTLE)
+
+
+# 宝箱を1個積む。chests.json の定義を引き、固定（rewards）と抽選（draw）を合流させる。
+#
+# ⚠ 宝箱を積む唯一の口。ポモドーロ（claim_pending_chests）も戦闘（_grant_stage_chest）も
+#   ここを通す。積む形が2つあると、片方だけ直す事故が起きる（NEXT_STEPS §2-4）。
+# ⚠ 中身が空なら積まない（EXEC_STAGE_DROPS.md §0-1 の3）。空の宝箱を積むと
+#   「開けたのに何も出ない」になる。抽選のハズレ枠の weight が、そのまま
+#   「宝箱が出ない確率」になる。
+# ⚠ 状態を触るのは最後の add_pending_chest() の1回だけ（CLAUDE.md 6番）。
+# ⚠ 抽選の結果は個体に焼き込む（人間の決定C・積むときに振る）。開けるときには振らない。
+func grant_chest(chest_id: String, source: String) -> bool:
+	var chest: Dictionary = MasterDataLoader.get_chest(chest_id)
+	if chest.is_empty():
+		push_warning("[GameManager] grant_chest: chests.json に無い chest_id: " + chest_id)
+		return false
+
+	# 固定ぶん。複製してから触る（マスターのキャッシュを汚さない）。
+	var rewards: Dictionary = {}
+	var fixed: Variant = chest.get(GameStateKeys.CHEST_REWARDS, null)
+	if fixed is Dictionary:
+		rewards = (fixed as Dictionary).duplicate(true)
+
+	# 抽選ぶん。inventory に合流させる（固定で同じIDが入っていれば足す）。
+	var draw_def: Variant = chest.get(CHEST_DRAW, null)
+	if draw_def is Dictionary:
+		var drawn: Dictionary = _roll_chest_draw(draw_def as Dictionary)
+		if not drawn.is_empty():
+			var inv: Dictionary = rewards.get(GameStateKeys.REWARD_INVENTORY, {})
+			for item_id: String in drawn:
+				inv[item_id] = int(inv.get(item_id, 0)) + int(drawn[item_id])
+			rewards[GameStateKeys.REWARD_INVENTORY] = inv
+
+	if _is_rewards_empty(rewards):
+		# ⚠ 抽選のハズレは正常系。print を出さない（NEXT_STEPS §4）。
 		#   70%の戦闘で出るので、出すと godot.log がこの1行で埋まる。
-		return
-	# ⚠ chest_id の作り方は claim_pending_chests() と同じにする。2本の作り方を作らない。
+		return false
+
 	add_pending_chest({
-		GameStateKeys.CHEST_ID: str(Time.get_unix_time_from_system()) + "_" + str(randi()),
-		GameStateKeys.CHEST_TYPE: GameStateKeys.CHEST_TYPE_BATTLE,
-		GameStateKeys.CHEST_SOURCE: GameStateKeys.CHEST_SOURCE_BATTLE,
+		GameStateKeys.CHEST_INSTANCE_ID: str(Time.get_unix_time_from_system()) + "_" + str(randi()),
+		GameStateKeys.CHEST_ID: chest_id,
+		GameStateKeys.CHEST_SOURCE: source,
 		GameStateKeys.CHEST_OBTAINED_AT: str(Time.get_unix_time_from_system()),
 		GameStateKeys.CHEST_OPENED: false,
-		GameStateKeys.CHEST_REWARDS: {
-			GameStateKeys.REWARD_INVENTORY: drawn,
-		},
+		GameStateKeys.CHEST_REWARDS: rewards,
 	})
+	return true
+
+
+# 宝箱の中身が実質空か。gold/gems/stamina は0、materials/inventory は空なら空とみなす。
+func _is_rewards_empty(rewards: Dictionary) -> bool:
+	for key: String in [GameStateKeys.REWARD_GOLD, GameStateKeys.REWARD_GEMS, GameStateKeys.REWARD_STAMINA]:
+		if int(rewards.get(key, 0)) > 0:
+			return false
+	for key: String in [GameStateKeys.REWARD_MATERIALS, GameStateKeys.REWARD_INVENTORY]:
+		var table: Variant = rewards.get(key, {})
+		if table is Dictionary and not (table as Dictionary).is_empty():
+			return false
+	return true
 
 # 重み付きテーブルを rolls 回引く。戻りは {item_id: count}（rewards.inventory と同じ形）。
 #
@@ -826,9 +822,9 @@ func _grant_stage_chest(rewards: Dictionary) -> void:
 # ⚠ MasterDataLoader が返す数値は float なので、rolls も weight も count も int() で包む
 #   （CLAUDE.md 3番）。包み忘れると randi_range に float が渡って黙って壊れる。
 # ⚠ 乱数は固定しない（装飾のロールと同じ）。検証は分布で見る。
-func _roll_chest_table(table_def: Dictionary) -> Dictionary:
+func _roll_chest_draw(draw_def: Dictionary) -> Dictionary:
 	var drawn: Dictionary = {}
-	var rows: Variant = table_def.get(CHEST_TABLE_LIST, [])
+	var rows: Variant = draw_def.get(CHEST_DRAW_ENTRIES, [])
 	if not (rows is Array):
 		return drawn
 	var list: Array = rows as Array
@@ -837,11 +833,11 @@ func _roll_chest_table(table_def: Dictionary) -> Dictionary:
 	for row: Variant in list:
 		if not (row is Dictionary):
 			continue
-		total_weight += maxi(0, int((row as Dictionary).get(CHEST_TABLE_WEIGHT, 0)))
+		total_weight += maxi(0, int((row as Dictionary).get(CHEST_DRAW_WEIGHT, 0)))
 	if total_weight <= 0:
 		return drawn
 
-	var rolls: int = int(table_def.get(CHEST_TABLE_ROLLS, 1))
+	var rolls: int = int(draw_def.get(CHEST_DRAW_ROLLS, 1))
 	for _i: int in range(rolls):
 		var pick: int = randi_range(1, total_weight)
 		var cursor: int = 0
@@ -849,12 +845,12 @@ func _roll_chest_table(table_def: Dictionary) -> Dictionary:
 			if not (row is Dictionary):
 				continue
 			var entry: Dictionary = row as Dictionary
-			cursor += maxi(0, int(entry.get(CHEST_TABLE_WEIGHT, 0)))
+			cursor += maxi(0, int(entry.get(CHEST_DRAW_WEIGHT, 0)))
 			if pick > cursor:
 				continue
-			var item_id: String = str(entry.get(CHEST_TABLE_ITEM_ID, ""))
+			var item_id: String = str(entry.get(CHEST_DRAW_ITEM_ID, ""))
 			if item_id != "":
-				var count: int = maxi(1, int(entry.get(CHEST_TABLE_COUNT, 1)))
+				var count: int = maxi(1, int(entry.get(CHEST_DRAW_COUNT, 1)))
 				drawn[item_id] = int(drawn.get(item_id, 0)) + count
 			break
 	return drawn

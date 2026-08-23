@@ -87,9 +87,14 @@ const ITEM_TYPE_KEY_ITEM: String = "key_item"
 const ITEM_TYPE_GIFT: String = "gift"
 const ITEM_TYPE_UNKNOWN: String = ""
 
-# PENDING_CHESTS: [{chest_id, chest_type, source, obtained_at, opened, rewards}]
+# PENDING_CHESTS: [{instance_id, chest_id, source, obtained_at, opened, rewards}]
+#
+# ⚠ instance_id は「その宝箱1個」の一意ID（1787458307.861_1169711068 の形）。
+#   chest_id は「種類」で、chests.json のエントリを指す。
+# ⚠ もとは一意IDのほうが chest_id を名乗っていたが、chests.json を作った回で
+#   定義側に譲った（EXEC_CHEST_REGISTRY.md §0-1 の1）。同じ名前が2つの意味を持っていた。
+const CHEST_INSTANCE_ID: String = "instance_id"
 const CHEST_ID: String = "chest_id"
-const CHEST_TYPE: String = "chest_type"
 const CHEST_SOURCE: String = "source"
 const CHEST_OBTAINED_AT: String = "obtained_at"
 const CHEST_OPENED: String = "opened"
@@ -231,16 +236,15 @@ const PROTECTION_MIDDLE: String = "middle"
 const PROTECTION_HARD: String = "hard"
 
 # ============================================================
-# 宝箱の種類（chest_type）と入手元（source）
+# 宝箱の入手元（source）
 # ============================================================
-
-const CHEST_TYPE_GENERIC: String = "generic"
-const CHEST_TYPE_BONUS_SMALL: String = "bonus_small"
-const CHEST_TYPE_BONUS_MEDIUM: String = "bonus_medium"
-const CHEST_TYPE_BONUS_LARGE: String = "bonus_large"
-# ⚠ ステージの抽選ドロップで積まれる宝箱（EXEC_STAGE_DROPS.md §3-B）。
-#   ⚠ ステージごとに分けない。テーブルのほうが stages.json でステージごとに分かれている。
-const CHEST_TYPE_BATTLE: String = "battle"
+#
+# ⚠ 種類（chest_id）の定数はここに並べない。chests.json が台帳
+#   （EXEC_CHEST_REGISTRY.md §3-C）。もとは CHEST_TYPE_GENERIC 等を5件並べていたが、
+#   宝箱を1種類足すたびに .gd を触ることになるため消した。
+#   ⚠ 加護のスケジュールは ChestScheduleEntry.chest_type（protection_*.tres）が
+#     文字列で chest_id を指す。あちらの @export 名は変えていない（改名すると
+#     .tres の値が黙って空になり、宝箱が一切もらえなくなる。§0-1 の2）。
 
 const CHEST_SOURCE_POMODORO: String = "pomodoro"
 const CHEST_SOURCE_BATTLE: String = "battle"

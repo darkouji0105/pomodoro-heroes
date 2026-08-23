@@ -1,0 +1,72 @@
+{
+  "chests": [
+	{
+	  "chest_id": "generic",
+	  "name_key": "ui_chest_generic",
+	  "sort_order": 0,
+	  "rewards": { "materials": { "construction_material_1": 4 } }
+	},
+	{
+	  "chest_id": "bonus_small",
+	  "name_key": "ui_chest_bonus_small",
+	  "sort_order": 1,
+	  "rewards": { "materials": { "construction_material_1": 10 } }
+	},
+	{
+	  "chest_id": "bonus_medium",
+	  "name_key": "ui_chest_bonus_medium",
+	  "sort_order": 2,
+	  "rewards": { "materials": { "construction_material_1": 25 } }
+	},
+	{
+	  "chest_id": "bonus_large",
+	  "name_key": "ui_chest_bonus_large",
+	  "sort_order": 3,
+	  "rewards": { "materials": { "construction_material_1": 30 } }
+	},
+	{
+	  "chest_id": "stage_1",
+	  "name_key": "ui_chest_battle",
+	  "sort_order": 10,
+	  "draw": {
+		"rolls": 1,
+		"entries": [
+		  { "item_id": "weapon_wooden_sword", "weight": 10 },
+		  { "item_id": "armor_leather_cap", "weight": 10 },
+		  { "item_id": "armor_leather_boots", "weight": 10 },
+		  { "item_id": "", "weight": 70 }
+		]
+	  }
+	},
+	{
+	  "chest_id": "stage_2",
+	  "name_key": "ui_chest_battle",
+	  "sort_order": 11,
+	  "draw": {
+		"rolls": 1,
+		"entries": [
+		  { "item_id": "weapon_iron_sword", "weight": 8 },
+		  { "item_id": "armor_leather_vest", "weight": 8 },
+		  { "item_id": "acc_ring_power", "weight": 7 },
+		  { "item_id": "armor_leather_cap", "weight": 7 },
+		  { "item_id": "", "weight": 70 }
+		]
+	  }
+	},
+	{
+	  "chest_id": "stage_3",
+	  "name_key": "ui_chest_battle",
+	  "sort_order": 12,
+	  "draw": {
+		"rolls": 1,
+		"entries": [
+		  { "item_id": "armor_iron_helm", "weight": 8 },
+		  { "item_id": "armor_iron_mail", "weight": 8 },
+		  { "item_id": "armor_iron_greaves", "weight": 7 },
+		  { "item_id": "acc_amulet_life", "weight": 7 },
+		  { "item_id": "", "weight": 70 }
+		]
+	  }
+	}
+  ]
+}

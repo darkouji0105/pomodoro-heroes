@@ -233,12 +233,17 @@ static func _validate_all_item_refs() -> void:
 			for item_id: Variant in (inventory as Dictionary):
 				errors += _report_missing_item(str(item_id), "stages.json", str(stage_id))
 
-		# stages.json … rewards.chest_table.table[].item_id（EXEC_STAGE_DROPS.md §3-D）。
+		# stages.json … rewards.chest_id が chests.json に在るか（E122）。
 		#
-		# ⚠ 抽選テーブルのIDが items.json に無いと、当たったときだけ黙って何も出ない。
-		#   確率で起きるので、遊んでいて気づけない形の穴になる。
-		# ⚠ "" はハズレ枠なので飛ばす（_report_missing_item が "" を0で返す）。
-		errors += _validate_stage_chest_table(str(stage_id), rewards as Dictionary)
+		# ⚠ 抽選テーブルそのものは chests.json へ移した（EXEC_CHEST_REGISTRY.md §3-E）。
+		#   ここに残るのは「どの宝箱を落とすか」の1行だけ。
+		# ⚠ 指し先が無いと、勝っても宝箱が積まれない形で無音に壊れる。
+		var chest_id: String = str((rewards as Dictionary).get("chest_id", ""))
+		if chest_id != "" and get_chest(chest_id).is_empty():
+			push_error("[MasterDataLoader] E122 stages.json (%s): chests.json に無い chest_id: %s" % [
+				str(stage_id), chest_id
+			])
+			errors += 1
 
 	# shop.json … 各枠の item_id
 	for shop_type: Variant in _cache_shop:
@@ -282,6 +287,14 @@ static func _validate_all_item_refs() -> void:
 					"recipes.json",
 					"%s.%s" % [str(recipe_id), list_key]
 				)
+
+	# chests.json … rewards の中身と draw の抽選テーブル（E118 / E120 / W20）。
+	_ensure_chests_loaded()
+	for chest_id: Variant in _cache_chests:
+		var chest: Variant = _cache_chests[chest_id]
+		if not (chest is Dictionary):
+			continue
+		errors += _validate_chest(str(chest_id), chest as Dictionary)
 
 	# 装飾の欄そのものの検証（E119）。行を増やさず同じ1本に合流させる。
 	errors += _validate_all_part_items()
@@ -362,70 +375,94 @@ static func _report_part_error(item_id: String, reason: String) -> int:
 	return 1
 
 
-# E118 … 参照先が items.json に無い。1件につき1本。
-# ⚠ 空文字は「欄そのものが無い」であって改名漏れではないため、ここでは見ない
-#   （欄の有無はそれぞれの画面が既に弾いている）。
-# stages.json の rewards.chest_table を見る（E118 の枝 ＋ E120 ＋ W19）。
+# chests.json のエントリ1件を見る（E118 の枝 ＋ E120 ＋ W20）。
 #
-# ⚠ chest_table が無いステージは正常。赤も黄も出さない（検証用ステージが全部そう）。
+# | 記号 | 何を見るか                                                          | 色 |
+# | E118 | rewards.materials / rewards.inventory / draw.entries[].item_id が
+#          items.json に無い（"" はハズレ枠なので飛ばす）                     | 赤 |
+# | E120 | draw の形が不正：rolls < 1 ／ entries が空 ／ weight が負 ／ 合計が0以下 | 赤 |
+# | W19  | draw はあるが当たり枠（item_id != ""）が1件も無い                     | 黄 |
+# | W20  | rewards も draw も持たない＝開けても何も出ない宝箱                    | 黄 |
 #
-# | 記号 | 何を見るか                                                      | 色 |
-# | E118 | table[].item_id が items.json に無い（"" は飛ばす）              | 赤 |
-# | E120 | 形が不正：rolls < 1 ／ table が空 ／ weight が負 ／ 合計が0以下   | 赤 |
-# | W19  | 当たり枠（item_id != ""）が1件も無い                             | 黄 |
-#
-# ⚠ W19 を赤にしないのは、「このステージでは今は落とさない」と意図的に書く余地を
-#   残すため。ただし黙らせない。書いたのに永久に出ない形は無音の穴になる。
-# ⚠ メッセージに stage_id を必ず入れる。どのステージか分からないと直せない。
-static func _validate_stage_chest_table(stage_id: String, rewards: Dictionary) -> int:
-	var table_def: Variant = rewards.get("chest_table", null)
-	if table_def == null:
-		return 0
-	if not (table_def is Dictionary):
-		push_error("[MasterDataLoader] E120 stages.json (%s): chest_table が Dictionary でない" % stage_id)
-		return 1
-
-	var def: Dictionary = table_def as Dictionary
+# ⚠ W19 / W20 を赤にしないのは、「今は何も出さない」と意図的に書く余地を残すため。
+#   ただし黙らせない。書いたのに永久に出ない形は無音の穴になる。
+# ⚠ メッセージに chest_id を必ず入れる。どの宝箱か分からないと直せない。
+static func _validate_chest(chest_id: String, chest: Dictionary) -> int:
 	var errors: int = 0
+	var has_rewards: bool = false
+	var has_draw: bool = false
 
-	var rolls: int = int(def.get("rolls", 1))
-	if rolls < 1:
-		push_error("[MasterDataLoader] E120 stages.json (%s): rolls は1以上でなければならない: %d" % [stage_id, rolls])
+	# 固定報酬（rewards）… materials と inventory のキーが items.json に在るか。
+	var rewards: Variant = chest.get("rewards", null)
+	if rewards is Dictionary:
+		for list_key: String in ["materials", "inventory"]:
+			var table: Variant = (rewards as Dictionary).get(list_key, {})
+			if not (table is Dictionary):
+				continue
+			for item_id: Variant in (table as Dictionary):
+				has_rewards = true
+				errors += _report_missing_item(
+					str(item_id), "chests.json", "%s.rewards.%s" % [chest_id, list_key])
+
+	# 抽選（draw）
+	var draw: Variant = chest.get("draw", null)
+	if draw is Dictionary:
+		has_draw = true
+		errors += _validate_chest_draw(chest_id, draw as Dictionary)
+	elif draw != null:
+		push_error("[MasterDataLoader] E120 chests.json (%s): draw が Dictionary でない" % chest_id)
 		errors += 1
 
-	var rows: Variant = def.get("table", [])
+	if not has_rewards and not has_draw:
+		push_warning("[MasterDataLoader] W20 chests.json (%s): rewards も draw も無い。開けても何も出ない" % chest_id)
+
+	return errors
+
+
+static func _validate_chest_draw(chest_id: String, draw: Dictionary) -> int:
+	var errors: int = 0
+
+	var rolls: int = int(draw.get("rolls", 1))
+	if rolls < 1:
+		push_error("[MasterDataLoader] E120 chests.json (%s): rolls は1以上でなければならない: %d" % [chest_id, rolls])
+		errors += 1
+
+	var rows: Variant = draw.get("entries", [])
 	if not (rows is Array) or (rows as Array).is_empty():
-		push_error("[MasterDataLoader] E120 stages.json (%s): table が空、または Array でない" % stage_id)
+		push_error("[MasterDataLoader] E120 chests.json (%s): entries が空、または Array でない" % chest_id)
 		return errors + 1
 
 	var total_weight: int = 0
 	var hit_rows: int = 0
 	for row: Variant in (rows as Array):
 		if not (row is Dictionary):
-			push_error("[MasterDataLoader] E120 stages.json (%s): table の要素が Dictionary でない" % stage_id)
+			push_error("[MasterDataLoader] E120 chests.json (%s): entries の要素が Dictionary でない" % chest_id)
 			errors += 1
 			continue
 		var entry: Dictionary = row as Dictionary
 		var weight: int = int(entry.get("weight", 0))
 		if weight < 0:
-			push_error("[MasterDataLoader] E120 stages.json (%s): weight が負: %d" % [stage_id, weight])
+			push_error("[MasterDataLoader] E120 chests.json (%s): weight が負: %d" % [chest_id, weight])
 			errors += 1
 			continue
 		total_weight += weight
 		var item_id: String = str(entry.get("item_id", ""))
 		if item_id != "":
 			hit_rows += 1
-		errors += _report_missing_item(item_id, "stages.json", "%s.chest_table" % stage_id)
+		errors += _report_missing_item(item_id, "chests.json", "%s.draw" % chest_id)
 
 	if total_weight <= 0:
-		push_error("[MasterDataLoader] E120 stages.json (%s): weight の合計が0以下: %d" % [stage_id, total_weight])
+		push_error("[MasterDataLoader] E120 chests.json (%s): weight の合計が0以下: %d" % [chest_id, total_weight])
 		errors += 1
 	elif hit_rows == 0:
-		push_warning("[MasterDataLoader] W19 stages.json (%s): chest_table に当たり枠が1件も無い。このステージは永久に宝箱を落とさない" % stage_id)
+		push_warning("[MasterDataLoader] W19 chests.json (%s): draw に当たり枠が1件も無い。この宝箱は永久に何も出さない" % chest_id)
 
 	return errors
 
 
+# E118 … 参照先が items.json に無い。1件につき1本。
+# ⚠ 空文字は「欄そのものが無い」であって改名漏れではないため、ここでは見ない
+#   （欄の有無はそれぞれの画面が既に弾いている）。
 static func _report_missing_item(item_id: String, where: String, context: String) -> int:
 	if item_id == "":
 		return 0
@@ -669,11 +706,20 @@ static func _ensure_shop_loaded() -> void:
 
 const PATH_ITEMS: String = DIR_PATH + "items.json"
 const PATH_RECIPES: String = DIR_PATH + "recipes.json"
+# chests.json … 宝箱の種類ごとの定義（EXEC_CHEST_REGISTRY.md §3-A）。
+#
+# ⚠ もとはポモドーロ分が pomodoro_config.tres、戦闘分が stages.json の
+#   rewards.chest_table と2箇所に分かれていた。前者は .tres なので E118 が見られず、
+#   素材IDの改名から漏れて無音で壊れた（EXEC_STAGE_DROPS.md §11）。
+#   ⚠ JSON に寄せたのは、この検証の網に入れるため。
+const PATH_CHESTS: String = DIR_PATH + "chests.json"
 
 static var _cache_items: Dictionary = {}
 static var _items_loaded: bool = false
 static var _cache_recipes: Dictionary = {}
 static var _recipes_loaded: bool = false
+static var _cache_chests: Dictionary = {}
+static var _chests_loaded: bool = false
 
 
 # アイテムIDの定義を返す。未登録なら空 Dictionary。
@@ -718,6 +764,28 @@ static func _ensure_recipes_loaded() -> void:
 		return
 	_recipes_loaded = true
 	_cache_recipes = _index_by(_load_json(PATH_RECIPES), "recipes", "recipe_id", PATH_RECIPES)
+
+
+# 宝箱の定義を返す。未登録なら空 Dictionary。
+# 中身は rewards（固定）と draw（抽選）の両方を持てる（GAME_DESIGN.md 4-2 の二立て）。
+static func get_chest(chest_id: String) -> Dictionary:
+	_ensure_chests_loaded()
+	if not _cache_chests.has(chest_id):
+		return {}
+	return (_cache_chests[chest_id] as Dictionary).duplicate(true)
+
+
+# chest_id -> 定義 の Dictionary を返す。
+static func get_all_chests() -> Dictionary:
+	_ensure_chests_loaded()
+	return _cache_chests.duplicate(true)
+
+
+static func _ensure_chests_loaded() -> void:
+	if _chests_loaded:
+		return
+	_chests_loaded = true
+	_cache_chests = _index_by(_load_json(PATH_CHESTS), "chests", "chest_id", PATH_CHESTS)
 
 
 # { list_key: [ {id_key: "...", ...}, ... ] } を { "...": {...} } へ組み替える。
