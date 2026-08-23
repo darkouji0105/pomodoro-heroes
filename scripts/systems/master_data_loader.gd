@@ -233,6 +233,13 @@ static func _validate_all_item_refs() -> void:
 			for item_id: Variant in (inventory as Dictionary):
 				errors += _report_missing_item(str(item_id), "stages.json", str(stage_id))
 
+		# stages.json … rewards.chest_table.table[].item_id（EXEC_STAGE_DROPS.md §3-D）。
+		#
+		# ⚠ 抽選テーブルのIDが items.json に無いと、当たったときだけ黙って何も出ない。
+		#   確率で起きるので、遊んでいて気づけない形の穴になる。
+		# ⚠ "" はハズレ枠なので飛ばす（_report_missing_item が "" を0で返す）。
+		errors += _validate_stage_chest_table(str(stage_id), rewards as Dictionary)
+
 	# shop.json … 各枠の item_id
 	for shop_type: Variant in _cache_shop:
 		var slots: Variant = _cache_shop[shop_type]
@@ -358,6 +365,67 @@ static func _report_part_error(item_id: String, reason: String) -> int:
 # E118 … 参照先が items.json に無い。1件につき1本。
 # ⚠ 空文字は「欄そのものが無い」であって改名漏れではないため、ここでは見ない
 #   （欄の有無はそれぞれの画面が既に弾いている）。
+# stages.json の rewards.chest_table を見る（E118 の枝 ＋ E120 ＋ W19）。
+#
+# ⚠ chest_table が無いステージは正常。赤も黄も出さない（検証用ステージが全部そう）。
+#
+# | 記号 | 何を見るか                                                      | 色 |
+# | E118 | table[].item_id が items.json に無い（"" は飛ばす）              | 赤 |
+# | E120 | 形が不正：rolls < 1 ／ table が空 ／ weight が負 ／ 合計が0以下   | 赤 |
+# | W19  | 当たり枠（item_id != ""）が1件も無い                             | 黄 |
+#
+# ⚠ W19 を赤にしないのは、「このステージでは今は落とさない」と意図的に書く余地を
+#   残すため。ただし黙らせない。書いたのに永久に出ない形は無音の穴になる。
+# ⚠ メッセージに stage_id を必ず入れる。どのステージか分からないと直せない。
+static func _validate_stage_chest_table(stage_id: String, rewards: Dictionary) -> int:
+	var table_def: Variant = rewards.get("chest_table", null)
+	if table_def == null:
+		return 0
+	if not (table_def is Dictionary):
+		push_error("[MasterDataLoader] E120 stages.json (%s): chest_table が Dictionary でない" % stage_id)
+		return 1
+
+	var def: Dictionary = table_def as Dictionary
+	var errors: int = 0
+
+	var rolls: int = int(def.get("rolls", 1))
+	if rolls < 1:
+		push_error("[MasterDataLoader] E120 stages.json (%s): rolls は1以上でなければならない: %d" % [stage_id, rolls])
+		errors += 1
+
+	var rows: Variant = def.get("table", [])
+	if not (rows is Array) or (rows as Array).is_empty():
+		push_error("[MasterDataLoader] E120 stages.json (%s): table が空、または Array でない" % stage_id)
+		return errors + 1
+
+	var total_weight: int = 0
+	var hit_rows: int = 0
+	for row: Variant in (rows as Array):
+		if not (row is Dictionary):
+			push_error("[MasterDataLoader] E120 stages.json (%s): table の要素が Dictionary でない" % stage_id)
+			errors += 1
+			continue
+		var entry: Dictionary = row as Dictionary
+		var weight: int = int(entry.get("weight", 0))
+		if weight < 0:
+			push_error("[MasterDataLoader] E120 stages.json (%s): weight が負: %d" % [stage_id, weight])
+			errors += 1
+			continue
+		total_weight += weight
+		var item_id: String = str(entry.get("item_id", ""))
+		if item_id != "":
+			hit_rows += 1
+		errors += _report_missing_item(item_id, "stages.json", "%s.chest_table" % stage_id)
+
+	if total_weight <= 0:
+		push_error("[MasterDataLoader] E120 stages.json (%s): weight の合計が0以下: %d" % [stage_id, total_weight])
+		errors += 1
+	elif hit_rows == 0:
+		push_warning("[MasterDataLoader] W19 stages.json (%s): chest_table に当たり枠が1件も無い。このステージは永久に宝箱を落とさない" % stage_id)
+
+	return errors
+
+
 static func _report_missing_item(item_id: String, where: String, context: String) -> int:
 	if item_id == "":
 		return 0

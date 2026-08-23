@@ -32,6 +32,7 @@ const KIND_REPORT: String = "report"
 # ⚠ 枝が増えたら _ready() の match に1行足す。シーンもスクリプトも増やさないこと。
 const REPORT_MATERIALS: String = "materials"
 const REPORT_PARTS: String = "parts"
+const REPORT_DROPS: String = "drops"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -59,6 +60,13 @@ const SCENARIOS: Dictionary = {
 		"kind": KIND_REPORT,
 		"report": REPORT_PARTS,
 		"note": "装飾36件 / 部位ごとの種類 / 刺す→加算→外して壊れる / ロールの範囲 / 段階上げ",
+	},
+	# ステージの抽選ドロップの検証（EXEC_STAGE_DROPS.md §6-A / §6-B）。
+	# ⚠ 抽選は戦闘の外（apply_battle_rewards）で起きるので、materials / parts と同じ report の枝を使う。
+	"drops": {
+		"kind": KIND_REPORT,
+		"report": REPORT_DROPS,
+		"note": "3ステージの抽選テーブル / 1000回の分布 / 宝箱を積む→開ける→個体になる",
 	},
 	# 段階4（mode: area）の検証。EXEC_SKILL_AREA.md §6 の数字をそのまま見る。
 	"area": {
@@ -528,6 +536,8 @@ func _ready() -> void:
 			_report_materials()
 		elif report == REPORT_PARTS:
 			_report_parts()
+		elif report == REPORT_DROPS:
+			_report_drops()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -913,6 +923,186 @@ func _sum_values(table: Dictionary) -> int:
 	for value: Variant in table.values():
 		total += int(value)
 	return total
+
+
+# ステージの抽選ドロップ（EXEC_STAGE_DROPS.md §3-G）。
+#
+# ⚠ 戦闘を1回も回さない。見るのは GameManager が返す数値と _state の中身だけ。
+# ⚠ SaveManager を呼ばない。人間のセーブを黙って書き換えない（_ready の注記と同じ）。
+# ⚠ 乱数を固定しない。分布で見る（EXEC_STAGE_DROPS.md §0-1 の9）。
+func _report_drops() -> void:
+	var stage_ids: Array[String] = ["stage_1", "stage_2", "stage_3"]
+
+	# --- 1. 3ステージの抽選テーブル ---
+	print("[DebugBoot] --- ステージごとの抽選テーブル（重み / 宝箱が出る率）---")
+	for stage_id: String in stage_ids:
+		var table_def: Dictionary = _chest_table_of(stage_id)
+		if table_def.is_empty():
+			print("  %-9s ⚠ chest_table が無い" % stage_id)
+			continue
+		var rows: Array = table_def.get(GameManager.CHEST_TABLE_LIST, [])
+		var total: int = 0
+		var miss: int = 0
+		var parts: Array[String] = []
+		for row: Variant in rows:
+			var entry: Dictionary = row
+			var weight: int = int(entry.get(GameManager.CHEST_TABLE_WEIGHT, 0))
+			var item_id: String = str(entry.get(GameManager.CHEST_TABLE_ITEM_ID, ""))
+			total += weight
+			if item_id == "":
+				miss += weight
+			else:
+				parts.append("%s:%d" % [item_id, weight])
+		var hit_pct: float = 0.0
+		if total > 0:
+			hit_pct = float(total - miss) * 100.0 / float(total)
+		print("  %-9s rolls=%d  当たり率=%.1f%%  ハズレ=%d/%d" % [
+			stage_id, int(table_def.get(GameManager.CHEST_TABLE_ROLLS, 1)), hit_pct, miss, total,
+		])
+		print("             %s" % ", ".join(parts))
+
+	# --- 2. stage_1 を1000回引いた分布 ---
+	print("[DebugBoot] --- stage_1 を1000回引く ---")
+	var trials: int = 1000
+	var counts: Dictionary = {}
+	var empty_draws: int = 0
+	var stage_1_table: Dictionary = _chest_table_of("stage_1")
+	for _i: int in range(trials):
+		var drawn: Dictionary = GameManager._roll_chest_table(stage_1_table)
+		if drawn.is_empty():
+			empty_draws += 1
+			continue
+		for item_id: String in drawn:
+			counts[item_id] = int(counts.get(item_id, 0)) + int(drawn[item_id])
+	var hit_draws: int = trials - empty_draws
+	print("  宝箱が出た回数 = %d / %d（%.1f%%・期待値 30%%）" % [
+		hit_draws, trials, float(hit_draws) * 100.0 / float(trials),
+	])
+	for item_id: String in counts:
+		print("    %-24s %d 回" % [item_id, int(counts[item_id])])
+	print("  出た種類 = %d（⚠ stage_1 の当たりは3種）" % counts.size())
+	# ⚠ 他ステージにしか無いIDが混ざっていないか（テーブルの取り違えを潰す）。
+	var foreign: int = 0
+	for item_id: String in counts:
+		if not _table_has_item("stage_1", item_id):
+			foreign += 1
+			push_error("[DebugBoot] stage_1 のテーブルに無いIDが出た: " + item_id)
+	print("  よそのIDが出た件数 = %d（0 が正解）" % foreign)
+
+	# --- 3. ハズレだけ・weight が0のテーブル ---
+	print("[DebugBoot] --- 壊したテーブル ---")
+	var all_miss: Dictionary = {
+		GameManager.CHEST_TABLE_ROLLS: 1,
+		GameManager.CHEST_TABLE_LIST: [
+			{GameManager.CHEST_TABLE_ITEM_ID: "", GameManager.CHEST_TABLE_WEIGHT: 100},
+		],
+	}
+	print("  ハズレだけのテーブル -> %s（空が正解）" % str(GameManager._roll_chest_table(all_miss)))
+	var zero_weight: Dictionary = {
+		GameManager.CHEST_TABLE_ROLLS: 1,
+		GameManager.CHEST_TABLE_LIST: [
+			{GameManager.CHEST_TABLE_ITEM_ID: "weapon_wooden_sword", GameManager.CHEST_TABLE_WEIGHT: 0},
+		],
+	}
+	print("  weight 合計0のテーブル -> %s（空が正解・赤も黄も出ないこと）" % str(GameManager._roll_chest_table(zero_weight)))
+
+	# --- 4. apply_battle_rewards で宝箱が積まれるか ---
+	print("[DebugBoot] --- stage_3 の報酬を配る（宝箱が積まれるまで）---")
+	var before_chests: int = GameManager.get_pending_chest_count()
+	var rewards: Dictionary = MasterDataLoader.get_stage("stage_3").get("rewards", {})
+	var attempts: int = 0
+	while GameManager.get_pending_chest_count() == before_chests and attempts < 200:
+		attempts += 1
+		GameManager.apply_battle_rewards({
+			GameStateKeys.BATTLE_VICTORY: true,
+			GameStateKeys.BATTLE_WAVES_CLEARED: 5,
+			GameStateKeys.BATTLE_REWARDS: rewards,
+		})
+	if GameManager.get_pending_chest_count() == before_chests:
+		push_error("[DebugBoot] 200回配っても宝箱が1個も積まれなかった")
+		return
+	print("  %d 回目で積まれた（未開封 %d -> %d）" % [
+		attempts, before_chests, GameManager.get_pending_chest_count(),
+	])
+
+	# --- 5. 積まれた宝箱の中身 ---
+	var chest: Dictionary = _last_unopened_chest()
+	if chest.is_empty():
+		push_error("[DebugBoot] 未開封の宝箱が見つからない")
+		return
+	var chest_rewards: Dictionary = chest.get(GameStateKeys.CHEST_REWARDS, {})
+	var chest_inv: Dictionary = chest_rewards.get(GameStateKeys.REWARD_INVENTORY, {})
+	print("  chest_type = '%s' / source = '%s' / opened = %s" % [
+		str(chest.get(GameStateKeys.CHEST_TYPE, "")),
+		str(chest.get(GameStateKeys.CHEST_SOURCE, "")),
+		str(chest.get(GameStateKeys.CHEST_OPENED, true)),
+	])
+	print("  rewards.inventory = %s" % str(chest_inv))
+	# ⚠ ja.csv を再インポートするまでキーがそのまま返る。ここで '戦利品の宝箱' に
+	#   変わったら、人間の A-1（再インポート）が終わった合図（EXEC_STAGE_DROPS.md §7-A）。
+	#   ⚠ .translation はキーがハッシュ化されて入るので、grep では確かめられない。
+	print("  表示名 = '%s'（再インポート前は 'ui_chest_battle' のままが正常）" % tr("ui_chest_battle"))
+	for item_id: String in chest_inv:
+		if not _table_has_item("stage_3", item_id):
+			push_error("[DebugBoot] stage_3 のテーブルに無いIDが宝箱に入った: " + item_id)
+
+	# --- 6. 開けると個体になるか ---
+	print("[DebugBoot] --- 開ける ---")
+	var chest_id: String = str(chest.get(GameStateKeys.CHEST_ID, ""))
+	var before_instances: int = _instance_count()
+	var opened: bool = GameManager.open_chest(chest_id)
+	var after_instances: int = _instance_count()
+	print("  open_chest() = %s / 個体 %d -> %d" % [str(opened), before_instances, after_instances])
+	var instances: Dictionary = GameManager.get_state().get(GameStateKeys.EQUIPMENT_INSTANCES, {})
+	for instance_id: String in instances:
+		var inst: Dictionary = instances[instance_id]
+		var grade: Variant = inst.get(GameStateKeys.INSTANCE_GRADE, null)
+		var parts_arr: Variant = inst.get(GameStateKeys.INSTANCE_PARTS, [])
+		print("    %-6s item_id=%-24s grade=%s（型=%s） parts長=%d" % [
+			instance_id,
+			str(inst.get(GameStateKeys.INSTANCE_ITEM_ID, "")),
+			str(grade), type_string(typeof(grade)),
+			(parts_arr as Array).size(),
+		])
+	# ⚠ 2回目は false で、個体が増えないこと（already opened の枝）。
+	var opened_again: bool = GameManager.open_chest(chest_id)
+	print("  2回目の open_chest() = %s / 個体 = %d（増えないこと）" % [str(opened_again), _instance_count()])
+
+
+# stages.json の rewards.chest_table を引く。無ければ空。
+func _chest_table_of(stage_id: String) -> Dictionary:
+	var rewards: Variant = MasterDataLoader.get_stage(stage_id).get("rewards", {})
+	if not (rewards is Dictionary):
+		return {}
+	var table_def: Variant = (rewards as Dictionary).get(GameManager.CHEST_TABLE, null)
+	if not (table_def is Dictionary):
+		return {}
+	return table_def as Dictionary
+
+
+func _table_has_item(stage_id: String, item_id: String) -> bool:
+	var rows: Variant = _chest_table_of(stage_id).get(GameManager.CHEST_TABLE_LIST, [])
+	if not (rows is Array):
+		return false
+	for row: Variant in (rows as Array):
+		if row is Dictionary and str((row as Dictionary).get(GameManager.CHEST_TABLE_ITEM_ID, "")) == item_id:
+			return true
+	return false
+
+
+func _instance_count() -> int:
+	return (GameManager.get_state().get(GameStateKeys.EQUIPMENT_INSTANCES, {}) as Dictionary).size()
+
+
+func _last_unopened_chest() -> Dictionary:
+	var chests: Array = GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, [])
+	for i: int in range(chests.size() - 1, -1, -1):
+		if not (chests[i] is Dictionary):
+			continue
+		var chest: Dictionary = chests[i]
+		if not bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
+			return chest
+	return {}
 
 
 # ============================================================

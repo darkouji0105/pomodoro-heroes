@@ -238,8 +238,12 @@ const CHEST_TYPE_GENERIC: String = "generic"
 const CHEST_TYPE_BONUS_SMALL: String = "bonus_small"
 const CHEST_TYPE_BONUS_MEDIUM: String = "bonus_medium"
 const CHEST_TYPE_BONUS_LARGE: String = "bonus_large"
+# ⚠ ステージの抽選ドロップで積まれる宝箱（EXEC_STAGE_DROPS.md §3-B）。
+#   ⚠ ステージごとに分けない。テーブルのほうが stages.json でステージごとに分かれている。
+const CHEST_TYPE_BATTLE: String = "battle"
 
 const CHEST_SOURCE_POMODORO: String = "pomodoro"
+const CHEST_SOURCE_BATTLE: String = "battle"
 
 # スタミナポーション
 const POTION_FOCUS_REMAINDER: String = "potion_focus_remainder"

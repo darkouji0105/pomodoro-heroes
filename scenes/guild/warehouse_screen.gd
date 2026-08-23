@@ -274,7 +274,10 @@ func _create_chest_row(chest: Dictionary) -> void:
 	row.name = "ChestRow_" + chest_id
 
 	var name_label: Label = Label.new()
-	name_label.text = tr("ui_pomodoro_chest_" + str(chest.get(GameStateKeys.CHEST_TYPE, "")))
+	# ⚠ 接頭辞は ui_chest_（EXEC_STAGE_DROPS.md §3-E）。
+	#   ⚠ 以前は ui_pomodoro_chest_ だったが、戦闘の宝箱もここを通るようになったため
+	#     領域名を外した（AGENTS.md「翻訳キーの運用」）。ja.csv 側も4行改名してある。
+	name_label.text = tr("ui_chest_" + str(chest.get(GameStateKeys.CHEST_TYPE, "")))
 	name_label.name = "ChestNameLabel"
 	row.add_child(name_label)
 

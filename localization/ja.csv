@@ -33,10 +33,11 @@ ui_pomodoro_protection_middle,ミドル
 ui_pomodoro_protection_hard,ハード
 ui_pomodoro_protection_hint,しきい値は今日の合計作業時間です。何回かに分けても大丈夫です。
 ui_pomodoro_chest_at,{0}分で{1}
-ui_pomodoro_chest_generic,ふつうの宝箱
-ui_pomodoro_chest_bonus_small,ボーナス宝箱（小）
-ui_pomodoro_chest_bonus_medium,ボーナス宝箱（中）
-ui_pomodoro_chest_bonus_large,ボーナス宝箱（大）
+ui_chest_generic,ふつうの宝箱
+ui_chest_bonus_small,ボーナス宝箱（小）
+ui_chest_bonus_medium,ボーナス宝箱（中）
+ui_chest_bonus_large,ボーナス宝箱（大）
+ui_chest_battle,戦利品の宝箱
 ui_pomodoro_title_placeholder,何に取り組みますか？（任意）
 ui_pomodoro_title_hint,ここに入れた文字はフレンドに表示されます
 ui_pomodoro_start,はじめる

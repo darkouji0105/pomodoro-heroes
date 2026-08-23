@@ -2,7 +2,19 @@
   "stage_1": {
 	"name_key": "ui_stage_1",
 	"party_id": "party_default",
-	"rewards": { "gold": 50, "materials": { "construction_material_1": 3 ,"training_material_1": 2, "forging_material_1": 2, "decor_material_1": 1 } },
+	"rewards": {
+	  "gold": 50,
+	  "materials": { "construction_material_1": 3 ,"training_material_1": 2, "forging_material_1": 2, "decor_material_1": 1 },
+	  "chest_table": {
+		"rolls": 1,
+		"table": [
+		  { "item_id": "weapon_wooden_sword", "weight": 10 },
+		  { "item_id": "armor_leather_cap", "weight": 10 },
+		  { "item_id": "armor_leather_boots", "weight": 10 },
+		  { "item_id": "", "weight": 70 }
+		]
+	  }
+	},
 	"waves": [
 	  { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 } ] },
 	  { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 3 } ] },
@@ -14,7 +26,21 @@
   "stage_2": {
 	"name_key": "ui_stage_2",
 	"party_id": "party_default",
-	"rewards": { "gold": 80, "materials": { "construction_material_1": 5 ,"training_material_1": 4, "forging_material_1": 4, "construction_material_2": 1, "training_material_2": 1, "forging_material_2": 1, "decor_material_1": 2, "decor_material_2": 1 }, "inventory": { "part_gem_atk_1": 1 } },
+	"rewards": {
+	  "gold": 80,
+	  "materials": { "construction_material_1": 5 ,"training_material_1": 4, "forging_material_1": 4, "construction_material_2": 1, "training_material_2": 1, "forging_material_2": 1, "decor_material_1": 2, "decor_material_2": 1 },
+	  "inventory": { "part_gem_atk_1": 1 },
+	  "chest_table": {
+		"rolls": 1,
+		"table": [
+		  { "item_id": "weapon_iron_sword", "weight": 8 },
+		  { "item_id": "armor_leather_vest", "weight": 8 },
+		  { "item_id": "acc_ring_power", "weight": 7 },
+		  { "item_id": "armor_leather_cap", "weight": 7 },
+		  { "item_id": "", "weight": 70 }
+		]
+	  }
+	},
 	"waves": [
 	  { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
 	  { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
@@ -26,7 +52,21 @@
   "stage_3": {
 	"name_key": "ui_stage_3",
 	"party_id": "party_default",
-	"rewards": { "gold": 120, "materials": { "construction_material_2": 5 ,"training_material_2": 4, "forging_material_2": 4, "construction_material_3": 1, "training_material_3": 1, "forging_material_3": 1, "decor_material_2": 2, "decor_material_3": 1 }, "inventory": { "part_charm_def_1": 1, "part_emblem_crit_rate_1": 1 } },
+	"rewards": {
+	  "gold": 120,
+	  "materials": { "construction_material_2": 5 ,"training_material_2": 4, "forging_material_2": 4, "construction_material_3": 1, "training_material_3": 1, "forging_material_3": 1, "decor_material_2": 2, "decor_material_3": 1 },
+	  "inventory": { "part_charm_def_1": 1, "part_emblem_crit_rate_1": 1 },
+	  "chest_table": {
+		"rolls": 1,
+		"table": [
+		  { "item_id": "armor_iron_helm", "weight": 8 },
+		  { "item_id": "armor_iron_mail", "weight": 8 },
+		  { "item_id": "armor_iron_greaves", "weight": 7 },
+		  { "item_id": "acc_amulet_life", "weight": 7 },
+		  { "item_id": "", "weight": 70 }
+		]
+	  }
+	},
 	"waves": [
 	  { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3 } ] },
 	  { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 3, "stat_overrides": { "hp": 60, "def": 4 } } ] },
