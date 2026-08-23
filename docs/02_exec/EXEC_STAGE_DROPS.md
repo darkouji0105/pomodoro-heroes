@@ -406,3 +406,83 @@ name_label.text = tr("ui_chest_" + str(chest.get(GameStateKeys.CHEST_TYPE, "")))
 - ⚠ **NEW：`apply_battle_rewards()` が `gems` と `stamina` を読まない**（⚠ **前回からの持ち越し。⚠ この回でも塞いでいない**）
 - ⚠ **NEW：③作業場の廃止が次の回に残っている**（決定A・F。⚠ **`recipes.json` 14件・ギルドのボタンを隠す**）
 - ⚠ **NEW：報告したズレ4件が未修正**（§1-3 の19〜22。⚠ **勝手に直していない**）
+
+---
+
+## 11. ⚠ 追補 — **`.tres` の素材IDが改名から漏れていた**（**2026-08-23・人間が §7-B で発見**）
+
+⚠ **人間の報告：「全部できたが、⚠ ポモドーロの宝箱の内容が古い」。⚠ 調べたら宝箱だけではなかった。**
+
+### 11-1. ⚠ 何が壊れていたか
+
+⚠ **素材を3件 → 16件にした回（`EXEC_MATERIAL_TIERS.md`）で `construction_material` → `construction_material_1` の形に改名したが、⚠ `.tres` が2ファイル取り残されていた。**
+
+| ファイル | 欄 | 死んだID | 実害 |
+|---|---|---|---|
+| `pomodoro_config.tres` | ⚠ **宝箱4件の `materials`** | `construction_material` | ⚠ **開けても拠点の素材欄に増えない**（⚠ **`add_material()` は残高もIDも検証しないので状態には積まれる。⚠ `items.json` に無いので「不明な素材」になる**） |
+| `character_config.tres` | `level_up_material_id` | `training_material` | ⚠ **育成のレベルアップが常に失敗する**（⚠ **`base_level_up_cost = 3` ／ 所持は必ず0 → `game_manager.gd` の残高チェックで必ず `false`**） |
+
+⚠ **`initial_state_config.tres` は正しく `_1` に直っていた。⚠ 無印IDが残るのは `tests/` の3ファイルだけで、⚠ そちらは既存の宿題（`tests/` の棚卸し）に入っている。**
+
+### 11-2. ⚠ なぜ素通りしたか（**ズレ23件目・勝手に直していない**）
+
+- ⚠ **`NEXT_STEPS.md` §3「素材が触れる場所」の一覧が6箇所しか挙げておらず、⚠ `pomodoro_config.tres` と `character_config.tres` が入っていない。⚠ 改名のときにこの一覧を根拠にしたなら、⚠ この2つは最初から視野の外だった**
+- ⚠ **`E118` は設計上 `.tres` を見ない**（`master_data_loader.gd` に「`.tres` でマスターではないため、ここでは見ない」と明記）。⚠ **同じ事故が今後も無音で通る形だった**
+
+### 11-3. ⚠ 入れたもの（`E121`）
+
+⚠ **`GameManager._validate_balance_item_refs()` を新設し、⚠ `_ready()` の最後で呼ぶ。**
+
+- ⚠ **見るのは5箇所**：⚠ **`character_config.level_up_material_id` ／ `pomodoro_config` の宝箱の `materials` と `equipment` ／ `initial_state_config.starting_materials` ／ `research_config.unlock_material_id` ／ `shop_config.item_pool`**
+- ⚠ **空文字は「未設定」で正常。飛ばす**（⚠ **`research_config` / `shop_config` が実際にそう**）
+- ⚠ **`MasterDataLoader` 側に置かない。⚠ あちらはマスターデータ専用で、⚠ `Balance` に依存させると層が逆転する**
+- ⚠ **1件ごとに1本出す。重複を潰さない**（`E118` / `E119` と同じ方針）
+
+### 11-4. ⚠ 実測（**壊れたままの `.tres` で**）
+
+```
+[MasterDataLoader] items validated: 64 entries, 0 errors
+[GameManager] balance item refs validated: 5 errors
+ERROR: [GameManager] E121 character_config.tres (level_up_material_id): items.json に無いID: training_material
+ERROR: [GameManager] E121 pomodoro_config.tres (generic.materials): items.json に無いID: construction_material
+ERROR: [GameManager] E121 pomodoro_config.tres (bonus_small.materials): items.json に無いID: construction_material
+ERROR: [GameManager] E121 pomodoro_config.tres (bonus_medium.materials): items.json に無いID: construction_material
+ERROR: [GameManager] E121 pomodoro_config.tres (bonus_large.materials): items.json に無いID: construction_material
+```
+
+⚠ **「正しければ出ない」側も同じ実行で確かめている**：⚠ **`initial_state_config.tres` の `construction_material_1` / `training_material_1` は検証を通って黙っている。⚠ 未設定の `research_config` / `shop_config` も黙っている。**
+→ ⚠ **本番コードを壊して確かめる必要が無かった**（`CLAUDE.md`「切り分けのために本番コードを書き換えない」）。
+
+### 11-5. ⚠ 人間の作業（**Inspector・`.tres` は設計役の担当外**）
+
+⚠ **直すのは5箇所。⚠ 量は1つも変えない（決定：バランスを動かさない）。**
+
+**① `resources/balance/character_config.tres`**
+
+| 欄 | いま | ⚠ **直したあと** |
+|---|---|---|
+| `level_up_material_id` | `training_material` | ⚠ **`training_material_1`** |
+
+**② `resources/balance/pomodoro_config.tres`**
+
+⚠ **`chest_contents` の4件それぞれを開き、⚠ `materials` の Dictionary の**キーだけ**を差し替える。⚠ 値（個数）は触らない。**
+
+| `chest_type` | いまのキー | ⚠ **直したあとのキー** | 個数 |
+|---|---|---|---|
+| `generic` | `construction_material` | ⚠ **`construction_material_1`** | 4 |
+| `bonus_small` | 同上 | ⚠ **`construction_material_1`** | 10 |
+| `bonus_medium` | 同上 | ⚠ **`construction_material_1`** | 25 |
+| `bonus_large` | 同上 | ⚠ **`construction_material_1`** | 30 |
+
+⚠ **`chest_contents` は `Array[ChestContentConfig]` で、⚠ Inspector では2階層になる**（`AGENTS.md`）。⚠ **配列の要素を開いてから中の `materials` を触ること。**
+
+### 11-6. ⚠ 直ったかどうかの合図
+
+⚠ **ログ（設計役が読む）**：⚠ **`[GameManager] balance item refs validated: 0 errors` になり、⚠ `E121` が1本も出ないこと。**
+⚠ **画面（人間）**：⚠ **① ポモドーロの宝箱を開けると拠点の素材欄の「木材」が増えること ／ ② 育成でレベルアップが押せて、⚠ 「修練の証」が減ってレベルが1つ上がること。**
+
+> ⚠ **直すまでは全シナリオが `red=5` になる。⚠ これは検証が仕事をしているのであって、⚠ この回の実装が壊れたのではない。**
+
+### 11-7. ⚠ E / W の次番号
+
+⚠ **`E121` まで使用済み → `E122` から。⚠ `W19` まで使用済み → `W20` から**（⚠ **`W6` と `W7` は欠番**）。

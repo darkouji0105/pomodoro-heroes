@@ -258,6 +258,72 @@ func _ready() -> void:
 		_state.get(GameStateKeys.MATERIALS, {}),
 		_state.get(GameStateKeys.UNLOCKED_SCREENS, {}),
 	])
+	# ⚠ .tres が持つ素材ID・アイテムIDを items.json と突き合わせる（E121）。
+	#   ⚠ MasterDataLoader の E118 は .tres を見ない（あちらはマスターデータ専用で、
+	#     Balance に依存させると層が逆転する）。その穴をここで塞ぐ。
+	_validate_balance_item_refs()
+
+# .tres 側の素材ID・アイテムIDが items.json に在るかを見る（E121）。
+#
+# ⚠ なぜ要るか：素材を3件から16件に増やした回で construction_material →
+#   construction_material_1 のような改名をしたが、.tres は改名の対象から漏れていた。
+#   E118 は .tres を見ないため、2件が無音で壊れたまま残った（2026-08-23 に発覚）：
+#     ・pomodoro_config.tres の宝箱4件 … 開けても素材が増えない
+#     ・character_config.tres の level_up_material_id … レベルアップが常に失敗する
+#   ⚠ どちらも赤も黄も出ず、画面では「押しても何も起きない」としか見えなかった。
+#
+# ⚠ 空文字は「未設定」であり正常（research_config / shop_config が実際にそう）。飛ばす。
+# ⚠ 1件ごとに1本出す。重複を潰さない（E118 / E119 と同じ方針）。
+# ⚠ Balance より後に呼ぶこと。GameManager は Autoload の2番目なので _ready() の中なら安全。
+func _validate_balance_item_refs() -> void:
+	if Balance == null:
+		return
+	var errors: int = 0
+
+	# character_config.tres … レベルアップの消費素材
+	if "character" in Balance and Balance.character != null:
+		errors += _report_missing_balance_item(
+			str(Balance.character.level_up_material_id), "character_config.tres", "level_up_material_id")
+
+	# pomodoro_config.tres … 宝箱の中身（materials と equipment の両方）
+	if "pomodoro" in Balance and Balance.pomodoro != null:
+		for content: Variant in Balance.pomodoro.chest_contents:
+			if content == null:
+				continue
+			var chest_type: String = str(content.chest_type)
+			for material_id: Variant in content.materials:
+				errors += _report_missing_balance_item(
+					str(material_id), "pomodoro_config.tres", "%s.materials" % chest_type)
+			for item_id: Variant in content.equipment:
+				errors += _report_missing_balance_item(
+					str(item_id), "pomodoro_config.tres", "%s.equipment" % chest_type)
+
+	# initial_state_config.tres … 開始時の所持素材
+	if "initial_state" in Balance and Balance.initial_state != null:
+		for material_id: Variant in Balance.initial_state.starting_materials:
+			errors += _report_missing_balance_item(
+				str(material_id), "initial_state_config.tres", "starting_materials")
+
+	# research_config.tres … 解放の消費素材（未設定なら飛ばす）
+	if "research" in Balance and Balance.research != null:
+		errors += _report_missing_balance_item(
+			str(Balance.research.unlock_material_id), "research_config.tres", "unlock_material_id")
+
+	# shop_config.tres … 抽選の候補（未設定なら飛ばす）
+	if "shop" in Balance and Balance.shop != null:
+		for item_id: String in Balance.shop.item_pool:
+			errors += _report_missing_balance_item(item_id, "shop_config.tres", "item_pool")
+
+	print("[GameManager] balance item refs validated: %d errors" % errors)
+
+
+func _report_missing_balance_item(item_id: String, where: String, context: String) -> int:
+	if item_id == "":
+		return 0
+	if not MasterDataLoader.get_item(item_id).is_empty():
+		return 0
+	push_error("[GameManager] E121 %s (%s): items.json に無いID: %s" % [where, context, item_id])
+	return 1
 
 # --- 初期化 ---
 
