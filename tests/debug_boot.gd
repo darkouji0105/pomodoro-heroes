@@ -28,6 +28,11 @@ const KIND_SCREEN: String = "screen"
 #   検証の口が無い（EXEC_MATERIAL_TIERS.md §0-2 の8）。
 const KIND_REPORT: String = "report"
 
+# KIND_REPORT の中でどの報告を出すか。
+# ⚠ 枝が増えたら _ready() の match に1行足す。シーンもスクリプトも増やさないこと。
+const REPORT_MATERIALS: String = "materials"
+const REPORT_PARTS: String = "parts"
+
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
 #   （④-a で hp: 9999 に条件を書いて踏んだのと同じ形）。
@@ -45,7 +50,15 @@ const SCENARIOS: Dictionary = {
 	# ⚠ 戦闘を1回も回さない。ここで見るのは GameManager が返す数値だけ。
 	"materials": {
 		"kind": KIND_REPORT,
-		"note": "素材12件 / 等級1〜10の鍛冶コストと段階 / 分解の戻り",
+		"report": REPORT_MATERIALS,
+		"note": "素材16件 / 等級1〜10の鍛冶コストと段階 / 分解の戻り",
+	},
+	# 装飾（宝石・護符・紋章）の検証（EXEC_DECORATION.md §6-A 〜 §6-C）。
+	# ⚠ 装飾は戦闘に1行も出ない（ステータスに乗るだけ）ので、materials と同じ report の枝を使う。
+	"parts": {
+		"kind": KIND_REPORT,
+		"report": REPORT_PARTS,
+		"note": "装飾36件 / 部位ごとの種類 / 刺す→加算→外して壊れる / ロールの範囲 / 段階上げ",
 	},
 	# 段階4（mode: area）の検証。EXEC_SKILL_AREA.md §6 の数字をそのまま見る。
 	"area": {
@@ -509,7 +522,14 @@ func _ready() -> void:
 	_apply_skills(scenario)
 
 	if str(scenario.get("kind", KIND_BATTLE)) == KIND_REPORT:
-		_report_materials()
+		# ⚠ 報告の枝が増えたらここに1行足す。シーンもスクリプトも増やさないこと。
+		var report: String = str(scenario.get("report", REPORT_MATERIALS))
+		if report == REPORT_MATERIALS:
+			_report_materials()
+		elif report == REPORT_PARTS:
+			_report_parts()
+		else:
+			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
 		return
 
@@ -660,6 +680,232 @@ func _report_materials() -> void:
 		push_error("[DebugBoot] 上限（等級%d）を超えて鍛えられた" % max_grade)
 	else:
 		print("  等級%d で打ち止め（forge_equipment が false）" % max_grade)
+
+
+# 装飾の報告（EXEC_DECORATION.md §3-K）。
+#
+# ⚠ 状態は書き換えるが絶対に保存しない（_ready() のコメント）。
+# ⚠ 乱数は固定しない。seed() を打つと出目が Godot の RNG 実装に依存し、
+#   「値が変わったら赤」という壊れやすい完了条件になる（EXEC_DECORATION.md §0-3 の11）。
+#   代わりに「範囲に収まっているか」と「2種類以上出るか」で見る。
+func _report_parts() -> void:
+	# ⚠ 在庫を持たない装飾を1つ残しておく（PART_REJECT_STOCK を出すため）。
+	var reserved_id: String = "part_charm_mdef_4"
+
+	# --- 1. items.json の装飾 ---
+	print("[DebugBoot] --- 装飾（items.json）---")
+	var items: Dictionary = MasterDataLoader.get_all_items()
+	var sort_key: String = GameManager.INSTANCE_VIEW_SORT_ORDER
+	var part_ids: Array[String] = []
+	for item_id: Variant in items:
+		var definition: Dictionary = items[item_id]
+		if str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_PART:
+			continue
+		part_ids.append(str(item_id))
+	part_ids.sort_custom(func(a: String, b: String) -> bool:
+		return int(items[a].get(sort_key, 0)) < int(items[b].get(sort_key, 0)))
+
+	var mismatched: int = 0
+	for part_id: String in part_ids:
+		var d: Dictionary = GameManager.get_part_definition(part_id)
+		var expected: String = GameManager.PART_ID_FORMAT % [
+			str(d.get(GameManager.ITEM_MASTER_PART_KIND, "")),
+			str(d.get(GameManager.ITEM_MASTER_PART_STAT, "")),
+			int(d.get(GameManager.ITEM_MASTER_PART_TIER, 0)),
+		]
+		if expected != part_id:
+			mismatched += 1
+		print("  %-26s %-7s %-10s 段階%d  base=%3d  roll=0〜%-2d  %s" % [
+			part_id,
+			str(d.get(GameManager.ITEM_MASTER_PART_KIND, "")),
+			str(d.get(GameManager.ITEM_MASTER_PART_STAT, "")),
+			int(d.get(GameManager.ITEM_MASTER_PART_TIER, 0)),
+			int(d.get(GameManager.ITEM_MASTER_PART_BASE, 0)),
+			int(d.get(GameManager.ITEM_MASTER_PART_ROLL_MAX, 0)),
+			tr("ui_res_" + part_id),
+		])
+	print("  合計 %d 件（⚠ IDと欄の綴りが一致しないもの %d 件）" % [part_ids.size(), mismatched])
+
+	# --- 2. 部位ごとの枠の表（GAME_DESIGN.md 6-4）---
+	print("[DebugBoot] --- 部位ごとの枠（位置 / 開く等級 / 刺さる種類）---")
+	for slot: String in GameManager.get_equip_slots():
+		var cells: Array[String] = []
+		for def: Variant in GameManager.get_part_slot_defs(slot):
+			var kinds: Array = (def as Dictionary).get(GameManager.PART_VIEW_KINDS, [])
+			if kinds.is_empty():
+				cells.append("[%d]—" % int((def as Dictionary).get(GameManager.PART_VIEW_INDEX, 0)))
+				continue
+			cells.append("[%d]等級%d:%s" % [
+				int((def as Dictionary).get(GameManager.PART_VIEW_INDEX, 0)),
+				int((def as Dictionary).get(GameManager.PART_VIEW_MIN_GRADE, 0)),
+				"/".join(kinds),
+			])
+		print("  %-10s %s" % [slot, "  ".join(cells)])
+
+	# --- 3. 等級ごとに開く枠の数 ---
+	print("[DebugBoot] --- 等級ごとに開く枠の数 ---")
+	for slot: String in [GameStateKeys.EQUIP_HEAD, GameStateKeys.EQUIP_WEAPON, GameStateKeys.EQUIP_ACCESSORY]:
+		var counts: Array[String] = []
+		for grade: int in range(1, GameManager.get_max_equipment_grade() + 1):
+			counts.append("%d:%d" % [grade, GameManager.get_open_part_slot_count(slot, grade)])
+		print("  %-10s %s" % [slot, "  ".join(counts)])
+
+	# --- 下ごしらえ：素材と装飾を配る ---
+	for tier: int in range(1, GameManager.get_forge_material_tier_count() + 1):
+		GameManager.add_material(GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX + str(tier), 99999)
+	for tier: int in range(1, GameManager.get_max_part_tier() + 1):
+		GameManager.add_material(GameManager.get_decor_material_id(tier), 99999)
+	for part_id: String in part_ids:
+		if part_id == reserved_id:
+			continue
+		GameManager.add_to_inventory(part_id, 300, GameStateKeys.ITEM_TYPE_PART)
+
+	GameManager.add_to_inventory("armor_iron_helm", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var helm_id: String = _find_instance_of("armor_iron_helm")
+	if helm_id == "":
+		push_error("[DebugBoot] 個体が作られなかった（add_to_inventory が個体を作っていない）")
+		return
+	while GameManager.forge_equipment(helm_id):
+		pass
+
+	# --- 4. 刺す → 加算 → 外して壊れる ---
+	print("[DebugBoot] --- 刺す → 加算 → 外して壊れる ---")
+	var char_id: String = "char_priest"
+	GameManager.equip_instance(char_id, GameStateKeys.EQUIP_HEAD, helm_id)
+
+	var test_id: String = "part_gem_hp_4"
+	var stock_before: int = GameManager.get_item_count(test_id)
+	var hp_before: int = int(GameManager.get_effective_stats(char_id).get(GameStateKeys.STAT_HP, 0))
+	if not GameManager.attach_part(helm_id, 0, test_id):
+		push_error("[DebugBoot] 刺せなかった: " + test_id)
+		return
+	var value: int = GameManager.get_part_stat_value(_part_entry_at(helm_id, 0))
+	var hp_after: int = int(GameManager.get_effective_stats(char_id).get(GameStateKeys.STAT_HP, 0))
+	print("  刺した %s  hp %d -> %d（差 %d / 装飾の値 %d）" % [
+		test_id, hp_before, hp_after, hp_after - hp_before, value
+	])
+	print("  在庫 %d -> %d（刺すと1つ減る）" % [stock_before, GameManager.get_item_count(test_id)])
+
+	var decor_id: String = GameManager.get_decor_material_id(4)
+	var mat_before: int = GameManager.get_material_count(decor_id)
+	GameManager.detach_part(helm_id, 0)
+	var hp_detached: int = int(GameManager.get_effective_stats(char_id).get(GameStateKeys.STAT_HP, 0))
+	print("  外した  hp %d -> %d（刺す前と同じか: %s）" % [
+		hp_after, hp_detached, str(hp_detached == hp_before)
+	])
+	print("  壊れて %s が %d -> %d（+%d）／ 在庫は %d のまま（戻らないこと）" % [
+		decor_id, mat_before, GameManager.get_material_count(decor_id),
+		GameManager.get_material_count(decor_id) - mat_before, GameManager.get_item_count(test_id)
+	])
+
+	# --- 5. ロールの範囲（100回・乱数は固定しない）---
+	var rolls: Dictionary = {}
+	var min_roll: int = 99999
+	var max_roll: int = -1
+	for i: int in range(100):
+		if not GameManager.attach_part(helm_id, 0, test_id):
+			push_error("[DebugBoot] ロールの試行で刺せなくなった（%d回目）" % i)
+			break
+		var roll: int = int((_part_entry_at(helm_id, 0) as Dictionary).get(GameStateKeys.PART_ROLL, -1))
+		rolls[roll] = int(rolls.get(roll, 0)) + 1
+		min_roll = mini(min_roll, roll)
+		max_roll = maxi(max_roll, roll)
+		GameManager.detach_part(helm_id, 0)
+	var roll_max: int = int(GameManager.get_part_definition(test_id).get(GameManager.ITEM_MASTER_PART_ROLL_MAX, 0))
+	print("[DebugBoot] --- ロール100回（%s / 上限 %d）---" % [test_id, roll_max])
+	print("  最小 %d / 最大 %d / 出た種類 %d（範囲内か: %s）" % [
+		min_roll, max_roll, rolls.size(), str(min_roll >= 0 and max_roll <= roll_max)
+	])
+
+	# --- 6. 刺せない理由（6通り）---
+	print("[DebugBoot] --- 刺せない理由（判定1〜6が別々のキーを返すこと）---")
+	print("  1 個体が無い       -> '%s'" % GameManager.get_part_reject_reason("eq_9999", 0, test_id))
+
+	GameManager.add_to_inventory("armor_leather_cap", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var cap_id: String = _find_instance_of("armor_leather_cap")
+	print("  2 枠が開いていない -> '%s'（等級1の頭）" % GameManager.get_part_reject_reason(cap_id, 0, test_id))
+
+	GameManager.attach_part(helm_id, 0, test_id)
+	print("  3 枠が埋まっている -> '%s'（宝石枠1）" % GameManager.get_part_reject_reason(helm_id, 0, test_id))
+	print("  4 知らない装飾     -> '%s'" % GameManager.get_part_reject_reason(helm_id, 1, "part_gem_hp_99"))
+
+	GameManager.add_to_inventory("weapon_iron_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var sword_id: String = _find_instance_of("weapon_iron_sword")
+	while GameManager.forge_equipment(sword_id):
+		pass
+	# ⚠ 枠の種類は部位ではなく枠で決まる。武器にも宝石枠（位置0・等級3）はある。
+	#   種類で弾かれるのはルーン枠（位置2・等級5）に宝石を刺そうとしたとき。
+	print("  5 枠の種類が違う   -> '%s'（武器のルーン枠に宝石）" % GameManager.get_part_reject_reason(sword_id, 2, test_id))
+	print("    ⚠ 同じ武器の宝石枠（位置0）には刺さる -> '%s'（空文字が正解）" % GameManager.get_part_reject_reason(sword_id, 0, test_id))
+	print("  6 在庫が無い       -> '%s'（%s を1つも持っていない）" % [
+		GameManager.get_part_reject_reason(helm_id, 4, reserved_id), reserved_id
+	])
+
+	# --- 6-b. ワイルド枠と、アクセサリーだけの2つ目のルーン枠 ---
+	print("[DebugBoot] --- 特別枠（等級5）---")
+	print("  防具のワイルド枠（位置2）に宝石 -> '%s'（空文字が正解）" % GameManager.get_part_reject_reason(helm_id, 2, "part_gem_atk_1"))
+	print("  防具のワイルド枠（位置2）に護符 -> '%s'（空文字が正解）" % GameManager.get_part_reject_reason(helm_id, 2, "part_charm_def_1"))
+	print("  防具のワイルド枠（位置2）に紋章 -> '%s'（空文字が正解）" % GameManager.get_part_reject_reason(helm_id, 2, "part_emblem_haste_1"))
+	print("  防具の位置3（アクセ専用）      -> '%s'（locked が正解）" % GameManager.get_part_reject_reason(helm_id, 3, "part_gem_atk_1"))
+	GameManager.add_to_inventory("acc_ring_power", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var acc_id: String = _find_instance_of("acc_ring_power")
+	while GameManager.forge_equipment(acc_id):
+		pass
+	print("  アクセの位置2/3 に刺さる種類   -> %s / %s（どちらもルーン枠）" % [
+		str(GameManager.get_part_kinds_for_slot_index(GameStateKeys.EQUIP_ACCESSORY, 2)),
+		str(GameManager.get_part_kinds_for_slot_index(GameStateKeys.EQUIP_ACCESSORY, 3)),
+	])
+	print("  ⚠ ルーンは items.json に0件なので、ルーン枠には今は何も刺さらない")
+
+	# --- 7. 段階上げと壊す ---
+	print("[DebugBoot] --- 段階上げ（分解方式）と壊す ---")
+	for tier: int in range(1, GameManager.get_max_part_tier() + 1):
+		var pid: String = "part_gem_atk_%d" % tier
+		var cost: Dictionary = GameManager.get_part_upgrade_cost(pid)
+		var amount: int = int(cost.get(GameManager.PART_UPGRADE_AMOUNT, 0))
+		var up_text: String = "—（上限）"
+		if amount > 0:
+			up_text = "%s x%d -> %s" % [
+				str(cost.get(GameManager.PART_UPGRADE_MATERIAL_ID, "")), amount,
+				GameManager.get_upgraded_part_id(pid)
+			]
+		print("  段階%d  上げる: %-38s  壊す: %s" % [
+			tier, up_text, str(GameManager.get_part_dismantle_refund(pid, 1))
+		])
+
+	var next_before: int = GameManager.get_item_count("part_gem_atk_2")
+	var upgraded: bool = GameManager.upgrade_part("part_gem_atk_1")
+	print("  upgrade_part('part_gem_atk_1') -> %s（part_gem_atk_2 が %d -> %d）" % [
+		str(upgraded), next_before, GameManager.get_item_count("part_gem_atk_2")
+	])
+	print("  upgrade_part('part_gem_atk_4') -> %s（上限なので false が正解）" % str(
+		GameManager.upgrade_part("part_gem_atk_4")
+	))
+	print("  dismantle_part('part_gem_atk_2', 3) -> %s" % str(
+		GameManager.dismantle_part("part_gem_atk_2", 3)
+	))
+	print("  ⚠ 上げるのに払うのは decor_material_<いまの段階>、壊して返るのは decor_material_<その段階>。")
+	print("     段階1→2 は _1 を10払い、段階2を壊すと _2 が5返る。同じ素材が増える経路は無い。")
+
+
+
+# 開いている枠のうち、位置 index のものの中身（{item_id, roll} または null）。
+# ⚠ get_part_entries() は開いている枠だけを返し、位置は詰めない。
+#   配列の添字ではなく index で探すこと。
+func _part_entry_at(instance_id: String, index: int) -> Variant:
+	for view: Variant in GameManager.get_part_entries(instance_id):
+		if view is Dictionary and int((view as Dictionary).get(GameManager.PART_VIEW_INDEX, -1)) == index:
+			return (view as Dictionary).get(GameManager.PART_VIEW_ENTRY, null)
+	return null
+
+# 指定の item_id の個体IDを1つ返す。無ければ ""。
+func _find_instance_of(item_id: String) -> String:
+	for view: Variant in GameManager.get_owned_instances():
+		if not (view is Dictionary):
+			continue
+		if str((view as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == item_id:
+			return str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+	return ""
 
 
 func _sum_values(table: Dictionary) -> int:

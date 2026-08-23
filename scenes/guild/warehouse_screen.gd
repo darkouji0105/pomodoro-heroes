@@ -163,7 +163,56 @@ func _create_inventory_entry(item_id: String, count: int) -> void:
 	count_label.name = "CountLabel"
 	entry.add_child(count_label)
 
+	# 装飾（item_type: "part"）だけボタンが2つ付く。装飾かどうかは
+	# items.json だけで決まる（IDの綴りから推測しない）。
+	if not GameManager.get_part_definition(item_id).is_empty():
+		_add_part_buttons(entry, item_id, count)
+
 	inventory_grid.add_child(entry)
+
+# 装飾の行に付くボタン。装備の個体の行（_create_instance_entry）と同じ形。
+#
+# ⚠ 「壊す」は確認モーダルを出さない。減るのは在庫の余りだけで、装備に刺さっている
+#   ものは減らないため（装備の「素材にする」も確認を出していない）。
+#   ⚠ 刺さっているものを壊すのは装備画面の「外す」側。あちらは取り返しがつかないので
+#     確認モーダルを出す（EXEC_DECORATION.md §3-J）。
+# ⚠ 段階が上限の装飾には「段階を上げる」を出さない（行き先が無い）。
+func _add_part_buttons(entry: VBoxContainer, item_id: String, count: int) -> void:
+	var refund_total: int = 0
+	for amount: Variant in GameManager.get_part_dismantle_refund(item_id, 1).values():
+		refund_total += int(amount)
+
+	var dismantle_button: Button = Button.new()
+	dismantle_button.name = "PartDismantleButton"
+	dismantle_button.text = "%s(%d)" % [tr("ui_part_dismantle"), refund_total]
+	dismantle_button.disabled = count <= 0 or refund_total <= 0
+	dismantle_button.pressed.connect(_on_part_dismantle_pressed.bind(item_id))
+	entry.add_child(dismantle_button)
+
+	if GameManager.get_upgraded_part_id(item_id) == "":
+		return
+
+	var cost: Dictionary = GameManager.get_part_upgrade_cost(item_id)
+	var upgrade_button: Button = Button.new()
+	upgrade_button.name = "PartUpgradeButton"
+	# ⚠ 素材名を出すのは、段階ごとに要る素材が変わるため（鍛冶ボタンと同じ理由）。
+	upgrade_button.text = "%s(%s %d)" % [
+		tr("ui_part_upgrade"),
+		tr("ui_res_" + str(cost.get(GameManager.PART_UPGRADE_MATERIAL_ID, ""))),
+		int(cost.get(GameManager.PART_UPGRADE_AMOUNT, 0)),
+	]
+	upgrade_button.disabled = not GameManager.can_upgrade_part(item_id)
+	upgrade_button.pressed.connect(_on_part_upgrade_pressed.bind(item_id))
+	entry.add_child(upgrade_button)
+
+func _on_part_dismantle_pressed(item_id: String) -> void:
+	if GameManager.dismantle_part(item_id, 1).is_empty():
+		push_warning("[WarehouseScreen] dismantle_part failed: " + item_id)
+	# 再描画は inventory_changed 側で行う。
+
+func _on_part_upgrade_pressed(item_id: String) -> void:
+	if not GameManager.upgrade_part(item_id):
+		push_warning("[WarehouseScreen] upgrade_part failed: " + item_id)
 
 # --- 図鑑タブ ---
 

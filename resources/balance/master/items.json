@@ -73,10 +73,34 @@
 	  "sort_order": 11
 	},
 	{
+	  "item_id": "decor_material_1",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 12
+	},
+	{
+	  "item_id": "decor_material_2",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 13
+	},
+	{
+	  "item_id": "decor_material_3",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 14
+	},
+	{
+	  "item_id": "decor_material_4",
+	  "storage": "material",
+	  "item_type": "material",
+	  "sort_order": 15
+	},
+	{
 	  "item_id": "stamina_potion",
 	  "storage": "inventory",
 	  "item_type": "consumable",
-	  "sort_order": 12
+	  "sort_order": 16
 	},
 	{
 	  "item_id": "weapon_wooden_sword",
@@ -165,6 +189,402 @@
 	  "equip_slot": "accessory",
 	  "equip_stats": { "hp": 25 },
 	  "sort_order": 61
+	},
+	{
+	  "item_id": "part_gem_hp_1",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 1,
+	  "part_stat": "hp",
+	  "part_base": 20,
+	  "part_roll_max": 6,
+	  "sort_order": 70
+	},
+	{
+	  "item_id": "part_gem_hp_2",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 2,
+	  "part_stat": "hp",
+	  "part_base": 45,
+	  "part_roll_max": 12,
+	  "sort_order": 71
+	},
+	{
+	  "item_id": "part_gem_hp_3",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 3,
+	  "part_stat": "hp",
+	  "part_base": 80,
+	  "part_roll_max": 20,
+	  "sort_order": 72
+	},
+	{
+	  "item_id": "part_gem_hp_4",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 4,
+	  "part_stat": "hp",
+	  "part_base": 130,
+	  "part_roll_max": 30,
+	  "sort_order": 73
+	},
+	{
+	  "item_id": "part_gem_atk_1",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 1,
+	  "part_stat": "atk",
+	  "part_base": 3,
+	  "part_roll_max": 1,
+	  "sort_order": 74
+	},
+	{
+	  "item_id": "part_gem_atk_2",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 2,
+	  "part_stat": "atk",
+	  "part_base": 7,
+	  "part_roll_max": 2,
+	  "sort_order": 75
+	},
+	{
+	  "item_id": "part_gem_atk_3",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 3,
+	  "part_stat": "atk",
+	  "part_base": 12,
+	  "part_roll_max": 4,
+	  "sort_order": 76
+	},
+	{
+	  "item_id": "part_gem_atk_4",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 4,
+	  "part_stat": "atk",
+	  "part_base": 20,
+	  "part_roll_max": 6,
+	  "sort_order": 77
+	},
+	{
+	  "item_id": "part_gem_mag_1",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 1,
+	  "part_stat": "mag",
+	  "part_base": 3,
+	  "part_roll_max": 1,
+	  "sort_order": 78
+	},
+	{
+	  "item_id": "part_gem_mag_2",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 2,
+	  "part_stat": "mag",
+	  "part_base": 7,
+	  "part_roll_max": 2,
+	  "sort_order": 79
+	},
+	{
+	  "item_id": "part_gem_mag_3",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 3,
+	  "part_stat": "mag",
+	  "part_base": 12,
+	  "part_roll_max": 4,
+	  "sort_order": 80
+	},
+	{
+	  "item_id": "part_gem_mag_4",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "gem",
+	  "part_tier": 4,
+	  "part_stat": "mag",
+	  "part_base": 20,
+	  "part_roll_max": 6,
+	  "sort_order": 81
+	},
+	{
+	  "item_id": "part_charm_def_1",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "charm",
+	  "part_tier": 1,
+	  "part_stat": "def",
+	  "part_base": 3,
+	  "part_roll_max": 1,
+	  "sort_order": 82
+	},
+	{
+	  "item_id": "part_charm_def_2",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "charm",
+	  "part_tier": 2,
+	  "part_stat": "def",
+	  "part_base": 7,
+	  "part_roll_max": 2,
+	  "sort_order": 83
+	},
+	{
+	  "item_id": "part_charm_def_3",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "charm",
+	  "part_tier": 3,
+	  "part_stat": "def",
+	  "part_base": 12,
+	  "part_roll_max": 4,
+	  "sort_order": 84
+	},
+	{
+	  "item_id": "part_charm_def_4",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "charm",
+	  "part_tier": 4,
+	  "part_stat": "def",
+	  "part_base": 20,
+	  "part_roll_max": 6,
+	  "sort_order": 85
+	},
+	{
+	  "item_id": "part_charm_mdef_1",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "charm",
+	  "part_tier": 1,
+	  "part_stat": "mdef",
+	  "part_base": 3,
+	  "part_roll_max": 1,
+	  "sort_order": 86
+	},
+	{
+	  "item_id": "part_charm_mdef_2",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "charm",
+	  "part_tier": 2,
+	  "part_stat": "mdef",
+	  "part_base": 7,
+	  "part_roll_max": 2,
+	  "sort_order": 87
+	},
+	{
+	  "item_id": "part_charm_mdef_3",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "charm",
+	  "part_tier": 3,
+	  "part_stat": "mdef",
+	  "part_base": 12,
+	  "part_roll_max": 4,
+	  "sort_order": 88
+	},
+	{
+	  "item_id": "part_charm_mdef_4",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "charm",
+	  "part_tier": 4,
+	  "part_stat": "mdef",
+	  "part_base": 20,
+	  "part_roll_max": 6,
+	  "sort_order": 89
+	},
+	{
+	  "item_id": "part_emblem_crit_rate_1",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 1,
+	  "part_stat": "crit_rate",
+	  "part_base": 2,
+	  "part_roll_max": 1,
+	  "sort_order": 90
+	},
+	{
+	  "item_id": "part_emblem_crit_rate_2",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 2,
+	  "part_stat": "crit_rate",
+	  "part_base": 4,
+	  "part_roll_max": 2,
+	  "sort_order": 91
+	},
+	{
+	  "item_id": "part_emblem_crit_rate_3",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 3,
+	  "part_stat": "crit_rate",
+	  "part_base": 7,
+	  "part_roll_max": 3,
+	  "sort_order": 92
+	},
+	{
+	  "item_id": "part_emblem_crit_rate_4",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 4,
+	  "part_stat": "crit_rate",
+	  "part_base": 10,
+	  "part_roll_max": 4,
+	  "sort_order": 93
+	},
+	{
+	  "item_id": "part_emblem_crit_dmg_1",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 1,
+	  "part_stat": "crit_dmg",
+	  "part_base": 5,
+	  "part_roll_max": 1,
+	  "sort_order": 94
+	},
+	{
+	  "item_id": "part_emblem_crit_dmg_2",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 2,
+	  "part_stat": "crit_dmg",
+	  "part_base": 10,
+	  "part_roll_max": 2,
+	  "sort_order": 95
+	},
+	{
+	  "item_id": "part_emblem_crit_dmg_3",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 3,
+	  "part_stat": "crit_dmg",
+	  "part_base": 18,
+	  "part_roll_max": 3,
+	  "sort_order": 96
+	},
+	{
+	  "item_id": "part_emblem_crit_dmg_4",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 4,
+	  "part_stat": "crit_dmg",
+	  "part_base": 28,
+	  "part_roll_max": 4,
+	  "sort_order": 97
+	},
+	{
+	  "item_id": "part_emblem_atkspd_1",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 1,
+	  "part_stat": "atkspd",
+	  "part_base": 2,
+	  "part_roll_max": 1,
+	  "sort_order": 98
+	},
+	{
+	  "item_id": "part_emblem_atkspd_2",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 2,
+	  "part_stat": "atkspd",
+	  "part_base": 4,
+	  "part_roll_max": 2,
+	  "sort_order": 99
+	},
+	{
+	  "item_id": "part_emblem_atkspd_3",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 3,
+	  "part_stat": "atkspd",
+	  "part_base": 7,
+	  "part_roll_max": 3,
+	  "sort_order": 100
+	},
+	{
+	  "item_id": "part_emblem_atkspd_4",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 4,
+	  "part_stat": "atkspd",
+	  "part_base": 10,
+	  "part_roll_max": 4,
+	  "sort_order": 101
+	},
+	{
+	  "item_id": "part_emblem_haste_1",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 1,
+	  "part_stat": "haste",
+	  "part_base": 2,
+	  "part_roll_max": 1,
+	  "sort_order": 102
+	},
+	{
+	  "item_id": "part_emblem_haste_2",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 2,
+	  "part_stat": "haste",
+	  "part_base": 4,
+	  "part_roll_max": 2,
+	  "sort_order": 103
+	},
+	{
+	  "item_id": "part_emblem_haste_3",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 3,
+	  "part_stat": "haste",
+	  "part_base": 7,
+	  "part_roll_max": 3,
+	  "sort_order": 104
+	},
+	{
+	  "item_id": "part_emblem_haste_4",
+	  "storage": "inventory",
+	  "item_type": "part",
+	  "part_kind": "emblem",
+	  "part_tier": 4,
+	  "part_stat": "haste",
+	  "part_base": 10,
+	  "part_roll_max": 4,
+	  "sort_order": 105
 	}
   ]
 }

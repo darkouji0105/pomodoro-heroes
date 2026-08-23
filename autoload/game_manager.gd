@@ -110,6 +110,47 @@ const ITEM_STORAGE_INVENTORY: String = "inventory"
 const ITEM_MASTER_EQUIP_SLOT: String = "equip_slot"
 const ITEM_MASTER_EQUIP_STATS: String = "equip_stats"
 
+# items.json の装飾エントリだけが持つキー（EXEC_DECORATION.md §3-A）。
+#
+# ⚠ item_id からは切り出さない。必ずこの欄で引くこと。
+#   IDは part_<種類>_<軸>_<段階> の形だが、軸名にも _ が入る（crit_rate / crit_dmg）ため
+#   パースは事故る。IDと欄が一致しているかは E119 が検証する。
+const ITEM_MASTER_PART_KIND: String = "part_kind"
+const ITEM_MASTER_PART_TIER: String = "part_tier"
+const ITEM_MASTER_PART_STAT: String = "part_stat"
+const ITEM_MASTER_PART_BASE: String = "part_base"
+const ITEM_MASTER_PART_ROLL_MAX: String = "part_roll_max"
+
+# 装飾の種類。
+#
+# ⚠ part_kind で if を分岐させないこと。種類を足すたびに .gd を触ることになる
+#   （EXEC_DECORATION.md §0-4）。使うのは次の2箇所だけ：
+#     1. _part_slot_kinds() … どの枠にどの種類が刺さるか
+#     2. E119 の検証 … 知らない種類が items.json に入っていないか
+const PART_KIND_GEM: String = "gem"
+const PART_KIND_CHARM: String = "charm"
+const PART_KIND_EMBLEM: String = "emblem"
+const PART_KIND_RUNE: String = "rune"
+
+# 装飾のIDの組み立て方（part_<種類>_<軸>_<段階>）。
+#
+# ⚠ 使うのは「欄 → ID」の向きだけ。逆（IDから欄を切り出す）はしない
+#   （軸名にも _ が入る： crit_rate / crit_dmg）。
+# ⚠ 組み立てたIDと欄が一致していることは、ロード時に E119 が検証している
+#   （MasterDataLoader._validate_all_part_items()）。ここと同じ書式を使うこと。
+const PART_ID_FORMAT: String = "part_%s_%s_%d"
+
+# get_part_reject_reason() が返す翻訳キー。"" なら刺せる。
+const PART_REJECT_LOCKED: String = "ui_part_reject_locked"
+const PART_REJECT_OCCUPIED: String = "ui_part_reject_occupied"
+const PART_REJECT_UNKNOWN: String = "ui_part_reject_unknown"
+const PART_REJECT_KIND: String = "ui_part_reject_kind"
+const PART_REJECT_STOCK: String = "ui_part_reject_stock"
+
+# get_part_upgrade_cost() が返す Dictionary のキー（get_forge_cost() と同じ形）。
+const PART_UPGRADE_MATERIAL_ID: String = "material_id"
+const PART_UPGRADE_AMOUNT: String = "amount"
+
 # --- 装備の個体（第2弾） ---
 
 const INSTANCE_ID_PREFIX: String = "eq_"
@@ -131,10 +172,30 @@ const INSTANCE_ID_PREFIX: String = "eq_"
 # 等級10でも 1 + 0.25*9 = 3.25倍で止まる。
 const GRADE_STAT_RATIO: float = 0.25
 
-# 枠（宝石・ルーンを刺すところ）。第1弾は器だけ作り、中身は空。
-# parts は null 込みの長さ固定配列。位置が枠を表す（PLAN 2-2）。
-const PART_SLOT_COUNT: int = 2
-const PART_SLOT_GRADES: Array[int] = [5, 10]
+# 枠（装飾を刺すところ）。parts は null 込みの長さ固定配列で、位置が枠を表す（PLAN 2-2）。
+#
+# ⚠ GAME_DESIGN.md 6-4 で「等級を上げると必ず何かが開く」形になった。
+#   それまでは PART_SLOT_GRADES = [5, 10] の2枠（等級5で1つ・等級10で2つ）だった。
+#   ⚠ 開く等級は PartConfig.part_slot_min_grades（数値なので .tres 側）。
+#   ⚠ 位置ごとの「刺さる種類」は _part_slot_kinds()（種類は数値ではないのでここ）。
+#
+#   0: 等級3 宝石枠1        4: 等級6 護符枠1
+#   1: 等級4 宝石枠2        5: 等級7 護符枠2
+#   2: 等級5 特別枠1        6: 等級8 紋章枠1
+#   3: 等級5 特別枠2        7: 等級9 紋章枠2
+#
+# ⚠ 特別枠2（位置3）はアクセサリーにしか無い。他の部位では「開かない枠」として
+#   位置だけ残す。位置を詰めると部位ごとに添字の意味が変わり、既存セーブの
+#   parts が別の枠を指すようになる。
+# ⚠ 等級10 では枠が開かない。開くのは「部位固有のパッシブ」で別の仕組み
+#   （GAME_DESIGN.md 6-4。この回では実装していない）。
+const PART_SLOT_COUNT: int = 8
+
+# get_part_entries() が返す1件分のキー。
+const PART_VIEW_INDEX: String = "index"
+const PART_VIEW_KINDS: String = "kinds"
+const PART_VIEW_ENTRY: String = "entry"
+const PART_VIEW_MIN_GRADE: String = "min_grade"
 
 # get_forge_cost() が返す Dictionary のキー。
 const FORGE_COST_MATERIAL_ID: String = "material_id"
@@ -620,6 +681,21 @@ func apply_battle_rewards(result_data: Dictionary) -> void:
 		var mats: Dictionary = rewards[GameStateKeys.REWARD_MATERIALS]
 		for mat_id: String in mats:
 			add_material(mat_id, int(mats[mat_id]))
+	# ⚠ rewards.inventory（EXEC_DECORATION.md §0-3 の4）。
+	#   AGENTS.md の報酬 Dictionary の共通形は {gold, gems, stamina, materials, inventory} だが、
+	#   ここは長いあいだ gold と materials しか読んでいなかった。ステージ報酬から
+	#   アイテムも装備も1件も出せない「無音の穴」だった（stages.json に書いても落ちない）。
+	#   ⚠ add_to_inventory() を通すので、装備なら個体（eq_N）になる（CLAUDE.md 8番）。
+	#   ⚠ gems と stamina は今も読んでいない。使う予定が無いため（宿題に残してある）。
+	if rewards.has(GameStateKeys.REWARD_INVENTORY) and rewards[GameStateKeys.REWARD_INVENTORY] is Dictionary:
+		var inv: Dictionary = rewards[GameStateKeys.REWARD_INVENTORY]
+		for item_id: String in inv:
+			var count: int = int(inv[item_id])
+			if count <= 0:
+				continue
+			add_to_inventory(item_id, count, str(
+				MasterDataLoader.get_item(item_id).get(ITEM_MASTER_ITEM_TYPE, GameStateKeys.ITEM_TYPE_UNKNOWN)
+			))
 	# 発火元をGameManagerに一本化（呼び出し元の戦闘画面側では発火させない・二重発火防止）
 	SignalBus.battle_finished.emit(result_data)
 
@@ -1262,14 +1338,25 @@ func _equipped_owner(instance_id: String) -> String:
 				return character_id
 	return ""
 
-# 等級から、開いている枠の数を計算する。状態には持たない（PLAN 2-2）。
-# 第1弾は上限が3なので常に0。器だけ先に作っている。
-func get_open_part_slot_count(grade: int) -> int:
+# 部位と等級から、開いている枠の数を数える。状態には持たない（PLAN 2-2）。
+#
+# ⚠ 部位を引数に取るのは、特別枠2（位置3）がアクセサリーにしか無いため。
+#   等級だけでは数が決まらない（GAME_DESIGN.md 6-4）。
+func get_open_part_slot_count(equip_slot: String, grade: int) -> int:
 	var count: int = 0
-	for required_grade: int in PART_SLOT_GRADES:
-		if grade >= required_grade:
+	for def: Variant in get_part_slot_defs(equip_slot):
+		if _is_slot_open(def, grade):
 			count += 1
 	return count
+
+func _is_slot_open(def: Variant, grade: int) -> bool:
+	if not (def is Dictionary):
+		return false
+	var kinds: Variant = (def as Dictionary).get(PART_VIEW_KINDS, [])
+	# 刺さる種類が1つも無い枠は「この部位には無い枠」。等級をいくら上げても開かない。
+	if not (kinds is Array) or (kinds as Array).is_empty():
+		return false
+	return grade >= int((def as Dictionary).get(PART_VIEW_MIN_GRADE, 0))
 
 # --- 装備：性能 ---
 
@@ -1305,7 +1392,64 @@ func get_instance_stats(instance_id: String) -> Dictionary:
 	for stat_key: String in _stat_keys():
 		var base: int = int((equip_stats as Dictionary).get(stat_key, 0))
 		result[stat_key] = base + int(floor(float(base) * GRADE_STAT_RATIO * float(grade - 1)))
+
+	# 刺さっている装飾の加算（EXEC_DECORATION.md §1-2）。
+	# ⚠ 装飾がステータスに乗る合流点はここ1箇所だけ。この先は
+	#   get_equipment_bonus() → get_effective_stats() → 戦闘・画面 と既存の経路で流れる。
+	# ⚠ 何も刺していなければ1つも足さない（装飾を使わないプレイヤーの数値は変わらない）。
+	_add_part_stats(instance_id, instance, result)
 	return result
+
+# 刺さっている装飾の加算を result に足す。
+#
+# ⚠ W18：加算できない装飾は「足さないが、parts からは消さない」。
+#   push_warning を1本出して残す（PLAN_CHARACTER_GROWTH_LOOP.md 3-2 の [x] が
+#   名指しで要求している形。黙って倉庫に返すと「無くなった」に見える）。
+#
+# ⚠ 枠を減らす変更（part_slot_min_grades を伸ばす・特別枠を消す等）をしたときに、
+#   あふれた装飾がここに来る。_is_slot_open() が false になる枝がそれ。
+func _add_part_stats(instance_id: String, instance: Dictionary, result: Dictionary) -> void:
+	var raw_parts: Variant = instance.get(GameStateKeys.INSTANCE_PARTS, [])
+	if not (raw_parts is Array):
+		return
+	var parts: Array = raw_parts
+	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
+	var defs: Array = get_part_slot_defs(_instance_equip_slot(instance_id))
+
+	for i: int in range(parts.size()):
+		var entry: Variant = parts[i]
+		if not (entry is Dictionary):
+			continue
+		var part_id: String = str((entry as Dictionary).get(GameStateKeys.PART_ITEM_ID, ""))
+
+		if i >= defs.size() or not _is_slot_open(defs[i], grade):
+			push_warning("[GameManager] W18 %s: 枠%d は開いていないのに '%s' が刺さっている（加算しないが消さない）" % [
+				instance_id, i, part_id
+			])
+			continue
+
+		var definition: Dictionary = get_part_definition(part_id)
+		if definition.is_empty():
+			push_warning("[GameManager] W18 %s: items.json に無い装飾 '%s' が刺さっている（加算しないが消さない）" % [
+				instance_id, part_id
+			])
+			continue
+
+		var kind: String = str(definition.get(ITEM_MASTER_PART_KIND, ""))
+		if not (kind in (defs[i] as Dictionary).get(PART_VIEW_KINDS, [])):
+			push_warning("[GameManager] W18 %s: 枠%d に刺さらない装飾 '%s'（種類 %s）が刺さっている（加算しないが消さない）" % [
+				instance_id, i, part_id, kind
+			])
+			continue
+
+		var stat_key: String = str(definition.get(ITEM_MASTER_PART_STAT, ""))
+		if not result.has(stat_key):
+			push_warning("[GameManager] W18 %s: 装飾 '%s' の part_stat '%s' が10軸に無い（加算しないが消さない）" % [
+				instance_id, part_id, stat_key
+			])
+			continue
+
+		result[stat_key] = int(result[stat_key]) + get_part_stat_value(entry)
 
 # 装備している個体のステータス加算の合計。{hp, atk, def, spd} を必ず4つ返す。
 func get_equipment_bonus(character_id: String) -> Dictionary:
@@ -1620,7 +1764,7 @@ func forge_equipment(instance_id: String) -> bool:
 
 	print("[GameManager] forge_equipment('%s') -> true (grade %d -> %d cost=%d stats=%s slots=%d)" % [
 		instance_id, grade, new_grade, amount, get_instance_stats(instance_id),
-		get_open_part_slot_count(new_grade)
+		get_open_part_slot_count(_instance_equip_slot(instance_id), new_grade)
 	])
 	equipment_instances_changed.emit(instance_id)
 	return true
@@ -1701,6 +1845,475 @@ func dismantle_equipment(instance_id: String) -> bool:
 	])
 	equipment_instances_changed.emit(instance_id)
 	return true
+
+# ============================================================
+# 装飾（宝石・護符・紋章）— EXEC_DECORATION.md
+# ============================================================
+#
+# ⚠ 状態が持つのは equipment_instances.<id>.parts の {item_id, roll} だけ。
+#   性能（part_base / part_roll_max）は items.json から毎回引く（CLAUDE.md 4番）。
+#   GAME_DESIGN.md 7-6 は「{装飾ID, 等級, 出目}」と書いているが、等級は落としている
+#   （マスターから引ける＝複製になるため）。
+#
+# ⚠ part_kind で if を分岐させないこと。種類を足すたびに .gd を触ることになる。
+#   種類を見るのは _part_slot_kinds() と E119 の2箇所だけ。
+#
+# ⚠ 段階の数を 4 と直書きしないこと。get_max_part_tier() と配列の長さから引く。
+
+var _part_config_warned: bool = false
+
+# Balance.part の唯一の口。null のときは1回だけ赤で直し方を言い、以降は黙る
+# （_equipment() と同じ形。割り当て忘れが「静かな壊れ方」をした前回への対処）。
+func _part() -> PartConfig:
+	if Balance.part == null:
+		if not _part_config_warned:
+			_part_config_warned = true
+			push_error("[GameManager] Balance.part が null。balance.tscn の Part の枠に resources/balance/part_config.tres を割り当てること（装飾の段階上げと壊す処理が全部止まる）")
+		return null
+	return Balance.part
+
+# 装飾の段階の上限。画面もここから引く（4 と直書きしない）。
+func get_max_part_tier() -> int:
+	var config: PartConfig = _part()
+	if config == null:
+		return 1
+	return int(config.max_part_tier)
+
+# 段階 → 装飾素材のID（get_forge_material_id() と同じ形）。
+func get_decor_material_id(tier: int) -> String:
+	return GameStateKeys.ITEM_DECOR_MATERIAL_PREFIX + str(tier)
+
+# 枠の位置ごとに、そこへ刺さる装飾の種類（GAME_DESIGN.md 6-4）。
+#
+# ⚠ 種類が決まるのは「部位」ではなく「枠」。部位が効くのは等級5の特別枠だけ。
+# ⚠ ワイルド枠は宝石・護符・紋章のどれでも受ける（GAME_DESIGN.md 7-1）。ルーンは受けない。
+# ⚠ 種類を足すときに触るのはこの表だけ。part_kind で if を分岐させないこと。
+func _part_slot_kinds(equip_slot: String) -> Array:
+	var wild: Array[String] = [PART_KIND_GEM, PART_KIND_CHARM, PART_KIND_EMBLEM]
+	var special_a: Array[String] = []
+	var special_b: Array[String] = []
+	if equip_slot == GameStateKeys.EQUIP_WEAPON:
+		special_a = [PART_KIND_RUNE]
+	elif equip_slot == GameStateKeys.EQUIP_ACCESSORY:
+		special_a = [PART_KIND_RUNE]
+		special_b = [PART_KIND_RUNE]
+	elif equip_slot in [GameStateKeys.EQUIP_HEAD, GameStateKeys.EQUIP_ARMOR, GameStateKeys.EQUIP_LEGS]:
+		special_a = wild
+	else:
+		# 装備でないIDが来た。枠を1つも作らない。
+		return []
+	return [
+		[PART_KIND_GEM], [PART_KIND_GEM],
+		special_a, special_b,
+		[PART_KIND_CHARM], [PART_KIND_CHARM],
+		[PART_KIND_EMBLEM], [PART_KIND_EMBLEM],
+	]
+
+# 部位ごとの枠の定義。長さは PART_SLOT_COUNT。
+# 戻り値の1件: {index, min_grade, kinds}
+#
+# ⚠ 開く等級（数値）は PartConfig、刺さる種類は _part_slot_kinds()。
+#   2本の長さが合わないと「等級9の枠が開かない」が無音になるので赤を出す。
+func get_part_slot_defs(equip_slot: String) -> Array:
+	var kinds_table: Array = _part_slot_kinds(equip_slot)
+	if kinds_table.is_empty():
+		return []
+
+	var config: PartConfig = _part()
+	var min_grades: Array[int] = []
+	if config != null:
+		min_grades = config.part_slot_min_grades
+	if min_grades.size() != kinds_table.size():
+		push_error("[GameManager] part_slot_min_grades の長さが %d。枠の種類の表は %d 件（PART_SLOT_COUNT=%d）。part_config.tres を直すこと" % [
+			min_grades.size(), kinds_table.size(), PART_SLOT_COUNT
+		])
+
+	var result: Array = []
+	for i: int in range(kinds_table.size()):
+		# 長さが足りないぶんは「開かない枠」として置く（黙って詰めない）。
+		var min_grade: int = int(min_grades[i]) if i < min_grades.size() else 9999
+		result.append({
+			PART_VIEW_INDEX: i,
+			PART_VIEW_MIN_GRADE: min_grade,
+			PART_VIEW_KINDS: kinds_table[i],
+		})
+	return result
+
+# その枠に刺さる種類。開いているかどうかは見ない。
+func get_part_kinds_for_slot_index(equip_slot: String, slot_index: int) -> Array:
+	var defs: Array = get_part_slot_defs(equip_slot)
+	if slot_index < 0 or slot_index >= defs.size():
+		return []
+	return (defs[slot_index] as Dictionary).get(PART_VIEW_KINDS, [])
+
+# 個体が入る部位（items.json の equip_slot）。装備していなくても決まる。
+func _instance_equip_slot(instance_id: String) -> String:
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	if instance.is_empty():
+		return ""
+	var definition: Dictionary = MasterDataLoader.get_item(str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, "")))
+	return str(definition.get(ITEM_MASTER_EQUIP_SLOT, ""))
+
+# 装飾1件の定義。装飾でなければ空を返す。
+# MasterDataLoader は JSON をそのまま返すため、数値は int() で包む（CLAUDE.md 3番）。
+func get_part_definition(item_id: String) -> Dictionary:
+	var definition: Dictionary = MasterDataLoader.get_item(item_id)
+	if definition.is_empty():
+		return {}
+	if str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_PART:
+		return {}
+	return {
+		ITEM_MASTER_PART_KIND: str(definition.get(ITEM_MASTER_PART_KIND, "")),
+		ITEM_MASTER_PART_TIER: int(definition.get(ITEM_MASTER_PART_TIER, 0)),
+		ITEM_MASTER_PART_STAT: str(definition.get(ITEM_MASTER_PART_STAT, "")),
+		ITEM_MASTER_PART_BASE: int(definition.get(ITEM_MASTER_PART_BASE, 0)),
+		ITEM_MASTER_PART_ROLL_MAX: int(definition.get(ITEM_MASTER_PART_ROLL_MAX, 0)),
+	}
+
+# 刺さっている装飾1つ分の加算量。{item_id, roll} → part_base + roll。
+#
+# ⚠ 表示も加算もこの1本を通す。2本目を書かないこと（EXEC_DECORATION.md §2-7）。
+func get_part_stat_value(part_entry: Variant) -> int:
+	if not (part_entry is Dictionary):
+		return 0
+	var entry: Dictionary = part_entry
+	var definition: Dictionary = get_part_definition(str(entry.get(GameStateKeys.PART_ITEM_ID, "")))
+	if definition.is_empty():
+		return 0
+	# items.json の part_roll_max を後から縮めたときに、保存済みの出目がはみ出す。
+	# 黙って大きいままにしないよう必ず丸める。
+	var roll: int = clampi(
+		int(entry.get(GameStateKeys.PART_ROLL, 0)), 0, int(definition.get(ITEM_MASTER_PART_ROLL_MAX, 0))
+	)
+	return int(definition.get(ITEM_MASTER_PART_BASE, 0)) + roll
+
+# instance の parts を長さ PART_SLOT_COUNT に揃えて返す（null 込み）。
+# get_equipment_instance() は duplicate(true) を返すので、ここで得た配列は
+# そのまま書き換えて _write_instance() で戻してよい。
+func _parts_array(instance: Dictionary) -> Array:
+	var raw: Variant = instance.get(GameStateKeys.INSTANCE_PARTS, [])
+	var parts: Array = raw if raw is Array else []
+	while parts.size() < PART_SLOT_COUNT:
+		parts.append(null)
+	return parts
+
+# 開いている枠の一覧。画面はこれだけを見る。
+# 戻り値の1件: {index, min_grade, kinds, entry}（entry は {item_id, roll} または null）
+#
+# ⚠ 開いていない枠は返さない。位置（index）は詰めずにそのまま入れる。
+#   画面が「何番目の枠か」で attach_part() を呼ぶので、詰めると別の枠に刺さる。
+func get_part_entries(instance_id: String) -> Array:
+	var result: Array = []
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	if instance.is_empty():
+		return result
+	var parts: Array = _parts_array(instance)
+	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
+	for def: Variant in get_part_slot_defs(_instance_equip_slot(instance_id)):
+		if not _is_slot_open(def, grade):
+			continue
+		var i: int = int((def as Dictionary).get(PART_VIEW_INDEX, 0))
+		var view: Dictionary = (def as Dictionary).duplicate(true)
+		view[PART_VIEW_ENTRY] = parts[i] if i < parts.size() and parts[i] is Dictionary else null
+		result.append(view)
+	return result
+
+# 刺せない理由の翻訳キー。"" なら刺せる。
+#
+# ⚠ 刺せるかどうかの判定はこの1本だけ。画面のボタンの活性も attach_part() の
+#   判定もここを通す（同じ形の判定を2本書かない）。
+# ⚠ 段階の判定は無い。下位段階も上位の枠に刺さる（PLAN 3-2 の [x]）。
+func get_part_reject_reason(instance_id: String, slot_index: int, item_id: String) -> String:
+	# 1. 個体が在るか
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	if instance.is_empty():
+		return PART_REJECT_UNKNOWN
+
+	# 2. その枠が開いているか（部位と等級の両方で決まる。GAME_DESIGN.md 6-4）
+	var equip_slot: String = _instance_equip_slot(instance_id)
+	var defs: Array = get_part_slot_defs(equip_slot)
+	if slot_index < 0 or slot_index >= defs.size():
+		return PART_REJECT_LOCKED
+	if not _is_slot_open(defs[slot_index], int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))):
+		return PART_REJECT_LOCKED
+
+	# 3. その枠が空か（上書きで黙って壊さない）
+	var parts: Array = _parts_array(instance)
+	if slot_index < parts.size() and parts[slot_index] is Dictionary:
+		return PART_REJECT_OCCUPIED
+
+	# 4. 装飾として引けるか
+	var definition: Dictionary = get_part_definition(item_id)
+	if definition.is_empty():
+		return PART_REJECT_UNKNOWN
+
+	# 5. その「枠」が受け付ける種類か（部位ではなく枠で決まる）
+	if not (str(definition.get(ITEM_MASTER_PART_KIND, "")) in (defs[slot_index] as Dictionary).get(PART_VIEW_KINDS, [])):
+		return PART_REJECT_KIND
+
+	# 6. 在庫を持っているか
+	if get_item_count(item_id) <= 0:
+		return PART_REJECT_STOCK
+
+	return ""
+
+# 枠に装飾を刺す。ロールはここで振る（GAME_DESIGN.md 7-6・人間の決定C）。
+#
+# ⚠ 判定は get_part_reject_reason() に全部任せる。ここに2本目を書かない。
+# ⚠ 状態を触るのは判定を全部通したあと（CLAUDE.md 6番）。
+#
+# ⚠ シグナルは2本飛ぶ（_remove_from_inventory() の inventory_changed と、
+#   ここの equipment_instances_changed）。倉庫は両方購読しているので再描画が
+#   2回走るが、_rebuild_inventory() は await を持たないので行は二重にならない。
+func attach_part(instance_id: String, slot_index: int, item_id: String) -> bool:
+	var reason: String = get_part_reject_reason(instance_id, slot_index, item_id)
+	if reason != "":
+		print("[GameManager] attach_part('%s', %d, '%s') -> false (%s)" % [
+			instance_id, slot_index, item_id, reason
+		])
+		return false
+
+	var roll_max: int = int(get_part_definition(item_id).get(ITEM_MASTER_PART_ROLL_MAX, 0))
+
+	# --- ここから状態を変える ---
+
+	_remove_from_inventory(item_id, 1)
+
+	# 出目は 0 〜 part_roll_max。マイナスは作らない（PLAN 4-2 の [x]）。
+	var roll: int = randi_range(0, roll_max) if roll_max > 0 else 0
+
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	var parts: Array = _parts_array(instance)
+	parts[slot_index] = {
+		GameStateKeys.PART_ITEM_ID: item_id,
+		GameStateKeys.PART_ROLL: roll,
+	}
+	instance[GameStateKeys.INSTANCE_PARTS] = parts
+	_write_instance(instance_id, instance)
+
+	print("[GameManager] attach_part('%s', %d, '%s') -> true (roll=%d/%d value=%d stats=%s)" % [
+		instance_id, slot_index, item_id, roll, roll_max,
+		get_part_stat_value(parts[slot_index]), get_instance_stats(instance_id)
+	])
+	equipment_instances_changed.emit(instance_id)
+	return true
+
+# 枠から装飾を外す。⚠ 外すと壊れる（GAME_DESIGN.md 7-6・人間の決定D）。
+# 在庫には戻らない。装飾素材が返る。
+#
+# ⚠ 確認モーダルは画面側の担当。ここは確認しない（GameManager は await を持たない）。
+#   壊れる量を先に見せたいときは get_part_dismantle_refund() を呼ぶこと。
+func detach_part(instance_id: String, slot_index: int) -> bool:
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	if instance.is_empty():
+		print("[GameManager] detach_part('%s', %d) -> false (unknown instance)" % [instance_id, slot_index])
+		return false
+
+	var open_count: int = get_open_part_slot_count(
+		_instance_equip_slot(instance_id), int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
+	)
+	var parts: Array = _parts_array(instance)
+	# ⚠ 開いていない枠のぶんも外せるようにしてある。枠を減らす変更をしたときに、
+	#   あふれた装飾を取り出す手段が無くなるため（W18 は「消さない」なので残り続ける）。
+	if slot_index < 0 or slot_index >= parts.size():
+		print("[GameManager] detach_part('%s', %d) -> false (枠の範囲外・開いている枠=%d)" % [
+			instance_id, slot_index, open_count
+		])
+		return false
+	if not (parts[slot_index] is Dictionary):
+		print("[GameManager] detach_part('%s', %d) -> false (空の枠)" % [instance_id, slot_index])
+		return false
+
+	var part_id: String = str((parts[slot_index] as Dictionary).get(GameStateKeys.PART_ITEM_ID, ""))
+	var refund: Dictionary = get_part_dismantle_refund(part_id, 1)
+
+	# --- ここから状態を変える ---
+
+	parts[slot_index] = null
+	instance[GameStateKeys.INSTANCE_PARTS] = parts
+	_write_instance(instance_id, instance)
+
+	for material_id: Variant in refund:
+		add_material(str(material_id), int(refund[material_id]))
+
+	print("[GameManager] detach_part('%s', %d) -> true (壊した '%s' refund=%s stats=%s)" % [
+		instance_id, slot_index, part_id, str(refund), get_instance_stats(instance_id)
+	])
+	equipment_instances_changed.emit(instance_id)
+	return true
+
+# 段階を1つ上げた装飾のID。上げられなければ ""。
+#
+# ⚠ 欄からIDを組み立てる。逆（IDから欄を切り出す）はしない。
+#   組み立てたIDと欄が一致していることは E119 がロード時に検証している。
+func get_upgraded_part_id(item_id: String) -> String:
+	var definition: Dictionary = get_part_definition(item_id)
+	if definition.is_empty():
+		return ""
+	var tier: int = int(definition.get(ITEM_MASTER_PART_TIER, 0))
+	if tier < 1 or tier >= get_max_part_tier():
+		return ""
+	var next_id: String = PART_ID_FORMAT % [
+		str(definition.get(ITEM_MASTER_PART_KIND, "")),
+		str(definition.get(ITEM_MASTER_PART_STAT, "")),
+		tier + 1,
+	]
+	if get_part_definition(next_id).is_empty():
+		# 段階の上限だけ伸ばして items.json に行を足し忘れた形。黙ると
+		# 「上げるボタンが出るのに押しても何も起きない」になる。
+		push_error("[GameManager] 段階%d の装飾 '%s' が items.json に無い（'%s' から上げられない）" % [
+			tier + 1, next_id, item_id
+		])
+		return ""
+	return next_id
+
+# 段階を1つ上げるのに要るもの。{material_id, amount}。上げられなければ amount = 0。
+#
+# ⚠ 払うのは「いま持っている段階」の装飾素材（decor_material_<tier>）。
+#   装備の鍛冶は「上げた先の等級」で引くので、向きが逆である点に注意。
+func get_part_upgrade_cost(item_id: String) -> Dictionary:
+	var empty: Dictionary = {PART_UPGRADE_MATERIAL_ID: "", PART_UPGRADE_AMOUNT: 0}
+	var definition: Dictionary = get_part_definition(item_id)
+	if definition.is_empty():
+		return empty
+	var config: PartConfig = _part()
+	if config == null:
+		return empty
+	var tier: int = int(definition.get(ITEM_MASTER_PART_TIER, 0))
+	if tier < 1 or tier >= get_max_part_tier():
+		return empty
+
+	var costs: Array[int] = config.upgrade_cost_by_tier
+	if costs.is_empty():
+		push_error("[GameManager] upgrade_cost_by_tier が空。装飾の段階を上げられない")
+		return empty
+	var index: int = tier - 1
+	var amount: int = 0
+	if index >= costs.size():
+		# 黙って落とすと「段階3から上がらない」が無音になる
+		# （get_forge_cost_amount() と同じ形）。
+		push_error("[GameManager] upgrade_cost_by_tier が短い（段階%d ぶんが無い。長さ=%d・上限=%d）。末尾の値で埋める" % [
+			tier, costs.size(), get_max_part_tier()
+		])
+		amount = int(costs[costs.size() - 1])
+	else:
+		amount = int(costs[index])
+	return {PART_UPGRADE_MATERIAL_ID: get_decor_material_id(tier), PART_UPGRADE_AMOUNT: amount}
+
+func can_upgrade_part(item_id: String) -> bool:
+	if get_upgraded_part_id(item_id) == "":
+		return false
+	if get_item_count(item_id) <= 0:
+		return false
+	var cost: Dictionary = get_part_upgrade_cost(item_id)
+	var amount: int = int(cost.get(PART_UPGRADE_AMOUNT, 0))
+	if amount <= 0:
+		return false
+	return get_material_count(str(cost.get(PART_UPGRADE_MATERIAL_ID, ""))) >= amount
+
+# 装飾の段階を1つ上げる（分解方式・GAME_DESIGN.md 7-1）。
+# 在庫の装飾1つと装飾素材を払い、1つ上の段階の装飾を1つ在庫へ入れる。
+#
+# ⚠ 刺さっている装飾は上げられない。parts の中身は在庫ではないため
+#   （上げたいなら先に外す＝壊れる）。
+func upgrade_part(item_id: String) -> bool:
+	var next_id: String = get_upgraded_part_id(item_id)
+	if next_id == "":
+		print("[GameManager] upgrade_part('%s') -> false (上げ先が無い)" % item_id)
+		return false
+
+	var owned: int = get_item_count(item_id)
+	if owned <= 0:
+		print("[GameManager] upgrade_part('%s') -> false (持っていない)" % item_id)
+		return false
+
+	var cost: Dictionary = get_part_upgrade_cost(item_id)
+	var material_id: String = str(cost.get(PART_UPGRADE_MATERIAL_ID, ""))
+	var amount: int = int(cost.get(PART_UPGRADE_AMOUNT, 0))
+	if amount <= 0:
+		print("[GameManager] upgrade_part('%s') -> false (コストが引けない)" % item_id)
+		return false
+
+	var owned_material: int = get_material_count(material_id)
+	if owned_material < amount:
+		print("[GameManager] upgrade_part('%s') -> false (material %s: %d < %d)" % [
+			item_id, material_id, owned_material, amount
+		])
+		return false
+
+	# --- ここから状態を変える ---
+
+	add_material(material_id, -amount)
+	_remove_from_inventory(item_id, 1)
+	add_to_inventory(next_id, 1, GameStateKeys.ITEM_TYPE_PART)
+
+	print("[GameManager] upgrade_part('%s') -> true (-> %s cost=%s x%d)" % [
+		item_id, next_id, material_id, amount
+	])
+	return true
+
+# 装飾を壊したときに返る素材。{material_id: count}
+# （get_dismantle_refund() と同じ形。外したとき・在庫で壊したときの両方が使う）。
+func get_part_dismantle_refund(item_id: String, count: int) -> Dictionary:
+	var result: Dictionary = {}
+	if count <= 0:
+		return result
+	var definition: Dictionary = get_part_definition(item_id)
+	if definition.is_empty():
+		return result
+	var config: PartConfig = _part()
+	if config == null:
+		return result
+	var tier: int = int(definition.get(ITEM_MASTER_PART_TIER, 0))
+	if tier < 1:
+		return result
+
+	var table: Array[int] = config.dismantle_by_tier
+	if table.is_empty():
+		push_error("[GameManager] dismantle_by_tier が空。装飾を壊しても何も返らない")
+		return result
+	var index: int = tier - 1
+	var per_one: int = 0
+	if index >= table.size():
+		push_error("[GameManager] dismantle_by_tier が短い（段階%d ぶんが無い。長さ=%d）。末尾の値で埋める" % [
+			tier, table.size()
+		])
+		per_one = int(table[table.size() - 1])
+	else:
+		per_one = int(table[index])
+	if per_one <= 0:
+		return result
+
+	result[get_decor_material_id(tier)] = per_one * count
+	return result
+
+# 在庫の装飾を壊して装飾素材に戻す。戻りは {material_id: count}。空なら何もしていない。
+#
+# ⚠ 外して壊れる側（detach_part）とは別。こちらは在庫の余りを整理するためのもの。
+# ⚠ 確認モーダルは出さない（装備の「素材にする」も出していない。刺さっているものは
+#   減らないので、押し間違いの被害が在庫の余りに限られる）。
+func dismantle_part(item_id: String, count: int) -> Dictionary:
+	if count <= 0:
+		return {}
+	var owned: int = get_item_count(item_id)
+	if owned < count:
+		print("[GameManager] dismantle_part('%s', %d) -> {} (持っているのは %d)" % [item_id, count, owned])
+		return {}
+
+	var refund: Dictionary = get_part_dismantle_refund(item_id, count)
+	if refund.is_empty():
+		# 戻りが引けないなら在庫も減らさない（払っただけになるのを避ける）。
+		print("[GameManager] dismantle_part('%s', %d) -> {} (戻りが引けない)" % [item_id, count])
+		return {}
+
+	# --- ここから状態を変える ---
+
+	_remove_from_inventory(item_id, count)
+	for material_id: Variant in refund:
+		add_material(str(material_id), int(refund[material_id]))
+
+	print("[GameManager] dismantle_part('%s', %d) -> %s" % [item_id, count, str(refund)])
+	return refund
 
 # 1キャラ分の育成データを _state へ書き戻す。
 # level_up_character() が直接書いていた3行と同じ処理。装備でも同じ形が要るため関数にした。

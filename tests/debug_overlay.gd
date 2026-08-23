@@ -116,6 +116,7 @@ func _build_ui() -> void:
 	_body.add_child(_make_button("素材を全種類", _grant_all_materials))
 	_body.add_child(_make_button("消費アイテムを全種類", _grant_all_consumables))
 	_body.add_child(_make_button("装備を全種類 1個ずつ", _grant_all_equipment))
+	_body.add_child(_make_button("装飾を全種類", _grant_all_parts))
 	_body.add_child(_make_button("研究を全部解放（先に素材）", _unlock_all_research))
 	_body.add_child(_make_button("セーブする", _save))
 
@@ -240,9 +241,33 @@ func _grant_all_consumables() -> void:
 		# 装備は「装備を全種類」の担当。ここで配ると個体が二重に増える。
 		if item_type == GameStateKeys.ITEM_TYPE_EQUIPMENT:
 			continue
+		# 装飾は「装飾を全種類」の担当。除かないと36種が消費アイテム側から配られ、
+		# 倉庫の持ち物タブが装飾で埋まる（EXEC_DECORATION.md §3-K）。
+		if item_type == GameStateKeys.ITEM_TYPE_PART:
+			continue
 		GameManager.add_to_inventory(item_id, CONSUMABLE_AMOUNT, item_type)
 		count += 1
 	print("[DebugOverlay] 消費アイテム %d種を +%d" % [count, CONSUMABLE_AMOUNT])
+
+
+# 装飾（宝石・護符・紋章）。装備と違って個体にならず、スタック品として入る。
+#
+# ⚠ 「新規セーブから枠の検証に到達する唯一の経路」がここ。装飾はステージ報酬
+#   （stage_2 / stage_3）とショップにしか無く、素の状態では1つも持っていない。
+# ⚠ 配る量は少なめ。36種 × 大量にすると倉庫の持ち物タブが装飾で埋まり、
+#   目当ての1つを探せなくなる（装備を1個ずつにしているのと同じ理由）。
+const PART_COUNT: int = 5
+
+func _grant_all_parts() -> void:
+	var all_items: Dictionary = MasterDataLoader.get_all_items()
+	var count: int = 0
+	for item_id: String in all_items:
+		var definition: Dictionary = all_items[item_id]
+		if str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_PART:
+			continue
+		GameManager.add_to_inventory(item_id, PART_COUNT, GameStateKeys.ITEM_TYPE_PART)
+		count += 1
+	print("[DebugOverlay] 装飾 %d種を +%d" % [count, PART_COUNT])
 
 
 # 装備は add_to_inventory() を通す。ここが個体（eq_N）を作る唯一の入口。

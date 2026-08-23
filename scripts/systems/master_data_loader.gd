@@ -223,6 +223,16 @@ static func _validate_all_item_refs() -> void:
 		for material_id: Variant in (materials as Dictionary):
 			errors += _report_missing_item(str(material_id), "stages.json", str(stage_id))
 
+		# stages.json … rewards.inventory のキー（EXEC_DECORATION.md §3-G）。
+		#
+		# ⚠ この枝は装飾をステージから落とせるようにした回で足した。
+		#   apply_battle_rewards() が rewards.inventory を読むようになったのも同じ回で、
+		#   それまでは「書いても落ちない」欄だった（EXEC_DECORATION.md §1-4）。
+		var inventory: Variant = (rewards as Dictionary).get("inventory", {})
+		if inventory is Dictionary:
+			for item_id: Variant in (inventory as Dictionary):
+				errors += _report_missing_item(str(item_id), "stages.json", str(stage_id))
+
 	# shop.json … 各枠の item_id
 	for shop_type: Variant in _cache_shop:
 		var slots: Variant = _cache_shop[shop_type]
@@ -266,7 +276,83 @@ static func _validate_all_item_refs() -> void:
 					"%s.%s" % [str(recipe_id), list_key]
 				)
 
+	# 装飾の欄そのものの検証（E119）。行を増やさず同じ1本に合流させる。
+	errors += _validate_all_part_items()
+
 	print("[MasterDataLoader] items validated: %d entries, %d errors" % [_cache_items.size(), errors])
+
+
+# E119 … items.json の装飾（item_type: "part"）の欄が欠けている／不正。
+#
+# ⚠ 装飾は欄が5つあり、1つでも欠けると「刺さるが加算されない」形で無音に壊れる。
+#   E118 を足したときと同じ判断（EXEC_DECORATION.md §0-3 の9）。
+#
+# ⚠ item_id と欄の綴りが一致しているかも見る。ずれると「刺さるが別の軸が上がる」になる。
+#   ⚠ これは検証であって、実行時に item_id から欄を切り出すという意味ではない。
+#     引くのは必ず欄のほう（EXEC_DECORATION.md §3-A）。
+#
+# ⚠ part_tier の上限（Balance.part.max_part_tier）はここでは見ない。
+#   PartConfig はこの検証より後に用意されるため（実装を前半・後半に割っている）。
+#   上限は upgrade_part() 側が持つ。
+#
+# ⚠ 1件ごとに1本出す。重複を潰さない（E118 と同じ方針）。
+static func _validate_all_part_items() -> int:
+	var errors: int = 0
+	var valid_kinds: Array[String] = [
+		GameManager.PART_KIND_GEM,
+		GameManager.PART_KIND_CHARM,
+		GameManager.PART_KIND_EMBLEM,
+		GameManager.PART_KIND_RUNE,
+	]
+	var valid_stats: Array[String] = GameManager.get_stat_keys()
+
+	for item_id: Variant in _cache_items:
+		var entry: Variant = _cache_items[item_id]
+		if not (entry is Dictionary):
+			continue
+		var item: Dictionary = entry
+		if str(item.get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_PART:
+			continue
+
+		var kind: String = str(item.get(GameManager.ITEM_MASTER_PART_KIND, ""))
+		if not (kind in valid_kinds):
+			errors += _report_part_error(str(item_id), "part_kind が不正: '%s'" % kind)
+
+		var stat: String = str(item.get(GameManager.ITEM_MASTER_PART_STAT, ""))
+		if not (stat in valid_stats):
+			errors += _report_part_error(str(item_id), "part_stat が10軸に無い: '%s'" % stat)
+
+		# MasterDataLoader は JSON をそのまま返すため float で来る（CLAUDE.md 3番）。
+		var tier: int = int(item.get(GameManager.ITEM_MASTER_PART_TIER, 0))
+		if tier < 1:
+			errors += _report_part_error(str(item_id), "part_tier が1未満: %d" % tier)
+
+		var base: int = int(item.get(GameManager.ITEM_MASTER_PART_BASE, 0))
+		if base < 1:
+			errors += _report_part_error(str(item_id), "part_base が1未満: %d" % base)
+
+		# ロールは 0 〜 part_roll_max。0（振れ幅なし）は許す。
+		if not item.has(GameManager.ITEM_MASTER_PART_ROLL_MAX):
+			errors += _report_part_error(str(item_id), "part_roll_max の欄が無い")
+		elif int(item[GameManager.ITEM_MASTER_PART_ROLL_MAX]) < 0:
+			errors += _report_part_error(str(item_id), "part_roll_max が負")
+
+		# IDと欄の綴りの一致。上でどれかが不正なら比較しても意味が無いので飛ばす。
+		if kind in valid_kinds and stat in valid_stats and tier >= 1:
+			# ⚠ 書式は GameManager と共有する。2箇所に書くと、片方だけ直して
+			#   「検証は通るのに段階を上げられない」になる。
+			var expected: String = GameManager.PART_ID_FORMAT % [kind, stat, tier]
+			if str(item_id) != expected:
+				errors += _report_part_error(
+					str(item_id), "IDと欄の綴りが一致しない（欄から組むと '%s'）" % expected
+				)
+
+	return errors
+
+
+static func _report_part_error(item_id: String, reason: String) -> int:
+	push_error("[MasterDataLoader] E119 items.json (%s): %s" % [item_id, reason])
+	return 1
 
 
 # E118 … 参照先が items.json に無い。1件につき1本。

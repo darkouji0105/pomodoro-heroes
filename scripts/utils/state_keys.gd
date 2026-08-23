@@ -79,6 +79,9 @@ const ITEM_TYPE_EQUIPMENT: String = "equipment"
 # ⚠ items.json の素材（storage: "material"）。定数が無かったので足した
 #   （EXEC_MATERIAL_TIERS.md。素材が3件から12件になり、型で絞る側ができたため）。
 const ITEM_TYPE_MATERIAL: String = "material"
+# ⚠ 装飾（宝石・護符・紋章・ルーン）。装備と違って個体にはならず、
+#   inventory にスタック品として入る（EXEC_DECORATION.md 決定C）。
+const ITEM_TYPE_PART: String = "part"
 const ITEM_TYPE_CONSUMABLE: String = "consumable"
 const ITEM_TYPE_KEY_ITEM: String = "key_item"
 const ITEM_TYPE_GIFT: String = "gift"
@@ -282,3 +285,21 @@ const EQUIP_LEGS: String = "legs"
 #     名指しで要るのは段階1（分解の基礎ぶんの戻り先）だけ。
 const ITEM_FORGING_MATERIAL_PREFIX: String = "forging_material_"
 const ITEM_FORGING_MATERIAL_1: String = ITEM_FORGING_MATERIAL_PREFIX + "1"
+
+# 装飾の素材（EXEC_DECORATION.md 決定B）。鍛冶の素材と同じ形。
+#
+# ⚠ 段階ごとの定数（_1 〜 _4）は並べない。引くのは
+#   GameManager.get_decor_material_id(tier) の1本だけ。
+const ITEM_DECOR_MATERIAL_PREFIX: String = "decor_material_"
+
+# ============================================================
+# 装飾（宝石・護符・紋章。EXEC_DECORATION.md）
+# ============================================================
+
+# equipment_instances.<id>.parts の各要素: {item_id, roll} または null。
+#
+# ⚠ 段階（tier）は持たない。items.json から毎回引ける＝マスターの複製になるため
+#   （CLAUDE.md 4番。EXEC_DECORATION.md §0-3 の2）。
+#   ⚠ GAME_DESIGN.md 7-6 は「{装飾ID, 等級, 出目}」と書いているが、等級は落としている。
+const PART_ITEM_ID: String = "item_id"
+const PART_ROLL: String = "roll"

@@ -14,3 +14,6 @@ extends Node
 # ⚠ 等級・鍛冶・分解の数値（EXEC_MATERIAL_TIERS.md）。
 #   割り当てを忘れると null になり、装備画面と倉庫が落ちる。
 @export var equipment: EquipmentConfig
+# ⚠ 装飾（段階上げ・壊したときの戻り）の数値（EXEC_DECORATION.md）。
+#   割り当てを忘れると null になり、装備画面の枠と倉庫の装飾が止まる。
+@export var part: PartConfig

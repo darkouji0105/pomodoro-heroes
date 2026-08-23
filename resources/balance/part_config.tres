@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="PartConfig" format=3]
+
+[ext_resource type="Script" path="res://resources/balance/part_config.gd" id="1_partc"]
+
+[resource]
+script = ExtResource("1_partc")

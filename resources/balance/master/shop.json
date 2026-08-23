@@ -96,6 +96,14 @@
 	  "count": 3,
 	  "cost": { "currency_type": "gold", "amount": 5000 },
 	  "stock_limit": 1
+	},
+	{
+	  "slot_id": 12,
+	  "item_id": "decor_material_4",
+	  "payout_type": "material",
+	  "count": 3,
+	  "cost": { "currency_type": "gold", "amount": 5000 },
+	  "stock_limit": 1
 	}
   ]
 }
