@@ -154,7 +154,8 @@
 | **検証の道具の入れ替え**（⚠ **ゲームの中身は増えていない**） | `EXEC_VERIFY_TOOLING.md` | ✅ 完了（2026-08-18。⚠ **設計役が Godot をヘッドレスで起動できることが実測で判明**。`AGENTS.md` に「誰が取るか」を追記。⚠ **godot MCP は使えないままだが不要**） |
 | **デバッグ起動シーンを1個にまとめる** | `EXEC_DEBUG_BOOT.md` | ✅ 完了（2026-08-18。`tests/debug_boot.tscn` / `.gd` 新規。⚠ **本番コードは1行も触っていない**。編成・スキル枠・ステージ・撃つ合図まで自動で走る＝**段階4で溶けた往復6回のうち5回が消えた**） |
 | **範囲攻撃（段階4・`mode: area`）** | `EXEC_SKILL_AREA.md` | ✅ 完了（2026-08-18。`origin`（`user` / `target`）を新設、`select_targets()` を `pool_all` / `pool_in` に組み替え。E77〜E80。⚠ **④-a から入っていた `E69` のバグを発見して修正**（下記）） |
-| **ルーン**（段階8） | `EXEC_RUNES.md` | ✅ 完了（2026-08-24。⚠ **`runes.json` 新設＝マスター7本目・25件**。⚠ **バフ／デバフ／回復／シールドは既存の `SkillResolver` → `StatusRegistry` に乗せ、⚠ 移動だけ `battle_controller` が受ける**。⚠ **ステータスを1つも足さない装飾が初めて入った**。⚠ **画面（16項目）は人間の確認待ち**） |
+| **機能の段階解放**（段階9） | `EXEC_SCREEN_UNLOCK.md` | ✅ 完了（2026-08-24。⚠ **画面IDが8つ増え、⚠ `stages.json` の `unlocks` が引き金**。⚠ **`GAME_DESIGN` 9-5 の10段を4段に畳んだ＝本番ステージが3本しか無いため**。⚠ **E125**。⚠ **画面12項目まで通った。⚠ 装備も育成も閉じた状態で `stage_1` に勝てた**）／ ⚠ **同じ回で「セーブを消しても消えない」を直した**（`reset_to_new_game()`） |
+| **ルーン**（段階8） | `EXEC_RUNES.md` | ✅ 完了（2026-08-24。⚠ **`runes.json` 新設＝マスター7本目・25件**。⚠ **バフ／デバフ／回復／シールドは既存の `SkillResolver` → `StatusRegistry` に乗せ、⚠ 移動だけ `battle_controller` が受ける**。⚠ **ステータスを1つも足さない装飾が初めて入った**。⚠ **画面16項目まで通った**） |
 | **skills の複数ファイル化 ＋ 検証用キャラ3体** | `EXEC_SKILL_MULTIFILE.md` | ✅ 完了（2026-08-16。`skills.json`（18件）をキャラ別3ファイルへ分割し、`skills_debug.json`（18件）と検証用キャラ3体を新設。`MasterDataLoader` が複数ファイルをマージし**重複IDを赤で弾く**。**ログ・ファイル・画面の全項目が通った**。⚠ **設計役が全部書いた**（実装役に渡す予定を人間の判断で変更）） |
 
 ### 戦闘画面でできること
@@ -286,6 +287,8 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `2831c1a` | `fix(save): 「最初から」で状態を作り直す（セーブを消しても消えなかった穴）`（⚠ **人間が実機で発見**。`GameManager.reset_to_new_game()` 新設・`_ready()` の中身を `_build_new_game_state()` に切り出し・`title_screen` の新規開始の枝から呼ぶ。⚠ **`initial_state_config.tres` の `initially_unlocked_screens` を3件にしたのは人間**） | `EXEC_SCREEN_UNLOCK.md` §13 |
+| `ead4a6d` | `feat(unlock): ステージのクリアで機能を段階解放（画面ID8つ＋stages.json の unlocks）`（段階9。10ファイル。⚠ **`state_keys` に画面IDを8つ**（`equipment`/`training`/`warehouse`/`research`/`shop`/`workshop` ＋ 機能IDの `decoration`/`rune`）。⚠ **引き金は `stages.json` の `unlocks`＝`.gd` に表を書かない**。`_sync_unlocked_screens_from_master()` / `get_all_screen_ids()` / `is_part_kind_unlocked()` を新設・E125・`F4` に「画面を全部解放」・`debug_boot` に `unlock` シナリオ） | `EXEC_SCREEN_UNLOCK.md` |
 | `341d317` | `feat(runes): ルーン25件・スキルの直前に発動・移動量をキャラプリセットへ`（段階8。14ファイル。新規は `resources/balance/master/runes.json`＝**マスター7本目**。⚠ **ルーンは `SkillRuntime.cast()` をそのまま通す＝効果の種類を1つも増やしていない**。⚠ **移動だけ `battle_controller._fire_runes()` が受け、`rune_move_lock_sec` で自動移動を止める**。`merge_runes()` / `set_rune_move()` / `get_battle_runes()` を新設・`items.json` 64→89件・`ja.csv` 446→480行・E123 / E124・`debug_boot` に `runes` シナリオ） | `EXEC_RUNES.md` |
 | `a58c8e4` | `feat(party): パーティ選択画面と2階層のプリセット`（段階7。新規は `scenes/adventure/party_preset_screen.gd` / `.tscn`。⚠ **`GAME_DESIGN` 5-5 の2階層・参照方式**。`character_presets` / `party_presets` を新設・`get_equip_reject_reason()` を切り出し・`_collect_party_candidates()` を `GameManager.get_party_candidates()` へ移動・`debug_boot` に `presets` シナリオ。⚠ **E/W は増やしていない**。⚠ **マスターデータを1件も触っていない**） | `EXEC_PARTY_PRESETS.md` |
 | `128f25d` | `feat(battle): 召喚（spawn）を足し、専用配列と座標の規則を入れる`（段階6。18ファイル。新規は `resources/balance/master/summons.json` と `docs/02_exec/EXEC_SKILL_SPAWN.md`。`type: "summon"` を実装・`host: "spawn"` を赤に格上げ・`BattleSession.summon_units` と `find_unit()` 新設・E93〜E101 / W13） | `EXEC_SKILL_SPAWN.md` |
