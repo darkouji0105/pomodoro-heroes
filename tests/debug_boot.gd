@@ -781,6 +781,20 @@ func _report_unlock() -> void:
 		str(GameManager.is_screen_unlocked(GameStateKeys.SCREEN_RUNE)),
 		str(GameManager.is_screen_unlocked(GameStateKeys.SCREEN_SHOP)),
 	])
+	# (d) 「最初から」で状態が作り直されるか（2026-08-24・人間が実機で見つけた穴）。
+	# ⚠ セーブファイルは触らない。メモリ上の状態が戻るかだけを見る。
+	#   ⚠ title_screen が新規開始のときに呼ぶのと同じ1本を通す。
+	print("[DebugBoot] --- 最初から（reset_to_new_game）---")
+	GameManager.add_gold(99999)
+	print("  遊んだ状態  gold=%d 開いている画面=%d件" % [
+		int(GameManager.get_state().get(GameStateKeys.GOLD, 0)), _unlocked_ids().size()
+	])
+	GameManager.reset_to_new_game()
+	print("  最初から後  gold=%d 開いている画面=%d件" % [
+		int(GameManager.get_state().get(GameStateKeys.GOLD, 0)), _unlocked_ids().size()
+	])
+	print("  ⚠ gold が initial_state_config.tres の値に戻り、クリア済みが消えていること")
+
 	# (c) E125 … unlocks に知らない screen_id を混ぜて、検証が赤を出すか。
 	# ⚠ 壊すのは MasterDataLoader のメモリ上のキャッシュだけ。stages.json は触らない
 	#   （git diff が最初から空のまま）。

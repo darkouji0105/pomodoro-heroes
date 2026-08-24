@@ -241,7 +241,31 @@ const DEFAULT_MAX_QUEUE_SLOTS: int = 1
 const DEFAULT_CRAFT_DURATION_SEC: int = 1800
 
 func _ready() -> void:
-	print("[GameManager] _ready() — initializing from Balance.initial_state")
+	_build_new_game_state("_ready()")
+	# ⚠ .tres が持つ素材ID・アイテムIDを items.json と突き合わせる（E121）。
+	#   ⚠ 起動時に1回だけ。⚠ reset_to_new_game() では呼ばない（マスターは変わらない）。
+	_validate_balance_item_refs()
+
+
+# 「最初から」を押したときに、状態を新規開始の中身に作り直す。
+#
+# ⚠ なぜ要るか：_state を作るのは _ready()（起動時1回）と load_state() の2つだけで、
+#   リセットする口が無かった。そのため
+#     つづきから → 遊ぶ → タイトルへ戻る → セーブを削除 → 最初から
+#   の順で進むと、⚠ ファイルは消えているのにメモリ上の状態が残り、
+#   ⚠ 「セーブを消しても消えない」に見えた（2026-08-24に人間が実機で発見）。
+# ⚠ 呼ぶのはタイトル画面の1箇所だけ（title_screen._on_start_pressed）。
+#   ⚠ 「新規開始」を決めているのはあそこしかない。2本目を作らないこと。
+func reset_to_new_game() -> void:
+	_build_new_game_state("reset_to_new_game()")
+
+
+# 新規開始の状態を組み立てる。⚠ _ready() と reset_to_new_game() の共通部分。
+#
+# ⚠ 2本に分けて書かないこと。片方だけ直すと「起動直後は正しいが、
+#   最初からを押すと壊れている」（またはその逆）になり、どちらもエラーが出ない。
+func _build_new_game_state(caller: String) -> void:
+	print("[GameManager] %s — initializing from Balance.initial_state" % caller)
 	if Balance != null and Balance.initial_state != null:
 		_init_from_config(Balance.initial_state)
 	else:
@@ -281,12 +305,11 @@ func _ready() -> void:
 		_state.get(GameStateKeys.MATERIALS, {}),
 		_state.get(GameStateKeys.UNLOCKED_SCREENS, {}),
 	])
-	# ⚠ .tres が持つ素材ID・アイテムIDを items.json と突き合わせる（E121）。
-	#   ⚠ MasterDataLoader の E118 は .tres を見ない（あちらはマスターデータ専用で、
-	#     Balance に依存させると層が逆転する）。その穴をここで塞ぐ。
-	_validate_balance_item_refs()
 
 # .tres 側の素材ID・アイテムIDが items.json に在るかを見る（E121）。
+#
+# ⚠ MasterDataLoader の E118 は .tres を見ない（あちらはマスターデータ専用で、
+#   Balance に依存させると層が逆転する）。その穴をここで塞ぐ。
 #
 # ⚠ なぜ要るか：素材を3件から16件に増やした回で construction_material →
 #   construction_material_1 のような改名をしたが、.tres は改名の対象から漏れていた。

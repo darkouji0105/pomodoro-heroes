@@ -11,6 +11,6 @@ starting_materials = {
 "construction_material_1": 5,
 "training_material_1": 50
 }
-initially_unlocked_screens = Array[String](["guild", "adventure_select", "pomodoro", "settings", "scenario"])
+initially_unlocked_screens = Array[String](["adventure_select", "settings", "scenario"])
 starting_scenario_chapter = 1
 save_version = 3

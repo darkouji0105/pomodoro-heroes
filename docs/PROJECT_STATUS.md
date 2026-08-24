@@ -375,6 +375,10 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 ### 機能の段階解放の回で足した宿題（2026-08-24・`EXEC_SCREEN_UNLOCK.md`）
 
+- ⚠ **「セーブを消しても消えない」を直した**（⚠ **人間が実機で発見**）。⚠ **`GameManager._state` を作るのは `_ready()` と `load_state()` の2箇所だけで、⚠ リセットする口が無かった。⚠ `reset_to_new_game()` を新設し、⚠ タイトルの「新規開始」の枝から呼ぶようにした**（`EXEC_SCREEN_UNLOCK` §13）
+  - ⚠ **「新規開始か」を決めているのは `title_screen._on_start_pressed()` の1箇所だけ。⚠ 2本目を作らないこと**
+  - ⚠ **オートセーブが入ると、この枝の意味が変わる**（⚠ **いまは `SaveButton` を押したときだけ保存される**）
+
 - ⚠ **どのステージで何が開くかが「勘」。** ⚠ **本番ステージが `stage_1` / `stage_2` / `stage_3` の3本しか無く、⚠ 引き金が4つ（「最初から」込み）しか作れないので、⚠ `GAME_DESIGN` 9-5 の10段を4段に畳んである**（`EXEC_SCREEN_UNLOCK` §2）。⚠ **ステージが増えたら `stages.json` の `unlocks` を分けるだけで刻める**
 - ⚠ **9-5 の「拠点」（#8）の置き場が無い。** ⚠ **`base_screen` はハブなので閉じられない。⚠ `GAME_DESIGN` 10章の建設画面がまだ無い**
 - ⚠ **作業場が2箇所で閉じている。** ⚠ **`guild_screen.tscn` の `WorkshopButton.visible = false` と、⚠ `stages.json` の `unlocks` に1度も書かないこと。⚠ 復活させるときは両方戻す**

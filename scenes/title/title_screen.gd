@@ -22,9 +22,12 @@ func _refresh_ui() -> void:
 	error_label.visible = false
 
 func _on_start_pressed() -> void:
+	# ⚠ 「新規開始か」を決めているのはここ1箇所だけ。2本目を作らないこと。
+	var start_new: bool = true
 	if SaveManager.has_save():
-		var ok: bool = SaveManager.load_game()
-		if not ok:
+		if SaveManager.load_game():
+			start_new = false
+		else:
 			# 読み込み失敗。閉じるまで待ってから新規開始として続行する。
 			# 以前は2秒待つ実装だったが、読み切る前に消えるおそれがあった。
 			# モーダルなら本人が閉じるまで残る。
@@ -33,6 +36,16 @@ func _on_start_pressed() -> void:
 			var dlg: ModalDialog = Modal.notify(self, "ui_title_load_failed")
 			if dlg != null:
 				await dlg.closed
+
+	# ⚠ 状態を作り直す。これが無いと
+	#     つづきから → 遊ぶ → タイトルへ戻る → セーブを削除 → 最初から
+	#   でメモリ上の状態が残り、⚠ 「セーブを消しても消えない」に見える
+	#   （2026-08-24に人間が実機で発見）。
+	# ⚠ 起動直後に押したときも通るが、_ready() と同じ処理なので結果は変わらない。
+	# ⚠ 版が違って読めなかったときも通す（あの枝は「新規開始として続行する」）。
+	if start_new:
+		GameManager.reset_to_new_game()
+
 	SceneManager.change_scene("res://scenes/base/base_screen.tscn")
 
 # セーブの削除は取り返しがつかない。必ず確認する。

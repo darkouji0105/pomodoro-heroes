@@ -10,7 +10,7 @@
 [ext_resource type="Resource" uid="uid://m4udodmat0ai" path="res://resources/balance/adventure_config.tres" id="8_851iv"]
 [ext_resource type="Resource" uid="uid://cql411sm1io1n" path="res://resources/balance/sound_config.tres" id="9_n4bcj"]
 [ext_resource type="Resource" uid="uid://g03uwxlota6n" path="res://resources/balance/equipment_config.tres" id="10_eqcfg"]
-[ext_resource type="Resource" path="res://resources/balance/part_config.tres" id="11_ptcfg"]
+[ext_resource type="Resource" uid="uid://bk5sh17tp0w0" path="res://resources/balance/part_config.tres" id="11_ptcfg"]
 
 [node name="Balance" type="Node" unique_id=1091634713]
 script = ExtResource("1_f7mko")
