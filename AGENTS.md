@@ -125,7 +125,7 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 | `STAMINA` | `{current: int, max: int}` |
 | `MATERIALS` | `{material_id: int}` |
 | `INVENTORY` | `{item_id: {count, type, slot_position: {x, y}, properties}}` |
-| `PENDING_CHESTS` | `[{chest_id, chest_type, source, obtained_at, opened, rewards}]` |
+| `PENDING_CHESTS` | `[{instance_id, chest_id, source, obtained_at, opened, rewards}]`。`instance_id`は**その宝箱1個の一意ID**、`chest_id`は**種類**（`chests.json`のエントリ）。**`chest_type`というキーは状態に無い**（あれは`ChestScheduleEntry`の`@export`名で、中身は`chest_id`を指す） |
 | `UNLOCKED_SCREENS` | `{screen_id: bool}` |
 | `STORY` | `{current_chapter: int, stages: {stage_id: {cleared, stars}}}` |
 | `CODEX` | `{item_id: {discovered, obtained_at}}` |
@@ -134,6 +134,9 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 | `RESEARCH_TREE` | `{node_id: {unlocked, effect_type, effect_value, prerequisites}}` |
 | `RECIPES_UNLOCKED` | `{recipe_id: bool}` |
 | `CRAFTING_QUEUE` | `[{queue_id, recipe_id, recipe_type, started_at, duration_sec, status, output_item_id}]` |
+| `PARTY_MEMBERS` | `[character_id]`（**3枠固定**。`PARTY_SLOT_COUNT`）。**書き込む口は`GameManager.set_party_member()`の1本**。`stages.json`の`party_id`では決まらない |
+| `CHARACTER_PRESETS` | `{character_id: [{saved, nodes, skills, passives, equipment}]}`（**1キャラ`CHARACTER_PRESET_COUNT`件**）。中身の4キーは`GROWTH_*`と**同じキーを使い回す**（growthの一部を切り出したもの）。`equipment`の値は**`instance_id`**（`item_id`ではない） |
+| `PARTY_PRESETS` | `[{saved, slots: [{character_id, preset_index}]}]`（**`PARTY_PRESET_COUNT`件**）。**参照方式**（`GAME_DESIGN.md` 5-5）。キャラ側のビルドを直すと、参照している全編成に反映される。**編成側にキャラの中身を複製しないこと** |
 
 報酬Dictionary（宝箱・ポモドーロ・戦闘で共通）：`{gold, gems, stamina, materials, inventory}`
 

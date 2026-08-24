@@ -285,6 +285,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| （未コミット） | `feat(party): パーティ選択画面と2階層のプリセット`（段階7。新規は `scenes/adventure/party_preset_screen.gd` / `.tscn`。⚠ **`GAME_DESIGN` 5-5 の2階層・参照方式**。`character_presets` / `party_presets` を新設・`get_equip_reject_reason()` を切り出し・`_collect_party_candidates()` を `GameManager.get_party_candidates()` へ移動・`debug_boot` に `presets` シナリオ。⚠ **E/W は増やしていない**。⚠ **マスターデータを1件も触っていない**） | `EXEC_PARTY_PRESETS.md` |
 | `128f25d` | `feat(battle): 召喚（spawn）を足し、専用配列と座標の規則を入れる`（段階6。18ファイル。新規は `resources/balance/master/summons.json` と `docs/02_exec/EXEC_SKILL_SPAWN.md`。`type: "summon"` を実装・`host: "spawn"` を赤に格上げ・`BattleSession.summon_units` と `find_unit()` 新設・E93〜E101 / W13） | `EXEC_SKILL_SPAWN.md` |
 | `9df9546` | `feat(battle): 段（phases）と再発動（recast）を足し、構え中はCDを見ないようにする`（段階5。`phase_of()` / `phase_count()` 新設・`BattleUnit.recast_pending`・`BattleLog.log_recast()`・E81〜E92・`debug_boot` の `fire` に `gap` 欄） | `EXEC_SKILL_RECAST.md` |
 | `ec386f7` | `test(verify): 操作のいらないデバッグ起動シーンを1個作り、検証をヘッドレスへ移す`（9ファイル。新規は `tests/debug_boot.tscn` / `.gd`。⚠ **本番コードは1行も触っていない**。⚠ **設計役が Godot をヘッドレスで起動できることが実測で判明し、`AGENTS.md` に「誰が取るか」を追記・`CLAUDE.md` の「起動できない」を修正**）⚠ **ブランチ `feat/debug-boot-verify-tooling` に切ってある** | `EXEC_VERIFY_TOOLING.md` / `EXEC_DEBUG_BOOT.md` |
@@ -342,7 +343,7 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - 倉庫の宝箱タブ0件時の表示を`ui_warehouse_no_chest`に直す（現状`ui_warehouse_empty`）
 - ~~プロジェクト直下の`bash` / `bashsedstamina_per_focus_minute`~~ **✅ 既に消えている**（ルート直下は`AGENTS.md`/`CLAUDE.md`/`icon.svg`/`icon.svg.import`/`project.godot`のみ）
 - 空の`plan/`フォルダ（`.gitkeep`だけ）。`AGENTS.md`のフォルダ構成に無い。消すか構成に足すか
-- 拠点下部のレイアウト調整（`ResourceRow`の`separation`、左端の見切れ）
+- ~~拠点下部のレイアウト調整（`ResourceRow`の`separation`、左端の見切れ）~~ **✅ 完了**（2026-08-23）。⚠ **原因は`separation`ではなく素材欄だった。** 素材16件・4桁で`MaterialsDisplay`の最小幅が564になり、`ResourceRow`全体が**1556**（画面幅1280）まで膨らんで下段が丸ごと左右にはみ出していた。⚠ **素材欄を`ResourceRow`から出して`ScrollContainer`（8列2段）に入れた**ので、最小幅が0になり**素材が増えても桁が増えても再発しない**。⚠ **数字は`-- scenario=layout`で取れる**
 - `AGENTS.md`冒頭の「Ziva: ChatGPT/Claude/Gemini対応」を実態（MiniMax）に合わせる
 - 受け取り報告の文言。宝箱0個のとき「宝箱を0個」と出るのが不格好
 - **ショップの価格・作業場のレート・装備の`equip_stats`が全部仮のまま。** バランス調整のタスクで実測する（再起動で既存セーブにも反映される）
@@ -368,7 +369,22 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - ⚠ **素材の変換経路が消えた。** `GAME_DESIGN` 9-3 は「ショップに一本化」と書いているが、**`shop.json` に変換に相当する枠があるかは未確認。** 段階12（バランス実測）の前に見ること
 - ⚠ **`_sync_recipes_from_master()` の「読めない」保険が `MasterDataLoader` 側の赤だけになった**（早期 return を外したため。`EXEC_WORKSHOP_RETIRE.md` 決め1）。`recipes.json` を復活させる回で、GameManager 側にも戻すか判断する
 - ⚠ **`guild_screen.gd` の `WORKSHOP_PATH` が未使用のまま残っている**（復活で1行ずつ戻すため意図的に残した）。復活しないと決めたら消す
-- ⚠ **`AGENTS.md`「GameManagerの状態構造」の `PENDING_CHESTS` の行が実装と違う**（ズレ26）。表は `{chest_id, chest_type, ...}` だが、実装は `{instance_id, chest_id, ...}`（`state_keys.gd:96`）。**`chest_type` は `ChestScheduleEntry`（`.tres`）の `@export` 名であって状態のキーではない。** 前回の宝箱1本化での追記漏れ。**次に `AGENTS.md` を触る回で直す**
+- ~~⚠ **`AGENTS.md`「GameManagerの状態構造」の `PENDING_CHESTS` の行が実装と違う**（ズレ26）~~ ✅ **直した**（2026-08-23・`EXEC_PARTY_PRESETS` の回。⚠ **`PARTY_MEMBERS` / `CHARACTER_PRESETS` / `PARTY_PRESETS` の3行も足した**）
+
+### パーティ選択画面とプリセットの回で足した宿題（2026-08-23・`EXEC_PARTY_PRESETS.md`）
+
+- ⚠ **`PRESET_EQUIPMENT_ENABLED` の定数と分岐が残っている**（`game_manager.gd`）。⚠ **いまは `true`＝`GAME_DESIGN` 5-5 と一致**。⚠ **2026-08-23の1セッションで2回動いた欄なので残してある**（「いったんやめる」で `false` → 「装備にも適用がいる」で `true`）。⚠ **落ち着いたら定数ごと消してよい**
+  - ⚠ **`false` のあいだに焼いたビルドは `equipment` が5部位とも `null` で残る。⚠ それを適用すると裸になる。⚠ 焼き直しが要る**（⚠ **「装備を焼かなかった」と「何も装備していない」を区別する術が無く、コード側では直せない**）
+- ⚠ **`[ビルドN ▼][焼く][適用]` の行が育成と装備の2画面に重複している**（各30行）。⚠ **`AGENTS.md`「2画面以上で使い回すパーツは `components/`」から外れている。** ⚠ **切り出さなかったのは、新しい `class_name` が `.godot/global_script_class_cache.cfg` に載らず、人間がエディタを1回通すまでヘッドレスで検証できないため**（`NEXT_STEPS` §4）。⚠ **判定と文面は `GameManager` に1本化済み。⚠ 次にエディタを通したあと `scripts/components/build_preset_row.gd` へ切り出すこと**
+- ⚠ **プリセットに名前を付けられない**（`編成1` / `ビルド1` の自動名）。文字入力欄を足すと翻訳・保存・文字数制限が付いてくるので落とした（`EXEC_PARTY_PRESETS` §13 の 2）
+- ⚠ **キャラプリセットを消せない**（上書きだけ）。消せると編成プリセットの参照だけが宙に浮くため（同 §13 の 7）
+- ⚠ **ルーンの移動量の欄が空。** 段階8でキャラプリセットに5つ目のキーとして入る。⚠ **正規化は知らないキーを消さない**（消すと後から足した欄が黙って落ちる）
+- ⚠ **`party_changed` シグナルをまだ足していない。** 編成を聞く画面が3つ目になったら足す（そのとき `AGENTS.md` のシグナル表にも1行）
+- ⚠ **`CLAUDE.md` 4番の「リリース後に改名できないID」に、プリセット経由で `character_id` / ノードID / スキルID / パッシブID が加わった**（改名するとそのプリセットの該当部分が黙って落ちる）
+- ⚠ **宿題16（リリース前に消すもの）の行き先が変わった。** `adventure_select._build_party_row()` の `OS.is_debug_build()` 分岐 → ⚠ **`GameManager.get_party_candidates()` の分岐**（2画面が要るようになったので移した）
+- ⚠ **`equip_instance()` の失敗ログの文言が変わった**（`get_equip_reject_reason()` に切り出した。理由の中身は同じ）
+- ⚠ **プリセットを適用したとき、編成の3人の間で装備が移るぶんはメッセージに出ない**（外のキャラから奪うときだけ出す。`EXEC_PARTY_PRESETS` §13 の 11）
+
 ### skills の複数ファイル化の回で見つかったもの（2026-08-16）
 
 - ⚠ **ロード時検証がいつ走るかの記述が間違っていた。** `master_data_loader.gd` のコメントは「育成画面か戦闘画面に入って初めて動く」と書いていたが、**「つづきから」でも走る**（`load_state()` → `_resync_growth_stats_from_master()` → `_recalc_stats()` → `get_character()`）。⚠ **回るのは `character_growth` のエントリぶんなので、育成データが0件のセーブでは出ない。両方の記述が部分的に正しかった。** コメントは実測に合わせて修正済み

@@ -17,3 +17,8 @@ const STAGE_TYPE: String = "stage_type"
 const POMODORO_POTIONS: String = "pomodoro_potions"
 const POMODORO_CHESTS: String = "pomodoro_chests"
 const CHARACTER_ID: String = "character_id"
+
+# パーティ選択画面から「戻る」で帰る先（EXEC_PARTY_PRESETS.md §7）。
+# ⚠ 入口が2つある（冒険選択・拠点）ので、来た側がここにパスを入れる。
+#   入っていなければ拠点へ帰る（履歴に依存しない。base_screen.gd と同じ流儀）。
+const RETURN_PATH: String = "return_path"

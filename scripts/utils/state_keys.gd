@@ -304,6 +304,45 @@ const ITEM_DECOR_MATERIAL_PREFIX: String = "decor_material_"
 # 装飾（宝石・護符・紋章。EXEC_DECORATION.md）
 # ============================================================
 
+# ============================================================
+# プリセット（2階層。GAME_DESIGN.md 5-5 / EXEC_PARTY_PRESETS.md）
+# ============================================================
+
+# キャラプリセット：{character_id: [{saved, nodes, skills, passives, equipment}]}
+#
+# ⚠ 編成プリセットは「誰の、どの番号か」を参照で持つ（GAME_DESIGN 5-5）。
+#   キャラ側を直すと、それを参照している全編成に反映される。
+# ⚠ equipment の値は instance_id（item_id ではない）。装備は inventory を通らず、
+#   個体として equipment_instances に入る（GameManager.add_to_inventory() が
+#   装備だけ別の枝に抜ける）。個体は1つしか無いので、適用したときに
+#   他のキャラから外れる（EXEC_PARTY_PRESETS.md 決定7＝奪う）。
+# ⚠ 中身はIDだけ。効果値はマスターから毎回引く（CLAUDE.md 4番）。
+#   代償として character_id / ノードID / スキルID / パッシブID を改名できない。
+# ⚠ ルーンの移動量（段階8）がここに5つ目のキーとして入る。
+#   正規化は知らないキーを消さないこと（消すと後から足した欄が黙って落ちる）。
+const CHARACTER_PRESETS: String = "character_presets"
+
+# 編成プリセット：[{saved, slots: [{character_id, preset_index} × PARTY_SLOT_COUNT]}]
+const PARTY_PRESETS: String = "party_presets"
+
+# プリセット1件の中身。
+# ⚠ saved が false の枠が「空き」。中身が空かどうかで空き判定をしないこと
+#   （全部外した状態を焼いたら中身は空になるが、それは保存済み）。
+const PRESET_SAVED: String = "saved"
+# ⚠ 中身の4項目は GROWTH_NODES / GROWTH_SKILLS / GROWTH_PASSIVES / GROWTH_EQUIPMENT を
+#   そのまま使い回す。キャラプリセットは「growth の一部を切り出したもの」なので、
+#   同じ値の定数を2組並べない（並べると片方だけ直したときに黙ってズレる）。
+#   ⚠ おかげで _normalize_slots() をプリセットにもそのまま当てられる。
+# ⚠ skills / passives の内側のキーも GROWTH_SKILL_SLOTS（"slots"）を共用する。
+
+# 編成プリセットの1枠
+const PRESET_SLOTS: String = "slots"
+const PRESET_CHARACTER_ID: String = "character_id"
+const PRESET_INDEX: String = "preset_index"
+
+# ⚠ 件数（10 / 3）はここに置かない。バランス数値ではなく構造なので
+#   GameManager 側（SKILL_SLOT_COUNT / _equip_slots() と同じ扱い）。
+
 # equipment_instances.<id>.parts の各要素: {item_id, roll} または null。
 #
 # ⚠ 段階（tier）は持たない。items.json から毎回引ける＝マスターの複製になるため

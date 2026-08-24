@@ -10,6 +10,8 @@ extends Control
 const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
+const PARTY_PRESET_PATH: String = "res://scenes/adventure/party_preset_screen.tscn"
+const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
 
 # --- ノード参照 ---
 @onready var stamina_value: ResourceDisplay = $Layout/Header/StaminaValue
@@ -25,10 +27,8 @@ var _stage_rows: Dictionary = {}
 # 編成の枠を包む箱。作り直すときに丸ごと外す（EXEC_PARTY_MEMBERS.md）。
 var _party_box: VBoxContainer = null
 
-# 編成の候補（character_id の配列）。⚠ OptionButton の項目番号からIDを引くための表。
-#   項目番号をそのまま character_id の代わりに使わないこと。デバッグビルドかどうかで
-#   候補の件数が変わるため、本番ビルドで別のキャラが選ばれる。
-var _party_candidates: Array[String] = []
+# ⚠ 候補の一覧は GameManager.get_party_candidates() に移した（2画面が要るようになったため。
+#   EXEC_PARTY_PRESETS.md §7-3）。ここに2本目を書かないこと。
 
 func _ready() -> void:
 	# 拠点から渡される transfer data を 1 回だけ消費して捨てる（EXEC §5-1）。
@@ -50,13 +50,13 @@ func _update_stamina_display() -> void:
 		int(stamina.get(GameStateKeys.STAMINA_MAX, 0))
 	)
 
-# 編成の3枠（EXEC_PARTY_MEMBERS.md §3-5）。
+# 編成の行（EXEC_PARTY_PRESETS.md §7-1）。
 #
+# ⚠ もとはここに OptionButton を3つ並べていた（EXEC_PARTY_MEMBERS.md §3-5）。
+#   専用画面ができたので、いまの3人を読むだけの行にして、差し替えはあちらへ渡す
+#   （同じことをする場所を2つ作らない）。
 # ⚠ .tscn を触らずコードで作り、StageList の手前に差し込む。
-# ⚠ モーダルを書かないこと（AGENTS.md の実例：モーダルの検証で1タスク溶かしている）。
-#   OptionButton が一覧のポップアップを内蔵している。
 # ⚠ 再描画に await を持たせない（AGENTS.md）。remove_child() してから queue_free() する。
-#   交換が起きると押した枠以外も変わるので、3つとも作り直す。
 func _build_party_row() -> void:
 	var parent: Node = stage_list.get_parent()
 
@@ -65,11 +65,6 @@ func _build_party_row() -> void:
 		parent.remove_child(_party_box)
 		_party_box.queue_free()
 		_party_box = null
-
-	_party_candidates = _collect_party_candidates()
-	if _party_candidates.is_empty():
-		push_error("[AdventureSelect] 編成の候補が0件（characters.json が読めていない）")
-		return
 
 	var members: Array = GameManager.get_party_members()
 	if members.size() != GameStateKeys.PARTY_SLOT_COUNT:
@@ -86,71 +81,38 @@ func _build_party_row() -> void:
 	header.text = tr("ui_adventure_party")
 	_party_box.add_child(header)
 
-	var slots: HBoxContainer = HBoxContainer.new()
-	slots.name = "PartySlots"
-	for slot_index: int in range(GameStateKeys.PARTY_SLOT_COUNT):
-		slots.add_child(_make_party_slot(slot_index, str(members[slot_index])))
-	_party_box.add_child(slots)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "PartySlots"
+
+	var names: Label = Label.new()
+	names.name = "PartyNames"
+	names.size_flags_horizontal = 3
+	var parts: Array[String] = []
+	for character_id: Variant in members:
+		var char_data: Dictionary = MasterDataLoader.get_character(str(character_id))
+		parts.append(tr(str(char_data.get("name_key", str(character_id)))))
+	names.text = " / ".join(parts)
+	row.add_child(names)
+
+	var edit_button: PrimaryButton = PrimaryButton.new()
+	edit_button.name = "PartyEditButton"
+	edit_button.text = "ui_nav_party_preset"
+	edit_button.pressed.connect(_on_party_edit_pressed)
+	row.add_child(edit_button)
+
+	_party_box.add_child(row)
 
 	parent.add_child(_party_box)
 	# ステージ一覧の手前へ。⚠ add_child は末尾に付くので、必ず移動させる。
 	parent.move_child(_party_box, stage_list.get_index())
 
 
-# 枠1つぶんの OptionButton。
-func _make_party_slot(slot_index: int, current_id: String) -> OptionButton:
-	var picker: OptionButton = OptionButton.new()
-	picker.name = "PartySlot_%d" % slot_index
-	picker.size_flags_horizontal = 3
-
-	for i: int in range(_party_candidates.size()):
-		var character_id: String = _party_candidates[i]
-		var char_data: Dictionary = MasterDataLoader.get_character(character_id)
-		# 名前は翻訳表から引く（AGENTS.md：日本語をコードに書かない）。
-		picker.add_item(tr(str(char_data.get("name_key", character_id))))
-		if character_id == current_id:
-			# ⚠ select() は item_selected を出さない。ここを set_pressed 相当の
-			#   「出す」書き方に変えると、行を作るたびにハンドラが走り、
-			#   ハンドラが行を作り直すので無限に再入して固まる。
-			picker.select(i)
-
-	# ⚠ 接続は項目を入れ終わってから。先に繋ぐと add_item / select で発火しうる。
-	picker.item_selected.connect(_on_party_slot_selected.bind(slot_index))
-	return picker
-
-
-# 編成の候補。並び順は characters.json の記述順のまま。
-#
-# ⚠ 検証用の3体はデバッグビルドでだけ出す（検証用ステージの「▼ 検証用」と同じ型）。
-#   これで parties.json を書き換えて再起動する運用が要らなくなる。
-# ⚠ リリース前にこの分岐を消す（宿題16）。編成の行そのものは残す。
-# ⚠ 「所持しているキャラだけ」の概念はまだ無い。将来ここで絞る。
-func _collect_party_candidates() -> Array[String]:
-	var result: Array[String] = []
-	var show_debug: bool = OS.is_debug_build()
-	for character_id: Variant in MasterDataLoader.get_all_characters():
-		var id: String = str(character_id)
-		if not show_debug and id.begins_with("char_debug_"):
-			continue
-		result.append(id)
-	return result
-
-
-# 枠を選び直した。
-#
-# ⚠ item_index をそのまま character_id に使わないこと（_party_candidates の注記）。
-# ⚠ 押した枠以外も変わりうる（同じキャラが別の枠に居ると交換になる）。3つとも作り直す。
-# ⚠ 自分を含む箱を作り直すが、queue_free() はフレーム末まで遅延するので、
-#   このハンドラが返るまでノードは生きている。await を挟まないこと。
-func _on_party_slot_selected(item_index: int, slot_index: int) -> void:
-	if item_index < 0 or item_index >= _party_candidates.size():
-		push_error("[AdventureSelect] 編成の候補の番号が範囲外: %d" % item_index)
-		return
-	if not GameManager.set_party_member(slot_index, _party_candidates[item_index]):
-		# 失敗の理由は GameManager 側が push_error 済み。画面は今の状態に戻す。
-		_build_party_row()
-		return
-	_build_party_row()
+# パーティ選択画面へ。⚠ 戻る先を渡す（入口が2つあるため。TransferKeys.RETURN_PATH）。
+func _on_party_edit_pressed() -> void:
+	SceneManager.change_scene_with_data(
+		PARTY_PRESET_PATH,
+		{TransferKeys.RETURN_PATH: ADVENTURE_SELECT_PATH}
+	)
 
 
 func _build_stage_list() -> void:

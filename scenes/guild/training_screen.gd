@@ -31,6 +31,16 @@ const SKILL_SELECT_PATH: String = "res://scenes/guild/skill_select_screen.tscn"
 # 詳細を表示中のキャラクターID。一覧表示中は空文字。
 var _selected_id: String = ""
 
+# ビルド（キャラプリセット）を焼く行（EXEC_PARTY_PRESETS.md）。
+#
+# ⚠ プリセットが持つのは割り振り・スキル枠・パッシブ枠で、⚠ どれもこの画面の
+#   配下（育成 → 割り振り／スキル選択）で決まる。⚠ だから焼くのもここでできる
+#   ほうが自然（人間の指摘・2026-08-23「スキルのプリセットは育成でも焼けるように」）。
+# ⚠ .tscn を触らずコードで作る。⚠ DetailPanel は VBoxContainer で、
+#   兄弟は layout_mode = 2 だけ（size_flags を持たない）。同じ形にすること。
+var _build_picker: OptionButton = null
+var _selected_build: int = 0
+
 @onready var material_label: Label = $Margin/Layout/MaterialLabel
 @onready var list_panel: VBoxContainer = $Margin/Layout/ListPanel
 @onready var detail_panel: VBoxContainer = $Margin/Layout/DetailPanel
@@ -49,6 +59,7 @@ var _selected_id: String = ""
 
 func _ready() -> void:
 	_build_character_list()
+	_build_preset_row()
 
 	level_up_button.pressed.connect(_on_level_up_pressed)
 	stat_node_button.pressed.connect(_on_stat_node_pressed)
@@ -94,6 +105,90 @@ func _show_list() -> void:
 	_refresh_material_label()
 	# レベルアップ後に戻ってきたときのため、一覧のラベルも作り直す。
 	_build_character_list()
+
+
+# --- ビルドを焼く ---
+
+# 「[ビルド1 ▼][焼く]」の1行を、詳細の「一覧へ戻る」の手前に差し込む。
+#
+# ⚠ 1回だけ作る。⚠ _refresh_detail() のたびに作り直すと、押すたびに行が増える。
+#   中身（空きかどうか）の更新は _refresh_preset_row() が持つ。
+func _build_preset_row() -> void:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "PresetRow"
+
+	_build_picker = OptionButton.new()
+	_build_picker.name = "BuildPicker"
+	_build_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# ⚠ 項目は _refresh_preset_row() が入れる。ここで入れると空きの表示が古くなる。
+	# ⚠ 接続は項目を入れる前でよい（add_item / select は item_selected を出さない）。
+	_build_picker.item_selected.connect(_on_build_selected)
+	row.add_child(_build_picker)
+
+	var burn: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+	burn.name = "BurnButton"
+	burn.label_key = "ui_party_preset_burn"
+	burn.pressed.connect(_on_burn_pressed)
+	row.add_child(burn)
+
+	# ⚠ 「焼く」と「適用」は向きが逆（焼く＝現在→ビルド／適用＝ビルド→現在）。
+	#   ⚠ 1つのボタンにまとめないこと。
+	var apply: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+	apply.name = "ApplyButton"
+	apply.label_key = "ui_party_preset_apply"
+	apply.pressed.connect(_on_apply_pressed)
+	row.add_child(apply)
+
+	detail_panel.add_child(row)
+	# ⚠ add_child は末尾に付くので、必ず移動させる（「一覧へ戻る」より上へ）。
+	detail_panel.move_child(row, to_list_button.get_index())
+
+
+# 選択肢の「（空き）」表示を、いまの保存状態に合わせて作り直す。
+func _refresh_preset_row() -> void:
+	if _build_picker == null or _selected_id == "":
+		return
+	var presets: Array = GameManager.get_character_presets(_selected_id)
+	var count: int = GameManager.get_character_preset_count()
+	if _selected_build >= count:
+		_selected_build = 0
+
+	_build_picker.clear()
+	for i: int in range(count):
+		var label: String = tr("ui_party_preset_build") % (i + 1)
+		var entry: Variant = presets[i] if i < presets.size() else null
+		var saved: bool = entry is Dictionary and bool((entry as Dictionary).get(GameStateKeys.PRESET_SAVED, false))
+		if not saved:
+			label += "（%s）" % tr("ui_party_preset_empty")
+		_build_picker.add_item(label)
+	_build_picker.select(_selected_build)
+
+
+func _on_build_selected(item_index: int) -> void:
+	# ⚠ ここでは状態を触らない。焼く先が変わるだけ。
+	_selected_build = item_index
+
+
+func _on_burn_pressed() -> void:
+	if _selected_id == "":
+		return
+	if not GameManager.save_character_preset(_selected_id, _selected_build):
+		# 失敗の理由は GameManager 側が push_error 済み。
+		return
+	# ⚠ 保存したことが分かる合図を出す。出さないと「押しても何も起きない」に見える。
+	notice_label.text = tr("ui_party_preset_burned") % (_selected_build + 1)
+	_refresh_preset_row()
+
+
+# ビルドを当て直す。⚠ 編成は触らない（このキャラの中身だけ）。
+func _on_apply_pressed() -> void:
+	if _selected_id == "":
+		return
+	var report: Dictionary = GameManager.apply_character_preset(_selected_id, _selected_build)
+	# ⚠ 文面は GameManager が組む（適用の口が3つあるため）。
+	# ⚠ _refresh_detail() が notice を上書きするので、先に描き直してから入れる。
+	_refresh_detail()
+	notice_label.text = GameManager.format_apply_report(report)
 
 
 # --- 詳細 ---
@@ -144,6 +239,9 @@ func _refresh_detail() -> void:
 	notice_label.text = tr("ui_training_max_level") if at_cap else ""
 	# 押せてから失敗するより、押せないほうが分かりやすい。
 	level_up_button.disabled = at_cap or not enough
+
+	# ⚠ ビルドの「（空き）」表示は、他の画面で焼かれると古くなる。ここで作り直す。
+	_refresh_preset_row()
 
 	_refresh_material_label()
 

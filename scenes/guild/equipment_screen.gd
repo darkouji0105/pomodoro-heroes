@@ -17,6 +17,7 @@ class_name EquipmentScreen
 extends Control
 
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
+const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
 
 # --- ノード参照 ---
 @onready var name_label: Label = $Margin/Layout/NameLabel
@@ -38,6 +39,16 @@ var _selected_slot: String = GameStateKeys.EQUIP_WEAPON
 var _selected_part_target: String = ""
 var _selected_part_slot: int = -1
 
+# ビルド（キャラプリセット）の行（EXEC_PARTY_PRESETS.md）。
+#
+# ⚠ 育成画面にも同じ行がある。⚠ 判定も文面も GameManager 側の1本を通るので、
+#   ここに書いてあるのは器の組み立てだけ。⚠ 判定を書き足さないこと。
+# ⚠ 共有部品（scripts/components/）にしていないのは、⚠ class_name を新しく作ると
+#   人間がエディタを1回通すまでヘッドレスで検証できず、⚠ 「通っていないものを
+#   人間に渡さない」に反するため（NEXT_STEPS §4）。⚠ 宿題に書いてある。
+var _build_picker: OptionButton = null
+var _selected_build: int = 0
+
 func _ready() -> void:
 	# 1. どのキャラの装備を編集するかを受け取る。
 	var data: Dictionary = SceneManager.consume_transfer_data()
@@ -54,10 +65,94 @@ func _ready() -> void:
 
 	# 4. 初期描画
 	notice_label.text = ""
+	_build_preset_row()
 	if _character_id == "":
 		# 直接シーンを開いたときだけ来る。育成画面からは必ず ID が入る。
 		push_warning("[EquipmentScreen] character_id が渡されていない")
 	_rebuild()
+
+# --- ビルドを焼く・当てる ---
+
+# 「[ビルド1 ▼][焼く][適用]」の1行を、ヘッダの下に差し込む。
+#
+# ⚠ 1回だけ作る。⚠ _rebuild() のたびに作り直すと、押すたびに行が増える。
+#   中身（空きかどうか）の更新は _refresh_preset_row() が持つ。
+# ⚠ .tscn を触らずコードで作る。⚠ 兄弟（Label / PrimaryButton）は size_flags を
+#   持たないので、こちらも合わせる（NEXT_STEPS §4「隣の兄弟の size_flags を見る」）。
+func _build_preset_row() -> void:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "PresetRow"
+
+	_build_picker = OptionButton.new()
+	_build_picker.name = "BuildPicker"
+	_build_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# ⚠ 接続は項目を入れる前でよい（add_item / select は item_selected を出さない）。
+	_build_picker.item_selected.connect(_on_build_selected)
+	row.add_child(_build_picker)
+
+	var burn: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+	burn.name = "BurnButton"
+	burn.label_key = "ui_party_preset_burn"
+	burn.pressed.connect(_on_burn_pressed)
+	row.add_child(burn)
+
+	# ⚠ 「焼く」と「適用」は向きが逆（焼く＝現在→ビルド／適用＝ビルド→現在）。
+	#   ⚠ 1つのボタンにまとめないこと。
+	var apply: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+	apply.name = "ApplyButton"
+	apply.label_key = "ui_party_preset_apply"
+	apply.pressed.connect(_on_apply_pressed)
+	row.add_child(apply)
+
+	var layout: Node = name_label.get_parent()
+	layout.add_child(row)
+	# ⚠ add_child は末尾に付くので、必ず移動させる（ステータス表示の手前へ）。
+	layout.move_child(row, stats_label.get_index())
+
+
+# 選択肢の「（空き）」表示を、いまの保存状態に合わせて作り直す。
+func _refresh_preset_row() -> void:
+	if _build_picker == null or _character_id == "":
+		return
+	var presets: Array = GameManager.get_character_presets(_character_id)
+	var count: int = GameManager.get_character_preset_count()
+	if _selected_build >= count or _selected_build < 0:
+		_selected_build = 0
+
+	_build_picker.clear()
+	for i: int in range(count):
+		var label: String = tr("ui_party_preset_build") % (i + 1)
+		var entry: Variant = presets[i] if i < presets.size() else null
+		var saved: bool = entry is Dictionary and bool((entry as Dictionary).get(GameStateKeys.PRESET_SAVED, false))
+		if not saved:
+			label += "（%s）" % tr("ui_party_preset_empty")
+		_build_picker.add_item(label)
+	_build_picker.select(_selected_build)
+
+
+func _on_build_selected(item_index: int) -> void:
+	# ⚠ ここでは状態を触らない。焼く先・当てる先が変わるだけ。
+	_selected_build = item_index
+
+
+func _on_burn_pressed() -> void:
+	if _character_id == "":
+		return
+	if not GameManager.save_character_preset(_character_id, _selected_build):
+		# 失敗の理由は GameManager 側が push_error 済み。
+		return
+	_refresh_preset_row()
+	notice_label.text = tr("ui_party_preset_burned") % (_selected_build + 1)
+
+
+func _on_apply_pressed() -> void:
+	if _character_id == "":
+		return
+	var report: Dictionary = GameManager.apply_character_preset(_character_id, _selected_build)
+	# ⚠ 文面は GameManager が組む（適用の口が3つあるため）。
+	# ⚠ 適用は character_growth_changed を飛ばすので _rebuild() が走る。
+	#   ⚠ notice はそのあとに入れる（先に入れると上書きされる）。
+	notice_label.text = GameManager.format_apply_report(report)
 
 # --- 描画 ---
 
@@ -65,6 +160,7 @@ func _rebuild() -> void:
 	_update_header()
 	_rebuild_slots()
 	_rebuild_items()
+	_refresh_preset_row()
 
 # remove_child してから queue_free する。await を挟むと再描画が並走し、行が二重に並ぶ
 # （AGENTS.md「再描画は await を持たせない」）。

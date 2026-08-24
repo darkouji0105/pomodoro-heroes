@@ -425,3 +425,22 @@ ui_part_slot_kind_charm,護符枠
 ui_part_slot_kind_emblem,紋章枠
 ui_part_slot_kind_rune,ルーン枠
 ui_part_slot_kind_wild,ワイルド枠
+ui_party_preset_title,パーティ編成
+ui_party_preset_presets_header,編成プリセット
+ui_party_preset_members_header,いまの編成
+ui_party_preset_slot,編成%d
+ui_party_preset_build,ビルド%d
+ui_party_preset_empty,空き
+ui_party_preset_apply,適用
+ui_party_preset_save,保存
+ui_party_preset_clear,消す
+ui_party_preset_burn,焼く
+ui_party_preset_applied,適用しました
+ui_party_preset_unsaved,このプリセットは空です
+ui_party_preset_ref_unsaved,参照しているビルドが空です
+ui_party_preset_broken,このプリセットは壊れています
+ui_party_preset_taken,%s から %s を外しました
+ui_party_preset_missing,%s の%sが見つかりませんでした
+ui_party_preset_nodes_skipped,%s の割り振りは当てられませんでした
+ui_nav_party_preset,編成
+ui_party_preset_burned,ビルド%d に焼きました

@@ -235,6 +235,10 @@ func _ready() -> void:
 	# ⚠ load_state() 側にも同じ呼び出しが要る。片方だけだと「新規開始で空」か
 	#   「ロードで空」のどちらかになり、どちらもエラーが出ない。
 	_ensure_party_members_from_master()
+	# プリセットの器を作る。_empty_state_template() は空なので、これが無いと
+	# 画面に1行も出ない。⚠ load_state() 側にも同じ呼び出しが要る（片方だけだと
+	# 「新規開始で空」か「ロードで空」のどちらかになり、どちらもエラーが出ない）。
+	_normalize_presets_from_save()
 	# 研究ツリーを research.json から流し込む。
 	# _empty_state_template() の research_tree は {} のため、これが無いと画面に1つも出ない。
 	_sync_research_tree_from_master()
@@ -371,6 +375,10 @@ func _empty_state_template() -> Dictionary:
 		# 編成。⚠ 空配列で始めること。ここに既定の3体を書くと parties.json と
 		#   2箇所に初期値ができる。流し込むのは _ensure_party_members_from_master()。
 		GameStateKeys.PARTY_MEMBERS: [],
+		# プリセット（2階層）。⚠ ここも空で始める。器を作るのは
+		#   _normalize_presets_from_save()（_ready() と load_state() の両方から呼ぶ）。
+		GameStateKeys.CHARACTER_PRESETS: {},
+		GameStateKeys.PARTY_PRESETS: [],
 		GameStateKeys.RESEARCH_TREE: {},
 		GameStateKeys.RECIPES_UNLOCKED: {},
 		GameStateKeys.CRAFTING_QUEUE: [],
@@ -1684,6 +1692,48 @@ func _sort_instance_view(list: Array) -> void:
 
 # --- 装備：着脱 ---
 
+# 着けられない理由。着けられるなら ""（get_part_reject_reason() と同じ形）。
+#
+# ⚠ 戻り値は翻訳キーではなくログ用の英文。装備の可否は画面が
+#   get_equippable_instances() で先に絞っているので、理由を画面に出す口が無い。
+#   ⚠ 画面に出す必要が出たら、PART_REJECT_* と同じく翻訳キーに変えること。
+#
+# ⚠ ignore_owner は「これから外すので、今の持ち主は見なくてよい」ための逃げ道。
+#   apply_party_preset() が、状態を触る前に「着けられるか」を数えるときだけ true にする
+#   （持ち主を見てしまうと、奪う予定のものが全部弾かれる）。
+#   ⚠ equip_instance() からは絶対に true で呼ばないこと。二重装備ができる。
+func get_equip_reject_reason(
+	character_id: String, slot: String, instance_id: String, ignore_owner: bool = false
+) -> String:
+	if get_character_growth(character_id).is_empty():
+		return "unknown character"
+
+	if not _equip_slots().has(slot):
+		return "unknown slot: " + slot
+
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	if instance.is_empty():
+		return "unknown instance: " + instance_id
+
+	var item_id: String = str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+	var definition: Dictionary = MasterDataLoader.get_item(item_id)
+	if definition.is_empty():
+		return "item not in items.json: " + item_id
+
+	if str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_EQUIPMENT:
+		return "not equipment: " + item_id
+
+	var item_slot: String = str(definition.get(ITEM_MASTER_EQUIP_SLOT, ""))
+	if item_slot != slot:
+		return "slot mismatch: item=%s requested=%s" % [item_slot, slot]
+
+	if not ignore_owner:
+		var owner: String = _equipped_owner(instance_id)
+		if owner != "" and owner != character_id:
+			return "equipped by " + owner
+
+	return ""
+
 # 装備する。成功したら true。
 #
 # 判定の順番は start_craft() / purchase_shop_item() と揃える。
@@ -1694,44 +1744,18 @@ func _sort_instance_view(list: Array) -> void:
 # 在庫を触らないため、飛ぶシグナルは character_growth_changed の1本だけ。
 # 前に着けていた個体は equipment_instances に残ったまま「どこにも装備していない」に戻る。
 func equip_instance(character_id: String, slot: String, instance_id: String) -> bool:
-	var growth: Dictionary = get_character_growth(character_id)
-	if growth.is_empty():
-		print("[GameManager] equip_instance('%s') -> false (unknown character)" % character_id)
-		return false
-
-	if not _equip_slots().has(slot):
-		print("[GameManager] equip_instance('%s') -> false (unknown slot: %s)" % [character_id, slot])
-		return false
-
-	var instance: Dictionary = get_equipment_instance(instance_id)
-	if instance.is_empty():
-		print("[GameManager] equip_instance('%s') -> false (unknown instance: %s)" % [character_id, instance_id])
-		return false
-
-	var item_id: String = str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
-	var definition: Dictionary = MasterDataLoader.get_item(item_id)
-	if definition.is_empty():
-		print("[GameManager] equip_instance('%s') -> false (item not in items.json: %s)" % [character_id, item_id])
-		return false
-
-	if str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_EQUIPMENT:
-		print("[GameManager] equip_instance('%s') -> false (not equipment: %s)" % [character_id, item_id])
-		return false
-
-	var item_slot: String = str(definition.get(ITEM_MASTER_EQUIP_SLOT, ""))
-	if item_slot != slot:
-		print("[GameManager] equip_instance('%s') -> false (slot mismatch: item=%s requested=%s)" % [
-			character_id, item_slot, slot
+	var reason: String = get_equip_reject_reason(character_id, slot, instance_id)
+	if reason != "":
+		print("[GameManager] equip_instance('%s', '%s', '%s') -> false (%s)" % [
+			character_id, slot, instance_id, reason
 		])
-		return false
-
-	var owner: String = _equipped_owner(instance_id)
-	if owner != "" and owner != character_id:
-		print("[GameManager] equip_instance('%s') -> false (equipped by %s)" % [character_id, owner])
 		return false
 
 	# --- ここから状態を変える ---
 
+	var growth: Dictionary = get_character_growth(character_id)
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	var item_id: String = str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
 	var previous: String = get_equipped_instance_id(character_id, slot)
 	var equipment: Dictionary = (growth.get(GameStateKeys.GROWTH_EQUIPMENT, {}) as Dictionary).duplicate(true)
 	equipment[slot] = instance_id
@@ -2872,6 +2896,883 @@ func _is_party_members_valid() -> bool:
 	return true
 
 
+# 編成に出せるキャラ（character_id の配列）。並び順は characters.json の記述順。
+#
+# ⚠ 冒険選択とパーティ選択画面の2画面が同じ一覧を要るので、ここに1本だけ置く
+#   （もとは adventure_select._collect_party_candidates() にあった）。
+# ⚠ 検証用の3体はデバッグビルドでだけ出す。⚠ リリース前にこの分岐を消す（宿題16）。
+# ⚠ 「所持しているキャラだけ」の概念はまだ無い。将来ここで絞る。
+func get_party_candidates() -> Array[String]:
+	var result: Array[String] = []
+	var show_debug: bool = OS.is_debug_build()
+	for character_id: Variant in MasterDataLoader.get_all_characters():
+		var id: String = str(character_id)
+		if not show_debug and id.begins_with("char_debug_"):
+			continue
+		result.append(id)
+	return result
+
+
+# ============================================================
+# プリセット（2階層。GAME_DESIGN.md 5-5 / EXEC_PARTY_PRESETS.md）
+# ============================================================
+#
+# キャラプリセット … 1キャラの「ビルド」。nodes / skills / passives / equipment。
+# 編成プリセット   … 3人ぶんの「誰の、どの番号か」を参照で持つ。
+#
+# ⚠ 参照方式なので、キャラ側のビルドを直すと、それを参照している全編成に反映される
+#   （DEMO_CHECKLIST.md 180）。⚠ 編成側にキャラの中身を複製しないこと。
+# ⚠ 中身はIDだけ（CLAUDE.md 4番）。効果値はマスターから毎回引く。
+# ⚠ 保存は「現在の状態を焼く」形（人間の決定・2026-08-23）。画面から中身を
+#   1項目ずつ編集する機能は作らない（それはギルドの育成・装備画面の役）。
+
+# 編成プリセットの本数（人間の決定・2026-08-23。固定本数。増やす仕組みは作らない）。
+# ⚠ .tres に置かない。バランス数値ではなく構造（SKILL_SLOT_COUNT と同じ扱い）。
+const PARTY_PRESET_COUNT: int = 10
+
+# 1キャラあたりのキャラプリセットの枠数。
+# ⚠ 3 は設計役が置いた数（GAME_DESIGN 5-5 は「キャラごとに複数」としか書いていない）。
+const CHARACTER_PRESET_COUNT: int = 3
+
+# プリセットが装備も持つか。
+#
+# ⚠ 2026-08-23に2回動いた欄：
+#     1. 「装備プリセットはいったんやめる」で false にした
+#     2. 実機で一通り触ったあと「装備にも適用がいる」で true に戻した
+#   ⚠ いまは GAME_DESIGN 5-5（「キャラプリセットは装備一式を持つ」）と一致している。
+# ⚠ false のあいだに焼いたビルドは equipment が5部位とも null で残る。
+#   ⚠ true に戻したあと、それを適用すると裸になる。⚠ 焼き直しが要る
+#     （「装備を焼かなかった」と「何も装備していない」を区別する術が無いため、
+#       コード側では直せない。⚠ 人間に焼き直してもらうしかない）。
+# ⚠ 常に true なら、この定数と分岐は消してよい（宿題）。
+#   ⚠ 残してあるのは、1セッションで2回動いた欄だから。
+const PRESET_EQUIPMENT_ENABLED: bool = true
+
+# apply_party_preset() / get_party_preset_apply_report() の戻り値のキー。
+# ⚠ 状態には入らないので GameStateKeys ではなくここに置く（INSTANCE_VIEW_* と同じ扱い）。
+const APPLY_OK: String = "ok"
+const APPLY_REASON: String = "reason"
+const APPLY_MEMBERS: String = "members"
+const APPLY_CONFLICTS: String = "conflicts"
+const APPLY_MISSING: String = "missing"
+const APPLY_NODES_SKIPPED: String = "nodes_skipped"
+const APPLY_PLAN: String = "plan"
+const APPLY_CHARACTER_ID: String = "character_id"
+const APPLY_FROM_CHARACTER_ID: String = "from_character_id"
+const APPLY_SLOT: String = "slot"
+const APPLY_INSTANCE_ID: String = "instance_id"
+
+# reason に入る翻訳キー。⚠ 画面がそのまま tr() に渡す。
+const PRESET_REJECT_UNSAVED: String = "ui_party_preset_unsaved"
+const PRESET_REJECT_REF_UNSAVED: String = "ui_party_preset_ref_unsaved"
+const PRESET_REJECT_BROKEN: String = "ui_party_preset_broken"
+
+
+func get_party_preset_count() -> int:
+	return PARTY_PRESET_COUNT
+
+
+func get_character_preset_count() -> int:
+	return CHARACTER_PRESET_COUNT
+
+
+# 空のキャラプリセット1件。⚠ saved が false の枠が「空き」。
+func _empty_character_preset() -> Dictionary:
+	return {
+		GameStateKeys.PRESET_SAVED: false,
+		GameStateKeys.GROWTH_NODES: [],
+		GameStateKeys.GROWTH_SKILLS: {GameStateKeys.GROWTH_SKILL_SLOTS: _empty_slots(SLOT_KIND_SKILL)},
+		GameStateKeys.GROWTH_PASSIVES: {GameStateKeys.GROWTH_SKILL_SLOTS: _empty_slots(SLOT_KIND_PASSIVE)},
+		GameStateKeys.GROWTH_EQUIPMENT: _empty_equipment(),
+	}
+
+
+# 空の編成プリセット1件。
+func _empty_party_preset() -> Dictionary:
+	return {
+		GameStateKeys.PRESET_SAVED: false,
+		GameStateKeys.PRESET_SLOTS: [],
+	}
+
+
+# 5部位ぶんの null。⚠ 装備の「無し」は null（_normalize_equipment_from_save() と揃える）。
+func _empty_equipment() -> Dictionary:
+	var equipment: Dictionary = {}
+	for slot: String in _equip_slots():
+		equipment[slot] = null
+	return equipment
+
+
+# 編成プリセット10件。⚠ 複製を返す。
+func get_party_presets() -> Array:
+	var presets: Variant = _state.get(GameStateKeys.PARTY_PRESETS, [])
+	if not (presets is Array):
+		return []
+	return (presets as Array).duplicate(true)
+
+
+# そのキャラのビルド3件。⚠ 無ければ空の器を返す（画面が件数を数えられるように）。
+func get_character_presets(character_id: String) -> Array:
+	var all_presets: Dictionary = _state.get(GameStateKeys.CHARACTER_PRESETS, {})
+	var entry: Variant = all_presets.get(character_id, null)
+	if not (entry is Array) or (entry as Array).size() != CHARACTER_PRESET_COUNT:
+		var fallback: Array = []
+		for _i: int in range(CHARACTER_PRESET_COUNT):
+			fallback.append(_empty_character_preset())
+		return fallback
+	return (entry as Array).duplicate(true)
+
+
+# ビルド1件。範囲外なら空の器。
+func get_character_preset(character_id: String, index: int) -> Dictionary:
+	if index < 0 or index >= CHARACTER_PRESET_COUNT:
+		return _empty_character_preset()
+	var presets: Array = get_character_presets(character_id)
+	var entry: Variant = presets[index]
+	if not (entry is Dictionary):
+		return _empty_character_preset()
+	return entry as Dictionary
+
+
+func _write_character_presets(character_id: String, presets: Array) -> void:
+	var all_presets: Dictionary = _copy_dict(GameStateKeys.CHARACTER_PRESETS)
+	all_presets[character_id] = presets
+	_state[GameStateKeys.CHARACTER_PRESETS] = all_presets
+
+
+# 現在の状態をビルドへ焼く（人間の決定8）。
+#
+# ⚠ get_battle_skills() を焼かないこと。あれは未選択の枠を候補の先頭で埋めた確定版で、
+#   焼くと「選んでいないものが選んだことになる」。プリセットは未選択もそのまま持つ。
+func save_character_preset(character_id: String, index: int) -> bool:
+	if index < 0 or index >= CHARACTER_PRESET_COUNT:
+		push_error("[GameManager] save_character_preset: index が範囲外: %d" % index)
+		return false
+	if get_character_growth(character_id).is_empty():
+		push_error("[GameManager] save_character_preset: 知らない character_id: " + character_id)
+		return false
+
+	# ここまで判定だけ。ここから状態を作る。
+	var equipment: Dictionary = _empty_equipment()
+	# ⚠ 装備はいったん焼かない（PRESET_EQUIPMENT_ENABLED）。欄は空のまま残す。
+	if PRESET_EQUIPMENT_ENABLED:
+		for slot: String in _equip_slots():
+			var instance_id: String = get_equipped_instance_id(character_id, slot)
+			equipment[slot] = null if instance_id == "" else instance_id
+
+	var preset: Dictionary = {
+		GameStateKeys.PRESET_SAVED: true,
+		GameStateKeys.GROWTH_NODES: get_stat_nodes(character_id),
+		GameStateKeys.GROWTH_SKILLS: {
+			GameStateKeys.GROWTH_SKILL_SLOTS: get_selected_skills(character_id),
+		},
+		GameStateKeys.GROWTH_PASSIVES: {
+			GameStateKeys.GROWTH_SKILL_SLOTS: get_selected_passives(character_id),
+		},
+		GameStateKeys.GROWTH_EQUIPMENT: equipment,
+	}
+
+	var presets: Array = get_character_presets(character_id)
+	presets[index] = preset
+	_write_character_presets(character_id, presets)
+
+	print("[GameManager] save_character_preset('%s', %d) -> true (nodes=%d skills=%s equipment=%s)" % [
+		character_id, index, (preset[GameStateKeys.GROWTH_NODES] as Array).size(),
+		str(preset[GameStateKeys.GROWTH_SKILLS]), str(equipment),
+	])
+	return true
+
+
+# 編成プリセットを焼く。slots は [{character_id, preset_index} × PARTY_SLOT_COUNT]。
+#
+# ⚠ 中身を複製せず、参照だけ持つ（GAME_DESIGN 5-5）。
+# ⚠ 状態を変える前に全部の判定を終える（CLAUDE.md 6番）。
+func save_party_preset(index: int, slots: Array) -> bool:
+	if index < 0 or index >= PARTY_PRESET_COUNT:
+		push_error("[GameManager] save_party_preset: index が範囲外: %d" % index)
+		return false
+	if slots.size() != GameStateKeys.PARTY_SLOT_COUNT:
+		push_error("[GameManager] save_party_preset: 枠が %d 件（%d のはず）" % [
+			slots.size(), GameStateKeys.PARTY_SLOT_COUNT
+		])
+		return false
+
+	var all_characters: Dictionary = MasterDataLoader.get_all_characters()
+	var seen: Dictionary = {}
+	var normalized: Array = []
+	for entry: Variant in slots:
+		if not (entry is Dictionary):
+			push_error("[GameManager] save_party_preset: 枠が Dictionary でない")
+			return false
+		var slot: Dictionary = entry
+		var character_id: String = str(slot.get(GameStateKeys.PRESET_CHARACTER_ID, ""))
+		var preset_index: int = int(slot.get(GameStateKeys.PRESET_INDEX, -1))
+		if not all_characters.has(character_id):
+			push_error("[GameManager] save_party_preset: 知らない character_id: " + character_id)
+			return false
+		if seen.has(character_id):
+			push_error("[GameManager] save_party_preset: 同じキャラが2枠に居る: " + character_id)
+			return false
+		if preset_index < 0 or preset_index >= CHARACTER_PRESET_COUNT:
+			push_error("[GameManager] save_party_preset: preset_index が範囲外: %d" % preset_index)
+			return false
+		seen[character_id] = true
+		normalized.append({
+			GameStateKeys.PRESET_CHARACTER_ID: character_id,
+			GameStateKeys.PRESET_INDEX: preset_index,
+		})
+
+	# ここまで判定だけ。ここから状態を作る。
+
+	# ⚠ 参照先のビルドが空なら、その場で焼く（人間の決定・2026-08-23）。
+	#
+	# ⚠ これが無いと行き止まりになる：「編成を保存 → 適用」を押しても
+	#   ui_party_preset_ref_unsaved で弾かれ続け、⚠ 画面のどこにも
+	#   「先にビルドを焼け」と書いていないので抜け出せない（実際に踏んだ）。
+	# ⚠ 既に保存済みのビルドは触らない。⚠ 他の編成プリセットが参照しているものを
+	#   黙って上書きすると、参照方式の利点（1つ直せば全編成に反映）が
+	#   「1つ壊せば全編成が壊れる」に反転する。
+	# ⚠ 意図的な焼き直しは、育成画面かこの画面の「焼く」でやる。
+	var burned: Array[String] = []
+	for entry: Variant in normalized:
+		var slot: Dictionary = entry
+		var character_id: String = str(slot[GameStateKeys.PRESET_CHARACTER_ID])
+		var preset_index: int = int(slot[GameStateKeys.PRESET_INDEX])
+		if bool(get_character_preset(character_id, preset_index).get(GameStateKeys.PRESET_SAVED, false)):
+			continue
+		if save_character_preset(character_id, preset_index):
+			burned.append("%s[%d]" % [character_id, preset_index])
+
+	var presets: Array = get_party_presets()
+	presets[index] = {
+		GameStateKeys.PRESET_SAVED: true,
+		GameStateKeys.PRESET_SLOTS: normalized,
+	}
+	_state[GameStateKeys.PARTY_PRESETS] = presets
+
+	print("[GameManager] save_party_preset(%d) -> true (%s / 空だったので焼いたビルド=%s)" % [
+		index, str(normalized), str(burned)
+	])
+	return true
+
+
+# 編成プリセットを空きに戻す。⚠ キャラ側のビルドは消さない（参照が宙に浮くため）。
+func clear_party_preset(index: int) -> bool:
+	if index < 0 or index >= PARTY_PRESET_COUNT:
+		push_error("[GameManager] clear_party_preset: index が範囲外: %d" % index)
+		return false
+	var presets: Array = get_party_presets()
+	var entry: Variant = presets[index]
+	if entry is Dictionary and not bool((entry as Dictionary).get(GameStateKeys.PRESET_SAVED, false)):
+		return false
+	presets[index] = _empty_party_preset()
+	_state[GameStateKeys.PARTY_PRESETS] = presets
+	print("[GameManager] clear_party_preset(%d) -> true" % index)
+	return true
+
+
+# その nodes の集合を当てられない理由。当てられるなら ""。
+#
+# ⚠ 呼ぶ順で結果が変わらないよう、集合として見る（unlock_stat_node() を1件ずつ
+#   呼ぶと、前提条件の順で通ったり通らなかったりする）。
+func _nodes_reject_reason(character_id: String, nodes: Array) -> String:
+	var wanted: Dictionary = {}
+	for node_id: Variant in nodes:
+		wanted[str(node_id)] = true
+
+	var total_cost: int = 0
+	for node_id: Variant in nodes:
+		var id: String = str(node_id)
+		var definition: Dictionary = MasterDataLoader.get_character_node(id)
+		if definition.is_empty():
+			return "unknown node: " + id
+		if str(definition.get(STAT_NODE_CHARACTER_ID, "")) != character_id:
+			return "node belongs to another character: " + id
+		var prerequisites: Variant = definition.get(STAT_NODE_PREREQUISITES, [])
+		if prerequisites is Array:
+			for required: Variant in (prerequisites as Array):
+				if not wanted.has(str(required)):
+					return "prerequisite missing: %s needs %s" % [id, str(required)]
+		total_cost += int(definition.get(STAT_NODE_COST, 0))
+
+	var available: int = get_stat_node_total_points(character_id)
+	if total_cost > available:
+		return "points %d < %d" % [available, total_cost]
+	return ""
+
+
+# 適用できるか／何が起きるかを数える。⚠ 状態を1つも触らない
+#   （can_unlock_stat_node() と同じ形。apply_party_preset() はこれを呼んでから動く）。
+#
+# 戻り値：
+#   ok             … 適用できるか
+#   reason         … ok が false のときだけ。翻訳キー
+#   members        … 適用後の3人（character_id）
+#   conflicts      … [{from_character_id, character_id, slot, instance_id}] 奪うもの
+#   missing        … [{character_id, slot, instance_id}] 個体が消えていて空にするもの
+#   nodes_skipped  … [{character_id, reason}] nodes を当てないキャラ
+#   plan           … {character_id: {slot: instance_id or ""}} ⚠ 画面は読まない
+func get_party_preset_apply_report(index: int) -> Dictionary:
+	var report: Dictionary = {
+		APPLY_OK: false,
+		APPLY_REASON: PRESET_REJECT_BROKEN,
+		APPLY_MEMBERS: [],
+		APPLY_CONFLICTS: [],
+		APPLY_MISSING: [],
+		APPLY_NODES_SKIPPED: [],
+		APPLY_PLAN: {},
+	}
+	if index < 0 or index >= PARTY_PRESET_COUNT:
+		push_error("[GameManager] get_party_preset_apply_report: index が範囲外: %d" % index)
+		return report
+
+	var presets: Array = get_party_presets()
+	var entry: Variant = presets[index] if index < presets.size() else null
+	if not (entry is Dictionary) or not bool((entry as Dictionary).get(GameStateKeys.PRESET_SAVED, false)):
+		report[APPLY_REASON] = PRESET_REJECT_UNSAVED
+		return report
+
+	var slots: Variant = (entry as Dictionary).get(GameStateKeys.PRESET_SLOTS, [])
+	if not (slots is Array) or (slots as Array).size() != GameStateKeys.PARTY_SLOT_COUNT:
+		report[APPLY_REASON] = PRESET_REJECT_BROKEN
+		return report
+
+	# --- 参照先を引く ---
+	var members: Array = []
+	var builds: Array = []
+	var all_characters: Dictionary = MasterDataLoader.get_all_characters()
+	var seen: Dictionary = {}
+	for slot_entry: Variant in (slots as Array):
+		if not (slot_entry is Dictionary):
+			report[APPLY_REASON] = PRESET_REJECT_BROKEN
+			return report
+		var slot_data: Dictionary = slot_entry
+		var character_id: String = str(slot_data.get(GameStateKeys.PRESET_CHARACTER_ID, ""))
+		var preset_index: int = int(slot_data.get(GameStateKeys.PRESET_INDEX, -1))
+		if not all_characters.has(character_id) or seen.has(character_id):
+			report[APPLY_REASON] = PRESET_REJECT_BROKEN
+			return report
+		if preset_index < 0 or preset_index >= CHARACTER_PRESET_COUNT:
+			report[APPLY_REASON] = PRESET_REJECT_BROKEN
+			return report
+		var build: Dictionary = get_character_preset(character_id, preset_index)
+		if not bool(build.get(GameStateKeys.PRESET_SAVED, false)):
+			report[APPLY_REASON] = PRESET_REJECT_REF_UNSAVED
+			return report
+		seen[character_id] = true
+		members.append(character_id)
+		builds.append(build)
+
+	# --- ここから「当てられるものを数える」。状態は触らない ---
+	var conflicts: Array = []
+	var missing: Array = []
+	var nodes_skipped: Array = []
+	var plan: Dictionary = {}
+	# 同じ個体を2人が要求したときに、先に取ったほうを覚えておく（枠の若いほうが勝つ）。
+	var claimed: Dictionary = {}
+
+	for i: int in range(members.size()):
+		_plan_build(
+			str(members[i]), builds[i], members, claimed,
+			conflicts, missing, nodes_skipped, plan
+		)
+
+	report[APPLY_OK] = true
+	report[APPLY_REASON] = ""
+	report[APPLY_MEMBERS] = members
+	report[APPLY_CONFLICTS] = conflicts
+	report[APPLY_MISSING] = missing
+	report[APPLY_NODES_SKIPPED] = nodes_skipped
+	report[APPLY_PLAN] = plan
+	return report
+
+
+# ビルド1つぶんを「当てられるか」数える。⚠ 状態を1つも触らない。
+#
+# ⚠ 編成プリセット（3人）と、キャラ単体の適用の両方がここを通る。
+#   ⚠ 2本目を書かないこと。片方だけ直る形になる。
+# ⚠ together は「同じ適用で一緒に組み替えるキャラ」。編成プリセットなら3人、
+#   キャラ単体ならその1人。⚠ この中で装備が移るぶんは conflicts に積まない
+#   （どちらも同じ適用でビルドを当て直すので、焼いたときの意図どおり）。
+# ⚠ claimed は「同じ個体を2人が要求したときに、先に取ったほうを覚える」表。
+#   ⚠ 枠の若いほうが勝つ（決めておかないと Dictionary の順に依存する）。
+func _plan_build(
+	character_id: String, build_raw: Variant, together: Array, claimed: Dictionary,
+	conflicts: Array, missing: Array, nodes_skipped: Array, plan: Dictionary
+) -> void:
+	var build: Dictionary = build_raw if build_raw is Dictionary else {}
+
+	var nodes: Variant = build.get(GameStateKeys.GROWTH_NODES, [])
+	var nodes_reason: String = _nodes_reject_reason(
+		character_id, (nodes as Array) if nodes is Array else []
+	)
+	if nodes_reason != "":
+		nodes_skipped.append({APPLY_CHARACTER_ID: character_id, APPLY_REASON: nodes_reason})
+
+	# ⚠ 装備を止めているとき（PRESET_EQUIPMENT_ENABLED）は plan を空のままにする。
+	#   ⚠ apply 側が装備に触らなくなる（空にするのではない）。
+	if not PRESET_EQUIPMENT_ENABLED:
+		plan[character_id] = {}
+		return
+
+	var wanted_equipment: Variant = build.get(GameStateKeys.GROWTH_EQUIPMENT, {})
+	var slot_plan: Dictionary = {}
+	for slot: String in _equip_slots():
+		slot_plan[slot] = ""
+		var value: Variant = (wanted_equipment as Dictionary).get(slot, null) if wanted_equipment is Dictionary else null
+		if value == null:
+			continue
+		var instance_id: String = str(value)
+
+		# 個体が消えている（分解された）。⚠ その枠だけ空にして続ける。赤も黄も出さない。
+		var equip_reason: String = get_equip_reject_reason(character_id, slot, instance_id, true)
+		if equip_reason != "":
+			missing.append({
+				APPLY_CHARACTER_ID: character_id,
+				APPLY_SLOT: slot,
+				APPLY_INSTANCE_ID: instance_id,
+			})
+			continue
+
+		# 同じ個体を2人が要求した。負けたほうは奪われた側として積む。
+		if claimed.has(instance_id):
+			conflicts.append({
+				APPLY_FROM_CHARACTER_ID: str(claimed[instance_id]),
+				APPLY_CHARACTER_ID: character_id,
+				APPLY_SLOT: slot,
+				APPLY_INSTANCE_ID: instance_id,
+			})
+			continue
+
+		var owner: String = _equipped_owner(instance_id)
+		if owner != "" and owner != character_id and not (owner in together):
+			conflicts.append({
+				APPLY_FROM_CHARACTER_ID: owner,
+				APPLY_CHARACTER_ID: character_id,
+				APPLY_SLOT: slot,
+				APPLY_INSTANCE_ID: instance_id,
+			})
+		claimed[instance_id] = character_id
+		slot_plan[slot] = instance_id
+	plan[character_id] = slot_plan
+
+
+# 編成プリセットを適用する。戻り値は get_party_preset_apply_report() と同じ形。
+#
+# ⚠ 判定は1本（上の関数）。ここに2本目を書かないこと。
+# ⚠ 状態を変えるのは「--- ここから ---」より下だけ（CLAUDE.md 6番）。
+# ⚠ character_growth_changed は1キャラにつき1回にまとめる。部位ごとに飛ばすと
+#   5本飛び、await を持つ倉庫画面が二重に並ぶ（AGENTS.md）。
+func apply_party_preset(index: int) -> Dictionary:
+	var report: Dictionary = get_party_preset_apply_report(index)
+	if not bool(report.get(APPLY_OK, false)):
+		print("[GameManager] apply_party_preset(%d) -> false (%s)" % [
+			index, str(report.get(APPLY_REASON, ""))
+		])
+		return report
+
+	var members: Array = report[APPLY_MEMBERS]
+	var plan: Dictionary = report[APPLY_PLAN]
+	var skipped: Dictionary = {}
+	for entry: Variant in (report[APPLY_NODES_SKIPPED] as Array):
+		skipped[str((entry as Dictionary).get(APPLY_CHARACTER_ID, ""))] = true
+
+	# --- ここから状態を変える ---
+
+	# 1. 奪う側を先に外す。
+	_unequip_conflicts(report)
+
+	# 2. 編成を書く。⚠ set_party_member() が唯一の口。_state を直接書かない。
+	#    ⚠ 3人が互いに違えば、枠0→1→2 の順に呼ぶと必ず目標どおりになる
+	#      （枠0を確定させると、以降の交換は枠1以上しか触らないため）。
+	for i: int in range(members.size()):
+		set_party_member(i, str(members[i]))
+
+	# 3. 各キャラの中身を当てる。⚠ 書き込みは1キャラ1回。
+	for i: int in range(members.size()):
+		var character_id: String = str(members[i])
+		_write_build(
+			character_id,
+			get_character_preset(character_id, _referenced_preset_index(index, character_id)),
+			plan.get(character_id, {}),
+			skipped.has(character_id)
+		)
+
+	print("[GameManager] apply_party_preset(%d) -> true (members=%s conflicts=%d missing=%d nodes_skipped=%d)" % [
+		index, str(members), (report[APPLY_CONFLICTS] as Array).size(),
+		(report[APPLY_MISSING] as Array).size(), (report[APPLY_NODES_SKIPPED] as Array).size(),
+	])
+	return report
+
+
+# 奪う側を先に外す。⚠ 外す前に着けると _equipped_owner() が別人を返して
+#   get_equip_reject_reason() が弾く。
+func _unequip_conflicts(report: Dictionary) -> void:
+	for entry: Variant in (report.get(APPLY_CONFLICTS, []) as Array):
+		var instance_id: String = str((entry as Dictionary).get(APPLY_INSTANCE_ID, ""))
+		var owner: String = _equipped_owner(instance_id)
+		if owner == "":
+			continue
+		for slot: String in _equip_slots():
+			if get_equipped_instance_id(owner, slot) == instance_id:
+				unequip_instance(owner, slot)
+				break
+
+
+# ビルド1つぶんを growth へ書き込む。⚠ 書き込みは1キャラ1回・シグナルも1本。
+#
+# ⚠ 部位ごとに _write_growth() を呼ぶと5本飛び、await を持つ倉庫画面が
+#   二重に並ぶ（AGENTS.md「再描画は await を持たせない」）。
+# ⚠ 判定は _plan_build() で済んでいる。ここで弾かないこと。
+func _write_build(
+	character_id: String, build_raw: Variant, slot_plan: Dictionary, skip_nodes: bool
+) -> void:
+	var build: Dictionary = build_raw if build_raw is Dictionary else {}
+	var growth: Dictionary = get_character_growth(character_id)
+	if growth.is_empty():
+		return
+
+	# nodes … ⚠ unlock_stat_node() を1件ずつ呼ばない（呼ぶ順で前提条件に
+	#   引っかかる）。検証を通した配列をそのまま書く。
+	if not skip_nodes:
+		var nodes: Variant = build.get(GameStateKeys.GROWTH_NODES, [])
+		growth[GameStateKeys.GROWTH_NODES] = (nodes as Array).duplicate(true) if nodes is Array else []
+
+	# skills / passives … ⚠ select_skill() を呼ばない（あれは「別の枠に居たら
+	#   交換」をするので、配列をそのまま当てるのと結果が変わる）。
+	for kind: String in [SLOT_KIND_SKILL, SLOT_KIND_PASSIVE]:
+		var state_key: String = str(_slot_spec(kind)["state_key"])
+		var holder: Variant = build.get(state_key, null)
+		if holder is Dictionary:
+			growth[state_key] = (holder as Dictionary).duplicate(true)
+	_normalize_all_slots(growth)
+
+	# equipment … 計画どおりに置き換える。
+	# ⚠ 装備を止めているとき（PRESET_EQUIPMENT_ENABLED = false）は計画が空。
+	#   ⚠ そのときは growth の equipment に一切触らない。空の計画で上書きすると、
+	#     プリセットを当てるたびに裸になる。
+	if PRESET_EQUIPMENT_ENABLED:
+		var equipment: Dictionary = _empty_equipment()
+		for slot: String in _equip_slots():
+			var instance_id: String = str(slot_plan.get(slot, ""))
+			equipment[slot] = null if instance_id == "" else instance_id
+		growth[GameStateKeys.GROWTH_EQUIPMENT] = equipment
+
+	_write_growth(character_id, growth)
+	character_growth_changed.emit(character_id)
+
+
+# --- キャラ単体の適用（育成画面・装備画面の「適用」ボタン） ---
+#
+# ⚠ 編成プリセットは3人まとめて当てる口。⚠ 1人だけ当て直したいときの口がこれ。
+#   ⚠ 判定も書き込みも編成プリセットと同じ部品（_plan_build / _write_build）を通る。
+#   ⚠ 2本目を書かないこと。
+# ⚠ 編成は触らない。⚠ 当てるのはそのキャラの中身だけ（set_party_member() を呼ばない）。
+
+# 当てられるか／何が起きるかを数える。⚠ 状態を1つも触らない。
+func get_character_preset_apply_report(character_id: String, index: int) -> Dictionary:
+	var report: Dictionary = {
+		APPLY_OK: false,
+		APPLY_REASON: PRESET_REJECT_BROKEN,
+		APPLY_MEMBERS: [],
+		APPLY_CONFLICTS: [],
+		APPLY_MISSING: [],
+		APPLY_NODES_SKIPPED: [],
+		APPLY_PLAN: {},
+	}
+	if index < 0 or index >= CHARACTER_PRESET_COUNT:
+		push_error("[GameManager] get_character_preset_apply_report: index が範囲外: %d" % index)
+		return report
+	if get_character_growth(character_id).is_empty():
+		push_error("[GameManager] get_character_preset_apply_report: 知らない character_id: " + character_id)
+		return report
+
+	var build: Dictionary = get_character_preset(character_id, index)
+	if not bool(build.get(GameStateKeys.PRESET_SAVED, false)):
+		# ⚠ 「空きのビルドを当てようとした」は正常系。赤を出さない。
+		report[APPLY_REASON] = PRESET_REJECT_UNSAVED
+		return report
+
+	var conflicts: Array = []
+	var missing: Array = []
+	var nodes_skipped: Array = []
+	var plan: Dictionary = {}
+	# ⚠ together はこの1人だけ。⚠ 他のキャラが持っている装備は全部「奪う」対象になる。
+	_plan_build(character_id, build, [character_id], {}, conflicts, missing, nodes_skipped, plan)
+
+	report[APPLY_OK] = true
+	report[APPLY_REASON] = ""
+	report[APPLY_MEMBERS] = [character_id]
+	report[APPLY_CONFLICTS] = conflicts
+	report[APPLY_MISSING] = missing
+	report[APPLY_NODES_SKIPPED] = nodes_skipped
+	report[APPLY_PLAN] = plan
+	return report
+
+
+# 当てる。戻り値は get_character_preset_apply_report() と同じ形。
+func apply_character_preset(character_id: String, index: int) -> Dictionary:
+	var report: Dictionary = get_character_preset_apply_report(character_id, index)
+	if not bool(report.get(APPLY_OK, false)):
+		print("[GameManager] apply_character_preset('%s', %d) -> false (%s)" % [
+			character_id, index, str(report.get(APPLY_REASON, ""))
+		])
+		return report
+
+	# --- ここから状態を変える ---
+	_unequip_conflicts(report)
+
+	var skipped: bool = not (report[APPLY_NODES_SKIPPED] as Array).is_empty()
+	_write_build(
+		character_id, get_character_preset(character_id, index),
+		(report[APPLY_PLAN] as Dictionary).get(character_id, {}), skipped
+	)
+
+	print("[GameManager] apply_character_preset('%s', %d) -> true (conflicts=%d missing=%d nodes_skipped=%d)" % [
+		character_id, index, (report[APPLY_CONFLICTS] as Array).size(),
+		(report[APPLY_MISSING] as Array).size(), (report[APPLY_NODES_SKIPPED] as Array).size(),
+	])
+	return report
+
+
+# 適用の結果を、画面にそのまま出せる1つの文にする。
+#
+# ⚠ ここに置いたのは、⚠ 適用の口が3つ（パーティ選択・育成・装備）に増えたため。
+#   ⚠ 文面を画面ごとに書くと、⚠ 「奪った」の言い回しが3通りになる。
+# ⚠ 本来 GameManager は表示を持たない層だが、⚠ report が返す reason は
+#   もともと翻訳キーなので、⚠ ここは既にその境目にある。
+# ⚠ 黙って強くなったり弱くなったりさせない（人間の決定）。奪ったもの・
+#   消えていたものを1件1行で出す。
+func format_apply_report(report: Dictionary) -> String:
+	if not bool(report.get(APPLY_OK, false)):
+		return tr(str(report.get(APPLY_REASON, "")))
+
+	var lines: Array[String] = []
+	for entry: Variant in (report.get(APPLY_CONFLICTS, []) as Array):
+		var conflict: Dictionary = entry
+		lines.append(tr("ui_party_preset_taken") % [
+			_character_name(str(conflict.get(APPLY_FROM_CHARACTER_ID, ""))),
+			_instance_name(str(conflict.get(APPLY_INSTANCE_ID, ""))),
+		])
+	for entry: Variant in (report.get(APPLY_MISSING, []) as Array):
+		var missing: Dictionary = entry
+		lines.append(tr("ui_party_preset_missing") % [
+			_character_name(str(missing.get(APPLY_CHARACTER_ID, ""))),
+			tr("ui_equipment_slot_" + str(missing.get(APPLY_SLOT, ""))),
+		])
+	for entry: Variant in (report.get(APPLY_NODES_SKIPPED, []) as Array):
+		var skipped: Dictionary = entry
+		lines.append(tr("ui_party_preset_nodes_skipped") % _character_name(
+			str(skipped.get(APPLY_CHARACTER_ID, ""))
+		))
+	if lines.is_empty():
+		return tr("ui_party_preset_applied")
+	return "\n".join(lines)
+
+
+func _character_name(character_id: String) -> String:
+	var char_data: Dictionary = MasterDataLoader.get_character(character_id)
+	return tr(str(char_data.get("name_key", character_id)))
+
+
+# 個体の表示名。⚠ 個体は item_id を持つので、名前はマスターから引く。
+func _instance_name(instance_id: String) -> String:
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	var item_id: String = str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+	if item_id == "":
+		return instance_id
+	return tr(str(MasterDataLoader.get_item(item_id).get("name_key", item_id)))
+
+
+# 編成プリセット index が、そのキャラのどの番号を参照しているか。
+# ⚠ get_party_preset_apply_report() が通ったあとにだけ呼ぶ（範囲は検証済み）。
+func _referenced_preset_index(index: int, character_id: String) -> int:
+	var presets: Array = get_party_presets()
+	var entry: Variant = presets[index] if index < presets.size() else null
+	if not (entry is Dictionary):
+		return -1
+	var slots: Variant = (entry as Dictionary).get(GameStateKeys.PRESET_SLOTS, [])
+	if not (slots is Array):
+		return -1
+	for slot_entry: Variant in (slots as Array):
+		if not (slot_entry is Dictionary):
+			continue
+		if str((slot_entry as Dictionary).get(GameStateKeys.PRESET_CHARACTER_ID, "")) == character_id:
+			return int((slot_entry as Dictionary).get(GameStateKeys.PRESET_INDEX, -1))
+	return -1
+
+
+# プリセットの形を揃え、指し先が消えたものを落とす。
+#
+# ⚠ _sync_*_from_master() の「毎回マスターで上書き」は真似ないこと。編成と同じく、
+#   プリセットは進捗ではなくプレイヤーの選択で、上書きすると起動のたびに巻き戻る。
+# ⚠ 知らないキーを消さないこと。段階8（ルーン）の移動量がここに5つ目のキーとして入る。
+# ⚠ push_warning を出さないこと。装備を分解して参照が切れるのは正常系
+#   （確率でも操作でも普通に起きる。ログが埋まる）。
+# ⚠ 呼ぶ場所は _ready() と load_state() の2箇所。片方だけだと「新規開始で空」か
+#   「ロードで空」のどちらかになり、どちらもエラーが出ない。
+# ⚠ load_state() では _normalize_equipment_from_save() より後に呼ぶこと
+#   （消えた個体の判定に、正規化済みの equipment_instances が要る）。
+func _normalize_presets_from_save() -> void:
+	var fixed: int = 0
+	var instances: Dictionary = _state.get(GameStateKeys.EQUIPMENT_INSTANCES, {})
+	var all_characters: Dictionary = MasterDataLoader.get_all_characters()
+
+	# --- キャラプリセット ---
+	var raw_characters: Variant = _state.get(GameStateKeys.CHARACTER_PRESETS, {})
+	var all_presets: Dictionary = (raw_characters as Dictionary).duplicate(true) if raw_characters is Dictionary else {}
+	for character_id: String in all_presets.keys():
+		# マスターに無いキャラのぶんは、エントリごと落とす。
+		if not all_characters.has(character_id):
+			all_presets.erase(character_id)
+			fixed += 1
+			continue
+
+		var raw_list: Variant = all_presets[character_id]
+		var list: Array = (raw_list as Array).duplicate(true) if raw_list is Array else []
+		if not (raw_list is Array):
+			fixed += 1
+		while list.size() < CHARACTER_PRESET_COUNT:
+			list.append(_empty_character_preset())
+			fixed += 1
+		if list.size() > CHARACTER_PRESET_COUNT:
+			list.resize(CHARACTER_PRESET_COUNT)
+			fixed += 1
+
+		for i: int in range(list.size()):
+			if _normalize_character_preset(list, i, character_id, instances):
+				fixed += 1
+		all_presets[character_id] = list
+	_state[GameStateKeys.CHARACTER_PRESETS] = all_presets
+
+	# --- 編成プリセット ---
+	var raw_party: Variant = _state.get(GameStateKeys.PARTY_PRESETS, [])
+	var party_presets: Array = (raw_party as Array).duplicate(true) if raw_party is Array else []
+	if not (raw_party is Array):
+		fixed += 1
+	while party_presets.size() < PARTY_PRESET_COUNT:
+		party_presets.append(_empty_party_preset())
+		fixed += 1
+	if party_presets.size() > PARTY_PRESET_COUNT:
+		party_presets.resize(PARTY_PRESET_COUNT)
+		fixed += 1
+
+	for i: int in range(party_presets.size()):
+		if _normalize_party_preset(party_presets, i, all_characters):
+			fixed += 1
+	_state[GameStateKeys.PARTY_PRESETS] = party_presets
+
+	print("[GameManager] _normalize_presets_from_save() -> %d fixed (%d characters, %d party presets)" % [
+		fixed, all_presets.size(), party_presets.size()
+	])
+
+
+# キャラプリセット1件を直す。直したら true。
+# ⚠ 知らないキーは残す（entry を作り直さず、足りないものだけ足す）。
+func _normalize_character_preset(
+	list: Array, index: int, character_id: String, instances: Dictionary
+) -> bool:
+	var changed: bool = false
+	var raw: Variant = list[index]
+	if not (raw is Dictionary):
+		list[index] = _empty_character_preset()
+		return true
+	var preset: Dictionary = raw
+
+	if not (preset.get(GameStateKeys.PRESET_SAVED, null) is bool):
+		preset[GameStateKeys.PRESET_SAVED] = false
+		changed = true
+
+	# nodes … マスターに無いノードと、他のキャラのノードを落とす。
+	var raw_nodes: Variant = preset.get(GameStateKeys.GROWTH_NODES, null)
+	var nodes: Array = []
+	if raw_nodes is Array:
+		for node_id: Variant in (raw_nodes as Array):
+			var definition: Dictionary = MasterDataLoader.get_character_node(str(node_id))
+			if definition.is_empty():
+				changed = true
+				continue
+			if str(definition.get(STAT_NODE_CHARACTER_ID, "")) != character_id:
+				changed = true
+				continue
+			nodes.append(str(node_id))
+	else:
+		changed = true
+	preset[GameStateKeys.GROWTH_NODES] = nodes
+
+	# skills / passives … ⚠ growth と同じ形なので _normalize_slots() をそのまま当てる。
+	if _normalize_all_slots(preset):
+		changed = true
+
+	# equipment … 消えた個体を null に戻す（_normalize_equipment_from_save() と同じ扱い）。
+	var raw_equipment: Variant = preset.get(GameStateKeys.GROWTH_EQUIPMENT, null)
+	var equipment: Dictionary = _empty_equipment()
+	for slot: String in _equip_slots():
+		var value: Variant = (raw_equipment as Dictionary).get(slot, null) if raw_equipment is Dictionary else null
+		if value == null:
+			continue
+		var instance_id: String = str(value)
+		if instances.has(instance_id):
+			equipment[slot] = instance_id
+		else:
+			changed = true
+	if not (raw_equipment is Dictionary):
+		changed = true
+	preset[GameStateKeys.GROWTH_EQUIPMENT] = equipment
+
+	list[index] = preset
+	return changed
+
+
+# 編成プリセット1件を直す。直したら true。
+# ⚠ 半端に埋めないこと。1箇所でも壊れていたら空きに戻す
+#   （_ensure_party_members_from_master() と同じ流儀）。
+func _normalize_party_preset(presets: Array, index: int, all_characters: Dictionary) -> bool:
+	var raw: Variant = presets[index]
+	if not (raw is Dictionary):
+		presets[index] = _empty_party_preset()
+		return true
+	var preset: Dictionary = raw
+
+	if not bool(preset.get(GameStateKeys.PRESET_SAVED, false)):
+		if preset.get(GameStateKeys.PRESET_SLOTS, null) is Array and (preset[GameStateKeys.PRESET_SLOTS] as Array).is_empty():
+			return false
+		presets[index] = _empty_party_preset()
+		return true
+
+	var raw_slots: Variant = preset.get(GameStateKeys.PRESET_SLOTS, null)
+	if not (raw_slots is Array) or (raw_slots as Array).size() != GameStateKeys.PARTY_SLOT_COUNT:
+		presets[index] = _empty_party_preset()
+		return true
+
+	var seen: Dictionary = {}
+	var slots: Array = []
+	for entry: Variant in (raw_slots as Array):
+		if not (entry is Dictionary):
+			presets[index] = _empty_party_preset()
+			return true
+		var slot: Dictionary = entry
+		var character_id: String = str(slot.get(GameStateKeys.PRESET_CHARACTER_ID, ""))
+		var preset_index: int = int(slot.get(GameStateKeys.PRESET_INDEX, -1))
+		if not all_characters.has(character_id) or seen.has(character_id):
+			presets[index] = _empty_party_preset()
+			return true
+		if preset_index < 0 or preset_index >= CHARACTER_PRESET_COUNT:
+			presets[index] = _empty_party_preset()
+			return true
+		seen[character_id] = true
+		# ⚠ JSON から戻すと preset_index が float になる。int() で包み直す（CLAUDE.md 3番）。
+		slots.append({
+			GameStateKeys.PRESET_CHARACTER_ID: character_id,
+			GameStateKeys.PRESET_INDEX: preset_index,
+		})
+
+	var changed: bool = str(slots) != str(raw_slots)
+	preset[GameStateKeys.PRESET_SLOTS] = slots
+	presets[index] = preset
+	return changed
+
+
 func _normalize_skill_slots_from_save() -> void:
 	var growth_all: Dictionary = _state.get(GameStateKeys.CHARACTER_GROWTH, {})
 	var fixed: int = 0
@@ -3819,6 +4720,12 @@ func load_state(data: Dictionary) -> bool:
 	# 装備の個体を正規化する。JSONから戻すと grade が float になる。
 	# 第1弾の装備（equipment に item_id の文字列が入っている）はここで捨てる。
 	_normalize_equipment_from_save()
+	# プリセットの形を揃え、分解された個体への参照を null に戻す。
+	# ⚠ _normalize_equipment_from_save() より後であること（消えた個体の判定に、
+	#   正規化済みの equipment_instances が要る）。
+	# ⚠ 旧セーブは character_presets / party_presets を持たないため、ここで生える
+	#   （skills の枠と同じ理由で save_version は 3 のままでよい）。
+	_normalize_presets_from_save()
 	# セーブから戻した research_tree を research.json と同期する。
 	# unlocked は残り、効果値・前提条件はマスターデータで上書きされる。
 	# JSON復元で float になった effect_value も、ここで int() に戻る。

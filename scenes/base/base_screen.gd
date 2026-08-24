@@ -9,6 +9,7 @@ extends Control
 const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TITLE_PATH: String = "res://scenes/title/title_screen.tscn"
+const PARTY_PRESET_PATH: String = "res://scenes/adventure/party_preset_screen.tscn"
 
 # シーンリソース（ PackedScene ）
 const RESOURCE_DISPLAY_SCENE: PackedScene = preload("res://scenes/ui/components/resource_display.tscn")
@@ -26,9 +27,16 @@ const SCREEN_SCENES: Dictionary = {
 @onready var stamina_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/StaminaEntry/Value
 @onready var potion_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/Value
 @onready var potion_use_button: PrimaryButton = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/UseButton
-# ⚠ GridContainer（4列）。素材が3件から12件に増えた回で HBoxContainer から変えた。
-#   横一列のままだと器が際限なく横へ伸びる（EXEC_MATERIAL_TIERS.md §12-3）。
-@onready var materials_display: GridContainer = $Layout/BottomArea/BottomLayout/ResourceRow/MaterialsDisplay
+# ⚠ GridContainer（8列2段）を ScrollContainer に入れて、ResourceRow の外に出してある。
+#
+# ⚠ 素材が3件から12件に増えた回で HBoxContainer → GridContainer 4列に変えた
+#   （EXEC_MATERIAL_TIERS.md §12-3）。⚠ それでも足りなかった：16件・4桁になると
+#   4列でも最小幅 564 になり、ResourceRow 全体が 1556（画面幅 1280）まで膨らんで、
+#   下段が丸ごと左右にはみ出した（2026-08-23に実測）。
+# ⚠ ScrollContainer に入れると最小幅が 0 になるので、⚠ 素材が増えても桁が増えても
+#   二度とはみ出さない。⚠ この箱から出さないこと。
+# ⚠ 数字は `-- scenario=layout` で取れる。器を足したときはあれを回すこと。
+@onready var materials_display: GridContainer = $Layout/BottomArea/BottomLayout/MaterialsScroll/MaterialsDisplay
 @onready var chest_badge: Button = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge
 @onready var chest_count_label: Label = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge/ChestCountLabel
 
@@ -94,6 +102,39 @@ func _init_navigation_buttons() -> void:
 		btn.visible = GameManager.is_screen_unlocked(screen_id)
 		# 遷移イベント接続
 		btn.pressed.connect(_go_to_screen.bind(screen_id))
+
+	_add_party_preset_button()
+
+# パーティ選択画面への入口（EXEC_PARTY_PRESETS.md §7-2）。
+#
+# ⚠ 人間の決定：切り替えは戦闘前でも拠点でもできる。画面は1つで、入口が2つ
+#   （冒険選択にもある）。⚠ 同じ実装を2つ作らないこと。
+# ⚠ .tscn を触らずコードで足す（_build_party_row() と同じ形。.tscn を編集すると
+#   人間の作業が増える）。
+# ⚠ _navigation_buttons / SCREEN_SCENES に足さないこと。あれは
+#   unlocked_screens の解放判定を通る道で、この画面は解放の対象ではない
+#   （skill_select_screen と同じ「下位画面」。段階9で見直す）。
+func _add_party_preset_button() -> void:
+	var button: PrimaryButton = PrimaryButton.new()
+	button.name = "PartyPresetButton"
+	button.text = "ui_nav_party_preset"
+	# ⚠ 既存5個と同じ size_flags を付けること（.tscn の AdventureButton 等は全部 3）。
+	#   ⚠ これが無いと6個目だけ「内容ぶんの幅」を取り、残り5個が押し潰されて
+	#     文字がはみ出す（2026-08-23に実際にそうなった）。
+	#   ⚠ NEXT_STEPS §4「件数を増やす回では、既存の器の型を先に見る」。
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# ⚠ 6等分になるので、翻訳が効くまでの間（ja.csv 再インポート前）に
+	#   キー名がそのまま出ても行を壊さないよう、はみ出しは切る。
+	button.clip_text = true
+	button.pressed.connect(_on_party_preset_pressed)
+	adventure_button.get_parent().add_child(button)
+
+func _on_party_preset_pressed() -> void:
+	# ⚠ 戻る先を渡す（入口が2つあるため。TransferKeys.RETURN_PATH）。
+	SceneManager.change_scene_with_data(
+		PARTY_PRESET_PATH,
+		{TransferKeys.RETURN_PATH: BASE_PATH}
+	)
 
 func _init_chest_badge() -> void:
 	var count: int = GameManager.get_pending_chest_count()

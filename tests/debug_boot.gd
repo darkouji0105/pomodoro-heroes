@@ -18,6 +18,7 @@ extends Node
 # ============================================================
 
 const SCENE_BATTLE: String = "res://scenes/adventure/battle.tscn"
+const SCENE_BASE: String = "res://scenes/base/base_screen.tscn"
 
 # シナリオの種類。
 # ⚠ screen は窓あり専用。ヘッドレスでは描画がダミーなので何も分からない。
@@ -33,6 +34,8 @@ const KIND_REPORT: String = "report"
 const REPORT_MATERIALS: String = "materials"
 const REPORT_PARTS: String = "parts"
 const REPORT_DROPS: String = "drops"
+const REPORT_PRESETS: String = "presets"
+const REPORT_LAYOUT: String = "layout"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -504,6 +507,25 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_dbg_pool_heal", "prepare": PREPARE_NONE, "gap": 0.5},
 		],
 	},
+	# プリセット2階層の検証（EXEC_PARTY_PRESETS.md §9）。
+	# ⚠ プリセットは戦闘に1行も出ない（適用した結果が戦闘に出るだけ）ので、
+	#   materials / parts / drops と同じ report の枝を使う。
+	"presets": {
+		"kind": KIND_REPORT,
+		"report": REPORT_PRESETS,
+		"note": "プリセット2階層 / 焼く→適用 / 空の参照先を保存が焼く / 装備に触らない / 正規化",
+	},
+	# 拠点の下段が横にはみ出していないかを数字で見る。
+	#
+	# ⚠ ヘッドレスでも「レイアウトの計算」は走る（描画がダミーなだけ）。
+	#   ⚠ 絵は取れないが、最小幅が画面幅を超えているかは取れる。
+	# ⚠ 横に溢れる事故を2回踏んでいる（素材12件で HBoxContainer が溢れた／
+	#   拠点のナビに6個目を足して押し潰した）。⚠ 3回目を数字で止めるための道具。
+	"layout": {
+		"kind": KIND_REPORT,
+		"report": REPORT_LAYOUT,
+		"note": "拠点の下段の最小幅を測る（画面幅を超えていないか）",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -538,6 +560,11 @@ func _ready() -> void:
 			_report_parts()
 		elif report == REPORT_DROPS:
 			_report_drops()
+		elif report == REPORT_PRESETS:
+			_report_presets()
+		elif report == REPORT_LAYOUT:
+			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
+			await _report_layout()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -1128,6 +1155,371 @@ func _last_unopened_chest() -> Dictionary:
 		if not bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
 			return chest
 	return {}
+
+
+# プリセット2階層の検証（EXEC_PARTY_PRESETS.md §9 / §11-A）。
+#
+# ⚠ 状態は書き換えるが、絶対に保存しない（_ready() の注記と同じ）。
+# ⚠ 本番のデータファイルを一時的に壊さない。壊すのはメモリ上の状態だけなので、
+#   git diff は最初から空のまま（元に戻す作業が要らない）。
+func _report_presets() -> void:
+	var members: Array = GameManager.get_party_members()
+	if members.size() != GameStateKeys.PARTY_SLOT_COUNT:
+		push_error("[DebugBoot] 編成が %d 件（%d のはず）" % [
+			members.size(), GameStateKeys.PARTY_SLOT_COUNT
+		])
+		return
+	var char_a: String = str(members[0])
+	var char_b: String = str(members[1])
+
+	# --- 1. 器の件数 ---
+	print("[DebugBoot] --- 器の件数 ---")
+	print("  編成プリセット   = %d 件（10 が正解）" % GameManager.get_party_presets().size())
+	print("  get_party_preset_count()     = %d" % GameManager.get_party_preset_count())
+	print("  get_character_preset_count() = %d" % GameManager.get_character_preset_count())
+	for character_id: Variant in members:
+		print("  %-20s のビルド = %d 件（3 が正解）" % [
+			str(character_id), GameManager.get_character_presets(str(character_id)).size()
+		])
+
+	# --- 2. 焼く ---
+	print("[DebugBoot] --- 焼く（現在の状態を書き写す）---")
+	# 装備を1つ着けてから焼く。⚠ 個体を作る口は add_to_inventory() だけ（CLAUDE.md 8番）。
+	GameManager.add_to_inventory("weapon_wooden_sword", 1)
+	var sword: String = _find_instance_of("weapon_wooden_sword")
+	print("  個体を1つ作った: %s" % sword)
+	print("  %s に着ける -> %s" % [char_a, str(GameManager.equip_instance(char_a, GameStateKeys.EQUIP_WEAPON, sword))])
+	print("  save_character_preset('%s', 0) -> %s" % [char_a, str(GameManager.save_character_preset(char_a, 0))])
+	print("  save_character_preset('%s', 0) -> %s" % [char_b, str(GameManager.save_character_preset(char_b, 0))])
+	print("  save_character_preset('%s', 0) -> %s" % [str(members[2]), str(GameManager.save_character_preset(str(members[2]), 0))])
+	var build: Dictionary = GameManager.get_character_preset(char_a, 0)
+	print("  焼いた中身の4項目:")
+	print("    nodes     = %s" % str(build.get(GameStateKeys.GROWTH_NODES, null)))
+	print("    skills    = %s" % str(build.get(GameStateKeys.GROWTH_SKILLS, null)))
+	print("    passives  = %s" % str(build.get(GameStateKeys.GROWTH_PASSIVES, null)))
+	print("    equipment = %s" % str(build.get(GameStateKeys.GROWTH_EQUIPMENT, null)))
+
+	var slots: Array = []
+	for i: int in range(GameStateKeys.PARTY_SLOT_COUNT):
+		slots.append({
+			GameStateKeys.PRESET_CHARACTER_ID: str(members[i]),
+			GameStateKeys.PRESET_INDEX: 0,
+		})
+	print("  save_party_preset(0) -> %s" % str(GameManager.save_party_preset(0, slots)))
+	print("  空きのプリセットを適用 -> reason=%s（ui_party_preset_unsaved が正解）" % str(
+		GameManager.get_party_preset_apply_report(9).get(GameManager.APPLY_REASON, "")
+	))
+
+	# --- 2-b. 空の参照先は「保存」が焼く ---
+	# ⚠ これが無いと行き止まりになる（適用が ui_party_preset_ref_unsaved で
+	#   弾かれ続け、画面から抜け出せない）。2026-08-23に人間が踏んだ。
+	print("[DebugBoot] --- 空の参照先を「保存」が焼くか ---")
+	var slots_2: Array = []
+	for i: int in range(GameStateKeys.PARTY_SLOT_COUNT):
+		slots_2.append({
+			GameStateKeys.PRESET_CHARACTER_ID: str(members[i]),
+			# ⚠ 誰も焼いていない番号（2）を指す。
+			GameStateKeys.PRESET_INDEX: 2,
+		})
+	print("  焼く前 %s[2] の saved = %s（false が正解）" % [
+		char_a, str(GameManager.get_character_preset(char_a, 2).get(GameStateKeys.PRESET_SAVED, null))
+	])
+	print("  save_party_preset(1) -> %s" % str(GameManager.save_party_preset(1, slots_2)))
+	print("  焼いた後 %s[2] の saved = %s（true が正解）" % [
+		char_a, str(GameManager.get_character_preset(char_a, 2).get(GameStateKeys.PRESET_SAVED, null))
+	])
+	print("  そのまま適用 -> ok=%s（true が正解。⚠ ref_unsaved で弾かれないこと）" % str(
+		GameManager.apply_party_preset(1).get(GameManager.APPLY_OK, false)
+	))
+
+	# --- 2-c. キャラ単体の適用（育成・装備の「適用」ボタン）---
+	# ⚠ 編成プリセットと同じ部品（_plan_build / _write_build）を通ること。
+	# ⚠ 編成を触らないこと（当てるのはそのキャラの中身だけ）。
+	print("[DebugBoot] --- キャラ単体の適用 ---")
+	print("  空きのビルドを当てる -> reason=%s（ui_party_preset_unsaved が正解・⚠ 赤を出さない）" % str(
+		GameManager.get_character_preset_apply_report(char_a, 1).get(GameManager.APPLY_REASON, "")
+	))
+	var before_members: Array = GameManager.get_party_members()
+	var single: Dictionary = GameManager.apply_character_preset(char_a, 0)
+	print("  ビルド1を当てる -> ok=%s members=%s（%s だけが正解）" % [
+		str(single.get(GameManager.APPLY_OK, false)),
+		str(single.get(GameManager.APPLY_MEMBERS, [])), char_a,
+	])
+	print("  編成 = %s（%s のまま＝触っていないことが正解）" % [
+		str(GameManager.get_party_members()), str(before_members)
+	])
+
+	if not GameManager.PRESET_EQUIPMENT_ENABLED:
+		# --- 3'. 装備はいったん止めている ---
+		# ⚠ 見るのは「装備が付く」ことではなく「装備に触らない」こと。
+		#   ⚠ 空の計画で上書きすると、プリセットを当てるたびに裸になる。
+		print("[DebugBoot] --- 装備はいったん止めている（PRESET_EQUIPMENT_ENABLED=false）---")
+		print("  焼いた equipment = %s（全部 null が正解）" % str(
+			GameManager.get_character_preset(char_a, 0).get(GameStateKeys.GROWTH_EQUIPMENT, null)
+		))
+		print("  %s に着ける -> %s" % [char_a, str(
+			GameManager.equip_instance(char_a, GameStateKeys.EQUIP_WEAPON, sword)
+		)])
+		var report_off: Dictionary = GameManager.apply_party_preset(0)
+		print("  apply -> ok=%s conflicts=%d missing=%d（どちらも 0 が正解）" % [
+			str(report_off.get(GameManager.APPLY_OK, false)),
+			(report_off.get(GameManager.APPLY_CONFLICTS, []) as Array).size(),
+			(report_off.get(GameManager.APPLY_MISSING, []) as Array).size(),
+		])
+		print("  適用後の %s の weapon = '%s'（⚠ %s のまま＝外れていないことが正解）" % [
+			char_a, GameManager.get_equipped_instance_id(char_a, GameStateKeys.EQUIP_WEAPON), sword
+		])
+		_report_presets_normalize(char_a)
+		return
+
+	# --- 3. 取り合い（奪う）---
+	print("[DebugBoot] --- 取り合い（編成の外のキャラが装備中の個体を要求する）---")
+	# ⚠ 奪ったと報告するのは「編成の外のキャラから取るとき」だけ。編成の3人の間で
+	#   移るのは、3人とも同じ適用でビルドを当て直しているので、焼いたときの意図どおり
+	#   （報告すると、普通の切り替えのたびにメッセージが出る）。
+	# 剣を char_a から外して「編成に居ないキャラ」に着け直し、char_a のビルドを適用する。
+	var outsider: String = _character_outside_party()
+	print("  編成の外のキャラ = %s" % outsider)
+	GameManager.unequip_instance(char_a, GameStateKeys.EQUIP_WEAPON)
+	print("  %s に着け替える -> %s" % [outsider, str(GameManager.equip_instance(outsider, GameStateKeys.EQUIP_WEAPON, sword))])
+	print("  いまの持ち主 = %s" % _owner_of(sword))
+	var report: Dictionary = GameManager.apply_party_preset(0)
+	print("  apply -> ok=%s conflicts=%d" % [
+		str(report.get(GameManager.APPLY_OK, false)),
+		(report.get(GameManager.APPLY_CONFLICTS, []) as Array).size(),
+	])
+	for entry: Variant in (report.get(GameManager.APPLY_CONFLICTS, []) as Array):
+		print("    %s から %s を外して %s へ" % [
+			str((entry as Dictionary).get(GameManager.APPLY_FROM_CHARACTER_ID, "")),
+			str((entry as Dictionary).get(GameManager.APPLY_INSTANCE_ID, "")),
+			str((entry as Dictionary).get(GameManager.APPLY_CHARACTER_ID, "")),
+		])
+	print("  適用後の持ち主 = %s（%s が正解）" % [_owner_of(sword), char_a])
+	print("  %s の weapon = '%s'（空が正解）" % [
+		outsider, GameManager.get_equipped_instance_id(outsider, GameStateKeys.EQUIP_WEAPON)
+	])
+	print("  ⚠ 編成の中で移るぶんは conflicts に積まない（char_b=%s は報告の対象外）" % char_b)
+
+	# --- 4. 消えた個体（分解された）---
+	print("[DebugBoot] --- 消えた個体 ---")
+	GameManager.unequip_instance(char_a, GameStateKeys.EQUIP_WEAPON)
+	print("  dismantle_equipment('%s') -> %s" % [sword, str(GameManager.dismantle_equipment(sword))])
+	var report2: Dictionary = GameManager.apply_party_preset(0)
+	print("  apply -> ok=%s missing=%d（1 が正解）" % [
+		str(report2.get(GameManager.APPLY_OK, false)),
+		(report2.get(GameManager.APPLY_MISSING, []) as Array).size(),
+	])
+	print("  %s の weapon = '%s'（空が正解。⚠ 赤も黄も出ないこと）" % [
+		char_a, GameManager.get_equipped_instance_id(char_a, GameStateKeys.EQUIP_WEAPON)
+	])
+
+	_report_presets_normalize(char_a)
+
+
+# --- 5. 正規化（2箇所で壊す）---
+#
+# ⚠ 足した検証は2箇所で壊して確かめる（NEXT_STEPS §3-1）。
+# ⚠ 装備を止めている枝からも呼ぶので、関数に切り出してある。
+#   ⚠ 2本目を書かないこと（片方だけ直る形になる）。
+func _report_presets_normalize(char_a: String) -> void:
+	print("[DebugBoot] --- 正規化（2箇所で壊す）---")
+	# (a) 件数を1件に減らす。
+	var broken_a: Dictionary = GameManager.get_state().get(GameStateKeys.CHARACTER_PRESETS, {})
+	var one: Array = [GameManager.get_character_preset(char_a, 0)]
+	GameManager._state[GameStateKeys.CHARACTER_PRESETS] = {char_a: one}
+	print("  (a) 壊す前 = %d 件 / 壊した後 = 1 件" % GameManager.get_character_presets(char_a).size())
+	GameManager._normalize_presets_from_save()
+	print("  (a) 直った後 = %d 件（3 が正解）" % GameManager.get_character_presets(char_a).size())
+
+	# (b) 存在しない個体を equipment に入れる。
+	var poisoned: Array = GameManager.get_character_presets(char_a)
+	var entry_b: Dictionary = poisoned[0]
+	var equipment_b: Dictionary = (entry_b.get(GameStateKeys.GROWTH_EQUIPMENT, {}) as Dictionary).duplicate(true)
+	equipment_b[GameStateKeys.EQUIP_WEAPON] = "eq_99999"
+	entry_b[GameStateKeys.GROWTH_EQUIPMENT] = equipment_b
+	poisoned[0] = entry_b
+	GameManager._write_character_presets(char_a, poisoned)
+	print("  (b) 壊した後 = %s" % str(GameManager.get_character_preset(char_a, 0).get(GameStateKeys.GROWTH_EQUIPMENT, {})))
+	GameManager._normalize_presets_from_save()
+	print("  (b) 直った後 = %s（weapon が null なら正解）" % str(
+		GameManager.get_character_preset(char_a, 0).get(GameStateKeys.GROWTH_EQUIPMENT, {})
+	))
+
+	# 知らないキー（段階8のルーンの移動量）は残る。
+	var future: Array = GameManager.get_character_presets(char_a)
+	var entry_c: Dictionary = future[0]
+	entry_c["rune_move"] = 3
+	future[0] = entry_c
+	GameManager._write_character_presets(char_a, future)
+	GameManager._normalize_presets_from_save()
+	print("  知らないキー rune_move = %s（3 のまま残るのが正解。段階8の器）" % str(
+		GameManager.get_character_preset(char_a, 0).get("rune_move", null)
+	))
+	# 参照が壊れた編成プリセットは空きに戻る。
+	var party_presets: Array = GameManager.get_party_presets()
+	var broken_party: Dictionary = party_presets[0]
+	broken_party[GameStateKeys.PRESET_SLOTS] = [{
+		GameStateKeys.PRESET_CHARACTER_ID: char_a,
+		GameStateKeys.PRESET_INDEX: 99,
+	}]
+	party_presets[0] = broken_party
+	GameManager._state[GameStateKeys.PARTY_PRESETS] = party_presets
+	GameManager._normalize_presets_from_save()
+	print("  壊した編成プリセット saved = %s（false が正解）" % str(
+		(GameManager.get_party_presets()[0] as Dictionary).get(GameStateKeys.PRESET_SAVED, null)
+	))
+	print("  ⚠ ここまで状態を書き換えたが、保存はしていない（%d 件のキャラプリセット）" % broken_a.size())
+
+
+# 拠点の下段が横にはみ出していないかを数字で見る。
+#
+# ⚠ ヘッドレスは描画がダミーだが、⚠ レイアウトの計算（最小サイズの伝播）は走る。
+#   ⚠ 「絵は取れない」と「寸法も取れない」は別。ここで取れるのは寸法だけ。
+# ⚠ 見るのは get_combined_minimum_size().x。⚠ これが画面幅を超えている器が
+#   1つでもあると、⚠ 親が anchors_preset=15 / grow_horizontal=2 なので
+#   左右に均等にはみ出して両端が切れる（2026-08-23に実際にそうなった）。
+func _report_layout() -> void:
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	print("[DebugBoot] viewport = %.0f x %.0f" % [viewport_size.x, viewport_size.y])
+
+	# ⚠ 最悪ケースを作ってから測る。初期状態の素材は2件しかないが、
+	#   F4 の「素材を全種類」を押すと16件・4桁になる。⚠ 溢れるのはそちら。
+	#   ⚠ 「手元では収まっていた」で見逃さないため、必ず全部入れてから測る。
+	var material_count: int = 0
+	for item_id: Variant in MasterDataLoader.get_all_items():
+		var definition: Dictionary = MasterDataLoader.get_item(str(item_id))
+		if str(definition.get(GameManager.ITEM_MASTER_STORAGE, "")) != GameManager.ITEM_STORAGE_MATERIAL:
+			continue
+		GameManager.add_material(str(item_id), 2999)
+		material_count += 1
+	print("[DebugBoot] 素材を %d 種類（4桁）入れてから測る" % material_count)
+
+	var packed: PackedScene = load(SCENE_BASE)
+	if packed == null:
+		push_error("[DebugBoot] base_screen.tscn が読めない")
+		return
+	var root: Control = packed.instantiate()
+	# ⚠ call_deferred でないと弾かれる（"Parent node is busy setting up children"）。
+	#   ⚠ _ready() の中から root に add_child しているため。⚠ 弾かれても赤が1本出るだけで
+	#     測定は続き、⚠ 「全部0」というもっともらしい数字が出る（2026-08-23に踏んだ）。
+	get_tree().root.add_child.call_deferred(root)
+	await get_tree().process_frame
+	root.size = viewport_size
+	# ⚠ さらに2フレーム待つ。画面の _ready() が足す子（編成ボタン・素材欄）が
+	#   最小サイズに反映されるまで1フレームでは足りない。
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	if not root.is_inside_tree():
+		push_error("[DebugBoot] base_screen をツリーに入れられなかった（測定は無効）")
+		return
+
+	print("[DebugBoot] --- 器の最小幅（⚠ %.0f を超えたら はみ出す）---" % viewport_size.x)
+	for path: String in LAYOUT_PATHS:
+		var node: Variant = root.get_node_or_null(NodePath(path))
+		if not (node is Control):
+			print("  %-46s （無い）" % path)
+			continue
+		var control: Control = node
+		var minimum: Vector2 = control.get_combined_minimum_size()
+		var over: String = "  ⚠ はみ出す（+%.0f）" % (minimum.x - viewport_size.x) if minimum.x > viewport_size.x else ""
+		print("  %-46s 最小 %6.0f x %-5.0f 実際 %6.0f x %-5.0f%s" % [
+			path, minimum.x, minimum.y, control.size.x, control.size.y, over
+		])
+
+	print("[DebugBoot] --- 下段の1件ずつ（⚠ 合計が画面幅を超えていないか）---")
+	for parent_path: String in LAYOUT_ROWS:
+		var parent: Variant = root.get_node_or_null(NodePath(parent_path))
+		if not (parent is Control):
+			continue
+		var total: float = 0.0
+		var separation: float = float((parent as Control).get_theme_constant("separation"))
+		print("  %s（separation=%.0f）" % [parent_path, separation])
+		for child: Node in (parent as Control).get_children():
+			if not (child is Control):
+				continue
+			var child_min: Vector2 = (child as Control).get_combined_minimum_size()
+			total += child_min.x
+			print("    %-24s 最小幅 %6.0f" % [child.name, child_min.x])
+		total += separation * float(maxi((parent as Control).get_child_count() - 1, 0))
+		var verdict: String = "⚠ はみ出す" if total > viewport_size.x else "収まる"
+		print("    合計（separation 込み）= %.0f / %.0f … %s" % [total, viewport_size.x, verdict])
+
+	root.queue_free()
+
+	# --- 手書きした .tscn が開くか ---
+	print("[DebugBoot] --- 他の画面が開くか（⚠ 最小幅も見る）---")
+	for scene_path: String in LAYOUT_SCENES:
+		var other: PackedScene = load(scene_path)
+		if other == null:
+			push_error("[DebugBoot] 開けない: " + scene_path)
+			continue
+		# ⚠ 装備画面は character_id を渡さないと黄を1本出す（正常な保険）。
+		#   ⚠ 測るためだけに黄を増やさない。先に渡しておく。
+		SceneManager._transfer_data = {
+			TransferKeys.CHARACTER_ID: str(GameManager.get_party_members()[0]),
+		}
+		var instance: Node = other.instantiate()
+		get_tree().root.add_child.call_deferred(instance)
+		await get_tree().process_frame
+		if instance is Control:
+			(instance as Control).size = viewport_size
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var minimum_x: float = (instance as Control).get_combined_minimum_size().x if instance is Control else 0.0
+		var over: String = "  ⚠ はみ出す" if minimum_x > viewport_size.x else ""
+		print("  %-46s 開いた（最小幅 %.0f）%s" % [scene_path.get_file(), minimum_x, over])
+		instance.queue_free()
+		await get_tree().process_frame
+
+
+# 測る器。⚠ 増やすときはここに1行足す（関数の中に決め打ちしない）。
+const LAYOUT_PATHS: Array[String] = [
+	".",
+	"Layout",
+	"Layout/BottomArea",
+	"Layout/BottomArea/BottomLayout",
+	"Layout/BottomArea/BottomLayout/ResourceRow",
+	"Layout/BottomArea/BottomLayout/MaterialsScroll",
+	"Layout/BottomArea/BottomLayout/MaterialsScroll/MaterialsDisplay",
+	"Layout/BottomArea/BottomLayout/NavigationButtons",
+]
+
+const LAYOUT_ROWS: Array[String] = [
+	"Layout/BottomArea/BottomLayout/ResourceRow",
+	"Layout/BottomArea/BottomLayout/NavigationButtons",
+]
+
+# 手書きした .tscn が本当に開くかも、ついでにここで見る。
+# ⚠ 画面のスクリプトは他のシナリオから読み込まれないため、
+#   ⚠ ノードパスの取り違えは人間が開くまで分からない。⚠ それを1本前に倒す。
+const LAYOUT_SCENES: Array[String] = [
+	"res://scenes/adventure/party_preset_screen.tscn",
+	"res://scenes/adventure/adventure_select.tscn",
+	# ⚠ この2枚は、コードでノードを足しているので開かないと分からない
+	#   （@onready のパス取り違え・move_child の相手違い）。
+	"res://scenes/guild/training_screen.tscn",
+	"res://scenes/guild/equipment_screen.tscn",
+]
+
+
+# いま編成に入っていないキャラを1人。
+func _character_outside_party() -> String:
+	var members: Array = GameManager.get_party_members()
+	for character_id: Variant in GameManager.get_party_candidates():
+		if not (str(character_id) in members):
+			return str(character_id)
+	return ""
+
+
+# その個体の持ち主。誰も装備していなければ "(なし)"。
+func _owner_of(instance_id: String) -> String:
+	for entry: Variant in GameManager.get_owned_instances():
+		if str((entry as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")) != instance_id:
+			continue
+		var owner: String = str((entry as Dictionary).get(GameManager.INSTANCE_VIEW_EQUIPPED_BY, ""))
+		return owner if owner != "" else "(なし)"
+	return "(個体が無い)"
 
 
 # ============================================================
