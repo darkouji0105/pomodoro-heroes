@@ -130,12 +130,12 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 | `STORY` | `{current_chapter: int, stages: {stage_id: {cleared, stars}}}` |
 | `CODEX` | `{item_id: {discovered, obtained_at}}` |
 | `DAILY_SHOP` / `WEEKLY_SHOP` / `MONTHLY_SHOP` | `{refresh_at, line_up: [{slot_id, item_id, cost: {currency_type, amount}, stock_limit, purchased_count, payout_type, count, item_type}]}`。`refresh_at`は**ゲーム内日付の文字列**（`"2026-08-11"`）。`payout_type` / `count` / `item_type`は`shop.json`側のキーで、`GameStateKeys`ではなく`GameManager`の定数を使う |
-| `CHARACTER_GROWTH` | `{character_id: {level, stats, skills, equipment: {head, armor, legs, weapon, accessory}}}`。`stats`は**10軸**（`hp` `atk` `mag` `def` `mdef` `atkspd` `haste` `crit_rate` `crit_dmg` `spd`）。並びと意味は`GAME_DESIGN.md` 8-1。**軸を増やすときは`game_manager.gd`の`_stat_keys()`だけ直せば、育成・研究・装備の合成は追従する**（戦闘と画面は追従しない。`EXEC_STATS_10_AXES.md` §2-1） |
+| `CHARACTER_GROWTH` | `{character_id: {level, stats, skills, passives, nodes, equipment: {head, armor, legs, weapon, accessory}, rune_move}}`。`rune_move`は`{ルーンのitem_id: 符号つきの距離}`（移動系ルーン・段階8・`GAME_DESIGN.md` 7-7）。`stats`は**10軸**（`hp` `atk` `mag` `def` `mdef` `atkspd` `haste` `crit_rate` `crit_dmg` `spd`）。並びと意味は`GAME_DESIGN.md` 8-1。**軸を増やすときは`game_manager.gd`の`_stat_keys()`だけ直せば、育成・研究・装備の合成は追従する**（戦闘と画面は追従しない。`EXEC_STATS_10_AXES.md` §2-1） |
 | `RESEARCH_TREE` | `{node_id: {unlocked, effect_type, effect_value, prerequisites}}` |
 | `RECIPES_UNLOCKED` | `{recipe_id: bool}` |
 | `CRAFTING_QUEUE` | `[{queue_id, recipe_id, recipe_type, started_at, duration_sec, status, output_item_id}]` |
 | `PARTY_MEMBERS` | `[character_id]`（**3枠固定**。`PARTY_SLOT_COUNT`）。**書き込む口は`GameManager.set_party_member()`の1本**。`stages.json`の`party_id`では決まらない |
-| `CHARACTER_PRESETS` | `{character_id: [{saved, nodes, skills, passives, equipment}]}`（**1キャラ`CHARACTER_PRESET_COUNT`件**）。中身の4キーは`GROWTH_*`と**同じキーを使い回す**（growthの一部を切り出したもの）。`equipment`の値は**`instance_id`**（`item_id`ではない） |
+| `CHARACTER_PRESETS` | `{character_id: [{saved, nodes, skills, passives, equipment, rune_move}]}`（**1キャラ`CHARACTER_PRESET_COUNT`件**）。中身の5キーは`GROWTH_*`と**同じキーを使い回す**（growthの一部を切り出したもの）。`rune_move`は段階8で足した5つ目（`GAME_DESIGN.md` 7-7「設定はキャラプリセットに含める」）。`equipment`の値は**`instance_id`**（`item_id`ではない） |
 | `PARTY_PRESETS` | `[{saved, slots: [{character_id, preset_index}]}]`（**`PARTY_PRESET_COUNT`件**）。**参照方式**（`GAME_DESIGN.md` 5-5）。キャラ側のビルドを直すと、参照している全編成に反映される。**編成側にキャラの中身を複製しないこと** |
 
 報酬Dictionary（宝箱・ポモドーロ・戦闘で共通）：`{gold, gems, stamina, materials, inventory}`

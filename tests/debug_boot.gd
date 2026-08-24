@@ -71,6 +71,44 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_DROPS,
 		"note": "3ステージの抽選テーブル / 1000回の分布 / 宝箱を積む→開ける→個体になる",
 	},
+	# 段階8（ルーン）の検証。EXEC_RUNES.md §6-A / §6-B。
+	# ⚠ ここだけ report の枝では足りない。ルーンは戦闘の挙動そのものを変えるので、
+	#   KIND_BATTLE で実際に撃たないと何も分からない。
+	# ⚠ ステージは stage_dbg_area を使い回す（シーンもステージも増やさない）。
+	"runes": {
+		"kind": KIND_BATTLE,
+		"note": "ルーン。スキルの直前に シールド/回復/バフ/デバフ/移動 が乗る。CD中は乗らない",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_area_narrow", "skill_dbg_area_wide"],
+			"char_debug_life": ["skill_dbg_area_far", "skill_dbg_area_heal"],
+		},
+		# ⚠ 武器のルーン枠 → スキル1 ／ アクセのルーン枠2つ → スキル2（GAME_DESIGN 7-5）。
+		# ⚠ char_debug_status には1つも刺さない（撃ってもルーンが出ないことの回帰）。
+		"runes": {
+			"char_debug_mix": {
+				"weapon": ["part_rune_shield_1"],
+				"accessory": ["part_rune_buff_5", "part_rune_move_5"],
+			},
+			"char_debug_life": {
+				"weapon": ["part_rune_heal_5"],
+				"accessory": ["part_rune_debuff_5"],
+			},
+		},
+		# ⚠ 既定（choices の先頭）と違う値を選ぶ。後退が効いているか読むため。
+		"rune_move": {"char_debug_mix": {"part_rune_move_5": -120}},
+		# ⚠ 撃った直後の x を出す（移動のロックを見る唯一の手段）。
+		"dump_each_fire": true,
+		"fire": [
+			{"skill": "skill_dbg_area_narrow", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_area_far", "prepare": PREPARE_DAMAGE_PARTY, "gap": 2.5},
+			{"skill": "skill_dbg_area_wide", "prepare": PREPARE_NONE, "gap": 2.5},
+			{"skill": "skill_dbg_area_heal", "prepare": PREPARE_NONE, "gap": 2.5},
+			# ⚠ シールドのCDは20秒。ここでは乗らない（スキルだけ出るのが正解）。
+			{"skill": "skill_dbg_area_narrow", "prepare": PREPARE_NONE, "gap": 2.5},
+		],
+	},
 	# 段階4（mode: area）の検証。EXEC_SKILL_AREA.md §6 の数字をそのまま見る。
 	"area": {
 		"kind": KIND_BATTLE,
@@ -550,6 +588,7 @@ func _ready() -> void:
 	#   人間の編成とスキル枠が黙って変わる。SaveManager をこのファイルから呼ばないこと。
 	_apply_party(scenario)
 	_apply_skills(scenario)
+	_apply_runes(scenario)
 
 	if str(scenario.get("kind", KIND_BATTLE)) == KIND_REPORT:
 		# ⚠ 報告の枝が増えたらここに1行足す。シーンもスクリプトも増やさないこと。
@@ -584,6 +623,7 @@ func _ready() -> void:
 	driver.name = "DebugBootDriver"
 	driver.battle_scene_path = SCENE_BATTLE
 	driver.skill_plan = scenario.get("fire", [])
+	driver.dump_each_fire = bool(scenario.get("dump_each_fire", false))
 	# ⚠ call_deferred なのは、_ready() の時点では root が子を組み立てている最中で
 	#   add_child() が弾かれるため（"Parent node is busy setting up children"）。
 	#   SceneManager が DebugOverlay を足すときに call_deferred しているのと同じ理由。
@@ -647,6 +687,99 @@ func _apply_skills(scenario: Dictionary) -> void:
 			# ⚠ 既に同じ枠に入っている場合は false が返るが、それは正常
 			#   （game_manager.gd:2168 の "already in this slot"）。
 			GameManager.select_skill(character_id, slot, str(skill_ids[slot]))
+
+
+# ルーンの下ごしらえ（段階8・EXEC_RUNES.md §3-L）。
+#
+# ⚠ 装備を作って等級を上げ、ルーン枠に刺して、着ける。ここまでやらないと
+#   ルーンは1件も戦闘に届かない（枠が開くのは等級5から）。
+# ⚠ 状態は書き換えるが保存しない（_ready() の注意書きと同じ）。
+# ⚠ 刺す位置は決め打ちしない。get_part_slot_defs() が「ルーンだけが刺さる枠」と
+#   言っている位置を順に使う（枠の並びを変えてもここは直さなくてよい）。
+func _apply_runes(scenario: Dictionary) -> void:
+	var table: Dictionary = scenario.get("runes", {})
+	if table.is_empty():
+		return
+	# ⚠ 等級を上げるのに素材が要る。F4 の「素材を全種類」と同じ経路で配る。
+	for material_id: Variant in MasterDataLoader.get_all_items():
+		var definition: Dictionary = MasterDataLoader.get_all_items()[material_id]
+		if str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) == GameStateKeys.ITEM_TYPE_MATERIAL:
+			GameManager.add_material(str(material_id), 99999)
+
+	var base_item: Dictionary = {
+		GameStateKeys.EQUIP_WEAPON: "weapon_iron_sword",
+		GameStateKeys.EQUIP_ACCESSORY: "acc_ring_power",
+	}
+
+	for raw_character_id: Variant in table.keys():
+		var character_id: String = str(raw_character_id)
+		var by_slot: Dictionary = table[raw_character_id]
+		for raw_slot: Variant in by_slot.keys():
+			var equip_slot: String = str(raw_slot)
+			var rune_ids: Array = by_slot[raw_slot]
+
+			GameManager.add_to_inventory(
+				str(base_item.get(equip_slot, "")), 1, GameStateKeys.ITEM_TYPE_EQUIPMENT
+			)
+			var instance_id: String = _newest_instance()
+			# 等級を上げられるだけ上げる（ルーン枠が開くのは等級5）。
+			while GameManager.forge_equipment(instance_id):
+				pass
+
+			var positions: Array[int] = _rune_slot_positions(equip_slot)
+			for i: int in range(rune_ids.size()):
+				if i >= positions.size():
+					push_error("[DebugBoot] %s のルーン枠は %d 個しか無い" % [equip_slot, positions.size()])
+					break
+				var rune_id: String = str(rune_ids[i])
+				GameManager.add_to_inventory(rune_id, 1, GameStateKeys.ITEM_TYPE_PART)
+				if not GameManager.attach_part(instance_id, positions[i], rune_id):
+					push_error("[DebugBoot] attach_part('%s', %d, '%s') が false" % [
+						instance_id, positions[i], rune_id
+					])
+			if not GameManager.equip_instance(character_id, equip_slot, instance_id):
+				push_error("[DebugBoot] equip_instance('%s', '%s', '%s') が false" % [
+					character_id, equip_slot, instance_id
+				])
+
+	# 移動量。⚠ 既定（choices の先頭）と違う値を選ばせる行がシナリオにある。
+	var move_table: Dictionary = scenario.get("rune_move", {})
+	for raw_character_id: Variant in move_table.keys():
+		var moves: Dictionary = move_table[raw_character_id]
+		for raw_rune_id: Variant in moves.keys():
+			if not GameManager.set_rune_move(str(raw_character_id), str(raw_rune_id), int(moves[raw_rune_id])):
+				push_error("[DebugBoot] set_rune_move('%s', '%s') が false" % [
+					str(raw_character_id), str(raw_rune_id)
+				])
+
+	# ⚠ 紐付けは戦闘が始まる前に出しておく。戦闘中のログだけでは
+	#   「乗らなかった」のが CD なのか紐付いていないのか読めない。
+	print("[DebugBoot] --- ルーンの紐付け（武器＝スキル1 / アクセ＝スキル2）---")
+	for character_id: Variant in GameManager.get_party_members():
+		print("  %-20s skills=%s runes=%s" % [
+			str(character_id),
+			str(GameManager.get_battle_skills(str(character_id))),
+			str(GameManager.get_battle_runes(str(character_id))),
+		])
+
+
+# その部位で「ルーンだけが刺さる枠」の位置。⚠ 位置を決め打ちしない。
+func _rune_slot_positions(equip_slot: String) -> Array[int]:
+	var result: Array[int] = []
+	for def: Variant in GameManager.get_part_slot_defs(equip_slot):
+		if not (def is Dictionary):
+			continue
+		var kinds: Variant = (def as Dictionary).get(GameManager.PART_VIEW_KINDS, [])
+		if kinds is Array and (kinds as Array).size() == 1 				and str((kinds as Array)[0]) == GameManager.PART_KIND_RUNE:
+			result.append(int((def as Dictionary).get(GameManager.PART_VIEW_INDEX, 0)))
+	return result
+
+
+# いちばん最後に作られた装備の個体。
+# ⚠ _find_instance_of() は同じ item_id の1つ目を返すので、2個目を作ると取り違える。
+func _newest_instance() -> String:
+	var next_id: int = int(GameManager.get_state().get(GameStateKeys.NEXT_EQUIPMENT_INSTANCE_ID, 1))
+	return GameManager.INSTANCE_ID_PREFIX + str(next_id - 1)
 
 
 # --- kind=report ------------------------------------------------
@@ -750,7 +883,9 @@ func _report_parts() -> void:
 			str(d.get(GameManager.ITEM_MASTER_PART_STAT, "")),
 			int(d.get(GameManager.ITEM_MASTER_PART_TIER, 0)),
 		]
-		if expected != part_id:
+		# ⚠ ルーンには軸が無いので欄からIDを組み立てられない。ここでは数えない
+		#   （E124 が runes.json と1:1で突き合わせている）。
+		if expected != part_id and GameManager.get_rune_definition(part_id).is_empty():
 			mismatched += 1
 		print("  %-26s %-7s %-10s 段階%d  base=%3d  roll=0〜%-2d  %s" % [
 			part_id,
@@ -892,7 +1027,8 @@ func _report_parts() -> void:
 		str(GameManager.get_part_kinds_for_slot_index(GameStateKeys.EQUIP_ACCESSORY, 2)),
 		str(GameManager.get_part_kinds_for_slot_index(GameStateKeys.EQUIP_ACCESSORY, 3)),
 	])
-	print("  ⚠ ルーンは items.json に0件なので、ルーン枠には今は何も刺さらない")
+	print("  アクセのルーン枠（位置2）にルーン -> '%s'（空文字が正解）" % GameManager.get_part_reject_reason(acc_id, 2, "part_rune_shield_1"))
+	print("  アクセのルーン枠（位置2）に宝石   -> '%s'（kind が正解）" % GameManager.get_part_reject_reason(acc_id, 2, "part_gem_atk_1"))
 
 	# --- 7. 段階上げと壊す ---
 	print("[DebugBoot] --- 段階上げ（分解方式）と壊す ---")
@@ -923,6 +1059,158 @@ func _report_parts() -> void:
 	))
 	print("  ⚠ 上げるのに払うのは decor_material_<いまの段階>、壊して返るのは decor_material_<その段階>。")
 	print("     段階1→2 は _1 を10払い、段階2を壊すと _2 が5返る。同じ素材が増える経路は無い。")
+
+	_report_runes(acc_id)
+
+
+# ルーン（段階8・EXEC_RUNES.md §6-C）。
+# ⚠ 戦闘の挙動そのものは scenario=runes で見る。ここで見るのは
+#   「データが揃っているか」「重ねられるか」「移動量が保存されるか」の3つだけ。
+func _report_runes(acc_id: String) -> void:
+	print("[DebugBoot] --- ルーン（runes.json）---")
+	var runes: Dictionary = MasterDataLoader.get_all_runes()
+	var rune_ids: Array[String] = []
+	for rune_id: Variant in runes:
+		rune_ids.append(str(rune_id))
+	rune_ids.sort()
+	for rune_id: String in rune_ids:
+		var rune: Dictionary = runes[rune_id]
+		var effects: Variant = rune.get(MasterDataLoader.RUNE_EFFECTS, [])
+		var kinds: Array[String] = []
+		if effects is Array:
+			for raw_effect: Variant in (effects as Array):
+				if raw_effect is Dictionary:
+					kinds.append(str((raw_effect as Dictionary).get("type", "")))
+		print("  %-24s 段階%d CD=%4.1f 効果=%-12s 移動=%-28s next=%-24s %s" % [
+			rune_id,
+			int(GameManager.get_part_definition(rune_id).get(GameManager.ITEM_MASTER_PART_TIER, 0)),
+			float(rune.get(MasterDataLoader.RUNE_COOLDOWN_SEC, 0.0)),
+			str(kinds),
+			str(GameManager.get_rune_move_choices(rune_id)),
+			str(rune.get(MasterDataLoader.RUNE_NEXT_ID, "—")),
+			tr("ui_res_" + rune_id),
+		])
+	print("  合計 %d 件" % rune_ids.size())
+
+	# --- ステータスを1つも足さないこと（EXEC_RUNES.md §6-C の19）---
+	print("[DebugBoot] --- ルーンはステータスを足さない ---")
+	var before: Dictionary = GameManager.get_instance_stats(acc_id)
+	GameManager.add_to_inventory("part_rune_shield_1", 4, GameStateKeys.ITEM_TYPE_PART)
+	var attached: bool = GameManager.attach_part(acc_id, 2, "part_rune_shield_1")
+	var after: Dictionary = GameManager.get_instance_stats(acc_id)
+	print("  attach_part(アクセ, 枠2, part_rune_shield_1) -> %s" % str(attached))
+	print("  刺す前 %s" % str(before))
+	print("  刺した後 %s（⚠ 同じであること。⚠ W18 の黄も出ないこと）" % str(after))
+
+	# --- 重ねる（GAME_DESIGN.md 7-7）---
+	print("[DebugBoot] --- 重ねる ---")
+	print("  upgrade_part('part_rune_shield_1') -> %s（⚠ 分解方式では上がらない。false が正解・赤も出ないこと）" % str(
+		GameManager.upgrade_part("part_rune_shield_1")
+	))
+	var merge_cost: int = GameManager.get_rune_merge_count()
+	var t1_before: int = GameManager.get_item_count("part_rune_shield_1")
+	var t2_before: int = GameManager.get_item_count("part_rune_shield_2")
+	var merged: bool = GameManager.merge_runes("part_rune_shield_1")
+	print("  merge_runes('part_rune_shield_1') -> %s（段階1 %d -> %d / 段階2 %d -> %d・%d個で1個）" % [
+		str(merged), t1_before, GameManager.get_item_count("part_rune_shield_1"),
+		t2_before, GameManager.get_item_count("part_rune_shield_2"), merge_cost,
+	])
+	# ⚠ 在庫を1個だけにしてから呼ぶ（stock で弾かれるか）。
+	#   ⚠ merge を繰り返して減らさないこと（前の章で大量に配っているので百回以上回る）。
+	GameManager._remove_from_inventory("part_rune_shield_1", GameManager.get_item_count("part_rune_shield_1") - 1)
+	var stock_before: int = GameManager.get_item_count("part_rune_shield_1")
+	print("  在庫 %d 個で merge -> %s / 理由 '%s'（在庫は %d のまま）" % [
+		stock_before, str(GameManager.merge_runes("part_rune_shield_1")),
+		GameManager.get_rune_merge_reject_reason("part_rune_shield_1"),
+		GameManager.get_item_count("part_rune_shield_1"),
+	])
+	GameManager.add_to_inventory("part_rune_shield_5", merge_cost, GameStateKeys.ITEM_TYPE_PART)
+	print("  段階5 で merge -> %s / 理由 '%s'（⚠ かけらは今回作っていない）" % [
+		str(GameManager.merge_runes("part_rune_shield_5")),
+		GameManager.get_rune_merge_reject_reason("part_rune_shield_5"),
+	])
+	print("  宝石で merge -> 理由 '%s'（kind が正解）" % GameManager.get_rune_merge_reject_reason("part_gem_atk_1"))
+	print("  ルーンを壊す -> %s（⚠ 空が正解。かけらの器が無いので素材にならない）" % str(
+		GameManager.get_part_dismantle_refund("part_rune_shield_5", 1)
+	))
+
+	# --- 移動量（GAME_DESIGN.md 7-7・キャラプリセットの5つ目のキー）---
+	print("[DebugBoot] --- 移動量 ---")
+	var character_id: String = str(GameManager.get_party_members()[0])
+	var move_id: String = "part_rune_move_5"
+	print("  choices(%s) = %s" % [move_id, str(GameManager.get_rune_move_choices(move_id))])
+	print("  未設定のとき get_rune_move() -> %d（choices の先頭が正解）" % GameManager.get_rune_move(character_id, move_id))
+	# ⚠ 既定（choices の先頭）と違う値を選ぶこと。同じ値だと「効いた」が読めない。
+	print("  set_rune_move(120) -> %s / いま %d" % [
+		str(GameManager.set_rune_move(character_id, move_id, 120)),
+		GameManager.get_rune_move(character_id, move_id),
+	])
+	print("  set_rune_move(999)  -> %s / いま %d（⚠ 弾かれて変わらないこと）" % [
+		str(GameManager.set_rune_move(character_id, move_id, 999)),
+		GameManager.get_rune_move(character_id, move_id),
+	])
+	print("  set_rune_move(宝石) -> %s（移動系でないので false が正解）" % str(
+		GameManager.set_rune_move(character_id, "part_gem_atk_1", 60)
+	))
+
+	# --- プリセットが5つ目のキーを運ぶか ---
+	print("[DebugBoot] --- キャラプリセットの5つ目のキー ---")
+	GameManager.save_character_preset(character_id, 0)
+	var preset: Dictionary = GameManager.get_character_presets(character_id)[0]
+	print("  焼いた rune_move = %s" % str(preset.get(GameStateKeys.GROWTH_RUNE_MOVE, null)))
+	GameManager.set_rune_move(character_id, move_id, 60)
+	print("  60 に変えてから適用 -> ok=%s" % str(
+		GameManager.apply_character_preset(character_id, 0).get("ok", null)
+	))
+	print("  適用後 get_rune_move() -> %d（120 に戻っていること）" % GameManager.get_rune_move(character_id, move_id))
+
+	# --- 足した検証が本当に出るか（2箇所で壊す・メモリ上の状態だけ）---
+	print("[DebugBoot] --- 壊して確かめる ---")
+	var growth: Dictionary = GameManager.get_character_growth(character_id)
+	var broken: Dictionary = (growth.get(GameStateKeys.GROWTH_RUNE_MOVE, {}) as Dictionary).duplicate(true)
+	broken[move_id] = 777
+	broken["part_gem_atk_1"] = 60
+	print("  壊した rune_move = %s" % str(broken))
+	growth[GameStateKeys.GROWTH_RUNE_MOVE] = broken
+	GameManager._write_growth(character_id, growth)
+	GameManager._normalize_skill_slots_from_save()
+	print("  正規化が残したもの -> %s（777 と宝石が落ちること）" % str(
+		GameManager.get_character_growth(character_id).get(GameStateKeys.GROWTH_RUNE_MOVE, null)
+	))
+	# ⚠ アクセを装備していないとルーンが誰にも紐づかない。先に着ける。
+	var acc_instance: String = _find_instance_of("acc_ring_power")
+	GameManager.equip_instance(character_id, GameStateKeys.EQUIP_ACCESSORY, acc_instance)
+	print("  刺さっているルーンのIDを壊す -> get_battle_runes() が %s" % str(
+		_broken_rune_lookup(character_id)
+	))
+
+
+# 刺さっているルーンのIDを存在しないものに書き換えて、get_battle_runes() が
+# その1件だけ落とすかを見る。⚠ 壊すのはメモリ上の状態だけ（保存しない）。
+func _broken_rune_lookup(character_id: String) -> Dictionary:
+	var instance_id: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_ACCESSORY)
+	if instance_id == "":
+		return {"skipped": "アクセを装備していない"}
+	if GameManager.get_battle_skills(character_id).size() < 2:
+		return {"skipped": "スキル枠が2つ無い"}
+	GameManager.attach_part(instance_id, 3, "part_rune_buff_1")
+	var before: int = _count_runes(GameManager.get_battle_runes(character_id))
+	# ⚠ 壊すのはメモリ上の状態だけ（_report_presets_normalize と同じ流儀）。
+	var instance: Dictionary = GameManager.get_equipment_instance(instance_id)
+	var parts: Array = instance.get(GameStateKeys.INSTANCE_PARTS, [])
+	parts[3] = {GameStateKeys.PART_ITEM_ID: "part_rune_does_not_exist", GameStateKeys.PART_ROLL: 0}
+	instance[GameStateKeys.INSTANCE_PARTS] = parts
+	GameManager._write_instance(instance_id, instance)
+	var after: int = _count_runes(GameManager.get_battle_runes(character_id))
+	return {"before": before, "after": after}
+
+
+func _count_runes(by_skill: Dictionary) -> int:
+	var total: int = 0
+	for raw_list: Variant in by_skill.values():
+		if raw_list is Array:
+			total += (raw_list as Array).size()
+	return total
 
 
 
@@ -1345,15 +1633,17 @@ func _report_presets_normalize(char_a: String) -> void:
 		GameManager.get_character_preset(char_a, 0).get(GameStateKeys.GROWTH_EQUIPMENT, {})
 	))
 
-	# 知らないキー（段階8のルーンの移動量）は残る。
+	# (c) rune_move（段階8で5つ目のキーになった）。
+	# ⚠ 段階7の時点では「知らないキーが残る」ことを見ていた。段階8で器ができたので、
+	#   ⚠ いまは「Dictionary でなければ空に直る」を見る（EXEC_RUNES.md §3-F）。
 	var future: Array = GameManager.get_character_presets(char_a)
 	var entry_c: Dictionary = future[0]
-	entry_c["rune_move"] = 3
+	entry_c[GameStateKeys.GROWTH_RUNE_MOVE] = 3
 	future[0] = entry_c
 	GameManager._write_character_presets(char_a, future)
 	GameManager._normalize_presets_from_save()
-	print("  知らないキー rune_move = %s（3 のまま残るのが正解。段階8の器）" % str(
-		GameManager.get_character_preset(char_a, 0).get("rune_move", null)
+	print("  (c) rune_move に 3 を入れる -> %s（{} に直るのが正解）" % str(
+		GameManager.get_character_preset(char_a, 0).get(GameStateKeys.GROWTH_RUNE_MOVE, null)
 	))
 	# 参照が壊れた編成プリセットは空きに戻る。
 	var party_presets: Array = GameManager.get_party_presets()
@@ -1546,6 +1836,9 @@ class Driver extends Node:
 
 	var battle_scene_path: String = ""
 	var skill_plan: Array = []
+	# ⚠ 撃った直後の x を出すか（段階8。移動系ルーンのロックを見るため）。
+	#   ⚠ 既定は false。既存シナリオの出力を1行も増やさない。
+	var dump_each_fire: bool = false
 
 	# ⚠ battle_controller.gd に class_name が無いので型を付けられない。
 	#   ここは検証用スクリプトなので許容する。本番コードでこの書き方をしないこと
@@ -1702,6 +1995,10 @@ class Driver extends Node:
 		print("[DebugBoot] 撃った %s（%s） t=%.2f  %d/%d" % [
 			skill_id, user.unit_id, session.elapsed_sec, _fired, skill_plan.size()
 		])
+		# ⚠ 段階8。移動系ルーンは「撃った瞬間に跳ぶ」ので、ここで x を取らないと
+		#   合図・静止・決着の3点では跳んだことが1つも残らない。
+		if dump_each_fire:
+			_dump_positions(session, "撃った直後")
 
 
 	# 生きているユニットの立ち位置を x の昇順で出す。

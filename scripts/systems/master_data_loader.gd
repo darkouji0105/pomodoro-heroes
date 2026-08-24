@@ -187,6 +187,10 @@ static func _ensure_loaded() -> void:
 	# ⚠ 素材・アイテムIDのクロス検証（E118）。改名漏れが「加算が黙って消える」形で
 	#   出るため、ロード時に言わないと実機でも気づけない。
 	_validate_all_item_refs()
+	# ⚠ ルーン（E123 / E124）。⚠ items.json を読み終わっている必要がある
+	#   （_validate_all_item_refs() が _ensure_items_loaded() を通している）。
+	#   ⚠ 刺しても何も起きないルーンは無音なので、ロード時に言うしかない。
+	_validate_all_runes()
 
 
 # マスターが参照する item_id / material_id が items.json に在るかを見る（E118）。
@@ -338,27 +342,42 @@ static func _validate_all_part_items() -> int:
 		if not (kind in valid_kinds):
 			errors += _report_part_error(str(item_id), "part_kind が不正: '%s'" % kind)
 
-		var stat: String = str(item.get(GameManager.ITEM_MASTER_PART_STAT, ""))
-		if not (stat in valid_stats):
-			errors += _report_part_error(str(item_id), "part_stat が10軸に無い: '%s'" % stat)
+		# ⚠ ルーンはステータスを1つも足さない（GAME_DESIGN.md 7-7）。加算の欄は
+		#   「空・0・0」を必ず書かせる。欄ごと省くと「欄が欠けている」と言えなくなる。
+		# ⚠ 種類で分岐してよいのはここと _part_slot_kinds() の2箇所だけ
+		#   （game_manager.gd:2039 の注記）。実行時のコードでは分岐しないこと。
+		var is_rune: bool = (kind == GameManager.PART_KIND_RUNE)
 
 		# MasterDataLoader は JSON をそのまま返すため float で来る（CLAUDE.md 3番）。
 		var tier: int = int(item.get(GameManager.ITEM_MASTER_PART_TIER, 0))
 		if tier < 1:
 			errors += _report_part_error(str(item_id), "part_tier が1未満: %d" % tier)
 
+		var stat: String = str(item.get(GameManager.ITEM_MASTER_PART_STAT, ""))
 		var base: int = int(item.get(GameManager.ITEM_MASTER_PART_BASE, 0))
-		if base < 1:
-			errors += _report_part_error(str(item_id), "part_base が1未満: %d" % base)
 
-		# ロールは 0 〜 part_roll_max。0（振れ幅なし）は許す。
-		if not item.has(GameManager.ITEM_MASTER_PART_ROLL_MAX):
-			errors += _report_part_error(str(item_id), "part_roll_max の欄が無い")
-		elif int(item[GameManager.ITEM_MASTER_PART_ROLL_MAX]) < 0:
-			errors += _report_part_error(str(item_id), "part_roll_max が負")
+		if is_rune:
+			if stat != "":
+				errors += _report_part_error(str(item_id), "ルーンの part_stat は空であること: '%s'" % stat)
+			if base != 0:
+				errors += _report_part_error(str(item_id), "ルーンの part_base は0であること: %d" % base)
+			if int(item.get(GameManager.ITEM_MASTER_PART_ROLL_MAX, -1)) != 0:
+				errors += _report_part_error(str(item_id), "ルーンの part_roll_max は0であること")
+		else:
+			if not (stat in valid_stats):
+				errors += _report_part_error(str(item_id), "part_stat が10軸に無い: '%s'" % stat)
+			if base < 1:
+				errors += _report_part_error(str(item_id), "part_base が1未満: %d" % base)
+			# ロールは 0 〜 part_roll_max。0（振れ幅なし）は許す。
+			if not item.has(GameManager.ITEM_MASTER_PART_ROLL_MAX):
+				errors += _report_part_error(str(item_id), "part_roll_max の欄が無い")
+			elif int(item[GameManager.ITEM_MASTER_PART_ROLL_MAX]) < 0:
+				errors += _report_part_error(str(item_id), "part_roll_max が負")
 
 		# IDと欄の綴りの一致。上でどれかが不正なら比較しても意味が無いので飛ばす。
-		if kind in valid_kinds and stat in valid_stats and tier >= 1:
+		# ⚠ ルーンには当てない。軸が無いので欄からIDを組み立てられない。
+		#   代わりに E124 が runes.json と1:1で突き合わせる（EXEC_RUNES.md §3-D）。
+		if not is_rune and kind in valid_kinds and stat in valid_stats and tier >= 1:
 			# ⚠ 書式は GameManager と共有する。2箇所に書くと、片方だけ直して
 			#   「検証は通るのに段階を上げられない」になる。
 			var expected: String = GameManager.PART_ID_FORMAT % [kind, stat, tier]
@@ -713,6 +732,23 @@ const PATH_RECIPES: String = DIR_PATH + "recipes.json"
 #   素材IDの改名から漏れて無音で壊れた（EXEC_STAGE_DROPS.md §11）。
 #   ⚠ JSON に寄せたのは、この検証の網に入れるため。
 const PATH_CHESTS: String = DIR_PATH + "chests.json"
+# runes.json … ルーン1件ごとの挙動（EXEC_RUNES.md §3-A。人間の決定・2026-08-24）。
+#
+# ⚠ items.json には ID と part_kind しか無い。挙動（CD・効果・移動量）はこちら。
+# ⚠ 効果の語彙はスキルとまったく同じ。検証も SkillSchema.validate() を流用する
+#   （E123）。効果の検証を2本目に書かないこと。
+const PATH_RUNES: String = DIR_PATH + "runes.json"
+
+# runes.json の欄。⚠ 状態のキーではないのでここに置く（GameStateKeys ではない）。
+const RUNE_NEXT_ID: String = "next_id"
+const RUNE_COOLDOWN_SEC: String = "cooldown_sec"
+const RUNE_TARGET: String = "target"
+const RUNE_EFFECTS: String = "effects"
+const RUNE_MOVE: String = "move"
+const RUNE_MOVE_CHOICES: String = "choices"
+const RUNE_FIELDS_KNOWN: Array[String] = [
+	"rune_id", RUNE_NEXT_ID, RUNE_COOLDOWN_SEC, RUNE_TARGET, RUNE_EFFECTS, RUNE_MOVE,
+]
 
 static var _cache_items: Dictionary = {}
 static var _items_loaded: bool = false
@@ -720,6 +756,8 @@ static var _cache_recipes: Dictionary = {}
 static var _recipes_loaded: bool = false
 static var _cache_chests: Dictionary = {}
 static var _chests_loaded: bool = false
+static var _cache_runes: Dictionary = {}
+static var _runes_loaded: bool = false
 
 
 # アイテムIDの定義を返す。未登録なら空 Dictionary。
@@ -786,6 +824,157 @@ static func _ensure_chests_loaded() -> void:
 		return
 	_chests_loaded = true
 	_cache_chests = _index_by(_load_json(PATH_CHESTS), "chests", "chest_id", PATH_CHESTS)
+
+
+# ルーン1件の挙動。未登録なら空 Dictionary（＝そのIDはルーンではない）。
+#
+# ⚠ 「これはルーンか」の判定にこれを使う。part_kind で分岐しないこと
+#   （game_manager.gd:2039 の注記。EXEC_RUNES.md §2-2）。
+static func get_rune(rune_id: String) -> Dictionary:
+	_ensure_runes_loaded()
+	if not _cache_runes.has(rune_id):
+		return {}
+	return (_cache_runes[rune_id] as Dictionary).duplicate(true)
+
+
+# rune_id -> 定義 の Dictionary を返す。
+static func get_all_runes() -> Dictionary:
+	_ensure_runes_loaded()
+	return _cache_runes.duplicate(true)
+
+
+static func _ensure_runes_loaded() -> void:
+	if _runes_loaded:
+		return
+	_runes_loaded = true
+	_cache_runes = _index_by(_load_json(PATH_RUNES), "runes", "rune_id", PATH_RUNES)
+
+
+# ルーン1件を「スキル1件ぶんの辞書」に組み立てる。空なら組み立てられない。
+#
+# ⚠ 撃つときも検証するときも、この1本が作ったものを使う（EXEC_RUNES.md §0-3 の12）。
+#   2箇所で組み立てると、片方だけ直して「検証は通るのに撃つと赤」になる。
+# ⚠ name_key / user_character_id / unlock_level / activation は SkillSchema が
+#   必須にしている足場。runes.json には書かせない（知らない欄は E123 が弾く）。
+# ⚠ SkillRuntime.cast() は skill_data を引数で受け、MasterDataLoader を引き直さない
+#   （skill_runtime.gd:109）。だから _cache_skills に登録しなくてよい。
+static func rune_skill_data(rune_id: String) -> Dictionary:
+	var entry: Dictionary = get_rune(rune_id)
+	if entry.is_empty() or not (entry.get(RUNE_EFFECTS, null) is Array):
+		return {}
+	return {
+		"name_key": "ui_res_" + rune_id,
+		"user_character_id": rune_id,
+		"unlock_level": 1,
+		# ⚠ float() で包む。JSON は数値を float で返す（CLAUDE.md 3番）。
+		"cooldown_sec": float(entry.get(RUNE_COOLDOWN_SEC, 0.0)),
+		"activation": SkillSchema.ACTIVATION_INSTANT,
+		"target": entry.get(RUNE_TARGET, {}),
+		"effects": entry.get(RUNE_EFFECTS, []),
+	}
+
+
+# E123 … runes.json の形が不正。
+# E124 … items.json のルーンと runes.json が1:1で対応していない。
+#
+# ⚠ 効果の中身は SkillSchema.validate() に任せる。効果の検証を2本目に書かない
+#   （EXEC_RUNES.md §0-3 の12）。
+# ⚠ 1件ごとに1本出す。重複を潰さない（E118 / E119 と同じ方針）。
+static func _validate_all_runes() -> void:
+	_ensure_runes_loaded()
+	_ensure_items_loaded()
+	var errors: int = 0
+
+	for raw_id: Variant in _cache_runes:
+		var rune_id: String = str(raw_id)
+		var entry: Variant = _cache_runes[raw_id]
+		if not (entry is Dictionary):
+			errors += _report_rune_error(rune_id, "定義が Dictionary でない")
+			continue
+		var rune: Dictionary = entry
+
+		for key: Variant in rune:
+			if not (str(key) in RUNE_FIELDS_KNOWN):
+				errors += _report_rune_error(rune_id, "知らない欄がある: '%s'" % str(key))
+
+		if float(rune.get(RUNE_COOLDOWN_SEC, 0.0)) <= 0.0:
+			errors += _report_rune_error(rune_id, "cooldown_sec が正の数値でない")
+
+		var has_effects: bool = rune.get(RUNE_EFFECTS, null) is Array
+		var has_move: bool = rune.get(RUNE_MOVE, null) is Dictionary
+		if not has_effects and not has_move:
+			errors += _report_rune_error(rune_id, "effects も move も無い（撃っても何も起きない）")
+
+		# --- 移動系 ---
+		if has_move:
+			var raw_choices: Variant = (rune[RUNE_MOVE] as Dictionary).get(RUNE_MOVE_CHOICES, null)
+			if not (raw_choices is Array) or (raw_choices as Array).is_empty():
+				errors += _report_rune_error(rune_id, "move.choices が空、または配列でない")
+			else:
+				for raw_distance: Variant in (raw_choices as Array):
+					# ⚠ 0 を許すと「選べるのに動かない」選択肢ができる。
+					if not (raw_distance is float or raw_distance is int) or int(raw_distance) == 0:
+						errors += _report_rune_error(
+							rune_id, "move.choices に 0 か数値でないものがある: %s" % str(raw_distance)
+						)
+
+		# --- 効果（スキルとまったく同じ語彙）---
+		if has_effects:
+			var probe: Dictionary = rune_skill_data(rune_id)
+			for raw_issue: Variant in SkillSchema.validate(rune_id, probe):
+				if not (raw_issue is Dictionary):
+					continue
+				var issue: Dictionary = raw_issue
+				var message: String = "[MasterDataLoader] E123 runes.json " + str(issue.get("message", ""))
+				if str(issue.get("level", "")) == "error":
+					push_error(message)
+					errors += 1
+				else:
+					push_warning(message)
+
+		# --- 上げ先（E124 の枝）---
+		if rune.has(RUNE_NEXT_ID):
+			var next_id: String = str(rune[RUNE_NEXT_ID])
+			if not _cache_runes.has(next_id):
+				errors += _report_rune_error(rune_id, "next_id が runes.json に無い: '%s'" % next_id)
+			else:
+				var tier: int = int((_cache_items.get(rune_id, {}) as Dictionary).get(
+					GameManager.ITEM_MASTER_PART_TIER, 0))
+				var next_tier: int = int((_cache_items.get(next_id, {}) as Dictionary).get(
+					GameManager.ITEM_MASTER_PART_TIER, 0))
+				if next_tier != tier + 1:
+					errors += _report_rune_error(rune_id, "next_id '%s' の段階が+1でない（%d -> %d）" % [
+						next_id, tier, next_tier
+					])
+
+		# --- items.json 側に在るか（E124）---
+		var item: Variant = _cache_items.get(rune_id, null)
+		if not (item is Dictionary):
+			errors += _report_rune_ref_error(rune_id, "runes.json に在るが items.json に無い")
+		elif str((item as Dictionary).get(GameManager.ITEM_MASTER_PART_KIND, "")) != GameManager.PART_KIND_RUNE:
+			errors += _report_rune_ref_error(rune_id, "items.json 側が part_kind: 'rune' でない")
+
+	# --- 逆向き（E124）---
+	for raw_item_id: Variant in _cache_items:
+		var item_entry: Variant = _cache_items[raw_item_id]
+		if not (item_entry is Dictionary):
+			continue
+		if str((item_entry as Dictionary).get(GameManager.ITEM_MASTER_PART_KIND, "")) != GameManager.PART_KIND_RUNE:
+			continue
+		if not _cache_runes.has(str(raw_item_id)):
+			errors += _report_rune_ref_error(str(raw_item_id), "items.json に在るが runes.json に無い（刺しても何も起きない）")
+
+	print("[MasterDataLoader] runes validated: %d entries, %d errors" % [_cache_runes.size(), errors])
+
+
+static func _report_rune_error(rune_id: String, reason: String) -> int:
+	push_error("[MasterDataLoader] E123 runes.json (%s): %s" % [rune_id, reason])
+	return 1
+
+
+static func _report_rune_ref_error(rune_id: String, reason: String) -> int:
+	push_error("[MasterDataLoader] E124 (%s): %s" % [rune_id, reason])
+	return 1
 
 
 # { list_key: [ {id_key: "...", ...}, ... ] } を { "...": {...} } へ組み替える。

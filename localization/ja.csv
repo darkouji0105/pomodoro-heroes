@@ -444,3 +444,37 @@ ui_party_preset_missing,%s の%sが見つかりませんでした
 ui_party_preset_nodes_skipped,%s の割り振りは当てられませんでした
 ui_nav_party_preset,編成
 ui_party_preset_burned,ビルド%d に焼きました
+ui_res_part_rune_buff_1,力のルーン①
+ui_res_part_rune_buff_2,力のルーン②
+ui_res_part_rune_buff_3,力のルーン③
+ui_res_part_rune_buff_4,力のルーン④
+ui_res_part_rune_buff_5,力のルーン⑤
+ui_res_part_rune_debuff_1,弱めのルーン①
+ui_res_part_rune_debuff_2,弱めのルーン②
+ui_res_part_rune_debuff_3,弱めのルーン③
+ui_res_part_rune_debuff_4,弱めのルーン④
+ui_res_part_rune_debuff_5,弱めのルーン⑤
+ui_res_part_rune_move_1,踏み込みのルーン①
+ui_res_part_rune_move_2,踏み込みのルーン②
+ui_res_part_rune_move_3,踏み込みのルーン③
+ui_res_part_rune_move_4,踏み込みのルーン④
+ui_res_part_rune_move_5,踏み込みのルーン⑤
+ui_res_part_rune_heal_1,癒しのルーン①
+ui_res_part_rune_heal_2,癒しのルーン②
+ui_res_part_rune_heal_3,癒しのルーン③
+ui_res_part_rune_heal_4,癒しのルーン④
+ui_res_part_rune_heal_5,癒しのルーン⑤
+ui_res_part_rune_shield_1,守りのルーン①
+ui_res_part_rune_shield_2,守りのルーン②
+ui_res_part_rune_shield_3,守りのルーン③
+ui_res_part_rune_shield_4,守りのルーン④
+ui_res_part_rune_shield_5,守りのルーン⑤
+ui_status_ch_st_rune_buff,攻
+ui_status_ch_st_rune_debuff,弱
+ui_status_ch_st_rune_shield,盾
+ui_part_rune_move,移動量
+ui_part_rune_merge,重ねる
+ui_part_rune_move_format,%+d
+ui_part_reject_rune_max,これ以上重ねられません
+ui_part_reject_rune_stock,同じルーンが%d個要ります
+ui_part_reject_rune_kind,重ねられない装飾です

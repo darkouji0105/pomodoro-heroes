@@ -1,0 +1,209 @@
+{
+  "runes": [
+	{
+	  "rune_id": "part_rune_buff_1",
+	  "next_id": "part_rune_buff_2",
+	  "cooldown_sec": 14.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_buff", "duration_sec": 6.0, "stack": "refresh", "stat": "atk", "value": 6 }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_buff_2",
+	  "next_id": "part_rune_buff_3",
+	  "cooldown_sec": 14.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_buff", "duration_sec": 6.0, "stack": "refresh", "stat": "atk", "value": 10 }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_buff_3",
+	  "next_id": "part_rune_buff_4",
+	  "cooldown_sec": 14.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_buff", "duration_sec": 6.0, "stack": "refresh", "stat": "atk", "value": 15 }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_buff_4",
+	  "next_id": "part_rune_buff_5",
+	  "cooldown_sec": 14.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_buff", "duration_sec": 6.0, "stack": "refresh", "stat": "atk", "value": 21 }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_buff_5",
+	  "cooldown_sec": 14.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_buff", "duration_sec": 6.0, "stack": "refresh", "stat": "atk", "value": 28 }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_debuff_1",
+	  "next_id": "part_rune_debuff_2",
+	  "cooldown_sec": 16.0,
+	  "target": { "team": "enemy", "mode": "area", "origin": "user", "radius": 250.0 },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_debuff", "duration_sec": 6.0, "stack": "refresh", "stat": "def", "value": -5 }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_debuff_2",
+	  "next_id": "part_rune_debuff_3",
+	  "cooldown_sec": 16.0,
+	  "target": { "team": "enemy", "mode": "area", "origin": "user", "radius": 250.0 },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_debuff", "duration_sec": 6.0, "stack": "refresh", "stat": "def", "value": -9 }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_debuff_3",
+	  "next_id": "part_rune_debuff_4",
+	  "cooldown_sec": 16.0,
+	  "target": { "team": "enemy", "mode": "area", "origin": "user", "radius": 250.0 },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_debuff", "duration_sec": 6.0, "stack": "refresh", "stat": "def", "value": -14 }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_debuff_4",
+	  "next_id": "part_rune_debuff_5",
+	  "cooldown_sec": 16.0,
+	  "target": { "team": "enemy", "mode": "area", "origin": "user", "radius": 250.0 },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_debuff", "duration_sec": 6.0, "stack": "refresh", "stat": "def", "value": -20 }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_debuff_5",
+	  "cooldown_sec": 16.0,
+	  "target": { "team": "enemy", "mode": "area", "origin": "user", "radius": 250.0 },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_debuff", "duration_sec": 6.0, "stack": "refresh", "stat": "def", "value": -27 }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_move_1",
+	  "next_id": "part_rune_move_2",
+	  "cooldown_sec": 10.0,
+	  "move": { "choices": [60] }
+	},
+	{
+	  "rune_id": "part_rune_move_2",
+	  "next_id": "part_rune_move_3",
+	  "cooldown_sec": 10.0,
+	  "move": { "choices": [-60, 60] }
+	},
+	{
+	  "rune_id": "part_rune_move_3",
+	  "next_id": "part_rune_move_4",
+	  "cooldown_sec": 10.0,
+	  "move": { "choices": [-60, 60, 120] }
+	},
+	{
+	  "rune_id": "part_rune_move_4",
+	  "next_id": "part_rune_move_5",
+	  "cooldown_sec": 10.0,
+	  "move": { "choices": [-120, -60, 60, 120] }
+	},
+	{
+	  "rune_id": "part_rune_move_5",
+	  "cooldown_sec": 10.0,
+	  "move": { "choices": [-180, -120, -60, 60, 120, 180] }
+	},
+	{
+	  "rune_id": "part_rune_heal_1",
+	  "next_id": "part_rune_heal_2",
+	  "cooldown_sec": 18.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "heal", "multiplier": 0.6, "scale_from": "atk" }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_heal_2",
+	  "next_id": "part_rune_heal_3",
+	  "cooldown_sec": 18.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "heal", "multiplier": 1.0, "scale_from": "atk" }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_heal_3",
+	  "next_id": "part_rune_heal_4",
+	  "cooldown_sec": 18.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "heal", "multiplier": 1.5, "scale_from": "atk" }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_heal_4",
+	  "next_id": "part_rune_heal_5",
+	  "cooldown_sec": 18.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "heal", "multiplier": 2.1, "scale_from": "atk" }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_heal_5",
+	  "cooldown_sec": 18.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "heal", "multiplier": 2.8, "scale_from": "atk" }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_shield_1",
+	  "next_id": "part_rune_shield_2",
+	  "cooldown_sec": 20.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_shield", "duration_sec": 8.0, "stack": "refresh", "intervene": { "shield_hp": 40 } }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_shield_2",
+	  "next_id": "part_rune_shield_3",
+	  "cooldown_sec": 20.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_shield", "duration_sec": 8.0, "stack": "refresh", "intervene": { "shield_hp": 70 } }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_shield_3",
+	  "next_id": "part_rune_shield_4",
+	  "cooldown_sec": 20.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_shield", "duration_sec": 8.0, "stack": "refresh", "intervene": { "shield_hp": 110 } }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_shield_4",
+	  "next_id": "part_rune_shield_5",
+	  "cooldown_sec": 20.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_shield", "duration_sec": 8.0, "stack": "refresh", "intervene": { "shield_hp": 160 } }
+	  ]
+	},
+	{
+	  "rune_id": "part_rune_shield_5",
+	  "cooldown_sec": 20.0,
+	  "target": { "team": "self" },
+	  "effects": [
+		{ "type": "buff", "host": "unit", "status_id": "st_rune_shield", "duration_sec": 8.0, "stack": "refresh", "intervene": { "shield_hp": 220 } }
+	  ]
+	}
+  ]
+}

@@ -160,6 +160,18 @@ const PART_REJECT_KIND: String = "ui_part_reject_kind"
 const PART_REJECT_STOCK: String = "ui_part_reject_stock"
 
 # get_part_upgrade_cost() が返す Dictionary のキー（get_forge_cost() と同じ形）。
+# get_rune_merge_reject_reason() が返す翻訳キー。"" なら重ねられる。
+# ⚠ PART_REJECT_* と同じ形（刺す判定とは別物なので混ぜない）。
+const RUNE_REJECT_KIND: String = "ui_part_reject_rune_kind"
+const RUNE_REJECT_MAX: String = "ui_part_reject_rune_max"
+const RUNE_REJECT_STOCK: String = "ui_part_reject_rune_stock"
+
+# get_battle_runes() が返す payload 1件のキー。⚠ 状態には入らないのでここ。
+const RUNE_PAYLOAD_ITEM_ID: String = "item_id"
+const RUNE_PAYLOAD_COOLDOWN: String = "cooldown_sec"
+const RUNE_PAYLOAD_MOVE: String = "move"
+const RUNE_PAYLOAD_SKILL_DATA: String = "skill_data"
+
 const PART_UPGRADE_MATERIAL_ID: String = "material_id"
 const PART_UPGRADE_AMOUNT: String = "amount"
 
@@ -1607,6 +1619,15 @@ func _add_part_stats(instance_id: String, instance: Dictionary, result: Dictiona
 			continue
 
 		var stat_key: String = str(definition.get(ITEM_MASTER_PART_STAT, ""))
+
+		# ステータスを足さない装飾（ルーン）。加算の欄を持たないものは黙って飛ばす。
+		# ⚠ part_kind で分岐しないこと（下の _part_slot_kinds() の注記）。
+		#   「加算の欄があるか」だけを見れば、種類を足しても効く。
+		# ⚠ W18 より上に置くこと。下に置くと黄を出してから飛ばすことになり、
+		#   ルーンを刺しているだけで戦闘のたびに黄が並ぶ。
+		if stat_key == "":
+			continue
+
 		if not result.has(stat_key):
 			push_warning("[GameManager] W18 %s: 装飾 '%s' の part_stat '%s' が10軸に無い（加算しないが消さない）" % [
 				instance_id, part_id, stat_key
@@ -2330,6 +2351,12 @@ func get_upgraded_part_id(item_id: String) -> String:
 	var definition: Dictionary = get_part_definition(item_id)
 	if definition.is_empty():
 		return ""
+	# ⚠ ルーンは分解方式で上がらない。重ねる（merge_runes()）が別系統として在る
+	#   （GAME_DESIGN.md 7-7 の表）。⚠ ここで弾かないと part_rune__2 を組み立てて
+	#   赤が出る（ルーンには軸が無いため）。
+	# ⚠ part_kind ではなく「runes.json にエントリが在るか」で分ける。
+	if not MasterDataLoader.get_rune(item_id).is_empty():
+		return ""
 	var tier: int = int(definition.get(ITEM_MASTER_PART_TIER, 0))
 	if tier < 1 or tier >= get_max_part_tier():
 		return ""
@@ -2441,6 +2468,12 @@ func get_part_dismantle_refund(item_id: String, count: int) -> Dictionary:
 	var definition: Dictionary = get_part_definition(item_id)
 	if definition.is_empty():
 		return result
+	# ルーンは壊しても装飾素材にならない（GAME_DESIGN.md 7-7：余りは「かけら」に
+	# なる。かけらは今回作っていない＝人間の決定3）。
+	# ⚠ ここで止めないと decor_material_5 という存在しないIDが返り、段階5で赤が出る。
+	# ⚠ part_kind ではなく「runes.json にエントリが在るか」で分ける。
+	if not MasterDataLoader.get_rune(item_id).is_empty():
+		return result
 	var config: PartConfig = _part()
 	if config == null:
 		return result
@@ -2494,6 +2527,191 @@ func dismantle_part(item_id: String, count: int) -> Dictionary:
 
 	print("[GameManager] dismantle_part('%s', %d) -> %s" % [item_id, count, str(refund)])
 	return refund
+
+
+# ============================================================
+# ルーン（GAME_DESIGN.md 7-5 / 7-7・EXEC_RUNES.md）
+#
+# ⚠ ルーンは装飾の4種類目。刺す・外すは装飾とまったく同じ口を通る
+#   （attach_part / detach_part / get_part_reject_reason）。ここに在るのは
+#   「ルーンだけが持つもの」＝挙動・重ねる・移動量の3つだけ。
+#
+# ⚠ ステータスを1つも足さない。加算の合流点（_add_part_stats）は part_stat が
+#   空の装飾を飛ばす。⚠ ここに加算を書かないこと。
+# ============================================================
+
+# ルーン1件の挙動。ルーンでなければ空。
+#
+# ⚠ 「これはルーンか」の判定はこれを通す。part_kind で分岐しないこと
+#   （_part_slot_kinds() の注記）。
+# ⚠ 数値は int() / float() で包む。MasterDataLoader は float を返す（CLAUDE.md 3番）。
+func get_rune_definition(item_id: String) -> Dictionary:
+	return MasterDataLoader.get_rune(item_id)
+
+
+func get_max_rune_tier() -> int:
+	var config: PartConfig = _part()
+	return 5 if config == null else config.max_rune_tier
+
+
+func get_rune_merge_count() -> int:
+	var config: PartConfig = _part()
+	return 2 if config == null else maxi(config.rune_merge_count, 2)
+
+
+func get_rune_move_lock_sec() -> float:
+	var config: PartConfig = _part()
+	return 1.2 if config == null else maxf(config.rune_move_lock_sec, 0.0)
+
+
+# 選べる移動量。移動系でなければ空。⚠ 符号つき（正が前進・負が後退）。
+func get_rune_move_choices(item_id: String) -> Array[int]:
+	var result: Array[int] = []
+	var rune: Dictionary = get_rune_definition(item_id)
+	var raw_move: Variant = rune.get(MasterDataLoader.RUNE_MOVE, null)
+	if not (raw_move is Dictionary):
+		return result
+	var raw_choices: Variant = (raw_move as Dictionary).get(MasterDataLoader.RUNE_MOVE_CHOICES, null)
+	if not (raw_choices is Array):
+		return result
+	for raw_distance: Variant in (raw_choices as Array):
+		result.append(int(raw_distance))
+	return result
+
+
+# そのキャラが選んである移動量。
+#
+# ⚠ 未設定なら choices の先頭を返す。「選んでいないと動かない」を作らない
+#   （刺した直後に何も起きないと、壊れているのか未設定なのか画面から読めない）。
+func get_rune_move(character_id: String, item_id: String) -> int:
+	var choices: Array[int] = get_rune_move_choices(item_id)
+	if choices.is_empty():
+		return 0
+	var stored: Variant = get_character_growth(character_id).get(GameStateKeys.GROWTH_RUNE_MOVE, null)
+	if stored is Dictionary and (stored as Dictionary).has(item_id):
+		var distance: int = int((stored as Dictionary)[item_id])
+		if distance in choices:
+			return distance
+	return choices[0]
+
+
+# 移動量を選ぶ。choices に無い値は弾く。
+#
+# ⚠ 状態を変える前に判定を全部終える（CLAUDE.md 6番）。
+func set_rune_move(character_id: String, item_id: String, distance: int) -> bool:
+	var growth: Dictionary = get_character_growth(character_id)
+	if growth.is_empty():
+		print("[GameManager] set_rune_move('%s') -> false (知らない character_id)" % character_id)
+		return false
+	var choices: Array[int] = get_rune_move_choices(item_id)
+	if not (distance in choices):
+		print("[GameManager] set_rune_move('%s', '%s', %d) -> false (選べる値は %s)" % [
+			character_id, item_id, distance, str(choices)
+		])
+		return false
+
+	# --- ここから状態を変える ---
+
+	var raw_stored: Variant = growth.get(GameStateKeys.GROWTH_RUNE_MOVE, null)
+	var stored: Dictionary = (raw_stored as Dictionary).duplicate(true) if raw_stored is Dictionary else {}
+	stored[item_id] = distance
+	growth[GameStateKeys.GROWTH_RUNE_MOVE] = stored
+	_write_growth(character_id, growth)
+	character_growth_changed.emit(character_id)
+
+	print("[GameManager] set_rune_move('%s', '%s', %d) -> true" % [character_id, item_id, distance])
+	return true
+
+
+# 戦闘に渡すルーンの確定版。{skill_id: [payload, ...]}。
+#
+# ⚠ 戦闘が読む唯一の口（get_battle_skills() と同じ形）。画面でも戦闘でも
+#   紐付けを2本目に書かないこと。
+# ⚠ 紐付けは GAME_DESIGN.md 7-5：武器のルーン枠 → スキル1、アクセサリーの
+#   ルーン枠（2つ）→ スキル2。⚠ スキル枠が足りないぶんは黙って落とす（正常系）。
+# ⚠ payload の skill_data は MasterDataLoader が組み立てたもの。ここでも
+#   battle_controller でも組み立て直さないこと。
+func get_battle_runes(character_id: String) -> Dictionary:
+	var result: Dictionary = {}
+	var skills: Array = get_battle_skills(character_id)
+	# 添字が「スキル枠の番号」。武器＝枠1（添字0）／アクセサリー＝枠2（添字1）。
+	var slot_for_equip: Dictionary = {
+		GameStateKeys.EQUIP_WEAPON: 0,
+		GameStateKeys.EQUIP_ACCESSORY: 1,
+	}
+
+	for equip_slot: Variant in slot_for_equip:
+		var skill_index: int = int(slot_for_equip[equip_slot])
+		if skill_index >= skills.size():
+			continue
+		var skill_id: String = str(skills[skill_index])
+		var instance_id: String = get_equipped_instance_id(character_id, str(equip_slot))
+		if instance_id == "":
+			continue
+
+		# ⚠ 開いている枠だけを返す1本を通す。判定を2本目に書かない。
+		for raw_view: Variant in get_part_entries(instance_id):
+			if not (raw_view is Dictionary):
+				continue
+			var entry: Variant = (raw_view as Dictionary).get(PART_VIEW_ENTRY, null)
+			if not (entry is Dictionary):
+				continue
+			var item_id: String = str((entry as Dictionary).get(GameStateKeys.PART_ITEM_ID, ""))
+			var rune: Dictionary = get_rune_definition(item_id)
+			if rune.is_empty():
+				continue
+			if not result.has(skill_id):
+				result[skill_id] = []
+			(result[skill_id] as Array).append({
+				RUNE_PAYLOAD_ITEM_ID: item_id,
+				RUNE_PAYLOAD_COOLDOWN: float(rune.get(MasterDataLoader.RUNE_COOLDOWN_SEC, 0.0)),
+				RUNE_PAYLOAD_MOVE: get_rune_move(character_id, item_id),
+				RUNE_PAYLOAD_SKILL_DATA: MasterDataLoader.rune_skill_data(item_id),
+			})
+	return result
+
+
+# 重ねられない理由の翻訳キー。"" なら重ねられる。
+#
+# ⚠ 判定はこの1本だけ。画面のボタンの活性も merge_runes() もここを通す。
+func get_rune_merge_reject_reason(item_id: String) -> String:
+	var rune: Dictionary = get_rune_definition(item_id)
+	if rune.is_empty():
+		return RUNE_REJECT_KIND
+	# 段階の上限。⚠ かけらは今回作っていない（人間の決定3・2026-08-24）。
+	if not rune.has(MasterDataLoader.RUNE_NEXT_ID):
+		return RUNE_REJECT_MAX
+	if get_item_count(item_id) < get_rune_merge_count():
+		return RUNE_REJECT_STOCK
+	return ""
+
+
+# 同じルーンを rune_merge_count 個消して、1つ上の段階を1個作る
+# （GAME_DESIGN.md 7-7「同じものを重ねる」）。
+#
+# ⚠ upgrade_part()（分解方式）に相乗りしないこと。素材を1つも払わない。
+# ⚠ 状態を変える前に判定を全部終える（CLAUDE.md 6番）。
+func merge_runes(item_id: String) -> bool:
+	var reason: String = get_rune_merge_reject_reason(item_id)
+	if reason != "":
+		print("[GameManager] merge_runes('%s') -> false (%s)" % [item_id, reason])
+		return false
+	var next_id: String = str(get_rune_definition(item_id).get(MasterDataLoader.RUNE_NEXT_ID, ""))
+	# 上げ先が items.json に無いと、消えるだけになる。黙って通さない。
+	if get_part_definition(next_id).is_empty():
+		push_error("[GameManager] merge_runes: 上げ先 '%s' が items.json に無い（'%s' から重ねられない）" % [
+			next_id, item_id
+		])
+		return false
+
+	# --- ここから状態を変える ---
+
+	var cost: int = get_rune_merge_count()
+	_remove_from_inventory(item_id, cost)
+	add_to_inventory(next_id, 1, GameStateKeys.ITEM_TYPE_PART)
+
+	print("[GameManager] merge_runes('%s') -> true (-%d -> %s)" % [item_id, cost, next_id])
+	return true
 
 # 1キャラ分の育成データを _state へ書き戻す。
 # level_up_character() が直接書いていた3行と同じ処理。装備でも同じ形が要るため関数にした。
@@ -2984,6 +3202,9 @@ func _empty_character_preset() -> Dictionary:
 		GameStateKeys.GROWTH_SKILLS: {GameStateKeys.GROWTH_SKILL_SLOTS: _empty_slots(SLOT_KIND_SKILL)},
 		GameStateKeys.GROWTH_PASSIVES: {GameStateKeys.GROWTH_SKILL_SLOTS: _empty_slots(SLOT_KIND_PASSIVE)},
 		GameStateKeys.GROWTH_EQUIPMENT: _empty_equipment(),
+		# ⚠ 5つ目のキー（GAME_DESIGN.md 7-7・段階8）。移動系ルーンを1つも
+		#   刺していないキャラでは空のまま。
+		GameStateKeys.GROWTH_RUNE_MOVE: {},
 	}
 
 
@@ -3070,6 +3291,9 @@ func save_character_preset(character_id: String, index: int) -> bool:
 			GameStateKeys.GROWTH_SKILL_SLOTS: get_selected_passives(character_id),
 		},
 		GameStateKeys.GROWTH_EQUIPMENT: equipment,
+		# ⚠ 移動系ルーンの移動量（GAME_DESIGN.md 7-7）。装備と違って取り合いが
+		#   起きないので、そのまま複製して焼く。
+		GameStateKeys.GROWTH_RUNE_MOVE: _current_rune_move(character_id),
 	}
 
 	var presets: Array = get_character_presets(character_id)
@@ -3458,8 +3682,42 @@ func _write_build(
 			equipment[slot] = null if instance_id == "" else instance_id
 		growth[GameStateKeys.GROWTH_EQUIPMENT] = equipment
 
+	# rune_move … ⚠ 装備の有無（PRESET_EQUIPMENT_ENABLED）とは無関係に当てる。
+	#   ⚠ 欄が無い古いビルドでは触らない（当てるたびに移動量が消えるのを避ける）。
+	var raw_rune_move: Variant = build.get(GameStateKeys.GROWTH_RUNE_MOVE, null)
+	if raw_rune_move is Dictionary:
+		growth[GameStateKeys.GROWTH_RUNE_MOVE] = _valid_rune_move(
+			character_id, raw_rune_move as Dictionary
+		)
+
 	_write_growth(character_id, growth)
 	character_growth_changed.emit(character_id)
+
+
+# いま選んである移動量をそのまま取り出す（焼くときに使う）。
+func _current_rune_move(character_id: String) -> Dictionary:
+	var raw: Variant = get_character_growth(character_id).get(GameStateKeys.GROWTH_RUNE_MOVE, null)
+	return _valid_rune_move(character_id, raw as Dictionary) if raw is Dictionary else {}
+
+
+# 移動量の表から「いま成り立つもの」だけを残す。
+#
+# ⚠ 正規化（セーブ・プリセット）と適用の両方がここを通る。判定を2本目に書かない。
+# ⚠ 落とすのは3通り：ルーンでないキー／移動系でないルーン／choices に無い値。
+#   ⚠ どれも「ルーンを重ねて段階が上がった」「JSONの選択肢を狭めた」で普通に起きる。
+#     正常系なので黄を出さない。
+func _valid_rune_move(character_id: String, stored: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for raw_item_id: Variant in stored:
+		var item_id: String = str(raw_item_id)
+		var choices: Array[int] = get_rune_move_choices(item_id)
+		if choices.is_empty():
+			continue
+		var distance: int = int(stored[raw_item_id])
+		if not (distance in choices):
+			continue
+		result[item_id] = distance
+	return result
 
 
 # --- キャラ単体の適用（育成画面・装備画面の「適用」ボタン） ---
@@ -3720,6 +3978,16 @@ func _normalize_character_preset(
 		changed = true
 	preset[GameStateKeys.GROWTH_EQUIPMENT] = equipment
 
+	# rune_move … ⚠ 段階8で足した5つ目のキー。器が無い古いセーブでは空で作る。
+	#   ⚠ 中身は _valid_rune_move() が1本で洗う（正規化と適用で2本目を書かない）。
+	var raw_rune_move: Variant = preset.get(GameStateKeys.GROWTH_RUNE_MOVE, null)
+	var rune_move: Dictionary = _valid_rune_move(
+		character_id, (raw_rune_move as Dictionary) if raw_rune_move is Dictionary else {}
+	)
+	if not (raw_rune_move is Dictionary) or rune_move.size() != (raw_rune_move as Dictionary).size():
+		changed = true
+	preset[GameStateKeys.GROWTH_RUNE_MOVE] = rune_move
+
 	list[index] = preset
 	return changed
 
@@ -3781,7 +4049,17 @@ func _normalize_skill_slots_from_save() -> void:
 			continue
 		# ⚠ スキル枠とパッシブ枠の両方をここで直す。片方だけ直す形にしないこと
 		#   （旧セーブでパッシブ枠だけ生えないまま画面へ行く）。
-		if _normalize_all_slots(growth_all[character_id]):
+		var growth: Dictionary = growth_all[character_id]
+		var changed: bool = _normalize_all_slots(growth)
+		# ⚠ rune_move は growth 側にも在る（プリセットは growth の切り出し）。
+		#   ⚠ 片方だけ洗うと、本体が壊れたまま残る。
+		var raw_rune_move: Variant = growth.get(GameStateKeys.GROWTH_RUNE_MOVE, null)
+		if raw_rune_move is Dictionary:
+			var cleaned: Dictionary = _valid_rune_move(character_id, raw_rune_move as Dictionary)
+			if cleaned.size() != (raw_rune_move as Dictionary).size():
+				growth[GameStateKeys.GROWTH_RUNE_MOVE] = cleaned
+				changed = true
+		if changed:
 			fixed += 1
 	print("[GameManager] _normalize_skill_slots_from_save() -> %d / %d entries normalized" % [
 		fixed, growth_all.size()

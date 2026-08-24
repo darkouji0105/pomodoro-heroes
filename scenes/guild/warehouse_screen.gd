@@ -178,6 +178,12 @@ func _create_inventory_entry(item_id: String, count: int) -> void:
 #     確認モーダルを出す（EXEC_DECORATION.md §3-J）。
 # ⚠ 段階が上限の装飾には「段階を上げる」を出さない（行き先が無い）。
 func _add_part_buttons(entry: VBoxContainer, item_id: String, count: int) -> void:
+	# ルーンは分解方式で上がらず、壊しても素材にならない（GAME_DESIGN.md 7-7）。
+	# ⚠ ボタンは「重ねる」の1つだけ。⚠ part_kind で分岐しない。
+	if not GameManager.get_rune_definition(item_id).is_empty():
+		_add_rune_merge_button(entry, item_id)
+		return
+
 	var refund_total: int = 0
 	for amount: Variant in GameManager.get_part_dismantle_refund(item_id, 1).values():
 		refund_total += int(amount)
@@ -204,6 +210,26 @@ func _add_part_buttons(entry: VBoxContainer, item_id: String, count: int) -> voi
 	upgrade_button.disabled = not GameManager.can_upgrade_part(item_id)
 	upgrade_button.pressed.connect(_on_part_upgrade_pressed.bind(item_id))
 	entry.add_child(upgrade_button)
+
+# ルーンを重ねるボタン。⚠ 段階が上限なら出さない（かけらは今回作っていない）。
+#
+# ⚠ 押せるかの判定は get_rune_merge_reject_reason() の1本。画面で数えないこと。
+func _add_rune_merge_button(entry: VBoxContainer, item_id: String) -> void:
+	var reason: String = GameManager.get_rune_merge_reject_reason(item_id)
+	if reason == GameManager.RUNE_REJECT_MAX or reason == GameManager.RUNE_REJECT_KIND:
+		return
+	var cost: int = GameManager.get_rune_merge_count()
+	var merge_button: Button = Button.new()
+	merge_button.name = "RuneMergeButton"
+	merge_button.text = "%s(%d)" % [tr("ui_part_rune_merge"), cost]
+	merge_button.disabled = reason != ""
+	merge_button.pressed.connect(_on_rune_merge_pressed.bind(item_id))
+	entry.add_child(merge_button)
+
+func _on_rune_merge_pressed(item_id: String) -> void:
+	if not GameManager.merge_runes(item_id):
+		push_warning("[WarehouseScreen] merge_runes failed: " + item_id)
+	# 再描画は inventory_changed 側で行う。
 
 func _on_part_dismantle_pressed(item_id: String) -> void:
 	if GameManager.dismantle_part(item_id, 1).is_empty():

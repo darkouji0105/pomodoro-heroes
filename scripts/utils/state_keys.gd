@@ -168,6 +168,16 @@ const GROWTH_SKILL_SLOTS: String = "slots"
 # ⚠ スキル枠と違い、未選択の枠は戦闘時に埋めない。埋めると「外したつもりの
 #   パッシブが勝手に付く」（GameManager._slot_spec() の fill_empty）。
 const GROWTH_PASSIVES: String = "passives"
+# 移動系ルーンの移動量（EXEC_RUNES.md §0-3 の11・GAME_DESIGN.md 7-7）。
+# {ルーンの item_id: 符号つきの距離}。正が前進、負が後退。
+#
+# ⚠ キャラプリセットの5つ目のキー。他の4項目と同じくキーを共用する
+#   （PRESET_SAVED の注記）。
+# ⚠ 装備の個体ではなくキャラに持たせる。個体に持たせるとプリセットで切り替わらない
+#   （7-7「設定はキャラプリセットに含める」）。
+# ⚠ 選べる値は runes.json の move.choices から毎回引く。ここには数だけ持つ
+#   （CLAUDE.md 4番）。代償として、リリース後にルーンのIDを改名できない。
+const GROWTH_RUNE_MOVE: String = "rune_move"
 # stats: 10軸（GAME_DESIGN.md 8-1）。並びは 8-1 の表と同じ順。
 # 実数6本（hp/atk/mag/def/mdef/spd）＋％系4本（atkspd/haste/crit_rate/crit_dmg）。
 #

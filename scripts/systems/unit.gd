@@ -106,7 +106,24 @@ var skill_ids: Array = []
 #   味方のボタン・敵の攻撃拍とまったく同じ _fire_skill() を通る。
 var passive_ids: Array = []
 # skill_id -> cooldown_remaining(float)
+#
+# ⚠ ルーンの残り時間もここに入る（キーはルーンの item_id）。置き場を2本目に
+#   作らないこと。tick_cooldowns() が中身を全部減らすので、器を分けると
+#   ルーンだけ減らし忘れる（EXEC_RUNES.md §0-3 の2）。
 var skill_cooldowns: Dictionary = {}
+
+# 刺さっているルーン（段階8・EXEC_RUNES.md）。{skill_id: [payload, ...]}。
+#
+# ⚠ 中身を組み立てるのは GameManager.get_battle_runes() の1本だけ。
+#   ⚠ 敵と召喚は空のまま（ルーンは装備から来る）。
+var rune_payloads: Dictionary = {}
+
+# 0 より大きいあいだ、自動移動を止める（移動系ルーン・人間の決定・2026-08-24）。
+#
+# ⚠ 止まるのは移動だけ。攻撃の拍は止めない。
+# ⚠ これが無いと、後退した次のフレームに battle_controller._step_unit() が
+#   歩き直して後退が無意味になる（GAME_DESIGN.md 7-5 の ⚠）。
+var move_lock_sec: float = 0.0
 
 # 構え（activation: recast の段の途中・段階5・PLAN 8章）。
 #   skill_id -> {"phase": int（次に撃つ段）, "remaining": float（残りの窓）}
@@ -286,6 +303,8 @@ func tick_cooldowns(delta: float) -> void:
 		return
 	for skill_id in skill_cooldowns:
 		skill_cooldowns[skill_id] = max(0.0, float(skill_cooldowns[skill_id]) - delta)
+	# ⚠ 移動のロックもここで減らす。_process に2本目の tick を足さない。
+	move_lock_sec = max(0.0, move_lock_sec - delta)
 
 
 # skill_id が skill_ids にも passive_ids にも無い場合は false を返す
@@ -309,6 +328,21 @@ func start_cooldown(skill_id: String, sec: float) -> void:
 	if not (skill_id in skill_ids):
 		return
 	skill_cooldowns[skill_id] = sec
+
+
+# --- ルーンのクールダウン（GAME_DESIGN.md 7-5「ルーンごとに固有のクールダウン」）---
+#
+# ⚠ is_skill_ready() / start_cooldown() は skill_ids に入っているIDしか通さない。
+#   ルーンは skill_ids に入らない（撃つのはスキルで、ルーンはその直前に乗るだけ）
+#   ので、判定だけ別に持つ。⚠ 残り時間の置き場は skill_cooldowns で共通。
+func is_rune_ready(item_id: String) -> bool:
+	if not is_alive():
+		return false
+	return float(skill_cooldowns.get(item_id, 0.0)) <= 0.0
+
+
+func start_rune_cooldown(item_id: String, sec: float) -> void:
+	skill_cooldowns[item_id] = sec
 
 
 # クールダウン残り時間を返す。未登録の ID は 0.0。

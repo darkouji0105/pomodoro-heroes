@@ -320,7 +320,46 @@ func _create_part_row(slot: String, instance_id: String, view: Dictionary) -> vo
 		attach_button.pressed.connect(_on_select_part_slot_pressed.bind(instance_id, slot_index))
 		row.add_child(attach_button)
 
+	# 移動系ルーンの移動量（段階8・人間の決定・2026-08-24）。
+	# ⚠ 刺す・外すと同じ行に置く。導線を2箇所にしない。
+	# ⚠ 移動系でなければ何も出ない（get_rune_move_choices() が空を返す）。
+	#   ⚠ part_kind で分岐しないこと。
+	_add_rune_move_option(row, entry)
+
 	slot_list.add_child(row)
+
+# 移動量の OptionButton を1つ。移動系ルーンが刺さっていなければ何も足さない。
+#
+# ⚠ 選べる値も、いま選んである値も GameManager から引く。画面で計算しない。
+# ⚠ 符号を必ず出す（+120 / -60）。出さないと前進か後退か読めない。
+func _add_rune_move_option(row: HBoxContainer, entry: Variant) -> void:
+	if not (entry is Dictionary):
+		return
+	var item_id: String = str((entry as Dictionary).get(GameStateKeys.PART_ITEM_ID, ""))
+	var choices: Array[int] = GameManager.get_rune_move_choices(item_id)
+	if choices.is_empty():
+		return
+
+	var caption: Label = Label.new()
+	caption.name = "RuneMoveLabel"
+	caption.text = tr("ui_part_rune_move")
+	row.add_child(caption)
+
+	var option: OptionButton = OptionButton.new()
+	option.name = "RuneMoveOption"
+	var current: int = GameManager.get_rune_move(_character_id, item_id)
+	for i: int in range(choices.size()):
+		option.add_item(tr("ui_part_rune_move_format") % choices[i], i)
+		if choices[i] == current:
+			option.select(i)
+	option.item_selected.connect(_on_rune_move_selected.bind(item_id, choices))
+	row.add_child(option)
+
+# ⚠ 判定は set_rune_move() が持つ。ここで choices を検算しない（2本目にしない）。
+func _on_rune_move_selected(item_index: int, item_id: String, choices: Array) -> void:
+	if item_index < 0 or item_index >= choices.size():
+		return
+	GameManager.set_rune_move(_character_id, item_id, int(choices[item_index]))
 
 # 枠の名前の翻訳キー。刺さる種類が1つならその種類、複数ならワイルド枠。
 # ⚠ 種類ごとに if を分岐させない。種類が増えてもここは変わらない。
@@ -341,6 +380,10 @@ func _part_text(entry: Variant) -> String:
 		# items.json から消えた装飾。加算されていないことは W18 がログで言っている。
 		return tr("ui_res_" + item_id)
 	var stat_key: String = str(definition.get(GameManager.ITEM_MASTER_PART_STAT, ""))
+	# ステータスを足さない装飾（ルーン）。⚠ 名前だけ出す。
+	#   ⚠ part_kind で分岐しない。「加算の欄があるか」で分ける（GameManager と同じ形）。
+	if stat_key == "":
+		return tr("ui_res_" + item_id)
 	return "%s  %s +%s" % [
 		tr("ui_res_" + item_id),
 		tr("ui_training_stat_" + stat_key),

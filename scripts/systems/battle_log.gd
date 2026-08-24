@@ -190,6 +190,24 @@ static func log_spawn(owner_id: String, unit_id: String, source_id: String, x: f
 	})
 
 
+# ルーンが1件発動した（段階8・GAME_DESIGN.md 7-5）。
+#
+# ⚠ 効果そのものは SkillRuntime.cast() を通るので cast / status_add / heal が
+#   別に出る。ここで出すのは「どのスキルの直前に、どのルーンが乗ったか」だけ。
+# ⚠ 移動系は cast を通らないので、この行が唯一の記録になる。move には
+#   符号つきの距離が入る（0 なら移動系ではない）。
+static func log_rune(unit_id: String, rune_id: String, skill_id: String, move: int, x: float) -> void:
+	if not is_on():
+		return
+	write("rune", {
+		"unit": unit_id,
+		"rune": rune_id,
+		"skill": skill_id,
+		"move": move,
+		"x": snappedf(x, 0.01),
+	})
+
+
 # SkillResolver が返す results を damage / heal / dot に振り分ける。
 #
 # ⚠ results の形を知る場所をここ1箇所に閉じる（3つの差し込み先に同じループを

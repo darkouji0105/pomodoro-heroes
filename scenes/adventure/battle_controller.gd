@@ -15,6 +15,10 @@ const PARTY_STEP_X: float = 100.0
 # 敵の初期 X 位置
 const ENEMY_BASE_X: float = 900.0
 const ENEMY_STEP_X: float = 100.0
+# 移動系ルーンで出られる範囲（段階8）。⚠ 画面幅は 1280。
+# ⚠ バランス数値ではなく画面の端なので、上の座標の定数と同じ場所に置く。
+const RUNE_MOVE_MIN_X: float = 40.0
+const RUNE_MOVE_MAX_X: float = 1240.0
 
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
 const DEBUG_PANEL_SCRIPT: GDScript = preload("res://scenes/adventure/battle_debug_panel.gd")
@@ -293,6 +297,12 @@ func _init_party_units() -> void:
 		# ⚠ skill_cooldowns には入れない。パッシブはCDを持たない
 		#   （BattleUnit.start_cooldown() が skill_ids しか見ないので自然にそうなる）。
 		unit.passive_ids = GameManager.get_battle_passives(character_id)
+
+		# 刺さっているルーン（段階8・GAME_DESIGN.md 7-5）。
+		# ⚠ 紐付け（武器＝スキル1／アクセサリー＝スキル2）は GameManager が持つ。
+		#   ここで装備を見に行かないこと（判定が2箇所になる）。
+		# ⚠ 敵と召喚には入れない。ルーンは装備から来る。
+		unit.rune_payloads = GameManager.get_battle_runes(character_id)
 
 		_session.party_units.append(unit)
 
@@ -886,7 +896,10 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 			if not (unit.team == BattleUnit.TEAM_ENEMY and _try_enemy_skill(unit)):
 				_fire_basic_attack(unit, target)
 			unit.attack_timer = 0.0
-	else:
+	elif unit.move_lock_sec <= 0.0:
+		# ⚠ 移動系ルーンで動いた直後はここへ来ない（move_lock_sec が立っている）。
+		#   ⚠ 止めるのは移動だけ。上の攻撃の枝には条件を足さないこと
+		#     （足すと後退したあと殴れず、ロック中だけ完全に無力になる）。
 		var dir: float = sign(target.x - unit.x)
 		unit.x += dir * unit.speed * delta
 
@@ -1215,6 +1228,13 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool
 
 	# --- ここから状態を変える。判定は全部終わっている（CLAUDE.md 6番）---
 
+	# ルーンはスキルの直前に発動する（GAME_DESIGN.md 7-5）。
+	# ⚠ 順序を入れ替えないこと。前進してから攻撃すれば当たる、シールドを張ってから
+	#   踏み込める、という順序に意味がある効果が多い。
+	# ⚠ ルーンが撃てなくてもスキルは撃つ。blocked_reason() にルーンの条件を
+	#   足さないこと（ルーンのCDでスキルが止まる）。
+	_fire_runes(user, skill_id)
+
 	# 発動を1個作って新層に渡す。チャージ倍率の畳み込みも、効果を trigger ごとに
 	# 待ち行列へ割るのも新層の仕事（PLAN 7-1）。ここに待ち行列を持たないこと。
 	# 結果は effects_applied シグナルで返ってくる（cast の効果はこの行の中で発火する）。
@@ -1247,6 +1267,52 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool
 	else:
 		user.clear_recast(skill_id)
 	return true
+
+
+# スキルの直前にルーンを発動する（段階8・GAME_DESIGN.md 7-5 / 7-7）。
+#
+# ⚠ 発火経路を2本目にしない。効果は SkillRuntime.cast() をそのまま通す
+#   （EXEC_RUNES.md §0-3 の1）。バフ・デバフ・回復・シールドはこれだけで
+#   既存の SkillResolver → StatusRegistry に乗り、状態のマスも記録も自動で付く。
+# ⚠ skill_data を組み立て直さない。GameManager が payload に入れたものを使う。
+# ⚠ 座標を触ってよいのはこの層だけ。移動を効果（effects）にしないのはそのため。
+# ⚠ CD中のルーンは黙って飛ばす。スキルは撃てる（正常系なので黄を出さない）。
+func _fire_runes(user: BattleUnit, skill_id: String) -> void:
+	var raw_list: Variant = user.rune_payloads.get(skill_id, null)
+	if not (raw_list is Array):
+		return
+
+	for raw_payload: Variant in (raw_list as Array):
+		if not (raw_payload is Dictionary):
+			continue
+		var payload: Dictionary = raw_payload
+		var rune_id: String = str(payload.get(GameManager.RUNE_PAYLOAD_ITEM_ID, ""))
+		if rune_id == "" or not user.is_rune_ready(rune_id):
+			continue
+
+		# --- 移動（人間の決定・2026-08-24）---
+		# ⚠ 瞬間移動させ、そのあと自動移動を秒で止める。止めないと次のフレームに
+		#   _step_unit() が歩き直し、後退のルーンが無意味になる。
+		var move: int = int(payload.get(GameManager.RUNE_PAYLOAD_MOVE, 0))
+		if move != 0:
+			# 味方は右を向いている。正が前進（敵の側）、負が後退。
+			# ⚠ 画面の外へ出さない。出すと当たり判定は生きたまま絵だけ消える。
+			user.x = clampf(user.x + float(move), RUNE_MOVE_MIN_X, RUNE_MOVE_MAX_X)
+			user.move_lock_sec = GameManager.get_rune_move_lock_sec()
+
+		# --- 効果 ---
+		var skill_data: Variant = payload.get(GameManager.RUNE_PAYLOAD_SKILL_DATA, null)
+		if skill_data is Dictionary and not (skill_data as Dictionary).is_empty():
+			# ⚠ 対象は skill_data の target が決める。固定IDを渡さない
+			#   （渡すと runes.json の target が黙って無視される）。
+			_skill_runtime.cast(user, rune_id, skill_data as Dictionary, 1.0, [])
+
+		# ⚠ haste を通す。スキルと違う扱いにしない。
+		user.start_rune_cooldown(rune_id, BattleFormula.cooldown(
+			float(payload.get(GameManager.RUNE_PAYLOAD_COOLDOWN, 0.0)),
+			user.get_stat(GameStateKeys.STAT_HASTE)
+		))
+		BattleLog.log_rune(user.unit_id, rune_id, skill_id, move, user.x)
 
 
 # ============================================================
