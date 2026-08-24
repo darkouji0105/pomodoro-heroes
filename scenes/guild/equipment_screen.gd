@@ -283,8 +283,25 @@ func _create_part_rows(slot: String) -> void:
 	if instance_id == "":
 		return
 	for view: Variant in GameManager.get_part_entries(instance_id):
-		if view is Dictionary:
-			_create_part_row(slot, instance_id, view as Dictionary)
+		if not (view is Dictionary):
+			continue
+		# 段階解放（GAME_DESIGN.md 9-5 の #5 装飾 / #10 ルーン）。
+		# ⚠ その枠に刺さる種類が全部閉じているなら、行ごと出さない（人間の決定・出さない）。
+		#   ⚠ 種類ごとの分岐ではなく「種類 → 機能ID」の表を1本通すだけ
+		#     （GameManager.is_part_kind_unlocked()）。
+		if not _is_part_slot_unlocked(view as Dictionary):
+			continue
+		_create_part_row(slot, instance_id, view as Dictionary)
+
+# その枠に刺さる種類のうち、1つでも解放されていれば出す。
+func _is_part_slot_unlocked(view: Dictionary) -> bool:
+	var kinds: Variant = view.get(GameManager.PART_VIEW_KINDS, [])
+	if not (kinds is Array):
+		return false
+	for kind: Variant in (kinds as Array):
+		if GameManager.is_part_kind_unlocked(str(kind)):
+			return true
+	return false
 
 func _create_part_row(slot: String, instance_id: String, view: Dictionary) -> void:
 	var slot_index: int = int(view.get(GameManager.PART_VIEW_INDEX, 0))
@@ -470,6 +487,11 @@ func _rebuild_part_items() -> void:
 			_selected_part_target, _selected_part_slot, item_id
 		)
 		if reason == GameManager.PART_REJECT_KIND:
+			continue
+		# ⚠ 解放されていない種類は一覧にも出さない。枠の行と同じ判定を通す。
+		if not GameManager.is_part_kind_unlocked(
+			str(GameManager.get_part_definition(item_id).get(GameManager.ITEM_MASTER_PART_KIND, ""))
+		):
 			continue
 		rows.append(item_id)
 

@@ -213,6 +213,31 @@ static func _validate_all_item_refs() -> void:
 
 	var errors: int = 0
 
+	# stages.json … unlocks の screen_id が存在するか（E125・段階9）。
+	#
+	# ⚠ 知らない screen_id を書くと「クリアしても開かない」形で無音に壊れる。
+	#   ⚠ 画面IDの一覧は GameManager が持つ1本を通す（定数の並びを2箇所に書かない）。
+	# ⚠ rewards の枝とは別のループにしてある。あちらは rewards を持たないステージで
+	#   continue するので、相乗りすると unlocks を見落とす。
+	var known_screens: Array[String] = GameManager.get_all_screen_ids()
+	for stage_id: Variant in _cache_stages:
+		var stage_entry: Variant = _cache_stages[stage_id]
+		if not (stage_entry is Dictionary):
+			continue
+		if not (stage_entry as Dictionary).has(GameManager.STAGE_MASTER_UNLOCKS):
+			continue
+		var raw_unlocks: Variant = (stage_entry as Dictionary)[GameManager.STAGE_MASTER_UNLOCKS]
+		if not (raw_unlocks is Array):
+			push_error("[MasterDataLoader] E125 stages.json (%s): unlocks が Array でない" % str(stage_id))
+			errors += 1
+			continue
+		for raw_screen_id: Variant in (raw_unlocks as Array):
+			if not (str(raw_screen_id) in known_screens):
+				push_error("[MasterDataLoader] E125 stages.json (%s): 知らない screen_id: '%s'" % [
+					str(stage_id), str(raw_screen_id)
+				])
+				errors += 1
+
 	# stages.json … rewards.materials のキー
 	for stage_id: Variant in _cache_stages:
 		var stage: Variant = _cache_stages[stage_id]

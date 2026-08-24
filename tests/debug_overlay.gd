@@ -118,6 +118,7 @@ func _build_ui() -> void:
 	_body.add_child(_make_button("装備を全種類 1個ずつ", _grant_all_equipment))
 	_body.add_child(_make_button("装飾を全種類", _grant_all_parts))
 	_body.add_child(_make_button("研究を全部解放（先に素材）", _unlock_all_research))
+	_body.add_child(_make_button("画面を全部解放", _unlock_all_screens))
 	_body.add_child(_make_button("セーブする", _save))
 
 
@@ -281,6 +282,24 @@ func _grant_all_equipment() -> void:
 		GameManager.add_to_inventory(item_id, EQUIPMENT_COUNT, GameStateKeys.ITEM_TYPE_EQUIPMENT)
 		count += 1
 	print("[DebugOverlay] 装備 %d種を %d個ずつ（個体を生成）" % [count, EQUIPMENT_COUNT])
+
+
+# 段階解放（GAME_DESIGN.md 9-5）を全部飛ばす。
+#
+# ⚠ これが無いと、新規セーブから装備画面へ行くのに stage_1 を倒す必要がある。
+#   検証のたびに戦うのは現実的でない（EXEC_SCREEN_UNLOCK.md §0-1 の9）。
+# ⚠ workshop も開けるが、.tscn 側で visible = false なので画面には出ない。
+# ⚠ リリース前に消す（宿題）。
+func _unlock_all_screens() -> void:
+	var count: int = 0
+	for screen_id: String in GameManager.get_all_screen_ids():
+		if GameManager.is_screen_unlocked(screen_id):
+			continue
+		GameManager.unlock_screen(screen_id)
+		count += 1
+	print("[DebugOverlay] 画面を %d 件 解放（全 %d 件）" % [
+		count, GameManager.get_all_screen_ids().size()
+	])
 
 
 # 前提を辿るため、解放できなくなるまで繰り返す。

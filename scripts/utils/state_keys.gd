@@ -236,6 +236,22 @@ const SCREEN_ADVENTURE_SELECT: String = "adventure_select"
 const SCREEN_POMODORO: String = "pomodoro"
 const SCREEN_SETTINGS: String = "settings"
 const SCREEN_SCENARIO: String = "scenario"
+# ギルドの中の画面（段階9・EXEC_SCREEN_UNLOCK.md）。
+# ⚠ guild_screen.gd の sub_screen_id と同じ綴り。あちらの文字列リテラルは
+#   この定数に置き換えてある（2箇所に綴りを持たない）。
+const SCREEN_EQUIPMENT: String = "equipment"
+const SCREEN_TRAINING: String = "training"
+const SCREEN_WAREHOUSE: String = "warehouse"
+const SCREEN_RESEARCH: String = "research"
+const SCREEN_SHOP: String = "shop"
+# ⚠ 作業場は廃止中で .tscn 側が visible = false。unlocks には1度も書かない
+#   （二重に閉じると、復活させるときにどちらを開けばよいか読めなくなる）。
+const SCREEN_WORKSHOP: String = "workshop"
+# ⚠ 下の2つは画面ではなく「機能」。装備画面の中の枠の行を出し分ける
+#   （GAME_DESIGN.md 9-5 の #5 装飾 / #10 ルーン。人間の決定・2026-08-24）。
+#   ⚠ 遷移先が無いので SCREEN_SCENES にも _navigation_buttons にも入れない。
+const SCREEN_DECORATION: String = "decoration"
+const SCREEN_RUNE: String = "rune"
 
 # ============================================================
 # 加護の種類

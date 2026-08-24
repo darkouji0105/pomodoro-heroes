@@ -127,6 +127,11 @@ const ITEM_MASTER_EQUIP_STATS: String = "equip_stats"
 # ⚠ item_id からは切り出さない。必ずこの欄で引くこと。
 #   IDは part_<種類>_<軸>_<段階> の形だが、軸名にも _ が入る（crit_rate / crit_dmg）ため
 #   パースは事故る。IDと欄が一致しているかは E119 が検証する。
+# stages.json の欄。そのステージをクリアしたときに開く screen_id の配列
+# （段階9・EXEC_SCREEN_UNLOCK.md §3-B）。
+# ⚠ 知らない screen_id は E125 がロード時に赤で言う。
+const STAGE_MASTER_UNLOCKS: String = "unlocks"
+
 const ITEM_MASTER_PART_KIND: String = "part_kind"
 const ITEM_MASTER_PART_TIER: String = "part_tier"
 const ITEM_MASTER_PART_STAT: String = "part_stat"
@@ -263,6 +268,9 @@ func _ready() -> void:
 	# レシピを recipes.json から流し込む。research_tree / line_up と同じ理由で、
 	# _empty_state_template() の recipes_unlocked は {} のため、これが無いと画面に1つも出ない。
 	_sync_recipes_from_master()
+	# クリア済みステージから機能の解放を流し込む（GAME_DESIGN.md 9-5）。
+	# ⚠ 新規開始では story.stages が空なので何も開かない。
+	_sync_unlocked_screens_from_master()
 	# 起動した時点で、閉じている間に完成した製作を completed にしておく。
 	refresh_crafting_queue_if_needed()
 	# materials も出す。initial_state に足した素材が届いているかを、
@@ -549,6 +557,76 @@ func unlock_screen(screen_id: String) -> void:
 func is_screen_unlocked(screen_id: String) -> bool:
 	var unlocked: Dictionary = _state.get(GameStateKeys.UNLOCKED_SCREENS, {})
 	return bool(unlocked.get(screen_id, false))
+
+# 存在する画面ID（機能IDを含む）の一覧。並び順は GAME_DESIGN.md 9-5 の解放順。
+#
+# ⚠ 定数の並びを2箇所に書かない。ロード時検証（E125）も F4 もここを通す。
+# ⚠ decoration / rune は遷移先が無い「機能ID」。装備画面の中の行を出し分けるだけ
+#   （EXEC_SCREEN_UNLOCK.md 決定5）。
+func get_all_screen_ids() -> Array[String]:
+	return [
+		GameStateKeys.SCREEN_ADVENTURE_SELECT,
+		GameStateKeys.SCREEN_GUILD,
+		GameStateKeys.SCREEN_EQUIPMENT,
+		GameStateKeys.SCREEN_TRAINING,
+		GameStateKeys.SCREEN_WAREHOUSE,
+		GameStateKeys.SCREEN_POMODORO,
+		GameStateKeys.SCREEN_DECORATION,
+		GameStateKeys.SCREEN_RESEARCH,
+		GameStateKeys.SCREEN_SHOP,
+		GameStateKeys.SCREEN_WORKSHOP,
+		GameStateKeys.SCREEN_RUNE,
+		GameStateKeys.SCREEN_SETTINGS,
+		GameStateKeys.SCREEN_SCENARIO,
+	]
+
+# そのステージをクリアしたときに開くもの（stages.json の unlocks）。
+#
+# ⚠ 引き金（ステージ）と対象（機能）を同じ行に置く。.gd に表を書かないこと
+#   （ステージが増えたら unlocks を分けるだけで刻める）。
+func get_stage_unlocks(stage_id: String) -> Array[String]:
+	var result: Array[String] = []
+	var raw: Variant = MasterDataLoader.get_stage(stage_id).get(STAGE_MASTER_UNLOCKS, null)
+	if not (raw is Array):
+		return result
+	for entry: Variant in (raw as Array):
+		result.append(str(entry))
+	return result
+
+# クリア済みステージの unlocks を、状態へ流し込み直す
+# （AGENTS.md「マスターデータと状態を同期する型」。研究ツリーと同じ形）。
+#
+# ⚠ 一度開いたものは閉じない。unlocked_screens から消す枝を書かないこと。
+#   ⚠ 完全な都度計算にすると、既存セーブで開いていた画面が次の起動で消える。
+# ⚠ 書き込みは unlock_screen() を通す。screen_unlocked が飛ぶのはあの1本だけで、
+#   直接 _state を書くと拠点が追従しない。
+# ⚠ 起動時・ロード時・クリアした瞬間の3箇所から呼ぶ。
+func _sync_unlocked_screens_from_master() -> void:
+	var opened: int = 0
+	var story: Dictionary = _state.get(GameStateKeys.STORY, {})
+	var stages: Dictionary = story.get(GameStateKeys.STORY_STAGES, {})
+	for raw_stage_id: Variant in stages:
+		var entry: Variant = stages[raw_stage_id]
+		if not (entry is Dictionary):
+			continue
+		if not bool((entry as Dictionary).get(GameStateKeys.STAGE_CLEARED, false)):
+			continue
+		for screen_id: String in get_stage_unlocks(str(raw_stage_id)):
+			if is_screen_unlocked(screen_id):
+				continue
+			unlock_screen(screen_id)
+			opened += 1
+	print("[GameManager] _sync_unlocked_screens_from_master() -> %d opened (now %s)" % [
+		opened, str(_state.get(GameStateKeys.UNLOCKED_SCREENS, {}).keys())
+	])
+
+# その種類の装飾が解放されているか（EXEC_SCREEN_UNLOCK.md 決定5）。
+#
+# ⚠ 種類ごとの挙動の分岐ではなく「種類 → 機能ID」の表。_part_slot_kinds() と同じ立場。
+#   ⚠ 種類を足したときに触るのはこの表の1語だけ。
+func is_part_kind_unlocked(part_kind: String) -> bool:
+	var screen_id: String = GameStateKeys.SCREEN_RUNE if part_kind == PART_KIND_RUNE 		else GameStateKeys.SCREEN_DECORATION
+	return is_screen_unlocked(screen_id)
 
 # --- 宝箱 ---
 
@@ -5015,6 +5093,9 @@ func load_state(data: Dictionary) -> bool:
 	# レシピも同様。解放状態と crafting_queue だけが残る。
 	# JSON復元で float になった started_at / duration_sec も、ここで int() に戻る。
 	_sync_recipes_from_master()
+	# 解放も同期する。⚠ 既に true のものは触らない（一度開いたものは閉じない）。
+	#   ⚠ 段階9より前のセーブには新しい画面IDが1つも入っていないので、ここで生える。
+	_sync_unlocked_screens_from_master()
 	# ロードした時点で、閉じている間に完成した製作を completed にしておく。
 	refresh_crafting_queue_if_needed()
 	print("[GameManager] load_state success. version=%d" % int(_state[GameStateKeys.SAVE_VERSION]))
@@ -5089,6 +5170,9 @@ func mark_stage_cleared(stage_id: String, stars: int = 0) -> void:
 	story[GameStateKeys.STORY_STAGES] = stages
 	_state[GameStateKeys.STORY] = story
 	print("[GameManager] mark_stage_cleared('%s', %d)" % [stage_id, stars])
+	# ⚠ クリアした瞬間に開く。拠点へ戻る前に screen_unlocked が飛ぶので、
+	#   拠点は _ready() の時点で正しい状態を読む。
+	_sync_unlocked_screens_from_master()
 
 func is_stage_cleared(stage_id: String) -> bool:
 	var story: Dictionary = _state.get(GameStateKeys.STORY, {})

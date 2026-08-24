@@ -204,6 +204,11 @@ func _refresh_detail() -> void:
 	if _selected_id == "":
 		return
 
+	# 段階解放（GAME_DESIGN.md 9-5 の #2 装備）。⚠ 「出さない」（人間の決定）。
+	# ⚠ 装備画面への入口はここ1箇所だけ（ギルドに装備のボタンは無い）。
+	#   ⚠ 決定4 で育成と同時に開くので普段は必ず出る。ステージが増えて刻んだときに効く。
+	equip_button.visible = GameManager.is_screen_unlocked(GameStateKeys.SCREEN_EQUIPMENT)
+
 	var char_data: Dictionary = MasterDataLoader.get_character(_selected_id)
 	var level: int = _level_of(_selected_id)
 	var stats: Dictionary = GameManager.get_effective_stats(_selected_id)

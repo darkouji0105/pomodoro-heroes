@@ -36,6 +36,7 @@ const REPORT_PARTS: String = "parts"
 const REPORT_DROPS: String = "drops"
 const REPORT_PRESETS: String = "presets"
 const REPORT_LAYOUT: String = "layout"
+const REPORT_UNLOCK: String = "unlock"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -70,6 +71,13 @@ const SCENARIOS: Dictionary = {
 		"kind": KIND_REPORT,
 		"report": REPORT_DROPS,
 		"note": "3ステージの抽選テーブル / 1000回の分布 / 宝箱を積む→開ける→個体になる",
+	},
+	# 段階9（機能の段階解放）の検証。EXEC_SCREEN_UNLOCK.md §6-A 〜 §6-D。
+	# ⚠ 戦闘を回さない。mark_stage_cleared() を直接呼んで解放が進むかだけを見る。
+	"unlock": {
+		"kind": KIND_REPORT,
+		"report": REPORT_UNLOCK,
+		"note": "画面の段階解放。最初から3つ / stage_1〜3 で段階的に開く / 一度開いたら閉じない",
 	},
 	# 段階8（ルーン）の検証。EXEC_RUNES.md §6-A / §6-B。
 	# ⚠ ここだけ report の枝では足りない。ルーンは戦闘の挙動そのものを変えるので、
@@ -601,6 +609,8 @@ func _ready() -> void:
 			_report_drops()
 		elif report == REPORT_PRESETS:
 			_report_presets()
+		elif report == REPORT_UNLOCK:
+			_report_unlock()
 		elif report == REPORT_LAYOUT:
 			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
 			await _report_layout()
@@ -687,6 +697,112 @@ func _apply_skills(scenario: Dictionary) -> void:
 			# ⚠ 既に同じ枠に入っている場合は false が返るが、それは正常
 			#   （game_manager.gd:2168 の "already in this slot"）。
 			GameManager.select_skill(character_id, slot, str(skill_ids[slot]))
+
+
+# 機能の段階解放（段階9・EXEC_SCREEN_UNLOCK.md §3-J）。
+#
+# ⚠ 戦闘を回さない。mark_stage_cleared() を直接呼ぶ。
+# ⚠ 状態は書き換えるが保存しない（_ready() の注意書きと同じ）。
+func _report_unlock() -> void:
+	print("[DebugBoot] --- 画面IDの一覧（GAME_DESIGN.md 9-5 の解放順）---")
+	var all_ids: Array[String] = GameManager.get_all_screen_ids()
+	print("  %d 件: %s" % [all_ids.size(), str(all_ids)])
+
+	print("[DebugBoot] --- stages.json の unlocks ---")
+	var listed: Array[String] = []
+	for stage_id: String in ["stage_1", "stage_2", "stage_3"]:
+		var unlocks: Array[String] = GameManager.get_stage_unlocks(stage_id)
+		listed.append_array(unlocks)
+		print("  %-10s -> %s" % [stage_id, str(unlocks)])
+	# ⚠ 知らない screen_id は E125 がロード時に赤で言う。ここでは逆向きを出す。
+	var never: Array[String] = []
+	for screen_id: String in all_ids:
+		if not (screen_id in listed):
+			never.append(screen_id)
+	print("  ⚠ unlocks に1度も出てこないもの: %s" % str(never))
+	print("     （最初から開く3つ ＋ workshop だけが正解）")
+
+	# ⚠ 新規開始の状態を作り直す。debug_boot はセーブを読まないので、
+	#   ここに来た時点の unlocked_screens は initial_state_config.tres の中身。
+	print("[DebugBoot] --- 段階的に開くか ---")
+	print("  最初            %s" % str(_unlocked_ids()))
+	# ⚠ initial_state_config.tres は .tres なので設計役には直せない（CLAUDE.md）。
+	#   ⚠ 人間が guild と pomodoro を配列から消したかを、ここで数字にして出す。
+	var leaked: Array[String] = []
+	for screen_id: String in [GameStateKeys.SCREEN_GUILD, GameStateKeys.SCREEN_POMODORO]:
+		if GameManager.is_screen_unlocked(screen_id):
+			leaked.append(screen_id)
+	if leaked.is_empty():
+		print("  ⚠ initial_state_config.tres は直っている（最初から開くのは3つ）")
+	else:
+		print("  ⚠ initial_state_config.tres がまだ直っていない: %s が最初から開いている" % str(leaked))
+		print("     （Inspector の initially_unlocked_screens から2件を消す。EXEC_SCREEN_UNLOCK.md §7-A）")
+	for stage_id: String in ["stage_1", "stage_2", "stage_3"]:
+		var before: Array[String] = _unlocked_ids()
+		GameManager.mark_stage_cleared(stage_id, 0)
+		var after: Array[String] = _unlocked_ids()
+		var added: Array[String] = []
+		for screen_id: String in after:
+			if not (screen_id in before):
+				added.append(screen_id)
+		print("  %-10s クリア -> +%s" % [stage_id, str(added)])
+	print("  最後            %s" % str(_unlocked_ids()))
+	print("  workshop は開いたか -> %s（false が正解）" % str(
+		GameManager.is_screen_unlocked(GameStateKeys.SCREEN_WORKSHOP)
+	))
+
+	# --- 装飾とルーンの機能ID（決定5）---
+	print("[DebugBoot] --- 種類 -> 機能ID ---")
+	for kind: String in [
+		GameManager.PART_KIND_GEM, GameManager.PART_KIND_CHARM,
+		GameManager.PART_KIND_EMBLEM, GameManager.PART_KIND_RUNE,
+	]:
+		print("  %-8s -> %s" % [kind, str(GameManager.is_part_kind_unlocked(kind))])
+
+	# --- 足した検証が本当に出るか（2箇所で壊す・メモリ上の状態だけ）---
+	print("[DebugBoot] --- 壊して確かめる ---")
+	# (a) 開いているものを1つ消してから同期 -> クリア済みなので開き直る
+	var poisoned: Dictionary = GameManager.get_state().get(GameStateKeys.UNLOCKED_SCREENS, {})
+	poisoned.erase(GameStateKeys.SCREEN_SHOP)
+	GameManager._state[GameStateKeys.UNLOCKED_SCREENS] = poisoned
+	print("  (a) shop を消した -> %s" % str(GameManager.is_screen_unlocked(GameStateKeys.SCREEN_SHOP)))
+	GameManager._sync_unlocked_screens_from_master()
+	print("  (a) 同期した後   -> %s（true が正解）" % str(
+		GameManager.is_screen_unlocked(GameStateKeys.SCREEN_SHOP)
+	))
+	# (b) クリアを取り消してから同期 -> 一度開いたものは閉じない
+	var story: Dictionary = GameManager.get_state().get(GameStateKeys.STORY, {})
+	var stages: Dictionary = story.get(GameStateKeys.STORY_STAGES, {})
+	stages.erase("stage_3")
+	story[GameStateKeys.STORY_STAGES] = stages
+	GameManager._state[GameStateKeys.STORY] = story
+	GameManager._sync_unlocked_screens_from_master()
+	print("  (b) stage_3 のクリアを消して同期 -> rune=%s shop=%s（どちらも true が正解）" % [
+		str(GameManager.is_screen_unlocked(GameStateKeys.SCREEN_RUNE)),
+		str(GameManager.is_screen_unlocked(GameStateKeys.SCREEN_SHOP)),
+	])
+	# (c) E125 … unlocks に知らない screen_id を混ぜて、検証が赤を出すか。
+	# ⚠ 壊すのは MasterDataLoader のメモリ上のキャッシュだけ。stages.json は触らない
+	#   （git diff が最初から空のまま）。
+	# ⚠ この枝だけ ERROR: を1本わざと出す。⚠ 赤が1本出るのが正解
+	#   （drops が黄を1本多く出すのと同じ形）。
+	print("  (c) unlocks に知らない screen_id を混ぜる（⚠ この下の赤1本が正解）")
+	var poisoned_stage: Dictionary = MasterDataLoader._cache_stages["stage_1"]
+	var backup: Variant = poisoned_stage[GameManager.STAGE_MASTER_UNLOCKS]
+	poisoned_stage[GameManager.STAGE_MASTER_UNLOCKS] = ["screen_that_does_not_exist"]
+	MasterDataLoader._validate_all_item_refs()
+	poisoned_stage[GameManager.STAGE_MASTER_UNLOCKS] = backup
+	print("  (c) 戻した -> stage_1 の unlocks = %s" % str(GameManager.get_stage_unlocks("stage_1")))
+
+
+# 開いている画面IDを、get_all_screen_ids() の順に並べて返す。
+# ⚠ Dictionary のキー順（＝開いた順）だと差分が読みにくい。
+func _unlocked_ids() -> Array[String]:
+	var result: Array[String] = []
+	for screen_id: String in GameManager.get_all_screen_ids():
+		if GameManager.is_screen_unlocked(screen_id):
+			result.append(screen_id)
+	return result
 
 
 # ルーンの下ごしらえ（段階8・EXEC_RUNES.md §3-L）。
@@ -1790,6 +1906,8 @@ const LAYOUT_SCENES: Array[String] = [
 	#   （@onready のパス取り違え・move_child の相手違い）。
 	"res://scenes/guild/training_screen.tscn",
 	"res://scenes/guild/equipment_screen.tscn",
+	# ⚠ 段階9でボタンの出し分けを足した。ボタンが減ると器の幅が変わる。
+	"res://scenes/guild/guild_screen.tscn",
 ]
 
 

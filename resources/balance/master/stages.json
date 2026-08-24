@@ -1,5 +1,6 @@
 {
   "stage_1": {
+	"unlocks": ["guild", "equipment", "training", "warehouse"],
 	"name_key": "ui_stage_1",
 	"party_id": "party_default",
 	"rewards": {
@@ -16,6 +17,7 @@
 	]
   },
   "stage_2": {
+	"unlocks": ["pomodoro", "decoration"],
 	"name_key": "ui_stage_2",
 	"party_id": "party_default",
 	"rewards": {
@@ -33,6 +35,7 @@
 	]
   },
   "stage_3": {
+	"unlocks": ["research", "shop", "rune"],
 	"name_key": "ui_stage_3",
 	"party_id": "party_default",
 	"rewards": {

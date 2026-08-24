@@ -22,11 +22,13 @@ const WORKSHOP_PATH: String = "res://scenes/guild/workshop_screen.tscn"
 
 
 # sub_screen_id -> 遷移先パス
+# ⚠ sub_screen_id は GameStateKeys の画面IDと同じ綴り（段階9）。
+#   ⚠ 文字列リテラルを書かないこと（AGENTS.md）。unlocked_screens のキーでもある。
 const GUILD_SCENES: Dictionary = {
-	"warehouse": WAREHOUSE_PATH,
-	"shop": SHOP_PATH,
-	"training": TRAINING_PATH,
-	"research": RESEARCH_PATH,
+	GameStateKeys.SCREEN_WAREHOUSE: WAREHOUSE_PATH,
+	GameStateKeys.SCREEN_SHOP: SHOP_PATH,
+	GameStateKeys.SCREEN_TRAINING: TRAINING_PATH,
+	GameStateKeys.SCREEN_RESEARCH: RESEARCH_PATH,
 }
 
 # sub_screen_id -> PrimaryButton（_ready で組み立てる）
@@ -44,15 +46,28 @@ func _ready() -> void:
 	# 4つのボタンを Dictionary 化（4回同じコードを書かない）
 	# ⚠ workshop は廃止中のため入れない（上の GUILD_SCENES のコメント）。
 	_nav_buttons = {
-		"warehouse": warehouse_button,
-		"shop": shop_button,
-		"training": training_button,
-		"research": research_button,
+		GameStateKeys.SCREEN_WAREHOUSE: warehouse_button,
+		GameStateKeys.SCREEN_SHOP: shop_button,
+		GameStateKeys.SCREEN_TRAINING: training_button,
+		GameStateKeys.SCREEN_RESEARCH: research_button,
 	}
 	# ループでシグナル接続
 	for sub_id: String in _nav_buttons:
 		_nav_buttons[sub_id].pressed.connect(_go_to_sub.bind(sub_id))
 	back_button.pressed.connect(_on_back_pressed)
+	# 段階解放（GAME_DESIGN.md 9-5）。⚠ base_screen.gd と同じ1行。
+	#   ⚠ workshop_button は触らない。廃止中で .tscn 側が visible = false
+	#     （二重に閉じると、復活させるときにどちらを開けばよいか読めなくなる）。
+	GameManager.screen_unlocked.connect(_on_screen_unlocked)
+	_refresh_unlocked()
+
+# ⚠ 「出さない」（人間の決定・2026-08-24）。灰色で見せない。
+func _refresh_unlocked() -> void:
+	for sub_id: String in _nav_buttons:
+		_nav_buttons[sub_id].visible = GameManager.is_screen_unlocked(sub_id)
+
+func _on_screen_unlocked(_screen_id: String) -> void:
+	_refresh_unlocked()
 
 func _go_to_sub(sub_id: String) -> void:
 	var path: String = str(GUILD_SCENES.get(sub_id, ""))

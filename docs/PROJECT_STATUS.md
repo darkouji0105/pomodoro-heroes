@@ -154,6 +154,7 @@
 | **検証の道具の入れ替え**（⚠ **ゲームの中身は増えていない**） | `EXEC_VERIFY_TOOLING.md` | ✅ 完了（2026-08-18。⚠ **設計役が Godot をヘッドレスで起動できることが実測で判明**。`AGENTS.md` に「誰が取るか」を追記。⚠ **godot MCP は使えないままだが不要**） |
 | **デバッグ起動シーンを1個にまとめる** | `EXEC_DEBUG_BOOT.md` | ✅ 完了（2026-08-18。`tests/debug_boot.tscn` / `.gd` 新規。⚠ **本番コードは1行も触っていない**。編成・スキル枠・ステージ・撃つ合図まで自動で走る＝**段階4で溶けた往復6回のうち5回が消えた**） |
 | **範囲攻撃（段階4・`mode: area`）** | `EXEC_SKILL_AREA.md` | ✅ 完了（2026-08-18。`origin`（`user` / `target`）を新設、`select_targets()` を `pool_all` / `pool_in` に組み替え。E77〜E80。⚠ **④-a から入っていた `E69` のバグを発見して修正**（下記）） |
+| **ルーン**（段階8） | `EXEC_RUNES.md` | ✅ 完了（2026-08-24。⚠ **`runes.json` 新設＝マスター7本目・25件**。⚠ **バフ／デバフ／回復／シールドは既存の `SkillResolver` → `StatusRegistry` に乗せ、⚠ 移動だけ `battle_controller` が受ける**。⚠ **ステータスを1つも足さない装飾が初めて入った**。⚠ **画面（16項目）は人間の確認待ち**） |
 | **skills の複数ファイル化 ＋ 検証用キャラ3体** | `EXEC_SKILL_MULTIFILE.md` | ✅ 完了（2026-08-16。`skills.json`（18件）をキャラ別3ファイルへ分割し、`skills_debug.json`（18件）と検証用キャラ3体を新設。`MasterDataLoader` が複数ファイルをマージし**重複IDを赤で弾く**。**ログ・ファイル・画面の全項目が通った**。⚠ **設計役が全部書いた**（実装役に渡す予定を人間の判断で変更）） |
 
 ### 戦闘画面でできること
@@ -285,6 +286,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `341d317` | `feat(runes): ルーン25件・スキルの直前に発動・移動量をキャラプリセットへ`（段階8。14ファイル。新規は `resources/balance/master/runes.json`＝**マスター7本目**。⚠ **ルーンは `SkillRuntime.cast()` をそのまま通す＝効果の種類を1つも増やしていない**。⚠ **移動だけ `battle_controller._fire_runes()` が受け、`rune_move_lock_sec` で自動移動を止める**。`merge_runes()` / `set_rune_move()` / `get_battle_runes()` を新設・`items.json` 64→89件・`ja.csv` 446→480行・E123 / E124・`debug_boot` に `runes` シナリオ） | `EXEC_RUNES.md` |
 | `a58c8e4` | `feat(party): パーティ選択画面と2階層のプリセット`（段階7。新規は `scenes/adventure/party_preset_screen.gd` / `.tscn`。⚠ **`GAME_DESIGN` 5-5 の2階層・参照方式**。`character_presets` / `party_presets` を新設・`get_equip_reject_reason()` を切り出し・`_collect_party_candidates()` を `GameManager.get_party_candidates()` へ移動・`debug_boot` に `presets` シナリオ。⚠ **E/W は増やしていない**。⚠ **マスターデータを1件も触っていない**） | `EXEC_PARTY_PRESETS.md` |
 | `128f25d` | `feat(battle): 召喚（spawn）を足し、専用配列と座標の規則を入れる`（段階6。18ファイル。新規は `resources/balance/master/summons.json` と `docs/02_exec/EXEC_SKILL_SPAWN.md`。`type: "summon"` を実装・`host: "spawn"` を赤に格上げ・`BattleSession.summon_units` と `find_unit()` 新設・E93〜E101 / W13） | `EXEC_SKILL_SPAWN.md` |
 | `9df9546` | `feat(battle): 段（phases）と再発動（recast）を足し、構え中はCDを見ないようにする`（段階5。`phase_of()` / `phase_count()` 新設・`BattleUnit.recast_pending`・`BattleLog.log_recast()`・E81〜E92・`debug_boot` の `fire` に `gap` 欄） | `EXEC_SKILL_RECAST.md` |
@@ -370,6 +372,27 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - ⚠ **`_sync_recipes_from_master()` の「読めない」保険が `MasterDataLoader` 側の赤だけになった**（早期 return を外したため。`EXEC_WORKSHOP_RETIRE.md` 決め1）。`recipes.json` を復活させる回で、GameManager 側にも戻すか判断する
 - ⚠ **`guild_screen.gd` の `WORKSHOP_PATH` が未使用のまま残っている**（復活で1行ずつ戻すため意図的に残した）。復活しないと決めたら消す
 - ~~⚠ **`AGENTS.md`「GameManagerの状態構造」の `PENDING_CHESTS` の行が実装と違う**（ズレ26）~~ ✅ **直した**（2026-08-23・`EXEC_PARTY_PRESETS` の回。⚠ **`PARTY_MEMBERS` / `CHARACTER_PRESETS` / `PARTY_PRESETS` の3行も足した**）
+
+### 機能の段階解放の回で足した宿題（2026-08-24・`EXEC_SCREEN_UNLOCK.md`）
+
+- ⚠ **どのステージで何が開くかが「勘」。** ⚠ **本番ステージが `stage_1` / `stage_2` / `stage_3` の3本しか無く、⚠ 引き金が4つ（「最初から」込み）しか作れないので、⚠ `GAME_DESIGN` 9-5 の10段を4段に畳んである**（`EXEC_SCREEN_UNLOCK` §2）。⚠ **ステージが増えたら `stages.json` の `unlocks` を分けるだけで刻める**
+- ⚠ **9-5 の「拠点」（#8）の置き場が無い。** ⚠ **`base_screen` はハブなので閉じられない。⚠ `GAME_DESIGN` 10章の建設画面がまだ無い**
+- ⚠ **作業場が2箇所で閉じている。** ⚠ **`guild_screen.tscn` の `WorkshopButton.visible = false` と、⚠ `stages.json` の `unlocks` に1度も書かないこと。⚠ 復活させるときは両方戻す**
+- ⚠ **`F4` の「画面を全部解放」はリリース前に消す**（⚠ **宿題32の一覧に入る**）
+- ⚠ **`settings` と `scenario` が `placeholder_screen` のまま。** ⚠ **中身が無いので閉じても開けても見えるものが変わらず、最初から開けてある**
+- ⚠ **ズレ29 と ズレ30 を `GAME_DESIGN` 9-5 に反映していない**（⚠ **勝手に直していない。`EXEC_SCREEN_UNLOCK` §11**）
+  - ⚠ **ズレ29**：⚠ **9-5 は「装備 → 育成」の順だが、⚠ 装備画面へは育成画面からしか入れない。⚠ 決定4 で「同時に開く」にした**
+  - ⚠ **ズレ30**：⚠ **9-5 の10段のうち画面として閉じられるのは6つだけ。⚠ 装飾（#5）とルーン（#10）は装備画面の中の行 ／ 拠点（#8）はハブ ／ 倉庫はどの段にも無い**
+- ⚠ **`scenario=unlock` は赤が1本出るのが正解**（⚠ **`E125` をわざと出している。⚠ `drops` が黄を1本多く出すのと同じ形**）
+
+### ルーンの回で足した宿題（2026-08-24・`EXEC_RUNES.md`）
+
+- ⚠ **マスターファイルが7本目になった**（`runes.json`）。⚠ **6本目（`chests.json`）の判断が未了のまま増えた**
+- ⚠ **ルーンのかけらが無い。** ⚠ **段階5で重ねようとすると `ui_part_reject_rune_max` で止まる**（`GAME_DESIGN` 7-7 は「超えた分はかけらになる」）。⚠ **そのためルーンは倉庫で「壊す」も出さない**（⚠ **装飾素材に戻すと `decor_material_5` という存在しないIDが要る**）
+- ⚠ **ルーンの本番入手経路が無い。** ⚠ **`F4` の「装飾を全種類」だけ**（⚠ **7-7 の「ポモドーロ報酬のレアな枠」は未実装。⚠ `chests.json` のポモドーロ4件は固定報酬で抽選が無い**）
+- ⚠ **ルーンの数値が全部「勘」**（⚠ **CD 5個 ／ 効果量 20個 ／ 移動距離 16個 ／ `rune_move_lock_sec` ／ `rune_merge_count`**）
+- ⚠ **移動のロック中であることが画面に出ない** ／ ⚠ **ルーンのCDが画面に出ない**（⚠ **スキルのボタンにはゲージが在る**）
+- ⚠ **`scenario=parts` は黄が1本多く出るのが正解**（⚠ **刺さっているルーンのIDをわざと壊して `W18` を出している**）
 
 ### パーティ選択画面とプリセットの回で足した宿題（2026-08-23・`EXEC_PARTY_PRESETS.md`）
 
