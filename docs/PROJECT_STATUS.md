@@ -387,6 +387,7 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 40. ⚠ **作業場のアップグレード（`GAME_DESIGN` 9-3「建築素材で作業場自体をアップグレード」）が無い。** ⚠ **キュー本数は研究の枝で伸ばす形にした**
 41. ⚠ **掘削（`GAME_DESIGN` 9-3-1）はデモ範囲外のまま**
 42. ⚠ **ズレ38**：⚠ **`GAME_DESIGN` 9-1 の作業場カテゴリに「変換レート」が残っている。⚠ 同じファイルの 9-3 と 2章が「変換は廃止」と書いており、上げるレートが存在しない**（⚠ **勝手に直していない**）
+43. ⚠ **`load_state()` が `inventory` の `count` を `int()` に戻していない。** ⚠ **`materials` / `character_growth` / `crafting_queue` / `equipment_instances` は戻しているのに、⚠ ここだけ素通り**（`game_manager.gd:5331` 付近）。⚠ **セーブに `"count": 5.0` と書かれる**（⚠ **2026-08-25に実セーブで確認。⚠ 装飾36件のうち33件**）。⚠ **表示と判定は壊れない**（⚠ **`get_item_count()` / `_remove_from_inventory()` / `use_stamina_potion()` は全部 `int()` を通している。⚠ 一度でも増減すると int に戻る**）。⚠ **`CLAUDE.md` 3番の症状**
 - ⚠ **`scenario=workshop` は赤が2本出るのが正解**（⚠ **`E129` をわざと2箇所で出している。⚠ `unlock` が1本出すのと同じ形**）
 - ~~⚠ **`AGENTS.md`「GameManagerの状態構造」の `PENDING_CHESTS` の行が実装と違う**（ズレ26）~~ ✅ **直した**（2026-08-23・`EXEC_PARTY_PRESETS` の回。⚠ **`PARTY_MEMBERS` / `CHARACTER_PRESETS` / `PARTY_PRESETS` の3行も足した**）
 

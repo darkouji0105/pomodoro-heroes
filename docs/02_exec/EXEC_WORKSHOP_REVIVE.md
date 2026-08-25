@@ -399,3 +399,27 @@ ui_guild_workshop_draw,装飾（ランダム）
 | ⚠ **見える合図** | ⚠ **`F4` の情報欄に `製作 N / M本（完成 K）` の1行を足した。⚠ ログを見ずに効いたことが分かる** |
 
 ⚠ **リリース前に消すものの一覧（宿題35）は `tests/debug_overlay` をファイルごと挙げているので、⚠ 新しく足す項目は無い。**
+
+### 8-7. ⚠ セーブ（§5-B の B-8）… **通った。⚠ ただし隣に前からある穴を見つけた**
+
+⚠ **人間が §5-C を全部通してセーブしたものを読んだ**（2026-08-25 14:16・`save_slot_0.json` 26,970 バイト）。
+
+**通ったこと**：
+
+| 見たもの | 結果 |
+|---|---|
+| ⚠ **`crafting_queue`** | ⚠ **`duration_sec` が `1800` と `1440`、⚠ `started_at` も int。⚠ `.0` は1つも無い**（⚠ **1440 は研究の -20% が乗った個体がそのまま保存されている＝決め7が効いている**） |
+| ⚠ **`output_item_id` / `recipe_type`** | ⚠ **2件とも `""`**（⚠ **決め1のとおり。⚠ ロードでも壊れていない**） |
+| `recipes_unlocked` | `craft_part_1..3` が3件とも `true` |
+| `research_tree` | ⚠ **20 / 20 解放** |
+| `unlocked_screens` | ⚠ **`workshop` が入っている** |
+
+**⚠ 見つけた穴（このタスクの変更とは無関係・前からある）**：
+
+⚠ **`inventory` の `count` が `5.0` と小数で書かれている**（⚠ **装飾36件のうち33件**。⚠ **`CLAUDE.md` 3番の症状**）。
+
+- ⚠ **原因は `load_state()`。⚠ `materials` / `character_growth` / `crafting_queue` / `equipment_instances` は `int()` に戻しているが、⚠ `inventory` の `count` だけ素通りしている**（`game_manager.gd:5331` 付近）
+- ⚠ **`F4` の「装飾を全種類」で入れた 5 が、⚠ セーブ → ロードで `5.0` になり、⚠ そのまま書き戻されている**
+- ⚠ **`6` になっている3件（`part_charm_def_1` / `part_emblem_crit_rate_1` / `part_gem_atk_1`）はステージ報酬で +1 されたもの。⚠ `add_to_inventory()` が `int()` で包むので、⚠ 一度でも増減すると int に戻る**
+- ⚠ **表示と判定は壊れない。** ⚠ `get_item_count()` / `_remove_from_inventory()` / `use_stamina_potion()` は全部 `int()` を通していることを `grep` で確認した
+- ⚠ **直していない**（⚠ **今回の範囲外。⚠ `1タスク = 1つの通し`**）→ **宿題43**
