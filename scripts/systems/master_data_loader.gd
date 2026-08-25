@@ -302,7 +302,12 @@ static func _validate_all_item_refs() -> void:
 				"%s slot %s" % [str(shop_type), str((slot as Dictionary).get("slot_id", "?"))]
 			)
 
-	# research.json … cost_material_id
+	# research.json … cost_material_id ＋ ボードと前提の整合（E128・段階10）。
+	#
+	# ⚠ E128 が見るのは「押せないノードが1件出るだけ」で赤も黄も出ずに詰む形。
+	#   ⚠ GameManager._prerequisites_met() の push_warning は、解放を試した瞬間にしか出ない
+	#     （＝画面に並んでいるだけでは誰も気づけない）。
+	# ⚠ ループを2本に分けない。cost_material_id と同じ1本の中で見る。
 	for node_id: Variant in _cache_research:
 		var node: Variant = _cache_research[node_id]
 		if not (node is Dictionary):
@@ -312,6 +317,40 @@ static func _validate_all_item_refs() -> void:
 			"research.json",
 			str(node_id)
 		)
+
+		# JSON の数値は float で来る。int() を外すと比較がずれる。
+		var board: int = int((node as Dictionary).get(GameManager.RESEARCH_NODE_BOARD, GameManager.RESEARCH_DEFAULT_BOARD))
+		if board < 1:
+			push_error("[MasterDataLoader] E128 research.json (%s): board は1以上でなければならない: %d" % [
+				str(node_id), board
+			])
+			errors += 1
+
+		var raw_prerequisites: Variant = (node as Dictionary).get("prerequisites", [])
+		if not (raw_prerequisites is Array):
+			push_error("[MasterDataLoader] E128 research.json (%s): prerequisites が Array でない" % str(node_id))
+			errors += 1
+			continue
+		for raw_prerequisite: Variant in (raw_prerequisites as Array):
+			var prerequisite_id: String = str(raw_prerequisite)
+			if not _cache_research.has(prerequisite_id):
+				push_error("[MasterDataLoader] E128 research.json (%s): 知らない prerequisite: '%s'" % [
+					str(node_id), prerequisite_id
+				])
+				errors += 1
+				continue
+			var prerequisite: Variant = _cache_research[prerequisite_id]
+			if not (prerequisite is Dictionary):
+				continue
+			# ⚠ 後のボードを前提にすると、そのノードは永久に解放できない
+			#   （前のボードを全部解放しないと次のボードが開かないため）。
+			var prerequisite_board: int = int((prerequisite as Dictionary).get(
+				GameManager.RESEARCH_NODE_BOARD, GameManager.RESEARCH_DEFAULT_BOARD))
+			if prerequisite_board > board:
+				push_error("[MasterDataLoader] E128 research.json (%s): 前提 '%s' が後のボードにある（board %d → %d）" % [
+					str(node_id), prerequisite_id, board, prerequisite_board
+				])
+				errors += 1
 
 	# recipes.json … inputs / outputs
 	for recipe_id: Variant in _cache_recipes:

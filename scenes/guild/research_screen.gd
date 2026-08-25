@@ -14,6 +14,11 @@ const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/pr
 const NODE_NAME_KEY: String = "name_key"
 const NODE_SORT_ORDER: String = "sort_order"
 
+# ⚠ カテゴリの見出しは、出てきた順にそのまま作る（段階10）。
+#   ⚠ 画面に if を1つも書かないこと。研究の枝を増やす回に、ここを直さずに済ませるため
+#     （ja.csv に "ui_research_category_<category>" を1行足せば見出しが出る）。
+const CATEGORY_KEY_PREFIX: String = "ui_research_category_"
+
 @onready var material_label: Label = $Margin/Layout/MaterialLabel
 @onready var cap_label: Label = $Margin/Layout/CapLabel
 @onready var node_list: VBoxContainer = $Margin/Layout/Scroll/NodeList
@@ -42,20 +47,34 @@ func _refresh() -> void:
 func _refresh_header() -> void:
 	# get_effective_level_cap() は character_id を使わない実装（全キャラ共通の上限）。
 	# 代表キャラを決め打ちしないため空文字を渡す。
-	cap_label.text = tr("ui_research_cap") % GameManager.get_effective_level_cap("")
-
-	var material_id: String = _primary_material_id()
-	if material_id == "":
-		material_label.text = ""
-		return
-	material_label.text = "%s  %d" % [
-		tr("ui_res_" + material_id),
-		GameManager.get_material_count(material_id),
+	var board: int = GameManager.get_current_research_board()
+	var progress: Dictionary = GameManager.get_research_board_progress(board)
+	cap_label.text = "%s　%s" % [
+		tr("ui_research_cap") % GameManager.get_effective_level_cap(""),
+		tr("ui_research_board") % [
+			board,
+			int(progress.get("unlocked", 0)),
+			int(progress.get("total", 0)),
+		],
 	]
+
+	# ⚠ 素材は1種類ではない（ノードごとに種類を変えて競合を分散させる・GAME_DESIGN 9-1）。
+	#   ⚠ 出すのは「今のボードで使う素材」だけ。全16種を並べると読めない。
+	var parts: Array[String] = []
+	for material_id: String in _board_material_ids(board):
+		parts.append("%s %d" % [
+			tr("ui_res_" + material_id),
+			GameManager.get_material_count(material_id),
+		])
+	material_label.text = "　".join(parts)
 
 
 func _build_node_list() -> void:
+	# ⚠ remove_child() してから queue_free() する。1回の解放で research_node_unlocked と
+	#   material_changed が続けて飛ぶため、queue_free() だけだと行が二重に並ぶ
+	#   （AGENTS.md「再描画は await を持たせない」・ショップで実際に踏んだ形）。
 	for child in node_list.get_children():
+		node_list.remove_child(child)
 		child.queue_free()
 
 	var tree: Dictionary = GameManager.get_research_tree()
@@ -65,7 +84,16 @@ func _build_node_list() -> void:
 		return
 	notice_label.text = ""
 
-	for node_id: String in _sorted_node_ids(tree):
+	# ⚠ 描くのは「今のボード」だけ。次のボードは、今のボードを全部解放すると出る。
+	var board: int = GameManager.get_current_research_board()
+	var shown: String = ""
+	for node_id: String in _sorted_node_ids(tree, board):
+		var category: String = _category_of(node_id)
+		if category != shown:
+			shown = category
+			var heading: Label = Label.new()
+			node_list.add_child(heading)
+			heading.text = tr(CATEGORY_KEY_PREFIX + category)
 		_add_node_row(node_id, tree[node_id])
 
 
@@ -85,7 +113,8 @@ func _add_node_row(node_id: String, node: Dictionary) -> void:
 	node_list.add_child(info)
 
 	var lines: Array[String] = [
-		"%s　%s" % [
+		"%s%s　%s" % [
+			_milestone_mark(definition),
 			tr(str(definition.get(NODE_NAME_KEY, ""))),
 			_effect_text(node),
 		]
@@ -140,14 +169,47 @@ func _on_material_changed(_material_id: String, _new_amount: int) -> void:
 
 # --- 内部ヘルパー ---
 
-# sort_order の昇順。sort_order を持たないノードは末尾に回る。
-func _sorted_node_ids(tree: Dictionary) -> Array[String]:
+# そのボードのノードだけを、カテゴリ → sort_order の順に並べる。
+# sort_order を持たないノードは末尾に回る。⚠ ノードIDを決め打ちしないこと。
+func _sorted_node_ids(tree: Dictionary, board: int) -> Array[String]:
 	var ids: Array[String] = []
 	for node_id: String in tree:
+		if GameManager.get_research_board_of(node_id) != board:
+			continue
 		ids.append(node_id)
 	ids.sort_custom(func(a: String, b: String) -> bool:
+		var category_a: String = _category_of(a)
+		var category_b: String = _category_of(b)
+		if category_a != category_b:
+			return category_a < category_b
 		return _sort_order_of(a) < _sort_order_of(b)
 	)
+	return ids
+
+
+func _category_of(node_id: String) -> String:
+	var definition: Dictionary = MasterDataLoader.get_research_node(node_id)
+	return str(definition.get(GameManager.RESEARCH_NODE_CATEGORY, ""))
+
+
+# 中間・最後の区切り（GAME_DESIGN 9-1「区切りとして大きめのバフ」）。印が無ければ空文字。
+func _milestone_mark(definition: Dictionary) -> String:
+	match str(definition.get(GameManager.RESEARCH_NODE_MILESTONE, "")):
+		GameManager.RESEARCH_MILESTONE_MID:
+			return tr("ui_research_milestone_mid") + " "
+		GameManager.RESEARCH_MILESTONE_FINAL:
+			return tr("ui_research_milestone_final") + " "
+	return ""
+
+
+# そのボードのノードが要求する素材ID（重複を除き、出てきた順）。
+func _board_material_ids(board: int) -> Array[String]:
+	var ids: Array[String] = []
+	for node_id: String in _sorted_node_ids(GameManager.get_research_tree(), board):
+		var material_id: String = str(GameManager.get_research_unlock_cost(node_id).get(
+			GameManager.RESEARCH_COST_MATERIAL_ID, ""))
+		if material_id != "" and not (material_id in ids):
+			ids.append(material_id)
 	return ids
 
 
@@ -164,7 +226,14 @@ func _effect_text(node: Dictionary) -> String:
 		GameStateKeys.EFFECT_LEVEL_CAP_UNLOCK:
 			return tr("ui_research_effect_cap") % value
 		GameStateKeys.EFFECT_STAT_BOOST_ALL:
+			# ⚠ target_stat が "all" でなければ軸1本だけの加算（段階10）。
+			#   ⚠ 軸名は育成画面と同じ ui_training_stat_<軸> を使い回す（新しいキーを作らない）。
+			var stat: String = str(node.get(GameStateKeys.NODE_TARGET_STAT, GameManager.STAT_BOOST_ALL_KEY))
+			if stat != GameManager.STAT_BOOST_ALL_KEY:
+				return tr("ui_research_effect_stat_axis") % [tr("ui_training_stat_" + stat), value]
 			return tr("ui_research_effect_stat") % value
+		GameStateKeys.EFFECT_CHEST_DRAW_BONUS:
+			return tr("ui_research_effect_chest_draw") % value
 	return ""
 
 
@@ -177,15 +246,3 @@ func _prerequisite_names(node: Dictionary) -> String:
 			var definition: Dictionary = MasterDataLoader.get_research_node(str(prerequisite_id))
 			names.append(tr(str(definition.get(NODE_NAME_KEY, ""))))
 	return "、".join(names)
-
-
-# 所持数をヘッダに出す素材。研究で使う素材が1種類である前提で、
-# 最初のノードのコストから引く（ノードIDを決め打ちしないため）。
-func _primary_material_id() -> String:
-	var tree: Dictionary = GameManager.get_research_tree()
-	for node_id: String in _sorted_node_ids(tree):
-		var cost: Dictionary = GameManager.get_research_unlock_cost(node_id)
-		var material_id: String = str(cost.get(GameManager.RESEARCH_COST_MATERIAL_ID, ""))
-		if material_id != "":
-			return material_id
-	return ""

@@ -40,8 +40,13 @@ const CONSUMABLE_AMOUNT: int = 99
 # 装備は1種につき1個。1個あれば着脱の確認はできる。
 # 多く配ると倉庫が個体で埋まり、逆に目当ての1個を探せなくなる。
 const EQUIPMENT_COUNT: int = 1
-# 研究の解放を回す最大回数。前提を辿るために複数回まわす必要があるが、
+# 研究の解放を回す最大回数の下限。前提を辿るために複数回まわす必要があるが、
 # 解放できないノード（素材不足）が残ると無限に回るため上限で必ず止める。
+#
+# ⚠ 実際に使う回数は「この値」と「ノード数」の大きいほう（段階10）。
+#   ⚠ 20 固定のままボードを足すと、前提の連なりが 20 を超えた瞬間に
+#     「F4 を押したのに全部解放されない」形で無音に壊れる。
+#   ⚠ 1回のパスで最低1件は解放されるので、ノード数まで回せば必ず打ち止まる。
 const RESEARCH_MAX_PASSES: int = 20
 # 右上に寄せるときの想定幅。実サイズはレイアウト確定後にしか取れないため、
 # 位置決めにはこの固定値を使う。多少ずれても検証には困らない。
@@ -307,7 +312,8 @@ func _unlock_all_screens() -> void:
 # 先に「素材を全種類」を押しておくこと。
 func _unlock_all_research() -> void:
 	var total: int = 0
-	for pass_index: int in range(RESEARCH_MAX_PASSES):
+	var passes: int = maxi(RESEARCH_MAX_PASSES, MasterDataLoader.get_all_research_nodes().size())
+	for pass_index: int in range(passes):
 		var unlocked_this_pass: int = 0
 		for node_id: String in MasterDataLoader.get_all_research_nodes():
 			if GameManager.unlock_research_node(node_id):

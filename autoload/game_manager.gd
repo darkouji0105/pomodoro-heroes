@@ -51,6 +51,17 @@ const RESEARCH_COST_AMOUNT: String = "amount"
 # research.json 側のキー（状態ではなくマスターデータのため GameStateKeys には置かない）。
 const RESEARCH_NODE_COST_MATERIAL_ID: String = "cost_material_id"
 const RESEARCH_NODE_COST_AMOUNT: String = "cost_amount"
+# ⚠ ボード・カテゴリ・区切りの印（段階10・EXEC_GUILD_RESEARCH_V2.md §5-C）。
+# ⚠ この3つは状態に持たせない。「今どのボードか」は get_current_research_board() が
+#   毎回マスターと進捗から計算する（＝セーブの移行が要らない）。
+const RESEARCH_NODE_BOARD: String = "board"
+const RESEARCH_NODE_CATEGORY: String = "category"
+const RESEARCH_NODE_MILESTONE: String = "milestone"
+# milestone に入る値（"" は印なし）。
+const RESEARCH_MILESTONE_MID: String = "mid"
+const RESEARCH_MILESTONE_FINAL: String = "final"
+# board を持たないノードの扱い。1枚目のボードに置く。
+const RESEARCH_DEFAULT_BOARD: int = 1
 
 # character_nodes.json 側のキー（同じくマスターデータ。EXEC_LEVEL_ROLE_SHIFT.md §5-1）。
 # セーブに残るのはノードIDだけで、これらの値は毎回ここから引き直す。
@@ -283,6 +294,9 @@ func _build_new_game_state(caller: String) -> void:
 	# 研究ツリーを research.json から流し込む。
 	# _empty_state_template() の research_tree は {} のため、これが無いと画面に1つも出ない。
 	_sync_research_tree_from_master()
+	# ⚠ 上限の合計が max_character_level と一致しているかを見る（E127・段階10）。
+	#   ⚠ ずれるとパッシブの Lv100 が永久に解放されないが、赤も黄も出ない。
+	_validate_level_cap_total()
 	# ショップのラインナップを shop.json から流し込む。research_tree と同じ理由で、
 	# _empty_state_template() の line_up は [] のため、これが無いと画面に1つも出ない。
 	_sync_shops_from_master()
@@ -958,7 +972,9 @@ func _roll_chest_draw(draw_def: Dictionary) -> Dictionary:
 	if total_weight <= 0:
 		return drawn
 
-	var rolls: int = int(draw_def.get(CHEST_DRAW_ROLLS, 1))
+	# ⚠ 研究の chest_draw_bonus はここ1箇所だけに乗る（段階10）。
+	#   ⚠ weight（ドロップ率・高等級の確率）には乗せない。抽選の本体は変えない。
+	var rolls: int = int(draw_def.get(CHEST_DRAW_ROLLS, 1)) + get_research_chest_draw_bonus()
 	for _i: int in range(rolls):
 		var pick: int = randi_range(1, total_weight)
 		var cursor: int = 0
@@ -4432,7 +4448,72 @@ func can_unlock_research_node(node_id: String) -> bool:
 	var node: Dictionary = tree[node_id]
 	if bool(node.get(GameStateKeys.NODE_UNLOCKED, false)):
 		return false
+	# ⚠ ボードが開いていなければ前提の話まで行かない（unlock_research_node() と同じ順）。
+	if not is_research_board_open(get_research_board_of(node_id)):
+		return false
 	return _prerequisites_met(node)
+
+
+# --- 研究：ボード（段階10・GAME_DESIGN.md 9-1「1周クリアで次のボードに切り替わる」）---
+
+# そのノードが属するボード番号。⚠ マスターだけが持つ欄で、状態には無い。
+func get_research_board_of(node_id: String) -> int:
+	var definition: Dictionary = MasterDataLoader.get_research_node(node_id)
+	if definition.is_empty():
+		return RESEARCH_DEFAULT_BOARD
+	# JSON の数値は float で来る。int() を外すと比較がずれる（CLAUDE.md 3番）。
+	return int(definition.get(RESEARCH_NODE_BOARD, RESEARCH_DEFAULT_BOARD))
+
+
+# 今のボード＝未解放ノードを持つ最小のボード。全部解放済みなら最大のボード。
+#
+# ⚠ 状態に「今どのボードか」を持たない。持つとセーブの移行が要るうえ、
+#   research.json にボードを足したときに状態と食い違う（_sync_research_tree_from_master()
+#   がマスターを正とするのと同じ考え方）。
+func get_current_research_board() -> int:
+	var tree: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
+	var lowest_open: int = -1
+	var highest: int = RESEARCH_DEFAULT_BOARD
+	for node_id: String in tree:
+		var board: int = get_research_board_of(node_id)
+		highest = maxi(highest, board)
+		if bool((tree[node_id] as Dictionary).get(GameStateKeys.NODE_UNLOCKED, false)):
+			continue
+		if lowest_open < 0 or board < lowest_open:
+			lowest_open = board
+	return highest if lowest_open < 0 else lowest_open
+
+
+func is_research_board_open(board: int) -> bool:
+	return board <= get_current_research_board()
+
+
+# そのボードの {全件, 解放済み}。画面のヘッダと scenario=research が使う。
+func get_research_board_progress(board: int) -> Dictionary:
+	var tree: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
+	var total: int = 0
+	var unlocked: int = 0
+	for node_id: String in tree:
+		if get_research_board_of(node_id) != board:
+			continue
+		total += 1
+		if bool((tree[node_id] as Dictionary).get(GameStateKeys.NODE_UNLOCKED, false)):
+			unlocked += 1
+	return {"total": total, "unlocked": unlocked}
+
+
+# 研究で解放した「宝箱の抽選回数 +N」の合計。_roll_chest_draw() の rolls に乗る。
+func get_research_chest_draw_bonus() -> int:
+	var tree: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
+	var bonus: int = 0
+	for node_id: String in tree:
+		var node: Dictionary = tree[node_id]
+		if not bool(node.get(GameStateKeys.NODE_UNLOCKED, false)):
+			continue
+		if str(node.get(GameStateKeys.NODE_EFFECT_TYPE, "")) != GameStateKeys.EFFECT_CHEST_DRAW_BONUS:
+			continue
+		bonus += int(node.get(GameStateKeys.NODE_EFFECT_VALUE, 0))
+	return bonus
 
 # 研究ノードを解放する。存在しない・解放済み・前提未達・素材不足のときは
 # 何もせず false を返す。成功時は素材を消費して research_node_unlocked を発火する。
@@ -4445,6 +4526,15 @@ func unlock_research_node(node_id: String) -> bool:
 	var node: Dictionary = tree[node_id]
 	if bool(node.get(GameStateKeys.NODE_UNLOCKED, false)):
 		print("[GameManager] unlock_research_node('%s') -> false (already unlocked)" % node_id)
+		return false
+
+	# ⚠ ボードの判定は前提より先。前のボードを全部解放するまでは、前提を満たしていても
+	#   解放させない（GAME_DESIGN.md 9-1）。順序を入れ替えると理由の表示が食い違う。
+	var board: int = get_research_board_of(node_id)
+	if not is_research_board_open(board):
+		print("[GameManager] unlock_research_node('%s') -> false (board %d not open, current=%d)" % [
+			node_id, board, get_current_research_board()
+		])
 		return false
 
 	# 前提の判定を素材の判定より先に行う。順序を入れ替えると、
@@ -4562,6 +4652,40 @@ func _sync_research_tree_from_master() -> void:
 		if bool((synced[node_id] as Dictionary).get(GameStateKeys.NODE_UNLOCKED, false)):
 			unlocked_count += 1
 	print("[GameManager] _sync_research_tree_from_master() -> %d nodes (unlocked=%d)" % [synced.size(), unlocked_count])
+
+# E127 … base_level_cap ＋ 全 level_cap_unlock の合計が max_character_level と一致するか。
+#
+# ⚠ ずれても赤も黄も出ず、「Lv100 のパッシブが永久に解放されない」形で無音に壊れる
+#   （2026-08-25 に実際に踏んだ穴。NEXT_STEPS §1-3 が「一番重い」と言っている項目）。
+# ⚠ 見るのはマスターの全ノードであって、解放済みのぶんではない。
+#   ⚠ 「全部解放したときに 100 に届くか」を見張るのがこの検証。
+func _validate_level_cap_total() -> void:
+	if Balance == null or Balance.character == null:
+		push_warning("[GameManager] E127: Balance.character が読めないため上限の合計を検証できない")
+		return
+
+	var base_cap: int = int(Balance.character.base_level_cap)
+	var max_level: int = int(Balance.character.max_character_level)
+	var nodes: Dictionary = MasterDataLoader.get_all_research_nodes()
+	var sum_unlocks: int = 0
+	var cap_nodes: int = 0
+	for node_id: Variant in nodes:
+		var definition: Variant = nodes[node_id]
+		if not (definition is Dictionary):
+			continue
+		if str((definition as Dictionary).get(GameStateKeys.NODE_EFFECT_TYPE, "")) != GameStateKeys.EFFECT_LEVEL_CAP_UNLOCK:
+			continue
+		cap_nodes += 1
+		sum_unlocks += int((definition as Dictionary).get(GameStateKeys.NODE_EFFECT_VALUE, 0))
+
+	if base_cap + sum_unlocks != max_level:
+		push_error("[GameManager] E127 research.json / character_config.gd: base_level_cap %d + level_cap_unlock %d件の合計 %d = %d だが max_character_level は %d" % [
+			base_cap, cap_nodes, sum_unlocks, base_cap + sum_unlocks, max_level
+		])
+		return
+	print("[GameManager] level cap validated: %d + %d (%d nodes) = %d, 0 errors" % [
+		base_cap, sum_unlocks, cap_nodes, max_level
+	])
 
 func get_effective_level_cap(_character_id: String) -> int:
 	# 保存された値ではなく、research_treeを都度走査して計算する。

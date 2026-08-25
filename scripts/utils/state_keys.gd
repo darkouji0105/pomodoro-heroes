@@ -207,6 +207,9 @@ const NODE_TARGET_STAT: String = "target_stat"
 # effect_type に入る値
 const EFFECT_LEVEL_CAP_UNLOCK: String = "level_cap_unlock"
 const EFFECT_STAT_BOOST_ALL: String = "stat_boost_all"
+# ⚠ 宝箱の抽選回数 +N（段階10・EXEC_GUILD_RESEARCH_V2.md §5-B）。
+#   ⚠ 乗る先は GameManager._roll_chest_draw() の rolls 1箇所だけ。
+const EFFECT_CHEST_DRAW_BONUS: String = "chest_draw_bonus"
 
 # CRAFTING_QUEUE: [{queue_id, recipe_id, recipe_type, started_at, duration_sec, status, output_item_id}]
 const CRAFT_QUEUE_ID: String = "queue_id"

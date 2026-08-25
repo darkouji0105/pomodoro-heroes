@@ -165,6 +165,26 @@ ui_research_cap_2,実戦形式の導入
 ui_research_cap_3,遠征訓練
 ui_research_cap_4,秘伝書の解読
 ui_research_stat_1,基礎体力の底上げ
+ui_research_board,ボード%d・解放 %d/%d
+ui_research_category_combat,戦闘
+ui_research_category_chest,宝箱
+ui_research_milestone_mid,★ 中間
+ui_research_milestone_final,★★ 最後
+ui_research_effect_stat_axis,%s +%d
+ui_research_effect_chest_draw,宝箱の抽選回数 +%d
+ui_research_cap_5,実戦派遣
+ui_research_cap_6,古戦場の記録
+ui_research_cap_7,大陸の兵法書
+ui_research_cap_8,極意の伝授
+ui_research_stat_2,総合強化計画
+ui_research_stat_atk_1,武器の研磨
+ui_research_chest_1,宝箱の目利き
+ui_research_b2_hp_1,体力増強
+ui_research_b2_def_1,防具の改良
+ui_research_b2_chest_1,宝物庫の整理
+ui_research_b2_stat_3,総合強化計画II
+ui_research_b2_crit_1,急所の研究
+ui_research_b2_stat_4,総合強化計画III
 ui_guild_shop_buy,購入する
 ui_guild_shop_sold_out,売り切れ
 ui_guild_shop_stock,在庫

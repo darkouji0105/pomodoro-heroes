@@ -37,6 +37,7 @@ const REPORT_DROPS: String = "drops"
 const REPORT_PRESETS: String = "presets"
 const REPORT_LAYOUT: String = "layout"
 const REPORT_UNLOCK: String = "unlock"
+const REPORT_RESEARCH: String = "research"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -600,6 +601,17 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_LAYOUT,
 		"note": "拠点の下段の最小幅を測る（画面幅を超えていないか）",
 	},
+	# 段階10（研究ボードの作り替え）の検証。EXEC_GUILD_RESEARCH_V2.md §7-1。
+	#
+	# ⚠ 戦闘を回さない。研究は「レベル上限」と「宝箱の抽選回数」に化けるだけで、
+	#   戦闘のログには1行も出ない（unlock と同じ判断）。
+	# ⚠ ここで見たい一番の項目は「全部解放したとき上限がちょうど 100 か」。
+	#   ⚠ ずれるとパッシブの Lv100 が永久に解放されないが、赤も黄も出ない。
+	"research": {
+		"kind": KIND_REPORT,
+		"report": REPORT_RESEARCH,
+		"note": "研究ボード。ボード1→2の切り替え / 上限の合計 / 抽選回数 / 閉じたボードは解放できない",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -642,6 +654,8 @@ func _ready() -> void:
 			_report_presets()
 		elif report == REPORT_UNLOCK:
 			_report_unlock()
+		elif report == REPORT_RESEARCH:
+			_report_research()
 		elif report == REPORT_LAYOUT:
 			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
 			await _report_layout()
@@ -751,11 +765,14 @@ func _apply_levels(scenario: Dictionary) -> void:
 	# ⚠ ja.csv の再インポートは人間の作業で、設計役にはできない。
 	#   済んだかどうかを設計役が観測できる合図をここで出す
 	#   （scenario=unlock が .tres について同じことをしている）。
-	# ⚠ 未了だと scenario=layout が赤を5本出す。tr() がキー文字列をそのまま返し、
-	#   "%d" が無いまま % を当てるため（skill_select_screen の解放レベル表示）。
-	var probe: String = "ui_skill_select_passive_locked"
+	# ⚠ 未了だと scenario=layout が赤を出す。tr() がキー文字列をそのまま返し、
+	#   "%d" が無いまま % を当てるため（研究画面のヘッダと効果の表示）。
+	# ⚠ 見るキーは「その回に足したもの」に必ず差し替えること（段階10で踏んだ）。
+	#   ⚠ 前の回のキーを見たままだと、再インポート済みのキーに当たって
+	#     「済んでいる」と出るのに、その回のキーは未インポートのまま先へ進む。
+	var probe: String = "ui_research_board"
 	print("[DebugBoot] ja.csv の再インポート: %s" % (
-		"まだ（⚠ scenario=layout が赤5本・戦闘のマスが「？」になる）" if tr(probe) == probe
+		"まだ（⚠ scenario=layout が赤3本・研究画面の効果が「？」になる）" if tr(probe) == probe
 		else "済んでいる"
 	))
 
@@ -906,6 +923,109 @@ func _report_unlock() -> void:
 	MasterDataLoader._validate_all_item_refs()
 	poisoned_stage[GameManager.STAGE_MASTER_UNLOCKS] = backup
 	print("  (c) 戻した -> stage_1 の unlocks = %s" % str(GameManager.get_stage_unlocks("stage_1")))
+
+
+# 研究ボード（段階10・EXEC_GUILD_RESEARCH_V2.md §7-1）。
+#
+# ⚠ 戦闘を回さない。unlock_research_node() を直接呼ぶ。
+# ⚠ 状態は書き換えるが保存しない（_report_unlock() と同じ）。
+# ⚠ 素材は一度に配る。「足りるまで足す」ループを書かないこと（2026-08-24 の罠）。
+func _report_research() -> void:
+	var nodes: Dictionary = MasterDataLoader.get_all_research_nodes()
+
+	# --- ボードごとの内訳 ---
+	print("[DebugBoot] --- research.json の内訳（%d件）---" % nodes.size())
+	var boards: Array[int] = []
+	for node_id: Variant in nodes:
+		var board: int = GameManager.get_research_board_of(str(node_id))
+		if not (board in boards):
+			boards.append(board)
+	boards.sort()
+	for board: int in boards:
+		var progress: Dictionary = GameManager.get_research_board_progress(board)
+		print("  ボード%d  %d件" % [board, int(progress.get("total", 0))])
+
+	# --- 上限の合計（⚠ この報告の本題）---
+	# ⚠ 「全部解放したとき ちょうど max_character_level に届くか」を数字で出す。
+	#   ⚠ ずれても赤も黄も出ない形の穴（E127 が同じことをロード時に見張っている）。
+	var base_cap: int = int(Balance.character.base_level_cap)
+	var max_level: int = int(Balance.character.max_character_level)
+	var sum_unlocks: int = 0
+	var cap_nodes: int = 0
+	for node_id: Variant in nodes:
+		var definition: Dictionary = nodes[node_id]
+		if str(definition.get(GameStateKeys.NODE_EFFECT_TYPE, "")) != GameStateKeys.EFFECT_LEVEL_CAP_UNLOCK:
+			continue
+		cap_nodes += 1
+		sum_unlocks += int(definition.get(GameStateKeys.NODE_EFFECT_VALUE, 0))
+	print("[DebugBoot] --- レベル上限の合計 ---")
+	print("  base_level_cap %d + level_cap_unlock %d件 %d = %d / max_character_level %d -> %s" % [
+		base_cap, cap_nodes, sum_unlocks, base_cap + sum_unlocks, max_level,
+		"一致" if base_cap + sum_unlocks == max_level else "⚠ ずれている（E127）",
+	])
+
+	# --- 閉じているボードは解放できないか ---
+	# ⚠ 素材を先に配る。素材不足で false になると、ボードのゲートを見たことにならない。
+	for material_id: Variant in MasterDataLoader.get_all_items():
+		var item: Dictionary = MasterDataLoader.get_all_items()[material_id]
+		if str(item.get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) == GameStateKeys.ITEM_TYPE_MATERIAL:
+			GameManager.add_material(str(material_id), 9999999)
+
+	print("[DebugBoot] --- ボードの切り替え ---")
+	print("  最初の今のボード -> %d" % GameManager.get_current_research_board())
+	var later_board_id: String = ""
+	for node_id: Variant in nodes:
+		if GameManager.get_research_board_of(str(node_id)) == 2:
+			later_board_id = str(node_id)
+			break
+	if later_board_id == "":
+		push_error("[DebugBoot] ボード2のノードが1件も無い（research.json）")
+	else:
+		# ⚠ 前提が空のノードでも、ボードが閉じていれば解放できないのが正解。
+		print("  ボード2の '%s' をいきなり解放 -> %s（false が正解）" % [
+			later_board_id, str(GameManager.unlock_research_node(later_board_id))
+		])
+
+	# --- ボード1を全部解放する ---
+	# ⚠ 前提を辿るので、解放できなくなるまで繰り返す（F4 の _unlock_all_research と同じ形）。
+	var unlocked_total: int = 0
+	for _pass_index: int in range(nodes.size()):
+		var unlocked_this_pass: int = 0
+		for node_id: Variant in nodes:
+			if GameManager.get_research_board_of(str(node_id)) != 1:
+				continue
+			if GameManager.unlock_research_node(str(node_id)):
+				unlocked_this_pass += 1
+		unlocked_total += unlocked_this_pass
+		if unlocked_this_pass == 0:
+			break
+	print("  ボード1を %d件 解放 -> 今のボード %d / 実効レベル上限 %d" % [
+		unlocked_total,
+		GameManager.get_current_research_board(),
+		GameManager.get_effective_level_cap(""),
+	])
+	print("     （⚠ ボード1のクリアで Lv%d に届くのが正解。パッシブの Lv100 がここで開く）" % max_level)
+
+	# --- ボード2も全部解放する ---
+	var before_bonus: int = GameManager.get_research_chest_draw_bonus()
+	for _pass_index: int in range(nodes.size()):
+		var unlocked_this_pass: int = 0
+		for node_id: Variant in nodes:
+			if GameManager.unlock_research_node(str(node_id)):
+				unlocked_this_pass += 1
+		if unlocked_this_pass == 0:
+			break
+	print("[DebugBoot] --- 全部解放したあと ---")
+	print("  実効レベル上限 %d（⚠ ボード2に上限ノードは無いので %d のまま が正解）" % [
+		GameManager.get_effective_level_cap(""), max_level
+	])
+	print("  宝箱の抽選回数のボーナス %d -> %d" % [
+		before_bonus, GameManager.get_research_chest_draw_bonus()
+	])
+	var stat_boosts: Dictionary = GameManager.get_stat_boost_all()
+	print("  ステータス加算 %s" % str(stat_boosts))
+	print("     （⚠ \"all\" は全軸・それ以外は軸1本だけに乗る。get_effective_stats() が合成する）")
+
 
 
 # 開いている画面IDを、get_all_screen_ids() の順に並べて返す。
@@ -2079,6 +2199,10 @@ const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/guild/guild_screen.tscn",
 	# ⚠ 段階3でパッシブの一覧（見出し＋5行）をコードで足した。今まで測っていない。
 	"res://scenes/guild/skill_select_screen.tscn",
+	# ⚠ 段階10でノードが5件から18件に増え、カテゴリの見出しも足した。今まで測っていない。
+	#   ⚠ ノード行は ScrollContainer の中なので、縦のはみ出しはここでは捕まらない
+	#     （測れるのは横だけ。縦は人間が実機で見る＝EXEC_GUILD_RESEARCH_V2.md §7-3 の S-10）。
+	"res://scenes/guild/research_screen.tscn",
 ]
 
 
