@@ -52,7 +52,6 @@ layout_mode = 2
 label_key = "ui_guild_research"
 
 [node name="WorkshopButton" parent="CenterContainer/Layout" unique_id=437788127 instance=ExtResource("2_primary_btn")]
-visible = false
 layout_mode = 2
 label_key = "ui_guild_workshop"
 

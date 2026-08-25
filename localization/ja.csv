@@ -532,3 +532,9 @@ ui_status_ch_status_pr_sanctuary,聖
 ui_status_ch_status_pr_zeal,熱
 ui_status_ch_status_pr_benediction_mag,祝
 ui_status_ch_status_pr_benediction_haste,詠
+ui_research_category_workshop,作業場
+ui_research_b2_craft_1,製作手順の見直し
+ui_research_b2_craft_2,作業台の増設
+ui_research_effect_craft_speed,製作時間 -%d%%
+ui_research_effect_craft_slot,同時製作 +%d
+ui_guild_workshop_draw,装飾（ランダム）

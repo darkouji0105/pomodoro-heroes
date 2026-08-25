@@ -165,8 +165,22 @@ func _recipe_text(recipe_id: String) -> String:
 	if recipe.is_empty():
 		return recipe_id
 	var inputs: String = _io_text(recipe.get(GameManager.RECIPE_INPUTS, []))
+	return "%s → %s" % [inputs, _result_text(recipe)]
+
+
+# 右辺（出るもの）。⚠ draw を持つレシピは中身を1件も出さない。
+#
+# ⚠ 「種類も等級も両方ランダム」が仕様（GAME_DESIGN 9-3）。抽選表を並べると
+#   36行になり、行が縦に伸びて ScrollContainer の外へ出る（EXEC_WORKSHOP_REVIVE.md 決め11）。
+func _result_text(recipe: Dictionary) -> String:
+	var draw_def: Variant = recipe.get(GameManager.RECIPE_DRAW, null)
+	var has_draw: bool = draw_def is Dictionary and not (draw_def as Dictionary).is_empty()
 	var outputs: String = _io_text(recipe.get(GameManager.RECIPE_OUTPUTS, []))
-	return "%s → %s" % [inputs, outputs]
+	if not has_draw:
+		return outputs
+	if outputs == "":
+		return tr("ui_guild_workshop_draw")
+	return "%s + %s" % [outputs, tr("ui_guild_workshop_draw")]
 
 func _io_text(list: Variant) -> String:
 	if not (list is Array):

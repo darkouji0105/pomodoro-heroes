@@ -1,3 +1,115 @@
 {
-  "recipes": []
+  "recipes": [
+	{
+	  "recipe_id": "craft_part_1",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "decor_material_1", "count": 12 } ],
+	  "outputs": [],
+	  "draw": {
+		"rolls": 1,
+		"entries": [
+		  { "item_id": "part_gem_hp_1", "weight": 10 },
+		  { "item_id": "part_gem_atk_1", "weight": 10 },
+		  { "item_id": "part_gem_mag_1", "weight": 10 },
+		  { "item_id": "part_charm_def_1", "weight": 10 },
+		  { "item_id": "part_charm_mdef_1", "weight": 10 },
+		  { "item_id": "part_emblem_crit_rate_1", "weight": 10 },
+		  { "item_id": "part_emblem_crit_dmg_1", "weight": 10 },
+		  { "item_id": "part_emblem_atkspd_1", "weight": 10 },
+		  { "item_id": "part_emblem_haste_1", "weight": 10 },
+		  { "item_id": "part_gem_hp_2", "weight": 2 },
+		  { "item_id": "part_gem_atk_2", "weight": 2 },
+		  { "item_id": "part_gem_mag_2", "weight": 2 },
+		  { "item_id": "part_charm_def_2", "weight": 2 },
+		  { "item_id": "part_charm_mdef_2", "weight": 2 },
+		  { "item_id": "part_emblem_crit_rate_2", "weight": 2 },
+		  { "item_id": "part_emblem_crit_dmg_2", "weight": 2 },
+		  { "item_id": "part_emblem_atkspd_2", "weight": 2 },
+		  { "item_id": "part_emblem_haste_2", "weight": 2 }
+		]
+	  },
+	  "unlocked_by_default": true,
+	  "sort_order": 1
+	},
+	{
+	  "recipe_id": "craft_part_2",
+	  "duration_sec": 5400,
+	  "inputs": [ { "item_id": "decor_material_2", "count": 12 } ],
+	  "outputs": [],
+	  "draw": {
+		"rolls": 1,
+		"entries": [
+		  { "item_id": "part_gem_hp_1", "weight": 3 },
+		  { "item_id": "part_gem_atk_1", "weight": 3 },
+		  { "item_id": "part_gem_mag_1", "weight": 3 },
+		  { "item_id": "part_charm_def_1", "weight": 3 },
+		  { "item_id": "part_charm_mdef_1", "weight": 3 },
+		  { "item_id": "part_emblem_crit_rate_1", "weight": 3 },
+		  { "item_id": "part_emblem_crit_dmg_1", "weight": 3 },
+		  { "item_id": "part_emblem_atkspd_1", "weight": 3 },
+		  { "item_id": "part_emblem_haste_1", "weight": 3 },
+		  { "item_id": "part_gem_hp_2", "weight": 10 },
+		  { "item_id": "part_gem_atk_2", "weight": 10 },
+		  { "item_id": "part_gem_mag_2", "weight": 10 },
+		  { "item_id": "part_charm_def_2", "weight": 10 },
+		  { "item_id": "part_charm_mdef_2", "weight": 10 },
+		  { "item_id": "part_emblem_crit_rate_2", "weight": 10 },
+		  { "item_id": "part_emblem_crit_dmg_2", "weight": 10 },
+		  { "item_id": "part_emblem_atkspd_2", "weight": 10 },
+		  { "item_id": "part_emblem_haste_2", "weight": 10 },
+		  { "item_id": "part_gem_hp_3", "weight": 2 },
+		  { "item_id": "part_gem_atk_3", "weight": 2 },
+		  { "item_id": "part_gem_mag_3", "weight": 2 },
+		  { "item_id": "part_charm_def_3", "weight": 2 },
+		  { "item_id": "part_charm_mdef_3", "weight": 2 },
+		  { "item_id": "part_emblem_crit_rate_3", "weight": 2 },
+		  { "item_id": "part_emblem_crit_dmg_3", "weight": 2 },
+		  { "item_id": "part_emblem_atkspd_3", "weight": 2 },
+		  { "item_id": "part_emblem_haste_3", "weight": 2 }
+		]
+	  },
+	  "unlocked_by_default": true,
+	  "sort_order": 2
+	},
+	{
+	  "recipe_id": "craft_part_3",
+	  "duration_sec": 10800,
+	  "inputs": [ { "item_id": "decor_material_3", "count": 12 } ],
+	  "outputs": [],
+	  "draw": {
+		"rolls": 1,
+		"entries": [
+		  { "item_id": "part_gem_hp_2", "weight": 3 },
+		  { "item_id": "part_gem_atk_2", "weight": 3 },
+		  { "item_id": "part_gem_mag_2", "weight": 3 },
+		  { "item_id": "part_charm_def_2", "weight": 3 },
+		  { "item_id": "part_charm_mdef_2", "weight": 3 },
+		  { "item_id": "part_emblem_crit_rate_2", "weight": 3 },
+		  { "item_id": "part_emblem_crit_dmg_2", "weight": 3 },
+		  { "item_id": "part_emblem_atkspd_2", "weight": 3 },
+		  { "item_id": "part_emblem_haste_2", "weight": 3 },
+		  { "item_id": "part_gem_hp_3", "weight": 10 },
+		  { "item_id": "part_gem_atk_3", "weight": 10 },
+		  { "item_id": "part_gem_mag_3", "weight": 10 },
+		  { "item_id": "part_charm_def_3", "weight": 10 },
+		  { "item_id": "part_charm_mdef_3", "weight": 10 },
+		  { "item_id": "part_emblem_crit_rate_3", "weight": 10 },
+		  { "item_id": "part_emblem_crit_dmg_3", "weight": 10 },
+		  { "item_id": "part_emblem_atkspd_3", "weight": 10 },
+		  { "item_id": "part_emblem_haste_3", "weight": 10 },
+		  { "item_id": "part_gem_hp_4", "weight": 2 },
+		  { "item_id": "part_gem_atk_4", "weight": 2 },
+		  { "item_id": "part_gem_mag_4", "weight": 2 },
+		  { "item_id": "part_charm_def_4", "weight": 2 },
+		  { "item_id": "part_charm_mdef_4", "weight": 2 },
+		  { "item_id": "part_emblem_crit_rate_4", "weight": 2 },
+		  { "item_id": "part_emblem_crit_dmg_4", "weight": 2 },
+		  { "item_id": "part_emblem_atkspd_4", "weight": 2 },
+		  { "item_id": "part_emblem_haste_4", "weight": 2 }
+		]
+	  },
+	  "unlocked_by_default": true,
+	  "sort_order": 3
+	}
+  ]
 }

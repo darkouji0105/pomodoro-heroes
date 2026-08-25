@@ -210,6 +210,11 @@ const EFFECT_STAT_BOOST_ALL: String = "stat_boost_all"
 # ⚠ 宝箱の抽選回数 +N（段階10・EXEC_GUILD_RESEARCH_V2.md §5-B）。
 #   ⚠ 乗る先は GameManager._roll_chest_draw() の rolls 1箇所だけ。
 const EFFECT_CHEST_DRAW_BONUS: String = "chest_draw_bonus"
+# ⚠ 作業場の枝（段階11・EXEC_WORKSHOP_REVIVE.md 決め6）。
+#   ⚠ craft_speed_bonus は「％の短縮」。乗る先は GameManager.start_craft() の duration_sec 1箇所だけ。
+#   ⚠ craft_slot_bonus は「同時製作の本数 +N」。乗る先は get_max_queue_slots() 1箇所だけ。
+const EFFECT_CRAFT_SPEED_BONUS: String = "craft_speed_bonus"
+const EFFECT_CRAFT_SLOT_BONUS: String = "craft_slot_bonus"
 
 # CRAFTING_QUEUE: [{queue_id, recipe_id, recipe_type, started_at, duration_sec, status, output_item_id}]
 const CRAFT_QUEUE_ID: String = "queue_id"

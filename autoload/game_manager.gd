@@ -106,6 +106,11 @@ const RECIPE_IO_ITEM_ID: String = "item_id"
 const RECIPE_IO_COUNT: String = "count"
 const RECIPE_UNLOCKED_BY_DEFAULT: String = "unlocked_by_default"
 const RECIPE_SORT_ORDER: String = "sort_order"
+# ⚠ 装飾のランダム製作（段階11・EXEC_WORKSHOP_REVIVE.md 決め1）。
+#   ⚠ 中身の形は chests.json の draw と同じ（rolls / entries[{item_id, weight, count}]）ので、
+#     ⚠ 読む定数は CHEST_DRAW_* を使い回す。新しい綴りを増やさない。
+#   ⚠ レシピは outputs と draw の「どちらかが非空」なら妥当。両方空は E129 が赤で言う。
+const RECIPE_DRAW: String = "draw"
 
 # chests.json 側だけにあるキー（EXEC_CHEST_REGISTRY.md §3-D）。
 #
@@ -949,17 +954,40 @@ func _is_rewards_empty(rewards: Dictionary) -> bool:
 			return false
 	return true
 
+# chests.json の draw を引く。戻りは {item_id: count}（rewards.inventory と同じ形）。
+func _roll_chest_draw(draw_def: Dictionary) -> Dictionary:
+	# ⚠ 研究の chest_draw_bonus はここ1箇所だけに乗る（段階10）。
+	#   ⚠ weight（ドロップ率・高等級の確率）には乗せない。抽選の本体は変えない。
+	return _roll_weighted_table(
+		draw_def.get(CHEST_DRAW_ENTRIES, []),
+		int(draw_def.get(CHEST_DRAW_ROLLS, 1)) + get_research_chest_draw_bonus()
+	)
+
+
+# recipes.json の draw を引く（作業場の装飾のくじ・段階11）。
+#
+# ⚠ _roll_chest_draw() を呼んではいけない。あちらには研究の「宝箱」枝が乗っており、
+#   ⚠ そのまま使うと宝箱の研究が作業場のくじにも黙って効く（EXEC_WORKSHOP_REVIVE.md 決め2）。
+# ⚠ 作業場の枝は rolls ではなく duration_sec と本数に乗る。ここには何も足さない。
+func _roll_recipe_draw(draw_def: Dictionary) -> Dictionary:
+	return _roll_weighted_table(
+		draw_def.get(CHEST_DRAW_ENTRIES, []),
+		int(draw_def.get(CHEST_DRAW_ROLLS, 1))
+	)
+
+
 # 重み付きテーブルを rolls 回引く。戻りは {item_id: count}（rewards.inventory と同じ形）。
 #
-# ⚠ 抽選はこの1本だけ。同じ形の判定を散らさない（NEXT_STEPS §2-4）。
-# ⚠ item_id が "" の枠はハズレ。当たっても何も足さない。
+# ⚠ 抽選の本体はこの1本だけ。同じ形の判定を散らさない（NEXT_STEPS §2-6）。
+#   ⚠ 宝箱もレシピもここを通る。⚠ ボーナスの類は一切見ない。足すのは呼び出し側の rolls。
+# ⚠ item_id が "" の枠はハズレ。当たっても何も足さない
+#   （⚠ 宝箱だけの仕様。レシピ側は E129 が "" を赤で弾く）。
 # ⚠ weight の合計が0以下なら空を返す。randi_range(1, 0) を踏まないため。
 # ⚠ MasterDataLoader が返す数値は float なので、rolls も weight も count も int() で包む
 #   （CLAUDE.md 3番）。包み忘れると randi_range に float が渡って黙って壊れる。
 # ⚠ 乱数は固定しない（装飾のロールと同じ）。検証は分布で見る。
-func _roll_chest_draw(draw_def: Dictionary) -> Dictionary:
+func _roll_weighted_table(rows: Variant, rolls: int) -> Dictionary:
 	var drawn: Dictionary = {}
-	var rows: Variant = draw_def.get(CHEST_DRAW_ENTRIES, [])
 	if not (rows is Array):
 		return drawn
 	var list: Array = rows as Array
@@ -972,9 +1000,6 @@ func _roll_chest_draw(draw_def: Dictionary) -> Dictionary:
 	if total_weight <= 0:
 		return drawn
 
-	# ⚠ 研究の chest_draw_bonus はここ1箇所だけに乗る（段階10）。
-	#   ⚠ weight（ドロップ率・高等級の確率）には乗せない。抽選の本体は変えない。
-	var rolls: int = int(draw_def.get(CHEST_DRAW_ROLLS, 1)) + get_research_chest_draw_bonus()
 	for _i: int in range(rolls):
 		var pick: int = randi_range(1, total_weight)
 		var cursor: int = 0
@@ -4515,6 +4540,35 @@ func get_research_chest_draw_bonus() -> int:
 		bonus += int(node.get(GameStateKeys.NODE_EFFECT_VALUE, 0))
 	return bonus
 
+
+# 研究で解放した「同時製作 +N」の合計。get_max_queue_slots() に乗る。
+func get_research_craft_slot_bonus() -> int:
+	return _research_effect_total(GameStateKeys.EFFECT_CRAFT_SLOT_BONUS)
+
+
+# 研究で解放した「製作時間 -N%」の合計。start_craft() の duration_sec に乗る。
+#
+# ⚠ 100% 以上にならないよう頭を押さえる。押さえないと duration_sec が 0 か負になり、
+#   ⚠ 押した瞬間に完成する製作ができてしまう（床は start_craft() 側の maxi(1, ...)）。
+func get_research_craft_speed_percent() -> int:
+	return clampi(_research_effect_total(GameStateKeys.EFFECT_CRAFT_SPEED_BONUS), 0, 99)
+
+
+# 解放済みノードのうち、effect_type が一致するものの effect_value の合計。
+# ⚠ 同じ形の走査を effect_type ごとに増やさないための1本
+#   （get_research_chest_draw_bonus() も将来ここへ寄せてよい）。
+func _research_effect_total(effect_type: String) -> int:
+	var tree: Dictionary = _state.get(GameStateKeys.RESEARCH_TREE, {})
+	var total: int = 0
+	for node_id: String in tree:
+		var node: Dictionary = tree[node_id]
+		if not bool(node.get(GameStateKeys.NODE_UNLOCKED, false)):
+			continue
+		if str(node.get(GameStateKeys.NODE_EFFECT_TYPE, "")) != effect_type:
+			continue
+		total += int(node.get(GameStateKeys.NODE_EFFECT_VALUE, 0))
+	return total
+
 # 研究ノードを解放する。存在しない・解放済み・前提未達・素材不足のときは
 # 何もせず false を返す。成功時は素材を消費して research_node_unlocked を発火する。
 func unlock_research_node(node_id: String) -> bool:
@@ -4729,13 +4783,19 @@ func get_crafting_queue() -> Array:
 #
 # balance.gd に workshop プロパティが実在するかは未確認のため、"in" で存在を確かめてから読む。
 # 名前が違っていた場合はここで push_warning が出る（画面は既定値1で動く）。
+#
+# ⚠ 研究の craft_slot_bonus が乗るのはここ1箇所だけ（段階11）。
 func get_max_queue_slots() -> int:
+	var base: int = DEFAULT_MAX_QUEUE_SLOTS
 	if Balance != null and "workshop" in Balance and Balance.workshop != null:
 		var slots: int = int(Balance.workshop.max_queue_slots)
 		if slots > 0:
-			return slots
-	push_warning("[GameManager] get_max_queue_slots: Balance.workshop が読めない — %d を使う" % DEFAULT_MAX_QUEUE_SLOTS)
-	return DEFAULT_MAX_QUEUE_SLOTS
+			base = slots
+		else:
+			push_warning("[GameManager] get_max_queue_slots: Balance.workshop.max_queue_slots が 0 以下 — %d を使う" % DEFAULT_MAX_QUEUE_SLOTS)
+	else:
+		push_warning("[GameManager] get_max_queue_slots: Balance.workshop が読めない — %d を使う" % DEFAULT_MAX_QUEUE_SLOTS)
+	return base + get_research_craft_slot_bonus()
 
 # 解放済みで、かつ定義が妥当なレシピの一覧を返す（画面がレシピ一覧を描くために使う）。
 # sort_order の昇順。
@@ -4812,11 +4872,19 @@ func start_craft(recipe_id: String) -> bool:
 		_consume_item(str(input.get(RECIPE_IO_ITEM_ID, "")), int(input.get(RECIPE_IO_COUNT, 0)))
 
 	var started_at: int = int(Time.get_unix_time_from_system())
+	# ⚠ 研究の craft_speed_bonus が乗るのはここ1箇所だけ（段階11）。
+	#   ⚠ 開始のときに確定する。走行中のものには効かない（下の「開始時点をコピー」と同じ考え方）。
+	#   ⚠ 床の 1 はバランス数値ではなく「0秒や負を作らない」ための下限。
 	var duration_sec: int = int(definition.get(RECIPE_DURATION_SEC, DEFAULT_CRAFT_DURATION_SEC))
+	duration_sec = maxi(1, int(round(float(duration_sec) * float(100 - get_research_craft_speed_percent()) / 100.0)))
 	# outputs の先頭は表示・スキーマ互換のために持たせるだけ。
 	# 実際に配るものは受け取り時に recipes.json から引き直す（EXEC_GUILD_WORKSHOP.md §2-5）。
-	var first_output: Dictionary = (definition.get(RECIPE_OUTPUTS, []) as Array)[0]
-	var output_item_id: String = str(first_output.get(RECIPE_IO_ITEM_ID, ""))
+	# ⚠ draw だけのレシピ（装飾のくじ）は出るものが決まっていないので "" になる。
+	#   ⚠ output_item_id / recipe_type は誰も読んでいない欄（段階11で確認）。
+	var outputs_list: Array = definition.get(RECIPE_OUTPUTS, [])
+	var output_item_id: String = ""
+	if not outputs_list.is_empty():
+		output_item_id = str((outputs_list[0] as Dictionary).get(RECIPE_IO_ITEM_ID, ""))
 
 	var new_queue: Array = _copy_array(GameStateKeys.CRAFTING_QUEUE)
 	new_queue.append({
@@ -4874,6 +4942,16 @@ func collect_craft(queue_id: String) -> bool:
 		var count: int = int(item.get(RECIPE_IO_COUNT, 0))
 		_grant_item(item_id, count)
 		granted.append("%s x%d" % [item_id, count])
+
+	# ⚠ 抽選は「受け取るとき」に引く（開始のときではない・決め1）。
+	#   ⚠ 装飾は _grant_item() → add_to_inventory() を通る。inventory を直接書かない。
+	var draw_def: Variant = definition.get(RECIPE_DRAW, {})
+	if draw_def is Dictionary and not (draw_def as Dictionary).is_empty():
+		var drawn: Dictionary = _roll_recipe_draw(draw_def as Dictionary)
+		for drawn_id: String in drawn:
+			var drawn_count: int = int(drawn[drawn_id])
+			_grant_item(drawn_id, drawn_count)
+			granted.append("%s x%d (draw)" % [drawn_id, drawn_count])
 
 	print("[GameManager] collect_craft('%s') -> true (%s, queue=%d)" % [
 		queue_id, ", ".join(granted), new_queue.size()
@@ -4975,17 +5053,33 @@ func _remove_from_inventory(item_id: String, count: int) -> void:
 
 # recipes.json のレシピを検証して正規化した Dictionary を返す。妥当でなければ空。
 #
-# ここで弾くもの：inputs/outputs が空、items.json に無いID、count <= 0。
+# ここで弾くもの：inputs が空、outputs と draw が両方空、items.json に無いID、count <= 0。
 # MasterDataLoader が返す数値は float のため int() で包む。包み忘れると
 # セーブに 1800.0 と書かれる。
+#
+# ⚠ outputs（固定）と draw（抽選）は「どちらかが非空」なら妥当（段階11・決め1）。
+#   ⚠ 装飾のくじは outputs が空で draw だけを持つ。
 func _normalized_recipe(recipe_id: String) -> Dictionary:
 	var definition: Dictionary = MasterDataLoader.get_recipe(recipe_id)
 	if definition.is_empty():
 		return {}
 
 	var inputs: Array = _normalized_io(definition.get(RECIPE_INPUTS, []), recipe_id, RECIPE_INPUTS)
-	var outputs: Array = _normalized_io(definition.get(RECIPE_OUTPUTS, []), recipe_id, RECIPE_OUTPUTS)
-	if inputs.is_empty() or outputs.is_empty():
+	if inputs.is_empty():
+		return {}
+	# ⚠ outputs が空でも黄を出さない（draw だけのレシピが正常系のため）。
+	var outputs: Array = []
+	if _is_non_empty_array(definition.get(RECIPE_OUTPUTS, [])):
+		outputs = _normalized_io(definition.get(RECIPE_OUTPUTS, []), recipe_id, RECIPE_OUTPUTS)
+		if outputs.is_empty():
+			return {}
+	var draw: Dictionary = {}
+	if definition.get(RECIPE_DRAW, null) is Dictionary:
+		draw = _normalized_draw(definition.get(RECIPE_DRAW) as Dictionary, recipe_id)
+		if draw.is_empty():
+			return {}
+	if outputs.is_empty() and draw.is_empty():
+		push_warning("[GameManager] recipes.json: '%s' に outputs も draw も無い" % recipe_id)
 		return {}
 
 	var duration_sec: int = int(definition.get(RECIPE_DURATION_SEC, 0))
@@ -4997,7 +5091,49 @@ func _normalized_recipe(recipe_id: String) -> Dictionary:
 		RECIPE_DURATION_SEC: duration_sec,
 		RECIPE_INPUTS: inputs,
 		RECIPE_OUTPUTS: outputs,
+		RECIPE_DRAW: draw,
 		RECIPE_SORT_ORDER: int(definition.get(RECIPE_SORT_ORDER, 0)),
+	}
+
+
+func _is_non_empty_array(value: Variant) -> bool:
+	return value is Array and not (value as Array).is_empty()
+
+
+# recipes.json の draw を検証して正規化する。妥当でなければ空。
+#
+# ⚠ 宝箱と違い、item_id が "" のハズレ枠を許さない（決め3）。
+#   ⚠ 素材と時間を払って何も出ない状態を作らないため。
+# ⚠ 同じことを E129 も見ている。あちらはロード時に赤で言う役、ここは走らせない役。
+func _normalized_draw(draw_def: Dictionary, recipe_id: String) -> Dictionary:
+	var rows: Variant = draw_def.get(CHEST_DRAW_ENTRIES, [])
+	if not _is_non_empty_array(rows):
+		push_warning("[GameManager] recipes.json: '%s' の draw.entries が空" % recipe_id)
+		return {}
+	var entries: Array = []
+	var total_weight: int = 0
+	for row: Variant in (rows as Array):
+		if not (row is Dictionary):
+			push_warning("[GameManager] recipes.json: '%s' の draw.entries に Dictionary でない要素" % recipe_id)
+			return {}
+		var entry: Dictionary = row
+		var item_id: String = str(entry.get(CHEST_DRAW_ITEM_ID, ""))
+		if _item_storage(item_id) == "":
+			push_warning("[GameManager] recipes.json: '%s' の draw.entries に items.json へ無いID: '%s'" % [recipe_id, item_id])
+			return {}
+		var weight: int = maxi(0, int(entry.get(CHEST_DRAW_WEIGHT, 0)))
+		total_weight += weight
+		entries.append({
+			CHEST_DRAW_ITEM_ID: item_id,
+			CHEST_DRAW_WEIGHT: weight,
+			CHEST_DRAW_COUNT: maxi(1, int(entry.get(CHEST_DRAW_COUNT, 1))),
+		})
+	if total_weight <= 0:
+		push_warning("[GameManager] recipes.json: '%s' の draw.entries の weight の合計が 0 以下" % recipe_id)
+		return {}
+	return {
+		CHEST_DRAW_ROLLS: maxi(1, int(draw_def.get(CHEST_DRAW_ROLLS, 1))),
+		CHEST_DRAW_ENTRIES: entries,
 	}
 
 func _normalized_io(list: Variant, recipe_id: String, label: String) -> Array:

@@ -38,6 +38,7 @@ const REPORT_PRESETS: String = "presets"
 const REPORT_LAYOUT: String = "layout"
 const REPORT_UNLOCK: String = "unlock"
 const REPORT_RESEARCH: String = "research"
+const REPORT_WORKSHOP: String = "workshop"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -612,6 +613,15 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_RESEARCH,
 		"note": "研究ボード。ボード1→2の切り替え / 上限の合計 / 抽選回数 / 閉じたボードは解放できない",
 	},
+	# 段階11（作業場の復活）の検証。EXEC_WORKSHOP_REVIVE.md §5-A。
+	# ⚠ 戦闘を回さない。start_craft() / collect_craft() を直接呼ぶ。
+	# ⚠ 待たない。キューの started_at を巻き戻して completed にする（30分待てないため）。
+	# ⚠ 素材は一度に配る。「足りるまで足す」ループを書かないこと（2026-08-24 の罠）。
+	"workshop": {
+		"kind": KIND_REPORT,
+		"report": REPORT_WORKSHOP,
+		"note": "装飾のくじ。レシピ3件 / 分布 / 受け取りで個体が増える / 研究の作業場枝 / E129",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -656,6 +666,8 @@ func _ready() -> void:
 			_report_unlock()
 		elif report == REPORT_RESEARCH:
 			_report_research()
+		elif report == REPORT_WORKSHOP:
+			_report_workshop()
 		elif report == REPORT_LAYOUT:
 			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
 			await _report_layout()
@@ -770,7 +782,7 @@ func _apply_levels(scenario: Dictionary) -> void:
 	# ⚠ 見るキーは「その回に足したもの」に必ず差し替えること（段階10で踏んだ）。
 	#   ⚠ 前の回のキーを見たままだと、再インポート済みのキーに当たって
 	#     「済んでいる」と出るのに、その回のキーは未インポートのまま先へ進む。
-	var probe: String = "ui_research_board"
+	var probe: String = "ui_research_category_workshop"
 	print("[DebugBoot] ja.csv の再インポート: %s" % (
 		"まだ（⚠ scenario=layout が赤3本・研究画面の効果が「？」になる）" if tr(probe) == probe
 		else "済んでいる"
@@ -836,7 +848,7 @@ func _report_unlock() -> void:
 		if not (screen_id in listed):
 			never.append(screen_id)
 	print("  ⚠ unlocks に1度も出てこないもの: %s" % str(never))
-	print("     （最初から開く3つ ＋ workshop だけが正解）")
+	print("     （最初から開く3つだけが正解。⚠ workshop は段階11で stage_3 に入った）")
 
 	# ⚠ 新規開始の状態を作り直す。debug_boot はセーブを読まないので、
 	#   ここに来た時点の unlocked_screens は initial_state_config.tres の中身。
@@ -863,7 +875,7 @@ func _report_unlock() -> void:
 				added.append(screen_id)
 		print("  %-10s クリア -> +%s" % [stage_id, str(added)])
 	print("  最後            %s" % str(_unlocked_ids()))
-	print("  workshop は開いたか -> %s（false が正解）" % str(
+	print("  workshop は開いたか -> %s（⚠ 段階11から true が正解）" % str(
 		GameManager.is_screen_unlocked(GameStateKeys.SCREEN_WORKSHOP)
 	))
 
@@ -1025,6 +1037,182 @@ func _report_research() -> void:
 	var stat_boosts: Dictionary = GameManager.get_stat_boost_all()
 	print("  ステータス加算 %s" % str(stat_boosts))
 	print("     （⚠ \"all\" は全軸・それ以外は軸1本だけに乗る。get_effective_stats() が合成する）")
+
+
+# 作業場（段階11・EXEC_WORKSHOP_REVIVE.md §5-A）。
+#
+# ⚠ 戦闘を回さない。start_craft() / collect_craft() を直接呼ぶ。
+# ⚠ 30分待たない。キューの started_at を巻き戻して完了させる。
+# ⚠ 状態は書き換えるが保存しない（_report_unlock() と同じ）。
+# ⚠ 素材は一度に配る。「足りるまで減らす／足す」ループを書かないこと（2026-08-24 の罠）。
+# ⚠ この関数は _unlocked_ids() の手前で終わる。差し込む前に「次の func までどこまでか」を
+#   見てある（2026-08-25 に _report_unlock() の途中へ差し込んだ）。
+func _report_workshop() -> void:
+	# --- 1. レシピが読めているか ---
+	print("[DebugBoot] --- レシピ（recipes.json）---")
+	var recipes: Array = GameManager.get_available_recipes()
+	print("  解放済みで妥当なレシピ %d 件（⚠ 3 件が正解）" % recipes.size())
+	for entry: Variant in recipes:
+		var recipe: Dictionary = entry
+		var draw_def: Variant = recipe.get(GameManager.RECIPE_DRAW, {})
+		var entry_count: int = 0
+		if draw_def is Dictionary:
+			entry_count = ((draw_def as Dictionary).get(GameManager.CHEST_DRAW_ENTRIES, []) as Array).size()
+		print("  %-14s %6ds  投入 %s  出るもの %s / 抽選 %d 件" % [
+			str(recipe.get(GameManager.RECIPE_ID, "")),
+			int(recipe.get(GameManager.RECIPE_DURATION_SEC, 0)),
+			_io_summary(recipe.get(GameManager.RECIPE_INPUTS, [])),
+			_io_summary(recipe.get(GameManager.RECIPE_OUTPUTS, [])),
+			entry_count,
+		])
+
+	# --- 2. 抽選の分布（⚠ 良い素材ほど高い段階が出やすいこと）---
+	print("[DebugBoot] --- 1000回引いたときの段階の分布 ---")
+	for entry: Variant in recipes:
+		var recipe: Dictionary = entry
+		var draw_def: Variant = recipe.get(GameManager.RECIPE_DRAW, {})
+		if not (draw_def is Dictionary) or (draw_def as Dictionary).is_empty():
+			continue
+		var tiers: Dictionary = {}
+		var runes: int = 0
+		for _i: int in range(1000):
+			for item_id: String in GameManager._roll_recipe_draw(draw_def as Dictionary):
+				var definition: Dictionary = MasterDataLoader.get_item(item_id)
+				var tier: int = int(definition.get(GameManager.ITEM_MASTER_PART_TIER, 0))
+				tiers[tier] = int(tiers.get(tier, 0)) + 1
+				if str(definition.get(GameManager.ITEM_MASTER_PART_KIND, "")) == GameManager.PART_KIND_RUNE:
+					runes += 1
+		var columns: Array[String] = []
+		for tier: int in [1, 2, 3, 4]:
+			columns.append("段階%d %4d" % [tier, int(tiers.get(tier, 0))])
+		print("  %-14s %s  / ⚠ ルーン %d 件（0 が正解）" % [
+			str(recipe.get(GameManager.RECIPE_ID, "")), "  ".join(columns), runes
+		])
+
+	# --- 3. 作って受け取る ---
+	print("[DebugBoot] --- 作って受け取る ---")
+	# ⚠ 一度に配る。減らすために回さない。
+	for tier: int in [1, 2, 3, 4]:
+		GameManager.add_material("decor_material_%d" % tier, 500)
+		GameManager.add_material("construction_material_%d" % tier, 5000)
+	var first_id: String = str((recipes[0] as Dictionary).get(GameManager.RECIPE_ID, ""))
+	var before_parts: int = _part_count()
+	print("  start_craft('%s') = %s" % [first_id, str(GameManager.start_craft(first_id))])
+	print("  2本目 start_craft('%s') = %s（⚠ キューが1本なので false が正解）" % [
+		first_id, str(GameManager.start_craft(first_id))
+	])
+	_rewind_craft_queue()
+	GameManager.refresh_crafting_queue_if_needed()
+	var queue: Array = GameManager.get_crafting_queue()
+	var queue_id: String = str((queue[0] as Dictionary).get(GameStateKeys.CRAFT_QUEUE_ID, ""))
+	print("  巻き戻した後の status = %s" % str((queue[0] as Dictionary).get(GameStateKeys.CRAFT_STATUS, "")))
+	print("  ⚠ output_item_id = '%s'（⚠ draw だけのレシピは空が正解）" % str(
+		(queue[0] as Dictionary).get(GameStateKeys.CRAFT_OUTPUT_ITEM_ID, "")
+	))
+	print("  collect_craft() = %s" % str(GameManager.collect_craft(queue_id)))
+	print("  装飾の所持数 %d -> %d（⚠ 1 増えるのが正解）" % [before_parts, _part_count()])
+	print("  受け取り後のキュー %d 件（⚠ 0 が正解）" % GameManager.get_crafting_queue().size())
+
+	# --- 4. 研究の作業場枝 ---
+	print("[DebugBoot] --- 研究の作業場枝（craft_speed_bonus / craft_slot_bonus）---")
+	print("  解放前  同時製作 %d 本 / 短縮 %d%% / 宝箱の抽選 +%d" % [
+		GameManager.get_max_queue_slots(),
+		GameManager.get_research_craft_speed_percent(),
+		GameManager.get_research_chest_draw_bonus(),
+	])
+	# ⚠ 前提の順に何度も回す（_report_research() と同じ形）。
+	for _pass_index: int in range(MasterDataLoader.get_all_research_nodes().size()):
+		var unlocked_this_pass: int = 0
+		for node_id: Variant in MasterDataLoader.get_all_research_nodes():
+			if GameManager.unlock_research_node(str(node_id)):
+				unlocked_this_pass += 1
+		if unlocked_this_pass == 0:
+			break
+	print("  解放後  同時製作 %d 本 / 短縮 %d%% / 宝箱の抽選 +%d" % [
+		GameManager.get_max_queue_slots(),
+		GameManager.get_research_craft_speed_percent(),
+		GameManager.get_research_chest_draw_bonus(),
+	])
+	print("     （⚠ 同時製作 1 -> 2 ／ 短縮 0 -> 20 が正解）")
+	print("  start_craft('%s') = %s" % [first_id, str(GameManager.start_craft(first_id))])
+	print("  2本目 start_craft('%s') = %s（⚠ キューが2本になったので true が正解）" % [
+		first_id, str(GameManager.start_craft(first_id))
+	])
+	var after: Array = GameManager.get_crafting_queue()
+	if not after.is_empty():
+		var duration: Variant = (after[0] as Dictionary).get(GameStateKeys.CRAFT_DURATION_SEC, 0)
+		print("  duration_sec = %s %s（⚠ 1440 かつ int が正解。⚠ 1800 のままなら短縮が乗っていない）" % [
+			str(duration), type_string(typeof(duration))
+		])
+	# ⚠ 宝箱の枝が作業場のくじに乗っていないこと（EXEC_WORKSHOP_REVIVE.md 決め2）。
+	var draw_first: Variant = (recipes[0] as Dictionary).get(GameManager.RECIPE_DRAW, {})
+	var total_drawn: int = 0
+	for _i: int in range(200):
+		for item_id: String in GameManager._roll_recipe_draw(draw_first as Dictionary):
+			total_drawn += 1
+	print("  ⚠ 200回引いて出た件数 %d（⚠ 200 が正解。⚠ 宝箱の枝が乗っていると 200 を超える）" % total_drawn)
+
+	# --- 5. 足した検証が本当に出るか（2箇所で壊す・キャッシュだけ）---
+	# ⚠ recipes.json は触らない（git diff が最初から空のまま）。
+	# ⚠ この枝だけ ERROR: を2本わざと出す。⚠ 赤が2本出るのが正解。
+	print("[DebugBoot] --- 壊して確かめる（⚠ この下の赤2本が正解）---")
+	var poisoned: Dictionary = MasterDataLoader._cache_recipes[first_id]
+	# (a) draw.entries の item_id を空にする -> E129
+	var rows: Array = (poisoned[GameManager.RECIPE_DRAW] as Dictionary)[GameManager.CHEST_DRAW_ENTRIES]
+	var backup_row: Dictionary = (rows[0] as Dictionary).duplicate(true)
+	(rows[0] as Dictionary)[GameManager.CHEST_DRAW_ITEM_ID] = ""
+	print("  (a) draw.entries[0].item_id を空にした")
+	MasterDataLoader._validate_all_item_refs()
+	rows[0] = backup_row
+	# (b) outputs も draw も無くす -> E129
+	var backup_draw: Variant = poisoned[GameManager.RECIPE_DRAW]
+	poisoned.erase(GameManager.RECIPE_DRAW)
+	print("  (b) draw ごと消した（outputs は元から空）")
+	MasterDataLoader._validate_all_item_refs()
+	poisoned[GameManager.RECIPE_DRAW] = backup_draw
+	print("  戻した -> レシピ %d 件 / 抽選 %d 件（⚠ 3 と 18 が正解）" % [
+		MasterDataLoader.get_all_recipes().size(),
+		((MasterDataLoader.get_recipe(first_id)[GameManager.RECIPE_DRAW] as Dictionary)[GameManager.CHEST_DRAW_ENTRIES] as Array).size(),
+	])
+
+
+# inputs / outputs を「id x個」の1行にする。⚠ tr() を使わない（ログのため）。
+func _io_summary(list: Variant) -> String:
+	if not (list is Array) or (list as Array).is_empty():
+		return "（無し）"
+	var columns: Array[String] = []
+	for entry: Variant in (list as Array):
+		if entry is Dictionary:
+			columns.append("%s x%d" % [
+				str((entry as Dictionary).get(GameManager.RECIPE_IO_ITEM_ID, "")),
+				int((entry as Dictionary).get(GameManager.RECIPE_IO_COUNT, 0)),
+			])
+	return " + ".join(columns)
+
+
+# 手持ちの装飾（ルーンを除く）の合計個数。
+func _part_count() -> int:
+	var total: int = 0
+	var inventory: Dictionary = GameManager.get_state().get(GameStateKeys.INVENTORY, {})
+	for item_id: String in inventory:
+		var definition: Dictionary = MasterDataLoader.get_item(item_id)
+		if str(definition.get(GameManager.ITEM_MASTER_PART_KIND, "")) == "":
+			continue
+		if str(definition.get(GameManager.ITEM_MASTER_PART_KIND, "")) == GameManager.PART_KIND_RUNE:
+			continue
+		total += int((inventory[item_id] as Dictionary).get(GameStateKeys.ITEM_COUNT, 0))
+	return total
+
+
+# 製作キューの started_at を duration_sec ぶん巻き戻す。⚠ 30分待たないため。
+# ⚠ 状態を直接触るのは tests だけ。本番コードでこれをしないこと。
+func _rewind_craft_queue() -> void:
+	var queue: Array = GameManager._state[GameStateKeys.CRAFTING_QUEUE]
+	for i: int in range(queue.size()):
+		var entry: Dictionary = queue[i]
+		entry[GameStateKeys.CRAFT_STARTED_AT] = int(entry[GameStateKeys.CRAFT_STARTED_AT]) - int(entry[GameStateKeys.CRAFT_DURATION_SEC]) - 1
+		queue[i] = entry
+	GameManager._state[GameStateKeys.CRAFTING_QUEUE] = queue
 
 
 
@@ -2185,6 +2373,16 @@ const LAYOUT_SCENE_SHOW: Dictionary = {
 		"Margin/Layout/ListPanel": false,
 		"Margin/Layout/DetailPanel": true,
 	},
+	# ⚠ ギルドは段階解放でボタンが1つずつ増える器。⚠ 開いた直後は1つも解放されておらず、
+	#   ⚠ 見出しと戻るだけの姿を測っていた（72 x 72）。⚠ 段階11で6個目が増えたので、
+	#   ⚠ 全部出した姿を測る（「5個前提の並びに6個目」を数字で見る唯一の道具）。
+	"res://scenes/guild/guild_screen.tscn": {
+		"CenterContainer/Layout/WarehouseButton": true,
+		"CenterContainer/Layout/ShopButton": true,
+		"CenterContainer/Layout/TrainingButton": true,
+		"CenterContainer/Layout/ResearchButton": true,
+		"CenterContainer/Layout/WorkshopButton": true,
+	},
 }
 
 
@@ -2203,6 +2401,9 @@ const LAYOUT_SCENES: Array[String] = [
 	#   ⚠ ノード行は ScrollContainer の中なので、縦のはみ出しはここでは捕まらない
 	#     （測れるのは横だけ。縦は人間が実機で見る＝EXEC_GUILD_RESEARCH_V2.md §7-3 の S-10）。
 	"res://scenes/guild/research_screen.tscn",
+	# ⚠ 段階11で復活した。ギルドのボタンが5個から6個に増えた回でもある
+	#   （⚠ ギルドは VBoxContainer なので、はみ出すなら横ではなく縦）。
+	"res://scenes/guild/workshop_screen.tscn",
 ]
 
 

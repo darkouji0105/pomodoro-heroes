@@ -234,6 +234,12 @@ func _effect_text(node: Dictionary) -> String:
 			return tr("ui_research_effect_stat") % value
 		GameStateKeys.EFFECT_CHEST_DRAW_BONUS:
 			return tr("ui_research_effect_chest_draw") % value
+		# ⚠ 作業場の枝（段階11）。⚠ 見出し（「作業場」）は ja.csv の1行だけで出る。
+		#   ⚠ 効果の文言だけは画面が組み立てているので、ここに2枝が要る。
+		GameStateKeys.EFFECT_CRAFT_SPEED_BONUS:
+			return tr("ui_research_effect_craft_speed") % value
+		GameStateKeys.EFFECT_CRAFT_SLOT_BONUS:
+			return tr("ui_research_effect_craft_slot") % value
 	return ""
 
 

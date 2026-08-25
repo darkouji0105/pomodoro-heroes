@@ -222,5 +222,29 @@
 		"cost_material_id": "construction_material_3",
 		"cost_amount": 40,
 		"sort_order": 6
+	},
+	"res2_craft_1": {
+		"name_key": "ui_research_b2_craft_1",
+		"board": 2,
+		"category": "workshop",
+		"milestone": "",
+		"effect_type": "craft_speed_bonus",
+		"effect_value": 20,
+		"prerequisites": ["res2_stat_hp_1"],
+		"cost_material_id": "construction_material_3",
+		"cost_amount": 40,
+		"sort_order": 7
+	},
+	"res2_craft_2": {
+		"name_key": "ui_research_b2_craft_2",
+		"board": 2,
+		"category": "workshop",
+		"milestone": "",
+		"effect_type": "craft_slot_bonus",
+		"effect_value": 1,
+		"prerequisites": ["res2_craft_1"],
+		"cost_material_id": "construction_material_4",
+		"cost_amount": 10,
+		"sort_order": 8
 	}
 }

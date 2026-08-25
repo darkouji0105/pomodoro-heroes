@@ -352,7 +352,7 @@ static func _validate_all_item_refs() -> void:
 				])
 				errors += 1
 
-	# recipes.json … inputs / outputs
+	# recipes.json … inputs / outputs（E118）＋ draw の形（E129・段階11）
 	for recipe_id: Variant in _cache_recipes:
 		var recipe: Variant = _cache_recipes[recipe_id]
 		if not (recipe is Dictionary):
@@ -369,6 +369,7 @@ static func _validate_all_item_refs() -> void:
 					"recipes.json",
 					"%s.%s" % [str(recipe_id), list_key]
 				)
+		errors += _validate_recipe_draw(str(recipe_id), recipe as Dictionary)
 
 	# chests.json … rewards の中身と draw の抽選テーブル（E118 / E120 / W20）。
 	_ensure_chests_loaded()
@@ -567,6 +568,55 @@ static func _report_missing_item(item_id: String, where: String, context: String
 		return 0
 	push_error("[MasterDataLoader] E118 %s (%s): items.json に無いID: %s" % [where, context, item_id])
 	return 1
+
+
+# E129 … recipes.json のレシピ1件を見る（段階11・EXEC_WORKSHOP_REVIVE.md 決め8）。
+#
+# | 見るもの | なぜ |
+# |---|---|
+# | outputs も draw も無い | 素材だけ減って何も貰えない |
+# | draw.entries が空 / weight の合計が0以下 | 抽選が必ず空を返す＝同上 |
+# | draw.entries[].item_id が "" | ⚠ 宝箱と違い、作業場に「ハズレ」を作らない（決め3） |
+#
+# ⚠ item_id が items.json に在るかは E118 が見る（ここでは重ねない）。
+# ⚠ draw.entries の item_id は "" を弾くため、E118 の枝もここから1本ずつ通す。
+static func _validate_recipe_draw(recipe_id: String, recipe: Dictionary) -> int:
+	var errors: int = 0
+	var outputs: Variant = recipe.get("outputs", [])
+	var has_outputs: bool = outputs is Array and not (outputs as Array).is_empty()
+	var draw_def: Variant = recipe.get("draw", null)
+	var has_draw: bool = draw_def is Dictionary and not (draw_def as Dictionary).is_empty()
+
+	if not has_outputs and not has_draw:
+		push_error("[MasterDataLoader] E129 recipes.json (%s): outputs も draw も無い" % recipe_id)
+		return errors + 1
+	if not has_draw:
+		return errors
+
+	var rows: Variant = (draw_def as Dictionary).get("entries", [])
+	if not (rows is Array) or (rows as Array).is_empty():
+		push_error("[MasterDataLoader] E129 recipes.json (%s): draw.entries が空" % recipe_id)
+		return errors + 1
+
+	var total_weight: int = 0
+	for row: Variant in (rows as Array):
+		if not (row is Dictionary):
+			push_error("[MasterDataLoader] E129 recipes.json (%s): draw.entries に Dictionary でない要素" % recipe_id)
+			errors += 1
+			continue
+		var entry: Dictionary = row
+		var item_id: String = str(entry.get("item_id", ""))
+		if item_id == "":
+			push_error("[MasterDataLoader] E129 recipes.json (%s): draw.entries に item_id が空の枠がある（作業場にハズレは作らない）" % recipe_id)
+			errors += 1
+		else:
+			errors += _report_missing_item(item_id, "recipes.json", "%s.draw" % recipe_id)
+		total_weight += maxi(0, int(entry.get("weight", 0)))
+
+	if total_weight <= 0:
+		push_error("[MasterDataLoader] E129 recipes.json (%s): draw.entries の weight の合計が 0 以下" % recipe_id)
+		errors += 1
+	return errors
 
 
 # 召喚ユニットの素データの検証（段階6・E101）。

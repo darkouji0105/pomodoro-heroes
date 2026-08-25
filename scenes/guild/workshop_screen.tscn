@@ -46,6 +46,7 @@ horizontal_alignment = 1
 
 [node name="MaterialLabel" type="Label" parent="Margin/Layout"]
 layout_mode = 2
+autowrap_mode = 3
 
 [node name="Scroll" type="ScrollContainer" parent="Margin/Layout"]
 layout_mode = 2
