@@ -23,6 +23,8 @@ extends CanvasLayer
 # _state を直接書かないこと。特に装備は add_to_inventory() だけが個体（eq_N）を作る
 # （CLAUDE.md 8番）。ここで inventory を直接書くと、装備が個体にならず静かに消える。
 # 研究も unlock_research_node() を通す。前提と素材の判定をそのまま通したいため。
+# ⚠ 例外は _complete_all_crafts() の1本だけ（製作キューの started_at を戻す）。
+#   ⚠ 時刻を戻す公開関数が無く、書き換えるのが時刻だけで関所を迂回しないため。
 #
 # 【tr() を通さない】
 # 開発者向けでリリースビルドには出ないため、ja.csv には登録しない
@@ -124,6 +126,7 @@ func _build_ui() -> void:
 	_body.add_child(_make_button("装飾を全種類", _grant_all_parts))
 	_body.add_child(_make_button("研究を全部解放（先に素材）", _unlock_all_research))
 	_body.add_child(_make_button("画面を全部解放", _unlock_all_screens))
+	_body.add_child(_make_button("製作をすぐ完了させる", _complete_all_crafts))
 	_body.add_child(_make_button("セーブする", _save))
 
 
@@ -210,7 +213,22 @@ func _refresh_info() -> void:
 			materials.size(), inventory.size(), GameManager.get_owned_instances().size()
 		],
 		"研究の解放 %d / %d" % [unlocked_nodes, tree.size()],
+		# ⚠ 「製作をすぐ完了させる」を押したことが、ログを見ずに分かるようにする。
+		"製作 %d / %d本（完成 %d）" % [
+			GameManager.get_crafting_queue().size(),
+			GameManager.get_max_queue_slots(),
+			_completed_craft_count(),
+		],
 	])
+
+
+# 完成していて受け取っていない製作の件数。
+func _completed_craft_count() -> int:
+	var count: int = 0
+	for entry: Variant in GameManager.get_crafting_queue():
+		if entry is Dictionary and str((entry as Dictionary).get(GameStateKeys.CRAFT_STATUS, "")) == GameStateKeys.CRAFT_STATUS_COMPLETED:
+			count += 1
+	return count
 
 
 # --- 配る ---
@@ -322,6 +340,34 @@ func _unlock_all_research() -> void:
 		if unlocked_this_pass == 0:
 			break
 	print("[DebugOverlay] 研究を %d件 解放した（解放できないものは素材不足か前提未達）" % total)
+
+
+# 製作中のものを全部「完成」にする（⚠ 受け取りはしない。⚠ 押すのは人間）。
+#
+# ⚠ 作業場の一番短いレシピでも30分あり、⚠ 画面の確認がそこで止まる。
+#   ⚠ それまでは「端末の時計を進めて開き直す」しか手が無かった。
+#
+# ⚠ この関数だけ _state を直接書く（冒頭の「_state を直接書かないこと」の唯一の例外）。
+#   ⚠ 書き換えるのは started_at だけで、⚠ 資源もアイテムも個体も作らないため
+#     add_to_inventory() などの関所を迂回しない。⚠ 時刻を戻す公開関数は無い。
+#   ⚠ debug_boot.gd の _rewind_craft_queue() と同じ形。
+# ⚠ 完了への切り替えと再描画は refresh_crafting_queue_if_needed() に任せる
+#   （⚠ crafting_queue_changed をここで発火しない。二重発火になる）。
+func _complete_all_crafts() -> void:
+	var queue: Array = GameManager._state.get(GameStateKeys.CRAFTING_QUEUE, [])
+	var rewound: int = 0
+	for i: int in range(queue.size()):
+		if not (queue[i] is Dictionary):
+			continue
+		var entry: Dictionary = queue[i]
+		if str(entry.get(GameStateKeys.CRAFT_STATUS, "")) != GameStateKeys.CRAFT_STATUS_IN_PROGRESS:
+			continue
+		entry[GameStateKeys.CRAFT_STARTED_AT] = int(entry.get(GameStateKeys.CRAFT_STARTED_AT, 0)) - int(entry.get(GameStateKeys.CRAFT_DURATION_SEC, 0)) - 1
+		queue[i] = entry
+		rewound += 1
+	GameManager._state[GameStateKeys.CRAFTING_QUEUE] = queue
+	GameManager.refresh_crafting_queue_if_needed()
+	print("[DebugOverlay] 製作 %d件 を完成にした（受け取りは「受け取る」を押す）" % rewound)
 
 
 func _save() -> void:
