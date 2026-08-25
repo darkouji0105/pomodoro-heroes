@@ -5332,6 +5332,20 @@ func load_state(data: Dictionary) -> bool:
 		var mats: Dictionary = new_state[GameStateKeys.MATERIALS]
 		for mat_id: String in mats:
 			mats[mat_id] = int(mats[mat_id])
+	# 持ち物の個数。materials と同じ理由で int に戻す（宿題12・2026-08-25）。
+	# ⚠ これを飛ばすと、セーブ→ロード→セーブで "count": 5.0 と書かれ続ける。
+	#   読む側（get_item_count / _remove_from_inventory / use_stamina_potion）が
+	#   全部 int() を通しているため表示と判定は壊れないが、セーブの形が汚れる。
+	# ⚠ 直すのは count だけ。type / slot_position / properties は触らない
+	#   （「対象を限定する」という上の決定事項をここでも守る）。
+	if new_state.has(GameStateKeys.INVENTORY) and new_state[GameStateKeys.INVENTORY] is Dictionary:
+		var inv: Dictionary = new_state[GameStateKeys.INVENTORY]
+		for item_id: String in inv:
+			if not (inv[item_id] is Dictionary):
+				continue
+			var item_entry: Dictionary = inv[item_id]
+			if item_entry.has(GameStateKeys.ITEM_COUNT):
+				item_entry[GameStateKeys.ITEM_COUNT] = int(item_entry[GameStateKeys.ITEM_COUNT])
 	# 育成データ。JSONから戻すと level も stats も float になるため int に戻す。
 	# これを飛ばすと、セーブ→ロード後に hp が 128.0 と表示され、レベル比較もずれる。
 	if new_state.has(GameStateKeys.CHARACTER_GROWTH) and new_state[GameStateKeys.CHARACTER_GROWTH] is Dictionary:

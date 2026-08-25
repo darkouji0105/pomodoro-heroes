@@ -39,6 +39,7 @@ const REPORT_LAYOUT: String = "layout"
 const REPORT_UNLOCK: String = "unlock"
 const REPORT_RESEARCH: String = "research"
 const REPORT_WORKSHOP: String = "workshop"
+const REPORT_ECONOMY: String = "economy"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -622,6 +623,20 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_WORKSHOP,
 		"note": "装飾のくじ。レシピ3件 / 分布 / 受け取りで個体が増える / 研究の作業場枝 / E129",
 	},
+	# 段階12（バランス実測）の検証。EXEC_BALANCE_ECONOMY.md §5-A。
+	#
+	# ⚠ 戦闘を1回も回さない。1周で入るものは stages.json の rewards と
+	#   _roll_chest_draw() から出す（drops / workshop と同じ形）。
+	#   「1000回戦わせる」を書くと終わらない（1本10〜20秒）。
+	# ⚠ 赤も黄も1本も足さない。「出口が無い素材」は print で名指しするだけ
+	#   （EXEC_BALANCE_ECONOMY.md 決め1）。赤にすると30本全部が赤になる。
+	# ⚠ 研究は最後に解放する。_roll_chest_draw() に宝箱枝が乗っているため、
+	#   先に解放すると素の期待値が二度と取れない（決め5）。
+	"economy": {
+		"kind": KIND_REPORT,
+		"report": REPORT_ECONOMY,
+		"note": "資源の収支。素材16件の入口と出口 / 1周で入るもの / Lv100までの周回数と集中時間",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -668,6 +683,8 @@ func _ready() -> void:
 			_report_research()
 		elif report == REPORT_WORKSHOP:
 			_report_workshop()
+		elif report == REPORT_ECONOMY:
+			_report_economy()
 		elif report == REPORT_LAYOUT:
 			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
 			await _report_layout()
@@ -1177,6 +1194,407 @@ func _report_workshop() -> void:
 
 
 # inputs / outputs を「id x個」の1行にする。⚠ tr() を使わない（ログのため）。
+# 本番でないステージの接頭辞。⚠ stage_dbg_* を収支に混ぜない（決め2）。
+# ⚠ rewards.gold が本番 50/80/120 に対して検証用は全部 1 で、
+#   接頭辞以外に本番と検証を見分けられる欄が stages.json に無い。
+# ⚠ この綴りは宿題35（リリース前に消すもの）が既に名指ししているもの。
+const ECONOMY_DBG_STAGE_PREFIX: String = "stage_dbg_"
+
+# 宝箱の期待値を出すのに引く回数。⚠ drops / workshop と同じ 1000 回。
+const ECONOMY_DRAW_TRIALS: int = 1000
+
+
+# 段階12（バランス実測）の報告。EXEC_BALANCE_ECONOMY.md §3。
+#
+# ⚠ 戦闘を1回も回さない（決め8）。1周で入るものは stages.json の rewards と
+#   _roll_chest_draw() から出す。
+# ⚠ 赤も黄も1本も足さない（決め1）。「出口が無い」は print で名指しするだけ。
+# ⚠ 研究の解放はいちばん最後（決め5）。_roll_chest_draw() に宝箱枝が乗っているため、
+#   先に解放すると素の期待値が二度と取れない。
+# ⚠ MasterDataLoader が返す数値は float。int() で包み忘れると表に .0 が出る。
+func _report_economy() -> void:
+	var material_ids: Array[String] = _economy_material_ids()
+	var sources: Dictionary = _economy_sources()
+	var sinks: Dictionary = _economy_sinks()
+
+	# --- 1. 素材16件の入口と出口 ---
+	print("[DebugBoot] --- 素材の入口と出口（⚠ 16 件が正解）---")
+	print("  素材 %d 件" % material_ids.size())
+	var no_source: Array[String] = []
+	var no_sink: Array[String] = []
+	for material_id: String in material_ids:
+		var in_list: Array = sources.get(material_id, [])
+		var out_list: Array = sinks.get(material_id, [])
+		if in_list.is_empty():
+			no_source.append(material_id)
+		if out_list.is_empty():
+			no_sink.append(material_id)
+		print("  %-24s 入口 %s" % [material_id, _economy_join(in_list)])
+		print("  %-24s 出口 %s" % ["", _economy_join(out_list)])
+	print("  ⚠ 入口が0件のもの %d 件: %s" % [no_source.size(), str(no_source)])
+	print("  ⚠ 出口が0件のもの %d 件: %s" % [no_sink.size(), str(no_sink)])
+	print("     （⚠ 赤にも黄にもしない。⚠ 穴かどうかは人間が決める＝決め1）")
+
+	# --- 2. 1周で入るもの（研究0件のとき）---
+	print("[DebugBoot] --- 1周で入るもの（⚠ 研究0件・勝った前提）---")
+	var stage_ids: Array[String] = _economy_stage_ids()
+	print("  本番ステージ %d 本（⚠ stage_dbg_* は除いた）" % stage_ids.size())
+	var stamina_cost: int = int(Balance.adventure.stamina_cost_per_stage)
+	for stage_id: String in stage_ids:
+		_economy_print_stage_row(stage_id, stamina_cost)
+
+	# --- 3. Lv100 までの周回数と集中時間 ---
+	print("[DebugBoot] --- Lv100 までに要る育成素材 ---")
+	var config: CharacterConfig = Balance.character
+	var level_material: String = str(config.level_up_material_id)
+	# ⚠ 道具を疑う（決め4・§3-5）。式を直接評価した値が実装と一致するか。
+	var members: Array = GameManager.get_party_members()
+	var probe_id: String = str(members[0]) if not members.is_empty() else ""
+	# ⚠ 上限は max_character_level（100）で測る。get_effective_level_cap() は
+	#   研究を解放するまで 20 を返すので、そのまま使うと「Lv20 までの表」になる。
+	var cap: int = int(config.max_character_level)
+	var total_one: int = _economy_level_total(cap)
+	var from_impl: int = 0
+	if probe_id != "":
+		from_impl = int(GameManager.get_level_up_cost(probe_id).get(GameManager.LEVEL_UP_COST_AMOUNT, 0))
+	var from_formula: int = _economy_level_cost_at(1)
+	print("  ⚠ Lv1 の突き合わせ 実装 %d / 式 %d -> %s" % [
+		from_impl, from_formula, "一致" if from_impl == from_formula else "⚠ 式の評価が実装とずれている"
+	])
+	print("  上限 Lv%d（⚠ 研究0件のときの実効上限は Lv%d）/ 素材 %s" % [
+		cap, GameManager.get_effective_level_cap(probe_id), level_material
+	])
+	print("  式 '%s'（base=%d growth=%s・⚠ character_config.tres の3行＝人間しか直せない）" % [
+		str(config.level_up_cost_formula),
+		int(config.base_level_up_cost), str(config.cost_growth_per_level),
+	])
+	print("  ⚠ 1キャラ %d 個 / 3キャラ %d 個" % [total_one, total_one * 3])
+
+	print("[DebugBoot] --- Lv100 までの周回数と集中時間（⚠ 3キャラぶん）---")
+	var focus_per_potion: int = int(Balance.pomodoro.potion_focus_minutes_per_unit)
+	var stamina_per_potion: int = int(Balance.pomodoro.stamina_potion_recovery)
+	print("  1周 %d スタミナ / ポーション1個 +%d スタミナ / 集中 %d 分で1個" % [
+		stamina_cost, stamina_per_potion, focus_per_potion
+	])
+	for stage_id: String in stage_ids:
+		var per_run: int = _economy_stage_material(stage_id, level_material)
+		if per_run <= 0:
+			print("  %-10s %s が 0 個/周 -> ⚠ ∞（このステージでは上がらない）" % [stage_id, level_material])
+			continue
+		var runs: int = int(ceil(float(total_one * 3) / float(per_run)))
+		var stamina_total: int = runs * stamina_cost
+		var focus_min: int = int(ceil(float(stamina_total) / float(stamina_per_potion) * float(focus_per_potion)))
+		print("  %-10s %d 個/周 -> %d 周 / スタミナ %d / 集中 %d 分（%.1f 時間）" % [
+			stage_id, per_run, runs, stamina_total, focus_min, float(focus_min) / 60.0
+		])
+
+	# --- 4. 研究20件の総コスト ---
+	print("[DebugBoot] --- 研究の総コストと入口 ---")
+	var research_cost: Dictionary = _economy_research_cost()
+	var research_total: int = 0
+	for material_id: String in research_cost:
+		research_total += int(research_cost[material_id])
+	print("  ノード %d 件 / 合計 %d 個" % [MasterDataLoader.get_all_research_nodes().size(), research_total])
+	for material_id: String in material_ids:
+		if not research_cost.has(material_id):
+			continue
+		var need: int = int(research_cost[material_id])
+		var best_stage: String = ""
+		var best_per_run: int = 0
+		for stage_id: String in stage_ids:
+			var per_run: int = _economy_stage_material(stage_id, material_id)
+			if per_run > best_per_run:
+				best_per_run = per_run
+				best_stage = stage_id
+		if best_per_run > 0:
+			print("  %-24s %4d 個  最良 %s が %d 個/周 -> %d 周" % [
+				material_id, need, best_stage, best_per_run,
+				int(ceil(float(need) / float(best_per_run)))
+			])
+		else:
+			print("  %-24s %4d 個  ⚠ どのステージからも落ちない -> %s" % [
+				material_id, need, _economy_shop_line(material_id)
+			])
+
+	# --- 5. ゴールドの入口 ---
+	print("[DebugBoot] --- ゴールドの入口（⚠ ショップの支払い元）---")
+	for stage_id: String in stage_ids:
+		print("  %-10s %d G/周" % [stage_id, _economy_stage_gold(stage_id)])
+
+	# --- 6. 研究を全部解放してから、宝箱の期待値を測り直す（⚠ いちばん最後）---
+	print("[DebugBoot] --- 研究を全部解放したあとの1周 ---")
+	for material_id: String in material_ids:
+		GameManager.add_material(material_id, 999999)
+	for _pass_index: int in range(MasterDataLoader.get_all_research_nodes().size()):
+		var unlocked_this_pass: int = 0
+		for node_id: Variant in MasterDataLoader.get_all_research_nodes():
+			if GameManager.unlock_research_node(str(node_id)):
+				unlocked_this_pass += 1
+		if unlocked_this_pass == 0:
+			break
+	print("  宝箱の抽選 +%d" % GameManager.get_research_chest_draw_bonus())
+	for stage_id: String in stage_ids:
+		_economy_print_stage_row(stage_id, stamina_cost)
+	print("     （⚠ 研究0件のときより宝箱の期待値が大きいのが正解＝枝が生きている）")
+
+	# --- 7. 宿題12（inventory の count が float で戻る）---
+	# ⚠ UIから到達できない経路なので、ここで見る（EXEC_BALANCE_ECONOMY.md A-10）。
+	# ⚠ load_state() はセーブを書かない。SaveManager は呼ばないこと。
+	# ⚠ この枝で状態を丸ごと入れ替えるので、⚠ 必ずいちばん最後に置く。
+	print("[DebugBoot] --- 宿題12：セーブから戻した count の型 ---")
+	var probe_item: String = "part_gem_hp_1"
+	var probe_save: Dictionary = {
+		GameStateKeys.SAVE_VERSION: 3,
+		GameStateKeys.INVENTORY: {
+			probe_item: {
+				GameStateKeys.ITEM_COUNT: 5.0,
+				GameStateKeys.ITEM_TYPE: GameStateKeys.ITEM_TYPE_PART,
+			},
+			# ⚠ Dictionary でない値を混ぜる。⚠ 落ちないことを同じ枝で見る。
+			"⚠ 壊れた行": 1.0,
+		},
+	}
+	print("  渡した count = 5.0 (%s)" % type_string(typeof(5.0)))
+	print("  load_state() = %s" % str(GameManager.load_state(probe_save)))
+	var loaded: Variant = GameManager.get_state().get(GameStateKeys.INVENTORY, {}).get(probe_item, {})
+	var loaded_count: Variant = (loaded as Dictionary).get(GameStateKeys.ITEM_COUNT, null) if loaded is Dictionary else null
+	print("  戻ってきた count = %s (%s)（⚠ int が正解。⚠ 直す前は float だった）" % [
+		str(loaded_count), type_string(typeof(loaded_count))
+	])
+	print("  get_item_count('%s') = %d" % [probe_item, GameManager.get_item_count(probe_item)])
+
+
+# 素材（storage == material）のIDを綴り順で返す。
+# ⚠ IDの綴りから素材かどうかを推測しない。items.json の storage で判定する。
+func _economy_material_ids() -> Array[String]:
+	var ids: Array[String] = []
+	var all_items: Dictionary = MasterDataLoader.get_all_items()
+	for item_id: String in all_items:
+		var definition: Dictionary = all_items[item_id]
+		if str(definition.get(GameManager.ITEM_MASTER_STORAGE, "")) == GameManager.ITEM_STORAGE_MATERIAL:
+			ids.append(item_id)
+	ids.sort()
+	return ids
+
+
+# 本番ステージのIDを綴り順で返す（決め2）。
+func _economy_stage_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for stage_id: Variant in MasterDataLoader._cache_stages:
+		if str(stage_id).begins_with(ECONOMY_DBG_STAGE_PREFIX):
+			continue
+		ids.append(str(stage_id))
+	ids.sort()
+	return ids
+
+
+# 素材の入口。{material_id: [説明の行]}。
+# ⚠ 出口を作る _economy_sinks() と対になっている。片方だけ直さないこと（決め9）。
+func _economy_sources() -> Dictionary:
+	var out: Dictionary = {}
+	# (a) ステージの固定報酬
+	for stage_id: String in _economy_stage_ids():
+		var rewards: Dictionary = MasterDataLoader.get_stage(stage_id).get(GameStateKeys.BATTLE_REWARDS, {})
+		var mats: Variant = rewards.get(GameStateKeys.REWARD_MATERIALS, {})
+		if mats is Dictionary:
+			for material_id: String in (mats as Dictionary):
+				_economy_add(out, material_id, "%s x%d/周" % [stage_id, int((mats as Dictionary)[material_id])])
+	# (b) 宝箱（固定と抽選の両方）
+	for chest_id: Variant in MasterDataLoader.get_all_chests():
+		var chest: Dictionary = MasterDataLoader.get_chest(str(chest_id))
+		var chest_rewards: Variant = chest.get(GameStateKeys.BATTLE_REWARDS, {})
+		if chest_rewards is Dictionary:
+			var chest_mats: Variant = (chest_rewards as Dictionary).get(GameStateKeys.REWARD_MATERIALS, {})
+			if chest_mats is Dictionary:
+				for material_id: String in (chest_mats as Dictionary):
+					_economy_add(out, material_id, "宝箱 %s x%d" % [
+						str(chest_id), int((chest_mats as Dictionary)[material_id])
+					])
+		var draw_def: Variant = chest.get(GameManager.CHEST_DRAW, {})
+		if draw_def is Dictionary:
+			for row: Variant in ((draw_def as Dictionary).get(GameManager.CHEST_DRAW_ENTRIES, []) as Array):
+				var drawn_id: String = str((row as Dictionary).get(GameManager.CHEST_DRAW_ITEM_ID, ""))
+				if drawn_id == "":
+					continue
+				_economy_add(out, drawn_id, "宝箱 %s の抽選" % str(chest_id))
+	# (c) ショップ
+	for shop_type: Variant in MasterDataLoader.get_all_shop_types():
+		for slot: Variant in MasterDataLoader.get_shop_slots(str(shop_type)):
+			var row: Dictionary = slot
+			if str(row.get(GameManager.SHOP_SLOT_PAYOUT_TYPE, "")) != GameManager.PAYOUT_TYPE_MATERIAL:
+				continue
+			var cost: Dictionary = row.get(GameStateKeys.SHOP_COST, {})
+			_economy_add(out, str(row.get(GameStateKeys.SHOP_ITEM_ID, "")), "%s x%d を %d %s（在庫 %d）" % [
+				str(shop_type),
+				int(row.get(GameManager.SHOP_SLOT_PAYOUT_COUNT, 0)),
+				int(cost.get(GameStateKeys.COST_AMOUNT, 0)),
+				str(cost.get(GameStateKeys.COST_CURRENCY_TYPE, "")),
+				int(row.get(GameStateKeys.SHOP_STOCK_LIMIT, 0)),
+			])
+	# (d) 分解（装備 -> 鍛冶素材 / 装飾 -> 装飾素材）
+	for tier: int in range(1, GameManager.get_forge_material_tier_count() + 1):
+		_economy_add(out, "forging_material_%d" % tier, "装備の分解（返却率 %s）" % str(
+			Balance.equipment.dismantle_refund_ratio
+		))
+	var dismantle_by_tier: Array[int] = Balance.part.dismantle_by_tier
+	for tier: int in range(1, dismantle_by_tier.size() + 1):
+		_economy_add(out, "decor_material_%d" % tier, "装飾を壊す x%d" % int(dismantle_by_tier[tier - 1]))
+	return out
+
+
+# 素材の出口。{material_id: [説明の行]}。
+func _economy_sinks() -> Dictionary:
+	var out: Dictionary = {}
+	# (a) レベルアップ
+	_economy_add(out, str(Balance.character.level_up_material_id), "レベルアップ")
+	# (b) 鍛冶（等級2..上限）
+	var max_grade: int = GameManager.get_max_equipment_grade()
+	for grade: int in range(2, max_grade + 1):
+		_economy_add(out, "forging_material_%d" % GameManager.get_forge_material_tier(grade), "鍛冶 等級%d x%d" % [
+			grade, GameManager.get_forge_cost_amount(grade)
+		])
+	# (c) 装飾の段階上げ（段階 n -> n+1 に decor_material_<n> を払う）
+	var upgrade_cost: Array[int] = Balance.part.upgrade_cost_by_tier
+	for tier: int in range(1, upgrade_cost.size() + 1):
+		_economy_add(out, "decor_material_%d" % tier, "装飾 段階%d->%d x%d" % [
+			tier, tier + 1, int(upgrade_cost[tier - 1])
+		])
+	# (d) 研究
+	var research_cost: Dictionary = _economy_research_cost()
+	for material_id: String in research_cost:
+		_economy_add(out, material_id, "研究 合計 x%d" % int(research_cost[material_id]))
+	# (e) 作業場のレシピ
+	for recipe_id: Variant in MasterDataLoader.get_all_recipes():
+		var recipe: Dictionary = MasterDataLoader.get_recipe(str(recipe_id))
+		for row: Variant in (recipe.get(GameManager.RECIPE_INPUTS, []) as Array):
+			_economy_add(out, str((row as Dictionary).get(GameManager.RECIPE_IO_ITEM_ID, "")), "作業場 %s x%d" % [
+				str(recipe_id), int((row as Dictionary).get(GameManager.RECIPE_IO_COUNT, 0))
+			])
+	return out
+
+
+# 研究20件のコストを素材ごとに合計する。{material_id: 合計}
+func _economy_research_cost() -> Dictionary:
+	var out: Dictionary = {}
+	var nodes: Dictionary = MasterDataLoader.get_all_research_nodes()
+	for node_id: Variant in nodes:
+		var node: Dictionary = nodes[node_id]
+		var material_id: String = str(node.get(GameManager.RESEARCH_NODE_COST_MATERIAL_ID, ""))
+		if material_id == "":
+			continue
+		out[material_id] = int(out.get(material_id, 0)) + int(node.get(GameManager.RESEARCH_NODE_COST_AMOUNT, 0))
+	return out
+
+
+# ステージ1周で入る素材の個数（固定報酬のみ・宝箱は含まない）。
+func _economy_stage_material(stage_id: String, material_id: String) -> int:
+	var rewards: Dictionary = MasterDataLoader.get_stage(stage_id).get(GameStateKeys.BATTLE_REWARDS, {})
+	var mats: Variant = rewards.get(GameStateKeys.REWARD_MATERIALS, {})
+	if not (mats is Dictionary):
+		return 0
+	return int((mats as Dictionary).get(material_id, 0))
+
+
+func _economy_stage_gold(stage_id: String) -> int:
+	var rewards: Dictionary = MasterDataLoader.get_stage(stage_id).get(GameStateKeys.BATTLE_REWARDS, {})
+	return int(rewards.get(GameStateKeys.REWARD_GOLD, 0))
+
+
+# 1周の行を1本出す。⚠ 研究の前後で2回呼ぶので関数にしてある。
+func _economy_print_stage_row(stage_id: String, stamina_cost: int) -> void:
+	var rewards: Dictionary = MasterDataLoader.get_stage(stage_id).get(GameStateKeys.BATTLE_REWARDS, {})
+	var mats: Variant = rewards.get(GameStateKeys.REWARD_MATERIALS, {})
+	var columns: Array[String] = []
+	if mats is Dictionary:
+		var keys: Array = (mats as Dictionary).keys()
+		keys.sort()
+		for material_id: Variant in keys:
+			columns.append("%s x%d" % [str(material_id), int((mats as Dictionary)[material_id])])
+	var inventory: Variant = rewards.get(GameStateKeys.REWARD_INVENTORY, {})
+	var inv_columns: Array[String] = []
+	if inventory is Dictionary:
+		for item_id: String in (inventory as Dictionary):
+			inv_columns.append("%s x%d" % [item_id, int((inventory as Dictionary)[item_id])])
+	print("  %-10s %4d G / スタミナ -%d / 宝箱 %s" % [
+		stage_id, _economy_stage_gold(stage_id), stamina_cost,
+		_economy_chest_expectation(str(rewards.get(GameStateKeys.CHEST_ID, ""))),
+	])
+	print("  %-10s 素材 %s" % ["", " + ".join(columns) if not columns.is_empty() else "（無し）"])
+	print("  %-10s 持ち物 %s" % ["", " + ".join(inv_columns) if not inv_columns.is_empty() else "（無し）"])
+
+
+# 宝箱1個の期待値（1周あたり何個出るか）を文字列で返す。
+# ⚠ _roll_chest_draw() には研究の宝箱枝が乗っている（決め5）。呼ぶ順番で値が変わる。
+func _economy_chest_expectation(chest_id: String) -> String:
+	if chest_id == "":
+		return "（無し）"
+	var chest: Dictionary = MasterDataLoader.get_chest(chest_id)
+	var draw_def: Variant = chest.get(GameManager.CHEST_DRAW, {})
+	if not (draw_def is Dictionary) or (draw_def as Dictionary).is_empty():
+		return "%s（抽選なし）" % chest_id
+	var total: int = 0
+	for _i: int in range(ECONOMY_DRAW_TRIALS):
+		var rolled: Dictionary = GameManager._roll_chest_draw(draw_def as Dictionary)
+		for item_id: String in rolled:
+			total += int(rolled[item_id])
+	return "%s 期待値 %.2f 個/周" % [chest_id, float(total) / float(ECONOMY_DRAW_TRIALS)]
+
+
+# Lv1 -> cap に要る素材の合計。⚠ level_up_character() を99回回さない（決め4）。
+func _economy_level_total(cap: int) -> int:
+	var total: int = 0
+	for level: int in range(1, cap):
+		total += _economy_level_cost_at(level)
+	return total
+
+
+# そのレベルから1つ上げるのに要る個数。get_level_up_cost() の中身と同じ式・同じ引数。
+func _economy_level_cost_at(level: int) -> int:
+	var config: CharacterConfig = Balance.character
+	var base: float = float(config.base_level_up_cost)
+	var growth: float = config.cost_growth_per_level
+	return GrowthFormula.evaluate_int(
+		config.level_up_cost_formula,
+		{"base": base, "growth": growth, "level": float(level)},
+		base + growth * float(level - 1)
+	)
+
+
+# その素材をショップで買うときの行（どのステージからも落ちない素材のため）。
+func _economy_shop_line(material_id: String) -> String:
+	var rows: Array[String] = []
+	for shop_type: Variant in MasterDataLoader.get_all_shop_types():
+		for slot: Variant in MasterDataLoader.get_shop_slots(str(shop_type)):
+			var row: Dictionary = slot
+			if str(row.get(GameStateKeys.SHOP_ITEM_ID, "")) != material_id:
+				continue
+			var cost: Dictionary = row.get(GameStateKeys.SHOP_COST, {})
+			rows.append("%s x%d を %d %s（1周期に %d 回まで）" % [
+				str(shop_type),
+				int(row.get(GameManager.SHOP_SLOT_PAYOUT_COUNT, 0)),
+				int(cost.get(GameStateKeys.COST_AMOUNT, 0)),
+				str(cost.get(GameStateKeys.COST_CURRENCY_TYPE, "")),
+				int(row.get(GameStateKeys.SHOP_STOCK_LIMIT, 0)),
+			])
+	if rows.is_empty():
+		return "⚠ ショップにも無い"
+	return " / ".join(rows)
+
+
+func _economy_add(table: Dictionary, material_id: String, line: String) -> void:
+	if material_id == "":
+		return
+	if not table.has(material_id):
+		table[material_id] = []
+	(table[material_id] as Array).append(line)
+
+
+func _economy_join(list: Array) -> String:
+	if list.is_empty():
+		return "⚠ 無し"
+	return " / ".join(list)
+
+
 func _io_summary(list: Variant) -> String:
 	if not (list is Array) or (list as Array).is_empty():
 		return "（無し）"
