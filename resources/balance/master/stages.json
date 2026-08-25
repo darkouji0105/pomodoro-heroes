@@ -22,7 +22,7 @@
 	"party_id": "party_default",
 	"rewards": {
 	  "gold": 80,
-	  "materials": { "construction_material_1": 5 ,"training_material_1": 4, "forging_material_1": 4, "construction_material_2": 1, "training_material_2": 1, "forging_material_2": 1, "decor_material_1": 2, "decor_material_2": 1 },
+	  "materials": { "construction_material_1": 5 ,"training_material_1": 5, "forging_material_1": 4, "construction_material_2": 1, "forging_material_2": 1, "decor_material_1": 2, "decor_material_2": 1 },
 	  "inventory": { "part_gem_atk_1": 1 },
 	  "chest_id": "stage_2"
 	},
@@ -40,7 +40,7 @@
 	"party_id": "party_default",
 	"rewards": {
 	  "gold": 120,
-	  "materials": { "construction_material_2": 5 ,"training_material_2": 4, "forging_material_2": 4, "construction_material_3": 1, "training_material_3": 1, "forging_material_3": 1, "decor_material_2": 2, "decor_material_3": 1 },
+	  "materials": { "construction_material_2": 5 ,"training_material_1": 6, "forging_material_2": 4, "construction_material_3": 1, "forging_material_3": 1, "decor_material_2": 2, "decor_material_3": 1 },
 	  "inventory": { "part_charm_def_1": 1, "part_emblem_crit_rate_1": 1 },
 	  "chest_id": "stage_3"
 	},

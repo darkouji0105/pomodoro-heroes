@@ -67,17 +67,17 @@
 	},
 	{
 	  "slot_id": 7,
-	  "item_id": "training_material_3",
+	  "item_id": "training_material_1",
 	  "payout_type": "material",
-	  "count": 5,
+	  "count": 75,
 	  "cost": { "currency_type": "gold", "amount": 2000 },
 	  "stock_limit": 1
 	},
 	{
 	  "slot_id": 8,
-	  "item_id": "training_material_4",
+	  "item_id": "training_material_1",
 	  "payout_type": "material",
-	  "count": 3,
+	  "count": 180,
 	  "cost": { "currency_type": "gold", "amount": 5000 },
 	  "stock_limit": 1
 	},

@@ -1264,7 +1264,10 @@ func _report_economy() -> void:
 	print("  上限 Lv%d（⚠ 研究0件のときの実効上限は Lv%d）/ 素材 %s" % [
 		cap, GameManager.get_effective_level_cap(probe_id), level_material
 	])
-	print("  式 '%s'（base=%d growth=%s・⚠ character_config.tres の3行＝人間しか直せない）" % [
+	# ⚠ 式は character_config.gd の @export 既定値（.tres に行が無い＝設計役が直せる）。
+	#   .tres に行があるのは base / growth / level_up_material_id の3行だけ
+	#   （EXEC_BALANCE_TUNE.md §0-2。⚠ 以前ここは「式も人間しか直せない」と書いていた）。
+	print("  式 '%s'（⚠ character_config.gd の既定値）/ base=%d growth=%s（⚠ .tres の2行＝人間だけ）" % [
 		str(config.level_up_cost_formula),
 		int(config.base_level_up_cost), str(config.cost_growth_per_level),
 	])

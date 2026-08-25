@@ -51,5 +51,19 @@ extends Resource
 #   level  … 現在のレベル（このレベルから1つ上げるのに必要な数）
 #
 # 空文字にすると線形（base + growth * (level - 1)）にフォールバックする。
+#
+# ⚠ level_up_cost_formula は character_config.tres に行が無い。
+#   効いているのはここの既定値（.tres は @export の既定値を書き出さない）。
+#   ⚠ .tres に行があるのは level_up_material_id / base_level_up_cost /
+#     cost_growth_per_level の3行だけ（EXEC_BALANCE_TUNE.md §0-2）。
+#
+# ⚠ 2026-08-25：線形 "base + growth * (level - 1)" から二次へ差し替えた。
+#   GAME_DESIGN.md 5-2「立ち上がりを寝かせて後半を跳ねさせる式に差し替える」。
+#   Lv1→100 の合計が 1キャラ 5,148 個 → 1,595 個（3キャラ 15,444 → 4,785）。
+#   stage_2 を回す前提で 集中 160.9 時間 → 39.9 時間（人間の決定：目安40時間）。
+#   1回あたりは Lv1 で 3 個・Lv20 で 4 個・Lv60 で 17 個・Lv99 で 42 個。
+#
+# ⚠ 245.0 と小数で書くこと。245 と書くと、渡し方が変わったときに
+#   整数割りになって黙って壊れる（今は float(level) で渡っている）。
 @export var stat_growth_formula: String = "base"
-@export var level_up_cost_formula: String = "base + growth * (level - 1)"
+@export var level_up_cost_formula: String = "base + growth * (level - 1) * (level - 1) / 245.0"
