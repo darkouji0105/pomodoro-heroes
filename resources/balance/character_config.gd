@@ -12,7 +12,13 @@ extends Resource
 # --- 研究が未実装の間のレベル上限 ---
 # 実効上限 = base_level_cap + 解放済み level_cap_unlock ノードの effect_value 合計。
 # 研究ツリーが空でも 0 にならないようにするための下駄。
-@export var base_level_cap: int = 10
+#
+# ⚠ 20 + research.json の res_cap_1..4（各 20）= ちょうど 100 で
+#   max_character_level と一致する（人間の決定・2026-08-25）。
+#   パッシブが Lv20/40/60/80/100 で解放されるので、100 に届かないと
+#   5個中4個が誰にも見られない（GAME_DESIGN 5-4 / EXEC_CHARACTER_PASSIVES §4-3）。
+# ⚠ 片方だけ変えると 100 からずれる。research.json とセットで直すこと。
+@export var base_level_cap: int = 20
 
 # --- 設計上の最大レベル ---
 # get_effective_level_cap() が返す「今このセーブで上げられる上限」とは別物。

@@ -43,17 +43,20 @@ var _selected_build: int = 0
 
 @onready var material_label: Label = $Margin/Layout/MaterialLabel
 @onready var list_panel: VBoxContainer = $Margin/Layout/ListPanel
-@onready var detail_panel: VBoxContainer = $Margin/Layout/DetailPanel
-@onready var name_label: Label = $Margin/Layout/DetailPanel/NameLabel
-@onready var level_label: Label = $Margin/Layout/DetailPanel/LevelLabel
-@onready var stats_label: Label = $Margin/Layout/DetailPanel/StatsLabel
-@onready var cost_label: Label = $Margin/Layout/DetailPanel/CostLabel
-@onready var notice_label: Label = $Margin/Layout/DetailPanel/NoticeLabel
-@onready var level_up_button: PrimaryButton = $Margin/Layout/DetailPanel/LevelUpButton
-@onready var stat_node_button: PrimaryButton = $Margin/Layout/DetailPanel/StatNodeButton
-@onready var skill_button: PrimaryButton = $Margin/Layout/DetailPanel/SkillButton
-@onready var equip_button: PrimaryButton = $Margin/Layout/DetailPanel/EquipButton
-@onready var to_list_button: PrimaryButton = $Margin/Layout/DetailPanel/ToListButton
+# ⚠ 2カラム（左＝情報／右＝操作）。縦にはみ出していたので 2026-08-25 に組み替えた。
+# ⚠ 型が HBoxContainer に変わっている。VBoxContainer と書くと実行時に落ちる。
+@onready var detail_panel: HBoxContainer = $Margin/Layout/DetailPanel
+@onready var action_column: VBoxContainer = $Margin/Layout/DetailPanel/ActionColumn
+@onready var name_label: Label = $Margin/Layout/DetailPanel/InfoColumn/NameLabel
+@onready var level_label: Label = $Margin/Layout/DetailPanel/InfoColumn/LevelLabel
+@onready var stats_label: Label = $Margin/Layout/DetailPanel/InfoColumn/StatsLabel
+@onready var cost_label: Label = $Margin/Layout/DetailPanel/InfoColumn/CostLabel
+@onready var notice_label: Label = $Margin/Layout/DetailPanel/InfoColumn/NoticeLabel
+@onready var level_up_button: PrimaryButton = $Margin/Layout/DetailPanel/ActionColumn/LevelUpButton
+@onready var stat_node_button: PrimaryButton = $Margin/Layout/DetailPanel/ActionColumn/StatNodeButton
+@onready var skill_button: PrimaryButton = $Margin/Layout/DetailPanel/ActionColumn/SkillButton
+@onready var equip_button: PrimaryButton = $Margin/Layout/DetailPanel/ActionColumn/EquipButton
+@onready var to_list_button: PrimaryButton = $Margin/Layout/DetailPanel/ActionColumn/ToListButton
 @onready var back_button: PrimaryButton = $Margin/Layout/BackButton
 
 
@@ -139,9 +142,10 @@ func _build_preset_row() -> void:
 	apply.pressed.connect(_on_apply_pressed)
 	row.add_child(apply)
 
-	detail_panel.add_child(row)
+	# ⚠ 差し込む先は右カラム。detail_panel（HBox）へ足すと3カラム目になる。
+	action_column.add_child(row)
 	# ⚠ add_child は末尾に付くので、必ず移動させる（「一覧へ戻る」より上へ）。
-	detail_panel.move_child(row, to_list_button.get_index())
+	action_column.move_child(row, to_list_button.get_index())
 
 
 # 選択肢の「（空き）」表示を、いまの保存状態に合わせて作り直す。

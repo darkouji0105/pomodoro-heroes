@@ -2,7 +2,7 @@
 	"res_cap_1": {
 		"name_key": "ui_research_cap_1",
 		"effect_type": "level_cap_unlock",
-		"effect_value": 5,
+		"effect_value": 20,
 		"prerequisites": [],
 		"cost_material_id": "construction_material_1",
 		"cost_amount": 20,
@@ -11,7 +11,7 @@
 	"res_cap_2": {
 		"name_key": "ui_research_cap_2",
 		"effect_type": "level_cap_unlock",
-		"effect_value": 5,
+		"effect_value": 20,
 		"prerequisites": ["res_cap_1"],
 		"cost_material_id": "construction_material_1",
 		"cost_amount": 40,
@@ -30,7 +30,7 @@
 	"res_cap_3": {
 		"name_key": "ui_research_cap_3",
 		"effect_type": "level_cap_unlock",
-		"effect_value": 5,
+		"effect_value": 20,
 		"prerequisites": ["res_cap_2"],
 		"cost_material_id": "construction_material_1",
 		"cost_amount": 70,
@@ -39,7 +39,7 @@
 	"res_cap_4": {
 		"name_key": "ui_research_cap_4",
 		"effect_type": "level_cap_unlock",
-		"effect_value": 5,
+		"effect_value": 20,
 		"prerequisites": ["res_cap_3"],
 		"cost_material_id": "construction_material_1",
 		"cost_amount": 110,

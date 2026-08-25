@@ -117,6 +117,34 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_dbg_area_narrow", "prepare": PREPARE_NONE, "gap": 2.5},
 		],
 	},
+	# 段階3の残り（本番キャラのパッシブ）の検証。EXEC_CHARACTER_PASSIVES.md §6-A。
+	#
+	# ⚠ report の枝では足りない。パッシブは戦闘の数値そのものを変えるうえ、
+	#   購読（react）は実際に殴られないと1度も発火しない（ルーンと同じ判断）。
+	# ⚠ 本番の味方3人を使う2本目のシナリオ（1本目は lineup）。
+	# ⚠ stage_dbg_area を使うのは敵の atk が 1 だから。本番ステージだと
+	#   本番の味方が react を見る前に落ちる（lineup と同じ理由）。
+	# ⚠ levels を Lv100 にするのは、5件とも付いた状態を見たいから。
+	#   途中の段（Lv20/40/60/80）の件数は _apply_levels() が通過時に出す。
+	# ⚠ スキルは撃たない（fire は待つだけ）。見たいのはパッシブと react であって
+	#   スキルの当たり方ではない。⚠ fire を空配列にしないこと（lineup の注意書き）。
+	"passives": {
+		"kind": KIND_BATTLE,
+		"note": "パッシブ。Lv20/40/60/80/100 で1→5件・条件付き4件・react 2件が発火するか",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_swordsman", "char_archer", "char_priest"],
+		"levels": {
+			"char_swordsman": 100,
+			"char_archer": 100,
+			"char_priest": 100,
+		},
+		"skills": {},
+		"fire": [
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
+			# ⚠ 殴り合うまで待つ。took_damage / dealt_damage はここで初めて出る。
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 14.0},
+		],
+	},
 	# 段階4（mode: area）の検証。EXEC_SKILL_AREA.md §6 の数字をそのまま見る。
 	"area": {
 		"kind": KIND_BATTLE,
@@ -595,6 +623,9 @@ func _ready() -> void:
 	#   set_party_member() / select_skill() は本物の状態を触るので、保存すると
 	#   人間の編成とスキル枠が黙って変わる。SaveManager をこのファイルから呼ばないこと。
 	_apply_party(scenario)
+	# ⚠ レベルはスキル枠より先に上げる。select_skill() は unlock_level で弾くため、
+	#   Lv1 のままだと上位のスキルが「候補に無い」で入らない。
+	_apply_levels(scenario)
 	_apply_skills(scenario)
 	_apply_runes(scenario)
 
@@ -686,6 +717,74 @@ func _apply_party(scenario: Dictionary) -> void:
 		if not GameManager.set_party_member(i, character_id):
 			push_error("[DebugBoot] set_party_member(%d, '%s') が false" % [i, character_id])
 	print("[DebugBoot] party=%s" % str(GameManager.get_party_members()))
+
+
+# レベルの下ごしらえ（段階3・EXEC_CHARACTER_PASSIVES.md §4-8）。
+#
+# ⚠ パッシブは Lv20/40/60/80/100 で解放される。Lv1 のままだと1件も付かず、
+#   「パッシブが効かない」のか「まだ解放されていない」のか読めない。
+# ⚠ 研究の上限解放を先に通す。get_effective_level_cap() が 20 のままだと
+#   Lv21 以降に上がらず、level_up_character() が false を返し続ける。
+# ⚠ 素材は一度に配る。「足りるまで足す」ループを書かないこと（在庫を減らすために
+#   操作を繰り返す形にすると出力が数万行になる。2026-08-24 に踏んだ罠）。
+# ⚠ 状態は書き換えるが保存しない（_apply_party() と同じ）。
+func _apply_levels(scenario: Dictionary) -> void:
+	var table: Dictionary = scenario.get("levels", {})
+	if table.is_empty():
+		return
+
+	# ⚠ 素材が先。unlock_research_node() は素材を払うので、逆にすると1件も解放されない
+	#   （F4 の「研究を全部解放（先に素材）」と同じ順）。
+	for material_id: Variant in MasterDataLoader.get_all_items():
+		var definition: Dictionary = MasterDataLoader.get_all_items()[material_id]
+		if str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) == GameStateKeys.ITEM_TYPE_MATERIAL:
+			GameManager.add_material(str(material_id), 9999999)
+	# ⚠ 前提を辿るので、解放できなくなるまで繰り返す（F4 の _unlock_all_research と同じ形）。
+	for _pass_index: int in range(MasterDataLoader.get_all_research_nodes().size()):
+		var unlocked_this_pass: int = 0
+		for node_id: Variant in MasterDataLoader.get_all_research_nodes():
+			if GameManager.unlock_research_node(str(node_id)):
+				unlocked_this_pass += 1
+		if unlocked_this_pass == 0:
+			break
+
+	# ⚠ ja.csv の再インポートは人間の作業で、設計役にはできない。
+	#   済んだかどうかを設計役が観測できる合図をここで出す
+	#   （scenario=unlock が .tres について同じことをしている）。
+	# ⚠ 未了だと scenario=layout が赤を5本出す。tr() がキー文字列をそのまま返し、
+	#   "%d" が無いまま % を当てるため（skill_select_screen の解放レベル表示）。
+	var probe: String = "ui_skill_select_passive_locked"
+	print("[DebugBoot] ja.csv の再インポート: %s" % (
+		"まだ（⚠ scenario=layout が赤5本・戦闘のマスが「？」になる）" if tr(probe) == probe
+		else "済んでいる"
+	))
+
+	# ⚠ 何段で何件付くかを出すのがこの関数の本題。件数だけ出す（名前は戦闘のログに出る）。
+	print("[DebugBoot] --- レベルとパッシブの件数（⚠ 解放されたものが全部効く）---")
+	for raw_character_id: Variant in table.keys():
+		var character_id: String = str(raw_character_id)
+		var goal: int = int(table[raw_character_id])
+		var marks: Array[String] = []
+		while true:
+			var level: int = int(GameManager.get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
+			if level >= goal:
+				break
+			if not GameManager.level_up_character(character_id):
+				push_error("[DebugBoot] level_up_character('%s') が false（Lv%d で止まった・目標 %d）" % [
+					character_id, level, goal
+				])
+				break
+			# 解放の段を通過した瞬間だけ記録する。毎レベル出すと297行になる。
+			var reached: int = int(GameManager.get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
+			var count: int = GameManager.get_battle_passives(character_id).size()
+			if count != marks.size():
+				marks.append("Lv%d:%d件" % [reached, count])
+		print("  %-16s Lv%-4d passives=%d  %s" % [
+			character_id,
+			int(GameManager.get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1)),
+			GameManager.get_battle_passives(character_id).size(),
+			" ".join(marks),
+		])
 
 
 func _apply_skills(scenario: Dictionary) -> void:
@@ -1886,9 +1985,32 @@ func _report_layout() -> void:
 			(instance as Control).size = viewport_size
 		await get_tree().process_frame
 		await get_tree().process_frame
-		var minimum_x: float = (instance as Control).get_combined_minimum_size().x if instance is Control else 0.0
-		var over: String = "  ⚠ はみ出す" if minimum_x > viewport_size.x else ""
-		print("  %-46s 開いた（最小幅 %.0f）%s" % [scene_path.get_file(), minimum_x, over])
+		# ⚠ ルートを測らないこと。画面のルートは素の Control で、子の MarginContainer は
+		#   アンカー配置なので、get_combined_minimum_size() が必ず 0 を返す。
+		#   2026-08-25 まで6シーンとも「最小幅 0」と出ており、横も縦も測れていなかった。
+		# ⚠ 測るのは中の一番外側の Container（＝Margin）。
+		# ⚠ 開いた直後の姿だけでは足りない。育成画面は「一覧」と「詳細」が
+		#   排他で、縦に長いのは詳細のほう。開いた直後は一覧なので見逃す
+		#   （2026-08-25 に人間が実機で見つけた縦のはみ出しが、これで測れていなかった）。
+		# ⚠ 表を1行足すだけで済む形にする。画面ごとに if を書かないこと。
+		for raw_path: Variant in LAYOUT_SCENE_SHOW.get(scene_path, {}).keys():
+			var target: Variant = instance.get_node_or_null(NodePath(str(raw_path)))
+			if target is Control:
+				(target as Control).visible = bool(LAYOUT_SCENE_SHOW[scene_path][raw_path])
+		await get_tree().process_frame
+
+		var box: Control = _outermost_container(instance)
+		var minimum: Vector2 = box.get_combined_minimum_size() if box != null else Vector2.ZERO
+		# ⚠ 基準は project.godot の window/size（1280 x 720）。ヘッドレスの viewport は
+		#   1280 x 1280 で高さが違うため、そのまま使うと縦のはみ出しを見逃す。
+		var over: String = ""
+		if minimum.x > SCREEN_SIZE.x:
+			over += "  ⚠ 横にはみ出す（+%.0f）" % (minimum.x - SCREEN_SIZE.x)
+		if minimum.y > SCREEN_SIZE.y:
+			over += "  ⚠ 縦にはみ出す（+%.0f）" % (minimum.y - SCREEN_SIZE.y)
+		print("  %-46s 最小 %.0f x %.0f（基準 %.0f x %.0f）%s" % [
+			scene_path.get_file(), minimum.x, minimum.y, SCREEN_SIZE.x, SCREEN_SIZE.y, over
+		])
 		instance.queue_free()
 		await get_tree().process_frame
 
@@ -1913,6 +2035,39 @@ const LAYOUT_ROWS: Array[String] = [
 # 手書きした .tscn が本当に開くかも、ついでにここで見る。
 # ⚠ 画面のスクリプトは他のシナリオから読み込まれないため、
 #   ⚠ ノードパスの取り違えは人間が開くまで分からない。⚠ それを1本前に倒す。
+# 実機の画面サイズ（project.godot の window/size）。
+# ⚠ ヘッドレスの viewport（1280 x 1280）は高さが違う。縦のはみ出しを見るときは
+#   こちらを基準にすること。
+const SCREEN_SIZE: Vector2 = Vector2(1280, 720)
+
+
+# 画面の中で一番外側の Container を返す。⚠ 無ければ null。
+#
+# ⚠ 画面のルートは素の Control（アンカー配置）で、最小サイズを子から計算しない。
+#   はみ出しを測れるのは Container から下だけ。
+func _outermost_container(node: Node) -> Control:
+	for child: Node in node.get_children():
+		if child is Container:
+			return child as Container
+	for child: Node in node.get_children():
+		var found: Control = _outermost_container(child)
+		if found != null:
+			return found
+	return null
+
+
+# 測る前に出し入れするノード（画面ごと）。⚠ 排他で切り替わる器を測るための表。
+#
+# ⚠ 画面ごとに if を書かないこと。⚠ 新しく排他の器が増えたらここに1行足す。
+# ⚠ 育成画面は「一覧」と「詳細」が排他で、⚠ 縦に長いのは詳細のほう。
+const LAYOUT_SCENE_SHOW: Dictionary = {
+	"res://scenes/guild/training_screen.tscn": {
+		"Margin/Layout/ListPanel": false,
+		"Margin/Layout/DetailPanel": true,
+	},
+}
+
+
 const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/adventure/party_preset_screen.tscn",
 	"res://scenes/adventure/adventure_select.tscn",
@@ -1922,6 +2077,8 @@ const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/guild/equipment_screen.tscn",
 	# ⚠ 段階9でボタンの出し分けを足した。ボタンが減ると器の幅が変わる。
 	"res://scenes/guild/guild_screen.tscn",
+	# ⚠ 段階3でパッシブの一覧（見出し＋5行）をコードで足した。今まで測っていない。
+	"res://scenes/guild/skill_select_screen.tscn",
 ]
 
 

@@ -4265,9 +4265,20 @@ func get_battle_skills(character_id: String, kind: String = SLOT_KIND_SKILL) -> 
 
 
 # 戦闘に渡すパッシブの確定版。⚠ BattleUnit.passive_ids に入る。
-# ⚠ 空の枠は埋めない（上の fill_empty）。
+#
+# ⚠ パッシブは選ばない。レベルで解放されたものが全部効く
+#   （人間の決定・2026-08-25。GAME_DESIGN.md 5-2 の表「20レベルごとに1つ解放（計5個）」
+#   と 5-4「1キャラ5個」。EXEC_CHARACTER_PASSIVES.md §2 の決定1）。
+#
+# ⚠ get_battle_skills() を通さないこと。あちらは「枠に選んだもの」を確定させる
+#   関数で、パッシブには枠が無い。通すと選択済みの1件しか戦闘に出ない。
+# ⚠ get_skill_candidates() が unlock_level <= level で絞り、skills.json /
+#   passives.json に無いIDも落とす。ここに2本目の絞り込みを書かない。
+# ⚠ PASSIVE_SLOT_COUNT / _slot_spec() のパッシブの枝 / GROWTH_PASSIVES（状態）は
+#   残してある。セーブとキャラプリセットの正規化がそこを通るため（消すと移行が要る）。
+#   誰も読まない欄になったことは PROJECT_STATUS.md の宿題に書いてある。
 func get_battle_passives(character_id: String) -> Array:
-	return get_battle_skills(character_id, SLOT_KIND_PASSIVE)
+	return get_skill_candidates(character_id, SLOT_KIND_PASSIVE)
 
 # 選べない理由を返す。選べるなら "" を返す。
 #

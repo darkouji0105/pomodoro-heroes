@@ -84,9 +84,50 @@ func _rebuild() -> void:
 # 解除は「外す」側で、別のボタンに分けてある（枠を押す＝解除だと、
 # 行き先を変えるだけのつもりで選択が消える）。
 func _build_slots() -> void:
-	# ⚠ スキル枠とパッシブ枠を同じ関数で並べる。種類ごとに2本目を書かないこと。
 	_build_slot_rows(GameManager.SLOT_KIND_SKILL, "ui_skill_select_slot")
-	_build_slot_rows(GameManager.SLOT_KIND_PASSIVE, "ui_skill_select_passive_slot")
+	# ⚠ パッシブは枠ではない。レベルで解放されたものが全部効く
+	#   （人間の決定・2026-08-25。GAME_DESIGN.md 5-2 / 5-4）。
+	# ⚠ _build_slot_rows() に渡さないこと。あちらは「押して行き先にする」器で、
+	#   選ぶものが無いのにボタンが出る（押しても何も起きない行が残る）。
+	_build_passive_list()
+
+
+# 解放されたパッシブを、選べない一覧として並べる。
+#
+# ⚠ ボタンにしない。押して何も起きない器を画面に残さない。
+# ⚠ 未解放のものも出す。次に何が増えるかが見えないと、レベルを上げる動機が
+#   画面から読めない（候補一覧の _lock_text と同じ判断）。
+# ⚠ 並び順は characters.json の "passives" が決める。ここで並べ替えない。
+func _build_passive_list() -> void:
+	var all_passives: Array = GameManager.get_all_skill_candidates(
+		_character_id, GameManager.SLOT_KIND_PASSIVE
+	)
+	if all_passives.is_empty():
+		# パッシブを持たないキャラが居てよい（正常系）。見出しごと出さない。
+		return
+
+	var unlocked: Array = GameManager.get_skill_candidates(
+		_character_id, GameManager.SLOT_KIND_PASSIVE
+	)
+
+	var header: Label = Label.new()
+	header.text = tr("ui_skill_select_passive_header")
+	slots.add_child(header)
+
+	for entry: Variant in all_passives:
+		var passive_id: String = str(entry)
+		var is_unlocked: bool = passive_id in unlocked
+		var row: Label = Label.new()
+		slots.add_child(row)
+		# ⚠ 印はスキル候補と同じものを使い回す（画面ごとに記号を作り直さない）。
+		#   解放済み＝●（効いている）／未解放＝✕。○（選べる）は使わない。
+		row.text = "%s %s%s" % [
+			MARK_SELECTED if is_unlocked else MARK_LOCKED,
+			_skill_name_text(passive_id),
+			"" if is_unlocked else " " + tr("ui_skill_select_passive_locked") % (
+				GameManager.get_skill_unlock_level(passive_id)
+			),
+		]
 
 
 func _build_slot_rows(kind: String, label_key: String) -> void:
@@ -133,12 +174,11 @@ func _build_slot_rows(kind: String, label_key: String) -> void:
 #   入るのか画面から読めなくなる。
 func _build_candidates() -> void:
 	var kind: String = _active_kind
-	# ⚠ 見出しも入れ替える。「スキル候補」のままパッシブを並べると、
-	#   押したものがどこに入るのか読めない。
-	candidates_label.text = tr(
-		"ui_skill_select_passive_candidates_header" if kind == GameManager.SLOT_KIND_PASSIVE
-		else "ui_skill_select_candidates_header"
-	)
+	# ⚠ ここに来る kind は必ずスキル。パッシブは枠を持たなくなったので、
+	#   _active_kind がパッシブになる経路が消えた（2026-08-25）。
+	# ⚠ 見出しの出し分けを消した。パッシブの一覧は _build_passive_list() が
+	#   上に出しており、候補一覧に混ざることはもう無い。
+	candidates_label.text = tr("ui_skill_select_candidates_header")
 	var all_candidates: Array = GameManager.get_all_skill_candidates(_character_id, kind)
 	var unlocked: Array = GameManager.get_skill_candidates(_character_id, kind)
 	var selected: Array = GameManager.get_selected_skills(_character_id, kind)

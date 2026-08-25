@@ -40,7 +40,14 @@ const PATH_SUMMONS: String = DIR_PATH + "summons.json"
 #
 #   characters/char_swordsman/skills.json    … そのキャラのスキル
 #   characters/char_swordsman/nodes.json     … そのキャラのステータスノード
-#   characters/char_swordsman/passives.json  … ⚠ パッシブを実装する回にここへ置く
+#   characters/char_swordsman/passives.json  … そのキャラのパッシブ（段階3・2026-08-25）
+#
+# ⚠ passives.json は skills.json と同じ辞書（_cache_skills）へマージされる。
+#   戦闘は _restore_passives() → MasterDataLoader.get_skill(passive_id) を通るので、
+#   別の辞書に分けると戦闘側に「パッシブ用の引き先」を足すことになる。
+#   ファイルだけ分け、引き口は1本のままにする。
+# ⚠ そのぶん skills.json と passives.json でIDが重複したら赤（_merge_id_map）。
+# ⚠ passives.json は「無くてよい」。検証用キャラと敵は持たない。
 #
 # ⚠ 能力値（characters.json）はフォルダへ動かさない。GameManager が育成・装備・
 #   研究から何度も引いており、そこを触ると挙動の話になる。フォルダは「量が多くて
@@ -172,7 +179,14 @@ static func _ensure_loaded() -> void:
 	# ⚠ _validate_all_skills() より前に読むこと。E100（summon の unit_id が
 	#   summons.json に無い）のクロス検証がこのキャッシュを見る。
 	_cache_summons = _load_json(PATH_SUMMONS)
+	# ⚠ パッシブも同じ辞書へ入れる（EXEC_CHARACTER_PASSIVES.md §4-1）。
+	#   引き口を1本に保つため、passives.json を skills.json の続きとしてマージする。
+	# ⚠ 2本目のマージ関数を書かないこと。IDの重複を弾く枝が片方だけ効く形になる。
 	_cache_skills = _load_character_files("skills.json", "スキル")
+	# ⚠ required は false。敵と検証用キャラは passives.json を持たない。
+	#   本番キャラで欠けた場合は E126 が拾う（characters.json の passives に
+	#   書いてあるIDが定義されていない、という形で必ず赤になる）。
+	_merge_character_files(_cache_skills, "passives.json", "パッシブ", false)
 	# スキルは自由度が高いぶん「書けるが壊れている」組み合わせが増えた。
 	# resolver 側だけで防ぐと実戦で撃つまで気づけないので、読んだ直後に全件見る
 	# （PLAN_SKILL_TEMPLATE.md 5-4）。characters.json も読み終わっているので、
@@ -544,8 +558,23 @@ static func _validate_all_summons() -> void:
 #   （マージの都合で検証が2箇所に分かれると、片方だけ直す事故になる）。
 static func _load_character_files(file_name: String, what: String) -> Dictionary:
 	var merged: Dictionary = {}
+	_merge_character_files(merged, file_name, what)
+	return merged
+
+
+# 既にある辞書へ、全キャラ・全敵ぶんの同名ファイルを足す。
+#
+# ⚠ 走査する順番が _load_character_files() と1文字も違わないこと。
+#   ここを別に書くと、passives.json だけ「無いファイル」の扱いがズレる。
+# ⚠ required_in_main = false にすると、本番キャラと敵のフォルダでも「無い」を
+#   正常系として扱う。passives.json がこれ（敵と検証用キャラは持たない）。
+#   欠けたことは E126 が別の形で拾うので、ここで赤にしなくてよい。
+static func _merge_character_files(
+		merged: Dictionary, file_name: String, what: String,
+		required_in_main: bool = true
+) -> void:
 	for dir_path: String in CHARACTER_DIRS_REQUIRED:
-		_merge_id_map(merged, dir_path + file_name, true, what)
+		_merge_id_map(merged, dir_path + file_name, required_in_main, what)
 	# ⚠ 検証用キャラは nodes.json を持たない。だから「無い」を正常系にしてある。
 	for dir_path: String in CHARACTER_DIRS_OPTIONAL:
 		_merge_id_map(merged, dir_path + file_name, false, what)
@@ -554,10 +583,9 @@ static func _load_character_files(file_name: String, what: String) -> Dictionary
 	#   赤で弾く挙動が、片方だけ効く形になる。
 	# ⚠ 敵は nodes.json を持たないが、任意扱いなので「無い」で警告は出ない。
 	for dir_path: String in ENEMY_DIRS_REQUIRED:
-		_merge_id_map(merged, dir_path + file_name, true, what)
+		_merge_id_map(merged, dir_path + file_name, required_in_main, what)
 	for dir_path: String in ENEMY_DIRS_OPTIONAL:
 		_merge_id_map(merged, dir_path + file_name, false, what)
-	return merged
 
 
 # 1ファイルぶんを merged へ足す。required が false なら「無い」を正常系として扱う。
@@ -1200,7 +1228,63 @@ static func _validate_all_skills() -> void:
 					str(skill_id), summon_id
 				])
 
+	# E126 … characters.json の passives と、passives.json の中身のクロス検証。
+	#
+	# ⚠ SkillSchema 側に書けない。あちらは1スキルだけを見る静的検証で、
+	#   characters.json を知らない（E100 と同じ理由でここに置く）。
+	# ⚠ なぜ要るか：get_skill_candidates() は定義の無いIDを黙って落とす。
+	#   characters.json の欄と passives.json のどちらか片方だけ書いた事故が、
+	#   「そのパッシブが一生付かない」という無音の形で実戦まで残る
+	#   （EXEC_CHARACTER_PASSIVES.md §4-1）。
+	# ⚠ スキル（skills の欄）はここで見ない。あちらは未選択の枠を候補の先頭で
+	#   埋めるので、欠けると戦闘のボタンが減って気づける。
+	error_count += _validate_character_passives()
+
 	# _load_json() は成功時に何も出さない。これが唯一の「読めた」の合図。
 	print("[MasterDataLoader] skills validated: %d entries, %d errors, %d warnings" % [
 		_cache_skills.size(), error_count, warning_count
 	])
+
+
+# characters.json の passives に並んでいるIDが、本当にパッシブとして定義されて
+# いるかを見る。戻り値は赤の件数（E126）。
+static func _validate_character_passives() -> int:
+	var errors: int = 0
+	for character_id: Variant in _cache_characters:
+		var entry: Variant = _cache_characters[character_id]
+		if not (entry is Dictionary):
+			continue
+		var raw: Variant = (entry as Dictionary).get("passives", null)
+		# ⚠ 欄が無いのは正常系。持たないキャラが居てよい（get_all_skill_candidates
+		#   と同じ扱いにする。ここだけ厳しくすると敵と検証用キャラが赤になる）。
+		if raw == null:
+			continue
+		if not (raw is Array):
+			errors += 1
+			push_error("[MasterDataLoader] characters %s: passives が配列ではない" % str(character_id))
+			continue
+		for raw_id: Variant in (raw as Array):
+			var passive_id: String = str(raw_id)
+			if not _cache_skills.has(passive_id):
+				errors += 1
+				push_error("[MasterDataLoader] characters %s: passives の '%s' が定義されていない（passives.json に無い）" % [
+					str(character_id), passive_id
+				])
+				continue
+			var data: Variant = _cache_skills[passive_id]
+			var activation: String = str((data as Dictionary).get("activation", "")) if data is Dictionary else ""
+			if activation != SkillSchema.ACTIVATION_PASSIVE:
+				errors += 1
+				push_error("[MasterDataLoader] characters %s: passives の '%s' は activation が '%s'（'passive' でなければ一生付かない）" % [
+					str(character_id), passive_id, activation
+				])
+				continue
+			# 誰のものかが食い違うと、_skill_select_error() と同じ理由で
+			# 「候補には出るが持ち主が違う」状態になる。
+			var owner_id: String = str((data as Dictionary).get("user_character_id", ""))
+			if owner_id != str(character_id):
+				errors += 1
+				push_error("[MasterDataLoader] characters %s: passives の '%s' の user_character_id が '%s'" % [
+					str(character_id), passive_id, owner_id
+				])
+	return errors

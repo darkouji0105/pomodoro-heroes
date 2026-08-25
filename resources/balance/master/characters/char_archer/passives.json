@@ -1,0 +1,125 @@
+{
+	"passive_ar_steady_aim": {
+		"name_key": "ui_battle_passive_ar_steady_aim",
+		"user_character_id": "char_archer",
+		"unlock_level": 20,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_ar_steady_aim",
+				"stat": "crit_rate",
+				"value": 10,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"passive_ar_opening_shot": {
+		"name_key": "ui_battle_passive_ar_opening_shot",
+		"user_character_id": "char_archer",
+		"unlock_level": 40,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_ar_opening_shot",
+				"atk_mult_pct": 20,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "elapsed_sec",
+					"of": "host",
+					"op": "lte",
+					"value": 15
+				}
+			}
+		]
+	},
+	"passive_ar_follow_through": {
+		"name_key": "ui_battle_passive_ar_follow_through",
+		"user_character_id": "char_archer",
+		"unlock_level": 60,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_ar_follow_through",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "dealt_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 0.35,
+							"attack_type": "physical",
+							"scale_from": "atk",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"passive_ar_hunters_focus": {
+		"name_key": "ui_battle_passive_ar_hunters_focus",
+		"user_character_id": "char_archer",
+		"unlock_level": 80,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_ar_hunters_focus",
+				"stat": "crit_dmg",
+				"value": 40,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "alive_count_enemy",
+					"of": "host",
+					"op": "lte",
+					"value": 2
+				}
+			}
+		]
+	},
+	"passive_ar_volley_master": {
+		"name_key": "ui_battle_passive_ar_volley_master",
+		"user_character_id": "char_archer",
+		"unlock_level": 100,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_ar_volley_master",
+				"stat": "atkspd",
+				"value": 20,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	}
+}

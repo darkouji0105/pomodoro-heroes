@@ -33,6 +33,13 @@
 			"skill_shield_bash",
 			"skill_helm_splitter"
 		],
+		"passives": [
+			"passive_sw_whetstone",
+			"passive_sw_last_wall",
+			"passive_sw_thorn_mail",
+			"passive_sw_bloodlust",
+			"passive_sw_vanguard"
+		],
 		"allocatable_stats": [
 			"hp",
 			"atk",
@@ -79,6 +86,13 @@
 			"skill_long_shot",
 			"skill_rapid_volley",
 			"skill_piercing_arrow"
+		],
+		"passives": [
+			"passive_ar_steady_aim",
+			"passive_ar_opening_shot",
+			"passive_ar_follow_through",
+			"passive_ar_hunters_focus",
+			"passive_ar_volley_master"
 		],
 		"allocatable_stats": [
 			"hp",
@@ -131,6 +145,13 @@
 			"skill_drain_life",
 			"skill_purge_wave",
 			"skill_judgement"
+		],
+		"passives": [
+			"passive_pr_devotion",
+			"passive_pr_triage",
+			"passive_pr_sanctuary",
+			"passive_pr_zeal",
+			"passive_pr_benediction"
 		],
 		"allocatable_stats": [
 			"hp",

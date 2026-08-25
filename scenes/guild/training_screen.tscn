@@ -45,42 +45,52 @@ layout_mode = 2
 [node name="ListPanel" type="VBoxContainer" parent="Margin/Layout" unique_id=1484075608]
 layout_mode = 2
 
-[node name="DetailPanel" type="VBoxContainer" parent="Margin/Layout" unique_id=465391687]
+[node name="DetailPanel" type="HBoxContainer" parent="Margin/Layout" unique_id=465391687]
 visible = false
 layout_mode = 2
+theme_override_constants/separation = 32
 
-[node name="NameLabel" type="Label" parent="Margin/Layout/DetailPanel" unique_id=1996679115]
+[node name="InfoColumn" type="VBoxContainer" parent="Margin/Layout/DetailPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NameLabel" type="Label" parent="Margin/Layout/DetailPanel/InfoColumn" unique_id=1996679115]
 layout_mode = 2
 
-[node name="LevelLabel" type="Label" parent="Margin/Layout/DetailPanel" unique_id=1394708909]
+[node name="LevelLabel" type="Label" parent="Margin/Layout/DetailPanel/InfoColumn" unique_id=1394708909]
 layout_mode = 2
 
-[node name="StatsLabel" type="Label" parent="Margin/Layout/DetailPanel" unique_id=707789072]
+[node name="StatsLabel" type="Label" parent="Margin/Layout/DetailPanel/InfoColumn" unique_id=707789072]
 layout_mode = 2
 
-[node name="CostLabel" type="Label" parent="Margin/Layout/DetailPanel" unique_id=1868043944]
+[node name="CostLabel" type="Label" parent="Margin/Layout/DetailPanel/InfoColumn" unique_id=1868043944]
 layout_mode = 2
 
-[node name="NoticeLabel" type="Label" parent="Margin/Layout/DetailPanel" unique_id=416241720]
+[node name="NoticeLabel" type="Label" parent="Margin/Layout/DetailPanel/InfoColumn" unique_id=416241720]
 layout_mode = 2
+autowrap_mode = 3
 
-[node name="LevelUpButton" parent="Margin/Layout/DetailPanel" unique_id=1134420125 instance=ExtResource("2_primary_btn")]
+[node name="ActionColumn" type="VBoxContainer" parent="Margin/Layout/DetailPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="LevelUpButton" parent="Margin/Layout/DetailPanel/ActionColumn" unique_id=1134420125 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_training_level_up"
 
-[node name="StatNodeButton" parent="Margin/Layout/DetailPanel" instance=ExtResource("2_primary_btn")]
+[node name="StatNodeButton" parent="Margin/Layout/DetailPanel/ActionColumn" instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_training_nodes"
 
-[node name="SkillButton" parent="Margin/Layout/DetailPanel" unique_id=993944560 instance=ExtResource("2_primary_btn")]
+[node name="SkillButton" parent="Margin/Layout/DetailPanel/ActionColumn" unique_id=993944560 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_training_skill"
 
-[node name="EquipButton" parent="Margin/Layout/DetailPanel" unique_id=828376725 instance=ExtResource("2_primary_btn")]
+[node name="EquipButton" parent="Margin/Layout/DetailPanel/ActionColumn" unique_id=828376725 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_training_equipment"
 
-[node name="ToListButton" parent="Margin/Layout/DetailPanel" unique_id=268559977 instance=ExtResource("2_primary_btn")]
+[node name="ToListButton" parent="Margin/Layout/DetailPanel/ActionColumn" unique_id=268559977 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_training_to_list"
 

@@ -1,0 +1,134 @@
+{
+	"passive_sw_whetstone": {
+		"name_key": "ui_battle_passive_sw_whetstone",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 20,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_sw_whetstone",
+				"atk_mult_pct": 10,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"passive_sw_last_wall": {
+		"name_key": "ui_battle_passive_sw_last_wall",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 40,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_sw_last_wall",
+				"stat": "def",
+				"value": 25,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "lte",
+					"value": 0.5
+				}
+			}
+		]
+	},
+	"passive_sw_thorn_mail": {
+		"name_key": "ui_battle_passive_sw_thorn_mail",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 60,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_sw_thorn_mail",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "took_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 0.4,
+							"attack_type": "physical",
+							"scale_from": "def",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"passive_sw_bloodlust": {
+		"name_key": "ui_battle_passive_sw_bloodlust",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 80,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_sw_bloodlust",
+				"stat": "atkspd",
+				"value": 15,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "alive_count_enemy",
+					"of": "host",
+					"op": "lte",
+					"value": 2
+				}
+			}
+		]
+	},
+	"passive_sw_vanguard": {
+		"name_key": "ui_battle_passive_sw_vanguard",
+		"user_character_id": "char_swordsman",
+		"unlock_level": 100,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_sw_vanguard_def",
+				"stat": "def",
+				"value": 20,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_sw_vanguard_mdef",
+				"stat": "mdef",
+				"value": 20,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	}
+}
