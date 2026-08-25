@@ -287,6 +287,7 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 | コミット | タスク | EXEC |
 |---|---|---|
+| `7c47b5f` | `feat(workshop): 作業場を装飾のランダム製作で復活・研究に作業場枝2件`（段階11の後半。14ファイル。⚠ **`recipes.json` 0件 → 3件。⚠ レシピに `draw`（抽選）の欄を足した＝出るものが固定でないレシピが初めて入った**。⚠ **抽選の本体を `_roll_weighted_table()` に切り出し、`_roll_chest_draw()`（宝箱枝のボーナスが乗る）と `_roll_recipe_draw()`（乗らない）の2本から呼ぶ**。⚠ **装飾36件だけ。ルーン25件はくじに入れていない**。⚠ **研究ボード2に `category: "workshop"` の2件＝18 → 20ノード。`level_cap_unlock` は増えないので `E127` は不変**。⚠ **`stage_3` の `unlocks` に `workshop`＝ギルドのボタンが5個から6個に戻った**。`E129`（`recipes.json` の `draw` の形）・`E118` に `draw.entries` の枝・`scenario=workshop`（30本目）・`LAYOUT_SCENES` に作業場。⚠ **`LAYOUT_SCENE_SHOW` にギルドの5ボタンを足した＝それまで `72 x 72` しか測れていなかった**。⚠ **`workshop_screen.tscn` の `MaterialLabel` が横に +344 はみ出していたのを `layout` が見つけて直した**。⚠ **中間素材（研究用素材）は入れていない＝5系統目の素材が要るため人間が見送った＝宿題36**） | `EXEC_WORKSHOP_REVIVE.md` |
 | `f53e097` | `feat(research): 研究ボードを2ボード18ノードに作り替え・上限は8件×+10で100`（段階10。11ファイル。⚠ **枝は「戦闘」と「宝箱」＝`GAME_DESIGN` 9-1 のカテゴリ名を採り、`NEXT_STEPS` の推奨（戦闘/生産/探索）を採らなかった**。⚠ **ボードは1周クリアで切り替わる。`board` / `category` / `milestone` はマスターの欄で持ち、状態にはキーを1つも足していない**（「今のボード」は `get_current_research_board()` が都度計算＝セーブの移行が不要）。⚠ **レベル上限は 8件 × +10 で `base_level_cap` 20 と合わせてちょうど 100。既存セーブは `res_cap_1..4` 解放済みのため実効上限が一時的に 100 → 60 に下がる（解放状態は失われない）**。新しい `effect_type` は `chest_draw_bonus` の1つだけ・`E127`（上限の合計）・`E128`（前提とボードの整合）・`scenario=research`・`LAYOUT_SCENES` に研究画面・F4 の解放パス数をノード数基準に。⚠ **ゴールド払いと作業場枝は入れていない＝宿題34・35**） | `EXEC_GUILD_RESEARCH_V2.md` |
 | `4130c8f` | `feat(passives): 本番キャラのパッシブ15件・レベル上限100・育成画面を2カラム`（段階3の残り。17ファイル。新規は `characters/<id>/passives.json` 3本＝**キャラのフォルダが3本目**。⚠ **パッシブは「選ぶ」のをやめ、解放されたものが全部効く＝`GAME_DESIGN` 5-2 / 5-4 に実装を寄せた（ズレ32）**。⚠ **`passives.json` は `_cache_skills` へマージ＝引き口は `get_skill()` の1本のまま**。⚠ **`react` が本番に初めて2件入った**（`passive_sw_thorn_mail` / `passive_ar_follow_through`）。⚠ **レベル上限 30 → 100**（`base_level_cap` 20 ＋ 研究4件 × 20＝ズレ33）。`get_battle_passives()` を枠を通さない形に・`_merge_character_files()` を切り出し・E126・`ja.csv` 480→514行・`debug_boot` に `passives` シナリオ。⚠ **育成画面の `DetailPanel` を `VBoxContainer` → `HBoxContainer`（2カラム）＝人間が実機で見つけた縦のはみ出し**。⚠ **`scenario=layout` が6シーンとも最小幅0を返していたのを修正（ズレ36）**） | `EXEC_CHARACTER_PASSIVES.md` |
 | `2831c1a` | `fix(save): 「最初から」で状態を作り直す（セーブを消しても消えなかった穴）`（⚠ **人間が実機で発見**。`GameManager.reset_to_new_game()` 新設・`_ready()` の中身を `_build_new_game_state()` に切り出し・`title_screen` の新規開始の枝から呼ぶ。⚠ **`initial_state_config.tres` の `initially_unlocked_screens` を3件にしたのは人間**） | `EXEC_SCREEN_UNLOCK.md` §13 |
@@ -372,10 +373,21 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 ### 作業場の廃止で足した宿題（2026-08-23・`EXEC_WORKSHOP_RETIRE.md`）
 
-- ⚠ **作業場が空のまま残っている。** 画面とコードは動くが `recipes.json` が0件で**到達経路が無い**（ギルドのボタンは `visible = false`）。復活は `GAME_DESIGN` 9-3＝**中間素材の製作＋装飾のランダム製作**
+- ~~⚠ **作業場が空のまま残っている**~~ ✅ **復活した**（2026-08-25・`EXEC_WORKSHOP_REVIVE`。⚠ **装飾のランダム製作3レシピ・`stage_3` で解放**）
 - ⚠ **素材の変換経路が消えた。** `GAME_DESIGN` 9-3 は「ショップに一本化」と書いているが、**`shop.json` に変換に相当する枠があるかは未確認。** 段階12（バランス実測）の前に見ること
-- ⚠ **`_sync_recipes_from_master()` の「読めない」保険が `MasterDataLoader` 側の赤だけになった**（早期 return を外したため。`EXEC_WORKSHOP_RETIRE.md` 決め1）。`recipes.json` を復活させる回で、GameManager 側にも戻すか判断する
-- ⚠ **`guild_screen.gd` の `WORKSHOP_PATH` が未使用のまま残っている**（復活で1行ずつ戻すため意図的に残した）。復活しないと決めたら消す
+- ⚠ **`_sync_recipes_from_master()` の「読めない」保険が `MasterDataLoader` 側の赤だけのまま**（早期 return を外したため。`EXEC_WORKSHOP_RETIRE.md` 決め1）。⚠ **レシピが3件になったので0件に戻れば異常だと分かるが、⚠ それを見る検証は足していない**
+- ~~⚠ **`guild_screen.gd` の `WORKSHOP_PATH` が未使用のまま残っている**~~ ✅ **解消**（2026-08-25。`GUILD_SCENES` に戻した）
+
+### 作業場の復活で足した宿題（2026-08-25・`EXEC_WORKSHOP_REVIVE.md`）
+
+36. ⚠ **`GAME_DESIGN` 9-3 の「中間素材の製作」が入っていない。** ⚠ **`GAME_DESIGN.md:84` の資源表は「研究用素材 ← 作業場（中間素材として製作）／→ 研究ボードの解放」と書いているが、⚠ これは5系統目の素材を必要とし、「素材IDは `<系統>_material_<1..4>` で固定・新しい素材を作らない」と正面から食い違う。⚠ 人間が「装飾のくじだけ」を選んだ**（2026-08-25）。⚠ **段階12で `construction_material_4` の入手量を測ってから、⚠ 新設するか研究のコストを組み替えるかを決める**
+37. ⚠ **`decor_material_4` を使うレシピが無い**（月替わりショップだけの入手のため、段階12の後に判断する）
+38. ⚠ **くじの数値が全部「勘」**（投入12個・30分/90分/3時間・重み 10/3/2）→ ⚠ **宿題22に合流**
+39. ⚠ **`crafting_queue` の `output_item_id` / `recipe_type` が `draw` レシピでは `""` になる。** ⚠ **どちらも誰も読んでいない欄。⚠ 次にセーブの形を触る回で消すか判断する**
+40. ⚠ **作業場のアップグレード（`GAME_DESIGN` 9-3「建築素材で作業場自体をアップグレード」）が無い。** ⚠ **キュー本数は研究の枝で伸ばす形にした**
+41. ⚠ **掘削（`GAME_DESIGN` 9-3-1）はデモ範囲外のまま**
+42. ⚠ **ズレ38**：⚠ **`GAME_DESIGN` 9-1 の作業場カテゴリに「変換レート」が残っている。⚠ 同じファイルの 9-3 と 2章が「変換は廃止」と書いており、上げるレートが存在しない**（⚠ **勝手に直していない**）
+- ⚠ **`scenario=workshop` は赤が2本出るのが正解**（⚠ **`E129` をわざと2箇所で出している。⚠ `unlock` が1本出すのと同じ形**）
 - ~~⚠ **`AGENTS.md`「GameManagerの状態構造」の `PENDING_CHESTS` の行が実装と違う**（ズレ26）~~ ✅ **直した**（2026-08-23・`EXEC_PARTY_PRESETS` の回。⚠ **`PARTY_MEMBERS` / `CHARACTER_PRESETS` / `PARTY_PRESETS` の3行も足した**）
 
 ### 機能の段階解放の回で足した宿題（2026-08-24・`EXEC_SCREEN_UNLOCK.md`）
@@ -386,7 +398,7 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 - ⚠ **どのステージで何が開くかが「勘」。** ⚠ **本番ステージが `stage_1` / `stage_2` / `stage_3` の3本しか無く、⚠ 引き金が4つ（「最初から」込み）しか作れないので、⚠ `GAME_DESIGN` 9-5 の10段を4段に畳んである**（`EXEC_SCREEN_UNLOCK` §2）。⚠ **ステージが増えたら `stages.json` の `unlocks` を分けるだけで刻める**
 - ⚠ **9-5 の「拠点」（#8）の置き場が無い。** ⚠ **`base_screen` はハブなので閉じられない。⚠ `GAME_DESIGN` 10章の建設画面がまだ無い**
-- ⚠ **作業場が2箇所で閉じている。** ⚠ **`guild_screen.tscn` の `WorkshopButton.visible = false` と、⚠ `stages.json` の `unlocks` に1度も書かないこと。⚠ 復活させるときは両方戻す**
+- ~~⚠ **作業場が2箇所で閉じている**~~ ✅ **両方戻した**（2026-08-25・`EXEC_WORKSHOP_REVIVE`。⚠ **`.tscn` の `visible = false` を消し、⚠ `stage_3` の `unlocks` に足した。⚠ 閉じ方は `_refresh_unlocked()` の1箇所だけになった**）
 - ⚠ **`F4` の「画面を全部解放」はリリース前に消す**（⚠ **宿題32の一覧に入る**）
 - ⚠ **`settings` と `scenario` が `placeholder_screen` のまま。** ⚠ **中身が無いので閉じても開けても見えるものが変わらず、最初から開けてある**
 - ⚠ **ズレ29 と ズレ30 を `GAME_DESIGN` 9-5 に反映していない**（⚠ **勝手に直していない。`EXEC_SCREEN_UNLOCK` §11**）
