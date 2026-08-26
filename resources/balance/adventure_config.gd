@@ -146,3 +146,25 @@ extends Resource
 ## 敵の帯（HPバーの上・横並び）に使ってよい幅（px）。
 ## ⚠ UnitView の Body は 64px。2倍まで許す。
 @export var status_chip_enemy_max_px: float = 128.0
+
+# --- フロアの宝箱（段階14-b・PLAN_SCENARIO_MAP.md §4） ---
+#
+# ⚠ 宝箱は「ノード」ではなく「移動」に紐づく。移動するたびに確率で出る。
+# ⚠ 抽選のハズレ枠は廃止した。出ると決まったら必ず中身がある。
+#   → 量を絞る栓は「出現率 × 移動回数」だけになった。ここを触ると
+#     1周で入るものが全部動く（scenario=economy を回し直すこと）。
+# ⚠ ここに欄を足すだけで既定値付きで Inspector に出る（.tres は触らない）。
+
+## 移動1回あたり宝箱が出る確率（％）。
+## 目安：35（5層のフロアで 5回移動 → 1周あたり 1.75 個）
+@export var floor_chest_chance_pct: int = 35
+
+# レアリティの重み。⚠ 添字は「着いたノードの層 − 1」。
+# ⚠ 配列より深い層に着いたら末尾を使う。
+# ⚠ 各層の合計が 100 になるように保つ（合計が変わっても動くが、読めなくなる）。
+# ⚠ 「奥ほど良い物が出やすい」はプレイヤーに明示する決定なので、
+#   ここの傾きを変えたら画面の説明文も直すこと（PLAN_SCENARIO_MAP.md §4-5）。
+@export var floor_chest_weight_common: Array[int] = [70, 60, 50, 40, 30]
+@export var floor_chest_weight_rare: Array[int] = [25, 30, 33, 35, 35]
+@export var floor_chest_weight_epic: Array[int] = [5, 9, 14, 20, 25]
+@export var floor_chest_weight_legendary: Array[int] = [0, 1, 3, 5, 10]

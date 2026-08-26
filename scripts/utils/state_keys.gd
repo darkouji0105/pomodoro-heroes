@@ -282,6 +282,9 @@ const PROTECTION_HARD: String = "hard"
 
 const CHEST_SOURCE_POMODORO: String = "pomodoro"
 const CHEST_SOURCE_BATTLE: String = "battle"
+# フロアの移動で出た宝箱（段階14-b）。⚠ 個体の出どころが分かるようにするだけで、
+# 開けるときの挙動は3つとも同じ。
+const CHEST_SOURCE_FLOOR: String = "floor"
 
 # スタミナポーション
 const POTION_FOCUS_REMAINDER: String = "potion_focus_remainder"

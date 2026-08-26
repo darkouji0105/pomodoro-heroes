@@ -24,49 +24,230 @@
 	  "sort_order": 3,
 	  "rewards": { "materials": { "construction_material_1": 30 } }
 	},
+
 	{
-	  "chest_id": "stage_1",
-	  "name_key": "ui_chest_battle",
-	  "sort_order": 10,
-	  "draw": {
-		"rolls": 1,
-		"entries": [
-		  { "item_id": "weapon_wooden_sword", "weight": 10 },
-		  { "item_id": "armor_leather_cap", "weight": 10 },
-		  { "item_id": "armor_leather_boots", "weight": 10 },
-		  { "item_id": "", "weight": 70 }
-		]
-	  }
+	  "chest_id": "floor_1_common",
+	  "name_key": "ui_chest_common",
+	  "sort_order": 20,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_1", "count": 4, "weight": 25 },
+		{ "item_id": "training_material_1", "count": 4, "weight": 25 },
+		{ "item_id": "forging_material_1", "count": 4, "weight": 25 },
+		{ "item_id": "decor_material_1", "count": 3, "weight": 25 }
+	  ] }
 	},
 	{
-	  "chest_id": "stage_2",
-	  "name_key": "ui_chest_battle",
-	  "sort_order": 11,
-	  "draw": {
-		"rolls": 1,
-		"entries": [
-		  { "item_id": "weapon_iron_sword", "weight": 8 },
-		  { "item_id": "armor_leather_vest", "weight": 8 },
-		  { "item_id": "acc_ring_power", "weight": 7 },
-		  { "item_id": "armor_leather_cap", "weight": 7 },
-		  { "item_id": "", "weight": 70 }
-		]
-	  }
+	  "chest_id": "floor_1_rare",
+	  "name_key": "ui_chest_rare",
+	  "sort_order": 21,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_1", "count": 10, "weight": 30 },
+		{ "item_id": "training_material_1", "count": 10, "weight": 30 },
+		{ "item_id": "forging_material_1", "count": 8, "weight": 20 },
+		{ "item_id": "decor_material_1", "count": 6, "weight": 20 }
+	  ] }
 	},
 	{
-	  "chest_id": "stage_3",
-	  "name_key": "ui_chest_battle",
-	  "sort_order": 12,
-	  "draw": {
-		"rolls": 1,
-		"entries": [
-		  { "item_id": "armor_iron_helm", "weight": 8 },
-		  { "item_id": "armor_iron_mail", "weight": 8 },
-		  { "item_id": "armor_iron_greaves", "weight": 7 },
-		  { "item_id": "acc_amulet_life", "weight": 7 },
-		  { "item_id": "", "weight": 70 }
-		]
-	  }
+	  "chest_id": "floor_1_epic",
+	  "name_key": "ui_chest_epic",
+	  "sort_order": 22,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "armor_leather_cap", "weight": 30 },
+		{ "item_id": "armor_leather_boots", "weight": 30 },
+		{ "item_id": "weapon_wooden_sword", "weight": 25 },
+		{ "item_id": "part_gem_hp_1", "weight": 15 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_1_legendary",
+	  "name_key": "ui_chest_legendary",
+	  "sort_order": 23,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "part_gem_atk_1", "weight": 25 },
+		{ "item_id": "part_charm_def_1", "weight": 25 },
+		{ "item_id": "part_emblem_crit_rate_1", "weight": 25 },
+		{ "item_id": "acc_ring_power", "weight": 25 }
+	  ] }
+	},
+
+	{
+	  "chest_id": "floor_2_common",
+	  "name_key": "ui_chest_common",
+	  "sort_order": 24,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_1", "count": 5, "weight": 25 },
+		{ "item_id": "training_material_1", "count": 5, "weight": 25 },
+		{ "item_id": "forging_material_1", "count": 5, "weight": 25 },
+		{ "item_id": "decor_material_1", "count": 4, "weight": 25 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_2_rare",
+	  "name_key": "ui_chest_rare",
+	  "sort_order": 25,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_1", "count": 12, "weight": 30 },
+		{ "item_id": "training_material_1", "count": 12, "weight": 30 },
+		{ "item_id": "forging_material_1", "count": 10, "weight": 20 },
+		{ "item_id": "decor_material_1", "count": 8, "weight": 20 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_2_epic",
+	  "name_key": "ui_chest_epic",
+	  "sort_order": 26,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "armor_leather_vest", "weight": 30 },
+		{ "item_id": "weapon_wooden_sword", "weight": 25 },
+		{ "item_id": "armor_leather_cap", "weight": 25 },
+		{ "item_id": "part_gem_mag_1", "weight": 20 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_2_legendary",
+	  "name_key": "ui_chest_legendary",
+	  "sort_order": 27,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "acc_ring_power", "weight": 25 },
+		{ "item_id": "part_gem_hp_2", "weight": 25 },
+		{ "item_id": "part_charm_mdef_1", "weight": 25 },
+		{ "item_id": "part_emblem_atkspd_1", "weight": 25 }
+	  ] }
+	},
+
+	{
+	  "chest_id": "floor_3_common",
+	  "name_key": "ui_chest_common",
+	  "sort_order": 28,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_1", "count": 6, "weight": 25 },
+		{ "item_id": "training_material_1", "count": 6, "weight": 25 },
+		{ "item_id": "forging_material_1", "count": 6, "weight": 25 },
+		{ "item_id": "decor_material_1", "count": 5, "weight": 25 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_3_rare",
+	  "name_key": "ui_chest_rare",
+	  "sort_order": 29,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_2", "count": 4, "weight": 25 },
+		{ "item_id": "training_material_1", "count": 15, "weight": 30 },
+		{ "item_id": "forging_material_2", "count": 4, "weight": 25 },
+		{ "item_id": "decor_material_2", "count": 3, "weight": 20 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_3_epic",
+	  "name_key": "ui_chest_epic",
+	  "sort_order": 30,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "weapon_iron_sword", "weight": 30 },
+		{ "item_id": "armor_iron_helm", "weight": 25 },
+		{ "item_id": "acc_ring_power", "weight": 25 },
+		{ "item_id": "part_gem_atk_2", "weight": 20 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_3_legendary",
+	  "name_key": "ui_chest_legendary",
+	  "sort_order": 31,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "armor_iron_mail", "weight": 25 },
+		{ "item_id": "part_charm_def_2", "weight": 25 },
+		{ "item_id": "part_emblem_crit_dmg_2", "weight": 25 },
+		{ "item_id": "acc_amulet_life", "weight": 25 }
+	  ] }
+	},
+
+	{
+	  "chest_id": "floor_4_common",
+	  "name_key": "ui_chest_common",
+	  "sort_order": 32,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_2", "count": 4, "weight": 25 },
+		{ "item_id": "training_material_1", "count": 8, "weight": 25 },
+		{ "item_id": "forging_material_2", "count": 4, "weight": 25 },
+		{ "item_id": "decor_material_2", "count": 3, "weight": 25 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_4_rare",
+	  "name_key": "ui_chest_rare",
+	  "sort_order": 33,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_2", "count": 8, "weight": 30 },
+		{ "item_id": "training_material_1", "count": 20, "weight": 30 },
+		{ "item_id": "forging_material_2", "count": 8, "weight": 20 },
+		{ "item_id": "decor_material_2", "count": 6, "weight": 20 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_4_epic",
+	  "name_key": "ui_chest_epic",
+	  "sort_order": 34,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "armor_iron_greaves", "weight": 30 },
+		{ "item_id": "armor_iron_mail", "weight": 25 },
+		{ "item_id": "acc_amulet_life", "weight": 25 },
+		{ "item_id": "part_gem_hp_3", "weight": 20 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_4_legendary",
+	  "name_key": "ui_chest_legendary",
+	  "sort_order": 35,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "weapon_iron_sword", "weight": 25 },
+		{ "item_id": "part_emblem_haste_2", "weight": 25 },
+		{ "item_id": "part_charm_mdef_3", "weight": 25 },
+		{ "item_id": "part_gem_mag_3", "weight": 25 }
+	  ] }
+	},
+
+	{
+	  "chest_id": "floor_5_common",
+	  "name_key": "ui_chest_common",
+	  "sort_order": 36,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_2", "count": 5, "weight": 25 },
+		{ "item_id": "training_material_1", "count": 10, "weight": 25 },
+		{ "item_id": "forging_material_2", "count": 5, "weight": 25 },
+		{ "item_id": "decor_material_2", "count": 4, "weight": 25 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_5_rare",
+	  "name_key": "ui_chest_rare",
+	  "sort_order": 37,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_3", "count": 3, "weight": 25 },
+		{ "item_id": "training_material_1", "count": 25, "weight": 30 },
+		{ "item_id": "forging_material_3", "count": 3, "weight": 25 },
+		{ "item_id": "decor_material_3", "count": 2, "weight": 20 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_5_epic",
+	  "name_key": "ui_chest_epic",
+	  "sort_order": 38,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "armor_iron_greaves", "weight": 30 },
+		{ "item_id": "acc_amulet_life", "weight": 25 },
+		{ "item_id": "part_emblem_crit_rate_3", "weight": 25 },
+		{ "item_id": "part_gem_atk_3", "weight": 20 }
+	  ] }
+	},
+	{
+	  "chest_id": "floor_5_legendary",
+	  "name_key": "ui_chest_legendary",
+	  "sort_order": 39,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "weapon_steel_sword", "weight": 25 },
+		{ "item_id": "part_charm_def_4", "weight": 25 },
+		{ "item_id": "part_emblem_crit_dmg_4", "weight": 25 },
+		{ "item_id": "part_gem_hp_4", "weight": 25 }
+	  ] }
 	}
   ]
 }

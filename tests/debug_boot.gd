@@ -811,7 +811,7 @@ func _apply_levels(scenario: Dictionary) -> void:
 	# ⚠ 見るキーは「その回に足したもの」に必ず差し替えること（段階10で踏んだ）。
 	#   ⚠ 前の回のキーを見たままだと、再インポート済みのキーに当たって
 	#     「済んでいる」と出るのに、その回のキーは未インポートのまま先へ進む。
-	var probe: String = "ui_research_category_workshop"
+	var probe: String = "ui_chest_legendary"
 	print("[DebugBoot] ja.csv の再インポート: %s" % (
 		"まだ（⚠ scenario=layout が赤3本・研究画面の効果が「？」になる）" if tr(probe) == probe
 		else "済んでいる"
@@ -2243,40 +2243,56 @@ func _report_drops() -> void:
 
 	# --- 2. stages.json がどの宝箱を指しているか ---
 	print("[DebugBoot] --- ステージ → 宝箱 ---")
-	# ⚠ chest_id はまだ stage_1..3 のまま（chests.json は 14-b で作り替える）。
+	# ⚠ 段階14-b で「1周につき宝箱1個」の固定報酬を外した。宝箱は移動に紐づく
+	#   （PLAN_SCENARIO_MAP.md §4）。なので rewards.chest_id は5フロアとも空が正解。
 	for stage_id: String in ["floor_1", "floor_2", "floor_3", "floor_4", "floor_5", "stage_dbg_area"]:
 		var rewards: Variant = MasterDataLoader.get_stage(stage_id).get("rewards", {})
 		var cid: String = ""
 		if rewards is Dictionary:
 			cid = str((rewards as Dictionary).get(GameStateKeys.CHEST_ID, ""))
-		print("  %-18s -> '%s'" % [stage_id, cid])
+		print("  %-18s 固定報酬の宝箱='%s'（空が正解） chest_ids=%s" % [
+			stage_id, cid,
+			str(MasterDataLoader.get_stage(stage_id).get(GameManager.STAGE_MASTER_CHEST_IDS, {})),
+		])
 
-	# --- 3. stage_1 の draw を1000回引く ---
-	print("[DebugBoot] --- stage_1 の抽選を1000回引く ---")
+	# --- 3. floor_1_common の draw を1000回引く ---
+	# ⚠ 段階14-b でハズレ枠を廃止した。引いたら必ず何か出るのが正解。
+	print("[DebugBoot] --- floor_1_common の抽選を1000回引く ---")
+	var sample_chest: String = "floor_1_common"
 	var trials: int = 1000
 	var counts: Dictionary = {}
 	var empty_draws: int = 0
-	var stage_1_draw: Dictionary = _draw_of("stage_1")
+	var sample_draw: Dictionary = _draw_of(sample_chest)
 	for _i: int in range(trials):
-		var drawn: Dictionary = GameManager._roll_chest_draw(stage_1_draw)
+		var drawn: Dictionary = GameManager._roll_chest_draw(sample_draw)
 		if drawn.is_empty():
 			empty_draws += 1
 			continue
 		for item_id: String in drawn:
 			counts[item_id] = int(counts.get(item_id, 0)) + int(drawn[item_id])
-	var hit_draws: int = trials - empty_draws
-	print("  当たった回数 = %d / %d（%.1f%%・期待値 30%%）" % [
-		hit_draws, trials, float(hit_draws) * 100.0 / float(trials),
-	])
+	print("  ⚠ 空が返った回数 = %d / %d（⚠ 0 が正解＝ハズレ枠を廃止した）" % [empty_draws, trials])
 	for item_id: String in counts:
-		print("    %-24s %d 回" % [item_id, int(counts[item_id])])
-	print("  出た種類 = %d（stage_1 の当たりは3種）" % counts.size())
+		print("    %-24s %d 個" % [item_id, int(counts[item_id])])
+	print("  出た種類 = %d（%s の枠は4種）" % [counts.size(), sample_chest])
 	var foreign: int = 0
 	for item_id: String in counts:
-		if not _draw_has_item("stage_1", item_id):
+		if not _draw_has_item(sample_chest, item_id):
 			foreign += 1
-			push_error("[DebugBoot] stage_1 のテーブルに無いIDが出た: " + item_id)
+			push_error("[DebugBoot] %s のテーブルに無いIDが出た: %s" % [sample_chest, item_id])
 	print("  よそのIDが出た件数 = %d（0 が正解）" % foreign)
+
+	# --- 3-b. ハズレ枠が1件も残っていないか（全宝箱）---
+	print("[DebugBoot] --- ハズレ枠の残り（⚠ 0 件が正解）---")
+	var with_blank: Array[String] = []
+	for chest_id: Variant in MasterDataLoader.get_all_chests():
+		var draw_def: Dictionary = _draw_of(str(chest_id))
+		for row: Variant in (draw_def.get(GameManager.CHEST_DRAW_ENTRIES, []) as Array):
+			if str((row as Dictionary).get(GameManager.CHEST_DRAW_ITEM_ID, "")) == "":
+				with_blank.append(str(chest_id))
+				break
+	print("  ハズレ枠を持つ宝箱 = %d 件%s" % [
+		with_blank.size(), "" if with_blank.is_empty() else " " + str(with_blank)
+	])
 
 	# --- 4. 壊したテーブル ---
 	print("[DebugBoot] --- 壊したテーブル ---")
@@ -2319,16 +2335,19 @@ func _report_drops() -> void:
 	])
 
 	# --- 7. 抽選の宝箱（戦闘の経路）---
-	print("[DebugBoot] --- 抽選の宝箱を積んで開ける（stage_3）---")
+	# ⚠ 段階14-b でハズレ枠を廃止したので、1回目で必ず積まれるのが正解。
+	#   （以前は7割が空で、積まれるまで最大200回引いていた）
+	var probe_chest: String = "floor_5_legendary"
+	print("[DebugBoot] --- 抽選の宝箱を積んで開ける（%s）---" % probe_chest)
 	var before_chests: int = GameManager.get_pending_chest_count()
 	var attempts: int = 0
 	while GameManager.get_pending_chest_count() == before_chests and attempts < 200:
 		attempts += 1
-		var _r: bool = GameManager.grant_chest("stage_3", GameStateKeys.CHEST_SOURCE_BATTLE)
+		var _r: bool = GameManager.grant_chest(probe_chest, GameStateKeys.CHEST_SOURCE_FLOOR)
 	if GameManager.get_pending_chest_count() == before_chests:
 		push_error("[DebugBoot] 200回引いても宝箱が1個も積まれなかった")
 		return
-	print("  %d 回目で積まれた" % attempts)
+	print("  %d 回目で積まれた（⚠ 1 が正解＝ハズレ枠を廃止した）" % attempts)
 
 	var chest: Dictionary = _last_unopened_chest()
 	var chest_rewards: Dictionary = chest.get(GameStateKeys.CHEST_REWARDS, {})
@@ -2339,8 +2358,8 @@ func _report_drops() -> void:
 		str(chest_inv),
 	])
 	for item_id: String in chest_inv:
-		if not _draw_has_item("stage_3", item_id):
-			push_error("[DebugBoot] stage_3 のテーブルに無いIDが宝箱に入った: " + item_id)
+		if not _draw_has_item(probe_chest, item_id):
+			push_error("[DebugBoot] %s のテーブルに無いIDが宝箱に入った: %s" % [probe_chest, item_id])
 
 	var instance_id: String = str(chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
 	var before_instances: int = _instance_count()
@@ -2361,7 +2380,7 @@ func _report_drops() -> void:
 	print("  2回目の open_chest() = %s / 個体 = %d（増えないこと）" % [str(opened_again), _instance_count()])
 
 	# --- 8. 表示名（再インポートの合図）---
-	print("  表示名 = '%s'（再インポート前は 'ui_chest_battle' のままが正常）" % tr("ui_chest_battle"))
+	print("  表示名 = '%s'（再インポート前は 'ui_chest_legendary' のままが正常）" % tr("ui_chest_legendary"))
 
 
 # chests.json の draw を引く。無ければ空。
@@ -2750,6 +2769,98 @@ func _report_floor() -> void:
 		GameManager.abandon_floor()
 		print("  abandon_floor() -> is_in_floor()=%s（false が正解）" % str(GameManager.is_in_floor()))
 
+	# --- 9. 宝箱（段階14-b・EXEC_SCENARIO_CHEST.md §5）---
+	#
+	# ⚠ 宝箱は「移動」に紐づく。ノードではない（PLAN_SCENARIO_MAP.md §4）。
+	# ⚠ レアリティの分布は _roll_chest_rarity() を直接叩いて数える。
+	#   実際に歩かせて数えると add_pending_chest() の print で出力が埋まる
+	#   （NEXT_STEPS §4「在庫を減らすために操作を繰り返す書き方をしない」）。
+	print("[DebugBoot] --- 宝箱のID（⚠ 5フロア × 4段階 = 20 件が正解）---")
+	var missing_chest: Array[String] = []
+	var listed_chest: int = 0
+	for floor_id: String in floor_ids:
+		var ids: Variant = MasterDataLoader.get_stage(floor_id).get(GameManager.STAGE_MASTER_CHEST_IDS, null)
+		if not (ids is Dictionary):
+			missing_chest.append(floor_id + ":chest_ids が無い")
+			continue
+		for rarity: String in [
+			GameManager.CHEST_RARITY_COMMON, GameManager.CHEST_RARITY_RARE,
+			GameManager.CHEST_RARITY_EPIC, GameManager.CHEST_RARITY_LEGENDARY,
+		]:
+			var chest_id: String = str((ids as Dictionary).get(rarity, ""))
+			listed_chest += 1
+			if chest_id == "" or MasterDataLoader.get_chest(chest_id).is_empty():
+				missing_chest.append("%s:%s" % [floor_id, rarity])
+	print("  chest_ids に並んでいる = %d 件 / ⚠ chests.json に無いもの = %d 件%s" % [
+		listed_chest, missing_chest.size(),
+		"" if missing_chest.is_empty() else " " + str(missing_chest),
+	])
+	print("  chests.json の総数 = %d 件（⚠ 20 + generic/bonus_* の4 = 24 が正解）" % (
+		MasterDataLoader.get_all_chests().size()
+	))
+
+	print("[DebugBoot] --- レアリティの深度補正（各 10000 回）---")
+	for layer: int in [1, 3, 5]:
+		var dist: Dictionary = {}
+		for _i: int in range(10000):
+			var rarity: String = GameManager._roll_chest_rarity(layer)
+			dist[rarity] = int(dist.get(rarity, 0)) + 1
+		print("  層%d  common=%.1f%% rare=%.1f%% epic=%.1f%% legendary=%.1f%%" % [
+			layer,
+			float(int(dist.get(GameManager.CHEST_RARITY_COMMON, 0))) / 100.0,
+			float(int(dist.get(GameManager.CHEST_RARITY_RARE, 0))) / 100.0,
+			float(int(dist.get(GameManager.CHEST_RARITY_EPIC, 0))) / 100.0,
+			float(int(dist.get(GameManager.CHEST_RARITY_LEGENDARY, 0))) / 100.0,
+		])
+	print("     （⚠ 奥ほどレジェンダリーが増えるのが正解。⚠ 画面にも明示する決定＝§4-5）")
+
+	# 実際に歩いて1周あたりの宝箱を数える。⚠ 100周だけ（print が増えるため）。
+	print("[DebugBoot] --- 1周あたりの宝箱（100周・出現率 %d%%）---" % int(
+		Balance.adventure.floor_chest_chance_pct
+	))
+	var rounds: int = 100
+	var zero_rounds: int = 0
+	var total_chests: int = 0
+	for _r: int in range(rounds):
+		GameManager._state[GameStateKeys.PENDING_CHESTS] = []
+		if not GameManager.start_floor(floor_ids[0]):
+			break
+		_walk_to_boss()
+		var got: int = GameManager.get_floor_chest_count()
+		total_chests += got
+		if got <= 0:
+			zero_rounds += 1
+		GameManager.abandon_floor()
+	print("  合計 %d 個 / %d 周 = %.2f 個/周" % [
+		total_chests, rounds, float(total_chests) / float(rounds)
+	])
+	print("  ⚠ 1個も出なかった周 = %d（0 が正解＝1フロア最低1回の保証）" % zero_rounds)
+
+	# 出現率を0にして保証だけを見る。⚠ 必ず元に戻すこと。
+	print("[DebugBoot] --- 保証だけ（出現率 0%）---")
+	var backup_chance: int = int(Balance.adventure.floor_chest_chance_pct)
+	Balance.adventure.floor_chest_chance_pct = 0
+	var guarantee_rounds: int = 100
+	var guarantee_total: int = 0
+	var guarantee_zero: int = 0
+	for _r: int in range(guarantee_rounds):
+		GameManager._state[GameStateKeys.PENDING_CHESTS] = []
+		if not GameManager.start_floor(floor_ids[0]):
+			break
+		_walk_to_boss()
+		var got: int = GameManager.get_floor_chest_count()
+		guarantee_total += got
+		if got <= 0:
+			guarantee_zero += 1
+		GameManager.abandon_floor()
+	Balance.adventure.floor_chest_chance_pct = backup_chance
+	print("  合計 %d 個 / %d 周（⚠ ちょうど %d 個＝各周1個が正解）" % [
+		guarantee_total, guarantee_rounds, guarantee_rounds
+	])
+	print("  ⚠ 1個も出なかった周 = %d（0 が正解）" % guarantee_zero)
+	print("  出現率を %d%% に戻した" % int(Balance.adventure.floor_chest_chance_pct))
+	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
+
 	# --- 7. セーブ→ロードの往復（int() 正規化・EXEC_SCENARIO_FLOOR.md §3-3）---
 	#
 	# ⚠ debug_boot はセーブを書かない（_ready() の注記）。なので JSON の往復だけを再現する。
@@ -2804,6 +2915,21 @@ func _report_floor() -> void:
 	])
 
 	print("[DebugBoot] ⚠ 状態は書き換えたが保存していない。is_in_floor()=%s" % str(GameManager.is_in_floor()))
+
+
+# いまのフロアを入口からボスまで歩き切る。⚠ 毎回いちばん手前の分岐を選ぶ。
+func _walk_to_boss() -> void:
+	var steps: int = 0
+	while true:
+		var moves: Array = GameManager.get_available_moves()
+		if moves.is_empty():
+			return
+		if not GameManager.move_to_node(str(moves[0])):
+			return
+		steps += 1
+		if steps > 50:
+			push_error("[DebugBoot] _walk_to_boss が50手で終わらない")
+			return
 
 
 # entry から next をたどって全ルートを集める。

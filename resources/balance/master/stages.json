@@ -5,9 +5,9 @@
 	"party_id": "party_default",
 	"rewards": {
 	  "gold": 50,
-	  "materials": { "construction_material_1": 3 ,"training_material_1": 2, "forging_material_1": 2, "decor_material_1": 1 },
-	  "chest_id": "stage_1"
+	  "materials": { "construction_material_1": 3 ,"training_material_1": 2, "forging_material_1": 2, "decor_material_1": 1 }
 	},
+	"chest_ids": { "common": "floor_1_common", "rare": "floor_1_rare", "epic": "floor_1_epic", "legendary": "floor_1_legendary" },
 	"layers": [
 	  { "node_count": 1, "weights": { "battle": 100 } },
 	  { "node_count": 2, "weights": { "battle": 70, "relic": 30 } },
@@ -28,9 +28,9 @@
 	"party_id": "party_default",
 	"rewards": {
 	  "gold": 70,
-	  "materials": { "construction_material_1": 4 ,"training_material_1": 3, "forging_material_1": 3, "decor_material_1": 2 },
-	  "chest_id": "stage_1"
+	  "materials": { "construction_material_1": 4 ,"training_material_1": 3, "forging_material_1": 3, "decor_material_1": 2 }
 	},
+	"chest_ids": { "common": "floor_2_common", "rare": "floor_2_rare", "epic": "floor_2_epic", "legendary": "floor_2_legendary" },
 	"layers": [
 	  { "node_count": 1, "weights": { "battle": 100 } },
 	  { "node_count": 2, "weights": { "battle": 70, "relic": 30 } },
@@ -52,9 +52,9 @@
 	"rewards": {
 	  "gold": 90,
 	  "materials": { "construction_material_1": 5 ,"training_material_1": 5, "forging_material_1": 4, "construction_material_2": 1, "forging_material_2": 1, "decor_material_1": 2, "decor_material_2": 1 },
-	  "inventory": { "part_gem_atk_1": 1 },
-	  "chest_id": "stage_2"
+	  "inventory": { "part_gem_atk_1": 1 }
 	},
+	"chest_ids": { "common": "floor_3_common", "rare": "floor_3_rare", "epic": "floor_3_epic", "legendary": "floor_3_legendary" },
 	"layers": [
 	  { "node_count": 1, "weights": { "battle": 100 } },
 	  { "node_count": 3, "weights": { "battle": 70, "relic": 30 } },
@@ -76,9 +76,9 @@
 	"party_id": "party_default",
 	"rewards": {
 	  "gold": 110,
-	  "materials": { "construction_material_2": 3 ,"training_material_1": 6, "forging_material_2": 3, "construction_material_3": 1, "decor_material_2": 2 },
-	  "chest_id": "stage_2"
+	  "materials": { "construction_material_2": 3 ,"training_material_1": 6, "forging_material_2": 3, "construction_material_3": 1, "decor_material_2": 2 }
 	},
+	"chest_ids": { "common": "floor_4_common", "rare": "floor_4_rare", "epic": "floor_4_epic", "legendary": "floor_4_legendary" },
 	"layers": [
 	  { "node_count": 1, "weights": { "battle": 100 } },
 	  { "node_count": 3, "weights": { "battle": 70, "relic": 30 } },
@@ -100,9 +100,9 @@
 	"rewards": {
 	  "gold": 130,
 	  "materials": { "construction_material_2": 5 ,"training_material_1": 6, "forging_material_2": 4, "construction_material_3": 1, "forging_material_3": 1, "decor_material_2": 2, "decor_material_3": 1 },
-	  "inventory": { "part_charm_def_1": 1, "part_emblem_crit_rate_1": 1 },
-	  "chest_id": "stage_3"
+	  "inventory": { "part_charm_def_1": 1, "part_emblem_crit_rate_1": 1 }
 	},
+	"chest_ids": { "common": "floor_5_common", "rare": "floor_5_rare", "epic": "floor_5_epic", "legendary": "floor_5_legendary" },
 	"layers": [
 	  { "node_count": 1, "weights": { "battle": 100 } },
 	  { "node_count": 3, "weights": { "battle": 70, "relic": 30 } },

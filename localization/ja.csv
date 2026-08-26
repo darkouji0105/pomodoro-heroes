@@ -38,6 +38,10 @@ ui_chest_bonus_small,ボーナス宝箱（小）
 ui_chest_bonus_medium,ボーナス宝箱（中）
 ui_chest_bonus_large,ボーナス宝箱（大）
 ui_chest_battle,戦利品の宝箱
+ui_chest_common,ふるびた宝箱
+ui_chest_rare,かがやく宝箱
+ui_chest_epic,ほうぎょくの宝箱
+ui_chest_legendary,でんせつの宝箱
 ui_pomodoro_title_placeholder,何に取り組みますか？（任意）
 ui_pomodoro_title_hint,ここに入れた文字はフレンドに表示されます
 ui_pomodoro_start,はじめる

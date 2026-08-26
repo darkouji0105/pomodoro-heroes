@@ -162,6 +162,18 @@ const STAGE_MASTER_UNLOCKS: String = "unlocks"
 const STAGE_MASTER_LAYERS: String = "layers"
 const STAGE_MASTER_BATTLE_POOL: String = "battle_pool"
 const STAGE_MASTER_BOSS: String = "boss"
+# フロアが使う宝箱のID（段階14-b）。{rarity: chest_id} の4件。
+#
+# ⚠ floor_id から "floor_%d_%s" を組み立てないこと。必ずこの欄で引く。
+#   IDから切り出す形は装飾で事故っている（ITEM_MASTER_PART_KIND のコメント）。
+const STAGE_MASTER_CHEST_IDS: String = "chest_ids"
+
+# レアリティの綴り。⚠ chests.json の chest_id の後半と stages.json の chest_ids の
+#   キーが、この4つで揃っていること。
+const CHEST_RARITY_COMMON: String = "common"
+const CHEST_RARITY_RARE: String = "rare"
+const CHEST_RARITY_EPIC: String = "epic"
+const CHEST_RARITY_LEGENDARY: String = "legendary"
 # layers の各要素。
 const LAYER_NODE_COUNT: String = "node_count"
 const LAYER_WEIGHTS: String = "weights"
@@ -5680,8 +5692,102 @@ func move_to_node(node_id: String) -> bool:
 	print("[GameManager] move_to_node('%s') -> true (kind=%s)" % [
 		node_id, str(get_floor_node(node_id).get(GameStateKeys.FLOOR_NODE_KIND, ""))
 	])
+	# ⚠ 宝箱は「ノード」ではなく「移動」に紐づく（PLAN_SCENARIO_MAP.md §4）。
+	#   移動が確定してから引く。弾いたときには引かない。
+	_roll_floor_chest(node_id)
 	floor_run_changed.emit(str(run[GameStateKeys.FLOOR_RUN_FLOOR_ID]))
 	return true
+
+
+# 移動1回ぶんの宝箱抽選（段階14-b）。
+#
+# ⚠ 出るか出ないかを先に決め、出ると決まってから中身を引く。
+#   いまの chests.json にはハズレ枠が1件も無いので、引いたら必ず何か出る。
+# ⚠ 1フロア最低1回の保証：ボスに着いた時点で1個も出ていなければ確定で出す
+#   （PLAN_SCENARIO_MAP.md §4-4）。
+# ⚠ grant_chest() を呼ぶだけ。積む口は増やさない（CLAUDE.md 8番と同じ理由）。
+func _roll_floor_chest(node_id: String) -> void:
+	var node: Dictionary = get_floor_node(node_id)
+	if node.is_empty():
+		return
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	var floor_id: String = str(run.get(GameStateKeys.FLOOR_RUN_FLOOR_ID, ""))
+	var count: int = int(run.get(GameStateKeys.FLOOR_RUN_CHEST_COUNT, 0))
+	var is_boss: bool = str(node.get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BOSS
+
+	var chance: int = int(Balance.adventure.floor_chest_chance_pct)
+	var hit: bool = randi_range(1, 100) <= chance
+	# ⚠ 保証。⚠ 「出なかった」ときだけ効く。出ていれば何もしない。
+	if not hit and is_boss and count <= 0:
+		hit = true
+	if not hit:
+		return
+
+	var layer: int = int(node.get(GameStateKeys.FLOOR_NODE_LAYER, 1))
+	var rarity: String = _roll_chest_rarity(layer)
+	var chest_id: String = _floor_chest_id(floor_id, rarity)
+	if chest_id == "":
+		push_warning("[GameManager] _roll_floor_chest: chest_ids に %s が無い: %s" % [rarity, floor_id])
+		return
+	if not grant_chest(chest_id, GameStateKeys.CHEST_SOURCE_FLOOR):
+		return
+
+	var next_run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+	next_run[GameStateKeys.FLOOR_RUN_CHEST_COUNT] = count + 1
+	_state[GameStateKeys.FLOOR_RUN] = next_run
+
+
+# 層の深さでレアリティを1つ引く。
+#
+# ⚠ _roll_weighted_table() は使わない。あちらは {item_id: count} を返す口で用途が違う
+#   （_roll_node_kind() と同じ理由）。
+# ⚠ 配列より深い層に着いたら末尾を使う。
+func _roll_chest_rarity(layer: int) -> String:
+	var table: Dictionary = {
+		CHEST_RARITY_COMMON: Balance.adventure.floor_chest_weight_common,
+		CHEST_RARITY_RARE: Balance.adventure.floor_chest_weight_rare,
+		CHEST_RARITY_EPIC: Balance.adventure.floor_chest_weight_epic,
+		CHEST_RARITY_LEGENDARY: Balance.adventure.floor_chest_weight_legendary,
+	}
+	# ⚠ 綴り順で回す（Dictionary のキー順は不定・_roll_node_kind() と同じ）。
+	var rarities: Array = [
+		CHEST_RARITY_COMMON, CHEST_RARITY_EPIC, CHEST_RARITY_LEGENDARY, CHEST_RARITY_RARE,
+	]
+	var weights: Dictionary = {}
+	var total: int = 0
+	for rarity: String in rarities:
+		var row: Array = table[rarity]
+		if row.is_empty():
+			continue
+		var index: int = clampi(layer - 1, 0, row.size() - 1)
+		var w: int = maxi(0, int(row[index]))
+		weights[rarity] = w
+		total += w
+	if total <= 0:
+		return CHEST_RARITY_COMMON
+	var roll: int = randi() % total
+	for rarity: String in rarities:
+		roll -= int(weights.get(rarity, 0))
+		if roll < 0:
+			return rarity
+	return CHEST_RARITY_COMMON
+
+
+# フロアの chest_ids から1件引く。無ければ ""。
+#
+# ⚠ floor_id から組み立てない（STAGE_MASTER_CHEST_IDS のコメント）。
+func _floor_chest_id(floor_id: String, rarity: String) -> String:
+	var stage: Dictionary = MasterDataLoader.get_stage(floor_id)
+	var ids: Variant = stage.get(STAGE_MASTER_CHEST_IDS, null)
+	if not (ids is Dictionary):
+		return ""
+	return str((ids as Dictionary).get(rarity, ""))
+
+
+# このフロアでいままでに出た宝箱の数。
+func get_floor_chest_count() -> int:
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	return int(run.get(GameStateKeys.FLOOR_RUN_CHEST_COUNT, 0))
 
 
 # フロアを降りる。進行中のものを丸ごと捨てる。
