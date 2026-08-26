@@ -123,9 +123,26 @@ ui_adventure_training,トレーニング
 ui_adventure_back,拠点へ戻る
 ui_adventure_challenge,挑戦
 ui_adventure_party,編成
-ui_stage_1,1. 草原のスライム
-ui_stage_2,2. 荒野の群れ
-ui_stage_3,3. 森の主
+ui_floor_1,1. 草原のスライム
+ui_floor_2,2. 風わたる丘
+ui_floor_3,3. 荒野の群れ
+ui_floor_4,4. 霧ふかき森
+ui_floor_5,5. 森の主
+ui_floor_node_battle,たたかう
+ui_floor_node_boss,ボス
+ui_floor_node_rest,休憩
+ui_floor_node_relic,レリック
+ui_floor_node_shop,ショップ
+ui_floor_chest_count,宝箱
+ui_floor_rested,ひと休みした。全員のHPが満タンに戻った
+ui_floor_node_not_ready,ここはまだ作っていない。そのまま先へ進める
+ui_floor_cannot_move,そこへは進めない
+ui_floor_abandon,フロアを降りる
+ui_floor_back_to_base,拠点へ戻る
+ui_floor_resume,続きから
+ui_floor_start_failed,フロアに入れなかった
+ui_floor_other_in_progress,別のフロアの途中。先に降りること
+ui_floor_depth_hint,奥へ進むほど良い宝箱が出やすい
 ui_base_save_completed,セーブしました
 ui_base_save_failed,セーブに失敗しました
 ui_base_chest_received,宝箱を%d個受け取りました

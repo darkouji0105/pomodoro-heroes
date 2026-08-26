@@ -22,3 +22,8 @@ const CHARACTER_ID: String = "character_id"
 # ⚠ 入口が2つある（冒険選択・拠点）ので、来た側がここにパスを入れる。
 #   入っていなければ拠点へ帰る（履歴に依存しない。base_screen.gd と同じ流儀）。
 const RETURN_PATH: String = "return_path"
+
+# フロアのどのノードから戦いに来たか（段階14-c）。
+# ⚠ 入っていなければ従来どおり stages.json の waves を使う（stage_dbg_* がこちら）。
+# ⚠ 戦闘画面はこのIDで「ボスかどうか」を GameManager に聞く。自分で判定しない。
+const FLOOR_NODE_ID: String = "floor_node_id"

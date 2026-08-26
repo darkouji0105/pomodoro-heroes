@@ -168,3 +168,8 @@ extends Resource
 @export var floor_chest_weight_rare: Array[int] = [25, 30, 33, 35, 35]
 @export var floor_chest_weight_epic: Array[int] = [5, 9, 14, 20, 25]
 @export var floor_chest_weight_legendary: Array[int] = [0, 1, 3, 5, 10]
+
+## 休憩ノードで全員が満タンに戻るか（段階14-c）。
+## ⚠ まずはシンプルに（メモの「様子見」）。割合回復にするなら
+##   GameManager.rest_at_node() を書き換える。
+@export var floor_rest_full_heal: bool = true

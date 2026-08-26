@@ -3034,6 +3034,10 @@ func _report_layout() -> void:
 
 	# --- 手書きした .tscn が開くか ---
 	print("[DebugBoot] --- 他の画面が開くか（⚠ 最小幅も見る）---")
+	# ⚠ マップ画面はフロアに入っていないと _ready() が冒険選択へ戻す（段階14-c）。
+	#   ⚠ 測るために先に1本入れておく。⚠ 保存はしない。
+	if not GameManager.is_in_floor():
+		var _started: bool = GameManager.start_floor("floor_5")
 	for scene_path: String in LAYOUT_SCENES:
 		var other: PackedScene = load(scene_path)
 		if other == null:
@@ -3147,6 +3151,10 @@ const LAYOUT_SCENE_SHOW: Dictionary = {
 const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/adventure/party_preset_screen.tscn",
 	"res://scenes/adventure/adventure_select.tscn",
+	# ⚠ 段階14-c で足したマップ画面。層の行はコードで作るので開かないと分からない。
+	#   ⚠ フロアに入っていないと _ready() が冒険選択へ戻すので、先に start_floor() する
+	#     （_report_layout の中で入れてある）。
+	"res://scenes/adventure/floor_map.tscn",
 	# ⚠ この2枚は、コードでノードを足しているので開かないと分からない
 	#   （@onready のパス取り違え・move_child の相手違い）。
 	"res://scenes/guild/training_screen.tscn",

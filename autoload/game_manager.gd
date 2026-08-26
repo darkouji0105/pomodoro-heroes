@@ -5790,6 +5790,81 @@ func get_floor_chest_count() -> int:
 	return int(run.get(GameStateKeys.FLOOR_RUN_CHEST_COUNT, 0))
 
 
+# そのノードがボスか（段階14-c）。
+#
+# ⚠ ボス判定の口はここ1本だけ。戦闘画面が kind の綴りを自分で比べないこと。
+func is_floor_boss_node(node_id: String) -> bool:
+	var node: Dictionary = get_floor_node(node_id)
+	if node.is_empty():
+		return false
+	return str(node.get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BOSS
+
+
+# フロア内で持ち越しているHP。{character_id: int}。
+#
+# ⚠ 欄が無いキャラは「満タン」の意味。0 を書かないこと
+#   （0 だと復帰できず、全滅の判定と噛み合わない）。
+func get_floor_hp_carry() -> Dictionary:
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	var carry: Dictionary = run.get(GameStateKeys.FLOOR_RUN_HP_CARRY, {})
+	return carry.duplicate(true)
+
+
+# 戦闘のあとに残HPを書き込む（段階14-c）。
+#
+# ⚠ 倒れた味方は 1 で残す。次の戦闘に出られなくなるのを防ぐ（EXEC §1-4）。
+# ⚠ フロアに入っていなければ何もしない（検証用ステージがここを通っても無害）。
+func set_floor_hp_carry(hp_by_character: Dictionary) -> void:
+	if not is_in_floor():
+		return
+	var carry: Dictionary = {}
+	for character_id: Variant in hp_by_character:
+		carry[str(character_id)] = maxi(1, int(hp_by_character[character_id]))
+	var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.FLOOR_RUN_HP_CARRY] = carry
+	_state[GameStateKeys.FLOOR_RUN] = run
+	print("[GameManager] set_floor_hp_carry(%s)" % str(carry))
+
+
+# 休憩ノード（段階14-c）。持ち越しHPを捨てる＝全員が満タンで次の戦闘に入る。
+#
+# ⚠ 割合回復にするなら、ここで hp_carry を書き換える形にする
+#   （Balance.adventure.floor_rest_full_heal）。
+func rest_at_node() -> bool:
+	if not is_in_floor():
+		return false
+	var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.FLOOR_RUN_HP_CARRY] = {}
+	_state[GameStateKeys.FLOOR_RUN] = run
+	print("[GameManager] rest_at_node() -> hp_carry を空にした（全員満タン）")
+	floor_run_changed.emit(str(run.get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")))
+	return true
+
+
+# ノードで戦う1ウェーブぶんの敵（段階14-c）。
+#
+# ⚠ ボスなら stages.json の boss、それ以外は battle_pool から1本引く。
+# ⚠ 戦闘画面が battle_pool を直接読まないこと（引き方が2箇所になる）。
+func get_floor_node_wave(node_id: String) -> Dictionary:
+	if not is_in_floor():
+		return {}
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	var floor_id: String = str(run.get(GameStateKeys.FLOOR_RUN_FLOOR_ID, ""))
+	var stage: Dictionary = MasterDataLoader.get_stage(floor_id)
+	if is_floor_boss_node(node_id):
+		var boss: Variant = stage.get(STAGE_MASTER_BOSS, null)
+		if boss is Dictionary:
+			return (boss as Dictionary).duplicate(true)
+		push_warning("[GameManager] get_floor_node_wave: boss が無い: " + floor_id)
+		return {}
+	var pool: Variant = stage.get(STAGE_MASTER_BATTLE_POOL, null)
+	if not (pool is Array) or (pool as Array).is_empty():
+		push_warning("[GameManager] get_floor_node_wave: battle_pool が無い: " + floor_id)
+		return {}
+	var list: Array = pool as Array
+	return (list[randi() % list.size()] as Dictionary).duplicate(true)
+
+
 # フロアを降りる。進行中のものを丸ごと捨てる。
 #
 # ⚠ フロア内限定のもの（たいまつ・レリック・消耗品・持ち越しHP）はここで一緒に消える。

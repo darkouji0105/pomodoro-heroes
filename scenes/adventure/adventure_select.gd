@@ -12,6 +12,7 @@ const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
 const PARTY_PRESET_PATH: String = "res://scenes/adventure/party_preset_screen.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
+const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
 
 # --- ノード参照 ---
 @onready var stamina_value: ResourceDisplay = $Layout/Header/StaminaValue
@@ -230,6 +231,13 @@ func _add_stage_row(stage_id: String, stage_data: Dictionary, index: int, order:
 	var unlocked: bool = (index == 0) or GameManager.is_stage_cleared(order[index - 1])
 	var cleared: bool = GameManager.is_stage_cleared(stage_id)
 
+	# 進行中のフロアは「続きから」（段階14-c）。
+	var in_progress: bool = GameManager.is_in_floor() and str(
+		GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")
+	) == stage_id
+	if in_progress:
+		challenge_button.text = "ui_floor_resume"
+
 	# 3 状態の出し分け（EXEC §4.4）
 	var name_key: String = str(stage_data.get("name_key", stage_id))
 	var base_name: String = tr(name_key)
@@ -282,6 +290,25 @@ func _on_challenge_pressed(stage_id: String) -> void:
 	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0))
 	if current < cost:
 		message_label.text = tr("ui_adventure_stamina_short") + " (%d / %d)" % [cost, current]
+		return
+
+	# フロア形式（段階14-c）。⚠ 戦闘画面へ直行せず、マップ画面へ入る。
+	# ⚠ すでに同じフロアの途中なら続きから。別のフロアに入っていたら断る
+	#   （黙って捨てると、たいまつもレリックも持ち越しHPも消える）。
+	if GameManager.is_floor_stage(stage_id):
+		if GameManager.is_in_floor():
+			var current_floor: String = str(GameManager.get_floor_run().get(
+				GameStateKeys.FLOOR_RUN_FLOOR_ID, ""
+			))
+			if current_floor != stage_id:
+				message_label.text = tr("ui_floor_other_in_progress")
+				return
+			SceneManager.change_scene(FLOOR_MAP_PATH)
+			return
+		if not GameManager.start_floor(stage_id):
+			message_label.text = tr("ui_floor_start_failed")
+			return
+		SceneManager.change_scene(FLOOR_MAP_PATH)
 		return
 
 	# 遷移（EXEC §5.4）。PARTY_ID は渡さない

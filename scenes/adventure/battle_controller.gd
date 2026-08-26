@@ -20,6 +20,10 @@ const ENEMY_STEP_X: float = 100.0
 const RUNE_MOVE_MIN_X: float = 40.0
 const RUNE_MOVE_MAX_X: float = 1240.0
 
+# フロアから来たときの戻り先（段階14-c）。
+const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
+const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
+
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
 const DEBUG_PANEL_SCRIPT: GDScript = preload("res://scenes/adventure/battle_debug_panel.gd")
 const PROJECTILE_VIEW_SCRIPT: GDScript = preload("res://scenes/adventure/projectile_view.gd")
@@ -62,6 +66,10 @@ const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
 # データ
 var _stage_id: String = "floor_1"
 var _stage_data: Dictionary = {}
+# フロアのノードから来たときだけ入る（段階14-c）。空なら従来のステージ。
+var _floor_node_id: String = ""
+# ノード1つぶんの1ウェーブ。⚠ 空なら _stage_data の waves を使う（_waves_of）。
+var _floor_waves: Array = []
 var _session: BattleSession = null
 
 # 敵 UnitView の参照配列。ウェーブ切替時に queue_free して clear する。
@@ -135,8 +143,12 @@ func _ready() -> void:
 		push_error("[Battle] stage_data が空: " + _stage_id)
 		return
 
+	# フロアのノードから来たか（段階14-c）。⚠ 空なら従来どおり stages.json の waves。
+	_floor_node_id = str(data.get(TransferKeys.FLOOR_NODE_ID, ""))
+	_build_floor_waves()
+
 	var party_id: String = str(_stage_data.get("party_id", ""))
-	var waves_array: Array = _stage_data.get("waves", [])
+	var waves_array: Array = _waves_of()
 	var total_waves: int = waves_array.size()
 
 	_session = BattleSession.new(_stage_id, stage_type, party_id, total_waves)
@@ -276,6 +288,12 @@ func _init_party_units() -> void:
 		)
 		unit.x = _party_start_x(i)
 
+		# フロア内で持ち越したHP（段階14-c）。⚠ 欄が無いキャラは満タンのまま。
+		# ⚠ max_hp は超えさせない（装備を外してHP上限が下がったときに溢れるため）。
+		var carry: Dictionary = GameManager.get_floor_hp_carry()
+		if carry.has(character_id):
+			unit.hp = clampi(int(carry[character_id]), 1, int(unit.max_hp))
+
 		# スキルの割り当て。⚠ 敵は _spawn_current_wave_enemies() 側で別に割り当てる
 		# （enemies.json の "skills" はそのまま装備枠。プレイヤーが選ぶ2枠が無い）。
 		#
@@ -346,7 +364,7 @@ func _spawn_current_wave_enemies() -> void:
 			_views_by_unit_id.erase(u.unit_id)
 	_session.enemy_units.clear()
 
-	var waves_array: Array = _stage_data.get("waves", [])
+	var waves_array: Array = _waves_of()
 	var wave_index: int = _session.current_wave - 1
 	if wave_index < 0 or wave_index >= waves_array.size():
 		push_error("[Battle] wave_index out of range: " + str(wave_index))
@@ -1614,20 +1632,38 @@ func _enter_victory() -> void:
 	_clear_all_recast()
 	_clear_all_summons()
 	_session.state = BattleSession.STATE_VICTORY
-	_consume_stage_stamina()
+
+	# フロアの道中か、ボスか（段階14-c）。
+	# ⚠ 道中のノードでは報酬もクリア記録もスタミナも動かさない。
+	#   ⚠ 動かすと1マス目で画面が全部開き、1周で25スタミナ払うことになる。
+	var in_floor_run: bool = _floor_node_id != ""
+	var is_boss: bool = _is_floor_boss()
+
+	if in_floor_run:
+		# 残HPをフロアへ書き戻す。⚠ ボスでも書く（降りる前なので実害は無く、
+		#   途中でやめて戻ってきたときの形が揃う）。
+		_save_floor_hp_carry()
+
+	var rewards: Dictionary = {}
+	if (not in_floor_run) or is_boss:
+		rewards = _stage_data.get("rewards", {})
 
 	var result_data: Dictionary = {
 		GameStateKeys.BATTLE_VICTORY: true,
 		GameStateKeys.BATTLE_WAVES_CLEARED: _session.total_waves,
-		GameStateKeys.BATTLE_REWARDS: _stage_data.get("rewards", {}),
+		GameStateKeys.BATTLE_REWARDS: rewards,
 	}
 	# ⚠ 報酬もクリア記録も story のときだけ（人間の決定・2026-08-17）。
-	#   スタミナの消費（_consume_stage_stamina）が既に同じ判定をしている。
 	#   検証用ステージは training で入るので、セーブに痕跡が残らない。
 	#   ⚠ 結果画面は出す。出さないと勝ったのに何も起きない画面になる。
-	if _session.stage_type == GameStateKeys.STAGE_TYPE_STORY:
+	# ⚠ フロアでは「ボスを倒したときだけ」に絞る（段階14-c）。
+	if _session.stage_type == GameStateKeys.STAGE_TYPE_STORY and ((not in_floor_run) or is_boss):
+		_consume_stage_stamina()
 		GameManager.apply_battle_rewards(result_data)
 		GameManager.mark_stage_cleared(_stage_id, 0)
+		if in_floor_run:
+			# フロアを踏破した。⚠ 降りるのはここ1箇所だけ。
+			GameManager.abandon_floor()
 
 	_show_result(true, result_data)
 
@@ -1712,7 +1748,10 @@ func _init_session() -> void:
 	#   （BattleUnit は消えるのにノードだけ画面に居座り、エラーは出ない）。
 	_clear_all_summons()
 	_stage_data = MasterDataLoader.get_stage(_stage_id)
-	var total_waves: int = int(_stage_data.get("waves", []).size())
+	# ⚠ リトライでも同じノードの敵を引き直す（段階14-c）。呼ばないと _floor_waves が
+	#   前の戦闘のまま残り、フロアの外なら空のままで従来どおり waves を使う。
+	_build_floor_waves()
+	var total_waves: int = int(_waves_of().size())
 	var stage_type: String = GameStateKeys.STAGE_TYPE_STORY
 	if _session != null:
 		stage_type = _session.stage_type
@@ -1734,7 +1773,75 @@ func _init_session() -> void:
 	BattleLog.begin_battle(_stage_id, str(_stage_data.get("party_id", "")), total_waves)
 
 
+# この戦闘で使うウェーブの配列（段階14-c）。
+#
+# ⚠ フロアのノードから来たときだけ _floor_waves（1本）を使う。
+#   ⚠ 読む場所を3箇所に散らさないため、waves を読む口はこの1本に寄せた。
+func _waves_of() -> Array:
+	if not _floor_waves.is_empty():
+		return _floor_waves
+	return _stage_data.get("waves", [])
+
+
+# ノード1つぶんの敵を1ウェーブに組む（段階14-c）。
+#
+# ⚠ battle_pool / boss を直接読まない。引く口は GameManager.get_floor_node_wave()。
+# ⚠ フロア外（stage_dbg_* など）では何もしない。_floor_waves が空のままなので
+#   _waves_of() が従来の waves を返す。
+func _build_floor_waves() -> void:
+	_floor_waves = []
+	if _floor_node_id == "":
+		return
+	var wave: Dictionary = GameManager.get_floor_node_wave(_floor_node_id)
+	if wave.is_empty():
+		push_warning("[Battle] フロアのノードから敵を組めなかった: " + _floor_node_id)
+		return
+	var entry: Dictionary = wave.duplicate(true)
+	entry["wave_index"] = 1
+	_floor_waves = [entry]
+
+
+# フロアのボスのノードから来たか。⚠ 判定は GameManager の1本に聞く。
+func _is_floor_boss() -> bool:
+	return _floor_node_id != "" and GameManager.is_floor_boss_node(_floor_node_id)
+
+
+# 生き残った味方の残HPをフロアへ書き戻す（段階14-c）。
+#
+# ⚠ 倒れた味方も含めて全員ぶん書く。GameManager 側が 1 に持ち上げる。
+func _save_floor_hp_carry() -> void:
+	if _floor_node_id == "" or _session == null:
+		return
+	var members: Array = GameManager.get_party_members()
+	var hp_by_character: Dictionary = {}
+	for i: int in range(members.size()):
+		var unit_id: String = "party_%d" % i
+		for unit in _session.party_units:
+			if not (unit is BattleUnit):
+				continue
+			var u: BattleUnit = unit
+			if u.unit_id == unit_id:
+				hp_by_character[str(members[i])] = int(u.hp)
+				break
+	GameManager.set_floor_hp_carry(hp_by_character)
+
+
 func _on_back_pressed() -> void:
+	# フロアの中から来たとき（段階14-c）。
+	# ⚠ 勝ってボスを倒したときは _enter_victory() が既にフロアを降りている。
+	#   ここへ来るのは「道中で勝った」か「負けた」の2つ。
+	if _floor_node_id != "":
+		if _session != null and _session.state == BattleSession.STATE_DEFEAT:
+			# 負けたらフロアを降りる（EXEC §1-5「負けてもノーリスク＝最初からやり直し」）。
+			GameManager.abandon_floor()
+			SceneManager.change_scene(ADVENTURE_SELECT_PATH)
+			return
+		if not GameManager.is_in_floor():
+			# ボスを倒して _enter_victory() が既に降りている。
+			SceneManager.change_scene(ADVENTURE_SELECT_PATH)
+			return
+		SceneManager.change_scene(FLOOR_MAP_PATH)
+		return
 	SceneManager.change_scene("res://scenes/base/base_screen.tscn")
 
 

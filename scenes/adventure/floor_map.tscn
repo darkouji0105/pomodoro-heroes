@@ -1,0 +1,87 @@
+[gd_scene format=3 uid="uid://cf1oormapscn01"]
+
+[ext_resource type="Script" path="res://scenes/adventure/floor_map.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/resource_display.tscn" id="2_resource_dsp"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="3_button"]
+
+[node name="FloorMap" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.078431375, 0.06666667, 0.10980392, 1)
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 8.0
+offset_right = -16.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 4
+
+[node name="Header" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="FloorNameLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+text = "ui_floor_1"
+
+[node name="Spacer" type="Control" parent="Layout/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ChestLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+
+[node name="StaminaNameLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+text = "ui_res_stamina"
+
+[node name="StaminaValue" parent="Layout/Header" instance=ExtResource("2_resource_dsp")]
+layout_mode = 2
+
+[node name="MessageLabel" type="Label" parent="Layout"]
+layout_mode = 2
+
+[node name="LayerList" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="Footer" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+
+[node name="HintLabel" type="Label" parent="Layout/Footer"]
+layout_mode = 2
+text = "ui_floor_depth_hint"
+
+[node name="FooterSpacer" type="Control" parent="Layout/Footer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AbandonButton" parent="Layout/Footer" instance=ExtResource("3_button")]
+layout_mode = 2
+label_key = "ui_floor_abandon"
+
+[node name="BackButton" parent="Layout/Footer" instance=ExtResource("3_button")]
+layout_mode = 2
+label_key = "ui_floor_back_to_base"
