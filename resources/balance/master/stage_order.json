@@ -1,4 +1,4 @@
 {
-  "story": ["stage_1", "stage_2", "stage_3"],
+  "story": ["floor_1", "floor_2", "floor_3", "floor_4", "floor_5"],
   "debug": ["stage_dbg_enemy_skill", "stage_dbg_condition", "stage_dbg_intervene", "stage_dbg_passive", "stage_dbg_area"]
 }

@@ -60,7 +60,7 @@ const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
 @onready var back_button: Button = $ResultView/BackButton
 
 # データ
-var _stage_id: String = "stage_1"
+var _stage_id: String = "floor_1"
 var _stage_data: Dictionary = {}
 var _session: BattleSession = null
 
@@ -122,8 +122,8 @@ func _ready() -> void:
 
 	_stage_id = str(data.get(TransferKeys.STAGE_ID, ""))
 	if _stage_id == "":
-		push_warning("[Battle] stage_id が渡されていないため stage_1 で開始する")
-		_stage_id = "stage_1"
+		push_warning("[Battle] stage_id が渡されていないため floor_1 で開始する")
+		_stage_id = "floor_1"
 
 	# stage_type は TransferKeys.STAGE_TYPE 優先、無ければ STAGE_TYPE_STORY
 	var stage_type: String = str(data.get(TransferKeys.STAGE_TYPE, ""))

@@ -34,6 +34,11 @@ signal shop_changed(shop_type: String)
 # こちらはキューの中身の変化だけを担当する。
 signal crafting_queue_changed()
 
+# フロア探索の状態が変わった（段階14-a）。開始・移動・中断のいずれでも飛ぶ。
+# ⚠ 14-a の時点で購読者はゼロ。マップ画面（14-c）が繋ぐ。
+# ⚠ floor_id は「変わったあとの値」。中断したときは "" が飛ぶ。
+signal floor_run_changed(floor_id: String)
+
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
 const LEVEL_UP_COST_MATERIAL_ID: String = "material_id"
@@ -147,6 +152,19 @@ const ITEM_MASTER_EQUIP_STATS: String = "equip_stats"
 # （段階9・EXEC_SCREEN_UNLOCK.md §3-B）。
 # ⚠ 知らない screen_id は E125 がロード時に赤で言う。
 const STAGE_MASTER_UNLOCKS: String = "unlocks"
+
+# stages.json のフロア形式の欄（段階14-a・PLAN_SCENARIO_MAP.md §3）。
+#
+# ⚠ stages.json には2つの形式が同居する。
+#     フロア形式  … layers を持つ（floor_1..5・本番）
+#     ウェーブ形式 … waves を持つ（stage_dbg_* 5本・検証用。リリース前に消す）
+# ⚠ 見分ける口は is_floor_stage() の1本だけ。2箇所で判定しないこと。
+const STAGE_MASTER_LAYERS: String = "layers"
+const STAGE_MASTER_BATTLE_POOL: String = "battle_pool"
+const STAGE_MASTER_BOSS: String = "boss"
+# layers の各要素。
+const LAYER_NODE_COUNT: String = "node_count"
+const LAYER_WEIGHTS: String = "weights"
 
 const ITEM_MASTER_PART_KIND: String = "part_kind"
 const ITEM_MASTER_PART_TIER: String = "part_tier"
@@ -413,6 +431,9 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.MATERIALS: {},
 		GameStateKeys.INVENTORY: {},
 		GameStateKeys.PENDING_CHESTS: [],
+		# フロア探索（段階14-a）。floor_id が "" なら入っていない。
+		# ⚠ 9つの欄を最初から全部持たせる。14-b〜14-e が埋める欄も空で置く。
+		GameStateKeys.FLOOR_RUN: _empty_floor_run(),
 		GameStateKeys.UNLOCKED_SCREENS: {},
 		GameStateKeys.SCENARIO_CHAPTER: 1,
 		GameStateKeys.BOSS_UNLOCKED: false,
@@ -5346,6 +5367,32 @@ func load_state(data: Dictionary) -> bool:
 			var item_entry: Dictionary = inv[item_id]
 			if item_entry.has(GameStateKeys.ITEM_COUNT):
 				item_entry[GameStateKeys.ITEM_COUNT] = int(item_entry[GameStateKeys.ITEM_COUNT])
+	# フロア探索（段階14-a）。JSONから戻すと数値が全部 float になるため int に戻す。
+	# ⚠ これを飛ばすとセーブに "layer": 3.0 / "torch_grade": 0.0 と書かれ続ける
+	#   （CLAUDE.md 3番。宿題57 が STORY で同じ形を起こしている）。
+	# ⚠ 直すのは数値の欄だけ。floor_id / position / kind / next は文字列なので触らない。
+	if new_state.has(GameStateKeys.FLOOR_RUN) and new_state[GameStateKeys.FLOOR_RUN] is Dictionary:
+		var run: Dictionary = new_state[GameStateKeys.FLOOR_RUN]
+		if run.has(GameStateKeys.FLOOR_RUN_TORCH_GRADE):
+			run[GameStateKeys.FLOOR_RUN_TORCH_GRADE] = int(run[GameStateKeys.FLOOR_RUN_TORCH_GRADE])
+		if run.has(GameStateKeys.FLOOR_RUN_CHEST_COUNT):
+			run[GameStateKeys.FLOOR_RUN_CHEST_COUNT] = int(run[GameStateKeys.FLOOR_RUN_CHEST_COUNT])
+		if run.has(GameStateKeys.FLOOR_RUN_HP_CARRY) and run[GameStateKeys.FLOOR_RUN_HP_CARRY] is Dictionary:
+			var hp_carry: Dictionary = run[GameStateKeys.FLOOR_RUN_HP_CARRY]
+			for character_id: String in hp_carry:
+				hp_carry[character_id] = int(hp_carry[character_id])
+		if run.has(GameStateKeys.FLOOR_RUN_CONSUMABLES) and run[GameStateKeys.FLOOR_RUN_CONSUMABLES] is Dictionary:
+			var consumables: Dictionary = run[GameStateKeys.FLOOR_RUN_CONSUMABLES]
+			for item_id: String in consumables:
+				consumables[item_id] = int(consumables[item_id])
+		if run.has(GameStateKeys.FLOOR_RUN_NODES) and run[GameStateKeys.FLOOR_RUN_NODES] is Dictionary:
+			var floor_nodes: Dictionary = run[GameStateKeys.FLOOR_RUN_NODES]
+			for node_id: String in floor_nodes:
+				if not (floor_nodes[node_id] is Dictionary):
+					continue
+				var node_entry: Dictionary = floor_nodes[node_id]
+				if node_entry.has(GameStateKeys.FLOOR_NODE_LAYER):
+					node_entry[GameStateKeys.FLOOR_NODE_LAYER] = int(node_entry[GameStateKeys.FLOOR_NODE_LAYER])
 	# 育成データ。JSONから戻すと level も stats も float になるため int に戻す。
 	# これを飛ばすと、セーブ→ロード後に hp が 128.0 と表示され、レベル比較もずれる。
 	if new_state.has(GameStateKeys.CHARACTER_GROWTH) and new_state[GameStateKeys.CHARACTER_GROWTH] is Dictionary:
@@ -5487,6 +5534,278 @@ func is_stage_cleared(stage_id: String) -> bool:
 	var stages: Dictionary = story.get(GameStateKeys.STORY_STAGES, {})
 	var entry: Dictionary = stages.get(stage_id, {})
 	return bool(entry.get(GameStateKeys.STAGE_CLEARED, false))
+
+
+# ========================================================================
+# フロア探索（段階14-a・PLAN_SCENARIO_MAP.md §3 / §7-1・EXEC_SCENARIO_FLOOR.md §4）
+#
+# ⚠ この回で作るのは器だけ。画面は 14-c、宝箱は 14-b、レリックは 14-d。
+# ⚠ スタミナはここで払わない。いま払っているのは adventure_select.gd（画面側）で、
+#   どこへ移すかは 14-c で決める。
+# ========================================================================
+
+# フロアに入っていない状態の器。
+#
+# ⚠ 9つの欄を最初から全部持たせる（PLAN_SCENARIO_MAP.md §7-1）。
+#   あとから欄を足すと AGENTS.md の表と load_state() の int() 一覧を何度も触ることになる。
+func _empty_floor_run() -> Dictionary:
+	return {
+		GameStateKeys.FLOOR_RUN_FLOOR_ID: "",
+		GameStateKeys.FLOOR_RUN_NODES: {},
+		GameStateKeys.FLOOR_RUN_POSITION: "",
+		GameStateKeys.FLOOR_RUN_VISITED: {},
+		GameStateKeys.FLOOR_RUN_TORCH_GRADE: 0,
+		GameStateKeys.FLOOR_RUN_RELICS: [],
+		GameStateKeys.FLOOR_RUN_HP_CARRY: {},
+		GameStateKeys.FLOOR_RUN_CHEST_COUNT: 0,
+		GameStateKeys.FLOOR_RUN_CONSUMABLES: {},
+	}
+
+
+# フロア形式のステージか。
+#
+# ⚠ stages.json の2形式を見分ける唯一の口（EXEC_SCENARIO_FLOOR.md §1-1）。
+#   layers を持つ = フロア（floor_1..5）／waves を持つ = 検証用（stage_dbg_* 5本）。
+# ⚠ ここ以外で "layers" の有無を見ないこと。
+func is_floor_stage(stage_id: String) -> bool:
+	var stage: Dictionary = MasterDataLoader.get_stage(stage_id)
+	return stage.get(STAGE_MASTER_LAYERS, null) is Array
+
+
+# フロアの層数。フロア形式でなければ 0。
+func get_floor_layer_count(floor_id: String) -> int:
+	var stage: Dictionary = MasterDataLoader.get_stage(floor_id)
+	var layers: Variant = stage.get(STAGE_MASTER_LAYERS, null)
+	if not (layers is Array):
+		return 0
+	return (layers as Array).size()
+
+
+# いまフロアに入っているか。
+func is_in_floor() -> bool:
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	return str(run.get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")) != ""
+
+
+# 進行中のフロアの読み取り専用スナップショット。
+func get_floor_run() -> Dictionary:
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	return run.duplicate(true)
+
+
+# ノード1つ。無ければ空。
+func get_floor_node(node_id: String) -> Dictionary:
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	var nodes: Dictionary = run.get(GameStateKeys.FLOOR_RUN_NODES, {})
+	var node: Variant = nodes.get(node_id, null)
+	if not (node is Dictionary):
+		return {}
+	return (node as Dictionary).duplicate(true)
+
+
+# いまの位置から進めるノードIDの配列。
+#
+# ⚠ 「進めるか」の判定はここ1本だけ。move_to_node() もこれを呼ぶ。
+#   2本目を書くと、画面が押せるのに弾かれる／その逆が起きる。
+func get_available_moves() -> Array:
+	var result: Array = []
+	if not is_in_floor():
+		return result
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	var position: String = str(run.get(GameStateKeys.FLOOR_RUN_POSITION, ""))
+	var node: Dictionary = get_floor_node(position)
+	if node.is_empty():
+		return result
+	for entry: Variant in (node.get(GameStateKeys.FLOOR_NODE_NEXT, []) as Array):
+		result.append(str(entry))
+	return result
+
+
+# フロアに入る。マップを生成して入口に立つ。
+#
+# ⚠ 状態を触るのは最後の1回だけ（CLAUDE.md 6番）。判定を全部先に終える。
+# ⚠ スタミナは見ない（14-c で決める）。
+func start_floor(floor_id: String) -> bool:
+	if not is_floor_stage(floor_id):
+		push_warning("[GameManager] start_floor: フロア形式でない stage_id: " + floor_id)
+		return false
+	if is_in_floor():
+		push_warning("[GameManager] start_floor: すでにフロアの中にいる（先に abandon_floor()）")
+		return false
+
+	var map: Dictionary = _build_floor_map(floor_id)
+	if map.is_empty():
+		push_warning("[GameManager] start_floor: マップを組めなかった: " + floor_id)
+		return false
+
+	var entry_id: String = str(map.get("entry", ""))
+	var nodes: Dictionary = map.get("nodes", {})
+	if entry_id == "" or not nodes.has(entry_id):
+		push_warning("[GameManager] start_floor: 入口が無い: " + floor_id)
+		return false
+
+	# ここから状態を触る。
+	var run: Dictionary = _empty_floor_run()
+	run[GameStateKeys.FLOOR_RUN_FLOOR_ID] = floor_id
+	run[GameStateKeys.FLOOR_RUN_NODES] = nodes
+	run[GameStateKeys.FLOOR_RUN_POSITION] = entry_id
+	run[GameStateKeys.FLOOR_RUN_VISITED] = {entry_id: true}
+	_state[GameStateKeys.FLOOR_RUN] = run
+
+	print("[GameManager] start_floor('%s') -> nodes=%d entry='%s'" % [
+		floor_id, nodes.size(), entry_id
+	])
+	floor_run_changed.emit(floor_id)
+	return true
+
+
+# 隣のノードへ進む。
+#
+# ⚠ get_available_moves() に無いノードは弾く。弾くときに状態を触らない。
+func move_to_node(node_id: String) -> bool:
+	if not is_in_floor():
+		push_warning("[GameManager] move_to_node: フロアに入っていない")
+		return false
+	if not (node_id in get_available_moves()):
+		print("[GameManager] move_to_node('%s') -> false (進めない)" % node_id)
+		return false
+
+	var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.FLOOR_RUN_POSITION] = node_id
+	var visited: Dictionary = run.get(GameStateKeys.FLOOR_RUN_VISITED, {})
+	visited[node_id] = true
+	run[GameStateKeys.FLOOR_RUN_VISITED] = visited
+	_state[GameStateKeys.FLOOR_RUN] = run
+
+	print("[GameManager] move_to_node('%s') -> true (kind=%s)" % [
+		node_id, str(get_floor_node(node_id).get(GameStateKeys.FLOOR_NODE_KIND, ""))
+	])
+	floor_run_changed.emit(str(run[GameStateKeys.FLOOR_RUN_FLOOR_ID]))
+	return true
+
+
+# フロアを降りる。進行中のものを丸ごと捨てる。
+#
+# ⚠ フロア内限定のもの（たいまつ・レリック・消耗品・持ち越しHP）はここで一緒に消える。
+#   これが「フロアごとにリセット」の実体（PLAN_SCENARIO_MAP.md §5）。
+func abandon_floor() -> void:
+	if not is_in_floor():
+		return
+	var previous: String = str(
+		(_state[GameStateKeys.FLOOR_RUN] as Dictionary).get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")
+	)
+	_state[GameStateKeys.FLOOR_RUN] = _empty_floor_run()
+	print("[GameManager] abandon_floor() <- '%s'" % previous)
+	floor_run_changed.emit("")
+
+
+# 層構造のマップを組む（PLAN_SCENARIO_MAP.md §3-2）。
+#
+# 戻り値: {"entry": node_id, "boss": node_id, "nodes": {node_id: {layer, kind, next, cleared}}}
+#
+# ⚠ ノードを作るのはここ1本だけ。2本目を書かないこと。
+# ⚠ 接続は決め打ち（乱数を使わない）。乱数が入るのはノードの種類だけ。
+#   接続まで乱数にすると「ボスに着かないルート」が低確率で生まれ、再現できない事故になる。
+# ⚠ 最終層の全ノードがボスへ入る＝どのルートを選んでも必ずボスに着く
+#   （§3-2 で「最終段だけ合流」を選んだ理由）。
+func _build_floor_map(floor_id: String) -> Dictionary:
+	var stage: Dictionary = MasterDataLoader.get_stage(floor_id)
+	var raw_layers: Variant = stage.get(STAGE_MASTER_LAYERS, null)
+	if not (raw_layers is Array) or (raw_layers as Array).is_empty():
+		return {}
+	var layers: Array = raw_layers as Array
+
+	# 1. 層ごとにノードを作る。種類だけ抽選する。
+	var ids_by_layer: Array = []
+	var nodes: Dictionary = {}
+	for layer_index: int in range(layers.size()):
+		var layer: Dictionary = layers[layer_index]
+		# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
+		var count: int = int(layer.get(LAYER_NODE_COUNT, 0))
+		var weights: Dictionary = layer.get(LAYER_WEIGHTS, {})
+		var row: Array = []
+		for i: int in range(count):
+			var node_id: String = "n_%d_%d" % [layer_index + 1, i]
+			nodes[node_id] = {
+				GameStateKeys.FLOOR_NODE_LAYER: layer_index + 1,
+				GameStateKeys.FLOOR_NODE_KIND: _roll_node_kind(weights),
+				GameStateKeys.FLOOR_NODE_NEXT: [],
+				GameStateKeys.FLOOR_NODE_CLEARED: false,
+			}
+			row.append(node_id)
+		if row.is_empty():
+			push_warning("[GameManager] _build_floor_map: 層 %d のノードが0件: %s" % [
+				layer_index + 1, floor_id
+			])
+			return {}
+		ids_by_layer.append(row)
+
+	# 2. ボス。最終層の1つ先に置く。
+	var boss_id: String = "boss"
+	nodes[boss_id] = {
+		GameStateKeys.FLOOR_NODE_LAYER: layers.size() + 1,
+		GameStateKeys.FLOOR_NODE_KIND: GameStateKeys.FLOOR_NODE_KIND_BOSS,
+		GameStateKeys.FLOOR_NODE_NEXT: [],
+		GameStateKeys.FLOOR_NODE_CLEARED: false,
+	}
+
+	# 3. 層と層をつなぐ。
+	for layer_index: int in range(ids_by_layer.size() - 1):
+		_connect_layers(nodes, ids_by_layer[layer_index], ids_by_layer[layer_index + 1])
+	# 最終層 -> ボス（合流）。
+	for node_id: Variant in (ids_by_layer[ids_by_layer.size() - 1] as Array):
+		(nodes[str(node_id)] as Dictionary)[GameStateKeys.FLOOR_NODE_NEXT] = [boss_id]
+
+	return {
+		"entry": str((ids_by_layer[0] as Array)[0]),
+		"boss": boss_id,
+		"nodes": nodes,
+	}
+
+
+# 隣り合う2つの層をつなぐ。
+#
+# ⚠ 上の層の各ノードが、下の層の「持ち分の窓」＋1つ先へつながる。
+#   これで (a) どのノードにも進める先が1つ以上ある
+#        (b) 下の層のどのノードにも入ってくる線が1本以上ある
+#   の両方が、層のノード数の組み合わせによらず成り立つ。
+# ⚠ (b) が崩れると「絶対に通れないノード」が生まれる。scenario=floor の
+#   全ルート総当たりがそれを見張る。
+func _connect_layers(nodes: Dictionary, upper: Array, lower: Array) -> void:
+	var n: int = upper.size()
+	var m: int = lower.size()
+	for j: int in range(n):
+		var lo: int = int(floor(float(j) * float(m) / float(n)))
+		var hi: int = int(ceil(float(j + 1) * float(m) / float(n))) - 1
+		hi = maxi(hi, lo)
+		# 隣へも1つ伸ばして分岐を作る（2択になる）。
+		hi = mini(hi + 1, m - 1)
+		var next_ids: Array = []
+		for k: int in range(lo, hi + 1):
+			next_ids.append(str(lower[k]))
+		(nodes[str(upper[j])] as Dictionary)[GameStateKeys.FLOOR_NODE_NEXT] = next_ids
+
+
+# ノードの種類を1つ引く。{kind: weight} の重み付き抽選。
+#
+# ⚠ _roll_weighted_table() は使わない。あちらは {item_id: count} を返す
+#   「何個もらえるか」の口で、用途が違う。無理に共通化すると
+#   片方の都合でもう片方が壊れる（NEXT_STEPS §2-6）。
+func _roll_node_kind(weights: Dictionary) -> String:
+	var total: int = 0
+	for kind: Variant in weights:
+		total += maxi(0, int(weights[kind]))
+	if total <= 0:
+		return GameStateKeys.FLOOR_NODE_KIND_BATTLE
+	var roll: int = randi() % total
+	# ⚠ キーの並び順に依存しないよう綴り順で回す（Dictionary のキー順は不定）。
+	var kinds: Array = weights.keys()
+	kinds.sort()
+	for kind: Variant in kinds:
+		roll -= maxi(0, int(weights[kind]))
+		if roll < 0:
+			return str(kind)
+	return GameStateKeys.FLOOR_NODE_KIND_BATTLE
 
 
 # --- 上限を超えられるスタミナ加算 ---

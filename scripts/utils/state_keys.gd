@@ -300,6 +300,46 @@ const STAGE_TYPE_TRAINING: String = "training"
 const STAGE_TYPE_DEBUG: String = "debug"
 
 # ============================================================
+# フロア探索（段階14-a・PLAN_SCENARIO_MAP.md §7-1）
+# ============================================================
+#
+# ⚠ トップレベル1本にまとめる。フロアから出たら丸ごと捨てる。
+#   floor_id が "" なら「フロアに入っていない」。
+# ⚠ 9つの欄を最初から全部作る。14-b〜14-e で使う欄も空で置いてある。
+#   あとから足すと AGENTS.md と load_state() を何度も触ることになる。
+# ⚠ 中身はIDと数字だけ。ノードの中身（敵・報酬）は stages.json から毎回引く
+#   （CLAUDE.md 4番「状態にマスターデータを複製しない」）。
+const FLOOR_RUN: String = "floor_run"
+
+const FLOOR_RUN_FLOOR_ID: String = "floor_id"
+const FLOOR_RUN_NODES: String = "nodes"              # {node_id: {layer, kind, next}}
+const FLOOR_RUN_POSITION: String = "position"        # 現在のノードID
+const FLOOR_RUN_VISITED: String = "visited"          # {node_id: true}
+const FLOOR_RUN_TORCH_GRADE: String = "torch_grade"  # int（14-e で使う）
+const FLOOR_RUN_RELICS: String = "relics"            # [{relic_id, character_id}]（14-d）
+const FLOOR_RUN_HP_CARRY: String = "hp_carry"        # {character_id: int}（14-c）
+const FLOOR_RUN_CHEST_COUNT: String = "chest_count"  # int（14-b の最低1回保証）
+const FLOOR_RUN_CONSUMABLES: String = "consumables"  # {item_id: int}（14-e・持ち帰り不可）
+
+# relics の各要素。character_id が "" なら編成3人全員に効く（PLAN_SCENARIO_MAP.md §5-2-5）。
+const FLOOR_RELIC_ID: String = "relic_id"
+const FLOOR_RELIC_CHARACTER_ID: String = "character_id"
+
+# nodes の各要素。
+const FLOOR_NODE_LAYER: String = "layer"
+const FLOOR_NODE_KIND: String = "kind"
+const FLOOR_NODE_NEXT: String = "next"               # [node_id]
+const FLOOR_NODE_CLEARED: String = "cleared"
+
+# ノードの種類（PLAN_SCENARIO_MAP.md §3-4）。
+# ⚠ 綴りは stages.json の layers[].weights のキーと揃える。
+const FLOOR_NODE_KIND_BATTLE: String = "battle"
+const FLOOR_NODE_KIND_SHOP: String = "shop"
+const FLOOR_NODE_KIND_RELIC: String = "relic"
+const FLOOR_NODE_KIND_REST: String = "rest"
+const FLOOR_NODE_KIND_BOSS: String = "boss"
+
+# ============================================================
 # 装備の個体管理（第2弾）
 # ============================================================
 

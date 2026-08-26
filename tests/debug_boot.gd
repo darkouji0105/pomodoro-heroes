@@ -40,6 +40,7 @@ const REPORT_UNLOCK: String = "unlock"
 const REPORT_RESEARCH: String = "research"
 const REPORT_WORKSHOP: String = "workshop"
 const REPORT_ECONOMY: String = "economy"
+const REPORT_FLOOR: String = "floor"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -80,7 +81,7 @@ const SCENARIOS: Dictionary = {
 	"unlock": {
 		"kind": KIND_REPORT,
 		"report": REPORT_UNLOCK,
-		"note": "画面の段階解放。最初から3つ / stage_1〜3 で段階的に開く / 一度開いたら閉じない",
+		"note": "画面の段階解放。最初から3つ / floor_1〜5 で段階的に開く / 一度開いたら閉じない",
 	},
 	# 段階8（ルーン）の検証。EXEC_RUNES.md §6-A / §6-B。
 	# ⚠ ここだけ report の枝では足りない。ルーンは戦闘の挙動そのものを変えるので、
@@ -637,6 +638,15 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_ECONOMY,
 		"note": "資源の収支。素材16件の入口と出口 / 1周で入るもの / Lv100までの周回数と集中時間",
 	},
+	# 段階14-a（フロアの器）の検証。EXEC_SCENARIO_FLOOR.md §5。
+	# ⚠ 戦闘を1回も回さない。マップを組んで歩けるかだけを見る。
+	# ⚠ 全ルート総当たりは「合流あり」を選んだ根拠そのもの（PLAN_SCENARIO_MAP.md §3-2）。
+	#   ここが0件でなくなったら、どこかのルートが行き止まりになっている。
+	"floor": {
+		"kind": KIND_REPORT,
+		"report": REPORT_FLOOR,
+		"note": "フロア5本。層構造の生成 / 入口からボスまで歩ける / 進めない先は弾く / 全ルート総当たり",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -685,6 +695,8 @@ func _ready() -> void:
 			_report_workshop()
 		elif report == REPORT_ECONOMY:
 			_report_economy()
+		elif report == REPORT_FLOOR:
+			_report_floor()
 		elif report == REPORT_LAYOUT:
 			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
 			await _report_layout()
@@ -855,7 +867,8 @@ func _report_unlock() -> void:
 
 	print("[DebugBoot] --- stages.json の unlocks ---")
 	var listed: Array[String] = []
-	for stage_id: String in ["stage_1", "stage_2", "stage_3"]:
+	# ⚠ 段階14-a でフロア5本になった（stage_1..3 は無い）。
+	for stage_id: String in ["floor_1", "floor_2", "floor_3", "floor_4", "floor_5"]:
 		var unlocks: Array[String] = GameManager.get_stage_unlocks(stage_id)
 		listed.append_array(unlocks)
 		print("  %-10s -> %s" % [stage_id, str(unlocks)])
@@ -865,7 +878,7 @@ func _report_unlock() -> void:
 		if not (screen_id in listed):
 			never.append(screen_id)
 	print("  ⚠ unlocks に1度も出てこないもの: %s" % str(never))
-	print("     （最初から開く3つだけが正解。⚠ workshop は段階11で stage_3 に入った）")
+	print("     （最初から開く3つだけが正解。⚠ workshop は段階14-a で floor_4 に入った）")
 
 	# ⚠ 新規開始の状態を作り直す。debug_boot はセーブを読まないので、
 	#   ここに来た時点の unlocked_screens は initial_state_config.tres の中身。
@@ -882,7 +895,7 @@ func _report_unlock() -> void:
 	else:
 		print("  ⚠ initial_state_config.tres がまだ直っていない: %s が最初から開いている" % str(leaked))
 		print("     （Inspector の initially_unlocked_screens から2件を消す。EXEC_SCREEN_UNLOCK.md §7-A）")
-	for stage_id: String in ["stage_1", "stage_2", "stage_3"]:
+	for stage_id: String in ["floor_1", "floor_2", "floor_3", "floor_4", "floor_5"]:
 		var before: Array[String] = _unlocked_ids()
 		GameManager.mark_stage_cleared(stage_id, 0)
 		var after: Array[String] = _unlocked_ids()
@@ -918,11 +931,11 @@ func _report_unlock() -> void:
 	# (b) クリアを取り消してから同期 -> 一度開いたものは閉じない
 	var story: Dictionary = GameManager.get_state().get(GameStateKeys.STORY, {})
 	var stages: Dictionary = story.get(GameStateKeys.STORY_STAGES, {})
-	stages.erase("stage_3")
+	stages.erase("floor_5")
 	story[GameStateKeys.STORY_STAGES] = stages
 	GameManager._state[GameStateKeys.STORY] = story
 	GameManager._sync_unlocked_screens_from_master()
-	print("  (b) stage_3 のクリアを消して同期 -> rune=%s shop=%s（どちらも true が正解）" % [
+	print("  (b) floor_5 のクリアを消して同期 -> rune=%s shop=%s（どちらも true が正解）" % [
 		str(GameManager.is_screen_unlocked(GameStateKeys.SCREEN_RUNE)),
 		str(GameManager.is_screen_unlocked(GameStateKeys.SCREEN_SHOP)),
 	])
@@ -946,12 +959,12 @@ func _report_unlock() -> void:
 	# ⚠ この枝だけ ERROR: を1本わざと出す。⚠ 赤が1本出るのが正解
 	#   （drops が黄を1本多く出すのと同じ形）。
 	print("  (c) unlocks に知らない screen_id を混ぜる（⚠ この下の赤1本が正解）")
-	var poisoned_stage: Dictionary = MasterDataLoader._cache_stages["stage_1"]
+	var poisoned_stage: Dictionary = MasterDataLoader._cache_stages["floor_1"]
 	var backup: Variant = poisoned_stage[GameManager.STAGE_MASTER_UNLOCKS]
 	poisoned_stage[GameManager.STAGE_MASTER_UNLOCKS] = ["screen_that_does_not_exist"]
 	MasterDataLoader._validate_all_item_refs()
 	poisoned_stage[GameManager.STAGE_MASTER_UNLOCKS] = backup
-	print("  (c) 戻した -> stage_1 の unlocks = %s" % str(GameManager.get_stage_unlocks("stage_1")))
+	print("  (c) 戻した -> floor_1 の unlocks = %s" % str(GameManager.get_stage_unlocks("floor_1")))
 
 
 # 研究ボード（段階10・EXEC_GUILD_RESEARCH_V2.md §7-1）。
@@ -2230,7 +2243,8 @@ func _report_drops() -> void:
 
 	# --- 2. stages.json がどの宝箱を指しているか ---
 	print("[DebugBoot] --- ステージ → 宝箱 ---")
-	for stage_id: String in ["stage_1", "stage_2", "stage_3", "stage_dbg_area"]:
+	# ⚠ chest_id はまだ stage_1..3 のまま（chests.json は 14-b で作り替える）。
+	for stage_id: String in ["floor_1", "floor_2", "floor_3", "floor_4", "floor_5", "stage_dbg_area"]:
 		var rewards: Variant = MasterDataLoader.get_stage(stage_id).get("rewards", {})
 		var cid: String = ""
 		if rewards is Dictionary:
@@ -2619,6 +2633,202 @@ func _report_presets_normalize(char_a: String) -> void:
 	print("  ⚠ ここまで状態を書き換えたが、保存はしていない（%d 件のキャラプリセット）" % broken_a.size())
 
 
+# フロアの器（段階14-a・EXEC_SCENARIO_FLOOR.md §5）。
+#
+# ⚠ 戦闘を1回も回さない。ここで見るのは GameManager が組んだマップだけ。
+# ⚠ 状態は書き換えるが、絶対に保存しない（_ready() の注記と同じ）。
+#   最後に abandon_floor() で必ず降りること。
+func _report_floor() -> void:
+	var floor_ids: Array[String] = []
+	for stage_id: Variant in MasterDataLoader._cache_stages:
+		if GameManager.is_floor_stage(str(stage_id)):
+			floor_ids.append(str(stage_id))
+	floor_ids.sort()
+
+	# --- 1. フロアの一覧 ---
+	print("[DebugBoot] --- フロアの一覧（⚠ 5 本が正解）---")
+	print("  実際 = %d 本" % floor_ids.size())
+	for floor_id: String in floor_ids:
+		var stage: Dictionary = MasterDataLoader.get_stage(floor_id)
+		var layers: Array = stage.get(GameManager.STAGE_MASTER_LAYERS, [])
+		var counts: Array[String] = []
+		var sum_nodes: int = 0
+		for layer: Variant in layers:
+			var n: int = int((layer as Dictionary).get(GameManager.LAYER_NODE_COUNT, 0))
+			counts.append(str(n))
+			sum_nodes += n
+		print("  %-8s 層=%d 各層=[%s] 生成ノード=%d（+ボス1 = %d） unlocks=%s" % [
+			floor_id, layers.size(), ", ".join(counts), sum_nodes, sum_nodes + 1,
+			str(GameManager.get_stage_unlocks(floor_id)),
+		])
+
+	# --- 2. 生成して歩く / 3. 全ルート総当たり / 6. ノード種の内訳 ---
+	for floor_id: String in floor_ids:
+		print("[DebugBoot] --- %s を組む ---" % floor_id)
+		if not GameManager.start_floor(floor_id):
+			push_error("[DebugBoot] start_floor が false: " + floor_id)
+			continue
+		var run: Dictionary = GameManager.get_floor_run()
+		var nodes: Dictionary = run.get(GameStateKeys.FLOOR_RUN_NODES, {})
+		var entry_id: String = str(run.get(GameStateKeys.FLOOR_RUN_POSITION, ""))
+
+		# 6. ノード種の内訳。
+		var kind_count: Dictionary = {}
+		for node_id: Variant in nodes:
+			var kind: String = str((nodes[node_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, ""))
+			kind_count[kind] = int(kind_count.get(kind, 0)) + 1
+		var kinds: Array = kind_count.keys()
+		kinds.sort()
+		var kind_parts: Array[String] = []
+		for kind: Variant in kinds:
+			kind_parts.append("%s=%d" % [str(kind), int(kind_count[kind])])
+		print("  ノード %d 件 / %s" % [nodes.size(), " ".join(kind_parts)])
+
+		# 3. 全ルート総当たり。⚠ ここが「合流あり」を選んだ根拠そのもの。
+		var routes: Array = []
+		var reached: Dictionary = {}
+		_walk_all_routes(nodes, entry_id, [], routes, reached)
+		var dead_ends: int = 0
+		var lengths: Dictionary = {}
+		for route: Variant in routes:
+			var path: Array = route
+			var last_kind: String = str(
+				(nodes[str(path[path.size() - 1])] as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")
+			)
+			if last_kind != GameStateKeys.FLOOR_NODE_KIND_BOSS:
+				dead_ends += 1
+			lengths[path.size()] = int(lengths.get(path.size(), 0)) + 1
+		print("  全ルート = %d 本 / ⚠ ボスに着かなかったルート = %d 本（0 が正解）" % [
+			routes.size(), dead_ends
+		])
+		print("  歩数の内訳 = %s（層数 %d ＋ボス1 = %d 個のノードを通るのが正解）" % [
+			str(lengths), GameManager.get_floor_layer_count(floor_id),
+			GameManager.get_floor_layer_count(floor_id) + 1,
+		])
+		var unreachable: Array[String] = []
+		for node_id: Variant in nodes:
+			if not reached.has(str(node_id)):
+				unreachable.append(str(node_id))
+		unreachable.sort()
+		print("  ⚠ どのルートからも通れないノード = %d 件%s（0 が正解）" % [
+			unreachable.size(),
+			"" if unreachable.is_empty() else " " + str(unreachable),
+		])
+
+		# 2. 入口からボスまで1本だけ実際に歩く（毎回いちばん手前の分岐を選ぶ）。
+		if floor_id == floor_ids[0]:
+			print("  --- 入口からボスまで歩く ---")
+			var steps: int = 0
+			while true:
+				var here: String = str(GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_POSITION, ""))
+				var node: Dictionary = GameManager.get_floor_node(here)
+				var moves: Array = GameManager.get_available_moves()
+				print("    %d手目 いま=%-8s 種類=%-6s 進める先=%s" % [
+					steps, here, str(node.get(GameStateKeys.FLOOR_NODE_KIND, "")), str(moves)
+				])
+				if moves.is_empty():
+					break
+				if not GameManager.move_to_node(str(moves[0])):
+					push_error("[DebugBoot] move_to_node が false: " + str(moves[0]))
+					break
+				steps += 1
+				if steps > 50:
+					push_error("[DebugBoot] 50手で終わらない（ループしている）")
+					break
+			print("    歩数 = %d（層数 %d が正解）" % [steps, GameManager.get_floor_layer_count(floor_id)])
+
+			# 4. 進めない先を渡す。⚠ 入口へ戻れないことを見る。
+			var bad_id: String = entry_id
+			var before: String = str(GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_POSITION, ""))
+			var rejected: bool = GameManager.move_to_node(bad_id)
+			var after: String = str(GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_POSITION, ""))
+			print("  ⚠ 進めない先 '%s' を渡す -> %s（false が正解） / 位置 %s -> %s（動かないのが正解）" % [
+				bad_id, str(rejected), before, after
+			])
+
+		# 5. 降りる。
+		GameManager.abandon_floor()
+		print("  abandon_floor() -> is_in_floor()=%s（false が正解）" % str(GameManager.is_in_floor()))
+
+	# --- 7. セーブ→ロードの往復（int() 正規化・EXEC_SCENARIO_FLOOR.md §3-3）---
+	#
+	# ⚠ debug_boot はセーブを書かない（_ready() の注記）。なので JSON の往復だけを再現する。
+	#   JSON.parse_string() を通すと数値は全部 float になる。load_state() がそれを
+	#   int() に戻せていなければ、セーブに "layer": 3.0 と書かれ続ける（CLAUDE.md 3番）。
+	# ⚠ 宿題57（STORY の current_chapter 1.0 / stars 0.0）がまさにこの形で起きている。
+	print("[DebugBoot] --- セーブ→ロードの往復（int() 正規化）---")
+	if GameManager.start_floor(floor_ids[0]):
+		GameManager.move_to_node(str(GameManager.get_available_moves()[0]))
+		var json_text: String = JSON.stringify(GameManager.get_state())
+		var restored: Variant = JSON.parse_string(json_text)
+		if not (restored is Dictionary):
+			push_error("[DebugBoot] JSON の往復に失敗した")
+		else:
+			var raw_run: Dictionary = (restored as Dictionary).get(GameStateKeys.FLOOR_RUN, {})
+			var raw_nodes: Dictionary = raw_run.get(GameStateKeys.FLOOR_RUN_NODES, {})
+			var sample_id: String = str(raw_nodes.keys()[0])
+			print("  JSON を通した直後 layer の型 = %s（float=%d が JSON の素の姿）" % [
+				type_string(typeof((raw_nodes[sample_id] as Dictionary)[GameStateKeys.FLOOR_NODE_LAYER])),
+				TYPE_FLOAT,
+			])
+			var loaded: bool = GameManager.load_state(restored as Dictionary)
+			var after_run: Dictionary = GameManager.get_floor_run()
+			var after_nodes: Dictionary = after_run.get(GameStateKeys.FLOOR_RUN_NODES, {})
+			var floats: Array[String] = []
+			for node_id: Variant in after_nodes:
+				var layer_value: Variant = (after_nodes[node_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_LAYER, 0)
+				if typeof(layer_value) != TYPE_INT:
+					floats.append(str(node_id))
+			print("  load_state() = %s / floor_id='%s' position='%s' ノード %d 件" % [
+				str(loaded),
+				str(after_run.get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")),
+				str(after_run.get(GameStateKeys.FLOOR_RUN_POSITION, "")),
+				after_nodes.size(),
+			])
+			print("  ⚠ layer が int でないノード = %d 件（0 が正解）" % floats.size())
+			print("  torch_grade の型 = %s / chest_count の型 = %s（どちらも int が正解）" % [
+				type_string(typeof(after_run.get(GameStateKeys.FLOOR_RUN_TORCH_GRADE, 0))),
+				type_string(typeof(after_run.get(GameStateKeys.FLOOR_RUN_CHEST_COUNT, 0))),
+			])
+	GameManager.abandon_floor()
+
+	# --- 8. フロアに入っていない状態の器（新規開始の形）---
+	GameManager.reset_to_new_game()
+	var fresh: Dictionary = GameManager.get_floor_run()
+	var fresh_keys: Array = fresh.keys()
+	fresh_keys.sort()
+	print("[DebugBoot] --- 新規開始の floor_run ---")
+	print("  欄 %d 件（9 が正解）= %s" % [fresh_keys.size(), str(fresh_keys)])
+	print("  floor_id='%s'（空が正解） is_in_floor()=%s（false が正解）" % [
+		str(fresh.get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")), str(GameManager.is_in_floor())
+	])
+
+	print("[DebugBoot] ⚠ 状態は書き換えたが保存していない。is_in_floor()=%s" % str(GameManager.is_in_floor()))
+
+
+# entry から next をたどって全ルートを集める。
+#
+# ⚠ 層構造なので閉路は無い。あっても 50 段で打ち切る。
+func _walk_all_routes(
+		nodes: Dictionary, node_id: String, path: Array, out_routes: Array, out_reached: Dictionary
+) -> void:
+	out_reached[node_id] = true
+	var next_path: Array = path.duplicate()
+	next_path.append(node_id)
+	if next_path.size() > 50:
+		push_error("[DebugBoot] ルートが50段を超えた（閉路の疑い）")
+		return
+	var node: Variant = nodes.get(node_id, null)
+	var next_ids: Array = []
+	if node is Dictionary:
+		next_ids = (node as Dictionary).get(GameStateKeys.FLOOR_NODE_NEXT, [])
+	if next_ids.is_empty():
+		out_routes.append(next_path)
+		return
+	for raw_next: Variant in next_ids:
+		_walk_all_routes(nodes, str(raw_next), next_path, out_routes, out_reached)
+
+
 # 拠点の下段が横にはみ出していないかを数字で見る。
 #
 # ⚠ ヘッドレスは描画がダミーだが、⚠ レイアウトの計算（最小サイズの伝播）は走る。
@@ -2627,6 +2837,7 @@ func _report_presets_normalize(char_a: String) -> void:
 #   1つでもあると、⚠ 親が anchors_preset=15 / grow_horizontal=2 なので
 #   左右に均等にはみ出して両端が切れる（2026-08-23に実際にそうなった）。
 func _report_layout() -> void:
+	# ⚠ フロアの報告はこの関数の手前に置いてある（_report_floor / _walk_all_routes）。
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	print("[DebugBoot] viewport = %.0f x %.0f" % [viewport_size.x, viewport_size.y])
 

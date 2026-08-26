@@ -1,56 +1,121 @@
 {
-  "stage_1": {
-	"unlocks": ["guild", "equipment", "training", "warehouse"],
-	"name_key": "ui_stage_1",
+  "floor_1": {
+	"unlocks": ["guild", "warehouse", "pomodoro"],
+	"name_key": "ui_floor_1",
 	"party_id": "party_default",
 	"rewards": {
 	  "gold": 50,
 	  "materials": { "construction_material_1": 3 ,"training_material_1": 2, "forging_material_1": 2, "decor_material_1": 1 },
 	  "chest_id": "stage_1"
 	},
-	"waves": [
-	  { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 } ] },
-	  { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 3 } ] },
-	  { "wave_index": 3, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
-	  { "wave_index": 4, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
-	  { "wave_index": 5, "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "atk": 26 } } ] }
-	]
+	"layers": [
+	  { "node_count": 1, "weights": { "battle": 100 } },
+	  { "node_count": 2, "weights": { "battle": 70, "relic": 30 } },
+	  { "node_count": 2, "weights": { "battle": 50, "relic": 25, "rest": 25 } },
+	  { "node_count": 3, "weights": { "battle": 50, "shop": 25, "rest": 25 } },
+	  { "node_count": 2, "weights": { "battle": 60, "rest": 40 } }
+	],
+	"battle_pool": [
+	  { "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_slime", "count": 3 } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 } ] }
+	],
+	"boss": { "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "atk": 26 } } ] }
   },
-  "stage_2": {
-	"unlocks": ["pomodoro", "decoration"],
-	"name_key": "ui_stage_2",
+  "floor_2": {
+	"unlocks": ["equipment", "training"],
+	"name_key": "ui_floor_2",
 	"party_id": "party_default",
 	"rewards": {
-	  "gold": 80,
+	  "gold": 70,
+	  "materials": { "construction_material_1": 4 ,"training_material_1": 3, "forging_material_1": 3, "decor_material_1": 2 },
+	  "chest_id": "stage_1"
+	},
+	"layers": [
+	  { "node_count": 1, "weights": { "battle": 100 } },
+	  { "node_count": 2, "weights": { "battle": 70, "relic": 30 } },
+	  { "node_count": 3, "weights": { "battle": 50, "relic": 25, "rest": 25 } },
+	  { "node_count": 3, "weights": { "battle": 50, "shop": 25, "rest": 25 } },
+	  { "node_count": 2, "weights": { "battle": 60, "rest": 40 } }
+	],
+	"battle_pool": [
+	  { "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_slime", "count": 3 } ] }
+	],
+	"boss": { "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "hp": 320, "atk": 28 } } ] }
+  },
+  "floor_3": {
+	"unlocks": ["shop", "decoration"],
+	"name_key": "ui_floor_3",
+	"party_id": "party_default",
+	"rewards": {
+	  "gold": 90,
 	  "materials": { "construction_material_1": 5 ,"training_material_1": 5, "forging_material_1": 4, "construction_material_2": 1, "forging_material_2": 1, "decor_material_1": 2, "decor_material_2": 1 },
 	  "inventory": { "part_gem_atk_1": 1 },
 	  "chest_id": "stage_2"
 	},
-	"waves": [
-	  { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
-	  { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
-	  { "wave_index": 3, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3 } ] },
-	  { "wave_index": 4, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 4, "stat_overrides": { "hp": 55 } } ] },
-	  { "wave_index": 5, "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "hp": 400, "atk": 30 } }, { "enemy_type_id": "enemy_slime", "count": 2 } ] }
-	]
+	"layers": [
+	  { "node_count": 1, "weights": { "battle": 100 } },
+	  { "node_count": 3, "weights": { "battle": 70, "relic": 30 } },
+	  { "node_count": 3, "weights": { "battle": 50, "relic": 25, "rest": 25 } },
+	  { "node_count": 3, "weights": { "battle": 50, "shop": 25, "rest": 25 } },
+	  { "node_count": 2, "weights": { "battle": 60, "rest": 40 } }
+	],
+	"battle_pool": [
+	  { "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_slime", "count": 2 }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3 } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_slime", "count": 4, "stat_overrides": { "hp": 55 } } ] }
+	],
+	"boss": { "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "hp": 400, "atk": 30 } }, { "enemy_type_id": "enemy_slime", "count": 2 } ] }
   },
-  "stage_3": {
-	"unlocks": ["research", "shop", "rune", "workshop"],
-	"name_key": "ui_stage_3",
+  "floor_4": {
+	"unlocks": ["research", "workshop"],
+	"name_key": "ui_floor_4",
 	"party_id": "party_default",
 	"rewards": {
-	  "gold": 120,
+	  "gold": 110,
+	  "materials": { "construction_material_2": 3 ,"training_material_1": 6, "forging_material_2": 3, "construction_material_3": 1, "decor_material_2": 2 },
+	  "chest_id": "stage_2"
+	},
+	"layers": [
+	  { "node_count": 1, "weights": { "battle": 100 } },
+	  { "node_count": 3, "weights": { "battle": 70, "relic": 30 } },
+	  { "node_count": 3, "weights": { "battle": 50, "relic": 25, "rest": 25 } },
+	  { "node_count": 4, "weights": { "battle": 50, "shop": 25, "rest": 25 } },
+	  { "node_count": 2, "weights": { "battle": 60, "rest": 40 } }
+	],
+	"battle_pool": [
+	  { "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3 } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_slime", "count": 3, "stat_overrides": { "hp": 60, "def": 4 } } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3, "stat_overrides": { "atk": 15 } } ] }
+	],
+	"boss": { "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "hp": 480, "atk": 32, "def": 8 } }, { "enemy_type_id": "enemy_wolf", "count": 1 } ] }
+  },
+  "floor_5": {
+	"unlocks": ["rune"],
+	"name_key": "ui_floor_5",
+	"party_id": "party_default",
+	"rewards": {
+	  "gold": 130,
 	  "materials": { "construction_material_2": 5 ,"training_material_1": 6, "forging_material_2": 4, "construction_material_3": 1, "forging_material_3": 1, "decor_material_2": 2, "decor_material_3": 1 },
 	  "inventory": { "part_charm_def_1": 1, "part_emblem_crit_rate_1": 1 },
 	  "chest_id": "stage_3"
 	},
-	"waves": [
-	  { "wave_index": 1, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3 } ] },
-	  { "wave_index": 2, "enemies": [ { "enemy_type_id": "enemy_slime", "count": 3, "stat_overrides": { "hp": 60, "def": 4 } } ] },
-	  { "wave_index": 3, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3, "stat_overrides": { "atk": 15 } } ] },
-	  { "wave_index": 4, "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 }, { "enemy_type_id": "enemy_slime", "count": 3, "stat_overrides": { "hp": 60 } } ] },
-	  { "wave_index": 5, "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "hp": 550, "atk": 34, "def": 12 } }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] }
-	]
+	"layers": [
+	  { "node_count": 1, "weights": { "battle": 100 } },
+	  { "node_count": 3, "weights": { "battle": 70, "relic": 30 } },
+	  { "node_count": 4, "weights": { "battle": 50, "relic": 25, "rest": 25 } },
+	  { "node_count": 4, "weights": { "battle": 50, "shop": 25, "rest": 25 } },
+	  { "node_count": 3, "weights": { "battle": 60, "rest": 40 } }
+	],
+	"battle_pool": [
+	  { "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 3, "stat_overrides": { "atk": 15 } } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_slime", "count": 3, "stat_overrides": { "hp": 60, "def": 4 } } ] },
+	  { "enemies": [ { "enemy_type_id": "enemy_wolf", "count": 2 }, { "enemy_type_id": "enemy_slime", "count": 3, "stat_overrides": { "hp": 60 } } ] }
+	],
+	"boss": { "enemies": [ { "enemy_type_id": "boss_slime_king", "count": 1, "is_boss": true, "stat_overrides": { "hp": 550, "atk": 34, "def": 12 } }, { "enemy_type_id": "enemy_wolf", "count": 2 } ] }
   },
   "stage_dbg_enemy_skill": {
 	"name_key": "ui_stage_dbg_enemy_skill",
