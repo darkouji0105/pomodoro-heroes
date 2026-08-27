@@ -811,9 +811,9 @@ func _apply_levels(scenario: Dictionary) -> void:
 	# ⚠ 見るキーは「その回に足したもの」に必ず差し替えること（段階10で踏んだ）。
 	#   ⚠ 前の回のキーを見たままだと、再インポート済みのキーに当たって
 	#     「済んでいる」と出るのに、その回のキーは未インポートのまま先へ進む。
-	var probe: String = "ui_status_ch_status_relic_thorns"
+	var probe: String = "ui_floor_shop_leave"
 	print("[DebugBoot] ja.csv の再インポート: %s" % (
-		"まだ（⚠ 段階14-d では黄が13本増えたままになる＝状態のマスの漢字）" if tr(probe) == probe
+		"まだ（⚠ フロア内ショップにキー名がそのまま出る）" if tr(probe) == probe
 		else "済んでいる"
 	))
 
@@ -2920,6 +2920,65 @@ func _report_floor() -> void:
 			GameManager.get_floor_relics().size()
 		))
 
+	# --- 11. たいまつとショップ（段階14-e・EXEC_SCENARIO_SHOP.md）---
+	#
+	# ⚠ いちばん危ないのは「たいまつを買っても見える層が変わらない」。
+	#   ⚠ 配列の添字を1つずらすと無音でそうなる。買う前後の数を並べて見る。
+	print("[DebugBoot] --- たいまつ ---")
+	if GameManager.start_floor(floor_ids[0]):
+		var max_grade: int = GameManager.get_floor_torch_max_grade()
+		print("  上限グレード = %d（floor_torch_reveal_layers の長さ - 1）" % max_grade)
+		GameManager.add_gold(99999)
+		for step: int in range(max_grade + 2):
+			var grade: int = GameManager.get_floor_torch_grade()
+			var reveal: int = GameManager.get_floor_reveal_layers()
+			var price: int = GameManager.get_floor_torch_next_price()
+			print("    grade=%d -> %d 層先まで見える / 次は %s" % [
+				grade, reveal, ("買えない（上限）" if price < 0 else "%d G" % price)
+			])
+			if not GameManager.buy_floor_torch():
+				break
+
+		# 視界の判定。⚠ grade 0 に戻してから、層ごとに見えるかを並べる。
+		GameManager.abandon_floor()
+		var _restarted: bool = GameManager.start_floor(floor_ids[0])
+		var run_t: Dictionary = GameManager.get_floor_run()
+		var nodes_t: Dictionary = run_t.get(GameStateKeys.FLOOR_RUN_NODES, {})
+		var hidden_by_layer: Dictionary = {}
+		var shown_by_layer: Dictionary = {}
+		for node_id: Variant in nodes_t:
+			var layer_t: int = int((nodes_t[node_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_LAYER, 1))
+			if GameManager.is_floor_node_revealed(str(node_id)):
+				shown_by_layer[layer_t] = int(shown_by_layer.get(layer_t, 0)) + 1
+			else:
+				hidden_by_layer[layer_t] = int(hidden_by_layer.get(layer_t, 0)) + 1
+		print("  grade=%d（%d 層先）で入口に立ったとき" % [
+			GameManager.get_floor_torch_grade(), GameManager.get_floor_reveal_layers()
+		])
+		print("    見える = %s / 伏せられている = %s" % [str(shown_by_layer), str(hidden_by_layer)])
+		print("     （⚠ 層1と層2が見え、⚠ 奥は伏せられ、⚠ ボスの層だけは常に見えるのが正解）")
+
+		# ショップ。⚠ 無料ガチャは grant_chest の1本を通る。
+		print("[DebugBoot] --- フロア内ショップ ---")
+		GameManager._state[GameStateKeys.PENDING_CHESTS] = []
+		var gacha_hits: int = 0
+		for _i: int in range(20):
+			if GameManager.grant_floor_gacha():
+				gacha_hits += 1
+		print("  無料ガチャ 20回 -> 積まれた %d 個（⚠ 20 が正解＝ハズレ枠が無い）" % gacha_hits)
+		GameManager._state[GameStateKeys.PENDING_CHESTS] = []
+
+		var heal_before: bool = GameManager.buy_floor_heal()
+		print("  全員満タンで回復を買う -> %s（false が正解）" % str(heal_before))
+		GameManager.set_floor_hp_carry({str(GameManager.get_party_members()[0]): 1})
+		print("  1人だけ HP=1 にして買う -> %s（true が正解） 傷 %s" % [
+			str(GameManager.buy_floor_heal()), str(GameManager.get_floor_hp_carry())
+		])
+		GameManager.abandon_floor()
+		print("  abandon_floor() 後の たいまつ = %d（0 が正解＝フロアごとにリセット）" % (
+			GameManager.get_floor_torch_grade()
+		))
+
 	# --- 7. セーブ→ロードの往復（int() 正規化・EXEC_SCENARIO_FLOOR.md §3-3）---
 	#
 	# ⚠ debug_boot はセーブを書かない（_ready() の注記）。なので JSON の往復だけを再現する。
@@ -3216,6 +3275,9 @@ const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/adventure/floor_map.tscn",
 	# ⚠ 段階14-d のレリック選択。行はコードで作る。⚠ フロアに入っていないと戻される。
 	"res://scenes/adventure/floor_relic_select.tscn",
+	# ⚠ 段階14-e のフロア内ショップ。⚠ 開くだけで無料ガチャが1回引かれる
+	#   （測るために開くので、状態に宝箱が1個積まれる。⚠ 保存はしない）。
+	"res://scenes/adventure/floor_shop.tscn",
 	# ⚠ この2枚は、コードでノードを足しているので開かないと分からない
 	#   （@onready のパス取り違え・move_child の相手違い）。
 	"res://scenes/guild/training_screen.tscn",

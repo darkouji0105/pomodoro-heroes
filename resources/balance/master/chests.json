@@ -26,6 +26,22 @@
 	},
 
 	{
+	  "chest_id": "floor_gacha",
+	  "name_key": "ui_chest_gacha",
+	  "sort_order": 4,
+	  "draw": { "rolls": 1, "entries": [
+		{ "item_id": "construction_material_1", "count": 8, "weight": 18 },
+		{ "item_id": "training_material_1", "count": 8, "weight": 18 },
+		{ "item_id": "forging_material_1", "count": 8, "weight": 18 },
+		{ "item_id": "decor_material_1", "count": 6, "weight": 16 },
+		{ "item_id": "armor_leather_cap", "weight": 8 },
+		{ "item_id": "weapon_wooden_sword", "weight": 8 },
+		{ "item_id": "part_gem_hp_1", "weight": 5 },
+		{ "item_id": "part_charm_def_1", "weight": 5 },
+		{ "item_id": "part_emblem_atkspd_1", "weight": 4 }
+	  ] }
+	},
+	{
 	  "chest_id": "floor_1_common",
 	  "name_key": "ui_chest_common",
 	  "sort_order": 20,

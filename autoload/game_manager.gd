@@ -5885,6 +5885,144 @@ func get_floor_relic_passives(character_id: String) -> Array:
 	return result
 
 
+# ========================================================================
+# たいまつとフロア内ショップ（段階14-e・PLAN_SCENARIO_MAP.md §5 / §3-4）
+#
+# ⚠ たいまつはアイテムではなくフロア内の状態（人間の決定3）。倉庫にも図鑑にも出ない。
+# ⚠ 層構造なので視界は「半径」ではなく「何層先まで中身が見えるか」。
+# ⚠ フロアを降りると grade 0 に戻る（_empty_floor_run）。
+# ========================================================================
+
+# 無料ガチャの抽選プール。⚠ 宝箱の器を借りる（積む口は grant_chest の1本だけ）。
+const FLOOR_GACHA_CHEST_ID: String = "floor_gacha"
+
+
+func get_floor_torch_grade() -> int:
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	return int(run.get(GameStateKeys.FLOOR_RUN_TORCH_GRADE, 0))
+
+
+# たいまつの上限グレード。⚠ 配列の長さがそのまま上限（メモ「上限グレードあり」）。
+func get_floor_torch_max_grade() -> int:
+	var table: Array[int] = Balance.adventure.floor_torch_reveal_layers
+	return maxi(0, table.size() - 1)
+
+
+# いまのたいまつで「何層先まで中身が見えるか」。
+func get_floor_reveal_layers() -> int:
+	var table: Array[int] = Balance.adventure.floor_torch_reveal_layers
+	if table.is_empty():
+		return 1
+	var index: int = clampi(get_floor_torch_grade(), 0, table.size() - 1)
+	return maxi(1, int(table[index]))
+
+
+# 次のグレードの値段。⚠ 上限なら -1（買えない）。
+func get_floor_torch_next_price() -> int:
+	var next_grade: int = get_floor_torch_grade() + 1
+	if next_grade > get_floor_torch_max_grade():
+		return -1
+	var prices: Array[int] = Balance.adventure.floor_torch_prices
+	if next_grade >= prices.size():
+		return -1
+	return int(prices[next_grade])
+
+
+# そのノードの中身が見えるか（段階14-e）。
+#
+# ⚠ ボスは常に見える（メモ「ボスの位置だけは最初から常に見えている」）。
+# ⚠ 踏破済みも見える（一度見たものは隠さない）。
+# ⚠ ここが視界の判定の1本。画面側で層を数え直さないこと。
+func is_floor_node_revealed(node_id: String) -> bool:
+	if not is_in_floor():
+		return false
+	var node: Dictionary = get_floor_node(node_id)
+	if node.is_empty():
+		return false
+	if str(node.get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BOSS:
+		return true
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	var visited: Dictionary = run.get(GameStateKeys.FLOOR_RUN_VISITED, {})
+	if visited.has(node_id):
+		return true
+	var here: Dictionary = get_floor_node(str(run.get(GameStateKeys.FLOOR_RUN_POSITION, "")))
+	var here_layer: int = int(here.get(GameStateKeys.FLOOR_NODE_LAYER, 1))
+	var node_layer: int = int(node.get(GameStateKeys.FLOOR_NODE_LAYER, 1))
+	return node_layer - here_layer <= get_floor_reveal_layers()
+
+
+# たいまつを1段階上げる。
+#
+# ⚠ 判定を全部先に終えてから状態を触る（CLAUDE.md 6番）。
+# ⚠ ゴールドは恒久通貨。フロアを降りても戻らない（メモ「価格は高め」）。
+func buy_floor_torch() -> bool:
+	if not is_in_floor():
+		return false
+	var price: int = get_floor_torch_next_price()
+	if price < 0:
+		print("[GameManager] buy_floor_torch() -> false (上限グレード)")
+		return false
+	if int(_state.get(GameStateKeys.GOLD, 0)) < price:
+		print("[GameManager] buy_floor_torch() -> false (ゴールド不足 %d)" % price)
+		return false
+
+	add_gold(-price)
+	var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.FLOOR_RUN_TORCH_GRADE] = get_floor_torch_grade() + 1
+	_state[GameStateKeys.FLOOR_RUN] = run
+	print("[GameManager] buy_floor_torch() -> grade=%d（%d 層先まで見える）" % [
+		int(run[GameStateKeys.FLOOR_RUN_TORCH_GRADE]), get_floor_reveal_layers()
+	])
+	floor_run_changed.emit(str(run.get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")))
+	return true
+
+
+# フロア内ショップの回復を買う。⚠ 買うとその場で効く（持ち物にしない）。
+#
+# ⚠ 持ち越しHPを直接持ち上げる。欄が無いキャラは満タンなので触らない。
+func buy_floor_heal() -> bool:
+	if not is_in_floor():
+		return false
+	var price: int = int(Balance.adventure.floor_shop_heal_price)
+	if int(_state.get(GameStateKeys.GOLD, 0)) < price:
+		print("[GameManager] buy_floor_heal() -> false (ゴールド不足 %d)" % price)
+		return false
+	var pct: int = int(Balance.adventure.floor_shop_heal_pct)
+	var carry: Dictionary = get_floor_hp_carry()
+	if carry.is_empty():
+		print("[GameManager] buy_floor_heal() -> false (全員すでに満タン)")
+		return false
+
+	add_gold(-price)
+	var healed: Dictionary = {}
+	for character_id: Variant in carry:
+		var cid: String = str(character_id)
+		var max_hp: int = int(get_effective_stats(cid).get(GameStateKeys.STAT_HP, 0))
+		var gain: int = int(float(max_hp) * float(pct) / 100.0)
+		var next_hp: int = mini(max_hp, int(carry[cid]) + gain)
+		# ⚠ 満タンになったキャラは欄ごと落とす。「欄が無い＝満タン」が約束なので、
+		#   残すと次のフロアの計算で余計な分岐が要る。
+		if next_hp < max_hp:
+			healed[cid] = next_hp
+	var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.FLOOR_RUN_HP_CARRY] = healed
+	_state[GameStateKeys.FLOOR_RUN] = run
+	print("[GameManager] buy_floor_heal(%d%%) -> %s" % [pct, str(healed)])
+	floor_run_changed.emit(str(run.get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")))
+	return true
+
+
+# ショップに入ったときの無料ガチャ（段階14-e）。
+#
+# ⚠ 恒久資産として持ち帰れる（メモ「宝箱とは別枠、恒久資産」）。
+# ⚠ 積む口は grant_chest の1本だけ。2本目を書かない。
+# ⚠ chest_count には数えない（宝箱の最低1回保証とは別物）。
+func grant_floor_gacha() -> bool:
+	if not is_in_floor():
+		return false
+	return grant_chest(FLOOR_GACHA_CHEST_ID, GameStateKeys.CHEST_SOURCE_FLOOR)
+
+
 # このフロアでいままでに出た宝箱の数。
 func get_floor_chest_count() -> int:
 	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})

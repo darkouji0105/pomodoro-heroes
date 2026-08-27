@@ -1,0 +1,92 @@
+[gd_scene format=3 uid="uid://cf1oorfloorshop1"]
+
+[ext_resource type="Script" path="res://scenes/adventure/floor_shop.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_button"]
+
+[node name="FloorShop" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.09019608, 0.078431375, 0.05882353, 1)
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+text = "ui_floor_shop_title"
+
+[node name="Spacer" type="Control" parent="Layout/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GoldLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+
+[node name="GachaLabel" type="Label" parent="Layout"]
+layout_mode = 2
+
+[node name="MessageLabel" type="Label" parent="Layout"]
+layout_mode = 2
+
+[node name="TorchRow" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+
+[node name="TorchLabel" type="Label" parent="Layout/TorchRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TorchButton" parent="Layout/TorchRow" instance=ExtResource("2_button")]
+layout_mode = 2
+label_key = "ui_floor_shop_buy"
+
+[node name="HealRow" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+
+[node name="HealLabel" type="Label" parent="Layout/HealRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HealButton" parent="Layout/HealRow" instance=ExtResource("2_button")]
+layout_mode = 2
+label_key = "ui_floor_shop_buy"
+
+[node name="Spacer2" type="Control" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Footer" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+
+[node name="FooterSpacer" type="Control" parent="Layout/Footer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="LeaveButton" parent="Layout/Footer" instance=ExtResource("2_button")]
+layout_mode = 2
+label_key = "ui_floor_shop_leave"

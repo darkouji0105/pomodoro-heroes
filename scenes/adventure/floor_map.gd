@@ -13,6 +13,10 @@ const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
 const RELIC_SELECT_PATH: String = "res://scenes/adventure/floor_relic_select.tscn"
+const SHOP_PATH: String = "res://scenes/adventure/floor_shop.tscn"
+
+# 中身が見えていないマスの表示（段階14-e）。
+const HIDDEN_TEXT: String = "？"
 
 # マスの見た目。⚠ 色はここに置く（main_theme.tres に対応する概念が無い。
 #   adventure_config の pop_*_color と同じ扱い）。
@@ -72,7 +76,11 @@ func _update_header() -> void:
 	floor_name_label.text = tr(str(stage.get("name_key", floor_id)))
 
 	# 数値のみなので tr() は通さない（AGENTS.md）。
-	chest_label.text = tr("ui_floor_chest_count") + ": " + str(GameManager.get_floor_chest_count())
+	chest_label.text = "%s: %d  %s %d(%d%s)" % [
+		tr("ui_floor_chest_count"), GameManager.get_floor_chest_count(),
+		tr("ui_floor_torch"), GameManager.get_floor_torch_grade(),
+		GameManager.get_floor_reveal_layers(), tr("ui_floor_torch_layers"),
+	]
 	_update_relic_line()
 
 	var state: Dictionary = GameManager.get_state()
@@ -157,7 +165,12 @@ func _make_node_button(
 	var button: PrimaryButton = PrimaryButton.new()
 	button.name = "Node_" + node_id
 	var kind: String = str(node.get(GameStateKeys.FLOOR_NODE_KIND, ""))
-	button.text = tr("ui_floor_node_" + kind)
+	# 視界（段階14-e）。⚠ 見えるかどうかの判定は GameManager の1本に聞く。
+	#   ⚠ 「押せるか」とは別物。次の層は必ず押せるが、たいまつが弱いと中身は伏せられる。
+	if GameManager.is_floor_node_revealed(node_id):
+		button.text = tr("ui_floor_node_" + kind)
+	else:
+		button.text = HIDDEN_TEXT
 
 	if is_current:
 		button.text = "▶ " + button.text
@@ -196,9 +209,13 @@ func _on_node_pressed(node_id: String) -> void:
 		GameStateKeys.FLOOR_NODE_KIND_RELIC:
 			# ⚠ 選ばずに出られない画面へ移る（段階14-d）。踏んだら必ず1つ取る。
 			SceneManager.change_scene(RELIC_SELECT_PATH)
+		GameStateKeys.FLOOR_NODE_KIND_SHOP:
+			# ⚠ 入店した瞬間に無料ガチャが1回引かれる（段階14-e）。
+			SceneManager.change_scene(SHOP_PATH)
 		_:
-			# ショップ（14-e）はまだ器が無い。
-			# ⚠ 行き止まりにしないこと。踏むと詰むノードがあるとクリアできない。
+			# ⚠ 知らない種類。⚠ 行き止まりにしないこと。
+			#   踏むと詰むノードがあるとフロアがクリアできない。
+			push_warning("[FloorMap] 知らないノードの種類: " + kind)
 			message_label.text = tr("ui_floor_node_not_ready")
 			_rebuild()
 
