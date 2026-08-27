@@ -5784,6 +5784,107 @@ func _floor_chest_id(floor_id: String, rarity: String) -> String:
 	return str((ids as Dictionary).get(rarity, ""))
 
 
+# ========================================================================
+# レリック（段階14-d・PLAN_SCENARIO_MAP.md §5-2）
+#
+# ⚠ レリック＝フロア内限定のパッシブ。器はパッシブをそのまま借りる。
+#   ⚠ 定義は relics.json にあり、MasterDataLoader が _cache_skills にマージ済み。
+#   ⚠ get_effective_stats() も skill_schema.gd も触らない。
+# ⚠ フロアを降りると全部消える（abandon_floor）。
+# ========================================================================
+
+const RELIC_SCOPE: String = "relic_scope"
+const RELIC_SCOPE_PARTY: String = "party"
+const RELIC_SCOPE_SINGLE: String = "single"
+
+
+# いま持っているレリック。[{relic_id, character_id}]。character_id が "" なら全員。
+func get_floor_relics() -> Array:
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	var relics: Array = run.get(GameStateKeys.FLOOR_RUN_RELICS, [])
+	return relics.duplicate(true)
+
+
+# そのレリックが1人用か。
+func is_single_relic(relic_id: String) -> bool:
+	var relic: Dictionary = MasterDataLoader.get_relic(relic_id)
+	return str(relic.get(RELIC_SCOPE, RELIC_SCOPE_PARTY)) == RELIC_SCOPE_SINGLE
+
+
+# 選択肢を count 件引く（重複なし）。
+#
+# ⚠ すでに持っているものも候補に入れる（同じレリックは重ねてよい＝§5-2-5）。
+# ⚠ 状態を触らない。引くだけ。
+func roll_relic_choices(count: int) -> Array:
+	var pool: Array[String] = MasterDataLoader.get_all_relic_ids()
+	if pool.is_empty():
+		push_warning("[GameManager] roll_relic_choices: relics.json が空")
+		return []
+	pool.shuffle()
+	var picked: Array = []
+	for relic_id: String in pool:
+		if picked.size() >= count:
+			break
+		picked.append(relic_id)
+	return picked
+
+
+# レリックを1つ取る。
+#
+# ⚠ 判定を全部先に終えてから状態を触る（CLAUDE.md 6番）。
+# ⚠ 1人用なのに character_id が空なら弾く。全体用なのに入っていたら空に直す。
+func take_relic(relic_id: String, character_id: String = "") -> bool:
+	if not is_in_floor():
+		push_warning("[GameManager] take_relic: フロアに入っていない")
+		return false
+	if MasterDataLoader.get_relic(relic_id).is_empty():
+		push_warning("[GameManager] take_relic: relics.json に無い: " + relic_id)
+		return false
+	var single: bool = is_single_relic(relic_id)
+	var owner: String = character_id if single else ""
+	if single:
+		if owner == "":
+			push_warning("[GameManager] take_relic: 1人用なのに character_id が空: " + relic_id)
+			return false
+		if not (owner in get_party_members()):
+			push_warning("[GameManager] take_relic: 編成に居ない: " + owner)
+			return false
+
+	var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+	var relics: Array = run.get(GameStateKeys.FLOOR_RUN_RELICS, [])
+	relics.append({
+		GameStateKeys.FLOOR_RELIC_ID: relic_id,
+		GameStateKeys.FLOOR_RELIC_CHARACTER_ID: owner,
+	})
+	run[GameStateKeys.FLOOR_RUN_RELICS] = relics
+	_state[GameStateKeys.FLOOR_RUN] = run
+
+	print("[GameManager] take_relic('%s', '%s') -> 所持 %d 件" % [relic_id, owner, relics.size()])
+	floor_run_changed.emit(str(run.get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")))
+	return true
+
+
+# そのキャラに効くレリックのID配列（段階14-d）。
+#
+# ⚠ get_battle_passives() と1本にまとめない。あちらは「レベルで解放された恒久の
+#   パッシブ」で、育成画面のスキル枠にも出る。レリックはフロア内限定で拠点に出ない。
+#   混ぜると、スキル選択画面にフロアのレリックが並ぶ。
+# ⚠ 戦闘画面は2本を足して unit.passive_ids に入れる。
+func get_floor_relic_passives(character_id: String) -> Array:
+	var result: Array = []
+	if not is_in_floor():
+		return result
+	for entry: Variant in get_floor_relics():
+		if not (entry is Dictionary):
+			continue
+		var row: Dictionary = entry
+		var owner: String = str(row.get(GameStateKeys.FLOOR_RELIC_CHARACTER_ID, ""))
+		if owner != "" and owner != character_id:
+			continue
+		result.append(str(row.get(GameStateKeys.FLOOR_RELIC_ID, "")))
+	return result
+
+
 # このフロアでいままでに出た宝箱の数。
 func get_floor_chest_count() -> int:
 	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})

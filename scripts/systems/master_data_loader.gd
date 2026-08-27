@@ -18,6 +18,9 @@ const PATH_CHARACTERS: String = DIR_PATH + "characters.json"
 const PATH_ENEMIES: String = DIR_PATH + "enemies.json"
 const PATH_PARTIES: String = DIR_PATH + "parties.json"
 const PATH_STAGES: String = DIR_PATH + "stages.json"
+# レリック（段階14-d）。⚠ キャラに紐づかないので characters/ の下ではなく直下。
+#   ⚠ 中身は _cache_skills にマージされる（パッシブと同じ器を借りるため）。
+const PATH_RELICS: String = DIR_PATH + "relics.json"
 # 召喚ユニットの素データ（段階6・EXEC_SKILL_SPAWN.md §3-1）。
 #
 # ⚠ enemies.json と分けてある（人間の確認待ち・EXEC §0-1 の1）。混ぜると
@@ -104,6 +107,9 @@ static var _cache_enemies: Dictionary = {}
 static var _cache_parties: Dictionary = {}
 static var _cache_stages: Dictionary = {}
 static var _cache_summons: Dictionary = {}
+# レリック（段階14-d）。⚠ 中身は _cache_skills にも入っている。
+#   こちらは「レリックだけの一覧」を作るためだけに持つ。
+static var _cache_relics: Dictionary = {}
 static var _cache_skills: Dictionary = {}
 static var _cache_loaded: bool = false
 
@@ -158,6 +164,28 @@ static func has_summon(id: String) -> bool:
 	return _cache_summons.has(id)
 
 
+# レリックのID一覧（綴り順・段階14-d）。
+#
+# ⚠ 順番を固定する。Dictionary のキー順は不定なので、そのまま返すと
+#   抽選の候補の並びが起動ごとに変わる。
+static func get_all_relic_ids() -> Array[String]:
+	_ensure_loaded()
+	var ids: Array[String] = []
+	for relic_id: Variant in _cache_relics:
+		ids.append(str(relic_id))
+	ids.sort()
+	return ids
+
+
+# レリック1件の定義。⚠ 戦闘が引くのは get_skill()（同じ辞書に入っている）。
+#   こちらは name_key と relic_scope を読むためのもの。
+static func get_relic(id: String) -> Dictionary:
+	_ensure_loaded()
+	if not _cache_relics.has(id):
+		return {}
+	return (_cache_relics[id] as Dictionary).duplicate(true)
+
+
 static func get_stage(id: String) -> Dictionary:
 	_ensure_loaded()
 	if not _cache_stages.has(id):
@@ -187,6 +215,17 @@ static func _ensure_loaded() -> void:
 	#   本番キャラで欠けた場合は E126 が拾う（characters.json の passives に
 	#   書いてあるIDが定義されていない、という形で必ず赤になる）。
 	_merge_character_files(_cache_skills, "passives.json", "パッシブ", false)
+	# ⚠ レリックも同じ辞書へ入れる（段階14-d・PLAN_SCENARIO_MAP.md §5-2-3）。
+	#   レリックは「フロア内限定のパッシブ」なので、器はパッシブをそのまま借りる。
+	#   ⚠ ここへ入れないと _restore_passives() が定義を引けず、刺しても何も起きない
+	#     （エラーは1本も出ない）。
+	# ⚠ キャラに紐づかないので relics.json は master/ の直下に置く。
+	#   passives.json（キャラごとの3本）に混ぜないこと（解放条件の扱いが違う）。
+	# ⚠ 2回読む。1本目は「レリックのIDと scope の一覧」用、2本目は戦闘が引く辞書へのマージ。
+	#   ⚠ 一覧を _cache_skills から作らないこと。あそこにはスキルもパッシブも敵のぶんも
+	#     入っているので、レリックだけを取り出す条件が2箇所に散る。
+	_cache_relics = _load_json(PATH_RELICS)
+	_merge_id_map(_cache_skills, PATH_RELICS, true, "レリック")
 	# スキルは自由度が高いぶん「書けるが壊れている」組み合わせが増えた。
 	# resolver 側だけで防ぐと実戦で撃つまで気づけないので、読んだ直後に全件見る
 	# （PLAN_SKILL_TEMPLATE.md 5-4）。characters.json も読み終わっているので、

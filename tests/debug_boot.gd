@@ -811,9 +811,9 @@ func _apply_levels(scenario: Dictionary) -> void:
 	# ⚠ 見るキーは「その回に足したもの」に必ず差し替えること（段階10で踏んだ）。
 	#   ⚠ 前の回のキーを見たままだと、再インポート済みのキーに当たって
 	#     「済んでいる」と出るのに、その回のキーは未インポートのまま先へ進む。
-	var probe: String = "ui_chest_legendary"
+	var probe: String = "ui_status_ch_status_relic_thorns"
 	print("[DebugBoot] ja.csv の再インポート: %s" % (
-		"まだ（⚠ scenario=layout が赤3本・研究画面の効果が「？」になる）" if tr(probe) == probe
+		"まだ（⚠ 段階14-d では黄が13本増えたままになる＝状態のマスの漢字）" if tr(probe) == probe
 		else "済んでいる"
 	))
 
@@ -2861,6 +2861,65 @@ func _report_floor() -> void:
 	print("  出現率を %d%% に戻した" % int(Balance.adventure.floor_chest_chance_pct))
 	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
 
+	# --- 10. レリック（段階14-d・PLAN_SCENARIO_MAP.md §5-2）---
+	#
+	# ⚠ いちばん危ないのは「取れたのに戦闘で何も起きない」。定義が _cache_skills に
+	#   入っていないと _restore_passives() が引けず、赤も黄も1本も出ない。
+	#   ⚠ get_skill() で引けることを必ず確かめる。
+	print("[DebugBoot] --- レリック ---")
+	var relic_ids: Array[String] = MasterDataLoader.get_all_relic_ids()
+	var party_scope: int = 0
+	var single_scope: int = 0
+	var not_in_skills: Array[String] = []
+	for relic_id: String in relic_ids:
+		if GameManager.is_single_relic(relic_id):
+			single_scope += 1
+		else:
+			party_scope += 1
+		if MasterDataLoader.get_skill(relic_id).is_empty():
+			not_in_skills.append(relic_id)
+	print("  relics.json = %d 件（3人用 %d / 1人用 %d）" % [
+		relic_ids.size(), party_scope, single_scope
+	])
+	print("  ⚠ get_skill() で引けないもの = %d 件%s（0 が正解＝引けないと戦闘で無音で消える）" % [
+		not_in_skills.size(), "" if not_in_skills.is_empty() else " " + str(not_in_skills)
+	])
+
+	if GameManager.start_floor(floor_ids[0]):
+		var members: Array = GameManager.get_party_members()
+		var solo: String = str(members[0])
+		# 3人用を1つ、1人用を1つ取る。
+		var party_relic: String = ""
+		var single_relic: String = ""
+		for relic_id: String in relic_ids:
+			if single_relic == "" and GameManager.is_single_relic(relic_id):
+				single_relic = relic_id
+			elif party_relic == "" and not GameManager.is_single_relic(relic_id):
+				party_relic = relic_id
+		var took_party: bool = GameManager.take_relic(party_relic, "")
+		var took_single: bool = GameManager.take_relic(single_relic, solo)
+		print("  3人用 '%s' を取る -> %s / 1人用 '%s' を %s に -> %s" % [
+			party_relic, str(took_party), single_relic, solo, str(took_single)
+		])
+		for member: Variant in members:
+			print("    %-16s に効くレリック = %s" % [
+				str(member), str(GameManager.get_floor_relic_passives(str(member)))
+			])
+		print("     （⚠ 3人用は全員に、⚠ 1人用は %s にだけ並ぶのが正解）" % solo)
+
+		# ⚠ 弾く枝。1人用に character_id を渡さない／編成に居ないIDを渡す。
+		print("  ⚠ 1人用に空の character_id -> %s（false が正解・⚠ 下の黄1本が正解）" % str(
+			GameManager.take_relic(single_relic, "")
+		))
+		print("  ⚠ 編成に居ないキャラ -> %s（false が正解・⚠ 下の黄1本が正解）" % str(
+			GameManager.take_relic(single_relic, "char_not_in_party")
+		))
+		print("  所持 = %d 件（2 が正解＝弾いたぶんは増えない）" % GameManager.get_floor_relics().size())
+		GameManager.abandon_floor()
+		print("  abandon_floor() 後の所持 = %d 件（0 が正解＝フロアを降りると消える）" % (
+			GameManager.get_floor_relics().size()
+		))
+
 	# --- 7. セーブ→ロードの往復（int() 正規化・EXEC_SCENARIO_FLOOR.md §3-3）---
 	#
 	# ⚠ debug_boot はセーブを書かない（_ready() の注記）。なので JSON の往復だけを再現する。
@@ -3155,6 +3214,8 @@ const LAYOUT_SCENES: Array[String] = [
 	#   ⚠ フロアに入っていないと _ready() が冒険選択へ戻すので、先に start_floor() する
 	#     （_report_layout の中で入れてある）。
 	"res://scenes/adventure/floor_map.tscn",
+	# ⚠ 段階14-d のレリック選択。行はコードで作る。⚠ フロアに入っていないと戻される。
+	"res://scenes/adventure/floor_relic_select.tscn",
 	# ⚠ この2枚は、コードでノードを足しているので開かないと分からない
 	#   （@onready のパス取り違え・move_child の相手違い）。
 	"res://scenes/guild/training_screen.tscn",

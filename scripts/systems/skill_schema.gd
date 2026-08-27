@@ -342,8 +342,21 @@ const FIELD_MAX_STACK: String = "max_stack"
 # ⚠ typo を黙って既定値にしないための最後の砦（E26）。
 const SKILL_FIELDS_KNOWN: Array = [
 	"name_key", "user_character_id", "unlock_level", "cooldown_sec",
-	"activation", "charge", "recast", "target", "effects", "phases"
+	"activation", "charge", "recast", "target", "effects", "phases",
+	# レリック（段階14-d）。⚠ relics.json は skills.json と同じ辞書へマージされるので、
+	#   ここに並べないと E26「知らない欄がある」で全件が赤になる。
+	FIELD_RELIC_SCOPE,
 ]
+
+# レリックの適用範囲（段階14-d・PLAN_SCENARIO_MAP.md §5-2-5）。
+#
+# ⚠ この欄を持つエントリは「レリック」であり、キャラに紐づかない。
+#   ⚠ user_character_id と unlock_level を要求しない（E3 / E4 の例外）。
+#   ⚠ 例外はこの1欄の有無だけで判定する。IDの綴りで見分けないこと。
+const FIELD_RELIC_SCOPE: String = "relic_scope"
+const RELIC_SCOPE_PARTY: String = "party"
+const RELIC_SCOPE_SINGLE: String = "single"
+const RELIC_SCOPES_KNOWN: Array = [RELIC_SCOPE_PARTY, RELIC_SCOPE_SINGLE]
 
 # charge{} の必須欄（数値）
 const CHARGE_FIELDS_REQUIRED: Array = [
@@ -535,10 +548,23 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	if data.has("type"):
 		_err(issues, skill_id, "旧欄 'type' が残っている（activation / target / effects[] に割ること）")
 
+	# レリックか（段階14-d）。⚠ relic_scope を持つエントリだけが該当する。
+	#   ⚠ レリックはキャラに紐づかず、レベルでも解放されないので、
+	#     user_character_id（E3）と unlock_level（E4）を要求しない。
+	#   ⚠ 判定はこの1欄の有無だけ。IDの綴りで見分けないこと。
+	var relic_scope: String = str(data.get(FIELD_RELIC_SCOPE, ""))
+	var is_relic: bool = relic_scope != ""
+	# E128 … relic_scope の値が party / single のどちらでもない。
+	#   ⚠ 綴りを間違えると「全員に効くつもりが1人にも効かない」が無音で起きる。
+	if is_relic and not (relic_scope in RELIC_SCOPES_KNOWN):
+		_err(issues, skill_id, "%s が不明: '%s'（%s のどちらか）" % [
+			FIELD_RELIC_SCOPE, relic_scope, str(RELIC_SCOPES_KNOWN)
+		])
+
 	# E3
 	if str(data.get("name_key", "")) == "":
 		_err(issues, skill_id, "name_key が無い")
-	if str(data.get("user_character_id", "")) == "":
+	if not is_relic and str(data.get("user_character_id", "")) == "":
 		_err(issues, skill_id, "user_character_id が無い")
 
 	# E5 / W1
@@ -553,7 +579,8 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	# E4
 	# ⚠ unlock_level はパッシブにも要る（育成の枠がレベルで解放を出す）。
 	# ⚠ cooldown_sec はパッシブには書けない（E73）。撃つものではないため。
-	if not _is_num(data.get("unlock_level", null)):
+	# ⚠ レリックはレベルで解放されないので unlock_level を要求しない（段階14-d）。
+	if not is_relic and not _is_num(data.get("unlock_level", null)):
 		_err(issues, skill_id, "unlock_level が数値でない")
 	if not is_passive and not _is_num(data.get("cooldown_sec", null)):
 		_err(issues, skill_id, "cooldown_sec が数値でない")

@@ -57,6 +57,10 @@ text = "ui_res_stamina"
 [node name="StaminaValue" parent="Layout/Header" instance=ExtResource("2_resource_dsp")]
 layout_mode = 2
 
+[node name="RelicLabel" type="Label" parent="Layout"]
+layout_mode = 2
+text = "ui_relic_none"
+
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2
 

@@ -1,0 +1,233 @@
+{
+	"relic_banner_of_war": {
+		"name_key": "ui_relic_banner_of_war",
+		"relic_scope": "party",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_banner_of_war",
+				"atk_mult_pct": 15,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"relic_iron_wall": {
+		"name_key": "ui_relic_iron_wall",
+		"relic_scope": "party",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_iron_wall",
+				"stat": "def",
+				"value": 8,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"relic_warding_stone": {
+		"name_key": "ui_relic_warding_stone",
+		"relic_scope": "party",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_warding_stone",
+				"stat": "mdef",
+				"value": 8,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"relic_swift_boots": {
+		"name_key": "ui_relic_swift_boots",
+		"relic_scope": "party",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_swift_boots",
+				"stat": "atkspd",
+				"value": 10,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"relic_lucky_charm": {
+		"name_key": "ui_relic_lucky_charm",
+		"relic_scope": "party",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_lucky_charm",
+				"stat": "crit_rate",
+				"value": 12,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"relic_hasty_sigil": {
+		"name_key": "ui_relic_hasty_sigil",
+		"relic_scope": "party",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_hasty_sigil",
+				"stat": "haste",
+				"value": 15,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"relic_champion_blade": {
+		"name_key": "ui_relic_champion_blade",
+		"relic_scope": "single",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_champion_blade",
+				"atk_mult_pct": 35,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"relic_guardian_plate": {
+		"name_key": "ui_relic_guardian_plate",
+		"relic_scope": "single",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_guardian_plate",
+				"stat": "def",
+				"value": 20,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"relic_sharp_eye": {
+		"name_key": "ui_relic_sharp_eye",
+		"relic_scope": "single",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_sharp_eye_rate",
+				"stat": "crit_rate",
+				"value": 20,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_sharp_eye_dmg",
+				"stat": "crit_dmg",
+				"value": 30,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"relic_berserker_mark": {
+		"name_key": "ui_relic_berserker_mark",
+		"relic_scope": "single",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_berserker_mark",
+				"atk_mult_pct": 40,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "lte",
+					"value": 50
+				}
+			}
+		]
+	},
+	"relic_first_strike": {
+		"name_key": "ui_relic_first_strike",
+		"relic_scope": "single",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_relic_first_strike",
+				"atk_mult_pct": 30,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "elapsed_sec",
+					"of": "host",
+					"op": "lte",
+					"value": 20
+				}
+			}
+		]
+	},
+	"relic_thorns": {
+		"name_key": "ui_relic_thorns",
+		"relic_scope": "single",
+		"activation": "passive",
+		"target": { "team": "self" },
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_relic_thorns",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "took_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 0.25,
+							"attack_type": "physical",
+							"scale_from": "atk",
+							"target": { "team": "source" }
+						}
+					]
+				}
+			}
+		]
+	}
+}

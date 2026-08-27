@@ -12,6 +12,7 @@ extends Control
 const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
+const RELIC_SELECT_PATH: String = "res://scenes/adventure/floor_relic_select.tscn"
 
 # マスの見た目。⚠ 色はここに置く（main_theme.tres に対応する概念が無い。
 #   adventure_config の pop_*_color と同じ扱い）。
@@ -23,6 +24,7 @@ const COLOR_FAR: Color = Color(0.6, 0.6, 0.65)
 @onready var floor_name_label: Label = $Layout/Header/FloorNameLabel
 @onready var chest_label: Label = $Layout/Header/ChestLabel
 @onready var stamina_value: ResourceDisplay = $Layout/Header/StaminaValue
+@onready var relic_label: Label = $Layout/RelicLabel
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var layer_list: VBoxContainer = $Layout/LayerList
 @onready var abandon_button: PrimaryButton = $Layout/Footer/AbandonButton
@@ -71,6 +73,7 @@ func _update_header() -> void:
 
 	# 数値のみなので tr() は通さない（AGENTS.md）。
 	chest_label.text = tr("ui_floor_chest_count") + ": " + str(GameManager.get_floor_chest_count())
+	_update_relic_line()
 
 	var state: Dictionary = GameManager.get_state()
 	var stamina: Dictionary = state.get(GameStateKeys.STAMINA, {})
@@ -78,6 +81,33 @@ func _update_header() -> void:
 		int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0)),
 		int(stamina.get(GameStateKeys.STAMINA_MAX, 0))
 	)
+
+
+# いま持っているレリックの1行（段階14-d・PLAN_SCENARIO_MAP.md §5-2-6）。
+#
+# ⚠ 専用の画面を作らない。フロア中はここが唯一の一覧なので、常に見えていること。
+# ⚠ 1人用は「誰に付いているか」まで出す。出さないと選んだ意味が確かめられない。
+func _update_relic_line() -> void:
+	var relics: Array = GameManager.get_floor_relics()
+	if relics.is_empty():
+		relic_label.text = tr("ui_relic_none")
+		return
+	var parts: Array[String] = []
+	for entry: Variant in relics:
+		if not (entry is Dictionary):
+			continue
+		var row: Dictionary = entry
+		var relic_id: String = str(row.get(GameStateKeys.FLOOR_RELIC_ID, ""))
+		var name_text: String = tr(str(
+			MasterDataLoader.get_relic(relic_id).get("name_key", relic_id)
+		))
+		var owner: String = str(row.get(GameStateKeys.FLOOR_RELIC_CHARACTER_ID, ""))
+		if owner == "":
+			parts.append(name_text)
+			continue
+		var char_data: Dictionary = MasterDataLoader.get_character(owner)
+		parts.append("%s(%s)" % [name_text, tr(str(char_data.get("name_key", owner)))])
+	relic_label.text = tr("ui_relic_held") + ": " + " / ".join(parts)
 
 
 # 層を縦に並べる。⚠ 下が入口・上がボス。
@@ -163,8 +193,11 @@ func _on_node_pressed(node_id: String) -> void:
 		GameStateKeys.FLOOR_NODE_KIND_REST:
 			var _ok: bool = GameManager.rest_at_node()
 			message_label.text = tr("ui_floor_rested")
+		GameStateKeys.FLOOR_NODE_KIND_RELIC:
+			# ⚠ 選ばずに出られない画面へ移る（段階14-d）。踏んだら必ず1つ取る。
+			SceneManager.change_scene(RELIC_SELECT_PATH)
 		_:
-			# レリック（14-d）とショップ（14-e）はまだ器が無い。
+			# ショップ（14-e）はまだ器が無い。
 			# ⚠ 行き止まりにしないこと。踏むと詰むノードがあるとクリアできない。
 			message_label.text = tr("ui_floor_node_not_ready")
 			_rebuild()
