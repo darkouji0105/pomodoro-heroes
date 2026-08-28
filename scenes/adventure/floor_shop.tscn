@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://cf1oorfloorshop1"]
+[gd_scene format=3 uid="uid://cwxkx468kgvf1"]
 
 [ext_resource type="Script" path="res://scenes/adventure/floor_shop.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_button"]

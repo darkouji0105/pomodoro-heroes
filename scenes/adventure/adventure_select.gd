@@ -213,6 +213,14 @@ func _add_stage_row(stage_id: String, stage_data: Dictionary, index: int, order:
 	# 数値のみなので tr() は通さない（AGENTS.md）
 	cost_label.text = str(Balance.adventure.stamina_cost_per_stage)
 
+	# 周回ボタン（段階14-f）。⚠ 踏破済みのフロアだけに出す。
+	#   ⚠ 出すかどうかの判定は GameManager に聞く。ここで条件を書き直さない。
+	var repeat_button: PrimaryButton = PrimaryButton.new()
+	repeat_button.name = "RepeatButton"
+	repeat_button.text = "ui_floor_repeat"
+	repeat_button.visible = GameManager.is_floor_stage(stage_id) and GameManager.is_stage_cleared(stage_id)
+	repeat_button.pressed.connect(_on_repeat_pressed.bind(stage_id))
+
 	var challenge_button: PrimaryButton = PrimaryButton.new()
 	challenge_button.name = "ChallengeButton"
 	# 翻訳キーを直接 text に入れる。auto_translate_mode がデフォルトで有効なので
@@ -224,6 +232,7 @@ func _add_stage_row(stage_id: String, stage_data: Dictionary, index: int, order:
 	row.add_child(name_label)
 	row.add_child(spacer)
 	row.add_child(cost_label)
+	row.add_child(repeat_button)
 	row.add_child(challenge_button)
 	stage_list.add_child(row)
 
@@ -319,6 +328,36 @@ func _on_challenge_pressed(stage_id: String) -> void:
 			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY,
 		}
 	)
+
+# 周回（段階14-f）。⚠ 内部で1周ぶん歩かせて結果だけ受け取る。
+#
+# ⚠ 断る理由は GameManager が返す。ここで条件を書き直さない。
+# ⚠ 行を作り直す（クリア済みの印もスタミナも変わるため）。
+func _on_repeat_pressed(stage_id: String) -> void:
+	var reason: String = GameManager.get_floor_auto_reject_reason(stage_id)
+	if reason != "":
+		message_label.text = tr("ui_floor_repeat_reject_" + reason)
+		return
+	var result: Dictionary = GameManager.run_floor_auto(stage_id)
+	var rewards: Dictionary = result.get(GameManager.AUTO_RUN_REWARDS, {})
+	# 数値のみの組み立てなので tr() を通すのは見出しだけ（AGENTS.md）。
+	message_label.text = "%s  %s %d / %s %d / %s %d" % [
+		tr("ui_floor_repeat_done"),
+		tr("ui_res_gold"), int(rewards.get(GameStateKeys.REWARD_GOLD, 0)),
+		tr("ui_floor_chest_count"), int(result.get(GameManager.AUTO_RUN_CHESTS, 0)),
+		tr("ui_floor_repeat_gacha"), int(result.get(GameManager.AUTO_RUN_GACHA, 0)),
+	]
+	_rebuild_stage_list()
+
+
+# ステージ一覧を作り直す。⚠ await を持たせない（AGENTS.md）。
+func _rebuild_stage_list() -> void:
+	for child in stage_list.get_children():
+		stage_list.remove_child(child)
+		child.queue_free()
+	_stage_rows.clear()
+	_build_stage_list()
+
 
 func _on_training_pressed() -> void:
 	# トレーニングは未実装なので placeholder へ（EXEC §5-7）

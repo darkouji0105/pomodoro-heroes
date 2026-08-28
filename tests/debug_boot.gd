@@ -2979,6 +2979,55 @@ func _report_floor() -> void:
 			GameManager.get_floor_torch_grade()
 		))
 
+	# --- 12. 周回の自動処理（段階14-f・EXEC_SCENARIO_AUTORUN.md）---
+	#
+	# ⚠ 宿題49 がここで閉じる。
+	# ⚠ いちばん危ないのは「周回だけ宝箱の数が違う」。歩く経路が初回と別だと
+	#   無音でそうなる。初回と同じ move_to_node() を通していることを、数で見る。
+	print("[DebugBoot] --- 周回の自動処理 ---")
+	var auto_floor: String = floor_ids[0]
+	print("  未クリアで周回 -> 断る理由 = '%s'（not_cleared が正解）" % (
+		GameManager.get_floor_auto_reject_reason(auto_floor)
+	))
+	GameManager.mark_stage_cleared(auto_floor, 0)
+	GameManager.add_stamina(9999)
+	print("  クリア済みにした -> 断る理由 = '%s'（空が正解）" % (
+		GameManager.get_floor_auto_reject_reason(auto_floor)
+	))
+
+	# ⚠ 20周ぶん回して、1周あたりの宝箱を初回（2.01個/周）と突き合わせる。
+	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
+	var auto_rounds: int = 20
+	var auto_chests: int = 0
+	var auto_gacha: int = 0
+	var auto_steps: int = 0
+	var auto_zero: int = 0
+	for _r: int in range(auto_rounds):
+		var res: Dictionary = GameManager.run_floor_auto(auto_floor)
+		var got: int = int(res.get(GameManager.AUTO_RUN_CHESTS, 0))
+		auto_chests += got
+		auto_gacha += int(res.get(GameManager.AUTO_RUN_GACHA, 0))
+		auto_steps += int(res.get(GameManager.AUTO_RUN_STEPS, 0))
+		if got <= 0:
+			auto_zero += 1
+	print("  %d周 -> 宝箱 %d 個（%.2f 個/周・⚠ 初回の実測 2.01 と同じ桁が正解）" % [
+		auto_rounds, auto_chests, float(auto_chests) / float(auto_rounds)
+	])
+	print("  歩数 %.1f 手/周（層数 %d が正解） / ショップのガチャ %d 個" % [
+		float(auto_steps) / float(auto_rounds),
+		GameManager.get_floor_layer_count(auto_floor), auto_gacha
+	])
+	print("  ⚠ 1個も出なかった周 = %d（0 が正解＝保証は周回でも効く）" % auto_zero)
+	print("  周回のあと is_in_floor()=%s（false が正解＝降りている）" % str(GameManager.is_in_floor()))
+	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
+
+	# ⚠ フロアの途中では周回できない。
+	if GameManager.start_floor(auto_floor):
+		print("  フロアの途中で周回 -> 断る理由 = '%s'（in_floor が正解）" % (
+			GameManager.get_floor_auto_reject_reason(auto_floor)
+		))
+		GameManager.abandon_floor()
+
 	# --- 7. セーブ→ロードの往復（int() 正規化・EXEC_SCENARIO_FLOOR.md §3-3）---
 	#
 	# ⚠ debug_boot はセーブを書かない（_ready() の注記）。なので JSON の往復だけを再現する。

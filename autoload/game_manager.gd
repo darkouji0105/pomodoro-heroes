@@ -6023,6 +6023,103 @@ func grant_floor_gacha() -> bool:
 	return grant_chest(FLOOR_GACHA_CHEST_ID, GameStateKeys.CHEST_SOURCE_FLOOR)
 
 
+# ========================================================================
+# 周回の自動処理（段階14-f・PLAN_SCENARIO_MAP.md §6）
+#
+# ⚠ 宿題49（周回ステージ・スキップ周回）がここで閉じる。
+# ⚠ 「歩かずに結果だけ作る」のではなく、内部で本当に歩かせる。
+#   ⚠ 宝箱の抽選も最低1回の保証も move_to_node() に紐づいているので、
+#     別経路を書くと「周回だけ宝箱が出ない／出すぎる」が無音で起きる（14-b の申し送り2）。
+# ⚠ 発生するもの … 戦闘結果・宝箱・ショップの無料ガチャ
+# ⚠ 発生しないもの … レリック・休憩・消耗品・たいまつ（フロア内限定のものは全部）
+# ========================================================================
+
+# 周回の結果。呼び出し側が読む欄。
+const AUTO_RUN_CHESTS: String = "chests"
+const AUTO_RUN_GACHA: String = "gacha"
+const AUTO_RUN_STEPS: String = "steps"
+const AUTO_RUN_REWARDS: String = "rewards"
+
+
+# そのフロアを周回できるか。できないなら理由を返す（できるなら ""）。
+#
+# ⚠ 判定はここ1本。run_floor_auto() も画面もこれを呼ぶ（CLAUDE.md 6番）。
+func get_floor_auto_reject_reason(floor_id: String) -> String:
+	if not is_floor_stage(floor_id):
+		return "not_floor"
+	# ⚠ 踏破済みだけ。初回はマップを歩く（メモ「初回は実際に歩いて探索する」）。
+	if not is_stage_cleared(floor_id):
+		return "not_cleared"
+	if is_in_floor():
+		return "in_floor"
+	var cost: int = int(Balance.adventure.stamina_cost_per_stage)
+	var stamina: Dictionary = _state.get(GameStateKeys.STAMINA, {})
+	if int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0)) < cost:
+		return "stamina"
+	return ""
+
+
+# 1周ぶんを内部で走らせて、結果だけ返す。
+#
+# ⚠ 戦闘は勝った前提（踏破済みのフロアなので）。負ける枝を作らない。
+# ⚠ スタミナと固定報酬は、初回と同じ「ボスを倒したときに1回」の形に揃える。
+func run_floor_auto(floor_id: String) -> Dictionary:
+	var empty: Dictionary = {
+		AUTO_RUN_CHESTS: 0, AUTO_RUN_GACHA: 0, AUTO_RUN_STEPS: 0, AUTO_RUN_REWARDS: {},
+	}
+	var reason: String = get_floor_auto_reject_reason(floor_id)
+	if reason != "":
+		print("[GameManager] run_floor_auto('%s') -> false (%s)" % [floor_id, reason])
+		return empty
+	if not start_floor(floor_id):
+		return empty
+
+	var gacha: int = 0
+	var steps: int = 0
+	while true:
+		var moves: Array = get_available_moves()
+		if moves.is_empty():
+			break
+		# ⚠ ルートはランダムに選ぶ。決め打ちにすると、周回のたびに同じ層の
+		#   同じノードだけを踏み、宝箱のレアリティが偏る。
+		var next_id: String = str(moves[randi() % moves.size()])
+		if not move_to_node(next_id):
+			break
+		steps += 1
+		# ⚠ ショップは無料ガチャだけ自動処理（持ち帰れる資産なので）。
+		#   ⚠ 購入もたいまつも発生しない（フロア内限定＝§3-4）。
+		if str(get_floor_node(next_id).get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_SHOP:
+			if grant_floor_gacha():
+				gacha += 1
+		if steps > 50:
+			push_warning("[GameManager] run_floor_auto: 50手で終わらない: " + floor_id)
+			break
+
+	var chests: int = get_floor_chest_count()
+	var rewards: Dictionary = MasterDataLoader.get_stage(floor_id).get(GameStateKeys.BATTLE_REWARDS, {})
+
+	# ⚠ 初回と同じ順で配る。スタミナ → 報酬 → 降りる。
+	var cost: int = int(Balance.adventure.stamina_cost_per_stage)
+	if cost > 0 and not spend_stamina(cost):
+		push_warning("[GameManager] run_floor_auto: スタミナ消費に失敗した（判定は通っている）")
+	apply_battle_rewards({
+		GameStateKeys.BATTLE_VICTORY: true,
+		GameStateKeys.BATTLE_WAVES_CLEARED: steps,
+		GameStateKeys.BATTLE_REWARDS: rewards,
+	})
+	abandon_floor()
+
+	print("[GameManager] run_floor_auto('%s') -> %d手 / 宝箱 %d / ガチャ %d" % [
+		floor_id, steps, chests, gacha
+	])
+	return {
+		AUTO_RUN_CHESTS: chests,
+		AUTO_RUN_GACHA: gacha,
+		AUTO_RUN_STEPS: steps,
+		AUTO_RUN_REWARDS: rewards,
+	}
+
+
 # このフロアでいままでに出た宝箱の数。
 func get_floor_chest_count() -> int:
 	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})

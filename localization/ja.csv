@@ -192,6 +192,13 @@ ui_floor_shop_bought,買った
 ui_floor_shop_healed,手当てした
 ui_floor_shop_cannot_buy,買えなかった
 ui_floor_shop_leave,店を出る
+ui_floor_repeat,周回
+ui_floor_repeat_done,1周した。
+ui_floor_repeat_gacha,ガチャ
+ui_floor_repeat_reject_not_floor,ここは周回できない
+ui_floor_repeat_reject_not_cleared,一度クリアすると周回できる
+ui_floor_repeat_reject_in_floor,別のフロアの途中。先に降りること
+ui_floor_repeat_reject_stamina,スタミナが足りない
 ui_base_save_completed,セーブしました
 ui_base_save_failed,セーブに失敗しました
 ui_base_chest_received,宝箱を%d個受け取りました
