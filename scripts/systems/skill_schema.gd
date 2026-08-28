@@ -554,7 +554,10 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	#   ⚠ 判定はこの1欄の有無だけ。IDの綴りで見分けないこと。
 	var relic_scope: String = str(data.get(FIELD_RELIC_SCOPE, ""))
 	var is_relic: bool = relic_scope != ""
-	# E128 … relic_scope の値が party / single のどちらでもない。
+	# E130 … relic_scope の値が party / single のどちらでもない。
+	#   ⚠ 2026-08-25：最初 E128 と書いたが、あれは research.json の検証が
+	#     既に使っていた（master_data_loader.gd:344）。E129 も workshop が使用済み。
+	#     ⚠ 番号の続きは NEXT_STEPS §2-7 を見てから採ること。
 	#   ⚠ 綴りを間違えると「全員に効くつもりが1人にも効かない」が無音で起きる。
 	if is_relic and not (relic_scope in RELIC_SCOPES_KNOWN):
 		_err(issues, skill_id, "%s が不明: '%s'（%s のどちらか）" % [
