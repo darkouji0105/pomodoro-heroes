@@ -431,6 +431,9 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 59. ⚠ **ジェムに本番の入口も出口も1つも無い**（⚠ **`PLAN_RESOURCE_FLOW.md` §3**）。⚠ **`open_chest()` は `gems` を読む枝を持つが `chests.json` に `gems` を持つエントリが0件。⚠ `_spend_currency()` は `gems` を扱えるが `shop.json` の13枠は全部 `"currency_type": "gold"`。⚠ `apply_battle_rewards()` も `apply_pomodoro_rewards()` も `gems` を読まない。⚠ つまり `F4` 以外で1つも増えず、⚠ 増やしても使い道が1つも無い**
 60. ⚠ **`apply_pomodoro_rewards({})` が空の Dictionary で呼ばれている**（`pomodoro.gd:259`）。⚠ **関数側は `gold` / `stamina` / `materials` を読む枝を全部持っているのに、⚠ 渡されるものが空なので1つも通らない。⚠ ポモドーロが実際に配っているのはポーション（`grant_stamina_potions()`）と加護の宝箱（`claim_pending_chests()`）だけ**。⚠ **宿題32「`pomodoro_config.gd` の `gold_per_focus_minute` / `stamina_per_focus_minute` / `materials_per_focus_minute` が誰も読まない欄」の正体がこれ**
 61. ⚠ **ゴールドの入口がステージの固定報酬1本・出口がショップ1本しかない**（⚠ **`PLAN_RESOURCE_FLOW.md` §2**）。⚠ **`open_chest()` は `gold` を読むが `chests.json` に `gold` を持つエントリが0件。⚠ 研究にゴールド払いが無い（宿題21）・鍛冶も装飾も作業場も素材払い**
+62. ⚠ **ホバーで説明が出る共有部品が無い**（⚠ **`EXEC_SCENARIO_RELIC.md` §4-2 の要望**）。⚠ **レリックの選択画面で「何が起きるか分からないまま選ぶ」問題。⚠ 研究・装飾・スキル・ショップにも同じ穴がある。⚠ レリック専用ではなく使い回せる部品として作ること**
+   - ⚠ **この行は 2026-08-28 に足した。⚠ `EXEC_SCENARIO_RELIC.md` は「`PROJECT_STATUS.md` の宿題62 に落とした」と書いていたが、⚠ 実際には落ちていなかった＝ズレ45**
+63. ⚠ **道中の戦闘ノードに報酬が1つも無い**（⚠ **`battle_controller.gd:1652` の `if (not in_floor_run) or is_boss:`＝段階14-c の意図どおり**）。⚠ **一方で宝箱は「移動」に紐づくのでどのルートでも同じ数。⚠ つまり戦闘ノードは純粋なコストで、⚠ 避けるのが常に最適になる。⚠ 段階14-h では `battle` の重みを底上げして「避けきれない」形にしただけで、⚠ 報酬は付けていない**（⚠ **`.json` では書けない。⚠ `battle_controller` の分岐とノードごとの報酬が要る**）。⚠ **人間の決定（2026-08-28）で段階を分けた＝`PLAN_SCENARIO_MAP.md` §10-2-B**
 
 ~~⚠ **宿題49（周回ステージ・スキップ周回）は「やらない」から「やる」へ戻った。**~~ ✅ **閉じた**（2026-08-25・段階14-f・`EXEC_SCENARIO_AUTORUN.md`）。⚠ **踏破済みのフロアに「周回」ボタンが出て、⚠ 1回押すと内部で1周ぶん歩き、⚠ 結果だけ1行で返る。⚠ 「結果だけ作る」別経路を書かず、⚠ 初回と同じ `move_to_node()` を通している**（⚠ **宝箱の抽選・深度補正・最低1回の保証を2箇所に書かないため**）。
 ⚠ **宿題23（戦闘結果に宝箱が出ない）は、⚠ シナリオの作り替えで「マップ上に出る」に吸収される見込み**（⚠ **`PLAN_SCENARIO_MAP.md` §4-2 の5**）。

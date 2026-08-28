@@ -156,18 +156,22 @@ extends Resource
 # ⚠ ここに欄を足すだけで既定値付きで Inspector に出る（.tres は触らない）。
 
 ## 移動1回あたり宝箱が出る確率（％）。
-## 目安：35（5層のフロアで 5回移動 → 1周あたり 1.75 個）
-@export var floor_chest_chance_pct: int = 35
+## 目安：30（6層のフロアで 6回移動 → 1周あたり 1.80 個）
+## ⚠ 2026-08-28 に 35 → 30。層数を 5 → 6 に増やした（移動が1回増えた）ぶんの相殺。
+##   ⚠ 1周あたりの個数を据え置くのが狙い。掛け算なのでどちらか片方だけ触ると倍率が動く。
+@export var floor_chest_chance_pct: int = 30
 
 # レアリティの重み。⚠ 添字は「着いたノードの層 − 1」。
 # ⚠ 配列より深い層に着いたら末尾を使う。
 # ⚠ 各層の合計が 100 になるように保つ（合計が変わっても動くが、読めなくなる）。
 # ⚠ 「奥ほど良い物が出やすい」はプレイヤーに明示する決定なので、
 #   ここの傾きを変えたら画面の説明文も直すこと（PLAN_SCENARIO_MAP.md §4-5）。
-@export var floor_chest_weight_common: Array[int] = [70, 60, 50, 40, 30]
-@export var floor_chest_weight_rare: Array[int] = [25, 30, 33, 35, 35]
-@export var floor_chest_weight_epic: Array[int] = [5, 9, 14, 20, 25]
-@export var floor_chest_weight_legendary: Array[int] = [0, 1, 3, 5, 10]
+# ⚠ 2026-08-28 に 5要素 → 6要素。層数を 6 にしたので、末尾流用ではなく
+#   層6ぶんを明示する（層5と層6が同じ表になるのを避けるため）。
+@export var floor_chest_weight_common: Array[int] = [70, 60, 50, 42, 35, 30]
+@export var floor_chest_weight_rare: Array[int] = [25, 30, 33, 34, 35, 35]
+@export var floor_chest_weight_epic: Array[int] = [5, 9, 14, 19, 22, 25]
+@export var floor_chest_weight_legendary: Array[int] = [0, 1, 3, 5, 8, 10]
 
 ## 休憩ノードで全員が満タンに戻るか（段階14-c）。
 ## ⚠ まずはシンプルに（メモの「様子見」）。割合回復にするなら
@@ -188,11 +192,17 @@ extends Resource
 
 ## グレードを1つ上げるのに払うゴールド。⚠ 添字は「上げたあとのグレード」。
 ## ⚠ [0] は使わない（grade 0 は最初から持っている）。
-## ⚠ 価格は高めにする（メモ「価格は高め」）。フロアごとに買い直すため。
-@export var floor_torch_prices: Array[int] = [0, 300, 800, 2000]
+## ⚠ 2026-08-28 に [0,300,800,2000] → [0,50,150,400]。
+##   ⚠ 「価格は高め」（メモ）を額面どおり取ると、フロアを降りると消えるものが
+##     拠点ショップの恒久の品（最安 300 G）と同額になり、絶対に買われない。
+##     ⚠ 桁の基準は「1周のゴールド」（floor_1 が 50 G ／ floor_5 が 130 G）。
+##     grade 1 ＝ floor_1 の1周ぶん／grade 3 ＝ floor_5 の約3周ぶん。
+@export var floor_torch_prices: Array[int] = [0, 50, 150, 400]
 
 ## フロア内ショップの回復。⚠ 持ち帰れない（フロア専用）。
 ## ⚠ 買うとその場で効く。「持ち物として買って後で使う」形にしていない
 ##   （消耗品を使う汎用の口がまだ無いため＝14-e の申し送り）。
-@export var floor_shop_heal_price: int = 200
+## ⚠ 2026-08-28 に 200 → 60。たいまつと同じ理由（1周のゴールドが 50〜130 G）。
+##   ⚠ 休憩ノードが無料で全回復するので、回復はそれより明確に安くないと押されない。
+@export var floor_shop_heal_price: int = 60
 @export var floor_shop_heal_pct: int = 50
