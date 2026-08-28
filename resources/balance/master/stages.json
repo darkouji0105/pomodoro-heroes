@@ -12,8 +12,8 @@
 	  { "node_count": 1, "weights": { "battle": 100 } },
 	  { "node_count": 2, "weights": { "battle": 70, "relic": 30 } },
 	  { "node_count": 2, "weights": { "battle": 60, "relic": 20, "rest": 20 } },
-	  { "node_count": 3, "weights": { "battle": 55, "shop": 30, "rest": 15 } },
-	  { "node_count": 3, "weights": { "battle": 55, "relic": 20, "shop": 25 } },
+	  { "node_count": 1, "weights": { "shop": 100 } },
+	  { "node_count": 3, "weights": { "battle": 55, "relic": 25, "rest": 20 } },
 	  { "node_count": 2, "weights": { "battle": 65, "rest": 35 } }
 	],
 	"battle_pool": [
@@ -36,8 +36,8 @@
 	  { "node_count": 1, "weights": { "battle": 100 } },
 	  { "node_count": 2, "weights": { "battle": 70, "relic": 30 } },
 	  { "node_count": 3, "weights": { "battle": 60, "relic": 20, "rest": 20 } },
-	  { "node_count": 3, "weights": { "battle": 55, "shop": 30, "rest": 15 } },
-	  { "node_count": 3, "weights": { "battle": 55, "relic": 20, "shop": 25 } },
+	  { "node_count": 1, "weights": { "shop": 100 } },
+	  { "node_count": 3, "weights": { "battle": 55, "relic": 25, "rest": 20 } },
 	  { "node_count": 2, "weights": { "battle": 65, "rest": 35 } }
 	],
 	"battle_pool": [
@@ -61,8 +61,8 @@
 	  { "node_count": 1, "weights": { "battle": 100 } },
 	  { "node_count": 3, "weights": { "battle": 70, "relic": 30 } },
 	  { "node_count": 3, "weights": { "battle": 60, "relic": 20, "rest": 20 } },
-	  { "node_count": 3, "weights": { "battle": 55, "shop": 30, "rest": 15 } },
-	  { "node_count": 3, "weights": { "battle": 55, "relic": 20, "shop": 25 } },
+	  { "node_count": 1, "weights": { "shop": 100 } },
+	  { "node_count": 3, "weights": { "battle": 55, "relic": 25, "rest": 20 } },
 	  { "node_count": 2, "weights": { "battle": 65, "rest": 35 } }
 	],
 	"battle_pool": [
@@ -86,8 +86,8 @@
 	  { "node_count": 1, "weights": { "battle": 100 } },
 	  { "node_count": 3, "weights": { "battle": 70, "relic": 30 } },
 	  { "node_count": 3, "weights": { "battle": 60, "relic": 20, "rest": 20 } },
-	  { "node_count": 3, "weights": { "battle": 55, "shop": 30, "rest": 15 } },
-	  { "node_count": 4, "weights": { "battle": 55, "relic": 20, "shop": 25 } },
+	  { "node_count": 1, "weights": { "shop": 100 } },
+	  { "node_count": 4, "weights": { "battle": 55, "relic": 25, "rest": 20 } },
 	  { "node_count": 2, "weights": { "battle": 65, "rest": 35 } }
 	],
 	"battle_pool": [
@@ -111,8 +111,8 @@
 	  { "node_count": 1, "weights": { "battle": 100 } },
 	  { "node_count": 3, "weights": { "battle": 70, "relic": 30 } },
 	  { "node_count": 3, "weights": { "battle": 60, "relic": 20, "rest": 20 } },
-	  { "node_count": 4, "weights": { "battle": 55, "shop": 30, "rest": 15 } },
-	  { "node_count": 4, "weights": { "battle": 55, "relic": 20, "shop": 25 } },
+	  { "node_count": 1, "weights": { "shop": 100 } },
+	  { "node_count": 4, "weights": { "battle": 55, "relic": 25, "rest": 20 } },
 	  { "node_count": 3, "weights": { "battle": 65, "rest": 35 } }
 	],
 	"battle_pool": [
