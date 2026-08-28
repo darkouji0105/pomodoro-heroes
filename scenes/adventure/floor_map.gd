@@ -18,6 +18,21 @@ const SHOP_PATH: String = "res://scenes/adventure/floor_shop.tscn"
 # 中身が見えていないマスの表示（段階14-e）。
 const HIDDEN_TEXT: String = "？"
 
+# 宝箱を見つけたときの演出（段階14-g）。
+#
+# ⚠ 台帳 §4-5「レアリティは開封前から見た目で判別できる。隠さず全て可視化する」。
+#   ⚠ 色はここに置く（main_theme.tres に対応する概念が無い。上のマスの色と同じ扱い）。
+# ⚠ レアリティの綴りは GameManager から受け取る。chest_id から切り出さないこと。
+const CHEST_COLORS: Dictionary = {
+	"common": Color(0.80, 0.80, 0.82),
+	"rare": Color(0.40, 0.70, 1.00),
+	"epic": Color(0.75, 0.45, 0.95),
+	"legendary": Color(1.00, 0.80, 0.25),
+}
+# 演出の長さ（秒）。⚠ ここを 0 にしないこと。0 にすると戦闘マスでは
+#   遷移が即座に走り、見つけたことが一度も見えない（それが直前の症状）。
+const CHEST_POPUP_SEC: float = 0.9
+
 # マスの見た目。⚠ 色はここに置く（main_theme.tres に対応する概念が無い。
 #   adventure_config の pop_*_color と同じ扱い）。
 const COLOR_CURRENT: Color = Color(1.0, 0.95, 0.55)
@@ -28,6 +43,7 @@ const COLOR_FAR: Color = Color(0.6, 0.6, 0.65)
 @onready var floor_name_label: Label = $Layout/Header/FloorNameLabel
 @onready var chest_label: Label = $Layout/Header/ChestLabel
 @onready var stamina_value: ResourceDisplay = $Layout/Header/StaminaValue
+@onready var chest_popup: Label = $ChestPopup
 @onready var relic_label: Label = $Layout/RelicLabel
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var layer_list: VBoxContainer = $Layout/LayerList
@@ -50,6 +66,7 @@ func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
 	GameManager.floor_run_changed.connect(_on_floor_run_changed)
 	GameManager.resource_changed.connect(_on_resource_changed)
+	GameManager.floor_chest_found.connect(_on_chest_found)
 	_rebuild()
 
 
@@ -190,13 +207,73 @@ func _make_node_button(
 	return button
 
 
+# この移動で見つけた宝箱。⚠ move_to_node() の途中でシグナルが飛んでくるので、
+#   ⚠ ここで受けてから遷移の前に演出を出す（段階14-g）。
+var _found_chest_id: String = ""
+var _found_rarity: String = ""
+
+
+# 宝箱が出た。⚠ ここでは記録するだけ。演出は _on_node_pressed() が出す。
+#
+# ⚠ ここで直接 change_scene しないこと。move_to_node() の途中で呼ばれているので、
+#   状態を書き終える前に画面が消える。
+func _on_chest_found(chest_id: String, rarity: String) -> void:
+	_found_chest_id = chest_id
+	_found_rarity = rarity
+
+
 # マスを押した。⚠ 進んでから種類で分ける。
 #   ⚠ 進めなければ GameManager が false を返すので、こちらでは判定しない。
 func _on_node_pressed(node_id: String) -> void:
+	_found_chest_id = ""
+	_found_rarity = ""
+	# ⚠ 前の移動でレアリティの色に染めているので、必ず白へ戻す。
+	#   戻さないと「休憩した」がレジェンダリーの金色で出る。
+	message_label.modulate = Color.WHITE
 	if not GameManager.move_to_node(node_id):
 		message_label.text = tr("ui_floor_cannot_move")
 		return
 
+	# 宝箱が出ていたら、⚠ 先に見せてから先へ進む（段階14-g）。
+	#   ⚠ 戦闘マスへの移動はすぐ遷移するので、⚠ 待たせないと一度も見えない。
+	if _found_chest_id != "":
+		_play_chest_popup(node_id)
+		return
+	_enter_node(node_id)
+
+
+# 宝箱の演出。⚠ 終わってから _enter_node() を呼ぶ。
+#
+# ⚠ await を使わず、Tween の finished に繋ぐ。await にすると、途中で
+#   画面が外れたときに解放済みのノードを触る。
+func _play_chest_popup(node_id: String) -> void:
+	var chest: Dictionary = MasterDataLoader.get_chest(_found_chest_id)
+	var chest_name: String = tr(str(chest.get(GameManager.CHEST_NAME_KEY, _found_chest_id)))
+	var color: Color = CHEST_COLORS.get(_found_rarity, Color.WHITE)
+
+	chest_popup.text = "%s\n%s" % [tr("ui_floor_chest_found"), chest_name]
+	chest_popup.modulate = Color(color.r, color.g, color.b, 0.0)
+	chest_popup.scale = Vector2(0.6, 0.6)
+	chest_popup.visible = true
+	# メッセージ行にも残す。⚠ 演出は消えるが、こちらは次の移動まで読める。
+	message_label.text = "%s %s" % [tr("ui_floor_chest_found"), chest_name]
+	message_label.modulate = color
+	_update_header()
+
+	var tween: Tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(chest_popup, "modulate:a", 1.0, CHEST_POPUP_SEC * 0.3)
+	tween.tween_property(chest_popup, "scale", Vector2(1.0, 1.0), CHEST_POPUP_SEC * 0.3) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.set_parallel(false)
+	tween.tween_interval(CHEST_POPUP_SEC * 0.4)
+	tween.tween_property(chest_popup, "modulate:a", 0.0, CHEST_POPUP_SEC * 0.3)
+	tween.finished.connect(_enter_node.bind(node_id))
+
+
+# 踏んだマスの中身へ進む。⚠ 種類ごとの分岐はここ1本。
+func _enter_node(node_id: String) -> void:
+	chest_popup.visible = false
 	var node: Dictionary = GameManager.get_floor_node(node_id)
 	var kind: String = str(node.get(GameStateKeys.FLOOR_NODE_KIND, ""))
 

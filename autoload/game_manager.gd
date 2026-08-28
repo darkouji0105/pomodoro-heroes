@@ -39,6 +39,12 @@ signal crafting_queue_changed()
 # ⚠ floor_id は「変わったあとの値」。中断したときは "" が飛ぶ。
 signal floor_run_changed(floor_id: String)
 
+# 移動で宝箱が出た（段階14-g）。⚠ 積まれたときだけ飛ぶ（中身が空なら飛ばない）。
+# ⚠ rarity を一緒に渡す。⚠ 受け取る側が chest_id から綴りを切り出さないため
+#   （IDから切り出さない＝ITEM_MASTER_PART_KIND のコメントと同じ理由）。
+# ⚠ 周回（run_floor_auto）でも飛ぶ。購読しているのはマップ画面だけなので実害は無い。
+signal floor_chest_found(chest_id: String, rarity: String)
+
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
 const LEVEL_UP_COST_MATERIAL_ID: String = "material_id"
@@ -5735,6 +5741,9 @@ func _roll_floor_chest(node_id: String) -> void:
 	var next_run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
 	next_run[GameStateKeys.FLOOR_RUN_CHEST_COUNT] = count + 1
 	_state[GameStateKeys.FLOOR_RUN] = next_run
+	# ⚠ 状態を書き終えてから知らせる。先に飛ばすと、購読側が古い件数を読む
+	#   （宝箱の件数と同じ形＝apply_battle_rewards のコメント）。
+	floor_chest_found.emit(chest_id, rarity)
 
 
 # 層の深さでレアリティを1つ引く。
