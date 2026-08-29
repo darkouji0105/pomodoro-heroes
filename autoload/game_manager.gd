@@ -338,6 +338,9 @@ func _build_new_game_state(caller: String) -> void:
 	# ⚠ 上限の合計が max_character_level と一致しているかを見る（E127・段階10）。
 	#   ⚠ ずれるとパッシブの Lv100 が永久に解放されないが、赤も黄も出ない。
 	_validate_level_cap_total()
+	# ⚠ FloorConfig の割り当てと層の重みを見る（E131・段階14-i）。
+	#   ⚠ 割り当て漏れは「起動は通るがフロアに入った瞬間に落ちる」形で出る。
+	_validate_floor_config()
 	# ショップのラインナップを shop.json から流し込む。research_tree と同じ理由で、
 	# _empty_state_template() の line_up は [] のため、これが無いと画面に1つも出ない。
 	_sync_shops_from_master()
@@ -4780,6 +4783,60 @@ func _validate_level_cap_total() -> void:
 		base_cap, sum_unlocks, cap_nodes, max_level
 	])
 
+
+# E131 … FloorConfig が割り当てられ、層の重みの4本が噛み合っているか（段階14-i）。
+#
+# ⚠ 新しい Config なので、balance.tscn の floor 欄が空だと Balance.floor が null になる。
+#   ⚠ 起動は通り、フロアに入った瞬間に落ちる。ここで先に鳴らす。
+# ⚠ 4本の長さが揃っていないと、短い配列だけ clampi で末尾が使われ、
+#   「層6だけ重みが層5のまま」という無音のずれになる。
+# ⚠ ショップの合流点（重みが shop だけの層）が1つも無いと、
+#   「ショップは在るのに行けない周」が戻る（PLAN_SCENARIO_MAP.md §10-2-C）。
+#   ⚠ これは仕様の選択なので赤ではなく黄（W21）にする。
+func _validate_floor_config() -> void:
+	if Balance == null or Balance.floor == null:
+		push_error("[GameManager] E131 balance.tscn: Balance.floor が null。floor_config.tres を Balance ノードの floor 欄に割り当てること")
+		return
+
+	var rows: Dictionary = {
+		"layer_weight_battle": Balance.floor.layer_weight_battle,
+		"layer_weight_relic": Balance.floor.layer_weight_relic,
+		"layer_weight_rest": Balance.floor.layer_weight_rest,
+		"layer_weight_shop": Balance.floor.layer_weight_shop,
+	}
+	var expected: int = (rows["layer_weight_battle"] as Array).size()
+	var errors: int = 0
+	for name: String in rows:
+		var size: int = (rows[name] as Array).size()
+		if size != expected:
+			push_error("[GameManager] E131 floor_config.gd: %s の長さ %d が layer_weight_battle の %d と違う（層ごとの重みがずれる）" % [
+				name, size, expected
+			])
+			errors += 1
+	if expected <= 0:
+		push_error("[GameManager] E131 floor_config.gd: 層の重みが空。層が1つも作れない")
+		errors += 1
+
+	# ⚠ 各層の合計が 0 だと _roll_node_kind() が battle を返す（あちらの保険）。
+	#   ⚠ 保険が効くので落ちないが、意図しない全戦闘フロアになる。
+	var forced_shop_layers: int = 0
+	for layer: int in range(1, expected + 1):
+		var weights: Dictionary = get_floor_layer_weights(layer)
+		if weights.is_empty():
+			push_error("[GameManager] E131 floor_config.gd: 層 %d の重みが全部 0（battle に落ちる）" % layer)
+			errors += 1
+			continue
+		if weights.size() == 1 and weights.has(GameStateKeys.FLOOR_NODE_KIND_SHOP):
+			forced_shop_layers += 1
+	if forced_shop_layers <= 0:
+		push_warning("[GameManager] W21 floor_config.gd: 必ず通るショップの層が無い。たいまつを買えない周が出る（PLAN_SCENARIO_MAP.md §10-2-C）")
+
+	if errors > 0:
+		return
+	print("[GameManager] floor config validated: %d 層 / 必ず通るショップの層 %d, 0 errors" % [
+		expected, forced_shop_layers
+	])
+
 func get_effective_level_cap(_character_id: String) -> int:
 	# 保存された値ではなく、research_treeを都度走査して計算する。
 	#
@@ -5721,7 +5778,7 @@ func _roll_floor_chest(node_id: String) -> void:
 	var count: int = int(run.get(GameStateKeys.FLOOR_RUN_CHEST_COUNT, 0))
 	var is_boss: bool = str(node.get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BOSS
 
-	var chance: int = int(Balance.adventure.floor_chest_chance_pct)
+	var chance: int = int(Balance.floor.chest_chance_pct)
 	var hit: bool = randi_range(1, 100) <= chance
 	# ⚠ 保証。⚠ 「出なかった」ときだけ効く。出ていれば何もしない。
 	if not hit and is_boss and count <= 0:
@@ -5753,10 +5810,10 @@ func _roll_floor_chest(node_id: String) -> void:
 # ⚠ 配列より深い層に着いたら末尾を使う。
 func _roll_chest_rarity(layer: int) -> String:
 	var table: Dictionary = {
-		CHEST_RARITY_COMMON: Balance.adventure.floor_chest_weight_common,
-		CHEST_RARITY_RARE: Balance.adventure.floor_chest_weight_rare,
-		CHEST_RARITY_EPIC: Balance.adventure.floor_chest_weight_epic,
-		CHEST_RARITY_LEGENDARY: Balance.adventure.floor_chest_weight_legendary,
+		CHEST_RARITY_COMMON: Balance.floor.chest_weight_common,
+		CHEST_RARITY_RARE: Balance.floor.chest_weight_rare,
+		CHEST_RARITY_EPIC: Balance.floor.chest_weight_epic,
+		CHEST_RARITY_LEGENDARY: Balance.floor.chest_weight_legendary,
 	}
 	# ⚠ 綴り順で回す（Dictionary のキー順は不定・_roll_node_kind() と同じ）。
 	var rarities: Array = [
@@ -5913,13 +5970,13 @@ func get_floor_torch_grade() -> int:
 
 # たいまつの上限グレード。⚠ 配列の長さがそのまま上限（メモ「上限グレードあり」）。
 func get_floor_torch_max_grade() -> int:
-	var table: Array[int] = Balance.adventure.floor_torch_reveal_layers
+	var table: Array[int] = Balance.floor.torch_reveal_layers
 	return maxi(0, table.size() - 1)
 
 
 # いまのたいまつで「何層先まで中身が見えるか」。
 func get_floor_reveal_layers() -> int:
-	var table: Array[int] = Balance.adventure.floor_torch_reveal_layers
+	var table: Array[int] = Balance.floor.torch_reveal_layers
 	if table.is_empty():
 		return 1
 	var index: int = clampi(get_floor_torch_grade(), 0, table.size() - 1)
@@ -5931,7 +5988,7 @@ func get_floor_torch_next_price() -> int:
 	var next_grade: int = get_floor_torch_grade() + 1
 	if next_grade > get_floor_torch_max_grade():
 		return -1
-	var prices: Array[int] = Balance.adventure.floor_torch_prices
+	var prices: Array[int] = Balance.floor.torch_prices
 	if next_grade >= prices.size():
 		return -1
 	return int(prices[next_grade])
@@ -5992,11 +6049,11 @@ func buy_floor_torch() -> bool:
 func buy_floor_heal() -> bool:
 	if not is_in_floor():
 		return false
-	var price: int = int(Balance.adventure.floor_shop_heal_price)
+	var price: int = int(Balance.floor.shop_heal_price)
 	if int(_state.get(GameStateKeys.GOLD, 0)) < price:
 		print("[GameManager] buy_floor_heal() -> false (ゴールド不足 %d)" % price)
 		return false
-	var pct: int = int(Balance.adventure.floor_shop_heal_pct)
+	var pct: int = int(Balance.floor.shop_heal_pct)
 	var carry: Dictionary = get_floor_hp_carry()
 	if carry.is_empty():
 		print("[GameManager] buy_floor_heal() -> false (全員すでに満タン)")
@@ -6173,8 +6230,11 @@ func set_floor_hp_carry(hp_by_character: Dictionary) -> void:
 
 # 休憩ノード（段階14-c）。持ち越しHPを捨てる＝全員が満タンで次の戦闘に入る。
 #
-# ⚠ 割合回復にするなら、ここで hp_carry を書き換える形にする
-#   （Balance.adventure.floor_rest_full_heal）。
+# ⚠ この関数は Balance を1行も読んでいない。⚠ 以前ここのコメントは
+#   Balance.adventure.floor_rest_full_heal を指していたが、⚠ あの欄は
+#   誰も読まない死に欄だった（2026-08-28に発見＝ズレ46）。⚠ 欄ごと消した。
+# ⚠ 割合回復にするなら FloorConfig に rest_heal_pct を足し（shop_heal_pct と同じ形）、
+#   ここで hp_carry を書き換える＝宿題64。⚠ 実装せずに欄だけ足さないこと。
 func rest_at_node() -> bool:
 	if not is_in_floor():
 		return false
@@ -6248,7 +6308,11 @@ func _build_floor_map(floor_id: String) -> Dictionary:
 		var layer: Dictionary = layers[layer_index]
 		# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
 		var count: int = int(layer.get(LAYER_NODE_COUNT, 0))
-		var weights: Dictionary = layer.get(LAYER_WEIGHTS, {})
+		# ⚠ 重みは stages.json ではなく FloorConfig（段階14-i）。
+		#   ⚠ 全フロア共通の1枚。⚠ フロアごとに変えたくなったら、
+		#     stages.json 側に「この層だけ上書き」を足すのではなく、
+		#     FloorConfig を配列の配列にすること（置き場を2つにしない）。
+		var weights: Dictionary = get_floor_layer_weights(layer_index + 1)
 		var row: Array = []
 		for i: int in range(count):
 			var node_id: String = "n_%d_%d" % [layer_index + 1, i]
@@ -6310,6 +6374,31 @@ func _connect_layers(nodes: Dictionary, upper: Array, lower: Array) -> void:
 		for k: int in range(lo, hi + 1):
 			next_ids.append(str(lower[k]))
 		(nodes[str(upper[j])] as Dictionary)[GameStateKeys.FLOOR_NODE_NEXT] = next_ids
+
+
+# 層 N のノード出現比を {kind: weight} で返す（段階14-i）。
+#
+# ⚠ 置き場は FloorConfig の1本だけ。⚠ stages.json の layers は node_count しか持たない。
+# ⚠ 配列より深い層を聞かれたら末尾を使う（_roll_chest_rarity と同じ clampi）。
+# ⚠ 重みが全部 0 の層は _roll_node_kind() が battle を返す（あちらの保険）。
+func get_floor_layer_weights(layer: int) -> Dictionary:
+	var table: Dictionary = {
+		GameStateKeys.FLOOR_NODE_KIND_BATTLE: Balance.floor.layer_weight_battle,
+		GameStateKeys.FLOOR_NODE_KIND_RELIC: Balance.floor.layer_weight_relic,
+		GameStateKeys.FLOOR_NODE_KIND_REST: Balance.floor.layer_weight_rest,
+		GameStateKeys.FLOOR_NODE_KIND_SHOP: Balance.floor.layer_weight_shop,
+	}
+	var out: Dictionary = {}
+	for kind: String in table:
+		var row: Array = table[kind]
+		if row.is_empty():
+			continue
+		var w: int = maxi(0, int(row[clampi(layer - 1, 0, row.size() - 1)]))
+		# ⚠ 0 の枠は入れない。⚠ _roll_node_kind() は綴り順に減算するだけなので
+		#   0 を入れても結果は変わらないが、ログとデバッグ表示が読みにくくなる。
+		if w > 0:
+			out[kind] = w
+	return out
 
 
 # ノードの種類を1つ引く。{kind: weight} の重み付き抽選。

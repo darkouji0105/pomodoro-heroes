@@ -69,8 +69,8 @@ func _rebuild() -> void:
 		torch_button.disabled = gold < price
 
 	# 回復。⚠ 全員満タンなら買えない。
-	var heal_price: int = int(Balance.adventure.floor_shop_heal_price)
-	var heal_pct: int = int(Balance.adventure.floor_shop_heal_pct)
+	var heal_price: int = int(Balance.floor.shop_heal_price)
+	var heal_pct: int = int(Balance.floor.shop_heal_pct)
 	var hurt: int = GameManager.get_floor_hp_carry().size()
 	heal_label.text = "%s +%d%%（%s %d人） %d G" % [
 		tr("ui_floor_shop_heal"), heal_pct, tr("ui_floor_shop_hurt"), hurt, heal_price
@@ -80,7 +80,7 @@ func _rebuild() -> void:
 
 # グレード n のときに何層先まで見えるか。⚠ 表示のためだけ。
 func _reveal_at(grade: int) -> int:
-	var table: Array[int] = Balance.adventure.floor_torch_reveal_layers
+	var table: Array[int] = Balance.floor.torch_reveal_layers
 	if table.is_empty():
 		return 1
 	return int(table[clampi(grade, 0, table.size() - 1)])

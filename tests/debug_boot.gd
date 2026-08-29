@@ -1645,10 +1645,10 @@ func _economy_layer_material_expect(floor_id: String, layer: int) -> Dictionary:
 	if not (chest_ids is Dictionary):
 		return {}
 	var table: Dictionary = {
-		GameManager.CHEST_RARITY_COMMON: Balance.adventure.floor_chest_weight_common,
-		GameManager.CHEST_RARITY_RARE: Balance.adventure.floor_chest_weight_rare,
-		GameManager.CHEST_RARITY_EPIC: Balance.adventure.floor_chest_weight_epic,
-		GameManager.CHEST_RARITY_LEGENDARY: Balance.adventure.floor_chest_weight_legendary,
+		GameManager.CHEST_RARITY_COMMON: Balance.floor.chest_weight_common,
+		GameManager.CHEST_RARITY_RARE: Balance.floor.chest_weight_rare,
+		GameManager.CHEST_RARITY_EPIC: Balance.floor.chest_weight_epic,
+		GameManager.CHEST_RARITY_LEGENDARY: Balance.floor.chest_weight_legendary,
 	}
 	var total: int = 0
 	var weights: Dictionary = {}
@@ -1684,7 +1684,7 @@ func _economy_floor_chest_count(floor_id: String) -> float:
 	var layers: int = _economy_floor_layer_count(floor_id)
 	if layers <= 0:
 		return 0.0
-	var p: float = float(int(Balance.adventure.floor_chest_chance_pct)) / 100.0
+	var p: float = float(int(Balance.floor.chest_chance_pct)) / 100.0
 	return float(layers) * p + pow(1.0 - p, float(layers))
 
 
@@ -1694,7 +1694,7 @@ func _economy_floor_chest_materials(floor_id: String) -> Dictionary:
 	var out: Dictionary = {}
 	if layers <= 0:
 		return out
-	var p: float = float(int(Balance.adventure.floor_chest_chance_pct)) / 100.0
+	var p: float = float(int(Balance.floor.chest_chance_pct)) / 100.0
 	for move: int in range(1, layers + 1):
 		# ⚠ move 回目に着く層。最後の1回がボス（層 L+1）。
 		var layer: int = move + 1
@@ -3006,7 +3006,7 @@ func _report_floor() -> void:
 
 	# 実際に歩いて1周あたりの宝箱を数える。⚠ 100周だけ（print が増えるため）。
 	print("[DebugBoot] --- 1周あたりの宝箱（100周・出現率 %d%%）---" % int(
-		Balance.adventure.floor_chest_chance_pct
+		Balance.floor.chest_chance_pct
 	))
 	var rounds: int = 100
 	var zero_rounds: int = 0
@@ -3028,8 +3028,8 @@ func _report_floor() -> void:
 
 	# 出現率を0にして保証だけを見る。⚠ 必ず元に戻すこと。
 	print("[DebugBoot] --- 保証だけ（出現率 0%）---")
-	var backup_chance: int = int(Balance.adventure.floor_chest_chance_pct)
-	Balance.adventure.floor_chest_chance_pct = 0
+	var backup_chance: int = int(Balance.floor.chest_chance_pct)
+	Balance.floor.chest_chance_pct = 0
 	var guarantee_rounds: int = 100
 	var guarantee_total: int = 0
 	var guarantee_zero: int = 0
@@ -3043,12 +3043,12 @@ func _report_floor() -> void:
 		if got <= 0:
 			guarantee_zero += 1
 		GameManager.abandon_floor()
-	Balance.adventure.floor_chest_chance_pct = backup_chance
+	Balance.floor.chest_chance_pct = backup_chance
 	print("  合計 %d 個 / %d 周（⚠ ちょうど %d 個＝各周1個が正解）" % [
 		guarantee_total, guarantee_rounds, guarantee_rounds
 	])
 	print("  ⚠ 1個も出なかった周 = %d（0 が正解）" % guarantee_zero)
-	print("  出現率を %d%% に戻した" % int(Balance.adventure.floor_chest_chance_pct))
+	print("  出現率を %d%% に戻した" % int(Balance.floor.chest_chance_pct))
 	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
 
 	# --- 10. レリック（段階14-d・PLAN_SCENARIO_MAP.md §5-2）---

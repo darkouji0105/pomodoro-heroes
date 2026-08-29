@@ -54,6 +54,51 @@
 
 ---
 
+## 0-C. ⚠ `FloorConfig` を新設した（**2026-08-28・段階14-i-1**）
+
+⚠ **人間の決定：⚠ 「こういうバランスをまとめて `.tres` で設定できるようにしたい」。⚠ Config の新設 ＋ フォルダにまとめる。⚠ フォルダ移動は次の回（14-i-2）。**
+
+### 0-C-1. ⚠ 何をしたか
+
+| | 中身 |
+|---|---|
+| ⚠ **新規** | ⚠ **`resources/balance/floor_config.gd`（`class_name FloorConfig`）＋ `floor_config.tres`** |
+| ⚠ **配線** | ⚠ **`balance.gd` に `@export var floor: FloorConfig`。⚠ `balance.tscn` に `floor = ExtResource(...)`**（⚠ **人間の許可を得て設計役が手で書いた。⚠ Inspector 作業ゼロ**） |
+| ⚠ **移した** | ⚠ **宝箱の率・レアリティ4本・たいまつ2本・フロア内ショップ2本を `AdventureConfig` から**（⚠ **`Balance.adventure.floor_X` → `Balance.floor.X`。⚠ 参照 24箇所**） |
+| ⚠ **移した** | ⚠ **層のノード出現比を `stages.json` から**（⚠ **`layer_weight_battle/relic/rest/shop` の4本。⚠ `stages.json` の `layers` は `node_count` だけになった**） |
+| ⚠ **消した** | ⚠ **`floor_rest_full_heal`**（⚠ **誰も読まない欄＝ズレ46**） |
+| ⚠ **足した** | ⚠ **`E131` / `W21`＝`_validate_floor_config()`**（⚠ **割り当て漏れ・4本の長さ違い・重みが全部0の層・必ず通るショップの層が無い**） |
+
+### 0-C-2. ⚠ ここで分かった一番大事なこと（**次からの前提が変わる**）
+
+⚠ **新しい `class_name` は、⚠ ヘッドレスの `--import` でキャッシュに載る。⚠ 人間がエディタを開く必要は無い。**
+
+```powershell
+& '...\godot.windows.opt.tools.64.exe' --headless --path d:\pomodoro-heroes --import
+```
+
+⚠ **`AGENTS.md`「新しい `class_name` はエディタを1回通すまで認識されない」は**半分だけ正しかった**。⚠ 「エディタ」ではなく「インポート」が要るだけで、⚠ それはヘッドレスでできる。**
+⚠ **実際の症状**：⚠ **`--import` を回す前は `SCRIPT ERROR: Parse Error: Could not find type "FloorConfig"` ＋ `Failed to load script "res://autoload/balance.gd"` で赤3本。⚠ `--import` のあと赤0。**
+⚠ **`.godot/global_script_class_cache.cfg` を `grep` すれば載ったか分かる**（`AGENTS.md` の確かめ方と同じ）。
+
+### 0-C-3. ⚠ `.tres` の書き方（**次の回で使う**）
+
+⚠ **`.tres` は `uid` 無しで書いてよい。** ⚠ **`shop_config.tres` / `research_config.tres` / `workshop_config.tres` の3本が元から `uid` 無しで動いている。**
+⚠ **ただしこれは**フォルダ移動のときに壊れる側**でもある（下記）。**
+
+### 0-C-4. ⚠ 次の回（**14-i-2＝フォルダ整理**）で先に潰すこと
+
+⚠ **`configs/` に `.gd` と `.tres` をペアでまとめる**（⚠ **人間の決定。⚠ `master/` はそのまま**）。
+
+- ⚠ **`balance.tscn` は13本すべてを `path=` で参照している。⚠ うち3本（`shop` / `research` / `workshop`）は `uid` を持たない**
+  - ⚠ **移動すると `Balance.shop` / `Balance.research` / `Balance.workshop` が **null** になる。⚠ 赤は出ず、触った画面で初めて落ちる**
+- ⚠ **各 `.tres` は中で `path="res://resources/balance/xxx_config.gd"` と自分のスクリプトを指している。⚠ `.gd` を動かすと `.tres` 側も全部書き換えが要る**
+- ⚠ **`protection_*.tres` 3本は `ChestScheduleEntry` を参照している**（⚠ **`chest_schedule_entry.gd` も一緒に動かすことになる**）
+- ⚠ **動かしたら `--import` を回してから全シナリオを回す。⚠ `Balance.X` が null になっていないかは、⚠ 拠点・ショップ・研究・作業場・装備・倉庫を通る `scenario` で見る**
+- ⚠ **`AGENTS.md` のフォルダ構造に `configs/` を1行足すのは人間**（⚠ **設計役は `AGENTS.md` を書き換えない**）
+
+---
+
 ## 1. ⚠ このタスク：**宿題63＝道中の戦闘ノードに報酬を付ける**
 
 ### 1-0. ⚠ なぜ次がこれなのか
@@ -237,7 +282,7 @@
 
 **ズレが42回起きている。** ⚠ **`grep` で関数の中身を見てから判断する。⚠ 違っていたら報告する（勝手に直さない）。**
 
-⚠ **未報告のズレは 9件（下の 34・37・38・39・40・41・42・44・45）。⚠ 次に見つけたものは 46 番。**
+⚠ **未報告のズレは 9件（下の 34・37・38・39・40・41・42・44・46）。⚠ 次に見つけたものは 47 番。**
 
 | # | ズレ | 直すなら |
 |---|---|---|
@@ -250,6 +295,7 @@
 | ⚠ **42** | ⚠ **`EXEC_BALANCE_TUNE` §6 の宿題番号（51 / 52 / 53）が `PROJECT_STATUS` の実番号（52 / 53 / 54）と1つずれている** | ⚠ **未着手。⚠ 正は `PROJECT_STATUS` 側** |
 | ⚠ **44** | ⚠ **`scenario=economy` の「Lv100 までの周回数と集中時間」が `stages.json` の固定報酬しか数えていない。** ⚠ **段階14-b で宝箱が「移動に紐づく」に変わったので、⚠ 宝箱ぶんの `training_material_1` が丸ごと抜けている**（⚠ **economy の出力も全フロア「宝箱（無し）」**）。⚠ **手計算だと floor_5 は宝箱から +6.4個/周 ＝ 実質 12.4個/周 ＝ **約16時間**。⚠ 報告値 33.3h の**ほぼ半分**** | ✅ **直した**（2026-08-28。⚠ **`debug_boot.gd` だけ。⚠ 本番コードは触っていない**）。⚠ **式で出す**（⚠ **`_roll_chest_draw()` を回すと研究の宝箱枝が乗り、呼ぶ順番で値が変わるため＝決め5**）。⚠ **足したのは `_economy_draw_material_expect()` / `_economy_layer_material_expect()` / `_economy_floor_chest_count()` / `_economy_floor_chest_materials()` / `_economy_floor_has_forced_shop()` / `_economy_stage_material_all()` の6本**。⚠ **無料ガチャは「必ず通る層」がある場合だけ数える**（⚠ **抽選で出る `shop` は在っても行けるとは限らない＝§10-2-C**）。⚠ **前後は下の表** |
 | ⚠ **45** | ⚠ **`EXEC_SCENARIO_RELIC.md` §4-2 が「`PROJECT_STATUS.md` の宿題62 に落とした」と書いているが、⚠ 実際には落ちていなかった** | ✅ **直した**（2026-08-28。⚠ **`PROJECT_STATUS.md` に宿題62 の行を足した**） |
+| ⚠ **46** | ⚠ **`floor_rest_full_heal` は誰も読まない欄だった。** ⚠ **`rest_at_node()` は `Balance` を1行も見ずに常に満タンにしている**（⚠ **`EXEC_SCENARIO_MAP_SCREEN.md` §5 と §7 は「これがつまみ」と書いていた**） | ✅ **欄ごと消した**（2026-08-28・段階14-i。⚠ **`FloorConfig` に持ち込まなかった**）。⚠ **割合回復にするなら `rest_heal_pct` を足して `rest_at_node()` に読ませる＝宿題64。⚠ 実装せずに欄だけ足さないこと** |
 
 ### 2-2. ⚠ 触る器について、先に台帳を `grep` する
 
@@ -286,7 +332,8 @@
 
 ### 2-7. ⚠ E / W の次番号
 
-⚠ **`E130` まで使用済み → `E131` から。** ⚠ **`W20` まで使用済み → `W21` から**（⚠ **`W3` `W6` `W7` は欠番**）。
+⚠ **`E131` まで使用済み → `E132` から。** ⚠ **`W21` まで使用済み → `W22` から**（⚠ **`W3` `W6` `W7` は欠番**）。
+⚠ **`E131` / `W21` は `_validate_floor_config()`**（`game_manager.gd`。⚠ **`FloorConfig` の割り当てと層の重み4本。⚠ 2箇所壊して鳴ることを確認済み**）。
 
 ⚠ **2026-08-25 に一度ぶつけた**：⚠ **段階14-d で `E128` を採ったが、⚠ `E128` は `research.json` の検証（`master_data_loader.gd:344`）が使用済みだった。⚠ この §2-7 に「`E130` から」と書いてあったのに見落とした。⚠ `E130` へ直した。**
 ⚠ **番号を採る前に `grep -o "E1[0-9][0-9]"` で実コードを数え直すこと。⚠ この行を信じない。**

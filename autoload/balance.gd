@@ -17,3 +17,7 @@ extends Node
 # ⚠ 装飾（段階上げ・壊したときの戻り）の数値（EXEC_DECORATION.md）。
 #   割り当てを忘れると null になり、装備画面の枠と倉庫の装飾が止まる。
 @export var part: PartConfig
+# ⚠ フロア探索の数値（段階14・PLAN_SCENARIO_MAP.md）。層の出現比・宝箱・
+#   たいまつ・フロア内ショップ。割り当てを忘れると null になり、
+#   フロアに入った瞬間に落ちる（scenario=floor が起動時に見張る＝E131）。
+@export var floor: FloorConfig
