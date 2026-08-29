@@ -7,7 +7,7 @@ func _init() -> void:
 	e1.threshold_min = 45
 	e1.chest_type = "bonus_small"
 	light.schedule = [e1]
-	ResourceSaver.save(light, "res://resources/balance/protection_light.tres")
+	ResourceSaver.save(light, "res://resources/balance/configs/protection_light.tres")
 
 	var middle = ProtectionTypeConfig.new()
 	var e2 = ChestScheduleEntry.new()
@@ -17,7 +17,7 @@ func _init() -> void:
 	e3.threshold_min = 90
 	e3.chest_type = "bonus_medium"
 	middle.schedule = [e2, e3]
-	ResourceSaver.save(middle, "res://resources/balance/protection_middle.tres")
+	ResourceSaver.save(middle, "res://resources/balance/configs/protection_middle.tres")
 
 	var hard = ProtectionTypeConfig.new()
 	var e4 = ChestScheduleEntry.new()
@@ -33,13 +33,13 @@ func _init() -> void:
 	e7.threshold_min = 180
 	e7.chest_type = "bonus_large"
 	hard.schedule = [e4, e5, e6, e7]
-	ResourceSaver.save(hard, "res://resources/balance/protection_hard.tres")
+	ResourceSaver.save(hard, "res://resources/balance/configs/protection_hard.tres")
 
 	# 2. PomodoroConfig の作成
 	var config = PomodoroConfig.new()
-	config.protection_light = load("res://resources/balance/protection_light.tres")
-	config.protection_middle = load("res://resources/balance/protection_middle.tres")
-	config.protection_hard = load("res://resources/balance/protection_hard.tres")
+	config.protection_light = load("res://resources/balance/configs/protection_light.tres")
+	config.protection_middle = load("res://resources/balance/configs/protection_middle.tres")
+	config.protection_hard = load("res://resources/balance/configs/protection_hard.tres")
 	config.gold_per_focus_minute = 0.0
 	config.stamina_per_focus_minute = 0.2
 	config.materials_per_focus_minute = 0.0
@@ -83,15 +83,15 @@ func _init() -> void:
 	#   改名から漏れて無音で壊れたため、JSON へ移した。
 	config.session_title_max_length = 30
 	
-	ResourceSaver.save(config, "res://resources/balance/pomodoro_config.tres")
+	ResourceSaver.save(config, "res://resources/balance/configs/pomodoro_config.tres")
 	print("Generated pomodoro_config.tres and protection tres files.")
 
 	# 3. InitialStateConfig の更新
-	var initial = load("res://resources/balance/initial_state_config.tres")
+	var initial = load("res://resources/balance/configs/initial_state_config.tres")
 	if initial:
 		initial.starting_stamina_max = 100
 		initial.starting_stamina_current = 20
-		ResourceSaver.save(initial, "res://resources/balance/initial_state_config.tres")
+		ResourceSaver.save(initial, "res://resources/balance/configs/initial_state_config.tres")
 		print("Updated initial_state_config.tres.")
 	else:
 		print("Failed to load initial_state_config.tres.")

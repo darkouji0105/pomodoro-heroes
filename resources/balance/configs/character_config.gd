@@ -2,7 +2,7 @@ class_name CharacterConfig
 extends Resource
 
 # 育成関連の数値調整用Config。
-# 実際の値は res://resources/balance/character_config.tres を Inspector で編集する。
+# 実際の値は res://resources/balance/configs/character_config.tres を Inspector で編集する。
 
 # --- レベルアップに必要な素材 ---
 @export var level_up_material_id: String

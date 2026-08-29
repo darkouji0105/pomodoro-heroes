@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="SoundConfig" format=3 uid="uid://cql411sm1io1n"]
 
-[ext_resource type="Script" uid="uid://tp60nwy4tq8p" path="res://resources/balance/sound_entry.gd" id="1_76y1x"]
+[ext_resource type="Script" uid="uid://tp60nwy4tq8p" path="res://resources/balance/configs/sound_entry.gd" id="1_76y1x"]
 [ext_resource type="AudioStream" uid="uid://dtpn50x1teglo" path="res://assets/sounds/alarm_focus_end.wav" id="2_s2wpv"]
-[ext_resource type="Script" uid="uid://deq5jpkck6nxx" path="res://resources/balance/sound_config.gd" id="2_ycfxc"]
+[ext_resource type="Script" uid="uid://deq5jpkck6nxx" path="res://resources/balance/configs/sound_config.gd" id="2_ycfxc"]
 [ext_resource type="AudioStream" uid="uid://co16y1355cyip" path="res://assets/sounds/alarm_break_end.wav" id="3_bxg6s"]
 
 [sub_resource type="Resource" id="Resource_s2wpv"]

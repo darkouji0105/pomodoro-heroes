@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="ProtectionTypeConfig" format=3 uid="uid://dkko5cxyck4wo"]
 
-[ext_resource type="Script" uid="uid://qns703ukkrru" path="res://resources/balance/chest_schedule_entry.gd" id="1_nt8ku"]
-[ext_resource type="Script" uid="uid://cn7lljtfwq825" path="res://resources/balance/protection_type_config.gd" id="2_h0cln"]
+[ext_resource type="Script" uid="uid://qns703ukkrru" path="res://resources/balance/configs/chest_schedule_entry.gd" id="1_nt8ku"]
+[ext_resource type="Script" uid="uid://cn7lljtfwq825" path="res://resources/balance/configs/protection_type_config.gd" id="2_h0cln"]
 
 [sub_resource type="Resource" id="Resource_yqiko"]
 script = ExtResource("1_nt8ku")

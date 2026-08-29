@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="ShopConfig" format=3]
 
-[ext_resource type="Script" path="res://resources/balance/shop_config.gd" id="1_2jpwh"]
+[ext_resource type="Script" path="res://resources/balance/configs/shop_config.gd" id="1_2jpwh"]
 
 [resource]
 script = ExtResource("1_2jpwh")

@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="ResearchConfig" format=3]
 
-[ext_resource type="Script" path="res://resources/balance/research_config.gd" id="1_a47wg"]
+[ext_resource type="Script" path="res://resources/balance/configs/research_config.gd" id="1_a47wg"]
 
 [resource]
 script = ExtResource("1_a47wg")

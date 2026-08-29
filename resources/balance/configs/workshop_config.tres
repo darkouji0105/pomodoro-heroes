@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="WorkshopConfig" format=3]
 
-[ext_resource type="Script" path="res://resources/balance/workshop_config.gd" id="1_eoi76"]
+[ext_resource type="Script" path="res://resources/balance/configs/workshop_config.gd" id="1_eoi76"]
 
 [resource]
 script = ExtResource("1_eoi76")

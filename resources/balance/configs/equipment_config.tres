@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="EquipmentConfig" format=3 uid="uid://g03uwxlota6n"]
 
-[ext_resource type="Script" uid="uid://cg0thcrjl3lk6" path="res://resources/balance/equipment_config.gd" id="1_n5rm3"]
+[ext_resource type="Script" uid="uid://cg0thcrjl3lk6" path="res://resources/balance/configs/equipment_config.gd" id="1_n5rm3"]
 
 [resource]
 script = ExtResource("1_n5rm3")

@@ -2,7 +2,7 @@ class_name EquipmentConfig
 extends Resource
 
 # 装備（等級・鍛冶・分解）の数値調整用Config。
-# 実際の値は res://resources/balance/equipment_config.tres を Inspector で編集する。
+# 実際の値は res://resources/balance/configs/equipment_config.tres を Inspector で編集する。
 #
 # ⚠ .tres は @export の既定値を書き出さないため、値を変えていない項目は
 #   equipment_config.tres に行が現れない。実際に効いているのはここの既定値

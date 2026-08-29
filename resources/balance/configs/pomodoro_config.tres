@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PomodoroConfig" format=3 uid="uid://bcd2xhqnqtwn1"]
 
-[ext_resource type="Script" uid="uid://bp23ijj0n5ts0" path="res://resources/balance/pomodoro_config.gd" id="1_x"]
-[ext_resource type="Script" uid="uid://blkstfcogedp7" path="res://resources/balance/pomodoro_preset.gd" id="2_rtril"]
-[ext_resource type="Resource" uid="uid://wfmk21aksia3" path="res://resources/balance/protection_light.tres" id="3_light"]
-[ext_resource type="Resource" uid="uid://b16gnqk03eool" path="res://resources/balance/protection_middle.tres" id="4_middle"]
-[ext_resource type="Resource" uid="uid://dkko5cxyck4wo" path="res://resources/balance/protection_hard.tres" id="5_hard"]
+[ext_resource type="Script" uid="uid://bp23ijj0n5ts0" path="res://resources/balance/configs/pomodoro_config.gd" id="1_x"]
+[ext_resource type="Script" uid="uid://blkstfcogedp7" path="res://resources/balance/configs/pomodoro_preset.gd" id="2_rtril"]
+[ext_resource type="Resource" uid="uid://wfmk21aksia3" path="res://resources/balance/configs/protection_light.tres" id="3_light"]
+[ext_resource type="Resource" uid="uid://b16gnqk03eool" path="res://resources/balance/configs/protection_middle.tres" id="4_middle"]
+[ext_resource type="Resource" uid="uid://dkko5cxyck4wo" path="res://resources/balance/configs/protection_hard.tres" id="5_hard"]
 
 [sub_resource type="Resource" id="Preset_short"]
 script = ExtResource("2_rtril")

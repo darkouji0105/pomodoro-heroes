@@ -2,7 +2,7 @@ class_name PartConfig
 extends Resource
 
 # 装飾（宝石・護符・紋章）の数値調整用Config。
-# 実際の値は res://resources/balance/part_config.tres を Inspector で編集する。
+# 実際の値は res://resources/balance/configs/part_config.tres を Inspector で編集する。
 #
 # ⚠ .tres は @export の既定値を書き出さないため、値を変えていない項目は
 #   part_config.tres に行が現れない。実際に効いているのはここの既定値

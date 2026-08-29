@@ -37,7 +37,8 @@ res://
 ├── theme/                 # main_theme.tres（配色・フォント・ボタン等の基本スタイル）
 ├── localization/          # ja.csv（翻訳表）。詳細は「翻訳キーの運用」参照
 ├── resources/
-│   └── balance/           # 数値調整用 .tres ファイル置き場（下記ルール参照）
+│   └── balance/           # 直下にファイルを置かない。下の2つのどちらかに入れる
+│       ├── configs/       # 数値調整用の Config（.gd と .tres をペアで置く）。Balance の @export から参照する（2026-08-28に新設）
 │       └── master/        # スキル・ウェーブ・敵ステータス等のマスターデータ（IDで引く量産型データ）。Balanceの@exportではなくMasterDataLoaderが読み込む（PLAN_BATTLE_SCREEN.md参照）
 ├── addons/                # プラグイン（Ziva等）※手動インストール、AIは触らない
 ├── docs/                  # 設計ドキュメント（AIは指示されたもの以外読まない・編集しない）
@@ -75,6 +76,26 @@ res://
 - 必ず専用の `Resource` クラス（例: `class_name PomodoroConfig extends Resource`）に `@export` 変数として定義し、`.tres` ファイルとして `res://resources/balance/` 配下に保存する。
 - 全ての設定Resourceは、Autoload「Balance」（シーンとして登録し、ルートノードに集約スクリプトを付与）経由で `Balance.pomodoro.focus_duration_sec` のようにアクセスする。
 - 理由：Godot Inspectorから数値をポチポチ調整できるようにするため。コードを触らずにバランス調整できる状態を常に保つ。
+
+### 1つのConfigに別領域の数値を混ぜない（2026-08-28に追加）
+
+**`.tres` は「その領域のバランスだけが1画面に並ぶ」状態を保つ。** 既に配線済みのConfigに足すのは楽だが、混ぜると**バランスを見たい人が無関係な設定を読み飛ばしながら探す**ことになる。
+
+実例：`AdventureConfig` が「ステージのスタミナ」「ステータスの上限」「ダメージ数値の色」「状態マスの大きさ」に加えて、フロアの経済（宝箱・たいまつ・ショップ）まで抱えていた。`FloorConfig` に分離した（段階14-i）。
+
+**何をConfigに置き、何をmasterのJSONに置くか**：
+
+| | 置き場 | 例 |
+|---|---|---|
+| 全体共通の「調整つまみ」。1次元の配列と数値 | `configs/` の `.tres` | 層のノード出現比、宝箱の出現率、たいまつの価格 |
+| IDごとの「形と中身」。表になるもの | `master/` の `.json` | フロアごとの層のノード数、報酬の表、抽選表 |
+
+**迷ったら「対象を1つ増やしたときに書き足すことになるか」で決める。** 書き足すならJSON。
+**同じ数値を2箇所に書かない。**
+
+**`item_id` × `weight` × `count` のような表を `.tres` に入れないこと。** Inspectorでのネストしたリソース編集（下記「.tresのネストしたResourceはInspectorで2階層になる」）を毎回踏む。JSONのほうが速い。
+
+**欄だけ足して実装しないことを禁止する。** 読む側のコードと同じ回に入れること。実例：`floor_rest_full_heal` は誰も読まない欄として残り、ドキュメント2箇所が「これがつまみ」と書いていた（2026-08-28に発見・欄ごと削除）。
 
 ---
 
@@ -229,8 +250,35 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 **型指定・命名規則・状態アクセスのルールを、エラー回避のために緩めてはならない。** 回避策を採る前に必ず人間に報告し、判断を仰ぐこと。
 
 - 例：`class_name` が認識されないエラーが出ても、`@onready` の型指定を `Node` に落として `has_method()` / `call()` で逃げない。関数名のtypoが実行時まで分からなくなり、「文字列リテラルを排除する」というプロジェクトの方針が構造的に崩れる
-- 上記のエラーは多くの場合 **Godotエディタの再起動で解消する**（`class_name` はエディタ起動時にスキャンされるため）
+- 上記のエラーは **ヘッドレスの `--import` で解消する**（下記）
 - 同様に、`GameStateKeys` を経由せず文字列リテラルを書く、`tr()` を外す、`SceneManager` を通さず `change_scene_to_file()` を直接呼ぶ、といった回避も禁止
+
+### 新しい`class_name`は、インポートを1回通すまで認識されない（2026-08-28に更新）
+
+**エディタは要らない。ヘッドレスの `--import` でクラスキャッシュが更新される。設計役が自分でできる。**
+
+```powershell
+& 'D:\SteamLibrary\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe' `
+  --headless --path d:\pomodoro-heroes --import
+```
+
+- **回す前の症状**：`SCRIPT ERROR: Parse Error: Could not find type "FloorConfig"` ＋ `Failed to load script "res://autoload/balance.gd"`。**新しい型を`@export`に書いたAutoloadごと落ちる**
+- **載ったかの確かめ方**：`grep -c "<クラス名>" .godot/global_script_class_cache.cfg`
+- 以前ここは「エディタの再起動で解消する」と書いていた。**半分だけ正しかった。要るのはインポートであり、それはヘッドレスでできる。**
+
+### ファイルをGodotの外で移動したら、`uid_cache.bin`を消して再インポートする（2026-08-28に追加）
+
+`.tres` / `.tscn` は参照先を `uid://` と `path=` の両方で持つ。**`path=` を全部書き換えても、`.godot/uid_cache.bin` が古いパスを覚えているため `Cannot open file` が出続ける。**
+
+```powershell
+Remove-Item .godot\uid_cache.bin -Force   # 消してよい。再インポートで作り直される
+```
+
+実例：`resources/balance/` の13本を `configs/` へ移し、参照を全部書き換えたのに `--import` で赤15本（`Cannot open file 'res://resources/balance/pomodoro_config.tres'`）。`uid_cache.bin` を消したら赤1本（別件・既存の壊れ）になった。
+
+**移動で特に危ないもの**：`autoload/balance.tscn` は各Configを `path=` で参照し、**うち3本（`shop` / `research` / `workshop`）は `uid` を持たない。** `uid` が無いものはパスだけが頼りで、書き換えを漏らすと `Balance.shop` が**黙って null** になる（赤は出ず、触った画面で初めて落ちる）。
+
+**移動したあとは、`Balance` の各欄を実際に読むシナリオを回して確かめる。** `materials` / `parts` / `drops` / `research` / `workshop` / `economy` / `floor` / `unlock` / `layout` / `passives` の10本で全欄を通る。
 
 ### 完了条件は転記して検証する（厳守）
 
@@ -274,7 +322,7 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 
 - イベント交換所
 - DLCショップ
-- ダンジョン
+- ダンジョン … **「難ダンジョン」を指す**（週替わりの通行証・撤退式・インベントリ枠が有限・全ロスト・救済チケット）。**シナリオのマップ探索（段階14 の `floor_1..5`）は別物で、これには当たらない**（人間の決定・2026-08-25＝`docs/01_plan/PLAN_SCENARIO_MAP.md` 決定1）。難ダンジョンをやると決めた時点で、この行を消すかどうかを先に決めること（同 §12）
 - 戦闘プレビュー画面
 - ボス画面
 - タイマー装飾のマルチプレイ共有
@@ -282,6 +330,12 @@ Dictionaryは存在しないキーを読んでもエラーにならず`null`を�
 ---
 
 ## 更新履歴
+- **追記（2026-08-28・段階14-i。人間が「AGENTSは変えていい」と許可）**：
+  - フォルダ構造の `resources/balance/` を `configs/` と `master/` の2つに分けた（直下にファイルを置かない）
+  - 数値管理ルールに「1つのConfigに別領域の数値を混ぜない」を追加（`AdventureConfig` がフロアの経済と色設定を同居させていた事例）。Configに置くものとJSONに置くものの判定基準、「欄だけ足して実装しない」の禁止を明記
+  - 「新しい`class_name`はエディタの再起動で解消する」を **「`--import` で解消する」に訂正**。設計役がヘッドレスでできる
+  - 「ファイルをGodotの外で移動したら`uid_cache.bin`を消す」を追加（パスを全部書き換えても赤15本が消えなかった事例）
+  - 拒否仕様の「ダンジョン」に注記を追加（難ダンジョンを指す／シナリオのマップ探索は別物。人間の決定・2026-08-25。**3日間書けていなかった宿題**）
 - 初版作成：フォルダ構造・命名規則・数値管理ルール・拒否仕様を統合（旧`CLAUDE.md`）
 - リネーム：Zivaが実際に読み込む規約ファイル名（AGENTS.md）に合わせ、`CLAUDE.md`から`AGENTS.md`へ改名
 - 第3層はタスクごとに別ファイルにする方針に変更したため、実行指示書の内容はこのファイルから分離
