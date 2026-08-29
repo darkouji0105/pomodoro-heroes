@@ -1250,6 +1250,7 @@ func _report_economy() -> void:
 
 	# --- 2. 1周で入るもの（研究0件のとき）---
 	print("[DebugBoot] --- 1周で入るもの（⚠ 研究0件・勝った前提）---")
+	print("  ⚠ 宝箱の行は式で出した期待値。⚠ 実測は scenario=floor の「1周あたりの宝箱」（100周）と突き合わせること")
 	var stage_ids: Array[String] = _economy_stage_ids()
 	print("  本番ステージ %d 本（⚠ stage_dbg_* は除いた）" % stage_ids.size())
 	var stamina_cost: int = int(Balance.adventure.stamina_cost_per_stage)
@@ -1292,16 +1293,23 @@ func _report_economy() -> void:
 	print("  1周 %d スタミナ / ポーション1個 +%d スタミナ / 集中 %d 分で1個" % [
 		stamina_cost, stamina_per_potion, focus_per_potion
 	])
+	# ⚠ ズレ44（2026-08-28に直した）。⚠ ここは以前 stages.json の固定報酬だけを
+	#   数えていた。⚠ 段階14-b で宝箱が「移動に紐づく」に変わって以降、
+	#   実態のほぼ半分しか見ておらず、⚠ floor_5 を 33.3 時間と報告していた。
+	# ⚠ 固定と宝箱を両方出す。⚠ どちらを触ったのかが前後の差で分かるようにするため。
+	print("  ⚠ 「固定」は stages.json の rewards ／「宝箱」は移動に紐づく期待値（＋必ず通るショップの無料ガチャ）")
 	for stage_id: String in stage_ids:
-		var per_run: int = _economy_stage_material(stage_id, level_material)
-		if per_run <= 0:
+		var fixed_run: int = _economy_stage_material(stage_id, level_material)
+		var all_run: float = _economy_stage_material_all(stage_id, level_material)
+		if all_run <= 0.0:
 			print("  %-10s %s が 0 個/周 -> ⚠ ∞（このステージでは上がらない）" % [stage_id, level_material])
 			continue
-		var runs: int = int(ceil(float(total_one * 3) / float(per_run)))
+		var runs: int = int(ceil(float(total_one * 3) / all_run))
 		var stamina_total: int = runs * stamina_cost
 		var focus_min: int = int(ceil(float(stamina_total) / float(stamina_per_potion) * float(focus_per_potion)))
-		print("  %-10s %d 個/周 -> %d 周 / スタミナ %d / 集中 %d 分（%.1f 時間）" % [
-			stage_id, per_run, runs, stamina_total, focus_min, float(focus_min) / 60.0
+		print("  %-10s 固定 %d ＋ 宝箱 %.2f ＝ %.2f 個/周 -> %d 周 / スタミナ %d / 集中 %d 分（%.1f 時間）" % [
+			stage_id, fixed_run, all_run - float(fixed_run), all_run,
+			runs, stamina_total, focus_min, float(focus_min) / 60.0
 		])
 
 	# --- 4. 研究20件の総コスト ---
@@ -1316,16 +1324,19 @@ func _report_economy() -> void:
 			continue
 		var need: int = int(research_cost[material_id])
 		var best_stage: String = ""
-		var best_per_run: int = 0
+		var best_per_run: float = 0.0
+		# ⚠ ズレ44。⚠ ここも宝箱を数える。⚠ construction_material_3 / _4 は
+		#   固定報酬が細いぶん、宝箱の寄与が相対的に大きい。
 		for stage_id: String in stage_ids:
-			var per_run: int = _economy_stage_material(stage_id, material_id)
+			var per_run: float = _economy_stage_material_all(stage_id, material_id)
 			if per_run > best_per_run:
 				best_per_run = per_run
 				best_stage = stage_id
-		if best_per_run > 0:
-			print("  %-24s %4d 個  最良 %s が %d 個/周 -> %d 周" % [
+		if best_per_run > 0.0:
+			print("  %-24s %4d 個  最良 %s が %.2f 個/周（固定 %d ＋宝箱）-> %d 周" % [
 				material_id, need, best_stage, best_per_run,
-				int(ceil(float(need) / float(best_per_run)))
+				_economy_stage_material(best_stage, material_id),
+				int(ceil(float(need) / best_per_run))
 			])
 		else:
 			print("  %-24s %4d 個  ⚠ どのステージからも落ちない -> %s" % [
@@ -1537,6 +1548,31 @@ func _economy_print_stage_row(stage_id: String, stamina_cost: int) -> void:
 	])
 	print("  %-10s 素材 %s" % ["", " + ".join(columns) if not columns.is_empty() else "（無し）"])
 	print("  %-10s 持ち物 %s" % ["", " + ".join(inv_columns) if not inv_columns.is_empty() else "（無し）"])
+	# ⚠ ズレ44。⚠ 上の「素材」は stages.json の固定報酬だけ。⚠ 段階14-b 以降、
+	#   1周で入るものの過半は「移動に紐づく宝箱」から来ている。
+	var chest_mats: Dictionary = _economy_floor_chest_materials(stage_id)
+	if chest_mats.is_empty():
+		return
+	# ⚠ 素材と持ち物（装備・装飾）を分けて出す。混ぜると1行が長すぎて読めない。
+	var known_materials: Array[String] = _economy_material_ids()
+	var chest_keys: Array = chest_mats.keys()
+	chest_keys.sort()
+	var mat_columns: Array[String] = []
+	var item_columns: Array[String] = []
+	for item_id: Variant in chest_keys:
+		var column: String = "%s x%.2f" % [str(item_id), float(chest_mats[item_id])]
+		if known_materials.has(str(item_id)):
+			mat_columns.append(column)
+		else:
+			item_columns.append(column)
+	# ⚠ 5フロアとも同じ数字が出るのが正解（層数6・出現率が共通のため）。
+	#   ⚠ 層数か floor_chest_chance_pct をフロアごとに変えたらここが割れる。
+	print("  %-10s ⚠ 宝箱 %.2f 個/周%s" % [
+		"", _economy_floor_chest_count(stage_id),
+		"（＋必ず通るショップの無料ガチャ 1回）" if _economy_floor_has_forced_shop(stage_id) else "",
+	])
+	print("  %-10s ⚠ 宝箱の素材 %s" % ["", " + ".join(mat_columns) if not mat_columns.is_empty() else "（無し）"])
+	print("  %-10s ⚠ 宝箱の持ち物 %s" % ["", " + ".join(item_columns) if not item_columns.is_empty() else "（無し）"])
 
 
 # 宝箱1個の期待値（1周あたり何個出るか）を文字列で返す。
@@ -1554,6 +1590,160 @@ func _economy_chest_expectation(chest_id: String) -> String:
 		for item_id: String in rolled:
 			total += int(rolled[item_id])
 	return "%s 期待値 %.2f 個/周" % [chest_id, float(total) / float(ECONOMY_DRAW_TRIALS)]
+
+
+# --- 1周で入る宝箱の期待値（ズレ44・2026-08-28） ---
+#
+# ⚠ なぜ足したか：段階14-b で宝箱が「移動に紐づく」に変わったので、
+#   stages.json の rewards だけ数えていたこの道具は、1周で入るものの
+#   半分しか見なくなっていた（floor_5 は 6 個/周 と出るが実際は約 12 個/周）。
+#   ⚠ この数字を根拠に数値を決めると、実態の2倍きつく調整してしまう。
+#
+# ⚠ 抽選を回さず式で出す（決め4・「level_up_character() を99回回さない」と同じ理由）。
+#   _roll_chest_draw() を回すと研究の宝箱枝が乗り、呼ぶ順番で値が変わる。
+# ⚠ 実装（GameManager._roll_floor_chest）と式が一致していることは
+#   _report_economy() の突き合わせ行が見張る。ずれたらそちらが先に鳴る。
+
+# 宝箱1個ぶんの素材期待値。⚠ {material_id: float}。装備・装飾の枠は数えない。
+func _economy_draw_material_expect(chest_id: String) -> Dictionary:
+	var out: Dictionary = {}
+	if chest_id == "":
+		return out
+	var chest: Dictionary = MasterDataLoader.get_chest(chest_id)
+	# ⚠ 固定報酬の宝箱（generic / bonus_*）は draw を持たない。materials を直接読む。
+	var fixed: Variant = chest.get(GameStateKeys.BATTLE_REWARDS, {})
+	if fixed is Dictionary:
+		var fixed_mats: Variant = (fixed as Dictionary).get(GameStateKeys.REWARD_MATERIALS, {})
+		if fixed_mats is Dictionary:
+			for material_id: Variant in (fixed_mats as Dictionary):
+				out[str(material_id)] = float((fixed_mats as Dictionary)[material_id])
+	var draw_def: Variant = chest.get(GameManager.CHEST_DRAW, {})
+	if not (draw_def is Dictionary) or (draw_def as Dictionary).is_empty():
+		return out
+	var entries: Array = (draw_def as Dictionary).get(GameManager.CHEST_DRAW_ENTRIES, [])
+	var rolls: int = int((draw_def as Dictionary).get(GameManager.CHEST_DRAW_ROLLS, 1))
+	var total_weight: int = 0
+	for row: Variant in entries:
+		total_weight += maxi(0, int((row as Dictionary).get(GameManager.CHEST_DRAW_WEIGHT, 0)))
+	if total_weight <= 0:
+		return out
+	for row: Variant in entries:
+		var item_id: String = str((row as Dictionary).get(GameManager.CHEST_DRAW_ITEM_ID, ""))
+		if item_id == "":
+			continue
+		var weight: int = maxi(0, int((row as Dictionary).get(GameManager.CHEST_DRAW_WEIGHT, 0)))
+		var count: int = maxi(1, int((row as Dictionary).get(GameManager.CHEST_DRAW_COUNT, 1)))
+		var add: float = float(rolls) * float(weight) / float(total_weight) * float(count)
+		out[item_id] = float(out.get(item_id, 0.0)) + add
+	return out
+
+
+# 層 ℓ に着いたときの、宝箱1個ぶんの素材期待値。⚠ レアリティ分布で混ぜる。
+func _economy_layer_material_expect(floor_id: String, layer: int) -> Dictionary:
+	var stage: Dictionary = MasterDataLoader.get_stage(floor_id)
+	var chest_ids: Variant = stage.get(GameManager.STAGE_MASTER_CHEST_IDS, {})
+	if not (chest_ids is Dictionary):
+		return {}
+	var table: Dictionary = {
+		GameManager.CHEST_RARITY_COMMON: Balance.adventure.floor_chest_weight_common,
+		GameManager.CHEST_RARITY_RARE: Balance.adventure.floor_chest_weight_rare,
+		GameManager.CHEST_RARITY_EPIC: Balance.adventure.floor_chest_weight_epic,
+		GameManager.CHEST_RARITY_LEGENDARY: Balance.adventure.floor_chest_weight_legendary,
+	}
+	var total: int = 0
+	var weights: Dictionary = {}
+	for rarity: String in table:
+		var row: Array = table[rarity]
+		if row.is_empty():
+			continue
+		# ⚠ 実装と同じ clampi（配列より深い層に着いたら末尾を使う）。
+		var w: int = maxi(0, int(row[clampi(layer - 1, 0, row.size() - 1)]))
+		weights[rarity] = w
+		total += w
+	var out: Dictionary = {}
+	if total <= 0:
+		return out
+	for rarity: String in weights:
+		var share: float = float(weights[rarity]) / float(total)
+		if share <= 0.0:
+			continue
+		var per_chest: Dictionary = _economy_draw_material_expect(
+			str((chest_ids as Dictionary).get(rarity, ""))
+		)
+		for material_id: String in per_chest:
+			out[material_id] = float(out.get(material_id, 0.0)) + share * float(per_chest[material_id])
+	return out
+
+
+# 1周ぶん（入口 -> ボス）の宝箱の期待個数。
+#
+# ⚠ 移動は層数と同じ回数。着く層は 2, 3, ... , L, L+1（ボス）。
+# ⚠ 最低1回の保証は「ボスに着いた時点で0個なら確定で出す」なので、
+#   最後の1回だけ確率が p ではなく p + (1-p)^L になる。
+func _economy_floor_chest_count(floor_id: String) -> float:
+	var layers: int = _economy_floor_layer_count(floor_id)
+	if layers <= 0:
+		return 0.0
+	var p: float = float(int(Balance.adventure.floor_chest_chance_pct)) / 100.0
+	return float(layers) * p + pow(1.0 - p, float(layers))
+
+
+# 1周ぶんの宝箱から入る素材。⚠ {material_id: float}。
+func _economy_floor_chest_materials(floor_id: String) -> Dictionary:
+	var layers: int = _economy_floor_layer_count(floor_id)
+	var out: Dictionary = {}
+	if layers <= 0:
+		return out
+	var p: float = float(int(Balance.adventure.floor_chest_chance_pct)) / 100.0
+	for move: int in range(1, layers + 1):
+		# ⚠ move 回目に着く層。最後の1回がボス（層 L+1）。
+		var layer: int = move + 1
+		var chance: float = p
+		if move == layers:
+			chance = p + pow(1.0 - p, float(layers))
+		var per_chest: Dictionary = _economy_layer_material_expect(floor_id, layer)
+		for material_id: String in per_chest:
+			out[material_id] = float(out.get(material_id, 0.0)) + chance * float(per_chest[material_id])
+	# ⚠ 無料ガチャ。⚠ 「必ず通る層」がある場合だけ数える。
+	#   ⚠ 抽選で出る shop は、在っても行けるとは限らない（PLAN_SCENARIO_MAP.md §10-2-C）。
+	if _economy_floor_has_forced_shop(floor_id):
+		var gacha: Dictionary = _economy_draw_material_expect(GameManager.FLOOR_GACHA_CHEST_ID)
+		for material_id: String in gacha:
+			out[material_id] = float(out.get(material_id, 0.0)) + float(gacha[material_id])
+	return out
+
+
+func _economy_floor_layer_count(floor_id: String) -> int:
+	var raw: Variant = MasterDataLoader.get_stage(floor_id).get(GameManager.STAGE_MASTER_LAYERS, null)
+	if not (raw is Array):
+		return 0
+	return (raw as Array).size()
+
+
+# ⚠ 「必ず通るショップの層」があるか。⚠ node_count に関係なく、
+#   その層の重みが shop だけなら、どのノードを選んでも shop になる。
+func _economy_floor_has_forced_shop(floor_id: String) -> bool:
+	var raw: Variant = MasterDataLoader.get_stage(floor_id).get(GameManager.STAGE_MASTER_LAYERS, null)
+	if not (raw is Array):
+		return false
+	for layer: Variant in (raw as Array):
+		var weights: Variant = (layer as Dictionary).get(GameManager.LAYER_WEIGHTS, {})
+		if not (weights is Dictionary):
+			continue
+		var kinds: Array = (weights as Dictionary).keys()
+		if kinds.size() != 1:
+			continue
+		if str(kinds[0]) != GameStateKeys.FLOOR_NODE_KIND_SHOP:
+			continue
+		if int((weights as Dictionary)[kinds[0]]) > 0:
+			return true
+	return false
+
+
+# 固定報酬 ＋ 宝箱で、1周に入る素材の合計。⚠ float（宝箱は期待値なので端数が出る）。
+func _economy_stage_material_all(stage_id: String, material_id: String) -> float:
+	return float(_economy_stage_material(stage_id, material_id)) \
+		+ float(_economy_floor_chest_materials(stage_id).get(material_id, 0.0))
 
 
 # Lv1 -> cap に要る素材の合計。⚠ level_up_character() を99回回さない（決め4）。
