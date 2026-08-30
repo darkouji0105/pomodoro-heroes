@@ -174,6 +174,18 @@ const STAGE_MASTER_BOSS: String = "boss"
 #   IDから切り出す形は装飾で事故っている（ITEM_MASTER_PART_KIND のコメント）。
 const STAGE_MASTER_CHEST_IDS: String = "chest_ids"
 
+# 道中の戦闘ノード1回ぶんの報酬（段階14-i・宿題63）。
+#
+# ⚠ rewards（ボス）とは別の欄。⚠ 中身の形は同じ {gold, materials, inventory}。
+# ⚠ 道中に報酬が無かったころ、戦闘ノードは純粋なコストで「避けるのが常に最適」だった。
+#   ⚠ 宝箱は移動に紐づくのでどのルートでも同じ数＝戦闘を踏む理由が1つも無かった。
+# ⚠ 総量は据え置き（人間の決定：Lv100×3 の集中時間は実質16時間のまま）。
+#   ⚠ ボスの gold を半分にして、⚠ 残り半分を道中へ配り直しただけ。
+#   ⚠ 期待戦闘回数（無作為ルートで 3.5回）で掛けると元の合計に戻る。
+# ⚠ 素材はここに入れない。⚠ 1周ぶんを整数で割ると端数が出て、⚠ フロアごとの
+#   配り方（stages.json の materials）と二重管理になる。⚠ ゴールドだけにする。
+const STAGE_MASTER_NODE_REWARDS: String = "node_rewards"
+
 # レアリティの綴り。⚠ chests.json の chest_id の後半と stages.json の chest_ids の
 #   キーが、この4つで揃っていること。
 const CHEST_RARITY_COMMON: String = "common"
@@ -6142,6 +6154,11 @@ func run_floor_auto(floor_id: String) -> Dictionary:
 
 	var gacha: int = 0
 	var steps: int = 0
+	# ⚠ 道中の戦闘ぶん（宿題63）。⚠ 初回と同じ get_floor_node_rewards() を通す。
+	#   ⚠ 「周回では出ない」にしないこと。出ないとゴールドが初回の半分になり、
+	#     周回するほど損になる（周回は瞬時にスキップする前提＝§6 と噛み合わない）。
+	var node_gold: int = 0
+	var node_battles: int = 0
 	while true:
 		var moves: Array = get_available_moves()
 		if moves.is_empty():
@@ -6157,12 +6174,25 @@ func run_floor_auto(floor_id: String) -> Dictionary:
 		if str(get_floor_node(next_id).get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_SHOP:
 			if grant_floor_gacha():
 				gacha += 1
+		# ⚠ 戦闘ノードかどうかは get_floor_node_rewards() が決める（空なら戦闘ではない）。
+		#   ⚠ ここで kind をもう一度見ないこと。判定が2箇所になる。
+		var node_reward: Dictionary = get_floor_node_rewards(floor_id, next_id)
+		if not node_reward.is_empty():
+			node_battles += 1
+			node_gold += int(node_reward.get(GameStateKeys.REWARD_GOLD, 0))
 		if steps > 50:
 			push_warning("[GameManager] run_floor_auto: 50手で終わらない: " + floor_id)
 			break
 
 	var chests: int = get_floor_chest_count()
-	var rewards: Dictionary = MasterDataLoader.get_stage(floor_id).get(GameStateKeys.BATTLE_REWARDS, {})
+	var rewards: Dictionary = (MasterDataLoader.get_stage(floor_id).get(GameStateKeys.BATTLE_REWARDS, {}) as Dictionary).duplicate(true)
+	# ⚠ ボスのぶんに道中のぶんを足して1回で配る（宿題63）。
+	#   ⚠ apply_battle_rewards() を2回呼ばない。⚠ battle_finished が2本飛び、
+	#     結果画面と購読側が二重に動く。
+	# ⚠ 足すのは gold だけ。⚠ node_rewards に materials を入れない決定（定数のコメント）。
+	if node_gold > 0:
+		rewards[GameStateKeys.REWARD_GOLD] = int(rewards.get(GameStateKeys.REWARD_GOLD, 0)) + node_gold
+	print("[GameManager] run_floor_auto('%s') 道中の戦闘 %d 回 -> +%d G" % [floor_id, node_battles, node_gold])
 
 	# ⚠ 初回と同じ順で配る。スタミナ → 報酬 → 降りる。
 	var cost: int = int(Balance.adventure.stamina_cost_per_stage)
@@ -6374,6 +6404,29 @@ func _connect_layers(nodes: Dictionary, upper: Array, lower: Array) -> void:
 		for k: int in range(lo, hi + 1):
 			next_ids.append(str(lower[k]))
 		(nodes[str(upper[j])] as Dictionary)[GameStateKeys.FLOOR_NODE_NEXT] = next_ids
+
+
+# 道中のノード1つぶんの報酬を返す（段階14-i・宿題63）。無ければ空。
+#
+# ⚠ 判定はここ1本。⚠ battle_controller も run_floor_auto も debug_boot もこれを呼ぶ
+#   （CLAUDE.md 6番「同じ形の判定が散っていたら1本に寄せる」）。
+# ⚠ 出るのは戦闘ノードだけ。⚠ ボスは stages.json の rewards（別の欄）。
+#   ⚠ 休憩・ショップ・レリックは0。⚠ 踏んでも金が入るなら「戦闘を踏む理由」にならない。
+# ⚠ スタミナもクリア記録も画面解放もここでは動かさない。⚠ 動かすと1マス目で
+#   画面が全部開き、1周で25スタミナ払うことになる（battle_controller.gd の
+#   14-c のコメントが警告している事故）。
+func get_floor_node_rewards(floor_id: String, node_id: String) -> Dictionary:
+	if floor_id == "" or node_id == "":
+		return {}
+	var node: Dictionary = get_floor_node(node_id)
+	if node.is_empty():
+		return {}
+	if str(node.get(GameStateKeys.FLOOR_NODE_KIND, "")) != GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+		return {}
+	var raw: Variant = MasterDataLoader.get_stage(floor_id).get(STAGE_MASTER_NODE_REWARDS, null)
+	if not (raw is Dictionary):
+		return {}
+	return (raw as Dictionary).duplicate(true)
 
 
 # 層 N のノード出現比を {kind: weight} で返す（段階14-i）。

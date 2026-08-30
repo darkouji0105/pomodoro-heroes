@@ -1345,8 +1345,15 @@ func _report_economy() -> void:
 
 	# --- 5. ゴールドの入口 ---
 	print("[DebugBoot] --- ゴールドの入口（⚠ ショップの支払い元）---")
+	# ⚠ 宿題63。⚠ ボスだけでなく道中の戦闘ぶんを足した「1周の実入り」を出す。
+	#   ⚠ ここが たいまつ（0/50/150/400 G）と フロア内回復（60 G）の桁の基準になる。
 	for stage_id: String in stage_ids:
-		print("  %-10s %d G/周" % [stage_id, _economy_stage_gold(stage_id)])
+		var boss_g: int = _economy_stage_gold(stage_id)
+		var node_g: int = _economy_node_gold(stage_id)
+		var exp_n: float = _economy_battle_nodes_expected(stage_id)
+		print("  %-10s %.1f G/周（ボス %d ＋ 道中 %d × %.2f 回）" % [
+			stage_id, float(boss_g) + node_g * exp_n, boss_g, node_g, exp_n
+		])
 
 	# --- 6. 研究を全部解放してから、宝箱の期待値を測り直す（⚠ いちばん最後）---
 	print("[DebugBoot] --- 研究を全部解放したあとの1周 ---")
@@ -1527,6 +1534,57 @@ func _economy_stage_gold(stage_id: String) -> int:
 	return int(rewards.get(GameStateKeys.REWARD_GOLD, 0))
 
 
+# --- 道中の戦闘ノード（宿題63・2026-08-28） ---
+#
+# ⚠ 1周のゴールドは「ボスの固定報酬」だけでは無くなった。⚠ 道中の戦闘ノード1つにつき
+#   node_rewards.gold が入る。⚠ 何回戦うかはルート次第なので、期待値と幅の両方を出す。
+# ⚠ 期待値は「無作為にルートを選んだとき」＝ run_floor_auto() と同じモデル。
+#   ⚠ プレイヤーは戦闘を避けることも狙うこともできるので、実際は幅の中で動く。
+
+func _economy_node_gold(floor_id: String) -> int:
+	var raw: Variant = MasterDataLoader.get_stage(floor_id).get(GameManager.STAGE_MASTER_NODE_REWARDS, null)
+	if not (raw is Dictionary):
+		return 0
+	return int((raw as Dictionary).get(GameStateKeys.REWARD_GOLD, 0))
+
+
+# 1周で踏む戦闘ノードの期待回数（無作為ルート）。
+#
+# ⚠ ボスは含まない（ボスの報酬は rewards 側）。
+# ⚠ 層1（入口）も含まない。⚠ start_floor() が「戦わずに position に置く」ので、
+#   ⚠ 入口のノードは一度も戦闘にならない（2026-08-28に発見＝ズレ47）。
+#   ⚠ 数え始めを 2 にしないと、実測 2.85 に対して式が 3.50 を返す。
+func _economy_battle_nodes_expected(floor_id: String) -> float:
+	var layers: int = _economy_floor_layer_count(floor_id)
+	var total: float = 0.0
+	for layer: int in range(2, layers + 1):
+		var weights: Dictionary = GameManager.get_floor_layer_weights(layer)
+		var sum: int = 0
+		for kind: String in weights:
+			sum += int(weights[kind])
+		if sum <= 0:
+			continue
+		total += float(int(weights.get(GameStateKeys.FLOOR_NODE_KIND_BATTLE, 0))) / float(sum)
+	return total
+
+
+# 1周で踏む戦闘ノードの最少・最多（層ごとに battle があり得るかで数える）。
+# ⚠ 層1（入口）は数えない。⚠ 上と同じ理由（ズレ47）。
+func _economy_battle_nodes_range(floor_id: String) -> Array[int]:
+	var layers: int = _economy_floor_layer_count(floor_id)
+	var low: int = 0
+	var high: int = 0
+	for layer: int in range(2, layers + 1):
+		var weights: Dictionary = GameManager.get_floor_layer_weights(layer)
+		if not weights.has(GameStateKeys.FLOOR_NODE_KIND_BATTLE):
+			continue
+		high += 1
+		# ⚠ その層が battle しか無いなら避けられない。
+		if weights.size() == 1:
+			low += 1
+	return [low, high]
+
+
 # 1周の行を1本出す。⚠ 研究の前後で2回呼ぶので関数にしてある。
 func _economy_print_stage_row(stage_id: String, stamina_cost: int) -> void:
 	var rewards: Dictionary = MasterDataLoader.get_stage(stage_id).get(GameStateKeys.BATTLE_REWARDS, {})
@@ -1542,10 +1600,23 @@ func _economy_print_stage_row(stage_id: String, stamina_cost: int) -> void:
 	if inventory is Dictionary:
 		for item_id: String in (inventory as Dictionary):
 			inv_columns.append("%s x%d" % [item_id, int((inventory as Dictionary)[item_id])])
-	print("  %-10s %4d G / スタミナ -%d / 宝箱 %s" % [
-		stage_id, _economy_stage_gold(stage_id), stamina_cost,
-		_economy_chest_expectation(str(rewards.get(GameStateKeys.CHEST_ID, ""))),
-	])
+	# ⚠ 宿題63。⚠ ゴールドは「ボス」＋「道中の戦闘 × 回数」になった。
+	#   ⚠ 回数はルート次第なので、期待値（無作為ルート）と幅の両方を出す。
+	var boss_gold: int = _economy_stage_gold(stage_id)
+	var node_gold: int = _economy_node_gold(stage_id)
+	if node_gold > 0:
+		var expected: float = _economy_battle_nodes_expected(stage_id)
+		var span: Array[int] = _economy_battle_nodes_range(stage_id)
+		print("  %-10s ボス %d G ＋ 道中 %d G × 期待 %.2f 回 = %.1f G（幅 %d〜%d G）/ スタミナ -%d / 宝箱 %s" % [
+			stage_id, boss_gold, node_gold, expected, float(boss_gold) + node_gold * expected,
+			boss_gold + node_gold * span[0], boss_gold + node_gold * span[1], stamina_cost,
+			_economy_chest_expectation(str(rewards.get(GameStateKeys.CHEST_ID, ""))),
+		])
+	else:
+		print("  %-10s %4d G / スタミナ -%d / 宝箱 %s" % [
+			stage_id, boss_gold, stamina_cost,
+			_economy_chest_expectation(str(rewards.get(GameStateKeys.CHEST_ID, ""))),
+		])
 	print("  %-10s 素材 %s" % ["", " + ".join(columns) if not columns.is_empty() else "（無し）"])
 	print("  %-10s 持ち物 %s" % ["", " + ".join(inv_columns) if not inv_columns.is_empty() else "（無し）"])
 	# ⚠ ズレ44。⚠ 上の「素材」は stages.json の固定報酬だけ。⚠ 段階14-b 以降、

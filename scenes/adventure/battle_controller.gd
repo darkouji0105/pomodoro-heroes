@@ -1638,8 +1638,11 @@ func _enter_victory() -> void:
 	_session.state = BattleSession.STATE_VICTORY
 
 	# フロアの道中か、ボスか（段階14-c）。
-	# ⚠ 道中のノードでは報酬もクリア記録もスタミナも動かさない。
+	# ⚠ 道中のノードでは クリア記録もスタミナも動かさない。
 	#   ⚠ 動かすと1マス目で画面が全部開き、1周で25スタミナ払うことになる。
+	# ⚠ 報酬だけは道中でも出す（段階14-i・宿題63）。⚠ 出さないと戦闘ノードが
+	#   純粋なコストになり、避けるのが常に最適になる（宝箱は移動に紐づくので
+	#   どのルートでも同じ数＝踏む理由が1つも無かった）。
 	var in_floor_run: bool = _floor_node_id != ""
 	var is_boss: bool = _is_floor_boss()
 
@@ -1651,6 +1654,10 @@ func _enter_victory() -> void:
 	var rewards: Dictionary = {}
 	if (not in_floor_run) or is_boss:
 		rewards = _stage_data.get("rewards", {})
+	else:
+		# ⚠ 戦闘ノードかどうかは GameManager が決める（戦闘以外は空が返る）。
+		#   ⚠ ここで kind を見ないこと。判定が2箇所になる（CLAUDE.md 6番）。
+		rewards = GameManager.get_floor_node_rewards(_stage_id, _floor_node_id)
 
 	var result_data: Dictionary = {
 		GameStateKeys.BATTLE_VICTORY: true,
@@ -1660,14 +1667,20 @@ func _enter_victory() -> void:
 	# ⚠ 報酬もクリア記録も story のときだけ（人間の決定・2026-08-17）。
 	#   検証用ステージは training で入るので、セーブに痕跡が残らない。
 	#   ⚠ 結果画面は出す。出さないと勝ったのに何も起きない画面になる。
-	# ⚠ フロアでは「ボスを倒したときだけ」に絞る（段階14-c）。
-	if _session.stage_type == GameStateKeys.STAGE_TYPE_STORY and ((not in_floor_run) or is_boss):
-		_consume_stage_stamina()
-		GameManager.apply_battle_rewards(result_data)
-		GameManager.mark_stage_cleared(_stage_id, 0)
-		if in_floor_run:
-			# フロアを踏破した。⚠ 降りるのはここ1箇所だけ。
-			GameManager.abandon_floor()
+	# ⚠ スタミナ・クリア記録・フロアを降りるのは「ボスを倒したときだけ」（段階14-c）。
+	if _session.stage_type == GameStateKeys.STAGE_TYPE_STORY:
+		if (not in_floor_run) or is_boss:
+			_consume_stage_stamina()
+			GameManager.apply_battle_rewards(result_data)
+			GameManager.mark_stage_cleared(_stage_id, 0)
+			if in_floor_run:
+				# フロアを踏破した。⚠ 降りるのはここ1箇所だけ。
+				GameManager.abandon_floor()
+		elif not rewards.is_empty():
+			# ⚠ 道中の戦闘ノード（宿題63）。⚠ 配るのは報酬だけ。
+			#   ⚠ mark_stage_cleared() を呼ばないこと。⚠ 呼ぶと1マス目で
+			#     unlocks が全部走り、画面が全部開く。
+			GameManager.apply_battle_rewards(result_data)
 
 	_show_result(true, result_data)
 
