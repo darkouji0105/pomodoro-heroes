@@ -616,3 +616,26 @@ ui_research_b2_craft_2,作業台の増設
 ui_research_effect_craft_speed,製作時間 -%d%%
 ui_research_effect_craft_slot,同時製作 +%d
 ui_guild_workshop_draw,装飾（ランダム）
+ui_icon_weapon_wooden_sword,木剣
+ui_icon_weapon_iron_sword,鉄剣
+ui_icon_weapon_steel_sword,鋼剣
+ui_icon_armor_leather_cap,革兜
+ui_icon_armor_iron_helm,鉄兜
+ui_icon_armor_leather_vest,革鎧
+ui_icon_armor_iron_mail,鉄鎧
+ui_icon_armor_leather_boots,革脚
+ui_icon_armor_iron_greaves,鉄脚
+ui_icon_acc_ring_power,力輪
+ui_icon_acc_amulet_life,命符
+ui_icon_relic_banner_of_war,戦旗
+ui_icon_relic_iron_wall,鉄壁
+ui_icon_relic_warding_stone,護石
+ui_icon_relic_swift_boots,疾風
+ui_icon_relic_lucky_charm,幸運
+ui_icon_relic_hasty_sigil,加速
+ui_icon_relic_champion_blade,覇剣
+ui_icon_relic_guardian_plate,堅盾
+ui_icon_relic_sharp_eye,鷹眼
+ui_icon_relic_berserker_mark,狂戦
+ui_icon_relic_first_strike,先手
+ui_icon_relic_thorns,棘鎧

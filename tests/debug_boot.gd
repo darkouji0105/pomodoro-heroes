@@ -811,9 +811,10 @@ func _apply_levels(scenario: Dictionary) -> void:
 	# ⚠ 見るキーは「その回に足したもの」に必ず差し替えること（段階10で踏んだ）。
 	#   ⚠ 前の回のキーを見たままだと、再インポート済みのキーに当たって
 	#     「済んでいる」と出るのに、その回のキーは未インポートのまま先へ進む。
-	var probe: String = "ui_floor_shop_leave"
+	# ⚠ 2026-08-31 に ui_icon_* 23行（仮アセットの文字）へ差し替えた。
+	var probe: String = "ui_icon_weapon_wooden_sword"
 	print("[DebugBoot] ja.csv の再インポート: %s" % (
-		"まだ（⚠ フロア内ショップにキー名がそのまま出る）" if tr(probe) == probe
+		"まだ（⚠ アイコンにキー名がそのまま出る）" if tr(probe) == probe
 		else "済んでいる"
 	))
 
