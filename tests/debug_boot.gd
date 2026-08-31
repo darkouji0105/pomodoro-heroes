@@ -812,7 +812,9 @@ func _apply_levels(scenario: Dictionary) -> void:
 	#   ⚠ 前の回のキーを見たままだと、再インポート済みのキーに当たって
 	#     「済んでいる」と出るのに、その回のキーは未インポートのまま先へ進む。
 	# ⚠ 2026-08-31 に ui_icon_* 23行（仮アセットの文字）へ差し替えた。
-	var probe: String = "ui_icon_weapon_wooden_sword"
+	#   ⚠ 同じ日の2回目に、残り78件（素材16・装飾61・消耗品1）を足したので、
+	#     その回のキーへ差し替える。⚠ 23行だけ再インポート済みでも「まだ」と出るのが正しい。
+	var probe: String = "ui_icon_part_gem_hp_1"
 	print("[DebugBoot] ja.csv の再インポート: %s" % (
 		"まだ（⚠ アイコンにキー名がそのまま出る）" if tr(probe) == probe
 		else "済んでいる"
@@ -3391,6 +3393,51 @@ func _walk_all_routes(
 # ⚠ 見るのは get_combined_minimum_size().x。⚠ これが画面幅を超えている器が
 #   1つでもあると、⚠ 親が anchors_preset=15 / grow_horizontal=2 なので
 #   左右に均等にはみ出して両端が切れる（2026-08-23に実際にそうなった）。
+# 仮アセットのアイコン（2026-08-31）。⚠ 画面の絵は取れないので、
+#   ⚠ 出るはずの「字・右下の数字・色」を値として出すのがここの仕事。
+#
+# ⚠ 見るのは3つ：
+#   1. ja.csv の字が当たっているか（キー名がそのまま出ていないか＝再インポート未了）
+#   2. 右下の数字が段数と合っているか（装備＝等級 ／ 装飾・素材＝段階 ／ レリック＝無し）
+#   3. 色が10色のどれになるか（等級・段階の写し違いはここでしか見えない）
+func _report_item_icons() -> void:
+	print("[DebugBoot] --- 仮アセットのアイコン（⚠ 字・右下の数字・色）---")
+	# [item_id, 渡す等級（装備の個体だけ。0 なら item_id から引く）]
+	var samples: Array = [
+		["weapon_wooden_sword", 1], ["armor_iron_mail", 4],
+		["acc_ring_power", 7], ["weapon_steel_sword", 10],
+		["part_gem_atk_1", 0], ["part_gem_atk_4", 0],
+		["part_charm_mdef_2", 0], ["part_emblem_crit_dmg_3", 0],
+		["part_rune_buff_1", 0], ["part_rune_shield_5", 0],
+		["construction_material_1", 0], ["decor_material_4", 0],
+		["stamina_potion", 0], ["relic_thorns", 0],
+	]
+	var missing_keys: int = 0
+	var wrong_length: int = 0
+	for sample: Variant in samples:
+		var row: Array = sample
+		var item_id: String = str(row[0])
+		var icon: ItemIcon = ItemIcon.create(item_id, int(row[1]))
+		add_child(icon)
+		var text: String = icon.text_label.text
+		var number: String = icon.grade_label.text
+		var box: StyleBox = icon.get_theme_stylebox("panel")
+		var color: Color = (box as StyleBoxFlat).bg_color if box is StyleBoxFlat else Color.BLACK
+		if text == "ui_icon_" + item_id:
+			missing_keys += 1
+		elif text.length() != 2:
+			wrong_length += 1
+		print("  %-26s 字='%s' 右下='%s' 色=(%.2f, %.2f, %.2f)" % [
+			item_id, text, number, color.r, color.g, color.b
+		])
+		remove_child(icon)
+		icon.queue_free()
+	if missing_keys > 0:
+		push_error("[DebugBoot] ja.csv に ui_icon_* が %d 件無い（キー名がそのまま出る）" % missing_keys)
+	if wrong_length > 0:
+		push_warning("[DebugBoot] ui_icon_* に2文字でないものが %d 件（中央がずれる）" % wrong_length)
+
+
 func _report_layout() -> void:
 	# ⚠ フロアの報告はこの関数の手前に置いてある（_report_floor / _walk_all_routes）。
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -3407,6 +3454,22 @@ func _report_layout() -> void:
 		GameManager.add_material(str(item_id), 2999)
 		material_count += 1
 	print("[DebugBoot] 素材を %d 種類（4桁）入れてから測る" % material_count)
+
+	# ⚠ 2026-08-31・仮アセットのアイコンを足した回で追加。倉庫とショップの行は
+	#   コードで積むので、持ち物が空だと器が 108 x 80 で返る（＝何も測れていない）。
+	#   ⚠ 「もっともらしい小さい数字を信じない」（NEXT_STEPS §4）。
+	# ⚠ 装備は add_to_inventory() が個体を作る（CLAUDE.md 8番）。直接 inventory を書かない。
+	var inventory_count: int = 0
+	for item_id: Variant in MasterDataLoader.get_all_items():
+		var definition: Dictionary = MasterDataLoader.get_item(str(item_id))
+		var item_type: String = str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, ""))
+		if item_type == GameStateKeys.ITEM_TYPE_MATERIAL:
+			continue
+		GameManager.add_to_inventory(str(item_id), 1, item_type)
+		inventory_count += 1
+	print("[DebugBoot] 持ち物を %d 種類入れてから測る" % inventory_count)
+
+	_report_item_icons()
 
 	var packed: PackedScene = load(SCENE_BASE)
 	if packed == null:
@@ -3604,6 +3667,12 @@ const LAYOUT_SCENES: Array[String] = [
 	# ⚠ 段階11で復活した。ギルドのボタンが5個から6個に増えた回でもある
 	#   （⚠ ギルドは VBoxContainer なので、はみ出すなら横ではなく縦）。
 	"res://scenes/guild/workshop_screen.tscn",
+	# ⚠ 2026-08-31・仮アセットのアイコンを足した回で追加。行の頭に 40px の器が1つ増える。
+	#   ⚠ 倉庫は行を GridContainer にコードで積む。持ち物が多いほど横に伸びる
+	#     （測るのは開いた直後の姿だけ。中身の件数は F4 を押した状態と違う）。
+	"res://scenes/guild/warehouse_screen.tscn",
+	# ⚠ 同上。ショップは13枠を HBoxContainer の行で積む。1行に器が4つ並ぶ。
+	"res://scenes/guild/shop_screen.tscn",
 ]
 
 

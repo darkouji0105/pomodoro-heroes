@@ -439,6 +439,12 @@ func _create_item_row(view: Dictionary) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "ItemRow_" + instance_id
 
+	# 仮アセットのアイコン。⚠ 等級は instance_id ごとに違うので個体から引く。
+	row.add_child(ItemIcon.create(
+		str(view.get(GameStateKeys.INSTANCE_ITEM_ID, "")),
+		int(view.get(GameStateKeys.INSTANCE_GRADE, 1))
+	))
+
 	var label: Label = Label.new()
 	label.name = "NameLabel"
 	label.text = _instance_text(instance_id)
@@ -519,6 +525,9 @@ func _create_part_item_row(item_id: String, count: int) -> void:
 
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "PartItemRow_" + item_id
+
+	# 仮アセットのアイコン。⚠ 段階は part_tier から引ける。
+	row.add_child(ItemIcon.create(item_id))
 
 	var label: Label = Label.new()
 	label.name = "NameLabel"

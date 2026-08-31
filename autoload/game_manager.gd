@@ -201,6 +201,11 @@ const ITEM_MASTER_PART_TIER: String = "part_tier"
 const ITEM_MASTER_PART_STAT: String = "part_stat"
 const ITEM_MASTER_PART_BASE: String = "part_base"
 const ITEM_MASTER_PART_ROLL_MAX: String = "part_roll_max"
+# 素材の段階（1〜4）。items.json の material 16件だけが持つ。
+#
+# ⚠ IDの末尾（"_1".."_4"）から切り出さないこと（ITEM_MASTER_PART_KIND のコメントと
+#   同じ理由）。仮アセットのアイコンが「右下の数字」と「色」に使う。
+const ITEM_MASTER_MATERIAL_TIER: String = "material_tier"
 
 # 装飾の種類。
 #
@@ -353,6 +358,7 @@ func _build_new_game_state(caller: String) -> void:
 	# ⚠ FloorConfig の割り当てと層の重みを見る（E131・段階14-i）。
 	#   ⚠ 割り当て漏れは「起動は通るがフロアに入った瞬間に落ちる」形で出る。
 	_validate_floor_config()
+	_validate_icon_config()
 	# ショップのラインナップを shop.json から流し込む。research_tree と同じ理由で、
 	# _empty_state_template() の line_up は [] のため、これが無いと画面に1つも出ない。
 	_sync_shops_from_master()
@@ -2353,6 +2359,18 @@ func _instance_equip_slot(instance_id: String) -> String:
 
 # 装飾1件の定義。装飾でなければ空を返す。
 # MasterDataLoader は JSON をそのまま返すため、数値は int() で包む（CLAUDE.md 3番）。
+# 素材の段階（1〜4）。素材でない、または欄が無ければ 0。
+#
+# ⚠ 段階を引く口はここ1本。画面がIDの末尾を切り出さないこと。
+func get_material_tier(item_id: String) -> int:
+	var definition: Dictionary = MasterDataLoader.get_item(item_id)
+	if definition.is_empty():
+		return 0
+	if str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_MATERIAL:
+		return 0
+	return int(definition.get(ITEM_MASTER_MATERIAL_TIER, 0))
+
+
 func get_part_definition(item_id: String) -> Dictionary:
 	var definition: Dictionary = MasterDataLoader.get_item(item_id)
 	if definition.is_empty():
@@ -4848,6 +4866,63 @@ func _validate_floor_config() -> void:
 	print("[GameManager] floor config validated: %d 層 / 必ず通るショップの層 %d, 0 errors" % [
 		expected, forced_shop_layers
 	])
+
+
+# 仮アセットのアイコンの色（E132）。
+#
+# ⚠ 見るのは3つだけ：割り当て漏れ ／ 色の数が等級の数と違う ／ 段階を写す表が
+#   等級の範囲を出ている。⚠ どれも「静かに間違った色が出る」種類なので赤で鳴らす。
+func _validate_icon_config() -> void:
+	if Balance == null or Balance.icon == null:
+		push_error("[GameManager] E132 balance.tscn: Balance.icon が null。icon_config.tres を Balance ノードの icon 欄に割り当てること")
+		return
+
+	var errors: int = 0
+	var max_grade: int = get_max_equipment_grade()
+	var colors: int = Balance.icon.grade_colors.size()
+	if colors != max_grade:
+		push_error("[GameManager] E132 icon_config.gd: grade_colors が %d 色。装備の等級は %d 段（端の色に丸められる）" % [
+			colors, max_grade
+		])
+		errors += 1
+
+	var tables: Dictionary = {
+		"tier_grades": Balance.icon.tier_grades,
+		"rune_tier_grades": Balance.icon.rune_tier_grades,
+	}
+	for table_name: String in tables:
+		var table: Array = tables[table_name]
+		if table.is_empty():
+			push_error("[GameManager] E132 icon_config.gd: %s が空。段階を色に写せない" % table_name)
+			errors += 1
+			continue
+		for grade: Variant in table:
+			if int(grade) < 1 or int(grade) > colors:
+				push_error("[GameManager] E132 icon_config.gd: %s に等級 %d が入っている（1〜%d の外）" % [
+					table_name, int(grade), colors
+				])
+				errors += 1
+
+	# 段数そのものは PartConfig が持つ。写す表の長さが足りないと、
+	# 上の段階が全部同じ色になる（黙って起きる）。
+	if Balance.part != null:
+		if Balance.icon.tier_grades.size() != Balance.part.max_part_tier:
+			push_error("[GameManager] E132 icon_config.gd: tier_grades の長さ %d が max_part_tier %d と違う" % [
+				Balance.icon.tier_grades.size(), Balance.part.max_part_tier
+			])
+			errors += 1
+		if Balance.icon.rune_tier_grades.size() != Balance.part.max_rune_tier:
+			push_error("[GameManager] E132 icon_config.gd: rune_tier_grades の長さ %d が max_rune_tier %d と違う" % [
+				Balance.icon.rune_tier_grades.size(), Balance.part.max_rune_tier
+			])
+			errors += 1
+
+	if errors > 0:
+		return
+	print("[GameManager] icon config validated: %d 色 / 段階 %d / ルーン段階 %d, 0 errors" % [
+		colors, Balance.icon.tier_grades.size(), Balance.icon.rune_tier_grades.size()
+	])
+
 
 func get_effective_level_cap(_character_id: String) -> int:
 	# 保存された値ではなく、research_treeを都度走査して計算する。

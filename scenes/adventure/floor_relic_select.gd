@@ -63,6 +63,9 @@ func _build_choice_rows() -> void:
 		var row: HBoxContainer = HBoxContainer.new()
 		row.name = "Choice_" + relic_id
 
+		# 仮アセットのアイコン。⚠ レリックは段数を持たないので数字は出ない。
+		row.add_child(ItemIcon.create(relic_id))
+
 		var name_label: Label = Label.new()
 		name_label.size_flags_horizontal = 3
 		var scope_key: String = (

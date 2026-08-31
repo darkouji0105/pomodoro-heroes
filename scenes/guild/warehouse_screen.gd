@@ -116,6 +116,10 @@ func _create_instance_entry(view: Dictionary) -> void:
 	var entry: VBoxContainer = VBoxContainer.new()
 	entry.name = "Eq_" + instance_id
 
+	# 仮アセットのアイコン。⚠ 等級は instance_id ごとに違うので渡す
+	#   （item_id からは引けない）。
+	entry.add_child(ItemIcon.create(item_id, grade))
+
 	var name_label: Label = Label.new()
 	name_label.name = "NameLabel"
 	name_label.text = "%s %s" % [tr("ui_res_" + item_id), tr("ui_equipment_grade") % grade]
@@ -152,6 +156,10 @@ func _on_dismantle_pressed(instance_id: String) -> void:
 func _create_inventory_entry(item_id: String, count: int) -> void:
 	var entry: VBoxContainer = VBoxContainer.new()
 	entry.name = "Inv_" + item_id
+
+	# 仮アセットのアイコン。⚠ 段階は item_id から引ける（装飾＝part_tier ／
+	#   素材＝material_tier）ので渡さない。
+	entry.add_child(ItemIcon.create(item_id))
 
 	var name_label: Label = Label.new()
 	name_label.text = tr("ui_res_" + item_id)
@@ -260,6 +268,10 @@ func _rebuild_codex() -> void:
 func _create_codex_row(item_id: String, discovered: bool) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "CodexRow_" + item_id
+
+	# ⚠ 未発見の行にアイコンを出さない。文字で中身が割れる。
+	if discovered:
+		row.add_child(ItemIcon.create(item_id))
 
 	var name_label: Label = Label.new()
 	if discovered:

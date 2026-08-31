@@ -21,13 +21,18 @@ const HIDDEN_TEXT: String = "？"
 # 宝箱を見つけたときの演出（段階14-g）。
 #
 # ⚠ 台帳 §4-5「レアリティは開封前から見た目で判別できる。隠さず全て可視化する」。
-#   ⚠ 色はここに置く（main_theme.tres に対応する概念が無い。上のマスの色と同じ扱い）。
 # ⚠ レアリティの綴りは GameManager から受け取る。chest_id から切り出さないこと。
-const CHEST_COLORS: Dictionary = {
-	"common": Color(0.80, 0.80, 0.82),
-	"rare": Color(0.40, 0.70, 1.00),
-	"epic": Color(0.75, 0.45, 0.95),
-	"legendary": Color(1.00, 0.80, 0.25),
+#
+# ⚠ 色そのものはここに持たない。Balance.icon（IconConfig）の10色ランプの
+#   1 / 4 / 7 / 10 番目が、以前ここにあった 灰 / 青 / 紫 / 金 と同じ値になっている
+#   （2026-08-31・仮アセットのアイコンと同じ見た目の言語に揃えた）。
+#   ⚠ ここに const で色を戻さないこと。宝箱とアイコンで色が食い違う。
+# ⚠ ここが持つのは「どのレアリティが何段目か」の綴りだけ。
+const CHEST_RARITY_TIERS: Dictionary = {
+	GameManager.CHEST_RARITY_COMMON: 1,
+	GameManager.CHEST_RARITY_RARE: 2,
+	GameManager.CHEST_RARITY_EPIC: 3,
+	GameManager.CHEST_RARITY_LEGENDARY: 4,
 }
 # 演出の長さ（秒）。⚠ ここを 0 にしないこと。0 にすると戦闘マスでは
 #   遷移が即座に走り、見つけたことが一度も見えない（それが直前の症状）。
@@ -249,7 +254,9 @@ func _on_node_pressed(node_id: String) -> void:
 func _play_chest_popup(node_id: String) -> void:
 	var chest: Dictionary = MasterDataLoader.get_chest(_found_chest_id)
 	var chest_name: String = tr(str(chest.get(GameManager.CHEST_NAME_KEY, _found_chest_id)))
-	var color: Color = CHEST_COLORS.get(_found_rarity, Color.WHITE)
+	var color: Color = Balance.icon.color_of_grade(
+		Balance.icon.grade_of_tier(int(CHEST_RARITY_TIERS.get(_found_rarity, 1)), false)
+	)
 
 	chest_popup.text = "%s\n%s" % [tr("ui_floor_chest_found"), chest_name]
 	chest_popup.modulate = Color(color.r, color.g, color.b, 0.0)
