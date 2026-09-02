@@ -45,6 +45,14 @@ signal floor_run_changed(floor_id: String)
 # ⚠ 周回（run_floor_auto）でも飛ぶ。購読しているのはマップ画面だけなので実害は無い。
 signal floor_chest_found(chest_id: String, rarity: String)
 
+# 難ダンジョンのランの状態が変わった（段階17-a）。開始・移動・ボス撃破・
+# 潜行・撤退・全ロストのいずれでも飛ぶ。
+# ⚠ floor_run_changed と1本にまとめない。器が別（PLAN_HARD_DUNGEON.md §7）で、
+#   購読する画面も別になる（17-d）。1本にすると、どちらの器が変わったのかを
+#   受け取り側が状態を読んで判定することになる。
+# ⚠ dungeon_id は「変わったあとの値」。ランが終わったときは "" が飛ぶ。
+signal dungeon_run_changed(dungeon_id: String)
+
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
 const LEVEL_UP_COST_MATERIAL_ID: String = "material_id"
@@ -359,6 +367,9 @@ func _build_new_game_state(caller: String) -> void:
 	#   ⚠ 割り当て漏れは「起動は通るがフロアに入った瞬間に落ちる」形で出る。
 	_validate_floor_config()
 	_validate_icon_config()
+	# ⚠ 難ダンジョン（段階17-a・E133 / W22）。⚠ Balance.dungeon の割り当て漏れは
+	#   「ランに入った瞬間に落ちる」形で出るので、起動時に言わないと気づけない。
+	_validate_dungeon_config()
 	# ショップのラインナップを shop.json から流し込む。research_tree と同じ理由で、
 	# _empty_state_template() の line_up は [] のため、これが無いと画面に1つも出ない。
 	_sync_shops_from_master()
@@ -473,6 +484,10 @@ func _empty_state_template() -> Dictionary:
 		# フロア探索（段階14-a）。floor_id が "" なら入っていない。
 		# ⚠ 9つの欄を最初から全部持たせる。14-b〜14-e が埋める欄も空で置く。
 		GameStateKeys.FLOOR_RUN: _empty_floor_run(),
+		# 難ダンジョンのラン（段階17-a）。dungeon_id が "" なら入っていない。
+		# ⚠ FLOOR_RUN とは別の器（PLAN_HARD_DUNGEON.md §7）。⚠ 使い回さないこと。
+		# ⚠ 14 の欄を最初から全部持たせる。17-b〜17-e が埋める欄も空で置く。
+		GameStateKeys.DUNGEON_RUN: _empty_dungeon_run(),
 		GameStateKeys.UNLOCKED_SCREENS: {},
 		GameStateKeys.SCENARIO_CHAPTER: 1,
 		GameStateKeys.BOSS_UNLOCKED: false,
@@ -5555,6 +5570,39 @@ func load_state(data: Dictionary) -> bool:
 				var node_entry: Dictionary = floor_nodes[node_id]
 				if node_entry.has(GameStateKeys.FLOOR_NODE_LAYER):
 					node_entry[GameStateKeys.FLOOR_NODE_LAYER] = int(node_entry[GameStateKeys.FLOOR_NODE_LAYER])
+	# 難ダンジョンのラン（段階17-a）。フロア探索と同じ理由で int に戻す。
+	# ⚠ 数値の欄は5つ（floor_index / bag_slots / currency / torch_grade / loot_count）と、
+	#   辞書3本（max_hp / hp / bag）と、ノードの layer。⚠ 1つでも飛ばすと
+	#   セーブに "currency": 120.0 と書かれ、鞄の枠計算にも .0 が乗る。
+	# ⚠ dungeon_id / phase / position / kind / next は文字列なので触らない。
+	if new_state.has(GameStateKeys.DUNGEON_RUN) and new_state[GameStateKeys.DUNGEON_RUN] is Dictionary:
+		var dungeon_run: Dictionary = new_state[GameStateKeys.DUNGEON_RUN]
+		for number_key: String in [
+			GameStateKeys.DUNGEON_RUN_FLOOR_INDEX,
+			GameStateKeys.DUNGEON_RUN_BAG_SLOTS,
+			GameStateKeys.DUNGEON_RUN_CURRENCY,
+			GameStateKeys.DUNGEON_RUN_TORCH_GRADE,
+			GameStateKeys.DUNGEON_RUN_LOOT_COUNT,
+		]:
+			if dungeon_run.has(number_key):
+				dungeon_run[number_key] = int(dungeon_run[number_key])
+		for dict_key: String in [
+			GameStateKeys.DUNGEON_RUN_MAX_HP,
+			GameStateKeys.DUNGEON_RUN_HP,
+			GameStateKeys.DUNGEON_RUN_BAG,
+		]:
+			if dungeon_run.has(dict_key) and dungeon_run[dict_key] is Dictionary:
+				var number_map: Dictionary = dungeon_run[dict_key]
+				for map_key: String in number_map:
+					number_map[map_key] = int(number_map[map_key])
+		if dungeon_run.has(GameStateKeys.DUNGEON_RUN_NODES) and dungeon_run[GameStateKeys.DUNGEON_RUN_NODES] is Dictionary:
+			var dungeon_nodes: Dictionary = dungeon_run[GameStateKeys.DUNGEON_RUN_NODES]
+			for dungeon_node_id: String in dungeon_nodes:
+				if not (dungeon_nodes[dungeon_node_id] is Dictionary):
+					continue
+				var dungeon_node: Dictionary = dungeon_nodes[dungeon_node_id]
+				if dungeon_node.has(GameStateKeys.DUNGEON_NODE_LAYER):
+					dungeon_node[GameStateKeys.DUNGEON_NODE_LAYER] = int(dungeon_node[GameStateKeys.DUNGEON_NODE_LAYER])
 	# 育成データ。JSONから戻すと level も stats も float になるため int に戻す。
 	# これを飛ばすと、セーブ→ロード後に hp が 128.0 と表示され、レベル比較もずれる。
 	if new_state.has(GameStateKeys.CHARACTER_GROWTH) and new_state[GameStateKeys.CHARACTER_GROWTH] is Dictionary:
@@ -6577,3 +6625,779 @@ func refund_stamina(amount: int) -> void:
 		return
 	var current: int = _add_stamina_uncapped(amount)
 	print("[GameManager] refund_stamina(%d) -> current=%d" % [amount, current])
+
+
+# ========================================================================
+# 難ダンジョン（段階17-a・PLAN_HARD_DUNGEON.md §4 / §5 / §7）
+#
+# ⚠⚠ シナリオ（floor_1..5）の器を1つも借りていない。
+#   ⚠ FLOOR_RUN も _build_floor_map() も get_available_moves() も
+#     _roll_floor_chest() も使わない（台帳 §7）。形が同じでも仕様が別で、
+#     借りると1本の関数に2つの仕様が同居する。
+#
+# ⚠ この回で作るのは器だけ。⚠ 画面は 17-d、戦闘との接続は 17-b、
+#   ポーション・蘇生・休憩の中身は 17-c、ショップとたいまつは 17-e。
+# ⚠ 数値は全部「仮置き」（決定14）。遊んでから測る（17-g）。
+#
+# 1ランの形（決定15・§5-0）：
+#   ラン開始（鞄は空）→ 層1 → … → 層N → ボス
+#     → ボスを倒す（phase=boss_cleared）→ ショップを見せる（17-e）
+#     → 「続行する」＝次のフロアへ（ランの MAX HP と鞄はそのまま持ち越す）
+#       「撤退する」＝鞄の中身を持ち帰ってラン終了
+# ⚠ 層の途中に降り口を足さないこと（決定15）。足すと「潜るか降りるか」の
+#   決断が消え、一貫原則の柱が1本抜ける。
+#   ⚠ 詰んだ人の逃げ道は abandon_dungeon_run()（＝全ロスト。タダではない）。
+# ========================================================================
+
+# いま在るダンジョンは1本だけ。⚠ 入口（未決7）は 17-g。
+# ⚠ 名指しで要るのはここだけ。⚠ ダンジョンを増やしたら dungeon.json に足す
+#   （この定数を増やさない。一覧は MasterDataLoader.get_all_dungeon_ids()）。
+const DUNGEON_DEFAULT_ID: String = "dungeon_hard"
+
+# dungeon.json のキー。⚠ stages.json の STAGE_MASTER_* とは別（ファイルが別）。
+const DUNGEON_MASTER_LAYERS: String = "layers"
+const DUNGEON_MASTER_BATTLE_POOL: String = "battle_pool"
+const DUNGEON_MASTER_BOSS: String = "boss"
+const DUNGEON_MASTER_LOOT: String = "loot"
+const DUNGEON_MASTER_CURRENCY: String = "currency"
+# layers[] の中身。⚠ 綴りは stages.json と同じだが、読む先が別のファイルなので
+#   定数も別に持つ（片方の綴りを変えたときにもう片方が黙って壊れないため）。
+const DUNGEON_LAYER_NODE_COUNT: String = "node_count"
+
+
+# ランに入っていない状態の器。
+#
+# ⚠ 14 欄を最初から全部持たせる（14-a の教訓）。17-b〜17-e が埋める欄も空で置く。
+#   ⚠ あとから欄を足すと _empty_state_template()・load_state() の int() 一覧・
+#     AGENTS.md の表を何度も触ることになる。
+func _empty_dungeon_run() -> Dictionary:
+	return {
+		GameStateKeys.DUNGEON_RUN_DUNGEON_ID: "",
+		GameStateKeys.DUNGEON_RUN_FLOOR_INDEX: 0,
+		GameStateKeys.DUNGEON_RUN_PHASE: "",
+		GameStateKeys.DUNGEON_RUN_NODES: {},
+		GameStateKeys.DUNGEON_RUN_POSITION: "",
+		GameStateKeys.DUNGEON_RUN_VISITED: {},
+		GameStateKeys.DUNGEON_RUN_MAX_HP: {},
+		GameStateKeys.DUNGEON_RUN_HP: {},
+		GameStateKeys.DUNGEON_RUN_BAG: {},
+		GameStateKeys.DUNGEON_RUN_BAG_SLOTS: 0,
+		GameStateKeys.DUNGEON_RUN_CURRENCY: 0,
+		GameStateKeys.DUNGEON_RUN_TORCH_GRADE: 0,
+		GameStateKeys.DUNGEON_RUN_RELICS: [],
+		GameStateKeys.DUNGEON_RUN_LOOT_COUNT: 0,
+	}
+
+
+var _dungeon_config_warned: bool = false
+
+
+# ⚠ Balance.dungeon を読む唯一の口。⚠ null のときに何度も鳴かせない
+#   （_equipment() / _part() と同じ形）。
+func _dungeon() -> DungeonConfig:
+	if Balance == null or Balance.dungeon == null:
+		if not _dungeon_config_warned:
+			_dungeon_config_warned = true
+			push_error("[GameManager] E133 balance.tscn: Balance.dungeon が null。dungeon_config.tres を Balance ノードの dungeon 欄に割り当てること")
+		return null
+	return Balance.dungeon
+
+
+# --- 読み取り ---------------------------------------------------------
+
+# いまランの中にいるか。
+func is_in_dungeon() -> bool:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	return str(run.get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")) != ""
+
+
+# 進行中のランの読み取り専用スナップショット。
+func get_dungeon_run() -> Dictionary:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	return run.duplicate(true)
+
+
+# ノード1つ。無ければ空。
+func get_dungeon_node(node_id: String) -> Dictionary:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var nodes: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	var node: Variant = nodes.get(node_id, null)
+	if not (node is Dictionary):
+		return {}
+	return (node as Dictionary).duplicate(true)
+
+
+# いまの位置から進めるノードIDの配列。
+#
+# ⚠ 「進めるか」の判定はここ1本だけ。move_in_dungeon() もこれを呼ぶ。
+# ⚠ get_available_moves()（シナリオ側）を借りない。⚠ こちらは phase も見る
+#   （ボスを倒したあとは、続行か撤退を選ぶまでどこへも進めない）。
+func get_dungeon_moves() -> Array:
+	var result: Array = []
+	if not is_in_dungeon():
+		return result
+	if get_dungeon_phase() != GameStateKeys.DUNGEON_PHASE_MAP:
+		return result
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var node: Dictionary = get_dungeon_node(str(run.get(GameStateKeys.DUNGEON_RUN_POSITION, "")))
+	if node.is_empty():
+		return result
+	for entry: Variant in (node.get(GameStateKeys.DUNGEON_NODE_NEXT, []) as Array):
+		result.append(str(entry))
+	return result
+
+
+# 何枚目のフロアか（1 から）。ランに入っていなければ 0。
+func get_dungeon_floor_index() -> int:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	return int(run.get(GameStateKeys.DUNGEON_RUN_FLOOR_INDEX, 0))
+
+
+# いま「マップを歩いている」のか「ボスを倒した先に居る」のか。
+func get_dungeon_phase() -> String:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	return str(run.get(GameStateKeys.DUNGEON_RUN_PHASE, ""))
+
+
+# 撤退できるか（決定15）。⚠ ボスを倒した直後だけ true。
+#
+# ⚠ 判定の口はここ1本。⚠ 画面側で phase の綴りを比べないこと。
+func can_retreat_from_dungeon() -> bool:
+	return is_in_dungeon() and get_dungeon_phase() == GameStateKeys.DUNGEON_PHASE_BOSS_CLEARED
+
+
+# 鞄の中身。{item_id: 個数}。
+func get_dungeon_bag() -> Dictionary:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var bag: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_BAG, {})
+	return bag.duplicate(true)
+
+
+# 鞄の枠数。
+func get_dungeon_bag_slots() -> int:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	return int(run.get(GameStateKeys.DUNGEON_RUN_BAG_SLOTS, 0))
+
+
+# 鞄が埋まっている数。
+#
+# ⚠ 個数制限方式なので「種類」ではなく「個数」の合計（コンセプト文書「一律1枠」）。
+#   ⚠ 重み付けを入れないこと（タルコフの煩雑さを持ち込まないという決定）。
+func get_dungeon_bag_used() -> int:
+	var used: int = 0
+	var bag: Dictionary = get_dungeon_bag()
+	for item_id: Variant in bag:
+		used += int(bag[item_id])
+	return used
+
+
+# ランの一時通貨（決定16。1種類）。
+func get_dungeon_currency() -> int:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	return int(run.get(GameStateKeys.DUNGEON_RUN_CURRENCY, 0))
+
+
+# ランの MAX HP。{character_id: int}（決定8・§4-4）。
+#
+# ⚠⚠ 素の MAX HP（get_effective_stats().hp）とは別のもの。
+#   ⚠ ダンジョンが書き換えてよいのはこちらだけ。素のほうを書き換えると
+#     セーブに削れた値が焼き付いて二度と戻らない。
+func get_dungeon_max_hp() -> Dictionary:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var max_hp: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_MAX_HP, {})
+	return max_hp.duplicate(true)
+
+
+# ランのいまの HP。{character_id: int}。
+func get_dungeon_hp() -> Dictionary:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var hp: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_HP, {})
+	return hp.duplicate(true)
+
+
+# --- ランの開始と進行 -------------------------------------------------
+
+# ランに入る。⚠ 鞄は空・一時通貨0・ランの MAX HP は素の MAX HP から写す。
+#
+# ⚠ 状態を触るのは最後の1回だけ（CLAUDE.md 6番）。判定を全部先に終える。
+# ⚠ 入るコストは取らない（決定11。テストプレイ優先。⚠ リリース前に必ず入れ直す＝未決7）。
+func start_dungeon_run(dungeon_id: String = DUNGEON_DEFAULT_ID) -> bool:
+	if is_in_dungeon():
+		push_warning("[GameManager] start_dungeon_run: すでにランの中にいる（先に abandon_dungeon_run()）")
+		return false
+	if MasterDataLoader.get_dungeon(dungeon_id).is_empty():
+		push_warning("[GameManager] start_dungeon_run: dungeon.json に無い: " + dungeon_id)
+		return false
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return false
+	var map: Dictionary = _build_dungeon_map(dungeon_id)
+	if map.is_empty():
+		push_warning("[GameManager] start_dungeon_run: マップを組めなかった: " + dungeon_id)
+		return false
+
+	# ⚠ 素の MAX HP から写す。⚠ 数値だけ（マスターデータを複製しない＝CLAUDE.md 4番）。
+	var max_hp: Dictionary = {}
+	for member: Variant in get_party_members():
+		var character_id: String = str(member)
+		if character_id == "":
+			continue
+		max_hp[character_id] = int(get_effective_stats(character_id).get(GameStateKeys.STAT_HP, 0))
+
+	# ここから状態を触る。
+	var run: Dictionary = _empty_dungeon_run()
+	run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID] = dungeon_id
+	run[GameStateKeys.DUNGEON_RUN_FLOOR_INDEX] = 1
+	run[GameStateKeys.DUNGEON_RUN_MAX_HP] = max_hp
+	# ⚠ 入った時点では満タン。⚠ 同じ数値だが意味が別（§4-4 の表）。
+	run[GameStateKeys.DUNGEON_RUN_HP] = max_hp.duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_BAG_SLOTS] = maxi(0, int(config.bag_initial_slots))
+	_apply_dungeon_map(run, map)
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+	print("[GameManager] start_dungeon_run('%s') -> フロア1 / ノード%d / 鞄 %d 枠 / ランのMAX HP %s" % [
+		dungeon_id, (run[GameStateKeys.DUNGEON_RUN_NODES] as Dictionary).size(),
+		int(run[GameStateKeys.DUNGEON_RUN_BAG_SLOTS]), str(max_hp),
+	])
+	dungeon_run_changed.emit(dungeon_id)
+	return true
+
+
+# 組んだマップを run に載せる（開始と潜行の共通部分）。
+#
+# ⚠ 2本に分けて書かないこと。片方だけ直すと「1枚目は正しいが2枚目から壊れている」
+#   （またはその逆）になり、どちらもエラーが出ない（_build_new_game_state と同じ理由）。
+func _apply_dungeon_map(run: Dictionary, map: Dictionary) -> void:
+	var entry_id: String = str(map.get("entry", ""))
+	run[GameStateKeys.DUNGEON_RUN_NODES] = map.get("nodes", {})
+	run[GameStateKeys.DUNGEON_RUN_POSITION] = entry_id
+	run[GameStateKeys.DUNGEON_RUN_VISITED] = {entry_id: true}
+	run[GameStateKeys.DUNGEON_RUN_PHASE] = GameStateKeys.DUNGEON_PHASE_MAP
+	# ⚠ たいまつはフロア単位で戻す（シナリオ側と同じ扱い）。⚠ 鞄・通貨・HP は戻さない。
+	run[GameStateKeys.DUNGEON_RUN_TORCH_GRADE] = 0
+
+
+# 隣のノードへ進む。
+#
+# ⚠ get_dungeon_moves() に無いノードは弾く。弾くときに状態を触らない。
+# ⚠⚠ 戦利品は「移動」ではなく「着いたノードの種類」に紐づく（§5-2）。
+#   ⚠ 移動に紐づけ直さないこと。層構造だと歩数がどのルートでも同じなので、
+#     どの分岐を選んでも報酬の総量が動かなくなり、休憩場所のコストも
+#     たいまつを買う理由も同時に消える（FLOOR_GAMEPLAY_CURRENT.md §2-B）。
+func move_in_dungeon(node_id: String) -> bool:
+	if not is_in_dungeon():
+		push_warning("[GameManager] move_in_dungeon: ランに入っていない")
+		return false
+	if not (node_id in get_dungeon_moves()):
+		print("[GameManager] move_in_dungeon('%s') -> false (進めない)" % node_id)
+		return false
+
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_POSITION] = node_id
+	var visited: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_VISITED, {})
+	visited[node_id] = true
+	run[GameStateKeys.DUNGEON_RUN_VISITED] = visited
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+	var kind: String = str(get_dungeon_node(node_id).get(GameStateKeys.DUNGEON_NODE_KIND, ""))
+	print("[GameManager] move_in_dungeon('%s') -> true (kind=%s)" % [node_id, kind])
+	# ⚠ ボスは踏んだだけでは何も出ない。⚠ 倒したときに clear_dungeon_boss() が配る
+	#   （踏んだ時点で配ると、負けても報酬が残る）。
+	if kind != GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+		_grant_dungeon_node_gains(kind)
+	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
+	return true
+
+
+# ボスを倒した。⚠ ここで初めてボスの戦利品と通貨が入り、撤退できるようになる。
+#
+# ⚠ 17-a の時点で呼ぶのは scenario=dungeon だけ。⚠ 戦闘から呼ぶのは 17-b。
+# ⚠ 位置がボスノードでなければ弾く（弾くときに状態を触らない）。
+func clear_dungeon_boss() -> bool:
+	if not is_in_dungeon():
+		return false
+	if get_dungeon_phase() != GameStateKeys.DUNGEON_PHASE_MAP:
+		print("[GameManager] clear_dungeon_boss() -> false (すでにボスの先に居る)")
+		return false
+	var position: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	var node: Dictionary = get_dungeon_node(position)
+	if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) != GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+		print("[GameManager] clear_dungeon_boss() -> false (ボスノードに居ない: %s)" % position)
+		return false
+
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var nodes: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	(nodes[position] as Dictionary)[GameStateKeys.DUNGEON_NODE_CLEARED] = true
+	run[GameStateKeys.DUNGEON_RUN_NODES] = nodes
+	# ⚠ ここが「お預けポイント」の代わり（決定15）。ショップ（17-e）を見せてから
+	#   「続行する／撤退する」を選ばせる場所。
+	run[GameStateKeys.DUNGEON_RUN_PHASE] = GameStateKeys.DUNGEON_PHASE_BOSS_CLEARED
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+	_grant_dungeon_node_gains(GameStateKeys.DUNGEON_NODE_KIND_BOSS)
+	print("[GameManager] clear_dungeon_boss() -> フロア%d 突破。撤退できる状態になった" % get_dungeon_floor_index())
+	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
+	return true
+
+
+# 次のフロアへ潜る（続行する）。
+#
+# ⚠ ランの MAX HP・HP・鞄・鞄の枠・一時通貨はそのまま持ち越す（§5-0 の表）。
+# ⚠ ボスを倒した先でしか呼べない。⚠ 層の途中から呼べる形にしないこと。
+func descend_dungeon_floor() -> bool:
+	if not can_retreat_from_dungeon():
+		print("[GameManager] descend_dungeon_floor() -> false (ボスを倒した先に居ない)")
+		return false
+	var dungeon_id: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	var map: Dictionary = _build_dungeon_map(dungeon_id)
+	if map.is_empty():
+		push_warning("[GameManager] descend_dungeon_floor: マップを組めなかった: " + dungeon_id)
+		return false
+
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_FLOOR_INDEX] = get_dungeon_floor_index() + 1
+	_apply_dungeon_map(run, map)
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+	print("[GameManager] descend_dungeon_floor() -> フロア%d / 鞄 %d/%d / 通貨 %d（持ち越した）" % [
+		int(run[GameStateKeys.DUNGEON_RUN_FLOOR_INDEX]),
+		get_dungeon_bag_used(), get_dungeon_bag_slots(), get_dungeon_currency(),
+	])
+	dungeon_run_changed.emit(dungeon_id)
+	return true
+
+
+# 撤退する（鞄の中身を持ち帰ってラン終了）。
+#
+# 戻り値: {"granted": {item_id: 個数}, "discarded": {item_id: 個数}}
+#
+# ⚠⚠ 個体化の口は _grant_item() → add_to_inventory() の1本だけ（CLAUDE.md 8番）。
+#   ⚠ ここで inventory を直接書かないこと。装備が個体にならず静かに消える。
+# ⚠ ラン専用の型（ITEM_TYPE_DUNGEON）のものは持ち帰らない（決定17・§4-3-1）。
+#   ⚠ 「拠点で買えない・拠点で使えない」ものが拠点の倉庫に並ぶのを、型の判定1つで
+#     止めている。⚠ ID の綴りで見分けないこと。
+func retreat_from_dungeon() -> Dictionary:
+	var result: Dictionary = {"granted": {}, "discarded": {}}
+	if not can_retreat_from_dungeon():
+		print("[GameManager] retreat_from_dungeon() -> 何もしない (ボスを倒した先に居ない)")
+		return result
+
+	var bag: Dictionary = get_dungeon_bag()
+	var item_ids: Array = bag.keys()
+	item_ids.sort()
+	for entry: Variant in item_ids:
+		var item_id: String = str(entry)
+		var count: int = int(bag[item_id])
+		if count <= 0:
+			continue
+		if _is_dungeon_only_item(item_id):
+			(result["discarded"] as Dictionary)[item_id] = count
+			continue
+		_grant_item(item_id, count)
+		(result["granted"] as Dictionary)[item_id] = count
+
+	var floors: int = get_dungeon_floor_index()
+	_end_dungeon_run()
+	print("[GameManager] retreat_from_dungeon() -> フロア%d まで潜って持ち帰った: %s（ラン専用で消えたもの: %s）" % [
+		floors, str(result["granted"]), str(result["discarded"]),
+	])
+	return result
+
+
+# ランを失う（死亡／その場で降りる）。⚠ 鞄の中身は全部消える（§4-2・§4-8）。
+#
+# ⚠ 「その場で降りる」のボタンを消さないこと。⚠ 消すと詰んだ人が閉じ込められる
+#   （Roguebook の知見）。⚠ ただしタダにもしない。ここを通ると持ち帰りはゼロ。
+# ⚠ 失うのは鞄と一時通貨だけ。⚠ 装備・装飾・ルーン・レベル・研究は失わない（決定7）。
+#   ⚠ 「装備を除外する条件分岐」を書かないこと。⚠ 鞄に持ち込みが入らないので
+#     構造で外れている。
+func abandon_dungeon_run() -> void:
+	if not is_in_dungeon():
+		return
+	var lost: Dictionary = get_dungeon_bag()
+	var floors: int = get_dungeon_floor_index()
+	_end_dungeon_run()
+	print("[GameManager] abandon_dungeon_run() -> フロア%d で全ロスト。失った鞄の中身: %s" % [floors, str(lost)])
+
+
+# ランの状態を捨てる。⚠ 撤退と全ロストの共通部分。
+#
+# ⚠ ランの MAX HP はここで一緒に消える。⚠ 次に入るときは素の MAX HP から
+#   満タンで始まる（決定9＝案A）。⚠ CHARACTER_GROWTH には1文字も書いていない。
+func _end_dungeon_run() -> void:
+	_state[GameStateKeys.DUNGEON_RUN] = _empty_dungeon_run()
+	dungeon_run_changed.emit("")
+
+
+# --- 鞄と一時通貨 -----------------------------------------------------
+
+# 鞄に入れる。⚠ 戻り値は「実際に入った個数」。
+#
+# ⚠ 溢れたぶんは入らない（＝拾えない）。⚠ 勝手に何かを捨てて空けないこと。
+#   ⚠ 「何を残し何を捨てるか」はプレイヤーが選ぶもの（コンセプト文書）。画面は 17-d。
+# ⚠ 鞄が持つのは item_id と個数だけ。⚠ 個体（instance_id）にしない（§4-1）。
+#   ⚠ ここを add_to_inventory() の2本目の入口にしないこと（CLAUDE.md 8番）。
+func add_to_dungeon_bag(item_id: String, count: int) -> int:
+	if not is_in_dungeon() or count <= 0:
+		return 0
+	var used: int = get_dungeon_bag_used()
+	var slots: int = get_dungeon_bag_slots()
+	var accepted: int = mini(count, maxi(0, slots - used))
+	if accepted <= 0:
+		print("[GameManager] add_to_dungeon_bag('%s', %d) -> 0（鞄が満杯 %d/%d）" % [
+			item_id, count, used, slots
+		])
+		return 0
+
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var bag: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_BAG, {})
+	bag[item_id] = int(bag.get(item_id, 0)) + accepted
+	run[GameStateKeys.DUNGEON_RUN_BAG] = bag
+	run[GameStateKeys.DUNGEON_RUN_LOOT_COUNT] = int(run.get(GameStateKeys.DUNGEON_RUN_LOOT_COUNT, 0)) + accepted
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+	if accepted < count:
+		print("[GameManager] add_to_dungeon_bag('%s', %d) -> %d だけ入った（鞄 %d/%d）" % [
+			item_id, count, accepted, get_dungeon_bag_used(), slots
+		])
+	return accepted
+
+
+# 一時通貨を増やす（決定16。1種類）。⚠ ゴールドと混ぜないこと。
+func add_dungeon_currency(amount: int) -> void:
+	if not is_in_dungeon() or amount == 0:
+		return
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_CURRENCY] = maxi(0, get_dungeon_currency() + amount)
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+
+# その item_id がラン専用の型か（決定17・§4-3-1）。
+#
+# ⚠ 見るのは items.json の item_type だけ。⚠ ID の綴りで見分けないこと
+#   （ITEM_MASTER_PART_KIND のコメントと同じ理由）。
+func _is_dungeon_only_item(item_id: String) -> bool:
+	var definition: Dictionary = MasterDataLoader.get_item(item_id)
+	if definition.is_empty():
+		return false
+	return str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) == GameStateKeys.ITEM_TYPE_DUNGEON
+
+
+# --- 戦利品（ノード種に紐づく。§5-2） ---------------------------------
+
+# 着いたノードの種類に応じて、戦利品と一時通貨を配る。
+#
+# ⚠ 抽選の本体は _roll_weighted_table() の1本（台帳 §7）。⚠ あちらにボーナスを足さない。
+# ⚠ 出るか出ないかを先に決め、出ると決まってから中身を引く（_roll_floor_chest と同じ形）。
+# ⚠ 宝箱（pending_chests）には積まない。⚠ ランの戦利品は鞄に入り、
+#   持ち帰りが確定するまで拠点の資産にならない。
+func _grant_dungeon_node_gains(kind: String) -> void:
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return
+	var dungeon: Dictionary = MasterDataLoader.get_dungeon(
+		str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	)
+	if dungeon.is_empty():
+		return
+
+	# 1. 一時通貨。⚠ フロアが深いほど増える（§2「深く潜る＝より良い戦利品」）。
+	var currency_table: Variant = dungeon.get(DUNGEON_MASTER_CURRENCY, null)
+	if currency_table is Dictionary:
+		# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
+		var base: int = int((currency_table as Dictionary).get(kind, 0))
+		if base > 0:
+			var growth: int = maxi(0, int(config.currency_growth_pct_per_floor))
+			var depth: int = maxi(0, get_dungeon_floor_index() - 1)
+			add_dungeon_currency(int(float(base) * (1.0 + float(growth) * float(depth) / 100.0)))
+
+	# 2. 戦利品。⚠ ノード種ごとの確率で引く。
+	var chance: int = _dungeon_loot_chance_pct(kind)
+	if chance <= 0 or randi_range(1, 100) > chance:
+		return
+	var loot_table: Variant = dungeon.get(DUNGEON_MASTER_LOOT, null)
+	if not (loot_table is Dictionary):
+		return
+	var entry: Variant = (loot_table as Dictionary).get(kind, null)
+	if not (entry is Dictionary):
+		return
+	var draw: Dictionary = entry
+	var rolls: int = int(draw.get(CHEST_DRAW_ROLLS, 0))
+	if rolls <= 0:
+		return
+	var rolled: Dictionary = _roll_weighted_table(draw.get(CHEST_DRAW_ENTRIES, []), rolls)
+	# ⚠ 綴り順で入れる（Dictionary のキー順は不定。鞄が溢れたときに
+	#   「何が入って何が入らなかったか」が起動ごとに変わらないようにする）。
+	var item_ids: Array = rolled.keys()
+	item_ids.sort()
+	for item_entry: Variant in item_ids:
+		add_to_dungeon_bag(str(item_entry), int(rolled[item_entry]))
+
+
+# ノード種ごとの「戦利品を引く確率（％）」。
+#
+# ⚠ 置き場は DungeonConfig の1本だけ。⚠ dungeon.json 側に確率を書かないこと。
+func _dungeon_loot_chance_pct(kind: String) -> int:
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return 0
+	match kind:
+		GameStateKeys.DUNGEON_NODE_KIND_BATTLE:
+			return int(config.loot_chance_battle_pct)
+		GameStateKeys.DUNGEON_NODE_KIND_RELIC:
+			return int(config.loot_chance_relic_pct)
+		GameStateKeys.DUNGEON_NODE_KIND_REST:
+			return int(config.loot_chance_rest_pct)
+		GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+			return int(config.loot_chance_boss_pct)
+	return 0
+
+
+# --- マップ -----------------------------------------------------------
+
+# 層構造のマップを組む（決定12。下から上へ・合流あり・引き返さない）。
+#
+# 戻り値: {"entry": node_id, "boss": node_id, "nodes": {node_id: {layer, kind, next, cleared}}}
+#
+# ⚠⚠ _build_floor_map() を借りない（台帳 §7）。⚠ 形は同じでも仕様が別で、
+#   借りると両方の仕様が1本の関数に同居する。
+# ⚠ ノードを作るのはここ1本だけ。⚠ 2本目を書かないこと。
+# ⚠ 接続は決め打ち（乱数を使わない）。乱数が入るのはノードの種類だけ。
+#   接続まで乱数にすると「ボスに着かないルート」が低確率で生まれ、再現できない事故になる。
+# ⚠ 最終層の全ノードがボスへ入る＝どのルートを選んでも必ずボスに着く。
+func _build_dungeon_map(dungeon_id: String) -> Dictionary:
+	var dungeon: Dictionary = MasterDataLoader.get_dungeon(dungeon_id)
+	var raw_layers: Variant = dungeon.get(DUNGEON_MASTER_LAYERS, null)
+	if not (raw_layers is Array) or (raw_layers as Array).is_empty():
+		return {}
+	var layers: Array = raw_layers as Array
+
+	# 1. 層ごとにノードを作る。種類だけ抽選する。
+	var ids_by_layer: Array = []
+	var nodes: Dictionary = {}
+	for layer_index: int in range(layers.size()):
+		var layer: Dictionary = layers[layer_index]
+		# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
+		var count: int = int(layer.get(DUNGEON_LAYER_NODE_COUNT, 0))
+		var weights: Dictionary = get_dungeon_layer_weights(layer_index + 1)
+		var row: Array = []
+		for i: int in range(count):
+			var node_id: String = "d_%d_%d" % [layer_index + 1, i]
+			nodes[node_id] = {
+				GameStateKeys.DUNGEON_NODE_LAYER: layer_index + 1,
+				GameStateKeys.DUNGEON_NODE_KIND: _roll_dungeon_node_kind(weights),
+				GameStateKeys.DUNGEON_NODE_NEXT: [],
+				GameStateKeys.DUNGEON_NODE_CLEARED: false,
+			}
+			row.append(node_id)
+		if row.is_empty():
+			push_warning("[GameManager] _build_dungeon_map: 層 %d のノードが0件: %s" % [
+				layer_index + 1, dungeon_id
+			])
+			return {}
+		ids_by_layer.append(row)
+
+	# 2. ボス。最終層の1つ先に置く。
+	var boss_id: String = "d_boss"
+	nodes[boss_id] = {
+		GameStateKeys.DUNGEON_NODE_LAYER: layers.size() + 1,
+		GameStateKeys.DUNGEON_NODE_KIND: GameStateKeys.DUNGEON_NODE_KIND_BOSS,
+		GameStateKeys.DUNGEON_NODE_NEXT: [],
+		GameStateKeys.DUNGEON_NODE_CLEARED: false,
+	}
+
+	# 3. 層と層をつなぐ。
+	for layer_index: int in range(ids_by_layer.size() - 1):
+		_connect_dungeon_layers(nodes, ids_by_layer[layer_index], ids_by_layer[layer_index + 1])
+	# 最終層 -> ボス（合流）。
+	for node_id: Variant in (ids_by_layer[ids_by_layer.size() - 1] as Array):
+		(nodes[str(node_id)] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = [boss_id]
+
+	return {
+		"entry": str((ids_by_layer[0] as Array)[0]),
+		"boss": boss_id,
+		"nodes": nodes,
+	}
+
+
+# 隣り合う2つの層をつなぐ。
+#
+# ⚠ 上の層の各ノードが、下の層の「持ち分の窓」＋1つ先へつながる。
+#   これで (a) どのノードにも進める先が1つ以上ある
+#        (b) 下の層のどのノードにも入ってくる線が1本以上ある
+#   の両方が、層のノード数の組み合わせによらず成り立つ。
+# ⚠ (b) が崩れると「絶対に通れないノード」が生まれる。scenario=dungeon の
+#   全ルート総当たりがそれを見張る。
+func _connect_dungeon_layers(nodes: Dictionary, upper: Array, lower: Array) -> void:
+	var n: int = upper.size()
+	var m: int = lower.size()
+	for j: int in range(n):
+		var lo: int = int(floor(float(j) * float(m) / float(n)))
+		var hi: int = int(ceil(float(j + 1) * float(m) / float(n))) - 1
+		hi = maxi(hi, lo)
+		# 隣へも1つ伸ばして分岐を作る（2択になる）。
+		hi = mini(hi + 1, m - 1)
+		var next_ids: Array = []
+		for k: int in range(lo, hi + 1):
+			next_ids.append(str(lower[k]))
+		(nodes[str(upper[j])] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = next_ids
+
+
+# 層 N のノード出現比を {kind: weight} で返す。
+#
+# ⚠ 置き場は DungeonConfig の1本だけ。⚠ dungeon.json の layers は node_count しか持たない。
+# ⚠ 配列より深い層を聞かれたら末尾を使う（シナリオ側の clampi と同じ考え方）。
+# ⚠ shop は返さない。ショップはボスを倒した先だけ（決定15）。
+func get_dungeon_layer_weights(layer: int) -> Dictionary:
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return {}
+	var table: Dictionary = {
+		GameStateKeys.DUNGEON_NODE_KIND_BATTLE: config.layer_weight_battle,
+		GameStateKeys.DUNGEON_NODE_KIND_RELIC: config.layer_weight_relic,
+		GameStateKeys.DUNGEON_NODE_KIND_REST: config.layer_weight_rest,
+	}
+	var out: Dictionary = {}
+	for kind: String in table:
+		var row: Array = table[kind]
+		if row.is_empty():
+			continue
+		var w: int = maxi(0, int(row[clampi(layer - 1, 0, row.size() - 1)]))
+		if w > 0:
+			out[kind] = w
+	return out
+
+
+# ノードの種類を1つ引く。{kind: weight} の重み付き抽選。
+#
+# ⚠ _roll_node_kind()（シナリオ側）を借りない。⚠ 保険で返す値が別の定数だから
+#   （あちらは FLOOR_NODE_KIND_BATTLE）。⚠ 借りると、片方の保険を直したときに
+#   もう片方が黙って変わる。
+# ⚠ _roll_weighted_table() も使わない。あちらは {item_id: count} を返す
+#   「何個もらえるか」の口で、用途が違う。
+func _roll_dungeon_node_kind(weights: Dictionary) -> String:
+	var total: int = 0
+	for kind: Variant in weights:
+		total += maxi(0, int(weights[kind]))
+	if total <= 0:
+		return GameStateKeys.DUNGEON_NODE_KIND_BATTLE
+	var roll: int = randi() % total
+	# ⚠ キーの並び順に依存しないよう綴り順で回す（Dictionary のキー順は不定）。
+	var kinds: Array = weights.keys()
+	kinds.sort()
+	for kind: Variant in kinds:
+		roll -= maxi(0, int(weights[kind]))
+		if roll < 0:
+			return str(kind)
+	return GameStateKeys.DUNGEON_NODE_KIND_BATTLE
+
+
+# ノード1つぶんの敵（17-b で戦闘が引く）。
+#
+# ⚠ ボスなら dungeon.json の boss、それ以外は battle_pool から1本引く。
+# ⚠ 戦闘画面が battle_pool を直接読まないこと（引き方が2箇所になる）。
+func get_dungeon_node_wave(node_id: String) -> Dictionary:
+	if not is_in_dungeon():
+		return {}
+	var dungeon: Dictionary = MasterDataLoader.get_dungeon(
+		str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	)
+	if dungeon.is_empty():
+		return {}
+	var node: Dictionary = get_dungeon_node(node_id)
+	if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+		var boss: Variant = dungeon.get(DUNGEON_MASTER_BOSS, null)
+		if boss is Dictionary:
+			return (boss as Dictionary).duplicate(true)
+		push_warning("[GameManager] get_dungeon_node_wave: boss が無い")
+		return {}
+	var pool: Variant = dungeon.get(DUNGEON_MASTER_BATTLE_POOL, null)
+	if not (pool is Array) or (pool as Array).is_empty():
+		push_warning("[GameManager] get_dungeon_node_wave: battle_pool が無い")
+		return {}
+	var list: Array = pool as Array
+	return (list[randi() % list.size()] as Dictionary).duplicate(true)
+
+
+# 難ダンジョンの設定を見る（E133 / W22）。
+#
+# ⚠ 見るのは「静かに間違った形で動く」種類だけ：割り当て漏れ・層の重みの長さ違い・
+#   重みが全部0の層・dungeon.json の欠け・戦利品のIDが items.json に無い。
+func _validate_dungeon_config() -> void:
+	if Balance == null or Balance.dungeon == null:
+		push_error("[GameManager] E133 balance.tscn: Balance.dungeon が null。dungeon_config.tres を Balance ノードの dungeon 欄に割り当てること")
+		return
+
+	var errors: int = 0
+	var rows: Dictionary = {
+		"layer_weight_battle": Balance.dungeon.layer_weight_battle,
+		"layer_weight_relic": Balance.dungeon.layer_weight_relic,
+		"layer_weight_rest": Balance.dungeon.layer_weight_rest,
+	}
+	var expected: int = (rows["layer_weight_battle"] as Array).size()
+	for name: String in rows:
+		var size: int = (rows[name] as Array).size()
+		if size != expected:
+			push_error("[GameManager] E133 dungeon_config.gd: %s の長さ %d が layer_weight_battle の %d と違う（層ごとの重みがずれる）" % [
+				name, size, expected
+			])
+			errors += 1
+	if expected <= 0:
+		push_error("[GameManager] E133 dungeon_config.gd: 層の重みが空。層が1つも作れない")
+		errors += 1
+	for layer: int in range(1, expected + 1):
+		if get_dungeon_layer_weights(layer).is_empty():
+			push_error("[GameManager] E133 dungeon_config.gd: 層 %d の重みが全部 0（battle に落ちる）" % layer)
+			errors += 1
+	if int(Balance.dungeon.bag_initial_slots) <= 0:
+		push_error("[GameManager] E133 dungeon_config.gd: bag_initial_slots が 0。戦利品を1つも拾えない")
+		errors += 1
+	# ⚠ 休憩で戦利品が出ると、休憩のコスト（その層の戦利品を諦める）が消える。
+	if _dungeon_loot_chance_pct(GameStateKeys.DUNGEON_NODE_KIND_REST) > 0:
+		push_warning("[GameManager] W22 dungeon_config.gd: 休憩ノードで戦利品が出る設定になっている。休憩を選ぶコストが消える（PLAN_HARD_DUNGEON.md §4-9-1）")
+
+	# dungeon.json 側。⚠ 1本も無ければ事故（ここへ来る＝実装済みのはず）。
+	var dungeon_ids: Array[String] = MasterDataLoader.get_all_dungeon_ids()
+	if dungeon_ids.is_empty():
+		push_error("[GameManager] E133 dungeon.json: ダンジョンが1本も無い")
+		errors += 1
+	var checked_loot: int = 0
+	for dungeon_id: String in dungeon_ids:
+		var dungeon: Dictionary = MasterDataLoader.get_dungeon(dungeon_id)
+		var layers: Variant = dungeon.get(DUNGEON_MASTER_LAYERS, null)
+		if not (layers is Array) or (layers as Array).is_empty():
+			push_error("[GameManager] E133 dungeon.json: %s に layers が無い" % dungeon_id)
+			errors += 1
+		if not (dungeon.get(DUNGEON_MASTER_BOSS, null) is Dictionary):
+			push_error("[GameManager] E133 dungeon.json: %s に boss が無い（ボスに着いても倒せない）" % dungeon_id)
+			errors += 1
+		var pool: Variant = dungeon.get(DUNGEON_MASTER_BATTLE_POOL, null)
+		if not (pool is Array) or (pool as Array).is_empty():
+			push_error("[GameManager] E133 dungeon.json: %s に battle_pool が無い" % dungeon_id)
+			errors += 1
+		# 戦利品のIDが items.json に在るか。⚠ 無いIDは「拾えたのに消える」形で出る。
+		var loot: Variant = dungeon.get(DUNGEON_MASTER_LOOT, null)
+		if loot is Dictionary:
+			for kind: Variant in (loot as Dictionary):
+				var draw: Variant = (loot as Dictionary)[kind]
+				if not (draw is Dictionary):
+					continue
+				var entries: Variant = (draw as Dictionary).get(CHEST_DRAW_ENTRIES, null)
+				if not (entries is Array):
+					continue
+				for row: Variant in (entries as Array):
+					if not (row is Dictionary):
+						continue
+					var item_id: String = str((row as Dictionary).get(CHEST_DRAW_ITEM_ID, ""))
+					checked_loot += 1
+					if MasterDataLoader.get_item(item_id).is_empty():
+						push_error("[GameManager] E133 dungeon.json: %s の loot.%s に items.json に無いID: %s" % [
+							dungeon_id, str(kind), item_id
+						])
+						errors += 1
+
+	if errors > 0:
+		return
+	print("[GameManager] dungeon config validated: %d 層 / ダンジョン %d 本 / 戦利品の行 %d, 0 errors" % [
+		expected, dungeon_ids.size(), checked_loot
+	])

@@ -29,6 +29,16 @@ const PATH_RELICS: String = DIR_PATH + "relics.json"
 # ⚠ エントリの形は enemies.json の1件と同じ（BattleUnit.create() が読む欄が全部そこ）。
 # ⚠ skills / passives は書けない（E101）。段階6では召喚はスキルを撃たない。
 const PATH_SUMMONS: String = DIR_PATH + "summons.json"
+# 難ダンジョン（段階17-a・PLAN_HARD_DUNGEON.md）。⚠ マスター9本目。
+#
+# ⚠ stages.json に足さない（人間の決定・2026-09-02）。あちらは
+#   「layers を持つ＝フロア（floor_1..5）」で見分けているので（GameManager.is_floor_stage）、
+#   ダンジョンも layers を持つ以上、同じ判定に当たってしまう。
+#   ⚠ 混ぜるとシナリオ側の判定に手が当たる。台帳が別なのと同じ理由でファイルも別。
+# ⚠ 中身は「形と中身」だけ（層のノード数・敵・ボス・ノード種ごとの戦利品表・通貨）。
+#   ⚠ 全体共通のつまみ（層の出現比・宝箱の出方・鞄の枠）は DungeonConfig 側
+#     （AGENTS.md「1つのConfigに別領域の数値を混ぜない」の判定表）。
+const PATH_DUNGEONS: String = DIR_PATH + "dungeon.json"
 # スキルは複数ファイルに割ってある（EXEC_SKILL_MULTIFILE.md）。
 #
 # 【なぜ割るか】段階3の後半で購読と条件が乗ると1スキルが30〜50行になる。
@@ -111,6 +121,8 @@ static var _cache_summons: Dictionary = {}
 #   こちらは「レリックだけの一覧」を作るためだけに持つ。
 static var _cache_relics: Dictionary = {}
 static var _cache_skills: Dictionary = {}
+# 難ダンジョン（段階17-a）。⚠ _cache_stages とは別の辞書。混ぜないこと。
+static var _cache_dungeons: Dictionary = {}
 static var _cache_loaded: bool = false
 
 
@@ -186,6 +198,28 @@ static func get_relic(id: String) -> Dictionary:
 	return (_cache_relics[id] as Dictionary).duplicate(true)
 
 
+# 難ダンジョン1件の定義（段階17-a）。無ければ空。
+#
+# ⚠ get_stage() と1本にまとめないこと。stages.json とは別の辞書で、
+#   ダンジョンは stage_id を名乗らない（スタミナ・クリア記録・画面解放の
+#   どれもダンジョンでは動かないため、ステージとして扱うと分岐が増える）。
+static func get_dungeon(id: String) -> Dictionary:
+	_ensure_loaded()
+	if not _cache_dungeons.has(id):
+		return {}
+	return (_cache_dungeons[id] as Dictionary).duplicate(true)
+
+
+# ダンジョンのID一覧（綴り順）。⚠ get_all_relic_ids() と同じ理由で並びを固定する。
+static func get_all_dungeon_ids() -> Array[String]:
+	_ensure_loaded()
+	var ids: Array[String] = []
+	for dungeon_id: Variant in _cache_dungeons:
+		ids.append(str(dungeon_id))
+	ids.sort()
+	return ids
+
+
 static func get_stage(id: String) -> Dictionary:
 	_ensure_loaded()
 	if not _cache_stages.has(id):
@@ -204,6 +238,8 @@ static func _ensure_loaded() -> void:
 	_cache_enemies = _load_json(PATH_ENEMIES)
 	_cache_parties = _load_json(PATH_PARTIES)
 	_cache_stages = _load_json(PATH_STAGES)
+	# ⚠ 難ダンジョン（段階17-a）。⚠ _cache_stages へマージしないこと（PATH_DUNGEONS の注記）。
+	_cache_dungeons = _load_json(PATH_DUNGEONS)
 	# ⚠ _validate_all_skills() より前に読むこと。E100（summon の unit_id が
 	#   summons.json に無い）のクロス検証がこのキャッシュを見る。
 	_cache_summons = _load_json(PATH_SUMMONS)

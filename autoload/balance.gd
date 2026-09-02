@@ -25,3 +25,7 @@ extends Node
 #   1本にまとめたもの。割り当てを忘れると null になり、アイコンを出す画面
 #   （倉庫・装備・ショップ・レリック選択）と宝箱の演出が落ちる（E132 が見張る）。
 @export var icon: IconConfig
+# ⚠ 難ダンジョンの数値（段階17-a・PLAN_HARD_DUNGEON.md）。層の出現比・戦利品の
+#   出方・鞄の枠・一時通貨の伸び。⚠ FloorConfig（シナリオ側）とは別枠。混ぜないこと。
+#   割り当てを忘れると null になり、ランに入った瞬間に落ちる（E133 が起動時に見張る）。
+@export var dungeon: DungeonConfig

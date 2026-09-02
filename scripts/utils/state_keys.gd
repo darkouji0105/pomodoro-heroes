@@ -86,6 +86,15 @@ const ITEM_TYPE_CONSUMABLE: String = "consumable"
 const ITEM_TYPE_KEY_ITEM: String = "key_item"
 const ITEM_TYPE_GIFT: String = "gift"
 const ITEM_TYPE_UNKNOWN: String = ""
+# ⚠ 難ダンジョンのラン専用アイテム（段階17-a・人間の決定17・PLAN_HARD_DUNGEON.md §4-3-1）。
+#   ⚠ ポーション3件・鍵・ラン限定の消耗品はこの型に入れる。
+#   ⚠ これで3つのことが「構造で」決まる（条件分岐を書かずに済む）：
+#     ・全ロストの範囲 … この型のものは鞄にしか入らない
+#     ・拠点で買えないこと … 拠点のショップが扱う型に入っていない
+#     ・鞄/ショップ/宝箱の引き方 … 3箇所とも「この型のものだけ」で引ける
+#   ⚠ 逆向きの禁止：拠点の装備・装飾・ルーンをこの型に入れ替えないこと。
+#     入れた瞬間に全ロストの対象になり、決定7（装備は失わない）が黙って崩れる。
+const ITEM_TYPE_DUNGEON: String = "dungeon"
 
 # PENDING_CHESTS: [{instance_id, chest_id, source, obtained_at, opened, rewards}]
 #
@@ -341,6 +350,83 @@ const FLOOR_NODE_KIND_SHOP: String = "shop"
 const FLOOR_NODE_KIND_RELIC: String = "relic"
 const FLOOR_NODE_KIND_REST: String = "rest"
 const FLOOR_NODE_KIND_BOSS: String = "boss"
+
+# ============================================================
+# 難ダンジョンのラン（段階17-a・PLAN_HARD_DUNGEON.md §5-0 / §7）
+# ============================================================
+#
+# ⚠⚠ FLOOR_RUN を使い回さない。あちらはシナリオ（floor_1..5）の器で仕様が別
+#   （PLAN_HARD_DUNGEON.md §7）。⚠ 形が同じ欄があっても、キーを共用しないこと。
+#   ⚠ 共用すると「ダンジョンに入ったままシナリオに入る」が表現できなくなり、
+#     どちらかの仕様変更がもう片方に黙って波及する。
+#
+# ⚠ トップレベル1本。dungeon_id が "" なら「ランに入っていない」。
+# ⚠ 14 欄を最初から全部作る（14-a の教訓。あとから足すと _empty_state_template()・
+#   load_state() の int() 一覧・AGENTS.md の表を何度も触ることになる）。
+# ⚠ 1ラン＝フロアを何枚も重ねたもの（決定15）。フロアをまたいで持ち越すのは
+#   ランの MAX HP・HP・鞄・鞄の枠・一時通貨（§5-0 の表）。
+# ⚠ 中身はIDと数字だけ（CLAUDE.md 4番）。敵・戦利品の中身は dungeon.json から毎回引く。
+const DUNGEON_RUN: String = "dungeon_run"
+
+const DUNGEON_RUN_DUNGEON_ID: String = "dungeon_id"
+# ⚠ 何枚目のフロアか（1 から）。⚠ 上限は置かない（未決1-c・上限なしから始める）。
+const DUNGEON_RUN_FLOOR_INDEX: String = "floor_index"
+# ⚠ いま「マップを歩いている」のか「ボスを倒した先に居る」のか。
+#   ⚠ 撤退できるのは boss_cleared のときだけ（決定15）。層の途中に降り口を足さない。
+const DUNGEON_RUN_PHASE: String = "phase"
+const DUNGEON_PHASE_MAP: String = "map"
+const DUNGEON_PHASE_BOSS_CLEARED: String = "boss_cleared"
+
+const DUNGEON_RUN_NODES: String = "nodes"          # {node_id: {layer, kind, next, cleared}}
+const DUNGEON_RUN_POSITION: String = "position"    # 現在のノードID
+const DUNGEON_RUN_VISITED: String = "visited"      # {node_id: true}
+
+# ⚠⚠ ランの MAX HP（決定8・§4-4）。{character_id: int}。
+#   ⚠ 「素の MAX HP」（CHARACTER_GROWTH の stats.hp）とは別のもの。
+#   ⚠ ダンジョンが書き換えてよいのはこちらだけ。素のほうを書き換えると
+#     セーブに削れた値が焼き付いて二度と戻らない。
+#   ⚠ ランを出たら丸ごと捨てる（決定9＝案A）。次に入るときは素の MAX HP から満タン。
+const DUNGEON_RUN_MAX_HP: String = "max_hp"
+# ⚠ いまの HP。{character_id: int}。⚠ 戦闘終了時の HP がそのままランの MAX HP になる
+#   （§4-4）ので通常は max_hp と同じ値だが、ポーションと蘇生（17-c）で割れる。
+const DUNGEON_RUN_HP: String = "hp"
+
+# ⚠ 鞄（§4-1）。{item_id: 個数}。⚠ 個体（instance_id）にしない。
+#   ⚠ 個体化は「持ち帰りが確定した瞬間」に add_to_inventory() へ流す1本だけ
+#     （CLAUDE.md 8番。2本目の入口を作ると装備が個体にならず静かに消える）。
+#   ⚠ 鞄は空で始まる＝持ち込みは無い。だから「鞄の中身」＝「そのランで手に入れたもの」
+#     ＝「全ロストの対象」の3つが常に同じものを指す（§4-8）。
+const DUNGEON_RUN_BAG: String = "bag"
+# ⚠ 鞄の枠数。⚠ 個数制限方式（コンセプト文書）。ポーションも鍵も戦利品も一律1枠。
+#   ⚠ 初期 8 は仮置き（未決5）。ショップで拡張できる（17-e）。
+const DUNGEON_RUN_BAG_SLOTS: String = "bag_slots"
+# ⚠ ランの一時通貨（決定16。1種類）。⚠ ランが終われば消える（§4-8）。
+const DUNGEON_RUN_CURRENCY: String = "currency"
+
+const DUNGEON_RUN_TORCH_GRADE: String = "torch_grade"  # int（17-e で使う）
+const DUNGEON_RUN_RELICS: String = "relics"            # [{relic_id, character_id}]（17-e）
+# ⚠ そのランで鞄に入った個数の累計。⚠ 報告用（scenario=dungeon）。
+#   ⚠ 鞄の使用量は bag の合計から数える。この欄で数えないこと（捨てたぶんが混ざる）。
+const DUNGEON_RUN_LOOT_COUNT: String = "loot_count"
+
+# relics の各要素。⚠ 形はシナリオ側と同じだが器は別（上の注記）。
+const DUNGEON_RELIC_ID: String = "relic_id"
+const DUNGEON_RELIC_CHARACTER_ID: String = "character_id"
+
+# nodes の各要素。
+const DUNGEON_NODE_LAYER: String = "layer"
+const DUNGEON_NODE_KIND: String = "kind"
+const DUNGEON_NODE_NEXT: String = "next"               # [node_id]
+const DUNGEON_NODE_CLEARED: String = "cleared"
+
+# ノードの種類。⚠ 綴りは dungeon.json の loot / currency のキーと揃える。
+# ⚠ FLOOR_NODE_KIND_* と同じ値だが、定数は分けてある。器が別だから
+#   （§7「_build_floor_map() と get_available_moves() は借りない」と同じ理由）。
+# ⚠ shop は層に置かない。ショップはボスを倒した先だけ（決定15・§5-0）。
+const DUNGEON_NODE_KIND_BATTLE: String = "battle"
+const DUNGEON_NODE_KIND_RELIC: String = "relic"
+const DUNGEON_NODE_KIND_REST: String = "rest"
+const DUNGEON_NODE_KIND_BOSS: String = "boss"
 
 # ============================================================
 # 装備の個体管理（第2弾）

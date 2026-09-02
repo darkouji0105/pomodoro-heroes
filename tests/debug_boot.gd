@@ -41,6 +41,7 @@ const REPORT_RESEARCH: String = "research"
 const REPORT_WORKSHOP: String = "workshop"
 const REPORT_ECONOMY: String = "economy"
 const REPORT_FLOOR: String = "floor"
+const REPORT_DUNGEON: String = "dungeon"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -647,6 +648,15 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_FLOOR,
 		"note": "フロア5本。層構造の生成 / 入口からボスまで歩ける / 進めない先は弾く / 全ルート総当たり",
 	},
+	# 段階17-a（難ダンジョンのランの器）の検証。PLAN_HARD_DUNGEON.md §4 / §5。
+	# ⚠ 戦闘を1回も回さない。⚠ 戦闘との接続は 17-b。
+	# ⚠ シナリオ（scenario=floor）とは器が別。⚠ こちらが動いても floor の数字は
+	#   1つも動かないのが正解（動いたら「シナリオ側に手が当たっている」合図）。
+	"dungeon": {
+		"kind": KIND_REPORT,
+		"report": REPORT_DUNGEON,
+		"note": "難ダンジョンのラン。層構造の生成 / 全ルート総当たり / ノード種に紐づく戦利品 / 鞄と一時通貨 / ボス後の続行と撤退 / 全ロスト",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -697,6 +707,8 @@ func _ready() -> void:
 			_report_economy()
 		elif report == REPORT_FLOOR:
 			_report_floor()
+		elif report == REPORT_DUNGEON:
+			_report_dungeon()
 		elif report == REPORT_LAYOUT:
 			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
 			await _report_layout()
@@ -4022,3 +4034,311 @@ class Driver extends Node:
 			if u is BattleUnit and u.is_alive() and skill_id in u.skill_ids:
 				return u
 		return null
+
+
+# ============================================================
+# 難ダンジョン（段階17-a・PLAN_HARD_DUNGEON.md）
+#
+# ⚠ 戦闘を1回も回さない。ランの器を組んで歩けるかだけを見る。
+# ⚠ シナリオ（_report_floor）とは器が別。⚠ ここが動いても scenario=floor と
+#   scenario=economy の数字は1つも動かないのが正解。
+# ============================================================
+
+func _report_dungeon() -> void:
+	var dungeon_ids: Array[String] = MasterDataLoader.get_all_dungeon_ids()
+
+	# --- 1. dungeon.json の一覧 ---
+	print("[DebugBoot] --- ダンジョンの一覧（⚠ 1 本が正解）---")
+	print("  実際 = %d 本" % dungeon_ids.size())
+	for dungeon_id: String in dungeon_ids:
+		var dungeon: Dictionary = MasterDataLoader.get_dungeon(dungeon_id)
+		var layers: Array = dungeon.get(GameManager.DUNGEON_MASTER_LAYERS, [])
+		var counts: Array[String] = []
+		var sum_nodes: int = 0
+		for layer: Variant in layers:
+			var n: int = int((layer as Dictionary).get(GameManager.DUNGEON_LAYER_NODE_COUNT, 0))
+			counts.append(str(n))
+			sum_nodes += n
+		print("  %-14s 層=%d 各層=[%s] 生成ノード=%d（+ボス1 = %d）" % [
+			dungeon_id, layers.size(), ", ".join(counts), sum_nodes, sum_nodes + 1,
+		])
+
+	# --- 2. 層のノード出現比（DungeonConfig）---
+	print("[DebugBoot] --- 層のノード出現比（⚠ shop が1件も無いのが正解＝ショップはボスの先だけ）---")
+	for layer: int in range(1, 7):
+		print("  層%d %s" % [layer, str(GameManager.get_dungeon_layer_weights(layer))])
+
+	if dungeon_ids.is_empty():
+		push_error("[DebugBoot] ダンジョンが1本も無いので以降を回せない")
+		return
+	var target_id: String = dungeon_ids[0]
+
+	# --- 3. ランに入る ---
+	print("[DebugBoot] --- %s に入る ---" % target_id)
+	if not GameManager.start_dungeon_run(target_id):
+		push_error("[DebugBoot] start_dungeon_run が false: " + target_id)
+		return
+	# ⚠ 素の MAX HP を控えておく（§4-4 の一番の落とし穴。ここが動いたら赤）。
+	var base_max_hp_before: Dictionary = {}
+	for member: Variant in GameManager.get_party_members():
+		var character_id: String = str(member)
+		base_max_hp_before[character_id] = int(
+			GameManager.get_effective_stats(character_id).get(GameStateKeys.STAT_HP, 0)
+		)
+	print("  ランのMAX HP = %s ／ 素のMAX HP = %s（同じ値で始まるのが正解）" % [
+		str(GameManager.get_dungeon_max_hp()), str(base_max_hp_before)
+	])
+	print("  鞄 = %d/%d（0/8 が正解＝空で始まる） ／ 一時通貨 = %d（0 が正解）" % [
+		GameManager.get_dungeon_bag_used(), GameManager.get_dungeon_bag_slots(),
+		GameManager.get_dungeon_currency(),
+	])
+	print("  フロア = %d（1 が正解） ／ phase = '%s'（map が正解）" % [
+		GameManager.get_dungeon_floor_index(), GameManager.get_dungeon_phase()
+	])
+
+	var run: Dictionary = GameManager.get_dungeon_run()
+	var nodes: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	var entry_id: String = str(run.get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+
+	# --- 4. ノード種の内訳 ---
+	var kind_count: Dictionary = {}
+	for node_id: Variant in nodes:
+		var kind: String = str((nodes[node_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_KIND, ""))
+		kind_count[kind] = int(kind_count.get(kind, 0)) + 1
+	var kinds: Array = kind_count.keys()
+	kinds.sort()
+	var kind_parts: Array[String] = []
+	for kind: Variant in kinds:
+		kind_parts.append("%s=%d" % [str(kind), int(kind_count[kind])])
+	print("  ノード %d 件 / %s" % [nodes.size(), " ".join(kind_parts)])
+
+	# --- 5. 全ルート総当たり ---
+	var routes: Array = []
+	var reached: Dictionary = {}
+	_walk_all_dungeon_routes(nodes, entry_id, [], routes, reached)
+	var dead_ends: int = 0
+	var lengths: Dictionary = {}
+	for route: Variant in routes:
+		var path: Array = route
+		var last_kind: String = str(
+			(nodes[str(path[path.size() - 1])] as Dictionary).get(GameStateKeys.DUNGEON_NODE_KIND, "")
+		)
+		if last_kind != GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+			dead_ends += 1
+		lengths[path.size()] = int(lengths.get(path.size(), 0)) + 1
+	print("  全ルート = %d 本 / ⚠ ボスに着かなかったルート = %d 本（0 が正解）" % [routes.size(), dead_ends])
+	print("  歩数の内訳 = %s" % str(lengths))
+	var unreachable: Array[String] = []
+	for node_id: Variant in nodes:
+		if not reached.has(str(node_id)):
+			unreachable.append(str(node_id))
+	unreachable.sort()
+	print("  ⚠ どのルートからも通れないノード = %d 件%s（0 が正解）" % [
+		unreachable.size(), "" if unreachable.is_empty() else " " + str(unreachable),
+	])
+
+	# --- 6. 入口からボスまで歩く（戦利品はノード種に紐づく）---
+	print("  --- 入口からボスまで歩く（⚠ 戦利品は「移動」ではなく「ノード種」に紐づく）---")
+	var steps: int = 0
+	while true:
+		var here: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+		var node: Dictionary = GameManager.get_dungeon_node(here)
+		var moves: Array = GameManager.get_dungeon_moves()
+		print("    %d手目 いま=%-8s 種類=%-6s 鞄=%d/%d 通貨=%d 進める先=%s" % [
+			steps, here, str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")),
+			GameManager.get_dungeon_bag_used(), GameManager.get_dungeon_bag_slots(),
+			GameManager.get_dungeon_currency(), str(moves),
+		])
+		if moves.is_empty():
+			break
+		if not GameManager.move_in_dungeon(str(moves[0])):
+			push_error("[DebugBoot] move_in_dungeon が false: " + str(moves[0]))
+			break
+		steps += 1
+		if steps > 50:
+			push_error("[DebugBoot] 50手で終わらない（ループしている）")
+			break
+	print("    歩数 = %d（層数6 ＋ボス1 → 6 手が正解）" % steps)
+
+	# --- 7. 進めない先を渡す（入口へ戻れない＝引き返さない）---
+	var before_position: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	var rejected: bool = GameManager.move_in_dungeon(entry_id)
+	var after_position: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	print("  ⚠ 入口 '%s' へ戻ろうとする -> %s（false が正解＝引き返さない） / 位置 %s -> %s" % [
+		entry_id, str(rejected), before_position, after_position,
+	])
+
+	# --- 8. ボスの手前では撤退できない ---
+	print("  ⚠ ボスを倒す前の can_retreat_from_dungeon() = %s（false が正解＝層の途中に降り口は無い）" % [
+		str(GameManager.can_retreat_from_dungeon())
+	])
+
+	# --- 9. ボスを倒す ---
+	var bag_before_boss: int = GameManager.get_dungeon_bag_used()
+	var currency_before_boss: int = GameManager.get_dungeon_currency()
+	var cleared: bool = GameManager.clear_dungeon_boss()
+	print("  clear_dungeon_boss() -> %s / phase='%s'（boss_cleared が正解）" % [
+		str(cleared), GameManager.get_dungeon_phase()
+	])
+	print("  ボスの取り分：鞄 %d -> %d ／ 通貨 %d -> %d" % [
+		bag_before_boss, GameManager.get_dungeon_bag_used(),
+		currency_before_boss, GameManager.get_dungeon_currency(),
+	])
+	print("  can_retreat_from_dungeon() = %s（true が正解） / get_dungeon_moves() = %s（空が正解）" % [
+		str(GameManager.can_retreat_from_dungeon()), str(GameManager.get_dungeon_moves()),
+	])
+	print("  ⚠ 二重に倒せないこと：clear_dungeon_boss() をもう一度 -> %s（false が正解）" % [
+		str(GameManager.clear_dungeon_boss())
+	])
+
+	# --- 10. 続行する（フロア2へ潜る）---
+	var bag_before_descend: Dictionary = GameManager.get_dungeon_bag()
+	var currency_before_descend: int = GameManager.get_dungeon_currency()
+	var max_hp_before_descend: Dictionary = GameManager.get_dungeon_max_hp()
+	var descended: bool = GameManager.descend_dungeon_floor()
+	print("  descend_dungeon_floor() -> %s / フロア=%d（2 が正解） / phase='%s'（map が正解）" % [
+		str(descended), GameManager.get_dungeon_floor_index(), GameManager.get_dungeon_phase()
+	])
+	print("  持ち越し：鞄 %s -> %s ／ 通貨 %d -> %d ／ ランのMAX HP %s -> %s（どれも同じが正解）" % [
+		str(bag_before_descend), str(GameManager.get_dungeon_bag()),
+		currency_before_descend, GameManager.get_dungeon_currency(),
+		str(max_hp_before_descend), str(GameManager.get_dungeon_max_hp()),
+	])
+	print("  フロア2 の位置 = '%s' / 進める先 = %s（作り直された新しいマップ）" % [
+		str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")),
+		str(GameManager.get_dungeon_moves()),
+	])
+
+	# --- 11. 鞄の枠（溢れたぶんは入らない）---
+	print("[DebugBoot] --- 鞄の枠（⚠ 個数制限方式。一律1枠）---")
+	var free_before: int = GameManager.get_dungeon_bag_slots() - GameManager.get_dungeon_bag_used()
+	var accepted: int = GameManager.add_to_dungeon_bag("construction_material_1", free_before + 5)
+	print("  空き %d に %d 個入れようとする -> %d 個だけ入った（空きぶんだけが正解） / 鞄 %d/%d" % [
+		free_before, free_before + 5, accepted,
+		GameManager.get_dungeon_bag_used(), GameManager.get_dungeon_bag_slots(),
+	])
+	var accepted_full: int = GameManager.add_to_dungeon_bag("training_material_1", 1)
+	print("  満杯の鞄にもう1個 -> %d 個（0 が正解＝勝手に何かを捨てない）" % accepted_full)
+
+	# --- 12. 撤退する（鞄の中身を持ち帰る）---
+	print("[DebugBoot] --- 撤退（⚠ 個体化の口は add_to_inventory() の1本だけ）---")
+	# ⚠ 撤退できるのはボスの先だけなので、フロア2 のボスまで歩いてから倒す。
+	_walk_dungeon_to_boss()
+	GameManager.clear_dungeon_boss()
+	var bag_at_retreat: Dictionary = GameManager.get_dungeon_bag()
+	var owned_before: Dictionary = _dungeon_owned_snapshot(bag_at_retreat)
+	var report: Dictionary = GameManager.retreat_from_dungeon()
+	print("  持ち帰った = %s ／ ラン専用で消えた = %s" % [str(report["granted"]), str(report["discarded"])])
+	var owned_after: Dictionary = _dungeon_owned_snapshot(bag_at_retreat)
+	for item_id: Variant in owned_before:
+		print("    %-26s 拠点 %d -> %d（鞄に %d 個あった）" % [
+			str(item_id), int(owned_before[item_id]), int(owned_after[item_id]),
+			int(bag_at_retreat[item_id]),
+		])
+	print("  is_in_dungeon() = %s（false が正解） / 鞄 = %s（空が正解）" % [
+		str(GameManager.is_in_dungeon()), str(GameManager.get_dungeon_bag())
+	])
+
+	# --- 13. 全ロスト（死亡／その場で降りる）---
+	print("[DebugBoot] --- 全ロスト（⚠ 逃げ道は残すが、タダにはしない）---")
+	if not GameManager.start_dungeon_run(target_id):
+		push_error("[DebugBoot] 2本目の start_dungeon_run が false")
+		return
+	GameManager.add_to_dungeon_bag("construction_material_1", 3)
+	var lost_bag: Dictionary = GameManager.get_dungeon_bag()
+	var owned_before_lost: Dictionary = _dungeon_owned_snapshot(lost_bag)
+	GameManager.abandon_dungeon_run()
+	var owned_after_lost: Dictionary = _dungeon_owned_snapshot(lost_bag)
+	for item_id: Variant in owned_before_lost:
+		print("    %-26s 拠点 %d -> %d（増えないのが正解） / 失った鞄 %d 個" % [
+			str(item_id), int(owned_before_lost[item_id]), int(owned_after_lost[item_id]),
+			int(lost_bag[item_id]),
+		])
+	print("  is_in_dungeon() = %s（false が正解）" % str(GameManager.is_in_dungeon()))
+
+	# --- 14. 素の MAX HP を1も削っていないこと（決定8の一番の落とし穴）---
+	print("[DebugBoot] --- 素の MAX HP（⚠ ダンジョンが触るのはランの MAX HP だけ）---")
+	var drifted: int = 0
+	for character_id: Variant in base_max_hp_before:
+		var now: int = int(
+			GameManager.get_effective_stats(str(character_id)).get(GameStateKeys.STAT_HP, 0)
+		)
+		var before: int = int(base_max_hp_before[character_id])
+		if now != before:
+			push_error("[DebugBoot] 素の MAX HP が動いた: %s %d -> %d" % [str(character_id), before, now])
+			drifted += 1
+		print("    %-16s %d -> %d" % [str(character_id), before, now])
+	print("  動いたキャラ = %d 人（0 が正解）" % drifted)
+
+	# --- 15. ラン専用の item_type（決定17。中身は 17-c で足す）---
+	var dungeon_typed: Array[String] = []
+	var all_items: Dictionary = MasterDataLoader.get_all_items()
+	for item_id: Variant in all_items:
+		var definition: Variant = all_items[item_id]
+		if not (definition is Dictionary):
+			continue
+		if str((definition as Dictionary).get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) == GameStateKeys.ITEM_TYPE_DUNGEON:
+			dungeon_typed.append(str(item_id))
+	dungeon_typed.sort()
+	print("[DebugBoot] --- ラン専用の item_type='%s' の品 = %d 件%s ---" % [
+		GameStateKeys.ITEM_TYPE_DUNGEON, dungeon_typed.size(),
+		"" if dungeon_typed.is_empty() else " " + str(dungeon_typed),
+	])
+	print("  ⚠ 17-a では 0 件が正解（ポーション3件を足すのは 17-c）。型と持ち帰りの判定だけが先に入っている")
+
+
+# 鞄に入っている item_id について、拠点側の所持数を数える。
+#
+# ⚠ 素材（storage: material）と持ち物（storage: inventory）で数える先が違うので、
+#   両方見る（GameManager._grant_item() が振り分けている先と同じ2つ）。
+func _dungeon_owned_snapshot(bag: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	var item_ids: Array = bag.keys()
+	item_ids.sort()
+	for entry: Variant in item_ids:
+		var item_id: String = str(entry)
+		# ⚠ get_item_count() が items.json の storage で materials / inventory を振り分ける。
+		#   ⚠ get_material_count() を足さないこと（素材を二重に数える）。
+		result[item_id] = GameManager.get_item_count(item_id)
+	return result
+
+
+# ボスに着くまで進める先の先頭を選び続ける。
+func _walk_dungeon_to_boss() -> void:
+	var guard: int = 0
+	while true:
+		var moves: Array = GameManager.get_dungeon_moves()
+		if moves.is_empty():
+			return
+		if not GameManager.move_in_dungeon(str(moves[0])):
+			push_error("[DebugBoot] _walk_dungeon_to_boss: move_in_dungeon が false")
+			return
+		guard += 1
+		if guard > 50:
+			push_error("[DebugBoot] _walk_dungeon_to_boss: 50手で終わらない")
+			return
+
+
+# ダンジョンの全ルートを総当たりする。
+#
+# ⚠ _walk_all_routes()（シナリオ側）を借りない。⚠ 読むキーが別の定数だから
+#   （あちらは FLOOR_NODE_NEXT）。⚠ 借りると、片方の綴りを変えたときに
+#   もう片方の検証が黙って通らなくなる。
+func _walk_all_dungeon_routes(
+		nodes: Dictionary, node_id: String, path: Array, out_routes: Array, out_reached: Dictionary
+) -> void:
+	out_reached[node_id] = true
+	var next_path: Array = path.duplicate()
+	next_path.append(node_id)
+	if next_path.size() > 50:
+		push_error("[DebugBoot] ダンジョンのルートが50段を超えた（閉路の疑い）")
+		return
+	var node: Variant = nodes.get(node_id, null)
+	var next_ids: Array = []
+	if node is Dictionary:
+		next_ids = (node as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, [])
+	if next_ids.is_empty():
+		out_routes.append(next_path)
+		return
+	for raw_next: Variant in next_ids:
+		_walk_all_dungeon_routes(nodes, str(raw_next), next_path, out_routes, out_reached)

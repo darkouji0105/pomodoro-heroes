@@ -1,0 +1,62 @@
+{
+  "dungeon_hard": {
+    "name_key": "ui_dungeon_hard",
+    "layers": [
+      { "node_count": 1 },
+      { "node_count": 2 },
+      { "node_count": 3 },
+      { "node_count": 2 },
+      { "node_count": 3 },
+      { "node_count": 2 }
+    ],
+    "battle_pool": [
+      { "enemies": [{ "enemy_type_id": "enemy_slime", "count": 3 }] },
+      { "enemies": [{ "enemy_type_id": "enemy_wolf", "count": 2 }] },
+      {
+        "enemies": [
+          { "enemy_type_id": "enemy_slime", "count": 2 },
+          { "enemy_type_id": "enemy_wolf", "count": 1 }
+        ]
+      }
+    ],
+    "boss": {
+      "enemies": [
+        {
+          "enemy_type_id": "boss_slime_king",
+          "count": 1,
+          "is_boss": true,
+          "stat_overrides": { "atk": 30 }
+        }
+      ]
+    },
+    "loot": {
+      "battle": {
+        "rolls": 1,
+        "entries": [
+          { "item_id": "construction_material_2", "weight": 30, "count": 1 },
+          { "item_id": "training_material_2", "weight": 30, "count": 1 },
+          { "item_id": "forging_material_2", "weight": 25, "count": 1 },
+          { "item_id": "decor_material_2", "weight": 15, "count": 1 }
+        ]
+      },
+      "relic": { "rolls": 0, "entries": [] },
+      "rest": { "rolls": 0, "entries": [] },
+      "boss": {
+        "rolls": 3,
+        "entries": [
+          { "item_id": "construction_material_3", "weight": 30, "count": 1 },
+          { "item_id": "training_material_3", "weight": 30, "count": 1 },
+          { "item_id": "forging_material_3", "weight": 25, "count": 1 },
+          { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
+          { "item_id": "weapon_iron_sword", "weight": 5, "count": 1 }
+        ]
+      }
+    },
+    "currency": {
+      "battle": 12,
+      "relic": 0,
+      "rest": 0,
+      "boss": 45
+    }
+  }
+}
