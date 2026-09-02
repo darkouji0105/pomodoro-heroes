@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://b1itemicon0001"]
+[gd_scene format=3 uid="uid://cjpcrnjv6yvnk"]
 
 [ext_resource type="Script" path="res://scenes/ui/components/item_icon.gd" id="1_item_icon"]
 
