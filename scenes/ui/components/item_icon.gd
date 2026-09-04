@@ -18,6 +18,8 @@ const SCENE_PATH: String = "res://scenes/ui/components/item_icon.tscn"
 
 @onready var text_label: Label = $TextLabel
 @onready var grade_label: Label = $GradeLabel
+# 左上の種類の絵文字（段階19-a）。⚠ 対応表は Glyphs の1本だけ。
+@onready var glyph_label: Label = $GlyphLabel
 
 var _item_id: String = ""
 var _grade: int = 0
@@ -83,6 +85,17 @@ func _refresh() -> void:
 	text_label.text = tr("ui_icon_" + _item_id)
 	text_label.add_theme_font_size_override("font_size", config.icon_font_size)
 	text_label.add_theme_color_override("font_color", config.icon_text_color)
+
+	# 左上に「どの種類か」の絵文字（段階19-a）。
+	#
+	# ⚠⚠ 中央の漢字2文字を置き換えない。⚠ 絵文字は種類ごと（11種）なので、
+	#   ⚠ 置き換えると91件の品が11種類の見た目に潰れ、⚠ どの品か分からなくなる。
+	#   ⚠ 「どの品か」＝漢字2文字 ／ 「どの種類か」＝絵文字 ／ 「何段か」＝右下の数字
+	#   ⚠ ／ 「どの等級か」＝背景の色。⚠ 4つで役割が分かれている。
+	# ⚠ glyph_font_size が 0 なら出さない（⚠ フォントが無い環境の逃げ道）。
+	glyph_label.text = Glyphs.for_item(_item_id)
+	glyph_label.visible = config.glyph_font_size > 0
+	glyph_label.add_theme_font_size_override("font_size", maxi(1, config.glyph_font_size))
 
 	grade_label.text = number
 	grade_label.visible = number != ""

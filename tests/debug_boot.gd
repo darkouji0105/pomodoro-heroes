@@ -43,6 +43,7 @@ const REPORT_ECONOMY: String = "economy"
 const REPORT_FLOOR: String = "floor"
 const REPORT_DUNGEON: String = "dungeon"
 const REPORT_INVENTORY: String = "inventory"
+const REPORT_GLYPHS: String = "glyphs"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -680,6 +681,19 @@ const SCENARIOS: Dictionary = {
 			{"skill": "", "prepare": PREPARE_NONE, "gap": 6.0},
 		],
 	},
+	# 段階19-a（見た目の簡略表現）の検証。
+	#
+	# ⚠⚠ 「その字がフォントに在るか」だけを見る。⚠ 絵が出るかは人間しか見られない。
+	#   ⚠ 在るかは has_char() で取れる。⚠ 豆腐（□）になるのは在らない字。
+	# ⚠ 2026-09-04 に実測した：⚠ NotoSansJP は絵文字を1文字も持たない（収録 16,732 字）。
+	#   ⚠ segoe-ui-emoji.ttf を fallback に足した（⚠ COLR/CPAL・1,274 字だけ）。
+	#   ⚠⚠ 1,274 字しか無いので「思いついた絵文字が在る」とは限らない。
+	#     ⚠ Glyphs に足したら必ずここを回して、⚠ NG が0件であることを確かめる。
+	"glyphs": {
+		"kind": KIND_REPORT,
+		"report": REPORT_GLYPHS,
+		"note": "見た目の字がフォントに在るか。Glyphs の全定数を has_char() で見る（NG が0件で正解）",
+	},
 	# 段階18-a（マス目）の検証。PLAN_INVENTORY.md §5-1。
 	#
 	# ⚠ 戦闘を1回も回さない。⚠ 見るのは「何がマスを1つ占めるか」と「何マス使うか」だけ。
@@ -744,6 +758,8 @@ func _ready() -> void:
 			_report_dungeon()
 		elif report == REPORT_INVENTORY:
 			_report_inventory()
+		elif report == REPORT_GLYPHS:
+			_report_glyphs()
 		elif report == REPORT_LAYOUT:
 			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
 			await _report_layout()
@@ -4820,6 +4836,86 @@ func _report_inventory_capacity() -> void:
 # ⚠ シナリオ（_report_floor）とは器が別。⚠ ここが動いても scenario=floor と
 #   scenario=economy の数字は1つも動かないのが正解。
 # ============================================================
+
+# 見た目の字がフォントに在るか（段階19-a）。
+#
+# ⚠⚠ 絵が出るかは人間しか見られない。⚠ ここで取れるのは「その字がフォントに在るか」だけ。
+#   ⚠ 在らない字は豆腐（□）になる。⚠ NG が0件で正解。
+# ⚠ 見るのは main_theme.tres の default_font（＝実際に画面が使うフォント）。
+#   ⚠ .ttf を直接 load しないこと。⚠ fallback の設定が効いているかまで見たいので、
+#     ⚠ テーマが持っている Font をそのまま聞く。
+func _report_glyphs() -> void:
+	var theme: Theme = load("res://theme/main_theme.tres")
+	if theme == null:
+		push_error("[DebugBoot] main_theme.tres を読めない")
+		return
+	var font: Font = theme.default_font
+	if font == null:
+		push_error("[DebugBoot] main_theme.tres の default_font が空")
+		return
+
+	print("[DebugBoot] --- フォント（⚠ 画面が実際に使うもの）---")
+	print("  名前 = '%s' / fallback = %d 本" % [font.get_font_name(), (font.fallbacks as Array).size()])
+	for fallback: Variant in (font.fallbacks as Array):
+		if fallback is Font:
+			print("    fallback: '%s'" % (fallback as Font).get_font_name())
+	if (font.fallbacks as Array).is_empty():
+		push_warning("[DebugBoot] W32 fallback が0本。絵文字フォントが繋がっていない（NotoSansJP-VariableFont_wght.ttf.import の fallbacks）")
+
+	# ⚠ Glyphs の表を全部見る。⚠ 1つでも NG なら豆腐が出る。
+	print("[DebugBoot] --- Glyphs の字がフォントに在るか（⚠ NG が0件で正解）---")
+	var table: Dictionary = Glyphs.all_for_check()
+	var names: Array = table.keys()
+	names.sort()
+	var ng: Array[String] = []
+	for entry: Variant in names:
+		var glyph_name: String = str(entry)
+		var glyph: String = str(table[glyph_name])
+		# ⚠ 1文字とは限らない（⚠ 異体字セレクタや ZWJ が付く絵文字がある）。
+		#   ⚠ 全ての符号位置が在ることを見る。
+		var missing: Array[String] = []
+		for i: int in range(glyph.length()):
+			var code: int = glyph.unicode_at(i)
+			# ⚠ 異体字セレクタ（U+FE0F など）はどのフォントにも無いことがあるが、
+			#   ⚠ 絵は出る。⚠ 数えない。
+			if code >= 0xFE00 and code <= 0xFE0F:
+				continue
+			if not font.has_char(code):
+				missing.append("U+%05X" % code)
+		if missing.is_empty():
+			print("  OK  %-26s %s" % [glyph_name, glyph])
+		else:
+			print("  NG  %-26s %s  無い符号位置 = %s" % [glyph_name, glyph, str(missing)])
+			ng.append(glyph_name)
+	print("  表の件数 = %d / NG = %d 件（⚠ 定数を足したら件数が増えるのが正解）" % [
+		table.size(), ng.size()
+	])
+	if not ng.is_empty():
+		push_error("[DebugBoot] E138 glyphs.gd: フォントに無い字がある（画面で豆腐になる）: " + str(ng))
+
+	# ⚠ 実際の引き方も通す（⚠ 表に在ることと、⚠ 口が正しく引くことは別）。
+	print("[DebugBoot] --- 引き口（⚠ 分岐が1箇所であることの確認）---")
+	var character_ids: Array = MasterDataLoader.get_all_characters().keys()
+	character_ids.sort()
+	for character_id: Variant in character_ids:
+		print("  キャラ %-20s %s" % [str(character_id), Glyphs.for_character(str(character_id))])
+	# ⚠ 敵は一覧の口が無いので名指しで並べる（⚠ 口を新しく作らない＝ここは検証の道具）。
+	for enemy_id: String in ["enemy_slime", "enemy_wolf", "boss_slime_king", "enemy_dbg_react"]:
+		print("  敵    %-20s %s" % [enemy_id, Glyphs.for_enemy(enemy_id)])
+	var samples: Array[String] = [
+		"weapon_iron_sword", "armor_iron_helm", "part_gem_atk_1", "part_charm_def_1",
+		"part_emblem_crit_rate_1", "part_rune_buff_1", "construction_material_1",
+		"stamina_potion", "dungeon_potion_heal", "dungeon_potion_revive", "not_an_item",
+	]
+	for item_id: String in samples:
+		print("  品    %-26s %s" % [item_id, Glyphs.for_item(item_id)])
+	for kind: String in [
+		GameStateKeys.DUNGEON_NODE_KIND_BATTLE, GameStateKeys.DUNGEON_NODE_KIND_RELIC,
+		GameStateKeys.DUNGEON_NODE_KIND_REST, GameStateKeys.DUNGEON_NODE_KIND_CHEST,
+		GameStateKeys.DUNGEON_NODE_KIND_BOSS, "",
+	]:
+		print("  マス  %-20s %s" % [kind if kind != "" else "(知らない種類)", Glyphs.for_dungeon_node(kind)])
+
 
 func _report_dungeon() -> void:
 	var dungeon_ids: Array[String] = MasterDataLoader.get_all_dungeon_ids()

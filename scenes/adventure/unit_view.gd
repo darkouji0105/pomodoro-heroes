@@ -23,6 +23,14 @@ const COLOR_SHIELD: Color = Color(1.0, 1.0, 1.0)       # 白
 # バーの下地。⚠ 残量が0に近いときに「バーがあること」が分かる濃さにする。
 const COLOR_BAR_BG: Color = Color(0.12, 0.12, 0.14)
 
+# 体の上に出す絵文字の大きさ（段階19-a）。
+#
+# ⚠ Body は 64 x 64（unit_view.tscn）。⚠ そこに収まる大きさにすること。
+# ⚠ 絵文字そのものは Glyphs の1本にある。⚠ ここに絵文字を書かないこと。
+# ⚠ modulate を掛けない。⚠ カラー絵文字（COLR/CPAL）なので、⚠ 色を掛けると
+#   絵文字の色まで濁る。⚠ 陣営の区別は下の Body の色が受け持つ。
+const GLYPH_FONT_SIZE: int = 34
+
 # 頭上に浮かぶ数値の色と大きさは Balance.adventure（AdventureConfig）から引く。
 # ⚠ ここに const で持たないこと。2箇所に数値があると、Inspector で直しても
 #   変わらない状態になり、どちらが効いているか実機でしか分からなくなる
@@ -53,6 +61,14 @@ func setup(unit: BattleUnit) -> void:
 		body.color = COLOR_PARTY
 	else:
 		body.color = COLOR_ENEMY
+
+	# 体の上に絵文字を出す（段階19-a）。⚠ 対応表は Glyphs の1本だけ。
+	# ⚠ ここで master_id を見て分岐を書かないこと。
+	var glyph_label: Label = $GlyphLabel
+	glyph_label.text = Glyphs.for_unit(
+		unit.master_id, unit.team == BattleUnit.TEAM_PARTY, unit.is_summon
+	)
+	glyph_label.add_theme_font_size_override("font_size", GLYPH_FONT_SIZE)
 
 	hp_bar.max_value = unit.max_hp
 	hp_bar.value = unit.hp

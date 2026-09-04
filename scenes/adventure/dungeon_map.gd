@@ -182,10 +182,13 @@ func _make_node_button(
 	# たいまつ（段階17-e・§4-7）。⚠ 見えるかの判定は GameManager の1本に聞く。
 	#   ⚠ 「押せるか」とは別物。⚠ 次の層は必ず押せるが、⚠ たいまつが弱いと中身は伏せる。
 	#   ⚠ ここで層を引き算しないこと。
+	# ⚠ 絵文字＋文字（段階19-a）。⚠ 対応表は Glyphs の1本だけ。
+	#   ⚠ 絵文字だけにしない。⚠ フォントが入っていない環境で全部のマスが
+	#     同じ豆腐になり、⚠ どれが何か分からなくなる（⚠ 文字が保険）。
 	if GameManager.is_dungeon_node_revealed(node_id):
-		button.text = tr("ui_dungeon_node_" + kind)
+		button.text = "%s %s" % [Glyphs.for_dungeon_node(kind), tr("ui_dungeon_node_" + kind)]
 	else:
-		button.text = HIDDEN_TEXT
+		button.text = "%s %s" % [Glyphs.NODE_HIDDEN, HIDDEN_TEXT]
 
 	if is_current:
 		button.text = "▶ " + button.text

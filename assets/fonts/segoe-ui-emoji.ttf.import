@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://b8ptuf6vpun5b"
-path="res://.godot/imported/NotoSansJP-VariableFont_wght.ttf-dc8e97b57e9b616142d99667f59bef91.fontdata"
+uid="uid://c7k0bke7eoe17"
+path="res://.godot/imported/segoe-ui-emoji.ttf-c4e20dc261b12ec3ea7a124bbda3a5af.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/NotoSansJP-VariableFont_wght.ttf"
-dest_files=["res://.godot/imported/NotoSansJP-VariableFont_wght.ttf-dc8e97b57e9b616142d99667f59bef91.fontdata"]
+source_file="res://assets/fonts/segoe-ui-emoji.ttf"
+dest_files=["res://.godot/imported/segoe-ui-emoji.ttf-c4e20dc261b12ec3ea7a124bbda3a5af.fontdata"]
 
 [params]
 
@@ -27,7 +27,7 @@ subpixel_positioning=4
 keep_rounding_remainders=true
 oversampling=0.0
 Fallbacks=null
-fallbacks=[Resource("uid://c7k0bke7eoe17", "res://assets/fonts/segoe-ui-emoji.ttf")]
+fallbacks=[]
 Compress=null
 compress=true
 preload=[]

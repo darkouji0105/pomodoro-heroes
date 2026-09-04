@@ -321,7 +321,8 @@ func _init_party_units() -> void:
 			BattleUnit.TEAM_PARTY,
 			char_data,
 			stats,
-			false
+			false,
+			character_id
 		)
 		unit.x = _party_start_x(i)
 
@@ -454,7 +455,8 @@ func _spawn_current_wave_enemies() -> void:
 				BattleUnit.TEAM_ENEMY,
 				enemy_data,
 				enemy_data,
-				is_boss
+				is_boss,
+				enemy_type_id
 			)
 			unit.x = ENEMY_BASE_X + local_index * ENEMY_STEP_X
 
@@ -733,7 +735,8 @@ func _spawn_summon(r: Dictionary) -> void:
 			owner.team,
 			data,
 			data,
-			false
+			false,
+			source_id
 		)
 		_next_summon_serial += 1
 		unit.is_summon = true

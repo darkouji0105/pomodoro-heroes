@@ -34,6 +34,13 @@ var unit_id: String = ""
 var team: String = ""
 var unit_name_key: String = ""
 var is_boss: bool = false
+# マスターデータ側のID（段階19-a）。
+#
+# ⚠ 味方＝character_id ／ 敵＝enemy_type_id ／ 召喚＝summon_unit_id。
+# ⚠⚠ unit_id（"party_0" / "enemy_0_1" / "summon_3"）とは別物。⚠ あちらは
+#   その戦闘の中だけの通し番号で、⚠ マスターを引き直せない。
+# ⚠ 使うのは見た目（Glyphs.for_unit）だけ。⚠ 戦闘の計算に使わないこと。
+var master_id: String = ""
 
 # --- 能力値（10軸） ---
 # GameStateKeys.STAT_* をキーに int を持つ。
@@ -168,12 +175,16 @@ static func create(
 		p_team: String,
 		p_source: Dictionary,
 		p_stats: Dictionary,
-		p_is_boss: bool = false
+		p_is_boss: bool = false,
+		p_master_id: String = ""
 ) -> BattleUnit:
 	var unit: BattleUnit = BattleUnit.new()
 	unit.unit_id = p_unit_id
 	unit.team = p_team
 	unit.is_boss = p_is_boss
+	# ⚠ 既定を "" にしてあるので、⚠ 渡さない呼び出しは壊れない（⚠ 絵文字が
+	#   フォールバックになるだけ）。⚠ 呼ぶ側は3箇所（味方・敵・召喚）。
+	unit.master_id = p_master_id
 	unit.unit_name_key = str(p_source.get("name_key", ""))
 	unit.attack_range = float(p_source.get("attack_range", 0))
 

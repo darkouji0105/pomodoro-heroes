@@ -65,6 +65,12 @@ extends Resource
 @export var icon_font_size: int = 18
 # 右下の数字の字の大きさ。
 @export var grade_font_size: int = 11
+# 左上の種類の絵文字の字の大きさ（段階19-a）。
+#
+# ⚠ 絵文字そのものは `scripts/utils/glyphs.gd` の1本。⚠ ここは大きさだけ。
+# ⚠ 0 にすると絵文字を出さない（⚠ 漢字2文字だけに戻る）。⚠ フォントが
+#   入っていない環境で豆腐が並ぶときの逃げ道。
+@export var glyph_font_size: int = 13
 # 角の丸み。
 @export var icon_corner_radius: int = 6
 
