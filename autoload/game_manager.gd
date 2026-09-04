@@ -6154,7 +6154,10 @@ func load_state(data: Dictionary) -> bool:
 	# ⚠ 数値の欄は5つ（floor_index / bag_slots / currency / torch_grade / loot_count）と、
 	#   辞書3本（max_hp / hp / bag）と、ノードの layer。⚠ 1つでも飛ばすと
 	#   セーブに "currency": 120.0 と書かれ、鞄の枠計算にも .0 が乗る。
-	# ⚠ dungeon_id / phase / position / kind / next は文字列なので触らない。
+	# ⚠ dungeon_id / phase / position / kind は文字列なので触らない。
+	# ⚠⚠ next は [{to, effect}] になった（段階19-c-1）。⚠ 中身は文字列2つなので
+	#   いまは触らなくてよい。⚠⚠ 19-c-2 で通路に数値（削る量・拾う個数）を持たせたら、
+	#   ⚠ ここに int() で包む枝を足すこと（⚠ 足さないと "amount": 3.0 がセーブに焼き付く）。
 	if new_state.has(GameStateKeys.DUNGEON_RUN) and new_state[GameStateKeys.DUNGEON_RUN] is Dictionary:
 		var dungeon_run: Dictionary = new_state[GameStateKeys.DUNGEON_RUN]
 		for number_key: String in [
@@ -7334,9 +7337,39 @@ func get_dungeon_moves() -> Array:
 	var node: Dictionary = get_dungeon_node(str(run.get(GameStateKeys.DUNGEON_RUN_POSITION, "")))
 	if node.is_empty():
 		return result
-	for entry: Variant in (node.get(GameStateKeys.DUNGEON_NODE_NEXT, []) as Array):
-		result.append(str(entry))
+	# ⚠ 通路は {to, effect}（段階19-c-1）。⚠ str(entry) で読まないこと。
+	#   ⚠ 読むと Dictionary の文字列表現が返り、⚠ 「どこへも進めない」形で静かに壊れる。
+	for entry: Variant in get_dungeon_edges(str(run.get(GameStateKeys.DUNGEON_RUN_POSITION, ""))):
+		result.append(str((entry as Dictionary).get(GameStateKeys.DUNGEON_EDGE_TO, "")))
 	return result
+
+
+# そのノードから出ている通路（[{to, effect}]）。段階19-c-1。
+#
+# ⚠⚠ 通路を読む口はここ1本だけ。⚠ 画面や検証で `next` を直接読まないこと。
+# ⚠ get_dungeon_moves() との違い：⚠ あちらは「行き先のIDだけ」を返す（画面用）。
+#   ⚠ こちらは効果まで返す。⚠ 「進めるか」の判定は get_dungeon_moves() のまま1本。
+# ⚠ ここは phase を見ない（⚠ マップを描くのにボスの先でも要る）。
+func get_dungeon_edges(node_id: String) -> Array:
+	var result: Array = []
+	var node: Dictionary = get_dungeon_node(node_id)
+	if node.is_empty():
+		return result
+	for entry: Variant in (node.get(GameStateKeys.DUNGEON_NODE_NEXT, []) as Array):
+		if entry is Dictionary:
+			result.append((entry as Dictionary).duplicate(true))
+	return result
+
+
+# from から to へ向かう通路1本。⚠ 無ければ空。段階19-c-1。
+#
+# ⚠ 効果を効かせるとき（19-c-2）に move_in_dungeon() が引く。
+func get_dungeon_edge(from_node_id: String, to_node_id: String) -> Dictionary:
+	for entry: Variant in get_dungeon_edges(from_node_id):
+		var edge: Dictionary = entry
+		if str(edge.get(GameStateKeys.DUNGEON_EDGE_TO, "")) == to_node_id:
+			return edge
+	return {}
 
 
 # 何枚目のフロアか（1 から）。ランに入っていなければ 0。
@@ -7842,8 +7875,11 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 	for layer_index: int in range(ids_by_layer.size() - 1):
 		_connect_dungeon_layers(nodes, ids_by_layer[layer_index], ids_by_layer[layer_index + 1])
 	# 最終層 -> ボス（合流）。
+	# ⚠ ボスへの通路にも効果を置かない（⚠ 19-c-1 は器だけ。⚠ 中身は 19-c-2）。
 	for node_id: Variant in (ids_by_layer[ids_by_layer.size() - 1] as Array):
-		(nodes[str(node_id)] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = [boss_id]
+		(nodes[str(node_id)] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = [
+			_make_dungeon_edge(boss_id)
+		]
 
 	return {
 		"entry": str((ids_by_layer[0] as Array)[0]),
@@ -7874,10 +7910,22 @@ func _connect_dungeon_layers(nodes: Dictionary, upper: Array, lower: Array) -> v
 		hi = maxi(hi, lo)
 		# 隣へも伸ばして分岐を作る（⚠ spread=1 なら2択）。
 		hi = mini(hi + spread, m - 1)
-		var next_ids: Array = []
+		var next_edges: Array = []
 		for k: int in range(lo, hi + 1):
-			next_ids.append(str(lower[k]))
-		(nodes[str(upper[j])] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = next_ids
+			next_edges.append(_make_dungeon_edge(str(lower[k])))
+		(nodes[str(upper[j])] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = next_edges
+
+
+# 通路を1本作る（段階19-c-1）。
+#
+# ⚠⚠ 通路を作る口はここ1本だけ。⚠ 2本目を書かないこと（⚠ ノードと同じ流儀）。
+# ⚠ 19-c-1 の時点では effect は必ず ""（⚠ 器だけ先に入れた）。
+#   ⚠ 抽選（5本に1本・決定24）を足すのは 19-c-2。⚠ ここに足す。
+func _make_dungeon_edge(to_node_id: String, effect: String = "") -> Dictionary:
+	return {
+		GameStateKeys.DUNGEON_EDGE_TO: to_node_id,
+		GameStateKeys.DUNGEON_EDGE_EFFECT: effect,
+	}
 
 
 # 層 N のノード出現比を {kind: weight} で返す。

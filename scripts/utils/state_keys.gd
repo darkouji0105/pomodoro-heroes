@@ -434,7 +434,20 @@ const DUNGEON_RELIC_CHARACTER_ID: String = "character_id"
 # nodes の各要素。
 const DUNGEON_NODE_LAYER: String = "layer"
 const DUNGEON_NODE_KIND: String = "kind"
-const DUNGEON_NODE_NEXT: String = "next"               # [node_id]
+# 通路（段階19-c-1）。⚠⚠ [{to, effect}] の配列。⚠ [node_id] ではない。
+#
+# ⚠ 19-c-1 で `[node_id]` から入れ替えた。⚠ 通路そのものに効果を持たせるため（決定23）。
+# ⚠⚠ 読むときは必ず DUNGEON_EDGE_TO を通すこと。⚠ str(entry) で読むと
+#   Dictionary の文字列表現が返り、⚠ 「進める先が1つも無い」形で静かに壊れる。
+# ⚠ 進める先だけが欲しいなら GameManager.get_dungeon_moves()（⚠ ID の配列を返す）。
+const DUNGEON_NODE_NEXT: String = "next"               # [{to, effect}]
+
+# 通路1本の中身（段階19-c-1）。
+#
+# ⚠ effect は 19-c-1 の時点では全部 ""（⚠ 器だけ先に入れた）。⚠ 中身は 19-c-2。
+# ⚠ FLOOR_NODE_NEXT（シナリオ側）は [node_id] のまま。⚠ 揃えないこと（器が別＝台帳 §7）。
+const DUNGEON_EDGE_TO: String = "to"                   # 行き先の node_id
+const DUNGEON_EDGE_EFFECT: String = "effect"           # "" なら何も起きない通路
 const DUNGEON_NODE_CLEARED: String = "cleared"
 
 # ノードの種類。⚠ 綴りは dungeon.json の loot / currency のキーと揃える。

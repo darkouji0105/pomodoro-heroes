@@ -4989,6 +4989,51 @@ func _report_dungeon() -> void:
 		kind_parts.append("%s=%d" % [str(kind), int(kind_count[kind])])
 	print("  ノード %d 件 / %s" % [nodes.size(), " ".join(kind_parts)])
 
+	# --- 4-B. 通路の形（段階19-c-1。⚠ 器だけ入れ替えた回）---
+	#
+	# ⚠⚠ ここが崩れると総当たりが「黙って通る」形で壊れる（⚠ ルート数が1本になる等）。
+	#   ⚠ 全ルート総当たりの前に、⚠ 形そのものを見ておく。
+	# ⚠ 19-c-1 の時点では effect は全部 ""（⚠ 中身は 19-c-2）。
+	var edge_total: int = 0
+	var edge_bad: int = 0
+	var edge_with_effect: int = 0
+	for node_id: Variant in nodes:
+		var raw_next: Variant = (nodes[node_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, [])
+		for raw_edge: Variant in (raw_next as Array):
+			edge_total += 1
+			if not (raw_edge is Dictionary):
+				edge_bad += 1
+				continue
+			var edge: Dictionary = raw_edge
+			# ⚠ 行き先が実在するか（⚠ 綴り違いは「進める先が消える」形で出る）。
+			if not nodes.has(str(edge.get(GameStateKeys.DUNGEON_EDGE_TO, ""))):
+				edge_bad += 1
+				continue
+			if str(edge.get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")) != "":
+				edge_with_effect += 1
+	print("  通路 = %d 本 / ⚠ 形が違う・行き先が無い = %d 本（0 が正解） / 効果つき = %d 本（19-c-1 では 0 が正解）" % [
+		edge_total, edge_bad, edge_with_effect
+	])
+	if edge_bad > 0:
+		push_error("[DebugBoot] 通路が {to, effect} になっていないか、行き先が実在しない")
+	# ⚠ 口が2本とも同じものを見ているか（⚠ get_dungeon_moves は ID だけを返す）。
+	var here_now: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	var moves_now: Array = GameManager.get_dungeon_moves()
+	var edges_now: Array = GameManager.get_dungeon_edges(here_now)
+	print("  入口の進める先 = %s ／ 通路 = %d 本（同じ数が正解）" % [str(moves_now), edges_now.size()])
+	if moves_now.size() != edges_now.size():
+		push_error("[DebugBoot] get_dungeon_moves() と get_dungeon_edges() の数が違う")
+	if not moves_now.is_empty():
+		var probe: Dictionary = GameManager.get_dungeon_edge(here_now, str(moves_now[0]))
+		print("    1本引く get_dungeon_edge('%s','%s') = %s（空でないのが正解）" % [
+			here_now, str(moves_now[0]), str(probe)
+		])
+		if probe.is_empty():
+			push_error("[DebugBoot] get_dungeon_edge が進める先の通路を返さない")
+		# ⚠ 無い通路を聞いたら空（⚠ 黙って先頭を返さないこと）。
+		if not GameManager.get_dungeon_edge(here_now, "d_not_a_node").is_empty():
+			push_error("[DebugBoot] 無い通路を聞いたのに空が返らない")
+
 	# --- 5. 全ルート総当たり ---
 	var routes: Array = []
 	var reached: Dictionary = {}
@@ -5638,8 +5683,12 @@ func _dungeon_kind_reachable_from(
 	if str((node as Dictionary).get(GameStateKeys.DUNGEON_NODE_KIND, "")) == kind \
 			and not bool(GameManager.get_dungeon_node(node_id).get(GameStateKeys.DUNGEON_NODE_CLEARED, false)):
 		return true
-	for next_id: Variant in ((node as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, []) as Array):
-		if _dungeon_kind_reachable_from(nodes, str(next_id), kind, seen):
+	# ⚠ 通路は {to, effect}（段階19-c-1）。⚠ str() で読まないこと。
+	for raw_edge: Variant in ((node as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, []) as Array):
+		if not (raw_edge is Dictionary):
+			continue
+		var to_id: String = str((raw_edge as Dictionary).get(GameStateKeys.DUNGEON_EDGE_TO, ""))
+		if _dungeon_kind_reachable_from(nodes, to_id, kind, seen):
 			return true
 	return false
 
@@ -5675,11 +5724,18 @@ func _walk_all_dungeon_routes(
 		push_error("[DebugBoot] ダンジョンのルートが50段を超えた（閉路の疑い）")
 		return
 	var node: Variant = nodes.get(node_id, null)
-	var next_ids: Array = []
+	var edges: Array = []
 	if node is Dictionary:
-		next_ids = (node as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, [])
-	if next_ids.is_empty():
+		edges = (node as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, [])
+	if edges.is_empty():
 		out_routes.append(next_path)
 		return
-	for raw_next: Variant in next_ids:
-		_walk_all_dungeon_routes(nodes, str(raw_next), next_path, out_routes, out_reached)
+	# ⚠ 通路は {to, effect}（段階19-c-1）。⚠ str(raw) で読まないこと
+	#   （⚠ Dictionary の文字列表現が行き先IDとして扱われ、⚠ 全ルートが1手で
+	#     「知らないノード」に落ちて総当たりが黙って通らなくなる）。
+	for raw_edge: Variant in edges:
+		if not (raw_edge is Dictionary):
+			push_error("[DebugBoot] 通路が {to, effect} になっていない: " + str(raw_edge))
+			continue
+		var to_id: String = str((raw_edge as Dictionary).get(GameStateKeys.DUNGEON_EDGE_TO, ""))
+		_walk_all_dungeon_routes(nodes, to_id, next_path, out_routes, out_reached)
