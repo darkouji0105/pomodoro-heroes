@@ -68,11 +68,29 @@ const STAMINA_MAX: String = "max"
 # INVENTORY: {item_id: {count, type, slot_position, properties}}
 const ITEM_COUNT: String = "count"
 const ITEM_TYPE: String = "type"
+# ⚠⚠ 使っていない（段階18-f・2026-09-03）。⚠ item_id ごとに1つしか持てないので、
+#   ⚠ 「1マス＝1個」（人間の決定3）の並びは表現できない（⚠ ポーション5個で位置は1つしか無い）。
+#   ⚠ 並びは INVENTORY_ORDER（下）が持つ。⚠ この欄はもう書いていない。
 const ITEM_SLOT_POSITION: String = "slot_position"
 const ITEM_PROPERTIES: String = "properties"
 # slot_position: {"x": int, "y": int}
 const POS_X: String = "x"
 const POS_Y: String = "y"
+
+# ⚠⚠ マス目の並び（段階18-f・PLAN_INVENTORY.md）。トップレベル。
+#
+# ⚠ 長さは倉庫のマス数。⚠ 1要素＝1マス。⚠ "" は空きマス。
+# ⚠ 中身は「持ち物なら item_id」「装備の個体なら instance_id」。
+#   ⚠ 同じ item_id が何個も並ぶ（1マス＝1個なので）。⚠ 個数はここに書かない。
+# ⚠⚠ ここは「並び」だけを持つ。⚠ 持ち物そのものは INVENTORY と EQUIPMENT_INSTANCES が正。
+#   ⚠ ここに個数や性能を複製しないこと。⚠ ずれたら並びのほうを捨てて作り直す
+#     （GameManager._reconcile_inventory_order()）。
+const INVENTORY_ORDER: String = "inventory_order"
+
+# ⚠ 買った拡張ぶんのマス数（段階18-e）。トップレベル・int。
+#   ⚠ 上限そのものは持たない。⚠ 上限は「初期（Config）＋ここ」で、
+#     ⚠ 足し算をするのは GameManager.get_inventory_slot_max() の1本だけ。
+const INVENTORY_EXTRA_SLOTS: String = "inventory_extra_slots"
 
 # ITEM_TYPE に入る値（DATA_SCHEMA.md 1. inventory.type）
 const ITEM_TYPE_EQUIPMENT: String = "equipment"

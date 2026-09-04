@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" uid="uid://c7jbw7wxonlkd" path="res://scenes/guild/warehouse_screen.gd" id="1_warehouse"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+[ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
+[ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
 
 [node name="WarehouseScreen" type="Control" unique_id=901550676]
 layout_mode = 3
@@ -44,15 +46,46 @@ layout_mode = 2
 size_flags_vertical = 3
 current_tab = 0
 
-[node name="InventoryTab" type="ScrollContainer" parent="Layout/Tabs" unique_id=872988731]
+[node name="InventoryTab" type="VBoxContainer" parent="Layout/Tabs"]
 layout_mode = 2
 metadata/_tab_index = 0
 
-[node name="InventoryGrid" type="GridContainer" parent="Layout/Tabs/InventoryTab" unique_id=1116162287]
+[node name="InventoryHeader" type="HBoxContainer" parent="Layout/Tabs/InventoryTab"]
+layout_mode = 2
+
+[node name="CapacityLabel" type="Label" parent="Layout/Tabs/InventoryTab/InventoryHeader"]
+layout_mode = 2
+
+[node name="HeaderSpacer" type="Control" parent="Layout/Tabs/InventoryTab/InventoryHeader"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 3
-columns = 4
+
+[node name="ExpandButton" parent="Layout/Tabs/InventoryTab/InventoryHeader" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+
+[node name="PrevPageButton" parent="Layout/Tabs/InventoryTab/InventoryHeader" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_warehouse_page_prev"
+
+[node name="PageLabel" type="Label" parent="Layout/Tabs/InventoryTab/InventoryHeader"]
+layout_mode = 2
+
+[node name="NextPageButton" parent="Layout/Tabs/InventoryTab/InventoryHeader" instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_warehouse_page_next"
+
+[node name="InventoryGrid" type="GridContainer" parent="Layout/Tabs/InventoryTab"]
+layout_mode = 2
+size_flags_horizontal = 0
+columns = 20
+script = ExtResource("3_item_grid")
+
+[node name="ItemDetail" type="VBoxContainer" parent="Layout/Tabs/InventoryTab"]
+layout_mode = 2
+script = ExtResource("4_item_detail")
+
+[node name="ActionRow" type="HBoxContainer" parent="Layout/Tabs/InventoryTab"]
+layout_mode = 2
 
 [node name="CodexTab" type="ScrollContainer" parent="Layout/Tabs" unique_id=611441194]
 visible = false

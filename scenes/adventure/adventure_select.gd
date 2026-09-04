@@ -13,6 +13,8 @@ const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
 const PARTY_PRESET_PATH: String = "res://scenes/adventure/party_preset_screen.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
 const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
+# 難ダンジョン（段階17-d）。⚠ フロアのマップとは別の画面（器も仕様も別＝台帳 §7）。
+const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 
 # --- ノード参照 ---
 @onready var stamina_value: ResourceDisplay = $Layout/Header/StaminaValue
@@ -41,6 +43,8 @@ func _ready() -> void:
 	_build_party_row()
 	_build_stage_list()
 	_connect_signals()
+	# ⚠ フッターに足すので、⚠ back_button の @onready が効いたあとに呼ぶ。
+	_build_dungeon_button()
 	message_label.text = ""
 
 func _update_stamina_display() -> void:
@@ -126,6 +130,59 @@ func _build_stage_list() -> void:
 			continue
 		_add_stage_row(stage_id, stage_data, i, order)
 	_build_debug_stage_list()
+
+
+# 難ダンジョンの入口（段階17-d・PLAN_HARD_DUNGEON.md）。
+#
+# ⚠⚠ ステージ一覧の行にしていない。⚠ 行を1つ足すと縦に溢れるため
+#   （⚠ 実測：scenario=layout で 708 -> 784。⚠ 基準は 720。⚠ 検証用ステージ5本と
+#     合わせるとフッターが画面の外へ出る）。⚠ フッターのボタン1個にした。
+# ⚠ stage_order.json に混ぜない。⚠ ダンジョンは stages.json に1行も無く、
+#   解放の連鎖（前のステージをクリアしたか）にも入らない（台帳 §7）。
+# ⚠ 一覧は MasterDataLoader.get_all_dungeon_ids() の1本。⚠ IDを名指ししない。
+# ⚠ 入るコストは取らない（決定11。⚠ テストプレイ優先。⚠ リリース前に必ず入れ直す＝未決7）。
+#   ⚠ ここにスタミナの判定を書かないこと。書くと「入口のコスト」が2箇所に散る。
+# ⚠ ダンジョンが2本以上になったら、ここは選ぶ画面への入口に変えること
+#   （⚠ いまは先頭の1本へ直行している）。
+func _build_dungeon_button() -> void:
+	var dungeon_ids: Array[String] = MasterDataLoader.get_all_dungeon_ids()
+	if dungeon_ids.is_empty():
+		return
+	var dungeon_id: String = dungeon_ids[0]
+
+	# ⚠ いま入っているランと同じダンジョンなら「続きから」。
+	var in_progress: bool = GameManager.is_in_dungeon() and str(
+		GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")
+	) == dungeon_id
+
+	var button: PrimaryButton = PrimaryButton.new()
+	button.name = "DungeonButton"
+	button.text = tr("ui_dungeon_resume") if in_progress else tr("ui_dungeon_section")
+	button.pressed.connect(_on_dungeon_pressed.bind(dungeon_id))
+	var footer: Node = back_button.get_parent()
+	footer.add_child(button)
+	# ⚠ 「拠点へ」の手前に置く。⚠ add_child は末尾に付くので必ず移動させる。
+	footer.move_child(button, back_button.get_index())
+
+
+# ダンジョンへ入る／続きから。
+#
+# ⚠ 入れるかの判定は GameManager が持つ（start_dungeon_run が false を返す）。
+# ⚠ 別のランの途中なら断る（⚠ 黙って捨てると鞄も戦闘時 MAX HP も消える）。
+func _on_dungeon_pressed(dungeon_id: String) -> void:
+	if GameManager.is_in_dungeon():
+		var current_id: String = str(GameManager.get_dungeon_run().get(
+			GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""
+		))
+		if current_id != dungeon_id:
+			message_label.text = tr("ui_dungeon_other_in_progress")
+			return
+		SceneManager.change_scene(DUNGEON_MAP_PATH)
+		return
+	if not GameManager.start_dungeon_run(dungeon_id):
+		message_label.text = tr("ui_dungeon_start_failed")
+		return
+	SceneManager.change_scene(DUNGEON_MAP_PATH)
 
 
 # 検証用ステージの別枠（EXEC_ENEMY_PARITY.md §9）。

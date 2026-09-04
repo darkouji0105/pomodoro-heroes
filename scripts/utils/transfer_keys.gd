@@ -27,3 +27,9 @@ const RETURN_PATH: String = "return_path"
 # ⚠ 入っていなければ従来どおり stages.json の waves を使う（stage_dbg_* がこちら）。
 # ⚠ 戦闘画面はこのIDで「ボスかどうか」を GameManager に聞く。自分で判定しない。
 const FLOOR_NODE_ID: String = "floor_node_id"
+
+# 難ダンジョンのどのノードから戦いに来たか（段階17-b・PLAN_HARD_DUNGEON.md §4-4）。
+# ⚠ FLOOR_NODE_ID と混ぜないこと。器が別で、スタミナ・クリア記録・画面解放は
+#   ダンジョンでは1つも動かない（台帳 §7）。
+# ⚠ 入っていれば stages.json は1行も引かない（敵は GameManager が dungeon.json から引く）。
+const DUNGEON_NODE_ID: String = "dungeon_node_id"

@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://cf1oordgnrelic1"]
+
+[ext_resource type="Script" path="res://scenes/adventure/dungeon_relic_select.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_button"]
+[ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
+[ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
+
+[node name="DungeonRelicSelect" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.05490196, 0.043137256, 0.078431375, 1)
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 8.0
+offset_right = -16.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="TitleLabel" type="Label" parent="Layout"]
+layout_mode = 2
+text = "ui_dungeon_relic_select"
+
+[node name="MessageLabel" type="Label" parent="Layout"]
+layout_mode = 2
+
+[node name="RelicGrid" type="GridContainer" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 0
+columns = 3
+script = ExtResource("3_item_grid")
+
+[node name="RelicDetail" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("4_item_detail")
+
+[node name="ActionRow" type="HBoxContainer" parent="Layout"]
+layout_mode = 2

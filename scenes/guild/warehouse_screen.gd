@@ -31,7 +31,19 @@ const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 # --- ノード参照 ---
 @onready var tabs: TabContainer = $Layout/Tabs
 @onready var back_button: PrimaryButton = $Layout/Header/BackButton
-@onready var inventory_grid: GridContainer = $Layout/Tabs/InventoryTab/InventoryGrid
+# 持ち物タブはマス目（段階18-c・PLAN_INVENTORY.md）。
+# ⚠ ScrollContainer をやめた。⚠ 中が scenario=layout で測れないため（宿題68）。
+#   ⚠ 20列 × 5行 ＝ 100 マスが1ページで、⚠ 5ページを送って見る（人間の決定8）。
+@onready var inventory_grid: ItemGrid = $Layout/Tabs/InventoryTab/InventoryGrid
+@onready var capacity_label: Label = $Layout/Tabs/InventoryTab/InventoryHeader/CapacityLabel
+@onready var page_label: Label = $Layout/Tabs/InventoryTab/InventoryHeader/PageLabel
+# 枠を買う（段階18-e）。⚠ 値段も押せるかも GameManager に聞く。⚠ ここで式を書かない。
+@onready var expand_button: PrimaryButton = $Layout/Tabs/InventoryTab/InventoryHeader/ExpandButton
+@onready var prev_page_button: PrimaryButton = $Layout/Tabs/InventoryTab/InventoryHeader/PrevPageButton
+@onready var next_page_button: PrimaryButton = $Layout/Tabs/InventoryTab/InventoryHeader/NextPageButton
+# 押したマスの詳細（段階18-c-2・共有部品）。⚠ 中身の判定は部品の中で GameManager に聞く。
+@onready var item_detail: ItemDetail = $Layout/Tabs/InventoryTab/ItemDetail
+@onready var action_row: HBoxContainer = $Layout/Tabs/InventoryTab/ActionRow
 @onready var codex_list: VBoxContainer = $Layout/Tabs/CodexTab/CodexList
 @onready var open_all_button: PrimaryButton = $Layout/Tabs/ChestTab/OpenAllButton
 @onready var chest_list: VBoxContainer = $Layout/Tabs/ChestTab/ChestScroll/ChestList
@@ -60,7 +72,15 @@ func _ready() -> void:
 	# 装備は inventory ではなく equipment_instances に入るため、こちらも購読する。
 	GameManager.equipment_instances_changed.connect(_on_equipment_instances_changed)
 
-	# 5. 初期描画
+	# 5. マス目の配線（段階18-c）。⚠ ページ送りは GameManager に聞く（5 を直接書かない）。
+	inventory_grid.columns = GameManager.get_inventory_columns()
+	inventory_grid.slot_pressed.connect(_on_slot_pressed)
+	inventory_grid.slot_moved.connect(_on_slot_moved)
+	expand_button.pressed.connect(_on_expand_pressed)
+	prev_page_button.pressed.connect(_on_prev_page_pressed)
+	next_page_button.pressed.connect(_on_next_page_pressed)
+
+	# 6. 初期描画
 	_rebuild_inventory()
 	_rebuild_codex()
 	_rebuild_chest_list()
@@ -72,32 +92,169 @@ func _on_back_pressed() -> void:
 
 # --- インベントリタブ ---
 
-# 装備は inventory に入らない（個体として equipment_instances に入る）ため、
-# 持ち物タブは「個数で持つアイテム」と「装備の個体」の2つを続けて並べる。
+# 持ち物タブ（段階18-c・マス目）。
 #
-# remove_child してから queue_free する。await を挟むと、装備を素材に戻したときに
-# 飛ぶ2本のシグナルで再描画が並走し、行が二重に並ぶ。
+# ⚠⚠ 「何がマスを占めるか」をここで決めない。GameManager.get_inventory_page_entries()
+#   が唯一の口（⚠ 装備中の個体は出てこない＝人間の決定7。キャラの装備マスへ移っている）。
+# ⚠ ページの大きさも掛け算しない（get_inventory_slots_per_page()）。
+# ⚠ 再描画に await を持たせない（AGENTS.md）。⚠ この画面は inventory_changed と
+#   equipment_instances_changed の2本を購読していて、⚠ 1操作で2本飛ぶ。
+var _page: int = 0
+# いま選んでいるマスの中身。⚠ 空なら何も選んでいない。
+var _selected: Dictionary = {}
+# いま選んでいるマスの番号（⚠ ページを足した「通し番号」）。⚠ -1 なら選んでいない。
+#   ⚠ 捨てる口はマスの番号で呼ぶ（⚠ 中身では空のマスと同じ品を区別できない）。
+var _selected_index: int = -1
+
+
 func _rebuild_inventory() -> void:
-	_clear_container(inventory_grid)
+	# ⚠ ページ数が減ったときに空のページを見続けないよう、⚠ 毎回丸める。
+	_page = clampi(_page, 0, GameManager.get_inventory_page_count() - 1)
 
-	var state: Dictionary = GameManager.get_state()
-	var inventory: Dictionary = state.get(GameStateKeys.INVENTORY, {})
-	var instances: Array = GameManager.get_owned_instances()
+	var entries: Array = GameManager.get_inventory_page_entries(_page)
+	inventory_grid.rebuild(entries, GameManager.get_inventory_slots_per_page())
 
-	if inventory.is_empty() and instances.is_empty():
-		_add_empty_label(inventory_grid)
+	# 数値のみの組み立てなので tr() を通すのは見出しだけ（AGENTS.md）。
+	capacity_label.text = "%s %d/%d" % [
+		tr("ui_warehouse_capacity"),
+		GameManager.get_inventory_slots_used(), GameManager.get_inventory_slot_max(),
+	]
+	page_label.text = "%d / %d" % [_page + 1, GameManager.get_inventory_page_count()]
+	_update_expand_button()
+	prev_page_button.disabled = _page <= 0
+	next_page_button.disabled = _page >= GameManager.get_inventory_page_count() - 1
+
+	# ⚠ 選んでいたものが無くなっていることがある（壊した・段階を上げた）。
+	#   ⚠ 消えたのに操作ボタンが残ると、⚠ 押した瞬間に何も起きない画面になる。
+	if not _selected.is_empty() and not _is_selection_alive():
+		_selected = {}
+		_selected_index = -1
+	_rebuild_actions()
+
+
+# 枠を買うボタン（段階18-e）。⚠ 値段も断る理由も GameManager の1本に聞く。
+func _update_expand_button() -> void:
+	var reason: String = GameManager.get_inventory_expand_reject_reason()
+	if reason == GameManager.INVENTORY_EXPAND_REJECT_MAX:
+		expand_button.text = tr("ui_warehouse_expand_max")
+		expand_button.disabled = true
+		return
+	# 数値のみの組み立てなので tr() を通すのは見出しだけ（AGENTS.md）。
+	expand_button.text = "%s(%d)" % [tr("ui_warehouse_expand"), GameManager.get_inventory_expand_cost()]
+	expand_button.disabled = reason != ""
+
+
+func _on_expand_pressed() -> void:
+	if not GameManager.expand_inventory():
+		return
+	# ⚠ 再描画は inventory_changed 側でも走るが、⚠ ページ数が増えたことを確実に反映する。
+	_rebuild_inventory()
+
+
+func _on_prev_page_pressed() -> void:
+	_page -= 1
+	_rebuild_inventory()
+
+
+func _on_next_page_pressed() -> void:
+	_page += 1
+	_rebuild_inventory()
+
+
+# マスを押した。⚠ ここでは選ぶだけ。⚠ 何ができるかは _rebuild_actions() が出す。
+#   ⚠ 押した瞬間に壊す/上げるを走らせないこと（マス目は押し間違えやすい）。
+func _on_slot_pressed(entry: Dictionary, index: int) -> void:
+	_selected = entry
+	# ⚠ ページのぶんを足して「通し番号」にする（⚠ 捨てる口はこれで呼ぶ）。
+	_selected_index = _page * GameManager.get_inventory_slots_per_page() + index
+	_rebuild_actions()
+
+
+# マスを動かした（段階18-f・ドラッグ＆ドロップ）。
+#
+# ⚠ マス目の番号はページの中の番号。⚠ ページのぶんをここで足す
+#   （⚠ 部品はページを知らない。⚠ 足し忘れると2ページ目で1ページ目の中身が動く）。
+# ⚠ 入れ替えの判定は GameManager。⚠ ここで並びを組み立て直さないこと。
+func _on_slot_moved(from_index: int, to_index: int) -> void:
+	var offset: int = _page * GameManager.get_inventory_slots_per_page()
+	if not GameManager.move_inventory_slot(offset + from_index, offset + to_index):
+		return
+	# ⚠ 選んでいたマスの中身が動いたので、⚠ 詳細も含めて描き直す。
+	_rebuild_inventory()
+
+
+# 選んでいるものがまだ在るか。
+func _is_selection_alive() -> bool:
+	var kind: String = str(_selected.get(GameManager.SLOT_ENTRY_KIND, ""))
+	if kind == GameManager.SLOT_KIND_INSTANCE:
+		return not GameManager.get_equipment_instance(
+			str(_selected.get(GameManager.SLOT_ENTRY_INSTANCE_ID, ""))
+		).is_empty()
+	return GameManager.get_item_count(str(_selected.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))) > 0
+
+
+# 選んだマスに対してできること。⚠ ボタンの中身は前と同じ（壊す・段階を上げる・重ねる）。
+#   ⚠ 判定は GameManager に聞く。⚠ ここで条件を書き直さない。
+func _rebuild_actions() -> void:
+	_clear_container(action_row)
+
+	# ⚠ 詳細は共有部品が出す（段階18-c-2）。⚠ ここで名前や性能を組み立てないこと
+	#   （⚠ 同じものを2箇所で組み立てると、⚠ 片方だけ古い数字を出す）。
+	item_detail.show_entry(_selected)
+
+	if _selected.is_empty():
 		return
 
-	for item_id: String in inventory:
-		var entry: Dictionary = inventory[item_id]
-		var count: int = int(entry.get(GameStateKeys.ITEM_COUNT, 0))
-		if count <= 0:
-			continue
-		_create_inventory_entry(item_id, count)
+	var item_id: String = str(_selected.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+	var kind: String = str(_selected.get(GameManager.SLOT_ENTRY_KIND, ""))
 
-	for view: Variant in instances:
-		if view is Dictionary:
-			_create_instance_entry(view as Dictionary)
+	if kind == GameManager.SLOT_KIND_INSTANCE:
+		var instance_id: String = str(_selected.get(GameManager.SLOT_ENTRY_INSTANCE_ID, ""))
+		# ⚠ 装備中の個体はマス目に出てこない（決定7）ので、⚠ ここは必ず外れている。
+		var dismantle_button: Button = Button.new()
+		dismantle_button.name = "DismantleButton"
+		dismantle_button.text = "%s(%d)" % [
+			tr("ui_warehouse_dismantle"), GameManager.get_dismantle_refund_total(instance_id),
+		]
+		dismantle_button.pressed.connect(_on_dismantle_pressed.bind(instance_id))
+		action_row.add_child(dismantle_button)
+		_add_discard_button(item_id)
+		return
+
+	var count: int = GameManager.get_item_count(item_id)
+	# 装飾（item_type: "part"）だけボタンが付く。⚠ items.json だけで決まる。
+	if not GameManager.get_part_definition(item_id).is_empty():
+		_add_part_buttons(action_row, item_id, count)
+	_add_discard_button(item_id)
+
+
+# 捨てる（段階18-e）。⚠ 満杯で拡張も買えないときの逃げ道（台帳 §4-2）。
+#
+# ⚠ 取り返しがつかないので確認モーダルを出す（⚠ 装飾の「壊す」と同じ流儀）。
+# ⚠ 1マス＝1個なので1個ずつ。⚠ 「全部捨てる」を作らない。
+# ⚠ 装備は「素材にする」のほうが素材が戻る。⚠ ただしここで弾かない（逃げ道は塞がない）。
+func _add_discard_button(item_id: String) -> void:
+	var button: Button = Button.new()
+	button.name = "DiscardButton"
+	button.text = tr("ui_warehouse_discard")
+	button.pressed.connect(_on_discard_pressed.bind(item_id))
+	action_row.add_child(button)
+
+
+func _on_discard_pressed(item_id: String) -> void:
+	if _selected_index < 0:
+		return
+	var confirmed: bool = await Modal.confirm(
+		self, "ui_warehouse_discard_confirm", [tr("ui_res_" + item_id)]
+	)
+	if not confirmed:
+		return
+	if not GameManager.discard_inventory_slot(_selected_index):
+		return
+	_selected = {}
+	_selected_index = -1
+	_rebuild_inventory()
+
 
 # 子を消す。await を持たせない（AGENTS.md「再描画は await を持たせない」）。
 func _clear_container(container: Container) -> void:
@@ -105,78 +262,10 @@ func _clear_container(container: Container) -> void:
 		container.remove_child(child)
 		child.queue_free()
 
-# 装備の個体1つ分。等級と、装備しているキャラを出す。
-# 「素材にする」は装備中のものでは押せない（GameManager 側も同じ判定を持っている）。
-func _create_instance_entry(view: Dictionary) -> void:
-	var instance_id: String = str(view.get(GameManager.INSTANCE_VIEW_ID, ""))
-	var item_id: String = str(view.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
-	var grade: int = int(view.get(GameStateKeys.INSTANCE_GRADE, 1))
-	var equipped_by: String = str(view.get(GameManager.INSTANCE_VIEW_EQUIPPED_BY, ""))
-
-	var entry: VBoxContainer = VBoxContainer.new()
-	entry.name = "Eq_" + instance_id
-
-	# 仮アセットのアイコン。⚠ 等級は instance_id ごとに違うので渡す
-	#   （item_id からは引けない）。
-	entry.add_child(ItemIcon.create(item_id, grade))
-
-	var name_label: Label = Label.new()
-	name_label.name = "NameLabel"
-	name_label.text = "%s %s" % [tr("ui_res_" + item_id), tr("ui_equipment_grade") % grade]
-	entry.add_child(name_label)
-
-	var state_label: Label = Label.new()
-	state_label.name = "StateLabel"
-	if equipped_by == "":
-		state_label.text = ""
-	else:
-		var char_data: Dictionary = MasterDataLoader.get_character(equipped_by)
-		state_label.text = tr("ui_equipment_equipped_by") % tr(str(char_data.get("name_key", equipped_by)))
-	entry.add_child(state_label)
-
-	var dismantle_button: Button = Button.new()
-	dismantle_button.name = "DismantleButton"
-	# ⚠ 戻りは段階ごとの Dictionary（等級10まで伸びると4段階にまたがる）。
-	#   ボタンには入りきらないので合計だけ出す。内訳は分解したときのログに出る。
-	dismantle_button.text = "%s(%d)" % [
-		tr("ui_warehouse_dismantle"),
-		GameManager.get_dismantle_refund_total(instance_id),
-	]
-	dismantle_button.disabled = equipped_by != ""
-	dismantle_button.pressed.connect(_on_dismantle_pressed.bind(instance_id))
-	entry.add_child(dismantle_button)
-
-	inventory_grid.add_child(entry)
-
 func _on_dismantle_pressed(instance_id: String) -> void:
 	if not GameManager.dismantle_equipment(instance_id):
 		push_warning("[WarehouseScreen] dismantle_equipment failed: " + instance_id)
 	# 再描画は equipment_instances_changed 側で行う。
-
-func _create_inventory_entry(item_id: String, count: int) -> void:
-	var entry: VBoxContainer = VBoxContainer.new()
-	entry.name = "Inv_" + item_id
-
-	# 仮アセットのアイコン。⚠ 段階は item_id から引ける（装飾＝part_tier ／
-	#   素材＝material_tier）ので渡さない。
-	entry.add_child(ItemIcon.create(item_id))
-
-	var name_label: Label = Label.new()
-	name_label.text = tr("ui_res_" + item_id)
-	name_label.name = "NameLabel"
-	entry.add_child(name_label)
-
-	var count_label: Label = Label.new()
-	count_label.text = str(count)
-	count_label.name = "CountLabel"
-	entry.add_child(count_label)
-
-	# 装飾（item_type: "part"）だけボタンが2つ付く。装飾かどうかは
-	# items.json だけで決まる（IDの綴りから推測しない）。
-	if not GameManager.get_part_definition(item_id).is_empty():
-		_add_part_buttons(entry, item_id, count)
-
-	inventory_grid.add_child(entry)
 
 # 装飾の行に付くボタン。装備の個体の行（_create_instance_entry）と同じ形。
 #
@@ -185,7 +274,9 @@ func _create_inventory_entry(item_id: String, count: int) -> void:
 #   ⚠ 刺さっているものを壊すのは装備画面の「外す」側。あちらは取り返しがつかないので
 #     確認モーダルを出す（EXEC_DECORATION.md §3-J）。
 # ⚠ 段階が上限の装飾には「段階を上げる」を出さない（行き先が無い）。
-func _add_part_buttons(entry: VBoxContainer, item_id: String, count: int) -> void:
+# ⚠ 段階18-c で置き場所が「行の中」から「選んだときの操作の列」へ移った。
+# ⚠ 中身は変えていない（壊す・段階を上げる・重ねる）。
+func _add_part_buttons(entry: Container, item_id: String, count: int) -> void:
 	# ルーンは分解方式で上がらず、壊しても素材にならない（GAME_DESIGN.md 7-7）。
 	# ⚠ ボタンは「重ねる」の1つだけ。⚠ part_kind で分岐しない。
 	if not GameManager.get_rune_definition(item_id).is_empty():
@@ -222,7 +313,7 @@ func _add_part_buttons(entry: VBoxContainer, item_id: String, count: int) -> voi
 # ルーンを重ねるボタン。⚠ 段階が上限なら出さない（かけらは今回作っていない）。
 #
 # ⚠ 押せるかの判定は get_rune_merge_reject_reason() の1本。画面で数えないこと。
-func _add_rune_merge_button(entry: VBoxContainer, item_id: String) -> void:
+func _add_rune_merge_button(entry: Container, item_id: String) -> void:
 	var reason: String = GameManager.get_rune_merge_reject_reason(item_id)
 	if reason == GameManager.RUNE_REJECT_MAX or reason == GameManager.RUNE_REJECT_KIND:
 		return

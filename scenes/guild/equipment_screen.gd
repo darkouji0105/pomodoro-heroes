@@ -224,9 +224,43 @@ func _update_header() -> void:
 
 func _rebuild_slots() -> void:
 	_clear(slot_list)
+	_create_equipment_grid()
 	for slot: String in GameManager.get_equip_slots():
 		_create_slot_row(slot)
 		_create_part_rows(slot)
+
+
+# キャラの装備マス（段階18-c・人間の決定7）。
+#
+# ⚠⚠ 「装備するとインベントリのマスからここへ移る」を目に見える形にするもの。
+#   ⚠ 中身は GameManager.get_equipment_slot_entries() の1本から引く
+#     （⚠ 5枠ぶん必ず返る。⚠ 空の枠も返るので、⚠ 空きマスがそのまま並ぶ）。
+# ⚠ 下の行（_create_slot_row）を消さない。⚠ 装飾・ルーン・鍛冶の操作はあちらが持つ。
+#   ⚠ ここは「見える形」と「部位を選ぶ」だけ。⚠ 操作を2箇所に増やさないこと。
+# ⚠ 押したときの行き先は既存の _on_select_slot_pressed()。⚠ 2本目の口を作らない。
+func _create_equipment_grid() -> void:
+	var grid: ItemGrid = ItemGrid.new()
+	grid.name = "EquipmentGrid"
+	# ⚠ 枠の数は GameManager に聞く（⚠ 5 を直接書かない。⚠ 部位が増えたら追従する）。
+	grid.columns = GameManager.get_equip_slots().size()
+	var entries: Array = []
+	for row: Variant in GameManager.get_equipment_slot_entries(_character_id):
+		entries.append((row as Dictionary)[GameManager.SLOT_ENTRY_ENTRY])
+	grid.rebuild(entries, entries.size())
+	grid.slot_pressed.connect(_on_equipment_grid_pressed)
+	slot_list.add_child(grid)
+
+
+# 装備マスを押した。⚠ 部位を選ぶだけ（＝下の行の「選ぶ」と同じ）。
+#
+# ⚠ 空のマスを押しても部位は選べること（⚠ 何も着けていない枠に着けたい場合がある）。
+# ⚠⚠ 中身で照合しないこと。⚠ 空のマスは中身が全部同じなので、⚠ どれを押しても
+#   最初の空き枠が選ばれてしまう。⚠ 番号（ItemGrid が渡す）で引く。
+func _on_equipment_grid_pressed(_entry: Dictionary, index: int) -> void:
+	var slots: Array = GameManager.get_equipment_slot_entries(_character_id)
+	if index < 0 or index >= slots.size():
+		return
+	_on_select_slot_pressed(str((slots[index] as Dictionary)[GameManager.SLOT_ENTRY_EQUIP_SLOT]))
 
 func _create_slot_row(slot: String) -> void:
 	var instance_id: String = GameManager.get_equipped_instance_id(_character_id, slot)

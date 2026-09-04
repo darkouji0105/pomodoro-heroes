@@ -69,8 +69,51 @@ extends Resource
 ## ⚠ 「深く潜る＝より良い戦利品」（§2 の表）を数値にしたもの。
 @export var currency_growth_pct_per_floor: int = 25
 
-# --- たいまつ（§4-7。器は 17-e で使う） ---
+# --- ポーションと休憩（段階17-c・§4-3 / §4-9・決定19） ---
 #
-# ⚠ ここに欄は置いていない。⚠ 17-e で「読む側のコードと同じ回に」足すこと
-#   （AGENTS.md「欄だけ足して実装しない」。FloorConfig の floor_rest_full_heal が
-#   誰も読まない死に欄になった前例＝ズレ46）。
+# ⚠⚠ 基準は全部「素の MAX HP」（`get_effective_stats().hp`）。
+#   ⚠ 「戦闘時 MAX HP」を基準にしないこと。⚠ 削れているほど戻る量も減って坂が急になり、
+#     脱落したキャラは 0 の何％でも 0 のままで永久に戻らない（決定13 と同じ理由）。
+# ⚠ 効き方は GameManager の1本（use_dungeon_item / apply_dungeon_rest）だけが読む。
+#   ⚠ 画面側（17-d）でここを読んで計算し直さないこと。
+
+## 回復ポーション1個で、戦闘時 MAX HP を素の MAX HP の何％ぶん戻すか。
+## ⚠ 決定19（HP回復と MAX HP回復を1件に統合した）の 30%。⚠ 仮置き。
+## ⚠ 素の MAX HP を超えては戻らない。
+@export var potion_heal_pct: int = 30
+
+## 蘇生したとき、戦闘時 MAX HP を素の MAX HP の何％にするか（決定13）。
+@export var revive_max_hp_pct: int = 50
+
+## 蘇生したときの HP を、上の戦闘時 MAX HP の何％にするか（決定13。素の 25% になる）。
+## ⚠ ここだけ HP ＜ 上限になる。⚠ 復帰直後は弱者狙いAI（§4-5）に狙われる位置＝意図どおり。
+@export var revive_hp_pct: int = 50
+
+## 休憩ノードで、戦闘時 MAX HP を素の MAX HP の何％ぶん戻すか。
+## ⚠ ポーションより強くしてある。⚠ 休憩は「その層の戦闘・レリック・戦利品を諦める」のがコスト（§4-9-1）。
+@export var rest_heal_pct: int = 40
+
+## 休憩ノードで、脱落したキャラを何人まで戻すか（§4-9 の蘇生2本目）。
+## ⚠ 0 にすると休憩から蘇生の口が消える。⚠ 消すならポーション以外の蘇生手段が無くなる。
+@export var rest_revive_count: int = 1
+
+# --- たいまつ（§4-7・段階17-e） ---
+#
+# ⚠ 読む側（GameManager.get_dungeon_reveal_layers / is_dungeon_node_revealed）と
+#   同じ回に入れた（AGENTS.md「欄だけ足して実装しない」）。
+# ⚠⚠ 値段は dungeon.json の shop に書く（⚠ 表＝JSON・つまみ＝Config）。
+#   ⚠ ここに値段を置かないこと（⚠ シナリオ側の FloorConfig.torch_prices とは作りが違う）。
+
+## たいまつの等級ごとに「何層先まで中身が見えるか」。
+## ⚠ 添字が等級（0 から）。⚠ 配列の長さ − 1 がそのまま上限の等級。
+## ⚠ シナリオ側（FloorConfig.torch_reveal_layers）と同じ数字だが、⚠ 別の欄にしてある
+##   （⚠ 器が別。⚠ 片方を調整したときにもう片方が黙って動かないため）。
+@export var torch_reveal_layers: Array[int] = [1, 2, 3, 5]
+
+# --- レリック（段階17-e-2・人間の決定：⚠ 表はシナリオ側と共有する） ---
+#
+# ⚠ 中身（`relics.json` の12件）は共有する。⚠ ここに置くのは「何件から選ぶか」だけ。
+# ⚠ 候補はノードごとに固定（⚠ 種で引く。⚠ GameManager.get_dungeon_relic_choices）。
+
+## レリックのマスで何件から選ぶか。
+@export var relic_choice_count: int = 3

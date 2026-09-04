@@ -22,6 +22,8 @@ const RUNE_MOVE_MAX_X: float = 1240.0
 
 # フロアから来たときの戻り先（段階14-c）。
 const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
+# 難ダンジョンのマップ（段階17-d）。⚠ フロアのマップと別の画面。
+const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
 
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
@@ -70,6 +72,13 @@ var _stage_data: Dictionary = {}
 var _floor_node_id: String = ""
 # ノード1つぶんの1ウェーブ。⚠ 空なら _stage_data の waves を使う（_waves_of）。
 var _floor_waves: Array = []
+# 難ダンジョンのノードから来たときだけ入る（段階17-b）。
+#
+# ⚠ _floor_node_id と同居させないこと。⚠ 器が別（PLAN_HARD_DUNGEON.md §7）。
+#   ⚠ フロアの枝に or を足して1本の if にまとめると、スタミナ・クリア記録・
+#     画面解放という「ダンジョンでは1つも動かないもの」がダンジョンでも動く。
+var _dungeon_node_id: String = ""
+var _dungeon_waves: Array = []
 var _session: BattleSession = null
 
 # 敵 UnitView の参照配列。ウェーブ切替時に queue_free して clear する。
@@ -128,24 +137,35 @@ func _ready() -> void:
 	# 2 回呼ぶと 2 回目は空 dict になる。
 	var data: Dictionary = SceneManager.consume_transfer_data()
 
+	# 難ダンジョンのノードから来たか（段階17-b）。⚠ stages.json を1行も引かない。
+	_dungeon_node_id = str(data.get(TransferKeys.DUNGEON_NODE_ID, ""))
+
 	_stage_id = str(data.get(TransferKeys.STAGE_ID, ""))
 	if _stage_id == "":
-		push_warning("[Battle] stage_id が渡されていないため floor_1 で開始する")
-		_stage_id = "floor_1"
+		if _dungeon_node_id != "":
+			# ⚠ ダンジョンのIDはログの見出しにしか使わない。⚠ stages.json には無い。
+			_stage_id = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+		else:
+			push_warning("[Battle] stage_id が渡されていないため floor_1 で開始する")
+			_stage_id = "floor_1"
 
 	# stage_type は TransferKeys.STAGE_TYPE 優先、無ければ STAGE_TYPE_STORY
 	var stage_type: String = str(data.get(TransferKeys.STAGE_TYPE, ""))
 	if stage_type == "":
 		stage_type = GameStateKeys.STAGE_TYPE_STORY
 
-	_stage_data = MasterDataLoader.get_stage(_stage_id)
-	if _stage_data.is_empty():
-		push_error("[Battle] stage_data が空: " + _stage_id)
-		return
+	# ⚠ ダンジョンは stages.json を1行も引かない（引くと「stage id not found」で赤が出る）。
+	#   ⚠ 敵も報酬もダンジョン側から来るので、_stage_data は空のままでよい。
+	if _dungeon_node_id == "":
+		_stage_data = MasterDataLoader.get_stage(_stage_id)
+		if _stage_data.is_empty():
+			push_error("[Battle] stage_data が空: " + _stage_id)
+			return
 
 	# フロアのノードから来たか（段階14-c）。⚠ 空なら従来どおり stages.json の waves。
 	_floor_node_id = str(data.get(TransferKeys.FLOOR_NODE_ID, ""))
 	_build_floor_waves()
+	_build_dungeon_waves()
 
 	var party_id: String = str(_stage_data.get("party_id", ""))
 	var waves_array: Array = _waves_of()
@@ -271,11 +291,28 @@ func _init_party_units() -> void:
 			push_error("[Battle] character not found: " + character_id)
 			continue
 
+		# ランのあいだ脱落しているキャラは戦闘に出ない（段階17-b・§4-4-2）。
+		# ⚠ 判定は GameManager の1本に聞く。⚠ ここで MAX HP を 0 と比べないこと。
+		# ⚠ 添字 i は編成の位置のままにする（unit_id が編成とずれると
+		#   _save_dungeon_hp() の書き戻し先が1つずれる）。
+		if _dungeon_node_id != "" and GameManager.is_dungeon_character_downed(character_id):
+			print("[Battle] %s は脱落しているので戦闘に出ない（ランの MAX HP が 0）" % character_id)
+			continue
+
 # レベル・研究・装備を合成した最終値。get_character_growth() の生の stats を
 		# 直接読まないこと（研究の stat_boost_all と装備の加算が乗らない）。
 		# エントリが無いキャラでも characters.json の既定値から組み立てて返るため、
 		# has_growth のフォールバック分岐は要らない。
 		var stats: Dictionary = GameManager.get_effective_stats(character_id)
+
+		# ⚠⚠ ダンジョンでは HP 軸だけ「ランの MAX HP」に差し替える（台帳 §7）。
+		#   ⚠ unit.max_hp はここから来るので、BUFF_ON_DEATH（自己復活）の
+		#     unit.max_hp × ratio も自然にランの MAX HP を指す。
+		#   ⚠ 素の MAX HP を渡すと、目減りが戦闘に1回も効かない。
+		#   ⚠ CHARACTER_GROWTH 側には1文字も書かない（get_effective_stats() の
+		#     戻りは複製なので、ここで差し替えてもセーブには入らない）。
+		if _dungeon_node_id != "":
+			stats[GameStateKeys.STAT_HP] = GameManager.get_dungeon_character_max_hp(character_id)
 
 		# 軸をここで1本ずつ取り出さないこと。10軸を辞書のまま create() に渡す。
 		# 軸が増えてもこの行は直さなくてよい。
@@ -290,9 +327,17 @@ func _init_party_units() -> void:
 
 		# フロア内で持ち越したHP（段階14-c）。⚠ 欄が無いキャラは満タンのまま。
 		# ⚠ max_hp は超えさせない（装備を外してHP上限が下がったときに溢れるため）。
-		var carry: Dictionary = GameManager.get_floor_hp_carry()
-		if carry.has(character_id):
-			unit.hp = clampi(int(carry[character_id]), 1, int(unit.max_hp))
+		# ⚠ ダンジョンでは読まない。⚠ set_floor_hp_carry() は FLOOR_RUN に書くもので、
+		#   ダンジョンは DUNGEON_RUN_HP / DUNGEON_RUN_MAX_HP の2本を使う（台帳 §7）。
+		if _dungeon_node_id == "":
+			var carry: Dictionary = GameManager.get_floor_hp_carry()
+			if carry.has(character_id):
+				unit.hp = clampi(int(carry[character_id]), 1, int(unit.max_hp))
+		else:
+			# ランのいまの HP から始める（段階17-b）。⚠ ランの MAX HP は超えない。
+			unit.hp = clampi(
+				GameManager.get_dungeon_character_hp(character_id), 1, int(unit.max_hp)
+			)
 
 		# スキルの割り当て。⚠ 敵は _spawn_current_wave_enemies() 側で別に割り当てる
 		# （enemies.json の "skills" はそのまま装備枠。プレイヤーが選ぶ2枠が無い）。
@@ -319,6 +364,10 @@ func _init_party_units() -> void:
 		#   育成画面のスキル枠にも出る。混ぜるとそこにレリックが並ぶ。
 		unit.passive_ids = GameManager.get_battle_passives(character_id)
 		unit.passive_ids.append_array(GameManager.get_floor_relic_passives(character_id))
+		# 難ダンジョンのレリック（段階17-e-2）。⚠ フロアの行と1本にまとめないこと
+		#   （⚠ 器が別。⚠ どちらも「ランの中だけ」だが読む先が違う）。
+		#   ⚠ ランに入っていなければ空が返るので、⚠ ここに if を書かない。
+		unit.passive_ids.append_array(GameManager.get_dungeon_relic_passives(character_id))
 
 		# 刺さっているルーン（段階8・GAME_DESIGN.md 7-5）。
 		# ⚠ 紐付け（武器＝スキル1／アクセサリー＝スキル2）は GameManager が持つ。
@@ -1637,6 +1686,18 @@ func _enter_victory() -> void:
 	_clear_all_summons()
 	_session.state = BattleSession.STATE_VICTORY
 
+	# 難ダンジョン（段階17-b）。⚠ ここで返る。⚠ 下のフロアの枝に合流させないこと。
+	#   ⚠ スタミナ・クリア記録・画面解放・apply_battle_rewards() は
+	#     ダンジョンでは1つも動かない（台帳 §7）。⚠ 戦利品は鞄に入る。
+	if _dungeon_node_id != "":
+		_finish_dungeon_battle(true)
+		_show_result(true, {
+			GameStateKeys.BATTLE_VICTORY: true,
+			GameStateKeys.BATTLE_WAVES_CLEARED: _session.total_waves,
+			GameStateKeys.BATTLE_REWARDS: {},
+		})
+		return
+
 	# フロアの道中か、ボスか（段階14-c）。
 	# ⚠ 道中のノードでは クリア記録もスタミナも動かさない。
 	#   ⚠ 動かすと1マス目で画面が全部開き、1周で25スタミナ払うことになる。
@@ -1685,6 +1746,27 @@ func _enter_victory() -> void:
 	_show_result(true, result_data)
 
 
+# 難ダンジョンの戦闘のあと始末（段階17-b）。⚠ 勝ちも負けもここを通る。
+#
+# 順番を変えないこと：
+#   ① HP を書き戻す（＝目減り。全員脱落ならランがここで終わる）
+#   ② 勝っていて、かつボスのノードなら clear_dungeon_boss()
+# ⚠ ②を先にすると、全滅と同時にボスを倒した回で報酬が入ってから鞄が消える。
+# ⚠ 負けたら clear_dungeon_boss() を呼ばない（決定・負けたら報酬は入らない）。
+# ⚠ clear_dungeon_boss() を呼ぶ口はここ1本（17-a の決め8）。⚠ 2本目を作らないこと。
+func _finish_dungeon_battle(victory: bool) -> void:
+	var run_lost: bool = _save_dungeon_hp()
+	if run_lost:
+		print("[Battle] ダンジョン：編成が全員脱落した（ランは終わった）")
+		return
+	if not victory:
+		return
+	if not _is_dungeon_boss():
+		return
+	if not GameManager.clear_dungeon_boss():
+		push_warning("[Battle] clear_dungeon_boss() が false（ボスのノードに居ない）")
+
+
 # スタミナは勝ったときだけ消費する。
 #
 # 入場時は冒険選択画面が残量を確認するだけで、実際には減らしていない。
@@ -1722,6 +1804,10 @@ func _enter_defeat() -> void:
 	_clear_all_recast()
 	_clear_all_summons()
 	_session.state = BattleSession.STATE_DEFEAT
+	# 難ダンジョン（段階17-b）。⚠ 負けたら報酬は入らない（ボスでも同じ）。
+	#   ⚠ 全員の HP が 0 なので、書き戻した時点で「死亡」＝鞄を失う（§4-4-2）。
+	if _dungeon_node_id != "":
+		_finish_dungeon_battle(false)
 	# apply_battle_rewards も mark_stage_cleared も呼ばない
 	_show_result(false, {})
 
@@ -1747,7 +1833,12 @@ func _show_result(victory: bool, result_data: Dictionary) -> void:
 	else:
 		result_label.text = tr("ui_battle_defeat")
 		reward_label.text = ""
-		retry_button.show()
+		# ⚠ ダンジョンでは「もう一度」を出さない（段階17-b）。⚠ 負けた時点で
+		#   ランは終わっている（全員脱落＝死亡）ので、押しても敵を組めない。
+		if _dungeon_node_id != "":
+			retry_button.hide()
+		else:
+			retry_button.show()
 	result_view.show()
 	back_button.show()
 
@@ -1764,10 +1855,15 @@ func _init_session() -> void:
 	#   新しい空の summon_units を見に行くので、前の戦闘のビューが残る
 	#   （BattleUnit は消えるのにノードだけ画面に居座り、エラーは出ない）。
 	_clear_all_summons()
-	_stage_data = MasterDataLoader.get_stage(_stage_id)
+	# ⚠ ダンジョンでは引かない（_ready() と同じ理由）。
+	if _dungeon_node_id == "":
+		_stage_data = MasterDataLoader.get_stage(_stage_id)
 	# ⚠ リトライでも同じノードの敵を引き直す（段階14-c）。呼ばないと _floor_waves が
 	#   前の戦闘のまま残り、フロアの外なら空のままで従来どおり waves を使う。
 	_build_floor_waves()
+	# ⚠ ダンジョンも同じ理由で引き直す（段階17-b）。⚠ 通常は「もう一度」を出さないが、
+	#   片方だけ呼ぶ形にすると、次に入口が増えたときに前の戦闘の敵が残る。
+	_build_dungeon_waves()
 	var total_waves: int = int(_waves_of().size())
 	var stage_type: String = GameStateKeys.STAGE_TYPE_STORY
 	if _session != null:
@@ -1795,6 +1891,9 @@ func _init_session() -> void:
 # ⚠ フロアのノードから来たときだけ _floor_waves（1本）を使う。
 #   ⚠ 読む場所を3箇所に散らさないため、waves を読む口はこの1本に寄せた。
 func _waves_of() -> Array:
+	# ⚠ ダンジョン（段階17-b）が先。⚠ 2つが同時に入ることは無い（入口が別）。
+	if not _dungeon_waves.is_empty():
+		return _dungeon_waves
 	if not _floor_waves.is_empty():
 		return _floor_waves
 	return _stage_data.get("waves", [])
@@ -1816,6 +1915,54 @@ func _build_floor_waves() -> void:
 	var entry: Dictionary = wave.duplicate(true)
 	entry["wave_index"] = 1
 	_floor_waves = [entry]
+
+
+# 難ダンジョンのノード1つぶんの敵を1ウェーブに組む（段階17-b）。
+#
+# ⚠ dungeon.json の battle_pool / boss を直接読まない。引く口は
+#   GameManager.get_dungeon_node_wave() の1本（台帳 §7・17-a の決め8）。
+# ⚠ _build_floor_waves() と1本にまとめないこと。読む口も器も別。
+func _build_dungeon_waves() -> void:
+	_dungeon_waves = []
+	if _dungeon_node_id == "":
+		return
+	var wave: Dictionary = GameManager.get_dungeon_node_wave(_dungeon_node_id)
+	if wave.is_empty():
+		push_warning("[Battle] ダンジョンのノードから敵を組めなかった: " + _dungeon_node_id)
+		return
+	var entry: Dictionary = wave.duplicate(true)
+	entry["wave_index"] = 1
+	_dungeon_waves = [entry]
+
+
+# 難ダンジョンのボスのノードから来たか。⚠ 判定は GameManager の1本に聞く。
+func _is_dungeon_boss() -> bool:
+	return _dungeon_node_id != "" and GameManager.is_dungeon_boss_node(_dungeon_node_id)
+
+
+# 戦闘が終わったときの HP を、ランへ書き戻す（段階17-b・§4-4）。
+#
+# ⚠⚠ これが「目減り」の実体。⚠ 独立したつまみは無い（未決4）。
+# ⚠ 倒れた味方も含めて、戦闘に出た全員ぶんを書く（0 のまま書く＝脱落）。
+#   ⚠ GameManager 側で 1 に持ち上げないこと（フロアの hp_carry とはそこが逆）。
+# ⚠ 脱落していて戦闘に出なかったキャラは書かない（欄はそのまま 0 で残る）。
+#
+# 戻り値: 全員が脱落して「死亡」になったか（＝鞄を失ってランが終わったか）。
+func _save_dungeon_hp() -> bool:
+	if _dungeon_node_id == "" or _session == null:
+		return false
+	var members: Array = GameManager.get_party_members()
+	var hp_by_character: Dictionary = {}
+	for i: int in range(members.size()):
+		var unit_id: String = "party_%d" % i
+		for unit in _session.party_units:
+			if not (unit is BattleUnit):
+				continue
+			var u: BattleUnit = unit
+			if u.unit_id == unit_id:
+				hp_by_character[str(members[i])] = int(u.hp)
+				break
+	return GameManager.apply_dungeon_battle_result(hp_by_character)
 
 
 # フロアのボスのノードから来たか。⚠ 判定は GameManager の1本に聞く。
@@ -1844,6 +1991,17 @@ func _save_floor_hp_carry() -> void:
 
 
 func _on_back_pressed() -> void:
+	# 難ダンジョンの中から来たとき（段階17-b／戻り先は17-d で差し替えた）。
+	# ⚠ ランが終わっていれば（全滅＝死亡）冒険選択へ。⚠ 続いていればマップへ戻る。
+	#   ⚠ ここで abandon_dungeon_run() を呼ばないこと。⚠ 負けた時点で
+	#     apply_dungeon_battle_result() がもう終わらせている（二重に呼ぶと二重ロスト）。
+	if _dungeon_node_id != "":
+		if GameManager.is_in_dungeon():
+			SceneManager.change_scene(DUNGEON_MAP_PATH)
+			return
+		SceneManager.change_scene(ADVENTURE_SELECT_PATH)
+		return
+
 	# フロアの中から来たとき（段階14-c）。
 	# ⚠ 勝ってボスを倒したときは _enter_victory() が既にフロアを降りている。
 	#   ここへ来るのは「道中で勝った」か「負けた」の2つ。

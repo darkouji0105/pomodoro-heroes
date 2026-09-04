@@ -215,6 +215,16 @@ const ITEM_MASTER_PART_ROLL_MAX: String = "part_roll_max"
 #   同じ理由）。仮アセットのアイコンが「右下の数字」と「色」に使う。
 const ITEM_MASTER_MATERIAL_TIER: String = "material_tier"
 
+# ランの中で使うものが「何をするか」（段階17-c・item_type: dungeon の品だけが持つ）。
+#
+# ⚠ ID の綴りで見分けないこと（ITEM_MASTER_PART_KIND と同じ理由）。
+# ⚠ 効き方の数値はここに書かない。DungeonConfig のつまみが持つ（AGENTS.md の判定表）。
+const ITEM_MASTER_DUNGEON_EFFECT: String = "dungeon_effect"
+# ⚠ 増やすときは use_dungeon_item() の分岐と E134 の検証も一緒に足すこと
+#   （欄だけ足して実装しない＝AGENTS.md）。
+const DUNGEON_EFFECT_HEAL: String = "heal"
+const DUNGEON_EFFECT_REVIVE: String = "revive"
+
 # 装飾の種類。
 #
 # ⚠ part_kind で if を分岐させないこと。種類を足すたびに .gd を触ることになる
@@ -370,6 +380,9 @@ func _build_new_game_state(caller: String) -> void:
 	# ⚠ 難ダンジョン（段階17-a・E133 / W22）。⚠ Balance.dungeon の割り当て漏れは
 	#   「ランに入った瞬間に落ちる」形で出るので、起動時に言わないと気づけない。
 	_validate_dungeon_config()
+	# ⚠ 持ち物のマス目（段階18-b・E135）。⚠ 割り当て漏れは 9999 マスで動き続けるので、
+	#   ⚠ ここで言わないと「容量が効いていないこと」に誰も気づけない。
+	_validate_inventory_config()
 	# ショップのラインナップを shop.json から流し込む。research_tree と同じ理由で、
 	# _empty_state_template() の line_up は [] のため、これが無いと画面に1つも出ない。
 	_sync_shops_from_master()
@@ -480,6 +493,10 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.STAMINA: {GameStateKeys.STAMINA_CURRENT: 0, GameStateKeys.STAMINA_MAX: 0},
 		GameStateKeys.MATERIALS: {},
 		GameStateKeys.INVENTORY: {},
+		# マス目の並び（段階18-f）。⚠ 空なら「まだ並べていない」＝持ち物の順で作り直す。
+		GameStateKeys.INVENTORY_ORDER: [],
+		# 買った拡張ぶんのマス数（段階18-e）。
+		GameStateKeys.INVENTORY_EXTRA_SLOTS: 0,
 		GameStateKeys.PENDING_CHESTS: [],
 		# フロア探索（段階14-a）。floor_id が "" なら入っていない。
 		# ⚠ 9つの欄を最初から全部持たせる。14-b〜14-e が埋める欄も空で置く。
@@ -614,7 +631,26 @@ func get_material_count(material_id: String) -> int:
 # 装備の入口は宝箱（open_chest）・ショップ（purchase_shop_item）・作業場（collect_craft）の
 # 3つあるが、どれも最後はこの関数を通るため、個体の生成をここに1箇所だけ置いている。
 # 判定に item_type 引数を使わないのは、open_chest() が第3引数を渡さないため。
-func add_to_inventory(item_id: String, count: int, item_type: String = GameStateKeys.ITEM_TYPE_UNKNOWN) -> void:
+# ⚠⚠ 段階18-b：戻り値を「実際に入った数」に変えた（前は void）。
+#   ⚠ 満杯なら 0 が返る。⚠ 呼び元は戻り値を見て、⚠ 払ったものを取り消すのではなく
+#     「払う前に弾く」こと（CLAUDE.md 6番）。⚠ ここは最後の砦であって、判定の場所ではない。
+#   ⚠ 素材（add_material）はマスを使わないので、ここを通らない（人間の決定5）。
+func add_to_inventory(item_id: String, count: int, item_type: String = GameStateKeys.ITEM_TYPE_UNKNOWN) -> int:
+	if count <= 0:
+		return 0
+	# ⚠ 入る数まで削る。⚠ 溢れたぶんは入らない（＝拾えない）。⚠ 何かを勝手に捨てて空けない。
+	var accepted: int = mini(count, get_inventory_free_slots())
+	if accepted <= 0:
+		push_warning("[GameManager] W25 add_to_inventory('%s', %d) -> 0（倉庫が満杯 %d/%d）" % [
+			item_id, count, get_inventory_slots_used(), get_inventory_slot_max()
+		])
+		return 0
+	if accepted < count:
+		push_warning("[GameManager] W25 add_to_inventory('%s', %d) -> %d だけ入った（倉庫 %d/%d）" % [
+			item_id, count, accepted, get_inventory_slots_used(), get_inventory_slot_max()
+		])
+	count = accepted
+
 	if _is_equipment_item(item_id):
 		var newly: bool = _mark_codex_discovered(item_id)
 		var last_instance_id: String = ""
@@ -625,7 +661,7 @@ func add_to_inventory(item_id: String, count: int, item_type: String = GameState
 		])
 		# 1回の受け取りで何個来ても、飛ばすシグナルは1本にする（再描画を並走させない）。
 		equipment_instances_changed.emit(last_instance_id)
-		return
+		return count
 
 	# 初出のitem_idであれば、図鑑（codex）のdiscoveredも自動でtrueにする
 	var inventory: Dictionary = _copy_dict(GameStateKeys.INVENTORY)
@@ -637,8 +673,8 @@ func add_to_inventory(item_id: String, count: int, item_type: String = GameState
 		entry[GameStateKeys.ITEM_TYPE] = item_type
 	elif not entry.has(GameStateKeys.ITEM_TYPE):
 		entry[GameStateKeys.ITEM_TYPE] = GameStateKeys.ITEM_TYPE_UNKNOWN
-	if not entry.has(GameStateKeys.ITEM_SLOT_POSITION):
-		entry[GameStateKeys.ITEM_SLOT_POSITION] = {GameStateKeys.POS_X: 0, GameStateKeys.POS_Y: 0}
+	# ⚠ slot_position はもう書かない（段階18-f）。⚠ item_id ごとに1つしか持てないので、
+	#   ⚠ 「1マス＝1個」の並びを表現できない。⚠ 並びは INVENTORY_ORDER が持つ。
 	if not entry.has(GameStateKeys.ITEM_PROPERTIES):
 		entry[GameStateKeys.ITEM_PROPERTIES] = {}
 	inventory[item_id] = entry
@@ -648,6 +684,7 @@ func add_to_inventory(item_id: String, count: int, item_type: String = GameState
 	print("[GameManager] add_to_inventory('%s', %d, type='%s') -> count=%d newly_discovered=%s" % [
 		item_id, count, str(entry[GameStateKeys.ITEM_TYPE]), int(entry[GameStateKeys.ITEM_COUNT]), newly_discovered])
 	inventory_changed.emit(item_id)
+	return count
 
 # 図鑑の discovered を立てる。初出なら true。
 # 装備は inventory を通らないため、切り出して両方から呼ぶ。
@@ -765,6 +802,17 @@ func open_chest(instance_id: String) -> bool:
 			continue
 		if bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
 			print("[GameManager] open_chest('%s') -> false (already opened)" % instance_id)
+			return false
+		# ⚠ 段階18-b：倉庫に入らないなら開けさせない（PLAN_INVENTORY.md §4-1）。
+		#   ⚠ 開けてから溢れると中身が消える。⚠ 未開封のまま残せば取り返しがつく。
+		#   ⚠ 判定は「開けた」と書く前（CLAUDE.md 6番）。
+		var chest_needs: int = _inventory_slots_needed(
+			chest.get(GameStateKeys.CHEST_REWARDS, {}).get(GameStateKeys.REWARD_INVENTORY, {})
+		)
+		if not can_accept_inventory(chest_needs):
+			print("[GameManager] open_chest('%s') -> false (倉庫が満杯 %d/%d・要る %d マス)" % [
+				instance_id, get_inventory_slots_used(), get_inventory_slot_max(), chest_needs
+			])
 			return false
 		chest[GameStateKeys.CHEST_OPENED] = true
 		chests[i] = chest
@@ -1099,17 +1147,510 @@ func get_codex_entry(item_id: String) -> Dictionary:
 	var entry: Dictionary = codex.get(item_id, {})
 	return entry.duplicate(true)
 
-func update_inventory_slot_position(item_id: String, position: Vector2i) -> void:
-	var inventory: Dictionary = _copy_dict(GameStateKeys.INVENTORY)
-	if not inventory.has(item_id):
-		print("[GameManager] update_inventory_slot_position('%s') -> item not in inventory" % item_id)
+# --- マス目（段階18-a・PLAN_INVENTORY.md） -----------------------------
+#
+# ⚠⚠ 「何がマスを1つ占めるか」を決める口はここ1本（§5-1・人間の決定5）。
+#   ⚠ 画面側（倉庫・ダンジョンの鞄）で item_type を見て並べ直さないこと。
+#   ⚠ 判定が2箇所になると、片方だけ直したときに「倉庫では見えるのに数が合わない」になる。
+#
+# マスに並ぶもの：
+#   ⚠ 持ち物（INVENTORY）… 消耗品・装飾。⚠ 1個＝1マス（重ねない＝人間の決定3）
+#   ⚠ 装備の個体（EQUIPMENT_INSTANCES）… 1個＝1マス（数えられないので当然そうなる）
+# マスに並ばないもの：
+#   ⚠ 汎用素材（MATERIALS）… 人間の決定5。⚠ 数千個になるので入れると即破綻する
+#   ⚠ ランの鞄（DUNGEON_RUN_BAG）… 器が別（PLAN_HARD_DUNGEON.md §7）。⚠ 18-d で別の口を作る
+
+# マス1つぶんの中身のキー。⚠ 文字列リテラルを散らさない。
+const SLOT_ENTRY_KIND: String = "kind"
+const SLOT_ENTRY_ITEM_ID: String = "item_id"
+const SLOT_ENTRY_INSTANCE_ID: String = "instance_id"
+const SLOT_ENTRY_GRADE: String = "grade"
+const SLOT_ENTRY_EQUIPPED_BY: String = "equipped_by"
+# ⚠ 何個持っているか（⚠ 鞄のマスだけが入れる。⚠ 倉庫は拠点の所持数を引けるので入れない）。
+const SLOT_ENTRY_COUNT: String = "count"
+# ⚠ 種類は2つだけ。⚠ 増やすときは ItemSlot の描き分けも同じ回に足すこと。
+const SLOT_KIND_ITEM: String = "item"
+const SLOT_KIND_INSTANCE: String = "instance"
+# ⚠ レリック（段階17-e-3）。⚠ items.json の品ではないが、⚠ マスと詳細の部品を共有するために
+#   同じ形で包む（⚠ アイコンは ItemIcon が relic_id から引ける）。
+#   ⚠ 個数を持たない。⚠ 拠点の倉庫にも入らない。
+const SLOT_KIND_RELIC: String = "relic"
+# キャラの装備マス（get_equipment_slot_entries の1要素）のキー。
+const SLOT_ENTRY_EQUIP_SLOT: String = "equip_slot"
+const SLOT_ENTRY_ENTRY: String = "entry"
+
+
+# マスに並ぶものを、並び順のまま返す（⚠ 空きマスは含まない＝数を数えるのはこちら）。
+#
+# ⚠ 1マス＝1個。⚠ count が 3 なら同じ item_id が3要素になる（重ねない）。
+# ⚠ 並びは INVENTORY_ORDER（段階18-f）。⚠ 動かした順がそのまま出る。
+func get_inventory_slot_entries() -> Array:
+	var result: Array = []
+	for entry: Variant in get_inventory_slot_layout():
+		if not (entry as Dictionary).is_empty():
+			result.append(entry)
+	return result
+
+
+# マス目そのもの（⚠ 長さは倉庫のマス数。⚠ 空きマスは空の Dictionary）。
+#
+# ⚠⚠ 画面はこちらを使う。⚠ 穴（途中の空きマス）が要るため
+#   （⚠ 動かして空けた場所が、⚠ 次に描いたとき詰まってしまうと「動かせない」のと同じ）。
+func get_inventory_slot_layout() -> Array:
+	var order: Array = _reconciled_inventory_order()
+	var result: Array = []
+	for key: Variant in order:
+		result.append(_slot_entry_of_key(str(key)))
+	return result
+
+
+# 並びの1マスぶんの鍵から、マスの中身を組み立てる。
+#
+# ⚠ 鍵は「持ち物なら item_id」「装備の個体なら instance_id」。
+# ⚠ 見分けは equipment_instances に在るかどうか。⚠ 綴りで見分けない。
+func _slot_entry_of_key(key: String) -> Dictionary:
+	if key == "":
+		return {}
+	var instance: Dictionary = get_equipment_instance(key)
+	if not instance.is_empty():
+		return {
+			SLOT_ENTRY_KIND: SLOT_KIND_INSTANCE,
+			SLOT_ENTRY_ITEM_ID: str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, "")),
+			SLOT_ENTRY_INSTANCE_ID: key,
+			SLOT_ENTRY_GRADE: int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)),
+			SLOT_ENTRY_EQUIPPED_BY: _equipped_owner(key),
+		}
+	return {
+		SLOT_ENTRY_KIND: SLOT_KIND_ITEM,
+		SLOT_ENTRY_ITEM_ID: key,
+		SLOT_ENTRY_INSTANCE_ID: "",
+		SLOT_ENTRY_GRADE: 0,
+		SLOT_ENTRY_EQUIPPED_BY: "",
+	}
+
+
+# いま持っているものの「鍵の必要数」。{鍵: 何マス要るか}。
+#
+# ⚠ 持ち物は個数ぶん。⚠ 装備の個体は1つにつき1マス。
+# ⚠⚠ 装備中の個体は数えない（人間の決定7。⚠ キャラの装備マスへ移っている）。
+func _inventory_required_keys() -> Dictionary:
+	var required: Dictionary = {}
+	var inventory: Dictionary = _state.get(GameStateKeys.INVENTORY, {})
+	for entry: Variant in inventory:
+		var item_id: String = str(entry)
+		var row: Variant = inventory[item_id]
+		if not (row is Dictionary):
+			continue
+		var count: int = int((row as Dictionary).get(GameStateKeys.ITEM_COUNT, 0))
+		if count > 0:
+			required[item_id] = count
+	var instances: Dictionary = _state.get(GameStateKeys.EQUIPMENT_INSTANCES, {})
+	for entry: Variant in instances:
+		var instance_id: String = str(entry)
+		if _equipped_owner(instance_id) != "":
+			continue
+		required[instance_id] = 1
+	return required
+
+
+# 並びを持ち物と突き合わせて作り直す（段階18-f）。
+#
+# ⚠⚠ 並びは「飾り」であって正ではない。⚠ ずれたら並びのほうを直す。
+#   ⚠ 拾ったもの（並びに無いもの）は前から空きマスへ入れる。
+#   ⚠ 無くなったもの（壊した・装備した・売った）はマスを空ける。
+#   ⚠ 穴は詰めない（⚠ 詰めると自分で空けた場所が消える）。
+# ⚠ 状態は書き換えない。⚠ 読むたびに作り直すだけ（⚠ セーブに書くのは動かしたときだけ）。
+func _reconciled_inventory_order() -> Array:
+	var slot_max: int = get_inventory_slot_max()
+	var required: Dictionary = _inventory_required_keys()
+	var raw: Variant = _state.get(GameStateKeys.INVENTORY_ORDER, [])
+	var order: Array = []
+	var used: Dictionary = {}
+
+	if raw is Array:
+		for entry: Variant in (raw as Array):
+			if order.size() >= slot_max:
+				break
+			var key: String = str(entry)
+			if key == "":
+				order.append("")
+				continue
+			var have: int = int(used.get(key, 0))
+			if have >= int(required.get(key, 0)):
+				# もう持っていない（⚠ 壊した・装備した）。⚠ マスは空ける。
+				order.append("")
+				continue
+			used[key] = have + 1
+			order.append(key)
+
+	while order.size() < slot_max:
+		order.append("")
+
+	# 並びに入っていないもの（⚠ 拾ったばかり）を前から詰める。
+	var keys: Array = required.keys()
+	keys.sort()
+	var cursor: int = 0
+	for entry: Variant in keys:
+		var key: String = str(entry)
+		var missing: int = int(required[key]) - int(used.get(key, 0))
+		while missing > 0:
+			while cursor < order.size() and str(order[cursor]) != "":
+				cursor += 1
+			if cursor >= order.size():
+				# ⚠ ここへ来るのは容量より持ち物が多いとき（⚠ 上限を下げた直後など）。
+				#   ⚠ 黙って消さずに言う。⚠ 中身は INVENTORY に残っている。
+				push_warning("[GameManager] W27 マス目に収まらない持ち物がある（%d マス / 必要 %d）" % [
+					slot_max, _required_total(required)
+				])
+				return order
+			order[cursor] = key
+			missing -= 1
+	return order
+
+
+func _required_total(required: Dictionary) -> int:
+	var total: int = 0
+	for key: Variant in required:
+		total += int(required[key])
+	return total
+
+
+# マスを入れ替える（段階18-f・ドラッグ＆ドロップ）。
+#
+# ⚠ 中身は動かさない。⚠ 動くのは並びだけ（⚠ 持ち物そのものは INVENTORY が正）。
+# ⚠ 空きマスへ動かすのも、⚠ 中身どうしの入れ替えも、⚠ どちらも同じ「交換」。
+#   ⚠ 挿入（あいだに割り込んで後ろをずらす）にしないこと。⚠ 1回の操作で何マスも動くと、
+#     ⚠ 何が起きたか画面から読めない（マインクラフトも交換）。
+# ⚠ 状態を触る前に判定を終える（CLAUDE.md 6番）。
+func move_inventory_slot(from_index: int, to_index: int) -> bool:
+	var order: Array = _reconciled_inventory_order()
+	if from_index < 0 or to_index < 0 or from_index >= order.size() or to_index >= order.size():
+		print("[GameManager] move_inventory_slot(%d -> %d) -> false (マスの外)" % [from_index, to_index])
+		return false
+	if from_index == to_index:
+		return false
+	if str(order[from_index]) == "" and str(order[to_index]) == "":
+		return false
+
+	var moved: String = str(order[from_index])
+	order[from_index] = order[to_index]
+	order[to_index] = moved
+	_state[GameStateKeys.INVENTORY_ORDER] = order
+	print("[GameManager] move_inventory_slot(%d -> %d) -> true ('%s' と '%s' を入れ替えた)" % [
+		from_index, to_index, moved, str(order[from_index])
+	])
+	inventory_changed.emit(moved)
+	return true
+
+
+# レリック1件をマスの形に包む（段階17-e-3）。
+#
+# ⚠ 共有部品（ItemSlot / ItemDetail）へ渡すためだけの形。⚠ 状態には入らない。
+func make_relic_slot_entry(relic_id: String, character_id: String = "") -> Dictionary:
+	return {
+		SLOT_ENTRY_KIND: SLOT_KIND_RELIC,
+		SLOT_ENTRY_ITEM_ID: relic_id,
+		SLOT_ENTRY_INSTANCE_ID: "",
+		SLOT_ENTRY_GRADE: 0,
+		SLOT_ENTRY_EQUIPPED_BY: character_id,
+	}
+
+
+# ランの鞄のマス目（段階18-d・PLAN_INVENTORY.md 未決6）。
+#
+# ⚠⚠ 倉庫の口（get_inventory_slot_layout）を借りない。⚠ 器が別（PLAN_HARD_DUNGEON.md §7）。
+#   ⚠ 借りると鞄に拠点の持ち物が並ぶ。⚠ 部品（ItemSlot / ItemGrid / ItemDetail）だけ共有する。
+# ⚠ 長さは鞄の枠。⚠ 空きマスは空の Dictionary（⚠ 「あと何個入るか」が見えること）。
+# ⚠ 並べ替えは保存しない。⚠ 鞄は item_id と個数しか持たない（台帳 §7）。
+#   ⚠ 並びが要るなら DUNGEON_RUN に欄を1本足すことになる。⚠ INVENTORY_ORDER を借りない。
+func get_dungeon_bag_slot_layout() -> Array:
+	var result: Array = []
+	var bag: Dictionary = get_dungeon_bag()
+	var item_ids: Array = bag.keys()
+	item_ids.sort()
+	for entry: Variant in item_ids:
+		var item_id: String = str(entry)
+		var count: int = int(bag[item_id])
+		for _i: int in range(maxi(0, count)):
+			result.append({
+				SLOT_ENTRY_KIND: SLOT_KIND_ITEM,
+				SLOT_ENTRY_ITEM_ID: item_id,
+				SLOT_ENTRY_INSTANCE_ID: "",
+				SLOT_ENTRY_GRADE: 0,
+				SLOT_ENTRY_EQUIPPED_BY: "",
+				# ⚠ 鞄の個数。⚠ 拠点の所持数ではない（⚠ ラン専用の品は拠点に1個も無い）。
+				SLOT_ENTRY_COUNT: count,
+			})
+	while result.size() < get_dungeon_bag_slots():
+		result.append({})
+	return result
+
+
+# キャラの装備マス（人間の決定7・2026-09-03）。
+#
+# ⚠ 並びは get_equip_slots()（頭・上半身・脚・武器・アクセサリー）。⚠ 2本目の並びを作らない。
+# ⚠ 何も着けていない枠は entry が空の Dictionary。⚠ 行ごと飛ばさないこと
+#   （⚠ 空きマスが見えることがマス目にする理由そのもの）。
+# ⚠ ここに出るものは get_inventory_slot_entries() には出ない（同じ個体が2マスを占めない）。
+func get_equipment_slot_entries(character_id: String) -> Array:
+	var result: Array = []
+	for slot: String in get_equip_slots():
+		var instance_id: String = get_equipped_instance_id(character_id, slot)
+		var entry: Dictionary = {}
+		if instance_id != "":
+			var instance: Dictionary = get_equipment_instance(instance_id)
+			entry = {
+				SLOT_ENTRY_KIND: SLOT_KIND_INSTANCE,
+				SLOT_ENTRY_ITEM_ID: str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, "")),
+				SLOT_ENTRY_INSTANCE_ID: instance_id,
+				SLOT_ENTRY_GRADE: int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)),
+				SLOT_ENTRY_EQUIPPED_BY: character_id,
+			}
+		result.append({SLOT_ENTRY_EQUIP_SLOT: slot, SLOT_ENTRY_ENTRY: entry})
+	return result
+
+
+# いま何マス使っているか。⚠ 数える口はここ1本（get_inventory_slot_entries と必ず一致する）。
+func get_inventory_slots_used() -> int:
+	return get_inventory_slot_entries().size()
+
+
+var _inventory_config_warned: bool = false
+
+
+# ⚠ Balance.inventory を読む唯一の口（_dungeon() と同じ形）。
+func _inventory_config() -> InventoryConfig:
+	if Balance == null or Balance.inventory == null:
+		if not _inventory_config_warned:
+			_inventory_config_warned = true
+			push_error("[GameManager] E135 balance.tscn: Balance.inventory が null。inventory_config.tres を Balance ノードの inventory 欄に割り当てること")
+		return null
+	return Balance.inventory
+
+
+# 倉庫のマス数（段階18-b）。
+#
+# ⚠ 拡張ぶんは 18-e で状態に足す。⚠ そのときもここ1本を通すこと
+#   （画面や入口が「初期値＋拡張」を自分で足し算しない）。
+# ⚠ Config が無いときは 0 ではなく大きい数を返す。⚠ 0 を返すと、割り当て漏れの
+#   その日から「何も拾えないゲーム」になり、⚠ 原因が容量だと気づけない。
+func get_inventory_slot_max() -> int:
+	var config: InventoryConfig = _inventory_config()
+	if config == null:
+		return 9999
+	# ⚠ 足し算をするのはここ1本（段階18-e）。⚠ 画面や入口が「初期＋拡張」を組み立てないこと。
+	return maxi(0, int(config.initial_slots) + get_inventory_extra_slots())
+
+
+# 買った拡張ぶんのマス数（段階18-e）。
+func get_inventory_extra_slots() -> int:
+	return int(_state.get(GameStateKeys.INVENTORY_EXTRA_SLOTS, 0))
+
+
+# 次の拡張の値段（ゴールド）。⚠ 上限まで買っていれば 0。
+#
+# ⚠ 値段の式を画面に書かないこと。⚠ 押せるかの判定も get_inventory_expand_reject_reason()。
+func get_inventory_expand_cost() -> int:
+	var config: InventoryConfig = _inventory_config()
+	if config == null:
+		return 0
+	if get_inventory_page_count() >= int(config.max_pages):
+		return 0
+	var per_page: int = get_inventory_slots_per_page()
+	var bought: int = get_inventory_extra_slots() / maxi(1, per_page * int(config.expand_pages_per_purchase))
+	return maxi(0, int(config.expand_cost_gold_base) + int(config.expand_cost_gold_step) * bought)
+
+
+# 拡張を断る理由（"" なら買える）。⚠ 画面はこの1本に聞く。
+const INVENTORY_EXPAND_REJECT_MAX: String = "max"
+const INVENTORY_EXPAND_REJECT_GOLD: String = "gold"
+
+
+func get_inventory_expand_reject_reason() -> String:
+	var config: InventoryConfig = _inventory_config()
+	if config == null:
+		return INVENTORY_EXPAND_REJECT_MAX
+	if get_inventory_page_count() >= int(config.max_pages):
+		return INVENTORY_EXPAND_REJECT_MAX
+	if int(_state.get(GameStateKeys.GOLD, 0)) < get_inventory_expand_cost():
+		return INVENTORY_EXPAND_REJECT_GOLD
+	return ""
+
+
+# 枠を1ページぶん買う（段階18-e）。
+#
+# ⚠ 状態を触る前に判定を終える（CLAUDE.md 6番）。⚠ 払ってから増やすのではなく、
+#   ⚠ 断る理由が無いことを先に確かめる。
+# ⚠ 並び（INVENTORY_ORDER）は触らない。⚠ 長さは _reconciled_inventory_order() が
+#   毎回そろえるので、⚠ ここで後ろに "" を足さないこと（2箇所で長さを決めない）。
+func expand_inventory() -> bool:
+	var reason: String = get_inventory_expand_reject_reason()
+	if reason != "":
+		print("[GameManager] expand_inventory() -> false (%s)" % reason)
+		return false
+	var config: InventoryConfig = _inventory_config()
+	var added: int = get_inventory_slots_per_page() * maxi(1, int(config.expand_pages_per_purchase))
+	var cost: int = get_inventory_expand_cost()
+
+	# --- ここから状態を変える ---
+	_spend_currency(GameStateKeys.GOLD, cost)
+	_state[GameStateKeys.INVENTORY_EXTRA_SLOTS] = get_inventory_extra_slots() + added
+	print("[GameManager] expand_inventory() -> true (%d G / +%d マス / 合計 %d マス・%d ページ)" % [
+		cost, added, get_inventory_slot_max(), get_inventory_page_count()
+	])
+	inventory_changed.emit("")
+	return true
+
+
+# マスの中身を1つ捨てる（段階18-e）。
+#
+# ⚠⚠ 満杯で拡張も買えないと閉じ込められるので、⚠ 逃げ道は必ず要る（台帳 §4-2）。
+# ⚠ 戻りは無い。⚠ 装備は「素材にする」（dismantle_equipment）のほうが素材が戻るので、
+#   ⚠ 画面はそちらを勧めること。⚠ ただしここで装備を弾かない（⚠ 逃げ道は塞がない）。
+# ⚠ 1マス＝1個なので、⚠ 捨てるのも1個（⚠ 「全部捨てる」を作らない）。
+# ⚠ 装備中の個体はマス目に出てこないので、⚠ ここへは来ない（人間の決定7）。
+func discard_inventory_slot(index: int) -> bool:
+	var layout: Array = get_inventory_slot_layout()
+	if index < 0 or index >= layout.size():
+		print("[GameManager] discard_inventory_slot(%d) -> false (マスの外)" % index)
+		return false
+	var entry: Dictionary = layout[index]
+	if entry.is_empty():
+		print("[GameManager] discard_inventory_slot(%d) -> false (空のマス)" % index)
+		return false
+
+	# --- ここから状態を変える ---
+	if str(entry.get(SLOT_ENTRY_KIND, "")) == SLOT_KIND_INSTANCE:
+		var instance_id: String = str(entry.get(SLOT_ENTRY_INSTANCE_ID, ""))
+		var instances: Dictionary = _copy_dict(GameStateKeys.EQUIPMENT_INSTANCES)
+		instances.erase(instance_id)
+		_state[GameStateKeys.EQUIPMENT_INSTANCES] = instances
+		print("[GameManager] discard_inventory_slot(%d) -> true (装備の個体 %s を捨てた・戻りは無し)" % [
+			index, instance_id
+		])
+		equipment_instances_changed.emit("")
+		return true
+
+	var item_id: String = str(entry.get(SLOT_ENTRY_ITEM_ID, ""))
+	_remove_from_inventory(item_id, 1)
+	print("[GameManager] discard_inventory_slot(%d) -> true ('%s' を1個捨てた・戻りは無し)" % [index, item_id])
+	return true
+
+
+# --- ページ（人間の決定8・2026-09-03） ---
+#
+# ⚠ 500 マスを 100 マス（20列 × 5行）× 5 ページで見せる。
+# ⚠ 掛け算をするのはここ1本。⚠ 画面で columns × rows を計算し直さないこと
+#   （⚠ Config を変えたときに画面だけ古い数のまま並ぶ）。
+
+# 1行に並べるマスの数。
+func get_inventory_columns() -> int:
+	var config: InventoryConfig = _inventory_config()
+	if config == null:
+		return 1
+	return maxi(1, int(config.columns))
+
+
+# 1ページのマス数。
+func get_inventory_slots_per_page() -> int:
+	var config: InventoryConfig = _inventory_config()
+	if config == null:
+		return get_inventory_slot_max()
+	return maxi(1, int(config.columns) * int(config.rows_per_page))
+
+
+# ページ数。⚠ 端数が出たら1ページ多く数える（⚠ 最後のページが半端でもマスは在る）。
+func get_inventory_page_count() -> int:
+	var per_page: int = get_inventory_slots_per_page()
+	return maxi(1, int(ceil(float(get_inventory_slot_max()) / float(per_page))))
+
+
+# そのページに並ぶもの（⚠ 空きマスは空の Dictionary。⚠ 長さは1ページのマス数）。
+#
+# ⚠ ページ番号は 0 から。⚠ 範囲の外なら空の配列。
+# ⚠ 並びは INVENTORY_ORDER（段階18-f）。⚠ ドラッグで動かした順がそのまま出る。
+func get_inventory_page_entries(page: int) -> Array:
+	var per_page: int = get_inventory_slots_per_page()
+	# ⚠ 穴つきの並び（layout）から切る。⚠ 詰めた配列（entries）から切らないこと。
+	#   ⚠ 詰めると、⚠ 自分で空けたマスが次に描いたとき消える（＝動かせない）。
+	var layout: Array = get_inventory_slot_layout()
+	var from: int = page * per_page
+	if page < 0 or from >= layout.size():
+		return []
+	return layout.slice(from, mini(from + per_page, layout.size()))
+
+
+# 空きマス。
+func get_inventory_free_slots() -> int:
+	return maxi(0, get_inventory_slot_max() - get_inventory_slots_used())
+
+
+# 報酬の {item_id: 個数} が何マス要るか。⚠ 素材は 0（マスを使わない＝人間の決定5）。
+func _inventory_slots_needed(items: Variant) -> int:
+	if not (items is Dictionary):
+		return 0
+	var total: int = 0
+	for item_id: Variant in (items as Dictionary):
+		total += _inventory_slots_needed_for_item(str(item_id), int((items as Dictionary)[item_id]))
+	return total
+
+
+# 1件ぶん。⚠ 素材かどうかの判定は _item_storage() の1本に聞く（綴りで見分けない）。
+func _inventory_slots_needed_for_item(item_id: String, count: int) -> int:
+	if count <= 0:
+		return 0
+	if _item_storage(item_id) == ITEM_STORAGE_MATERIAL:
+		return 0
+	return count
+
+
+# その数だけ入るか。⚠ 物が増える口は「状態を触る前に」これを聞く（CLAUDE.md 6番）。
+#
+# ⚠ 聞かずに add_to_inventory() へ流すと、⚠ 払ったあとで入らないことが分かる
+#   （ゴールドを払った・材料を消した・宝箱を開けた あとでは取り返せない）。
+func can_accept_inventory(count: int) -> bool:
+	if count <= 0:
+		return true
+	return get_inventory_free_slots() >= count
+
+
+# 倉庫の容量を見る（E135）。
+func _validate_inventory_config() -> void:
+	if Balance == null or Balance.inventory == null:
+		push_error("[GameManager] E135 balance.tscn: Balance.inventory が null。inventory_config.tres を Balance ノードの inventory 欄に割り当てること")
 		return
-	var entry: Dictionary = (inventory[item_id] as Dictionary).duplicate(true)
-	entry[GameStateKeys.ITEM_SLOT_POSITION] = {GameStateKeys.POS_X: position.x, GameStateKeys.POS_Y: position.y}
-	inventory[item_id] = entry
-	_state[GameStateKeys.INVENTORY] = inventory
-	print("[GameManager] update_inventory_slot_position('%s', %s)" % [item_id, position])
-	inventory_changed.emit(item_id)
+	if int(Balance.inventory.initial_slots) <= 0:
+		push_error("[GameManager] E135 inventory_config.gd: initial_slots が 0。何も拾えないゲームになる")
+		return
+	# 段階18-e。⚠ 拡張が「買えるのに増えない」「無限に買える」を止める。
+	if int(Balance.inventory.expand_pages_per_purchase) <= 0:
+		push_error("[GameManager] E135 inventory_config.gd: expand_pages_per_purchase が 0。買っても増えない")
+		return
+	if int(Balance.inventory.max_pages) <= 0:
+		push_error("[GameManager] E135 inventory_config.gd: max_pages が 0。1ページも持てない")
+		return
+	if int(Balance.inventory.expand_cost_gold_base) <= 0:
+		push_warning("[GameManager] W28 inventory_config.gd: expand_cost_gold_base が 0。枠がタダで増える")
+	if int(Balance.inventory.columns) <= 0 or int(Balance.inventory.rows_per_page) <= 0:
+		push_error("[GameManager] E135 inventory_config.gd: columns / rows_per_page が 0。1ページに1マスも並ばない")
+		return
+	# ⚠ 割り切れないと最後のページだけ半端になる。⚠ 壊れはしないので黄。
+	var per_page: int = get_inventory_slots_per_page()
+	if int(Balance.inventory.initial_slots) % per_page != 0:
+		push_warning("[GameManager] W26 inventory_config.gd: initial_slots %d が 1ページ %d マスで割り切れない（最後のページが半端になる）" % [
+			int(Balance.inventory.initial_slots), per_page
+		])
+	print("[GameManager] inventory config validated: %d マス ＝ %d マス（%d列 × %d行）× %d ページ, 0 errors" % [
+		int(Balance.inventory.initial_slots), per_page,
+		int(Balance.inventory.columns), int(Balance.inventory.rows_per_page),
+		get_inventory_page_count(),
+	])
+
+
+# ⚠ update_inventory_slot_position() は段階18-f で消した。
+#   ⚠ 呼び出し元が0件のまま残っていた欄（slot_position）の書き込み口で、
+#     ⚠ item_id ごとに1つしか位置を持てず「1マス＝1個」を表現できなかった。
+#   ⚠ 並びを動かす口は move_inventory_slot()。
 
 # --- ショップ ---
 
@@ -1200,6 +1741,15 @@ func purchase_shop_item(shop_type: String, slot_id: int) -> bool:
 	if balance < amount:
 		print("[GameManager] purchase_shop_item('%s', %d) -> false (%s: %d < %d)" % [
 			shop_type, slot_id, currency_type, balance, amount
+		])
+		return false
+
+	# ⚠ 段階18-b：倉庫に入らないなら買わせない（PLAN_INVENTORY.md §4-1）。
+	#   ⚠ ゴールドを払ってから「渡せません」になるのが最悪。⚠ 判定はここまでに終える。
+	#   ⚠ 素材で受け取るぶん（payout_type=material）はマスを使わない（人間の決定5）。
+	if payout_type == PAYOUT_TYPE_ITEM and not can_accept_inventory(payout_count):
+		print("[GameManager] purchase_shop_item('%s', %d) -> false (倉庫が満杯 %d/%d・要る %d マス)" % [
+			shop_type, slot_id, get_inventory_slots_used(), get_inventory_slot_max(), payout_count
 		])
 		return false
 
@@ -2020,6 +2570,16 @@ func unequip_instance(character_id: String, slot: String) -> bool:
 	var current: String = get_equipped_instance_id(character_id, slot)
 	if current == "":
 		print("[GameManager] unequip_instance('%s', '%s') -> false (nothing equipped)" % [character_id, slot])
+		return false
+
+	# ⚠⚠ 外すとインベントリのマスへ戻る（人間の決定7）。⚠ 満杯なら外させない。
+	#   ⚠ 外してから「置く場所が無い」になると、⚠ 個体が宙に浮く（どのマスにも出ない）。
+	#   ⚠ 判定は状態を触る前（CLAUDE.md 6番）。
+	#   ⚠ 着けるほうは判定が要らない（⚠ 着ける個体がマスから出て、⚠ 前のものが戻る＝差し引き 0 以下）。
+	if not can_accept_inventory(1):
+		print("[GameManager] unequip_instance('%s', '%s') -> false (倉庫が満杯 %d/%d)" % [
+			character_id, slot, get_inventory_slots_used(), get_inventory_slot_max()
+		])
 		return false
 
 	# --- ここから状態を変える ---
@@ -5126,6 +5686,26 @@ func collect_craft(queue_id: String) -> bool:
 		push_warning("[GameManager] collect_craft: レシピ定義が無効: " + recipe_id)
 		return false
 
+	# ⚠ 段階18-b：倉庫に入らないなら受け取らせない（PLAN_INVENTORY.md §4-1）。
+	#   ⚠ キューから消してから溢れると、作ったものが消える。⚠ 完成済みのまま残す。
+	#   ⚠ 抽選（draw）は引く前に中身が分からないので、⚠ rolls の数だけマスを要求する
+	#     （⚠ 多めに見積もる側へ倒す。⚠ 足りないより安全）。
+	var craft_needs: int = 0
+	for output_check: Variant in (definition.get(RECIPE_OUTPUTS, []) as Array):
+		if output_check is Dictionary:
+			craft_needs += _inventory_slots_needed_for_item(
+				str((output_check as Dictionary).get(RECIPE_IO_ITEM_ID, "")),
+				int((output_check as Dictionary).get(RECIPE_IO_COUNT, 0))
+			)
+	var draw_check: Variant = definition.get(RECIPE_DRAW, {})
+	if draw_check is Dictionary and not (draw_check as Dictionary).is_empty():
+		craft_needs += maxi(1, int((draw_check as Dictionary).get(CHEST_DRAW_ROLLS, 1)))
+	if not can_accept_inventory(craft_needs):
+		print("[GameManager] collect_craft('%s') -> false (倉庫が満杯 %d/%d・要る %d マス)" % [
+			queue_id, get_inventory_slots_used(), get_inventory_slot_max(), craft_needs
+		])
+		return false
+
 	# --- ここから状態を変える。以降に失敗する分岐を作らないこと ---
 	# キューから先に消してから配る。inventory_changed を受けて再描画する画面が、
 	# 受け取り済みのキューを見られるようにするため（purchase_shop_item と同じ順番）。
@@ -5692,10 +6272,22 @@ func grant_stamina_potions(focus_minutes: int) -> int:
 	var remainder: int = int(_state.get(GameStateKeys.POTION_FOCUS_REMAINDER, 0))
 	var total_min: int = focus_minutes + remainder
 	var count: int = total_min / unit_per_min
-	_state[GameStateKeys.POTION_FOCUS_REMAINDER] = total_min % unit_per_min
+	# ⚠⚠ 段階18-b：倉庫が満杯でも、⚠ 集中した時間を捨てないこと（PLAN_INVENTORY.md §4-1）。
+	#   ⚠ 入らなかったぶんは「集中の端数」に戻す。⚠ 倉庫を空ければ次のポモドーロで受け取れる。
+	#   ⚠ ここだけ他の5本と扱いが違う（⚠ 押し戻す先がある唯一の口）。
+	#   ⚠ 「入らないから配らない」で終わらせないこと。⚠ 集中の時間はやり直せない。
+	var accepted: int = 0
 	if count > 0:
-		add_to_inventory(GameStateKeys.ITEM_STAMINA_POTION, count, GameStateKeys.ITEM_TYPE_CONSUMABLE)
-	return count
+		accepted = add_to_inventory(
+			GameStateKeys.ITEM_STAMINA_POTION, count, GameStateKeys.ITEM_TYPE_CONSUMABLE
+		)
+	var not_granted: int = count - accepted
+	_state[GameStateKeys.POTION_FOCUS_REMAINDER] = (total_min % unit_per_min) + not_granted * unit_per_min
+	if not_granted > 0:
+		push_warning("[GameManager] W25 grant_stamina_potions: 倉庫が満杯で %d 個ぶんを集中の端数へ戻した（%d 分ぶん）" % [
+			not_granted, not_granted * unit_per_min
+		])
+	return accepted
 
 func get_stamina_potion_count() -> int:
 	var inventory: Dictionary = _state.get(GameStateKeys.INVENTORY, {})
@@ -6873,8 +7465,11 @@ func _apply_dungeon_map(run: Dictionary, map: Dictionary) -> void:
 	run[GameStateKeys.DUNGEON_RUN_POSITION] = entry_id
 	run[GameStateKeys.DUNGEON_RUN_VISITED] = {entry_id: true}
 	run[GameStateKeys.DUNGEON_RUN_PHASE] = GameStateKeys.DUNGEON_PHASE_MAP
-	# ⚠ たいまつはフロア単位で戻す（シナリオ側と同じ扱い）。⚠ 鞄・通貨・HP は戻さない。
-	run[GameStateKeys.DUNGEON_RUN_TORCH_GRADE] = 0
+	# ⚠⚠ たいまつは戻さない（段階17-e で 17-a の実装を覆した）。
+	#   ⚠ 17-a は「フロア単位で戻す（シナリオ側と同じ扱い）」と書いていたが、
+	#     ⚠ 買える場所がボスの先のショップだけ（決定15）なので、⚠ 戻すと
+	#       「買った瞬間に無駄になる」品になる（⚠ そのフロアはもう全部踏んでいる）。
+	#   ⚠ 鞄・通貨・HP と同じく持ち越す。⚠ ランを出れば一緒に消える。
 
 
 # 隣のノードへ進む。
@@ -6905,6 +7500,11 @@ func move_in_dungeon(node_id: String) -> bool:
 	#   （踏んだ時点で配ると、負けても報酬が残る）。
 	if kind != GameStateKeys.DUNGEON_NODE_KIND_BOSS:
 		_grant_dungeon_node_gains(kind)
+	# 休憩は踏んだら効く（段階17-c・§4-9）。⚠ ボタンを作らない（17-d）。
+	# ⚠ 戦利品を配ったあとに置くこと。⚠ 逆にすると、休憩で戦利品が出る設定（W22）を
+	#   入れてしまったときに、回復のログと戦利品のログが入れ替わって読めなくなる。
+	if kind == GameStateKeys.DUNGEON_NODE_KIND_REST:
+		apply_dungeon_rest()
 	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
 	return true
 
@@ -6977,7 +7577,7 @@ func descend_dungeon_floor() -> bool:
 #   ⚠ 「拠点で買えない・拠点で使えない」ものが拠点の倉庫に並ぶのを、型の判定1つで
 #     止めている。⚠ ID の綴りで見分けないこと。
 func retreat_from_dungeon() -> Dictionary:
-	var result: Dictionary = {"granted": {}, "discarded": {}}
+	var result: Dictionary = {"granted": {}, "discarded": {}, "left_behind": {}}
 	if not can_retreat_from_dungeon():
 		print("[GameManager] retreat_from_dungeon() -> 何もしない (ボスを倒した先に居ない)")
 		return result
@@ -6993,13 +7593,24 @@ func retreat_from_dungeon() -> Dictionary:
 		if _is_dungeon_only_item(item_id):
 			(result["discarded"] as Dictionary)[item_id] = count
 			continue
+		# ⚠ 段階18-b：倉庫に入るぶんだけ持ち帰る（PLAN_INVENTORY.md §4-1）。
+		#   ⚠ 置いていったものを黙って消さない。⚠ 戻り値に出して画面が言えるようにする。
+		#   ⚠ 素材はマスを使わないので、⚠ ここで弾かれるのは装備・装飾・消耗品だけ。
+		var takeable: int = _inventory_slots_needed_for_item(item_id, count)
+		if takeable > 0 and not can_accept_inventory(takeable):
+			var can_take: int = get_inventory_free_slots()
+			if can_take > 0:
+				_grant_item(item_id, can_take)
+				(result["granted"] as Dictionary)[item_id] = can_take
+			(result["left_behind"] as Dictionary)[item_id] = count - can_take
+			continue
 		_grant_item(item_id, count)
 		(result["granted"] as Dictionary)[item_id] = count
 
 	var floors: int = get_dungeon_floor_index()
 	_end_dungeon_run()
-	print("[GameManager] retreat_from_dungeon() -> フロア%d まで潜って持ち帰った: %s（ラン専用で消えたもの: %s）" % [
-		floors, str(result["granted"]), str(result["discarded"]),
+	print("[GameManager] retreat_from_dungeon() -> フロア%d まで潜って持ち帰った: %s（ラン専用で消えたもの: %s ／ 倉庫が満杯で置いてきたもの: %s）" % [
+		floors, str(result["granted"]), str(result["discarded"]), str(result["left_behind"]),
 	])
 	return result
 
@@ -7292,7 +7903,7 @@ func _roll_dungeon_node_kind(weights: Dictionary) -> String:
 	return GameStateKeys.DUNGEON_NODE_KIND_BATTLE
 
 
-# ノード1つぶんの敵（17-b で戦闘が引く）。
+# ノード1つぶんの敵（戦闘が引く。段階17-b）。
 #
 # ⚠ ボスなら dungeon.json の boss、それ以外は battle_pool から1本引く。
 # ⚠ 戦闘画面が battle_pool を直接読まないこと（引き方が2箇所になる）。
@@ -7317,6 +7928,556 @@ func get_dungeon_node_wave(node_id: String) -> Dictionary:
 		return {}
 	var list: Array = pool as Array
 	return (list[randi() % list.size()] as Dictionary).duplicate(true)
+
+
+# --- 戦闘との接続（段階17-b・§4-4 / §4-4-2） --------------------------
+#
+# ⚠⚠ ここで書き換えてよいのは「ランの MAX HP」だけ。⚠ CHARACTER_GROWTH の
+#   stats.hp には1文字も書かない（台帳 §7）。書くとセーブに削れた値が
+#   焼き付いて二度と戻らない。
+
+# そのノードがボスか。⚠ 判定の口はここ1本（戦闘画面が kind の綴りを比べない）。
+func is_dungeon_boss_node(node_id: String) -> bool:
+	var node: Dictionary = get_dungeon_node(node_id)
+	if node.is_empty():
+		return false
+	return str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BOSS
+
+
+# 1人ぶんのランの MAX HP。⚠ ランに入っていなければ 0。
+#
+# ⚠ 素の MAX HP（get_effective_stats().hp）と混ぜないこと。戦闘に渡すのはこちら。
+func get_dungeon_character_max_hp(character_id: String) -> int:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var max_hp: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_MAX_HP, {})
+	return int(max_hp.get(character_id, 0))
+
+
+# 1人ぶんのランのいまの HP。
+func get_dungeon_character_hp(character_id: String) -> int:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var hp: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_HP, {})
+	return int(hp.get(character_id, 0))
+
+
+# そのランのあいだ脱落しているか（ランの MAX HP が 0＝§4-4-2）。
+#
+# ⚠ 脱落は「そのランのあいだ」。⚠ ランを出れば素の MAX HP から満タンで始まる（決定9）。
+# ⚠ 戻す口は 17-c（蘇生用ポーションと休憩場所）。⚠ 戦闘の中では戻さない（§4-9）。
+func is_dungeon_character_downed(character_id: String) -> bool:
+	if not is_in_dungeon():
+		return false
+	return get_dungeon_character_max_hp(character_id) <= 0
+
+
+# 戦闘に出られる編成メンバー（脱落していない者）。
+func get_dungeon_active_members() -> Array:
+	var result: Array = []
+	if not is_in_dungeon():
+		return result
+	for member: Variant in get_party_members():
+		var character_id: String = str(member)
+		if character_id == "" or is_dungeon_character_downed(character_id):
+			continue
+		result.append(character_id)
+	return result
+
+
+# 戦闘が終わったときの HP を、ランの MAX HP へ写す（§4-4「目減り」の実体）。
+#
+# ⚠⚠ これが目減りそのもの。⚠ 独立したつまみは無い（未決4）。⚠ 戦闘が削った量が
+#   そのまま目減り量になる。⚠ ここに係数や下限を足さないこと（§4-4-1 で下限は撤回済み）。
+# ⚠ HP も同じ値にする。⚠ 次の戦闘はその上限から始まる。
+# ⚠ 書き込む口はここ1本。⚠ set_floor_hp_carry() を借りない（あちらは FLOOR_RUN）。
+#
+# 戻り値: 全員が脱落して「死亡」になったか（＝鞄を失ってランが終わったか）。
+func apply_dungeon_battle_result(hp_by_character: Dictionary) -> bool:
+	if not is_in_dungeon():
+		return false
+	if hp_by_character.is_empty():
+		push_warning("[GameManager] W23 apply_dungeon_battle_result: 書き戻す HP が空。戦闘がランの HP を1人ぶんも返していない")
+		return false
+
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var max_hp: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_MAX_HP, {})
+	var hp: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_HP, {})
+	var lines: Array[String] = []
+	for entry: Variant in hp_by_character:
+		var character_id: String = str(entry)
+		if not max_hp.has(character_id):
+			# ⚠ ランに入ったときの編成に居ない者。⚠ 黙って欄を増やさない
+			#   （増やすと「脱落していないのに MAX HP が無い」状態が作れてしまう）。
+			push_warning("[GameManager] apply_dungeon_battle_result: ランの編成に居ないキャラ: " + character_id)
+			continue
+		var before: int = int(max_hp[character_id])
+		var after: int = maxi(0, int(hp_by_character[character_id]))
+		max_hp[character_id] = after
+		hp[character_id] = after
+		lines.append("%s %d -> %d" % [character_id, before, after])
+	run[GameStateKeys.DUNGEON_RUN_MAX_HP] = max_hp
+	run[GameStateKeys.DUNGEON_RUN_HP] = hp
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+	print("[GameManager] apply_dungeon_battle_result: ランのMAX HP %s" % " / ".join(lines))
+
+	# 全員が脱落＝死亡（§4-4-2）。⚠ 鞄を失う。⚠ 装備は失わない（決定7。
+	#   鞄に持ち込みが入らないので、条件分岐を書かずに構造で外れている）。
+	if get_dungeon_active_members().is_empty():
+		print("[GameManager] 編成が全員脱落した -> 死亡（鞄を失う）")
+		abandon_dungeon_run()
+		return true
+
+	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
+	return false
+
+
+# --- ラン専用アイテムと休憩（段階17-c・§4-3 / §4-9） -------------------
+#
+# ⚠⚠ 戦闘の外だけ。⚠ 戦闘の中からここを呼ばないこと（§4-9）。
+#   ⚠ 中で使えるようにすると「死者を対象に取る」器が要り、規模が跳ねる。
+# ⚠ 基準は全部「素の MAX HP」。⚠ 戦闘時 MAX HP を基準にしない（DungeonConfig のコメント）。
+
+# 素の MAX HP（育成の値）。⚠ ポーションと蘇生と休憩が戻す量の基準。
+#
+# ⚠ 読むだけ。⚠ CHARACTER_GROWTH には1文字も書かない（台帳 §7）。
+func get_dungeon_base_max_hp(character_id: String) -> int:
+	return int(get_effective_stats(character_id).get(GameStateKeys.STAT_HP, 0))
+
+
+# その品がランの中で何をするか（"" なら何もしない品）。
+func get_dungeon_item_effect(item_id: String) -> String:
+	var definition: Dictionary = MasterDataLoader.get_item(item_id)
+	if definition.is_empty():
+		return ""
+	if str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_DUNGEON:
+		return ""
+	return str(definition.get(ITEM_MASTER_DUNGEON_EFFECT, ""))
+
+
+# 鞄のものを1個使う。⚠ 使う口はここ1本（画面も道具もここを通す）。
+#
+# ⚠ 状態を触る前に判定を全部終える（CLAUDE.md 6番）。⚠ 途中で弾くと
+#   「鞄からは減ったのに効いていない」が起きる。
+# ⚠ 効かない相手には使わせない（満タンの者に回復・生きている者に蘇生）。
+#   ⚠ 鞄の枠は資源なので、無駄撃ちを黙って受け付けないこと。
+func use_dungeon_item(item_id: String, character_id: String) -> bool:
+	if not is_in_dungeon():
+		push_warning("[GameManager] use_dungeon_item: ランに入っていない")
+		return false
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return false
+	if int(get_dungeon_bag().get(item_id, 0)) <= 0:
+		print("[GameManager] use_dungeon_item('%s') -> false（鞄に無い）" % item_id)
+		return false
+	var effect: String = get_dungeon_item_effect(item_id)
+	var base_max_hp: int = get_dungeon_base_max_hp(character_id)
+	if base_max_hp <= 0:
+		print("[GameManager] use_dungeon_item('%s') -> false（編成に居ないキャラ: %s）" % [item_id, character_id])
+		return false
+
+	match effect:
+		DUNGEON_EFFECT_HEAL:
+			if is_dungeon_character_downed(character_id):
+				print("[GameManager] use_dungeon_item('%s') -> false（%s は脱落している。要るのは蘇生）" % [item_id, character_id])
+				return false
+			if get_dungeon_character_max_hp(character_id) >= base_max_hp:
+				print("[GameManager] use_dungeon_item('%s') -> false（%s は満タン）" % [item_id, character_id])
+				return false
+		DUNGEON_EFFECT_REVIVE:
+			if not is_dungeon_character_downed(character_id):
+				print("[GameManager] use_dungeon_item('%s') -> false（%s は脱落していない）" % [item_id, character_id])
+				return false
+		_:
+			print("[GameManager] use_dungeon_item('%s') -> false（ランの中で使える品ではない）" % item_id)
+			return false
+
+	# ここから状態を触る。
+	_take_from_dungeon_bag(item_id, 1)
+	if effect == DUNGEON_EFFECT_HEAL:
+		_heal_dungeon_character(character_id, int(config.potion_heal_pct))
+	else:
+		_revive_dungeon_character(character_id)
+	dungeon_run_changed.emit(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")))
+	return true
+
+
+# 鞄から取り出す。⚠ 減らす口はここ1本。⚠ 0 になったキーは消す（鞄の残量が狂う）。
+func _take_from_dungeon_bag(item_id: String, count: int) -> void:
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var bag: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_BAG, {})
+	var left: int = int(bag.get(item_id, 0)) - count
+	if left > 0:
+		bag[item_id] = left
+	else:
+		bag.erase(item_id)
+	run[GameStateKeys.DUNGEON_RUN_BAG] = bag
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+
+# 戦闘時 MAX HP を「素の MAX HP の pct％」ぶん戻す（上限は素の MAX HP）。
+#
+# ⚠⚠ HP は上限まで戻す。⚠ 「上限だけ上げて HP を据え置く」形にしないこと。
+#   ⚠ 蘇生の直後だけ HP ＜ 上限になるが、そこを埋める手段が他に無く、
+#     差が二度と埋まらないまま残る（決定18「上限で満タンから始まる」が崩れる）。
+# ⚠ 脱落者（上限 0）には効かない。⚠ 呼ぶ前に弾くこと。
+func _heal_dungeon_character(character_id: String, pct: int) -> void:
+	var base_max_hp: int = get_dungeon_base_max_hp(character_id)
+	var before: int = get_dungeon_character_max_hp(character_id)
+	var healed: int = mini(base_max_hp, before + int(base_max_hp * pct / 100.0))
+	_write_dungeon_hp(character_id, healed, healed)
+	print("[GameManager] 回復: %s 戦闘時MAX HP %d -> %d（素 %d の %d%%）" % [
+		character_id, before, healed, base_max_hp, pct
+	])
+
+
+# 脱落したキャラを戻す（決定13・§4-9-2）。⚠ 基準は素の MAX HP。
+#
+# ⚠ 戦闘時 MAX HP を基準にしないこと。⚠ 脱落者はそれが 0 なので、何％でも 0 のまま。
+func _revive_dungeon_character(character_id: String) -> void:
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return
+	var base_max_hp: int = get_dungeon_base_max_hp(character_id)
+	var max_hp: int = maxi(1, int(base_max_hp * int(config.revive_max_hp_pct) / 100.0))
+	var hp: int = maxi(1, int(max_hp * int(config.revive_hp_pct) / 100.0))
+	_write_dungeon_hp(character_id, max_hp, hp)
+	print("[GameManager] 蘇生: %s 戦闘時MAX HP 0 -> %d ／ HP %d（素 %d）" % [
+		character_id, max_hp, hp, base_max_hp
+	])
+
+
+# ランの HP を書く。⚠ 書く口はここ1本（apply_dungeon_battle_result も通す形にしない
+#   ＝あちらは全員ぶんをまとめて書き、死亡の判定まで持つ。⚠ こちらは1人ぶん）。
+# ⚠ HP は上限を超えない。
+func _write_dungeon_hp(character_id: String, max_hp: int, hp: int) -> void:
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var max_hp_map: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_MAX_HP, {})
+	var hp_map: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_HP, {})
+	if not max_hp_map.has(character_id):
+		push_warning("[GameManager] _write_dungeon_hp: ランの編成に居ないキャラ: " + character_id)
+		return
+	max_hp_map[character_id] = maxi(0, max_hp)
+	hp_map[character_id] = clampi(hp, 0, maxi(0, max_hp))
+	run[GameStateKeys.DUNGEON_RUN_MAX_HP] = max_hp_map
+	run[GameStateKeys.DUNGEON_RUN_HP] = hp_map
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+
+# 休憩ノードに着いた（§4-9・蘇生の2本目）。
+#
+# ⚠ 呼ぶのは move_in_dungeon() の1本。⚠ 「休む」ボタンを作らないこと（17-d）。
+#   ⚠ 踏んだら効くのが仕様。⚠ コストは「その層の戦闘・レリック・戦利品を諦めたこと」で
+#     もう払っている（§4-9-1）。⚠ ここで追加の対価を取らない。
+# ⚠ 戻すのは生きている者の回復が先、⚠ そのあと脱落者を rest_revive_count 人まで。
+#   ⚠ 順番を入れ替えないこと。⚠ 先に蘇生すると、その者が回復の対象に入って
+#     「休憩1回で満タンの仲間が増える」（決定13 の半分が効かなくなる）。
+func apply_dungeon_rest() -> void:
+	if not is_in_dungeon():
+		return
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return
+	print("[GameManager] 休憩ノード: 回復 %d%% ／ 蘇生 %d 人まで" % [
+		int(config.rest_heal_pct), int(config.rest_revive_count)
+	])
+	for member: Variant in get_party_members():
+		var character_id: String = str(member)
+		if character_id == "" or is_dungeon_character_downed(character_id):
+			continue
+		if get_dungeon_character_max_hp(character_id) >= get_dungeon_base_max_hp(character_id):
+			continue
+		_heal_dungeon_character(character_id, int(config.rest_heal_pct))
+
+	var revived: int = 0
+	for member: Variant in get_party_members():
+		if revived >= int(config.rest_revive_count):
+			break
+		var character_id: String = str(member)
+		if character_id == "" or not is_dungeon_character_downed(character_id):
+			continue
+		_revive_dungeon_character(character_id)
+		revived += 1
+
+
+# --- ランのレリック（段階17-e-2・人間の決定：⚠ 表はシナリオ側と共有する） ---
+#
+# ⚠⚠ `relics.json` の12件をそのまま使う（⚠ 人間の言葉：「レリックは簡単なほうの
+#   シナリオのほうと共有でいいよ」）。⚠ ダンジョン専用の表は作らない。
+# ⚠ 効果の器（パッシブ）も共有。⚠ 置き場だけ別（`DUNGEON_RUN_RELICS`）。
+#   ⚠ `FLOOR_RUN_RELICS` を借りない（台帳 §7）。⚠ ランを出れば一緒に消える。
+# ⚠ 選ぶ画面（floor_relic_select）は借りない。⚠ あちらは FLOOR_RUN を読む。
+
+# 候補は「ノードごとに固定」。⚠ 描き直すたびに引き直さないこと。
+#
+# ⚠⚠ 状態に候補を持たせていない。⚠ 代わりに（ダンジョン・フロア・ノードID）から
+#   決まる種で引く＝⚠ 何度呼んでも同じ3件が返る。
+#   ⚠ 状態の欄を1つ増やさずに「固定」を作れるのでこの形にした。
+#   ⚠ 種の作り方を変えると、⚠ 進行中のランの候補が入れ替わる（⚠ 触らないこと）。
+func get_dungeon_relic_choices(node_id: String) -> Array:
+	var result: Array = []
+	if not is_in_dungeon():
+		return result
+	var node: Dictionary = get_dungeon_node(node_id)
+	if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) != GameStateKeys.DUNGEON_NODE_KIND_RELIC:
+		return result
+	var pool: Array[String] = MasterDataLoader.get_all_relic_ids()
+	if pool.is_empty():
+		push_warning("[GameManager] get_dungeon_relic_choices: relics.json が空")
+		return result
+	var config: DungeonConfig = _dungeon()
+	var count: int = 3 if config == null else maxi(1, int(config.relic_choice_count))
+
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|%s" % [
+		str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")),
+		get_dungeon_floor_index(), node_id,
+	])
+	var remaining: Array[String] = pool.duplicate()
+	while result.size() < count and not remaining.is_empty():
+		result.append(remaining.pop_at(rng.randi() % remaining.size()))
+	return result
+
+
+# レリックを1つ取る（段階17-e-2）。
+#
+# ⚠ 状態を触る前に判定を全部終える（CLAUDE.md 6番）。
+# ⚠ 踏んだノードでしか取れない。⚠ 1ノードにつき1つだけ（⚠ cleared で覚える）。
+# ⚠ 1人用なのに character_id が空なら弾く。⚠ 全体用なら空に直す（take_relic と同じ形）。
+func take_dungeon_relic(node_id: String, relic_id: String, character_id: String = "") -> bool:
+	if not is_in_dungeon():
+		return false
+	if str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")) != node_id:
+		print("[GameManager] take_dungeon_relic: そのノードに居ない: " + node_id)
+		return false
+	var node: Dictionary = get_dungeon_node(node_id)
+	if bool(node.get(GameStateKeys.DUNGEON_NODE_CLEARED, false)):
+		print("[GameManager] take_dungeon_relic: もう取っている: " + node_id)
+		return false
+	if not (relic_id in get_dungeon_relic_choices(node_id)):
+		print("[GameManager] take_dungeon_relic: 候補に無い: " + relic_id)
+		return false
+	var single: bool = is_single_relic(relic_id)
+	var owner: String = character_id if single else ""
+	if single:
+		if owner == "" or not (owner in get_party_members()):
+			print("[GameManager] take_dungeon_relic: 1人用なのに相手が決まっていない: " + relic_id)
+			return false
+		# ⚠ 脱落しているキャラには付けない（⚠ そのランのあいだ戦闘に出ない）。
+		if is_dungeon_character_downed(owner):
+			print("[GameManager] take_dungeon_relic: 脱落しているキャラには付けられない: " + owner)
+			return false
+
+	# --- ここから状態を変える ---
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var relics: Array = run.get(GameStateKeys.DUNGEON_RUN_RELICS, [])
+	relics.append({
+		GameStateKeys.DUNGEON_RELIC_ID: relic_id,
+		GameStateKeys.DUNGEON_RELIC_CHARACTER_ID: owner,
+	})
+	run[GameStateKeys.DUNGEON_RUN_RELICS] = relics
+	var nodes: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	(nodes[node_id] as Dictionary)[GameStateKeys.DUNGEON_NODE_CLEARED] = true
+	run[GameStateKeys.DUNGEON_RUN_NODES] = nodes
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+	print("[GameManager] take_dungeon_relic('%s', '%s') -> 所持 %d 件" % [relic_id, owner, relics.size()])
+	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
+	return true
+
+
+# いま持っているレリック（{relic_id, character_id} の配列）。
+func get_dungeon_relics() -> Array:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var relics: Array = run.get(GameStateKeys.DUNGEON_RUN_RELICS, [])
+	return relics.duplicate(true)
+
+
+# そのキャラに効くレリックのID配列（段階17-e-2）。
+#
+# ⚠ get_floor_relic_passives() と1本にまとめない（⚠ 読む器が別）。
+# ⚠ get_battle_passives() にも混ぜない（⚠ あちらは恒久のパッシブで育成画面にも出る）。
+# ⚠ 戦闘画面が足して unit.passive_ids に入れる。
+func get_dungeon_relic_passives(character_id: String) -> Array:
+	var result: Array = []
+	if not is_in_dungeon():
+		return result
+	for entry: Variant in get_dungeon_relics():
+		if not (entry is Dictionary):
+			continue
+		var row: Dictionary = entry
+		var owner: String = str(row.get(GameStateKeys.DUNGEON_RELIC_CHARACTER_ID, ""))
+		if owner != "" and owner != character_id:
+			continue
+		result.append(str(row.get(GameStateKeys.DUNGEON_RELIC_ID, "")))
+	return result
+
+
+# --- ランのショップ・たいまつ・鞄の枠（段階17-e・§4-7 / §5-0） -------
+#
+# ⚠⚠ ショップが出るのは「ボスを倒した先」だけ（決定15）。⚠ 判定は
+#   can_retreat_from_dungeon() を使い回す（⚠ phase の綴りを2箇所で比べない）。
+# ⚠ 拠点のショップ（purchase_shop_item）を借りない。⚠ 通貨が別（ゴールド／一時通貨）。
+# ⚠ 倉庫の枠拡張（expand_inventory）も借りない。⚠ 器も通貨も別。
+
+# dungeon.json の shop のキー。
+const DUNGEON_MASTER_SHOP: String = "shop"
+const DUNGEON_SHOP_ENTRIES: String = "entries"
+const DUNGEON_SHOP_KIND: String = "kind"
+const DUNGEON_SHOP_COST: String = "cost"
+const DUNGEON_SHOP_AMOUNT: String = "amount"
+# ⚠ 品の種類は3つ。⚠ 増やすときは buy_dungeon_shop_entry() の分岐と
+#   E136 の検証も同じ回に足すこと（AGENTS.md「欄だけ足して実装しない」）。
+const DUNGEON_SHOP_KIND_ITEM: String = "item"
+const DUNGEON_SHOP_KIND_BAG_SLOT: String = "bag_slot"
+const DUNGEON_SHOP_KIND_TORCH: String = "torch"
+
+# 断る理由（"" なら買える）。⚠ 画面はこの1本に聞く。
+const DUNGEON_SHOP_REJECT_CLOSED: String = "closed"
+const DUNGEON_SHOP_REJECT_CURRENCY: String = "currency"
+const DUNGEON_SHOP_REJECT_BAG: String = "bag"
+const DUNGEON_SHOP_REJECT_TORCH_MAX: String = "torch_max"
+
+
+# ショップに並ぶもの。⚠ dungeon.json の表をそのまま返す（⚠ 並びも表のまま）。
+#
+# ⚠ ボスの先に居ないときは空（＝店が無い）。⚠ 画面で phase を見ないこと。
+func get_dungeon_shop_entries() -> Array:
+	var result: Array = []
+	if not can_retreat_from_dungeon():
+		return result
+	var dungeon: Dictionary = MasterDataLoader.get_dungeon(
+		str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	)
+	var shop: Variant = dungeon.get(DUNGEON_MASTER_SHOP, null)
+	if not (shop is Dictionary):
+		return result
+	for entry: Variant in ((shop as Dictionary).get(DUNGEON_SHOP_ENTRIES, []) as Array):
+		if entry is Dictionary:
+			result.append((entry as Dictionary).duplicate(true))
+	return result
+
+
+# その品を買えない理由（"" なら買える）。
+#
+# ⚠ 状態を触る前にここを通す（CLAUDE.md 6番）。⚠ 画面は理由をそのまま出す。
+func get_dungeon_shop_reject_reason(index: int) -> String:
+	var entries: Array = get_dungeon_shop_entries()
+	if index < 0 or index >= entries.size():
+		return DUNGEON_SHOP_REJECT_CLOSED
+	var entry: Dictionary = entries[index]
+	if get_dungeon_currency() < int(entry.get(DUNGEON_SHOP_COST, 0)):
+		return DUNGEON_SHOP_REJECT_CURRENCY
+	match str(entry.get(DUNGEON_SHOP_KIND, "")):
+		DUNGEON_SHOP_KIND_ITEM:
+			# ⚠ 鞄に空きが無ければ買わせない。⚠ 買ってから入らないと通貨だけ消える。
+			if get_dungeon_bag_used() >= get_dungeon_bag_slots():
+				return DUNGEON_SHOP_REJECT_BAG
+		DUNGEON_SHOP_KIND_TORCH:
+			if get_dungeon_torch_grade() >= get_dungeon_torch_max_grade():
+				return DUNGEON_SHOP_REJECT_TORCH_MAX
+		DUNGEON_SHOP_KIND_BAG_SLOT:
+			pass
+		_:
+			return DUNGEON_SHOP_REJECT_CLOSED
+	return ""
+
+
+# ショップの品を1つ買う（段階17-e）。
+#
+# ⚠ 一時通貨で払う。⚠ ゴールドを1枚も触らない（決定16）。
+# ⚠ 買ったものはランの中だけのもの。⚠ 撤退で持ち帰れるのは鞄の中身だけ（決定17）。
+func buy_dungeon_shop_entry(index: int) -> bool:
+	var reason: String = get_dungeon_shop_reject_reason(index)
+	if reason != "":
+		print("[GameManager] buy_dungeon_shop_entry(%d) -> false (%s)" % [index, reason])
+		return false
+	var entry: Dictionary = get_dungeon_shop_entries()[index]
+	var kind: String = str(entry.get(DUNGEON_SHOP_KIND, ""))
+	var cost: int = int(entry.get(DUNGEON_SHOP_COST, 0))
+	var amount: int = maxi(1, int(entry.get(DUNGEON_SHOP_AMOUNT, 1)))
+
+	# --- ここから状態を変える ---
+	add_dungeon_currency(-cost)
+	match kind:
+		DUNGEON_SHOP_KIND_ITEM:
+			# ⚠ 鞄へ入れる口は add_to_dungeon_bag() の1本（⚠ 拠点の倉庫には入れない）。
+			var accepted: int = add_to_dungeon_bag(str(entry.get(SLOT_ENTRY_ITEM_ID, "")), 1)
+			print("[GameManager] buy_dungeon_shop_entry(%d) -> 品 '%s' を %d 個（%d 払った）" % [
+				index, str(entry.get(SLOT_ENTRY_ITEM_ID, "")), accepted, cost
+			])
+		DUNGEON_SHOP_KIND_BAG_SLOT:
+			_set_dungeon_bag_slots(get_dungeon_bag_slots() + amount)
+			print("[GameManager] buy_dungeon_shop_entry(%d) -> 鞄の枠 +%d（%d/%d・%d 払った）" % [
+				index, amount, get_dungeon_bag_used(), get_dungeon_bag_slots(), cost
+			])
+		DUNGEON_SHOP_KIND_TORCH:
+			_set_dungeon_torch_grade(get_dungeon_torch_grade() + 1)
+			print("[GameManager] buy_dungeon_shop_entry(%d) -> たいまつ 等級%d（%d 層先まで見える・%d 払った）" % [
+				index, get_dungeon_torch_grade(), get_dungeon_reveal_layers(), cost
+			])
+	dungeon_run_changed.emit(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")))
+	return true
+
+
+func _set_dungeon_bag_slots(slots: int) -> void:
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_BAG_SLOTS] = maxi(0, slots)
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+
+func _set_dungeon_torch_grade(grade: int) -> void:
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_TORCH_GRADE] = clampi(grade, 0, get_dungeon_torch_max_grade())
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+
+# たいまつの等級（段階17-e）。⚠ フロアを降りると 0 に戻る（_apply_dungeon_map）。
+func get_dungeon_torch_grade() -> int:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	return int(run.get(GameStateKeys.DUNGEON_RUN_TORCH_GRADE, 0))
+
+
+# たいまつの上限の等級。⚠ 配列の長さ − 1。
+func get_dungeon_torch_max_grade() -> int:
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return 0
+	return maxi(0, (config.torch_reveal_layers as Array).size() - 1)
+
+
+# いまのたいまつで何層先まで中身が見えるか。
+func get_dungeon_reveal_layers() -> int:
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return 1
+	var table: Array = config.torch_reveal_layers
+	if table.is_empty():
+		return 1
+	return maxi(1, int(table[clampi(get_dungeon_torch_grade(), 0, table.size() - 1)]))
+
+
+# そのノードの中身が見えているか（§4-7）。
+#
+# ⚠ 見せるのは「そこに何が在るか（ノード種）」まで。⚠ 敵と戦利品の中身は見せない。
+# ⚠ ボスと踏んだノードは必ず見える（⚠ シナリオ側と同じ流儀）。
+# ⚠ 画面で層を引き算しないこと。⚠ 判定はここ1本。
+func is_dungeon_node_revealed(node_id: String) -> bool:
+	if not is_in_dungeon():
+		return false
+	var node: Dictionary = get_dungeon_node(node_id)
+	if node.is_empty():
+		return false
+	if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+		return true
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var visited: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_VISITED, {})
+	if visited.has(node_id):
+		return true
+	var here: Dictionary = get_dungeon_node(str(run.get(GameStateKeys.DUNGEON_RUN_POSITION, "")))
+	var here_layer: int = int(here.get(GameStateKeys.DUNGEON_NODE_LAYER, 1))
+	var node_layer: int = int(node.get(GameStateKeys.DUNGEON_NODE_LAYER, 1))
+	return node_layer - here_layer <= get_dungeon_reveal_layers()
 
 
 # 難ダンジョンの設定を見る（E133 / W22）。
@@ -7396,8 +8557,114 @@ func _validate_dungeon_config() -> void:
 						])
 						errors += 1
 
+	# ラン専用アイテムと休憩（段階17-c・E134 / W24）。
+	#
+	# ⚠ 見るのは「静かに間違った形で動く」種類だけ：割合が範囲の外・知らない効果・
+	#   ポーションがどこからも出ない（＝目減りが一方通行になって必ず詰む）。
+	var pct_rows: Dictionary = {
+		"potion_heal_pct": int(Balance.dungeon.potion_heal_pct),
+		"revive_max_hp_pct": int(Balance.dungeon.revive_max_hp_pct),
+		"revive_hp_pct": int(Balance.dungeon.revive_hp_pct),
+		"rest_heal_pct": int(Balance.dungeon.rest_heal_pct),
+	}
+	for pct_name: String in pct_rows:
+		var pct: int = int(pct_rows[pct_name])
+		if pct <= 0 or pct > 100:
+			push_error("[GameManager] E134 dungeon_config.gd: %s が %d（1〜100 の外。0 だと使っても何も起きない）" % [
+				pct_name, pct
+			])
+			errors += 1
+	if int(Balance.dungeon.rest_revive_count) < 0:
+		push_error("[GameManager] E134 dungeon_config.gd: rest_revive_count が負")
+		errors += 1
+
+	# ラン専用の品。⚠ 効果が空／知らない綴りだと、鞄に入るのに使えない品になる。
+	var dungeon_items: Dictionary = {}
+	for entry: Variant in MasterDataLoader.get_all_items():
+		var item_id: String = str(entry)
+		var definition: Dictionary = MasterDataLoader.get_item(item_id)
+		if str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_DUNGEON:
+			continue
+		var effect: String = str(definition.get(ITEM_MASTER_DUNGEON_EFFECT, ""))
+		if effect != DUNGEON_EFFECT_HEAL and effect != DUNGEON_EFFECT_REVIVE:
+			push_error("[GameManager] E134 items.json: %s の %s が '%s'（知らない効果。鞄に入るのに使えない）" % [
+				item_id, ITEM_MASTER_DUNGEON_EFFECT, effect
+			])
+			errors += 1
+			continue
+		dungeon_items[effect] = int(dungeon_items.get(effect, 0)) + 1
+	if int(dungeon_items.get(DUNGEON_EFFECT_HEAL, 0)) <= 0:
+		push_error("[GameManager] E134 items.json: item_type='%s' の回復ポーションが0件。戦闘時 MAX HP が一方通行で削れて必ず詰む（PLAN_HARD_DUNGEON.md §4-3）" % GameStateKeys.ITEM_TYPE_DUNGEON)
+		errors += 1
+	# ⚠ 蘇生は「無いと詰む」ではないが（休憩でも戻る）、⚠ 休憩の人数が0なら詰む。
+	if int(dungeon_items.get(DUNGEON_EFFECT_REVIVE, 0)) <= 0 and int(Balance.dungeon.rest_revive_count) <= 0:
+		push_error("[GameManager] E134 蘇生の手段が1つも無い（蘇生ポーション0件 かつ rest_revive_count が 0）。1人脱落したらそのランは戻せない（§4-9）")
+		errors += 1
+
+	# ショップ（段階17-e・E136 / W29）。⚠ 見るのは「静かに間違った形で動く」種類だけ。
+	var config_torch: Array = Balance.dungeon.torch_reveal_layers
+	if config_torch.is_empty():
+		push_error("[GameManager] E136 dungeon_config.gd: torch_reveal_layers が空。たいまつを買っても何も見えない")
+		errors += 1
+	for dungeon_id: String in dungeon_ids:
+		var shop: Variant = MasterDataLoader.get_dungeon(dungeon_id).get(DUNGEON_MASTER_SHOP, null)
+		if not (shop is Dictionary):
+			push_warning("[GameManager] W29 dungeon.json: %s に shop が無い。ボスの先で何も買えない（PLAN_HARD_DUNGEON.md §5-0）" % dungeon_id)
+			continue
+		var potions: int = 0
+		for entry: Variant in ((shop as Dictionary).get(DUNGEON_SHOP_ENTRIES, []) as Array):
+			if not (entry is Dictionary):
+				continue
+			var row: Dictionary = entry
+			var kind: String = str(row.get(DUNGEON_SHOP_KIND, ""))
+			if int(row.get(DUNGEON_SHOP_COST, 0)) <= 0:
+				push_error("[GameManager] E136 dungeon.json: %s の shop に値段 0 の品がある（タダで買える）" % dungeon_id)
+				errors += 1
+			match kind:
+				DUNGEON_SHOP_KIND_ITEM:
+					var shop_item_id: String = str(row.get(SLOT_ENTRY_ITEM_ID, ""))
+					if MasterDataLoader.get_item(shop_item_id).is_empty():
+						push_error("[GameManager] E136 dungeon.json: %s の shop に items.json に無いID: %s" % [
+							dungeon_id, shop_item_id
+						])
+						errors += 1
+					elif get_dungeon_item_effect(shop_item_id) != "":
+						potions += 1
+				DUNGEON_SHOP_KIND_BAG_SLOT:
+					if int(row.get(DUNGEON_SHOP_AMOUNT, 1)) <= 0:
+						push_error("[GameManager] E136 dungeon.json: %s の shop の bag_slot が 0 枠（買っても増えない）" % dungeon_id)
+						errors += 1
+				DUNGEON_SHOP_KIND_TORCH:
+					pass
+				_:
+					push_error("[GameManager] E136 dungeon.json: %s の shop に知らない kind: '%s'" % [dungeon_id, kind])
+					errors += 1
+		# ⚠ セーフティネット（§4-3）。⚠ ポーションが1件も並ばないと、⚠ 目減りを戻す手が
+		#   戦利品の運だけになる。
+		if potions <= 0:
+			push_warning("[GameManager] W29 dungeon.json: %s の shop にポーションが1件も無い（セーフティネットが消える・§4-3）" % dungeon_id)
+
+	# ⚠ 品が在っても、どのダンジョンの戦利品表にも入っていなければ手に入らない。
+	#   ⚠ ショップ（17-e）が入るまでは、戦利品が唯一の入口。
+	var loot_has_dungeon_item: bool = false
+	for dungeon_id: String in dungeon_ids:
+		var loot: Variant = MasterDataLoader.get_dungeon(dungeon_id).get(DUNGEON_MASTER_LOOT, null)
+		if not (loot is Dictionary):
+			continue
+		for kind: Variant in (loot as Dictionary):
+			var draw: Variant = (loot as Dictionary)[kind]
+			if not (draw is Dictionary):
+				continue
+			for row: Variant in ((draw as Dictionary).get(CHEST_DRAW_ENTRIES, []) as Array):
+				if not (row is Dictionary):
+					continue
+				if get_dungeon_item_effect(str((row as Dictionary).get(CHEST_DRAW_ITEM_ID, ""))) != "":
+					loot_has_dungeon_item = true
+	if not loot_has_dungeon_item:
+		push_warning("[GameManager] W24 dungeon.json: ラン専用の品が戦利品表に1件も入っていない。ランの中で手に入る口が無い（PLAN_HARD_DUNGEON.md §4-3）")
+
 	if errors > 0:
 		return
-	print("[GameManager] dungeon config validated: %d 層 / ダンジョン %d 本 / 戦利品の行 %d, 0 errors" % [
-		expected, dungeon_ids.size(), checked_loot
+	print("[GameManager] dungeon config validated: %d 層 / ダンジョン %d 本 / 戦利品の行 %d / ラン専用の品 %s, 0 errors" % [
+		expected, dungeon_ids.size(), checked_loot, str(dungeon_items)
 	])

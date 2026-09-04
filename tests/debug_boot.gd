@@ -42,6 +42,7 @@ const REPORT_WORKSHOP: String = "workshop"
 const REPORT_ECONOMY: String = "economy"
 const REPORT_FLOOR: String = "floor"
 const REPORT_DUNGEON: String = "dungeon"
+const REPORT_INVENTORY: String = "inventory"
 
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
@@ -657,6 +658,38 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_DUNGEON,
 		"note": "難ダンジョンのラン。層構造の生成 / 全ルート総当たり / ノード種に紐づく戦利品 / 鞄と一時通貨 / ボス後の続行と撤退 / 全ロスト",
 	},
+	# 段階17-b（難ダンジョンと戦闘の接続）の検証。PLAN_HARD_DUNGEON.md §4-4。
+	#
+	# ⚠ report の枝では足りない。⚠ 見たいのは「戦闘が削った HP がそのまま
+	#   ランの MAX HP の目減りになるか」で、実際に殴り合わないと1つも出ない。
+	# ⚠ ステージを1本も足していない。⚠ 敵は dungeon.json から
+	#   GameManager.get_dungeon_node_wave() が引く（戦闘画面は battle_pool を読まない）。
+	# ⚠ 2連戦する（道中の battle ノード → ボスのノード）。⚠ ボスに勝ったときだけ
+	#   clear_dungeon_boss() が呼ばれることを見るため。
+	# ⚠ スキルは撃たない。⚠ 見たいのは HP の出入りであってスキルの当たり方ではない。
+	#   ⚠ fire を空配列にしないこと（passives の注意書きと同じ）。
+	"dungeon_battle": {
+		"kind": KIND_BATTLE,
+		"note": "難ダンジョンの戦闘。ランのMAX HP で戦う / 終了時のHPが目減りになる / ボスに勝つと clear_dungeon_boss",
+		"dungeon": true,
+		"party": ["char_swordsman", "char_archer", "char_priest"],
+		"skills": {},
+		"fire": [
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
+			# ⚠ 殴られる時間を取る。⚠ ここが短いと目減りが 0 になり、何も分からない。
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 6.0},
+		],
+	},
+	# 段階18-a（マス目）の検証。PLAN_INVENTORY.md §5-1。
+	#
+	# ⚠ 戦闘を1回も回さない。⚠ 見るのは「何がマスを1つ占めるか」と「何マス使うか」だけ。
+	# ⚠⚠ 未決7（消耗品と装飾が個数ぶんマスを食う）の実測はここで取る。
+	#   ⚠ 遊ぶ前に当てられないので、⚠ 仮置きの枠が妥当かはこの数字で決める。
+	"inventory": {
+		"kind": KIND_REPORT,
+		"report": REPORT_INVENTORY,
+		"note": "マス目。何がマスを占めるか / 汎用素材は入らない / 1個＝1マス（重ねない） / 何マス使うか",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -709,6 +742,8 @@ func _ready() -> void:
 			_report_floor()
 		elif report == REPORT_DUNGEON:
 			_report_dungeon()
+		elif report == REPORT_INVENTORY:
+			_report_inventory()
 		elif report == REPORT_LAYOUT:
 			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
 			await _report_layout()
@@ -735,14 +770,29 @@ func _ready() -> void:
 	# ⚠ call_deferred なのは、_ready() の時点では root が子を組み立てている最中で
 	#   add_child() が弾かれるため（"Parent node is busy setting up children"）。
 	#   SceneManager が DebugOverlay を足すときに call_deferred しているのと同じ理由。
+	# 渡すもの。⚠ 通常のステージは stage_id、⚠ 難ダンジョンは dungeon_node_id
+	#   （段階17-b）。⚠ 両方入れないこと。器が別で、入口も別。
+	var transfer: Dictionary = {
+		TransferKeys.STAGE_ID: str(scenario.get("stage_id", "")),
+		TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+	}
+	if bool(scenario.get("dungeon", false)):
+		var dungeon_node_id: String = _prepare_dungeon_battle()
+		if dungeon_node_id == "":
+			get_tree().quit()
+			return
+		driver.dungeon_mode = true
+		driver.dungeon_base_max_hp = _dungeon_base_max_hp
+		transfer = {
+			TransferKeys.DUNGEON_NODE_ID: dungeon_node_id,
+			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+		}
+
 	get_tree().root.add_child.call_deferred(driver)
 
 	# ⚠ 遷移も call_deferred。_ready() の中から呼ぶと、今のシーン（＝自分）を外す
 	#   remove_child() が root の組み立て中に当たって弾かれる。
-	SceneManager.change_scene_with_data.call_deferred(SCENE_BATTLE, {
-		TransferKeys.STAGE_ID: str(scenario.get("stage_id", "")),
-		TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
-	})
+	SceneManager.change_scene_with_data.call_deferred(SCENE_BATTLE, transfer)
 
 
 # --- 起動引数 --------------------------------------------------
@@ -2170,6 +2220,11 @@ func _report_parts() -> void:
 		print("  %-10s %s" % [slot, "  ".join(counts)])
 
 	# --- 下ごしらえ：素材と装飾を配る ---
+	# ⚠ 段階18-b で倉庫に容量が入った（PLAN_INVENTORY.md）。⚠ ここは装飾を1種300個ずつ
+	#   配るので、⚠ 上限を外さないと 61種 × 300 が全部弾かれる（黄が62本出て赤が1本出た）。
+	# ⚠ Balance の Resource をその場で書き換えている（保存されない）。⚠ 本番コードでしないこと。
+	# ⚠ 戻さない。⚠ この報告は最後まで「上限なし」で測る（容量そのものは scenario=inventory が見る）。
+	Balance.inventory.initial_slots = 999999
 	for tier: int in range(1, GameManager.get_forge_material_tier_count() + 1):
 		GameManager.add_material(GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX + str(tier), 99999)
 	for tier: int in range(1, GameManager.get_max_part_tier() + 1):
@@ -3477,6 +3532,10 @@ func _report_layout() -> void:
 		var item_type: String = str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, ""))
 		if item_type == GameStateKeys.ITEM_TYPE_MATERIAL:
 			continue
+		# ⚠ ラン専用の品（段階17-c）は拠点の倉庫に入らないもの。⚠ 測るためだけに
+		#   入れると、⚠ 遊びでは起こりえない状態を道具が作ることになる（決定17・§4-3-1）。
+		if item_type == GameStateKeys.ITEM_TYPE_DUNGEON:
+			continue
 		GameManager.add_to_inventory(str(item_id), 1, item_type)
 		inventory_count += 1
 	print("[DebugBoot] 持ち物を %d 種類入れてから測る" % inventory_count)
@@ -3542,6 +3601,13 @@ func _report_layout() -> void:
 	#   ⚠ 測るために先に1本入れておく。⚠ 保存はしない。
 	if not GameManager.is_in_floor():
 		var _started: bool = GameManager.start_floor("floor_5")
+	# ⚠ 難ダンジョンのマップ（段階17-d）も同じ。⚠ ランに入っていないと戻される。
+	#   ⚠ 鞄にポーションを入れてから測る。⚠ 空だとポーションの行が1行も出ず、
+	#     一番横に長い行（アイコン＋名前＋3人ぶんのボタン）を measure できない。
+	if not GameManager.is_in_dungeon():
+		var _entered: bool = GameManager.start_dungeon_run()
+		var _got: int = GameManager.add_to_dungeon_bag("dungeon_potion_heal", 1)
+		var _got2: int = GameManager.add_to_dungeon_bag("dungeon_potion_revive", 1)
 	for scene_path: String in LAYOUT_SCENES:
 		var other: PackedScene = load(scene_path)
 		if other == null:
@@ -3661,6 +3727,15 @@ const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/adventure/floor_map.tscn",
 	# ⚠ 段階14-d のレリック選択。行はコードで作る。⚠ フロアに入っていないと戻される。
 	"res://scenes/adventure/floor_relic_select.tscn",
+	# ⚠ 段階17-d の難ダンジョンのマップ。⚠ 層・3人のHP・鞄のマス目を全部コードで作る。
+	#   ⚠ ランに入っていないと _ready() が冒険選択へ戻す（_report_layout の中で入れてある）。
+	"res://scenes/adventure/dungeon_map.tscn",
+	# ⚠⚠ 段階17-e-3 の2枚（レリック選択・ショップ）はここに入れない。
+	#   ⚠ どちらも _ready() で条件を満たさないと SceneManager.change_scene() でマップへ戻す。
+	#   ⚠ この測定ループは「開いて add_child して測る」だけなので、⚠ 戻されると
+	#     current_scene が入れ替わり、⚠ 測定が終わらなくなる（2026-09-04 に実測。⚠ 8分で止めた）。
+	#   ⚠ 測るなら「戻さない条件」を先に作る必要がある
+	#     （⚠ レリック＝relic のマスに立つ ／ ⚠ ショップ＝ボスを倒した先）。⚠ 宿題72。
 	# ⚠ 段階14-e のフロア内ショップ。⚠ 開くだけで無料ガチャが1回引かれる
 	#   （測るために開くので、状態に宝箱が1個積まれる。⚠ 保存はしない）。
 	"res://scenes/adventure/floor_shop.tscn",
@@ -3731,6 +3806,9 @@ class Driver extends Node:
 
 	var battle_scene_path: String = ""
 	var skill_plan: Array = []
+	# 難ダンジョンの2連戦モード（段階17-b）。⚠ 既定は false（既存シナリオの挙動を1つも変えない）。
+	var dungeon_mode: bool = false
+	var dungeon_base_max_hp: Dictionary = {}
 	# ⚠ 撃った直後の x を出すか（段階8。移動系ルーンのロックを見るため）。
 	#   ⚠ 既定は false。既存シナリオの出力を1行も増やさない。
 	var dump_each_fire: bool = false
@@ -3760,6 +3838,11 @@ class Driver extends Node:
 	#   ステージでは2回目以降も殺す必要がある（_process() の最後の枝）。
 	var _last_kill_sec: float = -999.0
 	var _finished_sec: float = -1.0
+	# ダンジョンで戦った回数と、⚠ 1本目の戦闘ノードの instance_id
+	#   （遷移した直後の1フレームは古いシーンが current のままなので、
+	#     同じものを2回つかまないための目印）。
+	var _dungeon_battles: int = 0
+	var _prev_battle_id: int = 0
 
 
 	func _process(delta: float) -> void:
@@ -3782,6 +3865,9 @@ class Driver extends Node:
 				_dump_positions(session, "決着")
 			_finished_sec += delta
 			if _finished_sec >= SETTLE_SEC:
+				# ⚠ ダンジョンは2連戦する（道中 → ボス）。⚠ 続きがあるあいだは終わらない。
+				if dungeon_mode and _next_dungeon_battle():
+					return
 				print("[DebugBoot] 終了")
 				get_tree().quit()
 			return
@@ -3959,7 +4045,112 @@ class Driver extends Node:
 			return null
 		if current.scene_file_path != battle_scene_path:
 			return null
+		# ⚠ 2本目へ遷移した直後の1フレームは、まだ1本目のシーンが current。
+		#   ⚠ ここで弾かないと、決着済みの同じ戦闘をもう一度つかんで即終了する。
+		if _prev_battle_id != 0 and current.get_instance_id() == _prev_battle_id:
+			return null
 		return current
+
+
+	# ダンジョンの戦闘が1本終わった。⚠ 結果を出し、続きがあれば次の戦闘へ行く。
+	#
+	# ⚠ 戻り値 true = まだ続く（終了しない）。
+	# ⚠ ここで GameManager を直接叩くのは「見る」ためだけ。⚠ HP の書き戻しも
+	#   ボスの撃破も、⚠ 本番コード（battle_controller）が済ませている。
+	func _next_dungeon_battle() -> bool:
+		_dungeon_battles += 1
+		_report_dungeon_state("%d本目のあと" % _dungeon_battles)
+
+		if _dungeon_battles >= 2:
+			_report_dungeon_base_max_hp()
+			return false
+		if not GameManager.is_in_dungeon():
+			print("[DebugBoot]   ⚠ ランが終わっている（＝死亡）ので2本目は回さない")
+			_report_dungeon_base_max_hp()
+			return false
+
+		# ボスまで歩く。⚠ 道中の戦利品はここで入る（ノード種に紐づく）。
+		var guard: int = 0
+		while true:
+			var moves: Array = GameManager.get_dungeon_moves()
+			if moves.is_empty():
+				break
+			if not GameManager.move_in_dungeon(str(moves[0])):
+				push_error("[DebugBoot] move_in_dungeon が false: " + str(moves[0]))
+				return false
+			guard += 1
+			if guard > 50:
+				push_error("[DebugBoot] 50手でボスに着かない")
+				return false
+		var position: String = str(
+			GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")
+		)
+		if not GameManager.is_dungeon_boss_node(position):
+			push_error("[DebugBoot] ボスのノードに着いていない: " + position)
+			return false
+		print("[DebugBoot] --- 2本目：ボスのノード '%s' で戦う（%d手歩いた）---" % [position, guard])
+		print("  ⚠ 戦う前の phase = '%s'（map が正解）" % GameManager.get_dungeon_phase())
+
+		# 同じ Driver を作り直さずに使い回す。⚠ 撃つ計画は最初から数え直す。
+		_prev_battle_id = _battle.get_instance_id()
+		_battle = null
+		_fired = 0
+		_last_fire_sec = -999.0
+		_signal_seen = false
+		_prev_enemy_x = {}
+		_still_sec = 0.0
+		_prev_all_x = {}
+		_all_still_sec = 0.0
+		_all_settled_seen = false
+		_prepared = {}
+		_last_kill_sec = -999.0
+		_finished_sec = -1.0
+		SceneManager.change_scene_with_data(battle_scene_path, {
+			TransferKeys.DUNGEON_NODE_ID: position,
+			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+		})
+		return true
+
+
+	# ランの中身を出す。⚠ 目減り（§4-4）が見えるのはここ。
+	func _report_dungeon_state(label: String) -> void:
+		print("[DebugBoot] --- ランの状態（%s）---" % label)
+		if not GameManager.is_in_dungeon():
+			print("  is_in_dungeon() = false（＝撤退したか死亡した）")
+			return
+		print("  ランのMAX HP = %s ／ HP = %s（⚠ 戦闘終了時のHPがそのまま両方に入るのが正解）" % [
+			str(GameManager.get_dungeon_max_hp()), str(GameManager.get_dungeon_hp())
+		])
+		var downed: Array[String] = []
+		for member: Variant in GameManager.get_party_members():
+			if GameManager.is_dungeon_character_downed(str(member)):
+				downed.append(str(member))
+		print("  脱落 = %d 人%s ／ 出られる編成 = %s" % [
+			downed.size(), "" if downed.is_empty() else " " + str(downed),
+			str(GameManager.get_dungeon_active_members()),
+		])
+		print("  phase = '%s' ／ 鞄 = %d/%d ／ 一時通貨 = %d ／ フロア = %d" % [
+			GameManager.get_dungeon_phase(),
+			GameManager.get_dungeon_bag_used(), GameManager.get_dungeon_bag_slots(),
+			GameManager.get_dungeon_currency(), GameManager.get_dungeon_floor_index(),
+		])
+		print("  can_retreat_from_dungeon() = %s" % str(GameManager.can_retreat_from_dungeon()))
+
+
+	# 素の MAX HP が1も動いていないこと（決定8の一番の落とし穴）。
+	func _report_dungeon_base_max_hp() -> void:
+		print("[DebugBoot] --- 素の MAX HP（⚠ ダンジョンが触るのはランの MAX HP だけ）---")
+		var drifted: int = 0
+		for character_id: Variant in dungeon_base_max_hp:
+			var before: int = int(dungeon_base_max_hp[character_id])
+			var now: int = int(
+				GameManager.get_effective_stats(str(character_id)).get(GameStateKeys.STAT_HP, 0)
+			)
+			if now != before:
+				push_error("[DebugBoot] 素の MAX HP が動いた: %s %d -> %d" % [str(character_id), before, now])
+				drifted += 1
+			print("    %-16s %d -> %d" % [str(character_id), before, now])
+		print("  動いたキャラ = %d 人（0 が正解）" % drifted)
 
 
 	# 生きている敵全員の x が STILL_HOLD_SEC のあいだ動かなかったか。
@@ -4034,6 +4225,592 @@ class Driver extends Node:
 			if u is BattleUnit and u.is_alive() and skill_id in u.skill_ids:
 				return u
 		return null
+
+
+# ============================================================
+# マス目（段階18-a・PLAN_INVENTORY.md）
+#
+# ⚠ 「何がマスを1つ占めるか」を決める口は GameManager.get_inventory_slot_entries() の1本。
+#   ⚠ ここで item_type を見て数え直さないこと（数え方が2箇所になる）。
+# ============================================================
+
+func _report_inventory() -> void:
+	print("[DebugBoot] --- マスに並ぶもの（⚠ 汎用素材は並ばない＝人間の決定5）---")
+	print("  最初の状態： %d マス" % GameManager.get_inventory_slots_used())
+
+	# 1. 素材を入れてもマスは1つも増えないこと。
+	var before_material: int = GameManager.get_inventory_slots_used()
+	GameManager.add_material("construction_material_1", 999)
+	print("  素材を 999 個足す -> %d マス（増えないのが正解） / 所持 %d 個" % [
+		GameManager.get_inventory_slots_used(), GameManager.get_material_count("construction_material_1")
+	])
+	if GameManager.get_inventory_slots_used() != before_material:
+		push_error("[DebugBoot] 汎用素材でマスが増えた（決定5 に反する）")
+
+	# 2. 消耗品は1個＝1マス（重ねない＝人間の決定3）。
+	var before_potion: int = GameManager.get_inventory_slots_used()
+	GameManager.add_to_inventory(GameStateKeys.ITEM_STAMINA_POTION, 3, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+	print("  消耗品を 3 個足す -> %d マス（+3 が正解＝重ねない）" % GameManager.get_inventory_slots_used())
+	if GameManager.get_inventory_slots_used() != before_potion + 3:
+		push_error("[DebugBoot] 消耗品の数え方が 1個＝1マス になっていない")
+
+	# 3. 装飾も同じ。⚠ 作業場のくじで1個ずつ増える＝マスを食う筆頭（未決7）。
+	var before_part: int = GameManager.get_inventory_slots_used()
+	GameManager.add_to_inventory("part_gem_atk_1", 5, GameStateKeys.ITEM_TYPE_PART)
+	print("  装飾を 5 個足す -> %d マス（+5 が正解）" % GameManager.get_inventory_slots_used())
+	if GameManager.get_inventory_slots_used() != before_part + 5:
+		push_error("[DebugBoot] 装飾の数え方が 1個＝1マス になっていない")
+
+	# 4. 装備は個体なので 1個＝1マス。
+	var before_equip: int = GameManager.get_inventory_slots_used()
+	GameManager.add_to_inventory("weapon_iron_sword", 2, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	print("  装備を 2 本足す -> %d マス（+2 が正解＝個体）" % GameManager.get_inventory_slots_used())
+	if GameManager.get_inventory_slots_used() != before_equip + 2:
+		push_error("[DebugBoot] 装備の数え方が 1個＝1マス になっていない")
+
+	# 5. 中身の内訳。⚠ マス1つぶんの形が画面（ItemSlot）へそのまま渡る。
+	var entries: Array = GameManager.get_inventory_slot_entries()
+	var by_kind: Dictionary = {}
+	for entry: Variant in entries:
+		var kind: String = str((entry as Dictionary).get(GameManager.SLOT_ENTRY_KIND, ""))
+		by_kind[kind] = int(by_kind.get(kind, 0)) + 1
+	print("  内訳 = %s ／ 合計 %d マス" % [str(by_kind), entries.size()])
+	for i: int in range(mini(4, entries.size())):
+		var row: Dictionary = entries[i]
+		print("    %d: kind=%-8s item=%-22s instance=%-6s grade=%d 装備中=%s" % [
+			i, str(row.get(GameManager.SLOT_ENTRY_KIND, "")),
+			str(row.get(GameManager.SLOT_ENTRY_ITEM_ID, "")),
+			str(row.get(GameManager.SLOT_ENTRY_INSTANCE_ID, "")),
+			int(row.get(GameManager.SLOT_ENTRY_GRADE, 0)),
+			str(row.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, "")),
+		])
+
+	# ⚠ 装備の検証はここ（⚠ 下の実測でマスを 315 まで埋めるので、⚠ そのあとだと個体を作れない）。
+	_report_inventory_equip()
+
+	# 6. ⚠ 未決7 の実測：⚠ 遊んで溜まる形に近づけたら何マスになるか。
+	#   ⚠ 段階18-b で容量が入ったので、⚠ 測るあいだだけ上限を外す。
+	#   ⚠ 人間の決定8 で 500 マスになったので、⚠ 315 マスは実際には収まる。
+	#     ⚠ それでも外して測るのは、⚠ 「重ねないと何マス要るか」を上限と切り離して見るため。
+	#   ⚠ 状態ではなく Balance の Resource をその場で書き換えている（保存されない）。
+	#   ⚠ 本番コードでこれをしないこと。⚠ 測り終わったら必ず戻す。
+	var slot_max_before: int = int(Balance.inventory.initial_slots)
+	Balance.inventory.initial_slots = 99999
+	#   ⚠ 作業場のくじは1回1個。⚠ 装飾36種を5個ずつ持つ程度は普通に起きる。
+	print("[DebugBoot] --- ⚠ 未決7 の実測（⚠ 溜まったときに何マス要るか）---")
+	var part_ids: Array[String] = []
+	for item_id: Variant in MasterDataLoader.get_all_items():
+		var definition: Dictionary = MasterDataLoader.get_item(str(item_id))
+		if str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) == GameStateKeys.ITEM_TYPE_PART:
+			part_ids.append(str(item_id))
+	for part_id: String in part_ids:
+		GameManager.add_to_inventory(part_id, 5, GameStateKeys.ITEM_TYPE_PART)
+	print("  装飾 %d 種を 5 個ずつ持つと -> %d マス" % [part_ids.size(), GameManager.get_inventory_slots_used()])
+	print("  ⚠ 重ねれば %d マスで済む（種類ぶん）。⚠ 差がそのまま未決7 の大きさ" % [
+		part_ids.size() + 3 + 2 + 1
+	])
+
+	Balance.inventory.initial_slots = slot_max_before
+	print("  ⚠ 上限を %d マスに戻した（いま %d マス使用中 ／ 空き %d）" % [
+		GameManager.get_inventory_slot_max(), GameManager.get_inventory_slots_used(),
+		GameManager.get_inventory_free_slots(),
+	])
+
+	# 6-B. ⚠ ページ（人間の決定8）。⚠ 500 マス ＝ 100 マス（20列 × 5行）× 5 ページ。
+	print("[DebugBoot] --- ページ（⚠ 500 マス ＝ 20列 × 5行 × 5 ページ）---")
+	print("  上限 %d マス / 1ページ %d マス（%d 列） / %d ページ" % [
+		GameManager.get_inventory_slot_max(), GameManager.get_inventory_slots_per_page(),
+		GameManager.get_inventory_columns(), GameManager.get_inventory_page_count(),
+	])
+	# ⚠ 段階18-f から、⚠ ページには空きマスも入る（⚠ 穴を覚えるため）。
+	#   ⚠ 数えるのは「中身のあるマス」。⚠ 長さは常に1ページぶん。
+	var page_total: int = 0
+	for page: int in range(GameManager.get_inventory_page_count()):
+		var page_entries: Array = GameManager.get_inventory_page_entries(page)
+		var filled: int = 0
+		for entry: Variant in page_entries:
+			if not (entry as Dictionary).is_empty():
+				filled += 1
+		page_total += filled
+		print("    %d ページ目 … マス %d 個 / 中身 %d 件" % [page, page_entries.size(), filled])
+	print("  全ページの中身の合計 %d 件 ＝ 使用中 %d マス（一致するのが正解）" % [
+		page_total, GameManager.get_inventory_slots_used()
+	])
+	if page_total != GameManager.get_inventory_slots_used():
+		push_error("[DebugBoot] ページに分けると数が合わない（切り出しがずれている）")
+	# ⚠ 範囲の外を渡しても落ちないこと（画面が「次のページ」を押しすぎたとき）。
+	print("  ⚠ 範囲外のページ（-1 と %d） -> %d 件 / %d 件（どちらも 0 が正解）" % [
+		GameManager.get_inventory_page_count(),
+		GameManager.get_inventory_page_entries(-1).size(),
+		GameManager.get_inventory_page_entries(GameManager.get_inventory_page_count()).size(),
+	])
+
+	# 7. ⚠ 器が実際に組めるか（段階18-a の本体）。⚠ 画面に出すのは 18-c / 18-d。
+	#   ⚠ ここで見るのは「マスの数が中身と枠から正しく出るか」と「赤が出ないこと」だけ。
+	#   ⚠ 絵は取れない（ヘッドレス）。⚠ 見た目は人間が 18-c で見る。
+	var entries_now: Array = GameManager.get_inventory_slot_entries()
+	var grid: ItemGrid = ItemGrid.new()
+	grid.name = "InventoryGridProbe"
+	grid.columns = 8
+	add_child(grid)
+	var slot_count: int = entries_now.size() + 5
+	grid.rebuild(entries_now, slot_count)
+	print("[DebugBoot] --- 器（ItemGrid / ItemSlot）---")
+	print("  中身 %d 件 / 枠 %d -> マス %d 個（⚠ 枠と同じが正解） / 空き %d 個" % [
+		entries_now.size(), slot_count, grid.get_slot_count(), slot_count - entries_now.size()
+	])
+	if grid.get_slot_count() != slot_count:
+		push_error("[DebugBoot] マスの数が枠と合わない")
+	# ⚠ 先頭は中身入り、⚠ 末尾は空。⚠ 空のマスも同じ部品で並ぶこと。
+	var first: ItemSlot = grid.get_child(0)
+	var last: ItemSlot = grid.get_child(grid.get_slot_count() - 1)
+	print("  先頭のマス is_empty=%s（false が正解） / 末尾のマス is_empty=%s（true が正解）" % [
+		str(first.is_empty()), str(last.is_empty())
+	])
+	# ⚠⚠ マスの中の子が「押下を飲まない」こと（2026-09-03・人間が実機で見つけた穴）。
+	#   ⚠ 中身のあるマスはアイコンが 40px を覆う。⚠ そこが STOP だと、
+	#     ⚠ マスの縁 4px しか押せず、⚠ 選べないしドラッグも始まらない。
+	#   ⚠ 絵は取れないが mouse_filter は取れる。⚠ ここが唯一の確かめ方。
+	print("  マスの中の子の mouse_filter（⚠ 2＝IGNORE が正解。⚠ 0＝STOP だと押下を飲む）")
+	for child: Node in first.get_children():
+		if not (child is Control):
+			continue
+		print("    %-14s %d" % [child.name, int((child as Control).mouse_filter)])
+		if int((child as Control).mouse_filter) != Control.MOUSE_FILTER_IGNORE:
+			push_error("[DebugBoot] マスの中の '%s' が押下を飲む（mouse_filter=%d）" % [
+				child.name, int((child as Control).mouse_filter)
+			])
+		for grand: Node in child.get_children():
+			if not (grand is Control):
+				continue
+			print("      %-12s %d" % [grand.name, int((grand as Control).mouse_filter)])
+			if int((grand as Control).mouse_filter) != Control.MOUSE_FILTER_IGNORE:
+				push_error("[DebugBoot] マスの中の '%s' が押下を飲む（mouse_filter=%d）" % [
+					grand.name, int((grand as Control).mouse_filter)
+				])
+	print("  マスそのもの（ItemSlot）の mouse_filter = %d（⚠ 0＝STOP が正解。⚠ ここは受け取る側）" % [
+		int(first.mouse_filter)
+	])
+	grid.queue_free()
+
+	# 8. ⚠ 押したときの詳細（段階18-c-2・共有部品 ItemDetail）。
+	#   ⚠ 画面の絵は取れないが、⚠ 出る「行」は取れる。⚠ ここが唯一の確かめ方。
+	print("[DebugBoot] --- 押したときの詳細（ItemDetail の行）---")
+	var detail: ItemDetail = ItemDetail.new()
+	detail.name = "ItemDetailProbe"
+	add_child(detail)
+	detail.show_entry({})
+	print("  選んでいないとき: %s" % str(detail.get_lines()))
+	var seen_kinds: Dictionary = {}
+	for entry: Variant in entries_now:
+		var row: Dictionary = entry
+		var key: String = "%s_%s" % [
+			str(row.get(GameManager.SLOT_ENTRY_KIND, "")),
+			"rune" if not GameManager.get_rune_definition(
+				str(row.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+			).is_empty() else "normal",
+		]
+		if seen_kinds.has(key):
+			continue
+		seen_kinds[key] = true
+		detail.show_entry(row)
+		print("  %s（%s）" % [str(row.get(GameManager.SLOT_ENTRY_ITEM_ID, "")), key])
+		for line: String in detail.get_lines():
+			print("    %s" % line)
+	# ⚠ 装飾を刺した装備も見る（⚠ 等級1では枠が1つも開かないので、⚠ 先に鍛える）。
+	#   ⚠ 枠は等級3から開く（GAME_DESIGN.md 6-4）。⚠ ここを飛ばすと「枠の行」が一度も出ない。
+	var forge_target: String = _find_instance_of("weapon_iron_sword")
+	if forge_target != "":
+		for material_id: Variant in MasterDataLoader.get_all_items():
+			GameManager.add_material(str(material_id), 99999)
+		for _i: int in range(3):
+			var _forged: bool = GameManager.forge_equipment(forge_target)
+		var part_slots: Array = GameManager.get_part_entries(forge_target)
+		if part_slots.is_empty():
+			print("  ⚠ 枠が1つも開かなかった（鍛えられていない）")
+		else:
+			var _attached: bool = GameManager.attach_part(
+				forge_target,
+				int((part_slots[0] as Dictionary).get(GameManager.PART_VIEW_INDEX, 0)),
+				"part_gem_atk_1"
+			)
+			detail.show_entry({
+				GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_INSTANCE,
+				GameManager.SLOT_ENTRY_ITEM_ID: "weapon_iron_sword",
+				GameManager.SLOT_ENTRY_INSTANCE_ID: forge_target,
+				GameManager.SLOT_ENTRY_GRADE: int(GameManager.get_equipment_instance(forge_target).get(
+					GameStateKeys.INSTANCE_GRADE, 1
+				)),
+				GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+			})
+			print("  ⚠ 鍛えて装飾を刺した装備（⚠ 枠の行が出るか）")
+			for line: String in detail.get_lines():
+				print("    %s" % line)
+
+	# ⚠ 消耗品も1つ見る（⚠ 説明文＝ja.csv の ui_desc_* が出るか）。
+	detail.show_entry({
+		GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+		GameManager.SLOT_ENTRY_ITEM_ID: GameStateKeys.ITEM_STAMINA_POTION,
+		GameManager.SLOT_ENTRY_INSTANCE_ID: "",
+		GameManager.SLOT_ENTRY_GRADE: 0,
+		GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+	})
+	print("  stamina_potion（説明文が出るか）")
+	for line: String in detail.get_lines():
+		print("    %s" % line)
+	detail.queue_free()
+
+	_report_inventory_order()
+	_report_inventory_expand()
+	_report_inventory_capacity()
+
+
+# 枠の拡張と捨てる口（段階18-e・PLAN_INVENTORY.md §4-2）。
+#
+# ⚠ 見るのは「詰まないことの保証」。⚠ 満杯で拡張も捨てもできないと閉じ込められる。
+func _report_inventory_expand() -> void:
+	print("[DebugBoot] --- 枠の拡張と捨てる口（⚠ 詰まないことの保証）---")
+	var before_max: int = GameManager.get_inventory_slot_max()
+	var before_pages: int = GameManager.get_inventory_page_count()
+	print("  いま %d マス / %d ページ ／ 次の拡張 %d G ／ 断る理由 '%s'" % [
+		before_max, before_pages, GameManager.get_inventory_expand_cost(),
+		GameManager.get_inventory_expand_reject_reason(),
+	])
+
+	# 1. ⚠ ゴールドが足りないと買えない（⚠ 払ってから増やさない）。
+	var gold_before: int = int(GameManager.get_state().get(GameStateKeys.GOLD, 0))
+	GameManager.add_gold(-gold_before)
+	print("  ⚠ 所持金0で買う -> %s（false が正解） / 理由 '%s'（gold が正解） / マス %d（増えないのが正解）" % [
+		str(GameManager.expand_inventory()), GameManager.get_inventory_expand_reject_reason(),
+		GameManager.get_inventory_slot_max(),
+	])
+
+	# 2. ⚠ 買えると1ページ増え、⚠ ゴールドが減る。
+	var cost: int = GameManager.get_inventory_expand_cost()
+	GameManager.add_gold(cost)
+	var bought: bool = GameManager.expand_inventory()
+	print("  %d G で買う -> %s / マス %d -> %d ／ ページ %d -> %d ／ 所持金 %d（0 が正解）" % [
+		cost, str(bought), before_max, GameManager.get_inventory_slot_max(),
+		before_pages, GameManager.get_inventory_page_count(),
+		int(GameManager.get_state().get(GameStateKeys.GOLD, 0)),
+	])
+	if GameManager.get_inventory_page_count() != before_pages + 1:
+		push_error("[DebugBoot] 買ってもページが増えていない")
+
+	# 3. ⚠ 2回目は高くなる（⚠ 値段のカーブ）。
+	print("  2回目の値段 = %d G（1回目 %d より高いのが正解）" % [
+		GameManager.get_inventory_expand_cost(), cost
+	])
+
+	# 4. ⚠ 並びの長さが増えた枠に追従すること（⚠ 2箇所で長さを決めていない）。
+	print("  マス目の長さ = %d（上限 %d と同じが正解）" % [
+		GameManager.get_inventory_slot_layout().size(), GameManager.get_inventory_slot_max()
+	])
+	if GameManager.get_inventory_slot_layout().size() != GameManager.get_inventory_slot_max():
+		push_error("[DebugBoot] 拡張したのにマス目の長さが追従していない")
+
+	# 5. ⚠ 上限まで買うと「上限」で断る。
+	for _i: int in range(20):
+		if GameManager.get_inventory_expand_reject_reason() == GameManager.INVENTORY_EXPAND_REJECT_MAX:
+			break
+		GameManager.add_gold(GameManager.get_inventory_expand_cost())
+		var _more: bool = GameManager.expand_inventory()
+	print("  上限まで買う -> %d ページ / 理由 '%s'（max が正解） / 値段 %d（0 が正解）" % [
+		GameManager.get_inventory_page_count(), GameManager.get_inventory_expand_reject_reason(),
+		GameManager.get_inventory_expand_cost(),
+	])
+
+	# 6. ⚠ 捨てる（⚠ 戻りは無い。⚠ 1個ずつ）。
+	var layout: Array = GameManager.get_inventory_slot_layout()
+	var target: int = -1
+	for i: int in range(layout.size()):
+		if not (layout[i] as Dictionary).is_empty():
+			target = i
+			break
+	if target >= 0:
+		var item_id: String = str((layout[target] as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+		var used_before: int = GameManager.get_inventory_slots_used()
+		var discarded: bool = GameManager.discard_inventory_slot(target)
+		print("  %d 番（%s）を捨てる -> %s / 使用 %d -> %d（1 減るのが正解）" % [
+			target, item_id, str(discarded), used_before, GameManager.get_inventory_slots_used()
+		])
+		if GameManager.get_inventory_slots_used() != used_before - 1:
+			push_error("[DebugBoot] 捨てても使用数が1減っていない")
+	# ⚠ 空のマス・マスの外は捨てられない。
+	print("  ⚠ 空のマスを捨てる -> %s ／ マスの外（-1） -> %s（どちらも false が正解）" % [
+		str(GameManager.discard_inventory_slot(GameManager.get_inventory_slot_max() - 1)),
+		str(GameManager.discard_inventory_slot(-1)),
+	])
+
+
+# マス目の並びとドラッグ＆ドロップ（段階18-f・PLAN_INVENTORY.md）。
+#
+# ⚠ ドラッグそのものは画面の操作なので取れない（⚠ 人間が見る）。
+#   ⚠ ここで見るのは「入れ替えの口が正しく動くか」と「並びが持ち物と食い違わないか」。
+func _report_inventory_order() -> void:
+	print("[DebugBoot] --- マス目の並び（⚠ ドラッグで動かした先を覚えるか）---")
+	var layout: Array = GameManager.get_inventory_slot_layout()
+	print("  マス目の長さ = %d（上限と同じが正解） / 中身のあるマス = %d" % [
+		layout.size(), GameManager.get_inventory_slots_used()
+	])
+	if layout.size() != GameManager.get_inventory_slot_max():
+		push_error("[DebugBoot] マス目の長さが上限と違う")
+
+	# 1. 中身のあるマスを、⚠ ずっと後ろの空きマスへ動かす。
+	var first_id: String = str((layout[0] as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+	var far: int = GameManager.get_inventory_slots_used() + 10
+	var moved: bool = GameManager.move_inventory_slot(0, far)
+	var after: Array = GameManager.get_inventory_slot_layout()
+	print("  0 -> %d へ動かす -> %s / そのマスの中身 = '%s'（'%s' が正解） / 0 番は '%s'（空が正解）" % [
+		far, str(moved),
+		str((after[far] as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")), first_id,
+		str((after[0] as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "（空）")),
+	])
+	if str((after[far] as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")) != first_id:
+		push_error("[DebugBoot] 動かした先に中身が入っていない")
+	if not (after[0] as Dictionary).is_empty():
+		push_error("[DebugBoot] 動かしたのに元のマスが空いていない（穴が詰められている）")
+
+	# 2. ⚠ 空けた穴が、⚠ 描き直しても詰まらないこと（＝並びを覚えている）。
+	var again: Array = GameManager.get_inventory_slot_layout()
+	print("  もう一度読む -> 0 番は %s（空のままが正解）" % [
+		"（空）" if (again[0] as Dictionary).is_empty() else "詰まっている"
+	])
+	if not (again[0] as Dictionary).is_empty():
+		push_error("[DebugBoot] 読み直したら穴が詰まった（並びを覚えていない）")
+
+	# 3. ⚠ 拾ったものは前の空きマスへ入る。
+	var before_used: int = GameManager.get_inventory_slots_used()
+	var _got: int = GameManager.add_to_inventory("stamina_potion", 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+	var picked: Array = GameManager.get_inventory_slot_layout()
+	print("  1個拾う -> 使用 %d -> %d / 0 番は '%s'（空きの先頭に入るのが正解）" % [
+		before_used, GameManager.get_inventory_slots_used(),
+		str((picked[0] as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "（空）")),
+	])
+
+	# 4. ⚠ マスの外へは動かせない。
+	print("  ⚠ マスの外へ動かす（-1 / %d） -> %s / %s（どちらも false が正解）" % [
+		GameManager.get_inventory_slot_max(),
+		str(GameManager.move_inventory_slot(0, -1)),
+		str(GameManager.move_inventory_slot(0, GameManager.get_inventory_slot_max())),
+	])
+
+	# 5. ⚠ 装備すると並びから消え、⚠ 外すと戻ること（人間の決定7 との噛み合わせ）。
+	var equip_index: int = -1
+	var equip_layout: Array = GameManager.get_inventory_slot_layout()
+	for i: int in range(equip_layout.size()):
+		if str((equip_layout[i] as Dictionary).get(GameManager.SLOT_ENTRY_KIND, "")) == GameManager.SLOT_KIND_INSTANCE:
+			equip_index = i
+			break
+	if equip_index >= 0:
+		var instance_id: String = str(
+			(equip_layout[equip_index] as Dictionary).get(GameManager.SLOT_ENTRY_INSTANCE_ID, "")
+		)
+		var character_id: String = str(GameManager.get_party_members()[0])
+		var slot: String = str(MasterDataLoader.get_item(
+			str((equip_layout[equip_index] as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+		).get(GameManager.ITEM_MASTER_EQUIP_SLOT, ""))
+		var equipped: bool = GameManager.equip_instance(character_id, slot, instance_id)
+		var after_equip: Array = GameManager.get_inventory_slot_layout()
+		print("  装備する（%d 番の %s） -> %s / そのマス = %s（空が正解）" % [
+			equip_index, instance_id, str(equipped),
+			"（空）" if (after_equip[equip_index] as Dictionary).is_empty() else "残っている",
+		])
+		var _off: bool = GameManager.unequip_instance(character_id, slot)
+
+
+# 装備するとマスが移る（人間の決定7・2026-09-03）。
+#
+# ⚠ 見るのは「装備中の個体がインベントリのマスを占めていないこと」と
+#   「外すときに満杯なら外させないこと」。
+func _report_inventory_equip() -> void:
+	print("[DebugBoot] --- 装備するとマスが移る（⚠ インベントリ → キャラの装備マス）---")
+	var character_id: String = str(GameManager.get_party_members()[0])
+	# ⚠ 素の状態から見たいので、⚠ 空いている個体を1つ作る。
+	var _accepted: int = GameManager.add_to_inventory(
+		"armor_iron_helm", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT
+	)
+	var instance_id: String = _find_instance_of("armor_iron_helm")
+	if instance_id == "":
+		push_error("[DebugBoot] 個体を作れなかった（装備の検証ができない）")
+		return
+
+	var before: int = GameManager.get_inventory_slots_used()
+	var equipped: bool = GameManager.equip_instance(character_id, GameStateKeys.EQUIP_HEAD, instance_id)
+	var after_equip: int = GameManager.get_inventory_slots_used()
+	print("  装備する -> %s / インベントリ %d -> %d マス（⚠ 1 減るのが正解）" % [
+		str(equipped), before, after_equip
+	])
+	if after_equip != before - 1:
+		push_error("[DebugBoot] 装備してもインベントリのマスが減っていない（決定7 に反する）")
+
+	# キャラの装備マスに出ていること。⚠ 5枠ぶん必ず返る（空も含む）。
+	var slots: Array = GameManager.get_equipment_slot_entries(character_id)
+	var filled: int = 0
+	for row: Variant in slots:
+		if not ((row as Dictionary)[GameManager.SLOT_ENTRY_ENTRY] as Dictionary).is_empty():
+			filled += 1
+	print("  キャラの装備マス = %d 枠（5 が正解） / 埋まっている = %d 枠" % [slots.size(), filled])
+	for row: Variant in slots:
+		var entry: Dictionary = (row as Dictionary)[GameManager.SLOT_ENTRY_ENTRY]
+		print("    %-10s %s" % [
+			str((row as Dictionary)[GameManager.SLOT_ENTRY_EQUIP_SLOT]),
+			"（空）" if entry.is_empty() else str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, "")),
+		])
+
+	# 外すと戻る。
+	var unequipped: bool = GameManager.unequip_instance(character_id, GameStateKeys.EQUIP_HEAD)
+	print("  外す -> %s / インベントリ %d -> %d マス（⚠ 1 増えて元に戻るのが正解）" % [
+		str(unequipped), after_equip, GameManager.get_inventory_slots_used()
+	])
+
+	# ⚠ 満杯だと外せない（外してから置き場が無いと個体が宙に浮く）。
+	var _re_equipped: bool = GameManager.equip_instance(character_id, GameStateKeys.EQUIP_HEAD, instance_id)
+	var slot_max_before: int = int(Balance.inventory.initial_slots)
+	Balance.inventory.initial_slots = GameManager.get_inventory_slots_used()
+	print("  ⚠ 満杯（%d/%d）で外す -> %s（false が正解） / まだ装備している = %s" % [
+		GameManager.get_inventory_slots_used(), GameManager.get_inventory_slot_max(),
+		str(GameManager.unequip_instance(character_id, GameStateKeys.EQUIP_HEAD)),
+		str(GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_HEAD) != ""),
+	])
+	Balance.inventory.initial_slots = slot_max_before
+	var _off: bool = GameManager.unequip_instance(character_id, GameStateKeys.EQUIP_HEAD)
+
+
+# 容量の口（段階18-b・PLAN_INVENTORY.md §4-1）。
+#
+# ⚠ 見るのは「満杯のときに、⚠ 払う前に弾くか」。⚠ 払ってから弾くと取り返せない。
+# ⚠ 満杯は上限を下げて作る（⚠ 物を増やして作ると時間がかかるだけで同じ）。
+func _report_inventory_capacity() -> void:
+	print("[DebugBoot] --- 容量の口6本（⚠ 状態を触る前に弾くか）---")
+	# ⚠ いまの使用数ちょうどに上限を下げる＝満杯。⚠ Resource を書き換えるのは道具だけ。
+	# ⚠⚠ 買った拡張ぶん（段階18-e）も消す。⚠ 消さないと上限は「初期＋拡張」なので
+	#   満杯にならず、⚠ 6本の口が全部通ってしまう（⚠ 2026-09-04 に踏んだ）。
+	# ⚠ 状態を直接触るのは tests だけ。⚠ 本番コードでこれをしないこと。
+	GameManager._state[GameStateKeys.INVENTORY_EXTRA_SLOTS] = 0
+	Balance.inventory.initial_slots = GameManager.get_inventory_slots_used()
+	print("  満杯にした： %d/%d ／ 空き %d" % [
+		GameManager.get_inventory_slots_used(), GameManager.get_inventory_slot_max(),
+		GameManager.get_inventory_free_slots(),
+	])
+
+	# ① 直接入れる（最後の砦）
+	print("  ① add_to_inventory -> %d 個入った（0 が正解）" % [
+		GameManager.add_to_inventory("part_gem_atk_1", 1, GameStateKeys.ITEM_TYPE_PART)
+	])
+
+	# ② 宝箱：開けさせない（⚠ 未開封のまま残る＝取り返しがつく）
+	#   ⚠ 中身が素材だけの宝箱はマスを使わないので開けてよい（＝それが正しい挙動）。
+	#   ⚠ なので「持ち物が入っている宝箱」が出るまで積んでから測る。
+	var chest_instance_id: String = ""
+	var chest_material_only: String = ""
+	for _try: int in range(30):
+		# ⚠ floor_1_common は素材しか出ない。⚠ 持ち物が出るのは epic / legendary（実測）。
+		#   ⚠ ここを common に戻すと、⚠ ②が「素材だけ＝開けてよい」で必ず true になり空振りする。
+		if not GameManager.grant_chest("floor_1_epic", "debug"):
+			push_error("[DebugBoot] 宝箱を積めなかった（②が空振りになる）")
+			break
+		for entry: Variant in (GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []) as Array):
+			if not (entry is Dictionary):
+				continue
+			var chest: Dictionary = entry
+			if bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
+				continue
+			var rewards: Dictionary = chest.get(GameStateKeys.CHEST_REWARDS, {})
+			var items: Variant = rewards.get(GameStateKeys.REWARD_INVENTORY, {})
+			# ⚠ rewards.inventory には素材のIDも入る（振り分けは _grant_item がする）。
+			#   ⚠ 素材はマスを使わないので、⚠ 「マスを使う品が1つでも入っているか」で選ぶ。
+			var needs_slot: bool = false
+			if items is Dictionary:
+				for reward_id: Variant in (items as Dictionary):
+					var definition: Dictionary = MasterDataLoader.get_item(str(reward_id))
+					if str(definition.get(GameManager.ITEM_MASTER_STORAGE, "")) != GameManager.ITEM_STORAGE_MATERIAL:
+						needs_slot = true
+			if needs_slot:
+				chest_instance_id = str(chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
+			elif chest_material_only == "":
+				chest_material_only = str(chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
+		if chest_instance_id != "":
+			break
+	if chest_instance_id == "":
+		push_error("[DebugBoot] 持ち物が入る宝箱が出なかった（②が空振りになる）")
+	var before_pending: int = GameManager.get_pending_chest_count()
+	print("  ② open_chest（⚠ 持ち物が入る宝箱） -> %s（false が正解） / 未開封 %d -> %d（減らないのが正解）" % [
+		str(GameManager.open_chest(chest_instance_id)),
+		before_pending, GameManager.get_pending_chest_count(),
+	])
+	if chest_material_only != "":
+		# ⚠ 素材だけの宝箱は満杯でも開けてよい（マスを使わないため）。⚠ ここが false だと締めすぎ。
+		print("  ②-b open_chest（⚠ 素材だけの宝箱） -> %s（true が正解＝素材はマスを使わない）" % [
+			str(GameManager.open_chest(chest_material_only))
+		])
+
+	# ③ ショップ：買わせない（⚠ ゴールドが減らないこと）
+	var gold_before: int = int(GameManager.get_state().get(GameStateKeys.GOLD, 0))
+	GameManager.add_gold(999999)
+	var bought: bool = false
+	var line_up: Array = GameManager.get_shop_lineup(GameStateKeys.SHOP_TYPE_DAILY)
+	for entry: Variant in line_up:
+		var slot: Dictionary = entry
+		if str(slot.get(GameManager.SHOP_SLOT_PAYOUT_TYPE, "")) == GameManager.PAYOUT_TYPE_MATERIAL:
+			continue
+		bought = GameManager.purchase_shop_item(
+			GameStateKeys.SHOP_TYPE_DAILY, int(slot.get(GameStateKeys.SHOP_SLOT_ID, 0))
+		)
+		break
+	print("  ③ purchase_shop_item -> %s（false が正解） / 所持金 %d（払っていないこと）" % [
+		str(bought), int(GameManager.get_state().get(GameStateKeys.GOLD, 0))
+	])
+	GameManager.add_gold(gold_before - int(GameManager.get_state().get(GameStateKeys.GOLD, 0)))
+
+	# ④ 作業場：受け取らせない（⚠ キューに残ること）
+	var recipes: Array = GameManager.get_available_recipes()
+	var craft_started: bool = false
+	if not recipes.is_empty():
+		var recipe_id: String = str((recipes[0] as Dictionary).get(GameManager.RECIPE_ID, ""))
+		for material_id: Variant in MasterDataLoader.get_all_items():
+			GameManager.add_material(str(material_id), 9999)
+		craft_started = GameManager.start_craft(recipe_id)
+		_rewind_craft_queue()
+		GameManager.refresh_crafting_queue_if_needed()
+	var queue: Array = GameManager.get_state().get(GameStateKeys.CRAFTING_QUEUE, [])
+	if craft_started and not queue.is_empty():
+		var queue_id: String = str((queue[0] as Dictionary).get(GameStateKeys.CRAFT_QUEUE_ID, ""))
+		var collected: bool = GameManager.collect_craft(queue_id)
+		print("  ④ collect_craft -> %s（false が正解） / キュー %d 件（残るのが正解）" % [
+			str(collected), (GameManager.get_state().get(GameStateKeys.CRAFTING_QUEUE, []) as Array).size()
+		])
+	else:
+		print("  ④ collect_craft … ⚠ キューを作れなかったので見られていない")
+
+	# ⑤ ポモドーロ：⚠ 集中した時間を捨てないこと（端数に戻る）
+	var remainder_before: int = int(GameManager.get_state().get(GameStateKeys.POTION_FOCUS_REMAINDER, 0))
+	var minutes: int = int(Balance.pomodoro.potion_focus_minutes_per_unit) * 2
+	var granted: int = GameManager.grant_stamina_potions(minutes)
+	var remainder_after: int = int(GameManager.get_state().get(GameStateKeys.POTION_FOCUS_REMAINDER, 0))
+	print("  ⑤ grant_stamina_potions(%d 分) -> %d 個（0 が正解） / 集中の端数 %d -> %d 分（%d 分ぶんが戻るのが正解）" % [
+		minutes, granted, remainder_before, remainder_after, minutes,
+	])
+	if remainder_after < minutes:
+		push_error("[DebugBoot] 集中した時間が消えている（端数へ戻っていない）")
+
+	# ⑥ ダンジョンの撤退：入るぶんだけ持ち帰り、⚠ 置いてきたものを明示する
+	if GameManager.is_in_dungeon():
+		GameManager.abandon_dungeon_run()
+	if GameManager.start_dungeon_run():
+		var _got: int = GameManager.add_to_dungeon_bag("weapon_iron_sword", 2)
+		var _got2: int = GameManager.add_to_dungeon_bag("construction_material_1", 3)
+		_walk_dungeon_to_boss()
+		var _cleared: bool = GameManager.clear_dungeon_boss()
+		var report: Dictionary = GameManager.retreat_from_dungeon()
+		print("  ⑥ retreat_from_dungeon -> 持ち帰った %s ／ ⚠ 倉庫が満杯で置いてきた %s（装備が置いてくる側に出るのが正解）" % [
+			str(report["granted"]), str(report["left_behind"])
+		])
+		print("     ⚠ 素材は置いてこない（マスを使わないため）")
+
+	print("  ⚠ 最後に 倉庫 %d/%d" % [
+		GameManager.get_inventory_slots_used(), GameManager.get_inventory_slot_max()
+	])
 
 
 # ============================================================
@@ -4220,11 +4997,131 @@ func _report_dungeon() -> void:
 	var accepted_full: int = GameManager.add_to_dungeon_bag("training_material_1", 1)
 	print("  満杯の鞄にもう1個 -> %d 個（0 が正解＝勝手に何かを捨てない）" % accepted_full)
 
+	# ⚠ 鞄のマス目（段階18-d）。⚠ 長さは枠。⚠ 空きマスは空の Dictionary。
+	var bag_layout: Array = GameManager.get_dungeon_bag_slot_layout()
+	var bag_filled: int = 0
+	for entry: Variant in bag_layout:
+		if not (entry as Dictionary).is_empty():
+			bag_filled += 1
+	print("  鞄のマス目 = %d マス（枠 %d と同じが正解） / 中身 %d（使用 %d と同じが正解）" % [
+		bag_layout.size(), GameManager.get_dungeon_bag_slots(),
+		bag_filled, GameManager.get_dungeon_bag_used(),
+	])
+	if bag_layout.size() != GameManager.get_dungeon_bag_slots():
+		push_error("[DebugBoot] 鞄のマス目の長さが枠と違う")
+	if bag_filled != GameManager.get_dungeon_bag_used():
+		push_error("[DebugBoot] 鞄のマス目の中身が使用数と合わない")
+	if not bag_layout.is_empty():
+		print("    先頭のマス = %s ／ 鞄の個数 = %d（⚠ 拠点の所持数ではない）" % [
+			str((bag_layout[0] as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")),
+			int((bag_layout[0] as Dictionary).get(GameManager.SLOT_ENTRY_COUNT, 0)),
+		])
+
+	# --- 11-A. レリック（段階17-e-2。⚠ 表はシナリオ側と共有）---
+	print("[DebugBoot] --- レリック（⚠ relics.json をシナリオ側と共有）---")
+	var relic_node: String = ""
+	for node_id: Variant in (GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_NODES, {}) as Dictionary):
+		if str(GameManager.get_dungeon_node(str(node_id)).get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_RELIC:
+			relic_node = str(node_id)
+			break
+	if relic_node == "":
+		print("  ⚠ この生成には relic のマスが1つも無かった（⚠ 抽選なので毎回は出ない）")
+	else:
+		var choices_a: Array = GameManager.get_dungeon_relic_choices(relic_node)
+		var choices_b: Array = GameManager.get_dungeon_relic_choices(relic_node)
+		print("  '%s' の候補 = %s（%d 件）" % [relic_node, str(choices_a), choices_a.size()])
+		print("  ⚠ もう一度引く -> %s（同じが正解＝描き直しても入れ替わらない）" % str(choices_b))
+		if choices_a != choices_b:
+			push_error("[DebugBoot] レリックの候補が引き直されている（画面を描くたびに変わる）")
+		# ⚠ そのマスに居ないと取れない。
+		print("  ⚠ そのマスに居ないのに取る -> %s（false が正解）" % [
+			str(GameManager.take_dungeon_relic(relic_node, str(choices_a[0])))
+		])
+
+	# --- 11-B. ショップとたいまつ（段階17-e）---
+	#
+	# ⚠ 店が出るのは「ボスを倒した先」だけ。⚠ いまはフロア2 の道中なので空が正解。
+	print("[DebugBoot] --- ボスの先のショップ（⚠ 決定15。⚠ 途中では店が無い）---")
+	print("  ⚠ ボスの手前で get_dungeon_shop_entries() = %d 件（0 が正解）" % [
+		GameManager.get_dungeon_shop_entries().size()
+	])
+	print("  たいまつ 等級%d / %d 層先まで見える（上限 等級%d）" % [
+		GameManager.get_dungeon_torch_grade(), GameManager.get_dungeon_reveal_layers(),
+		GameManager.get_dungeon_torch_max_grade(),
+	])
+	# ⚠ 見えているノードの数（⚠ たいまつを買うと増えるはず）。
+	var revealed_before: int = _count_revealed_dungeon_nodes()
+	print("  いま中身が見えているノード = %d 件" % revealed_before)
+
 	# --- 12. 撤退する（鞄の中身を持ち帰る）---
 	print("[DebugBoot] --- 撤退（⚠ 個体化の口は add_to_inventory() の1本だけ）---")
+	# ⚠ 歩く途中で relic のマスに着いたら、⚠ そこで実際に取る（段階17-e-2）。
+	_take_dungeon_relic_on_the_way()
+
 	# ⚠ 撤退できるのはボスの先だけなので、フロア2 のボスまで歩いてから倒す。
 	_walk_dungeon_to_boss()
 	GameManager.clear_dungeon_boss()
+
+	# ⚠ ボスを倒したので店が開く（段階17-e）。⚠ ここで買ってから撤退する。
+	print("[DebugBoot] --- ボスを倒した先のショップ ---")
+	var shop_entries: Array = GameManager.get_dungeon_shop_entries()
+	print("  品揃え = %d 件 ／ 一時通貨 = %d" % [shop_entries.size(), GameManager.get_dungeon_currency()])
+	for i: int in range(shop_entries.size()):
+		var row: Dictionary = shop_entries[i]
+		print("    %d: %-10s %-24s %d 遺物片 ／ 断る理由 '%s'" % [
+			i, str(row.get(GameManager.DUNGEON_SHOP_KIND, "")),
+			str(row.get(GameManager.SLOT_ENTRY_ITEM_ID, "")),
+			int(row.get(GameManager.DUNGEON_SHOP_COST, 0)),
+			GameManager.get_dungeon_shop_reject_reason(i),
+		])
+	# ⚠ 鞄の枠を買う（⚠ 枠が増えること）。
+	for i: int in range(shop_entries.size()):
+		if str((shop_entries[i] as Dictionary).get(GameManager.DUNGEON_SHOP_KIND, "")) != GameManager.DUNGEON_SHOP_KIND_BAG_SLOT:
+			continue
+		var slots_before: int = GameManager.get_dungeon_bag_slots()
+		var currency_before: int = GameManager.get_dungeon_currency()
+		var bought: bool = GameManager.buy_dungeon_shop_entry(i)
+		print("  鞄の枠を買う -> %s / 枠 %d -> %d ／ 通貨 %d -> %d" % [
+			str(bought), slots_before, GameManager.get_dungeon_bag_slots(),
+			currency_before, GameManager.get_dungeon_currency(),
+		])
+		break
+	# ⚠ たいまつを買う（⚠ 見えるノードが増えること）。
+	for i: int in range(shop_entries.size()):
+		if str((shop_entries[i] as Dictionary).get(GameManager.DUNGEON_SHOP_KIND, "")) != GameManager.DUNGEON_SHOP_KIND_TORCH:
+			continue
+		var layers_before: int = GameManager.get_dungeon_reveal_layers()
+		var seen_before: int = _count_revealed_dungeon_nodes()
+		var bought_torch: bool = GameManager.buy_dungeon_shop_entry(i)
+		print("  たいまつを買う -> %s / 見える層 %d -> %d ／ 見えるノード %d -> %d" % [
+			str(bought_torch), layers_before, GameManager.get_dungeon_reveal_layers(),
+			seen_before, _count_revealed_dungeon_nodes(),
+		])
+		break
+	# ⚠⚠ たいまつが効くのは「次のフロア」（⚠ そのフロアはもう全部踏んでいる）。
+	#   ⚠ 17-a は降りるとき 0 に戻していた。⚠ 17-e で覆した（⚠ 戻すと買う意味が無い）。
+	var torch_before_descend: int = GameManager.get_dungeon_torch_grade()
+	if GameManager.descend_dungeon_floor():
+		print("  次のフロアへ降りる -> たいまつ 等級%d -> %d（⚠ 持ち越すのが正解） / %d 層先" % [
+			torch_before_descend, GameManager.get_dungeon_torch_grade(),
+			GameManager.get_dungeon_reveal_layers(),
+		])
+		print("    ⚠ 入口で中身が見えているノード = %d 件（⚠ たいまつ 等級0 なら 4 件だった）" % [
+			_count_revealed_dungeon_nodes()
+		])
+		if GameManager.get_dungeon_torch_grade() != torch_before_descend:
+			push_error("[DebugBoot] たいまつがフロアをまたいで消えた（買う意味が無くなる）")
+		# ⚠ 撤退できる状態に戻す（⚠ このあと §12 が持ち帰る）。
+		_walk_dungeon_to_boss()
+		var _cleared_again: bool = GameManager.clear_dungeon_boss()
+
+	# ⚠ 一時通貨が足りないときは買えない（⚠ 払ってから弾かない）。
+	var drained: int = GameManager.get_dungeon_currency()
+	GameManager.add_dungeon_currency(-drained)
+	print("  ⚠ 通貨0で買う -> %s（false が正解） / 理由 '%s'（currency が正解）" % [
+		str(GameManager.buy_dungeon_shop_entry(0)), GameManager.get_dungeon_shop_reject_reason(0)
+	])
+	GameManager.add_dungeon_currency(drained)
 	var bag_at_retreat: Dictionary = GameManager.get_dungeon_bag()
 	var owned_before: Dictionary = _dungeon_owned_snapshot(bag_at_retreat)
 	var report: Dictionary = GameManager.retreat_from_dungeon()
@@ -4256,6 +5153,105 @@ func _report_dungeon() -> void:
 		])
 	print("  is_in_dungeon() = %s（false が正解）" % str(GameManager.is_in_dungeon()))
 
+	# --- 13-B. 目減り・脱落・死亡（段階17-b。⚠ 戦闘を回さずに書き戻しの口だけ叩く）---
+	#
+	# ⚠ 戦闘そのものは scenario=dungeon_battle が回す。⚠ ここで見るのは
+	#   「編成3人が全員脱落したら鞄を失うか」＝戦闘では起こしにくい枝。
+	print("[DebugBoot] --- 目減りと脱落と死亡（⚠ 書き戻しの口は apply_dungeon_battle_result の1本）---")
+	if not GameManager.start_dungeon_run(target_id):
+		push_error("[DebugBoot] 3本目の start_dungeon_run が false")
+		return
+	var members: Array = GameManager.get_party_members()
+	var half: Dictionary = {}
+	for member: Variant in members:
+		half[str(member)] = int(GameManager.get_dungeon_character_max_hp(str(member))) / 2
+	var died_half: bool = GameManager.apply_dungeon_battle_result(half)
+	print("  半分まで削る -> 死亡=%s（false が正解） / ランのMAX HP = %s / HP = %s" % [
+		str(died_half), str(GameManager.get_dungeon_max_hp()), str(GameManager.get_dungeon_hp())
+	])
+
+	# 1人だけ 0 にする＝脱落（ランは続く）。
+	var one_down: Dictionary = GameManager.get_dungeon_max_hp()
+	one_down[str(members[0])] = 0
+	var died_one: bool = GameManager.apply_dungeon_battle_result(one_down)
+	print("  1人だけ 0 にする -> 死亡=%s（false が正解） / 脱落=%s / 出られる編成=%s" % [
+		str(died_one), str(GameManager.is_dungeon_character_downed(str(members[0]))),
+		str(GameManager.get_dungeon_active_members()),
+	])
+
+	# 全員 0 ＝死亡。⚠ 鞄を失う（§4-4-2）。
+	GameManager.add_to_dungeon_bag("construction_material_1", 2)
+	var bag_before_death: Dictionary = GameManager.get_dungeon_bag()
+	var all_down: Dictionary = {}
+	for member: Variant in members:
+		all_down[str(member)] = 0
+	var died_all: bool = GameManager.apply_dungeon_battle_result(all_down)
+	print("  全員 0 にする -> 死亡=%s（true が正解） / is_in_dungeon()=%s（false が正解） / 失った鞄=%s" % [
+		str(died_all), str(GameManager.is_in_dungeon()), str(bag_before_death),
+	])
+
+	# --- 13-C. ポーションと休憩（段階17-c・§4-3 / §4-9・決定19）---
+	#
+	# ⚠ 戦闘を回さない。⚠ 見るのは「戻る量」と「無駄撃ちを弾くか」と「鞄が減るか」。
+	print("[DebugBoot] --- ポーションと休憩（⚠ 使う口は use_dungeon_item の1本）---")
+	if not GameManager.start_dungeon_run(target_id):
+		push_error("[DebugBoot] 4本目の start_dungeon_run が false")
+		return
+	var potion_members: Array = GameManager.get_party_members()
+	var hurt: String = str(potion_members[0])
+	var downed: String = str(potion_members[1])
+	var base_hp: int = GameManager.get_dungeon_base_max_hp(hurt)
+
+	# 1人を削り、1人を脱落させる（＝戦闘が終わった直後の形）。
+	var after_battle: Dictionary = GameManager.get_dungeon_max_hp()
+	after_battle[hurt] = int(base_hp) / 4
+	after_battle[downed] = 0
+	GameManager.apply_dungeon_battle_result(after_battle)
+	print("  戦闘のあと：ランのMAX HP = %s ／ 出られる編成 = %s" % [
+		str(GameManager.get_dungeon_max_hp()), str(GameManager.get_dungeon_active_members())
+	])
+
+	# 回復ポーション。⚠ 鞄に入れてから使う（鞄が唯一の持ち方）。
+	GameManager.add_to_dungeon_bag("dungeon_potion_heal", 2)
+	GameManager.add_to_dungeon_bag("dungeon_potion_revive", 1)
+	var bag_before_use: Dictionary = GameManager.get_dungeon_bag()
+	var healed: bool = GameManager.use_dungeon_item("dungeon_potion_heal", hurt)
+	print("  回復ポーション -> %s（true が正解） / %s の上限 %d -> %d（素 %d の 30%% ぶん）" % [
+		str(healed), hurt, int(after_battle[hurt]),
+		GameManager.get_dungeon_character_max_hp(hurt), base_hp,
+	])
+	print("  HP = %d（上限と同じが正解＝決定18）" % GameManager.get_dungeon_character_hp(hurt))
+
+	# ⚠ 無駄撃ちは弾く（脱落者に回復・生きている者に蘇生）。⚠ 鞄の枠は資源。
+	print("  ⚠ 脱落者に回復 -> %s（false が正解） ／ 生きている者に蘇生 -> %s（false が正解）" % [
+		str(GameManager.use_dungeon_item("dungeon_potion_heal", downed)),
+		str(GameManager.use_dungeon_item("dungeon_potion_revive", hurt)),
+	])
+
+	# 蘇生ポーション。⚠ 素の 50% ／ HP はそのまた 50%（決定13）。
+	var revived: bool = GameManager.use_dungeon_item("dungeon_potion_revive", downed)
+	print("  蘇生ポーション -> %s（true が正解） / %s 上限 0 -> %d ／ HP %d（素 %d の 50%% と 25%%）" % [
+		str(revived), downed, GameManager.get_dungeon_character_max_hp(downed),
+		GameManager.get_dungeon_character_hp(downed), GameManager.get_dungeon_base_max_hp(downed),
+	])
+	print("  鞄 %s -> %s（使ったぶんだけ減るのが正解） / 脱落 = %d 人" % [
+		str(bag_before_use), str(GameManager.get_dungeon_bag()),
+		GameManager.get_party_members().size() - GameManager.get_dungeon_active_members().size(),
+	])
+	print("  ⚠ 鞄に無い品を使う -> %s（false が正解）" % [
+		str(GameManager.use_dungeon_item("dungeon_potion_revive", downed))
+	])
+
+	# 休憩ノード。⚠ 呼ぶのは move_in_dungeon() の1本だが、⚠ どの層に出るかは抽選なので
+	#   ここでは同じ関数を直接叩く（本番の口を増やしていない）。
+	print("  --- 休憩ノード（⚠ 回復が先、⚠ そのあと脱落者を戻す）---")
+	var rest_before: Dictionary = GameManager.get_dungeon_max_hp()
+	GameManager.apply_dungeon_rest()
+	print("  休憩：ランのMAX HP %s -> %s ／ HP = %s" % [
+		str(rest_before), str(GameManager.get_dungeon_max_hp()), str(GameManager.get_dungeon_hp())
+	])
+	GameManager.abandon_dungeon_run()
+
 	# --- 14. 素の MAX HP を1も削っていないこと（決定8の一番の落とし穴）---
 	print("[DebugBoot] --- 素の MAX HP（⚠ ダンジョンが触るのはランの MAX HP だけ）---")
 	var drifted: int = 0
@@ -4284,7 +5280,7 @@ func _report_dungeon() -> void:
 		GameStateKeys.ITEM_TYPE_DUNGEON, dungeon_typed.size(),
 		"" if dungeon_typed.is_empty() else " " + str(dungeon_typed),
 	])
-	print("  ⚠ 17-a では 0 件が正解（ポーション3件を足すのは 17-c）。型と持ち帰りの判定だけが先に入っている")
+	print("  ⚠ 17-c で 2 件（回復・蘇生）が入った。⚠ どちらも撤退では持ち帰れない（決定17・§4-3-1）")
 
 
 # 鞄に入っている item_id について、拠点側の所持数を数える。
@@ -4301,6 +5297,116 @@ func _dungeon_owned_snapshot(bag: Dictionary) -> Dictionary:
 		#   ⚠ get_material_count() を足さないこと（素材を二重に数える）。
 		result[item_id] = GameManager.get_item_count(item_id)
 	return result
+
+
+# 難ダンジョンのランに入り、最初の battle ノードまで歩く（段階17-b）。
+#
+# ⚠ 戻り値はそのノードID（＝戦闘へ渡すもの）。⚠ 組めなかったら "" を返す。
+# ⚠ ここで敵を組まない。⚠ 敵を引く口は GameManager.get_dungeon_node_wave() の1本で、
+#   呼ぶのは戦闘画面（17-a の決め8）。
+func _prepare_dungeon_battle() -> String:
+	var dungeon_ids: Array[String] = MasterDataLoader.get_all_dungeon_ids()
+	if dungeon_ids.is_empty():
+		push_error("[DebugBoot] ダンジョンが1本も無い")
+		return ""
+	if not GameManager.start_dungeon_run(dungeon_ids[0]):
+		push_error("[DebugBoot] start_dungeon_run が false: " + dungeon_ids[0])
+		return ""
+
+	# ⚠ 素の MAX HP を控える（§4-4 の一番の落とし穴。⚠ 最後にここが動いていたら赤）。
+	_dungeon_base_max_hp = {}
+	for member: Variant in GameManager.get_party_members():
+		var character_id: String = str(member)
+		_dungeon_base_max_hp[character_id] = int(
+			GameManager.get_effective_stats(character_id).get(GameStateKeys.STAT_HP, 0)
+		)
+	print("[DebugBoot] --- 難ダンジョンの戦闘（段階17-b）---")
+	print("  素のMAX HP = %s ／ ランのMAX HP = %s（入った時点では同じ値が正解）" % [
+		str(_dungeon_base_max_hp), str(GameManager.get_dungeon_max_hp())
+	])
+
+	# 最初の battle ノードまで歩く。⚠ 進める先の先頭を選び続ける（_walk_dungeon_to_boss と同じ流儀）。
+	var guard: int = 0
+	while true:
+		var here: String = str(
+			GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")
+		)
+		var kind: String = str(
+			GameManager.get_dungeon_node(here).get(GameStateKeys.DUNGEON_NODE_KIND, "")
+		)
+		if kind == GameStateKeys.DUNGEON_NODE_KIND_BATTLE and guard > 0:
+			print("  1本目：道中の battle ノード '%s' で戦う（%d手目）" % [here, guard])
+			return here
+		var moves: Array = GameManager.get_dungeon_moves()
+		if moves.is_empty():
+			push_error("[DebugBoot] battle ノードに着く前に進める先が無くなった: " + here)
+			return ""
+		if not GameManager.move_in_dungeon(str(moves[0])):
+			push_error("[DebugBoot] move_in_dungeon が false: " + str(moves[0]))
+			return ""
+		guard += 1
+		if guard > 50:
+			push_error("[DebugBoot] 50手で battle ノードに着かない")
+			return ""
+	return ""
+
+
+# 素の MAX HP の控え（_prepare_dungeon_battle が入れ、Driver へ渡す）。
+#
+# ⚠ この Node は change_scene で消えるので、⚠ 控えは Driver 側にも持たせる
+#   （Driver は root に残る）。⚠ ここを見に行く形にすると、⚠ 戦闘が終わった
+#     ころには自分が居ない。
+var _dungeon_base_max_hp: Dictionary = {}
+
+
+# 歩きながら relic のマスに着いたら1つ取る（段階17-e-2）。
+#
+# ⚠ 抽選なので relic に当たらない生成もある。⚠ そのときは何も出さずに戻る。
+func _take_dungeon_relic_on_the_way() -> void:
+	var guard: int = 0
+	while guard < 50:
+		var here: String = str(
+			GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")
+		)
+		var node: Dictionary = GameManager.get_dungeon_node(here)
+		if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_RELIC 				and not bool(node.get(GameStateKeys.DUNGEON_NODE_CLEARED, false)):
+			var choices: Array = GameManager.get_dungeon_relic_choices(here)
+			if choices.is_empty():
+				return
+			var relic_id: String = str(choices[0])
+			var owner: String = ""
+			if GameManager.is_single_relic(relic_id):
+				owner = str(GameManager.get_dungeon_active_members()[0])
+			var before: int = GameManager.get_dungeon_relics().size()
+			var took: bool = GameManager.take_dungeon_relic(here, relic_id, owner)
+			print("  レリックを取る '%s'（%s） -> %s / 所持 %d -> %d" % [
+				relic_id, "1人用 " + owner if owner != "" else "全体用", str(took),
+				before, GameManager.get_dungeon_relics().size(),
+			])
+			print("  ⚠ 同じマスでもう1つ取る -> %s（false が正解＝1マス1つ）" % [
+				str(GameManager.take_dungeon_relic(here, relic_id, owner))
+			])
+			for member: Variant in GameManager.get_party_members():
+				print("    %s に効くレリック = %s" % [
+					str(member), str(GameManager.get_dungeon_relic_passives(str(member)))
+				])
+			return
+		var moves: Array = GameManager.get_dungeon_moves()
+		if moves.is_empty():
+			return
+		if not GameManager.move_in_dungeon(str(moves[0])):
+			return
+		guard += 1
+
+
+# 中身が見えているノードの数（段階17-e・たいまつ）。
+func _count_revealed_dungeon_nodes() -> int:
+	var count: int = 0
+	var nodes: Dictionary = GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	for node_id: Variant in nodes:
+		if GameManager.is_dungeon_node_revealed(str(node_id)):
+			count += 1
+	return count
 
 
 # ボスに着くまで進める先の先頭を選び続ける。

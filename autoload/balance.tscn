@@ -14,6 +14,7 @@
 [ext_resource type="Resource" path="res://resources/balance/configs/floor_config.tres" id="12_flcfg"]
 [ext_resource type="Resource" path="res://resources/balance/configs/icon_config.tres" id="13_iccfg"]
 [ext_resource type="Resource" path="res://resources/balance/configs/dungeon_config.tres" id="14_dgncfg"]
+[ext_resource type="Resource" path="res://resources/balance/configs/inventory_config.tres" id="15_invcfg"]
 
 [node name="Balance" type="Node" unique_id=1091634713]
 script = ExtResource("1_f7mko")
@@ -30,3 +31,4 @@ part = ExtResource("11_ptcfg")
 floor = ExtResource("12_flcfg")
 icon = ExtResource("13_iccfg")
 dungeon = ExtResource("14_dgncfg")
+inventory = ExtResource("15_invcfg")

@@ -36,7 +36,8 @@
           { "item_id": "construction_material_2", "weight": 30, "count": 1 },
           { "item_id": "training_material_2", "weight": 30, "count": 1 },
           { "item_id": "forging_material_2", "weight": 25, "count": 1 },
-          { "item_id": "decor_material_2", "weight": 15, "count": 1 }
+          { "item_id": "decor_material_2", "weight": 15, "count": 1 },
+          { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 }
         ]
       },
       "relic": { "rolls": 0, "entries": [] },
@@ -48,9 +49,19 @@
           { "item_id": "training_material_3", "weight": 30, "count": 1 },
           { "item_id": "forging_material_3", "weight": 25, "count": 1 },
           { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
-          { "item_id": "weapon_iron_sword", "weight": 5, "count": 1 }
+          { "item_id": "weapon_iron_sword", "weight": 5, "count": 1 },
+          { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+          { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 }
         ]
       }
+    },
+    "shop": {
+      "entries": [
+        { "kind": "item", "item_id": "dungeon_potion_heal", "cost": 30 },
+        { "kind": "item", "item_id": "dungeon_potion_revive", "cost": 60 },
+        { "kind": "bag_slot", "cost": 40, "amount": 2 },
+        { "kind": "torch", "cost": 35 }
+      ]
     },
     "currency": {
       "battle": 12,

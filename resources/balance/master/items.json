@@ -119,6 +119,20 @@
 	  "sort_order": 16
 	},
 	{
+	  "item_id": "dungeon_potion_heal",
+	  "storage": "inventory",
+	  "item_type": "dungeon",
+	  "dungeon_effect": "heal",
+	  "sort_order": 17
+	},
+	{
+	  "item_id": "dungeon_potion_revive",
+	  "storage": "inventory",
+	  "item_type": "dungeon",
+	  "dungeon_effect": "revive",
+	  "sort_order": 18
+	},
+	{
 	  "item_id": "weapon_wooden_sword",
 	  "storage": "inventory",
 	  "item_type": "equipment",
