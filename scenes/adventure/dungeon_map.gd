@@ -21,6 +21,8 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 # ⚠ 別画面に切り出したもの（段階17-e-3・人間の指示）。⚠ ここから遷移するだけ。
 const RELIC_SELECT_PATH: String = "res://scenes/adventure/dungeon_relic_select.tscn"
 const SHOP_PATH: String = "res://scenes/adventure/dungeon_shop.tscn"
+# ⚠ 宝箱も別画面（段階19-b・人間の決定21「遺物や宝箱やショップは別画面」）。
+const CHEST_PATH: String = "res://scenes/adventure/dungeon_chest.tscn"
 
 # マスの見た目。⚠ 色はここに置く（floor_map.gd と同じ扱い。main_theme.tres に
 #   対応する概念が無い）。⚠ 値まで揃えるかは見た目の判断なので人間が決める。
@@ -265,6 +267,15 @@ func _enter_relic_node(node_id: String) -> void:
 	)
 
 
+# 宝箱のマス（段階19-b）。⚠ レリックと同じ形（⚠ 踏んだら別画面へ移る）。
+#
+# ⚠ 開ける／開けたかの判定はここに書かない。⚠ 向こうが GameManager に聞く。
+func _enter_chest_node(node_id: String) -> void:
+	SceneManager.change_scene_with_data(
+		CHEST_PATH, {TransferKeys.DUNGEON_NODE_ID: node_id}
+	)
+
+
 # ボスの先のショップ（段階17-e → ⚠ 17-e-3 で別画面へ切り出した）。
 #
 # ⚠⚠ この画面には品を並べない（人間の指示）。⚠ 出す先は `dungeon_shop.tscn`。
@@ -322,6 +333,10 @@ func _enter_node(node_id: String) -> void:
 		GameStateKeys.DUNGEON_NODE_KIND_RELIC:
 			# レリック（段階17-e-3）。⚠ 別画面へ移る（⚠ 踏んだら必ず選ぶ場所へ行く）。
 			_enter_relic_node(node_id)
+		GameStateKeys.DUNGEON_NODE_KIND_CHEST:
+			# 宝箱（段階19-b）。⚠ 別画面へ移る。⚠ 開けるのは向こう。
+			#   ⚠ ここで open_dungeon_chest() を呼ばないこと（⚠ 中身を見せる前に配ってしまう）。
+			_enter_chest_node(node_id)
 		_:
 			push_warning("[DungeonMap] 知らないノードの種類: " + kind)
 			message_label.text = tr("ui_dungeon_node_not_ready")

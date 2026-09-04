@@ -4840,15 +4840,19 @@ func _report_dungeon() -> void:
 			dungeon_id, layers.size(), ", ".join(counts), sum_nodes, sum_nodes + 1,
 		])
 
-	# --- 2. 層のノード出現比（DungeonConfig）---
-	print("[DebugBoot] --- 層のノード出現比（⚠ shop が1件も無いのが正解＝ショップはボスの先だけ）---")
-	for layer: int in range(1, 7):
-		print("  層%d %s" % [layer, str(GameManager.get_dungeon_layer_weights(layer))])
-
 	if dungeon_ids.is_empty():
 		push_error("[DebugBoot] ダンジョンが1本も無いので以降を回せない")
 		return
 	var target_id: String = dungeon_ids[0]
+	# ⚠ 層数は dungeon.json から引く。⚠ 6 を書かないこと（段階19-d で 8 になった）。
+	var layer_total: int = (
+		MasterDataLoader.get_dungeon(target_id).get(GameManager.DUNGEON_MASTER_LAYERS, []) as Array
+	).size()
+
+	# --- 2. 層のノード出現比（DungeonConfig）---
+	print("[DebugBoot] --- 層のノード出現比（⚠ shop が1件も無いのが正解＝ショップはボスの先だけ）---")
+	for layer: int in range(1, layer_total + 1):
+		print("  層%d %s" % [layer, str(GameManager.get_dungeon_layer_weights(layer))])
 
 	# --- 3. ランに入る ---
 	print("[DebugBoot] --- %s に入る ---" % target_id)
@@ -4935,7 +4939,7 @@ func _report_dungeon() -> void:
 		if steps > 50:
 			push_error("[DebugBoot] 50手で終わらない（ループしている）")
 			break
-	print("    歩数 = %d（層数6 ＋ボス1 → 6 手が正解）" % steps)
+	print("    歩数 = %d（層数%d ＋ボス1 → %d 手が正解）" % [steps, layer_total, layer_total])
 
 	# --- 7. 進めない先を渡す（入口へ戻れない＝引き返さない）---
 	var before_position: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
@@ -5152,6 +5156,84 @@ func _report_dungeon() -> void:
 			int(lost_bag[item_id]),
 		])
 	print("  is_in_dungeon() = %s（false が正解）" % str(GameManager.is_in_dungeon()))
+
+	# --- 13-A2. 宝箱のマス（段階19-b。⚠ その場で開く＝案A）---
+	#
+	# ⚠ 見るのは4つ：⚠ ①踏んだだけでは配らない ②開けると鞄に入る
+	#   ③1マスにつき1回だけ ④鞄が満杯なら置いてくる（⚠ 黙って消さない）。
+	# ⚠ 拠点の PENDING_CHESTS が1件も増えないことも見る（⚠ 決定7・§4-8）。
+	print("[DebugBoot] --- 宝箱のマス（⚠ その場で開く。⚠ pending_chests には積まない）---")
+	if not GameManager.start_dungeon_run(target_id):
+		push_error("[DebugBoot] 宝箱ぶんの start_dungeon_run が false")
+		return
+	var chest_node: String = _walk_dungeon_to_kind(GameStateKeys.DUNGEON_NODE_KIND_CHEST)
+	if chest_node == "":
+		print("  ⚠ この生成には chest のマスへ着ける道が無かった（⚠ 抽選なので毎回は出ない）")
+	else:
+		var bag_before_chest: int = GameManager.get_dungeon_bag_used()
+		var currency_before_chest: int = GameManager.get_dungeon_currency()
+		var pending_before: int = (
+			GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []) as Array
+		).size()
+		print("  '%s' に立った / 鞄 %d/%d ／ 通貨 %d ／ 開けたか=%s（false が正解＝踏んだだけでは開かない）" % [
+			chest_node, bag_before_chest, GameManager.get_dungeon_bag_slots(),
+			currency_before_chest, str(GameManager.was_dungeon_chest_opened(chest_node)),
+		])
+		# ⚠ 鞄の数では見ない。⚠ ここへ来るまでに戦闘のマスを通るので、⚠ 鞄は0ではない
+		#   （⚠ 最初はそう書いて赤を出した）。⚠ 見るのは「まだ開いていない」ことだけ。
+		if GameManager.was_dungeon_chest_opened(chest_node):
+			push_error("[DebugBoot] 宝箱のマスを踏んだだけで開いている（開ける動作が飾りになる）")
+		var opened: Dictionary = GameManager.open_dungeon_chest(chest_node)
+		print("  開ける -> 入った %s ／ 置いてきた %s ／ 鞄 %d -> %d ／ 通貨 %d -> %d" % [
+			str(opened["granted"]), str(opened["left_behind"]),
+			bag_before_chest, GameManager.get_dungeon_bag_used(),
+			currency_before_chest, GameManager.get_dungeon_currency(),
+		])
+		print("  開けたか=%s（true が正解） ／ ⚠ もう一度開ける -> 入った %s（空が正解＝1マス1回）" % [
+			str(GameManager.was_dungeon_chest_opened(chest_node)),
+			str(GameManager.open_dungeon_chest(chest_node)["granted"]),
+		])
+		var pending_after: int = (
+			GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []) as Array
+		).size()
+		print("  ⚠ 拠点の未開封の宝箱 %d -> %d（増えないのが正解＝全ロストの対象から外れない）" % [
+			pending_before, pending_after
+		])
+		if pending_after != pending_before:
+			push_error("[DebugBoot] ランの宝箱が拠点の pending_chests に積まれた（決定7 が崩れる）")
+	GameManager.abandon_dungeon_run()
+
+	# ⚠ 鞄が満杯のときに開ける枝（⚠ 置いてきたぶんが戻り値に出るか）。
+	#
+	# ⚠⚠ 1本目のランの続きで測らない。⚠ 1つ目を開けた時点で鞄が埋まることがあり、
+	#   ⚠ その先に2つ目の chest が在るかは抽選なので、⚠ 測れたり測れなかったりする。
+	#   ⚠ 新しいランで「着いてから満杯にする」なら必ず通る。
+	print("[DebugBoot] --- 宝箱：鞄が満杯のとき（⚠ 黙って消さない）---")
+	if not GameManager.start_dungeon_run(target_id):
+		push_error("[DebugBoot] 満杯ぶんの start_dungeon_run が false")
+		return
+	var chest_node_full: String = _walk_dungeon_to_kind(GameStateKeys.DUNGEON_NODE_KIND_CHEST)
+	if chest_node_full == "":
+		print("  ⚠ この生成には chest のマスへ着ける道が無かった（⚠ 満杯の枝は測れていない）")
+	else:
+		var _filled: int = GameManager.add_to_dungeon_bag(
+			"construction_material_1",
+			GameManager.get_dungeon_bag_slots() - GameManager.get_dungeon_bag_used()
+		)
+		var full_result: Dictionary = GameManager.open_dungeon_chest(chest_node_full)
+		print("  ⚠ 鞄が満杯（%d/%d）で開ける -> 入った %s（空が正解） ／ 置いてきた %s（空でないのが正解）" % [
+			GameManager.get_dungeon_bag_used(), GameManager.get_dungeon_bag_slots(),
+			str(full_result["granted"]), str(full_result["left_behind"]),
+		])
+		if not (full_result["granted"] as Dictionary).is_empty():
+			push_error("[DebugBoot] 満杯の鞄に宝箱の中身が入った")
+		if (full_result["left_behind"] as Dictionary).is_empty():
+			push_error("[DebugBoot] 入らなかったぶんが黙って消えた（画面が言えない）")
+		# ⚠ 開けたことは残る（⚠ 拾えなかったからといって引き直せない＝抽選し放題を塞ぐ）。
+		print("  ⚠ 1個も入らなかったが開けたことは残る=%s（true が正解＝引き直せない）" % [
+			str(GameManager.was_dungeon_chest_opened(chest_node_full))
+		])
+	GameManager.abandon_dungeon_run()
 
 	# --- 13-B. 目減り・脱落・死亡（段階17-b。⚠ 戦闘を回さずに書き戻しの口だけ叩く）---
 	#
@@ -5407,6 +5489,63 @@ func _count_revealed_dungeon_nodes() -> int:
 		if GameManager.is_dungeon_node_revealed(str(node_id)):
 			count += 1
 	return count
+
+
+# その種類のノードまで進める（段階19-b）。⚠ 着けたらノードIDを、⚠ 無ければ "" を返す。
+#
+# ⚠ 進める先を1手ずつ幅優先で調べ、⚠ その種類に届く手だけを選ぶ。
+#   ⚠ 「先頭を選び続ける」（_walk_dungeon_to_boss）では、⚠ 抽選で置かれた
+#     宝箱のマスに当たるかどうかが運になり、⚠ 検証が起動ごとに通ったり通らなかったりする。
+func _walk_dungeon_to_kind(kind: String) -> String:
+	var nodes: Dictionary = GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	# ⚠ while true にしない。⚠ 戻り値のある関数だと「全ての経路が値を返さない」で
+	#   パースエラーになる（⚠ _walk_dungeon_to_boss は void なので通っている）。
+	for _guard: int in range(51):
+		var here: String = str(
+			GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")
+		)
+		var here_node: Dictionary = GameManager.get_dungeon_node(here)
+		# ⚠ 済み（cleared）のマスは目的地にしない。⚠ しないと、⚠ 宝箱を開けた直後に
+		#   もう一度呼んだとき、⚠ その場から動かずに「開け済みのマス」を返す。
+		if str(here_node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == kind \
+				and not bool(here_node.get(GameStateKeys.DUNGEON_NODE_CLEARED, false)):
+			return here
+		var moves: Array = GameManager.get_dungeon_moves()
+		if moves.is_empty():
+			return ""
+		var chosen: String = ""
+		for move: Variant in moves:
+			if _dungeon_kind_reachable_from(nodes, str(move), kind, {}):
+				chosen = str(move)
+				break
+		if chosen == "":
+			return ""
+		if not GameManager.move_in_dungeon(chosen):
+			push_error("[DebugBoot] _walk_dungeon_to_kind: move_in_dungeon が false: " + chosen)
+			return ""
+	push_error("[DebugBoot] _walk_dungeon_to_kind: 50手で終わらない")
+	return ""
+
+
+# node_id から先（自分を含む）に、その種類のノードが在るか。
+func _dungeon_kind_reachable_from(
+		nodes: Dictionary, node_id: String, kind: String, seen: Dictionary
+) -> bool:
+	if seen.has(node_id):
+		return false
+	seen[node_id] = true
+	var node: Variant = nodes.get(node_id, null)
+	if not (node is Dictionary):
+		return false
+	# ⚠ cleared のマスは数えない（⚠ 目的地の判定と揃えること。⚠ ずれると、⚠ 進んだ先で
+	#   「在るはずのものが無い」になり、⚠ 途中で止まる）。⚠ 状態は毎回 GameManager に聞く。
+	if str((node as Dictionary).get(GameStateKeys.DUNGEON_NODE_KIND, "")) == kind \
+			and not bool(GameManager.get_dungeon_node(node_id).get(GameStateKeys.DUNGEON_NODE_CLEARED, false)):
+		return true
+	for next_id: Variant in ((node as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, []) as Array):
+		if _dungeon_kind_reachable_from(nodes, str(next_id), kind, seen):
+			return true
+	return false
 
 
 # ボスに着くまで進める先の先頭を選び続ける。

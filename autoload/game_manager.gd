@@ -7498,7 +7498,10 @@ func move_in_dungeon(node_id: String) -> bool:
 	print("[GameManager] move_in_dungeon('%s') -> true (kind=%s)" % [node_id, kind])
 	# ⚠ ボスは踏んだだけでは何も出ない。⚠ 倒したときに clear_dungeon_boss() が配る
 	#   （踏んだ時点で配ると、負けても報酬が残る）。
-	if kind != GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+	# ⚠⚠ 宝箱も踏んだだけでは出ない（段階19-b）。⚠ open_dungeon_chest() が配る。
+	#   ⚠ ここで配ると「開ける」動作が飾りになり、⚠ 画面が中身を見せる前に鞄へ入る。
+	if kind != GameStateKeys.DUNGEON_NODE_KIND_BOSS \
+			and kind != GameStateKeys.DUNGEON_NODE_KIND_CHEST:
 		_grant_dungeon_node_gains(kind)
 	# 休憩は踏んだら効く（段階17-c・§4-9）。⚠ ボタンを作らない（17-d）。
 	# ⚠ 戦利品を配ったあとに置くこと。⚠ 逆にすると、休憩で戦利品が出る設定（W22）を
@@ -7698,19 +7701,26 @@ func _is_dungeon_only_item(item_id: String) -> bool:
 
 # 着いたノードの種類に応じて、戦利品と一時通貨を配る。
 #
+# 戻り値: {"granted": {item_id: 個数}, "left_behind": {item_id: 個数}}
+#
 # ⚠ 抽選の本体は _roll_weighted_table() の1本（台帳 §7）。⚠ あちらにボーナスを足さない。
 # ⚠ 出るか出ないかを先に決め、出ると決まってから中身を引く（_roll_floor_chest と同じ形）。
 # ⚠ 宝箱（pending_chests）には積まない。⚠ ランの戦利品は鞄に入り、
 #   持ち帰りが確定するまで拠点の資産にならない。
-func _grant_dungeon_node_gains(kind: String) -> void:
+#
+# ⚠⚠ 段階19-b で戻り値を void → Dictionary にした。⚠ 宝箱のマスだけは「開けた結果」を
+#   画面に出す必要があるため（⚠ 他のノード種は踏んだ瞬間に黙って配るまま）。
+#   ⚠ 配る口を2本目にしないための変更。⚠ 呼び出し元3箇所のうち2箇所は戻り値を捨てる。
+func _grant_dungeon_node_gains(kind: String) -> Dictionary:
+	var result: Dictionary = {"granted": {}, "left_behind": {}}
 	var config: DungeonConfig = _dungeon()
 	if config == null:
-		return
+		return result
 	var dungeon: Dictionary = MasterDataLoader.get_dungeon(
 		str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
 	)
 	if dungeon.is_empty():
-		return
+		return result
 
 	# 1. 一時通貨。⚠ フロアが深いほど増える（§2「深く潜る＝より良い戦利品」）。
 	var currency_table: Variant = dungeon.get(DUNGEON_MASTER_CURRENCY, null)
@@ -7725,24 +7735,33 @@ func _grant_dungeon_node_gains(kind: String) -> void:
 	# 2. 戦利品。⚠ ノード種ごとの確率で引く。
 	var chance: int = _dungeon_loot_chance_pct(kind)
 	if chance <= 0 or randi_range(1, 100) > chance:
-		return
+		return result
 	var loot_table: Variant = dungeon.get(DUNGEON_MASTER_LOOT, null)
 	if not (loot_table is Dictionary):
-		return
+		return result
 	var entry: Variant = (loot_table as Dictionary).get(kind, null)
 	if not (entry is Dictionary):
-		return
+		return result
 	var draw: Dictionary = entry
 	var rolls: int = int(draw.get(CHEST_DRAW_ROLLS, 0))
 	if rolls <= 0:
-		return
+		return result
 	var rolled: Dictionary = _roll_weighted_table(draw.get(CHEST_DRAW_ENTRIES, []), rolls)
 	# ⚠ 綴り順で入れる（Dictionary のキー順は不定。鞄が溢れたときに
 	#   「何が入って何が入らなかったか」が起動ごとに変わらないようにする）。
 	var item_ids: Array = rolled.keys()
 	item_ids.sort()
 	for item_entry: Variant in item_ids:
-		add_to_dungeon_bag(str(item_entry), int(rolled[item_entry]))
+		var item_id: String = str(item_entry)
+		var wanted: int = int(rolled[item_entry])
+		var accepted: int = add_to_dungeon_bag(item_id, wanted)
+		if accepted > 0:
+			(result["granted"] as Dictionary)[item_id] = accepted
+		# ⚠ 入り切らなかったぶんを黙って消さない。⚠ 画面が「置いてきた」と言えるようにする
+		#   （⚠ retreat_from_dungeon() の left_behind と同じ形）。
+		if accepted < wanted:
+			(result["left_behind"] as Dictionary)[item_id] = wanted - accepted
+	return result
 
 
 # ノード種ごとの「戦利品を引く確率（％）」。
@@ -7759,6 +7778,8 @@ func _dungeon_loot_chance_pct(kind: String) -> int:
 			return int(config.loot_chance_relic_pct)
 		GameStateKeys.DUNGEON_NODE_KIND_REST:
 			return int(config.loot_chance_rest_pct)
+		GameStateKeys.DUNGEON_NODE_KIND_CHEST:
+			return int(config.loot_chance_chest_pct)
 		GameStateKeys.DUNGEON_NODE_KIND_BOSS:
 			return int(config.loot_chance_boss_pct)
 	return 0
@@ -7839,15 +7860,20 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 #   の両方が、層のノード数の組み合わせによらず成り立つ。
 # ⚠ (b) が崩れると「絶対に通れないノード」が生まれる。scenario=dungeon の
 #   全ルート総当たりがそれを見張る。
+#
+# ⚠ 段階19-d：⚠ 隣へ何個伸ばすかを DungeonConfig.branch_spread のつまみにした。
+#   ⚠ 0 にすると一本道になる（⚠ 分岐が消えるので、たいまつも休憩のコストも効かなくなる）。
 func _connect_dungeon_layers(nodes: Dictionary, upper: Array, lower: Array) -> void:
+	var config: DungeonConfig = _dungeon()
+	var spread: int = 1 if config == null else maxi(0, int(config.branch_spread))
 	var n: int = upper.size()
 	var m: int = lower.size()
 	for j: int in range(n):
 		var lo: int = int(floor(float(j) * float(m) / float(n)))
 		var hi: int = int(ceil(float(j + 1) * float(m) / float(n))) - 1
 		hi = maxi(hi, lo)
-		# 隣へも1つ伸ばして分岐を作る（2択になる）。
-		hi = mini(hi + 1, m - 1)
+		# 隣へも伸ばして分岐を作る（⚠ spread=1 なら2択）。
+		hi = mini(hi + spread, m - 1)
 		var next_ids: Array = []
 		for k: int in range(lo, hi + 1):
 			next_ids.append(str(lower[k]))
@@ -7867,6 +7893,7 @@ func get_dungeon_layer_weights(layer: int) -> Dictionary:
 		GameStateKeys.DUNGEON_NODE_KIND_BATTLE: config.layer_weight_battle,
 		GameStateKeys.DUNGEON_NODE_KIND_RELIC: config.layer_weight_relic,
 		GameStateKeys.DUNGEON_NODE_KIND_REST: config.layer_weight_rest,
+		GameStateKeys.DUNGEON_NODE_KIND_CHEST: config.layer_weight_chest,
 	}
 	var out: Dictionary = {}
 	for kind: String in table:
@@ -8286,6 +8313,69 @@ func take_dungeon_relic(node_id: String, relic_id: String, character_id: String 
 	return true
 
 
+# --- 宝箱のマス（段階19-b・5つ目のノード種） --------------------------
+#
+# ⚠⚠ 案A＝「その場で開く」（⚠ 設計役の推奨。⚠ 台帳 §4-8 の決定7 と噛み合う）。
+#   ⚠ 拠点の `PENDING_CHESTS` には1件も積まない。⚠ 積むと「死んでも宝箱は残る」に
+#     なり、⚠ 全ロストの一貫原則が1点で崩れる。
+# ⚠ 中身は鞄へ入る。⚠ 鞄が満杯なら入らない（＝拾えない）。⚠ 勝手に何かを捨てない。
+# ⚠ 開けるまで中身は決まらない（⚠ 抽選は開けた瞬間）。⚠ レリックのように
+#   「ノードごとに固定の種で先に見せる」形にしていない。⚠ 見せてしまうと
+#   「開けるか開けないか」の選択が消え、⚠ ただの確認ボタンになる。
+
+# 宝箱を開ける。
+#
+# 戻り値: {"granted": {item_id: 個数}, "left_behind": {item_id: 個数}}
+#         ⚠ 開けられなかったときは両方とも空。⚠ 成否は was_dungeon_chest_opened() で見る。
+#
+# ⚠ 状態を触る前に判定を全部終える（CLAUDE.md 6番）。
+# ⚠ 踏んだノードでしか開けられない。⚠ 1ノードにつき1回だけ（⚠ cleared で覚える）。
+#   ⚠ take_dungeon_relic() と同じ形にしてある。⚠ 判定の順番を変えないこと。
+func open_dungeon_chest(node_id: String) -> Dictionary:
+	var empty: Dictionary = {"granted": {}, "left_behind": {}}
+	if not is_in_dungeon():
+		return empty
+	if str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")) != node_id:
+		print("[GameManager] open_dungeon_chest: そのノードに居ない: " + node_id)
+		return empty
+	var node: Dictionary = get_dungeon_node(node_id)
+	if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) != GameStateKeys.DUNGEON_NODE_KIND_CHEST:
+		print("[GameManager] open_dungeon_chest: 宝箱のマスではない: " + node_id)
+		return empty
+	if bool(node.get(GameStateKeys.DUNGEON_NODE_CLEARED, false)):
+		print("[GameManager] open_dungeon_chest: もう開けている: " + node_id)
+		return empty
+
+	# --- ここから状態を変える ---
+	# ⚠ 先に cleared を立てる。⚠ 配るほうが先だと、⚠ 鞄が満杯で1個も入らなかったときに
+	#   「開いていない宝箱」が残り、⚠ 何度でも引き直せる（＝抽選し放題になる）。
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var nodes: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	(nodes[node_id] as Dictionary)[GameStateKeys.DUNGEON_NODE_CLEARED] = true
+	run[GameStateKeys.DUNGEON_RUN_NODES] = nodes
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+	# ⚠ 配る口は _grant_dungeon_node_gains() の1本だけ（⚠ 2本目を書かない）。
+	#   ⚠ 一時通貨も同じ口が配る（dungeon.json の currency.chest）。
+	var result: Dictionary = _grant_dungeon_node_gains(GameStateKeys.DUNGEON_NODE_KIND_CHEST)
+	print("[GameManager] open_dungeon_chest('%s') -> 入った: %s ／ 鞄が満杯で置いてきた: %s（鞄 %d/%d）" % [
+		node_id, str(result["granted"]), str(result["left_behind"]),
+		get_dungeon_bag_used(), get_dungeon_bag_slots(),
+	])
+	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
+	return result
+
+
+# その宝箱をもう開けたか。⚠ 画面が「開ける」を出すかの判定はこれ1本。
+#
+# ⚠ 画面側で cleared を読まないこと（⚠ 判定を2箇所にしない）。
+func was_dungeon_chest_opened(node_id: String) -> bool:
+	var node: Dictionary = get_dungeon_node(node_id)
+	if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) != GameStateKeys.DUNGEON_NODE_KIND_CHEST:
+		return false
+	return bool(node.get(GameStateKeys.DUNGEON_NODE_CLEARED, false))
+
+
 # いま持っているレリック（{relic_id, character_id} の配列）。
 func get_dungeon_relics() -> Array:
 	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
@@ -8494,6 +8584,7 @@ func _validate_dungeon_config() -> void:
 		"layer_weight_battle": Balance.dungeon.layer_weight_battle,
 		"layer_weight_relic": Balance.dungeon.layer_weight_relic,
 		"layer_weight_rest": Balance.dungeon.layer_weight_rest,
+		"layer_weight_chest": Balance.dungeon.layer_weight_chest,
 	}
 	var expected: int = (rows["layer_weight_battle"] as Array).size()
 	for name: String in rows:
@@ -8516,6 +8607,29 @@ func _validate_dungeon_config() -> void:
 	# ⚠ 休憩で戦利品が出ると、休憩のコスト（その層の戦利品を諦める）が消える。
 	if _dungeon_loot_chance_pct(GameStateKeys.DUNGEON_NODE_KIND_REST) > 0:
 		push_warning("[GameManager] W22 dungeon_config.gd: 休憩ノードで戦利品が出る設定になっている。休憩を選ぶコストが消える（PLAN_HARD_DUNGEON.md §4-9-1）")
+
+	# 宝箱のマス（段階19-b）。⚠ 見るのは「開けても何も出ない」「そもそも出現しない」の2つ。
+	#   ⚠ どちらも赤も黄も出さずに黙って動くので、⚠ 遊んで気づくまで時間が溶ける。
+	if _dungeon_loot_chance_pct(GameStateKeys.DUNGEON_NODE_KIND_CHEST) <= 0:
+		push_error("[GameManager] E137 dungeon_config.gd: loot_chance_chest_pct が 0。宝箱を開けても何も出ない（PLAN_HARD_DUNGEON.md §5-2）")
+		errors += 1
+	var chest_weight_total: int = 0
+	for weight: Variant in (Balance.dungeon.layer_weight_chest as Array):
+		chest_weight_total += maxi(0, int(weight))
+	if chest_weight_total <= 0:
+		push_warning("[GameManager] W30 dungeon_config.gd: layer_weight_chest が全層 0。宝箱のマスが1つも出ない（実装したのに到達しない）")
+
+	# 層の数（段階19-d）。⚠ 重みの配列と dungeon.json の layers の長さが揃っているか。
+	#   ⚠ 揃っていなくても clampi で末尾に落ちるので黙って動く。⚠ そこが危ない。
+	for check_id: String in MasterDataLoader.get_all_dungeon_ids():
+		var check_layers: Variant = MasterDataLoader.get_dungeon(check_id).get(DUNGEON_MASTER_LAYERS, null)
+		if not (check_layers is Array):
+			continue
+		var layer_count: int = (check_layers as Array).size()
+		if layer_count != expected:
+			push_warning("[GameManager] W31 dungeon.json: %s の層 %d に対して層の重みが %d 本。足りないぶんは末尾の重みを使い回す" % [
+				check_id, layer_count, expected
+			])
 
 	# dungeon.json 側。⚠ 1本も無ければ事故（ここへ来る＝実装済みのはず）。
 	var dungeon_ids: Array[String] = MasterDataLoader.get_all_dungeon_ids()
@@ -8665,6 +8779,6 @@ func _validate_dungeon_config() -> void:
 
 	if errors > 0:
 		return
-	print("[GameManager] dungeon config validated: %d 層 / ダンジョン %d 本 / 戦利品の行 %d / ラン専用の品 %s, 0 errors" % [
-		expected, dungeon_ids.size(), checked_loot, str(dungeon_items)
+	print("[GameManager] dungeon config validated: %d 層 / 分岐の広がり %d / ダンジョン %d 本 / 戦利品の行 %d / ラン専用の品 %s, 0 errors" % [
+		expected, int(Balance.dungeon.branch_spread), dungeon_ids.size(), checked_loot, str(dungeon_items)
 	])

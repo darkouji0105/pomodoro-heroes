@@ -3,9 +3,11 @@
     "name_key": "ui_dungeon_hard",
     "layers": [
       { "node_count": 1 },
-      { "node_count": 2 },
       { "node_count": 3 },
-      { "node_count": 2 },
+      { "node_count": 4 },
+      { "node_count": 4 },
+      { "node_count": 3 },
+      { "node_count": 4 },
       { "node_count": 3 },
       { "node_count": 2 }
     ],
@@ -42,6 +44,18 @@
       },
       "relic": { "rolls": 0, "entries": [] },
       "rest": { "rolls": 0, "entries": [] },
+      "chest": {
+        "rolls": 3,
+        "entries": [
+          { "item_id": "construction_material_2", "weight": 20, "count": 2 },
+          { "item_id": "training_material_2", "weight": 20, "count": 2 },
+          { "item_id": "forging_material_2", "weight": 18, "count": 2 },
+          { "item_id": "decor_material_2", "weight": 12, "count": 2 },
+          { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
+          { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+          { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 }
+        ]
+      },
       "boss": {
         "rolls": 3,
         "entries": [
@@ -67,6 +81,7 @@
       "battle": 12,
       "relic": 0,
       "rest": 0,
+      "chest": 20,
       "boss": 45
     }
   }

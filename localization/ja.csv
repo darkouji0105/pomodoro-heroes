@@ -778,3 +778,9 @@ ui_dungeon_relic_taken,レリックを手に入れた
 ui_dungeon_shop_enter,商人と話す
 ui_dungeon_shop_back,マップへ戻る
 ui_dungeon_relic_hint,1つ選ぶ。このランのあいだ効く
+ui_dungeon_node_chest,宝箱
+ui_dungeon_chest_title,宝箱を見つけた
+ui_dungeon_chest_hint,開けると中身が鞄に入る。鞄が満杯だと入らない
+ui_dungeon_chest_open,開ける
+ui_dungeon_chest_opened,中身を鞄に入れた
+ui_dungeon_chest_left_behind,鞄が満杯で置いてきた個数

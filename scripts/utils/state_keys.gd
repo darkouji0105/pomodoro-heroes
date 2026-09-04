@@ -445,6 +445,10 @@ const DUNGEON_NODE_KIND_BATTLE: String = "battle"
 const DUNGEON_NODE_KIND_RELIC: String = "relic"
 const DUNGEON_NODE_KIND_REST: String = "rest"
 const DUNGEON_NODE_KIND_BOSS: String = "boss"
+# ⚠ 5つ目（段階19-b）。⚠ 「その場で開ける」（案A）。⚠ 拠点の PENDING_CHESTS には積まない。
+#   ⚠ 積むと「死んでも宝箱は残る」になり、⚠ 全ロスト（決定7・§4-8）が1点で崩れる。
+# ⚠ 種を増やしたら DungeonConfig の層の重みも1本増やすこと（E133 が長さを見張る）。
+const DUNGEON_NODE_KIND_CHEST: String = "chest"
 
 # ============================================================
 # 装備の個体管理（第2弾）

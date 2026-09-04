@@ -24,16 +24,33 @@ extends Resource
 # --- 層のノード出現比（段階17-a） ---
 #
 # ⚠ 添字が層番号 − 1。⚠ 配列の長さがそのまま層数になる。
-# ⚠ 3本とも同じ長さにすること（E133 が見張る）。
+# ⚠ 4本とも同じ長さにすること（E133 が見張る）。
 # ⚠ shop の欄は無い。ショップはボスを倒した先だけ（決定15・§5-0）。
 #   ⚠ 層に shop を置かないこと。置くと「潜るか降りるか」の決断の場所が2つになる。
 #
 # 層1 … 入口。必ず戦闘（合流点が1ノードなので、ここで分岐は作れない）
 # ⚠ rest を厚くしすぎないこと。休憩は「その層の戦闘・レリック・宝箱を諦める」
 #   ことがコスト（§4-9-1）なので、選び放題だとコストが消える。
-@export var layer_weight_battle: Array[int] = [100, 65, 55, 60, 50, 60]
-@export var layer_weight_relic: Array[int] = [0, 25, 25, 20, 25, 15]
-@export var layer_weight_rest: Array[int] = [0, 10, 20, 20, 25, 25]
+#
+# ⚠⚠ 段階19-d で 6 本 → 8 本に伸ばした（層数を 6 → 8）。⚠ 全部仮置き。
+#   ⚠ 長さを変えるときは dungeon.json の layers も同じ長さにすること
+#     （⚠ 揃っていなくても clampi で末尾に落ちるので黙って動く＝W31 が鳴く）。
+# ⚠⚠ 段階19-b で chest の1本を足した（4本目）。⚠ 足すときは
+#   get_dungeon_layer_weights() / _dungeon_loot_chance_pct() / E133 の3箇所も一緒に。
+@export var layer_weight_battle: Array[int] = [100, 60, 50, 55, 45, 50, 45, 55]
+@export var layer_weight_relic: Array[int] = [0, 20, 20, 15, 20, 15, 20, 15]
+@export var layer_weight_rest: Array[int] = [0, 5, 10, 15, 20, 15, 20, 25]
+@export var layer_weight_chest: Array[int] = [0, 15, 20, 15, 15, 20, 15, 5]
+
+# --- 分岐の密度（段階19-d） ---
+#
+# ⚠ 上の層の1ノードから、下の層の「持ち分の窓」の外へ何個ぶん伸ばすか。
+#   ⚠ 0 … 一本道になる（分岐が消える）
+#   ⚠ 1 … 2択（⚠ 19-d より前の実装がこれ。⚠ 既定）
+#   ⚠ 2 … 3択（⚠ 全ルート数が跳ね上がる。⚠ scenario=dungeon の総当たりが重くなる）
+# ⚠⚠ 接続そのものは決め打ちのまま（乱数を入れない）。⚠ 乱数にすると
+#   「ボスに着かないルート」が低確率で生まれ、⚠ 再現できない事故になる。
+@export var branch_spread: int = 1
 
 # --- 戦利品（§5-2・決定：宝箱は「ノード種」に紐づける） ---
 #
@@ -49,6 +66,12 @@ extends Resource
 @export var loot_chance_relic_pct: int = 0
 @export var loot_chance_rest_pct: int = 0
 @export var loot_chance_boss_pct: int = 100
+
+## 宝箱のマスで戦利品を引く確率（％。段階19-b）。
+## ⚠ 100 以外にしないこと。⚠ 「開けたのに空だった」は、⚠ 一貫原則の
+##   「安全は犠牲でしか買えない」ではなく、⚠ ただの理不尽になる
+##   （⚠ Roguebook の知見「不公平だと感じると離脱する」）。⚠ E137 が 0 を見張る。
+@export var loot_chance_chest_pct: int = 100
 
 # --- 鞄（§4-1） ---
 #
