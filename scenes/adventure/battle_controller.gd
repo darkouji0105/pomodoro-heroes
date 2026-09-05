@@ -1764,7 +1764,11 @@ func _finish_dungeon_battle(victory: bool) -> void:
 		return
 	if not victory:
 		return
+	# ⚠⚠ 戦闘のマスの戦利品は「勝ったとき」に入る（不1・2026-09-05）。
+	#   ⚠ 踏んだ時点で配ると、⚠ 負けても報酬が残り、⚠ 戦闘そのものも起きなかった。
 	if not _is_dungeon_boss():
+		if not GameManager.clear_dungeon_battle():
+			push_warning("[Battle] clear_dungeon_battle() が false（戦闘のマスに居ない）")
 		return
 	if not GameManager.clear_dungeon_boss():
 		push_warning("[Battle] clear_dungeon_boss() が false（ボスのノードに居ない）")

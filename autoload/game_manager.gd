@@ -7592,8 +7592,12 @@ func move_in_dungeon(node_id: String) -> bool:
 	#   （踏んだ時点で配ると、負けても報酬が残る）。
 	# ⚠⚠ 宝箱も踏んだだけでは出ない（段階19-b）。⚠ open_dungeon_chest() が配る。
 	#   ⚠ ここで配ると「開ける」動作が飾りになり、⚠ 画面が中身を見せる前に鞄へ入る。
+	# ⚠⚠ 戦闘のマスも踏んだだけでは出ない（不1・2026-09-05）。⚠ clear_dungeon_battle() が配る。
+	#   ⚠ 踏んだ時点で配っていたため、⚠ (1) 負けても報酬が残り、⚠ (2) 拾い待ちが立って
+	#     画面が拾いものへ送られ、⚠ 戦闘そのものが起きなかった（⚠ 人間「戦闘が起きずに報酬だけもらえる」）。
 	if kind != GameStateKeys.DUNGEON_NODE_KIND_BOSS \
-			and kind != GameStateKeys.DUNGEON_NODE_KIND_CHEST:
+			and kind != GameStateKeys.DUNGEON_NODE_KIND_CHEST \
+			and kind != GameStateKeys.DUNGEON_NODE_KIND_BATTLE:
 		# ⚠⚠ 段階20-f：⚠ 戦利品も拾い待ちへ（⚠ 人間の指示「戦利品も選ばせる」）。
 		#   ⚠ これで鞄へ直接入る経路は1つも無くなった。⚠ 入れるのは必ずプレイヤーが選ぶ。
 		_grant_dungeon_node_gains(kind, true)
@@ -7634,6 +7638,48 @@ func clear_dungeon_boss() -> bool:
 	# ⚠ ボスの戦利品も拾い待ちへ（段階20-f）。⚠ 画面が「何を持ち帰るか」を選ばせる。
 	_grant_dungeon_node_gains(GameStateKeys.DUNGEON_NODE_KIND_BOSS, true)
 	print("[GameManager] clear_dungeon_boss() -> フロア%d 突破。撤退できる状態になった" % get_dungeon_floor_index())
+	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
+	return true
+
+
+# 戦闘のマスに勝った。⚠ ここで初めて戦闘の戦利品と一時通貨が入る（不1・2026-09-05）。
+#
+# ⚠⚠ 段階20-f までは move_in_dungeon() が「踏んだ時点」で配っていた。⚠ それを勝利時に移した。
+#   ⚠ 踏んだ時点で配ると、⚠ ボス（clear_dungeon_boss）と宝箱（open_dungeon_chest）で
+#     避けたのと同じ穴が戦闘だけに残る＝⚠ 負けても報酬が残る。
+#   ⚠⚠ さらに 20-f で戦利品が拾い待ちへ回ったため、⚠ 踏んだ瞬間に拾い待ちが立ち、
+#     ⚠ dungeon_map が拾いものの画面へ送って戦闘が始まらなくなっていた。
+# ⚠ 1マス1回（⚠ cleared で覚える）。⚠ ボスは clear_dungeon_boss() の担当。ここでは弾く。
+func clear_dungeon_battle() -> bool:
+	if not is_in_dungeon():
+		return false
+	if get_dungeon_phase() != GameStateKeys.DUNGEON_PHASE_MAP:
+		print("[GameManager] clear_dungeon_battle() -> false (すでにボスの先に居る)")
+		return false
+	var position: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	var node: Dictionary = get_dungeon_node(position)
+	if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) != GameStateKeys.DUNGEON_NODE_KIND_BATTLE:
+		print("[GameManager] clear_dungeon_battle() -> false (戦闘のマスに居ない: %s)" % position)
+		return false
+	if bool(node.get(GameStateKeys.DUNGEON_NODE_CLEARED, false)):
+		print("[GameManager] clear_dungeon_battle() -> false (もう倒したマス: %s)" % position)
+		return false
+
+	# --- ここから状態を変える（⚠ 判定は全部上で終えている・CLAUDE.md 6番）---
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var nodes: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	(nodes[position] as Dictionary)[GameStateKeys.DUNGEON_NODE_CLEARED] = true
+	run[GameStateKeys.DUNGEON_RUN_NODES] = nodes
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+	# ⚠ 配る口は _grant_dungeon_node_gains() の1本のまま（⚠ 2本目を書かない）。
+	# ⚠ 拾い待ちへ積む（段階20-f）。⚠ 鞄へ入れるのはプレイヤーが選ぶ。
+	var result: Dictionary = _grant_dungeon_node_gains(
+		GameStateKeys.DUNGEON_NODE_KIND_BATTLE, true
+	)
+	print("[GameManager] clear_dungeon_battle('%s') -> 拾い待ちへ %s" % [
+		position, result.get("granted", {})
+	])
 	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
 	return true
 
@@ -8000,7 +8046,7 @@ func _is_dungeon_only_item(item_id: String) -> bool:
 #   ⚠ 配る口を2本目にしないための変更。⚠ 呼び出し元3箇所のうち2箇所は戻り値を捨てる。
 func _grant_dungeon_node_gains(kind: String, to_pending: bool = false) -> Dictionary:
 	# ⚠⚠ to_pending＝拾い待ちに積む（段階20-e）。⚠ 鞄には入れず、⚠ プレイヤーが選ぶ。
-	#   ⚠ 宝箱（マス・通路）だけ true。⚠ 戦闘・ボスは今までどおり黙って鞄へ。
+	#   ⚠⚠ 段階20-f 以降は呼び出し元が全部 true（⚠ 鞄へ直接入る経路は1つも無い）。
 	#   ⚠ 拾い待ちには枠が無いので、⚠ そのときの left_behind は必ず空になる。
 	var result: Dictionary = {"granted": {}, "left_behind": {}}
 	var config: DungeonConfig = _dungeon()

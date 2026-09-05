@@ -637,6 +637,20 @@ func _on_node_pressed(node_id: String) -> void:
 	if not GameManager.move_in_dungeon(node_id):
 		message_label.text = tr("ui_dungeon_cannot_move")
 		return
+	# ⚠⚠ 戦闘・ボスのマスは、割り込みより先に戦闘へ（不1・2026-09-05）。
+	#   ⚠ 先に拾いもの／通路の宝箱の画面へ送ると、⚠ 戻ってきたときに「着いたマスの中身へ
+	#     入る」口がもう無く、⚠ 戦闘が起きないまま次のマスへ進めてしまう
+	#     （⚠ _ready() は拾い待ちしか見ない。⚠ _enter_node() を呼ぶのはここ1箇所だけ）。
+	#   ⚠ 通路の宝箱と拾い待ちは戦闘から戻ったときに拾う
+	#     （⚠ 拾い待ち＝_ready() ／ ⚠ 通路の宝箱＝_rebuild() の案内ボタン）。
+	var kind: String = str(
+		GameManager.get_dungeon_node(node_id).get(GameStateKeys.DUNGEON_NODE_KIND, "")
+	)
+	if kind == GameStateKeys.DUNGEON_NODE_KIND_BATTLE \
+			or kind == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+		_notify_edge_event()
+		_enter_node(node_id)
+		return
 	# ⚠⚠ 通路の宝箱が先（段階19-c-2）。⚠ 着いたマスの中身より前に開けさせる
 	#   （⚠ 「通路を歩いてから部屋に着く」の順。⚠ move_in_dungeon の中の順番と揃える）。
 	#   ⚠ 開けずに戻ってきても持ち越しは残る（⚠ 下の _rebuild で案内が出る）。

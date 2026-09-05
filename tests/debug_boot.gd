@@ -5221,9 +5221,29 @@ func _report_dungeon() -> void:
 	# --- 6. 入口からボスまで歩く（戦利品はノード種に紐づく）---
 	print("  --- 入口からボスまで歩く（⚠ 戦利品は「移動」ではなく「ノード種」に紐づく）---")
 	var steps: int = 0
+	# ⚠⚠ 最初に踏んだ戦闘のマスで「踏んだだけでは配らない」を1回だけ見る（不1・2026-09-05）。
+	var battle_checked: bool = false
 	while true:
 		var here: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
 		var node: Dictionary = GameManager.get_dungeon_node(here)
+		if not battle_checked \
+				and str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BATTLE:
+			battle_checked = true
+			print("  --- 戦闘のマス '%s'（⚠ 踏んだだけでは配らない・不1）---" % here)
+			print("    踏んだ直後の拾い待ち = %s（⚠ 空が正解＝戦闘が起きる前に報酬が出ない）" % [
+				str(GameManager.get_dungeon_pending_loot())
+			])
+			if GameManager.has_dungeon_pending_loot():
+				push_error("[DebugBoot] 戦闘のマスを踏んだだけで拾い待ちが立った（不1 の再発）")
+			var won: bool = GameManager.clear_dungeon_battle()
+			print("    clear_dungeon_battle() -> %s（true が正解） / 拾い待ち = %s" % [
+				str(won), str(GameManager.get_dungeon_pending_loot())
+			])
+			print("    ⚠ もう一度倒す -> %s（false が正解＝1マス1回）" % [
+				str(GameManager.clear_dungeon_battle())
+			])
+			# ⚠ 拾い待ちを片付けてから歩き続ける（⚠ 溜めると次の節の測定に混ざる）。
+			var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
 		var moves: Array = GameManager.get_dungeon_moves()
 		print("    %d手目 いま=%-8s 種類=%-6s 鞄=%d/%d 通貨=%d 進める先=%s" % [
 			steps, here, str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")),
