@@ -11,7 +11,12 @@
 # ⚠ 撤退できるかの判定も自分で書かない（can_retreat_from_dungeon()）。
 # ⚠ ポーションが効くかの判定も書かない（use_dungeon_item() が弾く）。
 # ⚠ 再描画に await を持たせない。remove_child() してから queue_free()（AGENTS.md）。
-# ⚠ ScrollContainer を使わない。中は scenario=layout で測れない。
+#
+# ⚠⚠ 段階19-e で ScrollContainer を入れた（人間の指示「画面をスクロールできるように」）。
+#   ⚠ 層が 6 → 8 になり（19-d）、⚠ 通路の線も入って縦に伸びたため。
+#   ⚠⚠ 代償：⚠ `scenario=layout` はこの画面の中身を測れなくなった（宿題68 と同じ穴）。
+#     ⚠ 倉庫は 18-c で「Scroll をやめて固定グリッドにする」で解いたが、
+#       ⚠ こちらは層数が可変なので固定にできない。⚠ 測れないことを受け入れる。
 
 extends Control
 
@@ -35,13 +40,30 @@ const COLOR_DOWNED: Color = Color(0.85, 0.35, 0.35)
 # 中身が見えていないマスの表示（段階17-e）。⚠ シナリオ側と同じ字にしてある。
 const HIDDEN_TEXT: String = "？"
 
+# 通路の線の色（段階19-e・人間の指示「通路用のグラフィックを用意したほうがいい」）。
+#
+# ⚠ 色はここに置く（⚠ マスの色と同じ扱い。⚠ main_theme.tres に対応する概念が無い）。
+# ⚠⚠ 「良いか悪いか」だけを色で言う。⚠ 何が起きるかは絵文字が言う（⚠ 役割を分ける）。
+# ⚠ 罠＝赤 ／ 得＝黄 ／ 何も無い＝灰 ／ 中身が見えていない＝暗い灰。
+const COLOR_EDGE_TRAP: Color = Color(0.85, 0.35, 0.35)
+const COLOR_EDGE_GAIN: Color = Color(0.95, 0.85, 0.4)
+const COLOR_EDGE_PLAIN: Color = Color(0.45, 0.45, 0.5)
+const COLOR_EDGE_HIDDEN: Color = Color(0.28, 0.28, 0.32)
+# ⚠ いま立っているマスから出ている通路は太くする（⚠ 「次に選ぶのはここ」が読めること）。
+const EDGE_WIDTH: float = 2.0
+const EDGE_WIDTH_CURRENT: float = 4.0
+
 @onready var dungeon_name_label: Label = $Layout/Header/DungeonNameLabel
 @onready var floor_label: Label = $Layout/Header/FloorLabel
 @onready var currency_label: Label = $Layout/Header/CurrencyLabel
 @onready var bag_label: Label = $Layout/Header/BagLabel
 @onready var party_list: HBoxContainer = $Layout/PartyList
 @onready var message_label: Label = $Layout/MessageLabel
-@onready var layer_list: VBoxContainer = $Layout/LayerList
+@onready var map_scroll: ScrollContainer = $Layout/MapScroll
+@onready var map_area: Control = $Layout/MapScroll/MapArea
+@onready var layer_list: VBoxContainer = $Layout/MapScroll/MapArea/LayerList
+# 通路の線（段階19-e）。⚠ LayerList より前（下）に置いてある＝線がマスの下に描かれる。
+@onready var edge_lines: DungeonEdgeLines = $Layout/MapScroll/MapArea/EdgeLines
 # 鞄はマス目（段階18-d）。⚠ 部品は倉庫と同じ。⚠ 引く先だけ別（器が別＝台帳 §7）。
 # ボスの先のショップ（段階17-e）。⚠ 出るかどうかは GameManager に聞く。
 @onready var shop_list: VBoxContainer = $Layout/ShopList
@@ -73,6 +95,10 @@ func _ready() -> void:
 	GameManager.dungeon_run_changed.connect(_on_dungeon_run_changed)
 	bag_grid.columns = GameManager.get_dungeon_bag_slots()
 	bag_grid.slot_pressed.connect(_on_bag_slot_pressed)
+	# ⚠⚠ 通路の線はマスの位置が確定してからでないと引けない（段階19-e）。
+	#   ⚠ 並べ替えが終わるたびに引き直す。⚠ await を使わない（AGENTS.md）。
+	#   ⚠ sort_children はレイアウトのたびに飛ぶので、⚠ ウィンドウを広げても追従する。
+	layer_list.sort_children.connect(_redraw_edges)
 	_rebuild()
 
 
@@ -136,6 +162,81 @@ func _rebuild_party() -> void:
 		party_list.add_child(label)
 
 
+# マスのボタン（段階19-e）。⚠ {node_id: PrimaryButton}。⚠ 通路の線を引くのに使う。
+#
+# ⚠ 描き直すたびに作り直す。⚠ 古いボタンを持ったままにしないこと
+#   （⚠ queue_free() 済みのノードの位置を読むと落ちる）。
+var _node_buttons: Dictionary = {}
+
+
+# 通路を線で引く（段階19-e・人間の指示）。
+#
+# ⚠⚠ マスの位置が確定してからでないと引けない。⚠ 呼ぶのは
+#   ①`_rebuild_layers()` の最後 ②`layer_list.sort_children` の2箇所だけ。
+#   ⚠ `await` を使わない（AGENTS.md「再描画に await を持たせない」）。
+# ⚠ 何が起きる通路かは絵文字が言う（マスの前）。⚠ 線が言うのは「良いか悪いか」だけ。
+# ⚠ 効果があるかの判定を自分で書かない（GameManager.get_dungeon_edges）。
+func _redraw_edges() -> void:
+	if edge_lines == null or not GameManager.is_in_dungeon():
+		return
+	var run: Dictionary = GameManager.get_dungeon_run()
+	var position: String = str(run.get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	var lines: Array = []
+	# ⚠ 綴り順で回す（⚠ Dictionary のキー順は不定。⚠ 重なり順が起動ごとに変わらない）。
+	var from_ids: Array = _node_buttons.keys()
+	from_ids.sort()
+	for raw_from: Variant in from_ids:
+		var from_id: String = str(raw_from)
+		var from_button: Control = _node_buttons[from_id]
+		if not is_instance_valid(from_button):
+			continue
+		for entry: Variant in GameManager.get_dungeon_edges(from_id):
+			var edge: Dictionary = entry
+			var to_id: String = str(edge.get(GameStateKeys.DUNGEON_EDGE_TO, ""))
+			if not _node_buttons.has(to_id):
+				continue
+			var to_button: Control = _node_buttons[to_id]
+			if not is_instance_valid(to_button):
+				continue
+			lines.append({
+				# ⚠ 深い層が上なので、⚠ from は上辺・to は下辺でつなぐと線が交差しない。
+				DungeonEdgeLines.LINE_FROM: _edge_anchor(from_button, true),
+				DungeonEdgeLines.LINE_TO: _edge_anchor(to_button, false),
+				DungeonEdgeLines.LINE_COLOR: _edge_color(from_id, to_id, edge),
+				DungeonEdgeLines.LINE_WIDTH: (
+					EDGE_WIDTH_CURRENT if from_id == position else EDGE_WIDTH
+				),
+			})
+	edge_lines.set_lines(lines)
+
+
+# マスのボタンのつなぎ目（段階19-e）。⚠ top なら上辺の中央、⚠ でなければ下辺の中央。
+#
+# ⚠ 座標は EdgeLines と同じ親（MapArea）の中の位置。⚠ LayerList と EdgeLines は
+#   同じ矩形に重ねてあるので、⚠ LayerList の中の位置をそのまま使える。
+func _edge_anchor(button: Control, top: bool) -> Vector2:
+	var rect: Rect2 = button.get_global_rect()
+	var origin: Vector2 = edge_lines.get_global_rect().position
+	var center_x: float = rect.position.x + rect.size.x * 0.5
+	var y: float = rect.position.y if top else rect.position.y + rect.size.y
+	return Vector2(center_x, y) - origin
+
+
+# 通路の線の色。⚠ 「良いか悪いか」だけを言う（⚠ 何が起きるかは絵文字）。
+func _edge_color(from_id: String, to_id: String, edge: Dictionary) -> Color:
+	if not GameManager.is_dungeon_edge_revealed(from_id, to_id):
+		return COLOR_EDGE_HIDDEN
+	match str(edge.get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")):
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP, \
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY, \
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG:
+			return COLOR_EDGE_TRAP
+		GameStateKeys.DUNGEON_EDGE_EFFECT_CHEST, \
+		GameStateKeys.DUNGEON_EDGE_EFFECT_RESOURCE:
+			return COLOR_EDGE_GAIN
+	return COLOR_EDGE_PLAIN
+
+
 # 層を縦に並べる。⚠ 下が入口・上がボス（引き返さない＝決定12）。
 func _rebuild_layers() -> void:
 	for child in layer_list.get_children():
@@ -163,17 +264,28 @@ func _rebuild_layers() -> void:
 	layers.sort()
 	layers.reverse()  # 深い層（ボス）を上に。
 
+	# ⚠ 通路の線を引くのに「どのマスがどこに居るか」が要る（段階19-e）。
+	#   ⚠ ノード名で探し直さない。⚠ 作ったときに覚える（⚠ 探し直すと名前の綴りが2箇所になる）。
+	_node_buttons.clear()
+
 	for layer: Variant in layers:
 		var row: HBoxContainer = HBoxContainer.new()
 		row.name = "Layer_%d" % int(layer)
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 12)
+		row.add_theme_constant_override("separation", 24)
 		for node_id: Variant in (by_layer[layer] as Array):
-			row.add_child(_make_node_button(
+			var node_button: PrimaryButton = _make_node_button(
 				str(node_id), nodes[node_id], str(node_id) == position,
 				visited.has(str(node_id)), str(node_id) in moves
-			))
+			)
+			_node_buttons[str(node_id)] = node_button
+			row.add_child(node_button)
 		layer_list.add_child(row)
+
+	# ⚠ 中身が縦に伸びたぶんスクロールできるように、⚠ 包みの最小の高さを合わせる（段階19-e）。
+	#   ⚠ Control は子の最小サイズを自動では拾わない。⚠ ここで渡す。
+	map_area.custom_minimum_size = layer_list.get_combined_minimum_size()
+	_redraw_edges()
 
 
 func _make_node_button(

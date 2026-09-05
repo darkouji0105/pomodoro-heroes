@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_button"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
+[ext_resource type="Script" path="res://scenes/adventure/dungeon_edge_lines.gd" id="5_edge_lines"]
 
 [node name="DungeonMap" type="Control"]
 layout_mode = 3
@@ -64,11 +65,35 @@ theme_override_constants/separation = 16
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2
 
-[node name="LayerList" type="VBoxContainer" parent="Layout"]
+[node name="MapScroll" type="ScrollContainer" parent="Layout"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 4
+horizontal_scroll_mode = 0
+
+[node name="MapArea" type="Control" parent="Layout/MapScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="EdgeLines" type="Control" parent="Layout/MapScroll/MapArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_edge_lines")
+
+[node name="LayerList" type="VBoxContainer" parent="Layout/MapScroll/MapArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
 alignment = 1
 
 [node name="ShopList" type="VBoxContainer" parent="Layout"]

@@ -3667,6 +3667,15 @@ func _report_layout() -> void:
 		print("  %-46s 最小 %.0f x %.0f（基準 %.0f x %.0f）%s" % [
 			scene_path.get_file(), minimum.x, minimum.y, SCREEN_SIZE.x, SCREEN_SIZE.y, over
 		])
+		# ⚠ コードで描く線（段階19-e）。⚠ 絵は取れないが「何本引いたか」は取れる。
+		#   ⚠ 0 本なら通路が1本も見えていない（⚠ 人間が実機で報告した症状そのもの）。
+		#   ⚠ 画面ごとに if を書かない。⚠ その部品を持っている画面だけが出る。
+		for raw_child: Node in instance.find_children("*", "Control", true, false):
+			if raw_child is DungeonEdgeLines:
+				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
+				print("    ⚠ 通路の線 = %d 本（0 本なら通路が1本も見えていない）" % drawn)
+				if drawn <= 0:
+					push_error("[DebugBoot] 通路の線が0本（段階19-e が効いていない）")
 		instance.queue_free()
 		await get_tree().process_frame
 
