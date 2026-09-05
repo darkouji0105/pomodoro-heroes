@@ -5011,11 +5011,31 @@ func _report_dungeon() -> void:
 				continue
 			if str(edge.get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")) != "":
 				edge_with_effect += 1
-	print("  通路 = %d 本 / ⚠ 形が違う・行き先が無い = %d 本（0 が正解） / 効果つき = %d 本（19-c-1 では 0 が正解）" % [
+	print("  通路 = %d 本 / ⚠ 形が違う・行き先が無い = %d 本（0 が正解） / 効果つき = %d 本（⚠ 5本に1本＝2割ぐらいが正解）" % [
 		edge_total, edge_bad, edge_with_effect
 	])
 	if edge_bad > 0:
 		push_error("[DebugBoot] 通路が {to, effect} になっていないか、行き先が実在しない")
+	if edge_with_effect <= 0:
+		push_error("[DebugBoot] 効果つきの通路が0本（段階19-c-2 が効いていない）")
+	# ⚠ 効果の内訳（⚠ 5種とも出るかは抽選なので毎回は揃わない。⚠ 綴りだけ見る）。
+	var effect_count: Dictionary = {}
+	for node_id: Variant in nodes:
+		for raw_edge: Variant in ((nodes[node_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, []) as Array):
+			if not (raw_edge is Dictionary):
+				continue
+			var eff: String = str((raw_edge as Dictionary).get(GameStateKeys.DUNGEON_EDGE_EFFECT, ""))
+			if eff == "":
+				continue
+			effect_count[eff] = int(effect_count.get(eff, 0)) + 1
+			if not (eff in GameManager.DUNGEON_EDGE_EFFECTS_KNOWN):
+				push_error("[DebugBoot] 知らない通路の効果: " + eff)
+	var effect_names: Array = effect_count.keys()
+	effect_names.sort()
+	var effect_parts: Array[String] = []
+	for eff_name: Variant in effect_names:
+		effect_parts.append("%s=%d" % [str(eff_name), int(effect_count[eff_name])])
+	print("    効果の内訳 = %s" % (" ".join(effect_parts) if not effect_parts.is_empty() else "（無し）"))
 	# ⚠ 口が2本とも同じものを見ているか（⚠ get_dungeon_moves は ID だけを返す）。
 	var here_now: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
 	var moves_now: Array = GameManager.get_dungeon_moves()
@@ -5297,6 +5317,105 @@ func _report_dungeon() -> void:
 			int(lost_bag[item_id]),
 		])
 	print("  is_in_dungeon() = %s（false が正解）" % str(GameManager.is_in_dungeon()))
+
+	# --- 13-A1. 通路の効果（段階19-c-2・人間の決定24）---
+	#
+	# ⚠ 抽選なので「どれが出るか」は毎回変わる。⚠ 見るのは
+	#   ①効果を直接叩いたときに状態が動くか ②宝箱が持ち越しになるか
+	#   ③罠で脱落しないこと（⚠ 設計役の判断。⚠ 死ぬのは戦闘だけ）。
+	# ⚠ 効かせる口（_apply_dungeon_edge_effect）は private なので、
+	#   ⚠ ここでは「通路を通る」を繰り返して実際に踏ませる。
+	print("[DebugBoot] --- 通路の効果（⚠ 罠・宝箱・資源。⚠ 5本に1本）---")
+	if not GameManager.start_dungeon_run(target_id):
+		push_error("[DebugBoot] 通路ぶんの start_dungeon_run が false")
+		return
+	print("  ⚠ たいまつ 等級%d / %d 層先まで見える（⚠ 決定25：⚠ 等級1 を持って始まる）" % [
+		GameManager.get_dungeon_torch_grade(), GameManager.get_dungeon_reveal_layers()
+	])
+	if GameManager.get_dungeon_torch_grade() <= 0:
+		push_error("[DebugBoot] ランの開始時にたいまつを持っていない（決定25）")
+	# ⚠ 入口から出ている通路の中身（⚠ 画面が出すもの）。
+	var entry_edges: Array = GameManager.get_dungeon_edges(entry_id)
+	for raw_entry_edge: Variant in entry_edges:
+		var entry_edge: Dictionary = raw_entry_edge
+		var entry_to: String = str(entry_edge.get(GameStateKeys.DUNGEON_EDGE_TO, ""))
+		print("    入口 -> %-8s 効果 '%s' ／ 見えているか %s" % [
+			entry_to, str(entry_edge.get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")),
+			str(GameManager.is_dungeon_edge_revealed(entry_id, entry_to)),
+		])
+	# ⚠⚠ 効果は抽選なので、⚠ 1本のランでは5種のうち1〜2種しか踏めない
+	#   （⚠ 最初はそう書いて、⚠ 罠(HP)も通路の宝箱も1度も踏めていなかった）。
+	#   ⚠ ランを作り直しながら「効果のある通路を優先して歩く」を繰り返し、
+	#     ⚠ 5種とも1度は踏むまで回す。
+	var seen_effects: Dictionary = {}
+	var runs_used: int = 0
+	for _run_try: int in range(20):
+		runs_used += 1
+		var before_hp: Dictionary = GameManager.get_dungeon_max_hp()
+		var before_currency: int = GameManager.get_dungeon_currency()
+		for effect: String in _walk_dungeon_preferring_edges():
+			seen_effects[effect] = int(seen_effects.get(effect, 0)) + 1
+		print("  %2d本目：⚠ 戦闘時MAX HP %s -> %s ／ 通貨 %d -> %d" % [
+			runs_used, str(before_hp), str(GameManager.get_dungeon_max_hp()),
+			before_currency, GameManager.get_dungeon_currency(),
+		])
+		if seen_effects.size() >= GameManager.DUNGEON_EDGE_EFFECTS_KNOWN.size():
+			break
+		GameManager.abandon_dungeon_run()
+		if not GameManager.start_dungeon_run(target_id):
+			push_error("[DebugBoot] 通路ぶんの start_dungeon_run が false（作り直し）")
+			break
+	var effect_names_seen: Array = seen_effects.keys()
+	effect_names_seen.sort()
+	var seen_parts: Array[String] = []
+	for effect_name: Variant in effect_names_seen:
+		seen_parts.append("%s=%d" % [str(effect_name), int(seen_effects[effect_name])])
+	print("  ⚠ %d 本のランで踏んだ効果 = %s（⚠ 5種とも1回以上が正解）" % [
+		runs_used, " ".join(seen_parts)
+	])
+	for known_effect: String in GameManager.DUNGEON_EDGE_EFFECTS_KNOWN:
+		if not seen_effects.has(known_effect):
+			push_error("[DebugBoot] %d 本回しても踏めなかった通路の効果: %s" % [runs_used, known_effect])
+	GameManager.abandon_dungeon_run()
+
+	# ⚠⚠ 罠（HP）で脱落しないこと（⚠ 設計役の判断。⚠ 死ぬのは戦闘だけ＝§4-4-2）。
+	#   ⚠ 満タンで歩いても削られる量が小さくて 0 に届かないので、⚠ 先に 1 まで削っておく。
+	#   ⚠ ここが「見えない通路を通っただけで全ロストにならない」ことの唯一の根拠。
+	print("[DebugBoot] --- 罠（HP）は脱落させない（⚠ HP 1 から歩く）---")
+	var trap_hp_hits: int = 0
+	for _trap_try: int in range(20):
+		if not GameManager.start_dungeon_run(target_id):
+			push_error("[DebugBoot] 罠ぶんの start_dungeon_run が false")
+			break
+		var one_hp: Dictionary = {}
+		for member: Variant in GameManager.get_party_members():
+			one_hp[str(member)] = 1
+		var _died: bool = GameManager.apply_dungeon_battle_result(one_hp)
+		for effect: String in _walk_dungeon_preferring_edges():
+			if effect == GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP:
+				trap_hp_hits += 1
+		if trap_hp_hits > 0:
+			print("  HP 1 のまま罠（HP）を %d 回踏んだ -> 戦闘時MAX HP = %s（⚠ 1 未満にならないのが正解）" % [
+				trap_hp_hits, str(GameManager.get_dungeon_max_hp())
+			])
+			var downed_by_trap: Array[String] = []
+			for member: Variant in GameManager.get_party_members():
+				if GameManager.is_dungeon_character_downed(str(member)):
+					downed_by_trap.append(str(member))
+			print("  ⚠ 罠だけで脱落した者 = %d 人（0 が正解）%s" % [
+				downed_by_trap.size(), "" if downed_by_trap.is_empty() else " " + str(downed_by_trap),
+			])
+			if not downed_by_trap.is_empty():
+				push_error("[DebugBoot] 通路の罠で脱落した（見えない通路で全ロストになりうる）")
+			break
+		GameManager.abandon_dungeon_run()
+	if trap_hp_hits <= 0:
+		push_error("[DebugBoot] 20本回しても罠（HP）を踏めなかった（脱落しないことを確かめられていない）")
+	GameManager.abandon_dungeon_run()
+	if not GameManager.start_dungeon_run(target_id):
+		push_error("[DebugBoot] 通路の節のあとの start_dungeon_run が false")
+		return
+	GameManager.abandon_dungeon_run()
 
 	# --- 13-A2. 宝箱のマス（段階19-b。⚠ その場で開く＝案A）---
 	#
@@ -5691,6 +5810,53 @@ func _dungeon_kind_reachable_from(
 		if _dungeon_kind_reachable_from(nodes, to_id, kind, seen):
 			return true
 	return false
+
+
+# ボスに着くまで、⚠ 効果のある通路を優先して歩く（段階19-c-2）。
+#
+# 戻り値: 踏んだ通路の効果の配列（⚠ 効果の無い通路は入れない）。
+#
+# ⚠⚠ 「進める先の先頭」を選び続ける（_walk_dungeon_to_boss）だと、⚠ 効果は
+#   5本に1本の抽選なので、⚠ 1本のランで1〜2種しか踏めない。⚠ 検証が起動ごとに
+#   通ったり通らなかったりする（⚠ 実際にそうなって罠(HP)を1度も踏めていなかった）。
+# ⚠ 通路の宝箱はその場で開ける（⚠ 持ち越しが残ると次の手で邪魔になる）。
+func _walk_dungeon_preferring_edges() -> Array[String]:
+	var result: Array[String] = []
+	for _step: int in range(51):
+		var here: String = str(
+			GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")
+		)
+		var moves: Array = GameManager.get_dungeon_moves()
+		if moves.is_empty():
+			return result
+		# ⚠ 効果のある通路を先に選ぶ。⚠ 無ければ先頭。
+		var chosen: String = str(moves[0])
+		var chosen_effect: String = ""
+		for move: Variant in moves:
+			var effect: String = str(
+				GameManager.get_dungeon_edge(here, str(move)).get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")
+			)
+			if effect != "":
+				chosen = str(move)
+				chosen_effect = effect
+				break
+		if not GameManager.move_in_dungeon(chosen):
+			push_error("[DebugBoot] _walk_dungeon_preferring_edges: move_in_dungeon が false: " + chosen)
+			return result
+		if chosen_effect != "":
+			result.append(chosen_effect)
+		if GameManager.has_pending_dungeon_corridor_chest():
+			var chest_result: Dictionary = GameManager.open_dungeon_corridor_chest()
+			print("    ⚠ 通路の宝箱を開けた -> 入った %s ／ 置いてきた %s" % [
+				str(chest_result["granted"]), str(chest_result["left_behind"])
+			])
+			if GameManager.has_pending_dungeon_corridor_chest():
+				push_error("[DebugBoot] 通路の宝箱を開けたのに持ち越しが残っている")
+			# ⚠ もう一度開けても何も出ない（⚠ 引き直せない）。
+			if not (GameManager.open_dungeon_corridor_chest()["granted"] as Dictionary).is_empty():
+				push_error("[DebugBoot] 通路の宝箱を二度開けられる")
+	push_error("[DebugBoot] _walk_dungeon_preferring_edges: 50手で終わらない")
+	return result
 
 
 # ボスに着くまで進める先の先頭を選び続ける。

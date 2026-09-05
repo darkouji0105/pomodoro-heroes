@@ -784,3 +784,10 @@ ui_dungeon_chest_hint,開けると中身が鞄に入る。鞄が満杯だと入�
 ui_dungeon_chest_open,開ける
 ui_dungeon_chest_opened,中身を鞄に入れた
 ui_dungeon_chest_left_behind,鞄が満杯で置いてきた個数
+ui_dungeon_corridor_chest,通路で見つけた宝箱を開ける
+ui_dungeon_corridor_chest_title,通路に宝箱があった
+ui_dungeon_edge_trap_hp,罠（傷を負う）
+ui_dungeon_edge_trap_currency,罠（遺物片を落とす）
+ui_dungeon_edge_trap_bag,罠（荷物を落とす）
+ui_dungeon_edge_chest,宝箱
+ui_dungeon_edge_resource,資源

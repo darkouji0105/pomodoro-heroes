@@ -33,3 +33,8 @@ const FLOOR_NODE_ID: String = "floor_node_id"
 #   ダンジョンでは1つも動かない（台帳 §7）。
 # ⚠ 入っていれば stages.json は1行も引かない（敵は GameManager が dungeon.json から引く）。
 const DUNGEON_NODE_ID: String = "dungeon_node_id"
+
+# 通路の宝箱として宝箱の画面へ来たか（段階19-c-2・台帳 §5-3-1）。
+# ⚠ true なら DUNGEON_NODE_ID は入っていない（⚠ 通路の宝箱はノードに紐づかない）。
+# ⚠ 開けたかの覚え方が別（⚠ ノード＝cleared ／ 通路＝持ち越しの欄）。
+const DUNGEON_CORRIDOR_CHEST: String = "dungeon_corridor_chest"

@@ -71,6 +71,18 @@ const NODE_BOSS: String = "🏰"
 ## ⚠ たいまつが届いていないマス。⚠ シナリオ側の「？」と同じ役目。
 const NODE_HIDDEN: String = "❓"
 
+# --- 通路の効果（段階19-c-2・DUNGEON_EDGE_EFFECT_*） ---
+#
+# ⚠ 効果が無い通路には何も出さない（⚠ 定数を作らない。⚠ "" を返す）。
+# ⚠ 見えていない通路は EDGE_HIDDEN。⚠ マスの「❓」と別の字にしてある
+#   （⚠ 同じだと「マスが見えないのか通路が見えないのか」が読めない）。
+const EDGE_TRAP_HP: String = "💥"
+const EDGE_TRAP_CURRENCY: String = "💸"
+const EDGE_TRAP_BAG: String = "💨"
+const EDGE_CHEST: String = "🎁"
+const EDGE_RESOURCE: String = "💰"
+const EDGE_HIDDEN: String = "❔"
+
 
 # キャラの絵文字。⚠ 表に無いIDは CHAR_FALLBACK。
 #
@@ -183,6 +195,24 @@ static func for_dungeon_node(kind: String) -> String:
 	return NODE_HIDDEN
 
 
+# 通路の効果の絵文字（段階19-c-2）。⚠ 効果が無ければ ""（⚠ 何も出さない）。
+#
+# ⚠ 「見えているか」の判定はここでしない（GameManager.is_dungeon_edge_revealed()）。
+static func for_dungeon_edge(effect: String) -> String:
+	match effect:
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP:
+			return EDGE_TRAP_HP
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY:
+			return EDGE_TRAP_CURRENCY
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG:
+			return EDGE_TRAP_BAG
+		GameStateKeys.DUNGEON_EDGE_EFFECT_CHEST:
+			return EDGE_CHEST
+		GameStateKeys.DUNGEON_EDGE_EFFECT_RESOURCE:
+			return EDGE_RESOURCE
+	return ""
+
+
 # scenario=glyphs が見る一覧。⚠ 定数を足したらここにも足すこと。
 #
 # ⚠ 「足し忘れると検証されない」形は避けたいが、⚠ GDScript に定数を列挙する口が
@@ -220,4 +250,10 @@ static func all_for_check() -> Dictionary:
 		"NODE_CHEST": NODE_CHEST,
 		"NODE_BOSS": NODE_BOSS,
 		"NODE_HIDDEN": NODE_HIDDEN,
+		"EDGE_TRAP_HP": EDGE_TRAP_HP,
+		"EDGE_TRAP_CURRENCY": EDGE_TRAP_CURRENCY,
+		"EDGE_TRAP_BAG": EDGE_TRAP_BAG,
+		"EDGE_CHEST": EDGE_CHEST,
+		"EDGE_RESOURCE": EDGE_RESOURCE,
+		"EDGE_HIDDEN": EDGE_HIDDEN,
 	}

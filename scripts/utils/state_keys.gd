@@ -448,6 +448,27 @@ const DUNGEON_NODE_NEXT: String = "next"               # [{to, effect}]
 # ⚠ FLOOR_NODE_NEXT（シナリオ側）は [node_id] のまま。⚠ 揃えないこと（器が別＝台帳 §7）。
 const DUNGEON_EDGE_TO: String = "to"                   # 行き先の node_id
 const DUNGEON_EDGE_EFFECT: String = "effect"           # "" なら何も起きない通路
+
+# 通路の効果（段階19-c-2・人間の決定24・PLAN_HARD_DUNGEON.md §5-3-1）。
+#
+# ⚠ 3種（罠・宝箱・資源）。⚠ 罠だけ3通りに分かれる。
+# ⚠⚠ 増やすときは _apply_dungeon_edge_effect() の分岐と E139 の検証と
+#   Glyphs.for_dungeon_edge() の3箇所を一緒に足すこと。
+# ⚠ "" は「何も起きない通路」。⚠ 定数を作らない（⚠ 空文字が既定値そのもの）。
+const DUNGEON_EDGE_EFFECT_TRAP_HP: String = "trap_hp"
+const DUNGEON_EDGE_EFFECT_TRAP_CURRENCY: String = "trap_currency"
+const DUNGEON_EDGE_EFFECT_TRAP_BAG: String = "trap_bag"
+const DUNGEON_EDGE_EFFECT_CHEST: String = "chest"
+const DUNGEON_EDGE_EFFECT_RESOURCE: String = "resource"
+
+# 通路の宝箱の持ち越し（段階19-c-2）。
+#
+# ⚠⚠ 通路には cleared を置く場所が無い（⚠ あれはノードの欄）。⚠ 代わりにここへ
+#   「いま開けていない通路の宝箱があるか」を1本だけ持つ。
+# ⚠ 開けるまで残る＝⚠ 開けずにマップへ戻っても取りに行き直せる。
+# ⚠ 引き返さないので、同じ通路を2度通ることは構造上ない。
+# ⚠ 中身は「その宝箱が出た通路の行き先 node_id」。⚠ "" なら持ち越していない。
+const DUNGEON_RUN_CORRIDOR_CHEST: String = "corridor_chest"
 const DUNGEON_NODE_CLEARED: String = "cleared"
 
 # ノードの種類。⚠ 綴りは dungeon.json の loot / currency のキーと揃える。

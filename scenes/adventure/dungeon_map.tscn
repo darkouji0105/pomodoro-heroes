@@ -75,6 +75,10 @@ alignment = 1
 layout_mode = 2
 theme_override_constants/separation = 2
 
+[node name="CorridorChestList" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
 [node name="BagGrid" type="GridContainer" parent="Layout"]
 layout_mode = 2
 size_flags_horizontal = 0

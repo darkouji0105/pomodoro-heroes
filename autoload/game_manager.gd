@@ -7255,6 +7255,18 @@ const DUNGEON_MASTER_BATTLE_POOL: String = "battle_pool"
 const DUNGEON_MASTER_BOSS: String = "boss"
 const DUNGEON_MASTER_LOOT: String = "loot"
 const DUNGEON_MASTER_CURRENCY: String = "currency"
+# 通路の表（段階19-c-2・決定24）。⚠ 何が出るかは JSON、⚠ どれくらい出るかは Config。
+const DUNGEON_MASTER_EDGES: String = "edges"
+const DUNGEON_EDGES_EFFECTS: String = "effects"     # [{effect, weight}]
+const DUNGEON_EDGES_RESOURCE: String = "resource"   # [{kind, weight, item_id, count}]
+const DUNGEON_EDGES_EFFECT: String = "effect"
+const DUNGEON_EDGES_WEIGHT: String = "weight"
+const DUNGEON_EDGES_KIND: String = "kind"
+const DUNGEON_EDGES_KIND_CURRENCY: String = "currency"
+const DUNGEON_EDGES_KIND_ITEM: String = "item"
+# 通路の宝箱の戦利品表。⚠ loot の中に置く（⚠ ノードの chest とは別の行）。
+#   ⚠ マスの宝箱より薄い（rolls 1）。⚠ 同じ表にしないこと＝マスの宝箱の意味が消える。
+const DUNGEON_LOOT_EDGE_CHEST: String = "edge_chest"
 # layers[] の中身。⚠ 綴りは stages.json と同じだが、読む先が別のファイルなので
 #   定数も別に持つ（片方の綴りを変えたときにもう片方が黙って壊れないため）。
 const DUNGEON_LAYER_NODE_COUNT: String = "node_count"
@@ -7279,6 +7291,8 @@ func _empty_dungeon_run() -> Dictionary:
 		GameStateKeys.DUNGEON_RUN_BAG_SLOTS: 0,
 		GameStateKeys.DUNGEON_RUN_CURRENCY: 0,
 		GameStateKeys.DUNGEON_RUN_TORCH_GRADE: 0,
+		# ⚠ 通路の宝箱の持ち越し（段階19-c-2）。⚠ "" なら持ち越していない。
+		GameStateKeys.DUNGEON_RUN_CORRIDOR_CHEST: "",
 		GameStateKeys.DUNGEON_RUN_RELICS: [],
 		GameStateKeys.DUNGEON_RUN_LOOT_COUNT: 0,
 	}
@@ -7477,6 +7491,12 @@ func start_dungeon_run(dungeon_id: String = DUNGEON_DEFAULT_ID) -> bool:
 	# ⚠ 入った時点では満タン。⚠ 同じ数値だが意味が別（§4-4 の表）。
 	run[GameStateKeys.DUNGEON_RUN_HP] = max_hp.duplicate(true)
 	run[GameStateKeys.DUNGEON_RUN_BAG_SLOTS] = maxi(0, int(config.bag_initial_slots))
+	# ⚠ たいまつを最初から持たせる（段階19-c-2・人間の決定25）。
+	#   ⚠ 等級0 は「何も見えない」（⚠ 落ちる手段はいま無い。⚠ 将来の罠の落ち先）。
+	#   ⚠ 上限で丸める（⚠ 目盛りを縮めたときに範囲の外を指さないように）。
+	run[GameStateKeys.DUNGEON_RUN_TORCH_GRADE] = clampi(
+		int(config.torch_initial_grade), 0, get_dungeon_torch_max_grade()
+	)
 	_apply_dungeon_map(run, map)
 	_state[GameStateKeys.DUNGEON_RUN] = run
 
@@ -7520,6 +7540,13 @@ func move_in_dungeon(node_id: String) -> bool:
 		print("[GameManager] move_in_dungeon('%s') -> false (進めない)" % node_id)
 		return false
 
+	# ⚠ 通路の効果は「動く前」に引いておく（段階19-c-2）。⚠ 動いたあとだと
+	#   position が変わっていて、⚠ どの通路を通ったかが分からなくなる。
+	var from_node_id: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	var edge_effect: String = str(
+		get_dungeon_edge(from_node_id, node_id).get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")
+	)
+
 	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
 	run[GameStateKeys.DUNGEON_RUN_POSITION] = node_id
 	var visited: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_VISITED, {})
@@ -7528,7 +7555,13 @@ func move_in_dungeon(node_id: String) -> bool:
 	_state[GameStateKeys.DUNGEON_RUN] = run
 
 	var kind: String = str(get_dungeon_node(node_id).get(GameStateKeys.DUNGEON_NODE_KIND, ""))
-	print("[GameManager] move_in_dungeon('%s') -> true (kind=%s)" % [node_id, kind])
+	print("[GameManager] move_in_dungeon('%s') -> true (kind=%s / 通路=%s)" % [
+		node_id, kind, edge_effect if edge_effect != "" else "なし"
+	])
+	# ⚠⚠ 通路が先、ノードが後（段階19-c-2）。⚠ 「通路を歩いてから部屋に着く」の順。
+	#   ⚠ 逆にすると、⚠ 罠で削られる前の HP で戦闘の下ごしらえが走る。
+	if edge_effect != "":
+		_apply_dungeon_edge_effect(edge_effect, node_id)
 	# ⚠ ボスは踏んだだけでは何も出ない。⚠ 倒したときに clear_dungeon_boss() が配る
 	#   （踏んだ時点で配ると、負けても報酬が残る）。
 	# ⚠⚠ 宝箱も踏んだだけでは出ない（段階19-b）。⚠ open_dungeon_chest() が配る。
@@ -7813,6 +7846,11 @@ func _dungeon_loot_chance_pct(kind: String) -> int:
 			return int(config.loot_chance_rest_pct)
 		GameStateKeys.DUNGEON_NODE_KIND_CHEST:
 			return int(config.loot_chance_chest_pct)
+		DUNGEON_LOOT_EDGE_CHEST:
+			# ⚠ 通路の宝箱もマスの宝箱と同じつまみを使う（段階19-c-2）。
+			#   ⚠ 「開けたのに空」を許さないという理由が同じなので、⚠ 欄を2本にしない。
+			#   ⚠ 中身の薄さは dungeon.json の loot.edge_chest（rolls 1）で付けている。
+			return int(config.loot_chance_chest_pct)
 		GameStateKeys.DUNGEON_NODE_KIND_BOSS:
 			return int(config.loot_chance_boss_pct)
 	return 0
@@ -7873,12 +7911,14 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 
 	# 3. 層と層をつなぐ。
 	for layer_index: int in range(ids_by_layer.size() - 1):
-		_connect_dungeon_layers(nodes, ids_by_layer[layer_index], ids_by_layer[layer_index + 1])
+		_connect_dungeon_layers(
+			nodes, ids_by_layer[layer_index], ids_by_layer[layer_index + 1], dungeon_id
+		)
 	# 最終層 -> ボス（合流）。
-	# ⚠ ボスへの通路にも効果を置かない（⚠ 19-c-1 は器だけ。⚠ 中身は 19-c-2）。
+	# ⚠ ボスへの通路にも効果が付く（⚠ 特別扱いしない。⚠ 最後の1歩にも選択が要る）。
 	for node_id: Variant in (ids_by_layer[ids_by_layer.size() - 1] as Array):
 		(nodes[str(node_id)] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = [
-			_make_dungeon_edge(boss_id)
+			_make_dungeon_edge(boss_id, dungeon_id)
 		]
 
 	return {
@@ -7899,7 +7939,9 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 #
 # ⚠ 段階19-d：⚠ 隣へ何個伸ばすかを DungeonConfig.branch_spread のつまみにした。
 #   ⚠ 0 にすると一本道になる（⚠ 分岐が消えるので、たいまつも休憩のコストも効かなくなる）。
-func _connect_dungeon_layers(nodes: Dictionary, upper: Array, lower: Array) -> void:
+func _connect_dungeon_layers(
+		nodes: Dictionary, upper: Array, lower: Array, dungeon_id: String = ""
+) -> void:
 	var config: DungeonConfig = _dungeon()
 	var spread: int = 1 if config == null else maxi(0, int(config.branch_spread))
 	var n: int = upper.size()
@@ -7912,7 +7954,7 @@ func _connect_dungeon_layers(nodes: Dictionary, upper: Array, lower: Array) -> v
 		hi = mini(hi + spread, m - 1)
 		var next_edges: Array = []
 		for k: int in range(lo, hi + 1):
-			next_edges.append(_make_dungeon_edge(str(lower[k])))
+			next_edges.append(_make_dungeon_edge(str(lower[k]), dungeon_id))
 		(nodes[str(upper[j])] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = next_edges
 
 
@@ -7921,11 +7963,81 @@ func _connect_dungeon_layers(nodes: Dictionary, upper: Array, lower: Array) -> v
 # ⚠⚠ 通路を作る口はここ1本だけ。⚠ 2本目を書かないこと（⚠ ノードと同じ流儀）。
 # ⚠ 19-c-1 の時点では effect は必ず ""（⚠ 器だけ先に入れた）。
 #   ⚠ 抽選（5本に1本・決定24）を足すのは 19-c-2。⚠ ここに足す。
-func _make_dungeon_edge(to_node_id: String, effect: String = "") -> Dictionary:
+func _make_dungeon_edge(to_node_id: String, dungeon_id: String = "") -> Dictionary:
 	return {
 		GameStateKeys.DUNGEON_EDGE_TO: to_node_id,
-		GameStateKeys.DUNGEON_EDGE_EFFECT: effect,
+		GameStateKeys.DUNGEON_EDGE_EFFECT: _roll_dungeon_edge_effect(dungeon_id),
 	}
+
+
+# 通路の効果を1つ引く（段階19-c-2）。⚠ 付かなければ ""。
+#
+# ⚠ 「効果が付くか」（Config の割合）を先に決め、⚠ 付くと決まってから
+#   「何が付くか」（dungeon.json の重み）を引く。⚠ _grant_dungeon_node_gains() と同じ形。
+# ⚠⚠ 逃げ道を保証しない（⚠ 人間の決定：「全部ペナルティもあり」）。
+#   ⚠ 「分岐に1本は無害を混ぜる」処理をここに足さないこと。
+# ⚠ dungeon_id が "" なら効果を付けない（⚠ 引く先が分からないため）。
+func _roll_dungeon_edge_effect(dungeon_id: String) -> String:
+	if dungeon_id == "":
+		return ""
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return ""
+	var chance: int = clampi(int(config.edge_effect_chance_pct), 0, 100)
+	if chance <= 0 or randi_range(1, 100) > chance:
+		return ""
+	var weights: Dictionary = _dungeon_edge_effect_weights(dungeon_id)
+	if weights.is_empty():
+		return ""
+	var total: int = 0
+	for effect: Variant in weights:
+		total += maxi(0, int(weights[effect]))
+	if total <= 0:
+		return ""
+	var roll: int = randi() % total
+	# ⚠ キーの並び順に依存しないよう綴り順で回す（Dictionary のキー順は不定）。
+	var effects: Array = weights.keys()
+	effects.sort()
+	for effect: Variant in effects:
+		roll -= maxi(0, int(weights[effect]))
+		if roll < 0:
+			return str(effect)
+	return ""
+
+
+# dungeon.json の edges.effects を {effect: weight} にして返す。
+#
+# ⚠ 知らない effect はここで落とす（⚠ E139 が起動時に赤で言っている）。
+#   ⚠ 落とさないと、⚠ 綴りを間違えた通路が「何も起きないのに効果つき」になる。
+func _dungeon_edge_effect_weights(dungeon_id: String) -> Dictionary:
+	var result: Dictionary = {}
+	var edges: Variant = MasterDataLoader.get_dungeon(dungeon_id).get(DUNGEON_MASTER_EDGES, null)
+	if not (edges is Dictionary):
+		return result
+	var rows: Variant = (edges as Dictionary).get(DUNGEON_EDGES_EFFECTS, null)
+	if not (rows is Array):
+		return result
+	for raw: Variant in (rows as Array):
+		if not (raw is Dictionary):
+			continue
+		var row: Dictionary = raw
+		var effect: String = str(row.get(DUNGEON_EDGES_EFFECT, ""))
+		if not (effect in DUNGEON_EDGE_EFFECTS_KNOWN):
+			continue
+		# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
+		result[effect] = maxi(0, int(row.get(DUNGEON_EDGES_WEIGHT, 0)))
+	return result
+
+
+# 知っている通路の効果。⚠ 増やすときは _apply_dungeon_edge_effect() の分岐と
+#   Glyphs.for_dungeon_edge() も一緒に足すこと。
+const DUNGEON_EDGE_EFFECTS_KNOWN: Array[String] = [
+	GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP,
+	GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY,
+	GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG,
+	GameStateKeys.DUNGEON_EDGE_EFFECT_CHEST,
+	GameStateKeys.DUNGEON_EDGE_EFFECT_RESOURCE,
+]
 
 
 # 層 N のノード出現比を {kind: weight} で返す。
@@ -8275,6 +8387,189 @@ func apply_dungeon_rest() -> void:
 		revived += 1
 
 
+# --- 通路の効果（段階19-c-2・人間の決定24・台帳 §5-3-1） -------------
+#
+# ⚠⚠ 効かせる口はここ1本だけ。⚠ 2本目を書かないこと。
+# ⚠ 呼ぶのは move_in_dungeon() だけ（⚠ 通った瞬間に効く）。
+# ⚠ 宝箱だけ「持ち越し」にする（⚠ 画面を出すため）。⚠ 他は即座に効く。
+
+# 通った通路の効果を効かせる。
+#
+# ⚠ to_node_id は行き先。⚠ 宝箱の持ち越しに「どこで出たか」として記録する。
+func _apply_dungeon_edge_effect(effect: String, to_node_id: String) -> void:
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return
+	match effect:
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP:
+			_apply_dungeon_edge_trap_hp(int(config.edge_trap_hp_pct))
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY:
+			var lost: int = mini(get_dungeon_currency(), maxi(0, int(config.edge_trap_currency)))
+			add_dungeon_currency(-lost)
+			print("[GameManager] 通路の罠（通貨）: %d 失った -> 残り %d" % [lost, get_dungeon_currency()])
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG:
+			_apply_dungeon_edge_trap_bag(maxi(0, int(config.edge_trap_bag_count)))
+		GameStateKeys.DUNGEON_EDGE_EFFECT_CHEST:
+			_set_dungeon_corridor_chest(to_node_id)
+			print("[GameManager] 通路の宝箱: 持ち越した（行き先 %s）" % to_node_id)
+		GameStateKeys.DUNGEON_EDGE_EFFECT_RESOURCE:
+			_apply_dungeon_edge_resource()
+		_:
+			push_warning("[GameManager] W33 知らない通路の効果（何も起きない）: " + effect)
+
+
+# 罠（HP）。⚠ 編成の全員の戦闘時 MAX HP を、素の MAX HP の pct% ぶん削る。
+#
+# ⚠⚠ 罠では脱落させない（⚠ 最低1は残す）。⚠ 死ぬのは戦闘だけ（§4-4-2）。
+#   ⚠ 見えない通路を通っただけで全ロストになるのは、⚠ 一貫原則ではなく理不尽。
+#   ⚠ 設計役の判断。⚠ 覆すならここの maxi(1, ...) を外す。
+# ⚠ 脱落している者は飛ばす（⚠ 0 を削っても意味が無い）。
+# ⚠ HP と上限は常に同じ値（決定18）。⚠ 2つ別々に書かないこと。
+func _apply_dungeon_edge_trap_hp(pct: int) -> void:
+	for member: Variant in get_party_members():
+		var character_id: String = str(member)
+		if character_id == "" or is_dungeon_character_downed(character_id):
+			continue
+		var base_max_hp: int = get_dungeon_base_max_hp(character_id)
+		var before: int = get_dungeon_character_max_hp(character_id)
+		var after: int = maxi(1, before - int(base_max_hp * pct / 100.0))
+		_write_dungeon_hp(character_id, after, after)
+		print("[GameManager] 通路の罠（HP）: %s 戦闘時MAX HP %d -> %d（素 %d の %d%%・⚠ 脱落はさせない）" % [
+			character_id, before, after, base_max_hp, pct
+		])
+
+
+# 罠（鞄）。⚠ 鞄から count 個落とす。⚠ 鞄が空なら何も起きない。
+#
+# ⚠ 落とすものは綴り順の先頭（⚠ add_to_dungeon_bag と同じ流儀）。
+#   ⚠ 乱数で選ばないこと。⚠ 起動ごとに結果が変わると検証が読めなくなる。
+func _apply_dungeon_edge_trap_bag(count: int) -> void:
+	if count <= 0:
+		return
+	var dropped: Dictionary = {}
+	for _i: int in range(count):
+		var bag: Dictionary = get_dungeon_bag()
+		var item_ids: Array = bag.keys()
+		if item_ids.is_empty():
+			break
+		item_ids.sort()
+		var item_id: String = str(item_ids[0])
+		var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+		var live_bag: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_BAG, {})
+		var left: int = int(live_bag.get(item_id, 0)) - 1
+		if left > 0:
+			live_bag[item_id] = left
+		else:
+			live_bag.erase(item_id)
+		run[GameStateKeys.DUNGEON_RUN_BAG] = live_bag
+		_state[GameStateKeys.DUNGEON_RUN] = run
+		dropped[item_id] = int(dropped.get(item_id, 0)) + 1
+	print("[GameManager] 通路の罠（鞄）: 落とした %s -> 鞄 %d/%d" % [
+		str(dropped), get_dungeon_bag_used(), get_dungeon_bag_slots()
+	])
+
+
+# 資源。⚠ 一時通貨か素材のどちらか（⚠ 通路ごとに抽選＝人間の決定24）。
+#
+# ⚠ 表は dungeon.json の edges.resource。⚠ 通貨の額だけ Config（つまみ）。
+# ⚠ 素材は鞄へ。⚠ 鞄が満杯なら入らない（⚠ 勝手に何かを捨てない）。
+func _apply_dungeon_edge_resource() -> void:
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return
+	var row: Dictionary = _roll_dungeon_edge_resource()
+	if row.is_empty():
+		return
+	if str(row.get(DUNGEON_EDGES_KIND, "")) == DUNGEON_EDGES_KIND_CURRENCY:
+		var amount: int = maxi(0, int(config.edge_resource_currency))
+		add_dungeon_currency(amount)
+		print("[GameManager] 通路の資源（通貨）: +%d -> %d" % [amount, get_dungeon_currency()])
+		return
+	# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
+	var item_id: String = str(row.get(CHEST_DRAW_ITEM_ID, ""))
+	var count: int = maxi(1, int(row.get("count", 1)))
+	var accepted: int = add_to_dungeon_bag(item_id, count)
+	print("[GameManager] 通路の資源（素材）: %s x%d -> %d 個入った（鞄 %d/%d）" % [
+		item_id, count, accepted, get_dungeon_bag_used(), get_dungeon_bag_slots()
+	])
+
+
+# edges.resource を1行引く。⚠ 重み付き。⚠ 引けなければ空。
+func _roll_dungeon_edge_resource() -> Dictionary:
+	var edges: Variant = MasterDataLoader.get_dungeon(
+		str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	).get(DUNGEON_MASTER_EDGES, null)
+	if not (edges is Dictionary):
+		return {}
+	var rows: Variant = (edges as Dictionary).get(DUNGEON_EDGES_RESOURCE, null)
+	if not (rows is Array) or (rows as Array).is_empty():
+		return {}
+	var total: int = 0
+	for raw: Variant in (rows as Array):
+		if raw is Dictionary:
+			total += maxi(0, int((raw as Dictionary).get(DUNGEON_EDGES_WEIGHT, 0)))
+	if total <= 0:
+		return {}
+	var roll: int = randi() % total
+	for raw: Variant in (rows as Array):
+		if not (raw is Dictionary):
+			continue
+		roll -= maxi(0, int((raw as Dictionary).get(DUNGEON_EDGES_WEIGHT, 0)))
+		if roll < 0:
+			return (raw as Dictionary).duplicate(true)
+	return {}
+
+
+# --- 通路の宝箱（段階19-c-2） -----------------------------------------
+#
+# ⚠⚠ 通路には cleared を置く場所が無い（⚠ あれはノードの欄）。
+#   ⚠ 代わりに DUNGEON_RUN に「持ち越し」を1本だけ持つ（⚠ 台帳 §5-3-1）。
+# ⚠ 開けるまで残る＝⚠ 開けずにマップへ戻っても取りに行き直せる。
+# ⚠ 画面は dungeon_chest.tscn を共有する（⚠ 人間の指示。⚠ 画面を分けない）。
+
+# いま持ち越している通路の宝箱があるか。⚠ 画面はこの1本に聞く。
+func has_pending_dungeon_corridor_chest() -> bool:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	return str(run.get(GameStateKeys.DUNGEON_RUN_CORRIDOR_CHEST, "")) != ""
+
+
+func _set_dungeon_corridor_chest(to_node_id: String) -> void:
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_CORRIDOR_CHEST] = to_node_id
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+
+# 通路の宝箱を開ける。
+#
+# 戻り値: {"granted": {item_id: 個数}, "left_behind": {item_id: 個数}}
+#
+# ⚠ open_dungeon_chest()（マスの宝箱）と1本にまとめない。⚠ 覚え方が別
+#   （⚠ あちらはノードの cleared、⚠ こちらは持ち越しの欄）。⚠ 混ぜると
+#   「どちらを消したか」が読めなくなる。
+# ⚠ 状態を触る前に判定を全部終える（CLAUDE.md 6番）。
+# ⚠ 先に持ち越しを消す。⚠ 配るほうが先だと、⚠ 鞄が満杯で1個も入らなかったときに
+#   持ち越しが残り、⚠ 何度でも引き直せる（＝抽選し放題）。
+func open_dungeon_corridor_chest() -> Dictionary:
+	var empty: Dictionary = {"granted": {}, "left_behind": {}}
+	if not is_in_dungeon():
+		return empty
+	if not has_pending_dungeon_corridor_chest():
+		print("[GameManager] open_dungeon_corridor_chest: 持ち越している通路の宝箱が無い")
+		return empty
+
+	# --- ここから状態を変える ---
+	_set_dungeon_corridor_chest("")
+	# ⚠ 配る口は _grant_dungeon_node_gains() の1本のまま（⚠ 2本目を書かない）。
+	#   ⚠ 表は loot.edge_chest（⚠ マスの宝箱より薄い＝rolls 1）。
+	var result: Dictionary = _grant_dungeon_node_gains(DUNGEON_LOOT_EDGE_CHEST)
+	print("[GameManager] open_dungeon_corridor_chest() -> 入った: %s ／ 鞄が満杯で置いてきた: %s（鞄 %d/%d）" % [
+		str(result["granted"]), str(result["left_behind"]),
+		get_dungeon_bag_used(), get_dungeon_bag_slots(),
+	])
+	dungeon_run_changed.emit(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")))
+	return result
+
+
 # --- ランのレリック（段階17-e-2・人間の決定：⚠ 表はシナリオ側と共有する） ---
 #
 # ⚠⚠ `relics.json` の12件をそのまま使う（⚠ 人間の言葉：「レリックは簡単なほうの
@@ -8618,6 +8913,41 @@ func is_dungeon_node_revealed(node_id: String) -> bool:
 	return node_layer - here_layer <= get_dungeon_reveal_layers()
 
 
+# その通路の中身が見えているか（段階19-c-2・人間の決定23）。
+#
+# ⚠⚠ 規則はマスと同じ（⚠ 人間の指示：「ノードと同じ」）。⚠ 行き先が見えていれば通路も見える。
+# ⚠ 画面で層を引き算しないこと。⚠ 判定はここ1本。
+# ⚠ 通ったあとの通路は見える（⚠ 行き先が visited なので is_dungeon_node_revealed が true）。
+func is_dungeon_edge_revealed(_from_node_id: String, to_node_id: String) -> bool:
+	return is_dungeon_node_revealed(to_node_id)
+
+
+# そのノードへ入ってくる通路（[{from, effect}]）。段階19-c-2。
+#
+# ⚠ 画面がマスの上に「そこへ行くと何があるか」を出すために使う。
+# ⚠ 合流があるので複数返ることがある（⚠ 現在地から進める先なら1本に定まる）。
+# ⚠ 効果が "" のものは返さない（⚠ 出すものが無い）。
+func get_dungeon_incoming_edge_effects(to_node_id: String) -> Array:
+	var result: Array = []
+	if not is_in_dungeon():
+		return result
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var nodes: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	# ⚠ Dictionary のキー順は不定。⚠ 綴り順で回す（⚠ 画面の並びが起動ごとに変わらない）。
+	var from_ids: Array = nodes.keys()
+	from_ids.sort()
+	for from_id: Variant in from_ids:
+		for entry: Variant in get_dungeon_edges(str(from_id)):
+			var edge: Dictionary = entry
+			if str(edge.get(GameStateKeys.DUNGEON_EDGE_TO, "")) != to_node_id:
+				continue
+			var effect: String = str(edge.get(GameStateKeys.DUNGEON_EDGE_EFFECT, ""))
+			if effect == "":
+				continue
+			result.append({"from": str(from_id), GameStateKeys.DUNGEON_EDGE_EFFECT: effect})
+	return result
+
+
 # 難ダンジョンの設定を見る（E133 / W22）。
 #
 # ⚠ 見るのは「静かに間違った形で動く」種類だけ：割り当て漏れ・層の重みの長さ違い・
@@ -8661,6 +8991,73 @@ func _validate_dungeon_config() -> void:
 	if _dungeon_loot_chance_pct(GameStateKeys.DUNGEON_NODE_KIND_CHEST) <= 0:
 		push_error("[GameManager] E137 dungeon_config.gd: loot_chance_chest_pct が 0。宝箱を開けても何も出ない（PLAN_HARD_DUNGEON.md §5-2）")
 		errors += 1
+	# 通路の効果（段階19-c-2）。⚠ 見るのは「黙って何も起きない」種類だけ。
+	if int(Balance.dungeon.edge_effect_chance_pct) <= 0:
+		push_warning("[GameManager] W33 dungeon_config.gd: edge_effect_chance_pct が 0。通路が全部ただの線になる（たいまつを買う理由が消える＝PLAN_HARD_DUNGEON.md §5-3）")
+	if int(Balance.dungeon.edge_effect_chance_pct) > 100:
+		push_error("[GameManager] E139 dungeon_config.gd: edge_effect_chance_pct が 100 を超えている")
+		errors += 1
+	if int(Balance.dungeon.torch_initial_grade) > get_dungeon_torch_max_grade():
+		push_error("[GameManager] E139 dungeon_config.gd: torch_initial_grade %d が上限の等級 %d を超えている" % [
+			int(Balance.dungeon.torch_initial_grade), get_dungeon_torch_max_grade()
+		])
+		errors += 1
+	for edge_dungeon_id: String in MasterDataLoader.get_all_dungeon_ids():
+		var edge_master: Variant = MasterDataLoader.get_dungeon(edge_dungeon_id).get(DUNGEON_MASTER_EDGES, null)
+		if not (edge_master is Dictionary):
+			push_error("[GameManager] E139 dungeon.json: %s に edges が無い（通路に効果を付けられない）" % edge_dungeon_id)
+			errors += 1
+			continue
+		# ⚠ 知らない effect は _dungeon_edge_effect_weights() が落とす。⚠ 落ちたことを言う。
+		var raw_effects: Variant = (edge_master as Dictionary).get(DUNGEON_EDGES_EFFECTS, null)
+		var written: int = (raw_effects as Array).size() if raw_effects is Array else 0
+		var accepted: Dictionary = _dungeon_edge_effect_weights(edge_dungeon_id)
+		if written != accepted.size():
+			push_error("[GameManager] E139 dungeon.json: %s の edges.effects に知らない effect がある（書いた %d 行 / 読めた %d 行。綴りは %s）" % [
+				edge_dungeon_id, written, accepted.size(), str(DUNGEON_EDGE_EFFECTS_KNOWN)
+			])
+			errors += 1
+		var effect_total: int = 0
+		for effect_name: String in accepted:
+			effect_total += int(accepted[effect_name])
+		if effect_total <= 0:
+			push_error("[GameManager] E139 dungeon.json: %s の edges.effects の重みが全部 0（効果が1本も付かない）" % edge_dungeon_id)
+			errors += 1
+		# 資源の表。⚠ item の行は items.json に在るIDか（⚠ 無いと「拾えたのに消える」）。
+		var raw_resource: Variant = (edge_master as Dictionary).get(DUNGEON_EDGES_RESOURCE, null)
+		if not (raw_resource is Array) or (raw_resource as Array).is_empty():
+			push_error("[GameManager] E139 dungeon.json: %s に edges.resource が無い（資源の通路で何も出ない）" % edge_dungeon_id)
+			errors += 1
+		else:
+			for raw_row: Variant in (raw_resource as Array):
+				if not (raw_row is Dictionary):
+					continue
+				var resource_kind: String = str((raw_row as Dictionary).get(DUNGEON_EDGES_KIND, ""))
+				if resource_kind == DUNGEON_EDGES_KIND_CURRENCY:
+					continue
+				if resource_kind != DUNGEON_EDGES_KIND_ITEM:
+					push_error("[GameManager] E139 dungeon.json: %s の edges.resource に知らない kind: %s" % [
+						edge_dungeon_id, resource_kind
+					])
+					errors += 1
+					continue
+				var resource_item: String = str((raw_row as Dictionary).get(CHEST_DRAW_ITEM_ID, ""))
+				if MasterDataLoader.get_item(resource_item).is_empty():
+					push_error("[GameManager] E139 dungeon.json: %s の edges.resource に items.json に無いID: %s" % [
+						edge_dungeon_id, resource_item
+					])
+					errors += 1
+		# 通路の宝箱の表。⚠ 無いと「開けても何も出ない」（⚠ E137 と同じ理由）。
+		var edge_loot: Variant = MasterDataLoader.get_dungeon(edge_dungeon_id).get(DUNGEON_MASTER_LOOT, null)
+		var edge_chest_ok: bool = false
+		if edge_loot is Dictionary:
+			var edge_chest_row: Variant = (edge_loot as Dictionary).get(DUNGEON_LOOT_EDGE_CHEST, null)
+			if edge_chest_row is Dictionary:
+				edge_chest_ok = int((edge_chest_row as Dictionary).get(CHEST_DRAW_ROLLS, 0)) > 0
+		if not edge_chest_ok:
+			push_error("[GameManager] E139 dungeon.json: %s の loot.edge_chest が無いか rolls が 0（通路の宝箱を開けても何も出ない）" % edge_dungeon_id)
+			errors += 1
+
 	var chest_weight_total: int = 0
 	for weight: Variant in (Balance.dungeon.layer_weight_chest as Array):
 		chest_weight_total += maxi(0, int(weight))

@@ -44,6 +44,16 @@
       },
       "relic": { "rolls": 0, "entries": [] },
       "rest": { "rolls": 0, "entries": [] },
+      "edge_chest": {
+        "rolls": 1,
+        "entries": [
+          { "item_id": "construction_material_2", "weight": 25, "count": 1 },
+          { "item_id": "training_material_2", "weight": 25, "count": 1 },
+          { "item_id": "forging_material_2", "weight": 20, "count": 1 },
+          { "item_id": "decor_material_2", "weight": 15, "count": 1 },
+          { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 }
+        ]
+      },
       "chest": {
         "rolls": 3,
         "entries": [
@@ -68,6 +78,22 @@
           { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 }
         ]
       }
+    },
+    "edges": {
+      "effects": [
+        { "effect": "trap_hp", "weight": 22 },
+        { "effect": "trap_currency", "weight": 14 },
+        { "effect": "trap_bag", "weight": 9 },
+        { "effect": "chest", "weight": 20 },
+        { "effect": "resource", "weight": 35 }
+      ],
+      "resource": [
+        { "kind": "currency", "weight": 45 },
+        { "kind": "item", "item_id": "construction_material_2", "weight": 15, "count": 2 },
+        { "kind": "item", "item_id": "training_material_2", "weight": 15, "count": 2 },
+        { "kind": "item", "item_id": "forging_material_2", "weight": 15, "count": 2 },
+        { "kind": "item", "item_id": "decor_material_2", "weight": 10, "count": 2 }
+      ]
     },
     "shop": {
       "entries": [

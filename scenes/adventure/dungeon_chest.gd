@@ -24,8 +24,13 @@ const COLOR_LEFT_BEHIND: Color = Color(0.85, 0.35, 0.35)
 @onready var loot_detail: ItemDetail = $Layout/LootDetail
 @onready var action_row: HBoxContainer = $Layout/ActionRow
 
-# どのマスの宝箱か。⚠ 空ならマップへ戻す。
+# どのマスの宝箱か。⚠ 通路の宝箱なら空（⚠ 通路はノードに紐づかない）。
 var _node_id: String = ""
+# 通路の宝箱として来たか（段階19-c-2）。
+#
+# ⚠⚠ 開けたかの覚え方が2通りある（⚠ ノード＝`cleared` ／ ⚠ 通路＝持ち越しの欄）。
+#   ⚠ 画面はどちらかを1回だけ選び、⚠ 以降その枝だけを使う。⚠ 混ぜないこと。
+var _is_corridor: bool = false
 # 開けた結果。⚠ {"granted": {item_id: 個数}, "left_behind": {item_id: 個数}}。
 # ⚠ 開けるまで空。⚠ 中身は開けた瞬間に決まる（⚠ 先に見せない＝選択が消えるため）。
 var _result: Dictionary = {}
@@ -36,14 +41,17 @@ var _selected_entry: Dictionary = {}
 func _ready() -> void:
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	_node_id = str(data.get(TransferKeys.DUNGEON_NODE_ID, ""))
+	_is_corridor = bool(data.get(TransferKeys.DUNGEON_CORRIDOR_CHEST, false))
 
-	# ⚠ ランに入っていない／ノードが渡っていないのに来た。⚠ 空の画面を描かない。
-	if not GameManager.is_in_dungeon() or _node_id == "":
-		push_warning("[DungeonChest] ランかノードが無いのでマップへ戻る")
+	# ⚠ ランに入っていない／どちらの宝箱かが渡っていないのに来た。⚠ 空の画面を描かない。
+	if not GameManager.is_in_dungeon() or (_node_id == "" and not _is_corridor):
+		push_warning("[DungeonChest] ランか宝箱の出どころが無いのでマップへ戻る")
 		SceneManager.change_scene(DUNGEON_MAP_PATH)
 		return
 
-	title_label.text = tr("ui_dungeon_chest_title")
+	title_label.text = tr(
+		"ui_dungeon_corridor_chest_title" if _is_corridor else "ui_dungeon_chest_title"
+	)
 	loot_grid.slot_pressed.connect(_on_loot_pressed)
 	_rebuild()
 
@@ -54,13 +62,24 @@ func _rebuild() -> void:
 	_rebuild_actions()
 
 
+# もう開けたか。⚠ 出どころで聞く先が変わる（段階19-c-2）。
+#
+# ⚠⚠ 判定を自分で書かない。⚠ どちらも GameManager の口に聞くだけ。
+#   ⚠ ノード＝`was_dungeon_chest_opened()`（cleared を見る）
+#   ⚠ 通路＝`has_pending_dungeon_corridor_chest()` の裏返し（持ち越しの欄を見る）
+func _was_opened() -> bool:
+	if _is_corridor:
+		return not GameManager.has_pending_dungeon_corridor_chest()
+	return GameManager.was_dungeon_chest_opened(_node_id)
+
+
 # ⚠ 鞄の残りを必ず出す。⚠ 「開ける前に鞄を空けるか」を選べないと、
 #   ⚠ 満杯のまま開けて中身が消えたときに理不尽になる。
 func _update_message() -> void:
 	bag_label.text = "%s %d/%d" % [
 		tr("ui_dungeon_bag"), GameManager.get_dungeon_bag_used(), GameManager.get_dungeon_bag_slots()
 	]
-	if not GameManager.was_dungeon_chest_opened(_node_id):
+	if not _was_opened():
 		message_label.text = tr("ui_dungeon_chest_hint")
 		message_label.modulate = Color.WHITE
 		return
@@ -117,7 +136,7 @@ func _rebuild_actions() -> void:
 		action_row.remove_child(child)
 		child.queue_free()
 
-	if not GameManager.was_dungeon_chest_opened(_node_id):
+	if not _was_opened():
 		var open_button: PrimaryButton = PrimaryButton.new()
 		open_button.name = "OpenButton"
 		open_button.text = tr("ui_dungeon_chest_open")
@@ -133,7 +152,11 @@ func _rebuild_actions() -> void:
 
 # ⚠ 1マスにつき1回だけ。⚠ 弾かれたら結果は空のまま（⚠ 状態は動いていない）。
 func _on_open_pressed() -> void:
-	_result = GameManager.open_dungeon_chest(_node_id)
+	# ⚠ 開ける口も出どころで分かれる（⚠ 1本にまとめない＝覚え方が別）。
+	if _is_corridor:
+		_result = GameManager.open_dungeon_corridor_chest()
+	else:
+		_result = GameManager.open_dungeon_chest(_node_id)
 	_selected_entry = {}
 	_rebuild()
 

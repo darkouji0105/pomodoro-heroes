@@ -45,6 +45,8 @@ const HIDDEN_TEXT: String = "？"
 # 鞄はマス目（段階18-d）。⚠ 部品は倉庫と同じ。⚠ 引く先だけ別（器が別＝台帳 §7）。
 # ボスの先のショップ（段階17-e）。⚠ 出るかどうかは GameManager に聞く。
 @onready var shop_list: VBoxContainer = $Layout/ShopList
+# 通路の宝箱の案内（段階19-c-2）。⚠ 開けずに戻ってきたときに出る。
+@onready var corridor_chest_list: VBoxContainer = $Layout/CorridorChestList
 @onready var bag_grid: ItemGrid = $Layout/BagGrid
 @onready var bag_detail: ItemDetail = $Layout/BagDetail
 @onready var bag_action_row: HBoxContainer = $Layout/BagActionRow
@@ -88,6 +90,7 @@ func _rebuild() -> void:
 	_rebuild_layers()
 	_rebuild_bag()
 	_rebuild_shop()
+	_rebuild_corridor_chest()
 	_update_footer()
 
 
@@ -189,6 +192,12 @@ func _make_node_button(
 		button.text = "%s %s" % [Glyphs.for_dungeon_node(kind), tr("ui_dungeon_node_" + kind)]
 	else:
 		button.text = "%s %s" % [Glyphs.NODE_HIDDEN, HIDDEN_TEXT]
+	# 通路の効果（段階19-c-2・人間の決定23）。⚠ そのマスへ入ってくる通路に何があるか。
+	#   ⚠⚠ たいまつが届いていなければ「？」（⚠ 見えるかの判定は GameManager の1本）。
+	#   ⚠ 現在地から進める先なら通路は1本に定まる。⚠ 合流するマスは複数並ぶ。
+	var edge_text: String = _edge_prefix(node_id)
+	if edge_text != "":
+		button.text = "%s %s" % [edge_text, button.text]
 
 	if is_current:
 		button.text = "▶ " + button.text
@@ -205,6 +214,30 @@ func _make_node_button(
 	if is_reachable:
 		button.pressed.connect(_on_node_pressed.bind(node_id))
 	return button
+
+
+# そのマスへ入ってくる通路の効果を、マスの前に付ける文字にする（段階19-c-2）。
+#
+# ⚠ 見えているかは GameManager に聞く（⚠ ここで層を引き算しない）。
+# ⚠ 通ったあとのマスには出さない（⚠ もう選べないので、⚠ 出すと画面が埋まるだけ）。
+# ⚠ 効果が無い通路には何も出さない（⚠ Glyphs が "" を返す）。
+func _edge_prefix(node_id: String) -> String:
+	var run: Dictionary = GameManager.get_dungeon_run()
+	var visited: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_VISITED, {})
+	if visited.has(node_id):
+		return ""
+	# ⚠ たいまつが届いていないなら中身を出さない。⚠ 「何かある」ことも言わない
+	#   （⚠ 言うと、⚠ 効果が無い通路との差が漏れてたいまつを買う理由が減る）。
+	if not GameManager.is_dungeon_edge_revealed("", node_id):
+		return Glyphs.EDGE_HIDDEN
+	var parts: Array[String] = []
+	for entry: Variant in GameManager.get_dungeon_incoming_edge_effects(node_id):
+		var glyph: String = Glyphs.for_dungeon_edge(
+			str((entry as Dictionary).get(GameStateKeys.DUNGEON_EDGE_EFFECT, ""))
+		)
+		if glyph != "" and not (glyph in parts):
+			parts.append(glyph)
+	return "".join(parts)
 
 
 # 鞄（段階18-d・マス目）。
@@ -302,6 +335,36 @@ func _on_shop_pressed() -> void:
 	SceneManager.change_scene(SHOP_PATH)
 
 
+# 通路の宝箱の案内（段階19-c-2）。⚠ 開けずに戻ってきたときだけ出る。
+#
+# ⚠ 持ち越しているかは GameManager に聞く（⚠ 画面で覚えない）。
+# ⚠ 開けるまで残る＝⚠ 何度でも取りに行ける。⚠ 引き返さないので通路は2度通れないが、
+#   ⚠ 宝箱そのものは「まだ開けていない荷物」として持ち歩いている扱い。
+func _rebuild_corridor_chest() -> void:
+	for child in corridor_chest_list.get_children():
+		corridor_chest_list.remove_child(child)
+		child.queue_free()
+
+	if not GameManager.has_pending_dungeon_corridor_chest():
+		return
+
+	var button: PrimaryButton = PrimaryButton.new()
+	button.name = "CorridorChestButton"
+	button.text = "%s %s" % [Glyphs.EDGE_CHEST, tr("ui_dungeon_corridor_chest")]
+	button.pressed.connect(_enter_corridor_chest)
+	corridor_chest_list.add_child(button)
+
+
+# 通路の宝箱の画面へ（段階19-c-2）。
+#
+# ⚠⚠ マスの宝箱と同じ画面（⚠ 人間の指示「通路にも同じ画面を出す」）。
+# ⚠ どのマスかは渡さない。⚠ 通路の宝箱はノードに紐づかない（⚠ 持ち越しの欄が正）。
+func _enter_corridor_chest() -> void:
+	SceneManager.change_scene_with_data(
+		CHEST_PATH, {TransferKeys.DUNGEON_CORRIDOR_CHEST: true}
+	)
+
+
 # 続行・撤退はボスを倒した先だけ（決定15）。⚠ 判定は GameManager の1本に聞く。
 func _update_footer() -> void:
 	var can_retreat: bool = GameManager.can_retreat_from_dungeon()
@@ -315,6 +378,12 @@ func _update_footer() -> void:
 func _on_node_pressed(node_id: String) -> void:
 	if not GameManager.move_in_dungeon(node_id):
 		message_label.text = tr("ui_dungeon_cannot_move")
+		return
+	# ⚠⚠ 通路の宝箱が先（段階19-c-2）。⚠ 着いたマスの中身より前に開けさせる
+	#   （⚠ 「通路を歩いてから部屋に着く」の順。⚠ move_in_dungeon の中の順番と揃える）。
+	#   ⚠ 開けずに戻ってきても持ち越しは残る（⚠ 下の _rebuild で案内が出る）。
+	if GameManager.has_pending_dungeon_corridor_chest():
+		_enter_corridor_chest()
 		return
 	_enter_node(node_id)
 
