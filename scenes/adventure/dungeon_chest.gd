@@ -14,6 +14,10 @@
 # ⚠ 再描画に await を持たせない。remove_child() してから queue_free()（AGENTS.md）。
 # ⚠ ScrollContainer を使わない。中は scenario=layout で測れない。
 
+# ⚠ 決定36 で重ねて出す形になったので、⚠ 呼ぶ側が型で持てるように class_name を付けた
+#   （⚠ Control 型で持って open_as_overlay() を呼ぶと型が通らない。⚠ AGENTS.md「エラーを
+#     理由にルールを緩めない」＝ has_method() / call() で逃げない）。
+class_name DungeonChest
 extends Control
 
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
@@ -21,6 +25,14 @@ const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 # 鞄が満杯のときの色。⚠ 「もう入らない」が一目で分かること。
 const COLOR_FULL: Color = Color(0.85, 0.35, 0.35)
 
+# ⚠⚠ 閉じたことを親（dungeon_map）に伝える（決定36・2026-09-05）。
+#   ⚠ 重ねて出しているあいだ、⚠ マップは後ろで生きている。⚠ 閉じたら描き直してもらう。
+signal closed
+
+# ⚠ 重ねて出しているときの幕の濃さ。⚠ 1.0 だとマップが見えず、⚠ 画面遷移と同じに見える。
+const OVERLAY_DIM_ALPHA: float = 0.88
+
+@onready var background: ColorRect = $Background
 @onready var title_label: Label = $Layout/TitleLabel
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var bag_label: Label = $Layout/BagLabel
@@ -42,22 +54,41 @@ var _is_corridor: bool = false
 var _selected_entry: Dictionary = {}
 # 選んでいるのが拾い待ちか鞄か（段階20-e）。⚠ できることが違う（入れる／捨てる）。
 var _selected_from_bag: bool = false
+# ⚠⚠ マップの上に重ねて出しているか（決定36・2026-09-05・人間「報酬画面はモーダルで」）。
+#   ⚠ true なら画面遷移をしない。⚠ 閉じるときは closed を出して自分を消すだけ。
+#   ⚠ add_child() の前に open_as_overlay() で立てること（⚠ _ready() が見る）。
+var _as_overlay: bool = false
+
+
+# 重ねて出すときの入口（決定36）。⚠ 親が add_child() する前に呼ぶ。
+#
+# ⚠ 転送データを使わない。⚠ 画面遷移していないので consume_transfer_data() は
+#   マップ側のデータを食ってしまう。
+func open_as_overlay(node_id: String, is_corridor: bool) -> void:
+	_as_overlay = true
+	_node_id = node_id
+	_is_corridor = is_corridor
 
 
 func _ready() -> void:
-	var data: Dictionary = SceneManager.consume_transfer_data()
-	_node_id = str(data.get(TransferKeys.DUNGEON_NODE_ID, ""))
-	_is_corridor = bool(data.get(TransferKeys.DUNGEON_CORRIDOR_CHEST, false))
+	# ⚠ 重ねて出すときは open_as_overlay() が既に入れている（⚠ 転送データは食わない）。
+	if not _as_overlay:
+		var data: Dictionary = SceneManager.consume_transfer_data()
+		_node_id = str(data.get(TransferKeys.DUNGEON_NODE_ID, ""))
+		_is_corridor = bool(data.get(TransferKeys.DUNGEON_CORRIDOR_CHEST, false))
+	else:
+		# ⚠ 後ろのマップを透かす（⚠ 幕が不透明だと画面遷移と見分けが付かない）。
+		background.color.a = OVERLAY_DIM_ALPHA
 
 	# ⚠ ランに入っていないのに来た。⚠ 空の画面を描かない。
 	# ⚠ 出どころが無くても、⚠ 拾い待ちがあれば開く（段階20-e＝通路の資源から来た場合）。
 	if not GameManager.is_in_dungeon():
-		push_warning("[DungeonChest] ランに入っていないのでマップへ戻る")
-		SceneManager.change_scene(DUNGEON_MAP_PATH)
+		push_warning("[DungeonChest] ランに入っていないので閉じる")
+		_close()
 		return
 	if _node_id == "" and not _is_corridor and not GameManager.has_dungeon_pending_loot():
-		push_warning("[DungeonChest] 出どころも拾い待ちも無いのでマップへ戻る")
-		SceneManager.change_scene(DUNGEON_MAP_PATH)
+		push_warning("[DungeonChest] 出どころも拾い待ちも無いので閉じる")
+		_close()
 		return
 
 	title_label.text = tr(_title_key())
@@ -254,4 +285,16 @@ func _clear_selection() -> void:
 func _on_back_pressed() -> void:
 	var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
 	var _gone: bool = GameManager.discard_dungeon_corridor_chest()
-	SceneManager.change_scene(DUNGEON_MAP_PATH)
+	_close()
+
+
+# 閉じる。⚠ 出し方が2通りあるので、⚠ 閉じ方もここ1本にまとめる（決定36）。
+#
+# ⚠ 重ねて出しているとき＝自分を消して closed を出すだけ（⚠ マップは後ろで生きている）。
+# ⚠ 1枚の画面として出ているとき＝今までどおりマップへ遷移する。
+func _close() -> void:
+	if not _as_overlay:
+		SceneManager.change_scene(DUNGEON_MAP_PATH)
+		return
+	closed.emit()
+	queue_free()

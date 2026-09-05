@@ -28,6 +28,8 @@ const RELIC_SELECT_PATH: String = "res://scenes/adventure/dungeon_relic_select.t
 const SHOP_PATH: String = "res://scenes/adventure/dungeon_shop.tscn"
 # ⚠ 宝箱も別画面（段階19-b・人間の決定21「遺物や宝箱やショップは別画面」）。
 const CHEST_PATH: String = "res://scenes/adventure/dungeon_chest.tscn"
+# ⚠ 決定36：⚠ 画面遷移ではなく重ねて出すので、⚠ 実体をここで持つ。
+const CHEST_SCENE: PackedScene = preload("res://scenes/adventure/dungeon_chest.tscn")
 
 # マスの見た目。⚠ 色はここに置く（floor_map.gd と同じ扱い。main_theme.tres に
 #   対応する概念が無い）。⚠ 値まで揃えるかは見た目の判断なので人間が決める。
@@ -99,6 +101,13 @@ const EDGE_ANCHOR_SPREAD: float = 0.55
 @onready var abandon_button: PrimaryButton = $Layout/Footer/AbandonButton
 @onready var back_button: PrimaryButton = $Layout/Footer/BackButton
 
+# ⚠ いま重ねている拾いもの／宝箱（決定36）。⚠ null なら出ていない。⚠ 二重に開かないための札。
+var _loot_overlay: DungeonChest = null
+# ⚠⚠ 重ねたものを閉じたあとに入るマス（決定36）。⚠ "" なら何もしない。
+#   ⚠ これが無いと、⚠ 通路の宝箱を先に出したときに「着いたマスの中身」へ入り損ねる
+#     （⚠ 不1 と同じ穴。⚠ 画面遷移ではなくなったので、⚠ 覚えておけば入り直せる）。
+var _pending_node_entry: String = ""
+
 
 func _ready() -> void:
 	SceneManager.consume_transfer_data()
@@ -112,16 +121,6 @@ func _ready() -> void:
 	# ⚠⚠ 戦闘から戻ったときに拾い待ちがある（段階20-f・人間の指示「戦利品も選ばせる」）。
 	#   ⚠ マップを描く前に拾いものの画面へ送る。⚠ 描いてから送ると1フレーム分ちらつく。
 	#   ⚠ `_rebuild()` の中でやらないこと（⚠ 戻ってくるたびに遷移して止まらなくなる）。
-	# ⚠⚠ 通路の宝箱が先（決定31・2026-09-05）。⚠ 戦闘から戻った直後に必ず1回だけ出す。
-	#   ⚠ 「あとから開ける」ボタンは消した（⚠ 人間「宝箱はあとから開けれないようにしたい」）。
-	#   ⚠ 開けずに戻ると discard_dungeon_corridor_chest() が捨てるので、⚠ ここは二度は出ない。
-	if GameManager.has_pending_dungeon_corridor_chest():
-		_enter_corridor_chest()
-		return
-	if GameManager.has_dungeon_pending_loot():
-		_enter_pickup()
-		return
-
 	message_label.text = ""
 	descend_button.pressed.connect(_on_descend_pressed)
 	retreat_button.pressed.connect(_on_retreat_pressed)
@@ -138,6 +137,15 @@ func _ready() -> void:
 	#   （⚠ マスのあいだの間隔と同じ場所に並べて、⚠ 2箇所に散らさないため）。
 	layer_list.add_theme_constant_override("separation", LAYER_SEPARATION)
 	_rebuild()
+
+	# ⚠⚠ 戦闘から戻ったときの持ち物（決定31・決定36）。⚠ マップを組んでから重ねる。
+	#   ⚠ 通路の宝箱が先（⚠ 「通路を歩いてから部屋に着く」の順）。
+	#   ⚠ 「あとから開ける」ボタンは消した（⚠ 人間「宝箱はあとから開けれないようにしたい」）。
+	#   ⚠ 開けずに閉じると捨てられるので、⚠ ここは二度は出ない。
+	if GameManager.has_pending_dungeon_corridor_chest():
+		_enter_corridor_chest()
+	elif GameManager.has_dungeon_pending_loot():
+		_enter_pickup()
 
 
 # ⚠ ランが終わったとき（撤退・全ロスト）は dungeon_id が "" で飛んでくる。
@@ -571,13 +579,11 @@ func _enter_relic_node(node_id: String) -> void:
 	)
 
 
-# 宝箱のマス（段階19-b）。⚠ レリックと同じ形（⚠ 踏んだら別画面へ移る）。
+# 宝箱のマス（段階19-b → ⚠ 決定36 で重ねて出す形にした）。
 #
 # ⚠ 開ける／開けたかの判定はここに書かない。⚠ 向こうが GameManager に聞く。
 func _enter_chest_node(node_id: String) -> void:
-	SceneManager.change_scene_with_data(
-		CHEST_PATH, {TransferKeys.DUNGEON_NODE_ID: node_id}
-	)
+	_open_loot_overlay(node_id, false)
 
 
 # ボスの先のショップ（段階17-e → ⚠ 17-e-3 で別画面へ切り出した）。
@@ -622,9 +628,7 @@ func _rebuild_corridor_chest() -> void:
 # ⚠⚠ マスの宝箱と同じ画面（⚠ 人間の指示「通路にも同じ画面を出す」）。
 # ⚠ どのマスかは渡さない。⚠ 通路の宝箱はノードに紐づかない（⚠ 持ち越しの欄が正）。
 func _enter_corridor_chest() -> void:
-	SceneManager.change_scene_with_data(
-		CHEST_PATH, {TransferKeys.DUNGEON_CORRIDOR_CHEST: true}
-	)
+	_open_loot_overlay("", true)
 
 
 # 続行・撤退はボスを倒した先だけ（決定15）。⚠ 判定は GameManager の1本に聞く。
@@ -647,41 +651,80 @@ func _on_node_pressed(node_id: String) -> void:
 	#   ⚠ 先に拾いもの／通路の宝箱の画面へ送ると、⚠ 戻ってきたときに「着いたマスの中身へ
 	#     入る」口がもう無く、⚠ 戦闘が起きないまま次のマスへ進めてしまう
 	#     （⚠ _ready() は拾い待ちしか見ない。⚠ _enter_node() を呼ぶのはここ1箇所だけ）。
-	#   ⚠ 通路の宝箱と拾い待ちは戦闘から戻ったときに拾う
-	#     （⚠ 拾い待ち＝_ready() ／ ⚠ 通路の宝箱＝_rebuild() の案内ボタン）。
+	#   ⚠ 通路の宝箱と拾い待ちは戦闘から戻ったときに拾う（⚠ _ready() の末尾）。
 	var kind: String = str(
 		GameManager.get_dungeon_node(node_id).get(GameStateKeys.DUNGEON_NODE_KIND, "")
 	)
+	# 通路で何か起きたら知らせる（段階20-d・人間の指示「何かわかるような演出がしたい」）。
+	# ⚠ マスの中身へ進む前に出す（⚠ 通路 → 部屋 の順と揃える）。
+	_notify_edge_event()
 	if kind == GameStateKeys.DUNGEON_NODE_KIND_BATTLE \
 			or kind == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
-		_notify_edge_event()
 		_enter_node(node_id)
 		return
 	# ⚠⚠ 通路の宝箱が先（段階19-c-2）。⚠ 着いたマスの中身より前に開けさせる
 	#   （⚠ 「通路を歩いてから部屋に着く」の順。⚠ move_in_dungeon の中の順番と揃える）。
-	#   ⚠ 開けずに戻ってきても持ち越しは残る（⚠ 下の _rebuild で案内が出る）。
-	# ⚠ 宝箱にはモーダルを出さない（⚠ 画面そのものが演出になっている）。
+	#   ⚠ 開けずに閉じると捨てられる（決定31）。
+	# ⚠⚠ 重ねて出すので、⚠ 閉じたあとに「着いたマスの中身」へ入り直す（決定36・_pending_node_entry）。
 	if GameManager.has_pending_dungeon_corridor_chest():
+		_pending_node_entry = node_id
 		_enter_corridor_chest()
 		return
 	# ⚠⚠ 拾い待ちが出たら「何を鞄に入れるか」を選ばせる（段階20-e・人間の指示）。
 	#   ⚠ 通路の資源がここに来る。⚠ 宝箱と同じ画面を使い回す（⚠ 人間の裁き）。
-	#   ⚠ モーダルは出さない（⚠ 画面のほうが中身を見せられる）。
 	if GameManager.has_dungeon_pending_loot():
+		_pending_node_entry = node_id
 		_enter_pickup()
 		return
-	# 通路で何か起きたら知らせる（段階20-d・人間の指示「何かわかるような演出がしたい」）。
-	# ⚠ マスの中身へ進む前に出す（⚠ 通路 → 部屋 の順と揃える）。
-	_notify_edge_event()
 	_enter_node(node_id)
 
 
-# 拾いものの画面へ（段階20-e）。
+# 拾いものを出す（段階20-e → ⚠ 決定36 で重ねて出す形にした）。
 #
 # ⚠ 宝箱と同じ画面（⚠ 人間の裁き「宝箱の画面を使い回す」）。
 # ⚠ どのマスかも通路かも渡さない。⚠ 拾い待ちの欄が正（⚠ 出どころに紐づかない）。
 func _enter_pickup() -> void:
-	SceneManager.change_scene(CHEST_PATH)
+	_open_loot_overlay("", false)
+
+
+# ⚠⚠ 拾いもの・宝箱をマップの上に重ねて出す（決定36・2026-09-05）。
+#
+# ⚠ 人間の指示「⚠ 戦闘と宝箱の報酬画面はモーダルで」。⚠ 4つの入口とも同じ扱い
+#   （⚠ 戦闘 ／ マスの宝箱 ／ 通路の宝箱 ／ 通路の資源）。⚠ 同じ画面を2通りに描かない。
+# ⚠⚠ 画面遷移をしないので、⚠ 戻ってきたときに「着いたマスの中身へ入る」口が要らない
+#   （⚠ 不1 で踏んだ穴がそもそも開かない）。
+# ⚠ CanvasLayer はここで作る（⚠ .tscn を触らない）。⚠ マップより手前に出す。
+# ⚠ 二重に開かない。⚠ 開いているあいだにもう1枚積むと、⚠ 下の1枚が触れないまま残る。
+func _open_loot_overlay(node_id: String, is_corridor: bool) -> void:
+	if _loot_overlay != null and is_instance_valid(_loot_overlay):
+		return
+	var layer: CanvasLayer = CanvasLayer.new()
+	layer.name = "LootOverlayLayer"
+	var overlay: DungeonChest = CHEST_SCENE.instantiate()
+	overlay.open_as_overlay(node_id, is_corridor)
+	overlay.closed.connect(_on_loot_overlay_closed.bind(layer))
+	layer.add_child(overlay)
+	add_child(layer)
+	_loot_overlay = overlay
+
+
+# 重ねたものが閉じた。⚠ 幕ごと片付けてから描き直す。
+#
+# ⚠ remove_child() してから queue_free()（AGENTS.md「再描画に await を持たせない」）。
+# ⚠ 閉じたあとに拾い待ちが残っていることはない（⚠ 向こうの「戻る」が捨てる）。
+func _on_loot_overlay_closed(layer: CanvasLayer) -> void:
+	_loot_overlay = null
+	if is_instance_valid(layer):
+		remove_child(layer)
+		layer.queue_free()
+	_rebuild()
+	# ⚠⚠ 割り込みで後回しにしたマスの中身へ入り直す（決定36）。
+	#   ⚠ 先に札を降ろすこと。⚠ _enter_node() が宝箱でもう1枚重ねる場合がある。
+	if _pending_node_entry == "":
+		return
+	var next_node_id: String = _pending_node_entry
+	_pending_node_entry = ""
+	_enter_node(next_node_id)
 
 
 # 通路のできごとをモーダルで出す（段階20-d）。
