@@ -469,6 +469,16 @@ const DUNGEON_EDGE_EFFECT_RESOURCE: String = "resource"
 # ⚠ 引き返さないので、同じ通路を2度通ることは構造上ない。
 # ⚠ 中身は「その宝箱が出た通路の行き先 node_id」。⚠ "" なら持ち越していない。
 const DUNGEON_RUN_CORRIDOR_CHEST: String = "corridor_chest"
+
+# 拾い待ちの品（段階20-e・人間の指示「⚠ インベントリの中に何を入れるか選べるように」）。
+#
+# ⚠⚠ 「見つけたが、まだ鞄に入れていないもの」。⚠ `{item_id: 個数}`。
+#   ⚠ 宝箱（マス・通路）と通路の資源がここへ積む。⚠ 鞄へ入れるのはプレイヤーが選ぶ。
+# ⚠ 鞄（`DUNGEON_RUN_BAG`）と混ぜない。⚠ あちらは「持っているもの」、
+#   ⚠ こちらは「拾うかどうかを決めていないもの」。⚠ 枠を1つも使わない。
+# ⚠⚠ 画面を出ると残りは消える（⚠ 引き返さないので拾い直せない）。
+# ⚠ 戦闘・ボスの戦利品はここを通らない（⚠ 黙って鞄へ入る。⚠ 段階20-e の対象外）。
+const DUNGEON_RUN_PENDING_LOOT: String = "pending_loot"
 const DUNGEON_NODE_CLEARED: String = "cleared"
 
 # ノードの種類。⚠ 綴りは dungeon.json の loot / currency のキーと揃える。

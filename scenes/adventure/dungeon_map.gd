@@ -564,10 +564,24 @@ func _on_node_pressed(node_id: String) -> void:
 	if GameManager.has_pending_dungeon_corridor_chest():
 		_enter_corridor_chest()
 		return
+	# ⚠⚠ 拾い待ちが出たら「何を鞄に入れるか」を選ばせる（段階20-e・人間の指示）。
+	#   ⚠ 通路の資源がここに来る。⚠ 宝箱と同じ画面を使い回す（⚠ 人間の裁き）。
+	#   ⚠ モーダルは出さない（⚠ 画面のほうが中身を見せられる）。
+	if GameManager.has_dungeon_pending_loot():
+		_enter_pickup()
+		return
 	# 通路で何か起きたら知らせる（段階20-d・人間の指示「何かわかるような演出がしたい」）。
 	# ⚠ マスの中身へ進む前に出す（⚠ 通路 → 部屋 の順と揃える）。
 	_notify_edge_event()
 	_enter_node(node_id)
+
+
+# 拾いものの画面へ（段階20-e）。
+#
+# ⚠ 宝箱と同じ画面（⚠ 人間の裁き「宝箱の画面を使い回す」）。
+# ⚠ どのマスかも通路かも渡さない。⚠ 拾い待ちの欄が正（⚠ 出どころに紐づかない）。
+func _enter_pickup() -> void:
+	SceneManager.change_scene(CHEST_PATH)
 
 
 # 通路のできごとをモーダルで出す（段階20-d）。

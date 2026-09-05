@@ -5539,12 +5539,43 @@ func _report_dungeon() -> void:
 		if GameManager.was_dungeon_chest_opened(chest_node):
 			push_error("[DebugBoot] 宝箱のマスを踏んだだけで開いている（開ける動作が飾りになる）")
 		var opened: Dictionary = GameManager.open_dungeon_chest(chest_node)
-		print("  開ける -> 入った %s ／ 置いてきた %s ／ 鞄 %d -> %d ／ 通貨 %d -> %d" % [
-			str(opened["granted"]), str(opened["left_behind"]),
+		# ⚠⚠ 段階20-e：⚠ 開けても鞄には入らない。⚠ 拾い待ちへ積まれ、⚠ プレイヤーが選ぶ。
+		print("  開ける -> 拾い待ちへ %s ／ 鞄 %d -> %d（⚠ 増えないのが正解） ／ 通貨 %d -> %d" % [
+			str(opened["granted"]),
 			bag_before_chest, GameManager.get_dungeon_bag_used(),
 			currency_before_chest, GameManager.get_dungeon_currency(),
 		])
-		print("  開けたか=%s（true が正解） ／ ⚠ もう一度開ける -> 入った %s（空が正解＝1マス1回）" % [
+		if GameManager.get_dungeon_bag_used() != bag_before_chest:
+			push_error("[DebugBoot] 宝箱を開けただけで鞄が増えた（選ぶ余地が消える）")
+		print("    拾い待ち = %s ／ マス目 %d 個" % [
+			str(GameManager.get_dungeon_pending_loot()),
+			GameManager.get_dungeon_pending_loot_slot_layout().size(),
+		])
+		if not GameManager.has_dungeon_pending_loot():
+			push_error("[DebugBoot] 宝箱を開けたのに拾い待ちが空")
+		# ⚠ 1個だけ鞄へ入れる（⚠ 選べることの根拠）。
+		# ⚠⚠ 先に空きを作る。⚠ 層が25になって戦闘が増え、⚠ 宝箱に着く時点で鞄が
+		#   満杯のことがある（⚠ 実際にそうなって赤を出した）。⚠ 満杯の枝は下の節で測る。
+		if GameManager.get_dungeon_bag_used() >= GameManager.get_dungeon_bag_slots():
+			var room_id: String = str(GameManager.get_dungeon_bag().keys()[0])
+			var _made_room: bool = GameManager.discard_dungeon_bag_item(room_id)
+			print("  ⚠ 鞄が満杯だったので '%s' を1個捨てて空きを作った（⚠ 道具の下ごしらえ）" % room_id)
+		var pick_id: String = str(GameManager.get_dungeon_pending_loot().keys()[0])
+		var bag_before_take: int = GameManager.get_dungeon_bag_used()
+		print("  ⚠ '%s' を1個だけ鞄へ -> %s ／ 鞄 %d -> %d ／ 拾い待ち = %s" % [
+			pick_id, str(GameManager.take_dungeon_pending_loot(pick_id)),
+			bag_before_take, GameManager.get_dungeon_bag_used(),
+			str(GameManager.get_dungeon_pending_loot()),
+		])
+		if GameManager.get_dungeon_bag_used() != bag_before_take + 1:
+			push_error("[DebugBoot] 1個入れたのに鞄が1つ増えていない")
+		# ⚠ 残りを全部入れる。
+		var taken_all: Dictionary = GameManager.take_all_dungeon_pending_loot()
+		print("  ⚠ 残りを全部入れる -> %s ／ 鞄 %d/%d ／ 拾い待ち = %s" % [
+			str(taken_all), GameManager.get_dungeon_bag_used(),
+			GameManager.get_dungeon_bag_slots(), str(GameManager.get_dungeon_pending_loot()),
+		])
+		print("  開けたか=%s（true が正解） ／ ⚠ もう一度開ける -> 拾い待ちへ %s（空が正解＝1マス1回）" % [
 			str(GameManager.was_dungeon_chest_opened(chest_node)),
 			str(GameManager.open_dungeon_chest(chest_node)["granted"]),
 		])
@@ -5576,14 +5607,36 @@ func _report_dungeon() -> void:
 			GameManager.get_dungeon_bag_slots() - GameManager.get_dungeon_bag_used()
 		)
 		var full_result: Dictionary = GameManager.open_dungeon_chest(chest_node_full)
-		print("  ⚠ 鞄が満杯（%d/%d）で開ける -> 入った %s（空が正解） ／ 置いてきた %s（空でないのが正解）" % [
+		# ⚠⚠ 段階20-e：⚠ 満杯でも拾い待ちには積まれる（⚠ 枠が無い）。
+		#   ⚠ 鞄へ入れようとして初めて弾かれる。⚠ 「捨てて入れ替える」ための余地。
+		print("  ⚠ 鞄が満杯（%d/%d）で開ける -> 拾い待ちへ %s（空でないのが正解）" % [
 			GameManager.get_dungeon_bag_used(), GameManager.get_dungeon_bag_slots(),
-			str(full_result["granted"]), str(full_result["left_behind"]),
+			str(full_result["granted"]),
 		])
-		if not (full_result["granted"] as Dictionary).is_empty():
-			push_error("[DebugBoot] 満杯の鞄に宝箱の中身が入った")
-		if (full_result["left_behind"] as Dictionary).is_empty():
-			push_error("[DebugBoot] 入らなかったぶんが黙って消えた（画面が言えない）")
+		if not GameManager.has_dungeon_pending_loot():
+			push_error("[DebugBoot] 満杯だと拾い待ちにも積まれない（選ぶ余地が消える）")
+		var full_pick: String = str(GameManager.get_dungeon_pending_loot().keys()[0])
+		print("  ⚠ 満杯のまま鞄へ入れる -> %s（false が正解）" % [
+			str(GameManager.take_dungeon_pending_loot(full_pick))
+		])
+		if GameManager.take_dungeon_pending_loot(full_pick):
+			push_error("[DebugBoot] 満杯の鞄に入った")
+		# ⚠ 鞄から1個捨てると入る（⚠ 人間の指示「入れ替えられる」）。
+		var bag_drop_id: String = str(GameManager.get_dungeon_bag().keys()[0])
+		var dropped_ok: bool = GameManager.discard_dungeon_bag_item(bag_drop_id)
+		var took_after: bool = GameManager.take_dungeon_pending_loot(full_pick)
+		print("  ⚠ 鞄から '%s' を捨てる -> %s ／ そのあと入れる -> %s（両方 true が正解＝入れ替えられる）" % [
+			bag_drop_id, str(dropped_ok), str(took_after)
+		])
+		if not (dropped_ok and took_after):
+			push_error("[DebugBoot] 鞄を空けても入れ替えられない")
+		# ⚠ 残りを置いていく（⚠ 画面を出るときの口）。
+		print("  ⚠ 残りを置いていく -> %s ／ 拾い待ち = %s（空が正解）" % [
+			str(GameManager.clear_dungeon_pending_loot()),
+			str(GameManager.get_dungeon_pending_loot()),
+		])
+		if GameManager.has_dungeon_pending_loot():
+			push_error("[DebugBoot] 置いていったのに拾い待ちが残っている")
 		# ⚠ 開けたことは残る（⚠ 拾えなかったからといって引き直せない＝抽選し放題を塞ぐ）。
 		print("  ⚠ 1個も入らなかったが開けたことは残る=%s（true が正解＝引き直せない）" % [
 			str(GameManager.was_dungeon_chest_opened(chest_node_full))
@@ -5948,14 +6001,17 @@ func _walk_dungeon_preferring_edges() -> Array[String]:
 				push_error("[DebugBoot] 通路のできごとが取れない（モーダルが黙る）: " + chosen_effect)
 		if GameManager.has_pending_dungeon_corridor_chest():
 			var chest_result: Dictionary = GameManager.open_dungeon_corridor_chest()
-			print("    ⚠ 通路の宝箱を開けた -> 入った %s ／ 置いてきた %s" % [
-				str(chest_result["granted"]), str(chest_result["left_behind"])
-			])
+			print("    ⚠ 通路の宝箱を開けた -> 拾い待ちへ %s" % str(chest_result["granted"]))
 			if GameManager.has_pending_dungeon_corridor_chest():
 				push_error("[DebugBoot] 通路の宝箱を開けたのに持ち越しが残っている")
 			# ⚠ もう一度開けても何も出ない（⚠ 引き直せない）。
 			if not (GameManager.open_dungeon_corridor_chest()["granted"] as Dictionary).is_empty():
 				push_error("[DebugBoot] 通路の宝箱を二度開けられる")
+		# ⚠⚠ 段階20-e：⚠ 拾い待ちは画面が処理する。⚠ 道具では入るだけ入れて先へ進む
+		#   （⚠ 残したままだと次の通路の拾いものと混ざる）。
+		if GameManager.has_dungeon_pending_loot():
+			var _picked: Dictionary = GameManager.take_all_dungeon_pending_loot()
+			var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
 	push_error("[DebugBoot] _walk_dungeon_preferring_edges: 50手で終わらない")
 	return result
 

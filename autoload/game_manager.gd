@@ -6173,6 +6173,8 @@ func load_state(data: Dictionary) -> bool:
 			GameStateKeys.DUNGEON_RUN_MAX_HP,
 			GameStateKeys.DUNGEON_RUN_HP,
 			GameStateKeys.DUNGEON_RUN_BAG,
+			# ⚠ 拾い待ち（段階20-e）。⚠ {item_id: 個数} なので鞄と同じ扱い。
+			GameStateKeys.DUNGEON_RUN_PENDING_LOOT,
 		]:
 			if dungeon_run.has(dict_key) and dungeon_run[dict_key] is Dictionary:
 				var number_map: Dictionary = dungeon_run[dict_key]
@@ -7293,6 +7295,8 @@ func _empty_dungeon_run() -> Dictionary:
 		GameStateKeys.DUNGEON_RUN_TORCH_GRADE: 0,
 		# ⚠ 通路の宝箱の持ち越し（段階19-c-2）。⚠ "" なら持ち越していない。
 		GameStateKeys.DUNGEON_RUN_CORRIDOR_CHEST: "",
+		# ⚠ 拾い待ちの品（段階20-e）。⚠ 鞄の枠を1つも使わない。
+		GameStateKeys.DUNGEON_RUN_PENDING_LOOT: {},
 		GameStateKeys.DUNGEON_RUN_RELICS: [],
 		GameStateKeys.DUNGEON_RUN_LOOT_COUNT: 0,
 	}
@@ -7769,6 +7773,194 @@ func add_to_dungeon_bag(item_id: String, count: int) -> int:
 	return accepted
 
 
+# --- 拾い待ちの品（段階20-e・人間の指示） -----------------------------
+#
+# ⚠⚠ 人間の言葉：「⚠ 何を拾ったか、表示するように」「⚠ モーダルの中にアイテムとして見せて」
+#   「⚠ インベントリの中に何を入れるか選べるように」。
+# ⚠⚠ コンセプト文書の「何を残し何を捨てるかはプレイヤーが選ぶもの」がここで実装された
+#   （⚠ `add_to_dungeon_bag()` のコメントが 17-a から「画面は 17-d」と予告していたもの）。
+# ⚠ 鞄の枠を1つも使わない。⚠ 「拾うかどうかを決めていないもの」の置き場。
+# ⚠⚠ 画面を出ると残りは消える（⚠ 引き返さないので拾い直せない）。
+
+# 拾い待ちの品（{item_id: 個数}）。⚠ 画面はこの1本に聞く。
+func get_dungeon_pending_loot() -> Dictionary:
+	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
+	var loot: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_PENDING_LOOT, {})
+	return loot.duplicate(true)
+
+
+# 拾い待ちがあるか。⚠ 画面が「拾いものの画面へ行くか」を決めるのに使う。
+func has_dungeon_pending_loot() -> bool:
+	return not get_dungeon_pending_loot().is_empty()
+
+
+# 拾い待ちのマス目（段階20-e）。⚠ 鞄のマス目と同じ形。
+#
+# ⚠ 空きマスは足さない（⚠ 枠が無いもの＝「あと何個入るか」の概念が無い）。
+func get_dungeon_pending_loot_slot_layout() -> Array:
+	return _dungeon_item_slot_layout(get_dungeon_pending_loot())
+
+
+# {item_id: 個数} を1個1マスのマス目にする（段階20-e）。
+#
+# ⚠ 鞄のマス目（get_dungeon_bag_slot_layout）と同じ組み立て。⚠ あちらは空きマスを足すので
+#   1本にまとめていない（⚠ まとめると「枠」の概念がこちらに漏れる）。
+func _dungeon_item_slot_layout(source: Dictionary) -> Array:
+	var result: Array = []
+	var item_ids: Array = source.keys()
+	item_ids.sort()
+	for entry: Variant in item_ids:
+		var item_id: String = str(entry)
+		var count: int = int(source[item_id])
+		for _i: int in range(maxi(0, count)):
+			result.append({
+				SLOT_ENTRY_KIND: SLOT_KIND_ITEM,
+				SLOT_ENTRY_ITEM_ID: item_id,
+				SLOT_ENTRY_INSTANCE_ID: "",
+				SLOT_ENTRY_GRADE: 0,
+				SLOT_ENTRY_EQUIPPED_BY: "",
+				SLOT_ENTRY_COUNT: count,
+			})
+	return result
+
+
+# 拾い待ちに積む。⚠ 積む口はここ1本だけ。
+#
+# ⚠ 鞄と違って枠が無いので、⚠ 溢れるという概念が無い。
+func _add_dungeon_pending_loot(item_id: String, count: int) -> void:
+	if not is_in_dungeon() or count <= 0:
+		return
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var loot: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_PENDING_LOOT, {})
+	loot[item_id] = int(loot.get(item_id, 0)) + count
+	run[GameStateKeys.DUNGEON_RUN_PENDING_LOOT] = loot
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+
+# 拾い待ちから1個減らす。⚠ 拾う／捨てるの共通部分。
+func _remove_dungeon_pending_loot(item_id: String) -> bool:
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var loot: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_PENDING_LOOT, {})
+	var left: int = int(loot.get(item_id, 0)) - 1
+	if left < 0:
+		return false
+	if left > 0:
+		loot[item_id] = left
+	else:
+		loot.erase(item_id)
+	run[GameStateKeys.DUNGEON_RUN_PENDING_LOOT] = loot
+	_state[GameStateKeys.DUNGEON_RUN] = run
+	return true
+
+
+# 拾い待ちから1個を鞄へ入れる（段階20-e）。⚠ 鞄が満杯なら false（⚠ 拾い待ちは減らない）。
+#
+# ⚠ 状態を変える前に判定を全部終える（CLAUDE.md 6番）。
+func take_dungeon_pending_loot(item_id: String) -> bool:
+	if not is_in_dungeon():
+		return false
+	if int(get_dungeon_pending_loot().get(item_id, 0)) <= 0:
+		print("[GameManager] take_dungeon_pending_loot: 拾い待ちに無い: " + item_id)
+		return false
+	if get_dungeon_bag_used() >= get_dungeon_bag_slots():
+		print("[GameManager] take_dungeon_pending_loot: 鞄が満杯（%d/%d）" % [
+			get_dungeon_bag_used(), get_dungeon_bag_slots()
+		])
+		return false
+
+	# --- ここから状態を変える ---
+	if not _remove_dungeon_pending_loot(item_id):
+		return false
+	var accepted: int = add_to_dungeon_bag(item_id, 1)
+	if accepted <= 0:
+		# ⚠ 起きないはず（⚠ 上で空きを見ている）。⚠ 起きたら拾い待ちへ戻す。
+		push_warning("[GameManager] take_dungeon_pending_loot: 鞄に入らなかったので戻す: " + item_id)
+		_add_dungeon_pending_loot(item_id, 1)
+		return false
+	dungeon_run_changed.emit(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")))
+	return true
+
+
+# 入るだけ鞄へ入れる（段階20-e）。⚠ 戻り値は入ったもの（{item_id: 個数}）。
+#
+# ⚠ 綴り順で入れる（⚠ 鞄が満杯になったときに「何が入って何が残ったか」が
+#   起動ごとに変わらないようにする＝add_to_dungeon_bag と同じ流儀）。
+func take_all_dungeon_pending_loot() -> Dictionary:
+	var taken: Dictionary = {}
+	if not is_in_dungeon():
+		return taken
+	var item_ids: Array = get_dungeon_pending_loot().keys()
+	item_ids.sort()
+	for entry: Variant in item_ids:
+		var item_id: String = str(entry)
+		while int(get_dungeon_pending_loot().get(item_id, 0)) > 0:
+			if not take_dungeon_pending_loot(item_id):
+				break
+			taken[item_id] = int(taken.get(item_id, 0)) + 1
+	print("[GameManager] take_all_dungeon_pending_loot() -> 入れた %s ／ 残り %s（鞄 %d/%d）" % [
+		str(taken), str(get_dungeon_pending_loot()),
+		get_dungeon_bag_used(), get_dungeon_bag_slots(),
+	])
+	dungeon_run_changed.emit(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")))
+	return taken
+
+
+# 拾い待ちから1個を捨てる（段階20-e）。⚠ 鞄には入らない。⚠ 戻りは無い。
+func discard_dungeon_pending_loot(item_id: String) -> bool:
+	if not is_in_dungeon():
+		return false
+	if int(get_dungeon_pending_loot().get(item_id, 0)) <= 0:
+		return false
+	if not _remove_dungeon_pending_loot(item_id):
+		return false
+	print("[GameManager] discard_dungeon_pending_loot('%s') -> 残り %s" % [
+		item_id, str(get_dungeon_pending_loot())
+	])
+	dungeon_run_changed.emit(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")))
+	return true
+
+
+# 拾い待ちを丸ごと捨てる（段階20-e）。⚠ 画面を出るときに呼ぶ。
+#
+# ⚠ 戻り値は捨てたもの（⚠ 画面が「置いてきた」と言えるように）。
+# ⚠⚠ 引き返さないので拾い直せない。⚠ 「あとで取りに戻る」を作らないこと。
+func clear_dungeon_pending_loot() -> Dictionary:
+	var left: Dictionary = get_dungeon_pending_loot()
+	if left.is_empty():
+		return left
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_PENDING_LOOT] = {}
+	_state[GameStateKeys.DUNGEON_RUN] = run
+	print("[GameManager] clear_dungeon_pending_loot() -> 置いてきた %s" % str(left))
+	dungeon_run_changed.emit(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")))
+	return left
+
+
+# 鞄から1個捨てる（段階20-e・人間の指示「⚠ 入れ替えられる」）。
+#
+# ⚠⚠ 拾いものの画面で「鞄を空けて入れ替える」ために要る。⚠ 戻りは無い。
+# ⚠ 拠点の `discard_inventory_slot()` を借りない（⚠ 器が別＝台帳 §7）。
+func discard_dungeon_bag_item(item_id: String) -> bool:
+	if not is_in_dungeon():
+		return false
+	if int(get_dungeon_bag().get(item_id, 0)) <= 0:
+		return false
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var bag: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_BAG, {})
+	var left: int = int(bag.get(item_id, 0)) - 1
+	if left > 0:
+		bag[item_id] = left
+	else:
+		bag.erase(item_id)
+	run[GameStateKeys.DUNGEON_RUN_BAG] = bag
+	_state[GameStateKeys.DUNGEON_RUN] = run
+	print("[GameManager] discard_dungeon_bag_item('%s') -> 鞄 %d/%d" % [
+		item_id, get_dungeon_bag_used(), get_dungeon_bag_slots()
+	])
+	dungeon_run_changed.emit(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")))
+	return true
+
+
 # 一時通貨を増やす（決定16。1種類）。⚠ ゴールドと混ぜないこと。
 func add_dungeon_currency(amount: int) -> void:
 	if not is_in_dungeon() or amount == 0:
@@ -7803,7 +7995,10 @@ func _is_dungeon_only_item(item_id: String) -> bool:
 # ⚠⚠ 段階19-b で戻り値を void → Dictionary にした。⚠ 宝箱のマスだけは「開けた結果」を
 #   画面に出す必要があるため（⚠ 他のノード種は踏んだ瞬間に黙って配るまま）。
 #   ⚠ 配る口を2本目にしないための変更。⚠ 呼び出し元3箇所のうち2箇所は戻り値を捨てる。
-func _grant_dungeon_node_gains(kind: String) -> Dictionary:
+func _grant_dungeon_node_gains(kind: String, to_pending: bool = false) -> Dictionary:
+	# ⚠⚠ to_pending＝拾い待ちに積む（段階20-e）。⚠ 鞄には入れず、⚠ プレイヤーが選ぶ。
+	#   ⚠ 宝箱（マス・通路）だけ true。⚠ 戦闘・ボスは今までどおり黙って鞄へ。
+	#   ⚠ 拾い待ちには枠が無いので、⚠ そのときの left_behind は必ず空になる。
 	var result: Dictionary = {"granted": {}, "left_behind": {}}
 	var config: DungeonConfig = _dungeon()
 	if config == null:
@@ -7846,6 +8041,11 @@ func _grant_dungeon_node_gains(kind: String) -> Dictionary:
 	for item_entry: Variant in item_ids:
 		var item_id: String = str(item_entry)
 		var wanted: int = int(rolled[item_entry])
+		if to_pending:
+			# ⚠ 拾い待ちには枠が無いので全部積む。⚠ 鞄へ入れるのはプレイヤーが選ぶ。
+			_add_dungeon_pending_loot(item_id, wanted)
+			(result["granted"] as Dictionary)[item_id] = wanted
+			continue
 		var accepted: int = add_to_dungeon_bag(item_id, wanted)
 		if accepted > 0:
 			(result["granted"] as Dictionary)[item_id] = accepted
@@ -8587,15 +8787,13 @@ func _apply_dungeon_edge_resource() -> Dictionary:
 	# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
 	var item_id: String = str(row.get(CHEST_DRAW_ITEM_ID, ""))
 	var count: int = maxi(1, int(row.get("count", 1)))
-	var accepted: int = add_to_dungeon_bag(item_id, count)
-	if accepted > 0:
-		(result["items"] as Dictionary)[item_id] = accepted
-	# ⚠ 入り切らなかったぶんを黙って消さない（⚠ 宝箱の left_behind と同じ形）。
-	#   ⚠ 出さないと、⚠ 鞄が満杯のときにモーダルが「拾った（0）」と嘘をつく。
-	if accepted < count:
-		(result["left_behind"] as Dictionary)[item_id] = count - accepted
-	print("[GameManager] 通路の資源（素材）: %s x%d -> %d 個入った（鞄 %d/%d）" % [
-		item_id, count, accepted, get_dungeon_bag_used(), get_dungeon_bag_slots()
+	# ⚠⚠ 段階20-e：⚠ 鞄へ直接入れない。⚠ 拾い待ちへ積み、⚠ プレイヤーが選ぶ
+	#   （⚠ 人間の指示「インベントリの中に何を入れるか選べるように」）。
+	#   ⚠ 拾い待ちには枠が無いので `left_behind` は出ない。
+	_add_dungeon_pending_loot(item_id, count)
+	(result["items"] as Dictionary)[item_id] = count
+	print("[GameManager] 通路の資源（素材）: %s x%d -> 拾い待ちへ（鞄 %d/%d）" % [
+		item_id, count, get_dungeon_bag_used(), get_dungeon_bag_slots()
 	])
 	return result
 
@@ -8667,10 +8865,11 @@ func open_dungeon_corridor_chest() -> Dictionary:
 	_set_dungeon_corridor_chest("")
 	# ⚠ 配る口は _grant_dungeon_node_gains() の1本のまま（⚠ 2本目を書かない）。
 	#   ⚠ 表は loot.edge_chest（⚠ マスの宝箱より薄い＝rolls 1）。
-	var result: Dictionary = _grant_dungeon_node_gains(DUNGEON_LOOT_EDGE_CHEST)
-	print("[GameManager] open_dungeon_corridor_chest() -> 入った: %s ／ 鞄が満杯で置いてきた: %s（鞄 %d/%d）" % [
-		str(result["granted"]), str(result["left_behind"]),
-		get_dungeon_bag_used(), get_dungeon_bag_slots(),
+	# ⚠ 拾い待ちへ積む（段階20-e）。⚠ 鞄へ入れるのはプレイヤーが選ぶ。
+	var result: Dictionary = _grant_dungeon_node_gains(DUNGEON_LOOT_EDGE_CHEST, true)
+	# ⚠ 段階20-e：⚠ 鞄には入らない。⚠ 拾い待ちへ積むだけ。
+	print("[GameManager] open_dungeon_corridor_chest() -> 拾い待ちへ: %s（鞄 %d/%d は動かない）" % [
+		str(result["granted"]), get_dungeon_bag_used(), get_dungeon_bag_slots(),
 	])
 	dungeon_run_changed.emit(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")))
 	return result
@@ -8806,10 +9005,11 @@ func open_dungeon_chest(node_id: String) -> Dictionary:
 
 	# ⚠ 配る口は _grant_dungeon_node_gains() の1本だけ（⚠ 2本目を書かない）。
 	#   ⚠ 一時通貨も同じ口が配る（dungeon.json の currency.chest）。
-	var result: Dictionary = _grant_dungeon_node_gains(GameStateKeys.DUNGEON_NODE_KIND_CHEST)
-	print("[GameManager] open_dungeon_chest('%s') -> 入った: %s ／ 鞄が満杯で置いてきた: %s（鞄 %d/%d）" % [
-		node_id, str(result["granted"]), str(result["left_behind"]),
-		get_dungeon_bag_used(), get_dungeon_bag_slots(),
+	# ⚠ 拾い待ちへ積む（段階20-e）。⚠ 鞄へ入れるのはプレイヤーが選ぶ。
+	var result: Dictionary = _grant_dungeon_node_gains(GameStateKeys.DUNGEON_NODE_KIND_CHEST, true)
+	# ⚠ 段階20-e：⚠ 鞄には入らない。⚠ 拾い待ちへ積むだけ（⚠ 入れるのはプレイヤーが選ぶ）。
+	print("[GameManager] open_dungeon_chest('%s') -> 拾い待ちへ: %s（鞄 %d/%d は動かない）" % [
+		node_id, str(result["granted"]), get_dungeon_bag_used(), get_dungeon_bag_slots(),
 	])
 	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
 	return result

@@ -809,3 +809,11 @@ ui_desc_relic_berserker_mark,"付けた1人のHPが半分以下のあいだ、�
 ui_desc_relic_first_strike,"戦闘開始から20秒のあいだ、付けた1人の攻撃力が30%上がる。"
 ui_desc_relic_thorns,"付けた1人が攻撃を受けたとき、攻撃力の25%を相手に返す。"
 ui_dungeon_edge_event_resource_full,"通路に拾いものがあったが、鞄が満杯で置いてきた（%s）"
+ui_dungeon_pickup_title,拾いもの
+ui_dungeon_pickup_hint,鞄に入れるものを選ぶ。置いていったものは戻らない
+ui_dungeon_pickup_full,鞄が満杯。入れるには鞄から何か捨てる
+ui_dungeon_pickup_take,鞄に入れる
+ui_dungeon_pickup_take_all,入るだけ全部入れる
+ui_dungeon_pickup_discard,置いていく
+ui_dungeon_pickup_discard_bag,鞄から捨てる
+ui_dungeon_chest_bag_title,いまの鞄
