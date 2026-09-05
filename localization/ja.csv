@@ -791,3 +791,21 @@ ui_dungeon_edge_trap_currency,罠（遺物片を落とす）
 ui_dungeon_edge_trap_bag,罠（荷物を落とす）
 ui_dungeon_edge_chest,宝箱
 ui_dungeon_edge_resource,資源
+ui_dungeon_edge_event_trap_hp,"通路に罠があった。全員が傷を負った（戦闘時MAX HP -%s）"
+ui_dungeon_edge_event_trap_currency,"通路で足をすくわれた。遺物片を落とした（-%s）"
+ui_dungeon_edge_event_trap_bag,"通路で荷物を落とした（%s）"
+ui_dungeon_edge_event_resource,"通路で拾いものをした（%s）"
+ui_dungeon_edge_event_chest,"通路に宝箱があった（%s）"
+ui_desc_relic_banner_of_war,編成3人の攻撃力が15%上がる。
+ui_desc_relic_iron_wall,編成3人の物理防御が8上がる。
+ui_desc_relic_warding_stone,編成3人の魔法防御が8上がる。
+ui_desc_relic_swift_boots,編成3人の攻撃速度が10上がる。
+ui_desc_relic_lucky_charm,編成3人の会心率が12上がる。
+ui_desc_relic_hasty_sigil,編成3人のヘイストが15上がる。
+ui_desc_relic_champion_blade,付けた1人の攻撃力が35%上がる。
+ui_desc_relic_guardian_plate,付けた1人の物理防御が20上がる。
+ui_desc_relic_sharp_eye,付けた1人の会心率が20、会心ダメージが30上がる。
+ui_desc_relic_berserker_mark,"付けた1人のHPが半分以下のあいだ、攻撃力が40%上がる。"
+ui_desc_relic_first_strike,"戦闘開始から20秒のあいだ、付けた1人の攻撃力が30%上がる。"
+ui_desc_relic_thorns,"付けた1人が攻撃を受けたとき、攻撃力の25%を相手に返す。"
+ui_dungeon_edge_event_resource_full,"通路に拾いものがあったが、鞄が満杯で置いてきた（%s）"

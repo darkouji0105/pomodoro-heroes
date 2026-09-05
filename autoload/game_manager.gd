@@ -7559,6 +7559,9 @@ func move_in_dungeon(node_id: String) -> bool:
 		print("[GameManager] move_in_dungeon('%s') -> false (進めない)" % node_id)
 		return false
 
+	# ⚠ 前の1回ぶんを消す（段階20-d）。⚠ 消さないと、⚠ 効果の無い通路を通ったときに
+	#   前のできごとがもう一度モーダルで出る。
+	_last_dungeon_edge_event = {}
 	# ⚠ 通路の効果は「動く前」に引いておく（段階19-c-2）。⚠ 動いたあとだと
 	#   position が変わっていて、⚠ どの通路を通ったかが分からなくなる。
 	var from_node_id: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
@@ -8446,6 +8449,21 @@ func apply_dungeon_rest() -> void:
 # ⚠ 呼ぶのは move_in_dungeon() だけ（⚠ 通った瞬間に効く）。
 # ⚠ 宝箱だけ「持ち越し」にする（⚠ 画面を出すため）。⚠ 他は即座に効く。
 
+# 直前に通った通路で何が起きたか（段階20-d・人間の指示「⚠ 何かわかるような演出がしたい」）。
+#
+# ⚠⚠ 状態（`_state`）に入れない。⚠ セーブに残るものではなく、⚠ 「いま出す1回」だけの値。
+#   ⚠ 入れると `load_state()` の正規化と状態の表を触ることになる。
+# ⚠ 形： {effect: String, amount: int, items: {item_id: 個数}}
+#   ⚠ amount の意味は effect ごとに違う（⚠ HP＝削った量 ／ 通貨＝増減 ／ 鞄＝落とした個数）。
+# ⚠ 画面が数字を組み立て直さない（⚠ ここが唯一の出どころ）。
+var _last_dungeon_edge_event: Dictionary = {}
+
+
+# 直前の通路のできごと。⚠ 何も起きていなければ空。⚠ 画面はこの1本に聞く。
+func get_last_dungeon_edge_event() -> Dictionary:
+	return _last_dungeon_edge_event.duplicate(true)
+
+
 # 通った通路の効果を効かせる。
 #
 # ⚠ to_node_id は行き先。⚠ 宝箱の持ち越しに「どこで出たか」として記録する。
@@ -8453,22 +8471,41 @@ func _apply_dungeon_edge_effect(effect: String, to_node_id: String) -> void:
 	var config: DungeonConfig = _dungeon()
 	if config == null:
 		return
+	# ⚠ 「何が起きたか」を必ず埋める（⚠ 埋め忘れると画面が黙る）。
+	# ⚠ `left_behind` は「鞄が満杯で拾えなかったもの」（⚠ 宝箱の戻り値と同じ形）。
+	#   ⚠ 空でなければ画面は「拾った」ではなく「拾えなかった」と言う。
+	_last_dungeon_edge_event = {
+		GameStateKeys.DUNGEON_EDGE_EFFECT: effect, "amount": 0, "items": {}, "left_behind": {},
+	}
 	match effect:
 		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP:
-			_apply_dungeon_edge_trap_hp(int(config.edge_trap_hp_pct))
+			_last_dungeon_edge_event["amount"] = _apply_dungeon_edge_trap_hp(
+				int(config.edge_trap_hp_pct)
+			)
 		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY:
 			var lost: int = mini(get_dungeon_currency(), maxi(0, int(config.edge_trap_currency)))
 			add_dungeon_currency(-lost)
+			_last_dungeon_edge_event["amount"] = lost
 			print("[GameManager] 通路の罠（通貨）: %d 失った -> 残り %d" % [lost, get_dungeon_currency()])
 		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG:
-			_apply_dungeon_edge_trap_bag(maxi(0, int(config.edge_trap_bag_count)))
+			var dropped: Dictionary = _apply_dungeon_edge_trap_bag(
+				maxi(0, int(config.edge_trap_bag_count))
+			)
+			_last_dungeon_edge_event["items"] = dropped
+			for dropped_id: Variant in dropped:
+				_last_dungeon_edge_event["amount"] = int(_last_dungeon_edge_event["amount"]) \
+					+ int(dropped[dropped_id])
 		GameStateKeys.DUNGEON_EDGE_EFFECT_CHEST:
 			_set_dungeon_corridor_chest(to_node_id)
 			print("[GameManager] 通路の宝箱: 持ち越した（行き先 %s）" % to_node_id)
 		GameStateKeys.DUNGEON_EDGE_EFFECT_RESOURCE:
-			_apply_dungeon_edge_resource()
+			var gained: Dictionary = _apply_dungeon_edge_resource()
+			_last_dungeon_edge_event["amount"] = int(gained.get("currency", 0))
+			_last_dungeon_edge_event["items"] = gained.get("items", {})
+			_last_dungeon_edge_event["left_behind"] = gained.get("left_behind", {})
 		_:
 			push_warning("[GameManager] W33 知らない通路の効果（何も起きない）: " + effect)
+			_last_dungeon_edge_event = {}
 
 
 # 罠（HP）。⚠ 編成の全員の戦闘時 MAX HP を、素の MAX HP の pct% ぶん削る。
@@ -8478,7 +8515,9 @@ func _apply_dungeon_edge_effect(effect: String, to_node_id: String) -> void:
 #   ⚠ 設計役の判断。⚠ 覆すならここの maxi(1, ...) を外す。
 # ⚠ 脱落している者は飛ばす（⚠ 0 を削っても意味が無い）。
 # ⚠ HP と上限は常に同じ値（決定18）。⚠ 2つ別々に書かないこと。
-func _apply_dungeon_edge_trap_hp(pct: int) -> void:
+# 戻り値: 実際に削った合計（⚠ 画面が「どれだけ減ったか」を出すのに使う）。
+func _apply_dungeon_edge_trap_hp(pct: int) -> int:
+	var lost_total: int = 0
 	for member: Variant in get_party_members():
 		var character_id: String = str(member)
 		if character_id == "" or is_dungeon_character_downed(character_id):
@@ -8487,19 +8526,22 @@ func _apply_dungeon_edge_trap_hp(pct: int) -> void:
 		var before: int = get_dungeon_character_max_hp(character_id)
 		var after: int = maxi(1, before - int(base_max_hp * pct / 100.0))
 		_write_dungeon_hp(character_id, after, after)
+		lost_total += before - after
 		print("[GameManager] 通路の罠（HP）: %s 戦闘時MAX HP %d -> %d（素 %d の %d%%・⚠ 脱落はさせない）" % [
 			character_id, before, after, base_max_hp, pct
 		])
+	return lost_total
 
 
 # 罠（鞄）。⚠ 鞄から count 個落とす。⚠ 鞄が空なら何も起きない。
 #
 # ⚠ 落とすものは綴り順の先頭（⚠ add_to_dungeon_bag と同じ流儀）。
 #   ⚠ 乱数で選ばないこと。⚠ 起動ごとに結果が変わると検証が読めなくなる。
-func _apply_dungeon_edge_trap_bag(count: int) -> void:
-	if count <= 0:
-		return
+# 戻り値: 落としたもの（{item_id: 個数}）。⚠ 画面が「何を落としたか」を出すのに使う。
+func _apply_dungeon_edge_trap_bag(count: int) -> Dictionary:
 	var dropped: Dictionary = {}
+	if count <= 0:
+		return dropped
 	for _i: int in range(count):
 		var bag: Dictionary = get_dungeon_bag()
 		var item_ids: Array = bag.keys()
@@ -8520,31 +8562,42 @@ func _apply_dungeon_edge_trap_bag(count: int) -> void:
 	print("[GameManager] 通路の罠（鞄）: 落とした %s -> 鞄 %d/%d" % [
 		str(dropped), get_dungeon_bag_used(), get_dungeon_bag_slots()
 	])
+	return dropped
 
 
 # 資源。⚠ 一時通貨か素材のどちらか（⚠ 通路ごとに抽選＝人間の決定24）。
 #
 # ⚠ 表は dungeon.json の edges.resource。⚠ 通貨の額だけ Config（つまみ）。
 # ⚠ 素材は鞄へ。⚠ 鞄が満杯なら入らない（⚠ 勝手に何かを捨てない）。
-func _apply_dungeon_edge_resource() -> void:
+# 戻り値: {"currency": int, "items": {item_id: 個数}}。⚠ 画面が「何を拾ったか」を出すのに使う。
+func _apply_dungeon_edge_resource() -> Dictionary:
+	var result: Dictionary = {"currency": 0, "items": {}, "left_behind": {}}
 	var config: DungeonConfig = _dungeon()
 	if config == null:
-		return
+		return result
 	var row: Dictionary = _roll_dungeon_edge_resource()
 	if row.is_empty():
-		return
+		return result
 	if str(row.get(DUNGEON_EDGES_KIND, "")) == DUNGEON_EDGES_KIND_CURRENCY:
 		var amount: int = maxi(0, int(config.edge_resource_currency))
 		add_dungeon_currency(amount)
+		result["currency"] = amount
 		print("[GameManager] 通路の資源（通貨）: +%d -> %d" % [amount, get_dungeon_currency()])
-		return
+		return result
 	# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
 	var item_id: String = str(row.get(CHEST_DRAW_ITEM_ID, ""))
 	var count: int = maxi(1, int(row.get("count", 1)))
 	var accepted: int = add_to_dungeon_bag(item_id, count)
+	if accepted > 0:
+		(result["items"] as Dictionary)[item_id] = accepted
+	# ⚠ 入り切らなかったぶんを黙って消さない（⚠ 宝箱の left_behind と同じ形）。
+	#   ⚠ 出さないと、⚠ 鞄が満杯のときにモーダルが「拾った（0）」と嘘をつく。
+	if accepted < count:
+		(result["left_behind"] as Dictionary)[item_id] = count - accepted
 	print("[GameManager] 通路の資源（素材）: %s x%d -> %d 個入った（鞄 %d/%d）" % [
 		item_id, count, accepted, get_dungeon_bag_used(), get_dungeon_bag_slots()
 	])
+	return result
 
 
 # edges.resource を1行引く。⚠ 重み付き。⚠ 引けなければ空。

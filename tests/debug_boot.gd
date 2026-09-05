@@ -5255,6 +5255,27 @@ func _report_dungeon() -> void:
 			str(GameManager.take_dungeon_relic(relic_node, str(choices_a[0])))
 		])
 
+	# --- 11-A2. レリックの説明文（段階20-d・人間の指示「レリックなどの説明文が欲しい」）---
+	#
+	# ⚠⚠ 17-e-3 では「名前と全体/1人だけ」しか出していなかった（⚠ 効果の文章が無かった）。
+	# ⚠ `ItemDetail` は `ui_desc_<id>` が在るときだけ説明を出す。⚠ コードは触っていない。
+	#   ⚠ ここで見るのは「12件とも ja.csv に説明が在るか」だけ。
+	print("[DebugBoot] --- レリックの説明文（⚠ ui_desc_<relic_id> が12件とも在るか）---")
+	var relic_missing: Array[String] = []
+	for raw_relic_id: Variant in MasterDataLoader.get_all_relic_ids():
+		var relic_id: String = str(raw_relic_id)
+		var desc_key: String = "ui_desc_" + relic_id
+		var desc_text: String = TranslationServer.translate(desc_key)
+		if desc_text == desc_key:
+			relic_missing.append(relic_id)
+		else:
+			print("  %-26s %s" % [relic_id, desc_text])
+	print("  ⚠ 説明が無いレリック = %d 件（0 が正解）%s" % [
+		relic_missing.size(), "" if relic_missing.is_empty() else " " + str(relic_missing),
+	])
+	if not relic_missing.is_empty():
+		push_error("[DebugBoot] 説明文の無いレリックがある（画面で名前しか出ない）")
+
 	# --- 11-B. ショップとたいまつ（段階17-e）---
 	#
 	# ⚠ 店が出るのは「ボスを倒した先」だけ。⚠ いまはフロア2 の道中なので空が正解。
@@ -5919,6 +5940,12 @@ func _walk_dungeon_preferring_edges() -> Array[String]:
 			return result
 		if chosen_effect != "":
 			result.append(chosen_effect)
+			# ⚠ 通路のできごとが画面に渡せる形で取れるか（段階20-d）。
+			#   ⚠ ここが空だとモーダルが黙る（⚠ 人間が報告した「何も分からない」に戻る）。
+			var edge_event: Dictionary = GameManager.get_last_dungeon_edge_event()
+			print("    ⚠ 通路のできごと = %s" % str(edge_event))
+			if str(edge_event.get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")) != chosen_effect:
+				push_error("[DebugBoot] 通路のできごとが取れない（モーダルが黙る）: " + chosen_effect)
 		if GameManager.has_pending_dungeon_corridor_chest():
 			var chest_result: Dictionary = GameManager.open_dungeon_corridor_chest()
 			print("    ⚠ 通路の宝箱を開けた -> 入った %s ／ 置いてきた %s" % [

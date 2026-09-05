@@ -560,10 +560,60 @@ func _on_node_pressed(node_id: String) -> void:
 	# ⚠⚠ 通路の宝箱が先（段階19-c-2）。⚠ 着いたマスの中身より前に開けさせる
 	#   （⚠ 「通路を歩いてから部屋に着く」の順。⚠ move_in_dungeon の中の順番と揃える）。
 	#   ⚠ 開けずに戻ってきても持ち越しは残る（⚠ 下の _rebuild で案内が出る）。
+	# ⚠ 宝箱にはモーダルを出さない（⚠ 画面そのものが演出になっている）。
 	if GameManager.has_pending_dungeon_corridor_chest():
 		_enter_corridor_chest()
 		return
+	# 通路で何か起きたら知らせる（段階20-d・人間の指示「何かわかるような演出がしたい」）。
+	# ⚠ マスの中身へ進む前に出す（⚠ 通路 → 部屋 の順と揃える）。
+	_notify_edge_event()
 	_enter_node(node_id)
+
+
+# 通路のできごとをモーダルで出す（段階20-d）。
+#
+# ⚠⚠ 人間の言葉：「⚠ 通路のイベントは、何かわかるような演出がしたい　モーダルとかなんかで」。
+#   ⚠ 19-c-2 までは黙って効いていて、⚠ 画面に1文字も出ていなかった。
+# ⚠ 何が起きたかは GameManager に聞く（⚠ 画面で数字を組み立て直さない）。
+# ⚠ `await` しない。⚠ 待つと、⚠ このあとの戦闘への遷移が閉じるまで止まる。
+func _notify_edge_event() -> void:
+	var event: Dictionary = GameManager.get_last_dungeon_edge_event()
+	var effect: String = str(event.get(GameStateKeys.DUNGEON_EDGE_EFFECT, ""))
+	if effect == "":
+		return
+	var items: Dictionary = event.get("items", {})
+	var left_behind: Dictionary = event.get("left_behind", {})
+	var amount: int = int(event.get("amount", 0))
+
+	# ⚠⚠ 「拾えなかった」と「何も起きなかった」を分ける（段階20-d）。
+	#   ⚠ 分けないと、⚠ 鞄が満杯のときに「拾いものをした（0）」と嘘をつく（⚠ 実測で気づいた）。
+	#   ⚠ 罠（鞄）で鞄が空だったときも、⚠ 何も落としていないので出さない。
+	if items.is_empty() and amount <= 0:
+		if left_behind.is_empty():
+			return
+		var _full: ModalDialog = Modal.notify(
+			self, "ui_dungeon_edge_event_resource_full", [_item_names(left_behind)]
+		)
+		return
+
+	# ⚠ 品を落とした／拾ったときは名前も出す。⚠ 無ければ数だけ。
+	# 数値のみの組み立てなので、tr() を通すのは見出しだけ（AGENTS.md）。
+	var detail: String = _item_names(items) if not items.is_empty() else str(amount)
+	var _dialog: ModalDialog = Modal.notify(
+		self, "ui_dungeon_edge_event_" + effect, [detail]
+	)
+
+
+# {item_id: 個数} を「名前 xN, 名前 xN」の1行にする（段階20-d）。
+#
+# ⚠ 綴り順で並べる（⚠ Dictionary のキー順は不定。⚠ 起動ごとに並びが変わらない）。
+func _item_names(items: Dictionary) -> String:
+	var names: Array[String] = []
+	var item_ids: Array = items.keys()
+	item_ids.sort()
+	for raw_id: Variant in item_ids:
+		names.append("%s x%d" % [tr("ui_res_" + str(raw_id)), int(items[raw_id])])
+	return ", ".join(names)
 
 
 # 踏んだマスの中身へ進む。⚠ 種類ごとの分岐はここ1本。
