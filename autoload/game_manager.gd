@@ -7405,6 +7405,25 @@ func can_retreat_from_dungeon() -> bool:
 	return is_in_dungeon() and get_dungeon_phase() == GameStateKeys.DUNGEON_PHASE_BOSS_CLEARED
 
 
+# もう1階潜れるか（段階20-a・人間の決定26「1ラン ＝ 3階 × 25層」）。
+#
+# ⚠ 「撤退できるか」とは別物。⚠ 最後の階を突破したら、⚠ 撤退はできるが続行はできない。
+# ⚠ 画面で階の数を数えないこと。⚠ 判定はここ1本。
+func can_descend_dungeon_floor() -> bool:
+	if not can_retreat_from_dungeon():
+		return false
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return false
+	return get_dungeon_floor_index() < maxi(1, int(config.max_floors))
+
+
+# 1ランで潜れる階の数（＝フロアの枚数）。⚠ 画面が「3階のうち何階目か」を出すのに使う。
+func get_dungeon_max_floors() -> int:
+	var config: DungeonConfig = _dungeon()
+	return 1 if config == null else maxi(1, int(config.max_floors))
+
+
 # 鞄の中身。{item_id: 個数}。
 func get_dungeon_bag() -> Dictionary:
 	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
@@ -7616,6 +7635,10 @@ func clear_dungeon_boss() -> bool:
 func descend_dungeon_floor() -> bool:
 	if not can_retreat_from_dungeon():
 		print("[GameManager] descend_dungeon_floor() -> false (ボスを倒した先に居ない)")
+		return false
+	# ⚠ 1ランは3階まで（段階20-a・決定26）。⚠ 最後の階のボスを倒したら持ち帰るしかない。
+	if not can_descend_dungeon_floor():
+		print("[GameManager] descend_dungeon_floor() -> false (最後の階。持ち帰るしかない)")
 		return false
 	var dungeon_id: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
 	var map: Dictionary = _build_dungeon_map(dungeon_id)

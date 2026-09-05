@@ -5080,30 +5080,28 @@ func _report_dungeon() -> void:
 		if not GameManager.get_dungeon_edge(here_now, "d_not_a_node").is_empty():
 			push_error("[DebugBoot] 無い通路を聞いたのに空が返らない")
 
-	# --- 5. 全ルート総当たり ---
-	var routes: Array = []
-	var reached: Dictionary = {}
-	_walk_all_dungeon_routes(nodes, entry_id, [], routes, reached)
-	var dead_ends: int = 0
-	var lengths: Dictionary = {}
-	for route: Variant in routes:
-		var path: Array = route
-		var last_kind: String = str(
-			(nodes[str(path[path.size() - 1])] as Dictionary).get(GameStateKeys.DUNGEON_NODE_KIND, "")
-		)
-		if last_kind != GameStateKeys.DUNGEON_NODE_KIND_BOSS:
-			dead_ends += 1
-		lengths[path.size()] = int(lengths.get(path.size(), 0)) + 1
-	print("  全ルート = %d 本 / ⚠ ボスに着かなかったルート = %d 本（0 が正解）" % [routes.size(), dead_ends])
-	print("  歩数の内訳 = %s" % str(lengths))
+	# --- 5. 全ルート（⚠ 数えるだけ。⚠ 1本ずつ歩かない）---
+	#
+	# ⚠⚠ 段階20-a で「1本ずつ歩いて列挙する」のをやめた。⚠ 1階が 8層 → 25層 になり、
+	#   ⚠ 列挙の本数が指数で増えて終わらなくなるため（⚠ 8層で181本 → 25層では天文学的）。
+	#   ⚠ 数だけなら DAG の動的計画法で数えられる（⚠ ノードの数に比例）。
+	# ⚠ 「通れないノード」と「行き止まり」は幅優先で見る。⚠ どちらも列挙は要らない。
+	var route_report: Dictionary = _count_dungeon_routes(nodes, entry_id)
+	print("  全ルート = %d 本 / ⚠ ボスに着かない行き止まり = %d 件（0 が正解）" % [
+		int(route_report["routes"]), (route_report["dead_ends"] as Array).size()
+	])
+	if not (route_report["dead_ends"] as Array).is_empty():
+		push_error("[DebugBoot] ボスに着かない行き止まりがある: " + str(route_report["dead_ends"]))
 	var unreachable: Array[String] = []
 	for node_id: Variant in nodes:
-		if not reached.has(str(node_id)):
+		if not (route_report["reached"] as Dictionary).has(str(node_id)):
 			unreachable.append(str(node_id))
 	unreachable.sort()
 	print("  ⚠ どのルートからも通れないノード = %d 件%s（0 が正解）" % [
 		unreachable.size(), "" if unreachable.is_empty() else " " + str(unreachable),
 	])
+	if not unreachable.is_empty():
+		push_error("[DebugBoot] どのルートからも通れないノードがある")
 
 	# --- 6. 入口からボスまで歩く（戦利品はノード種に紐づく）---
 	print("  --- 入口からボスまで歩く（⚠ 戦利品は「移動」ではなく「ノード種」に紐づく）---")
@@ -5163,6 +5161,14 @@ func _report_dungeon() -> void:
 	var bag_before_descend: Dictionary = GameManager.get_dungeon_bag()
 	var currency_before_descend: int = GameManager.get_dungeon_currency()
 	var max_hp_before_descend: Dictionary = GameManager.get_dungeon_max_hp()
+	# ⚠ 潜る「前」に聞く（段階20-a）。⚠ 潜ったあとは phase が map に戻るので、
+	#   ⚠ can_descend_dungeon_floor() は false を返す（⚠ 正しい挙動だがログが誤解を招く）。
+	print("  ⚠ 1ランで潜れる階 = %d（決定26：3階＝75層） / いま %d 階目 / もう1階潜れるか %s（true が正解）" % [
+		GameManager.get_dungeon_max_floors(), GameManager.get_dungeon_floor_index(),
+		str(GameManager.can_descend_dungeon_floor()),
+	])
+	if not GameManager.can_descend_dungeon_floor():
+		push_error("[DebugBoot] 1階目のボスを倒したのに続行できない")
 	var descended: bool = GameManager.descend_dungeon_floor()
 	print("  descend_dungeon_floor() -> %s / フロア=%d（2 が正解） / phase='%s'（map が正解）" % [
 		str(descended), GameManager.get_dungeon_floor_index(), GameManager.get_dungeon_phase()
@@ -5305,6 +5311,28 @@ func _report_dungeon() -> void:
 		# ⚠ 撤退できる状態に戻す（⚠ このあと §12 が持ち帰る）。
 		_walk_dungeon_to_boss()
 		var _cleared_again: bool = GameManager.clear_dungeon_boss()
+
+	# ⚠⚠ 最後の階では続行できないこと（段階20-a・決定26）。
+	#   ⚠ 上限まで潜ってから叩く。⚠ 撤退はできるが続行はできないのが正解。
+	print("[DebugBoot] --- 1ランの上限（⚠ 決定26：3階＝75層）---")
+	for _floor_try: int in range(GameManager.get_dungeon_max_floors() + 2):
+		if not GameManager.can_descend_dungeon_floor():
+			break
+		if not GameManager.descend_dungeon_floor():
+			break
+		_walk_dungeon_to_boss()
+		var _cleared_more: bool = GameManager.clear_dungeon_boss()
+	print("  ⚠ %d 階目まで潜った（上限 %d） / もう1階潜れるか %s（false が正解） / 撤退できるか %s（true が正解）" % [
+		GameManager.get_dungeon_floor_index(), GameManager.get_dungeon_max_floors(),
+		str(GameManager.can_descend_dungeon_floor()), str(GameManager.can_retreat_from_dungeon()),
+	])
+	if GameManager.get_dungeon_floor_index() != GameManager.get_dungeon_max_floors():
+		push_error("[DebugBoot] 上限まで潜れていない（または上限を超えた）")
+	if GameManager.can_descend_dungeon_floor():
+		push_error("[DebugBoot] 最後の階なのに続行できる（1ランが終わらない）")
+	print("  ⚠ それでも descend_dungeon_floor() を叩く -> %s（false が正解） / 階 %d（増えないのが正解）" % [
+		str(GameManager.descend_dungeon_floor()), GameManager.get_dungeon_floor_index()
+	])
 
 	# ⚠ 一時通貨が足りないときは買えない（⚠ 払ってから弾かない）。
 	var drained: int = GameManager.get_dungeon_currency()
@@ -5901,33 +5929,83 @@ func _walk_dungeon_to_boss() -> void:
 			return
 
 
-# ダンジョンの全ルートを総当たりする。
+# ダンジョンのルートを「数える」（段階20-a）。
+#
+# 戻り値: {"routes": int, "reached": {node_id: true}, "dead_ends": [node_id]}
+#
+# ⚠⚠ 1本ずつ歩いて列挙しない。⚠ 1階が 8層 → 25層 になり、⚠ 列挙は指数で増えて
+#   終わらなくなったため（⚠ 8層で181本。⚠ 25層では数えきれない）。
+# ⚠ 数だけなら動的計画法で足りる：⚠ 深い層から「そのノードからボスへ何通りあるか」を
+#   足し上げる。⚠ 層 L の通路は必ず層 L+1 へ向かうので閉路が無く、⚠ 層の降順に回せば
+#   行き先の値が先に確定している。
+# ⚠ 「通れないノード」は幅優先で入口から届くかを見る。⚠ 列挙は要らない。
 #
 # ⚠ _walk_all_routes()（シナリオ側）を借りない。⚠ 読むキーが別の定数だから
 #   （あちらは FLOOR_NODE_NEXT）。⚠ 借りると、片方の綴りを変えたときに
 #   もう片方の検証が黙って通らなくなる。
-func _walk_all_dungeon_routes(
-		nodes: Dictionary, node_id: String, path: Array, out_routes: Array, out_reached: Dictionary
-) -> void:
-	out_reached[node_id] = true
-	var next_path: Array = path.duplicate()
-	next_path.append(node_id)
-	if next_path.size() > 50:
-		push_error("[DebugBoot] ダンジョンのルートが50段を超えた（閉路の疑い）")
-		return
+func _count_dungeon_routes(nodes: Dictionary, entry_id: String) -> Dictionary:
+	# 1. 入口から届くノード（幅優先）。
+	var reached: Dictionary = {}
+	var queue: Array[String] = [entry_id]
+	while not queue.is_empty():
+		var here: String = queue.pop_front()
+		if reached.has(here) or not nodes.has(here):
+			continue
+		reached[here] = true
+		for to_id: String in _dungeon_edge_targets(nodes, here):
+			if not reached.has(to_id):
+				queue.append(to_id)
+
+	# 2. 行き止まり（⚠ 届くのに出口が無く、⚠ ボスでもないノード）。
+	var dead_ends: Array[String] = []
+	for raw_id: Variant in reached:
+		var node_id: String = str(raw_id)
+		if not _dungeon_edge_targets(nodes, node_id).is_empty():
+			continue
+		if str((nodes[node_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+			continue
+		dead_ends.append(node_id)
+	dead_ends.sort()
+
+	# 3. ルート数（⚠ 層の降順に足し上げる）。
+	var by_layer_desc: Array = reached.keys()
+	by_layer_desc.sort_custom(func(a: Variant, b: Variant) -> bool:
+		return int((nodes[str(a)] as Dictionary).get(GameStateKeys.DUNGEON_NODE_LAYER, 0)) \
+			> int((nodes[str(b)] as Dictionary).get(GameStateKeys.DUNGEON_NODE_LAYER, 0))
+	)
+	var ways: Dictionary = {}
+	for raw_id: Variant in by_layer_desc:
+		var node_id: String = str(raw_id)
+		var targets: Array[String] = _dungeon_edge_targets(nodes, node_id)
+		if targets.is_empty():
+			# ⚠ ボスなら1通り（＝そこで終わり）。⚠ 行き止まりは0通り（＝ボスに着けない）。
+			var is_boss: bool = str((nodes[node_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BOSS
+			ways[node_id] = 1 if is_boss else 0
+			continue
+		var total: int = 0
+		for to_id: String in targets:
+			total += int(ways.get(to_id, 0))
+		ways[node_id] = total
+
+	return {
+		"routes": int(ways.get(entry_id, 0)),
+		"reached": reached,
+		"dead_ends": dead_ends,
+	}
+
+
+# そのノードから出ている通路の行き先（段階20-a）。
+#
+# ⚠ 通路は {to, effect}（段階19-c-1）。⚠ str(raw) で読まないこと
+#   （⚠ Dictionary の文字列表現が行き先IDとして扱われ、⚠ 検証が黙って通らなくなる）。
+func _dungeon_edge_targets(nodes: Dictionary, node_id: String) -> Array[String]:
+	var result: Array[String] = []
 	var node: Variant = nodes.get(node_id, null)
-	var edges: Array = []
-	if node is Dictionary:
-		edges = (node as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, [])
-	if edges.is_empty():
-		out_routes.append(next_path)
-		return
-	# ⚠ 通路は {to, effect}（段階19-c-1）。⚠ str(raw) で読まないこと
-	#   （⚠ Dictionary の文字列表現が行き先IDとして扱われ、⚠ 全ルートが1手で
-	#     「知らないノード」に落ちて総当たりが黙って通らなくなる）。
-	for raw_edge: Variant in edges:
+	if not (node is Dictionary):
+		return result
+	for raw_edge: Variant in ((node as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, []) as Array):
 		if not (raw_edge is Dictionary):
 			push_error("[DebugBoot] 通路が {to, effect} になっていない: " + str(raw_edge))
 			continue
-		var to_id: String = str((raw_edge as Dictionary).get(GameStateKeys.DUNGEON_EDGE_TO, ""))
-		_walk_all_dungeon_routes(nodes, to_id, next_path, out_routes, out_reached)
+		result.append(str((raw_edge as Dictionary).get(GameStateKeys.DUNGEON_EDGE_TO, "")))
+	return result

@@ -139,7 +139,12 @@ func _update_header() -> void:
 	dungeon_name_label.text = tr(str(dungeon.get("name_key", dungeon_id)))
 
 	# 数値のみの組み立てなので、tr() を通すのは見出しだけ（AGENTS.md）。
-	floor_label.text = "%s %d" % [tr("ui_dungeon_floor"), GameManager.get_dungeon_floor_index()]
+	# ⚠ 「3階のうち何階目か」を出す（段階20-a・決定26）。⚠ 残りが見えないと
+	#   「もう1枚潜るか」の判断ができない。⚠ 階の数を画面で数えないこと。
+	floor_label.text = "%s %d/%d" % [
+		tr("ui_dungeon_floor"), GameManager.get_dungeon_floor_index(),
+		GameManager.get_dungeon_max_floors(),
+	]
 	currency_label.text = "%s %d" % [tr("ui_dungeon_currency"), GameManager.get_dungeon_currency()]
 	bag_label.text = "%s %d/%d" % [
 		tr("ui_dungeon_bag"), GameManager.get_dungeon_bag_used(), GameManager.get_dungeon_bag_slots()
@@ -492,7 +497,9 @@ func _enter_corridor_chest() -> void:
 # 続行・撤退はボスを倒した先だけ（決定15）。⚠ 判定は GameManager の1本に聞く。
 func _update_footer() -> void:
 	var can_retreat: bool = GameManager.can_retreat_from_dungeon()
-	descend_button.visible = can_retreat
+	# ⚠ 最後の階を突破したら「続行」は出さない（段階20-a・決定26）。
+	#   ⚠ 撤退は出す。⚠ 判定は GameManager の2本に聞く（⚠ 階の数をここで数えない）。
+	descend_button.visible = GameManager.can_descend_dungeon_floor()
 	retreat_button.visible = can_retreat
 	# ⚠ 「その場で降りる」は常に出す。⚠ 消すと詰んだ人が閉じ込められる（§4-2）。
 	abandon_button.visible = true
