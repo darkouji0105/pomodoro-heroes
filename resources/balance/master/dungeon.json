@@ -1,12 +1,13 @@
 {
   "dungeon_hard": {
     "name_key": "ui_dungeon_hard",
+    "_layers_note": "⚠ node_count は「区画帯ではない層」だけに効く（段階20-h）。⚠ 区画帯の層数は DungeonConfig の segment_* が決める。⚠ 通常層を1にしてあるのは、⚠ 区画と区画のあいだを一本道にするため（⚠ 分岐は区画の入口の3択で起きる）。⚠ 2 以上にすると、⚠ 3マスが1列おきに並んで index の隣が2列先になり、⚠ 画面に長い斜め線が大量に出る（⚠ 人間が実機で指摘した症状）。",
     "layers": [
-      { "node_count": 1 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 },
-      { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 },
-      { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 },
-      { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 },
-      { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }
+      { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 },
+      { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 },
+      { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 },
+      { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 },
+      { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }, { "node_count": 1 }
     ],
     "battle_pool": [
       { "enemies": [{ "enemy_type_id": "enemy_slime", "count": 3 }] },
