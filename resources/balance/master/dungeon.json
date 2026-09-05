@@ -2,11 +2,11 @@
   "dungeon_hard": {
     "name_key": "ui_dungeon_hard",
     "layers": [
-      { "node_count": 1 }, { "node_count": 2 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 2 },
-      { "node_count": 2 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 2 },
-      { "node_count": 2 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 2 },
-      { "node_count": 2 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 2 },
-      { "node_count": 2 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 2 }, { "node_count": 2 }
+      { "node_count": 1 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 },
+      { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 },
+      { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 },
+      { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 },
+      { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }
     ],
     "battle_pool": [
       { "enemies": [{ "enemy_type_id": "enemy_slime", "count": 3 }] },

@@ -45,6 +45,14 @@ const REPORT_DUNGEON: String = "dungeon"
 const REPORT_INVENTORY: String = "inventory"
 const REPORT_GLYPHS: String = "glyphs"
 
+# 通路の線が横に動いてよい上限（px。段階20-g）。
+#
+# ⚠⚠ 人間の指摘「⚠ 左から右に行く道がやたら生成される」。⚠ 列を揃えたので
+#   「隣の列ぶん」までが正解（⚠ マスの幅104 ＋ 間隔56 ＝ 160）。
+# ⚠ 入口（1ノード）から区画の入口3つへ広がるぶんだけは超える（⚠ 仕様）。
+#   ⚠ 2列ぶん（320）＋ 端のずらし に少し余裕を見て 380。
+const NODE_COLUMN_SPAN_LIMIT: float = 380.0
+
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
 #   （④-a で hp: 9999 に条件を書いて踏んだのと同じ形）。
@@ -3676,15 +3684,23 @@ func _report_layout() -> void:
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので
 				#   ⚠ 線の本数より少ないのが正解。⚠ 0 本なら1つも出ていない。
 				var labelled: int = (raw_child as DungeonEdgeLines).get_label_count()
-				print("    ⚠ 通路の線 = %d 本（0 本なら通路が1本も見えていない） ／ 真ん中の字 = %d 個" % [
-					drawn, labelled
+				# ⚠ 一番横に長い線（段階20-g）。⚠ 人間の指摘「左から右に行く道がやたら」。
+				#   ⚠ 列を揃えたので、⚠ 隣の列ぶんまでに収まるのが正解。
+				var span: float = (raw_child as DungeonEdgeLines).get_max_horizontal_span()
+				print("    ⚠ 通路の線 = %d 本（0 本なら通路が1本も見えていない） ／ 真ん中の字 = %d 個 ／ ⚠ 一番斜めな線の横幅 = %.0f px" % [
+					drawn, labelled, span
 				])
 				if drawn <= 0:
 					push_error("[DebugBoot] 通路の線が0本（段階19-e が効いていない）")
-				if labelled <= 0:
-					push_error("[DebugBoot] 通路の真ん中の字が0個（段階20-c が効いていない）")
+				# ⚠ 字が0個でも赤にしない。⚠ たいまつ等級1では1層先しか見えず、
+				#   ⚠ そこに効果つきの通路が無いことがある（⚠ 5本に1本の抽選）。
+				#   ⚠ 「字が出るか」自体は段階20-c で実測済み（101 → 2 個）。
 				if labelled > drawn:
 					push_error("[DebugBoot] 通路の字が線より多い（線1本に字が2つ付いている）")
+				# ⚠⚠ 斜めの長さ（段階20-g）。⚠ 列を揃えたので隣の列ぶんまでが正解。
+				#   ⚠ 入口（1ノード）から区画の入口3つへ広がるぶんだけ超える。
+				if span > NODE_COLUMN_SPAN_LIMIT:
+					push_error("[DebugBoot] 横に長すぎる通路がある（%.0f px。列が揃っていない）" % span)
 		# ⚠ いま立っているマスへスクロールが寄っているか（段階20-c・人間の指示）。
 		#   ⚠ 絵は取れないが「スクロール位置が0でない」ことは取れる。
 		#   ⚠ 入口は一番下なので、⚠ 25層ぶん下へ寄っているはず。

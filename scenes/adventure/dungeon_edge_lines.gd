@@ -71,6 +71,25 @@ func get_label_count() -> int:
 	return get_child_count()
 
 
+# 一番横に長い線の、横に動いた距離（段階20-g）。⚠ 検証の道具が読む。
+#
+# ⚠⚠ 絵は取れないが「線がどれだけ斜めか」は取れる。⚠ 人間の指摘
+#   「⚠ 左から右に行く道がやたら生成される」がそのまま数字で出る。
+# ⚠ 列を揃えたので、⚠ 隣の列ぶん（マスの幅＋間隔）までに収まるのが正解。
+func get_max_horizontal_span() -> float:
+	var worst: float = 0.0
+	for entry: Variant in _lines:
+		if not (entry is Dictionary):
+			continue
+		var line: Dictionary = entry
+		var dx: float = absf(
+			(line.get(LINE_TO, Vector2.ZERO) as Vector2).x
+			- (line.get(LINE_FROM, Vector2.ZERO) as Vector2).x
+		)
+		worst = maxf(worst, dx)
+	return worst
+
+
 # いま引いている線の本数。⚠ 検証の道具（scenario=layout）が読む。
 #
 # ⚠⚠ 絵は取れないが「何本引いたか」は取れる。⚠ 0 本なら通路が1本も見えていない

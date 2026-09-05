@@ -62,6 +62,19 @@ const EDGE_WIDTH_CURRENT: float = 4.0
 const LAYER_SEPARATION: int = 44
 const NODE_SEPARATION: int = 56
 
+# マス1つの幅（段階20-g）。
+#
+# ⚠⚠ 列を揃えるのに要る。⚠ 揃えないと文字の長さで列がずれ（⚠ 「戦闘」と「レリック」）、
+#   ⚠ 線が斜めになって重なる（⚠ 人間の指摘「左から右に行く道がやたら生成される」）。
+# ⚠ 空の列にも同じ幅のものを置くこと。⚠ 置かないと列が詰まる。
+const NODE_WIDTH: float = 104.0
+
+# 線の端をマスの辺に沿ってどれだけ散らすか（マスの幅に対する割合。段階20-g）。
+#
+# ⚠ 0 にすると全部が中央から出て、⚠ 合流点の手前で線が完全に重なる。
+# ⚠ 1 に近づけるとマスの角から出るので、⚠ どのマスから来たか分かりにくくなる。
+const EDGE_ANCHOR_SPREAD: float = 0.55
+
 @onready var dungeon_name_label: Label = $Layout/Header/DungeonNameLabel
 @onready var floor_label: Label = $Layout/Header/FloorLabel
 @onready var currency_label: Label = $Layout/Header/CurrencyLabel
@@ -214,23 +227,43 @@ func _redraw_edges() -> void:
 	# ⚠ 綴り順で回す（⚠ Dictionary のキー順は不定。⚠ 重なり順が起動ごとに変わらない）。
 	var from_ids: Array = _node_buttons.keys()
 	from_ids.sort()
+
+	# ⚠⚠ 入ってくる本数を先に数える（段階20-g）。⚠ 合流するマスで線を横にずらすため
+	#   （⚠ 人間の指摘「線が重ならないようにしたい　合流はあってもいい」）。
+	#   ⚠ ずらさないと、⚠ 合流点の手前で2〜3本が完全に重なって本数が読めない。
+	var incoming_total: Dictionary = {}
+	for raw_from: Variant in from_ids:
+		for entry: Variant in GameManager.get_dungeon_edges(str(raw_from)):
+			var to_key: String = str((entry as Dictionary).get(GameStateKeys.DUNGEON_EDGE_TO, ""))
+			incoming_total[to_key] = int(incoming_total.get(to_key, 0)) + 1
+	var incoming_used: Dictionary = {}
+
 	for raw_from: Variant in from_ids:
 		var from_id: String = str(raw_from)
 		var from_button: Control = _node_buttons[from_id]
 		if not is_instance_valid(from_button):
 			continue
-		for entry: Variant in GameManager.get_dungeon_edges(from_id):
+		var out_edges: Array = GameManager.get_dungeon_edges(from_id)
+		var out_index: int = -1
+		for entry: Variant in out_edges:
 			var edge: Dictionary = entry
+			out_index += 1
 			var to_id: String = str(edge.get(GameStateKeys.DUNGEON_EDGE_TO, ""))
 			if not _node_buttons.has(to_id):
 				continue
 			var to_button: Control = _node_buttons[to_id]
 			if not is_instance_valid(to_button):
 				continue
+			var in_slot: int = int(incoming_used.get(to_id, 0))
+			incoming_used[to_id] = in_slot + 1
 			lines.append({
 				# ⚠ 深い層が上なので、⚠ from は上辺・to は下辺でつなぐと線が交差しない。
-				DungeonEdgeLines.LINE_FROM: _edge_anchor(from_button, true),
-				DungeonEdgeLines.LINE_TO: _edge_anchor(to_button, false),
+				DungeonEdgeLines.LINE_FROM: _edge_anchor(
+					from_button, true, out_index, out_edges.size()
+				),
+				DungeonEdgeLines.LINE_TO: _edge_anchor(
+					to_button, false, in_slot, int(incoming_total.get(to_id, 1))
+				),
 				DungeonEdgeLines.LINE_COLOR: _edge_color(from_id, to_id, edge),
 				DungeonEdgeLines.LINE_WIDTH: (
 					EDGE_WIDTH_CURRENT if from_id == position else EDGE_WIDTH
@@ -246,10 +279,18 @@ func _redraw_edges() -> void:
 #
 # ⚠ 座標は EdgeLines と同じ親（MapArea）の中の位置。⚠ LayerList と EdgeLines は
 #   同じ矩形に重ねてあるので、⚠ LayerList の中の位置をそのまま使える。
-func _edge_anchor(button: Control, top: bool) -> Vector2:
+func _edge_anchor(button: Control, top: bool, slot: int = 0, slot_count: int = 1) -> Vector2:
 	var rect: Rect2 = button.get_global_rect()
 	var origin: Vector2 = edge_lines.get_global_rect().position
-	var center_x: float = rect.position.x + rect.size.x * 0.5
+	# ⚠⚠ 何本も出る／入るときは、⚠ マスの辺に沿って少しずらす（段階20-g）。
+	#   ⚠ 人間の指摘「⚠ 線が重ならないようにしたい　⚠ 合流はあってもいい」。
+	#   ⚠ 全部を中央から出すと、⚠ 出口の近くで線が完全に重なって本数が読めない。
+	#   ⚠ ずらすのは端だけ。⚠ 合流そのものは残す（⚠ 行き先は同じマス）。
+	var span: float = rect.size.x * EDGE_ANCHOR_SPREAD
+	var offset: float = 0.0
+	if slot_count > 1:
+		offset = (float(slot) / float(slot_count - 1) - 0.5) * span
+	var center_x: float = rect.position.x + rect.size.x * 0.5 + offset
 	var y: float = rect.position.y if top else rect.position.y + rect.size.y
 	return Vector2(center_x, y) - origin
 
@@ -355,17 +396,49 @@ func _rebuild_layers() -> void:
 	#   ⚠ ノード名で探し直さない。⚠ 作ったときに覚える（⚠ 探し直すと名前の綴りが2箇所になる）。
 	_node_buttons.clear()
 
+	# ⚠⚠ 列を固定する（段階20-g・人間の指摘「左から右に行く道がやたら生成される」）。
+	#   ⚠ 層ごとにノード数が違う（通常3・区画帯6）のに中央揃えで並べていたため、
+	#     ⚠ 3ノードの層と6ノードの層で端の位置が食い違い、⚠ 長い斜め線になっていた。
+	#   ⚠ 全部の層を「その階の最大ノード数」の列に揃えると、⚠ 線は真下か隣にしか行かない。
+	var columns: int = 1
 	for layer: Variant in layers:
-		var row: HBoxContainer = HBoxContainer.new()
+		columns = maxi(columns, (by_layer[layer] as Array).size())
+
+	for layer: Variant in layers:
+		var row: GridContainer = GridContainer.new()
 		row.name = "Layer_%d" % int(layer)
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", NODE_SEPARATION)
-		for node_id: Variant in (by_layer[layer] as Array):
+		row.columns = columns
+		row.add_theme_constant_override("h_separation", NODE_SEPARATION)
+		var row_ids: Array = by_layer[layer]
+		# ⚠ ノードを列へ割り当てる。⚠ 均等に散らして中央寄せ
+		#   （⚠ 両端に寄せると、⚠ 2ノードの層が左端と右端に開いて斜めが復活する）。
+		var column_of: Dictionary = {}
+		var used_column: int = -1
+		for i: int in range(row_ids.size()):
+			var wanted: int = int(round(
+				(float(i) + 0.5) * float(columns) / float(row_ids.size()) - 0.5
+			))
+			# ⚠ 同じ列に2つ来ないよう、⚠ 必ず前より右へ（⚠ 丸めで重なることがある）。
+			used_column = clampi(maxi(wanted, used_column + 1), 0, columns - 1)
+			column_of[used_column] = str(row_ids[i])
+
+		for c: int in range(columns):
+			if not column_of.has(c):
+				# ⚠ 空の列にも同じ幅のものを置く。⚠ 置かないと列が詰まって揃わない。
+				var spacer: Control = Control.new()
+				spacer.name = "Gap_%d" % c
+				spacer.custom_minimum_size = Vector2(NODE_WIDTH, 0.0)
+				spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				row.add_child(spacer)
+				continue
+			var node_id: String = str(column_of[c])
 			var node_button: PrimaryButton = _make_node_button(
-				str(node_id), nodes[node_id], str(node_id) == position,
-				visited.has(str(node_id)), str(node_id) in moves
+				node_id, nodes[node_id], node_id == position,
+				visited.has(node_id), node_id in moves
 			)
-			_node_buttons[str(node_id)] = node_button
+			# ⚠ 幅を揃える。⚠ 揃えないと文字の長さで列がずれる（⚠ 「戦闘」と「レリック」）。
+			node_button.custom_minimum_size = Vector2(NODE_WIDTH, 0.0)
+			_node_buttons[node_id] = node_button
 			row.add_child(node_button)
 		layer_list.add_child(row)
 
