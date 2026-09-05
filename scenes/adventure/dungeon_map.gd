@@ -112,6 +112,12 @@ func _ready() -> void:
 	# ⚠⚠ 戦闘から戻ったときに拾い待ちがある（段階20-f・人間の指示「戦利品も選ばせる」）。
 	#   ⚠ マップを描く前に拾いものの画面へ送る。⚠ 描いてから送ると1フレーム分ちらつく。
 	#   ⚠ `_rebuild()` の中でやらないこと（⚠ 戻ってくるたびに遷移して止まらなくなる）。
+	# ⚠⚠ 通路の宝箱が先（決定31・2026-09-05）。⚠ 戦闘から戻った直後に必ず1回だけ出す。
+	#   ⚠ 「あとから開ける」ボタンは消した（⚠ 人間「宝箱はあとから開けれないようにしたい」）。
+	#   ⚠ 開けずに戻ると discard_dungeon_corridor_chest() が捨てるので、⚠ ここは二度は出ない。
+	if GameManager.has_pending_dungeon_corridor_chest():
+		_enter_corridor_chest()
+		return
 	if GameManager.has_dungeon_pending_loot():
 		_enter_pickup()
 		return
@@ -161,9 +167,15 @@ func _update_header() -> void:
 	# 数値のみの組み立てなので、tr() を通すのは見出しだけ（AGENTS.md）。
 	# ⚠ 「3階のうち何階目か」を出す（段階20-a・決定26）。⚠ 残りが見えないと
 	#   「もう1枚潜るか」の判断ができない。⚠ 階の数を画面で数えないこと。
-	floor_label.text = "%s %d/%d" % [
+	# ⚠⚠ たいまつの等級も出す（決定32・2026-09-05。⚠ 人間「a3は松明の等級も」）。
+	#   ⚠ 何層先まで見えているかが読めないと、⚠ ショップで買うかどうかを決められない。
+	#   ⚠ 欄を増やさずフロアの行に足す（⚠ .tscn を触らずに済ませる）。
+	floor_label.text = "%s %d/%d　%s" % [
 		tr("ui_dungeon_floor"), GameManager.get_dungeon_floor_index(),
 		GameManager.get_dungeon_max_floors(),
+		tr("ui_dungeon_torch_grade") % [
+			GameManager.get_dungeon_torch_grade(), GameManager.get_dungeon_reveal_layers()
+		],
 	]
 	currency_label.text = "%s %d" % [tr("ui_dungeon_currency"), GameManager.get_dungeon_currency()]
 	bag_label.text = "%s %d/%d" % [
@@ -593,22 +605,16 @@ func _on_shop_pressed() -> void:
 
 # 通路の宝箱の案内（段階19-c-2）。⚠ 開けずに戻ってきたときだけ出る。
 #
-# ⚠ 持ち越しているかは GameManager に聞く（⚠ 画面で覚えない）。
-# ⚠ 開けるまで残る＝⚠ 何度でも取りに行ける。⚠ 引き返さないので通路は2度通れないが、
-#   ⚠ 宝箱そのものは「まだ開けていない荷物」として持ち歩いている扱い。
+# ⚠⚠ 決定31（2026-09-05）で「あとから開ける」ボタンを消した。
+#
+# ⚠ 人間の指示「宝箱はあとから開けれないようにしたい」。⚠ 通路の宝箱は、⚠ 通路を通った
+#   直後（_on_node_pressed）か、⚠ 戦闘から戻った直後（_ready）に必ず1回だけ画面が出る。
+# ⚠ 開けずに「マップへ戻る」と捨てられる（⚠ dungeon_chest 側で discard する）。
+# ⚠ 欄（CorridorChestList）は .tscn に残してあるが、⚠ 中身は常に空。
 func _rebuild_corridor_chest() -> void:
 	for child in corridor_chest_list.get_children():
 		corridor_chest_list.remove_child(child)
 		child.queue_free()
-
-	if not GameManager.has_pending_dungeon_corridor_chest():
-		return
-
-	var button: PrimaryButton = PrimaryButton.new()
-	button.name = "CorridorChestButton"
-	button.text = "%s %s" % [Glyphs.EDGE_CHEST, tr("ui_dungeon_corridor_chest")]
-	button.pressed.connect(_enter_corridor_chest)
-	corridor_chest_list.add_child(button)
 
 
 # 通路の宝箱の画面へ（段階19-c-2）。

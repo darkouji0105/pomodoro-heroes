@@ -249,6 +249,9 @@ func _clear_selection() -> void:
 
 # ⚠⚠ 出るときに拾い待ちを捨てる（段階20-e）。⚠ 引き返さないので拾い直せない。
 #   ⚠ 捨てないと、⚠ 次の宝箱の画面に前の拾いものが混ざる。
+# ⚠⚠ 開けていない通路の宝箱も、⚠ 出た時点で捨てる（決定31・2026-09-05）。
+#   ⚠ 人間の指示「宝箱はあとから開けれないようにしたい」。⚠ マップに案内は出ない。
 func _on_back_pressed() -> void:
 	var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
+	var _gone: bool = GameManager.discard_dungeon_corridor_chest()
 	SceneManager.change_scene(DUNGEON_MAP_PATH)

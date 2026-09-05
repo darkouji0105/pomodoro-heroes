@@ -6097,6 +6097,12 @@ func _settle_dungeon_pending_loot() -> void:
 #   5本に1本の抽選なので、⚠ 1本のランで1〜2種しか踏めない。⚠ 検証が起動ごとに
 #   通ったり通らなかったりする（⚠ 実際にそうなって罠(HP)を1度も踏めていなかった）。
 # ⚠ 通路の宝箱はその場で開ける（⚠ 持ち越しが残ると次の手で邪魔になる）。
+
+# ⚠ 決定31 の「開けずに立ち去ると消える」は、⚠ ラン全体で最初の1個だけで見る
+#   （⚠ 残りは今までどおり開ける。⚠ 開ける側の検証を殺さないため）。
+var _corridor_discard_checked: bool = false
+
+
 func _walk_dungeon_preferring_edges() -> Array[String]:
 	var result: Array[String] = []
 	for _step: int in range(51):
@@ -6128,7 +6134,17 @@ func _walk_dungeon_preferring_edges() -> Array[String]:
 			print("    ⚠ 通路のできごと = %s" % str(edge_event))
 			if str(edge_event.get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")) != chosen_effect:
 				push_error("[DebugBoot] 通路のできごとが取れない（モーダルが黙る）: " + chosen_effect)
-		if GameManager.has_pending_dungeon_corridor_chest():
+		# ⚠⚠ 決定31（2026-09-05）：⚠ 最初の1個は「開けずに立ち去る」を見る。
+		#   ⚠ 人間の指示「宝箱はあとから開けれないようにしたい」。⚠ 持ち越しが残らないのが正解。
+		if GameManager.has_pending_dungeon_corridor_chest() and not _corridor_discard_checked:
+			_corridor_discard_checked = true
+			var walked_away: bool = GameManager.discard_dungeon_corridor_chest()
+			print("    ⚠ 通路の宝箱を開けずに立ち去る -> %s / 持ち越し = %s（false が正解＝決定31）" % [
+				str(walked_away), str(GameManager.has_pending_dungeon_corridor_chest())
+			])
+			if GameManager.has_pending_dungeon_corridor_chest():
+				push_error("[DebugBoot] 開けずに立ち去ったのに通路の宝箱が残っている（決定31）")
+		elif GameManager.has_pending_dungeon_corridor_chest():
 			var chest_result: Dictionary = GameManager.open_dungeon_corridor_chest()
 			print("    ⚠ 通路の宝箱を開けた -> 拾い待ちへ %s" % str(chest_result["granted"]))
 			if GameManager.has_pending_dungeon_corridor_chest():

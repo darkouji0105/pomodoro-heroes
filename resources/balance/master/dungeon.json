@@ -33,10 +33,10 @@
       "battle": {
         "rolls": 1,
         "entries": [
-          { "item_id": "construction_material_2", "weight": 30, "count": 1 },
-          { "item_id": "training_material_2", "weight": 30, "count": 1 },
-          { "item_id": "forging_material_2", "weight": 25, "count": 1 },
-          { "item_id": "decor_material_2", "weight": 15, "count": 1 },
+          { "item_id": "construction_material_4", "weight": 30, "count": 1 },
+          { "item_id": "training_material_4", "weight": 30, "count": 1 },
+          { "item_id": "forging_material_4", "weight": 25, "count": 1 },
+          { "item_id": "decor_material_4", "weight": 15, "count": 1 },
           { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 }
         ]
       },
@@ -45,20 +45,20 @@
       "edge_chest": {
         "rolls": 1,
         "entries": [
-          { "item_id": "construction_material_2", "weight": 25, "count": 1 },
-          { "item_id": "training_material_2", "weight": 25, "count": 1 },
-          { "item_id": "forging_material_2", "weight": 20, "count": 1 },
-          { "item_id": "decor_material_2", "weight": 15, "count": 1 },
+          { "item_id": "construction_material_4", "weight": 25, "count": 1 },
+          { "item_id": "training_material_4", "weight": 25, "count": 1 },
+          { "item_id": "forging_material_4", "weight": 20, "count": 1 },
+          { "item_id": "decor_material_4", "weight": 15, "count": 1 },
           { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 }
         ]
       },
       "chest": {
         "rolls": 3,
         "entries": [
-          { "item_id": "construction_material_2", "weight": 20, "count": 2 },
-          { "item_id": "training_material_2", "weight": 20, "count": 2 },
-          { "item_id": "forging_material_2", "weight": 18, "count": 2 },
-          { "item_id": "decor_material_2", "weight": 12, "count": 2 },
+          { "item_id": "construction_material_4", "weight": 20, "count": 2 },
+          { "item_id": "training_material_4", "weight": 20, "count": 2 },
+          { "item_id": "forging_material_4", "weight": 18, "count": 2 },
+          { "item_id": "decor_material_4", "weight": 12, "count": 2 },
           { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
           { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
           { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 }
@@ -67,9 +67,9 @@
       "boss": {
         "rolls": 3,
         "entries": [
-          { "item_id": "construction_material_3", "weight": 30, "count": 1 },
-          { "item_id": "training_material_3", "weight": 30, "count": 1 },
-          { "item_id": "forging_material_3", "weight": 25, "count": 1 },
+          { "item_id": "construction_material_4", "weight": 30, "count": 1 },
+          { "item_id": "training_material_4", "weight": 30, "count": 1 },
+          { "item_id": "forging_material_4", "weight": 25, "count": 1 },
           { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
           { "item_id": "weapon_iron_sword", "weight": 5, "count": 1 },
           { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
@@ -87,10 +87,10 @@
       ],
       "resource": [
         { "kind": "currency", "weight": 45 },
-        { "kind": "item", "item_id": "construction_material_2", "weight": 15, "count": 2 },
-        { "kind": "item", "item_id": "training_material_2", "weight": 15, "count": 2 },
-        { "kind": "item", "item_id": "forging_material_2", "weight": 15, "count": 2 },
-        { "kind": "item", "item_id": "decor_material_2", "weight": 10, "count": 2 }
+        { "kind": "item", "item_id": "construction_material_4", "weight": 15, "count": 2 },
+        { "kind": "item", "item_id": "training_material_4", "weight": 15, "count": 2 },
+        { "kind": "item", "item_id": "forging_material_4", "weight": 15, "count": 2 },
+        { "kind": "item", "item_id": "decor_material_4", "weight": 10, "count": 2 }
       ]
     },
     "shop": {

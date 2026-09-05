@@ -9021,13 +9021,29 @@ func _roll_dungeon_edge_resource() -> Dictionary:
 #
 # ⚠⚠ 通路には cleared を置く場所が無い（⚠ あれはノードの欄）。
 #   ⚠ 代わりに DUNGEON_RUN に「持ち越し」を1本だけ持つ（⚠ 台帳 §5-3-1）。
-# ⚠ 開けるまで残る＝⚠ 開けずにマップへ戻っても取りに行き直せる。
+# ⚠⚠ 決定31（2026-09-05）：⚠ あとから開けられない。⚠ その場で開けなければ失う。
+#   ⚠ 人間の指示「宝箱はあとから開けれないようにしたい」。⚠ 19-c-2 の「開けるまで残る」を覆した。
+#   ⚠ 画面を出す口は dungeon_map の1本（⚠ 通路を通った直後 ／ 戦闘から戻った直後）。
+#   ⚠ 開けずに戻ったら discard_dungeon_corridor_chest() が捨てる。
 # ⚠ 画面は dungeon_chest.tscn を共有する（⚠ 人間の指示。⚠ 画面を分けない）。
 
 # いま持ち越している通路の宝箱があるか。⚠ 画面はこの1本に聞く。
 func has_pending_dungeon_corridor_chest() -> bool:
 	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
 	return str(run.get(GameStateKeys.DUNGEON_RUN_CORRIDOR_CHEST, "")) != ""
+
+
+# 開けずに立ち去った（決定31）。⚠ 中身は引かない＝⚠ 何が入っていたかは誰も知らないまま消える。
+#
+# ⚠ 引いてから捨てる形にしないこと（⚠ 抽選のログが「取れなかったもの」で埋まる）。
+func discard_dungeon_corridor_chest() -> bool:
+	if not is_in_dungeon():
+		return false
+	if not has_pending_dungeon_corridor_chest():
+		return false
+	_set_dungeon_corridor_chest("")
+	print("[GameManager] discard_dungeon_corridor_chest() -> 開けずに立ち去った（決定31・戻れない）")
+	return true
 
 
 func _set_dungeon_corridor_chest(to_node_id: String) -> void:
