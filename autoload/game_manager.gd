@@ -7594,7 +7594,9 @@ func move_in_dungeon(node_id: String) -> bool:
 	#   ⚠ ここで配ると「開ける」動作が飾りになり、⚠ 画面が中身を見せる前に鞄へ入る。
 	if kind != GameStateKeys.DUNGEON_NODE_KIND_BOSS \
 			and kind != GameStateKeys.DUNGEON_NODE_KIND_CHEST:
-		_grant_dungeon_node_gains(kind)
+		# ⚠⚠ 段階20-f：⚠ 戦利品も拾い待ちへ（⚠ 人間の指示「戦利品も選ばせる」）。
+		#   ⚠ これで鞄へ直接入る経路は1つも無くなった。⚠ 入れるのは必ずプレイヤーが選ぶ。
+		_grant_dungeon_node_gains(kind, true)
 	# 休憩は踏んだら効く（段階17-c・§4-9）。⚠ ボタンを作らない（17-d）。
 	# ⚠ 戦利品を配ったあとに置くこと。⚠ 逆にすると、休憩で戦利品が出る設定（W22）を
 	#   入れてしまったときに、回復のログと戦利品のログが入れ替わって読めなくなる。
@@ -7629,7 +7631,8 @@ func clear_dungeon_boss() -> bool:
 	run[GameStateKeys.DUNGEON_RUN_PHASE] = GameStateKeys.DUNGEON_PHASE_BOSS_CLEARED
 	_state[GameStateKeys.DUNGEON_RUN] = run
 
-	_grant_dungeon_node_gains(GameStateKeys.DUNGEON_NODE_KIND_BOSS)
+	# ⚠ ボスの戦利品も拾い待ちへ（段階20-f）。⚠ 画面が「何を持ち帰るか」を選ばせる。
+	_grant_dungeon_node_gains(GameStateKeys.DUNGEON_NODE_KIND_BOSS, true)
 	print("[GameManager] clear_dungeon_boss() -> フロア%d 突破。撤退できる状態になった" % get_dungeon_floor_index())
 	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
 	return true
@@ -8101,8 +8104,18 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 		return {}
 	var layers: Array = raw_layers as Array
 
+	# ⚠⚠ 区画（合流しないエリア。段階20-b・人間の決定28）。
+	#   ⚠ 層の並びのどこが区画帯かを先に決める。⚠ 帯の中は「区画ごと」にしか繋がない。
+	var seg: Array[int] = _dungeon_segment_of_layers(layers.size())
+	var seg_count: int = _dungeon_segment_count()
+	var inner_nodes: int = _dungeon_segment_inner_nodes()
+
 	# 1. 層ごとにノードを作る。種類だけ抽選する。
+	# ⚠ 区画帯の層はノード数を JSON ではなく区画の形から決める
+	#   （⚠ 入口／出口＝区画の数 ／ 中＝区画の数 × 中のノード数）。
 	var ids_by_layer: Array = []
+	# ⚠ ノードごとの区画番号（⚠ -1 は通常の層）。⚠ 繋ぐときに「同じ区画か」を見る。
+	var seg_by_layer: Array = []
 	var nodes: Dictionary = {}
 	for layer_index: int in range(layers.size()):
 		var layer: Dictionary = layers[layer_index]
@@ -8110,21 +8123,28 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 		var count: int = int(layer.get(DUNGEON_LAYER_NODE_COUNT, 0))
 		var weights: Dictionary = get_dungeon_layer_weights(layer_index + 1)
 		var row: Array = []
-		for i: int in range(count):
-			var node_id: String = "d_%d_%d" % [layer_index + 1, i]
-			nodes[node_id] = {
-				GameStateKeys.DUNGEON_NODE_LAYER: layer_index + 1,
-				GameStateKeys.DUNGEON_NODE_KIND: _roll_dungeon_node_kind(weights),
-				GameStateKeys.DUNGEON_NODE_NEXT: [],
-				GameStateKeys.DUNGEON_NODE_CLEARED: false,
-			}
-			row.append(node_id)
+		var seg_row: Array[int] = []
+		var slot: int = seg[layer_index]
+		if slot == DUNGEON_SEGMENT_NONE:
+			for i: int in range(count):
+				row.append(_make_dungeon_node(nodes, layer_index + 1, i, weights))
+				seg_row.append(DUNGEON_SEGMENT_NONE)
+		else:
+			# ⚠ 区画帯。⚠ 端（入口・出口）は区画ごとに1ノード、⚠ 中は inner_nodes ずつ。
+			var per_segment: int = 1 if (slot == DUNGEON_SEGMENT_EDGE) else inner_nodes
+			var index: int = 0
+			for k: int in range(seg_count):
+				for _n: int in range(per_segment):
+					row.append(_make_dungeon_node(nodes, layer_index + 1, index, weights))
+					seg_row.append(k)
+					index += 1
 		if row.is_empty():
 			push_warning("[GameManager] _build_dungeon_map: 層 %d のノードが0件: %s" % [
 				layer_index + 1, dungeon_id
 			])
 			return {}
 		ids_by_layer.append(row)
+		seg_by_layer.append(seg_row)
 
 	# 2. ボス。最終層の1つ先に置く。
 	var boss_id: String = "d_boss"
@@ -8136,10 +8156,25 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 	}
 
 	# 3. 層と層をつなぐ。
+	# ⚠⚠ 上下とも区画帯なら「同じ区画どうし」だけを繋ぐ（段階20-b）。
+	#   ⚠ これが「区画と区画のあいだは合流しない」の実体。⚠ 一度入ったら隣へ移れない。
+	# ⚠ 通常 → 区画の入口 だけ上限を上げる（⚠ 人間の裁き「入り口は3」）。
 	for layer_index: int in range(ids_by_layer.size() - 1):
-		_connect_dungeon_layers(
-			nodes, ids_by_layer[layer_index], ids_by_layer[layer_index + 1], dungeon_id
-		)
+		var upper: Array = ids_by_layer[layer_index]
+		var lower: Array = ids_by_layer[layer_index + 1]
+		var upper_seg: Array = seg_by_layer[layer_index]
+		var lower_seg: Array = seg_by_layer[layer_index + 1]
+		if seg[layer_index] != DUNGEON_SEGMENT_NONE and seg[layer_index + 1] != DUNGEON_SEGMENT_NONE:
+			for k: int in range(seg_count):
+				_connect_dungeon_layers(
+					nodes, _dungeon_nodes_of_segment(upper, upper_seg, k),
+					_dungeon_nodes_of_segment(lower, lower_seg, k), dungeon_id
+				)
+			continue
+		var override: int = 0
+		if seg[layer_index] == DUNGEON_SEGMENT_NONE and seg[layer_index + 1] != DUNGEON_SEGMENT_NONE:
+			override = _dungeon_segment_choices()
+		_connect_dungeon_layers(nodes, upper, lower, dungeon_id, override)
 	# 最終層 -> ボス（合流）。
 	# ⚠ ボスへの通路にも効果が付く（⚠ 特別扱いしない。⚠ 最後の1歩にも選択が要る）。
 	for node_id: Variant in (ids_by_layer[ids_by_layer.size() - 1] as Array):
@@ -8170,12 +8205,18 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 #   ⚠ 人間の指摘「⚠ そんなに入り組ませないでほしい　ルートを」。
 #   ⚠ 上限で切ると (b) が崩れるので、⚠ 切ったあとに「入ってくる線が0本のマス」を
 #     数え直して補う。⚠ 補う口はここ1本（⚠ 総当たりが 0 件であることを見張る）。
+#
+# ⚠ 段階20-b：⚠ `max_edges_override` を足した。⚠ 区画の入口だけ上限を上げるため
+#   （⚠ 人間の裁き「入り口は3」）。⚠ 0 以下なら Config の上限を使う。
 func _connect_dungeon_layers(
-		nodes: Dictionary, upper: Array, lower: Array, dungeon_id: String = ""
+		nodes: Dictionary, upper: Array, lower: Array, dungeon_id: String = "",
+		max_edges_override: int = 0
 ) -> void:
 	var config: DungeonConfig = _dungeon()
 	var spread: int = 1 if config == null else maxi(0, int(config.branch_spread))
 	var max_edges: int = 2 if config == null else maxi(1, int(config.max_edges_per_node))
+	if max_edges_override > 0:
+		max_edges = max_edges_override
 	var n: int = upper.size()
 	var m: int = lower.size()
 	# ⚠ 先に「どこへ繋ぐか」を番号で決め切る。⚠ 通路を作るのは最後にまとめて
@@ -8212,6 +8253,101 @@ func _connect_dungeon_layers(
 		for k: Variant in (targets_by_upper[j] as Array):
 			next_edges.append(_make_dungeon_edge(str(lower[int(k)]), dungeon_id))
 		(nodes[str(upper[j])] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = next_edges
+
+
+# --- 区画（合流しないエリア。段階20-b・人間の決定28） ---------------
+#
+# ⚠⚠ 人間の裁き：「⚠ 1区間は5層まで　⚠ 1回に3個　⚠ 入り口は3　⚠ 中で分岐してもいい」。
+# ⚠⚠ 「合流しない」のは**区画と区画のあいだ**。⚠ 区画の中では合流してよい
+#   （⚠ 外の台帳 §3-2 の図がそう。⚠ 入口1・出口1の箱で、⚠ 中は分岐して合流する）。
+# ⚠ 区画に入ったら隣の区画へは移れない＝⚠ 5層ぶんをまとめて賭ける重い判断。
+
+## 通常の層（区画帯ではない）。
+const DUNGEON_SEGMENT_NONE: int = -1
+## 区画帯の端（入口・出口の層）。⚠ 区画ごとに1ノード。
+const DUNGEON_SEGMENT_EDGE: int = 0
+## 区画帯の中の層。⚠ 区画ごとに segment_inner_nodes ノード。
+const DUNGEON_SEGMENT_INNER: int = 1
+
+
+func _dungeon_segment_count() -> int:
+	var config: DungeonConfig = _dungeon()
+	return 0 if config == null else maxi(0, int(config.segment_count))
+
+
+func _dungeon_segment_layers() -> int:
+	var config: DungeonConfig = _dungeon()
+	return 0 if config == null else maxi(0, int(config.segment_layers))
+
+
+func _dungeon_segment_choices() -> int:
+	var config: DungeonConfig = _dungeon()
+	return 0 if config == null else maxi(1, int(config.segment_choices))
+
+
+func _dungeon_segment_inner_nodes() -> int:
+	var config: DungeonConfig = _dungeon()
+	return 1 if config == null else maxi(1, int(config.segment_inner_nodes))
+
+
+# 層ごとに「通常 / 区画の端 / 区画の中」を割り当てる（段階20-b）。
+#
+# ⚠ 層1（入口）は必ず通常。⚠ 合流点が1ノードなので、⚠ ここを区画にすると選べない。
+# ⚠ 帯は等間隔に置く。⚠ 入り切らないぶんは置かない（W34 が鳴く）。
+# ⚠ 割り当てる口はここ1本だけ。⚠ 画面や検証で層番号から計算し直さないこと。
+func _dungeon_segment_of_layers(total_layers: int) -> Array[int]:
+	var result: Array[int] = []
+	for _i: int in range(total_layers):
+		result.append(DUNGEON_SEGMENT_NONE)
+	var seg_len: int = _dungeon_segment_layers()
+	var seg_count: int = _dungeon_segment_count()
+	# ⚠ 3 未満だと「中」が無くなり、⚠ 中で分岐できない（人間の裁きと食い違う）。
+	if seg_count <= 0 or seg_len < 3:
+		return result
+	# ⚠ 層1 を除いた残りに等間隔で置く。
+	var usable: int = total_layers - 1
+	if seg_len * seg_count > usable:
+		push_warning("[GameManager] W34 dungeon_config.gd: 区画 %d 個 × %d 層 が層の総数 %d に入り切らない。置ける数だけ置く" % [
+			seg_count, seg_len, total_layers
+		])
+		seg_count = usable / seg_len
+	if seg_count <= 0:
+		return result
+	var step: int = usable / seg_count
+	for k: int in range(seg_count):
+		var start: int = 1 + k * step
+		if start + seg_len > total_layers:
+			break
+		for offset: int in range(seg_len):
+			# ⚠ 端（最初と最後）は入口・出口。⚠ それ以外が中。
+			result[start + offset] = (
+				DUNGEON_SEGMENT_EDGE if (offset == 0 or offset == seg_len - 1)
+				else DUNGEON_SEGMENT_INNER
+			)
+	return result
+
+
+# その層のノードのうち、区画 k に属するものだけを返す（段階20-b）。
+func _dungeon_nodes_of_segment(row: Array, seg_row: Array, k: int) -> Array:
+	var result: Array = []
+	for i: int in range(mini(row.size(), seg_row.size())):
+		if int(seg_row[i]) == k:
+			result.append(row[i])
+	return result
+
+
+# ノードを1つ作る（段階20-b で切り出した）。
+#
+# ⚠ ノードを作る口はここ1本だけ。⚠ 2本目を書かないこと。
+func _make_dungeon_node(nodes: Dictionary, layer: int, index: int, weights: Dictionary) -> String:
+	var node_id: String = "d_%d_%d" % [layer, index]
+	nodes[node_id] = {
+		GameStateKeys.DUNGEON_NODE_LAYER: layer,
+		GameStateKeys.DUNGEON_NODE_KIND: _roll_dungeon_node_kind(weights),
+		GameStateKeys.DUNGEON_NODE_NEXT: [],
+		GameStateKeys.DUNGEON_NODE_CLEARED: false,
+	}
+	return node_id
 
 
 # 通路を1本作る（段階19-c-1）。

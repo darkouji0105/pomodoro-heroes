@@ -96,6 +96,13 @@ func _ready() -> void:
 		SceneManager.change_scene(ADVENTURE_SELECT_PATH)
 		return
 
+	# ⚠⚠ 戦闘から戻ったときに拾い待ちがある（段階20-f・人間の指示「戦利品も選ばせる」）。
+	#   ⚠ マップを描く前に拾いものの画面へ送る。⚠ 描いてから送ると1フレーム分ちらつく。
+	#   ⚠ `_rebuild()` の中でやらないこと（⚠ 戻ってくるたびに遷移して止まらなくなる）。
+	if GameManager.has_dungeon_pending_loot():
+		_enter_pickup()
+		return
+
 	message_label.text = ""
 	descend_button.pressed.connect(_on_descend_pressed)
 	retreat_button.pressed.connect(_on_retreat_pressed)

@@ -5079,8 +5079,9 @@ func _report_dungeon() -> void:
 	var out_parts: Array[String] = []
 	for out_key: Variant in out_keys:
 		out_parts.append("%d本=%dマス" % [int(out_key), int(out_count[out_key])])
-	print("    1マスから出る通路 = %s ／ 最大 %d 本（⚠ 上限 %d。⚠ 到達性の補正で超えることがある）" % [
-		" ".join(out_parts), out_max, int(Balance.dungeon.max_edges_per_node),
+	print("    1マスから出る通路 = %s ／ 最大 %d 本（⚠ 上限 %d。⚠ 区画の入口は %d 本まで／到達性の補正でも超える）" % [
+		" ".join(out_parts), out_max,
+		int(Balance.dungeon.max_edges_per_node), int(Balance.dungeon.segment_choices),
 	])
 	# ⚠ 口が2本とも同じものを見ているか（⚠ get_dungeon_moves は ID だけを返す）。
 	var here_now: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
@@ -5099,6 +5100,60 @@ func _report_dungeon() -> void:
 		# ⚠ 無い通路を聞いたら空（⚠ 黙って先頭を返さないこと）。
 		if not GameManager.get_dungeon_edge(here_now, "d_not_a_node").is_empty():
 			push_error("[DebugBoot] 無い通路を聞いたのに空が返らない")
+
+	# --- 4-C. 区画（合流しないエリア。段階20-b・人間の決定28）---
+	#
+	# ⚠⚠ 見るのは「区画と区画のあいだに通路が1本も無いこと」。
+	#   ⚠ 区画の中では合流してよい（⚠ 外の台帳 §3-2 の図がそう）。
+	# ⚠ 区画の判定を道具側で書き直さない。⚠ 「層の中で、⚠ どのノードから
+	#   どのノードへ行けるか」の形だけを見る（⚠ 到達できるノードの集合で分かる）。
+	print("[DebugBoot] --- 区画（⚠ 区画と区画のあいだは合流しない）---")
+	# ⚠ 層ごとのノード数を出す（⚠ 区画帯は端3・中6 になっているはず）。
+	var count_by_layer: Dictionary = {}
+	for node_id: Variant in nodes:
+		var layer_no: int = int((nodes[node_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_LAYER, 0))
+		count_by_layer[layer_no] = int(count_by_layer.get(layer_no, 0)) + 1
+	var layer_nos: Array = count_by_layer.keys()
+	layer_nos.sort()
+	var shape: Array[String] = []
+	for layer_no: Variant in layer_nos:
+		shape.append(str(int(count_by_layer[layer_no])))
+	print("  層ごとのノード数 = [%s]" % ", ".join(shape))
+	# ⚠⚠ 区画の外へ漏れていないか：⚠ 「同じ層の2ノードから、⚠ 同じ行き先へ入っている」
+	#   ことは合流。⚠ 区画帯の中で合流が起きても良い（中は合流してよい）が、
+	#   ⚠ 別の区画のノードと混ざっていないかは「入ってくる元の集合」で分かる。
+	#   ⚠ ここでは「1ノードから出る先が全部同じ層か」だけを見る（⚠ 層飛びが無いこと）。
+	var layer_jump: int = 0
+	for node_id: Variant in nodes:
+		var from_layer: int = int((nodes[node_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_LAYER, 0))
+		for to_id: String in _dungeon_edge_targets(nodes, str(node_id)):
+			var to_layer: int = int((nodes[to_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_LAYER, 0))
+			if to_layer != from_layer + 1:
+				layer_jump += 1
+	print("  ⚠ 層を飛ばす通路 = %d 本（0 が正解）" % layer_jump)
+	if layer_jump > 0:
+		push_error("[DebugBoot] 層を飛ばす通路がある（区画の組み方が壊れている）")
+
+	# ⚠⚠ 分離しているか：⚠ 層のノードを「行き先を共有するか」でグループに分ける。
+	#   ⚠ 通常の層は合流するので1グループ。⚠ 区画の入口層だけ 区画の数 に分かれる。
+	#   ⚠ これが「区画と区画のあいだは合流しない」の直接の根拠。
+	var split_layers: Array[String] = []
+	for layer_no: Variant in layer_nos:
+		var row: Array[String] = []
+		for node_id: Variant in nodes:
+			if int((nodes[node_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_LAYER, 0)) == int(layer_no):
+				row.append(str(node_id))
+		if row.size() < 2:
+			continue
+		var groups: int = _count_dungeon_next_groups(nodes, row)
+		if groups >= 2:
+			split_layers.append("層%d=%dグループ" % [int(layer_no), groups])
+	print("  ⚠⚠ 行き先が分かれている層 = %s（⚠ 区画の入口が %d 個ぶん出るのが正解）" % [
+		" ".join(split_layers) if not split_layers.is_empty() else "（無し）",
+		int(Balance.dungeon.segment_count),
+	])
+	if split_layers.size() < int(Balance.dungeon.segment_count):
+		push_error("[DebugBoot] 区画の分離が足りない（区画と区画のあいだで合流している）")
 
 	# --- 5. 全ルート（⚠ 数えるだけ。⚠ 1本ずつ歩かない）---
 	#
@@ -5931,6 +5986,8 @@ func _walk_dungeon_to_kind(kind: String) -> String:
 		if not GameManager.move_in_dungeon(chosen):
 			push_error("[DebugBoot] _walk_dungeon_to_kind: move_in_dungeon が false: " + chosen)
 			return ""
+		# ⚠ 戦利品も拾い待ちへ行く（段階20-f）。⚠ 溜めたまま歩かない。
+		_settle_dungeon_pending_loot()
 	push_error("[DebugBoot] _walk_dungeon_to_kind: 50手で終わらない")
 	return ""
 
@@ -5958,6 +6015,18 @@ func _dungeon_kind_reachable_from(
 		if _dungeon_kind_reachable_from(nodes, to_id, kind, seen):
 			return true
 	return false
+
+
+# 拾い待ちを片付ける（段階20-f）。⚠ 入るだけ入れて、⚠ 残りは置いていく。
+#
+# ⚠⚠ 戦利品も拾い待ちへ行くようになったので（人間の指示）、⚠ 1手進むたびに溜まる。
+#   ⚠ 片付けないと、⚠ 次の宝箱の検証に前のマスの戦利品が混ざる。
+# ⚠ 本番では画面がこれをやる。⚠ 道具は「選ぶ」を全部入れるで代用している。
+func _settle_dungeon_pending_loot() -> void:
+	if not GameManager.has_dungeon_pending_loot():
+		return
+	var _picked: Dictionary = GameManager.take_all_dungeon_pending_loot()
+	var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
 
 
 # ボスに着くまで、⚠ 効果のある通路を優先して歩く（段階19-c-2）。
@@ -6007,11 +6076,8 @@ func _walk_dungeon_preferring_edges() -> Array[String]:
 			# ⚠ もう一度開けても何も出ない（⚠ 引き直せない）。
 			if not (GameManager.open_dungeon_corridor_chest()["granted"] as Dictionary).is_empty():
 				push_error("[DebugBoot] 通路の宝箱を二度開けられる")
-		# ⚠⚠ 段階20-e：⚠ 拾い待ちは画面が処理する。⚠ 道具では入るだけ入れて先へ進む
-		#   （⚠ 残したままだと次の通路の拾いものと混ざる）。
-		if GameManager.has_dungeon_pending_loot():
-			var _picked: Dictionary = GameManager.take_all_dungeon_pending_loot()
-			var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
+		# ⚠ 拾い待ちは画面が処理する。⚠ 道具では入るだけ入れて先へ進む（段階20-e / 20-f）。
+		_settle_dungeon_pending_loot()
 	push_error("[DebugBoot] _walk_dungeon_preferring_edges: 50手で終わらない")
 	return result
 
@@ -6026,6 +6092,8 @@ func _walk_dungeon_to_boss() -> void:
 		if not GameManager.move_in_dungeon(str(moves[0])):
 			push_error("[DebugBoot] _walk_dungeon_to_boss: move_in_dungeon が false")
 			return
+		# ⚠ 戦利品も拾い待ちへ行く（段階20-f）。⚠ 溜めたまま歩かない。
+		_settle_dungeon_pending_loot()
 		guard += 1
 		if guard > 50:
 			push_error("[DebugBoot] _walk_dungeon_to_boss: 50手で終わらない")
@@ -6095,6 +6163,40 @@ func _count_dungeon_routes(nodes: Dictionary, entry_id: String) -> Dictionary:
 		"reached": reached,
 		"dead_ends": dead_ends,
 	}
+
+
+# 層のノードを「行き先を共有するか」でグループに分けて数える（段階20-b）。
+#
+# ⚠⚠ 通常の層は次の層で合流するので1グループになる。⚠ 区画の入口層だけ
+#   区画の数に分かれる。⚠ これが「区画と区画のあいだは合流しない」の直接の根拠。
+# ⚠ 区画の番号を道具側で持たない（⚠ 生成の中だけの値）。⚠ 形だけを見る。
+func _count_dungeon_next_groups(nodes: Dictionary, row: Array[String]) -> int:
+	# ⚠ ノードの番号 -> グループの番号。⚠ 素朴な結合で足りる（1層は数ノード）。
+	var group_of: Array[int] = []
+	for i: int in range(row.size()):
+		group_of.append(i)
+	var targets: Array = []
+	for node_id: String in row:
+		targets.append(_dungeon_edge_targets(nodes, node_id))
+	for i: int in range(row.size()):
+		for j: int in range(i + 1, row.size()):
+			var shares: bool = false
+			for to_id: Variant in (targets[i] as Array):
+				if str(to_id) in (targets[j] as Array):
+					shares = true
+					break
+			if not shares:
+				continue
+			# ⚠ 共有していたら同じグループにまとめる（⚠ 大きい番号を小さいほうへ寄せる）。
+			var from_group: int = group_of[j]
+			var to_group: int = group_of[i]
+			for k: int in range(row.size()):
+				if group_of[k] == from_group:
+					group_of[k] = to_group
+	var seen: Dictionary = {}
+	for g: int in group_of:
+		seen[g] = true
+	return seen.size()
 
 
 # そのノードから出ている通路の行き先（段階20-a）。
