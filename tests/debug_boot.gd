@@ -5045,6 +5045,23 @@ func _report_dungeon() -> void:
 	for eff_name: Variant in effect_names:
 		effect_parts.append("%s=%d" % [str(eff_name), int(effect_count[eff_name])])
 	print("    効果の内訳 = %s" % (" ".join(effect_parts) if not effect_parts.is_empty() else "（無し）"))
+	# ⚠ 1マスから出る通路の本数（段階19-f・人間の指摘「入り組ませないでほしい」）。
+	#   ⚠ 上限は DungeonConfig.max_edges_per_node。⚠ ただし到達性のほうが優先なので、
+	#     ⚠ 「入ってくる線が0本のマス」を補うぶんだけ上限を超えることがある。
+	var out_count: Dictionary = {}
+	var out_max: int = 0
+	for node_id: Variant in nodes:
+		var out_edges: int = ((nodes[node_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, []) as Array).size()
+		out_count[out_edges] = int(out_count.get(out_edges, 0)) + 1
+		out_max = maxi(out_max, out_edges)
+	var out_keys: Array = out_count.keys()
+	out_keys.sort()
+	var out_parts: Array[String] = []
+	for out_key: Variant in out_keys:
+		out_parts.append("%d本=%dマス" % [int(out_key), int(out_count[out_key])])
+	print("    1マスから出る通路 = %s ／ 最大 %d 本（⚠ 上限 %d。⚠ 到達性の補正で超えることがある）" % [
+		" ".join(out_parts), out_max, int(Balance.dungeon.max_edges_per_node),
+	])
 	# ⚠ 口が2本とも同じものを見ているか（⚠ get_dungeon_moves は ID だけを返す）。
 	var here_now: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
 	var moves_now: Array = GameManager.get_dungeon_moves()

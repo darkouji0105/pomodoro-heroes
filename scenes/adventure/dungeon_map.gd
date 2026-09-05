@@ -53,6 +53,15 @@ const COLOR_EDGE_HIDDEN: Color = Color(0.28, 0.28, 0.32)
 const EDGE_WIDTH: float = 2.0
 const EDGE_WIDTH_CURRENT: float = 4.0
 
+# マスの並びの間隔（段階19-f・人間の指摘「⚠ も間隔をあけてほしい」）。
+#
+# ⚠ 層のあいだが狭いと線がほとんど点になり、⚠ どこへ繋がるかが読めない。
+# ⚠ ここに直書きしていたのを const に出した（⚠ 2箇所に散らさない）。
+# ⚠ バランスの数値ではなく見た目なので Config に出していない
+#   （⚠ 色と同じ扱い。⚠ main_theme.tres に対応する概念が無い）。
+const LAYER_SEPARATION: int = 44
+const NODE_SEPARATION: int = 56
+
 @onready var dungeon_name_label: Label = $Layout/Header/DungeonNameLabel
 @onready var floor_label: Label = $Layout/Header/FloorLabel
 @onready var currency_label: Label = $Layout/Header/CurrencyLabel
@@ -99,6 +108,9 @@ func _ready() -> void:
 	#   ⚠ 並べ替えが終わるたびに引き直す。⚠ await を使わない（AGENTS.md）。
 	#   ⚠ sort_children はレイアウトのたびに飛ぶので、⚠ ウィンドウを広げても追従する。
 	layer_list.sort_children.connect(_redraw_edges)
+	# ⚠ 層のあいだの間隔（段階19-f）。⚠ .tscn ではなくここで入れる
+	#   （⚠ マスのあいだの間隔と同じ場所に並べて、⚠ 2箇所に散らさないため）。
+	layer_list.add_theme_constant_override("separation", LAYER_SEPARATION)
 	_rebuild()
 
 
@@ -272,7 +284,7 @@ func _rebuild_layers() -> void:
 		var row: HBoxContainer = HBoxContainer.new()
 		row.name = "Layer_%d" % int(layer)
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 24)
+		row.add_theme_constant_override("separation", NODE_SEPARATION)
 		for node_id: Variant in (by_layer[layer] as Array):
 			var node_button: PrimaryButton = _make_node_button(
 				str(node_id), nodes[node_id], str(node_id) == position,

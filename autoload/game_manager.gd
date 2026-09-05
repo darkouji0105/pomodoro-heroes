@@ -7939,22 +7939,52 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 #
 # ⚠ 段階19-d：⚠ 隣へ何個伸ばすかを DungeonConfig.branch_spread のつまみにした。
 #   ⚠ 0 にすると一本道になる（⚠ 分岐が消えるので、たいまつも休憩のコストも効かなくなる）。
+#
+# ⚠⚠ 段階19-f：⚠ 1ノードから出る通路に上限を付けた（DungeonConfig.max_edges_per_node）。
+#   ⚠ 人間の指摘「⚠ そんなに入り組ませないでほしい　ルートを」。
+#   ⚠ 上限で切ると (b) が崩れるので、⚠ 切ったあとに「入ってくる線が0本のマス」を
+#     数え直して補う。⚠ 補う口はここ1本（⚠ 総当たりが 0 件であることを見張る）。
 func _connect_dungeon_layers(
 		nodes: Dictionary, upper: Array, lower: Array, dungeon_id: String = ""
 ) -> void:
 	var config: DungeonConfig = _dungeon()
 	var spread: int = 1 if config == null else maxi(0, int(config.branch_spread))
+	var max_edges: int = 2 if config == null else maxi(1, int(config.max_edges_per_node))
 	var n: int = upper.size()
 	var m: int = lower.size()
+	# ⚠ 先に「どこへ繋ぐか」を番号で決め切る。⚠ 通路を作るのは最後にまとめて
+	#   （⚠ 途中で作ると、⚠ 補正で捨てる通路の効果まで抽選してしまう）。
+	var targets_by_upper: Array = []
+	var incoming: Array[int] = []
+	incoming.resize(m)
 	for j: int in range(n):
 		var lo: int = int(floor(float(j) * float(m) / float(n)))
 		var hi: int = int(ceil(float(j + 1) * float(m) / float(n))) - 1
 		hi = maxi(hi, lo)
 		# 隣へも伸ばして分岐を作る（⚠ spread=1 なら2択）。
 		hi = mini(hi + spread, m - 1)
-		var next_edges: Array = []
+		# ⚠ 上限まで（⚠ lo 側から取る＝真下が必ず残る）。
+		hi = mini(hi, lo + max_edges - 1)
+		var targets: Array[int] = []
 		for k: int in range(lo, hi + 1):
-			next_edges.append(_make_dungeon_edge(str(lower[k]), dungeon_id))
+			targets.append(k)
+			incoming[k] += 1
+		targets_by_upper.append(targets)
+
+	# ⚠⚠ 入ってくる線が0本のマスを補う。⚠ 補わないと「絶対に通れないノード」が生まれる。
+	#   ⚠ 一番近い上の層のマスから1本足す（⚠ 上限を超えてでも足す＝到達性が優先）。
+	for k: int in range(m):
+		if incoming[k] > 0:
+			continue
+		var j_near: int = clampi(int(float(k) * float(n) / float(m)), 0, n - 1)
+		(targets_by_upper[j_near] as Array).append(k)
+		(targets_by_upper[j_near] as Array).sort()
+		incoming[k] += 1
+
+	for j: int in range(n):
+		var next_edges: Array = []
+		for k: Variant in (targets_by_upper[j] as Array):
+			next_edges.append(_make_dungeon_edge(str(lower[int(k)]), dungeon_id))
 		(nodes[str(upper[j])] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = next_edges
 
 

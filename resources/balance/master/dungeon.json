@@ -3,12 +3,12 @@
     "name_key": "ui_dungeon_hard",
     "layers": [
       { "node_count": 1 },
+      { "node_count": 2 },
       { "node_count": 3 },
-      { "node_count": 4 },
-      { "node_count": 4 },
       { "node_count": 3 },
-      { "node_count": 4 },
       { "node_count": 3 },
+      { "node_count": 3 },
+      { "node_count": 2 },
       { "node_count": 2 }
     ],
     "battle_pool": [
