@@ -8225,13 +8225,24 @@ func _connect_dungeon_layers(
 	var incoming: Array[int] = []
 	incoming.resize(m)
 	for j: int in range(n):
-		var lo: int = int(floor(float(j) * float(m) / float(n)))
-		var hi: int = int(ceil(float(j + 1) * float(m) / float(n))) - 1
-		hi = maxi(hi, lo)
-		# 隣へも伸ばして分岐を作る（⚠ spread=1 なら2択）。
-		hi = mini(hi + spread, m - 1)
-		# ⚠ 上限まで（⚠ lo 側から取る＝真下が必ず残る）。
-		hi = mini(hi, lo + max_edges - 1)
+		var base_lo: int = int(floor(float(j) * float(m) / float(n)))
+		var base_hi: int = maxi(int(ceil(float(j + 1) * float(m) / float(n))) - 1, base_lo)
+		var lo: int = base_lo
+		var hi: int = base_hi
+		# ⚠⚠ 隣へ伸ばす向きを1つおきに入れ替える（段階20-i・人間の指摘）。
+		#   ⚠ 人間の言葉：「⚠ 左上のノードにいく生成がないような気がする」。
+		#   ⚠⚠ 前は右へしか伸ばしておらず、⚠ マップ全体が右へ流れていた
+		#     （⚠ 「左から右に行く道がやたら生成される」も同じ原因の別の見え方だった）。
+		#   ⚠ 左へ伸ばす番と右へ伸ばす番を交互にすると、⚠ 左のマスにも入ってくる線ができる。
+		#   ⚠ 乱数にしないこと（⚠ 起動ごとに形が変わると検証が読めなくなる）。
+		if (j % 2) == 0:
+			hi = mini(hi + spread, m - 1)
+			# ⚠ 上限まで（⚠ lo 側から取る＝真下が必ず残る）。
+			hi = mini(hi, lo + max_edges - 1)
+		else:
+			lo = maxi(lo - spread, 0)
+			# ⚠ 上限まで（⚠ hi 側から取る＝真下が必ず残る）。
+			lo = maxi(lo, hi - max_edges + 1)
 		var targets: Array[int] = []
 		for k: int in range(lo, hi + 1):
 			targets.append(k)

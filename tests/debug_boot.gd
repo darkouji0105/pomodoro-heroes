@@ -5150,6 +5150,30 @@ func _report_dungeon() -> void:
 	if layer_jump > 0:
 		push_error("[DebugBoot] 層を飛ばす通路がある（区画の組み方が壊れている）")
 
+	# ⚠⚠ 左へ行く通路があるか（段階20-i・人間の指摘「左上のノードにいく生成がない」）。
+	#   ⚠ ノードIDの末尾が「その層の何番目か」。⚠ 行き先の番号が小さければ左へ行く道。
+	#   ⚠ 0 本だとマップが右へ流れるだけになり、⚠ 左のマスへ入る線が無くなる。
+	var to_left: int = 0
+	var to_right: int = 0
+	var straight: int = 0
+	for node_id: Variant in nodes:
+		var from_index: int = int(str(node_id).get_slice("_", 2)) if str(node_id) != "d_boss" else 0
+		for to_id: String in _dungeon_edge_targets(nodes, str(node_id)):
+			if to_id == "d_boss":
+				continue
+			var to_index: int = int(to_id.get_slice("_", 2))
+			if to_index < from_index:
+				to_left += 1
+			elif to_index > from_index:
+				to_right += 1
+			else:
+				straight += 1
+	print("  ⚠⚠ 通路の向き = 左へ %d 本 ／ 真下 %d 本 ／ 右へ %d 本（⚠ 左が 0 本だと右へ流れるだけになる）" % [
+		to_left, straight, to_right
+	])
+	if to_left <= 0:
+		push_error("[DebugBoot] 左へ行く通路が0本（マップが右へ流れるだけになっている）")
+
 	# ⚠⚠ 分離しているか：⚠ 層のノードを「行き先を共有するか」でグループに分ける。
 	#   ⚠ 通常の層は合流するので1グループ。⚠ 区画の入口層だけ 区画の数 に分かれる。
 	#   ⚠ これが「区画と区画のあいだは合流しない」の直接の根拠。
