@@ -3673,9 +3673,29 @@ func _report_layout() -> void:
 		for raw_child: Node in instance.find_children("*", "Control", true, false):
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
-				print("    ⚠ 通路の線 = %d 本（0 本なら通路が1本も見えていない）" % drawn)
+				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので
+				#   ⚠ 線の本数より少ないのが正解。⚠ 0 本なら1つも出ていない。
+				var labelled: int = (raw_child as DungeonEdgeLines).get_label_count()
+				print("    ⚠ 通路の線 = %d 本（0 本なら通路が1本も見えていない） ／ 真ん中の字 = %d 個" % [
+					drawn, labelled
+				])
 				if drawn <= 0:
 					push_error("[DebugBoot] 通路の線が0本（段階19-e が効いていない）")
+				if labelled <= 0:
+					push_error("[DebugBoot] 通路の真ん中の字が0個（段階20-c が効いていない）")
+				if labelled > drawn:
+					push_error("[DebugBoot] 通路の字が線より多い（線1本に字が2つ付いている）")
+		# ⚠ いま立っているマスへスクロールが寄っているか（段階20-c・人間の指示）。
+		#   ⚠ 絵は取れないが「スクロール位置が0でない」ことは取れる。
+		#   ⚠ 入口は一番下なので、⚠ 25層ぶん下へ寄っているはず。
+		var raw_scroll: Node = instance.get_node_or_null(NodePath("Layout/MapScroll"))
+		if raw_scroll is ScrollContainer:
+			var scroller: ScrollContainer = raw_scroll
+			print("    ⚠ スクロール位置 = %d / 中身の高さ %d（⚠ 入口は一番下なので 0 でないのが正解）" % [
+				scroller.scroll_vertical, int(scroller.get_v_scroll_bar().max_value),
+			])
+			if scroller.scroll_vertical <= 0:
+				push_error("[DebugBoot] スクロールが先頭のまま（段階20-c が効いていない）")
 		instance.queue_free()
 		await get_tree().process_frame
 

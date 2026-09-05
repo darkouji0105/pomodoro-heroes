@@ -17,17 +17,58 @@ const LINE_FROM: String = "from"
 const LINE_TO: String = "to"
 const LINE_COLOR: String = "color"
 const LINE_WIDTH: String = "width"
+# ⚠ 通路の真ん中に出す字（段階20-c・人間の指示「⚠ 通路にアイコンは、通路の真ん中に表示して」）。
+#   ⚠ "" なら何も出さない。
+const LINE_LABEL: String = "label"
 
-# 線の一覧。⚠ [{from: Vector2, to: Vector2, color: Color, width: float}]
+# 通路の字の大きさと、字を置く箱の大きさ（段階20-c）。
+#
+# ⚠⚠ 箱を固定にして中央寄せする。⚠ そうしないと「線の中点」に置けない
+#   （⚠ Label の実際の大きさはレイアウトが終わるまで分からない）。
+const LABEL_FONT_SIZE: int = 16
+const LABEL_BOX: Vector2 = Vector2(28.0, 24.0)
+
+# 線の一覧。⚠ [{from: Vector2, to: Vector2, color: Color, width: float, label: String}]
 var _lines: Array = []
 
 
 # 線を差し替える。⚠ 呼ぶのは dungeon_map.gd の1箇所だけ。
 #
 # ⚠ ここで queue_redraw() する。⚠ 呼ぶ側で描き直しを覚えないこと。
+# ⚠ 字は Label で置く（⚠ draw_string ではない）。⚠ カラー絵文字（COLR/CPAL）が
+#   Label では出ることを実測済みで、⚠ draw_string では確かめていないため。
+# ⚠ 再描画に await を持たせない。⚠ remove_child() してから queue_free()（AGENTS.md）。
 func set_lines(lines: Array) -> void:
 	_lines = lines
+	for child in get_children():
+		remove_child(child)
+		child.queue_free()
+	for entry: Variant in _lines:
+		if not (entry is Dictionary):
+			continue
+		var line: Dictionary = entry
+		var text: String = str(line.get(LINE_LABEL, ""))
+		if text == "":
+			continue
+		var label: Label = Label.new()
+		label.text = text
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", LABEL_FONT_SIZE)
+		label.size = LABEL_BOX
+		# ⚠ 線の中点に置く。⚠ 箱のぶんだけ左上へずらして中央に合わせる。
+		var mid: Vector2 = (
+			(line.get(LINE_FROM, Vector2.ZERO) + line.get(LINE_TO, Vector2.ZERO)) * 0.5
+		)
+		label.position = mid - LABEL_BOX * 0.5
+		add_child(label)
 	queue_redraw()
+
+
+# 通路の真ん中に出ている字の数。⚠ 検証の道具（scenario=layout）が読む。
+func get_label_count() -> int:
+	return get_child_count()
 
 
 # いま引いている線の本数。⚠ 検証の道具（scenario=layout）が読む。

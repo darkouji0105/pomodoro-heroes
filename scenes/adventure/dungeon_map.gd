@@ -185,6 +185,11 @@ func _rebuild_party() -> void:
 #   （⚠ queue_free() 済みのノードの位置を読むと落ちる）。
 var _node_buttons: Dictionary = {}
 
+# いま立っているマスへスクロールを寄せる要求（段階20-c）。
+#
+# ⚠ 描き直したときに立て、⚠ 寄せたら下ろす。⚠ 毎回のレイアウトで寄せないため。
+var _center_pending: bool = false
+
 
 # 通路を線で引く（段階19-e・人間の指示）。
 #
@@ -223,8 +228,11 @@ func _redraw_edges() -> void:
 				DungeonEdgeLines.LINE_WIDTH: (
 					EDGE_WIDTH_CURRENT if from_id == position else EDGE_WIDTH
 				),
+				# ⚠ 通路の真ん中に出す字（段階20-c・人間の指示）。
+				DungeonEdgeLines.LINE_LABEL: _edge_label(from_id, to_id, edge),
 			})
 	edge_lines.set_lines(lines)
+	_center_scroll_on_current()
 
 
 # マスのボタンのつなぎ目（段階19-e）。⚠ top なら上辺の中央、⚠ でなければ下辺の中央。
@@ -237,6 +245,61 @@ func _edge_anchor(button: Control, top: bool) -> Vector2:
 	var center_x: float = rect.position.x + rect.size.x * 0.5
 	var y: float = rect.position.y if top else rect.position.y + rect.size.y
 	return Vector2(center_x, y) - origin
+
+
+# 通路の真ん中に出す字（段階20-c・人間の指示「⚠ 通路にアイコンは、通路の真ん中に表示して」）。
+#
+# ⚠ 19-e まではマスのボタンの前に付けていた。⚠ 「そのマスへ入ってくる通路」の
+#   まとめだったので、⚠ 合流するマスでは2つ並び、⚠ どの通路のことか分からなかった。
+# ⚠ 通ったあとの通路には出さない（⚠ もう選べない）。
+# ⚠ 効果が無い通路には何も出さない（⚠ Glyphs が "" を返す）。
+func _edge_label(from_id: String, to_id: String, edge: Dictionary) -> String:
+	var run: Dictionary = GameManager.get_dungeon_run()
+	var visited: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_VISITED, {})
+	if visited.has(to_id):
+		return ""
+	# ⚠⚠ たいまつが届いていない通路には何も出さない（段階20-c で `❔` をやめた）。
+	#   ⚠ 1階が25層になり、⚠ 等級1 では1層先しか見えないので、⚠ `❔` を出すと
+	#     104本のうち101本に付いて画面が埋まった（⚠ 実測で気づいた）。
+	#   ⚠ 「見えていない」ことは線の色（暗い灰）が既に言っている。⚠ 二重に言わない。
+	#   ⚠ 「何かある」ことも言わない（⚠ 言うと効果の無い通路との差が漏れる）。
+	if not GameManager.is_dungeon_edge_revealed(from_id, to_id):
+		return ""
+	return Glyphs.for_dungeon_edge(str(edge.get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")))
+
+
+# いま立っているマスが真ん中に来るようにスクロールする（段階20-c・人間の指示）。
+#
+# ⚠⚠ 人間の言葉：「⚠ 地図に戻ると、そこを真ん中にするようにして、
+#   ⚠ 今のままだと毎回下にスクロールしないといけない」。⚠ 25層になって縦に長くなったため。
+# ⚠⚠ 毎回は寄せない。⚠ `sort_children` はレイアウトのたびに飛ぶので、⚠ 毎回寄せると
+#   手でスクロールできなくなる。⚠ 描き直したときだけ1回（`_center_pending`）。
+func _center_scroll_on_current() -> void:
+	if not _center_pending or map_scroll == null:
+		return
+	var position: String = str(
+		GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")
+	)
+	if not _node_buttons.has(position):
+		return
+	var button: Control = _node_buttons[position]
+	if not is_instance_valid(button):
+		return
+	# ⚠⚠ 中身が伸びるまで待つ。⚠ 伸びる前に入れても ScrollContainer が 0 に丸め、
+	#   ⚠ 要求だけ消費して「先頭のまま」になる（⚠ 実測でそうなった）。
+	#   ⚠ 消費しないで返る＝次のレイアウトでもう一度来る。
+	var bar: ScrollBar = map_scroll.get_v_scroll_bar()
+	if bar == null or bar.max_value <= map_scroll.size.y:
+		return
+	# ⚠⚠ `button.position` を使わない。⚠ あれは行（HBoxContainer）の中の座標で、
+	#   ⚠ y がほぼ 0 になる（⚠ 最初はこれで書いてスクロールが 0 のままだった）。
+	#   ⚠ 線を引くのと同じく global から MapArea の中の位置に直す。
+	var center_y: float = (
+		button.get_global_rect().get_center().y - map_area.get_global_rect().position.y
+	)
+	# ⚠ ScrollContainer が範囲の外を丸めてくれるので、⚠ ここで clamp しない。
+	map_scroll.scroll_vertical = int(center_y - map_scroll.size.y * 0.5)
+	_center_pending = false
 
 
 # 通路の線の色。⚠ 「良いか悪いか」だけを言う（⚠ 何が起きるかは絵文字）。
@@ -303,6 +366,11 @@ func _rebuild_layers() -> void:
 	#   ⚠ Control は子の最小サイズを自動では拾わない。⚠ ここで渡す。
 	map_area.custom_minimum_size = layer_list.get_combined_minimum_size()
 	_redraw_edges()
+	# ⚠⚠ 要求を立てるのは `_redraw_edges()` の「あと」（段階20-c）。
+	#   ⚠ 先に立てると、⚠ すぐ上の呼び出しで消費されてしまう。⚠ そのときは
+	#     まだレイアウト前でボタンの位置が 0 なので、⚠ スクロールが 0 のまま終わる
+	#     （⚠ 実測でそうなった）。⚠ 次の `sort_children` で寄せる。
+	_center_pending = true
 
 
 func _make_node_button(
@@ -321,12 +389,9 @@ func _make_node_button(
 		button.text = "%s %s" % [Glyphs.for_dungeon_node(kind), tr("ui_dungeon_node_" + kind)]
 	else:
 		button.text = "%s %s" % [Glyphs.NODE_HIDDEN, HIDDEN_TEXT]
-	# 通路の効果（段階19-c-2・人間の決定23）。⚠ そのマスへ入ってくる通路に何があるか。
-	#   ⚠⚠ たいまつが届いていなければ「？」（⚠ 見えるかの判定は GameManager の1本）。
-	#   ⚠ 現在地から進める先なら通路は1本に定まる。⚠ 合流するマスは複数並ぶ。
-	var edge_text: String = _edge_prefix(node_id)
-	if edge_text != "":
-		button.text = "%s %s" % [edge_text, button.text]
+	# ⚠ 通路の効果はここに出さない（段階20-c・人間の指示「通路の真ん中に表示して」）。
+	#   ⚠ 19-e まではここに前置きしていたが、⚠ 合流するマスでは複数並び、
+	#     ⚠ どの通路のことか分からなかった。⚠ いまは線の中点（_edge_label）。
 
 	if is_current:
 		button.text = "▶ " + button.text
@@ -345,28 +410,10 @@ func _make_node_button(
 	return button
 
 
-# そのマスへ入ってくる通路の効果を、マスの前に付ける文字にする（段階19-c-2）。
-#
-# ⚠ 見えているかは GameManager に聞く（⚠ ここで層を引き算しない）。
-# ⚠ 通ったあとのマスには出さない（⚠ もう選べないので、⚠ 出すと画面が埋まるだけ）。
-# ⚠ 効果が無い通路には何も出さない（⚠ Glyphs が "" を返す）。
-func _edge_prefix(node_id: String) -> String:
-	var run: Dictionary = GameManager.get_dungeon_run()
-	var visited: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_VISITED, {})
-	if visited.has(node_id):
-		return ""
-	# ⚠ たいまつが届いていないなら中身を出さない。⚠ 「何かある」ことも言わない
-	#   （⚠ 言うと、⚠ 効果が無い通路との差が漏れてたいまつを買う理由が減る）。
-	if not GameManager.is_dungeon_edge_revealed("", node_id):
-		return Glyphs.EDGE_HIDDEN
-	var parts: Array[String] = []
-	for entry: Variant in GameManager.get_dungeon_incoming_edge_effects(node_id):
-		var glyph: String = Glyphs.for_dungeon_edge(
-			str((entry as Dictionary).get(GameStateKeys.DUNGEON_EDGE_EFFECT, ""))
-		)
-		if glyph != "" and not (glyph in parts):
-			parts.append(glyph)
-	return "".join(parts)
+# ⚠ `_edge_prefix()`（マスの前に通路の効果を付ける）は段階20-c で消した。
+#   ⚠ 人間の指示「通路にアイコンは、通路の真ん中に表示して」。
+#   ⚠ 残すと描き方が2本になる。⚠ いまは `_edge_label()` の1本だけ。
+#   ⚠ `GameManager.get_dungeon_incoming_edge_effects()` の呼び出し元もここで0件になった。
 
 
 # 鞄（段階18-d・マス目）。
