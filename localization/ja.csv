@@ -203,6 +203,7 @@ ui_floor_chest_found,宝箱を見つけた！
 ui_base_save_completed,セーブしました
 ui_base_save_failed,セーブに失敗しました
 ui_base_chest_received,宝箱を%d個受け取りました
+ui_base_potion_received,ポーションを%d個受け取りました
 ui_title_back_confirm,タイトルに戻りますか？ 保存していない進行状況は失われます
 ui_base_pomodoro_rewards,ポーションを%d個、宝箱を%d個受け取りました
 ui_title_delete_confirm,セーブデータを削除しますか？ この操作は取り消せません
@@ -758,6 +759,22 @@ ui_detail_none,マスを選ぶと、ここに詳細が出ます
 ui_desc_stamina_potion,スタミナを回復する。冒険に行く回数が増える
 ui_desc_dungeon_potion_heal,戦闘時MAX HP を素の30%ぶん戻す。ダンジョンの中でだけ使える
 ui_desc_dungeon_potion_revive,脱落した仲間を戻す。戦闘時MAX HP は素の半分から
+ui_desc_construction_material_1,研究ボードの解放に使う建築素材。段1
+ui_desc_construction_material_2,研究ボードの解放に使う建築素材。段2
+ui_desc_construction_material_3,研究ボードの解放に使う建築素材。段3
+ui_desc_construction_material_4,研究ボードの解放に使う建築素材。段4（最上）
+ui_desc_training_material_1,キャラのレベル上げに使う修練の素材。段1
+ui_desc_training_material_2,修練の素材。段2
+ui_desc_training_material_3,修練の素材。段3
+ui_desc_training_material_4,修練の素材。段4（最上）
+ui_desc_forging_material_1,装備の等級上げに使う鍛冶の素材。段1
+ui_desc_forging_material_2,装備の等級上げに使う鍛冶の素材。段2
+ui_desc_forging_material_3,装備の等級上げに使う鍛冶の素材。段3
+ui_desc_forging_material_4,装備の等級上げに使う鍛冶の素材。段4（最上）
+ui_desc_decor_material_1,装飾の段階上げに使う飾りの素材。段1
+ui_desc_decor_material_2,装飾の段階上げに使う飾りの素材。段2
+ui_desc_decor_material_3,装飾の段階上げに使う飾りの素材。段3
+ui_desc_decor_material_4,飾りの素材。段4（最上）
 ui_warehouse_expand,枠を買う
 ui_warehouse_expand_max,枠は上限
 ui_warehouse_discard,捨てる
@@ -784,7 +801,6 @@ ui_dungeon_chest_hint,開けると中身が鞄に入る。鞄が満杯だと入�
 ui_dungeon_chest_open,開ける
 ui_dungeon_chest_opened,中身を鞄に入れた
 ui_dungeon_chest_left_behind,鞄が満杯で置いてきた個数
-ui_dungeon_corridor_chest,通路で見つけた宝箱を開ける
 ui_dungeon_corridor_chest_title,通路に宝箱があった
 ui_dungeon_edge_trap_hp,罠（傷を負う）
 ui_dungeon_edge_trap_currency,罠（遺物片を落とす）

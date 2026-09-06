@@ -53,8 +53,11 @@ func _test_chests() -> void:
 	var fired: Array = []
 	var callable: Callable = func(count: int) -> void: fired.append(count)
 	GameManager.pending_chests_changed.connect(callable)
-	GameManager.add_pending_chest({GameStateKeys.CHEST_ID: "chest_1", GameStateKeys.CHEST_TYPE: "normal", GameStateKeys.CHEST_SOURCE: "test", GameStateKeys.CHEST_OPENED: false, GameStateKeys.CHEST_REWARDS: {GameStateKeys.REWARD_GOLD: 50}})
-	GameManager.add_pending_chest({GameStateKeys.CHEST_ID: "chest_2", GameStateKeys.CHEST_TYPE: "rare", GameStateKeys.CHEST_SOURCE: "test", GameStateKeys.CHEST_OPENED: false, GameStateKeys.CHEST_REWARDS: {GameStateKeys.REWARD_GOLD: 100}})
+	# ⚠⚠ 宿題70（2026-09-06に解消）：⚠ `CHEST_TYPE` は GameStateKeys に無い。
+	#   ⚠ 状態が持つのは `instance_id`（その1個）と `chest_id`（種類）の2つ（AGENTS.md）。
+	#   ⚠ `open_chest()` が見るのは `instance_id` のほう。
+	GameManager.add_pending_chest({GameStateKeys.CHEST_INSTANCE_ID: "chest_1", GameStateKeys.CHEST_ID: "normal", GameStateKeys.CHEST_SOURCE: "test", GameStateKeys.CHEST_OPENED: false, GameStateKeys.CHEST_REWARDS: {GameStateKeys.REWARD_GOLD: 50}})
+	GameManager.add_pending_chest({GameStateKeys.CHEST_INSTANCE_ID: "chest_2", GameStateKeys.CHEST_ID: "rare", GameStateKeys.CHEST_SOURCE: "test", GameStateKeys.CHEST_OPENED: false, GameStateKeys.CHEST_REWARDS: {GameStateKeys.REWARD_GOLD: 100}})
 	var count_before: int = GameManager.get_pending_chest_count()
 	GameManager.open_chest("chest_1")
 	var count_after: int = GameManager.get_pending_chest_count()

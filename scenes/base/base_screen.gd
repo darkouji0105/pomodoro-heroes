@@ -169,7 +169,14 @@ func _show_arrival_rewards() -> void:
 	var chests: int = int(data.get(TransferKeys.POMODORO_CHESTS, 0))
 	if potions <= 0 and chests <= 0:
 		return
-	Modal.notify(self, "ui_base_pomodoro_rewards", [potions, chests])
+	# ⚠ 0 のほうを読み上げない（2026-09-06・宿題「宝箱を0個」が不格好）。
+	#   ⚠ 文の組み立てをコード側でつなげない（AGENTS.md）。⚠ 文ごとキーを分ける。
+	if chests <= 0:
+		Modal.notify(self, "ui_base_potion_received", [potions])
+	elif potions <= 0:
+		Modal.notify(self, "ui_base_chest_received", [chests])
+	else:
+		Modal.notify(self, "ui_base_pomodoro_rewards", [potions, chests])
 
 # --- シグナルハンドラ ---
 
