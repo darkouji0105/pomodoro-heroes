@@ -34,6 +34,20 @@ const BATTLE_SAMPLE_STAGE_ID: String = "floor_1"
 # 全アイテムの1行あたりのマス数（⚠ 見た目の都合だけ。⚠ バランス数値ではない）。
 const ITEM_GRID_COLUMNS: int = 16
 
+# カテゴリの並び（⚠ `items.json` の `item_type`）。⚠ ここに無い型も落とさず末尾に出す。
+const ITEM_CATEGORY_ORDER: Array[String] = [
+	GameStateKeys.ITEM_TYPE_EQUIPMENT,
+	GameStateKeys.ITEM_TYPE_PART,
+	GameStateKeys.ITEM_TYPE_MATERIAL,
+	GameStateKeys.ITEM_TYPE_CONSUMABLE,
+	GameStateKeys.ITEM_TYPE_DUNGEON,
+	GameStateKeys.ITEM_TYPE_KEY_ITEM,
+	GameStateKeys.ITEM_TYPE_GIFT,
+]
+# ⚠ ルーンは items.json ではなく runes.json（表が別）。⚠ 型の名前とぶつからない語を使う。
+const CATEGORY_RUNE: String = "rune"
+const CATEGORY_KEY_PREFIX: String = "ui_uitest_cat_"
+
 # ⚠ そのまま開ける画面。⚠ 増えたらここに1行足す（⚠ ボタンの生成は下の1本だけ）。
 const PLAIN_SCENES: Array[String] = [
 	"res://scenes/base/base_screen.tscn",
@@ -69,8 +83,6 @@ const RESOURCE_DISPLAY_SCENE: PackedScene = preload(
 
 var _detail: ItemDetail = null
 var _grid: ItemGrid = null
-# ⚠ 全アイテムの節の詳細（⚠ 上のカタログとは別。⚠ 押したマスの近くに出すため）。
-var _items_detail: ItemDetail = null
 
 
 func _ready() -> void:
@@ -305,48 +317,77 @@ func _on_play_se_pressed() -> void:
 #   ⚠ ここに一覧を書かない（⚠ 品が増えたら黙って抜ける）。
 # ⚠ 押すと下の詳細に出る（⚠ 上のカタログと同じ `ItemDetail` を使い回す）。
 # ⚠ 等級は付けない（⚠ 個体ではなく「品の種類」を見るところ。⚠ 等級10色は上のカタログ）。
+# ⚠⚠ カテゴリごとに分ける（2026-09-06・人間の指示「⚠ アイテムをカテゴリごとに分けよう」）。
+#   ⚠ 分ける軸は `items.json` の `item_type`（⚠ IDの綴りから推測しない＝`game_manager.gd:148`）。
+#   ⚠ ルーンは別の表（`get_all_runes()`）なので独立した1カテゴリにする。
 func _build_all_items() -> void:
+	var by_type: Dictionary = {}
+	for entry: Variant in MasterDataLoader.get_all_items().keys():
+		var item_id: String = str(entry)
+		var item_type: String = str(
+			MasterDataLoader.get_item(item_id).get(
+				GameManager.ITEM_MASTER_ITEM_TYPE, GameStateKeys.ITEM_TYPE_UNKNOWN
+			)
+		)
+		if not by_type.has(item_type):
+			by_type[item_type] = []
+		(by_type[item_type] as Array).append(item_id)
+
+	# ⚠ 並びは固定（⚠ 起動ごとに順が変わると「増えた・減った」が読めない）。
+	for item_type: String in ITEM_CATEGORY_ORDER:
+		if by_type.has(item_type):
+			_add_item_category(item_type, by_type[item_type])
+			by_type.erase(item_type)
+	# ⚠⚠ 並びに無い型が来ても落とさない（⚠ 型が増えたときに黙って消えないように）。
+	var leftovers: Array = by_type.keys()
+	leftovers.sort()
+	for entry: Variant in leftovers:
+		_add_item_category(str(entry), by_type[entry])
+
+	_add_item_category(CATEGORY_RUNE, MasterDataLoader.get_all_runes().keys())
+
+
+# 1カテゴリぶん（⚠ 見出し ＋ マス目 ＋ そのすぐ下の詳細）。
+#
+# ⚠ 詳細はカテゴリごとに置く（⚠ 1つを使い回すと、⚠ 下のカテゴリを押したときに
+#   画面の上まで戻らないと読めない）。
+func _add_item_category(category: String, item_ids: Array) -> void:
+	var ids: Array = item_ids.duplicate()
+	ids.sort()
 	var entries: Array = []
-	var item_ids: Array = MasterDataLoader.get_all_items().keys()
-	item_ids.sort()
-	for entry: Variant in item_ids:
-		entries.append({
-			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
-			GameManager.SLOT_ENTRY_ITEM_ID: str(entry),
-			GameManager.SLOT_ENTRY_COUNT: 1,
-		})
-	var rune_ids: Array = MasterDataLoader.get_all_runes().keys()
-	rune_ids.sort()
-	for entry: Variant in rune_ids:
+	for entry: Variant in ids:
 		entries.append({
 			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
 			GameManager.SLOT_ENTRY_ITEM_ID: str(entry),
 			GameManager.SLOT_ENTRY_COUNT: 1,
 		})
 
-	var count_label: Label = Label.new()
-	count_label.name = "ItemCount"
-	count_label.text = "%s %d ／ %s %d" % [
-		tr("ui_uitest_items"), item_ids.size(), tr("ui_uitest_runes"), rune_ids.size(),
-	]
-	layout.add_child(count_label)
+	var heading: Label = Label.new()
+	heading.name = "ItemCategory_" + category
+	# ⚠ ラベルのキーは "ui_uitest_cat_" + item_type で機械的に引く（AGENTS.md の ui_nav_ と同じ流儀）。
+	#   ⚠ 型が増えたら ja.csv に1行足すだけ。⚠ ここに if を書かない。
+	# ⚠ 型が空のものは "other" に寄せる（⚠ キーが "ui_uitest_cat_" だけになるのを防ぐ）。
+	var label_key: String = CATEGORY_KEY_PREFIX + (
+		category if category != GameStateKeys.ITEM_TYPE_UNKNOWN else "other"
+	)
+	heading.text = "%s（%d）" % [tr(label_key), entries.size()]
+	layout.add_child(heading)
 
 	var grid: ItemGrid = ItemGrid.new()
-	grid.name = "AllItemsGrid"
+	grid.name = "ItemGrid_" + category
 	grid.columns = ITEM_GRID_COLUMNS
 	layout.add_child(grid)
-	# ⚠ 詳細は「押したマスの真下」に要る（⚠ 上のカタログの詳細を使い回すと、
-	#   ⚠ 画面の一番上まで戻らないと読めない）。⚠ ItemDetail をもう1つ置く。
-	_items_detail = ItemDetail.new()
-	_items_detail.name = "AllItemsDetail"
-	grid.slot_pressed.connect(_on_items_slot_pressed)
+
+	var detail: ItemDetail = ItemDetail.new()
+	detail.name = "ItemDetail_" + category
+	grid.slot_pressed.connect(_on_items_slot_pressed.bind(detail))
 	grid.rebuild(entries, entries.size())
-	layout.add_child(_items_detail)
-	_items_detail.show_entry({})
+	layout.add_child(detail)
+	detail.show_entry({})
 
 
-func _on_items_slot_pressed(entry: Dictionary, _index: int) -> void:
-	_items_detail.show_entry(entry)
+func _on_items_slot_pressed(entry: Dictionary, _index: int, detail: ItemDetail) -> void:
+	detail.show_entry(entry)
 
 
 # 等級10色ぶんの個体 ＋ 素材 ＋ レリック（⚠ ItemDetail の3つの枝を全部出す）。

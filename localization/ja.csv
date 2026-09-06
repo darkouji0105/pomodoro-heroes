@@ -223,8 +223,16 @@ ui_uitest_button_wide,幅いっぱいのボタン
 ui_uitest_settings,設定項目（いま効いている値）
 ui_uitest_settings_note,設定画面はまだ無い。ここは値を見るだけで、変えても保存されない
 ui_uitest_play_se,SEを鳴らす
-ui_uitest_items,アイテム
-ui_uitest_runes,ルーン
+ui_uitest_items,アイテム（カテゴリごと）
+ui_uitest_cat_equipment,装備
+ui_uitest_cat_part,装飾
+ui_uitest_cat_material,素材
+ui_uitest_cat_consumable,消耗品
+ui_uitest_cat_dungeon,ダンジョン専用
+ui_uitest_cat_key_item,キーアイテム
+ui_uitest_cat_gift,贈り物
+ui_uitest_cat_rune,ルーン
+ui_uitest_cat_other,その他
 ui_title_back_confirm,タイトルに戻りますか？ 保存していない進行状況は失われます
 ui_base_pomodoro_rewards,ポーションを%d個、宝箱を%d個受け取りました
 ui_title_delete_confirm,セーブデータを削除しますか？ この操作は取り消せません
