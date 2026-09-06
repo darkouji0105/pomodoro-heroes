@@ -217,6 +217,14 @@ ui_uitest_button_disabled,押せないボタン
 ui_uitest_modal_notify,モーダル（知らせ）
 ui_uitest_modal_confirm,モーダル（確認）
 ui_uitest_modal_message,これはUIテストのモーダルです
+ui_uitest_buttons,ボタン
+ui_uitest_button_long,長い文のボタン（はみ出さないか）
+ui_uitest_button_wide,幅いっぱいのボタン
+ui_uitest_settings,設定項目（いま効いている値）
+ui_uitest_settings_note,設定画面はまだ無い。ここは値を見るだけで、変えても保存されない
+ui_uitest_play_se,SEを鳴らす
+ui_uitest_items,アイテム
+ui_uitest_runes,ルーン
 ui_title_back_confirm,タイトルに戻りますか？ 保存していない進行状況は失われます
 ui_base_pomodoro_rewards,ポーションを%d個、宝箱を%d個受け取りました
 ui_title_delete_confirm,セーブデータを削除しますか？ この操作は取り消せません

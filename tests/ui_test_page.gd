@@ -26,6 +26,13 @@ const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 const DUNGEON_CHEST_PATH: String = "res://scenes/adventure/dungeon_chest.tscn"
 const DUNGEON_RELIC_PATH: String = "res://scenes/adventure/dungeon_relic_select.tscn"
 const DUNGEON_SHOP_PATH: String = "res://scenes/adventure/dungeon_shop.tscn"
+const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
+
+# ⚠ 戦闘を開くときに渡すステージ（⚠ stages.json に在るID。⚠ 無いと赤が出る）。
+const BATTLE_SAMPLE_STAGE_ID: String = "floor_1"
+
+# 全アイテムの1行あたりのマス数（⚠ 見た目の都合だけ。⚠ バランス数値ではない）。
+const ITEM_GRID_COLUMNS: int = 16
 
 # ⚠ そのまま開ける画面。⚠ 増えたらここに1行足す（⚠ ボタンの生成は下の1本だけ）。
 const PLAIN_SCENES: Array[String] = [
@@ -62,6 +69,8 @@ const RESOURCE_DISPLAY_SCENE: PackedScene = preload(
 
 var _detail: ItemDetail = null
 var _grid: ItemGrid = null
+# ⚠ 全アイテムの節の詳細（⚠ 上のカタログとは別。⚠ 押したマスの近くに出すため）。
+var _items_detail: ItemDetail = null
 
 
 func _ready() -> void:
@@ -79,9 +88,19 @@ func _ready() -> void:
 	_add_action(DUNGEON_CHEST_PATH.get_file(), _on_dungeon_chest_pressed, false)
 	_add_action(DUNGEON_RELIC_PATH.get_file(), _on_dungeon_relic_pressed, false)
 	_add_action(DUNGEON_SHOP_PATH.get_file(), _on_dungeon_shop_pressed, false)
+	_add_action(BATTLE_PATH.get_file(), _on_battle_pressed, false)
 
 	_add_heading("ui_uitest_parts")
 	_build_parts_catalog()
+
+	_add_heading("ui_uitest_buttons")
+	_build_button_catalog()
+
+	_add_heading("ui_uitest_settings")
+	_build_settings_catalog()
+
+	_add_heading("ui_uitest_items")
+	_build_all_items()
 
 
 # --- 画面ランチャー ---
@@ -161,6 +180,15 @@ func _find_dungeon_node_of_kind(kind: String) -> String:
 	return ""
 
 
+# ⚠ 戦闘は stage_id が要る（`battle_controller.gd:143`）。⚠ 渡さないと黄を1本出して floor_1 で始まる。
+#   ⚠ ダンジョンの戦闘ではなくシナリオ側で開く（⚠ ランを消費しない）。
+func _on_battle_pressed() -> void:
+	SceneManager.change_scene_with_data(BATTLE_PATH, {
+		TransferKeys.STAGE_ID: BATTLE_SAMPLE_STAGE_ID,
+		TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY,
+	})
+
+
 # --- 部品カタログ ---
 
 # ⚠ ここは「見た目を人間が見る」ための並べ物。⚠ 判定は1つも書かない。
@@ -214,6 +242,111 @@ func _build_parts_catalog() -> void:
 	confirm_button.pressed.connect(_on_modal_confirm_pressed)
 	modal_row.add_child(confirm_button)
 	layout.add_child(modal_row)
+
+
+# ⚠ ボタンの見本（2026-09-06・人間の指示「⚠ ボタンも」）。
+#
+# ⚠ hover / pressed は静止では出ない（⚠ 人間がマウスを乗せて見る）。
+# ⚠ 長い文と幅いっぱいを並べる理由：⚠ 文字がはみ出す・潰れるのがここで分かるため
+#   （⚠ 拠点のボタンが7個になった回の症状）。
+func _build_button_catalog() -> void:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "ButtonCatalog"
+	row.add_child(_make_button("ButtonShort", "ui_uitest_button_normal", false))
+	row.add_child(_make_button("ButtonDisabled2", "ui_uitest_button_disabled", true))
+	row.add_child(_make_button("ButtonLong", "ui_uitest_button_long", false))
+	var wide: PrimaryButton = _make_button("ButtonWide", "ui_uitest_button_wide", false)
+	wide.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wide.clip_text = true
+	row.add_child(wide)
+	layout.add_child(row)
+
+
+func _make_button(node_name: String, label_key: String, is_disabled: bool) -> PrimaryButton:
+	var button: PrimaryButton = PrimaryButton.new()
+	button.name = node_name
+	button.text = tr(label_key)
+	button.disabled = is_disabled
+	return button
+
+
+# ⚠⚠ 設定項目（2026-09-06・人間の指示「⚠ 設定項目や」）。
+#
+# ⚠⚠ 設定画面はまだ無い（⚠ 足りない UI の1件）。⚠ ここに作らない。
+#   ⚠ ここで見せるのは「⚠ いま効いている値」だけ＝⚠ 何を設定画面に載せるかを決めるための材料。
+# ⚠ 値は `Balance.sound`（`SoundConfig`）から毎回引く。⚠ 画面に複製しない（CLAUDE.md 4番）。
+# ⚠ 音は実際に鳴らせる（⚠ ボタン1つ）。⚠ 音量つまみは付けない
+#   （⚠ 付けるとセーブ構造の決定が要る＝設定画面の回の仕事）。
+func _build_settings_catalog() -> void:
+	_add_note("ui_uitest_settings_note")
+	var config: SoundConfig = Balance.sound
+	if config == null:
+		_add_note("ui_uitest_prepare_failed")
+		return
+	var values: Label = Label.new()
+	values.name = "SoundValues"
+	values.text = "master %.1f dB ／ se %.1f dB ／ bgm %.1f dB ／ SE同時 %d 本" % [
+		config.master_volume_db, config.se_volume_db, config.bgm_volume_db,
+		config.se_player_count,
+	]
+	layout.add_child(values)
+	var play: PrimaryButton = _make_button("PlaySeButton", "ui_uitest_play_se", false)
+	play.pressed.connect(_on_play_se_pressed)
+	layout.add_child(play)
+
+
+func _on_play_se_pressed() -> void:
+	SoundManager.play_se(SoundIds.ALARM_FOCUS_END)
+
+
+# ⚠⚠ 全アイテム（2026-09-06・人間の指示「⚠ アイテムを全部見えるように」）。
+#
+# ⚠ 引くのは `MasterDataLoader.get_all_items()` と `get_all_runes()` の2本。
+#   ⚠ ここに一覧を書かない（⚠ 品が増えたら黙って抜ける）。
+# ⚠ 押すと下の詳細に出る（⚠ 上のカタログと同じ `ItemDetail` を使い回す）。
+# ⚠ 等級は付けない（⚠ 個体ではなく「品の種類」を見るところ。⚠ 等級10色は上のカタログ）。
+func _build_all_items() -> void:
+	var entries: Array = []
+	var item_ids: Array = MasterDataLoader.get_all_items().keys()
+	item_ids.sort()
+	for entry: Variant in item_ids:
+		entries.append({
+			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+			GameManager.SLOT_ENTRY_ITEM_ID: str(entry),
+			GameManager.SLOT_ENTRY_COUNT: 1,
+		})
+	var rune_ids: Array = MasterDataLoader.get_all_runes().keys()
+	rune_ids.sort()
+	for entry: Variant in rune_ids:
+		entries.append({
+			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+			GameManager.SLOT_ENTRY_ITEM_ID: str(entry),
+			GameManager.SLOT_ENTRY_COUNT: 1,
+		})
+
+	var count_label: Label = Label.new()
+	count_label.name = "ItemCount"
+	count_label.text = "%s %d ／ %s %d" % [
+		tr("ui_uitest_items"), item_ids.size(), tr("ui_uitest_runes"), rune_ids.size(),
+	]
+	layout.add_child(count_label)
+
+	var grid: ItemGrid = ItemGrid.new()
+	grid.name = "AllItemsGrid"
+	grid.columns = ITEM_GRID_COLUMNS
+	layout.add_child(grid)
+	# ⚠ 詳細は「押したマスの真下」に要る（⚠ 上のカタログの詳細を使い回すと、
+	#   ⚠ 画面の一番上まで戻らないと読めない）。⚠ ItemDetail をもう1つ置く。
+	_items_detail = ItemDetail.new()
+	_items_detail.name = "AllItemsDetail"
+	grid.slot_pressed.connect(_on_items_slot_pressed)
+	grid.rebuild(entries, entries.size())
+	layout.add_child(_items_detail)
+	_items_detail.show_entry({})
+
+
+func _on_items_slot_pressed(entry: Dictionary, _index: int) -> void:
+	_items_detail.show_entry(entry)
 
 
 # 等級10色ぶんの個体 ＋ 素材 ＋ レリック（⚠ ItemDetail の3つの枝を全部出す）。
