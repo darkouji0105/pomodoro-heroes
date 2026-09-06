@@ -204,6 +204,19 @@ ui_base_save_completed,セーブしました
 ui_base_save_failed,セーブに失敗しました
 ui_base_chest_received,宝箱を%d個受け取りました
 ui_base_potion_received,ポーションを%d個受け取りました
+ui_uitest_open,UIテスト
+ui_uitest_title,UIテストのページ（デバッグビルドのみ）
+ui_uitest_screens,画面を開く
+ui_uitest_screens_prepared,画面を開く（先に状態を作るもの）
+ui_uitest_prepare_note,押すとランに入り、必要ならボスを倒してから開きます
+ui_uitest_prepare_failed,状態を作れませんでした。ログを見てください
+ui_uitest_parts,部品カタログ
+ui_uitest_back,拠点へ戻る
+ui_uitest_button_normal,通常のボタン
+ui_uitest_button_disabled,押せないボタン
+ui_uitest_modal_notify,モーダル（知らせ）
+ui_uitest_modal_confirm,モーダル（確認）
+ui_uitest_modal_message,これはUIテストのモーダルです
 ui_title_back_confirm,タイトルに戻りますか？ 保存していない進行状況は失われます
 ui_base_pomodoro_rewards,ポーションを%d個、宝箱を%d個受け取りました
 ui_title_delete_confirm,セーブデータを削除しますか？ この操作は取り消せません

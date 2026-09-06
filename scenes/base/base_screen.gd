@@ -10,6 +10,8 @@ const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TITLE_PATH: String = "res://scenes/title/title_screen.tscn"
 const PARTY_PRESET_PATH: String = "res://scenes/adventure/party_preset_screen.tscn"
+# ⚠ UI テストのページ（デバッグビルドのみ。⚠ リリース前に消す）。
+const UI_TEST_PAGE_PATH: String = "res://tests/ui_test_page.tscn"
 
 # シーンリソース（ PackedScene ）
 const RESOURCE_DISPLAY_SCENE: PackedScene = preload("res://scenes/ui/components/resource_display.tscn")
@@ -104,6 +106,7 @@ func _init_navigation_buttons() -> void:
 		btn.pressed.connect(_go_to_screen.bind(screen_id))
 
 	_add_party_preset_button()
+	_add_ui_test_button()
 
 # パーティ選択画面への入口（EXEC_PARTY_PRESETS.md §7-2）。
 #
@@ -128,6 +131,27 @@ func _add_party_preset_button() -> void:
 	button.clip_text = true
 	button.pressed.connect(_on_party_preset_pressed)
 	adventure_button.get_parent().add_child(button)
+
+# ⚠⚠ UI テストのページへの入口（2026-09-06・人間の決定「拠点にデバッグ入口」）。
+#
+# ⚠ `OS.is_debug_build()` のガード付き＝⚠ 製品には出ない
+#   （⚠ ポモドーロの「残り1秒にする」ボタンと同じ扱い）。
+# ⚠⚠ リリース前に消す。⚠ 消すのは3箇所：⚠ この関数と呼び出し ／
+#   ⚠ `tests/ui_test_page.gd` ／ `tests/ui_test_page.tscn`。
+# ⚠ `_navigation_buttons` / `SCREEN_SCENES` に足さないこと（⚠ 解放判定の道ではない）。
+func _add_ui_test_button() -> void:
+	if not OS.is_debug_build():
+		return
+	var button: PrimaryButton = PrimaryButton.new()
+	button.name = "UiTestButton"
+	button.text = "ui_uitest_open"
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.clip_text = true
+	button.pressed.connect(_on_ui_test_pressed)
+	adventure_button.get_parent().add_child(button)
+
+func _on_ui_test_pressed() -> void:
+	SceneManager.change_scene(UI_TEST_PAGE_PATH)
 
 func _on_party_preset_pressed() -> void:
 	# ⚠ 戻る先を渡す（入口が2つあるため。TransferKeys.RETURN_PATH）。

@@ -3632,16 +3632,20 @@ func _report_layout() -> void:
 		var _entered: bool = GameManager.start_dungeon_run()
 		var _got: int = GameManager.add_to_dungeon_bag("dungeon_potion_heal", 1)
 		var _got2: int = GameManager.add_to_dungeon_bag("dungeon_potion_revive", 1)
+	# ⚠⚠ 宿題73（2026-09-06に解消）：⚠ 難ダンジョンの3枚は「戻さない条件」を先に作る。
+	#   ⚠ 宝箱   … 拾い待ちがあること（⚠ ボスの戦利品が拾い待ちへ行く＝決定29）
+	#   ⚠ ショップ … ボスを倒した先であること（決定15）
+	#   ⚠ レリック … DUNGEON_NODE_ID が渡されていること（⚠ 下の _layout_transfer_for()）
+	# ⚠ 画面側の条件を緩めていない。⚠ 満たしてから開いている。
 	for scene_path: String in LAYOUT_SCENES:
+		_layout_prepare_for(scene_path)
 		var other: PackedScene = load(scene_path)
 		if other == null:
 			push_error("[DebugBoot] 開けない: " + scene_path)
 			continue
 		# ⚠ 装備画面は character_id を渡さないと黄を1本出す（正常な保険）。
 		#   ⚠ 測るためだけに黄を増やさない。先に渡しておく。
-		SceneManager._transfer_data = {
-			TransferKeys.CHARACTER_ID: str(GameManager.get_party_members()[0]),
-		}
+		SceneManager._transfer_data = _layout_transfer_for(scene_path)
 		var instance: Node = other.instantiate()
 		get_tree().root.add_child.call_deferred(instance)
 		await get_tree().process_frame
@@ -3779,6 +3783,81 @@ const LAYOUT_SCENE_SHOW: Dictionary = {
 }
 
 
+# ⚠⚠ 測る前に「戻さない条件」を作る（宿題73・2026-09-06）。
+#
+# ⚠⚠ 歩くのを測定ループの前に置かないこと。⚠ 置くと現在地が最上層になり、
+#   ⚠ `dungeon_map` の「⚠ 現在地を真ん中に寄せる」（段階20-c）の検証が
+#   ⚠ 「スクロールが先頭のまま」で赤を出す（⚠ 2026-09-06に実測。⚠ 入口が一番下だから）。
+# ⚠ ＝⚠ 3枚の直前で初めて歩く。⚠ `dungeon_map` はそれより前に並べておくこと。
+func _layout_prepare_for(scene_path: String) -> void:
+	if scene_path not in [
+		"res://scenes/adventure/dungeon_chest.tscn",
+		"res://scenes/adventure/dungeon_relic_select.tscn",
+		"res://scenes/adventure/dungeon_shop.tscn",
+	]:
+		return
+	if GameManager.get_dungeon_shop_entries().is_empty():
+		_layout_walk_dungeon_to_boss()
+
+
+# ⚠⚠ ボスのマスまで歩いて倒す（宿題73 の「戻さない条件」を作る道具）。
+#
+# ⚠⚠ `clear_dungeon_boss()` は「ボスのマスに立っている」ことが条件
+#   （⚠ 2026-09-06に実測。⚠ 入口で叩くと `ボスノードに居ない: d_1_0` で false）。
+# ⚠ 戦闘のマスは倒してから進む（⚠ 倒さないと先へ進めない＝不1 の修正後の仕様）。
+# ⚠⚠ ボスの戦利品（拾い待ち）は片付けない。⚠ 宝箱の画面を出す条件そのものだから。
+func _layout_walk_dungeon_to_boss() -> void:
+	var steps: int = 0
+	while steps <= 60:
+		var here: String = str(
+			GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")
+		)
+		var kind: String = str(
+			GameManager.get_dungeon_node(here).get(GameStateKeys.DUNGEON_NODE_KIND, "")
+		)
+		if kind == GameStateKeys.DUNGEON_NODE_KIND_BATTLE:
+			var _won: bool = GameManager.clear_dungeon_battle()
+		if kind == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+			break
+		# ⚠ 道中の拾い待ちは片付ける（⚠ 残すと歩けなくなる／次の画面に混ざる）。
+		var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
+		var moves: Array = GameManager.get_dungeon_moves()
+		if moves.is_empty():
+			break
+		if not GameManager.move_in_dungeon(str(moves[0])):
+			break
+		steps += 1
+	var _cleared: bool = GameManager.clear_dungeon_boss()
+
+
+# 測るときに渡す転送データ（⚠ 画面ごとに違う。⚠ 画面ごとの if を測定ループに書かない）。
+#
+# ⚠ 装備画面は character_id を渡さないと黄を1本出す（正常な保険）。⚠ 全画面に渡しておく。
+# ⚠ レリックの画面は node_id が無いとマップへ戻す（宿題73）。⚠ relic のマスを1つ探して渡す。
+func _layout_transfer_for(scene_path: String) -> Dictionary:
+	var data: Dictionary = {
+		TransferKeys.CHARACTER_ID: str(GameManager.get_party_members()[0]),
+	}
+	if scene_path == "res://scenes/adventure/dungeon_relic_select.tscn":
+		data[TransferKeys.DUNGEON_NODE_ID] = _find_dungeon_node_of_kind(
+			GameStateKeys.FLOOR_NODE_KIND_RELIC
+		)
+	return data
+
+
+# いまのランの中から、種で1つ探す（⚠ ノードを組み直さない＝口を2本にしない）。
+func _find_dungeon_node_of_kind(kind: String) -> String:
+	var run: Dictionary = GameManager.get_dungeon_run()
+	var nodes: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	var ids: Array = nodes.keys()
+	ids.sort()
+	for entry: Variant in ids:
+		var node_id: String = str(entry)
+		if str((nodes.get(node_id, {}) as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == kind:
+			return node_id
+	return ""
+
+
 const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/adventure/party_preset_screen.tscn",
 	"res://scenes/adventure/adventure_select.tscn",
@@ -3791,12 +3870,17 @@ const LAYOUT_SCENES: Array[String] = [
 	# ⚠ 段階17-d の難ダンジョンのマップ。⚠ 層・3人のHP・鞄のマス目を全部コードで作る。
 	#   ⚠ ランに入っていないと _ready() が冒険選択へ戻す（_report_layout の中で入れてある）。
 	"res://scenes/adventure/dungeon_map.tscn",
-	# ⚠⚠ 段階17-e-3 の2枚（レリック選択・ショップ）はここに入れない。
-	#   ⚠ どちらも _ready() で条件を満たさないと SceneManager.change_scene() でマップへ戻す。
-	#   ⚠ この測定ループは「開いて add_child して測る」だけなので、⚠ 戻されると
-	#     current_scene が入れ替わり、⚠ 測定が終わらなくなる（2026-09-04 に実測。⚠ 8分で止めた）。
-	#   ⚠ 測るなら「戻さない条件」を先に作る必要がある
-	#     （⚠ レリック＝relic のマスに立つ ／ ⚠ ショップ＝ボスを倒した先）。⚠ 宿題72。
+	# ⚠⚠ 段階17-e-3 の2枚 ＋ 宝箱（宿題72・73）。⚠ 2026-09-06 に入れられるようになった。
+	#   ⚠ どれも _ready() で条件を満たさないと SceneManager.change_scene() でマップへ戻し、
+	#     ⚠ 測定が終わらなくなる（2026-09-04 に実測。⚠ 8分で止めた）。
+	#   ⚠ 上の準備で「戻さない条件」を作ってある（⚠ ボスを倒す ／ node_id を渡す）。
+	#   ⚠⚠ 条件を外したら、⚠ ここの3行も一緒に外すこと（⚠ 外すと測定が止まる）。
+	"res://scenes/adventure/dungeon_chest.tscn",
+	"res://scenes/adventure/dungeon_relic_select.tscn",
+	"res://scenes/adventure/dungeon_shop.tscn",
+	# ⚠ UI テストのページ（2026-09-06）。⚠ 中身は全部コードで積むので、開かないと分からない。
+	#   ⚠ リリース前に消すときは、⚠ この行も一緒に消す。
+	"res://tests/ui_test_page.tscn",
 	# ⚠ 段階14-e のフロア内ショップ。⚠ 開くだけで無料ガチャが1回引かれる
 	#   （測るために開くので、状態に宝箱が1個積まれる。⚠ 保存はしない）。
 	"res://scenes/adventure/floor_shop.tscn",
