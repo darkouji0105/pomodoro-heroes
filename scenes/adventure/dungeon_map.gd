@@ -552,7 +552,21 @@ func _rebuild_bag_actions() -> void:
 		return
 
 	var item_id: String = str(_selected_bag_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-	# ⚠ 使えない品（戦利品）にはボタンを出さない。⚠ 判定は GameManager の1本。
+	# ⚠ 空きマスを押したときは何も出さない（⚠ 押しても何も起きないボタンを作らない）。
+	if item_id == "":
+		return
+
+	# ⚠⚠ 捨てる（決定41・2026-09-06。⚠ 人間「マップからアイテムを選んだら捨てられるように」）。
+	#   ⚠ 品の種類を問わず出す（⚠ 戦利品も捨てられる＝⚠ 鞄を空けるのが目的）。
+	#   ⚠ 口は `discard_dungeon_bag_item()` の1本。⚠ 入る・捨てるの判定を画面側に書かない。
+	#   ⚠ 文言は拾いもの画面と同じ `ui_dungeon_pickup_discard_bag`（⚠ 同じ意味に2つ目のキーを作らない）。
+	var discard_button: PrimaryButton = PrimaryButton.new()
+	discard_button.name = "Discard_" + item_id
+	discard_button.text = tr("ui_dungeon_pickup_discard_bag")
+	discard_button.pressed.connect(_on_discard_bag_pressed.bind(item_id))
+	bag_action_row.add_child(discard_button)
+
+	# ⚠ 使えない品（戦利品）には「誰に使うか」を出さない。⚠ 判定は GameManager の1本。
 	if GameManager.get_dungeon_item_effect(item_id) == "":
 		return
 
@@ -822,6 +836,21 @@ func _on_use_potion_pressed(item_id: String, character_id: String) -> void:
 		message_label.text = tr("ui_dungeon_potion_no_effect")
 		return
 	message_label.text = tr("ui_dungeon_potion_used")
+	_rebuild()
+
+
+# ⚠⚠ 鞄から1個捨てる（決定41）。⚠ 戻せない（⚠ 引き返さないので拾い直せない）。
+#
+# ⚠ 選んでいたものが無くなることがある（⚠ 最後の1個だった）。⚠ 選択を外してから描き直す
+#   （⚠ 残すと「押しても何も起きないボタン」になる＝`_rebuild_bag()` と同じ理由）。
+# ⚠ 確認は出していない。⚠ 倉庫（`ui_warehouse_discard_confirm`）と違い、
+#   ⚠ ランの鞄は出れば全部消えるもの（決定7）なので、⚠ 取り返しのつかなさの度合いが違う。
+func _on_discard_bag_pressed(item_id: String) -> void:
+	if not GameManager.discard_dungeon_bag_item(item_id):
+		message_label.text = tr("ui_dungeon_bag_discard_failed")
+		return
+	message_label.text = tr("ui_dungeon_bag_discarded")
+	_selected_bag_entry = {}
 	_rebuild()
 
 

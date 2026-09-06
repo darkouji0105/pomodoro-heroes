@@ -816,5 +816,7 @@ ui_dungeon_pickup_take,鞄に入れる
 ui_dungeon_pickup_take_all,入るだけ全部入れる
 ui_dungeon_pickup_discard,置いていく
 ui_dungeon_pickup_discard_bag,鞄から捨てる
+ui_dungeon_bag_discarded,鞄から捨てた
+ui_dungeon_bag_discard_failed,捨てられなかった
 ui_dungeon_chest_bag_title,いまの鞄
 ui_dungeon_torch_grade,"たいまつ 等級%d（%d層先）"
