@@ -75,7 +75,7 @@ func _build_choice_rows() -> void:
 		name_label.text = "%s（%s）" % [tr(str(relic.get("name_key", relic_id))), tr(scope_key)]
 		row.add_child(name_label)
 
-		var button: PrimaryButton = PrimaryButton.new()
+		var button: UiButton = UiButton.new()
 		button.name = "Take_" + relic_id
 		button.text = "ui_relic_take"
 		button.pressed.connect(_on_choice_pressed.bind(relic_id))
@@ -101,7 +101,7 @@ func _build_character_rows() -> void:
 		name_label.text = tr(str(char_data.get("name_key", character_id)))
 		row.add_child(name_label)
 
-		var button: PrimaryButton = PrimaryButton.new()
+		var button: UiButton = UiButton.new()
 		button.name = "Give_" + character_id
 		button.text = "ui_relic_give"
 		button.pressed.connect(_on_character_pressed.bind(character_id))

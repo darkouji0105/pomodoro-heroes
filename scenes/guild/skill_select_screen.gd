@@ -17,7 +17,7 @@ class_name SkillSelectScreen
 extends Control
 
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
-const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
+const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
 
 # 操作対象の枠を示す印。押した枠が次に選ぶスキルの行き先になる。
 const MARK_ACTIVE: String = "▶"
@@ -33,7 +33,7 @@ const MARK_LOCKED: String = "✕"
 @onready var slots: VBoxContainer = $Margin/Layout/Slots
 @onready var candidates_label: Label = $Margin/Layout/CandidatesLabel
 @onready var candidates: VBoxContainer = $Margin/Layout/Scroll/Candidates
-@onready var back_button: PrimaryButton = $Margin/Layout/BackButton
+@onready var back_button: UiButton = $Margin/Layout/BackButton
 
 var _character_id: String = ""
 # 次に選んだスキルを入れる枠。既定は0（スキル1＝武器スロット）。
@@ -145,7 +145,7 @@ func _build_slot_rows(kind: String, label_key: String) -> void:
 		var skill_id: String = "" if i >= selected.size() else str(selected[i])
 		var is_active: bool = (kind == _active_kind and i == _active_slot)
 
-		var slot_button: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+		var slot_button: UiButton = UI_BUTTON_SCENE.instantiate()
 		row.add_child(slot_button)
 		# 枠のほうを広げる。「外す」は文字数ぶんでよい。
 		slot_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -157,7 +157,7 @@ func _build_slot_rows(kind: String, label_key: String) -> void:
 		]
 		slot_button.pressed.connect(_on_slot_pressed.bind(kind, i))
 
-		var clear_button: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+		var clear_button: UiButton = UI_BUTTON_SCENE.instantiate()
 		row.add_child(clear_button)
 		# 「外す」は装備画面の既存キーを使い回す（AGENTS.md「同じ意味のテキストは既存キーを使い回す」）。
 		clear_button.label_key = "ui_equipment_unequip"
@@ -194,7 +194,7 @@ func _build_candidates() -> void:
 		elif is_unlocked:
 			mark = MARK_AVAILABLE
 
-		var button: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+		var button: UiButton = UI_BUTTON_SCENE.instantiate()
 		candidates.add_child(button)
 		# 行いっぱいに広げる。文字数でボタン幅が変わると右端が揃わない。
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

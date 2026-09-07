@@ -17,7 +17,7 @@ const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 @onready var queue_list: VBoxContainer = $Margin/Layout/Scroll/Content/QueueList
 @onready var recipe_list: VBoxContainer = $Margin/Layout/Scroll/Content/RecipeList
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
-@onready var back_button: PrimaryButton = $Margin/Layout/BackButton
+@onready var back_button: UiButton = $Margin/Layout/BackButton
 @onready var tick: Timer = $Tick
 
 # queue_id -> 残り時間ラベル。Tick はこの Dictionary だけを見て text を書き換える。

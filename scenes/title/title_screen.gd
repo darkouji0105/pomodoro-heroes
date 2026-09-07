@@ -1,7 +1,7 @@
 extends Control
 
-@onready var start_button: PrimaryButton = $ButtonContainer/StartButton
-@onready var delete_save_button: PrimaryButton = $ButtonContainer/DeleteSaveButton
+@onready var start_button: UiButton = $ButtonContainer/StartButton
+@onready var delete_save_button: UiButton = $ButtonContainer/DeleteSaveButton
 @onready var title_label: Label = $TitleLabel
 @onready var error_label: Label = $ErrorLabel
 

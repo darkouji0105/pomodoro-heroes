@@ -1,12 +1,9 @@
 [gd_scene format=3 uid="uid://cc1fitkh0w4dq"]
 
 [ext_resource type="Script" uid="uid://csw6vtmjpqcnt" path="res://tests/test_ui_common.gd" id="1_test_ui_common"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/resource_display.tscn" id="3_resource_dsp"]
 [ext_resource type="PackedScene" uid="uid://bimexmmwcrrjy" path="res://scenes/ui/components/dialog_base.tscn" id="4_dialog_base"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
-bg_color = Color(0.102, 0.078, 0.094, 1)
 
 [node name="TestUICommon" type="Control" unique_id=69641610]
 layout_mode = 3
@@ -24,7 +21,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+theme_type_variation = &"BackgroundPanel"
 
 [node name="Layout" type="VBoxContainer" parent="." unique_id=664099217]
 layout_mode = 1
@@ -39,7 +36,7 @@ offset_right = 300.0
 offset_bottom = 200.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 16
+theme_type_variation = &"SectionGap"
 
 [node name="SectionLabel" type="Label" parent="Layout" unique_id=1414252519]
 layout_mode = 2

@@ -30,7 +30,7 @@ const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 
 # --- ノード参照 ---
 @onready var tabs: TabContainer = $Layout/Tabs
-@onready var back_button: PrimaryButton = $Layout/Header/BackButton
+@onready var back_button: UiButton = $Layout/Header/BackButton
 # 持ち物タブはマス目（段階18-c・PLAN_INVENTORY.md）。
 # ⚠ ScrollContainer をやめた。⚠ 中が scenario=layout で測れないため（宿題68）。
 #   ⚠ 20列 × 5行 ＝ 100 マスが1ページで、⚠ 5ページを送って見る（人間の決定8）。
@@ -38,14 +38,14 @@ const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 @onready var capacity_label: Label = $Layout/Tabs/InventoryTab/InventoryHeader/CapacityLabel
 @onready var page_label: Label = $Layout/Tabs/InventoryTab/InventoryHeader/PageLabel
 # 枠を買う（段階18-e）。⚠ 値段も押せるかも GameManager に聞く。⚠ ここで式を書かない。
-@onready var expand_button: PrimaryButton = $Layout/Tabs/InventoryTab/InventoryHeader/ExpandButton
-@onready var prev_page_button: PrimaryButton = $Layout/Tabs/InventoryTab/InventoryHeader/PrevPageButton
-@onready var next_page_button: PrimaryButton = $Layout/Tabs/InventoryTab/InventoryHeader/NextPageButton
+@onready var expand_button: UiButton = $Layout/Tabs/InventoryTab/InventoryHeader/ExpandButton
+@onready var prev_page_button: UiButton = $Layout/Tabs/InventoryTab/InventoryHeader/PrevPageButton
+@onready var next_page_button: UiButton = $Layout/Tabs/InventoryTab/InventoryHeader/NextPageButton
 # 押したマスの詳細（段階18-c-2・共有部品）。⚠ 中身の判定は部品の中で GameManager に聞く。
 @onready var item_detail: ItemDetail = $Layout/Tabs/InventoryTab/ItemDetail
 @onready var action_row: HBoxContainer = $Layout/Tabs/InventoryTab/ActionRow
 @onready var codex_list: VBoxContainer = $Layout/Tabs/CodexTab/CodexList
-@onready var open_all_button: PrimaryButton = $Layout/Tabs/ChestTab/OpenAllButton
+@onready var open_all_button: UiButton = $Layout/Tabs/ChestTab/OpenAllButton
 @onready var chest_list: VBoxContainer = $Layout/Tabs/ChestTab/ChestScroll/ChestList
 @onready var result_label: Label = $Layout/Tabs/ChestTab/ResultLabel
 

@@ -491,7 +491,7 @@ func _add_note(key: String) -> void:
 
 
 func _add_action(key: String, handler: Callable) -> void:
-	var button: PrimaryButton = PrimaryButton.new()
+	var button: UiButton = UiButton.new()
 	button.name = "Action_" + key
 	button.text = tr(key)
 	button.pressed.connect(handler)

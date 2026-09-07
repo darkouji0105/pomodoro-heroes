@@ -17,7 +17,7 @@ class_name EquipmentScreen
 extends Control
 
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
-const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
+const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
 
 # --- ノード参照 ---
 @onready var name_label: Label = $Margin/Layout/NameLabel
@@ -27,7 +27,7 @@ const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/pr
 @onready var item_header: Label = $Margin/Layout/Scroll/Content/ItemHeader
 @onready var item_list: VBoxContainer = $Margin/Layout/Scroll/Content/ItemList
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
-@onready var back_button: PrimaryButton = $Margin/Layout/BackButton
+@onready var back_button: UiButton = $Margin/Layout/BackButton
 
 var _character_id: String = ""
 # いま一覧に出している部位。既定は武器（第1弾から持っている装備が武器のため）。
@@ -77,7 +77,7 @@ func _ready() -> void:
 #
 # ⚠ 1回だけ作る。⚠ _rebuild() のたびに作り直すと、押すたびに行が増える。
 #   中身（空きかどうか）の更新は _refresh_preset_row() が持つ。
-# ⚠ .tscn を触らずコードで作る。⚠ 兄弟（Label / PrimaryButton）は size_flags を
+# ⚠ .tscn を触らずコードで作る。⚠ 兄弟（Label / UiButton）は size_flags を
 #   持たないので、こちらも合わせる（NEXT_STEPS §4「隣の兄弟の size_flags を見る」）。
 func _build_preset_row() -> void:
 	var row: HBoxContainer = HBoxContainer.new()
@@ -90,7 +90,7 @@ func _build_preset_row() -> void:
 	_build_picker.item_selected.connect(_on_build_selected)
 	row.add_child(_build_picker)
 
-	var burn: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+	var burn: UiButton = UI_BUTTON_SCENE.instantiate()
 	burn.name = "BurnButton"
 	burn.label_key = "ui_party_preset_burn"
 	burn.pressed.connect(_on_burn_pressed)
@@ -98,8 +98,10 @@ func _build_preset_row() -> void:
 
 	# ⚠ 「焼く」と「適用」は向きが逆（焼く＝現在→ビルド／適用＝ビルド→現在）。
 	#   ⚠ 1つのボタンにまとめないこと。
-	var apply: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+	var apply: UiButton = UI_BUTTON_SCENE.instantiate()
 	apply.name = "ApplyButton"
+	# ⚠ この画面の主要動作＝真鍮（2026-09-07）。⚠ 1画面に1個まで。
+	apply.variant = UiButton.Variant.PRIMARY
 	apply.label_key = "ui_party_preset_apply"
 	apply.pressed.connect(_on_apply_pressed)
 	row.add_child(apply)

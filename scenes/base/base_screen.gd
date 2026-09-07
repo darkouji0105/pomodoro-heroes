@@ -28,7 +28,7 @@ const SCREEN_SCENES: Dictionary = {
 @onready var gold_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/GoldEntry/Value
 @onready var stamina_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/StaminaEntry/Value
 @onready var potion_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/Value
-@onready var potion_use_button: PrimaryButton = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/UseButton
+@onready var potion_use_button: UiButton = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/UseButton
 # ⚠ GridContainer（8列2段）を ScrollContainer に入れて、ResourceRow の外に出してある。
 #
 # ⚠ 素材が3件から12件に増えた回で HBoxContainer → GridContainer 4列に変えた
@@ -42,18 +42,18 @@ const SCREEN_SCENES: Dictionary = {
 @onready var chest_badge: Button = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge
 @onready var chest_count_label: Label = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge/ChestCountLabel
 
-@onready var save_button: PrimaryButton = $Layout/BottomArea/BottomLayout/ResourceRow/SaveButton
-@onready var back_to_title_button: PrimaryButton = $Layout/BottomArea/BottomLayout/ResourceRow/BackToTitleButton
+@onready var save_button: UiButton = $Layout/BottomArea/BottomLayout/ResourceRow/SaveButton
+@onready var back_to_title_button: UiButton = $Layout/BottomArea/BottomLayout/ResourceRow/BackToTitleButton
 
-@onready var adventure_button: PrimaryButton = $Layout/BottomArea/BottomLayout/NavigationButtons/AdventureButton
-@onready var guild_button: PrimaryButton = $Layout/BottomArea/BottomLayout/NavigationButtons/GuildButton
-@onready var pomodoro_button: PrimaryButton = $Layout/BottomArea/BottomLayout/NavigationButtons/PomodoroButton
-@onready var settings_button: PrimaryButton = $Layout/BottomArea/BottomLayout/NavigationButtons/SettingsButton
-@onready var scenario_button: PrimaryButton = $Layout/BottomArea/BottomLayout/NavigationButtons/ScenarioButton
+@onready var adventure_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/AdventureButton
+@onready var guild_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/GuildButton
+@onready var pomodoro_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/PomodoroButton
+@onready var settings_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/SettingsButton
+@onready var scenario_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/ScenarioButton
 
 # 内部状態
 var _material_entries: Dictionary = {} # material_id -> HBoxContainer(MaterialEntry)
-var _navigation_buttons: Dictionary = {} # screen_id -> PrimaryButton
+var _navigation_buttons: Dictionary = {} # screen_id -> UiButton
 
 func _ready() -> void:
 	# GameManager の状態を取得
@@ -99,7 +99,7 @@ func _init_navigation_buttons() -> void:
 	}
 
 	for screen_id: String in _navigation_buttons:
-		var btn: PrimaryButton = _navigation_buttons[screen_id]
+		var btn: UiButton = _navigation_buttons[screen_id]
 		# 解放状態の反映
 		btn.visible = GameManager.is_screen_unlocked(screen_id)
 		# 遷移イベント接続
@@ -118,7 +118,7 @@ func _init_navigation_buttons() -> void:
 #   unlocked_screens の解放判定を通る道で、この画面は解放の対象ではない
 #   （skill_select_screen と同じ「下位画面」。段階9で見直す）。
 func _add_party_preset_button() -> void:
-	var button: PrimaryButton = PrimaryButton.new()
+	var button: UiButton = UiButton.new()
 	button.name = "PartyPresetButton"
 	button.text = "ui_nav_party_preset"
 	# ⚠ 既存5個と同じ size_flags を付けること（.tscn の AdventureButton 等は全部 3）。
@@ -142,7 +142,7 @@ func _add_party_preset_button() -> void:
 func _add_ui_test_button() -> void:
 	if not OS.is_debug_build():
 		return
-	var button: PrimaryButton = PrimaryButton.new()
+	var button: UiButton = UiButton.new()
 	button.name = "UiTestButton"
 	button.text = "ui_uitest_open"
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

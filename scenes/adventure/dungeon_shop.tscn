@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://cf1oordgnshop1"]
 
 [ext_resource type="Script" path="res://scenes/adventure/dungeon_shop.gd" id="1_script"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_button"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_button"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
 
@@ -34,7 +34,7 @@ offset_right = -16.0
 offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 6
+theme_type_variation = &"PanelStack"
 
 [node name="Header" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
@@ -72,7 +72,7 @@ layout_mode = 2
 [node name="UpgradeList" type="VBoxContainer" parent="Layout"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 2
+theme_type_variation = &"TightList"
 
 [node name="Footer" type="HBoxContainer" parent="Layout"]
 layout_mode = 2

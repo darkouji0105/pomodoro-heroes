@@ -8,7 +8,7 @@ class_name ResearchScreen
 extends Control
 
 const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
-const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
+const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
 
 # research.json 側のキー。状態ではないため GameStateKeys には置かない。
 const NODE_NAME_KEY: String = "name_key"
@@ -23,7 +23,7 @@ const CATEGORY_KEY_PREFIX: String = "ui_research_category_"
 @onready var cap_label: Label = $Margin/Layout/CapLabel
 @onready var node_list: VBoxContainer = $Margin/Layout/Scroll/NodeList
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
-@onready var back_button: PrimaryButton = $Margin/Layout/BackButton
+@onready var back_button: UiButton = $Margin/Layout/BackButton
 
 
 func _ready() -> void:
@@ -133,7 +133,7 @@ func _add_node_row(node_id: String, node: Dictionary) -> void:
 			lines.append(tr("ui_research_locked") % _prerequisite_names(node))
 	info.text = "\n".join(lines)
 
-	var button: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+	var button: UiButton = UI_BUTTON_SCENE.instantiate()
 	node_list.add_child(button)
 	# label_key は使わず text を直接入れる（解放済みで文言が変わるため）。
 	button.text = tr("ui_research_unlocked") if unlocked else tr("ui_research_unlock")

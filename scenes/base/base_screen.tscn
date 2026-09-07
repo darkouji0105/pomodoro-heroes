@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bpifkrpnu4gld" path="res://scenes/base/base_screen.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/resource_display.tscn" id="2_resource_dsp"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="3_button"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="3_button"]
 
 [node name="BaseScreen" type="Control" unique_id=789240081]
 layout_mode = 3
@@ -29,7 +29,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 8
 
 [node name="TopArea" type="Control" parent="Layout" unique_id=1986708654]
 layout_mode = 2
@@ -45,7 +44,7 @@ layout_mode = 2
 [node name="ResourceRow" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout" unique_id=1573716456]
 custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
-theme_override_constants/separation = 32
+theme_type_variation = &"WideRow"
 
 [node name="GoldEntry" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=654662709]
 layout_mode = 2
@@ -88,6 +87,7 @@ size_flags_horizontal = 3
 [node name="ChestBadge" type="Button" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1098589026]
 layout_mode = 2
 text = "ui_base_chest"
+theme_type_variation = &"PrimaryButton"
 
 [node name="ChestCountLabel" type="Label" parent="Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge" unique_id=426545088]
 layout_mode = 1
@@ -101,6 +101,7 @@ grow_horizontal = 0
 [node name="SaveButton" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=296771634 instance=ExtResource("3_button")]
 layout_mode = 2
 label_key = "ui_base_save"
+variant = 2
 
 [node name="BackToTitleButton" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1704690069 instance=ExtResource("3_button")]
 layout_mode = 2
@@ -118,7 +119,7 @@ columns = 8
 [node name="NavigationButtons" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout" unique_id=763492719]
 custom_minimum_size = Vector2(0, 104)
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_type_variation = &"ButtonRow"
 
 [node name="AdventureButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=1292228329 instance=ExtResource("3_button")]
 layout_mode = 2

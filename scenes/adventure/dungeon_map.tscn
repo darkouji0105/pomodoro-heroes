@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://cf1oordgnmap01"]
 
 [ext_resource type="Script" path="res://scenes/adventure/dungeon_map.gd" id="1_script"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_button"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_button"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
 [ext_resource type="Script" path="res://scenes/adventure/dungeon_edge_lines.gd" id="5_edge_lines"]
@@ -35,7 +35,7 @@ offset_right = -16.0
 offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 4
+theme_type_variation = &"NodeList"
 
 [node name="Header" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
@@ -60,7 +60,6 @@ layout_mode = 2
 
 [node name="PartyList" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
-theme_override_constants/separation = 16
 
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2
@@ -93,16 +92,16 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 20
+theme_type_variation = &"SectionStack"
 alignment = 1
 
 [node name="ShopList" type="VBoxContainer" parent="Layout"]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_type_variation = &"TightList"
 
 [node name="CorridorChestList" type="VBoxContainer" parent="Layout"]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_type_variation = &"TightList"
 
 [node name="BagGrid" type="GridContainer" parent="Layout"]
 layout_mode = 2

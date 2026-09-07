@@ -45,8 +45,17 @@ res://
 │       └── master/        # スキル・ウェーブ・敵ステータス等のマスターデータ（IDで引く量産型データ）。Balanceの@exportではなくMasterDataLoaderが読み込む（PLAN_BATTLE_SCREEN.md参照）
 ├── addons/                # プラグイン（Ziva等）※手動インストール、AIは触らない
 ├── docs/                  # 設計ドキュメント（AIは指示されたもの以外読まない・編集しない）
+├── tools/                 # `.tres` を組み立て直す開発用スクリプト（2026-09-07に新設・人間の承認済み）
 └── tests/                 # 実験用シーンの隔離場所
 ```
+
+- `tools/` は **リリース前に消すものではない**（`tests/` との違い）。`theme/main_theme.tres` のように
+  「手で書かず、スクリプトで組み立てる」ファイルの生成元を置く。**値（色・寸法）はここが唯一の正**。
+  - `tools/theme_builder.gd`（`class_name ThemeBuilder`）… 中身。**ヘッドレスから呼べる素のクラス**
+  - `tools/build_theme.gd`（`EditorScript`）… エディタから「実行」するための入口。**中身は持たない**
+  - **`EditorScript` はエディタでしか `new()` できない**（実測・2026-09-07）。だから2ファイルに分けてある。
+	まとめると設計役がヘッドレスで `.tres` を組み立て直せなくなる
+  - ヘッドレスで回すなら `res://tests/debug_boot.tscn -- scenario=theme`
 
 - 新しいフォルダが必要になったら、AIは必ず人間に提案し、承認を得てから作成すること。
 - `res://addons/` と `res://autoload/` の既存ファイルには無断で触れないこと。
@@ -61,7 +70,7 @@ res://
 | 2画面以上 | `scenes/ui/components/` |
 | 1画面だけ | その画面のフォルダ（例：`scenes/pomodoro/`） |
 
-- 例：`primary_button.tscn`（全画面で使う）→ `scenes/ui/components/`
+- 例：`ui_button.tscn`（全画面で使う）→ `scenes/ui/components/`
 - 例：`timer_display.tscn`（ポモドーロでしか使わない）→ `scenes/pomodoro/`
 - **迷ったら画面フォルダに置く。** 後から他画面でも使うことになった時点で`components/`へ移せばよい。逆（共通に置いたが実は1画面でしか使わない）のほうが整理しにくくなるため
 - この基準を守らないと`components/`が「なんとなくUIっぽいもの置き場」になり、共通パーツを探せなくなる
@@ -70,6 +79,29 @@ res://
 
 - 配色・フォント・ボタン等の基本スタイルは `res://theme/main_theme.tres` に一元化し、プロジェクト全体のデフォルトThemeとして設定する
 - **個別シーンで色やフォントを直接指定しない。** Theme1箇所を差し替えれば全画面に反映される状態を常に保つ（`PLAN_UI_COMMON.md`参照）
+
+### `theme_override_*` を書かない（2026-09-07に追加）
+
+**`main_theme.tres` を手で書き換えない。`tools/theme_builder.gd` を直して回し直す。**
+
+シーンに `theme_override_*` を書くと、値が Theme の外へ散る。**2026-09-07 に 69箇所を全部 Theme へ移した。**
+必要になったら **型 variation を増やす**（`theme_type_variation = &"..."`）。
+
+**variation の名前は「用途」で付ける。「大きさ」で付けない**（人間の決定・2026-09-07）。
+`GapXS` のような名前は値と結びつくため、値を変えたいときに「値を直すか名前を付け替えるか」で毎回迷う。
+
+| 名前 | 何のためのものか |
+|---|---|
+| `PrimaryButton` / `GhostButton` / `DangerButton` | ボタンの階層。**既定（＝素の `Button`）が Secondary** |
+| `ScreenMargin` / `DialogMargin` | 画面ルートの余白 ／ モーダルの余白 |
+| `TightList` / `NodeList` / `PanelStack` / `SectionGap` / `SectionStack` | 縦の間隔 |
+| `ButtonRow` / `WideRow` | 横の間隔 |
+| `HeadingLabel` / `TimerLabel` / `ErrorLabel` | 見出し ／ タイマー ／ 警告の赤 |
+| `BackgroundPanel` | 画面の地 |
+
+**`SecondaryButton` という variation は作らない。** 素の `Button.new()`（15箇所ある）と見た目を
+分裂させないため、**基底 `Button` に Secondary の値を直接入れてある**。
+＝**差し替え漏れが静かな側に倒れる**（人間の決定・2026-09-07）。
 
 ---
 

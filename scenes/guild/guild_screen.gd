@@ -30,16 +30,16 @@ const GUILD_SCENES: Dictionary = {
 	GameStateKeys.SCREEN_WORKSHOP: WORKSHOP_PATH,
 }
 
-# sub_screen_id -> PrimaryButton（_ready で組み立てる）
+# sub_screen_id -> UiButton（_ready で組み立てる）
 var _nav_buttons: Dictionary = {}
 
 # --- ノード参照 ---
-@onready var warehouse_button: PrimaryButton = $CenterContainer/Layout/WarehouseButton
-@onready var shop_button: PrimaryButton = $CenterContainer/Layout/ShopButton
-@onready var training_button: PrimaryButton = $CenterContainer/Layout/TrainingButton
-@onready var research_button: PrimaryButton = $CenterContainer/Layout/ResearchButton
-@onready var workshop_button: PrimaryButton = $CenterContainer/Layout/WorkshopButton
-@onready var back_button: PrimaryButton = $CenterContainer/Layout/BackButton
+@onready var warehouse_button: UiButton = $CenterContainer/Layout/WarehouseButton
+@onready var shop_button: UiButton = $CenterContainer/Layout/ShopButton
+@onready var training_button: UiButton = $CenterContainer/Layout/TrainingButton
+@onready var research_button: UiButton = $CenterContainer/Layout/ResearchButton
+@onready var workshop_button: UiButton = $CenterContainer/Layout/WorkshopButton
+@onready var back_button: UiButton = $CenterContainer/Layout/BackButton
 
 func _ready() -> void:
 	# 5つのボタンを Dictionary 化（5回同じコードを書かない）

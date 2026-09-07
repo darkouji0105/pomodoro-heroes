@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c6reg23n05ey6"]
 
 [ext_resource type="Script" uid="uid://bnqek4jakj5l8" path="res://scenes/guild/equipment_screen.gd" id="1_equipment"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 
 [node name="EquipmentScreen" type="Control" unique_id=974945554]
 layout_mode = 3
@@ -27,10 +27,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 24
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 24
+theme_type_variation = &"ScreenMargin"
 
 [node name="Layout" type="VBoxContainer" parent="Margin" unique_id=2066185930]
 layout_mode = 2
@@ -79,3 +76,4 @@ layout_mode = 2
 [node name="BackButton" parent="Margin/Layout" unique_id=1077680342 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_common_back"
+variant = 2

@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scenes/guild/skill_select_screen.gd" id="1_skill_select"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 
 [node name="SkillSelectScreen" type="Control"]
 layout_mode = 3
@@ -26,10 +26,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 24
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 24
+theme_type_variation = &"ScreenMargin"
 
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2

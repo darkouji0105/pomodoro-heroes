@@ -19,7 +19,7 @@ const SHOP_TYPE: String = GameStateKeys.SHOP_TYPE_DAILY
 @onready var refresh_label: Label = $Margin/Layout/RefreshLabel
 @onready var slot_list: VBoxContainer = $Margin/Layout/Scroll/SlotList
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
-@onready var back_button: PrimaryButton = $Margin/Layout/BackButton
+@onready var back_button: UiButton = $Margin/Layout/BackButton
 
 func _ready() -> void:
 	# 1. 画面を開いた時点で日付を見る。

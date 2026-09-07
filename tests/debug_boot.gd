@@ -44,6 +44,22 @@ const REPORT_FLOOR: String = "floor"
 const REPORT_DUNGEON: String = "dungeon"
 const REPORT_INVENTORY: String = "inventory"
 const REPORT_GLYPHS: String = "glyphs"
+const REPORT_THEME: String = "theme"
+
+# ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
+#   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
+const THEME_PATH: String = "res://theme/main_theme.tres"
+const THEME_BUTTON_TYPES: Array[String] = ["Button", "PrimaryButton", "GhostButton", "DangerButton"]
+const THEME_BUTTON_STATES: Array[String] = ["normal", "hover", "pressed", "disabled", "focus"]
+const THEME_BUTTON_COLORS: Array[String] = [
+	"font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color",
+]
+const THEME_CONSTANT_TYPES: Array[String] = [
+	"VBoxContainer", "HBoxContainer",
+	"TightList", "NodeList", "PanelStack", "SectionGap", "SectionStack", "ButtonRow", "WideRow",
+]
+const THEME_MARGIN_TYPES: Array[String] = ["MarginContainer", "ScreenMargin", "DialogMargin"]
+const THEME_LABEL_TYPES: Array[String] = ["Label", "HeadingLabel", "TimerLabel", "ErrorLabel"]
 
 # 通路の線が横に動いてよい上限（px。段階20-g）。
 #
@@ -615,6 +631,18 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_LAYOUT,
 		"note": "拠点の下段の最小幅を測る（画面幅を超えていないか）",
 	},
+	# ⚠⚠ Theme を組み立て直して、⚠ 欠けが無いかを見る（2026-09-07・ボタンの4階層）。
+	#
+	# ⚠ `tools/build_theme.gd` は EditorScript だが、⚠ `_run()` は
+	#   ResourceLoader / ResourceSaver しか触らないので、⚠ ここから直接呼べる
+	#   （⚠ ヘッドレスでもエディタのバイナリなので EditorScript の型は在る）。
+	# ⚠ ＝⚠ 人間がエディタで「実行」しなくても、⚠ 設計役が `.tres` を作り直せる。
+	# ⚠ 見た目そのものは取れない（⚠ 色の値が入っているかまで）。⚠ 絵は人間が見る。
+	"theme": {
+		"kind": KIND_REPORT,
+		"report": REPORT_THEME,
+		"note": "Theme を組み立て直す。ボタン4階層 × 5状態 / 間隔 / 余白 / 見出しの欠けを見る",
+	},
 	# 段階10（研究ボードの作り替え）の検証。EXEC_GUILD_RESEARCH_V2.md §7-1。
 	#
 	# ⚠ 戦闘を回さない。研究は「レベル上限」と「宝箱の抽選回数」に化けるだけで、
@@ -768,6 +796,8 @@ func _ready() -> void:
 			_report_inventory()
 		elif report == REPORT_GLYPHS:
 			_report_glyphs()
+		elif report == REPORT_THEME:
+			_report_theme()
 		elif report == REPORT_LAYOUT:
 			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
 			await _report_layout()
@@ -5013,6 +5043,126 @@ func _report_inventory_capacity() -> void:
 # ⚠ 見るのは main_theme.tres の default_font（＝実際に画面が使うフォント）。
 #   ⚠ .ttf を直接 load しないこと。⚠ fallback の設定が効いているかまで見たいので、
 #     ⚠ テーマが持っている Font をそのまま聞く。
+# ⚠⚠ Theme を組み立て直して、欠けが無いかを見る（2026-09-07・ボタンの4階層）。
+#
+# ⚠ 見た目の値を持つのは `tools/build_theme.gd` と `main_theme.tres` だけ。
+#   ⚠ ここには色も寸法も書かない。⚠ 「在るか」しか見ない。
+# ⚠ E140 = Theme に欠けがある（⚠ ボタンが素の見た目に落ちる）。
+func _report_theme() -> void:
+	print("[DebugBoot] --- Theme を組み立て直す（tools/build_theme.gd）---")
+	# ⚠ 呼ぶのは `ThemeBuilder`（素のクラス）。⚠ `tools/build_theme.gd` は
+	#   EditorScript で、⚠ エディタ以外では new できない（実測・2026-09-07）。
+	ThemeBuilder.build()
+
+	# ⚠ 書いた直後のものを読み直す（⚠ キャッシュを避ける）。
+	var theme: Theme = ResourceLoader.load(THEME_PATH, "Theme", ResourceLoader.CACHE_MODE_IGNORE)
+	if theme == null:
+		push_error("[DebugBoot] E140 main_theme.tres を読めない")
+		return
+
+	var missing: Array[String] = []
+
+	# ⚠ フォントが消えていないこと（⚠ 新規作成で上書きすると消える）。
+	if theme.default_font == null:
+		missing.append("default_font（⚠ 上書きで消えた恐れ）")
+	else:
+		print("  default_font = '%s' / 既定の大きさ = %d" % [
+			theme.default_font.get_font_name(), theme.default_font_size,
+		])
+
+	print("[DebugBoot] --- ボタン4階層 × 5状態（⚠ 欠けが0件で正解）---")
+	for type_name: String in THEME_BUTTON_TYPES:
+		var states: int = 0
+		for state: String in THEME_BUTTON_STATES:
+			if theme.has_stylebox(StringName(state), StringName(type_name)):
+				states += 1
+			else:
+				missing.append("%s/styles/%s" % [type_name, state])
+		var colors: int = 0
+		for color_name: String in THEME_BUTTON_COLORS:
+			if theme.has_color(StringName(color_name), StringName(type_name)):
+				colors += 1
+			else:
+				missing.append("%s/colors/%s" % [type_name, color_name])
+		print("  %-16s 状態 %d/%d ／ 色 %d/%d ／ 継承元 '%s'" % [
+			type_name, states, THEME_BUTTON_STATES.size(),
+			colors, THEME_BUTTON_COLORS.size(),
+			str(theme.get_type_variation_base(StringName(type_name))),
+		])
+
+	print("[DebugBoot] --- 間隔・余白・見出し（⚠ 用途で名付けた variation）---")
+	for type_name: String in THEME_CONSTANT_TYPES:
+		if not theme.has_constant(&"separation", StringName(type_name)):
+			missing.append("%s/constants/separation" % type_name)
+			continue
+		print("  %-16s separation = %d ／ 継承元 '%s'" % [
+			type_name, theme.get_constant(&"separation", StringName(type_name)),
+			str(theme.get_type_variation_base(StringName(type_name))),
+		])
+	for type_name: String in THEME_MARGIN_TYPES:
+		if not theme.has_constant(&"margin_left", StringName(type_name)):
+			missing.append("%s/constants/margin_left" % type_name)
+			continue
+		print("  %-16s 余白 左右 %d ／ 上下 %d" % [
+			type_name,
+			theme.get_constant(&"margin_left", StringName(type_name)),
+			theme.get_constant(&"margin_top", StringName(type_name)),
+		])
+	for type_name: String in THEME_LABEL_TYPES:
+		var has_size: bool = theme.has_font_size(&"font_size", StringName(type_name))
+		var has_color: bool = theme.has_color(&"font_color", StringName(type_name))
+		if not has_size and not has_color:
+			missing.append("%s（大きさも色も無い）" % type_name)
+			continue
+		print("  %-16s 大きさ %s ／ 色 %s" % [
+			type_name,
+			str(theme.get_font_size(&"font_size", StringName(type_name))) if has_size else "—",
+			str(theme.get_color(&"font_color", StringName(type_name))) if has_color else "—",
+		])
+
+	print("[DebugBoot] 欠け = %d 件（0 が正解）" % missing.size())
+	for entry: String in missing:
+		push_error("[DebugBoot] E140 Theme に欠けがある: " + entry)
+
+	_report_all_scenes_load()
+
+
+# ⚠ 全シーンが読めるか（2026-09-07・ボタンの差し替えで 22 枚の ext_resource を書き換えたため）。
+#
+# ⚠ 読むだけ＝`instantiate()` しない。⚠ 画面によっては `_ready()` が別画面へ飛ばすため。
+#   ⚠ ここで見たいのは「参照先（path / uid）が壊れていないか」の1点だけ。
+# ⚠ `LAYOUT_SCENES` に入っていない5枚（タイトル・拠点・ポモドーロ・ステータスのノード・戦闘）も通る。
+func _report_all_scenes_load() -> void:
+	var paths: Array[String] = []
+	_collect_scenes("res://scenes", paths)
+	_collect_scenes("res://tests", paths)
+	paths.sort()
+	var failed: Array[String] = []
+	for path: String in paths:
+		if load(path) == null:
+			failed.append(path)
+	print("[DebugBoot] --- 全シーンが読めるか ---")
+	print("  読んだ = %d 枚 ／ 読めなかった = %d 枚（0 が正解）" % [paths.size(), failed.size()])
+	for path: String in failed:
+		push_error("[DebugBoot] E140 シーンを読めない: " + path)
+
+
+func _collect_scenes(dir_path: String, out: Array[String]) -> void:
+	var dir: DirAccess = DirAccess.open(dir_path)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var entry: String = dir.get_next()
+	while entry != "":
+		var full: String = dir_path.path_join(entry)
+		if dir.current_is_dir():
+			_collect_scenes(full, out)
+		elif entry.ends_with(".tscn"):
+			out.append(full)
+		entry = dir.get_next()
+	dir.list_dir_end()
+
+
 func _report_glyphs() -> void:
 	var theme: Theme = load("res://theme/main_theme.tres")
 	if theme == null:

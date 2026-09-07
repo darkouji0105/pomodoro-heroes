@@ -1,15 +1,15 @@
 extends Control
 
-# UI共通パーツ（Theme + PrimaryButton / ResourceDisplay / DialogBase）の
+# UI共通パーツ（Theme + UiButton / ResourceDisplay / DialogBase）の
 # 表示確認・動作確認用デモシーン。res://tests/ 配下に隔離。
 #
 # 完了条件#5〜#10 を print で自動検証する。
 # hover / pressed の実見た目遷移は人間が目視確認する（ヘッドレスでは再現しない）。
 
-@onready var normal_button: PrimaryButton = $Layout/NormalButton
-@onready var disabled_button: PrimaryButton = $Layout/DisabledButton
-@onready var long_button: PrimaryButton = $Layout/LongButton
-@onready var open_dialog_button: PrimaryButton = $Layout/OpenDialogButton
+@onready var normal_button: UiButton = $Layout/NormalButton
+@onready var disabled_button: UiButton = $Layout/DisabledButton
+@onready var long_button: UiButton = $Layout/LongButton
+@onready var open_dialog_button: UiButton = $Layout/OpenDialogButton
 @onready var gold_display: ResourceDisplay = $Layout/GoldDisplay
 @onready var stamina_display: ResourceDisplay = $Layout/StaminaDisplay
 @onready var material_display: ResourceDisplay = $Layout/MaterialDisplay

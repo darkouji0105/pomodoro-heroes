@@ -215,7 +215,7 @@ func _rebuild_actions() -> void:
 		if _selected_from_bag:
 			_add_action("DiscardBagButton", "ui_dungeon_pickup_discard_bag", _on_discard_bag_pressed)
 		else:
-			var take: PrimaryButton = _add_action(
+			var take: UiButton = _add_action(
 				"TakeButton", "ui_dungeon_pickup_take", _on_take_pressed
 			)
 			# ⚠ 満杯なら押せない（⚠ 押してから弾かない＝ショップと同じ流儀）。
@@ -229,8 +229,8 @@ func _rebuild_actions() -> void:
 	_add_action("BackButton", "ui_dungeon_shop_back", _on_back_pressed)
 
 
-func _add_action(node_name: String, label_key: String, handler: Callable) -> PrimaryButton:
-	var button: PrimaryButton = PrimaryButton.new()
+func _add_action(node_name: String, label_key: String, handler: Callable) -> UiButton:
+	var button: UiButton = UiButton.new()
 	button.name = node_name
 	button.text = tr(label_key)
 	button.pressed.connect(handler)

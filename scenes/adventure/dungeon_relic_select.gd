@@ -76,7 +76,7 @@ func _rebuild_actions() -> void:
 		return
 
 	if not GameManager.is_single_relic(_selected_relic_id):
-		var take_button: PrimaryButton = PrimaryButton.new()
+		var take_button: UiButton = UiButton.new()
 		take_button.name = "TakeButton"
 		take_button.text = tr("ui_relic_take")
 		take_button.pressed.connect(_on_take_pressed.bind(""))
@@ -92,7 +92,7 @@ func _rebuild_actions() -> void:
 		if character_id == "":
 			continue
 		var char_data: Dictionary = MasterDataLoader.get_character(character_id)
-		var button: PrimaryButton = PrimaryButton.new()
+		var button: UiButton = UiButton.new()
 		button.name = "Give_" + character_id
 		button.text = tr(str(char_data.get("name_key", character_id)))
 		# ⚠ 脱落しているキャラは押しても弾かれる。⚠ 見て分かるように色を落とす。

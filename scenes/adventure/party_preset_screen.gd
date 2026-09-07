@@ -16,7 +16,7 @@ const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 @onready var members_box: VBoxContainer = $Margin/Layout/Members
 @onready var presets_box: VBoxContainer = $Margin/Layout/Scroll/Presets
 @onready var message_label: Label = $Margin/Layout/MessageLabel
-@onready var back_button: PrimaryButton = $Margin/Layout/BackButton
+@onready var back_button: UiButton = $Margin/Layout/BackButton
 
 # 「戻る」で帰る先。入口が2つあるので来た側が渡す（TransferKeys.RETURN_PATH）。
 var _return_path: String = BASE_PATH
@@ -116,7 +116,7 @@ func _make_member_row(slot_index: int, character_id: String) -> HBoxContainer:
 	row.add_child(build_picker)
 
 	# 「焼く」：いまのそのキャラの状態を、選んでいる番号へ書き写す。
-	var burn: PrimaryButton = PrimaryButton.new()
+	var burn: UiButton = UiButton.new()
 	burn.name = "BurnButton_%d" % slot_index
 	burn.text = "ui_party_preset_burn"
 	burn.pressed.connect(_on_burn_pressed.bind(slot_index))
@@ -181,7 +181,7 @@ func _make_preset_row(index: int, preset: Variant) -> HBoxContainer:
 		summary.modulate = Color(0.5, 0.5, 0.5)
 	row.add_child(summary)
 
-	var apply: PrimaryButton = PrimaryButton.new()
+	var apply: UiButton = UiButton.new()
 	apply.name = "ApplyButton"
 	apply.text = "ui_party_preset_apply"
 	# ⚠ disabled にするのは「空き」のときだけ。参照先のビルドが空かどうかで
@@ -190,13 +190,13 @@ func _make_preset_row(index: int, preset: Variant) -> HBoxContainer:
 	apply.pressed.connect(_on_apply_pressed.bind(index))
 	row.add_child(apply)
 
-	var save: PrimaryButton = PrimaryButton.new()
+	var save: UiButton = UiButton.new()
 	save.name = "SaveButton"
 	save.text = "ui_party_preset_save"
 	save.pressed.connect(_on_save_pressed.bind(index))
 	row.add_child(save)
 
-	var clear: PrimaryButton = PrimaryButton.new()
+	var clear: UiButton = UiButton.new()
 	clear.name = "ClearButton"
 	clear.text = "ui_party_preset_clear"
 	clear.disabled = not saved

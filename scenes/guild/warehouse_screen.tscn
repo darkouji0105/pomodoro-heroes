@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://vndu5ub0xpmy"]
 
 [ext_resource type="Script" uid="uid://c7jbw7wxonlkd" path="res://scenes/guild/warehouse_screen.gd" id="1_warehouse"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
 
@@ -40,6 +40,7 @@ text = "ui_guild_warehouse"
 [node name="BackButton" parent="Layout/Header" unique_id=511040966 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_common_back"
+variant = 2
 
 [node name="Tabs" type="TabContainer" parent="Layout" unique_id=1276131879]
 layout_mode = 2

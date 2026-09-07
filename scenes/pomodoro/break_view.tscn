@@ -21,7 +21,7 @@ offset_top = 100.0
 offset_right = 200.0
 offset_bottom = 150.0
 grow_horizontal = 2
-theme_override_font_sizes/font_size = 32
+theme_type_variation = &"HeadingLabel"
 text = "休憩中"
 horizontal_alignment = 1
 
@@ -38,7 +38,7 @@ offset_right = 150.0
 offset_bottom = 50.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_font_sizes/font_size = 64
+theme_type_variation = &"TimerLabel"
 text = "05:00"
 horizontal_alignment = 1
 

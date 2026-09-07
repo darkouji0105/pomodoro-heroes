@@ -17,10 +17,10 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 @onready var gacha_label: Label = $Layout/GachaLabel
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var torch_label: Label = $Layout/TorchRow/TorchLabel
-@onready var torch_button: PrimaryButton = $Layout/TorchRow/TorchButton
+@onready var torch_button: UiButton = $Layout/TorchRow/TorchButton
 @onready var heal_label: Label = $Layout/HealRow/HealLabel
-@onready var heal_button: PrimaryButton = $Layout/HealRow/HealButton
-@onready var leave_button: PrimaryButton = $Layout/Footer/LeaveButton
+@onready var heal_button: UiButton = $Layout/HealRow/HealButton
+@onready var leave_button: UiButton = $Layout/Footer/LeaveButton
 
 
 func _ready() -> void:

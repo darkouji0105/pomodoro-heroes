@@ -15,7 +15,7 @@ class_name StatNodeScreen
 extends Control
 
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
-const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
+const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
 
 # 解放済み / 解放できる / 前提が未解放
 const MARK_UNLOCKED: String = "●"
@@ -26,9 +26,9 @@ const MARK_LOCKED: String = "✕"
 @onready var name_label: Label = $Margin/Layout/NameLabel
 @onready var points_label: Label = $Margin/Layout/PointsLabel
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
-@onready var reset_button: PrimaryButton = $Margin/Layout/ResetButton
+@onready var reset_button: UiButton = $Margin/Layout/ResetButton
 @onready var branches: HBoxContainer = $Margin/Layout/Scroll/Branches
-@onready var back_button: PrimaryButton = $Margin/Layout/BackButton
+@onready var back_button: UiButton = $Margin/Layout/BackButton
 
 var _character_id: String = ""
 
@@ -112,7 +112,7 @@ func _build_branch(stat_key: String, all_nodes: Dictionary, remaining: int) -> v
 		elif can_unlock:
 			mark = MARK_AVAILABLE
 
-		var button: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+		var button: UiButton = UI_BUTTON_SCENE.instantiate()
 		column.add_child(button)
 		# 列いっぱいに広げる。文字数でボタン幅が変わると段ごとに右端が揃わない。
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

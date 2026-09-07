@@ -7,7 +7,7 @@ class_name TrainingScreen
 extends Control
 
 const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
-const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
+const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
 
 # MasterDataLoader にキー一覧を返す関数が無いため、ここに列挙する。
 # このタスクで決め打ちを許した唯一の箇所（EXEC_GUILD_TRAINING §4-4）。
@@ -52,12 +52,12 @@ var _selected_build: int = 0
 @onready var stats_label: Label = $Margin/Layout/DetailPanel/InfoColumn/StatsLabel
 @onready var cost_label: Label = $Margin/Layout/DetailPanel/InfoColumn/CostLabel
 @onready var notice_label: Label = $Margin/Layout/DetailPanel/InfoColumn/NoticeLabel
-@onready var level_up_button: PrimaryButton = $Margin/Layout/DetailPanel/ActionColumn/LevelUpButton
-@onready var stat_node_button: PrimaryButton = $Margin/Layout/DetailPanel/ActionColumn/StatNodeButton
-@onready var skill_button: PrimaryButton = $Margin/Layout/DetailPanel/ActionColumn/SkillButton
-@onready var equip_button: PrimaryButton = $Margin/Layout/DetailPanel/ActionColumn/EquipButton
-@onready var to_list_button: PrimaryButton = $Margin/Layout/DetailPanel/ActionColumn/ToListButton
-@onready var back_button: PrimaryButton = $Margin/Layout/BackButton
+@onready var level_up_button: UiButton = $Margin/Layout/DetailPanel/ActionColumn/LevelUpButton
+@onready var stat_node_button: UiButton = $Margin/Layout/DetailPanel/ActionColumn/StatNodeButton
+@onready var skill_button: UiButton = $Margin/Layout/DetailPanel/ActionColumn/SkillButton
+@onready var equip_button: UiButton = $Margin/Layout/DetailPanel/ActionColumn/EquipButton
+@onready var to_list_button: UiButton = $Margin/Layout/DetailPanel/ActionColumn/ToListButton
+@onready var back_button: UiButton = $Margin/Layout/BackButton
 
 
 func _ready() -> void:
@@ -91,7 +91,7 @@ func _build_character_list() -> void:
 			# MasterDataLoader 側で push_error 済み。ここでは静かに飛ばす。
 			continue
 
-		var button: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+		var button: UiButton = UI_BUTTON_SCENE.instantiate()
 		list_panel.add_child(button)
 		# label_key は使わず text を直接入れる（名前とレベルを1行にまとめるため）。
 		button.text = "%s  %s" % [
@@ -128,7 +128,7 @@ func _build_preset_row() -> void:
 	_build_picker.item_selected.connect(_on_build_selected)
 	row.add_child(_build_picker)
 
-	var burn: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+	var burn: UiButton = UI_BUTTON_SCENE.instantiate()
 	burn.name = "BurnButton"
 	burn.label_key = "ui_party_preset_burn"
 	burn.pressed.connect(_on_burn_pressed)
@@ -136,7 +136,7 @@ func _build_preset_row() -> void:
 
 	# ⚠ 「焼く」と「適用」は向きが逆（焼く＝現在→ビルド／適用＝ビルド→現在）。
 	#   ⚠ 1つのボタンにまとめないこと。
-	var apply: PrimaryButton = PRIMARY_BUTTON_SCENE.instantiate()
+	var apply: UiButton = UI_BUTTON_SCENE.instantiate()
 	apply.name = "ApplyButton"
 	apply.label_key = "ui_party_preset_apply"
 	apply.pressed.connect(_on_apply_pressed)

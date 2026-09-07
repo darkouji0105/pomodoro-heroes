@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://dc7j6hh0otwbi"]
 
 [ext_resource type="Script" uid="uid://ckse0fwbwc87o" path="res://scenes/guild/guild_screen.gd" id="1_guild"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 
 [node name="GuildScreen" type="Control" unique_id=1750307354]
 layout_mode = 3

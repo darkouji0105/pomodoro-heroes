@@ -214,8 +214,6 @@ ui_uitest_embedded,画面の中身（遷移では見られないもの）
 ui_uitest_embedded_note,ポモドーロの4つのビュー。戻るボタンが無いのでここに埋め込んでいます。押しても何も起きません
 ui_uitest_parts,部品カタログ
 ui_uitest_back,拠点へ戻る
-ui_uitest_button_normal,通常のボタン
-ui_uitest_button_disabled,押せないボタン
 ui_uitest_modal_notify,モーダル（知らせ）
 ui_uitest_modal_confirm,モーダル（確認）
 ui_uitest_modal_message,これはUIテストのモーダルです
@@ -899,3 +897,12 @@ ui_dungeon_bag_discarded,鞄から捨てた
 ui_dungeon_bag_discard_failed,捨てられなかった
 ui_dungeon_chest_bag_title,いまの鞄
 ui_dungeon_torch_grade,"たいまつ 等級%d（%d層先）"
+ui_uitest_button_variant_secondary,既定（並列の選択肢）
+ui_uitest_button_variant_primary,主要（真鍮・1画面に1個）
+ui_uitest_button_variant_ghost,戻る・閉じる
+ui_uitest_button_variant_danger,危険・不可逆
+ui_uitest_button_state_normal,通常
+ui_uitest_button_state_hover,ホバー（乗せて見る）
+ui_uitest_button_state_pressed,押下
+ui_uitest_button_state_disabled,不活性
+ui_uitest_button_long_phase,このフェーズを終わらせる

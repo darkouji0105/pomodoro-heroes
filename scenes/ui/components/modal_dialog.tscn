@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://bmodal001"]
 
 [ext_resource type="Script" path="res://scenes/ui/components/modal_dialog.gd" id="1_modal_script"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_button"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_ui_button"]
 
 [node name="ModalDialog" type="CanvasLayer"]
 layer = 200
@@ -33,13 +33,10 @@ grow_vertical = 2
 custom_minimum_size = Vector2(400, 0)
 
 [node name="Margin" type="MarginContainer" parent="Blocker/Panel"]
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 16
+theme_type_variation = &"DialogMargin"
 
 [node name="VBox" type="VBoxContainer" parent="Blocker/Panel/Margin"]
-theme_override_constants/separation = 16
+theme_type_variation = &"SectionGap"
 
 [node name="MessageLabel" type="Label" parent="Blocker/Panel/Margin/VBox"]
 custom_minimum_size = Vector2(400, 0)
@@ -48,9 +45,10 @@ autowrap_mode = 3
 
 [node name="Buttons" type="HBoxContainer" parent="Blocker/Panel/Margin/VBox"]
 alignment = 1
-theme_override_constants/separation = 16
 
-[node name="ConfirmButton" parent="Blocker/Panel/Margin/VBox/Buttons" instance=ExtResource("2_primary_button")]
+[node name="ConfirmButton" parent="Blocker/Panel/Margin/VBox/Buttons" instance=ExtResource("2_ui_button")]
 visible = false
+variant = 1
 
-[node name="CloseButton" parent="Blocker/Panel/Margin/VBox/Buttons" instance=ExtResource("2_primary_button")]
+[node name="CloseButton" parent="Blocker/Panel/Margin/VBox/Buttons" instance=ExtResource("2_ui_button")]
+variant = 2

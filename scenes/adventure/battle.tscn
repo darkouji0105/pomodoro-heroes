@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://dx2mf42b21wkg"]
 
 [ext_resource type="Script" uid="uid://bvlbknyg1te0s" path="res://scenes/adventure/battle_controller.gd" id="1_battle_ctrl"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/primary_button.tscn" id="2_primary_btn"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 
 [node name="Battle" type="Node2D" unique_id=486331460]
 script = ExtResource("1_battle_ctrl")

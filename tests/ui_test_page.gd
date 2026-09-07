@@ -51,6 +51,33 @@ const CATEGORY_RUNE: String = "rune"
 const CATEGORY_RELIC: String = "relic"
 const CATEGORY_KEY_PREFIX: String = "ui_uitest_cat_"
 
+# ⚠ ボタンの4階層（2026-09-07）。⚠ 並び順は `UiButton.Variant` と同じ。
+#   ⚠ 見た目の値はここに1つも書かない（⚠ 持っているのは Theme だけ）。
+const BUTTON_VARIANTS: Array[Dictionary] = [
+	{
+		"variant": UiButton.Variant.SECONDARY,
+		"name": "Secondary",
+		"label_key": "ui_uitest_button_variant_secondary",
+	},
+	{
+		"variant": UiButton.Variant.PRIMARY,
+		"name": "Primary",
+		"label_key": "ui_uitest_button_variant_primary",
+	},
+	{
+		"variant": UiButton.Variant.GHOST,
+		"name": "Ghost",
+		"label_key": "ui_uitest_button_variant_ghost",
+	},
+	{
+		"variant": UiButton.Variant.DANGER,
+		"name": "Danger",
+		"label_key": "ui_uitest_button_variant_danger",
+	},
+]
+# 階層名の欄の幅（⚠ 見た目の都合だけ。⚠ 4行の頭を揃えるためのもの）。
+const BUTTON_ROW_LABEL_WIDTH: float = 140.0
+
 # 等級順に並べるときの作業用のキー。⚠ この関数の外へ出さない。
 const SORT_GRADE: String = "grade"
 const SORT_ITEM_ID: String = "item_id"
@@ -266,20 +293,8 @@ func _build_embedded_views() -> void:
 
 # ⚠ ここは「見た目を人間が見る」ための並べ物。⚠ 判定は1つも書かない。
 func _build_parts_catalog() -> void:
-	# PrimaryButton の4状態のうち、⚠ normal / disabled は静止で見える。
-	#   ⚠ hover / pressed は人間がマウスを乗せて見る（⚠ 静止画では出せない）。
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "ButtonStates"
-	var normal: PrimaryButton = PrimaryButton.new()
-	normal.name = "ButtonNormal"
-	normal.text = "ui_uitest_button_normal"
-	row.add_child(normal)
-	var disabled: PrimaryButton = PrimaryButton.new()
-	disabled.name = "ButtonDisabled"
-	disabled.text = "ui_uitest_button_disabled"
-	disabled.disabled = true
-	row.add_child(disabled)
-	layout.add_child(row)
+	# ⚠ ボタンの見本は `_build_button_catalog()` に1本化した（2026-09-07・4階層）。
+	#   ⚠ ここに2つ並べていた normal / disabled は、そちらの16マスに含まれる。
 
 	# ResourceDisplay（⚠ 金・スタミナ・素材の3通り）。
 	var res_row: HBoxContainer = HBoxContainer.new()
@@ -301,12 +316,12 @@ func _build_parts_catalog() -> void:
 	# Modal（⚠ 2種類とも出す。⚠ confirm は await するので押した先で待つ）。
 	var modal_row: HBoxContainer = HBoxContainer.new()
 	modal_row.name = "ModalButtons"
-	var notify_button: PrimaryButton = PrimaryButton.new()
+	var notify_button: UiButton = UiButton.new()
 	notify_button.name = "ModalNotifyButton"
 	notify_button.text = "ui_uitest_modal_notify"
 	notify_button.pressed.connect(_on_modal_notify_pressed)
 	modal_row.add_child(notify_button)
-	var confirm_button: PrimaryButton = PrimaryButton.new()
+	var confirm_button: UiButton = UiButton.new()
 	confirm_button.name = "ModalConfirmButton"
 	confirm_button.text = "ui_uitest_modal_confirm"
 	confirm_button.pressed.connect(_on_modal_confirm_pressed)
@@ -320,20 +335,58 @@ func _build_parts_catalog() -> void:
 # ⚠ 長い文と幅いっぱいを並べる理由：⚠ 文字がはみ出す・潰れるのがここで分かるため
 #   （⚠ 拠点のボタンが7個になった回の症状）。
 func _build_button_catalog() -> void:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "ButtonCatalog"
-	row.add_child(_make_button("ButtonShort", "ui_uitest_button_normal", false))
-	row.add_child(_make_button("ButtonDisabled2", "ui_uitest_button_disabled", true))
-	row.add_child(_make_button("ButtonLong", "ui_uitest_button_long", false))
-	var wide: PrimaryButton = _make_button("ButtonWide", "ui_uitest_button_wide", false)
+	# ⚠ 4階層 × 4状態 = 16個（2026-09-07）。⚠ 1行が1階層。⚠ 縦に見ると同じ状態が揃う。
+	for spec: Dictionary in BUTTON_VARIANTS:
+		var variant: UiButton.Variant = spec["variant"]
+		var short_name: String = str(spec["name"])
+
+		var row: HBoxContainer = HBoxContainer.new()
+		row.name = "ButtonRow_" + short_name
+
+		var name_label: Label = Label.new()
+		name_label.name = "ButtonRowName_" + short_name
+		name_label.text = tr(str(spec["label_key"]))
+		name_label.custom_minimum_size = Vector2(BUTTON_ROW_LABEL_WIDTH, 0.0)
+		row.add_child(name_label)
+
+		row.add_child(_make_button(short_name + "Normal", "ui_uitest_button_state_normal", false, variant))
+		# ⚠ ホバーは静止で出せない。⚠ 人間がマウスを乗せて見る（⚠ 文言でそう言っている）。
+		row.add_child(_make_button(short_name + "Hover", "ui_uitest_button_state_hover", false, variant))
+		# ⚠ 押下は `toggle_mode` で押しっぱなしにして見せる。
+		#   ⚠ 本番のボタンは toggle しない。⚠ ここだけの見せ方。
+		var pressed: UiButton = _make_button(
+			short_name + "Pressed", "ui_uitest_button_state_pressed", false, variant
+		)
+		pressed.toggle_mode = true
+		pressed.button_pressed = true
+		row.add_child(pressed)
+		row.add_child(_make_button(short_name + "Disabled", "ui_uitest_button_state_disabled", true, variant))
+
+		layout.add_child(row)
+
+	# ⚠ 幅が変わったときに崩れないかを見るための3つ（⚠ 階層とは別の軸）。
+	var extra: HBoxContainer = HBoxContainer.new()
+	extra.name = "ButtonWidths"
+	extra.add_child(_make_button("ButtonLong", "ui_uitest_button_long", false, UiButton.Variant.SECONDARY))
+	extra.add_child(_make_button(
+		"ButtonLongPhase", "ui_uitest_button_long_phase", false, UiButton.Variant.PRIMARY
+	))
+	var wide: UiButton = _make_button(
+		"ButtonWide", "ui_uitest_button_wide", false, UiButton.Variant.SECONDARY
+	)
 	wide.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wide.clip_text = true
-	row.add_child(wide)
-	layout.add_child(row)
+	extra.add_child(wide)
+	layout.add_child(extra)
 
 
-func _make_button(node_name: String, label_key: String, is_disabled: bool) -> PrimaryButton:
-	var button: PrimaryButton = PrimaryButton.new()
+func _make_button(
+	node_name: String,
+	label_key: String,
+	is_disabled: bool,
+	variant: UiButton.Variant = UiButton.Variant.SECONDARY,
+) -> UiButton:
+	var button: UiButton = UiButton.create(variant)
 	button.name = node_name
 	button.text = tr(label_key)
 	button.disabled = is_disabled
@@ -360,7 +413,7 @@ func _build_settings_catalog() -> void:
 		config.se_player_count,
 	]
 	layout.add_child(values)
-	var play: PrimaryButton = _make_button("PlaySeButton", "ui_uitest_play_se", false)
+	var play: UiButton = _make_button("PlaySeButton", "ui_uitest_play_se", false)
 	play.pressed.connect(_on_play_se_pressed)
 	layout.add_child(play)
 
@@ -589,7 +642,7 @@ func _add_note(key: String) -> void:
 
 # ⚠ ラベルが翻訳キーなら tr()、⚠ ファイル名ならそのまま出す（識別子のため）。
 func _add_action(label: String, handler: Callable, is_key: bool = true) -> void:
-	var button: PrimaryButton = PrimaryButton.new()
+	var button: UiButton = UiButton.new()
 	button.name = "Action_" + label
 	button.text = tr(label) if is_key else label
 	button.pressed.connect(handler)

@@ -96,10 +96,10 @@ const EDGE_ANCHOR_SPREAD: float = 0.55
 @onready var bag_grid: ItemGrid = $Layout/BagGrid
 @onready var bag_detail: ItemDetail = $Layout/BagDetail
 @onready var bag_action_row: HBoxContainer = $Layout/BagActionRow
-@onready var descend_button: PrimaryButton = $Layout/Footer/DescendButton
-@onready var retreat_button: PrimaryButton = $Layout/Footer/RetreatButton
-@onready var abandon_button: PrimaryButton = $Layout/Footer/AbandonButton
-@onready var back_button: PrimaryButton = $Layout/Footer/BackButton
+@onready var descend_button: UiButton = $Layout/Footer/DescendButton
+@onready var retreat_button: UiButton = $Layout/Footer/RetreatButton
+@onready var abandon_button: UiButton = $Layout/Footer/AbandonButton
+@onready var back_button: UiButton = $Layout/Footer/BackButton
 
 # 押した所の近くに鞄の詳細を出す器（2026-09-07）。⚠ `bag_detail` と `bag_action_row` を引き取る。
 var _detail_popup: ItemDetailPopup = null
@@ -226,7 +226,7 @@ func _rebuild_party() -> void:
 		party_list.add_child(label)
 
 
-# マスのボタン（段階19-e）。⚠ {node_id: PrimaryButton}。⚠ 通路の線を引くのに使う。
+# マスのボタン（段階19-e）。⚠ {node_id: UiButton}。⚠ 通路の線を引くのに使う。
 #
 # ⚠ 描き直すたびに作り直す。⚠ 古いボタンを持ったままにしないこと
 #   （⚠ queue_free() 済みのノードの位置を読むと落ちる）。
@@ -459,7 +459,7 @@ func _rebuild_layers() -> void:
 				row.add_child(spacer)
 				continue
 			var node_id: String = str(column_of[c])
-			var node_button: PrimaryButton = _make_node_button(
+			var node_button: UiButton = _make_node_button(
 				node_id, nodes[node_id], node_id == position,
 				visited.has(node_id), node_id in moves
 			)
@@ -482,8 +482,8 @@ func _rebuild_layers() -> void:
 
 func _make_node_button(
 		node_id: String, node: Dictionary, is_current: bool, is_visited: bool, is_reachable: bool
-) -> PrimaryButton:
-	var button: PrimaryButton = PrimaryButton.new()
+) -> UiButton:
+	var button: UiButton = UiButton.new()
 	button.name = "Node_" + node_id
 	var kind: String = str(node.get(GameStateKeys.DUNGEON_NODE_KIND, ""))
 	# たいまつ（段階17-e・§4-7）。⚠ 見えるかの判定は GameManager の1本に聞く。
@@ -567,7 +567,7 @@ func _rebuild_bag_actions() -> void:
 	#   ⚠ 品の種類を問わず出す（⚠ 戦利品も捨てられる＝⚠ 鞄を空けるのが目的）。
 	#   ⚠ 口は `discard_dungeon_bag_item()` の1本。⚠ 入る・捨てるの判定を画面側に書かない。
 	#   ⚠ 文言は拾いもの画面と同じ `ui_dungeon_pickup_discard_bag`（⚠ 同じ意味に2つ目のキーを作らない）。
-	var discard_button: PrimaryButton = PrimaryButton.new()
+	var discard_button: UiButton = UiButton.new()
 	discard_button.name = "Discard_" + item_id
 	discard_button.text = tr("ui_dungeon_pickup_discard_bag")
 	discard_button.pressed.connect(_on_discard_bag_pressed.bind(item_id))
@@ -582,7 +582,7 @@ func _rebuild_bag_actions() -> void:
 		if character_id == "":
 			continue
 		var char_data: Dictionary = MasterDataLoader.get_character(character_id)
-		var button: PrimaryButton = PrimaryButton.new()
+		var button: UiButton = UiButton.new()
 		button.name = "Use_%s_%s" % [item_id, character_id]
 		button.text = tr(str(char_data.get("name_key", character_id)))
 		button.pressed.connect(_on_use_potion_pressed.bind(item_id, character_id))
@@ -619,7 +619,7 @@ func _rebuild_shop() -> void:
 	if GameManager.get_dungeon_shop_entries().is_empty():
 		return
 
-	var button: PrimaryButton = PrimaryButton.new()
+	var button: UiButton = UiButton.new()
 	button.name = "ShopButton"
 	button.text = tr("ui_dungeon_shop_enter")
 	button.pressed.connect(_on_shop_pressed)

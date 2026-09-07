@@ -21,7 +21,7 @@ const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 @onready var item_detail: ItemDetail = $Layout/ItemDetail
 @onready var item_action_row: HBoxContainer = $Layout/ItemActionRow
 @onready var upgrade_list: VBoxContainer = $Layout/UpgradeList
-@onready var back_button: PrimaryButton = $Layout/Footer/BackButton
+@onready var back_button: UiButton = $Layout/Footer/BackButton
 
 # 押した所の近くに詳細を出す器（2026-09-07）。⚠ `item_detail` と `item_action_row` を引き取る。
 var _detail_popup: ItemDetailPopup = null
@@ -122,7 +122,7 @@ func _rebuild_item_actions() -> void:
 	var entry: Dictionary = GameManager.get_dungeon_shop_entries()[_selected_index]
 	item_detail.show_entry(_slot_entry_of(str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))))
 
-	var button: PrimaryButton = PrimaryButton.new()
+	var button: UiButton = UiButton.new()
 	button.name = "BuyButton"
 	# 数値のみなので見出しだけ tr()（AGENTS.md）。
 	button.text = "%s(%d)" % [
@@ -171,7 +171,7 @@ func _rebuild_upgrades() -> void:
 		cost_label.text = str(int(entry.get(GameManager.DUNGEON_SHOP_COST, 0)))
 		row.add_child(cost_label)
 
-		var button: PrimaryButton = PrimaryButton.new()
+		var button: UiButton = UiButton.new()
 		button.name = "Buy_%d" % i
 		button.text = tr("ui_dungeon_shop_buy")
 		button.disabled = GameManager.get_dungeon_shop_reject_reason(i) != ""

@@ -20,11 +20,11 @@ const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 @onready var stamina_value: ResourceDisplay = $Layout/Header/StaminaValue
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var stage_list: VBoxContainer = $Layout/StageList
-@onready var training_button: PrimaryButton = $Layout/Footer/TrainingButton
-@onready var back_button: PrimaryButton = $Layout/Footer/BackButton
+@onready var training_button: UiButton = $Layout/Footer/TrainingButton
+@onready var back_button: UiButton = $Layout/Footer/BackButton
 
 # --- 内部状態 ---
-# ステージ行（stage_id -> {"row": HBoxContainer, "button": PrimaryButton}）。未解放時の挙動切替用
+# ステージ行（stage_id -> {"row": HBoxContainer, "button": UiButton}）。未解放時の挙動切替用
 var _stage_rows: Dictionary = {}
 
 # 編成の枠を包む箱。作り直すときに丸ごと外す（EXEC_PARTY_MEMBERS.md）。
@@ -99,7 +99,7 @@ func _build_party_row() -> void:
 	names.text = " / ".join(parts)
 	row.add_child(names)
 
-	var edit_button: PrimaryButton = PrimaryButton.new()
+	var edit_button: UiButton = UiButton.new()
 	edit_button.name = "PartyEditButton"
 	edit_button.text = "ui_nav_party_preset"
 	edit_button.pressed.connect(_on_party_edit_pressed)
@@ -155,7 +155,7 @@ func _build_dungeon_button() -> void:
 		GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")
 	) == dungeon_id
 
-	var button: PrimaryButton = PrimaryButton.new()
+	var button: UiButton = UiButton.new()
 	button.name = "DungeonButton"
 	button.text = tr("ui_dungeon_resume") if in_progress else tr("ui_dungeon_section")
 	button.pressed.connect(_on_dungeon_pressed.bind(dungeon_id))
@@ -230,7 +230,7 @@ func _add_debug_stage_row(stage_id: String, stage_data: Dictionary) -> void:
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = 3
 
-	var button: PrimaryButton = PrimaryButton.new()
+	var button: UiButton = UiButton.new()
 	button.text = "ui_adventure_challenge"
 	button.pressed.connect(_on_debug_challenge_pressed.bind(stage_id))
 
@@ -272,13 +272,13 @@ func _add_stage_row(stage_id: String, stage_data: Dictionary, index: int, order:
 
 	# 周回ボタン（段階14-f）。⚠ 踏破済みのフロアだけに出す。
 	#   ⚠ 出すかどうかの判定は GameManager に聞く。ここで条件を書き直さない。
-	var repeat_button: PrimaryButton = PrimaryButton.new()
+	var repeat_button: UiButton = UiButton.new()
 	repeat_button.name = "RepeatButton"
 	repeat_button.text = "ui_floor_repeat"
 	repeat_button.visible = GameManager.is_floor_stage(stage_id) and GameManager.is_stage_cleared(stage_id)
 	repeat_button.pressed.connect(_on_repeat_pressed.bind(stage_id))
 
-	var challenge_button: PrimaryButton = PrimaryButton.new()
+	var challenge_button: UiButton = UiButton.new()
 	challenge_button.name = "ChallengeButton"
 	# 翻訳キーを直接 text に入れる。auto_translate_mode がデフォルトで有効なので
 	# Godot が起動時に tr() を自動適用する（Label と同じ挙動）。

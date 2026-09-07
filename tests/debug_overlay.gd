@@ -130,7 +130,7 @@ func _build_ui() -> void:
 	_body.add_child(_make_button("セーブする", _save))
 
 
-# AGENTS.md は表示テキストに PrimaryButton + label_key を使う決まりだが、
+# AGENTS.md は表示テキストに UiButton + label_key を使う決まりだが、
 # ここは tr() を通さない開発者向けUIなので素の Button でよい（冒頭のコメント参照）。
 #
 # focus_mode を切っているのは、押したあとキーボードフォーカスがこのボタンに残り、

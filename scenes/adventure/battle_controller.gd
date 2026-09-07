@@ -29,7 +29,7 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
 const DEBUG_PANEL_SCRIPT: GDScript = preload("res://scenes/adventure/battle_debug_panel.gd")
 const PROJECTILE_VIEW_SCRIPT: GDScript = preload("res://scenes/adventure/projectile_view.gd")
-const PRIMARY_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/primary_button.tscn")
+const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
 
 # チャージゲージの色（本タスク限定の例外。main_theme.tres に対応する概念が無い）
 const CHARGE_COLOR_NORMAL: Color = Color(0.6, 0.7, 0.9)
@@ -1112,7 +1112,7 @@ func _build_skill_buttons() -> void:
 			# 発動の型は activation を見る。charge 欄の有無で分岐しないこと（PLAN 8章）。
 			var activation: String = str(skill_data.get("activation", SkillSchema.ACTIVATION_INSTANT))
 
-			var button: Button = PRIMARY_BUTTON_SCENE.instantiate()
+			var button: Button = UI_BUTTON_SCENE.instantiate()
 			# label_key は使わない。残り秒数やチャージ時間を混ぜるため text を直接扱う。
 			button.text = tr(str(skill_data.get("name_key", "")))
 			column.add_child(button)

@@ -52,8 +52,8 @@ const COLOR_FAR: Color = Color(0.6, 0.6, 0.65)
 @onready var relic_label: Label = $Layout/RelicLabel
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var layer_list: VBoxContainer = $Layout/LayerList
-@onready var abandon_button: PrimaryButton = $Layout/Footer/AbandonButton
-@onready var back_button: PrimaryButton = $Layout/Footer/BackButton
+@onready var abandon_button: UiButton = $Layout/Footer/AbandonButton
+@onready var back_button: UiButton = $Layout/Footer/BackButton
 
 
 func _ready() -> void:
@@ -183,8 +183,8 @@ func _rebuild_layers() -> void:
 
 func _make_node_button(
 		node_id: String, node: Dictionary, is_current: bool, is_visited: bool, is_reachable: bool
-) -> PrimaryButton:
-	var button: PrimaryButton = PrimaryButton.new()
+) -> UiButton:
+	var button: UiButton = UiButton.new()
 	button.name = "Node_" + node_id
 	var kind: String = str(node.get(GameStateKeys.FLOOR_NODE_KIND, ""))
 	# 視界（段階14-e）。⚠ 見えるかどうかの判定は GameManager の1本に聞く。
