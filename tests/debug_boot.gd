@@ -3546,14 +3546,16 @@ func _report_item_icons() -> void:
 		var text: String = icon.text_label.text
 		var number: String = icon.grade_label.text
 		var box: StyleBox = icon.get_theme_stylebox("panel")
-		var color: Color = (box as StyleBoxFlat).bg_color if box is StyleBoxFlat else Color.BLACK
+		# ⚠ 等級は **枠線** の色（2026-09-08 に地から移した）。⚠ 地は全部同じ暗い一色なので、
+		#   ⚠ bg_color を出しても等級が読めない（⚠ 移した日に1回それで意味を失った）。
+		var color: Color = (box as StyleBoxFlat).border_color if box is StyleBoxFlat else Color.BLACK
 		if text == "ui_icon_" + item_id:
 			missing_keys += 1
 		elif text.length() != 1:
 			wrong_length += 1
 		# ⚠ 絵文字も出す（2026-09-07）。⚠ レリック12件が ITEM_FALLBACK（📦）に
 		#   落ちていたのを、⚠ ここが出していなかったせいで気づけなかった。
-		print("  %-26s 絵='%s' 字='%s' 右下='%s' 色=(%.2f, %.2f, %.2f)" % [
+		print("  %-26s 絵='%s' 字='%s' 右下='%s' 枠=(%.2f, %.2f, %.2f)" % [
 			item_id, icon.glyph_label.text, text, number, color.r, color.g, color.b
 		])
 		remove_child(icon)

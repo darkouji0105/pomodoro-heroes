@@ -1,7 +1,11 @@
 class_name ItemIcon
 extends Panel
 
-# 仮アセット＝絵文字のアイコン（種類の絵文字を中央・品の1文字を左上・段数の数字を右下）。
+# 仮アセット＝絵文字のアイコン。
+#   ⚠ 種類の絵文字を中央 ／ 品の1文字を左上 ／ 段数の数字を右下 ／ **等級を枠線の色**。
+#
+# ⚠⚠ 2026-09-08：⚠ 等級を「地の色」から「枠線の色」へ移した（⚠ 人間のモック）。
+#   ⚠ 地は暗い一色（`IconConfig.icon_bg_color`）。⚠ 40個並べても画面が色で埋まらない。
 #
 # ⚠ 画像を1枚も使わない。段階13（SDキャラ）が素材待ちの間、
 #   「どれが何か分かる」状態にするための仮のもの（NEXT_STEPS §0-A）。
@@ -93,9 +97,15 @@ func _refresh() -> void:
 
 	custom_minimum_size = Vector2(float(config.icon_size_px), float(config.icon_size_px))
 
+	# ⚠⚠ 等級は **枠線** の色で持つ（2026-09-08・人間のモック）。⚠ 地は暗い一色。
+	#   ⚠ 前は地が等級の色だった。⚠ 40個並ぶと画面が色の面で埋まっていた。
+	#   ⚠ 色の表（`grade_colors`）は変えていない。⚠ 塗る場所を変えただけ。
+	var grade_color: Color = config.color_of_grade(grade)
 	var box: StyleBoxFlat = StyleBoxFlat.new()
-	box.bg_color = config.color_of_grade(grade)
+	box.bg_color = config.icon_bg_color
 	box.set_corner_radius_all(config.icon_corner_radius)
+	box.set_border_width_all(maxi(0, config.icon_border_width))
+	box.border_color = grade_color
 	add_theme_stylebox_override("panel", box)
 
 	# 左上に「どの品か」の1文字。
@@ -120,7 +130,8 @@ func _refresh() -> void:
 	# ⚠⚠ 左上の1文字を置き換えない。⚠ 絵文字は種類ごと（11種）なので、
 	#   ⚠ 置き換えると91件の品が11種類の見た目に潰れ、⚠ どの品か分からなくなる。
 	#   ⚠ 「どの品か」＝左上の1文字 ／ 「どの種類か」＝絵文字 ／ 「何段か」＝右下の数字
-	#   ⚠ ／ 「どの等級か」＝背景の色。⚠ 4つで役割が分かれている。
+	#   ⚠ ／ 「どの等級か」＝**枠線の色**（2026-09-08 に背景から移した）。
+	#   ⚠ 4つで役割が分かれている。
 	# ⚠⚠ 1文字が系統ごとにしか無いのは、⚠ 「絵文字＋1文字」の組で見分ける前提だから
 	#   （⚠ 例：「鉄」は 🔪 鉄剣 / 🎩 鉄兜 / 👕 鉄鎧 / 👟 鉄脚 の4件に出る）。
 	#   ⚠ 絵文字を種類ごとに分けるのをやめると、⚠ この4件が見分けられなくなる。
@@ -139,7 +150,9 @@ func _refresh() -> void:
 	grade_label.text = number
 	grade_label.visible = number != ""
 	grade_label.add_theme_font_size_override("font_size", config.grade_font_size)
-	grade_label.add_theme_color_override("font_color", config.icon_text_color)
+	# ⚠ 右下の数字だけ等級の色で出す（2026-09-08・モック）。⚠ 枠線と同じ色＝
+	#   ⚠ 枠が細くて色が読み取りにくいときの2つ目の手がかりになる。
+	grade_label.add_theme_color_override("font_color", grade_color)
 	# 右下に寄せる。⚠ 大きさが Config なので、位置もコードで合わせる。
 	grade_label.offset_left = -float(config.icon_size_px) * 0.5
 	grade_label.offset_top = -float(config.grade_font_size) - 4.0
