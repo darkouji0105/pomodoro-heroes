@@ -2288,11 +2288,15 @@ func _equipped_owner(instance_id: String) -> String:
 func get_open_part_slot_count(equip_slot: String, grade: int) -> int:
 	var count: int = 0
 	for def: Variant in get_part_slot_defs(equip_slot):
-		if _is_slot_open(def, grade):
+		if is_part_slot_open(def, grade):
 			count += 1
 	return count
 
-func _is_slot_open(def: Variant, grade: int) -> bool:
+# 枠1つが、その等級で開いているか。
+#
+# ⚠ 2026-09-07 に公開にした（⚠ `ItemDetail` が枠を1つずつ出すため）。
+#   ⚠ 判定はここ1本。⚠ min_grade との比較を画面側に書かないこと。
+func is_part_slot_open(def: Variant, grade: int) -> bool:
 	if not (def is Dictionary):
 		return false
 	var kinds: Variant = (def as Dictionary).get(PART_VIEW_KINDS, [])
@@ -2350,7 +2354,7 @@ func get_instance_stats(instance_id: String) -> Dictionary:
 #   名指しで要求している形。黙って倉庫に返すと「無くなった」に見える）。
 #
 # ⚠ 枠を減らす変更（part_slot_min_grades を伸ばす・特別枠を消す等）をしたときに、
-#   あふれた装飾がここに来る。_is_slot_open() が false になる枝がそれ。
+#   あふれた装飾がここに来る。is_part_slot_open() が false になる枝がそれ。
 func _add_part_stats(instance_id: String, instance: Dictionary, result: Dictionary) -> void:
 	var raw_parts: Variant = instance.get(GameStateKeys.INSTANCE_PARTS, [])
 	if not (raw_parts is Array):
@@ -2365,7 +2369,7 @@ func _add_part_stats(instance_id: String, instance: Dictionary, result: Dictiona
 			continue
 		var part_id: String = str((entry as Dictionary).get(GameStateKeys.PART_ITEM_ID, ""))
 
-		if i >= defs.size() or not _is_slot_open(defs[i], grade):
+		if i >= defs.size() or not is_part_slot_open(defs[i], grade):
 			push_warning("[GameManager] W18 %s: 枠%d は開いていないのに '%s' が刺さっている（加算しないが消さない）" % [
 				instance_id, i, part_id
 			])
@@ -2869,20 +2873,25 @@ func get_decor_material_id(tier: int) -> String:
 func _part_slot_kinds(equip_slot: String) -> Array:
 	var wild: Array[String] = [PART_KIND_GEM, PART_KIND_CHARM, PART_KIND_EMBLEM]
 	var special_a: Array[String] = []
-	var special_b: Array[String] = []
 	if equip_slot == GameStateKeys.EQUIP_WEAPON:
 		special_a = [PART_KIND_RUNE]
 	elif equip_slot == GameStateKeys.EQUIP_ACCESSORY:
+		# ⚠⚠ 2026-09-07・人間の指示「アクセのルーン枠を1つに」。
+		#   ⚠ 前はここが 2つ（位置3と位置4）だった。⚠ 位置4を空にして1つにした。
+		#   ⚠ 既に位置4へ刺さっている個体は W18 が出て「加算しないが消さない」（下の
+		#     `_add_part_stats()`）。⚠ 黙って消えることはない。
 		special_a = [PART_KIND_RUNE]
-		special_b = [PART_KIND_RUNE]
 	elif equip_slot in [GameStateKeys.EQUIP_HEAD, GameStateKeys.EQUIP_ARMOR, GameStateKeys.EQUIP_LEGS]:
 		special_a = wild
 	else:
 		# 装備でないIDが来た。枠を1つも作らない。
 		return []
+	# ⚠ 位置4（下の4番目）は、いまどの部位にも無い枠。⚠ 空の配列＝等級をいくら上げても
+	#   開かない（`is_part_slot_open()`）。⚠ 表の長さは PART_SLOT_COUNT のまま保つこと
+	#   （⚠ 減らすと part_slot_min_grades の長さと合わなくなって赤が出る＝.tres は人間の作業）。
 	return [
 		[PART_KIND_GEM], [PART_KIND_GEM],
-		special_a, special_b,
+		special_a, [],
 		[PART_KIND_CHARM], [PART_KIND_CHARM],
 		[PART_KIND_EMBLEM], [PART_KIND_EMBLEM],
 	]
@@ -3000,7 +3009,7 @@ func get_part_entries(instance_id: String) -> Array:
 	var parts: Array = _parts_array(instance)
 	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
 	for def: Variant in get_part_slot_defs(_instance_equip_slot(instance_id)):
-		if not _is_slot_open(def, grade):
+		if not is_part_slot_open(def, grade):
 			continue
 		var i: int = int((def as Dictionary).get(PART_VIEW_INDEX, 0))
 		var view: Dictionary = (def as Dictionary).duplicate(true)
@@ -3024,7 +3033,7 @@ func get_part_reject_reason(instance_id: String, slot_index: int, item_id: Strin
 	var defs: Array = get_part_slot_defs(equip_slot)
 	if slot_index < 0 or slot_index >= defs.size():
 		return PART_REJECT_LOCKED
-	if not _is_slot_open(defs[slot_index], int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))):
+	if not is_part_slot_open(defs[slot_index], int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))):
 		return PART_REJECT_LOCKED
 
 	# 3. その枠が空か（上書きで黙って壊さない）

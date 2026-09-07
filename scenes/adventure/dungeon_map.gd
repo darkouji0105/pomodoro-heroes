@@ -101,6 +101,9 @@ const EDGE_ANCHOR_SPREAD: float = 0.55
 @onready var abandon_button: PrimaryButton = $Layout/Footer/AbandonButton
 @onready var back_button: PrimaryButton = $Layout/Footer/BackButton
 
+# 押した所の近くに鞄の詳細を出す器（2026-09-07）。⚠ `bag_detail` と `bag_action_row` を引き取る。
+var _detail_popup: ItemDetailPopup = null
+
 # ⚠ いま重ねている拾いもの／宝箱（決定36）。⚠ null なら出ていない。⚠ 二重に開かないための札。
 var _loot_overlay: DungeonChest = null
 # ⚠⚠ 重ねたものを閉じたあとに入るマス（決定36）。⚠ "" なら何もしない。
@@ -136,6 +139,10 @@ func _ready() -> void:
 	# ⚠ 層のあいだの間隔（段階19-f）。⚠ .tscn ではなくここで入れる
 	#   （⚠ マスのあいだの間隔と同じ場所に並べて、⚠ 2箇所に散らさないため）。
 	layer_list.add_theme_constant_override("separation", LAYER_SEPARATION)
+	# ⚠ 詳細をドロップダウンへ移す（2026-09-07）。⚠ `bag_action_row` は画面に残す。
+	_detail_popup = ItemDetailPopup.adopt(self, bag_detail)
+	if _detail_popup != null:
+		_detail_popup.watch(bag_grid)
 	_rebuild()
 
 	# ⚠⚠ 戦闘から戻ったときの持ち物（決定31・決定36）。⚠ マップを組んでから重ねる。

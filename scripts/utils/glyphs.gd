@@ -130,6 +130,12 @@ static func for_unit(master_id: String, is_party: bool, is_summon: bool) -> Stri
 static func for_item(item_id: String) -> String:
 	var definition: Dictionary = MasterDataLoader.get_item(item_id)
 	if definition.is_empty():
+		# ⚠⚠ レリックは items.json ではなく relics.json（表が別）。
+		#   ⚠ ここで拾わないと ITEM_FALLBACK（📦）になり、⚠ 12件が全部同じ見た目になる
+		#     （⚠ 2026-09-07 に人間が実機で見つけた。⚠ RELIC は定義済みなのに使われていなかった）。
+		#   ⚠ ItemDetail._show_relic() が同じ順（items → relics）で引いている。
+		if not MasterDataLoader.get_relic(item_id).is_empty():
+			return RELIC
 		return ITEM_FALLBACK
 	var item_type: String = str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, ""))
 	match item_type:

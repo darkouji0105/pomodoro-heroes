@@ -1,7 +1,7 @@
 class_name ItemIcon
 extends Panel
 
-# 仮アセット＝文字のアイコン（2文字の漢字を中央・段数の数字を右下）。
+# 仮アセット＝絵文字のアイコン（種類の絵文字を中央・品の1文字を左上・段数の数字を右下）。
 #
 # ⚠ 画像を1枚も使わない。段階13（SDキャラ）が素材待ちの間、
 #   「どれが何か分かる」状態にするための仮のもの（NEXT_STEPS §0-A）。
@@ -15,6 +15,10 @@ extends Panel
 # ⚠ 数字に tr() は使わない（AGENTS.md「数値のみの表示」）。
 
 const SCENE_PATH: String = "res://scenes/ui/components/item_icon.tscn"
+
+# grade_and_number() の戻りのキー。⚠ 文字列リテラルを呼ぶ側に書かせない。
+const RESULT_GRADE: String = "grade"
+const RESULT_NUMBER: String = "number"
 
 @onready var text_label: Label = $TextLabel
 @onready var grade_label: Label = $GradeLabel
@@ -32,6 +36,35 @@ static func create(item_id: String, grade: int = 0) -> ItemIcon:
 	var icon: ItemIcon = scene.instantiate()
 	icon.setup(item_id, grade)
 	return icon
+
+
+# item_id（＋装備の個体の等級）から「背景の色に使う等級」と「右下の数字」を決める。
+#
+# ⚠⚠ 判定はここ1本。⚠ 呼ぶ側で item_type を見ないこと。
+# ⚠ 静的にしてあるのは、⚠ アイコンを1個も作らずに等級だけ知りたい呼び出しがあるため
+#   （⚠ UI テストのページが等級順に並べる・2026-09-07）。⚠ 同じ写し方を2箇所に書かない。
+# ⚠ Balance.icon が未割り当てのときは等級1・数字なしを返す（⚠ 赤は _refresh() 側が出す）。
+static func grade_and_number(item_id: String, instance_grade: int) -> Dictionary:
+	var config: IconConfig = Balance.icon
+	if config == null:
+		return {RESULT_GRADE: 1, RESULT_NUMBER: ""}
+	if instance_grade > 0:
+		# 装備の個体。等級 1〜10 をそのまま色に使う（人間の決定・10色）。
+		return {RESULT_GRADE: instance_grade, RESULT_NUMBER: str(instance_grade)}
+	var part: Dictionary = GameManager.get_part_definition(item_id)
+	if not part.is_empty():
+		var tier: int = int(part.get(GameManager.ITEM_MASTER_PART_TIER, 0))
+		# ⚠ ルーンだけ段階が5（PartConfig.max_rune_tier）。写す表が違う。
+		var is_rune: bool = not GameManager.get_rune_definition(item_id).is_empty()
+		return {RESULT_GRADE: config.grade_of_tier(tier, is_rune), RESULT_NUMBER: str(tier)}
+	var material_tier: int = GameManager.get_material_tier(item_id)
+	if material_tier > 0:
+		return {
+			RESULT_GRADE: config.grade_of_tier(material_tier, false),
+			RESULT_NUMBER: str(material_tier),
+		}
+	# それ以外（レリック・消耗品）は段数を持たない。⚠ 数字を出さない。
+	return {RESULT_GRADE: config.default_grade, RESULT_NUMBER: ""}
 
 
 func _ready() -> void:
@@ -53,27 +86,10 @@ func _refresh() -> void:
 		push_error("[ItemIcon] Balance.icon が未割り当て。アイコンを描けない")
 		return
 
-	# 右下の数字と、色に使う等級を決める。
-	# ⚠ 判定はここ1本。呼ぶ側で item_type を見ないこと。
-	var grade: int = config.default_grade
-	var number: String = ""
-	if _grade > 0:
-		# 装備の個体。等級 1〜10 をそのまま色に使う（人間の決定・10色）。
-		grade = _grade
-		number = str(_grade)
-	else:
-		var part: Dictionary = GameManager.get_part_definition(_item_id)
-		var material_tier: int = GameManager.get_material_tier(_item_id)
-		if not part.is_empty():
-			var tier: int = int(part.get(GameManager.ITEM_MASTER_PART_TIER, 0))
-			# ⚠ ルーンだけ段階が5（PartConfig.max_rune_tier）。写す表が違う。
-			var is_rune: bool = not GameManager.get_rune_definition(_item_id).is_empty()
-			grade = config.grade_of_tier(tier, is_rune)
-			number = str(tier)
-		elif material_tier > 0:
-			grade = config.grade_of_tier(material_tier, false)
-			number = str(material_tier)
-		# それ以外（レリック・消耗品）は段数を持たない。数字を出さない。
+	# 右下の数字と、色に使う等級を決める。⚠ 判定は grade_and_number() の1本。
+	var decided: Dictionary = grade_and_number(_item_id, _grade)
+	var grade: int = int(decided.get(RESULT_GRADE, config.default_grade))
+	var number: String = str(decided.get(RESULT_NUMBER, ""))
 
 	custom_minimum_size = Vector2(float(config.icon_size_px), float(config.icon_size_px))
 
@@ -82,20 +98,43 @@ func _refresh() -> void:
 	box.set_corner_radius_all(config.icon_corner_radius)
 	add_theme_stylebox_override("panel", box)
 
+	# 左上に「どの品か」の1文字。
+	#
+	# ⚠ 2026-09-07 に中央から左上へ移した（人間の指示「絵文字を大きくして、
+	#   文字を小さく」）。⚠ .tscn は触らず、位置もここから当てる（下の絵文字・
+	#   右下の数字と同じ形）。⚠ .tscn を開くと3つの Label が入れ替わる前の
+	#   位置のままなので、位置はこの関数が正。
 	text_label.text = tr("ui_icon_" + _item_id)
 	text_label.add_theme_font_size_override("font_size", config.icon_font_size)
 	text_label.add_theme_color_override("font_color", config.icon_text_color)
+	text_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	text_label.offset_left = 3.0
+	text_label.offset_top = 1.0
+	text_label.offset_right = 3.0 + float(config.icon_font_size) + 4.0
+	text_label.offset_bottom = 1.0 + float(config.icon_font_size) + 4.0
+	text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	text_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 
-	# 左上に「どの種類か」の絵文字（段階19-a）。
+	# 中央に「どの種類か」の絵文字（段階19-a）。
 	#
-	# ⚠⚠ 中央の漢字2文字を置き換えない。⚠ 絵文字は種類ごと（11種）なので、
+	# ⚠⚠ 左上の1文字を置き換えない。⚠ 絵文字は種類ごと（11種）なので、
 	#   ⚠ 置き換えると91件の品が11種類の見た目に潰れ、⚠ どの品か分からなくなる。
-	#   ⚠ 「どの品か」＝漢字2文字 ／ 「どの種類か」＝絵文字 ／ 「何段か」＝右下の数字
+	#   ⚠ 「どの品か」＝左上の1文字 ／ 「どの種類か」＝絵文字 ／ 「何段か」＝右下の数字
 	#   ⚠ ／ 「どの等級か」＝背景の色。⚠ 4つで役割が分かれている。
+	# ⚠⚠ 1文字が系統ごとにしか無いのは、⚠ 「絵文字＋1文字」の組で見分ける前提だから
+	#   （⚠ 例：「鉄」は 🔪 鉄剣 / 🎩 鉄兜 / 👕 鉄鎧 / 👟 鉄脚 の4件に出る）。
+	#   ⚠ 絵文字を種類ごとに分けるのをやめると、⚠ この4件が見分けられなくなる。
 	# ⚠ glyph_font_size が 0 なら出さない（⚠ フォントが無い環境の逃げ道）。
 	glyph_label.text = Glyphs.for_item(_item_id)
 	glyph_label.visible = config.glyph_font_size > 0
 	glyph_label.add_theme_font_size_override("font_size", maxi(1, config.glyph_font_size))
+	glyph_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	glyph_label.offset_left = 0.0
+	glyph_label.offset_top = 0.0
+	glyph_label.offset_right = 0.0
+	glyph_label.offset_bottom = 0.0
+	glyph_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	glyph_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 	grade_label.text = number
 	grade_label.visible = number != ""

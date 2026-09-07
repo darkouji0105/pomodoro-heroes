@@ -18,6 +18,9 @@ const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 @onready var relic_detail: ItemDetail = $Layout/RelicDetail
 @onready var action_row: HBoxContainer = $Layout/ActionRow
 
+# 押した所の近くに詳細を出す器（2026-09-07）。⚠ `relic_detail` と `action_row` を引き取る。
+var _detail_popup: ItemDetailPopup = null
+
 # どのマスのレリックか。⚠ 空ならマップへ戻す。
 var _node_id: String = ""
 # 選んでいるレリック。⚠ 空なら選んでいない。
@@ -37,6 +40,10 @@ func _ready() -> void:
 	title_label.text = tr("ui_dungeon_relic_select")
 	message_label.text = tr("ui_dungeon_relic_hint")
 	relic_grid.slot_pressed.connect(_on_relic_pressed)
+	# ⚠ 詳細をドロップダウンへ移す（2026-09-07）。⚠ `action_row` は画面に残す。
+	_detail_popup = ItemDetailPopup.adopt(self, relic_detail)
+	if _detail_popup != null:
+		_detail_popup.watch(relic_grid)
 	_rebuild()
 
 

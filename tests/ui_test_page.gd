@@ -46,7 +46,14 @@ const ITEM_CATEGORY_ORDER: Array[String] = [
 ]
 # ⚠ ルーンは items.json ではなく runes.json（表が別）。⚠ 型の名前とぶつからない語を使う。
 const CATEGORY_RUNE: String = "rune"
+# ⚠ レリックも表が別（relics.json）。⚠ マスの中身の種類も別（SLOT_KIND_RELIC）。
+#   ⚠ 2026-09-07・人間の指示「⚠ レリックもUIテストにいれる」。
+const CATEGORY_RELIC: String = "relic"
 const CATEGORY_KEY_PREFIX: String = "ui_uitest_cat_"
+
+# 等級順に並べるときの作業用のキー。⚠ この関数の外へ出さない。
+const SORT_GRADE: String = "grade"
+const SORT_ITEM_ID: String = "item_id"
 
 # ⚠ そのまま開ける画面。⚠ 増えたらここに1行足す（⚠ ボタンの生成は下の1本だけ）。
 const PLAIN_SCENES: Array[String] = [
@@ -68,7 +75,24 @@ const PLAIN_SCENES: Array[String] = [
 	"res://scenes/adventure/floor_relic_select.tscn",
 	"res://scenes/adventure/floor_shop.tscn",
 	"res://scenes/ui/placeholder_screen.tscn",
+	# ⚠ リソース獲得の演出のデモ（2026-09-07）。⚠ リリース前に消す（宿題77 の仲間）。
+	"res://tests/resource_gain_demo.tscn",
 ]
+
+# ⚠⚠ その場に並べて見るもの（2026-09-07・人間の指示「⚠ 今のページから全部見れるように」）。
+#
+# ⚠ ポモドーロの4つのビューは `pomodoro.tscn` が切り替えて出す**中身**で、
+#   ⚠ **戻るボタンを持っていない**（⚠ どれも `extends Control` ＋ シグナルを出すだけ）。
+#   ⚠ ＝⚠ 画面遷移で開くと行き止まりになる。⚠ だからここに**埋め込んで**見せる。
+# ⚠ シグナルは繋がない（⚠ 見た目を見るための場。⚠ 押しても何も起きないのが正しい）。
+const EMBEDDED_VIEWS: Array[String] = [
+	"res://scenes/pomodoro/protection_select_view.tscn",
+	"res://scenes/pomodoro/focus_view.tscn",
+	"res://scenes/pomodoro/break_view.tscn",
+	"res://scenes/pomodoro/reflection_view.tscn",
+]
+# 埋め込む枠の高さ（⚠ 見た目の都合だけ。⚠ 中のビューはアンカーで広がる）。
+const EMBEDDED_VIEW_HEIGHT: float = 260.0
 
 # 等級の見本に使う個体（⚠ 10色を並べるため）。⚠ items.json に在るIDだけ。
 const SAMPLE_EQUIP_ITEM_ID: String = "weapon_iron_sword"
@@ -81,12 +105,21 @@ const RESOURCE_DISPLAY_SCENE: PackedScene = preload(
 
 @onready var layout: VBoxContainer = $Scroll/Layout
 
-var _detail: ItemDetail = null
 var _grid: ItemGrid = null
+
+# ⚠⚠ 詳細は「マウスの右側に出るドロップダウン」へ移した（2026-09-07・人間の指示
+#   「⚠ ホバーするだけでマウスの右側に詳細モーダルを表示」）。
+#   ⚠ 以前はカテゴリごとに `ItemDetail` を置いていた（⚠ 下まで戻らないと読めなかったため）。
+#   ⚠ カーソルの横に出るようになったので **1つを全カテゴリで使い回す**。
+var _popup: ItemDetailPopup = null
+var _popup_detail: ItemDetail = null
 
 
 func _ready() -> void:
 	SceneManager.consume_transfer_data()
+	_popup_detail = ItemDetail.new()
+	_popup_detail.name = "PopupDetail"
+	_popup = ItemDetailPopup.adopt(self, _popup_detail)
 	_add_heading("ui_uitest_title")
 	_add_action("ui_uitest_back", _on_back_pressed)
 
@@ -101,6 +134,10 @@ func _ready() -> void:
 	_add_action(DUNGEON_RELIC_PATH.get_file(), _on_dungeon_relic_pressed, false)
 	_add_action(DUNGEON_SHOP_PATH.get_file(), _on_dungeon_shop_pressed, false)
 	_add_action(BATTLE_PATH.get_file(), _on_battle_pressed, false)
+
+	_add_heading("ui_uitest_embedded")
+	_add_note("ui_uitest_embedded_note")
+	_build_embedded_views()
 
 	_add_heading("ui_uitest_parts")
 	_build_parts_catalog()
@@ -201,6 +238,30 @@ func _on_battle_pressed() -> void:
 	})
 
 
+# --- 埋め込んで見るビュー（⚠ 遷移では見られないもの） ---
+
+# ⚠ 枠（`Control`）を挟んでから中に入れる。⚠ ビューは `anchors_preset=15` で
+#   親いっぱいに広がる作りなので、⚠ VBox に直接入れると高さ 0 に潰れる。
+# ⚠ 名前は .tscn のファイル名をそのまま出す（⚠ 識別子。⚠ 翻訳キーを増やさない）。
+func _build_embedded_views() -> void:
+	for path: String in EMBEDDED_VIEWS:
+		var name_label: Label = Label.new()
+		name_label.name = "EmbeddedName_" + path.get_file()
+		name_label.text = path.get_file()
+		layout.add_child(name_label)
+
+		var scene: PackedScene = load(path)
+		if scene == null:
+			_add_note("ui_uitest_prepare_failed")
+			continue
+		var holder: Control = Control.new()
+		holder.name = "Embedded_" + path.get_file()
+		holder.custom_minimum_size = Vector2(0.0, EMBEDDED_VIEW_HEIGHT)
+		holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		layout.add_child(holder)
+		holder.add_child(scene.instantiate())
+
+
 # --- 部品カタログ ---
 
 # ⚠ ここは「見た目を人間が見る」ための並べ物。⚠ 判定は1つも書かない。
@@ -233,12 +294,9 @@ func _build_parts_catalog() -> void:
 	_grid.name = "PartsGrid"
 	_grid.columns = 12
 	layout.add_child(_grid)
-	_detail = ItemDetail.new()
-	_detail.name = "PartsDetail"
-	layout.add_child(_detail)
-	_grid.slot_pressed.connect(_on_parts_slot_pressed)
+	if _popup != null:
+		_popup.watch(_grid)
 	_grid.rebuild(_build_sample_entries(), 12)
-	_detail.show_entry({})
 
 	# Modal（⚠ 2種類とも出す。⚠ confirm は await するので押した先で待つ）。
 	var modal_row: HBoxContainer = HBoxContainer.new()
@@ -315,7 +373,7 @@ func _on_play_se_pressed() -> void:
 #
 # ⚠ 引くのは `MasterDataLoader.get_all_items()` と `get_all_runes()` の2本。
 #   ⚠ ここに一覧を書かない（⚠ 品が増えたら黙って抜ける）。
-# ⚠ 押すと下の詳細に出る（⚠ 上のカタログと同じ `ItemDetail` を使い回す）。
+# ⚠ マスにマウスを乗せるとカーソルの右に詳細が出る（⚠ 上のカタログと同じ器・2026-09-07）。
 # ⚠ 等級は付けない（⚠ 個体ではなく「品の種類」を見るところ。⚠ 等級10色は上のカタログ）。
 # ⚠⚠ カテゴリごとに分ける（2026-09-06・人間の指示「⚠ アイテムをカテゴリごとに分けよう」）。
 #   ⚠ 分ける軸は `items.json` の `item_type`（⚠ IDの綴りから推測しない＝`game_manager.gd:148`）。
@@ -336,7 +394,11 @@ func _build_all_items() -> void:
 	# ⚠ 並びは固定（⚠ 起動ごとに順が変わると「増えた・減った」が読めない）。
 	for item_type: String in ITEM_CATEGORY_ORDER:
 		if by_type.has(item_type):
-			_add_item_category(item_type, by_type[item_type])
+			# ⚠ 装備だけ「全種類 × 等級1〜10」で並べる（下）。
+			if item_type == GameStateKeys.ITEM_TYPE_EQUIPMENT:
+				_add_equipment_grade_category(by_type[item_type])
+			else:
+				_add_item_category(item_type, by_type[item_type])
 			by_type.erase(item_type)
 	# ⚠⚠ 並びに無い型が来ても落とさない（⚠ 型が増えたときに黙って消えないように）。
 	var leftovers: Array = by_type.keys()
@@ -345,19 +407,26 @@ func _build_all_items() -> void:
 		_add_item_category(str(entry), by_type[entry])
 
 	_add_item_category(CATEGORY_RUNE, MasterDataLoader.get_all_runes().keys())
+	# ⚠ レリックは items.json に無いので別の口で引く（⚠ マスの種類も RELIC）。
+	_add_item_category(
+		CATEGORY_RELIC, MasterDataLoader.get_all_relic_ids(), GameManager.SLOT_KIND_RELIC
+	)
 
 
-# 1カテゴリぶん（⚠ 見出し ＋ マス目 ＋ そのすぐ下の詳細）。
+# 1カテゴリぶん（⚠ 見出し ＋ マス目）。
 #
-# ⚠ 詳細はカテゴリごとに置く（⚠ 1つを使い回すと、⚠ 下のカテゴリを押したときに
-#   画面の上まで戻らないと読めない）。
-func _add_item_category(category: String, item_ids: Array) -> void:
-	var ids: Array = item_ids.duplicate()
-	ids.sort()
+# ⚠ 詳細はここに置かない（⚠ 押した所の近くに出す器が受け持つ・2026-09-07）。
+# ⚠⚠ 並びは **等級順**（2026-09-07・人間の指示「⚠ アイテムも等級ごとに並べて」）。
+#   ⚠ 等級は `ItemIcon.grade_and_number()` の1本に聞く（⚠ 段階から等級への写しを
+#     ここに書き直さない＝⚠ 書くと色と並びが食い違う）。⚠ 同じ等級の中は綴り順。
+# ⚠ `kind` はマスの中身の種類。⚠ レリックだけ別（⚠ items.json の品ではない）。
+func _add_item_category(
+	category: String, item_ids: Array, kind: String = GameManager.SLOT_KIND_ITEM
+) -> void:
 	var entries: Array = []
-	for entry: Variant in ids:
+	for entry: Variant in _sorted_by_grade(item_ids):
 		entries.append({
-			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+			GameManager.SLOT_ENTRY_KIND: kind,
 			GameManager.SLOT_ENTRY_ITEM_ID: str(entry),
 			GameManager.SLOT_ENTRY_COUNT: 1,
 		})
@@ -377,17 +446,77 @@ func _add_item_category(category: String, item_ids: Array) -> void:
 	grid.name = "ItemGrid_" + category
 	grid.columns = ITEM_GRID_COLUMNS
 	layout.add_child(grid)
-
-	var detail: ItemDetail = ItemDetail.new()
-	detail.name = "ItemDetail_" + category
-	grid.slot_pressed.connect(_on_items_slot_pressed.bind(detail))
+	# ⚠ 出す口は器の1本（⚠ カテゴリごとに繋ぎ替えない）。
+	if _popup != null:
+		_popup.watch(grid)
 	grid.rebuild(entries, entries.size())
-	layout.add_child(detail)
-	detail.show_entry({})
 
 
-func _on_items_slot_pressed(entry: Dictionary, _index: int, detail: ItemDetail) -> void:
-	detail.show_entry(entry)
+# 武器・防具・アクセサリーの全種類 × 等級1〜10（2026-09-07・人間の指示
+#   「⚠ 武器防具アクセサリーの全種類の1から10をみせるように」）。
+#
+# ⚠ 1行＝1品の等級1〜10（⚠ 列を最大等級に合わせる）。⚠ 横に見れば等級10色、
+#   ⚠ 縦に見れば品の種類。⚠ マスに乗せると「その等級で何枠開いているか」が読める。
+# ⚠⚠ 個体は1つも作らない（⚠ 110個の個体を状態に入れない）。⚠ マスに等級だけ持たせた見本で、
+#   ⚠ `ItemIcon` も `ItemDetail` も等級を entry から読む＝⚠ 個体と同じ見た目になる。
+# ⚠ 最大等級は `GameManager.get_max_equipment_grade()` に聞く（⚠ 10 と書かない）。
+func _add_equipment_grade_category(item_ids: Array) -> void:
+	var max_grade: int = GameManager.get_max_equipment_grade()
+	var ids: Array = item_ids.duplicate()
+	ids.sort()
+	var entries: Array = []
+	for entry: Variant in ids:
+		for grade: int in range(1, max_grade + 1):
+			entries.append({
+				GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+				GameManager.SLOT_ENTRY_ITEM_ID: str(entry),
+				GameManager.SLOT_ENTRY_GRADE: grade,
+				GameManager.SLOT_ENTRY_COUNT: 1,
+			})
+
+	var heading: Label = Label.new()
+	heading.name = "ItemCategory_" + GameStateKeys.ITEM_TYPE_EQUIPMENT
+	# ⚠ 数値だけの部分に tr() は通さない（AGENTS.md）。
+	heading.text = "%s（%d × %d）" % [
+		tr(CATEGORY_KEY_PREFIX + GameStateKeys.ITEM_TYPE_EQUIPMENT), ids.size(), max_grade
+	]
+	layout.add_child(heading)
+
+	var grid: ItemGrid = ItemGrid.new()
+	grid.name = "ItemGrid_" + GameStateKeys.ITEM_TYPE_EQUIPMENT
+	# ⚠ 列は最大等級にそろえる＝1行が1品の等級1〜10になる。
+	grid.columns = max_grade
+	layout.add_child(grid)
+	if _popup != null:
+		_popup.watch(grid)
+	grid.rebuild(entries, entries.size())
+
+
+# 等級の小さい順。⚠ 同じ等級の中は綴り順（⚠ 起動ごとに並びが変わらないように）。
+#
+# ⚠ 装備はここを通らない（⚠ `_add_equipment_grade_category()` が等級1〜10で並べる）。
+#   ⚠ ここで等級10色が並ぶのは装飾・素材・ルーン。
+func _sorted_by_grade(item_ids: Array) -> Array:
+	var rows: Array = []
+	for entry: Variant in item_ids:
+		var item_id: String = str(entry)
+		rows.append({
+			SORT_GRADE: int(
+				ItemIcon.grade_and_number(item_id, 0).get(ItemIcon.RESULT_GRADE, 1)
+			),
+			SORT_ITEM_ID: item_id,
+		})
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a[SORT_GRADE]) != int(b[SORT_GRADE]):
+			return int(a[SORT_GRADE]) < int(b[SORT_GRADE])
+		return str(a[SORT_ITEM_ID]) < str(b[SORT_ITEM_ID])
+	)
+	var sorted_ids: Array = []
+	for entry: Variant in rows:
+		sorted_ids.append(str((entry as Dictionary)[SORT_ITEM_ID]))
+	return sorted_ids
+
+
 
 
 # 等級10色ぶんの個体 ＋ 素材 ＋ レリック（⚠ ItemDetail の3つの枝を全部出す）。
@@ -414,8 +543,6 @@ func _build_sample_entries() -> Array:
 	return entries
 
 
-func _on_parts_slot_pressed(entry: Dictionary, _index: int) -> void:
-	_detail.show_entry(entry)
 
 
 func _on_modal_notify_pressed() -> void:

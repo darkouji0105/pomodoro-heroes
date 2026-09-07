@@ -49,6 +49,10 @@ const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 @onready var chest_list: VBoxContainer = $Layout/Tabs/ChestTab/ChestScroll/ChestList
 @onready var result_label: Label = $Layout/Tabs/ChestTab/ResultLabel
 
+# 押した所の近くに詳細を出す器（2026-09-07）。⚠ 上の2つを引き取るので、
+#   ⚠ `item_detail` / `action_row` の参照はそのまま使える（⚠ 親が変わるだけ）。
+var _detail_popup: ItemDetailPopup = null
+
 func _ready() -> void:
 	# 1. タブ名を日本語化（ノード名の英語が画面に出る前に上書き）
 	for i: int in range(TAB_TITLE_KEYS.size()):
@@ -80,7 +84,13 @@ func _ready() -> void:
 	prev_page_button.pressed.connect(_on_prev_page_pressed)
 	next_page_button.pressed.connect(_on_next_page_pressed)
 
-	# 6. 初期描画
+	# 6. 詳細をドロップダウンへ移す（2026-09-07）。⚠ 引き取るのは詳細だけで、
+	#    ⚠ `action_row` は画面に残す（⚠ ホバーで消える器にボタンを入れない）。
+	_detail_popup = ItemDetailPopup.adopt(self, item_detail)
+	if _detail_popup != null:
+		_detail_popup.watch(inventory_grid)
+
+	# 7. 初期描画
 	_rebuild_inventory()
 	_rebuild_codex()
 	_rebuild_chest_list()

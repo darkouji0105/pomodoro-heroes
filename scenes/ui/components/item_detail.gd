@@ -120,13 +120,21 @@ func _show_instance(item_id: String, instance_id: String) -> void:
 func _show_item(item_id: String) -> void:
 	# ⚠ 個数は、⚠ マスが持っていればそれを使う（⚠ ダンジョンの鞄。⚠ 拠点には1個も無い品がある）。
 	#   ⚠ 無ければ拠点の所持数を引く（⚠ 倉庫のマス）。
-	var count: int = int(_entry.get(
-		GameManager.SLOT_ENTRY_COUNT, GameManager.get_item_count(item_id)
-	))
-	_add_line("%s x%d" % [tr("ui_res_" + item_id), count])
+	# ⚠ 等級を持つ見本（⚠ UI テストの「等級1〜10」）は個数ではなく等級を出す。
+	#   ⚠ 個体（`_show_instance`）と同じ見出しにする＝⚠ 並べたときに読み方が変わらない。
+	var grade: int = int(_entry.get(GameManager.SLOT_ENTRY_GRADE, 0))
+	if grade > 0:
+		_add_line("%s  %s" % [tr("ui_res_" + item_id), tr("ui_equipment_grade") % grade])
+	else:
+		var count: int = int(_entry.get(
+			GameManager.SLOT_ENTRY_COUNT, GameManager.get_item_count(item_id)
+		))
+		_add_line("%s x%d" % [tr("ui_res_" + item_id), count])
 
 	var definition: Dictionary = GameManager.get_part_definition(item_id)
 	if definition.is_empty():
+		# ⚠ 装飾でなければ装備かもしれない。⚠ 装備は「品」の側にも枠の形が在る。
+		_show_equipment_slots(item_id, int(_entry.get(GameManager.SLOT_ENTRY_GRADE, 0)))
 		return
 
 	# 装飾。⚠ 出目は刺すときに振れるので、⚠ 確定値ではなく幅で見せる（GAME_DESIGN.md 7-6）。
@@ -158,6 +166,69 @@ func _show_item(item_id: String) -> void:
 			tr("ui_res_" + str(cost.get(GameManager.PART_UPGRADE_MATERIAL_ID, ""))),
 			int(cost.get(GameManager.PART_UPGRADE_AMOUNT, 0)),
 		])
+
+
+# 装備の「品」（＝個体ではない）。⚠ 2026-09-07・人間の指示
+#   「⚠ 装備などに関してはスロットなども人眼で見れるように」。
+#
+# ⚠⚠ 個体（`_show_instance`）は **刺さっているもの** を出すが、⚠ こちらは品なので
+#   **枠の形**（⚠ どの部位に着くか ／ ⚠ どの枠に何が刺さるか ／ ⚠ 何等級で開くか）を出す。
+#   ⚠ 前は名前と個数の2行だけで、⚠ 一覧から装備を見ても何も分からなかった。
+# ⚠ 枠の定義は `GameManager.get_part_slot_defs()` の1本に聞く。⚠ ここで並びを作らない
+#   （⚠ 作ると装備画面と食い違う）。
+func _show_equipment_slots(item_id: String, grade: int) -> void:
+	var definition: Dictionary = MasterDataLoader.get_item(item_id)
+	var equip_slot: String = str(definition.get(GameManager.ITEM_MASTER_EQUIP_SLOT, ""))
+	if equip_slot == "":
+		return
+
+	_add_line(tr("ui_detail_equip_slot") % tr("ui_equipment_slot_" + equip_slot))
+	# ⚠ 素の値（⚠ 等級の係数が乗る前）。⚠ 個体の数字は `get_instance_stats()` が出す。
+	var stats_text: String = _stats_text(
+		definition.get(GameManager.ITEM_MASTER_EQUIP_STATS, {})
+	)
+	if stats_text != "":
+		_add_line(stats_text)
+
+	# ⚠⚠ **その等級で開いている枠だけ**を出す（2026-09-07・人間の指示
+	#   「⚠ スロットの開き具合も見せる」「⚠ いつ開くとかは表示しなくていい、
+	#     ⚠ 空か中にあるか見れればいい」）。
+	#   ⚠ 前は8枠ぜんぶに「等級Nで開く」と書いていた。⚠ その表示はやめた。
+	# ⚠ 開いているかの判定は `GameManager.is_part_slot_open()` の1本
+	#   （⚠ min_grade との比較をここに書かない）。
+	# ⚠ 品には中身が無いので全部「（空き）」。⚠ 刺さっているものを出すのは
+	#   `_show_instance()` のほう（⚠ あちらは instance_id を持っている）。
+	var defs: Array = GameManager.get_part_slot_defs(equip_slot)
+	var lines: Array[String] = []
+	for entry: Variant in defs:
+		if not (entry is Dictionary):
+			continue
+		var view: Dictionary = entry
+		if not GameManager.is_part_slot_open(view, grade):
+			continue
+		lines.append("  [%d] %s  %s" % [
+			int(view.get(GameManager.PART_VIEW_INDEX, 0)) + 1,
+			tr(part_slot_label_key(view)),
+			tr("ui_part_slot_empty"),
+		])
+	# ⚠ 1つも開いていない等級（⚠ 武器・防具は等級1〜2）では見出しごと出さない。
+	if lines.is_empty():
+		return
+	_add_line(tr("ui_part_slot_header"))
+	for line: String in lines:
+		_add_line(line)
+
+
+# 枠の名前の翻訳キー。⚠ 刺さる種類が1つならその種類、⚠ 複数ならワイルド枠。
+#
+# ⚠⚠ ここが唯一の対応表。⚠ 種類ごとに if を分岐させないこと（⚠ 種類が増えても変わらない）。
+# ⚠ 2026-09-07 に `equipment_screen.gd` から移した（⚠ あちらとこちらで2本になっていた）。
+#   ⚠ 静的にしてあるのは、⚠ 部品を1つも作らずに名前だけ要る呼び出しがあるため。
+static func part_slot_label_key(view: Dictionary) -> String:
+	var kinds: Variant = view.get(GameManager.PART_VIEW_KINDS, [])
+	if kinds is Array and (kinds as Array).size() == 1:
+		return "ui_part_slot_kind_" + str((kinds as Array)[0])
+	return "ui_part_slot_kind_wild"
 
 
 # 説明文（宿題62）。⚠ ja.csv に "ui_desc_<item_id>" が在るときだけ出す。

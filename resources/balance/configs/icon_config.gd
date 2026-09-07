@@ -61,16 +61,21 @@ extends Resource
 # アイコン1個の一辺（px）。⚠ 状態のマス（status_chip）の16pxより大きい。
 # 行の高さを決めるので、変えたら scenario=layout を回すこと。
 @export var icon_size_px: int = 40
-# 中央の2文字の字の大きさ。
-@export var icon_font_size: int = 18
+# 左上の1文字の字の大きさ。
+#
+# ⚠ 2026-09-07 に 18 → 11 へ下げた（人間の指示「絵文字を大きくして、文字を小さく」）。
+#   ⚠ 同じ回に文字を2文字 → 1文字にした（ja.csv の ui_icon_* 103行）。
+#   ⚠ 2文字に戻すならここも上げ直すこと（11 のままだと読めない）。
+@export var icon_font_size: int = 11
 # 右下の数字の字の大きさ。
-@export var grade_font_size: int = 11
-# 左上の種類の絵文字の字の大きさ（段階19-a）。
+@export var grade_font_size: int = 10
+# 中央の種類の絵文字の字の大きさ（段階19-a）。
 #
 # ⚠ 絵文字そのものは `scripts/utils/glyphs.gd` の1本。⚠ ここは大きさだけ。
-# ⚠ 0 にすると絵文字を出さない（⚠ 漢字2文字だけに戻る）。⚠ フォントが
+# ⚠ 0 にすると絵文字を出さない（⚠ 左上の1文字だけに戻る）。⚠ フォントが
 #   入っていない環境で豆腐が並ぶときの逃げ道。
-@export var glyph_font_size: int = 13
+# ⚠ 2026-09-07 に 13 → 20 へ上げた（人間の指示）。⚠ マス 40px の半分。
+@export var glyph_font_size: int = 20
 # 角の丸み。
 @export var icon_corner_radius: int = 6
 

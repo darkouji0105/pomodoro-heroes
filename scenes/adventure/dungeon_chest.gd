@@ -42,6 +42,11 @@ const OVERLAY_DIM_ALPHA: float = 0.88
 @onready var loot_detail: ItemDetail = $Layout/LootDetail
 @onready var action_row: HBoxContainer = $Layout/ActionRow
 
+# ホバーで詳細を出すドロップダウン（2026-09-07）。⚠ 引き取るのは `loot_detail` だけ。
+#   ⚠ `action_row` は画面に残す（⚠ 「開ける」「全部入れる」「マップへ戻る」は
+#     マスを選んでいなくても押せる必要がある）。
+var _detail_popup: ItemDetailPopup = null
+
 # どのマスの宝箱か。⚠ 通路の宝箱・通路の資源なら空。
 var _node_id: String = ""
 # 通路の宝箱として来たか（段階19-c-2）。
@@ -95,6 +100,11 @@ func _ready() -> void:
 	bag_title_label.text = tr("ui_dungeon_chest_bag_title")
 	loot_grid.slot_pressed.connect(_on_loot_pressed)
 	bag_grid.slot_pressed.connect(_on_bag_pressed)
+	# ⚠ マス目が2つあるので、⚠ どちらも見張る（⚠ 出す口は器の1本）。
+	_detail_popup = ItemDetailPopup.adopt(self, loot_detail)
+	if _detail_popup != null:
+		_detail_popup.watch(loot_grid)
+		_detail_popup.watch(bag_grid)
 	_rebuild()
 
 
@@ -193,7 +203,6 @@ func _rebuild_actions() -> void:
 	for child in action_row.get_children():
 		action_row.remove_child(child)
 		child.queue_free()
-
 	loot_detail.show_entry(_selected_entry)
 
 	if not _was_opened():

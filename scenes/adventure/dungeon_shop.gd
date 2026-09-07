@@ -23,6 +23,9 @@ const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 @onready var upgrade_list: VBoxContainer = $Layout/UpgradeList
 @onready var back_button: PrimaryButton = $Layout/Footer/BackButton
 
+# 押した所の近くに詳細を出す器（2026-09-07）。⚠ `item_detail` と `item_action_row` を引き取る。
+var _detail_popup: ItemDetailPopup = null
+
 # マス目の何番目が、店の並びの何番目か。⚠ 買う口は店の番号で呼ぶ。
 var _item_indexes: Array[int] = []
 # 選んでいる品の番号（店の並びの中の番号）。⚠ -1 なら選んでいない。
@@ -43,6 +46,10 @@ func _ready() -> void:
 	item_grid.slot_pressed.connect(_on_item_pressed)
 	back_button.pressed.connect(_on_back_pressed)
 	GameManager.dungeon_run_changed.connect(_on_dungeon_run_changed)
+	# ⚠ 詳細をドロップダウンへ移す（2026-09-07）。⚠ `item_action_row` は画面に残す。
+	_detail_popup = ItemDetailPopup.adopt(self, item_detail)
+	if _detail_popup != null:
+		_detail_popup.watch(item_grid)
 	_rebuild()
 
 

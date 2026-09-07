@@ -19,6 +19,11 @@ extends GridContainer
 # ⚠⚠ 番号を必ず渡すこと。⚠ 空のマスは中身が全部同じ（空の Dictionary）なので、
 #   ⚠ 中身だけでは「どの枠を押したか」が区別できない（⚠ 装備の5枠でこれを踏んだ）。
 signal slot_pressed(entry: Dictionary, index: int)
+# マウスが乗った／外れた（2026-09-07）。⚠ 番号を渡す理由は slot_pressed と同じ。
+#
+# ⚠ 出す先は `ItemDetailPopup.watch()` の1本。⚠ 画面ごとに繋ぎ替えないこと。
+signal slot_hovered(entry: Dictionary, index: int)
+signal slot_unhovered(index: int)
 # マスを動かした（段階18-f・ドラッグ＆ドロップ）。⚠ 番号はこのマス目の中の番号。
 #   ⚠ ページのぶんを足すのは画面側（⚠ この部品はページを知らない）。
 signal slot_moved(from_index: int, to_index: int)
@@ -59,6 +64,8 @@ func rebuild(entries: Array, slot_count: int = 0) -> void:
 		slot.set_slot_index(i)
 		slot.slot_pressed.connect(_on_slot_pressed.bind(i))
 		slot.slot_dropped.connect(_on_slot_dropped.bind(i))
+		slot.slot_hovered.connect(_on_slot_hovered.bind(i))
+		slot.slot_unhovered.connect(_on_slot_unhovered.bind(i))
 		add_child(slot)
 		_slots.append(slot)
 
@@ -69,6 +76,14 @@ func get_slot_count() -> int:
 
 func _on_slot_pressed(entry: Dictionary, index: int) -> void:
 	slot_pressed.emit(entry, index)
+
+
+func _on_slot_hovered(entry: Dictionary, index: int) -> void:
+	slot_hovered.emit(entry, index)
+
+
+func _on_slot_unhovered(index: int) -> void:
+	slot_unhovered.emit(index)
 
 
 # 落とされた。⚠ from はつまんだ側、⚠ to は落とされた側（bind で入る）。

@@ -23,6 +23,11 @@ const SCENE_PATH: String = "res://scenes/ui/components/item_slot.tscn"
 
 # 押されたら、そのマスの中身をそのまま渡す。⚠ 空のマスなら空の Dictionary。
 signal slot_pressed(entry: Dictionary)
+# マウスが乗った／外れた（2026-09-07・人間の指示「ホバーするだけで詳細を表示」）。
+#
+# ⚠ 空のマスでも飛ばす（⚠ 「空だから出さない」の判定は受け手側の1本＝`ItemDetailPopup`）。
+signal slot_hovered(entry: Dictionary)
+signal slot_unhovered()
 # ここへ他のマスが落とされた。⚠ 渡ってくるのは「落とした側のマスの番号」。
 signal slot_dropped(from_index: int)
 
@@ -53,6 +58,8 @@ static func create(entry: Dictionary = {}) -> ItemSlot:
 
 func _ready() -> void:
 	pressed.connect(_on_pressed)
+	mouse_entered.connect(_on_mouse_entered)
+	mouse_exited.connect(_on_mouse_exited)
 	_refresh()
 
 
@@ -159,3 +166,11 @@ func _refresh() -> void:
 
 func _on_pressed() -> void:
 	slot_pressed.emit(get_entry())
+
+
+func _on_mouse_entered() -> void:
+	slot_hovered.emit(get_entry())
+
+
+func _on_mouse_exited() -> void:
+	slot_unhovered.emit()

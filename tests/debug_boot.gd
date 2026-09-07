@@ -3491,6 +3491,9 @@ func _walk_all_routes(
 #   1. ja.csv の字が当たっているか（キー名がそのまま出ていないか＝再インポート未了）
 #   2. 右下の数字が段数と合っているか（装備＝等級 ／ 装飾・素材＝段階 ／ レリック＝無し）
 #   3. 色が10色のどれになるか（等級・段階の写し違いはここでしか見えない）
+#
+# ⚠ 2026-09-07：字は 2文字 → **1文字**（人間の指示「絵文字があるので文字は1文字でいい」）。
+#   ⚠ 長さの検査もそれに合わせた。⚠ 2文字に戻すなら length() != 1 のほうも戻すこと。
 func _report_item_icons() -> void:
 	print("[DebugBoot] --- 仮アセットのアイコン（⚠ 字・右下の数字・色）---")
 	# [item_id, 渡す等級（装備の個体だけ。0 なら item_id から引く）]
@@ -3516,17 +3519,19 @@ func _report_item_icons() -> void:
 		var color: Color = (box as StyleBoxFlat).bg_color if box is StyleBoxFlat else Color.BLACK
 		if text == "ui_icon_" + item_id:
 			missing_keys += 1
-		elif text.length() != 2:
+		elif text.length() != 1:
 			wrong_length += 1
-		print("  %-26s 字='%s' 右下='%s' 色=(%.2f, %.2f, %.2f)" % [
-			item_id, text, number, color.r, color.g, color.b
+		# ⚠ 絵文字も出す（2026-09-07）。⚠ レリック12件が ITEM_FALLBACK（📦）に
+		#   落ちていたのを、⚠ ここが出していなかったせいで気づけなかった。
+		print("  %-26s 絵='%s' 字='%s' 右下='%s' 色=(%.2f, %.2f, %.2f)" % [
+			item_id, icon.glyph_label.text, text, number, color.r, color.g, color.b
 		])
 		remove_child(icon)
 		icon.queue_free()
 	if missing_keys > 0:
 		push_error("[DebugBoot] ja.csv に ui_icon_* が %d 件無い（キー名がそのまま出る）" % missing_keys)
 	if wrong_length > 0:
-		push_warning("[DebugBoot] ui_icon_* に2文字でないものが %d 件（中央がずれる）" % wrong_length)
+		push_warning("[DebugBoot] ui_icon_* に1文字でないものが %d 件（左上からはみ出す）" % wrong_length)
 
 
 func _report_layout() -> void:
@@ -3881,6 +3886,8 @@ const LAYOUT_SCENES: Array[String] = [
 	# ⚠ UI テストのページ（2026-09-06）。⚠ 中身は全部コードで積むので、開かないと分からない。
 	#   ⚠ リリース前に消すときは、⚠ この行も一緒に消す。
 	"res://tests/ui_test_page.tscn",
+	# ⚠ リソース獲得の演出のデモ（2026-09-07）。⚠ 絵は取れないが、⚠ 開いて赤が出ないことは測れる。
+	"res://tests/resource_gain_demo.tscn",
 	# ⚠ 段階14-e のフロア内ショップ。⚠ 開くだけで無料ガチャが1回引かれる
 	#   （測るために開くので、状態に宝箱が1個積まれる。⚠ 保存はしない）。
 	"res://scenes/adventure/floor_shop.tscn",
@@ -4603,6 +4610,39 @@ func _report_inventory() -> void:
 	print("  stamina_potion（説明文が出るか）")
 	for line: String in detail.get_lines():
 		print("    %s" % line)
+
+	# ⚠ 装備の「品」（＝個体ではない）も見る（2026-09-07・人間の指示
+	#   「⚠ 装備などに関してはスロットなども人眼で見れるように」）。
+	#   ⚠ 等級を変えると開いている枠が増えるのが正解（⚠ 「いつ開くか」は出さない）。
+	#   ⚠ 等級 0 は UI テスト以外のマス（⚠ 個数を出す枝）。
+	for probe_grade: int in [0, 1, 5, GameManager.get_max_equipment_grade()]:
+		detail.show_entry({
+			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+			GameManager.SLOT_ENTRY_ITEM_ID: "weapon_iron_sword",
+			GameManager.SLOT_ENTRY_INSTANCE_ID: "",
+			GameManager.SLOT_ENTRY_GRADE: probe_grade,
+			GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+		})
+		print("  weapon_iron_sword 等級%d（⚠ 品としての装備。⚠ 開いている枠だけ出るか）" % probe_grade)
+		for line: String in detail.get_lines():
+			print("    %s" % line)
+
+	# ⚠ アクセも見る（2026-09-07・人間の指示「⚠ アクセのルーン枠を1つに」）。
+	#   ⚠ 最大等級で **ルーン枠が1つ**なのが正解（⚠ 前は2つだった）。
+	detail.show_entry({
+		GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+		GameManager.SLOT_ENTRY_ITEM_ID: "acc_ring_power",
+		GameManager.SLOT_ENTRY_INSTANCE_ID: "",
+		GameManager.SLOT_ENTRY_GRADE: GameManager.get_max_equipment_grade(),
+		GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+	})
+	print("  acc_ring_power 最大等級（⚠ ルーン枠が1つなのが正解）")
+	for line: String in detail.get_lines():
+		print("    %s" % line)
+	for slot_name: String in GameManager.get_equip_slots():
+		print("    枠の数 %-10s = %d" % [
+			slot_name, GameManager.get_open_part_slot_count(slot_name, GameManager.get_max_equipment_grade())
+		])
 	detail.queue_free()
 
 	_report_inventory_order()

@@ -414,11 +414,10 @@ func _on_rune_move_selected(item_index: int, item_id: String, choices: Array) ->
 
 # 枠の名前の翻訳キー。刺さる種類が1つならその種類、複数ならワイルド枠。
 # ⚠ 種類ごとに if を分岐させない。種類が増えてもここは変わらない。
+# ⚠ 2026-09-07：中身を `ItemDetail.part_slot_label_key()` へ移した（⚠ 詳細の部品でも
+#   同じ名前が要るため）。⚠ ここは呼ぶだけ。⚠ 2本目を書かないこと。
 func _part_slot_label_key(view: Dictionary) -> String:
-	var kinds: Variant = view.get(GameManager.PART_VIEW_KINDS, [])
-	if kinds is Array and (kinds as Array).size() == 1:
-		return "ui_part_slot_kind_" + str((kinds as Array)[0])
-	return "ui_part_slot_kind_wild"
+	return ItemDetail.part_slot_label_key(view)
 
 # 刺さっている装飾1つ分。「HPの宝石④  HP +131」。
 # 加算量は GameManager.get_part_stat_value() の1本から引く（表示用に2本目を書かない）。
