@@ -170,6 +170,20 @@ static func _for_equip_slot(equip_slot: String) -> String:
 	return ITEM_FALLBACK
 
 
+# 装飾の枠の絵文字（2026-09-08・段階②）。
+#
+# ⚠ 刺さる種類が1つならその種類の絵文字。
+# ⚠ 複数（＝ワイルド枠）なら "" ＝何も出さない。⚠ 「何でも刺さる」を1つの絵文字で
+#   言い表せないので、⚠ 嘘の種類を出すより空のほうがよい（⚠ 名前はツールチップが出す）。
+# ⚠ 刺さっているものの絵文字は for_item() のほう（⚠ 枠が受ける種類とは別物）。
+# ⚠⚠ 未開放の枠は **そもそも出さない**（⚠ 2026-09-08・人間の指示）ので、
+#   ⚠ 鍵の絵文字は持たない。⚠ 出すかどうかを決めるのは `PartSlotRow`。
+static func for_part_slot(kinds: Variant) -> String:
+	if not (kinds is Array) or (kinds as Array).size() != 1:
+		return ""
+	return _for_part_kind(str((kinds as Array)[0]))
+
+
 static func _for_part_kind(part_kind: String) -> String:
 	match part_kind:
 		GameManager.PART_KIND_GEM:

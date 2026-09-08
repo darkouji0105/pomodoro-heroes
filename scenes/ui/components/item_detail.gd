@@ -75,27 +75,30 @@ func _show_instance(item_id: String, instance_id: String) -> void:
 	if stats_text != "":
 		_add_line(stats_text)
 
-	# 刺さっている装飾。⚠ 開いている枠だけ出す（GameManager が開いているぶんだけ返す）。
+	# 刺さっている装飾。⚠ 1行のマスで出す（2026-09-08・モック）。
+	#   ⚠ 前は枠1つにつき1行の文字だった（⚠ 7枠あると詳細が枠の説明で埋まっていた）。
+	# ⚠⚠ `get_part_entries()` は **開いている枠しか返さない**。⚠ 未開放のマスも出すため、
+	#   ⚠ 枠の並びは `get_part_slot_defs()`（全部）から取り、⚠ 中身だけ index で重ねる。
+	#   ⚠ 「開いているか」の判定は `PartSlotIcon` が `GameManager` に聞く（⚠ ここでしない）。
+	var equip_slot: String = str(
+		MasterDataLoader.get_item(item_id).get(GameManager.ITEM_MASTER_EQUIP_SLOT, "")
+	)
+	var entries_by_index: Dictionary = {}
 	for view: Variant in GameManager.get_part_entries(instance_id):
-		if not (view is Dictionary):
-			continue
-		var slot_index: int = int((view as Dictionary).get(GameManager.PART_VIEW_INDEX, 0))
-		var part_entry: Variant = (view as Dictionary).get(GameManager.PART_VIEW_ENTRY, null)
-		var body: String = tr("ui_part_slot_empty")
-		if part_entry is Dictionary:
-			var part_id: String = str((part_entry as Dictionary).get(GameStateKeys.PART_ITEM_ID, ""))
-			# ⚠ 出目込みの確定値は get_part_stat_value() の1本（表示も加算もここを通る）。
-			#   ⚠ base + roll をここで足し直さないこと。
-			var part_stat: String = str(
-				GameManager.get_part_definition(part_id).get(GameManager.ITEM_MASTER_PART_STAT, "")
+		if view is Dictionary:
+			entries_by_index[int((view as Dictionary).get(GameManager.PART_VIEW_INDEX, 0))] = (
+				(view as Dictionary).get(GameManager.PART_VIEW_ENTRY, null)
 			)
-			body = tr("ui_res_" + part_id)
-			if part_stat != "":
-				body += "  %s +%s" % [
-					tr("ui_training_stat_" + part_stat),
-					_stat_value_text(part_stat, GameManager.get_part_stat_value(part_entry)),
-				]
-		_add_line("  [%d] %s" % [slot_index + 1, body])
+	var defs: Array = []
+	for def: Variant in GameManager.get_part_slot_defs(equip_slot):
+		if not (def is Dictionary):
+			continue
+		var merged: Dictionary = (def as Dictionary).duplicate(true)
+		merged[GameManager.PART_VIEW_ENTRY] = entries_by_index.get(
+			int(merged.get(GameManager.PART_VIEW_INDEX, 0)), null
+		)
+		defs.append(merged)
+	_add_part_slots(defs, grade)
 
 	var equipped_by: String = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
 	if equipped_by != "":
@@ -190,45 +193,30 @@ func _show_equipment_slots(item_id: String, grade: int) -> void:
 	if stats_text != "":
 		_add_line(stats_text)
 
-	# ⚠⚠ **その等級で開いている枠だけ**を出す（2026-09-07・人間の指示
-	#   「⚠ スロットの開き具合も見せる」「⚠ いつ開くとかは表示しなくていい、
-	#     ⚠ 空か中にあるか見れればいい」）。
-	#   ⚠ 前は8枠ぜんぶに「等級Nで開く」と書いていた。⚠ その表示はやめた。
-	# ⚠ 開いているかの判定は `GameManager.is_part_slot_open()` の1本
-	#   （⚠ min_grade との比較をここに書かない）。
-	# ⚠ 品には中身が無いので全部「（空き）」。⚠ 刺さっているものを出すのは
+	# ⚠ 品には中身が無いので全部「空き」か「未開放」。⚠ 刺さっているものを出すのは
 	#   `_show_instance()` のほう（⚠ あちらは instance_id を持っている）。
-	var defs: Array = GameManager.get_part_slot_defs(equip_slot)
-	var lines: Array[String] = []
-	for entry: Variant in defs:
-		if not (entry is Dictionary):
-			continue
-		var view: Dictionary = entry
-		if not GameManager.is_part_slot_open(view, grade):
-			continue
-		lines.append("  [%d] %s  %s" % [
-			int(view.get(GameManager.PART_VIEW_INDEX, 0)) + 1,
-			tr(part_slot_label_key(view)),
-			tr("ui_part_slot_empty"),
-		])
-	# ⚠ 1つも開いていない等級（⚠ 武器・防具は等級1〜2）では見出しごと出さない。
-	if lines.is_empty():
-		return
-	_add_line(tr("ui_part_slot_header"))
-	for line: String in lines:
-		_add_line(line)
+	# ⚠ 「いつ開くか」は出さない（⚠ 2026-09-07 の決定）。⚠ 2026-09-08 に、
+	#   ⚠ **未開放の枠が在ること自体**は鍵のマスで見せるようにした（⚠ モック）。
+	_add_part_slots(GameManager.get_part_slot_defs(equip_slot), grade)
 
 
-# 枠の名前の翻訳キー。⚠ 刺さる種類が1つならその種類、⚠ 複数ならワイルド枠。
+# 枠を1行のマスで出す（2026-09-08・段階②）。⚠ 見出しに「2 / 7」を付ける。
 #
-# ⚠⚠ ここが唯一の対応表。⚠ 種類ごとに if を分岐させないこと（⚠ 種類が増えても変わらない）。
-# ⚠ 2026-09-07 に `equipment_screen.gd` から移した（⚠ あちらとこちらで2本になっていた）。
-#   ⚠ 静的にしてあるのは、⚠ 部品を1つも作らずに名前だけ要る呼び出しがあるため。
-static func part_slot_label_key(view: Dictionary) -> String:
-	var kinds: Variant = view.get(GameManager.PART_VIEW_KINDS, [])
-	if kinds is Array and (kinds as Array).size() == 1:
-		return "ui_part_slot_kind_" + str((kinds as Array)[0])
-	return "ui_part_slot_kind_wild"
+# ⚠ 分母は **開いている枠の数**（⚠ 未開放は数えない）。⚠ 数えるのは `PartSlotRow`。
+# ⚠ 枠が1つも無い品（⚠ 消耗品・素材）では見出しごと出さない。
+func _add_part_slots(defs: Array, grade: int) -> void:
+	if defs.is_empty():
+		return
+	var row: PartSlotRow = PartSlotRow.create(defs, grade)
+	# ⚠ 1つも開いていない等級（⚠ 武器・防具は等級1〜2）では見出しごと出さない。
+	#   ⚠ 未開放の枠を出さなくなったので（2026-09-08）、⚠ ここが空の行になりうる。
+	if row.get_open_count() == 0:
+		row.queue_free()
+		return
+	_add_line("%s  %d / %d" % [
+		tr("ui_part_slot_header"), row.get_filled_count(), row.get_open_count()
+	])
+	add_child(row)
 
 
 # 説明文（宿題62）。⚠ ja.csv に "ui_desc_<item_id>" が在るときだけ出す。
@@ -275,9 +263,14 @@ func _add_line(text: String) -> void:
 
 # 出している行を上から並べて返す。⚠ 検証用（設計役は画面の絵を取れない）。
 #   ⚠ ゲームのロジックから呼ばないこと。
+#
+# ⚠⚠ 枠の行（`PartSlotRow`）も文字にして返す。⚠ 2026-09-08 に枠を文字から
+#   マスに変えた。⚠ Label だけを拾っていると、⚠ 枠の行がこの検証から黙って消える。
 func get_lines() -> Array[String]:
 	var result: Array[String] = []
 	for child in get_children():
 		if child is Label:
 			result.append((child as Label).text)
+		elif child is PartSlotRow:
+			result.append((child as PartSlotRow).to_text())
 	return result

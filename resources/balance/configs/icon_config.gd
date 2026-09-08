@@ -93,6 +93,42 @@ extends Resource
 # 角の丸み。
 @export var icon_corner_radius: int = 6
 
+# --- 装飾の枠のマス（2026-09-08・段階②・`PartSlotIcon`）---
+#
+# ⚠ アイテムのマス（40px）より小さい。⚠ 7個並べて1行に収める前提。
+@export var part_slot_size_px: int = 22
+# 枠の中の絵文字の大きさ。
+@export var part_slot_glyph_font_size: int = 11
+# 空きの枠の枠線の太さ。
+@export var part_slot_border_width: int = 1
+# 装填済の枠線の太さ。⚠ 太くして、⚠ 等級の色が読めるようにする。
+@export var part_slot_filled_border_width: int = 2
+# 空きの枠の絵文字の薄さ（0.0〜1.0）。⚠ 1.0 で装填済と同じ濃さ。
+@export var part_slot_dim_alpha: float = 0.55
+
+# --- 空きの枠の枠線の色＝そこに刺さる種類（2026-09-08・人間の指示
+#     「⚠ スロットの周りの枠で何を付けられるかわかるようにしたい」）---
+#
+# ⚠⚠ 色が言うことは、⚠ 空きと装填済で違う：
+#   ⚠ 空き   … **そこに刺さる種類**（⚠ 下の5色）
+#   ⚠ 装填済 … **刺さっているものの等級**（⚠ `grade_colors`。⚠ 種類は中の絵文字が言う）
+#   ⚠ 刺さってしまえば「何が刺さるか」は要らないので、⚠ 1つの枠線を2つの意味で使い分ける。
+# ⚠ 等級の10色と紛らわしくならないよう、⚠ 彩度を落としてある。
+@export var part_slot_gem_color: Color = Color(0.44, 0.72, 0.78)
+@export var part_slot_charm_color: Color = Color(0.48, 0.72, 0.52)
+@export var part_slot_emblem_color: Color = Color(0.66, 0.55, 0.80)
+@export var part_slot_rune_color: Color = Color(0.78, 0.68, 0.40)
+# ワイルド枠（⚠ 宝石・護符・紋章のどれでも受ける）。
+#
+# ⚠⚠ **虹色**（2026-09-08・人間の指示「⚠ 装備のワイルドは虹色にして」）。
+#   ⚠ 1色では「どれでも受ける」を言えないため。⚠ `StyleBoxFlat` の枠線は1色しか
+#   持てないので、⚠ `PartSlotIcon` が枠を自前で描く（⚠ そのときだけ）。
+# ⚠ 下の2つは色相を回すときの彩度と明度。⚠ 色相は 0〜1 を1周させる。
+# ⚠ `part_slot_wild_color` は虹を描けないときの逃げ道（⚠ ツールチップや検証には出ない）。
+@export var part_slot_wild_color: Color = Color(0.55, 0.50, 0.46)
+@export var part_slot_wild_saturation: float = 0.55
+@export var part_slot_wild_value: float = 0.95
+
 
 # 等級（1〜）から色を引く。⚠ 範囲外は端に丸める（黙って黒を返さない）。
 func color_of_grade(grade: int) -> Color:
@@ -100,6 +136,32 @@ func color_of_grade(grade: int) -> Color:
 		return Color.WHITE
 	var index: int = clampi(grade - 1, 0, grade_colors.size() - 1)
 	return grade_colors[index]
+
+
+# ワイルド枠か（＝刺さる種類が1つに決まっていないか）。
+#
+# ⚠ 判定はここ1本。⚠ 「1つならその種類」の書き方を呼ぶ側に写さないこと。
+func is_wild_part_slot(kinds: Variant) -> bool:
+	return not (kinds is Array) or (kinds as Array).size() != 1
+
+
+# 空きの枠に使う色。⚠ 刺さる種類が1つならその色、⚠ 複数（ワイルド枠）なら wild。
+#
+# ⚠⚠ ここが唯一の対応表。⚠ 呼ぶ側で種類ごとに if を分岐させないこと
+#   （⚠ `Glyphs.for_part_slot()` と同じ形）。
+func color_of_part_slot_kinds(kinds: Variant) -> Color:
+	if is_wild_part_slot(kinds):
+		return part_slot_wild_color
+	match str((kinds as Array)[0]):
+		GameManager.PART_KIND_GEM:
+			return part_slot_gem_color
+		GameManager.PART_KIND_CHARM:
+			return part_slot_charm_color
+		GameManager.PART_KIND_EMBLEM:
+			return part_slot_emblem_color
+		GameManager.PART_KIND_RUNE:
+			return part_slot_rune_color
+	return part_slot_wild_color
 
 
 # 段階（1〜）を等級へ写す。is_rune のときだけ5段の表を使う。

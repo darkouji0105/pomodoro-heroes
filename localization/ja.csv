@@ -534,7 +534,6 @@ ui_res_part_emblem_haste_2,CD短縮の紋章②
 ui_res_part_emblem_haste_3,CD短縮の紋章③
 ui_res_part_emblem_haste_4,CD短縮の紋章④
 ui_part_slot_header,枠
-ui_part_slot_locked,等級%dで開く
 ui_part_slot_empty,（空き）
 ui_part_attach,刺す
 ui_part_detach,外す

@@ -4671,6 +4671,20 @@ func _report_inventory() -> void:
 	print("  acc_ring_power 最大等級（⚠ ルーン枠が1つなのが正解）")
 	for line: String in detail.get_lines():
 		print("    %s" % line)
+
+	# ⚠ 頭・胴・脚だけ **ワイルド枠**を持つ（`game_manager.gd:2884`）。
+	#   ⚠ 2026-09-08 にワイルドの枠線を虹色にした（⚠ 人間の指示）。⚠ 色は取れないが、
+	#   ⚠ 「⚠ ワイルド枠がここにしか出ない」ことはこの行で分かる。
+	detail.show_entry({
+		GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+		GameManager.SLOT_ENTRY_ITEM_ID: "armor_iron_helm",
+		GameManager.SLOT_ENTRY_INSTANCE_ID: "",
+		GameManager.SLOT_ENTRY_GRADE: GameManager.get_max_equipment_grade(),
+		GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+	})
+	print("  armor_iron_helm 最大等級（⚠ ワイルド枠が1つ出るのが正解＝虹色の枠）")
+	for line: String in detail.get_lines():
+		print("    %s" % line)
 	for slot_name: String in GameManager.get_equip_slots():
 		print("    枠の数 %-10s = %d" % [
 			slot_name, GameManager.get_open_part_slot_count(slot_name, GameManager.get_max_equipment_grade())
