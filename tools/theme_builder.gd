@@ -141,7 +141,11 @@ const HEADING_FONT_SIZE: int = 32
 const TIMER_FONT_SIZE: int = 64
 # ⚠ 減少・警告の赤。⚠ 前は2箇所で色が違った（(0.9,0.3,0.3) と (1,0.4,0.4)）。
 #   ⚠ 人間の決定でこの1色に揃えた（2026-09-07）。
+# ⚠ 「下がる値」もこの色を使う（⚠ 装備の負の補正など）。⚠ 2色目を作らない。
 const ERROR_FONT_COLOR: String = "e88a8a"
+# ⚠ 増える値の緑（2026-09-08・段階③）。⚠ 減少の赤と対になる。
+#   ⚠ 赤 #e88a8a と同じくらいの明度にしてある（⚠ 並べたときに片方だけ浮かないように）。
+const GAIN_FONT_COLOR: String = "8ed99b"
 
 # --- 面（PanelContainer）---
 
@@ -255,6 +259,8 @@ static func _build_labels(theme: Theme) -> void:
 	theme.set_font_size(&"font_size", &"TimerLabel", TIMER_FONT_SIZE)
 	theme.set_type_variation(&"ErrorLabel", &"Label")
 	theme.set_color(&"font_color", &"ErrorLabel", _html(ERROR_FONT_COLOR))
+	theme.set_type_variation(&"GainLabel", &"Label")
+	theme.set_color(&"font_color", &"GainLabel", _html(GAIN_FONT_COLOR))
 
 
 static func _build_panels(theme: Theme) -> void:

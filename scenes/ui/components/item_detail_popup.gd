@@ -15,7 +15,8 @@ extends CanvasLayer
 #
 # ⚠ この部品は `ItemDetail` を1つ引き取るだけ。⚠ 画面が .tscn に持っているものを
 #   実行時に親替えする（⚠ 画面の `@onready var item_detail` はそのまま生きる）。
-# ⚠ アイコンだけは自分で作る（⚠ 右上に出すのはこの器の仕事で、⚠ 画面は知らない）。
+# ⚠⚠ 2026-09-08：⚠ 自前のアイコンをやめた。⚠ `ItemDetail` の見出しがアイコンを持つ
+#   （⚠ 段階③）。⚠ 両方が出すと、⚠ ホバーの枠にアイコンが2つ並ぶ。
 #
 # ⚠ `Modal`（`scripts/systems/modal.gd`）とは別物で、⚠ あちらは触っていない。
 # ⚠ 2画面以上で使うので scenes/ui/components/（AGENTS.md）。⚠ `.tscn` を持たない。
@@ -32,8 +33,6 @@ const MIN_WIDTH_PX: float = 220.0
 var _root: Control = null
 var _panel: PanelContainer = null
 var _detail_box: VBoxContainer = null
-var _icon_holder: VBoxContainer = null
-var _icon: ItemIcon = null
 var _detail: ItemDetail = null
 
 
@@ -77,24 +76,13 @@ func _init() -> void:
 		margin.add_theme_constant_override(side, int(MARGIN_PX))
 	_panel.add_child(margin)
 
-	# ⚠ 左上にアイコン、⚠ その右に文章（2026-09-07・人間の指示「⚠ 左上にアイコンを」）。
-	#   ⚠ アイコンは上に寄せる（⚠ 文章の行数で下がらないように）。
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "Row"
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_child(row)
-
-	_icon_holder = VBoxContainer.new()
-	_icon_holder.name = "IconHolder"
-	_icon_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_icon_holder.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	row.add_child(_icon_holder)
-
+	# ⚠ 左上のアイコンは `ItemDetail` の見出しが出す（2026-09-08・段階③）。
+	#   ⚠ ここは文章の器だけを持つ。
 	_detail_box = VBoxContainer.new()
 	_detail_box.name = "DetailBox"
 	_detail_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_detail_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(_detail_box)
+	margin.add_child(_detail_box)
 
 
 func _take(detail: ItemDetail) -> void:
@@ -128,23 +116,21 @@ func show_entry(entry: Dictionary) -> void:
 		close()
 		return
 	_detail.show_entry(entry)
-	_rebuild_icon(entry)
+	# ⚠⚠ 中身を作り直すたびに、⚠ 新しい子まで含めて全部マウスを通す。
+	#   ⚠ `PartSlotIcon` は `Panel`＝既定でマウスを止める（⚠ ツールチップを出すため）。
+	#   ⚠ 止めたままだと、⚠ 器が指の下に入ったときに「⚠ マスから外れた」ことに
+	#   ⚠ 気づけず、⚠ 枠が出たまま固まる（⚠ この器の一番上のコメントの通り）。
+	# ⚠ 常設のパネル（段階⑤）では止めたままにする＝⚠ あちらではツールチップが要る。
+	_pass_mouse_through(_detail)
 	_open_at_mouse()
 
 
-# 右上のアイコン。⚠ 作り直しに await を持たせない（AGENTS.md）。
-func _rebuild_icon(entry: Dictionary) -> void:
-	if _icon != null and is_instance_valid(_icon):
-		_icon_holder.remove_child(_icon)
-		_icon.queue_free()
-		_icon = null
-	var item_id: String = str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-	# ⚠ 等級は装備の個体だけが持つ（⚠ item_id からは引けない）。⚠ 持ち物は 0 のまま。
-	var grade: int = int(entry.get(GameManager.SLOT_ENTRY_GRADE, 0))
-	_icon = ItemIcon.create(item_id, grade)
-	# ⚠ ここでもマウスを通す（⚠ ItemSlot が中に入れるときと同じ理由）。
-	_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_icon_holder.add_child(_icon)
+# 自分と子孫を全部 MOUSE_FILTER_IGNORE にする。
+func _pass_mouse_through(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_pass_mouse_through(child)
 
 
 # マウスの右側に置く。⚠ 右がはみ出すならマウスの左へ返す。

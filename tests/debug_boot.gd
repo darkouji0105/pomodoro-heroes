@@ -59,7 +59,9 @@ const THEME_CONSTANT_TYPES: Array[String] = [
 	"TightList", "NodeList", "PanelStack", "SectionGap", "SectionStack", "ButtonRow", "WideRow",
 ]
 const THEME_MARGIN_TYPES: Array[String] = ["MarginContainer", "ScreenMargin", "DialogMargin"]
-const THEME_LABEL_TYPES: Array[String] = ["Label", "HeadingLabel", "TimerLabel", "ErrorLabel"]
+const THEME_LABEL_TYPES: Array[String] = [
+	"Label", "HeadingLabel", "TimerLabel", "ErrorLabel", "GainLabel",
+]
 
 # 通路の線が横に動いてよい上限（px。段階20-g）。
 #
