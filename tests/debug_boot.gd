@@ -3548,6 +3548,8 @@ func _report_item_icons() -> void:
 		add_child(icon)
 		var text: String = icon.text_label.text
 		var number: String = icon.grade_label.text
+		# ⚠ 中央は絵文字か線画か。⚠ 部品に聞く（⚠ ここで中を覗かない）。
+		var center: String = icon.get_center_debug_text()
 		var box: StyleBox = icon.get_theme_stylebox("panel")
 		# ⚠ 等級は **枠線** の色（2026-09-08 に地から移した）。⚠ 地は全部同じ暗い一色なので、
 		#   ⚠ bg_color を出しても等級が読めない（⚠ 移した日に1回それで意味を失った）。
@@ -3558,8 +3560,8 @@ func _report_item_icons() -> void:
 			wrong_length += 1
 		# ⚠ 絵文字も出す（2026-09-07）。⚠ レリック12件が ITEM_FALLBACK（📦）に
 		#   落ちていたのを、⚠ ここが出していなかったせいで気づけなかった。
-		print("  %-26s 絵='%s' 字='%s' 右下='%s' 枠=(%.2f, %.2f, %.2f)" % [
-			item_id, icon.glyph_label.text, text, number, color.r, color.g, color.b
+		print("  %-26s 中央='%s' 字='%s' 右下='%s' 枠=(%.2f, %.2f, %.2f)" % [
+			item_id, center, text, number, color.r, color.g, color.b
 		])
 		remove_child(icon)
 		icon.queue_free()
@@ -5308,6 +5310,26 @@ func _report_glyphs() -> void:
 		if not (candidate in candidate_ok):
 			candidate_ng.append(candidate)
 	print("  無い: %s" % " ".join(candidate_ng))
+
+	# ⚠⚠ 線画（SVG）が全部読めるか（2026-09-08）。⚠ 絵は見えないので「在るか」と「大きさ」だけ。
+	#   ⚠ 1枚でも読めないと、⚠ その種類だけ黙って絵文字に落ちる（⚠ 気づけない）。
+	print("[DebugBoot] --- 線画（SVG）が読めるか（⚠ 読めない = 0 件が正解）---")
+	var textures: Dictionary = IconTextures.all_for_check()
+	var missing_icons: Array[String] = []
+	var sizes: Dictionary = {}
+	for name: Variant in textures:
+		var texture: Variant = textures[name]
+		if texture == null:
+			missing_icons.append(str(name))
+			continue
+		var size: Vector2i = (texture as Texture2D).get_size()
+		sizes[str(size.x) + "x" + str(size.y)] = int(sizes.get(str(size.x) + "x" + str(size.y), 0)) + 1
+	print("  読めた = %d 枚 ／ 読めない = %d 枚" % [
+		textures.size() - missing_icons.size(), missing_icons.size()
+	])
+	print("  大きさの内訳 = %s（⚠ SVG は viewBox × svg/scale でラスタライズされる）" % str(sizes))
+	for name: String in missing_icons:
+		push_error("[DebugBoot] E140 線画を読めない: " + name)
 
 	# ⚠ Glyphs の表を全部見る。⚠ 1つでも NG なら豆腐が出る。
 	print("[DebugBoot] --- Glyphs の字がフォントに在るか（⚠ NG が0件で正解）---")

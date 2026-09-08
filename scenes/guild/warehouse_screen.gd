@@ -466,10 +466,7 @@ func _create_chest_row(chest_id: String, instance_ids: Array) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "ChestRow_" + chest_id
 
-	var glyph: Label = Label.new()
-	glyph.name = "ChestGlyph"
-	glyph.text = Glyphs.NODE_CHEST
-	row.add_child(glyph)
+	row.add_child(_make_chest_glyph("ChestGlyph"))
 
 	var name_label: Label = Label.new()
 	var chest_def: Dictionary = MasterDataLoader.get_chest(chest_id)
@@ -493,6 +490,26 @@ func _create_chest_row(chest_id: String, instance_ids: Array) -> void:
 	chest_list.add_child(row)
 
 
+# 宝箱の絵（2026-09-08）。⚠ 線画（SVG）が在ればそちら、⚠ 無ければ絵文字。
+#   ⚠ 大きさは `Balance.icon` の絵文字と同じ段（⚠ ここに px を書かない）。
+func _make_chest_glyph(node_name: String) -> Control:
+	var texture: Texture2D = IconTextures.for_chest()
+	var size_px: float = float(maxi(1, Balance.icon.glyph_font_size)) if Balance.icon != null else 20.0
+	if texture != null:
+		var rect: TextureRect = TextureRect.new()
+		rect.name = node_name
+		rect.texture = texture
+		rect.custom_minimum_size = Vector2(size_px, size_px)
+		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		return rect
+	var glyph: Label = Label.new()
+	glyph.name = node_name
+	glyph.text = Glyphs.NODE_CHEST
+	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return glyph
+
+
 # 0件の1行（⚠ 図鑑タブ用）。
 #
 # ⚠⚠ 2026-09-08 に文言を引数にした。⚠ 前は宝箱と図鑑で同じ関数を呼んでいて、
@@ -513,11 +530,7 @@ func _add_empty_placeholder(parent: Container) -> void:
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	var glyph: Label = Label.new()
-	glyph.name = "EmptyGlyph"
-	glyph.text = Glyphs.NODE_CHEST
-	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(glyph)
+	box.add_child(_make_chest_glyph("EmptyGlyph"))
 
 	var empty_label: Label = Label.new()
 	empty_label.text = tr("ui_warehouse_no_chest")

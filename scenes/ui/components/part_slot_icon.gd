@@ -34,6 +34,8 @@ var _is_open: bool = false
 var _draw_rainbow: bool = false
 
 var _glyph_label: Label = null
+# 線画（2026-09-08）。⚠ SVG が在ればこちら、⚠ 無ければ絵文字の Label。
+var _glyph_texture: TextureRect = null
 
 
 # 枠1つを作る。⚠ `view` は `GameManager.get_part_slot_defs()` /
@@ -67,6 +69,15 @@ func _init() -> void:
 	# ⚠ ツールチップは親（この Panel）が出す。⚠ 子が入力を拾うと出なくなる。
 	_glyph_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_glyph_label)
+
+	_glyph_texture = TextureRect.new()
+	_glyph_texture.name = "GlyphTexture"
+	_glyph_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_glyph_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_glyph_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_glyph_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_glyph_texture.visible = false
+	add_child(_glyph_texture)
 	# ⚠ 虹の枠は大きさから座標を作るので、⚠ 伸び縮みしたら描き直す。
 	resized.connect(queue_redraw)
 
@@ -124,13 +135,33 @@ func _refresh() -> void:
 
 	# ⚠ 装填済のときは「刺さっているものの種類」を出す（⚠ 枠が何を受けるかではなく）。
 	#   ⚠ ワイルド枠に何が刺さっているかは、⚠ これでしか分からない。
+	# ⚠⚠ 線画（SVG）が在ればそちら、⚠ 無ければ絵文字（2026-09-08）。
+	#   ⚠ 線画は白の1色なので、⚠ **枠線と同じ色**を着せる（⚠ 空き＝種類の色 ／ 装填済＝等級の色）。
+	var kinds_for_glyph: Variant = _view.get(GameManager.PART_VIEW_KINDS, [])
+	var texture: Texture2D = (
+		IconTextures.for_item(part_id) if part_id != ""
+		else IconTextures.for_part_slot(kinds_for_glyph)
+	)
+	var dim: float = 1.0 if part_id != "" else config.part_slot_dim_alpha
+	if texture != null:
+		_glyph_texture.texture = texture
+		_glyph_texture.visible = true
+		_glyph_texture.modulate = Color(
+			box.border_color.r, box.border_color.g, box.border_color.b, dim
+		)
+		_glyph_label.visible = false
+		tooltip_text = _tooltip_text(part_id)
+		return
+
+	_glyph_texture.visible = false
+	_glyph_label.visible = true
 	_glyph_label.text = (
 		Glyphs.for_item(part_id) if part_id != ""
-		else Glyphs.for_part_slot(_view.get(GameManager.PART_VIEW_KINDS, []))
+		else Glyphs.for_part_slot(kinds_for_glyph)
 	)
 	_glyph_label.add_theme_font_size_override("font_size", config.part_slot_glyph_font_size)
-	# ⚠ 空き・未開放は薄く。⚠ 装填済だけ明るい。
-	_glyph_label.modulate = Color(1.0, 1.0, 1.0, 1.0 if part_id != "" else config.part_slot_dim_alpha)
+	# ⚠ 空きは薄く。⚠ 装填済だけ明るい。
+	_glyph_label.modulate = Color(1.0, 1.0, 1.0, dim)
 
 	tooltip_text = _tooltip_text(part_id)
 

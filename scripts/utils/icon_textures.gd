@@ -1,0 +1,144 @@
+class_name IconTextures
+extends RefCounted
+
+# 線画アイコン（SVG）の対応表（2026-09-08・人間の指示「⚠ 差し替えて アイコン」）。
+#
+# ⚠⚠ `Glyphs`（絵文字）と同じ形。⚠ 引く口はここ1本。⚠ 呼ぶ側に分岐を書かせない。
+#   ⚠ 違いは戻り値が `Texture2D` であることと、⚠ **無ければ `null` を返す**こと。
+#   ⚠ null のときは呼ぶ側が `Glyphs` に落ちる＝⚠ 1枚ずつ差し替えられる。
+#
+# ⚠ SVG は Godot がインポート時にラスタライズする（⚠ `svg/scale` は既定の 1.0）。
+#   ⚠ だから **48 x 48 の viewBox で描いてある**。⚠ 20〜24px で出すと縮小になり、
+#   ⚠ 拡大でぼけることがない。⚠ 大きく出したくなったら SVG 側の viewBox を上げる。
+# ⚠ 線は白（`#ffffff`）の1色。⚠ 色は使う側が `modulate` で着せる
+#   （⚠ カラー絵文字ではできなかったこと。⚠ 等級の色・枠の種類の色をそのまま乗せられる）。
+#
+# ⚠ 読み込みは1回だけ（⚠ 下の `_cache`）。⚠ マスが100個並ぶ画面があるため。
+
+const ICON_DIR: String = "res://assets/images/"
+const ICON_PREFIX: String = "icon_"
+const ICON_SUFFIX: String = ".svg"
+
+# アイテムの種類 -> ファイル名の後半。⚠ `Glyphs.for_item()` と同じ分け方にすること。
+const NAME_ITEM_WEAPON: String = "item_weapon"
+const NAME_ITEM_HEAD: String = "item_head"
+const NAME_ITEM_ARMOR: String = "item_armor"
+const NAME_ITEM_LEGS: String = "item_legs"
+const NAME_ITEM_ACCESSORY: String = "item_accessory"
+const NAME_ITEM_GEM: String = "item_gem"
+const NAME_ITEM_CHARM: String = "item_charm"
+const NAME_ITEM_EMBLEM: String = "item_emblem"
+const NAME_ITEM_RUNE: String = "item_rune"
+const NAME_ITEM_MATERIAL: String = "item_material"
+const NAME_ITEM_CONSUMABLE: String = "item_consumable"
+const NAME_ITEM_RELIC: String = "item_relic"
+const NAME_ITEM_CHEST: String = "item_chest"
+
+# ステータスの軸 -> ファイル名の後半。⚠ 軸のIDは `GameStateKeys.STAT_*`。
+const STAT_NAMES: Dictionary = {
+	GameStateKeys.STAT_HP: "stat_hp",
+	GameStateKeys.STAT_ATK: "stat_atk",
+	GameStateKeys.STAT_MAG: "stat_mag",
+	GameStateKeys.STAT_DEF: "stat_def",
+	GameStateKeys.STAT_MDEF: "stat_mdef",
+	GameStateKeys.STAT_ATKSPD: "stat_atkspd",
+	GameStateKeys.STAT_HASTE: "stat_haste",
+	GameStateKeys.STAT_CRIT_RATE: "stat_crit_rate",
+	GameStateKeys.STAT_CRIT_DMG: "stat_crit_dmg",
+	GameStateKeys.STAT_SPD: "stat_spd",
+}
+
+# ⚠ 読んだものを覚えておく（⚠ 同じ絵を100回読み直さない）。
+static var _cache: Dictionary = {}
+
+
+# アイテムの絵。⚠ 種類ごと（⚠ item_id ごとの表を作らない＝`Glyphs` と同じ）。
+#
+# ⚠ 種類の見分け方を写さない。⚠ `Glyphs.for_item()` が返した絵文字から引き直す
+#   （⚠ 2つの表が別々に育つと、⚠ 絵文字と線画で違う種類が出る）。
+static func for_item(item_id: String) -> Texture2D:
+	return _load(_name_of_glyph(Glyphs.for_item(item_id)))
+
+
+# ステータスの軸の絵。⚠ 表に無い軸は null。
+static func for_stat(stat_key: String) -> Texture2D:
+	return _load(str(STAT_NAMES.get(stat_key, "")))
+
+
+# 装飾の枠の絵。⚠ 刺さる種類が1つのときだけ。⚠ ワイルド枠は null（⚠ 絵で言えない）。
+static func for_part_slot(kinds: Variant) -> Texture2D:
+	return _load(_name_of_glyph(Glyphs.for_part_slot(kinds)))
+
+
+# 宝箱の絵。
+static func for_chest() -> Texture2D:
+	return _load(NAME_ITEM_CHEST)
+
+
+# ⚠⚠ 絵文字 -> ファイル名。⚠ ここが `Glyphs` と線画をつなぐ唯一の場所。
+#   ⚠ こうすると「どの品がどの種類か」の判定が `Glyphs` の1本のままになる。
+static func _name_of_glyph(glyph: String) -> String:
+	match glyph:
+		Glyphs.ITEM_WEAPON:
+			return NAME_ITEM_WEAPON
+		Glyphs.ITEM_HEAD:
+			return NAME_ITEM_HEAD
+		Glyphs.ITEM_ARMOR:
+			return NAME_ITEM_ARMOR
+		Glyphs.ITEM_LEGS:
+			return NAME_ITEM_LEGS
+		Glyphs.ITEM_ACCESSORY:
+			return NAME_ITEM_ACCESSORY
+		Glyphs.ITEM_GEM:
+			return NAME_ITEM_GEM
+		Glyphs.ITEM_CHARM:
+			return NAME_ITEM_CHARM
+		Glyphs.ITEM_EMBLEM:
+			return NAME_ITEM_EMBLEM
+		Glyphs.ITEM_RUNE:
+			return NAME_ITEM_RUNE
+		Glyphs.ITEM_MATERIAL:
+			return NAME_ITEM_MATERIAL
+		Glyphs.ITEM_CONSUMABLE:
+			return NAME_ITEM_CONSUMABLE
+		Glyphs.RELIC:
+			return NAME_ITEM_RELIC
+	# ⚠ ポーション類（🍷 ❤）とフォールバック（📦）は線画を持たせていない。
+	#   ⚠ null が返り、⚠ 呼ぶ側が絵文字に落ちる。
+	return ""
+
+
+static func _load(name: String) -> Texture2D:
+	if name == "":
+		return null
+	if _cache.has(name):
+		return _cache[name]
+	var path: String = ICON_DIR + ICON_PREFIX + name + ICON_SUFFIX
+	var texture: Texture2D = null
+	if ResourceLoader.exists(path):
+		var loaded: Resource = load(path)
+		if loaded is Texture2D:
+			texture = loaded as Texture2D
+	# ⚠ 無かったことも覚える（⚠ 毎回 exists() を叩かない）。
+	_cache[name] = texture
+	return texture
+
+
+# 検証用（⚠ 設計役は絵を見られない）。⚠ 「在るか」と「大きさ」だけ返す。
+#   ⚠ ゲームのロジックから呼ばないこと。
+static func all_for_check() -> Dictionary:
+	var result: Dictionary = {}
+	for name: String in [
+		NAME_ITEM_WEAPON, NAME_ITEM_HEAD, NAME_ITEM_ARMOR, NAME_ITEM_LEGS,
+		NAME_ITEM_ACCESSORY, NAME_ITEM_GEM, NAME_ITEM_CHARM, NAME_ITEM_EMBLEM,
+		NAME_ITEM_RUNE, NAME_ITEM_MATERIAL, NAME_ITEM_CONSUMABLE,
+		NAME_ITEM_RELIC, NAME_ITEM_CHEST,
+	]:
+		result[name] = _load(name)
+	for stat_key: String in STAT_NAMES:
+		result[str(STAT_NAMES[stat_key])] = _load(stat_key_texture_name(stat_key))
+	return result
+
+
+static func stat_key_texture_name(stat_key: String) -> String:
+	return str(STAT_NAMES.get(stat_key, ""))

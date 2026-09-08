@@ -32,6 +32,10 @@ const RESULT_NUMBER: String = "number"
 var _item_id: String = ""
 var _grade: int = 0
 
+# 中央の線画（2026-09-08）。⚠ SVG が在ればこちら、⚠ 無ければ絵文字の Label。
+#   ⚠ `.tscn` を触らずコードで作る（⚠ 3つの Label と同じ流儀）。
+var _glyph_texture: TextureRect = null
+
 
 # 呼ぶ側の1行の口。⚠ 装備の個体だけ grade を渡す（等級は instance_id ごとに
 #   違うので item_id からは引けない）。装飾・素材は 0 のままでよい。
@@ -82,6 +86,30 @@ func setup(item_id: String, grade: int = 0) -> void:
 	#   その場合は _ready() 側が描く。
 	if is_inside_tree():
 		_refresh()
+
+
+# 検証用（⚠ 設計役は絵を見られない）。⚠ いま中央に何を出しているかを文字で返す。
+#   ⚠ ゲームのロジックから呼ばないこと。
+# ⚠⚠ これが無いと、⚠ 線画に差し替えた瞬間に検証の「絵=」が空になって意味を失う
+#   （⚠ 2026-09-08 に実際にそうなった。⚠ 等級を枠線へ移したときと同じ失敗）。
+func get_center_debug_text() -> String:
+	if _glyph_texture != null and is_instance_valid(_glyph_texture) and _glyph_texture.visible:
+		if _glyph_texture.texture != null:
+			return "SVG:" + _glyph_texture.texture.resource_path.get_file()
+	return glyph_label.text
+
+
+# 中央の線画の器。⚠ 1回だけ作る。
+func _ensure_glyph_texture() -> void:
+	if _glyph_texture != null and is_instance_valid(_glyph_texture):
+		return
+	_glyph_texture = TextureRect.new()
+	_glyph_texture.name = "GlyphTexture"
+	# ⚠ ホバーの枠や `ItemSlot` の中に入るので、⚠ マウスを止めない。
+	_glyph_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_glyph_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_glyph_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	add_child(_glyph_texture)
 
 
 func _refresh() -> void:
@@ -136,6 +164,33 @@ func _refresh() -> void:
 	#   （⚠ 例：「鉄」は 🔪 鉄剣 / 🎩 鉄兜 / 👕 鉄鎧 / 👟 鉄脚 の4件に出る）。
 	#   ⚠ 絵文字を種類ごとに分けるのをやめると、⚠ この4件が見分けられなくなる。
 	# ⚠ glyph_font_size が 0 なら出さない（⚠ フォントが無い環境の逃げ道）。
+	# ⚠⚠ 線画（SVG）が在ればそちらを出す（2026-09-08）。⚠ 無ければ絵文字に落ちる
+	#   ＝⚠ 1枚ずつ差し替えられる（⚠ 全部そろうまで待たない）。
+	# ⚠ 線画は白の1色なので、⚠ **等級の色を着せる**（⚠ カラー絵文字ではできなかったこと）。
+	var texture: Texture2D = IconTextures.for_item(_item_id)
+	var glyph_size: float = float(maxi(1, config.glyph_font_size))
+	if texture != null:
+		_ensure_glyph_texture()
+		_glyph_texture.texture = texture
+		_glyph_texture.modulate = grade_color
+		_glyph_texture.visible = config.glyph_font_size > 0
+		_glyph_texture.size = Vector2(glyph_size, glyph_size)
+		# ⚠ 中央に置く。⚠ 器はコンテナではないので、⚠ 位置も自分で当てる。
+		_glyph_texture.position = (
+			Vector2(float(config.icon_size_px), float(config.icon_size_px))
+			- Vector2(glyph_size, glyph_size)
+		) * 0.5
+		glyph_label.visible = false
+		grade_label.text = number
+		grade_label.visible = number != ""
+		grade_label.add_theme_font_size_override("font_size", config.grade_font_size)
+		grade_label.add_theme_color_override("font_color", grade_color)
+		grade_label.offset_left = -float(config.icon_size_px) * 0.5
+		grade_label.offset_top = -float(config.grade_font_size) - 4.0
+		return
+
+	if _glyph_texture != null:
+		_glyph_texture.visible = false
 	glyph_label.text = Glyphs.for_item(_item_id)
 	glyph_label.visible = config.glyph_font_size > 0
 	glyph_label.add_theme_font_size_override("font_size", maxi(1, config.glyph_font_size))

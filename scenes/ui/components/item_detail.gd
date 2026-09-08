@@ -178,13 +178,15 @@ func _show_item(item_id: String) -> void:
 	var base: int = int(definition.get(GameManager.ITEM_MASTER_PART_BASE, 0))
 	var roll_max: int = int(definition.get(GameManager.ITEM_MASTER_PART_ROLL_MAX, 0))
 	if stat_key != "":
+		var range_icon: Texture2D = IconTextures.for_stat(stat_key)
 		_add_value_row(
-			_stat_label_text(stat_key),
+			tr("ui_training_stat_" + stat_key) if range_icon != null else _stat_label_text(stat_key),
 			"+%s〜%s" % [
 				_stat_value_text(stat_key, base),
 				_stat_value_text(stat_key, base + roll_max),
 			],
-			VARIATION_GAIN
+			VARIATION_GAIN,
+			range_icon
 		)
 
 	if _summary:
@@ -353,9 +355,24 @@ func _add_header(item_id: String, grade: int, sub_parts: Array[String]) -> void:
 #
 # ⚠ 値の色は Theme の型 variation（⚠ 増える＝緑 ／ 減る＝赤）。⚠ 色を直接書かない。
 # ⚠ `variation` が空なら色を変えない（⚠ 個数やコストのように、⚠ 増減ではない値）。
-func _add_value_row(left_text: String, right_text: String, variation: StringName) -> void:
+func _add_value_row(
+	left_text: String, right_text: String, variation: StringName, icon: Texture2D = null
+) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "ValueRow_%d" % get_child_count()
+
+	# ⚠ 線画（SVG）が在れば名前の前に出す（2026-09-08）。⚠ 無ければ絵文字が名前に付く。
+	#   ⚠ 大きさは文字と同じ段（⚠ ここに px を書かない）。
+	if icon != null:
+		var rect: TextureRect = TextureRect.new()
+		rect.name = "Icon"
+		rect.texture = icon
+		var icon_size: float = float(Balance.icon.grade_font_size + 6) if Balance.icon != null else 16.0
+		rect.custom_minimum_size = Vector2(icon_size, icon_size)
+		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(rect)
 
 	var left: Label = Label.new()
 	left.name = "Name"
@@ -408,10 +425,12 @@ func _add_stat_rows(stats: Variant) -> void:
 		var value: int = int((stats as Dictionary).get(stat_key, 0))
 		if value == 0:
 			continue
+		var icon: Texture2D = IconTextures.for_stat(stat_key)
 		_add_value_row(
-			_stat_label_text(stat_key),
+			tr("ui_training_stat_" + stat_key) if icon != null else _stat_label_text(stat_key),
 			("+" if value > 0 else "-") + _stat_value_text(stat_key, absi(value)),
-			VARIATION_GAIN if value > 0 else VARIATION_LOSS
+			VARIATION_GAIN if value > 0 else VARIATION_LOSS,
+			icon
 		)
 
 
@@ -442,6 +461,18 @@ func _container_text(node: Node) -> String:
 			var text: String = (child as Label).text
 			if text != "":
 				parts.append(text)
+		elif child is TextureRect:
+			# ⚠ 線画は文字を持たない。⚠ ここで拾わないと、⚠ SVG に差し替えた瞬間に
+			#   ⚠ 「どの軸の行か」が検証から消える（⚠ 前は絵文字が文字として入っていた）。
+			var texture: Texture2D = (child as TextureRect).texture
+			if texture != null:
+				parts.append("[%s]" % texture.resource_path.get_file().get_basename())
+		elif child is TextureRect:
+			# ⚠ 線画は文字を持たない。⚠ ここで拾わないと、⚠ SVG に差し替えた瞬間に
+			#   ⚠ 「どの軸の行か」が検証から消える（⚠ 前は絵文字が文字として入っていた）。
+			var texture: Texture2D = (child as TextureRect).texture
+			if texture != null:
+				parts.append("[%s]" % texture.resource_path.get_file().get_basename())
 		elif child is PartSlotRow:
 			# ⚠ 要約では枠の並びが行の中に入る。⚠ ここで拾わないと検証から消える。
 			parts.append((child as PartSlotRow).to_text())
