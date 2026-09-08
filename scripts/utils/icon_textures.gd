@@ -34,6 +34,20 @@ const NAME_ITEM_CONSUMABLE: String = "item_consumable"
 const NAME_ITEM_RELIC: String = "item_relic"
 const NAME_ITEM_CHEST: String = "item_chest"
 
+# 素材は系統ごとに絵を分ける（2026-09-08・人間の指示
+#   「⚠ 素材を分ける ジャンルごとに 建築シリーズが素材の名前っぽく
+#     ⚠ 装飾系は宝石っぽく 修練は食べ物っぽく」）。
+#
+# ⚠⚠ 系統は `items.json` に欄が無い。⚠ 定義はIDの接頭辞だけ
+#   （⚠ `GameStateKeys.ITEM_*_MATERIAL_PREFIX`。⚠ そこに理由も書いてある）。
+#   ⚠ ここで綴りを書き起こさない。⚠ 定数で引く。
+const MATERIAL_SERIES: Dictionary = {
+	GameStateKeys.ITEM_CONSTRUCTION_MATERIAL_PREFIX: "material_construction",
+	GameStateKeys.ITEM_TRAINING_MATERIAL_PREFIX: "material_training",
+	GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX: "material_forging",
+	GameStateKeys.ITEM_DECOR_MATERIAL_PREFIX: "material_decor",
+}
+
 # ステータスの軸 -> ファイル名の後半。⚠ 軸のIDは `GameStateKeys.STAT_*`。
 const STAT_NAMES: Dictionary = {
 	GameStateKeys.STAT_HP: "stat_hp",
@@ -57,7 +71,36 @@ static var _cache: Dictionary = {}
 # ⚠ 種類の見分け方を写さない。⚠ `Glyphs.for_item()` が返した絵文字から引き直す
 #   （⚠ 2つの表が別々に育つと、⚠ 絵文字と線画で違う種類が出る）。
 static func for_item(item_id: String) -> Texture2D:
+	# ⚠ 素材だけは系統ごとに分ける（⚠ `Glyphs` は11種の型でしか分けていない）。
+	var series: String = _material_series_name(item_id)
+	if series != "":
+		return _load(series)
 	return _load(_name_of_glyph(Glyphs.for_item(item_id)))
+
+
+# 装飾の「中身」（2026-09-08・人間の指示「⚠ 枠で大まかな分類をして、中身を変える」）。
+#
+# ⚠⚠ 宝石・護符・紋章は **枠の形が種類**、⚠ **中の絵がステータス**。
+#   ⚠ 前は種類ごとに1つの絵しか無く、⚠ 「HPの護符」と「魔防の護符」が同じ見た目だった
+#   （⚠ 左上の漢字だけが違った）。
+# ⚠ どのステータスかは `GameManager.get_part_definition()` に聞く（⚠ IDの綴りから切らない）。
+# ⚠ ステータスを持たないもの（⚠ ルーン・素材・装備）は null＝中身なし。
+static func inner_for_item(item_id: String) -> Texture2D:
+	var definition: Dictionary = GameManager.get_part_definition(item_id)
+	if definition.is_empty():
+		return null
+	return for_stat(str(definition.get(GameManager.ITEM_MASTER_PART_STAT, "")))
+
+
+# 素材の系統のファイル名。⚠ 素材でなければ ""。
+static func _material_series_name(item_id: String) -> String:
+	if GameManager.get_material_tier(item_id) <= 0:
+		return ""
+	for prefix: String in MATERIAL_SERIES:
+		if item_id.begins_with(prefix):
+			return str(MATERIAL_SERIES[prefix])
+	# ⚠ 系統が増えたのに表に足し忘れたとき。⚠ 前の1枚に落ちる（⚠ 黙って消えない）。
+	return NAME_ITEM_MATERIAL
 
 
 # ステータスの軸の絵。⚠ 表に無い軸は null。
@@ -135,6 +178,8 @@ static func all_for_check() -> Dictionary:
 		NAME_ITEM_RELIC, NAME_ITEM_CHEST,
 	]:
 		result[name] = _load(name)
+	for prefix: String in MATERIAL_SERIES:
+		result[str(MATERIAL_SERIES[prefix])] = _load(str(MATERIAL_SERIES[prefix]))
 	for stat_key: String in STAT_NAMES:
 		result[str(STAT_NAMES[stat_key])] = _load(stat_key_texture_name(stat_key))
 	return result

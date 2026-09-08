@@ -529,6 +529,15 @@ const ITEM_FORGING_MATERIAL_1: String = ITEM_FORGING_MATERIAL_PREFIX + "1"
 #   GameManager.get_decor_material_id(tier) の1本だけ。
 const ITEM_DECOR_MATERIAL_PREFIX: String = "decor_material_"
 
+# 建築・修練の素材（2026-09-08 に足した）。
+#
+# ⚠⚠ **系統は `items.json` に欄が無く、IDの接頭辞だけが定義**になっている
+#   （⚠ 16件とも `item_type: material` で、⚠ 区別は綴りにしか無い）。
+#   ⚠ 上の2本（鍛冶・装飾）と同じ形で、⚠ 綴りを画面に書き散らさないための定数。
+# ⚠ 将来 `items.json` に系統の欄を足したら、⚠ そちらを正にしてここは消すこと。
+const ITEM_CONSTRUCTION_MATERIAL_PREFIX: String = "construction_material_"
+const ITEM_TRAINING_MATERIAL_PREFIX: String = "training_material_"
+
 # ============================================================
 # 装飾（宝石・護符・紋章。EXEC_DECORATION.md）
 # ============================================================

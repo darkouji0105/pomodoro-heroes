@@ -35,6 +35,11 @@ var _grade: int = 0
 # 中央の線画（2026-09-08）。⚠ SVG が在ればこちら、⚠ 無ければ絵文字の Label。
 #   ⚠ `.tscn` を触らずコードで作る（⚠ 3つの Label と同じ流儀）。
 var _glyph_texture: TextureRect = null
+# 枠の中に重ねる絵（2026-09-08）。⚠ 装飾だけ（⚠ 枠＝種類 ／ 中身＝ステータス）。
+var _inner_texture: TextureRect = null
+
+# 中身の絵の大きさ（⚠ 枠に対する割合）。⚠ 見た目の都合だけ。
+const INNER_RATIO: float = 0.52
 
 
 # 呼ぶ側の1行の口。⚠ 装備の個体だけ grade を渡す（等級は instance_id ごとに
@@ -95,21 +100,35 @@ func setup(item_id: String, grade: int = 0) -> void:
 func get_center_debug_text() -> String:
 	if _glyph_texture != null and is_instance_valid(_glyph_texture) and _glyph_texture.visible:
 		if _glyph_texture.texture != null:
-			return "SVG:" + _glyph_texture.texture.resource_path.get_file()
+			var text: String = "SVG:" + _glyph_texture.texture.resource_path.get_file()
+			# ⚠ 中身（装飾のステータス）も出す。⚠ 出さないと「枠だけ同じで中身が違う」
+			#   ⚠ 品を並べたときに、⚠ 中身が入っているかを確かめられない。
+			if _inner_texture != null and is_instance_valid(_inner_texture) and _inner_texture.visible:
+				if _inner_texture.texture != null:
+					text += "+" + _inner_texture.texture.resource_path.get_file()
+			return text
 	return glyph_label.text
 
 
-# 中央の線画の器。⚠ 1回だけ作る。
+# 中央の線画の器。⚠ 1回だけ作る。⚠ 枠と中身の2枚。
 func _ensure_glyph_texture() -> void:
 	if _glyph_texture != null and is_instance_valid(_glyph_texture):
 		return
-	_glyph_texture = TextureRect.new()
-	_glyph_texture.name = "GlyphTexture"
-	# ⚠ ホバーの枠や `ItemSlot` の中に入るので、⚠ マウスを止めない。
-	_glyph_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_glyph_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_glyph_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_glyph_texture = _make_texture_rect("GlyphTexture")
 	add_child(_glyph_texture)
+	_inner_texture = _make_texture_rect("InnerTexture")
+	_inner_texture.visible = false
+	add_child(_inner_texture)
+
+
+func _make_texture_rect(node_name: String) -> TextureRect:
+	var rect: TextureRect = TextureRect.new()
+	rect.name = node_name
+	# ⚠ ホバーの枠や `ItemSlot` の中に入るので、⚠ マウスを止めない。
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	return rect
 
 
 func _refresh() -> void:
@@ -180,6 +199,23 @@ func _refresh() -> void:
 			Vector2(float(config.icon_size_px), float(config.icon_size_px))
 			- Vector2(glyph_size, glyph_size)
 		) * 0.5
+		# ⚠⚠ 装飾は枠の中にステータスの絵を重ねる（2026-09-08・人間の指示）。
+		#   ⚠ 枠＝宝石／護符／紋章、⚠ 中身＝その装飾が上げる軸。
+		#   ⚠ 中身を持たない品（⚠ 装備・素材・ルーン）では出さない。
+		var inner: Texture2D = IconTextures.inner_for_item(_item_id)
+		if inner != null:
+			var inner_size: float = glyph_size * INNER_RATIO
+			_inner_texture.texture = inner
+			_inner_texture.modulate = grade_color
+			_inner_texture.visible = _glyph_texture.visible
+			_inner_texture.size = Vector2(inner_size, inner_size)
+			_inner_texture.position = (
+				Vector2(float(config.icon_size_px), float(config.icon_size_px))
+				- Vector2(inner_size, inner_size)
+			) * 0.5
+		else:
+			_inner_texture.visible = false
+
 		glyph_label.visible = false
 		grade_label.text = number
 		grade_label.visible = number != ""
