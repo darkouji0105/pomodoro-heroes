@@ -967,6 +967,18 @@ const RUNE_FIELDS_KNOWN: Array[String] = [
 	"rune_id", RUNE_NEXT_ID, RUNE_COOLDOWN_SEC, RUNE_TARGET, RUNE_EFFECTS, RUNE_MOVE,
 ]
 
+# ルーンの「何をするものか」（2026-09-08・画面がアイコンを選ぶために足した）。
+#
+# ⚠⚠ `runes.json` に種類の欄は無い。⚠ 効果の形から決まる。
+#   ⚠ その判定は **効果の語彙を知っているここ**（と `SkillSchema`）の仕事で、
+#   ⚠ 画面がやることではない（⚠ 画面に "type" や "team" の綴りを持ち込まない）。
+# ⚠ IDの綴りからは切らない（⚠ `part_rune_shield_1` のような命名に依存しない）。
+const RUNE_KIND_MOVE: String = "move"
+const RUNE_KIND_HEAL: String = "heal"
+const RUNE_KIND_SHIELD: String = "shield"
+const RUNE_KIND_DEBUFF: String = "debuff"
+const RUNE_KIND_BUFF: String = "buff"
+
 static var _cache_items: Dictionary = {}
 static var _items_loaded: bool = false
 static var _cache_recipes: Dictionary = {}
@@ -1052,6 +1064,41 @@ static func get_rune(rune_id: String) -> Dictionary:
 	if not _cache_runes.has(rune_id):
 		return {}
 	return (_cache_runes[rune_id] as Dictionary).duplicate(true)
+
+
+# ルーンの種類（2026-09-08）。⚠ 効果の形から決める。⚠ 表に無い形は "" を返す。
+#
+# ⚠ 判定の順番に意味がある：
+#   ⚠ ① `move` の欄を持つ  … 移動系（⚠ 効果を1つも持たない）
+#   ⚠ ② 効果が `heal`      … 回復
+#   ⚠ ③ 効果が盾を張る     … シールド（⚠ `buff` だが `intervene.shield_hp` を持つ）
+#   ⚠ ④ 相手を狙う         … 弱体（⚠ `buff` だが値が負で、⚠ 狙いが敵）
+#   ⚠ ⑤ 残り               … 強化
+# ⚠ 語彙は `SkillSchema` の定数（⚠ ルーンの効果はスキルとまったく同じ語彙）。
+static func get_rune_kind(rune_id: String) -> String:
+	var rune: Dictionary = get_rune(rune_id)
+	if rune.is_empty():
+		return ""
+	if rune.get(RUNE_MOVE, null) is Dictionary:
+		return RUNE_KIND_MOVE
+
+	var effects: Variant = rune.get(RUNE_EFFECTS, null)
+	if not (effects is Array) or (effects as Array).is_empty():
+		return ""
+	var first: Variant = (effects as Array)[0]
+	if not (first is Dictionary):
+		return ""
+	var effect: Dictionary = first
+
+	if str(effect.get("type", "")) == SkillSchema.EFFECT_HEAL:
+		return RUNE_KIND_HEAL
+	var intervene: Variant = effect.get(SkillSchema.BUFF_INTERVENE, null)
+	if intervene is Dictionary and (intervene as Dictionary).has(SkillSchema.INTERVENE_SHIELD_HP):
+		return RUNE_KIND_SHIELD
+	var target: Variant = rune.get(RUNE_TARGET, null)
+	if target is Dictionary and str((target as Dictionary).get("team", "")) == SkillSchema.TEAM_ENEMY:
+		return RUNE_KIND_DEBUFF
+	return RUNE_KIND_BUFF
 
 
 # rune_id -> 定義 の Dictionary を返す。

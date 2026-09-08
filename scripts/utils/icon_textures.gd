@@ -48,6 +48,18 @@ const MATERIAL_SERIES: Dictionary = {
 	GameStateKeys.ITEM_DECOR_MATERIAL_PREFIX: "material_decor",
 }
 
+# ルーンの種類 -> ファイル名の後半（2026-09-08・人間の指示「⚠ ルーンを中の模様を変えて」）。
+#
+# ⚠ 種類の判定は `MasterDataLoader.get_rune_kind()` の1本（⚠ 効果の形から決まる）。
+#   ⚠ ここに "type" や "team" の綴りを持ち込まない。
+const RUNE_INNER_NAMES: Dictionary = {
+	MasterDataLoader.RUNE_KIND_MOVE: "rune_move",
+	MasterDataLoader.RUNE_KIND_HEAL: "rune_heal",
+	MasterDataLoader.RUNE_KIND_SHIELD: "rune_shield",
+	MasterDataLoader.RUNE_KIND_DEBUFF: "rune_debuff",
+	MasterDataLoader.RUNE_KIND_BUFF: "rune_buff",
+}
+
 # ステータスの軸 -> ファイル名の後半。⚠ 軸のIDは `GameStateKeys.STAT_*`。
 const STAT_NAMES: Dictionary = {
 	GameStateKeys.STAT_HP: "stat_hp",
@@ -86,6 +98,10 @@ static func for_item(item_id: String) -> Texture2D:
 # ⚠ どのステータスかは `GameManager.get_part_definition()` に聞く（⚠ IDの綴りから切らない）。
 # ⚠ ステータスを持たないもの（⚠ ルーン・素材・装備）は null＝中身なし。
 static func inner_for_item(item_id: String) -> Texture2D:
+	# ⚠ ルーンはステータスを持たない（⚠ 効果を撃つもの）。⚠ 中身は「何をするか」。
+	var rune_kind: String = MasterDataLoader.get_rune_kind(item_id)
+	if rune_kind != "":
+		return _load(str(RUNE_INNER_NAMES.get(rune_kind, "")))
 	var definition: Dictionary = GameManager.get_part_definition(item_id)
 	if definition.is_empty():
 		return null
@@ -180,6 +196,8 @@ static func all_for_check() -> Dictionary:
 		result[name] = _load(name)
 	for prefix: String in MATERIAL_SERIES:
 		result[str(MATERIAL_SERIES[prefix])] = _load(str(MATERIAL_SERIES[prefix]))
+	for kind: String in RUNE_INNER_NAMES:
+		result[str(RUNE_INNER_NAMES[kind])] = _load(str(RUNE_INNER_NAMES[kind]))
 	for stat_key: String in STAT_NAMES:
 		result[str(STAT_NAMES[stat_key])] = _load(stat_key_texture_name(stat_key))
 	return result
