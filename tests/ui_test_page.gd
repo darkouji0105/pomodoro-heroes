@@ -318,15 +318,44 @@ func _build_parts_catalog() -> void:
 	modal_row.name = "ModalButtons"
 	var notify_button: UiButton = UiButton.new()
 	notify_button.name = "ModalNotifyButton"
-	notify_button.text = "ui_uitest_modal_notify"
+	notify_button.text = tr("ui_uitest_modal_notify")
 	notify_button.pressed.connect(_on_modal_notify_pressed)
 	modal_row.add_child(notify_button)
 	var confirm_button: UiButton = UiButton.new()
 	confirm_button.name = "ModalConfirmButton"
-	confirm_button.text = "ui_uitest_modal_confirm"
+	confirm_button.text = tr("ui_uitest_modal_confirm")
 	confirm_button.pressed.connect(_on_modal_confirm_pressed)
 	modal_row.add_child(confirm_button)
+	# ⚠ 窓形式（2026-09-08・段階⑤-③・台帳の決定39）。⚠ 見出し＋中身＋文言を変えたボタン。
+	#   ⚠ 実機で見る唯一の口（⚠ 本番では宝箱を開けないと出ない）。
+	var window_button: UiButton = UiButton.new()
+	window_button.name = "ModalWindowButton"
+	window_button.text = tr("ui_uitest_modal_window")
+	window_button.pressed.connect(_on_modal_window_pressed)
+	modal_row.add_child(window_button)
 	layout.add_child(modal_row)
+
+
+# 窓形式のモーダル（2026-09-08）。⚠ 中身は本番と同じ `ItemGrid`。
+func _on_modal_window_pressed() -> void:
+	var box: VBoxContainer = VBoxContainer.new()
+	box.name = "SampleRewardWindow"
+	var grid: ItemGrid = ItemGrid.new()
+	grid.name = "SampleRewardGrid"
+	grid.columns = 4
+	box.add_child(grid)
+	var entries: Array = _build_sample_entries().slice(0, 4)
+	grid.rebuild(entries, entries.size())
+	var label: Label = Label.new()
+	label.name = "SampleRewardCurrency"
+	# ⚠ 数値だけなので tr() を通すのは見出しだけ（AGENTS.md）。
+	label.text = "%s +1200" % tr("ui_res_gold")
+	box.add_child(label)
+	Modal.notify(self, "", [], false, {
+		Modal.OPTION_TITLE: tr("ui_uitest_modal_window"),
+		Modal.OPTION_CONTENT: box,
+		Modal.OPTION_CLOSE_LABEL: "ui_warehouse_receive",
+	})
 
 
 # ⚠ ボタンの見本（2026-09-06・人間の指示「⚠ ボタンも」）。

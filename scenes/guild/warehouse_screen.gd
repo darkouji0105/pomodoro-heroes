@@ -28,6 +28,9 @@ const TAB_TITLE_KEYS: Array[String] = [
 
 const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 
+# 開封結果の窓のマス目の列数（⚠ 見た目の都合だけ。⚠ バランス数値ではない）。
+const REWARD_GRID_COLUMNS: int = 6
+
 # --- ノード参照 ---
 @onready var tabs: TabContainer = $Layout/Tabs
 @onready var back_button: UiButton = $Layout/Header/BackButton
@@ -533,8 +536,10 @@ func _add_empty_placeholder(parent: Container) -> void:
 # --- 開封処理 ---
 
 func _on_open_chest_pressed(instance_id: String) -> void:
-	# 1. 開封前に rewards を読んでおく（open_chest は rewards を返さない）
+	# 1. 開封前に rewards と名前を読んでおく（⚠ open_chest は rewards を返さないし、
+	#    ⚠ 開けたあとは一覧から引けなくなることがある）
 	var rewards: Dictionary = _read_chest_rewards(instance_id)
+	var chest_title: String = _chest_name(instance_id)
 	if rewards.is_empty() and not _chest_exists(instance_id):
 		push_warning("[WarehouseScreen] chest not found: " + instance_id)
 		return
@@ -545,7 +550,9 @@ func _on_open_chest_pressed(instance_id: String) -> void:
 		push_warning("[WarehouseScreen] open_chest failed: " + instance_id)
 		return
 
-	# 3. 整形して ResultLabel に表示
+	# 3. 窓で見せる（2026-09-08・段階⑤-③・モック4枚目）。
+	#    ⚠ ResultLabel にも積む（⚠ 画面の絵は取れないので、⚠ 検証はこちらで読む）。
+	_show_reward_window(rewards, chest_title)
 	_append_opened_rewards(rewards, tr("ui_warehouse_opened"))
 
 func _on_open_all_pressed() -> void:
@@ -568,9 +575,96 @@ func _on_open_all_pressed() -> void:
 			opened_count += 1
 
 	if opened_count > 0:
+		# ⚠ まとめて1つの窓（⚠ 5個開けて窓が5つ並ぶと閉じるだけで疲れる）。
+		_show_reward_window(combined, tr("ui_warehouse_open_all"))
 		_append_opened_rewards(combined, tr("ui_warehouse_opened"))
 
 # --- rewards 整形 ---
+
+# 開封結果の窓（2026-09-08・段階⑤-③・台帳の決定39）。
+#
+# ⚠⚠ **報酬はもう配り終わっている**（⚠ `open_chest()` の中で入っている）。
+#   ⚠ この窓は「何が入ったか」を見せるだけ。⚠ 閉じても何も失われない。
+# ⚠ 中身のマス目は `ItemGrid`（⚠ 倉庫・鞄・宝箱で使い回している部品）。
+# ⚠ ゴールド・ジェム・スタミナはマスにならないので文字で出す（⚠ 品ではないため）。
+func _show_reward_window(rewards: Dictionary, title: String) -> void:
+	var box: VBoxContainer = VBoxContainer.new()
+	box.name = "RewardWindow"
+
+	var entries: Array = _reward_entries(rewards)
+	if not entries.is_empty():
+		var grid: ItemGrid = ItemGrid.new()
+		grid.name = "RewardGrid"
+		grid.columns = mini(entries.size(), REWARD_GRID_COLUMNS)
+		box.add_child(grid)
+		grid.rebuild(entries, entries.size())
+
+	var currency: String = _reward_currency_text(rewards)
+	if currency != "":
+		var label: Label = Label.new()
+		label.name = "RewardCurrency"
+		label.text = currency
+		box.add_child(label)
+
+	Modal.notify(self, "", [], false, {
+		Modal.OPTION_TITLE: title,
+		Modal.OPTION_CONTENT: box,
+		Modal.OPTION_CLOSE_LABEL: "ui_warehouse_receive",
+	})
+
+
+# 報酬のうち **マスになるもの**（⚠ 素材と持ち物）。⚠ 個数はマスに出る。
+func _reward_entries(rewards: Dictionary) -> Array:
+	var entries: Array = []
+	for source: Variant in [
+		rewards.get(GameStateKeys.REWARD_MATERIALS, {}),
+		rewards.get(GameStateKeys.REWARD_INVENTORY, {}),
+	]:
+		if not (source is Dictionary):
+			continue
+		for item_id: String in (source as Dictionary):
+			var count: int = int((source as Dictionary)[item_id])
+			if count <= 0:
+				continue
+			entries.append({
+				GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+				GameManager.SLOT_ENTRY_ITEM_ID: item_id,
+				GameManager.SLOT_ENTRY_INSTANCE_ID: "",
+				GameManager.SLOT_ENTRY_GRADE: 0,
+				GameManager.SLOT_ENTRY_COUNT: count,
+				GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+			})
+	return entries
+
+
+# 報酬のうち **マスにならないもの**（⚠ ゴールド・ジェム・スタミナ）。⚠ 0 は出さない。
+func _reward_currency_text(rewards: Dictionary) -> String:
+	var parts: Array[String] = []
+	for pair: Array in [
+		[GameStateKeys.REWARD_GOLD, "ui_res_gold"],
+		[GameStateKeys.REWARD_GEMS, "ui_res_gems"],
+		[GameStateKeys.REWARD_STAMINA, "ui_res_stamina"],
+	]:
+		var amount: int = int(rewards.get(str(pair[0]), 0))
+		if amount > 0:
+			parts.append("%s +%d" % [tr(str(pair[1])), amount])
+	return "  ".join(parts)
+
+
+# 宝箱の表示名。⚠ chests.json の name_key（⚠ 綴りを組み立てない）。
+func _chest_name(instance_id: String) -> String:
+	var state: Dictionary = GameManager.get_state()
+	for chest: Variant in state.get(GameStateKeys.PENDING_CHESTS, []):
+		if not (chest is Dictionary):
+			continue
+		if str((chest as Dictionary).get(GameStateKeys.CHEST_INSTANCE_ID, "")) != instance_id:
+			continue
+		var chest_def: Dictionary = MasterDataLoader.get_chest(
+			str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))
+		)
+		return tr(str(chest_def.get(GameManager.CHEST_NAME_KEY, "")))
+	return tr("ui_warehouse_opened")
+
 
 func _append_opened_rewards(rewards: Dictionary, prefix: String) -> void:
 	var lines: Array[String] = []

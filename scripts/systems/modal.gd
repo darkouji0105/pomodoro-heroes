@@ -15,6 +15,14 @@ extends RefCounted
 
 const MODAL_SCENE: PackedScene = preload("res://scenes/ui/components/modal_dialog.tscn")
 
+# 窓の追加の指定（2026-09-08・段階⑤-③・台帳の決定39）。
+#
+# ⚠ 位置引数を増やさずに Dictionary にしてある（⚠ 3つとも「使わない呼び出し」のほうが多い）。
+# ⚠ 綴りを呼ぶ側に書かせないための定数。⚠ `ModalDialog.setup()` が同じキーで読む。
+const OPTION_TITLE: String = "title"          # 窓の見出し（⚠ 翻訳済みの文字列）
+const OPTION_CONTENT: String = "content"      # 窓の中に入れる Control（⚠ 1つだけ）
+const OPTION_CLOSE_LABEL: String = "close_label_key"  # 閉じるボタンの翻訳キー
+
 static var _current: ModalDialog = null
 static var _queue: Array = []
 static var _queue_scene: Node = null
@@ -28,14 +36,26 @@ static var _queue_scene: Node = null
 #       await d.closed
 # と書く。戻り値を使わなくてよい呼び出しのほうが多いので、
 # await を強制しない形にしている。
-static func notify(caller: Node, message_key: String, format_args: Array = [], pause: bool = false) -> ModalDialog:
-	return _enqueue(caller, message_key, format_args, false, pause)
+static func notify(
+	caller: Node,
+	message_key: String,
+	format_args: Array = [],
+	pause: bool = false,
+	options: Dictionary = {}
+) -> ModalDialog:
+	return _enqueue(caller, message_key, format_args, false, pause, options)
 
 
 # 確認。await で結果を受け取る。
 # 「いいえ」「閉じる」「Escape」「画面遷移で消えた」はすべて false。
-static func confirm(caller: Node, message_key: String, format_args: Array = [], pause: bool = false) -> bool:
-	var dlg: ModalDialog = _enqueue(caller, message_key, format_args, true, pause)
+static func confirm(
+	caller: Node,
+	message_key: String,
+	format_args: Array = [],
+	pause: bool = false,
+	options: Dictionary = {}
+) -> bool:
+	var dlg: ModalDialog = _enqueue(caller, message_key, format_args, true, pause, options)
 	if dlg == null:
 		# 表示できなかった場合は「いいえ」と同じ扱いにする。
 		# ここで永久に待たせると、呼び出し側の await の先が実行されない。
@@ -45,17 +65,27 @@ static func confirm(caller: Node, message_key: String, format_args: Array = [], 
 
 # ダイアログの実体を作って、表示するかキューに積む。
 # 作った実体を返す（confirm がこれを待つ）。
-static func _enqueue(caller: Node, message_key: String, format_args: Array, is_confirm: bool, pause: bool) -> ModalDialog:
+static func _enqueue(
+	caller: Node,
+	message_key: String,
+	format_args: Array,
+	is_confirm: bool,
+	pause: bool,
+	options: Dictionary = {}
+) -> ModalDialog:
 	if caller == null:
 		push_warning("[Modal] caller is null")
+		_free_option_content(options)
 		return null
 	var tree: SceneTree = caller.get_tree()
 	if tree == null:
 		push_warning("[Modal] caller.get_tree() is null")
+		_free_option_content(options)
 		return null
 	var current_scene: Node = tree.current_scene
 	if current_scene == null:
 		push_warning("[Modal] current_scene is null")
+		_free_option_content(options)
 		return null
 
 	# シーンが変わっていたら、前の画面のキューを捨てる。
@@ -72,6 +102,7 @@ static func _enqueue(caller: Node, message_key: String, format_args: Array, is_c
 		"format_args": format_args,
 		"is_confirm": is_confirm,
 		"pause": pause,
+		"options": options,
 	}
 
 	if _current_is_alive():
@@ -111,7 +142,12 @@ static func _show(item: Dictionary) -> void:
 	_queue_scene = current_scene
 	current_scene.add_child(dlg)
 	dlg.closed.connect(_on_current_closed, CONNECT_ONE_SHOT)
-	dlg.setup(message, bool(item.get("is_confirm", false)), bool(item.get("pause", false)))
+	dlg.setup(
+		message,
+		bool(item.get("is_confirm", false)),
+		bool(item.get("pause", false)),
+		item.get("options", {})
+	)
 
 
 # closed は _close() の中で emit される。emit の直後に次を表示しようとすると、
@@ -168,6 +204,15 @@ static func _free_item(item: Dictionary) -> void:
 	if not d.is_inside_tree():
 		d.emit_closed_once(false)
 		d.free()
+	# ⚠ 窓に入れる前の中身は、⚠ 誰の子でもない＝⚠ 捨てないと漏れる。
+	_free_option_content(item.get("options", {}))
+
+
+# 窓に入らなかった中身を解放する。⚠ ツリーに入っていないので queue_free ではなく free。
+static func _free_option_content(options: Dictionary) -> void:
+	var content: Variant = options.get(OPTION_CONTENT, null)
+	if content is Node and is_instance_valid(content as Node) and not (content as Node).is_inside_tree():
+		(content as Node).free()
 
 
 static func _current_is_alive() -> bool:

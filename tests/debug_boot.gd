@@ -49,6 +49,7 @@ const REPORT_THEME: String = "theme"
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
 const THEME_PATH: String = "res://theme/main_theme.tres"
+const MODAL_SCENE_PATH: String = "res://scenes/ui/components/modal_dialog.tscn"
 const THEME_BUTTON_TYPES: Array[String] = ["Button", "PrimaryButton", "GhostButton", "DangerButton"]
 const THEME_BUTTON_STATES: Array[String] = ["normal", "hover", "pressed", "disabled", "focus"]
 const THEME_BUTTON_COLORS: Array[String] = [
@@ -5174,6 +5175,43 @@ func _report_theme() -> void:
 		push_error("[DebugBoot] E140 Theme に欠けがある: " + entry)
 
 	_report_all_scenes_load()
+	_report_modal_window()
+
+
+# ⚠⚠ ウィンドウ形式のモーダル（2026-09-08・段階⑤-③・台帳の決定39）。
+#
+# ⚠ 見た目は取れない。⚠ ここで見るのは「⚠ 見出し・中身・ボタンの文言が入ったか」だけ。
+# ⚠ 押して出すことはできない（⚠ ヘッドレスにマウスが無い）ので、⚠ `setup()` を直接呼ぶ。
+# ⚠ `Modal` を通さないのは、⚠ あちらが `current_scene` に足す作りで、
+#   ⚠ ここでは現在のシーンが自分（DebugBoot）だから。⚠ 出す口の検証ではなく器の検証。
+func _report_modal_window() -> void:
+	print("[DebugBoot] --- ウィンドウ形式のモーダル（⚠ 見出し・中身・ボタンの文言）---")
+	var scene: PackedScene = load(MODAL_SCENE_PATH)
+	if scene == null:
+		push_error("[DebugBoot] E140 modal_dialog.tscn を読めない")
+		return
+	var dialog: ModalDialog = scene.instantiate()
+	add_child(dialog)
+
+	var content: Label = Label.new()
+	content.name = "ProbeContent"
+	content.text = "中身"
+	dialog.setup("", false, false, {
+		Modal.OPTION_TITLE: "でんせつの宝箱",
+		Modal.OPTION_CONTENT: content,
+		Modal.OPTION_CLOSE_LABEL: "ui_warehouse_receive",
+	})
+	print("  見出し = '%s'（出るか=%s）" % [dialog.title_label.text, str(dialog.title_bar.visible)])
+	print("  中身の器 = %s ／ 中の数 = %d" % [
+		str(dialog.content_box.visible), dialog.content_box.get_child_count()
+	])
+	print("  閉じるボタン = '%s'（⚠ 「受け取る」が正解）" % dialog.close_button.text)
+	print("  本文 = '%s'（⚠ 空なら行ごと消えるのが正解 / 出るか=%s）" % [
+		dialog.message_label.text, str(dialog.message_label.visible)
+	])
+	if dialog.title_label.text == "" or not dialog.content_box.visible:
+		push_error("[DebugBoot] E140 ウィンドウ形式の見出しか中身が入っていない")
+	dialog.free()
 
 
 # ⚠ 全シーンが読めるか（2026-09-07・ボタンの差し替えで 22 枚の ext_resource を書き換えたため）。

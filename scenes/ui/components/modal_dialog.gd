@@ -11,6 +11,13 @@ const DIMMER_COLOR: Color = Color(0, 0, 0, 0.6)
 
 @onready var blocker: Control = $Blocker
 @onready var dimmer: ColorRect = $Blocker/Dimmer
+# 窓の見出し（2026-09-08・段階⑤-③・台帳の決定39「モーダルをウィンドウ形式に」）。
+#   ⚠ 見出しを渡さない呼び出しでは出ない（⚠ 今までの見た目のまま）。
+@onready var title_bar: HBoxContainer = $Blocker/Panel/Margin/VBox/TitleBar
+@onready var title_label: Label = $Blocker/Panel/Margin/VBox/TitleBar/TitleLabel
+@onready var title_separator: HSeparator = $Blocker/Panel/Margin/VBox/TitleSeparator
+# 中身の置き場（⚠ 宝箱の開封結果のマス目など）。⚠ 渡さなければ出ない。
+@onready var content_box: VBoxContainer = $Blocker/Panel/Margin/VBox/ContentBox
 @onready var message_label: Label = $Blocker/Panel/Margin/VBox/MessageLabel
 @onready var confirm_button: Button = $Blocker/Panel/Margin/VBox/Buttons/ConfirmButton
 @onready var close_button: Button = $Blocker/Panel/Margin/VBox/Buttons/CloseButton
@@ -38,14 +45,31 @@ func _ready() -> void:
 
 
 # message は翻訳済みの文字列を受け取る。ここで tr() は呼ばない。
-func setup(message: String, is_confirm: bool, pause: bool) -> void:
+#
+# ⚠ `options` は 2026-09-08 に足した（⚠ 4つ目の引数。⚠ 既存の呼び出しは触っていない）。
+#   ⚠ 中身のキーは `Modal.OPTION_*`。⚠ 綴りを呼ぶ側に書かせない。
+func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary = {}) -> void:
 	message_label.text = message
+	# ⚠ 中身だけの窓もある（⚠ 宝箱の開封結果）。⚠ 空の行を残さない。
+	message_label.visible = message != ""
+
+	var title: String = str(options.get(Modal.OPTION_TITLE, ""))
+	title_label.text = title
+	title_bar.visible = title != ""
+	title_separator.visible = title != ""
+
+	var content: Variant = options.get(Modal.OPTION_CONTENT, null)
+	if content is Control:
+		content_box.add_child(content as Control)
+		content_box.visible = true
+
 	confirm_button.visible = is_confirm
 	if is_confirm:
 		confirm_button.label_key = "ui_common_yes"
 		close_button.label_key = "ui_common_no"
 	else:
-		close_button.label_key = "ui_common_close"
+		# ⚠ 閉じるボタンの文言を差し替えられる（⚠ 宝箱は「受け取る」）。
+		close_button.label_key = str(options.get(Modal.OPTION_CLOSE_LABEL, "ui_common_close"))
 	if pause:
 		_apply_pause()
 
