@@ -58,3 +58,4 @@ label_key = "ui_guild_workshop"
 [node name="BackButton" parent="CenterContainer/Layout" unique_id=2069511811 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_common_back"
+variant = 2

@@ -99,7 +99,9 @@ size_flags_horizontal = 3
 [node name="AbandonButton" parent="Layout/Footer" instance=ExtResource("3_button")]
 layout_mode = 2
 label_key = "ui_floor_abandon"
+variant = 3
 
 [node name="BackButton" parent="Layout/Footer" instance=ExtResource("3_button")]
 layout_mode = 2
 label_key = "ui_floor_back_to_base"
+variant = 2

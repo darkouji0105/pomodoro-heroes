@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://bg4tlg5ox3rmf" path="res://scenes/guild/training_screen.gd" id="1_training"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 
+[ext_resource type="PackedScene" uid="uid://b1screenheader01" path="res://scenes/ui/components/screen_header.tscn" id="9_screen_header"]
+
 [node name="TrainingScreen" type="Control" unique_id=998142702]
 layout_mode = 3
 anchors_preset = 15
@@ -31,10 +33,9 @@ theme_type_variation = &"ScreenMargin"
 [node name="Layout" type="VBoxContainer" parent="Margin" unique_id=413289825]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="Margin/Layout" unique_id=2098690934]
+[node name="Header" parent="Margin/Layout" instance=ExtResource("9_screen_header")]
 layout_mode = 2
-text = "ui_training_title"
-horizontal_alignment = 1
+title_key = "ui_training_title"
 
 [node name="MaterialLabel" type="Label" parent="Margin/Layout" unique_id=2003284505]
 layout_mode = 2
@@ -90,7 +91,3 @@ label_key = "ui_training_equipment"
 [node name="ToListButton" parent="Margin/Layout/DetailPanel/ActionColumn" unique_id=268559977 instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_training_to_list"
-
-[node name="BackButton" parent="Margin/Layout" unique_id=1006488067 instance=ExtResource("2_primary_btn")]
-layout_mode = 2
-label_key = "ui_common_back"

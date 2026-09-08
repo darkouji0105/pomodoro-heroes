@@ -72,3 +72,4 @@ label_key = "ui_adventure_training"
 [node name="BackButton" parent="Layout/Footer" unique_id=899698363 instance=ExtResource("3_button")]
 layout_mode = 2
 label_key = "ui_adventure_back"
+variant = 2

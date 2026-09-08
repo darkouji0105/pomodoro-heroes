@@ -61,6 +61,7 @@ variant = 1
 [node name="DeleteSaveButton" parent="ButtonContainer" unique_id=1168083645 instance=ExtResource("2_button")]
 layout_mode = 2
 label_key = "ui_title_delete_save"
+variant = 3
 
 [node name="ErrorLabel" type="Label" parent="." unique_id=1735180032]
 layout_mode = 1

@@ -82,3 +82,4 @@ offset_top = 400.0
 offset_right = 840.0
 offset_bottom = 460.0
 label_key = "ui_battle_back"
+variant = 2

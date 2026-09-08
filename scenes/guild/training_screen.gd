@@ -57,7 +57,9 @@ var _selected_build: int = 0
 @onready var skill_button: UiButton = $Margin/Layout/DetailPanel/ActionColumn/SkillButton
 @onready var equip_button: UiButton = $Margin/Layout/DetailPanel/ActionColumn/EquipButton
 @onready var to_list_button: UiButton = $Margin/Layout/DetailPanel/ActionColumn/ToListButton
-@onready var back_button: UiButton = $Margin/Layout/BackButton
+# ⚠ 題と戻るは `ScreenHeader` が持つ（2026-09-09）。⚠ ボタンを直接掴まない
+#   （⚠ 掴むと、⚠ 部品の作りを変えるたびに画面ぜんぶを直すことになる）。
+@onready var header: ScreenHeader = $Margin/Layout/Header
 
 
 func _ready() -> void:
@@ -69,7 +71,7 @@ func _ready() -> void:
 	skill_button.pressed.connect(_on_skill_pressed)
 	equip_button.pressed.connect(_on_equip_pressed)
 	to_list_button.pressed.connect(_show_list)
-	back_button.pressed.connect(_on_back_pressed)
+	header.back_pressed.connect(_on_back_pressed)
 
 	# レベルアップの結果は戻り値ではなくシグナルで受けて描画し直す。
 	# 表示更新の経路を1本にしておくと、他画面から育成データが変わっても追従する。

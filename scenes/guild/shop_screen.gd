@@ -19,7 +19,9 @@ const SHOP_TYPE: String = GameStateKeys.SHOP_TYPE_DAILY
 @onready var refresh_label: Label = $Margin/Layout/RefreshLabel
 @onready var slot_list: VBoxContainer = $Margin/Layout/Scroll/SlotList
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
-@onready var back_button: UiButton = $Margin/Layout/BackButton
+# ⚠ 題と戻るは `ScreenHeader` が持つ（2026-09-09）。⚠ ボタンを直接掴まない
+#   （⚠ 掴むと、⚠ 部品の作りを変えるたびに画面ぜんぶを直すことになる）。
+@onready var header: ScreenHeader = $Margin/Layout/Header
 
 func _ready() -> void:
 	# 1. 画面を開いた時点で日付を見る。
@@ -27,7 +29,7 @@ func _ready() -> void:
 	GameManager.refresh_shop_if_needed(SHOP_TYPE)
 
 	# 2. ボタン接続
-	back_button.pressed.connect(_on_back_pressed)
+	header.back_pressed.connect(_on_back_pressed)
 
 	# 3. GameManager のシグナル購読
 	#    shop_changed: 購入回数・リフレッシュ

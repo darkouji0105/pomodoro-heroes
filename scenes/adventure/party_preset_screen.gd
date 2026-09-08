@@ -16,7 +16,9 @@ const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 @onready var members_box: VBoxContainer = $Margin/Layout/Members
 @onready var presets_box: VBoxContainer = $Margin/Layout/Scroll/Presets
 @onready var message_label: Label = $Margin/Layout/MessageLabel
-@onready var back_button: UiButton = $Margin/Layout/BackButton
+# ⚠ 題と戻るは `ScreenHeader` が持つ（2026-09-09）。⚠ ボタンを直接掴まない
+#   （⚠ 掴むと、⚠ 部品の作りを変えるたびに画面ぜんぶを直すことになる）。
+@onready var header: ScreenHeader = $Margin/Layout/Header
 
 # 「戻る」で帰る先。入口が2つあるので来た側が渡す（TransferKeys.RETURN_PATH）。
 var _return_path: String = BASE_PATH
@@ -46,7 +48,7 @@ func _ready() -> void:
 	_selected_builds.fill(0)
 
 	message_label.text = ""
-	back_button.pressed.connect(_on_back_pressed)
+	header.back_pressed.connect(_on_back_pressed)
 	_rebuild()
 
 

@@ -33,7 +33,9 @@ const MARK_LOCKED: String = "✕"
 @onready var slots: VBoxContainer = $Margin/Layout/Slots
 @onready var candidates_label: Label = $Margin/Layout/CandidatesLabel
 @onready var candidates: VBoxContainer = $Margin/Layout/Scroll/Candidates
-@onready var back_button: UiButton = $Margin/Layout/BackButton
+# ⚠ 題と戻るは `ScreenHeader` が持つ（2026-09-09）。⚠ ボタンを直接掴まない
+#   （⚠ 掴むと、⚠ 部品の作りを変えるたびに画面ぜんぶを直すことになる）。
+@onready var header: ScreenHeader = $Margin/Layout/Header
 
 var _character_id: String = ""
 # 次に選んだスキルを入れる枠。既定は0（スキル1＝武器スロット）。
@@ -52,7 +54,7 @@ func _ready() -> void:
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	_character_id = str(data.get(TransferKeys.CHARACTER_ID, ""))
 
-	back_button.pressed.connect(_on_back_pressed)
+	header.back_pressed.connect(_on_back_pressed)
 	GameManager.character_growth_changed.connect(_on_character_growth_changed)
 
 	notice_label.text = ""

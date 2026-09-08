@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://bnqek4jakj5l8" path="res://scenes/guild/equipment_screen.gd" id="1_equipment"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 
+[ext_resource type="PackedScene" uid="uid://b1screenheader01" path="res://scenes/ui/components/screen_header.tscn" id="9_screen_header"]
+
 [node name="EquipmentScreen" type="Control" unique_id=974945554]
 layout_mode = 3
 anchors_preset = 15
@@ -32,10 +34,9 @@ theme_type_variation = &"ScreenMargin"
 [node name="Layout" type="VBoxContainer" parent="Margin" unique_id=2066185930]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="Margin/Layout" unique_id=879113985]
+[node name="Header" parent="Margin/Layout" instance=ExtResource("9_screen_header")]
 layout_mode = 2
-text = "ui_equipment_title"
-horizontal_alignment = 1
+title_key = "ui_equipment_title"
 
 [node name="NameLabel" type="Label" parent="Margin/Layout" unique_id=1453819280]
 layout_mode = 2
@@ -72,8 +73,3 @@ size_flags_horizontal = 3
 
 [node name="NoticeLabel" type="Label" parent="Margin/Layout" unique_id=828523728]
 layout_mode = 2
-
-[node name="BackButton" parent="Margin/Layout" unique_id=1077680342 instance=ExtResource("2_primary_btn")]
-layout_mode = 2
-label_key = "ui_common_back"
-variant = 2

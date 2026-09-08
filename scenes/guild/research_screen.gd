@@ -23,11 +23,13 @@ const CATEGORY_KEY_PREFIX: String = "ui_research_category_"
 @onready var cap_label: Label = $Margin/Layout/CapLabel
 @onready var node_list: VBoxContainer = $Margin/Layout/Scroll/NodeList
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
-@onready var back_button: UiButton = $Margin/Layout/BackButton
+# ⚠ 題と戻るは `ScreenHeader` が持つ（2026-09-09）。⚠ ボタンを直接掴まない
+#   （⚠ 掴むと、⚠ 部品の作りを変えるたびに画面ぜんぶを直すことになる）。
+@onready var header: ScreenHeader = $Margin/Layout/Header
 
 
 func _ready() -> void:
-	back_button.pressed.connect(_on_back_pressed)
+	header.back_pressed.connect(_on_back_pressed)
 
 	# 解放の結果は戻り値ではなくシグナルで受けて描画し直す。
 	# 素材は戦闘報酬でも増えるため material_changed にも繋ぐ。

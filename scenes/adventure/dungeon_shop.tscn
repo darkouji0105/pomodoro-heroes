@@ -84,3 +84,4 @@ size_flags_horizontal = 3
 [node name="BackButton" parent="Layout/Footer" instance=ExtResource("2_button")]
 layout_mode = 2
 label_key = "ui_dungeon_shop_back"
+variant = 2

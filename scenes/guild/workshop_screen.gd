@@ -17,7 +17,9 @@ const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 @onready var queue_list: VBoxContainer = $Margin/Layout/Scroll/Content/QueueList
 @onready var recipe_list: VBoxContainer = $Margin/Layout/Scroll/Content/RecipeList
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
-@onready var back_button: UiButton = $Margin/Layout/BackButton
+# ⚠ 題と戻るは `ScreenHeader` が持つ（2026-09-09）。⚠ ボタンを直接掴まない
+#   （⚠ 掴むと、⚠ 部品の作りを変えるたびに画面ぜんぶを直すことになる）。
+@onready var header: ScreenHeader = $Margin/Layout/Header
 @onready var tick: Timer = $Tick
 
 # queue_id -> 残り時間ラベル。Tick はこの Dictionary だけを見て text を書き換える。
@@ -30,7 +32,7 @@ func _ready() -> void:
 	GameManager.refresh_crafting_queue_if_needed()
 
 	# 2. ボタン接続
-	back_button.pressed.connect(_on_back_pressed)
+	header.back_pressed.connect(_on_back_pressed)
 	tick.timeout.connect(_on_tick)
 
 	# 3. GameManager のシグナル購読

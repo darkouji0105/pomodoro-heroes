@@ -28,7 +28,9 @@ const MARK_LOCKED: String = "✕"
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
 @onready var reset_button: UiButton = $Margin/Layout/ResetButton
 @onready var branches: HBoxContainer = $Margin/Layout/Scroll/Branches
-@onready var back_button: UiButton = $Margin/Layout/BackButton
+# ⚠ 題と戻るは `ScreenHeader` が持つ（2026-09-09）。⚠ ボタンを直接掴まない
+#   （⚠ 掴むと、⚠ 部品の作りを変えるたびに画面ぜんぶを直すことになる）。
+@onready var header: ScreenHeader = $Margin/Layout/Header
 
 var _character_id: String = ""
 
@@ -38,7 +40,7 @@ func _ready() -> void:
 	_character_id = str(data.get(TransferKeys.CHARACTER_ID, ""))
 
 	reset_button.pressed.connect(_on_reset_pressed)
-	back_button.pressed.connect(_on_back_pressed)
+	header.back_pressed.connect(_on_back_pressed)
 
 	GameManager.character_growth_changed.connect(_on_character_growth_changed)
 

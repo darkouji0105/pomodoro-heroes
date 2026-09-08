@@ -27,7 +27,9 @@ const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_butt
 @onready var item_header: Label = $Margin/Layout/Scroll/Content/ItemHeader
 @onready var item_list: VBoxContainer = $Margin/Layout/Scroll/Content/ItemList
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
-@onready var back_button: UiButton = $Margin/Layout/BackButton
+# ⚠ 題と戻るは `ScreenHeader` が持つ（2026-09-09）。⚠ ボタンを直接掴まない
+#   （⚠ 掴むと、⚠ 部品の作りを変えるたびに画面ぜんぶを直すことになる）。
+@onready var header: ScreenHeader = $Margin/Layout/Header
 
 var _character_id: String = ""
 # いま一覧に出している部位。既定は武器（第1弾から持っている装備が武器のため）。
@@ -55,7 +57,7 @@ func _ready() -> void:
 	_character_id = str(data.get(TransferKeys.CHARACTER_ID, ""))
 
 	# 2. ボタン接続
-	back_button.pressed.connect(_on_back_pressed)
+	header.back_pressed.connect(_on_back_pressed)
 
 	# 3. GameManager のシグナル購読
 	#    character_growth_changed: 着脱

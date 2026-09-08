@@ -134,11 +134,14 @@ label_key = "ui_dungeon_descend"
 [node name="RetreatButton" parent="Layout/Footer" instance=ExtResource("2_button")]
 layout_mode = 2
 label_key = "ui_dungeon_retreat"
+variant = 3
 
 [node name="AbandonButton" parent="Layout/Footer" instance=ExtResource("2_button")]
 layout_mode = 2
 label_key = "ui_dungeon_abandon"
+variant = 3
 
 [node name="BackButton" parent="Layout/Footer" instance=ExtResource("2_button")]
 layout_mode = 2
 label_key = "ui_dungeon_back_to_base"
+variant = 2

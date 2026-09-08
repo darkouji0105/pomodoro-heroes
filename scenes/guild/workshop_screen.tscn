@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://scenes/guild/workshop_screen.gd" id="1_workshop"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 
+[ext_resource type="PackedScene" uid="uid://b1screenheader01" path="res://scenes/ui/components/screen_header.tscn" id="9_screen_header"]
+
 [node name="WorkshopScreen" type="Control"]
 layout_mode = 3
 anchors_preset = 15
@@ -36,10 +38,9 @@ theme_type_variation = &"ScreenMargin"
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="Margin/Layout"]
+[node name="Header" parent="Margin/Layout" instance=ExtResource("9_screen_header")]
 layout_mode = 2
-text = "ui_guild_workshop"
-horizontal_alignment = 1
+title_key = "ui_guild_workshop"
 
 [node name="MaterialLabel" type="Label" parent="Margin/Layout"]
 layout_mode = 2
@@ -71,7 +72,3 @@ size_flags_horizontal = 3
 
 [node name="NoticeLabel" type="Label" parent="Margin/Layout"]
 layout_mode = 2
-
-[node name="BackButton" parent="Margin/Layout" instance=ExtResource("2_primary_btn")]
-layout_mode = 2
-label_key = "ui_common_back"
