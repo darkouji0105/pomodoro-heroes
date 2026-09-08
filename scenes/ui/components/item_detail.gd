@@ -179,7 +179,7 @@ func _show_item(item_id: String) -> void:
 	var roll_max: int = int(definition.get(GameManager.ITEM_MASTER_PART_ROLL_MAX, 0))
 	if stat_key != "":
 		_add_value_row(
-			tr("ui_training_stat_" + stat_key),
+			_stat_label_text(stat_key),
 			"+%s〜%s" % [
 				_stat_value_text(stat_key, base),
 				_stat_value_text(stat_key, base + roll_max),
@@ -280,6 +280,16 @@ func _add_description(item_id: String) -> void:
 	if text == key:
 		return
 	_add_line(text)
+
+
+# 軸の名前（2026-09-08・人間の指示「⚠ ステータスの種類ごとにアイコンを」）。
+#
+# ⚠ 絵文字は `Glyphs.for_stat()` の1本。⚠ ここに軸ごとの分岐を書かない。
+# ⚠ フォントに無い軸は ""（⚠ そのときは名前だけになる。⚠ 豆腐を出さない）。
+func _stat_label_text(stat_key: String) -> String:
+	var glyph: String = Glyphs.for_stat(stat_key)
+	var name_text: String = tr("ui_training_stat_" + stat_key)
+	return name_text if glyph == "" else "%s %s" % [glyph, name_text]
 
 
 # ％の軸だけ "%" を付ける。⚠ 判定は GameManager.is_percent_stat() の1本。
@@ -399,7 +409,7 @@ func _add_stat_rows(stats: Variant) -> void:
 		if value == 0:
 			continue
 		_add_value_row(
-			tr("ui_training_stat_" + stat_key),
+			_stat_label_text(stat_key),
 			("+" if value > 0 else "-") + _stat_value_text(stat_key, absi(value)),
 			VARIATION_GAIN if value > 0 else VARIATION_LOSS
 		)

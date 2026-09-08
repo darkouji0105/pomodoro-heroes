@@ -5210,6 +5210,26 @@ func _collect_scenes(dir_path: String, out: Array[String]) -> void:
 	dir.list_dir_end()
 
 
+# ⚠⚠ これから使おうとしている絵文字の下見（2026-09-08）。
+#
+# ⚠ フォントは 1,274 字しか無い。⚠ 「思いついた絵文字が在るとは限らない」。
+#   ⚠ `Glyphs` に入れてから NG に気づくと、⚠ 入れ直しで往復が1回増える。
+# ⚠ ここに候補を並べて先に見る。⚠ 使うと決めたものだけ `Glyphs` の定数にする。
+# ⚠ 赤も黄も出さない（⚠ 候補であって、⚠ 使っているものではない）。
+const GLYPH_CANDIDATES: Array[String] = [
+	"❤", "💗", "💖", "💓",
+	"👊", "✊", "💢", "🔥", "⚡", "🗯",
+	"✨", "🌟", "💫", "🌙", "☄",
+	"🚧", "🔰", "🧊", "🏰", "🚪", "⛰",
+	"🔯", "🌀", "☯", "🕉", "🧿",
+	"💨", "🌬", "⏩", "⏪",
+	"⏱", "⏳", "⌛", "🕐", "⏰",
+	"🎯", "🔍", "👁", "☘", "🍀",
+	"💥", "💣", "🌋", "⭐",
+	"👟", "🏃", "🐇", "✈", "🛴",
+]
+
+
 func _report_glyphs() -> void:
 	var theme: Theme = load("res://theme/main_theme.tres")
 	if theme == null:
@@ -5227,6 +5247,27 @@ func _report_glyphs() -> void:
 			print("    fallback: '%s'" % (fallback as Font).get_font_name())
 	if (font.fallbacks as Array).is_empty():
 		push_warning("[DebugBoot] W32 fallback が0本。絵文字フォントが繋がっていない（NotoSansJP-VariableFont_wght.ttf.import の fallbacks）")
+
+	# ⚠ 候補の下見。⚠ 使うと決める前にここで見る（⚠ 入れてから直すと往復が増える）。
+	print("[DebugBoot] --- 候補の下見（⚠ まだ使っていない字。⚠ NG でも赤は出さない）---")
+	var candidate_ok: Array[String] = []
+	for candidate: String in GLYPH_CANDIDATES:
+		var ok: bool = true
+		for i: int in range(candidate.length()):
+			var code: int = candidate.unicode_at(i)
+			if code >= 0xFE00 and code <= 0xFE0F:
+				continue
+			if not font.has_char(code):
+				ok = false
+		if ok:
+			candidate_ok.append(candidate)
+	print("  在る = %d / %d 件" % [candidate_ok.size(), GLYPH_CANDIDATES.size()])
+	print("  在る: %s" % " ".join(candidate_ok))
+	var candidate_ng: Array[String] = []
+	for candidate: String in GLYPH_CANDIDATES:
+		if not (candidate in candidate_ok):
+			candidate_ng.append(candidate)
+	print("  無い: %s" % " ".join(candidate_ng))
 
 	# ⚠ Glyphs の表を全部見る。⚠ 1つでも NG なら豆腐が出る。
 	print("[DebugBoot] --- Glyphs の字がフォントに在るか（⚠ NG が0件で正解）---")

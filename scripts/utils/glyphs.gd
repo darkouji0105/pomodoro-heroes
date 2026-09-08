@@ -62,6 +62,23 @@ const ITEM_FALLBACK: String = "📦"
 ## ⚠ レリック（relics.json）。⚠ items.json に無いので別枠。
 const RELIC: String = "🔮"
 
+# --- ステータスの10軸（2026-09-08・人間の指示「⚠ ステータスの種類ごとにアイコンを」）---
+#
+# ⚠⚠ フォントに `⚔` `🗡` `🛡` は無い（⚠ `scenario=glyphs` の「候補の下見」で実測）。
+#   ⚠ 在る38件の中から、⚠ アイテムの種類やマスの絵文字と **ぶつからないもの**を選んである。
+#   ⚠ 例：⚠ HP に `❤` を使わないのは、⚠ それが蘇生ポーションの絵だから。
+# ⚠ 軸の並びと意味は GAME_DESIGN.md 8-1。⚠ 軸を増やしたらここにも足す。
+const STAT_HP: String = "💗"
+const STAT_ATK: String = "👊"
+const STAT_MAG: String = "✨"
+const STAT_DEF: String = "🔰"
+const STAT_MDEF: String = "🌀"
+const STAT_ATKSPD: String = "⏩"
+const STAT_HASTE: String = "⏳"
+const STAT_CRIT_RATE: String = "🎯"
+const STAT_CRIT_DMG: String = "💢"
+const STAT_SPD: String = "🏃"
+
 # --- ダンジョンのマス（DUNGEON_NODE_KIND_*） ---
 const NODE_BATTLE: String = "🔥"
 const NODE_RELIC: String = "🔮"
@@ -197,6 +214,35 @@ static func _for_part_kind(part_kind: String) -> String:
 	return ITEM_FALLBACK
 
 
+# ステータスの軸の絵文字（2026-09-08）。⚠ 表に無い軸は ""（⚠ 何も出さない）。
+#
+# ⚠ 軸のIDは `GameManager.get_stat_keys()` が返すもの。⚠ ここに綴りを増やさない。
+# ⚠ 呼ぶ側で分岐を書かないこと。⚠ ここが唯一の対応表。
+static func for_stat(stat_key: String) -> String:
+	match stat_key:
+		GameStateKeys.STAT_HP:
+			return STAT_HP
+		GameStateKeys.STAT_ATK:
+			return STAT_ATK
+		GameStateKeys.STAT_MAG:
+			return STAT_MAG
+		GameStateKeys.STAT_DEF:
+			return STAT_DEF
+		GameStateKeys.STAT_MDEF:
+			return STAT_MDEF
+		GameStateKeys.STAT_ATKSPD:
+			return STAT_ATKSPD
+		GameStateKeys.STAT_HASTE:
+			return STAT_HASTE
+		GameStateKeys.STAT_CRIT_RATE:
+			return STAT_CRIT_RATE
+		GameStateKeys.STAT_CRIT_DMG:
+			return STAT_CRIT_DMG
+		GameStateKeys.STAT_SPD:
+			return STAT_SPD
+	return ""
+
+
 # ダンジョンのマスの絵文字。⚠ 見えていないマスは NODE_HIDDEN。
 #
 # ⚠ 「見えているか」の判定はここでしない（GameManager.is_dungeon_node_revealed()）。
@@ -264,6 +310,16 @@ static func all_for_check() -> Dictionary:
 		"ITEM_POTION_REVIVE": ITEM_POTION_REVIVE,
 		"ITEM_FALLBACK": ITEM_FALLBACK,
 		"RELIC": RELIC,
+		"STAT_HP": STAT_HP,
+		"STAT_ATK": STAT_ATK,
+		"STAT_MAG": STAT_MAG,
+		"STAT_DEF": STAT_DEF,
+		"STAT_MDEF": STAT_MDEF,
+		"STAT_ATKSPD": STAT_ATKSPD,
+		"STAT_HASTE": STAT_HASTE,
+		"STAT_CRIT_RATE": STAT_CRIT_RATE,
+		"STAT_CRIT_DMG": STAT_CRIT_DMG,
+		"STAT_SPD": STAT_SPD,
 		"NODE_BATTLE": NODE_BATTLE,
 		"NODE_RELIC": NODE_RELIC,
 		"NODE_REST": NODE_REST,
