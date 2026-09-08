@@ -67,6 +67,11 @@ func _ready() -> void:
 	_show_arrival_rewards()
 
 func _init_resource_displays(state: Dictionary) -> void:
+	# ⚠ 絵を付ける（2026-09-09）。⚠ IDを渡すだけ（⚠ 画像の割り当てはここでしない）。
+	gold_value.resource_id = GameStateKeys.GOLD
+	stamina_value.resource_id = GameStateKeys.STAMINA
+	potion_value.resource_id = GameStateKeys.ITEM_STAMINA_POTION
+
 	# ゴールド
 	var gold: int = int(state.get(GameStateKeys.GOLD, 0))
 	gold_value.set_value(gold)
@@ -258,6 +263,8 @@ func _create_material_entry(material_id: String, initial_amount: int) -> void:
 
 	var val_display: ResourceDisplay = RESOURCE_DISPLAY_SCENE.instantiate()
 	val_display.name = "Value"
+	# ⚠ 素材は品なので、⚠ そのまま item_id を渡せば系統ごとの絵が付く。
+	val_display.resource_id = material_id
 
 	entry.add_child(name_label)
 	entry.add_child(val_display)

@@ -54,10 +54,11 @@ func _rebuild() -> void:
 
 	var line_up: Array = GameManager.get_shop_lineup(SHOP_TYPE)
 	if line_up.is_empty():
-		var empty_label: Label = Label.new()
-		empty_label.name = "EmptyLabel"
-		empty_label.text = tr("ui_guild_shop_empty")
-		slot_list.add_child(empty_label)
+		# ⚠ 0件の置き場は `EmptyState` の1本（2026-09-09）。⚠ 文字1行だと
+		#   ⚠ 「売り切れなのか、⚠ まだ並んでいないのか」が読み取れなかった。
+		slot_list.add_child(EmptyState.create(
+			"ui_guild_shop_empty", "", IconTextures.for_chest()
+		))
 		return
 
 	for entry: Variant in line_up:

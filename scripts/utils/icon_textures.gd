@@ -60,6 +60,16 @@ const RUNE_INNER_NAMES: Dictionary = {
 	MasterDataLoader.RUNE_KIND_BUFF: "rune_buff",
 }
 
+# 通貨など「品ではないもの」の絵（2026-09-09）。⚠ キーは `GameStateKeys` の資源の名前。
+#
+# ⚠ `ResourceDisplay` の `icon_texture` が全画面で空だったので足した。
+# ⚠ 素材や持ち物は品なので `for_item()` が返す。⚠ ここに並べない。
+const RESOURCE_NAMES: Dictionary = {
+	GameStateKeys.GOLD: "res_gold",
+	GameStateKeys.GEMS: "res_gems",
+	GameStateKeys.STAMINA: "res_stamina",
+}
+
 # ステータスの軸 -> ファイル名の後半。⚠ 軸のIDは `GameStateKeys.STAT_*`。
 const STAT_NAMES: Dictionary = {
 	GameStateKeys.STAT_HP: "stat_hp",
@@ -117,6 +127,15 @@ static func _material_series_name(item_id: String) -> String:
 			return str(MATERIAL_SERIES[prefix])
 	# ⚠ 系統が増えたのに表に足し忘れたとき。⚠ 前の1枚に落ちる（⚠ 黙って消えない）。
 	return NAME_ITEM_MATERIAL
+
+
+# 資源の絵（2026-09-09）。⚠ 通貨なら通貨の絵、⚠ それ以外は品として引く。
+#
+# ⚠⚠ 呼ぶ側は「金なのか素材なのか」を気にしなくてよい。⚠ ここが振り分ける。
+static func for_resource(resource_id: String) -> Texture2D:
+	if RESOURCE_NAMES.has(resource_id):
+		return _load(str(RESOURCE_NAMES[resource_id]))
+	return for_item(resource_id)
 
 
 # ステータスの軸の絵。⚠ 表に無い軸は null。
@@ -198,6 +217,8 @@ static func all_for_check() -> Dictionary:
 		result[str(MATERIAL_SERIES[prefix])] = _load(str(MATERIAL_SERIES[prefix]))
 	for kind: String in RUNE_INNER_NAMES:
 		result[str(RUNE_INNER_NAMES[kind])] = _load(str(RUNE_INNER_NAMES[kind]))
+	for resource_id: String in RESOURCE_NAMES:
+		result[str(RESOURCE_NAMES[resource_id])] = _load(str(RESOURCE_NAMES[resource_id]))
 	for stat_key: String in STAT_NAMES:
 		result[str(STAT_NAMES[stat_key])] = _load(stat_key_texture_name(stat_key))
 	return result

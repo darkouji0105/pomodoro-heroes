@@ -105,6 +105,8 @@ func _update_header() -> void:
 	]
 	_update_relic_line()
 
+	# ⚠ 絵を付ける（2026-09-09）。⚠ 毎回入れても同じIDなら描き直さない。
+	stamina_value.resource_id = GameStateKeys.STAMINA
 	var state: Dictionary = GameManager.get_state()
 	var stamina: Dictionary = state.get(GameStateKeys.STAMINA, {})
 	stamina_value.set_value_with_max(

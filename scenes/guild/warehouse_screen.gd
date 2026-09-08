@@ -388,7 +388,7 @@ func _rebuild_codex() -> void:
 	var codex: Dictionary = state.get(GameStateKeys.CODEX, {})
 
 	if codex.is_empty():
-		_add_empty_label(codex_list, "ui_warehouse_empty")
+		codex_list.add_child(EmptyState.create("ui_warehouse_empty"))
 		return
 
 	for item_id: String in codex:
@@ -510,41 +510,14 @@ func _make_chest_glyph(node_name: String) -> Control:
 	return glyph
 
 
-# 0件の1行（⚠ 図鑑タブ用）。
-#
-# ⚠⚠ 2026-09-08 に文言を引数にした。⚠ 前は宝箱と図鑑で同じ関数を呼んでいて、
-#   ⚠ **図鑑が0件のときに「受け取れる宝箱はありません」と出ていた**
-#   （⚠ 段階⑤-② で宝箱側を作り替えたときに、⚠ 呼び出し元が2つあることで気づいた）。
-func _add_empty_label(parent: Container, key: String) -> void:
-	var empty_label: Label = Label.new()
-	empty_label.text = tr(key)
-	empty_label.name = "EmptyLabel"
-	parent.add_child(empty_label)
-
-
 # 0件のときの置き場（2026-09-08・モック）。⚠ 絵 ＋ 2行。
-#   ⚠ 前は文字1行だけで、⚠ 「壊れて空なのか、⚠ もともと無いのか」が分からなかった。
+#
+# ⚠⚠ 2026-09-09 に `EmptyState` へ出した（⚠ 他の画面でも同じ形が要るため）。
+#   ⚠ 図鑑・ショップ・装備の一覧が文字1行のままだった。
 func _add_empty_placeholder(parent: Container) -> void:
-	var box: VBoxContainer = VBoxContainer.new()
-	box.name = "EmptyPlaceholder"
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-
-	box.add_child(_make_chest_glyph("EmptyGlyph"))
-
-	var empty_label: Label = Label.new()
-	empty_label.text = tr("ui_warehouse_no_chest")
-	empty_label.name = "EmptyLabel"
-	empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(empty_label)
-
-	var hint_label: Label = Label.new()
-	hint_label.text = tr("ui_warehouse_no_chest_hint")
-	hint_label.name = "EmptyHintLabel"
-	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(hint_label)
-
-	parent.add_child(box)
+	parent.add_child(EmptyState.create(
+		"ui_warehouse_no_chest", "ui_warehouse_no_chest_hint", IconTextures.for_chest()
+	))
 
 # --- 開封処理 ---
 
