@@ -128,13 +128,17 @@ visible = false
 layout_mode = 2
 metadata/_tab_index = 2
 
-[node name="OpenAllButton" parent="Layout/Tabs/ChestTab" unique_id=456327758 instance=ExtResource("2_primary_btn")]
-layout_mode = 2
-label_key = "ui_warehouse_open_all"
-
 [node name="ChestScroll" type="ScrollContainer" parent="Layout/Tabs/ChestTab" unique_id=1667416384]
 layout_mode = 2
 size_flags_vertical = 3
+
+[node name="ChestFooter" type="HBoxContainer" parent="Layout/Tabs/ChestTab"]
+layout_mode = 2
+alignment = 2
+
+[node name="OpenAllButton" parent="Layout/Tabs/ChestTab/ChestFooter" unique_id=456327758 instance=ExtResource("2_primary_btn")]
+layout_mode = 2
+label_key = "ui_warehouse_open_all"
 
 [node name="ChestList" type="VBoxContainer" parent="Layout/Tabs/ChestTab/ChestScroll" unique_id=2110479442]
 layout_mode = 2

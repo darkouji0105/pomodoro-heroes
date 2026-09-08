@@ -905,3 +905,4 @@ ui_uitest_button_state_hover,ホバー（乗せて見る）
 ui_uitest_button_state_pressed,押下
 ui_uitest_button_state_disabled,不活性
 ui_uitest_button_long_phase,このフェーズを終わらせる
+ui_warehouse_no_chest_hint,ダンジョンやショップで手に入ります

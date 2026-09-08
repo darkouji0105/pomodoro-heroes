@@ -48,7 +48,7 @@ const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 @onready var item_detail: ItemDetail = $Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout/ItemDetail
 @onready var action_row: HBoxContainer = $Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout/ActionRow
 @onready var codex_list: VBoxContainer = $Layout/Tabs/CodexTab/CodexList
-@onready var open_all_button: UiButton = $Layout/Tabs/ChestTab/OpenAllButton
+@onready var open_all_button: UiButton = $Layout/Tabs/ChestTab/ChestFooter/OpenAllButton
 @onready var chest_list: VBoxContainer = $Layout/Tabs/ChestTab/ChestScroll/ChestList
 @onready var result_label: Label = $Layout/Tabs/ChestTab/ResultLabel
 
@@ -225,6 +225,19 @@ func _rebuild_actions() -> void:
 
 	if kind == GameManager.SLOT_KIND_INSTANCE:
 		var instance_id: String = str(_selected.get(GameManager.SLOT_ENTRY_INSTANCE_ID, ""))
+		# ⚠⚠ 鍛える（2026-09-08・人間の指示「⚠ 倉庫から鍛えていい」）。
+		#   ⚠ 口は `GameManager.forge_equipment()` の1本。⚠ 装備画面と同じものを呼ぶ。
+		#   ⚠ 押せるかの判定も `can_forge()` の1本（⚠ ここで条件を書き直さない）。
+		#   ⚠ 文言に素材と数を入れない。⚠ 詳細の「鍛える ◯◯ 8 / 24」が既に出している
+		#     （⚠ 装備画面はボタンに入れているが、⚠ あちらには詳細の行が無い）。
+		#   ⚠ この画面で唯一の主要動作＝真鍮。⚠ 1画面に1個まで。
+		var forge_button: UiButton = UiButton.create(
+			UiButton.Variant.PRIMARY, "ui_equipment_forge"
+		)
+		forge_button.name = "ForgeButton"
+		forge_button.disabled = not GameManager.can_forge(instance_id)
+		forge_button.pressed.connect(_on_forge_pressed.bind(instance_id))
+		action_row.add_child(forge_button)
 		# ⚠ 装備中の個体はマス目に出てこない（決定7）ので、⚠ ここは必ず外れている。
 		var dismantle_button: Button = Button.new()
 		dismantle_button.name = "DismantleButton"
@@ -254,6 +267,15 @@ func _add_discard_button(item_id: String) -> void:
 	button.text = tr("ui_warehouse_discard")
 	button.pressed.connect(_on_discard_pressed.bind(item_id))
 	action_row.add_child(button)
+
+
+# 鍛える（2026-09-08）。⚠ 成否は GameManager が返す。⚠ ここで素材を減らさない。
+#   ⚠ 再描画は equipment_instances_changed / material_changed 側でも走るが、
+#   ⚠ 押した直後に「等級が上がった詳細」を出したいので、⚠ ここでも描き直す。
+func _on_forge_pressed(instance_id: String) -> void:
+	if not GameManager.forge_equipment(instance_id):
+		return
+	_rebuild_inventory()
 
 
 func _on_discard_pressed(item_id: String) -> void:
@@ -363,7 +385,7 @@ func _rebuild_codex() -> void:
 	var codex: Dictionary = state.get(GameStateKeys.CODEX, {})
 
 	if codex.is_empty():
-		_add_empty_label(codex_list)
+		_add_empty_label(codex_list, "ui_warehouse_empty")
 		return
 
 	for item_id: String in codex:
@@ -391,54 +413,122 @@ func _create_codex_row(item_id: String, discovered: bool) -> void:
 
 # --- 宝箱タブ ---
 
+# 宝箱タブ（2026-09-08・段階⑤-②・人間のモック3枚目）。
+#
+# ⚠⚠ **種類ごとにまとめて1行**にする（⚠ 前は宝箱1個につき1行だった＝⚠ 同じ名前が
+#   ⚠ 何行も並んでいた）。⚠ 個数は「×3」で出す。
+# ⚠ 「開ける」は **その種類の1個目**を開ける。⚠ どれを開けても中身は同じ
+#   （⚠ 報酬は積むときに決まっていて、⚠ `CHEST_REWARDS` に入っている）。
+# ⚠ 並びは **入手した順**（⚠ `PENDING_CHESTS` の並びをそのまま使う）。
+#   ⚠ `chests.json` の `sort_order` では並べない。⚠ その名前の定数が `GameManager` に無く、
+#   ⚠ ここで綴りを書き起こすと2本目の対応表になる（⚠ autoload は無断で触らない決まり）。
+# ⚠ 再描画に await を持たせない（AGENTS.md）。
 func _rebuild_chest_list() -> void:
 	_clear_container(chest_list)
 
 	var state: Dictionary = GameManager.get_state()
 	var chests: Array = state.get(GameStateKeys.PENDING_CHESTS, [])
-	var has_unopened: bool = false
-
+	# ⚠ {chest_id: [instance_id]}。⚠ 開けていないものだけ。
+	var groups: Dictionary = {}
 	for chest: Variant in chests:
 		if not (chest is Dictionary):
 			continue
 		var chest_dict: Dictionary = chest
 		if bool(chest_dict.get(GameStateKeys.CHEST_OPENED, false)):
 			continue
-		has_unopened = true
-		_create_chest_row(chest_dict)
+		var chest_id: String = str(chest_dict.get(GameStateKeys.CHEST_ID, ""))
+		if not groups.has(chest_id):
+			groups[chest_id] = []
+		(groups[chest_id] as Array).append(str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, "")))
 
-	open_all_button.disabled = not has_unopened
+	open_all_button.disabled = groups.is_empty()
+	if groups.is_empty():
+		_add_empty_placeholder(chest_list)
+		return
 
-	if not has_unopened:
-		_add_empty_label(chest_list)
+	# ⚠ Dictionary は入れた順を覚えている。⚠ ＝ 入手した順に並ぶ。
+	for chest_id: Variant in groups.keys():
+		_create_chest_row(str(chest_id), groups[chest_id])
 
-func _create_chest_row(chest: Dictionary) -> void:
+
+# 1行 ＝ 絵 ／ 名前 ／ ×個数 ／ 開ける。
+#
+# ⚠ 表示名は chests.json の name_key（EXEC_CHEST_REGISTRY.md §3-F）。
+#   ⚠ 接頭辞を組み立てない。宝箱を増やしたときに .gd を触らず、
+#     キーの綴りも chests.json 側だけで決まるようにするため。
+# ⚠⚠ 等級の色を付けていない。⚠ `chests.json` は rarity を持っていない
+#   （⚠ フロアの宝箱だけが別の表で rarity を持つ）。⚠ ここで chest_id の綴りから
+#   ⚠ 切り出すと、⚠ 宝箱を増やしたときに黙って灰色になる。
+func _create_chest_row(chest_id: String, instance_ids: Array) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
-	var instance_id: String = str(chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
-	row.name = "ChestRow_" + instance_id
+	row.name = "ChestRow_" + chest_id
+
+	var glyph: Label = Label.new()
+	glyph.name = "ChestGlyph"
+	glyph.text = Glyphs.NODE_CHEST
+	row.add_child(glyph)
 
 	var name_label: Label = Label.new()
-	# ⚠ 表示名は chests.json の name_key（EXEC_CHEST_REGISTRY.md §3-F）。
-	#   ⚠ 接頭辞を組み立てない。宝箱を増やしたときに .gd を触らず、
-	#     キーの紴りも chests.json 側だけで決まるようにするため。
-	var chest_def: Dictionary = MasterDataLoader.get_chest(str(chest.get(GameStateKeys.CHEST_ID, "")))
+	var chest_def: Dictionary = MasterDataLoader.get_chest(chest_id)
 	name_label.text = tr(str(chest_def.get(GameManager.CHEST_NAME_KEY, "")))
 	name_label.name = "ChestNameLabel"
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(name_label)
 
-	var open_button: Button = Button.new()
-	open_button.text = tr("ui_warehouse_open")
+	# ⚠ 数値だけなので tr() を通さない（AGENTS.md）。
+	var count_label: Label = Label.new()
+	count_label.name = "ChestCountLabel"
+	count_label.text = "×%d" % instance_ids.size()
+	row.add_child(count_label)
+
+	var open_button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_warehouse_open")
 	open_button.name = "OpenButton"
-	open_button.pressed.connect(_on_open_chest_pressed.bind(instance_id))
+	# ⚠ その種類の1個目を開ける。⚠ 開けると再描画が走って番号は引き直される。
+	open_button.pressed.connect(_on_open_chest_pressed.bind(str(instance_ids[0])))
 	row.add_child(open_button)
 
 	chest_list.add_child(row)
 
-func _add_empty_label(parent: Container) -> void:
+
+# 0件の1行（⚠ 図鑑タブ用）。
+#
+# ⚠⚠ 2026-09-08 に文言を引数にした。⚠ 前は宝箱と図鑑で同じ関数を呼んでいて、
+#   ⚠ **図鑑が0件のときに「受け取れる宝箱はありません」と出ていた**
+#   （⚠ 段階⑤-② で宝箱側を作り替えたときに、⚠ 呼び出し元が2つあることで気づいた）。
+func _add_empty_label(parent: Container, key: String) -> void:
+	var empty_label: Label = Label.new()
+	empty_label.text = tr(key)
+	empty_label.name = "EmptyLabel"
+	parent.add_child(empty_label)
+
+
+# 0件のときの置き場（2026-09-08・モック）。⚠ 絵 ＋ 2行。
+#   ⚠ 前は文字1行だけで、⚠ 「壊れて空なのか、⚠ もともと無いのか」が分からなかった。
+func _add_empty_placeholder(parent: Container) -> void:
+	var box: VBoxContainer = VBoxContainer.new()
+	box.name = "EmptyPlaceholder"
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	var glyph: Label = Label.new()
+	glyph.name = "EmptyGlyph"
+	glyph.text = Glyphs.NODE_CHEST
+	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(glyph)
+
 	var empty_label: Label = Label.new()
 	empty_label.text = tr("ui_warehouse_no_chest")
 	empty_label.name = "EmptyLabel"
-	parent.add_child(empty_label)
+	empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(empty_label)
+
+	var hint_label: Label = Label.new()
+	hint_label.text = tr("ui_warehouse_no_chest_hint")
+	hint_label.name = "EmptyHintLabel"
+	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(hint_label)
+
+	parent.add_child(box)
 
 # --- 開封処理 ---
 
