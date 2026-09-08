@@ -22,6 +22,9 @@ const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_butt
 # --- ノード参照 ---
 @onready var name_label: Label = $Margin/Layout/NameLabel
 @onready var stats_label: Label = $Margin/Layout/StatsLabel
+# ⚠ ステータスの行の置き場（2026-09-09）。⚠ `.tscn` を触らずコードで作る
+#   （⚠ プリセットの行と同じ流儀）。
+@onready var stats_rows: VBoxContainer = _make_stats_rows()
 @onready var material_label: Label = $Margin/Layout/MaterialLabel
 @onready var slot_list: VBoxContainer = $Margin/Layout/Scroll/Content/SlotList
 @onready var item_header: Label = $Margin/Layout/Scroll/Content/ItemHeader
@@ -81,6 +84,16 @@ func _ready() -> void:
 #   中身（空きかどうか）の更新は _refresh_preset_row() が持つ。
 # ⚠ .tscn を触らずコードで作る。⚠ 兄弟（Label / UiButton）は size_flags を
 #   持たないので、こちらも合わせる（NEXT_STEPS §4「隣の兄弟の size_flags を見る」）。
+# ステータスの行の置き場を1つ作って、`StatsLabel` の直後へ差し込む。
+func _make_stats_rows() -> VBoxContainer:
+	var box: VBoxContainer = VBoxContainer.new()
+	box.name = "StatsRows"
+	var layout: Node = stats_label.get_parent()
+	layout.add_child(box)
+	layout.move_child(box, stats_label.get_index() + 1)
+	return box
+
+
 func _build_preset_row() -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "PresetRow"
@@ -189,20 +202,28 @@ func _update_header() -> void:
 
 	# 最終値と、そのうち装備で増えているぶんを並べて出す。
 	# 「装備したら数値が変わった」が画面だけで確認できるようにするため。
+	# ⚠⚠ 2026-09-09：⚠ 10軸を1つの文字列に詰めるのをやめ、⚠ `ValueRow` の行にした
+	#   （⚠ 倉庫の詳細と同じ読み方にするため。⚠ 値が右に寄り、⚠ 絵と色が付く）。
+	# ⚠ `StatsLabel` は器として残す（⚠ `.tscn` を触らない）。⚠ 行はその下に並べる。
 	var stats: Dictionary = GameManager.get_effective_stats(_character_id)
 	var bonus: Dictionary = GameManager.get_equipment_bonus(_character_id)
-	var lines: Array[String] = []
+	stats_label.text = ""
+	for child: Node in stats_rows.get_children():
+		stats_rows.remove_child(child)
+		child.queue_free()
 	for stat_key: String in GameManager.get_stat_keys():
-		var label: String = tr("ui_training_stat_" + stat_key)
 		var value: int = int(stats.get(stat_key, 0))
 		var added: int = int(bonus.get(stat_key, 0))
+		# ⚠ 装備で増えているぶんは値の後ろに足す（⚠ 「120 (+8)」）。
+		var value_text: String = _stat_value_text(stat_key, value)
 		if added > 0:
-			lines.append("%s  %s  (+%s)" % [
-				label, _stat_value_text(stat_key, value), _stat_value_text(stat_key, added)
-			])
-		else:
-			lines.append("%s  %s" % [label, _stat_value_text(stat_key, value)])
-	stats_label.text = "\n".join(lines)
+			value_text += "  (+%s)" % _stat_value_text(stat_key, added)
+		stats_rows.add_child(ValueRow.create(
+			tr("ui_training_stat_" + stat_key),
+			value_text,
+			ValueRow.VARIATION_GAIN if added > 0 else ValueRow.VARIATION_PLAIN,
+			IconTextures.for_stat(stat_key)
+		))
 
 	# 鍛冶に使う素材の所持数。鍛冶で減るので、この画面に出しておく。
 	# ⚠ 段階が4つあるので全段階を並べる。段階の数は決め打ちしない

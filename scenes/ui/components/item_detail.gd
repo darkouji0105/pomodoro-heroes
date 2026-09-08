@@ -18,10 +18,10 @@ extends VBoxContainer
 # 説明文のキーの頭。⚠ 綴りを散らさない。
 const DESC_KEY_PREFIX: String = "ui_desc_"
 
-# 値の色（2026-09-08・段階③）。⚠ Theme の型 variation の名前。
-#   ⚠ 色そのものは `tools/theme_builder.gd` が持つ。⚠ ここに書かない（AGENTS.md）。
-const VARIATION_GAIN: StringName = &"GainLabel"
-const VARIATION_LOSS: StringName = &"ErrorLabel"
+# 値の色（2026-09-08・段階③）。⚠ 2026-09-09 に `ValueRow` へ移した。
+#   ⚠ ここは呼ぶだけ。⚠ 2本目の名前を作らないこと。
+const VARIATION_GAIN: StringName = ValueRow.VARIATION_GAIN
+const VARIATION_LOSS: StringName = ValueRow.VARIATION_LOSS
 
 # 見出しの中の、名前とサブ行を隔てる字。⚠ モックの「等級10 ／ アクセサリー」の「／」。
 const SUB_SEPARATOR: String = " ／ "
@@ -355,40 +355,12 @@ func _add_header(item_id: String, grade: int, sub_parts: Array[String]) -> void:
 #
 # ⚠ 値の色は Theme の型 variation（⚠ 増える＝緑 ／ 減る＝赤）。⚠ 色を直接書かない。
 # ⚠ `variation` が空なら色を変えない（⚠ 個数やコストのように、⚠ 増減ではない値）。
+# ⚠ 2026-09-09 から中身は `ValueRow`（⚠ 装備・育成・研究でも同じ行が要るため）。
+#   ⚠ ここは並べるだけ。⚠ 行の組み立てを2箇所に書かない。
 func _add_value_row(
 	left_text: String, right_text: String, variation: StringName, icon: Texture2D = null
 ) -> void:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "ValueRow_%d" % get_child_count()
-
-	# ⚠ 線画（SVG）が在れば名前の前に出す（2026-09-08）。⚠ 無ければ絵文字が名前に付く。
-	#   ⚠ 大きさは文字と同じ段（⚠ ここに px を書かない）。
-	if icon != null:
-		var rect: TextureRect = TextureRect.new()
-		rect.name = "Icon"
-		rect.texture = icon
-		var icon_size: float = float(Balance.icon.grade_font_size + 6) if Balance.icon != null else 16.0
-		rect.custom_minimum_size = Vector2(icon_size, icon_size)
-		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(rect)
-
-	var left: Label = Label.new()
-	left.name = "Name"
-	left.text = left_text
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(left)
-
-	var right: Label = Label.new()
-	right.name = "Value"
-	right.text = right_text
-	right.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	if variation != &"":
-		right.theme_type_variation = variation
-	row.add_child(right)
-
-	add_child(row)
+	add_child(ValueRow.create(left_text, right_text, variation, icon))
 
 
 # 枠の行の頭に出す字。⚠ 要約のときだけ部位を出す（⚠ 常設のパネルは見出しが出している）。
@@ -446,6 +418,8 @@ func get_lines() -> Array[String]:
 			result.append((child as Label).text)
 		elif child is PartSlotRow:
 			result.append((child as PartSlotRow).to_text())
+		elif child is ValueRow:
+			result.append((child as ValueRow).to_text())
 		elif child is Container:
 			# ⚠ 見出しと「左に名前・右に値」の行（2026-09-08・段階③）。
 			#   ⚠ 中の Label を順に繋ぐ。⚠ 入れ子（見出しの VBox）も辿る。
