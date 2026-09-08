@@ -126,12 +126,19 @@ const SCENARIOS: Dictionary = {
 			"char_debug_mix": ["skill_dbg_area_narrow", "skill_dbg_area_wide"],
 			"char_debug_life": ["skill_dbg_area_far", "skill_dbg_area_heal"],
 		},
-		# ⚠ 武器のルーン枠 → スキル1 ／ アクセのルーン枠2つ → スキル2（GAME_DESIGN 7-5）。
+		# ⚠ 武器のルーン枠 → スキル1 ／ アクセのルーン枠 → スキル2（GAME_DESIGN 7-5）。
 		# ⚠ char_debug_status には1つも刺さない（撃ってもルーンが出ないことの回帰）。
+		#
+		# ⚠⚠ 2026-09-08：⚠ アクセを **1本**に直した（⚠ 人間の指示「⚠ あくせののルーンは１個で」）。
+		#   ⚠ 2026-09-07 に「⚠ アクセのルーン枠を1つに」した時点で、⚠ ここが2本のままになり
+		#   ⚠ `scenario=runes` が赤を1本出し続けていた（⚠ 本番コードは正しかった）。
+		#   ⚠⚠ 枠は 武器1 ＋ アクセ1 の **計2本**しか無い。⚠ 5種を4枠に入れられないので、
+		#   ⚠ シールドを外した（⚠ 5種のうち唯一「⚠ 何も起きないのが正解」の枝で、
+		#   ⚠ 外しても読めなくなる出力が無い）。⚠ シールドを見るときは buff と入れ替える。
 		"runes": {
 			"char_debug_mix": {
-				"weapon": ["part_rune_shield_1"],
-				"accessory": ["part_rune_buff_5", "part_rune_move_5"],
+				"weapon": ["part_rune_buff_5"],
+				"accessory": ["part_rune_move_5"],
 			},
 			"char_debug_life": {
 				"weapon": ["part_rune_heal_5"],
