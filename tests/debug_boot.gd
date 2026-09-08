@@ -4687,6 +4687,35 @@ func _report_inventory() -> void:
 	print("  armor_iron_helm 最大等級（⚠ ワイルド枠が1つ出るのが正解＝虹色の枠）")
 	for line: String in detail.get_lines():
 		print("    %s" % line)
+
+	# ⚠⚠ 要約（＝ホバーの枠）も見る（2026-09-08・段階④）。
+	#   ⚠ フルとの違い：⚠ 部位が枠の行の頭に回る ／ ⚠ 分解・鍛えるの数字が消える。
+	#   ⚠ ここを測らないと、⚠ 画面の絵が取れない以上、要約の中身を誰も確かめられない。
+	detail.set_summary(true)
+	detail.show_entry({
+		GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+		GameManager.SLOT_ENTRY_ITEM_ID: "armor_iron_helm",
+		GameManager.SLOT_ENTRY_INSTANCE_ID: "",
+		GameManager.SLOT_ENTRY_GRADE: GameManager.get_max_equipment_grade(),
+		GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+	})
+	print("  ⚠ 要約 armor_iron_helm 最大等級（⚠ 「頭 ／ 枠 ／ 0 / 7」が1行になるのが正解）")
+	for line: String in detail.get_lines():
+		print("    %s" % line)
+	if forge_target != "":
+		detail.show_entry({
+			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_INSTANCE,
+			GameManager.SLOT_ENTRY_ITEM_ID: "weapon_iron_sword",
+			GameManager.SLOT_ENTRY_INSTANCE_ID: forge_target,
+			GameManager.SLOT_ENTRY_GRADE: int(GameManager.get_equipment_instance(forge_target).get(
+				GameStateKeys.INSTANCE_GRADE, 1
+			)),
+			GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+		})
+		print("  ⚠ 要約 鍛えた個体（⚠ 「素材にする」「鍛える」の行が出ないのが正解）")
+		for line: String in detail.get_lines():
+			print("    %s" % line)
+	detail.set_summary(false)
 	for slot_name: String in GameManager.get_equip_slots():
 		print("    枠の数 %-10s = %d" % [
 			slot_name, GameManager.get_open_part_slot_count(slot_name, GameManager.get_max_equipment_grade())

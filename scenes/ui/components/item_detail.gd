@@ -28,6 +28,17 @@ const SUB_SEPARATOR: String = " ／ "
 
 var _entry: Dictionary = {}
 
+# 要約だけを出すか（2026-09-08・段階④）。⚠ ホバーの枠がこれを立てる。
+#   ⚠ 出すのは「⚠ 名前と等級 ／ ⚠ ステータス ／ ⚠ 部位と枠 ／ ⚠ 説明文」まで。
+#   ⚠ 操作にまつわる数字（⚠ 分解の戻り・鍛えるコスト・段階上げ）は出さない
+#     （⚠ 押すボタンが隣に無いので、⚠ 読んでも何もできない）。
+var _summary: bool = false
+
+
+# 要約にするか。⚠ 中身を差し替える前に呼ぶこと（⚠ 次の show_entry() から効く）。
+func set_summary(value: bool) -> void:
+	_summary = value
+
 
 # いま出しているもの（⚠ 画面が「操作」を組み立てるときに使う）。
 func get_entry() -> Dictionary:
@@ -80,8 +91,9 @@ func _show_instance(item_id: String, instance_id: String) -> void:
 	var equip_slot: String = str(
 		MasterDataLoader.get_item(item_id).get(GameManager.ITEM_MASTER_EQUIP_SLOT, "")
 	)
+	# ⚠ 要約では部位を見出しに入れない（⚠ 枠の行の頭に回す＝モック3枚目）。
 	var sub_parts: Array[String] = [tr("ui_equipment_grade") % grade]
-	if equip_slot != "":
+	if equip_slot != "" and not _summary:
 		sub_parts.append(tr("ui_equipment_slot_" + equip_slot))
 	_add_header(item_id, grade, sub_parts)
 
@@ -107,7 +119,10 @@ func _show_instance(item_id: String, instance_id: String) -> void:
 			int(merged.get(GameManager.PART_VIEW_INDEX, 0)), null
 		)
 		defs.append(merged)
-	_add_part_slots(defs, grade)
+	_add_part_slots(defs, grade, _slot_lead_text(equip_slot))
+
+	if _summary:
+		return
 
 	var equipped_by: String = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
 	if equipped_by != "":
@@ -144,7 +159,7 @@ func _show_item(item_id: String) -> void:
 	var equip_slot: String = str(
 		MasterDataLoader.get_item(item_id).get(GameManager.ITEM_MASTER_EQUIP_SLOT, "")
 	)
-	if equip_slot != "":
+	if equip_slot != "" and not _summary:
 		sub_parts.append(tr("ui_equipment_slot_" + equip_slot))
 	if grade <= 0:
 		sub_parts.append("×%d" % int(_entry.get(
@@ -171,6 +186,9 @@ func _show_item(item_id: String) -> void:
 			],
 			VARIATION_GAIN
 		)
+
+	if _summary:
+		return
 
 	# ルーンは壊しても素材にならず、段階も分解方式では上がらない（GAME_DESIGN.md 7-7）。
 	# ⚠ 判定は「runes.json にエントリが在るか」。⚠ part_kind で分岐しない。
@@ -214,14 +232,14 @@ func _show_equipment_slots(item_id: String, grade: int) -> void:
 	#   `_show_instance()` のほう（⚠ あちらは instance_id を持っている）。
 	# ⚠ 「いつ開くか」は出さない（⚠ 2026-09-07 の決定）。⚠ 2026-09-08 に、
 	#   ⚠ **未開放の枠が在ること自体**は鍵のマスで見せるようにした（⚠ モック）。
-	_add_part_slots(GameManager.get_part_slot_defs(equip_slot), grade)
+	_add_part_slots(GameManager.get_part_slot_defs(equip_slot), grade, _slot_lead_text(equip_slot))
 
 
 # 枠を1行のマスで出す（2026-09-08・段階②）。⚠ 見出しに「2 / 7」を付ける。
 #
 # ⚠ 分母は **開いている枠の数**（⚠ 未開放は数えない）。⚠ 数えるのは `PartSlotRow`。
 # ⚠ 枠が1つも無い品（⚠ 消耗品・素材）では見出しごと出さない。
-func _add_part_slots(defs: Array, grade: int) -> void:
+func _add_part_slots(defs: Array, grade: int, lead_text: String = "") -> void:
 	if defs.is_empty():
 		return
 	var row: PartSlotRow = PartSlotRow.create(defs, grade)
@@ -230,10 +248,26 @@ func _add_part_slots(defs: Array, grade: int) -> void:
 	if row.get_open_count() == 0:
 		row.queue_free()
 		return
-	_add_line("%s  %d / %d" % [
-		tr("ui_part_slot_header"), row.get_filled_count(), row.get_open_count()
-	])
-	add_child(row)
+	var count_text: String = "%d / %d" % [row.get_filled_count(), row.get_open_count()]
+	if lead_text == "":
+		# ⚠ 常設のパネル。⚠ 見出しの行 → 枠の並び、の2行に分ける（⚠ 幅に余裕がある）。
+		_add_line("%s  %s" % [tr("ui_part_slot_header"), count_text])
+		add_child(row)
+		return
+
+	# ⚠ 要約（⚠ ホバーの枠）。⚠ 「部位 ／ 枠 ／ 2/7」を1行に収める（⚠ モック3枚目）。
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = "PartSlotSummary"
+	var lead: Label = Label.new()
+	lead.name = "Lead"
+	lead.text = lead_text + SUB_SEPARATOR
+	line.add_child(lead)
+	line.add_child(row)
+	var count_label: Label = Label.new()
+	count_label.name = "Count"
+	count_label.text = "  " + count_text
+	line.add_child(count_label)
+	add_child(line)
 
 
 # 説明文（宿題62）。⚠ ja.csv に "ui_desc_<item_id>" が在るときだけ出す。
@@ -330,6 +364,15 @@ func _add_value_row(left_text: String, right_text: String, variation: StringName
 	add_child(row)
 
 
+# 枠の行の頭に出す字。⚠ 要約のときだけ部位を出す（⚠ 常設のパネルは見出しが出している）。
+func _slot_lead_text(equip_slot: String) -> String:
+	if not _summary:
+		return ""
+	if equip_slot == "":
+		return tr("ui_part_slot_header")
+	return tr("ui_equipment_slot_" + equip_slot)
+
+
 # 素材のコストの行（2026-09-08・段階③・モック「⚠ 鍛える 64 / 40」）。
 #
 # ⚠ 「持っている数 / 必要な数」を出す。⚠ 足りていれば緑、⚠ 足りなければ赤。
@@ -389,6 +432,9 @@ func _container_text(node: Node) -> String:
 			var text: String = (child as Label).text
 			if text != "":
 				parts.append(text)
+		elif child is PartSlotRow:
+			# ⚠ 要約では枠の並びが行の中に入る。⚠ ここで拾わないと検証から消える。
+			parts.append((child as PartSlotRow).to_text())
 		elif child is Container:
 			var inner: String = _container_text(child)
 			if inner != "":

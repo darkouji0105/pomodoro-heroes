@@ -87,6 +87,10 @@ func _init() -> void:
 
 func _take(detail: ItemDetail) -> void:
 	_detail = detail
+	# ⚠⚠ ホバーの枠は **要約**（2026-09-08・段階④・モック3枚目）。
+	#   ⚠ 分解の戻り・鍛えるコストは出さない（⚠ 押すボタンが隣に無い＝読んでも何もできない）。
+	#   ⚠ フルの中身は常設のパネル側（⚠ 段階⑤）が出す。
+	detail.set_summary(true)
 	var parent: Node = detail.get_parent()
 	if parent != null:
 		parent.remove_child(detail)
