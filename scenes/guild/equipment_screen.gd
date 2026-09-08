@@ -283,7 +283,7 @@ func _create_slot_row(slot: String) -> void:
 	row.add_child(label)
 
 	# この部位の一覧を下に出す。
-	var select_button: Button = Button.new()
+	var select_button: UiButton = UiButton.create()
 	select_button.name = "SelectButton"
 	select_button.text = tr("ui_equipment_select")
 	select_button.disabled = slot == _selected_slot
@@ -291,14 +291,14 @@ func _create_slot_row(slot: String) -> void:
 	row.add_child(select_button)
 
 	# 装備中のものを鍛える。
-	var forge_button: Button = Button.new()
+	var forge_button: UiButton = UiButton.create()
 	forge_button.name = "ForgeButton"
 	forge_button.text = _forge_button_text(instance_id)
 	forge_button.disabled = instance_id == "" or not GameManager.can_forge(instance_id)
 	forge_button.pressed.connect(_on_forge_pressed.bind(instance_id))
 	row.add_child(forge_button)
 
-	var unequip_button: Button = Button.new()
+	var unequip_button: UiButton = UiButton.create()
 	unequip_button.name = "UnequipButton"
 	unequip_button.text = tr("ui_equipment_unequip")
 	unequip_button.disabled = instance_id == ""
@@ -362,13 +362,13 @@ func _create_part_row(slot: String, instance_id: String, view: Dictionary) -> vo
 
 	if entry is Dictionary:
 		# ⚠ 外すと壊れる（GAME_DESIGN.md 7-6）。確認モーダルはハンドラ側。
-		var detach_button: Button = Button.new()
+		var detach_button: UiButton = UiButton.create()
 		detach_button.name = "DetachButton"
 		detach_button.text = tr("ui_part_detach")
 		detach_button.pressed.connect(_on_detach_part_pressed.bind(instance_id, slot_index))
 		row.add_child(detach_button)
 	else:
-		var attach_button: Button = Button.new()
+		var attach_button: UiButton = UiButton.create()
 		attach_button.name = "AttachButton"
 		attach_button.text = tr("ui_part_attach")
 		attach_button.disabled = selected
@@ -490,14 +490,14 @@ func _create_item_row(view: Dictionary) -> void:
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
 
-	var equip_button: Button = Button.new()
+	var equip_button: UiButton = UiButton.create()
 	equip_button.name = "EquipButton"
 	equip_button.text = tr("ui_equipment_equip")
 	equip_button.disabled = _character_id == ""
 	equip_button.pressed.connect(_on_equip_pressed.bind(instance_id))
 	row.add_child(equip_button)
 
-	var forge_button: Button = Button.new()
+	var forge_button: UiButton = UiButton.create()
 	forge_button.name = "ForgeButton"
 	forge_button.text = _forge_button_text(instance_id)
 	forge_button.disabled = not GameManager.can_forge(instance_id)
@@ -580,7 +580,7 @@ func _create_part_item_row(item_id: String, count: int) -> void:
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
 
-	var attach_button: Button = Button.new()
+	var attach_button: UiButton = UiButton.create()
 	attach_button.name = "AttachButton"
 	attach_button.text = tr("ui_part_attach")
 	attach_button.disabled = GameManager.get_part_reject_reason(

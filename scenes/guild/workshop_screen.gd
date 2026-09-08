@@ -118,7 +118,7 @@ func _create_queue_row(entry: Dictionary) -> void:
 	row.add_child(remaining_label)
 	_remaining_labels[queue_id] = remaining_label
 
-	var collect_button: Button = Button.new()
+	var collect_button: UiButton = UiButton.create()
 	collect_button.name = "CollectButton"
 	collect_button.text = tr("ui_guild_workshop_collect")
 	# 完了前は押せない。GameManager 側も同じ判定を持っているため、ここが抜けても状態は壊れない。
@@ -149,7 +149,7 @@ func _create_recipe_row(recipe: Dictionary) -> void:
 	duration_label.text = _format_duration(int(recipe.get(GameManager.RECIPE_DURATION_SEC, 0)))
 	row.add_child(duration_label)
 
-	var start_button: Button = Button.new()
+	var start_button: UiButton = UiButton.create()
 	start_button.name = "StartButton"
 	start_button.text = tr("ui_guild_workshop_start")
 	start_button.disabled = _queue_is_full() or not _can_afford(recipe)

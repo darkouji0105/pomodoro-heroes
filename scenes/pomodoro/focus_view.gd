@@ -14,6 +14,9 @@ func setup(preset: PomodoroPreset, current_set: int, total_sets: int) -> void:
 	
 	$InstructionLabel.text = tr("ui_pomodoro_input_title")
 	start_button.text = tr("ui_pomodoro_start_focus")
+	# ⚠ 入力欄の下書きの字（2026-09-09）。⚠ `.tscn` に日本語が直書きされていて、
+	#   ⚠ ここでも上書きしていなかった＝⚠ 翻訳表を通っていない唯一の文字だった。
+	title_edit.placeholder_text = tr("ui_pomodoro_title_placeholder")
 
 func _on_start_pressed() -> void:
 	var title = title_edit.text.strip_edges()

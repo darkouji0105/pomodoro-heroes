@@ -113,7 +113,7 @@ func _create_slot_row(slot: Dictionary) -> void:
 	stock_label.text = "%s %d/%d" % [tr("ui_guild_shop_stock"), stock_limit - purchased_count, stock_limit]
 	row.add_child(stock_label)
 
-	var buy_button: Button = Button.new()
+	var buy_button: UiButton = UiButton.create()
 	buy_button.name = "BuyButton"
 	var sold_out: bool = purchased_count >= stock_limit or stock_limit <= 0
 	var affordable: bool = _get_balance(currency_type) >= amount

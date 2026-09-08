@@ -242,7 +242,7 @@ func _rebuild_actions() -> void:
 		forge_button.pressed.connect(_on_forge_pressed.bind(instance_id))
 		action_row.add_child(forge_button)
 		# ⚠ 装備中の個体はマス目に出てこない（決定7）ので、⚠ ここは必ず外れている。
-		var dismantle_button: Button = Button.new()
+		var dismantle_button: UiButton = UiButton.create()
 		dismantle_button.name = "DismantleButton"
 		dismantle_button.text = "%s(%d)" % [
 			tr("ui_warehouse_dismantle"), GameManager.get_dismantle_refund_total(instance_id),
@@ -265,7 +265,9 @@ func _rebuild_actions() -> void:
 # ⚠ 1マス＝1個なので1個ずつ。⚠ 「全部捨てる」を作らない。
 # ⚠ 装備は「素材にする」のほうが素材が戻る。⚠ ただしここで弾かない（逃げ道は塞がない）。
 func _add_discard_button(item_id: String) -> void:
-	var button: Button = Button.new()
+	# ⚠ 捨てるは **戻ってくるものが何も無い**（2026-09-09）。⚠ ＝ 危険の赤。
+	#   ⚠ 「素材にする」「壊す」は素材が戻るので赤にしない（⚠ 赤を薄めない）。
+	var button: UiButton = UiButton.create(UiButton.Variant.DANGER)
 	button.name = "DiscardButton"
 	button.text = tr("ui_warehouse_discard")
 	button.pressed.connect(_on_discard_pressed.bind(item_id))
@@ -327,7 +329,7 @@ func _add_part_buttons(entry: Container, item_id: String, count: int) -> void:
 	for amount: Variant in GameManager.get_part_dismantle_refund(item_id, 1).values():
 		refund_total += int(amount)
 
-	var dismantle_button: Button = Button.new()
+	var dismantle_button: UiButton = UiButton.create()
 	dismantle_button.name = "PartDismantleButton"
 	dismantle_button.text = "%s(%d)" % [tr("ui_part_dismantle"), refund_total]
 	dismantle_button.disabled = count <= 0 or refund_total <= 0
@@ -338,7 +340,7 @@ func _add_part_buttons(entry: Container, item_id: String, count: int) -> void:
 		return
 
 	var cost: Dictionary = GameManager.get_part_upgrade_cost(item_id)
-	var upgrade_button: Button = Button.new()
+	var upgrade_button: UiButton = UiButton.create()
 	upgrade_button.name = "PartUpgradeButton"
 	# ⚠ 素材名を出すのは、段階ごとに要る素材が変わるため（鍛冶ボタンと同じ理由）。
 	upgrade_button.text = "%s(%s %d)" % [
@@ -358,7 +360,7 @@ func _add_rune_merge_button(entry: Container, item_id: String) -> void:
 	if reason == GameManager.RUNE_REJECT_MAX or reason == GameManager.RUNE_REJECT_KIND:
 		return
 	var cost: int = GameManager.get_rune_merge_count()
-	var merge_button: Button = Button.new()
+	var merge_button: UiButton = UiButton.create()
 	merge_button.name = "RuneMergeButton"
 	merge_button.text = "%s(%d)" % [tr("ui_part_rune_merge"), cost]
 	merge_button.disabled = reason != ""

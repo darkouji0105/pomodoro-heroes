@@ -15,6 +15,8 @@ func _ready() -> void:
 	$InstructionLabel.text = tr("ui_pomodoro_reflection_instruction")
 	complete_button.text = tr("ui_pomodoro_reflection_complete")
 	warning_label.text = tr("ui_pomodoro_reflection_warning")
+	# ⚠ 入力欄の下書きの字（2026-09-09）。⚠ 上と同じ理由。
+	reflection_edit.placeholder_text = tr("ui_pomodoro_reflection_placeholder")
 
 func _on_text_changed() -> void:
 	var text = reflection_edit.text.strip_edges()
