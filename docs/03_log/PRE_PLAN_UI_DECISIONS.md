@@ -9,6 +9,10 @@
 設計ドキュメントから写していない（CLAUDE.md 1番「ドキュメントの『実装済み』を信じない」）。
 **推測で書いた欄には「未確認」と明記してある。**
 
+> ⚠⚠ **2026-09-08 に更新した。** 前日（2026-09-07）に書いたまま2日で古くなった欄が
+> §1・§2・§3・§5 にあった（**アイコンの見た目 ／ 最小サイズ ／ 部品の一覧 ／ 決めたいこと**）。
+> **古い記述は消さずに「前は〜だった」と残してある**（何がいつ変わったかを追えるようにするため）。
+
 ---
 
 ## 0. どこで実物を見るか
@@ -35,10 +39,15 @@
 | **日本語フォント** | `NotoSansJP-VariableFont_wght.ttf`（16,732字）。**絵文字は1文字も無い** |
 | **絵文字フォント** | `segoe-ui-emoji.ttf` をフォールバックに接続。**1,274字しか無い**（COLR/CPAL のカラー絵文字） |
 | **無い絵文字（豆腐になる）** | ⚔ 🗡 🛡 🧪 🏹 🪖 🪵 🧱 🛏 ⛑ 📿 🏅 🎖 🤺 🦄 |
-| **画像アセット** | **1枚も使っていない。** すべて四角・文字・絵文字で組んである |
-| **アイテムの見た目** | 40px の角丸四角。**中央＝種類の絵文字（20px）／ 左上＝品の1文字（11px）／ 右下＝段数（10px）／ 背景＝等級の色** |
-| **等級の色（10段）** | 灰 → 白緑 → 緑 → 青 → 濃青 → 青紫 → 紫 → 桃 → 橙 → 金（`icon_config.gd`） |
+| **画像アセット** | ⚠ **2026-09-08 に 32 枚の SVG を入れた**（`assets/images/icon_*.svg`）。**前は1枚も使っていなかった**。線は白の1色で、色は使う側が `modulate` で着せる |
+| **アイテムの見た目** | 40px の角丸四角。**中央＝種類の線画（20px・SVG）／ 左上＝品の1文字（11px）／ 右下＝段数（10px）／ 枠線＝等級の色 ／ 地＝暗い一色** |
+| | ⚠ **前は「背景＝等級の色」だった**（2026-09-08 に枠線へ移した。40個並ぶと画面が色の面で埋まっていたため） |
+| | ⚠ **装飾とルーンは「枠＝種類 ／ 中身＝ステータス（ルーンは何をするか）」**（枠の 52%）。⚠ 前は種類ごとに1枚で、「HPの護符」と「魔防の護符」が同じ見た目だった |
+| | ⚠ **素材は4系統で絵が違う**（建築・修練・鍛冶・装飾）。⚠ 前は16件とも同じ1枚 |
+| **等級の色（10段）** | 灰 → 白緑 → 緑 → 青 → 濃青 → 青紫 → 紫 → 桃 → 橙 → 金（`icon_config.gd`）。⚠ **色の表そのものは変えていない。塗る場所が変わっただけ** |
+| **線画が無いとき** | **絵文字に落ちる**（`IconTextures` が null を返すと `Glyphs`）。⚠ **1枚ずつ差し替えられる** |
 | **配色・フォント** | `theme/main_theme.tres` に一元化。**個別シーンで色を直接指定しない**（AGENTS.md） |
+| ⚠ **Theme の作り方** | ⚠ **2026-09-08 から `tools/theme_builder.gd` が唯一の正**。`.tres` を手で書かない。`theme_override_` は**69箇所 → 0**。必要なら型 variation を増やす（名前は**用途**で付ける） |
 | **文字** | すべて `ja.csv` 経由（`tr()`）。画面に日本語を直接書かない |
 
 ---
@@ -48,13 +57,17 @@
 「最小」は `scenario=layout` の実測（`get_combined_minimum_size()`）。**基準は 1280 x 720。**
 「—」は測定リスト（`LAYOUT_SCENES`）に入っていないもの＝**まだ測っていない**。
 
+> ⚠⚠ **数値は 2026-09-08 の実測に更新した。** ボタンの余白・画面ルートの余白（24→32）・
+> 倉庫の作り替えで**ほぼ全部が動いた**。⚠ **大きく動いたのは倉庫だけ**（下記）。
+> ⚠ `scenario=theme` が**全46シーンを読めるかだけは見ている**（測ってはいない）。
+
 ### 2-1. 入口・拠点
 
 | # | 画面 | パス | 直下の構成 | 最小 | 決めるべきこと |
 |---|---|---|---|---|---|
 | 1 | タイトル | `title/title_screen.tscn` | Background / TitleLabel / ButtonContainer / ErrorLabel | — | ロゴの扱い（いまは文字だけ）／ ボタン3つの並び |
 | 2 | 拠点 | `base/base_screen.tscn` | Background / Layout | — | **下段のボタンが7個ある**（UIテストを含む）。並べ方 |
-| 3 | ギルド | `guild/guild_screen.tscn` | Background / CenterContainer | 104 x 312 | 5つの入口の並べ方 |
+| 3 | ギルド | `guild/guild_screen.tscn` | Background / CenterContainer | 96 x 300 | 5つの入口の並べ方 |
 | 4 | 未実装の代替 | `ui/placeholder_screen.tscn` | Background / Layout | — | そのままでよいか |
 
 ### 2-2. ポモドーロ
@@ -71,34 +84,34 @@
 
 | # | 画面 | パス | 直下の構成 | 最小 | 決めるべきこと |
 |---|---|---|---|---|---|
-| 10 | 倉庫 | `guild/warehouse_screen.tscn` | Background / Layout | **1036 x 388** | **横がいちばん広い**（1280 中 1036）。マス目 20列 × 5行 × 5ページ ／ 3タブ（持ち物・図鑑・宝箱） |
-| 11 | 育成 | `guild/training_screen.tscn` | Background / Margin | 289 x 436 | レベル・必要素材の並べ方 |
+| 10 | 倉庫 | `guild/warehouse_screen.tscn` | Background / Layout | **838 x 686** | ⚠ **2026-09-08 に作り替えた**。マス目 **10列 × 10行** × 5ページ（**1ページ100マスは据え置き**）／ 右に**常設の詳細パネル**（300px）／ 宝箱タブは種類ごとの行 ／ ⚠ **前は 1036 x 388・20列 × 5行**。⚠ **縦が 686 / 720 と詰まっている** |
+| 11 | 育成 | `guild/training_screen.tscn` | Background / Margin | 321 x 442 | レベル・必要素材の並べ方 |
 | 12 | ステータスのノード | `guild/stat_node_screen.tscn` | Background / Margin | — | ツリーの描き方 |
-| 13 | スキル選択 | `guild/skill_select_screen.tscn` | Background / Margin | 383 x 500 | 枠と候補の見せ方 |
-| 14 | 装備 | `guild/equipment_screen.tscn` | Background / Margin | **889 x 527** | **5部位 ＋ 装飾7枠**。枠の空き／中身の見せ方 |
-| 15 | 研究 | `guild/research_screen.tscn` | Background / Margin | 371 x 208 | ツリー ／ **確認モーダルが無い**（宿題） |
-| 16 | 作業場 | `guild/workshop_screen.tscn` | Background / Tick(Timer) / Margin | 120 x 207 | 製作キューと残り時間 |
-| 17 | ショップ | `guild/shop_screen.tscn` | Background / Margin | 177 x 208 | 日替わり・週替わり・月替わりの3枠 |
+| 13 | スキル選択 | `guild/skill_select_screen.tscn` | Background / Margin | 399 x 554 | 枠と候補の見せ方 |
+| 14 | 装備 | `guild/equipment_screen.tscn` | Background / Margin | **905 x 561** | **5部位 ＋ 装飾7枠**。⚠⚠ **枠がまだ文字の行のまま**（倉庫はマスになった）。⚠ **段階③④の見た目も入っていない**（自前の表示コードを持っているため）＝**次に直すならここ** |
+| 15 | 研究 | `guild/research_screen.tscn` | Background / Margin | 387 x 238 | ツリー ／ **確認モーダルが無い**（宿題） |
+| 16 | 作業場 | `guild/workshop_screen.tscn` | Background / Tick(Timer) / Margin | 132 x 233 | 製作キューと残り時間 |
+| 17 | ショップ | `guild/shop_screen.tscn` | Background / Margin | 193 x 238 | 日替わり・週替わり・月替わりの3枠 |
 
 ### 2-4. 冒険（シナリオ側）
 
 | # | 画面 | パス | 直下の構成 | 最小 | 決めるべきこと |
 |---|---|---|---|---|---|
-| 18 | 冒険を選ぶ | `adventure/adventure_select.tscn` | Background / Layout | 368 x **708** | **縦が 720 にほぼ届いている**。ステージが増えたらはみ出す |
-| 19 | 編成プリセット | `adventure/party_preset_screen.tscn` | Background / Margin | 473 x 352 | 3枠 × プリセット |
-| 20 | フロアのマップ | `adventure/floor_map.tscn` | Background / ChestPopup / Layout | 524 x 464 | ノードの見せ方 |
-| 21 | フロアのレリック | `adventure/floor_relic_select.tscn` | Background / Layout | 400 x 212 | 3択の見せ方 |
-| 22 | フロアのショップ | `adventure/floor_shop.tscn` | Background / Layout | 361 x 252 | 品と回復の並び |
+| 18 | 冒険を選ぶ | `adventure/adventure_select.tscn` | Background / Layout | 362 x **680** | **縦が 720 に近い**。ステージが増えたらはみ出す（⚠ 前は 708） |
+| 19 | 編成プリセット | `adventure/party_preset_screen.tscn` | Background / Margin | 509 x 382 | 3枠 × プリセット |
+| 20 | フロアのマップ | `adventure/floor_map.tscn` | Background / ChestPopup / Layout | 536 x 416 | ノードの見せ方 |
+| 21 | フロアのレリック | `adventure/floor_relic_select.tscn` | Background / Layout | 400 x 200 | 3択の見せ方 |
+| 22 | フロアのショップ | `adventure/floor_shop.tscn` | Background / Layout | 369 x 234 | 品と回復の並び |
 | 23 | 戦闘 | `adventure/battle.tscn` | Background / PartyUnitsContainer(Node2D) / EnemyUnitsContainer(Node2D) / HUD(CanvasLayer) / ResultView | — | **唯一 Node2D を使う画面**。HUD・スキルボタン・結果画面 |
 
 ### 2-5. 難ダンジョン
 
 | # | 画面 | パス | 直下の構成 | 最小 | 決めるべきこと |
 |---|---|---|---|---|---|
-| 24 | ダンジョンのマップ | `adventure/dungeon_map.tscn` | Background / Layout | 524 x 196 | **25層・ノード63・通路104本**。台帳の決定37「マップを真ん中に」が未着手 |
-| 25 | 宝箱／拾いもの | `adventure/dungeon_chest.tscn` | Background / Layout | 412 x 272 | 拾い待ちと鞄の2つのマス目 |
+| 24 | ダンジョンのマップ | `adventure/dungeon_map.tscn` | Background / Layout | 534 x 190 | **25層・ノード63・通路104本**。台帳の決定37「マップを真ん中に」が未着手 |
+| 25 | 宝箱／拾いもの | `adventure/dungeon_chest.tscn` | Background / Layout | 412 x 266 | 拾い待ちと鞄の2つのマス目 |
 | 26 | レリック選択 | `adventure/dungeon_relic_select.tscn` | Background / Layout | 329 x 114 | 3択 ＋ 誰に付けるか |
-| 27 | ダンジョンのショップ | `adventure/dungeon_shop.tscn` | Background / Layout | 244 x 260 | 品 ＋ 鞄の枠・たいまつ |
+| 27 | ダンジョンのショップ | `adventure/dungeon_shop.tscn` | Background / Layout | 280 x 242 | 品 ＋ 鞄の枠・たいまつ |
 
 ---
 
@@ -106,16 +119,19 @@
 
 | 部品 | パス | いまの姿 | 決めるべきこと |
 |---|---|---|---|
-| **ItemIcon** | `ui/components/item_icon.tscn` | 40px の角丸四角。絵文字（中央20px）＋1文字（左上11px）＋段数（右下10px）＋等級色 | **画像に置き換えるのか、この形を正とするのか** |
-| **ItemSlot** | `ui/components/item_slot.tscn` | ItemIcon ＋ 装備中の印「E」＋ ツールチップ。空きマスは薄く | 空きマスの見せ方 ／ **ツールチップと下のドロップダウンが二重に出る** |
-| **ItemGrid** | `.gd` のみ | マス目の器。列数は画面が決める | 1行の数 |
-| **ItemDetail** | `.gd` のみ | 詳細の文章（名前・性能・枠・説明） | 何行まで出すか |
-| **ItemDetailPopup** | `.gd` のみ（2026-09-07 新設） | **ホバーでカーソルの右に出るドロップダウン**。左上にアイコン | 幅・余白・背景 |
-| **PrimaryButton** | `ui/components/primary_button.tscn` | Button ＋ 翻訳キー | **4状態（通常・押下・ホバー・不活性）の色** |
-| **ResourceDisplay** | `ui/components/resource_display.tscn` | アイコン ＋ 数値（`current/max` も） | **アイコンが未設定**（`icon_texture` が空） |
-| **ModalDialog** | `ui/components/modal_dialog.tscn` | 暗幕 ＋ 中央のパネル ＋ ボタン | **台帳の決定39「ウィンドウ形式に」が未着手** |
+| **ItemIcon** | `ui/components/item_icon.tscn` | 40px の角丸四角。**線画（中央20px）＋1文字（左上11px）＋段数（右下10px）＋枠線＝等級色 ＋ 地は暗い一色**。装飾・ルーンは**中身**を重ねる | ⚠ **決着済み**：仮アセットのままにせず**線画（SVG）に差し替えた**（2026-09-08）。いずれ画像に差し替える |
+| **ItemSlot** | `ui/components/item_slot.tscn` | ItemIcon ＋ 装備中の印「E」＋ ツールチップ。空きマスは薄く | 空きマスの見せ方 ／ **ツールチップと下のドロップダウンが二重に出る**（`item_slot.gd:152-157`。**まだ直していない**） |
+| **ItemGrid** | `.gd` のみ | マス目の器。列数は画面が決める | 1行の数（⚠ 倉庫は 10列に決まった） |
+| **ItemDetail** | `.gd` のみ | ⚠ **見出し（アイコン＋名前＋サブ行）／ 左に名前・右に値の行 ／ 枠の1行 ／ 説明**。⚠ `set_summary()` で**要約**にもなる | 何行まで出すか |
+| **ItemDetailPopup** | `.gd` のみ（2026-09-07 新設） | **ホバーでカーソルの右に出るドロップダウン**。⚠ **中身は要約**（2026-09-08）。⚠ **自前のアイコンは外した**（見出しが持つ） | 幅・余白・背景 |
+| ⚠ **PartSlotIcon** | `.gd` のみ（**2026-09-08 新設**） | 装飾の枠1つのマス（22px）。**空き＝枠線が刺さる種類の色 ／ 装填済＝枠線が等級の色**。ワイルドは**虹**。**未開放は出さない** | 大きさ（22px）／ 中身の割合 |
+| ⚠ **PartSlotRow** | `.gd` のみ（**2026-09-08 新設**） | それを1行に並べる器。`2 / 7` を数える | — |
+| ⚠ **UiButton** | `ui/components/ui_button.tscn`（**2026-09-08 新設**） | **4階層**（SECONDARY / PRIMARY / GHOST / DANGER）。⚠ `PrimaryButton` を置き換えた | ⚠ **決着済み**。DANGER は**まだどこにも割り当てていない** |
+| ⚠ **IconTextures** | `scripts/utils/icon_textures.gd`（**2026-09-08 新設**） | 線画（SVG）の対応表。**無ければ `Glyphs`（絵文字）に落ちる** | いつ画像に差し替えるか |
+| **ResourceDisplay** | `ui/components/resource_display.tscn` | アイコン ＋ 数値（`current/max` も） | **アイコンが未設定**（`icon_texture` が空）。⚠ **線画が入ったので当てられる** |
+| **ModalDialog** | `ui/components/modal_dialog.tscn` | 暗幕 ＋ 中央のパネル ＋ ボタン。⚠ **見出し・中身・ボタンの文言を渡せる**（2026-09-08） | ⚠ **決定39は入った**。⚠ 暗幕は**全画面の黒 0.6 のまま** |
 | **DialogBase** | `ui/components/dialog_base.tscn` | モーダルの土台 | 同上 |
-| **UnitView** | `adventure/unit_view.tscn` | Body(ColorRect) / GlyphLabel / HpBar / ShieldBar / StatusChips / NameLabel | **戦闘のキャラ。いまは色の四角＋絵文字** |
+| **UnitView** | `adventure/unit_view.tscn` | Body(ColorRect) / GlyphLabel / HpBar / ShieldBar / StatusChips / NameLabel | **戦闘のキャラ。いまは色の四角＋絵文字**（⚠ **線画に差し替えていない**） |
 
 ---
 
@@ -124,7 +140,7 @@
 | | 中身 | アセット |
 |---|---|---|
 | **設定画面** | **1つも無い。** 音量・ミュートの UI（`SoundConfig` の値が起動時に効くだけ）。**セーブ構造ごと決める回が要る** | 要らない |
-| **研究の確認モーダル** | 解放時に確認が無い | 要らない |
+| **研究の確認モーダル** | 解放時に確認が無い（⚠ **まだ無い**） | 要らない |
 | **ポモドーロの演出** | セット完了の知らせ ／ 作業中のタイトルを大きく ／ 休憩明けの自動開始 | 要らない |
 | **リソース獲得の演出** | **デモまで作った**（`tests/resource_gain_demo.tscn`）。飛ぶルート5種・複数飛ばし・設定7項目。**どれを採るか未決** | 要らない |
 | **BGM** | `play_bgm()` が無い（バスと音量欄だけ在る） | **要る（音源）** |
@@ -134,13 +150,20 @@
 
 ## 5. 共通で決めたいこと（画面をまたぐもの）
 
-1. **配色**（`theme/main_theme.tres` の1箇所で全画面に効く）
-2. **等級の10色**（アイテム・宝箱の両方が使う。4点は宝箱のレアリティと共有）
-3. **ボタンの4状態**（通常・ホバー・押下・不活性）
-4. **余白と角丸**（いまアイコンの角丸だけ Config にある＝`icon_corner_radius`）
-5. **アイコンを画像にするか**（画像にするなら `ItemIcon` の作りごと変わる）
-6. **モーダルの形**（全画面の暗幕か、ウィンドウか＝決定39）
-7. **フォントの大きさの段**（見出し・本文・数値でいくつ使うか）
+1. ✅ **配色** … `tools/theme_builder.gd` が持つ（2026-09-08）。暖色系の暗い地 ＋ 真鍮
+2. ✅ **等級の10色** … **変えていない**。⚠ 塗る場所を「地 → 枠線」に移した
+3. ✅ **ボタンの4状態** … **4階層 × 5状態**（normal/hover/pressed/disabled/focus）が入った
+4. **余白と角丸** … ⚠ **余白は決まった**（画面ルート32 ／ 既定24 ／ モーダル24・16）。**角丸はアイコン（`icon_corner_radius`）とボタン（8）で別々のまま**
+5. ✅ **アイコンを画像にするか** … **線画（SVG）にした**。⚠ **いずれ画像に差し替える**（`IconTextures.ICON_SUFFIX` の1行）
+6. ✅ **モーダルの形** … **ウィンドウ形式**（見出し＋中身＋ボタンの文言）。⚠ **暗幕は黒 0.6 のまま**
+7. ⚠ **フォントの大きさの段** … **まだ決めていない**。いま在るのは 既定16 ／ ボタン14 ／ 見出し32 ／ タイマー64 の4つだけ
+
+**⚠ 決まっていないまま残っているもの**：
+
+- **DANGER のボタンをどの画面に当てるか**（冒険側。定義だけして未割り当て）
+- **暗幕の濃さ**（`modal_dialog.gd` の `DIMMER_COLOR`）
+- **`ItemSlot` のツールチップとドロップダウンの二重表示**（`item_slot.gd:152-157`）
+- **リソース獲得の演出**（`tests/resource_gain_demo.tscn`。ルート5種・設定7項目のどれを採るか）
 
 ---
 
@@ -148,5 +171,8 @@
 
 - **画面の絵は取れない。** ヘッドレスは描画がダミーで、`--write-movie` は落ちる。**見た目は人間だけが見られる**
 - **測っていない画面が5枚ある**（タイトル・拠点・ポモドーロ・ステータスのノード・戦闘）。`LAYOUT_SCENES` に入っていない
+  - ⚠ ただし **`scenario=theme` が全46シーンを `load()` できるかは見ている**（2026-09-08）。**測ってはいない**
 - **「決めるべきこと」の欄は提案**。実コードから取ったのは「パス・直下の構成・最小サイズ」の3つだけ
 - `docs/` の他のファイルは読んでいない（指示されたもの以外は読まない決まり）。**台帳側に別の決定が書かれている可能性がある**
+- ⚠ **色と形が「読めるか」は取れない。** 線画32枚の出来・等級10色の見分け・中身のマークの大きさは
+  **人間が実機で見るしかない**（2026-09-08 に人間が見て「大丈夫」と確認済み）
