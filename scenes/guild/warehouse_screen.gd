@@ -34,23 +34,26 @@ const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 # 持ち物タブはマス目（段階18-c・PLAN_INVENTORY.md）。
 # ⚠ ScrollContainer をやめた。⚠ 中が scenario=layout で測れないため（宿題68）。
 #   ⚠ 20列 × 5行 ＝ 100 マスが1ページで、⚠ 5ページを送って見る（人間の決定8）。
-@onready var inventory_grid: ItemGrid = $Layout/Tabs/InventoryTab/InventoryGrid
-@onready var capacity_label: Label = $Layout/Tabs/InventoryTab/InventoryHeader/CapacityLabel
-@onready var page_label: Label = $Layout/Tabs/InventoryTab/InventoryHeader/PageLabel
+@onready var inventory_grid: ItemGrid = $Layout/Tabs/InventoryTab/GridArea/InventoryGrid
+@onready var capacity_label: Label = $Layout/Tabs/InventoryTab/GridArea/InventoryHeader/CapacityLabel
+@onready var page_label: Label = $Layout/Tabs/InventoryTab/GridArea/PagerRow/PageLabel
 # 枠を買う（段階18-e）。⚠ 値段も押せるかも GameManager に聞く。⚠ ここで式を書かない。
-@onready var expand_button: UiButton = $Layout/Tabs/InventoryTab/InventoryHeader/ExpandButton
-@onready var prev_page_button: UiButton = $Layout/Tabs/InventoryTab/InventoryHeader/PrevPageButton
-@onready var next_page_button: UiButton = $Layout/Tabs/InventoryTab/InventoryHeader/NextPageButton
+@onready var expand_button: UiButton = $Layout/Tabs/InventoryTab/GridArea/InventoryHeader/ExpandButton
+@onready var prev_page_button: UiButton = $Layout/Tabs/InventoryTab/GridArea/PagerRow/PrevPageButton
+@onready var next_page_button: UiButton = $Layout/Tabs/InventoryTab/GridArea/PagerRow/NextPageButton
 # 押したマスの詳細（段階18-c-2・共有部品）。⚠ 中身の判定は部品の中で GameManager に聞く。
-@onready var item_detail: ItemDetail = $Layout/Tabs/InventoryTab/ItemDetail
-@onready var action_row: HBoxContainer = $Layout/Tabs/InventoryTab/ActionRow
+# ⚠⚠ 2026-09-08・段階⑤：⚠ マス目の右の **常設パネル**に移した（⚠ 人間のモック）。
+#   ⚠ こちらはフル版（⚠ 分解の戻り・鍛えるコストまで出る）。⚠ ホバーの枠は別の
+#   ⚠ `ItemDetail` を持ち、⚠ そちらは要約（⚠ 段階④）。⚠ 2つは中身を共有しない。
+@onready var item_detail: ItemDetail = $Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout/ItemDetail
+@onready var action_row: HBoxContainer = $Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout/ActionRow
 @onready var codex_list: VBoxContainer = $Layout/Tabs/CodexTab/CodexList
 @onready var open_all_button: UiButton = $Layout/Tabs/ChestTab/OpenAllButton
 @onready var chest_list: VBoxContainer = $Layout/Tabs/ChestTab/ChestScroll/ChestList
 @onready var result_label: Label = $Layout/Tabs/ChestTab/ResultLabel
 
-# 押した所の近くに詳細を出す器（2026-09-07）。⚠ 上の2つを引き取るので、
-#   ⚠ `item_detail` / `action_row` の参照はそのまま使える（⚠ 親が変わるだけ）。
+# ホバーで出る要約の器（2026-09-07）。⚠ 2026-09-08 から **自前の `ItemDetail` を持つ**
+#   （⚠ 常設パネルのものを引き取ると、⚠ パネルが空になる）。
 var _detail_popup: ItemDetailPopup = null
 
 func _ready() -> void:
@@ -84,9 +87,11 @@ func _ready() -> void:
 	prev_page_button.pressed.connect(_on_prev_page_pressed)
 	next_page_button.pressed.connect(_on_next_page_pressed)
 
-	# 6. 詳細をドロップダウンへ移す（2026-09-07）。⚠ 引き取るのは詳細だけで、
-	#    ⚠ `action_row` は画面に残す（⚠ ホバーで消える器にボタンを入れない）。
-	_detail_popup = ItemDetailPopup.adopt(self, item_detail)
+	# 6. ホバーの枠に、⚠ **もう1つの** `ItemDetail` を持たせる（2026-09-08・段階⑤）。
+	#    ⚠ `.tscn` の `ItemDetail` は常設パネルのもの。⚠ 引き取らせない
+	#    （⚠ 引き取ると常設パネルが空になり、⚠ ホバーを外すまで何も出なくなる）。
+	#    ⚠ 器がボタンを持たないのは前と同じ（⚠ ホバーで消える器に操作を入れない）。
+	_detail_popup = ItemDetailPopup.adopt(self, ItemDetail.new())
 	if _detail_popup != null:
 		_detail_popup.watch(inventory_grid)
 

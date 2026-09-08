@@ -4503,7 +4503,9 @@ func _report_inventory() -> void:
 	])
 
 	# 6-B. ⚠ ページ（人間の決定8）。⚠ 500 マス ＝ 100 マス（20列 × 5行）× 5 ページ。
-	print("[DebugBoot] --- ページ（⚠ 500 マス ＝ 20列 × 5行 × 5 ページ）---")
+	# ⚠ 見出しに数を書かない（⚠ Config を変えたときにここだけ古くなる。⚠ 実際に 2026-09-08 に
+	#   ⚠ 10列 × 10行 へ変えて、⚠ 見出しだけ「20列 × 5行」のまま残っていた）。
+	print("[DebugBoot] --- ページ（⚠ 上限 ／ 1ページ ／ 列 ／ ページ数は下の行が出す）---")
 	print("  上限 %d マス / 1ページ %d マス（%d 列） / %d ページ" % [
 		GameManager.get_inventory_slot_max(), GameManager.get_inventory_slots_per_page(),
 		GameManager.get_inventory_columns(), GameManager.get_inventory_page_count(),
