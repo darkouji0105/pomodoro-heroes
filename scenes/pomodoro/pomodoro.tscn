@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scenes/pomodoro/pomodoro.gd" id="1_script"]
 [ext_resource type="PackedScene" uid="uid://cvd80y1v6yvnk" path="res://scenes/ui/components/ui_button.tscn" id="2_ui_button"]
-[ext_resource type="PackedScene" uid="uid://b0pmsetdots0001" path="res://scenes/pomodoro/set_dots.tscn" id="3_set_dots"]
+[ext_resource type="PackedScene" uid="uid://f8btx3gaao3" path="res://scenes/pomodoro/set_dots.tscn" id="3_set_dots"]
 
 [node name="Pomodoro" type="Control"]
 layout_mode = 3

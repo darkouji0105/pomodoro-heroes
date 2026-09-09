@@ -20,9 +20,11 @@ const SCENE_PATH: String = "res://scenes/pomodoro/timer_ring.tscn"
 # 弧の分割数。⚠ 240px の円なのでこれくらい無いと角が見える。
 const ARC_POINTS: int = 128
 
-# ⚠ 数字のラベルは**コードで作る**（2026-09-09）。
-#   ⚠ `.tscn` に子として置いたら、⚠ バックグラウンドの Godot に子ごと消された。
-#   ⚠ 器だけの `.tscn` にしておけば、⚠ 書き戻されても中身を失わない。
+# ⚠⚠ 数字のラベルは「**在れば使う／無ければ作る**」（2026-09-09）。
+#   ⚠ `.tscn` をバックグラウンドの Godot が書き換えることがあり、
+#   ⚠ 子が**消えたり戻ったり**する。⚠ どちらかを決め打ちすると事故る。
+#   ⚠⚠ 実際に事故った：⚠ 「消される」前提でコードから作ったら、⚠ `.tscn` 側に子が戻っていて
+#   ⚠ **数字が2枚重なった**（人間が実機で発見「タイマーが二重になってる」）。
 var timer_label: Label = null
 
 # 0.0 〜 1.0。⚠ 満ちた量。
@@ -33,15 +35,20 @@ func _ready() -> void:
 	var diameter: int = get_theme_constant(&"diameter", &"TimerRing")
 	custom_minimum_size = Vector2(diameter, diameter)
 
-	timer_label = Label.new()
-	timer_label.name = "TimerLabel"
+	# ⚠ 先に探す。⚠ `.tscn` が持っていたらそれを使う（⚠ 2枚重ねない）。
+	timer_label = get_node_or_null(NodePath("TimerLabel")) as Label
+	if timer_label == null:
+		timer_label = Label.new()
+		timer_label.name = "TimerLabel"
+		timer_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+		add_child(timer_label)
+
+	# ⚠ 見た目は `.tscn` 側に在っても無くても同じになるよう、ここで揃えておく。
 	timer_label.theme_type_variation = &"TimerLabel"
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	timer_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	# ⚠ 輪の上を数字が横切らないように、⚠ 当たり判定を持たせない。
 	timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(timer_label)
 
 	queue_redraw()
 

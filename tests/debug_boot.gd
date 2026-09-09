@@ -3732,6 +3732,17 @@ func _report_layout() -> void:
 		#   ⚠ 0 本なら通路が1本も見えていない（⚠ 人間が実機で報告した症状そのもの）。
 		#   ⚠ 画面ごとに if を書かない。⚠ その部品を持っている画面だけが出る。
 		for raw_child: Node in instance.find_children("*", "Control", true, false):
+			# ⚠ タイマーの輪（2026-09-09）。⚠ 絵は取れないが「数字が何枚あるか」は取れる。
+			#   ⚠⚠ 人間が実機で「タイマーが二重になってる」と見つけた事故の再発を止めるため。
+			#   ⚠ 原因は `.tscn` 側の子とコードで作る子の**両方が出た**こと。⚠ 1枚が正解。
+			if raw_child is TimerRing:
+				var labels: int = 0
+				for grand: Node in raw_child.get_children():
+					if grand is Label:
+						labels += 1
+				print("    ⚠ タイマーの数字 = %d 枚（1 枚が正解。2 枚なら重なっている）" % labels)
+				if labels != 1:
+					push_error("[DebugBoot] タイマーの数字が %d 枚（1 枚でないと重なる）" % labels)
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので
