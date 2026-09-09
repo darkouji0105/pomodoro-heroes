@@ -13,9 +13,6 @@ const PARTY_PRESET_PATH: String = "res://scenes/adventure/party_preset_screen.ts
 # ⚠ UI テストのページ（デバッグビルドのみ。⚠ リリース前に消す）。
 const UI_TEST_PAGE_PATH: String = "res://tests/ui_test_page.tscn"
 
-# シーンリソース（ PackedScene ）
-const RESOURCE_DISPLAY_SCENE: PackedScene = preload("res://scenes/ui/components/resource_display.tscn")
-
 const SCREEN_SCENES: Dictionary = {
 	GameStateKeys.SCREEN_ADVENTURE_SELECT: "res://scenes/adventure/adventure_select.tscn",
 	GameStateKeys.SCREEN_GUILD: "res://scenes/guild/guild_screen.tscn",
@@ -31,16 +28,6 @@ const SCREEN_SCENES: Dictionary = {
 @onready var top_area: Control = $Layout/TopArea
 @onready var potion_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/Value
 @onready var potion_use_button: UiButton = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/UseButton
-# ⚠ GridContainer（8列2段）を ScrollContainer に入れて、ResourceRow の外に出してある。
-#
-# ⚠ 素材が3件から12件に増えた回で HBoxContainer → GridContainer 4列に変えた
-#   （EXEC_MATERIAL_TIERS.md §12-3）。⚠ それでも足りなかった：16件・4桁になると
-#   4列でも最小幅 564 になり、ResourceRow 全体が 1556（画面幅 1280）まで膨らんで、
-#   下段が丸ごと左右にはみ出した（2026-08-23に実測）。
-# ⚠ ScrollContainer に入れると最小幅が 0 になるので、⚠ 素材が増えても桁が増えても
-#   二度とはみ出さない。⚠ この箱から出さないこと。
-# ⚠ 数字は `-- scenario=layout` で取れる。器を足したときはあれを回すこと。
-@onready var materials_display: GridContainer = $Layout/BottomArea/BottomLayout/MaterialsScroll/MaterialsDisplay
 @onready var chest_badge: Button = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge
 @onready var chest_count_label: Label = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge/ChestCountLabel
 
@@ -54,7 +41,6 @@ const SCREEN_SCENES: Dictionary = {
 @onready var scenario_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/ScenarioButton
 
 # 内部状態
-var _material_entries: Dictionary = {} # material_id -> HBoxContainer(MaterialEntry)
 var _navigation_buttons: Dictionary = {} # screen_id -> UiButton
 
 func _ready() -> void:
@@ -62,35 +48,30 @@ func _ready() -> void:
 	var state: Dictionary = GameManager.get_state()
 
 	_init_resource_displays(state)
-	_init_materials(state)
 	_init_navigation_buttons()
 	_init_chest_badge()
 	_connect_signals()
 	_show_arrival_rewards()
 
 func _init_resource_displays(_state: Dictionary) -> void:
-	# ⚠ 右上の資源（金・ジェム・スタミナ）。⚠ 中身と更新は `ResourceBar` が自分で持つ。
+	# ⚠ 右上の資源。⚠ 中身と更新は `ResourceBar` が自分で持つ。
 	#   ⚠ 拠点は `ScreenHeader` を使っていないので、⚠ ここで直に置く。
+	# ⚠⚠ 拠点だけ**素材16件も出す**（人間の指示「拠点のすべての素材を右上に」）。
+	#   ⚠ 通貨3＋素材16で19個並ぶので、⚠ 1行では 1280 に入らない。
+	#   ⚠ `TopArea` いっぱいに広げて折り返させる（⚠ `HFlowContainer` ＋ 右揃え）。
+	#   ⚠ `TopArea` は空の器なので、⚠ 全面に広げてもぶつかるものが無い。
 	var bar: ResourceBar = ResourceBar.new()
 	bar.name = "ResourceBar"
-	bar.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	bar.show_materials = true
+	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# ⚠ 面が押せてしまうと、⚠ 後ろに何か置いたときに押せなくなる。
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_area.add_child(bar)
 
 	# ⚠ 絵を付ける（2026-09-09）。⚠ IDを渡すだけ（⚠ 画像の割り当てはここでしない）。
 	potion_value.resource_id = GameStateKeys.ITEM_STAMINA_POTION
 	potion_value.set_value(GameManager.get_stamina_potion_count())
 	potion_use_button.disabled = GameManager.get_stamina_potion_count() <= 0
-
-func _init_materials(state: Dictionary) -> void:
-	var materials: Dictionary = state.get(GameStateKeys.MATERIALS, {})
-	for mat_id: String in materials.keys():
-		# ⚠ 0 の素材は出さない。段階が4つになって12件並ぶようになり、
-		#   序盤は9件が 0 のまま場所だけ取っていた（EXEC_MATERIAL_TIERS.md §12-3）。
-		#   手に入った時点で _on_material_changed() が作る。
-		if int(materials[mat_id]) <= 0:
-			continue
-		_create_material_entry(mat_id, int(materials[mat_id]))
 
 func _init_navigation_buttons() -> void:
 	_navigation_buttons = {
@@ -171,7 +152,6 @@ func _connect_signals() -> void:
 	# GameManager からの通知
 	# ⚠ `resource_changed` はもう繋がない（2026-09-09）。⚠ 金・スタミナは右上へ移り、
 	#   ⚠ 更新は `ResourceBar` が自分で受ける。⚠ ここに残すと二重に更新することになる。
-	GameManager.material_changed.connect(_on_material_changed)
 	GameManager.screen_unlocked.connect(_on_screen_unlocked)
 	GameManager.pending_chests_changed.connect(_on_pending_chests_changed)
 	GameManager.inventory_changed.connect(_on_inventory_changed)
@@ -208,14 +188,6 @@ func _show_arrival_rewards() -> void:
 
 # --- シグナルハンドラ ---
 
-func _on_material_changed(material_id: String, new_amount: int) -> void:
-	if _material_entries.has(material_id):
-		var entry: HBoxContainer = _material_entries[material_id]
-		var val_display: ResourceDisplay = entry.get_node("Value")
-		val_display.set_value(new_amount)
-	else:
-		_create_material_entry(material_id, new_amount)
-
 func _on_screen_unlocked(screen_id: String) -> void:
 	if _navigation_buttons.has(screen_id):
 		_navigation_buttons[screen_id].visible = true
@@ -236,26 +208,6 @@ func _on_use_potion_pressed() -> void:
 	GameManager.use_stamina_potion()
 
 # --- ヘルパー ---
-
-func _create_material_entry(material_id: String, initial_amount: int) -> void:
-	var entry: HBoxContainer = HBoxContainer.new()
-	entry.name = material_id + "Entry"
-
-	var name_label: Label = Label.new()
-	name_label.text = "ui_res_" + material_id # auto_translate
-
-	var val_display: ResourceDisplay = RESOURCE_DISPLAY_SCENE.instantiate()
-	val_display.name = "Value"
-	# ⚠ 素材は品なので、⚠ そのまま item_id を渡せば系統ごとの絵が付く。
-	val_display.resource_id = material_id
-
-	entry.add_child(name_label)
-	entry.add_child(val_display)
-	materials_display.add_child(entry)
-
-	val_display.set_value(initial_amount)
-
-	_material_entries[material_id] = entry
 
 func _update_chest_badge(count: int) -> void:
 	if count > 0:

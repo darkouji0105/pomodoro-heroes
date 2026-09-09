@@ -87,15 +87,6 @@ variant = 2
 layout_mode = 2
 label_key = "ui_base_back_to_title"
 
-[node name="MaterialsScroll" type="ScrollContainer" parent="Layout/BottomArea/BottomLayout"]
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-vertical_scroll_mode = 0
-
-[node name="MaterialsDisplay" type="GridContainer" parent="Layout/BottomArea/BottomLayout/MaterialsScroll" unique_id=374044714]
-layout_mode = 2
-columns = 8
-
 [node name="NavigationButtons" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout" unique_id=763492719]
 custom_minimum_size = Vector2(0, 104)
 layout_mode = 2

@@ -257,14 +257,22 @@ const PANEL_CORNER_RADIUS: int = 8
 #   ⚠ 枠だけ既定の面より1段明るい（⚠ ボタンの枠と同じ値。⚠ 押せないが「欄」だと分かる濃さ）。
 #   ⚠ 内側の余白は左右16 / 上下8（⚠ モックの `padding:8px 16px`）。
 const CHIP_BORDER: String = "4a3d36"
-const CHIP_PAD_H: int = 16
-const CHIP_PAD_V: int = 8
+# ⚠⚠ 2026-09-09 に小さくした（人間の指示「あともっと小さくしてほしい」）。
+#   ⚠ 前は 左右16 / 上下8。⚠ 素材16件が右上に並ぶようになり、⚠ その大きさでは入らない。
+const CHIP_PAD_H: int = 10
+const CHIP_PAD_V: int = 4
 # ⚠ チップの中のアイコン（⚠ モックの `.hud .ic` は 20px）。
 #   ⚠ `ResourceDisplay` の既定は 24px だが、⚠ チップの中だけモックに合わせて 20px。
 # ⚠⚠ **縦は縮まなかった**（実測：24px でも 20px でも倉庫は 712）。
 #   ⚠ ヘッダーの高さを決めているのはアイコンではない。⚠ 何が決めているかは未特定。
 #   ⚠ ここを動かして縦を詰めようとしないこと（⚠ 1回試して効かなかった）。
-const CHIP_ICON: int = 20
+# ⚠ 2026-09-09 に 20 -> 16（人間の指示「もっと小さく」）。
+const CHIP_ICON: int = 16
+# ⚠ チップの中の数字。⚠ 既定16より1段小さい。⚠ **新しい段は作らない**
+#   （⚠ ボタンと同じ14を使い回す。⚠ 文字の大きさの段はまだ未決なので増やさない）。
+const CHIP_FONT_SIZE: int = BUTTON_FONT_SIZE
+# ⚠ チップの中（絵と数字の間）と、⚠ チップどうしの間。⚠ 既定の横16では空きすぎる。
+const CHIP_SEPARATION: int = 4
 # ⚠ 画面の地。⚠ 各画面の Background は ColorRect で持っているが、
 #   PanelContainer で地を敷く画面（tests/test_ui_common）はこれを使う。
 const BACKGROUND_BG: String = "16110f"
@@ -400,6 +408,16 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_type_variation(&"ResourceChip", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"ResourceChip", chip)
 	theme.set_constant(&"icon", &"ResourceChip", CHIP_ICON)
+	# ⚠ チップの中の数字。⚠ `ResourceDisplay` の中の Label に当てる。
+	theme.set_type_variation(&"ChipValueLabel", &"Label")
+	theme.set_font_size(&"font_size", &"ChipValueLabel", CHIP_FONT_SIZE)
+	# ⚠ 絵と数字の間 ／ チップどうしの間。⚠ 同じ値を2箇所で使う。
+	theme.set_type_variation(&"ChipRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"ChipRow", CHIP_SEPARATION)
+	# ⚠ 折り返す器（拠点は素材16件が並ぶので1行に入らない）。
+	theme.set_type_variation(&"ChipFlow", &"HFlowContainer")
+	theme.set_constant(&"h_separation", &"ChipFlow", CHIP_SEPARATION)
+	theme.set_constant(&"v_separation", &"ChipFlow", CHIP_SEPARATION)
 
 	var background: StyleBoxFlat = StyleBoxFlat.new()
 	background.bg_color = _html(BACKGROUND_BG)
