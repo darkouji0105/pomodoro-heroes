@@ -266,8 +266,12 @@ const CHIP_PAD_V: int = 4
 # ⚠⚠ **縦は縮まなかった**（実測：24px でも 20px でも倉庫は 712）。
 #   ⚠ ヘッダーの高さを決めているのはアイコンではない。⚠ 何が決めているかは未特定。
 #   ⚠ ここを動かして縦を詰めようとしないこと（⚠ 1回試して効かなかった）。
-# ⚠ 2026-09-09 に 20 -> 16（人間の指示「もっと小さく」）。
-const CHIP_ICON: int = 16
+# ⚠ 2026-09-09 に 20 -> 16 -> 12（人間の指示「もっと小さく」「そもそもアイコンが大きすぎる」）。
+const CHIP_ICON: int = 12
+# ⚠ チップは**丸い（カプセル）**（2026-09-09・人間の参考画像）。
+#   ⚠ 角丸はボタンの 8 ではなく、⚠ 高さの半分より大きい値を入れて両端を半円にする
+#   （⚠ Godot は高さの半分で頭打ちにするので、⚠ 大きめを入れておけば高さが変わっても丸いまま）。
+const CHIP_CORNER_RADIUS: int = 64
 # ⚠ チップの中の数字。⚠ 既定16より1段小さい。⚠ **新しい段は作らない**
 #   （⚠ ボタンと同じ14を使い回す。⚠ 文字の大きさの段はまだ未決なので増やさない）。
 const CHIP_FONT_SIZE: int = BUTTON_FONT_SIZE
@@ -398,7 +402,7 @@ static func _build_panels(theme: Theme) -> void:
 
 	var chip: StyleBoxFlat = StyleBoxFlat.new()
 	chip.bg_color = _html(PANEL_BG)
-	chip.set_corner_radius_all(PANEL_CORNER_RADIUS)
+	chip.set_corner_radius_all(CHIP_CORNER_RADIUS)
 	chip.set_border_width_all(1)
 	chip.border_color = _html(CHIP_BORDER)
 	chip.content_margin_left = CHIP_PAD_H

@@ -366,10 +366,10 @@ border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
 border_color = Color(0.2901961, 0.23921569, 0.21176471, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+corner_radius_top_left = 64
+corner_radius_top_right = 64
+corner_radius_bottom_right = 64
+corner_radius_bottom_left = 64
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1i8tr"]
 content_margin_left = 16.0
@@ -516,7 +516,7 @@ PrimaryButton/styles/hover = SubResource("StyleBoxFlat_m7qrk")
 PrimaryButton/styles/normal = SubResource("StyleBoxFlat_5mqb0")
 PrimaryButton/styles/pressed = SubResource("StyleBoxFlat_0ipho")
 ResourceChip/base_type = &"PanelContainer"
-ResourceChip/constants/icon = 16
+ResourceChip/constants/icon = 12
 ResourceChip/styles/panel = SubResource("StyleBoxFlat_41w5c")
 ResourceGainEffect/colors/flyer = Color(0.5568628, 0.8509804, 0.60784316, 1)
 ResourceGainEffect/constants/arc = 90
