@@ -38,13 +38,36 @@ const SCENE_PATH: String = "res://scenes/ui/components/screen_header.tscn"
 		if is_inside_tree():
 			_refresh()
 
+# 資源（金・ジェム・スタミナ）を右に出すか（2026-09-09・人間の指示「資源は、右上に表示する」）。
+# ⚠ 右上には既に「戻る」が居るので、⚠ **見出しの行に同居させる**
+#   （⚠ 別の行にすると縦を 40〜50px 食う。⚠ 倉庫686・冒険704 と縦が詰まっている）。
+# ⚠ 並びは「左に題 ／ 右に資源 ＋ 戻る」。
+@export var show_resources: bool = true:
+	set(value):
+		show_resources = value
+		if resource_bar != null:
+			resource_bar.visible = show_resources
+
 @onready var title_label: Label = $TitleLabel
 @onready var back_button: UiButton = $BackButton
+
+# ⚠ コードで作って `BackButton` の前に差す。⚠ こうするとヘッダーを使う8画面は
+#   ⚠ **シーンを1つも触らずに**資源が出る。
+var resource_bar: ResourceBar = null
 
 
 func _ready() -> void:
 	back_button.pressed.connect(func() -> void: back_pressed.emit())
+	_build_resource_bar()
 	_refresh()
+
+
+func _build_resource_bar() -> void:
+	resource_bar = ResourceBar.new()
+	resource_bar.name = "ResourceBar"
+	add_child(resource_bar)
+	move_child(resource_bar, back_button.get_index())
+	resource_bar.visible = show_resources
 
 
 func _refresh() -> void:

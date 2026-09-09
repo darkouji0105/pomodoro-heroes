@@ -357,6 +357,22 @@ corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_41w5c"]
 content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+bg_color = Color(0.14117648, 0.11372549, 0.101960786, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2901961, 0.23921569, 0.21176471, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1i8tr"]
+content_margin_left = 16.0
 content_margin_top = 13.0
 content_margin_right = 16.0
 content_margin_bottom = 13.0
@@ -371,7 +387,7 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1i8tr"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_twywa"]
 content_margin_left = 16.0
 content_margin_top = 13.0
 content_margin_right = 16.0
@@ -387,7 +403,7 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_twywa"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_h6rxs"]
 content_margin_left = 16.0
 content_margin_top = 13.0
 content_margin_right = 16.0
@@ -492,6 +508,8 @@ PrimaryButton/styles/focus = SubResource("StyleBoxFlat_g78kk")
 PrimaryButton/styles/hover = SubResource("StyleBoxFlat_m7qrk")
 PrimaryButton/styles/normal = SubResource("StyleBoxFlat_5mqb0")
 PrimaryButton/styles/pressed = SubResource("StyleBoxFlat_0ipho")
+ResourceChip/base_type = &"PanelContainer"
+ResourceChip/styles/panel = SubResource("StyleBoxFlat_41w5c")
 ResourceGainEffect/colors/flyer = Color(0.5568628, 0.8509804, 0.60784316, 1)
 ResourceGainEffect/constants/arc = 90
 ResourceGainEffect/constants/arc_cell = 60
@@ -537,9 +555,9 @@ TextEdit/colors/caret_color = Color(0.9411765, 0.9019608, 0.8745098, 1)
 TextEdit/colors/font_color = Color(0.9411765, 0.9019608, 0.8745098, 1)
 TextEdit/colors/font_placeholder_color = Color(0.43529412, 0.3882353, 0.36078432, 1)
 TextEdit/colors/font_readonly_color = Color(0.43529412, 0.3882353, 0.36078432, 1)
-TextEdit/styles/focus = SubResource("StyleBoxFlat_41w5c")
-TextEdit/styles/normal = SubResource("StyleBoxFlat_1i8tr")
-TextEdit/styles/read_only = SubResource("StyleBoxFlat_twywa")
+TextEdit/styles/focus = SubResource("StyleBoxFlat_1i8tr")
+TextEdit/styles/normal = SubResource("StyleBoxFlat_twywa")
+TextEdit/styles/read_only = SubResource("StyleBoxFlat_h6rxs")
 TightList/base_type = &"VBoxContainer"
 TightList/constants/separation = 2
 TimerLabel/base_type = &"Label"

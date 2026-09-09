@@ -253,6 +253,12 @@ const DOT_GAP: int = 8
 const PANEL_BG: String = "241d1a"
 const PANEL_BORDER: String = "3a302b"
 const PANEL_CORNER_RADIUS: int = 8
+# ⚠ 右上に出す資源のチップ（2026-09-09・人間のモック「採用版」の `.hud`）。
+#   ⚠ 枠だけ既定の面より1段明るい（⚠ ボタンの枠と同じ値。⚠ 押せないが「欄」だと分かる濃さ）。
+#   ⚠ 内側の余白は左右16 / 上下8（⚠ モックの `padding:8px 16px`）。
+const CHIP_BORDER: String = "4a3d36"
+const CHIP_PAD_H: int = 16
+const CHIP_PAD_V: int = 8
 # ⚠ 画面の地。⚠ 各画面の Background は ColorRect で持っているが、
 #   PanelContainer で地を敷く画面（tests/test_ui_common）はこれを使う。
 const BACKGROUND_BG: String = "16110f"
@@ -375,6 +381,18 @@ static func _build_panels(theme: Theme) -> void:
 	panel.set_border_width_all(1)
 	panel.border_color = _html(PANEL_BORDER)
 	theme.set_stylebox(&"panel", &"PanelContainer", panel)
+
+	var chip: StyleBoxFlat = StyleBoxFlat.new()
+	chip.bg_color = _html(PANEL_BG)
+	chip.set_corner_radius_all(PANEL_CORNER_RADIUS)
+	chip.set_border_width_all(1)
+	chip.border_color = _html(CHIP_BORDER)
+	chip.content_margin_left = CHIP_PAD_H
+	chip.content_margin_right = CHIP_PAD_H
+	chip.content_margin_top = CHIP_PAD_V
+	chip.content_margin_bottom = CHIP_PAD_V
+	theme.set_type_variation(&"ResourceChip", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ResourceChip", chip)
 
 	var background: StyleBoxFlat = StyleBoxFlat.new()
 	background.bg_color = _html(BACKGROUND_BG)
