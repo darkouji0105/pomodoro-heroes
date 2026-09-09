@@ -39,6 +39,7 @@ size_flags_horizontal = 4
 [node name="InstructionLabel" type="Label" parent="Layout/InputBlock"]
 layout_mode = 2
 size_flags_horizontal = 4
+theme_type_variation = &"MutedLabel"
 text = "作業の成果や気づきを20文字以上で記入してください"
 horizontal_alignment = 1
 

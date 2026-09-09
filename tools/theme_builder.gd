@@ -31,6 +31,16 @@ const BUTTON_PAD_V: float = 8.0
 const BUTTON_FONT_SIZE: int = 14
 const FOCUS_BORDER_WIDTH: int = 2
 
+# ⚠⚠ 無効の1組（2026-09-09・人間のモック「D案」＋人間の決定「モックに合わせて全画面明るくする」）。
+#   ⚠ 4階層のどこから入っても**同じ見た目に落とす**。⚠ 真鍮の暗い版などを別に持たない
+#   ⚠ （＝色が1つ増えるのを避ける。⚠ モック側の判断をそのまま採った）。
+#   ⚠ 前は 地 1e1917 / 枠 2a2320 / 文字 5a4f49（⚠ Ghost だけ文字 3f3835）で、⚠ 一段暗かった。
+# ⚠ 地・枠・文字とも**既存の値の使い回し**（⚠ 地=ボタンの地 ／ 枠=PANEL_BORDER ／ 文字=入力欄の下書き）。
+# ⚠ Ghost だけは地を透明のまま残す（⚠ 「地を持たない」がこの階層の作りそのものなので）。
+const DISABLED_BG: String = "241d1a"
+const DISABLED_BORDER: String = "3a302b"
+const DISABLED_FONT: String = "6f635c"
+
 # --- ボタンの4階層 ---
 #
 # ⚠ 「Button」は基底＝Secondary（並列の選択肢）。⚠ `SecondaryButton` という
@@ -45,24 +55,24 @@ const BUTTON_LEVELS: Dictionary = {
 		"normal": {"bg": "241d1a", "border": "4a3d36", "width": 1},
 		"hover": {"bg": "2e2521", "border": "6b5a4e", "width": 1},
 		"pressed": {"bg": "1c1715", "border": "4a3d36", "width": 1},
-		"disabled": {"bg": "1e1917", "border": "2a2320", "width": 1},
+		"disabled": {"bg": DISABLED_BG, "border": DISABLED_BORDER, "width": 1},
 		"focus": {"bg": "", "border": "f0c04a", "width": FOCUS_BORDER_WIDTH},
 		"font_color": "e0d5ce",
 		"font_hover_color": "f0e6df",
 		"font_pressed_color": "e0d5ce",
-		"font_disabled_color": "5a4f49",
+		"font_disabled_color": DISABLED_FONT,
 	},
 	# 真鍮。ギルド側の主要動作。⚠ 1画面に1個まで。
 	"PrimaryButton": {
 		"normal": {"bg": "a8791f", "border": "", "width": 0},
 		"hover": {"bg": "c9922e", "border": "", "width": 0},
 		"pressed": {"bg": "8a6114", "border": "", "width": 0},
-		"disabled": {"bg": "1e1917", "border": "2a2320", "width": 1},
+		"disabled": {"bg": DISABLED_BG, "border": DISABLED_BORDER, "width": 1},
 		"focus": {"bg": "", "border": "f0c04a", "width": FOCUS_BORDER_WIDTH},
 		"font_color": "1a1206",
 		"font_hover_color": "1a1206",
 		"font_pressed_color": "1a1206",
-		"font_disabled_color": "5a4f49",
+		"font_disabled_color": DISABLED_FONT,
 	},
 	# 戻る・閉じる。⚠ 地は透明のまま。⚠ 枠だけ持たせる（2026-09-08・人間の指示
 	#   「⚠ 拠点のセーブするボタン、倉庫の戻るボタンなどの周りに枠を付けてほしい」）。
@@ -73,12 +83,12 @@ const BUTTON_LEVELS: Dictionary = {
 		"normal": {"bg": "", "border": "4a3d36", "width": 1},
 		"hover": {"bg": "241d1a", "border": "6b5a4e", "width": 1},
 		"pressed": {"bg": "1c1715", "border": "4a3d36", "width": 1},
-		"disabled": {"bg": "", "border": "2a2320", "width": 1},
+		"disabled": {"bg": "", "border": DISABLED_BORDER, "width": 1},
 		"focus": {"bg": "", "border": "f0c04a", "width": FOCUS_BORDER_WIDTH},
 		"font_color": "a89b94",
 		"font_hover_color": "f0e6df",
 		"font_pressed_color": "e0d5ce",
-		"font_disabled_color": "3f3835",
+		"font_disabled_color": DISABLED_FONT,
 	},
 	# 冒険側。潜る・撤退など。⚠ 割り当ては未定（画面が決まっていない）。
 	#   ⚠ 前の赤 #c44539 とは別の値。⚠ 流用しないこと（人間の指示・2026-09-07）。
@@ -86,12 +96,12 @@ const BUTTON_LEVELS: Dictionary = {
 		"normal": {"bg": "a8352f", "border": "", "width": 0},
 		"hover": {"bg": "c4433c", "border": "", "width": 0},
 		"pressed": {"bg": "8a2a25", "border": "", "width": 0},
-		"disabled": {"bg": "1e1917", "border": "2a2320", "width": 1},
+		"disabled": {"bg": DISABLED_BG, "border": DISABLED_BORDER, "width": 1},
 		"focus": {"bg": "", "border": "e07a70", "width": FOCUS_BORDER_WIDTH},
 		"font_color": "ffffff",
 		"font_hover_color": "ffffff",
 		"font_pressed_color": "ffffff",
-		"font_disabled_color": "5a4f49",
+		"font_disabled_color": DISABLED_FONT,
 	},
 }
 
@@ -153,6 +163,24 @@ const ERROR_FONT_COLOR: String = "e88a8a"
 # ⚠ 増える値の緑（2026-09-08・段階③）。⚠ 減少の赤と対になる。
 #   ⚠ 赤 #e88a8a と同じくらいの明度にしてある（⚠ 並べたときに片方だけ浮かないように）。
 const GAIN_FONT_COLOR: String = "8ed99b"
+# ⚠ 沈めた字（2026-09-09・人間のモック）。⚠ 「本文より一段引く」ためのもの。
+#   ⚠ 使う先：⚠ 入力欄の上の説明文 ／ ⚠ 加護の3択の右側の値。
+#   ⚠ 新しい色ではない（⚠ GhostButton の文字と同じ値）。⚠ モックが両方に同じ色を当てていた。
+const MUTED_FONT_COLOR: String = "a89b94"
+
+# --- 入力欄（LineEdit / TextEdit）---
+#
+# ⚠⚠ **このプロジェクト初の入力欄の見た目**（2026-09-09・人間のモック）。
+#   ⚠ ここまで1行も無く、⚠ Godot の既定のまま（明るい灰色）だった。
+# ⚠ 使っている画面は**ポモドーロの2ビューだけ**（`grep` で確認）。⚠ 影響はそこに閉じている。
+# ⚠ 地と下書きの字の2色が、⚠ このモックで**新しく増えた唯一の色**。
+const INPUT_BG: String = "1e1815"
+const INPUT_PLACEHOLDER: String = "6f635c"
+# ⚠ 枠はボタンの既定と同じ段（⚠ 並べたときに揃う）。⚠ 角丸もボタンと同じ 8。
+const INPUT_BORDER: String = "4a3d36"
+# ⚠ 高さ 42px の内訳（⚠ モックの `height:42px`）。⚠ 文字16 ＋ 上下13 × 2。
+const INPUT_PAD_H: int = 16
+const INPUT_PAD_V: int = 13
 
 # --- ポモドーロのタイマーの輪とセットの点（2026-09-09・人間のモック）---
 #
@@ -193,6 +221,7 @@ static func build() -> void:
 	_build_separations(theme)
 	_build_labels(theme)
 	_build_panels(theme)
+	_build_inputs(theme)
 	_build_pomodoro(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
@@ -286,6 +315,8 @@ static func _build_labels(theme: Theme) -> void:
 	theme.set_color(&"font_color", &"ErrorLabel", _html(ERROR_FONT_COLOR))
 	theme.set_type_variation(&"GainLabel", &"Label")
 	theme.set_color(&"font_color", &"GainLabel", _html(GAIN_FONT_COLOR))
+	theme.set_type_variation(&"MutedLabel", &"Label")
+	theme.set_color(&"font_color", &"MutedLabel", _html(MUTED_FONT_COLOR))
 
 
 static func _build_panels(theme: Theme) -> void:
@@ -300,6 +331,35 @@ static func _build_panels(theme: Theme) -> void:
 	background.bg_color = _html(BACKGROUND_BG)
 	theme.set_type_variation(&"BackgroundPanel", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"BackgroundPanel", background)
+
+
+# ⚠ 入力欄。⚠ LineEdit と TextEdit で**同じ見た目**にする（⚠ 1行と複数行の違いだけ）。
+#   ⚠ `focus` は枠の色をボタンの focus と揃える（⚠ 真鍮の縁）。
+static func _build_inputs(theme: Theme) -> void:
+	for type_name: String in ["LineEdit", "TextEdit"]:
+		var name: StringName = StringName(type_name)
+		theme.set_stylebox(&"normal", name, _input_style(INPUT_BORDER, 1))
+		theme.set_stylebox(&"focus", name, _input_style("f0c04a", FOCUS_BORDER_WIDTH))
+		theme.set_stylebox(&"read_only", name, _input_style(DISABLED_BORDER, 1))
+		theme.set_color(&"font_color", name, _html(LABEL_FONT_COLOR))
+		theme.set_color(&"font_placeholder_color", name, _html(INPUT_PLACEHOLDER))
+		theme.set_color(&"caret_color", name, _html(LABEL_FONT_COLOR))
+	# ⚠ 無効時の文字の色だけ、⚠ 型ごとに名前が違う（⚠ Godot 側の都合）。
+	theme.set_color(&"font_uneditable_color", &"LineEdit", _html(INPUT_PLACEHOLDER))
+	theme.set_color(&"font_readonly_color", &"TextEdit", _html(INPUT_PLACEHOLDER))
+
+
+static func _input_style(border_hex: String, width: int) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = _html(INPUT_BG)
+	style.set_corner_radius_all(BUTTON_CORNER_RADIUS)
+	style.set_border_width_all(width)
+	style.border_color = _html(border_hex)
+	style.content_margin_left = INPUT_PAD_H
+	style.content_margin_right = INPUT_PAD_H
+	style.content_margin_top = INPUT_PAD_V
+	style.content_margin_bottom = INPUT_PAD_V
+	return style
 
 
 # ⚠ 自前で描く2つ（タイマーの輪 ／ セットの点）の値。

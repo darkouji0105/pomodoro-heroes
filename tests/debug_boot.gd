@@ -61,7 +61,7 @@ const THEME_CONSTANT_TYPES: Array[String] = [
 ]
 const THEME_MARGIN_TYPES: Array[String] = ["MarginContainer", "ScreenMargin", "DialogMargin"]
 const THEME_LABEL_TYPES: Array[String] = [
-	"Label", "HeadingLabel", "TimerLabel", "ErrorLabel", "GainLabel",
+	"Label", "HeadingLabel", "TimerLabel", "ErrorLabel", "GainLabel", "MutedLabel",
 ]
 
 # 通路の線が横に動いてよい上限（px。段階20-g）。

@@ -38,6 +38,7 @@ size_flags_horizontal = 4
 [node name="InstructionLabel" type="Label" parent="Layout/InputBlock"]
 layout_mode = 2
 size_flags_horizontal = 4
+theme_type_variation = &"MutedLabel"
 text = "作業内容を入力してください"
 horizontal_alignment = 1
 
@@ -46,6 +47,16 @@ custom_minimum_size = Vector2(600, 0)
 layout_mode = 2
 placeholder_text = "Work..."
 alignment = 1
+
+[node name="WorkTitle" type="Label" parent="Layout/InputBlock"]
+custom_minimum_size = Vector2(600, 0)
+layout_mode = 2
+visible = false
+theme_type_variation = &"HeadingLabel"
+text = "設計書のレビュー"
+horizontal_alignment = 1
+autowrap_mode = 3
+max_lines_visible = 2
 
 [node name="StartButton" parent="Layout" instance=ExtResource("2_ui_button")]
 layout_mode = 2

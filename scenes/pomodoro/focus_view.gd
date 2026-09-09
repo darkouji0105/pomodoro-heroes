@@ -12,6 +12,10 @@ signal start_requested(title: String)
 @onready var timer_ring: TimerRing = $Layout/TimerRing
 @onready var instruction_label: Label = $Layout/InputBlock/InstructionLabel
 @onready var title_edit: LineEdit = $Layout/InputBlock/TitleEdit
+# ⚠ 作業中に出す大きいタイトル（2026-09-09・人間の宿題「作業中のタイトルを大きく」）。
+#   ⚠ 入力欄と**同じ場所・同じ幅**に出す。⚠ 上（タイマーの輪）は1pxも動かない。
+#   ⚠ 2行で打ち切る（`max_lines_visible = 2`）。⚠ 長い題で下のボタンを押し下げないため。
+@onready var work_title: Label = $Layout/InputBlock/WorkTitle
 @onready var start_button: UiButton = $Layout/StartButton
 
 
@@ -37,7 +41,13 @@ func _on_start_pressed() -> void:
 	if title == "":
 		title = "Work"
 
+	# ⚠ 入力欄を大きいタイトルに差し替える。⚠ 説明の字は**消さずに透明**にする
+	#   （⚠ 消すと下が詰まって、⚠ 開始を押した瞬間にボタンが上へ跳ねる）。
+	instruction_label.modulate.a = 0.0
 	title_edit.editable = false
+	title_edit.visible = false
+	work_title.text = title
+	work_title.visible = true
 	start_button.disabled = true
 	start_requested.emit(title)
 
