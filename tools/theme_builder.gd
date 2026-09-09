@@ -279,8 +279,14 @@ const CHIP_CORNER_RADIUS: int = 64
 # ⚠⚠ **枠の外へはみ出す重なりは作っていない**。⚠ Godot の器は子を枠の中に収めるため、
 #   ⚠ はみ出させるには器の外で座標を持つことになり、⚠ 折り返しと相性が悪い。
 #   ⚠ 代わりに「⚠ カプセルの左端いっぱいに丸を置く」形にした。
-const CURRENCY_CHIP_PAD_L: int = 2
-const CURRENCY_CHIP_ICON: int = 20
+# ⚠⚠ 2026-09-09 に 20 -> 14（人間の指示「大きすぎる ／ 倉庫のアイテムのアイコンと
+#   ⚠ 同じような大きさにしてほしい」）。⚠ 実寸を取って合わせた：
+#   ⚠ 倉庫のアイテムは **マス 40px ／ 中の線画 20px**（`icon_config.gd` の
+#   ⚠ `icon_size_px` と `glyph_font_size`）＝**線画は器の 50%** で、⚠ 周りに余白がある。
+#   ⚠ 20px のままだと、⚠ 高さ約30px のカプセルに丸がほぼ密着し、⚠ 同じ 20px でも詰まって見える。
+#   ⚠ 左の余白も 2 -> 6 に戻して、⚠ 丸の周りに余白を作る。
+const CURRENCY_CHIP_PAD_L: int = 6
+const CURRENCY_CHIP_ICON: int = 14
 # ⚠ チップの中の数字。⚠ 既定16より1段小さい。⚠ **新しい段は作らない**
 #   （⚠ ボタンと同じ14を使い回す。⚠ 文字の大きさの段はまだ未決なので増やさない）。
 const CHIP_FONT_SIZE: int = BUTTON_FONT_SIZE

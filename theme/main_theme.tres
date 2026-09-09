@@ -86,7 +86,7 @@ corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_t4k2v"]
-content_margin_left = 2.0
+content_margin_left = 6.0
 content_margin_top = 4.0
 content_margin_right = 10.0
 content_margin_bottom = 4.0
@@ -461,7 +461,7 @@ ChipRow/constants/separation = 4
 ChipValueLabel/base_type = &"Label"
 ChipValueLabel/font_sizes/font_size = 14
 CurrencyChip/base_type = &"PanelContainer"
-CurrencyChip/constants/icon = 20
+CurrencyChip/constants/icon = 14
 CurrencyChip/styles/panel = SubResource("StyleBoxFlat_t4k2v")
 DangerButton/base_type = &"Button"
 DangerButton/colors/font_color = Color(1, 1, 1, 1)
