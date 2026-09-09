@@ -200,6 +200,10 @@ const GAIN_SPREAD: int = 24
 const GAIN_RISE: int = 56
 const GAIN_FLOAT_MS: int = 2700
 const GAIN_FLOAT_FONT: int = 24
+# ⚠ 何種類も同時に増えたとき、⚠ 出どころの数字を縦に積む段差（2026-09-10・人間の指示
+#   「⚠ 複数素材を手に入れたら、⚠ 発射もとにも複数書いて。⚠ 1つしか書かれない」）。
+#   ⚠ 字の高さ（24）＋わずかな隙間。⚠ 同じ場所に重ねると読めない。
+const GAIN_FLOAT_STEP: int = 28
 const GAIN_ICON: int = 28
 
 # ⚠⚠ 飛ぶ個数は**増える量で決まる**（⚠ モックの決定）。⚠ 固定ではない。
@@ -214,7 +218,7 @@ const GAIN_STEP_4: int = 1000
 
 # ⚠ 同時に何種類も増えたとき（⚠ 宝箱は金＋ジェム＋素材3種などが一度に入る）。
 #   ⚠ この数以上の種類が同時なら、⚠ 1種あたりの個数を絞って画面を静かに保つ。
-#   ⚠ 種類ごとに時間をずらし、⚠ 浮かぶ数字は先頭の1種類だけ出す。
+#   ⚠ 種類ごとに時間をずらす。⚠ 出どころの数字は全種類ぶん縦に積む（`GAIN_FLOAT_STEP`）。
 const GAIN_TYPES_BUSY: int = 3
 const GAIN_COUNT_BUSY: int = 2
 const GAIN_TYPE_STAGGER_MS: int = 540
@@ -521,6 +525,7 @@ static func _build_pomodoro(theme: Theme) -> void:
 		"rise": GAIN_RISE,
 		"float_ms": GAIN_FLOAT_MS,
 		"float_font": GAIN_FLOAT_FONT,
+		"float_step": GAIN_FLOAT_STEP,
 		"icon": GAIN_ICON,
 		"count_1": GAIN_COUNT_1,
 		"count_2": GAIN_COUNT_2,

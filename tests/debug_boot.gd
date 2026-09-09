@@ -3996,6 +3996,26 @@ func _report_gain() -> void:
 	if effect.field.get_child_count() <= 0:
 		push_error("[DebugBoot] 資源が増えても演出が出ない（resource_changed に紐づいていない）")
 
+	# ⚠ 出どころの数字は**種類ぶん**出る（2026-09-10・人間の指示
+	#   「⚠ 複数素材を手に入れたら、⚠ 発射もとにも複数書いて」）。
+	#   ⚠ 3種増やしたので、⚠ 縦に積まれた数字が3つ在るのが正解。
+	#   ⚠ 種類ごとに時間をずらすので、⚠ 出そろうまで待つ。
+	# ⚠⚠ ヘッドレスは1フレームの長さが実機と違い、⚠ 数える瞬間には消えているものがある。
+	#   ⚠ 「その時点の数」ではなく **見えた最大の数** を追う。
+	# ⚠ 重なっているかはここでは分からない（⚠ 数字は上へ流れるので y が毎フレーム変わる）。
+	#   ⚠ 取れるのは「⚠ 何個同時に出たか」まで。⚠ 読めるかどうかは人間が実機で見る。
+	var float_max: int = 0
+	for _i: int in range(240):
+		await get_tree().process_frame
+		var now: int = 0
+		for child: Node in effect.field.get_children():
+			if child is HBoxContainer:
+				now += 1
+		float_max = maxi(float_max, now)
+	print("  ⚠ 出どころの数字 = 同時に最大 %d 個（⚠ 3種増やしたので 3 個が正解）" % float_max)
+	if float_max < 3:
+		push_error("[DebugBoot] 出どころの数字が種類ぶん出ていない（最大 %d 個）" % float_max)
+
 	# ⚠ 減ったときは流さない（⚠ 増えたときだけ）。
 	var before_count: int = effect.field.get_child_count()
 	GameManager.add_gold(-50)

@@ -557,6 +557,7 @@ ResourceGainEffect/constants/count_busy = 2
 ResourceGainEffect/constants/count_ms = 210
 ResourceGainEffect/constants/float_font = 24
 ResourceGainEffect/constants/float_ms = 2700
+ResourceGainEffect/constants/float_step = 28
 ResourceGainEffect/constants/fly_ms = 1860
 ResourceGainEffect/constants/icon = 28
 ResourceGainEffect/constants/pop_ms = 540

@@ -134,7 +134,7 @@ func _on_material_changed(material_id: String, new_amount: int) -> void:
 
 # ⚠ 増えた分をためる。⚠ 同じ瞬間に何種類も増えるのがふつうなので
 #   （⚠ 宝箱は金＋ジェム＋素材が一度に入る）、⚠ 1フレームぶんまとめて1回の演出にする。
-#   ⚠ 1件ずつ流すと、⚠ 種類ごとの間引きも「浮かぶ数字は先頭だけ」も効かない。
+#   ⚠ 1件ずつ流すと、⚠ 種類ごとの間引きも、⚠ 出どころで数字を縦に積むのも効かない。
 func _note_change(resource_id: String, new_value: int) -> void:
 	var before: int = int(_last.get(resource_id, new_value))
 	_last[resource_id] = new_value
@@ -174,22 +174,25 @@ func _modal_is_open() -> bool:
 	return not get_tree().root.find_children("*", "ModalDialog", true, false).is_empty()
 
 
-# ⚠ 何種類かをまとめて。⚠ 種類ごとにずらし、⚠ 浮かぶ数字は先頭だけ。
+# ⚠ 何種類かをまとめて。⚠ 種類ごとに時間をずらし、⚠ 出どころの数字は**全種類**を縦に積む。
 func _play_series(entries: Array[Array], from_global: Vector2) -> void:
 	var type_gap: float = float(_constant(&"type_stagger_ms")) / 1000.0
 	for i: int in range(entries.size()):
 		var resource_id: String = str(entries[i][0])
 		var amount: int = int(entries[i][1])
 		var delay: float = type_gap * float(i)
-		var show_number: bool = (i == 0)
+		# ⚠⚠ **全種類ぶん出す**（2026-09-10・人間の指示「⚠ 複数素材を手に入れたら、
+		#   ⚠ 発射もとにも複数書いて。⚠ 1つしか書かれない」）。⚠ 前は先頭の1種類だけだった。
+		#   ⚠ 同じ場所に重なると読めないので、⚠ 段差を付けて縦に積む。
+		var row: int = i
 		if delay <= 0.0:
-			_play(resource_id, amount, from_global, null, entries.size(), show_number)
+			_play(resource_id, amount, from_global, null, entries.size(), row)
 			continue
 		# ⚠ 待ってから出す。⚠ Tween は面に付ける（⚠ 画面が変わっても消えない）。
 		var tween: Tween = field.create_tween()
 		tween.tween_interval(delay)
 		tween.tween_callback(func() -> void:
-			_play(resource_id, amount, from_global, null, entries.size(), show_number))
+			_play(resource_id, amount, from_global, null, entries.size(), row))
 
 
 # ⚠ 飛ぶ個数は増える量で決まる。⚠ 種類が多いときは絞る（⚠ モックの決定）。
@@ -212,7 +215,7 @@ func _play(
 	from_global: Vector2,
 	to_target: Control,
 	types: int = 1,
-	show_number: bool = true,
+	number_row: int = 0,
 ) -> void:
 	if field == null:
 		return
@@ -227,8 +230,10 @@ func _play(
 			return
 		from_point = to_point + Vector2(0.0, float(_constant(&"rise")))
 
-	if show_number:
-		_spawn_float(resource_id, from_point, amount)
+	# ⚠ 何種類あっても全部出す。⚠ 段差を付けて縦に積む（⚠ 重ねると読めない）。
+	#   ⚠ 上へ積む（⚠ 下へ積むと画面の外へ出やすい。⚠ 数字は上へ流れるので向きも揃う）。
+	var stack: float = float(number_row * _constant(&"float_step"))
+	_spawn_float(resource_id, from_point - Vector2(0.0, stack), amount)
 
 	if to_point == Vector2.INF:
 		# ⚠ 着地先が今の画面に無い。⚠ 浮かぶ数字だけで終わる（⚠ 飛ばさない）。
