@@ -36,6 +36,7 @@ const REPORT_PARTS: String = "parts"
 const REPORT_DROPS: String = "drops"
 const REPORT_PRESETS: String = "presets"
 const REPORT_LAYOUT: String = "layout"
+const REPORT_GAIN: String = "gain"
 const REPORT_UNLOCK: String = "unlock"
 const REPORT_RESEARCH: String = "research"
 const REPORT_WORKSHOP: String = "workshop"
@@ -641,6 +642,14 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_LAYOUT,
 		"note": "拠点の下段の最小幅を測る（画面幅を超えていないか）",
 	},
+	# ⚠⚠ リソースが増えたときの演出（2026-09-09・人間のモック「採用版」）。
+	#   ⚠ 絵は取れないが「⚠ 何個飛ばしたか ／ ⚠ 着地先を見つけたか ／ ⚠ 数字が回ったか」は取れる。
+	#   ⚠ 個数は増える量で変わるので、⚠ 表そのものが合っているかをここで見る。
+	"gain": {
+		"kind": KIND_REPORT,
+		"report": REPORT_GAIN,
+		"note": "増える量→飛ぶ個数の表 / 着地先を探せるか / 数字が回って増えるか",
+	},
 	# ⚠⚠ Theme を組み立て直して、⚠ 欠けが無いかを見る（2026-09-07・ボタンの4階層）。
 	#
 	# ⚠ `tools/build_theme.gd` は EditorScript だが、⚠ `_run()` は
@@ -811,6 +820,8 @@ func _ready() -> void:
 		elif report == REPORT_LAYOUT:
 			# ⚠ これだけ await を持つ（レイアウトは1フレーム待たないと確定しない）。
 			await _report_layout()
+		elif report == REPORT_GAIN:
+			await _report_gain()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -3916,6 +3927,75 @@ func _find_dungeon_node_of_kind(kind: String) -> String:
 		if str((nodes.get(node_id, {}) as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == kind:
 			return node_id
 	return ""
+
+
+# ⚠ リソースが増えたときの演出（2026-09-09）。⚠ 絵は取れないが、
+#   ⚠ 「⚠ 何個飛ばしたか」「⚠ 着地先を見つけたか」「⚠ 数字が回ったか」は取れる。
+#   ⚠ 拠点を開くのは、⚠ そこにしか金・スタミナの `ResourceDisplay` が無いため。
+func _report_gain() -> void:
+	print("[DebugBoot] --- 増える量 → 飛ぶ個数（⚠ モックの表と合っているか）---")
+	var effect: ResourceGainEffect = ResourceGainEffect.spawn_into(get_tree().root)
+	# ⚠ `spawn_into()` は `add_child` を遅らせるので、⚠ 面ができるまで待つ。
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("  出せる状態か = %s（⚠ true が正解）" % [ResourceGainEffect.is_ready()])
+	if not ResourceGainEffect.is_ready():
+		push_error("[DebugBoot] 演出の面ができていない")
+		return
+	# ⚠ 1種だけのとき ／ ⚠ 3種以上が同時のとき（⚠ 絞りが効くか）。
+	for amount: int in [1, 5, 9, 10, 40, 99, 100, 300, 999, 1000, 2400]:
+		print("  +%-5d -> 1種のとき %d 個 ／ 3種同時なら %d 個" % [
+			amount, effect._count_for(amount, 1), effect._count_for(amount, 3),
+		])
+
+	print("[DebugBoot] --- 拠点で実際に流す ---")
+	var base: Node = load("res://scenes/base/base_screen.tscn").instantiate()
+	get_tree().root.add_child(base)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var displays: Array[Node] = get_tree().get_nodes_in_group(ResourceGainEffect.GROUP_DISPLAY)
+	print("  グループに入っている表示欄 = %d 個（⚠ 0 なら着地先が1つも見つからない）" % displays.size())
+	if displays.is_empty():
+		push_error("[DebugBoot] ResourceDisplay がグループに1つも入っていない")
+
+	var gold_display: Variant = null
+	for node: Node in displays:
+		if node is ResourceDisplay and (node as ResourceDisplay).resource_id == GameStateKeys.GOLD:
+			gold_display = node
+			break
+	print("  金の表示欄が見つかったか = %s（⚠ true が正解）" % [gold_display != null])
+	if gold_display == null:
+		push_error("[DebugBoot] 金の ResourceDisplay を resource_id から引けない")
+		base.queue_free()
+		return
+
+	var display: ResourceDisplay = gold_display
+	var before: int = display.value
+	# ⚠ 本番と同じ順（⚠ 画面が先に値を更新し、⚠ そのあと演出が回す）。
+	display.set_value(before + 120)
+	display.play_gain(24, 0.21)
+	await get_tree().process_frame
+	print("  値 %d -> %d ／ 回している最中の表示 = %s（⚠ 本当の値より小さいのが正解）" % [
+		before, display.value, display._display_override,
+	])
+	if display._display_override < 0 or display._display_override >= display.value:
+		push_error("[DebugBoot] 数字が回っていない（見せかけの数が入っていない）")
+
+	# ⚠ 報酬をまとめて流す。⚠ 落ちないこと・飛ぶものが出ることを見る。
+	ResourceGainEffect.play_rewards({
+		GameStateKeys.GOLD: 120,
+		GameStateKeys.GEMS: 3,
+		GameStateKeys.MATERIALS: {"construction_material_1": 4},
+	}, Vector2(400, 400))
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("  演出の面に載っているもの = %d 個（⚠ 0 なら1つも出ていない）" % effect.field.get_child_count())
+	if effect.field.get_child_count() <= 0:
+		push_error("[DebugBoot] 演出が1つも出ていない")
+
+	base.queue_free()
+	await get_tree().process_frame
 
 
 const LAYOUT_SCENES: Array[String] = [

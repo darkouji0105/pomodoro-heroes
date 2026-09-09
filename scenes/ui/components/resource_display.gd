@@ -45,6 +45,38 @@ func set_value(new_value: int) -> void:
 	value = new_value  # setter経由で _refresh() が呼ばれる
 
 
+# ⚠ 増えたときに「数字が回って増える」（2026-09-09・人間のモック「採用版」）。
+#   ⚠ 呼ぶのは `ResourceGainEffect`。⚠ 飛んだアイコンが1個着くたびに1回。
+#
+# ⚠⚠ **本当の値はもう `value` に入っている**（⚠ 画面が `resource_changed` で先に更新する）。
+#   ⚠ なので「`step` ぶん戻した数から今の値へ回す」形にする。⚠ 値そのものは動かさない。
+# ⚠ 回している途中でもう1個着いたら、⚠ 前の回転は捨てて引き直す
+#   （⚠ 2本走ると数字がちらつく）。
+func play_gain(step: int, seconds: float) -> void:
+	if not is_inside_tree() or step <= 0 or seconds <= 0.0:
+		return
+	if _count_tween != null and _count_tween.is_valid():
+		_count_tween.kill()
+	_display_override = maxi(0, value - step)
+	_refresh()
+	_count_tween = create_tween()
+	_count_tween.tween_method(
+		func(shown: int) -> void:
+			_display_override = shown
+			_refresh(),
+		_display_override, value, seconds,
+	)
+	# ⚠ 終わったら必ず外す。⚠ 外し忘れると次の増減で古い数が出る。
+	_count_tween.tween_callback(func() -> void:
+		_display_override = -1
+		_refresh())
+
+
+# ⚠ 回っている最中だけ入る「見せかけの数」。⚠ -1 は「素直に value を出す」。
+var _display_override: int = -1
+var _count_tween: Tween = null
+
+
 # スタミナ用。current と max を同時に設定し、表示を "current/max" 形式に切り替える。
 func set_value_with_max(new_current: int, new_max: int) -> void:
 	max_value = new_max
@@ -59,7 +91,9 @@ func _refresh() -> void:
 		icon.texture = icon_texture
 	# ⚠ 絵が無いときは器ごと消す（⚠ 空の四角ぶんの隙間が空かないように）。
 	icon.visible = icon_texture != null
+	# ⚠ 回っている最中は見せかけの数を出す（`play_gain()`）。
+	var shown: int = _display_override if _display_override >= 0 else value
 	if show_max:
-		value_label.text = "%d/%d" % [value, max_value]
+		value_label.text = "%d/%d" % [shown, max_value]
 	else:
-		value_label.text = str(value)
+		value_label.text = str(shown)

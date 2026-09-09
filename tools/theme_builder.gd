@@ -184,20 +184,49 @@ const INPUT_PAD_V: int = 13
 
 # --- リソースが増えたときの演出（2026-09-09）---
 #
-# ⚠⚠ **いまの値は仮**。⚠ 人間のモックが決まったらここを差し替える。
-#   ⚠ デモ（`tests/resource_gain_demo.gd`）の既定に近い値を置いてある。
+# ⚠⚠ **人間のモック「採用版」の値をそのまま移した**（2026-09-09）。⚠ もう仮ではない。
 # ⚠ 秒は Theme の定数が int しか持てないのでミリ秒で持つ。
 # ⚠ `route` は `ResourceGainEffect.Route` の添字（0 直線 / 1 上へ山なり / 2 横へ迂回 /
-#   3 S字 / 4 引いてから飛ぶ）。
-const GAIN_ROUTE: int = 2
-const GAIN_COUNT: int = 3
-const GAIN_FLY_MS: int = 550
-const GAIN_ARC: int = 45
-const GAIN_STAGGER_MS: int = 60
-const GAIN_SPREAD: int = 40
-const GAIN_RISE: int = 44
-const GAIN_FLOAT_MS: int = 700
-const GAIN_ICON: int = 24
+#   3 S字 / 4 引いてから飛ぶ）。⚠ モックは「上へ山なり」＝ 1。
+const GAIN_ROUTE: int = 1
+const GAIN_FLY_MS: int = 1860
+const GAIN_ARC: int = 90
+# ⚠ 膨らみの上限。⚠ 出どころと着地先が遠いときに山が高くなりすぎないように。
+const GAIN_ARC_MAX: int = 120
+# ⚠ 鞄のマスへ飛ばすときだけ低くする（⚠ 距離が近いので 90 だと山が目立ちすぎる）。
+const GAIN_ARC_CELL: int = 60
+const GAIN_STAGGER_MS: int = 210
+const GAIN_SPREAD: int = 24
+const GAIN_RISE: int = 56
+const GAIN_FLOAT_MS: int = 2700
+const GAIN_FLOAT_FONT: int = 24
+const GAIN_ICON: int = 28
+
+# ⚠⚠ 飛ぶ個数は**増える量で決まる**（⚠ モックの決定）。⚠ 固定ではない。
+#   ⚠ +1〜9 = 1個 ／ +10〜99 = 3個 ／ +100〜999 = 5個 ／ +1000〜 = 8個。
+const GAIN_COUNT_1: int = 1
+const GAIN_COUNT_2: int = 3
+const GAIN_COUNT_3: int = 5
+const GAIN_COUNT_4: int = 8
+const GAIN_STEP_2: int = 10
+const GAIN_STEP_3: int = 100
+const GAIN_STEP_4: int = 1000
+
+# ⚠ 同時に何種類も増えたとき（⚠ 宝箱は金＋ジェム＋素材3種などが一度に入る）。
+#   ⚠ この数以上の種類が同時なら、⚠ 1種あたりの個数を絞って画面を静かに保つ。
+#   ⚠ 種類ごとに時間をずらし、⚠ 浮かぶ数字は先頭の1種類だけ出す。
+const GAIN_TYPES_BUSY: int = 3
+const GAIN_COUNT_BUSY: int = 2
+const GAIN_TYPE_STAGGER_MS: int = 540
+
+# ⚠ 着いたときの表示欄の反応。⚠ ふくらみは**増える量で変えない**（⚠ モックの決定）。
+#   ⚠ 百分率で持つ（⚠ Theme の定数が int しか持てないため）。114 = 1.14倍。
+const GAIN_POP_PERCENT: int = 114
+const GAIN_POP_MS: int = 540
+# ⚠ 数字が回って増える時間。⚠ 1個ずつの遅れと同じにしてある
+#   （⚠ 次の1個が着く前に必ず回り終わる）。
+const GAIN_COUNT_MS: int = 210
+
 # ⚠ 飛ぶアイコンの色。⚠ 線画は白1色なので、⚠ ここで着せる（`modulate`）。
 #   ⚠ 増える緑（`GainLabel`）と揃えてある。⚠ 浮かぶ数字も同じ色になる。
 const GAIN_FLYER_COLOR: String = "8ed99b"
@@ -391,15 +420,34 @@ static func _build_pomodoro(theme: Theme) -> void:
 	theme.set_constant(&"diameter", &"TimerRing", RING_DIAMETER)
 	theme.set_constant(&"stroke", &"TimerRing", RING_STROKE)
 
-	theme.set_constant(&"route", &"ResourceGainEffect", GAIN_ROUTE)
-	theme.set_constant(&"count", &"ResourceGainEffect", GAIN_COUNT)
-	theme.set_constant(&"fly_ms", &"ResourceGainEffect", GAIN_FLY_MS)
-	theme.set_constant(&"arc", &"ResourceGainEffect", GAIN_ARC)
-	theme.set_constant(&"stagger_ms", &"ResourceGainEffect", GAIN_STAGGER_MS)
-	theme.set_constant(&"spread", &"ResourceGainEffect", GAIN_SPREAD)
-	theme.set_constant(&"rise", &"ResourceGainEffect", GAIN_RISE)
-	theme.set_constant(&"float_ms", &"ResourceGainEffect", GAIN_FLOAT_MS)
-	theme.set_constant(&"icon", &"ResourceGainEffect", GAIN_ICON)
+	var gain: Dictionary = {
+		"route": GAIN_ROUTE,
+		"fly_ms": GAIN_FLY_MS,
+		"arc": GAIN_ARC,
+		"arc_max": GAIN_ARC_MAX,
+		"arc_cell": GAIN_ARC_CELL,
+		"stagger_ms": GAIN_STAGGER_MS,
+		"spread": GAIN_SPREAD,
+		"rise": GAIN_RISE,
+		"float_ms": GAIN_FLOAT_MS,
+		"float_font": GAIN_FLOAT_FONT,
+		"icon": GAIN_ICON,
+		"count_1": GAIN_COUNT_1,
+		"count_2": GAIN_COUNT_2,
+		"count_3": GAIN_COUNT_3,
+		"count_4": GAIN_COUNT_4,
+		"step_2": GAIN_STEP_2,
+		"step_3": GAIN_STEP_3,
+		"step_4": GAIN_STEP_4,
+		"types_busy": GAIN_TYPES_BUSY,
+		"count_busy": GAIN_COUNT_BUSY,
+		"type_stagger_ms": GAIN_TYPE_STAGGER_MS,
+		"pop_percent": GAIN_POP_PERCENT,
+		"pop_ms": GAIN_POP_MS,
+		"count_ms": GAIN_COUNT_MS,
+	}
+	for key: String in gain.keys():
+		theme.set_constant(StringName(key), &"ResourceGainEffect", int(gain[key]))
 	theme.set_color(&"flyer", &"ResourceGainEffect", _html(GAIN_FLYER_COLOR))
 
 	theme.set_color(&"done", &"SetDots", _html(DOT_DONE))
