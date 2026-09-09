@@ -82,6 +82,10 @@ func _build_ui() -> void:
 	# 左上は BattleDebugPanel（8, 8）が使っているので避ける。
 	_place_top_right()
 	get_viewport().size_changed.connect(_place_top_right)
+	# ⚠ HUD は遅れて出来る（`SceneManager` が call_deferred で生やす）。
+	#   ⚠ ここで置いた時点では高さが 0 なので、⚠ 出来てから置き直す。
+	#   ⚠ 桁が増えて HUD が広がったときも同じ通知で追従する。
+	_follow_resource_hud.call_deferred()
 
 	var margin: MarginContainer = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 10)
@@ -174,13 +178,32 @@ func _on_toggle_pressed() -> void:
 	_place_top_right.call_deferred()
 
 
+# 資源の HUD が出来たら、その下へ置き直す（⚠ 出来るのが1フレーム遅れるため）。
+func _follow_resource_hud() -> void:
+	var hud: ResourceHud = ResourceHud.get_instance()
+	if hud == null:
+		return
+	hud.width_changed.connect(func(_width: float) -> void: _place_top_right())
+	_place_top_right()
+	# ⚠ 絵は取れないので、⚠ 「HUD の下へ動いたか」はここで取る。
+	#   ⚠ y が 8 のままなら、⚠ HUD の高さを引けていない（⚠ パネルが HUD を覆う）。
+	print("[DebugOverlay] 資源の HUD の下へ置き直した -> %s（⚠ y が 8 なら効いていない）"
+		% [_root.position])
+
+
 # 右上に寄せる。ウィンドウサイズが変わっても追従させる。
 func _place_top_right() -> void:
 	if _root == null:
 		return
 	var view_width: float = get_viewport().get_visible_rect().size.x
+	# ⚠⚠ 資源の HUD（`ResourceHud`）の**下**から始める（2026-09-09）。
+	#   ⚠ このパネルは layer = 200 で、⚠ HUD（40）も増えた演出（50）も覆い隠す。
+	#   ⚠ 右上に重ねたままだと、⚠ 資源が増える演出の**着地点が見えない**
+	#   （⚠ 人間が「⚠ 倉庫で確認できない」と気づいた場所）。
+	# ⚠ 高さは HUD が自分で答える。⚠ ここに数値を書かない。
+	var top: float = maxf(8.0, ResourceHud.reserved_height())
 	# サイズが確定する前に呼ばれても破綻しないよう、実サイズではなく想定幅で引く。
-	_root.position = Vector2(max(8.0, view_width - PANEL_WIDTH - 8.0), 8.0)
+	_root.position = Vector2(max(8.0, view_width - PANEL_WIDTH - 8.0), top)
 
 
 # 毎フレーム更新しない。get_state() が状態を丸ごと duplicate(true) するため、
