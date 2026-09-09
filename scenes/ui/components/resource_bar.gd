@@ -37,6 +37,11 @@ const RESOURCE_DISPLAY_SCENE: PackedScene = preload(
 # 素材16件も並べるか。⚠ 拠点だけ true。
 @export var show_materials: bool = false
 
+# 通貨3つを並べるか（2026-09-09）。
+# ⚠⚠ 通貨は **`ResourceHud` が画面をまたいで常駐で出す**ようになった。
+#   ⚠ 拠点はその上に素材だけを足すので、⚠ ここを false にして二重に出さない。
+@export var show_currencies: bool = true
+
 # resource_id -> ResourceDisplay
 var _displays: Dictionary = {}
 # material_id -> PanelContainer（0 個になったら隠す器）
@@ -63,10 +68,10 @@ func _ready() -> void:
 	else:
 		alignment = BoxContainer.ALIGNMENT_END
 
-	for resource_id: String in CURRENCY_IDS:
-		_make_chip(resource_id)
-
-	GameManager.resource_changed.connect(_on_resource_changed)
+	if show_currencies:
+		for resource_id: String in CURRENCY_IDS:
+			_make_chip(resource_id)
+		GameManager.resource_changed.connect(_on_resource_changed)
 	if show_materials:
 		GameManager.material_changed.connect(_on_material_changed)
 	_refresh_all()
@@ -111,11 +116,12 @@ func _make_chip(resource_id: String) -> PanelContainer:
 
 func _refresh_all() -> void:
 	var state: Dictionary = GameManager.get_state()
-	for resource_id: String in CURRENCY_IDS:
-		if resource_id == GameStateKeys.STAMINA:
-			_refresh_stamina(state)
-			continue
-		_displays[resource_id].set_value(int(state.get(resource_id, 0)))
+	if show_currencies:
+		for resource_id: String in CURRENCY_IDS:
+			if resource_id == GameStateKeys.STAMINA:
+				_refresh_stamina(state)
+				continue
+			_displays[resource_id].set_value(int(state.get(resource_id, 0)))
 
 	if not show_materials:
 		return

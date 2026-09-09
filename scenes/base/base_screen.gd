@@ -63,10 +63,23 @@ func _init_resource_displays(_state: Dictionary) -> void:
 	var bar: ResourceBar = ResourceBar.new()
 	bar.name = "ResourceBar"
 	bar.show_materials = true
+	# ⚠ 通貨3つは `ResourceHud` が画面をまたいで常駐で出す（2026-09-09）。
+	#   ⚠ ここでも出すと二重になるので、⚠ 拠点は**素材だけ**を足す。
+	bar.show_currencies = false
 	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
 	# ⚠ 面が押せてしまうと、⚠ 後ろに何か置いたときに押せなくなる。
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_area.add_child(bar)
+
+	# ⚠ 通貨の HUD の下から始める（⚠ そうしないと素材の1行目が通貨の下に潜る）。
+	#   ⚠ 高さは HUD が自分で答える。⚠ 桁が変わっても追従するよう通知も受ける。
+	var push_down: Callable = func(_width: float) -> void:
+		if is_instance_valid(bar):
+			bar.offset_top = ResourceHud.reserved_height()
+	push_down.call(0.0)
+	var hud: ResourceHud = ResourceHud.get_instance()
+	if hud != null:
+		hud.width_changed.connect(push_down)
 
 	# ⚠ 絵を付ける（2026-09-09）。⚠ IDを渡すだけ（⚠ 画像の割り当てはここでしない）。
 	potion_value.resource_id = GameStateKeys.ITEM_STAMINA_POTION

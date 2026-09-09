@@ -106,15 +106,21 @@ func _ready() -> void:
 
 # --- 戻る ---
 
-# ⚠ 右上の資源（2026-09-09・人間の指摘「倉庫でも資源は表示するべき」）。
-#   ⚠ 倉庫は `ScreenHeader` を使わず自前でヘッダーを組んでいるので、⚠ ここで差す。
-#   ⚠ 置き場は「戻る」の左。⚠ `.tscn` は触らない（⚠ 子を足すと消されたことがある）。
+# ⚠ 右上の資源は `ResourceHud` が画面をまたいで常駐で出す（2026-09-09）。
+#   ⚠ 倉庫は `ScreenHeader` を使わず自前でヘッダーを組んでいるので、
+#   ⚠ ここでも HUD と「戻る」が重ならないよう**右に場所を空ける**。
+#   ⚠ 空ける幅は HUD が自分で答える。⚠ `.tscn` は触らない。
 func _build_resource_bar() -> void:
-	var bar: ResourceBar = ResourceBar.new()
-	bar.name = "ResourceBar"
-	var header: Node = back_button.get_parent()
-	header.add_child(bar)
-	header.move_child(bar, back_button.get_index())
+	var spacer: Control = Control.new()
+	spacer.name = "HudSpacer"
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back_button.get_parent().add_child(spacer)
+	var apply: Callable = func(width: float) -> void:
+		spacer.custom_minimum_size = Vector2(maxf(0.0, width), 0.0)
+	apply.call(ResourceHud.reserved_width())
+	var hud: ResourceHud = ResourceHud.get_instance()
+	if hud != null:
+		hud.width_changed.connect(apply)
 
 
 func _on_back_pressed() -> void:

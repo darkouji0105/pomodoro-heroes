@@ -21,6 +21,9 @@ func _ready() -> void:
 	# ⚠ 理由は DebugOverlay と同じ：⚠ root に付けるので画面が入れ替わっても残る。
 	#   ⚠ Autoload を増やさずに「全画面から呼べる1つ」を用意するための置き場。
 	_spawn_resource_gain_effect.call_deferred()
+	# ⚠ 通貨3つの表示も画面をまたいで常駐させる（2026-09-09・人間の指示
+	#   「⚠ ページをまたぐコンポーネントにするところからだと思う」）。
+	_spawn_resource_hud.call_deferred()
 
 	if not OS.is_debug_build():
 		return
@@ -36,6 +39,12 @@ func _ready() -> void:
 func _spawn_resource_gain_effect() -> void:
 	ResourceGainEffect.spawn_into(get_tree().root)
 	print("[SceneManager] ResourceGainEffect を生成した")
+
+
+# ⚠ 右上の通貨（2026-09-09）。⚠ 検証用ではない。消さないこと。
+func _spawn_resource_hud() -> void:
+	ResourceHud.spawn_into(get_tree().root)
+	print("[SceneManager] ResourceHud を生成した")
 
 
 func _spawn_debug_overlay() -> void:
