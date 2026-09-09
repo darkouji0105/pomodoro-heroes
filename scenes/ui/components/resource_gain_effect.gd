@@ -23,9 +23,13 @@ extends CanvasLayer
 # ⚠ `ResourceDisplay` が自分で入るグループ。⚠ 着地先はここから探す。
 const GROUP_DISPLAY: StringName = &"resource_display"
 
-# ⚠ 画面より上。⚠ モーダル（`ModalDialog`）より上にしないこと
-#   （⚠ 宝箱の窓の上を数字が横切ると読めない）。
-const LAYER_INDEX: int = 50
+# ⚠⚠ **一番上**（2026-09-10・人間の指示「⚠ この演出は一番上のレイヤーに」）。
+#   ⚠ 前は 50 で、⚠ モーダル（200）とデバッグパネル（200）と戦闘のパネル（100）の
+#   ⚠ **裏に回っていた**（⚠ 人間が実機で「⚠ デバッグパネルの後ろになってる」と発見）。
+# ⚠ 窓（`ModalDialog`）と重なる心配は要らない。⚠ 窓が開いている間は流さず、
+#   ⚠ 閉じるまで待つ作りになっている（`_flush()`）。⚠ 上に置いても窓の字を横切らない。
+# ⚠ ここを下げないこと。⚠ 下げると「見えないのに動いている」に戻る。
+const LAYER_INDEX: int = 300
 
 # ⚠ 飛ぶ軌道。⚠ Theme の定数 `route` がこの並びの添字を指す。
 #   ⚠ 中身はデモ（`tests/resource_gain_demo.gd`）と同じ式。⚠ デモはリリース前に消える（宿題77）。
@@ -144,7 +148,7 @@ func _note_change(resource_id: String, new_value: int) -> void:
 
 
 func _flush() -> void:
-	# ⚠⚠ 窓（`ModalDialog`）は `layer = 200`、⚠ この演出は 50。⚠ 窓が開いている間に流すと
+	# ⚠⚠ 窓（`ModalDialog`）は `layer = 200`。⚠ 窓が開いている間に流すと
 	#   ⚠ **裏で丸ごと再生されて誰にも見えない**（⚠ 2026-09-09・人間の指摘
 	#   「⚠ 演出はまだ見れないよね。⚠ 倉庫でも演出ない」の原因）。⚠ 閉じるまで待つ。
 	var waited: int = 0
