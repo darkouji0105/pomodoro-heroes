@@ -25,8 +25,10 @@ const SCREEN_SCENES: Dictionary = {
 }
 
 # ノード参照
-@onready var gold_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/GoldEntry/Value
-@onready var stamina_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/StaminaEntry/Value
+# ⚠⚠ 金・スタミナは**右上の `ResourceBar` へ移した**（2026-09-09・人間の決定
+#   「資源は、右上に表示する」「右上へ移して下段からは消す」）。
+#   ⚠ 下段に残るのはポーション（⚠ 「使う」ボタンと対になっているため）と素材の行。
+@onready var top_area: Control = $Layout/TopArea
 @onready var potion_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/Value
 @onready var potion_use_button: UiButton = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/UseButton
 # ⚠ GridContainer（8列2段）を ScrollContainer に入れて、ResourceRow の外に出してある。
@@ -66,21 +68,17 @@ func _ready() -> void:
 	_connect_signals()
 	_show_arrival_rewards()
 
-func _init_resource_displays(state: Dictionary) -> void:
+func _init_resource_displays(_state: Dictionary) -> void:
+	# ⚠ 右上の資源（金・ジェム・スタミナ）。⚠ 中身と更新は `ResourceBar` が自分で持つ。
+	#   ⚠ 拠点は `ScreenHeader` を使っていないので、⚠ ここで直に置く。
+	var bar: ResourceBar = ResourceBar.new()
+	bar.name = "ResourceBar"
+	bar.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	top_area.add_child(bar)
+
 	# ⚠ 絵を付ける（2026-09-09）。⚠ IDを渡すだけ（⚠ 画像の割り当てはここでしない）。
-	gold_value.resource_id = GameStateKeys.GOLD
-	stamina_value.resource_id = GameStateKeys.STAMINA
 	potion_value.resource_id = GameStateKeys.ITEM_STAMINA_POTION
-
-	# ゴールド
-	var gold: int = int(state.get(GameStateKeys.GOLD, 0))
-	gold_value.set_value(gold)
-
-	# スタミナ
-	var stamina_data: Dictionary = state.get(GameStateKeys.STAMINA, {})
-	var current_stamina: int = int(stamina_data.get(GameStateKeys.STAMINA_CURRENT, 0))
-	var max_stamina: int = int(stamina_data.get(GameStateKeys.STAMINA_MAX, 0))
-	stamina_value.set_value_with_max(current_stamina, max_stamina)
 	potion_value.set_value(GameManager.get_stamina_potion_count())
 	potion_use_button.disabled = GameManager.get_stamina_potion_count() <= 0
 
@@ -171,7 +169,8 @@ func _init_chest_badge() -> void:
 
 func _connect_signals() -> void:
 	# GameManager からの通知
-	GameManager.resource_changed.connect(_on_resource_changed)
+	# ⚠ `resource_changed` はもう繋がない（2026-09-09）。⚠ 金・スタミナは右上へ移り、
+	#   ⚠ 更新は `ResourceBar` が自分で受ける。⚠ ここに残すと二重に更新することになる。
 	GameManager.material_changed.connect(_on_material_changed)
 	GameManager.screen_unlocked.connect(_on_screen_unlocked)
 	GameManager.pending_chests_changed.connect(_on_pending_chests_changed)
@@ -208,22 +207,6 @@ func _show_arrival_rewards() -> void:
 		Modal.notify(self, "ui_base_pomodoro_rewards", [potions, chests])
 
 # --- シグナルハンドラ ---
-
-func _on_resource_changed(resource_type: String, new_value: Variant) -> void:
-	match resource_type:
-		GameStateKeys.GOLD:
-			gold_value.set_value(int(new_value))
-		GameStateKeys.STAMINA:
-			# スタミナ更新時は max も必要なので state から再取得 (EXEC §5-3)
-			var state: Dictionary = GameManager.get_state()
-			var stamina_data: Dictionary = state.get(GameStateKeys.STAMINA, {})
-			var stamina_max: int = int(stamina_data.get(GameStateKeys.STAMINA_MAX, 0))
-			stamina_value.set_value_with_max(int(new_value), stamina_max)
-		GameStateKeys.GEMS:
-			# 表示していないので無視
-			pass
-		_:
-			push_warning("[BaseScreen] unknown resource_type: " + resource_type)
 
 func _on_material_changed(material_id: String, new_amount: int) -> void:
 	if _material_entries.has(material_id):

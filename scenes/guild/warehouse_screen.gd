@@ -74,6 +74,7 @@ func _ready() -> void:
 
 	# 3. ボタン接続
 	back_button.pressed.connect(_on_back_pressed)
+	_build_resource_bar()
 	open_all_button.pressed.connect(_on_open_all_pressed)
 
 	# 4. GameManager のシグナル購読
@@ -104,6 +105,17 @@ func _ready() -> void:
 	_rebuild_chest_list()
 
 # --- 戻る ---
+
+# ⚠ 右上の資源（2026-09-09・人間の指摘「倉庫でも資源は表示するべき」）。
+#   ⚠ 倉庫は `ScreenHeader` を使わず自前でヘッダーを組んでいるので、⚠ ここで差す。
+#   ⚠ 置き場は「戻る」の左。⚠ `.tscn` は触らない（⚠ 子を足すと消されたことがある）。
+func _build_resource_bar() -> void:
+	var bar: ResourceBar = ResourceBar.new()
+	bar.name = "ResourceBar"
+	var header: Node = back_button.get_parent()
+	header.add_child(bar)
+	header.move_child(bar, back_button.get_index())
+
 
 func _on_back_pressed() -> void:
 	SceneManager.change_scene(GUILD_PATH)

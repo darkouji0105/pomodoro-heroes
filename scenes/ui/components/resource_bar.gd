@@ -50,6 +50,11 @@ func _build() -> void:
 		display.name = "Value"
 		display.resource_id = resource_id
 		chip.add_child(display)
+		# ⚠ チップの中だけアイコンを小さくする（⚠ 大きさは Theme が持つ。⚠ モックは 20px）。
+		#   ⚠⚠ **縦は縮まない**（実測：24px でも 20px でも倉庫は 712）。⚠ 見た目を合わせるためだけ。
+		var side: int = chip.get_theme_constant(&"icon", &"ResourceChip")
+		var icon: TextureRect = display.get_node("Icon")
+		icon.custom_minimum_size = Vector2(side, side)
 		_displays[resource_id] = display
 
 

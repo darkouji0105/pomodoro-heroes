@@ -259,6 +259,12 @@ const PANEL_CORNER_RADIUS: int = 8
 const CHIP_BORDER: String = "4a3d36"
 const CHIP_PAD_H: int = 16
 const CHIP_PAD_V: int = 8
+# ⚠ チップの中のアイコン（⚠ モックの `.hud .ic` は 20px）。
+#   ⚠ `ResourceDisplay` の既定は 24px だが、⚠ チップの中だけモックに合わせて 20px。
+# ⚠⚠ **縦は縮まなかった**（実測：24px でも 20px でも倉庫は 712）。
+#   ⚠ ヘッダーの高さを決めているのはアイコンではない。⚠ 何が決めているかは未特定。
+#   ⚠ ここを動かして縦を詰めようとしないこと（⚠ 1回試して効かなかった）。
+const CHIP_ICON: int = 20
 # ⚠ 画面の地。⚠ 各画面の Background は ColorRect で持っているが、
 #   PanelContainer で地を敷く画面（tests/test_ui_common）はこれを使う。
 const BACKGROUND_BG: String = "16110f"
@@ -393,6 +399,7 @@ static func _build_panels(theme: Theme) -> void:
 	chip.content_margin_bottom = CHIP_PAD_V
 	theme.set_type_variation(&"ResourceChip", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"ResourceChip", chip)
+	theme.set_constant(&"icon", &"ResourceChip", CHIP_ICON)
 
 	var background: StyleBoxFlat = StyleBoxFlat.new()
 	background.bg_color = _html(BACKGROUND_BG)
