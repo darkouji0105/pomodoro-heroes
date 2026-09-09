@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scenes/pomodoro/pomodoro.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cvd80y1v6yvnk" path="res://scenes/ui/components/ui_button.tscn" id="2_ui_button"]
 
 [node name="Pomodoro" type="Control"]
 layout_mode = 3
@@ -18,27 +19,45 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.1, 0.1, 0.15, 1)
+color = Color(0.101961, 0.0784314, 0.0941176, 1)
 
-[node name="CurrentViewContainer" type="Control" parent="."]
+[node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_type_variation = &"ScreenMargin"
 
-[node name="QuitButton" type="Button" parent="."]
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_type_variation = &"PhaseTopGap"
+
+[node name="TopBar" type="Control" parent="Margin/Layout"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+
+[node name="SetLabel" type="Label" parent="Margin/Layout/TopBar"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 32.0
+grow_horizontal = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="QuitButton" parent="Margin/Layout/TopBar" instance=ExtResource("2_ui_button")]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -100.0
-offset_top = 20.0
-offset_right = -20.0
-offset_bottom = 60.0
 grow_horizontal = 0
-text = "ui_common_quit"
-theme_type_variation = &"GhostButton"
+label_key = "ui_pomodoro_quit"
+variant = 2
 
-[connection signal="pressed" from="QuitButton" to="." method="quit_session"]
+[node name="CurrentViewContainer" type="Control" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[connection signal="pressed" from="Margin/Layout/TopBar/QuitButton" to="." method="quit_session"]

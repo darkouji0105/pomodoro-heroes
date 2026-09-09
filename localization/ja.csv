@@ -63,6 +63,7 @@ ui_pomodoro_start_focus,はじめる
 ui_pomodoro_reflection_title,振り返り
 ui_pomodoro_reflection_instruction,今回やったことを20文字以上で書いてください
 ui_pomodoro_reflection_warning,あと{0}秒で自動的にスキップされます
+ui_pomodoro_reflection_warning_chars,あと{0}文字必要です
 ui_pomodoro_reflection_complete,確定する
 ui_pomodoro_break_skip,休憩をスキップ
 ui_res_stamina_potion,スタミナポーション

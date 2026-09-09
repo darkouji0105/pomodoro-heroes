@@ -119,7 +119,9 @@ const EMBEDDED_VIEWS: Array[String] = [
 	"res://scenes/pomodoro/reflection_view.tscn",
 ]
 # 埋め込む枠の高さ（⚠ 見た目の都合だけ。⚠ 中のビューはアンカーで広がる）。
-const EMBEDDED_VIEW_HEIGHT: float = 260.0
+# ⚠ 2026-09-09 に 260 → 480。⚠ 4ビューをコンテナへ組み替えたら背が測れるようになり、
+#   ⚠ 一番高い振り返り（476）が 260 では収まらなくなったため。
+const EMBEDDED_VIEW_HEIGHT: float = 480.0
 
 # 等級の見本に使う個体（⚠ 10色を並べるため）。⚠ items.json に在るIDだけ。
 const SAMPLE_EQUIP_ITEM_ID: String = "weapon_iron_sword"

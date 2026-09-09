@@ -27,7 +27,10 @@ var reflections: Array[Dictionary] = [] # { text: String, skipped: bool }
 # queue_free() は遅延実行のため、切り替え直後は古いビューが index 0 に残る。
 var _current_view: Node = null
 
-@onready var view_container: Control = $CurrentViewContainer
+@onready var view_container: Control = $Margin/Layout/CurrentViewContainer
+# ⚠ 「1 / 4 Sets」は**器が持つ**（2026-09-09）。⚠ 前は集中中のビューだけが持っていて、
+#   ⚠ 休憩・振り返りでは消えていた。⚠ フェーズが変わるたびに目線が動く原因だった。
+@onready var set_label: Label = $Margin/Layout/TopBar/SetLabel
 
 
 func _ready() -> void:
@@ -97,6 +100,7 @@ func _stop_phase_timer() -> void:
 func _switch_view(new_state: State) -> void:
 	current_state = new_state
 	_stop_phase_timer()
+	_update_set_label()
 
 	for child in view_container.get_children():
 		child.queue_free()
@@ -125,9 +129,9 @@ func _switch_view(new_state: State) -> void:
 			var prev_title: String = ""
 			if current_set_index > 0:
 				prev_title = set_titles[current_set_index - 1]
-			view.setup(current_preset, current_set_index + 1, current_total_sets)
+			view.setup(current_preset)
 			if prev_title != "":
-				view.get_node("TitleEdit").text = prev_title
+				view.set_title_text(prev_title)
 			view.start_requested.connect(_on_focus_started)
 			# ここではタイマーを走らせない。開始ボタンを押すまで待つ
 			time_left_sec = float(current_preset.focus_duration_sec)
@@ -143,6 +147,18 @@ func _switch_view(new_state: State) -> void:
 			view.setup(duration, is_long)
 			view.skip_requested.connect(_on_break_skipped)
 			_start_phase_timer(float(duration))
+
+
+# ⚠ 上部バーのセット表示（2026-09-09）。⚠ 加護を選ぶ段はまだ始まっていないので出さない。
+# ⚠⚠ `ui_pomodoro_set_progress` は**翻訳表に在るのに誰も使っていなかった**キー。
+#   ⚠ 集中中のビューが `"%d / %d Sets"` と英語で直書きしていた（＝翻訳表を通っていなかった）。
+func _update_set_label() -> void:
+	if set_label == null:
+		return
+	if current_state == State.PROTECTION_SELECT:
+		set_label.text = ""
+		return
+	set_label.text = tr("ui_pomodoro_set_progress").format([current_set_index + 1, current_total_sets])
 
 
 # --- 各フェーズのハンドラ ---

@@ -3956,6 +3956,17 @@ const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/guild/warehouse_screen.tscn",
 	# ⚠ 同上。ショップは13枠を HBoxContainer の行で積む。1行に器が4つ並ぶ。
 	"res://scenes/guild/shop_screen.tscn",
+	# ⚠⚠ ポモドーロの器と4ビュー（2026-09-09）。⚠ **今まで1枚も測っていなかった**。
+	#   ⚠ 4ビューが絶対座標（anchor ＋ offset の直書き）で組まれていて、
+	#   ⚠ コンテナが1つも無かったため `get_combined_minimum_size()` が 0 を返していた。
+	#   ⚠ コンテナへ組み替えたので、⚠ ここから縦の詰まりが測れる。
+	# ⚠ 器（pomodoro.tscn）は「上部バー ＋ そのとき出ているビュー」を測る。
+	#   ⚠ どのビューが出るかは加護を選んだかで変わるので、⚠ ビュー単体も並べて測る。
+	"res://scenes/pomodoro/pomodoro.tscn",
+	"res://scenes/pomodoro/protection_select_view.tscn",
+	"res://scenes/pomodoro/focus_view.tscn",
+	"res://scenes/pomodoro/break_view.tscn",
+	"res://scenes/pomodoro/reflection_view.tscn",
 ]
 
 

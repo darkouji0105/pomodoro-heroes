@@ -1,6 +1,7 @@
-[gd_scene format=3 uid="uid://ca4m1p5l1bdsu"]
+[gd_scene load_steps=3 format=3 uid="uid://ca4m1p5l1bdsu"]
 
 [ext_resource type="Script" uid="uid://cigwr18gaoibh" path="res://scenes/pomodoro/focus_view.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cvd80y1v6yvnk" path="res://scenes/ui/components/ui_button.tscn" id="2_ui_button"]
 
 [node name="FocusView" type="Control" unique_id=1784432784]
 layout_mode = 3
@@ -11,82 +12,46 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="SetLabel" type="Label" parent="." unique_id=740254315]
+[node name="Layout" type="VBoxContainer" parent="."]
 layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -100.0
-offset_top = 50.0
-offset_right = 100.0
-offset_bottom = 80.0
-grow_horizontal = 2
-text = "1 / 4 Sets"
-horizontal_alignment = 1
-
-[node name="TimerLabel" type="Label" parent="." unique_id=1906763926]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -100.0
-offset_right = 150.0
-offset_bottom = -20.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_type_variation = &"PhaseStack"
+
+[node name="HeadingSlot" type="Label" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"HeadingLabel"
+
+[node name="TimerLabel" type="Label" parent="Layout" unique_id=1906763926]
+layout_mode = 2
+size_flags_horizontal = 4
 theme_type_variation = &"TimerLabel"
 text = "25:00"
-horizontal_alignment = 1
 
-[node name="InstructionLabel" type="Label" parent="." unique_id=1740958441]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = 10.0
-offset_right = 150.0
-offset_bottom = 40.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="InputBlock" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="InstructionLabel" type="Label" parent="Layout/InputBlock" unique_id=1740958441]
+layout_mode = 2
+size_flags_horizontal = 4
 text = "作業内容を入力してください"
 horizontal_alignment = 1
 
-[node name="TitleEdit" type="LineEdit" parent="." unique_id=295446606]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = 50.0
-offset_right = 150.0
-offset_bottom = 90.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="TitleEdit" type="LineEdit" parent="Layout/InputBlock" unique_id=295446606]
+custom_minimum_size = Vector2(600, 0)
+layout_mode = 2
 placeholder_text = "Work..."
 alignment = 1
 
-[node name="StartButton" type="Button" parent="." unique_id=1725699267]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -60.0
-offset_top = 110.0
-offset_right = 60.0
-offset_bottom = 150.0
-grow_horizontal = 2
-grow_vertical = 2
-text = "開始"
-theme_type_variation = &"PrimaryButton"
+[node name="StartButton" parent="Layout" instance=ExtResource("2_ui_button")]
+layout_mode = 2
+size_flags_horizontal = 4
+label_key = "ui_pomodoro_start_focus"
+variant = 1
 
-[connection signal="pressed" from="StartButton" to="." method="_on_start_pressed"]
+[connection signal="pressed" from="Layout/StartButton" to="." method="_on_start_pressed"]

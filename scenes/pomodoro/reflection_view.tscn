@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3 uid="uid://b0pmreflectview1"]
 
 [ext_resource type="Script" path="res://scenes/pomodoro/reflection_view.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cvd80y1v6yvnk" path="res://scenes/ui/components/ui_button.tscn" id="2_ui_button"]
 
 [node name="ReflectionView" type="Control"]
 layout_mode = 3
@@ -11,96 +12,53 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="TitleLabel" type="Label" parent="."]
+[node name="Layout" type="VBoxContainer" parent="."]
 layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -200.0
-offset_top = 50.0
-offset_right = 200.0
-offset_bottom = 100.0
-grow_horizontal = 2
-theme_type_variation = &"HeadingLabel"
-text = "振り返り"
-horizontal_alignment = 1
-
-[node name="TimerLabel" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
+anchors_preset = 15
 anchor_right = 1.0
-offset_left = -150.0
-offset_top = 20.0
-offset_right = -50.0
-offset_bottom = 60.0
-grow_horizontal = 0
-text = "02:00"
-horizontal_alignment = 2
-
-[node name="InstructionLabel" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -250.0
-offset_top = -120.0
-offset_right = 250.0
-offset_bottom = -90.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_type_variation = &"PhaseStack"
+
+[node name="TitleLabel" type="Label" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"HeadingLabel"
+text = "振り返り"
+
+[node name="TimerLabel" type="Label" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"TimerLabel"
+text = "02:00"
+
+[node name="InputBlock" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="InstructionLabel" type="Label" parent="Layout/InputBlock"]
+layout_mode = 2
+size_flags_horizontal = 4
 text = "作業の成果や気づきを20文字以上で記入してください"
 horizontal_alignment = 1
 
-[node name="ReflectionEdit" type="TextEdit" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -250.0
-offset_top = -80.0
-offset_right = 250.0
-offset_bottom = 80.0
-grow_horizontal = 2
-grow_vertical = 2
-placeholder_text = "やったこと、気づいたこと..."
+[node name="ReflectionEdit" type="TextEdit" parent="Layout/InputBlock"]
+custom_minimum_size = Vector2(600, 160)
+layout_mode = 2
 wrap_mode = 1
 
-[node name="WarningLabel" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -200.0
-offset_top = 90.0
-offset_right = 200.0
-offset_bottom = 120.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="WarningLabel" type="Label" parent="Layout/InputBlock"]
+layout_mode = 2
+size_flags_horizontal = 4
 theme_type_variation = &"ErrorLabel"
 text = "あと 20 文字必要です"
 horizontal_alignment = 1
 
-[node name="CompleteButton" type="Button" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -100.0
-offset_top = 130.0
-offset_right = 100.0
-offset_bottom = 170.0
-grow_horizontal = 2
-grow_vertical = 2
-text = "振り返りを完了する"
-theme_type_variation = &"PrimaryButton"
+[node name="CompleteButton" parent="Layout" instance=ExtResource("2_ui_button")]
+layout_mode = 2
+size_flags_horizontal = 4
+label_key = "ui_pomodoro_reflection_complete"
+variant = 1
 
-[connection signal="pressed" from="CompleteButton" to="." method="_on_complete_pressed"]
+[connection signal="pressed" from="Layout/CompleteButton" to="." method="_on_complete_pressed"]

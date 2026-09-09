@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3 uid="uid://b0pmbreakview01"]
 
 [ext_resource type="Script" path="res://scenes/pomodoro/break_view.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cvd80y1v6yvnk" path="res://scenes/ui/components/ui_button.tscn" id="2_ui_button"]
 
 [node name="BreakView" type="Control"]
 layout_mode = 3
@@ -11,50 +12,30 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="TypeLabel" type="Label" parent="."]
+[node name="Layout" type="VBoxContainer" parent="."]
 layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -200.0
-offset_top = 100.0
-offset_right = 200.0
-offset_bottom = 150.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"PhaseStack"
+
+[node name="TypeLabel" type="Label" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 4
 theme_type_variation = &"HeadingLabel"
 text = "休憩中"
-horizontal_alignment = 1
 
-[node name="TimerLabel" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -50.0
-offset_right = 150.0
-offset_bottom = 50.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="TimerLabel" type="Label" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 4
 theme_type_variation = &"TimerLabel"
 text = "05:00"
-horizontal_alignment = 1
 
-[node name="SkipButton" type="Button" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -60.0
-offset_top = 80.0
-offset_right = 60.0
-offset_bottom = 120.0
-grow_horizontal = 2
-grow_vertical = 2
-text = "休憩をスキップ"
+[node name="SkipButton" parent="Layout" instance=ExtResource("2_ui_button")]
+layout_mode = 2
+size_flags_horizontal = 4
+label_key = "ui_pomodoro_break_skip"
 
-[connection signal="pressed" from="SkipButton" to="." method="_on_skip_pressed"]
+[connection signal="pressed" from="Layout/SkipButton" to="." method="_on_skip_pressed"]

@@ -127,6 +127,13 @@ const SEPARATION_VARIATIONS: Dictionary = {
 	"SectionGap": {"value": 16, "base": "VBoxContainer"},
 	# 選択肢のカード列（ダンジョンの層・加護を選ぶ）
 	"SectionStack": {"value": 20, "base": "VBoxContainer"},
+	# ⚠ フェーズの中身の柱（ポモドーロの4ビュー・2026-09-09）。
+	#   ⚠ 「見出し／タイマー／入力／ボタン」のまとまりどうしの間。
+	#   ⚠ まとまりの中（説明文と入力欄）は既定の 8。
+	"PhaseStack": {"value": 24, "base": "VBoxContainer"},
+	# ⚠ 上部バーと中身の間（ポモドーロの器・2026-09-09）。
+	#   ⚠ 画面の外周 32 の2倍。⚠ タイマーを画面の上寄りに置きすぎないための間。
+	"PhaseTopGap": {"value": 64, "base": "VBoxContainer"},
 	# ボタンの横並び（拠点のナビ）
 	# ⚠ 人間の表に無かった1件。⚠ 横の既定 16 では拠点のナビが 8 から広がるため足した。
 	"ButtonRow": {"value": 8, "base": "HBoxContainer"},
