@@ -65,7 +65,12 @@ func load_game() -> bool:
 		push_warning("[SaveManager] load_game: version mismatch (have=%d, expected=%d) - refusing to load" % [loaded_version, CURRENT_SAVE_VERSION])
 		return false
 
-	return GameManager.load_state(data as Dictionary)
+	# ⚠ 読み込みの間は増えた演出を止める（2026-09-09）。⚠ ロードは全部の資源を
+	#   ⚠ 一度に書き換えるので、⚠ そのまま流すと画面いっぱいに飛ぶ。
+	ResourceGainEffect.set_muted(true)
+	var ok: bool = GameManager.load_state(data as Dictionary)
+	ResourceGainEffect.set_muted(false)
+	return ok
 
 # セーブファイルが存在するか
 func has_save() -> bool:

@@ -3982,17 +3982,30 @@ func _report_gain() -> void:
 	if display._display_override < 0 or display._display_override >= display.value:
 		push_error("[DebugBoot] 数字が回っていない（見せかけの数が入っていない）")
 
-	# ⚠ 報酬をまとめて流す。⚠ 落ちないこと・飛ぶものが出ることを見る。
-	ResourceGainEffect.play_rewards({
-		GameStateKeys.GOLD: 120,
-		GameStateKeys.GEMS: 3,
-		GameStateKeys.MATERIALS: {"construction_material_1": 4},
-	}, Vector2(400, 400))
+	# ⚠⚠ **本物の増加を通す**（2026-09-09・人間の指示「リソースの移動に紐づけてほしい」）。
+	#   ⚠ 演出を直接呼ばない。⚠ `GameManager` を動かして、⚠ それだけで出るかを見る。
+	#   ⚠ 同じフレームに3種増やす（⚠ 宝箱と同じ形）。⚠ まとめて1回になるのが正解。
+	GameManager.add_gold(120)
+	GameManager.add_gems(3)
+	GameManager.add_material("construction_material_1", 4)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("  演出の面に載っているもの = %d 個（⚠ 0 なら1つも出ていない）" % effect.field.get_child_count())
+	await get_tree().process_frame
+	print("  ⚠ 資源を増やしただけで出たか：演出の面に載っているもの = %d 個（⚠ 0 なら紐づいていない）"
+		% effect.field.get_child_count())
 	if effect.field.get_child_count() <= 0:
-		push_error("[DebugBoot] 演出が1つも出ていない")
+		push_error("[DebugBoot] 資源が増えても演出が出ない（resource_changed に紐づいていない）")
+
+	# ⚠ 減ったときは流さない（⚠ 増えたときだけ）。
+	var before_count: int = effect.field.get_child_count()
+	GameManager.add_gold(-50)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("  ⚠ 減らしたとき：%d 個 -> %d 個（⚠ 増えていないのが正解）" % [
+		before_count, effect.field.get_child_count(),
+	])
+	if effect.field.get_child_count() > before_count:
+		push_error("[DebugBoot] 減ったのに演出が出た")
 
 	base.queue_free()
 	await get_tree().process_frame

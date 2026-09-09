@@ -36,9 +36,26 @@ const PULL_RATIO: float = 0.25
 
 static var _instance: ResourceGainEffect = null
 
+# ⚠ 黙らせる（⚠ セーブを読み込む間）。⚠ ロードは全部の資源を一度に書き換えるので、
+#   ⚠ そのまま流すと画面いっぱいに飛ぶ。
+static var _muted: bool = false
+
+# ⚠ 待ちの上限（⚠ フレーム数）。⚠ 窓が閉じないまま残っても、⚠ いつかは諦める。
+const MODAL_WAIT_LIMIT: int = 1800
+
+
+static func set_muted(value: bool) -> void:
+	_muted = value
+
 # ⚠ 飛ぶものを載せる面。⚠ CanvasLayer は Control ではないので Theme を引けない。
 #   ⚠ 値を引くのも、⚠ 子を載せるのもこの Control。
 var field: Control = null
+
+# resource_id -> 前に見た値。⚠ 「増えた分」を出すために持つ。
+var _last: Dictionary = {}
+# resource_id -> このフレームで増えた分。⚠ まとめて1回の演出にする。
+var _pending: Dictionary = {}
+var _flush_queued: bool = false
 
 
 static func spawn_into(root: Node) -> ResourceGainEffect:
@@ -74,35 +91,6 @@ static func play(
 	_instance._play(resource_id, amount, from_global, to_target)
 
 
-# ⚠ 報酬の Dictionary をまとめて流す（⚠ 宝箱・ポモドーロ・戦闘で形が同じ）。
-#   ⚠ `gold` / `gems` / `stamina` / `materials` を見る。
-#   ⚠ `inventory` は個数ではなく品物なので、⚠ ここでは扱わない。
-#
-# ⚠⚠ 何種類も同時に増えるのが**ふつう**（⚠ 宝箱は金＋ジェム＋素材3種が一度に入る）。
-#   ⚠ モックの決定に合わせて **種類ごとに時間をずらし**、⚠ 種類が多いときは
-#   ⚠ 1種あたりの個数を絞り、⚠ **浮かぶ数字は先頭の1種類だけ**にする。
-#   ⚠ そうしないと画面が数字だらけになる。
-static func play_rewards(rewards: Dictionary, from_global: Vector2 = Vector2.INF) -> void:
-	if not is_ready():
-		return
-
-	var entries: Array[Array] = []
-	for key: String in [GameStateKeys.GOLD, GameStateKeys.GEMS, GameStateKeys.STAMINA]:
-		var amount: int = int(rewards.get(key, 0))
-		if amount > 0:
-			entries.append([key, amount])
-	var materials: Variant = rewards.get(GameStateKeys.MATERIALS, {})
-	if materials is Dictionary:
-		for material_id: Variant in (materials as Dictionary).keys():
-			var material_amount: int = int((materials as Dictionary)[material_id])
-			if material_amount > 0:
-				entries.append([str(material_id), material_amount])
-
-	if entries.is_empty():
-		return
-	_instance._play_series(entries, from_global)
-
-
 func _ready() -> void:
 	layer = LAYER_INDEX
 	field = Control.new()
@@ -110,6 +98,76 @@ func _ready() -> void:
 	field.set_anchors_preset(Control.PRESET_FULL_RECT)
 	field.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(field)
+
+	# ⚠⚠ リソースの移動そのものに紐づける（2026-09-09・人間の指示
+	#   「⚠ リソースの移動に紐づけてほしい」）。⚠ 画面ごとに呼び出しを書かなくなる。
+	# ⚠ 増えたときだけ流す（⚠ 減ったときは流さない）。⚠ 差は前の値との比較で出す。
+	_snapshot_values()
+	GameManager.resource_changed.connect(_on_resource_changed)
+	GameManager.material_changed.connect(_on_material_changed)
+
+
+# ⚠ いまの値を控える。⚠ ここを基準に「増えた分」を出す。
+func _snapshot_values() -> void:
+	var state: Dictionary = GameManager.get_state()
+	for key: String in [GameStateKeys.GOLD, GameStateKeys.GEMS]:
+		_last[key] = int(state.get(key, 0))
+	var stamina: Dictionary = state.get(GameStateKeys.STAMINA, {})
+	_last[GameStateKeys.STAMINA] = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0))
+	var materials: Variant = state.get(GameStateKeys.MATERIALS, {})
+	if materials is Dictionary:
+		for material_id: Variant in (materials as Dictionary).keys():
+			_last[str(material_id)] = int((materials as Dictionary)[material_id])
+
+
+func _on_resource_changed(resource_type: String, new_value: Variant) -> void:
+	_note_change(resource_type, int(new_value))
+
+
+func _on_material_changed(material_id: String, new_amount: int) -> void:
+	_note_change(material_id, new_amount)
+
+
+# ⚠ 増えた分をためる。⚠ 同じ瞬間に何種類も増えるのがふつうなので
+#   （⚠ 宝箱は金＋ジェム＋素材が一度に入る）、⚠ 1フレームぶんまとめて1回の演出にする。
+#   ⚠ 1件ずつ流すと、⚠ 種類ごとの間引きも「浮かぶ数字は先頭だけ」も効かない。
+func _note_change(resource_id: String, new_value: int) -> void:
+	var before: int = int(_last.get(resource_id, new_value))
+	_last[resource_id] = new_value
+	if _muted or new_value <= before:
+		return
+	_pending[resource_id] = int(_pending.get(resource_id, 0)) + (new_value - before)
+	if _flush_queued:
+		return
+	_flush_queued = true
+	_flush.call_deferred()
+
+
+func _flush() -> void:
+	# ⚠⚠ 窓（`ModalDialog`）は `layer = 200`、⚠ この演出は 50。⚠ 窓が開いている間に流すと
+	#   ⚠ **裏で丸ごと再生されて誰にも見えない**（⚠ 2026-09-09・人間の指摘
+	#   「⚠ 演出はまだ見れないよね。⚠ 倉庫でも演出ない」の原因）。⚠ 閉じるまで待つ。
+	var waited: int = 0
+	while _modal_is_open() and waited < MODAL_WAIT_LIMIT:
+		await get_tree().process_frame
+		waited += 1
+
+	_flush_queued = false
+	if _pending.is_empty() or field == null:
+		_pending.clear()
+		return
+
+	var entries: Array[Array] = []
+	for resource_id: Variant in _pending.keys():
+		entries.append([str(resource_id), int(_pending[resource_id])])
+	_pending.clear()
+
+	# ⚠ 出どころはマウスの位置（⚠ 押した所から出る）。
+	_play_series(entries, field.get_global_mouse_position())
+
+
+func _modal_is_open() -> bool:
+	return not get_tree().root.find_children("*", "ModalDialog", true, false).is_empty()
 
 
 # ⚠ 何種類かをまとめて。⚠ 種類ごとにずらし、⚠ 浮かぶ数字は先頭だけ。
