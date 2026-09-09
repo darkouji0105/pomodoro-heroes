@@ -37,6 +37,18 @@ static func spawn_into(root: Node) -> ResourceHud:
 	return made
 
 
+# ⚠ 出すか隠すか（2026-09-09・人間の指示「ポモドーロは直して」）。
+#   ⚠ ポモドーロの集中中は通貨を出さない（⚠ 集中を邪魔しない画面にする決まり）。
+# ⚠⚠ 隠したままにしないこと。⚠ `SceneManager` が画面を変えるたびに true へ戻し、
+#   ⚠ 隠したい画面が自分の `_ready()` で false にする。⚠ こうすると
+#   ⚠ ポモドーロから抜けたとき（⚠ 中断でも完走でも）に必ず戻る。
+static func set_shown(value: bool) -> void:
+	var hud: ResourceHud = get_instance()
+	if hud == null:
+		return
+	hud._field.visible = value
+
+
 static func get_instance() -> ResourceHud:
 	if _instance != null and is_instance_valid(_instance) and _instance.bar != null:
 		return _instance

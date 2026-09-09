@@ -39,6 +39,11 @@ var phase_total_sec: float = 0.0
 
 
 func _ready() -> void:
+	# ⚠ 右上の通貨を隠す（2026-09-09・人間の指示「ポモドーロは直して」）。
+	#   ⚠ 集中を邪魔しない画面にする決まり。⚠ 戻すのは `SceneManager` の役目
+	#   （⚠ 画面を変えるたびに既定へ戻る）。⚠ ここで戻そうとしないこと。
+	ResourceHud.set_shown(false)
+
 	GameManager.reset_daily_pomodoro_state_if_needed()
 
 	# プリセット初期化
