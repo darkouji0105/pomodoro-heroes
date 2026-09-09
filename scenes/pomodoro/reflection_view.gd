@@ -11,7 +11,7 @@ signal reflection_completed(text: String)
 #   ⚠⚠ 本来は `Balance.pomodoro` に置くべき数値だが、⚠ 今回の範囲外なので宿題に回す。
 const MIN_REFLECTION_LENGTH: int = 20
 
-@onready var timer_label: Label = $Layout/TimerLabel
+@onready var timer_ring: TimerRing = $Layout/TimerRing
 @onready var instruction_label: Label = $Layout/InputBlock/InstructionLabel
 @onready var reflection_edit: TextEdit = $Layout/InputBlock/ReflectionEdit
 @onready var warning_label: Label = $Layout/InputBlock/WarningLabel
@@ -44,7 +44,5 @@ func _on_complete_pressed() -> void:
 	reflection_completed.emit(reflection_edit.text)
 
 
-func update_timer(seconds: int) -> void:
-	var m: int = seconds / 60
-	var s: int = seconds % 60
-	timer_label.text = "%02d:%02d" % [m, s]
+func update_timer(seconds: int, total_sec: float) -> void:
+	timer_ring.set_time(seconds, total_sec)

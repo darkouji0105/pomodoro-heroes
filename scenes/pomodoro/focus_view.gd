@@ -9,14 +9,14 @@ extends Control
 
 signal start_requested(title: String)
 
-@onready var timer_label: Label = $Layout/TimerLabel
+@onready var timer_ring: TimerRing = $Layout/TimerRing
 @onready var instruction_label: Label = $Layout/InputBlock/InstructionLabel
 @onready var title_edit: LineEdit = $Layout/InputBlock/TitleEdit
 @onready var start_button: UiButton = $Layout/StartButton
 
 
 func setup(preset: PomodoroPreset) -> void:
-	update_timer(preset.focus_duration_sec)
+	update_timer(preset.focus_duration_sec, float(preset.focus_duration_sec))
 	title_edit.max_length = Balance.pomodoro.session_title_max_length
 
 	instruction_label.text = tr("ui_pomodoro_input_title")
@@ -42,7 +42,5 @@ func _on_start_pressed() -> void:
 	start_requested.emit(title)
 
 
-func update_timer(seconds: int) -> void:
-	var m: int = seconds / 60
-	var s: int = seconds % 60
-	timer_label.text = "%02d:%02d" % [m, s]
+func update_timer(seconds: int, total_sec: float) -> void:
+	timer_ring.set_time(seconds, total_sec)

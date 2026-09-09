@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://b0pmreflectview1"]
+[gd_scene load_steps=4 format=3 uid="uid://b0pmreflectview1"]
 
 [ext_resource type="Script" path="res://scenes/pomodoro/reflection_view.gd" id="1_script"]
 [ext_resource type="PackedScene" uid="uid://cvd80y1v6yvnk" path="res://scenes/ui/components/ui_button.tscn" id="2_ui_button"]
+[ext_resource type="PackedScene" uid="uid://hc3u104vpo3" path="res://scenes/pomodoro/timer_ring.tscn" id="3_timer_ring"]
 
 [node name="ReflectionView" type="Control"]
 layout_mode = 3
@@ -27,11 +28,9 @@ size_flags_horizontal = 4
 theme_type_variation = &"HeadingLabel"
 text = "振り返り"
 
-[node name="TimerLabel" type="Label" parent="Layout"]
+[node name="TimerRing" parent="Layout" instance=ExtResource("3_timer_ring")]
 layout_mode = 2
 size_flags_horizontal = 4
-theme_type_variation = &"TimerLabel"
-text = "02:00"
 
 [node name="InputBlock" type="VBoxContainer" parent="Layout"]
 layout_mode = 2
@@ -44,7 +43,7 @@ text = "作業の成果や気づきを20文字以上で記入してください"
 horizontal_alignment = 1
 
 [node name="ReflectionEdit" type="TextEdit" parent="Layout/InputBlock"]
-custom_minimum_size = Vector2(600, 160)
+custom_minimum_size = Vector2(600, 80)
 layout_mode = 2
 wrap_mode = 1
 

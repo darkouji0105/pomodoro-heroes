@@ -28,9 +28,14 @@ var reflections: Array[Dictionary] = [] # { text: String, skipped: bool }
 var _current_view: Node = null
 
 @onready var view_container: Control = $Margin/Layout/CurrentViewContainer
-# ⚠ 「1 / 4 Sets」は**器が持つ**（2026-09-09）。⚠ 前は集中中のビューだけが持っていて、
+# ⚠ セットの進みは**器が持つ**（2026-09-09）。⚠ 前は集中中のビューだけが持っていて、
 #   ⚠ 休憩・振り返りでは消えていた。⚠ フェーズが変わるたびに目線が動く原因だった。
-@onready var set_label: Label = $Margin/Layout/TopBar/SetLabel
+# ⚠⚠ 人間のモック「D案＋輪」で **「1 / 4 Sets」の文字 → 点**になった。
+@onready var set_dots: SetDots = $Margin/Layout/TopBar/Center/SetDots
+
+# ⚠ いまのフェーズの長さ。⚠ 輪と点が「どこまで満ちたか」を出すのに要る。
+#   ⚠ 書き換えてよいのは _start_phase_timer() と FOCUS の分岐だけ（タイマーと同じ決まり）。
+var phase_total_sec: float = 0.0
 
 
 func _ready() -> void:
@@ -82,11 +87,13 @@ func _update_view_timer() -> void:
 	if _current_view == null or not is_instance_valid(_current_view):
 		return
 	if _current_view.has_method("update_timer"):
-		_current_view.update_timer(int(ceil(time_left_sec)))
+		_current_view.update_timer(int(ceil(time_left_sec)), phase_total_sec)
+	_update_set_dots()
 
 
 func _start_phase_timer(seconds: float) -> void:
 	time_left_sec = seconds
+	phase_total_sec = seconds
 	is_timer_active = true
 	_update_view_timer()
 
@@ -100,7 +107,9 @@ func _stop_phase_timer() -> void:
 func _switch_view(new_state: State) -> void:
 	current_state = new_state
 	_stop_phase_timer()
-	_update_set_label()
+	# ⚠ 点の数はセット数で決まる。⚠ 毎フレーム作り直さない（_update_set_dots() は光り方だけ）。
+	set_dots.setup(current_total_sets)
+	_update_set_dots()
 
 	for child in view_container.get_children():
 		child.queue_free()
@@ -135,6 +144,7 @@ func _switch_view(new_state: State) -> void:
 			view.start_requested.connect(_on_focus_started)
 			# ここではタイマーを走らせない。開始ボタンを押すまで待つ
 			time_left_sec = float(current_preset.focus_duration_sec)
+			phase_total_sec = time_left_sec
 			_update_view_timer()
 
 		State.REFLECTION:
@@ -149,16 +159,19 @@ func _switch_view(new_state: State) -> void:
 			_start_phase_timer(float(duration))
 
 
-# ⚠ 上部バーのセット表示（2026-09-09）。⚠ 加護を選ぶ段はまだ始まっていないので出さない。
-# ⚠⚠ `ui_pomodoro_set_progress` は**翻訳表に在るのに誰も使っていなかった**キー。
-#   ⚠ 集中中のビューが `"%d / %d Sets"` と英語で直書きしていた（＝翻訳表を通っていなかった）。
-func _update_set_label() -> void:
-	if set_label == null:
+# ⚠ 上部バーのセットの点（2026-09-09・人間のモック「D案＋輪」）。
+#   ⚠ 加護を選ぶ段はまだ始まっていないので**1つも光らせない**（-1 を渡す）。
+# ⚠ 満ちる量は輪と同じ値（＝いまのフェーズの進み）。⚠ 理由は set_dots.gd に書いてある。
+func _update_set_dots() -> void:
+	if set_dots == null:
 		return
 	if current_state == State.PROTECTION_SELECT:
-		set_label.text = ""
+		set_dots.set_state(-1, 0.0)
 		return
-	set_label.text = tr("ui_pomodoro_set_progress").format([current_set_index + 1, current_total_sets])
+	var ratio: float = 0.0
+	if phase_total_sec > 0.0:
+		ratio = clampf(1.0 - (time_left_sec / phase_total_sec), 0.0, 1.0)
+	set_dots.set_state(current_set_index, ratio)
 
 
 # --- 各フェーズのハンドラ ---

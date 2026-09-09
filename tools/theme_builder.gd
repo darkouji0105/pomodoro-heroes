@@ -154,6 +154,23 @@ const ERROR_FONT_COLOR: String = "e88a8a"
 #   ⚠ 赤 #e88a8a と同じくらいの明度にしてある（⚠ 並べたときに片方だけ浮かないように）。
 const GAIN_FONT_COLOR: String = "8ed99b"
 
+# --- ポモドーロのタイマーの輪とセットの点（2026-09-09・人間のモック）---
+#
+# ⚠ 自前で `_draw()` する部品の値も**ここが持つ**。⚠ スクリプトに const で置かない。
+#   ⚠ Theme に専用の型（`TimerRing` / `SetDots`）を作り、⚠ 部品は
+#   ⚠ `get_theme_color()` / `get_theme_constant()` で引く。
+#   ⚠ こうすれば「見た目の値を持つのは theme_builder と main_theme.tres だけ」が崩れない。
+# ⚠⚠ **新しい色は1つも足していない**。⚠ 4つとも既に在る値の使い回し。
+const RING_GROOVE: String = "241d1a"    # ⚠ ボタンの地と同じ。⚠ 開始前から見えている溝
+const RING_FILL: String = "a8791f"      # ⚠ 真鍮。⚠ PrimaryButton の地と同じ
+const RING_DIAMETER: int = 240
+const RING_STROKE: int = 2
+const DOT_DONE: String = "a89b94"       # ⚠ GhostButton の文字と同じ
+const DOT_TODO: String = "3a302b"       # ⚠ PANEL_BORDER と同じ
+const DOT_SIZE: int = 8
+const DOT_CURRENT_WIDTH: int = 40
+const DOT_GAP: int = 8
+
 # --- 面（PanelContainer）---
 
 const PANEL_BG: String = "241d1a"
@@ -176,6 +193,7 @@ static func build() -> void:
 	_build_separations(theme)
 	_build_labels(theme)
 	_build_panels(theme)
+	_build_pomodoro(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -282,6 +300,23 @@ static func _build_panels(theme: Theme) -> void:
 	background.bg_color = _html(BACKGROUND_BG)
 	theme.set_type_variation(&"BackgroundPanel", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"BackgroundPanel", background)
+
+
+# ⚠ 自前で描く2つ（タイマーの輪 ／ セットの点）の値。
+#   ⚠ 型は variation ではなく**独立した型**にする（⚠ 継承元の Control が持つ
+#   ⚠ 色や定数と名前がぶつからないようにするため）。
+static func _build_pomodoro(theme: Theme) -> void:
+	theme.set_color(&"groove", &"TimerRing", _html(RING_GROOVE))
+	theme.set_color(&"fill", &"TimerRing", _html(RING_FILL))
+	theme.set_constant(&"diameter", &"TimerRing", RING_DIAMETER)
+	theme.set_constant(&"stroke", &"TimerRing", RING_STROKE)
+
+	theme.set_color(&"done", &"SetDots", _html(DOT_DONE))
+	theme.set_color(&"todo", &"SetDots", _html(DOT_TODO))
+	theme.set_color(&"current", &"SetDots", _html(RING_FILL))
+	theme.set_constant(&"size", &"SetDots", DOT_SIZE)
+	theme.set_constant(&"current_width", &"SetDots", DOT_CURRENT_WIDTH)
+	theme.set_constant(&"gap", &"SetDots", DOT_GAP)
 
 
 static func _html(hex: String) -> Color:
