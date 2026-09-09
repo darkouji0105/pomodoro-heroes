@@ -16,6 +16,12 @@ const DEBUG_OVERLAY_SCRIPT: GDScript = preload("res://tests/debug_overlay.gd")
 
 
 func _ready() -> void:
+	# ⚠⚠ 演出の面は**リリースでも要る**ので、⚠ デバッグの早期 return より前に作る
+	#   （2026-09-09。⚠ 下の `if` の後ろに書くと、⚠ 製品版で演出が黙って出なくなる）。
+	# ⚠ 理由は DebugOverlay と同じ：⚠ root に付けるので画面が入れ替わっても残る。
+	#   ⚠ Autoload を増やさずに「全画面から呼べる1つ」を用意するための置き場。
+	_spawn_resource_gain_effect.call_deferred()
+
 	if not OS.is_debug_build():
 		return
 	# root の子として足す。current_scene ではなく root に付けるので、
@@ -24,6 +30,12 @@ func _ready() -> void:
 	# call_deferred なのは、Autoload の _ready() の時点では
 	# root の構築（メインシーンの追加）がまだ終わっていないため。
 	_spawn_debug_overlay.call_deferred()
+
+
+# ⚠ リソースが増えたときの演出の面（2026-09-09）。⚠ 検証用ではない。消さないこと。
+func _spawn_resource_gain_effect() -> void:
+	ResourceGainEffect.spawn_into(get_tree().root)
+	print("[SceneManager] ResourceGainEffect を生成した")
 
 
 func _spawn_debug_overlay() -> void:

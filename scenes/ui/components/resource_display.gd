@@ -34,6 +34,9 @@ extends HBoxContainer
 
 
 func _ready() -> void:
+	# ⚠ 増えたときの演出の着地先。⚠ `ResourceGainEffect` が同じ `resource_id` の
+	#   ⚠ 表示欄をここから探す（⚠ 画面ごとに着地先を配線しないため）。
+	add_to_group(ResourceGainEffect.GROUP_DISPLAY)
 	_refresh()
 
 

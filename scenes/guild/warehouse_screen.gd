@@ -540,6 +540,9 @@ func _on_open_chest_pressed(instance_id: String) -> void:
 
 	# 3. 窓で見せる（2026-09-08・段階⑤-③・モック4枚目）。
 	#    ⚠ ResultLabel にも積む（⚠ 画面の絵は取れないので、⚠ 検証はこちらで読む）。
+	# ⚠ 増えた演出（2026-09-09）。⚠ 出どころは押した宝箱の行。
+	#   ⚠ 倉庫に `ResourceDisplay` は無いので、⚠ いまは浮かぶ数字だけが出る（仕様どおり）。
+	ResourceGainEffect.play_rewards(rewards, get_global_mouse_position())
 	_show_reward_window(rewards, chest_title)
 	_append_opened_rewards(rewards, tr("ui_warehouse_opened"))
 

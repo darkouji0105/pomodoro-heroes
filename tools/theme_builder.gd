@@ -182,6 +182,26 @@ const INPUT_BORDER: String = "4a3d36"
 const INPUT_PAD_H: int = 16
 const INPUT_PAD_V: int = 13
 
+# --- リソースが増えたときの演出（2026-09-09）---
+#
+# ⚠⚠ **いまの値は仮**。⚠ 人間のモックが決まったらここを差し替える。
+#   ⚠ デモ（`tests/resource_gain_demo.gd`）の既定に近い値を置いてある。
+# ⚠ 秒は Theme の定数が int しか持てないのでミリ秒で持つ。
+# ⚠ `route` は `ResourceGainEffect.Route` の添字（0 直線 / 1 上へ山なり / 2 横へ迂回 /
+#   3 S字 / 4 引いてから飛ぶ）。
+const GAIN_ROUTE: int = 2
+const GAIN_COUNT: int = 3
+const GAIN_FLY_MS: int = 550
+const GAIN_ARC: int = 45
+const GAIN_STAGGER_MS: int = 60
+const GAIN_SPREAD: int = 40
+const GAIN_RISE: int = 44
+const GAIN_FLOAT_MS: int = 700
+const GAIN_ICON: int = 24
+# ⚠ 飛ぶアイコンの色。⚠ 線画は白1色なので、⚠ ここで着せる（`modulate`）。
+#   ⚠ 増える緑（`GainLabel`）と揃えてある。⚠ 浮かぶ数字も同じ色になる。
+const GAIN_FLYER_COLOR: String = "8ed99b"
+
 # --- ポモドーロのタイマーの輪とセットの点（2026-09-09・人間のモック）---
 #
 # ⚠ 自前で `_draw()` する部品の値も**ここが持つ**。⚠ スクリプトに const で置かない。
@@ -370,6 +390,17 @@ static func _build_pomodoro(theme: Theme) -> void:
 	theme.set_color(&"fill", &"TimerRing", _html(RING_FILL))
 	theme.set_constant(&"diameter", &"TimerRing", RING_DIAMETER)
 	theme.set_constant(&"stroke", &"TimerRing", RING_STROKE)
+
+	theme.set_constant(&"route", &"ResourceGainEffect", GAIN_ROUTE)
+	theme.set_constant(&"count", &"ResourceGainEffect", GAIN_COUNT)
+	theme.set_constant(&"fly_ms", &"ResourceGainEffect", GAIN_FLY_MS)
+	theme.set_constant(&"arc", &"ResourceGainEffect", GAIN_ARC)
+	theme.set_constant(&"stagger_ms", &"ResourceGainEffect", GAIN_STAGGER_MS)
+	theme.set_constant(&"spread", &"ResourceGainEffect", GAIN_SPREAD)
+	theme.set_constant(&"rise", &"ResourceGainEffect", GAIN_RISE)
+	theme.set_constant(&"float_ms", &"ResourceGainEffect", GAIN_FLOAT_MS)
+	theme.set_constant(&"icon", &"ResourceGainEffect", GAIN_ICON)
+	theme.set_color(&"flyer", &"ResourceGainEffect", _html(GAIN_FLYER_COLOR))
 
 	theme.set_color(&"done", &"SetDots", _html(DOT_DONE))
 	theme.set_color(&"todo", &"SetDots", _html(DOT_TODO))
