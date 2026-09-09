@@ -287,6 +287,23 @@ const CHIP_CORNER_RADIUS: int = 64
 #   ⚠ 左の余白も 2 -> 6 に戻して、⚠ 丸の周りに余白を作る。
 const CURRENCY_CHIP_PAD_L: int = 6
 const CURRENCY_CHIP_ICON: int = 14
+
+# ⚠⚠ チップの絵の色（2026-09-09・人間の指示「⚠ 折り返しても分かりやすいよう色もつけといて」）。
+#   ⚠ 線画は白1色なので、⚠ ここで着せる（`modulate`）。⚠ 19個が同じ白だと見分けが付かない。
+# ⚠⚠ **新しい色は1つも足していない**。⚠ 7つとも既にプロジェクトに在る値の使い回し。
+#   ⚠ 素材の4系統は `icon_config.tres` の装飾の枠の4色と同じ値にしてある
+#   （⚠ あちらが「4系統を色で分ける」ために選んだ色なので、⚠ 揃えたほうが覚えやすい）。
+# ⚠ 名前は `ResourceBar` が引くキー。⚠ 通貨はIDそのもの、⚠ 素材は
+#   `IconTextures.MATERIAL_SERIES` の値（⚠ 系統の綴りをここに書き起こさない）。
+const CHIP_COLORS: Dictionary = {
+	"gold": "a8791f",                   # ⚠ 真鍮（PrimaryButton の地と同値）
+	"gems": "70b8c7",                   # ⚠ 宝石（part_slot_gem_color と同値）
+	"stamina": "8ed99b",                # ⚠ 増える緑（GainLabel と同値）
+	"material_construction": "c7ad66",  # ⚠ 木・石（part_slot_rune_color と同値）
+	"material_training": "7ab885",      # ⚠ 修練（part_slot_charm_color と同値）
+	"material_forging": "a89b94",       # ⚠ 鉄の灰（GhostButton の文字と同値）
+	"material_decor": "a88ccc",         # ⚠ 装飾（part_slot_emblem_color と同値）
+}
 # ⚠ チップの中の数字。⚠ 既定16より1段小さい。⚠ **新しい段は作らない**
 #   （⚠ ボタンと同じ14を使い回す。⚠ 文字の大きさの段はまだ未決なので増やさない）。
 const CHIP_FONT_SIZE: int = BUTTON_FONT_SIZE
@@ -434,6 +451,10 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_type_variation(&"CurrencyChip", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"CurrencyChip", currency)
 	theme.set_constant(&"icon", &"CurrencyChip", CURRENCY_CHIP_ICON)
+
+	# ⚠ 絵の色。⚠ `ResourceChip` に登録して、⚠ 通貨のチップからも同じ名前で引く。
+	for key: String in CHIP_COLORS.keys():
+		theme.set_color(StringName(key), &"ResourceChip", _html(str(CHIP_COLORS[key])))
 	# ⚠ チップの中の数字。⚠ `ResourceDisplay` の中の Label に当てる。
 	theme.set_type_variation(&"ChipValueLabel", &"Label")
 	theme.set_font_size(&"font_size", &"ChipValueLabel", CHIP_FONT_SIZE)

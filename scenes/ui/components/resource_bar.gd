@@ -107,11 +107,29 @@ func _make_chip(resource_id: String) -> PanelContainer:
 	#   ⚠ 24 -> 20 -> 16 -> 12 と下げても1pxも変わらなかったのはこのため。
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.custom_minimum_size = Vector2(side, side)
+	# ⚠ 絵に色を着せる（2026-09-09・人間の指示「⚠ 折り返しても分かりやすいよう色もつけといて」）。
+	#   ⚠ 線画は白1色なので、⚠ 19個が同じ白だと折り返した先で見分けが付かない。
+	icon.modulate = _color_of(resource_id, chip)
 	var value_label: Label = display.get_node("ValueLabel")
 	value_label.theme_type_variation = &"ChipValueLabel"
 
 	_displays[resource_id] = display
 	return chip
+
+
+# ⚠ その資源の色。⚠ 通貨はIDそのもの、⚠ 素材は系統（建築・修練・鍛冶・装飾）で引く。
+#   ⚠ 系統の綴りをここに書き起こさない。⚠ `IconTextures.MATERIAL_SERIES` の1本で引く
+#   （⚠ 絵の振り分けと色の振り分けが互いにずれないように）。
+#   ⚠ 表に無いIDは白のまま（⚠ 色を決めていない資源が増えても落ちない）。
+func _color_of(resource_id: String, chip: PanelContainer) -> Color:
+	var key: String = resource_id
+	for prefix: Variant in IconTextures.MATERIAL_SERIES.keys():
+		if resource_id.begins_with(str(prefix)):
+			key = str(IconTextures.MATERIAL_SERIES[prefix])
+			break
+	if not chip.has_theme_color(StringName(key), &"ResourceChip"):
+		return Color.WHITE
+	return chip.get_theme_color(StringName(key), &"ResourceChip")
 
 
 func _refresh_all() -> void:
