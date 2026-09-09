@@ -73,10 +73,15 @@ func _ready() -> void:
 
 
 # ⚠ チップ1つ。⚠ 面（枠）＋ `ResourceDisplay`（絵＋数字）。
+#   ⚠⚠ 通貨だけ別の面（`CurrencyChip`）を使う（2026-09-09・人間の決定
+#   「⚠ 参考画像のはみ出す形は通貨3つだけ」）。⚠ 左の余白がほぼ0で、⚠ 丸が大きい。
+#   ⚠ 素材16件は小さいまま（⚠ 19個が同じ大きさで並ぶと右上が埋まる）。
 func _make_chip(resource_id: String) -> PanelContainer:
+	var is_currency: bool = resource_id in CURRENCY_IDS
+	var variation: StringName = &"CurrencyChip" if is_currency else &"ResourceChip"
 	var chip: PanelContainer = PanelContainer.new()
 	chip.name = "Chip_" + resource_id
-	chip.theme_type_variation = &"ResourceChip"
+	chip.theme_type_variation = variation
 	# ⚠ 面が押せてしまうと、⚠ 後ろのボタンが押せなくなる。
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_slot.add_child(chip)
@@ -88,7 +93,7 @@ func _make_chip(resource_id: String) -> PanelContainer:
 	chip.add_child(display)
 
 	# ⚠ チップの中だけ小さくする（⚠ 大きさも文字も Theme が持つ）。
-	var side: int = chip.get_theme_constant(&"icon", &"ResourceChip")
+	var side: int = chip.get_theme_constant(&"icon", variation)
 	var icon: TextureRect = display.get_node("Icon")
 	icon.custom_minimum_size = Vector2(side, side)
 	var value_label: Label = display.get_node("ValueLabel")

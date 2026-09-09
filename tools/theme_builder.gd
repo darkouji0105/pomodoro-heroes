@@ -272,6 +272,15 @@ const CHIP_ICON: int = 12
 #   ⚠ 角丸はボタンの 8 ではなく、⚠ 高さの半分より大きい値を入れて両端を半円にする
 #   （⚠ Godot は高さの半分で頭打ちにするので、⚠ 大きめを入れておけば高さが変わっても丸いまま）。
 const CHIP_CORNER_RADIUS: int = 64
+
+# ⚠⚠ 通貨（金・ジェム・スタミナ）だけ別扱い（2026-09-09・人間の決定
+#   「⚠ 参考画像のはみ出す形は**通貨3つだけ**」）。⚠ 素材16件は上の小さいままにする。
+#   ⚠ 参考画像は通貨2つだけを大きく見せていた。⚠ 重要度の差を見た目に出す。
+# ⚠⚠ **枠の外へはみ出す重なりは作っていない**。⚠ Godot の器は子を枠の中に収めるため、
+#   ⚠ はみ出させるには器の外で座標を持つことになり、⚠ 折り返しと相性が悪い。
+#   ⚠ 代わりに「⚠ カプセルの左端いっぱいに丸を置く」形にした。
+const CURRENCY_CHIP_PAD_L: int = 2
+const CURRENCY_CHIP_ICON: int = 20
 # ⚠ チップの中の数字。⚠ 既定16より1段小さい。⚠ **新しい段は作らない**
 #   （⚠ ボタンと同じ14を使い回す。⚠ 文字の大きさの段はまだ未決なので増やさない）。
 const CHIP_FONT_SIZE: int = BUTTON_FONT_SIZE
@@ -412,6 +421,13 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_type_variation(&"ResourceChip", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"ResourceChip", chip)
 	theme.set_constant(&"icon", &"ResourceChip", CHIP_ICON)
+
+	# ⚠ 通貨のチップ。⚠ 左の余白をほぼ0にして、⚠ 大きめの丸を左端に置く。
+	var currency: StyleBoxFlat = chip.duplicate()
+	currency.content_margin_left = CURRENCY_CHIP_PAD_L
+	theme.set_type_variation(&"CurrencyChip", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"CurrencyChip", currency)
+	theme.set_constant(&"icon", &"CurrencyChip", CURRENCY_CHIP_ICON)
 	# ⚠ チップの中の数字。⚠ `ResourceDisplay` の中の Label に当てる。
 	theme.set_type_variation(&"ChipValueLabel", &"Label")
 	theme.set_font_size(&"font_size", &"ChipValueLabel", CHIP_FONT_SIZE)
