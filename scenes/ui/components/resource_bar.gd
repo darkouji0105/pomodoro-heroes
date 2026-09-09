@@ -95,6 +95,12 @@ func _make_chip(resource_id: String) -> PanelContainer:
 	# ⚠ チップの中だけ小さくする（⚠ 大きさも文字も Theme が持つ）。
 	var side: int = chip.get_theme_constant(&"icon", variation)
 	var icon: TextureRect = display.get_node("Icon")
+	# ⚠⚠ **これが無いと大きさの指定が丸ごと効かない**（2026-09-09 に判明）。
+	#   ⚠ 線画の SVG は 48 x 48 で読み込まれる。⚠ 既定の `EXPAND_KEEP_SIZE` だと
+	#   ⚠ 最小サイズが**テクスチャの 48px** になり、⚠ `custom_minimum_size` は
+	#   ⚠ 「それ以上」の意味しか持たないので **48px のまま**になる。
+	#   ⚠ 24 -> 20 -> 16 -> 12 と下げても1pxも変わらなかったのはこのため。
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.custom_minimum_size = Vector2(side, side)
 	var value_label: Label = display.get_node("ValueLabel")
 	value_label.theme_type_variation = &"ChipValueLabel"
