@@ -393,11 +393,15 @@ func _on_discard_pressed(item_id: String) -> void:
 	var held: int = int(_selected.get(GameManager.SLOT_ENTRY_COUNT, 1))
 	var options: Dictionary = {}
 	var picker: SpinBox = null
+	# ⚠ 文言は個数の器の有無で変える。⚠ 器を出しているのに「1個捨てます」と書くと、
+	#   ⚠ 器で選んだ数と文面が食い違う（⚠ 2026-09-10 に人間が実機で見つけた）。
+	var message_key: String = "ui_warehouse_discard_confirm"
 	if held > 1:
 		picker = _make_discard_picker(held)
 		options[Modal.OPTION_CONTENT] = picker
+		message_key = "ui_warehouse_discard_confirm_count"
 	var confirmed: bool = await Modal.confirm(
-		self, "ui_warehouse_discard_confirm", [tr("ui_res_" + item_id)], false, options
+		self, message_key, [tr("ui_res_" + item_id)], false, options
 	)
 	if not confirmed:
 		return

@@ -841,6 +841,7 @@ ui_warehouse_expand,枠を買う
 ui_warehouse_expand_max,枠は上限
 ui_warehouse_discard,捨てる
 ui_warehouse_discard_confirm,%s を1個捨てます。戻せません。よろしいですか？
+ui_warehouse_discard_confirm_count,%s を捨てます。個数を選んでください。戻せません。
 ui_dungeon_shop,ボスの間の商人
 ui_dungeon_shop_buy,買う
 ui_dungeon_shop_bought,買った
