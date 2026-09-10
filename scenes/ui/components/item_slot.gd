@@ -18,6 +18,9 @@ extends Button
 const EQUIPPED_MARK: String = "E"
 # 空のマスの薄さ。⚠ 押せるが何も無いことが分かる程度に落とす。
 const EMPTY_MODULATE: Color = Color(1.0, 1.0, 1.0, 0.35)
+# ⚠ 個数が 0 のマスの薄さ（⚠ 素材タブだけ）。⚠ 「まだ1個も無い」ことを空きマスと
+#   同じ薄さで言う（⚠ 別の薄さを作らない）。
+const ZERO_COUNT_MODULATE: Color = EMPTY_MODULATE
 
 const SCENE_PATH: String = "res://scenes/ui/components/item_slot.tscn"
 
@@ -50,6 +53,13 @@ var _icon: ItemIcon = null
 #     ⚠ 器（`ItemGrid`）ごと落とす。⚠ 枠を出さない画面（装備・UIテストの一部）は
 #     ⚠ ツールチップだけが頼りなので、⚠ 既定は false（＝出す）のままにする。
 var _tooltip_suppressed: bool = false
+# ⚠⚠ 左下に個数を出すか（2026-09-10・人間の決定）。⚠ 既定は false。
+#   ⚠ 上の注記のとおり、⚠ **持ち物のマスでは個数を出さない**（⚠ 重ねない＝人間の決定3。
+#     ⚠ 同じ品が2個あれば2マス並ぶので、⚠ そこに数を出すと嘘になる）。
+#   ⚠ **素材タブだけ true にする**。⚠ 素材はマスを使わずまとめて持つものなので、
+#     ⚠ 1マス＝1種類で、⚠ 数を出しても嘘にならない。⚠ 素材は着けられないので
+#     ⚠ 装備中の印ともぶつからない。
+var _count_shown: bool = false
 # このマスが何番目か（段階18-f）。⚠ ItemGrid が入れる。
 #   ⚠ 空のマスは中身が全部同じなので、⚠ 番号でしか区別できない。
 var _index: int = 0
@@ -99,6 +109,16 @@ func set_tooltip_suppressed(value: bool) -> void:
 	if _tooltip_suppressed == value:
 		return
 	_tooltip_suppressed = value
+	if is_inside_tree():
+		_refresh()
+
+
+# 左下に個数を出す／出さない。⚠ 呼ぶのは `ItemGrid.set_count_shown()` の1本。
+#   ⚠ 持ち物のマスで true にしないこと（⚠ 上の `_count_shown` の注記）。
+func set_count_shown(value: bool) -> void:
+	if _count_shown == value:
+		return
+	_count_shown = value
 	if is_inside_tree():
 		_refresh()
 
@@ -171,7 +191,14 @@ func _refresh() -> void:
 
 	# 装備中の印。⚠ 誰に着いているかはツールチップ側へ（マスは狭い）。
 	var equipped_by: String = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
-	count_label.text = EQUIPPED_MARK if equipped_by != "" else ""
+	if _count_shown:
+		# ⚠ 素材タブだけ。⚠ 0 個も並べるので、⚠ 0 のマスは空きマスと同じ薄さに落とす。
+		var count: int = int(_entry.get(GameManager.SLOT_ENTRY_COUNT, 0))
+		count_label.text = str(count)
+		if count <= 0:
+			modulate = ZERO_COUNT_MODULATE
+	else:
+		count_label.text = EQUIPPED_MARK if equipped_by != "" else ""
 
 	# ⚠⚠ ホバーの枠が出る画面では、⚠ ここで名前を出さない（⚠ 二重に出る）。
 	#   ⚠ 「誰に着いているか」は枠側（`ItemDetail` の要約）が出す。

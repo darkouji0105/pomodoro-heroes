@@ -9,22 +9,33 @@ extends Control
 
 # --- タブ識別子（§8-3 で他ファイルから参照される前提で public） ---
 const TAB_INVENTORY: String = "inventory"
+# ⚠ 素材タブ（2026-09-10・人間の指示「⚠ 素材を見れるようにしたい」）。
+#   ⚠ 持ち物の隣に置く（⚠ 素材も「持っているもの」なので、⚠ 図鑑・宝箱より近い）。
+const TAB_MATERIAL: String = "material"
 const TAB_CODEX: String = "codex"
 const TAB_CHEST: String = "chest"
 
-# タブインデックス（InventoryTab=0, CodexTab=1, ChestTab=2）
+# タブインデックス（InventoryTab=0, MaterialTab=1, CodexTab=2, ChestTab=3）
+# ⚠ .tscn の metadata/_tab_index と揃えること（⚠ 2026-09-10 に素材を割り込ませた）。
 const TAB_INDEX: Dictionary = {
 	TAB_INVENTORY: 0,
-	TAB_CODEX: 1,
-	TAB_CHEST: 2,
+	TAB_MATERIAL: 1,
+	TAB_CODEX: 2,
+	TAB_CHEST: 3,
 }
 
 # タブタイトル用翻訳キー（_ready で set_tab_title に使う）
 const TAB_TITLE_KEYS: Array[String] = [
 	"ui_warehouse_tab_inventory",
+	"ui_warehouse_tab_material",
 	"ui_warehouse_tab_codex",
 	"ui_warehouse_tab_chest",
 ]
+
+# 素材タブのマス目の列数（⚠ 見た目の都合だけ。⚠ バランス数値ではない）。
+# ⚠ items.json の sort_order は系統ごとにまとまっているので、⚠ 4列にすると
+#   **1行＝1系統（段1〜4）** になる（⚠ 建築 ／ 修練 ／ 鍛冶 ／ 装飾 の4行）。
+const MATERIAL_GRID_COLUMNS: int = 4
 
 const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
 
@@ -50,6 +61,10 @@ const REWARD_GRID_COLUMNS: int = 6
 #   ⚠ `ItemDetail` を持ち、⚠ そちらは要約（⚠ 段階④）。⚠ 2つは中身を共有しない。
 @onready var item_detail: ItemDetail = $Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout/ItemDetail
 @onready var action_row: HBoxContainer = $Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout/ActionRow
+# 素材タブ（2026-09-10）。⚠ 持ち物タブと同じ組み合わせ（⚠ マス目 ＋ 右に常設の詳細）。
+#   ⚠ 素材は倉庫のマスを使わないので、⚠ ページ送りも容量も無い（⚠ 16件が1画面に収まる）。
+@onready var material_grid: ItemGrid = $Layout/Tabs/MaterialTab/MaterialArea/MaterialGrid
+@onready var material_detail: ItemDetail = $Layout/Tabs/MaterialTab/MaterialDetailPanel/MaterialDetailMargin/MaterialDetail
 @onready var codex_list: VBoxContainer = $Layout/Tabs/CodexTab/CodexList
 @onready var open_all_button: UiButton = $Layout/Tabs/ChestTab/ChestFooter/OpenAllButton
 @onready var chest_list: VBoxContainer = $Layout/Tabs/ChestTab/ChestScroll/ChestList
@@ -86,6 +101,8 @@ func _ready() -> void:
 	GameManager.pending_chests_changed.connect(_on_pending_chests_changed)
 	# 装備は inventory ではなく equipment_instances に入るため、こちらも購読する。
 	GameManager.equipment_instances_changed.connect(_on_equipment_instances_changed)
+	# ⚠ 素材タブ（2026-09-10）。⚠ 素材は専用のシグナルで飛ぶ（AGENTS.md のシグナル表）。
+	GameManager.material_changed.connect(_on_material_changed)
 
 	# 5. マス目の配線（段階18-c）。⚠ ページ送りは GameManager に聞く（5 を直接書かない）。
 	inventory_grid.columns = GameManager.get_inventory_columns()
@@ -95,6 +112,12 @@ func _ready() -> void:
 	prev_page_button.pressed.connect(_on_prev_page_pressed)
 	next_page_button.pressed.connect(_on_next_page_pressed)
 
+	# 5-b. 素材のマス目（2026-09-10）。⚠ **個数を出すのはここだけ**（`item_slot.gd` の注記）。
+	#    ⚠ 動かせない（⚠ `slot_moved` を繋がない）。⚠ 素材は並び順を持たない。
+	material_grid.columns = MATERIAL_GRID_COLUMNS
+	material_grid.set_count_shown(true)
+	material_grid.slot_pressed.connect(_on_material_slot_pressed)
+
 	# 6. ホバーの枠に、⚠ **もう1つの** `ItemDetail` を持たせる（2026-09-08・段階⑤）。
 	#    ⚠ `.tscn` の `ItemDetail` は常設パネルのもの。⚠ 引き取らせない
 	#    （⚠ 引き取ると常設パネルが空になり、⚠ ホバーを外すまで何も出なくなる）。
@@ -102,9 +125,11 @@ func _ready() -> void:
 	_detail_popup = ItemDetailPopup.adopt(self, ItemDetail.new())
 	if _detail_popup != null:
 		_detail_popup.watch(inventory_grid)
+		_detail_popup.watch(material_grid)
 
 	# 7. 初期描画
 	_rebuild_inventory()
+	_rebuild_materials()
 	_rebuild_codex()
 	_rebuild_chest_list()
 
@@ -145,6 +170,11 @@ var _selected: Dictionary = {}
 # いま選んでいるマスの番号（⚠ ページを足した「通し番号」）。⚠ -1 なら選んでいない。
 #   ⚠ 捨てる口はマスの番号で呼ぶ（⚠ 中身では空のマスと同じ品を区別できない）。
 var _selected_index: int = -1
+# 素材タブで選んでいるマスの中身（2026-09-10）。⚠ 空なら何も選んでいない。
+#   ⚠ 持ち物の `_selected` と分ける。⚠ 1つにすると、⚠ タブを行き来したときに
+#     ⚠ 持ち物の操作ボタンが素材に対して出る。
+#   ⚠ 番号は持たない（⚠ 素材は動かせないし捨てられない＝番号で呼ぶ口が無い）。
+var _selected_material: Dictionary = {}
 
 
 func _rebuild_inventory() -> void:
@@ -203,6 +233,43 @@ func _on_next_page_pressed() -> void:
 
 # マスを押した。⚠ ここでは選ぶだけ。⚠ 何ができるかは _rebuild_actions() が出す。
 #   ⚠ 押した瞬間に壊す/上げるを走らせないこと（マス目は押し間違えやすい）。
+# 素材のマス目（2026-09-10・人間の指示「素材を見れるようにしたい」）。
+#
+# ⚠ 何が素材かは `GameManager.get_material_slot_entries()` が答える（⚠ 綴りで見分けない）。
+# ⚠⚠ **持っていない素材も並ぶ**（⚠ 0個は薄いマス）。⚠ 段階ごとに要る素材が変わるので、
+#   ⚠ 「まだ1個も無い」ことが見えるほうが要る。
+# ⚠ 容量もページ送りも無い（⚠ 素材は倉庫のマスを使わない＝人間の決定5）。
+#   ⚠ 枠の数を `entries.size()` にしているのはそのため（⚠ 空きマスを足さない）。
+# ⚠ 再描画に await を持たせない（AGENTS.md）。⚠ `ItemGrid.rebuild()` がその形。
+func _rebuild_materials() -> void:
+	var entries: Array = GameManager.get_material_slot_entries()
+	material_grid.rebuild(entries, entries.size())
+	# ⚠ 右の常設パネルは、⚠ まだ何も選んでいなければ案内の1行を出す
+	#   （⚠ `show_entry({})` がその文言を持つ）。⚠ ここで文言を書かない。
+	if _selected_material.is_empty():
+		material_detail.show_entry({})
+		return
+	# ⚠ 選んだままの素材の個数が変わっていることがある（⚠ 鍛えた・作った）。
+	#   ⚠ 引き直さないと、⚠ 右のパネルだけ古い数を出し続ける。
+	for entry: Variant in entries:
+		if str((entry as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")) == str(
+			_selected_material.get(GameManager.SLOT_ENTRY_ITEM_ID, "")
+		):
+			_selected_material = entry as Dictionary
+			break
+	material_detail.show_entry(_selected_material)
+
+
+func _on_material_slot_pressed(entry: Dictionary, _index: int) -> void:
+	_selected_material = entry
+	material_detail.show_entry(entry)
+
+
+# 素材が増えた／減った。⚠ 素材は専用のシグナルで飛ぶ（AGENTS.md のシグナル表）。
+func _on_material_changed(_material_id: String, _new_amount: int) -> void:
+	_rebuild_materials()
+
+
 func _on_slot_pressed(entry: Dictionary, index: int) -> void:
 	_selected = entry
 	# ⚠ ページのぶんを足して「通し番号」にする（⚠ 捨てる口はこれで呼ぶ）。

@@ -113,10 +113,41 @@ size_flags_vertical = 3
 [node name="ActionRow" type="HBoxContainer" parent="Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout"]
 layout_mode = 2
 
-[node name="CodexTab" type="ScrollContainer" parent="Layout/Tabs" unique_id=611441194]
+[node name="MaterialTab" type="HBoxContainer" parent="Layout/Tabs"]
 visible = false
 layout_mode = 2
 metadata/_tab_index = 1
+
+[node name="MaterialArea" type="VBoxContainer" parent="Layout/Tabs/MaterialTab"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MaterialGrid" type="GridContainer" parent="Layout/Tabs/MaterialTab/MaterialArea"]
+layout_mode = 2
+size_flags_horizontal = 0
+columns = 4
+script = ExtResource("3_item_grid")
+
+[node name="MaterialSpacer" type="Control" parent="Layout/Tabs/MaterialTab/MaterialArea"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MaterialDetailPanel" type="PanelContainer" parent="Layout/Tabs/MaterialTab"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MaterialDetailMargin" type="MarginContainer" parent="Layout/Tabs/MaterialTab/MaterialDetailPanel"]
+layout_mode = 2
+
+[node name="MaterialDetail" type="VBoxContainer" parent="Layout/Tabs/MaterialTab/MaterialDetailPanel/MaterialDetailMargin"]
+layout_mode = 2
+script = ExtResource("4_item_detail")
+
+[node name="CodexTab" type="ScrollContainer" parent="Layout/Tabs" unique_id=611441194]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 2
 
 [node name="CodexList" type="VBoxContainer" parent="Layout/Tabs/CodexTab" unique_id=293125764]
 layout_mode = 2
@@ -126,7 +157,7 @@ size_flags_vertical = 3
 [node name="ChestTab" type="VBoxContainer" parent="Layout/Tabs" unique_id=1584410220]
 visible = false
 layout_mode = 2
-metadata/_tab_index = 2
+metadata/_tab_index = 3
 
 [node name="ChestScroll" type="ScrollContainer" parent="Layout/Tabs/ChestTab" unique_id=1667416384]
 layout_mode = 2

@@ -148,6 +148,8 @@ const CHEST_DRAW_COUNT: String = "count"
 # IDの綴りから推測して分岐させないこと（ショップの payout_type と同じ理由）。
 const ITEM_MASTER_STORAGE: String = "storage"
 const ITEM_MASTER_ITEM_TYPE: String = "item_type"
+# 並び順。⚠ 画面はこれで並べる（⚠ IDの綴りで並べない）。
+const ITEM_MASTER_SORT_ORDER: String = "sort_order"
 const ITEM_STORAGE_MATERIAL: String = "material"
 const ITEM_STORAGE_INVENTORY: String = "inventory"
 
@@ -622,6 +624,46 @@ func add_material(material_id: String, amount: int) -> void:
 func get_material_count(material_id: String) -> int:
 	var materials: Dictionary = _state.get(GameStateKeys.MATERIALS, {})
 	return int(materials.get(material_id, 0))
+
+
+# 素材のIDを全部。⚠ items.json の storage が material のものだけ（⚠ 綴りで見分けない）。
+#   ⚠ sort_order の昇順。⚠ 「素材とは何か」を答える口はここ1本。
+#
+# ⚠⚠ **持っていないものも返す**（⚠ 0個の素材も並ぶ）。⚠ 状態（MATERIALS）ではなく
+#   マスターを引くのはこのため。⚠ 右上のチップ（`ResourceBar`）は状態側を見ていて
+#   ⚠ 0個を出さないが、⚠ あちらは「いま増えたもの」を見せる器で役割が違う。
+func get_material_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for entry: Variant in MasterDataLoader.get_all_items():
+		var item_id: String = str(entry)
+		if _item_storage(item_id) != ITEM_STORAGE_MATERIAL:
+			continue
+		ids.append(item_id)
+	ids.sort_custom(func(a: String, b: String) -> bool:
+		return int(MasterDataLoader.get_item(a).get(ITEM_MASTER_SORT_ORDER, 0)) < int(
+			MasterDataLoader.get_item(b).get(ITEM_MASTER_SORT_ORDER, 0)
+		))
+	return ids
+
+
+# 素材をマス目に並べるための一覧（⚠ 倉庫の素材タブ・2026-09-10）。
+#
+# ⚠ 形は get_inventory_slot_entries() と同じ（⚠ `ItemGrid` / `ItemDetail` がそのまま食える）。
+# ⚠ 素材は個体を持たないので instance_id は空・等級は 0。
+# ⚠⚠ 0個のものも入れる（⚠ 上の get_material_ids() の注記）。⚠ 段階ごとに要る素材が
+#   変わるので、⚠ 「まだ1個も無い」ことが見えるほうが要る（⚠ 鍛冶の段が典型）。
+func get_material_slot_entries() -> Array:
+	var entries: Array = []
+	for material_id: String in get_material_ids():
+		entries.append({
+			SLOT_ENTRY_KIND: SLOT_KIND_ITEM,
+			SLOT_ENTRY_ITEM_ID: material_id,
+			SLOT_ENTRY_INSTANCE_ID: "",
+			SLOT_ENTRY_GRADE: 0,
+			SLOT_ENTRY_COUNT: get_material_count(material_id),
+			SLOT_ENTRY_EQUIPPED_BY: "",
+		})
+	return entries
 
 # item_type を省略した場合は "" （種別不明）として登録する。
 # 勝手に "equipment" 等を推測すると、消費アイテムまで装備扱いになるため。

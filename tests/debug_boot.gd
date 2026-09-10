@@ -2180,6 +2180,41 @@ func _report_materials() -> void:
 		])
 	print("  合計 %d 件" % material_ids.size())
 
+	# --- 倉庫の素材タブ（2026-09-10・人間の指示「素材を見れるようにしたい」）---
+	#
+	# ⚠ 画面の絵は取れないが、⚠ 「何件並ぶか」「0個も並ぶか」「個数が入るか」は取れる。
+	# ⚠ item_type で数えた上の一覧と、⚠ storage で数える画面側の一覧が
+	#   食い違っていないことも一緒に見る（⚠ items.json の2つの欄がズレていたら赤）。
+	print("[DebugBoot] --- 倉庫の素材タブ（GameManager.get_material_slot_entries）---")
+	var slot_entries: Array = GameManager.get_material_slot_entries()
+	print("  マスの数 = %d（⚠ 上の合計 %d と同じが正解）" % [slot_entries.size(), material_ids.size()])
+	if slot_entries.size() != material_ids.size():
+		push_error("[DebugBoot] items.json の item_type と storage の素材の数が食い違っている")
+	var zero_count: int = 0
+	for entry: Variant in slot_entries:
+		var row: Dictionary = entry
+		if int(row.get(GameManager.SLOT_ENTRY_COUNT, -1)) < 0:
+			push_error("[DebugBoot] 素材のマスに個数が入っていない: %s" % str(
+				row.get(GameManager.SLOT_ENTRY_ITEM_ID, "")
+			))
+		if int(row.get(GameManager.SLOT_ENTRY_COUNT, 0)) == 0:
+			zero_count += 1
+	print("  0個のマス = %d（⚠ 0個でも並ぶのが正解＝1件でも並べば効いている）" % zero_count)
+	print("  並び（先頭4件）= %s" % str(GameManager.get_material_ids().slice(0, 4)))
+	# ⚠ 増やしたら、⚠ そのマスの個数だけが変わること（⚠ 並びは変わらない）。
+	var probe_id: String = str(GameManager.get_material_ids()[0])
+	var probe_before: int = GameManager.get_material_count(probe_id)
+	GameManager.add_material(probe_id, 7)
+	var probe_entries: Array = GameManager.get_material_slot_entries()
+	print("  %s を7個増やした -> マスの個数 %d（⚠ %d が正解）/ マスの数 %d（⚠ 変わらないこと）" % [
+		probe_id,
+		int((probe_entries[0] as Dictionary).get(GameManager.SLOT_ENTRY_COUNT, 0)),
+		probe_before + 7,
+		probe_entries.size(),
+	])
+	if int((probe_entries[0] as Dictionary).get(GameManager.SLOT_ENTRY_COUNT, 0)) != probe_before + 7:
+		push_error("[DebugBoot] 素材のマスの個数が増えていない")
+
 	var max_grade: int = GameManager.get_max_equipment_grade()
 	print("[DebugBoot] --- 鍛冶（上限=等級%d）---" % max_grade)
 	for grade: int in range(2, max_grade + 1):
