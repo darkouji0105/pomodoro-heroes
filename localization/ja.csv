@@ -952,3 +952,36 @@ ui_skill_select_unlocked_count,%d 件中 %d 件が解放ずみ
 ui_skill_select_cooldown,CD %.1f秒
 ui_skill_select_charge,チャージ %.1f秒
 ui_skill_select_passive_note,レベルで解放され、解放されたものは全部効きます。選ぶ操作はありません。
+ui_desc_skill_power_slash,一番近い1体に攻撃力 200% の一撃。自分の攻撃力が 8 秒間 +6
+ui_desc_skill_wide_sweep,敵全体に攻撃力 90%。ためているあいだ自分の物理防御 +20
+ui_desc_skill_reckless_strike,一番近い1体に攻撃力 340%。代わりに自分のHPの 12% を失う
+ui_desc_skill_last_stand,一番近い1体に一撃。失ったHPが多いほど威力が上がる
+ui_desc_skill_shield_bash,一番近い1体に一撃。攻撃力より物理防御のほうが強く効く
+ui_desc_skill_helm_splitter,HPが一番多い1体に、防御を無視する攻撃力 220% の一撃
+ui_desc_passive_sw_whetstone,攻撃力が 10% 上がる
+ui_desc_passive_sw_last_wall,HPが半分以下のあいだ、物理防御 +25
+ui_desc_passive_sw_thorn_mail,攻撃を受けたとき、物理防御の 40% を相手に返す
+ui_desc_passive_sw_bloodlust,敵が 2 体以下のあいだ、攻撃速度 +15
+ui_desc_passive_sw_vanguard,物理防御 +20、魔法防御 +20
+ui_desc_skill_snipe,一番近い1体に矢で攻撃力 260% の一撃
+ui_desc_skill_arrow_rain,敵全体に矢で攻撃力 120%
+ui_desc_skill_finisher,HPが一番少ない1体に矢で攻撃力 300%
+ui_desc_skill_long_shot,一番近い1体に矢。相手が遠いほど威力が上がる
+ui_desc_skill_rapid_volley,近い2体に矢を2連射。攻撃速度が高いほど威力が上がる
+ui_desc_skill_piercing_arrow,一番遠い1体に、防御を無視する矢で攻撃力 240%
+ui_desc_passive_ar_steady_aim,会心率 +10
+ui_desc_passive_ar_opening_shot,戦闘開始から 15 秒間、攻撃力が 20% 上がる
+ui_desc_passive_ar_follow_through,ダメージを与えたとき、攻撃力の 35% で追撃する
+ui_desc_passive_ar_hunters_focus,敵が 2 体以下のあいだ、会心倍率 +40
+ui_desc_passive_ar_volley_master,攻撃速度 +20
+ui_desc_skill_healing_light,味方全員を魔力 100% ぶん回復する
+ui_desc_skill_holy_ray,敵全体に魔力 100% の光。さらに 6 秒かけて魔力 30% の追加ダメージ
+ui_desc_skill_mend,HPが一番少ない味方1体を魔力 220% ぶん回復する
+ui_desc_skill_drain_life,一番近い1体に魔力 160%。自分を魔力 80% ぶん回復する
+ui_desc_skill_purge_wave,敵全体に一撃。魔力より魔法防御のほうが強く効く
+ui_desc_skill_judgement,一番近い1体に一撃。相手のHPが多いほど威力が上がる
+ui_desc_passive_pr_devotion,魔力 +12
+ui_desc_passive_pr_triage,味方が 2 人以下のあいだ、魔力 +25
+ui_desc_passive_pr_sanctuary,魔法防御 +20
+ui_desc_passive_pr_zeal,戦闘開始から 30 秒たつと、CD短縮 +15
+ui_desc_passive_pr_benediction,魔力 +20、CD短縮 +10
