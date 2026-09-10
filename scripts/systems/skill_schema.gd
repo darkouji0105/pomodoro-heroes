@@ -338,6 +338,14 @@ const SCALE_SOURCES_NO_OF: Array = [SCALE_DISTANCE, SCALE_ELAPSED_SEC, SCALE_WAV
 #   （EXEC_SKILL_CONDITION.md §2-3 が status_count を作らなかった理由）。
 const FIELD_MAX_STACK: String = "max_stack"
 
+# ⚠ 画面が読む欄の名前（2026-09-11・スキル設定の「CD 6.0秒／チャージ 1.0秒」）。
+#   ⚠ 綴りを画面に書き起こさせない。⚠ 欄の名前を変えるならここ1箇所。
+const FIELD_COOLDOWN_SEC: String = "cooldown_sec"
+const FIELD_ACTIVATION: String = "activation"
+const FIELD_CHARGE: String = "charge"
+const FIELD_JUST_SEC: String = "just_sec"
+const FIELD_UNLOCK_LEVEL: String = "unlock_level"
+
 # スキル直下に書いてよい欄。
 # ⚠ typo を黙って既定値にしないための最後の砦（E26）。
 const SKILL_FIELDS_KNOWN: Array = [

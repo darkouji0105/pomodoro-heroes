@@ -3870,6 +3870,21 @@ func _report_layout() -> void:
 					print("      %s" % text)
 				if rows.is_empty():
 					push_error("[DebugBoot] 育成の一覧が 0 行（行が組めていない）")
+			# ⚠⚠ スキル設定の枠と候補（2026-09-11・人間のモック D）。⚠ 記号をやめて
+			#   ⚠ 枠と色で示す形にしたので、⚠ 「何と書いてあるか」でしか確かめられない。
+			#   ⚠ CD は `skills.json` から入る。⚠ チャージは charge のスキルだけに出る。
+			if scene_path.get_file() == "skill_select_screen.tscn" and (
+				raw_child.name == "Slots" or raw_child.name == "Candidates"
+			):
+				var lines: Array[String] = []
+				for grand: Node in raw_child.get_children():
+					if grand is PanelContainer:
+						lines.append(_row_text(grand as PanelContainer))
+				print("    ⚠ スキルの%s = %d 件（0 件なら組めていない）" % [raw_child.name, lines.size()])
+				for text: String in lines:
+					print("      %s" % text)
+				if lines.is_empty():
+					push_error("[DebugBoot] スキル設定の %s が 0 件" % raw_child.name)
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので

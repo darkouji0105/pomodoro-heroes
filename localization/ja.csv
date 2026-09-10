@@ -347,11 +347,11 @@ ui_stat_node_points,残ポイント %d / %d
 ui_stat_node_reset,振り直す
 ui_skill_select_slots_header,持ち込むスキル
 ui_skill_select_candidates_header,スキル候補
-ui_skill_select_slot,スキル%d
+ui_skill_select_slot,枠 %d
 ui_skill_select_passive_slot,パッシブ%d
 ui_skill_select_passive_candidates_header,パッシブ候補
 ui_skill_select_empty,未選択
-ui_skill_select_locked,（Lv%d で解放）
+ui_skill_select_locked,Lv%d で解放
 ui_battle_char_debug_status,検証用（状態）
 ui_battle_char_debug_life,検証用（寿命）
 ui_battle_char_debug_mix,検証用（複合）
@@ -602,7 +602,7 @@ ui_part_rune_move_format,%+d
 ui_part_reject_rune_max,これ以上重ねられません
 ui_part_reject_rune_stock,同じルーンが%d個要ります
 ui_part_reject_rune_kind,重ねられない装飾です
-ui_skill_select_passive_header,パッシブ（レベルで解放・全部効く）
+ui_skill_select_passive_header,パッシブ
 ui_skill_select_passive_locked,Lv%dで解放
 ui_battle_passive_sw_whetstone,研ぎ澄まし（攻撃力+10%）
 ui_battle_passive_sw_last_wall,背水の壁（HP半分以下で防御+25）
@@ -943,3 +943,12 @@ ui_training_build,ビルド
 ui_training_job_change,転職
 ui_party_preset_burn_hint,いまの設定 → ビルド
 ui_party_preset_apply_hint,ビルド → いまの設定
+ui_skill_select_lead,戦闘に持ち込む %d つを選ぶ
+ui_skill_select_goes_to,選んだスキルは 枠%d に入ります
+ui_skill_select_here,ここに入ります
+ui_skill_select_pick_below,下の候補から1つ選んでください
+ui_skill_select_in_slot,枠%d に入っています
+ui_skill_select_unlocked_count,%d 件中 %d 件が解放ずみ
+ui_skill_select_cooldown,CD %.1f秒
+ui_skill_select_charge,チャージ %.1f秒
+ui_skill_select_passive_note,レベルで解放され、解放されたものは全部効きます。選ぶ操作はありません。

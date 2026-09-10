@@ -1,7 +1,6 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scenes/guild/skill_select_screen.gd" id="1_skill_select"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 
 [ext_resource type="PackedScene" uid="uid://b1screenheader01" path="res://scenes/ui/components/screen_header.tscn" id="9_screen_header"]
 
@@ -32,33 +31,49 @@ theme_type_variation = &"ScreenMargin"
 
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
+theme_type_variation = &"SectionGap"
 
 [node name="Header" parent="Margin/Layout" instance=ExtResource("9_screen_header")]
 layout_mode = 2
 title_key = "ui_nav_training_skill"
+subtitle_key = "ui_skill_select_lead"
 
-[node name="NameLabel" type="Label" parent="Margin/Layout"]
+[node name="Columns" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"WideRow"
+
+[node name="Main" type="VBoxContainer" parent="Margin/Layout/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SlotsHeader" type="HBoxContainer" parent="Margin/Layout/Columns/Main"]
 layout_mode = 2
 
-[node name="NoticeLabel" type="Label" parent="Margin/Layout"]
+[node name="Slots" type="HBoxContainer" parent="Margin/Layout/Columns/Main"]
 layout_mode = 2
 
-[node name="SlotsLabel" type="Label" parent="Margin/Layout"]
-layout_mode = 2
-text = "ui_skill_select_slots_header"
-
-[node name="Slots" type="VBoxContainer" parent="Margin/Layout"]
+[node name="CandidatesHeader" type="HBoxContainer" parent="Margin/Layout/Columns/Main"]
 layout_mode = 2
 
-[node name="CandidatesLabel" type="Label" parent="Margin/Layout"]
-layout_mode = 2
-text = "ui_skill_select_candidates_header"
-
-[node name="Scroll" type="ScrollContainer" parent="Margin/Layout"]
+[node name="Scroll" type="ScrollContainer" parent="Margin/Layout/Columns/Main"]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="Candidates" type="VBoxContainer" parent="Margin/Layout/Scroll"]
+[node name="Candidates" type="VBoxContainer" parent="Margin/Layout/Columns/Main/Scroll"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="SideColumn" type="PanelContainer" parent="Margin/Layout/Columns"]
+layout_mode = 2
+theme_type_variation = &"SidePanel"
+
+[node name="SideMargin" type="MarginContainer" parent="Margin/Layout/Columns/SideColumn"]
+layout_mode = 2
+
+[node name="Passives" type="VBoxContainer" parent="Margin/Layout/Columns/SideColumn/SideMargin"]
+layout_mode = 2
+
+[node name="NoticeLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2

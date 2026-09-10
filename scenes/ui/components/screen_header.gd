@@ -100,6 +100,14 @@ func _refresh() -> void:
 	subtitle_label.visible = subtitle_label.text != ""
 
 
+# 翻訳を通さない戻るの文言（⚠ 行き先がキャラの名前のとき）。
+func set_back_text(value: String) -> void:
+	back_label_key = ""
+	if not is_inside_tree():
+		await ready
+	back_button.text = value
+
+
 # 翻訳を通さない副題（⚠ キャラの名前・ステージの名前）。
 # ⚠ `subtitle_key` と両方入れないこと。⚠ あとから入れたほうが残る。
 func set_subtitle_text(value: String) -> void:
