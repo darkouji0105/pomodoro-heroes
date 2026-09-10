@@ -905,3 +905,19 @@ ui_uitest_button_long_phase,このフェーズを終わらせる
 ui_warehouse_no_chest_hint,ダンジョンやショップで手に入ります
 ui_warehouse_receive,受け取る
 ui_uitest_modal_window,モーダル（窓形式）
+ui_nav_base,拠点
+ui_guild_lead,装備・スキル・ステータスは「育成」から各キャラを開いて設定します。
+ui_guild_note,枠は6つで固定。増減しても他のカードの位置は動きません。
+ui_guild_desc_training,レベルを上げ、ステータス・スキル・装備を整える。
+ui_guild_desc_warehouse,手に入れた装備と素材をしまう。装飾の付け替えもここ。
+ui_guild_desc_shop,金とジェムで素材・装備を買う。品揃えは毎日入れ替わる。
+ui_guild_desc_research,上の等級の装備と、装飾の枠を解放する。
+ui_guild_desc_workshop,素材から装備を作る。要らない装備は素材に戻せる。
+ui_guild_empty_slot,（空き）
+ui_guild_empty_desc,入口が増えたときの置き場所。枠は動かさない。
+ui_guild_empty_status,未解放
+ui_guild_status_training,%s が Lv%d に上げられます
+ui_guild_status_training_none,いま上げられるキャラはいません
+ui_guild_status_shop,品揃え %d 件
+ui_guild_status_research,解放できる %d 件
+ui_guild_status_workshop,作れるもの %d 件

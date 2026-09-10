@@ -153,6 +153,26 @@ static func for_chest() -> Texture2D:
 	return _load(NAME_ITEM_CHEST)
 
 
+# ⚠⚠ 画面の入口の絵（2026-09-11・人間のモック「ギルド」のカード）。
+#
+# ⚠ **6枚ともまだ無い**（⚠ `assets/images/` に `icon_nav_*.svg` が1枚も無い）。
+#   ⚠ いまは全部 null が返り、⚠ 呼ぶ側（ギルドのカード）が**絵の枠ごと出さない**。
+#   ⚠ ファイルを置けばその1枚だけ出るようになる（⚠ `for_item()` と同じ落とし方）。
+# ⚠ キーは `GameStateKeys` の画面ID。⚠ 綴りを書き起こさない。
+const SCREEN_NAMES: Dictionary = {
+	GameStateKeys.SCREEN_WAREHOUSE: "nav_warehouse",
+	GameStateKeys.SCREEN_SHOP: "nav_shop",
+	GameStateKeys.SCREEN_TRAINING: "nav_training",
+	GameStateKeys.SCREEN_RESEARCH: "nav_research",
+	GameStateKeys.SCREEN_WORKSHOP: "nav_workshop",
+	GameStateKeys.SCREEN_EQUIPMENT: "nav_equipment",
+}
+
+
+static func for_screen(screen_id: String) -> Texture2D:
+	return _load(str(SCREEN_NAMES.get(screen_id, "")))
+
+
 # ⚠⚠ 絵文字 -> ファイル名。⚠ ここが `Glyphs` と線画をつなぐ唯一の場所。
 #   ⚠ こうすると「どの品がどの種類か」の判定が `Glyphs` の1本のままになる。
 static func _name_of_glyph(glyph: String) -> String:

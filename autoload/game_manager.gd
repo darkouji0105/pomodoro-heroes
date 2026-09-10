@@ -4043,10 +4043,19 @@ func get_party_candidates() -> Array[String]:
 	var show_debug: bool = OS.is_debug_build()
 	for character_id: Variant in MasterDataLoader.get_all_characters():
 		var id: String = str(character_id)
-		if not show_debug and id.begins_with("char_debug_"):
+		if not show_debug and is_debug_character(id):
 			continue
 		result.append(id)
 	return result
+
+
+# ⚠ 検証用のキャラか（⚠ 育成の一覧が「仕切りの下」に分けるため・2026-09-11）。
+#   ⚠ 綴りを画面側に書き起こさせない。⚠ リリース前に検証用ごと消す（宿題16）。
+const DEBUG_CHARACTER_PREFIX: String = "char_debug_"
+
+
+func is_debug_character(character_id: String) -> bool:
+	return character_id.begins_with(DEBUG_CHARACTER_PREFIX)
 
 
 # ============================================================

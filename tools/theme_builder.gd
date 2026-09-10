@@ -558,6 +558,27 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_type_variation(&"SidePanel", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"SidePanel", side)
 
+	# ⚠⚠ 面の上に重ねる「当たり」（2026-09-11・人間のモック「ギルド／育成」）。
+	#   ⚠ モックのカードと一覧の行は**面ぜんぶが押せる**。⚠ `PanelContainer` は押せず、
+	#   ⚠ `Button` は器ではないので中身を並べられない。⚠ そこで
+	#   ⚠ **面の上に透明なボタンを1枚重ねる**（⚠ `PanelContainer` は子を全面に伸ばす）。
+	# ⚠ 地を持たない。⚠ 手がかりは hover の枠と focus の縁だけ
+	#   （⚠ 枠の色は Secondary の hover と同値。⚠ 新しい色ではない）。
+	for state: String in BUTTON_STATES:
+		var hit: StyleBoxFlat = StyleBoxFlat.new()
+		hit.bg_color = Color(0, 0, 0, 0)
+		hit.set_corner_radius_all(PANEL_CORNER_RADIUS)
+		if state == "hover":
+			hit.set_border_width_all(1)
+			hit.border_color = _html("6b5a4e")
+		elif state == "focus":
+			hit.set_border_width_all(FOCUS_BORDER_WIDTH)
+			hit.border_color = _html("f0c04a")
+		else:
+			hit.set_border_width_all(0)
+		theme.set_stylebox(StringName(state), &"HitButton", hit)
+	theme.set_type_variation(&"HitButton", &"Button")
+
 	# ⚠ ヘッダーの下の線。⚠ `ScreenHeader` が自前で `_draw()` するのでここが値を持つ
 	#   （⚠ `TimerRing` / `SetDots` と同じ置き方）。
 	theme.set_color(&"rule", &"ScreenHeader", _html(DIVIDER_COLOR))
