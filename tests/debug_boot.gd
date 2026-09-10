@@ -4743,6 +4743,30 @@ func _report_inventory() -> void:
 	print("  マスそのもの（ItemSlot）の mouse_filter = %d（⚠ 0＝STOP が正解。⚠ ここは受け取る側）" % [
 		int(first.mouse_filter)
 	])
+
+	# ⚠⚠ ツールチップの二重表示（2026-09-10・積み残し9）。
+	#   ⚠ ホバーの枠（`ItemDetailPopup`）が出る画面では、⚠ 品の名前がツールチップと
+	#     枠の2枚で重なって出ていた。⚠ `watch()` が器ごとツールチップを落とす形にした。
+	#   ⚠ 絵は取れないが `tooltip_text` は取れる。⚠ ここが唯一の確かめ方。
+	print("[DebugBoot] --- ツールチップの二重表示（ItemSlot / ItemDetailPopup）---")
+	print("  枠が無いとき（⚠ 装備・UIテストの一部）: '%s'（⚠ 品の名前が入るのが正解）" % [
+		first.tooltip_text
+	])
+	if not first.is_empty() and first.tooltip_text == "":
+		push_error("[DebugBoot] 枠を出さない画面でツールチップまで消えている")
+	var probe_popup: ItemDetailPopup = ItemDetailPopup.adopt(self, ItemDetail.new())
+	probe_popup.watch(grid)
+	print("  watch のあと・既にあるマス: '%s'（⚠ 空が正解＝枠と二重に出ない）" % first.tooltip_text)
+	if first.tooltip_text != "":
+		push_error("[DebugBoot] watch したのにツールチップが残っている（枠と二重に出る）")
+	# ⚠ 倉庫の順番（⚠ _ready で watch → ⚠ あとで rebuild）でも消えていること。
+	#   ⚠ 器が覚えていないと、⚠ 作り直した瞬間に二重表示へ戻る。
+	grid.rebuild(entries_now, slot_count)
+	var first_rebuilt: ItemSlot = grid.get_child(0)
+	print("  watch のあとに作り直したマス: '%s'（⚠ 空が正解）" % first_rebuilt.tooltip_text)
+	if first_rebuilt.tooltip_text != "":
+		push_error("[DebugBoot] 作り直したマスにツールチップが戻っている")
+	probe_popup.queue_free()
 	grid.queue_free()
 
 	# 8. ⚠ 押したときの詳細（段階18-c-2・共有部品 ItemDetail）。
@@ -4879,6 +4903,21 @@ func _report_inventory() -> void:
 			GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
 		})
 		print("  ⚠ 要約 鍛えた個体（⚠ 「素材にする」「鍛える」の行が出ないのが正解）")
+		for line: String in detail.get_lines():
+			print("    %s" % line)
+		# ⚠⚠ 着けている人の行（2026-09-10・積み残し9）。⚠ 前はフルにしか出さず、
+		#   ⚠ 要約側では マスの素のツールチップが同じことを出していた。
+		#   ⚠ その二重表示を止めたので、⚠ 要約が唯一の出どころになった。
+		detail.show_entry({
+			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_INSTANCE,
+			GameManager.SLOT_ENTRY_ITEM_ID: "weapon_iron_sword",
+			GameManager.SLOT_ENTRY_INSTANCE_ID: forge_target,
+			GameManager.SLOT_ENTRY_GRADE: int(GameManager.get_equipment_instance(forge_target).get(
+				GameStateKeys.INSTANCE_GRADE, 1
+			)),
+			GameManager.SLOT_ENTRY_EQUIPPED_BY: str(GameManager.get_party_members()[0]),
+		})
+		print("  ⚠ 要約 着けている個体（⚠ 「装備中」の行が1本出るのが正解）")
 		for line: String in detail.get_lines():
 			print("    %s" % line)
 	detail.set_summary(false)

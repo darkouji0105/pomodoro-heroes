@@ -121,13 +121,18 @@ func _show_instance(item_id: String, instance_id: String) -> void:
 		defs.append(merged)
 	_add_part_slots(defs, grade, _slot_lead_text(equip_slot))
 
-	if _summary:
-		return
-
+	# ⚠⚠ 「誰に着いているか」は要約にも出す（2026-09-10）。
+	#   ⚠ 前は要約から外していたが、⚠ 同じことをマスの素のツールチップが出していた。
+	#     ⚠ その二重表示を止めた（`item_slot.gd`）ので、⚠ ここが唯一の出どころになった。
+	#   ⚠ レリック（`_show_relic()`）は前から要約でも出している。⚠ 揃えたことにもなる。
+	#   ⚠ 分解の戻り・鍛えるコストは要約に出さない方針のまま（⚠ 押すボタンが隣に無い）。
 	var equipped_by: String = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
 	if equipped_by != "":
 		var char_data: Dictionary = MasterDataLoader.get_character(equipped_by)
 		_add_line(tr("ui_equipment_equipped_by") % tr(str(char_data.get("name_key", equipped_by))))
+
+	if _summary:
+		return
 
 	# ⚠ 数値だけの行なので見出しにだけ tr() を通す（AGENTS.md）。
 	_add_value_row(

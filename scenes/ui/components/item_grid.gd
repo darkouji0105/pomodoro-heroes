@@ -32,6 +32,12 @@ signal slot_moved(from_index: int, to_index: int)
 const DEFAULT_COLUMNS: int = 8
 
 var _slots: Array[ItemSlot] = []
+# ⚠ ホバーの枠（`ItemDetailPopup`）が見張っている器か（2026-09-10）。
+#   ⚠ 真ならマスは素のツールチップを出さない（⚠ 名前が2枚重なるのを止める）。
+#   ⚠ 入れるのは `ItemDetailPopup.watch()` の1本。⚠ 画面側で立てないこと。
+#   ⚠ `watch()` は `rebuild()` より先に呼ばれることが多い（⚠ 倉庫は _ready で watch）。
+#     ⚠ だから器が覚えておき、⚠ 作り直しのたびに新しいマスへ配る。
+var _tooltip_suppressed: bool = false
 
 
 func _ready() -> void:
@@ -62,6 +68,9 @@ func rebuild(entries: Array, slot_count: int = 0) -> void:
 		var slot: ItemSlot = ItemSlot.create(entry)
 		slot.name = "Slot_%d" % i
 		slot.set_slot_index(i)
+		# ⚠ add_child() の前に入れる。⚠ マスは _ready() で1回だけ描くので、
+		#   ⚠ ここで入れておけば描き直しが起きない。
+		slot.set_tooltip_suppressed(_tooltip_suppressed)
 		slot.slot_pressed.connect(_on_slot_pressed.bind(i))
 		slot.slot_dropped.connect(_on_slot_dropped.bind(i))
 		slot.slot_hovered.connect(_on_slot_hovered.bind(i))
@@ -72,6 +81,13 @@ func rebuild(entries: Array, slot_count: int = 0) -> void:
 
 func get_slot_count() -> int:
 	return _slots.size()
+
+
+# 素のツールチップを器ごと止める／戻す。⚠ 呼ぶのは `ItemDetailPopup.watch()` の1本。
+func set_tooltip_suppressed(value: bool) -> void:
+	_tooltip_suppressed = value
+	for slot: ItemSlot in _slots:
+		slot.set_tooltip_suppressed(value)
 
 
 func _on_slot_pressed(entry: Dictionary, index: int) -> void:

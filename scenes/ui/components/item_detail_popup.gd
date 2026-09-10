@@ -104,6 +104,11 @@ func _take(detail: ItemDetail) -> void:
 func watch(grid: ItemGrid) -> void:
 	if grid == null:
 		return
+	# ⚠⚠ 素のツールチップを止める（2026-09-10）。⚠ 止めないと、⚠ 品の名前が
+	#   ⚠ Godot のツールチップとこの枠の2枚で重なって出る（⚠ `item_slot.gd` の注記）。
+	#   ⚠ 止める判断はここに1本だけ置く。⚠ 「枠を出す画面かどうか」を知っているのは
+	#     ⚠ この `watch()` だけで、⚠ マスも器も画面も知らない。
+	grid.set_tooltip_suppressed(true)
 	grid.slot_hovered.connect(_on_slot_hovered)
 	grid.slot_unhovered.connect(_on_slot_unhovered)
 

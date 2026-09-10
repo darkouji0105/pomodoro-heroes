@@ -43,6 +43,13 @@ const DRAG_PREVIEW_MODULATE: Color = Color(1.0, 1.0, 1.0, 0.7)
 
 var _entry: Dictionary = {}
 var _icon: ItemIcon = null
+# ⚠⚠ 素のツールチップを出さないか（2026-09-10）。
+#   ⚠ ホバーの枠（`ItemDetailPopup`）が出る画面では、⚠ 同じ品の名前が
+#     ⚠ 「Godot のツールチップ」と「枠」の2枚で重なって出ていた（⚠ 2026-09-07 から）。
+#   ⚠ 決めるのはこのマスでも画面でもない。⚠ `ItemDetailPopup.watch()` が
+#     ⚠ 器（`ItemGrid`）ごと落とす。⚠ 枠を出さない画面（装備・UIテストの一部）は
+#     ⚠ ツールチップだけが頼りなので、⚠ 既定は false（＝出す）のままにする。
+var _tooltip_suppressed: bool = false
 # このマスが何番目か（段階18-f）。⚠ ItemGrid が入れる。
 #   ⚠ 空のマスは中身が全部同じなので、⚠ 番号でしか区別できない。
 var _index: int = 0
@@ -84,6 +91,16 @@ func set_slot_index(index: int) -> void:
 
 func get_slot_index() -> int:
 	return _index
+
+
+# 素のツールチップを止める／戻す。⚠ 呼ぶのは `ItemGrid.set_tooltip_suppressed()` の1本。
+#   ⚠ 画面から直に呼ばないこと（⚠ 器の中のマスだけ止まって並びが食い違う）。
+func set_tooltip_suppressed(value: bool) -> void:
+	if _tooltip_suppressed == value:
+		return
+	_tooltip_suppressed = value
+	if is_inside_tree():
+		_refresh()
 
 
 # --- ドラッグ＆ドロップ（段階18-f） ---
@@ -155,6 +172,12 @@ func _refresh() -> void:
 	# 装備中の印。⚠ 誰に着いているかはツールチップ側へ（マスは狭い）。
 	var equipped_by: String = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
 	count_label.text = EQUIPPED_MARK if equipped_by != "" else ""
+
+	# ⚠⚠ ホバーの枠が出る画面では、⚠ ここで名前を出さない（⚠ 二重に出る）。
+	#   ⚠ 「誰に着いているか」は枠側（`ItemDetail` の要約）が出す。
+	if _tooltip_suppressed:
+		tooltip_text = ""
+		return
 
 	var name_text: String = tr("ui_res_" + item_id)
 	if equipped_by == "":
