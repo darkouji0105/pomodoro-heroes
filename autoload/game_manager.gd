@@ -829,8 +829,14 @@ func open_chest(instance_id: String) -> bool:
 				add_material(mat_id, int(mats[mat_id]))
 		if rewards.has(GameStateKeys.REWARD_INVENTORY) and rewards[GameStateKeys.REWARD_INVENTORY] is Dictionary:
 			var items: Dictionary = rewards[GameStateKeys.REWARD_INVENTORY]
+			# ⚠⚠ _grant_item() を通す（2026-09-10）。⚠ add_to_inventory() は storage を
+			#   見ないので、⚠ 素材が混じっていると倉庫のマスに入る（上の grant_chest の注記）。
+			# ⚠ 積むときの振り分けを直したので新しい宝箱には混じらないが、⚠ **既に積んである
+			#   未開封の宝箱**は古い形（素材が inventory 側）のまま残る。⚠ ここで振り分ければ
+			#   それも正しく素材へ入る。
+			# ⚠ item_type も items.json から入る（⚠ 前は種別不明で積んでいた）。
 			for item_id: String in items:
-				add_to_inventory(item_id, int(items[item_id]))
+				_grant_item(item_id, int(items[item_id]))
 		print("[GameManager] open_chest('%s') -> true" % instance_id)
 		pending_chests_changed.emit(get_pending_chest_count())
 		return true
@@ -1040,15 +1046,29 @@ func grant_chest(chest_id: String, source: String) -> bool:
 	if fixed is Dictionary:
 		rewards = (fixed as Dictionary).duplicate(true)
 
-	# 抽選ぶん。inventory に合流させる（固定で同じIDが入っていれば足す）。
+	# 抽選ぶん。⚠⚠ **素材と持ち物に振り分けてから**合流させる（2026-09-10）。
+	#
+	# ⚠ 前はどちらも rewards.inventory へ入れていた。⚠ chests.json の抽選表は
+	#   素材（storage: "material"）を含むので、⚠ 鍛冶の欠片などが倉庫のマスに入っていた
+	#   （人間が実機で見つけた。⚠ 「アイテム化する」）。
+	# ⚠⚠ しかも容量の数え方が食い違っていた：⚠ 開ける前の判定
+	#   （_inventory_slots_needed_for_item）は「⚠ 素材は0マス」と答えるのに、
+	#   ⚠ 実際に書き込む add_to_inventory() は storage を見ずに本物のマスを消費する。
+	#   ⚠ ＝満杯の判定をすり抜けて倉庫が静かに埋まっていた。
+	# ⚠ 見分けるのは _item_storage() の1本（⚠ 綴りで見分けない）。
+	#   ⚠ items.json に無いIDは今までどおり持ち物側へ（⚠ 黄は _grant_item() が出す）。
 	var draw_def: Variant = chest.get(CHEST_DRAW, null)
 	if draw_def is Dictionary:
 		var drawn: Dictionary = _roll_chest_draw(draw_def as Dictionary)
-		if not drawn.is_empty():
-			var inv: Dictionary = rewards.get(GameStateKeys.REWARD_INVENTORY, {})
-			for item_id: String in drawn:
-				inv[item_id] = int(inv.get(item_id, 0)) + int(drawn[item_id])
-			rewards[GameStateKeys.REWARD_INVENTORY] = inv
+		for item_id: String in drawn:
+			var table_key: String = (
+				GameStateKeys.REWARD_MATERIALS
+				if _item_storage(item_id) == ITEM_STORAGE_MATERIAL
+				else GameStateKeys.REWARD_INVENTORY
+			)
+			var table: Dictionary = rewards.get(table_key, {})
+			table[item_id] = int(table.get(item_id, 0)) + int(drawn[item_id])
+			rewards[table_key] = table
 
 	if _is_rewards_empty(rewards):
 		# ⚠ 抽選のハズレは正常系。print を出さない（NEXT_STEPS §4）。

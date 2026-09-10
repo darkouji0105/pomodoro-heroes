@@ -2785,6 +2785,40 @@ func _report_drops() -> void:
 	var opened_again: bool = GameManager.open_chest(instance_id)
 	print("  2回目の open_chest() = %s / 個体 = %d（増えないこと）" % [str(opened_again), _instance_count()])
 
+	# --- 7-b. ⚠⚠ 抽選で出た素材が「素材」へ入るか（2026-09-10・人間が実機で見つけた）---
+	#
+	# ⚠ chests.json の抽選表は素材（storage: "material"）を含む。⚠ 前は storage を見ずに
+	#   rewards.inventory へ合流させていたので、⚠ 鍛冶の欠片などが倉庫のマスに入っていた。
+	# ⚠⚠ 容量の数え方も食い違っていた：⚠ 開ける前の判定は「素材は0マス」と答えるのに、
+	#   ⚠ add_to_inventory() は本物のマスを消費する。⚠ だから「マスが増えないこと」まで見る。
+	# ⚠ floor_1_common は4枠とも素材なので、⚠ inventory 側は空が正解。
+	print("[DebugBoot] --- 抽選で出た素材が素材へ入るか（floor_1_common・4枠とも素材）---")
+	var mat_chest_id: String = "floor_1_common"
+	var _mat_granted: bool = GameManager.grant_chest(mat_chest_id, GameStateKeys.CHEST_SOURCE_FLOOR)
+	var mat_chest: Dictionary = _last_unopened_chest()
+	var mat_rewards: Dictionary = mat_chest.get(GameStateKeys.CHEST_REWARDS, {})
+	var mat_table: Dictionary = mat_rewards.get(GameStateKeys.REWARD_MATERIALS, {})
+	var mat_inv: Dictionary = mat_rewards.get(GameStateKeys.REWARD_INVENTORY, {})
+	print("  materials = %s（⚠ ここに入るのが正解）" % str(mat_table))
+	print("  inventory = %s（⚠ 空が正解）" % str(mat_inv))
+	if not mat_inv.is_empty():
+		push_error("[DebugBoot] 抽選で出た素材が rewards.inventory に入っている（倉庫のマスを食う）")
+	if mat_table.is_empty():
+		push_error("[DebugBoot] 抽選で出た素材が rewards.materials に入っていない")
+	var slots_before: int = GameManager.get_inventory_slots_used()
+	var forge_before: int = GameManager.get_material_count("forging_material_1")
+	var _mat_opened: bool = GameManager.open_chest(
+		str(mat_chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
+	)
+	print("  開けたあと 倉庫のマス %d -> %d（⚠ 増えないのが正解）" % [
+		slots_before, GameManager.get_inventory_slots_used()
+	])
+	if GameManager.get_inventory_slots_used() != slots_before:
+		push_error("[DebugBoot] 素材だけの宝箱を開けて倉庫のマスが増えた")
+	print("  鍛冶の欠片 %d -> %d（⚠ 出た回だけ増える）" % [
+		forge_before, GameManager.get_material_count("forging_material_1")
+	])
+
 	# --- 8. 表示名（再インポートの合図）---
 	print("  表示名 = '%s'（再インポート前は 'ui_chest_legendary' のままが正常）" % tr("ui_chest_legendary"))
 
