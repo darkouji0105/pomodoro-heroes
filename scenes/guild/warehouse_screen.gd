@@ -199,6 +199,13 @@ func _rebuild_inventory() -> void:
 	if not _selected.is_empty() and not _is_selection_alive():
 		_selected = {}
 		_selected_index = -1
+	# ⚠⚠ 生きているなら中身を引き直す（2026-09-10・重ねる形にした回）。
+	#   ⚠ 1マスに何個あるかが変わっている（⚠ ポーションを使った・拾った）。
+	#   ⚠ 引き直さないと、⚠ 詳細の「×N」と「⚠ 何個捨てるか」の上限が古いまま残る。
+	elif not _selected.is_empty():
+		var layout: Array = GameManager.get_inventory_slot_layout()
+		if _selected_index >= 0 and _selected_index < layout.size():
+			_selected = layout[_selected_index]
 	_rebuild_actions()
 
 
@@ -351,7 +358,9 @@ func _rebuild_actions() -> void:
 # 捨てる（段階18-e）。⚠ 満杯で拡張も買えないときの逃げ道（台帳 §4-2）。
 #
 # ⚠ 取り返しがつかないので確認モーダルを出す（⚠ 装飾の「壊す」と同じ流儀）。
-# ⚠ 1マス＝1個なので1個ずつ。⚠ 「全部捨てる」を作らない。
+# ⚠⚠ 2026-09-10：⚠ **個数を選べる**（人間の決定「⚠ 捨てるのは選べるように」）。
+#   ⚠ 持ち物を重ねる形にしたので、⚠ 1マスに10個入っていることがある。
+#   ⚠ 前は「1マス＝1個なので1個ずつ」だった。⚠ その前提はもう無い。
 # ⚠ 装備は「素材にする」のほうが素材が戻る。⚠ ただしここで弾かない（逃げ道は塞がない）。
 func _add_discard_button(item_id: String) -> void:
 	# ⚠ 捨てるは **戻ってくるものが何も無い**（2026-09-09）。⚠ ＝ 危険の赤。
@@ -372,19 +381,51 @@ func _on_forge_pressed(instance_id: String) -> void:
 	_rebuild_inventory()
 
 
+# 捨てる。⚠ 2個以上あるときだけ「何個捨てるか」を選ばせる。
+#
+# ⚠ 1個しか無いとき（⚠ 装備の個体はいつもこれ）に選ばせても、⚠ 押す手数が増えるだけ。
+# ⚠ 個数の器は確認モーダルの中に入れる（`Modal.OPTION_CONTENT`）。⚠ 窓を2枚出さない。
+# ⚠⚠ 器は `await` をまたいで生きている必要がある（⚠ 閉じたあとに値を読む）ので、
+#   ⚠ 参照をローカルに持っておく。⚠ 閉じても `ModalDialog` が解放するまでは読める。
 func _on_discard_pressed(item_id: String) -> void:
 	if _selected_index < 0:
 		return
+	var held: int = int(_selected.get(GameManager.SLOT_ENTRY_COUNT, 1))
+	var options: Dictionary = {}
+	var picker: SpinBox = null
+	if held > 1:
+		picker = _make_discard_picker(held)
+		options[Modal.OPTION_CONTENT] = picker
 	var confirmed: bool = await Modal.confirm(
-		self, "ui_warehouse_discard_confirm", [tr("ui_res_" + item_id)]
+		self, "ui_warehouse_discard_confirm", [tr("ui_res_" + item_id)], false, options
 	)
 	if not confirmed:
 		return
-	if not GameManager.discard_inventory_slot(_selected_index):
+	# ⚠ `closed` は `queue_free()` の**前**に飛ぶので、⚠ ここではまだ器が生きている。
+	#   ⚠ それでも `is_instance_valid()` で守る（⚠ 画面遷移で捨てられた道がある）。
+	var count: int = 1
+	if picker != null and is_instance_valid(picker):
+		count = int(picker.value)
+	if not GameManager.discard_inventory_slot(_selected_index, count):
 		return
 	_selected = {}
 	_selected_index = -1
 	_rebuild_inventory()
+
+
+# 「何個捨てるか」の器。⚠ 1 〜 持っている数。⚠ 既定は1個（⚠ 事故を小さいほうに倒す）。
+#   ⚠ 見た目の値は Theme が持つ（AGENTS.md）。⚠ ここで色も大きさも書かない。
+func _make_discard_picker(held: int) -> SpinBox:
+	var picker: SpinBox = SpinBox.new()
+	picker.name = "DiscardCount"
+	picker.min_value = 1
+	picker.max_value = held
+	picker.value = 1
+	picker.step = 1
+	# ⚠ 押し続けて max を超えないように（⚠ Godot の既定は循環しない）。
+	picker.allow_greater = false
+	picker.allow_lesser = false
+	return picker
 
 
 # 子を消す。await を持たせない（AGENTS.md「再描画は await を持たせない」）。

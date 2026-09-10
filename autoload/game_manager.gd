@@ -621,6 +621,25 @@ func add_material(material_id: String, amount: int) -> void:
 	# 拠点画面は素材の種類ごとにラベルを持つため、種類が特定できないと差分更新できない。
 	material_changed.emit(material_id, new_amount)
 
+# その品を何個まで受け取れるか（2026-09-10・持ち物を重ねる形にしたときに新設）。
+#
+# ⚠⚠ 「何マス要るか」と同じ判定を2箇所に書かないための口。
+#   ⚠ `_inventory_slots_needed_for_item()` が「開ける前」、⚠ こちらが「入れる瞬間」。
+#   ⚠ 食い違うと、⚠ 判定を通ったのに入らない（＝払ったのに貰えない）が起きる。
+# ⚠ 素材 … マスを使わない（人間の決定5）。⚠ いくつでも入る
+# ⚠ 装備の個体 … 1個につき1マス。⚠ 空きマスの数までしか入らない
+# ⚠ それ以外（持ち物） … 1種類で1マス。⚠ **既に持っていればいくつでも入る**。
+#   ⚠ 初めての品だけ1マス要る（⚠ 1マスも空いていなければ1個も入らない）
+func _acceptable_count(item_id: String, count: int) -> int:
+	if _item_storage(item_id) == ITEM_STORAGE_MATERIAL:
+		return count
+	if _is_equipment_item(item_id):
+		return mini(count, get_inventory_free_slots())
+	if _has_inventory_item(item_id):
+		return count
+	return count if get_inventory_free_slots() >= 1 else 0
+
+
 func get_material_count(material_id: String) -> int:
 	var materials: Dictionary = _state.get(GameStateKeys.MATERIALS, {})
 	return int(materials.get(material_id, 0))
@@ -681,7 +700,7 @@ func add_to_inventory(item_id: String, count: int, item_type: String = GameState
 	if count <= 0:
 		return 0
 	# ⚠ 入る数まで削る。⚠ 溢れたぶんは入らない（＝拾えない）。⚠ 何かを勝手に捨てて空けない。
-	var accepted: int = mini(count, get_inventory_free_slots())
+	var accepted: int = _acceptable_count(item_id, count)
 	if accepted <= 0:
 		push_warning("[GameManager] W25 add_to_inventory('%s', %d) -> 0（倉庫が満杯 %d/%d）" % [
 			item_id, count, get_inventory_slots_used(), get_inventory_slot_max()
@@ -1282,18 +1301,34 @@ func _slot_entry_of_key(key: String) -> Dictionary:
 			SLOT_ENTRY_GRADE: int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)),
 			SLOT_ENTRY_EQUIPPED_BY: _equipped_owner(key),
 		}
+	# ⚠⚠ 持ち物は **1種類で1マス**（2026-09-10・人間の決定「⚠ 1マスに重ねて x3 と出す」）。
+	#   ⚠ 何個あるかをマスが持つ。⚠ 出すのは `ItemIcon` の右下（⚠ 画面は数を描かない）。
+	#   ⚠ 前は個数ぶんマスが分かれていた（⚠ ポーション3個＝3マス）。
 	return {
 		SLOT_ENTRY_KIND: SLOT_KIND_ITEM,
 		SLOT_ENTRY_ITEM_ID: key,
 		SLOT_ENTRY_INSTANCE_ID: "",
 		SLOT_ENTRY_GRADE: 0,
+		SLOT_ENTRY_COUNT: get_item_count(key),
 		SLOT_ENTRY_EQUIPPED_BY: "",
 	}
 
 
+# その持ち物を1個以上持っているか。⚠ マスが要るかの判定に使う。
+#   ⚠ 素材と装備の個体はここで見ない（⚠ 別の器に入っている）。
+func _has_inventory_item(item_id: String) -> bool:
+	var inventory: Dictionary = _state.get(GameStateKeys.INVENTORY, {})
+	if not inventory.has(item_id) or not (inventory[item_id] is Dictionary):
+		return false
+	return int((inventory[item_id] as Dictionary).get(GameStateKeys.ITEM_COUNT, 0)) > 0
+
+
 # いま持っているものの「鍵の必要数」。{鍵: 何マス要るか}。
 #
-# ⚠ 持ち物は個数ぶん。⚠ 装備の個体は1つにつき1マス。
+# ⚠⚠ 持ち物は **1種類につき1マス**（2026-09-10・人間の決定。⚠ 前は個数ぶんだった）。
+#   ⚠ ここが「重ねるかどうか」を決めている唯一の場所。⚠ マス目・並び・ドラッグは
+#     全部この戻りに従うので、⚠ 重ね方を変えるときはここだけを直す。
+# ⚠ 装備の個体は1つにつき1マス。⚠ 重ねられない（⚠ 等級と装飾が個体ごとに違う）。
 # ⚠⚠ 装備中の個体は数えない（人間の決定7。⚠ キャラの装備マスへ移っている）。
 func _inventory_required_keys() -> Dictionary:
 	var required: Dictionary = {}
@@ -1303,9 +1338,8 @@ func _inventory_required_keys() -> Dictionary:
 		var row: Variant = inventory[item_id]
 		if not (row is Dictionary):
 			continue
-		var count: int = int((row as Dictionary).get(GameStateKeys.ITEM_COUNT, 0))
-		if count > 0:
-			required[item_id] = count
+		if int((row as Dictionary).get(GameStateKeys.ITEM_COUNT, 0)) > 0:
+			required[item_id] = 1
 	var instances: Dictionary = _state.get(GameStateKeys.EQUIPMENT_INSTANCES, {})
 	for entry: Variant in instances:
 		var instance_id: String = str(entry)
@@ -1571,7 +1605,12 @@ func expand_inventory() -> bool:
 #   ⚠ 画面はそちらを勧めること。⚠ ただしここで装備を弾かない（⚠ 逃げ道は塞がない）。
 # ⚠ 1マス＝1個なので、⚠ 捨てるのも1個（⚠ 「全部捨てる」を作らない）。
 # ⚠ 装備中の個体はマス目に出てこないので、⚠ ここへは来ない（人間の決定7）。
-func discard_inventory_slot(index: int) -> bool:
+# ⚠⚠ 2026-09-10：⚠ **捨てる個数を選べるようにした**（人間の決定「⚠ 捨てるのは選べるように」）。
+#   ⚠ 持ち物を重ねる形にしたので、⚠ 1マスに10個入っていることがある。
+#   ⚠ 既定は1個（⚠ 前と同じ振る舞い）。⚠ 画面が個数を渡す。
+# ⚠ 装備の個体は個数を持たない（⚠ 1マス＝1個体）ので `count` を見ない。
+# ⚠ 判定を全部終えてから状態を触る（CLAUDE.md 6番）。
+func discard_inventory_slot(index: int, count: int = 1) -> bool:
 	var layout: Array = get_inventory_slot_layout()
 	if index < 0 or index >= layout.size():
 		print("[GameManager] discard_inventory_slot(%d) -> false (マスの外)" % index)
@@ -1579,6 +1618,9 @@ func discard_inventory_slot(index: int) -> bool:
 	var entry: Dictionary = layout[index]
 	if entry.is_empty():
 		print("[GameManager] discard_inventory_slot(%d) -> false (空のマス)" % index)
+		return false
+	if count <= 0:
+		print("[GameManager] discard_inventory_slot(%d, %d) -> false (0個以下)" % [index, count])
 		return false
 
 	# --- ここから状態を変える ---
@@ -1594,8 +1636,17 @@ func discard_inventory_slot(index: int) -> bool:
 		return true
 
 	var item_id: String = str(entry.get(SLOT_ENTRY_ITEM_ID, ""))
-	_remove_from_inventory(item_id, 1)
-	print("[GameManager] discard_inventory_slot(%d) -> true ('%s' を1個捨てた・戻りは無し)" % [index, item_id])
+	# ⚠ 持っている数を超えて捨てない（⚠ 超えると `_remove_from_inventory` が負にする）。
+	var discarded: int = mini(count, get_item_count(item_id))
+	if discarded <= 0:
+		print("[GameManager] discard_inventory_slot(%d, %d) -> false ('%s' を持っていない)" % [
+			index, count, item_id
+		])
+		return false
+	_remove_from_inventory(item_id, discarded)
+	print("[GameManager] discard_inventory_slot(%d, %d) -> true ('%s' を%d個捨てた・戻りは無し)" % [
+		index, count, item_id, discarded
+	])
 	return true
 
 
@@ -1658,12 +1709,19 @@ func _inventory_slots_needed(items: Variant) -> int:
 
 
 # 1件ぶん。⚠ 素材かどうかの判定は _item_storage() の1本に聞く（綴りで見分けない）。
+#
+# ⚠⚠ 2026-09-10：⚠ 持ち物を重ねる形にしたので、⚠ 「⚠ **初めての品なら1マス** ／
+#   ⚠ 既に持っていれば0マス」になった（人間の決定）。⚠ 前は個数ぶん数えていた。
+#   ⚠ ここを直さないと、⚠ 倉庫が空いているのに宝箱が開けられない。
+# ⚠ 装備の個体だけは今までどおり個数ぶん（⚠ 1個につき1マス・重ねられない）。
 func _inventory_slots_needed_for_item(item_id: String, count: int) -> int:
 	if count <= 0:
 		return 0
 	if _item_storage(item_id) == ITEM_STORAGE_MATERIAL:
 		return 0
-	return count
+	if _is_equipment_item(item_id):
+		return count
+	return 0 if _has_inventory_item(item_id) else 1
 
 
 # その数だけ入るか。⚠ 物が増える口は「状態を触る前に」これを聞く（CLAUDE.md 6番）。

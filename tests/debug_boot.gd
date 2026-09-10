@@ -4686,19 +4686,29 @@ func _report_inventory() -> void:
 	if GameManager.get_inventory_slots_used() != before_material:
 		push_error("[DebugBoot] 汎用素材でマスが増えた（決定5 に反する）")
 
-	# 2. 消耗品は1個＝1マス（重ねない＝人間の決定3）。
+	# 2. ⚠⚠ 消耗品は **1種類＝1マス**（2026-09-10・人間の決定「⚠ 1マスに重ねて x3 と出す」）。
+	#    ⚠ 前は「1個＝1マス」だった（⚠ 人間の決定3「重ねない」）。⚠ 覆した回。
 	var before_potion: int = GameManager.get_inventory_slots_used()
 	GameManager.add_to_inventory(GameStateKeys.ITEM_STAMINA_POTION, 3, GameStateKeys.ITEM_TYPE_CONSUMABLE)
-	print("  消耗品を 3 個足す -> %d マス（+3 が正解＝重ねない）" % GameManager.get_inventory_slots_used())
-	if GameManager.get_inventory_slots_used() != before_potion + 3:
-		push_error("[DebugBoot] 消耗品の数え方が 1個＝1マス になっていない")
+	print("  消耗品を 3 個足す -> %d マス（⚠ +1 が正解＝重ねる）" % GameManager.get_inventory_slots_used())
+	if GameManager.get_inventory_slots_used() != before_potion + 1:
+		push_error("[DebugBoot] 消耗品の数え方が 1種類＝1マス になっていない")
+	# ⚠ もう3個足してもマスは増えないこと（⚠ 2回目以降は0マス）。
+	var before_more: int = GameManager.get_inventory_slots_used()
+	GameManager.add_to_inventory(GameStateKeys.ITEM_STAMINA_POTION, 3, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+	print("  同じものをもう 3 個 -> %d マス（⚠ 増えないのが正解） / 所持 %d 個" % [
+		GameManager.get_inventory_slots_used(),
+		GameManager.get_item_count(GameStateKeys.ITEM_STAMINA_POTION),
+	])
+	if GameManager.get_inventory_slots_used() != before_more:
+		push_error("[DebugBoot] 既に持っている品でマスが増えた（重ねられていない）")
 
-	# 3. 装飾も同じ。⚠ 作業場のくじで1個ずつ増える＝マスを食う筆頭（未決7）。
+	# 3. 装飾も同じ。⚠ 作業場のくじで1個ずつ増える＝マスを食う筆頭だった（未決7）。
 	var before_part: int = GameManager.get_inventory_slots_used()
 	GameManager.add_to_inventory("part_gem_atk_1", 5, GameStateKeys.ITEM_TYPE_PART)
-	print("  装飾を 5 個足す -> %d マス（+5 が正解）" % GameManager.get_inventory_slots_used())
-	if GameManager.get_inventory_slots_used() != before_part + 5:
-		push_error("[DebugBoot] 装飾の数え方が 1個＝1マス になっていない")
+	print("  装飾を 5 個足す -> %d マス（⚠ +1 が正解）" % GameManager.get_inventory_slots_used())
+	if GameManager.get_inventory_slots_used() != before_part + 1:
+		push_error("[DebugBoot] 装飾の数え方が 1種類＝1マス になっていない")
 
 	# 4. 装備は個体なので 1個＝1マス。
 	var before_equip: int = GameManager.get_inventory_slots_used()
@@ -4723,6 +4733,59 @@ func _report_inventory() -> void:
 			int(row.get(GameManager.SLOT_ENTRY_GRADE, 0)),
 			str(row.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, "")),
 		])
+
+	# 5-b. ⚠⚠ マスが個数を持っていること（2026-09-10・重ねる形にした回）。
+	#    ⚠ 数を出すのは `ItemIcon` の右下。⚠ その元になるのがこの `count`。
+	#    ⚠ 入っていないと、⚠ マスに数が出ないまま「6個持っているのに1個に見える」。
+	print("[DebugBoot] --- マスが持つ個数（SLOT_ENTRY_COUNT）---")
+	var potion_slot: Dictionary = {}
+	for entry: Variant in GameManager.get_inventory_slot_entries():
+		if str((entry as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")) == (
+			GameStateKeys.ITEM_STAMINA_POTION
+		):
+			potion_slot = entry
+			break
+	print("  スタミナポーションのマス count=%s（⚠ 所持 %d と同じが正解）" % [
+		str(potion_slot.get(GameManager.SLOT_ENTRY_COUNT, "無し")),
+		GameManager.get_item_count(GameStateKeys.ITEM_STAMINA_POTION),
+	])
+	if int(potion_slot.get(GameManager.SLOT_ENTRY_COUNT, -1)) != GameManager.get_item_count(
+		GameStateKeys.ITEM_STAMINA_POTION
+	):
+		push_error("[DebugBoot] マスの個数が所持数と合っていない")
+
+	# 5-c. ⚠ 捨てる個数を選べること（人間の決定「⚠ 捨てるのは選べるように」）。
+	#    ⚠ 画面のボタンは押せないが、⚠ 呼ばれる関数は同じ（⚠ ここが唯一の確かめ方）。
+	print("[DebugBoot] --- 捨てる個数（discard_inventory_slot）---")
+	var potion_index: int = -1
+	var layout_now: Array = GameManager.get_inventory_slot_layout()
+	for i: int in range(layout_now.size()):
+		if str((layout_now[i] as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")) == (
+			GameStateKeys.ITEM_STAMINA_POTION
+		):
+			potion_index = i
+			break
+	var held_before: int = GameManager.get_item_count(GameStateKeys.ITEM_STAMINA_POTION)
+	var slots_kept: int = GameManager.get_inventory_slots_used()
+	var _d1: bool = GameManager.discard_inventory_slot(potion_index, 2)
+	print("  2個捨てる -> 所持 %d -> %d（⚠ -2 が正解） / マス %d（⚠ 減らないのが正解）" % [
+		held_before, GameManager.get_item_count(GameStateKeys.ITEM_STAMINA_POTION),
+		GameManager.get_inventory_slots_used(),
+	])
+	if GameManager.get_item_count(GameStateKeys.ITEM_STAMINA_POTION) != held_before - 2:
+		push_error("[DebugBoot] 捨てた個数が2個になっていない")
+	if GameManager.get_inventory_slots_used() != slots_kept:
+		push_error("[DebugBoot] まだ残っているのにマスが空いた")
+	# ⚠ 持っている数より多く捨てても負にならず、⚠ マスが空くこと。
+	var _d2: bool = GameManager.discard_inventory_slot(potion_index, 999)
+	print("  999個捨てる -> 所持 %d（⚠ 0 が正解） / マス %d（⚠ 1つ減るのが正解）" % [
+		GameManager.get_item_count(GameStateKeys.ITEM_STAMINA_POTION),
+		GameManager.get_inventory_slots_used(),
+	])
+	if GameManager.get_item_count(GameStateKeys.ITEM_STAMINA_POTION) != 0:
+		push_error("[DebugBoot] 全部捨てたのに残っている（または負になった）")
+	if GameManager.get_inventory_slots_used() != slots_kept - 1:
+		push_error("[DebugBoot] 0個になったのにマスが空かない")
 
 	# ⚠ 装備の検証はここ（⚠ 下の実測でマスを 315 まで埋めるので、⚠ そのあとだと個体を作れない）。
 	_report_inventory_equip()
