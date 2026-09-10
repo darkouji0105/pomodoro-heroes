@@ -3798,8 +3798,8 @@ const LAYOUT_PATHS: Array[String] = [
 	"Layout/BottomArea",
 	"Layout/BottomArea/BottomLayout",
 	"Layout/BottomArea/BottomLayout/ResourceRow",
-	"Layout/BottomArea/BottomLayout/MaterialsScroll",
-	"Layout/BottomArea/BottomLayout/MaterialsScroll/MaterialsDisplay",
+	# ⚠ `MaterialsScroll` / `MaterialsDisplay` は消した（2026-09-10）。
+	#   ⚠ 素材16件は右上の `ResourceBar` へ移り、⚠ 拠点の下段から無くなったため。
 	"Layout/BottomArea/BottomLayout/NavigationButtons",
 ]
 

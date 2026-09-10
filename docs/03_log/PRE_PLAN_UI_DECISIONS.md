@@ -13,6 +13,18 @@
 > §1・§2・§3・§5 にあった（**アイコンの見た目 ／ 最小サイズ ／ 部品の一覧 ／ 決めたいこと**）。
 > **古い記述は消さずに「前は〜だった」と残してある**（何がいつ変わったかを追えるようにするため）。
 
+> ⚠⚠⚠ **2026-09-10 にもう一度更新した**（ポモドーロ4画面・増加の演出・右上の資源。**コミット22本**）。
+> **§2-2 ／ §2-3 ／ §3 ／ §4 ／ §5 が動いた。** 経緯は `NEXT_STEPS.md` §0-UI-B。
+>
+> ⚠⚠ **この回で一番大事なこと**：**線画の SVG は 48 x 48 で読み込まれる。**
+> `TextureRect` を `expand_mode = KEEP_SIZE`（既定）のままにすると
+> **最小サイズがテクスチャの 48px になり、`custom_minimum_size` が効かない。**
+> `ResourceDisplay` がこれで、**24 と書いてあるのに 48px で出ていた**（2026-09-09 〜 09-10）。
+> **絵を入れる器を作るときは `EXPAND_IGNORE_SIZE` にすること。**
+>
+> ⚠ **測った数字が台帳と違ったら、まずコードの回帰を疑うこと。**
+> この不具合のとき、設計役は「台帳が間違っている」と報告した。**逆だった。**
+
 ---
 
 ## 0. どこで実物を見るか
@@ -59,47 +71,56 @@
 
 > ⚠⚠ **数値は 2026-09-08 の実測に更新した。** ボタンの余白・画面ルートの余白（24→32）・
 > 倉庫の作り替えで**ほぼ全部が動いた**。⚠ **大きく動いたのは倉庫だけ**（下記）。
-> ⚠ `scenario=theme` が**全46シーンを読めるかだけは見ている**（測ってはいない）。
+> ⚠ `scenario=theme` が**全シーンを読めるかだけは見ている**（測ってはいない）。⚠ **2026-09-10 で 49 枚。**
+>
+> ⚠⚠ **2026-09-10 に §2-2 ／ §2-3 ／ §2-4 の数字を取り直した。** ⚠ 動いた理由は2つで、
+> ⚠ **(1) 右上に資源が乗ったぶん横が増えた** ／ ⚠ **(2) アイコンが 48px で出ていた不具合を直したぶん縦が戻った**。
 
 ### 2-1. 入口・拠点
 
 | # | 画面 | パス | 直下の構成 | 最小 | 決めるべきこと |
 |---|---|---|---|---|---|
 | 1 | タイトル | `title/title_screen.tscn` | Background / TitleLabel / ButtonContainer / ErrorLabel | — | ロゴの扱い（いまは文字だけ）／ ボタン3つの並び |
-| 2 | 拠点 | `base/base_screen.tscn` | Background / Layout | — | **下段のボタンが7個ある**（UIテストを含む）。並べ方 |
+| 2 | 拠点 | `base/base_screen.tscn` | Background / Layout（TopArea / BottomArea） | 下段 **671 x 178** | ⚠ **2026-09-10 に金・スタミナ・素材16件を右上へ移した**（⚠ 下段は **1090 x 294 → 671 x 178**）。⚠ 下段に残るのは**ポーションとボタン7個**（UIテストを含む） |
 | 3 | ギルド | `guild/guild_screen.tscn` | Background / CenterContainer | 96 x 300 | 5つの入口の並べ方 |
 | 4 | 未実装の代替 | `ui/placeholder_screen.tscn` | Background / Layout | — | そのままでよいか |
 
 ### 2-2. ポモドーロ
 
+> ⚠⚠ **2026-09-09 に5枚とも作り替えた**（人間のモック）。⚠ **絶対座標（`anchor` ＋ `offset` 直書き）
+> で組まれた唯一の画面群**で、⚠ コンテナが1つも無く**最小サイズが測れなかった**。⚠ いまは測れる。
+
 | # | 画面 | パス | 直下の構成 | 最小 | 決めるべきこと |
 |---|---|---|---|---|---|
-| 5 | ポモドーロ（器） | `pomodoro/pomodoro.tscn` | Background / CurrentViewContainer / QuitButton | — | 4ビューの切り替わり方 |
-| 6 | 加護を選ぶ | `pomodoro/protection_select_view.tscn` | TitleLabel / VBoxContainer | — | 3択の見せ方（ライト・ミドル・ハード） |
-| 7 | 集中中 | `pomodoro/focus_view.tscn` | SetLabel / TimerLabel / InstructionLabel / TitleEdit / StartButton | — | **人間の宿題「作業中のタイトルを大きく」**。タイマーの大きさ |
-| 8 | 休憩 | `pomodoro/break_view.tscn` | TypeLabel / TimerLabel / SkipButton | — | 集中中との差の付け方 |
-| 9 | 振り返り | `pomodoro/reflection_view.tscn` | TitleLabel / TimerLabel / InstructionLabel / ReflectionEdit / WarningLabel / CompleteButton | — | 入力欄の大きさ／警告の出し方 |
+| 5 | ポモドーロ（器） | `pomodoro/pomodoro.tscn` | Background / Margin → Layout（TopBar / CurrentViewContainer） | **64 x 160** | ⚠ **決着済み**。⚠ 上部バーは「中央にセットの点 ／ 右に中断」 |
+| 6 | 加護を選ぶ | `pomodoro/protection_select_view.tscn` | Layout（TitleLabel / Choices） | **480 x 226** | ⚠ **決着済み**。⚠ 3択は**並列**（真鍮ゼロ）／ ⚠ 「左に名前・右に値」。⚠ 値は `.tres` の**最後のしきい値**から引く |
+| 7 | 集中中 | `pomodoro/focus_view.tscn` | Layout（HeadingSlot / **TimerRing** / InputBlock / StartButton） | **600 x 480** | ⚠ **決着済み**。⚠ **開始後は入力欄が大きいタイトルに化ける**（人間の宿題） |
+| 8 | 休憩 | `pomodoro/break_view.tscn` | Layout（TypeLabel / **TimerRing** / SkipButton） | **240 x 374** | ⚠ **決着済み**。⚠ 見出しの有無で集中中と区別。⚠ 幅240 = **輪の直径** |
+| 9 | 振り返り | `pomodoro/reflection_view.tscn` | Layout（TitleLabel / **TimerRing** / InputBlock / CompleteButton） | **600 x 542** | ⚠ **決着済み**。⚠ 輪を足したら 782 になったので**入力欄を 160 → 80** にした |
+
+⚠ **器 160 ＋ 一番高い振り返り 542 = 702 / 720。** ⚠ 余裕は18px。⚠ **行を増やすならここを測り直す。**
+⚠ **集中中は右上の通貨を隠す**（`ResourceHud.set_shown(false)`。⚠ 戻すのは `SceneManager`）。
 
 ### 2-3. ギルド（育てる・作る・買う）
 
 | # | 画面 | パス | 直下の構成 | 最小 | 決めるべきこと |
 |---|---|---|---|---|---|
 | 10 | 倉庫 | `guild/warehouse_screen.tscn` | Background / Layout | **838 x 686** | ⚠ **2026-09-08 に作り替えた**。マス目 **10列 × 10行** × 5ページ（**1ページ100マスは据え置き**）／ 右に**常設の詳細パネル**（300px）／ 宝箱タブは種類ごとの行 ／ ⚠ **前は 1036 x 388・20列 × 5行**。⚠ **縦が 686 / 720 と詰まっている** |
-| 11 | 育成 | `guild/training_screen.tscn` | Background / Margin | 321 x 442 | レベル・必要素材の並べ方 |
+| 11 | 育成 | `guild/training_screen.tscn` | Background / Margin | **411 x 410** | レベル・必要素材の並べ方 |
 | 12 | ステータスのノード | `guild/stat_node_screen.tscn` | Background / Margin | — | ツリーの描き方 |
-| 13 | スキル選択 | `guild/skill_select_screen.tscn` | Background / Margin | 399 x 554 | 枠と候補の見せ方 |
-| 14 | 装備 | `guild/equipment_screen.tscn` | Background / Margin | **905 x 561** | **5部位 ＋ 装飾7枠**。⚠⚠ **枠がまだ文字の行のまま**（倉庫はマスになった）。⚠ **段階③④の見た目も入っていない**（自前の表示コードを持っているため）＝**次に直すならここ** |
-| 15 | 研究 | `guild/research_screen.tscn` | Background / Margin | 387 x 238 | ツリー ／ **確認モーダルが無い**（宿題） |
-| 16 | 作業場 | `guild/workshop_screen.tscn` | Background / Tick(Timer) / Margin | 132 x 233 | 製作キューと残り時間 |
-| 17 | ショップ | `guild/shop_screen.tscn` | Background / Margin | 193 x 238 | 日替わり・週替わり・月替わりの3枠 |
+| 13 | スキル選択 | `guild/skill_select_screen.tscn` | Background / Margin | **427 x 522** | 枠と候補の見せ方 |
+| 14 | 装備 | `guild/equipment_screen.tscn` | Background / Margin | **905 x 606** | **5部位 ＋ 装飾7枠**。⚠⚠ **枠がまだ文字の行のまま**（倉庫はマスになった）。⚠ **段階③④の見た目も入っていない**（自前の表示コードを持っているため）＝**次に直すならここ** |
+| 15 | 研究 | `guild/research_screen.tscn` | Background / Margin | **411 x 206** | ツリー ／ **確認モーダルが無い**（宿題） |
+| 16 | 作業場 | `guild/workshop_screen.tscn` | Background / Tick(Timer) / Margin | **427 x 201** | 製作キューと残り時間 |
+| 17 | ショップ | `guild/shop_screen.tscn` | Background / Margin | **443 x 206** | 日替わり・週替わり・月替わりの3枠 |
 
 ### 2-4. 冒険（シナリオ側）
 
 | # | 画面 | パス | 直下の構成 | 最小 | 決めるべきこと |
 |---|---|---|---|---|---|
 | 18 | 冒険を選ぶ | `adventure/adventure_select.tscn` | Background / Layout | 362 x **680** | **縦が 720 に近い**。ステージが増えたらはみ出す（⚠ 前は 708） |
-| 19 | 編成プリセット | `adventure/party_preset_screen.tscn` | Background / Margin | 509 x 382 | 3枠 × プリセット |
-| 20 | フロアのマップ | `adventure/floor_map.tscn` | Background / ChestPopup / Layout | 536 x 416 | ノードの見せ方 |
+| 19 | 編成プリセット | `adventure/party_preset_screen.tscn` | Background / Margin | **509 x 350** | 3枠 × プリセット |
+| 20 | フロアのマップ | `adventure/floor_map.tscn` | Background / ChestPopup / Layout | **536 x 416** | ノードの見せ方 |
 | 21 | フロアのレリック | `adventure/floor_relic_select.tscn` | Background / Layout | 400 x 200 | 3択の見せ方 |
 | 22 | フロアのショップ | `adventure/floor_shop.tscn` | Background / Layout | 369 x 234 | 品と回復の並び |
 | 23 | 戦闘 | `adventure/battle.tscn` | Background / PartyUnitsContainer(Node2D) / EnemyUnitsContainer(Node2D) / HUD(CanvasLayer) / ResultView | — | **唯一 Node2D を使う画面**。HUD・スキルボタン・結果画面 |
@@ -128,10 +149,15 @@
 | ⚠ **PartSlotRow** | `.gd` のみ（**2026-09-08 新設**） | それを1行に並べる器。`2 / 7` を数える | — |
 | ⚠ **UiButton** | `ui/components/ui_button.tscn`（**2026-09-08 新設**） | **4階層**（SECONDARY / PRIMARY / GHOST / DANGER）。⚠ `PrimaryButton` を置き換えた | ⚠ **決着済み**。DANGER は**まだどこにも割り当てていない** |
 | ⚠ **IconTextures** | `scripts/utils/icon_textures.gd`（**2026-09-08 新設**） | 線画（SVG）の対応表。**無ければ `Glyphs`（絵文字）に落ちる** | いつ画像に差し替えるか |
-| **ResourceDisplay** | `ui/components/resource_display.tscn` | アイコン ＋ 数値（`current/max` も） | **アイコンが未設定**（`icon_texture` が空）。⚠ **線画が入ったので当てられる** |
+| **ResourceDisplay** | `ui/components/resource_display.tscn` | アイコン ＋ 数値（`current/max` も）。⚠ `resource_id` を渡すと絵が付く。⚠ **増えたときに数字が回る**（`play_gain()`）。⚠ **着地先のグループに自分で入る** | ⚠⚠ **決着済み**。⚠⚠ **`expand_mode` を `EXPAND_IGNORE_SIZE` から戻さないこと**（⚠ 戻すと SVG の 48px が最小になり、⚠ 全画面が静かに膨らむ。⚠ 2026-09-09 に実際に起きた） |
 | **ModalDialog** | `ui/components/modal_dialog.tscn` | 暗幕 ＋ 中央のパネル ＋ ボタン。⚠ **見出し・中身・ボタンの文言を渡せる**（2026-09-08） | ⚠ **決定39は入った**。⚠ 暗幕は**全画面の黒 0.6 のまま** |
 | **DialogBase** | `ui/components/dialog_base.tscn` | モーダルの土台 | 同上 |
 | **UnitView** | `adventure/unit_view.tscn` | Body(ColorRect) / GlyphLabel / HpBar / ShieldBar / StatusChips / NameLabel | **戦闘のキャラ。いまは色の四角＋絵文字**（⚠ **線画に差し替えていない**） |
+| ⚠ **ResourceHud** | `ui/components/resource_hud.gd`（**2026-09-10 新設**） | ⚠⚠ **ページをまたぐ常駐**（`CanvasLayer`・layer 40）。⚠ `SceneManager` が `root` に1つ作る（⚠ Autoload は増やさない）。⚠ 中身は**通貨3つだけ** | ⚠ **決着済み**。⚠ 「戻る」と重なる件は、⚠ 画面側が `reserved_width()` ぶん空けて避ける |
+| ⚠ **ResourceBar** | `ui/components/resource_bar.gd`（**2026-09-10 新設**） | ⚠ カプセルのチップを並べる器。⚠ `show_currencies` / `show_materials` で中身が変わる。⚠ **拠点だけ素材16件**（⚠ 中に折り返す器を作る） | ⚠ **0個の素材は出さない**＝⚠ **増えた瞬間に並びが横にずれる**（⚠ 未決） |
+| ⚠ **ResourceGainEffect** | `ui/components/resource_gain_effect.gd`（**2026-09-09 新設**） | ⚠⚠ **リソースの移動に紐づく**（⚠ `resource_changed` / `material_changed` を自分で見る）。⚠ 増えたときだけ ／ ⚠ 同じフレームはまとめて1回 ／ ⚠ **layer 300（一番上）** ／ ⚠ 窓が開いている間は待つ | ⚠ **素材16件を同時に得ると数字が16段**になる（⚠ 上限が要るか未決） |
+| ⚠ **TimerRing** | `pomodoro/timer_ring.gd`（**2026-09-09 新設**） | ⚠ タイマーを囲む輪（⚠ 直径240・線2px・**満ちる向き**・12時から時計回り）。⚠ 溝は開始前から見えている | ⚠ **決着済み**。⚠ **線の端は丸くない**（⚠ `draw_arc()` に指定が無い） |
+| ⚠ **SetDots** | `pomodoro/set_dots.gd`（**2026-09-09 新設**） | ⚠ セットの進み。⚠ 済＝薄い点 ／ 今＝横長の器が満ちる ／ これから＝暗い点。⚠ **「1 / 4 Sets」の文字を置き換えた** | ⚠ 満ちる量は**いまのフェーズの進み**（⚠ 輪と同じ値）。⚠ セット1つぶんを厳密に測ってはいない |
 
 ---
 
@@ -142,7 +168,7 @@
 | **設定画面** | **1つも無い。** 音量・ミュートの UI（`SoundConfig` の値が起動時に効くだけ）。**セーブ構造ごと決める回が要る** | 要らない |
 | **研究の確認モーダル** | 解放時に確認が無い（⚠ **まだ無い**） | 要らない |
 | **ポモドーロの演出** | セット完了の知らせ ／ 作業中のタイトルを大きく ／ 休憩明けの自動開始 | 要らない |
-| **リソース獲得の演出** | **デモまで作った**（`tests/resource_gain_demo.tscn`）。飛ぶルート5種・複数飛ばし・設定7項目。**どれを採るか未決** | 要らない |
+| ✅ **リソース獲得の演出** | ⚠ **2026-09-10 に入った**（`ResourceGainEffect`）。⚠ 上へ山なり ／ 1860ms ／ ふくらみ90px ／ 個数は増える量で 1・3・5・8 ／ 着地で1.14倍＋数字が回る。⚠ **`tests/resource_gain_demo.*` はもう使っていない**（宿題77 で消す） | 要らない |
 | **BGM** | `play_bgm()` が無い（バスと音量欄だけ在る） | **要る（音源）** |
 | **SDキャラ** | 段階13。戦闘のユニットが色の四角のまま | **要る（絵）** |
 
@@ -156,14 +182,19 @@
 4. **余白と角丸** … ⚠ **余白は決まった**（画面ルート32 ／ 既定24 ／ モーダル24・16）。**角丸はアイコン（`icon_corner_radius`）とボタン（8）で別々のまま**
 5. ✅ **アイコンを画像にするか** … **線画（SVG）にした**。⚠ **いずれ画像に差し替える**（`IconTextures.ICON_SUFFIX` の1行）
 6. ✅ **モーダルの形** … **ウィンドウ形式**（見出し＋中身＋ボタンの文言）。⚠ **暗幕は黒 0.6 のまま**
-7. ⚠ **フォントの大きさの段** … **まだ決めていない**。いま在るのは 既定16 ／ ボタン14 ／ 見出し32 ／ タイマー64 の4つだけ
+7. ⚠ **フォントの大きさの段** … **まだ決めていない**。いま在るのは 既定16 ／ ボタン14 ／ 見出し32 ／ タイマー64 の4つ ＋ ⚠ **浮かぶ数字24**（`GainFloatLabel`）。
+   ⚠ **チップの数字はボタンと同じ14を使い回した**（⚠ 段を増やさないため）
+8. ✅ ⚠ **資源をどこに出すか** … ⚠ **右上に常駐**（2026-09-10）。⚠ 通貨3つは全画面 ／ ⚠ 素材16件は拠点だけ ／ ⚠ ポモドーロでは隠す
+9. ✅ ⚠ **資源の色** … ⚠ **7色**（通貨3＋素材4系統）。⚠ **新しい色は足していない**。⚠ 右上のチップと飛ぶアイコンで同じ色（`ResourceBar.color_key_for()` の1本）
 
 **⚠ 決まっていないまま残っているもの**：
 
 - **DANGER のボタンをどの画面に当てるか**（冒険側。定義だけして未割り当て）
 - **暗幕の濃さ**（`modal_dialog.gd` の `DIMMER_COLOR`）
 - **`ItemSlot` のツールチップとドロップダウンの二重表示**（`item_slot.gd:152-157`）
-- **リソース獲得の演出**（`tests/resource_gain_demo.tscn`。ルート5種・設定7項目のどれを採るか）
+- ⚠ **素材16件を同時に得たときの数字の段数**（⚠ 16段になる。⚠ 上限が要るか）
+- ⚠ **0個の素材を右上に出すか**（⚠ 出さないので、⚠ 増えた瞬間に並びが横にずれる）
+- ⚠ **参考画像の「丸が枠の外へはみ出す」重なり**（⚠ いまは「左端いっぱい」で代用）
 
 ---
 
