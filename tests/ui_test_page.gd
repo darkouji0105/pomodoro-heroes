@@ -102,8 +102,6 @@ const PLAIN_SCENES: Array[String] = [
 	"res://scenes/adventure/floor_relic_select.tscn",
 	"res://scenes/adventure/floor_shop.tscn",
 	"res://scenes/ui/placeholder_screen.tscn",
-	# ⚠ リソース獲得の演出のデモ（2026-09-07）。⚠ リリース前に消す（宿題77 の仲間）。
-	"res://tests/resource_gain_demo.tscn",
 ]
 
 # ⚠⚠ その場に並べて見るもの（2026-09-07・人間の指示「⚠ 今のページから全部見れるように」）。

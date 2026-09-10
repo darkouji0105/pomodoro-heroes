@@ -32,7 +32,9 @@ const GROUP_DISPLAY: StringName = &"resource_display"
 const LAYER_INDEX: int = 300
 
 # ⚠ 飛ぶ軌道。⚠ Theme の定数 `route` がこの並びの添字を指す。
-#   ⚠ 中身はデモ（`tests/resource_gain_demo.gd`）と同じ式。⚠ デモはリリース前に消える（宿題77）。
+#   ⚠ 2026-09-07 はデモ（`tests/resource_gain_demo.*`）と式を突き合わせていた。
+#     ⚠ デモは 2026-09-10 に消した（⚠ 本番が Theme の値で動くようになり、⚠ 見比べる相手が
+#       ⚠ 「古い数字を持ったもう1本」になっていたため）。⚠ 式の正はここ。
 enum Route { STRAIGHT, ARC_UP, DETOUR, SWOOP, PULL_BACK }
 
 # ⚠ 「引いてから飛ぶ」で、⚠ 出だしに戻る割合。

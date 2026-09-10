@@ -4162,8 +4162,6 @@ const LAYOUT_SCENES: Array[String] = [
 	# ⚠ UI テストのページ（2026-09-06）。⚠ 中身は全部コードで積むので、開かないと分からない。
 	#   ⚠ リリース前に消すときは、⚠ この行も一緒に消す。
 	"res://tests/ui_test_page.tscn",
-	# ⚠ リソース獲得の演出のデモ（2026-09-07）。⚠ 絵は取れないが、⚠ 開いて赤が出ないことは測れる。
-	"res://tests/resource_gain_demo.tscn",
 	# ⚠ 段階14-e のフロア内ショップ。⚠ 開くだけで無料ガチャが1回引かれる
 	#   （測るために開くので、状態に宝箱が1個積まれる。⚠ 保存はしない）。
 	"res://scenes/adventure/floor_shop.tscn",
