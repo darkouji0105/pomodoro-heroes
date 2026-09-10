@@ -301,8 +301,8 @@ func _spawn_float(resource_id: String, at: Vector2, amount: int) -> void:
 
 	var label: Label = Label.new()
 	label.text = "+%d" % amount
-	label.theme_type_variation = &"GainLabel"
-	label.add_theme_font_size_override("font_size", _constant(&"float_font"))
+	# ⚠ 素は白。⚠ 色は下の `modulate` で乗せる（⚠ 大きさも色も Theme が持つ）。
+	label.theme_type_variation = &"GainFloatLabel"
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(label)
 
@@ -310,7 +310,7 @@ func _spawn_float(resource_id: String, at: Vector2, amount: int) -> void:
 	await field.get_tree().process_frame
 	if not is_instance_valid(row):
 		return
-	row.modulate = _color(&"flyer")
+	row.modulate = _color_of(resource_id)
 	row.global_position = at - row.size * 0.5
 
 	var rise: float = float(_constant(&"rise"))
@@ -343,7 +343,7 @@ func _spawn_flyer(
 	var side: float = float(_constant(&"icon"))
 	icon.custom_minimum_size = Vector2(side, side)
 	icon.size = icon.custom_minimum_size
-	icon.modulate = _color(&"flyer")
+	icon.modulate = _color_of(resource_id)
 	field.add_child(icon)
 	icon.global_position = from - icon.size * 0.5
 	icon.visible = false
@@ -427,3 +427,16 @@ func _constant(name: StringName) -> int:
 
 func _color(name: StringName) -> Color:
 	return field.get_theme_color(name, &"ResourceGainEffect")
+
+
+# ⚠ その資源の色（2026-09-10・人間の指示「⚠ 色も変えて。⚠ 全部緑色」）。
+#   ⚠⚠ **右上のチップと同じ色**にする。⚠ そうすると飛んでいる最中に
+#   ⚠ 「どれが増えたか」が色で分かる。
+# ⚠ 名前の決め方は `ResourceBar.color_key_for()` の1本（⚠ ここで系統を判定しない。
+#   ⚠ 2箇所で判定するとチップと飛ぶアイコンで色が食い違う）。
+# ⚠ 色を決めていない資源は増える緑のまま（⚠ 落ちない）。
+func _color_of(resource_id: String) -> Color:
+	var key: StringName = StringName(ResourceBar.color_key_for(resource_id))
+	if field.has_theme_color(key, &"ResourceChip"):
+		return field.get_theme_color(key, &"ResourceChip")
+	return _color(&"flyer")

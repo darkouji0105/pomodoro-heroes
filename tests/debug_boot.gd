@@ -4013,6 +4013,25 @@ func _report_gain() -> void:
 				now += 1
 		float_max = maxi(float_max, now)
 	print("  ⚠ 出どころの数字 = 同時に最大 %d 個（⚠ 3種増やしたので 3 個が正解）" % float_max)
+
+	# ⚠ 資源ごとに色が変わるか（2026-09-10・人間の指示「⚠ 色も変えて。⚠ 全部緑色」）。
+	#   ⚠ 絵は取れないが、⚠ 引いた色そのものは取れる。⚠ 全部同じ値なら効いていない。
+	var colors: Dictionary = {}
+	# ⚠ IDを直書きしない（AGENTS.md）。⚠ 実際に "decoration_material_1" と書いて
+	#   ⚠ 逃げ道の色になり、⚠ 正しくは `decor_material_` だと分かった（2026-09-10）。
+	for resource_id: String in [
+		GameStateKeys.GOLD, GameStateKeys.GEMS, GameStateKeys.STAMINA,
+		GameStateKeys.ITEM_CONSTRUCTION_MATERIAL_PREFIX + "1",
+		GameStateKeys.ITEM_TRAINING_MATERIAL_PREFIX + "1",
+		GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX + "1",
+		GameStateKeys.ITEM_DECOR_MATERIAL_PREFIX + "1",
+	]:
+		var color: Color = effect._color_of(resource_id)
+		colors[color.to_html(false)] = true
+		print("    %-26s -> #%s" % [resource_id, color.to_html(false)])
+	print("  ⚠ 色の種類 = %d（⚠ 1 なら全部同じ色＝効いていない）" % colors.size())
+	if colors.size() <= 1:
+		push_error("[DebugBoot] 資源ごとに色が変わっていない（全部同じ）")
 	if float_max < 3:
 		push_error("[DebugBoot] 出どころの数字が種類ぶん出ていない（最大 %d 個）" % float_max)
 

@@ -231,8 +231,9 @@ const GAIN_POP_MS: int = 540
 #   （⚠ 次の1個が着く前に必ず回り終わる）。
 const GAIN_COUNT_MS: int = 210
 
-# ⚠ 飛ぶアイコンの色。⚠ 線画は白1色なので、⚠ ここで着せる（`modulate`）。
-#   ⚠ 増える緑（`GainLabel`）と揃えてある。⚠ 浮かぶ数字も同じ色になる。
+# ⚠ 色が決まっていない資源のときの逃げ道（⚠ 増える緑）。
+#   ⚠⚠ ふつうは**資源ごとの色**（`CHIP_COLORS`）を着せる（2026-09-10・人間の指示
+#   「⚠ 色も変えて。⚠ 全部緑色」）。⚠ 右上のチップと同じ色にして、⚠ どれが飛んだか分かるようにする。
 const GAIN_FLYER_COLOR: String = "8ed99b"
 
 # --- ポモドーロのタイマーの輪とセットの点（2026-09-09・人間のモック）---
@@ -426,6 +427,11 @@ static func _build_labels(theme: Theme) -> void:
 	theme.set_color(&"font_color", &"GainLabel", _html(GAIN_FONT_COLOR))
 	theme.set_type_variation(&"MutedLabel", &"Label")
 	theme.set_color(&"font_color", &"MutedLabel", _html(MUTED_FONT_COLOR))
+	# ⚠ 増えたときに浮かぶ数字。⚠ 素は**白**にしておき、⚠ `modulate` で資源の色を乗せる
+	#   （2026-09-10）。⚠ 緑のままだと色を乗せても掛け算で濁る。
+	theme.set_type_variation(&"GainFloatLabel", &"Label")
+	theme.set_font_size(&"font_size", &"GainFloatLabel", GAIN_FLOAT_FONT)
+	theme.set_color(&"font_color", &"GainFloatLabel", Color.WHITE)
 
 
 static func _build_panels(theme: Theme) -> void:

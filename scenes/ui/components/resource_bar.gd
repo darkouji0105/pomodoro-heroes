@@ -122,14 +122,20 @@ func _make_chip(resource_id: String) -> PanelContainer:
 #   （⚠ 絵の振り分けと色の振り分けが互いにずれないように）。
 #   ⚠ 表に無いIDは白のまま（⚠ 色を決めていない資源が増えても落ちない）。
 func _color_of(resource_id: String, chip: PanelContainer) -> Color:
-	var key: String = resource_id
-	for prefix: Variant in IconTextures.MATERIAL_SERIES.keys():
-		if resource_id.begins_with(str(prefix)):
-			key = str(IconTextures.MATERIAL_SERIES[prefix])
-			break
+	var key: String = color_key_for(resource_id)
 	if not chip.has_theme_color(StringName(key), &"ResourceChip"):
 		return Color.WHITE
 	return chip.get_theme_color(StringName(key), &"ResourceChip")
+
+
+# ⚠ その資源の色を Theme から引くときの名前。⚠ 通貨はIDそのもの、⚠ 素材は系統。
+#   ⚠⚠ **増えたときの演出（`ResourceGainEffect`）も同じ口を使う**。
+#   ⚠ 2箇所で別々に判定すると、⚠ 右上のチップと飛ぶアイコンで色が食い違う。
+static func color_key_for(resource_id: String) -> String:
+	for prefix: Variant in IconTextures.MATERIAL_SERIES.keys():
+		if resource_id.begins_with(str(prefix)):
+			return str(IconTextures.MATERIAL_SERIES[prefix])
+	return resource_id
 
 
 func _refresh_all() -> void:
