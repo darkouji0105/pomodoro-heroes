@@ -167,6 +167,20 @@ const GAIN_FONT_COLOR: String = "8ed99b"
 #   ⚠ 使う先：⚠ 入力欄の上の説明文 ／ ⚠ 加護の3択の右側の値。
 #   ⚠ 新しい色ではない（⚠ GhostButton の文字と同じ値）。⚠ モックが両方に同じ色を当てていた。
 const MUTED_FONT_COLOR: String = "a89b94"
+# ⚠⚠ 説明文・注記の2段（2026-09-11・人間のモック「ギルド／育成」）。
+#   ⚠ モックは字の色を5段（tx 〜 tx5）で使い分けている。⚠ 上3段は既に在った
+#   （tx = LABEL_FONT_COLOR ／ tx2 = ボタンの文字 ／ tx3 = MUTED_FONT_COLOR）。
+#   ⚠ 下2段が無かったので足した。⚠ **新しく増えた色はこの2つだけ**。
+const DIM_FONT_COLOR: String = "7d6f68"     # ⚠ カードの説明文・行の副題・効果文
+const FAINT_FONT_COLOR: String = "5a4f49"   # ⚠ 小見出し（「この子の設定」）・注記
+# ⚠⚠ **文字の大きさの6段目**（⚠ 覆さない決定「5段だけ」に触る。⚠ 報告済み）。
+#   ⚠ モックは 10 / 11 / 12 / 13 / 15 / 18 を使っている。⚠ そのまま入れると段が11個になるので、
+#   ⚠ **10・11・12 → 12 ／ 13・14 → ボタンの14 ／ 15・16・18 → 既定の16** に丸めた。
+#   ⚠ ＝**増やした段は1つだけ**。⚠ これが無いと説明文が本文と同じ大きさになり、
+#   ⚠ モックの「行の中に3段の情報を積む」形が成立しない。
+const SMALL_FONT_SIZE: int = 12
+# ⚠ 仕切り線（ヘッダーの下・小見出しの横）。⚠ モックの `--div`。
+const DIVIDER_COLOR: String = "2e2724"
 
 # --- 入力欄（LineEdit / TextEdit）---
 #
@@ -258,6 +272,18 @@ const DOT_GAP: int = 8
 const PANEL_BG: String = "241d1a"
 const PANEL_BORDER: String = "3a302b"
 const PANEL_CORNER_RADIUS: int = 8
+# ⚠⚠ カード・行・沈めた欄・選択中の4つ（2026-09-11・人間のモック「ギルド／育成」）。
+#   ⚠ **新しい色は1つも足していない**。⚠ 地は既定の面（241d1a）か入力欄の地（1e1815）、
+#   ⚠ 枠は既定の面の枠か真鍮。⚠ 角丸もモックは 8 / 9 / 10 を使い分けていたが、
+#   ⚠ **既定の 8 に丸めた**（⚠ 1〜2px の差で値を3つ持つ意味が無い）。
+const CARD_PAD_H: int = 22          # ⚠ ギルドの入口カード
+const CARD_PAD_V: int = 20
+const ROW_PAD_H: int = 16           # ⚠ 一覧の行（育成のキャラ・スキルの候補）
+const ROW_PAD_V: int = 11
+const INSET_BG: String = "1e1815"   # ⚠ 沈めた欄（素材バー・コスト行）。⚠ 入力欄の地と同値
+# ⚠ 選択中・注目（琥珀）。⚠ 地は真鍮の暗い側、⚠ 枠は PrimaryButton の地と同値。
+const ACTIVE_BG: String = "221a14"
+const ACTIVE_BORDER: String = "a8791f"
 # ⚠ 右上に出す資源のチップ（2026-09-09・人間のモック「採用版」の `.hud`）。
 #   ⚠ 枠だけ既定の面より1段明るい（⚠ ボタンの枠と同じ値。⚠ 押せないが「欄」だと分かる濃さ）。
 #   ⚠ 内側の余白は左右16 / 上下8（⚠ モックの `padding:8px 16px`）。
@@ -432,6 +458,31 @@ static func _build_labels(theme: Theme) -> void:
 	theme.set_type_variation(&"GainFloatLabel", &"Label")
 	theme.set_font_size(&"font_size", &"GainFloatLabel", GAIN_FLOAT_FONT)
 	theme.set_color(&"font_color", &"GainFloatLabel", Color.WHITE)
+	# ⚠ 説明文（カードの本文・行の副題・スキルの効果文）。⚠ 本文より1段小さく1段暗い。
+	theme.set_type_variation(&"CaptionLabel", &"Label")
+	theme.set_font_size(&"font_size", &"CaptionLabel", SMALL_FONT_SIZE)
+	theme.set_color(&"font_color", &"CaptionLabel", _html(DIM_FONT_COLOR))
+	# ⚠ 小見出し（「この子の設定」「パッシブ」「検証用（リリース前に消す）」）。
+	#   ⚠ 説明文よりさらに引く。⚠ 押せるものではないことを色で言う。
+	theme.set_type_variation(&"SectionLabel", &"Label")
+	theme.set_font_size(&"font_size", &"SectionLabel", SMALL_FONT_SIZE)
+	theme.set_color(&"font_color", &"SectionLabel", _html(FAINT_FONT_COLOR))
+	# ⚠ 小さい琥珀（「選んだスキルは 枠2 に入ります」「剣士が Lv13 に上げられます」）。
+	#   ⚠ 色は真鍮の明るい側＝ボタンの focus と同じ値。⚠ 新しい色ではない。
+	theme.set_type_variation(&"AccentLabel", &"Label")
+	theme.set_font_size(&"font_size", &"AccentLabel", SMALL_FONT_SIZE)
+	theme.set_color(&"font_color", &"AccentLabel", _html("f0c04a"))
+	# ⚠ 小さい赤（「修練の証 60 が足りません」）。⚠ ErrorLabel の小さい版。
+	#   ⚠ 色は ErrorLabel と同値。⚠ 赤を2色にしない。
+	theme.set_type_variation(&"SmallErrorLabel", &"Label")
+	theme.set_font_size(&"font_size", &"SmallErrorLabel", SMALL_FONT_SIZE)
+	theme.set_color(&"font_color", &"SmallErrorLabel", _html(ERROR_FONT_COLOR))
+	# ⚠ 仕切り線。⚠ ヘッダーの下と小見出しの横で同じものを使う。
+	var rule: StyleBoxFlat = StyleBoxFlat.new()
+	rule.bg_color = _html(DIVIDER_COLOR)
+	rule.content_margin_top = 1.0
+	theme.set_stylebox(&"separator", &"HSeparator", rule)
+	theme.set_constant(&"separation", &"HSeparator", 1)
 
 
 static func _build_panels(theme: Theme) -> void:
@@ -476,6 +527,41 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_constant(&"h_separation", &"ChipFlow", CHIP_SEPARATION)
 	theme.set_constant(&"v_separation", &"ChipFlow", CHIP_SEPARATION)
 
+	# ⚠ カード・行・沈めた欄・選択中。⚠ 4つとも既定の面から余白と色だけを変える。
+	theme.set_type_variation(&"CardPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"CardPanel", _pad_panel(panel, CARD_PAD_H, CARD_PAD_V))
+	theme.set_type_variation(&"ListRowPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ListRowPanel", _pad_panel(panel, ROW_PAD_H, ROW_PAD_V))
+
+	var inset: StyleBoxFlat = panel.duplicate()
+	inset.bg_color = _html(INSET_BG)
+	theme.set_type_variation(&"InsetPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"InsetPanel", _pad_panel(inset, ROW_PAD_H, ROW_PAD_V))
+
+	# ⚠ 選択中の枠。⚠ カードと行の両方に当たるので余白は行に合わせる
+	#   （⚠ カードは中で自分の余白を持つ）。
+	var active: StyleBoxFlat = panel.duplicate()
+	active.bg_color = _html(ACTIVE_BG)
+	active.border_color = _html(ACTIVE_BORDER)
+	theme.set_type_variation(&"ActiveRowPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ActiveRowPanel", _pad_panel(active, ROW_PAD_H, ROW_PAD_V))
+	theme.set_type_variation(&"ActiveCardPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ActiveCardPanel", _pad_panel(active, CARD_PAD_H, CARD_PAD_V))
+
+	# ⚠ 右カラムの地（育成の詳細・スキルの右列）。⚠ 画面の地より1段明るい面。
+	#   ⚠ 枠も角丸も持たない（⚠ 画面の端まで伸びる帯なので）。
+	var side: StyleBoxFlat = StyleBoxFlat.new()
+	side.bg_color = _html("191413")
+	side.set_border_width_all(0)
+	side.border_width_left = 1
+	side.border_color = _html(DIVIDER_COLOR)
+	theme.set_type_variation(&"SidePanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"SidePanel", side)
+
+	# ⚠ ヘッダーの下の線。⚠ `ScreenHeader` が自前で `_draw()` するのでここが値を持つ
+	#   （⚠ `TimerRing` / `SetDots` と同じ置き方）。
+	theme.set_color(&"rule", &"ScreenHeader", _html(DIVIDER_COLOR))
+
 	var background: StyleBoxFlat = StyleBoxFlat.new()
 	background.bg_color = _html(BACKGROUND_BG)
 	theme.set_type_variation(&"BackgroundPanel", &"PanelContainer")
@@ -496,6 +582,17 @@ static func _build_inputs(theme: Theme) -> void:
 	# ⚠ 無効時の文字の色だけ、⚠ 型ごとに名前が違う（⚠ Godot 側の都合）。
 	theme.set_color(&"font_uneditable_color", &"LineEdit", _html(INPUT_PLACEHOLDER))
 	theme.set_color(&"font_readonly_color", &"TextEdit", _html(INPUT_PLACEHOLDER))
+
+
+# ⚠ 面を複製して内側の余白だけ変える。⚠ 色と枠と角丸は元のまま
+#   （⚠ 値をここで書き直すと、⚠ 面の色が2箇所に分裂する）。
+static func _pad_panel(source: StyleBoxFlat, horizontal: int, vertical: int) -> StyleBoxFlat:
+	var style: StyleBoxFlat = source.duplicate()
+	style.content_margin_left = horizontal
+	style.content_margin_right = horizontal
+	style.content_margin_top = vertical
+	style.content_margin_bottom = vertical
+	return style
 
 
 static func _input_style(border_hex: String, width: int) -> StyleBoxFlat:

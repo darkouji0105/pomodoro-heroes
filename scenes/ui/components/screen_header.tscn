@@ -6,12 +6,18 @@
 [node name="ScreenHeader" type="HBoxContainer"]
 script = ExtResource("1_screen_header")
 
-[node name="TitleLabel" type="Label" parent="."]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 1
-
 [node name="BackButton" parent="." instance=ExtResource("2_ui_button")]
 layout_mode = 2
+size_flags_vertical = 4
 label_key = "ui_common_back"
 variant = 2
+
+[node name="TitleLabel" type="Label" parent="."]
+layout_mode = 2
+size_flags_vertical = 1
+
+[node name="SubtitleLabel" type="Label" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 5
+theme_type_variation = &"CaptionLabel"
