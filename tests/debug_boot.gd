@@ -5082,6 +5082,43 @@ func _report_inventory() -> void:
 	_report_inventory_order()
 	_report_inventory_expand()
 	_report_inventory_capacity()
+	_report_warehouse_tabs()
+
+
+# 倉庫のタブ（2026-09-10・拠点の宝箱バッジが宝箱タブを開かなかった件）。
+#
+# ⚠⚠ 拠点は `TransferKeys.WAREHOUSE_TAB` に **文字列 "WarehouseScreen.TAB_CHEST"** を
+#   ⚠ 渡していて、⚠ 受け側の `TAB_INDEX.has()` が false になり、
+#   ⚠ **いつも持ち物タブが開いていた**（⚠ 赤も黄も出ない＝画面を見ても気づきにくい）。
+# ⚠ 送る側は定数に直したので、⚠ 綴り間違いは parse error になる（＝`--import` が言う）。
+# ⚠ ここで見るのは**受け側**：⚠ 4つのタブ id が全部 `TAB_INDEX` に在り、
+#   ⚠ 渡すと実際にそのタブが開くこと（⚠ `.tscn` の `metadata/_tab_index` とのズレも見る）。
+func _report_warehouse_tabs() -> void:
+	print("[DebugBoot] --- 倉庫のタブ（拠点の宝箱バッジの行き先）---")
+	var packed: PackedScene = load("res://scenes/guild/warehouse_screen.tscn")
+	if packed == null:
+		push_error("[DebugBoot] warehouse_screen.tscn が読めない")
+		return
+	for tab_id: String in [
+		WarehouseScreen.TAB_INVENTORY, WarehouseScreen.TAB_MATERIAL,
+		WarehouseScreen.TAB_CODEX, WarehouseScreen.TAB_CHEST,
+	]:
+		if not WarehouseScreen.TAB_INDEX.has(tab_id):
+			push_error("[DebugBoot] TAB_INDEX に '%s' が無い（渡しても持ち物タブが開く）" % tab_id)
+			continue
+		var wanted: int = int(WarehouseScreen.TAB_INDEX[tab_id])
+		# ⚠ 遷移せずに渡す。⚠ `_ready()` が `consume_transfer_data()` で取る。
+		SceneManager._transfer_data = {TransferKeys.WAREHOUSE_TAB: tab_id}
+		var screen: Control = packed.instantiate()
+		add_child(screen)
+		var opened: int = int((screen.get_node("Layout/Tabs") as TabContainer).current_tab)
+		print("  '%-9s' を渡す -> %d 番のタブが開いた（⚠ %d が正解）" % [tab_id, opened, wanted])
+		if opened != wanted:
+			push_error("[DebugBoot] '%s' を渡したのに %d 番が開いた（%d 番が正解）" % [
+				tab_id, opened, wanted
+			])
+		remove_child(screen)
+		screen.queue_free()
 
 
 # 枠の拡張と捨てる口（段階18-e・PLAN_INVENTORY.md §4-2）。

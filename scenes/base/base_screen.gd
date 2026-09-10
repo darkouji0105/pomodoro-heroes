@@ -238,10 +238,16 @@ func _go_to_screen(screen_id: String) -> void:
 	# データ付きで遷移
 	SceneManager.change_scene_with_data(path, {TransferKeys.SCREEN_ID: screen_id})
 
+# 宝箱のバッジ。⚠ 倉庫の宝箱タブを開いた状態で入る。
+#
+# ⚠⚠ 2026-09-10 に直した：⚠ ここは定数ではなく **文字列 `"WarehouseScreen.TAB_CHEST"`**
+#   ⚠ を渡していて、⚠ 受け側の `TAB_INDEX.has()` が false になり、
+#   ⚠ **いつも持ち物タブが開いていた**（⚠ 赤も黄も出ないまま静かに外れていた）。
+#   ⚠ 綴りを文字列で書かない（AGENTS.md）。⚠ 定数を渡せば、⚠ タブ番号が変わっても追従する。
 func _on_chest_badge_pressed() -> void:
 	SceneManager.change_scene_with_data(
 		"res://scenes/guild/warehouse_screen.tscn",
-		{TransferKeys.WAREHOUSE_TAB: "WarehouseScreen.TAB_CHEST"}
+		{TransferKeys.WAREHOUSE_TAB: WarehouseScreen.TAB_CHEST}
 	)
 
 func _on_save_pressed() -> void:
