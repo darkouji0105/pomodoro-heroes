@@ -53,7 +53,11 @@ const REWARD_GRID_COLUMNS: int = 6
 @onready var codex_list: VBoxContainer = $Layout/Tabs/CodexTab/CodexList
 @onready var open_all_button: UiButton = $Layout/Tabs/ChestTab/ChestFooter/OpenAllButton
 @onready var chest_list: VBoxContainer = $Layout/Tabs/ChestTab/ChestScroll/ChestList
-@onready var result_label: Label = $Layout/Tabs/ChestTab/ResultLabel
+# ⚠⚠ `ResultLabel` は消した（2026-09-10・人間が実機で見つけた）。
+#   ⚠ 2026-09-08 に開封結果の**窓**（マス目）ができたのに、⚠ その前からあった
+#     検証用の文字の行が残っていて、⚠ 開けるたびに窓と二重に出ていた。
+#   ⚠ 開けた中身を見せる口は `_show_reward_window()` の1本（AGENTS.md
+#     「検証用のコードを本番シーンに残さない」）。
 
 # ホバーで出る要約の器（2026-09-07）。⚠ 2026-09-08 から **自前の `ItemDetail` を持つ**
 #   （⚠ 常設パネルのものを引き取ると、⚠ パネルが空になる）。
@@ -556,13 +560,11 @@ func _on_open_chest_pressed(instance_id: String) -> void:
 		push_warning("[WarehouseScreen] open_chest failed: " + instance_id)
 		return
 
-	# 3. 窓で見せる（2026-09-08・段階⑤-③・モック4枚目）。
-	#    ⚠ ResultLabel にも積む（⚠ 画面の絵は取れないので、⚠ 検証はこちらで読む）。
+	# 3. 窓で見せる（2026-09-08・段階⑤-③・モック4枚目）。⚠ 見せる口はここ1本。
 	# ⚠ 増えた演出はここで呼ばない（2026-09-09）。⚠ `ResourceGainEffect` が
 	#   ⚠ `resource_changed` / `material_changed` を見て自分で流す
 	#   （人間の指示「⚠ リソースの移動に紐づけてほしい」）。⚠ ここで呼ぶと二重になる。
 	_show_reward_window(rewards, chest_title)
-	_append_opened_rewards(rewards, tr("ui_warehouse_opened"))
 
 func _on_open_all_pressed() -> void:
 	var state: Dictionary = GameManager.get_state()
@@ -586,7 +588,6 @@ func _on_open_all_pressed() -> void:
 	if opened_count > 0:
 		# ⚠ まとめて1つの窓（⚠ 5個開けて窓が5つ並ぶと閉じるだけで疲れる）。
 		_show_reward_window(combined, tr("ui_warehouse_open_all"))
-		_append_opened_rewards(combined, tr("ui_warehouse_opened"))
 
 # --- rewards 整形 ---
 
@@ -674,37 +675,6 @@ func _chest_name(instance_id: String) -> String:
 		return tr(str(chest_def.get(GameManager.CHEST_NAME_KEY, "")))
 	return tr("ui_warehouse_opened")
 
-
-func _append_opened_rewards(rewards: Dictionary, prefix: String) -> void:
-	var lines: Array[String] = []
-	if result_label.text != "":
-		lines.append(result_label.text)
-	if prefix != "":
-		lines.append(prefix)
-
-	# gold
-	if int(rewards.get(GameStateKeys.REWARD_GOLD, 0)) > 0:
-		lines.append("%s ×%d" % [tr("ui_res_gold"), int(rewards[GameStateKeys.REWARD_GOLD])])
-	# gems
-	if int(rewards.get(GameStateKeys.REWARD_GEMS, 0)) > 0:
-		lines.append("%s ×%d" % [tr("ui_res_gems"), int(rewards[GameStateKeys.REWARD_GEMS])])
-	# stamina
-	if int(rewards.get(GameStateKeys.REWARD_STAMINA, 0)) > 0:
-		lines.append("%s ×%d" % [tr("ui_res_stamina"), int(rewards[GameStateKeys.REWARD_STAMINA])])
-	# materials
-	var materials: Dictionary = rewards.get(GameStateKeys.REWARD_MATERIALS, {})
-	for mat_id: String in materials:
-		var amount: int = int(materials[mat_id])
-		if amount > 0:
-			lines.append("%s ×%d" % [tr("ui_res_" + mat_id), amount])
-	# inventory
-	var inv: Dictionary = rewards.get(GameStateKeys.REWARD_INVENTORY, {})
-	for item_id: String in inv:
-		var count: int = int(inv[item_id])
-		if count > 0:
-			lines.append("%s ×%d" % [tr("ui_res_" + item_id), count])
-
-	result_label.text = "\n".join(lines)
 
 func _empty_rewards() -> Dictionary:
 	return {

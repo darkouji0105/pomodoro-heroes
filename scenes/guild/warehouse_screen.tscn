@@ -144,8 +144,3 @@ label_key = "ui_warehouse_open_all"
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-
-[node name="ResultLabel" type="Label" parent="Layout/Tabs/ChestTab" unique_id=451351769]
-layout_mode = 2
-size_flags_horizontal = 3
-autowrap_mode = 3
