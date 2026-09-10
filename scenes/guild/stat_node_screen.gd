@@ -185,8 +185,10 @@ func _on_reset_pressed() -> void:
 	GameManager.reset_stat_nodes(_character_id)
 
 
+# ⚠ 誰の割り振りを見ていたかを渡して戻る（2026-09-11）。⚠ 渡さないと一覧に落ちて、
+#   ⚠ もう一度そのキャラを押し直すことになる。
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(TRAINING_PATH)
+	SceneManager.change_scene_with_data(TRAINING_PATH, {TransferKeys.CHARACTER_ID: _character_id})
 
 
 # --- シグナル ---

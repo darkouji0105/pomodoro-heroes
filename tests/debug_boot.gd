@@ -3856,6 +3856,20 @@ func _report_layout() -> void:
 				print("    ⚠ 振り返りの文言 = '%s'（⚠ Config の %d が入るのが正解）" % [shown, want])
 				if not shown.contains(str(want)):
 					push_error("[DebugBoot] 振り返りの文言に Config の文字数(%d)が入っていない" % want)
+			# ⚠⚠ 育成の一覧の行（2026-09-11・人間のモック B）。⚠ 絵は取れないが
+			#   ⚠ 「何行あるか」と「何と書いてあるか」は取れる。
+			#   ⚠ 行はコードで作るので、⚠ 0 行なら一覧が空のまま出ている。
+			#   ⚠ 検証用の3体は仕切りの下に来るので、⚠ 行数は キャラ数 + 仕切り1 になる。
+			if scene_path.get_file() == "training_screen.tscn" and raw_child.name == "Roster":
+				var rows: Array[String] = []
+				for grand: Node in raw_child.get_children():
+					if grand is PanelContainer:
+						rows.append(_row_text(grand as PanelContainer))
+				print("    ⚠ 育成の一覧 = %d 行（0 行なら組めていない）" % rows.size())
+				for text: String in rows:
+					print("      %s" % text)
+				if rows.is_empty():
+					push_error("[DebugBoot] 育成の一覧が 0 行（行が組めていない）")
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので
@@ -3943,16 +3957,8 @@ const LAYOUT_SCENE_SHOW: Dictionary = {
 		"Margin/Layout/ListPanel": false,
 		"Margin/Layout/DetailPanel": true,
 	},
-	# ⚠ ギルドは段階解放でボタンが1つずつ増える器。⚠ 開いた直後は1つも解放されておらず、
-	#   ⚠ 見出しと戻るだけの姿を測っていた（72 x 72）。⚠ 段階11で6個目が増えたので、
-	#   ⚠ 全部出した姿を測る（「5個前提の並びに6個目」を数字で見る唯一の道具）。
-	"res://scenes/guild/guild_screen.tscn": {
-		"CenterContainer/Layout/WarehouseButton": true,
-		"CenterContainer/Layout/ShopButton": true,
-		"CenterContainer/Layout/TrainingButton": true,
-		"CenterContainer/Layout/ResearchButton": true,
-		"CenterContainer/Layout/WorkshopButton": true,
-	},
+	# ⚠ ギルドは 2026-09-11 に `_layout_prepare_for()` へ移した（⚠ カードは解放の有無で
+	#   ⚠ 中身ごと変わるため、⚠ `visible` を立てるだけでは中身が空き枠のままになる）。
 }
 
 
@@ -3962,7 +3968,25 @@ const LAYOUT_SCENE_SHOW: Dictionary = {
 #   ⚠ `dungeon_map` の「⚠ 現在地を真ん中に寄せる」（段階20-c）の検証が
 #   ⚠ 「スクロールが先頭のまま」で赤を出す（⚠ 2026-09-06に実測。⚠ 入口が一番下だから）。
 # ⚠ ＝⚠ 3枚の直前で初めて歩く。⚠ `dungeon_map` はそれより前に並べておくこと。
+# ⚠ 行の中の Label を左から順につないだもの（⚠ 設計役は絵を見られないので文で取る）。
+func _row_text(row: PanelContainer) -> String:
+	var parts: Array[String] = []
+	for label: Node in row.find_children("*", "Label", true, false):
+		var text: String = (label as Label).text
+		if text != "":
+			parts.append(text)
+	return " ／ ".join(parts)
+
+
 func _layout_prepare_for(scene_path: String) -> void:
+	# ⚠⚠ ギルドは段階解放で入口が1つずつ増える器（2026-09-11）。
+	#   ⚠ 開いた直後は5つとも閉じていて、⚠ **空き枠が6つ並んだ姿**を測ってしまう。
+	#   ⚠ 前は `LAYOUT_SCENE_SHOW` でボタンを1つずつ `visible = true` にしていたが、
+	#   ⚠ カードは**解放されているかで中身ごと変わる**ので、⚠ 状態のほうを作る。
+	if scene_path == "res://scenes/guild/guild_screen.tscn":
+		for screen_id: String in GuildScreen.GUILD_SCENES:
+			GameManager.unlock_screen(screen_id)
+		return
 	if scene_path not in [
 		"res://scenes/adventure/dungeon_chest.tscn",
 		"res://scenes/adventure/dungeon_relic_select.tscn",

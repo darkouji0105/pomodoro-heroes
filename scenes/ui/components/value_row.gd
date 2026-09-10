@@ -88,6 +88,29 @@ func setup(
 	add_child(_value_label)
 
 
+# ⚠⚠ 3つ目の欄（2026-09-11・人間のモック「ギルド／育成」C）。
+#
+# ⚠ 「⚠ 最終値 ／ ⚠ そのうち装備で増えているぶん」を**別の欄に分ける**。
+#   ⚠ 前は装備画面が値の後ろに `"  (+8)"` と足していた＝⚠ 桁が揃わなかった。
+# ⚠ 幅を固定するのは、⚠ 増えていない行（欄が空）でも値の右端が揃うようにするため。
+#   ⚠ 空の欄も置く（⚠ 置かないと行ごとに値の位置がずれる）。
+const DELTA_WIDTH: int = 52
+
+var _delta_label: Label = null
+
+
+func set_delta(delta_text: String, variation: StringName = VARIATION_GAIN) -> void:
+	if _delta_label == null:
+		_delta_label = Label.new()
+		_delta_label.name = "Delta"
+		_delta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_delta_label.custom_minimum_size = Vector2(DELTA_WIDTH, 0.0)
+		add_child(_delta_label)
+	_delta_label.text = delta_text
+	if variation != VARIATION_PLAIN:
+		_delta_label.theme_type_variation = variation
+
+
 # 検証用（⚠ 設計役は絵を見られない）。⚠ ゲームのロジックから呼ばないこと。
 func to_text() -> String:
 	var parts: Array[String] = []
@@ -97,4 +120,6 @@ func to_text() -> String:
 		parts.append(_name_label.text)
 	if _value_label != null:
 		parts.append(_value_label.text)
+	if _delta_label != null and _delta_label.text != "":
+		parts.append(_delta_label.text)
 	return "  ".join(parts)

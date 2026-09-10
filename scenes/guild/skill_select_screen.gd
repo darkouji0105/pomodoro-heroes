@@ -263,8 +263,9 @@ func _on_clear_pressed(kind: String, slot_index: int) -> void:
 	GameManager.clear_skill_slot(_character_id, slot_index, kind)
 
 
+# ⚠ 誰のスキルを見ていたかを渡して戻る（2026-09-11）。⚠ 渡さないと一覧に落ちる。
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(TRAINING_PATH)
+	SceneManager.change_scene_with_data(TRAINING_PATH, {TransferKeys.CHARACTER_ID: _character_id})
 
 
 # --- シグナル ---

@@ -337,6 +337,24 @@ const CHIP_COLORS: Dictionary = {
 }
 # ⚠ チップの中の数字。⚠ 既定16より1段小さい。⚠ **新しい段は作らない**
 #   （⚠ ボタンと同じ14を使い回す。⚠ 文字の大きさの段はまだ未決なので増やさない）。
+# ⚠⚠ キャラの顔（2026-09-11・人間のモック「ギルド／育成」B・C）。
+#   ⚠ 角丸の四角に絵文字を1つ置くだけのもの。⚠ **絵はまだ無い**（⚠ 段階13・素材待ち）。
+#   ⚠ 色はモックの値をそのまま入れた。⚠ キーは `characters.json` のID。
+#   ⚠ 表に無いキャラ（⚠ 検証用の3体）は `fallback` に落ちる。
+# ⚠ 絵文字そのものは `Glyphs` が持つ（⚠ ここに絵文字を書かない）。
+const AVATAR_COLORS: Dictionary = {
+	"char_swordsman": {"bg": "4a3a6b", "fg": "d4bcec"},
+	"char_archer": {"bg": "2f5a3a", "fg": "bcecc4"},
+	"char_priest": {"bg": "2f4a6b", "fg": "bcd4ec"},
+	"fallback": {"bg": "2a2320", "fg": "7d6f68"},
+}
+const AVATAR_CORNER_RADIUS: int = 8
+
+# ⚠ レベルの進みの帯（モック B）。⚠ 溝の色はモックの `--track`。
+const BAR_TRACK: String = "2e2521"
+const BAR_HEIGHT: int = 5
+const BAR_CORNER_RADIUS: int = 3
+
 const CHIP_FONT_SIZE: int = BUTTON_FONT_SIZE
 # ⚠ チップの中（絵と数字の間）と、⚠ チップどうしの間。⚠ 既定の横16では空きすぎる。
 const CHIP_SEPARATION: int = 4
@@ -578,6 +596,27 @@ static func _build_panels(theme: Theme) -> void:
 			hit.set_border_width_all(0)
 		theme.set_stylebox(StringName(state), &"HitButton", hit)
 	theme.set_type_variation(&"HitButton", &"Button")
+
+	# ⚠ レベルの進み（2026-09-11・人間のモック B の細い帯）。
+	#   ⚠ 溝はタイマーの輪と同じ考え方（⚠ 満ちる前から見えている）。
+	#   ⚠ 色は2つとも既存の値（⚠ 溝＝チップの地の一段上 ／ 満ちる＝真鍮）。
+	var track: StyleBoxFlat = StyleBoxFlat.new()
+	track.bg_color = _html(BAR_TRACK)
+	track.set_corner_radius_all(BAR_CORNER_RADIUS)
+	theme.set_stylebox(&"background", &"LevelBar", track)
+	var fill: StyleBoxFlat = track.duplicate()
+	fill.bg_color = _html(RING_FILL)
+	theme.set_stylebox(&"fill", &"LevelBar", fill)
+	theme.set_type_variation(&"LevelBar", &"ProgressBar")
+	theme.set_constant(&"height", &"LevelBar", BAR_HEIGHT)
+
+	# ⚠ キャラの顔。⚠ 色は `bg_<character_id>` / `fg_<character_id>` で引く。
+	#   ⚠ 部品（`CharacterAvatar`）は角丸も色もここから引く＝値を持たない。
+	for character_id: String in AVATAR_COLORS:
+		var pair: Dictionary = AVATAR_COLORS[character_id]
+		theme.set_color(StringName("bg_" + character_id), &"CharacterAvatar", _html(str(pair["bg"])))
+		theme.set_color(StringName("fg_" + character_id), &"CharacterAvatar", _html(str(pair["fg"])))
+	theme.set_constant(&"corner_radius", &"CharacterAvatar", AVATAR_CORNER_RADIUS)
 
 	# ⚠ ヘッダーの下の線。⚠ `ScreenHeader` が自前で `_draw()` するのでここが値を持つ
 	#   （⚠ `TimerRing` / `SetDots` と同じ置き方）。

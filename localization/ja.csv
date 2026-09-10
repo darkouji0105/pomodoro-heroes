@@ -921,3 +921,25 @@ ui_guild_status_training_none,いま上げられるキャラはいません
 ui_guild_status_shop,品揃え %d 件
 ui_guild_status_research,解放できる %d 件
 ui_guild_status_workshop,作れるもの %d 件
+ui_common_chevron,›
+ui_common_wip,準備中
+ui_role_char_swordsman,近接・前衛
+ui_role_char_archer,遠距離
+ui_role_char_priest,回復・支援
+ui_training_material_hint,レベルアップに使う素材です。作業場で作れます。
+ui_training_debug_section,検証用（リリース前に消す）
+ui_training_level_of_cap,Lv %d ／ 上限 %d
+ui_training_unused_points,未使用ポイント %d
+ui_training_need_ok,%s %d で Lv%d
+ui_training_need_short,%s が %d 足りません
+ui_training_need_none,—
+ui_training_cost_for,Lv%d に必要な%s
+ui_training_cost_owned,%d ／ 所持 %d
+ui_training_level_up_cost,%s　%s %d
+ui_training_next_level,Lv%d で %s。
+ui_training_next_point,ポイント +1
+ui_training_settings,この子の設定
+ui_training_build,ビルド
+ui_training_job_change,転職
+ui_party_preset_burn_hint,いまの設定 → ビルド
+ui_party_preset_apply_hint,ビルド → いまの設定

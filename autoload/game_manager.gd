@@ -2296,6 +2296,15 @@ func _recalc_stats(character_id: String, level: int) -> Dictionary:
 		)
 	return stats
 
+# 指定レベルの素のステータス（⚠ 育成の詳細の「Lv13 で HP +12、攻撃 +3」・2026-09-11）。
+#
+# ⚠ `growth_per_level` を画面から直接読ませない。⚠ 伸び方は `stat_growth_formula` が
+#   決めており、⚠ 表を足し算し直すと式を変えたときに予告だけ嘘になる。
+# ⚠ 装備・研究の補正は乗らない（⚠ レベルだけで決まるぶん）。⚠ 差分を出すのに使う。
+func get_stats_at_level(character_id: String, level: int) -> Dictionary:
+	return _recalc_stats(character_id, level)
+
+
 # セーブから戻した stats を、現在の stat_growth_formula で全キャラ計算し直す。
 # load_state() から呼ぶ（_sync_research_tree_from_master() と同じ位置づけ）。
 #
