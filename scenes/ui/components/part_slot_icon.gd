@@ -18,7 +18,7 @@ extends Panel
 # ⚠⚠ ワイルド枠（⚠ 頭・胴・脚だけが持つ）の空きは **虹色**（2026-09-08・人間の指示）。
 #   ⚠ 1色では「どれでも受ける」を言えない。⚠ `StyleBoxFlat` の枠線は1色しか持てないので、
 #   ⚠ そのときだけ `_draw()` で自前で描く。
-# ⚠ 等級の色は `ItemIcon.grade_and_number()` に聞く。⚠ 段階→等級の表をここに写さない
+# ⚠ 等級の色は `ItemIcon.grade_of()` に聞く。⚠ 段階→等級の表をここに写さない
 #   （⚠ 写すとアイコンと枠で色が食い違う）。
 # ⚠ 絵文字は `Glyphs.for_part_slot()` の1本。⚠ ここに種類ごとの分岐を書かない。
 # ⚠ 大きさと色は `Balance.icon`（`IconConfig`）。⚠ ここに直書きしない。
@@ -117,7 +117,7 @@ func _refresh() -> void:
 		# ⚠ 装填済。⚠ 枠線は **刺さっているものの等級の色**（⚠ 枠そのものの色ではない）。
 		#   ⚠ ワイルドでも虹にしない（⚠ 刺さっていれば「何が刺さるか」はもう要らない）。
 		_draw_rainbow = false
-		var decided: Dictionary = ItemIcon.grade_and_number(part_id, 0)
+		var decided: Dictionary = ItemIcon.grade_of(part_id, 0)
 		box.border_color = config.color_of_grade(
 			int(decided.get(ItemIcon.RESULT_GRADE, config.default_grade))
 		)

@@ -112,10 +112,10 @@ func _ready() -> void:
 	prev_page_button.pressed.connect(_on_prev_page_pressed)
 	next_page_button.pressed.connect(_on_next_page_pressed)
 
-	# 5-b. 素材のマス目（2026-09-10）。⚠ **個数を出すのはここだけ**（`item_slot.gd` の注記）。
+	# 5-b. 素材のマス目（2026-09-10）。⚠ 個数はマスの中身が持っている（`SLOT_ENTRY_COUNT`）。
+	#    ⚠ 出すのは `ItemIcon` の右下（⚠ 画面側で数を描かない）。
 	#    ⚠ 動かせない（⚠ `slot_moved` を繋がない）。⚠ 素材は並び順を持たない。
 	material_grid.columns = MATERIAL_GRID_COLUMNS
-	material_grid.set_count_shown(true)
 	material_grid.slot_pressed.connect(_on_material_slot_pressed)
 
 	# 6. ホバーの枠に、⚠ **もう1つの** `ItemDetail` を持たせる（2026-09-08・段階⑤）。

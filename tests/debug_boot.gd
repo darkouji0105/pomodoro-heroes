@@ -3631,10 +3631,17 @@ func _report_item_icons() -> void:
 	for sample: Variant in samples:
 		var row: Array = sample
 		var item_id: String = str(row[0])
+		# ⚠⚠ 右下の数字は「持っている数」（2026-09-10・人間の決定「⚠ 等級の数字を消して
+		#   ⚠ そこにスタック数をかく」）。⚠ ここは数を渡さないので**空が正解**。
+		#   ⚠ 前はここに等級・段数が出ていた。⚠ 空でなくなったら回帰。
 		var icon: ItemIcon = ItemIcon.create(item_id, int(row[1]))
 		add_child(icon)
 		var text: String = icon.text_label.text
 		var number: String = icon.grade_label.text
+		if number != "":
+			push_error("[DebugBoot] 数を渡していないのに右下に '%s' が出ている（%s）" % [
+				number, item_id
+			])
 		# ⚠ 中央は絵文字か線画か。⚠ 部品に聞く（⚠ ここで中を覗かない）。
 		var center: String = icon.get_center_debug_text()
 		var box: StyleBox = icon.get_theme_stylebox("panel")
@@ -3647,11 +3654,24 @@ func _report_item_icons() -> void:
 			wrong_length += 1
 		# ⚠ 絵文字も出す（2026-09-07）。⚠ レリック12件が ITEM_FALLBACK（📦）に
 		#   落ちていたのを、⚠ ここが出していなかったせいで気づけなかった。
-		print("  %-26s 中央='%s' 字='%s' 右下='%s' 枠=(%.2f, %.2f, %.2f)" % [
+		print("  %-26s 中央='%s' 字='%s' 右下='%s'（⚠ 空が正解） 枠=(%.2f, %.2f, %.2f)" % [
 			item_id, center, text, number, color.r, color.g, color.b
 		])
 		remove_child(icon)
 		icon.queue_free()
+
+	# ⚠ 数を渡したときだけ右下に出ること（⚠ 0個も出る＝素材タブが0個を並べるため）。
+	print("  ⚠ 数を渡したとき（⚠ 素材タブ・鞄・宝箱の窓が通る道）")
+	for probe_count: int in [0, 1, 12, 999]:
+		var counted: ItemIcon = ItemIcon.create("construction_material_1", 0, probe_count)
+		add_child(counted)
+		print("    count=%-4d -> 右下='%s'（⚠ '%d' が正解）" % [
+			probe_count, counted.grade_label.text, probe_count
+		])
+		if counted.grade_label.text != str(probe_count):
+			push_error("[DebugBoot] 右下に個数が出ていない（count=%d）" % probe_count)
+		remove_child(counted)
+		counted.queue_free()
 	if missing_keys > 0:
 		push_error("[DebugBoot] ja.csv に ui_icon_* が %d 件無い（キー名がそのまま出る）" % missing_keys)
 	if wrong_length > 0:

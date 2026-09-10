@@ -38,10 +38,6 @@ var _slots: Array[ItemSlot] = []
 #   ⚠ `watch()` は `rebuild()` より先に呼ばれることが多い（⚠ 倉庫は _ready で watch）。
 #     ⚠ だから器が覚えておき、⚠ 作り直しのたびに新しいマスへ配る。
 var _tooltip_suppressed: bool = false
-# ⚠ マスの左下に個数を出すか（2026-09-10）。⚠ **素材タブだけ true**（⚠ `item_slot.gd` の注記）。
-#   ⚠ `_tooltip_suppressed` と同じで、⚠ 器が覚えて作り直しのたびに配る。
-var _count_shown: bool = false
-
 
 func _ready() -> void:
 	if columns <= 0:
@@ -74,7 +70,6 @@ func rebuild(entries: Array, slot_count: int = 0) -> void:
 		# ⚠ add_child() の前に入れる。⚠ マスは _ready() で1回だけ描くので、
 		#   ⚠ ここで入れておけば描き直しが起きない。
 		slot.set_tooltip_suppressed(_tooltip_suppressed)
-		slot.set_count_shown(_count_shown)
 		slot.slot_pressed.connect(_on_slot_pressed.bind(i))
 		slot.slot_dropped.connect(_on_slot_dropped.bind(i))
 		slot.slot_hovered.connect(_on_slot_hovered.bind(i))
@@ -92,14 +87,6 @@ func set_tooltip_suppressed(value: bool) -> void:
 	_tooltip_suppressed = value
 	for slot: ItemSlot in _slots:
 		slot.set_tooltip_suppressed(value)
-
-
-# マスの左下に個数を出す／出さない。⚠ **素材タブだけ** true にする。
-#   ⚠ 持ち物のマスで呼ばないこと（⚠ 同じ品が2個なら2マス並ぶので、⚠ 数が嘘になる）。
-func set_count_shown(value: bool) -> void:
-	_count_shown = value
-	for slot: ItemSlot in _slots:
-		slot.set_count_shown(value)
 
 
 func _on_slot_pressed(entry: Dictionary, index: int) -> void:

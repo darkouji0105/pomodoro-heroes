@@ -501,7 +501,7 @@ func _build_all_items() -> void:
 #
 # ⚠ 詳細はここに置かない（⚠ 押した所の近くに出す器が受け持つ・2026-09-07）。
 # ⚠⚠ 並びは **等級順**（2026-09-07・人間の指示「⚠ アイテムも等級ごとに並べて」）。
-#   ⚠ 等級は `ItemIcon.grade_and_number()` の1本に聞く（⚠ 段階から等級への写しを
+#   ⚠ 等級は `ItemIcon.grade_of()` の1本に聞く（⚠ 段階から等級への写しを
 #     ここに書き直さない＝⚠ 書くと色と並びが食い違う）。⚠ 同じ等級の中は綴り順。
 # ⚠ `kind` はマスの中身の種類。⚠ レリックだけ別（⚠ items.json の品ではない）。
 func _add_item_category(
@@ -586,7 +586,7 @@ func _sorted_by_grade(item_ids: Array) -> Array:
 		var item_id: String = str(entry)
 		rows.append({
 			SORT_GRADE: int(
-				ItemIcon.grade_and_number(item_id, 0).get(ItemIcon.RESULT_GRADE, 1)
+				ItemIcon.grade_of(item_id, 0).get(ItemIcon.RESULT_GRADE, 1)
 			),
 			SORT_ITEM_ID: item_id,
 		})

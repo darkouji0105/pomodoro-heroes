@@ -340,10 +340,10 @@ func _add_header(item_id: String, grade: int, sub_parts: Array[String]) -> void:
 	name_label.text = tr("ui_res_" + item_id)
 	var config: IconConfig = Balance.icon
 	if config != null:
-		# ⚠ 等級を持たない品（⚠ 素材・消耗品・レリック）は `grade_and_number()` が
+		# ⚠ 等級を持たない品（⚠ 素材・消耗品・レリック）は `grade_of()` が
 		#   ⚠ 既定の等級を返す。⚠ ここで分岐を書かない。
 		name_label.add_theme_color_override("font_color", config.color_of_grade(int(
-			ItemIcon.grade_and_number(item_id, grade).get(ItemIcon.RESULT_GRADE, config.default_grade)
+			ItemIcon.grade_of(item_id, grade).get(ItemIcon.RESULT_GRADE, config.default_grade)
 		)))
 	texts.add_child(name_label)
 

@@ -20,9 +20,11 @@ extends Panel
 
 const SCENE_PATH: String = "res://scenes/ui/components/item_icon.tscn"
 
-# grade_and_number() の戻りのキー。⚠ 文字列リテラルを呼ぶ側に書かせない。
+# grade_of() の戻りのキー。⚠ 文字列リテラルを呼ぶ側に書かせない。
 const RESULT_GRADE: String = "grade"
-const RESULT_NUMBER: String = "number"
+
+# ⚠ 数字を出さないときの値。⚠ 0 は「0個」で意味が違うので、⚠ 負で表す。
+const NO_COUNT: int = -1
 
 @onready var text_label: Label = $TextLabel
 @onready var grade_label: Label = $GradeLabel
@@ -31,6 +33,12 @@ const RESULT_NUMBER: String = "number"
 
 var _item_id: String = ""
 var _grade: int = 0
+# ⚠⚠ 右下に出す「持っている数」（2026-09-10・人間の決定）。⚠ NO_COUNT なら出さない。
+#   ⚠ 前はここが**等級／段数の数字**だった。⚠ 人間の指示「⚠ 等級の数字を消して
+#     ⚠ そこにスタック数をかく」で置き換えた。
+#   ⚠ **等級は枠線の色が持つ**（⚠ 2026-09-08 に地から枠線へ移したときのまま）。
+#     ⚠ 数字での等級は詳細パネルの「等級N」が出す。⚠ ここには2つ目の意味を持たせない。
+var _count: int = NO_COUNT
 
 # 中央の線画（2026-09-08）。⚠ SVG が在ればこちら、⚠ 無ければ絵文字の Label。
 #   ⚠ `.tscn` を触らずコードで作る（⚠ 3つの Label と同じ流儀）。
@@ -44,49 +52,51 @@ const INNER_RATIO: float = 0.52
 
 # 呼ぶ側の1行の口。⚠ 装備の個体だけ grade を渡す（等級は instance_id ごとに
 #   違うので item_id からは引けない）。装飾・素材は 0 のままでよい。
-static func create(item_id: String, grade: int = 0) -> ItemIcon:
+static func create(item_id: String, grade: int = 0, count: int = NO_COUNT) -> ItemIcon:
 	var scene: PackedScene = load(SCENE_PATH)
 	var icon: ItemIcon = scene.instantiate()
-	icon.setup(item_id, grade)
+	icon.setup(item_id, grade, count)
 	return icon
 
 
-# item_id（＋装備の個体の等級）から「背景の色に使う等級」と「右下の数字」を決める。
+# item_id（＋装備の個体の等級）から「色に使う等級」を決める。
 #
 # ⚠⚠ 判定はここ1本。⚠ 呼ぶ側で item_type を見ないこと。
 # ⚠ 静的にしてあるのは、⚠ アイコンを1個も作らずに等級だけ知りたい呼び出しがあるため
 #   （⚠ UI テストのページが等級順に並べる・2026-09-07）。⚠ 同じ写し方を2箇所に書かない。
-# ⚠ Balance.icon が未割り当てのときは等級1・数字なしを返す（⚠ 赤は _refresh() 側が出す）。
-static func grade_and_number(item_id: String, instance_grade: int) -> Dictionary:
+# ⚠ Balance.icon が未割り当てのときは等級1を返す（⚠ 赤は _refresh() 側が出す）。
+#
+# ⚠⚠ 2026-09-10：⚠ **「右下の数字」を返すのをやめた**（⚠ 人間の決定「⚠ 等級の数字を
+#   ⚠ 消してそこにスタック数をかく」）。⚠ 段数・等級は**枠線の色だけ**が持つ。
+#   ⚠ 右下は `_count`（⚠ 持っている数）専用になった。
+static func grade_of(item_id: String, instance_grade: int) -> Dictionary:
 	var config: IconConfig = Balance.icon
 	if config == null:
-		return {RESULT_GRADE: 1, RESULT_NUMBER: ""}
+		return {RESULT_GRADE: 1}
 	if instance_grade > 0:
 		# 装備の個体。等級 1〜10 をそのまま色に使う（人間の決定・10色）。
-		return {RESULT_GRADE: instance_grade, RESULT_NUMBER: str(instance_grade)}
+		return {RESULT_GRADE: instance_grade}
 	var part: Dictionary = GameManager.get_part_definition(item_id)
 	if not part.is_empty():
 		var tier: int = int(part.get(GameManager.ITEM_MASTER_PART_TIER, 0))
 		# ⚠ ルーンだけ段階が5（PartConfig.max_rune_tier）。写す表が違う。
 		var is_rune: bool = not GameManager.get_rune_definition(item_id).is_empty()
-		return {RESULT_GRADE: config.grade_of_tier(tier, is_rune), RESULT_NUMBER: str(tier)}
+		return {RESULT_GRADE: config.grade_of_tier(tier, is_rune)}
 	var material_tier: int = GameManager.get_material_tier(item_id)
 	if material_tier > 0:
-		return {
-			RESULT_GRADE: config.grade_of_tier(material_tier, false),
-			RESULT_NUMBER: str(material_tier),
-		}
-	# それ以外（レリック・消耗品）は段数を持たない。⚠ 数字を出さない。
-	return {RESULT_GRADE: config.default_grade, RESULT_NUMBER: ""}
+		return {RESULT_GRADE: config.grade_of_tier(material_tier, false)}
+	# それ以外（レリック・消耗品）。
+	return {RESULT_GRADE: config.default_grade}
 
 
 func _ready() -> void:
 	_refresh()
 
 
-func setup(item_id: String, grade: int = 0) -> void:
+func setup(item_id: String, grade: int = 0, count: int = NO_COUNT) -> void:
 	_item_id = item_id
 	_grade = grade
+	_count = count
 	# ⚠ create() は add_child() の前に呼ぶので、ここではまだ @onready が null。
 	#   その場合は _ready() 側が描く。
 	if is_inside_tree():
@@ -137,10 +147,10 @@ func _refresh() -> void:
 		push_error("[ItemIcon] Balance.icon が未割り当て。アイコンを描けない")
 		return
 
-	# 右下の数字と、色に使う等級を決める。⚠ 判定は grade_and_number() の1本。
-	var decided: Dictionary = grade_and_number(_item_id, _grade)
-	var grade: int = int(decided.get(RESULT_GRADE, config.default_grade))
-	var number: String = str(decided.get(RESULT_NUMBER, ""))
+	# 色に使う等級を決める。⚠ 判定は grade_of() の1本。
+	var grade: int = int(grade_of(_item_id, _grade).get(RESULT_GRADE, config.default_grade))
+	# ⚠ 右下の数字は**持っている数だけ**（2026-09-10）。⚠ 等級・段数はここに出さない。
+	var number: String = "" if _count < 0 else str(_count)
 
 	custom_minimum_size = Vector2(float(config.icon_size_px), float(config.icon_size_px))
 
@@ -176,9 +186,11 @@ func _refresh() -> void:
 	#
 	# ⚠⚠ 左上の1文字を置き換えない。⚠ 絵文字は種類ごと（11種）なので、
 	#   ⚠ 置き換えると91件の品が11種類の見た目に潰れ、⚠ どの品か分からなくなる。
-	#   ⚠ 「どの品か」＝左上の1文字 ／ 「どの種類か」＝絵文字 ／ 「何段か」＝右下の数字
-	#   ⚠ ／ 「どの等級か」＝**枠線の色**（2026-09-08 に背景から移した）。
+	#   ⚠ 「どの品か」＝左上の1文字 ／ 「どの種類か」＝絵文字 ／ 「何個あるか」＝右下の数字
+	#   ⚠ ／ 「どの等級か・何段か」＝**枠線の色**（2026-09-08 に背景から移した）。
 	#   ⚠ 4つで役割が分かれている。
+	# ⚠⚠ 2026-09-10：⚠ 右下は「何段か」から「⚠ 何個あるか」へ変わった（⚠ 人間の決定）。
+	#   ⚠ 段数を数字で出す場所は**もう無い**（⚠ 枠線の色と、⚠ 詳細パネルの文字だけ）。
 	# ⚠⚠ 1文字が系統ごとにしか無いのは、⚠ 「絵文字＋1文字」の組で見分ける前提だから
 	#   （⚠ 例：「鉄」は 🔪 鉄剣 / 🎩 鉄兜 / 👕 鉄鎧 / 👟 鉄脚 の4件に出る）。
 	#   ⚠ 絵文字を種類ごとに分けるのをやめると、⚠ この4件が見分けられなくなる。
@@ -243,6 +255,7 @@ func _refresh() -> void:
 	grade_label.add_theme_font_size_override("font_size", config.grade_font_size)
 	# ⚠ 右下の数字だけ等級の色で出す（2026-09-08・モック）。⚠ 枠線と同じ色＝
 	#   ⚠ 枠が細くて色が読み取りにくいときの2つ目の手がかりになる。
+	#   ⚠ 中身が「段数」から「個数」に変わったあとも色は等級のまま（⚠ 手がかりを減らさない）。
 	grade_label.add_theme_color_override("font_color", grade_color)
 	# 右下に寄せる。⚠ 大きさが Config なので、位置もコードで合わせる。
 	grade_label.offset_left = -float(config.icon_size_px) * 0.5
