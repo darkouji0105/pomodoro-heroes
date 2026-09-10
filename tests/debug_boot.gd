@@ -3843,6 +3843,19 @@ func _report_layout() -> void:
 				print("    ⚠ タイマーの数字 = %d 枚（1 枚が正解。2 枚なら重なっている）" % labels)
 				if labels != 1:
 					push_error("[DebugBoot] タイマーの数字が %d 枚（1 枚でないと重なる）" % labels)
+			# ⚠⚠ 振り返りの「何文字以上か」（2026-09-10）。⚠ 前はビューに `20` を直書きしていて、
+			#   ⚠ `Balance.pomodoro.reflection_min_chars` の欄は在るのに誰も読んでいなかった
+			#   （⚠ Inspector で変えても何も起きない状態だった）。
+			#   ⚠ 文言の中の数字も Config から入れるので、⚠ ここで文と設定の一致まで見る。
+			#   ⚠ `InstructionLabel` という名前は他の画面にも在るので、⚠ 振り返りに絞る。
+			if scene_path.get_file() == "reflection_view.tscn" and (
+				raw_child is Label and raw_child.name == "InstructionLabel"
+			):
+				var want: int = int(Balance.pomodoro.reflection_min_chars)
+				var shown: String = (raw_child as Label).text
+				print("    ⚠ 振り返りの文言 = '%s'（⚠ Config の %d が入るのが正解）" % [shown, want])
+				if not shown.contains(str(want)):
+					push_error("[DebugBoot] 振り返りの文言に Config の文字数(%d)が入っていない" % want)
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので

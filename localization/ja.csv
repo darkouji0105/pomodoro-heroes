@@ -44,7 +44,7 @@ ui_chest_legendary,でんせつの宝箱
 ui_pomodoro_title_placeholder,何に取り組みますか？（任意）
 ui_pomodoro_title_hint,ここに入れた文字はフレンドに表示されます
 ui_pomodoro_focus,集中中
-ui_pomodoro_reflection_placeholder,20文字以上で入力してください
+ui_pomodoro_reflection_placeholder,{0}文字以上で入力してください
 ui_pomodoro_break_short,休憩
 ui_pomodoro_break_long,長い休憩
 ui_pomodoro_chest_earned,宝箱を獲得しました（拠点で受け取れます）
@@ -55,7 +55,7 @@ ui_pomodoro_select_protection,今日の加護を選ぶ
 ui_pomodoro_input_title,何に取り組みますか？（任意）
 ui_pomodoro_start_focus,はじめる
 ui_pomodoro_reflection_title,振り返り
-ui_pomodoro_reflection_instruction,今回やったことを20文字以上で書いてください
+ui_pomodoro_reflection_instruction,今回やったことを{0}文字以上で書いてください
 ui_pomodoro_reflection_warning,あと{0}秒で自動的にスキップされます
 ui_pomodoro_reflection_warning_chars,あと{0}文字必要です
 ui_pomodoro_reflection_complete,確定する
