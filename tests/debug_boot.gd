@@ -3923,6 +3923,18 @@ func _report_layout() -> void:
 					push_error("[DebugBoot] 当たりの上に押下を食べる器: %s / %s" % [
 						panel.name, " ".join(blockers)
 					])
+				# ⚠⚠ ホバーの縁が**面の外側**に出ているか（⚠ 人間の指摘「まだ内側に枠が出る」）。
+				#   ⚠ `PanelContainer` は子を内側の余白ぶん内側に置くので、⚠ 当たりの縁は
+				#   ⚠ **その余白ぶん外へ広げて**いないと面の内側に描かれる。
+				var panel_style: StyleBox = (panel as PanelContainer).get_theme_stylebox(&"panel")
+				var hover: StyleBox = (raw_child as Button).get_theme_stylebox(&"hover")
+				if panel_style != null and hover is StyleBoxFlat:
+					var flat: StyleBoxFlat = hover as StyleBoxFlat
+					var want: float = panel_style.content_margin_left + flat.border_width_left
+					if flat.expand_margin_left < want:
+						push_error("[DebugBoot] ホバーの縁が面の内側に出る: %s（外へ %.0f / 要 %.0f）" % [
+							panel.name, flat.expand_margin_left, want
+						])
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので

@@ -98,10 +98,39 @@ static func attach_hit(panel: PanelContainer, handler: Callable) -> Button:
 	hit.theme_type_variation = &"HitButton"
 	if handler.is_valid():
 		hit.pressed.connect(handler)
+	# ⚠ 木に入ってから縁を合わせる（⚠ Theme を引くため）。⚠ `add_child()` の前に繋ぐ
+	#   （⚠ 面が既に木の中なら `add_child()` がその場で `_ready()` を出すため）。
+	hit.ready.connect(_fit_hit_frame.bind(hit, panel))
 	panel.add_child(hit)
 	panel.move_child(hit, 0)
 	_ignore_mouse(panel, hit)
 	return hit
+
+
+# ⚠⚠ ホバーの縁を**面の外側**に出す（2026-09-11・人間の指示
+#   「⚠ ホバーすると内側に白い淵が出るが、外側に出して」→「⚠ まだ内側に枠が出る」）。
+#
+# ⚠⚠ **`PanelContainer` は子を「内側の余白」ぶん内側に置く。**
+#   ⚠ カードなら左右22・上下20 内側。⚠ だから当たりの矩形そのものが既に内側にあり、
+#   ⚠ Theme 側で 1px 外へ出しただけでは**まだカードの内側**だった（⚠ 1回目の直しの穴）。
+# ⚠ 面の内側の余白ぶん外へ広げて、⚠ さらに線の太さぶん出す＝⚠ 面の枠のすぐ外を走る。
+# ⚠ 広げる量は**面が持っている値から取る**（⚠ ここに px を書かない）。
+#   ⚠ 面の型ごとに余白が違う（⚠ カード 22/20 ／ 行 16/11 ／ 詰めた行 16/5）ので、
+#   ⚠ Theme 側に1つの値としては置けない。
+static func _fit_hit_frame(hit: Button, panel: PanelContainer) -> void:
+	var base: StyleBox = panel.get_theme_stylebox(&"panel")
+	if base == null:
+		return
+	for state: String in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var source: StyleBox = hit.get_theme_stylebox(StringName(state), &"HitButton")
+		if not (source is StyleBoxFlat):
+			continue
+		var style: StyleBoxFlat = (source as StyleBoxFlat).duplicate()
+		style.expand_margin_left = base.content_margin_left + style.border_width_left
+		style.expand_margin_right = base.content_margin_right + style.border_width_right
+		style.expand_margin_top = base.content_margin_top + style.border_width_top
+		style.expand_margin_bottom = base.content_margin_bottom + style.border_width_bottom
+		hit.add_theme_stylebox_override(StringName(state), style)
 
 
 static func _ignore_mouse(node: Node, hit: Button) -> void:
