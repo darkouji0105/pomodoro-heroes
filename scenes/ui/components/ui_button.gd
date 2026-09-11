@@ -84,7 +84,14 @@ func _apply_variation() -> void:
 #   ⚠ 面の中に置いた本物のボタン（⚠ スキルの「外す」）が押せなくなる。
 #   ⚠ 逆に下に敷いただけだと、⚠ 中身の器（既定は `MOUSE_FILTER_STOP`）が
 #   ⚠ 押下を食べて**面が押せなくなる**＝⚠ 「枠を押しても行き先が変わらない」不具合になった。
-# ⚠ `BaseButton` と `OptionButton` は `STOP` のまま残す（⚠ 自分で受け取るもの）。
+#
+# ⚠⚠⚠ **中身は `IGNORE` にする。`PASS` ではない**（⚠ 2026-09-11 に2回目を踏んだ）。
+#   ⚠ `PASS` は「⚠ 自分も受け取り、⚠ **親へ**渡す」。⚠ **後ろの兄弟へは渡らない。**
+#   ⚠ だから `PASS` にすると、⚠ 器 → 面（`PanelContainer`・既定は `STOP`）で止まり、
+#   ⚠ 下に敷いた当たりに永久に届かない＝**ギルドのカードが1枚も反応しなくなった。**
+#   ⚠ `IGNORE` は「⚠ 自分は当たり判定に出ない」＝⚠ **後ろのものが拾える。**
+#   ⚠ 子は親の `mouse_filter` に関係なく拾われるので、⚠ 中の本物のボタンは生きる。
+# ⚠ `BaseButton` は `STOP` のまま残す（⚠ 自分で受け取るもの）。
 static func attach_hit(panel: PanelContainer, handler: Callable) -> Button:
 	var hit: Button = Button.new()
 	hit.name = "Hit"
@@ -93,16 +100,16 @@ static func attach_hit(panel: PanelContainer, handler: Callable) -> Button:
 		hit.pressed.connect(handler)
 	panel.add_child(hit)
 	panel.move_child(hit, 0)
-	_pass_through(panel, hit)
+	_ignore_mouse(panel, hit)
 	return hit
 
 
-static func _pass_through(node: Node, hit: Button) -> void:
+static func _ignore_mouse(node: Node, hit: Button) -> void:
 	for child: Node in node.get_children():
 		if child == hit:
 			continue
 		if child is BaseButton:
 			continue
 		if child is Control:
-			(child as Control).mouse_filter = Control.MOUSE_FILTER_PASS
-		_pass_through(child, hit)
+			(child as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_ignore_mouse(child, hit)

@@ -3831,6 +3831,8 @@ func _report_layout() -> void:
 		# ⚠ コードで描く線（段階19-e）。⚠ 絵は取れないが「何本引いたか」は取れる。
 		#   ⚠ 0 本なら通路が1本も見えていない（⚠ 人間が実機で報告した症状そのもの）。
 		#   ⚠ 画面ごとに if を書かない。⚠ その部品を持っている画面だけが出る。
+		# ⚠ 面に重ねた「当たり」を何枚見たか（⚠ 0 枚なら下の検査が素通りしている）。
+		var hits_checked: int = 0
 		for raw_child: Node in instance.find_children("*", "Control", true, false):
 			# ⚠ タイマーの輪（2026-09-09）。⚠ 絵は取れないが「数字が何枚あるか」は取れる。
 			#   ⚠⚠ 人間が実機で「タイマーが二重になってる」と見つけた事故の再発を止めるため。
@@ -3898,6 +3900,29 @@ func _report_layout() -> void:
 				print("    ⚠ 割り振りの枝 = %d 本（0 本なら組めていない）" % branch_count)
 				if branch_count <= 0:
 					push_error("[DebugBoot] ステータスノードの枝が 0 本")
+			# ⚠⚠ 面に重ねた「当たり」が本当に押せるか（2026-09-11・人間が実機で
+			#   ⚠ 「⚠ ギルド画面でボタンが反応しない」と見つけた事故の再発防止）。
+			#
+			# ⚠ 絵もクリックも取れないが、⚠ **押下を食べる器が当たりの上に乗っていないか**
+			#   ⚠ は取れる。⚠ 当たりは面の一番下に敷くので、⚠ 上に居る兄弟とその子が
+			#   ⚠ `MOUSE_FILTER_IGNORE` でないと押下がそこで止まる。
+			# ⚠ `BaseButton`（面の中の本物のボタン）は `STOP` のままで正しい。
+			if raw_child is Button and raw_child.name == "Hit":
+				hits_checked += 1
+				var blockers: Array[String] = []
+				var panel: Node = raw_child.get_parent()
+				for sibling: Node in panel.get_children():
+					if sibling == raw_child:
+						continue
+					for inner: Node in ([sibling] + sibling.find_children("*", "Control", true, false)):
+						if inner is BaseButton:
+							continue
+						if inner is Control and (inner as Control).mouse_filter != Control.MOUSE_FILTER_IGNORE:
+							blockers.append("%s(%s)" % [inner.name, inner.get_class()])
+				if not blockers.is_empty():
+					push_error("[DebugBoot] 当たりの上に押下を食べる器: %s / %s" % [
+						panel.name, " ".join(blockers)
+					])
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので
@@ -3931,6 +3956,9 @@ func _report_layout() -> void:
 			])
 			if scroller.scroll_vertical <= 0:
 				push_error("[DebugBoot] スクロールが先頭のまま（段階20-c が効いていない）")
+		# ⚠ 面に重ねた当たりを持つ画面だけ出す（⚠ 0 枚の画面は黙っている）。
+		if hits_checked > 0:
+			print("    ⚠ 面ぜんぶが押せる器 = %d 枚（⚠ 上に押下を食べる器があれば赤が出る）" % hits_checked)
 		instance.queue_free()
 		await get_tree().process_frame
 
