@@ -99,7 +99,11 @@ func _create_card(screen_id: String) -> PanelContainer:
 
 	var card: PanelContainer = PanelContainer.new()
 	card.name = "Card_" + (screen_id if not is_empty else "empty")
-	card.theme_type_variation = &"ActiveCardPanel" if is_primary else &"CardPanel"
+	# ⚠⚠ 2026-09-11（人間の指示「⚠ 育成の輪が浮いて見える。⚠ 倉庫のボタンと同じに」）：
+	#   ⚠ **面はどのカードも同じ**にした。⚠ 前は育成だけ琥珀の枠（`ActiveCardPanel`）で、
+	#   ⚠ 常時光る輪が1枚だけ浮いて見えた（⚠ ホバーの白い縁と二重の輪にもなっていた）。
+	#   ⚠ 「次にやることを1つに絞る」は**下の状態の行の色**だけで言う（⚠ 枠では言わない）。
+	card.theme_type_variation = &"CardPanel"
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# ⚠ 空き枠は沈める。⚠ 押せないことを色で言う（⚠ 当たりも付けない）。
