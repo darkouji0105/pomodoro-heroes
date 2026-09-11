@@ -149,13 +149,9 @@ func _create_slot_card(slot_index: int, skill_id: String) -> PanelContainer:
 		clear_button.pressed.connect(_on_clear_pressed.bind(slot_index))
 		row.add_child(clear_button)
 
-	# ⚠ 枠そのものを押すと行き先が変わる。⚠ 「外す」より下に敷く（⚠ 先に足す）。
-	var hit: Button = Button.new()
-	hit.name = "Hit"
-	hit.theme_type_variation = &"HitButton"
-	hit.pressed.connect(_on_slot_pressed.bind(slot_index))
-	panel.add_child(hit)
-	panel.move_child(hit, 0)
+	# ⚠ 枠そのものを押すと行き先が変わる。⚠ 「外す」は面の中の本物のボタンなので、
+	#   ⚠ 当たりは一番下に敷く（`UiButton.attach_hit()` が中身を通す形にする）。
+	UiButton.attach_hit(panel, _on_slot_pressed.bind(slot_index))
 	return panel
 
 
@@ -236,11 +232,7 @@ func _create_candidate_row(skill_id: String, is_unlocked: bool, slot_index: int)
 	# 押せてから失敗するより、押せないほうが分かりやすい。
 	# 判定は GameManager 側と同じものを使う（画面で条件を作り直さない）。
 	if GameManager.can_select_skill(_character_id, _active_slot, skill_id, GameManager.SLOT_KIND_SKILL):
-		var hit: Button = Button.new()
-		hit.name = "Hit"
-		hit.theme_type_variation = &"HitButton"
-		hit.pressed.connect(_on_candidate_pressed.bind(skill_id))
-		panel.add_child(hit)
+		UiButton.attach_hit(panel, _on_candidate_pressed.bind(skill_id))
 	return panel
 
 

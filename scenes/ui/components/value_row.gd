@@ -111,6 +111,21 @@ func set_delta(delta_text: String, variation: StringName = VARIATION_GAIN) -> vo
 		_delta_label.theme_type_variation = variation
 
 
+# ⚠⚠ 詰めた行にする（2026-09-11・人間の指示「⚠ ステータスは半分ぐらいの大きさに」）。
+#
+# ⚠ 字の段は Theme から引く（⚠ ここに px を書かない）。⚠ 色は変えない
+#   （⚠ `theme_type_variation` を上書きすると、⚠ 増＝緑・減＝赤が消える）。
+# ⚠ 木に入ってから呼ぶこと（⚠ Theme を引くため）。
+func set_compact() -> void:
+	var size_px: int = get_theme_font_size(&"font_size", &"CaptionLabel")
+	for label: Node in [_icon_rect, _name_label, _value_label, _delta_label]:
+		if label is Label:
+			(label as Label).add_theme_font_size_override(&"font_size", size_px)
+	# ⚠ 絵も字に合わせて小さくする（⚠ 絵だけ残ると行の高さが縮まない）。
+	if _icon_rect != null:
+		_icon_rect.custom_minimum_size = Vector2(size_px, size_px)
+
+
 # 検証用（⚠ 設計役は絵を見られない）。⚠ ゲームのロジックから呼ばないこと。
 func to_text() -> String:
 	var parts: Array[String] = []

@@ -69,3 +69,40 @@ static func create(p_variant: Variant = Variant.SECONDARY, p_label_key: String =
 
 func _apply_variation() -> void:
 	theme_type_variation = VARIATION_NAMES.get(variant, &"")
+
+
+# ⚠⚠ 面ぜんぶを押せるようにする「当たり」（2026-09-11）。
+#
+# ⚠ カードや一覧の行は**面ぜんぶが押せる**（人間のモック）。⚠ `PanelContainer` は
+#   押せず、⚠ `Button` は器ではないので中身を並べられない。⚠ そこで透明なボタンを
+#   面に重ねる（⚠ `PanelContainer` は子を全面に伸ばす）。
+#
+# ⚠⚠ **必ず中身を全部足し終わってから呼ぶこと。** ⚠ 当たりは**一番下に敷く**ので、
+#   ⚠ 中身の器を `MOUSE_FILTER_PASS` にして押下を下へ通す必要があり、
+#   ⚠ ここで在る子にしか当てられない。
+# ⚠⚠ 一番上に重ねてはいけない（⚠ 2026-09-11 に踏んだ）。⚠ 上に置くと、
+#   ⚠ 面の中に置いた本物のボタン（⚠ スキルの「外す」）が押せなくなる。
+#   ⚠ 逆に下に敷いただけだと、⚠ 中身の器（既定は `MOUSE_FILTER_STOP`）が
+#   ⚠ 押下を食べて**面が押せなくなる**＝⚠ 「枠を押しても行き先が変わらない」不具合になった。
+# ⚠ `BaseButton` と `OptionButton` は `STOP` のまま残す（⚠ 自分で受け取るもの）。
+static func attach_hit(panel: PanelContainer, handler: Callable) -> Button:
+	var hit: Button = Button.new()
+	hit.name = "Hit"
+	hit.theme_type_variation = &"HitButton"
+	if handler.is_valid():
+		hit.pressed.connect(handler)
+	panel.add_child(hit)
+	panel.move_child(hit, 0)
+	_pass_through(panel, hit)
+	return hit
+
+
+static func _pass_through(node: Node, hit: Button) -> void:
+	for child: Node in node.get_children():
+		if child == hit:
+			continue
+		if child is BaseButton:
+			continue
+		if child is Control:
+			(child as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+		_pass_through(child, hit)

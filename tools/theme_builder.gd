@@ -30,6 +30,8 @@ const BUTTON_PAD_H: float = 20.0
 const BUTTON_PAD_V: float = 8.0
 const BUTTON_FONT_SIZE: int = 14
 const FOCUS_BORDER_WIDTH: int = 2
+# ⚠ 面に重ねる「当たり」のホバーの縁（⚠ 面の外側に出す）。
+const HIT_BORDER_WIDTH: int = 1
 
 # ⚠⚠ 無効の1組（2026-09-09・人間のモック「D案」＋人間の決定「モックに合わせて全画面明るくする」）。
 #   ⚠ 4階層のどこから入っても**同じ見た目に落とす**。⚠ 真鍮の暗い版などを別に持たない
@@ -280,6 +282,12 @@ const CARD_PAD_H: int = 22          # ⚠ ギルドの入口カード
 const CARD_PAD_V: int = 20
 const ROW_PAD_H: int = 16           # ⚠ 一覧の行（育成のキャラ・スキルの候補）
 const ROW_PAD_V: int = 11
+# ⚠⚠ 詰めた行（2026-09-11・人間の指示「⚠ ステータスと右のメニューは、半分ぐらいの大きさに」）。
+#   ⚠ 縦の余白を半分にし、⚠ 中の字も小さい段（`SMALL_FONT_SIZE`）にして、
+#   ⚠ 1行の高さをおおよそ半分にする。⚠ 使う先は**10軸の行と右のメニューだけ**
+#   （⚠ 一覧の行は顔が入るので詰めない）。
+const ROW_PAD_V_COMPACT: int = 5
+const CARD_PAD_V_COMPACT: int = 8
 const INSET_BG: String = "1e1815"   # ⚠ 沈めた欄（素材バー・コスト行）。⚠ 入力欄の地と同値
 # ⚠ 選択中・注目（琥珀）。⚠ 地は真鍮の暗い側、⚠ 枠は PrimaryButton の地と同値。
 const ACTIVE_BG: String = "221a14"
@@ -476,6 +484,10 @@ static func _build_labels(theme: Theme) -> void:
 	theme.set_type_variation(&"GainFloatLabel", &"Label")
 	theme.set_font_size(&"font_size", &"GainFloatLabel", GAIN_FLOAT_FONT)
 	theme.set_color(&"font_color", &"GainFloatLabel", Color.WHITE)
+	# ⚠ 小さい本文（⚠ 詰めた行の名前）。⚠ 色は本文のまま、⚠ 大きさだけ小さい段。
+	#   ⚠ `CaptionLabel`（沈めた説明文）と違い、⚠ これは読ませる字。
+	theme.set_type_variation(&"SmallLabel", &"Label")
+	theme.set_font_size(&"font_size", &"SmallLabel", SMALL_FONT_SIZE)
 	# ⚠ 説明文（カードの本文・行の副題・スキルの効果文）。⚠ 本文より1段小さく1段暗い。
 	theme.set_type_variation(&"CaptionLabel", &"Label")
 	theme.set_font_size(&"font_size", &"CaptionLabel", SMALL_FONT_SIZE)
@@ -551,6 +563,12 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_type_variation(&"ListRowPanel", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"ListRowPanel", _pad_panel(panel, ROW_PAD_H, ROW_PAD_V))
 
+	# ⚠ 詰めた面（10軸の枠 ／ 右のメニューの行）。⚠ 色も枠も同じ。⚠ 縦の余白だけ半分。
+	theme.set_type_variation(&"CompactCardPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"CompactCardPanel", _pad_panel(panel, CARD_PAD_H, CARD_PAD_V_COMPACT))
+	theme.set_type_variation(&"CompactRowPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"CompactRowPanel", _pad_panel(panel, ROW_PAD_H, ROW_PAD_V_COMPACT))
+
 	var inset: StyleBoxFlat = panel.duplicate()
 	inset.bg_color = _html(INSET_BG)
 	theme.set_type_variation(&"InsetPanel", &"PanelContainer")
@@ -582,18 +600,24 @@ static func _build_panels(theme: Theme) -> void:
 	#   ⚠ **面の上に透明なボタンを1枚重ねる**（⚠ `PanelContainer` は子を全面に伸ばす）。
 	# ⚠ 地を持たない。⚠ 手がかりは hover の枠と focus の縁だけ
 	#   （⚠ 枠の色は Secondary の hover と同値。⚠ 新しい色ではない）。
+	# ⚠⚠ 縁は**面の外側**に出す（2026-09-11・人間の指示「⚠ 内側に白い淵が出るが、外側に出して」）。
+	#   ⚠ `expand_margin` はスタイルを器の外へはみ出させる。⚠ これが無いと縁が面の内側に
+	#   ⚠ 重なって描かれ、⚠ カードの枠と二重線になって中身の上に乗る。
+	#   ⚠ はみ出す量は線の太さと同じ＝⚠ 縁の内側の辺が、面の枠の外側の辺に接する。
 	for state: String in BUTTON_STATES:
 		var hit: StyleBoxFlat = StyleBoxFlat.new()
 		hit.bg_color = Color(0, 0, 0, 0)
-		hit.set_corner_radius_all(PANEL_CORNER_RADIUS)
+		var width: int = 0
 		if state == "hover":
-			hit.set_border_width_all(1)
+			width = HIT_BORDER_WIDTH
 			hit.border_color = _html("6b5a4e")
 		elif state == "focus":
-			hit.set_border_width_all(FOCUS_BORDER_WIDTH)
+			width = FOCUS_BORDER_WIDTH
 			hit.border_color = _html("f0c04a")
-		else:
-			hit.set_border_width_all(0)
+		hit.set_border_width_all(width)
+		hit.set_expand_margin_all(float(width))
+		# ⚠ 外へ出したぶん角が大きくなるので、⚠ 角丸も同じだけ足す（⚠ 面の角と平行に走る）。
+		hit.set_corner_radius_all(PANEL_CORNER_RADIUS + width)
 		theme.set_stylebox(StringName(state), &"HitButton", hit)
 	theme.set_type_variation(&"HitButton", &"Button")
 

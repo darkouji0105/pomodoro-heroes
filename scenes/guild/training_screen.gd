@@ -221,11 +221,7 @@ func _create_roster_row(character_id: String, is_debug: bool) -> PanelContainer:
 	chevron.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(chevron)
 
-	var hit: Button = Button.new()
-	hit.name = "Hit"
-	hit.theme_type_variation = &"HitButton"
-	hit.pressed.connect(_show_detail.bind(character_id))
-	panel.add_child(hit)
+	UiButton.attach_hit(panel, _show_detail.bind(character_id))
 	return panel
 
 
@@ -333,13 +329,16 @@ func _rebuild_info() -> void:
 	hero_text.add_child(level_label)
 
 	# 10軸。⚠ 装備画面と同じ `ValueRow`（⚠ 絵・左に名前・右に値・増えたぶんは緑）。
+	# ⚠ 10軸は詰めた形（2026-09-11・人間の指示「半分ぐらいの大きさに」）。
+	#   ⚠ 面の縦の余白も、⚠ 行どうしの間隔も、⚠ 中の字も小さい段にする。
 	var stats_panel: PanelContainer = PanelContainer.new()
 	stats_panel.name = "StatsPanel"
-	stats_panel.theme_type_variation = &"CardPanel"
+	stats_panel.theme_type_variation = &"CompactCardPanel"
 	info_column.add_child(stats_panel)
 
 	var stats_column: VBoxContainer = VBoxContainer.new()
 	stats_column.name = "StatsColumn"
+	stats_column.theme_type_variation = &"TightList"
 	stats_panel.add_child(stats_column)
 
 	var stats: Dictionary = GameManager.get_effective_stats(_selected_id)
@@ -355,6 +354,8 @@ func _rebuild_info() -> void:
 		# ⚠ 増えていない行にも空の欄を置く（⚠ 置かないと値の右端がずれる）。
 		row.set_delta("+" + _stat_value_text(stat_key, added) if added > 0 else "")
 		stats_column.add_child(row)
+		# ⚠ 木に入れてから詰める（⚠ Theme から字の段を引くため）。
+		row.set_compact()
 
 	info_column.add_child(_create_cost_line(level, cap))
 
@@ -505,9 +506,10 @@ func _rebuild_actions() -> void:
 func _create_action_row(
 	label_key: String, badge_text: String, accent: bool, handler: Callable
 ) -> PanelContainer:
+	# ⚠ 右のメニューも詰めた形（⚠ 人間の指示「半分ぐらいの大きさに」）。
 	var panel: PanelContainer = PanelContainer.new()
 	panel.name = "Action_" + label_key
-	panel.theme_type_variation = &"ListRowPanel"
+	panel.theme_type_variation = &"CompactRowPanel"
 	panel.modulate.a = 1.0 if handler.is_valid() else 0.4
 
 	var row: HBoxContainer = HBoxContainer.new()
@@ -515,6 +517,8 @@ func _create_action_row(
 
 	var label: Label = Label.new()
 	label.name = "NameLabel"
+	# ⚠ 字も小さい段にする（⚠ 余白だけ詰めても行は半分にならない）。
+	label.theme_type_variation = &"SmallLabel"
 	label.text = tr(label_key)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
@@ -527,11 +531,7 @@ func _create_action_row(
 	row.add_child(badge)
 
 	if handler.is_valid():
-		var hit: Button = Button.new()
-		hit.name = "Hit"
-		hit.theme_type_variation = &"HitButton"
-		hit.pressed.connect(handler)
-		panel.add_child(hit)
+		UiButton.attach_hit(panel, handler)
 	return panel
 
 

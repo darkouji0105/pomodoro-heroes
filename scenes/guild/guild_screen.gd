@@ -132,11 +132,7 @@ func _create_card(screen_id: String) -> PanelContainer:
 	# ⚠ 面ぜんぶを押せるようにする。⚠ 透明なボタンを重ねる（Theme の `HitButton`）。
 	#   ⚠ `PanelContainer` は子を全面に伸ばすので、⚠ 2枚目の子として足すだけでよい。
 	if not is_empty:
-		var hit: Button = Button.new()
-		hit.name = "Hit"
-		hit.theme_type_variation = &"HitButton"
-		hit.pressed.connect(_go_to_sub.bind(screen_id))
-		card.add_child(hit)
+		UiButton.attach_hit(card, _go_to_sub.bind(screen_id))
 	return card
 
 
