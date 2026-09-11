@@ -3885,6 +3885,19 @@ func _report_layout() -> void:
 					print("      %s" % text)
 				if lines.is_empty():
 					push_error("[DebugBoot] スキル設定の %s が 0 件" % raw_child.name)
+			# ⚠⚠ ステータスノードの枝（2026-09-11）。⚠ 枝も段もコードで作るので、
+			#   ⚠ 「何本 × 何段あるか」でしか組めたことを確かめられない。
+			if scene_path.get_file() == "stat_node_screen.tscn" and raw_child.name == "Branches":
+				var branch_count: int = 0
+				for grand: Node in raw_child.get_children():
+					if not (grand is PanelContainer):
+						continue
+					branch_count += 1
+					var tiers: int = grand.find_children("Node_*", "PanelContainer", true, false).size()
+					print("      %s = %d 段" % [grand.name, tiers])
+				print("    ⚠ 割り振りの枝 = %d 本（0 本なら組めていない）" % branch_count)
+				if branch_count <= 0:
+					push_error("[DebugBoot] ステータスノードの枝が 0 本")
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので
@@ -4226,6 +4239,10 @@ const LAYOUT_SCENES: Array[String] = [
 	#   （@onready のパス取り違え・move_child の相手違い）。
 	"res://scenes/guild/training_screen.tscn",
 	"res://scenes/guild/equipment_screen.tscn",
+	# ⚠⚠ ステータスノード（2026-09-11）。⚠ ここまで「測っていない5枚」の1つだった。
+	#   ⚠ 枝も段もコードで作る＝⚠ 開かないと分からない画面の筆頭。
+	#   ⚠ 3枝 × 20段まで伸びるので、⚠ 縦のはみ出しを数字で見る必要がある。
+	"res://scenes/guild/stat_node_screen.tscn",
 	# ⚠ 段階9でボタンの出し分けを足した。ボタンが減ると器の幅が変わる。
 	"res://scenes/guild/guild_screen.tscn",
 	# ⚠ 段階3でパッシブの一覧（見出し＋5行）をコードで足した。今まで測っていない。

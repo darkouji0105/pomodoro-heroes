@@ -985,3 +985,6 @@ ui_desc_passive_pr_triage,味方が 2 人以下のあいだ、魔力 +25
 ui_desc_passive_pr_sanctuary,魔法防御 +20
 ui_desc_passive_pr_zeal,戦闘開始から 30 秒たつと、CD短縮 +15
 ui_desc_passive_pr_benediction,魔力 +20、CD短縮 +10
+ui_stat_node_hint,押すと振れます。前提の段から順に開きます。
+ui_stat_node_cost,%d
+ui_stat_node_taken,済

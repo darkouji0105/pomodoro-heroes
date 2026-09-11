@@ -4,6 +4,12 @@
 # 育成画面の詳細パネルには置かない。3枝×20段のツリーが収まらないため、
 # equipment_screen と同じく独立画面にし、TransferKeys.CHARACTER_ID で対象を受け取る。
 #
+# ⚠⚠ 2026-09-11（人間の指示「⚠ ステータスノードもモックのように」）：
+#   ⚠ **記号（● ○ ✕）をやめ、⚠ 枝を面（カード）に、⚠ 段を行にした**。
+#   ⚠ 前は `● +5 (1)` のように印・値・コストを1つのボタンの文字列に詰めていた。
+#   ⚠ いまは **解放ずみ＝値が緑 ／ 解放できる＝琥珀の枠 ／ 前提が未解放＝沈める**。
+#   ⚠ ギルド・育成・スキルと同じ語彙（⚠ 画面ごとに記号を作り直さない）。
+#
 # 枝の本数・並び順は characters.json の allocatable_stats が決める。
 # ここで軸を決め打ちしないこと（10軸のとき equipment_screen.gd に2本目の軸配列があり、
 # 片方だけ直す事故の元になっていた）。
@@ -15,21 +21,13 @@ class_name StatNodeScreen
 extends Control
 
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
-const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
-
-# 解放済み / 解放できる / 前提が未解放
-const MARK_UNLOCKED: String = "●"
-const MARK_AVAILABLE: String = "○"
-const MARK_LOCKED: String = "✕"
 
 # --- ノード参照 ---
-@onready var name_label: Label = $Margin/Layout/NameLabel
-@onready var points_label: Label = $Margin/Layout/PointsLabel
-@onready var notice_label: Label = $Margin/Layout/NoticeLabel
-@onready var reset_button: UiButton = $Margin/Layout/ResetButton
+@onready var points_label: Label = $Margin/Layout/PointsBar/PointsRow/PointsLabel
+@onready var notice_label: Label = $Margin/Layout/PointsBar/PointsRow/NoticeLabel
+@onready var reset_button: UiButton = $Margin/Layout/PointsBar/PointsRow/ResetButton
 @onready var branches: HBoxContainer = $Margin/Layout/Scroll/Branches
-# ⚠ 題と戻るは `ScreenHeader` が持つ（2026-09-09）。⚠ ボタンを直接掴まない
-#   （⚠ 掴むと、⚠ 部品の作りを変えるたびに画面ぜんぶを直すことになる）。
+# ⚠ 題と戻るは `ScreenHeader` が持つ。⚠ ボタンを直接掴まない。
 @onready var header: ScreenHeader = $Margin/Layout/Header
 
 var _character_id: String = ""
@@ -56,17 +54,20 @@ func _ready() -> void:
 func _rebuild() -> void:
 	_clear(branches)
 	if _character_id == "":
-		name_label.text = ""
 		points_label.text = ""
 		reset_button.disabled = true
 		return
 
 	var char_data: Dictionary = MasterDataLoader.get_character(_character_id)
-	name_label.text = tr(str(char_data.get("name_key", "")))
+	# ⚠ 戻る先はこのキャラの詳細。⚠ 文言もキャラの名前にする（⚠ 他の画面と揃える）。
+	header.set_back_text(tr(str(char_data.get("name_key", ""))))
 
 	var total: int = GameManager.get_stat_node_total_points(_character_id)
 	var remaining: int = GameManager.get_stat_node_remaining_points(_character_id)
 	points_label.text = tr("ui_stat_node_points") % [remaining, total]
+	# ⚠ 余っているときだけ琥珀（⚠ 「次にやることを1つに絞る」）。
+	points_label.theme_type_variation = &"AccentLabel" if remaining > 0 else &"CaptionLabel"
+	notice_label.text = tr("ui_stat_node_hint") if remaining > 0 else ""
 
 	# 解放が0件のときに押しても何も起きないので、押せなくしておく。
 	reset_button.disabled = GameManager.get_stat_nodes(_character_id).is_empty()
@@ -82,48 +83,98 @@ func _rebuild() -> void:
 		_build_branch(str(stat_key), all_nodes, remaining)
 
 
-# 1本の枝（1つの軸）を縦に組み立てる。
+# 1本の枝（1つの軸）。⚠ 面（カード）にして、⚠ 中に段の行を積む。
 func _build_branch(stat_key: String, all_nodes: Dictionary, remaining: int) -> void:
-	var column: VBoxContainer = VBoxContainer.new()
-	# 3列を等幅にする。
-	# これを付けないと各列が中身の最小幅のまま並び、軸名の長さ（"HP" と "物理防御"）と
-	# ％の有無（"+1" と "+1%"）で列の幅が変わる。stretch_ratio は既定の 1 のままでよい。
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	branches.add_child(column)
+	var card: PanelContainer = PanelContainer.new()
+	card.name = "Branch_" + stat_key
+	card.theme_type_variation = &"CompactCardPanel"
+	# 3列を等幅にする。これを付けないと各列が中身の最小幅のまま並び、
+	# 軸名の長さ（"HP" と "物理防御"）と ％の有無で列の幅が変わる。
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	branches.add_child(card)
 
-	var header: Label = Label.new()
-	header.text = tr("ui_training_stat_" + stat_key)
-	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.add_child(header)
+	var column: VBoxContainer = VBoxContainer.new()
+	column.name = "Column"
+	column.theme_type_variation = &"TightList"
+	card.add_child(column)
+
+	# 見出し（絵＋軸名）。⚠ 絵は育成の詳細の10軸と同じもの。
+	var head: HBoxContainer = HBoxContainer.new()
+	head.name = "Head"
+	column.add_child(head)
+	var texture: Texture2D = IconTextures.for_stat(stat_key)
+	if texture != null:
+		head.add_child(_create_icon(texture))
+	var title: Label = Label.new()
+	title.name = "TitleLabel"
+	title.text = tr("ui_training_stat_" + stat_key)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
 
 	var unlocked: Array = GameManager.get_stat_nodes(_character_id)
-
 	for entry: Dictionary in _branch_nodes(stat_key, all_nodes):
-		var node_id: String = str(entry.get("id", ""))
-		var definition: Dictionary = entry.get("definition", {})
-		var cost: int = int(definition.get(GameManager.STAT_NODE_COST, 0))
-		var value: int = int(definition.get(GameManager.STAT_NODE_VALUE, 0))
+		column.add_child(_create_node_row(stat_key, entry, unlocked, remaining))
 
-		var is_unlocked: bool = node_id in unlocked
-		var can_unlock: bool = GameManager.can_unlock_stat_node(_character_id, node_id)
 
-		var mark: String = MARK_LOCKED
-		if is_unlocked:
-			mark = MARK_UNLOCKED
-		elif can_unlock:
-			mark = MARK_AVAILABLE
+# 段1つぶんの行。⚠ 記号を使わない。⚠ 3つの状態を面と色で示す。
+#
+# ⚠ 解放ずみ … 値が緑（`GainLabel`）
+# ⚠ 解放できる … 琥珀の枠（`ActiveRowPanel`）＋押せる
+# ⚠ 前提が未解放／ポイント不足 … 沈める（⚠ 押せない）
+func _create_node_row(
+	stat_key: String, entry: Dictionary, unlocked: Array, remaining: int
+) -> PanelContainer:
+	var node_id: String = str(entry.get("id", ""))
+	var definition: Dictionary = entry.get("definition", {})
+	var cost: int = int(definition.get(GameManager.STAT_NODE_COST, 0))
+	var value: int = int(definition.get(GameManager.STAT_NODE_VALUE, 0))
 
-		var button: UiButton = UI_BUTTON_SCENE.instantiate()
-		column.add_child(button)
-		# 列いっぱいに広げる。文字数でボタン幅が変わると段ごとに右端が揃わない。
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		# label_key ではなく text を直接入れる（記号・数値・コストを1行にまとめるため）。
-		button.text = "%s %s (%d)" % [mark, _value_text(stat_key, value), cost]
-		# 押せてから失敗するより、押せないほうが分かりやすい
-		# （training_screen.gd の level_up_button と同じ判断）。
-		button.disabled = is_unlocked or not can_unlock or remaining < cost
-		button.pressed.connect(_on_node_pressed.bind(node_id))
+	var is_unlocked: bool = node_id in unlocked
+	var can_unlock: bool = GameManager.can_unlock_stat_node(_character_id, node_id)
+	var affordable: bool = can_unlock and remaining >= cost
+
+	var panel: PanelContainer = PanelContainer.new()
+	panel.name = "Node_" + node_id
+	panel.theme_type_variation = &"ActiveRowPanel" if affordable else &"CompactRowPanel"
+	# ⚠ 届かない段は沈める（⚠ `✕` の代わり）。⚠ 消さない＝先に何が在るかは見せる。
+	panel.modulate.a = 1.0 if (is_unlocked or affordable) else 0.4
+
+	var row: HBoxContainer = HBoxContainer.new()
+	panel.add_child(row)
+
+	var value_label: Label = Label.new()
+	value_label.name = "ValueLabel"
+	value_label.theme_type_variation = &"GainLabel" if is_unlocked else &"SmallLabel"
+	value_label.text = _value_text(stat_key, value)
+	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(value_label)
+
+	var cost_label: Label = Label.new()
+	cost_label.name = "CostLabel"
+	cost_label.theme_type_variation = &"CaptionLabel"
+	# ⚠ 解放ずみはコストではなく「入っている」ことを出す（⚠ もう払う数字ではない）。
+	cost_label.text = tr("ui_stat_node_taken") if is_unlocked else tr("ui_stat_node_cost") % cost
+	row.add_child(cost_label)
+
+	# 押せてから失敗するより、押せないほうが分かりやすい
+	# （training_screen.gd の level_up_button と同じ判断）。
+	if affordable and not is_unlocked:
+		UiButton.attach_hit(panel, _on_node_pressed.bind(node_id))
+	return panel
+
+
+# ⚠ 線画は 48px で読み込まれる。⚠ 器は必ず `EXPAND_IGNORE_SIZE`（§0-UI-B-1）。
+func _create_icon(texture: Texture2D) -> TextureRect:
+	var rect: TextureRect = TextureRect.new()
+	rect.name = "Icon"
+	rect.texture = texture
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var size_px: int = get_theme_font_size(&"font_size", &"Label")
+	rect.custom_minimum_size = Vector2(size_px, size_px)
+	rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return rect
 
 
 # 1つの軸に属するノードを段の順に並べて返す。
@@ -153,8 +204,7 @@ func _compare_tier(a: Dictionary, b: Dictionary) -> bool:
 	return int(a.get("tier", 0)) < int(b.get("tier", 0))
 
 
-# remove_child してから queue_free する。await を挟むと再描画が並走し、行が二重に並ぶ
-# （AGENTS.md「再描画は await を持たせない」）。
+# remove_child してから queue_free する（AGENTS.md「再描画は await を持たせない」）。
 # 振り直しは1操作で60ノードが一斉に変わるため、ここが最も影響が大きい。
 func _clear(container: Node) -> void:
 	for child: Node in container.get_children():
@@ -185,8 +235,7 @@ func _on_reset_pressed() -> void:
 	GameManager.reset_stat_nodes(_character_id)
 
 
-# ⚠ 誰の割り振りを見ていたかを渡して戻る（2026-09-11）。⚠ 渡さないと一覧に落ちて、
-#   ⚠ もう一度そのキャラを押し直すことになる。
+# ⚠ 誰の割り振りを見ていたかを渡して戻る。⚠ 渡さないと一覧に落ちる。
 func _on_back_pressed() -> void:
 	SceneManager.change_scene_with_data(TRAINING_PATH, {TransferKeys.CHARACTER_ID: _character_id})
 
