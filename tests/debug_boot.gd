@@ -3986,6 +3986,11 @@ const LAYOUT_SCENE_SHOW: Dictionary = {
 # ⚠ 行の中の Label を左から順につないだもの（⚠ 設計役は絵を見られないので文で取る）。
 func _row_text(row: PanelContainer) -> String:
 	var parts: Array[String] = []
+	# ⚠ 絵も文で出す（⚠ 絵は取れないが「どのファイルが入ったか」は取れる）。
+	for rect: Node in row.find_children("*", "TextureRect", true, false):
+		var texture: Texture2D = (rect as TextureRect).texture
+		if texture != null:
+			parts.append("[%s]" % texture.resource_path.get_file().get_basename())
 	for label: Node in row.find_children("*", "Label", true, false):
 		var text: String = (label as Label).text
 		if text != "":

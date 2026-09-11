@@ -289,6 +289,10 @@ const ROW_PAD_V: int = 11
 const ROW_PAD_V_COMPACT: int = 5
 const CARD_PAD_V_COMPACT: int = 8
 const INSET_BG: String = "1e1815"   # ⚠ 沈めた欄（素材バー・コスト行）。⚠ 入力欄の地と同値
+# ⚠ 絵を入れる枠（⚠ スキルの枠と候補の左）。⚠ モックの 40 / 34 を1つに寄せた。
+#   ⚠ 中の線画は器の半分（⚠ アイテムのマス 40px に線画 20px と同じ割合）。
+const ICON_WELL_SIZE: int = 36
+const ICON_WELL_ICON: int = 18
 # ⚠ 選択中・注目（琥珀）。⚠ 地は真鍮の暗い側、⚠ 枠は PrimaryButton の地と同値。
 const ACTIVE_BG: String = "221a14"
 const ACTIVE_BORDER: String = "a8791f"
@@ -568,6 +572,16 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_stylebox(&"panel", &"CompactCardPanel", _pad_panel(panel, CARD_PAD_H, CARD_PAD_V_COMPACT))
 	theme.set_type_variation(&"CompactRowPanel", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"CompactRowPanel", _pad_panel(panel, ROW_PAD_H, ROW_PAD_V_COMPACT))
+
+	# ⚠ 絵を入れる枠（⚠ スキルの枠・候補の左）。⚠ 面より1段沈めた地に、⚠ 1段明るい枠。
+	#   ⚠ 中の絵の大きさも Theme が持つ（⚠ 器の約半分。⚠ アイテムのマスと同じ割合）。
+	var well: StyleBoxFlat = panel.duplicate()
+	well.bg_color = _html(INSET_BG)
+	well.border_color = _html(CHIP_BORDER)
+	theme.set_type_variation(&"IconWell", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"IconWell", well)
+	theme.set_constant(&"size", &"IconWell", ICON_WELL_SIZE)
+	theme.set_constant(&"icon", &"IconWell", ICON_WELL_ICON)
 
 	var inset: StyleBoxFlat = panel.duplicate()
 	inset.bg_color = _html(INSET_BG)

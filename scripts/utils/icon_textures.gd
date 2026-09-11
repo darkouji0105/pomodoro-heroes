@@ -173,6 +173,16 @@ static func for_screen(screen_id: String) -> Texture2D:
 	return _load(str(SCREEN_NAMES.get(screen_id, "")))
 
 
+# ⚠⚠ スキルの絵（2026-09-11・人間の指示「⚠ スキルのアイコンを作って SVG で」）。
+#
+# ⚠ **表を持たない。⚠ ファイル名がスキルのIDそのもの**（⚠ `icon_skill_power_slash.svg`）。
+#   ⚠ 品のように「種類」でまとめられない（⚠ 1つ1つ絵が違うもの）ので、
+#   ⚠ 対応表を作るとスキルを足すたびに2箇所へ書くことになる。
+# ⚠ 無ければ null＝⚠ 呼ぶ側が絵の枠ごと出さない（⚠ パッシブと検証用のスキルはまだ無い）。
+static func for_skill(skill_id: String) -> Texture2D:
+	return _load(skill_id)
+
+
 # ⚠⚠ 絵文字 -> ファイル名。⚠ ここが `Glyphs` と線画をつなぐ唯一の場所。
 #   ⚠ こうすると「どの品がどの種類か」の判定が `Glyphs` の1本のままになる。
 static func _name_of_glyph(glyph: String) -> String:

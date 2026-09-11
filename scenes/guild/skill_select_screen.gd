@@ -114,6 +114,10 @@ func _create_slot_card(slot_index: int, skill_id: String) -> PanelContainer:
 	var row: HBoxContainer = HBoxContainer.new()
 	panel.add_child(row)
 
+	var well: PanelContainer = _create_icon_well(skill_id)
+	if well != null:
+		row.add_child(well)
+
 	var column: VBoxContainer = VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -189,6 +193,10 @@ func _create_candidate_row(skill_id: String, is_unlocked: bool, slot_index: int)
 
 	var row: HBoxContainer = HBoxContainer.new()
 	panel.add_child(row)
+
+	var well: PanelContainer = _create_icon_well(skill_id)
+	if well != null:
+		row.add_child(well)
 
 	var column: VBoxContainer = VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -328,6 +336,36 @@ func _create_passive_row(passive_id: String, is_unlocked: bool) -> VBoxContainer
 
 
 # --- 小さい器 ---
+
+# スキルの絵の枠。⚠ 絵が無いスキルは枠ごと出さない（⚠ 空の四角を並べない）。
+#
+# ⚠ 大きさは Theme が持つ（`IconWell`）。⚠ ここに px を書かない。
+# ⚠ 線画は 48px で読み込まれるので、⚠ 器は必ず `EXPAND_IGNORE_SIZE`（§0-UI-B-1）。
+func _create_icon_well(skill_id: String) -> PanelContainer:
+	if skill_id == "":
+		return null
+	var texture: Texture2D = IconTextures.for_skill(skill_id)
+	if texture == null:
+		return null
+
+	var well: PanelContainer = PanelContainer.new()
+	well.name = "IconWell"
+	well.theme_type_variation = &"IconWell"
+	var box: int = well.get_theme_constant(&"size", &"IconWell")
+	well.custom_minimum_size = Vector2(box, box)
+	well.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	well.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+
+	var rect: TextureRect = TextureRect.new()
+	rect.name = "Icon"
+	rect.texture = texture
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var inner: int = well.get_theme_constant(&"icon", &"IconWell")
+	rect.custom_minimum_size = Vector2(inner, inner)
+	well.add_child(rect)
+	return well
+
 
 func _create_section_label(key: String) -> Label:
 	var label: Label = Label.new()
