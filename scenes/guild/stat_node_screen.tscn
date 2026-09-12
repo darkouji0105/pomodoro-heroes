@@ -48,6 +48,11 @@ layout_mode = 2
 [node name="PointsLabel" type="Label" parent="Margin/Layout/PointsBar/PointsRow"]
 layout_mode = 2
 size_flags_vertical = 4
+theme_type_variation = &"PointsLabel"
+
+[node name="PointsCaption" type="Label" parent="Margin/Layout/PointsBar/PointsRow"]
+layout_mode = 2
+size_flags_vertical = 4
 
 [node name="NoticeLabel" type="Label" parent="Margin/Layout/PointsBar/PointsRow"]
 layout_mode = 2
@@ -60,12 +65,47 @@ layout_mode = 2
 label_key = "ui_stat_node_reset"
 variant = 2
 
-[node name="Scroll" type="ScrollContainer" parent="Margin/Layout"]
+[node name="Body" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3
-horizontal_scroll_mode = 0
+theme_type_variation = &"WideRow"
 
-[node name="Branches" type="HBoxContainer" parent="Margin/Layout/Scroll"]
+[node name="Branches" type="GridContainer" parent="Margin/Layout/Body"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_type_variation = &"WideRow"
+size_flags_vertical = 0
+theme_type_variation = &"NodeList"
+columns = 2
+
+[node name="SidePanel" type="PanelContainer" parent="Margin/Layout/Body"]
+layout_mode = 2
+size_flags_vertical = 0
+theme_type_variation = &"CompactCardPanel"
+
+[node name="SideColumn" type="VBoxContainer" parent="Margin/Layout/Body/SidePanel"]
+layout_mode = 2
+theme_type_variation = &"TightList"
+
+[node name="SideTitle" type="Label" parent="Margin/Layout/Body/SidePanel/SideColumn"]
+layout_mode = 2
+theme_type_variation = &"SectionLabel"
+
+[node name="StatList" type="VBoxContainer" parent="Margin/Layout/Body/SidePanel/SideColumn"]
+layout_mode = 2
+theme_type_variation = &"TightList"
+
+[node name="SideRule" type="HSeparator" parent="Margin/Layout/Body/SidePanel/SideColumn"]
+layout_mode = 2
+
+[node name="SpentRow" type="HBoxContainer" parent="Margin/Layout/Body/SidePanel/SideColumn"]
+layout_mode = 2
+
+[node name="SpentCaption" type="Label" parent="Margin/Layout/Body/SidePanel/SideColumn/SpentRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CaptionLabel"
+
+[node name="SpentLabel" type="Label" parent="Margin/Layout/Body/SidePanel/SideColumn/SpentRow"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+horizontal_alignment = 2

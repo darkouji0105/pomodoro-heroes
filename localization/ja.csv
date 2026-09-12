@@ -343,7 +343,7 @@ ui_equipment_equipped_by,装備中：%s
 ui_warehouse_dismantle,素材にする
 ui_training_nodes,ステータスノード
 ui_nav_stat_node,ステータスノード
-ui_stat_node_points,残ポイント %d / %d
+ui_stat_node_points,残ポイント
 ui_stat_node_reset,振り直す
 ui_skill_select_slots_header,持ち込むスキル
 ui_skill_select_candidates_header,スキル候補
@@ -985,6 +985,10 @@ ui_desc_passive_pr_triage,味方が 2 人以下のあいだ、魔力 +25
 ui_desc_passive_pr_sanctuary,魔法防御 +20
 ui_desc_passive_pr_zeal,戦闘開始から 30 秒たつと、CD短縮 +15
 ui_desc_passive_pr_benediction,魔力 +20、CD短縮 +10
-ui_stat_node_hint,押すと振れます。前提の段から順に開きます。
-ui_stat_node_cost,%d
+ui_stat_node_hint,＋を押すと 1 段ずつ振れます。
+ui_stat_node_cost,%d pt
 ui_stat_node_taken,済
+ui_stat_node_tier,段%d
+ui_stat_node_after,振ったあとのステータス
+ui_stat_node_spent,振り分け済み
+ui_stat_node_add,＋

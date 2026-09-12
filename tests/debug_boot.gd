@@ -3887,19 +3887,39 @@ func _report_layout() -> void:
 					print("      %s" % text)
 				if lines.is_empty():
 					push_error("[DebugBoot] スキル設定の %s が 0 件" % raw_child.name)
-			# ⚠⚠ ステータスノードの枝（2026-09-11）。⚠ 枝も段もコードで作るので、
-			#   ⚠ 「何本 × 何段あるか」でしか組めたことを確かめられない。
+			# ⚠⚠ ステータスノードの軸の行（2026-09-11。⚠ 2026-09-12 に取り直した）。
+			#   ⚠ 行も点もコードで作るので、⚠ 「何行 × 何段あるか」でしか組めたことを
+			#   ⚠ 確かめられない。⚠ **前は「1軸 = 20行」を数えていた**が、
+			#   ⚠ モックに合わせて **1軸 = 1行 + 点の列**にしたので、⚠ 段は `TierDots` から取る。
 			if scene_path.get_file() == "stat_node_screen.tscn" and raw_child.name == "Branches":
 				var branch_count: int = 0
 				for grand: Node in raw_child.get_children():
 					if not (grand is PanelContainer):
 						continue
 					branch_count += 1
-					var tiers: int = grand.find_children("Node_*", "PanelContainer", true, false).size()
-					print("      %s = %d 段" % [grand.name, tiers])
-				print("    ⚠ 割り振りの枝 = %d 本（0 本なら組めていない）" % branch_count)
+					var dots: Array[Node] = grand.find_children("Dots", "Control", true, false)
+					var tier_text: String = "点が無い"
+					if not dots.is_empty() and dots[0] is TierDots:
+						tier_text = (dots[0] as TierDots).to_text() + " 段"
+					print("      %s = %s ／ %s" % [
+						grand.name, tier_text, _row_text(grand as PanelContainer)
+					])
+				print("    ⚠ 割り振りの軸 = %d 行（0 行なら組めていない）" % branch_count)
 				if branch_count <= 0:
-					push_error("[DebugBoot] ステータスノードの枝が 0 本")
+					push_error("[DebugBoot] ステータスノードの軸が 0 行")
+			# ⚠ 右の「振ったあとのステータス」（2026-09-12）。⚠ 10軸ぜんぶ出ているか。
+			if scene_path.get_file() == "stat_node_screen.tscn" and raw_child.name == "StatList":
+				var stat_rows: Array[String] = []
+				for grand: Node in raw_child.get_children():
+					if grand is ValueRow:
+						stat_rows.append((grand as ValueRow).to_text())
+				print("    ⚠ 振ったあとのステータス = %d 行" % stat_rows.size())
+				for text: String in stat_rows:
+					print("      %s" % text)
+				if stat_rows.size() != GameManager.get_stat_keys().size():
+					push_error("[DebugBoot] 振ったあとのステータスが %d 行（%d 軸あるはず）" % [
+						stat_rows.size(), GameManager.get_stat_keys().size()
+					])
 			# ⚠⚠ 面に重ねた「当たり」が本当に押せるか（2026-09-11・人間が実機で
 			#   ⚠ 「⚠ ギルド画面でボタンが反応しない」と見つけた事故の再発防止）。
 			#
@@ -4060,6 +4080,12 @@ func _layout_prepare_for(scene_path: String) -> void:
 		for screen_id: String in GuildScreen.GUILD_SCENES:
 			GameManager.unlock_screen(screen_id)
 		return
+	# ⚠⚠ 割り振りは「1段も振っていない姿」だと点が全部暗く、⚠ 合計も緑の数字も出ない
+	#   （2026-09-12）。⚠ **横に一番長いのは値が入った姿**なので、⚠ 先に少し振ってから測る
+	#   （⚠ ギルドと同じ考え方：⚠ `visible` をいじらず**状態のほうを作る**）。
+	if scene_path == "res://scenes/guild/stat_node_screen.tscn":
+		_layout_fill_stat_nodes(str(GameManager.get_party_members()[0]))
+		return
 	if scene_path not in [
 		"res://scenes/adventure/dungeon_chest.tscn",
 		"res://scenes/adventure/dungeon_relic_select.tscn",
@@ -4068,6 +4094,32 @@ func _layout_prepare_for(scene_path: String) -> void:
 		return
 	if GameManager.get_dungeon_shop_entries().is_empty():
 		_layout_walk_dungeon_to_boss()
+
+
+# ⚠ 割り振りに段を入れておく（2026-09-12）。⚠ ポイントは **レベル-1** なので、
+#   ⚠ 先にレベルを上げる。⚠ 上げるには素材が要るので配る（⚠ 測るだけ・保存はしない）。
+# ⚠ 押す順は段の小さい順。⚠ 前提が1本道なので、⚠ 「押せたら次」を繰り返せば埋まる。
+func _layout_fill_stat_nodes(character_id: String) -> void:
+	if not GameManager.get_stat_nodes(character_id).is_empty():
+		return
+	if Balance.character != null:
+		GameManager.add_material(str(Balance.character.level_up_material_id), 999)
+	for _i: int in range(8):
+		if not GameManager.level_up_character(character_id):
+			break
+
+	var ids: Array = MasterDataLoader.get_all_character_nodes().keys()
+	ids.sort()
+	# ⚠ 6段ぶん。⚠ 全部埋めない（⚠ 「済」の行と「まだの行」を両方測りたい）。
+	# ⚠ 先に `can_unlock_stat_node()` で絞る。⚠ いきなり `unlock_stat_node()` を
+	#   ⚠ 全IDに当てると、⚠ 他のキャラのノードで false のログが 1000 行出る（⚠ 実測）。
+	for _step: int in range(6):
+		for raw_id: Variant in ids:
+			var node_id: String = str(raw_id)
+			if not GameManager.can_unlock_stat_node(character_id, node_id):
+				continue
+			if GameManager.unlock_stat_node(character_id, node_id):
+				break
 
 
 # ⚠⚠ ボスのマスまで歩いて倒す（宿題73 の「戻さない条件」を作る道具）。
