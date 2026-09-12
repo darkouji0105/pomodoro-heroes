@@ -269,6 +269,20 @@ const DOT_SIZE: int = 8
 const DOT_CURRENT_WIDTH: int = 40
 const DOT_GAP: int = 8
 
+# --- 割り振りの段の点（2026-09-12・人間のモック「Stat node mock」）---
+#
+# ⚠ 20段を1行の点で出す。⚠ `SetDots` とは別の型にする（⚠ 大きさも区切りも違う）。
+#   ⚠ あちらは「4セット・今のセットだけ横長」。⚠ こちらは「20段・5段ごとに区切る」。
+# ⚠⚠ **新しい色は1つも足していない**。⚠ 済み＝真鍮（`RING_FILL`）／
+#   ⚠ これから＝暗い点（`DOT_TODO`）。⚠ どちらも既に在る値の使い回し。
+# ⚠ 5段ごとに間を空けるのは、⚠ モックがそう区切っているのと、
+#   ⚠ `nodes.json` の `cost` が **6段目から 1 -> 2 に上がる**ため
+#   （⚠ 「あと何段で重くなるか」が点の並びで読める）。
+const TIER_DOT_SIZE: int = 6
+const TIER_DOT_GAP: int = 3
+const TIER_DOT_GROUP: int = 5
+const TIER_DOT_GROUP_GAP: int = 8
+
 # --- 面（PanelContainer）---
 
 const PANEL_BG: String = "241d1a"
@@ -389,6 +403,7 @@ static func build() -> void:
 	_build_panels(theme)
 	_build_inputs(theme)
 	_build_pomodoro(theme)
+	_build_stat_nodes(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -752,6 +767,23 @@ static func _build_pomodoro(theme: Theme) -> void:
 	theme.set_constant(&"size", &"SetDots", DOT_SIZE)
 	theme.set_constant(&"current_width", &"SetDots", DOT_CURRENT_WIDTH)
 	theme.set_constant(&"gap", &"SetDots", DOT_GAP)
+
+
+# ⚠ 割り振り（ステータスノード）だけが使う値（2026-09-12・人間のモック）。
+static func _build_stat_nodes(theme: Theme) -> void:
+	theme.set_color(&"done", &"TierDots", _html(RING_FILL))
+	theme.set_color(&"todo", &"TierDots", _html(DOT_TODO))
+	theme.set_constant(&"size", &"TierDots", TIER_DOT_SIZE)
+	theme.set_constant(&"gap", &"TierDots", TIER_DOT_GAP)
+	theme.set_constant(&"group", &"TierDots", TIER_DOT_GROUP)
+	theme.set_constant(&"group_gap", &"TierDots", TIER_DOT_GROUP_GAP)
+
+	# ⚠ 残ポイントの数字（⚠ モックは他より一回り大きい）。
+	#   ⚠⚠ **文字の大きさの段は増やしていない**。⚠ 24 は「浮かぶ数字」と同じ段、
+	#   ⚠ 色は `AccentLabel` と同値（f0c04a）。⚠ 用途が違うので型だけ分ける。
+	theme.set_type_variation(&"PointsLabel", &"Label")
+	theme.set_font_size(&"font_size", &"PointsLabel", GAIN_FLOAT_FONT)
+	theme.set_color(&"font_color", &"PointsLabel", _html("f0c04a"))
 
 
 static func _html(hex: String) -> Color:
