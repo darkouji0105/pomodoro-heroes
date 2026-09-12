@@ -13,6 +13,7 @@ ui_common_ok,決定
 ui_common_cancel,キャンセル
 ui_common_close,閉じる
 ui_common_back,戻る
+ui_common_back_to_base,拠点へ戻る
 ui_common_yes,はい
 ui_common_no,いいえ
 ui_res_gold,ゴールド
@@ -30,7 +31,6 @@ ui_res_material_unknown,不明な素材
 ui_pomodoro_protection_light,ライト
 ui_pomodoro_protection_middle,ミドル
 ui_pomodoro_protection_hard,ハード
-ui_pomodoro_protection_hint,しきい値は今日の合計作業時間です。何回かに分けても大丈夫です。
 ui_pomodoro_chest_at,{0}分で{1}
 ui_chest_generic,ふつうの宝箱
 ui_chest_bonus_small,ボーナス宝箱（小）
@@ -42,12 +42,9 @@ ui_chest_rare,かがやく宝箱
 ui_chest_epic,ほうぎょくの宝箱
 ui_chest_legendary,でんせつの宝箱
 ui_pomodoro_title_placeholder,何に取り組みますか？（任意）
-ui_pomodoro_title_hint,ここに入れた文字はフレンドに表示されます
-ui_pomodoro_focus,集中中
 ui_pomodoro_reflection_placeholder,{0}文字以上で入力してください
 ui_pomodoro_break_short,休憩
 ui_pomodoro_break_long,長い休憩
-ui_pomodoro_chest_earned,宝箱を獲得しました（拠点で受け取れます）
 ui_pomodoro_quit,やめる
 ui_pomodoro_quit_confirm,ここまでの報酬を受け取って拠点に戻ります。よろしいですか？
 ui_common_quit,中断
@@ -85,7 +82,6 @@ ui_warehouse_opened,開けました
 ui_battle_victory,勝利
 ui_battle_defeat,敗北
 ui_battle_retry,もう一度
-ui_battle_back,拠点へ戻る
 ui_battle_reward_gold,ゴールド
 ui_battle_char_swordsman,剣士
 ui_battle_char_archer,弓兵
@@ -116,7 +112,6 @@ ui_adventure_title,冒険
 ui_adventure_stamina_short,スタミナが足りません
 ui_adventure_locked,前のステージをクリアすると解放されます
 ui_adventure_training,トレーニング
-ui_adventure_back,拠点へ戻る
 ui_adventure_challenge,挑戦
 ui_adventure_party,編成
 ui_floor_1,1. 草原のスライム
@@ -134,7 +129,6 @@ ui_floor_rested,ひと休みした。全員のHPが満タンに戻った
 ui_floor_node_not_ready,ここはまだ作っていない。そのまま先へ進める
 ui_floor_cannot_move,そこへは進めない
 ui_floor_abandon,フロアを降りる
-ui_floor_back_to_base,拠点へ戻る
 ui_floor_resume,続きから
 ui_floor_start_failed,フロアに入れなかった
 ui_floor_other_in_progress,別のフロアの途中。先に降りること
@@ -209,7 +203,6 @@ ui_uitest_prepare_failed,状態を作れませんでした。ログを見てく�
 ui_uitest_embedded,画面の中身（遷移では見られないもの）
 ui_uitest_embedded_note,ポモドーロの4つのビュー。戻るボタンが無いのでここに埋め込んでいます。押しても何も起きません
 ui_uitest_parts,部品カタログ
-ui_uitest_back,拠点へ戻る
 ui_uitest_modal_notify,モーダル（知らせ）
 ui_uitest_modal_confirm,モーダル（確認）
 ui_uitest_modal_message,これはUIテストのモーダルです
@@ -782,36 +775,6 @@ ui_warehouse_page_next,▶
 ui_warehouse_select_hint,マスを選ぶと、ここに できること が出ます
 ui_detail_none,マスを選ぶと、ここに詳細が出ます
 ui_detail_equip_slot,部位 %s
-ui_resdemo_title,リソース獲得の演出（デモ）
-ui_resdemo_note,どれを本番に入れるか選ぶための画面です。ここの数はセーブに影響しません
-ui_resdemo_settings,設定（変えてから下の「再生」を押す）
-ui_resdemo_set_route,飛ぶルート
-ui_resdemo_set_count,いくつ飛ばすか
-ui_resdemo_set_sec,飛ぶ時間（秒）
-ui_resdemo_set_arc,ふくらみ（px）
-ui_resdemo_set_ease,始めと終わりの遅さ
-ui_resdemo_set_stagger,1個ずつの遅れ（秒）
-ui_resdemo_set_spread,出どころの散らし
-ui_resdemo_level_low,弱
-ui_resdemo_level_mid,中
-ui_resdemo_level_high,強
-ui_resdemo_spread_none,なし
-ui_resdemo_spread_small,小
-ui_resdemo_spread_large,大
-ui_resdemo_source,ここから飛ぶ
-ui_resdemo_play,再生（全部つなげる）
-ui_resdemo_route_straight,直線（基準）
-ui_resdemo_route_arc_up,上へ山なり
-ui_resdemo_route_detour,横へ迂回
-ui_resdemo_route_swoop,S字（回り込んで着地）
-ui_resdemo_route_pull_back,引いてから飛ぶ
-ui_resdemo_kinds,演出の候補
-ui_resdemo_pop,1 ポップ（数字がふくらむ）
-ui_resdemo_float,2 浮かぶ数字（+120 が流れて消える）
-ui_resdemo_count,3 カウントアップ（数字が回る）
-ui_resdemo_fly,4 飛ぶアイコン（押した所から表示欄へ）
-ui_resdemo_all,5 全部つなげる
-ui_resdemo_reset,数を戻す
 ui_desc_stamina_potion,スタミナを回復する。冒険に行く回数が増える
 ui_desc_dungeon_potion_heal,戦闘時MAX HP を素の30%ぶん戻す。ダンジョンの中でだけ使える
 ui_desc_dungeon_potion_revive,脱落した仲間を戻す。戦闘時MAX HP は素の半分から

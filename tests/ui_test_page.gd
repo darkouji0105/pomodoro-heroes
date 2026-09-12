@@ -148,7 +148,7 @@ func _ready() -> void:
 	_popup_detail.name = "PopupDetail"
 	_popup = ItemDetailPopup.adopt(self, _popup_detail)
 	_add_heading("ui_uitest_title")
-	_add_action("ui_uitest_back", _on_back_pressed)
+	_add_action("ui_common_back_to_base", _on_back_pressed)
 
 	_add_heading("ui_uitest_screens")
 	for path: String in PLAIN_SCENES:

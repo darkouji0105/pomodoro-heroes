@@ -103,5 +103,5 @@ variant = 3
 
 [node name="BackButton" parent="Layout/Footer" instance=ExtResource("3_button")]
 layout_mode = 2
-label_key = "ui_floor_back_to_base"
+label_key = "ui_common_back_to_base"
 variant = 2
