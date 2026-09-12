@@ -4363,6 +4363,17 @@ const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/pomodoro/focus_view.tscn",
 	"res://scenes/pomodoro/break_view.tscn",
 	"res://scenes/pomodoro/reflection_view.tscn",
+	# ⚠⚠ 「まだ一度も測っていない3枚」のうち2枚（2026-09-12・宿題13）。
+	#   ⚠ 拠点は下段（`LAYOUT_PATHS`）だけ測っていて、⚠ **画面全体は測っていなかった**。
+	#   ⚠ タイトルは1枚も測っていなかった。
+	# ⚠⚠ **戦闘（`battle.tscn`）は足さない。⚠ measure しても `0 x 0` にしかならない**
+	#   ⚠ （2026-09-12 に1回入れて実測）。⚠ 中身が `Node2D` と `CanvasLayer` で、
+	#   ⚠ `get_combined_minimum_size()` を持つ Container が1つも無いため
+	#   ⚠ （⚠ `ui_test_page.tscn` が 0 x 0 なのと同じ理由）。
+	#   ⚠⚠ 測りたければ**先に HUD をコンテナへ組み替える**こと（⚠ ポモドーロと同じ道）。
+	#   ⚠ 開くと敵とタイマーが動き出すぶん、⚠ 入れておく損のほうが大きい。
+	"res://scenes/base/base_screen.tscn",
+	"res://scenes/title/title_screen.tscn",
 ]
 
 
