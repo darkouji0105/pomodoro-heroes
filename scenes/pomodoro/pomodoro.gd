@@ -11,7 +11,6 @@ extends Control
 enum State { PROTECTION_SELECT, FOCUS, REFLECTION, BREAK }
 
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
-const REFLECTION_TIME_LIMIT_SEC: float = 120.0
 
 var current_state: State = State.PROTECTION_SELECT
 var current_preset: PomodoroPreset = null
@@ -154,7 +153,7 @@ func _switch_view(new_state: State) -> void:
 
 		State.REFLECTION:
 			view.reflection_completed.connect(_on_reflection_completed)
-			_start_phase_timer(REFLECTION_TIME_LIMIT_SEC)
+			_start_phase_timer(_reflection_time_limit_sec())
 
 		State.BREAK:
 			var is_long: bool = ((current_set_index + 1) % current_preset.long_break_interval == 0)
@@ -179,6 +178,14 @@ func _update_set_dots() -> void:
 	set_dots.set_state(current_set_index, ratio)
 
 
+# ⚠⚠ 振り返りの制限時間（2026-09-12・宿題4）。⚠ **前はここに `120.0` を直書きしていた**。
+#   ⚠ `Balance.pomodoro.reflection_time_limit_sec` は**在るのに誰も読んでいなかった**
+#   ⚠ ＝AGENTS.md「欄だけ足して実装しないことを禁止する」に引っかかっていた。
+# ⚠ 引く形は `reflection_view.gd` の `_min_chars()` と揃えてある（⚠ 同じ Config の別の欄）。
+func _reflection_time_limit_sec() -> float:
+	return float(Balance.pomodoro.reflection_time_limit_sec)
+
+
 # --- 各フェーズのハンドラ ---
 
 func _on_protection_selected(protection_id: String) -> void:
@@ -197,8 +204,10 @@ func _on_timer_finished() -> void:
 			_notify_focus_finished()
 			_switch_view(State.REFLECTION)
 		State.REFLECTION:
-			# 120秒以内に確定しなかった → skipped 扱いで次へ進む
-			print("[Pomodoro] reflection timed out -> skipped")
+			# 制限時間内に確定しなかった → skipped 扱いで次へ進む
+			print("[Pomodoro] reflection timed out (%.0f sec) -> skipped" % (
+				_reflection_time_limit_sec()
+			))
 			_on_reflection_completed("", true)
 		State.BREAK:
 			_notify_break_finished()
