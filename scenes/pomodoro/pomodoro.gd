@@ -291,7 +291,31 @@ func _notify_break_finished() -> void:
 
 # --- 終了処理 ---
 
+# ⚠⚠ 「やめる」には確認を挟む（2026-09-12・宿題3）。
+#
+# ⚠ 押した瞬間に**そのセッションが終わる**（⚠ 報酬を確定して拠点へ戻る）。
+#   ⚠ 集中の途中で誤って押すと戻せない。⚠ 倉庫の「捨てる」と同じ流儀。
+# ⚠ 文言は `ui_pomodoro_quit_confirm`。⚠ **前から在って誰も使っていなかった**
+#   （⚠ 宿題5 の「未使用の文言」に挙がっていたが、⚠ 消さずにここで使う）。
+# ⚠⚠ 状態を触るのは「はい」のあと（CLAUDE.md 6番「状態を変える前に全部の判定を終える」）。
+#   ⚠ タイマーもここでは止めない（⚠ 止めるのは `_return_to_base()` の1箇所だけ）。
+# ⚠ 窓が開いている間もタイマーは進む（⚠ 他の確認と同じで `pause` は渡さない）。
+#   ⚠ その間にフェーズが終わって画面が変わることがあるので、⚠ 待ったあとに
+#   ⚠ 木に居るかを見てから進む。
+var _quit_confirming: bool = false
+
+
 func quit_session() -> void:
+	# ⚠ 二重に開かない（⚠ Modal は積むので、⚠ 連打すると窓が2枚並ぶ）。
+	if _quit_confirming:
+		return
+	_quit_confirming = true
+	var confirmed: bool = await Modal.confirm(self, "ui_pomodoro_quit_confirm")
+	_quit_confirming = false
+	if not confirmed:
+		return
+	if not is_inside_tree():
+		return
 	_return_to_base()
 
 
