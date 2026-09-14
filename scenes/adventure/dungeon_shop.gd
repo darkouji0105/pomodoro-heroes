@@ -21,7 +21,7 @@ const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 @onready var item_detail: ItemDetail = $Layout/ItemDetail
 @onready var item_action_row: HBoxContainer = $Layout/ItemActionRow
 @onready var upgrade_list: VBoxContainer = $Layout/UpgradeList
-@onready var back_button: UiButton = $Layout/Footer/BackButton
+@onready var back_button: UiButton = $Layout/Header/BackButton
 
 # 押した所の近くに詳細を出す器（2026-09-07）。⚠ `item_detail` と `item_action_row` を引き取る。
 var _detail_popup: ItemDetailPopup = null

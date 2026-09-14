@@ -20,7 +20,7 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 @onready var torch_button: UiButton = $Layout/TorchRow/TorchButton
 @onready var heal_label: Label = $Layout/HealRow/HealLabel
 @onready var heal_button: UiButton = $Layout/HealRow/HealButton
-@onready var leave_button: UiButton = $Layout/Footer/LeaveButton
+@onready var leave_button: UiButton = $Layout/Header/LeaveButton
 
 
 func _ready() -> void:

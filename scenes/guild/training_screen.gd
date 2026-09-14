@@ -87,7 +87,6 @@ func _show_list() -> void:
 	_notice_text = ""
 	detail_panel.visible = false
 	list_panel.visible = true
-	header.back_label_key = "ui_nav_guild"
 	header.set_subtitle_text("")
 	_rebuild_list()
 
@@ -290,7 +289,6 @@ func _show_detail(character_id: String) -> void:
 	_notice_text = ""
 	list_panel.visible = false
 	detail_panel.visible = true
-	header.back_label_key = "ui_training_to_list"
 	_refresh_detail()
 
 

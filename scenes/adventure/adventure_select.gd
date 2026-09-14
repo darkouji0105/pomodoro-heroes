@@ -21,7 +21,7 @@ const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var stage_list: VBoxContainer = $Layout/StageList
 @onready var training_button: UiButton = $Layout/Footer/TrainingButton
-@onready var back_button: UiButton = $Layout/Footer/BackButton
+@onready var back_button: UiButton = $Layout/Header/BackButton
 
 # --- 内部状態 ---
 # ステージ行（stage_id -> {"row": HBoxContainer, "button": UiButton}）。未解放時の挙動切替用
@@ -161,10 +161,9 @@ func _build_dungeon_button() -> void:
 	button.name = "DungeonButton"
 	button.text = tr("ui_dungeon_resume") if in_progress else tr("ui_dungeon_section")
 	button.pressed.connect(_on_dungeon_pressed.bind(dungeon_id))
-	var footer: Node = back_button.get_parent()
-	footer.add_child(button)
-	# ⚠ 「拠点へ」の手前に置く。⚠ add_child は末尾に付くので必ず移動させる。
-	footer.move_child(button, back_button.get_index())
+	# ⚠⚠ 置き先は Footer（2026-09-14）。⚠ 前は `back_button.get_parent()` を足場にしていたが、
+	#   ⚠ 戻るをヘッダーの左上へ移したので、⚠ それだと**ヘッダーに入ってしまう**。
+	$Layout/Footer.add_child(button)
 
 
 # ダンジョンへ入る／続きから。

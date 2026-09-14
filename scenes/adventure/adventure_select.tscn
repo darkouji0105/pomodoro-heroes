@@ -36,6 +36,11 @@ grow_vertical = 2
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="BackButton" parent="Layout/Header" unique_id=899698363 instance=ExtResource("3_button")]
+layout_mode = 2
+label_key = "ui_common_back"
+variant = 2
+
 [node name="TitleLabel" type="Label" parent="Layout/Header" unique_id=1206824545]
 layout_mode = 2
 text = "ui_adventure_title"
@@ -68,8 +73,3 @@ layout_mode = 2
 [node name="TrainingButton" parent="Layout/Footer" unique_id=20796935 instance=ExtResource("3_button")]
 layout_mode = 2
 label_key = "ui_adventure_training"
-
-[node name="BackButton" parent="Layout/Footer" unique_id=899698363 instance=ExtResource("3_button")]
-layout_mode = 2
-label_key = "ui_common_back_to_base"
-variant = 2

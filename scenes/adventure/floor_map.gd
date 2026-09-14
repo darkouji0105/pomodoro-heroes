@@ -53,7 +53,7 @@ const COLOR_FAR: Color = Color(0.6, 0.6, 0.65)
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var layer_list: VBoxContainer = $Layout/LayerList
 @onready var abandon_button: UiButton = $Layout/Footer/AbandonButton
-@onready var back_button: UiButton = $Layout/Footer/BackButton
+@onready var back_button: UiButton = $Layout/Header/BackButton
 
 
 func _ready() -> void:

@@ -79,8 +79,8 @@ func _rebuild() -> void:
 		return
 
 	var char_data: Dictionary = MasterDataLoader.get_character(_character_id)
-	# ⚠ 戻る先はこのキャラの詳細。⚠ 文言もキャラの名前にする（⚠ 他の画面と揃える）。
-	header.set_back_text(tr(str(char_data.get("name_key", ""))))
+	# ⚠ 戻る先はこのキャラの詳細。⚠⚠ 文言は「戻る」（2026-09-14・人間の指示
+	#   「⚠ 戻るという文字にしてほしい、⚠ キャラの名前ではなく」）。⚠ ヘッダーの既定のまま。
 	# ⚠ モックはヘッダーにレベルを出していた。⚠ 副題の枠が既に在るのでそこへ入れる
 	#   （⚠ `ScreenHeader` を作り替えない）。
 	var growth: Dictionary = GameManager.get_character_growth(_character_id)

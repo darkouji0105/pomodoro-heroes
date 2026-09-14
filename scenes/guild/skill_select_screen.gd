@@ -75,7 +75,8 @@ func _rebuild() -> void:
 		return
 
 	# ⚠ 戻る先はこのキャラの詳細。⚠ 文言もキャラの名前にする（⚠ モック）。
-	header.set_back_text(tr(str(MasterDataLoader.get_character(_character_id).get("name_key", ""))))
+	# ⚠⚠ 戻るの文言は「戻る」（2026-09-14・人間の指示「⚠ キャラの名前ではなく」）。
+	#   ⚠ ヘッダーの既定（`ui_common_back`）のまま。⚠ ここで入れ直さない。
 	# ⚠ 「2つを選ぶ」の 2 は枠の数から入れる（⚠ 文にも数を直書きしない）。
 	header.set_subtitle_text(tr("ui_skill_select_lead") % GameManager.get_skill_slot_count())
 

@@ -37,7 +37,6 @@ theme_type_variation = &"SectionGap"
 [node name="Header" parent="Margin/Layout" instance=ExtResource("9_screen_header")]
 layout_mode = 2
 title_key = "ui_training_title"
-back_label_key = "ui_nav_guild"
 
 [node name="ListPanel" type="VBoxContainer" parent="Margin/Layout" unique_id=1484075608]
 layout_mode = 2

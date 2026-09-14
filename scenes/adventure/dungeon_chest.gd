@@ -41,6 +41,9 @@ const OVERLAY_DIM_ALPHA: float = 0.88
 @onready var bag_grid: ItemGrid = $Layout/BagGrid
 @onready var loot_detail: ItemDetail = $Layout/LootDetail
 @onready var action_row: HBoxContainer = $Layout/ActionRow
+# ⚠⚠ 戻るは左上（2026-09-14・人間の指示「⚠ 戻るボタンの位置を画面によって変えたくない」）。
+#   ⚠ 前は「できること」の行に**毎回コードで作っていた**（⚠ 行の末尾＝画面の下）。
+@onready var back_button: UiButton = $Layout/BackButton
 
 # ホバーで詳細を出すドロップダウン（2026-09-07）。⚠ 引き取るのは `loot_detail` だけ。
 #   ⚠ `action_row` は画面に残す（⚠ 「開ける」「全部入れる」「マップへ戻る」は
@@ -76,6 +79,7 @@ func open_as_overlay(node_id: String, is_corridor: bool) -> void:
 
 
 func _ready() -> void:
+	back_button.pressed.connect(_on_back_pressed)
 	# ⚠ 重ねて出すときは open_as_overlay() が既に入れている（⚠ 転送データは食わない）。
 	if not _as_overlay:
 		var data: Dictionary = SceneManager.consume_transfer_data()
@@ -197,7 +201,7 @@ func _on_bag_pressed(entry: Dictionary, _index: int) -> void:
 #
 # ⚠ 拾い待ちを選んだ → 「鞄に入れる」（⚠ 満杯なら押せない）
 # ⚠ 鞄を選んだ → 「捨てる」（⚠ 入れ替えのため）
-# ⚠ いつでも → 「全部入れる」「マップへ戻る」
+# ⚠ いつでも → 「全部入れる」（⚠ 「戻る」は左上に常設）
 # ⚠ 開けていない宝箱 → 「開ける」
 func _rebuild_actions() -> void:
 	for child in action_row.get_children():
@@ -207,7 +211,6 @@ func _rebuild_actions() -> void:
 
 	if not _was_opened():
 		_add_action("OpenButton", "ui_dungeon_chest_open", _on_open_pressed)
-		_add_action("BackButton", "ui_dungeon_shop_back", _on_back_pressed)
 		return
 
 	var item_id: String = str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
@@ -226,7 +229,6 @@ func _rebuild_actions() -> void:
 
 	if GameManager.has_dungeon_pending_loot():
 		_add_action("TakeAllButton", "ui_dungeon_pickup_take_all", _on_take_all_pressed)
-	_add_action("BackButton", "ui_dungeon_shop_back", _on_back_pressed)
 
 
 func _add_action(node_name: String, label_key: String, handler: Callable) -> UiButton:

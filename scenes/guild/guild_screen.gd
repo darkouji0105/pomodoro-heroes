@@ -60,11 +60,12 @@ const CARD_ICON_SIZE: int = 38
 
 # --- ノード参照 ---
 @onready var cards: GridContainer = $Margin/Layout/Cards
-@onready var back_button: UiButton = $Margin/Layout/Foot/BackButton
 @onready var header: ScreenHeader = $Margin/Layout/Header
 
 func _ready() -> void:
-	back_button.pressed.connect(_on_back_pressed)
+	# ⚠⚠ 戻るはヘッダーの左上（2026-09-14・人間の指示「⚠ ギルドから拠点に戻るボタンは左上に」
+	#   「⚠ 戻るボタンの位置を画面によって変えたくない」）。⚠ 前は右下の Foot に居た。
+	header.back_pressed.connect(_on_back_pressed)
 	# 段階解放（GAME_DESIGN.md 9-5）。⚠ base_screen.gd と同じ1行。
 	#   ⚠ 閉じ方は _rebuild() の1箇所だけ。.tscn 側で二重に閉じない。
 	GameManager.screen_unlocked.connect(_on_screen_unlocked)

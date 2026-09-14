@@ -99,7 +99,7 @@ const EDGE_ANCHOR_SPREAD: float = 0.55
 @onready var descend_button: UiButton = $Layout/Footer/DescendButton
 @onready var retreat_button: UiButton = $Layout/Footer/RetreatButton
 @onready var abandon_button: UiButton = $Layout/Footer/AbandonButton
-@onready var back_button: UiButton = $Layout/Footer/BackButton
+@onready var back_button: UiButton = $Layout/Header/BackButton
 
 # 押した所の近くに鞄の詳細を出す器（2026-09-07）。⚠ `bag_detail` と `bag_action_row` を引き取る。
 var _detail_popup: ItemDetailPopup = null

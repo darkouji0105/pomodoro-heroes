@@ -178,7 +178,6 @@ ui_floor_shop_buy,買う
 ui_floor_shop_bought,買った
 ui_floor_shop_healed,手当てした
 ui_floor_shop_cannot_buy,買えなかった
-ui_floor_shop_leave,店を出る
 ui_floor_repeat,周回
 ui_floor_repeat_done,1周した。
 ui_floor_repeat_gacha,ガチャ
@@ -759,7 +758,6 @@ ui_dungeon_cannot_descend,まだ潜れない
 ui_dungeon_retreat,持ち帰る
 ui_dungeon_retreat_done,持ち帰った種類
 ui_dungeon_abandon,その場で降りる（全ロスト）
-ui_dungeon_back_to_base,拠点へ
 ui_warehouse_capacity,マス
 ui_warehouse_page_prev,◀
 ui_warehouse_page_next,▶
@@ -800,7 +798,6 @@ ui_dungeon_shop_reject_torch_max,たいまつはこれ以上強くならない
 ui_dungeon_shop_reject_closed,いまは買えない
 ui_dungeon_relic_select,レリックを1つ選ぶ（このランのあいだ効く）
 ui_dungeon_shop_enter,商人と話す
-ui_dungeon_shop_back,マップへ戻る
 ui_dungeon_relic_hint,1つ選ぶ。このランのあいだ効く
 ui_dungeon_node_chest,宝箱
 ui_dungeon_chest_title,宝箱を見つけた

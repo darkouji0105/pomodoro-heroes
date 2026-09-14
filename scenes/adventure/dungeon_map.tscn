@@ -41,6 +41,11 @@ theme_type_variation = &"NodeList"
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="BackButton" parent="Layout/Header" instance=ExtResource("2_button")]
+layout_mode = 2
+label_key = "ui_common_back"
+variant = 2
+
 [node name="DungeonNameLabel" type="Label" parent="Layout/Header"]
 layout_mode = 2
 text = "ui_dungeon_hard"
@@ -140,8 +145,3 @@ variant = 3
 layout_mode = 2
 label_key = "ui_dungeon_abandon"
 variant = 3
-
-[node name="BackButton" parent="Layout/Footer" instance=ExtResource("2_button")]
-layout_mode = 2
-label_key = "ui_dungeon_back_to_base"
-variant = 2
