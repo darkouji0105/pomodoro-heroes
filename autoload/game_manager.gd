@@ -2439,7 +2439,7 @@ func is_part_slot_open(def: Variant, grade: int) -> bool:
 
 # --- 装備：性能 ---
 
-# 個体1つ分のステータス加算。{hp, atk, def, spd} を必ず4つ返す。
+# 個体1つ分のステータス加算。10軸（_stat_keys()）を必ず全部返す。
 #
 # 性能値は状態に持たない。equip_stats × 等級係数で毎回計算する。
 # こうすると items.json を調整したときに既存の個体へも次の起動で反映される。
@@ -2447,6 +2447,17 @@ func is_part_slot_open(def: Variant, grade: int) -> bool:
 # 等級1が素の値。1つ上がるごとに基礎値の GRADE_STAT_RATIO 倍を加算する（乗算にしない）。
 # MasterDataLoader は JSON をそのまま返すため、必ず int() で包む。
 func get_instance_stats(instance_id: String) -> Dictionary:
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	return get_instance_stats_at_grade(instance_id, int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)))
+
+
+# 等級を差し替えたときの性能（2026-09-14・人間の決定「次の等級の性能は、強化する前に見せる」）。
+#
+# ⚠ 状態は触らない。⚠ 鍛える前に「上げたらこうなる」を出すための口。
+# ⚠ 計算はここ1本。⚠ get_instance_stats() もここを通すので、⚠ 見込みと鍛えた後が食い違わない。
+# ⚠ 装飾の加算は今の等級で開いている枠のまま（⚠ 等級を上げても開いた枠が閉じることは無く、
+#   ⚠ 新しく開く枠は空なので、⚠ 加算は変わらない）。
+func get_instance_stats_at_grade(instance_id: String, grade: int) -> Dictionary:
 	var result: Dictionary = {}
 	for stat_key: String in _stat_keys():
 		result[stat_key] = 0
@@ -2467,7 +2478,7 @@ func get_instance_stats(instance_id: String) -> Dictionary:
 	if not (equip_stats is Dictionary):
 		return result
 
-	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
+	# ⚠ 等級は引数のもの（⚠ 個体の等級を読み直さない）。
 	for stat_key: String in _stat_keys():
 		var base: int = int((equip_stats as Dictionary).get(stat_key, 0))
 		result[stat_key] = base + int(floor(float(base) * GRADE_STAT_RATIO * float(grade - 1)))

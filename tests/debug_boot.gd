@@ -2251,9 +2251,16 @@ func _report_materials() -> void:
 		var cost: Dictionary = GameManager.get_forge_cost(instance_id)
 		var cost_id: String = str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, ""))
 		paid[cost_id] = int(paid.get(cost_id, 0)) + int(cost.get(GameManager.FORGE_COST_AMOUNT, 0))
+		# ⚠ 次の等級の見込み（2026-09-14）。⚠ 鍛えた後の実際の値と一致しなければ赤。
+		var preview: Dictionary = GameManager.get_instance_stats_at_grade(instance_id, grade + 1)
 		if not GameManager.forge_equipment(instance_id):
 			push_error("[DebugBoot] 等級%d から鍛えられなかった" % grade)
 			return
+		var actual: Dictionary = GameManager.get_instance_stats(instance_id)
+		if preview != actual:
+			push_error("[DebugBoot] 次の等級の見込み %s と鍛えた後 %s が違う（等級%d）" % [str(preview), str(actual), grade + 1])
+		elif grade + 1 in [2, 5, max_grade]:
+			print("  等級%2d の見込み = 鍛えた後 atk=%d" % [grade + 1, int(actual.get("atk", 0))])
 
 	# ⚠ 上限に達したあと、もう1回叩いても上がらないこと。
 	if GameManager.forge_equipment(instance_id):
