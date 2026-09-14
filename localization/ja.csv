@@ -6,11 +6,9 @@ ui_title_delete_save,セーブを消す
 ui_title_load_failed,セーブを読み込めませんでした。新しく始めます。
 ui_title_delete_done,セーブを削除しました。
 ui_title_delete_failed,セーブの削除に失敗しました。
-ui_base_placeholder,拠点画面（仮）
 ui_base_save,セーブする
 ui_base_back_to_title,タイトルへ戻る
 ui_common_ok,決定
-ui_common_cancel,キャンセル
 ui_common_close,閉じる
 ui_common_back,戻る
 ui_common_back_to_base,拠点へ戻る
@@ -47,7 +45,6 @@ ui_pomodoro_break_short,休憩
 ui_pomodoro_break_long,長い休憩
 ui_pomodoro_quit,やめる
 ui_pomodoro_quit_confirm,ここまでの報酬を受け取って拠点に戻ります。よろしいですか？
-ui_common_quit,中断
 ui_pomodoro_select_protection,今日の加護を選ぶ
 ui_pomodoro_input_title,何に取り組みますか？（任意）
 ui_pomodoro_start_focus,はじめる
@@ -231,7 +228,6 @@ ui_training_title,育成
 ui_training_level,Lv.%d
 ui_training_level_up,レベルアップ
 ui_training_cost,必要素材
-ui_training_owned,所持
 ui_training_max_level,研究で上限の解放が必要です
 ui_training_stat_hp,HP
 ui_training_stat_atk,攻撃
@@ -341,8 +337,6 @@ ui_stat_node_reset,振り直す
 ui_skill_select_slots_header,持ち込むスキル
 ui_skill_select_candidates_header,スキル候補
 ui_skill_select_slot,枠 %d
-ui_skill_select_passive_slot,パッシブ%d
-ui_skill_select_passive_candidates_header,パッシブ候補
 ui_skill_select_empty,未選択
 ui_skill_select_locked,Lv%d で解放
 ui_battle_char_debug_status,検証用（状態）
@@ -742,7 +736,6 @@ ui_icon_dungeon_potion_heal,回
 ui_icon_dungeon_potion_revive,蘇
 ui_dungeon_hard,難ダンジョン
 ui_dungeon_section,難ダンジョン
-ui_dungeon_enter,挑む
 ui_dungeon_resume,続きから
 ui_dungeon_start_failed,ダンジョンに入れなかった
 ui_dungeon_other_in_progress,別のランの途中です
@@ -757,9 +750,7 @@ ui_dungeon_node_rest,休憩
 ui_dungeon_node_boss,ボス
 ui_dungeon_cannot_move,そこへは進めない
 ui_dungeon_rested,休憩した
-ui_dungeon_relic_not_ready,レリックはまだ選べない
 ui_dungeon_node_not_ready,このマスはまだ何も起きない
-ui_dungeon_potion_none,使えるものを持っていない
 ui_dungeon_potion_used,使った
 ui_dungeon_potion_no_effect,その相手には効かない
 ui_dungeon_descend,もう1枚潜る
@@ -772,9 +763,7 @@ ui_dungeon_back_to_base,拠点へ
 ui_warehouse_capacity,マス
 ui_warehouse_page_prev,◀
 ui_warehouse_page_next,▶
-ui_warehouse_select_hint,マスを選ぶと、ここに できること が出ます
 ui_detail_none,マスを選ぶと、ここに詳細が出ます
-ui_detail_equip_slot,部位 %s
 ui_desc_stamina_potion,スタミナを回復する。冒険に行く回数が増える
 ui_desc_dungeon_potion_heal,戦闘時MAX HP を素の30%ぶん戻す。ダンジョンの中でだけ使える
 ui_desc_dungeon_potion_revive,脱落した仲間を戻す。戦闘時MAX HP は素の半分から
@@ -810,8 +799,6 @@ ui_dungeon_shop_reject_bag,鞄が満杯
 ui_dungeon_shop_reject_torch_max,たいまつはこれ以上強くならない
 ui_dungeon_shop_reject_closed,いまは買えない
 ui_dungeon_relic_select,レリックを1つ選ぶ（このランのあいだ効く）
-ui_dungeon_relic_found,レリックの祭壇だ
-ui_dungeon_relic_taken,レリックを手に入れた
 ui_dungeon_shop_enter,商人と話す
 ui_dungeon_shop_back,マップへ戻る
 ui_dungeon_relic_hint,1つ選ぶ。このランのあいだ効く
@@ -820,13 +807,7 @@ ui_dungeon_chest_title,宝箱を見つけた
 ui_dungeon_chest_hint,開けると中身が鞄に入る。鞄が満杯だと入らない
 ui_dungeon_chest_open,開ける
 ui_dungeon_chest_opened,中身を鞄に入れた
-ui_dungeon_chest_left_behind,鞄が満杯で置いてきた個数
 ui_dungeon_corridor_chest_title,通路に宝箱があった
-ui_dungeon_edge_trap_hp,罠（傷を負う）
-ui_dungeon_edge_trap_currency,罠（遺物片を落とす）
-ui_dungeon_edge_trap_bag,罠（荷物を落とす）
-ui_dungeon_edge_chest,宝箱
-ui_dungeon_edge_resource,資源
 ui_dungeon_edge_event_trap_hp,"通路に罠があった。全員が傷を負った（戦闘時MAX HP -%s）"
 ui_dungeon_edge_event_trap_currency,"通路で足をすくわれた。遺物片を落とした（-%s）"
 ui_dungeon_edge_event_trap_bag,"通路で荷物を落とした（%s）"
