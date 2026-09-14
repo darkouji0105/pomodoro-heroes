@@ -26,7 +26,7 @@
 	"passive_edbg_revive_mark": {
 		"name_key": "ui_battle_passive_edbg_revive_mark",
 		"user_character_id": "enemy_dbg_revive",
-		"unlock_level": 1,
+		"unlock_spent_points": 0,
 		"activation": "passive",
 		"target": {
 			"team": "self"

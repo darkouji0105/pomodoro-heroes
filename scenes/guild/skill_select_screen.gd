@@ -74,7 +74,7 @@ func _rebuild() -> void:
 	if _character_id == "":
 		return
 
-	# ⚠ 戻る先はこのキャラの詳細。⚠ 文言もキャラの名前にする（⚠ モック）。
+	# ⚠ 戻る先はこのキャラの詳細。
 	# ⚠⚠ 戻るの文言は「戻る」（2026-09-14・人間の指示「⚠ キャラの名前ではなく」）。
 	#   ⚠ ヘッダーの既定（`ui_common_back`）のまま。⚠ ここで入れ直さない。
 	# ⚠ 「2つを選ぶ」の 2 は枠の数から入れる（⚠ 文にも数を直書きしない）。
@@ -335,7 +335,8 @@ func _create_passive_row(passive_id: String, is_unlocked: bool) -> HBoxContainer
 	if description != "":
 		parts.append(description)
 	if not is_unlocked:
-		parts.append(tr("ui_skill_select_passive_locked") % GameManager.get_skill_unlock_level(passive_id))
+		# ⚠ 解放はレベルではなく振り分け済みの pt（2026-09-14・人間の決定）。
+		parts.append(tr("ui_skill_select_passive_locked") % GameManager.get_passive_unlock_points(passive_id))
 	if parts.is_empty():
 		return row
 	var caption: Label = Label.new()

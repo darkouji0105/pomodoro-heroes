@@ -345,11 +345,15 @@ const FIELD_ACTIVATION: String = "activation"
 const FIELD_CHARGE: String = "charge"
 const FIELD_JUST_SEC: String = "just_sec"
 const FIELD_UNLOCK_LEVEL: String = "unlock_level"
+# ⚠⚠ パッシブの解放条件（2026-09-14・人間の決定「⚠ パッシブはステータスノードで解放」）。
+#   ⚠ ステータスノードに**振り分け済みのポイント**がこの値以上で開く（⚠ レベルではない）。
+#   ⚠ パッシブだけの欄。⚠ スキルは unlock_level のまま。
+const FIELD_UNLOCK_SPENT_POINTS: String = "unlock_spent_points"
 
 # スキル直下に書いてよい欄。
 # ⚠ typo を黙って既定値にしないための最後の砦（E26）。
 const SKILL_FIELDS_KNOWN: Array = [
-	"name_key", "user_character_id", "unlock_level", "cooldown_sec",
+	"name_key", "user_character_id", "unlock_level", "unlock_spent_points", "cooldown_sec",
 	"activation", "charge", "recast", "target", "effects", "phases",
 	# レリック（段階14-d）。⚠ relics.json は skills.json と同じ辞書へマージされるので、
 	#   ここに並べないと E26「知らない欄がある」で全件が赤になる。
@@ -588,11 +592,20 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	var is_passive: bool = (activation == ACTIVATION_PASSIVE)
 
 	# E4
-	# ⚠ unlock_level はパッシブにも要る（育成の枠がレベルで解放を出す）。
+	# ⚠⚠ パッシブは unlock_level ではなく unlock_spent_points（2026-09-14）。
+	#   ⚠ 両方書けると「どちらが効いているか」が JSON から読めないので、⚠ パッシブに unlock_level は赤。
 	# ⚠ cooldown_sec はパッシブには書けない（E73）。撃つものではないため。
 	# ⚠ レリックはレベルで解放されないので unlock_level を要求しない（段階14-d）。
-	if not is_relic and not _is_num(data.get("unlock_level", null)):
+	# ⚠ レリックも activation: passive だが、解放という概念が無いので対象外（段階14-d）。
+	if is_passive and not is_relic:
+		if not _is_num(data.get(FIELD_UNLOCK_SPENT_POINTS, null)):
+			_err(issues, skill_id, "activation: 'passive' の unlock_spent_points が数値でない")
+		if data.has(FIELD_UNLOCK_LEVEL):
+			_err(issues, skill_id, "activation: 'passive' に unlock_level は書けない（振り分け済み pt で解放する）")
+	elif not is_relic and not _is_num(data.get("unlock_level", null)):
 		_err(issues, skill_id, "unlock_level が数値でない")
+	if not is_passive and data.has(FIELD_UNLOCK_SPENT_POINTS):
+		_err(issues, skill_id, "unlock_spent_points はパッシブにしか書けない")
 	if not is_passive and not _is_num(data.get("cooldown_sec", null)):
 		_err(issues, skill_id, "cooldown_sec が数値でない")
 

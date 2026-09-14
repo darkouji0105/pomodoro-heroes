@@ -361,7 +361,7 @@ func _init_party_units() -> void:
 		# ⚠ skill_cooldowns には入れない。パッシブはCDを持たない
 		#   （BattleUnit.start_cooldown() が skill_ids しか見ないので自然にそうなる）。
 		# ⚠ フロアのレリックは別の口から足す（段階14-d）。1本にまとめないこと。
-		#   get_battle_passives() は「レベルで解放された恒久のパッシブ」で、
+		#   get_battle_passives() は「振り分けで解放された恒久のパッシブ」で、
 		#   育成画面のスキル枠にも出る。混ぜるとそこにレリックが並ぶ。
 		unit.passive_ids = GameManager.get_battle_passives(character_id)
 		unit.passive_ids.append_array(GameManager.get_floor_relic_passives(character_id))

@@ -172,7 +172,7 @@ const SCENARIOS: Dictionary = {
 	#   スキルの当たり方ではない。⚠ fire を空配列にしないこと（lineup の注意書き）。
 	"passives": {
 		"kind": KIND_BATTLE,
-		"note": "パッシブ。Lv20/40/60/80/100 で1→5件・条件付き4件・react 2件が発火するか",
+		"note": "パッシブ。振り分け 20/40/60/80/99pt で1→5件・条件付き4件・react 2件が発火するか",
 		"stage_id": "stage_dbg_area",
 		"party": ["char_swordsman", "char_archer", "char_priest"],
 		"levels": {
@@ -913,7 +913,8 @@ func _apply_party(scenario: Dictionary) -> void:
 
 # レベルの下ごしらえ（段階3・EXEC_CHARACTER_PASSIVES.md §4-8）。
 #
-# ⚠ パッシブは Lv20/40/60/80/100 で解放される。Lv1 のままだと1件も付かず、
+# ⚠⚠ パッシブは**ステータスノードに振り分け済みの pt** 20/40/60/80/99 で解放される
+#   （2026-09-14・人間の決定。⚠ 前はレベル 20/40/60/80/100）。⚠ レベルを上げただけでは1件も付かず、
 #   「パッシブが効かない」のか「まだ解放されていない」のか読めない。
 # ⚠ 研究の上限解放を先に通す。get_effective_level_cap() が 20 のままだと
 #   Lv21 以降に上がらず、level_up_character() が false を返し続ける。
@@ -977,12 +978,45 @@ func _apply_levels(scenario: Dictionary) -> void:
 			var count: int = GameManager.get_battle_passives(character_id).size()
 			if count != marks.size():
 				marks.append("Lv%d:%d件" % [reached, count])
-		print("  %-16s Lv%-4d passives=%d  %s" % [
+		# ⚠⚠ 振り分けて開ける（2026-09-14）。⚠ ポイントはレベルで貯まり、⚠ パッシブは振った分で開く。
+		#   ⚠ 開いた瞬間の pt を記録する（⚠ 20/40/60/80/99 で 1→5 件が正解）。
+		_spend_all_stat_nodes(character_id, marks)
+		print("  %-16s Lv%-4d spent=%dpt passives=%d  %s" % [
 			character_id,
 			int(GameManager.get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1)),
+			GameManager.get_stat_node_spent_points(character_id),
 			GameManager.get_battle_passives(character_id).size(),
 			" ".join(marks),
 		])
+
+
+# 払える限りノードを段の小さい順に開ける。⚠ 開いたパッシブの件数が変わったら `marks` に足す。
+#
+# ⚠ 払えないノードに unlock_stat_node() を当てない（⚠ false のログが大量に出る）。
+#   ⚠ 先に「前提を満たすか」と「残りで払えるか」を見る。
+func _spend_all_stat_nodes(character_id: String, marks: Array[String]) -> void:
+	var all_nodes: Dictionary = MasterDataLoader.get_all_character_nodes()
+	var ids: Array = all_nodes.keys()
+	ids.sort()
+	var opened: int = GameManager.get_battle_passives(character_id).size()
+	while true:
+		var unlocked_one: bool = false
+		for raw_id: Variant in ids:
+			var node_id: String = str(raw_id)
+			if not GameManager.can_unlock_stat_node(character_id, node_id):
+				continue
+			var cost: int = int((all_nodes[raw_id] as Dictionary).get(GameManager.STAT_NODE_COST, 0))
+			if GameManager.get_stat_node_remaining_points(character_id) < cost:
+				continue
+			if GameManager.unlock_stat_node(character_id, node_id):
+				unlocked_one = true
+				break
+		if not unlocked_one:
+			break
+		var count: int = GameManager.get_battle_passives(character_id).size()
+		if count != opened:
+			opened = count
+			marks.append("%dpt:%d件" % [GameManager.get_stat_node_spent_points(character_id), count])
 
 
 func _apply_skills(scenario: Dictionary) -> void:
