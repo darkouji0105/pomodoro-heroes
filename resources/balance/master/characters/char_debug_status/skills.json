@@ -206,7 +206,7 @@
 	"passive_dbg_atk": {
 		"name_key": "ui_battle_passive_dbg_atk",
 		"user_character_id": "char_debug_status",
-		"unlock_spent_points": 0,
+		"unlock_total_points": 0,
 		"activation": "passive",
 		"target": {
 			"team": "self"
@@ -226,7 +226,7 @@
 	"passive_dbg_cond_alive": {
 		"name_key": "ui_battle_passive_dbg_cond_alive",
 		"user_character_id": "char_debug_status",
-		"unlock_spent_points": 0,
+		"unlock_total_points": 0,
 		"activation": "passive",
 		"target": {
 			"team": "self"

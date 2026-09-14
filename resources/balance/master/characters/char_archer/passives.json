@@ -2,7 +2,7 @@
 	"passive_ar_steady_aim": {
 		"name_key": "ui_battle_passive_ar_steady_aim",
 		"user_character_id": "char_archer",
-		"unlock_spent_points": 20,
+		"unlock_total_points": 20,
 		"activation": "passive",
 		"target": {
 			"team": "self"
@@ -22,7 +22,7 @@
 	"passive_ar_opening_shot": {
 		"name_key": "ui_battle_passive_ar_opening_shot",
 		"user_character_id": "char_archer",
-		"unlock_spent_points": 40,
+		"unlock_total_points": 40,
 		"activation": "passive",
 		"target": {
 			"team": "self"
@@ -47,7 +47,7 @@
 	"passive_ar_follow_through": {
 		"name_key": "ui_battle_passive_ar_follow_through",
 		"user_character_id": "char_archer",
-		"unlock_spent_points": 60,
+		"unlock_total_points": 60,
 		"activation": "passive",
 		"target": {
 			"team": "self"
@@ -79,7 +79,7 @@
 	"passive_ar_hunters_focus": {
 		"name_key": "ui_battle_passive_ar_hunters_focus",
 		"user_character_id": "char_archer",
-		"unlock_spent_points": 80,
+		"unlock_total_points": 80,
 		"activation": "passive",
 		"target": {
 			"team": "self"
@@ -105,7 +105,7 @@
 	"passive_ar_volley_master": {
 		"name_key": "ui_battle_passive_ar_volley_master",
 		"user_character_id": "char_archer",
-		"unlock_spent_points": 100,
+		"unlock_total_points": 100,
 		"activation": "passive",
 		"target": {
 			"team": "self"

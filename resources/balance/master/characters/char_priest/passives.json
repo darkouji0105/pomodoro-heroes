@@ -2,7 +2,7 @@
 	"passive_pr_devotion": {
 		"name_key": "ui_battle_passive_pr_devotion",
 		"user_character_id": "char_priest",
-		"unlock_spent_points": 20,
+		"unlock_total_points": 20,
 		"activation": "passive",
 		"target": {
 			"team": "self"
@@ -22,7 +22,7 @@
 	"passive_pr_triage": {
 		"name_key": "ui_battle_passive_pr_triage",
 		"user_character_id": "char_priest",
-		"unlock_spent_points": 40,
+		"unlock_total_points": 40,
 		"activation": "passive",
 		"target": {
 			"team": "self"
@@ -48,7 +48,7 @@
 	"passive_pr_sanctuary": {
 		"name_key": "ui_battle_passive_pr_sanctuary",
 		"user_character_id": "char_priest",
-		"unlock_spent_points": 60,
+		"unlock_total_points": 60,
 		"activation": "passive",
 		"target": {
 			"team": "self"
@@ -68,7 +68,7 @@
 	"passive_pr_zeal": {
 		"name_key": "ui_battle_passive_pr_zeal",
 		"user_character_id": "char_priest",
-		"unlock_spent_points": 80,
+		"unlock_total_points": 80,
 		"activation": "passive",
 		"target": {
 			"team": "self"
@@ -94,7 +94,7 @@
 	"passive_pr_benediction": {
 		"name_key": "ui_battle_passive_pr_benediction",
 		"user_character_id": "char_priest",
-		"unlock_spent_points": 100,
+		"unlock_total_points": 100,
 		"activation": "passive",
 		"target": {
 			"team": "self"

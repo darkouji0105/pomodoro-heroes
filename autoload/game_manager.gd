@@ -98,9 +98,9 @@ const STAT_NODE_PREREQUISITES: String = "prerequisites"
 # ここで名前を持つ。allocatable_stats と同じく、配列の順序が画面の並び順になる。
 const SKILL_USER_CHARACTER_ID: String = "user_character_id"
 const SKILL_UNLOCK_LEVEL: String = "unlock_level"
-# ⚠ パッシブの解放条件＝ステータスノードに振り分け済みの pt（2026-09-14・人間の決定）。
-#   ⚠ 綴りは SkillSchema.FIELD_UNLOCK_SPENT_POINTS と同じ。
-const PASSIVE_UNLOCK_SPENT_POINTS: String = "unlock_spent_points"
+# ⚠ パッシブの解放条件＝ステータスノードの総ポイント（獲得した分・振らなくてよい）（2026-09-14・人間の決定）。
+#   ⚠ 綴りは SkillSchema.FIELD_UNLOCK_TOTAL_POINTS と同じ。
+const PASSIVE_UNLOCK_TOTAL_POINTS: String = "unlock_total_points"
 const CHARACTER_SKILLS: String = "skills"
 # パッシブの候補（characters.json / enemies.json）。⚠ "skills" と別配列にする。
 #   同じ配列に入れると、スキルボタンにも敵AIにも混ざる（EXEC_SKILL_PASSIVE_VARS.md §0-1-1）。
@@ -5027,7 +5027,7 @@ func get_all_skill_candidates(character_id: String, kind: String = SLOT_KIND_SKI
 # 解放済みの候補だけを返す。
 # skills.json に無いIDは落とす（characters.json 側だけ書き換えたときの保険）。
 # ⚠ パッシブも定義は skills.json にある（activation: "passive"）。読み先は同じ。
-# ⚠⚠ 解放の条件は種類で違う（2026-09-14）：⚠ スキル＝レベル ／ ⚠ パッシブ＝振り分け済み pt。
+# ⚠⚠ 解放の条件は種類で違う（2026-09-14）：⚠ スキル＝レベル ／ ⚠ パッシブ＝総ポイント。
 #   ⚠ 判定は _is_candidate_unlocked() の1本。⚠ ここに2本目を書かない。
 func get_skill_candidates(character_id: String, kind: String = SLOT_KIND_SKILL) -> Array:
 	var progress: int = _unlock_progress(character_id, kind)
@@ -5040,27 +5040,27 @@ func get_skill_candidates(character_id: String, kind: String = SLOT_KIND_SKILL) 
 			result.append(skill_id)
 	return result
 
-# 解放の進み。⚠ スキル＝いまのレベル ／ ⚠ パッシブ＝ステータスノードに振り分け済みの pt。
-# ⚠ 候補ごとに引き直さない（⚠ 振り分け済み pt はノードを全部なめて足す）。
+# 解放の進み。⚠ スキル＝いまのレベル ／ ⚠ パッシブ＝ステータスノードの総ポイント（獲得した分）。
+# ⚠ 振り分け済みではない（⚠ 人間の決定「ポイントはそのままでいい」＝払わずに開く。振り直しても閉じない）。
 func _unlock_progress(character_id: String, kind: String) -> int:
 	if kind == SLOT_KIND_PASSIVE:
-		return get_stat_node_spent_points(character_id)
+		return get_stat_node_total_points(character_id)
 	return int(get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
 
 # 解放されているか。⚠ `progress` は _unlock_progress() で取ったもの。
 # MasterDataLoader は float を返すため int() で包む（CLAUDE.md 3番）。
 func _is_candidate_unlocked(skill_data: Dictionary, kind: String, progress: int) -> bool:
 	if kind == SLOT_KIND_PASSIVE:
-		return int(skill_data.get(PASSIVE_UNLOCK_SPENT_POINTS, 0)) <= progress
+		return int(skill_data.get(PASSIVE_UNLOCK_TOTAL_POINTS, 0)) <= progress
 	return int(skill_data.get(SKILL_UNLOCK_LEVEL, 1)) <= progress
 
-# passives.json の unlock_spent_points。画面が「振り分け 20pt で解放」と出すために公開する。
+# passives.json の unlock_total_points。画面が「20pt 貯まると解放」と出すために公開する。
 # ⚠ パッシブでない ID なら 0。
 func get_passive_unlock_points(passive_id: String) -> int:
 	var skill_data: Dictionary = MasterDataLoader.get_skill(passive_id)
 	if skill_data.is_empty():
 		return 0
-	return int(skill_data.get(PASSIVE_UNLOCK_SPENT_POINTS, 0))
+	return int(skill_data.get(PASSIVE_UNLOCK_TOTAL_POINTS, 0))
 
 # skills.json の unlock_level。画面が「Lv5 で解放」と出すために公開する。
 # MasterDataLoader は float を返すため int() で包む（CLAUDE.md 3番）。
@@ -5129,8 +5129,8 @@ func get_battle_skills(character_id: String, kind: String = SLOT_KIND_SKILL) -> 
 # 戦闘に渡すパッシブの確定版。⚠ BattleUnit.passive_ids に入る。
 #
 # ⚠ パッシブは選ばない。解放されたものが全部効く
-#   ⚠⚠ 解放はレベルではなく**ステータスノードに振り分け済みの pt**（2026-09-14・人間の決定）。
-#   ⚠ 振り直すと閉じる（⚠ 振った分だけ開く）。
+#   ⚠⚠ 解放は**ステータスノードの総ポイント**が貯まったら自動（2026-09-14・人間の決定）。
+#   ⚠ 振らなくてよい。⚠ 振り直しても閉じない。
 #   （人間の決定・2026-08-25。GAME_DESIGN.md 5-2 の表「20レベルごとに1つ解放（計5個）」
 #   と 5-4「1キャラ5個」。EXEC_CHARACTER_PASSIVES.md §2 の決定1）。
 #

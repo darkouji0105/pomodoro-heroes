@@ -335,7 +335,7 @@ func _create_passive_row(passive_id: String, is_unlocked: bool) -> HBoxContainer
 	if description != "":
 		parts.append(description)
 	if not is_unlocked:
-		# ⚠ 解放はレベルではなく振り分け済みの pt（2026-09-14・人間の決定）。
+		# ⚠ 解放は総ポイントが貯まったら自動（2026-09-14・人間の決定）。
 		parts.append(tr("ui_skill_select_passive_locked") % GameManager.get_passive_unlock_points(passive_id))
 	if parts.is_empty():
 		return row
