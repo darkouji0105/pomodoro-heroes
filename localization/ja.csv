@@ -588,8 +588,8 @@ ui_part_rune_move_format,%+d
 ui_part_reject_rune_max,これ以上重ねられません
 ui_part_reject_rune_stock,同じルーンが%d個要ります
 ui_part_reject_rune_kind,重ねられない装飾です
-ui_skill_select_passive_header,パッシブ
-ui_skill_select_passive_locked,%dpt 貯まると解放
+ui_stat_node_passive_header,パッシブ
+ui_stat_node_passive_locked,%dpt 貯まると解放
 ui_battle_passive_sw_whetstone,研ぎ澄まし（攻撃力+10%）
 ui_battle_passive_sw_last_wall,背水の壁（HP半分以下で防御+25）
 ui_battle_passive_sw_thorn_mail,棘の鎧（被弾で反撃）
@@ -892,7 +892,7 @@ ui_skill_select_in_slot,枠%d に入っています
 ui_skill_select_unlocked_count,%d 件中 %d 件が解放ずみ
 ui_skill_select_cooldown,CD %.1f秒
 ui_skill_select_charge,チャージ %.1f秒
-ui_skill_select_passive_note,ステータスノードのポイントが貯まると自動で解放され、全部効きます。ポイントは減りません。
+ui_stat_node_passive_note,ステータスノードのポイントが貯まると自動で解放され、全部効きます。ポイントは減りません。
 ui_desc_skill_power_slash,一番近い1体に攻撃力 200% の一撃。自分の攻撃力が 8 秒間 +6
 ui_desc_skill_wide_sweep,敵全体に攻撃力 90%。ためているあいだ自分の物理防御 +20
 ui_desc_skill_reckless_strike,一番近い1体に攻撃力 340%。代わりに自分のHPの 12% を失う

@@ -51,7 +51,7 @@ const REPORT_THEME: String = "theme"
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
 const THEME_PATH: String = "res://theme/main_theme.tres"
 const MODAL_SCENE_PATH: String = "res://scenes/ui/components/modal_dialog.tscn"
-const THEME_BUTTON_TYPES: Array[String] = ["Button", "PrimaryButton", "GhostButton", "DangerButton"]
+const THEME_BUTTON_TYPES: Array[String] = ["Button", "PrimaryButton", "GhostButton", "DangerButton", "BackButton"]
 const THEME_BUTTON_STATES: Array[String] = ["normal", "hover", "pressed", "disabled", "focus"]
 const THEME_BUTTON_COLORS: Array[String] = [
 	"font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color",
@@ -3891,7 +3891,7 @@ func _report_layout() -> void:
 			# ⚠⚠ パッシブの絵（2026-09-14）。⚠ 線画15枚を足した回。⚠ 絵は見られないので
 			#   ⚠ 「⚠ 何行あって、⚠ そのうち何行に絵の枠が出たか」を数える。
 			#   ⚠ 行はあるのに枠が 0 なら、⚠ ファイル名と ID が食い違っている。
-			if scene_path.get_file() == "skill_select_screen.tscn" and raw_child.name == "Passives":
+			if scene_path.get_file() == "stat_node_screen.tscn" and raw_child.name == "Passives":
 				var passive_rows: int = 0
 				var with_icon: int = 0
 				for grand: Node in raw_child.get_children():

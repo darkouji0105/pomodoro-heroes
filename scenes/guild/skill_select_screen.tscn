@@ -65,15 +65,5 @@ horizontal_scroll_mode = 0
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="SideColumn" type="PanelContainer" parent="Margin/Layout/Columns"]
-layout_mode = 2
-theme_type_variation = &"SidePanel"
-
-[node name="SideMargin" type="MarginContainer" parent="Margin/Layout/Columns/SideColumn"]
-layout_mode = 2
-
-[node name="Passives" type="VBoxContainer" parent="Margin/Layout/Columns/SideColumn/SideMargin"]
-layout_mode = 2
-
 [node name="NoticeLabel" type="Label" parent="Margin/Layout"]
 layout_mode = 2

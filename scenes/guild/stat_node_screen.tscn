@@ -70,12 +70,36 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_type_variation = &"WideRow"
 
-[node name="Branches" type="GridContainer" parent="Margin/Layout/Body"]
+[node name="LeftColumn" type="VBoxContainer" parent="Margin/Layout/Body"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 0
+theme_type_variation = &"NodeList"
+
+[node name="Branches" type="GridContainer" parent="Margin/Layout/Body/LeftColumn"]
+layout_mode = 2
 theme_type_variation = &"NodeList"
 columns = 2
+
+[node name="PassivePanel" type="PanelContainer" parent="Margin/Layout/Body/LeftColumn"]
+layout_mode = 2
+theme_type_variation = &"CompactCardPanel"
+
+[node name="PassiveColumn" type="VBoxContainer" parent="Margin/Layout/Body/LeftColumn/PassivePanel"]
+layout_mode = 2
+theme_type_variation = &"TightList"
+
+[node name="PassiveTitle" type="Label" parent="Margin/Layout/Body/LeftColumn/PassivePanel/PassiveColumn"]
+layout_mode = 2
+theme_type_variation = &"SectionLabel"
+
+[node name="PassiveNote" type="Label" parent="Margin/Layout/Body/LeftColumn/PassivePanel/PassiveColumn"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+autowrap_mode = 3
+
+[node name="Passives" type="VBoxContainer" parent="Margin/Layout/Body/LeftColumn/PassivePanel/PassiveColumn"]
+layout_mode = 2
+theme_type_variation = &"TightList"
 
 [node name="SidePanel" type="PanelContainer" parent="Margin/Layout/Body"]
 layout_mode = 2

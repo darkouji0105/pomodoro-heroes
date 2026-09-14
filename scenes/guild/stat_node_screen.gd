@@ -28,13 +28,19 @@ class_name StatNodeScreen
 extends Control
 
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
+# ⚠ パッシブの効果文の翻訳キーの接頭辞（⚠ スキル・アイテム・レリックと同じ `ui_desc_<id>`）。
+const DESCRIPTION_PREFIX: String = "ui_desc_"
 
 # --- ノード参照 ---
 @onready var points_label: Label = $Margin/Layout/PointsBar/PointsRow/PointsLabel
 @onready var points_caption: Label = $Margin/Layout/PointsBar/PointsRow/PointsCaption
 @onready var notice_label: Label = $Margin/Layout/PointsBar/PointsRow/NoticeLabel
 @onready var reset_button: UiButton = $Margin/Layout/PointsBar/PointsRow/ResetButton
-@onready var branches: GridContainer = $Margin/Layout/Body/Branches
+@onready var branches: GridContainer = $Margin/Layout/Body/LeftColumn/Branches
+@onready var passive_panel: PanelContainer = $Margin/Layout/Body/LeftColumn/PassivePanel
+@onready var passive_title: Label = $Margin/Layout/Body/LeftColumn/PassivePanel/PassiveColumn/PassiveTitle
+@onready var passive_note: Label = $Margin/Layout/Body/LeftColumn/PassivePanel/PassiveColumn/PassiveNote
+@onready var passive_list: VBoxContainer = $Margin/Layout/Body/LeftColumn/PassivePanel/PassiveColumn/Passives
 @onready var side_title: Label = $Margin/Layout/Body/SidePanel/SideColumn/SideTitle
 @onready var stat_list: VBoxContainer = $Margin/Layout/Body/SidePanel/SideColumn/StatList
 @onready var spent_caption: Label = (
@@ -60,6 +66,8 @@ func _ready() -> void:
 	points_caption.text = tr("ui_stat_node_points")
 	side_title.text = tr("ui_stat_node_after")
 	spent_caption.text = tr("ui_stat_node_spent")
+	passive_title.text = tr("ui_stat_node_passive_header")
+	passive_note.text = tr("ui_stat_node_passive_note")
 	notice_label.text = ""
 	if _character_id == "":
 		# 直接シーンを開いたときだけ来る。育成画面からは必ず ID が入る。
@@ -72,6 +80,7 @@ func _ready() -> void:
 func _rebuild() -> void:
 	_clear(branches)
 	_clear(stat_list)
+	_clear(passive_list)
 	if _character_id == "":
 		points_label.text = ""
 		spent_label.text = ""
@@ -113,6 +122,7 @@ func _rebuild() -> void:
 		branches.add_child(_create_branch_row(str(stat_key), all_nodes, unlocked, remaining))
 
 	_build_side_panel()
+	_build_passives()
 
 
 # 1つの軸ぶんの行。⚠ モックの1枚のカード。
@@ -165,7 +175,7 @@ func _create_head(
 	var head: HBoxContainer = HBoxContainer.new()
 	head.name = "Head"
 
-	var well: PanelContainer = _create_icon_well(stat_key)
+	var well: PanelContainer = _create_icon_well(IconTextures.for_stat(stat_key))
 	if well != null:
 		head.add_child(well)
 
@@ -268,11 +278,10 @@ func _build_side_panel() -> void:
 		row.set_compact()
 
 
-# 軸の絵の枠。⚠ 大きさは Theme が持つ（`IconWell`）。⚠ ここに px を書かない。
+# 絵の枠（⚠ 軸とパッシブで共用）。⚠ 大きさは Theme が持つ（`IconWell`）。⚠ ここに px を書かない。
 # ⚠ 線画は 48px で読み込まれるので、⚠ 器は必ず `EXPAND_IGNORE_SIZE`（§0-UI-B-1）。
-# ⚠ 絵が無い軸は枠ごと出さない（⚠ 空の四角を並べない。⚠ スキルの枠と同じ落とし方）。
-func _create_icon_well(stat_key: String) -> PanelContainer:
-	var texture: Texture2D = IconTextures.for_stat(stat_key)
+# ⚠ 絵が無ければ枠ごと出さない（⚠ 空の四角を並べない。⚠ スキルの枠と同じ落とし方）。
+func _create_icon_well(texture: Texture2D) -> PanelContainer:
 	if texture == null:
 		return null
 
@@ -344,6 +353,65 @@ func _plain_text(stat_key: String, value: int) -> String:
 	if GameManager.is_percent_stat(stat_key):
 		return "%d%%" % value
 	return str(value)
+
+
+# ⚠⚠ パッシブ（2026-09-14・人間の指示「⚠ パッシブの表記をステータスノードに移して」）。
+#
+# ⚠ 前はスキル設定の右の列に居た。⚠ 解放は**総ポイント**なので、⚠ ポイントを出しているこの画面に置く。
+# ⚠ 解放済み＝名前が緑 ／ ⚠ 未解放＝沈める＋「N pt 貯まると解放」。⚠ 記号は使わない。
+# ⚠ パッシブを持たないキャラ（⚠ 検証用）はカードごと出さない。
+func _build_passives() -> void:
+	var all_passives: Array = GameManager.get_all_skill_candidates(
+		_character_id, GameManager.SLOT_KIND_PASSIVE
+	)
+	passive_panel.visible = not all_passives.is_empty()
+	if all_passives.is_empty():
+		return
+	var unlocked: Array = GameManager.get_skill_candidates(
+		_character_id, GameManager.SLOT_KIND_PASSIVE
+	)
+	for entry: Variant in all_passives:
+		var passive_id: String = str(entry)
+		passive_list.add_child(_create_passive_row(passive_id, passive_id in unlocked))
+
+
+func _create_passive_row(passive_id: String, is_unlocked: bool) -> HBoxContainer:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "Passive_" + passive_id
+	# ⚠ 未解放は沈める（⚠ 届かない段と同じ落とし方）。⚠ 消さない＝先に何が在るかは見せる。
+	row.modulate.a = 1.0 if is_unlocked else 0.45
+	var well: PanelContainer = _create_icon_well(IconTextures.for_skill(passive_id))
+	if well != null:
+		row.add_child(well)
+
+	var column: VBoxContainer = VBoxContainer.new()
+	column.name = "Column"
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(column)
+
+	var name_label: Label = Label.new()
+	name_label.name = "NameLabel"
+	name_label.theme_type_variation = &"GainLabel" if is_unlocked else &""
+	var skill_data: Dictionary = MasterDataLoader.get_skill(passive_id)
+	name_label.text = tr(str(skill_data.get("name_key", passive_id)))
+	column.add_child(name_label)
+
+	var parts: Array[String] = []
+	# ⚠ 効果文が無ければ出さない（⚠ tr() は表に無いキーをそのまま返す）。
+	var key: String = DESCRIPTION_PREFIX + passive_id
+	if tr(key) != key:
+		parts.append(tr(key))
+	if not is_unlocked:
+		parts.append(tr("ui_stat_node_passive_locked") % GameManager.get_passive_unlock_points(passive_id))
+	if parts.is_empty():
+		return row
+	var caption: Label = Label.new()
+	caption.name = "EffectLabel"
+	caption.theme_type_variation = &"CaptionLabel"
+	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	caption.text = "　".join(parts)
+	column.add_child(caption)
+	return row
 
 
 # --- 操作 ---

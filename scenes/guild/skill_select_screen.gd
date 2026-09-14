@@ -8,7 +8,7 @@
 #   ⚠ 前は `▶ ● ○ ✕` の4記号を文字列に混ぜていた。⚠ いまは
 #   ⚠ **行き先の枠＝琥珀の枠 ／ 入っている候補＝琥珀の枠＋札 ／ 未解放＝沈める**。
 #   ⚠ 候補には**効果文とCD・チャージ**を出す（⚠ 前は名前だけだった）。
-#   ⚠ パッシブは右の列に隔離した（⚠ 枠ではないものが枠の近くに並んでいた）。
+#   ⚠⚠ パッシブは 2026-09-14 にステータスノード画面へ移した（人間の指示）。⚠ ここには出さない。
 #
 # 枠の数は GameManager.get_skill_slot_count() が決める（2 と書かない）。
 # 候補の並び順は characters.json の "skills" が決める。
@@ -22,16 +22,12 @@ const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
 # ⚠ 効果文の翻訳キーの接頭辞。⚠ アイテム・レリックと同じ形（`ui_desc_<id>`）。
 #   ⚠ **無ければ行ごと出さない**（⚠ キー名が画面に出るのを避ける）。
 const DESCRIPTION_PREFIX: String = "ui_desc_"
-# ⚠ 右のパッシブの列の幅（⚠ モックの 300）。
-const SIDE_COLUMN_WIDTH: int = 300
 
 # --- ノード参照 ---
 @onready var slots_header: HBoxContainer = $Margin/Layout/Columns/Main/SlotsHeader
 @onready var slots: HBoxContainer = $Margin/Layout/Columns/Main/Slots
 @onready var candidates_header: HBoxContainer = $Margin/Layout/Columns/Main/CandidatesHeader
 @onready var candidates: VBoxContainer = $Margin/Layout/Columns/Main/Scroll/Candidates
-@onready var side_column: PanelContainer = $Margin/Layout/Columns/SideColumn
-@onready var passives: VBoxContainer = $Margin/Layout/Columns/SideColumn/SideMargin/Passives
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
 @onready var header: ScreenHeader = $Margin/Layout/Header
 
@@ -45,7 +41,6 @@ func _ready() -> void:
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	_character_id = str(data.get(TransferKeys.CHARACTER_ID, ""))
 
-	side_column.custom_minimum_size = Vector2(SIDE_COLUMN_WIDTH, 0.0)
 	header.back_pressed.connect(_on_back_pressed)
 	GameManager.character_growth_changed.connect(_on_character_growth_changed)
 
@@ -70,7 +65,6 @@ func _rebuild() -> void:
 	_clear(slots)
 	_clear(candidates_header)
 	_clear(candidates)
-	_clear(passives)
 	if _character_id == "":
 		return
 
@@ -82,7 +76,6 @@ func _rebuild() -> void:
 
 	_build_slots()
 	_build_candidates()
-	_build_passives()
 
 
 # 枠の行。⚠ 押すと「次に選んだスキルの行き先」になる（⚠ 押しただけでは状態を触らない）。
@@ -279,75 +272,6 @@ func _create_timing_column(skill_id: String) -> VBoxContainer:
 
 # 右の列。⚠ パッシブは枠ではない（⚠ レベルで解放されたものが全部効く）。
 #   ⚠ ボタンにしない。⚠ 押して何も起きない器を画面に残さない。
-func _build_passives() -> void:
-	var all_passives: Array = GameManager.get_all_skill_candidates(
-		_character_id, GameManager.SLOT_KIND_PASSIVE
-	)
-	if all_passives.is_empty():
-		# パッシブを持たないキャラが居てよい（正常系）。見出しごと出さない。
-		return
-
-	var head: HBoxContainer = HBoxContainer.new()
-	head.add_child(_create_section_label("ui_skill_select_passive_header"))
-	head.add_child(_create_rule())
-	passives.add_child(head)
-
-	var note: Label = Label.new()
-	note.name = "PassiveNote"
-	note.theme_type_variation = &"SectionLabel"
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.text = tr("ui_skill_select_passive_note")
-	passives.add_child(note)
-
-	var unlocked: Array = GameManager.get_skill_candidates(
-		_character_id, GameManager.SLOT_KIND_PASSIVE
-	)
-	for entry: Variant in all_passives:
-		var passive_id: String = str(entry)
-		passives.add_child(_create_passive_row(passive_id, passive_id in unlocked))
-
-
-# ⚠⚠ 2026-09-14：⚠ 左に絵の枠を足した（人間の指示「⚠ svg に関してはあなたが作って」）。
-#   ⚠ 前は**絵の枠そのものが無かった**（⚠ 台帳の「絵が無ければ枠ごと出ない」は誤り）。
-#   ⚠ 枠はスキルの候補と同じ `_create_icon_well()`。⚠ 絵が無いパッシブは枠ごと出ない。
-func _create_passive_row(passive_id: String, is_unlocked: bool) -> HBoxContainer:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "Passive_" + passive_id
-	# ⚠ 解放済みは通常の濃さ、⚠ 未解放は沈める（⚠ 候補と同じ落とし方）。
-	row.modulate.a = 1.0 if is_unlocked else 0.45
-	var well: PanelContainer = _create_icon_well(passive_id)
-	if well != null:
-		row.add_child(well)
-
-	var column: VBoxContainer = VBoxContainer.new()
-	column.name = "Column"
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(column)
-
-	var name_label: Label = Label.new()
-	name_label.name = "NameLabel"
-	name_label.theme_type_variation = &"GainLabel" if is_unlocked else &""
-	name_label.text = _skill_name_text(passive_id)
-	column.add_child(name_label)
-
-	var parts: Array[String] = []
-	var description: String = _description_of(passive_id)
-	if description != "":
-		parts.append(description)
-	if not is_unlocked:
-		# ⚠ 解放は総ポイントが貯まったら自動（2026-09-14・人間の決定）。
-		parts.append(tr("ui_skill_select_passive_locked") % GameManager.get_passive_unlock_points(passive_id))
-	if parts.is_empty():
-		return row
-	var caption: Label = Label.new()
-	caption.name = "EffectLabel"
-	caption.theme_type_variation = &"CaptionLabel"
-	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	caption.text = "　".join(parts)
-	column.add_child(caption)
-	return row
-
-
 # --- 小さい器 ---
 
 # スキルの絵の枠。⚠ 絵が無いスキルは枠ごと出さない（⚠ 空の四角を並べない）。
