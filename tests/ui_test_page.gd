@@ -74,6 +74,11 @@ const BUTTON_VARIANTS: Array[Dictionary] = [
 		"name": "Danger",
 		"label_key": "ui_uitest_button_variant_danger",
 	},
+	{
+		"variant": UiButton.Variant.BACK,
+		"name": "Back",
+		"label_key": "ui_common_back",
+	},
 ]
 # 階層名の欄の幅（⚠ 見た目の都合だけ。⚠ 4行の頭を揃えるためのもの）。
 const BUTTON_ROW_LABEL_WIDTH: float = 140.0

@@ -38,7 +38,7 @@ theme_type_variation = &"SectionGap"
 layout_mode = 2
 size_flags_horizontal = 0
 label_key = "ui_common_back"
-variant = 2
+variant = 4
 
 [node name="TitleLabel" type="Label" parent="Layout" unique_id=393622840]
 layout_mode = 2

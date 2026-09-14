@@ -39,7 +39,7 @@ size_flags_horizontal = 3
 [node name="BackButton" parent="Layout/Header" unique_id=899698363 instance=ExtResource("3_button")]
 layout_mode = 2
 label_key = "ui_common_back"
-variant = 2
+variant = 4
 
 [node name="TitleLabel" type="Label" parent="Layout/Header" unique_id=1206824545]
 layout_mode = 2

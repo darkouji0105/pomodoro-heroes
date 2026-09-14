@@ -18,6 +18,9 @@ enum Variant {
 	PRIMARY, # ギルド側の主要動作。⚠ 1画面に1個まで
 	GHOST, # 戻る・閉じる
 	DANGER, # 危険・不可逆（冒険側）
+	# ⚠ 戻る専用（2026-09-14・人間の指示）。⚠ **末尾に足す**（⚠ `.tscn` は `variant = 2` のように
+	#   ⚠ 番号で持っているので、⚠ 途中に挟むと既存のボタンが全部1つずれる）。
+	BACK,
 }
 
 # ⚠ Variant -> Theme の型 variation 名。⚠ 名前は `build_theme.gd` と揃えること。
@@ -26,6 +29,7 @@ const VARIATION_NAMES: Dictionary = {
 	Variant.PRIMARY: &"PrimaryButton",
 	Variant.GHOST: &"GhostButton",
 	Variant.DANGER: &"DangerButton",
+	Variant.BACK: &"BackButton",
 }
 
 @export var variant: Variant = Variant.SECONDARY:

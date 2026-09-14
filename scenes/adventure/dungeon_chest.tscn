@@ -40,7 +40,7 @@ theme_type_variation = &"PanelStack"
 layout_mode = 2
 size_flags_horizontal = 0
 label_key = "ui_common_back"
-variant = 2
+variant = 4
 
 [node name="TitleLabel" type="Label" parent="Layout"]
 layout_mode = 2

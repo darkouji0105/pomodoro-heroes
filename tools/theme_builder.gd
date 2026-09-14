@@ -105,6 +105,22 @@ const BUTTON_LEVELS: Dictionary = {
 		"font_pressed_color": "ffffff",
 		"font_disabled_color": DISABLED_FONT,
 	},
+	# ⚠⚠ 戻る専用（2026-09-14・人間の指示「⚠ 戻るボタンに色を付けて 専用の ／ 今の戻るボタンは目立たない」）。
+	#   ⚠ 前は Ghost（地が透明・灰の文字）で、⚠ 左上に置いても「ただの枠」に見えていた。
+	#   ⚠ **青緑の面**にする。⚠ 真鍮（主要動作）・赤（危険）と取り違えない色相で、
+	#   ⚠ 枠は宝石の色（`part_slot_gem_color` 70b8c7）。⚠ 地の3段と文字だけ新しい値。
+	# ⚠ これで階層は5つ（⚠ 既定 ／ 真鍮 ／ Ghost ／ 赤 ／ 戻る）。
+	"BackButton": {
+		"normal": {"bg": "2c5f68", "border": "70b8c7", "width": 1},
+		"hover": {"bg": "387985", "border": "9fd8e3", "width": 1},
+		"pressed": {"bg": "224c54", "border": "70b8c7", "width": 1},
+		"disabled": {"bg": DISABLED_BG, "border": DISABLED_BORDER, "width": 1},
+		"focus": {"bg": "", "border": "f0c04a", "width": FOCUS_BORDER_WIDTH},
+		"font_color": "f0fafc",
+		"font_hover_color": "ffffff",
+		"font_pressed_color": "f0fafc",
+		"font_disabled_color": DISABLED_FONT,
+	},
 }
 
 # ⚠ StyleBox を書く4状態＋focus。⚠ Theme のキー名そのもの。

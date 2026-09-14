@@ -10,7 +10,7 @@ script = ExtResource("1_screen_header")
 layout_mode = 2
 size_flags_vertical = 4
 label_key = "ui_common_back"
-variant = 2
+variant = 4
 
 [node name="TitleLabel" type="Label" parent="."]
 layout_mode = 2

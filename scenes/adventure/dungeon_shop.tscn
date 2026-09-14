@@ -42,7 +42,7 @@ layout_mode = 2
 [node name="BackButton" parent="Layout/Header" instance=ExtResource("2_button")]
 layout_mode = 2
 label_key = "ui_common_back"
-variant = 2
+variant = 4
 
 [node name="TitleLabel" type="Label" parent="Layout/Header"]
 layout_mode = 2
