@@ -64,6 +64,10 @@ const SCENE_PATH: String = "res://scenes/ui/components/screen_header.tscn"
 #   ⚠ 空ける幅は HUD が自分で答える。⚠ ここで数値を決めない。
 var hud_spacer: Control = null
 
+# `set_back_text()` で入れた翻訳を通さない戻るの文字（⚠ キャラの名前）。
+# ⚠ `_refresh()` が走るたびに入れ直す（⚠ 控えないと副題を入れた瞬間に消える）。
+var _back_text: String = ""
+
 
 func _ready() -> void:
 	back_button.pressed.connect(func() -> void: back_pressed.emit())
@@ -92,7 +96,16 @@ func _apply_hud_width(width: float) -> void:
 
 func _refresh() -> void:
 	title_label.text = tr(title_key)
-	back_button.label_key = back_label_key
+	# ⚠⚠ キーが空なら、⚠ `set_back_text()` で入れた生の文字を入れ直す（2026-09-14）。
+	#   ⚠ 前は無条件に `label_key = back_label_key` と書いていた。⚠ キーが "" だと
+	#   ⚠ `UiButton` の setter が `text = tr("")` ＝**空文字**を入れる。
+	#   ⚠ そのため `set_back_text()` のあとに `set_subtitle_text()` を呼ぶと
+	#   ⚠ （⚠ 副題の setter も `_refresh()` を通る）、⚠ **戻るが空になって潰れた**
+	#   ⚠ （⚠ 人間が実機で発見：ステータスノードとスキル＝この2つを両方呼ぶ画面だけ）。
+	if back_label_key != "":
+		back_button.label_key = back_label_key
+	else:
+		back_button.text = _back_text
 	back_button.visible = show_back
 	# ⚠ 副題はキーが空なら丸ごと消す。⚠ 空文字の Label を残すと間隔だけが空く。
 	if subtitle_key != "":
@@ -102,6 +115,8 @@ func _refresh() -> void:
 
 # 翻訳を通さない戻るの文言（⚠ 行き先がキャラの名前のとき）。
 func set_back_text(value: String) -> void:
+	# ⚠ 先に控える（⚠ 下の `back_label_key = ""` が `_refresh()` を通り、⚠ そこで使うため）。
+	_back_text = value
 	back_label_key = ""
 	if not is_inside_tree():
 		await ready

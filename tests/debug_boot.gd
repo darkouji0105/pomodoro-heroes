@@ -3834,6 +3834,16 @@ func _report_layout() -> void:
 		# ⚠ 面に重ねた「当たり」を何枚見たか（⚠ 0 枚なら下の検査が素通りしている）。
 		var hits_checked: int = 0
 		for raw_child: Node in instance.find_children("*", "Control", true, false):
+			# ⚠⚠ ヘッダーの戻るが空になっていないか（2026-09-14・人間が実機で発見）。
+			#   ⚠ 「⚠ ステータスノードとスキルの戻るボタンがつぶれてる」。⚠ 原因は
+			#   ⚠ `set_back_text()` のあとに `set_subtitle_text()` を呼ぶと `_refresh()` が
+			#   ⚠ 戻るの文字を `tr("")` で上書きしていたこと。⚠ 空の戻るは潰れて見える。
+			if raw_child is ScreenHeader:
+				var back: Button = (raw_child as ScreenHeader).back_button
+				if back != null and back.visible:
+					print("    ⚠ 戻る = '%s'（⚠ 空なら潰れている）" % back.text)
+					if back.text == "":
+						push_error("[DebugBoot] %s の戻るが空（潰れて見える）" % scene_path.get_file())
 			# ⚠ タイマーの輪（2026-09-09）。⚠ 絵は取れないが「数字が何枚あるか」は取れる。
 			#   ⚠⚠ 人間が実機で「タイマーが二重になってる」と見つけた事故の再発を止めるため。
 			#   ⚠ 原因は `.tscn` 側の子とコードで作る子の**両方が出た**こと。⚠ 1枚が正解。
