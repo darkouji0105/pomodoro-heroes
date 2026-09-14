@@ -306,11 +306,22 @@ func _build_passives() -> void:
 		passives.add_child(_create_passive_row(passive_id, passive_id in unlocked))
 
 
-func _create_passive_row(passive_id: String, is_unlocked: bool) -> VBoxContainer:
-	var column: VBoxContainer = VBoxContainer.new()
-	column.name = "Passive_" + passive_id
+# ⚠⚠ 2026-09-14：⚠ 左に絵の枠を足した（人間の指示「⚠ svg に関してはあなたが作って」）。
+#   ⚠ 前は**絵の枠そのものが無かった**（⚠ 台帳の「絵が無ければ枠ごと出ない」は誤り）。
+#   ⚠ 枠はスキルの候補と同じ `_create_icon_well()`。⚠ 絵が無いパッシブは枠ごと出ない。
+func _create_passive_row(passive_id: String, is_unlocked: bool) -> HBoxContainer:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "Passive_" + passive_id
 	# ⚠ 解放済みは通常の濃さ、⚠ 未解放は沈める（⚠ 候補と同じ落とし方）。
-	column.modulate.a = 1.0 if is_unlocked else 0.45
+	row.modulate.a = 1.0 if is_unlocked else 0.45
+	var well: PanelContainer = _create_icon_well(passive_id)
+	if well != null:
+		row.add_child(well)
+
+	var column: VBoxContainer = VBoxContainer.new()
+	column.name = "Column"
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(column)
 
 	var name_label: Label = Label.new()
 	name_label.name = "NameLabel"
@@ -325,14 +336,14 @@ func _create_passive_row(passive_id: String, is_unlocked: bool) -> VBoxContainer
 	if not is_unlocked:
 		parts.append(tr("ui_skill_select_passive_locked") % GameManager.get_skill_unlock_level(passive_id))
 	if parts.is_empty():
-		return column
+		return row
 	var caption: Label = Label.new()
 	caption.name = "EffectLabel"
 	caption.theme_type_variation = &"CaptionLabel"
 	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	caption.text = "　".join(parts)
 	column.add_child(caption)
-	return column
+	return row
 
 
 # --- 小さい器 ---

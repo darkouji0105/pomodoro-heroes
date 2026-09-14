@@ -3885,6 +3885,21 @@ func _report_layout() -> void:
 			# ⚠⚠ スキル設定の枠と候補（2026-09-11・人間のモック D）。⚠ 記号をやめて
 			#   ⚠ 枠と色で示す形にしたので、⚠ 「何と書いてあるか」でしか確かめられない。
 			#   ⚠ CD は `skills.json` から入る。⚠ チャージは charge のスキルだけに出る。
+			# ⚠⚠ パッシブの絵（2026-09-14）。⚠ 線画15枚を足した回。⚠ 絵は見られないので
+			#   ⚠ 「⚠ 何行あって、⚠ そのうち何行に絵の枠が出たか」を数える。
+			#   ⚠ 行はあるのに枠が 0 なら、⚠ ファイル名と ID が食い違っている。
+			if scene_path.get_file() == "skill_select_screen.tscn" and raw_child.name == "Passives":
+				var passive_rows: int = 0
+				var with_icon: int = 0
+				for grand: Node in raw_child.get_children():
+					if not str(grand.name).begins_with("Passive_"):
+						continue
+					passive_rows += 1
+					if grand.find_child("IconWell", false, false) != null:
+						with_icon += 1
+				print("    ⚠ パッシブ = %d 行 ／ 絵の枠 = %d 行（⚠ 同じ数が正解）" % [passive_rows, with_icon])
+				if passive_rows > 0 and with_icon != passive_rows:
+					push_error("[DebugBoot] パッシブの絵が %d / %d 行にしか出ていない" % [with_icon, passive_rows])
 			if scene_path.get_file() == "skill_select_screen.tscn" and (
 				raw_child.name == "Slots" or raw_child.name == "Candidates"
 			):
