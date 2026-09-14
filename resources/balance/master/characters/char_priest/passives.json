@@ -94,7 +94,7 @@
 	"passive_pr_benediction": {
 		"name_key": "ui_battle_passive_pr_benediction",
 		"user_character_id": "char_priest",
-		"unlock_spent_points": 99,
+		"unlock_spent_points": 100,
 		"activation": "passive",
 		"target": {
 			"team": "self"

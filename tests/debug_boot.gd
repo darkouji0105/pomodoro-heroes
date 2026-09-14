@@ -172,7 +172,7 @@ const SCENARIOS: Dictionary = {
 	#   スキルの当たり方ではない。⚠ fire を空配列にしないこと（lineup の注意書き）。
 	"passives": {
 		"kind": KIND_BATTLE,
-		"note": "パッシブ。振り分け 20/40/60/80/99pt で1→5件・条件付き4件・react 2件が発火するか",
+		"note": "パッシブ。振り分け 20/40/60/80/100pt で1→5件・条件付き4件・react 2件が発火するか",
 		"stage_id": "stage_dbg_area",
 		"party": ["char_swordsman", "char_archer", "char_priest"],
 		"levels": {
@@ -913,7 +913,7 @@ func _apply_party(scenario: Dictionary) -> void:
 
 # レベルの下ごしらえ（段階3・EXEC_CHARACTER_PASSIVES.md §4-8）。
 #
-# ⚠⚠ パッシブは**ステータスノードに振り分け済みの pt** 20/40/60/80/99 で解放される
+# ⚠⚠ パッシブは**ステータスノードに振り分け済みの pt** 20/40/60/80/100 で解放される
 #   （2026-09-14・人間の決定。⚠ 前はレベル 20/40/60/80/100）。⚠ レベルを上げただけでは1件も付かず、
 #   「パッシブが効かない」のか「まだ解放されていない」のか読めない。
 # ⚠ 研究の上限解放を先に通す。get_effective_level_cap() が 20 のままだと
@@ -979,7 +979,7 @@ func _apply_levels(scenario: Dictionary) -> void:
 			if count != marks.size():
 				marks.append("Lv%d:%d件" % [reached, count])
 		# ⚠⚠ 振り分けて開ける（2026-09-14）。⚠ ポイントはレベルで貯まり、⚠ パッシブは振った分で開く。
-		#   ⚠ 開いた瞬間の pt を記録する（⚠ 20/40/60/80/99 で 1→5 件が正解）。
+		#   ⚠ 開いた瞬間の pt を記録する（⚠ 20/40/60/80/100 で 1→5 件が正解）。
 		_spend_all_stat_nodes(character_id, marks)
 		print("  %-16s Lv%-4d spent=%dpt passives=%d  %s" % [
 			character_id,
