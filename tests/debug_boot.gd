@@ -46,6 +46,7 @@ const REPORT_DUNGEON: String = "dungeon"
 const REPORT_INVENTORY: String = "inventory"
 const REPORT_GLYPHS: String = "glyphs"
 const REPORT_THEME: String = "theme"
+const REPORT_SUBWINDOW_DRAG: String = "subwindow_drag"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -759,6 +760,14 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_INVENTORY,
 		"note": "マス目。何がマスを占めるか / 汎用素材は入らない / 1個＝1マス（重ねない） / 何マス使うか",
 	},
+	# 2026-09-15。⚠ 埋め込みの Window 同士でドラッグが渡るか（人間の許可「5 いいよ」）。
+	# ⚠ 本番のコードは使わない。⚠ つまむ側・受ける側は下の DragProbeSource / DragProbeTarget。
+	# ⚠ ① が渡らなければ、入力の流し方のほうが壊れている（② ③ の結果は信じない）。
+	"subwindow_drag": {
+		"kind": KIND_REPORT,
+		"report": REPORT_SUBWINDOW_DRAG,
+		"note": "ドラッグが渡るか。① 普通の Control 同士 ／ ② 埋め込み Window の中 ／ ③ 埋め込み Window A→B",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -822,6 +831,8 @@ func _ready() -> void:
 			await _report_layout()
 		elif report == REPORT_GAIN:
 			await _report_gain()
+		elif report == REPORT_SUBWINDOW_DRAG:
+			await _report_subwindow_drag()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7313,3 +7324,165 @@ func _dungeon_edge_targets(nodes: Dictionary, node_id: String) -> Array[String]:
 			continue
 		result.append(str((raw_edge as Dictionary).get(GameStateKeys.DUNGEON_EDGE_TO, "")))
 	return result
+
+
+# --- 埋め込み Window 同士のドラッグ（2026-09-15） ---
+#
+# ⚠ インベントリを別の窓に出せるかの材料。⚠ OS の別窓は前回の実機で「渡らない」と出ている。
+# ⚠ ヘッドレスは窓を作れないので、Window は必ず埋め込みになる（⚠ 測れるのは埋め込みだけ）。
+# ⚠ 入力は root に push_input で流す（⚠ 埋め込みの Window へは root が振り分ける）。
+
+func _report_subwindow_drag() -> void:
+	var root: Window = get_tree().root
+	# ⚠ _ready() の中から add_child すると「Parent node is busy」で弾かれる（⚠ 1回目で踏んだ）。
+	await get_tree().process_frame
+	print("[DebugBoot] --- 埋め込み Window 同士のドラッグ ---")
+	print("  DisplayServer = %s ／ 別窓を作れるか = %s ／ 埋め込み = %s ／ root の大きさ（直す前） = %s" % [
+		DisplayServer.get_name(),
+		DisplayServer.has_feature(DisplayServer.FEATURE_SUBWINDOWS),
+		root.gui_embed_subwindows,
+		root.size,
+	])
+	# ⚠ ヘッドレスの root は 64 x 64（⚠ 1回目で踏んだ）。⚠ 基準の 1280 x 720 に広げてから測る。
+	root.size = Vector2i(1280, 720)
+	await get_tree().process_frame
+	print("  root の大きさ（直した後） = %s ／ 表示の変換 = %s（⚠ 拡大1・ずれ0 が前提）" % [
+		root.size, root.get_final_transform(),
+	])
+
+	# ① 普通の Control 同士（⚠ 比べる基準）。
+	var holder: Control = Control.new()
+	holder.name = "DragProbeHolder"
+	root.add_child(holder)
+	var src_1: DragProbeSource = _make_probe_source(Vector2(100, 100))
+	var dst_1: DragProbeTarget = _make_probe_target(Vector2(400, 100))
+	holder.add_child(src_1)
+	holder.add_child(dst_1)
+	var ok_1: bool = await _drag_probe_case("① 普通の Control 同士", src_1, dst_1)
+	if not ok_1:
+		push_error("[DebugBoot] ① が渡らない。⚠ 入力の流し方が壊れているので ② ③ は信じない")
+	root.remove_child(holder)
+	holder.queue_free()
+
+	# ② 埋め込み Window の中どうし。
+	var win_2: Window = _make_probe_window("DragProbeWindow2", Vector2i(100, 300))
+	var src_2: DragProbeSource = _make_probe_source(Vector2(20, 20))
+	var dst_2: DragProbeTarget = _make_probe_target(Vector2(200, 20))
+	win_2.add_child(src_2)
+	win_2.add_child(dst_2)
+	await _drag_probe_case("② 埋め込み Window の中どうし", src_2, dst_2)
+	root.remove_child(win_2)
+	win_2.queue_free()
+
+	# ③ 埋め込み Window A → B。
+	var win_a: Window = _make_probe_window("DragProbeWindowA", Vector2i(100, 300))
+	var win_b: Window = _make_probe_window("DragProbeWindowB", Vector2i(600, 300))
+	var src_3: DragProbeSource = _make_probe_source(Vector2(20, 20))
+	var dst_3: DragProbeTarget = _make_probe_target(Vector2(20, 20))
+	win_a.add_child(src_3)
+	win_b.add_child(dst_3)
+	await _drag_probe_case("③ 埋め込み Window A → B", src_3, dst_3)
+	root.remove_child(win_a)
+	root.remove_child(win_b)
+	win_a.queue_free()
+	win_b.queue_free()
+
+
+func _make_probe_window(window_name: String, at: Vector2i) -> Window:
+	var window: Window = Window.new()
+	window.name = window_name
+	window.borderless = true
+	window.size = Vector2i(320, 160)
+	window.position = at
+	get_tree().root.add_child(window)
+	return window
+
+
+func _make_probe_source(at: Vector2) -> DragProbeSource:
+	var source: DragProbeSource = DragProbeSource.new()
+	source.name = "Source"
+	source.position = at
+	source.size = Vector2(80, 80)
+	return source
+
+
+func _make_probe_target(at: Vector2) -> DragProbeTarget:
+	var target: DragProbeTarget = DragProbeTarget.new()
+	target.name = "Target"
+	target.position = at
+	target.size = Vector2(80, 80)
+	return target
+
+
+# root から見た Control の真ん中。⚠ 埋め込み Window の中なら Window の位置を足す。
+func _probe_root_point(control: Control) -> Vector2:
+	var point: Vector2 = control.get_global_rect().get_center()
+	var window: Window = control.get_window()
+	if window != get_tree().root:
+		point += Vector2(window.position)
+	return point
+
+
+# 押す → 12歩で動かす → 離す。⚠ 受け取れたら true。
+func _drag_probe_case(label: String, source: Control, target: DragProbeTarget) -> bool:
+	var root: Window = get_tree().root
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var from: Vector2 = _probe_root_point(source)
+	var to: Vector2 = _probe_root_point(target)
+
+	var press: InputEventMouseButton = InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.button_mask = MOUSE_BUTTON_MASK_LEFT
+	press.position = from
+	press.global_position = from
+	root.push_input(press)
+	await get_tree().process_frame
+
+	var steps: int = 12
+	var dragging_seen: bool = false
+	for i: int in range(1, steps + 1):
+		var point: Vector2 = from.lerp(to, float(i) / float(steps))
+		var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+		motion.position = point
+		motion.global_position = point
+		motion.relative = (to - from) / float(steps)
+		root.push_input(motion)
+		await get_tree().process_frame
+		if source.get_viewport().gui_is_dragging() or root.gui_is_dragging():
+			dragging_seen = true
+
+	var release: InputEventMouseButton = InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = to
+	release.global_position = to
+	root.push_input(release)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var passed: bool = target.received.size() == 1
+	print("  %s：%s → %s ／ ドラッグが始まったか = %s ／ 受ける側に聞いた回数 = %d ／ 受け取った数 = %d ／ %s" % [
+		label, from, to, dragging_seen, target.can_drop_calls, target.received.size(),
+		"渡った" if passed else "渡らない",
+	])
+	return passed
+
+
+class DragProbeSource extends ColorRect:
+	func _get_drag_data(_at_position: Vector2) -> Variant:
+		return {"probe": str(name)}
+
+
+class DragProbeTarget extends ColorRect:
+	var can_drop_calls: int = 0
+	var received: Array = []
+
+	func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
+		can_drop_calls += 1
+		return data is Dictionary and (data as Dictionary).has("probe")
+
+	func _drop_data(_at_position: Vector2, data: Variant) -> void:
+		received.append(data)
