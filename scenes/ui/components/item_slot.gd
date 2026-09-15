@@ -32,12 +32,20 @@ signal slot_pressed(entry: Dictionary)
 signal slot_hovered(entry: Dictionary)
 signal slot_unhovered()
 # ここへ他のマスが落とされた。⚠ 渡ってくるのは「落とした側のマスの番号」。
+#   ⚠ 同じマス目の中から落とされたときだけ（⚠ 別のマス目からは slot_received）。
 signal slot_dropped(from_index: int)
+# ⚠ 別のマス目から落とされた（2026-09-15・インベントリの窓 → 装備マス）。
+#   ⚠ 受けるのは、⚠ 器が「その組から受ける」と決めているときだけ（⚠ 既定は受けない）。
+signal slot_received(from_grid_id: int, from_index: int)
 
 # ドラッグの荷物の鍵（段階18-f）。⚠ 綴りを散らさない。
 #   ⚠ この鍵が入っていない荷物は受け取らない（⚠ 他の画面からのドラッグを弾く）。
 const DRAG_KEY: String = "item_slot_drag"
 const DRAG_INDEX: String = "index"
+# ⚠ どのマス目から来たか（2026-09-15）。⚠ 器の instance_id と、⚠ 器の組の名前。
+#   ⚠ 番号だけだと、⚠ 別のマス目から落とされても「自分の中の入れ替え」と取り違える。
+const DRAG_GRID_ID: String = "grid_id"
+const DRAG_GROUP: String = "group"
 # つまんでいるあいだの見た目の薄さ。
 const DRAG_PREVIEW_MODULATE: Color = Color(1.0, 1.0, 1.0, 0.7)
 
@@ -56,6 +64,10 @@ var _tooltip_suppressed: bool = false
 # このマスが何番目か（段階18-f）。⚠ ItemGrid が入れる。
 #   ⚠ 空のマスは中身が全部同じなので、⚠ 番号でしか区別できない。
 var _index: int = 0
+# ⚠ どの器のマスか・⚠ どの組から受けるか（2026-09-15）。⚠ ItemGrid が入れる。
+var _grid_id: int = 0
+var _drag_group: String = ""
+var _accept_drop_groups: Array[String] = []
 
 
 # 呼ぶ側の1行の口（ItemIcon.create() と同じ形）。
@@ -96,6 +108,13 @@ func get_slot_index() -> int:
 	return _index
 
 
+# ⚠ 呼ぶのは `ItemGrid.rebuild()` の1本。⚠ 画面から直に呼ばないこと。
+func set_drag_origin(grid_id: int, group: String, accept_drop_groups: Array[String]) -> void:
+	_grid_id = grid_id
+	_drag_group = group
+	_accept_drop_groups = accept_drop_groups.duplicate()
+
+
 # 素のツールチップを止める／戻す。⚠ 呼ぶのは `ItemGrid.set_tooltip_suppressed()` の1本。
 #   ⚠ 画面から直に呼ばないこと（⚠ 器の中のマスだけ止まって並びが食い違う）。
 func set_tooltip_suppressed(value: bool) -> void:
@@ -122,21 +141,30 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	preview.modulate = DRAG_PREVIEW_MODULATE
 	preview.disabled = true
 	set_drag_preview(preview)
-	return {DRAG_KEY: true, DRAG_INDEX: _index}
+	return {DRAG_KEY: true, DRAG_INDEX: _index, DRAG_GRID_ID: _grid_id, DRAG_GROUP: _drag_group}
 
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
 	if not (data is Dictionary):
 		return false
-	if not (data as Dictionary).has(DRAG_KEY):
+	var payload: Dictionary = data
+	if not payload.has(DRAG_KEY):
 		return false
-	return int((data as Dictionary).get(DRAG_INDEX, -1)) != _index
+	# ⚠ 同じマス目の中なら今までどおり（⚠ 自分の上に落とすのは弾く）。
+	if int(payload.get(DRAG_GRID_ID, 0)) == _grid_id:
+		return int(payload.get(DRAG_INDEX, -1)) != _index
+	# ⚠ 別のマス目からは、⚠ 器が受けると決めた組だけ。
+	return _accept_drop_groups.has(str(payload.get(DRAG_GROUP, "")))
 
 
 func _drop_data(_at_position: Vector2, data: Variant) -> void:
 	if not (data is Dictionary):
 		return
-	slot_dropped.emit(int((data as Dictionary).get(DRAG_INDEX, -1)))
+	var payload: Dictionary = data
+	if int(payload.get(DRAG_GRID_ID, 0)) == _grid_id:
+		slot_dropped.emit(int(payload.get(DRAG_INDEX, -1)))
+		return
+	slot_received.emit(int(payload.get(DRAG_GRID_ID, 0)), int(payload.get(DRAG_INDEX, -1)))
 
 
 func is_empty() -> bool:

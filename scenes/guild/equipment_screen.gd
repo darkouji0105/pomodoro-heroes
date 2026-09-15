@@ -18,6 +18,8 @@ extends Control
 
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
 const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
+# 装備マスの組の名前（2026-09-15）。
+const DRAG_GROUP_EQUIPMENT: String = "equipment"
 
 # --- ノード参照 ---
 @onready var name_label: Label = $Margin/Layout/NameLabel
@@ -271,6 +273,10 @@ func _create_equipment_grid() -> void:
 	grid.name = "EquipmentGrid"
 	# ⚠ 枠の数は GameManager に聞く（⚠ 5 を直接書かない。⚠ 部位が増えたら追従する）。
 	grid.columns = GameManager.get_equip_slots().size()
+	# ⚠ インベントリの窓から落とされたら装備する（2026-09-15）。⚠ rebuild() より先に入れる。
+	grid.drag_group = DRAG_GROUP_EQUIPMENT
+	grid.accept_drop_groups = [InventoryWindow.DRAG_GROUP]
+	grid.slot_received.connect(_on_equipment_grid_received)
 	var entries: Array = []
 	for row: Variant in GameManager.get_equipment_slot_entries(_character_id):
 		entries.append((row as Dictionary)[GameManager.SLOT_ENTRY_ENTRY])
@@ -289,6 +295,32 @@ func _on_equipment_grid_pressed(_entry: Dictionary, index: int) -> void:
 	if index < 0 or index >= slots.size():
 		return
 	_on_select_slot_pressed(str((slots[index] as Dictionary)[GameManager.SLOT_ENTRY_EQUIP_SLOT]))
+
+# インベントリの窓から装備マスへ落とされた（2026-09-15）。
+#
+# ⚠ 着けられるかの判定は GameManager.equip_instance() の1本（⚠ ここで部位を見ない）。
+# ⚠ 部位は落とされたマスの番号で引く（⚠ 中身で照合しない＝空のマスは全部同じ）。
+# ⚠⚠ 装備は call_deferred で呼ぶ。⚠ 装備すると両方のマス目が作り直されるので、
+#   ⚠ 落とした処理の途中で、⚠ 受けているマス自身を外すことになる。
+func _on_equipment_grid_received(from_grid: ItemGrid, from_index: int, to_index: int) -> void:
+	var entry: Dictionary = from_grid.get_entry_at(from_index)
+	if str(entry.get(GameManager.SLOT_ENTRY_KIND, "")) != GameManager.SLOT_KIND_INSTANCE:
+		notice_label.text = tr("ui_equipment_failed")
+		return
+	var slots: Array = GameManager.get_equipment_slot_entries(_character_id)
+	if to_index < 0 or to_index >= slots.size():
+		return
+	var slot: String = str((slots[to_index] as Dictionary)[GameManager.SLOT_ENTRY_EQUIP_SLOT])
+	_equip_from_drop.call_deferred(slot, str(entry.get(GameManager.SLOT_ENTRY_INSTANCE_ID, "")))
+
+
+func _equip_from_drop(slot: String, instance_id: String) -> void:
+	if GameManager.equip_instance(_character_id, slot, instance_id):
+		notice_label.text = tr("ui_equipment_equipped")
+	else:
+		notice_label.text = tr("ui_equipment_failed")
+	# 再描画はシグナル側で行う。
+
 
 func _create_slot_row(slot: String) -> void:
 	var instance_id: String = GameManager.get_equipped_instance_id(_character_id, slot)

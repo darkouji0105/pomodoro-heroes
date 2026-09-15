@@ -27,9 +27,18 @@ signal slot_unhovered(index: int)
 # マスを動かした（段階18-f・ドラッグ＆ドロップ）。⚠ 番号はこのマス目の中の番号。
 #   ⚠ ページのぶんを足すのは画面側（⚠ この部品はページを知らない）。
 signal slot_moved(from_index: int, to_index: int)
+# 別のマス目から落とされた（2026-09-15）。⚠ 中身は `from_grid.get_entry_at(from_index)` で引く
+#   （⚠ 荷物に中身を入れない＝ItemSlot の決まり）。⚠ to_index はこのマス目の中の番号。
+signal slot_received(from_grid: ItemGrid, from_index: int, to_index: int)
 
 # 1行に並べるマスの数。⚠ ここは見た目の都合なので画面側が決める。
 const DEFAULT_COLUMNS: int = 8
+
+# ⚠ この器の組の名前（2026-09-15）。⚠ 別のマス目がこれを見て受けるか決める。
+#   ⚠ 名前は置く側が決める（⚠ ここは画面を知らない）。⚠ rebuild() より先に入れること。
+var drag_group: String = ""
+# ⚠ どの組のマス目から受けるか。⚠ 空なら別のマス目からは受けない（⚠ 既定）。
+var accept_drop_groups: Array[String] = []
 
 var _slots: Array[ItemSlot] = []
 # ⚠ ホバーの枠（`ItemDetailPopup`）が見張っている器か（2026-09-10）。
@@ -67,11 +76,13 @@ func rebuild(entries: Array, slot_count: int = 0) -> void:
 		var slot: ItemSlot = ItemSlot.create(entry)
 		slot.name = "Slot_%d" % i
 		slot.set_slot_index(i)
+		slot.set_drag_origin(get_instance_id(), drag_group, accept_drop_groups)
 		# ⚠ add_child() の前に入れる。⚠ マスは _ready() で1回だけ描くので、
 		#   ⚠ ここで入れておけば描き直しが起きない。
 		slot.set_tooltip_suppressed(_tooltip_suppressed)
 		slot.slot_pressed.connect(_on_slot_pressed.bind(i))
 		slot.slot_dropped.connect(_on_slot_dropped.bind(i))
+		slot.slot_received.connect(_on_slot_received.bind(i))
 		slot.slot_hovered.connect(_on_slot_hovered.bind(i))
 		slot.slot_unhovered.connect(_on_slot_unhovered.bind(i))
 		add_child(slot)
@@ -80,6 +91,13 @@ func rebuild(entries: Array, slot_count: int = 0) -> void:
 
 func get_slot_count() -> int:
 	return _slots.size()
+
+
+# そのマスの中身。⚠ 範囲の外なら空の Dictionary。
+func get_entry_at(index: int) -> Dictionary:
+	if index < 0 or index >= _slots.size():
+		return {}
+	return _slots[index].get_entry()
 
 
 # 素のツールチップを器ごと止める／戻す。⚠ 呼ぶのは `ItemDetailPopup.watch()` の1本。
@@ -106,3 +124,11 @@ func _on_slot_dropped(from_index: int, to_index: int) -> void:
 	if from_index < 0 or from_index == to_index:
 		return
 	slot_moved.emit(from_index, to_index)
+
+
+# 別のマス目から落とされた。⚠ to は落とされた側（bind で入る）。
+func _on_slot_received(from_grid_id: int, from_index: int, to_index: int) -> void:
+	var from_grid: Variant = instance_from_id(from_grid_id)
+	if not (from_grid is ItemGrid) or from_index < 0:
+		return
+	slot_received.emit(from_grid as ItemGrid, from_index, to_index)

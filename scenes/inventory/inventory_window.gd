@@ -10,9 +10,11 @@ extends Window
 #   ⚠ Window.new() は表示中扱いなので、⚠ 先に visible を落とす。
 # ⚠ 中身は倉庫の持ち物と同じ並び（GameManager.get_inventory_page_entries()）。
 #   ⚠ ここで並びを組み立てない。
-# ⚠ いまはドラッグを受けない・送らない（⚠ 段3で足す）。
+# ⚠ ドラッグは送るだけ（⚠ 装備マスが受ける）。⚠ 窓は別のマス目から受けない。
 # ⚠ インベントリ専用のフォルダ scenes/inventory/（人間の決定 2026-09-15）。⚠ `.tscn` を持たない。
 
+# ⚠ マス目の組の名前（2026-09-15）。⚠ 装備マスがこの組から受ける。
+const DRAG_GROUP: String = "inventory"
 const MARGIN_VARIATION: StringName = &"DialogMargin"
 const PANEL_VARIATION: StringName = &"SidePanel"
 
@@ -62,6 +64,7 @@ func _build() -> void:
 	grid = ItemGrid.new()
 	grid.name = "InventoryGrid"
 	grid.columns = GameManager.get_inventory_columns()
+	grid.drag_group = DRAG_GROUP
 	layout.add_child(grid)
 
 	var page_row: HBoxContainer = HBoxContainer.new()

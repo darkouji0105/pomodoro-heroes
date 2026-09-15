@@ -49,6 +49,7 @@ const REPORT_THEME: String = "theme"
 const REPORT_SUBWINDOW_DRAG: String = "subwindow_drag"
 const REPORT_SETTINGS: String = "settings"
 const REPORT_INVENTORY_WINDOW: String = "inventory_window"
+const REPORT_EQUIP_DRAG: String = "equip_drag"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -785,6 +786,13 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_INVENTORY_WINDOW,
 		"note": "インベントリの窓。設定ごとに 開く / force_native / マスの数 / 2回押しても1枚",
 	},
+	# 2026-09-15（段3a）。⚠ インベントリの窓（ゲームの中）から装備マスへドラッグして装備する。
+	# ⚠ 入力は root に push_input（⚠ subwindow_drag と同じ流し方）。⚠ 設定は最後に元へ戻す。
+	"equip_drag": {
+		"kind": KIND_REPORT,
+		"report": REPORT_EQUIP_DRAG,
+		"note": "① 窓→装備マスで装備される ／ ② 装備マス→窓は何も起きない ／ ③ 窓の中の入れ替えは slot_moved が出る",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -854,6 +862,8 @@ func _ready() -> void:
 			_report_settings()
 		elif report == REPORT_INVENTORY_WINDOW:
 			await _report_inventory_window()
+		elif report == REPORT_EQUIP_DRAG:
+			await _report_equip_drag()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7615,3 +7625,188 @@ func _report_inventory_window() -> void:
 	else:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	print("  元に戻した -> ファイルが在るか %s（⚠ %s が正解）" % [FileAccess.file_exists(path), had_file])
+
+
+# --- ドラッグで装備（2026-09-15・段3a） ---
+
+func _report_equip_drag() -> void:
+	await get_tree().process_frame
+	var root: Window = get_tree().root
+	# ⚠ ヘッドレスの root は 64 x 64（⚠ subwindow_drag で踏んだ）。
+	root.size = Vector2i(1280, 720)
+	await get_tree().process_frame
+
+	var path: String = SaveManager.SETTINGS_PATH
+	var had_file: bool = FileAccess.file_exists(path)
+	var before: String = SaveManager.get_inventory_mode()
+	SaveManager.set_inventory_mode(SaveManager.INVENTORY_MODE_EMBEDDED)
+	print("[DebugBoot] --- ドラッグで装備（ゲームの中） ---")
+
+	# ⚠ 装備は add_to_inventory() が個体を作る（CLAUDE.md 8番）。
+	# ⚠ ③ で動かす用にもう1本（⚠ 1本だけだと ① で装備したあと窓が空になる・1回目で踏んだ）。
+	GameManager.add_to_inventory("weapon_iron_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	GameManager.add_to_inventory("weapon_wooden_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var instance_id: String = _newest_instance()
+	var character_id: String = ""
+	for member: Variant in GameManager.get_party_members():
+		if GameManager.get_equip_reject_reason(str(member), GameStateKeys.EQUIP_WEAPON, instance_id) == "":
+			character_id = str(member)
+			break
+	print("  個体 = %s ／ 着けるキャラ = %s" % [instance_id, character_id])
+	if character_id == "":
+		push_error("[DebugBoot] 木の剣を着けられるキャラが編成にいない")
+		_restore_settings(had_file, before)
+		return
+
+	SceneManager._transfer_data = {TransferKeys.CHARACTER_ID: character_id}
+	var screen: Node = load("res://scenes/guild/equipment_screen.tscn").instantiate()
+	root.add_child(screen)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	(screen.find_child("OpenInventoryButton", true, false) as UiButton).pressed.emit()
+	await get_tree().process_frame
+	var window: InventoryWindow = null
+	for child: Node in screen.get_children():
+		if child is InventoryWindow:
+			window = child
+	# ⚠ 真ん中に出ると装備マスに被ることがあるので、⚠ 右へ寄せる。
+	window.position = Vector2i(700, 60)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var moved: Array = []
+	window.grid.slot_moved.connect(func(from_index: int, to_index: int) -> void: moved.append([from_index, to_index]))
+
+	# ① 窓 → 装備マス。
+	var from_index: int = _grid_find_instance(window.grid, instance_id)
+	var equip_grid: ItemGrid = screen.find_child("EquipmentGrid", true, false)
+	var weapon_index: int = _equip_grid_index_of(character_id, GameStateKeys.EQUIP_WEAPON)
+	print("  窓のマス = %d ／ 装備マスの武器 = %d" % [from_index, weapon_index])
+	if from_index < 0 or weapon_index < 0 or equip_grid == null:
+		push_error("[DebugBoot] 落とす元か先が見つからない")
+	else:
+		var started: bool = await _push_drag(
+			_probe_root_point(window.grid.get_child(from_index) as Control),
+			_probe_root_point(equip_grid.get_child(weapon_index) as Control)
+		)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var equipped: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_WEAPON)
+		var left_in_window: bool = _grid_find_instance(window.grid, instance_id) >= 0
+		print("  ① 窓→装備マス：ドラッグが始まったか = %s ／ 装備 = %s（⚠ %s が正解） ／ 窓に残っているか = %s（⚠ false が正解）" % [
+			started, equipped, instance_id, left_in_window,
+		])
+		if equipped != instance_id:
+			push_error("[DebugBoot] ① 落としても装備されていない")
+		if left_in_window:
+			push_error("[DebugBoot] ① 装備したのに窓のマスに残っている（決定7）")
+
+	# ② 装備マス → 窓（⚠ 窓は受けない）。
+	equip_grid = screen.find_child("EquipmentGrid", true, false)
+	var empty_index: int = _grid_last_empty(window.grid)
+	moved.clear()
+	await _push_drag(
+		_probe_root_point(equip_grid.get_child(weapon_index) as Control),
+		_probe_root_point(window.grid.get_child(empty_index) as Control)
+	)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var still: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_WEAPON)
+	print("  ② 装備マス→窓：装備 = %s（⚠ %s のままが正解） ／ 窓の入れ替え = %d 回（⚠ 0 が正解）" % [
+		still, instance_id, moved.size(),
+	])
+	if still != instance_id or not moved.is_empty():
+		push_error("[DebugBoot] ② 受けないはずの落としで状態が動いた")
+
+	# ③ 窓の中の入れ替え（⚠ 今までどおり slot_moved が出る）。
+	var filled_index: int = _grid_first_filled(window.grid)
+	empty_index = _grid_last_empty(window.grid)
+	moved.clear()
+	await _push_drag(
+		_probe_root_point(window.grid.get_child(filled_index) as Control),
+		_probe_root_point(window.grid.get_child(empty_index) as Control)
+	)
+	await get_tree().process_frame
+	print("  ③ 窓の中 %d→%d：slot_moved = %s（⚠ [[%d, %d]] が正解）" % [
+		filled_index, empty_index, moved, filled_index, empty_index,
+	])
+	if moved.size() != 1:
+		push_error("[DebugBoot] ③ 同じマス目の中の入れ替えで slot_moved が出ていない")
+
+	root.remove_child(screen)
+	screen.queue_free()
+	_restore_settings(had_file, before)
+
+
+# 押す → 12歩で動かす → 離す。⚠ ドラッグが始まったら true。
+func _push_drag(from: Vector2, to: Vector2) -> bool:
+	var root: Window = get_tree().root
+	var press: InputEventMouseButton = InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.button_mask = MOUSE_BUTTON_MASK_LEFT
+	press.position = from
+	press.global_position = from
+	root.push_input(press)
+	await get_tree().process_frame
+	var started: bool = false
+	var steps: int = 12
+	for i: int in range(1, steps + 1):
+		var point: Vector2 = from.lerp(to, float(i) / float(steps))
+		var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+		motion.position = point
+		motion.global_position = point
+		motion.relative = (to - from) / float(steps)
+		root.push_input(motion)
+		await get_tree().process_frame
+		if root.gui_is_dragging():
+			started = true
+		for window: Window in root.get_embedded_subwindows():
+			if window.gui_is_dragging():
+				started = true
+	var release: InputEventMouseButton = InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = to
+	release.global_position = to
+	root.push_input(release)
+	await get_tree().process_frame
+	return started
+
+
+func _grid_find_instance(grid: ItemGrid, instance_id: String) -> int:
+	for i: int in range(grid.get_slot_count()):
+		if str(grid.get_entry_at(i).get(GameManager.SLOT_ENTRY_INSTANCE_ID, "")) == instance_id:
+			return i
+	return -1
+
+
+func _grid_last_empty(grid: ItemGrid) -> int:
+	for i: int in range(grid.get_slot_count() - 1, -1, -1):
+		if grid.get_entry_at(i).is_empty():
+			return i
+	return -1
+
+
+func _grid_first_filled(grid: ItemGrid) -> int:
+	for i: int in range(grid.get_slot_count()):
+		if not grid.get_entry_at(i).is_empty():
+			return i
+	return -1
+
+
+func _equip_grid_index_of(character_id: String, slot: String) -> int:
+	var slots: Array = GameManager.get_equipment_slot_entries(character_id)
+	for i: int in range(slots.size()):
+		if str((slots[i] as Dictionary)[GameManager.SLOT_ENTRY_EQUIP_SLOT]) == slot:
+			return i
+	return -1
+
+
+func _restore_settings(had_file: bool, before: String) -> void:
+	if had_file:
+		SaveManager.set_inventory_mode(before)
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveManager.SETTINGS_PATH))
+	print("  設定を元に戻した -> ファイルが在るか %s（⚠ %s が正解）" % [FileAccess.file_exists(SaveManager.SETTINGS_PATH), had_file])
