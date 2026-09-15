@@ -1,35 +1,19 @@
 # res://scenes/guild/warehouse_screen.gd
-# 倉庫画面：3タブ（持ち物/図鑑/宝箱）を持つ。指示書 EXEC_GUILD_WAREHOUSE.md §3 準拠。
-# 拠点からチェストバッジ経由で来た場合は宝箱タブが開く（TransferKeys.WAREHOUSE_TAB）。
-# §8-3 に基づき class_name WarehouseScreen を公開し、base_screen.gd 等から
-# TAB_INVENTORY / TAB_CODEX / TAB_CHEST を参照できるようにする。
+# 倉庫：3タブ（持ち物/素材/図鑑）。指示書 EXEC_GUILD_WAREHOUSE.md §3 準拠。
+# ⚠⚠ 2026-09-15：⚠ **倉庫の窓（`InventoryWindow`）の中でだけ使う**（人間の指示「倉庫画面は、この窓だけに」）。
+#   ⚠ 画面として遷移しない（⚠ 戻る・題・遷移データでのタブ指定は消した）。
+#   ⚠ 宝箱タブは拠点の `ChestPanel` へ移した（人間の指示「宝箱は、倉庫側ではなく拠点から直接開けるように」）。
 
 class_name WarehouseScreen
 extends Control
 
-# --- タブ識別子（§8-3 で他ファイルから参照される前提で public） ---
-const TAB_INVENTORY: String = "inventory"
-# ⚠ 素材タブ（2026-09-10・人間の指示「⚠ 素材を見れるようにしたい」）。
-#   ⚠ 持ち物の隣に置く（⚠ 素材も「持っているもの」なので、⚠ 図鑑・宝箱より近い）。
-const TAB_MATERIAL: String = "material"
-const TAB_CODEX: String = "codex"
-const TAB_CHEST: String = "chest"
-
-# タブインデックス（InventoryTab=0, MaterialTab=1, CodexTab=2, ChestTab=3）
-# ⚠ .tscn の metadata/_tab_index と揃えること（⚠ 2026-09-10 に素材を割り込ませた）。
-const TAB_INDEX: Dictionary = {
-	TAB_INVENTORY: 0,
-	TAB_MATERIAL: 1,
-	TAB_CODEX: 2,
-	TAB_CHEST: 3,
-}
-
-# タブタイトル用翻訳キー（_ready で set_tab_title に使う）
+# タブタイトル用翻訳キー（_ready で set_tab_title に使う）。
+# ⚠ .tscn のタブの並び（持ち物・素材・図鑑）と揃えること。
+# ⚠ 素材タブ（2026-09-10・人間の指示「⚠ 素材を見れるようにしたい」）は持ち物の隣。
 const TAB_TITLE_KEYS: Array[String] = [
 	"ui_warehouse_tab_inventory",
 	"ui_warehouse_tab_material",
 	"ui_warehouse_tab_codex",
-	"ui_warehouse_tab_chest",
 ]
 
 # 素材タブのマス目の列数（⚠ 見た目の都合だけ。⚠ バランス数値ではない）。
@@ -37,14 +21,9 @@ const TAB_TITLE_KEYS: Array[String] = [
 #   **1行＝1系統（段1〜4）** になる（⚠ 建築 ／ 修練 ／ 鍛冶 ／ 装飾 の4行）。
 const MATERIAL_GRID_COLUMNS: int = 4
 
-const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
-
-# 開封結果の窓のマス目の列数（⚠ 見た目の都合だけ。⚠ バランス数値ではない）。
-const REWARD_GRID_COLUMNS: int = 6
 
 # --- ノード参照 ---
 @onready var tabs: TabContainer = $Layout/Tabs
-@onready var back_button: UiButton = $Layout/Header/BackButton
 # 持ち物タブはマス目（段階18-c・PLAN_INVENTORY.md）。
 # ⚠ ScrollContainer をやめた。⚠ 中が scenario=layout で測れないため（宿題68）。
 #   ⚠ 20列 × 5行 ＝ 100 マスが1ページで、⚠ 5ページを送って見る（人間の決定8）。
@@ -66,8 +45,6 @@ const REWARD_GRID_COLUMNS: int = 6
 @onready var material_grid: ItemGrid = $Layout/Tabs/MaterialTab/MaterialArea/MaterialGrid
 @onready var material_detail: ItemDetail = $Layout/Tabs/MaterialTab/MaterialDetailPanel/MaterialDetailMargin/MaterialDetail
 @onready var codex_list: VBoxContainer = $Layout/Tabs/CodexTab/CodexList
-@onready var open_all_button: UiButton = $Layout/Tabs/ChestTab/ChestFooter/OpenAllButton
-@onready var chest_list: VBoxContainer = $Layout/Tabs/ChestTab/ChestScroll/ChestList
 # ⚠⚠ `ResultLabel` は消した（2026-09-10・人間が実機で見つけた）。
 #   ⚠ 2026-09-08 に開封結果の**窓**（マス目）ができたのに、⚠ その前からあった
 #     検証用の文字の行が残っていて、⚠ 開けるたびに窓と二重に出ていた。
@@ -78,35 +55,15 @@ const REWARD_GRID_COLUMNS: int = 6
 #   （⚠ 常設パネルのものを引き取ると、⚠ パネルが空になる）。
 var _detail_popup: ItemDetailPopup = null
 
-# ⚠⚠ 倉庫の窓（`InventoryWindow`）の中で使われているか（2026-09-15）。⚠ add_child() より先に入れる。
-#   ⚠ 真のときは ⚠ 遷移データを取らない（⚠ 次の画面へのデータを横取りする）／
-#   ⚠ 見出しの行（戻る・題）を出さない（⚠ 窓の題の帯と ✕ が代わり）／ ⚠ 資源の余白を取らない。
-var in_window: bool = false
-
 func _ready() -> void:
 	# 1. タブ名を日本語化（ノード名の英語が画面に出る前に上書き）
 	for i: int in range(TAB_TITLE_KEYS.size()):
 		tabs.set_tab_title(i, tr(TAB_TITLE_KEYS[i]))
-
-	# 2. 遷移データを消費 → 該当タブを選択（無ければタブ0）
-	var data: Dictionary = {} if in_window else SceneManager.consume_transfer_data()
-	var initial_tab: String = str(data.get(TransferKeys.WAREHOUSE_TAB, TAB_INVENTORY))
-	if TAB_INDEX.has(initial_tab):
-		tabs.current_tab = int(TAB_INDEX[initial_tab])
-	else:
-		tabs.current_tab = 0
-
-	# 3. ボタン接続
-	if in_window:
-		back_button.get_parent().visible = false
-	else:
-		back_button.pressed.connect(_on_back_pressed)
-		_build_resource_bar()
-	open_all_button.pressed.connect(_on_open_all_pressed)
+	# 2. 持ち物タブから始める（⚠ 窓の中でだけ使うので、⚠ 遷移データは取らない）。
+	tabs.current_tab = 0
 
 	# 4. GameManager のシグナル購読
 	GameManager.inventory_changed.connect(_on_inventory_changed)
-	GameManager.pending_chests_changed.connect(_on_pending_chests_changed)
 	# 装備は inventory ではなく equipment_instances に入るため、こちらも購読する。
 	GameManager.equipment_instances_changed.connect(_on_equipment_instances_changed)
 	# ⚠ 素材タブ（2026-09-10）。⚠ 素材は専用のシグナルで飛ぶ（AGENTS.md のシグナル表）。
@@ -145,29 +102,6 @@ func _ready() -> void:
 	_rebuild_inventory()
 	_rebuild_materials()
 	_rebuild_codex()
-	_rebuild_chest_list()
-
-# --- 戻る ---
-
-# ⚠ 右上の資源は `ResourceHud` が画面をまたいで常駐で出す（2026-09-09）。
-#   ⚠ 倉庫は `ScreenHeader` を使わず自前でヘッダーを組んでいるので、
-#   ⚠ ここでも HUD と「戻る」が重ならないよう**右に場所を空ける**。
-#   ⚠ 空ける幅は HUD が自分で答える。⚠ `.tscn` は触らない。
-func _build_resource_bar() -> void:
-	var spacer: Control = Control.new()
-	spacer.name = "HudSpacer"
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	back_button.get_parent().add_child(spacer)
-	var apply: Callable = func(width: float) -> void:
-		spacer.custom_minimum_size = Vector2(maxf(0.0, width), 0.0)
-	apply.call(ResourceHud.reserved_width())
-	var hud: ResourceHud = ResourceHud.get_instance()
-	if hud != null:
-		hud.width_changed.connect(apply)
-
-
-func _on_back_pressed() -> void:
-	SceneManager.change_scene(GUILD_PATH)
 
 # --- インベントリタブ ---
 
@@ -564,295 +498,6 @@ func _create_codex_row(item_id: String, discovered: bool) -> void:
 
 	codex_list.add_child(row)
 
-# --- 宝箱タブ ---
-
-# 宝箱タブ（2026-09-08・段階⑤-②・人間のモック3枚目）。
-#
-# ⚠⚠ **種類ごとにまとめて1行**にする（⚠ 前は宝箱1個につき1行だった＝⚠ 同じ名前が
-#   ⚠ 何行も並んでいた）。⚠ 個数は「×3」で出す。
-# ⚠ 「開ける」は **その種類の1個目**を開ける。⚠ どれを開けても中身は同じ
-#   （⚠ 報酬は積むときに決まっていて、⚠ `CHEST_REWARDS` に入っている）。
-# ⚠ 並びは **入手した順**（⚠ `PENDING_CHESTS` の並びをそのまま使う）。
-#   ⚠ `chests.json` の `sort_order` では並べない。⚠ その名前の定数が `GameManager` に無く、
-#   ⚠ ここで綴りを書き起こすと2本目の対応表になる（⚠ autoload は無断で触らない決まり）。
-# ⚠ 再描画に await を持たせない（AGENTS.md）。
-func _rebuild_chest_list() -> void:
-	_clear_container(chest_list)
-
-	var state: Dictionary = GameManager.get_state()
-	var chests: Array = state.get(GameStateKeys.PENDING_CHESTS, [])
-	# ⚠ {chest_id: [instance_id]}。⚠ 開けていないものだけ。
-	var groups: Dictionary = {}
-	for chest: Variant in chests:
-		if not (chest is Dictionary):
-			continue
-		var chest_dict: Dictionary = chest
-		if bool(chest_dict.get(GameStateKeys.CHEST_OPENED, false)):
-			continue
-		var chest_id: String = str(chest_dict.get(GameStateKeys.CHEST_ID, ""))
-		if not groups.has(chest_id):
-			groups[chest_id] = []
-		(groups[chest_id] as Array).append(str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, "")))
-
-	open_all_button.disabled = groups.is_empty()
-	if groups.is_empty():
-		_add_empty_placeholder(chest_list)
-		return
-
-	# ⚠ Dictionary は入れた順を覚えている。⚠ ＝ 入手した順に並ぶ。
-	for chest_id: Variant in groups.keys():
-		_create_chest_row(str(chest_id), groups[chest_id])
-
-
-# 1行 ＝ 絵 ／ 名前 ／ ×個数 ／ 開ける。
-#
-# ⚠ 表示名は chests.json の name_key（EXEC_CHEST_REGISTRY.md §3-F）。
-#   ⚠ 接頭辞を組み立てない。宝箱を増やしたときに .gd を触らず、
-#     キーの綴りも chests.json 側だけで決まるようにするため。
-# ⚠⚠ 等級の色を付けていない。⚠ `chests.json` は rarity を持っていない
-#   （⚠ フロアの宝箱だけが別の表で rarity を持つ）。⚠ ここで chest_id の綴りから
-#   ⚠ 切り出すと、⚠ 宝箱を増やしたときに黙って灰色になる。
-func _create_chest_row(chest_id: String, instance_ids: Array) -> void:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "ChestRow_" + chest_id
-
-	row.add_child(_make_chest_glyph("ChestGlyph"))
-
-	var name_label: Label = Label.new()
-	var chest_def: Dictionary = MasterDataLoader.get_chest(chest_id)
-	name_label.text = tr(str(chest_def.get(GameManager.CHEST_NAME_KEY, "")))
-	name_label.name = "ChestNameLabel"
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(name_label)
-
-	# ⚠ 数値だけなので tr() を通さない（AGENTS.md）。
-	var count_label: Label = Label.new()
-	count_label.name = "ChestCountLabel"
-	count_label.text = "×%d" % instance_ids.size()
-	row.add_child(count_label)
-
-	var open_button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_warehouse_open")
-	open_button.name = "OpenButton"
-	# ⚠ その種類の1個目を開ける。⚠ 開けると再描画が走って番号は引き直される。
-	open_button.pressed.connect(_on_open_chest_pressed.bind(str(instance_ids[0])))
-	row.add_child(open_button)
-
-	chest_list.add_child(row)
-
-
-# 宝箱の絵（2026-09-08）。⚠ 線画（SVG）が在ればそちら、⚠ 無ければ絵文字。
-#   ⚠ 大きさは `Balance.icon` の絵文字と同じ段（⚠ ここに px を書かない）。
-func _make_chest_glyph(node_name: String) -> Control:
-	var texture: Texture2D = IconTextures.for_chest()
-	var size_px: float = float(maxi(1, Balance.icon.glyph_font_size)) if Balance.icon != null else 20.0
-	if texture != null:
-		var rect: TextureRect = TextureRect.new()
-		rect.name = node_name
-		rect.texture = texture
-		rect.custom_minimum_size = Vector2(size_px, size_px)
-		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		return rect
-	var glyph: Label = Label.new()
-	glyph.name = node_name
-	glyph.text = Glyphs.NODE_CHEST
-	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	return glyph
-
-
-# 0件のときの置き場（2026-09-08・モック）。⚠ 絵 ＋ 2行。
-#
-# ⚠⚠ 2026-09-09 に `EmptyState` へ出した（⚠ 他の画面でも同じ形が要るため）。
-#   ⚠ 図鑑・ショップ・装備の一覧が文字1行のままだった。
-func _add_empty_placeholder(parent: Container) -> void:
-	parent.add_child(EmptyState.create(
-		"ui_warehouse_no_chest", "ui_warehouse_no_chest_hint", IconTextures.for_chest()
-	))
-
-# --- 開封処理 ---
-
-func _on_open_chest_pressed(instance_id: String) -> void:
-	# 1. 開封前に rewards と名前を読んでおく（⚠ open_chest は rewards を返さないし、
-	#    ⚠ 開けたあとは一覧から引けなくなることがある）
-	var rewards: Dictionary = _read_chest_rewards(instance_id)
-	var chest_title: String = _chest_name(instance_id)
-	if rewards.is_empty() and not _chest_exists(instance_id):
-		push_warning("[WarehouseScreen] chest not found: " + instance_id)
-		return
-
-	# 2. open_chest を呼ぶ
-	var success: bool = GameManager.open_chest(instance_id)
-	if not success:
-		push_warning("[WarehouseScreen] open_chest failed: " + instance_id)
-		return
-
-	# 3. 窓で見せる（2026-09-08・段階⑤-③・モック4枚目）。⚠ 見せる口はここ1本。
-	# ⚠ 増えた演出はここで呼ばない（2026-09-09）。⚠ `ResourceGainEffect` が
-	#   ⚠ `resource_changed` / `material_changed` を見て自分で流す
-	#   （人間の指示「⚠ リソースの移動に紐づけてほしい」）。⚠ ここで呼ぶと二重になる。
-	_show_reward_window(rewards, chest_title)
-
-func _on_open_all_pressed() -> void:
-	var state: Dictionary = GameManager.get_state()
-	var chests: Array = state.get(GameStateKeys.PENDING_CHESTS, [])
-	var opened_count: int = 0
-	var combined: Dictionary = _empty_rewards()
-
-	for chest: Variant in chests:
-		if not (chest is Dictionary):
-			continue
-		var chest_dict: Dictionary = chest
-		if bool(chest_dict.get(GameStateKeys.CHEST_OPENED, false)):
-			continue
-		var instance_id: String = str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
-		var rewards: Dictionary = chest_dict.get(GameStateKeys.CHEST_REWARDS, {})
-
-		if GameManager.open_chest(instance_id):
-			_merge_rewards(combined, rewards)
-			opened_count += 1
-
-	if opened_count > 0:
-		# ⚠ まとめて1つの窓（⚠ 5個開けて窓が5つ並ぶと閉じるだけで疲れる）。
-		_show_reward_window(combined, tr("ui_warehouse_open_all"))
-
-# --- rewards 整形 ---
-
-# 開封結果の窓（2026-09-08・段階⑤-③・台帳の決定39）。
-#
-# ⚠⚠ **報酬はもう配り終わっている**（⚠ `open_chest()` の中で入っている）。
-#   ⚠ この窓は「何が入ったか」を見せるだけ。⚠ 閉じても何も失われない。
-# ⚠ 中身のマス目は `ItemGrid`（⚠ 倉庫・鞄・宝箱で使い回している部品）。
-# ⚠ ゴールド・ジェム・スタミナはマスにならないので文字で出す（⚠ 品ではないため）。
-func _show_reward_window(rewards: Dictionary, title: String) -> void:
-	var box: VBoxContainer = VBoxContainer.new()
-	box.name = "RewardWindow"
-
-	var entries: Array = _reward_entries(rewards)
-	if not entries.is_empty():
-		var grid: ItemGrid = ItemGrid.new()
-		grid.name = "RewardGrid"
-		grid.columns = mini(entries.size(), REWARD_GRID_COLUMNS)
-		box.add_child(grid)
-		grid.rebuild(entries, entries.size())
-
-	var currency: String = _reward_currency_text(rewards)
-	if currency != "":
-		var label: Label = Label.new()
-		label.name = "RewardCurrency"
-		label.text = currency
-		box.add_child(label)
-
-	Modal.notify(self, "", [], false, {
-		Modal.OPTION_TITLE: title,
-		Modal.OPTION_CONTENT: box,
-		Modal.OPTION_CLOSE_LABEL: "ui_warehouse_receive",
-	})
-
-
-# 報酬のうち **マスになるもの**（⚠ 素材と持ち物）。⚠ 個数はマスに出る。
-func _reward_entries(rewards: Dictionary) -> Array:
-	var entries: Array = []
-	for source: Variant in [
-		rewards.get(GameStateKeys.REWARD_MATERIALS, {}),
-		rewards.get(GameStateKeys.REWARD_INVENTORY, {}),
-	]:
-		if not (source is Dictionary):
-			continue
-		for item_id: String in (source as Dictionary):
-			var count: int = int((source as Dictionary)[item_id])
-			if count <= 0:
-				continue
-			entries.append({
-				GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
-				GameManager.SLOT_ENTRY_ITEM_ID: item_id,
-				GameManager.SLOT_ENTRY_INSTANCE_ID: "",
-				GameManager.SLOT_ENTRY_GRADE: 0,
-				GameManager.SLOT_ENTRY_COUNT: count,
-				GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
-			})
-	return entries
-
-
-# 報酬のうち **マスにならないもの**（⚠ ゴールド・ジェム・スタミナ）。⚠ 0 は出さない。
-func _reward_currency_text(rewards: Dictionary) -> String:
-	var parts: Array[String] = []
-	for pair: Array in [
-		[GameStateKeys.REWARD_GOLD, "ui_res_gold"],
-		[GameStateKeys.REWARD_GEMS, "ui_res_gems"],
-		[GameStateKeys.REWARD_STAMINA, "ui_res_stamina"],
-	]:
-		var amount: int = int(rewards.get(str(pair[0]), 0))
-		if amount > 0:
-			parts.append("%s +%d" % [tr(str(pair[1])), amount])
-	return "  ".join(parts)
-
-
-# 宝箱の表示名。⚠ chests.json の name_key（⚠ 綴りを組み立てない）。
-func _chest_name(instance_id: String) -> String:
-	var state: Dictionary = GameManager.get_state()
-	for chest: Variant in state.get(GameStateKeys.PENDING_CHESTS, []):
-		if not (chest is Dictionary):
-			continue
-		if str((chest as Dictionary).get(GameStateKeys.CHEST_INSTANCE_ID, "")) != instance_id:
-			continue
-		var chest_def: Dictionary = MasterDataLoader.get_chest(
-			str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))
-		)
-		return tr(str(chest_def.get(GameManager.CHEST_NAME_KEY, "")))
-	return tr("ui_warehouse_opened")
-
-
-func _empty_rewards() -> Dictionary:
-	return {
-		GameStateKeys.REWARD_GOLD: 0,
-		GameStateKeys.REWARD_GEMS: 0,
-		GameStateKeys.REWARD_STAMINA: 0,
-		GameStateKeys.REWARD_MATERIALS: {},
-		GameStateKeys.REWARD_INVENTORY: {},
-	}
-
-func _merge_rewards(combined: Dictionary, add: Dictionary) -> void:
-	combined[GameStateKeys.REWARD_GOLD] = int(combined.get(GameStateKeys.REWARD_GOLD, 0)) + int(add.get(GameStateKeys.REWARD_GOLD, 0))
-	combined[GameStateKeys.REWARD_GEMS] = int(combined.get(GameStateKeys.REWARD_GEMS, 0)) + int(add.get(GameStateKeys.REWARD_GEMS, 0))
-	combined[GameStateKeys.REWARD_STAMINA] = int(combined.get(GameStateKeys.REWARD_STAMINA, 0)) + int(add.get(GameStateKeys.REWARD_STAMINA, 0))
-	var cur_mats: Dictionary = combined.get(GameStateKeys.REWARD_MATERIALS, {})
-	var add_mats: Dictionary = add.get(GameStateKeys.REWARD_MATERIALS, {})
-	for mat_id: String in add_mats:
-		cur_mats[mat_id] = int(cur_mats.get(mat_id, 0)) + int(add_mats[mat_id])
-	combined[GameStateKeys.REWARD_MATERIALS] = cur_mats
-	var cur_inv: Dictionary = combined.get(GameStateKeys.REWARD_INVENTORY, {})
-	var add_inv: Dictionary = add.get(GameStateKeys.REWARD_INVENTORY, {})
-	for item_id: String in add_inv:
-		cur_inv[item_id] = int(cur_inv.get(item_id, 0)) + int(add_inv[item_id])
-	combined[GameStateKeys.REWARD_INVENTORY] = cur_inv
-
-# --- ヘルパー ---
-
-func _read_chest_rewards(instance_id: String) -> Dictionary:
-	var state: Dictionary = GameManager.get_state()
-	var chests: Array = state.get(GameStateKeys.PENDING_CHESTS, [])
-	for chest: Variant in chests:
-		if not (chest is Dictionary):
-			continue
-		var chest_dict: Dictionary = chest
-		if str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, "")) == instance_id:
-			var rewards_val: Variant = chest_dict.get(GameStateKeys.CHEST_REWARDS, {})
-			if rewards_val is Dictionary:
-				return rewards_val
-			return {}
-	return {}
-
-func _chest_exists(instance_id: String) -> bool:
-	var state: Dictionary = GameManager.get_state()
-	var chests: Array = state.get(GameStateKeys.PENDING_CHESTS, [])
-	for chest: Variant in chests:
-		if not (chest is Dictionary):
-			continue
-		var chest_dict: Dictionary = chest
-		if str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, "")) == instance_id:
-			return true
-	return false
-
 # --- シグナルハンドラ ---
 
 # 着けた／外した（2026-09-15）。⚠ 持ち物のマスから出入りする（決定7）。
@@ -863,9 +508,6 @@ func _on_character_growth_changed(_character_id: String) -> void:
 func _on_inventory_changed(_item_id: String) -> void:
 	_rebuild_inventory()
 	_rebuild_codex()
-
-func _on_pending_chests_changed(_pending_count: int) -> void:
-	_rebuild_chest_list()
 
 func _on_equipment_instances_changed(_instance_id: String) -> void:
 	_rebuild_inventory()

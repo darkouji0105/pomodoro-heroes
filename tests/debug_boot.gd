@@ -50,6 +50,7 @@ const REPORT_SUBWINDOW_DRAG: String = "subwindow_drag"
 const REPORT_INVENTORY_WINDOW: String = "inventory_window"
 const REPORT_EQUIP_DRAG: String = "equip_drag"
 const REPORT_DRAG_CURSOR: String = "drag_cursor"
+const REPORT_BASE_CHEST: String = "base_chest"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -791,6 +792,13 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_DRAG_CURSOR,
 		"note": "カーソルの絵。大きさ / 角が等級の色 / 真ん中に線画の色 / 線画の無い品は地と枠だけ",
 	},
+	# 2026-09-15。⚠ 拠点の宝箱バッジで宝箱の一覧（ChestPanel）を開いて、⚠ 1つずつ／まとめて開ける。
+	# ⚠ 宝箱は grant_chest() で積む（⚠ 状態は書き換えるが保存しない）。
+	"base_chest": {
+		"kind": KIND_REPORT,
+		"report": REPORT_BASE_CHEST,
+		"note": "拠点の宝箱。バッジで一覧が1枚 / 行＝種類 / 1つ開けると1減って結果の窓 / すべて開けると0 / 閉じる",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -862,6 +870,8 @@ func _ready() -> void:
 			await _report_equip_drag()
 		elif report == REPORT_DRAG_CURSOR:
 			_report_drag_cursor()
+		elif report == REPORT_BASE_CHEST:
+			await _report_base_chest()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -5332,43 +5342,6 @@ func _report_inventory() -> void:
 	_report_inventory_order()
 	_report_inventory_expand()
 	_report_inventory_capacity()
-	_report_warehouse_tabs()
-
-
-# 倉庫のタブ（2026-09-10・拠点の宝箱バッジが宝箱タブを開かなかった件）。
-#
-# ⚠⚠ 拠点は `TransferKeys.WAREHOUSE_TAB` に **文字列 "WarehouseScreen.TAB_CHEST"** を
-#   ⚠ 渡していて、⚠ 受け側の `TAB_INDEX.has()` が false になり、
-#   ⚠ **いつも持ち物タブが開いていた**（⚠ 赤も黄も出ない＝画面を見ても気づきにくい）。
-# ⚠ 送る側は定数に直したので、⚠ 綴り間違いは parse error になる（＝`--import` が言う）。
-# ⚠ ここで見るのは**受け側**：⚠ 4つのタブ id が全部 `TAB_INDEX` に在り、
-#   ⚠ 渡すと実際にそのタブが開くこと（⚠ `.tscn` の `metadata/_tab_index` とのズレも見る）。
-func _report_warehouse_tabs() -> void:
-	print("[DebugBoot] --- 倉庫のタブ（拠点の宝箱バッジの行き先）---")
-	var packed: PackedScene = load("res://scenes/guild/warehouse_screen.tscn")
-	if packed == null:
-		push_error("[DebugBoot] warehouse_screen.tscn が読めない")
-		return
-	for tab_id: String in [
-		WarehouseScreen.TAB_INVENTORY, WarehouseScreen.TAB_MATERIAL,
-		WarehouseScreen.TAB_CODEX, WarehouseScreen.TAB_CHEST,
-	]:
-		if not WarehouseScreen.TAB_INDEX.has(tab_id):
-			push_error("[DebugBoot] TAB_INDEX に '%s' が無い（渡しても持ち物タブが開く）" % tab_id)
-			continue
-		var wanted: int = int(WarehouseScreen.TAB_INDEX[tab_id])
-		# ⚠ 遷移せずに渡す。⚠ `_ready()` が `consume_transfer_data()` で取る。
-		SceneManager._transfer_data = {TransferKeys.WAREHOUSE_TAB: tab_id}
-		var screen: Control = packed.instantiate()
-		add_child(screen)
-		var opened: int = int((screen.get_node("Layout/Tabs") as TabContainer).current_tab)
-		print("  '%-9s' を渡す -> %d 番のタブが開いた（⚠ %d が正解）" % [tab_id, opened, wanted])
-		if opened != wanted:
-			push_error("[DebugBoot] '%s' を渡したのに %d 番が開いた（%d 番が正解）" % [
-				tab_id, opened, wanted
-			])
-		remove_child(screen)
-		screen.queue_free()
 
 
 # 枠の拡張と捨てる口（段階18-e・PLAN_INVENTORY.md §4-2）。
@@ -7517,6 +7490,95 @@ class DragProbeTarget extends ColorRect:
 		received.append(data)
 
 
+# --- 拠点の宝箱（2026-09-15） ---
+
+func _report_base_chest() -> void:
+	await get_tree().process_frame
+	print("[DebugBoot] --- 拠点の宝箱 ---")
+	# ⚠ 抽選のハズレは false が返る（⚠ 正常系）。⚠ 種類ごとに2個積めるまで試す。
+	for chest_id: Variant in MasterDataLoader.get_all_chests().keys():
+		var granted: int = 0
+		for attempt: int in range(20):
+			if GameManager.grant_chest(str(chest_id), "debug_boot"):
+				granted += 1
+			if granted >= 2:
+				break
+	var kinds: Dictionary = {}
+	for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+		if chest is Dictionary and not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)):
+			kinds[str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))] = true
+	var before: int = GameManager.get_pending_chest_count()
+	print("  積んだ宝箱 = %d 個 ／ 種類 = %d" % [before, kinds.size()])
+	if before < 2:
+		push_error("[DebugBoot] 宝箱を2個以上積めなかった")
+		return
+
+	var base: Node = load(SCENE_BASE).instantiate()
+	get_tree().root.add_child(base)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var checks: Array = []
+	# ① バッジを2回押しても一覧は1枚。
+	var badge: Button = base.get("chest_badge")
+	badge.pressed.emit()
+	badge.pressed.emit()
+	await get_tree().process_frame
+	var panels: int = 0
+	for child: Node in base.get_children():
+		if child is ChestPanel:
+			panels += 1
+	checks.append(["① バッジで一覧が1枚（%d）" % panels, panels == 1])
+	var panel: ChestPanel = base.find_child("ChestPanel", false, false) as ChestPanel
+	if panel == null:
+		push_error("[DebugBoot] 拠点に ChestPanel が開かない")
+		get_tree().root.remove_child(base)
+		base.queue_free()
+		return
+	var list: Node = panel.find_child("ChestList", true, false)
+	checks.append(["① 行の数 %d ＝ 種類 %d" % [list.get_child_count(), kinds.size()], list.get_child_count() == kinds.size()])
+
+	# ② 1つ開ける → 1減って結果の窓が出る。
+	(list.get_child(0).find_child("OpenButton", true, false) as UiButton).pressed.emit()
+	await get_tree().process_frame
+	var after_one: int = GameManager.get_pending_chest_count()
+	checks.append(["② 1つ開けると %d → %d" % [before, after_one], after_one == before - 1])
+	checks.append(["② 結果の窓が出る", Modal._current != null and is_instance_valid(Modal._current)])
+	# ⚠ 結果の窓を「受け取る」で閉じてから次を押す（⚠ 窓が出ている間は後ろを押せない＝画面と同じ順）。
+	#   ⚠ 閉じずに次を押すと窓が順番待ちに積まれ、⚠ 一覧を消したあとに Modal が消えた呼び出し元を触って赤になる（1回目で踏んだ）。
+	await _close_current_modal()
+
+	# ③ すべて開ける → 0 ／ 空の表示 ／ ボタンが押せない。
+	var open_all: UiButton = panel.find_child("OpenAllButton", true, false) as UiButton
+	open_all.pressed.emit()
+	await get_tree().process_frame
+	list = panel.find_child("ChestList", true, false)
+	checks.append(["③ すべて開けると 0（%d）" % GameManager.get_pending_chest_count(), GameManager.get_pending_chest_count() == 0])
+	checks.append(["③ 空の表示が1つ", list.get_child_count() == 1 and list.get_child(0) is EmptyState])
+	checks.append(["③ すべて開けるが押せない", open_all.disabled])
+	await _close_current_modal()
+
+	# ④ 閉じる → 一覧が消える。
+	(panel.find_child("CloseButton", true, false) as UiButton).pressed.emit()
+	await get_tree().process_frame
+	checks.append(["④ 閉じると消える", base.find_child("ChestPanel", false, false) == null])
+
+	for check: Variant in checks:
+		print("  %s = %s（⚠ true が正解）" % [(check as Array)[0], (check as Array)[1]])
+		if not bool((check as Array)[1]):
+			push_error("[DebugBoot] 拠点の宝箱: " + str((check as Array)[0]))
+	get_tree().root.remove_child(base)
+	base.queue_free()
+
+
+# いま出ているモーダルを、⚠ 閉じるボタンと同じ口で閉じる。⚠ 閉じたあとの片付けは1フレーム遅れるので2フレーム待つ。
+func _close_current_modal() -> void:
+	if Modal._current != null and is_instance_valid(Modal._current):
+		Modal._current._on_close_pressed()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+
 # --- インベントリの窓（2026-09-15） ---
 
 func _report_inventory_window() -> void:
@@ -7538,15 +7600,16 @@ func _report_inventory_window() -> void:
 	print("  隠れているか = %s（⚠ true が正解） ／ force_native = %s（⚠ true） ／ 題 = %s ／ 最小サイズ = %s" % [
 		not window.visible, window.force_native, window.title, window.min_size,
 	])
-	print("  中身が倉庫か = %s ／ 見出しの行が隠れているか = %s ／ 持ち物のマス = %d（⚠ %d） ／ 組 = %s（⚠ %s）" % [
-		window.warehouse != null, not window.warehouse.back_button.get_parent().visible,
+	var tab_count: int = window.warehouse.tabs.get_tab_count() if window.warehouse != null else -1
+	print("  中身が倉庫か = %s ／ タブの数 = %d（⚠ 3＝持ち物・素材・図鑑） ／ 持ち物のマス = %d（⚠ %d） ／ 組 = %s（⚠ %s）" % [
+		window.warehouse != null, tab_count,
 		window.grid.get_slot_count(), GameManager.get_inventory_slots_per_page(),
 		window.grid.drag_group, InventoryWindow.DRAG_GROUP,
 	])
 	if window.visible or not window.force_native or window.warehouse == null:
 		push_error("[DebugBoot] 倉庫の窓の作りが違う")
-	if window.warehouse.back_button.get_parent().visible:
-		push_error("[DebugBoot] 窓の中で倉庫の見出し（戻る）が出ている")
+	if tab_count != 3:
+		push_error("[DebugBoot] 倉庫のタブが3つ（持ち物・素材・図鑑）ではない（⚠ 宝箱タブは拠点へ移した）")
 	if window.grid.get_slot_count() != GameManager.get_inventory_slots_per_page() or window.grid.drag_group != InventoryWindow.DRAG_GROUP:
 		push_error("[DebugBoot] 窓の持ち物のマス目が違う")
 	if window.min_size.x <= 0 or window.min_size.y <= 0:

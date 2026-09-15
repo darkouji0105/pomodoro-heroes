@@ -3,8 +3,8 @@ extends Window
 
 # 倉庫の窓（2026-09-15）。⚠ ゲーム全体で1枚。
 #
-# ⚠⚠ 中身は倉庫画面そのもの（`warehouse_screen.tscn`・4タブ・詳細と操作つき）
-#   （人間の決定「1B」）。⚠ 倉庫画面はギルドからも今までどおり開ける（⚠ 同じシーンを使い回す）。
+# ⚠⚠ 中身は倉庫（`warehouse_screen.tscn`・持ち物・素材・図鑑の3タブ・詳細と操作つき）（人間の決定「1B」）。
+#   ⚠ 倉庫はこの窓でだけ使う（人間「倉庫画面は、この窓だけに」）。⚠ 宝箱は拠点の `ChestPanel` で開ける。
 # ⚠⚠ いつも OS の別窓（force_native）で出す（人間の決定「別窓で」）。
 #   ⚠ ヘッドレスは OS の窓を作れないので、⚠ そこでだけ埋め込みになる（⚠ 検査はその形で回る）。
 # ⚠⚠ force_native は「隠している間」にしか立てられない（⚠ 表示中に立てると赤・前回の実測）。
@@ -31,7 +31,6 @@ const ALLOWED_SCENES: Array[String] = [
 	"res://scenes/guild/equipment_screen.tscn",
 	"res://scenes/guild/skill_select_screen.tscn",
 	"res://scenes/guild/stat_node_screen.tscn",
-	"res://scenes/guild/warehouse_screen.tscn",
 	"res://scenes/guild/research_screen.tscn",
 	"res://scenes/guild/shop_screen.tscn",
 	"res://scenes/guild/workshop_screen.tscn",
@@ -95,8 +94,6 @@ func _ready() -> void:
 		_apply_visibility()
 	)
 	warehouse = load(WAREHOUSE_SCENE).instantiate()
-	# ⚠ add_child() より先に入れる（⚠ 倉庫の `_ready()` が見る）。
-	warehouse.in_window = true
 	add_child(warehouse)
 	grid = warehouse.inventory_grid
 	_fit_to_content.call_deferred()

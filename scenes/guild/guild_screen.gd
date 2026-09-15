@@ -18,7 +18,6 @@ extends Control
 
 # --- シーン ---
 const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
-const WAREHOUSE_PATH: String = "res://scenes/guild/warehouse_screen.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
 const RESEARCH_PATH: String = "res://scenes/guild/research_screen.tscn"
@@ -32,8 +31,9 @@ const WORKSHOP_PATH: String = "res://scenes/guild/workshop_screen.tscn"
 # sub_screen_id -> 遷移先パス
 # ⚠ sub_screen_id は GameStateKeys の画面IDと同じ綴り（段階9）。
 #   ⚠ 文字列リテラルを書かないこと（AGENTS.md）。unlocked_screens のキーでもある。
+# ⚠⚠ 倉庫の入口は消した（2026-09-15・人間の指示「倉庫画面は、この窓だけに」「カードを消す」）。
+#   ⚠ 倉庫は右上の「倉庫」ボタンで別窓に出す（`InventoryWindow`）。
 const GUILD_SCENES: Dictionary = {
-	GameStateKeys.SCREEN_WAREHOUSE: WAREHOUSE_PATH,
 	GameStateKeys.SCREEN_SHOP: SHOP_PATH,
 	GameStateKeys.SCREEN_TRAINING: TRAINING_PATH,
 	GameStateKeys.SCREEN_RESEARCH: RESEARCH_PATH,
@@ -44,7 +44,6 @@ const GUILD_SCENES: Dictionary = {
 #   ⚠ 並びはここが持つ。⚠ 入口を足すときは両方に足す。
 const CARD_ORDER: Array[String] = [
 	GameStateKeys.SCREEN_TRAINING,
-	GameStateKeys.SCREEN_WAREHOUSE,
 	GameStateKeys.SCREEN_SHOP,
 	GameStateKeys.SCREEN_RESEARCH,
 	GameStateKeys.SCREEN_WORKSHOP,
@@ -169,11 +168,6 @@ func _status_text(screen_id: String) -> String:
 	match screen_id:
 		GameStateKeys.SCREEN_TRAINING:
 			return _training_status()
-		GameStateKeys.SCREEN_WAREHOUSE:
-			return "%d / %d" % [
-				GameManager.get_inventory_slots_used(),
-				GameManager.get_inventory_slot_max(),
-			]
 		GameStateKeys.SCREEN_SHOP:
 			return tr("ui_guild_status_shop") % _shop_count()
 		GameStateKeys.SCREEN_RESEARCH:

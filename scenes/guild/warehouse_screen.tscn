@@ -29,19 +29,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Header" type="HBoxContainer" parent="Layout" unique_id=1239824026]
-layout_mode = 2
-
-[node name="BackButton" parent="Layout/Header" unique_id=511040966 instance=ExtResource("2_primary_btn")]
-layout_mode = 2
-label_key = "ui_common_back"
-variant = 4
-
-[node name="TitleLabel" type="Label" parent="Layout/Header" unique_id=1819993143]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "ui_guild_warehouse"
-
 [node name="Tabs" type="TabContainer" parent="Layout" unique_id=1276131879]
 layout_mode = 2
 size_flags_vertical = 3
@@ -150,28 +137,6 @@ layout_mode = 2
 metadata/_tab_index = 2
 
 [node name="CodexList" type="VBoxContainer" parent="Layout/Tabs/CodexTab" unique_id=293125764]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="ChestTab" type="VBoxContainer" parent="Layout/Tabs" unique_id=1584410220]
-visible = false
-layout_mode = 2
-metadata/_tab_index = 3
-
-[node name="ChestScroll" type="ScrollContainer" parent="Layout/Tabs/ChestTab" unique_id=1667416384]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="ChestFooter" type="HBoxContainer" parent="Layout/Tabs/ChestTab"]
-layout_mode = 2
-alignment = 2
-
-[node name="OpenAllButton" parent="Layout/Tabs/ChestTab/ChestFooter" unique_id=456327758 instance=ExtResource("2_primary_btn")]
-layout_mode = 2
-label_key = "ui_warehouse_open_all"
-
-[node name="ChestList" type="VBoxContainer" parent="Layout/Tabs/ChestTab/ChestScroll" unique_id=2110479442]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3

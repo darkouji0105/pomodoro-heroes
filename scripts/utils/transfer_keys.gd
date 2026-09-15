@@ -8,7 +8,6 @@ extends RefCounted
 # 未実装画面（placeholder_screen）へ、どの画面のつもりで来たかを渡すためのキー。
 # 値には GameStateKeys.SCREEN_* を入れる。
 const SCREEN_ID: String = "screen_id"
-const WAREHOUSE_TAB: String = "warehouse_tab"
 const STAGE_ID: String = "stage_id"
 const PARTY_ID: String = "party_id"
 const STAGE_TYPE: String = "stage_type"
