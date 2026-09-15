@@ -776,7 +776,7 @@ const SCENARIOS: Dictionary = {
 	"inventory_window": {
 		"kind": KIND_REPORT,
 		"report": REPORT_INVENTORY_WINDOW,
-		"note": "倉庫の窓。root に1枚 / 中身が倉庫で見出しが隠れる / 開閉 / タイトル・戦闘・ポモドーロで閉じてボタンが隠れる",
+		"note": "倉庫の窓。root に1枚 / 中身が倉庫で見出しが隠れる / 拠点とギルド系だけ出す / ボタンと ✕ で出す出さない / ゲームの窓の右隣",
 	},
 	# 2026-09-15（段3a）。⚠ インベントリの窓（ゲームの中）から装備マスへドラッグして装備する。
 	# ⚠ 入力は root に push_input（⚠ subwindow_drag と同じ流し方）。⚠ 設定は最後に元へ戻す。
@@ -7552,36 +7552,68 @@ func _report_inventory_window() -> void:
 	if window.min_size.x <= 0 or window.min_size.y <= 0:
 		push_error("[DebugBoot] 窓の最小サイズが中身に合っていない")
 
-	# ⚠ 出さない画面。
-	for path: String in [
-		"res://scenes/base/base_screen.tscn", "res://scenes/guild/equipment_screen.tscn",
-		"res://scenes/title/title_screen.tscn", "res://scenes/adventure/battle.tscn",
-		"res://scenes/pomodoro/pomodoro.tscn",
-	]:
-		print("  出してよいか %-44s = %s" % [path.get_file(), InventoryWindow.is_scene_allowed(path)])
+	# ⚠ 出す画面は拠点とギルド系だけ。
+	var expect_allowed: Dictionary = {
+		"res://scenes/base/base_screen.tscn": true,
+		"res://scenes/guild/guild_screen.tscn": true,
+		"res://scenes/guild/equipment_screen.tscn": true,
+		"res://scenes/adventure/party_preset_screen.tscn": true,
+		"res://scenes/adventure/adventure_select.tscn": false,
+		"res://scenes/adventure/dungeon_map.tscn": false,
+		"res://scenes/title/title_screen.tscn": false,
+		"res://scenes/adventure/battle.tscn": false,
+		"res://scenes/pomodoro/pomodoro.tscn": false,
+	}
+	for path: String in expect_allowed:
+		var allowed: bool = InventoryWindow.is_scene_allowed(path)
+		print("  出す画面か %-28s = %s（⚠ %s）" % [path.get_file(), allowed, expect_allowed[path]])
+		if allowed != bool(expect_allowed[path]):
+			push_error("[DebugBoot] 倉庫を出す画面の判定が違う: " + path)
+	# ⚠ 出す画面の一覧に書いたシーンが本当に在るか（⚠ 綴り違いは黙って出なくなる）。
+	for path: String in InventoryWindow.ALLOWED_SCENES:
+		if not ResourceLoader.exists(path):
+			push_error("[DebugBoot] 倉庫を出す画面のシーンが無い: " + path)
 
-	# ⚠ 開く → 閉じる（⚠ ボタンと同じ口）。
-	InventoryWindow.toggle()
+	var base: String = "res://scenes/base/base_screen.tscn"
+	var guild: String = "res://scenes/guild/guild_screen.tscn"
+	var battle: String = "res://scenes/adventure/battle.tscn"
+	var checks: Array = []
+	# ① 既定は出す → 拠点に入ると開いて、⚠ ゲームの窓の右隣に付く。
+	window.apply_scene(base)
 	await get_tree().process_frame
-	var opened: bool = window.visible
+	var root: Window = get_tree().root
+	var docked: Vector2i = Vector2i(root.position.x + root.size.x, root.position.y)
+	checks.append(["① 拠点に入ると開く", window.visible])
+	checks.append(["① ボタンが出る", ResourceHud.is_storage_button_shown()])
+	checks.append(["① 右隣 %s（⚠ %s）" % [window.position, docked], window.position == docked])
+	# ② ボタンで閉じる → ギルドへ移っても閉じたまま。
 	InventoryWindow.toggle()
+	window.apply_scene(guild)
 	await get_tree().process_frame
-	print("  ボタン1回目で開くか = %s ／ 2回目で閉じるか = %s" % [opened, not window.visible])
-	if not opened or window.visible:
-		push_error("[DebugBoot] 倉庫の窓の開け閉めが効かない")
-
-	# ⚠ 開いたまま出さない画面へ移ったら、⚠ 閉じてボタンも隠れる。
+	checks.append(["② ボタンで閉じたらギルドでも閉じたまま", not window.visible])
+	# ③ ボタンで開く → 戦闘へ移ると閉じてボタンが隠れる → 拠点へ戻るとまた開く。
 	InventoryWindow.toggle()
+	checks.append(["③ ボタンで開く", window.visible])
+	window.apply_scene(battle)
+	checks.append(["③ 戦闘で閉じる", not window.visible])
+	checks.append(["③ 戦闘でボタンが隠れる", not ResourceHud.is_storage_button_shown()])
+	window.apply_scene(base)
+	checks.append(["③ 拠点へ戻るとまた開く", window.visible])
+	# ④ ゲームの窓の大きさが変わると、⚠ 右隣へ付いていく。
+	window.position = Vector2i(10, 10)
+	root.size = root.size + Vector2i(40, 0)
 	await get_tree().process_frame
-	window.apply_scene("res://scenes/adventure/battle.tscn")
-	var closed_on_battle: bool = not window.visible
-	var hidden_on_battle: bool = not ResourceHud.is_storage_button_shown()
-	window.apply_scene("res://scenes/base/base_screen.tscn")
-	print("  戦闘へ移ると閉じるか = %s ／ ボタンが隠れるか = %s ／ 拠点に戻るとボタンが出るか = %s" % [
-		closed_on_battle, hidden_on_battle, ResourceHud.is_storage_button_shown(),
-	])
-	if not closed_on_battle or not hidden_on_battle or not ResourceHud.is_storage_button_shown():
-		push_error("[DebugBoot] 出さない画面で閉じない／ボタンの出し分けが効かない")
+	await get_tree().process_frame
+	docked = Vector2i(root.position.x + root.size.x, root.position.y)
+	checks.append(["④ ゲームの窓が変わると右隣へ付く %s（⚠ %s）" % [window.position, docked], window.position == docked])
+	# ⑤ ✕ で閉じる → 出さない状態になる（⚠ 拠点へ入り直しても開かない）。
+	window.close_requested.emit()
+	window.apply_scene(base)
+	checks.append(["⑤ ✕ で閉じたら入り直しても閉じたまま", not window.visible and not window.wanted])
+	for check: Variant in checks:
+		print("  %s = %s（⚠ true が正解）" % [(check as Array)[0], (check as Array)[1]])
+		if not bool((check as Array)[1]):
+			push_error("[DebugBoot] 倉庫の窓: " + str((check as Array)[0]))
 
 
 # --- ドラッグで装備（2026-09-15・段3a） ---
@@ -7619,8 +7651,11 @@ func _report_equip_drag() -> void:
 	await get_tree().process_frame
 	# ⚠ 倉庫の窓は SceneManager が起動時に作っている（⚠ 右上の「倉庫」ボタンと同じ口で開く）。
 	var window: InventoryWindow = InventoryWindow.get_instance()
+	# ⚠ 出すのは拠点とギルド系だけ。⚠ ヘッドレスの current_scene は debug_boot なので、⚠ 装備画面に居ることにする。
+	window.apply_scene("res://scenes/guild/equipment_screen.tscn")
 	if not window.visible:
 		InventoryWindow.toggle()
+	await get_tree().process_frame
 	await get_tree().process_frame
 	# ⚠ 真ん中に出ると装備マスに被ることがあるので、⚠ 右へ寄せる（⚠ 倉庫は横に広い）。
 	window.position = Vector2i(400, 10)
