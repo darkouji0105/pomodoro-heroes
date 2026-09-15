@@ -50,6 +50,7 @@ const REPORT_SUBWINDOW_DRAG: String = "subwindow_drag"
 const REPORT_SETTINGS: String = "settings"
 const REPORT_INVENTORY_WINDOW: String = "inventory_window"
 const REPORT_EQUIP_DRAG: String = "equip_drag"
+const REPORT_DRAG_CURSOR: String = "drag_cursor"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -793,6 +794,12 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_EQUIP_DRAG,
 		"note": "① 窓→装備マスで装備される ／ ② 装備マス→窓は何も起きない ／ ③ 窓の中の入れ替えは slot_moved が出る",
 	},
+	# 2026-09-15（段3b）。⚠ つまんだ品のカーソルの絵。⚠ 絵そのものは見られないので、⚠ 画素で確かめる。
+	"drag_cursor": {
+		"kind": KIND_REPORT,
+		"report": REPORT_DRAG_CURSOR,
+		"note": "カーソルの絵。大きさ / 角が等級の色 / 真ん中に線画の色 / 線画の無い品は地と枠だけ",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -864,6 +871,8 @@ func _ready() -> void:
 			await _report_inventory_window()
 		elif report == REPORT_EQUIP_DRAG:
 			await _report_equip_drag()
+		elif report == REPORT_DRAG_CURSOR:
+			_report_drag_cursor()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7693,6 +7702,10 @@ func _report_equip_drag() -> void:
 		await get_tree().process_frame
 		var equipped: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_WEAPON)
 		var left_in_window: bool = _grid_find_instance(window.grid, instance_id) >= 0
+		# ⚠ 3b：⚠ ドラッグが終わったらカーソルが戻っているか（⚠ つまんだマスは作り直されて消えている）。
+		print("  ① のあと カーソルが品の絵のままか = %s（⚠ false が正解）" % ItemDragCursor.is_active())
+		if ItemDragCursor.is_active():
+			push_error("[DebugBoot] ① ドラッグが終わったのにカーソルが戻っていない")
 		print("  ① 窓→装備マス：ドラッグが始まったか = %s ／ 装備 = %s（⚠ %s が正解） ／ 窓に残っているか = %s（⚠ false が正解）" % [
 			started, equipped, instance_id, left_in_window,
 		])
@@ -7810,3 +7823,60 @@ func _restore_settings(had_file: bool, before: String) -> void:
 	else:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveManager.SETTINGS_PATH))
 	print("  設定を元に戻した -> ファイルが在るか %s（⚠ %s が正解）" % [FileAccess.file_exists(SaveManager.SETTINGS_PATH), had_file])
+
+
+# --- つまんだ品のカーソルの絵（2026-09-15・段3b） ---
+#
+# ⚠ 見るのは画素だけ。⚠ 色が合っているか・ぼやけていないかは人間が実機で見る。
+
+func _report_drag_cursor() -> void:
+	var config: IconConfig = Balance.icon
+	print("[DebugBoot] --- カーソルの絵 ---")
+	print("  マスの大きさ = %d ／ 線画の大きさ = %d ／ 枠線 = %d" % [
+		config.icon_size_px, config.glyph_font_size, config.icon_border_width,
+	])
+	# ⚠ 装備（等級3）／ 装飾（中身の絵あり）／ 素材。
+	var cases: Array = [["weapon_iron_sword", 3], ["part_gem_hp_2", 0], ["part_rune_buff_1", 0]]
+	for material_id: Variant in MasterDataLoader.get_all_items():
+		if str(MasterDataLoader.get_item(str(material_id)).get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) == GameStateKeys.ITEM_TYPE_MATERIAL:
+			cases.append([str(material_id), 0])
+			break
+	for case: Variant in cases:
+		var item_id: String = str((case as Array)[0])
+		var grade: int = int((case as Array)[1])
+		var image: Image = ItemDragCursor.build_image(item_id, grade)
+		if image == null:
+			push_error("[DebugBoot] %s のカーソルの絵が作れない" % item_id)
+			continue
+		var grade_color: Color = config.color_of_grade(
+			int(ItemIcon.grade_of(item_id, grade).get(ItemIcon.RESULT_GRADE, config.default_grade))
+		)
+		# ⚠ 地でも枠でもない画素の数＝線画が乗った画素。
+		# ⚠ 色は幅を持たせて比べる（⚠ 画像は 0〜255 の整数。⚠ is_equal_approx も to_rgba32 も
+		#   ⚠ 丸めの向きで1段ずれて外れた・1〜2回目で踏んだ）。
+		var glyph_pixels: int = 0
+		for y: int in range(image.get_height()):
+			for x: int in range(image.get_width()):
+				var pixel: Color = image.get_pixel(x, y)
+				if not _cursor_color_close(pixel, config.icon_bg_color) and not _cursor_color_close(pixel, grade_color):
+					glyph_pixels += 1
+		var has_texture: bool = IconTextures.for_item(item_id) != null
+		print("  %-22s 大きさ %d x %d ／ 角が等級の色 = %s ／ 線画 = %s ／ 線画の画素 = %d" % [
+			item_id, image.get_width(), image.get_height(),
+			_cursor_color_close(image.get_pixel(0, 0), grade_color), has_texture, glyph_pixels,
+		])
+		print("      角の色 = %s ／ 等級の色 = %s ／ 地の色 = %s ／ (2,20) の色 = %s" % [
+			image.get_pixel(0, 0), grade_color, config.icon_bg_color, image.get_pixel(2, image.get_height() / 2),
+		])
+		if image.get_width() != config.icon_size_px or image.get_width() > 256:
+			push_error("[DebugBoot] %s のカーソルの大きさが違う（⚠ Windows は 256 まで）" % item_id)
+		if config.icon_border_width > 0 and not _cursor_color_close(image.get_pixel(0, 0), grade_color):
+			push_error("[DebugBoot] %s のカーソルの角が等級の色ではない" % item_id)
+		if has_texture and glyph_pixels == 0:
+			push_error("[DebugBoot] %s は線画があるのにカーソルに乗っていない" % item_id)
+
+
+# 画素の色が近いか（⚠ 各色 2/255 まで）。⚠ カーソルの検査だけで使う。
+func _cursor_color_close(a: Color, b: Color) -> bool:
+	var limit: float = 2.0 / 255.0
+	return absf(a.r - b.r) <= limit and absf(a.g - b.g) <= limit and absf(a.b - b.b) <= limit and absf(a.a - b.a) <= limit

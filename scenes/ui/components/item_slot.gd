@@ -46,8 +46,6 @@ const DRAG_INDEX: String = "index"
 #   ⚠ 番号だけだと、⚠ 別のマス目から落とされても「自分の中の入れ替え」と取り違える。
 const DRAG_GRID_ID: String = "grid_id"
 const DRAG_GROUP: String = "group"
-# つまんでいるあいだの見た目の薄さ。
-const DRAG_PREVIEW_MODULATE: Color = Color(1.0, 1.0, 1.0, 0.7)
 
 @onready var icon_holder: CenterContainer = $IconHolder
 @onready var count_label: Label = $CountLabel
@@ -137,10 +135,13 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	if is_empty():
 		return null
 	# つまんでいるものを指の下に出す。⚠ 出さないと何をつかんだのか分からない。
-	var preview: ItemSlot = ItemSlot.create(_entry)
-	preview.modulate = DRAG_PREVIEW_MODULATE
-	preview.disabled = true
-	set_drag_preview(preview)
+	# ⚠⚠ 2026-09-15：⚠ 写しではなく**カーソルそのもの**を品の絵にした（人間の指示）。
+	#   ⚠ 写しは元の窓の中にしか描けず、⚠ 窓の縁で切れていた。
+	#   ⚠ 渡すのは見えない写し（⚠ ドラッグが終わって消えるときにカーソルを戻す＝ItemDragCursor）。
+	set_drag_preview(ItemDragCursor.begin(
+		str(_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, "")),
+		int(_entry.get(GameManager.SLOT_ENTRY_GRADE, 0))
+	))
 	return {DRAG_KEY: true, DRAG_INDEX: _index, DRAG_GRID_ID: _grid_id, DRAG_GROUP: _drag_group}
 
 
