@@ -24,6 +24,8 @@ func _ready() -> void:
 	# ⚠ 通貨3つの表示も画面をまたいで常駐させる（2026-09-09・人間の指示
 	#   「⚠ ページをまたぐコンポーネントにするところからだと思う」）。
 	_spawn_resource_hud.call_deferred()
+	# ⚠ 倉庫の窓（2026-09-15・人間の指示「全画面で倉庫を呼び出せるように」）。⚠ 検証用ではない。
+	_spawn_inventory_window.call_deferred()
 
 	if not OS.is_debug_build():
 		return
@@ -45,6 +47,12 @@ func _spawn_resource_gain_effect() -> void:
 func _spawn_resource_hud() -> void:
 	ResourceHud.spawn_into(get_tree().root)
 	print("[SceneManager] ResourceHud を生成した")
+
+
+# ⚠ 倉庫の窓（2026-09-15）。⚠ 検証用ではない。消さないこと。⚠ 隠れた状態で作る。
+func _spawn_inventory_window() -> void:
+	InventoryWindow.spawn_into(get_tree().root)
+	print("[SceneManager] InventoryWindow を生成した")
 
 
 func _spawn_debug_overlay() -> void:

@@ -24,6 +24,11 @@ signal width_changed(width: float)
 
 var bar: ResourceBar = null
 var _field: Control = null
+# ⚠ 資源と「倉庫」ボタンを横1列に並べる器（2026-09-15）。⚠ 右上に寄せるのはこちら。
+var _row: HBoxContainer = null
+# 倉庫の窓を開け閉めする（2026-09-15・人間の決定「ボタン」）。
+#   ⚠ 出すか隠すかは `InventoryWindow` が画面ごとに決める（⚠ タイトル・戦闘・ポモドーロは隠す）。
+var _storage_button: UiButton = null
 
 
 static func spawn_into(root: Node) -> ResourceHud:
@@ -47,6 +52,19 @@ static func set_shown(value: bool) -> void:
 	if hud == null:
 		return
 	hud._field.visible = value
+
+
+# 「倉庫」ボタンを出すか。⚠ 呼ぶのは `InventoryWindow.apply_scene()` の1本。
+static func set_storage_button_shown(value: bool) -> void:
+	var hud: ResourceHud = get_instance()
+	if hud == null or hud._storage_button == null:
+		return
+	hud._storage_button.visible = value
+
+
+static func is_storage_button_shown() -> bool:
+	var hud: ResourceHud = get_instance()
+	return hud != null and hud._storage_button != null and hud._storage_button.visible
 
 
 static func get_instance() -> ResourceHud:
@@ -73,18 +91,30 @@ func _ready() -> void:
 	_field.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_field)
 
+	# ⚠ 2026-09-15：⚠ 資源の左に「倉庫」ボタンを置くため、⚠ 横1列の器ごと右上に寄せる。
+	_row = HBoxContainer.new()
+	_row.name = "Row"
+	_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_row.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_row.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_field.add_child(_row)
+
+	_storage_button = UiButton.create(UiButton.Variant.SECONDARY, "ui_nav_warehouse")
+	_storage_button.name = "StorageButton"
+	_storage_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_storage_button.pressed.connect(func() -> void: InventoryWindow.toggle())
+	_row.add_child(_storage_button)
+
 	bar = ResourceBar.new()
 	bar.name = "Bar"
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_field.add_child(bar)
+	_row.add_child(bar)
 
 	# ⚠ 画面の外周と同じ余白で右上に寄せる（⚠ 値は Theme が持つ）。
 	var margin: float = float(_screen_margin())
-	bar.offset_right = -margin
-	bar.offset_top = margin
-	bar.resized.connect(func() -> void: width_changed.emit(_reserved_width()))
+	_row.offset_right = -margin
+	_row.offset_top = margin
+	_row.resized.connect(func() -> void: width_changed.emit(_reserved_width()))
 
 
 # ⚠ 画面側が上に空けるべき高さ（⚠ HUD の下端 ＋ 1つぶんの余白）。
@@ -97,15 +127,15 @@ static func reserved_height() -> float:
 
 
 func _reserved_width() -> float:
-	if bar == null:
+	if _row == null:
 		return 0.0
-	return bar.size.x + float(_screen_margin())
+	return _row.size.x + float(_screen_margin())
 
 
 func _reserved_height() -> float:
-	if bar == null:
+	if _row == null:
 		return 0.0
-	return float(_screen_margin()) + bar.size.y + float(_screen_margin())
+	return float(_screen_margin()) + _row.size.y + float(_screen_margin())
 
 
 # ⚠ 画面ルートの余白（`ScreenMargin`）。⚠ ここに数値を書かない。

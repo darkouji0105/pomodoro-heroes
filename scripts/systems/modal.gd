@@ -140,7 +140,13 @@ static func _show(item: Dictionary) -> void:
 
 	_current = dlg
 	_queue_scene = current_scene
-	current_scene.add_child(dlg)
+	# ⚠⚠ 呼んだノードが別の窓（⚠ 倉庫の窓）の中にいれば、⚠ その窓に出す（2026-09-15）。
+	#   ⚠ current_scene に付けると、⚠ 別窓で押した確認がゲームの窓の後ろに出る。
+	var caller_window: Window = caller.get_window()
+	if caller_window != null and caller_window != tree.root:
+		caller_window.add_child(dlg)
+	else:
+		current_scene.add_child(dlg)
 	dlg.closed.connect(_on_current_closed, CONNECT_ONE_SHOT)
 	dlg.setup(
 		message,

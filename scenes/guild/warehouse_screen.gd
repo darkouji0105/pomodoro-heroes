@@ -78,13 +78,18 @@ const REWARD_GRID_COLUMNS: int = 6
 #   （⚠ 常設パネルのものを引き取ると、⚠ パネルが空になる）。
 var _detail_popup: ItemDetailPopup = null
 
+# ⚠⚠ 倉庫の窓（`InventoryWindow`）の中で使われているか（2026-09-15）。⚠ add_child() より先に入れる。
+#   ⚠ 真のときは ⚠ 遷移データを取らない（⚠ 次の画面へのデータを横取りする）／
+#   ⚠ 見出しの行（戻る・題）を出さない（⚠ 窓の題の帯と ✕ が代わり）／ ⚠ 資源の余白を取らない。
+var in_window: bool = false
+
 func _ready() -> void:
 	# 1. タブ名を日本語化（ノード名の英語が画面に出る前に上書き）
 	for i: int in range(TAB_TITLE_KEYS.size()):
 		tabs.set_tab_title(i, tr(TAB_TITLE_KEYS[i]))
 
 	# 2. 遷移データを消費 → 該当タブを選択（無ければタブ0）
-	var data: Dictionary = SceneManager.consume_transfer_data()
+	var data: Dictionary = {} if in_window else SceneManager.consume_transfer_data()
 	var initial_tab: String = str(data.get(TransferKeys.WAREHOUSE_TAB, TAB_INVENTORY))
 	if TAB_INDEX.has(initial_tab):
 		tabs.current_tab = int(TAB_INDEX[initial_tab])
@@ -92,8 +97,11 @@ func _ready() -> void:
 		tabs.current_tab = 0
 
 	# 3. ボタン接続
-	back_button.pressed.connect(_on_back_pressed)
-	_build_resource_bar()
+	if in_window:
+		back_button.get_parent().visible = false
+	else:
+		back_button.pressed.connect(_on_back_pressed)
+		_build_resource_bar()
 	open_all_button.pressed.connect(_on_open_all_pressed)
 
 	# 4. GameManager のシグナル購読
@@ -103,9 +111,15 @@ func _ready() -> void:
 	GameManager.equipment_instances_changed.connect(_on_equipment_instances_changed)
 	# ⚠ 素材タブ（2026-09-10）。⚠ 素材は専用のシグナルで飛ぶ（AGENTS.md のシグナル表）。
 	GameManager.material_changed.connect(_on_material_changed)
+	# ⚠⚠ 着け外し（2026-09-15）。⚠ 倉庫の窓を開いたまま装備できるようになった。
+	#   ⚠ 装備するとマスから外れる（決定7）が、⚠ 着け外しで飛ぶのはこのシグナルだけ
+	#   ⚠ （⚠ 受けないと、⚠ 装備した品が窓のマスに残って見える・検査 equip_drag で踏んだ）。
+	GameManager.character_growth_changed.connect(_on_character_growth_changed)
 
 	# 5. マス目の配線（段階18-c）。⚠ ページ送りは GameManager に聞く（5 を直接書かない）。
 	inventory_grid.columns = GameManager.get_inventory_columns()
+	# ⚠ 装備マスへドラッグできる組（2026-09-15）。⚠ 受ける側は装備画面が決める。
+	inventory_grid.drag_group = InventoryWindow.DRAG_GROUP
 	inventory_grid.slot_pressed.connect(_on_slot_pressed)
 	inventory_grid.slot_moved.connect(_on_slot_moved)
 	expand_button.pressed.connect(_on_expand_pressed)
@@ -840,6 +854,11 @@ func _chest_exists(instance_id: String) -> bool:
 	return false
 
 # --- シグナルハンドラ ---
+
+# 着けた／外した（2026-09-15）。⚠ 持ち物のマスから出入りする（決定7）。
+func _on_character_growth_changed(_character_id: String) -> void:
+	_rebuild_inventory()
+
 
 func _on_inventory_changed(_item_id: String) -> void:
 	_rebuild_inventory()

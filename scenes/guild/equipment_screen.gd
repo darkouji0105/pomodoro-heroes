@@ -55,9 +55,6 @@ var _selected_part_slot: int = -1
 #   人間に渡さない」に反するため（NEXT_STEPS §4）。⚠ 宿題に書いてある。
 var _build_picker: OptionButton = null
 var _selected_build: int = 0
-# インベントリの窓（2026-09-15）。⚠ 押されるまで作らない。
-var _inventory_window: InventoryWindow = null
-
 func _ready() -> void:
 	# 1. どのキャラの装備を編集するかを受け取る。
 	var data: Dictionary = SceneManager.consume_transfer_data()
@@ -75,7 +72,6 @@ func _ready() -> void:
 	# 4. 初期描画
 	notice_label.text = ""
 	_build_preset_row()
-	_build_inventory_button()
 	if _character_id == "":
 		# 直接シーンを開いたときだけ来る。育成画面からは必ず ID が入る。
 		push_warning("[EquipmentScreen] character_id が渡されていない")
@@ -775,30 +771,6 @@ func _on_forge_pressed(instance_id: String) -> void:
 		notice_label.text = tr("ui_equipment_forged")
 	else:
 		notice_label.text = tr("ui_equipment_failed")
-
-# --- インベントリの窓（2026-09-15。⚠ OS の別窓） ---
-#
-# ⚠ 窓はこの画面の子にする（⚠ 画面を離れると一緒に消える）。
-# ⚠ .tscn を触らずコードで足す（⚠ プリセットの行と同じ流儀）。⚠ 見出しの直下。
-func _build_inventory_button() -> void:
-	var button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_equipment_open_inventory")
-	button.name = "OpenInventoryButton"
-	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	button.pressed.connect(_on_open_inventory_pressed)
-	var layout: Node = header.get_parent()
-	layout.add_child(button)
-	layout.move_child(button, header.get_index() + 1)
-
-
-func _on_open_inventory_pressed() -> void:
-	if _inventory_window == null or not is_instance_valid(_inventory_window):
-		_inventory_window = InventoryWindow.create()
-		add_child(_inventory_window)
-	if _inventory_window.visible:
-		_inventory_window.grab_focus()
-		return
-	_inventory_window.popup_centered()
-
 
 # ⚠ 誰の装備を見ていたかを渡して戻る（2026-09-11）。⚠ 渡さないと一覧に落ちる。
 func _on_back_pressed() -> void:

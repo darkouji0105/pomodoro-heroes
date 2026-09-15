@@ -1,120 +1,116 @@
 class_name InventoryWindow
 extends Window
 
-# インベントリの窓（2026-09-15）。
+# 倉庫の窓（2026-09-15）。⚠ ゲーム全体で1枚。
 #
-# ⚠⚠ いつも OS の別窓（force_native）で出す（人間の決定「別窓で」「（ゲームの中は）消す」）。
-#   ⚠ ゲームの中（埋め込み）と設定で切り替えて比べた結果。⚠ 設定の項目ごと消した。
+# ⚠⚠ 中身は倉庫画面そのもの（`warehouse_screen.tscn`・4タブ・詳細と操作つき）
+#   （人間の決定「1B」）。⚠ 倉庫画面はギルドからも今までどおり開ける（⚠ 同じシーンを使い回す）。
+# ⚠⚠ いつも OS の別窓（force_native）で出す（人間の決定「別窓で」）。
 #   ⚠ ヘッドレスは OS の窓を作れないので、⚠ そこでだけ埋め込みになる（⚠ 検査はその形で回る）。
 # ⚠⚠ force_native は「隠している間」にしか立てられない（⚠ 表示中に立てると赤・前回の実測）。
-#   ⚠ Window.new() は表示中扱いなので、⚠ 先に visible を落とす。
-# ⚠ 中身は倉庫の持ち物と同じ並び（GameManager.get_inventory_page_entries()）。
-#   ⚠ ここで並びを組み立てない。
-# ⚠ ドラッグは送るだけ（⚠ 装備マスが受ける）。⚠ 窓は別のマス目から受けない。
+# ⚠ 起動時に `SceneManager` が root に1つだけ作る（⚠ `ResourceHud` と同じ置き方）。
+#   ⚠ Autoload は増やさない。⚠ 画面を移っても閉じない（⚠ 中身もページもそのまま）。
+# ⚠ 開け閉めは右上の「倉庫」ボタン（`ResourceHud`・人間の決定「ボタン」）。
+# ⚠⚠ タイトル・戦闘・ポモドーロでは出さない（人間の決定）。⚠ その画面に移ったら閉じ、ボタンも隠す。
 # ⚠ インベントリ専用のフォルダ scenes/inventory/（人間の決定 2026-09-15）。⚠ `.tscn` を持たない。
 
-# ⚠ マス目の組の名前（2026-09-15）。⚠ 装備マスがこの組から受ける。
+# ⚠ 持ち物のマス目の組の名前。⚠ 装備マスがこの組から受ける。
 const DRAG_GROUP: String = "inventory"
-const MARGIN_VARIATION: StringName = &"DialogMargin"
-const PANEL_VARIATION: StringName = &"SidePanel"
+const WAREHOUSE_SCENE: String = "res://scenes/guild/warehouse_screen.tscn"
+# ⚠ 出さない画面（人間の決定「タイトル以外から」「戦闘中とポモドーロも出さない」）。
+const BLOCKED_SCENES: Array[String] = [
+	"res://scenes/title/title_screen.tscn",
+	"res://scenes/adventure/battle.tscn",
+	"res://scenes/pomodoro/pomodoro.tscn",
+]
+# ⚠ まだ1度も画面を見ていない印（⚠ 空文字は「current_scene が無い」と区別できないため）。
+const SCENE_UNCHECKED: String = "<unchecked>"
 
+static var _instance: InventoryWindow = null
+
+var warehouse: WarehouseScreen = null
+# ⚠ 持ち物のマス目（⚠ 倉庫画面のもの）。⚠ 検査と別窓のドラッグが引く。
 var grid: ItemGrid = null
-var _page: int = 0
-var _page_label: Label = null
-var _prev_button: UiButton = null
-var _next_button: UiButton = null
+var _scene_path: String = SCENE_UNCHECKED
 
 
-static func create() -> InventoryWindow:
-	var window: InventoryWindow = InventoryWindow.new()
-	window.name = "InventoryWindow"
-	window.visible = false
-	window.force_native = true
-	return window
+static func spawn_into(root: Node) -> InventoryWindow:
+	if _instance != null and is_instance_valid(_instance):
+		return _instance
+	var made: InventoryWindow = InventoryWindow.new()
+	made.name = "InventoryWindow"
+	made.visible = false
+	made.force_native = true
+	# ⚠ 相手が子を組み立てている最中だと `add_child()` は失敗する。⚠ 1フレーム待つこと。
+	root.add_child.call_deferred(made)
+	_instance = made
+	return made
+
+
+static func get_instance() -> InventoryWindow:
+	if _instance != null and is_instance_valid(_instance):
+		return _instance
+	return null
+
+
+# 開く／閉じる。⚠ 出さない画面では開かない。
+static func toggle() -> void:
+	var window: InventoryWindow = get_instance()
+	if window == null or not window.is_inside_tree():
+		return
+	if window.visible:
+		window.hide()
+		return
+	if not is_scene_allowed(window._current_scene_path()):
+		return
+	window.popup_centered()
+
+
+static func is_scene_allowed(scene_path: String) -> bool:
+	return not BLOCKED_SCENES.has(scene_path)
 
 
 func _ready() -> void:
-	title = tr("ui_warehouse_tab_inventory")
-	# ⚠ 窓の大きさは中身の最小サイズに合わせる（⚠ 数字をここに書かない）。
-	wrap_controls = true
+	title = tr("ui_nav_warehouse")
 	close_requested.connect(hide)
-	_build()
-	GameManager.inventory_changed.connect(_on_inventory_changed)
-	GameManager.equipment_instances_changed.connect(_on_equipment_instances_changed)
-	GameManager.character_growth_changed.connect(_on_character_growth_changed)
-	_rebuild()
+	warehouse = load(WAREHOUSE_SCENE).instantiate()
+	# ⚠ add_child() より先に入れる（⚠ 倉庫の `_ready()` が見る）。
+	warehouse.in_window = true
+	add_child(warehouse)
+	grid = warehouse.inventory_grid
+	_fit_to_content.call_deferred()
 
 
-func _build() -> void:
-	var panel: PanelContainer = PanelContainer.new()
-	panel.name = "Panel"
-	panel.theme_type_variation = PANEL_VARIATION
-	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(panel)
-
-	var margin: MarginContainer = MarginContainer.new()
-	margin.name = "Margin"
-	margin.theme_type_variation = MARGIN_VARIATION
-	panel.add_child(margin)
-
-	var layout: VBoxContainer = VBoxContainer.new()
-	layout.name = "Layout"
-	margin.add_child(layout)
-
-	grid = ItemGrid.new()
-	grid.name = "InventoryGrid"
-	grid.columns = GameManager.get_inventory_columns()
-	grid.drag_group = DRAG_GROUP
-	layout.add_child(grid)
-
-	var page_row: HBoxContainer = HBoxContainer.new()
-	page_row.name = "PageRow"
-	page_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	layout.add_child(page_row)
-
-	_prev_button = UiButton.create(UiButton.Variant.SECONDARY, "ui_warehouse_page_prev")
-	_prev_button.name = "PrevPageButton"
-	_prev_button.pressed.connect(_on_prev_page_pressed)
-	page_row.add_child(_prev_button)
-
-	_page_label = Label.new()
-	_page_label.name = "PageLabel"
-	page_row.add_child(_page_label)
-
-	_next_button = UiButton.create(UiButton.Variant.SECONDARY, "ui_warehouse_page_next")
-	_next_button.name = "NextPageButton"
-	_next_button.pressed.connect(_on_next_page_pressed)
-	page_row.add_child(_next_button)
+# ⚠ 倉庫画面の根は素の Control で、⚠ 最小サイズを持たない。⚠ 中の Layout に合わせる。
+func _fit_to_content() -> void:
+	var layout: Control = warehouse.get_node("Layout") as Control
+	var content: Vector2i = Vector2i(layout.get_combined_minimum_size().ceil())
+	min_size = content
+	size = content
 
 
-# ⚠ 再描画に await を持たせない（AGENTS.md）。⚠ `ItemGrid.rebuild()` がその形。
-func _rebuild() -> void:
-	var page_count: int = GameManager.get_inventory_page_count()
-	_page = clampi(_page, 0, page_count - 1)
-	grid.rebuild(GameManager.get_inventory_page_entries(_page), GameManager.get_inventory_slots_per_page())
-	_page_label.text = "%d / %d" % [_page + 1, page_count]
-	_prev_button.disabled = _page <= 0
-	_next_button.disabled = _page >= page_count - 1
+func _process(_delta: float) -> void:
+	var path: String = _current_scene_path()
+	if path == _scene_path:
+		return
+	# ⚠ HUD がまだできていなければ、⚠ 次のフレームでもう一度見る。
+	if ResourceHud.get_instance() == null:
+		return
+	apply_scene(path)
 
 
-func _on_prev_page_pressed() -> void:
-	_page -= 1
-	_rebuild()
+# 画面が変わった。⚠ 出さない画面なら閉じて、⚠ ボタンも隠す。
+#   ⚠ 検査から直に呼べるように public（⚠ ヘッドレスでは current_scene を差し替えにくい）。
+func apply_scene(scene_path: String) -> void:
+	_scene_path = scene_path
+	var allowed: bool = is_scene_allowed(scene_path)
+	ResourceHud.set_storage_button_shown(allowed)
+	if not allowed and visible:
+		hide()
 
 
-func _on_next_page_pressed() -> void:
-	_page += 1
-	_rebuild()
-
-
-func _on_inventory_changed(_item_id: String) -> void:
-	_rebuild()
-
-
-func _on_equipment_instances_changed(_instance_id: String) -> void:
-	_rebuild()
-
-
-# ⚠ 装備するとマスから外れる（決定7）。⚠ 着脱はこのシグナルしか飛ばない。
-func _on_character_growth_changed(_character_id: String) -> void:
-	_rebuild()
+func _current_scene_path() -> String:
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return ""
+	return scene.scene_file_path

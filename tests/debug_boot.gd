@@ -771,12 +771,12 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_SUBWINDOW_DRAG,
 		"note": "ドラッグが渡るか。① 普通の Control 同士 ／ ② 埋め込み Window の中 ／ ③ 埋め込み Window A→B",
 	},
-	# 2026-09-15。⚠ 装備画面の「インベントリを開く」で窓が出るか。
+	# 2026-09-15。⚠ 倉庫の窓（⚠ SceneManager が起動時に1枚作る・右上の「倉庫」ボタンで開閉）。
 	# ⚠ ヘッドレスは OS の窓を作れないので、⚠ force_native が立つかまでしか見られない（⚠ 窓は埋め込みになる）。
 	"inventory_window": {
 		"kind": KIND_REPORT,
 		"report": REPORT_INVENTORY_WINDOW,
-		"note": "インベントリの窓。開く / force_native / マスの数 / 2回押しても1枚",
+		"note": "倉庫の窓。root に1枚 / 中身が倉庫で見出しが隠れる / 開閉 / タイトル・戦闘・ポモドーロで閉じてボタンが隠れる",
 	},
 	# 2026-09-15（段3a）。⚠ インベントリの窓（ゲームの中）から装備マスへドラッグして装備する。
 	# ⚠ 入力は root に push_input（⚠ subwindow_drag と同じ流し方）。⚠ 設定は最後に元へ戻す。
@@ -7522,48 +7522,66 @@ class DragProbeTarget extends ColorRect:
 func _report_inventory_window() -> void:
 	# ⚠ _ready() の中から add_child すると弾かれる（⚠ subwindow_drag で踏んだ）。
 	await get_tree().process_frame
-	print("[DebugBoot] --- インベントリの窓 ---")
-	print("  1ページのマス = %d" % GameManager.get_inventory_slots_per_page())
+	await get_tree().process_frame
+	print("[DebugBoot] --- 倉庫の窓 ---")
 
-	SceneManager._transfer_data = {TransferKeys.CHARACTER_ID: str(GameManager.get_party_members()[0])}
-	var screen: Node = load("res://scenes/guild/equipment_screen.tscn").instantiate()
-	get_tree().root.add_child(screen)
-	await get_tree().process_frame
-	await get_tree().process_frame
-
-	var button: Variant = screen.find_child("OpenInventoryButton", true, false)
-	if not (button is UiButton):
-		push_error("[DebugBoot] 装備画面に OpenInventoryButton が無い")
-		get_tree().root.remove_child(screen)
-		screen.queue_free()
-		return
-	# ⚠ 2回押す（⚠ 2枚目を作らないか）。
-	(button as UiButton).pressed.emit()
-	await get_tree().process_frame
-	(button as UiButton).pressed.emit()
-	await get_tree().process_frame
-	await get_tree().process_frame
-
-	var windows: Array[Node] = []
-	for child: Node in screen.get_children():
+	# ⚠ SceneManager が起動時に作る。⚠ ここでは作らない（⚠ 2枚目ができないかも見る）。
+	var windows: int = 0
+	for child: Node in get_tree().root.get_children():
 		if child is InventoryWindow:
-			windows.append(child)
-	print("  窓の枚数 = %d（⚠ 1 が正解）" % windows.size())
-	if windows.size() != 1:
-		push_error("[DebugBoot] インベントリの窓が %d 枚" % windows.size())
-	else:
-		var window: InventoryWindow = windows[0]
-		print("  表示 = %s ／ force_native = %s（⚠ true が正解） ／ 埋め込み = %s ／ 題 = %s ／ 大きさ = %s ／ マス = %d" % [
-			window.visible, window.force_native, window.is_embedded(),
-			window.title, window.size, window.grid.get_slot_count(),
-		])
-		if not window.visible or not window.force_native:
-			push_error("[DebugBoot] インベントリの窓が開いていないか、OS の別窓になっていない")
-		if window.grid.get_slot_count() != GameManager.get_inventory_slots_per_page():
-			push_error("[DebugBoot] 窓のマスの数が1ページのマス数と違う")
+			windows += 1
+	var window: InventoryWindow = InventoryWindow.get_instance()
+	print("  root にある窓 = %d 枚（⚠ 1 が正解）" % windows)
+	if windows != 1 or window == null:
+		push_error("[DebugBoot] 倉庫の窓が root に1枚ではない")
+		return
+	print("  隠れているか = %s（⚠ true が正解） ／ force_native = %s（⚠ true） ／ 題 = %s ／ 最小サイズ = %s" % [
+		not window.visible, window.force_native, window.title, window.min_size,
+	])
+	print("  中身が倉庫か = %s ／ 見出しの行が隠れているか = %s ／ 持ち物のマス = %d（⚠ %d） ／ 組 = %s（⚠ %s）" % [
+		window.warehouse != null, not window.warehouse.back_button.get_parent().visible,
+		window.grid.get_slot_count(), GameManager.get_inventory_slots_per_page(),
+		window.grid.drag_group, InventoryWindow.DRAG_GROUP,
+	])
+	if window.visible or not window.force_native or window.warehouse == null:
+		push_error("[DebugBoot] 倉庫の窓の作りが違う")
+	if window.warehouse.back_button.get_parent().visible:
+		push_error("[DebugBoot] 窓の中で倉庫の見出し（戻る）が出ている")
+	if window.grid.get_slot_count() != GameManager.get_inventory_slots_per_page() or window.grid.drag_group != InventoryWindow.DRAG_GROUP:
+		push_error("[DebugBoot] 窓の持ち物のマス目が違う")
+	if window.min_size.x <= 0 or window.min_size.y <= 0:
+		push_error("[DebugBoot] 窓の最小サイズが中身に合っていない")
 
-	get_tree().root.remove_child(screen)
-	screen.queue_free()
+	# ⚠ 出さない画面。
+	for path: String in [
+		"res://scenes/base/base_screen.tscn", "res://scenes/guild/equipment_screen.tscn",
+		"res://scenes/title/title_screen.tscn", "res://scenes/adventure/battle.tscn",
+		"res://scenes/pomodoro/pomodoro.tscn",
+	]:
+		print("  出してよいか %-44s = %s" % [path.get_file(), InventoryWindow.is_scene_allowed(path)])
+
+	# ⚠ 開く → 閉じる（⚠ ボタンと同じ口）。
+	InventoryWindow.toggle()
+	await get_tree().process_frame
+	var opened: bool = window.visible
+	InventoryWindow.toggle()
+	await get_tree().process_frame
+	print("  ボタン1回目で開くか = %s ／ 2回目で閉じるか = %s" % [opened, not window.visible])
+	if not opened or window.visible:
+		push_error("[DebugBoot] 倉庫の窓の開け閉めが効かない")
+
+	# ⚠ 開いたまま出さない画面へ移ったら、⚠ 閉じてボタンも隠れる。
+	InventoryWindow.toggle()
+	await get_tree().process_frame
+	window.apply_scene("res://scenes/adventure/battle.tscn")
+	var closed_on_battle: bool = not window.visible
+	var hidden_on_battle: bool = not ResourceHud.is_storage_button_shown()
+	window.apply_scene("res://scenes/base/base_screen.tscn")
+	print("  戦闘へ移ると閉じるか = %s ／ ボタンが隠れるか = %s ／ 拠点に戻るとボタンが出るか = %s" % [
+		closed_on_battle, hidden_on_battle, ResourceHud.is_storage_button_shown(),
+	])
+	if not closed_on_battle or not hidden_on_battle or not ResourceHud.is_storage_button_shown():
+		push_error("[DebugBoot] 出さない画面で閉じない／ボタンの出し分けが効かない")
 
 
 # --- ドラッグで装備（2026-09-15・段3a） ---
@@ -7599,14 +7617,13 @@ func _report_equip_drag() -> void:
 	root.add_child(screen)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	(screen.find_child("OpenInventoryButton", true, false) as UiButton).pressed.emit()
+	# ⚠ 倉庫の窓は SceneManager が起動時に作っている（⚠ 右上の「倉庫」ボタンと同じ口で開く）。
+	var window: InventoryWindow = InventoryWindow.get_instance()
+	if not window.visible:
+		InventoryWindow.toggle()
 	await get_tree().process_frame
-	var window: InventoryWindow = null
-	for child: Node in screen.get_children():
-		if child is InventoryWindow:
-			window = child
-	# ⚠ 真ん中に出ると装備マスに被ることがあるので、⚠ 右へ寄せる。
-	window.position = Vector2i(700, 60)
+	# ⚠ 真ん中に出ると装備マスに被ることがあるので、⚠ 右へ寄せる（⚠ 倉庫は横に広い）。
+	window.position = Vector2i(400, 10)
 	await get_tree().process_frame
 	await get_tree().process_frame
 
