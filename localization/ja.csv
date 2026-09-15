@@ -933,3 +933,8 @@ ui_stat_node_tier,段%d
 ui_stat_node_after,振ったあとのステータス
 ui_stat_node_spent,振り分け済み
 ui_stat_node_add,＋
+ui_settings_inventory_mode,インベントリの出し方
+ui_settings_inventory_mode_embedded,ゲームの中
+ui_settings_inventory_mode_native,別の窓
+ui_settings_toggle,切り替える
+ui_settings_inventory_mode_note,装備画面のインベントリに効きます。どちらが使いやすいか試している最中の項目です

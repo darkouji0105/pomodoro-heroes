@@ -88,3 +88,61 @@ func delete_save() -> bool:
 	
 	print("[SaveManager] delete_save: success")
 	return true
+
+# --- 設定（2026-09-15） ---
+#
+# ⚠ ゲームのセーブとは別のファイル（人間の決定「別のファイルだね」）。
+#   ⚠ 窓の出し方や音量は「その PC の好み」で、⚠ セーブスロットごとに変わるものではない。
+# ⚠ 画面は ConfigFile を直接触らない。⚠ 項目ごとの get_ / set_ を通す。
+
+const SETTINGS_PATH: String = "user://settings.cfg"
+const SETTINGS_SECTION_UI: String = "ui"
+const SETTINGS_KEY_INVENTORY_MODE: String = "inventory_mode"
+# インベントリの出し方。⚠ 実験中（⚠ 両方を試して比べる・人間の決定 2026-09-15）。
+# ⚠ ファイルに書く綴りなので、⚠ 決めたあとに改名しないこと。
+const INVENTORY_MODE_EMBEDDED: String = "embedded"
+const INVENTORY_MODE_NATIVE: String = "native"
+const INVENTORY_MODES: Array[String] = [INVENTORY_MODE_EMBEDDED, INVENTORY_MODE_NATIVE]
+
+var _settings: ConfigFile = null
+
+
+func get_inventory_mode() -> String:
+	var value: String = str(_load_settings().get_value(
+		SETTINGS_SECTION_UI, SETTINGS_KEY_INVENTORY_MODE, INVENTORY_MODE_EMBEDDED
+	))
+	if not INVENTORY_MODES.has(value):
+		push_warning("[SaveManager] get_inventory_mode: unknown value '%s' - using %s" % [value, INVENTORY_MODE_EMBEDDED])
+		return INVENTORY_MODE_EMBEDDED
+	return value
+
+
+# ⚠ 判定と書き込みを全部終えてから、⚠ 手元の設定を差し替える（CLAUDE.md 6番）。
+#   ⚠ 書き込みに失敗したら、⚠ 手元もファイルも前のまま。
+func set_inventory_mode(mode: String) -> bool:
+	if not INVENTORY_MODES.has(mode):
+		push_error("[SaveManager] set_inventory_mode: unknown mode '%s'" % mode)
+		return false
+	var next: ConfigFile = ConfigFile.new()
+	next.parse(_load_settings().encode_to_text())
+	next.set_value(SETTINGS_SECTION_UI, SETTINGS_KEY_INVENTORY_MODE, mode)
+	var err: Error = next.save(SETTINGS_PATH)
+	if err != OK:
+		push_error("[SaveManager] set_inventory_mode: cannot write %s (error code: %d)" % [SETTINGS_PATH, err])
+		return false
+	_settings = next
+	print("[SaveManager] set_inventory_mode -> %s" % mode)
+	return true
+
+
+func _load_settings() -> ConfigFile:
+	if _settings != null:
+		return _settings
+	_settings = ConfigFile.new()
+	if not FileAccess.file_exists(SETTINGS_PATH):
+		return _settings
+	var err: Error = _settings.load(SETTINGS_PATH)
+	if err != OK:
+		push_warning("[SaveManager] cannot read %s (error code: %d) - using defaults" % [SETTINGS_PATH, err])
+		_settings = ConfigFile.new()
+	return _settings

@@ -47,6 +47,7 @@ const REPORT_INVENTORY: String = "inventory"
 const REPORT_GLYPHS: String = "glyphs"
 const REPORT_THEME: String = "theme"
 const REPORT_SUBWINDOW_DRAG: String = "subwindow_drag"
+const REPORT_SETTINGS: String = "settings"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -768,6 +769,13 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_SUBWINDOW_DRAG,
 		"note": "ドラッグが渡るか。① 普通の Control 同士 ／ ② 埋め込み Window の中 ／ ③ 埋め込み Window A→B",
 	},
+	# 2026-09-15。⚠ 設定のファイル（user://settings.cfg）の読み書き。
+	# ⚠⚠ 赤が1本出るのが正しい（⚠ わざと知らない値を渡す）。⚠ 終わったら元の値に戻す。
+	"settings": {
+		"kind": KIND_REPORT,
+		"report": REPORT_SETTINGS,
+		"note": "設定ファイル。知らない値を弾く（赤1） / 2つの値を書いてファイルから読み直す / 元に戻す",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -833,6 +841,8 @@ func _ready() -> void:
 			await _report_gain()
 		elif report == REPORT_SUBWINDOW_DRAG:
 			await _report_subwindow_drag()
+		elif report == REPORT_SETTINGS:
+			_report_settings()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -4420,6 +4430,8 @@ const LAYOUT_SCENES: Array[String] = [
 	#   ⚠ 開くと敵とタイマーが動き出すぶん、⚠ 入れておく損のほうが大きい。
 	"res://scenes/base/base_screen.tscn",
 	"res://scenes/title/title_screen.tscn",
+	# ⚠ 2026-09-15 に仮画面から本物へ。⚠ 行はコードで積む（⚠ ValueRow）。
+	"res://scenes/base/settings_screen.tscn",
 ]
 
 
@@ -7486,3 +7498,44 @@ class DragProbeTarget extends ColorRect:
 
 	func _drop_data(_at_position: Vector2, data: Variant) -> void:
 		received.append(data)
+
+
+# --- 設定のファイル（2026-09-15） ---
+#
+# ⚠ user:// は人間が遊ぶときと同じ場所。⚠ 最後に必ず元へ戻す（⚠ ファイルが無かったなら消す）。
+
+func _report_settings() -> void:
+	var path: String = SaveManager.SETTINGS_PATH
+	var had_file: bool = FileAccess.file_exists(path)
+	var before: String = SaveManager.get_inventory_mode()
+	print("[DebugBoot] --- 設定のファイル ---")
+	print("  ファイル = %s ／ 始める前に在ったか = %s ／ いまの値 = %s" % [path, had_file, before])
+
+	# ⚠ 知らない値は弾く（⚠ 赤が1本出る）。⚠ 値は変わらないこと。
+	var bad_ok: bool = SaveManager.set_inventory_mode("sideways")
+	print("  知らない値を渡す -> 戻り値 %s（⚠ false が正解） ／ 値 %s（⚠ %s のままが正解）" % [
+		bad_ok, SaveManager.get_inventory_mode(), before,
+	])
+	if bad_ok or SaveManager.get_inventory_mode() != before:
+		push_error("[DebugBoot] 知らない値で設定が変わった")
+
+	# ⚠ 2つの値を順に書き、⚠ 手元とファイルの両方から読み直す。
+	for mode: String in SaveManager.INVENTORY_MODES:
+		var ok: bool = SaveManager.set_inventory_mode(mode)
+		var file: ConfigFile = ConfigFile.new()
+		var err: Error = file.load(path)
+		var on_disk: String = str(file.get_value(
+			SaveManager.SETTINGS_SECTION_UI, SaveManager.SETTINGS_KEY_INVENTORY_MODE, ""
+		))
+		print("  %s を書く -> 戻り値 %s ／ 手元 %s ／ ファイル %s（読み込み %d）" % [
+			mode, ok, SaveManager.get_inventory_mode(), on_disk, err,
+		])
+		if not ok or SaveManager.get_inventory_mode() != mode or on_disk != mode:
+			push_error("[DebugBoot] 設定 %s が手元かファイルに入っていない" % mode)
+
+	# ⚠ 元に戻す。
+	if had_file:
+		SaveManager.set_inventory_mode(before)
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	print("  元に戻した -> ファイルが在るか %s（⚠ %s が正解）" % [FileAccess.file_exists(path), had_file])
