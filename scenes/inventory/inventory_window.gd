@@ -119,8 +119,16 @@ func _process(_delta: float) -> void:
 		if visible:
 			dock_to_main_window()
 
-	var path: String = _current_scene_path()
-	if path == _seen_scene_path:
+	see_scene(_current_scene_path())
+
+
+# 本物の画面を見た。⚠ 変わっていれば当てはめる。
+#   ⚠⚠ 画面が無い一瞬（空文字）は何もしない（2026-09-15・人間「画面を移動したら開きなおしてる」）。
+#   ⚠ 画面の切り替えは「古い画面を外す → 次のフレームで新しい画面を入れる」なので、
+#   ⚠ その間を「出さない画面」と取り違えて閉じ、⚠ 次の画面で開き直していた（⚠ 右隣へ戻る動きも出る）。
+#   ⚠ 検査から直に呼べるように public。
+func see_scene(path: String) -> void:
+	if path == "" or path == _seen_scene_path:
 		return
 	# ⚠ HUD がまだできていなければ、⚠ 次のフレームでもう一度見る。
 	if ResourceHud.get_instance() == null:

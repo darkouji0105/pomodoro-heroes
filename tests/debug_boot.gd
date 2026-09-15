@@ -7606,6 +7606,17 @@ func _report_inventory_window() -> void:
 	await get_tree().process_frame
 	docked = Vector2i(root.position.x + root.size.x, root.position.y)
 	checks.append(["④ ゲームの窓が変わると右隣へ付く %s（⚠ %s）" % [window.position, docked], window.position == docked])
+	# ⑥ 画面の切り替えの途中（⚠ 画面が無い一瞬）を挟んで拠点 → ギルドへ移っても、⚠ 閉じずに位置もそのまま。
+	window.see_scene(base)
+	window.position = Vector2i(10, 10)
+	var shown_events: Array = []
+	var on_visibility: Callable = func() -> void: shown_events.append(window.visible)
+	window.visibility_changed.connect(on_visibility)
+	window.see_scene("")
+	window.see_scene(guild)
+	window.visibility_changed.disconnect(on_visibility)
+	checks.append(["⑥ 画面を移っても閉じない（表示の切り替わり %s）" % [shown_events], window.visible and shown_events.is_empty()])
+	checks.append(["⑥ 手で動かした位置のまま %s" % [window.position], window.position == Vector2i(10, 10)])
 	# ⑤ ✕ で閉じる → 出さない状態になる（⚠ 拠点へ入り直しても開かない）。
 	window.close_requested.emit()
 	window.apply_scene(base)
