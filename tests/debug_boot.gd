@@ -7746,6 +7746,35 @@ func _report_equip_drag() -> void:
 	if moved.size() != 1:
 		push_error("[DebugBoot] ③ 同じマス目の中の入れ替えで slot_moved が出ていない")
 
+	# ④ 段3c：⚠ 画面の上の位置から落とし先を探す（⚠ OS の別窓からつまんだときの道）。
+	#   ⚠ ヘッドレスは OS の窓を作れないので、⚠ 座標の変換と落とし先探しだけを直に呼ぶ。
+	await get_tree().process_frame
+	var other_index: int = _grid_first_filled(window.grid)
+	var other_id: String = str(window.grid.get_entry_at(other_index).get(GameManager.SLOT_ENTRY_INSTANCE_ID, ""))
+	equip_grid = screen.find_child("EquipmentGrid", true, false)
+	var target: Control = equip_grid.get_child(weapon_index) as Control
+	var screen_point: Vector2i = Vector2i(
+		root.get_final_transform() * target.get_global_rect().get_center()
+	) + root.position
+	var payload: Dictionary = {
+		ItemSlot.DRAG_KEY: true,
+		ItemSlot.DRAG_INDEX: other_index,
+		ItemSlot.DRAG_GRID_ID: window.grid.get_instance_id(),
+		ItemSlot.DRAG_GROUP: InventoryWindow.DRAG_GROUP,
+	}
+	# ⚠ 変換は落とす前に取る（⚠ 装備するとマス目が作り直されて消える・1回目で踏んだ）。
+	var canvas_point: Vector2 = equip_grid.screen_to_canvas(screen_point)
+	var target_center: Vector2 = target.get_global_rect().get_center()
+	var routed: bool = ItemGrid.route_screen_drop(payload, screen_point, window)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var after_route: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_WEAPON)
+	print("  ④ 画面の位置 %s から落とし先を探す：落とせたか = %s ／ 装備 = %s（⚠ %s が正解） ／ 座標の変換 = %s（⚠ マスの真ん中 %s）" % [
+		screen_point, routed, after_route, other_id, canvas_point, target_center,
+	])
+	if not routed or other_id == "" or after_route != other_id:
+		push_error("[DebugBoot] ④ 画面の位置から装備マスへ落とせていない")
+
 	root.remove_child(screen)
 	screen.queue_free()
 	_restore_settings(had_file, before)

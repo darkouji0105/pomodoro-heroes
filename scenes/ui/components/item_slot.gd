@@ -66,6 +66,9 @@ var _index: int = 0
 var _grid_id: int = 0
 var _drag_group: String = ""
 var _accept_drop_groups: Array[String] = []
+# ⚠ このマスからつまんだ荷物（2026-09-15・段3c）。⚠ ドラッグが終わったら空にする。
+#   ⚠ OS の別窓からつまんだときだけ、⚠ 終わった合図で自分で落とし先を探すのに使う。
+var _drag_payload: Dictionary = {}
 
 
 # 呼ぶ側の1行の口（ItemIcon.create() と同じ形）。
@@ -142,7 +145,28 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 		str(_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, "")),
 		int(_entry.get(GameManager.SLOT_ENTRY_GRADE, 0))
 	))
-	return {DRAG_KEY: true, DRAG_INDEX: _index, DRAG_GRID_ID: _grid_id, DRAG_GROUP: _drag_group}
+	_drag_payload = {DRAG_KEY: true, DRAG_INDEX: _index, DRAG_GRID_ID: _grid_id, DRAG_GROUP: _drag_group}
+	return _drag_payload.duplicate()
+
+
+# ドラッグが終わった（2026-09-15・段3c）。
+#
+# ⚠⚠ OS の別窓どうしでは Godot の落としが渡らない（⚠ 前回の実機・⚠ 人間が今回も確認）。
+#   ⚠ つまんだ窓がマウスを握ったままなので、⚠ 離した合図もつまんだ窓にしか来ない。
+#   ⚠ そこで「⚠ 標準の落としが成功しなかった ＋ ⚠ つまんだのが OS の別窓」のときだけ、
+#   ⚠ 画面の上のマウスの位置から落とし先を自分で探す（ItemGrid.route_screen_drop）。
+# ⚠ ゲームの中（埋め込み）では何もしない（⚠ 標準の落としで足りる＝3a）。
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_DRAG_END or _drag_payload.is_empty():
+		return
+	var payload: Dictionary = _drag_payload
+	_drag_payload = {}
+	if get_viewport().gui_is_drag_successful():
+		return
+	var window: Window = get_window()
+	if window == null or window == get_tree().root or window.is_embedded():
+		return
+	ItemGrid.route_screen_drop(payload, DisplayServer.mouse_get_position(), window)
 
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:

@@ -33,6 +33,8 @@ signal slot_received(from_grid: ItemGrid, from_index: int, to_index: int)
 
 # 1行に並べるマスの数。⚠ ここは見た目の都合なので画面側が決める。
 const DEFAULT_COLUMNS: int = 8
+# 別のマス目から受ける器のグループ（2026-09-15・段3c）。⚠ OS の別窓から落とし先を探すときに引く。
+const GROUP_DROP_TARGET: StringName = &"item_grid_drop_target"
 
 # ⚠ この器の組の名前（2026-09-15）。⚠ 別のマス目がこれを見て受けるか決める。
 #   ⚠ 名前は置く側が決める（⚠ ここは画面を知らない）。⚠ rebuild() より先に入れること。
@@ -58,6 +60,12 @@ func _ready() -> void:
 # entries … GameManager.get_inventory_slot_entries() の戻り（マス1つ＝1要素）
 # slot_count … 枠の数。⚠ 0 以下なら entries の数ぶんだけ（＝容量が無い画面用）
 func rebuild(entries: Array, slot_count: int = 0) -> void:
+	# ⚠ 受ける組があるときだけ、⚠ 別窓からの落とし先として名乗る（段3c）。
+	if accept_drop_groups.is_empty():
+		if is_in_group(GROUP_DROP_TARGET):
+			remove_from_group(GROUP_DROP_TARGET)
+	else:
+		add_to_group(GROUP_DROP_TARGET)
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
@@ -132,3 +140,44 @@ func _on_slot_received(from_grid_id: int, from_index: int, to_index: int) -> voi
 	if not (from_grid is ItemGrid) or from_index < 0:
 		return
 	slot_received.emit(from_grid as ItemGrid, from_index, to_index)
+
+
+# OS の別窓からつまんで離したとき、⚠ 画面の上の位置から落とし先を探して落とす（2026-09-15・段3c）。
+#
+# ⚠ 呼ぶのは `ItemSlot._notification()` の1本（⚠ 標準の落としが成功しなかったときだけ）。
+# ⚠ 落とすときは標準と同じ `_can_drop_data` / `_drop_data` を通す（⚠ 受ける判定を2本にしない）。
+# ⚠ 対象は OS の窓に直に置かれた器だけ（⚠ ゲームの窓・OS の別窓）。⚠ 埋め込みの窓の中は探さない。
+# ⚠ 窓が重なっていたら、⚠ いちばん手前の窓の器だけ（⚠ get_window_at_screen_position）。
+#   ⚠ ヘッドレスは窓を持たないので、⚠ 手前の判定は飛ばす（⚠ 座標の変換だけ確かめられる）。
+# 落とせたら true。
+static func route_screen_drop(payload: Dictionary, screen_point: Vector2i, source_window: Window) -> bool:
+	var tree: SceneTree = source_window.get_tree()
+	if tree == null:
+		return false
+	var check_front: bool = DisplayServer.has_feature(DisplayServer.FEATURE_SUBWINDOWS)
+	var front_id: int = DisplayServer.get_window_at_screen_position(screen_point) if check_front else DisplayServer.INVALID_WINDOW_ID
+	for node: Node in tree.get_nodes_in_group(GROUP_DROP_TARGET):
+		var grid: ItemGrid = node as ItemGrid
+		if grid == null or not grid.is_visible_in_tree():
+			continue
+		var window: Window = grid.get_window()
+		if window == null or window == source_window or window.is_embedded():
+			continue
+		if check_front and window.get_window_id() != front_id:
+			continue
+		var point: Vector2 = grid.screen_to_canvas(screen_point)
+		for slot: ItemSlot in grid._slots:
+			if not slot.get_global_rect().has_point(point):
+				continue
+			if not slot._can_drop_data(point, payload):
+				return false
+			slot._drop_data(point, payload)
+			return true
+	return false
+
+
+# 画面の上の位置 → この器の画面の座標。⚠ 窓の位置と、⚠ stretch（canvas_items）の拡大を戻す。
+func screen_to_canvas(screen_point: Vector2i) -> Vector2:
+	var window: Window = get_window()
+	var local: Vector2 = Vector2(screen_point - window.position)
+	return window.get_final_transform().affine_inverse() * local
