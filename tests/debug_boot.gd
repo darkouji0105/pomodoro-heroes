@@ -48,6 +48,7 @@ const REPORT_GLYPHS: String = "glyphs"
 const REPORT_THEME: String = "theme"
 const REPORT_SUBWINDOW_DRAG: String = "subwindow_drag"
 const REPORT_SETTINGS: String = "settings"
+const REPORT_INVENTORY_WINDOW: String = "inventory_window"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -776,6 +777,14 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_SETTINGS,
 		"note": "設定ファイル。知らない値を弾く（赤1） / 2つの値を書いてファイルから読み直す / 元に戻す",
 	},
+	# 2026-09-15。⚠ 装備画面の「インベントリを開く」で窓が出るか（⚠ 設定の2つの値で1回ずつ）。
+	# ⚠ ヘッドレスは OS の窓を作れないので、⚠ 「別の窓」は force_native が立つかまでしか見られない。
+	# ⚠ 終わったら設定のファイルを元に戻す。
+	"inventory_window": {
+		"kind": KIND_REPORT,
+		"report": REPORT_INVENTORY_WINDOW,
+		"note": "インベントリの窓。設定ごとに 開く / force_native / マスの数 / 2回押しても1枚",
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -843,6 +852,8 @@ func _ready() -> void:
 			await _report_subwindow_drag()
 		elif report == REPORT_SETTINGS:
 			_report_settings()
+		elif report == REPORT_INVENTORY_WINDOW:
+			await _report_inventory_window()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7532,6 +7543,71 @@ func _report_settings() -> void:
 		])
 		if not ok or SaveManager.get_inventory_mode() != mode or on_disk != mode:
 			push_error("[DebugBoot] 設定 %s が手元かファイルに入っていない" % mode)
+
+	# ⚠ 元に戻す。
+	if had_file:
+		SaveManager.set_inventory_mode(before)
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	print("  元に戻した -> ファイルが在るか %s（⚠ %s が正解）" % [FileAccess.file_exists(path), had_file])
+
+
+# --- インベントリの窓（2026-09-15） ---
+
+func _report_inventory_window() -> void:
+	# ⚠ _ready() の中から add_child すると弾かれる（⚠ subwindow_drag で踏んだ）。
+	await get_tree().process_frame
+	var path: String = SaveManager.SETTINGS_PATH
+	var had_file: bool = FileAccess.file_exists(path)
+	var before: String = SaveManager.get_inventory_mode()
+	print("[DebugBoot] --- インベントリの窓 ---")
+	print("  始める前の設定 = %s ／ ファイルが在ったか = %s ／ 1ページのマス = %d" % [
+		before, had_file, GameManager.get_inventory_slots_per_page(),
+	])
+
+	for mode: String in SaveManager.INVENTORY_MODES:
+		SaveManager.set_inventory_mode(mode)
+		SceneManager._transfer_data = {TransferKeys.CHARACTER_ID: str(GameManager.get_party_members()[0])}
+		var screen: Node = load("res://scenes/guild/equipment_screen.tscn").instantiate()
+		get_tree().root.add_child(screen)
+		await get_tree().process_frame
+		await get_tree().process_frame
+
+		var button: Variant = screen.find_child("OpenInventoryButton", true, false)
+		if not (button is UiButton):
+			push_error("[DebugBoot] 装備画面に OpenInventoryButton が無い")
+			get_tree().root.remove_child(screen)
+			screen.queue_free()
+			continue
+		# ⚠ 2回押す（⚠ 2枚目を作らないか）。
+		(button as UiButton).pressed.emit()
+		await get_tree().process_frame
+		(button as UiButton).pressed.emit()
+		await get_tree().process_frame
+		await get_tree().process_frame
+
+		var windows: Array[Node] = []
+		for child: Node in screen.get_children():
+			if child is InventoryWindow:
+				windows.append(child)
+		print("  [%s] 窓の枚数 = %d（⚠ 1 が正解）" % [mode, windows.size()])
+		if windows.size() != 1:
+			push_error("[DebugBoot] インベントリの窓が %d 枚（%s）" % [windows.size(), mode])
+		else:
+			var window: InventoryWindow = windows[0]
+			var want_native: bool = mode == SaveManager.INVENTORY_MODE_NATIVE
+			print("  [%s] 表示 = %s ／ force_native = %s（⚠ %s が正解） ／ 埋め込み = %s ／ 題 = %s ／ 大きさ = %s ／ マス = %d" % [
+				mode, window.visible, window.force_native, want_native, window.is_embedded(),
+				window.title, window.size, window.grid.get_slot_count(),
+			])
+			if not window.visible or window.force_native != want_native:
+				push_error("[DebugBoot] インベントリの窓が開いていないか、出し方が設定と違う（%s）" % mode)
+			if window.grid.get_slot_count() != GameManager.get_inventory_slots_per_page():
+				push_error("[DebugBoot] 窓のマスの数が1ページのマス数と違う")
+
+		get_tree().root.remove_child(screen)
+		screen.queue_free()
+		await get_tree().process_frame
 
 	# ⚠ 元に戻す。
 	if had_file:

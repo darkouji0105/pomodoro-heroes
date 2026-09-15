@@ -938,3 +938,4 @@ ui_settings_inventory_mode_embedded,ゲームの中
 ui_settings_inventory_mode_native,別の窓
 ui_settings_toggle,切り替える
 ui_settings_inventory_mode_note,装備画面のインベントリに効きます。どちらが使いやすいか試している最中の項目です
+ui_equipment_open_inventory,インベントリを開く
