@@ -1,11 +1,11 @@
 class_name InventoryWindow
 extends Window
 
-# インベントリの窓（2026-09-15・人間の指示「ゲームの中／別の窓を両方試す」）。
+# インベントリの窓（2026-09-15）。
 #
-# ⚠ 出し方は設定（SaveManager.get_inventory_mode()）で決まる。
-#   ⚠ ゲームの中＝埋め込みの Window ／ ⚠ 別の窓＝OS の窓（force_native）。
-#   ⚠ 決めるのは create() の1回だけ。⚠ 開いたまま切り替えない（⚠ 設定画面からしか変わらない）。
+# ⚠⚠ いつも OS の別窓（force_native）で出す（人間の決定「別窓で」「（ゲームの中は）消す」）。
+#   ⚠ ゲームの中（埋め込み）と設定で切り替えて比べた結果。⚠ 設定の項目ごと消した。
+#   ⚠ ヘッドレスは OS の窓を作れないので、⚠ そこでだけ埋め込みになる（⚠ 検査はその形で回る）。
 # ⚠⚠ force_native は「隠している間」にしか立てられない（⚠ 表示中に立てると赤・前回の実測）。
 #   ⚠ Window.new() は表示中扱いなので、⚠ 先に visible を落とす。
 # ⚠ 中身は倉庫の持ち物と同じ並び（GameManager.get_inventory_page_entries()）。
@@ -29,7 +29,7 @@ static func create() -> InventoryWindow:
 	var window: InventoryWindow = InventoryWindow.new()
 	window.name = "InventoryWindow"
 	window.visible = false
-	window.force_native = SaveManager.get_inventory_mode() == SaveManager.INVENTORY_MODE_NATIVE
+	window.force_native = true
 	return window
 
 

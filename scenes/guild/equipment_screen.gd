@@ -55,7 +55,7 @@ var _selected_part_slot: int = -1
 #   人間に渡さない」に反するため（NEXT_STEPS §4）。⚠ 宿題に書いてある。
 var _build_picker: OptionButton = null
 var _selected_build: int = 0
-# インベントリの窓（2026-09-15・実験）。⚠ 押されるまで作らない。
+# インベントリの窓（2026-09-15）。⚠ 押されるまで作らない。
 var _inventory_window: InventoryWindow = null
 
 func _ready() -> void:
@@ -776,10 +776,9 @@ func _on_forge_pressed(instance_id: String) -> void:
 	else:
 		notice_label.text = tr("ui_equipment_failed")
 
-# --- インベントリの窓（2026-09-15・実験。⚠ ゲームの中／別の窓を設定で切り替えて比べる） ---
+# --- インベントリの窓（2026-09-15。⚠ OS の別窓） ---
 #
 # ⚠ 窓はこの画面の子にする（⚠ 画面を離れると一緒に消える）。
-# ⚠ 出し方は開くときに1回だけ決まる（⚠ InventoryWindow.create()）。
 # ⚠ .tscn を触らずコードで足す（⚠ プリセットの行と同じ流儀）。⚠ 見出しの直下。
 func _build_inventory_button() -> void:
 	var button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_equipment_open_inventory")

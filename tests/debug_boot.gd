@@ -47,7 +47,6 @@ const REPORT_INVENTORY: String = "inventory"
 const REPORT_GLYPHS: String = "glyphs"
 const REPORT_THEME: String = "theme"
 const REPORT_SUBWINDOW_DRAG: String = "subwindow_drag"
-const REPORT_SETTINGS: String = "settings"
 const REPORT_INVENTORY_WINDOW: String = "inventory_window"
 const REPORT_EQUIP_DRAG: String = "equip_drag"
 const REPORT_DRAG_CURSOR: String = "drag_cursor"
@@ -772,20 +771,12 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_SUBWINDOW_DRAG,
 		"note": "ドラッグが渡るか。① 普通の Control 同士 ／ ② 埋め込み Window の中 ／ ③ 埋め込み Window A→B",
 	},
-	# 2026-09-15。⚠ 設定のファイル（user://settings.cfg）の読み書き。
-	# ⚠⚠ 赤が1本出るのが正しい（⚠ わざと知らない値を渡す）。⚠ 終わったら元の値に戻す。
-	"settings": {
-		"kind": KIND_REPORT,
-		"report": REPORT_SETTINGS,
-		"note": "設定ファイル。知らない値を弾く（赤1） / 2つの値を書いてファイルから読み直す / 元に戻す",
-	},
-	# 2026-09-15。⚠ 装備画面の「インベントリを開く」で窓が出るか（⚠ 設定の2つの値で1回ずつ）。
-	# ⚠ ヘッドレスは OS の窓を作れないので、⚠ 「別の窓」は force_native が立つかまでしか見られない。
-	# ⚠ 終わったら設定のファイルを元に戻す。
+	# 2026-09-15。⚠ 装備画面の「インベントリを開く」で窓が出るか。
+	# ⚠ ヘッドレスは OS の窓を作れないので、⚠ force_native が立つかまでしか見られない（⚠ 窓は埋め込みになる）。
 	"inventory_window": {
 		"kind": KIND_REPORT,
 		"report": REPORT_INVENTORY_WINDOW,
-		"note": "インベントリの窓。設定ごとに 開く / force_native / マスの数 / 2回押しても1枚",
+		"note": "インベントリの窓。開く / force_native / マスの数 / 2回押しても1枚",
 	},
 	# 2026-09-15（段3a）。⚠ インベントリの窓（ゲームの中）から装備マスへドラッグして装備する。
 	# ⚠ 入力は root に push_input（⚠ subwindow_drag と同じ流し方）。⚠ 設定は最後に元へ戻す。
@@ -865,8 +856,6 @@ func _ready() -> void:
 			await _report_gain()
 		elif report == REPORT_SUBWINDOW_DRAG:
 			await _report_subwindow_drag()
-		elif report == REPORT_SETTINGS:
-			_report_settings()
 		elif report == REPORT_INVENTORY_WINDOW:
 			await _report_inventory_window()
 		elif report == REPORT_EQUIP_DRAG:
@@ -4460,8 +4449,6 @@ const LAYOUT_SCENES: Array[String] = [
 	#   ⚠ 開くと敵とタイマーが動き出すぶん、⚠ 入れておく損のほうが大きい。
 	"res://scenes/base/base_screen.tscn",
 	"res://scenes/title/title_screen.tscn",
-	# ⚠ 2026-09-15 に仮画面から本物へ。⚠ 行はコードで積む（⚠ ValueRow）。
-	"res://scenes/base/settings_screen.tscn",
 ]
 
 
@@ -7530,110 +7517,53 @@ class DragProbeTarget extends ColorRect:
 		received.append(data)
 
 
-# --- 設定のファイル（2026-09-15） ---
-#
-# ⚠ user:// は人間が遊ぶときと同じ場所。⚠ 最後に必ず元へ戻す（⚠ ファイルが無かったなら消す）。
-
-func _report_settings() -> void:
-	var path: String = SaveManager.SETTINGS_PATH
-	var had_file: bool = FileAccess.file_exists(path)
-	var before: String = SaveManager.get_inventory_mode()
-	print("[DebugBoot] --- 設定のファイル ---")
-	print("  ファイル = %s ／ 始める前に在ったか = %s ／ いまの値 = %s" % [path, had_file, before])
-
-	# ⚠ 知らない値は弾く（⚠ 赤が1本出る）。⚠ 値は変わらないこと。
-	var bad_ok: bool = SaveManager.set_inventory_mode("sideways")
-	print("  知らない値を渡す -> 戻り値 %s（⚠ false が正解） ／ 値 %s（⚠ %s のままが正解）" % [
-		bad_ok, SaveManager.get_inventory_mode(), before,
-	])
-	if bad_ok or SaveManager.get_inventory_mode() != before:
-		push_error("[DebugBoot] 知らない値で設定が変わった")
-
-	# ⚠ 2つの値を順に書き、⚠ 手元とファイルの両方から読み直す。
-	for mode: String in SaveManager.INVENTORY_MODES:
-		var ok: bool = SaveManager.set_inventory_mode(mode)
-		var file: ConfigFile = ConfigFile.new()
-		var err: Error = file.load(path)
-		var on_disk: String = str(file.get_value(
-			SaveManager.SETTINGS_SECTION_UI, SaveManager.SETTINGS_KEY_INVENTORY_MODE, ""
-		))
-		print("  %s を書く -> 戻り値 %s ／ 手元 %s ／ ファイル %s（読み込み %d）" % [
-			mode, ok, SaveManager.get_inventory_mode(), on_disk, err,
-		])
-		if not ok or SaveManager.get_inventory_mode() != mode or on_disk != mode:
-			push_error("[DebugBoot] 設定 %s が手元かファイルに入っていない" % mode)
-
-	# ⚠ 元に戻す。
-	if had_file:
-		SaveManager.set_inventory_mode(before)
-	else:
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
-	print("  元に戻した -> ファイルが在るか %s（⚠ %s が正解）" % [FileAccess.file_exists(path), had_file])
-
-
 # --- インベントリの窓（2026-09-15） ---
 
 func _report_inventory_window() -> void:
 	# ⚠ _ready() の中から add_child すると弾かれる（⚠ subwindow_drag で踏んだ）。
 	await get_tree().process_frame
-	var path: String = SaveManager.SETTINGS_PATH
-	var had_file: bool = FileAccess.file_exists(path)
-	var before: String = SaveManager.get_inventory_mode()
 	print("[DebugBoot] --- インベントリの窓 ---")
-	print("  始める前の設定 = %s ／ ファイルが在ったか = %s ／ 1ページのマス = %d" % [
-		before, had_file, GameManager.get_inventory_slots_per_page(),
-	])
+	print("  1ページのマス = %d" % GameManager.get_inventory_slots_per_page())
 
-	for mode: String in SaveManager.INVENTORY_MODES:
-		SaveManager.set_inventory_mode(mode)
-		SceneManager._transfer_data = {TransferKeys.CHARACTER_ID: str(GameManager.get_party_members()[0])}
-		var screen: Node = load("res://scenes/guild/equipment_screen.tscn").instantiate()
-		get_tree().root.add_child(screen)
-		await get_tree().process_frame
-		await get_tree().process_frame
+	SceneManager._transfer_data = {TransferKeys.CHARACTER_ID: str(GameManager.get_party_members()[0])}
+	var screen: Node = load("res://scenes/guild/equipment_screen.tscn").instantiate()
+	get_tree().root.add_child(screen)
+	await get_tree().process_frame
+	await get_tree().process_frame
 
-		var button: Variant = screen.find_child("OpenInventoryButton", true, false)
-		if not (button is UiButton):
-			push_error("[DebugBoot] 装備画面に OpenInventoryButton が無い")
-			get_tree().root.remove_child(screen)
-			screen.queue_free()
-			continue
-		# ⚠ 2回押す（⚠ 2枚目を作らないか）。
-		(button as UiButton).pressed.emit()
-		await get_tree().process_frame
-		(button as UiButton).pressed.emit()
-		await get_tree().process_frame
-		await get_tree().process_frame
-
-		var windows: Array[Node] = []
-		for child: Node in screen.get_children():
-			if child is InventoryWindow:
-				windows.append(child)
-		print("  [%s] 窓の枚数 = %d（⚠ 1 が正解）" % [mode, windows.size()])
-		if windows.size() != 1:
-			push_error("[DebugBoot] インベントリの窓が %d 枚（%s）" % [windows.size(), mode])
-		else:
-			var window: InventoryWindow = windows[0]
-			var want_native: bool = mode == SaveManager.INVENTORY_MODE_NATIVE
-			print("  [%s] 表示 = %s ／ force_native = %s（⚠ %s が正解） ／ 埋め込み = %s ／ 題 = %s ／ 大きさ = %s ／ マス = %d" % [
-				mode, window.visible, window.force_native, want_native, window.is_embedded(),
-				window.title, window.size, window.grid.get_slot_count(),
-			])
-			if not window.visible or window.force_native != want_native:
-				push_error("[DebugBoot] インベントリの窓が開いていないか、出し方が設定と違う（%s）" % mode)
-			if window.grid.get_slot_count() != GameManager.get_inventory_slots_per_page():
-				push_error("[DebugBoot] 窓のマスの数が1ページのマス数と違う")
-
+	var button: Variant = screen.find_child("OpenInventoryButton", true, false)
+	if not (button is UiButton):
+		push_error("[DebugBoot] 装備画面に OpenInventoryButton が無い")
 		get_tree().root.remove_child(screen)
 		screen.queue_free()
-		await get_tree().process_frame
+		return
+	# ⚠ 2回押す（⚠ 2枚目を作らないか）。
+	(button as UiButton).pressed.emit()
+	await get_tree().process_frame
+	(button as UiButton).pressed.emit()
+	await get_tree().process_frame
+	await get_tree().process_frame
 
-	# ⚠ 元に戻す。
-	if had_file:
-		SaveManager.set_inventory_mode(before)
+	var windows: Array[Node] = []
+	for child: Node in screen.get_children():
+		if child is InventoryWindow:
+			windows.append(child)
+	print("  窓の枚数 = %d（⚠ 1 が正解）" % windows.size())
+	if windows.size() != 1:
+		push_error("[DebugBoot] インベントリの窓が %d 枚" % windows.size())
 	else:
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
-	print("  元に戻した -> ファイルが在るか %s（⚠ %s が正解）" % [FileAccess.file_exists(path), had_file])
+		var window: InventoryWindow = windows[0]
+		print("  表示 = %s ／ force_native = %s（⚠ true が正解） ／ 埋め込み = %s ／ 題 = %s ／ 大きさ = %s ／ マス = %d" % [
+			window.visible, window.force_native, window.is_embedded(),
+			window.title, window.size, window.grid.get_slot_count(),
+		])
+		if not window.visible or not window.force_native:
+			push_error("[DebugBoot] インベントリの窓が開いていないか、OS の別窓になっていない")
+		if window.grid.get_slot_count() != GameManager.get_inventory_slots_per_page():
+			push_error("[DebugBoot] 窓のマスの数が1ページのマス数と違う")
+
+	get_tree().root.remove_child(screen)
+	screen.queue_free()
 
 
 # --- ドラッグで装備（2026-09-15・段3a） ---
@@ -7645,11 +7575,9 @@ func _report_equip_drag() -> void:
 	root.size = Vector2i(1280, 720)
 	await get_tree().process_frame
 
-	var path: String = SaveManager.SETTINGS_PATH
-	var had_file: bool = FileAccess.file_exists(path)
-	var before: String = SaveManager.get_inventory_mode()
-	SaveManager.set_inventory_mode(SaveManager.INVENTORY_MODE_EMBEDDED)
-	print("[DebugBoot] --- ドラッグで装備（ゲームの中） ---")
+	# ⚠ ヘッドレスは OS の窓を作れないので、⚠ インベントリの窓は埋め込みになる
+	#   （⚠ ①〜③ は標準のドラッグ ／ ④ は別窓の道＝落とし先探しを直に呼ぶ）。
+	print("[DebugBoot] --- ドラッグで装備 ---")
 
 	# ⚠ 装備は add_to_inventory() が個体を作る（CLAUDE.md 8番）。
 	# ⚠ ③ で動かす用にもう1本（⚠ 1本だけだと ① で装備したあと窓が空になる・1回目で踏んだ）。
@@ -7664,7 +7592,6 @@ func _report_equip_drag() -> void:
 	print("  個体 = %s ／ 着けるキャラ = %s" % [instance_id, character_id])
 	if character_id == "":
 		push_error("[DebugBoot] 木の剣を着けられるキャラが編成にいない")
-		_restore_settings(had_file, before)
 		return
 
 	SceneManager._transfer_data = {TransferKeys.CHARACTER_ID: character_id}
@@ -7777,7 +7704,6 @@ func _report_equip_drag() -> void:
 
 	root.remove_child(screen)
 	screen.queue_free()
-	_restore_settings(had_file, before)
 
 
 # 押す → 12歩で動かす → 離す。⚠ ドラッグが始まったら true。
@@ -7844,14 +7770,6 @@ func _equip_grid_index_of(character_id: String, slot: String) -> int:
 		if str((slots[i] as Dictionary)[GameManager.SLOT_ENTRY_EQUIP_SLOT]) == slot:
 			return i
 	return -1
-
-
-func _restore_settings(had_file: bool, before: String) -> void:
-	if had_file:
-		SaveManager.set_inventory_mode(before)
-	else:
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveManager.SETTINGS_PATH))
-	print("  設定を元に戻した -> ファイルが在るか %s（⚠ %s が正解）" % [FileAccess.file_exists(SaveManager.SETTINGS_PATH), had_file])
 
 
 # --- つまんだ品のカーソルの絵（2026-09-15・段3b） ---

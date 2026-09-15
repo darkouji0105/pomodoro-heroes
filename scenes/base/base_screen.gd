@@ -17,8 +17,7 @@ const SCREEN_SCENES: Dictionary = {
 	GameStateKeys.SCREEN_ADVENTURE_SELECT: "res://scenes/adventure/adventure_select.tscn",
 	GameStateKeys.SCREEN_GUILD: "res://scenes/guild/guild_screen.tscn",
 	GameStateKeys.SCREEN_POMODORO: "res://scenes/pomodoro/pomodoro.tscn",
-	# ⚠ 2026-09-15 に仮画面から本物へ（⚠ いまは「インベントリの出し方」1項目だけ）。
-	GameStateKeys.SCREEN_SETTINGS: "res://scenes/base/settings_screen.tscn",
+	GameStateKeys.SCREEN_SETTINGS: PLACEHOLDER_PATH,
 	GameStateKeys.SCREEN_SCENARIO: PLACEHOLDER_PATH,
 }
 
