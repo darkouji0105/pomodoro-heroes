@@ -149,6 +149,12 @@ var _debug_panel: CanvasLayer = null
 
 
 func _ready() -> void:
+	# ⚠ 右上の資源（金・ジェム・スタミナ）を隠す（2026-09-16・人間の決定
+	#   「スタミナの表示はいらない」→「戦闘中だけ右上の資源ごと消す」）。
+	#   ⚠ ポモドーロと同じ形。⚠ 戻すのは `SceneManager` の役目（⚠ 画面を変えるたびに既定へ戻る）。
+	#   ⚠ ここで戻そうとしないこと。
+	ResourceHud.set_shown(false)
+
 	# ⚠ 先に見た目を当てる。⚠ _init_party_units() が並び始めの位置を使う。
 	_apply_hud_theme()
 
