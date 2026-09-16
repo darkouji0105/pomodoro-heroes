@@ -113,10 +113,16 @@ static func _enqueue(
 
 
 static func _show(item: Dictionary) -> void:
-	var caller: Node = item.get("caller")
-	if caller == null or not is_instance_valid(caller):
+	# ⚠⚠ 型付きの変数へ先に入れない（2026-09-16）。⚠ 呼び出し元が既に消えていると、
+	#   ⚠ `is_instance_valid()` で確かめる前の**代入そのもの**が赤になる
+	#   （⚠ "Trying to assign invalid previously freed instance"）。
+	var caller_value: Variant = item.get("caller")
+	# ⚠ `is` も消えたインスタンスには使えない（⚠ "Left operand of 'is' is a previously freed instance"）。
+	#   ⚠ 生きているかを先に見る（⚠ `is_instance_valid()` は消えていても安全）。
+	if not is_instance_valid(caller_value) or not (caller_value is Node):
 		_free_item(item)
 		return
+	var caller: Node = caller_value
 	var tree: SceneTree = caller.get_tree()
 	if tree == null:
 		_free_item(item)
@@ -172,11 +178,14 @@ static func _drain_queue() -> void:
 		return
 	var item: Dictionary = _queue.pop_front()
 
-	var caller: Node = item.get("caller")
-	if caller == null or not is_instance_valid(caller):
+	# ⚠ 上の `_show()` と同じ理由で、⚠ 確かめてから型付きの変数へ入れる。
+	var caller_value: Variant = item.get("caller")
+	# ⚠ 上の `_show()` と同じ。⚠ 生きているかを先に見てから `is` を使う。
+	if not is_instance_valid(caller_value) or not (caller_value is Node):
 		_free_item(item)
 		_discard_queue()
 		return
+	var caller: Node = caller_value
 	var tree: SceneTree = caller.get_tree()
 	if tree == null:
 		_free_item(item)

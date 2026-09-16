@@ -7563,6 +7563,28 @@ func _report_base_chest() -> void:
 	await get_tree().process_frame
 	checks.append(["④ 閉じると消える", base.find_child("ChestPanel", false, false) == null])
 
+	# ⑤ ⚠ 順番待ちのモーダルの呼び出し元が先に消えても赤を出さない（`modal.gd` の穴・2026-09-16）。
+	#   ⚠ 画面からは踏めない順番（⚠ 窓が出ている間は後ろを押せない）。⚠ ここでは合図を直に出して作る。
+	for chest_id: Variant in MasterDataLoader.get_all_chests().keys():
+		for attempt: int in range(20):
+			if GameManager.grant_chest(str(chest_id), "debug_boot"):
+				break
+	badge.pressed.emit()
+	await get_tree().process_frame
+	var panel2: ChestPanel = base.find_child("ChestPanel", false, false) as ChestPanel
+	var list2: Node = panel2.find_child("ChestList", true, false)
+	# ⚠ 1つ開けて窓を出し、⚠ 閉じずに「すべて開ける」で2枚目を順番待ちに積む。
+	(list2.get_child(0).find_child("OpenButton", true, false) as UiButton).pressed.emit()
+	await get_tree().process_frame
+	(panel2.find_child("OpenAllButton", true, false) as UiButton).pressed.emit()
+	await get_tree().process_frame
+	# ⚠ 呼び出し元（一覧）を先に消してから、⚠ 1枚目を閉じる → 順番待ちが出ようとする。
+	panel2.close()
+	await get_tree().process_frame
+	await _close_current_modal()
+	checks.append(["⑤ 呼び出し元が消えた順番待ちでも赤を出さない（残り %d）" % Modal._queue.size(), Modal._queue.is_empty()])
+	await _close_current_modal()
+
 	for check: Variant in checks:
 		print("  %s = %s（⚠ true が正解）" % [(check as Array)[0], (check as Array)[1]])
 		if not bool((check as Array)[1]):
