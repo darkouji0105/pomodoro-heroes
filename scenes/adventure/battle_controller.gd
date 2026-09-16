@@ -37,7 +37,6 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
 const DEBUG_PANEL_SCRIPT: GDScript = preload("res://scenes/adventure/battle_debug_panel.gd")
 const PROJECTILE_VIEW_SCRIPT: GDScript = preload("res://scenes/adventure/projectile_view.gd")
-const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
 
 # チャージゲージの色（本タスク限定の例外。main_theme.tres に対応する概念が無い）
 const CHARGE_COLOR_NORMAL: Color = Color(0.6, 0.7, 0.9)
@@ -1253,9 +1252,19 @@ func _build_skill_buttons() -> void:
 			# 発動の型は activation を見る。charge 欄の有無で分岐しないこと（PLAN 8章）。
 			var activation: String = str(skill_data.get("activation", SkillSchema.ACTIVATION_INSTANT))
 
-			var button: Button = UI_BUTTON_SCENE.instantiate()
-			# label_key は使わない。残り秒数やチャージ時間を混ぜるため text を直接扱う。
-			button.text = tr(str(skill_data.get("name_key", "")))
+			# ⚠⚠ 2026-09-16：文字のボタンをやめて絵のマス（`SkillTile`）にした（モック §7）。
+			#   ⚠ 型は activation から決める。⚠ `toggle` はまだ実行時に動かないので
+			#   ⚠ 通常CDとして描く（⚠ 実データ0件）。
+			var tile_kind: SkillTile.Kind = SkillTile.Kind.COOLDOWN
+			if activation == SkillSchema.ACTIVATION_CHARGE and not charge.is_empty():
+				tile_kind = SkillTile.Kind.CHARGE
+			elif activation == SkillSchema.ACTIVATION_RECAST:
+				tile_kind = SkillTile.Kind.RECAST
+			var button: SkillTile = SkillTile.new()
+			button.setup(
+				tile_kind, skill_id, tr(str(skill_data.get("name_key", ""))),
+				slot.get_theme_constant(&"skill_size", hud)
+			)
 			skill_row.add_child(button)
 
 			# チャージスキルだけゲージを足す。
@@ -1284,6 +1293,11 @@ func _build_skill_buttons() -> void:
 					unit.get_stat(GameStateKeys.STAT_HASTE)
 				),
 				"charge": charge,
+				# ⚠ recast の窓の長さと段の数（⚠ マスの層と右上の数字に使う）。
+				"recast_window_sec": float(
+					(skill_data.get("recast", {}) as Dictionary).get("window_sec", 0.0)
+				) if skill_data.get("recast", null) is Dictionary else 0.0,
+				"phase_count": SkillSchema.phase_count(skill_data),
 			}
 			_skill_buttons.append(entry)
 
@@ -1374,11 +1388,11 @@ func _update_skill_buttons() -> void:
 	var charging_entry: Variant = _charging.get("entry", null)
 	for entry in _skill_buttons:
 		var button: Variant = entry.get("button", null)
-		if not (button is Button) or not is_instance_valid(button):
+		if not (button is SkillTile) or not is_instance_valid(button):
 			continue
+		var tile: SkillTile = button as SkillTile
 		var user: BattleUnit = entry.get("user", null)
 		var skill_id: String = str(entry.get("skill_id", ""))
-		var name_key: String = str(entry.get("name_key", ""))
 
 		var remaining: float = 0.0
 		var alive: bool = false
@@ -1386,45 +1400,36 @@ func _update_skill_buttons() -> void:
 		#   回っていてもボタンを押せる状態に保つこと。disabled にすると、判定
 		#   （blocked_reason）を通しても押せず、再発動が無音でできなくなる。
 		var recast_left: float = 0.0
+		var phases_left: int = 0
 		if user != null:
 			remaining = user.get_cooldown(skill_id)
 			alive = user.is_alive()
-			if user.recast_phase(skill_id) >= 0:
+			var phase: int = user.recast_phase(skill_id)
+			if phase >= 0:
 				recast_left = user.recast_remaining(skill_id)
+				# ⚠ phase は「次に出す段」の番号。⚠ 残りの回数は 段の数 − 次の段。
+				phases_left = maxi(int(entry.get("phase_count", 1)) - phase, 0)
 
-		if entry == charging_entry:
+		var charging: bool = entry == charging_entry
+		var in_just: bool = false
+		if charging:
 			# チャージ中はボタンを押しっぱなしなので disabled にしない。
 			# disabled にすると button_up が飛ばず、離しても発動しなくなる。
 			var t: float = float(_charging.get("time", 0.0))
-			button.text = "%s %.2f%s" % [tr(name_key), t, _just_suffix(entry, t)]
-			button.disabled = false
+			in_just = _is_just(entry, t)
+			tile.disabled = false
 			_update_charge_gauge(entry, t)
-			continue
-
-		_update_charge_gauge(entry, 0.0)
-
-		if recast_left > 0.0:
-			# 構え中。⚠ 出すのはクールダウンではなく残りの窓（押せる時間）。
-			button.text = "%s ▶%.1f" % [tr(name_key), recast_left]
-		elif remaining > 0.0:
-			button.text = "%s (%.1f)" % [tr(name_key), remaining]
 		else:
-			button.text = tr(name_key)
+			_update_charge_gauge(entry, 0.0)
+			tile.disabled = (not active) or (not alive) or (remaining > 0.0 and recast_left <= 0.0)
 
-		button.disabled = (not active) or (not alive) or (remaining > 0.0 and recast_left <= 0.0)
-
-
-# ジャストの窓に入っているあいだだけボタンに出す目印。
-# 1秒を目で測るのは無理なので、フィードバックが無いと当てられない。
-func _just_suffix(entry: Dictionary, t: float) -> String:
-	var charge: Dictionary = entry.get("charge", {})
-	if charge.is_empty():
-		return ""
-	var just_sec: float = float(charge.get("just_sec", 1.0))
-	var window: float = float(charge.get("just_window_sec", 0.15))
-	if absf(t - just_sec) <= window:
-		return "  JUST"
-	return ""
+		# ⚠ 「押せない」の見た目は戦闘不能のときだけ（モック §6）。
+		#   ⚠ クールダウン中も disabled だが、⚠ そちらは段の色で見せる。
+		tile.set_state(
+			not alive, remaining, float(entry.get("cooldown_sec", 0.0)),
+			charging, in_just,
+			recast_left, float(entry.get("recast_window_sec", 0.0)), phases_left,
+		)
 
 
 # チャージの進み具合をゲージに反映する。

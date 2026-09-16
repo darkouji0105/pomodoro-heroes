@@ -176,6 +176,10 @@ func _ready() -> void:
 	_add_heading("ui_uitest_buttons")
 	_build_button_catalog()
 
+	_add_heading("ui_uitest_skill_tiles")
+	_add_note("ui_uitest_skill_tiles_note")
+	_build_skill_tile_catalog()
+
 	_add_heading("ui_uitest_settings")
 	_build_settings_catalog()
 
@@ -411,6 +415,51 @@ func _build_button_catalog() -> void:
 	wide.clip_text = true
 	extra.add_child(wide)
 	layout.add_child(extra)
+
+
+# ⚠⚠ 戦闘のスキルのマス（2026-09-16・人間のモック §13「各部品を作ったら実例を足す」）。
+#
+# ⚠ 1行が1種。⚠ 状態は `set_state()` を1回だけ呼んで**止めた姿**を見せる
+#   （⚠ 明けた瞬間の光・段が進んだ瞬間の明るさは動きなので、⚠ ここでは出ない。戦闘で見る）。
+# ⚠ 秒と回数は見本の数字（⚠ バランス数値ではない）。
+func _build_skill_tile_catalog() -> void:
+	var size_px: int = layout.get_theme_constant(&"skill_size", &"BattleHud")
+	# [種, 戦闘不能, 残りCD, CDの長さ, 溜め中, 窓の中, 構えの残り, 窓の長さ, 残りの段]
+	var rows: Array = [
+		["Cooldown", SkillTile.Kind.COOLDOWN, "skill_power_slash", [
+			[false, 20.0, 20.0, false, false, 0.0, 0.0, 0],
+			[false, 14.0, 20.0, false, false, 0.0, 0.0, 0],
+			[false, 9.0, 20.0, false, false, 0.0, 0.0, 0],
+			[false, 4.0, 20.0, false, false, 0.0, 0.0, 0],
+			[false, 1.2, 20.0, false, false, 0.0, 0.0, 0],
+			[false, 0.0, 20.0, false, false, 0.0, 0.0, 0],
+			[true, 0.0, 20.0, false, false, 0.0, 0.0, 0],
+		]],
+		["Charge", SkillTile.Kind.CHARGE, "skill_snipe", [
+			[false, 0.0, 8.0, false, false, 0.0, 0.0, 0],
+			[false, 0.0, 8.0, true, false, 0.0, 0.0, 0],
+			[false, 0.0, 8.0, true, true, 0.0, 0.0, 0],
+			[false, 5.0, 8.0, false, false, 0.0, 0.0, 0],
+		]],
+		["Recast", SkillTile.Kind.RECAST, "skill_wide_sweep", [
+			[false, 0.0, 6.0, false, false, 0.0, 0.0, 0],
+			[false, 0.0, 6.0, false, false, 2.6, 3.0, 3],
+			[false, 0.0, 6.0, false, false, 1.0, 3.0, 1],
+			[false, 4.0, 6.0, false, false, 0.0, 0.0, 0],
+		]],
+	]
+	for row_spec: Array in rows:
+		var row: HBoxContainer = HBoxContainer.new()
+		row.name = "SkillTiles_" + str(row_spec[0])
+		row.theme_type_variation = &"BattleSkillRow"
+		for state: Array in (row_spec[3] as Array):
+			var tile: SkillTile = SkillTile.new()
+			tile.setup(row_spec[1], str(row_spec[2]), str(row_spec[0]), size_px)
+			row.add_child(tile)
+			tile.set_state(
+				state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7]
+			)
+		layout.add_child(row)
 
 
 func _make_button(

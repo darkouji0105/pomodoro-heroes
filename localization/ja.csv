@@ -933,3 +933,5 @@ ui_stat_node_spent,振り分け済み
 ui_stat_node_add,＋
 ui_battle_layer,%d層
 ui_battle_wave,波
+ui_uitest_skill_tiles,戦闘のスキルのマス
+ui_uitest_skill_tiles_note,"上から 通常CD（残り 20/14/9/4/1.2秒・待機・戦闘不能）／チャージ（待機・溜め中・窓の中・CD中）／recast（待機・構え残り3回・残り1回・CD中）"

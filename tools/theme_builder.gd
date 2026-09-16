@@ -382,6 +382,66 @@ const BATTLE_BODY_ENEMY_FG: String = "ecbcbc"
 const BATTLE_BODY_BOSS_BG: String = "4a2a3a"
 const BATTLE_BODY_BOSS_FG: String = "ecbcd4"
 
+# --- 戦闘のスキルのマス（2026-09-16・人間のモック §7・§8・§10）---
+#
+# ⚠⚠ 3種が同じ 38px のマスに同居する。⚠ **動きの向きで区別する**（⚠ 色は補助）。
+#   ⚠ 通常CD＝面が下から明るくなる ／ ⚠ チャージ＝枠が青→琥珀 ／ ⚠ recast＝面が上から減る。
+# ⚠ 大きさは `BattleHud` の `skill_size`（⚠ ここに2つ目を持たない）。
+# ⚠ `toggle` は**作っていない**（⚠ 実データ0件・実行時に動かない。⚠ 決定は台帳 §0-UI-F）。
+const SKILL_CORNER: int = 8
+const SKILL_ICON: int = 20
+const SKILL_BORDER: int = 1
+const SKILL_BORDER_STRONG: int = 2
+const SKILL_NUMBER_SIZE: int = 14
+const SKILL_CORNER_NUMBER_SIZE: int = 10
+const SKILL_MARK_SIZE: int = 9
+# ⚠ 秒は Theme の定数が int しか持てないのでミリ秒で持つ。
+const SKILL_FLASH_MS: int = 600
+const SKILL_PULSE_MS: int = 200
+# ⚠ 残り何秒を切ったら数字を琥珀にするか（モック §8「残り2秒の予告」）。
+const SKILL_WARN_MS: int = 2000
+# ⚠ クールダウンの幕の濃さ（百分率。⚠ モックは rgba(0,0,0,.55)）。
+const SKILL_VEIL_PERCENT: int = 55
+# ⚠ 右上の数字・右下の目印を角から離す距離。
+const SKILL_CORNER_PAD: int = 3
+# ⚠ 通常CDの段の境（⚠ 残りの割合の百分率・大きい順）。
+const SKILL_CD_EDGES: Array[int] = [75, 50, 25]
+
+# ⚠ 通常CDは残りで5段、⚠ 地・枠・絵の色が一緒に明るくなる（モック §8 の表）。
+#   ⚠ 段0＝100–75% ／ 1＝75–50% ／ 2＝50–25% ／ 3＝25%–残り2秒 ／ 4＝残り2秒未満。
+const SKILL_CD_STAGES: Array[Dictionary] = [
+	{"bg": "1a1614", "border": "2a2320", "icon": "4a423d"},
+	{"bg": "1c1715", "border": "2a2320", "icon": "5a4f49"},
+	{"bg": "1f1a17", "border": "332b27", "icon": "6e625c"},
+	{"bg": "221c19", "border": "3d332e", "icon": "8a7d76"},
+	{"bg": "241d1a", "border": "4a3d36", "icon": "c2b4ac"},
+]
+const SKILL_CD_NUMBER: String = "e0d5ce"
+const SKILL_CD_NUMBER_NEAR: String = "efe6e0"
+const SKILL_CD_NUMBER_WARN: String = "efc775"
+# ⚠ 待機（撃てる）。
+const SKILL_READY_BG: String = "241d1a"
+const SKILL_READY_BORDER: String = "4a3d36"
+const SKILL_READY_ICON: String = "e0d5ce"
+# ⚠ 明けた瞬間だけ光る枠（モック §8「復帰の演出」）。
+const SKILL_FLASH: String = "f0c04a"
+# ⚠ 押せない（戦闘不能・戦闘の外）。⚠ モック §6 の戦闘不能と同じ値。
+const SKILL_OFF_BG: String = "1c1715"
+const SKILL_OFF_BORDER: String = "2a2320"
+const SKILL_OFF_ICON: String = "3f3835"
+# ⚠ チャージ（モック §9-7）。⚠ 溜めている間は枠 2px、⚠ ジャストの窓の中は琥珀。
+const SKILL_CHARGE_BORDER: String = "58a7ee"
+const SKILL_CHARGE_JUST: String = "f0c04a"
+# ⚠ recast（モック §10）。⚠ 待機中から枠 2px の青緑。⚠ 段が進んだ瞬間だけ明るく。
+const SKILL_RECAST_BG: String = "16231f"
+const SKILL_RECAST_BORDER: String = "3f9c7a"
+const SKILL_RECAST_ICON: String = "7fd9b4"
+const SKILL_RECAST_LAYER_PERCENT: int = 18
+const SKILL_RECAST_PULSE_BG: String = "1d2a23"
+const SKILL_RECAST_PULSE_BORDER: String = "6fd4ae"
+const SKILL_RECAST_PULSE_ICON: String = "a8ecd0"
+const SKILL_RECAST_PULSE_LAYER_PERCENT: int = 40
+
 # --- 面（PanelContainer）---
 
 const PANEL_BG: String = "241d1a"
@@ -504,6 +564,7 @@ static func build() -> void:
 	_build_pomodoro(theme)
 	_build_stat_nodes(theme)
 	_build_battle(theme)
+	_build_skill_tile(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -970,6 +1031,60 @@ static func _build_battle(theme: Theme) -> void:
 	theme.set_color(&"fg_enemy", &"CharacterAvatar", _html(BATTLE_BODY_ENEMY_FG))
 	theme.set_color(&"bg_boss", &"CharacterAvatar", _html(BATTLE_BODY_BOSS_BG))
 	theme.set_color(&"fg_boss", &"CharacterAvatar", _html(BATTLE_BODY_BOSS_FG))
+
+
+# ⚠ 戦闘のスキルのマス（`SkillTile` 型・2026-09-16）。
+static func _build_skill_tile(theme: Theme) -> void:
+	var t: StringName = &"SkillTile"
+	var numbers: Dictionary = {
+		"corner_radius": SKILL_CORNER,
+		"icon": SKILL_ICON,
+		"border": SKILL_BORDER,
+		"border_strong": SKILL_BORDER_STRONG,
+		"number_size": SKILL_NUMBER_SIZE,
+		"corner_number_size": SKILL_CORNER_NUMBER_SIZE,
+		"mark_size": SKILL_MARK_SIZE,
+		"flash_ms": SKILL_FLASH_MS,
+		"pulse_ms": SKILL_PULSE_MS,
+		"warn_ms": SKILL_WARN_MS,
+		"veil_percent": SKILL_VEIL_PERCENT,
+		"recast_layer_percent": SKILL_RECAST_LAYER_PERCENT,
+		"recast_pulse_layer_percent": SKILL_RECAST_PULSE_LAYER_PERCENT,
+		"cd_stage_count": SKILL_CD_STAGES.size(),
+		"corner_pad": SKILL_CORNER_PAD,
+	}
+	for key: String in numbers.keys():
+		theme.set_constant(StringName(key), t, int(numbers[key]))
+
+	for i: int in range(SKILL_CD_EDGES.size()):
+		theme.set_constant(StringName("cd_edge_%d" % i), t, SKILL_CD_EDGES[i])
+	for i: int in range(SKILL_CD_STAGES.size()):
+		var stage: Dictionary = SKILL_CD_STAGES[i]
+		for part: String in ["bg", "border", "icon"]:
+			theme.set_color(StringName("cd%d_%s" % [i, part]), t, _html(str(stage[part])))
+
+	var colors: Dictionary = {
+		"cd_number": SKILL_CD_NUMBER,
+		"cd_number_near": SKILL_CD_NUMBER_NEAR,
+		"cd_number_warn": SKILL_CD_NUMBER_WARN,
+		"ready_bg": SKILL_READY_BG,
+		"ready_border": SKILL_READY_BORDER,
+		"ready_icon": SKILL_READY_ICON,
+		"flash": SKILL_FLASH,
+		"off_bg": SKILL_OFF_BG,
+		"off_border": SKILL_OFF_BORDER,
+		"off_icon": SKILL_OFF_ICON,
+		"charge_border": SKILL_CHARGE_BORDER,
+		"charge_just": SKILL_CHARGE_JUST,
+		"recast_bg": SKILL_RECAST_BG,
+		"recast_border": SKILL_RECAST_BORDER,
+		"recast_icon": SKILL_RECAST_ICON,
+		"recast_pulse_bg": SKILL_RECAST_PULSE_BG,
+		"recast_pulse_border": SKILL_RECAST_PULSE_BORDER,
+		"recast_pulse_icon": SKILL_RECAST_PULSE_ICON,
+	}
+	for key: String in colors.keys():
+		theme.set_color(StringName(key), t, _html(str(colors[key])))
 
 
 static func _html(hex: String) -> Color:

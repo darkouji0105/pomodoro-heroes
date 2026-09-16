@@ -36,6 +36,11 @@ const ENEMY_FALLBACK: String = "👿"
 ## ⚠ 召喚（summons.json）。⚠ 敵味方どちらにも出る。
 const SUMMON: String = "👻"
 
+# --- 戦闘のスキルのマス（2026-09-16・人間のモック §7）---
+## ⚠ チャージ型の目印（⚠ マスの右下に小さく出す）。⚠ 押してから「これチャージ型だった」と
+##   ⚠ 気づくのでは遅いので、⚠ 待機中から種別が分かるようにする。
+const SKILL_CHARGE_MARK: String = "👆"
+
 # --- アイテム（items.json） ---
 #
 # ⚠⚠ item_id ごとではなく「種類ごと」に持つ。⚠ 91件ぶんの表を作らない。
@@ -295,6 +300,7 @@ static func all_for_check() -> Dictionary:
 		"ENEMY_BOSS_SLIME_KING": ENEMY_BOSS_SLIME_KING,
 		"ENEMY_FALLBACK": ENEMY_FALLBACK,
 		"SUMMON": SUMMON,
+		"SKILL_CHARGE_MARK": SKILL_CHARGE_MARK,
 		"ITEM_WEAPON": ITEM_WEAPON,
 		"ITEM_HEAD": ITEM_HEAD,
 		"ITEM_ARMOR": ITEM_ARMOR,
