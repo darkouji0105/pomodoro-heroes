@@ -38,36 +38,50 @@ layout_mode = 2
 layout_mode = 2
 title_key = "ui_equipment_title"
 
-[node name="NameLabel" type="Label" parent="Margin/Layout" unique_id=1453819280]
+[node name="Body" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"WideRow"
+
+[node name="Left" type="VBoxContainer" parent="Margin/Layout/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NameLabel" type="Label" parent="Margin/Layout/Body/Left" unique_id=1453819280]
 layout_mode = 2
 
-[node name="StatsLabel" type="Label" parent="Margin/Layout" unique_id=53264659]
+[node name="StatsLabel" type="Label" parent="Margin/Layout/Body/Left" unique_id=53264659]
 layout_mode = 2
 
-[node name="MaterialLabel" type="Label" parent="Margin/Layout" unique_id=1789292108]
+[node name="Right" type="VBoxContainer" parent="Margin/Layout/Body"]
 layout_mode = 2
+size_flags_horizontal = 3
 
-[node name="Scroll" type="ScrollContainer" parent="Margin/Layout" unique_id=2040894243]
+[node name="MaterialLabel" type="Label" parent="Margin/Layout/Body/Right" unique_id=1789292108]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/Layout/Body/Right" unique_id=2040894243]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Content" type="VBoxContainer" parent="Margin/Layout/Scroll" unique_id=226809608]
+[node name="Content" type="VBoxContainer" parent="Margin/Layout/Body/Right/Scroll" unique_id=226809608]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="SlotHeader" type="Label" parent="Margin/Layout/Scroll/Content" unique_id=645636650]
+[node name="SlotHeader" type="Label" parent="Margin/Layout/Body/Right/Scroll/Content" unique_id=645636650]
 layout_mode = 2
 text = "ui_equipment_slot_header"
 
-[node name="SlotList" type="VBoxContainer" parent="Margin/Layout/Scroll/Content" unique_id=1734537183]
+[node name="SlotList" type="VBoxContainer" parent="Margin/Layout/Body/Right/Scroll/Content" unique_id=1734537183]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ItemHeader" type="Label" parent="Margin/Layout/Scroll/Content" unique_id=839724309]
+[node name="ItemHeader" type="Label" parent="Margin/Layout/Body/Right/Scroll/Content" unique_id=839724309]
 layout_mode = 2
 text = "ui_equipment_owned_header"
 
-[node name="ItemList" type="VBoxContainer" parent="Margin/Layout/Scroll/Content" unique_id=1203795758]
+[node name="ItemList" type="VBoxContainer" parent="Margin/Layout/Body/Right/Scroll/Content" unique_id=1203795758]
 layout_mode = 2
 size_flags_horizontal = 3
 

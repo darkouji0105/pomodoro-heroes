@@ -7718,7 +7718,12 @@ func _report_equip_drag() -> void:
 	await get_tree().process_frame
 	var root: Window = get_tree().root
 	# ⚠ ヘッドレスの root は 64 x 64（⚠ subwindow_drag で踏んだ）。
-	root.size = Vector2i(1280, 720)
+	# ⚠⚠ 基準より横に広くする（2026-09-16）。⚠ 装備画面が左右2列になり、⚠ 装備マスが右半分へ移ったので、
+	#   ⚠ 1280 幅だと倉庫の窓（838）が装備マスに重なり、⚠ 落とした先が窓自身になる（⚠ 1回目で踏んだ）。
+	# ⚠⚠ **高さは基準の 720 のまま**にすること（⚠ 2回目で踏んだ）。⚠ stretch が canvas_items なので、
+	#   ⚠ 高さを変えると拡大率が 1 でなくなり、⚠ push_input に渡す位置と画面の座標がずれる
+	#   （⚠ 横だけ広げるぶんには拡大率 1 のまま＝`aspect = expand`）。
+	root.size = Vector2i(2200, 720)
 	await get_tree().process_frame
 
 	# ⚠ ヘッドレスは OS の窓を作れないので、⚠ インベントリの窓は埋め込みになる
@@ -7741,8 +7746,14 @@ func _report_equip_drag() -> void:
 		return
 
 	SceneManager._transfer_data = {TransferKeys.CHARACTER_ID: character_id}
-	var screen: Node = load("res://scenes/guild/equipment_screen.tscn").instantiate()
+	var screen: Control = load("res://scenes/guild/equipment_screen.tscn").instantiate()
 	root.add_child(screen)
+	# ⚠⚠ 装備画面を左に寄せて幅 900 にする（2026-09-16・人間の了解）。⚠ 画面は左右2列で、
+	#   ⚠ 装備マスは右の列に在る。⚠ 画面いっぱいに広げると、⚠ 装備マスが倉庫の窓（838 幅）に近づいて
+	#   ⚠ 落とした先が窓になる（⚠ 画面を広げるほど右列も右へ動く）。⚠ 本番の作りは変えていない。
+	screen.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	screen.position = Vector2.ZERO
+	screen.size = Vector2(900, 720)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	# ⚠ 倉庫の窓は SceneManager が起動時に作っている（⚠ 右上の「倉庫」ボタンと同じ口で開く）。
@@ -7753,8 +7764,8 @@ func _report_equip_drag() -> void:
 		InventoryWindow.toggle()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	# ⚠ 真ん中に出ると装備マスに被ることがあるので、⚠ 右へ寄せる（⚠ 倉庫は横に広い）。
-	window.position = Vector2i(400, 10)
+	# ⚠ 装備マス（右半分）に被らない場所へ置く（⚠ 倉庫は 838 幅）。
+	window.position = Vector2i(1300, 10)
 	await get_tree().process_frame
 	await get_tree().process_frame
 

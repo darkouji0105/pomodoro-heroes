@@ -22,15 +22,18 @@ const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_butt
 const DRAG_GROUP_EQUIPMENT: String = "equipment"
 
 # --- ノード参照 ---
-@onready var name_label: Label = $Margin/Layout/NameLabel
-@onready var stats_label: Label = $Margin/Layout/StatsLabel
+# ⚠⚠ 2026-09-16：⚠ **左がステータス、右が装備関連**の2列にした（人間の指示
+#   「⚠ ステータスだけで画面の大半が埋まるので、⚠ ステータスを左半分 装備関連を右半分で」）。
+#   ⚠ 器は `Body`（左 `Left` ／ 右 `Right`）。⚠ スクロールは右だけ。
+@onready var name_label: Label = $Margin/Layout/Body/Left/NameLabel
+@onready var stats_label: Label = $Margin/Layout/Body/Left/StatsLabel
 # ⚠ ステータスの行の置き場（2026-09-09）。⚠ `.tscn` を触らずコードで作る
 #   （⚠ プリセットの行と同じ流儀）。
 @onready var stats_rows: VBoxContainer = _make_stats_rows()
-@onready var material_label: Label = $Margin/Layout/MaterialLabel
-@onready var slot_list: VBoxContainer = $Margin/Layout/Scroll/Content/SlotList
-@onready var item_header: Label = $Margin/Layout/Scroll/Content/ItemHeader
-@onready var item_list: VBoxContainer = $Margin/Layout/Scroll/Content/ItemList
+@onready var material_label: Label = $Margin/Layout/Body/Right/MaterialLabel
+@onready var slot_list: VBoxContainer = $Margin/Layout/Body/Right/Scroll/Content/SlotList
+@onready var item_header: Label = $Margin/Layout/Body/Right/Scroll/Content/ItemHeader
+@onready var item_list: VBoxContainer = $Margin/Layout/Body/Right/Scroll/Content/ItemList
 @onready var notice_label: Label = $Margin/Layout/NoticeLabel
 # ⚠ 題と戻るは `ScreenHeader` が持つ（2026-09-09）。⚠ ボタンを直接掴まない
 #   （⚠ 掴むと、⚠ 部品の作りを変えるたびに画面ぜんぶを直すことになる）。
@@ -122,10 +125,11 @@ func _build_preset_row() -> void:
 	apply.pressed.connect(_on_apply_pressed)
 	row.add_child(apply)
 
-	var layout: Node = name_label.get_parent()
-	layout.add_child(row)
-	# ⚠ add_child は末尾に付くので、必ず移動させる（ステータス表示の手前へ）。
-	layout.move_child(row, stats_label.get_index())
+	# ⚠ 2026-09-16：⚠ ビルドは装備関連なので**右の列の一番上**（⚠ 左はステータスだけ）。
+	var right: Node = material_label.get_parent()
+	right.add_child(row)
+	# ⚠ add_child は末尾に付くので、必ず移動させる。
+	right.move_child(row, 0)
 
 
 # 選択肢の「（空き）」表示を、いまの保存状態に合わせて作り直す。
