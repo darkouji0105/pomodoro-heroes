@@ -6,19 +6,27 @@ extends Node2D
 # フェーズ2（スキル・ボス）＋チャージスキル・3列レイアウト・
 # 勝利時のスタミナ消費を反映済み。
 
-# ユニットを並べる y 位置。
-# 画面下部はスキルボタン3列ぶんの高さを使うため、その上に収まる位置に置く。
-const GROUND_Y: float = 240.0
-# 味方の初期 X 位置
-const PARTY_BASE_X: float = 200.0
-const PARTY_STEP_X: float = 100.0
-# 敵の初期 X 位置
-const ENEMY_BASE_X: float = 900.0
-const ENEMY_STEP_X: float = 100.0
+# ⚠⚠ ユニットを並べる座標は **Theme（`BattleHud`）が持つ**（2026-09-16）。
+#   ⚠ ここに const で書かないこと（AGENTS.md「見た目の値を持つのは theme_builder と
+#   ⚠ main_theme.tres だけ」）。⚠ 引くのは子の Control から（Node2D は引けない）。
+# ⚠ 持っているのは**並び始めの位置**だけ。⚠ 戦闘が始まると `_step_unit()` が
+#   `unit.x += dir * speed * delta` で寄せるので、⚠ 毎フレームの位置ではない。
+# ⚠ 味方は中央の線の左、敵は右。⚠ どちらも線に向かって並ぶ（モック §2）。
+var _ground_y: float = 0.0
+var _party_base_x: float = 0.0
+var _party_step_x: float = 0.0
+var _enemy_base_x: float = 0.0
+var _enemy_step_x: float = 0.0
+
 # 移動系ルーンで出られる範囲（段階8）。⚠ 画面幅は 1280。
-# ⚠ バランス数値ではなく画面の端なので、上の座標の定数と同じ場所に置く。
+# ⚠ バランス数値ではなく画面の端なので、上の座標と同じ場所に置く。
 const RUNE_MOVE_MIN_X: float = 40.0
 const RUNE_MOVE_MAX_X: float = 1240.0
+# ⚠ 画面の基準の幅。⚠ 中央の線はここの半分に立つ（`project.godot` の window/size）。
+const SCREEN_WIDTH: float = 1280.0
+# ⚠ 1陣営に並ぶ上限。⚠ 味方は3枠固定、敵は波の定義しだいだが、
+#   ⚠ 「線から何番目か」を数えるのに要る（⚠ 味方は線に近いほうが index の大きいほう）。
+const PARTY_SLOT_COUNT: int = 3
 
 # フロアから来たときの戻り先（段階14-c）。
 const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
@@ -57,13 +65,19 @@ const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
 # ノード参照
 @onready var party_container: Node2D = $PartyUnitsContainer
 @onready var enemy_container: Node2D = $EnemyUnitsContainer
-@onready var wave_label: Label = $HUD/WaveLabel
-@onready var skill_buttons_container: HBoxContainer = $HUD/SkillButtons
-@onready var result_view: Control = $ResultView
-@onready var result_label: Label = $ResultView/ResultLabel
-@onready var reward_label: Label = $ResultView/RewardLabel
-@onready var retry_button: Button = $ResultView/RetryButton
-@onready var back_button: Button = $ResultView/BackButton
+@onready var hud_layout: VBoxContainer = $HUD/Root/Layout
+@onready var header_panel: PanelContainer = $HUD/Root/Layout/Header
+@onready var floor_label: Label = $HUD/Root/Layout/Header/HeaderMargin/HeaderRow/FloorLabel
+@onready var wave_label: Label = $HUD/Root/Layout/Header/HeaderMargin/HeaderRow/WaveLabel
+@onready var field_area: Control = $HUD/Root/Layout/Field
+@onready var center_line: ColorRect = $HUD/Root/Layout/Field/CenterLine
+@onready var bottom_panel: PanelContainer = $HUD/Root/Layout/BottomPanel
+@onready var skill_buttons_container: HBoxContainer = $HUD/Root/Layout/BottomPanel/SkillButtons
+@onready var result_view: Control = $HUD/ResultView
+@onready var result_label: Label = $HUD/ResultView/ResultLabel
+@onready var reward_label: Label = $HUD/ResultView/RewardLabel
+@onready var retry_button: Button = $HUD/ResultView/RetryButton
+@onready var back_button: Button = $HUD/ResultView/BackButton
 
 # データ
 var _stage_id: String = "floor_1"
@@ -133,6 +147,9 @@ var _debug_panel: CanvasLayer = null
 
 
 func _ready() -> void:
+	# ⚠ 先に見た目を当てる。⚠ _init_party_units() が並び始めの位置を使う。
+	_apply_hud_theme()
+
 	# 起動時に SceneManager から transfer_data を 1 回だけ取り出す。
 	# 2 回呼ぶと 2 回目は空 dict になる。
 	var data: Dictionary = SceneManager.consume_transfer_data()
@@ -198,6 +215,47 @@ func _ready() -> void:
 	_enter_wave_intro()
 
 
+# ⚠⚠ 見た目の値を Theme から当てる（2026-09-16・人間のモック「戦闘まわり UI 決定」）。
+#
+# ⚠ この画面は `Node2D` なので `get_theme_*()` を持たない。⚠ 引くのは**子の Control**
+#   （`header_panel`）から。⚠ ここに数値も色も書かないこと。
+# ⚠ 呼ぶのは `_ready()` の頭の1回だけ。⚠ Theme は実行中に差し替わらない。
+func _apply_hud_theme() -> void:
+	var hud: StringName = &"BattleHud"
+	var uv: StringName = &"BattleUnitView"
+	var src: Control = header_panel
+	var line_px: int = src.get_theme_constant(&"center_width", hud)
+	var divider: Color = src.get_theme_color(&"divider", hud)
+
+	header_panel.custom_minimum_size.y = src.get_theme_constant(&"header_height", hud)
+	bottom_panel.custom_minimum_size.y = src.get_theme_constant(&"panel_height", hud)
+	center_line.custom_minimum_size.x = line_px
+	center_line.color = src.get_theme_color(&"center_line", hud)
+	# ⚠ ヘッダーと下部パネルの境の線。⚠ 2本とも同じ色・同じ太さ。
+	for line_name: String in ["HeaderLine", "PanelLine"]:
+		var rect: Variant = hud_layout.get_node_or_null(NodePath(line_name))
+		if rect is ColorRect:
+			(rect as ColorRect).custom_minimum_size.y = line_px
+			(rect as ColorRect).color = divider
+	# ⚠ 戦場の地。⚠ 他の画面より一段暗い（モック §1）。
+	var background: Variant = get_node_or_null(^"Background")
+	if background is ColorRect:
+		(background as ColorRect).color = src.get_theme_color(&"field_bg", hud)
+
+	# ⚠ 並び始めの位置。⚠ 中央の線に向かって両陣営が並ぶ（モック §2）。
+	#   ⚠ 味方は index が大きいほど線に近い（＝前衛が前に出る）。
+	_ground_y = float(src.get_theme_constant(&"ground_y", hud))
+	var step: float = float(
+		src.get_theme_constant(&"width", uv) + src.get_theme_constant(&"gap", uv)
+	)
+	var gap: float = float(src.get_theme_constant(&"center_gap", hud))
+	var center: float = SCREEN_WIDTH * 0.5
+	_party_step_x = step
+	_party_base_x = center - gap - step * float(PARTY_SLOT_COUNT - 1)
+	_enemy_step_x = step
+	_enemy_base_x = center + gap
+
+
 # デバッグ実行時のみパネルを生成する。リリースビルドには出ない。
 func _setup_debug_panel() -> void:
 	if not OS.is_debug_build():
@@ -248,7 +306,7 @@ func _all_units() -> Array:
 #   _views_by_unit_id への登録を忘れると、そのユニットにダメージ数値が出ない。
 func _make_unit_view(unit: BattleUnit, parent: Node) -> Node:
 	var view: Node = UNIT_VIEW_SCENE.instantiate()
-	view.position = Vector2(unit.x, GROUND_Y)
+	view.position = Vector2(unit.x, _ground_y)
 	parent.add_child(view)
 	view.setup(unit)
 	_views_by_unit_id[unit.unit_id] = view
@@ -387,7 +445,7 @@ func _init_party_units() -> void:
 
 
 func _party_start_x(index: int) -> float:
-	return PARTY_BASE_X + index * PARTY_STEP_X
+	return _party_base_x + index * _party_step_x
 
 
 # ウェーブが切り替わるときに味方を左端の初期位置へ戻す。
@@ -458,7 +516,7 @@ func _spawn_current_wave_enemies() -> void:
 				is_boss,
 				enemy_type_id
 			)
-			unit.x = ENEMY_BASE_X + local_index * ENEMY_STEP_X
+			unit.x = _enemy_base_x + local_index * _enemy_step_x
 
 			# スキルの割り当て（EXEC_ENEMY_PARITY.md §3-2）。
 			#
@@ -508,8 +566,34 @@ func _enter_wave_intro() -> void:
 	_session.state = BattleSession.STATE_BATTLE_ACTIVE
 
 
+# ヘッダーの文言（2026-09-16・モック §1「1/1 が何の数字か分からない」）。
+#
+# ⚠ 層と波を分けて書く。⚠ 層は**フロアと難ダンジョンのときだけ**（人間の決定）。
+#   ⚠ ステージ直行（`area` など）には層の概念が無いので、⚠ 波だけを出す。
 func _update_wave_label() -> void:
-	wave_label.text = "%d / %d" % [_session.current_wave, _session.total_waves]
+	var layer: int = _current_layer()
+	floor_label.text = tr("ui_battle_layer") % layer if layer > 0 else ""
+	floor_label.visible = layer > 0
+	wave_label.text = "%s %d / %d" % [
+		tr("ui_battle_wave"), _session.current_wave, _session.total_waves,
+	]
+
+
+# いま何層目か。⚠ 層が無いところ（ステージ直行）では 0 を返す。
+#
+# ⚠ 戦闘は層を1つも持っていない。⚠ 引くのは来た元の状態から
+#   （⚠ フロア＝`FLOOR_RUN` のノード ／ 難ダンジョン＝`DUNGEON_RUN` のノード）。
+# ⚠ ここで stages.json を引かないこと（⚠ ダンジョンは stages.json に無い）。
+func _current_layer() -> int:
+	if _floor_node_id != "":
+		return int(GameManager.get_floor_node(_floor_node_id).get(
+			GameStateKeys.FLOOR_NODE_LAYER, 0
+		))
+	if _dungeon_node_id != "":
+		return int(GameManager.get_dungeon_node(_dungeon_node_id).get(
+			GameStateKeys.DUNGEON_NODE_LAYER, 0
+		))
+	return 0
 
 
 # 毎フレームの戦闘処理
@@ -1419,8 +1503,8 @@ func _on_projectile_requested(
 			self,
 			cast_id,
 			target.unit_id,
-			Vector2(user.x, GROUND_Y),
-			Vector2(target.x, GROUND_Y),
+			Vector2(user.x, _ground_y),
+			Vector2(target.x, _ground_y),
 			_projectile_speed(delivery),
 			_projectile_color(delivery)
 		)

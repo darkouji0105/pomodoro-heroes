@@ -931,3 +931,5 @@ ui_stat_node_tier,段%d
 ui_stat_node_after,振ったあとのステータス
 ui_stat_node_spent,振り分け済み
 ui_stat_node_add,＋
+ui_battle_layer,%d層
+ui_battle_wave,波

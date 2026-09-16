@@ -165,6 +165,11 @@ const SEPARATION_VARIATIONS: Dictionary = {
 	# ⚠ 上部バーと中身の間（ポモドーロの器・2026-09-09）。
 	#   ⚠ 画面の外周 32 の2倍。⚠ タイマーを画面の上寄りに置きすぎないための間。
 	"PhaseTopGap": {"value": 64, "base": "VBoxContainer"},
+	# ⚠ 戦闘の3段（ヘッダー／戦場／下部パネル・2026-09-16）。
+	#   ⚠ 段どうしは1pxの線で接するので、⚠ 間を空けない。
+	"BattleBands": {"value": 0, "base": "VBoxContainer"},
+	# ⚠ 下部パネルの3分割（同）。⚠ 区切りは1pxの線そのものなので、⚠ 間を空けない。
+	"BattleColumns": {"value": 0, "base": "HBoxContainer"},
 	# ボタンの横並び（拠点のナビ）
 	# ⚠ 人間の表に無かった1件。⚠ 横の既定 16 では拠点のナビが 8 から広がるため足した。
 	"ButtonRow": {"value": 8, "base": "HBoxContainer"},
@@ -936,6 +941,14 @@ static func _build_battle(theme: Theme) -> void:
 	theme.set_color(&"name_active", &"BattleUnitView", _html(BATTLE_NAME_ACTIVE))
 	theme.set_color(&"name_low", &"BattleUnitView", _html(BATTLE_HP_LOW))
 	theme.set_color(&"active_border", &"BattleUnitView", _html(ACTIVE_BORDER))
+
+	# ⚠ 画面の左右の余白だけを持つ器（⚠ 縦は0）。⚠ ヘッダーは高さ40しかないので、
+	#   ⚠ `ScreenMargin`（上下も32）を使うと中身が入らない。
+	theme.set_type_variation(&"BattleSideMargin", &"MarginContainer")
+	_set_margin(theme, "BattleSideMargin", BATTLE_SIDE_MARGIN, 0)
+	# ⚠ 下部パネルの1枠ぶんの内側の余白（モック §6 の 12px）。
+	theme.set_type_variation(&"BattlePanelMargin", &"MarginContainer")
+	_set_margin(theme, "BattlePanelMargin", BATTLE_PANEL_PAD, BATTLE_PANEL_PAD)
 
 	# ⚠ 敵とボスの本体は `CharacterAvatar` の表に足す。⚠ 味方（3体）と同じ引き方に
 	#   なるので、⚠ `UnitView` 側に「味方か敵か」で色を分ける枝を持たなくてよい。
