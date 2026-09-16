@@ -172,7 +172,7 @@ func _draw() -> void:
 		layer.a = float(percent) / 100.0
 		draw_rect(Rect2(0.0, size.y - layer_h, size.x, layer_h), layer)
 
-	var icon_px: float = float(get_theme_constant(&"icon", THEME_TYPE))
+	var icon_px: float = minf(size.x, size.y) * float(get_theme_constant(&"icon_percent", THEME_TYPE)) / 100.0
 	var font: Font = get_theme_default_font()
 	if _icon != null:
 		var at: Vector2 = (size - Vector2(icon_px, icon_px)) * 0.5

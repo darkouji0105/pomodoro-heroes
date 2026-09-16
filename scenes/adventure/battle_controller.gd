@@ -11,7 +11,7 @@ extends Node2D
 #   ⚠ main_theme.tres だけ」）。⚠ 引くのは子の Control から（Node2D は引けない）。
 # ⚠ 持っているのは**並び始めの位置**だけ。⚠ 戦闘が始まると `_step_unit()` が
 #   `unit.x += dir * speed * delta` で寄せるので、⚠ 毎フレームの位置ではない。
-# ⚠ 味方は中央の線の左、敵は右。⚠ どちらも線に向かって並ぶ（モック §2）。
+# ⚠ 味方は画面の中央の左、敵は右。⚠ どちらも中央に向かって並ぶ（モック §2。⚠ 縦線は 2026-09-16 に消した）。
 var _ground_y: float = 0.0
 var _party_base_x: float = 0.0
 var _party_step_x: float = 0.0
@@ -22,7 +22,7 @@ var _enemy_step_x: float = 0.0
 # ⚠ バランス数値ではなく画面の端なので、上の座標と同じ場所に置く。
 const RUNE_MOVE_MIN_X: float = 40.0
 const RUNE_MOVE_MAX_X: float = 1240.0
-# ⚠ 画面の基準の幅。⚠ 中央の線はここの半分に立つ（`project.godot` の window/size）。
+# ⚠ 画面の基準の幅。⚠ 並びの中央はここの半分（`project.godot` の window/size）。
 const SCREEN_WIDTH: float = 1280.0
 # ⚠ 1陣営に並ぶ上限。⚠ 味方は3枠固定、敵は波の定義しだいだが、
 #   ⚠ 「線から何番目か」を数えるのに要る（⚠ 味方は線に近いほうが index の大きいほう）。
@@ -69,7 +69,6 @@ const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
 @onready var floor_label: Label = $HUD/Root/Layout/Header/HeaderMargin/HeaderRow/FloorLabel
 @onready var wave_label: Label = $HUD/Root/Layout/Header/HeaderMargin/HeaderRow/WaveLabel
 @onready var field_area: Control = $HUD/Root/Layout/Field
-@onready var center_line: ColorRect = $HUD/Root/Layout/Field/CenterLine
 @onready var bottom_panel: PanelContainer = $HUD/Root/Layout/BottomPanel
 @onready var skill_buttons_container: HBoxContainer = $HUD/Root/Layout/BottomPanel/SkillButtons
 @onready var result_view: Control = $HUD/ResultView
@@ -231,13 +230,11 @@ func _apply_hud_theme() -> void:
 	var hud: StringName = &"BattleHud"
 	var uv: StringName = &"BattleUnitView"
 	var src: Control = header_panel
-	var line_px: int = src.get_theme_constant(&"center_width", hud)
+	var line_px: int = src.get_theme_constant(&"line_width", hud)
 	var divider: Color = src.get_theme_color(&"divider", hud)
 
 	header_panel.custom_minimum_size.y = src.get_theme_constant(&"header_height", hud)
 	bottom_panel.custom_minimum_size.y = src.get_theme_constant(&"panel_height", hud)
-	center_line.custom_minimum_size.x = line_px
-	center_line.color = src.get_theme_color(&"center_line", hud)
 	# ⚠ ヘッダーと下部パネルの境の線。⚠ 2本とも同じ色・同じ太さ。
 	for line_name: String in ["HeaderLine", "PanelLine"]:
 		var rect: Variant = hud_layout.get_node_or_null(NodePath(line_name))
@@ -249,7 +246,7 @@ func _apply_hud_theme() -> void:
 	if background is ColorRect:
 		(background as ColorRect).color = src.get_theme_color(&"field_bg", hud)
 
-	# ⚠ 並び始めの位置。⚠ 中央の線に向かって両陣営が並ぶ（モック §2）。
+	# ⚠ 並び始めの位置。⚠ 画面の中央に向かって両陣営が並ぶ（モック §2）。
 	#   ⚠ 味方は index が大きいほど線に近い（＝前衛が前に出る）。
 	_ground_y = float(src.get_theme_constant(&"ground_y", hud))
 	var step: float = float(
@@ -1186,7 +1183,7 @@ func _build_skill_buttons() -> void:
 			var divider: ColorRect = ColorRect.new()
 			divider.color = skill_buttons_container.get_theme_color(&"divider", hud)
 			divider.custom_minimum_size.x = skill_buttons_container.get_theme_constant(
-				&"center_width", hud
+				&"line_width", hud
 			)
 			divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			skill_buttons_container.add_child(divider)

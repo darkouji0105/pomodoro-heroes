@@ -69,16 +69,6 @@ layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 
-[node name="CenterLine" type="ColorRect" parent="HUD/Root/Layout/Field"]
-layout_mode = 1
-anchors_preset = 11
-anchor_left = 0.5
-anchor_right = 0.5
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
 [node name="PanelLine" type="ColorRect" parent="HUD/Root/Layout"]
 layout_mode = 2
 mouse_filter = 2

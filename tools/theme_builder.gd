@@ -316,17 +316,20 @@ const TIER_DOT_GROUP_GAP: int = 8
 # ⚠ ユニットの横位置だけは**戦闘中に動く**（`unit.x += dir * speed * delta`）。
 #   ⚠ ここが持つのは**並び始めの位置**であって、⚠ 毎フレームの位置ではない。
 
-# ⚠ 画面の3段（モック §1）。⚠ ヘッダー40 ／ 戦場（可変）／ 下部パネル66。
+# ⚠ 画面の3段（モック §1）。⚠ ヘッダー40 ／ 戦場（可変）／ 下部パネル。
+# ⚠⚠ 下部パネルは 66 → 102（2026-09-16・人間の指示「アイコンはエリアいっぱい使いたい
+#   ⚠ 今は小さすぎる」→「スキルのマスそのもの」）。⚠ 余白12×2 ＋ 名前の行 ＋ 間6 ＋ マス56。
 const BATTLE_HEADER_HEIGHT: int = 40
 const BATTLE_SIDE_MARGIN: int = 32
-const BATTLE_PANEL_HEIGHT: int = 66
+const BATTLE_PANEL_HEIGHT: int = 102
 const BATTLE_PANEL_PAD: int = 12
 # ⚠ 戦場の地。⚠ 他の画面より一段暗い（⚠ 画面の地 `BACKGROUND_BG` は 16110f）。
 const BATTLE_FIELD_BG: String = "0f0c0b"
-# ⚠ 陣営を分ける中央の縦線（モック §2）。⚠ 位置と色の二重で陣営を示す。
-const BATTLE_CENTER_LINE: String = "2a2320"
-const BATTLE_CENTER_WIDTH: int = 1
-# ⚠ 中央の線からユニットの中心までの距離。⚠ 味方は左、敵は右に同じだけ離す。
+# ⚠ 段どうし・パネルどうしの区切りの線の太さ。
+# ⚠⚠ 陣営を分ける**中央の縦線は消した**（2026-09-16・人間「中央の線を消して」）。
+#   ⚠ 陣営は位置とHPバーの色（味方は3段・敵は赤1色）で示す。
+const BATTLE_LINE_WIDTH: int = 1
+# ⚠ 画面の中央からユニットの中心までの距離。⚠ 味方は左、敵は右に同じだけ離す。
 const BATTLE_CENTER_GAP: int = 50
 # ⚠ ユニットの本体の中心の高さ。⚠ 下にチャージバー（次の回）が入る余地を残してある。
 const BATTLE_GROUND_Y: int = 300
@@ -339,7 +342,7 @@ const BATTLE_FACE_BAR_HEIGHT: int = 6
 const BATTLE_FACE_SHIELD_HEIGHT: int = 3
 const BATTLE_FACE_GAP: int = 11
 const BATTLE_PANEL_NAME_GAP: int = 6
-const BATTLE_SKILL_SIZE: int = 38
+const BATTLE_SKILL_SIZE: int = 56
 const BATTLE_SKILL_GAP: int = 6
 # ⚠ 戦闘不能のパネルは**消さずに残す**（⚠ 消すと他の2人の位置が動く）。
 #   ⚠ Theme の定数は int しか持てないので百分率で持つ（40 = 0.4）。
@@ -384,17 +387,18 @@ const BATTLE_BODY_BOSS_FG: String = "ecbcd4"
 
 # --- 戦闘のスキルのマス（2026-09-16・人間のモック §7・§8・§10）---
 #
-# ⚠⚠ 3種が同じ 38px のマスに同居する。⚠ **動きの向きで区別する**（⚠ 色は補助）。
+# ⚠⚠ 3種が同じ大きさのマスに同居する（⚠ 38 → 56・2026-09-16・人間「小さすぎる」）。⚠ **動きの向きで区別する**（⚠ 色は補助）。
 #   ⚠ 通常CD＝面が下から明るくなる ／ ⚠ チャージ＝枠が青→琥珀 ／ ⚠ recast＝面が上から減る。
 # ⚠ 大きさは `BattleHud` の `skill_size`（⚠ ここに2つ目を持たない）。
 # ⚠ `toggle` は**作っていない**（⚠ 実データ0件・実行時に動かない。⚠ 決定は台帳 §0-UI-F）。
-const SKILL_CORNER: int = 8
-const SKILL_ICON: int = 20
+const SKILL_CORNER: int = 10
+# ⚠ 線画はマスの何%か。⚠ マスの大きさを変えても絵が一緒に大きくなるよう割合で持つ。
+const SKILL_ICON_PERCENT: int = 64
 const SKILL_BORDER: int = 1
 const SKILL_BORDER_STRONG: int = 2
-const SKILL_NUMBER_SIZE: int = 14
-const SKILL_CORNER_NUMBER_SIZE: int = 10
-const SKILL_MARK_SIZE: int = 9
+const SKILL_NUMBER_SIZE: int = 20
+const SKILL_CORNER_NUMBER_SIZE: int = 13
+const SKILL_MARK_SIZE: int = 13
 # ⚠ 秒は Theme の定数が int しか持てないのでミリ秒で持つ。
 const SKILL_FLASH_MS: int = 600
 const SKILL_PULSE_MS: int = 200
@@ -403,7 +407,7 @@ const SKILL_WARN_MS: int = 2000
 # ⚠ クールダウンの幕の濃さ（百分率。⚠ モックは rgba(0,0,0,.55)）。
 const SKILL_VEIL_PERCENT: int = 55
 # ⚠ 右上の数字・右下の目印を角から離す距離。
-const SKILL_CORNER_PAD: int = 3
+const SKILL_CORNER_PAD: int = 4
 # ⚠ 通常CDの段の境（⚠ 残りの割合の百分率・大きい順）。
 const SKILL_CD_EDGES: Array[int] = [75, 50, 25]
 
@@ -958,7 +962,7 @@ static func _build_battle(theme: Theme) -> void:
 		"side_margin": BATTLE_SIDE_MARGIN,
 		"panel_height": BATTLE_PANEL_HEIGHT,
 		"panel_pad": BATTLE_PANEL_PAD,
-		"center_width": BATTLE_CENTER_WIDTH,
+		"line_width": BATTLE_LINE_WIDTH,
 		"center_gap": BATTLE_CENTER_GAP,
 		"ground_y": BATTLE_GROUND_Y,
 		"face_size": BATTLE_FACE_SIZE,
@@ -973,7 +977,6 @@ static func _build_battle(theme: Theme) -> void:
 	for key: String in hud.keys():
 		theme.set_constant(StringName(key), &"BattleHud", int(hud[key]))
 	theme.set_color(&"field_bg", &"BattleHud", _html(BATTLE_FIELD_BG))
-	theme.set_color(&"center_line", &"BattleHud", _html(BATTLE_CENTER_LINE))
 	theme.set_color(&"divider", &"BattleHud", _html(DIVIDER_COLOR))
 
 	var unit: Dictionary = {
@@ -1038,7 +1041,7 @@ static func _build_skill_tile(theme: Theme) -> void:
 	var t: StringName = &"SkillTile"
 	var numbers: Dictionary = {
 		"corner_radius": SKILL_CORNER,
-		"icon": SKILL_ICON,
+		"icon_percent": SKILL_ICON_PERCENT,
 		"border": SKILL_BORDER,
 		"border_strong": SKILL_BORDER_STRONG,
 		"number_size": SKILL_NUMBER_SIZE,
