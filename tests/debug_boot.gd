@@ -3876,7 +3876,19 @@ func _report_layout() -> void:
 				(target as Control).visible = bool(LAYOUT_SCENE_SHOW[scene_path][raw_path])
 		await get_tree().process_frame
 
-		var box: Control = _outermost_container(instance)
+		# ⚠ 測る器。⚠ 既定は「一番外側の Container」だが、⚠ それでは当たらない画面が
+		#   ある（⚠ 戦闘は `UnitView` の `StatusChips` を先に拾って `0 x 0` になる）。
+		#   ⚠ 表に1行足して指す。⚠ 画面ごとに if を書かないこと。
+		var box: Control = null
+		var named: String = str(LAYOUT_SCENE_BOX.get(scene_path, ""))
+		if named != "":
+			var picked: Variant = instance.get_node_or_null(NodePath(named))
+			if picked is Control:
+				box = picked as Control
+			else:
+				push_error("[DebugBoot] 測る器が見つからない: %s / %s" % [scene_path.get_file(), named])
+		else:
+			box = _outermost_container(instance)
 		var minimum: Vector2 = box.get_combined_minimum_size() if box != null else Vector2.ZERO
 		# ⚠ 基準は project.godot の window/size（1280 x 720）。ヘッドレスの viewport は
 		#   1280 x 1280 で高さが違うため、そのまま使うと縦のはみ出しを見逃す。
@@ -4125,6 +4137,15 @@ func _outermost_container(node: Node) -> Control:
 #
 # ⚠ 画面ごとに if を書かないこと。⚠ 新しく排他の器が増えたらここに1行足す。
 # ⚠ 育成画面は「一覧」と「詳細」が排他で、⚠ 縦に長いのは詳細のほう。
+# 測る器を名指しする画面（⚠ 一番外側の Container では当たらないもの）。
+#
+# ⚠ 戦闘は `Node2D` の下に `UnitView`（その子に `StatusChips` という Container）が
+#   ぶら下がるので、⚠ 自動で探すと空の帯を掴んで `0 x 0` になる。
+# ⚠ 増えたらここに1行足す。⚠ 画面ごとに if を書かないこと。
+const LAYOUT_SCENE_BOX: Dictionary = {
+	SCENE_BATTLE: "HUD/Root/Layout",
+}
+
 const LAYOUT_SCENE_SHOW: Dictionary = {
 	"res://scenes/guild/training_screen.tscn": {
 		"Margin/Layout/ListPanel": false,
@@ -4245,6 +4266,15 @@ func _layout_transfer_for(scene_path: String) -> Dictionary:
 	var data: Dictionary = {
 		TransferKeys.CHARACTER_ID: str(GameManager.get_party_members()[0]),
 	}
+	# ⚠⚠ 戦闘（2026-09-16）。⚠ HUD をコンテナ化したので**ここから測れるようになった**
+	#   （⚠ それまでは Node2D ＋ 絶対座標で `0 x 0` しか返らなかった）。
+	#   ⚠ 測れるのは HUD の3段だけ。⚠ 戦場のユニットは Node2D のまま
+	#     （⚠ 戦闘中に x が動くので器に並べられない）。
+	#   ⚠ stage_id を渡さないと黄が1本出る。⚠ 測るためだけに黄を増やさない。
+	# ⚠ この1回で `battle_last.jsonl` が新しく開き直される（⚠ 戦闘の記録は残らない）。
+	if scene_path == SCENE_BATTLE:
+		data[TransferKeys.STAGE_ID] = "floor_1"
+		data[TransferKeys.STAGE_TYPE] = GameStateKeys.STAGE_TYPE_STORY
 	if scene_path == "res://scenes/adventure/dungeon_relic_select.tscn":
 		data[TransferKeys.DUNGEON_NODE_ID] = _find_dungeon_node_of_kind(
 			GameStateKeys.FLOOR_NODE_KIND_RELIC
@@ -4406,6 +4436,10 @@ const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/adventure/dungeon_chest.tscn",
 	"res://scenes/adventure/dungeon_relic_select.tscn",
 	"res://scenes/adventure/dungeon_shop.tscn",
+	# ⚠⚠ 戦闘（2026-09-16）。⚠ 27画面で唯一「一度も測れていない」画面だった。
+	#   ⚠ HUD をヘッダー／戦場／下部パネルの3段の器にしたので測れる。
+	#   ⚠ 出る数字は **HUD だけ**。⚠ 戦場は Node2D なので入らない。
+	SCENE_BATTLE,
 	# ⚠ UI テストのページ（2026-09-06）。⚠ 中身は全部コードで積むので、開かないと分からない。
 	#   ⚠ リリース前に消すときは、⚠ この行も一緒に消す。
 	"res://tests/ui_test_page.tscn",
