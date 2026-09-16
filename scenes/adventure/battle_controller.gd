@@ -609,6 +609,7 @@ func _process(delta: float) -> void:
 	# 状態のマスも状態ガードの外で回す。⚠ 内側に置くと、勝敗が決まった瞬間に
 	#   マスが最後の顔ぶれのまま固まる（死んだ敵のマスが結果画面まで残る）。
 	_update_status_chips()
+	_update_active_units()
 
 	if _result_applied:
 		return
@@ -1268,6 +1269,25 @@ func _update_status_chips() -> void:
 		var view: Node = _views_by_unit_id[u.unit_id]
 		if is_instance_valid(view) and view.has_method("set_status_entries"):
 			view.set_status_entries(entries)
+
+
+# 行動中の見た目を配る（2026-09-16・モック §3-2）。
+#
+# ⚠ いま「行動中」と呼べるのは**チャージを溜めている本人**だけ。
+#   ⚠ 通常攻撃やクールダウンのスキルは撃った瞬間に終わるので、
+#   ⚠ 枠を付けても1フレームしか出ない。⚠ 概念を増やさないこと。
+# ⚠ 毎フレーム呼んでよい（⚠ `set_active()` が変化したときだけ描き直す）。
+func _update_active_units() -> void:
+	var charging_entry: Variant = _charging.get("entry", null)
+	var active_id: String = ""
+	if charging_entry is Dictionary:
+		var user: Variant = (charging_entry as Dictionary).get("user", null)
+		if user is BattleUnit:
+			active_id = (user as BattleUnit).unit_id
+	for unit_id: Variant in _views_by_unit_id:
+		var view: Variant = _views_by_unit_id[unit_id]
+		if view is UnitView and is_instance_valid(view):
+			(view as UnitView).set_active(str(unit_id) == active_id)
 
 
 func _update_skill_buttons() -> void:

@@ -1,58 +1,52 @@
-[gd_scene load_steps=3 format=3 uid="uid://b1unit_view_001"]
+[gd_scene load_steps=4 format=3 uid="uid://b1unit_view_001"]
 
 [ext_resource type="Script" path="res://scenes/adventure/unit_view.gd" id="1_unit_view"]
 [ext_resource type="Script" path="res://scenes/adventure/status_chips.gd" id="2_status_chips"]
+[ext_resource type="Script" path="res://scenes/adventure/battle_bar.gd" id="3_battle_bar"]
 
 [node name="UnitView" type="Node2D"]
 script = ExtResource("1_unit_view")
 
-[node name="Body" type="ColorRect" parent="."]
-offset_left = -32.0
+[node name="Body" type="Panel" parent="."]
+offset_left = -37.0
 offset_top = -32.0
-offset_right = 32.0
+offset_right = 37.0
 offset_bottom = 32.0
-color = Color(0.5, 0.5, 0.5, 1)
+mouse_filter = 2
 
 [node name="GlyphLabel" type="Label" parent="."]
-offset_left = -32.0
-offset_top = -30.0
-offset_right = 32.0
-offset_bottom = 30.0
+offset_left = -37.0
+offset_top = -32.0
+offset_right = 37.0
+offset_bottom = 32.0
+mouse_filter = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 text = ""
 
-[node name="HpBar" type="ProgressBar" parent="."]
-offset_left = -32.0
-offset_top = -40.0
-offset_right = 32.0
-offset_bottom = -32.0
-show_percentage = false
-max_value = 100.0
-value = 100.0
-
-[node name="ShieldBar" type="ProgressBar" parent="."]
-visible = false
-offset_left = -32.0
-offset_top = -48.0
-offset_right = 32.0
-offset_bottom = -41.0
-show_percentage = false
-max_value = 100.0
-value = 100.0
+[node name="Bar" type="Control" parent="."]
+offset_left = -37.0
+offset_top = -41.0
+offset_right = 37.0
+offset_bottom = -36.0
+mouse_filter = 2
+script = ExtResource("3_battle_bar")
 
 [node name="StatusChips" type="BoxContainer" parent="."]
-offset_left = -64.0
-offset_top = -62.0
-offset_right = 64.0
-offset_bottom = -50.0
+offset_left = -37.0
+offset_top = 26.0
+offset_right = 37.0
+offset_bottom = 41.0
 alignment = 1
 script = ExtResource("2_status_chips")
 
 [node name="NameLabel" type="Label" parent="."]
-offset_left = -60.0
+offset_left = -37.0
 offset_top = 36.0
-offset_right = 60.0
+offset_right = 37.0
 offset_bottom = 52.0
+mouse_filter = 2
 horizontal_alignment = 1
+clip_text = true
+text_overrun_behavior = 3
 text = ""

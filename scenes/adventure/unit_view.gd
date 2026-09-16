@@ -3,43 +3,26 @@ extends Node2D
 
 # BattleUnit の状態を購読して表示するノード。
 # 読み取り専用。HP の変動は BattleController が take_damage() を呼ぶ形で行う。
-
-# 体の色（EXEC §5：本タスク限定の例外）。
-# ⚠ 頭上に浮かぶ数値の色とは別物で、こちらは定数のまま。
-#   Inspector から触りたくなったら、下と同じ形で AdventureConfig に出す。
-const COLOR_PARTY: Color = Color(0.3, 0.5, 0.9)   # 青
-const COLOR_ENEMY: Color = Color(0.9, 0.35, 0.3)  # 赤
-const COLOR_BOSS: Color = Color(0.6, 0.3, 0.8)    # 紫
-
-# HP バーとシールドバーの色（人間の指示・2026-08-21）。
 #
-# ⚠ 体の色（上）とは別物。体は「どちらの陣営か」、バーは「残量の種類」を表す。
-# ⚠ 既定テーマのままだと味方も敵も同じ色で、⚠ シールドが吸っているのか
-#   HP が減っているのかが画面から区別できなかった（§7 の24が判定不能だった）。
-# ⚠ ボスは敵と同じ赤。体の色（紫）で区別が付くので、バーまで分けない。
-const COLOR_HP_PARTY: Color = Color(0.25, 0.8, 0.35)   # 緑
-const COLOR_HP_ENEMY: Color = Color(0.85, 0.2, 0.2)    # 赤
-const COLOR_SHIELD: Color = Color(1.0, 1.0, 1.0)       # 白
-# バーの下地。⚠ 残量が0に近いときに「バーがあること」が分かる濃さにする。
-const COLOR_BAR_BG: Color = Color(0.12, 0.12, 0.14)
+# ⚠⚠ 2026-09-16 に人間のモック「戦闘まわり UI 決定」§3・§4 の形へ作り替えた。
+#   ⚠ 幅 74 固定 ／ 名前は幅いっぱいで省略記号 ／ HP とシールドは1本 ／
+#   ⚠ 状態のマスは本体の下端に重ねる。
+# ⚠ **見た目の値はここに1つも書かない**。⚠ Theme の `BattleUnitView` と
+#   `CharacterAvatar` から引く（AGENTS.md「値を持つのは theme_builder だけ」）。
+# ⚠ `Node2D` は `get_theme_*()` を持たない。⚠ 引くのは子の Control（`$Body`）から。
 
-# 体の上に出す絵文字の大きさ（段階19-a）。
-#
-# ⚠ Body は 64 x 64（unit_view.tscn）。⚠ そこに収まる大きさにすること。
-# ⚠ 絵文字そのものは Glyphs の1本にある。⚠ ここに絵文字を書かないこと。
-# ⚠ modulate を掛けない。⚠ カラー絵文字（COLR/CPAL）なので、⚠ 色を掛けると
-#   絵文字の色まで濁る。⚠ 陣営の区別は下の Body の色が受け持つ。
-const GLYPH_FONT_SIZE: int = 34
+const THEME_TYPE: StringName = &"BattleUnitView"
+const AVATAR_TYPE: StringName = &"CharacterAvatar"
 
-# 頭上に浮かぶ数値の色と大きさは Balance.adventure（AdventureConfig）から引く。
-# ⚠ ここに const で持たないこと。2箇所に数値があると、Inspector で直しても
-#   変わらない状態になり、どちらが効いているか実機でしか分からなくなる
-#   （AGENTS.md「マスターデータと状態を同期する型」で書いた「直したのに変わらない」と同じ形）。
-# ⚠ Balance.adventure が null のときのフォールバックは書かない。
-#   battle_formula.gd が同じく素で読んでおり、null なら戦闘はどのみち起動しない。
-#   ここだけ既定色で描くと、設定漏れが「色が古いまま」という分かりにくい形で出る。
+# ⚠ 味方以外の本体の色を引くときの鍵。⚠ `CharacterAvatar` の表に足してある
+#   （`bg_enemy` / `bg_boss`）。⚠ 味方はキャラのIDでそのまま引く。
+const BODY_KEY_ENEMY: String = "enemy"
+const BODY_KEY_BOSS: String = "boss"
+const BODY_KEY_FALLBACK: String = "fallback"
 
 var _unit: BattleUnit = null
+# ⚠ 行動中（いまチャージを溜めている）か。⚠ 枠線と名前の色が変わる（モック §3-2）。
+var _active: bool = false
 
 
 func _ready() -> void:
@@ -49,67 +32,104 @@ func _ready() -> void:
 
 func setup(unit: BattleUnit) -> void:
 	_unit = unit
-	var body: ColorRect = $Body
-	var hp_bar: ProgressBar = $HpBar
+	var body: Panel = $Body
 	var name_label: Label = $NameLabel
+	var bar: BattleBar = $Bar
 
+	var is_party: bool = unit.team == BattleUnit.TEAM_PARTY
+
+	# ⚠ 名前は器の幅で切る（モック §3-1）。⚠ `.tscn` 側で clip_text と省略記号を
+	#   立ててある。⚠ ここでやるのは大きさと色だけ。
 	name_label.text = tr(unit.unit_name_key)
+	name_label.add_theme_font_size_override(
+		&"font_size", body.get_theme_constant(&"name_size", THEME_TYPE)
+	)
 
-	if unit.is_boss:
-		body.color = COLOR_BOSS
-	elif unit.team == BattleUnit.TEAM_PARTY:
-		body.color = COLOR_PARTY
-	else:
-		body.color = COLOR_ENEMY
+	_paint_body(unit)
 
-	# 体の上に絵文字を出す（段階19-a）。⚠ 対応表は Glyphs の1本だけ。
+	# 体の上に出す絵文字（段階19-a）。⚠ 対応表は Glyphs の1本だけ。
 	# ⚠ ここで master_id を見て分岐を書かないこと。
+	# ⚠ modulate を掛けない（カラー絵文字なので色が濁る）。色は本体が受け持つ。
 	var glyph_label: Label = $GlyphLabel
 	glyph_label.text = Glyphs.for_unit(
-		unit.master_id, unit.team == BattleUnit.TEAM_PARTY, unit.is_summon
+		unit.master_id, is_party, unit.is_summon
 	)
-	glyph_label.add_theme_font_size_override("font_size", GLYPH_FONT_SIZE)
+	glyph_label.add_theme_font_size_override(
+		&"font_size", body.get_theme_constant(&"glyph", THEME_TYPE)
+	)
 
-	hp_bar.max_value = unit.max_hp
-	hp_bar.value = unit.hp
-	# ⚠ 色はテーマの上書きで入れる。main_theme.tres を触らないこと
-	#   （触ると全画面の ProgressBar が緑赤になる）。
-	_paint_bar(hp_bar, COLOR_HP_PARTY if unit.team == BattleUnit.TEAM_PARTY else COLOR_HP_ENEMY)
-	_paint_bar($ShieldBar, COLOR_SHIELD)
-	$ShieldBar.hide()
-	# 状態のマスは横並び（HP バーの上）。⚠ 味方の帯はここではなくスキルボタンの左
-	#   （人間の指示・2026-08-22）。味方の UnitView にもノードはあるが、
-	#   BattleController が entry を配らないので空のまま何も描かない。
+	bar.setup(is_party, true)
+	bar.set_values(unit.hp, unit.max_hp, 0, 0)
+
+	# 状態のマスは横並び（本体の下端に重ねる）。⚠ 2026-09-16 から味方も同じ場所
+	#   （⚠ それまでは味方だけスキルボタンの左に縦で出していた）。
 	$StatusChips.setup(false, Balance.adventure.status_chip_enemy_max_px)
 	position.x = unit.x
+	_refresh_name_color()
 	show()
 
 
-# ProgressBar の塗りと下地を差し替える。
-# ⚠ ノードごとに StyleBoxFlat を新しく作ること。使い回すと、1体の色を変えたときに
-#   全体が変わる（StyleBox は参照で共有される）。
-func _paint_bar(bar: ProgressBar, fill_color: Color) -> void:
-	var fill: StyleBoxFlat = StyleBoxFlat.new()
-	fill.bg_color = fill_color
-	var back: StyleBoxFlat = StyleBoxFlat.new()
-	back.bg_color = COLOR_BAR_BG
-	bar.add_theme_stylebox_override("fill", fill)
-	bar.add_theme_stylebox_override("background", back)
+# 本体の色（モック §3）。⚠ 味方は `CharacterAvatar` の色表をそのまま使う
+#   （⚠ 育成・スキル設定と同じ顔色。⚠ 戦闘だけ別の色にしない）。
+func _paint_body(unit: BattleUnit) -> void:
+	var body: Panel = $Body
+	var key: String = unit.master_id
+	if unit.is_boss:
+		key = BODY_KEY_BOSS
+	elif unit.team != BattleUnit.TEAM_PARTY:
+		key = BODY_KEY_ENEMY
+	if not body.has_theme_color(StringName("bg_" + key), AVATAR_TYPE):
+		key = BODY_KEY_FALLBACK
+
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = body.get_theme_color(StringName("bg_" + key), AVATAR_TYPE)
+	style.set_corner_radius_all(body.get_theme_constant(&"corner_radius", THEME_TYPE))
+	if _active:
+		# ⚠ 行動中は枠線を足す（モック §3-2）。⚠ 枠の太さぶん中身が縮まないよう、
+		#   ⚠ `StyleBoxFlat` の枠は外側に描かれないので位置は動かない。
+		var width: int = body.get_theme_constant(&"active_width", THEME_TYPE)
+		style.set_border_width_all(width)
+		style.border_color = body.get_theme_color(&"active_border", THEME_TYPE)
+	body.add_theme_stylebox_override(&"panel", style)
+	$GlyphLabel.add_theme_color_override(
+		&"font_color", body.get_theme_color(StringName("fg_" + key), AVATAR_TYPE)
+	)
+
+
+# 行動中の表示を切り替える。⚠ 呼ぶのは BattleController の1箇所だけ
+#   （⚠ いまチャージを溜めている本人だけが true）。
+func set_active(active: bool) -> void:
+	if _active == active or _unit == null:
+		return
+	_active = active
+	_paint_body(_unit)
+	_refresh_name_color()
+
+
+# 名前の色（モック §3-2・§4）。⚠ 通常 ／ 行動中 ／ 瀕死の3つ。
+# ⚠ 瀕死のしきい値は帯が持つ（`BattleBar.is_low()`）。⚠ ここに割合を書かない。
+func _refresh_name_color() -> void:
+	var body: Panel = $Body
+	var key: StringName = &"name"
+	if $Bar.is_low():
+		key = &"name_low"
+	elif _active:
+		key = &"name_active"
+	$NameLabel.add_theme_color_override(
+		&"font_color", body.get_theme_color(key, THEME_TYPE)
+	)
 
 
 # シールドの残量を表示する。⚠ 呼ぶのは BattleController の1箇所だけ。
 #
 # ⚠ UnitView に StatusRegistry を持たせないこと。ビューは BattleUnit しか知らない
 #   （器を知ると、リトライで器が作り直されたときに古い参照を握る）。
-# total が 0 のときはバーごと隠す（シールドを持っていない）。
+# ⚠ 2026-09-16 から帯は1本。⚠ total が 0 なら帯の中のシールドの区画が消えるだけで、
+#   ⚠ 帯そのものは隠さない（⚠ 隠すと縦位置がズレる）。
 func set_shield(left: int, total: int) -> void:
-	var bar: ProgressBar = $ShieldBar
-	if total <= 0 or left <= 0:
-		bar.hide()
+	if _unit == null:
 		return
-	bar.max_value = total
-	bar.value = left
-	bar.show()
+	$Bar.set_values(_unit.hp, _unit.max_hp, left, total)
 
 
 # 状態のマスを差し替える。⚠ 呼ぶのは BattleController の1箇所だけ。
@@ -132,7 +152,11 @@ func _process(_delta: float) -> void:
 		hide()
 		return
 	position.x = _unit.x
-	$HpBar.value = _unit.hp
+	var bar: BattleBar = $Bar
+	var was_low: bool = bar.is_low()
+	bar.set_hp(_unit.hp, _unit.max_hp)
+	if was_low != bar.is_low():
+		_refresh_name_color()
 
 
 # 被弾した数値を頭上に浮かべて消す。
