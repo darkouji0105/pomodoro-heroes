@@ -119,12 +119,14 @@ var _views_by_unit_id: Dictionary = {}
 # スキルボタン。各要素は {button, user, skill_id, name_key, cooldown_sec, charge}
 var _skill_buttons: Array = []
 
-# 味方の状態の帯（スキルボタンの左・縦並び）。{unit_id: StatusChips}。
+# 下部パネルの1人ぶん。{unit_id: {slot: Control, bar: BattleBar}}。
 # ⚠ _skill_buttons に混ぜないこと。あちらは1スキル1要素で、
-#   こちらは1キャラ1本。混ぜると _update_skill_buttons() が帯まで回す。
+#   こちらは1キャラ1件。混ぜると _update_skill_buttons() がパネルまで回す。
 # ⚠ 作り直しは _build_skill_buttons() の中だけ。捨て忘れると古い BattleUnit の
 #   unit_id を掴んだままリトライに入る。
-var _status_chips_by_unit_id: Dictionary = {}
+# ⚠⚠ 2026-09-16：味方の状態の帯はここから消えた。⚠ 味方も敵と同じく
+#   `UnitView` の本体の下端に出す（人間の決定・モック §5）。
+var _panel_slots_by_unit_id: Dictionary = {}
 
 # チャージ中のスキル。{entry: Dictionary, time: float}。未チャージ時は空。
 # 同時に1つしかチャージできない。
@@ -610,6 +612,7 @@ func _process(delta: float) -> void:
 	#   マスが最後の顔ぶれのまま固まる（死んだ敵のマスが結果画面まで残る）。
 	_update_status_chips()
 	_update_active_units()
+	_update_bottom_panel()
 
 	if _result_applied:
 		return
@@ -974,13 +977,18 @@ func _step_shield_views() -> void:
 	for unit in _all_units():
 		if not (unit is BattleUnit):
 			continue
-		var view: Variant = _views_by_unit_id.get((unit as BattleUnit).unit_id, null)
-		if view == null:
-			continue
-		view.set_shield(
-			_status.shield_left((unit as BattleUnit).unit_id),
-			_status.shield_total((unit as BattleUnit).unit_id)
-		)
+		var u: BattleUnit = unit as BattleUnit
+		var left: int = _status.shield_left(u.unit_id)
+		var total: int = _status.shield_total(u.unit_id)
+		var view: Variant = _views_by_unit_id.get(u.unit_id, null)
+		if view != null:
+			view.set_shield(left, total)
+		# ⚠ 下部パネルの帯にも同じ値を配る（2026-09-16）。⚠ 引く先は器の1本だけ
+		#   （⚠ ここで2回引かないこと）。
+		if _panel_slots_by_unit_id.has(u.unit_id):
+			var bar: Variant = (_panel_slots_by_unit_id[u.unit_id] as Dictionary).get("bar", null)
+			if bar is BattleBar and is_instance_valid(bar):
+				(bar as BattleBar).set_values(u.hp, u.max_hp, left, total)
 
 
 func _acquire_target_if_needed(unit: BattleUnit) -> void:
@@ -1140,7 +1148,13 @@ func _pop_heal(target: BattleUnit, amount: int) -> void:
 # ============================================================
 
 # 味方が作り直されるたびに呼ぶ。既存のボタンは必ず捨てる。
-# キャラごとに1列、その列の中にスキルを縦に並べる。
+#
+# ⚠⚠ 2026-09-16・人間のモック §6「A案」の形にした。
+#   ⚠ パネルを3分割し、⚠ 1人ぶんは「顔 ＋ その直下に密着した HP バー」と
+#   ⚠ 「名前 ＋ スキル」の2列。⚠ 区切りは1pxの線。
+#   ⚠ B案（パネル上端に幅いっぱいの帯）は**不採用**（⚠ バーと顔が離れると
+#   ⚠ 「バー → どのパネルか → 誰か」と視線が2段階になる）。
+# ⚠ 味方の状態の帯はここから消えた。⚠ `UnitView` の本体の下端に出す。
 func _build_skill_buttons() -> void:
 	_cancel_charge()
 	for entry in _skill_buttons:
@@ -1148,7 +1162,7 @@ func _build_skill_buttons() -> void:
 		if b is Node and is_instance_valid(b):
 			b.queue_free()
 	_skill_buttons.clear()
-	_status_chips_by_unit_id.clear()
+	_panel_slots_by_unit_id.clear()
 	# ⚠ remove_child() してから queue_free()（CLAUDE.md 5番）。
 	#   queue_free() だけだと、同じフレームに2回呼ばれたとき古い列がまだ子に残り、
 	#   列が二重に並ぶ。
@@ -1156,32 +1170,68 @@ func _build_skill_buttons() -> void:
 		skill_buttons_container.remove_child(child)
 		child.queue_free()
 
+	var hud: StringName = &"BattleHud"
+	var first: bool = true
 	for unit in _session.party_units:
 		if not (unit is BattleUnit):
 			continue
 
-		# キャラ1人ぶんの枠。左＝状態の帯（縦）／右＝名前とスキルボタン。
-		# ⚠ 帯を列の中（名前の下）ではなく左に置くのは人間の指示（2026-08-22）。
-		#   スキルボタンがいずれ絵だけになる前提で、列が細くなっても壊れない形。
-		var row: HBoxContainer = HBoxContainer.new()
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_theme_constant_override("separation", 4)
-		skill_buttons_container.add_child(row)
+		# ⚠ パネルどうしの区切り（モック §1「パネル間の区切り 1px」）。
+		if not first:
+			var divider: ColorRect = ColorRect.new()
+			divider.color = skill_buttons_container.get_theme_color(&"divider", hud)
+			divider.custom_minimum_size.x = skill_buttons_container.get_theme_constant(
+				&"center_width", hud
+			)
+			divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			skill_buttons_container.add_child(divider)
+		first = false
 
-		var chips: StatusChips = StatusChips.new()
-		chips.setup(true, Balance.adventure.status_chip_party_max_px)
-		row.add_child(chips)
-		_status_chips_by_unit_id[unit.unit_id] = chips
+		var slot: MarginContainer = MarginContainer.new()
+		slot.theme_type_variation = &"BattlePanelMargin"
+		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		skill_buttons_container.add_child(slot)
+
+		var row: HBoxContainer = HBoxContainer.new()
+		row.theme_type_variation = &"BattleFaceRow"
+		slot.add_child(row)
+
+		# ⚠ 顔とHPバーは隙間なく積む（モック §6「密着」）。
+		var face_stack: VBoxContainer = VBoxContainer.new()
+		face_stack.theme_type_variation = &"BattleBands"
+		face_stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(face_stack)
+
+		var face_size: int = slot.get_theme_constant(&"face_size", hud)
+		face_stack.add_child(CharacterAvatar.create(unit.master_id, face_size))
+
+		var bar_height: int = slot.get_theme_constant(&"face_bar_height", hud)
+		var shield_height: int = slot.get_theme_constant(&"face_shield_height", hud)
+		var bar: BattleBar = BattleBar.new()
+		bar.custom_minimum_size = Vector2(face_size, bar_height + shield_height)
+		face_stack.add_child(bar)
+		# ⚠ setup() はツリーに入れてから呼ぶ（⚠ Theme を引くため）。
+		bar.setup(true, false, float(shield_height))
+		bar.set_values(unit.hp, unit.max_hp, 0, 0)
+
+		_panel_slots_by_unit_id[unit.unit_id] = {"slot": slot, "bar": bar}
 
 		var column: VBoxContainer = VBoxContainer.new()
+		column.theme_type_variation = &"BattleNameStack"
 		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		column.add_theme_constant_override("separation", 4)
+		column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(column)
 
 		var name_label: Label = Label.new()
+		name_label.theme_type_variation = &"BattleNameLabel"
 		name_label.text = tr(unit.unit_name_key)
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		column.add_child(name_label)
+
+		# ⚠ スキルは横に並べる（モック §6）。⚠ 縦積みをやめたので、
+		#   ⚠ チャージのゲージはボタンの下ではなくボタンの列の下に付く。
+		var skill_row: HBoxContainer = HBoxContainer.new()
+		skill_row.theme_type_variation = &"BattleSkillRow"
+		column.add_child(skill_row)
 
 		for sid in unit.skill_ids:
 			var skill_id: String = str(sid)
@@ -1200,7 +1250,7 @@ func _build_skill_buttons() -> void:
 			var button: Button = UI_BUTTON_SCENE.instantiate()
 			# label_key は使わない。残り秒数やチャージ時間を混ぜるため text を直接扱う。
 			button.text = tr(str(skill_data.get("name_key", "")))
-			column.add_child(button)
+			skill_row.add_child(button)
 
 			# チャージスキルだけゲージを足す。
 			# 常に置いておくことで「これはためられる」と見て分かる。
@@ -1248,8 +1298,9 @@ func _build_skill_buttons() -> void:
 # ⚠ 引くのは StatusRegistry.entries_for() の1本だけ。_entries を自分で回さないこと。
 #   オーラ（host: point）が画面に出ない／出続ける事故になる。
 # ⚠ 走査は _all_units()（味方 → 敵 → 召喚）。新しい配列を足したらあちらだけ直す。
-# ⚠ 味方は列の左の帯へ、敵と召喚は UnitView（HP バーの上）へ。
-#   味方の UnitView にも帯のノードはあるが、ここで配らないので空のまま描かれない。
+# ⚠⚠ 2026-09-16 から**味方も敵も召喚も `UnitView` の本体の下端**（人間の決定・モック §5）。
+#   ⚠ 前は味方だけスキルボタンの左に縦の帯で出していた（2026-08-22 の指示）。
+#   ⚠ 下部パネルを3分割にして帯の置き場が無くなったため、⚠ 同じ回で動かした。
 # ⚠ 毎フレーム呼んでよい。set_entries() が顔ぶれの署名で弾く。
 func _update_status_chips() -> void:
 	if _session == null or _status == null:
@@ -1259,16 +1310,38 @@ func _update_status_chips() -> void:
 			continue
 		var u: BattleUnit = unit as BattleUnit
 		var entries: Array = _status.entries_for(u.unit_id)
-		if _status_chips_by_unit_id.has(u.unit_id):
-			var chips: Variant = _status_chips_by_unit_id[u.unit_id]
-			if chips is StatusChips and is_instance_valid(chips):
-				(chips as StatusChips).set_entries(entries)
-			continue
 		if not _views_by_unit_id.has(u.unit_id):
 			continue
 		var view: Node = _views_by_unit_id[u.unit_id]
 		if is_instance_valid(view) and view.has_method("set_status_entries"):
 			view.set_status_entries(entries)
+
+
+# 下部パネルの残量と戦闘不能（2026-09-16・モック §6）。
+#
+# ⚠⚠ 戦闘不能でも**パネルを消さない**（人間のモック「消さずに残す」）。
+#   ⚠ 消すとレイアウトが動いて他の2人の位置が変わる。⚠ 蘇生の対象にもなりうる。
+#   ⚠ 出すのは薄くしたパネル。⚠ 濃さは Theme（`dead_percent`）が持つ。
+# ⚠ シールドは `_step_shield_views()` が器から引いて配る。⚠ ここでは HP だけ。
+func _update_bottom_panel() -> void:
+	if _session == null:
+		return
+	for unit in _session.party_units:
+		if not (unit is BattleUnit):
+			continue
+		var u: BattleUnit = unit as BattleUnit
+		if not _panel_slots_by_unit_id.has(u.unit_id):
+			continue
+		var slot_data: Dictionary = _panel_slots_by_unit_id[u.unit_id]
+		var bar: Variant = slot_data.get("bar", null)
+		if bar is BattleBar and is_instance_valid(bar):
+			(bar as BattleBar).set_hp(u.hp, u.max_hp)
+		var slot: Variant = slot_data.get("slot", null)
+		if slot is Control and is_instance_valid(slot):
+			var percent: float = float(
+				(slot as Control).get_theme_constant(&"dead_percent", &"BattleHud")
+			)
+			(slot as Control).modulate.a = 1.0 if u.is_alive() else percent / 100.0
 
 
 # 行動中の見た目を配る（2026-09-16・モック §3-2）。

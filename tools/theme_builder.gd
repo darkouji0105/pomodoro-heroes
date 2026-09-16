@@ -942,6 +942,20 @@ static func _build_battle(theme: Theme) -> void:
 	theme.set_color(&"name_low", &"BattleUnitView", _html(BATTLE_HP_LOW))
 	theme.set_color(&"active_border", &"BattleUnitView", _html(ACTIVE_BORDER))
 
+	# ⚠ 下部パネルの中の間隔。⚠ 値は上の const が唯一の持ち主
+	#   （⚠ `BattleHud` の定数と同じものを指す。⚠ 数字を書き写さない）。
+	theme.set_type_variation(&"BattleFaceRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"BattleFaceRow", BATTLE_FACE_GAP)
+	theme.set_type_variation(&"BattleSkillRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"BattleSkillRow", BATTLE_SKILL_GAP)
+	theme.set_type_variation(&"BattleNameStack", &"VBoxContainer")
+	theme.set_constant(&"separation", &"BattleNameStack", BATTLE_PANEL_NAME_GAP)
+
+	# ⚠ 下部パネルの名前。⚠ 戦場のユニットの名前と同じ大きさ・同じ色にする。
+	theme.set_type_variation(&"BattleNameLabel", &"Label")
+	theme.set_font_size(&"font_size", &"BattleNameLabel", BATTLE_UNIT_NAME_SIZE)
+	theme.set_color(&"font_color", &"BattleNameLabel", _html(MUTED_FONT_COLOR))
+
 	# ⚠ 画面の左右の余白だけを持つ器（⚠ 縦は0）。⚠ ヘッダーは高さ40しかないので、
 	#   ⚠ `ScreenMargin`（上下も32）を使うと中身が入らない。
 	theme.set_type_variation(&"BattleSideMargin", &"MarginContainer")
