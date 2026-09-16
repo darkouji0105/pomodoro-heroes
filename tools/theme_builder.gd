@@ -302,6 +302,81 @@ const TIER_DOT_GAP: int = 3
 const TIER_DOT_GROUP: int = 5
 const TIER_DOT_GROUP_GAP: int = 8
 
+# --- 戦闘画面（2026-09-16・人間のモック「戦闘まわり UI 決定」）---
+#
+# ⚠⚠ 戦闘は27画面で唯一 `Node2D` を使う画面。⚠ それでも**値はここが持つ**
+#   （⚠ `TimerRing` / `SetDots` と同じ形。⚠ `battle_controller.gd` に const を置かない）。
+# ⚠ Node2D は `get_theme_*()` を持たない。⚠ 引くのは**子の Control から**
+#   （⚠ `$Body.get_theme_constant(&"width", &"BattleUnitView")`）。
+# ⚠ ユニットの横位置だけは**戦闘中に動く**（`unit.x += dir * speed * delta`）。
+#   ⚠ ここが持つのは**並び始めの位置**であって、⚠ 毎フレームの位置ではない。
+
+# ⚠ 画面の3段（モック §1）。⚠ ヘッダー40 ／ 戦場（可変）／ 下部パネル66。
+const BATTLE_HEADER_HEIGHT: int = 40
+const BATTLE_SIDE_MARGIN: int = 32
+const BATTLE_PANEL_HEIGHT: int = 66
+const BATTLE_PANEL_PAD: int = 12
+# ⚠ 戦場の地。⚠ 他の画面より一段暗い（⚠ 画面の地 `BACKGROUND_BG` は 16110f）。
+const BATTLE_FIELD_BG: String = "0f0c0b"
+# ⚠ 陣営を分ける中央の縦線（モック §2）。⚠ 位置と色の二重で陣営を示す。
+const BATTLE_CENTER_LINE: String = "2a2320"
+const BATTLE_CENTER_WIDTH: int = 1
+# ⚠ 中央の線からユニットの中心までの距離。⚠ 味方は左、敵は右に同じだけ離す。
+const BATTLE_CENTER_GAP: int = 50
+# ⚠ ユニットの本体の中心の高さ。⚠ 下にチャージバー（次の回）が入る余地を残してある。
+const BATTLE_GROUND_Y: int = 300
+
+# ⚠ 下部パネル（モック §6・A案「顔の直下にHPバーを密着」）。
+const BATTLE_FACE_SIZE: int = 40
+# ⚠⚠ モックは 46 x 40 だが、⚠ **正方形にして `CharacterAvatar` を使い回す**。
+#   ⚠ 顔の部品を2つに増やさない（⚠ 絵（SDキャラ）が入るときに1箇所で差し替わる形を保つ）。
+const BATTLE_FACE_BAR_HEIGHT: int = 6
+const BATTLE_FACE_SHIELD_HEIGHT: int = 3
+const BATTLE_FACE_GAP: int = 11
+const BATTLE_PANEL_NAME_GAP: int = 6
+const BATTLE_SKILL_SIZE: int = 38
+const BATTLE_SKILL_GAP: int = 6
+# ⚠ 戦闘不能のパネルは**消さずに残す**（⚠ 消すと他の2人の位置が動く）。
+#   ⚠ Theme の定数は int しか持てないので百分率で持つ（40 = 0.4）。
+const BATTLE_DEAD_PERCENT: int = 40
+
+# ⚠ 戦場のユニット（モック §3）。
+const BATTLE_UNIT_WIDTH: int = 74
+const BATTLE_UNIT_BODY_HEIGHT: int = 64
+const BATTLE_UNIT_CORNER: int = 6
+const BATTLE_UNIT_GLYPH: int = 28
+const BATTLE_UNIT_GAP: int = 10
+const BATTLE_UNIT_NAME_SIZE: int = 11
+const BATTLE_UNIT_NAME_GAP: int = 4
+const BATTLE_UNIT_BAR_HEIGHT: int = 5
+const BATTLE_UNIT_BAR_GAP: int = 4
+const BATTLE_UNIT_ACTIVE_WIDTH: int = 1
+
+# ⚠⚠ HPバーは残量で3段（モック §4）。⚠ 敵は3段に分けず1色。
+#   ⚠ シールドは**HPバーの右に継ぎ足す**。⚠ 別の行にしない
+#   （⚠ 2026-09-16 時点の実コードは別の行で、⚠ 剣士だけ縦位置がズレていた）。
+const BATTLE_HP_HIGH: String = "7fbf47"
+const BATTLE_HP_MID: String = "efc775"
+const BATTLE_HP_LOW: String = "e05a4a"
+const BATTLE_HP_ENEMY: String = "c4534a"
+const BATTLE_SHIELD: String = "58a7ee"
+const BATTLE_BAR_GROOVE: String = "2a2320"
+# ⚠ HPが何割を切ったら色が変わるか。⚠ 百分率（Theme の定数は int）。
+const BATTLE_HP_MID_PERCENT: int = 50
+const BATTLE_HP_LOW_PERCENT: int = 20
+
+# ⚠ 名前の色は3つ（モック §3-2・§4）。⚠ 通常 ／ 行動中 ／ 瀕死。
+#   ⚠⚠ **新しい色は足していない**：通常は `MUTED_FONT_COLOR`、
+#   ⚠ 行動中は `LABEL_FONT_COLOR`、⚠ 瀕死はHPの一番下と同値。
+const BATTLE_NAME_ACTIVE: String = "f0e6df"
+
+# ⚠ 敵とボスの本体の色。⚠ 味方は `CharacterAvatar` の色表をそのまま使う
+#   （⚠ 育成・スキル設定と同じ顔色になる。⚠ 戦闘だけ別の色にしない）。
+const BATTLE_BODY_ENEMY_BG: String = "4a2a26"
+const BATTLE_BODY_ENEMY_FG: String = "ecbcbc"
+const BATTLE_BODY_BOSS_BG: String = "4a2a3a"
+const BATTLE_BODY_BOSS_FG: String = "ecbcd4"
+
 # --- 面（PanelContainer）---
 
 const PANEL_BG: String = "241d1a"
@@ -423,6 +498,7 @@ static func build() -> void:
 	_build_inputs(theme)
 	_build_pomodoro(theme)
 	_build_stat_nodes(theme)
+	_build_battle(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -803,6 +879,70 @@ static func _build_stat_nodes(theme: Theme) -> void:
 	theme.set_type_variation(&"PointsLabel", &"Label")
 	theme.set_font_size(&"font_size", &"PointsLabel", GAIN_FLOAT_FONT)
 	theme.set_color(&"font_color", &"PointsLabel", _html("f0c04a"))
+
+
+# ⚠ 戦闘だけが使う値（2026-09-16・人間のモック）。
+#
+# ⚠ 型は2つ。⚠ `BattleHud`（画面の3段と下部パネル）と
+#   ⚠ `BattleUnitView`（戦場の1体）。⚠ 混ぜないこと
+#   （⚠ 下部パネルの顔とバーは 40/6/3、⚠ 戦場は 74/5 で、⚠ 同じ名前の別の値になる）。
+static func _build_battle(theme: Theme) -> void:
+	var hud: Dictionary = {
+		"header_height": BATTLE_HEADER_HEIGHT,
+		"side_margin": BATTLE_SIDE_MARGIN,
+		"panel_height": BATTLE_PANEL_HEIGHT,
+		"panel_pad": BATTLE_PANEL_PAD,
+		"center_width": BATTLE_CENTER_WIDTH,
+		"center_gap": BATTLE_CENTER_GAP,
+		"ground_y": BATTLE_GROUND_Y,
+		"face_size": BATTLE_FACE_SIZE,
+		"face_bar_height": BATTLE_FACE_BAR_HEIGHT,
+		"face_shield_height": BATTLE_FACE_SHIELD_HEIGHT,
+		"face_gap": BATTLE_FACE_GAP,
+		"name_gap": BATTLE_PANEL_NAME_GAP,
+		"skill_size": BATTLE_SKILL_SIZE,
+		"skill_gap": BATTLE_SKILL_GAP,
+		"dead_percent": BATTLE_DEAD_PERCENT,
+	}
+	for key: String in hud.keys():
+		theme.set_constant(StringName(key), &"BattleHud", int(hud[key]))
+	theme.set_color(&"field_bg", &"BattleHud", _html(BATTLE_FIELD_BG))
+	theme.set_color(&"center_line", &"BattleHud", _html(BATTLE_CENTER_LINE))
+	theme.set_color(&"divider", &"BattleHud", _html(DIVIDER_COLOR))
+
+	var unit: Dictionary = {
+		"width": BATTLE_UNIT_WIDTH,
+		"body_height": BATTLE_UNIT_BODY_HEIGHT,
+		"corner_radius": BATTLE_UNIT_CORNER,
+		"glyph": BATTLE_UNIT_GLYPH,
+		"gap": BATTLE_UNIT_GAP,
+		"name_size": BATTLE_UNIT_NAME_SIZE,
+		"name_gap": BATTLE_UNIT_NAME_GAP,
+		"bar_height": BATTLE_UNIT_BAR_HEIGHT,
+		"bar_gap": BATTLE_UNIT_BAR_GAP,
+		"active_width": BATTLE_UNIT_ACTIVE_WIDTH,
+		"hp_mid_percent": BATTLE_HP_MID_PERCENT,
+		"hp_low_percent": BATTLE_HP_LOW_PERCENT,
+	}
+	for key: String in unit.keys():
+		theme.set_constant(StringName(key), &"BattleUnitView", int(unit[key]))
+	theme.set_color(&"hp_high", &"BattleUnitView", _html(BATTLE_HP_HIGH))
+	theme.set_color(&"hp_mid", &"BattleUnitView", _html(BATTLE_HP_MID))
+	theme.set_color(&"hp_low", &"BattleUnitView", _html(BATTLE_HP_LOW))
+	theme.set_color(&"hp_enemy", &"BattleUnitView", _html(BATTLE_HP_ENEMY))
+	theme.set_color(&"shield", &"BattleUnitView", _html(BATTLE_SHIELD))
+	theme.set_color(&"groove", &"BattleUnitView", _html(BATTLE_BAR_GROOVE))
+	theme.set_color(&"name", &"BattleUnitView", _html(MUTED_FONT_COLOR))
+	theme.set_color(&"name_active", &"BattleUnitView", _html(BATTLE_NAME_ACTIVE))
+	theme.set_color(&"name_low", &"BattleUnitView", _html(BATTLE_HP_LOW))
+	theme.set_color(&"active_border", &"BattleUnitView", _html(ACTIVE_BORDER))
+
+	# ⚠ 敵とボスの本体は `CharacterAvatar` の表に足す。⚠ 味方（3体）と同じ引き方に
+	#   なるので、⚠ `UnitView` 側に「味方か敵か」で色を分ける枝を持たなくてよい。
+	theme.set_color(&"bg_enemy", &"CharacterAvatar", _html(BATTLE_BODY_ENEMY_BG))
+	theme.set_color(&"fg_enemy", &"CharacterAvatar", _html(BATTLE_BODY_ENEMY_FG))
+	theme.set_color(&"bg_boss", &"CharacterAvatar", _html(BATTLE_BODY_BOSS_BG))
+	theme.set_color(&"fg_boss", &"CharacterAvatar", _html(BATTLE_BODY_BOSS_FG))
 
 
 static func _html(hex: String) -> Color:
