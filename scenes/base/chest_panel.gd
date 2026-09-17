@@ -223,7 +223,7 @@ func _show_reward_window(rewards: Dictionary, title: String) -> void:
 	var box: VBoxContainer = VBoxContainer.new()
 	box.name = "RewardWindow"
 
-	var entries: Array = _reward_entries(rewards)
+	var entries: Array = RewardEntries.slot_entries(rewards)
 	if not entries.is_empty():
 		var grid: ItemGrid = ItemGrid.new()
 		grid.name = "RewardGrid"
@@ -231,7 +231,7 @@ func _show_reward_window(rewards: Dictionary, title: String) -> void:
 		box.add_child(grid)
 		grid.rebuild(entries, entries.size())
 
-	var currency: String = _reward_currency_text(rewards)
+	var currency: String = RewardEntries.currency_text(rewards)
 	if currency != "":
 		var label: Label = Label.new()
 		label.name = "RewardCurrency"
@@ -245,42 +245,7 @@ func _show_reward_window(rewards: Dictionary, title: String) -> void:
 	})
 
 
-# 報酬のうち **マスになるもの**（⚠ 素材と持ち物）。⚠ 個数はマスに出る。
-func _reward_entries(rewards: Dictionary) -> Array:
-	var entries: Array = []
-	for source: Variant in [
-		rewards.get(GameStateKeys.REWARD_MATERIALS, {}),
-		rewards.get(GameStateKeys.REWARD_INVENTORY, {}),
-	]:
-		if not (source is Dictionary):
-			continue
-		for item_id: String in (source as Dictionary):
-			var count: int = int((source as Dictionary)[item_id])
-			if count <= 0:
-				continue
-			entries.append({
-				GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
-				GameManager.SLOT_ENTRY_ITEM_ID: item_id,
-				GameManager.SLOT_ENTRY_INSTANCE_ID: "",
-				GameManager.SLOT_ENTRY_GRADE: 0,
-				GameManager.SLOT_ENTRY_COUNT: count,
-				GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
-			})
-	return entries
-
-
-# 報酬のうち **マスにならないもの**（⚠ ゴールド・ジェム・スタミナ）。⚠ 0 は出さない。
-func _reward_currency_text(rewards: Dictionary) -> String:
-	var parts: Array[String] = []
-	for pair: Array in [
-		[GameStateKeys.REWARD_GOLD, "ui_res_gold"],
-		[GameStateKeys.REWARD_GEMS, "ui_res_gems"],
-		[GameStateKeys.REWARD_STAMINA, "ui_res_stamina"],
-	]:
-		var amount: int = int(rewards.get(str(pair[0]), 0))
-		if amount > 0:
-			parts.append("%s +%d" % [tr(str(pair[1])), amount])
-	return "  ".join(parts)
+# ⚠ 報酬のマスと通貨の文字は `RewardEntries`（2026-09-17）。⚠ 戦闘の結果窓と同じ口。
 
 
 # 宝箱の表示名。⚠ chests.json の name_key（⚠ 綴りを組み立てない）。
