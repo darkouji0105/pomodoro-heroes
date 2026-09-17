@@ -41,6 +41,10 @@ const SUMMON: String = "👻"
 ##   ⚠ 気づくのでは遅いので、⚠ 待機中から種別が分かるようにする。
 const SKILL_CHARGE_MARK: String = "👆"
 
+# --- 戦闘の結果窓（2026-09-17・人間のモック §12）---
+## ⚠ 題の帯の左の飾り。⚠ 飾りだけで、⚠ 勝ち負けは題の字が言う（⚠ 記号で状態を言わない）。
+const RESULT_TITLE_MARK: String = "☆"
+
 # --- アイテム（items.json） ---
 #
 # ⚠⚠ item_id ごとではなく「種類ごと」に持つ。⚠ 91件ぶんの表を作らない。
@@ -301,6 +305,7 @@ static func all_for_check() -> Dictionary:
 		"ENEMY_FALLBACK": ENEMY_FALLBACK,
 		"SUMMON": SUMMON,
 		"SKILL_CHARGE_MARK": SKILL_CHARGE_MARK,
+		"RESULT_TITLE_MARK": RESULT_TITLE_MARK,
 		"ITEM_WEAPON": ITEM_WEAPON,
 		"ITEM_HEAD": ITEM_HEAD,
 		"ITEM_ARMOR": ITEM_ARMOR,

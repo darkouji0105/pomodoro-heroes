@@ -33,6 +33,7 @@ const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
 # 難ダンジョンのマップ（段階17-d）。⚠ フロアのマップと別の画面。
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
+const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
 const DEBUG_PANEL_SCRIPT: GDScript = preload("res://scenes/adventure/battle_debug_panel.gd")
@@ -79,11 +80,9 @@ const SKILL_KEY_ACTIONS: Array[StringName] = [
 @onready var field_area: Control = $HUD/Root/Layout/Field
 @onready var bottom_panel: PanelContainer = $HUD/Root/Layout/BottomPanel
 @onready var skill_buttons_container: HBoxContainer = $HUD/Root/Layout/BottomPanel/SkillButtons
-@onready var result_view: Control = $HUD/ResultView
-@onready var result_label: Label = $HUD/ResultView/ResultLabel
-@onready var reward_label: Label = $HUD/ResultView/RewardLabel
-@onready var retry_button: Button = $HUD/ResultView/RetryButton
-@onready var back_button: Button = $HUD/ResultView/BackButton
+# 結果窓（2026-09-17・§0-UI-G）。⚠ 窓は状態を動かさない。⚠ 行き先はこのファイルの
+#   `_on_result_next_pressed()` / `_on_result_base_pressed()` が決める。
+@onready var result_view: BattleResultView = $HUD/ResultView
 
 # データ
 var _stage_id: String = "floor_1"
@@ -223,8 +222,9 @@ func _ready() -> void:
 
 	_init_party_units()
 	result_view.hide()
-	retry_button.pressed.connect(_on_retry_pressed)
-	back_button.pressed.connect(_on_back_pressed)
+	result_view.retry_pressed.connect(_on_retry_pressed)
+	result_view.next_pressed.connect(_on_result_next_pressed)
+	result_view.base_pressed.connect(_on_result_base_pressed)
 	_setup_debug_panel()
 	# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ ウェーブ開始より前。ここで
 	#   ファイルを空にするので、あとに置くと1波目の頭が消える。
@@ -2118,29 +2118,58 @@ func _show_result(victory: bool, result_data: Dictionary) -> void:
 	BattleLog.log_result(victory, _session.current_wave, _session.total_waves)
 	BattleLog.flush()
 
+	# ⚠⚠ 窓に何を出すか（人間の決定・§0-UI-G）。⚠ ここは「見せ方」だけで、状態は1つも動かさない
+	#   （⚠ 報酬もクリア記録も _enter_victory() / _enter_defeat() が済ませている）。
+	var rewards: Dictionary = {}
+	var note_key: String = ""
+	var note_is_loss: bool = false
 	if victory:
-		result_label.text = tr("ui_battle_victory")
-		var reward_lines: Array = []
-		var rewards: Dictionary = result_data.get(GameStateKeys.BATTLE_REWARDS, {})
-		if rewards.has("gold"):
-			reward_lines.append(tr("ui_battle_reward_gold") + ": " + str(int(rewards["gold"])))
-		if rewards.has("materials") and rewards["materials"] is Dictionary:
-			for mat_id: String in (rewards["materials"] as Dictionary):
-				var amount: int = int(rewards["materials"][mat_id])
-				reward_lines.append(tr("ui_res_" + mat_id) + ": " + str(amount))
-		reward_label.text = "\n".join(reward_lines)
-		retry_button.hide()
-	else:
-		result_label.text = tr("ui_battle_defeat")
-		reward_label.text = ""
+		if _dungeon_node_id != "":
+			# ⚠ 戦利品は拾い待ちへ行く（BATTLE_REWARDS は空）。⚠ マスは出さず、次の画面で選ばせる。
+			note_key = "ui_battle_result_note_dungeon_loot"
+		elif _session.stage_type != GameStateKeys.STAGE_TYPE_STORY:
+			# ⚠ 検証用ステージ（training）は報酬を配らない（2026-08-17 の決定）。⚠ 配っていないものを見せない。
+			note_key = "ui_battle_result_note_training"
+		else:
+			rewards = result_data.get(GameStateKeys.BATTLE_REWARDS, {})
+	elif _dungeon_node_id != "" and not GameManager.is_in_dungeon():
+		# ⚠ 全滅＝鞄を失ってランが終わった（§4-4-2）。
+		note_key = "ui_battle_result_note_bag_lost"
+		note_is_loss = true
+
+	result_view.show_result({
+		BattleResultView.DATA_VICTORY: victory,
+		BattleResultView.DATA_HEADING: _result_heading(),
+		BattleResultView.DATA_ELAPSED_SEC: _session.elapsed_sec,
+		BattleResultView.DATA_DAMAGE_TAKEN: _party_damage_taken(),
+		BattleResultView.DATA_REWARDS: rewards,
+		BattleResultView.DATA_NOTE_KEY: note_key,
+		BattleResultView.DATA_NOTE_IS_LOSS: note_is_loss,
 		# ⚠ ダンジョンでは「もう一度」を出さない（段階17-b）。⚠ 負けた時点で
 		#   ランは終わっている（全員脱落＝死亡）ので、押しても敵を組めない。
-		if _dungeon_node_id != "":
-			retry_button.hide()
-		else:
-			retry_button.show()
-	result_view.show()
-	back_button.show()
+		BattleResultView.DATA_CAN_RETRY: _dungeon_node_id == "",
+	})
+
+
+# 結果窓の見出し（⚠ ヘッダーと同じ「◯層 波 n / m」）。⚠ 層はフロアと難ダンジョンだけ。
+func _result_heading() -> String:
+	var wave_text: String = "%s %d / %d" % [
+		tr("ui_battle_wave"), _session.current_wave, _session.total_waves,
+	]
+	var layer: int = _current_layer()
+	if layer <= 0:
+		return wave_text
+	return "%s %s" % [tr("ui_battle_layer") % layer, wave_text]
+
+
+# 味方がこの戦闘で受けたダメージ（⚠ 実際に減った HP の合計・`BattleUnit.damage_taken`）。
+# ⚠ 召喚は入れない（⚠ 編成の3人だけ）。
+func _party_damage_taken() -> int:
+	var total: int = 0
+	for unit in _session.party_units:
+		if unit is BattleUnit:
+			total += (unit as BattleUnit).damage_taken
+	return total
 
 
 func _on_retry_pressed() -> void:
@@ -2290,11 +2319,14 @@ func _save_floor_hp_carry() -> void:
 	GameManager.set_floor_hp_carry(hp_by_character)
 
 
-func _on_back_pressed() -> void:
+# 結果窓の「次へ進む」（⚠ 勝ったときだけ出る・人間の決定 §0-UI-G）。
+#
+# ⚠ 行き先は前の「拠点へ戻る」の勝ったときの行き先そのまま（⚠ 状態を動かす口を増やさない）。
+#   ⚠ ステージ直行だけ 拠点 → 冒険選択 に変えた（⚠ 「拠点へ」が別にあるため）。
+func _on_result_next_pressed() -> void:
 	# 難ダンジョンの中から来たとき（段階17-b／戻り先は17-d で差し替えた）。
-	# ⚠ ランが終わっていれば（全滅＝死亡）冒険選択へ。⚠ 続いていればマップへ戻る。
-	#   ⚠ ここで abandon_dungeon_run() を呼ばないこと。⚠ 負けた時点で
-	#     apply_dungeon_battle_result() がもう終わらせている（二重に呼ぶと二重ロスト）。
+	# ⚠ ランが続いていればマップへ（⚠ 拾い待ちがあればマップが拾う画面へ送る）。
+	#   ⚠ ここで abandon_dungeon_run() を呼ばないこと。
 	if _dungeon_node_id != "":
 		if GameManager.is_in_dungeon():
 			SceneManager.change_scene(DUNGEON_MAP_PATH)
@@ -2303,21 +2335,28 @@ func _on_back_pressed() -> void:
 		return
 
 	# フロアの中から来たとき（段階14-c）。
-	# ⚠ 勝ってボスを倒したときは _enter_victory() が既にフロアを降りている。
-	#   ここへ来るのは「道中で勝った」か「負けた」の2つ。
+	# ⚠ ボスを倒したときは _enter_victory() が既にフロアを降りている。
 	if _floor_node_id != "":
-		if _session != null and _session.state == BattleSession.STATE_DEFEAT:
-			# 負けたらフロアを降りる（EXEC §1-5「負けてもノーリスク＝最初からやり直し」）。
-			GameManager.abandon_floor()
-			SceneManager.change_scene(ADVENTURE_SELECT_PATH)
-			return
 		if not GameManager.is_in_floor():
-			# ボスを倒して _enter_victory() が既に降りている。
 			SceneManager.change_scene(ADVENTURE_SELECT_PATH)
 			return
 		SceneManager.change_scene(FLOOR_MAP_PATH)
 		return
-	SceneManager.change_scene("res://scenes/base/base_screen.tscn")
+	# ステージ直行。
+	SceneManager.change_scene(ADVENTURE_SELECT_PATH)
+
+
+# 結果窓の「拠点へ」（⚠ 勝ち負けの両方に出る・人間の決定 §0-UI-G）。
+#
+# ⚠⚠ フロア・難ダンジョンの途中でも**ランは残す・確認も出さない**（⚠ マップの「拠点へ」と同じ扱い）。
+# ⚠ 例外はフロアで負けたときだけ：前と同じくフロアを降りる（EXEC §1-5「負けてもノーリスク＝最初からやり直し」）。
+#   ⚠ abandon_floor() を呼ぶ口はここと _enter_victory() と floor_map の3本のまま（⚠ 増やさない）。
+# ⚠ 難ダンジョンで負けたときは apply_dungeon_battle_result() がもうランを終わらせている
+#   （⚠ ここで abandon_dungeon_run() を呼ぶと二重ロスト）。
+func _on_result_base_pressed() -> void:
+	if _floor_node_id != "" and _session != null and _session.state == BattleSession.STATE_DEFEAT:
+		GameManager.abandon_floor()
+	SceneManager.change_scene(BASE_PATH)
 
 
 # ============================================================

@@ -478,6 +478,36 @@ const CHARGE_FILL_OVER: String = "c4534a"
 const CHARGE_BORDER_OVER: String = "8f4a42"
 const CHARGE_NAME_OVER: String = "c4877f"
 
+# --- 戦闘の結果窓（2026-09-17・人間のモック §12・`BattleResult` 型）---
+#
+# ⚠⚠ Modal は使わない（人間の決定・§0-UI-G）。⚠ 行き先を持つボタンが2つ並び、
+#   ⚠ `notify`（ボタン1つ）にも `confirm`（はい／いいえ）にも収まらないため。
+# ⚠ 暗幕はモックの rgba(0,0,0,.55)。⚠ 0.55 × 255 ＝ 140 ＝ 8c。
+const RESULT_DIM: String = "0000008c"
+const RESULT_WIDTH: int = 460
+const RESULT_BG: String = "1f1a18"
+# ⚠ 枠はボタンの既定の枠・チップの枠と同値（`CHIP_BORDER` はこの下で定義）。⚠ 新しい色ではない。
+const RESULT_BORDER: String = "4a3d36"
+const RESULT_CORNER: int = 10
+const RESULT_TITLE_HEIGHT: int = 36
+# ⚠ 題の帯の地はバーの溝と同値（`BATTLE_BAR_GROOVE`）、⚠ 下辺の線は真鍮（`RING_FILL`）。
+const RESULT_TITLE_BG: String = BATTLE_BAR_GROOVE
+const RESULT_TITLE_RULE: String = RING_FILL
+const RESULT_TITLE_RULE_WIDTH: int = 2
+# ⚠⚠ 見出しはモックの 22px を**既存の段 24 に丸めた**（⚠ 文字の大きさは6段で増やさない）。
+#   ⚠ 24 は「浮かぶ数字」と同じ段（`GAIN_FLOAT_FONT`）。⚠ 色は琥珀（`AccentLabel` と同値）。
+const RESULT_HEADING_SIZE: int = GAIN_FLOAT_FONT
+const RESULT_HEADING_COLOR: String = "f0c04a"
+# ⚠ 負けの見出しは減の色（`ERROR_FONT_COLOR`）。⚠ 赤を2色にしない。
+const RESULT_HEADING_DEFEAT_COLOR: String = ERROR_FONT_COLOR
+# ⚠ 窓の中の余白と、⚠ まとまりどうしの間。
+const RESULT_PAD: int = 16
+const RESULT_GAP: int = 12
+# ⚠ 見出しと副題の間（⚠ 2つで1まとまりに見せる）。
+const RESULT_HEADING_GAP: int = 2
+# ⚠ 獲得のマスは1行6マス（モック §12）。⚠ 7件目から次の行（人間の決定）。
+const RESULT_GRID_COLUMNS: int = 6
+
 # --- 面（PanelContainer）---
 
 const PANEL_BG: String = "241d1a"
@@ -602,6 +632,7 @@ static func build() -> void:
 	_build_battle(theme)
 	_build_skill_tile(theme)
 	_build_charge_bar(theme)
+	_build_battle_result(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -1160,6 +1191,54 @@ static func _build_charge_bar(theme: Theme) -> void:
 	theme.set_type_variation(&"ChargeNameLabel", &"Label")
 	theme.set_font_size(&"font_size", &"ChargeNameLabel", CHARGE_NAME_SIZE)
 	theme.set_color(&"font_color", &"ChargeNameLabel", _html(MUTED_FONT_COLOR))
+
+
+# ⚠ 戦闘の結果窓（`BattleResult` 型・2026-09-17）。⚠ 部品は `battle_result_view.gd`。
+static func _build_battle_result(theme: Theme) -> void:
+	var t: StringName = &"BattleResult"
+	theme.set_color(&"dim", t, _html(RESULT_DIM))
+	theme.set_constant(&"width", t, RESULT_WIDTH)
+	theme.set_constant(&"title_height", t, RESULT_TITLE_HEIGHT)
+	theme.set_constant(&"columns", t, RESULT_GRID_COLUMNS)
+
+	var window: StyleBoxFlat = StyleBoxFlat.new()
+	window.bg_color = _html(RESULT_BG)
+	window.set_corner_radius_all(RESULT_CORNER)
+	window.set_border_width_all(1)
+	window.border_color = _html(RESULT_BORDER)
+	theme.set_type_variation(&"ResultWindowPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ResultWindowPanel", window)
+
+	# ⚠ 題の帯。⚠ 窓の枠（1px）の内側に入るので、⚠ 上の角丸は 1 だけ小さくして窓の角に沿わせる。
+	var title: StyleBoxFlat = StyleBoxFlat.new()
+	title.bg_color = _html(RESULT_TITLE_BG)
+	title.corner_radius_top_left = RESULT_CORNER - 1
+	title.corner_radius_top_right = RESULT_CORNER - 1
+	title.border_width_bottom = RESULT_TITLE_RULE_WIDTH
+	title.border_color = _html(RESULT_TITLE_RULE)
+	title.content_margin_left = RESULT_PAD
+	title.content_margin_right = RESULT_PAD
+	theme.set_type_variation(&"ResultTitlePanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ResultTitlePanel", title)
+
+	# ⚠ 題の字はボタンと同じ段（14）・本文の色。
+	theme.set_type_variation(&"ResultTitleLabel", &"Label")
+	theme.set_font_size(&"font_size", &"ResultTitleLabel", BUTTON_FONT_SIZE)
+	theme.set_color(&"font_color", &"ResultTitleLabel", _html(LABEL_FONT_COLOR))
+
+	theme.set_type_variation(&"ResultHeadingLabel", &"Label")
+	theme.set_font_size(&"font_size", &"ResultHeadingLabel", RESULT_HEADING_SIZE)
+	theme.set_color(&"font_color", &"ResultHeadingLabel", _html(RESULT_HEADING_COLOR))
+	theme.set_type_variation(&"ResultDefeatHeadingLabel", &"Label")
+	theme.set_font_size(&"font_size", &"ResultDefeatHeadingLabel", RESULT_HEADING_SIZE)
+	theme.set_color(&"font_color", &"ResultDefeatHeadingLabel", _html(RESULT_HEADING_DEFEAT_COLOR))
+
+	theme.set_type_variation(&"ResultBodyMargin", &"MarginContainer")
+	_set_margin(theme, "ResultBodyMargin", RESULT_PAD, RESULT_PAD)
+	theme.set_type_variation(&"ResultStack", &"VBoxContainer")
+	theme.set_constant(&"separation", &"ResultStack", RESULT_GAP)
+	theme.set_type_variation(&"ResultHeadingStack", &"VBoxContainer")
+	theme.set_constant(&"separation", &"ResultHeadingStack", RESULT_HEADING_GAP)
 
 
 static func _html(hex: String) -> Color:

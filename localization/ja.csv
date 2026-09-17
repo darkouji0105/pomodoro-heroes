@@ -935,3 +935,11 @@ ui_battle_layer,%d層
 ui_battle_wave,波
 ui_uitest_skill_tiles,戦闘のスキルのマス
 ui_uitest_skill_tiles_note,"上から 通常CD（残り 20/14/9/4/1.2秒・待機・戦闘不能）／チャージ（待機・溜め中・窓の中・CD中）／recast（待機・構え残り3回・残り1回・CD中）"
+ui_battle_result_victory_title,戦闘に勝利
+ui_battle_result_defeat_title,戦闘に敗北
+ui_battle_result_summary,%s ／ 被ダメージ %d
+ui_battle_result_next,次へ進む
+ui_battle_result_to_base,拠点へ
+ui_battle_result_note_dungeon_loot,戦利品は次の画面で選ぶ
+ui_battle_result_note_training,検証用ステージのため報酬なし
+ui_battle_result_note_bag_lost,鞄の中身を失った

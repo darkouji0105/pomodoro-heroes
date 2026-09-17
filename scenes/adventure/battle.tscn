@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://dx2mf42b21wkg"]
 
 [ext_resource type="Script" uid="uid://bvlbknyg1te0s" path="res://scenes/adventure/battle_controller.gd" id="1_battle_ctrl"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
+[ext_resource type="Script" path="res://scenes/adventure/battle_result_view.gd" id="3_result_view"]
 
 [node name="Battle" type="Node2D" unique_id=486331460]
 script = ExtResource("1_battle_ctrl")
@@ -89,45 +89,4 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-
-[node name="DimPanel" type="ColorRect" parent="HUD/ResultView" unique_id=1659633242]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0, 0, 0, 0.6)
-
-[node name="ResultLabel" type="Label" parent="HUD/ResultView" unique_id=1953451758]
-layout_mode = 0
-offset_left = 440.0
-offset_top = 200.0
-offset_right = 840.0
-offset_bottom = 260.0
-horizontal_alignment = 1
-
-[node name="RewardLabel" type="Label" parent="HUD/ResultView" unique_id=116060537]
-layout_mode = 0
-offset_left = 440.0
-offset_top = 280.0
-offset_right = 840.0
-offset_bottom = 360.0
-horizontal_alignment = 1
-
-[node name="RetryButton" parent="HUD/ResultView" unique_id=121349274 instance=ExtResource("2_primary_btn")]
-layout_mode = 0
-offset_left = 440.0
-offset_top = 400.0
-offset_right = 600.0
-offset_bottom = 460.0
-label_key = "ui_battle_retry"
-
-[node name="BackButton" parent="HUD/ResultView" unique_id=1303301017 instance=ExtResource("2_primary_btn")]
-layout_mode = 0
-offset_left = 680.0
-offset_top = 400.0
-offset_right = 840.0
-offset_bottom = 460.0
-label_key = "ui_common_back_to_base"
-variant = 2
+script = ExtResource("3_result_view")

@@ -231,6 +231,34 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_wide_sweep", "prepare": PREPARE_NONE, "hold_sec": 1.6},
 		],
 	},
+	# ⚠⚠ 戦闘の結果窓（2026-09-17・§0-UI-G）。⚠ 本番の3人で殴り合ってから決着させる（⚠ 被ダメージを0にしないため）。
+	#   ⚠ 見るもの：題・見出し・副題（時間と被ダメージ）・注記（検証用は報酬なし）・ボタン（拠点へ＋次へ進む）・窓の中心 640,360。
+	#   ⚠ そのあと見本の報酬（floor_5 のボス）で差し替え：マス9件（列6）・ピル gold +65。
+	"result": {
+		"kind": KIND_BATTLE,
+		"note": "結果窓（勝ち）。本物の窓 → 見本の報酬（floor_5）で差し替え",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_swordsman", "char_archer", "char_priest"],
+		"skills": {},
+		"dump_result": true,
+		"fire": [
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 6.0},
+		],
+	},
+	# ⚠ 負け（全滅）。⚠ 見るもの：題が敗北・見出しが負けの色・ボタン（拠点へ＋もう一度）。
+	"result_defeat": {
+		"kind": KIND_BATTLE,
+		"note": "結果窓（負け）。味方を全滅させる",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_swordsman", "char_archer", "char_priest"],
+		"skills": {},
+		"dump_result": true,
+		"fire": [
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
+			{"skill": "", "prepare": PREPARE_KILL_PARTY, "gap": 3.0},
+		],
+	},
 	# 段階5（phases[] / recast）の検証。⚠ ステージは stage_dbg_area を使い回す。
 	# ⚠ 同じ skill を2行書くと2回撃つ（_fired はインデックスなので既にそうなっている）。
 	#   足りなかったのは間隔の上書きだけ（既定の FIRE_GAP_SEC=1.0 は窓より長くなりうる）。
@@ -909,6 +937,7 @@ func _ready() -> void:
 	driver.battle_scene_path = SCENE_BATTLE
 	driver.skill_plan = scenario.get("fire", [])
 	driver.dump_each_fire = bool(scenario.get("dump_each_fire", false))
+	driver.dump_result = bool(scenario.get("dump_result", false))
 	# ⚠ call_deferred なのは、_ready() の時点では root が子を組み立てている最中で
 	#   add_child() が弾かれるため（"Parent node is busy setting up children"）。
 	#   SceneManager が DebugOverlay を足すときに call_deferred しているのと同じ理由。
@@ -4562,6 +4591,11 @@ class Driver extends Node:
 	# ⚠ 撃った直後の x を出すか（段階8。移動系ルーンのロックを見るため）。
 	#   ⚠ 既定は false。既存シナリオの出力を1行も増やさない。
 	var dump_each_fire: bool = false
+	# ⚠ 決着のあとに結果窓の中身を出すか（2026-09-17・§0-UI-G）。⚠ 既定は false。
+	#   ⚠ 本物の窓を出したあと、⚠ 見本の報酬（floor_5 のボス＝マス9件）で差し替えてもう1回出す
+	#   （⚠ 検証用ステージは報酬を配らないので、⚠ 本物ではマスとピルが見られない）。
+	var dump_result: bool = false
+	var _result_dumped: int = 0
 
 	# ⚠ battle_controller.gd に class_name が無いので型を付けられない。
 	#   ここは検証用スクリプトなので許容する。本番コードでこの書き方をしないこと
@@ -4617,6 +4651,8 @@ class Driver extends Node:
 				print("[DebugBoot] 決着 state=%s t=%.2f" % [session.state, session.elapsed_sec])
 				_dump_positions(session, "決着")
 			_finished_sec += delta
+			if dump_result and _step_dump_result(session):
+				return
 			if _finished_sec >= SETTLE_SEC:
 				# ⚠ ダンジョンは2連戦する（道中 → ボス）。⚠ 続きがあるあいだは終わらない。
 				if dungeon_mode and _next_dungeon_battle():
@@ -4740,6 +4776,37 @@ class Driver extends Node:
 		#   合図・静止・決着の3点では跳んだことが1つも残らない。
 		if dump_each_fire:
 			_dump_positions(session, "撃った直後")
+
+
+	# 結果窓を出す（2026-09-17）。⚠ 戻りが true のあいだは終わらない。
+	# ⚠ 1回目＝本物の窓 ／ 2回目＝見本の報酬で差し替えた窓。⚠ 差し替えは1フレーム待ってから測る
+	#   （⚠ レイアウトは1フレーム待たないと確定しない）。
+	func _step_dump_result(session: BattleSession) -> bool:
+		var view: BattleResultView = _battle.result_view
+		if _result_dumped == 0:
+			if _finished_sec < SETTLE_SEC * 0.5:
+				return true
+			var damage: Array[String] = []
+			for u in session.party_units:
+				if u is BattleUnit:
+					damage.append("%s=%d" % [u.unit_id, u.damage_taken])
+			print("[DebugBoot] 結果窓（本物）表示=%s ｜ 被ダメージの内訳 %s ｜ %s" % [
+				view.visible, ", ".join(damage), view.get_debug_summary()
+			])
+			var sample: Dictionary = MasterDataLoader.get_stage("floor_5").get("rewards", {})
+			view.show_result({
+				BattleResultView.DATA_VICTORY: true,
+				BattleResultView.DATA_HEADING: "3層 波 3 / 3",
+				BattleResultView.DATA_ELAPSED_SEC: 84.0,
+				BattleResultView.DATA_DAMAGE_TAKEN: 142,
+				BattleResultView.DATA_REWARDS: sample,
+			})
+			_result_dumped = 1
+			return true
+		if _result_dumped == 1:
+			_result_dumped = 2
+			print("[DebugBoot] 結果窓（見本 floor_5 の報酬）%s" % view.get_debug_summary())
+		return false
 
 
 	func _step_hold(session: BattleSession, entry: Dictionary, skill_id: String, user: BattleUnit) -> void:

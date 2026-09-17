@@ -663,11 +663,32 @@ corner_radius_bottom_right = 64
 corner_radius_bottom_left = 64
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1f2pp"]
+content_margin_left = 16.0
+content_margin_right = 16.0
+bg_color = Color(0.16470589, 0.13725491, 0.1254902, 1)
+border_width_bottom = 2
+border_color = Color(0.65882355, 0.4745098, 0.12156863, 1)
+corner_radius_top_left = 9
+corner_radius_top_right = 9
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_725dy"]
+bg_color = Color(0.12156863, 0.101960786, 0.09411765, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2901961, 0.23921569, 0.21176471, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_l14bi"]
 bg_color = Color(0.09803922, 0.078431375, 0.07450981, 1)
 border_width_left = 1
 border_color = Color(0.18039216, 0.15294118, 0.14117648, 1)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_725dy"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_337li"]
 content_margin_left = 16.0
 content_margin_top = 13.0
 content_margin_right = 16.0
@@ -683,7 +704,7 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_l14bi"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qw5ey"]
 content_margin_left = 16.0
 content_margin_top = 13.0
 content_margin_right = 16.0
@@ -699,7 +720,7 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_337li"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_yd6kn"]
 content_margin_left = 16.0
 content_margin_top = 13.0
 content_margin_right = 16.0
@@ -774,6 +795,10 @@ BattlePanelMargin/constants/margin_bottom = 12
 BattlePanelMargin/constants/margin_left = 12
 BattlePanelMargin/constants/margin_right = 12
 BattlePanelMargin/constants/margin_top = 12
+BattleResult/colors/dim = Color(0, 0, 0, 0.54901963)
+BattleResult/constants/columns = 6
+BattleResult/constants/title_height = 36
+BattleResult/constants/width = 460
 BattleSideMargin/base_type = &"MarginContainer"
 BattleSideMargin/constants/margin_bottom = 0
 BattleSideMargin/constants/margin_left = 32
@@ -1011,6 +1036,28 @@ ResourceGainEffect/constants/step_3 = 100
 ResourceGainEffect/constants/step_4 = 1000
 ResourceGainEffect/constants/type_stagger_ms = 540
 ResourceGainEffect/constants/types_busy = 3
+ResultBodyMargin/base_type = &"MarginContainer"
+ResultBodyMargin/constants/margin_bottom = 16
+ResultBodyMargin/constants/margin_left = 16
+ResultBodyMargin/constants/margin_right = 16
+ResultBodyMargin/constants/margin_top = 16
+ResultDefeatHeadingLabel/base_type = &"Label"
+ResultDefeatHeadingLabel/colors/font_color = Color(0.9098039, 0.5411765, 0.5411765, 1)
+ResultDefeatHeadingLabel/font_sizes/font_size = 24
+ResultHeadingLabel/base_type = &"Label"
+ResultHeadingLabel/colors/font_color = Color(0.9411765, 0.7529412, 0.2901961, 1)
+ResultHeadingLabel/font_sizes/font_size = 24
+ResultHeadingStack/base_type = &"VBoxContainer"
+ResultHeadingStack/constants/separation = 2
+ResultStack/base_type = &"VBoxContainer"
+ResultStack/constants/separation = 12
+ResultTitleLabel/base_type = &"Label"
+ResultTitleLabel/colors/font_color = Color(0.9411765, 0.9019608, 0.8745098, 1)
+ResultTitleLabel/font_sizes/font_size = 14
+ResultTitlePanel/base_type = &"PanelContainer"
+ResultTitlePanel/styles/panel = SubResource("StyleBoxFlat_1f2pp")
+ResultWindowPanel/base_type = &"PanelContainer"
+ResultWindowPanel/styles/panel = SubResource("StyleBoxFlat_725dy")
 ScreenHeader/colors/rule = Color(0.18039216, 0.15294118, 0.14117648, 1)
 ScreenMargin/base_type = &"MarginContainer"
 ScreenMargin/constants/margin_bottom = 32
@@ -1031,7 +1078,7 @@ SetDots/constants/current_width = 40
 SetDots/constants/gap = 8
 SetDots/constants/size = 8
 SidePanel/base_type = &"PanelContainer"
-SidePanel/styles/panel = SubResource("StyleBoxFlat_1f2pp")
+SidePanel/styles/panel = SubResource("StyleBoxFlat_l14bi")
 SkillTile/colors/cd0_bg = Color(0.101960786, 0.08627451, 0.078431375, 1)
 SkillTile/colors/cd0_border = Color(0.16470589, 0.13725491, 0.1254902, 1)
 SkillTile/colors/cd0_icon = Color(0.2901961, 0.25882354, 0.23921569, 1)
@@ -1094,9 +1141,9 @@ TextEdit/colors/caret_color = Color(0.9411765, 0.9019608, 0.8745098, 1)
 TextEdit/colors/font_color = Color(0.9411765, 0.9019608, 0.8745098, 1)
 TextEdit/colors/font_placeholder_color = Color(0.43529412, 0.3882353, 0.36078432, 1)
 TextEdit/colors/font_readonly_color = Color(0.43529412, 0.3882353, 0.36078432, 1)
-TextEdit/styles/focus = SubResource("StyleBoxFlat_725dy")
-TextEdit/styles/normal = SubResource("StyleBoxFlat_l14bi")
-TextEdit/styles/read_only = SubResource("StyleBoxFlat_337li")
+TextEdit/styles/focus = SubResource("StyleBoxFlat_337li")
+TextEdit/styles/normal = SubResource("StyleBoxFlat_qw5ey")
+TextEdit/styles/read_only = SubResource("StyleBoxFlat_yd6kn")
 TierDots/colors/done = Color(0.65882355, 0.4745098, 0.12156863, 1)
 TierDots/colors/todo = Color(0.22745098, 0.1882353, 0.16862746, 1)
 TierDots/constants/gap = 3
