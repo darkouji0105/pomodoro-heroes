@@ -31,6 +31,9 @@ func setup(controller: Node) -> void:
 	_controller = controller
 	layer = 100
 	_build_ui()
+	# ⚠ 最初は閉じておく（2026-09-17・人間「戦闘時にデバッグが自動で開くのをなくしたい」）。
+	#   ⚠ 開くのは F3。⚠ 閉じていてもキー（速度・K・L・V・B など）は効く。
+	visible = false
 
 
 func _build_ui() -> void:
