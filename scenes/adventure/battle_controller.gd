@@ -1859,7 +1859,7 @@ func _on_charge_button_up(entry: Dictionary) -> void:
 	var is_just: bool = _is_just(entry, t)
 	_fire_skill(user, skill_id, _charge_power_ratio(entry, t))
 	if is_just:
-		_pop_just(user)
+		_pop_just(entry)
 
 
 func _is_just(entry: Dictionary, t: float) -> bool:
@@ -1871,17 +1871,14 @@ func _is_just(entry: Dictionary, t: float) -> bool:
 	return absf(t - just_sec) <= window
 
 
-# ジャスト成功を使用者の頭上に出す。
-# 敵側のダメージ数値とは別に、撃った本人のところに出したいので
-# _pop_damage とは経路を分けている。
-func _pop_just(user: BattleUnit) -> void:
-	if user == null:
+# ジャスト成功を**中央のチャージバーの位置**に出す（2026-09-18・モック §9-5）。
+#
+# ⚠⚠ 前は使用者の頭上だった（`UnitView.pop_just()`）。⚠ 目を置いている場所が
+#   ⚠ チャージ中はバーなので、⚠ 結果もそこに出す。⚠ 頭上の経路は消した。
+func _pop_just(entry: Dictionary) -> void:
+	if _charge_bar == null:
 		return
-	if not _views_by_unit_id.has(user.unit_id):
-		return
-	var view: Node = _views_by_unit_id[user.unit_id]
-	if is_instance_valid(view) and view.has_method("pop_just"):
-		view.pop_just()
+	_charge_bar.flash_just(int(entry.get("charge_row", -1)))
 
 
 # チャージ中に戦闘が終わったり使用者が死んだら、発動せず取り消す。

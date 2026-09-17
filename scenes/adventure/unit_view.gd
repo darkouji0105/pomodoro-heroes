@@ -183,9 +183,8 @@ func pop_heal(amount: int) -> void:
 	pop_label(str(amount), Balance.adventure.pop_heal_color, Balance.adventure.pop_heal_font_size)
 
 
-# ジャスト成功などの演出用。数値以外の文字を浮かべる。
-func pop_just() -> void:
-	pop_label(tr("ui_battle_just"), Balance.adventure.pop_just_color, Balance.adventure.pop_just_font_size)
+# ⚠ ジャスト成功の「JUST!」は 2026-09-18 に**中央のチャージバー**へ移した（`ChargeBar.flash_just()`）。
+#   ⚠ ここには置かない（⚠ 出る場所を2つにしない）。
 
 
 # 文字を頭上に浮かべて消す。

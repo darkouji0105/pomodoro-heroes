@@ -13,6 +13,11 @@ const THEME_TYPE: StringName = &"CharacterAvatar"
 const COLOR_FALLBACK: String = "fallback"
 
 var _glyph: Label = null
+# ⚠ 誰の顔か。⚠ 枠を付け外しするときに面を作り直すので覚えておく。
+var _character_id: String = ""
+# ⚠ いま付いている枠。⚠ 同じ指定で面を作り直さないための控え。
+var _border_color: Color = Color(0, 0, 0, 0)
+var _border_width: int = 0
 
 
 static func create(character_id: String, size_px: int) -> CharacterAvatar:
@@ -40,12 +45,28 @@ func _build(character_id: String, size_px: int) -> void:
 
 
 # ⚠ 色は Theme から引く。⚠ 表に無いキャラは `fallback`（⚠ 検証用の3体がここに来る）。
-func _apply_colors(character_id: String) -> void:
+func _apply_colors(character_id: String, border_color: Color = Color(0, 0, 0, 0), border_width: int = 0) -> void:
+	_character_id = character_id
 	var key: String = character_id
 	if not has_theme_color(StringName("bg_" + key), THEME_TYPE):
 		key = COLOR_FALLBACK
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = get_theme_color(StringName("bg_" + key), THEME_TYPE)
 	style.set_corner_radius_all(get_theme_constant(&"corner_radius", THEME_TYPE))
+	if border_width > 0:
+		style.set_border_width_all(border_width)
+		style.border_color = border_color
 	add_theme_stylebox_override(&"panel", style)
 	_glyph.add_theme_color_override(&"font_color", get_theme_color(StringName("fg_" + key), THEME_TYPE))
+
+
+# 枠を付け外しする（2026-09-18・チャージが帯に入ったときの顔）。
+#
+# ⚠ 色と太さは呼ぶ側が Theme から引いて渡す（⚠ ここは「何の枠か」を知らない）。
+# ⚠ 毎フレーム呼んでよい形にしてある（⚠ 同じ指定なら何もしない）。
+func set_border(border_color: Color, border_width: int) -> void:
+	if _border_color == border_color and _border_width == border_width:
+		return
+	_border_color = border_color
+	_border_width = border_width
+	_apply_colors(_character_id, border_color, border_width)

@@ -97,9 +97,8 @@ extends Resource
 @export var pop_heal_color: Color = Color(0.4, 0.95, 0.5)
 @export var pop_heal_font_size: int = 22
 
-## チャージのジャスト成功。⚠ これだけ数値ではなく文字（ui_battle_just）が出る。
-@export var pop_just_color: Color = Color(1.0, 0.95, 0.55)
-@export var pop_just_font_size: int = 30
+## ⚠ チャージのジャスト成功の「JUST!」は 2026-09-18 に**中央のチャージバー**へ移した。
+##   ⚠ 色と大きさは Theme の `ChargeBar` 型（`fill_full` / `just_size`）。⚠ ここには欄を持たない。
 
 ## 浮かんで消えるまでの動き。種類で変えない（変えると読む速さが揃わない）。
 @export var pop_rise_px: float = 48.0

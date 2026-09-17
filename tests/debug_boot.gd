@@ -4914,9 +4914,15 @@ class Driver extends Node:
 			shown.append("行%d t=%.2f 帯=%s 過ぎ=%s" % [i, track.t, track.in_band(), track.is_over()])
 		# ⚠ 横の真ん中に居るか（2026-09-17・人間「今は左に寄って見える」）。⚠ 基準の幅 1280 の中心は 640。
 		var rect: Rect2 = bar.get_global_rect()
-		print("[DebugBoot] チャージバー（%s）表示=%s 行数=%d このスキルの行=%d 左右=%.0f〜%.0f（中心 %.0f）｜ %s" % [
+		# ⚠ 「JUST!」の残り秒と、⚠ 帯に入ったときの顔の枠（2026-09-18）。⚠ 絵は取れないので数字で見る。
+		var just_left: float = bar._just_left_sec
+		var face_border: int = 0
+		if row >= 0 and row < bar._rows.size():
+			face_border = (bar._rows[row]["face"] as CharacterAvatar)._border_width
+		print("[DebugBoot] チャージバー（%s）表示=%s 行数=%d このスキルの行=%d 左右=%.0f〜%.0f（中心 %.0f）｜ JUST残り=%.2f秒 顔の枠=%dpx ｜ %s" % [
 			label, bar.visible, bar._rows.size(), row,
-			rect.position.x, rect.end.x, rect.get_center().x, " ／ ".join(shown)
+			rect.position.x, rect.end.x, rect.get_center().x,
+			just_left, face_border, " ／ ".join(shown)
 		])
 
 

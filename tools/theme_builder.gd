@@ -474,6 +474,15 @@ const CHARGE_FILL_MID: String = "58a7ee"
 const CHARGE_FILL_BAND: String = "f0c04a"
 const CHARGE_BORDER_BAND: String = "6b5a3a"
 const CHARGE_NAME_BAND: String = "f0c04a"
+# ⚠⚠ 満タン（＝ジャストちょうど）を過ぎてから窓の終わりまでの塗り（2026-09-18・モック §9-5）。
+#   ⚠ 帯の琥珀より1段明るい。⚠ 「いま離すのが一番良い」瞬間を色で言う。
+#   ⚠ 離したときに出す「JUST!」の字も同じ色（⚠ 色を2つに増やさない）。
+const CHARGE_FILL_FULL: String = "ffdb7a"
+# ⚠ 「JUST!」をバーの位置に出す時間（ミリ秒）と字の大きさ（⚠ 既存の段＝浮かぶ数字と同じ 24）。
+const CHARGE_JUST_MS: int = 400
+const CHARGE_JUST_SIZE: int = GAIN_FLOAT_FONT
+# ⚠ 帯に入っているあいだ、⚠ その行の顔に付く枠（モック §9-7）。⚠ 色は帯の琥珀と同値。
+const CHARGE_FACE_BORDER: int = 2
 const CHARGE_FILL_OVER: String = "c4534a"
 const CHARGE_BORDER_OVER: String = "8f4a42"
 const CHARGE_NAME_OVER: String = "c4877f"
@@ -1177,6 +1186,9 @@ static func _build_charge_bar(theme: Theme) -> void:
 		"top": CHARGE_TOP,
 		"mid_percent": CHARGE_MID_PERCENT,
 		"border": SKILL_BORDER,
+		"just_ms": CHARGE_JUST_MS,
+		"just_size": CHARGE_JUST_SIZE,
+		"face_border": CHARGE_FACE_BORDER,
 	}
 	for key: String in numbers.keys():
 		theme.set_constant(StringName(key), t, int(numbers[key]))
@@ -1187,6 +1199,7 @@ static func _build_charge_bar(theme: Theme) -> void:
 		"fill_low": CHARGE_FILL_LOW,
 		"fill_mid": CHARGE_FILL_MID,
 		"fill_band": CHARGE_FILL_BAND,
+		"fill_full": CHARGE_FILL_FULL,
 		"border_band": CHARGE_BORDER_BAND,
 		"name": MUTED_FONT_COLOR,
 		"name_band": CHARGE_NAME_BAND,
