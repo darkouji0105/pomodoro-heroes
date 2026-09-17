@@ -38,11 +38,8 @@ const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.t
 const DEBUG_PANEL_SCRIPT: GDScript = preload("res://scenes/adventure/battle_debug_panel.gd")
 const PROJECTILE_VIEW_SCRIPT: GDScript = preload("res://scenes/adventure/projectile_view.gd")
 
-# チャージゲージの色（本タスク限定の例外。main_theme.tres に対応する概念が無い）
-const CHARGE_COLOR_NORMAL: Color = Color(0.6, 0.7, 0.9)
-const CHARGE_COLOR_JUST: Color = Color(1.0, 0.9, 0.4)
-const CHARGE_COLOR_OVER: Color = Color(0.5, 0.5, 0.5)
-const CHARGE_GAUGE_HEIGHT: int = 8
+# ⚠⚠ チャージの細いゲージと、その色の const 4つは 2026-09-17 に消した。
+#   ⚠ 進み具合は中央の `ChargeBar` だけが出す（⚠ 色は Theme の `ChargeBar` 型）。
 
 # 構え（activation: recast）の記録の理由。⚠ 文字列リテラルを散らさない。
 const RECAST_WHY_BEGIN: String = "begin"
@@ -74,6 +71,7 @@ const SKILL_KEY_ACTIONS: Array[StringName] = [
 # ノード参照
 @onready var party_container: Node2D = $PartyUnitsContainer
 @onready var enemy_container: Node2D = $EnemyUnitsContainer
+@onready var hud_root: Control = $HUD/Root
 @onready var hud_layout: VBoxContainer = $HUD/Root/Layout
 @onready var header_panel: PanelContainer = $HUD/Root/Layout/Header
 @onready var floor_label: Label = $HUD/Root/Layout/Header/HeaderMargin/HeaderRow/FloorLabel
@@ -135,6 +133,9 @@ var _skill_buttons: Array = []
 # ⚠⚠ 2026-09-16：味方の状態の帯はここから消えた。⚠ 味方も敵と同じく
 #   `UnitView` の本体の下端に出す（人間の決定・モック §5）。
 var _panel_slots_by_unit_id: Dictionary = {}
+
+# 中央のチャージバー（2026-09-17）。⚠ 作るのは `_build_charge_bar()` の1箇所。
+var _charge_bar: ChargeBar = null
 
 # チャージ中のスキル。{entry: Dictionary, time: float}。未チャージ時は空。
 # 同時に1つしかチャージできない。
@@ -625,6 +626,7 @@ func _process(delta: float) -> void:
 	_update_status_chips()
 	_update_active_units()
 	_update_bottom_panel()
+	_update_charge_bar()
 
 	if _result_applied:
 		return
@@ -1238,6 +1240,8 @@ func _build_skill_buttons() -> void:
 		name_label.theme_type_variation = &"BattleNameLabel"
 		name_label.text = tr(unit.unit_name_key)
 		column.add_child(name_label)
+		# ⚠ チャージ中は名前の色が変わる（モック §9-7）。⚠ 引けるように持っておく。
+		(_panel_slots_by_unit_id[unit.unit_id] as Dictionary)["name"] = name_label
 
 		# ⚠ スキルは横に並べる（モック §6）。⚠ 縦積みをやめたので、
 		#   ⚠ チャージのゲージはボタンの下ではなくボタンの列の下に付く。
@@ -1274,23 +1278,8 @@ func _build_skill_buttons() -> void:
 			)
 			skill_row.add_child(button)
 
-			# チャージスキルだけゲージを足す。
-			# 常に置いておくことで「これはためられる」と見て分かる。
-			var gauge: ProgressBar = null
-			if activation == SkillSchema.ACTIVATION_CHARGE:
-				gauge = ProgressBar.new()
-				gauge.custom_minimum_size = Vector2(0, CHARGE_GAUGE_HEIGHT)
-				gauge.min_value = 0.0
-				gauge.max_value = 1.0
-				gauge.step = 0.01
-				gauge.value = 0.0
-				gauge.show_percentage = false
-				gauge.modulate = CHARGE_COLOR_NORMAL
-				column.add_child(gauge)
-
 			var entry: Dictionary = {
 				"button": button,
-				"gauge": gauge,
 				"user": unit,
 				"skill_id": skill_id,
 				"name_key": str(skill_data.get("name_key", "")),
@@ -1320,6 +1309,66 @@ func _build_skill_buttons() -> void:
 				button.pressed.connect(_on_skill_button_pressed.bind(unit, skill_id))
 
 	_assign_skill_keys()
+	_build_charge_bar()
+
+
+# 中央のチャージバーを組む（2026-09-17・人間「中央にチャージバーを」・モック §9）。
+#
+# ⚠ 行は**チャージ型のマスだけ**を、⚠ 下部パネルと同じ並び（左から）で作る。
+#   ⚠ 行の番号を entry の `charge_row` に持たせる（⚠ 毎フレームの更新で引く）。
+# ⚠ `_build_skill_buttons()` の最後で1回だけ呼ぶ。
+func _build_charge_bar() -> void:
+	if _charge_bar == null:
+		_charge_bar = ChargeBar.new()
+		_charge_bar.name = "ChargeBar"
+		hud_root.add_child(_charge_bar)
+		# ⚠ 画面の横の真ん中・上からの位置は Theme（`top`）。
+		_charge_bar.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		_charge_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_charge_bar.position.y = _charge_bar.get_theme_constant(&"top", ChargeBar.THEME_TYPE)
+	var specs: Array = []
+	for raw: Variant in _skill_buttons:
+		var entry: Dictionary = raw
+		entry.erase("charge_row")
+		var tile: Variant = entry.get("button", null)
+		if not (tile is SkillTile) or (tile as SkillTile).kind != SkillTile.Kind.CHARGE:
+			continue
+		var charge: Dictionary = entry.get("charge", {})
+		var user: Variant = entry.get("user", null)
+		entry["charge_row"] = specs.size()
+		specs.append({
+			"character_id": (user as BattleUnit).master_id if user is BattleUnit else "",
+			"name": tr(str(entry.get("name_key", ""))),
+			"just_sec": float(charge.get("just_sec", 1.0)),
+			"window_sec": float(charge.get("just_window_sec", 0.15)),
+		})
+	_charge_bar.build(specs)
+
+
+# チャージバーと、⚠ 下部パネルの名前の色を配る（モック §9-7）。⚠ 毎フレーム。
+func _update_charge_bar() -> void:
+	if _charge_bar == null:
+		return
+	var entry: Variant = _charging.get("entry", null)
+	var t: float = float(_charging.get("time", 0.0))
+	var row: int = -1
+	var charging_unit_id: String = ""
+	if entry is Dictionary:
+		row = int((entry as Dictionary).get("charge_row", -1))
+		var user: Variant = (entry as Dictionary).get("user", null)
+		if user is BattleUnit:
+			charging_unit_id = (user as BattleUnit).unit_id
+	_charge_bar.show_charging(row, t)
+	for unit_id: Variant in _panel_slots_by_unit_id:
+		var label: Variant = (_panel_slots_by_unit_id[unit_id] as Dictionary).get("name", null)
+		if not (label is Label) or not is_instance_valid(label):
+			continue
+		if str(unit_id) == charging_unit_id:
+			(label as Label).add_theme_color_override(
+				&"font_color", (label as Label).get_theme_color(&"name_band", ChargeBar.THEME_TYPE)
+			)
+		else:
+			(label as Label).remove_theme_color_override(&"font_color")
 
 
 # キーの割り当て（2026-09-17）。⚠ `_build_skill_buttons()` の最後で1回だけ呼ぶ。
@@ -1493,9 +1542,7 @@ func _update_skill_buttons() -> void:
 			var t: float = float(_charging.get("time", 0.0))
 			in_just = _is_just(entry, t)
 			tile.disabled = false
-			_update_charge_gauge(entry, t)
 		else:
-			_update_charge_gauge(entry, 0.0)
 			tile.disabled = (not active) or (not alive) or (remaining > 0.0 and recast_left <= 0.0)
 
 		# ⚠ 「押せない」の見た目は戦闘不能のときだけ（モック §6）。
@@ -1505,31 +1552,6 @@ func _update_skill_buttons() -> void:
 			charging, in_just,
 			recast_left, float(entry.get("recast_window_sec", 0.0)), phases_left,
 		)
-
-
-# チャージの進み具合をゲージに反映する。
-# 目盛りは just_sec を満タンとする。窓に入ると色が変わり、
-# 行き過ぎるとくすんだ色になる（威力が 100% に落ちたことの合図）。
-func _update_charge_gauge(entry: Dictionary, t: float) -> void:
-	var gauge: Variant = entry.get("gauge", null)
-	if not (gauge is ProgressBar) or not is_instance_valid(gauge):
-		return
-	var charge: Dictionary = entry.get("charge", {})
-	if charge.is_empty():
-		return
-
-	var just_sec: float = float(charge.get("just_sec", 1.0))
-	var window: float = float(charge.get("just_window_sec", 0.15))
-	if just_sec <= 0.0:
-		return
-
-	gauge.value = clampf(t / just_sec, 0.0, 1.0)
-	if absf(t - just_sec) <= window:
-		gauge.modulate = CHARGE_COLOR_JUST
-	elif t > just_sec:
-		gauge.modulate = CHARGE_COLOR_OVER
-	else:
-		gauge.modulate = CHARGE_COLOR_NORMAL
 
 
 # スキル発動。

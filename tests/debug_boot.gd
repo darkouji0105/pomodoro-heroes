@@ -214,6 +214,23 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_dbg_area_heal", "prepare": PREPARE_DAMAGE_PARTY},
 		],
 	},
+	# ⚠⚠ 中央のチャージバー（2026-09-17）。⚠ 本番の3人で、剣士の薙ぎ払い（charge）を
+	#   ⚠ 1回目は窓の手前（0.5秒）、2回目はジャスト（1.0秒）、3回目は行き過ぎ（1.6秒）で離す。
+	#   ⚠ 見るもの：押している間だけ表示=true ／ 行が1本 ／ 帯=true はジャストのときだけ ／ 離すと表示=false。
+	"charge": {
+		"kind": KIND_BATTLE,
+		"note": "中央のチャージバー。薙ぎ払いを 0.5 / 1.0 / 1.6 秒溜めて離す",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_swordsman", "char_archer", "char_priest"],
+		"skills": {
+			"char_swordsman": ["skill_power_slash", "skill_wide_sweep"],
+		},
+		"fire": [
+			{"skill": "skill_wide_sweep", "prepare": PREPARE_NONE, "hold_sec": 0.5},
+			{"skill": "skill_wide_sweep", "prepare": PREPARE_NONE, "hold_sec": 1.0},
+			{"skill": "skill_wide_sweep", "prepare": PREPARE_NONE, "hold_sec": 1.6},
+		],
+	},
 	# 段階5（phases[] / recast）の検証。⚠ ステージは stage_dbg_area を使い回す。
 	# ⚠ 同じ skill を2行書くと2回撃つ（_fired はインデックスなので既にそうなっている）。
 	#   足りなかったのは間隔の上書きだけ（既定の FIRE_GAP_SEC=1.0 は窓より長くなりうる）。
@@ -4567,6 +4584,9 @@ class Driver extends Node:
 	var _all_still_sec: float = 0.0
 	var _all_settled_seen: bool = false
 	var _prepared: Dictionary = {}
+	# ⚠ チャージの押しっぱなし（2026-09-17・`hold_sec` の行）。⚠ 押し始めた t。負なら押していない。
+	var _hold_started_sec: float = -1.0
+	var _hold_mid_dumped: bool = false
 	# ⚠ 最後に「敵を全滅させた」時刻。⚠ bool にしないこと。ウェーブが複数ある
 	#   ステージでは2回目以降も殺す必要がある（_process() の最後の枝）。
 	var _last_kill_sec: float = -999.0
@@ -4699,6 +4719,13 @@ class Driver extends Node:
 			_fired += 1
 			return
 
+		# ⚠⚠ チャージを押しっぱなしで撃つ行（2026-09-17・中央のチャージバー）。
+		#   ⚠ マスのボタンと同じ入口（`_on_charge_button_down` / `_up`）を通す。
+		#   ⚠ 押している途中と離す直前に、⚠ 中央のバーの状態をログに出す（⚠ 絵は取れない）。
+		if entry.has("hold_sec"):
+			_step_hold(session, entry, skill_id, user)
+			return
+
 		# ⚠ 戻り値は「撃てたか」。false ならクールダウン中か対象0体なので、次のフレームで試し直す。
 		#   「押したつもりで撃てていない」がここで検出できる。
 		if not _battle._fire_skill(user, skill_id, 1.0):
@@ -4713,6 +4740,59 @@ class Driver extends Node:
 		#   合図・静止・決着の3点では跳んだことが1つも残らない。
 		if dump_each_fire:
 			_dump_positions(session, "撃った直後")
+
+
+	func _step_hold(session: BattleSession, entry: Dictionary, skill_id: String, user: BattleUnit) -> void:
+		var button_entry: Dictionary = {}
+		for raw: Variant in _battle._skill_buttons:
+			if str((raw as Dictionary).get("skill_id", "")) == skill_id and (raw as Dictionary).get("user", null) == user:
+				button_entry = raw
+		if button_entry.is_empty():
+			push_error("[DebugBoot] %s のマスが無い" % skill_id)
+			_fired += 1
+			return
+		var hold: float = float(entry["hold_sec"])
+		if _hold_started_sec < 0.0:
+			if not user.is_skill_ready(skill_id):
+				return
+			_battle._on_charge_button_down(button_entry)
+			_hold_started_sec = session.elapsed_sec
+			_hold_mid_dumped = false
+			_dump_charge_bar("押した直後", button_entry)
+			return
+		var held: float = session.elapsed_sec - _hold_started_sec
+		if not _hold_mid_dumped and held >= hold * 0.5:
+			_hold_mid_dumped = true
+			_dump_charge_bar("途中", button_entry)
+		if held < hold:
+			return
+		_dump_charge_bar("離す直前", button_entry)
+		var t: float = float(_battle._charging.get("time", 0.0))
+		var just: bool = _battle._is_just(button_entry, t)
+		_battle._on_charge_button_up(button_entry)
+		_dump_charge_bar("離した直後", button_entry)
+		_hold_started_sec = -1.0
+		_fired += 1
+		_last_fire_sec = session.elapsed_sec
+		print("[DebugBoot] 溜めて撃った %s（%s） 溜め=%.2f秒 ジャスト=%s  %d/%d" % [
+			skill_id, user.unit_id, t, just, _fired, skill_plan.size()
+		])
+
+
+	# 中央のチャージバーの状態を1行で出す。⚠ 絵は取れないので「出ているか・どの行か・秒・帯の中か」。
+	func _dump_charge_bar(label: String, button_entry: Dictionary) -> void:
+		var bar: ChargeBar = _battle._charge_bar
+		if bar == null:
+			push_error("[DebugBoot] チャージバーが作られていない")
+			return
+		var row: int = int(button_entry.get("charge_row", -1))
+		var shown: Array[String] = []
+		for i: int in range(bar._rows.size()):
+			var track: Variant = bar._rows[i]["track"]
+			shown.append("行%d t=%.2f 帯=%s 過ぎ=%s" % [i, track.t, track.in_band(), track.is_over()])
+		print("[DebugBoot] チャージバー（%s）表示=%s 行数=%d このスキルの行=%d ｜ %s" % [
+			label, bar.visible, bar._rows.size(), row, " ／ ".join(shown)
+		])
 
 
 	# 生きているユニットの立ち位置を x の昇順で出す。

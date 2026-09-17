@@ -448,6 +448,35 @@ const SKILL_RECAST_PULSE_BORDER: String = "6fd4ae"
 const SKILL_RECAST_PULSE_ICON: String = "a8ecd0"
 const SKILL_RECAST_PULSE_LAYER_PERCENT: int = 40
 
+# --- 戦闘の中央のチャージバー（2026-09-17・人間のモック §9・人間「中央にチャージバーを」）---
+#
+# ⚠⚠ 進み具合は**ここだけ**に出す（モック §9-1）。⚠ マスとユニットには出さない。
+# ⚠ 行は**編成順で位置を固定**（⚠ 溜めていない行も高さを確保する。⚠ 目押し中にバーが動くと事故）。
+# ⚠⚠ バーの右端＝**ジャストの窓の終わり**（`just_sec + just_window_sec`）。⚠ 窓は末尾の帯になる。
+#   ⚠ モックの「末尾15%」は決め打ちではなく、⚠ スキルの `charge` の数字から毎回決まる。
+const CHARGE_WIDTH: int = 440
+const CHARGE_ROW_HEIGHT: int = 18
+const CHARGE_ROW_GAP: int = 5
+const CHARGE_ICON: int = 18
+const CHARGE_NAME_WIDTH: int = 64
+const CHARGE_TRACK_HEIGHT: int = 10
+const CHARGE_ROW_INNER_GAP: int = 8
+# ⚠ 画面の上からの位置（⚠ ユニットの足元 `BATTLE_GROUND_Y` の下）。
+const CHARGE_TOP: int = 400
+# ⚠ 暗い青 → 明るい青に変わる進み具合（百分率）。
+const CHARGE_MID_PERCENT: int = 50
+const CHARGE_TRACK_BG: String = "181514"
+const CHARGE_TRACK_BORDER: String = "2a2320"
+const CHARGE_BAND_IDLE: String = "332c1e"      # ⚠ 待機中から薄く見えている帯（どこで離すか事前に分かる）
+const CHARGE_FILL_LOW: String = "2f6ba8"
+const CHARGE_FILL_MID: String = "58a7ee"
+const CHARGE_FILL_BAND: String = "f0c04a"
+const CHARGE_BORDER_BAND: String = "6b5a3a"
+const CHARGE_NAME_BAND: String = "f0c04a"
+const CHARGE_FILL_OVER: String = "c4534a"
+const CHARGE_BORDER_OVER: String = "8f4a42"
+const CHARGE_NAME_OVER: String = "c4877f"
+
 # --- 面（PanelContainer）---
 
 const PANEL_BG: String = "241d1a"
@@ -571,6 +600,7 @@ static func build() -> void:
 	_build_stat_nodes(theme)
 	_build_battle(theme)
 	_build_skill_tile(theme)
+	_build_charge_bar(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -1091,6 +1121,44 @@ static func _build_skill_tile(theme: Theme) -> void:
 	}
 	for key: String in colors.keys():
 		theme.set_color(StringName(key), t, _html(str(colors[key])))
+
+
+# ⚠ 戦闘の中央のチャージバー（`ChargeBar` 型・2026-09-17）。
+static func _build_charge_bar(theme: Theme) -> void:
+	var t: StringName = &"ChargeBar"
+	var numbers: Dictionary = {
+		"width": CHARGE_WIDTH,
+		"row_height": CHARGE_ROW_HEIGHT,
+		"icon": CHARGE_ICON,
+		"name_width": CHARGE_NAME_WIDTH,
+		"track_height": CHARGE_TRACK_HEIGHT,
+		"top": CHARGE_TOP,
+		"mid_percent": CHARGE_MID_PERCENT,
+		"border": SKILL_BORDER,
+	}
+	for key: String in numbers.keys():
+		theme.set_constant(StringName(key), t, int(numbers[key]))
+	var colors: Dictionary = {
+		"track_bg": CHARGE_TRACK_BG,
+		"track_border": CHARGE_TRACK_BORDER,
+		"band_idle": CHARGE_BAND_IDLE,
+		"fill_low": CHARGE_FILL_LOW,
+		"fill_mid": CHARGE_FILL_MID,
+		"fill_band": CHARGE_FILL_BAND,
+		"border_band": CHARGE_BORDER_BAND,
+		"name": MUTED_FONT_COLOR,
+		"name_band": CHARGE_NAME_BAND,
+		"fill_over": CHARGE_FILL_OVER,
+		"border_over": CHARGE_BORDER_OVER,
+		"name_over": CHARGE_NAME_OVER,
+	}
+	for key: String in colors.keys():
+		theme.set_color(StringName(key), t, _html(str(colors[key])))
+	# ⚠ 行の縦・横の間隔。⚠ 値は上の const が唯一の持ち主。
+	theme.set_type_variation(&"ChargeRows", &"VBoxContainer")
+	theme.set_constant(&"separation", &"ChargeRows", CHARGE_ROW_GAP)
+	theme.set_type_variation(&"ChargeRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"ChargeRow", CHARGE_ROW_INNER_GAP)
 
 
 static func _html(hex: String) -> Color:
