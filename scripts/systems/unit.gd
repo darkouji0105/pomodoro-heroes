@@ -85,6 +85,12 @@ var basic_attack: Dictionary = {}
 
 # --- 戦闘中に変わる状態 ---
 var hp: int = 0
+# この戦闘で**実際に減った HP** の合計（2026-09-17・戦闘の結果窓の「被ダメージ」）。
+#
+# ⚠ 足すのは take_damage() の1箇所だけ。⚠ シールドが吸った分は入らない
+#   （⚠ シールドは take_damage() の前で差し引かれる＝skill_resolver.gd の _step_shield）。
+# ⚠ HP を超えて入った分（オーバーキル）も入らない。⚠ 回復しても減らさない。
+var damage_taken: int = 0
 # 死亡の介入点（復活）を通したか（PLAN 11-1・段階3の後半③）。
 #
 # ⚠ 書いてよいのは BattleController._step_deaths() だけ。他所から触らないこと。
@@ -283,6 +289,7 @@ func get_defense(p_attack_type: String) -> int:
 func take_damage(amount: int) -> void:
 	if amount <= 0:
 		return
+	damage_taken += mini(amount, hp)
 	hp = max(0, hp - amount)
 
 
