@@ -63,7 +63,7 @@ func setup(unit: BattleUnit) -> void:
 
 	# 状態のマスは横並び（本体の下端に重ねる）。⚠ 2026-09-16 から味方も同じ場所
 	#   （⚠ それまでは味方だけスキルボタンの左に縦で出していた）。
-	$StatusChips.setup(false, Balance.adventure.status_chip_enemy_max_px)
+	$StatusChips.setup(false, Balance.adventure.status_chip_max_px)
 	position.x = unit.x
 	_refresh_name_color()
 	show()

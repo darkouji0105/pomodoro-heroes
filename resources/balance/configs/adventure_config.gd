@@ -88,7 +88,7 @@ extends Resource
 
 ## DoT（毒などの周期ダメージ）。
 ## 通常のダメージと同じ画面に並ぶので、黄〜橙の系統から最も遠い色にする。
-## ⚠ UnitView の COLOR_BOSS（紫・スクリプト内定数のまま）と系統が近い。
+## ⚠ ボスの本体の紫（Theme の `CharacterAvatar` の `bg_boss` / `fg_boss`）と系統が近い。
 ## 通常より少し小さくして「軽い一撃」に見せる。
 @export var pop_dot_color: Color = Color(0.75, 0.45, 0.95)
 @export var pop_dot_font_size: int = 18
@@ -126,13 +126,12 @@ extends Resource
 ## マス同士の間隔（px）。
 @export var status_chip_separation_px: int = 2
 
-## 味方の帯（スキルボタンの左・縦並び）に使ってよい高さ（px）。
+## 帯（ユニットの本体の下端・横並び）に使ってよい幅（px）。
 ## これを超えるぶんは最後のマスが「＋N」になる。
-@export var status_chip_party_max_px: float = 120.0
-
-## 敵の帯（HPバーの上・横並び）に使ってよい幅（px）。
 ## ⚠ UnitView の Body は 64px。2倍まで許す。
-@export var status_chip_enemy_max_px: float = 128.0
+## ⚠⚠ 2026-09-18：味方用の `status_chip_party_max_px` を消した（⚠ 2026-09-16 に
+##   味方の帯も本体の下端へ移したので、⚠ 誰からも読まれない欄になっていた）。
+@export var status_chip_max_px: float = 128.0
 
 
 # --- フロアの数値はここには無い（2026-08-28・段階14-i） ---

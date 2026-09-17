@@ -3,8 +3,9 @@ extends BoxContainer
 
 # 状態を「色付きのマス ＋ 漢字1文字」で並べる帯（EXEC_STATUS_UI.md §3-B）。
 #
-# ⚠ 味方はスキルボタンの左に縦・敵は HP バーの上に横。向きは setup() で切り替える。
-#   HBoxContainer と VBoxContainer に分けないこと。色と漢字の決め方が2箇所になる。
+# ⚠⚠ 2026-09-16 から**味方も敵も召喚もユニットの本体の下端に横並び**（人間の決定・モック §5）。
+#   ⚠ 向きは setup() で切り替えられる形を残してある（⚠ いまは全部が横）。
+#   ⚠ HBoxContainer と VBoxContainer に分けないこと。色と漢字の決め方が2箇所になる。
 #
 # ⚠ このノードは StatusRegistry を知らない。entry の配列を外から受け取るだけ
 #   （UnitView.set_shield() と同じ形。器を持つとリトライで古い参照を握る）。

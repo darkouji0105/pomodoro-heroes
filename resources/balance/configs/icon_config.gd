@@ -11,7 +11,8 @@ extends Resource
 # ⚠ 色をここに置く理由：同じ「段数の色」を宝箱の演出（floor_map.gd）と
 #   アイコン部品（item_icon.gd）の2箇所が読むため。const のまま2箇所に置くと
 #   片方だけ直したときに宝箱とアイコンで色が食い違う。
-#   ⚠ 色を Balance に置く前例は AdventureConfig の pop_*_color と status_chip_*_color。
+#   ⚠ 色を Balance に置く前例は AdventureConfig の pop_*_color（⚠ 2026-09-17 に
+#     status_chip_*_color は Theme の `StatusChip` 型へ移した）。
 #
 # ⚠ 文字そのものは ja.csv の "ui_icon_" + item_id が持つ。ここには置かない
 #   （AGENTS.md「翻訳キーの運用」。素材名 "ui_res_" + material_id と同じ規則）。
