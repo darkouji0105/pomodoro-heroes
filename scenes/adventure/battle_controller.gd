@@ -62,10 +62,10 @@ const SPAWN_WHY_CLEAR: String = "clear"
 const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
 
 # スキルを撃つキー（2026-09-17・人間「キーでスキルを打てるようにする」
-#   「とりあえず qwerty の順で右から」）。
+#   「とりあえず qwerty の順で右から」→ 同日「左からqで」）。
 # ⚠ 名前は `project.godot` の [input] の操作名。⚠ キーそのものはあちらが持つ（Q W E R T Y）。
-# ⚠⚠ 割り当ては**下部パネルの右端のマスから** 1本目、2本目…（⚠ 右端＝編成の最後のキャラの最後のスキル）。
-#   ⚠ マスが6個より多ければ、⚠ 左側の残りにはキーが付かない。
+# ⚠⚠ 割り当ては**下部パネルの左端のマスから** 1本目、2本目…（⚠ 左端＝編成の最初のキャラの最初のスキル）。
+#   ⚠ マスが6個より多ければ、⚠ 右側の残りにはキーが付かない。
 const SKILL_KEY_ACTIONS: Array[StringName] = [
 	&"battle_skill_1", &"battle_skill_2", &"battle_skill_3",
 	&"battle_skill_4", &"battle_skill_5", &"battle_skill_6",
@@ -1325,10 +1325,10 @@ func _build_skill_buttons() -> void:
 # キーの割り当て（2026-09-17）。⚠ `_build_skill_buttons()` の最後で1回だけ呼ぶ。
 #
 # ⚠ マスの右下に、⚠ `InputMap` に入っているキーの名前を書く（⚠ キーを2箇所に書かない）。
-# ⚠ 右端のマスから数える。⚠ 並べ替えを変えるならここ1箇所だけ直す。
+# ⚠ 左端のマスから数える。⚠ 並べ替えを変えるならここ1箇所だけ直す。
 func _assign_skill_keys() -> void:
 	for i: int in range(_skill_buttons.size()):
-		var entry: Dictionary = _skill_buttons[_skill_buttons.size() - 1 - i]
+		var entry: Dictionary = _skill_buttons[i]
 		entry.erase("key_action")
 		var tile: Variant = entry.get("button", null)
 		if not (tile is SkillTile):
