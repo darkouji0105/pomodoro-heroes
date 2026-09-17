@@ -430,6 +430,17 @@ const SKILL_READY_ICON: String = "e0d5ce"
 const SKILL_FLASH: String = "f0c04a"
 # ⚠ 右下のキーの名前（2026-09-17）。⚠ 既定の控えめな字の色（`MUTED_FONT_COLOR`）と同値。
 const SKILL_KEY: String = "a89b94"
+# ⚠⚠ ホバー・押下の見た目（2026-09-18・人間「案の通りでよい」）。⚠ モックには無い。
+#   ⚠ ホバー＝枠を1段明るく（⚠ 既定ボタンのホバーの枠と同値）。⚠ 押下＝面を暗い幕で沈める（百分率）。
+#   ⚠ 撃てないマス（クールダウン中・戦闘不能）には出さない。
+const SKILL_HOVER_BORDER: String = "6b5a4e"
+const SKILL_PRESS_PERCENT: int = 25
+# ⚠ ホバーで出す説明の枠（2026-09-18・人間「ホバーするとスキルの説明が見えるように」）。
+#   ⚠ 幅と内側の余白だけ。⚠ 面と字は既存の variation を使い回す。
+const SKILL_TIP_WIDTH: int = 280
+const SKILL_TIP_PAD: int = 12
+# ⚠ マスと枠のすきま。⚠ 0 にすると枠がマスに接する。
+const SKILL_TIP_GAP: int = 8
 # ⚠ 押せない（戦闘不能・戦闘の外）。⚠ モック §6 の戦闘不能と同じ値。
 const SKILL_OFF_BG: String = "1c1715"
 const SKILL_OFF_BORDER: String = "2a2320"
@@ -1140,6 +1151,9 @@ static func _build_skill_tile(theme: Theme) -> void:
 		"recast_pulse_layer_percent": SKILL_RECAST_PULSE_LAYER_PERCENT,
 		"cd_stage_count": SKILL_CD_STAGES.size(),
 		"corner_pad": SKILL_CORNER_PAD,
+		"press_percent": SKILL_PRESS_PERCENT,
+		"tip_width": SKILL_TIP_WIDTH,
+		"tip_gap": SKILL_TIP_GAP,
 	}
 	for key: String in numbers.keys():
 		theme.set_constant(StringName(key), t, int(numbers[key]))
@@ -1160,6 +1174,7 @@ static func _build_skill_tile(theme: Theme) -> void:
 		"ready_icon": SKILL_READY_ICON,
 		"flash": SKILL_FLASH,
 		"key": SKILL_KEY,
+		"hover_border": SKILL_HOVER_BORDER,
 		"off_bg": SKILL_OFF_BG,
 		"off_border": SKILL_OFF_BORDER,
 		"off_icon": SKILL_OFF_ICON,
@@ -1174,6 +1189,15 @@ static func _build_skill_tile(theme: Theme) -> void:
 	}
 	for key: String in colors.keys():
 		theme.set_color(StringName(key), t, _html(str(colors[key])))
+
+	# ⚠ ホバーで出す説明の枠の面。⚠ 色も角丸も既定の面のまま（⚠ 内側の余白だけ変える）。
+	var tip: StyleBoxFlat = StyleBoxFlat.new()
+	tip.bg_color = _html(PANEL_BG)
+	tip.set_corner_radius_all(PANEL_CORNER_RADIUS)
+	tip.set_border_width_all(1)
+	tip.border_color = _html(CHIP_BORDER)
+	theme.set_type_variation(&"SkillTipPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"SkillTipPanel", _pad_panel(tip, SKILL_TIP_PAD, SKILL_TIP_PAD))
 
 
 # ⚠ 戦闘の中央のチャージバー（`ChargeBar` 型・2026-09-17）。

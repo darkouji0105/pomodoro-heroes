@@ -238,11 +238,13 @@ const SCENARIOS: Dictionary = {
 	#   ⚠ そのあと見本の報酬（floor_5 のボス）で差し替え：マス9件（列6）・ピル gold +65。
 	"result": {
 		"kind": KIND_BATTLE,
-		"note": "結果窓（勝ち）。本物の窓 → 見本の報酬（floor_5）で差し替え",
+		"note": "結果窓（勝ち）。本物の窓 → 見本の報酬（floor_5）で差し替え。⚠ スキルのマスのホバーの枠も見る",
 		"stage_id": "stage_dbg_area",
 		"party": ["char_swordsman", "char_archer", "char_priest"],
 		"skills": {},
 		"dump_result": true,
+		# ⚠ スキルのマスのホバーの枠（2026-09-18）。⚠ 本番の3人なので説明文（ui_desc_*）がある。
+		"dump_tooltip": true,
 		"fire": [
 			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
 			{"skill": "", "prepare": PREPARE_NONE, "gap": 6.0},
@@ -967,6 +969,7 @@ func _ready() -> void:
 	driver.dump_result = bool(scenario.get("dump_result", false))
 	driver.dump_status_tones = bool(scenario.get("dump_status_tones", false))
 	driver.dump_pops = bool(scenario.get("dump_pops", false))
+	driver.dump_tooltip = bool(scenario.get("dump_tooltip", false))
 	# ⚠ call_deferred なのは、_ready() の時点では root が子を組み立てている最中で
 	#   add_child() が弾かれるため（"Parent node is busy setting up children"）。
 	#   SceneManager が DebugOverlay を足すときに call_deferred しているのと同じ理由。
@@ -4632,6 +4635,9 @@ class Driver extends Node:
 	#   ⚠ 絵は取れないので「何件・どの大きさ・待っている（透明）か」を数字で見る。
 	var dump_pops: bool = false
 	var _pops_dumped: bool = false
+	# ⚠ スキルのマスのホバーの枠を1回だけ出すか（2026-09-18）。⚠ 既定は false。
+	var dump_tooltip: bool = false
+	var _tooltip_dumped: bool = false
 
 	# ⚠ battle_controller.gd に class_name が無いので型を付けられない。
 	#   ここは検証用スクリプトなので許容する。本番コードでこの書き方をしないこと
@@ -4706,6 +4712,10 @@ class Driver extends Node:
 
 		if dump_pops and not _pops_dumped:
 			_pops_dumped = _dump_pops()
+
+		if dump_tooltip and not _tooltip_dumped:
+			_tooltip_dumped = true
+			_dump_tooltip()
 
 		# ⚠ 立ち位置を測る合図。撃つ合図（_step_fire の 合図）とは別に、1回だけ出す。
 		#   ここでしか「全員が射程ぴったりに落ち着いた x」は取れない。
@@ -4818,6 +4828,44 @@ class Driver extends Node:
 		#   合図・静止・決着の3点では跳んだことが1つも残らない。
 		if dump_each_fire:
 			_dump_positions(session, "撃った直後")
+
+
+	# スキルのマスのホバーの枠（2026-09-18）。⚠ 本物の配線を通す（⚠ マスの mouse_entered を出す）。
+	#
+	# ⚠ 絵は取れないので「何が書かれているか」と「マスの上に出ているか」を数字で見る。
+	func _dump_tooltip() -> void:
+		if _battle._skill_buttons.is_empty():
+			push_error("[DebugBoot] スキルのマスが1つも無い")
+			return
+		var entry: Dictionary = _battle._skill_buttons[0]
+		var tile: SkillTile = entry.get("button", null)
+		var tip: SkillTooltip = _battle._skill_tooltip
+		if tile == null or tip == null:
+			push_error("[DebugBoot] マスか説明の枠が無い")
+			return
+		var hovered: Array[String] = []
+		for raw: Variant in _battle._skill_buttons:
+			var t: Variant = (raw as Dictionary).get("button", null)
+			if t is SkillTile and (t as SkillTile).is_hovered():
+				hovered.append(str((raw as Dictionary).get("skill_id", "")))
+		print("[DebugBoot] 説明の枠（乗せる前）表示=%s ｜ 乗っているマス=%s ｜ マウス=%s" % [
+			tip.visible, ",".join(hovered), _battle.get_viewport().get_mouse_position()
+		])
+		tile.mouse_entered.emit()
+		var tile_rect: Rect2 = tile.get_global_rect()
+		var rect: Rect2 = tip.get_global_rect()
+		print("[DebugBoot] 説明の枠（%s）表示=%s ｜ 名前='%s' キー='%s' ｜ %s ｜ 説明='%s'（表示=%s）" % [
+			str(entry.get("skill_id", "")), tip.visible,
+			tip._name_label.text, tip._key_label.text, tip._meta_label.text,
+			tip._desc_label.text, tip._desc_label.visible,
+		])
+		print("[DebugBoot]   枠 %.0f,%.0f %.0fx%.0f ／ マス %.0f,%.0f %.0fx%.0f（⚠ 枠の下端 %.0f < マスの上端 %.0f が正解）" % [
+			rect.position.x, rect.position.y, rect.size.x, rect.size.y,
+			tile_rect.position.x, tile_rect.position.y, tile_rect.size.x, tile_rect.size.y,
+			rect.end.y, tile_rect.position.y,
+		])
+		tile.mouse_exited.emit()
+		print("[DebugBoot] 説明の枠（外したあと）表示=%s（⚠ false が正解）" % tip.visible)
 
 
 	# 浮かぶダメージ数値（2026-09-18）。⚠ 出ていれば true を返して以後は呼ばれない。

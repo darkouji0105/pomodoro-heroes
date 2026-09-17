@@ -136,6 +136,9 @@ var _panel_slots_by_unit_id: Dictionary = {}
 # 中央のチャージバー（2026-09-17）。⚠ 作るのは `_build_charge_bar()` の1箇所。
 var _charge_bar: ChargeBar = null
 
+# スキルのマスのホバーで出す説明の枠（2026-09-18）。⚠ 1つを使い回す。
+var _skill_tooltip: SkillTooltip = null
+
 # チャージ中のスキル。{entry: Dictionary, time: float}。未チャージ時は空。
 # 同時に1つしかチャージできない。
 var _charging: Dictionary = {}
@@ -1313,6 +1316,34 @@ func _build_skill_buttons() -> void:
 
 	_assign_skill_keys()
 	_build_charge_bar()
+	_wire_skill_tooltips()
+
+
+# マスに乗せたら説明の枠を出す（2026-09-18・人間「ホバーするとスキルの説明が見えるように」）。
+#
+# ⚠ 枠は1つを使い回す（⚠ マスごとに作らない）。⚠ 作るのはここ1箇所。
+# ⚠ キーの名前は `_assign_skill_keys()` のあとに読む（⚠ 先に呼ぶと枠のキーが空になる）。
+func _wire_skill_tooltips() -> void:
+	if _skill_tooltip == null:
+		_skill_tooltip = SkillTooltip.new()
+		_skill_tooltip.name = "SkillTooltip"
+		hud_root.add_child(_skill_tooltip)
+	for raw: Variant in _skill_buttons:
+		var entry: Dictionary = raw
+		var tile: Variant = entry.get("button", null)
+		if not (tile is SkillTile):
+			continue
+		var skill_tile: SkillTile = tile
+		var skill_id: String = str(entry.get("skill_id", ""))
+		var name_text: String = tr(str(entry.get("name_key", "")))
+		var key_text: String = ""
+		var action: Variant = entry.get("key_action", null)
+		if action != null:
+			key_text = _key_name_of(action)
+		skill_tile.mouse_entered.connect(
+			_skill_tooltip.show_for.bind(skill_id, name_text, key_text, skill_tile)
+		)
+		skill_tile.mouse_exited.connect(_skill_tooltip.hide_tip)
 
 
 # 中央のチャージバーを組む（2026-09-17・人間「中央にチャージバーを」・モック §9）。

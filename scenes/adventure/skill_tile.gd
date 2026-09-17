@@ -53,8 +53,14 @@ func setup(tile_kind: Kind, skill_id: String, name_text: String, size_px: int) -
 	text = ""
 	flat = true
 	focus_mode = Control.FOCUS_NONE
-	# ⚠ 名前はマスに書かない（⚠ 38px に入らない）。⚠ ホバーで出す。
-	tooltip_text = name_text
+	# ⚠⚠ 名前と説明は**ホバーの枠**（`SkillTooltip`）が出す（2026-09-18・人間「ホバーすると
+	#   ⚠ スキルの説明が見えるように」）。⚠ 素のツールチップは出さない（⚠ 2枚重なる）。
+	tooltip_text = ""
+	# ⚠ ホバー・押下の見た目のために、⚠ 出入りで描き直す。
+	mouse_entered.connect(queue_redraw)
+	mouse_exited.connect(queue_redraw)
+	button_down.connect(queue_redraw)
+	button_up.connect(queue_redraw)
 	custom_minimum_size = Vector2(size_px, size_px)
 	_icon = IconTextures.for_skill(skill_id)
 	_fallback_text = name_text.left(FALLBACK_CHARS)
@@ -156,6 +162,11 @@ func _draw() -> void:
 		border = _color("ready_border")
 		icon_color = _color("ready_icon")
 
+	# ⚠ ホバー（2026-09-18）。⚠ 枠を1段明るくするだけ（⚠ 中身は変えない）。
+	#   ⚠ 撃てないマス（`disabled`・戦闘不能）には出さない。⚠ 溜め中・明けた瞬間の枠を上書きしない。
+	if is_hovered() and not disabled and not _off and not _charging and _flash_left <= 0.0:
+		border = _color("hover_border")
+
 	if _charging and not _off:
 		border = _color("charge_just" if _in_just else "charge_border")
 		width = strong
@@ -169,6 +180,13 @@ func _draw() -> void:
 	_style.set_border_width_all(width)
 	_style.set_corner_radius_all(get_theme_constant(&"corner_radius", THEME_TYPE))
 	draw_style_box(_style, box)
+
+	# ⚠ 押している間は面を暗い幕で沈める（2026-09-18）。⚠ クールダウンの幕とは別の枝。
+	#   ⚠ チャージは押しっぱなしで溜めるので、⚠ 溜めている間ずっと沈む（⚠ 押している合図になる）。
+	if button_pressed and not disabled and not _off:
+		var press: Color = Color.BLACK
+		press.a = float(get_theme_constant(&"press_percent", THEME_TYPE)) / 100.0
+		draw_rect(box, press)
 
 	# ⚠ recast の層。⚠ 窓の残りで**上から減る**（⚠ 下に溜まっている量が減っていく）。
 	if recasting and _recast_window > 0.0:
