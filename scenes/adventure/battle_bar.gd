@@ -108,17 +108,11 @@ func _relayout() -> void:
 	_shield.visible = _shield_max > 0 and _shield_now > 0
 
 
-# HP の色。⚠ 味方だけ3段（モック §4）。⚠ 敵は3段に分けず1色
-#   （⚠ 敵の残量を細かく読ませる画面ではない）。
-func _hp_color(ratio: float) -> Color:
-	if not _is_party:
-		return get_theme_color(&"hp_enemy", THEME_TYPE)
-	var percent: float = ratio * 100.0
-	if percent <= float(get_theme_constant(&"hp_low_percent", THEME_TYPE)):
-		return get_theme_color(&"hp_low", THEME_TYPE)
-	if percent <= float(get_theme_constant(&"hp_mid_percent", THEME_TYPE)):
-		return get_theme_color(&"hp_mid", THEME_TYPE)
-	return get_theme_color(&"hp_high", THEME_TYPE)
+# HP の色。⚠ 味方は**残量に関係なくいつも緑**、⚠ 敵は赤。
+# ⚠⚠ 2026-09-17 に味方の3段（緑・黄・赤）をやめた（人間「剣士の体力を緑に」→
+#   「味方のHPは残量に関係なくいつも緑」）。⚠ 瀕死は名前の赤だけで示す（`is_low()`）。
+func _hp_color(_ratio: float) -> Color:
+	return get_theme_color(&"hp_high" if _is_party else &"hp_enemy", THEME_TYPE)
 
 
 # 瀕死か。⚠ 名前の色を変える側（`UnitView`）が同じしきい値を持たないための入口。

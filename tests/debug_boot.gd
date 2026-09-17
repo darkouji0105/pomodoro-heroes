@@ -4790,8 +4790,11 @@ class Driver extends Node:
 		for i: int in range(bar._rows.size()):
 			var track: Variant = bar._rows[i]["track"]
 			shown.append("行%d t=%.2f 帯=%s 過ぎ=%s" % [i, track.t, track.in_band(), track.is_over()])
-		print("[DebugBoot] チャージバー（%s）表示=%s 行数=%d このスキルの行=%d ｜ %s" % [
-			label, bar.visible, bar._rows.size(), row, " ／ ".join(shown)
+		# ⚠ 横の真ん中に居るか（2026-09-17・人間「今は左に寄って見える」）。⚠ 基準の幅 1280 の中心は 640。
+		var rect: Rect2 = bar.get_global_rect()
+		print("[DebugBoot] チャージバー（%s）表示=%s 行数=%d このスキルの行=%d 左右=%.0f〜%.0f（中心 %.0f）｜ %s" % [
+			label, bar.visible, bar._rows.size(), row,
+			rect.position.x, rect.end.x, rect.get_center().x, " ／ ".join(shown)
 		])
 
 

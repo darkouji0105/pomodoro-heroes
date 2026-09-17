@@ -360,17 +360,16 @@ const BATTLE_UNIT_BAR_HEIGHT: int = 5
 const BATTLE_UNIT_BAR_GAP: int = 4
 const BATTLE_UNIT_ACTIVE_WIDTH: int = 1
 
-# ⚠⚠ HPバーは残量で3段（モック §4）。⚠ 敵は3段に分けず1色。
+# ⚠⚠ HPバーは**味方は緑1色・敵は赤1色**（⚠ モック §4 の3段は 2026-09-17 に人間がやめた
+#   「味方のHPは残量に関係なくいつも緑」）。⚠ `BATTLE_HP_LOW` は瀕死の名前の色として残る。
 #   ⚠ シールドは**HPバーの右に継ぎ足す**。⚠ 別の行にしない
 #   （⚠ 2026-09-16 時点の実コードは別の行で、⚠ 剣士だけ縦位置がズレていた）。
 const BATTLE_HP_HIGH: String = "7fbf47"
-const BATTLE_HP_MID: String = "efc775"
 const BATTLE_HP_LOW: String = "e05a4a"
 const BATTLE_HP_ENEMY: String = "c4534a"
 const BATTLE_SHIELD: String = "58a7ee"
 const BATTLE_BAR_GROOVE: String = "2a2320"
-# ⚠ HPが何割を切ったら色が変わるか。⚠ 百分率（Theme の定数は int）。
-const BATTLE_HP_MID_PERCENT: int = 50
+# ⚠ HPが何割を切ったら瀕死（⚠ 名前が赤）。⚠ 百分率（Theme の定数は int）。
 const BATTLE_HP_LOW_PERCENT: int = 20
 
 # ⚠ 名前の色は3つ（モック §3-2・§4）。⚠ 通常 ／ 行動中 ／ 瀕死。
@@ -455,10 +454,12 @@ const SKILL_RECAST_PULSE_LAYER_PERCENT: int = 40
 # ⚠⚠ バーの右端＝**ジャストの窓の終わり**（`just_sec + just_window_sec`）。⚠ 窓は末尾の帯になる。
 #   ⚠ モックの「末尾15%」は決め打ちではなく、⚠ スキルの `charge` の数字から毎回決まる。
 const CHARGE_WIDTH: int = 440
-const CHARGE_ROW_HEIGHT: int = 18
 const CHARGE_ROW_GAP: int = 5
-const CHARGE_ICON: int = 18
-const CHARGE_NAME_WIDTH: int = 64
+const CHARGE_ICON: int = 24
+# ⚠⚠ スキル名は**バーの上**に出す（2026-09-17・人間「バーにスキル名を書いて」→「バーの上に名前を出す」）。
+#   ⚠ モックの「左に幅64の名前の欄」はやめた。⚠ 字はボタンと同じ段（14）。
+const CHARGE_NAME_SIZE: int = BUTTON_FONT_SIZE
+const CHARGE_NAME_GAP: int = 2
 const CHARGE_TRACK_HEIGHT: int = 10
 const CHARGE_ROW_INNER_GAP: int = 8
 # ⚠ 画面の上からの位置（⚠ ユニットの足元 `BATTLE_GROUND_Y` の下）。
@@ -1022,14 +1023,11 @@ static func _build_battle(theme: Theme) -> void:
 		"bar_height": BATTLE_UNIT_BAR_HEIGHT,
 		"bar_gap": BATTLE_UNIT_BAR_GAP,
 		"active_width": BATTLE_UNIT_ACTIVE_WIDTH,
-		"hp_mid_percent": BATTLE_HP_MID_PERCENT,
 		"hp_low_percent": BATTLE_HP_LOW_PERCENT,
 	}
 	for key: String in unit.keys():
 		theme.set_constant(StringName(key), &"BattleUnitView", int(unit[key]))
 	theme.set_color(&"hp_high", &"BattleUnitView", _html(BATTLE_HP_HIGH))
-	theme.set_color(&"hp_mid", &"BattleUnitView", _html(BATTLE_HP_MID))
-	theme.set_color(&"hp_low", &"BattleUnitView", _html(BATTLE_HP_LOW))
 	theme.set_color(&"hp_enemy", &"BattleUnitView", _html(BATTLE_HP_ENEMY))
 	theme.set_color(&"shield", &"BattleUnitView", _html(BATTLE_SHIELD))
 	theme.set_color(&"groove", &"BattleUnitView", _html(BATTLE_BAR_GROOVE))
@@ -1128,9 +1126,7 @@ static func _build_charge_bar(theme: Theme) -> void:
 	var t: StringName = &"ChargeBar"
 	var numbers: Dictionary = {
 		"width": CHARGE_WIDTH,
-		"row_height": CHARGE_ROW_HEIGHT,
 		"icon": CHARGE_ICON,
-		"name_width": CHARGE_NAME_WIDTH,
 		"track_height": CHARGE_TRACK_HEIGHT,
 		"top": CHARGE_TOP,
 		"mid_percent": CHARGE_MID_PERCENT,
@@ -1159,6 +1155,11 @@ static func _build_charge_bar(theme: Theme) -> void:
 	theme.set_constant(&"separation", &"ChargeRows", CHARGE_ROW_GAP)
 	theme.set_type_variation(&"ChargeRow", &"HBoxContainer")
 	theme.set_constant(&"separation", &"ChargeRow", CHARGE_ROW_INNER_GAP)
+	theme.set_type_variation(&"ChargeNameStack", &"VBoxContainer")
+	theme.set_constant(&"separation", &"ChargeNameStack", CHARGE_NAME_GAP)
+	theme.set_type_variation(&"ChargeNameLabel", &"Label")
+	theme.set_font_size(&"font_size", &"ChargeNameLabel", CHARGE_NAME_SIZE)
+	theme.set_color(&"font_color", &"ChargeNameLabel", _html(MUTED_FONT_COLOR))
 
 
 static func _html(hex: String) -> Color:

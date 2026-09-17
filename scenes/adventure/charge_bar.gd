@@ -90,12 +90,11 @@ func build(specs: Array) -> void:
 	_rows.clear()
 
 	custom_minimum_size.x = get_theme_constant(&"width", THEME_TYPE)
-	var row_h: int = get_theme_constant(&"row_height", THEME_TYPE)
 	for raw: Variant in specs:
 		var spec: Dictionary = raw
+		# ⚠ 1行＝左に顔 ／ 右に「スキル名（上）＋ バー（下）」（2026-09-17・人間「バーの上に名前を出す」）。
 		var row: HBoxContainer = HBoxContainer.new()
 		row.theme_type_variation = &"ChargeRow"
-		row.custom_minimum_size.y = row_h
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(row)
 
@@ -103,23 +102,26 @@ func build(specs: Array) -> void:
 			str(spec.get("character_id", "")), get_theme_constant(&"icon", THEME_TYPE)
 		))
 
+		var stack: VBoxContainer = VBoxContainer.new()
+		stack.theme_type_variation = &"ChargeNameStack"
+		stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(stack)
+
 		var name_label: Label = Label.new()
-		name_label.theme_type_variation = &"BattleNameLabel"
+		name_label.theme_type_variation = &"ChargeNameLabel"
 		name_label.text = str(spec.get("name", ""))
-		name_label.custom_minimum_size.x = get_theme_constant(&"name_width", THEME_TYPE)
 		name_label.clip_text = true
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		row.add_child(name_label)
+		stack.add_child(name_label)
 
 		var track: Track = Track.new()
 		track.just_sec = float(spec.get("just_sec", 1.0))
 		track.window_sec = float(spec.get("window_sec", 0.15))
 		track.custom_minimum_size.y = get_theme_constant(&"track_height", THEME_TYPE)
-		track.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		track.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(track)
+		stack.add_child(track)
 
 		_rows.append({"row": row, "name": name_label, "track": track})
 	show_charging(-1, 0.0)

@@ -1319,13 +1319,21 @@ func _build_skill_buttons() -> void:
 # ⚠ `_build_skill_buttons()` の最後で1回だけ呼ぶ。
 func _build_charge_bar() -> void:
 	if _charge_bar == null:
+		# ⚠⚠ 横の真ん中は `CenterContainer` に任せる（2026-09-17・人間「バーを真ん中に出すようにして」
+		#   「今は左に寄って見える」）。⚠ 前はアンカーを真ん中にして位置を足していた。
+		# ⚠ 器は画面の横いっぱい・上からの位置は Theme（`top`）。
+		var holder: CenterContainer = CenterContainer.new()
+		holder.name = "ChargeBarHolder"
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hud_root.add_child(holder)
+		# ⚠⚠ `set_anchors_preset()` だけでは足りない（2026-09-17 に実測）。⚠ アンカーだけ変えて
+		#   ⚠ いまの大きさ（幅0）を保つので、⚠ 器が 440 の幅のまま左端に居た（⚠ 中心 220）。
+		#   ⚠ オフセットも一緒に当てる `set_anchors_and_offsets_preset()` を使う。
+		holder.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		holder.offset_top = holder.get_theme_constant(&"top", ChargeBar.THEME_TYPE)
 		_charge_bar = ChargeBar.new()
 		_charge_bar.name = "ChargeBar"
-		hud_root.add_child(_charge_bar)
-		# ⚠ 画面の横の真ん中・上からの位置は Theme（`top`）。
-		_charge_bar.set_anchors_preset(Control.PRESET_CENTER_TOP)
-		_charge_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		_charge_bar.position.y = _charge_bar.get_theme_constant(&"top", ChargeBar.THEME_TYPE)
+		holder.add_child(_charge_bar)
 	var specs: Array = []
 	for raw: Variant in _skill_buttons:
 		var entry: Dictionary = raw
