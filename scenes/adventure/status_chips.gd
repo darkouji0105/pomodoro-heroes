@@ -12,6 +12,14 @@ extends BoxContainer
 # ⚠ 画像素材が1枚も無いので ColorRect ＋ Label で作る（assets/images は空）。
 #   絵に差し替えるときは ColorRect を TextureRect にするだけで済む形にしてある。
 
+# チップの区分け（2026-09-17・人間の決定「ツートンで決める」）。⚠ 決めるのは tone_of() の1本。
+enum Tone {
+	HIDDEN,   # ⚠ 出さない（シールドだけの状態＝HPバーに継ぎ足してあるので見ればわかる）
+	BUFF,     # ⚠ 青地に白字
+	DEBUFF,   # ⚠ 赤地に白字
+	REVIVE,   # ⚠ 特殊：復活（黄）
+}
+
 # 前回組んだ顔ぶれ。instance_id を連ねた文字列。
 # ⚠ 毎フレーム組み直さないための鍵。ColorRect と Label を毎フレーム作ると
 #   重いうえに文字がちらつく。件数が同じでも中身が入れ替わることがあるので、
@@ -47,6 +55,13 @@ func _rebuild(entries: Array) -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
+
+	# ⚠ 出さない区分けは、⚠ 数える前に外す（⚠ 件数でマスの大きさが変わるので、見えない件を数えない）。
+	var shown: Array = []
+	for entry: Variant in entries:
+		if entry is Dictionary and tone_of(entry as Dictionary) != Tone.HIDDEN:
+			shown.append(entry)
+	entries = shown
 
 	if entries.is_empty():
 		return
@@ -89,7 +104,7 @@ func _make_chip(entry: Dictionary, side: int) -> Control:
 	var label: Label = Label.new()
 	label.text = _chip_char(str(entry.get("status_id", "")))
 	label.add_theme_font_size_override("font_size", int(round(float(side) * 0.6)))
-	label.add_theme_color_override("font_color", cfg.status_chip_text_color)
+	label.add_theme_color_override("font_color", get_theme_color(&"text", &"StatusChip"))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -100,16 +115,15 @@ func _make_chip(entry: Dictionary, side: int) -> Control:
 
 # 入りきらなかった件数を出すマス。⚠ 通常は出ない（人間の指示・2026-08-22）。
 func _make_overflow_chip(count: int, side: int) -> Control:
-	var cfg: AdventureConfig = Balance.adventure
 	var box: ColorRect = ColorRect.new()
 	box.custom_minimum_size = Vector2(side, side)
-	box.color = cfg.status_chip_buff_color
+	box.color = get_theme_color(&"buff", &"StatusChip")
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var label: Label = Label.new()
 	label.text = "+%d" % count
 	label.add_theme_font_size_override("font_size", int(round(float(side) * 0.6)))
-	label.add_theme_color_override("font_color", cfg.status_chip_text_color)
+	label.add_theme_color_override("font_color", get_theme_color(&"text", &"StatusChip"))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -118,16 +132,68 @@ func _make_overflow_chip(count: int, side: int) -> Control:
 	return box
 
 
-# 色は3つだけ（人間の決定・2026-08-22）。
-# ⚠ 4色目を足さないこと。良い状態と悪い状態を分けるには器に欄が要る。
-# ⚠ react（購読）は buff と同じ青。区別は漢字でする。
+# 地の色（⚠ Theme の `StatusChip` 型）。⚠ 区分けは tone_of() が決める。
+# ⚠⚠ 2026-08-22 の「色は3つだけ（赤・緑・青）」は 2026-09-17 に人間が取り消した。
 func _chip_color(entry: Dictionary) -> Color:
-	var cfg: AdventureConfig = Balance.adventure
-	if str(entry.get("kind", "")) == StatusRegistry.KIND_DOT:
-		if bool(entry.get("heals", false)):
-			return cfg.status_chip_heal_color
-		return cfg.status_chip_dot_color
-	return cfg.status_chip_buff_color
+	match tone_of(entry):
+		Tone.DEBUFF:
+			return get_theme_color(&"debuff", &"StatusChip")
+		Tone.REVIVE:
+			return get_theme_color(&"revive", &"StatusChip")
+	return get_theme_color(&"buff", &"StatusChip")
+
+
+# 状態1件の区分け（2026-09-17・人間の決定）。⚠⚠ 判定はここ1本。⚠ JSON に欄を足さない
+#   （⚠ 付けたときの中身から決める）。
+#
+# 順番（⚠ 上が優先）：
+#   ① 復活（on_death）………………… REVIVE
+#   ② シールドだけ ………………………… HIDDEN（⚠ シールドと別の効果を持つなら出す）
+#   ③ 1つでも「悪い」向きの欄がある … DEBUFF
+#        ⚠ 回復でない周期（dot）／ 能力値の加算がマイナス ／ 攻撃力の倍率がマイナス ／
+#        ⚠ 被回復がマイナス ／ 被ダメージ軽減がマイナス
+#   ④ それ以外 ………………………………… BUFF（⚠ 反撃 react・反射・無効・周期回復もここ）
+static func tone_of(entry: Dictionary) -> Tone:
+	var on_death: Variant = entry.get("on_death", {})
+	if on_death is Dictionary and not (on_death as Dictionary).is_empty():
+		return Tone.REVIVE
+	if _is_shield_only(entry):
+		return Tone.HIDDEN
+	var kind: String = str(entry.get("kind", ""))
+	if kind == StatusRegistry.KIND_DOT and not bool(entry.get("heals", false)):
+		return Tone.DEBUFF
+	if str(entry.get("stat", "")) != "" and int(entry.get("value", 0)) < 0:
+		return Tone.DEBUFF
+	for key: String in ["atk_mult_pct", "heal_taken_pct", SkillSchema.INTERVENE_REDUCTION_PCT]:
+		if int(entry.get(key, 0)) < 0:
+			return Tone.DEBUFF
+	return Tone.BUFF
+
+
+# シールドのほかに何も持たないか。⚠ 「持たない件にも必ず欄がある」器の決まりを前提に、既定値と比べる。
+static func _is_shield_only(entry: Dictionary) -> bool:
+	if str(entry.get("kind", "")) != StatusRegistry.KIND_BUFF:
+		return false
+	if int(entry.get(SkillSchema.INTERVENE_SHIELD_HP, 0)) <= 0:
+		return false
+	if str(entry.get("stat", "")) != "":
+		return false
+	for key: String in [
+		"atk_mult_pct", "heal_taken_pct",
+		SkillSchema.INTERVENE_REDUCTION_PCT, SkillSchema.INTERVENE_PIERCE_PCT,
+		SkillSchema.INTERVENE_REFLECT_PCT, SkillSchema.INTERVENE_REFLECT_FLAT,
+	]:
+		if int(entry.get(key, 0)) != 0:
+			return false
+	if bool(entry.get(SkillSchema.INTERVENE_CRIT_ALWAYS, false)):
+		return false
+	var block: Variant = entry.get("block_status", [])
+	if block is Array and not (block as Array).is_empty():
+		return false
+	var react: Variant = entry.get("react", {})
+	if react is Dictionary and not (react as Dictionary).is_empty():
+		return false
+	return true
 
 
 # 件数でマスの大きさを変える（人間の指示・2026-08-22）。

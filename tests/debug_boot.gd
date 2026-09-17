@@ -649,6 +649,31 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_dbg_pool_heal", "prepare": PREPARE_NONE, "gap": 0.5},
 		],
 	},
+	# ⚠⚠ チップの区分け（2026-09-17・人間「ツートンで決める」）。⚠ 撃ち終わった瞬間に、
+	#   ⚠ 全ユニットの状態を1件ずつ `StatusChips.tone_of()` に通して出す。
+	#   ⚠ 期待：盾付与（シールドだけ）＝HIDDEN ／ 棘の盾（シールド＋反射）＝BUFF ／ とげの鎧（react）＝BUFF ／
+	#     ⚠ 防御デバフ（value -50・敵）＝DEBUFF ／ 単発DoT（敵）＝DEBUFF ／ 回復地帯＝BUFF。
+	#   ⚠ 復活はこの編成で付けられないので、⚠ 器と同じ形の見本で REVIVE を見る。
+	"status_tone": {
+		"kind": KIND_BATTLE,
+		"note": "状態のチップの区分け。シールドだけ=出さない / 反射・react・回復=青 / デバフ・毒=赤 / 復活=黄",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_mit_shield", "skill_dbg_react_thorns"],
+			"char_debug_life": ["skill_dbg_dot_once", "skill_dbg_pool_heal"],
+			"char_debug_status": ["skill_dbg_debuff_def", "skill_dbg_mit_thorns"],
+		},
+		"dump_status_tones": true,
+		"fire": [
+			{"skill": "skill_dbg_mit_shield", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_react_thorns", "prepare": PREPARE_NONE, "gap": 0.3},
+			{"skill": "skill_dbg_mit_thorns", "prepare": PREPARE_NONE, "gap": 0.3},
+			{"skill": "skill_dbg_debuff_def", "prepare": PREPARE_NONE, "gap": 0.3},
+			{"skill": "skill_dbg_dot_once", "prepare": PREPARE_NONE, "gap": 0.3},
+			{"skill": "skill_dbg_pool_heal", "prepare": PREPARE_NONE, "gap": 0.3},
+		],
+	},
 	# ⚠ 件数でマスの大きさが変わること（人間の指示・2026-08-22）の検証。
 	#   1人に7件乗せる。⚠ 「6個まで」のような決め打ちが残っていたら、ここで気づける。
 	# ⚠ ヘッドレスで取れるのは件数だけ。大きさが変わったかは人間が見る（§7-17）。
@@ -938,6 +963,7 @@ func _ready() -> void:
 	driver.skill_plan = scenario.get("fire", [])
 	driver.dump_each_fire = bool(scenario.get("dump_each_fire", false))
 	driver.dump_result = bool(scenario.get("dump_result", false))
+	driver.dump_status_tones = bool(scenario.get("dump_status_tones", false))
 	# ⚠ call_deferred なのは、_ready() の時点では root が子を組み立てている最中で
 	#   add_child() が弾かれるため（"Parent node is busy setting up children"）。
 	#   SceneManager が DebugOverlay を足すときに call_deferred しているのと同じ理由。
@@ -4596,6 +4622,9 @@ class Driver extends Node:
 	#   （⚠ 検証用ステージは報酬を配らないので、⚠ 本物ではマスとピルが見られない）。
 	var dump_result: bool = false
 	var _result_dumped: int = 0
+	# ⚠ 撃ち終わった瞬間に状態のチップの区分けを出すか（2026-09-17）。⚠ 既定は false。
+	var dump_status_tones: bool = false
+	var _status_tones_dumped: bool = false
 
 	# ⚠ battle_controller.gd に class_name が無いので型を付けられない。
 	#   ここは検証用スクリプトなので許容する。本番コードでこの書き方をしないこと
@@ -4689,6 +4718,9 @@ class Driver extends Node:
 		#   1ウェーブのシナリオ（既存の全部）の所要時間を1秒も変えないため。
 		#   ⚠ 2回目以降を長くするのは、次のウェーブの敵が自分に状態を掛けたり
 		#   互いを回復したりするのを観測する時間が要るため（stage_dbg_intervene）。
+		if dump_status_tones and not _status_tones_dumped:
+			_status_tones_dumped = true
+			_dump_status_tones(session)
 		var wait: float = SETTLE_SEC if _last_kill_sec < 0.0 else NEXT_WAVE_WATCH_SEC
 		if session.elapsed_sec - maxf(_last_kill_sec, _last_fire_sec) >= wait:
 			_last_kill_sec = session.elapsed_sec
@@ -4776,6 +4808,29 @@ class Driver extends Node:
 		#   合図・静止・決着の3点では跳んだことが1つも残らない。
 		if dump_each_fire:
 			_dump_positions(session, "撃った直後")
+
+
+	# 状態のチップの区分け（2026-09-17）。⚠ 器の本物の件を `StatusChips.tone_of()` に通す。
+	func _dump_status_tones(session: BattleSession) -> void:
+		var names: Array = StatusChips.Tone.keys()
+		print("[DebugBoot] --- チップの区分け t=%.2f ---" % session.elapsed_sec)
+		for u in session.party_units + session.enemy_units:
+			if not (u is BattleUnit) or not u.is_alive():
+				continue
+			for entry: Dictionary in _battle._status.entries_for(u.unit_id):
+				print("[DebugBoot]   %-10s %-24s kind=%-5s -> %s" % [
+					u.unit_id, str(entry.get("status_id", "")), str(entry.get("kind", "")),
+					names[StatusChips.tone_of(entry)],
+				])
+		# ⚠ 復活はこの編成で付けられない。⚠ 器の件と同じ欄を持つ見本で通す。
+		var sample: Dictionary = {"kind": StatusRegistry.KIND_BUFF, "on_death": {"revive_hp_ratio": 0.3}}
+		print("[DebugBoot]   見本       on_death（復活）          -> %s" % names[StatusChips.tone_of(sample)])
+		# ⚠ シールドだけの件は、⚠ 敵に付くと撃ち終わる前に削り切られて消える（⚠ 実測で1件も残らなかった）。
+		var shield_only: Dictionary = {"kind": StatusRegistry.KIND_BUFF, SkillSchema.INTERVENE_SHIELD_HP: 30}
+		var shield_reflect: Dictionary = shield_only.duplicate()
+		shield_reflect[SkillSchema.INTERVENE_REFLECT_FLAT] = 5
+		print("[DebugBoot]   見本       シールドだけ              -> %s（⚠ HIDDEN が正解）" % names[StatusChips.tone_of(shield_only)])
+		print("[DebugBoot]   見本       シールド＋反射            -> %s（⚠ BUFF が正解）" % names[StatusChips.tone_of(shield_reflect)])
 
 
 	# 結果窓を出す（2026-09-17）。⚠ 戻りが true のあいだは終わらない。

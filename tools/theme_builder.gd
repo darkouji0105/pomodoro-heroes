@@ -478,6 +478,20 @@ const CHARGE_FILL_OVER: String = "c4534a"
 const CHARGE_BORDER_OVER: String = "8f4a42"
 const CHARGE_NAME_OVER: String = "c4877f"
 
+# --- 状態異常のチップ（2026-09-17・人間の決定・`StatusChip` 型）---
+#
+# ⚠⚠ **地の色＋白字の2色で決める**（人間「ツートンで決める」）。
+#   ⚠ バフ＝青地 ／ デバフ＝赤地 ／ 特殊＝固有の色（⚠ いまは復活だけ＝黄）。
+#   ⚠ シールドだけの状態はチップを出さない（人間「シールドは見たらわかる」＝HPバーの右に継ぎ足してある）。
+#   ⚠ 反撃（react）・反射・無効はバフ（人間「反撃、反射もバフでいい」）。
+# ⚠ どれに当たるかを決めるのは `StatusChips.tone_of()` の1本。
+# ⚠⚠ **新しい色は足していない**：⚠ 青＝シールドの色（`BATTLE_SHIELD`）／ ⚠ 赤＝敵のHP（`BATTLE_HP_ENEMY`）／
+#   ⚠ 黄＝琥珀（`SKILL_FLASH`）。⚠ 前は `AdventureConfig` が3色（赤・緑・青）を持っていた。
+const STATUS_CHIP_BUFF: String = BATTLE_SHIELD
+const STATUS_CHIP_DEBUFF: String = BATTLE_HP_ENEMY
+const STATUS_CHIP_REVIVE: String = SKILL_FLASH
+const STATUS_CHIP_TEXT: String = "ffffff"
+
 # --- 戦闘の結果窓（2026-09-17・人間のモック §12・`BattleResult` 型）---
 #
 # ⚠⚠ Modal は使わない（人間の決定・§0-UI-G）。⚠ 行き先を持つボタンが2つ並び、
@@ -633,6 +647,7 @@ static func build() -> void:
 	_build_skill_tile(theme)
 	_build_charge_bar(theme)
 	_build_battle_result(theme)
+	_build_status_chip(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -1191,6 +1206,15 @@ static func _build_charge_bar(theme: Theme) -> void:
 	theme.set_type_variation(&"ChargeNameLabel", &"Label")
 	theme.set_font_size(&"font_size", &"ChargeNameLabel", CHARGE_NAME_SIZE)
 	theme.set_color(&"font_color", &"ChargeNameLabel", _html(MUTED_FONT_COLOR))
+
+
+# ⚠ 状態異常のチップ（`StatusChip` 型・2026-09-17）。⚠ 部品は `status_chips.gd`。
+static func _build_status_chip(theme: Theme) -> void:
+	var t: StringName = &"StatusChip"
+	theme.set_color(&"buff", t, _html(STATUS_CHIP_BUFF))
+	theme.set_color(&"debuff", t, _html(STATUS_CHIP_DEBUFF))
+	theme.set_color(&"revive", t, _html(STATUS_CHIP_REVIVE))
+	theme.set_color(&"text", t, _html(STATUS_CHIP_TEXT))
 
 
 # ⚠ 戦闘の結果窓（`BattleResult` 型・2026-09-17）。⚠ 部品は `battle_result_view.gd`。
