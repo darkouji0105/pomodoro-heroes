@@ -61,6 +61,16 @@ const SPAWN_WHY_CLEAR: String = "clear"
 # （通常攻撃の中身は BattleUnit.basic_attack が持っている）。
 const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
 
+# スキルを撃つキー（2026-09-17・人間「キーでスキルを打てるようにする」
+#   「とりあえず qwerty の順で右から」）。
+# ⚠ 名前は `project.godot` の [input] の操作名。⚠ キーそのものはあちらが持つ（Q W E R T Y）。
+# ⚠⚠ 割り当ては**下部パネルの右端のマスから** 1本目、2本目…（⚠ 右端＝編成の最後のキャラの最後のスキル）。
+#   ⚠ マスが6個より多ければ、⚠ 左側の残りにはキーが付かない。
+const SKILL_KEY_ACTIONS: Array[StringName] = [
+	&"battle_skill_1", &"battle_skill_2", &"battle_skill_3",
+	&"battle_skill_4", &"battle_skill_5", &"battle_skill_6",
+]
+
 # ノード参照
 @onready var party_container: Node2D = $PartyUnitsContainer
 @onready var enemy_container: Node2D = $EnemyUnitsContainer
@@ -1308,6 +1318,74 @@ func _build_skill_buttons() -> void:
 					# ロード時検証（E6）でも捕まえるが、ここでも instant として繋ぐ。
 					push_error("[BattleController] activation: charge なのに charge{} が空: " + skill_id)
 				button.pressed.connect(_on_skill_button_pressed.bind(unit, skill_id))
+
+	_assign_skill_keys()
+
+
+# キーの割り当て（2026-09-17）。⚠ `_build_skill_buttons()` の最後で1回だけ呼ぶ。
+#
+# ⚠ マスの右下に、⚠ `InputMap` に入っているキーの名前を書く（⚠ キーを2箇所に書かない）。
+# ⚠ 右端のマスから数える。⚠ 並べ替えを変えるならここ1箇所だけ直す。
+func _assign_skill_keys() -> void:
+	for i: int in range(_skill_buttons.size()):
+		var entry: Dictionary = _skill_buttons[_skill_buttons.size() - 1 - i]
+		entry.erase("key_action")
+		var tile: Variant = entry.get("button", null)
+		if not (tile is SkillTile):
+			continue
+		if i >= SKILL_KEY_ACTIONS.size() or not InputMap.has_action(SKILL_KEY_ACTIONS[i]):
+			(tile as SkillTile).set_key_label("")
+			continue
+		entry["key_action"] = SKILL_KEY_ACTIONS[i]
+		(tile as SkillTile).set_key_label(_key_name_of(SKILL_KEY_ACTIONS[i]))
+		# ⚠ 組んだときに1回だけ出す（⚠ 毎フレームではない）。⚠ 実機のあとに godot.log で割り当てを読むため。
+		var user: Variant = entry.get("user", null)
+		print("[Battle] キー %s -> %s（%s）" % [
+			_key_name_of(SKILL_KEY_ACTIONS[i]), str(entry.get("skill_id", "")),
+			(user as BattleUnit).unit_id if user is BattleUnit else "",
+		])
+
+
+# 操作に入っている最初のキーの名前（"Q" など）。⚠ 無ければ空。
+func _key_name_of(action: StringName) -> String:
+	for event: InputEvent in InputMap.action_get_events(action):
+		if event is InputEventKey:
+			var key: InputEventKey = event as InputEventKey
+			var code: Key = key.physical_keycode if key.physical_keycode != KEY_NONE else key.keycode
+			return OS.get_keycode_string(code)
+	return ""
+
+
+# キーで撃つ（2026-09-17）。
+#
+# ⚠⚠ マウスで押したときと**同じ入口**を通す（⚠ 撃てるかの判定を2本にしない）。
+#   ⚠ 通常・recast … `_on_skill_button_pressed()`。⚠ マスが押せない（disabled）なら撃たない
+#   ⚠ チャージ … 押した瞬間に `_on_charge_button_down()`、⚠ 離した瞬間に `_on_charge_button_up()`
+# ⚠ 押しっぱなしの連打（echo）は無視する（⚠ チャージは押しっぱなしで溜めるもの）。
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey) or (event as InputEventKey).echo:
+		return
+	for raw: Variant in _skill_buttons:
+		var entry: Dictionary = raw
+		var action: Variant = entry.get("key_action", null)
+		if action == null:
+			continue
+		var pressed: bool = event.is_action_pressed(action)
+		var released: bool = event.is_action_released(action)
+		if not pressed and not released:
+			continue
+		var tile: Variant = entry.get("button", null)
+		if not (tile is SkillTile) or not is_instance_valid(tile):
+			return
+		if (tile as SkillTile).kind == SkillTile.Kind.CHARGE:
+			if pressed:
+				_on_charge_button_down(entry)
+			else:
+				_on_charge_button_up(entry)
+		elif pressed and not (tile as SkillTile).disabled:
+			_on_skill_button_pressed(entry.get("user", null), str(entry.get("skill_id", "")))
+		get_viewport().set_input_as_handled()
+		return
 
 
 # 状態のマスを配る（EXEC_STATUS_UI.md §3-D）。

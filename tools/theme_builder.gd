@@ -429,6 +429,8 @@ const SKILL_READY_BORDER: String = "4a3d36"
 const SKILL_READY_ICON: String = "e0d5ce"
 # ⚠ 明けた瞬間だけ光る枠（モック §8「復帰の演出」）。
 const SKILL_FLASH: String = "f0c04a"
+# ⚠ 右下のキーの名前（2026-09-17）。⚠ 既定の控えめな字の色（`MUTED_FONT_COLOR`）と同値。
+const SKILL_KEY: String = "a89b94"
 # ⚠ 押せない（戦闘不能・戦闘の外）。⚠ モック §6 の戦闘不能と同じ値。
 const SKILL_OFF_BG: String = "1c1715"
 const SKILL_OFF_BORDER: String = "2a2320"
@@ -1074,6 +1076,7 @@ static func _build_skill_tile(theme: Theme) -> void:
 		"ready_border": SKILL_READY_BORDER,
 		"ready_icon": SKILL_READY_ICON,
 		"flash": SKILL_FLASH,
+		"key": SKILL_KEY,
 		"off_bg": SKILL_OFF_BG,
 		"off_border": SKILL_OFF_BORDER,
 		"off_icon": SKILL_OFF_ICON,

@@ -30,6 +30,8 @@ var kind: Kind = Kind.COOLDOWN
 
 var _icon: Texture2D = null
 var _fallback_text: String = ""
+# ⚠ 右下に出すキーの名前（"Q" など）。⚠ 空ならキーが割り当たっていない＝出さない。
+var _key_label: String = ""
 var _style: StyleBoxFlat = StyleBoxFlat.new()
 
 var _off: bool = false
@@ -57,6 +59,13 @@ func setup(tile_kind: Kind, skill_id: String, name_text: String, size_px: int) -
 	_icon = IconTextures.for_skill(skill_id)
 	_fallback_text = name_text.left(FALLBACK_CHARS)
 	set_process(false)
+
+
+# 撃つキーの名前を右下に出す（2026-09-17・人間「スキルの右下に対応するキーを書く」）。
+# ⚠ 名前は `InputMap` から引いたものを受け取る（⚠ ここにキーを書かない）。
+func set_key_label(label: String) -> void:
+	_key_label = label
+	queue_redraw()
 
 
 # 毎フレーム呼んでよい。⚠ 変わった瞬間（明けた・段が進んだ）はここで拾う。
@@ -211,14 +220,22 @@ func _draw() -> void:
 			label, HORIZONTAL_ALIGNMENT_LEFT, -1, small, count_color
 		)
 
-	# ⚠ チャージ型の目印（右下）。⚠ 待機中から種別が分かるように常に出す。
+	# ⚠ チャージ型の目印（**左下**）。⚠ 待機中から種別が分かるように常に出す。
+	#   ⚠ 2026-09-17 に右下から移した（⚠ 右下はキーの名前）。
 	if kind == Kind.CHARGE and font != null:
 		var mark_size: int = get_theme_constant(&"mark_size", THEME_TYPE)
-		var mark: String = Glyphs.SKILL_CHARGE_MARK
-		var mw: float = font.get_string_size(mark, HORIZONTAL_ALIGNMENT_LEFT, -1, mark_size).x
 		draw_string(
-			font, Vector2(size.x - mw - pad * 0.5, size.y - pad),
-			mark, HORIZONTAL_ALIGNMENT_LEFT, -1, mark_size, Color.WHITE
+			font, Vector2(pad * 0.5, size.y - pad),
+			Glyphs.SKILL_CHARGE_MARK, HORIZONTAL_ALIGNMENT_LEFT, -1, mark_size, Color.WHITE
+		)
+
+	# ⚠ 撃つキー（右下）。
+	if _key_label != "" and font != null:
+		var kw: float = font.get_string_size(_key_label, HORIZONTAL_ALIGNMENT_LEFT, -1, small).x
+		draw_string(
+			font, Vector2(size.x - kw - pad, size.y - pad),
+			_key_label, HORIZONTAL_ALIGNMENT_LEFT, -1, small,
+			_color("off_icon" if _off else "key")
 		)
 
 
