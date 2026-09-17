@@ -1136,25 +1136,28 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 
 # ⚠ is_crit / is_dot は既定値を持つ。既定値を外すと、引数を渡していない
 #   F3 パネルの自傷3本（_pop_damage(u, dmg) の形）が壊れる。
-func _pop_damage(target: BattleUnit, amount: int, is_crit: bool = false, is_dot: bool = false) -> void:
+func _pop_damage(
+		target: BattleUnit, amount: int, is_crit: bool = false, is_dot: bool = false,
+		delay_sec: float = 0.0
+) -> void:
 	if target == null:
 		return
 	if not _views_by_unit_id.has(target.unit_id):
 		return
 	var view: Node = _views_by_unit_id[target.unit_id]
 	if is_instance_valid(view) and view.has_method("pop_damage"):
-		view.pop_damage(amount, is_crit, is_dot)
+		view.pop_damage(amount, is_crit, is_dot, delay_sec)
 
 
 # 回復の数値。_pop_damage と同じ形（見つからなければ黙って何もしない）。
-func _pop_heal(target: BattleUnit, amount: int) -> void:
+func _pop_heal(target: BattleUnit, amount: int, delay_sec: float = 0.0) -> void:
 	if target == null:
 		return
 	if not _views_by_unit_id.has(target.unit_id):
 		return
 	var view: Node = _views_by_unit_id[target.unit_id]
 	if is_instance_valid(view) and view.has_method("pop_heal"):
-		view.pop_heal(amount)
+		view.pop_heal(amount, delay_sec)
 
 
 # ============================================================
@@ -1791,6 +1794,11 @@ func _on_status_effects_applied(results: Array) -> void:
 
 
 func _on_skill_effects_applied(results: Array) -> void:
+	# ⚠⚠ 同じ瞬間に何件も返る（範囲攻撃・多段）。⚠ 数字を 1件ずつ遅らせて出す
+	#   （2026-09-18・モック §11）。⚠ ずらさないと同じ場所に重なって読めない。
+	# ⚠ 数えるのは**数字を出した件だけ**（⚠ 召喚や数字の出ない件で間が空かないように）。
+	var popped: int = 0
+	var stagger: float = float(Balance.adventure.pop_stagger_sec)
 	for r in results:
 		if not (r is Dictionary):
 			continue
@@ -1804,15 +1812,18 @@ func _on_skill_effects_applied(results: Array) -> void:
 		# 種類で色を分ける（EXEC_DAMAGE_POP_COLOR.md）。分岐はここ1箇所。
 		# ⚠ is_heal を先に見る。将来 HoT（周期回復）が来ると is_heal と is_dot が
 		#   両方立つが、回復として出すのが正しい。
+		var delay: float = float(popped) * stagger
 		if bool(r.get("is_heal", false)):
-			_pop_heal(target, int(r.get("amount", 0)))
+			_pop_heal(target, int(r.get("amount", 0)), delay)
 		else:
 			_pop_damage(
 				target,
 				int(r.get("amount", 0)),
 				bool(r.get("is_crit", false)),
-				bool(r.get("is_dot", false))
+				bool(r.get("is_dot", false)),
+				delay
 			)
+		popped += 1
 
 
 # ============================================================

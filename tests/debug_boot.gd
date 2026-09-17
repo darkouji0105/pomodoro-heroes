@@ -197,6 +197,8 @@ const SCENARIOS: Dictionary = {
 		"kind": KIND_BATTLE,
 		"note": "範囲攻撃。narrow=2体 / wide=4体 / far=4体 / heal=味方3体",
 		"stage_id": "stage_dbg_area",
+		# ⚠ 浮かぶ数値の件数・大きさ・ずらし（2026-09-18・モック §11）。⚠ 範囲攻撃は同じ瞬間に何件も出る。
+		"dump_pops": true,
 		# ⚠ 編成は状態が唯一の正。stages.json の party_id では決まらない
 		#   （battle_session.gd:19 / battle_controller.gd:176）。
 		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
@@ -964,6 +966,7 @@ func _ready() -> void:
 	driver.dump_each_fire = bool(scenario.get("dump_each_fire", false))
 	driver.dump_result = bool(scenario.get("dump_result", false))
 	driver.dump_status_tones = bool(scenario.get("dump_status_tones", false))
+	driver.dump_pops = bool(scenario.get("dump_pops", false))
 	# ⚠ call_deferred なのは、_ready() の時点では root が子を組み立てている最中で
 	#   add_child() が弾かれるため（"Parent node is busy setting up children"）。
 	#   SceneManager が DebugOverlay を足すときに call_deferred しているのと同じ理由。
@@ -4625,6 +4628,10 @@ class Driver extends Node:
 	# ⚠ 撃ち終わった瞬間に状態のチップの区分けを出すか（2026-09-17）。⚠ 既定は false。
 	var dump_status_tones: bool = false
 	var _status_tones_dumped: bool = false
+	# ⚠ 浮かぶダメージ数値を1回だけ出すか（2026-09-18・モック §11）。⚠ 既定は false。
+	#   ⚠ 絵は取れないので「何件・どの大きさ・待っている（透明）か」を数字で見る。
+	var dump_pops: bool = false
+	var _pops_dumped: bool = false
 
 	# ⚠ battle_controller.gd に class_name が無いので型を付けられない。
 	#   ここは検証用スクリプトなので許容する。本番コードでこの書き方をしないこと
@@ -4696,6 +4703,9 @@ class Driver extends Node:
 			])
 			get_tree().quit()
 			return
+
+		if dump_pops and not _pops_dumped:
+			_pops_dumped = _dump_pops()
 
 		# ⚠ 立ち位置を測る合図。撃つ合図（_step_fire の 合図）とは別に、1回だけ出す。
 		#   ここでしか「全員が射程ぴったりに落ち着いた x」は取れない。
@@ -4808,6 +4818,45 @@ class Driver extends Node:
 		#   合図・静止・決着の3点では跳んだことが1つも残らない。
 		if dump_each_fire:
 			_dump_positions(session, "撃った直後")
+
+
+	# 浮かぶダメージ数値（2026-09-18）。⚠ 出ていれば true を返して以後は呼ばれない。
+	#
+	# ⚠ 数字の Label は `UnitView` の**親**（陣営のコンテナ）に乗る（`pop_label()`）。
+	# ⚠ 待っている件は透明（`modulate.a == 0`）。⚠ ここでずらしが効いているかを見る。
+	func _dump_pops() -> bool:
+		var rows: Array[String] = []
+		for container_name: String in ["PartyUnitsContainer", "EnemyUnitsContainer"]:
+			var container: Node = _battle.get_node_or_null(container_name)
+			if container == null:
+				continue
+			for child: Node in container.get_children():
+				if not (child is Label):
+					continue
+				var label: Label = child
+				rows.append("'%s' 大きさ=%d 待ち=%s" % [
+					label.text,
+					label.get_theme_font_size(&"font_size"),
+					label.modulate.a == 0.0,
+				])
+		# ⚠ 1件だけのフレームは通常攻撃。⚠ 見たいのは「同じ瞬間に何件も出て、
+		#   ⚠ 後ろの件が待っている（透明）」フレームなので、⚠ それがそろうまで出さない。
+		var waiting: int = 0
+		for row: String in rows:
+			if row.ends_with("待ち=true"):
+				waiting += 1
+		if rows.size() < 2 or waiting == 0:
+			return false
+		print("[DebugBoot] 浮かぶ数値 %d 件（⚠ うち待ち %d 件）｜ %s" % [
+			rows.size(), waiting, " ／ ".join(rows)
+		])
+		# ⚠ 会心はこのステージでは出ない（⚠ 会心率0）ので、⚠ 大きさの計算だけ出す。
+		var cfg: AdventureConfig = Balance.adventure
+		print("[DebugBoot]   会心の大きさ = %d（⚠ 通常 %d × %.2f）／ ずらし %.2f 秒" % [
+			int(round(float(cfg.pop_damage_font_size) * cfg.pop_crit_scale)),
+			cfg.pop_damage_font_size, cfg.pop_crit_scale, cfg.pop_stagger_sec,
+		])
+		return true
 
 
 	# 状態のチップの区分け（2026-09-17）。⚠ 器の本物の件を `StatusChips.tone_of()` に通す。

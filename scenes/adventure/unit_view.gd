@@ -166,21 +166,30 @@ func _process(_delta: float) -> void:
 #   毒の 2 と通常の 4 は量がほぼ同じなので、量で分けても見分けられない。
 # ⚠ 優先順は is_dot → is_crit。DoT は今のところ会心しないが、両方立ったら
 #   種類（毒であること）のほうが情報として上なので DoT の色で出す。
-func pop_damage(amount: int, is_crit: bool = false, is_dot: bool = false) -> void:
+#
+# ⚠ `delay_sec` は「同じ瞬間に何件も出るとき」に呼ぶ側がずらすためのもの（2026-09-18）。
+func pop_damage(amount: int, is_crit: bool = false, is_dot: bool = false, delay_sec: float = 0.0) -> void:
 	var cfg: AdventureConfig = Balance.adventure
 	if is_dot:
-		pop_label(str(amount), cfg.pop_dot_color, cfg.pop_dot_font_size)
+		pop_label(str(amount), cfg.pop_dot_color, cfg.pop_dot_font_size, delay_sec)
 	elif is_crit:
-		pop_label(str(amount), cfg.pop_crit_color, cfg.pop_crit_font_size)
+		# ⚠ 会心は通常の `pop_crit_scale` 倍（モック §11「1.4倍」）。⚠ 実寸は持たない。
+		pop_label(
+			str(amount), cfg.pop_crit_color,
+			int(round(float(cfg.pop_damage_font_size) * cfg.pop_crit_scale)), delay_sec
+		)
 	else:
-		pop_label(str(amount), cfg.pop_damage_color, cfg.pop_damage_font_size)
+		pop_label(str(amount), cfg.pop_damage_color, cfg.pop_damage_font_size, delay_sec)
 
 
 # 回復した数値を頭上に浮かべて消す。
 # ⚠ pop_damage と分けてあるのは、呼ぶ側（battle_controller）で
 #   is_heal による分岐を1回で終わらせるため。色の判断をこちらに持たせない。
-func pop_heal(amount: int) -> void:
-	pop_label(str(amount), Balance.adventure.pop_heal_color, Balance.adventure.pop_heal_font_size)
+func pop_heal(amount: int, delay_sec: float = 0.0) -> void:
+	pop_label(
+		str(amount), Balance.adventure.pop_heal_color,
+		Balance.adventure.pop_heal_font_size, delay_sec
+	)
 
 
 # ⚠ ジャスト成功の「JUST!」は 2026-09-18 に**中央のチャージバー**へ移した（`ChargeBar.flash_just()`）。
@@ -191,7 +200,11 @@ func pop_heal(amount: int) -> void:
 # ラベルは自分の子ではなく親コンテナに乗せる。
 # 自分の子にすると、とどめの一撃で hide() された瞬間に
 # 文字も一緒に消えてしまい、最後のダメージが読めなくなるため。
-func pop_label(text: String, color: Color, font_size: int) -> void:
+#
+# ⚠ `delay_sec` が正なら、⚠ その秒だけ透明で待ってから浮かび始める（2026-09-18・モック §11）。
+#   ⚠ 位置は**押さえた時点**の位置。⚠ 待っているあいだにユニットが動いても字は動かない
+#     （⚠ 元から親に乗せる作りで、⚠ 出たあとも追従しない）。
+func pop_label(text: String, color: Color, font_size: int, delay_sec: float = 0.0) -> void:
 	var parent: Node = get_parent()
 	if parent == null:
 		return
@@ -209,6 +222,12 @@ func pop_label(text: String, color: Color, font_size: int) -> void:
 	var duration_sec: float = Balance.adventure.pop_duration_sec
 
 	var tween: Tween = parent.create_tween()
+	if delay_sec > 0.0:
+		# ⚠ 待っているあいだは透明にする。⚠ 出しっぱなしにすると、
+		#   ⚠ ずらした意味が無くなり同じ場所に数字が重なる。
+		label.modulate.a = 0.0
+		tween.tween_interval(delay_sec)
+		tween.tween_property(label, "modulate:a", 1.0, 0.0)
 	tween.set_parallel(true)
 	tween.tween_property(label, "position:y", label.position.y - rise_px, duration_sec)
 	tween.tween_property(label, "modulate:a", 0.0, duration_sec)

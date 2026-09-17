@@ -83,8 +83,10 @@ extends Resource
 @export var pop_damage_font_size: int = 22
 
 ## 会心。通常より大きく・強い色にする（「会心」という文字は出さない）。
+## ⚠⚠ 大きさは**通常の何倍か**で持つ（2026-09-18・モック §11「会心は1.4倍」）。
+##   ⚠ 実寸で2つ持つと、⚠ 通常の大きさを変えたときに比がずれる。
 @export var pop_crit_color: Color = Color(1.0, 0.55, 0.25)
-@export var pop_crit_font_size: int = 32
+@export var pop_crit_scale: float = 1.4
 
 ## DoT（毒などの周期ダメージ）。
 ## 通常のダメージと同じ画面に並ぶので、黄〜橙の系統から最も遠い色にする。
@@ -103,6 +105,11 @@ extends Resource
 ## 浮かんで消えるまでの動き。種類で変えない（変えると読む速さが揃わない）。
 @export var pop_rise_px: float = 48.0
 @export var pop_duration_sec: float = 0.6
+
+## ⚠⚠ 同じ瞬間に複数の数値が出るとき、1件ずつ遅らせる秒（2026-09-18・モック §11）。
+##   ⚠ 範囲攻撃や多段は同じフレームで何件も返るので、⚠ ずらさないと数字が重なって読めない。
+##   ⚠ 0.0 にすると全部同時に出る（＝前の挙動）。
+@export var pop_stagger_sec: float = 0.06
 
 # --- 状態のマス（EXEC_STATUS_UI.md） ---
 #
