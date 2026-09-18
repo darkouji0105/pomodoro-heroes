@@ -3523,36 +3523,59 @@ func _report_floor() -> void:
 	print("  出現率を %d%% に戻した" % int(Balance.floor.chest_chance_pct))
 	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
 
-	# ⚠⚠ ルートの中の宝箱（2026-09-18・人間の決定「ダンジョンの中ではアイテムだが拠点に戻ると宝箱」
-	#   「ストーリーのやつはボス倒したら」）。⚠ 拾った時点では拠点へ行かず、⚠ ボスで届き、⚠ 降りたら失う。
-	print("[DebugBoot] --- ルートの中の宝箱（ボスで届く・降りたら失う）---")
+	# ⚠⚠ シナリオの鞄（2026-09-18・人間の決定「難ダンジョンのインベントリをシナリオでも適用」
+	#   「宝箱と道中の戦利品」「とりあえず８枠」「ストーリーのやつはボス倒したら」）。
+	#   ⚠ 拾ったものはまず拾い待ち → 鞄へ入れる → ボスで持ち帰る（宝箱は拠点の宝箱） → 降りたら失う。
+	print("[DebugBoot] --- シナリオの鞄（拾い待ち → 鞄 → ボスで持ち帰る・降りたら失う）---")
+	var floor_kind: String = GameManager.RUN_KIND_FLOOR
 	if GameManager.start_floor(floor_ids[0]):
+		print("  鞄の枠 = %d（⚠ 8 が正解）" % GameManager.get_run_bag_slots(floor_kind))
 		_walk_to_boss()
-		var held: int = 0
-		for c: Variant in GameManager.get_floor_run_chests().values():
-			held += int(c)
-		var pending_mid: int = GameManager.get_pending_chest_count()
-		print("  歩き終えて 持っている=%d / 拠点の未開封=%d（⚠ 0 が正解＝まだ届いていない）" % [held, pending_mid])
-		var delivered: int = GameManager.deliver_floor_chests()
-		print("  deliver_floor_chests() -> %d 個 / 拠点の未開封=%d（⚠ 持っていた %d と同じが正解）/ 残り=%d（⚠ 0 が正解）" % [
-			delivered, GameManager.get_pending_chest_count(), held,
-			GameManager.get_floor_run_chests().size(),
+		# ⚠ 道中の戦利品（戦闘のマスで勝ったぶん）を1回だけ積む。⚠ どのマスでも戦闘なら引く。
+		var battle_node: String = ""
+		for node_id: Variant in GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_NODES, {}):
+			if str(GameManager.get_floor_node(str(node_id)).get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+				battle_node = str(node_id)
+				break
+		var node_loot: Dictionary = GameManager.grant_floor_node_loot(floor_ids[0], battle_node)
+		var pending: Dictionary = GameManager.get_run_pending_loot(floor_kind)
+		var pending_chests: int = 0
+		for item_id: Variant in pending:
+			if GameManager.is_chest_item(str(item_id)):
+				pending_chests += int(pending[item_id])
+		print("  歩き終えて 拾い待ち=%s（宝箱 %d 個）/ 道中の戦利品=%s / 拠点の未開封=%d（⚠ 0 が正解）" % [
+			str(pending), pending_chests, str(node_loot), GameManager.get_pending_chest_count(),
 		])
-		if pending_mid != 0 or GameManager.get_pending_chest_count() != held:
-			push_error("[DebugBoot] ルートの宝箱の届き方が食い違う")
+		if node_loot.is_empty():
+			push_error("[DebugBoot] 道中の戦利品が1つも積まれなかった")
+		var taken: Dictionary = GameManager.take_all_run_pending_loot(floor_kind)
+		var bag_chests: int = 0
+		for item_id: Variant in GameManager.get_run_bag(floor_kind):
+			if GameManager.is_chest_item(str(item_id)):
+				bag_chests += int(GameManager.get_run_bag(floor_kind)[item_id])
+		print("  全部入れる -> 鞄 %d/%d ／ 入れた %s ／ 残り %s" % [
+			GameManager.get_run_bag_used(floor_kind), GameManager.get_run_bag_slots(floor_kind),
+			str(taken), str(GameManager.get_run_pending_loot(floor_kind)),
+		])
+		var delivered: Dictionary = GameManager.deliver_floor_bag()
+		print("  deliver_floor_bag() -> 持ち帰った %s ／ 拠点の未開封=%d（⚠ 鞄の宝箱 %d と同じが正解）／ 鞄 %d（⚠ 0 が正解）" % [
+			str(delivered.get("granted", {})), GameManager.get_pending_chest_count(), bag_chests,
+			GameManager.get_run_bag_used(floor_kind),
+		])
+		if GameManager.get_pending_chest_count() != bag_chests or GameManager.get_run_bag_used(floor_kind) != 0:
+			push_error("[DebugBoot] シナリオの鞄の持ち帰り方が食い違う")
 		GameManager.abandon_floor()
 	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
 	if GameManager.start_floor(floor_ids[0]):
 		_walk_to_boss()
-		var held_lost: int = 0
-		for c: Variant in GameManager.get_floor_run_chests().values():
-			held_lost += int(c)
+		var _taken_lost: Dictionary = GameManager.take_all_run_pending_loot(floor_kind)
+		var held_lost: int = GameManager.get_run_bag_used(floor_kind)
 		GameManager.abandon_floor()
-		print("  持っていた %d 個のまま降りる -> 拠点の未開封=%d（⚠ 0 が正解＝失う）" % [
+		print("  鞄に %d 個のまま降りる -> 拠点の未開封=%d（⚠ 0 が正解＝失う）" % [
 			held_lost, GameManager.get_pending_chest_count()
 		])
 		if GameManager.get_pending_chest_count() != 0:
-			push_error("[DebugBoot] 降りたのにルートの宝箱が拠点へ届いている")
+			push_error("[DebugBoot] 降りたのにシナリオの鞄が拠点へ届いている")
 	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
 
 	# --- 10. レリック（段階14-d・PLAN_SCENARIO_MAP.md §5-2）---

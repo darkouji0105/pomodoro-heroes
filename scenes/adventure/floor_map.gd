@@ -14,6 +14,8 @@ const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
 const RELIC_SELECT_PATH: String = "res://scenes/adventure/floor_relic_select.tscn"
 const SHOP_PATH: String = "res://scenes/adventure/floor_shop.tscn"
+# ⚠ 拾いものの画面（2026-09-18）。⚠ 難ダンジョンと同じ画面を「シナリオの鞄」で使い回す。
+const CHEST_SCENE: PackedScene = preload("res://scenes/adventure/dungeon_chest.tscn")
 
 # 中身が見えていないマスの表示（段階14-e）。
 const HIDDEN_TEXT: String = "？"
@@ -50,6 +52,12 @@ const COLOR_FAR: Color = Color(0.6, 0.6, 0.65)
 @onready var abandon_button: UiButton = $Layout/Footer/AbandonButton
 @onready var back_button: UiButton = $Layout/Header/BackButton
 
+# ⚠⚠ 鞄のマス目（2026-09-18・人間の決定「難ダンジョンのインベントリをシナリオでも適用」）。
+#   ⚠ .tscn を触らずコードで作る（⚠ レリックの行の下）。⚠ 中身は GameManager の鞄の口に聞く。
+var _bag_grid: ItemGrid = null
+# 重ねて出している拾いものの画面。⚠ 二重に開かない。
+var _loot_overlay: DungeonChest = null
+
 
 func _ready() -> void:
 	SceneManager.consume_transfer_data()
@@ -67,6 +75,56 @@ func _ready() -> void:
 	GameManager.floor_run_changed.connect(_on_floor_run_changed)
 	GameManager.resource_changed.connect(_on_resource_changed)
 	GameManager.floor_chest_found.connect(_on_chest_found)
+	_build_bag_grid()
+	_rebuild()
+	# ⚠ 戦闘・ショップ・レリックから戻ってきたとき、⚠ 拾い待ちがあれば選ぶ画面を出す。
+	_open_pickup_if_needed()
+
+
+# 鞄のマス目を作る（2026-09-18）。⚠ 1回だけ。
+func _build_bag_grid() -> void:
+	_bag_grid = ItemGrid.new()
+	_bag_grid.name = "BagGrid"
+	_bag_grid.columns = maxi(1, GameManager.get_run_bag_slots(GameManager.RUN_KIND_FLOOR))
+	var layout: Node = relic_label.get_parent()
+	layout.add_child(_bag_grid)
+	layout.move_child(_bag_grid, relic_label.get_index() + 1)
+
+
+func _rebuild_bag() -> void:
+	if _bag_grid == null:
+		return
+	_bag_grid.rebuild(
+		GameManager.get_run_bag_slot_layout(GameManager.RUN_KIND_FLOOR),
+		GameManager.get_run_bag_slots(GameManager.RUN_KIND_FLOOR)
+	)
+
+
+# 拾い待ちがあれば、⚠ 難ダンジョンと同じ拾いものの画面をマップの上に重ねて出す（2026-09-18）。
+#
+# ⚠ 出どころ（宝箱・道中の戦利品）は渡さない。⚠ 拾い待ちの欄が正。
+# ⚠ 閉じると残りは捨てられる（⚠ 向こうの「戻る」が捨てる＝難ダンジョンと同じ）。
+func _open_pickup_if_needed() -> void:
+	if not GameManager.has_run_pending_loot(GameManager.RUN_KIND_FLOOR):
+		return
+	if _loot_overlay != null and is_instance_valid(_loot_overlay):
+		return
+	var layer: CanvasLayer = CanvasLayer.new()
+	layer.name = "LootOverlayLayer"
+	var overlay: DungeonChest = CHEST_SCENE.instantiate()
+	overlay.open_as_overlay("", false, GameManager.RUN_KIND_FLOOR)
+	overlay.closed.connect(_on_loot_overlay_closed.bind(layer))
+	layer.add_child(overlay)
+	add_child(layer)
+	_loot_overlay = overlay
+
+
+# ⚠ remove_child() してから queue_free()（AGENTS.md「再描画に await を持たせない」）。
+func _on_loot_overlay_closed(layer: CanvasLayer) -> void:
+	_loot_overlay = null
+	if is_instance_valid(layer):
+		remove_child(layer)
+		layer.queue_free()
 	_rebuild()
 
 
@@ -84,6 +142,7 @@ func _on_resource_changed(resource_type: String, _new_value: Variant) -> void:
 func _rebuild() -> void:
 	_update_header()
 	_rebuild_layers()
+	_rebuild_bag()
 
 
 func _update_header() -> void:
@@ -93,13 +152,12 @@ func _update_header() -> void:
 	floor_name_label.text = tr(str(stage.get("name_key", floor_id)))
 
 	# 数値のみなので tr() は通さない（AGENTS.md）。
-	# ⚠⚠ 2026-09-18：⚠ 数字は**いま持っている宝箱**（⚠ ボスを倒すと拠点へ届く・負けたら失う）。
-	#   ⚠ 前は「このフロアで出た数」（`get_floor_chest_count()`＝最低1回保証の数え方）だった。
-	var held: int = 0
-	for count: Variant in GameManager.get_floor_run_chests().values():
-		held += int(count)
-	chest_label.text = "%s: %d  %s %d(%d%s)" % [
-		tr("ui_floor_chest_held"), held,
+	# ⚠⚠ 2026-09-18：⚠ 数字は**鞄の使用数／枠**（⚠ ボスを倒すと中身を持ち帰る・負けたら失う）。
+	#   ⚠ 前は「このフロアで出た宝箱の数」（`get_floor_chest_count()`＝最低1回保証の数え方）だった。
+	chest_label.text = "%s %d/%d  %s %d(%d%s)" % [
+		tr("ui_dungeon_bag"),
+		GameManager.get_run_bag_used(GameManager.RUN_KIND_FLOOR),
+		GameManager.get_run_bag_slots(GameManager.RUN_KIND_FLOOR),
 		tr("ui_floor_torch"), GameManager.get_floor_torch_grade(),
 		GameManager.get_floor_reveal_layers(), tr("ui_floor_torch_layers"),
 	]
@@ -292,6 +350,8 @@ func _enter_node(node_id: String) -> void:
 		GameStateKeys.FLOOR_NODE_KIND_REST:
 			var _ok: bool = GameManager.rest_at_node()
 			message_label.text = tr("ui_floor_rested")
+			# ⚠ 休憩はマップに留まる。⚠ 途中で拾った宝箱があればここで選ばせる（2026-09-18）。
+			_open_pickup_if_needed()
 		GameStateKeys.FLOOR_NODE_KIND_RELIC:
 			# ⚠ 選ばずに出られない画面へ移る（段階14-d）。踏んだら必ず1つ取る。
 			SceneManager.change_scene(RELIC_SELECT_PATH)

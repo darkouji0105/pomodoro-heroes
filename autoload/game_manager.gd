@@ -198,6 +198,8 @@ const STAGE_MASTER_CHEST_IDS: String = "chest_ids"
 # ⚠ 素材はここに入れない。⚠ 1周ぶんを整数で割ると端数が出て、⚠ フロアごとの
 #   配り方（stages.json の materials）と二重管理になる。⚠ ゴールドだけにする。
 const STAGE_MASTER_NODE_REWARDS: String = "node_rewards"
+# 道中の戦闘の戦利品に使う宝箱の表（2026-09-18）。⚠ chests.json の chest_id（⚠ 表を二重に持たない）。
+const STAGE_MASTER_NODE_LOOT_CHEST: String = "node_loot_chest"
 
 # レアリティの綴り。⚠ chests.json の chest_id の後半と stages.json の chest_ids の
 #   キーが、この4つで揃っていること。
@@ -6327,13 +6329,23 @@ func load_state(data: Dictionary) -> bool:
 			var consumables: Dictionary = run[GameStateKeys.FLOOR_RUN_CONSUMABLES]
 			for item_id: String in consumables:
 				consumables[item_id] = int(consumables[item_id])
-		# ⚠ ルートの中の宝箱（2026-09-18）。⚠ 前のセーブには欄が無い＝空で足す。
-		if run.has(GameStateKeys.FLOOR_RUN_CHESTS) and run[GameStateKeys.FLOOR_RUN_CHESTS] is Dictionary:
-			var run_chests: Dictionary = run[GameStateKeys.FLOOR_RUN_CHESTS]
-			for chest_id: String in run_chests:
-				run_chests[chest_id] = int(run_chests[chest_id])
-		else:
-			run[GameStateKeys.FLOOR_RUN_CHESTS] = {}
+		# ⚠ 鞄と拾い待ち（2026-09-18）。⚠ 前のセーブには欄が無い＝空で足す。
+		for bag_key: String in [GameStateKeys.FLOOR_RUN_BAG, GameStateKeys.FLOOR_RUN_PENDING_LOOT]:
+			if run.has(bag_key) and run[bag_key] is Dictionary:
+				var held: Dictionary = run[bag_key]
+				for held_id: String in held:
+					held[held_id] = int(held[held_id])
+			else:
+				run[bag_key] = {}
+		run[GameStateKeys.FLOOR_RUN_BAG_SLOTS] = int(run.get(GameStateKeys.FLOOR_RUN_BAG_SLOTS, 0))
+		# ⚠ 前の回の「ランの中の宝箱」（`chests`・同じ日の途中版）が残っていたら拾い待ちへ移す（⚠ 失わない）。
+		if run.has(GameStateKeys.FLOOR_RUN_CHESTS):
+			var legacy: Variant = run[GameStateKeys.FLOOR_RUN_CHESTS]
+			if legacy is Dictionary:
+				var loot: Dictionary = run[GameStateKeys.FLOOR_RUN_PENDING_LOOT]
+				for chest_id: String in (legacy as Dictionary):
+					loot[chest_id] = int(loot.get(chest_id, 0)) + int((legacy as Dictionary)[chest_id])
+			run.erase(GameStateKeys.FLOOR_RUN_CHESTS)
 		if run.has(GameStateKeys.FLOOR_RUN_NODES) and run[GameStateKeys.FLOOR_RUN_NODES] is Dictionary:
 			var floor_nodes: Dictionary = run[GameStateKeys.FLOOR_RUN_NODES]
 			for node_id: String in floor_nodes:
@@ -6558,8 +6570,12 @@ func _empty_floor_run() -> Dictionary:
 		GameStateKeys.FLOOR_RUN_HP_CARRY: {},
 		GameStateKeys.FLOOR_RUN_CHEST_COUNT: 0,
 		GameStateKeys.FLOOR_RUN_CONSUMABLES: {},
-		# ⚠ ルートの中で持っている宝箱（2026-09-18）。⚠ ボスを倒したら拠点へ届く。
-		GameStateKeys.FLOOR_RUN_CHESTS: {},
+		# ⚠⚠ 鞄と拾い待ち（2026-09-18・人間の決定「難ダンジョンのインベントリをシナリオでも適用」）。
+		#   ⚠ 宝箱も道中の戦利品もまず拾い待ちへ。⚠ ボスを倒したら鞄の中身を持ち帰る。
+		#   ⚠ 前の回に入れた「ランの中の宝箱」（`FLOOR_RUN_CHESTS`）はこれに置き換えた。
+		GameStateKeys.FLOOR_RUN_BAG: {},
+		GameStateKeys.FLOOR_RUN_BAG_SLOTS: 0,
+		GameStateKeys.FLOOR_RUN_PENDING_LOOT: {},
 	}
 
 
@@ -6651,10 +6667,12 @@ func start_floor(floor_id: String) -> bool:
 	run[GameStateKeys.FLOOR_RUN_NODES] = nodes
 	run[GameStateKeys.FLOOR_RUN_POSITION] = entry_id
 	run[GameStateKeys.FLOOR_RUN_VISITED] = {entry_id: true}
+	# ⚠ 鞄の枠（2026-09-18）。⚠ 値は FloorConfig の1本（⚠ 難ダンジョンは DungeonConfig＝器が別）。
+	run[GameStateKeys.FLOOR_RUN_BAG_SLOTS] = maxi(0, int(Balance.floor.bag_initial_slots))
 	_state[GameStateKeys.FLOOR_RUN] = run
 
-	print("[GameManager] start_floor('%s') -> nodes=%d entry='%s'" % [
-		floor_id, nodes.size(), entry_id
+	print("[GameManager] start_floor('%s') -> nodes=%d entry='%s' 鞄 %d 枠" % [
+		floor_id, nodes.size(), entry_id, int(run[GameStateKeys.FLOOR_RUN_BAG_SLOTS])
 	])
 	floor_run_changed.emit(floor_id)
 	return true
@@ -6719,16 +6737,17 @@ func _roll_floor_chest(node_id: String) -> void:
 		push_warning("[GameManager] _roll_floor_chest: chest_ids に %s が無い: %s" % [rarity, floor_id])
 		return
 	# ⚠⚠ 2026-09-18：⚠ 拠点へ直接送らない（人間の決定「ダンジョンの中ではアイテムだが
-	#   ⚠ 拠点に戻ると宝箱」「ストーリーのやつはボス倒したら」）。⚠ ランの中に個数で持つ。
-	#   ⚠ 拠点へ届くのは `deliver_floor_chests()`（ボスを倒したとき）。
+	#   ⚠ 拠点に戻ると宝箱」「ストーリーのやつはボス倒したら」「難ダンジョンのインベントリを
+	#   ⚠ シナリオでも適用」）。⚠ **拾い待ち**へ積む（⚠ 鞄に入れるかはプレイヤーが選ぶ）。
+	#   ⚠ 拠点へ届くのは `deliver_floor_bag()`（ボスを倒したとき）。
 	if MasterDataLoader.get_chest(chest_id).is_empty():
 		push_warning("[GameManager] _roll_floor_chest: chests.json に無い: " + chest_id)
 		return
 
 	var next_run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
 	next_run[GameStateKeys.FLOOR_RUN_CHEST_COUNT] = count + 1
-	_add_run_chest(next_run, chest_id)
 	_state[GameStateKeys.FLOOR_RUN] = next_run
+	_add_run_pending_loot(RUN_KIND_FLOOR, chest_id, 1)
 	# ⚠ 状態を書き終えてから知らせる。先に飛ばすと、購読側が古い件数を読む
 	#   （宝箱の件数と同じ形＝apply_battle_rewards のコメント）。
 	floor_chest_found.emit(chest_id, rarity)
@@ -7060,54 +7079,91 @@ func buy_floor_heal() -> bool:
 #
 # ⚠ 恒久資産として持ち帰れる（メモ「宝箱とは別枠、恒久資産」）。
 # ⚠ chest_count には数えない（宝箱の最低1回保証とは別物）。
-# ⚠⚠ 2026-09-18：⚠ ルートの中で拾った宝箱と同じく**ランの中に持つ**（⚠ ボスを倒したら届く）。
-#   ⚠ 拠点へ積む口は `deliver_floor_chests()` → `grant_chest()` の1本のまま。
+# ⚠⚠ 2026-09-18：⚠ ルートの中で拾った宝箱と同じく**拾い待ち**へ積む（⚠ 鞄に入れるかは選ぶ）。
+#   ⚠ 拠点へ積む口は `deliver_floor_bag()` → `grant_chest()` の1本のまま。
 func grant_floor_gacha() -> bool:
 	if not is_in_floor():
 		return false
 	if MasterDataLoader.get_chest(FLOOR_GACHA_CHEST_ID).is_empty():
 		return false
-	var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
-	_add_run_chest(run, FLOOR_GACHA_CHEST_ID)
-	_state[GameStateKeys.FLOOR_RUN] = run
+	_add_run_pending_loot(RUN_KIND_FLOOR, FLOOR_GACHA_CHEST_ID, 1)
 	return true
 
 
-# ランの中の宝箱を1個足す（⚠ 渡された複製を書き換えるだけ。⚠ `_state` へ戻すのは呼ぶ側）。
-func _add_run_chest(run: Dictionary, chest_id: String) -> void:
-	var chests: Dictionary = (run.get(GameStateKeys.FLOOR_RUN_CHESTS, {}) as Dictionary).duplicate()
-	chests[chest_id] = int(chests.get(chest_id, 0)) + 1
-	run[GameStateKeys.FLOOR_RUN_CHESTS] = chests
+# 道中の戦闘の戦利品を拾い待ちへ積む（2026-09-18・人間の決定「宝箱と道中の戦利品」）。
+#
+# ⚠⚠ 中身は「そのフロアの `node_loot_chest`（stages.json）の宝箱の表を1回引く」（⚠ 人間の了解）。
+#   ⚠ 表を二重に持たない（⚠ chests.json の表を借りる）。⚠ 引く口は `_roll_chest_rewards()` の1本。
+# ⚠ 積むのは素材と持ち物だけ（⚠ ゴールドは道中の報酬 `get_floor_node_rewards()` がその場で配る）。
+# ⚠ 戦闘のマスでなければ何もしない（⚠ 判定は `get_floor_node_rewards()` と同じ＝戦闘のマスだけ）。
+# ⚠ 戻り値は積んだもの（{item_id: 個数}）。
+func grant_floor_node_loot(floor_id: String, node_id: String) -> Dictionary:
+	var piled: Dictionary = {}
+	if not is_in_floor():
+		return piled
+	if str(get_floor_node(node_id).get(GameStateKeys.FLOOR_NODE_KIND, "")) != GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+		return piled
+	var chest_id: String = str(MasterDataLoader.get_stage(floor_id).get(STAGE_MASTER_NODE_LOOT_CHEST, ""))
+	if chest_id == "":
+		return piled
+	var rolled: Dictionary = _roll_chest_rewards(chest_id)
+	for table_key: String in [GameStateKeys.REWARD_MATERIALS, GameStateKeys.REWARD_INVENTORY]:
+		var table: Variant = rolled.get(table_key, {})
+		if not (table is Dictionary):
+			continue
+		for item_id: String in (table as Dictionary):
+			var count: int = int((table as Dictionary)[item_id])
+			if count <= 0:
+				continue
+			_add_run_pending_loot(RUN_KIND_FLOOR, item_id, count)
+			piled[item_id] = int(piled.get(item_id, 0)) + count
+	print("[GameManager] grant_floor_node_loot('%s', '%s') -> 拾い待ちへ %s" % [floor_id, node_id, str(piled)])
+	return piled
 
 
-# ルートの中で持っている宝箱 {chest_id: 個数}（⚠ 複製を返す）。⚠ 画面はこの1本に聞く。
-func get_floor_run_chests() -> Dictionary:
-	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
-	return (run.get(GameStateKeys.FLOOR_RUN_CHESTS, {}) as Dictionary).duplicate()
-
-
-# ルートの中の宝箱を拠点へ届ける（2026-09-18・人間の決定「ストーリーのやつはボス倒したら」）。
+# 鞄の中身を拠点へ持ち帰る（2026-09-18・人間の決定「ストーリーのやつはボス倒したら」）。
 #
 # ⚠⚠ 呼ぶのは**ボスを倒したときだけ**（⚠ 戦闘の勝ち ／ 周回の自動処理）。⚠ `abandon_floor()` の前。
 #   ⚠ 負けて降りた・自分で降りたときは呼ばない＝ランごと捨てて**失う**。
-# ⚠ 拠点へ積む口は `grant_chest()` の1本（⚠ 2本目を作らない）。
-# ⚠ 全部数え終えてから状態を触る（CLAUDE.md 6番）。⚠ 戻り値は届けた個数。
-func deliver_floor_chests() -> int:
-	var chests: Dictionary = get_floor_run_chests()
-	var queue: Array[String] = []
-	for chest_id: String in chests:
-		for _i: int in range(int(chests[chest_id])):
-			queue.append(chest_id)
-	var delivered: int = 0
-	for chest_id: String in queue:
-		if grant_chest(chest_id, GameStateKeys.CHEST_SOURCE_FLOOR):
-			delivered += 1
-	if _state.get(GameStateKeys.FLOOR_RUN, {}) is Dictionary and not chests.is_empty():
-		var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
-		run[GameStateKeys.FLOOR_RUN_CHESTS] = {}
-		_state[GameStateKeys.FLOOR_RUN] = run
-	print("[GameManager] deliver_floor_chests() -> %d 個を拠点へ" % delivered)
-	return delivered
+# ⚠ 宝箱は `grant_chest()`（⚠ 拠点の宝箱）、⚠ ほかは `_grant_item()` → `add_to_inventory()`（CLAUDE.md 8番）。
+#   ⚠ 倉庫に入るぶんだけ持ち帰る（⚠ 難ダンジョンの `retreat_from_dungeon()` と同じ扱い）。
+# ⚠ 拾い待ちに残っていたもの（⚠ 鞄に入れなかったもの）は持ち帰らない。
+# 戻り値: {"granted": {id: 個数}, "left_behind": {id: 個数}}
+func deliver_floor_bag() -> Dictionary:
+	var result: Dictionary = {"granted": {}, "left_behind": {}}
+	if not is_in_floor():
+		return result
+	var bag: Dictionary = get_run_bag(RUN_KIND_FLOOR)
+	var item_ids: Array = bag.keys()
+	item_ids.sort()
+	for entry: Variant in item_ids:
+		var item_id: String = str(entry)
+		var count: int = int(bag[item_id])
+		if count <= 0:
+			continue
+		if is_chest_item(item_id):
+			for _i: int in range(count):
+				var _granted: bool = grant_chest(item_id, GameStateKeys.CHEST_SOURCE_FLOOR)
+			(result["granted"] as Dictionary)[item_id] = count
+			continue
+		var takeable: int = _inventory_slots_needed_for_item(item_id, count)
+		if takeable > 0 and not can_accept_inventory(takeable):
+			var can_take: int = get_inventory_free_slots()
+			if can_take > 0:
+				_grant_item(item_id, can_take)
+				(result["granted"] as Dictionary)[item_id] = can_take
+			(result["left_behind"] as Dictionary)[item_id] = count - can_take
+			continue
+		_grant_item(item_id, count)
+		(result["granted"] as Dictionary)[item_id] = count
+	var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.FLOOR_RUN_BAG] = {}
+	run[GameStateKeys.FLOOR_RUN_PENDING_LOOT] = {}
+	_state[GameStateKeys.FLOOR_RUN] = run
+	print("[GameManager] deliver_floor_bag() -> 持ち帰った %s ／ 倉庫が満杯で置いてきた %s" % [
+		str(result["granted"]), str(result["left_behind"]),
+	])
+	return result
 
 
 # ========================================================================
@@ -7189,6 +7245,8 @@ func run_floor_auto(floor_id: String) -> Dictionary:
 		if not node_reward.is_empty():
 			node_battles += 1
 			node_gold += int(node_reward.get(GameStateKeys.REWARD_GOLD, 0))
+			# ⚠ 道中の戦利品も初回と同じく拾い待ちへ（2026-09-18）。
+			var _loot: Dictionary = grant_floor_node_loot(floor_id, next_id)
 		if steps > 50:
 			push_warning("[GameManager] run_floor_auto: 50手で終わらない: " + floor_id)
 			break
@@ -7212,8 +7270,10 @@ func run_floor_auto(floor_id: String) -> Dictionary:
 		GameStateKeys.BATTLE_WAVES_CLEARED: steps,
 		GameStateKeys.BATTLE_REWARDS: rewards,
 	})
-	# ⚠ ボスを倒した扱いなので、⚠ ルートの中の宝箱を届けてから降りる（2026-09-18）。
-	deliver_floor_chests()
+	# ⚠ 周回は瞬時に済ませる（§6）＝⚠ 選ぶ画面を出さない。⚠ 拾い待ちは**入るだけ鞄へ入れ**、
+	#   ⚠ ボスを倒した扱いなので鞄の中身を持ち帰ってから降りる（2026-09-18）。
+	var _taken: Dictionary = take_all_run_pending_loot(RUN_KIND_FLOOR)
+	var _delivered: Dictionary = deliver_floor_bag()
 	abandon_floor()
 
 	print("[GameManager] run_floor_auto('%s') -> %d手 / 宝箱 %d / ガチャ %d" % [

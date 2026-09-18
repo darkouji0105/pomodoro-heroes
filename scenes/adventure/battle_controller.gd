@@ -2103,9 +2103,10 @@ func _enter_victory() -> void:
 			GameManager.apply_battle_rewards(result_data)
 			GameManager.mark_stage_cleared(_stage_id, 0)
 			if in_floor_run:
-				# ⚠ ルートの中で持っている宝箱を拠点へ届けてから降りる（2026-09-18・人間の決定
-				#   「ストーリーのやつはボス倒したら」）。⚠ 降りたあとではランが空で届けられない。
-				GameManager.deliver_floor_chests()
+				# ⚠ 鞄の中身を拠点へ持ち帰ってから降りる（2026-09-18・人間の決定
+				#   「ストーリーのやつはボス倒したら」「難ダンジョンのインベントリをシナリオでも適用」）。
+				#   ⚠ 降りたあとではランが空で持ち帰れない。
+				var _delivered: Dictionary = GameManager.deliver_floor_bag()
 				# フロアを踏破した。⚠ 降りるのはここ1箇所だけ。
 				GameManager.abandon_floor()
 		elif not rewards.is_empty():
@@ -2113,6 +2114,9 @@ func _enter_victory() -> void:
 			#   ⚠ mark_stage_cleared() を呼ばないこと。⚠ 呼ぶと1マス目で
 			#     unlocks が全部走り、画面が全部開く。
 			GameManager.apply_battle_rewards(result_data)
+			# ⚠ 道中の戦利品は拾い待ちへ（2026-09-18・人間の決定「宝箱と道中の戦利品」）。
+			#   ⚠ 鞄に入れるかはフロアのマップに戻ったときに選ぶ。
+			var _loot: Dictionary = GameManager.grant_floor_node_loot(_stage_id, _floor_node_id)
 
 	_show_result(true, result_data)
 

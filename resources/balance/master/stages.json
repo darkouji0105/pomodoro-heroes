@@ -8,6 +8,7 @@
 	  "materials": { "construction_material_1": 3 ,"training_material_1": 2, "forging_material_1": 2, "decor_material_1": 1 }
 	},
 	"node_rewards": { "gold": 10 },
+	"node_loot_chest": "floor_1_common",
 	"chest_ids": { "common": "floor_1_common", "rare": "floor_1_rare", "epic": "floor_1_epic", "legendary": "floor_1_legendary" },
 	"layers": [
 	  { "node_count": 1 },
@@ -33,6 +34,7 @@
 	  "materials": { "construction_material_1": 4 ,"training_material_1": 3, "forging_material_1": 3, "decor_material_1": 2 }
 	},
 	"node_rewards": { "gold": 14 },
+	"node_loot_chest": "floor_2_common",
 	"chest_ids": { "common": "floor_2_common", "rare": "floor_2_rare", "epic": "floor_2_epic", "legendary": "floor_2_legendary" },
 	"layers": [
 	  { "node_count": 1 },
@@ -59,6 +61,7 @@
 	  "inventory": { "part_gem_atk_1": 1 }
 	},
 	"node_rewards": { "gold": 18 },
+	"node_loot_chest": "floor_3_common",
 	"chest_ids": { "common": "floor_3_common", "rare": "floor_3_rare", "epic": "floor_3_epic", "legendary": "floor_3_legendary" },
 	"layers": [
 	  { "node_count": 1 },
@@ -85,6 +88,7 @@
 	  "materials": { "construction_material_2": 3 ,"training_material_1": 6, "forging_material_2": 3, "construction_material_3": 1, "decor_material_2": 2 }
 	},
 	"node_rewards": { "gold": 22 },
+	"node_loot_chest": "floor_4_common",
 	"chest_ids": { "common": "floor_4_common", "rare": "floor_4_rare", "epic": "floor_4_epic", "legendary": "floor_4_legendary" },
 	"layers": [
 	  { "node_count": 1 },
@@ -111,6 +115,7 @@
 	  "inventory": { "part_charm_def_1": 1, "part_emblem_crit_rate_1": 1 }
 	},
 	"node_rewards": { "gold": 26 },
+	"node_loot_chest": "floor_5_common",
 	"chest_ids": { "common": "floor_5_common", "rare": "floor_5_rare", "epic": "floor_5_epic", "legendary": "floor_5_legendary" },
 	"layers": [
 	  { "node_count": 1 },

@@ -66,16 +66,22 @@ var _selected_from_bag: bool = false
 #   ⚠ true なら画面遷移をしない。⚠ 閉じるときは closed を出して自分を消すだけ。
 #   ⚠ add_child() の前に open_as_overlay() で立てること（⚠ _ready() が見る）。
 var _as_overlay: bool = false
+# ⚠⚠ どのランの鞄か（2026-09-18・人間の決定「難ダンジョンのインベントリをシナリオでも適用」）。
+#   ⚠ 鞄と拾い待ちの口は全部この種類を渡して呼ぶ（`GameManager.*_run_*`）。
+#   ⚠ シナリオ（`RUN_KIND_FLOOR`）では「拾いもの」だけ（⚠ 開ける宝箱のマス・通路は無い）。
+var _run_kind: String = GameManager.RUN_KIND_DUNGEON
 
 
 # 重ねて出すときの入口（決定36）。⚠ 親が add_child() する前に呼ぶ。
 #
 # ⚠ 転送データを使わない。⚠ 画面遷移していないので consume_transfer_data() は
 #   マップ側のデータを食ってしまう。
-func open_as_overlay(node_id: String, is_corridor: bool) -> void:
+# ⚠ `run_kind` を省くと難ダンジョン（⚠ 今までの呼び出しはそのまま）。
+func open_as_overlay(node_id: String, is_corridor: bool, run_kind: String = GameManager.RUN_KIND_DUNGEON) -> void:
 	_as_overlay = true
 	_node_id = node_id
 	_is_corridor = is_corridor
+	_run_kind = run_kind
 
 
 func _ready() -> void:
@@ -91,11 +97,11 @@ func _ready() -> void:
 
 	# ⚠ ランに入っていないのに来た。⚠ 空の画面を描かない。
 	# ⚠ 出どころが無くても、⚠ 拾い待ちがあれば開く（段階20-e＝通路の資源から来た場合）。
-	if not GameManager.is_in_dungeon():
+	if not GameManager.is_in_run(_run_kind):
 		push_warning("[DungeonChest] ランに入っていないので閉じる")
 		_close()
 		return
-	if _node_id == "" and not _is_corridor and not GameManager.has_dungeon_pending_loot():
+	if _node_id == "" and not _is_corridor and not GameManager.has_run_pending_loot(_run_kind):
 		push_warning("[DungeonChest] 出どころも拾い待ちも無いので閉じる")
 		_close()
 		return
@@ -135,6 +141,9 @@ func _rebuild() -> void:
 #   ⚠ 通路の宝箱＝`has_pending_dungeon_corridor_chest()` の裏返し（持ち越しの欄を見る）
 #   ⚠ 通路の拾いもの＝開ける動作が無いので常に「開けた」扱い
 func _was_opened() -> bool:
+	# ⚠ シナリオには開ける宝箱のマスが無い（⚠ 拾いものだけ）。
+	if _run_kind != GameManager.RUN_KIND_DUNGEON:
+		return true
 	if _is_corridor:
 		return not GameManager.has_pending_dungeon_corridor_chest()
 	if _node_id == "":
@@ -144,8 +153,8 @@ func _was_opened() -> bool:
 
 # ⚠ 鞄の残りを必ず出す。⚠ 「何を捨てて何を入れるか」を選ぶのに要る。
 func _update_message() -> void:
-	var used: int = GameManager.get_dungeon_bag_used()
-	var slots: int = GameManager.get_dungeon_bag_slots()
+	var used: int = GameManager.get_run_bag_used(_run_kind)
+	var slots: int = GameManager.get_run_bag_slots(_run_kind)
 	bag_label.text = "%s %d/%d" % [tr("ui_dungeon_bag"), used, slots]
 	bag_label.modulate = COLOR_FULL if used >= slots else Color.WHITE
 
@@ -153,7 +162,7 @@ func _update_message() -> void:
 		message_label.text = tr("ui_dungeon_chest_hint")
 		message_label.modulate = Color.WHITE
 		return
-	if not GameManager.has_dungeon_pending_loot():
+	if not GameManager.has_run_pending_loot(_run_kind):
 		message_label.text = tr("ui_dungeon_chest_opened")
 		message_label.modulate = Color.WHITE
 		return
@@ -171,7 +180,7 @@ func _update_message() -> void:
 # ⚠⚠ 中身は GameManager の拾い待ちから引く。⚠ 画面で覚えないこと
 #   （⚠ 1個入れるたびに描き直すので、⚠ 覚えると鞄と食い違う）。
 func _rebuild_loot() -> void:
-	var entries: Array = GameManager.get_dungeon_pending_loot_slot_layout()
+	var entries: Array = GameManager.get_run_pending_loot_slot_layout(_run_kind)
 	loot_grid.rebuild(entries, maxi(1, entries.size()))
 
 
@@ -179,9 +188,9 @@ func _rebuild_loot() -> void:
 #
 # ⚠ 空きマスも並ぶ（⚠ 「あと何個入るか」が見えること）。⚠ 鞄の口に聞く。
 func _rebuild_bag() -> void:
-	bag_grid.columns = maxi(1, GameManager.get_dungeon_bag_slots())
+	bag_grid.columns = maxi(1, GameManager.get_run_bag_slots(_run_kind))
 	bag_grid.rebuild(
-		GameManager.get_dungeon_bag_slot_layout(), GameManager.get_dungeon_bag_slots()
+		GameManager.get_run_bag_slot_layout(_run_kind), GameManager.get_run_bag_slots(_run_kind)
 	)
 
 
@@ -223,11 +232,11 @@ func _rebuild_actions() -> void:
 			)
 			# ⚠ 満杯なら押せない（⚠ 押してから弾かない＝ショップと同じ流儀）。
 			take.disabled = (
-				GameManager.get_dungeon_bag_used() >= GameManager.get_dungeon_bag_slots()
+				GameManager.get_run_bag_used(_run_kind) >= GameManager.get_run_bag_slots(_run_kind)
 			)
 			_add_action("DiscardLootButton", "ui_dungeon_pickup_discard", _on_discard_loot_pressed)
 
-	if GameManager.has_dungeon_pending_loot():
+	if GameManager.has_run_pending_loot(_run_kind):
 		_add_action("TakeAllButton", "ui_dungeon_pickup_take_all", _on_take_all_pressed)
 
 
@@ -253,7 +262,7 @@ func _on_open_pressed() -> void:
 
 func _on_take_pressed() -> void:
 	var item_id: String = str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-	if not GameManager.take_dungeon_pending_loot(item_id):
+	if not GameManager.take_run_pending_loot(_run_kind, item_id):
 		message_label.text = tr("ui_dungeon_pickup_full")
 		message_label.modulate = COLOR_FULL
 		return
@@ -262,13 +271,14 @@ func _on_take_pressed() -> void:
 
 
 func _on_take_all_pressed() -> void:
-	var _taken: Dictionary = GameManager.take_all_dungeon_pending_loot()
+	var _taken: Dictionary = GameManager.take_all_run_pending_loot(_run_kind)
 	_clear_selection()
 	_rebuild()
 
 
 func _on_discard_loot_pressed() -> void:
-	var _dropped: bool = GameManager.discard_dungeon_pending_loot(
+	var _dropped: bool = GameManager.discard_run_pending_loot(
+		_run_kind,
 		str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
 	)
 	_clear_selection()
@@ -276,7 +286,8 @@ func _on_discard_loot_pressed() -> void:
 
 
 func _on_discard_bag_pressed() -> void:
-	var _dropped: bool = GameManager.discard_dungeon_bag_item(
+	var _dropped: bool = GameManager.discard_run_bag_item(
+		_run_kind,
 		str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
 	)
 	_clear_selection()
@@ -294,8 +305,10 @@ func _clear_selection() -> void:
 # ⚠⚠ 開けていない通路の宝箱も、⚠ 出た時点で捨てる（決定31・2026-09-05）。
 #   ⚠ 人間の指示「宝箱はあとから開けれないようにしたい」。⚠ マップに案内は出ない。
 func _on_back_pressed() -> void:
-	var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
-	var _gone: bool = GameManager.discard_dungeon_corridor_chest()
+	var _left: Dictionary = GameManager.clear_run_pending_loot(_run_kind)
+	# ⚠ 通路の宝箱は難ダンジョンだけのもの。
+	if _run_kind == GameManager.RUN_KIND_DUNGEON:
+		var _gone: bool = GameManager.discard_dungeon_corridor_chest()
 	_close()
 
 
