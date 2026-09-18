@@ -512,22 +512,22 @@ const STATUS_CHIP_DEBUFF: String = BATTLE_HP_ENEMY
 const STATUS_CHIP_REVIVE: String = SKILL_FLASH
 const STATUS_CHIP_TEXT: String = "ffffff"
 
-# --- 戦闘の結果窓（2026-09-17・人間のモック §12・`BattleResult` 型）---
+# --- 窓の縁と題の帯（2026-09-17 に戦闘の結果窓で作り、⚠ 2026-09-18 に全部のモーダルへ広げた）---
 #
-# ⚠⚠ Modal は使わない（人間の決定・§0-UI-G）。⚠ 行き先を持つボタンが2つ並び、
-#   ⚠ `notify`（ボタン1つ）にも `confirm`（はい／いいえ）にも収まらないため。
+# ⚠⚠ 使う先は2つ：⚠ 戦闘の結果窓（`BattleResultView`）と ⚠ 全部のモーダル（`ModalDialog`）。
+#   ⚠ 人間の決定・2026-09-18「全部のモーダルに付ける」。⚠ 窓の作りを2つに分けない。
 # ⚠ 暗幕はモックの rgba(0,0,0,.55)。⚠ 0.55 × 255 ＝ 140 ＝ 8c。
 const RESULT_DIM: String = "0000008c"
 const RESULT_WIDTH: int = 460
-const RESULT_BG: String = "1f1a18"
+const WINDOW_BG: String = "1f1a18"
 # ⚠ 枠はボタンの既定の枠・チップの枠と同値（`CHIP_BORDER` はこの下で定義）。⚠ 新しい色ではない。
-const RESULT_BORDER: String = "4a3d36"
-const RESULT_CORNER: int = 10
-const RESULT_TITLE_HEIGHT: int = 36
+const WINDOW_BORDER: String = "4a3d36"
+const WINDOW_CORNER: int = 10
+const WINDOW_TITLE_HEIGHT: int = 36
 # ⚠ 題の帯の地はバーの溝と同値（`BATTLE_BAR_GROOVE`）、⚠ 下辺の線は真鍮（`RING_FILL`）。
-const RESULT_TITLE_BG: String = BATTLE_BAR_GROOVE
-const RESULT_TITLE_RULE: String = RING_FILL
-const RESULT_TITLE_RULE_WIDTH: int = 2
+const WINDOW_TITLE_BG: String = BATTLE_BAR_GROOVE
+const WINDOW_TITLE_RULE: String = RING_FILL
+const WINDOW_TITLE_RULE_WIDTH: int = 2
 # ⚠⚠ 見出しはモックの 22px を**既存の段 24 に丸めた**（⚠ 文字の大きさは6段で増やさない）。
 #   ⚠ 24 は「浮かぶ数字」と同じ段（`GAIN_FLOAT_FONT`）。⚠ 色は琥珀（`AccentLabel` と同値）。
 const RESULT_HEADING_SIZE: int = GAIN_FLOAT_FONT
@@ -1259,33 +1259,36 @@ static func _build_battle_result(theme: Theme) -> void:
 	var t: StringName = &"BattleResult"
 	theme.set_color(&"dim", t, _html(RESULT_DIM))
 	theme.set_constant(&"width", t, RESULT_WIDTH)
-	theme.set_constant(&"title_height", t, RESULT_TITLE_HEIGHT)
 	theme.set_constant(&"columns", t, RESULT_GRID_COLUMNS)
 
+	# ⚠⚠ 窓の縁・題の帯・題の字は**窓の共通のもの**（⚠ 結果窓とモーダルの両方が使う）。
+	#   ⚠ 高さは `Window` 型の定数（⚠ 型を1つにしておくと、⚠ 引く側が結果窓かモーダルかを知らずに済む）。
+	theme.set_constant(&"title_height", &"Window", WINDOW_TITLE_HEIGHT)
+
 	var window: StyleBoxFlat = StyleBoxFlat.new()
-	window.bg_color = _html(RESULT_BG)
-	window.set_corner_radius_all(RESULT_CORNER)
+	window.bg_color = _html(WINDOW_BG)
+	window.set_corner_radius_all(WINDOW_CORNER)
 	window.set_border_width_all(1)
-	window.border_color = _html(RESULT_BORDER)
-	theme.set_type_variation(&"ResultWindowPanel", &"PanelContainer")
-	theme.set_stylebox(&"panel", &"ResultWindowPanel", window)
+	window.border_color = _html(WINDOW_BORDER)
+	theme.set_type_variation(&"WindowPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"WindowPanel", window)
 
 	# ⚠ 題の帯。⚠ 窓の枠（1px）の内側に入るので、⚠ 上の角丸は 1 だけ小さくして窓の角に沿わせる。
 	var title: StyleBoxFlat = StyleBoxFlat.new()
-	title.bg_color = _html(RESULT_TITLE_BG)
-	title.corner_radius_top_left = RESULT_CORNER - 1
-	title.corner_radius_top_right = RESULT_CORNER - 1
-	title.border_width_bottom = RESULT_TITLE_RULE_WIDTH
-	title.border_color = _html(RESULT_TITLE_RULE)
+	title.bg_color = _html(WINDOW_TITLE_BG)
+	title.corner_radius_top_left = WINDOW_CORNER - 1
+	title.corner_radius_top_right = WINDOW_CORNER - 1
+	title.border_width_bottom = WINDOW_TITLE_RULE_WIDTH
+	title.border_color = _html(WINDOW_TITLE_RULE)
 	title.content_margin_left = RESULT_PAD
 	title.content_margin_right = RESULT_PAD
-	theme.set_type_variation(&"ResultTitlePanel", &"PanelContainer")
-	theme.set_stylebox(&"panel", &"ResultTitlePanel", title)
+	theme.set_type_variation(&"WindowTitlePanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"WindowTitlePanel", title)
 
 	# ⚠ 題の字はボタンと同じ段（14）・本文の色。
-	theme.set_type_variation(&"ResultTitleLabel", &"Label")
-	theme.set_font_size(&"font_size", &"ResultTitleLabel", BUTTON_FONT_SIZE)
-	theme.set_color(&"font_color", &"ResultTitleLabel", _html(LABEL_FONT_COLOR))
+	theme.set_type_variation(&"WindowTitleLabel", &"Label")
+	theme.set_font_size(&"font_size", &"WindowTitleLabel", BUTTON_FONT_SIZE)
+	theme.set_color(&"font_color", &"WindowTitleLabel", _html(LABEL_FONT_COLOR))
 
 	theme.set_type_variation(&"ResultHeadingLabel", &"Label")
 	theme.set_font_size(&"font_size", &"ResultHeadingLabel", RESULT_HEADING_SIZE)

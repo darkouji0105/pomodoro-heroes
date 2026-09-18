@@ -31,36 +31,40 @@ anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
 custom_minimum_size = Vector2(400, 0)
+theme_type_variation = &"WindowPanel"
 
-[node name="Margin" type="MarginContainer" parent="Blocker/Panel"]
+[node name="Window" type="VBoxContainer" parent="Blocker/Panel"]
+theme_type_variation = &"BattleBands"
+
+[node name="TitleBar" type="PanelContainer" parent="Blocker/Panel/Window"]
+visible = false
+theme_type_variation = &"WindowTitlePanel"
+
+[node name="TitleLabel" type="Label" parent="Blocker/Panel/Window/TitleBar"]
+theme_type_variation = &"WindowTitleLabel"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Margin" type="MarginContainer" parent="Blocker/Panel/Window"]
 theme_type_variation = &"DialogMargin"
 
-[node name="VBox" type="VBoxContainer" parent="Blocker/Panel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Blocker/Panel/Window/Margin"]
 theme_type_variation = &"SectionGap"
 
-[node name="TitleBar" type="HBoxContainer" parent="Blocker/Panel/Margin/VBox"]
+[node name="ContentBox" type="VBoxContainer" parent="Blocker/Panel/Window/Margin/VBox"]
 visible = false
 
-[node name="TitleLabel" type="Label" parent="Blocker/Panel/Margin/VBox/TitleBar"]
-size_flags_horizontal = 3
-
-[node name="TitleSeparator" type="HSeparator" parent="Blocker/Panel/Margin/VBox"]
-visible = false
-
-[node name="ContentBox" type="VBoxContainer" parent="Blocker/Panel/Margin/VBox"]
-visible = false
-
-[node name="MessageLabel" type="Label" parent="Blocker/Panel/Margin/VBox"]
+[node name="MessageLabel" type="Label" parent="Blocker/Panel/Window/Margin/VBox"]
 custom_minimum_size = Vector2(400, 0)
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="Buttons" type="HBoxContainer" parent="Blocker/Panel/Margin/VBox"]
+[node name="Buttons" type="HBoxContainer" parent="Blocker/Panel/Window/Margin/VBox"]
 alignment = 1
 
-[node name="ConfirmButton" parent="Blocker/Panel/Margin/VBox/Buttons" instance=ExtResource("2_ui_button")]
+[node name="ConfirmButton" parent="Blocker/Panel/Window/Margin/VBox/Buttons" instance=ExtResource("2_ui_button")]
 visible = false
 variant = 1
 
-[node name="CloseButton" parent="Blocker/Panel/Margin/VBox/Buttons" instance=ExtResource("2_ui_button")]
+[node name="CloseButton" parent="Blocker/Panel/Window/Margin/VBox/Buttons" instance=ExtResource("2_ui_button")]
 variant = 2

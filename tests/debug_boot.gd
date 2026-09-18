@@ -7886,6 +7886,19 @@ func _report_base_chest() -> void:
 	var after_one: int = GameManager.get_pending_chest_count()
 	checks.append(["② 1つ開けると %d → %d" % [before, after_one], after_one == before - 1])
 	checks.append(["② 結果の窓が出る", Modal._current != null and is_instance_valid(Modal._current)])
+	# ⚠⚠ 窓の縁と題の帯（2026-09-18・人間の決定「全部のモーダルに付ける」）。
+	#   ⚠ 絵は取れないので「帯が出ているか・高さ・題の字・面の variation」を見る。
+	if Modal._current != null and is_instance_valid(Modal._current):
+		var dialog: ModalDialog = Modal._current
+		var window_panel: PanelContainer = dialog.get_node("Blocker/Panel")
+		checks.append([
+			"② 題の帯が出る（題='%s' 高さ=%.0f 帯の面=%s 窓の面=%s）" % [
+				dialog.title_label.text, dialog.title_bar.size.y,
+				dialog.title_bar.theme_type_variation, window_panel.theme_type_variation,
+			],
+			dialog.title_bar.visible and dialog.title_bar.size.y >= 36.0
+				and window_panel.theme_type_variation == &"WindowPanel",
+		])
 	# ⚠ 結果の窓を「受け取る」で閉じてから次を押す（⚠ 窓が出ている間は後ろを押せない＝画面と同じ順）。
 	#   ⚠ 閉じずに次を押すと窓が順番待ちに積まれ、⚠ 一覧を消したあとに Modal が消えた呼び出し元を触って赤になる（1回目で踏んだ）。
 	await _close_current_modal()

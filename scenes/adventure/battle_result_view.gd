@@ -66,7 +66,7 @@ func _build() -> void:
 
 	_window = PanelContainer.new()
 	_window.name = "Window"
-	_window.theme_type_variation = &"ResultWindowPanel"
+	_window.theme_type_variation = &"WindowPanel"
 	_window.custom_minimum_size.x = get_theme_constant(&"width", t)
 	center.add_child(_window)
 
@@ -134,15 +134,15 @@ func _build() -> void:
 func _build_title_bar(t: StringName) -> PanelContainer:
 	var bar: PanelContainer = PanelContainer.new()
 	bar.name = "TitleBar"
-	bar.theme_type_variation = &"ResultTitlePanel"
-	bar.custom_minimum_size.y = get_theme_constant(&"title_height", t)
+	bar.theme_type_variation = &"WindowTitlePanel"
+	bar.custom_minimum_size.y = get_theme_constant(&"title_height", &"Window")
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "TitleRow"
 	bar.add_child(row)
 	row.add_child(_make_mark_label("MarkLeft", false))
 	_title_label = Label.new()
 	_title_label.name = "Title"
-	_title_label.theme_type_variation = &"ResultTitleLabel"
+	_title_label.theme_type_variation = &"WindowTitleLabel"
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL

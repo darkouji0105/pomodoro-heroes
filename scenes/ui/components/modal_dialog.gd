@@ -12,15 +12,17 @@ const DIMMER_COLOR: Color = Color(0, 0, 0, 0.6)
 @onready var blocker: Control = $Blocker
 @onready var dimmer: ColorRect = $Blocker/Dimmer
 # 窓の見出し（2026-09-08・段階⑤-③・台帳の決定39「モーダルをウィンドウ形式に」）。
-#   ⚠ 見出しを渡さない呼び出しでは出ない（⚠ 今までの見た目のまま）。
-@onready var title_bar: HBoxContainer = $Blocker/Panel/Margin/VBox/TitleBar
-@onready var title_label: Label = $Blocker/Panel/Margin/VBox/TitleBar/TitleLabel
-@onready var title_separator: HSeparator = $Blocker/Panel/Margin/VBox/TitleSeparator
+#   ⚠ 見出しを渡さない呼び出しでは出ない（⚠ 帯ごと消える）。
+# ⚠⚠ 2026-09-18：⚠ 見出しを**題の帯**にした（人間の決定「全部のモーダルに付ける」）。
+#   ⚠ 窓の縁・帯・題の字は戦闘の結果窓と同じ variation（`WindowPanel` / `WindowTitlePanel` /
+#   ⚠ `WindowTitleLabel`）。⚠ 仕切り線（`TitleSeparator`）は帯の下辺の線に置き換えたので消した。
+@onready var title_bar: PanelContainer = $Blocker/Panel/Window/TitleBar
+@onready var title_label: Label = $Blocker/Panel/Window/TitleBar/TitleLabel
 # 中身の置き場（⚠ 宝箱の開封結果のマス目など）。⚠ 渡さなければ出ない。
-@onready var content_box: VBoxContainer = $Blocker/Panel/Margin/VBox/ContentBox
-@onready var message_label: Label = $Blocker/Panel/Margin/VBox/MessageLabel
-@onready var confirm_button: Button = $Blocker/Panel/Margin/VBox/Buttons/ConfirmButton
-@onready var close_button: Button = $Blocker/Panel/Margin/VBox/Buttons/CloseButton
+@onready var content_box: VBoxContainer = $Blocker/Panel/Window/Margin/VBox/ContentBox
+@onready var message_label: Label = $Blocker/Panel/Window/Margin/VBox/MessageLabel
+@onready var confirm_button: Button = $Blocker/Panel/Window/Margin/VBox/Buttons/ConfirmButton
+@onready var close_button: Button = $Blocker/Panel/Window/Margin/VBox/Buttons/CloseButton
 
 # 自分がポーズを立てたかどうか。
 # これを見ずに解除すると、他のモーダルが立てたポーズを勝手に戻す。
@@ -56,7 +58,8 @@ func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary =
 	var title: String = str(options.get(Modal.OPTION_TITLE, ""))
 	title_label.text = title
 	title_bar.visible = title != ""
-	title_separator.visible = title != ""
+	# ⚠ 帯の高さは窓の共通の値（`Window` 型）。⚠ ここに数字を書かない。
+	title_bar.custom_minimum_size.y = title_bar.get_theme_constant(&"title_height", &"Window")
 
 	var content: Variant = options.get(Modal.OPTION_CONTENT, null)
 	if content is Control:

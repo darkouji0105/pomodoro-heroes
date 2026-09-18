@@ -752,6 +752,27 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pp6is"]
+bg_color = Color(0.12156863, 0.101960786, 0.09411765, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2901961, 0.23921569, 0.21176471, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rybb1"]
+content_margin_left = 16.0
+content_margin_right = 16.0
+bg_color = Color(0.16470589, 0.13725491, 0.1254902, 1)
+border_width_bottom = 2
+border_color = Color(0.65882355, 0.4745098, 0.12156863, 1)
+corner_radius_top_left = 9
+corner_radius_top_right = 9
+
 [resource]
 default_font = ExtResource("1_notosans")
 default_font_size = 16
@@ -1191,3 +1212,11 @@ TimerRing/constants/stroke = 2
 VBoxContainer/constants/separation = 8
 WideRow/base_type = &"HBoxContainer"
 WideRow/constants/separation = 32
+Window/constants/title_height = 36
+WindowPanel/base_type = &"PanelContainer"
+WindowPanel/styles/panel = SubResource("StyleBoxFlat_pp6is")
+WindowTitleLabel/base_type = &"Label"
+WindowTitleLabel/colors/font_color = Color(0.9411765, 0.9019608, 0.8745098, 1)
+WindowTitleLabel/font_sizes/font_size = 14
+WindowTitlePanel/base_type = &"PanelContainer"
+WindowTitlePanel/styles/panel = SubResource("StyleBoxFlat_rybb1")
