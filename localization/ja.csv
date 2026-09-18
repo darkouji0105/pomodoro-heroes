@@ -940,3 +940,5 @@ ui_battle_result_to_base,拠点へ
 ui_battle_result_note_dungeon_loot,戦利品は次の画面で選ぶ
 ui_battle_result_note_training,検証用ステージのため報酬なし
 ui_battle_result_note_bag_lost,鞄の中身を失った
+ui_battle_skill_boss_slime_tide,粘液の大波
+ui_desc_skill_boss_slime_tide,味方全員に魔力 220% の魔法ダメージ

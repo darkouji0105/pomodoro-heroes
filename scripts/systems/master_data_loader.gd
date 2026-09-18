@@ -92,9 +92,13 @@ const CHARACTER_DIRS_OPTIONAL: Array[String] = [
 # ⚠ 敵は nodes.json を持たない。任意扱いなので「無い」で警告は出ない。
 const DIR_ENEMIES: String = DIR_PATH + "enemies/"
 
-# ⚠ 今は空。本編の敵（enemy_slime など）にスキルを載せたらここに1行足す。
+# ⚠ 本編の敵にスキルを載せたらここに1行足す。
 #   足し忘れると、その敵のスキルが無音で消える（エラーが出ない）。
-const ENEMY_DIRS_REQUIRED: Array[String] = []
+# ⚠ 2026-09-18：⚠ ボスに全体攻撃を持たせた（人間の指示）。⚠ 足し忘れて
+#   「skill id not found」を1回踏んでいる（⚠ 敵は作れるがスキルだけ消える）。
+const ENEMY_DIRS_REQUIRED: Array[String] = [
+	DIR_ENEMIES + "boss_slime_king/",
+]
 
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const ENEMY_DIRS_OPTIONAL: Array[String] = [

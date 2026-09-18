@@ -550,13 +550,16 @@ func _spawn_current_wave_enemies() -> void:
 				unit.skill_ids.append(sid)
 				unit.skill_cooldowns[sid] = 0.0
 
-			# 行動予告の SP（2026-09-18・人間の決定）。⚠ スキルを持つ敵だけが持つ。
-			# ⚠ 満ちるまでの秒は enemies.json の `sp_full_sec` が勝ち、⚠ 無ければ Balance の既定。
-			#   ⚠ ここが決める口の1本（⚠ 毎フレームの側で読み直さない）。
-			if not unit.skill_ids.is_empty():
-				unit.sp_full_sec = float(enemy_data.get(
-					"sp_full_sec", Balance.adventure.enemy_sp_full_sec
-				))
+			# 行動予告の SP（2026-09-18・人間の決定「最大SPとSP回復は敵に固定値を持たせる」）。
+			#
+			# ⚠ 値は enemies.json の `sp_max` と `sp_regen`（1秒あたり）。⚠ ここが写す口の1本
+			#   （⚠ 毎フレームの側でマスターを読み直さない）。⚠ stat_overrides も効く（enemy_data から読む）。
+			# ⚠ スキルを持つのに欄が無い敵は SP が 0 のまま＝**スキルを1回も撃たない**ので、
+			#   ⚠ 黙って起きないよう黄を出す。
+			unit.sp_max = float(enemy_data.get("sp_max", 0.0))
+			unit.sp_regen = float(enemy_data.get("sp_regen", 0.0))
+			if not unit.skill_ids.is_empty() and (unit.sp_max <= 0.0 or unit.sp_regen <= 0.0):
+				push_warning("[Battle] %s はスキルを持つのに sp_max / sp_regen が無い（撃たない）" % enemy_type_id)
 
 			# 敵のパッシブ（EXEC_SKILL_PASSIVE_VARS.md §3-8）。
 			# ⚠ 敵には枠が無いので "passives" 配列がそのまま装備枠。味方の
@@ -1107,14 +1110,15 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 # ⚠ クールダウンでは止めない（人間の決定）。⚠ 敵のスキルは `cooldown_sec` が 0（データ側）。
 # ⚠ 射程の外でも SP は溜まる（⚠ 近づいている間に溜まり、⚠ 着いた瞬間に撃てる）。
 func _step_enemy_sp(unit: BattleUnit, delta: float) -> void:
-	if unit.sp_full_sec <= 0.0 or not unit.is_alive():
+	if unit.sp_max <= 0.0 or not unit.is_alive():
 		return
 	if not unit.is_sp_full():
-		unit.sp_sec += delta
+		# ⚠ 回復は固定値（1秒あたり）。⚠ haste などの能力値を掛けないこと（人間の決定）。
+		unit.sp = minf(unit.sp + unit.sp_regen * delta, unit.sp_max)
 		if not unit.is_sp_full():
 			return
 	if _try_enemy_skill(unit):
-		unit.sp_sec = 0.0
+		unit.sp = 0.0
 
 
 # 敵のスキル発動（EXEC_ENEMY_PARITY.md §3-2）。撃てたら true。

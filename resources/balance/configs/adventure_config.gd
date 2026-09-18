@@ -106,10 +106,8 @@ extends Resource
 @export var pop_rise_px: float = 48.0
 @export var pop_duration_sec: float = 0.6
 
-## 敵の行動予告の SP が満ちるまでの秒（2026-09-18・人間の決定）。
-## ⚠ スキルを持つ敵にだけ効く。⚠ 敵ごとに変えたいときは enemies.json の `sp_full_sec` が勝つ。
-## ⚠ 0 以下にすると SP を使わない（＝ゲージが出ず、敵はスキルを撃たない）。
-@export var enemy_sp_full_sec: float = 10.0
+## ⚠ 敵の行動予告の SP はここに置かない（2026-09-18・人間の決定「最大SPとSP回復に
+##   関しては敵に固定値を持たせる」）。⚠ 値は enemies.json の `sp_max` と `sp_regen`。
 
 ## ⚠⚠ 同じ瞬間に複数の数値が出るとき、1件ずつ遅らせる秒（2026-09-18・モック §11）。
 ##   ⚠ 範囲攻撃や多段は同じフレームで何件も返るので、⚠ ずらさないと数字が重なって読めない。

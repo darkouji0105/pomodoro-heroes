@@ -64,7 +64,7 @@ func setup(unit: BattleUnit) -> void:
 	# 行動予告のゲージ（2026-09-18・人間「ゲージは HP の下」）。
 	# ⚠ SP を使う個体（＝スキルを持つ敵）だけ出す。⚠ ほかは器ごと隠す（⚠ 高さも取らない）。
 	var sp_bar: SpBar = $SpBar
-	sp_bar.visible = unit.sp_full_sec > 0.0
+	sp_bar.visible = unit.sp_max > 0.0
 	sp_bar.size.y = body.get_theme_constant(&"sp_height", THEME_TYPE)
 
 	# 状態のマスは横並び（本体の下端に重ねる）。⚠ 2026-09-16 から味方も同じ場所
@@ -164,7 +164,7 @@ func _process(_delta: float) -> void:
 	if was_low != bar.is_low():
 		_refresh_name_color()
 	# 行動予告のゲージ（2026-09-18）。⚠ 溜めるのは BattleController。⚠ ここは写すだけ。
-	if _unit.sp_full_sec > 0.0:
+	if _unit.sp_max > 0.0:
 		($SpBar as SpBar).set_ratio(_unit.sp_ratio(), _unit.is_sp_full())
 
 

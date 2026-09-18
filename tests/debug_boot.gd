@@ -250,6 +250,22 @@ const SCENARIOS: Dictionary = {
 			{"skill": "", "prepare": PREPARE_NONE, "gap": 14.0},
 		],
 	},
+	# ⚠⚠ ボスの行動予告（2026-09-18・人間の指示「とりあえずスライムキングに、強力な全体攻撃を」）。
+	#   ⚠ ボスが出るのは**難ダンジョンのボスのマス**（⚠ ステージ直行では出せない）。
+	#   ⚠ 2本目（ボス戦）で SP が満ちるまで待つ：⚠ ボスは 100 / 8 ＝ 12.5秒。
+	#   ⚠ 見るもの：⚠ ボスにゲージが出る ／ ⚠ 12.5秒で満ちて「粘液の大波」を撃つ ／ ⚠ 撃つと 0 に戻る。
+	"boss_sp": {
+		"kind": KIND_BATTLE,
+		"note": "ボスの行動予告。スライムキングの SP が満ちて全体攻撃を撃つ",
+		"dungeon": true,
+		"party": ["char_swordsman", "char_archer", "char_priest"],
+		"skills": {},
+		"dump_enemy_sp": true,
+		"fire": [
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 16.0},
+		],
+	},
 	# ⚠⚠ 戦闘の結果窓（2026-09-17・§0-UI-G）。⚠ 本番の3人で殴り合ってから決着させる（⚠ 被ダメージを0にしないため）。
 	#   ⚠ 見るもの：題・見出し・副題（時間と被ダメージ）・注記（検証用は報酬なし）・ボタン（拠点へ＋次へ進む）・窓の中心 640,360。
 	#   ⚠ そのあと見本の報酬（floor_5 のボス）で差し替え：マス9件（列6）・ピル gold +65。
@@ -4857,7 +4873,7 @@ class Driver extends Node:
 			_dump_positions(session, "撃った直後")
 
 
-	# ⚠ 敵の SP を出す時刻（秒）。⚠ 既定の満ちるまでの秒（10）をまたぐように取る。
+	# ⚠ 敵の SP を出す時刻（秒）。⚠ 検証用の敵（10秒）とボス（12.5秒）の両方をまたぐように取る。
 	const SP_DUMP_SEC: Array[float] = [3.0, 10.5, 13.0]
 
 
@@ -4872,8 +4888,8 @@ class Driver extends Node:
 			for view: Variant in _battle._enemy_views:
 				if view is UnitView and (view as UnitView)._unit == unit:
 					gauge = "ゲージ=%s" % (view as Node).get_node("SpBar").visible
-			rows.append("%s(%s) SP %.1f/%.1f 満=%s %s" % [
-				unit.unit_id, unit.master_id, unit.sp_sec, unit.sp_full_sec,
+			rows.append("%s(%s) SP %.1f/%.1f（回復 %.1f/秒）満=%s %s" % [
+				unit.unit_id, unit.master_id, unit.sp, unit.sp_max, unit.sp_regen,
 				unit.is_sp_full(), gauge,
 			])
 		print("[DebugBoot] 敵のSP t=%.2f ｜ %s" % [session.elapsed_sec, " ／ ".join(rows)])
@@ -5195,6 +5211,8 @@ class Driver extends Node:
 		_prepared = {}
 		_last_kill_sec = -999.0
 		_finished_sec = -1.0
+		# ⚠ 2本目（ボス）でも SP を出す（2026-09-18）。⚠ 戻さないと1本目のぶんで数え終わっている。
+		_sp_dumps = 0
 		SceneManager.change_scene_with_data(battle_scene_path, {
 			TransferKeys.DUNGEON_NODE_ID: position,
 			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
