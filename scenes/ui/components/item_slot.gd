@@ -244,7 +244,8 @@ func _refresh() -> void:
 		tooltip_text = ""
 		return
 
-	var name_text: String = tr("ui_res_" + item_id)
+	# ⚠ 名前の翻訳キーは GameManager の1本（⚠ 宝箱は chests.json の name_key・2026-09-18）。
+	var name_text: String = tr(GameManager.item_name_key(item_id))
 	if equipped_by == "":
 		tooltip_text = name_text
 	else:

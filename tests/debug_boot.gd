@@ -8001,6 +8001,26 @@ func _report_base_chest() -> void:
 	for kind: Variant in kinds:
 		if GameManager.get_chest_rarity(str(kind)) != "":
 			floor_kinds += 1
+	# ⚠⚠ 鞄のマスに入る宝箱（2026-09-18）。⚠ 品のアイコンと同じ部品で、絵は宝箱・枠はレアリティの色。
+	#   ⚠ items.json と chests.json の ID が重なっていないこと（⚠ 重なると宝箱が品として扱われる）。
+	var overlap: Array[String] = []
+	for kind: Variant in MasterDataLoader.get_all_chests().keys():
+		if not MasterDataLoader.get_item(str(kind)).is_empty():
+			overlap.append(str(kind))
+	checks.append(["① items.json と chests.json のIDの重なり %s" % str(overlap), overlap.is_empty()])
+	var chest_icon: ItemIcon = ItemIcon.create("floor_1_legendary", 0, 1)
+	add_child(chest_icon)
+	var legend_grade: int = int(ItemIcon.grade_of("floor_1_legendary", 0).get(ItemIcon.RESULT_GRADE, 0))
+	var common_grade: int = int(ItemIcon.grade_of("floor_1_common", 0).get(ItemIcon.RESULT_GRADE, 0))
+	checks.append([
+		"① 宝箱のアイコン 絵=%s 名前=%s 等級 legendary=%d > common=%d" % [
+			chest_icon.get_center_debug_text(), tr(GameManager.item_name_key("floor_1_legendary")),
+			legend_grade, common_grade,
+		],
+		GameManager.is_chest_item("floor_1_legendary") and legend_grade > common_grade
+			and not GameManager.is_chest_item("weapon_wooden_sword"),
+	])
+	chest_icon.queue_free()
 	checks.append([
 		"① 色の付いた行 名前 %d ／ 絵 %d ＝ レアリティのある種類 %d" % [tinted, tinted_glyph, floor_kinds],
 		tinted == floor_kinds and tinted_glyph == floor_kinds and floor_kinds > 0,

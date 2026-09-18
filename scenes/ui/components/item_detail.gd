@@ -337,7 +337,8 @@ func _add_header(item_id: String, grade: int, sub_parts: Array[String]) -> void:
 
 	var name_label: Label = Label.new()
 	name_label.name = "NameLabel"
-	name_label.text = tr("ui_res_" + item_id)
+	# ⚠ 名前の翻訳キーは GameManager の1本（⚠ 宝箱は chests.json の name_key・2026-09-18）。
+	name_label.text = tr(GameManager.item_name_key(item_id))
 	var config: IconConfig = Balance.icon
 	if config != null:
 		# ⚠ 等級を持たない品（⚠ 素材・消耗品・レリック）は `grade_of()` が

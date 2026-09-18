@@ -6770,6 +6770,25 @@ func _roll_chest_rarity(layer: int) -> String:
 	return CHEST_RARITY_COMMON
 
 
+# その ID が「鞄に入った宝箱」か（2026-09-18・人間の決定「難ダンジョンのインベントリをシナリオでも適用」）。
+#
+# ⚠⚠ 鞄は宝箱を **chest_id のまま** 1個1枠で持つ（⚠ items.json に宝箱の品を作らない）。
+#   ⚠ 見分けるのはここ1本（⚠ 画面で綴りを見て判断しない）。
+# ⚠ items.json と同じIDが chests.json にあったら品のほうを優先する（⚠ いまは重なっていない）。
+func is_chest_item(item_id: String) -> bool:
+	if item_id == "" or not MasterDataLoader.get_item(item_id).is_empty():
+		return false
+	return not MasterDataLoader.get_chest(item_id).is_empty()
+
+
+# マスや詳細に出す名前の翻訳キー（2026-09-18）。⚠ 宝箱は chests.json の name_key、⚠ ほかは `ui_res_<id>`。
+#   ⚠ 画面は `tr(GameManager.item_name_key(id))` と書く（⚠ 綴りを画面で組み立てない）。
+func item_name_key(item_id: String) -> String:
+	if is_chest_item(item_id):
+		return str(MasterDataLoader.get_chest(item_id).get(CHEST_NAME_KEY, item_id))
+	return "ui_res_" + item_id
+
+
 # 宝箱のレアリティ（2026-09-18・人間「宝箱を開けるとき宝箱のアイコンが見れるように　文字の色も」）。
 #
 # ⚠⚠ chests.json に欄を足さない。⚠ レアリティは stages.json の `chest_ids`（{rarity: chest_id}）が

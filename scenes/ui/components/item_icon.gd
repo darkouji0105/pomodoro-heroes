@@ -76,6 +76,13 @@ static func grade_of(item_id: String, instance_grade: int) -> Dictionary:
 	if instance_grade > 0:
 		# 装備の個体。等級 1〜10 をそのまま色に使う（人間の決定・10色）。
 		return {RESULT_GRADE: instance_grade}
+	# ⚠ 鞄に入った宝箱（2026-09-18）。⚠ 色はレアリティ（⚠ 拠点の宝箱の一覧と同じ引き方）。
+	#   ⚠ レアリティの無い宝箱（ポモドーロの宝箱・ガチャ）は既定の等級。
+	if GameManager.is_chest_item(item_id):
+		var rarity: String = GameManager.get_chest_rarity(item_id)
+		if rarity == "":
+			return {RESULT_GRADE: config.default_grade}
+		return {RESULT_GRADE: config.grade_of_tier(int(GameManager.CHEST_RARITY_TIERS.get(rarity, 1)), false)}
 	var part: Dictionary = GameManager.get_part_definition(item_id)
 	if not part.is_empty():
 		var tier: int = int(part.get(GameManager.ITEM_MASTER_PART_TIER, 0))
@@ -171,7 +178,9 @@ func _refresh() -> void:
 	#   文字を小さく」）。⚠ .tscn は触らず、位置もここから当てる（下の絵文字・
 	#   右下の数字と同じ形）。⚠ .tscn を開くと3つの Label が入れ替わる前の
 	#   位置のままなので、位置はこの関数が正。
-	text_label.text = tr("ui_icon_" + _item_id)
+	# ⚠ 宝箱は1文字を持たない（⚠ 絵とレアリティの枠の色で見分ける・2026-09-18）。
+	var is_chest: bool = GameManager.is_chest_item(_item_id)
+	text_label.text = "" if is_chest else tr("ui_icon_" + _item_id)
 	text_label.add_theme_font_size_override("font_size", config.icon_font_size)
 	text_label.add_theme_color_override("font_color", config.icon_text_color)
 	text_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -198,7 +207,7 @@ func _refresh() -> void:
 	# ⚠⚠ 線画（SVG）が在ればそちらを出す（2026-09-08）。⚠ 無ければ絵文字に落ちる
 	#   ＝⚠ 1枚ずつ差し替えられる（⚠ 全部そろうまで待たない）。
 	# ⚠ 線画は白の1色なので、⚠ **等級の色を着せる**（⚠ カラー絵文字ではできなかったこと）。
-	var texture: Texture2D = IconTextures.for_item(_item_id)
+	var texture: Texture2D = IconTextures.for_chest() if is_chest else IconTextures.for_item(_item_id)
 	var glyph_size: float = float(maxi(1, config.glyph_font_size))
 	if texture != null:
 		_ensure_glyph_texture()
