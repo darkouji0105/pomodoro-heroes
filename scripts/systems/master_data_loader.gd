@@ -96,6 +96,8 @@ const DIR_ENEMIES: String = DIR_PATH + "enemies/"
 #   足し忘れると、その敵のスキルが無音で消える（エラーが出ない）。
 # ⚠ 2026-09-18：⚠ ボスに全体攻撃を持たせた（人間の指示）。⚠ 足し忘れて
 #   「skill id not found」を1回踏んでいる（⚠ 敵は作れるがスキルだけ消える）。
+# ⚠ 本番の敵のフォルダで「無いと赤」にするファイル（⚠ 敵は nodes.json / passives.json を持たない）。
+const ENEMY_REQUIRED_FILE: String = "skills.json"
 const ENEMY_DIRS_REQUIRED: Array[String] = [
 	DIR_ENEMIES + "enemy_slime/",
 	DIR_ENEMIES + "enemy_wolf/",
@@ -759,8 +761,13 @@ static func _merge_character_files(
 	# ⚠ 敵用に2本目のマージを書かないこと。味方と敵でスキルIDが重複したときに
 	#   赤で弾く挙動が、片方だけ効く形になる。
 	# ⚠ 敵は nodes.json を持たないが、任意扱いなので「無い」で警告は出ない。
+	# ⚠⚠ 本番の敵で必須なのは **skills.json だけ**（2026-09-18）。⚠ 前は nodes.json まで
+	#   必須扱いになり、⚠ 育成画面などがノードを読むと敵3体ぶんの赤が出ていた
+	#   （⚠ ENEMY_DIRS_REQUIRED が空だった間は表に出なかった）。
 	for dir_path: String in ENEMY_DIRS_REQUIRED:
-		_merge_id_map(merged, dir_path + file_name, required_in_main, what)
+		_merge_id_map(
+			merged, dir_path + file_name, required_in_main and file_name == ENEMY_REQUIRED_FILE, what
+		)
 	for dir_path: String in ENEMY_DIRS_OPTIONAL:
 		_merge_id_map(merged, dir_path + file_name, false, what)
 
