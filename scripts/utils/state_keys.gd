@@ -355,6 +355,19 @@ const FLOOR_RUN_CONSUMABLES: String = "consumables"  # {item_id: int}（14-e・�
 #   ⚠ 負けて降りた・自分で降りたときは**失う**（⚠ ランごと捨てるので自然にそうなる）。
 const FLOOR_RUN_CHESTS: String = "chests"
 
+# 鞄の欄の綴り（2026-09-18）。⚠ 難ダンジョン・シナリオの両方のランがこの綴りで持つ。
+#   ⚠ `DUNGEON_RUN_BAG*` / `FLOOR_RUN_BAG*` はこの別名（⚠ 値を2つに分けない）。
+const RUN_BAG: String = "bag"
+const RUN_BAG_SLOTS: String = "bag_slots"
+const RUN_PENDING_LOOT: String = "pending_loot"
+
+# ⚠⚠ シナリオの鞄（2026-09-18・人間の決定「難ダンジョンのインベントリをシナリオでも適用」）。
+#   ⚠ 形は難ダンジョンの鞄と同じ（⚠ 綴りも同じ＝`RUN_BAG*`）。⚠ 器は別（FLOOR_RUN の中）。
+#   ⚠ 読み書きは `GameManager` の `*_run_bag*` の口だけ（⚠ ランの種類を渡す）。
+const FLOOR_RUN_BAG: String = RUN_BAG
+const FLOOR_RUN_BAG_SLOTS: String = RUN_BAG_SLOTS
+const FLOOR_RUN_PENDING_LOOT: String = RUN_PENDING_LOOT
+
 # relics の各要素。character_id が "" なら編成3人全員に効く（PLAN_SCENARIO_MAP.md §5-2-5）。
 const FLOOR_RELIC_ID: String = "relic_id"
 const FLOOR_RELIC_CHARACTER_ID: String = "character_id"
@@ -418,10 +431,10 @@ const DUNGEON_RUN_HP: String = "hp"
 #     （CLAUDE.md 8番。2本目の入口を作ると装備が個体にならず静かに消える）。
 #   ⚠ 鞄は空で始まる＝持ち込みは無い。だから「鞄の中身」＝「そのランで手に入れたもの」
 #     ＝「全ロストの対象」の3つが常に同じものを指す（§4-8）。
-const DUNGEON_RUN_BAG: String = "bag"
+const DUNGEON_RUN_BAG: String = RUN_BAG
 # ⚠ 鞄の枠数。⚠ 個数制限方式（コンセプト文書）。ポーションも鍵も戦利品も一律1枠。
 #   ⚠ 初期 8 は仮置き（未決5）。ショップで拡張できる（17-e）。
-const DUNGEON_RUN_BAG_SLOTS: String = "bag_slots"
+const DUNGEON_RUN_BAG_SLOTS: String = RUN_BAG_SLOTS
 # ⚠ ランの一時通貨（決定16。1種類）。⚠ ランが終われば消える（§4-8）。
 const DUNGEON_RUN_CURRENCY: String = "currency"
 
@@ -482,7 +495,7 @@ const DUNGEON_RUN_CORRIDOR_CHEST: String = "corridor_chest"
 #   ⚠ こちらは「拾うかどうかを決めていないもの」。⚠ 枠を1つも使わない。
 # ⚠⚠ 画面を出ると残りは消える（⚠ 引き返さないので拾い直せない）。
 # ⚠ 戦闘・ボスの戦利品はここを通らない（⚠ 黙って鞄へ入る。⚠ 段階20-e の対象外）。
-const DUNGEON_RUN_PENDING_LOOT: String = "pending_loot"
+const DUNGEON_RUN_PENDING_LOOT: String = RUN_PENDING_LOOT
 const DUNGEON_NODE_CLEARED: String = "cleared"
 
 # ノードの種類。⚠ 綴りは dungeon.json の loot / currency のキーと揃える。
