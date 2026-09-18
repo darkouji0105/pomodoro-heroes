@@ -140,6 +140,12 @@ const RECIPE_DRAW: String = "draw"
 #   （GAME_DESIGN.md 4-2 の「固定報酬＋抽選ドロップの二立て」がそのまま形になる）。
 const CHEST_NAME_KEY: String = "name_key"
 const CHEST_DRAW: String = "draw"
+# ⚠⚠ 難ダンジョンの戦利品の表を借りる宝箱（2026-09-18・人間の決定「表を借りて拠点で引く」）。
+#   ⚠ {"dungeon_id": ..., "loot": "chest" | "edge_chest"}。⚠ 表を chests.json に書き写さない。
+#   ⚠ ラン専用の品（回復薬）は拠点では出さない（⚠ `_roll_chest_rewards()` が外す）。
+const CHEST_DRAW_FROM_DUNGEON: String = "draw_from_dungeon"
+const CHEST_DRAW_FROM_DUNGEON_ID: String = "dungeon_id"
+const CHEST_DRAW_FROM_DUNGEON_LOOT: String = "loot"
 const CHEST_DRAW_ROLLS: String = "rolls"
 const CHEST_DRAW_ENTRIES: String = "entries"
 const CHEST_DRAW_ITEM_ID: String = "item_id"
@@ -1154,9 +1160,16 @@ func _roll_chest_rewards(chest_id: String) -> Dictionary:
 	# ⚠ 見分けるのは _item_storage() の1本（⚠ 綴りで見分けない）。
 	#   ⚠ items.json に無いIDは今までどおり持ち物側へ（⚠ 黄は _grant_item() が出す）。
 	var draw_def: Variant = chest.get(CHEST_DRAW, null)
+	# ⚠⚠ 難ダンジョンの表を借りる宝箱（2026-09-18）。⚠ 表は dungeon.json が唯一の正。
+	#   ⚠ 借りた表にはラン専用の品（回復薬）が混ざるので、⚠ 拠点で開けるときは外す
+	#   （⚠ 「拠点で使えないものが倉庫に並ぶ」のを止める＝`retreat_from_dungeon()` と同じ判断）。
+	if draw_def == null:
+		draw_def = _dungeon_loot_draw_of(chest)
 	if draw_def is Dictionary:
 		var drawn: Dictionary = _roll_chest_draw(draw_def as Dictionary)
 		for item_id: String in drawn:
+			if _is_dungeon_only_item(item_id):
+				continue
 			var table_key: String = (
 				GameStateKeys.REWARD_MATERIALS
 				if _item_storage(item_id) == ITEM_STORAGE_MATERIAL
@@ -1167,6 +1180,25 @@ func _roll_chest_rewards(chest_id: String) -> Dictionary:
 			rewards[table_key] = table
 
 	return rewards
+
+
+# 借りる表（2026-09-18）。⚠ `draw_from_dungeon` を持つ宝箱だけ。⚠ 無ければ null。
+#
+# ⚠ dungeon.json の `loot.<種類>` をそのまま返す（⚠ 形は chests.json の `draw` と同じ）。
+func _dungeon_loot_draw_of(chest: Dictionary) -> Variant:
+	var ref: Variant = chest.get(CHEST_DRAW_FROM_DUNGEON, null)
+	if not (ref is Dictionary):
+		return null
+	var dungeon: Dictionary = MasterDataLoader.get_dungeon(
+		str((ref as Dictionary).get(CHEST_DRAW_FROM_DUNGEON_ID, ""))
+	)
+	var loot: Variant = dungeon.get(DUNGEON_MASTER_LOOT, null)
+	if not (loot is Dictionary):
+		return null
+	var table: Variant = (loot as Dictionary).get(
+		str((ref as Dictionary).get(CHEST_DRAW_FROM_DUNGEON_LOOT, "")), null
+	)
+	return table if table is Dictionary else null
 
 
 # 宝箱の中身が実質空か。gold/gems/stamina は0、materials/inventory は空なら空とみなす。
@@ -7620,6 +7652,9 @@ const DUNGEON_EDGES_KIND_ITEM: String = "item"
 # 通路の宝箱の戦利品表。⚠ loot の中に置く（⚠ ノードの chest とは別の行）。
 #   ⚠ マスの宝箱より薄い（rolls 1）。⚠ 同じ表にしないこと＝マスの宝箱の意味が消える。
 const DUNGEON_LOOT_EDGE_CHEST: String = "edge_chest"
+# ⚠ 鞄に入る宝箱の chest_id（2026-09-18）。⚠ 中身の表は dungeon.json を借りる（chests.json 側の定義）。
+const DUNGEON_CHEST_ID: String = "dungeon_chest"
+const DUNGEON_EDGE_CHEST_ID: String = "dungeon_edge_chest"
 # layers[] の中身。⚠ 綴りは stages.json と同じだが、読む先が別のファイルなので
 #   定数も別に持つ（片方の綴りを変えたときにもう片方が黙って壊れないため）。
 const DUNGEON_LAYER_NODE_COUNT: String = "node_count"
@@ -8079,6 +8114,12 @@ func retreat_from_dungeon() -> Dictionary:
 		var count: int = int(bag[item_id])
 		if count <= 0:
 			continue
+		# ⚠ 宝箱は拠点の宝箱として持ち帰る（2026-09-18）。⚠ 中身は拠点で開けたときに引く。
+		if is_chest_item(item_id):
+			for _i: int in range(count):
+				var _granted: bool = grant_chest(item_id, GameStateKeys.CHEST_SOURCE_DUNGEON)
+			(result["granted"] as Dictionary)[item_id] = count
+			continue
 		if _is_dungeon_only_item(item_id):
 			(result["discarded"] as Dictionary)[item_id] = count
 			continue
@@ -8482,6 +8523,40 @@ func add_dungeon_currency(amount: int) -> void:
 #
 # ⚠ 見るのは items.json の item_type だけ。⚠ ID の綴りで見分けないこと
 #   （ITEM_MASTER_PART_KIND のコメントと同じ理由）。
+# 難ダンジョンの宝箱を「宝箱のまま」拾い待ちへ積む（2026-09-18・人間の決定）。
+#
+# ⚠⚠ 中身はここで引かない。⚠ 拠点で開けたときに `_roll_chest_rewards()` が
+#   dungeon.json の同じ表から引く（⚠ 表は1箇所のまま）。
+# ⚠ 一時通貨だけは今までどおりここで入る（⚠ ランの中のもの＝持ち帰らない）。
+#   ⚠ 配る計算は `_grant_dungeon_node_gains()` と同じ式（⚠ 深いほど増える）。
+# ⚠ `kind` は通貨の表を引くための種類（⚠ chest ／ edge_chest）。
+# 戻り値: {"granted": {chest_id: 1}, "left_behind": {}}
+func _grant_dungeon_chest_item(kind: String, chest_id: String) -> Dictionary:
+	var result: Dictionary = {"granted": {}, "left_behind": {}}
+	var config: DungeonConfig = _dungeon()
+	var dungeon: Dictionary = MasterDataLoader.get_dungeon(
+		str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	)
+	if config == null or dungeon.is_empty():
+		return result
+
+	var currency_table: Variant = dungeon.get(DUNGEON_MASTER_CURRENCY, null)
+	if currency_table is Dictionary:
+		# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
+		var base: int = int((currency_table as Dictionary).get(kind, 0))
+		if base > 0:
+			var growth: int = maxi(0, int(config.currency_growth_pct_per_floor))
+			var depth: int = maxi(0, get_dungeon_floor_index() - 1)
+			add_dungeon_currency(int(float(base) * (1.0 + float(growth) * float(depth) / 100.0)))
+
+	if MasterDataLoader.get_chest(chest_id).is_empty():
+		push_warning("[GameManager] _grant_dungeon_chest_item: chests.json に無い: " + chest_id)
+		return result
+	_add_dungeon_pending_loot(chest_id, 1)
+	(result["granted"] as Dictionary)[chest_id] = 1
+	return result
+
+
 func _is_dungeon_only_item(item_id: String) -> bool:
 	var definition: Dictionary = MasterDataLoader.get_item(item_id)
 	if definition.is_empty():
@@ -9531,11 +9606,11 @@ func open_dungeon_corridor_chest() -> Dictionary:
 
 	# --- ここから状態を変える ---
 	_set_dungeon_corridor_chest("")
-	# ⚠ 配る口は _grant_dungeon_node_gains() の1本のまま（⚠ 2本目を書かない）。
-	#   ⚠ 表は loot.edge_chest（⚠ マスの宝箱より薄い＝rolls 1）。
-	# ⚠ 拾い待ちへ積む（段階20-e）。⚠ 鞄へ入れるのはプレイヤーが選ぶ。
-	var result: Dictionary = _grant_dungeon_node_gains(DUNGEON_LOOT_EDGE_CHEST, true)
-	# ⚠ 段階20-e：⚠ 鞄には入らない。⚠ 拾い待ちへ積むだけ。
+	# ⚠⚠ 2026-09-18：⚠ マスの宝箱と同じく**宝箱のまま拾い待ちへ**（⚠ 表は loot.edge_chest）。
+	var result: Dictionary = _grant_dungeon_chest_item(
+		DUNGEON_LOOT_EDGE_CHEST, DUNGEON_EDGE_CHEST_ID
+	)
+	# ⚠ 鞄には入らない。⚠ 拾い待ちへ積むだけ。
 	print("[GameManager] open_dungeon_corridor_chest() -> 拾い待ちへ: %s（鞄 %d/%d は動かない）" % [
 		str(result["granted"]), get_dungeon_bag_used(), get_dungeon_bag_slots(),
 	])
@@ -9671,11 +9746,13 @@ func open_dungeon_chest(node_id: String) -> Dictionary:
 	run[GameStateKeys.DUNGEON_RUN_NODES] = nodes
 	_state[GameStateKeys.DUNGEON_RUN] = run
 
-	# ⚠ 配る口は _grant_dungeon_node_gains() の1本だけ（⚠ 2本目を書かない）。
-	#   ⚠ 一時通貨も同じ口が配る（dungeon.json の currency.chest）。
-	# ⚠ 拾い待ちへ積む（段階20-e）。⚠ 鞄へ入れるのはプレイヤーが選ぶ。
-	var result: Dictionary = _grant_dungeon_node_gains(GameStateKeys.DUNGEON_NODE_KIND_CHEST, true)
-	# ⚠ 段階20-e：⚠ 鞄には入らない。⚠ 拾い待ちへ積むだけ（⚠ 入れるのはプレイヤーが選ぶ）。
+	# ⚠⚠ 2026-09-18：⚠ 中身をその場で引かない（人間の決定「難ダンジョンの宝箱も同じように
+	#   ⚠ インベントリに入るように」「表を借りて拠点で引く」）。⚠ **宝箱のまま拾い待ちへ**（1個1枠）。
+	#   ⚠ 中身は拠点で開けたときに dungeon.json の同じ表から引く（`chests.json` の `dungeon_chest`）。
+	# ⚠ 一時通貨はここで入る（⚠ ランの中のもの＝持ち帰らない）。
+	var result: Dictionary = _grant_dungeon_chest_item(
+		GameStateKeys.DUNGEON_NODE_KIND_CHEST, DUNGEON_CHEST_ID
+	)
 	print("[GameManager] open_dungeon_chest('%s') -> 拾い待ちへ: %s（鞄 %d/%d は動かない）" % [
 		node_id, str(result["granted"]), get_dungeon_bag_used(), get_dungeon_bag_slots(),
 	])

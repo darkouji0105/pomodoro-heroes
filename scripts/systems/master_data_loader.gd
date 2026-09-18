@@ -601,6 +601,16 @@ static func _validate_chest(chest_id: String, chest: Dictionary) -> int:
 		push_error("[MasterDataLoader] E120 chests.json (%s): draw が Dictionary でない" % chest_id)
 		errors += 1
 
+	# ⚠⚠ 難ダンジョンの表を借りる宝箱（2026-09-18・人間の決定「表を借りて拠点で引く」）。
+	#   ⚠ 中身は dungeon.json の `loot.<種類>`。⚠ こちらに表そのものは書かない
+	#     （⚠ 書き写すと数値が2箇所に分かれる）。⚠ 借り先が在るかは E139 が dungeon.json 側で見ている。
+	var borrowed: Variant = chest.get("draw_from_dungeon", null)
+	if borrowed is Dictionary:
+		has_draw = true
+	elif borrowed != null:
+		push_error("[MasterDataLoader] E120 chests.json (%s): draw_from_dungeon が Dictionary でない" % chest_id)
+		errors += 1
+
 	if not has_rewards and not has_draw:
 		push_warning("[MasterDataLoader] W20 chests.json (%s): rewards も draw も無い。開けても何も出ない" % chest_id)
 

@@ -264,6 +264,19 @@
 		{ "item_id": "part_emblem_crit_dmg_4", "weight": 25 },
 		{ "item_id": "part_gem_hp_4", "weight": 25 }
 	  ] }
+	},
+	{
+	  "chest_id": "dungeon_chest",
+	  "name_key": "ui_chest_dungeon",
+	  "sort_order": 40,
+	  "draw_from_dungeon": { "dungeon_id": "dungeon_hard", "loot": "chest" }
+	},
+	{
+	  "chest_id": "dungeon_edge_chest",
+	  "name_key": "ui_chest_dungeon_edge",
+	  "sort_order": 41,
+	  "draw_from_dungeon": { "dungeon_id": "dungeon_hard", "loot": "edge_chest" }
 	}
+
   ]
 }

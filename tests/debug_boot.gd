@@ -7212,6 +7212,54 @@ func _report_dungeon() -> void:
 			push_error("[DebugBoot] ランの宝箱が拠点の pending_chests に積まれた（決定7 が崩れる）")
 	GameManager.abandon_dungeon_run()
 
+	# ⚠⚠ 宝箱のまま持ち帰る（2026-09-18・人間の決定「難ダンジョンの宝箱も同じように
+	#   ⚠ インベントリに入るように」「表を借りて拠点で引く」）。
+	#   ⚠ 鞄の宝箱は撤退で**拠点の宝箱**になり、⚠ 中身は拠点で開けたときに引く。
+	#   ⚠ ラン専用の品（回復薬）は拠点では出ない。
+	print("[DebugBoot] --- 宝箱を鞄のまま持ち帰る（撤退 → 拠点の宝箱 → 開ける）---")
+	if GameManager.start_dungeon_run(target_id):
+		var carry_node: String = _walk_dungeon_to_kind(GameStateKeys.DUNGEON_NODE_KIND_CHEST)
+		if carry_node == "":
+			print("  ⚠ この生成には chest のマスへ着ける道が無かった")
+		else:
+			var _opened_carry: Dictionary = GameManager.open_dungeon_chest(carry_node)
+			var _taken_carry: Dictionary = GameManager.take_all_run_pending_loot(GameManager.RUN_KIND_DUNGEON)
+			var chests_in_bag: int = int(GameManager.get_dungeon_bag().get(GameManager.DUNGEON_CHEST_ID, 0))
+			# ⚠ ボスまで歩いて倒す（⚠ 撤退できるのはボスの先だけ）。
+			var guard_carry: int = 0
+			while true:
+				var moves_carry: Array = GameManager.get_dungeon_moves()
+				if moves_carry.is_empty():
+					break
+				if not GameManager.move_in_dungeon(str(moves_carry[0])):
+					break
+				guard_carry += 1
+				if guard_carry > 60:
+					break
+			var _cleared_carry: bool = GameManager.clear_dungeon_boss()
+			var pending_before_carry: int = GameManager.get_pending_chest_count()
+			var carried: Dictionary = GameManager.retreat_from_dungeon()
+			var pending_after_carry: int = GameManager.get_pending_chest_count()
+			print("  鞄の宝箱 %d 個 -> 撤退 -> 拠点の未開封 %d -> %d（⚠ %d 増えるのが正解）／ 持ち帰った %s" % [
+				chests_in_bag, pending_before_carry, pending_after_carry, chests_in_bag,
+				str(carried.get("granted", {})),
+			])
+			if pending_after_carry != pending_before_carry + chests_in_bag:
+				push_error("[DebugBoot] 鞄の宝箱が拠点の宝箱にならなかった")
+			# ⚠ 拠点で開ける。⚠ 中身は dungeon.json の表から引く（⚠ ラン専用の品は出ない）。
+			if chests_in_bag > 0:
+				var carried_instance: String = str(_last_unopened_chest().get(GameStateKeys.CHEST_INSTANCE_ID, ""))
+				var _opened_at_base: bool = GameManager.open_chest(carried_instance)
+				var got: Dictionary = _chest_record(carried_instance).get(GameStateKeys.CHEST_REWARDS, {})
+				print("  拠点で開ける -> %s（⚠ ラン専用の品が混じらないのが正解）" % str(got))
+				for table_key: String in [GameStateKeys.REWARD_MATERIALS, GameStateKeys.REWARD_INVENTORY]:
+					for got_id: Variant in (got.get(table_key, {}) as Dictionary):
+						var definition: Dictionary = MasterDataLoader.get_item(str(got_id))
+						if str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) == GameStateKeys.ITEM_TYPE_DUNGEON:
+							push_error("[DebugBoot] 拠点で開けた宝箱にラン専用の品が入った: " + str(got_id))
+	if GameManager.is_in_dungeon():
+		GameManager.abandon_dungeon_run()
+
 	# ⚠ 鞄が満杯のときに開ける枝（⚠ 置いてきたぶんが戻り値に出るか）。
 	#
 	# ⚠⚠ 1本目のランの続きで測らない。⚠ 1つ目を開けた時点で鞄が埋まることがあり、

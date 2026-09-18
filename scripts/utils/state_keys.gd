@@ -312,6 +312,8 @@ const CHEST_SOURCE_BATTLE: String = "battle"
 # フロアの移動で出た宝箱（段階14-b）。⚠ 個体の出どころが分かるようにするだけで、
 # 開けるときの挙動は3つとも同じ。
 const CHEST_SOURCE_FLOOR: String = "floor"
+# 難ダンジョンから持ち帰った宝箱（2026-09-18）。⚠ 出どころが分かるようにするだけ。
+const CHEST_SOURCE_DUNGEON: String = "dungeon"
 
 # スタミナポーション
 const POTION_FOCUS_REMAINDER: String = "potion_focus_remainder"
