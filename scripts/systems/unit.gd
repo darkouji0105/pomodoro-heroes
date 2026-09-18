@@ -91,6 +91,28 @@ var hp: int = 0
 #   （⚠ シールドは take_damage() の前で差し引かれる＝skill_resolver.gd の _step_shield）。
 # ⚠ HP を超えて入った分（オーバーキル）も入らない。⚠ 回復しても減らさない。
 var damage_taken: int = 0
+
+# 行動予告の SP（2026-09-18・人間の決定「敵に SP を付けて、それが溜まったら」）。
+#
+# ⚠⚠ **敵だけが持つ**（⚠ 味方はキーで撃つ・召喚はスキルを持たない）。
+# ⚠ `sp_full_sec` が 0 なら SP を使わない＝ゲージも出ない（⚠ スキルを持たない敵）。
+# ⚠ 溜めるのは `BattleController._step_enemy_sp()` の1箇所。⚠ 満ちたらスキルを撃って 0 に戻す。
+# ⚠⚠ クールダウンでは止めない（人間の決定「クールダウンはいらない」）＝
+#   ⚠ 敵のスキルの `cooldown_sec` は **データ側を 0** にしてある。⚠ コードに枝を足さない。
+var sp_sec: float = 0.0
+var sp_full_sec: float = 0.0
+
+
+# SP が満ちているか。⚠ SP を使わない個体（`sp_full_sec` が 0）は常に false。
+func is_sp_full() -> bool:
+	return sp_full_sec > 0.0 and sp_sec >= sp_full_sec
+
+
+# SP の満ち具合（0.0〜1.0）。⚠ ゲージが読む。
+func sp_ratio() -> float:
+	if sp_full_sec <= 0.0:
+		return 0.0
+	return clampf(sp_sec / sp_full_sec, 0.0, 1.0)
 # 死亡の介入点（復活）を通したか（PLAN 11-1・段階3の後半③）。
 #
 # ⚠ 書いてよいのは BattleController._step_deaths() だけ。他所から触らないこと。

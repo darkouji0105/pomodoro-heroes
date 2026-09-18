@@ -233,6 +233,23 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_wide_sweep", "prepare": PREPARE_NONE, "hold_sec": 1.6},
 		],
 	},
+	# ⚠⚠ 敵の行動予告の SP（2026-09-18・人間の決定「敵に SP を付けて、それが溜まったら」）。
+	#   ⚠ `stage_dbg_area` の敵は `enemy_dbg_ranged`（スキルあり）と `enemy_wolf`（スキル無し）。
+	#   ⚠ 見るもの：⚠ スキルを持つ敵だけ SP を持ちゲージが出る ／ ⚠ 10秒で満ちる ／
+	#     ⚠ 満ちたら撃って 0 に戻る ／ ⚠ 狼は SP 0（ゲージ無し）。
+	#   ⚠ スキルは撃たない（⚠ 見たいのは敵側）。⚠ fire を空配列にしないこと。
+	"enemy_sp": {
+		"kind": KIND_BATTLE,
+		"note": "敵の行動予告。SP が10秒で満ちて撃つ / スキル無しの敵は SP もゲージも無い",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {},
+		"dump_enemy_sp": true,
+		"fire": [
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 0.0},
+			{"skill": "", "prepare": PREPARE_NONE, "gap": 14.0},
+		],
+	},
 	# ⚠⚠ 戦闘の結果窓（2026-09-17・§0-UI-G）。⚠ 本番の3人で殴り合ってから決着させる（⚠ 被ダメージを0にしないため）。
 	#   ⚠ 見るもの：題・見出し・副題（時間と被ダメージ）・注記（検証用は報酬なし）・ボタン（拠点へ＋次へ進む）・窓の中心 640,360。
 	#   ⚠ そのあと見本の報酬（floor_5 のボス）で差し替え：マス9件（列6）・ピル gold +65。
@@ -970,6 +987,7 @@ func _ready() -> void:
 	driver.dump_status_tones = bool(scenario.get("dump_status_tones", false))
 	driver.dump_pops = bool(scenario.get("dump_pops", false))
 	driver.dump_tooltip = bool(scenario.get("dump_tooltip", false))
+	driver.dump_enemy_sp = bool(scenario.get("dump_enemy_sp", false))
 	# ⚠ call_deferred なのは、_ready() の時点では root が子を組み立てている最中で
 	#   add_child() が弾かれるため（"Parent node is busy setting up children"）。
 	#   SceneManager が DebugOverlay を足すときに call_deferred しているのと同じ理由。
@@ -4638,6 +4656,9 @@ class Driver extends Node:
 	# ⚠ スキルのマスのホバーの枠を1回だけ出すか（2026-09-18）。⚠ 既定は false。
 	var dump_tooltip: bool = false
 	var _tooltip_dumped: bool = false
+	# ⚠ 敵の行動予告の SP を何回か出すか（2026-09-18）。⚠ 既定は false。
+	var dump_enemy_sp: bool = false
+	var _sp_dumps: int = 0
 
 	# ⚠ battle_controller.gd に class_name が無いので型を付けられない。
 	#   ここは検証用スクリプトなので許容する。本番コードでこの書き方をしないこと
@@ -4716,6 +4737,12 @@ class Driver extends Node:
 		if dump_tooltip and not _tooltip_dumped:
 			_tooltip_dumped = true
 			_dump_tooltip()
+
+		# ⚠ 敵の SP は時間で溜まるので、⚠ 何秒かおきに3回出す（⚠ 溜まる → 満ちる → 撃って戻る）。
+		if dump_enemy_sp and _sp_dumps < SP_DUMP_SEC.size() \
+				and session.elapsed_sec >= SP_DUMP_SEC[_sp_dumps]:
+			_sp_dumps += 1
+			_dump_enemy_sp(session)
 
 		# ⚠ 立ち位置を測る合図。撃つ合図（_step_fire の 合図）とは別に、1回だけ出す。
 		#   ここでしか「全員が射程ぴったりに落ち着いた x」は取れない。
@@ -4828,6 +4855,28 @@ class Driver extends Node:
 		#   合図・静止・決着の3点では跳んだことが1つも残らない。
 		if dump_each_fire:
 			_dump_positions(session, "撃った直後")
+
+
+	# ⚠ 敵の SP を出す時刻（秒）。⚠ 既定の満ちるまでの秒（10）をまたぐように取る。
+	const SP_DUMP_SEC: Array[float] = [3.0, 10.5, 13.0]
+
+
+	# 敵の行動予告の SP（2026-09-18）。⚠ 器の値と、⚠ ビューのゲージの両方を見る。
+	func _dump_enemy_sp(session: BattleSession) -> void:
+		var rows: Array[String] = []
+		for u in session.enemy_units:
+			if not (u is BattleUnit) or not u.is_alive():
+				continue
+			var unit: BattleUnit = u
+			var gauge: String = "—"
+			for view: Variant in _battle._enemy_views:
+				if view is UnitView and (view as UnitView)._unit == unit:
+					gauge = "ゲージ=%s" % (view as Node).get_node("SpBar").visible
+			rows.append("%s(%s) SP %.1f/%.1f 満=%s %s" % [
+				unit.unit_id, unit.master_id, unit.sp_sec, unit.sp_full_sec,
+				unit.is_sp_full(), gauge,
+			])
+		print("[DebugBoot] 敵のSP t=%.2f ｜ %s" % [session.elapsed_sec, " ／ ".join(rows)])
 
 
 	# スキルのマスのホバーの枠（2026-09-18）。⚠ 本物の配線を通す（⚠ マスの mouse_entered を出す）。

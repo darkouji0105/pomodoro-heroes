@@ -550,6 +550,14 @@ func _spawn_current_wave_enemies() -> void:
 				unit.skill_ids.append(sid)
 				unit.skill_cooldowns[sid] = 0.0
 
+			# 行動予告の SP（2026-09-18・人間の決定）。⚠ スキルを持つ敵だけが持つ。
+			# ⚠ 満ちるまでの秒は enemies.json の `sp_full_sec` が勝ち、⚠ 無ければ Balance の既定。
+			#   ⚠ ここが決める口の1本（⚠ 毎フレームの側で読み直さない）。
+			if not unit.skill_ids.is_empty():
+				unit.sp_full_sec = float(enemy_data.get(
+					"sp_full_sec", Balance.adventure.enemy_sp_full_sec
+				))
+
 			# 敵のパッシブ（EXEC_SKILL_PASSIVE_VARS.md §3-8）。
 			# ⚠ 敵には枠が無いので "passives" 配列がそのまま装備枠。味方の
 			#   get_battle_passives()（候補→選んだ枠の2段）を真似ない。
@@ -669,6 +677,13 @@ func _process(delta: float) -> void:
 	for unit in _all_units():
 		if unit is BattleUnit:
 			_step_unit(unit, delta)
+
+	# 2-2. 敵の SP（2026-09-18・人間の決定「敵に SP を付けて、それが溜まったら」）。
+	#
+	# ⚠ 攻撃・移動のあと。⚠ 前に置くと、⚠ 歩いている途中（射程の外）で撃って画面端から当たる。
+	for unit in _session.enemy_units:
+		if unit is BattleUnit:
+			_step_enemy_sp(unit as BattleUnit, delta)
 
 	# 3. 実行中のスキル（多段・遅延の待ち行列）
 	#
@@ -1071,14 +1086,10 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 		# attack_interval_sec は create() の時点で atkspd 適用済み。
 		# ここでマスターから読み直さないこと。
 		if unit.attack_timer >= unit.attack_interval_sec:
-			# 敵はここでスキルを試す（EXEC_ENEMY_PARITY.md §3-2）。
-			#
-			# ⚠ 攻撃間隔と同じ拍で撃つ。毎フレーム試すと、クールダウンが空いた
-			#   フレームに通常攻撃と同時に出て、拍が2本になる。
-			# ⚠ 射程内（この if の内側）でしか撃たない。歩いている間に撃たせると、
-			#   target.range が未設定（宿題11）なので画面端から当たる。
-			if not (unit.team == BattleUnit.TEAM_ENEMY and _try_enemy_skill(unit)):
-				_fire_basic_attack(unit, target)
+			# ⚠⚠ 2026-09-18：⚠ 敵のスキルは**この拍では撃たない**（人間の決定・行動予告）。
+			#   ⚠ 撃つ合図は SP が満ちたとき（`_step_enemy_sp()`）。⚠ ここは通常攻撃だけ。
+			#   ⚠ 前は「攻撃間隔と同じ拍でスキルを試し、撃てなければ通常攻撃」だった。
+			_fire_basic_attack(unit, target)
 			unit.attack_timer = 0.0
 	elif unit.move_lock_sec <= 0.0:
 		# ⚠ 移動系ルーンで動いた直後はここへ来ない（move_lock_sec が立っている）。
@@ -1086,6 +1097,24 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 		#     （足すと後退したあと殴れず、ロック中だけ完全に無力になる）。
 		var dir: float = sign(target.x - unit.x)
 		unit.x += dir * unit.speed * delta
+
+
+# 敵の SP を溜め、満ちたらスキルを撃つ（2026-09-18・人間の決定「行動予告」）。
+#
+# ⚠⚠ 撃つ合図はここ1本（⚠ 攻撃の拍では撃たない）。⚠ ゲージが満ちた瞬間＝撃つ瞬間になる。
+# ⚠ 撃てなかった（射程の外・対象がいない）ときは**満タンのまま待つ**（⚠ 0 に戻さない）。
+#   ⚠ 戻すと、⚠ ゲージが満ちた瞬間に何も起きずに空になり、⚠ 予告が嘘になる。
+# ⚠ クールダウンでは止めない（人間の決定）。⚠ 敵のスキルは `cooldown_sec` が 0（データ側）。
+# ⚠ 射程の外でも SP は溜まる（⚠ 近づいている間に溜まり、⚠ 着いた瞬間に撃てる）。
+func _step_enemy_sp(unit: BattleUnit, delta: float) -> void:
+	if unit.sp_full_sec <= 0.0 or not unit.is_alive():
+		return
+	if not unit.is_sp_full():
+		unit.sp_sec += delta
+		if not unit.is_sp_full():
+			return
+	if _try_enemy_skill(unit):
+		unit.sp_sec = 0.0
 
 
 # 敵のスキル発動（EXEC_ENEMY_PARITY.md §3-2）。撃てたら true。

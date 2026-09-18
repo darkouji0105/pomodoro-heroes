@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://b1unit_view_001"]
+[gd_scene load_steps=5 format=3 uid="uid://b1unit_view_001"]
 
 [ext_resource type="Script" path="res://scenes/adventure/unit_view.gd" id="1_unit_view"]
 [ext_resource type="Script" path="res://scenes/adventure/status_chips.gd" id="2_status_chips"]
 [ext_resource type="Script" path="res://scenes/adventure/battle_bar.gd" id="3_battle_bar"]
+[ext_resource type="Script" path="res://scenes/adventure/sp_bar.gd" id="4_sp_bar"]
 
 [node name="UnitView" type="Node2D"]
 script = ExtResource("1_unit_view")
@@ -31,6 +32,15 @@ offset_right = 37.0
 offset_bottom = -36.0
 mouse_filter = 2
 script = ExtResource("3_battle_bar")
+
+[node name="SpBar" type="Control" parent="."]
+visible = false
+offset_left = -37.0
+offset_top = -35.0
+offset_right = 37.0
+offset_bottom = -32.0
+mouse_filter = 2
+script = ExtResource("4_sp_bar")
 
 [node name="StatusChips" type="BoxContainer" parent="."]
 offset_left = -37.0

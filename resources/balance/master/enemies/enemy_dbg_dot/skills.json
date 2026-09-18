@@ -3,7 +3,7 @@
 		"name_key": "ui_battle_skill_edbg_dot",
 		"user_character_id": "enemy_dbg_dot",
 		"unlock_level": 1,
-		"cooldown_sec": 12.0,
+		"cooldown_sec": 0.0,
 		"activation": "instant",
 		"target": {
 			"team": "enemy",

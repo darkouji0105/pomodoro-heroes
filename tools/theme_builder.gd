@@ -359,6 +359,11 @@ const BATTLE_UNIT_NAME_GAP: int = 4
 const BATTLE_UNIT_BAR_HEIGHT: int = 5
 const BATTLE_UNIT_BAR_GAP: int = 4
 const BATTLE_UNIT_ACTIVE_WIDTH: int = 1
+# ⚠ 敵の行動予告のゲージ（2026-09-18・人間「ゲージは HP の下」）。⚠ HPバーより細い。
+#   ⚠ 色は既存の真鍮2段（⚠ 溜め中＝暗い側 ／ 満タン＝明るい側）。⚠ 新しい色ではない。
+const BATTLE_SP_HEIGHT: int = 3
+const BATTLE_SP_FILL: String = ACTIVE_BORDER
+const BATTLE_SP_FULL: String = SKILL_FLASH
 
 # ⚠⚠ HPバーは**味方は緑1色・敵は赤1色**（⚠ モック §4 の3段は 2026-09-17 に人間がやめた
 #   「味方のHPは残量に関係なくいつも緑」）。⚠ `BATTLE_HP_LOW` は瀕死の名前の色として残る。
@@ -1090,6 +1095,7 @@ static func _build_battle(theme: Theme) -> void:
 		"bar_gap": BATTLE_UNIT_BAR_GAP,
 		"active_width": BATTLE_UNIT_ACTIVE_WIDTH,
 		"hp_low_percent": BATTLE_HP_LOW_PERCENT,
+		"sp_height": BATTLE_SP_HEIGHT,
 	}
 	for key: String in unit.keys():
 		theme.set_constant(StringName(key), &"BattleUnitView", int(unit[key]))
@@ -1101,6 +1107,8 @@ static func _build_battle(theme: Theme) -> void:
 	theme.set_color(&"name_active", &"BattleUnitView", _html(BATTLE_NAME_ACTIVE))
 	theme.set_color(&"name_low", &"BattleUnitView", _html(BATTLE_HP_LOW))
 	theme.set_color(&"active_border", &"BattleUnitView", _html(ACTIVE_BORDER))
+	theme.set_color(&"sp_fill", &"BattleUnitView", _html(BATTLE_SP_FILL))
+	theme.set_color(&"sp_full", &"BattleUnitView", _html(BATTLE_SP_FULL))
 
 	# ⚠ 下部パネルの中の間隔。⚠ 値は上の const が唯一の持ち主
 	#   （⚠ `BattleHud` の定数と同じものを指す。⚠ 数字を書き写さない）。
