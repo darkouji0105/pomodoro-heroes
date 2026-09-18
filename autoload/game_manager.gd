@@ -6757,6 +6757,34 @@ func _roll_chest_rarity(layer: int) -> String:
 	return CHEST_RARITY_COMMON
 
 
+# 宝箱のレアリティ（2026-09-18・人間「宝箱を開けるとき宝箱のアイコンが見れるように　文字の色も」）。
+#
+# ⚠⚠ chests.json に欄を足さない。⚠ レアリティは stages.json の `chest_ids`（{rarity: chest_id}）が
+#   ⚠ もう持っているので、⚠ そこから引き戻す（⚠ 同じことを2箇所に書かない）。
+# ⚠ フロア以外の宝箱（ポモドーロの宝箱・ガチャなど）は "" を返す（⚠ 色は既定のまま）。
+func get_chest_rarity(chest_id: String) -> String:
+	if chest_id == "":
+		return ""
+	for stage_id: Variant in MasterDataLoader.get_stage_ids():
+		var ids: Variant = MasterDataLoader.get_stage(str(stage_id)).get(STAGE_MASTER_CHEST_IDS, null)
+		if not (ids is Dictionary):
+			continue
+		for rarity: Variant in (ids as Dictionary):
+			if str((ids as Dictionary)[rarity]) == chest_id:
+				return str(rarity)
+	return ""
+
+
+# レアリティの段（1〜4）。⚠ 色は `Balance.icon` の10色ランプの `grade_of_tier()` で引く。
+#   ⚠ 2026-09-18 に floor_map.gd から移した（⚠ 宝箱の一覧でも同じ色を使うため）。
+const CHEST_RARITY_TIERS: Dictionary = {
+	CHEST_RARITY_COMMON: 1,
+	CHEST_RARITY_RARE: 2,
+	CHEST_RARITY_EPIC: 3,
+	CHEST_RARITY_LEGENDARY: 4,
+}
+
+
 # フロアの chest_ids から1件引く。無ければ ""。
 #
 # ⚠ floor_id から組み立てない（STAGE_MASTER_CHEST_IDS のコメント）。

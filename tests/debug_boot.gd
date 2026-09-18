@@ -7946,6 +7946,25 @@ func _report_base_chest() -> void:
 		return
 	var list: Node = panel.find_child("ChestList", true, false)
 	checks.append(["① 行の数 %d ＝ 種類 %d" % [list.get_child_count(), kinds.size()], list.get_child_count() == kinds.size()])
+	# ⚠⚠ レアリティの色（2026-09-18・人間「宝箱のアイコンが見れるように　文字の色も」）。
+	#   ⚠ フロアの宝箱（5フロア × 4段 ＝ 20種）だけ色が付き、⚠ ほか（ポモドーロの宝箱・ガチャ）は白のまま。
+	var tinted: int = 0
+	var tinted_glyph: int = 0
+	for row: Node in list.get_children():
+		var name_label: Label = row.find_child("ChestNameLabel", true, false) as Label
+		if name_label != null and name_label.modulate != Color.WHITE:
+			tinted += 1
+		var glyph: CanvasItem = row.find_child("ChestGlyph", true, false) as CanvasItem
+		if glyph != null and glyph.modulate != Color.WHITE:
+			tinted_glyph += 1
+	var floor_kinds: int = 0
+	for kind: Variant in kinds:
+		if GameManager.get_chest_rarity(str(kind)) != "":
+			floor_kinds += 1
+	checks.append([
+		"① 色の付いた行 名前 %d ／ 絵 %d ＝ レアリティのある種類 %d" % [tinted, tinted_glyph, floor_kinds],
+		tinted == floor_kinds and tinted_glyph == floor_kinds and floor_kinds > 0,
+	])
 
 	# ② 1つ開ける → 1減って結果の窓が出る。
 	(list.get_child(0).find_child("OpenButton", true, false) as UiButton).pressed.emit()
@@ -7958,6 +7977,11 @@ func _report_base_chest() -> void:
 	if Modal._current != null and is_instance_valid(Modal._current):
 		var dialog: ModalDialog = Modal._current
 		var window_panel: PanelContainer = dialog.get_node("Blocker/Panel")
+		# ⚠ 窓の頭の宝箱の絵と名前（2026-09-18）。
+		var head: Node = dialog.find_child("ChestHead", true, false)
+		checks.append(["② 窓の頭に宝箱の絵と名前（%s）" % (
+			(head.find_child("ChestHeadName", true, false) as Label).text if head != null else "無い"
+		), head != null and head.find_child("ChestHeadGlyph", true, false) != null])
 		checks.append([
 			"② 題の帯が出る（題='%s' 高さ=%.0f 帯の面=%s 窓の面=%s）" % [
 				dialog.title_label.text, dialog.title_bar.size.y,

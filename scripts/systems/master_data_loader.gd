@@ -234,6 +234,13 @@ static func get_stage(id: String) -> Dictionary:
 	return (_cache_stages[id] as Dictionary).duplicate(true)
 
 
+# stages.json の全ID（2026-09-18）。⚠ 宝箱のレアリティを chest_ids から引き戻すのに使う
+#   （`GameManager.get_chest_rarity()`）。⚠ 並びは読み込んだ順（⚠ 意味を持たせない）。
+static func get_stage_ids() -> Array:
+	_ensure_loaded()
+	return _cache_stages.keys()
+
+
 # 4 ファイルまとめて読み込み、static cache に乗せる。
 # 最初のファイルが load() で取れなければ、以降は全部 FileAccess 方式で読む。
 static func _ensure_loaded() -> void:

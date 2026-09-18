@@ -135,13 +135,14 @@ func _create_chest_row(chest_id: String, instance_ids: Array) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "ChestRow_" + chest_id
 
-	row.add_child(_make_chest_glyph("ChestGlyph"))
+	row.add_child(_make_chest_glyph("ChestGlyph", chest_id))
 
 	var name_label: Label = Label.new()
 	var chest_def: Dictionary = MasterDataLoader.get_chest(chest_id)
 	name_label.text = tr(str(chest_def.get(GameManager.CHEST_NAME_KEY, "")))
 	name_label.name = "ChestNameLabel"
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tint_by_rarity(name_label, chest_id)
 	row.add_child(name_label)
 
 	# ⚠ 数値だけなので tr() を通さない（AGENTS.md）。
@@ -161,9 +162,12 @@ func _create_chest_row(chest_id: String, instance_ids: Array) -> void:
 
 # 宝箱の絵。⚠ 線画（SVG）が在ればそちら、⚠ 無ければ絵文字。
 #   ⚠ 大きさは `Balance.icon` の絵文字と同じ段（⚠ ここに px を書かない）。
-func _make_chest_glyph(node_name: String) -> Control:
+# ⚠ 2026-09-18：⚠ レアリティの色を着せる（人間「宝箱のアイコンが見れるように　文字の色も」）。
+#   ⚠ `size_scale` は開封結果の窓で大きく出すときだけ（⚠ 一覧は 1）。
+func _make_chest_glyph(node_name: String, chest_id: String = "", size_scale: int = 1) -> Control:
 	var texture: Texture2D = IconTextures.for_chest()
 	var size_px: float = float(maxi(1, Balance.icon.glyph_font_size)) if Balance.icon != null else 20.0
+	size_px *= float(maxi(1, size_scale))
 	if texture != null:
 		var rect: TextureRect = TextureRect.new()
 		rect.name = node_name
@@ -171,12 +175,25 @@ func _make_chest_glyph(node_name: String) -> Control:
 		rect.custom_minimum_size = Vector2(size_px, size_px)
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_tint_by_rarity(rect, chest_id)
 		return rect
 	var glyph: Label = Label.new()
 	glyph.name = node_name
 	glyph.text = Glyphs.NODE_CHEST
 	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return glyph
+
+
+# レアリティの色を着せる（2026-09-18）。⚠ 色はフロアで宝箱を拾ったときの演出と同じ
+#   （`Balance.icon` の10色ランプ・`GameManager.CHEST_RARITY_TIERS`）。⚠ ここに色を書かない。
+# ⚠ レアリティが無い宝箱（ポモドーロの宝箱など）は何もしない（⚠ 既定の色のまま）。
+func _tint_by_rarity(target: CanvasItem, chest_id: String) -> void:
+	var rarity: String = GameManager.get_chest_rarity(chest_id)
+	if rarity == "" or Balance.icon == null:
+		return
+	target.modulate = Balance.icon.color_of_grade(
+		Balance.icon.grade_of_tier(int(GameManager.CHEST_RARITY_TIERS.get(rarity, 1)), false)
+	)
 
 
 # --- 開封 ---
@@ -186,6 +203,7 @@ func _on_open_chest_pressed(instance_id: String) -> void:
 	#   ⚠ 開けたあとは一覧から引けなくなることがある）。
 	var rewards: Dictionary = _read_chest_rewards(instance_id)
 	var chest_title: String = _chest_name(instance_id)
+	var chest_id: String = _chest_id_of(instance_id)
 	if rewards.is_empty() and not _chest_exists(instance_id):
 		push_warning("[ChestPanel] chest not found: " + instance_id)
 		return
@@ -193,7 +211,7 @@ func _on_open_chest_pressed(instance_id: String) -> void:
 		push_warning("[ChestPanel] open_chest failed: " + instance_id)
 		return
 	# ⚠ 増えた演出はここで呼ばない（⚠ `ResourceGainEffect` が資源の変化を見て自分で流す）。
-	_show_reward_window(rewards, chest_title)
+	_show_reward_window(rewards, chest_title, chest_id)
 
 
 func _on_open_all_pressed() -> void:
@@ -219,9 +237,26 @@ func _on_open_all_pressed() -> void:
 # 開封結果の窓。⚠ 報酬はもう配り終わっている（⚠ `open_chest()` の中で入っている）。
 #   ⚠ この窓は「何が入ったか」を見せるだけ。⚠ 閉じても何も失われない。
 # ⚠ ゴールド・ジェム・スタミナはマスにならないので文字で出す。
-func _show_reward_window(rewards: Dictionary, title: String) -> void:
+#
+# ⚠ `chest_id` を渡すと、⚠ 窓の頭に**宝箱の絵と名前をレアリティの色で**出す
+#   （2026-09-18・人間「宝箱を開けるとき宝箱のアイコンが見れるように　文字の色も」）。
+#   ⚠ 「すべて開ける」は種類が混ざるので渡さない（⚠ 頭の行は出ない）。
+func _show_reward_window(rewards: Dictionary, title: String, chest_id: String = "") -> void:
 	var box: VBoxContainer = VBoxContainer.new()
 	box.name = "RewardWindow"
+
+	if chest_id != "":
+		var head: HBoxContainer = HBoxContainer.new()
+		head.name = "ChestHead"
+		head.alignment = BoxContainer.ALIGNMENT_CENTER
+		head.add_child(_make_chest_glyph("ChestHeadGlyph", chest_id, 2))
+		var head_label: Label = Label.new()
+		head_label.name = "ChestHeadName"
+		head_label.text = title
+		head_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_tint_by_rarity(head_label, chest_id)
+		head.add_child(head_label)
+		box.add_child(head)
 
 	var entries: Array = RewardEntries.slot_entries(rewards)
 	if not entries.is_empty():
@@ -250,16 +285,22 @@ func _show_reward_window(rewards: Dictionary, title: String) -> void:
 
 # 宝箱の表示名。⚠ chests.json の name_key（⚠ 綴りを組み立てない）。
 func _chest_name(instance_id: String) -> String:
+	var chest_id: String = _chest_id_of(instance_id)
+	if chest_id == "":
+		return tr("ui_warehouse_opened")
+	var chest_def: Dictionary = MasterDataLoader.get_chest(chest_id)
+	return tr(str(chest_def.get(GameManager.CHEST_NAME_KEY, "")))
+
+
+# その1個の種類（chest_id）。⚠ 無ければ ""。
+func _chest_id_of(instance_id: String) -> String:
 	for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
 		if not (chest is Dictionary):
 			continue
 		if str((chest as Dictionary).get(GameStateKeys.CHEST_INSTANCE_ID, "")) != instance_id:
 			continue
-		var chest_def: Dictionary = MasterDataLoader.get_chest(
-			str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))
-		)
-		return tr(str(chest_def.get(GameManager.CHEST_NAME_KEY, "")))
-	return tr("ui_warehouse_opened")
+		return str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))
+	return ""
 
 
 func _empty_rewards() -> Dictionary:

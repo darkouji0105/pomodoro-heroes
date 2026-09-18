@@ -28,12 +28,7 @@ const HIDDEN_TEXT: String = "？"
 #   （2026-08-31・仮アセットのアイコンと同じ見た目の言語に揃えた）。
 #   ⚠ ここに const で色を戻さないこと。宝箱とアイコンで色が食い違う。
 # ⚠ ここが持つのは「どのレアリティが何段目か」の綴りだけ。
-const CHEST_RARITY_TIERS: Dictionary = {
-	GameManager.CHEST_RARITY_COMMON: 1,
-	GameManager.CHEST_RARITY_RARE: 2,
-	GameManager.CHEST_RARITY_EPIC: 3,
-	GameManager.CHEST_RARITY_LEGENDARY: 4,
-}
+# ⚠⚠ 2026-09-18：表は `GameManager.CHEST_RARITY_TIERS` へ移した（⚠ 宝箱の一覧でも同じ色を使う）。
 # 演出の長さ（秒）。⚠ ここを 0 にしないこと。0 にすると戦闘マスでは
 #   遷移が即座に走り、見つけたことが一度も見えない（それが直前の症状）。
 const CHEST_POPUP_SEC: float = 0.9
@@ -257,7 +252,7 @@ func _play_chest_popup(node_id: String) -> void:
 	var chest: Dictionary = MasterDataLoader.get_chest(_found_chest_id)
 	var chest_name: String = tr(str(chest.get(GameManager.CHEST_NAME_KEY, _found_chest_id)))
 	var color: Color = Balance.icon.color_of_grade(
-		Balance.icon.grade_of_tier(int(CHEST_RARITY_TIERS.get(_found_rarity, 1)), false)
+		Balance.icon.grade_of_tier(int(GameManager.CHEST_RARITY_TIERS.get(_found_rarity, 1)), false)
 	)
 
 	chest_popup.text = "%s\n%s" % [tr("ui_floor_chest_found"), chest_name]
