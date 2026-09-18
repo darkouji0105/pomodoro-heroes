@@ -234,13 +234,13 @@ const SCENARIOS: Dictionary = {
 		],
 	},
 	# ⚠⚠ 敵の行動予告の SP（2026-09-18・人間の決定「敵に SP を付けて、それが溜まったら」）。
-	#   ⚠ `stage_dbg_area` の敵は `enemy_dbg_ranged`（スキルあり）と `enemy_wolf`（スキル無し）。
-	#   ⚠ 見るもの：⚠ スキルを持つ敵だけ SP を持ちゲージが出る ／ ⚠ 10秒で満ちる ／
-	#     ⚠ 満ちたら撃って 0 に戻る ／ ⚠ 狼は SP 0（ゲージ無し）。
+	#   ⚠ `stage_dbg_area` の敵は `enemy_dbg_ranged`（100 / 10）と `enemy_wolf`（100 / 12）。
+	#   ⚠⚠ 2026-09-18 に**雑魚にもスキルを持たせた**（人間「雑魚にもスキルを持たせる」）ので、狼も SP を持つ。
+	#   ⚠ 見るもの：⚠ 両方ゲージが出る ／ ⚠ 狼は約8.3秒・ranged は10秒で満ちる ／ ⚠ 満ちたら撃って 0 に戻る。
 	#   ⚠ スキルは撃たない（⚠ 見たいのは敵側）。⚠ fire を空配列にしないこと。
 	"enemy_sp": {
 		"kind": KIND_BATTLE,
-		"note": "敵の行動予告。SP が10秒で満ちて撃つ / スキル無しの敵は SP もゲージも無い",
+		"note": "敵の行動予告。SP が満ちて撃つ（ranged 10秒・狼 約8.3秒）",
 		"stage_id": "stage_dbg_area",
 		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
 		"skills": {},

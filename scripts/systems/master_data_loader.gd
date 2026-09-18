@@ -97,6 +97,8 @@ const DIR_ENEMIES: String = DIR_PATH + "enemies/"
 # ⚠ 2026-09-18：⚠ ボスに全体攻撃を持たせた（人間の指示）。⚠ 足し忘れて
 #   「skill id not found」を1回踏んでいる（⚠ 敵は作れるがスキルだけ消える）。
 const ENEMY_DIRS_REQUIRED: Array[String] = [
+	DIR_ENEMIES + "enemy_slime/",
+	DIR_ENEMIES + "enemy_wolf/",
 	DIR_ENEMIES + "boss_slime_king/",
 ]
 

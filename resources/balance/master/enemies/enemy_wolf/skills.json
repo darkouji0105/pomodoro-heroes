@@ -1,0 +1,24 @@
+{
+	"skill_wolf_rend": {
+		"name_key": "ui_battle_skill_wolf_rend",
+		"user_character_id": "enemy_wolf",
+		"unlock_level": 1,
+		"cooldown_sec": 0.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 1.7,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			}
+		]
+	}
+}

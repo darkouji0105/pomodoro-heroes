@@ -942,3 +942,7 @@ ui_battle_result_note_training,検証用ステージのため報酬なし
 ui_battle_result_note_bag_lost,鞄の中身を失った
 ui_battle_skill_boss_slime_tide,粘液の大波
 ui_desc_skill_boss_slime_tide,味方全員に魔力 220% の魔法ダメージ
+ui_battle_skill_slime_press,のしかかり
+ui_desc_skill_slime_press,一番近い1体に攻撃力 200% の一撃
+ui_battle_skill_wolf_rend,噛み裂き
+ui_desc_skill_wolf_rend,一番近い1体に攻撃力 170% の一撃

@@ -14,6 +14,8 @@
 		"attack_type": "physical",
 		"attack_range": 60,
 		"attack_interval_sec": 1.5,
+		"sp_max": 100,
+		"sp_regen": 8,
 		"basic_attack": {
 			"effects": [
 				{
@@ -24,7 +26,8 @@
 					"scale_from": "atk"
 				}
 			]
-		}
+		},
+		"skills": ["skill_slime_press"]
 	},
 	"enemy_wolf": {
 		"name_key": "ui_battle_enemy_wolf",
@@ -41,6 +44,8 @@
 		"attack_type": "physical",
 		"attack_range": 180,
 		"attack_interval_sec": 0.7,
+		"sp_max": 100,
+		"sp_regen": 12,
 		"basic_attack": {
 			"effects": [
 				{
@@ -51,7 +56,8 @@
 					"scale_from": "atk"
 				}
 			]
-		}
+		},
+		"skills": ["skill_wolf_rend"]
 	},
 	"boss_slime_king": {
 		"name_key": "ui_battle_enemy_slime_king",
