@@ -96,7 +96,7 @@ func close() -> void:
 # 種類ごとに1行。⚠ 並びは入手した順（⚠ `PENDING_CHESTS` の並びをそのまま使う）。
 #
 # ⚠ 「開ける」は **その種類の1個目**を開ける。⚠ どれを開けても中身は同じ
-#   （⚠ 報酬は積むときに決まっていて、⚠ `CHEST_REWARDS` に入っている）。
+#   （⚠ 2026-09-18 から**中身は開けるときに振る**。⚠ 同じ種類なら区別が無いので、どれを開けても同じ）。
 func _rebuild_chest_list() -> void:
 	for child: Node in _list.get_children():
 		_list.remove_child(child)
@@ -199,17 +199,17 @@ func _tint_by_rarity(target: CanvasItem, chest_id: String) -> void:
 # --- 開封 ---
 
 func _on_open_chest_pressed(instance_id: String) -> void:
-	# ⚠ 開封前に rewards と名前を読んでおく（⚠ open_chest は rewards を返さないし、
-	#   ⚠ 開けたあとは一覧から引けなくなることがある）。
-	var rewards: Dictionary = _read_chest_rewards(instance_id)
+	# ⚠ 名前と種類は開ける前に読む。⚠⚠ 中身は**開けたあと**に読む（2026-09-18）。
+	#   ⚠ 中身は `open_chest()` の中で振られ、⚠ 開けた記録（`CHEST_REWARDS`）に残る。
 	var chest_title: String = _chest_name(instance_id)
 	var chest_id: String = _chest_id_of(instance_id)
-	if rewards.is_empty() and not _chest_exists(instance_id):
+	if not _chest_exists(instance_id):
 		push_warning("[ChestPanel] chest not found: " + instance_id)
 		return
 	if not GameManager.open_chest(instance_id):
 		push_warning("[ChestPanel] open_chest failed: " + instance_id)
 		return
+	var rewards: Dictionary = _read_chest_rewards(instance_id)
 	# ⚠ 増えた演出はここで呼ばない（⚠ `ResourceGainEffect` が資源の変化を見て自分で流す）。
 	_show_reward_window(rewards, chest_title, chest_id)
 
@@ -225,9 +225,9 @@ func _on_open_all_pressed() -> void:
 		if bool(chest_dict.get(GameStateKeys.CHEST_OPENED, false)):
 			continue
 		var instance_id: String = str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
-		var rewards: Dictionary = chest_dict.get(GameStateKeys.CHEST_REWARDS, {})
+		# ⚠ 中身は開けたあとに読む（⚠ `open_chest()` が振って記録に残す・2026-09-18）。
 		if GameManager.open_chest(instance_id):
-			_merge_rewards(combined, rewards)
+			_merge_rewards(combined, _read_chest_rewards(instance_id))
 			opened_count += 1
 	if opened_count > 0:
 		# ⚠ まとめて1つの窓（⚠ 5個開けて窓が5つ並ぶと閉じるだけで疲れる）。

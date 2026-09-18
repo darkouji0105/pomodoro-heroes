@@ -350,6 +350,10 @@ const FLOOR_RUN_RELICS: String = "relics"            # [{relic_id, character_id}
 const FLOOR_RUN_HP_CARRY: String = "hp_carry"        # {character_id: int}（14-c）
 const FLOOR_RUN_CHEST_COUNT: String = "chest_count"  # int（14-b の最低1回保証）
 const FLOOR_RUN_CONSUMABLES: String = "consumables"  # {item_id: int}（14-e・持ち帰り不可）
+# ⚠⚠ ルートの中で持っている宝箱（2026-09-18・人間の決定「ダンジョンの中ではアイテムだが拠点に戻ると宝箱」
+#   「ストーリーのやつはボス倒したら」）。⚠ {chest_id: int}。⚠ ボスを倒したら拠点の PENDING_CHESTS へ届く。
+#   ⚠ 負けて降りた・自分で降りたときは**失う**（⚠ ランごと捨てるので自然にそうなる）。
+const FLOOR_RUN_CHESTS: String = "chests"
 
 # relics の各要素。character_id が "" なら編成3人全員に効く（PLAN_SCENARIO_MAP.md §5-2-5）。
 const FLOOR_RELIC_ID: String = "relic_id"

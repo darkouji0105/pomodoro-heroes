@@ -867,11 +867,19 @@ func open_chest(instance_id: String) -> bool:
 		if bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
 			print("[GameManager] open_chest('%s') -> false (already opened)" % instance_id)
 			return false
+		# ⚠⚠ 2026-09-18：⚠ **中身はここで振る**（人間の決定「開けるときに抽選」）。
+		#   ⚠ 前のセーブに残っている焼き込み済みの中身は**捨てて引き直す**（⚠ 人間の了解済み）。
+		#   ⚠ マスターから消えた種類だけは、焼き込んだ中身で開ける（⚠ 何も出ないよりまし）。
+		var chest_id: String = str(chest.get(GameStateKeys.CHEST_ID, ""))
+		var rewards: Dictionary = _roll_chest_rewards(chest_id)
+		if MasterDataLoader.get_chest(chest_id).is_empty():
+			rewards = chest.get(GameStateKeys.CHEST_REWARDS, {})
 		# ⚠ 段階18-b：倉庫に入らないなら開けさせない（PLAN_INVENTORY.md §4-1）。
 		#   ⚠ 開けてから溢れると中身が消える。⚠ 未開封のまま残せば取り返しがつく。
-		#   ⚠ 判定は「開けた」と書く前（CLAUDE.md 6番）。
+		#   ⚠ 判定は「開けた」と書く前（CLAUDE.md 6番）。⚠ 振った中身で数える。
+		#   ⚠ 弾いたときは振った結果を捨てる（⚠ 見せていないので引き直しの得にはならない）。
 		var chest_needs: int = _inventory_slots_needed(
-			chest.get(GameStateKeys.CHEST_REWARDS, {}).get(GameStateKeys.REWARD_INVENTORY, {})
+			rewards.get(GameStateKeys.REWARD_INVENTORY, {})
 		)
 		if not can_accept_inventory(chest_needs):
 			print("[GameManager] open_chest('%s') -> false (倉庫が満杯 %d/%d・要る %d マス)" % [
@@ -879,10 +887,11 @@ func open_chest(instance_id: String) -> bool:
 			])
 			return false
 		chest[GameStateKeys.CHEST_OPENED] = true
+		# ⚠ 開けた中身を記録に残す（⚠ 画面は開けたあとにここを読んで「何が入ったか」を出す）。
+		chest[GameStateKeys.CHEST_REWARDS] = rewards
 		chests[i] = chest
 		_state[GameStateKeys.PENDING_CHESTS] = chests
 		# rewards を反映（既存の add_* 関数を使い回し、重複実装を避ける）
-		var rewards: Dictionary = chest.get(GameStateKeys.CHEST_REWARDS, {})
 		if rewards.has(GameStateKeys.REWARD_GOLD):
 			add_gold(int(rewards[GameStateKeys.REWARD_GOLD]))
 		if rewards.has(GameStateKeys.REWARD_GEMS):
@@ -1097,12 +1106,33 @@ func _grant_stage_chest(rewards: Dictionary) -> void:
 #   「開けたのに何も出ない」になる。抽選のハズレ枠の weight が、そのまま
 #   「宝箱が出ない確率」になる。
 # ⚠ 状態を触るのは最後の add_pending_chest() の1回だけ（CLAUDE.md 6番）。
-# ⚠ 抽選の結果は個体に焼き込む（人間の決定C・積むときに振る）。開けるときには振らない。
+# ⚠⚠ 2026-09-18：⚠ **中身は開けるときに抽選する**（人間の決定「開けるときに抽選」）。
+#   ⚠ 前は積むときに振って個体に焼き込んでいた（人間の決定C・**取り消し**）。
+#   ⚠ ここは種類だけを積む（⚠ `CHEST_REWARDS` は空）。⚠ 振るのは `open_chest()` の中。
+# ⚠ 「中身が空なら積まない」（ハズレ枠の weight ＝宝箱が出ない確率）は**効かなくなった**。
+#   ⚠ いまの chests.json にハズレ枠は1件も無い（2026-09-18 に確認）。⚠ 足すなら積む前に決め直すこと。
 func grant_chest(chest_id: String, source: String) -> bool:
-	var chest: Dictionary = MasterDataLoader.get_chest(chest_id)
-	if chest.is_empty():
+	if MasterDataLoader.get_chest(chest_id).is_empty():
 		push_warning("[GameManager] grant_chest: chests.json に無い chest_id: " + chest_id)
 		return false
+	add_pending_chest({
+		GameStateKeys.CHEST_INSTANCE_ID: str(Time.get_unix_time_from_system()) + "_" + str(randi()),
+		GameStateKeys.CHEST_ID: chest_id,
+		GameStateKeys.CHEST_SOURCE: source,
+		GameStateKeys.CHEST_OBTAINED_AT: str(Time.get_unix_time_from_system()),
+		GameStateKeys.CHEST_OPENED: false,
+		GameStateKeys.CHEST_REWARDS: {},
+	})
+	return true
+
+
+# 宝箱1個ぶんの中身を振る（⚠ 状態は触らない・⚠ 呼ぶのは `open_chest()` の1本）。
+#
+# ⚠ 固定（rewards）と抽選（draw）を合流させる。⚠ マスターに無い種類は空を返す。
+func _roll_chest_rewards(chest_id: String) -> Dictionary:
+	var chest: Dictionary = MasterDataLoader.get_chest(chest_id)
+	if chest.is_empty():
+		return {}
 
 	# 固定ぶん。複製してから触る（マスターのキャッシュを汚さない）。
 	var rewards: Dictionary = {}
@@ -1134,20 +1164,7 @@ func grant_chest(chest_id: String, source: String) -> bool:
 			table[item_id] = int(table.get(item_id, 0)) + int(drawn[item_id])
 			rewards[table_key] = table
 
-	if _is_rewards_empty(rewards):
-		# ⚠ 抽選のハズレは正常系。print を出さない（NEXT_STEPS §4）。
-		#   70%の戦闘で出るので、出すと godot.log がこの1行で埋まる。
-		return false
-
-	add_pending_chest({
-		GameStateKeys.CHEST_INSTANCE_ID: str(Time.get_unix_time_from_system()) + "_" + str(randi()),
-		GameStateKeys.CHEST_ID: chest_id,
-		GameStateKeys.CHEST_SOURCE: source,
-		GameStateKeys.CHEST_OBTAINED_AT: str(Time.get_unix_time_from_system()),
-		GameStateKeys.CHEST_OPENED: false,
-		GameStateKeys.CHEST_REWARDS: rewards,
-	})
-	return true
+	return rewards
 
 
 # 宝箱の中身が実質空か。gold/gems/stamina は0、materials/inventory は空なら空とみなす。
@@ -6328,6 +6345,13 @@ func load_state(data: Dictionary) -> bool:
 			var consumables: Dictionary = run[GameStateKeys.FLOOR_RUN_CONSUMABLES]
 			for item_id: String in consumables:
 				consumables[item_id] = int(consumables[item_id])
+		# ⚠ ルートの中の宝箱（2026-09-18）。⚠ 前のセーブには欄が無い＝空で足す。
+		if run.has(GameStateKeys.FLOOR_RUN_CHESTS) and run[GameStateKeys.FLOOR_RUN_CHESTS] is Dictionary:
+			var run_chests: Dictionary = run[GameStateKeys.FLOOR_RUN_CHESTS]
+			for chest_id: String in run_chests:
+				run_chests[chest_id] = int(run_chests[chest_id])
+		else:
+			run[GameStateKeys.FLOOR_RUN_CHESTS] = {}
 		if run.has(GameStateKeys.FLOOR_RUN_NODES) and run[GameStateKeys.FLOOR_RUN_NODES] is Dictionary:
 			var floor_nodes: Dictionary = run[GameStateKeys.FLOOR_RUN_NODES]
 			for node_id: String in floor_nodes:
@@ -6552,6 +6576,8 @@ func _empty_floor_run() -> Dictionary:
 		GameStateKeys.FLOOR_RUN_HP_CARRY: {},
 		GameStateKeys.FLOOR_RUN_CHEST_COUNT: 0,
 		GameStateKeys.FLOOR_RUN_CONSUMABLES: {},
+		# ⚠ ルートの中で持っている宝箱（2026-09-18）。⚠ ボスを倒したら拠点へ届く。
+		GameStateKeys.FLOOR_RUN_CHESTS: {},
 	}
 
 
@@ -6710,11 +6736,16 @@ func _roll_floor_chest(node_id: String) -> void:
 	if chest_id == "":
 		push_warning("[GameManager] _roll_floor_chest: chest_ids に %s が無い: %s" % [rarity, floor_id])
 		return
-	if not grant_chest(chest_id, GameStateKeys.CHEST_SOURCE_FLOOR):
+	# ⚠⚠ 2026-09-18：⚠ 拠点へ直接送らない（人間の決定「ダンジョンの中ではアイテムだが
+	#   ⚠ 拠点に戻ると宝箱」「ストーリーのやつはボス倒したら」）。⚠ ランの中に個数で持つ。
+	#   ⚠ 拠点へ届くのは `deliver_floor_chests()`（ボスを倒したとき）。
+	if MasterDataLoader.get_chest(chest_id).is_empty():
+		push_warning("[GameManager] _roll_floor_chest: chests.json に無い: " + chest_id)
 		return
 
 	var next_run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
 	next_run[GameStateKeys.FLOOR_RUN_CHEST_COUNT] = count + 1
+	_add_run_chest(next_run, chest_id)
 	_state[GameStateKeys.FLOOR_RUN] = next_run
 	# ⚠ 状態を書き終えてから知らせる。先に飛ばすと、購読側が古い件数を読む
 	#   （宝箱の件数と同じ形＝apply_battle_rewards のコメント）。
@@ -7027,12 +7058,55 @@ func buy_floor_heal() -> bool:
 # ショップに入ったときの無料ガチャ（段階14-e）。
 #
 # ⚠ 恒久資産として持ち帰れる（メモ「宝箱とは別枠、恒久資産」）。
-# ⚠ 積む口は grant_chest の1本だけ。2本目を書かない。
 # ⚠ chest_count には数えない（宝箱の最低1回保証とは別物）。
+# ⚠⚠ 2026-09-18：⚠ ルートの中で拾った宝箱と同じく**ランの中に持つ**（⚠ ボスを倒したら届く）。
+#   ⚠ 拠点へ積む口は `deliver_floor_chests()` → `grant_chest()` の1本のまま。
 func grant_floor_gacha() -> bool:
 	if not is_in_floor():
 		return false
-	return grant_chest(FLOOR_GACHA_CHEST_ID, GameStateKeys.CHEST_SOURCE_FLOOR)
+	if MasterDataLoader.get_chest(FLOOR_GACHA_CHEST_ID).is_empty():
+		return false
+	var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+	_add_run_chest(run, FLOOR_GACHA_CHEST_ID)
+	_state[GameStateKeys.FLOOR_RUN] = run
+	return true
+
+
+# ランの中の宝箱を1個足す（⚠ 渡された複製を書き換えるだけ。⚠ `_state` へ戻すのは呼ぶ側）。
+func _add_run_chest(run: Dictionary, chest_id: String) -> void:
+	var chests: Dictionary = (run.get(GameStateKeys.FLOOR_RUN_CHESTS, {}) as Dictionary).duplicate()
+	chests[chest_id] = int(chests.get(chest_id, 0)) + 1
+	run[GameStateKeys.FLOOR_RUN_CHESTS] = chests
+
+
+# ルートの中で持っている宝箱 {chest_id: 個数}（⚠ 複製を返す）。⚠ 画面はこの1本に聞く。
+func get_floor_run_chests() -> Dictionary:
+	var run: Dictionary = _state.get(GameStateKeys.FLOOR_RUN, {})
+	return (run.get(GameStateKeys.FLOOR_RUN_CHESTS, {}) as Dictionary).duplicate()
+
+
+# ルートの中の宝箱を拠点へ届ける（2026-09-18・人間の決定「ストーリーのやつはボス倒したら」）。
+#
+# ⚠⚠ 呼ぶのは**ボスを倒したときだけ**（⚠ 戦闘の勝ち ／ 周回の自動処理）。⚠ `abandon_floor()` の前。
+#   ⚠ 負けて降りた・自分で降りたときは呼ばない＝ランごと捨てて**失う**。
+# ⚠ 拠点へ積む口は `grant_chest()` の1本（⚠ 2本目を作らない）。
+# ⚠ 全部数え終えてから状態を触る（CLAUDE.md 6番）。⚠ 戻り値は届けた個数。
+func deliver_floor_chests() -> int:
+	var chests: Dictionary = get_floor_run_chests()
+	var queue: Array[String] = []
+	for chest_id: String in chests:
+		for _i: int in range(int(chests[chest_id])):
+			queue.append(chest_id)
+	var delivered: int = 0
+	for chest_id: String in queue:
+		if grant_chest(chest_id, GameStateKeys.CHEST_SOURCE_FLOOR):
+			delivered += 1
+	if _state.get(GameStateKeys.FLOOR_RUN, {}) is Dictionary and not chests.is_empty():
+		var run: Dictionary = (_state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+		run[GameStateKeys.FLOOR_RUN_CHESTS] = {}
+		_state[GameStateKeys.FLOOR_RUN] = run
+	print("[GameManager] deliver_floor_chests() -> %d 個を拠点へ" % delivered)
+	return delivered
 
 
 # ========================================================================
@@ -7137,6 +7211,8 @@ func run_floor_auto(floor_id: String) -> Dictionary:
 		GameStateKeys.BATTLE_WAVES_CLEARED: steps,
 		GameStateKeys.BATTLE_REWARDS: rewards,
 	})
+	# ⚠ ボスを倒した扱いなので、⚠ ルートの中の宝箱を届けてから降りる（2026-09-18）。
+	deliver_floor_chests()
 	abandon_floor()
 
 	print("[GameManager] run_floor_auto('%s') -> %d手 / 宝箱 %d / ガチャ %d" % [

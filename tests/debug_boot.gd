@@ -2963,9 +2963,21 @@ func _report_drops() -> void:
 	print("  %d 回目で積まれた（⚠ 1 が正解＝ハズレ枠を廃止した）" % attempts)
 
 	var chest: Dictionary = _last_unopened_chest()
-	var chest_rewards: Dictionary = chest.get(GameStateKeys.CHEST_REWARDS, {})
+	# ⚠⚠ 2026-09-18 から**中身は開けるときに振る**（人間の決定）。⚠ 積んだ時点の中身は空が正解。
+	print("  積んだ時点の中身 = %s（⚠ 空が正解＝開けるときに振る）" % str(
+		chest.get(GameStateKeys.CHEST_REWARDS, {})
+	))
+	if not (chest.get(GameStateKeys.CHEST_REWARDS, {}) as Dictionary).is_empty():
+		push_error("[DebugBoot] 積んだ時点で中身が焼き込まれている（開けるときに振る決定と食い違う）")
+
+	var instance_id: String = str(chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
+	var before_instances: int = _instance_count()
+	var opened: bool = GameManager.open_chest(instance_id)
+	print("  open_chest() = %s / 個体 %d -> %d" % [str(opened), before_instances, _instance_count()])
+	# ⚠ 開けたあとの記録に、振った中身が残る（⚠ 画面はここを読んで「何が入ったか」を出す）。
+	var chest_rewards: Dictionary = _chest_record(instance_id).get(GameStateKeys.CHEST_REWARDS, {})
 	var chest_inv: Dictionary = chest_rewards.get(GameStateKeys.REWARD_INVENTORY, {})
-	print("  chest_id = '%s' / source = '%s' / inventory = %s" % [
+	print("  chest_id = '%s' / source = '%s' / 開けた中身の inventory = %s" % [
 		str(chest.get(GameStateKeys.CHEST_ID, "")),
 		str(chest.get(GameStateKeys.CHEST_SOURCE, "")),
 		str(chest_inv),
@@ -2973,11 +2985,6 @@ func _report_drops() -> void:
 	for item_id: String in chest_inv:
 		if not _draw_has_item(probe_chest, item_id):
 			push_error("[DebugBoot] %s のテーブルに無いIDが宝箱に入った: %s" % [probe_chest, item_id])
-
-	var instance_id: String = str(chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
-	var before_instances: int = _instance_count()
-	var opened: bool = GameManager.open_chest(instance_id)
-	print("  open_chest() = %s / 個体 %d -> %d" % [str(opened), before_instances, _instance_count()])
 	var instances: Dictionary = GameManager.get_state().get(GameStateKeys.EQUIPMENT_INSTANCES, {})
 	for inst_id: String in instances:
 		var inst: Dictionary = instances[inst_id]
@@ -3003,7 +3010,12 @@ func _report_drops() -> void:
 	var mat_chest_id: String = "floor_1_common"
 	var _mat_granted: bool = GameManager.grant_chest(mat_chest_id, GameStateKeys.CHEST_SOURCE_FLOOR)
 	var mat_chest: Dictionary = _last_unopened_chest()
-	var mat_rewards: Dictionary = mat_chest.get(GameStateKeys.CHEST_REWARDS, {})
+	var slots_before: int = GameManager.get_inventory_slots_used()
+	var forge_before: int = GameManager.get_material_count("forging_material_1")
+	var mat_instance: String = str(mat_chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
+	var _mat_opened: bool = GameManager.open_chest(mat_instance)
+	# ⚠ 中身は開けたあとの記録から読む（⚠ 2026-09-18 から開けるときに振る）。
+	var mat_rewards: Dictionary = _chest_record(mat_instance).get(GameStateKeys.CHEST_REWARDS, {})
 	var mat_table: Dictionary = mat_rewards.get(GameStateKeys.REWARD_MATERIALS, {})
 	var mat_inv: Dictionary = mat_rewards.get(GameStateKeys.REWARD_INVENTORY, {})
 	print("  materials = %s（⚠ ここに入るのが正解）" % str(mat_table))
@@ -3012,11 +3024,6 @@ func _report_drops() -> void:
 		push_error("[DebugBoot] 抽選で出た素材が rewards.inventory に入っている（倉庫のマスを食う）")
 	if mat_table.is_empty():
 		push_error("[DebugBoot] 抽選で出た素材が rewards.materials に入っていない")
-	var slots_before: int = GameManager.get_inventory_slots_used()
-	var forge_before: int = GameManager.get_material_count("forging_material_1")
-	var _mat_opened: bool = GameManager.open_chest(
-		str(mat_chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
-	)
 	print("  開けたあと 倉庫のマス %d -> %d（⚠ 増えないのが正解）" % [
 		slots_before, GameManager.get_inventory_slots_used()
 	])
@@ -3079,6 +3086,14 @@ func _last_unopened_chest() -> Dictionary:
 			continue
 		var chest: Dictionary = chests[i]
 		if not bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
+			return chest
+	return {}
+
+
+# instance_id で宝箱の記録を1件引く（⚠ 開けたあとも残る）。⚠ 無ければ空。
+func _chest_record(instance_id: String) -> Dictionary:
+	for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+		if chest is Dictionary and str((chest as Dictionary).get(GameStateKeys.CHEST_INSTANCE_ID, "")) == instance_id:
 			return chest
 	return {}
 
@@ -3506,6 +3521,38 @@ func _report_floor() -> void:
 	])
 	print("  ⚠ 1個も出なかった周 = %d（0 が正解）" % guarantee_zero)
 	print("  出現率を %d%% に戻した" % int(Balance.floor.chest_chance_pct))
+	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
+
+	# ⚠⚠ ルートの中の宝箱（2026-09-18・人間の決定「ダンジョンの中ではアイテムだが拠点に戻ると宝箱」
+	#   「ストーリーのやつはボス倒したら」）。⚠ 拾った時点では拠点へ行かず、⚠ ボスで届き、⚠ 降りたら失う。
+	print("[DebugBoot] --- ルートの中の宝箱（ボスで届く・降りたら失う）---")
+	if GameManager.start_floor(floor_ids[0]):
+		_walk_to_boss()
+		var held: int = 0
+		for c: Variant in GameManager.get_floor_run_chests().values():
+			held += int(c)
+		var pending_mid: int = GameManager.get_pending_chest_count()
+		print("  歩き終えて 持っている=%d / 拠点の未開封=%d（⚠ 0 が正解＝まだ届いていない）" % [held, pending_mid])
+		var delivered: int = GameManager.deliver_floor_chests()
+		print("  deliver_floor_chests() -> %d 個 / 拠点の未開封=%d（⚠ 持っていた %d と同じが正解）/ 残り=%d（⚠ 0 が正解）" % [
+			delivered, GameManager.get_pending_chest_count(), held,
+			GameManager.get_floor_run_chests().size(),
+		])
+		if pending_mid != 0 or GameManager.get_pending_chest_count() != held:
+			push_error("[DebugBoot] ルートの宝箱の届き方が食い違う")
+		GameManager.abandon_floor()
+	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
+	if GameManager.start_floor(floor_ids[0]):
+		_walk_to_boss()
+		var held_lost: int = 0
+		for c: Variant in GameManager.get_floor_run_chests().values():
+			held_lost += int(c)
+		GameManager.abandon_floor()
+		print("  持っていた %d 個のまま降りる -> 拠点の未開封=%d（⚠ 0 が正解＝失う）" % [
+			held_lost, GameManager.get_pending_chest_count()
+		])
+		if GameManager.get_pending_chest_count() != 0:
+			push_error("[DebugBoot] 降りたのにルートの宝箱が拠点へ届いている")
 	GameManager._state[GameStateKeys.PENDING_CHESTS] = []
 
 	# --- 10. レリック（段階14-d・PLAN_SCENARIO_MAP.md §5-2）---
@@ -5990,48 +6037,41 @@ func _report_inventory_capacity() -> void:
 	# ② 宝箱：開けさせない（⚠ 未開封のまま残る＝取り返しがつく）
 	#   ⚠ 中身が素材だけの宝箱はマスを使わないので開けてよい（＝それが正しい挙動）。
 	#   ⚠ なので「持ち物が入っている宝箱」が出るまで積んでから測る。
-	var chest_instance_id: String = ""
-	var chest_material_only: String = ""
-	for _try: int in range(30):
-		# ⚠ floor_1_common は素材しか出ない。⚠ 持ち物が出るのは epic / legendary（実測）。
-		#   ⚠ ここを common に戻すと、⚠ ②が「素材だけ＝開けてよい」で必ず true になり空振りする。
+	# ⚠⚠ 2026-09-18 から**中身は開けるときに振る**（人間の決定）。⚠ 前のように中身を覗いて
+	#   ⚠ 「持ち物が入る宝箱」を選べない。⚠ そこで floor_1_epic を積んでは開けてみる：
+	#   ⚠ 振った中身が持ち物なら開かずに false（⚠ 未開封のまま残る）、⚠ 素材だけなら開く。
+	#   ⚠ 両方が1回ずつ起きるまで回す。
+	# ⚠ floor_1_common は素材しか出ない。⚠ 持ち物が出るのは epic / legendary（実測）。
+	var refused: bool = false
+	var refused_kept: bool = false
+	var material_opened: bool = false
+	for _try: int in range(60):
+		if refused and material_opened:
+			break
 		if not GameManager.grant_chest("floor_1_epic", "debug"):
 			push_error("[DebugBoot] 宝箱を積めなかった（②が空振りになる）")
 			break
-		for entry: Variant in (GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []) as Array):
-			if not (entry is Dictionary):
-				continue
-			var chest: Dictionary = entry
-			if bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
-				continue
-			var rewards: Dictionary = chest.get(GameStateKeys.CHEST_REWARDS, {})
-			var items: Variant = rewards.get(GameStateKeys.REWARD_INVENTORY, {})
-			# ⚠ rewards.inventory には素材のIDも入る（振り分けは _grant_item がする）。
-			#   ⚠ 素材はマスを使わないので、⚠ 「マスを使う品が1つでも入っているか」で選ぶ。
-			var needs_slot: bool = false
-			if items is Dictionary:
-				for reward_id: Variant in (items as Dictionary):
-					var definition: Dictionary = MasterDataLoader.get_item(str(reward_id))
-					if str(definition.get(GameManager.ITEM_MASTER_STORAGE, "")) != GameManager.ITEM_STORAGE_MATERIAL:
-						needs_slot = true
-			if needs_slot:
-				chest_instance_id = str(chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
-			elif chest_material_only == "":
-				chest_material_only = str(chest.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
-		if chest_instance_id != "":
-			break
-	if chest_instance_id == "":
-		push_error("[DebugBoot] 持ち物が入る宝箱が出なかった（②が空振りになる）")
-	var before_pending: int = GameManager.get_pending_chest_count()
-	print("  ② open_chest（⚠ 持ち物が入る宝箱） -> %s（false が正解） / 未開封 %d -> %d（減らないのが正解）" % [
-		str(GameManager.open_chest(chest_instance_id)),
-		before_pending, GameManager.get_pending_chest_count(),
+		var probe: String = str(_last_unopened_chest().get(GameStateKeys.CHEST_INSTANCE_ID, ""))
+		var pending_before: int = GameManager.get_pending_chest_count()
+		if GameManager.open_chest(probe):
+			# ⚠ 開いた＝振った中身が**新しいマスを使わない**もの（⚠ 素材 ／ 倉庫に同じ品があって重なる品）。
+			#   ⚠ 見るべきは「満杯を超えて入っていないか」（⚠ 品の種類で決めつけない。
+			#   ⚠ 1回目は「素材以外なら赤」にしていて、⚠ 重なる装飾で誤って赤を出した）。
+			if GameManager.get_inventory_slots_used() > GameManager.get_inventory_slot_max():
+				push_error("[DebugBoot] 満杯なのに宝箱を開けて倉庫があふれた（%d / %d）" % [
+					GameManager.get_inventory_slots_used(), GameManager.get_inventory_slot_max()
+				])
+			material_opened = true
+		else:
+			refused = true
+			refused_kept = GameManager.get_pending_chest_count() == pending_before \
+				and not bool(_chest_record(probe).get(GameStateKeys.CHEST_OPENED, false))
+	print("  ② open_chest（⚠ 持ち物が出た宝箱） -> 断られた=%s（true が正解） / 未開封のまま残る=%s（true が正解）" % [
+		str(refused), str(refused_kept),
 	])
-	if chest_material_only != "":
-		# ⚠ 素材だけの宝箱は満杯でも開けてよい（マスを使わないため）。⚠ ここが false だと締めすぎ。
-		print("  ②-b open_chest（⚠ 素材だけの宝箱） -> %s（true が正解＝素材はマスを使わない）" % [
-			str(GameManager.open_chest(chest_material_only))
-		])
+	print("  ②-b open_chest（⚠ 素材だけ出た宝箱） -> 開いた=%s（true が正解＝素材はマスを使わない）" % str(material_opened))
+	if not refused:
+		push_error("[DebugBoot] 持ち物の出る宝箱が一度も断られなかった（②が空振りになる）")
 
 	# ③ ショップ：買わせない（⚠ ゴールドが減らないこと）
 	var gold_before: int = int(GameManager.get_state().get(GameStateKeys.GOLD, 0))

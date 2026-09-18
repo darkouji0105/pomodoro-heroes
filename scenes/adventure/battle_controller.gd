@@ -2103,6 +2103,9 @@ func _enter_victory() -> void:
 			GameManager.apply_battle_rewards(result_data)
 			GameManager.mark_stage_cleared(_stage_id, 0)
 			if in_floor_run:
+				# ⚠ ルートの中で持っている宝箱を拠点へ届けてから降りる（2026-09-18・人間の決定
+				#   「ストーリーのやつはボス倒したら」）。⚠ 降りたあとではランが空で届けられない。
+				GameManager.deliver_floor_chests()
 				# フロアを踏破した。⚠ 降りるのはここ1箇所だけ。
 				GameManager.abandon_floor()
 		elif not rewards.is_empty():

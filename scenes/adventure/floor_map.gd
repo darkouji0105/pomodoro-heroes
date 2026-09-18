@@ -93,8 +93,13 @@ func _update_header() -> void:
 	floor_name_label.text = tr(str(stage.get("name_key", floor_id)))
 
 	# 数値のみなので tr() は通さない（AGENTS.md）。
+	# ⚠⚠ 2026-09-18：⚠ 数字は**いま持っている宝箱**（⚠ ボスを倒すと拠点へ届く・負けたら失う）。
+	#   ⚠ 前は「このフロアで出た数」（`get_floor_chest_count()`＝最低1回保証の数え方）だった。
+	var held: int = 0
+	for count: Variant in GameManager.get_floor_run_chests().values():
+		held += int(count)
 	chest_label.text = "%s: %d  %s %d(%d%s)" % [
-		tr("ui_floor_chest_count"), GameManager.get_floor_chest_count(),
+		tr("ui_floor_chest_held"), held,
 		tr("ui_floor_torch"), GameManager.get_floor_torch_grade(),
 		GameManager.get_floor_reveal_layers(), tr("ui_floor_torch_layers"),
 	]

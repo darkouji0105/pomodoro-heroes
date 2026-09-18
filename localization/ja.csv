@@ -946,3 +946,4 @@ ui_battle_skill_slime_press,のしかかり
 ui_desc_skill_slime_press,一番近い1体に攻撃力 200% の一撃
 ui_battle_skill_wolf_rend,噛み裂き
 ui_desc_skill_wolf_rend,一番近い1体に攻撃力 170% の一撃
+ui_floor_chest_held,持っている宝箱（ボスを倒すと拠点へ）
