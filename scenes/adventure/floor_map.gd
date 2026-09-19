@@ -248,7 +248,12 @@ func _rebuild_layers() -> void:
 					else RunMapView.TONE_HIDDEN
 				),
 			})
-	map_view.set_map(map_nodes, map_edges)
+	# ⚠ 層の目盛り（2026-09-19・モック v2）。⚠ シナリオに区画は無いので切れ目は無し。
+	var captions: Dictionary = {}
+	for raw: Variant in nodes.values():
+		var layer: int = int((raw as Dictionary).get(GameStateKeys.FLOOR_NODE_LAYER, 1))
+		captions[layer] = tr("ui_floor_layer_no") % layer
+	map_view.set_map(map_nodes, map_edges, captions)
 
 
 # マスの文字。⚠ ▶ ✓ と札の見た目は RunMapView が付ける。

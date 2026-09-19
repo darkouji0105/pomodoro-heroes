@@ -68,14 +68,22 @@ const PIN_COLOR_FAR: Color = Color("6b5638")
 const BOSS_EXTRA_WIDTH: float = 22.0
 const BOSS_MIN_HEIGHT: float = 46.0
 
-# 通路の線の色（段階19-e）。⚠ 罠＝赤 ／ 得＝黄 ／ 何も無い＝灰 ／ 中身が見えていない＝暗い灰。
-const COLOR_EDGE_TRAP: Color = Color(0.85, 0.35, 0.35)
-const COLOR_EDGE_GAIN: Color = Color(0.95, 0.85, 0.4)
-const COLOR_EDGE_PLAIN: Color = Color(0.45, 0.45, 0.5)
-const COLOR_EDGE_HIDDEN: Color = Color(0.28, 0.28, 0.32)
+# 通路の線の色（段階19-e → 2026-09-19 にモック v2 の値へ）。
+#   ⚠ 罠＝赤 ／ 得＝金 ／ 何も無い＝灰 ／ 中身が見えていない＝暗い灰（点線）。
+const COLOR_EDGE_TRAP: Color = Color("e88a8a")
+const COLOR_EDGE_GAIN: Color = Color("f0c04a")
+const COLOR_EDGE_PLAIN: Color = Color("6b5d55")
+const COLOR_EDGE_HIDDEN: Color = Color("2e2724")
+# 通路の字の台（菱形）の枠。⚠ 罠＝赤茶 ／ 得＝金茶（モック `.edge-badge.bad / .good`）。
+const COLOR_BADGE_TRAP: Color = Color("5a2a28")
+const COLOR_BADGE_GAIN: Color = Color("6b5320")
 # ⚠ いま立っているマスから出ている線は太くする（⚠ 「次に選ぶのはここ」が読めること）。
-const EDGE_WIDTH: float = 2.0
-const EDGE_WIDTH_CURRENT: float = 4.0
+const EDGE_WIDTH: float = 1.6
+const EDGE_WIDTH_CURRENT: float = 3.0
+
+# 層の目盛り（2026-09-19・モック v2「左端に層の目盛り」）。⚠ 行の左に置く字の欄の幅。
+#   ⚠ 右にも同じ幅の空きを置く（⚠ 置かないとマスの並びが画面の真ん中からずれる＝決定37）。
+const LAYER_CAPTION_WIDTH: float = 64.0
 
 # マスの並びの間隔（段階19-f）。⚠ 層のあいだが狭いと線がほとんど点になる。
 # ⚠ バランスの数値ではなく見た目なので Config に出していない（⚠ 色と同じ扱い）。
@@ -101,6 +109,12 @@ var _node_buttons: Dictionary = {}
 var _edges: Array = []
 # いま立っているマス（⚠ そこから出る線を太くする）。
 var _current_id: String = ""
+# {layer: 行の Control}。⚠ 区画の切れ目の高さを決めるのに使う。
+var _rows: Dictionary = {}
+# この層の「上」に切れ目を引く（⚠ 層 L と L+1 のあいだ）。⚠ 判定は画面が GameManager に聞いた結果。
+var _seam_after: Array = []
+# 切れ目に添える字（⚠ 翻訳済み）。
+var _seam_caption: String = ""
 
 ## 層のあいだの間隔。⚠ LAYER_SEPARATION か LAYER_SEPARATION_NO_SCROLL を入れる（⚠ 値を画面に書かない）。
 var layer_separation: int = LAYER_SEPARATION:
@@ -127,20 +141,28 @@ func _init() -> void:
 	add_child(_layer_list)
 	# ⚠⚠ 線はマスの位置が確定してからでないと引けない。⚠ 並べ替えが終わるたびに引き直す。
 	#   ⚠ await を使わない（AGENTS.md）。⚠ ウィンドウを広げても追従する。
-	_layer_list.sort_children.connect(_redraw_edges)
+	_layer_list.sort_children.connect(_request_redraw)
 
 
 # マスと線を差し替える。
 #
-# nodes: [{id, layer, text, state}] ／ edges: [{from, to, tone, label}]
+# nodes: [{id, layer, text, state, hidden, boss}] ／ edges: [{from, to, tone, label}]
+# layer_captions: {layer: 目盛りの字}（⚠ 翻訳済み。⚠ 無い層は空）
+# seam_after: [層]（⚠ その層と1つ上の層のあいだに区画の切れ目）／ seam_caption: 切れ目の字
 # ⚠ edges は画面が並べた順に引く（⚠ 重なり順が起動ごとに変わらないよう、画面側で綴り順に）。
-func set_map(nodes: Array, edges: Array) -> void:
+func set_map(
+		nodes: Array, edges: Array, layer_captions: Dictionary = {},
+		seam_after: Array = [], seam_caption: String = ""
+) -> void:
 	for child in _layer_list.get_children():
 		_layer_list.remove_child(child)
 		child.queue_free()
 	_node_buttons.clear()
+	_rows.clear()
 	_edges = edges
 	_current_id = ""
+	_seam_after = seam_after
+	_seam_caption = seam_caption
 
 	# ⚠ 綴り順に並べてから層に仕分ける。
 	var by_id: Dictionary = {}
@@ -170,8 +192,19 @@ func set_map(nodes: Array, edges: Array) -> void:
 		columns = maxi(columns, (by_layer[layer] as Array).size())
 
 	for layer: Variant in layers:
+		# ⚠ 1層＝［目盛りの字｜マスの並び｜同じ幅の空き］（2026-09-19・モック v2）。
+		var line: HBoxContainer = HBoxContainer.new()
+		line.name = "Layer_%d" % int(layer)
+		var caption: Label = Label.new()
+		caption.name = "Caption"
+		caption.theme_type_variation = &"CaptionLabel"
+		caption.custom_minimum_size = Vector2(LAYER_CAPTION_WIDTH, 0.0)
+		caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		caption.size_flags_vertical = Control.SIZE_FILL
+		caption.text = str(layer_captions.get(int(layer), ""))
+		line.add_child(caption)
 		var row: GridContainer = GridContainer.new()
-		row.name = "Layer_%d" % int(layer)
+		row.name = "Nodes"
 		row.columns = columns
 		row.add_theme_constant_override("h_separation", NODE_SEPARATION)
 		var row_ids: Array = by_layer[layer]
@@ -200,7 +233,18 @@ func set_map(nodes: Array, edges: Array) -> void:
 			var node_button: Button = _make_node_button(node_id, by_id[node_id])
 			_node_buttons[node_id] = node_button
 			row.add_child(node_button)
-		_layer_list.add_child(row)
+		line.add_child(row)
+		# ⚠⚠ 行の中の並べ替えは外側より後に来ることがある（⚠ 行を1段入れ子にしたため）。
+		#   ⚠ 中の並べ替えでも引き直す（⚠ まとめて1回にする＝_request_redraw）。
+		line.sort_children.connect(_request_redraw)
+		row.sort_children.connect(_request_redraw)
+		var pad: Control = Control.new()
+		pad.name = "Pad"
+		pad.custom_minimum_size = Vector2(LAYER_CAPTION_WIDTH, 0.0)
+		pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.add_child(pad)
+		_layer_list.add_child(line)
+		_rows[int(layer)] = line
 
 	# ⚠ Control は子の最小サイズを自動では拾わない。⚠ 外側（ScrollContainer / VBox）へ渡す。
 	custom_minimum_size = _layer_list.get_combined_minimum_size()
@@ -272,6 +316,24 @@ func get_node_button(node_id: String) -> Control:
 	return null
 
 
+# 線の引き直しを頼む。⚠ 1フレームの中で何度頼まれても1回だけ引く（⚠ 行ごとに合図が来るため）。
+#   ⚠ await を使わない（AGENTS.md）。⚠ call_deferred で次の空き時間に回す。
+var _redraw_queued: bool = false
+
+
+func _request_redraw() -> void:
+	if _redraw_queued:
+		return
+	_redraw_queued = true
+	_flush_redraw.call_deferred()
+
+
+func _flush_redraw() -> void:
+	_redraw_queued = false
+	if is_inside_tree():
+		_redraw_edges()
+
+
 # 線を引く（段階19-e）。⚠ 呼ぶのは set_map() の最後と sort_children の2箇所だけ。
 func _redraw_edges() -> void:
 	if _edge_lines == null:
@@ -312,13 +374,37 @@ func _redraw_edges() -> void:
 				to_button, false, in_slot, int(incoming_total.get(to_id, 1))
 			),
 			DungeonEdgeLines.LINE_COLOR: _tone_color(str(edge.get(EDGE_TONE, TONE_PLAIN))),
+			DungeonEdgeLines.LINE_STYLE: _tone_style(str(edge.get(EDGE_TONE, TONE_PLAIN))),
+			DungeonEdgeLines.LINE_BADGE_BORDER: _tone_badge(str(edge.get(EDGE_TONE, TONE_PLAIN))),
 			DungeonEdgeLines.LINE_WIDTH: (
 				EDGE_WIDTH_CURRENT if from_id == _current_id else EDGE_WIDTH
 			),
 			DungeonEdgeLines.LINE_LABEL: str(edge.get(EDGE_LABEL, "")),
 		})
-	_edge_lines.set_lines(lines)
+	_edge_lines.set_lines(lines, _seam_lines())
 	laid_out.emit()
+
+
+# 区画の切れ目（2026-09-19・モック v2）。⚠ 層 L の行と L+1 の行のあいだの真ん中に横線。
+func _seam_lines() -> Array:
+	var result: Array = []
+	var origin: Vector2 = _edge_lines.get_global_rect().position
+	for raw: Variant in _seam_after:
+		var below: Variant = _rows.get(int(raw), null)
+		var above: Variant = _rows.get(int(raw) + 1, null)
+		if not (below is Control) or not (above is Control):
+			continue
+		if not is_instance_valid(below) or not is_instance_valid(above):
+			continue
+		var lower: Rect2 = (below as Control).get_global_rect()
+		var upper: Rect2 = (above as Control).get_global_rect()
+		result.append({
+			DungeonEdgeLines.SEAM_Y: (upper.end.y + lower.position.y) * 0.5 - origin.y,
+			DungeonEdgeLines.SEAM_X0: lower.position.x - origin.x,
+			DungeonEdgeLines.SEAM_X1: lower.end.x - origin.x,
+			DungeonEdgeLines.SEAM_LABEL: _seam_caption,
+		})
+	return result
 
 
 # マスのボタンのつなぎ目。⚠ top なら上辺、⚠ でなければ下辺。
@@ -335,6 +421,25 @@ func _edge_anchor(button: Control, top: bool, slot: int = 0, slot_count: int = 1
 	var center_x: float = rect.position.x + rect.size.x * 0.5 + offset
 	var y: float = rect.position.y if top else rect.position.y + rect.size.y
 	return Vector2(center_x, y) - origin
+
+
+# 線の描き方。⚠ 罠＝折れ線 ／ 見えない＝点線 ／ ほか＝手描きの曲線（モック v2）。
+func _tone_style(tone: String) -> String:
+	match tone:
+		TONE_TRAP:
+			return DungeonEdgeLines.STYLE_ZIGZAG
+		TONE_HIDDEN:
+			return DungeonEdgeLines.STYLE_DASHED
+	return DungeonEdgeLines.STYLE_CURVE
+
+
+func _tone_badge(tone: String) -> Color:
+	match tone:
+		TONE_TRAP:
+			return COLOR_BADGE_TRAP
+		TONE_GAIN:
+			return COLOR_BADGE_GAIN
+	return DungeonEdgeLines.BADGE_BORDER
 
 
 func _tone_color(tone: String) -> Color:

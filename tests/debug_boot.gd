@@ -4274,6 +4274,8 @@ func _report_layout() -> void:
 				print("    ⚠ 通路の線 = %d 本（0 本なら通路が1本も見えていない） ／ 真ん中の字 = %d 個 ／ ⚠ 一番斜めな線の横幅 = %.0f px" % [
 					drawn, labelled, span
 				])
+				# ⚠ 区画の切れ目（2026-09-19・モック v2）。⚠ 難ダンジョンは区画3つ＝6本、⚠ シナリオは 0 本が正解。
+				print("    ⚠ 区画の切れ目 = %d 本" % (raw_child as DungeonEdgeLines).get_seam_count())
 				if drawn <= 0:
 					push_error("[DebugBoot] 通路の線が0本（段階19-e が効いていない）")
 				# ⚠ 字が0個でも赤にしない。⚠ たいまつ等級1では1層先しか見えず、

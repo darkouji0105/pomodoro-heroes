@@ -359,12 +359,30 @@ func _rebuild_layers() -> void:
 				RunMapView.EDGE_TONE: _edge_tone(node_id, to_id, edge),
 				RunMapView.EDGE_LABEL: _edge_label(node_id, to_id, edge),
 			})
-	map_view.set_map(map_nodes, map_edges)
+	# ⚠ 層の目盛りと区画の切れ目（2026-09-19・モック v2）。⚠ 切れ目の層は GameManager の1本に聞く。
+	map_view.set_map(
+		map_nodes, map_edges, _layer_captions(nodes, GameStateKeys.DUNGEON_NODE_LAYER,
+			GameStateKeys.DUNGEON_NODE_KIND, GameStateKeys.DUNGEON_NODE_KIND_BOSS),
+		GameManager.get_dungeon_segment_seams(), tr("ui_dungeon_segment_seam")
+	)
 	# ⚠⚠ 要求を立てるのは set_map() の「あと」（段階20-c）。
 	#   ⚠ 先に立てると、⚠ set_map() の中で線を引いたときに消費されてしまう。⚠ そのときは
 	#     まだレイアウト前でボタンの位置が 0 なので、⚠ スクロールが 0 のまま終わる
 	#     （⚠ 実測でそうなった）。⚠ 次のレイアウトで寄せる。
 	_center_pending = true
+
+
+# 層の目盛りの字 {layer: "12層"}。⚠ ボスの層は 🏰 を前に付ける（モック v2）。
+func _layer_captions(nodes: Dictionary, layer_key: String, kind_key: String, boss_kind: String) -> Dictionary:
+	var result: Dictionary = {}
+	for raw: Variant in nodes.values():
+		var node: Dictionary = raw
+		var layer: int = int(node.get(layer_key, 1))
+		var text: String = tr("ui_dungeon_layer_no") % layer
+		if str(node.get(kind_key, "")) == boss_kind:
+			text = "%s %s" % [Glyphs.NODE_BOSS, text]
+		result[layer] = text
+	return result
 
 
 # マスの文字。⚠ ▶ ✓ と札の見た目は RunMapView が付ける。
