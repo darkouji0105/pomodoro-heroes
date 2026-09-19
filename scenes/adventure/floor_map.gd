@@ -123,6 +123,12 @@ func _open_pickup_if_needed() -> void:
 
 # ⚠ remove_child() してから queue_free()（AGENTS.md「再描画に await を持たせない」）。
 func _on_loot_overlay_closed(layer: CanvasLayer) -> void:
+	# ⚠ 閉じたときに自動で入れた結果を見せる（決定40・モック v2 §8）。⚠ 難ダンジョンと同じ見せ方。
+	if _loot_overlay != null and is_instance_valid(_loot_overlay):
+		var line: String = DungeonChest.present_auto_result(self, _loot_overlay.get_auto_result())
+		if line != "":
+			message_label.modulate = Color.WHITE
+			message_label.text = line
 	_loot_overlay = null
 	if is_instance_valid(layer):
 		remove_child(layer)

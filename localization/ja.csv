@@ -844,7 +844,12 @@ ui_dungeon_pickup_take,鞄に入れる
 ui_dungeon_pickup_take_all,入るだけ全部入れる
 ui_dungeon_pickup_discard,置いていく
 ui_dungeon_pickup_discard_bag,鞄から捨てる
-ui_dungeon_pickup_lose_note,戻ると、選ばなかったものは失う
+ui_dungeon_pickup_lose_note,戻ると入るだけ自動で鞄へ。入らないものは失う
+ui_dungeon_auto_stored,鞄に%d個入れた
+ui_dungeon_auto_title,鞄に入れた
+ui_dungeon_auto_body,入るだけ鞄に入れた。入らなかったものは失われた
+ui_dungeon_auto_in,入った
+ui_dungeon_auto_lost,入らず失われた
 ui_dungeon_pickup_waiting,拾い待ち
 ui_dungeon_pickup_take_all_note,上から順に入る
 ui_dungeon_pickup_no_room,入る枠が無い

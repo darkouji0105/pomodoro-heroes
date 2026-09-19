@@ -318,16 +318,90 @@ func _clear_selection() -> void:
 	SlotActionPopover.close_in(self)
 
 
-# ⚠⚠ 出るときに拾い待ちを捨てる（段階20-e）。⚠ 引き返さないので拾い直せない。
-#   ⚠ 捨てないと、⚠ 次の宝箱の画面に前の拾いものが混ざる。
-# ⚠⚠ 開けていない通路の宝箱も、⚠ 出た時点で捨てる（決定31・2026-09-05）。
+# 閉じたときに自動で入れた結果（決定40・2026-09-19）。⚠ マップが閉じた合図の中で読む。
+const AUTO_TAKEN: String = "taken"
+const AUTO_LOST: String = "lost"
+var _auto_result: Dictionary = {}
+
+
+func get_auto_result() -> Dictionary:
+	return _auto_result.duplicate(true)
+
+
+# ⚠⚠ 出るときは「入るだけ自動で入れて、⚠ 入らなかったものを捨てる」（決定40・2026-09-19）。
+#   ⚠ 人間の言葉：「⚠ 画面から離れる際に、自動で入れるようにする　⚠ 結果は見せる」（台帳 §5-9-4）。
+#   ⚠ 前は拾い待ちを全部捨てていた（段階20-e・決定29）。⚠ 「選んで入れる」は必須でなくなっただけで、⚠ 窓は残る。
+#   ⚠ 入れる口は take_all_run_pending_loot() の1本（⚠ 入るかの判定を画面に書かない）。
+#   ⚠ 捨てないと、⚠ 次の宝箱の画面に前の拾いものが混ざる（⚠ 残りは必ず clear する）。
+# ⚠⚠ 開けていない通路の宝箱は、⚠ 出た時点で捨てる（決定31・2026-09-05）。
 #   ⚠ 人間の指示「宝箱はあとから開けれないようにしたい」。⚠ マップに案内は出ない。
 func _on_back_pressed() -> void:
-	var _left: Dictionary = GameManager.clear_run_pending_loot(_run_kind)
+	var taken: Dictionary = GameManager.take_all_run_pending_loot(_run_kind)
+	var lost: Dictionary = GameManager.clear_run_pending_loot(_run_kind)
+	_auto_result = {AUTO_TAKEN: taken, AUTO_LOST: lost}
 	# ⚠ 通路の宝箱は難ダンジョンだけのもの。
 	if _run_kind == GameManager.RUN_KIND_DUNGEON:
 		var _gone: bool = GameManager.discard_dungeon_corridor_chest()
 	_close()
+
+
+# 自動で入れた結果を見せる（決定40・モック v2 §8）。⚠ 呼ぶのは閉じた合図を受けたマップ。
+#
+# ⚠ 混ぜ方はモックの推し：⚠ 失ったものが無い → メッセージ行に1行（A案。⚠ その文を返す）
+#                         ⚠ 失ったものがある → OK だけの窓で「入った／入らず失われた」をマス目で（B案。⚠ "" を返す）
+# ⚠ 何も入らず何も失っていなければ "" （⚠ 何も言わない）。
+static func present_auto_result(caller: Node, result: Dictionary) -> String:
+	var taken: Dictionary = result.get(AUTO_TAKEN, {})
+	var lost: Dictionary = result.get(AUTO_LOST, {})
+	var taken_count: int = 0
+	for raw: Variant in taken.values():
+		taken_count += int(raw)
+	if lost.is_empty():
+		if taken_count <= 0:
+			return ""
+		return TranslationServer.translate("ui_dungeon_auto_stored") % taken_count
+	var box: VBoxContainer = VBoxContainer.new()
+	box.name = "AutoStored"
+	box.theme_type_variation = &"TightList"
+	if not taken.is_empty():
+		box.add_child(_caption("ui_dungeon_auto_in", &"CaptionLabel"))
+		box.add_child(_cells(taken, false))
+	box.add_child(_caption("ui_dungeon_auto_lost", &"SmallErrorLabel"))
+	box.add_child(_cells(lost, true))
+	var _dialog: ModalDialog = Modal.notify(caller, "ui_dungeon_auto_body", [], false, {
+		Modal.OPTION_TITLE: TranslationServer.translate("ui_dungeon_auto_title"),
+		Modal.OPTION_CONTENT: box,
+	})
+	return ""
+
+
+static func _caption(key: String, variation: StringName) -> Label:
+	var label: Label = Label.new()
+	label.theme_type_variation = variation
+	label.text = TranslationServer.translate(key)
+	return label
+
+
+# 品のマス目。⚠ 失ったものは空きマスと同じ薄さ（⚠ ItemSlot の値を使う）。
+static func _cells(items: Dictionary, lost: bool) -> ItemGrid:
+	var grid: ItemGrid = ItemGrid.new()
+	grid.columns = 8
+	var entries: Array = []
+	var ids: Array = items.keys()
+	ids.sort()
+	for raw_id: Variant in ids:
+		entries.append({
+			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+			GameManager.SLOT_ENTRY_ITEM_ID: str(raw_id),
+			GameManager.SLOT_ENTRY_INSTANCE_ID: "",
+			GameManager.SLOT_ENTRY_GRADE: 0,
+			GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+			GameManager.SLOT_ENTRY_COUNT: int(items[raw_id]),
+		})
+	grid.rebuild(entries, entries.size())
+	if lost:
+		grid.modulate = ItemSlot.EMPTY_MODULATE
+	return grid
 
 
 # 閉じる。⚠ 出し方が2通りあるので、⚠ 閉じ方もここ1本にまとめる（決定36）。

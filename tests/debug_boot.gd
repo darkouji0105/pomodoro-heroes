@@ -4327,6 +4327,25 @@ func _report_layout() -> void:
 				])
 				if pops.size() != 1 or texts.is_empty():
 					push_error("[DebugBoot] マスを押しても「できること」の吹き出しが出ない")
+			# ⚠⚠ 閉じたときの自動収納の見せ方（決定40・モック v2 §8）。⚠ 失うものが無い＝1行 ／ ある＝窓。
+			var line_a: String = DungeonChest.present_auto_result(self, {
+				DungeonChest.AUTO_TAKEN: {"construction_material_4": 2}, DungeonChest.AUTO_LOST: {},
+			})
+			var had_modal: bool = Modal._current != null and is_instance_valid(Modal._current)
+			var line_b: String = DungeonChest.present_auto_result(self, {
+				DungeonChest.AUTO_TAKEN: {"construction_material_4": 2},
+				DungeonChest.AUTO_LOST: {"training_material_4": 1},
+			})
+			await get_tree().process_frame
+			var modal_b: bool = Modal._current != null and is_instance_valid(Modal._current)
+			print("    ⚠ 自動収納：失うもの無し → 行 '%s' ／ 失うものあり → 行 '%s'・窓 %s（⚠ 前から窓 %s）" % [
+				line_a, line_b, str(modal_b), str(had_modal)
+			])
+			if line_a == "" or line_b != "" or not modal_b:
+				push_error("[DebugBoot] 自動収納の結果の見せ方が混ぜ方どおりでない")
+			if modal_b and not had_modal:
+				Modal._current.queue_free()
+				Modal._current = null
 		# ⚠ 面に重ねた当たりを持つ画面だけ出す（⚠ 0 枚の画面は黙っている）。
 		if hits_checked > 0:
 			print("    ⚠ 面ぜんぶが押せる器 = %d 枚（⚠ 上に押下を食べる器があれば赤が出る）" % hits_checked)

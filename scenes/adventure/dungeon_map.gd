@@ -595,6 +595,11 @@ func _open_loot_overlay(node_id: String, is_corridor: bool) -> void:
 # ⚠ remove_child() してから queue_free()（AGENTS.md「再描画に await を持たせない」）。
 # ⚠ 閉じたあとに拾い待ちが残っていることはない（⚠ 向こうの「戻る」が捨てる）。
 func _on_loot_overlay_closed(layer: CanvasLayer) -> void:
+	# ⚠ 閉じたときに自動で入れた結果を見せる（決定40・モック v2 §8）。⚠ 窓が消える前に読む。
+	if _loot_overlay != null and is_instance_valid(_loot_overlay):
+		var line: String = DungeonChest.present_auto_result(self, _loot_overlay.get_auto_result())
+		if line != "":
+			_say(line, Tone.GOOD)
 	_loot_overlay = null
 	if is_instance_valid(layer):
 		remove_child(layer)
