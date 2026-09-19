@@ -8280,6 +8280,41 @@ func _emit_run_changed(kind: String) -> void:
 		dungeon_run_changed.emit(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")))
 
 
+# --- レリック選択の口（2026-09-19・人間の決定「全部推奨で」） ---
+#
+# ⚠⚠ 選ぶ画面を1枚（run_relic_select）にしたので、⚠ 画面が呼ぶ口をランの種類で受ける。
+#   ⚠ 中身は既存の2本へ振り分けるだけ。⚠ 判定・器・候補の引き方は種類ごとに別のまま（台帳 §7）。
+#   ⚠ 難ダンジョン：候補は「ノードごとに固定」（get_dungeon_relic_choices の種を変えない）
+#   ⚠ シナリオ：候補は呼ぶたびに引き直す（⚠ 画面が入ったときに1回だけ呼ぶこと）。node_id は使わない
+
+# シナリオのレリックの候補数。⚠ バランス数値ではなく画面の器の話（⚠ 前は floor_relic_select.gd に在った）。
+#   ⚠ 難ダンジョンは DungeonConfig.relic_choice_count（⚠ こちらと混ぜない）。
+const FLOOR_RELIC_CHOICE_COUNT: int = 3
+
+
+# 候補のレリックIDの配列。⚠ 引けなければ空。
+func get_run_relic_choices(kind: String, node_id: String) -> Array:
+	if kind == RUN_KIND_FLOOR:
+		if not is_in_floor():
+			return []
+		return roll_relic_choices(FLOOR_RELIC_CHOICE_COUNT)
+	return get_dungeon_relic_choices(node_id)
+
+
+# レリックを1つ取る。⚠ 判定は振り分け先の2本が持つ（⚠ ここで条件を書かない）。
+func take_run_relic(kind: String, node_id: String, relic_id: String, character_id: String = "") -> bool:
+	if kind == RUN_KIND_FLOOR:
+		return take_relic(relic_id, character_id)
+	return take_dungeon_relic(node_id, relic_id, character_id)
+
+
+# そのキャラがランの中で脱落しているか。⚠ シナリオには脱落が無い（⚠ 常に false）。
+func is_run_character_downed(kind: String, character_id: String) -> bool:
+	if kind == RUN_KIND_FLOOR:
+		return false
+	return is_dungeon_character_downed(character_id)
+
+
 # 鞄の中身。{item_id: 個数}（⚠ 複製）。
 func get_run_bag(kind: String) -> Dictionary:
 	var run: Dictionary = _state.get(_run_state_key(kind), {})
@@ -9624,7 +9659,7 @@ func open_dungeon_corridor_chest() -> Dictionary:
 #   シナリオのほうと共有でいいよ」）。⚠ ダンジョン専用の表は作らない。
 # ⚠ 効果の器（パッシブ）も共有。⚠ 置き場だけ別（`DUNGEON_RUN_RELICS`）。
 #   ⚠ `FLOOR_RUN_RELICS` を借りない（台帳 §7）。⚠ ランを出れば一緒に消える。
-# ⚠ 選ぶ画面（floor_relic_select）は借りない。⚠ あちらは FLOOR_RUN を読む。
+# ⚠ 選ぶ画面はシナリオと1枚（run_relic_select・2026-09-19）。⚠ 画面は get_run_relic_choices() を呼ぶ。
 
 # 候補は「ノードごとに固定」。⚠ 描き直すたびに引き直さないこと。
 #

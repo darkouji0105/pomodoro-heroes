@@ -3632,6 +3632,20 @@ func _report_floor() -> void:
 			GameManager.take_relic(single_relic, "char_not_in_party")
 		))
 		print("  所持 = %d 件（2 が正解＝弾いたぶんは増えない）" % GameManager.get_floor_relics().size())
+		# ⚠⚠ 画面が呼ぶ口（2026-09-19・レリック選択を1枚にした）。⚠ シナリオへ振り分けられるか。
+		#   ⚠ 候補は FLOOR_RELIC_CHOICE_COUNT 件 ／ ⚠ 取ると FLOOR_RUN のほうに増える（⚠ 難ダンジョンの器は触らない）。
+		var run_choices: Array = GameManager.get_run_relic_choices(GameManager.RUN_KIND_FLOOR, "")
+		var took_run: bool = GameManager.take_run_relic(
+			GameManager.RUN_KIND_FLOOR, "", party_relic, ""
+		)
+		print("  ⚠ 共通の口：候補 %d 件（%d が正解）／ 取る -> %s ／ 所持 = %d 件（3 が正解）／ 脱落 = %s（false が正解）" % [
+			run_choices.size(), GameManager.FLOOR_RELIC_CHOICE_COUNT, str(took_run),
+			GameManager.get_floor_relics().size(),
+			str(GameManager.is_run_character_downed(GameManager.RUN_KIND_FLOOR, solo)),
+		])
+		if run_choices.size() != GameManager.FLOOR_RELIC_CHOICE_COUNT or not took_run \
+				or GameManager.get_floor_relics().size() != 3:
+			push_error("[DebugBoot] レリックの共通の口がシナリオへ振り分けられていない")
 		GameManager.abandon_floor()
 		print("  abandon_floor() 後の所持 = %d 件（0 が正解＝フロアを降りると消える）" % (
 			GameManager.get_floor_relics().size()
@@ -4376,7 +4390,7 @@ func _layout_prepare_for(scene_path: String) -> void:
 		return
 	if scene_path not in [
 		"res://scenes/adventure/dungeon_chest.tscn",
-		"res://scenes/adventure/dungeon_relic_select.tscn",
+		"res://scenes/adventure/run_relic_select.tscn",
 		"res://scenes/adventure/dungeon_shop.tscn",
 	]:
 		return
@@ -4457,8 +4471,10 @@ func _layout_transfer_for(scene_path: String) -> Dictionary:
 	if scene_path == SCENE_BATTLE:
 		data[TransferKeys.STAGE_ID] = "floor_1"
 		data[TransferKeys.STAGE_TYPE] = GameStateKeys.STAGE_TYPE_STORY
-	if scene_path == "res://scenes/adventure/dungeon_relic_select.tscn":
-		data[TransferKeys.DUNGEON_NODE_ID] = _find_dungeon_node_of_kind(
+	# ⚠ レリック選択は1枚（2026-09-19）。⚠ 測るのは難ダンジョンの側（⚠ マスの形は同じ）。
+	if scene_path == "res://scenes/adventure/run_relic_select.tscn":
+		data[TransferKeys.RUN_KIND] = GameManager.RUN_KIND_DUNGEON
+		data[TransferKeys.RUN_NODE_ID] = _find_dungeon_node_of_kind(
 			GameStateKeys.FLOOR_NODE_KIND_RELIC
 		)
 	return data
@@ -4605,8 +4621,6 @@ const LAYOUT_SCENES: Array[String] = [
 	#   ⚠ フロアに入っていないと _ready() が冒険選択へ戻すので、先に start_floor() する
 	#     （_report_layout の中で入れてある）。
 	"res://scenes/adventure/floor_map.tscn",
-	# ⚠ 段階14-d のレリック選択。行はコードで作る。⚠ フロアに入っていないと戻される。
-	"res://scenes/adventure/floor_relic_select.tscn",
 	# ⚠ 段階17-d の難ダンジョンのマップ。⚠ 層・3人のHP・鞄のマス目を全部コードで作る。
 	#   ⚠ ランに入っていないと _ready() が冒険選択へ戻す（_report_layout の中で入れてある）。
 	"res://scenes/adventure/dungeon_map.tscn",
@@ -4616,7 +4630,8 @@ const LAYOUT_SCENES: Array[String] = [
 	#   ⚠ 上の準備で「戻さない条件」を作ってある（⚠ ボスを倒す ／ node_id を渡す）。
 	#   ⚠⚠ 条件を外したら、⚠ ここの3行も一緒に外すこと（⚠ 外すと測定が止まる）。
 	"res://scenes/adventure/dungeon_chest.tscn",
-	"res://scenes/adventure/dungeon_relic_select.tscn",
+	# ⚠ レリック選択（2026-09-19 にシナリオと1枚にした）。⚠ 準備は難ダンジョンの側で作る。
+	"res://scenes/adventure/run_relic_select.tscn",
 	"res://scenes/adventure/dungeon_shop.tscn",
 	# ⚠⚠ 戦闘（2026-09-16）。⚠ 27画面で唯一「一度も測れていない」画面だった。
 	#   ⚠ HUD をヘッダー／戦場／下部パネルの3段の器にしたので測れる。

@@ -33,6 +33,13 @@ const FLOOR_NODE_ID: String = "floor_node_id"
 # ⚠ 入っていれば stages.json は1行も引かない（敵は GameManager が dungeon.json から引く）。
 const DUNGEON_NODE_ID: String = "dungeon_node_id"
 
+# どちらのランから来たか（2026-09-19・レリック選択を1枚にした）。
+# ⚠ 値は GameManager.RUN_KIND_FLOOR ／ RUN_KIND_DUNGEON。
+# ⚠ RUN_NODE_ID は踏んだマス（⚠ シナリオのレリックでは使わないが、⚠ 渡し方は揃える）。
+# ⚠ 戦闘へは渡さない（⚠ 戦闘は FLOOR_NODE_ID ／ DUNGEON_NODE_ID で枝を分ける）。
+const RUN_KIND: String = "run_kind"
+const RUN_NODE_ID: String = "run_node_id"
+
 # 通路の宝箱として宝箱の画面へ来たか（段階19-c-2・台帳 §5-3-1）。
 # ⚠ true なら DUNGEON_NODE_ID は入っていない（⚠ 通路の宝箱はノードに紐づかない）。
 # ⚠ 開けたかの覚え方が別（⚠ ノード＝cleared ／ 通路＝持ち越しの欄）。

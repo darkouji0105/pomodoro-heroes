@@ -15,7 +15,8 @@ extends Control
 const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
-const RELIC_SELECT_PATH: String = "res://scenes/adventure/floor_relic_select.tscn"
+# ⚠ レリック選択は難ダンジョンと1枚（2026-09-19）。⚠ ランの種類を渡す。
+const RELIC_SELECT_PATH: String = "res://scenes/adventure/run_relic_select.tscn"
 const SHOP_PATH: String = "res://scenes/adventure/floor_shop.tscn"
 # ⚠ 拾いものの画面（2026-09-18）。⚠ 難ダンジョンと同じ画面を「シナリオの鞄」で使い回す。
 const CHEST_SCENE: PackedScene = preload("res://scenes/adventure/dungeon_chest.tscn")
@@ -342,7 +343,10 @@ func _enter_node(node_id: String) -> void:
 			_open_pickup_if_needed()
 		GameStateKeys.FLOOR_NODE_KIND_RELIC:
 			# ⚠ 選ばずに出られない画面へ移る（段階14-d）。踏んだら必ず1つ取る。
-			SceneManager.change_scene(RELIC_SELECT_PATH)
+			SceneManager.change_scene_with_data(RELIC_SELECT_PATH, {
+				TransferKeys.RUN_KIND: GameManager.RUN_KIND_FLOOR,
+				TransferKeys.RUN_NODE_ID: node_id,
+			})
 		GameStateKeys.FLOOR_NODE_KIND_SHOP:
 			# ⚠ 入店した瞬間に無料ガチャが1回引かれる（段階14-e）。
 			SceneManager.change_scene(SHOP_PATH)

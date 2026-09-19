@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://cf1oordgnrelic1"]
 
-[ext_resource type="Script" path="res://scenes/adventure/dungeon_relic_select.gd" id="1_script"]
+[ext_resource type="Script" path="res://scenes/adventure/run_relic_select.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_button"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
 
-[node name="DungeonRelicSelect" type="Control"]
+[node name="RunRelicSelect" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -38,7 +38,6 @@ theme_type_variation = &"PanelStack"
 
 [node name="TitleLabel" type="Label" parent="Layout"]
 layout_mode = 2
-text = "ui_dungeon_relic_select"
 
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2

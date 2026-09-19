@@ -24,7 +24,7 @@ extends Control
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 const DUNGEON_CHEST_PATH: String = "res://scenes/adventure/dungeon_chest.tscn"
-const DUNGEON_RELIC_PATH: String = "res://scenes/adventure/dungeon_relic_select.tscn"
+const RELIC_SELECT_PATH: String = "res://scenes/adventure/run_relic_select.tscn"
 const DUNGEON_SHOP_PATH: String = "res://scenes/adventure/dungeon_shop.tscn"
 const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
 
@@ -103,7 +103,6 @@ const PLAIN_SCENES: Array[String] = [
 	"res://scenes/adventure/adventure_select.tscn",
 	"res://scenes/adventure/party_preset_screen.tscn",
 	"res://scenes/adventure/floor_map.tscn",
-	"res://scenes/adventure/floor_relic_select.tscn",
 	"res://scenes/adventure/floor_shop.tscn",
 	"res://scenes/ui/placeholder_screen.tscn",
 ]
@@ -162,7 +161,7 @@ func _ready() -> void:
 	_add_note("ui_uitest_prepare_note")
 	_add_action(DUNGEON_MAP_PATH.get_file(), _on_dungeon_map_pressed, false)
 	_add_action(DUNGEON_CHEST_PATH.get_file(), _on_dungeon_chest_pressed, false)
-	_add_action(DUNGEON_RELIC_PATH.get_file(), _on_dungeon_relic_pressed, false)
+	_add_action(RELIC_SELECT_PATH.get_file(), _on_dungeon_relic_pressed, false)
 	_add_action(DUNGEON_SHOP_PATH.get_file(), _on_dungeon_shop_pressed, false)
 	_add_action(BATTLE_PATH.get_file(), _on_battle_pressed, false)
 
@@ -221,7 +220,8 @@ func _on_dungeon_chest_pressed() -> void:
 	SceneManager.change_scene(DUNGEON_CHEST_PATH)
 
 
-# ⚠ レリックの画面は node_id が要る（`dungeon_relic_select.gd:32`）。
+# ⚠ レリックの画面はランの種類と node_id が要る（`run_relic_select.gd` の _ready）。
+#   ⚠ 2026-09-19 にシナリオと1枚にした。⚠ ここでは難ダンジョンの側で開く。
 #   ⚠ いまのランの中から relic のマスを1つ探して渡す。⚠ 無ければ開かない。
 func _on_dungeon_relic_pressed() -> void:
 	if not _ensure_dungeon_run():
@@ -232,7 +232,10 @@ func _on_dungeon_relic_pressed() -> void:
 		_add_note("ui_uitest_prepare_failed")
 		return
 	SceneManager.change_scene_with_data(
-		DUNGEON_RELIC_PATH, {TransferKeys.DUNGEON_NODE_ID: node_id}
+		RELIC_SELECT_PATH, {
+			TransferKeys.RUN_KIND: GameManager.RUN_KIND_DUNGEON,
+			TransferKeys.RUN_NODE_ID: node_id,
+		}
 	)
 
 

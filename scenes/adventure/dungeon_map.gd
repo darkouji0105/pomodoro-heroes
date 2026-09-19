@@ -27,7 +27,8 @@ const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
 # ⚠ 別画面に切り出したもの（段階17-e-3・人間の指示）。⚠ ここから遷移するだけ。
-const RELIC_SELECT_PATH: String = "res://scenes/adventure/dungeon_relic_select.tscn"
+# ⚠ レリック選択はシナリオと1枚（2026-09-19）。⚠ ランの種類を渡す。
+const RELIC_SELECT_PATH: String = "res://scenes/adventure/run_relic_select.tscn"
 const SHOP_PATH: String = "res://scenes/adventure/dungeon_shop.tscn"
 # ⚠ 宝箱も別画面（段階19-b・人間の決定21「遺物や宝箱やショップは別画面」）。
 const CHEST_PATH: String = "res://scenes/adventure/dungeon_chest.tscn"
@@ -398,11 +399,14 @@ func _rebuild_bag_actions() -> void:
 # レリックのマス（段階17-e-2 → ⚠ 17-e-3 で別画面へ切り出した）。
 #
 # ⚠⚠ この画面には候補を出さない（人間の指示：「遺物や宝箱やショップは別画面でするべき」）。
-#   ⚠ 出す先は `dungeon_relic_select.tscn`。⚠ どのマスかは DUNGEON_NODE_ID で渡す。
+#   ⚠ 出す先は `run_relic_select.tscn`（⚠ シナリオと1枚）。⚠ どのマスかは RUN_NODE_ID で渡す。
 # ⚠ 候補を引くのは向こう。⚠ ここで引かないこと（⚠ 引く口を2箇所にしない）。
 func _enter_relic_node(node_id: String) -> void:
 	SceneManager.change_scene_with_data(
-		RELIC_SELECT_PATH, {TransferKeys.DUNGEON_NODE_ID: node_id}
+		RELIC_SELECT_PATH, {
+			TransferKeys.RUN_KIND: GameManager.RUN_KIND_DUNGEON,
+			TransferKeys.RUN_NODE_ID: node_id,
+		}
 	)
 
 
