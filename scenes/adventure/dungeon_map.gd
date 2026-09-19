@@ -359,6 +359,11 @@ func _rebuild_layers() -> void:
 				RunMapView.EDGE_TONE: _edge_tone(node_id, to_id, edge),
 				RunMapView.EDGE_LABEL: _edge_label(node_id, to_id, edge),
 			})
+	# ⚠ たいまつの暗さ（2026-09-19・モック v2 §0）。⚠ 何層先まで見えるかは GameManager の1本に聞く。
+	#   ⚠ ボスを倒したあと（⚠ 撤退できる＝決定15）は暗さを外す（モック §3「明かりが部屋いっぱいに広がる」）。
+	map_view.torch_reveal_layers = (
+		-1 if GameManager.can_retreat_from_dungeon() else GameManager.get_dungeon_reveal_layers()
+	)
 	# ⚠ 層の目盛りと区画の切れ目（2026-09-19・モック v2）。⚠ 切れ目の層は GameManager の1本に聞く。
 	map_view.set_map(
 		map_nodes, map_edges, _layer_captions(nodes, GameStateKeys.DUNGEON_NODE_LAYER,

@@ -99,9 +99,36 @@ const NODE_WIDTH: float = 104.0
 # 線の端をマスの辺に沿ってどれだけ散らすか（マスの幅に対する割合。段階20-g）。
 const EDGE_ANCHOR_SPREAD: float = 0.55
 
+# たいまつの明かり（2026-09-19・モック v2 §0）。
+#   ① いまいるマスを中心にした金の光（⚠ 5.5秒でゆっくり揺れる）
+#   ② たいまつが届かない層を覆う暗さ（⚠ 等級が上がると境目が上へ動く）
+#   ⚠ 光・暗さの色と大きさは絵の一部なので Theme に対応する概念が無い（⚠ 線の色と同じ扱い）。
+const LIGHT_SIZE: float = 420.0
+const LIGHT_COLOR: Color = Color("f0c04a")
+const LIGHT_ALPHA_CENTER: float = 0.10
+const LIGHT_ALPHA_MID: float = 0.045
+const LIGHT_FLICKER_SEC: float = 5.5
+const LIGHT_FLICKER_MIN_ALPHA: float = 0.82
+const FOG_COLOR: Color = Color("060408")
+const FOG_ALPHA_EDGE: float = 0.6
+const FOG_ALPHA_TOP: float = 0.88
+# ⚠ 暗さの境目から「濃い暗さ」までの長さ（⚠ 層のあいだ何個ぶんか）。
+const FOG_RAMP_LAYERS: float = 1.6
+# ⚠ 暗さを横にはみ出させる幅（⚠ 目盛りの字まで覆う）。
+const FOG_BLEED: float = 80.0
+
+## たいまつで何層先まで見えるか。⚠ -1 なら暗さを出さない（⚠ ボスを倒したあと＝部屋いっぱいに明るい）。
+##   ⚠ set_map() の前に入れる。⚠ 値は画面が GameManager に聞いた結果。
+var torch_reveal_layers: int = -1
+
 # 線（下に描く）とマス（上に描く）。⚠ 同じ矩形に重ねる。
+#   ⚠ 描く順：光 → 線 → 暗さ → マス（⚠ モック v2 の z の順）。
+var _light: TextureRect = null
 var _edge_lines: DungeonEdgeLines = null
+var _fog: Control = null
 var _layer_list: VBoxContainer = null
+# いまいるマスの層（⚠ 暗さの境目を決める）。
+var _current_layer: int = 0
 
 # {node_id: Button}。⚠ 描き直すたびに作り直す（⚠ queue_free() 済みの位置を読むと落ちる）。
 var _node_buttons: Dictionary = {}
@@ -125,11 +152,27 @@ var layer_separation: int = LAYER_SEPARATION:
 
 
 func _init() -> void:
+	_light = TextureRect.new()
+	_light.name = "TorchLight"
+	_light.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_light.texture = _make_light_texture()
+	_light.size = Vector2(LIGHT_SIZE, LIGHT_SIZE)
+	_light.pivot_offset = Vector2(LIGHT_SIZE, LIGHT_SIZE) * 0.5
+	_light.visible = false
+	add_child(_light)
+
 	_edge_lines = DungeonEdgeLines.new()
 	_edge_lines.name = "EdgeLines"
 	_edge_lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_edge_lines.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_edge_lines)
+
+	_fog = Control.new()
+	_fog.name = "TorchFog"
+	_fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fog.draw.connect(_draw_fog)
+	add_child(_fog)
 
 	_layer_list = VBoxContainer.new()
 	_layer_list.name = "LayerList"
@@ -161,6 +204,7 @@ func set_map(
 	_rows.clear()
 	_edges = edges
 	_current_id = ""
+	_current_layer = 0
 	_seam_after = seam_after
 	_seam_caption = seam_caption
 
@@ -180,6 +224,7 @@ func set_map(
 		(by_layer[layer] as Array).append(str(node_id))
 		if str(node.get(NODE_STATE, "")) == STATE_CURRENT:
 			_current_id = str(node_id)
+			_current_layer = layer
 
 	var layers: Array = by_layer.keys()
 	layers.sort()
@@ -382,7 +427,98 @@ func _redraw_edges() -> void:
 			DungeonEdgeLines.LINE_LABEL: str(edge.get(EDGE_LABEL, "")),
 		})
 	_edge_lines.set_lines(lines, _seam_lines())
+	_place_light()
 	laid_out.emit()
+
+
+func _ready() -> void:
+	# ⚠ 光をゆっくり揺らす（モック `@keyframes flick`：5.5秒・薄く→戻る）。⚠ 止めない（ループ）。
+	var tween: Tween = create_tween().set_loops()
+	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(_light, "modulate:a", LIGHT_FLICKER_MIN_ALPHA, LIGHT_FLICKER_SEC * 0.38)
+	tween.parallel().tween_property(_light, "scale", Vector2(0.975, 0.975), LIGHT_FLICKER_SEC * 0.38)
+	tween.tween_property(_light, "modulate:a", 1.0, LIGHT_FLICKER_SEC * 0.23)
+	tween.parallel().tween_property(_light, "scale", Vector2(1.015, 1.015), LIGHT_FLICKER_SEC * 0.23)
+	tween.tween_property(_light, "scale", Vector2.ONE, LIGHT_FLICKER_SEC * 0.39)
+
+
+# 光の絵（中心から外へ薄くなる円）。⚠ 画像ファイルを足さずにコードで作る。
+static func _make_light_texture() -> GradientTexture2D:
+	var gradient: Gradient = Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.38, 0.68, 1.0])
+	gradient.colors = PackedColorArray([
+		Color(LIGHT_COLOR, LIGHT_ALPHA_CENTER), Color(LIGHT_COLOR, LIGHT_ALPHA_MID),
+		Color(LIGHT_COLOR, 0.0), Color(LIGHT_COLOR, 0.0),
+	])
+	var texture: GradientTexture2D = GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(1.0, 0.5)
+	texture.width = int(LIGHT_SIZE)
+	texture.height = int(LIGHT_SIZE)
+	return texture
+
+
+# 光をいまいるマスの真ん中へ。⚠ マスの位置が確定してから（⚠ 線と同じく _redraw_edges の中）。
+func _place_light() -> void:
+	var button: Control = get_node_button(_current_id)
+	_light.visible = button != null
+	if button != null:
+		var center: Vector2 = button.get_global_rect().get_center() - get_global_rect().position
+		_light.position = center - _light.size * 0.5
+	_fog.queue_redraw()
+
+
+# 暗さの境目の高さ（⚠ 見えている一番上の層と、その1つ上の層のあいだ）。⚠ 無ければ -1。
+func get_fog_edge_y() -> float:
+	if torch_reveal_layers < 0 or _current_layer <= 0:
+		return -1.0
+	var last_seen: int = _current_layer + torch_reveal_layers
+	var seen: Variant = _rows.get(last_seen, null)
+	var beyond: Variant = _rows.get(last_seen + 1, null)
+	if not (seen is Control) or not (beyond is Control):
+		return -1.0
+	if not is_instance_valid(seen) or not is_instance_valid(beyond):
+		return -1.0
+	var origin: float = get_global_rect().position.y
+	return ((beyond as Control).get_global_rect().end.y + (seen as Control).get_global_rect().position.y) * 0.5 - origin
+
+
+# 1層ぶんの高さ（行の中心どうしの距離）。⚠ 行が1つしか無ければ層の間隔だけ。
+func _layer_step() -> float:
+	var ys: Array[float] = []
+	for raw: Variant in _rows.values():
+		if raw is Control and is_instance_valid(raw):
+			ys.append((raw as Control).get_global_rect().get_center().y)
+	if ys.size() < 2:
+		return float(layer_separation)
+	ys.sort()
+	return absf(ys[1] - ys[0])
+
+
+# 暗さ。⚠ 境目より下は素通し、⚠ 上へ行くほど濃い（モック `.fog` の linear-gradient）。
+func _draw_fog() -> void:
+	var edge: float = get_fog_edge_y()
+	if edge < 0.0:
+		return
+	# ⚠ 1層ぶんの高さは実際の行から取る（⚠ マスの高さを数字で持たない）。
+	var step: float = _layer_step()
+	var ramp_top: float = maxf(0.0, edge - step * FOG_RAMP_LAYERS)
+	var x0: float = -FOG_BLEED
+	var x1: float = _fog.size.x + FOG_BLEED
+	var clear: Color = Color(FOG_COLOR, 0.0)
+	var mid: Color = Color(FOG_COLOR, FOG_ALPHA_EDGE)
+	var top: Color = Color(FOG_COLOR, FOG_ALPHA_TOP)
+	_fog.draw_polygon(
+		PackedVector2Array([Vector2(x0, ramp_top), Vector2(x1, ramp_top), Vector2(x1, edge), Vector2(x0, edge)]),
+		PackedColorArray([mid, mid, clear, clear])
+	)
+	if ramp_top > 0.0:
+		_fog.draw_polygon(
+			PackedVector2Array([Vector2(x0, 0.0), Vector2(x1, 0.0), Vector2(x1, ramp_top), Vector2(x0, ramp_top)]),
+			PackedColorArray([top, top, mid, mid])
+		)
 
 
 # 区画の切れ目（2026-09-19・モック v2）。⚠ 層 L の行と L+1 の行のあいだの真ん中に横線。

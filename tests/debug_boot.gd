@@ -4263,6 +4263,11 @@ func _report_layout() -> void:
 				])
 				if absf(off) > MAP_CENTER_TOLERANCE:
 					push_error("[DebugBoot] マップが真ん中に無い（%.0f px ずれている）" % off)
+				# ⚠ たいまつの暗さ（2026-09-19・モック v2 §0）。⚠ 見えている層の上に境目があるか。
+				var fog_edge: float = (raw_child as RunMapView).get_fog_edge_y()
+				print("    ⚠ たいまつ %d 層先 ／ 暗さの境目 y = %.0f（⚠ -1 なら暗さ無し）" % [
+					(raw_child as RunMapView).torch_reveal_layers, fog_edge
+				])
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので

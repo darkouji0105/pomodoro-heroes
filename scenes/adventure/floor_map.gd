@@ -253,6 +253,8 @@ func _rebuild_layers() -> void:
 	for raw: Variant in nodes.values():
 		var layer: int = int((raw as Dictionary).get(GameStateKeys.FLOOR_NODE_LAYER, 1))
 		captions[layer] = tr("ui_floor_layer_no") % layer
+	# ⚠ たいまつの暗さ（2026-09-19・モック v2 §0）。⚠ シナリオにもたいまつがあるので同じ見せ方。
+	map_view.torch_reveal_layers = GameManager.get_floor_reveal_layers()
 	map_view.set_map(map_nodes, map_edges, captions)
 
 
