@@ -6,6 +6,9 @@
 # ⚠ 進めるかの判定を自分で書かない。GameManager.get_available_moves() に聞く。
 # ⚠ 再描画に await を持たせない。remove_child() してから queue_free()（AGENTS.md）。
 # ⚠ ScrollContainer を使わない。中は scenario=layout で測れない。
+# ⚠⚠ 層の並び・マス・つながりの線は難ダンジョンと同じ部品（RunMapView・2026-09-19・人間の決定
+#   「全部推奨で」）。⚠ 画面は分けたまま（⚠ スタミナ・宝箱の演出・レリックの行はこちらだけ）。
+#   ⚠ 線は色だけ（⚠ シナリオの通路には効果が無いので、⚠ 真ん中の字は出さない）。
 
 extends Control
 
@@ -35,12 +38,7 @@ const HIDDEN_TEXT: String = "？"
 #   遷移が即座に走り、見つけたことが一度も見えない（それが直前の症状）。
 const CHEST_POPUP_SEC: float = 0.9
 
-# マスの見た目。⚠ 色はここに置く（main_theme.tres に対応する概念が無い。
-#   adventure_config の pop_*_color と同じ扱い）。
-const COLOR_CURRENT: Color = Color(1.0, 0.95, 0.55)
-const COLOR_VISITED: Color = Color(0.45, 0.45, 0.5)
-const COLOR_REACHABLE: Color = Color(1.0, 1.0, 1.0)
-const COLOR_FAR: Color = Color(0.6, 0.6, 0.65)
+# ⚠ マスと線の色は RunMapView が持つ（2026-09-19）。⚠ ここに戻さないこと。
 
 @onready var floor_name_label: Label = $Layout/Header/FloorNameLabel
 @onready var chest_label: Label = $Layout/Header/ChestLabel
@@ -48,7 +46,7 @@ const COLOR_FAR: Color = Color(0.6, 0.6, 0.65)
 @onready var chest_popup: Label = $ChestPopup
 @onready var relic_label: Label = $Layout/RelicLabel
 @onready var message_label: Label = $Layout/MessageLabel
-@onready var layer_list: VBoxContainer = $Layout/LayerList
+@onready var map_view: RunMapView = $Layout/MapView
 @onready var abandon_button: UiButton = $Layout/Footer/AbandonButton
 @onready var back_button: UiButton = $Layout/Header/BackButton
 
@@ -75,6 +73,9 @@ func _ready() -> void:
 	GameManager.floor_run_changed.connect(_on_floor_run_changed)
 	GameManager.resource_changed.connect(_on_resource_changed)
 	GameManager.floor_chest_found.connect(_on_chest_found)
+	map_view.node_pressed.connect(_on_node_pressed)
+	# ⚠ スクロールを持たない画面なので層の間隔を詰める（⚠ 44 だと縦に 2px はみ出した）。
+	map_view.layer_separation = RunMapView.LAYER_SEPARATION_NO_SCROLL
 	_build_bag_grid()
 	_rebuild()
 	# ⚠ 戦闘・ショップ・レリックから戻ってきたとき、⚠ 拾い待ちがあれば選ぶ画面を出す。
@@ -201,75 +202,62 @@ func _update_relic_line() -> void:
 
 
 # 層を縦に並べる。⚠ 下が入口・上がボス。
+#
+# ⚠ 並べ方・マス・線は RunMapView（2026-09-19）。⚠ ここは「描く材料」に直して渡すだけ。
+#   ⚠ 進めるか・見えているかは GameManager に聞いた結果を渡す。
 func _rebuild_layers() -> void:
-	# ⚠ queue_free() だけだと、同じフレームに2本走ったとき行が二重に並ぶ。
-	for child in layer_list.get_children():
-		layer_list.remove_child(child)
-		child.queue_free()
-
 	var run: Dictionary = GameManager.get_floor_run()
 	var nodes: Dictionary = run.get(GameStateKeys.FLOOR_RUN_NODES, {})
 	var visited: Dictionary = run.get(GameStateKeys.FLOOR_RUN_VISITED, {})
 	var position: String = str(run.get(GameStateKeys.FLOOR_RUN_POSITION, ""))
 	var moves: Array = GameManager.get_available_moves()
 
-	# 層ごとに仕分ける。⚠ Dictionary のキー順は不定なので、必ず綴り順で並べる。
-	var by_layer: Dictionary = {}
+	# ⚠ Dictionary のキー順は不定なので、必ず綴り順で回す（⚠ 線の重なり順も揃う）。
 	var node_ids: Array = nodes.keys()
 	node_ids.sort()
-	for node_id: Variant in node_ids:
-		var node: Dictionary = nodes[node_id]
-		var layer: int = int(node.get(GameStateKeys.FLOOR_NODE_LAYER, 1))
-		if not by_layer.has(layer):
-			by_layer[layer] = []
-		(by_layer[layer] as Array).append(str(node_id))
+	var map_nodes: Array = []
+	var map_edges: Array = []
+	for raw_id: Variant in node_ids:
+		var node_id: String = str(raw_id)
+		var node: Dictionary = nodes[raw_id]
+		var state: String = RunMapView.STATE_FAR
+		if node_id == position:
+			state = RunMapView.STATE_CURRENT
+		elif visited.has(node_id):
+			state = RunMapView.STATE_VISITED
+		elif node_id in moves:
+			state = RunMapView.STATE_REACHABLE
+		map_nodes.append({
+			RunMapView.NODE_ID: node_id,
+			RunMapView.NODE_LAYER: int(node.get(GameStateKeys.FLOOR_NODE_LAYER, 1)),
+			RunMapView.NODE_TEXT: _node_text(node_id, node),
+			RunMapView.NODE_STATE: state,
+		})
+		# ⚠ つながり（FLOOR_NODE_NEXT は [node_id]）。⚠ 効果は無いので色は「見えているか」だけ。
+		#   ⚠ 見えているかは行き先のマスで決める（⚠ 難ダンジョンの is_dungeon_edge_revealed と同じ考え）。
+		for entry: Variant in (node.get(GameStateKeys.FLOOR_NODE_NEXT, []) as Array):
+			var to_id: String = str(entry)
+			map_edges.append({
+				RunMapView.EDGE_FROM: node_id,
+				RunMapView.EDGE_TO: to_id,
+				RunMapView.EDGE_TONE: (
+					RunMapView.TONE_PLAIN if GameManager.is_floor_node_revealed(to_id)
+					else RunMapView.TONE_HIDDEN
+				),
+			})
+	map_view.set_map(map_nodes, map_edges)
 
-	var layers: Array = by_layer.keys()
-	layers.sort()
-	layers.reverse()  # 深い層（ボス）を上に。
 
-	for layer: Variant in layers:
-		var row: HBoxContainer = HBoxContainer.new()
-		row.name = "Layer_%d" % int(layer)
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 12)
-		for node_id: Variant in (by_layer[layer] as Array):
-			row.add_child(_make_node_button(
-				str(node_id), nodes[node_id], str(node_id) == position,
-				visited.has(str(node_id)), str(node_id) in moves
-			))
-		layer_list.add_child(row)
-
-
-func _make_node_button(
-		node_id: String, node: Dictionary, is_current: bool, is_visited: bool, is_reachable: bool
-) -> UiButton:
-	var button: UiButton = UiButton.new()
-	button.name = "Node_" + node_id
+# マスの文字。⚠ ▶ ✓ と色は RunMapView が付ける。
+#
+# 視界（段階14-e）。⚠ 見えるかどうかの判定は GameManager の1本に聞く。
+#   ⚠ 「押せるか」とは別物。次の層は必ず押せるが、たいまつが弱いと中身は伏せられる。
+# ⚠ 絵文字＋文字（2026-09-19・難ダンジョンに揃えた）。⚠ 絵文字だけにしない（⚠ 文字が保険）。
+func _node_text(node_id: String, node: Dictionary) -> String:
 	var kind: String = str(node.get(GameStateKeys.FLOOR_NODE_KIND, ""))
-	# 視界（段階14-e）。⚠ 見えるかどうかの判定は GameManager の1本に聞く。
-	#   ⚠ 「押せるか」とは別物。次の層は必ず押せるが、たいまつが弱いと中身は伏せられる。
 	if GameManager.is_floor_node_revealed(node_id):
-		button.text = tr("ui_floor_node_" + kind)
-	else:
-		button.text = HIDDEN_TEXT
-
-	if is_current:
-		button.text = "▶ " + button.text
-		button.modulate = COLOR_CURRENT
-	elif is_visited:
-		button.text = "✓ " + button.text
-		button.modulate = COLOR_VISITED
-	elif is_reachable:
-		button.modulate = COLOR_REACHABLE
-	else:
-		button.modulate = COLOR_FAR
-
-	# ⚠ 進める先だけ押せる。判定は GameManager に聞いた結果をそのまま使う。
-	button.disabled = not is_reachable
-	if is_reachable:
-		button.pressed.connect(_on_node_pressed.bind(node_id))
-	return button
+		return "%s %s" % [Glyphs.for_floor_node(kind), tr("ui_floor_node_" + kind)]
+	return "%s %s" % [Glyphs.NODE_HIDDEN, HIDDEN_TEXT]
 
 
 # この移動で見つけた宝箱。⚠ move_to_node() の途中でシグナルが飛んでくるので、

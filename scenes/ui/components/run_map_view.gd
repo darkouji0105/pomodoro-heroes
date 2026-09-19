@@ -62,6 +62,9 @@ const EDGE_WIDTH_CURRENT: float = 4.0
 # マスの並びの間隔（段階19-f）。⚠ 層のあいだが狭いと線がほとんど点になる。
 # ⚠ バランスの数値ではなく見た目なので Config に出していない（⚠ 色と同じ扱い）。
 const LAYER_SEPARATION: int = 44
+# ⚠ スクロールの無い画面（シナリオ）の層の間隔（2026-09-19）。⚠ 44 のままだと
+#   フロアのマップが 614 x 722 になり、⚠ 基準 720 を縦に 2px はみ出した（⚠ scenario=layout で実測）。
+const LAYER_SEPARATION_NO_SCROLL: int = 32
 const NODE_SEPARATION: int = 56
 
 # マス1つの幅（段階20-g）。⚠ 列を揃えるのに要る。⚠ 空の列にも同じ幅のものを置く。
@@ -81,6 +84,13 @@ var _edges: Array = []
 # いま立っているマス（⚠ そこから出る線を太くする）。
 var _current_id: String = ""
 
+## 層のあいだの間隔。⚠ LAYER_SEPARATION か LAYER_SEPARATION_NO_SCROLL を入れる（⚠ 値を画面に書かない）。
+var layer_separation: int = LAYER_SEPARATION:
+	set(value):
+		layer_separation = value
+		if _layer_list != null:
+			_layer_list.add_theme_constant_override("separation", layer_separation)
+
 
 func _init() -> void:
 	_edge_lines = DungeonEdgeLines.new()
@@ -95,7 +105,7 @@ func _init() -> void:
 	_layer_list.alignment = BoxContainer.ALIGNMENT_CENTER
 	_layer_list.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# ⚠ 層のあいだの間隔（段階19-f）。⚠ マスのあいだの間隔と同じ場所に並べる。
-	_layer_list.add_theme_constant_override("separation", LAYER_SEPARATION)
+	_layer_list.add_theme_constant_override("separation", layer_separation)
 	add_child(_layer_list)
 	# ⚠⚠ 線はマスの位置が確定してからでないと引けない。⚠ 並べ替えが終わるたびに引き直す。
 	#   ⚠ await を使わない（AGENTS.md）。⚠ ウィンドウを広げても追従する。

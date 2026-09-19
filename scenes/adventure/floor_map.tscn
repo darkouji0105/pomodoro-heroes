@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scenes/adventure/floor_map.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/resource_display.tscn" id="2_resource_dsp"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="3_button"]
+[ext_resource type="Script" path="res://scenes/ui/components/run_map_view.gd" id="4_map_view"]
 
 [node name="FloorMap" type="Control"]
 layout_mode = 3
@@ -83,12 +84,11 @@ text = "ui_relic_none"
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2
 
-[node name="LayerList" type="VBoxContainer" parent="Layout"]
+[node name="MapView" type="Control" parent="Layout"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_type_variation = &"NodeList"
-alignment = 1
+script = ExtResource("4_map_view")
 
 [node name="Footer" type="HBoxContainer" parent="Layout"]
 layout_mode = 2

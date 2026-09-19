@@ -6468,6 +6468,13 @@ func _report_glyphs() -> void:
 		GameStateKeys.DUNGEON_NODE_KIND_BOSS, "",
 	]:
 		print("  マス  %-20s %s" % [kind if kind != "" else "(知らない種類)", Glyphs.for_dungeon_node(kind)])
+	# ⚠ シナリオのマス（2026-09-19）。⚠ ショップだけシナリオにしか無い。
+	for kind: String in [
+		GameStateKeys.FLOOR_NODE_KIND_BATTLE, GameStateKeys.FLOOR_NODE_KIND_SHOP,
+		GameStateKeys.FLOOR_NODE_KIND_RELIC, GameStateKeys.FLOOR_NODE_KIND_REST,
+		GameStateKeys.FLOOR_NODE_KIND_BOSS, "",
+	]:
+		print("  フロア %-19s %s" % [kind if kind != "" else "(知らない種類)", Glyphs.for_floor_node(kind)])
 
 
 func _report_dungeon() -> void:

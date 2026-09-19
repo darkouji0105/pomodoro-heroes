@@ -94,7 +94,10 @@ const NODE_RELIC: String = "🔮"
 const NODE_REST: String = "⛺"
 const NODE_CHEST: String = "🎁"
 const NODE_BOSS: String = "🏰"
-## ⚠ たいまつが届いていないマス。⚠ シナリオ側の「？」と同じ役目。
+## ⚠ シナリオのショップのマス（2026-09-19・マップの見た目を難ダンジョンに揃えた）。
+##   ⚠ 難ダンジョンにはショップのマスが無い（⚠ ボスの先のボタン）。
+const NODE_SHOP: String = "🏪"
+## ⚠ たいまつが届いていないマス。⚠ シナリオでも同じ字を使う（2026-09-19）。
 const NODE_HIDDEN: String = "❓"
 
 # --- 通路の効果（段階19-c-2・DUNGEON_EDGE_EFFECT_*） ---
@@ -270,6 +273,25 @@ static func for_dungeon_node(kind: String) -> String:
 	return NODE_HIDDEN
 
 
+# シナリオのマスの絵文字（2026-09-19）。⚠ 見えていないマスは NODE_HIDDEN。
+#
+# ⚠ 難ダンジョンと同じ字を使う（⚠ 種類の綴りも同じ）。⚠ ショップだけシナリオにしか無い。
+# ⚠ 「見えているか」の判定はここでしない（GameManager.is_floor_node_revealed()）。
+static func for_floor_node(kind: String) -> String:
+	match kind:
+		GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+			return NODE_BATTLE
+		GameStateKeys.FLOOR_NODE_KIND_SHOP:
+			return NODE_SHOP
+		GameStateKeys.FLOOR_NODE_KIND_RELIC:
+			return NODE_RELIC
+		GameStateKeys.FLOOR_NODE_KIND_REST:
+			return NODE_REST
+		GameStateKeys.FLOOR_NODE_KIND_BOSS:
+			return NODE_BOSS
+	return NODE_HIDDEN
+
+
 # 通路の効果の絵文字（段階19-c-2）。⚠ 効果が無ければ ""（⚠ 何も出さない）。
 #
 # ⚠ 「見えているか」の判定はここでしない（GameManager.is_dungeon_edge_revealed()）。
@@ -334,6 +356,7 @@ static func all_for_check() -> Dictionary:
 		"NODE_BATTLE": NODE_BATTLE,
 		"NODE_RELIC": NODE_RELIC,
 		"NODE_REST": NODE_REST,
+		"NODE_SHOP": NODE_SHOP,
 		"NODE_CHEST": NODE_CHEST,
 		"NODE_BOSS": NODE_BOSS,
 		"NODE_HIDDEN": NODE_HIDDEN,
