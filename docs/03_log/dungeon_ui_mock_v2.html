@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>難ダンジョン モック v2（真鍮の札＋手描きの道＋たいまつ）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e0b14; --panel:#14100f;
+  --fg:#f0e6df; --fg2:#a89b94; --fg3:#7d6f68; --fg4:#5a4f49;
+  --line:#2e2724; --up:#8ed99b; --down:#e88a8a; --gold:#f0c04a;
+  --btn-bg:#241d1a; --btn-bd:#4a3d36; --btn-fg:#e0d5ce;
+  --brass:#a8791f; --brass-fg:#1a1206; --danger:#a8352f; --back-bg:#4a3526;
+  --stone-hi:#2b2320; --stone-lo:#15100f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0a080c;color:var(--fg);font-family:"Noto Sans JP",system-ui,sans-serif;
+  font-size:14px;padding:24px 24px 120px}
+h1{font-size:20px;margin:0 0 6px}
+.lead{color:var(--fg2);font-size:13px;line-height:1.8;max-width:82ch;margin:0 0 4px}
+.lead b{color:var(--gold);font-weight:500}
+.toolbar{position:sticky;top:0;z-index:50;background:#0a080c;border-bottom:1px solid var(--line);
+  max-width:1280px;margin:0 auto 20px;padding:8px 0;display:flex;gap:8px;align-items:center}
+.toolbar span{color:var(--fg3);font-size:12px}
+.sec{max-width:1280px;margin:0 auto 14px;padding-top:26px;border-top:1px solid var(--line)}
+.sec h2{font-size:16px;margin:0 0 6px}
+.sec .note{color:var(--fg2);font-size:12.5px;line-height:1.8;margin:0 0 12px;max-width:80ch}
+.sec .note b{color:var(--gold);font-weight:500}
+.opt{display:inline-block;border:1px solid var(--brass);color:var(--gold);font-size:11px;padding:1px 7px;border-radius:2px;margin-right:6px}
+.tag{display:inline-block;border:1px solid var(--btn-bd);color:var(--fg3);font-size:11px;padding:1px 7px;border-radius:2px;margin-right:6px}
+.wrap{width:1282px;height:722px;margin:0 auto 10px;overflow:hidden}
+body.zoom .wrap{width:898px;height:506px}
+body.zoom .frame{transform:scale(.7);transform-origin:top left}
+.frame{width:1280px;height:720px;position:relative;overflow:hidden;background:var(--bg);
+  border:1px solid var(--line);display:flex;flex-direction:column}
+.panel{width:1280px;margin:0 auto 12px;border:1px solid var(--line);background:var(--bg);padding:18px 20px}
+
+/* ボタン5階層 */
+.btn{font-family:inherit;font-size:13px;line-height:1;cursor:pointer;padding:8px 14px;border-radius:3px;
+  border:1px solid var(--btn-bd);background:var(--btn-bg);color:var(--btn-fg)}
+.btn.brass{background:var(--brass);border-color:var(--brass);color:var(--brass-fg);font-weight:500}
+.btn.ghost{background:transparent;border-color:var(--btn-bd);color:var(--fg2)}
+.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+.btn.back{background:var(--back-bg);border-color:var(--brass);color:var(--fg)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:default}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+
+/* 画面の骨 */
+.hd{height:52px;flex:0 0 52px;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line)}
+.hd .title{font-size:15px}
+.hd .right{margin-left:auto;display:flex;align-items:center;color:var(--fg2);font-size:13px}
+.hd .right>span{padding:0 12px;border-left:1px solid var(--line)}
+.hd .right>span:first-child{border-left:0}
+.hd .right b{color:var(--fg);font-weight:500}
+.party{flex:0 0 28px;display:flex;align-items:center;gap:20px;padding:0 16px;font-size:13px;color:var(--fg2)}
+.party b{color:var(--fg)}
+.party .dim{color:var(--fg3)}
+.party .dead{color:var(--down)}
+.msg{flex:0 0 26px;display:flex;align-items:center;padding:0 16px;font-size:12.5px;color:var(--fg2)}
+.msg.warn{color:var(--down)} .msg.good{color:var(--up)}
+.ft{flex:0 0 52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-top:1px solid var(--line)}
+.ft .hint{font-size:12px;color:var(--fg4)} .ft .sp{margin-left:auto}
+.bagrow{flex:0 0 62px;display:flex;align-items:center;gap:12px;padding:0 16px;border-top:1px solid var(--line)}
+.bagrow .cap{font-size:12px;color:var(--fg3);width:52px} .bagrow .cap b{display:block;color:var(--fg2);font-weight:400}
+
+/* マップの器 */
+.mapwrap{flex:1 1 auto;position:relative;overflow:hidden}
+.mapscroll{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden}
+.mapscroll::-webkit-scrollbar{width:8px}
+.mapscroll::-webkit-scrollbar-thumb{background:#2e2724;border-radius:4px}
+.mapinner{position:relative;margin:0 auto}
+.mapinner svg.lines{position:absolute;left:0;top:0;overflow:visible}
+.floorno{position:absolute;font-size:10px;color:#3f3733;letter-spacing:.08em;white-space:nowrap}
+.floorno.near{color:#5a4f49}
+.floorno.boss{color:#8a6a2a}
+.seam{position:absolute;height:1px;background:#231d1a}
+.seam .cap{position:absolute;right:0;top:-14px;font-size:10px;color:#3f3733}
+
+/* たいまつ：明かりの届く範囲 */
+.fog{position:absolute;left:-80px;right:-80px;top:0;pointer-events:none;z-index:3}
+.torchlight{position:absolute;width:420px;height:420px;border-radius:50%;pointer-events:none;z-index:2;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle, rgba(240,192,74,.10) 0%, rgba(240,192,74,.045) 38%, rgba(240,192,74,0) 68%);
+  animation:flick 5.5s ease-in-out infinite}
+@keyframes flick{0%,100%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  38%{opacity:.82;transform:translate(-50%,-50%) scale(.975)}
+  61%{opacity:1.0;transform:translate(-50%,-50%) scale(1.015)}
+  76%{opacity:.9;transform:translate(-50%,-50%) scale(.99)}}
+@media (prefers-reduced-motion: reduce){.torchlight{animation:none}}
+
+/* マス：真鍮の札 */
+.node{position:absolute;width:134px;height:38px;cursor:pointer;z-index:4}
+.node .bd{position:absolute;inset:0;background:#53433a;
+  clip-path:polygon(9px 0,calc(100% - 9px) 0,100% 9px,100% calc(100% - 9px),calc(100% - 9px) 100%,9px 100%,0 calc(100% - 9px),0 9px)}
+.node .fill{position:absolute;inset:2px;background:linear-gradient(180deg,#221b18,#16110f);
+  clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px)}
+.node .pin{position:absolute;width:3px;height:3px;border-radius:50%;background:#6b5638}
+.node .in{position:absolute;inset:0;display:flex;align-items:center;gap:8px;padding:0 13px;font-size:13px;color:var(--fg3)}
+.node .mk{width:9px;font-size:11px}
+.node .ic{font-size:14px;line-height:1}
+.node.can .bd{background:#7b6244}
+.node.can .in{color:var(--fg)}
+.node.can .pin{background:var(--brass)}
+.node.can:hover .bd{background:var(--gold)}
+.node.cur .bd{background:var(--brass)}
+.node.cur .fill{background:linear-gradient(180deg,#3a2a12,#231907)}
+.node.cur .in{color:var(--gold)}
+.node.cur .pin{background:var(--gold)}
+.node.done .bd{background:#332b27}
+.node.done .fill{background:#14100e}
+.node.done .pin{background:#3d342c}
+.node.dim{opacity:.5}
+/* 未見の札は鋲を消して静かにする（25層並べたときの騒がしさ対策） */
+.node.unknown .bd{background:#2a2320}
+.node.unknown .fill{background:#120e0d}
+.node.unknown .pin{display:none}
+.node.unknown .in{color:var(--fg4)}
+
+/* 通路の絵文字の台 */
+.edge-badge{position:absolute;z-index:4;width:20px;height:20px;transform:translate(-50%,-50%) rotate(45deg);
+  background:#15100f;border:1px solid #3a302b;border-radius:3px;display:flex;align-items:center;justify-content:center}
+.edge-badge span{transform:rotate(-45deg);font-size:11px;line-height:1}
+.edge-badge.bad{border-color:#5a2a28}
+.edge-badge.good{border-color:#6b5320}
+
+/* マス目 */
+.grid{display:flex;flex-wrap:wrap;gap:6px}
+.cell{width:46px;height:46px;border-radius:2px;border:1px solid var(--btn-bd);background:var(--btn-bg);
+  position:relative;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer}
+.cell.empty{background:#141010;border-color:#2a2320;cursor:default}
+.cell.r2{border-color:#5d7a86} .cell.r3{border-color:#8a6a2a}
+.cell .n{position:absolute;right:3px;bottom:1px;font-size:11px;color:var(--fg);text-shadow:0 0 3px #000,0 0 3px #000}
+.cell.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.cell:hover:not(.empty){border-color:var(--gold)}
+.cell.lg{width:56px;height:56px;font-size:24px}
+
+/* 吹き出し・窓 */
+.tip{position:absolute;z-index:40;width:212px;background:#171210;border:1px solid var(--btn-bd);border-radius:3px;
+  padding:8px 10px;font-size:12px;color:var(--fg2);line-height:1.6;box-shadow:0 6px 18px rgba(0,0,0,.6);pointer-events:none}
+.tip .nm{color:var(--fg);font-size:13px;margin-bottom:2px}
+.pop{position:absolute;z-index:45;width:236px;background:#171210;border:1px solid var(--btn-bd);border-radius:3px;
+  padding:10px;font-size:12px;color:var(--fg2);line-height:1.6;box-shadow:0 6px 18px rgba(0,0,0,.6)}
+.pop .nm{color:var(--fg);font-size:13px}
+.pop .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.pop .sub{color:var(--fg4);font-size:11px;margin-top:6px}
+.veil{position:absolute;inset:0;background:rgba(6,4,8,.72);display:flex;align-items:center;justify-content:center;z-index:30}
+.modal{background:var(--panel);border:1px solid var(--brass);border-radius:4px;box-shadow:0 10px 40px rgba(0,0,0,.7);
+  overflow:hidden;position:relative}
+.modal>.bar{height:38px;display:flex;align-items:center;gap:12px;padding:0 12px;background:#22190f;
+  border-bottom:1px solid var(--brass);font-size:14px}
+.modal>.body{padding:14px 16px}
+.lbl{font-size:12px;color:var(--fg3);margin:0 0 6px}
+.warnbox{border:1px solid #5a2a28;background:#2a1513;color:var(--down);font-size:12.5px;padding:7px 10px;border-radius:3px}
+.rowline{display:flex;align-items:center;gap:12px;padding:9px 10px;border:1px solid var(--line);border-radius:3px;
+  background:#14100f;font-size:13px}
+.rowline .nm{min-width:170px} .rowline .price{color:var(--gold);min-width:44px}
+.rowline .why{color:var(--fg4);font-size:11.5px}
+.divider{height:1px;background:var(--line);margin:12px 0}
+.kv{color:var(--fg3);font-size:12px}
+.stamp{position:absolute;z-index:20;font-size:11.5px;color:var(--gold);border:1px solid var(--brass);
+  padding:2px 8px;border-radius:2px;background:#14100f}
+</style>
+</head>
+<body>
+
+<div class="sec" style="border-top:0;padding-top:0">
+  <h1>難ダンジョン モック v2（2026-09-19 / 3枚目）</h1>
+  <p class="lead">選ばれた部品で全画面を組み直しました。マス＝<b>真鍮の札</b>、線＝<b>手描きの道</b>、＋<b>たいまつの明かり</b>。色・ボタン階層・絵文字の制限はそのままです。</p>
+  <p class="lead">真鍮の札は25層並べると騒がしくなるので、<b>未見のマスだけ鋲を外して</b>静かにしてあります（明かりの中に入ると鋲が点く＝進むほど地図が立ち上がる）。手描きの線は揺れを ±6px に抑え、罠だけ折れ線にしています。</p>
+</div>
+
+<div class="toolbar">
+  <button class="btn sm" onclick="document.body.classList.toggle('zoom')">70% 表示に切替</button>
+  <span>実寸 1280 x 720。マス目はホバーで詳細、鞄のマスはクリックで「できること」。</span>
+</div>
+
+<!-- ============ §0 たいまつ ============ -->
+<div class="sec">
+  <h2>§0 たいまつの明かり</h2>
+  <p class="note">3つ重ねています。<b>①いまいるマスを中心にした光</b>（金の薄い放射・5.5秒でゆっくり揺れる。動きを減らす設定では止まる）、<b>②届かない層を覆う暗さ</b>（黒の透過だけ。等級が上がると境目が上へ動く）、<b>③未見の札は鋲が無い</b>。等級1/2/3 を並べたのが下の画面です。等級を上げると「暗さの壁が上がる」のが見えるので、商人でたいまつを買う理由が画面から分かります。</p>
+</div>
+<div class="wrap"><div class="frame" id="torchdemo"></div></div>
+
+<!-- ============ §1〜§5 マップ ============ -->
+<div class="sec">
+  <h2>§1 マップ（a）入口にいる</h2>
+  <p class="note">列は画面の真ん中（要望37）。左端に層の目盛り、5層ごとに区画の切れ目。区画の入口なので3択、いまいるマスから出る線は太くしています。</p>
+</div>
+<div class="wrap"><div class="frame" id="s1"></div></div>
+
+<div class="sec">
+  <h2>§2 マップ（b）区画の中</h2>
+  <p class="note">通ったマスは鋲が沈み、明かりの外は暗く覆われます。1層先に罠の通路（折れ線＋💥）。</p>
+</div>
+<div class="wrap"><div class="frame" id="s2"></div></div>
+
+<div class="sec">
+  <h2>§3 マップ（c）ボスを倒した直後</h2>
+  <p class="note">ボスの札だけ一回り大きくして、ふつうのマスと格を分けています。倒したあとは明かりが部屋いっぱいに広がる（暗さの覆いを外す）。</p>
+</div>
+<div class="wrap"><div class="frame" id="s3"></div></div>
+
+<div class="sec">
+  <h2>§4 マップ（d）1人が脱落・鞄が満杯</h2>
+  <p class="note">脱落は赤。鞄が満杯のときはヘッダの数字も赤。鞄のマスを押したところ（脱落中のキャラのボタンは赤）。</p>
+</div>
+<div class="wrap"><div class="frame" id="s4"></div></div>
+
+<div class="sec">
+  <h2>§5 マップ（e）区画の中に分岐（要望38）</h2>
+  <p class="note">区画の入口の3択は太い線、区画の中の分岐は細い線。中の分岐は最後に合流させています。</p>
+</div>
+<div class="wrap"><div class="frame" id="s5"></div></div>
+
+<!-- ============ §6〜§8 拾いもの ============ -->
+<div class="sec">
+  <h2>§6 拾いもの（a）3品・鞄に余裕あり</h2>
+  <p class="note">後ろのマップは暗く透けます。窓の縁は真鍮、題の帯つき。シナリオでも同じ窓です。</p>
+</div>
+<div class="wrap"><div class="frame" id="s6"></div></div>
+
+<div class="sec">
+  <h2>§7 拾いもの（b）鞄が満杯</h2>
+  <p class="note">赤い帯で理由、「入るだけ全部入れる」は押せない。入れ替えは下の鞄から捨てる。</p>
+</div>
+<div class="wrap"><div class="frame" id="s7"></div></div>
+
+<div class="sec">
+  <h2>§8 窓を閉じたときの自動収納（要望40）</h2>
+  <p class="note"><span class="opt">A案</span>メッセージ行に1行。<span class="opt">B案</span>OKだけの小窓で「入った／失われた」をマス目で。失うものがゼロならA案だけ、あるときはB案、の混ぜ方を推します。</p>
+</div>
+<div class="wrap"><div class="frame" id="s8a"></div></div>
+<div class="wrap"><div class="frame" id="s8b"></div></div>
+
+<!-- ============ §9〜§11 ============ -->
+<div class="sec">
+  <h2>§9 レリック選択（選ぶまで出られない）</h2>
+  <p class="note">戻るは無し。候補は札ではなくマス目（倉庫・鞄・商人と同じ部品）。</p>
+</div>
+<div class="wrap"><div class="frame" id="s9"></div></div>
+
+<div class="sec">
+  <h2>§10 ボスの間の商人</h2>
+  <p class="note">鞄に入る品はマス目、入らない品は行。たいまつの行に「いま 1層先 → 2層先」と変化を出しています。</p>
+</div>
+<div class="wrap"><div class="frame" id="s10"></div></div>
+
+<div class="sec">
+  <h2>§11 通路のできごと（OKだけ）</h2>
+</div>
+<div class="wrap"><div class="frame" id="s11a"></div></div>
+<div class="wrap"><div class="frame" id="s11b"></div></div>
+
+<div class="sec">
+  <h2>§12 つけているレリック（要望46）</h2>
+  <p class="note">v1 の B案（ヘッダ右端の🔮マス目）を全画面に入れてあります。付けた人はマスの左下に印、ホバーで効果。</p>
+</div>
+
+<script>
+/* ===== 定義 ===== */
+const NODE={battle:{i:'🔥',l:'戦闘'},relic:{i:'🔮',l:'レリック'},rest:{i:'⛺',l:'休憩'},
+  chest:{i:'🎁',l:'宝箱'},boss:{i:'🏰',l:'ボス'},shop:{i:'🏪',l:'ショップ'},unknown:{i:'❓',l:'？'}};
+const EDGE={trapHp:{c:'#e88a8a',e:'💥',k:'bad'},trapCoin:{c:'#e88a8a',e:'💸',k:'bad'},
+  trapDrop:{c:'#e88a8a',e:'💨',k:'bad'},chest:{c:'#f0c04a',e:'🎁',k:'good'},
+  loot:{c:'#f0c04a',e:'💰',k:'good'},none:{c:'#6b5d55',e:'',k:''},hidden:{c:'#2e2724',e:'',k:''}};
+const NW=134,NH=38,COLX=[0,178,356],GAP=86,PADT=26,PADB=26,INNERW=COLX[2]+NW;
+
+function makeNode(type,state,big){
+  const d=NODE[type], el=document.createElement('div');
+  el.className='node '+state+(type==='unknown'?' unknown':'');
+  if(big){el.style.width=(NW+22)+'px';el.style.height='46px';}
+  const mk=state==='cur'?'▶':(state==='done'?'✓':'');
+  el.innerHTML='<div class="bd"></div><div class="fill"></div>'+
+    '<div class="pin" style="left:4px;top:4px"></div><div class="pin" style="right:4px;top:4px"></div>'+
+    '<div class="pin" style="left:4px;bottom:4px"></div><div class="pin" style="right:4px;bottom:4px"></div>'+
+    '<div class="in"><span class="mk">'+mk+'</span><span class="ic">'+d.i+'</span><span>'+d.l+'</span></div>';
+  return el;
+}
+/* 手描きの道 */
+function drawEdge(svg,x1,y1,x2,y2,kind,thick){
+  const e=EDGE[kind], hid=kind==='hidden', w=thick?3:1.6, j=6;
+  const ns='http://www.w3.org/2000/svg', p=document.createElementNS(ns,'path');
+  let d;
+  if(e.k==='bad'&&!hid){
+    const dx=x2-x1, dy=y2-y1;
+    d='M'+x1+','+y1+' L'+(x1+dx*0.22+j)+','+(y1+dy*0.26)+' L'+(x1+dx*0.5-j)+','+(y1+dy*0.52)+
+      ' L'+(x1+dx*0.78+j*0.6)+','+(y1+dy*0.76)+' L'+x2+','+y2;
+  }else{
+    d='M'+x1+','+y1+' C'+(x1+j)+','+(y1+(y2-y1)*0.35)+' '+(x2-j)+','+(y1+(y2-y1)*0.65)+' '+x2+','+y2;
+  }
+  p.setAttribute('d',d); p.setAttribute('fill','none'); p.setAttribute('stroke',e.c);
+  p.setAttribute('stroke-width',w); p.setAttribute('stroke-linecap','round');
+  p.setAttribute('stroke-linejoin','round');
+  if(hid) p.setAttribute('stroke-dasharray','2 6');
+  svg.appendChild(p);
+}
+
+/* ===== マップ描画 ===== */
+/* opt: {layers,edges,startFloor,torch,bossLayer,noFog} */
+function renderMap(host,opt){
+  const L=opt.layers, N=L.length;
+  const H=(N-1)*GAP+NH+PADT+PADB;
+  const inner=document.createElement('div');
+  inner.className='mapinner'; inner.style.width=INNERW+'px'; inner.style.height=H+'px';
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','lines'); svg.setAttribute('width',INNERW); svg.setAttribute('height',H);
+  inner.appendChild(svg);
+  const pos=[]; let curX=INNERW/2, curY=0, curIdx=0;
+  L.forEach((layer,li)=>{layer.forEach(n=>{if(n.s==='cur') curIdx=li;});});
+  L.forEach((layer,li)=>{
+    const y=PADT+(N-1-li)*GAP; pos[li]=[];
+    layer.forEach(n=>{
+      const big=n.t==='boss', x=COLX[n.col]-(big?11:0);
+      pos[li].push({x:COLX[n.col]+NW/2,top:y,bottom:y+(big?46:NH)});
+      const el=makeNode(n.t,n.s,big);
+      el.style.left=x+'px'; el.style.top=(big?y-4:y)+'px';
+      if(n.s==='cur'){curX=COLX[n.col]+NW/2;curY=y+NH/2;curIdx=li;}
+      inner.appendChild(el);
+    });
+    const f=document.createElement('div');
+    const fl=opt.startFloor+li;
+    f.className='floorno'+(li<=curIdx+ (opt.torch||1) ?' near':'')+(L[li][0].t==='boss'?' boss':'');
+    f.style.left='-58px'; f.style.top=(y+NH/2-7)+'px';
+    f.textContent=(L[li][0].t==='boss'?'🏰 ':'')+fl+'層';
+    inner.appendChild(f);
+    if(fl%5===0&&li<N-1){
+      const s=document.createElement('div');
+      s.className='seam';
+      s.style.cssText+='left:-58px;right:-24px;top:'+(y-GAP/2+NH/2)+'px';
+      s.innerHTML='<span class="cap">区画の切れ目</span>';
+      inner.appendChild(s);
+    }
+  });
+  (opt.edges||[]).forEach(([li,ai,bi,kind,thick])=>{
+    const a=pos[li][ai], b=pos[li+1][bi];
+    drawEdge(svg,a.x,a.top,b.x,b.bottom,kind,thick);
+    const e=EDGE[kind];
+    if(e.e){
+      const bd=document.createElement('div');
+      bd.className='edge-badge '+e.k; bd.innerHTML='<span>'+e.e+'</span>';
+      bd.style.left=((a.x+b.x)/2)+'px'; bd.style.top=((a.top+b.bottom)/2)+'px';
+      inner.appendChild(bd);
+    }
+  });
+  if(!opt.noFog){
+    const grade=opt.torch||1;
+    const fog=document.createElement('div');
+    fog.className='fog'; fog.style.height=H+'px';
+    const edgeY=curY-GAP*(grade+0.5);          /* 明かりの境目 */
+    const p1=Math.max(0,Math.min(100,(H-edgeY)/H*100));
+    const p2=Math.max(0,Math.min(100,(H-(edgeY-GAP*1.6))/H*100));
+    fog.style.background='linear-gradient(to top, rgba(6,4,8,0) '+p1+'%, rgba(6,4,8,.6) '+p2+'%, rgba(6,4,8,.88) 100%)';
+    inner.appendChild(fog);
+  }
+  const lt=document.createElement('div');
+  lt.className='torchlight'; lt.style.left=curX+'px'; lt.style.top=curY+'px';
+  inner.appendChild(lt);
+  host.appendChild(inner);
+  requestAnimationFrame(()=>{host.scrollTop=Math.max(0,curY-host.clientHeight/2);});
+  return inner;
+}
+
+/* ===== マス目 ===== */
+const ITEM={
+  heal:{i:'🍷',n:'回復ポーション',d:'1人の戦闘時MAX HPを戻す',r:''},
+  revive:{i:'😇',n:'蘇生ポーション',d:'脱落した1人を戻す',r:'r2'},
+  scrap:{i:'📦',n:'鉄くず',d:'拠点で使う素材',r:''},
+  cloth:{i:'📦',n:'古布',d:'拠点で使う素材',r:''},
+  chest:{i:'🎁',n:'宝箱',d:'開けずに持ち帰る。中身は拠点で',r:'r2'},
+  crown:{i:'👑',n:'王の欠片',d:'拠点で使う素材',r:'r3'},
+  torch:{i:'🔥',n:'たいまつの油',d:'たいまつの等級を上げる',r:'r2'},
+  relic:{i:'🔮',n:'レリック',d:'このランのあいだ効く',r:'r2'}
+};
+function cell(k,c,cls){
+  const it=ITEM[k], el=document.createElement('div');
+  el.className='cell '+(it.r||'')+(cls?' '+cls:'');
+  el.innerHTML=it.i+(c>1?'<span class="n">'+c+'</span>':'');
+  el.dataset.nm=it.n; el.dataset.d=it.d; return el;
+}
+function emptyCell(){const e=document.createElement('div');e.className='cell empty';return e;}
+
+document.addEventListener('mouseover',e=>{
+  const c=e.target.closest('.cell'); if(!c||!c.dataset.nm) return;
+  const f=c.closest('.frame'); if(!f) return;
+  const t=document.createElement('div'); t.className='tip';
+  t.innerHTML='<div class="nm">'+c.dataset.nm+'</div>'+c.dataset.d;
+  f.appendChild(t);
+  const r=f.getBoundingClientRect(), cr=c.getBoundingClientRect();
+  let x=cr.right-r.left+10, y=cr.top-r.top;
+  if(x+220>f.clientWidth) x=cr.left-r.left-222;
+  if(y+80>f.clientHeight) y=f.clientHeight-82;
+  t.style.left=x+'px'; t.style.top=y+'px'; c._tip=t;
+});
+document.addEventListener('mouseout',e=>{const c=e.target.closest('.cell');if(c&&c._tip){c._tip.remove();c._tip=null;}});
+document.addEventListener('click',e=>{
+  document.querySelectorAll('.pop.auto').forEach(p=>p.remove());
+  const c=e.target.closest('.cell.bagcell'); if(!c) return;
+  const f=c.closest('.frame'), r=f.getBoundingClientRect(), cr=c.getBoundingClientRect();
+  const isPot=c.dataset.nm.indexOf('ポーション')>=0;
+  const p=document.createElement('div'); p.className='pop auto';
+  p.innerHTML='<div class="nm">'+c.dataset.nm+'</div>'+c.dataset.d+
+    '<div class="acts">'+(isPot?'<button class="btn sm">僧侶</button><button class="btn sm">弓兵</button><button class="btn sm">剣士</button>':'')+
+    '<button class="btn sm ghost">鞄から捨てる</button></div>'+(isPot?'<div class="sub">誰に使うか選ぶ</div>':'');
+  f.appendChild(p);
+  let x=cr.left-r.left-20, y=cr.top-r.top-(isPot?118:88);
+  if(x+246>f.clientWidth) x=f.clientWidth-248;
+  p.style.left=Math.max(8,x)+'px'; p.style.top=Math.max(8,y)+'px';
+  e.stopPropagation();
+});
+
+/* ===== 画面の骨 ===== */
+function relicCells(){
+  return '<span style="display:flex;gap:4px;padding-left:12px" class="relicbox"></span>';
+}
+function fillRelics(f){
+  f.querySelectorAll('.relicbox').forEach(rg=>{
+    [['いくさの旗','3人全員：最初の一撃が強い',''],
+     ['まもりの石','1人だけ：罠のHP減少が半分','剣']].forEach(r=>{
+      const c=document.createElement('div');
+      c.className='cell r2'; c.style.cssText='width:32px;height:32px;font-size:15px';
+      c.innerHTML='🔮'+(r[2]?'<span class="n" style="left:2px;right:auto;font-size:9px;color:#f0c04a">'+r[2]+'</span>':'');
+      c.dataset.nm=r[0]; c.dataset.d=r[1]; rg.appendChild(c);
+    });
+  });
+}
+function header(o){
+  return '<div class="hd"><button class="btn back">戻る</button><div class="title">難ダンジョン</div>'+
+    '<div class="right"><span>フロア '+o.floor+'</span>'+
+    '<span>🔥 等級'+o.torch+'（'+o.torch+'層先）</span>'+
+    '<span>遺物片 <b>'+o.coin+'</b></span>'+
+    '<span'+(o.bagFull?' style="color:#e88a8a"':'')+'>鞄 <b'+(o.bagFull?' style="color:#e88a8a"':'')+'>'+o.bag+'</b></span>'+
+    relicCells()+'</div></div>';
+}
+function party(l){
+  return '<div class="party">'+l.map(p=>p.dead?'<span class="dead">'+p.n+' 脱落</span>'
+    :'<span>'+p.n+' <b>'+p.hp+'</b><span class="dim">/'+p.max+'</span></span>').join('')+'</div>';
+}
+function bagRow(items,label){
+  return '<div class="bagrow"><div class="cap">鞄<b>'+label+'</b></div><div class="grid bag"></div></div>';
+}
+function fillBag(f,items){
+  const g=f.querySelector('.bag'); if(!g) return;
+  items.forEach(x=>g.appendChild(cell(x[0],x[1],'bagcell')));
+  for(let i=items.length;i<8;i++) g.appendChild(emptyCell());
+}
+
+/* ===== マップのデータ ===== */
+const U={t:'unknown',s:'dim'};
+function u(col){return{t:'unknown',s:'dim',col:col};}
+const MAP_A={startFloor:1,torch:1,layers:[
+  [{t:'battle',s:'cur',col:1}],
+  [{t:'battle',s:'can',col:0},{t:'rest',s:'can',col:1},{t:'chest',s:'can',col:2}],
+  [u(0),u(1),u(2)],[u(0),u(1),u(2)],[u(0),u(1),u(2)],[u(0),u(1),u(2)],
+  [u(1)],[u(0),u(1),u(2)]
+],edges:[[0,0,0,'trapHp',true],[0,0,1,'none',true],[0,0,2,'loot',true],
+  [1,0,0,'hidden'],[1,1,1,'hidden'],[1,2,2,'hidden'],
+  [2,0,0,'hidden'],[2,1,1,'hidden'],[2,2,2,'hidden'],
+  [3,0,0,'hidden'],[3,1,1,'hidden'],[3,2,2,'hidden'],
+  [4,0,0,'hidden'],[4,1,1,'hidden'],[4,2,2,'hidden'],
+  [5,0,0,'hidden'],[5,1,0,'hidden'],[5,2,0,'hidden'],
+  [6,0,0,'hidden'],[6,0,1,'hidden'],[6,0,2,'hidden']]};
+const MAP_B={startFloor:9,torch:1,layers:[
+  [{t:'battle',s:'done',col:1}],[{t:'rest',s:'done',col:1}],[{t:'battle',s:'done',col:1}],
+  [{t:'relic',s:'cur',col:1}],[{t:'battle',s:'can',col:1}],[u(1)],
+  [u(0),u(1),u(2)],[u(0),u(1),u(2)],[u(0),u(1),u(2)]
+],edges:[[0,0,0,'none'],[1,0,0,'loot'],[2,0,0,'none'],[3,0,0,'trapHp',true],
+  [4,0,0,'hidden'],[5,0,0,'hidden'],[5,0,1,'hidden'],[5,0,2,'hidden'],
+  [6,0,0,'hidden'],[6,1,1,'hidden'],[6,2,2,'hidden'],
+  [7,0,0,'hidden'],[7,1,1,'hidden'],[7,2,2,'hidden']]};
+const MAP_C={startFloor:21,torch:1,noFog:true,layers:[
+  [{t:'battle',s:'done',col:1}],[{t:'chest',s:'done',col:1}],[{t:'rest',s:'done',col:1}],
+  [{t:'battle',s:'done',col:1}],[{t:'boss',s:'cur',col:1}]
+],edges:[[0,0,0,'none'],[1,0,0,'trapCoin'],[2,0,0,'none'],[3,0,0,'none']]};
+const MAP_D={startFloor:6,torch:1,layers:[
+  [{t:'battle',s:'done',col:1}],[{t:'battle',s:'done',col:1}],[{t:'chest',s:'done',col:1}],
+  [{t:'rest',s:'cur',col:1}],[{t:'battle',s:'can',col:1}],[u(1)],[u(0),u(1),u(2)]
+],edges:[[0,0,0,'none'],[1,0,0,'trapDrop'],[2,0,0,'none'],[3,0,0,'none',true],
+  [4,0,0,'hidden'],[5,0,0,'hidden'],[5,0,1,'hidden'],[5,0,2,'hidden']]};
+const MAP_E={startFloor:6,torch:1,layers:[
+  [{t:'battle',s:'done',col:1}],[{t:'rest',s:'cur',col:1}],
+  [{t:'battle',s:'can',col:0},{t:'chest',s:'can',col:2}],
+  [u(0),u(2)],[u(0),u(2)],[u(1)],[u(0),u(1),u(2)],[u(0),u(1),u(2)]
+],edges:[[0,0,0,'none'],[1,0,0,'trapHp',true],[1,0,1,'none',true],
+  [2,0,0,'hidden'],[2,1,1,'hidden'],[3,0,0,'hidden'],[3,1,1,'hidden'],
+  [4,0,0,'hidden'],[4,1,0,'hidden'],
+  [5,0,0,'hidden'],[5,0,1,'hidden'],[5,0,2,'hidden'],
+  [6,0,0,'hidden'],[6,1,1,'hidden'],[6,2,2,'hidden']]};
+
+function mapScreen(id,o){
+  const f=document.getElementById(id);
+  f.innerHTML=header(o.hd)+party(o.party)+
+    '<div class="msg'+(o.msgKind?' '+o.msgKind:'')+'">'+o.msg+'</div>'+
+    '<div class="mapwrap"><div class="mapscroll"></div></div>'+
+    (o.merchant?'<div style="flex:0 0 46px;display:flex;align-items:center;gap:12px;padding:0 16px;border-top:1px solid var(--line)"><button class="btn brass">🏪 商人と話す</button><span class="kv">ボスの間に商人が来ている</span></div>':'')+
+    bagRow(o.bagItems,o.bagLabel)+
+    '<div class="ft"><span class="hint">上へ進む。引き返せない</span><span class="sp"></span>'+
+      (o.after?'<button class="btn brass">もう1枚潜る</button><button class="btn">持ち帰る</button>':'')+
+      '<button class="btn danger">その場で降りる（全ロスト）</button></div>';
+  fillRelics(f); fillBag(f,o.bagItems);
+  renderMap(f.querySelector('.mapscroll'),o.map);
+  return f;
+}
+mapScreen('s1',{hd:{floor:'1/3',torch:1,coin:20,bag:'3/8'},
+  party:[{n:'僧侶',hp:70,max:70},{n:'弓兵',hp:80,max:80},{n:'剣士',hp:120,max:120}],
+  msg:'難ダンジョンに入った。どの区画へ進むか選ぶ',
+  bagItems:[['heal',1],['heal',1],['scrap',3]],bagLabel:'3/8',map:MAP_A});
+mapScreen('s2',{hd:{floor:'1/3',torch:1,coin:45,bag:'5/8'},
+  party:[{n:'僧侶',hp:58,max:70},{n:'弓兵',hp:80,max:80},{n:'剣士',hp:96,max:120}],
+  msg:'レリックを手に入れた（いくさの旗）',msgKind:'good',
+  bagItems:[['heal',1],['revive',1],['chest',1],['scrap',4],['cloth',2]],bagLabel:'5/8',map:MAP_B});
+mapScreen('s3',{hd:{floor:'1/3',torch:1,coin:120,bag:'5/8'},
+  party:[{n:'僧侶',hp:32,max:70},{n:'弓兵',hp:64,max:80},{n:'剣士',hp:70,max:120}],
+  msg:'ボスを倒した。商人が来ている',msgKind:'good',after:true,merchant:true,
+  bagItems:[['heal',1],['chest',1],['chest',1],['crown',1],['scrap',6]],bagLabel:'5/8',map:MAP_C});
+mapScreen('s4',{hd:{floor:'2/3',torch:1,coin:8,bag:'8/8',bagFull:true},
+  party:[{n:'僧侶',hp:22,max:70},{n:'弓兵',dead:true},{n:'剣士',hp:54,max:120}],
+  msg:'鞄が満杯。これ以上は拾えない',msgKind:'warn',
+  bagItems:[['heal',1],['revive',1],['chest',1],['chest',1],['crown',1],['scrap',9],['cloth',5],['torch',1]],
+  bagLabel:'8/8',map:MAP_D});
+(function(){
+  const f=document.getElementById('s4'), p=document.createElement('div');
+  p.className='pop';
+  p.innerHTML='<div class="nm">回復ポーション</div>1人の戦闘時MAX HPを戻す'+
+    '<div class="acts"><button class="btn sm">僧侶</button>'+
+    '<button class="btn sm" style="background:#3a1c1a;border-color:#a8352f;color:#e88a8a">弓兵</button>'+
+    '<button class="btn sm">剣士</button><button class="btn sm ghost">鞄から捨てる</button></div>'+
+    '<div class="sub">誰に使うか選ぶ（脱落中は赤）</div>';
+  p.style.left='16px'; p.style.top='498px'; f.appendChild(p);
+})();
+mapScreen('s5',{hd:{floor:'1/3',torch:1,coin:35,bag:'4/8'},
+  party:[{n:'僧侶',hp:70,max:70},{n:'弓兵',hp:72,max:80},{n:'剣士',hp:104,max:120}],
+  msg:'休憩した。全員の戦闘時MAX HPが戻った',msgKind:'good',
+  bagItems:[['heal',1],['heal',1],['scrap',3],['cloth',1]],bagLabel:'4/8',map:MAP_E});
+
+/* ===== §0 たいまつ 等級1/2/3 ===== */
+(function(){
+  const f=document.getElementById('torchdemo');
+  f.innerHTML='<div class="hd"><button class="btn back">戻る</button>'+
+    '<div class="title">たいまつの明かり（同じ場所・等級だけ違う）</div>'+
+    '<div class="right"><span>フロア 1/3</span><span>遺物片 <b>45</b></span></div></div>'+
+    '<div style="flex:1;display:flex">'+
+      ['1','2','3'].map(g=>'<div style="flex:1;border-left:1px solid var(--line);display:flex;flex-direction:column">'+
+        '<div style="height:30px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#a89b94">'+
+        '🔥 等級'+g+'（'+g+'層先）</div>'+
+        '<div class="mapwrap"><div class="mapscroll" data-g="'+g+'"></div></div></div>').join('')+
+    '</div>'+
+    '<div class="ft"><span class="hint">等級を上げると、暗さの境目が上がって先のマスと通路が読めるようになる。光は5.5秒で静かに揺れる</span></div>';
+  f.querySelectorAll('.mapscroll').forEach(sc=>{
+    const g=Number(sc.dataset.g);
+    const layers=[
+      [{t:'battle',s:'done',col:1}],[{t:'rest',s:'done',col:1}],[{t:'relic',s:'cur',col:1}],
+      [g>=1?{t:'battle',s:'can',col:1}:u(1)],
+      [g>=2?{t:'chest',s:'dim',col:1}:u(1)],
+      [g>=3?{t:'rest',s:'dim',col:0}:u(0),g>=3?{t:'battle',s:'dim',col:2}:u(2)],
+      [u(0),u(2)]
+    ];
+    const edges=[[0,0,0,'none'],[1,0,0,'loot'],[2,0,0,'trapHp',true],
+      [3,0,0,g>=2?'none':'hidden'],[4,0,0,g>=3?'trapDrop':'hidden'],[4,0,1,g>=3?'chest':'hidden'],
+      [5,0,0,'hidden'],[5,1,1,'hidden']];
+    /* 3列だと横幅が足りないので、この画面だけ列を1本に寄せる */
+    const saveW=COLX[2];
+    renderMap(sc,{layers:layers,edges:edges,startFloor:11,torch:g});
+    sc.querySelector('.mapinner').style.transform='scale(.72)';
+    sc.querySelector('.mapinner').style.transformOrigin='top center';
+  });
+})();
+
+/* ===== 拾いもの ===== */
+function pickup(id,o){
+  const f=document.getElementById(id);
+  f.innerHTML=header({floor:'1/3',torch:1,coin:45,bag:o.bagLabel,bagFull:o.full})+
+    party([{n:'僧侶',hp:58,max:70},{n:'弓兵',hp:72,max:80},{n:'剣士',hp:96,max:120}])+
+    '<div class="msg">戦闘に勝った</div>'+
+    '<div class="mapwrap"><div class="mapscroll"></div></div>'+bagRow(o.bagItems,o.bagLabel)+
+    '<div class="ft"><span class="hint">上へ進む。引き返せない</span><span class="sp"></span>'+
+    '<button class="btn danger">その場で降りる（全ロスト）</button></div>';
+  fillRelics(f); fillBag(f,o.bagItems);
+  renderMap(f.querySelector('.mapscroll'),MAP_B);
+  const v=document.createElement('div'); v.className='veil';
+  v.innerHTML='<div class="modal" style="width:620px">'+
+    '<div class="bar"><button class="btn back sm">戻る</button><span>'+o.title+'</span>'+
+    '<span style="margin-left:auto;font-size:11.5px;color:#7d6f68">戻ると、選ばなかったものは失う</span></div>'+
+    '<div class="body"><p class="lbl">拾い待ち</p><div class="grid loot"></div>'+
+    (o.full?'<div class="warnbox" style="margin-top:12px">鞄が満杯。入れるには鞄から何か捨てる</div>':'')+
+    '<div class="divider"></div><p class="lbl">いまの鞄　<span style="color:'+(o.full?'#e88a8a':'#a89b94')+'">'+o.bagLabel+'</span></p>'+
+    '<div class="grid mbag"></div>'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-top:14px">'+
+    '<button class="btn brass"'+(o.full?' disabled':'')+'>入るだけ全部入れる</button>'+
+    '<span class="kv">'+(o.full?'入る枠が無い':'上から順に入る')+'</span></div></div></div>';
+  f.appendChild(v);
+  const lg=v.querySelector('.loot'); o.loot.forEach((x,i)=>lg.appendChild(cell(x[0],x[1],i===o.sel?'sel':'')));
+  const bg=v.querySelector('.mbag');
+  o.bagItems.forEach((x,i)=>bg.appendChild(cell(x[0],x[1],i===o.bagSel?'sel':'')));
+  for(let i=o.bagItems.length;i<8;i++) bg.appendChild(emptyCell());
+  const p=document.createElement('div'); p.className='pop'; p.innerHTML=o.pop;
+  p.style.left=o.popPos[0]+'px'; p.style.top=o.popPos[1]+'px';
+  v.querySelector('.modal').appendChild(p);
+}
+pickup('s6',{title:'拾いもの',bagLabel:'5/8',full:false,loot:[['scrap',2],['heal',1],['chest',1]],sel:2,
+  bagItems:[['heal',1],['revive',1],['chest',1],['scrap',4],['cloth',2]],bagSel:-1,
+  pop:'<div class="nm">宝箱</div>開けずに持ち帰る。中身は拠点で開ける（1個で1枠）'+
+    '<div class="acts"><button class="btn sm brass">鞄に入れる</button><button class="btn sm ghost">置いていく</button></div>',
+  popPos:[190,96]});
+pickup('s7',{title:'宝箱を見つけた',bagLabel:'8/8',full:true,loot:[['crown',1],['torch',1]],sel:0,
+  bagItems:[['heal',1],['revive',1],['chest',1],['chest',1],['crown',1],['scrap',9],['cloth',5],['torch',1]],bagSel:5,
+  pop:'<div class="nm">鉄くず x9</div>拠点で使う素材'+
+    '<div class="acts"><button class="btn sm ghost">鞄から捨てる</button></div><div class="sub">捨てると1枠あく</div>',
+  popPos:[300,300]});
+
+/* ===== §8 自動収納 ===== */
+(function(){
+  const full=[['heal',1],['revive',1],['chest',1],['chest',1],['crown',1],['scrap',9],['cloth',5],['torch',1]];
+  const a=document.getElementById('s8a');
+  a.innerHTML=header({floor:'1/3',torch:1,coin:45,bag:'8/8',bagFull:true})+
+    party([{n:'僧侶',hp:58,max:70},{n:'弓兵',hp:72,max:80},{n:'剣士',hp:96,max:120}])+
+    '<div class="msg warn">鞄に3個入れた。入らなかった 王の欠片 x1・古布 x2 は失われた</div>'+
+    '<div class="mapwrap"><div class="mapscroll"></div></div>'+bagRow(full,'8/8')+
+    '<div class="ft"><span class="hint">上へ進む。引き返せない</span><span class="sp"></span>'+
+    '<button class="btn danger">その場で降りる（全ロスト）</button></div>';
+  fillRelics(a); fillBag(a,full); renderMap(a.querySelector('.mapscroll'),MAP_B);
+  const t1=document.createElement('div'); t1.className='stamp';
+  t1.style.cssText+='right:16px;top:120px'; t1.textContent='A案：メッセージ行に1行'; a.appendChild(t1);
+
+  const b=document.getElementById('s8b');
+  b.innerHTML=header({floor:'1/3',torch:1,coin:45,bag:'8/8',bagFull:true})+
+    party([{n:'僧侶',hp:58,max:70},{n:'弓兵',hp:72,max:80},{n:'剣士',hp:96,max:120}])+
+    '<div class="msg">戦闘に勝った</div>'+
+    '<div class="mapwrap"><div class="mapscroll"></div></div>'+bagRow(full,'8/8')+
+    '<div class="ft"><span class="hint">上へ進む。引き返せない</span><span class="sp"></span>'+
+    '<button class="btn danger">その場で降りる（全ロスト）</button></div>';
+  fillRelics(b); fillBag(b,full); renderMap(b.querySelector('.mapscroll'),MAP_B);
+  const v=document.createElement('div'); v.className='veil';
+  v.innerHTML='<div class="modal" style="width:440px"><div class="bar"><span>鞄に入れた</span></div>'+
+    '<div class="body"><p class="lbl">入った</p><div class="grid gin"></div>'+
+    '<p class="lbl" style="margin-top:14px;color:#e88a8a">入らず失われた</p><div class="grid gout"></div>'+
+    '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn brass">OK</button></div></div></div>';
+  b.appendChild(v);
+  [['heal',1],['scrap',2]].forEach(x=>v.querySelector('.gin').appendChild(cell(x[0],x[1])));
+  [['crown',1],['cloth',2]].forEach(x=>{const c=cell(x[0],x[1]);c.style.opacity='.5';c.style.borderColor='#5a2a28';
+    v.querySelector('.gout').appendChild(c);});
+  const t2=document.createElement('div'); t2.className='stamp';
+  t2.style.cssText+='right:16px;top:120px;z-index:60'; t2.textContent='B案：OKだけの小さな窓'; b.appendChild(t2);
+})();
+
+/* ===== §9 レリック ===== */
+(function(){
+  const f=document.getElementById('s9');
+  f.innerHTML='<div class="hd"><div class="title">レリックを1つ選ぶ（このランのあいだ効く）</div>'+
+    '<div class="right"><span>フロア 1/3</span><span>遺物片 <b>45</b></span><span>鞄 <b>5/8</b></span>'+relicCells()+'</div></div>'+
+    party([{n:'僧侶',hp:58,max:70},{n:'弓兵',dead:true},{n:'剣士',hp:96,max:120}])+
+    '<div class="msg">選ぶまでここから出られない</div>'+
+    '<div style="flex:1;display:flex;gap:28px;padding:22px 24px 0">'+
+      '<div><p class="lbl">候補</p><div class="grid cand" style="width:200px"></div>'+
+      '<p class="kv" style="margin-top:10px;width:200px">マスを押すと右に詳細が出る</p></div>'+
+      '<div style="flex:1;border-left:1px solid var(--line);padding-left:28px">'+
+        '<div style="font-size:16px;margin-bottom:4px">まもりの石</div>'+
+        '<div style="color:#a89b94;font-size:13px;line-height:1.9">1人だけ<br>通路の罠で減る戦闘時MAX HPが半分になる</div>'+
+        '<div class="divider" style="width:420px"></div><p class="lbl">誰に付けるか選ぶ</p>'+
+        '<div style="display:flex;gap:10px"><button class="btn">僧侶</button>'+
+        '<button class="btn" style="background:#3a1c1a;border-color:#a8352f;color:#e88a8a">弓兵（脱落）</button>'+
+        '<button class="btn">剣士</button></div>'+
+        '<div class="divider" style="width:420px"></div>'+
+        '<p class="lbl">全員用のレリックを選んだときは、ボタン1つ</p><button class="btn brass">取る</button></div>'+
+    '</div><div class="ft"><span class="hint">レリックはこのランのあいだだけ効く。持ち帰れない</span></div>';
+  fillRelics(f);
+  const g=f.querySelector('.cand');
+  ['いくさの旗','まもりの石','たいまつの芯'].forEach((nm,i)=>{
+    const c=cell('relic',1,i===1?'sel lg':'lg');
+    c.dataset.nm=nm;
+    c.dataset.d=['3人全員：戦闘の最初の一撃が強い','1人だけ：罠のHP減少が半分','3人全員：1層ぶん遠くまで見える'][i];
+    g.appendChild(c);
+  });
+})();
+
+/* ===== §10 商人 ===== */
+(function(){
+  const f=document.getElementById('s10');
+  f.innerHTML='<div class="hd"><button class="btn back">戻る</button><div class="title">ボスの間の商人 🏪</div>'+
+    '<div class="right"><span>遺物片 <b>120</b></span><span>鞄 <b>5/8</b></span>'+relicCells()+'</div></div>'+
+    party([{n:'僧侶',hp:32,max:70},{n:'弓兵',hp:64,max:80},{n:'剣士',hp:70,max:120}])+
+    '<div class="msg">遺物片はここでしか使えない。持ち帰れない</div>'+
+    '<div style="flex:1;display:flex;gap:28px;padding:18px 24px 0">'+
+      '<div style="width:300px"><p class="lbl">鞄に入る品</p><div class="grid shop"></div>'+
+      '<p class="lbl" style="margin-top:20px">いまの鞄</p><div class="grid mbag"></div></div>'+
+      '<div style="flex:1;border-left:1px solid var(--line);padding-left:28px"><p class="lbl">鞄に入らない品</p>'+
+      '<div style="display:flex;flex-direction:column;gap:8px;width:520px">'+
+        '<div class="rowline"><span class="nm">鞄の枠 +1（8 → 9）</span><span class="price">50</span><button class="btn sm brass">買う</button></div>'+
+        '<div class="rowline"><span class="nm">🔥 たいまつ（1層先 → 2層先）</span><span class="price">40</span><button class="btn sm brass">買う</button></div>'+
+        '<div class="rowline" style="opacity:.75"><span class="nm">祭壇で祈る</span><span class="price">200</span>'+
+        '<button class="btn sm" disabled>買う</button><span class="why">遺物片が足りない</span></div></div>'+
+      '<div class="divider" style="width:520px"></div><p class="lbl">買えないときの理由</p>'+
+      '<div style="display:flex;flex-direction:column;gap:8px;width:520px">'+
+        '<div class="rowline" style="opacity:.75"><span class="nm">🔥 たいまつ（3層先）</span><span class="price">40</span>'+
+        '<button class="btn sm" disabled>買う</button><span class="why">たいまつはこれ以上強くならない</span></div>'+
+        '<div class="rowline" style="opacity:.75"><span class="nm">回復ポーション</span><span class="price">30</span>'+
+        '<button class="btn sm" disabled>買う</button><span class="why">鞄が満杯</span></div></div>'+
+    '</div></div><div class="ft"><span class="hint">買い終わったら「戻る」でマップへ</span></div>';
+  fillRelics(f);
+  const s=f.querySelector('.shop');
+  [['heal',1],['revive',1]].forEach(x=>s.appendChild(cell(x[0],x[1],'lg')));
+  s.children[0].classList.add('sel');
+  const b=f.querySelector('.mbag');
+  [['heal',1],['chest',1],['chest',1],['crown',1],['scrap',6]].forEach(x=>b.appendChild(cell(x[0],x[1])));
+  for(let i=5;i<8;i++) b.appendChild(emptyCell());
+  const p=document.createElement('div'); p.className='pop';
+  p.innerHTML='<div class="nm">回復ポーション</div>1人の戦闘時MAX HPを戻す'+
+    '<div class="acts"><button class="btn sm brass">買う（30）</button></div><div class="sub">鞄の空き 3</div>';
+  p.style.left='90px'; p.style.top='230px'; f.appendChild(p);
+})();
+
+/* ===== §11 通路 ===== */
+function corridor(id,title,body){
+  const f=document.getElementById(id);
+  const items=[['heal',1],['revive',1],['chest',1],['scrap',4],['cloth',2]];
+  f.innerHTML=header({floor:'1/3',torch:1,coin:45,bag:'5/8'})+
+    party([{n:'僧侶',hp:58,max:70},{n:'弓兵',hp:72,max:80},{n:'剣士',hp:96,max:120}])+
+    '<div class="msg">通路を通った</div><div class="mapwrap"><div class="mapscroll"></div></div>'+
+    bagRow(items,'5/8')+
+    '<div class="ft"><span class="hint">上へ進む。引き返せない</span><span class="sp"></span>'+
+    '<button class="btn danger">その場で降りる（全ロスト）</button></div>';
+  fillRelics(f); fillBag(f,items); renderMap(f.querySelector('.mapscroll'),MAP_B);
+  const v=document.createElement('div'); v.className='veil';
+  v.innerHTML='<div class="modal" style="width:400px"><div class="bar"><span>'+title+'</span></div>'+
+    '<div class="body">'+body+'<div style="display:flex;justify-content:flex-end;margin-top:16px">'+
+    '<button class="btn brass">OK</button></div></div></div>';
+  f.appendChild(v);
+}
+corridor('s11a','💥 通路に罠があった',
+  '<div style="font-size:13px;line-height:2">全員が傷を負った<br><span style="color:#e88a8a">戦闘時MAX HP -40</span></div>'+
+  '<div class="divider"></div><div class="kv">僧侶 98 → <span style="color:#e88a8a">58</span>　'+
+  '弓兵 112 → <span style="color:#e88a8a">72</span>　剣士 136 → <span style="color:#e88a8a">96</span></div>');
+corridor('s11b','💨 通路で荷物を落とした',
+  '<div style="font-size:13px;line-height:2">走って抜けるあいだに、鞄から1つこぼれた</div>'+
+  '<div class="grid" style="margin-top:10px"><div class="cell" style="opacity:.5;border-color:#5a2a28">📦<span class="n">2</span></div></div>'+
+  '<div class="kv" style="margin-top:8px">古布 x2 を失った</div>');
+</script>
+</body>
+</html>
