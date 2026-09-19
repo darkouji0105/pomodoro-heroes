@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://cf1oordgnrelic1"]
 
 [ext_resource type="Script" path="res://scenes/adventure/run_relic_select.gd" id="1_script"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_button"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
+[ext_resource type="Script" path="res://scenes/ui/components/run_party_strip.gd" id="5_party"]
 
 [node name="RunRelicSelect" type="Control"]
 layout_mode = 3
@@ -34,24 +34,103 @@ offset_right = -16.0
 offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_type_variation = &"PanelStack"
+theme_type_variation = &"NodeList"
 
-[node name="TitleLabel" type="Label" parent="Layout"]
+[node name="Header" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
+theme_type_variation = &"WideRow"
+
+[node name="TitleLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+
+[node name="Spacer" type="Control" parent="Layout/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BagLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="RelicSep" type="VSeparator" parent="Layout/Header"]
+layout_mode = 2
+
+[node name="HeldRelicGrid" type="GridContainer" parent="Layout/Header"]
+layout_mode = 2
+size_flags_vertical = 4
+columns = 12
+script = ExtResource("3_item_grid")
+
+[node name="HeaderRule" type="HSeparator" parent="Layout"]
+layout_mode = 2
+
+[node name="PartyList" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+script = ExtResource("5_party")
 
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "ui_relic_select_locked"
 
-[node name="RelicGrid" type="GridContainer" parent="Layout"]
+[node name="Body" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"WideRow"
+
+[node name="Left" type="VBoxContainer" parent="Layout/Body"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+theme_type_variation = &"TightList"
+
+[node name="CandidateCaption" type="Label" parent="Layout/Body/Left"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "ui_relic_candidates"
+
+[node name="RelicGrid" type="GridContainer" parent="Layout/Body/Left"]
 layout_mode = 2
 size_flags_horizontal = 0
 columns = 3
 script = ExtResource("3_item_grid")
 
-[node name="RelicDetail" type="VBoxContainer" parent="Layout"]
+[node name="PressHint" type="Label" parent="Layout/Body/Left"]
 layout_mode = 2
-size_flags_vertical = 3
+theme_type_variation = &"CaptionLabel"
+text = "ui_relic_press_hint"
+
+[node name="Sep" type="VSeparator" parent="Layout/Body"]
+layout_mode = 2
+
+[node name="Right" type="VBoxContainer" parent="Layout/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"TightList"
+
+[node name="RelicDetail" type="VBoxContainer" parent="Layout/Body/Right"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+size_flags_horizontal = 0
 script = ExtResource("4_item_detail")
 
-[node name="ActionRow" type="HBoxContainer" parent="Layout"]
+[node name="ActionRule" type="HSeparator" parent="Layout/Body/Right"]
+custom_minimum_size = Vector2(420, 0)
 layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="ActionCaption" type="Label" parent="Layout/Body/Right"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+
+[node name="ActionRow" type="HBoxContainer" parent="Layout/Body/Right"]
+layout_mode = 2
+theme_type_variation = &"ButtonRow"
+
+[node name="FooterRule" type="HSeparator" parent="Layout"]
+layout_mode = 2
+
+[node name="Footer" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+
+[node name="HintLabel" type="Label" parent="Layout/Footer"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"

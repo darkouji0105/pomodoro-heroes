@@ -8308,6 +8308,23 @@ func take_run_relic(kind: String, node_id: String, relic_id: String, character_i
 	return take_dungeon_relic(node_id, relic_id, character_id)
 
 
+# 持っているレリックをマスの形で（2026-09-19・モック v2 §12「ヘッダ右端の🔮マス目」）。
+#   ⚠ 1人用は付けた人を装備中の印で出す（make_relic_slot_entry の character_id）。
+#   ⚠ 欄の綴りは2つのランで同じ（relic_id / character_id）。⚠ 読む口は種類ごとの既存の1本。
+func get_run_relic_slot_entries(kind: String) -> Array:
+	var relics: Array = get_floor_relics() if kind == RUN_KIND_FLOOR else get_dungeon_relics()
+	var result: Array = []
+	for raw: Variant in relics:
+		if not (raw is Dictionary):
+			continue
+		var row: Dictionary = raw
+		result.append(make_relic_slot_entry(
+			str(row.get(GameStateKeys.DUNGEON_RELIC_ID, "")),
+			str(row.get(GameStateKeys.DUNGEON_RELIC_CHARACTER_ID, "")),
+		))
+	return result
+
+
 # そのキャラがランの中で脱落しているか。⚠ シナリオには脱落が無い（⚠ 常に false）。
 func is_run_character_downed(kind: String, character_id: String) -> bool:
 	if kind == RUN_KIND_FLOOR:
@@ -9998,6 +10015,19 @@ func get_dungeon_reveal_layers() -> int:
 	if table.is_empty():
 		return 1
 	return maxi(1, int(table[clampi(get_dungeon_torch_grade(), 0, table.size() - 1)]))
+
+
+# 次の等級で何層先まで見えるか（2026-09-19・モック v2 §10「いま 1層先 → 2層先」）。
+#   ⚠ もう上がらなければ -1。⚠ 画面で表を引き直さない（⚠ 読む口はここ1本）。
+func get_dungeon_next_reveal_layers() -> int:
+	var grade: int = get_dungeon_torch_grade()
+	if grade >= get_dungeon_torch_max_grade():
+		return -1
+	var config: DungeonConfig = _dungeon()
+	if config == null:
+		return -1
+	var table: Array = config.torch_reveal_layers
+	return maxi(1, int(table[clampi(grade + 1, 0, table.size() - 1)]))
 
 
 # そのノードの中身が見えているか（§4-7）。

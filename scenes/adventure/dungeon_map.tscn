@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
 [ext_resource type="Script" path="res://scenes/ui/components/run_map_view.gd" id="5_map_view"]
+[ext_resource type="Script" path="res://scenes/ui/components/run_party_strip.gd" id="6_party"]
 
 [node name="DungeonMap" type="Control"]
 layout_mode = 3
@@ -95,6 +96,7 @@ layout_mode = 2
 [node name="PartyList" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
 theme_type_variation = &"WideRow"
+script = ExtResource("6_party")
 
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2

@@ -49,7 +49,8 @@ const HIDDEN_TEXT: String = "？"
 # ⚠⚠ 持っているレリック（決定46・2026-09-19・モック v2 §12）。⚠ ヘッダの右端に小さなマス目。
 #   ⚠ 1人用は付けた人の印（`ItemSlot` の装備中の印）。⚠ 効果はホバーの詳細。
 @onready var relic_grid: ItemGrid = $Layout/Header/RelicGrid
-@onready var party_list: HBoxContainer = $Layout/PartyList
+# ⚠ 3人の行は部品（RunPartyStrip・2026-09-19）。⚠ レリック選択・商人と同じ。
+@onready var party_list: RunPartyStrip = $Layout/PartyList
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var map_scroll: ScrollContainer = $Layout/MapScroll
 # 層の並び・マス・通路の線（2026-09-19 に RunMapView へ切り出した）。⚠ シナリオと同じ部品。
@@ -169,17 +170,9 @@ func _update_header() -> void:
 	_rebuild_relics()
 
 
-# 持っているレリック（決定46）。⚠ 読む口は get_dungeon_relics() の1本。
+# 持っているレリック（決定46）。⚠ 読む口は GameManager の1本（get_run_relic_slot_entries）。
 func _rebuild_relics() -> void:
-	var entries: Array = []
-	for raw: Variant in GameManager.get_dungeon_relics():
-		if not (raw is Dictionary):
-			continue
-		var row: Dictionary = raw
-		entries.append(GameManager.make_relic_slot_entry(
-			str(row.get(GameStateKeys.DUNGEON_RELIC_ID, "")),
-			str(row.get(GameStateKeys.DUNGEON_RELIC_CHARACTER_ID, "")),
-		))
+	var entries: Array = GameManager.get_run_relic_slot_entries(GameManager.RUN_KIND_DUNGEON)
 	relic_grid.rebuild(entries, entries.size())
 	# ⚠ 1つも無いときは区切りごと出さない（⚠ 空の欄を見せない）。
 	relic_grid.visible = not entries.is_empty()
@@ -208,35 +201,7 @@ func _say(text: String, tone: Tone = Tone.PLAIN) -> void:
 # ⚠ 脱落は色と印で出す（§4-4-2）。⚠ 行ごと消さないこと。消すと「誰が欠けたか」が
 #   分からないまま3人目で死亡する。
 func _rebuild_party() -> void:
-	for child in party_list.get_children():
-		party_list.remove_child(child)
-		child.queue_free()
-
-	for member: Variant in GameManager.get_party_members():
-		var character_id: String = str(member)
-		if character_id == "":
-			continue
-		# ⚠ 1人ぶん＝名前と今の値（明るい）＋「/素の値」（暗い）の2つの字（2026-09-19・モック v2）。
-		var cell: HBoxContainer = HBoxContainer.new()
-		cell.name = "Party_" + character_id
-		var char_data: Dictionary = MasterDataLoader.get_character(character_id)
-		var name_text: String = tr(str(char_data.get("name_key", character_id)))
-		var max_hp: int = GameManager.get_dungeon_character_max_hp(character_id)
-		var base_max_hp: int = GameManager.get_dungeon_base_max_hp(character_id)
-		var main: Label = Label.new()
-		main.name = "Value"
-		cell.add_child(main)
-		if GameManager.is_dungeon_character_downed(character_id):
-			main.text = "%s %s" % [name_text, tr("ui_dungeon_downed")]
-			main.theme_type_variation = &"ErrorLabel"
-		else:
-			main.text = "%s %d" % [name_text, max_hp]
-			var base: Label = Label.new()
-			base.name = "Base"
-			base.theme_type_variation = &"CaptionLabel"
-			base.text = "/%d" % base_max_hp
-			cell.add_child(base)
-		party_list.add_child(cell)
+	party_list.refresh(GameManager.RUN_KIND_DUNGEON)
 
 
 # いま立っているマスへスクロールを寄せる要求（段階20-c）。

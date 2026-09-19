@@ -132,6 +132,9 @@ ui_relic_pick_character,誰に付けるか選ぶ
 ui_relic_take,取る
 ui_relic_give,これに付ける
 ui_relic_take_failed,取れなかった
+ui_relic_select_locked,選ぶまでここから出られない
+ui_relic_candidates,候補
+ui_relic_press_hint,マスを押すと右に詳細が出る
 ui_relic_scope_party,3人全員
 ui_relic_scope_single,1人だけ
 ui_relic_none,レリック: なし
@@ -795,6 +798,12 @@ ui_dungeon_shop_reject_closed,いまは買えない
 ui_dungeon_relic_select,レリックを1つ選ぶ（このランのあいだ効く）
 ui_dungeon_shop_enter,商人と話す
 ui_dungeon_shop_here,ボスの間に商人が来ている
+ui_dungeon_shop_currency_note,遺物片はここでしか使えない。持ち帰れない
+ui_dungeon_shop_bag_items,鞄に入る品
+ui_dungeon_shop_other_items,鞄に入らない品
+ui_dungeon_shop_footer_hint,買い終わったら「戻る」でマップへ
+ui_dungeon_shop_bag_free,鞄の空き %d
+ui_dungeon_layers_ahead,%d層先
 ui_dungeon_layer_no,%d層
 ui_dungeon_segment_seam,区画の切れ目
 ui_dungeon_relic_hint,1つ選ぶ。このランのあいだ効く

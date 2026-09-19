@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_button"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
+[ext_resource type="Script" path="res://scenes/ui/components/run_party_strip.gd" id="5_party"]
 
 [node name="DungeonShop" type="Control"]
 layout_mode = 3
@@ -34,10 +35,11 @@ offset_right = -16.0
 offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_type_variation = &"PanelStack"
+theme_type_variation = &"NodeList"
 
 [node name="Header" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
+theme_type_variation = &"WideRow"
 
 [node name="BackButton" parent="Layout/Header" instance=ExtResource("2_button")]
 layout_mode = 2
@@ -46,36 +48,104 @@ variant = 4
 
 [node name="TitleLabel" type="Label" parent="Layout/Header"]
 layout_mode = 2
-text = "ui_dungeon_shop"
 
-[node name="HeaderSpacer" type="Control" parent="Layout/Header"]
+[node name="Spacer" type="Control" parent="Layout/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="CurrencyLabel" type="Label" parent="Layout/Header"]
 layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="CurrencySep" type="VSeparator" parent="Layout/Header"]
+layout_mode = 2
 
 [node name="BagLabel" type="Label" parent="Layout/Header"]
 layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="RelicSep" type="VSeparator" parent="Layout/Header"]
+layout_mode = 2
+
+[node name="HeldRelicGrid" type="GridContainer" parent="Layout/Header"]
+layout_mode = 2
+size_flags_vertical = 4
+columns = 12
+script = ExtResource("3_item_grid")
+
+[node name="HeaderRule" type="HSeparator" parent="Layout"]
+layout_mode = 2
+
+[node name="PartyList" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+script = ExtResource("5_party")
 
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2
+theme_type_variation = &"MutedLabel"
 
-[node name="ItemGrid" type="GridContainer" parent="Layout"]
+[node name="Body" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"WideRow"
+
+[node name="Left" type="VBoxContainer" parent="Layout/Body"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+theme_type_variation = &"TightList"
+
+[node name="ItemCaption" type="Label" parent="Layout/Body/Left"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "ui_dungeon_shop_bag_items"
+
+[node name="ItemGrid" type="GridContainer" parent="Layout/Body/Left"]
 layout_mode = 2
 size_flags_horizontal = 0
-columns = 8
+columns = 5
 script = ExtResource("3_item_grid")
 
-[node name="ItemDetail" type="VBoxContainer" parent="Layout"]
+[node name="BagCaption" type="Label" parent="Layout/Body/Left"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "ui_dungeon_chest_bag_title"
+
+[node name="BagGrid" type="GridContainer" parent="Layout/Body/Left"]
+layout_mode = 2
+size_flags_horizontal = 0
+columns = 5
+script = ExtResource("3_item_grid")
+
+[node name="ItemDetail" type="VBoxContainer" parent="Layout/Body/Left"]
 layout_mode = 2
 script = ExtResource("4_item_detail")
 
-[node name="ItemActionRow" type="HBoxContainer" parent="Layout"]
+[node name="Sep" type="VSeparator" parent="Layout/Body"]
 layout_mode = 2
 
-[node name="UpgradeList" type="VBoxContainer" parent="Layout"]
+[node name="Right" type="VBoxContainer" parent="Layout/Body"]
 layout_mode = 2
-size_flags_vertical = 3
+size_flags_horizontal = 3
 theme_type_variation = &"TightList"
 
+[node name="UpgradeCaption" type="Label" parent="Layout/Body/Right"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "ui_dungeon_shop_other_items"
+
+[node name="UpgradeList" type="VBoxContainer" parent="Layout/Body/Right"]
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_type_variation = &"TightList"
+
+[node name="FooterRule" type="HSeparator" parent="Layout"]
+layout_mode = 2
+
+[node name="Footer" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+
+[node name="HintLabel" type="Label" parent="Layout/Footer"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "ui_dungeon_shop_footer_hint"
