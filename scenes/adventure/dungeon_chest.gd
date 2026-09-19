@@ -43,9 +43,10 @@ const OVERLAY_DIM_ALPHA: float = 0.72
 @onready var bag_grid: ItemGrid = $Center/Window/Layout/Body/Stack/BagGrid
 @onready var loot_detail: ItemDetail = $Center/Window/Layout/Body/Stack/LootDetail
 @onready var action_row: HBoxContainer = $Center/Window/Layout/Body/Stack/ActionRow
-# ⚠⚠ 戻るは左上（2026-09-14・人間の指示「⚠ 戻るボタンの位置を画面によって変えたくない」）。
-#   ⚠ 窓になってからは題の帯の左端（モック v2）。
-@onready var back_button: UiButton = $Center/Window/Layout/TitleBar/Row/BackButton
+# ⚠⚠ この窓だけ「閉じる」を**下**に置く（2026-09-20・人間の指示
+#   「⚠ 戦利品モーダルは戻るボタンを押すのではなく閉じるボタンを下に」）。
+#   ⚠ 「戻るは全画面で左上」（2026-09-14）の例外。⚠ 戦闘の結果窓と同じ扱い（⚠ 窓は「戻る」先を持たない）。
+@onready var back_button: UiButton = $Center/Window/Layout/Body/Stack/CloseRow/CloseButton
 
 # ホバーで詳細を出すドロップダウン（2026-09-07）。⚠ 引き取るのは `loot_detail` だけ。
 #   ⚠ `action_row` は画面に残す（⚠ 「開ける」「全部入れる」「マップへ戻る」は

@@ -35,6 +35,10 @@ var _item_indexes: Array[int] = []
 
 func _ready() -> void:
 	SceneManager.consume_transfer_data()
+	# ⚠⚠ ランの中では右上の通貨を出さない（2026-09-20・人間の指示
+	#   「⚠ スタミナなどのリソースをダンジョン内で表示しないで」）。⚠ 戦闘・ポモドーロと同じ扱い。
+	#   ⚠ 出し直すのは SceneManager（⚠ 画面を移ると既定で出る）。
+	ResourceHud.set_shown(false)
 
 	# ⚠ ボスを倒した先でしか店は開かない（決定15）。⚠ 判定は GameManager に聞く
 	#   （⚠ 開いていなければ空の配列が返る。⚠ ここで phase を見ない）。

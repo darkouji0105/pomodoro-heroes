@@ -93,7 +93,7 @@ res://
 
 | 名前 | 何のためのものか |
 |---|---|
-| `PrimaryButton` / `GhostButton` / `DangerButton` / `BackButton` | ボタンの階層（**5つ**）。**既定（＝素の `Button`）が Secondary**。`BackButton` は**戻る専用**（革の茶＋真鍮の枠・2026-09-14 に人間の指示で追加）。**戻る系は全画面で左上・文字は「戻る」** |
+| `PrimaryButton` / `GhostButton` / `DangerButton` / `BackButton` | ボタンの階層（**5つ**）。**既定（＝素の `Button`）が Secondary**。`BackButton` は**戻る専用**（革の茶＋真鍮の枠・2026-09-14 に人間の指示で追加）。**戻る系は全画面で左上・文字は「戻る」** ／ ⚠ 例外は**窓**（⚠ 戦闘の結果窓 ／ ⚠ 拾いものの窓＝2026-09-20・人間の指示「⚠ 閉じるボタンを下に」）。⚠ 窓は「戻る」先を持たないので**下に「閉じる」** |
 | `ScreenMargin` / `DialogMargin` | 画面ルートの余白 ／ モーダルの余白 |
 | `TightList` / `NodeList` / `PanelStack` / `SectionGap` / `SectionStack` | 縦の間隔 |
 | `ButtonRow` / `WideRow` | 横の間隔 |

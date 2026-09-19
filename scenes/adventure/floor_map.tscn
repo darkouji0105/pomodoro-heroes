@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://cf1oormapscn01"]
 
 [ext_resource type="Script" path="res://scenes/adventure/floor_map.gd" id="1_script"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/resource_display.tscn" id="2_resource_dsp"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="3_button"]
 [ext_resource type="Script" path="res://scenes/ui/components/run_map_view.gd" id="4_map_view"]
 
@@ -68,13 +67,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="ChestLabel" type="Label" parent="Layout/Header"]
-layout_mode = 2
-
-[node name="StaminaNameLabel" type="Label" parent="Layout/Header"]
-layout_mode = 2
-text = "ui_res_stamina"
-
-[node name="StaminaValue" parent="Layout/Header" instance=ExtResource("2_resource_dsp")]
 layout_mode = 2
 
 [node name="RelicLabel" type="Label" parent="Layout"]

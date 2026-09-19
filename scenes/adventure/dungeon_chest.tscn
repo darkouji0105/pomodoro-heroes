@@ -48,11 +48,6 @@ theme_type_variation = &"WindowTitlePanel"
 layout_mode = 2
 theme_type_variation = &"ButtonRow"
 
-[node name="BackButton" parent="Center/Window/Layout/TitleBar/Row" instance=ExtResource("5_button")]
-layout_mode = 2
-label_key = "ui_common_back"
-variant = 4
-
 [node name="TitleLabel" type="Label" parent="Center/Window/Layout/TitleBar/Row"]
 layout_mode = 2
 theme_type_variation = &"WindowTitleLabel"
@@ -119,3 +114,17 @@ theme_type_variation = &"ButtonRow"
 [node name="LootDetail" type="VBoxContainer" parent="Center/Window/Layout/Body/Stack"]
 layout_mode = 2
 script = ExtResource("4_item_detail")
+
+[node name="CloseRule" type="HSeparator" parent="Center/Window/Layout/Body/Stack"]
+layout_mode = 2
+
+[node name="CloseRow" type="HBoxContainer" parent="Center/Window/Layout/Body/Stack"]
+layout_mode = 2
+
+[node name="CloseSpacer" type="Control" parent="Center/Window/Layout/Body/Stack/CloseRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CloseButton" parent="Center/Window/Layout/Body/Stack/CloseRow" instance=ExtResource("5_button")]
+layout_mode = 2
+label_key = "ui_common_close"

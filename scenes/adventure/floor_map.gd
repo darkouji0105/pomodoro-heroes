@@ -43,7 +43,6 @@ const CHEST_POPUP_SEC: float = 0.9
 
 @onready var floor_name_label: Label = $Layout/Header/FloorNameLabel
 @onready var chest_label: Label = $Layout/Header/ChestLabel
-@onready var stamina_value: ResourceDisplay = $Layout/Header/StaminaValue
 @onready var chest_popup: Label = $ChestPopup
 @onready var relic_label: Label = $Layout/RelicLabel
 @onready var message_label: Label = $Layout/MessageLabel
@@ -60,6 +59,10 @@ var _loot_overlay: DungeonChest = null
 
 func _ready() -> void:
 	SceneManager.consume_transfer_data()
+	# ⚠⚠ ランの中では右上の通貨を出さない（2026-09-20・人間の指示
+	#   「⚠ スタミナなどのリソースをダンジョン内で表示しないで」）。⚠ 戦闘・ポモドーロと同じ扱い。
+	#   ⚠ 出し直すのは SceneManager（⚠ 画面を移ると既定で出る）。
+	ResourceHud.set_shown(false)
 
 	# フロアに入っていないのにここへ来た（セーブを消した直後など）。
 	# ⚠ 空のマップを描かず、冒険選択へ戻す。
@@ -72,7 +75,6 @@ func _ready() -> void:
 	abandon_button.pressed.connect(_on_abandon_pressed)
 	back_button.pressed.connect(_on_back_pressed)
 	GameManager.floor_run_changed.connect(_on_floor_run_changed)
-	GameManager.resource_changed.connect(_on_resource_changed)
 	GameManager.floor_chest_found.connect(_on_chest_found)
 	map_view.node_pressed.connect(_on_node_pressed)
 	# ⚠ スクロールを持たない画面なので層の間隔を詰める（⚠ 44 だと縦に 2px はみ出した）。
@@ -142,11 +144,6 @@ func _on_floor_run_changed(_floor_id: String) -> void:
 	_rebuild()
 
 
-func _on_resource_changed(resource_type: String, _new_value: Variant) -> void:
-	if resource_type == GameStateKeys.STAMINA:
-		_update_header()
-
-
 func _rebuild() -> void:
 	_update_header()
 	_rebuild_layers()
@@ -170,15 +167,8 @@ func _update_header() -> void:
 		GameManager.get_floor_reveal_layers(), tr("ui_floor_torch_layers"),
 	]
 	_update_relic_line()
-
-	# ⚠ 絵を付ける（2026-09-09）。⚠ 毎回入れても同じIDなら描き直さない。
-	stamina_value.resource_id = GameStateKeys.STAMINA
-	var state: Dictionary = GameManager.get_state()
-	var stamina: Dictionary = state.get(GameStateKeys.STAMINA, {})
-	stamina_value.set_value_with_max(
-		int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0)),
-		int(stamina.get(GameStateKeys.STAMINA_MAX, 0))
-	)
+	# ⚠⚠ スタミナはここに出さない（2026-09-20・人間の指示「⚠ スタミナなどのリソースをダンジョン内で表示しないで」）。
+	#   ⚠ 右上の常駐の通貨も出さない（⚠ _ready() で ResourceHud.set_shown(false)）。
 
 
 # いま持っているレリックの1行（段階14-d・PLAN_SCENARIO_MAP.md §5-2-6）。
