@@ -4268,6 +4268,20 @@ func _report_layout() -> void:
 				print("    ⚠ たいまつ %d 層先 ／ 暗さの境目 y = %.0f（⚠ -1 なら暗さ無し）" % [
 					(raw_child as RunMapView).torch_reveal_layers, fog_edge
 				])
+			# ⚠ 3人のHPのバー（2026-09-20・人間の指示「HPをバーにして見やすく」）。
+			#   ⚠ 絵は取れないが「満ちている割合」は取れる。⚠ 削れていれば 1.0 未満になる。
+			if raw_child is RunHpBar:
+				print("    ⚠ HPのバー %s（割合 %.2f）" % [
+					(raw_child as RunHpBar).to_text(), (raw_child as RunHpBar).get_ratio()
+				])
+			# ⚠ 遺物片の絵（2026-09-20・人間の指示「遺物片にあいこんを」）。⚠ 空なら絵が引けていない。
+			if raw_child is ResourceDisplay and raw_child.name == "CurrencyValue":
+				var texture: Texture2D = (raw_child as ResourceDisplay).icon_texture
+				print("    ⚠ 遺物片の絵 = %s（⚠ 空なら引けていない）" % [
+					"無し" if texture == null else texture.resource_path.get_file()
+				])
+				if texture == null:
+					push_error("[DebugBoot] 遺物片の絵が引けていない")
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので
@@ -4327,6 +4341,15 @@ func _report_layout() -> void:
 				])
 				if pops.size() != 1 or texts.is_empty():
 					push_error("[DebugBoot] マスを押しても「できること」の吹き出しが出ない")
+			# ⚠ 削れた「戦闘時 MAX HP」のバー（2026-09-20）。⚠ 満タンの画面しか測れないので、⚠ ここで作って見る。
+			var probe: RunHpBar = RunHpBar.new()
+			probe.set_values(58, 70)
+			print("    ⚠ 削れたバー %s（割合 %.2f・⚠ 1.00 未満が正解＝削れたぶんが残る）" % [
+				probe.to_text(), probe.get_ratio()
+			])
+			if probe.get_ratio() >= 1.0:
+				push_error("[DebugBoot] 削れた戦闘時 MAX HP がバーに出ていない")
+			probe.queue_free()
 			# ⚠⚠ 閉じたときの自動収納の見せ方（決定40・モック v2 §8）。⚠ 失うものが無い＝1行 ／ ある＝窓。
 			var line_a: String = DungeonChest.present_auto_result(self, {
 				DungeonChest.AUTO_TAKEN: {"construction_material_4": 2}, DungeonChest.AUTO_LOST: {},

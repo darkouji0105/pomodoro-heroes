@@ -1034,11 +1034,32 @@ corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_elec6"]
+bg_color = Color(0.49803922, 0.7490196, 0.2784314, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_iojej"]
+bg_color = Color(0.16470589, 0.13725491, 0.1254902, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6g8b1"]
+bg_color = Color(0.76862746, 0.3254902, 0.2901961, 0.45)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w1xkm"]
 bg_color = Color(0.09803922, 0.078431375, 0.07450981, 1)
 border_width_left = 1
 border_color = Color(0.18039216, 0.15294118, 0.14117648, 1)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_iojej"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_b7lb7"]
 content_margin_left = 12.0
 content_margin_top = 12.0
 content_margin_right = 12.0
@@ -1054,7 +1075,7 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6g8b1"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_yor0u"]
 content_margin_left = 10.0
 content_margin_top = 10.0
 content_margin_right = 10.0
@@ -1071,7 +1092,7 @@ corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 shadow_size = 9
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w1xkm"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_82uxt"]
 content_margin_left = 16.0
 content_margin_top = 13.0
 content_margin_right = 16.0
@@ -1087,7 +1108,7 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_b7lb7"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qyuom"]
 content_margin_left = 16.0
 content_margin_top = 13.0
 content_margin_right = 16.0
@@ -1103,7 +1124,7 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_yor0u"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ohahq"]
 content_margin_left = 16.0
 content_margin_top = 13.0
 content_margin_right = 16.0
@@ -1119,7 +1140,7 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_82uxt"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_j0ak4"]
 bg_color = Color(0.12156863, 0.101960786, 0.09411765, 1)
 border_width_left = 1
 border_width_top = 1
@@ -1131,7 +1152,7 @@ corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qyuom"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_x4kk8"]
 content_margin_left = 16.0
 content_margin_right = 16.0
 bg_color = Color(0.16470589, 0.13725491, 0.1254902, 1)
@@ -1529,6 +1550,11 @@ ResultTitlePanel/base_type = &"PanelContainer"
 ResultTitlePanel/styles/panel = SubResource("StyleBoxFlat_1f2pp")
 ResultWindowPanel/base_type = &"PanelContainer"
 ResultWindowPanel/styles/panel = SubResource("StyleBoxFlat_725dy")
+RunHpBar/constants/height = 8
+RunHpBar/constants/width = 96
+RunHpBar/styles/fill = SubResource("StyleBoxFlat_elec6")
+RunHpBar/styles/groove = SubResource("StyleBoxFlat_iojej")
+RunHpBar/styles/lost = SubResource("StyleBoxFlat_6g8b1")
 ScreenHeader/colors/rule = Color(0.18039216, 0.15294118, 0.14117648, 1)
 ScreenMargin/base_type = &"MarginContainer"
 ScreenMargin/constants/margin_bottom = 32
@@ -1549,7 +1575,7 @@ SetDots/constants/current_width = 40
 SetDots/constants/gap = 8
 SetDots/constants/size = 8
 SidePanel/base_type = &"PanelContainer"
-SidePanel/styles/panel = SubResource("StyleBoxFlat_elec6")
+SidePanel/styles/panel = SubResource("StyleBoxFlat_w1xkm")
 SkillTile/colors/cd0_bg = Color(0.101960786, 0.08627451, 0.078431375, 1)
 SkillTile/colors/cd0_border = Color(0.16470589, 0.13725491, 0.1254902, 1)
 SkillTile/colors/cd0_icon = Color(0.2901961, 0.25882354, 0.23921569, 1)
@@ -1608,9 +1634,9 @@ SkillTile/constants/tip_width = 280
 SkillTile/constants/veil_percent = 55
 SkillTile/constants/warn_ms = 2000
 SkillTipPanel/base_type = &"PanelContainer"
-SkillTipPanel/styles/panel = SubResource("StyleBoxFlat_iojej")
+SkillTipPanel/styles/panel = SubResource("StyleBoxFlat_b7lb7")
 SlotPopoverPanel/base_type = &"PanelContainer"
-SlotPopoverPanel/styles/panel = SubResource("StyleBoxFlat_6g8b1")
+SlotPopoverPanel/styles/panel = SubResource("StyleBoxFlat_yor0u")
 SmallErrorLabel/base_type = &"Label"
 SmallErrorLabel/colors/font_color = Color(0.9098039, 0.5411765, 0.5411765, 1)
 SmallErrorLabel/font_sizes/font_size = 12
@@ -1624,9 +1650,9 @@ TextEdit/colors/caret_color = Color(0.9411765, 0.9019608, 0.8745098, 1)
 TextEdit/colors/font_color = Color(0.9411765, 0.9019608, 0.8745098, 1)
 TextEdit/colors/font_placeholder_color = Color(0.43529412, 0.3882353, 0.36078432, 1)
 TextEdit/colors/font_readonly_color = Color(0.43529412, 0.3882353, 0.36078432, 1)
-TextEdit/styles/focus = SubResource("StyleBoxFlat_w1xkm")
-TextEdit/styles/normal = SubResource("StyleBoxFlat_b7lb7")
-TextEdit/styles/read_only = SubResource("StyleBoxFlat_yor0u")
+TextEdit/styles/focus = SubResource("StyleBoxFlat_82uxt")
+TextEdit/styles/normal = SubResource("StyleBoxFlat_qyuom")
+TextEdit/styles/read_only = SubResource("StyleBoxFlat_ohahq")
 TierDots/colors/done = Color(0.65882355, 0.4745098, 0.12156863, 1)
 TierDots/colors/todo = Color(0.22745098, 0.1882353, 0.16862746, 1)
 TierDots/constants/gap = 3
@@ -1646,9 +1672,9 @@ WideRow/base_type = &"HBoxContainer"
 WideRow/constants/separation = 32
 Window/constants/title_height = 36
 WindowPanel/base_type = &"PanelContainer"
-WindowPanel/styles/panel = SubResource("StyleBoxFlat_82uxt")
+WindowPanel/styles/panel = SubResource("StyleBoxFlat_j0ak4")
 WindowTitleLabel/base_type = &"Label"
 WindowTitleLabel/colors/font_color = Color(0.9411765, 0.9019608, 0.8745098, 1)
 WindowTitleLabel/font_sizes/font_size = 14
 WindowTitlePanel/base_type = &"PanelContainer"
-WindowTitlePanel/styles/panel = SubResource("StyleBoxFlat_qyuom")
+WindowTitlePanel/styles/panel = SubResource("StyleBoxFlat_x4kk8")

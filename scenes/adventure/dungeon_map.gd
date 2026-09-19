@@ -44,7 +44,8 @@ const HIDDEN_TEXT: String = "？"
 @onready var floor_label: Label = $Layout/Header/FloorLabel
 # たいまつの等級（2026-09-19・モック v2 でフロアの行から分けた）。
 @onready var torch_label: Label = $Layout/Header/TorchLabel
-@onready var currency_label: Label = $Layout/Header/CurrencyLabel
+# ⚠ 遺物片は絵つき（2026-09-20・人間の指示「⚠ 遺物片にあいこんを　⚠ リソースと同じで」）。
+@onready var currency_value: ResourceDisplay = $Layout/Header/CurrencyValue
 @onready var bag_label: Label = $Layout/Header/BagLabel
 # ⚠⚠ 持っているレリック（決定46・2026-09-19・モック v2 §12）。⚠ ヘッダの右端に小さなマス目。
 #   ⚠ 1人用は付けた人の印（`ItemSlot` の装備中の印）。⚠ 効果はホバーの詳細。
@@ -164,7 +165,8 @@ func _update_header() -> void:
 			GameManager.get_dungeon_torch_grade(), GameManager.get_dungeon_reveal_layers()
 		],
 	]
-	currency_label.text = "%s %d" % [tr("ui_dungeon_currency"), GameManager.get_dungeon_currency()]
+	currency_value.resource_id = GameStateKeys.DUNGEON_RUN_CURRENCY
+	currency_value.set_value(GameManager.get_dungeon_currency())
 	var used: int = GameManager.get_dungeon_bag_used()
 	var slots: int = GameManager.get_dungeon_bag_slots()
 	bag_label.text = "%s %d/%d" % [tr("ui_dungeon_bag"), used, slots]

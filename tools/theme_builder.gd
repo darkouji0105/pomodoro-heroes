@@ -674,6 +674,7 @@ static func build() -> void:
 	_build_battle_result(theme)
 	_build_status_chip(theme)
 	_build_map_nodes(theme)
+	_build_run_hp_bar(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -1312,6 +1313,35 @@ static func _build_battle_result(theme: Theme) -> void:
 	theme.set_constant(&"separation", &"ResultStack", RESULT_GAP)
 	theme.set_type_variation(&"ResultHeadingStack", &"VBoxContainer")
 	theme.set_constant(&"separation", &"ResultHeadingStack", RESULT_HEADING_GAP)
+
+
+# --- ランの3人のHPバー（2026-09-20・人間の指示「⚠ きゃらのHPをバーにして見やすく」）---
+#
+# ⚠⚠ 「戦闘時 MAX HP」は素の MAX HP から**削れていく**。⚠ 削れたぶんが**溝として残って見える**こと
+#   （⚠ 人間「⚠ 最大HPが先頭によって減ってる状態ならバーもそれに応じた見た目に」）。
+#   ⚠ ＝バーの全体＝素の MAX HP ／ ⚠ 満ちている部分＝いまの戦闘時 MAX HP ／ ⚠ 残り＝削れたぶん（赤の暗い帯）。
+# ⚠ 色は**新しく足していない**：⚠ 満ち＝戦闘の味方のHPの緑 ／ ⚠ 削れ＝戦闘の敵のHPの赤 ／ ⚠ 溝＝戦闘のバーの溝。
+const RUN_HP_BAR_WIDTH: int = 96
+const RUN_HP_BAR_HEIGHT: int = 8
+const RUN_HP_BAR_CORNER: int = 3
+# ⚠ 削れたぶんは「赤いが主張しない」濃さ（⚠ 敵のHPの赤をそのまま暗く敷く）。
+const RUN_HP_LOST_ALPHA: float = 0.45
+
+
+static func _build_run_hp_bar(theme: Theme) -> void:
+	var groove: StyleBoxFlat = StyleBoxFlat.new()
+	groove.bg_color = _html(BATTLE_BAR_GROOVE)
+	groove.set_corner_radius_all(RUN_HP_BAR_CORNER)
+	theme.set_stylebox(&"groove", &"RunHpBar", groove)
+	var fill: StyleBoxFlat = groove.duplicate()
+	fill.bg_color = _html(BATTLE_HP_HIGH)
+	theme.set_stylebox(&"fill", &"RunHpBar", fill)
+	var lost: StyleBoxFlat = groove.duplicate()
+	var lost_color: Color = _html(BATTLE_HP_ENEMY)
+	lost.bg_color = Color(lost_color, RUN_HP_LOST_ALPHA)
+	theme.set_stylebox(&"lost", &"RunHpBar", lost)
+	theme.set_constant(&"width", &"RunHpBar", RUN_HP_BAR_WIDTH)
+	theme.set_constant(&"height", &"RunHpBar", RUN_HP_BAR_HEIGHT)
 
 
 # --- ランのマップのマス（2026-09-19・難ダンジョンのモック v2「真鍮の札」）---

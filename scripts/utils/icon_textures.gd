@@ -68,6 +68,9 @@ const RESOURCE_NAMES: Dictionary = {
 	GameStateKeys.GOLD: "res_gold",
 	GameStateKeys.GEMS: "res_gems",
 	GameStateKeys.STAMINA: "res_stamina",
+	# ⚠⚠ ランの一時通貨（遺物片・2026-09-20・人間の指示「⚠ 遺物片にあいこんを　⚠ リソースと同じで」）。
+	#   ⚠ 専用の線画がまだ無いので**レリックの絵を借りている**。⚠ 専用の絵が来たらここだけ差し替える。
+	GameStateKeys.DUNGEON_RUN_CURRENCY: NAME_ITEM_RELIC,
 }
 
 # ステータスの軸 -> ファイル名の後半。⚠ 軸のIDは `GameStateKeys.STAT_*`。

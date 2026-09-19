@@ -15,7 +15,8 @@ extends Control
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 
 @onready var title_label: Label = $Layout/Header/TitleLabel
-@onready var currency_label: Label = $Layout/Header/CurrencyLabel
+# ⚠ 遺物片は絵つき（2026-09-20）。⚠ 絵は IconTextures の1本（⚠ いまはレリックの絵を借りている）。
+@onready var currency_value: ResourceDisplay = $Layout/Header/CurrencyValue
 @onready var bag_label: Label = $Layout/Header/BagLabel
 @onready var held_relic_grid: ItemGrid = $Layout/Header/HeldRelicGrid
 @onready var party_list: RunPartyStrip = $Layout/PartyList
@@ -77,7 +78,8 @@ func _say(text: String, variation: StringName) -> void:
 func _rebuild() -> void:
 	SlotActionPopover.close_in(self)
 	# 数値のみの組み立てなので、tr() を通すのは見出しだけ（AGENTS.md）。
-	currency_label.text = "%s %d" % [tr("ui_dungeon_currency"), GameManager.get_dungeon_currency()]
+	currency_value.resource_id = GameStateKeys.DUNGEON_RUN_CURRENCY
+	currency_value.set_value(GameManager.get_dungeon_currency())
 	var used: int = GameManager.get_dungeon_bag_used()
 	var slots: int = GameManager.get_dungeon_bag_slots()
 	bag_label.text = "%s %d/%d" % [tr("ui_dungeon_bag"), used, slots]
