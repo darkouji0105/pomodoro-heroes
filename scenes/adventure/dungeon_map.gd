@@ -523,6 +523,9 @@ func _update_footer() -> void:
 
 # マスを押した。⚠ 進めるかは GameManager が返す。こちらでは判定しない。
 func _on_node_pressed(node_id: String) -> void:
+	# ⚠ 通路の罠で「戦闘時 MAX HP」がどれだけ減ったかを窓に出すため、⚠ 進む前の値を覚える（モック v2 §11）。
+	#   ⚠ 読むだけ（⚠ 値は GameManager の口）。⚠ 減った量は GameManager の事件の記録が正。
+	_hp_before_move = _party_max_hp()
 	if not GameManager.move_in_dungeon(node_id):
 		_say(tr("ui_dungeon_cannot_move"), Tone.WARN)
 		return
@@ -628,27 +631,111 @@ func _notify_edge_event() -> void:
 		if left_behind.is_empty():
 			return
 		var _full: ModalDialog = Modal.notify(
-			self, "ui_dungeon_edge_event_resource_full", [_item_names(left_behind)]
+			self, "ui_dungeon_edge_event_resource_full", [_item_names(left_behind)], false,
+			_edge_window_options("resource_full", GameStateKeys.DUNGEON_EDGE_EFFECT_RESOURCE,
+				_item_cells(left_behind, true))
 		)
 		return
 
 	# ⚠ 品を落とした／拾ったときは名前も出す。⚠ 無ければ数だけ。
 	# 数値のみの組み立てなので、tr() を通すのは見出しだけ（AGENTS.md）。
 	var detail: String = _item_names(items) if not items.is_empty() else str(amount)
+	# ⚠⚠ 窓の中身（2026-09-19・モック v2 §11）：罠（HP）＝3人の「前 → 後」 ／ 品が動いた＝マス目。
+	var content: Control = null
+	if effect == GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP:
+		content = _hp_change_row()
+	elif not items.is_empty():
+		content = _item_cells(items, effect == GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG)
 	var _dialog: ModalDialog = Modal.notify(
-		self, "ui_dungeon_edge_event_" + effect, [detail]
+		self, "ui_dungeon_edge_event_" + effect, [detail], false,
+		_edge_window_options(effect, effect, content)
 	)
+
+
+# 進む前の3人の「戦闘時 MAX HP」（⚠ 通路の罠の前後を並べるため）。
+var _hp_before_move: Dictionary = {}
+
+
+func _party_max_hp() -> Dictionary:
+	var result: Dictionary = {}
+	for member: Variant in GameManager.get_party_members():
+		var character_id: String = str(member)
+		if character_id != "":
+			result[character_id] = GameManager.get_dungeon_character_max_hp(character_id)
+	return result
+
+
+# 窓の題（⚠ 絵文字＋何が起きたか）と中身。⚠ 題の絵文字は通路の字と同じ（Glyphs の1本）。
+func _edge_window_options(title_suffix: String, glyph_effect: String, content: Control) -> Dictionary:
+	var options: Dictionary = {
+		Modal.OPTION_TITLE: "%s %s" % [
+			Glyphs.for_dungeon_edge(glyph_effect), tr("ui_dungeon_edge_title_" + title_suffix)
+		],
+	}
+	if content != null:
+		options[Modal.OPTION_CONTENT] = content
+	return options
+
+
+# 3人の「前 → 後」（モック v2 §11「僧侶 98 → 58」）。⚠ 後の値は赤（ErrorLabel）。
+func _hp_change_row() -> Control:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "HpChange"
+	row.theme_type_variation = &"WideRow"
+	var after: Dictionary = _party_max_hp()
+	for raw: Variant in after.keys():
+		var character_id: String = str(raw)
+		var char_data: Dictionary = MasterDataLoader.get_character(character_id)
+		var cell: HBoxContainer = HBoxContainer.new()
+		var before_label: Label = Label.new()
+		before_label.theme_type_variation = &"MutedLabel"
+		before_label.text = "%s %d →" % [
+			tr(str(char_data.get("name_key", character_id))),
+			int(_hp_before_move.get(character_id, after[raw])),
+		]
+		cell.add_child(before_label)
+		var after_label: Label = Label.new()
+		after_label.theme_type_variation = &"ErrorLabel"
+		after_label.text = str(int(after[raw]))
+		cell.add_child(after_label)
+		row.add_child(cell)
+	return row
+
+
+# 品のマス目。⚠ 失ったものは薄く（⚠ 空きマスと同じ薄さ＝ItemSlot の値を使う）。
+func _item_cells(items: Dictionary, lost: bool) -> Control:
+	var grid: ItemGrid = ItemGrid.new()
+	grid.name = "Items"
+	grid.columns = 8
+	var entries: Array = []
+	var ids: Array = items.keys()
+	ids.sort()
+	for raw_id: Variant in ids:
+		entries.append({
+			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+			GameManager.SLOT_ENTRY_ITEM_ID: str(raw_id),
+			GameManager.SLOT_ENTRY_INSTANCE_ID: "",
+			GameManager.SLOT_ENTRY_GRADE: 0,
+			GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+			GameManager.SLOT_ENTRY_COUNT: int(items[raw_id]),
+		})
+	grid.rebuild(entries, entries.size())
+	if lost:
+		grid.modulate = ItemSlot.EMPTY_MODULATE
+	return grid
 
 
 # {item_id: 個数} を「名前 xN, 名前 xN」の1行にする（段階20-d）。
 #
 # ⚠ 綴り順で並べる（⚠ Dictionary のキー順は不定。⚠ 起動ごとに並びが変わらない）。
+# ⚠ 名前の翻訳キーは GameManager の1本（⚠ 宝箱は chests.json の name_key。⚠ 前は ui_res_ を決め打ちしていて、
+#   ⚠ 罠（鞄）で宝箱を落とすと「ui_res_dungeon_chest」とキーがそのまま出ていた）。
 func _item_names(items: Dictionary) -> String:
 	var names: Array[String] = []
 	var item_ids: Array = items.keys()
 	item_ids.sort()
 	for raw_id: Variant in item_ids:
-		names.append("%s x%d" % [tr("ui_res_" + str(raw_id)), int(items[raw_id])])
+		names.append("%s x%d" % [tr(GameManager.item_name_key(str(raw_id))), int(items[raw_id])])
 	return ", ".join(names)
 
 
