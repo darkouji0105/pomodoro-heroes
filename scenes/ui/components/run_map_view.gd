@@ -1,0 +1,289 @@
+class_name RunMapView
+extends Control
+
+# ランのマップの「層の並び・マスのボタン・つながりの線」（2026-09-19・人間の決定「全部推奨で」）。
+#
+# ⚠⚠ シナリオ（floor_map.gd）と難ダンジョン（dungeon_map.gd）の2画面で使う部品。
+#   ⚠ 描き方は段階19-e〜20-g で難ダンジョンに入れたもの（⚠ 列を揃える・線を散らす）をそのまま移した。
+# ⚠⚠ この部品は GameManager を1行も知らない。⚠ FLOOR_* ／ DUNGEON_* のキーも読まない。
+#   ⚠ 画面側が「描く材料」（マス・線）に直して渡す（⚠ 器は別＝PLAN_HARD_DUNGEON.md §7）。
+#   ⚠ 進めるか・見えているか・通路に何があるかの判定は、画面が GameManager に聞いた結果を渡す。
+# ⚠ スクロールは持たない。⚠ 難ダンジョンは外側の ScrollContainer に入れる（⚠ シナリオは入れない＝
+#   ⚠ scenario=layout で測れるまま）。
+# ⚠ 再描画に await を持たせない。remove_child() してから queue_free()（AGENTS.md）。
+
+## 進める先のマスを押した。
+signal node_pressed(node_id: String)
+## 並べ終わって線を引き直した（⚠ マスの位置が確定したあと）。⚠ スクロールを寄せる画面が受ける。
+signal laid_out
+
+# マス1つぶんのキー（set_map() に渡す）。⚠ 文字列リテラルを画面側と2箇所に書かないための定数。
+const NODE_ID: String = "id"
+const NODE_LAYER: String = "layer"
+## ⚠ マスの文字。⚠ 翻訳済みで渡す（⚠ ▶ ✓ はこちらで付ける）。
+const NODE_TEXT: String = "text"
+const NODE_STATE: String = "state"
+
+# マスの状態（NODE_STATE の値）。
+const STATE_CURRENT: String = "current"
+const STATE_VISITED: String = "visited"
+const STATE_REACHABLE: String = "reachable"
+const STATE_FAR: String = "far"
+
+# 線1本ぶんのキー（set_map() に渡す）。
+const EDGE_FROM: String = "from"
+const EDGE_TO: String = "to"
+const EDGE_TONE: String = "tone"
+## ⚠ 通路の真ん中に出す字。⚠ "" なら何も出さない。
+const EDGE_LABEL: String = "label"
+
+# 線の色の種類（EDGE_TONE の値）。⚠ 「良いか悪いか」だけを言う（⚠ 何が起きるかは字が言う）。
+const TONE_PLAIN: String = "plain"
+const TONE_HIDDEN: String = "hidden"
+const TONE_TRAP: String = "trap"
+const TONE_GAIN: String = "gain"
+
+# マスの見た目。⚠ 色はここに置く（main_theme.tres に対応する概念が無い）。
+#   ⚠ 2画面で同じ値だったものを1箇所にした。
+const COLOR_CURRENT: Color = Color(1.0, 0.95, 0.55)
+const COLOR_VISITED: Color = Color(0.45, 0.45, 0.5)
+const COLOR_REACHABLE: Color = Color(1.0, 1.0, 1.0)
+const COLOR_FAR: Color = Color(0.6, 0.6, 0.65)
+
+# 通路の線の色（段階19-e）。⚠ 罠＝赤 ／ 得＝黄 ／ 何も無い＝灰 ／ 中身が見えていない＝暗い灰。
+const COLOR_EDGE_TRAP: Color = Color(0.85, 0.35, 0.35)
+const COLOR_EDGE_GAIN: Color = Color(0.95, 0.85, 0.4)
+const COLOR_EDGE_PLAIN: Color = Color(0.45, 0.45, 0.5)
+const COLOR_EDGE_HIDDEN: Color = Color(0.28, 0.28, 0.32)
+# ⚠ いま立っているマスから出ている線は太くする（⚠ 「次に選ぶのはここ」が読めること）。
+const EDGE_WIDTH: float = 2.0
+const EDGE_WIDTH_CURRENT: float = 4.0
+
+# マスの並びの間隔（段階19-f）。⚠ 層のあいだが狭いと線がほとんど点になる。
+# ⚠ バランスの数値ではなく見た目なので Config に出していない（⚠ 色と同じ扱い）。
+const LAYER_SEPARATION: int = 44
+const NODE_SEPARATION: int = 56
+
+# マス1つの幅（段階20-g）。⚠ 列を揃えるのに要る。⚠ 空の列にも同じ幅のものを置く。
+const NODE_WIDTH: float = 104.0
+
+# 線の端をマスの辺に沿ってどれだけ散らすか（マスの幅に対する割合。段階20-g）。
+const EDGE_ANCHOR_SPREAD: float = 0.55
+
+# 線（下に描く）とマス（上に描く）。⚠ 同じ矩形に重ねる。
+var _edge_lines: DungeonEdgeLines = null
+var _layer_list: VBoxContainer = null
+
+# {node_id: UiButton}。⚠ 描き直すたびに作り直す（⚠ queue_free() 済みの位置を読むと落ちる）。
+var _node_buttons: Dictionary = {}
+# 渡された線。⚠ 位置はレイアウトが済むまで分からないので、並べ替えのたびに引き直す。
+var _edges: Array = []
+# いま立っているマス（⚠ そこから出る線を太くする）。
+var _current_id: String = ""
+
+
+func _init() -> void:
+	_edge_lines = DungeonEdgeLines.new()
+	_edge_lines.name = "EdgeLines"
+	_edge_lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_edge_lines.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_edge_lines)
+
+	_layer_list = VBoxContainer.new()
+	_layer_list.name = "LayerList"
+	_layer_list.theme_type_variation = &"SectionStack"
+	_layer_list.alignment = BoxContainer.ALIGNMENT_CENTER
+	_layer_list.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# ⚠ 層のあいだの間隔（段階19-f）。⚠ マスのあいだの間隔と同じ場所に並べる。
+	_layer_list.add_theme_constant_override("separation", LAYER_SEPARATION)
+	add_child(_layer_list)
+	# ⚠⚠ 線はマスの位置が確定してからでないと引けない。⚠ 並べ替えが終わるたびに引き直す。
+	#   ⚠ await を使わない（AGENTS.md）。⚠ ウィンドウを広げても追従する。
+	_layer_list.sort_children.connect(_redraw_edges)
+
+
+# マスと線を差し替える。
+#
+# nodes: [{id, layer, text, state}] ／ edges: [{from, to, tone, label}]
+# ⚠ edges は画面が並べた順に引く（⚠ 重なり順が起動ごとに変わらないよう、画面側で綴り順に）。
+func set_map(nodes: Array, edges: Array) -> void:
+	for child in _layer_list.get_children():
+		_layer_list.remove_child(child)
+		child.queue_free()
+	_node_buttons.clear()
+	_edges = edges
+	_current_id = ""
+
+	# ⚠ 綴り順に並べてから層に仕分ける。
+	var by_id: Dictionary = {}
+	for entry: Variant in nodes:
+		if entry is Dictionary:
+			by_id[str((entry as Dictionary).get(NODE_ID, ""))] = entry
+	var node_ids: Array = by_id.keys()
+	node_ids.sort()
+	var by_layer: Dictionary = {}
+	for node_id: Variant in node_ids:
+		var node: Dictionary = by_id[node_id]
+		var layer: int = int(node.get(NODE_LAYER, 1))
+		if not by_layer.has(layer):
+			by_layer[layer] = []
+		(by_layer[layer] as Array).append(str(node_id))
+		if str(node.get(NODE_STATE, "")) == STATE_CURRENT:
+			_current_id = str(node_id)
+
+	var layers: Array = by_layer.keys()
+	layers.sort()
+	layers.reverse()  # 深い層（ボス）を上に。
+
+	# ⚠⚠ 列を固定する（段階20-g・人間の指摘「左から右に行く道がやたら生成される」）。
+	#   ⚠ 全部の層を「一番マスの多い層」の列に揃えると、⚠ 線は真下か隣にしか行かない。
+	var columns: int = 1
+	for layer: Variant in layers:
+		columns = maxi(columns, (by_layer[layer] as Array).size())
+
+	for layer: Variant in layers:
+		var row: GridContainer = GridContainer.new()
+		row.name = "Layer_%d" % int(layer)
+		row.columns = columns
+		row.add_theme_constant_override("h_separation", NODE_SEPARATION)
+		var row_ids: Array = by_layer[layer]
+		# ⚠ マスを列へ割り当てる。⚠ 均等に散らして中央寄せ
+		#   （⚠ 両端に寄せると、⚠ 2マスの層が左端と右端に開いて斜めが復活する）。
+		var column_of: Dictionary = {}
+		var used_column: int = -1
+		for i: int in range(row_ids.size()):
+			var wanted: int = int(round(
+				(float(i) + 0.5) * float(columns) / float(row_ids.size()) - 0.5
+			))
+			# ⚠ 同じ列に2つ来ないよう、⚠ 必ず前より右へ（⚠ 丸めで重なることがある）。
+			used_column = clampi(maxi(wanted, used_column + 1), 0, columns - 1)
+			column_of[used_column] = str(row_ids[i])
+
+		for c: int in range(columns):
+			if not column_of.has(c):
+				# ⚠ 空の列にも同じ幅のものを置く。⚠ 置かないと列が詰まって揃わない。
+				var spacer: Control = Control.new()
+				spacer.name = "Gap_%d" % c
+				spacer.custom_minimum_size = Vector2(NODE_WIDTH, 0.0)
+				spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				row.add_child(spacer)
+				continue
+			var node_id: String = str(column_of[c])
+			var node_button: UiButton = _make_node_button(node_id, by_id[node_id])
+			_node_buttons[node_id] = node_button
+			row.add_child(node_button)
+		_layer_list.add_child(row)
+
+	# ⚠ Control は子の最小サイズを自動では拾わない。⚠ 外側（ScrollContainer / VBox）へ渡す。
+	custom_minimum_size = _layer_list.get_combined_minimum_size()
+	_redraw_edges()
+
+
+# マスのボタン。⚠ 進める先だけ押せる（⚠ 判定は画面が GameManager に聞いた結果）。
+func _make_node_button(node_id: String, node: Dictionary) -> UiButton:
+	var button: UiButton = UiButton.new()
+	button.name = "Node_" + node_id
+	button.text = str(node.get(NODE_TEXT, ""))
+	var state: String = str(node.get(NODE_STATE, STATE_FAR))
+	match state:
+		STATE_CURRENT:
+			button.text = "▶ " + button.text
+			button.modulate = COLOR_CURRENT
+		STATE_VISITED:
+			button.text = "✓ " + button.text
+			button.modulate = COLOR_VISITED
+		STATE_REACHABLE:
+			button.modulate = COLOR_REACHABLE
+		_:
+			button.modulate = COLOR_FAR
+	# ⚠ 幅を揃える。⚠ 揃えないと文字の長さで列がずれる（⚠ 「戦闘」と「レリック」）。
+	button.custom_minimum_size = Vector2(NODE_WIDTH, 0.0)
+	var reachable: bool = state == STATE_REACHABLE
+	button.disabled = not reachable
+	if reachable:
+		button.pressed.connect(func() -> void: node_pressed.emit(node_id))
+	return button
+
+
+# そのマスのボタン。⚠ 無ければ null。⚠ スクロールを寄せる画面が位置を読む。
+func get_node_button(node_id: String) -> Control:
+	var button: Variant = _node_buttons.get(node_id, null)
+	if button is Control and is_instance_valid(button):
+		return button as Control
+	return null
+
+
+# 線を引く（段階19-e）。⚠ 呼ぶのは set_map() の最後と sort_children の2箇所だけ。
+func _redraw_edges() -> void:
+	if _edge_lines == null:
+		return
+	# ⚠⚠ 入ってくる本数を先に数える（段階20-g）。⚠ 合流するマスで線を横にずらすため
+	#   （⚠ 人間の指摘「線が重ならないようにしたい　合流はあってもいい」）。
+	var incoming_total: Dictionary = {}
+	var outgoing_total: Dictionary = {}
+	for entry: Variant in _edges:
+		var edge: Dictionary = entry
+		var to_key: String = str(edge.get(EDGE_TO, ""))
+		var from_key: String = str(edge.get(EDGE_FROM, ""))
+		incoming_total[to_key] = int(incoming_total.get(to_key, 0)) + 1
+		outgoing_total[from_key] = int(outgoing_total.get(from_key, 0)) + 1
+	var incoming_used: Dictionary = {}
+	var outgoing_used: Dictionary = {}
+
+	var lines: Array = []
+	for entry: Variant in _edges:
+		var edge: Dictionary = entry
+		var from_id: String = str(edge.get(EDGE_FROM, ""))
+		var to_id: String = str(edge.get(EDGE_TO, ""))
+		# ⚠ 出る側の番号は、⚠ 描かない線（相手のマスが無い）も数える（⚠ 前の数え方と同じ）。
+		var out_slot: int = int(outgoing_used.get(from_id, 0))
+		outgoing_used[from_id] = out_slot + 1
+		var from_button: Control = get_node_button(from_id)
+		var to_button: Control = get_node_button(to_id)
+		if from_button == null or to_button == null:
+			continue
+		var in_slot: int = int(incoming_used.get(to_id, 0))
+		incoming_used[to_id] = in_slot + 1
+		lines.append({
+			# ⚠ 深い層が上なので、⚠ from は上辺・to は下辺でつなぐと線が交差しない。
+			DungeonEdgeLines.LINE_FROM: _edge_anchor(
+				from_button, true, out_slot, int(outgoing_total.get(from_id, 1))
+			),
+			DungeonEdgeLines.LINE_TO: _edge_anchor(
+				to_button, false, in_slot, int(incoming_total.get(to_id, 1))
+			),
+			DungeonEdgeLines.LINE_COLOR: _tone_color(str(edge.get(EDGE_TONE, TONE_PLAIN))),
+			DungeonEdgeLines.LINE_WIDTH: (
+				EDGE_WIDTH_CURRENT if from_id == _current_id else EDGE_WIDTH
+			),
+			DungeonEdgeLines.LINE_LABEL: str(edge.get(EDGE_LABEL, "")),
+		})
+	_edge_lines.set_lines(lines)
+	laid_out.emit()
+
+
+# マスのボタンのつなぎ目。⚠ top なら上辺、⚠ でなければ下辺。
+#
+# ⚠ 座標は線の部品の中の位置。⚠ 線とマスは同じ矩形に重ねてあるので、⚠ そのまま使える。
+# ⚠⚠ 何本も出る／入るときは、⚠ マスの辺に沿って少しずらす（段階20-g）。
+func _edge_anchor(button: Control, top: bool, slot: int = 0, slot_count: int = 1) -> Vector2:
+	var rect: Rect2 = button.get_global_rect()
+	var origin: Vector2 = _edge_lines.get_global_rect().position
+	var span: float = rect.size.x * EDGE_ANCHOR_SPREAD
+	var offset: float = 0.0
+	if slot_count > 1:
+		offset = (float(slot) / float(slot_count - 1) - 0.5) * span
+	var center_x: float = rect.position.x + rect.size.x * 0.5 + offset
+	var y: float = rect.position.y if top else rect.position.y + rect.size.y
+	return Vector2(center_x, y) - origin
+
+
+func _tone_color(tone: String) -> Color:
+	match tone:
+		TONE_TRAP:
+			return COLOR_EDGE_TRAP
+		TONE_GAIN:
+			return COLOR_EDGE_GAIN
+		TONE_HIDDEN:
+			return COLOR_EDGE_HIDDEN
+	return COLOR_EDGE_PLAIN

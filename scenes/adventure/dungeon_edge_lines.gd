@@ -9,7 +9,8 @@ extends Control
 #
 # ⚠ この部品は GameManager を1行も知らない。⚠ 線の一覧をもらって描くだけ。
 #   ⚠ 知らせると、⚠ 「どの通路に効果があるか」の判定が2箇所になる。
-# ⚠ 1画面でしか使わないので scenes/adventure/（AGENTS.md「UIパーツの置き場所」）。
+# ⚠ 使うのは RunMapView（scenes/ui/components/）の中だけ（2026-09-19）。⚠ 画面は直接触らない。
+#   ⚠ 置き場所と名前はそのまま残した（⚠ 移すと uid の手当てが要る。⚠ 宿題）。
 # ⚠ マウスを取らない（mouse_filter = ignore）。⚠ 取るとマスのボタンが押せなくなる。
 
 # 線1本ぶんのキー。⚠ 文字列リテラルを画面側と2箇所に書かないための定数。
@@ -32,7 +33,7 @@ const LABEL_BOX: Vector2 = Vector2(28.0, 24.0)
 var _lines: Array = []
 
 
-# 線を差し替える。⚠ 呼ぶのは dungeon_map.gd の1箇所だけ。
+# 線を差し替える。⚠ 呼ぶのは RunMapView の1箇所だけ。
 #
 # ⚠ ここで queue_redraw() する。⚠ 呼ぶ側で描き直しを覚えないこと。
 # ⚠ 字は Label で置く（⚠ draw_string ではない）。⚠ カラー絵文字（COLR/CPAL）が
