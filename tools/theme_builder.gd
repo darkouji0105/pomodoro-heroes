@@ -673,6 +673,7 @@ static func build() -> void:
 	_build_charge_bar(theme)
 	_build_battle_result(theme)
 	_build_status_chip(theme)
+	_build_map_nodes(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -1311,6 +1312,67 @@ static func _build_battle_result(theme: Theme) -> void:
 	theme.set_constant(&"separation", &"ResultStack", RESULT_GAP)
 	theme.set_type_variation(&"ResultHeadingStack", &"VBoxContainer")
 	theme.set_constant(&"separation", &"ResultHeadingStack", RESULT_HEADING_GAP)
+
+
+# --- ランのマップのマス（2026-09-19・難ダンジョンのモック v2「真鍮の札」）---
+#
+# ⚠ ボタンの5階層（BUTTON_LEVELS）には入れない（⚠ 階層は5つのまま＝人間の決定）。
+#   ⚠ 使うのは `RunMapView` のマスだけ（⚠ 素の Button に variation を当てる）。
+# ⚠ 札の形は八角（⚠ 角を斜めに切る＝`corner_detail = 1`）。⚠ 状態ごとに枠と地と字の色が違う。
+# ⚠ 押せるのは「進める先」だけ。⚠ ほかの状態は無効（disabled）で出るので、⚠ 無効の箱にその状態の見た目を入れる。
+const MAP_NODE_CORNER: int = 9
+const MAP_NODE_PAD_H: float = 13.0
+const MAP_NODE_PAD_V: float = 8.0
+const MAP_NODE_FONT_SIZE: int = 13
+const MAP_NODE_BORDER: int = 2
+const MAP_NODE_LEVELS: Dictionary = {
+	# 進める先。⚠ ホバーで金の枠（モック `.node.can:hover`）。
+	"MapNodeButton": {
+		"normal": {"bg": "1d1715", "border": "7b6244"},
+		"hover": {"bg": "221b18", "border": "f0c04a"},
+		"pressed": {"bg": "16110f", "border": "a8791f"},
+		"font": "f0e6df",
+	},
+	# いま立っているマス。⚠ 真鍮の枠・暗い琥珀の地・金の字。
+	"MapNodeCurrent": {"normal": {"bg": "2e2110", "border": "a8791f"}, "font": "f0c04a"},
+	# 通ったマス。⚠ 鋲が沈む＝枠も字も暗い。
+	"MapNodeVisited": {"normal": {"bg": "14100e", "border": "332b27"}, "font": "7d6f68"},
+	# 見えているが、⚠ いまは進めないマス（モック `.node.dim`）。
+	"MapNodeFar": {"normal": {"bg": "1a1412", "border": "53433a"}, "font": "7d6f68"},
+	# たいまつが届いていないマス。⚠ 静かにする（⚠ 25層並べたときの騒がしさ対策）。
+	"MapNodeHidden": {"normal": {"bg": "120e0d", "border": "2a2320"}, "font": "5a4f49"},
+}
+
+
+static func _build_map_nodes(theme: Theme) -> void:
+	for type_name: String in MAP_NODE_LEVELS:
+		var level: Dictionary = MAP_NODE_LEVELS[type_name]
+		theme.set_type_variation(StringName(type_name), &"Button")
+		var normal: Dictionary = level["normal"]
+		for state: String in ["normal", "hover", "pressed", "disabled"]:
+			var spec: Dictionary = level.get(state, normal)
+			theme.set_stylebox(StringName(state), StringName(type_name), _map_node_style(spec))
+		# ⚠ フォーカスの金の枠は出さない（⚠ 押したマスへすぐ移るので要らない＝地だけ透明の箱）。
+		theme.set_stylebox(&"focus", StringName(type_name), StyleBoxEmpty.new())
+		var font: Color = _html(str(level["font"]))
+		for key: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
+			theme.set_color(StringName(key), StringName(type_name), font)
+		theme.set_font_size(&"font_size", StringName(type_name), MAP_NODE_FONT_SIZE)
+
+
+static func _map_node_style(spec: Dictionary) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.content_margin_left = MAP_NODE_PAD_H
+	style.content_margin_right = MAP_NODE_PAD_H
+	style.content_margin_top = MAP_NODE_PAD_V
+	style.content_margin_bottom = MAP_NODE_PAD_V
+	style.set_corner_radius_all(MAP_NODE_CORNER)
+	# ⚠ 角を丸めずに斜めに切る（⚠ 1 ＝角1つを直線1本で描く＝八角の札）。
+	style.corner_detail = 1
+	style.bg_color = _html(str(spec["bg"]))
+	style.set_border_width_all(MAP_NODE_BORDER)
+	style.border_color = _html(str(spec["border"]))
+	return style
 
 
 static func _html(hex: String) -> Color:

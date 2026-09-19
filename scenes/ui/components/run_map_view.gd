@@ -23,6 +23,10 @@ const NODE_LAYER: String = "layer"
 ## ⚠ マスの文字。⚠ 翻訳済みで渡す（⚠ ▶ ✓ はこちらで付ける）。
 const NODE_TEXT: String = "text"
 const NODE_STATE: String = "state"
+## ⚠ たいまつが届いていないか（⚠ 届いていなければ静かな札）。⚠ 判定は画面が GameManager に聞く。
+const NODE_HIDDEN: String = "hidden"
+## ⚠ ボスか（⚠ 札を一回り大きくする＝モック v2 §3）。
+const NODE_BOSS: String = "boss"
 
 # マスの状態（NODE_STATE の値）。
 const STATE_CURRENT: String = "current"
@@ -43,12 +47,26 @@ const TONE_HIDDEN: String = "hidden"
 const TONE_TRAP: String = "trap"
 const TONE_GAIN: String = "gain"
 
-# マスの見た目。⚠ 色はここに置く（main_theme.tres に対応する概念が無い）。
-#   ⚠ 2画面で同じ値だったものを1箇所にした。
-const COLOR_CURRENT: Color = Color(1.0, 0.95, 0.55)
-const COLOR_VISITED: Color = Color(0.45, 0.45, 0.5)
-const COLOR_REACHABLE: Color = Color(1.0, 1.0, 1.0)
-const COLOR_FAR: Color = Color(0.6, 0.6, 0.65)
+# マスの札（2026-09-19・モック v2「真鍮の札」）。⚠ 札そのものの色は Theme の variation（theme_builder.gd の MAP_NODE_LEVELS）。
+#   ⚠ 前はここで modulate の4色を持っていた。⚠ 札になったので Theme へ移した。
+const VARIATION_REACHABLE: StringName = &"MapNodeButton"
+const VARIATION_CURRENT: StringName = &"MapNodeCurrent"
+const VARIATION_VISITED: StringName = &"MapNodeVisited"
+const VARIATION_FAR: StringName = &"MapNodeFar"
+const VARIATION_HIDDEN: StringName = &"MapNodeHidden"
+
+# 札の四隅の鋲（モック v2）。⚠ 見えないマスには打たない（⚠ 明かりに入ると鋲が点く）。
+#   ⚠ 札の上に描く小さな点なので Theme に対応する概念が無い（⚠ 線の色と同じ扱い）。
+const PIN_RADIUS: float = 1.5
+const PIN_INSET: float = 5.0
+const PIN_COLOR_REACHABLE: Color = Color("a8791f")
+const PIN_COLOR_CURRENT: Color = Color("f0c04a")
+const PIN_COLOR_VISITED: Color = Color("3d342c")
+const PIN_COLOR_FAR: Color = Color("6b5638")
+
+# ボスの札の大きさ（モック v2 §3「一回り大きく」）。⚠ 幅はふつうの札＋この値・高さは最小の高さ。
+const BOSS_EXTRA_WIDTH: float = 22.0
+const BOSS_MIN_HEIGHT: float = 46.0
 
 # 通路の線の色（段階19-e）。⚠ 罠＝赤 ／ 得＝黄 ／ 何も無い＝灰 ／ 中身が見えていない＝暗い灰。
 const COLOR_EDGE_TRAP: Color = Color(0.85, 0.35, 0.35)
@@ -77,7 +95,7 @@ const EDGE_ANCHOR_SPREAD: float = 0.55
 var _edge_lines: DungeonEdgeLines = null
 var _layer_list: VBoxContainer = null
 
-# {node_id: UiButton}。⚠ 描き直すたびに作り直す（⚠ queue_free() 済みの位置を読むと落ちる）。
+# {node_id: Button}。⚠ 描き直すたびに作り直す（⚠ queue_free() 済みの位置を読むと落ちる）。
 var _node_buttons: Dictionary = {}
 # 渡された線。⚠ 位置はレイアウトが済むまで分からないので、並べ替えのたびに引き直す。
 var _edges: Array = []
@@ -179,7 +197,7 @@ func set_map(nodes: Array, edges: Array) -> void:
 				row.add_child(spacer)
 				continue
 			var node_id: String = str(column_of[c])
-			var node_button: UiButton = _make_node_button(node_id, by_id[node_id])
+			var node_button: Button = _make_node_button(node_id, by_id[node_id])
 			_node_buttons[node_id] = node_button
 			row.add_child(node_button)
 		_layer_list.add_child(row)
@@ -189,30 +207,61 @@ func set_map(nodes: Array, edges: Array) -> void:
 	_redraw_edges()
 
 
-# マスのボタン。⚠ 進める先だけ押せる（⚠ 判定は画面が GameManager に聞いた結果）。
-func _make_node_button(node_id: String, node: Dictionary) -> UiButton:
-	var button: UiButton = UiButton.new()
+# マスの札。⚠ 進める先だけ押せる（⚠ 判定は画面が GameManager に聞いた結果）。
+#
+# ⚠ `UiButton` ではなく素の `Button`（⚠ UiButton は variant から variation を上書きするので、
+#   ⚠ 札の variation を当てられない）。⚠ ボタンの5階層は増やしていない。
+func _make_node_button(node_id: String, node: Dictionary) -> Button:
+	var button: Button = Button.new()
 	button.name = "Node_" + node_id
 	button.text = str(node.get(NODE_TEXT, ""))
 	var state: String = str(node.get(NODE_STATE, STATE_FAR))
+	var hidden: bool = bool(node.get(NODE_HIDDEN, false))
+	var pin_color: Color = PIN_COLOR_FAR
 	match state:
 		STATE_CURRENT:
 			button.text = "▶ " + button.text
-			button.modulate = COLOR_CURRENT
+			button.theme_type_variation = VARIATION_CURRENT
+			pin_color = PIN_COLOR_CURRENT
 		STATE_VISITED:
 			button.text = "✓ " + button.text
-			button.modulate = COLOR_VISITED
+			button.theme_type_variation = VARIATION_VISITED
+			pin_color = PIN_COLOR_VISITED
 		STATE_REACHABLE:
-			button.modulate = COLOR_REACHABLE
+			button.theme_type_variation = VARIATION_REACHABLE
+			pin_color = PIN_COLOR_REACHABLE
 		_:
-			button.modulate = COLOR_FAR
+			button.theme_type_variation = VARIATION_HIDDEN if hidden else VARIATION_FAR
 	# ⚠ 幅を揃える。⚠ 揃えないと文字の長さで列がずれる（⚠ 「戦闘」と「レリック」）。
 	button.custom_minimum_size = Vector2(NODE_WIDTH, 0.0)
+	if bool(node.get(NODE_BOSS, false)):
+		button.custom_minimum_size = Vector2(NODE_WIDTH + BOSS_EXTRA_WIDTH, BOSS_MIN_HEIGHT)
+	# ⚠ 見えないマスには鋲を打たない（⚠ 進める先でも、⚠ 見えていなければ静か）。
+	if not hidden:
+		_add_pins(button, pin_color)
 	var reachable: bool = state == STATE_REACHABLE
 	button.disabled = not reachable
 	if reachable:
 		button.pressed.connect(func() -> void: node_pressed.emit(node_id))
 	return button
+
+
+# 札の四隅の鋲。⚠ 押下を食べない（⚠ IGNORE）。⚠ 札の大きさが変わっても隅に付く（⚠ 全面に張る）。
+func _add_pins(button: Button, color: Color) -> void:
+	var pins: Control = Control.new()
+	pins.name = "Pins"
+	pins.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pins.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pins.draw.connect(func() -> void:
+		var w: float = pins.size.x
+		var h: float = pins.size.y
+		for p: Vector2 in [
+			Vector2(PIN_INSET, PIN_INSET), Vector2(w - PIN_INSET, PIN_INSET),
+			Vector2(PIN_INSET, h - PIN_INSET), Vector2(w - PIN_INSET, h - PIN_INSET),
+		]:
+			pins.draw_circle(p, PIN_RADIUS, color)
+	)
+	button.add_child(pins)
 
 
 # そのマスのボタン。⚠ 無ければ null。⚠ スクロールを寄せる画面が位置を読む。

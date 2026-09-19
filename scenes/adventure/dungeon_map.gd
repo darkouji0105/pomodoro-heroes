@@ -346,6 +346,8 @@ func _rebuild_layers() -> void:
 			RunMapView.NODE_LAYER: int(node.get(GameStateKeys.DUNGEON_NODE_LAYER, 1)),
 			RunMapView.NODE_TEXT: _node_text(node_id, node),
 			RunMapView.NODE_STATE: state,
+			RunMapView.NODE_HIDDEN: not GameManager.is_dungeon_node_revealed(node_id),
+			RunMapView.NODE_BOSS: str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BOSS,
 		})
 		# ⚠ 通路を読む口は get_dungeon_edges() の1本（台帳 §7「通路を str(entry) で読まない」）。
 		for entry: Variant in GameManager.get_dungeon_edges(node_id):
@@ -365,7 +367,7 @@ func _rebuild_layers() -> void:
 	_center_pending = true
 
 
-# マスの文字。⚠ ▶ ✓ と色は RunMapView が付ける。
+# マスの文字。⚠ ▶ ✓ と札の見た目は RunMapView が付ける。
 func _node_text(node_id: String, node: Dictionary) -> String:
 	var kind: String = str(node.get(GameStateKeys.DUNGEON_NODE_KIND, ""))
 	# たいまつ（段階17-e・§4-7）。⚠ 見えるかの判定は GameManager の1本に聞く。

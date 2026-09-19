@@ -233,6 +233,8 @@ func _rebuild_layers() -> void:
 			RunMapView.NODE_LAYER: int(node.get(GameStateKeys.FLOOR_NODE_LAYER, 1)),
 			RunMapView.NODE_TEXT: _node_text(node_id, node),
 			RunMapView.NODE_STATE: state,
+			RunMapView.NODE_HIDDEN: not GameManager.is_floor_node_revealed(node_id),
+			RunMapView.NODE_BOSS: str(node.get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BOSS,
 		})
 		# ⚠ つながり（FLOOR_NODE_NEXT は [node_id]）。⚠ 効果は無いので色は「見えているか」だけ。
 		#   ⚠ 見えているかは行き先のマスで決める（⚠ 難ダンジョンの is_dungeon_edge_revealed と同じ考え）。
@@ -249,7 +251,7 @@ func _rebuild_layers() -> void:
 	map_view.set_map(map_nodes, map_edges)
 
 
-# マスの文字。⚠ ▶ ✓ と色は RunMapView が付ける。
+# マスの文字。⚠ ▶ ✓ と札の見た目は RunMapView が付ける。
 #
 # 視界（段階14-e）。⚠ 見えるかどうかの判定は GameManager の1本に聞く。
 #   ⚠ 「押せるか」とは別物。次の層は必ず押せるが、たいまつが弱いと中身は伏せられる。
