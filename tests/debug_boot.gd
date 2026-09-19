@@ -78,6 +78,10 @@ const THEME_LABEL_TYPES: Array[String] = [
 #   ⚠ 2列ぶん（320）＋ 端のずらし に少し余裕を見て 380。
 const NODE_COLUMN_SPAN_LIMIT: float = 380.0
 
+# マップの中心が画面の中心からずれてよい幅（px。決定37・2026-09-19）。
+# ⚠ 縦のスクロールバーのぶん（数 px）だけ左へずれるので、⚠ それより少し広く取る。
+const MAP_CENTER_TOLERANCE: float = 16.0
+
 # 撃つ前の下ごしらえ。
 # ⚠ damage_party は「回復を検証するとき、味方が満タンだと回復量0で何も起きない」を潰すもの
 #   （④-a で hp: 9999 に条件を書いて踏んだのと同じ形）。
@@ -4248,6 +4252,17 @@ func _report_layout() -> void:
 						push_error("[DebugBoot] ホバーの縁が面の内側に出る: %s（外へ %.0f / 要 %.0f）" % [
 							panel.name, flat.expand_margin_left, want
 						])
+			# ⚠⚠ マップが真ん中にあるか（決定37・2026-09-19）。⚠ 人間「今は右側に表示されている」。
+			#   ⚠ 絵は取れないが、⚠ マスの並びの中心と画面の中心の差は取れる。
+			if raw_child is RunMapView:
+				var map_rect: Rect2 = (raw_child as RunMapView).get_global_rect()
+				var screen_rect: Rect2 = instance.get_global_rect()
+				var off: float = map_rect.get_center().x - screen_rect.get_center().x
+				print("    ⚠ マップの中心 − 画面の中心 = %.0f px（⚠ 0 に近いのが正解）／ マップの幅 %.0f" % [
+					off, map_rect.size.x
+				])
+				if absf(off) > MAP_CENTER_TOLERANCE:
+					push_error("[DebugBoot] マップが真ん中に無い（%.0f px ずれている）" % off)
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので

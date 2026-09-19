@@ -36,26 +36,33 @@ const CHEST_PATH: String = "res://scenes/adventure/dungeon_chest.tscn"
 const CHEST_SCENE: PackedScene = preload("res://scenes/adventure/dungeon_chest.tscn")
 
 # ⚠ マスと線の色・間隔・幅は RunMapView へ移した（2026-09-19）。⚠ ここに戻さないこと。
-# 脱落したキャラの色。⚠ 「居るのに出られない」が一目で分かること（§4-4-2）。
-const COLOR_DOWNED: Color = Color(0.85, 0.35, 0.35)
+# ⚠ 脱落したキャラの色は Theme の ErrorLabel（2026-09-19）。⚠ 「居るのに出られない」が一目で分かること（§4-4-2）。
 # 中身が見えていないマスの表示（段階17-e）。⚠ シナリオ側と同じ字にしてある。
 const HIDDEN_TEXT: String = "？"
 
 @onready var dungeon_name_label: Label = $Layout/Header/DungeonNameLabel
 @onready var floor_label: Label = $Layout/Header/FloorLabel
+# たいまつの等級（2026-09-19・モック v2 でフロアの行から分けた）。
+@onready var torch_label: Label = $Layout/Header/TorchLabel
 @onready var currency_label: Label = $Layout/Header/CurrencyLabel
 @onready var bag_label: Label = $Layout/Header/BagLabel
+# ⚠⚠ 持っているレリック（決定46・2026-09-19・モック v2 §12）。⚠ ヘッダの右端に小さなマス目。
+#   ⚠ 1人用は付けた人の印（`ItemSlot` の装備中の印）。⚠ 効果はホバーの詳細。
+@onready var relic_grid: ItemGrid = $Layout/Header/RelicGrid
 @onready var party_list: HBoxContainer = $Layout/PartyList
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var map_scroll: ScrollContainer = $Layout/MapScroll
 # 層の並び・マス・通路の線（2026-09-19 に RunMapView へ切り出した）。⚠ シナリオと同じ部品。
-@onready var map_view: RunMapView = $Layout/MapScroll/MapArea
+#   ⚠ 真ん中に置く（決定37・2026-09-19）。⚠ `MapCenter`（CenterContainer）が寄せる。
+@onready var map_view: RunMapView = $Layout/MapScroll/MapCenter/MapArea
 # 鞄はマス目（段階18-d）。⚠ 部品は倉庫と同じ。⚠ 引く先だけ別（器が別＝台帳 §7）。
 # ボスの先のショップ（段階17-e）。⚠ 出るかどうかは GameManager に聞く。
-@onready var shop_list: VBoxContainer = $Layout/ShopList
+@onready var shop_list: HBoxContainer = $Layout/ShopList
 # 通路の宝箱の案内（段階19-c-2）。⚠ 開けずに戻ってきたときに出る。
 @onready var corridor_chest_list: VBoxContainer = $Layout/CorridorChestList
-@onready var bag_grid: ItemGrid = $Layout/BagGrid
+# ⚠ 鞄は下の帯（2026-09-19・モック v2）。⚠ 左に「鞄 n/m」。
+@onready var bag_grid: ItemGrid = $Layout/BagRow/BagGrid
+@onready var bag_count_label: Label = $Layout/BagRow/BagCaption/BagCountLabel
 @onready var bag_detail: ItemDetail = $Layout/BagDetail
 @onready var bag_action_row: HBoxContainer = $Layout/BagActionRow
 @onready var descend_button: UiButton = $Layout/Footer/DescendButton
@@ -86,7 +93,7 @@ func _ready() -> void:
 	# ⚠⚠ 戦闘から戻ったときに拾い待ちがある（段階20-f・人間の指示「戦利品も選ばせる」）。
 	#   ⚠ マップを描く前に拾いものの画面へ送る。⚠ 描いてから送ると1フレーム分ちらつく。
 	#   ⚠ `_rebuild()` の中でやらないこと（⚠ 戻ってくるたびに遷移して止まらなくなる）。
-	message_label.text = ""
+	_say("")
 	descend_button.pressed.connect(_on_descend_pressed)
 	retreat_button.pressed.connect(_on_retreat_pressed)
 	abandon_button.pressed.connect(_on_abandon_pressed)
@@ -101,6 +108,7 @@ func _ready() -> void:
 	_detail_popup = ItemDetailPopup.adopt(self, bag_detail)
 	if _detail_popup != null:
 		_detail_popup.watch(bag_grid)
+		_detail_popup.watch(relic_grid)
 	_rebuild()
 
 	# ⚠⚠ 戦闘から戻ったときの持ち物（決定31・決定36）。⚠ マップを組んでから重ねる。
@@ -140,20 +148,59 @@ func _update_header() -> void:
 	# 数値のみの組み立てなので、tr() を通すのは見出しだけ（AGENTS.md）。
 	# ⚠ 「3階のうち何階目か」を出す（段階20-a・決定26）。⚠ 残りが見えないと
 	#   「もう1枚潜るか」の判断ができない。⚠ 階の数を画面で数えないこと。
-	# ⚠⚠ たいまつの等級も出す（決定32・2026-09-05。⚠ 人間「a3は松明の等級も」）。
-	#   ⚠ 何層先まで見えているかが読めないと、⚠ ショップで買うかどうかを決められない。
-	#   ⚠ 欄を増やさずフロアの行に足す（⚠ .tscn を触らずに済ませる）。
-	floor_label.text = "%s %d/%d　%s" % [
+	floor_label.text = "%s %d/%d" % [
 		tr("ui_dungeon_floor"), GameManager.get_dungeon_floor_index(),
 		GameManager.get_dungeon_max_floors(),
+	]
+	# ⚠⚠ たいまつの等級（決定32）。⚠ 2026-09-19 にフロアの行から分けた（モック v2 のヘッダ）。
+	#   ⚠ 何層先まで見えているかが読めないと、⚠ ショップで買うかどうかを決められない。
+	torch_label.text = "%s %s" % [
+		Glyphs.TORCH,
 		tr("ui_dungeon_torch_grade") % [
 			GameManager.get_dungeon_torch_grade(), GameManager.get_dungeon_reveal_layers()
 		],
 	]
 	currency_label.text = "%s %d" % [tr("ui_dungeon_currency"), GameManager.get_dungeon_currency()]
-	bag_label.text = "%s %d/%d" % [
-		tr("ui_dungeon_bag"), GameManager.get_dungeon_bag_used(), GameManager.get_dungeon_bag_slots()
-	]
+	var used: int = GameManager.get_dungeon_bag_used()
+	var slots: int = GameManager.get_dungeon_bag_slots()
+	bag_label.text = "%s %d/%d" % [tr("ui_dungeon_bag"), used, slots]
+	# ⚠ 満杯ならヘッダの数字も赤（モック v2 §4）。⚠ 色は Theme の variation（⚠ 値を書かない）。
+	bag_label.theme_type_variation = &"ErrorLabel" if used >= slots else &"MutedLabel"
+	bag_count_label.text = "%d/%d" % [used, slots]
+	_rebuild_relics()
+
+
+# 持っているレリック（決定46）。⚠ 読む口は get_dungeon_relics() の1本。
+func _rebuild_relics() -> void:
+	var entries: Array = []
+	for raw: Variant in GameManager.get_dungeon_relics():
+		if not (raw is Dictionary):
+			continue
+		var row: Dictionary = raw
+		entries.append(GameManager.make_relic_slot_entry(
+			str(row.get(GameStateKeys.DUNGEON_RELIC_ID, "")),
+			str(row.get(GameStateKeys.DUNGEON_RELIC_CHARACTER_ID, "")),
+		))
+	relic_grid.rebuild(entries, entries.size())
+	# ⚠ 1つも無いときは区切りごと出さない（⚠ 空の欄を見せない）。
+	relic_grid.visible = not entries.is_empty()
+	$Layout/Header/RelicSep.visible = relic_grid.visible
+
+
+# メッセージの行（2026-09-19・モック v2）。⚠ 良い知らせは緑・弾かれたら赤・ほかは素。
+#   ⚠ 色は Theme の variation（GainLabel / ErrorLabel）。⚠ 値を書かない。
+enum Tone { PLAIN, GOOD, WARN }
+
+
+func _say(text: String, tone: Tone = Tone.PLAIN) -> void:
+	message_label.text = text
+	match tone:
+		Tone.GOOD:
+			message_label.theme_type_variation = &"GainLabel"
+		Tone.WARN:
+			message_label.theme_type_variation = &"ErrorLabel"
+		_:
+			message_label.theme_type_variation = &"MutedLabel"
 
 
 # 3人の「戦闘時 MAX HP」。⚠ 素の MAX HP も併記する（§4-4）。
@@ -170,18 +217,27 @@ func _rebuild_party() -> void:
 		var character_id: String = str(member)
 		if character_id == "":
 			continue
-		var label: Label = Label.new()
-		label.name = "Party_" + character_id
+		# ⚠ 1人ぶん＝名前と今の値（明るい）＋「/素の値」（暗い）の2つの字（2026-09-19・モック v2）。
+		var cell: HBoxContainer = HBoxContainer.new()
+		cell.name = "Party_" + character_id
 		var char_data: Dictionary = MasterDataLoader.get_character(character_id)
 		var name_text: String = tr(str(char_data.get("name_key", character_id)))
 		var max_hp: int = GameManager.get_dungeon_character_max_hp(character_id)
 		var base_max_hp: int = GameManager.get_dungeon_base_max_hp(character_id)
+		var main: Label = Label.new()
+		main.name = "Value"
+		cell.add_child(main)
 		if GameManager.is_dungeon_character_downed(character_id):
-			label.text = "%s %s" % [name_text, tr("ui_dungeon_downed")]
-			label.modulate = COLOR_DOWNED
+			main.text = "%s %s" % [name_text, tr("ui_dungeon_downed")]
+			main.theme_type_variation = &"ErrorLabel"
 		else:
-			label.text = "%s %d/%d" % [name_text, max_hp, base_max_hp]
-		party_list.add_child(label)
+			main.text = "%s %d" % [name_text, max_hp]
+			var base: Label = Label.new()
+			base.name = "Base"
+			base.theme_type_variation = &"CaptionLabel"
+			base.text = "/%d" % base_max_hp
+			cell.add_child(base)
+		party_list.add_child(cell)
 
 
 # いま立っているマスへスクロールを寄せる要求（段階20-c）。
@@ -429,11 +485,18 @@ func _rebuild_shop() -> void:
 	if GameManager.get_dungeon_shop_entries().is_empty():
 		return
 
+	# ⚠ 真鍮の主ボタン＋案内（2026-09-19・モック v2 §3）。⚠ ボスの後はここが一番押してほしい場所。
 	var button: UiButton = UiButton.new()
 	button.name = "ShopButton"
-	button.text = tr("ui_dungeon_shop_enter")
+	button.variant = UiButton.Variant.PRIMARY
+	button.text = "%s %s" % [Glyphs.NODE_SHOP, tr("ui_dungeon_shop_enter")]
 	button.pressed.connect(_on_shop_pressed)
 	shop_list.add_child(button)
+	var caption: Label = Label.new()
+	caption.name = "ShopCaption"
+	caption.theme_type_variation = &"CaptionLabel"
+	caption.text = tr("ui_dungeon_shop_here")
+	shop_list.add_child(caption)
 
 
 func _on_shop_pressed() -> void:
@@ -476,7 +539,7 @@ func _update_footer() -> void:
 # マスを押した。⚠ 進めるかは GameManager が返す。こちらでは判定しない。
 func _on_node_pressed(node_id: String) -> void:
 	if not GameManager.move_in_dungeon(node_id):
-		message_label.text = tr("ui_dungeon_cannot_move")
+		_say(tr("ui_dungeon_cannot_move"), Tone.WARN)
 		return
 	# ⚠⚠ 戦闘・ボスのマスは、割り込みより先に戦闘へ（不1・2026-09-05）。
 	#   ⚠ 先に拾いもの／通路の宝箱の画面へ送ると、⚠ 戻ってきたときに「着いたマスの中身へ
@@ -616,7 +679,7 @@ func _enter_node(node_id: String) -> void:
 		GameStateKeys.DUNGEON_NODE_KIND_BATTLE, GameStateKeys.DUNGEON_NODE_KIND_BOSS:
 			_enter_battle(node_id)
 		GameStateKeys.DUNGEON_NODE_KIND_REST:
-			message_label.text = tr("ui_dungeon_rested")
+			_say(tr("ui_dungeon_rested"), Tone.GOOD)
 			_rebuild()
 		GameStateKeys.DUNGEON_NODE_KIND_RELIC:
 			# レリック（段階17-e-3）。⚠ 別画面へ移る（⚠ 踏んだら必ず選ぶ場所へ行く）。
@@ -627,7 +690,7 @@ func _enter_node(node_id: String) -> void:
 			_enter_chest_node(node_id)
 		_:
 			push_warning("[DungeonMap] 知らないノードの種類: " + kind)
-			message_label.text = tr("ui_dungeon_node_not_ready")
+			_say(tr("ui_dungeon_node_not_ready"))
 			_rebuild()
 
 
@@ -650,9 +713,9 @@ func _enter_battle(node_id: String) -> void:
 # ポーションを使う。⚠ 効かない相手なら false が返るだけ（鞄は減らない）。
 func _on_use_potion_pressed(item_id: String, character_id: String) -> void:
 	if not GameManager.use_dungeon_item(item_id, character_id):
-		message_label.text = tr("ui_dungeon_potion_no_effect")
+		_say(tr("ui_dungeon_potion_no_effect"), Tone.WARN)
 		return
-	message_label.text = tr("ui_dungeon_potion_used")
+	_say(tr("ui_dungeon_potion_used"), Tone.GOOD)
 	_rebuild()
 
 
@@ -664,9 +727,9 @@ func _on_use_potion_pressed(item_id: String, character_id: String) -> void:
 #   ⚠ ランの鞄は出れば全部消えるもの（決定7）なので、⚠ 取り返しのつかなさの度合いが違う。
 func _on_discard_bag_pressed(item_id: String) -> void:
 	if not GameManager.discard_dungeon_bag_item(item_id):
-		message_label.text = tr("ui_dungeon_bag_discard_failed")
+		_say(tr("ui_dungeon_bag_discard_failed"), Tone.WARN)
 		return
-	message_label.text = tr("ui_dungeon_bag_discarded")
+	_say(tr("ui_dungeon_bag_discarded"))
 	_selected_bag_entry = {}
 	_rebuild()
 
@@ -674,9 +737,9 @@ func _on_discard_bag_pressed(item_id: String) -> void:
 # もう1枚潜る（決定15）。⚠ ランの MAX HP と鞄はそのまま持ち越す。
 func _on_descend_pressed() -> void:
 	if not GameManager.descend_dungeon_floor():
-		message_label.text = tr("ui_dungeon_cannot_descend")
+		_say(tr("ui_dungeon_cannot_descend"), Tone.WARN)
 		return
-	message_label.text = tr("ui_dungeon_descended")
+	_say(tr("ui_dungeon_descended"), Tone.GOOD)
 	_rebuild()
 
 
@@ -685,7 +748,7 @@ func _on_retreat_pressed() -> void:
 	var result: Dictionary = GameManager.retreat_from_dungeon()
 	var granted: Dictionary = result.get("granted", {})
 	# 数値のみの組み立てなので、tr() を通すのは見出しだけ（AGENTS.md）。
-	message_label.text = "%s %d" % [tr("ui_dungeon_retreat_done"), granted.size()]
+	_say("%s %d" % [tr("ui_dungeon_retreat_done"), granted.size()], Tone.GOOD)
 	SceneManager.change_scene(ADVENTURE_SELECT_PATH)
 
 

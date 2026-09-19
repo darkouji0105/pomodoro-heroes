@@ -40,6 +40,7 @@ theme_type_variation = &"NodeList"
 [node name="Header" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"WideRow"
 
 [node name="BackButton" parent="Layout/Header" instance=ExtResource("2_button")]
 layout_mode = 2
@@ -56,15 +57,44 @@ size_flags_horizontal = 3
 
 [node name="FloorLabel" type="Label" parent="Layout/Header"]
 layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="FloorSep" type="VSeparator" parent="Layout/Header"]
+layout_mode = 2
+
+[node name="TorchLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="TorchSep" type="VSeparator" parent="Layout/Header"]
+layout_mode = 2
 
 [node name="CurrencyLabel" type="Label" parent="Layout/Header"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="CurrencySep" type="VSeparator" parent="Layout/Header"]
 layout_mode = 2
 
 [node name="BagLabel" type="Label" parent="Layout/Header"]
 layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="RelicSep" type="VSeparator" parent="Layout/Header"]
+layout_mode = 2
+
+[node name="RelicGrid" type="GridContainer" parent="Layout/Header"]
+layout_mode = 2
+size_flags_vertical = 4
+columns = 12
+script = ExtResource("3_item_grid")
+
+[node name="HeaderRule" type="HSeparator" parent="Layout"]
+layout_mode = 2
 
 [node name="PartyList" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
+theme_type_variation = &"WideRow"
 
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2
@@ -75,21 +105,44 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="MapArea" type="Control" parent="Layout/MapScroll"]
+[node name="MapCenter" type="CenterContainer" parent="Layout/MapScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+
+[node name="MapArea" type="Control" parent="Layout/MapScroll/MapCenter"]
+layout_mode = 2
 script = ExtResource("5_map_view")
 
-[node name="ShopList" type="VBoxContainer" parent="Layout"]
+[node name="ShopList" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
-theme_type_variation = &"TightList"
+theme_type_variation = &"ButtonRow"
 
 [node name="CorridorChestList" type="VBoxContainer" parent="Layout"]
 layout_mode = 2
 theme_type_variation = &"TightList"
 
-[node name="BagGrid" type="GridContainer" parent="Layout"]
+[node name="BagRule" type="HSeparator" parent="Layout"]
+layout_mode = 2
+
+[node name="BagRow" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+theme_type_variation = &"WideRow"
+
+[node name="BagCaption" type="VBoxContainer" parent="Layout/BagRow"]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="BagTitleLabel" type="Label" parent="Layout/BagRow/BagCaption"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "ui_dungeon_bag"
+
+[node name="BagCountLabel" type="Label" parent="Layout/BagRow/BagCaption"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="BagGrid" type="GridContainer" parent="Layout/BagRow"]
 layout_mode = 2
 size_flags_horizontal = 0
 columns = 8
@@ -102,11 +155,15 @@ script = ExtResource("4_item_detail")
 [node name="BagActionRow" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
 
+[node name="FooterRule" type="HSeparator" parent="Layout"]
+layout_mode = 2
+
 [node name="Footer" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
 
 [node name="HintLabel" type="Label" parent="Layout/Footer"]
 layout_mode = 2
+theme_type_variation = &"CaptionLabel"
 text = "ui_dungeon_hint"
 
 [node name="FooterSpacer" type="Control" parent="Layout/Footer"]
@@ -116,11 +173,11 @@ size_flags_horizontal = 3
 [node name="DescendButton" parent="Layout/Footer" instance=ExtResource("2_button")]
 layout_mode = 2
 label_key = "ui_dungeon_descend"
+variant = 1
 
 [node name="RetreatButton" parent="Layout/Footer" instance=ExtResource("2_button")]
 layout_mode = 2
 label_key = "ui_dungeon_retreat"
-variant = 3
 
 [node name="AbandonButton" parent="Layout/Footer" instance=ExtResource("2_button")]
 layout_mode = 2

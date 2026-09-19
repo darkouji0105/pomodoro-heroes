@@ -97,6 +97,8 @@ const NODE_BOSS: String = "🏰"
 ## ⚠ シナリオのショップのマス（2026-09-19・マップの見た目を難ダンジョンに揃えた）。
 ##   ⚠ 難ダンジョンにはショップのマスが無い（⚠ ボスの先のボタン）。
 const NODE_SHOP: String = "🏪"
+## ⚠ たいまつ（ヘッダの等級・商人の行。2026-09-19・モック v2）。⚠ 戦闘のマスと同じ字。
+const TORCH: String = "🔥"
 ## ⚠ たいまつが届いていないマス。⚠ シナリオでも同じ字を使う（2026-09-19）。
 const NODE_HIDDEN: String = "❓"
 
@@ -357,6 +359,7 @@ static func all_for_check() -> Dictionary:
 		"NODE_RELIC": NODE_RELIC,
 		"NODE_REST": NODE_REST,
 		"NODE_SHOP": NODE_SHOP,
+		"TORCH": TORCH,
 		"NODE_CHEST": NODE_CHEST,
 		"NODE_BOSS": NODE_BOSS,
 		"NODE_HIDDEN": NODE_HIDDEN,

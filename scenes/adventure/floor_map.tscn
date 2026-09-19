@@ -86,7 +86,7 @@ layout_mode = 2
 
 [node name="MapView" type="Control" parent="Layout"]
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_horizontal = 4
 size_flags_vertical = 3
 script = ExtResource("4_map_view")
 
