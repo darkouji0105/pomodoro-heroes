@@ -23,55 +23,99 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.05490196, 0.043137256, 0.078431375, 1)
 
-[node name="Layout" type="VBoxContainer" parent="."]
+[node name="Center" type="CenterContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = 8.0
-offset_right = -16.0
-offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_type_variation = &"PanelStack"
 
-[node name="BackButton" parent="Layout" instance=ExtResource("5_button")]
+[node name="Window" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(620, 0)
 layout_mode = 2
-size_flags_horizontal = 0
+theme_type_variation = &"WindowPanel"
+
+[node name="Layout" type="VBoxContainer" parent="Center/Window"]
+layout_mode = 2
+theme_type_variation = &"TightList"
+
+[node name="TitleBar" type="PanelContainer" parent="Center/Window/Layout"]
+layout_mode = 2
+theme_type_variation = &"WindowTitlePanel"
+
+[node name="Row" type="HBoxContainer" parent="Center/Window/Layout/TitleBar"]
+layout_mode = 2
+theme_type_variation = &"ButtonRow"
+
+[node name="BackButton" parent="Center/Window/Layout/TitleBar/Row" instance=ExtResource("5_button")]
+layout_mode = 2
 label_key = "ui_common_back"
 variant = 4
 
-[node name="TitleLabel" type="Label" parent="Layout"]
+[node name="TitleLabel" type="Label" parent="Center/Window/Layout/TitleBar/Row"]
 layout_mode = 2
+theme_type_variation = &"WindowTitleLabel"
 text = "ui_dungeon_chest_title"
 
-[node name="MessageLabel" type="Label" parent="Layout"]
+[node name="Spacer" type="Control" parent="Center/Window/Layout/TitleBar/Row"]
 layout_mode = 2
+size_flags_horizontal = 3
 
-[node name="BagLabel" type="Label" parent="Layout"]
+[node name="LoseNoteLabel" type="Label" parent="Center/Window/Layout/TitleBar/Row"]
 layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "ui_dungeon_pickup_lose_note"
 
-[node name="LootGrid" type="GridContainer" parent="Layout"]
+[node name="Body" type="MarginContainer" parent="Center/Window/Layout"]
 layout_mode = 2
-size_flags_horizontal = 0
-columns = 6
-script = ExtResource("3_item_grid")
+theme_type_variation = &"DialogMargin"
 
-[node name="BagTitleLabel" type="Label" parent="Layout"]
+[node name="Stack" type="VBoxContainer" parent="Center/Window/Layout/Body"]
 layout_mode = 2
-text = "ui_dungeon_chest_bag_title"
+theme_type_variation = &"TightList"
 
-[node name="BagGrid" type="GridContainer" parent="Layout"]
+[node name="LootCaption" type="Label" parent="Center/Window/Layout/Body/Stack"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "ui_dungeon_pickup_waiting"
+
+[node name="LootGrid" type="GridContainer" parent="Center/Window/Layout/Body/Stack"]
 layout_mode = 2
 size_flags_horizontal = 0
 columns = 8
 script = ExtResource("3_item_grid")
 
-[node name="LootDetail" type="VBoxContainer" parent="Layout"]
+[node name="MessageLabel" type="Label" parent="Center/Window/Layout/Body/Stack"]
 layout_mode = 2
-size_flags_vertical = 3
-script = ExtResource("4_item_detail")
+theme_type_variation = &"MutedLabel"
+autowrap_mode = 3
 
-[node name="ActionRow" type="HBoxContainer" parent="Layout"]
+[node name="Divider" type="HSeparator" parent="Center/Window/Layout/Body/Stack"]
 layout_mode = 2
+
+[node name="BagTitleRow" type="HBoxContainer" parent="Center/Window/Layout/Body/Stack"]
+layout_mode = 2
+
+[node name="BagTitleLabel" type="Label" parent="Center/Window/Layout/Body/Stack/BagTitleRow"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "ui_dungeon_chest_bag_title"
+
+[node name="BagLabel" type="Label" parent="Center/Window/Layout/Body/Stack/BagTitleRow"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="BagGrid" type="GridContainer" parent="Center/Window/Layout/Body/Stack"]
+layout_mode = 2
+size_flags_horizontal = 0
+columns = 8
+script = ExtResource("3_item_grid")
+
+[node name="ActionRow" type="HBoxContainer" parent="Center/Window/Layout/Body/Stack"]
+layout_mode = 2
+theme_type_variation = &"ButtonRow"
+
+[node name="LootDetail" type="VBoxContainer" parent="Center/Window/Layout/Body/Stack"]
+layout_mode = 2
+script = ExtResource("4_item_detail")

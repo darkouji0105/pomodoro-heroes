@@ -829,8 +829,13 @@ ui_dungeon_pickup_take,鞄に入れる
 ui_dungeon_pickup_take_all,入るだけ全部入れる
 ui_dungeon_pickup_discard,置いていく
 ui_dungeon_pickup_discard_bag,鞄から捨てる
+ui_dungeon_pickup_lose_note,戻ると、選ばなかったものは失う
+ui_dungeon_pickup_waiting,拾い待ち
+ui_dungeon_pickup_take_all_note,上から順に入る
+ui_dungeon_pickup_no_room,入る枠が無い
 ui_dungeon_bag_discarded,鞄から捨てた
 ui_dungeon_bag_discard_failed,捨てられなかった
+ui_dungeon_bag_use_note,誰に使うか選ぶ（脱落中は赤）
 ui_dungeon_chest_bag_title,いまの鞄
 ui_dungeon_torch_grade,"たいまつ 等級%d（%d層先）"
 ui_uitest_button_variant_secondary,既定（並列の選択肢）

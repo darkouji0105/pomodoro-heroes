@@ -22,28 +22,30 @@ extends Control
 
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 
-# 鞄が満杯のときの色。⚠ 「もう入らない」が一目で分かること。
-const COLOR_FULL: Color = Color(0.85, 0.35, 0.35)
+# ⚠ 鞄が満杯のときの赤は Theme の ErrorLabel（2026-09-19）。⚠ 「もう入らない」が一目で分かること。
 
 # ⚠⚠ 閉じたことを親（dungeon_map）に伝える（決定36・2026-09-05）。
 #   ⚠ 重ねて出しているあいだ、⚠ マップは後ろで生きている。⚠ 閉じたら描き直してもらう。
 signal closed
 
 # ⚠ 重ねて出しているときの幕の濃さ。⚠ 1.0 だとマップが見えず、⚠ 画面遷移と同じに見える。
-const OVERLAY_DIM_ALPHA: float = 0.88
+const OVERLAY_DIM_ALPHA: float = 0.72
 
+# ⚠⚠ 2026-09-19：モック v2 §6・§7 の窓（真鍮の縁＋題の帯）に組み直した。
+#   ⚠ マスを押すと、⚠ そのマスの近くに「できること」の吹き出し（SlotActionPopover）。
+#   ⚠ 窓の下に残すのは「入るだけ全部入れる」（⚠ 開けていない宝箱なら「開ける」）だけ。
 @onready var background: ColorRect = $Background
-@onready var title_label: Label = $Layout/TitleLabel
-@onready var message_label: Label = $Layout/MessageLabel
-@onready var bag_label: Label = $Layout/BagLabel
-@onready var loot_grid: ItemGrid = $Layout/LootGrid
-@onready var bag_title_label: Label = $Layout/BagTitleLabel
-@onready var bag_grid: ItemGrid = $Layout/BagGrid
-@onready var loot_detail: ItemDetail = $Layout/LootDetail
-@onready var action_row: HBoxContainer = $Layout/ActionRow
+@onready var title_label: Label = $Center/Window/Layout/TitleBar/Row/TitleLabel
+@onready var message_label: Label = $Center/Window/Layout/Body/Stack/MessageLabel
+@onready var bag_label: Label = $Center/Window/Layout/Body/Stack/BagTitleRow/BagLabel
+@onready var loot_grid: ItemGrid = $Center/Window/Layout/Body/Stack/LootGrid
+@onready var bag_title_label: Label = $Center/Window/Layout/Body/Stack/BagTitleRow/BagTitleLabel
+@onready var bag_grid: ItemGrid = $Center/Window/Layout/Body/Stack/BagGrid
+@onready var loot_detail: ItemDetail = $Center/Window/Layout/Body/Stack/LootDetail
+@onready var action_row: HBoxContainer = $Center/Window/Layout/Body/Stack/ActionRow
 # ⚠⚠ 戻るは左上（2026-09-14・人間の指示「⚠ 戻るボタンの位置を画面によって変えたくない」）。
-#   ⚠ 前は「できること」の行に**毎回コードで作っていた**（⚠ 行の末尾＝画面の下）。
-@onready var back_button: UiButton = $Layout/BackButton
+#   ⚠ 窓になってからは題の帯の左端（モック v2）。
+@onready var back_button: UiButton = $Center/Window/Layout/TitleBar/Row/BackButton
 
 # ホバーで詳細を出すドロップダウン（2026-09-07）。⚠ 引き取るのは `loot_detail` だけ。
 #   ⚠ `action_row` は画面に残す（⚠ 「開ける」「全部入れる」「マップへ戻る」は
@@ -152,27 +154,26 @@ func _was_opened() -> bool:
 
 
 # ⚠ 鞄の残りを必ず出す。⚠ 「何を捨てて何を入れるか」を選ぶのに要る。
+# ⚠ 色は Theme の variation（⚠ 満杯＝ErrorLabel）。⚠ 値を書かない。
 func _update_message() -> void:
 	var used: int = GameManager.get_run_bag_used(_run_kind)
 	var slots: int = GameManager.get_run_bag_slots(_run_kind)
-	bag_label.text = "%s %d/%d" % [tr("ui_dungeon_bag"), used, slots]
-	bag_label.modulate = COLOR_FULL if used >= slots else Color.WHITE
+	bag_label.text = "%d/%d" % [used, slots]
+	bag_label.theme_type_variation = &"ErrorLabel" if used >= slots else &"MutedLabel"
 
+	message_label.theme_type_variation = &"MutedLabel"
 	if not _was_opened():
 		message_label.text = tr("ui_dungeon_chest_hint")
-		message_label.modulate = Color.WHITE
 		return
 	if not GameManager.has_run_pending_loot(_run_kind):
 		message_label.text = tr("ui_dungeon_chest_opened")
-		message_label.modulate = Color.WHITE
 		return
 	# ⚠ 満杯なら「捨てて空ける」ことを言う（⚠ 言わないと手が無いように見える）。
 	if used >= slots:
 		message_label.text = tr("ui_dungeon_pickup_full")
-		message_label.modulate = COLOR_FULL
+		message_label.theme_type_variation = &"ErrorLabel"
 		return
 	message_label.text = tr("ui_dungeon_pickup_hint")
-	message_label.modulate = Color.WHITE
 
 
 # 拾い待ちをマス目で出す（段階20-e）。
@@ -194,50 +195,66 @@ func _rebuild_bag() -> void:
 	)
 
 
-func _on_loot_pressed(entry: Dictionary, _index: int) -> void:
+func _on_loot_pressed(entry: Dictionary, index: int) -> void:
 	_selected_entry = entry
 	_selected_from_bag = false
-	_rebuild_actions()
+	_open_popover(loot_grid, index)
 
 
-func _on_bag_pressed(entry: Dictionary, _index: int) -> void:
+func _on_bag_pressed(entry: Dictionary, index: int) -> void:
 	_selected_entry = entry
 	_selected_from_bag = true
-	_rebuild_actions()
+	_open_popover(bag_grid, index)
 
 
-# できること。⚠ 選んだ場所で変わる（段階20-e）。
+# 押したマスの近くに「できること」（2026-09-19・モック v2 §6・§7）。
 #
-# ⚠ 拾い待ちを選んだ → 「鞄に入れる」（⚠ 満杯なら押せない）
-# ⚠ 鞄を選んだ → 「捨てる」（⚠ 入れ替えのため）
-# ⚠ いつでも → 「全部入れる」（⚠ 「戻る」は左上に常設）
+# ⚠ 拾い待ちを選んだ → 「鞄に入れる」（⚠ 満杯なら押せない）・「置いていく」
+# ⚠ 鞄を選んだ → 「鞄から捨てる」（⚠ 入れ替えのため）
+# ⚠ 開けていない宝箱のあいだは出さない（⚠ まだ中身が無い）。
+func _open_popover(grid: ItemGrid, index: int) -> void:
+	var item_id: String = str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+	if item_id == "" or not _was_opened() or index >= grid.get_child_count():
+		SlotActionPopover.close_in(self)
+		return
+	var anchor: Rect2 = (grid.get_child(index) as Control).get_global_rect()
+	var pop: SlotActionPopover = SlotActionPopover.open(
+		self, anchor, tr(GameManager.item_name_key(item_id)), ""
+	)
+	if _selected_from_bag:
+		pop.add_action(tr("ui_dungeon_pickup_discard_bag"), UiButton.Variant.GHOST, _on_discard_bag_pressed)
+		return
+	# ⚠ 満杯なら押せない（⚠ 押してから弾かない＝ショップと同じ流儀）。
+	var full: bool = GameManager.get_run_bag_used(_run_kind) >= GameManager.get_run_bag_slots(_run_kind)
+	pop.add_action(tr("ui_dungeon_pickup_take"), UiButton.Variant.PRIMARY, _on_take_pressed, full)
+	pop.add_action(tr("ui_dungeon_pickup_discard"), UiButton.Variant.GHOST, _on_discard_loot_pressed)
+
+
+# 窓の下の操作（2026-09-19・モック v2）。⚠ マスごとの操作は吹き出し（_open_popover）。
+#
 # ⚠ 開けていない宝箱 → 「開ける」
+# ⚠ 拾い待ちがある → 「入るだけ全部入れる」（⚠ 満杯なら押せない＋「入る枠が無い」）
 func _rebuild_actions() -> void:
 	for child in action_row.get_children():
 		action_row.remove_child(child)
 		child.queue_free()
-	loot_detail.show_entry(_selected_entry)
+	loot_detail.show_entry({})
 
 	if not _was_opened():
-		_add_action("OpenButton", "ui_dungeon_chest_open", _on_open_pressed)
+		var open: UiButton = _add_action("OpenButton", "ui_dungeon_chest_open", _on_open_pressed)
+		open.variant = UiButton.Variant.PRIMARY
 		return
 
-	var item_id: String = str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-	if item_id != "":
-		if _selected_from_bag:
-			_add_action("DiscardBagButton", "ui_dungeon_pickup_discard_bag", _on_discard_bag_pressed)
-		else:
-			var take: UiButton = _add_action(
-				"TakeButton", "ui_dungeon_pickup_take", _on_take_pressed
-			)
-			# ⚠ 満杯なら押せない（⚠ 押してから弾かない＝ショップと同じ流儀）。
-			take.disabled = (
-				GameManager.get_run_bag_used(_run_kind) >= GameManager.get_run_bag_slots(_run_kind)
-			)
-			_add_action("DiscardLootButton", "ui_dungeon_pickup_discard", _on_discard_loot_pressed)
-
 	if GameManager.has_run_pending_loot(_run_kind):
-		_add_action("TakeAllButton", "ui_dungeon_pickup_take_all", _on_take_all_pressed)
+		var full: bool = GameManager.get_run_bag_used(_run_kind) >= GameManager.get_run_bag_slots(_run_kind)
+		var take_all: UiButton = _add_action("TakeAllButton", "ui_dungeon_pickup_take_all", _on_take_all_pressed)
+		take_all.variant = UiButton.Variant.PRIMARY
+		take_all.disabled = full
+		var note: Label = Label.new()
+		note.name = "TakeAllNote"
+		note.theme_type_variation = &"CaptionLabel"
+		note.text = tr("ui_dungeon_pickup_no_room" if full else "ui_dungeon_pickup_take_all_note")
+		action_row.add_child(note)
 
 
 func _add_action(node_name: String, label_key: String, handler: Callable) -> UiButton:
@@ -264,7 +281,7 @@ func _on_take_pressed() -> void:
 	var item_id: String = str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
 	if not GameManager.take_run_pending_loot(_run_kind, item_id):
 		message_label.text = tr("ui_dungeon_pickup_full")
-		message_label.modulate = COLOR_FULL
+		message_label.theme_type_variation = &"ErrorLabel"
 		return
 	_clear_selection()
 	_rebuild()
@@ -298,6 +315,7 @@ func _on_discard_bag_pressed() -> void:
 func _clear_selection() -> void:
 	_selected_entry = {}
 	_selected_from_bag = false
+	SlotActionPopover.close_in(self)
 
 
 # ⚠⚠ 出るときに拾い待ちを捨てる（段階20-e）。⚠ 引き返さないので拾い直せない。

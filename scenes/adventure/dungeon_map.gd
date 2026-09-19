@@ -64,13 +64,12 @@ const HIDDEN_TEXT: String = "？"
 @onready var bag_grid: ItemGrid = $Layout/BagRow/BagGrid
 @onready var bag_count_label: Label = $Layout/BagRow/BagCaption/BagCountLabel
 @onready var bag_detail: ItemDetail = $Layout/BagDetail
-@onready var bag_action_row: HBoxContainer = $Layout/BagActionRow
 @onready var descend_button: UiButton = $Layout/Footer/DescendButton
 @onready var retreat_button: UiButton = $Layout/Footer/RetreatButton
 @onready var abandon_button: UiButton = $Layout/Footer/AbandonButton
 @onready var back_button: UiButton = $Layout/Header/BackButton
 
-# 押した所の近くに鞄の詳細を出す器（2026-09-07）。⚠ `bag_detail` と `bag_action_row` を引き取る。
+# 鞄のマスにホバーしたときの詳細（2026-09-07）。⚠ 押したときの「できること」は SlotActionPopover。
 var _detail_popup: ItemDetailPopup = null
 
 # ⚠ いま重ねている拾いもの／宝箱（決定36）。⚠ null なら出ていない。⚠ 二重に開かないための札。
@@ -104,7 +103,7 @@ func _ready() -> void:
 	# ⚠ マスを押したら進む。⚠ 線を引き直すたびに（＝マスの位置が確定したら）スクロールを寄せる。
 	map_view.node_pressed.connect(_on_node_pressed)
 	map_view.laid_out.connect(_center_scroll_on_current)
-	# ⚠ 詳細をドロップダウンへ移す（2026-09-07）。⚠ `bag_action_row` は画面に残す。
+	# ⚠ 詳細をドロップダウンへ移す（2026-09-07）。
 	_detail_popup = ItemDetailPopup.adopt(self, bag_detail)
 	if _detail_popup != null:
 		_detail_popup.watch(bag_grid)
@@ -423,58 +422,54 @@ var _selected_bag_entry: Dictionary = {}
 
 func _rebuild_bag() -> void:
 	bag_grid.rebuild(GameManager.get_dungeon_bag_slot_layout(), GameManager.get_dungeon_bag_slots())
-	# ⚠ 使い切って無くなっていることがある。⚠ 残すと押しても何も起きないボタンになる。
-	if not _selected_bag_entry.is_empty():
-		var item_id: String = str(_selected_bag_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-		if int(GameManager.get_dungeon_bag().get(item_id, 0)) <= 0:
-			_selected_bag_entry = {}
-	_rebuild_bag_actions()
+	# ⚠ 描き直したら吹き出しは閉じる（⚠ 使い切って無くなっていることがある＝押しても何も起きないボタンになる）。
+	_selected_bag_entry = {}
+	SlotActionPopover.close_in(self)
 
 
-func _on_bag_slot_pressed(entry: Dictionary, _index: int) -> void:
+func _on_bag_slot_pressed(entry: Dictionary, index: int) -> void:
 	_selected_bag_entry = entry
-	_rebuild_bag_actions()
+	_open_bag_popover(index)
 
 
-# 選んだものに対してできること。⚠ ラン専用の品だけ「誰に使うか」が出る。
-func _rebuild_bag_actions() -> void:
-	for child in bag_action_row.get_children():
-		bag_action_row.remove_child(child)
-		child.queue_free()
-
-	bag_detail.show_entry(_selected_bag_entry)
-	if _selected_bag_entry.is_empty():
-		return
-
+# 押した鞄のマスの近くに「できること」（2026-09-19・モック v2 §4）。⚠ ラン専用の品だけ「誰に使うか」が出る。
+#
+# ⚠⚠ 捨てる（決定41・2026-09-06。⚠ 人間「マップからアイテムを選んだら捨てられるように」）。
+#   ⚠ 品の種類を問わず出す（⚠ 戦利品も捨てられる＝⚠ 鞄を空けるのが目的）。
+#   ⚠ 口は `discard_dungeon_bag_item()` の1本。⚠ 入る・捨てるの判定を画面側に書かない。
+#   ⚠ 文言は拾いもの画面と同じ `ui_dungeon_pickup_discard_bag`（⚠ 同じ意味に2つ目のキーを作らない）。
+# ⚠ 脱落しているキャラのボタンは赤（⚠ 押しても use_dungeon_item() が弾く＝効く相手の判定を書かない）。
+func _open_bag_popover(index: int) -> void:
 	var item_id: String = str(_selected_bag_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
 	# ⚠ 空きマスを押したときは何も出さない（⚠ 押しても何も起きないボタンを作らない）。
-	if item_id == "":
+	if item_id == "" or index >= bag_grid.get_child_count():
+		SlotActionPopover.close_in(self)
 		return
-
-	# ⚠⚠ 捨てる（決定41・2026-09-06。⚠ 人間「マップからアイテムを選んだら捨てられるように」）。
-	#   ⚠ 品の種類を問わず出す（⚠ 戦利品も捨てられる＝⚠ 鞄を空けるのが目的）。
-	#   ⚠ 口は `discard_dungeon_bag_item()` の1本。⚠ 入る・捨てるの判定を画面側に書かない。
-	#   ⚠ 文言は拾いもの画面と同じ `ui_dungeon_pickup_discard_bag`（⚠ 同じ意味に2つ目のキーを作らない）。
-	var discard_button: UiButton = UiButton.new()
-	discard_button.name = "Discard_" + item_id
-	discard_button.text = tr("ui_dungeon_pickup_discard_bag")
-	discard_button.pressed.connect(_on_discard_bag_pressed.bind(item_id))
-	bag_action_row.add_child(discard_button)
-
-	# ⚠ 使えない品（戦利品）には「誰に使うか」を出さない。⚠ 判定は GameManager の1本。
-	if GameManager.get_dungeon_item_effect(item_id) == "":
-		return
-
-	for member: Variant in GameManager.get_party_members():
-		var character_id: String = str(member)
-		if character_id == "":
-			continue
-		var char_data: Dictionary = MasterDataLoader.get_character(character_id)
-		var button: UiButton = UiButton.new()
-		button.name = "Use_%s_%s" % [item_id, character_id]
-		button.text = tr(str(char_data.get("name_key", character_id)))
-		button.pressed.connect(_on_use_potion_pressed.bind(item_id, character_id))
-		bag_action_row.add_child(button)
+	var anchor: Rect2 = (bag_grid.get_child(index) as Control).get_global_rect()
+	var pop: SlotActionPopover = SlotActionPopover.open(
+		self, anchor, tr(GameManager.item_name_key(item_id)), ""
+	)
+	var usable: bool = GameManager.get_dungeon_item_effect(item_id) != ""
+	if usable:
+		for member: Variant in GameManager.get_party_members():
+			var character_id: String = str(member)
+			if character_id == "":
+				continue
+			var char_data: Dictionary = MasterDataLoader.get_character(character_id)
+			var button: UiButton = pop.add_action(
+				tr(str(char_data.get("name_key", character_id))),
+				UiButton.Variant.DANGER if GameManager.is_dungeon_character_downed(character_id)
+				else UiButton.Variant.SECONDARY,
+				_on_use_potion_pressed.bind(item_id, character_id)
+			)
+			button.name = "Use_%s_%s" % [item_id, character_id]
+	var discard: UiButton = pop.add_action(
+		tr("ui_dungeon_pickup_discard_bag"), UiButton.Variant.GHOST,
+		_on_discard_bag_pressed.bind(item_id)
+	)
+	discard.name = "Discard_" + item_id
+	if usable:
+		pop.set_note(tr("ui_dungeon_bag_use_note"))
 
 
 # レリックのマス（段階17-e-2 → ⚠ 17-e-3 で別画面へ切り出した）。

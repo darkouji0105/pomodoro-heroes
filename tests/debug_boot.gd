@@ -4303,6 +4303,30 @@ func _report_layout() -> void:
 			])
 			if scroller.scroll_vertical <= 0:
 				push_error("[DebugBoot] スクロールが先頭のまま（段階20-c が効いていない）")
+		# ⚠⚠ 押したマスの近くの「できること」（2026-09-19・モック v2）。⚠ 拾いものの窓で最初のマスを押す。
+		#   ⚠ 絵は取れないが「吹き出しが出たか・ボタンが何個か・画面の中に収まったか」は取れる。
+		if instance is DungeonChest:
+			var loot: Node = instance.find_child("LootGrid", true, false)
+			if loot is ItemGrid and loot.get_child_count() > 0:
+				(loot.get_child(0) as ItemSlot).pressed.emit()
+				await get_tree().process_frame
+				await get_tree().process_frame
+				# ⚠ find_children の型の絞り込みは class_name に効かない（⚠ 組み込みの型だけ）。⚠ 自分で探す。
+				var pops: Array[Node] = []
+				for child: Node in instance.get_children():
+					if child is SlotActionPopover:
+						pops.append(child)
+				var texts: Array[String] = []
+				var inside: bool = false
+				if not pops.is_empty():
+					for b: Node in pops[0].find_children("*", "Button", true, false):
+						texts.append("%s%s" % [(b as Button).text, "(押せない)" if (b as Button).disabled else ""])
+					inside = get_viewport().get_visible_rect().encloses((pops[0] as Control).get_global_rect())
+				print("    ⚠ 拾い待ちのマスを押した → 吹き出し %d 枚 ／ ボタン %s ／ 画面の中 = %s" % [
+					pops.size(), str(texts), str(inside)
+				])
+				if pops.size() != 1 or texts.is_empty():
+					push_error("[DebugBoot] マスを押しても「できること」の吹き出しが出ない")
 		# ⚠ 面に重ねた当たりを持つ画面だけ出す（⚠ 0 枚の画面は黙っている）。
 		if hits_checked > 0:
 			print("    ⚠ 面ぜんぶが押せる器 = %d 枚（⚠ 上に押下を食べる器があれば赤が出る）" % hits_checked)

@@ -1325,6 +1325,9 @@ const MAP_NODE_PAD_H: float = 13.0
 const MAP_NODE_PAD_V: float = 8.0
 const MAP_NODE_FONT_SIZE: int = 13
 const MAP_NODE_BORDER: int = 2
+# 吹き出しの内側の余白と影（モック `.pop`：padding 10・影 18px の黒 .6）。
+const SLOT_POPOVER_PAD: int = 10
+const SLOT_POPOVER_SHADOW: int = 9
 const MAP_NODE_LEVELS: Dictionary = {
 	# 進める先。⚠ ホバーで金の枠（モック `.node.can:hover`）。
 	"MapNodeButton": {
@@ -1358,6 +1361,18 @@ static func _build_map_nodes(theme: Theme) -> void:
 		for key: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
 			theme.set_color(StringName(key), StringName(type_name), font)
 		theme.set_font_size(&"font_size", StringName(type_name), MAP_NODE_FONT_SIZE)
+
+	# ⚠ 押したマスの近くに出す「できること」の吹き出し（2026-09-19・モック v2 `.pop`）。
+	#   ⚠ 面はホバーの説明の枠（SkillTipPanel）と同じ値（⚠ 色を足さない）。⚠ 内側の余白だけ 10。
+	var pop: StyleBoxFlat = StyleBoxFlat.new()
+	pop.bg_color = _html(PANEL_BG)
+	pop.set_corner_radius_all(PANEL_CORNER_RADIUS)
+	pop.set_border_width_all(1)
+	pop.border_color = _html(CHIP_BORDER)
+	pop.shadow_color = Color(0, 0, 0, 0.6)
+	pop.shadow_size = SLOT_POPOVER_SHADOW
+	theme.set_type_variation(&"SlotPopoverPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"SlotPopoverPanel", _pad_panel(pop, SLOT_POPOVER_PAD, SLOT_POPOVER_PAD))
 
 
 static func _map_node_style(spec: Dictionary) -> StyleBoxFlat:

@@ -152,9 +152,6 @@ script = ExtResource("3_item_grid")
 layout_mode = 2
 script = ExtResource("4_item_detail")
 
-[node name="BagActionRow" type="HBoxContainer" parent="Layout"]
-layout_mode = 2
-
 [node name="FooterRule" type="HSeparator" parent="Layout"]
 layout_mode = 2
 
