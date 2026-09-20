@@ -135,12 +135,9 @@ var _node_buttons: Dictionary = {}
 var _edges: Array = []
 # いま立っているマス（⚠ そこから出る線を太くする）。
 var _current_id: String = ""
-# {layer: 行の Control}。⚠ 区画の切れ目の高さを決めるのに使う。
+# {layer: 行の Control}。⚠ 霧（見えていない層）の高さを決めるのに使う。
+# ⚠ 2026-09-20 まで区画の切れ目の高さにも使っていた（⚠ 切れ目は人間の指示で消した）。
 var _rows: Dictionary = {}
-# この層の「上」に切れ目を引く（⚠ 層 L と L+1 のあいだ）。⚠ 判定は画面が GameManager に聞いた結果。
-var _seam_after: Array = []
-# 切れ目に添える字（⚠ 翻訳済み）。
-var _seam_caption: String = ""
 
 ## 層のあいだの間隔。⚠ LAYER_SEPARATION か LAYER_SEPARATION_NO_SCROLL を入れる（⚠ 値を画面に書かない）。
 var layer_separation: int = LAYER_SEPARATION:
@@ -195,12 +192,9 @@ func _init() -> void:
 #
 # nodes: [{id, layer, text, state, hidden, boss}] ／ edges: [{from, to, tone, label}]
 # layer_captions: {layer: 目盛りの字}（⚠ 翻訳済み。⚠ 無い層は空）
-# seam_after: [層]（⚠ その層と1つ上の層のあいだに区画の切れ目）／ seam_caption: 切れ目の字
 # ⚠ edges は画面が並べた順に引く（⚠ 重なり順が起動ごとに変わらないよう、画面側で綴り順に）。
-func set_map(
-		nodes: Array, edges: Array, layer_captions: Dictionary = {},
-		seam_after: Array = [], seam_caption: String = ""
-) -> void:
+# ⚠ 2026-09-20：区画の切れ目（`seam_after` / `seam_caption`）は人間の指示で消した。
+func set_map(nodes: Array, edges: Array, layer_captions: Dictionary = {}) -> void:
 	for child in _layer_list.get_children():
 		_layer_list.remove_child(child)
 		child.queue_free()
@@ -209,8 +203,6 @@ func set_map(
 	_edges = edges
 	_current_id = ""
 	_current_layer = 0
-	_seam_after = seam_after
-	_seam_caption = seam_caption
 
 	# ⚠ 綴り順に並べてから層に仕分ける。
 	var by_id: Dictionary = {}
@@ -440,7 +432,7 @@ func _redraw_edges() -> void:
 			),
 			DungeonEdgeLines.LINE_LABEL: str(edge.get(EDGE_LABEL, "")),
 		})
-	_edge_lines.set_lines(lines, _seam_lines())
+	_edge_lines.set_lines(lines)
 	_place_light()
 	laid_out.emit()
 
@@ -562,28 +554,6 @@ func _draw_fog() -> void:
 			PackedVector2Array([Vector2(x0, 0.0), Vector2(x1, 0.0), Vector2(x1, ramp_top), Vector2(x0, ramp_top)]),
 			PackedColorArray([top, top, mid, mid])
 		)
-
-
-# 区画の切れ目（2026-09-19・モック v2）。⚠ 層 L の行と L+1 の行のあいだの真ん中に横線。
-func _seam_lines() -> Array:
-	var result: Array = []
-	var origin: Vector2 = _edge_lines.get_global_rect().position
-	for raw: Variant in _seam_after:
-		var below: Variant = _rows.get(int(raw), null)
-		var above: Variant = _rows.get(int(raw) + 1, null)
-		if not (below is Control) or not (above is Control):
-			continue
-		if not is_instance_valid(below) or not is_instance_valid(above):
-			continue
-		var lower: Rect2 = (below as Control).get_global_rect()
-		var upper: Rect2 = (above as Control).get_global_rect()
-		result.append({
-			DungeonEdgeLines.SEAM_Y: (upper.end.y + lower.position.y) * 0.5 - origin.y,
-			DungeonEdgeLines.SEAM_X0: lower.position.x - origin.x,
-			DungeonEdgeLines.SEAM_X1: lower.end.x - origin.x,
-			DungeonEdgeLines.SEAM_LABEL: _seam_caption,
-		})
-	return result
 
 
 # マスのボタンのつなぎ目。⚠ top なら上辺、⚠ でなければ下辺。

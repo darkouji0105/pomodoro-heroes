@@ -803,7 +803,6 @@ ui_dungeon_shop_footer_hint,買い終わったら「戻る」でマップへ
 ui_dungeon_shop_bag_free,鞄の空き %d
 ui_dungeon_layers_ahead,%d層先
 ui_dungeon_layer_no,%d層
-ui_dungeon_segment_seam,区画の切れ目
 ui_dungeon_relic_hint,1つ選ぶ。このランのあいだ効く
 ui_dungeon_node_chest,宝箱
 ui_dungeon_chest_title,宝箱を見つけた

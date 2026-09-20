@@ -9071,28 +9071,9 @@ func _dungeon_segment_of_layers(total_layers: int) -> Array[int]:
 	return result
 
 
-# 区画の切れ目（2026-09-19・モック v2「5層ごとに区画の切れ目」）。
-#
-# 戻り値：層番号 L の配列。⚠ 「層 L と L+1 のあいだ」に切れ目がある（⚠ 層番号はノードの layer と同じ）。
-# ⚠ 区画の割り当ては `_dungeon_segment_of_layers()` の1本に聞く（⚠ 画面で層番号から計算し直さない）。
-# ⚠ 切れ目＝区画に入る手前・区画から出た先。⚠ 区画の中（端→中→端）には引かない。
-func get_dungeon_segment_seams() -> Array:
-	var result: Array = []
-	if not is_in_dungeon():
-		return result
-	var dungeon_id: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
-	var raw_layers: Variant = MasterDataLoader.get_dungeon(dungeon_id).get(DUNGEON_MASTER_LAYERS, null)
-	if not (raw_layers is Array):
-		return result
-	var seg: Array[int] = _dungeon_segment_of_layers((raw_layers as Array).size())
-	for i: int in range(seg.size() - 1):
-		# ⚠ 入る手前：次が端で、⚠ 今が区画の中ではない（⚠ 通常の層か、⚠ 前の区画の出口）。
-		var entering: bool = seg[i + 1] == DUNGEON_SEGMENT_EDGE and seg[i] != DUNGEON_SEGMENT_INNER
-		# ⚠ 出た先：今が端で、⚠ 次が通常の層。
-		var leaving: bool = seg[i] == DUNGEON_SEGMENT_EDGE and seg[i + 1] == DUNGEON_SEGMENT_NONE
-		if entering or leaving:
-			result.append(i + 1)
-	return result
+# ⚠⚠ `get_dungeon_segment_seams()`（区画の切れ目・2026-09-19・モック v2）は
+#   2026-09-20 に消した（人間の指示「⚠ 区画の切れ目の表示は消して」）。
+#   ⚠ 区画そのもの（`_dungeon_segment_of_layers()`）は残っている。⚠ 消したのは見た目だけ。
 
 
 # その層のノードのうち、区画 k に属するものだけを返す（段階20-b）。

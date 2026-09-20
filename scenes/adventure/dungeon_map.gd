@@ -347,11 +347,11 @@ func _rebuild_layers() -> void:
 	map_view.torch_reveal_layers = (
 		-1 if GameManager.can_retreat_from_dungeon() else GameManager.get_dungeon_reveal_layers()
 	)
-	# ⚠ 層の目盛りと区画の切れ目（2026-09-19・モック v2）。⚠ 切れ目の層は GameManager の1本に聞く。
+	# ⚠ 層の目盛り（2026-09-19・モック v2）。
+	# ⚠ 2026-09-20：区画の切れ目の表示は人間の指示で消した（⚠ 区画そのものは残っている）。
 	map_view.set_map(
 		map_nodes, map_edges, _layer_captions(nodes, GameStateKeys.DUNGEON_NODE_LAYER,
-			GameStateKeys.DUNGEON_NODE_KIND, GameStateKeys.DUNGEON_NODE_KIND_BOSS),
-		GameManager.get_dungeon_segment_seams(), tr("ui_dungeon_segment_seam")
+			GameStateKeys.DUNGEON_NODE_KIND, GameStateKeys.DUNGEON_NODE_KIND_BOSS)
 	)
 	# ⚠⚠ 要求を立てるのは set_map() の「あと」（段階20-c）。
 	#   ⚠ 先に立てると、⚠ set_map() の中で線を引いたときに消費されてしまう。⚠ そのときは

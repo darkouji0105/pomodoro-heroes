@@ -29,11 +29,9 @@ const STYLE_DASHED: String = "dashed"
 # ⚠ 字の台（菱形）の枠の色。⚠ 無ければ既定の枠。
 const LINE_BADGE_BORDER: String = "badge_border"
 
-# 区画の切れ目（2026-09-19・モック v2）。⚠ [{y: float, x0: float, x1: float, label: String}]
-const SEAM_Y: String = "y"
-const SEAM_X0: String = "x0"
-const SEAM_X1: String = "x1"
-const SEAM_LABEL: String = "label"
+# ⚠⚠ 区画の切れ目（2026-09-19・モック v2）は 2026-09-20 に消した（人間の指示
+#   「⚠ 区画の切れ目の表示は消して」）。⚠ 線・字・`SEAM_*` の綴り・`get_seam_count()` ごと。
+#   ⚠ 区画そのものは残っている（⚠ 消したのは見た目だけ）。
 
 # 通路の字の大きさと、字を置く箱の大きさ（段階20-c）。
 #
@@ -54,14 +52,9 @@ const BADGE_HALF: float = 14.0
 const BADGE_BG: Color = Color("15100f")
 const BADGE_BORDER: Color = Color("3a302b")
 
-# 切れ目の線の色と字の大きさ（モック `.seam`）。
-const SEAM_COLOR: Color = Color("231d1a")
-const SEAM_FONT_SIZE: int = 10
-
 # 線の一覧。⚠ [{from, to, color, width, label, style, badge_border}]
 var _lines: Array = []
-var _seams: Array = []
-# ⚠ 通路の字の数（⚠ 検証が読む）。⚠ 切れ目の字は数えない。
+# ⚠ 通路の字の数（⚠ 検証が読む）。
 var _label_count: int = 0
 
 
@@ -71,9 +64,8 @@ var _label_count: int = 0
 # ⚠ 字は Label で置く（⚠ draw_string ではない）。⚠ カラー絵文字（COLR/CPAL）が
 #   Label では出ることを実測済みで、⚠ draw_string では確かめていないため。
 # ⚠ 再描画に await を持たせない。⚠ remove_child() してから queue_free()（AGENTS.md）。
-func set_lines(lines: Array, seams: Array = []) -> void:
+func set_lines(lines: Array) -> void:
 	_lines = lines
-	_seams = seams
 	_label_count = 0
 	for child in get_children():
 		remove_child(child)
@@ -93,18 +85,6 @@ func set_lines(lines: Array, seams: Array = []) -> void:
 		label.position = _mid(line) - LABEL_BOX * 0.5
 		add_child(label)
 		_label_count += 1
-	for entry: Variant in _seams:
-		var seam: Dictionary = entry
-		var caption: String = str(seam.get(SEAM_LABEL, ""))
-		if caption == "":
-			continue
-		var label: Label = _make_label(caption, SEAM_FONT_SIZE)
-		label.theme_type_variation = &"CaptionLabel"
-		label.add_theme_font_size_override("font_size", SEAM_FONT_SIZE)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		label.size = Vector2(160.0, 14.0)
-		label.position = Vector2(float(seam.get(SEAM_X1, 0.0)) - 160.0, float(seam.get(SEAM_Y, 0.0)) - 15.0)
-		add_child(label)
 	queue_redraw()
 
 
@@ -152,19 +132,7 @@ func get_line_count() -> int:
 	return _lines.size()
 
 
-# 区画の切れ目の本数。⚠ 検証の道具が読む。
-func get_seam_count() -> int:
-	return _seams.size()
-
-
 func _draw() -> void:
-	for entry: Variant in _seams:
-		var seam: Dictionary = entry
-		var y: float = float(seam.get(SEAM_Y, 0.0))
-		draw_line(
-			Vector2(float(seam.get(SEAM_X0, 0.0)), y), Vector2(float(seam.get(SEAM_X1, 0.0)), y),
-			SEAM_COLOR, 1.0
-		)
 	for entry: Variant in _lines:
 		if not (entry is Dictionary):
 			continue
