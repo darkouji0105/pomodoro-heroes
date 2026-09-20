@@ -25,10 +25,9 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 
 func _ready() -> void:
 	SceneManager.consume_transfer_data()
-	# ⚠⚠ ランの中では右上の通貨を出さない（2026-09-20・人間の指示
-	#   「⚠ スタミナなどのリソースをダンジョン内で表示しないで」）。⚠ 戦闘・ポモドーロと同じ扱い。
-	#   ⚠ 出し直すのは SceneManager（⚠ 画面を移ると既定で出る）。
-	ResourceHud.set_shown(false)
+	# ⚠⚠ シナリオでは右上の通貨を**出す**（2026-09-20・人間の指示「⚠ シナリオにもリソースを」）。
+	#   ⚠ 消すのは難ダンジョンだけ（⚠ あちらは一時通貨で回すので拠点の資源が要らない）。
+	#   ⚠ 既定で出るので、⚠ ここでは何もしない（SceneManager が画面を移るたびに出す）。
 
 	if not GameManager.is_in_floor():
 		push_warning("[FloorShop] フロアに入っていないので冒険選択へ戻る")

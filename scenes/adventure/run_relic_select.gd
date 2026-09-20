@@ -53,12 +53,12 @@ var _selected_relic_id: String = ""
 
 func _ready() -> void:
 	var data: Dictionary = SceneManager.consume_transfer_data()
-	# ⚠⚠ ランの中では右上の通貨を出さない（2026-09-20・人間の指示
-	#   「⚠ スタミナなどのリソースをダンジョン内で表示しないで」）。⚠ 戦闘・ポモドーロと同じ扱い。
-	#   ⚠ 出し直すのは SceneManager（⚠ 画面を移ると既定で出る）。
-	ResourceHud.set_shown(false)
 	_kind = str(data.get(TransferKeys.RUN_KIND, ""))
 	_node_id = str(data.get(TransferKeys.RUN_NODE_ID, ""))
+	# ⚠ 右上の通貨は難ダンジョンだけ消す（2026-09-20・人間の指示「⚠ シナリオにもリソースを」）。
+	#   ⚠ ランの種類を受け取ってから見る（⚠ 先に見ると必ずシナリオ扱いになる）。
+	if _kind == GameManager.RUN_KIND_DUNGEON:
+		ResourceHud.set_shown(false)
 
 	# ⚠ どちらのランか分からない／ランに入っていない。⚠ 空の画面を描かない。
 	if _kind != GameManager.RUN_KIND_FLOOR and _kind != GameManager.RUN_KIND_DUNGEON:

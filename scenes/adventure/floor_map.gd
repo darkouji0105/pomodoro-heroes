@@ -59,10 +59,9 @@ var _loot_overlay: DungeonChest = null
 
 func _ready() -> void:
 	SceneManager.consume_transfer_data()
-	# ⚠⚠ ランの中では右上の通貨を出さない（2026-09-20・人間の指示
-	#   「⚠ スタミナなどのリソースをダンジョン内で表示しないで」）。⚠ 戦闘・ポモドーロと同じ扱い。
-	#   ⚠ 出し直すのは SceneManager（⚠ 画面を移ると既定で出る）。
-	ResourceHud.set_shown(false)
+	# ⚠⚠ シナリオでは右上の通貨を**出す**（2026-09-20・人間の指示「⚠ シナリオにもリソースを」）。
+	#   ⚠ 消すのは難ダンジョンだけ（⚠ あちらは一時通貨で回すので拠点の資源が要らない）。
+	#   ⚠ 既定で出るので、⚠ ここでは何もしない（SceneManager が画面を移るたびに出す）。
 
 	# フロアに入っていないのにここへ来た（セーブを消した直後など）。
 	# ⚠ 空のマップを描かず、冒険選択へ戻す。
@@ -167,8 +166,8 @@ func _update_header() -> void:
 		GameManager.get_floor_reveal_layers(), tr("ui_floor_torch_layers"),
 	]
 	_update_relic_line()
-	# ⚠⚠ スタミナはここに出さない（2026-09-20・人間の指示「⚠ スタミナなどのリソースをダンジョン内で表示しないで」）。
-	#   ⚠ 右上の常駐の通貨も出さない（⚠ _ready() で ResourceHud.set_shown(false)）。
+	# ⚠⚠ スタミナはこの行に出さない（2026-09-20）。⚠ 右上の常駐の通貨（ResourceHud）が
+	#   ⚠ 金・ジェム・スタミナをまとめて出す（⚠ 人間の指示「⚠ シナリオにもリソースを」）。⚠ 同じ数字を2箇所に出さない。
 
 
 # いま持っているレリックの1行（段階14-d・PLAN_SCENARIO_MAP.md §5-2-6）。
