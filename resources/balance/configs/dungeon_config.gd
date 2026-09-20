@@ -147,8 +147,8 @@ extends Resource
 ## 罠（通貨）で失う一時通貨。⚠ 0 未満にはならない（add_dungeon_currency が守る）。
 @export var edge_trap_currency: int = 20
 
-## 罠（鞄）で落とす個数。⚠ 鞄が空なら何も起きない。
-@export var edge_trap_bag_count: int = 1
+# ⚠⚠ 罠（鞄）は作らない（2026-09-20・人間の指示「⚠ アイテム落とす罠は作らない」）。
+#   ⚠ `edge_trap_bag_count` は欄ごと消した。⚠ 戻すなら dungeon.json の `edges.effects` にも枠が要る。
 
 ## 資源の通路で拾う一時通貨。⚠ 素材のほうは dungeon.json の表から引く。
 @export var edge_resource_currency: int = 18

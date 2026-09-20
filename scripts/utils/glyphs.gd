@@ -109,7 +109,6 @@ const NODE_HIDDEN: String = "❓"
 #   （⚠ 同じだと「マスが見えないのか通路が見えないのか」が読めない）。
 const EDGE_TRAP_HP: String = "💥"
 const EDGE_TRAP_CURRENCY: String = "💸"
-const EDGE_TRAP_BAG: String = "💨"
 const EDGE_CHEST: String = "🎁"
 const EDGE_RESOURCE: String = "💰"
 const EDGE_HIDDEN: String = "❔"
@@ -303,8 +302,6 @@ static func for_dungeon_edge(effect: String) -> String:
 			return EDGE_TRAP_HP
 		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY:
 			return EDGE_TRAP_CURRENCY
-		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG:
-			return EDGE_TRAP_BAG
 		GameStateKeys.DUNGEON_EDGE_EFFECT_CHEST:
 			return EDGE_CHEST
 		GameStateKeys.DUNGEON_EDGE_EFFECT_RESOURCE:
@@ -365,7 +362,6 @@ static func all_for_check() -> Dictionary:
 		"NODE_HIDDEN": NODE_HIDDEN,
 		"EDGE_TRAP_HP": EDGE_TRAP_HP,
 		"EDGE_TRAP_CURRENCY": EDGE_TRAP_CURRENCY,
-		"EDGE_TRAP_BAG": EDGE_TRAP_BAG,
 		"EDGE_CHEST": EDGE_CHEST,
 		"EDGE_RESOURCE": EDGE_RESOURCE,
 		"EDGE_HIDDEN": EDGE_HIDDEN,

@@ -289,8 +289,7 @@ func _edge_tone(from_id: String, to_id: String, edge: Dictionary) -> String:
 		return RunMapView.TONE_HIDDEN
 	match str(edge.get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")):
 		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP, \
-		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY, \
-		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG:
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY:
 			return RunMapView.TONE_TRAP
 		GameStateKeys.DUNGEON_EDGE_EFFECT_CHEST, \
 		GameStateKeys.DUNGEON_EDGE_EFFECT_RESOURCE:
@@ -683,7 +682,8 @@ func _notify_edge_event() -> void:
 	if effect == GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP:
 		content = _hp_change_row()
 	elif not items.is_empty():
-		content = _item_cells(items, effect == GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG)
+		# ⚠ いまは拾うものだけ（⚠ 落とす罠は作らない＝2026-09-20・人間の指示）。
+		content = _item_cells(items, false)
 	var dialog: ModalDialog = Modal.notify(
 		self, "ui_dungeon_edge_event_" + effect, [detail], false,
 		_edge_window_options(effect, effect, content)

@@ -99,24 +99,14 @@ const NODE_WIDTH: float = 104.0
 # 線の端をマスの辺に沿ってどれだけ散らすか（マスの幅に対する割合。段階20-g）。
 const EDGE_ANCHOR_SPREAD: float = 0.55
 
-# たいまつの明かり（2026-09-19・モック v2 §0）。
-#   ① いまいるマスを中心にした金の光（⚠ 5.5秒でゆっくり揺れる）
+# たいまつの明かり（2026-09-19・モック v2 §0 → 2026-09-20 に値を Theme へ）。
+#   ① いまいるマスを中心にした金の光（⚠ ゆっくり揺れる）
 #   ② たいまつが届かない層を覆う暗さ（⚠ 等級が上がると境目が上へ動く）
-#   ⚠ 光・暗さの色と大きさは絵の一部なので Theme に対応する概念が無い（⚠ 線の色と同じ扱い）。
-const LIGHT_SIZE: float = 420.0
-const LIGHT_COLOR: Color = Color("f0c04a")
-const LIGHT_ALPHA_CENTER: float = 0.10
-const LIGHT_ALPHA_MID: float = 0.045
-# ⚠⚠ 揺れ（2026-09-20・人間の指示「⚠ 光源は揺らしてほしい」）。⚠ モックの 5.5秒・薄い揺れでは、
-#   ⚠ 動いていることが分かりにくかったので、⚠ 周期を短く・幅を広げ・位置も少し揺らす。
-#   ⚠ 「炎の揺らぎ」であって明滅ではない（⚠ 読みづらくしない）。
-const LIGHT_FLICKER_SEC: float = 2.6
-const LIGHT_FLICKER_MIN_ALPHA: float = 0.70
-const LIGHT_FLICKER_MAX_ALPHA: float = 1.06
-const LIGHT_FLICKER_MIN_SCALE: float = 0.94
-const LIGHT_FLICKER_MAX_SCALE: float = 1.05
-# ⚠ 光の中心のゆらぎ（px）。⚠ マスが動いて見えない程度に小さく。
-const LIGHT_SWAY: float = 4.0
+# ⚠⚠ 揺れ・大きさ・色は Theme の `RunMapView` が持つ（2026-09-20・人間の指示
+#   「⚠ 光の揺れは調整できるようにしてほしい」）。⚠ ここに数字を書かない。
+#   ⚠ 直すのは `tools/theme_builder.gd` の `MAP_LIGHT_*` → `scenario=theme` を回す。
+# ⚠ 暗さのほうは絵ではなく「見える範囲の線引き」なので、⚠ 引き続きここが持つ。
+const THEME_TYPE: StringName = &"RunMapView"
 const FOG_COLOR: Color = Color("060408")
 const FOG_ALPHA_EDGE: float = 0.6
 const FOG_ALPHA_TOP: float = 0.88
@@ -163,6 +153,7 @@ var layer_separation: int = LAYER_SEPARATION:
 func _init() -> void:
 	# ⚠⚠ 光は「中心の器」の中に入れる（2026-09-20）。⚠ 器はいまいるマスへ置き直され、
 	#   ⚠ 揺れ（明るさ・大きさ・左右）は器の中だけで起きる。⚠ こうしないと置き直しと揺れが取り合う。
+	#   ⚠ 大きさ・色は Theme から引くので、⚠ 中身を作るのは木に入ってから（`_ready()`）。
 	_light_anchor = Control.new()
 	_light_anchor.name = "TorchLight"
 	_light_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -172,10 +163,6 @@ func _init() -> void:
 	_light = TextureRect.new()
 	_light.name = "Flame"
 	_light.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_light.texture = _make_light_texture()
-	_light.size = Vector2(LIGHT_SIZE, LIGHT_SIZE)
-	_light.position = -Vector2(LIGHT_SIZE, LIGHT_SIZE) * 0.5
-	_light.pivot_offset = Vector2(LIGHT_SIZE, LIGHT_SIZE) * 0.5
 	_light_anchor.add_child(_light)
 
 	_edge_lines = DungeonEdgeLines.new()
@@ -459,42 +446,61 @@ func _redraw_edges() -> void:
 
 
 func _ready() -> void:
-	# ⚠ 光をゆらす（⚠ 明るさ・大きさ・位置を少しずつずらす）。⚠ 止めない（ループ）。
-	#   ⚠ 周期をわざと3つに割って、⚠ 同じ間隔で点滅して見えないようにする。
+	# ⚠ 光の大きさ・色・揺れ方は Theme（`RunMapView`）から引く（2026-09-20）。
+	var size_px: float = float(_light_number(&"light_size_px"))
+	_light.texture = _make_light_texture(
+		get_theme_color(&"light", THEME_TYPE),
+		float(_light_number(&"light_center_pct")) * 0.01,
+		float(_light_number(&"light_mid_pct")) * 0.01,
+		int(size_px)
+	)
+	_light.size = Vector2(size_px, size_px)
+	_light.position = -Vector2(size_px, size_px) * 0.5
+	_light.pivot_offset = Vector2(size_px, size_px) * 0.5
+
+	# ⚠ 揺れ（⚠ 明るさ・大きさ・位置を少しずつずらす）。⚠ 周期を3つに割って、⚠ 点滅に見えないようにする。
+	#   ⚠ 周期 0 なら揺らさない（⚠ Theme で止められる）。
+	var period: float = float(_light_number(&"light_period_ms")) * 0.001
+	if period <= 0.0:
+		return
+	var base_x: float = -size_px * 0.5
+	var sway: float = float(_light_number(&"light_sway_px"))
+	var alpha_min: float = float(_light_number(&"light_alpha_min_pct")) * 0.01
+	var alpha_max: float = float(_light_number(&"light_alpha_max_pct")) * 0.01
+	var scale_min: float = float(_light_number(&"light_scale_min_pct")) * 0.01
+	var scale_max: float = float(_light_number(&"light_scale_max_pct")) * 0.01
 	var tween: Tween = create_tween().set_loops()
 	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(_light, "modulate:a", LIGHT_FLICKER_MIN_ALPHA, LIGHT_FLICKER_SEC * 0.34)
-	tween.parallel().tween_property(
-		_light, "scale", Vector2(LIGHT_FLICKER_MIN_SCALE, LIGHT_FLICKER_MIN_SCALE),
-		LIGHT_FLICKER_SEC * 0.34
-	)
-	tween.parallel().tween_property(_light, "position:x", -LIGHT_SIZE * 0.5 - LIGHT_SWAY, LIGHT_FLICKER_SEC * 0.34)
-	tween.tween_property(_light, "modulate:a", LIGHT_FLICKER_MAX_ALPHA, LIGHT_FLICKER_SEC * 0.22)
-	tween.parallel().tween_property(
-		_light, "scale", Vector2(LIGHT_FLICKER_MAX_SCALE, LIGHT_FLICKER_MAX_SCALE),
-		LIGHT_FLICKER_SEC * 0.22
-	)
-	tween.parallel().tween_property(_light, "position:x", -LIGHT_SIZE * 0.5 + LIGHT_SWAY, LIGHT_FLICKER_SEC * 0.22)
-	tween.tween_property(_light, "modulate:a", 1.0, LIGHT_FLICKER_SEC * 0.44)
-	tween.parallel().tween_property(_light, "scale", Vector2.ONE, LIGHT_FLICKER_SEC * 0.44)
-	tween.parallel().tween_property(_light, "position:x", -LIGHT_SIZE * 0.5, LIGHT_FLICKER_SEC * 0.44)
+	tween.tween_property(_light, "modulate:a", alpha_min, period * 0.34)
+	tween.parallel().tween_property(_light, "scale", Vector2(scale_min, scale_min), period * 0.34)
+	tween.parallel().tween_property(_light, "position:x", base_x - sway, period * 0.34)
+	tween.tween_property(_light, "modulate:a", alpha_max, period * 0.22)
+	tween.parallel().tween_property(_light, "scale", Vector2(scale_max, scale_max), period * 0.22)
+	tween.parallel().tween_property(_light, "position:x", base_x + sway, period * 0.22)
+	tween.tween_property(_light, "modulate:a", 1.0, period * 0.44)
+	tween.parallel().tween_property(_light, "scale", Vector2.ONE, period * 0.44)
+	tween.parallel().tween_property(_light, "position:x", base_x, period * 0.44)
+
+
+# Theme の数（⚠ 無ければ 0）。⚠ 引く口はここ1本（⚠ 呼ぶ側に型名を書かせない）。
+func _light_number(key: StringName) -> int:
+	return get_theme_constant(key, THEME_TYPE)
 
 
 # 光の絵（中心から外へ薄くなる円）。⚠ 画像ファイルを足さずにコードで作る。
-static func _make_light_texture() -> GradientTexture2D:
+static func _make_light_texture(color: Color, center: float, mid: float, size_px: int) -> GradientTexture2D:
 	var gradient: Gradient = Gradient.new()
 	gradient.offsets = PackedFloat32Array([0.0, 0.38, 0.68, 1.0])
 	gradient.colors = PackedColorArray([
-		Color(LIGHT_COLOR, LIGHT_ALPHA_CENTER), Color(LIGHT_COLOR, LIGHT_ALPHA_MID),
-		Color(LIGHT_COLOR, 0.0), Color(LIGHT_COLOR, 0.0),
+		Color(color, center), Color(color, mid), Color(color, 0.0), Color(color, 0.0),
 	])
 	var texture: GradientTexture2D = GradientTexture2D.new()
 	texture.gradient = gradient
 	texture.fill = GradientTexture2D.FILL_RADIAL
 	texture.fill_from = Vector2(0.5, 0.5)
 	texture.fill_to = Vector2(1.0, 0.5)
-	texture.width = int(LIGHT_SIZE)
-	texture.height = int(LIGHT_SIZE)
+	texture.width = size_px
+	texture.height = size_px
 	return texture
 
 

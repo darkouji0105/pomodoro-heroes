@@ -678,6 +678,7 @@ static func build() -> void:
 	_build_status_chip(theme)
 	_build_map_nodes(theme)
 	_build_run_hp_bar(theme)
+	_build_run_map_view(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -1345,6 +1346,42 @@ static func _build_run_hp_bar(theme: Theme) -> void:
 	theme.set_stylebox(&"lost", &"RunHpBar", lost)
 	theme.set_constant(&"width", &"RunHpBar", RUN_HP_BAR_WIDTH)
 	theme.set_constant(&"height", &"RunHpBar", RUN_HP_BAR_HEIGHT)
+
+
+# --- ランのマップのたいまつの明かり（2026-09-20・人間の指示「⚠ 光の揺れは調整できるようにしてほしい」）---
+#
+# ⚠⚠ 揺れの値はここだけが持つ（⚠ `RunMapView` は `get_theme_constant()` で引く）。
+#   ⚠ 直したら `scenario=theme` を回す（⚠ `.tres` を手で書き換えない）。
+# ⚠ Theme の定数は整数しか持てないので、⚠ 割合は**百分率**・時間は**ミリ秒**で持つ。
+# ⚠ 「炎の揺らぎ」であって明滅ではない（⚠ 読みづらくしない）。⚠ 揺れを止めたいときは `period_ms` を 0 に。
+const MAP_LIGHT_PERIOD_MS: int = 2600        # ⚠ 1往復の長さ。⚠ 0 なら揺れない
+const MAP_LIGHT_ALPHA_MIN_PCT: int = 70      # ⚠ 一番暗いときの濃さ
+const MAP_LIGHT_ALPHA_MAX_PCT: int = 106     # ⚠ 一番明るいときの濃さ（⚠ 100 を超えてよい）
+const MAP_LIGHT_SCALE_MIN_PCT: int = 94      # ⚠ 一番縮んだときの大きさ
+const MAP_LIGHT_SCALE_MAX_PCT: int = 105     # ⚠ 一番広がったときの大きさ
+const MAP_LIGHT_SWAY_PX: int = 4             # ⚠ 左右のゆれ幅
+const MAP_LIGHT_SIZE_PX: int = 420           # ⚠ 光そのものの直径
+const MAP_LIGHT_COLOR: String = "f0c04a"     # ⚠ 炎の色（⚠ フォーカスの金と同値）
+const MAP_LIGHT_CENTER_PCT: int = 10         # ⚠ 中心の濃さ（⚠ 薄い）
+const MAP_LIGHT_MID_PCT: int = 5             # ⚠ 途中の濃さ
+
+
+static func _build_run_map_view(theme: Theme) -> void:
+	var t: StringName = &"RunMapView"
+	var numbers: Dictionary = {
+		"light_period_ms": MAP_LIGHT_PERIOD_MS,
+		"light_alpha_min_pct": MAP_LIGHT_ALPHA_MIN_PCT,
+		"light_alpha_max_pct": MAP_LIGHT_ALPHA_MAX_PCT,
+		"light_scale_min_pct": MAP_LIGHT_SCALE_MIN_PCT,
+		"light_scale_max_pct": MAP_LIGHT_SCALE_MAX_PCT,
+		"light_sway_px": MAP_LIGHT_SWAY_PX,
+		"light_size_px": MAP_LIGHT_SIZE_PX,
+		"light_center_pct": MAP_LIGHT_CENTER_PCT,
+		"light_mid_pct": MAP_LIGHT_MID_PCT,
+	}
+	for key: String in numbers.keys():
+		theme.set_constant(StringName(key), t, int(numbers[key]))
+	theme.set_color(&"light", t, _html(MAP_LIGHT_COLOR))
 
 
 # --- ランのマップのマス（2026-09-19・難ダンジョンのモック v2「真鍮の札」）---

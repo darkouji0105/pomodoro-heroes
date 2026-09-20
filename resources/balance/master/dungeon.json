@@ -81,7 +81,6 @@
       "effects": [
         { "effect": "trap_hp", "weight": 22 },
         { "effect": "trap_currency", "weight": 14 },
-        { "effect": "trap_bag", "weight": 9 },
         { "effect": "chest", "weight": 20 },
         { "effect": "resource", "weight": 35 }
       ],

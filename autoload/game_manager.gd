@@ -9198,7 +9198,6 @@ func _dungeon_edge_effect_weights(dungeon_id: String) -> Dictionary:
 const DUNGEON_EDGE_EFFECTS_KNOWN: Array[String] = [
 	GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP,
 	GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY,
-	GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG,
 	GameStateKeys.DUNGEON_EDGE_EFFECT_CHEST,
 	GameStateKeys.DUNGEON_EDGE_EFFECT_RESOURCE,
 ]
@@ -9595,14 +9594,6 @@ func _apply_dungeon_edge_effect(effect: String, to_node_id: String) -> void:
 			add_dungeon_currency(-lost)
 			_last_dungeon_edge_event["amount"] = lost
 			print("[GameManager] 通路の罠（通貨）: %d 失った -> 残り %d" % [lost, get_dungeon_currency()])
-		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG:
-			var dropped: Dictionary = _apply_dungeon_edge_trap_bag(
-				maxi(0, int(config.edge_trap_bag_count))
-			)
-			_last_dungeon_edge_event["items"] = dropped
-			for dropped_id: Variant in dropped:
-				_last_dungeon_edge_event["amount"] = int(_last_dungeon_edge_event["amount"]) \
-					+ int(dropped[dropped_id])
 		GameStateKeys.DUNGEON_EDGE_EFFECT_CHEST:
 			_set_dungeon_corridor_chest(to_node_id)
 			print("[GameManager] 通路の宝箱: 持ち越した（行き先 %s）" % to_node_id)
@@ -9639,38 +9630,6 @@ func _apply_dungeon_edge_trap_hp(pct: int) -> int:
 			character_id, before, after, base_max_hp, pct
 		])
 	return lost_total
-
-
-# 罠（鞄）。⚠ 鞄から count 個落とす。⚠ 鞄が空なら何も起きない。
-#
-# ⚠ 落とすものは綴り順の先頭（⚠ add_to_dungeon_bag と同じ流儀）。
-#   ⚠ 乱数で選ばないこと。⚠ 起動ごとに結果が変わると検証が読めなくなる。
-# 戻り値: 落としたもの（{item_id: 個数}）。⚠ 画面が「何を落としたか」を出すのに使う。
-func _apply_dungeon_edge_trap_bag(count: int) -> Dictionary:
-	var dropped: Dictionary = {}
-	if count <= 0:
-		return dropped
-	for _i: int in range(count):
-		var bag: Dictionary = get_dungeon_bag()
-		var item_ids: Array = bag.keys()
-		if item_ids.is_empty():
-			break
-		item_ids.sort()
-		var item_id: String = str(item_ids[0])
-		var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
-		var live_bag: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_BAG, {})
-		var left: int = int(live_bag.get(item_id, 0)) - 1
-		if left > 0:
-			live_bag[item_id] = left
-		else:
-			live_bag.erase(item_id)
-		run[GameStateKeys.DUNGEON_RUN_BAG] = live_bag
-		_state[GameStateKeys.DUNGEON_RUN] = run
-		dropped[item_id] = int(dropped.get(item_id, 0)) + 1
-	print("[GameManager] 通路の罠（鞄）: 落とした %s -> 鞄 %d/%d" % [
-		str(dropped), get_dungeon_bag_used(), get_dungeon_bag_slots()
-	])
-	return dropped
 
 
 # 資源。⚠ 一時通貨か素材のどちらか（⚠ 通路ごとに抽選＝人間の決定24）。

@@ -476,6 +476,8 @@ const DUNGEON_EDGE_EFFECT: String = "effect"           # "" なら何も起き�
 # ⚠ "" は「何も起きない通路」。⚠ 定数を作らない（⚠ 空文字が既定値そのもの）。
 const DUNGEON_EDGE_EFFECT_TRAP_HP: String = "trap_hp"
 const DUNGEON_EDGE_EFFECT_TRAP_CURRENCY: String = "trap_currency"
+## ⚠⚠ 罠（鞄）は作らない（2026-09-20・人間の指示「⚠ アイテム落とす罠は作らない」）。
+## ⚠ 綴りだけ残す（⚠ 進行中のセーブの通路が持っていることがある）。⚠ 効かせる枝も字も消した。
 const DUNGEON_EDGE_EFFECT_TRAP_BAG: String = "trap_bag"
 const DUNGEON_EDGE_EFFECT_CHEST: String = "chest"
 const DUNGEON_EDGE_EFFECT_RESOURCE: String = "resource"
