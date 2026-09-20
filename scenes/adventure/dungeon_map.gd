@@ -2,7 +2,7 @@
 # 難ダンジョンのマップ画面（段階17-d・PLAN_HARD_DUNGEON.md §5-0）。
 #
 # ⚠⚠ floor_map.gd とは画面を分けたまま、⚠ 部品だけ共有する（2026-09-19・人間の決定「全部推奨で」）。
-#   ⚠ 共有するのは層の並び・マス・線（RunMapView）と拾いものの画面（DungeonChest）。
+#   ⚠ 共有するのは層の並び・マス・線（RunMapView）と拾いものの画面（RunLootWindow）。
 #   ⚠ 読むキーは別の定数（FLOOR_NODE_* ／ DUNGEON_NODE_*）で、⚠ 仕様も別（スタミナ無し・
 #   引き返さない・撤退はボスの後だけ・全ロストがある）。⚠ 部品は GameManager を読まないので、
 #   ⚠ 片方の仕様がもう片方に漏れない。⚠ 器（DUNGEON_RUN）は別のまま（台帳 §7）。
@@ -30,10 +30,11 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 # ⚠ レリック選択はシナリオと1枚（2026-09-19）。⚠ ランの種類を渡す。
 const RELIC_SELECT_PATH: String = "res://scenes/adventure/run_relic_select.tscn"
 const SHOP_PATH: String = "res://scenes/adventure/dungeon_shop.tscn"
-# ⚠ 宝箱も別画面（段階19-b・人間の決定21「遺物や宝箱やショップは別画面」）。
-const CHEST_PATH: String = "res://scenes/adventure/dungeon_chest.tscn"
+# ⚠ 拾いものの窓（段階19-b・人間の決定21「遺物や宝箱やショップは別画面」）。
+#   ⚠ 2026-09-20：`dungeon_chest` → `run_loot_window` に改名（⚠ シナリオでも使うため）。
+#   ⚠ 決定36 で画面遷移をやめたので、⚠ パスの定数（`CHEST_PATH`）は使う者が居なくなり消した。
 # ⚠ 決定36：⚠ 画面遷移ではなく重ねて出すので、⚠ 実体をここで持つ。
-const CHEST_SCENE: PackedScene = preload("res://scenes/adventure/dungeon_chest.tscn")
+const LOOT_WINDOW_SCENE: PackedScene = preload("res://scenes/adventure/run_loot_window.tscn")
 
 # ⚠ マスと線の色・間隔・幅は RunMapView へ移した（2026-09-19）。⚠ ここに戻さないこと。
 # ⚠ 脱落したキャラの色は Theme の ErrorLabel（2026-09-19）。⚠ 「居るのに出られない」が一目で分かること（§4-4-2）。
@@ -75,7 +76,7 @@ const HIDDEN_TEXT: String = "？"
 var _detail_popup: ItemDetailPopup = null
 
 # ⚠ いま重ねている拾いもの／宝箱（決定36）。⚠ null なら出ていない。⚠ 二重に開かないための札。
-var _loot_overlay: DungeonChest = null
+var _loot_overlay: RunLootWindow = null
 # ⚠⚠ 重ねたものを閉じたあとに入るマス（決定36）。⚠ "" なら何もしない。
 #   ⚠ これが無いと、⚠ 通路の宝箱を先に出したときに「着いたマスの中身」へ入り損ねる
 #     （⚠ 不1 と同じ穴。⚠ 画面遷移ではなくなったので、⚠ 覚えておけば入り直せる）。
@@ -609,7 +610,7 @@ func _open_loot_overlay(node_id: String, is_corridor: bool) -> void:
 		return
 	var layer: CanvasLayer = CanvasLayer.new()
 	layer.name = "LootOverlayLayer"
-	var overlay: DungeonChest = CHEST_SCENE.instantiate()
+	var overlay: RunLootWindow = LOOT_WINDOW_SCENE.instantiate()
 	overlay.open_as_overlay(node_id, is_corridor)
 	overlay.closed.connect(_on_loot_overlay_closed.bind(layer))
 	layer.add_child(overlay)
@@ -624,7 +625,7 @@ func _open_loot_overlay(node_id: String, is_corridor: bool) -> void:
 func _on_loot_overlay_closed(layer: CanvasLayer) -> void:
 	# ⚠ 閉じたときに自動で入れた結果を見せる（決定40・モック v2 §8）。⚠ 窓が消える前に読む。
 	if _loot_overlay != null and is_instance_valid(_loot_overlay):
-		var line: String = DungeonChest.present_auto_result(self, _loot_overlay.get_auto_result())
+		var line: String = RunLootWindow.present_auto_result(self, _loot_overlay.get_auto_result())
 		if line != "":
 			_say(line, Tone.GOOD)
 	_loot_overlay = null

@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://cf1oordgnchest1"]
 
-[ext_resource type="Script" path="res://scenes/adventure/dungeon_chest.gd" id="1_script"]
+[ext_resource type="Script" path="res://scenes/adventure/run_loot_window.gd" id="1_script"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="5_button"]
 
-[node name="DungeonChest" type="Control"]
+[node name="RunLootWindow" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0

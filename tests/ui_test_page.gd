@@ -23,7 +23,7 @@ extends Control
 
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
-const DUNGEON_CHEST_PATH: String = "res://scenes/adventure/dungeon_chest.tscn"
+const RUN_LOOT_WINDOW_PATH: String = "res://scenes/adventure/run_loot_window.tscn"
 const RELIC_SELECT_PATH: String = "res://scenes/adventure/run_relic_select.tscn"
 const DUNGEON_SHOP_PATH: String = "res://scenes/adventure/dungeon_shop.tscn"
 const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
@@ -160,7 +160,7 @@ func _ready() -> void:
 	_add_heading("ui_uitest_screens_prepared")
 	_add_note("ui_uitest_prepare_note")
 	_add_action(DUNGEON_MAP_PATH.get_file(), _on_dungeon_map_pressed, false)
-	_add_action(DUNGEON_CHEST_PATH.get_file(), _on_dungeon_chest_pressed, false)
+	_add_action(RUN_LOOT_WINDOW_PATH.get_file(), _on_run_loot_window_pressed, false)
 	_add_action(RELIC_SELECT_PATH.get_file(), _on_dungeon_relic_pressed, false)
 	_add_action(DUNGEON_SHOP_PATH.get_file(), _on_dungeon_shop_pressed, false)
 	_add_action(BATTLE_PATH.get_file(), _on_battle_pressed, false)
@@ -206,9 +206,9 @@ func _on_dungeon_map_pressed() -> void:
 	SceneManager.change_scene(DUNGEON_MAP_PATH)
 
 
-# ⚠⚠ 宝箱の画面は「拾い待ちがある」ことが条件（`dungeon_chest.gd:89`）。
+# ⚠⚠ 宝箱の画面は「拾い待ちがある」ことが条件（`run_loot_window.gd:89`）。
 #   ⚠ ボスを倒すと戦利品が拾い待ちへ行く（決定29・段階20-f）ので、それで満たす。
-func _on_dungeon_chest_pressed() -> void:
+func _on_run_loot_window_pressed() -> void:
 	if not _ensure_dungeon_run():
 		_add_note("ui_uitest_prepare_failed")
 		return
@@ -217,7 +217,7 @@ func _on_dungeon_chest_pressed() -> void:
 	if not GameManager.has_dungeon_pending_loot():
 		_add_note("ui_uitest_prepare_failed")
 		return
-	SceneManager.change_scene(DUNGEON_CHEST_PATH)
+	SceneManager.change_scene(RUN_LOOT_WINDOW_PATH)
 
 
 # ⚠ レリックの画面はランの種類と node_id が要る（`run_relic_select.gd` の _ready）。

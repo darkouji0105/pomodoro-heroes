@@ -4349,7 +4349,7 @@ func _report_layout() -> void:
 				push_error("[DebugBoot] スクロールが先頭のまま（段階20-c が効いていない）")
 		# ⚠⚠ 押したマスの近くの「できること」（2026-09-19・モック v2）。⚠ 拾いものの窓で最初のマスを押す。
 		#   ⚠ 絵は取れないが「吹き出しが出たか・ボタンが何個か・画面の中に収まったか」は取れる。
-		if instance is DungeonChest:
+		if instance is RunLootWindow:
 			var loot: Node = instance.find_child("LootGrid", true, false)
 			if loot is ItemGrid and loot.get_child_count() > 0:
 				(loot.get_child(0) as ItemSlot).pressed.emit()
@@ -4381,13 +4381,13 @@ func _report_layout() -> void:
 				push_error("[DebugBoot] 削れた戦闘時 MAX HP がバーに出ていない")
 			probe.queue_free()
 			# ⚠⚠ 閉じたときの自動収納の見せ方（決定40・モック v2 §8）。⚠ 失うものが無い＝1行 ／ ある＝窓。
-			var line_a: String = DungeonChest.present_auto_result(self, {
-				DungeonChest.AUTO_TAKEN: {"construction_material_4": 2}, DungeonChest.AUTO_LOST: {},
+			var line_a: String = RunLootWindow.present_auto_result(self, {
+				RunLootWindow.AUTO_TAKEN: {"construction_material_4": 2}, RunLootWindow.AUTO_LOST: {},
 			})
 			var had_modal: bool = Modal._current != null and is_instance_valid(Modal._current)
-			var line_b: String = DungeonChest.present_auto_result(self, {
-				DungeonChest.AUTO_TAKEN: {"construction_material_4": 2},
-				DungeonChest.AUTO_LOST: {"training_material_4": 1},
+			var line_b: String = RunLootWindow.present_auto_result(self, {
+				RunLootWindow.AUTO_TAKEN: {"construction_material_4": 2},
+				RunLootWindow.AUTO_LOST: {"training_material_4": 1},
 			})
 			await get_tree().process_frame
 			var modal_b: bool = Modal._current != null and is_instance_valid(Modal._current)
@@ -4507,7 +4507,7 @@ func _layout_prepare_for(scene_path: String) -> void:
 		_layout_fill_stat_nodes(str(GameManager.get_party_members()[0]))
 		return
 	if scene_path not in [
-		"res://scenes/adventure/dungeon_chest.tscn",
+		"res://scenes/adventure/run_loot_window.tscn",
 		"res://scenes/adventure/run_relic_select.tscn",
 		"res://scenes/adventure/dungeon_shop.tscn",
 	]:
@@ -4747,7 +4747,7 @@ const LAYOUT_SCENES: Array[String] = [
 	#     ⚠ 測定が終わらなくなる（2026-09-04 に実測。⚠ 8分で止めた）。
 	#   ⚠ 上の準備で「戻さない条件」を作ってある（⚠ ボスを倒す ／ node_id を渡す）。
 	#   ⚠⚠ 条件を外したら、⚠ ここの3行も一緒に外すこと（⚠ 外すと測定が止まる）。
-	"res://scenes/adventure/dungeon_chest.tscn",
+	"res://scenes/adventure/run_loot_window.tscn",
 	# ⚠ レリック選択（2026-09-19 にシナリオと1枚にした）。⚠ 準備は難ダンジョンの側で作る。
 	"res://scenes/adventure/run_relic_select.tscn",
 	"res://scenes/adventure/dungeon_shop.tscn",

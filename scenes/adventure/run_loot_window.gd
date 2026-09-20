@@ -1,5 +1,9 @@
-# res://scenes/adventure/dungeon_chest.gd
-# 難ダンジョンの拾いもの（段階19-b → ⚠ 20-e で「選んで入れる」形に作り替えた）。
+# res://scenes/adventure/run_loot_window.gd
+# ランの拾いもの（段階19-b → ⚠ 20-e で「選んで入れる」形に作り替えた）。
+#
+# ⚠⚠ 2026-09-20：`DungeonChest` → `RunLootWindow` に改名した（人間の決定）。
+#   ⚠ 難ダンジョンだけの窓ではなく、⚠ シナリオのフロア探索も同じ窓を使う（2026-09-18・§0-UI-L）。
+#   ⚠ 翻訳キーは `ui_dungeon_chest_*` のまま（⚠ 寄せるかは未決。⚠ NEXT_STEPS.md §0-UI-O）。
 #
 # ⚠⚠ 人間の指示（2026-09-05）：「⚠ 何を拾ったか、表示するように」
 #   「⚠ モーダルの中にアイテムとして見せて」「⚠ インベントリの中に何を入れるか選べるように」。
@@ -17,7 +21,7 @@
 # ⚠ 決定36 で重ねて出す形になったので、⚠ 呼ぶ側が型で持てるように class_name を付けた
 #   （⚠ Control 型で持って open_as_overlay() を呼ぶと型が通らない。⚠ AGENTS.md「エラーを
 #     理由にルールを緩めない」＝ has_method() / call() で逃げない）。
-class_name DungeonChest
+class_name RunLootWindow
 extends Control
 
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
@@ -107,11 +111,11 @@ func _ready() -> void:
 	# ⚠ ランに入っていないのに来た。⚠ 空の画面を描かない。
 	# ⚠ 出どころが無くても、⚠ 拾い待ちがあれば開く（段階20-e＝通路の資源から来た場合）。
 	if not GameManager.is_in_run(_run_kind):
-		push_warning("[DungeonChest] ランに入っていないので閉じる")
+		push_warning("[RunLootWindow] ランに入っていないので閉じる")
 		_close()
 		return
 	if _node_id == "" and not _is_corridor and not GameManager.has_run_pending_loot(_run_kind):
-		push_warning("[DungeonChest] 出どころも拾い待ちも無いので閉じる")
+		push_warning("[RunLootWindow] 出どころも拾い待ちも無いので閉じる")
 		_close()
 		return
 

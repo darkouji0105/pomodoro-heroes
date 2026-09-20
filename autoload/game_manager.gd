@@ -9695,7 +9695,7 @@ func _roll_dungeon_edge_resource() -> Dictionary:
 #   ⚠ 人間の指示「宝箱はあとから開けれないようにしたい」。⚠ 19-c-2 の「開けるまで残る」を覆した。
 #   ⚠ 画面を出す口は dungeon_map の1本（⚠ 通路を通った直後 ／ 戦闘から戻った直後）。
 #   ⚠ 開けずに戻ったら discard_dungeon_corridor_chest() が捨てる。
-# ⚠ 画面は dungeon_chest.tscn を共有する（⚠ 人間の指示。⚠ 画面を分けない）。
+# ⚠ 画面は run_loot_window.tscn を共有する（⚠ 人間の指示。⚠ 画面を分けない）。
 
 # いま持ち越している通路の宝箱があるか。⚠ 画面はこの1本に聞く。
 func has_pending_dungeon_corridor_chest() -> bool:

@@ -19,7 +19,7 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 const RELIC_SELECT_PATH: String = "res://scenes/adventure/run_relic_select.tscn"
 const SHOP_PATH: String = "res://scenes/adventure/floor_shop.tscn"
 # ⚠ 拾いものの画面（2026-09-18）。⚠ 難ダンジョンと同じ画面を「シナリオの鞄」で使い回す。
-const CHEST_SCENE: PackedScene = preload("res://scenes/adventure/dungeon_chest.tscn")
+const LOOT_WINDOW_SCENE: PackedScene = preload("res://scenes/adventure/run_loot_window.tscn")
 
 # 中身が見えていないマスの表示（段階14-e）。
 const HIDDEN_TEXT: String = "？"
@@ -54,7 +54,7 @@ const CHEST_POPUP_SEC: float = 0.9
 #   ⚠ .tscn を触らずコードで作る（⚠ レリックの行の下）。⚠ 中身は GameManager の鞄の口に聞く。
 var _bag_grid: ItemGrid = null
 # 重ねて出している拾いものの画面。⚠ 二重に開かない。
-var _loot_overlay: DungeonChest = null
+var _loot_overlay: RunLootWindow = null
 
 
 func _ready() -> void:
@@ -114,7 +114,7 @@ func _open_pickup_if_needed() -> void:
 		return
 	var layer: CanvasLayer = CanvasLayer.new()
 	layer.name = "LootOverlayLayer"
-	var overlay: DungeonChest = CHEST_SCENE.instantiate()
+	var overlay: RunLootWindow = LOOT_WINDOW_SCENE.instantiate()
 	overlay.open_as_overlay("", false, GameManager.RUN_KIND_FLOOR)
 	overlay.closed.connect(_on_loot_overlay_closed.bind(layer))
 	layer.add_child(overlay)
@@ -126,7 +126,7 @@ func _open_pickup_if_needed() -> void:
 func _on_loot_overlay_closed(layer: CanvasLayer) -> void:
 	# ⚠ 閉じたときに自動で入れた結果を見せる（決定40・モック v2 §8）。⚠ 難ダンジョンと同じ見せ方。
 	if _loot_overlay != null and is_instance_valid(_loot_overlay):
-		var line: String = DungeonChest.present_auto_result(self, _loot_overlay.get_auto_result())
+		var line: String = RunLootWindow.present_auto_result(self, _loot_overlay.get_auto_result())
 		if line != "":
 			message_label.modulate = Color.WHITE
 			message_label.text = line
