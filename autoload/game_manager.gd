@@ -8253,8 +8253,8 @@ func clear_dungeon_pending_loot() -> Dictionary:
 #
 # ⚠⚠ 拾いものの画面で「鞄を空けて入れ替える」ために要る。⚠ 戻りは無い。
 # ⚠ 拠点の `discard_inventory_slot()` を借りない（⚠ 器が別＝台帳 §7）。
-func discard_dungeon_bag_item(item_id: String) -> bool:
-	return discard_run_bag_item(RUN_KIND_DUNGEON, item_id)
+func discard_dungeon_bag_item(item_id: String, count: int = 1) -> bool:
+	return discard_run_bag_item(RUN_KIND_DUNGEON, item_id, count)
 
 
 # ========================================================================
@@ -8354,18 +8354,42 @@ func get_run_bag_slots(kind: String) -> int:
 #
 # ⚠ 個数制限方式なので「種類」ではなく「個数」の合計（コンセプト文書「一律1枠」）。
 #   ⚠ 重み付けを入れないこと（タルコフの煩雑さを持ち込まないという決定）。
+# ⚠⚠ その品が1枠に何個まで重なるか（2026-09-20・人間の決定42「素材関連を１０まで」）。
+#
+# ⚠ 重なるのは**素材だけ**。⚠ ポーション・宝箱・そのほかは 1（＝1個1枠）。
+#   ⚠ 人間の言葉「⚠ ポーション以外をスタックできるようにするところから」（台帳 §5-9-4）。
+# ⚠ 値は Config（`bag_material_stack`）。⚠ ここに数字を書かない（AGENTS.md）。
+# ⚠ 判定はこの1本だけ。⚠ 画面や検査で item_type を見直さないこと。
+func get_run_bag_stack_limit(kind: String, item_id: String) -> int:
+	var config: Variant = Balance.floor if kind == RUN_KIND_FLOOR else Balance.dungeon
+	var limit: int = 1 if config == null else maxi(1, int(config.bag_material_stack))
+	var definition: Dictionary = MasterDataLoader.get_item(item_id)
+	if str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_MATERIAL:
+		return 1
+	return limit
+
+
+# 鞄で埋まっている枠の数。⚠ 素材は重なるので「個数」ではなく「枠」を数える（決定42）。
 func get_run_bag_used(kind: String) -> int:
 	var used: int = 0
 	var bag: Dictionary = get_run_bag(kind)
 	for item_id: Variant in bag:
-		used += int(bag[item_id])
+		used += _run_bag_slots_of(kind, str(item_id), int(bag[item_id]))
 	return used
+
+
+# その品を count 個持つのに要る枠の数。⚠ 端数は1枠（⚠ 11個なら 2枠）。
+func _run_bag_slots_of(kind: String, item_id: String, count: int) -> int:
+	if count <= 0:
+		return 0
+	var limit: int = get_run_bag_stack_limit(kind, item_id)
+	return int(ceil(float(count) / float(limit)))
 
 
 # 鞄のマス目。⚠ 長さは鞄の枠（⚠ 空きマスは空の Dictionary＝「あと何個入るか」が見える）。
 # ⚠ 倉庫の口（get_inventory_slot_layout）を借りない（⚠ 器が別）。
 func get_run_bag_slot_layout(kind: String) -> Array:
-	var result: Array = _run_item_slot_layout(get_run_bag(kind))
+	var result: Array = _run_item_slot_layout(kind, get_run_bag(kind))
 	while result.size() < get_run_bag_slots(kind):
 		result.append({})
 	return result
@@ -8383,26 +8407,32 @@ func has_run_pending_loot(kind: String) -> bool:
 
 # 拾い待ちのマス目。⚠ 空きマスは足さない（⚠ 枠が無いもの）。
 func get_run_pending_loot_slot_layout(kind: String) -> Array:
-	return _run_item_slot_layout(get_run_pending_loot(kind))
+	return _run_item_slot_layout(kind, get_run_pending_loot(kind))
 
 
 # {item_id: 個数} を1個1マスのマス目にする。⚠ 綴り順（⚠ 起動ごとに並びが変わらない）。
-func _run_item_slot_layout(source: Dictionary) -> Array:
+func _run_item_slot_layout(kind: String, source: Dictionary) -> Array:
 	var result: Array = []
 	var item_ids: Array = source.keys()
 	item_ids.sort()
 	for entry: Variant in item_ids:
 		var item_id: String = str(entry)
-		var count: int = int(source[item_id])
-		for _i: int in range(maxi(0, count)):
+		var count: int = maxi(0, int(source[item_id]))
+		# ⚠⚠ 素材は重なる（決定42・2026-09-20）。⚠ 上限ごとに1マスへ分ける（⚠ 10個・10個・3個 のように）。
+		#   ⚠ 重ならない品（ポーション・宝箱）は上限が 1 なので、⚠ 今までどおり1個1マスになる。
+		var limit: int = maxi(1, get_run_bag_stack_limit(kind, item_id))
+		var left: int = count
+		while left > 0:
+			var here: int = mini(left, limit)
+			left -= here
 			result.append({
 				SLOT_ENTRY_KIND: SLOT_KIND_ITEM,
 				SLOT_ENTRY_ITEM_ID: item_id,
 				SLOT_ENTRY_INSTANCE_ID: "",
 				SLOT_ENTRY_GRADE: 0,
 				SLOT_ENTRY_EQUIPPED_BY: "",
-				# ⚠ 鞄の個数。⚠ 拠点の所持数ではない（⚠ ラン専用の品は拠点に1個も無い）。
-				SLOT_ENTRY_COUNT: count,
+				# ⚠ このマスに入っている個数（⚠ 拠点の所持数ではない）。
+				SLOT_ENTRY_COUNT: here,
 			})
 	return result
 
@@ -8413,7 +8443,12 @@ func add_to_run_bag(kind: String, item_id: String, count: int) -> int:
 		return 0
 	var used: int = get_run_bag_used(kind)
 	var slots: int = get_run_bag_slots(kind)
-	var accepted: int = mini(count, maxi(0, slots - used))
+	# ⚠⚠ 素材は重なるので、⚠ 「空き枠 × 重なる上限」＋「いま半端に空いているぶん」まで入る（決定42）。
+	#   ⚠ 空き枠の数だけで数えると、⚠ 9個入った枠に10個目が入らない。
+	var limit: int = get_run_bag_stack_limit(kind, item_id)
+	var have: int = int(get_run_bag(kind).get(item_id, 0))
+	var room_in_stacks: int = _run_bag_slots_of(kind, item_id, have) * limit - have
+	var accepted: int = mini(count, maxi(0, slots - used) * limit + room_in_stacks)
 	if accepted <= 0:
 		print("[GameManager] add_to_run_bag(%s, '%s', %d) -> 0（鞄が満杯 %d/%d）" % [
 			kind, item_id, count, used, slots
@@ -8546,15 +8581,17 @@ func clear_run_pending_loot(kind: String) -> Dictionary:
 
 
 # 鞄から1個捨てる（⚠ 入れ替えのため）。⚠ 戻りは無い。
-func discard_run_bag_item(kind: String, item_id: String) -> bool:
-	if not is_in_run(kind):
+# ⚠ `count` は捨てる個数（2026-09-20・決定42）。⚠ 素材は1マスに重なるので、⚠ 画面はそのマスのぶんを渡す。
+#   ⚠ 1個ずつ捨てると、⚠ 10個入った枠を空けるのに10回押すことになる。
+func discard_run_bag_item(kind: String, item_id: String, count: int = 1) -> bool:
+	if not is_in_run(kind) or count <= 0:
 		return false
 	if int(get_run_bag(kind).get(item_id, 0)) <= 0:
 		return false
 	var key: String = _run_state_key(kind)
 	var run: Dictionary = (_state[key] as Dictionary).duplicate(true)
 	var bag: Dictionary = run.get(GameStateKeys.RUN_BAG, {})
-	var left: int = int(bag.get(item_id, 0)) - 1
+	var left: int = int(bag.get(item_id, 0)) - count
 	if left > 0:
 		bag[item_id] = left
 	else:

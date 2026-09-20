@@ -6967,14 +6967,38 @@ func _report_dungeon() -> void:
 	])
 
 	# --- 11. 鞄の枠（溢れたぶんは入らない）---
-	print("[DebugBoot] --- 鞄の枠（⚠ 個数制限方式。一律1枠）---")
+	# ⚠⚠ 2026-09-20・決定42：⚠ **素材は1枠に `bag_material_stack` 個まで重なる**（⚠ 人間「素材関連を１０まで」）。
+	#   ⚠ ポーション・宝箱は今までどおり1個1枠。⚠ 枠の数え方は `get_run_bag_used()` の1本。
+	print("[DebugBoot] --- 鞄の枠（⚠ 素材は重なる ／ ポーション・宝箱は1個1枠）---")
+	var stack_limit: int = GameManager.get_run_bag_stack_limit(
+		GameManager.RUN_KIND_DUNGEON, "construction_material_1"
+	)
+	var potion_limit: int = GameManager.get_run_bag_stack_limit(
+		GameManager.RUN_KIND_DUNGEON, "dungeon_potion_heal"
+	)
+	print("  重なる上限：素材 %d ／ ポーション %d（⚠ 素材 > 1・ポーション = 1 が正解）" % [
+		stack_limit, potion_limit
+	])
+	if stack_limit <= 1 or potion_limit != 1:
+		push_error("[DebugBoot] 鞄の重なる上限が決定42どおりでない")
+	# ⚠ 1枠ぶん＋5個入れて、⚠ 2枠になること（⚠ 端数は1枠）。
+	var before_used: int = GameManager.get_dungeon_bag_used()
+	var _put: int = GameManager.add_to_dungeon_bag("construction_material_1", stack_limit + 5)
+	var after_used: int = GameManager.get_dungeon_bag_used()
+	print("  素材 %d 個を入れる -> 枠 %d → %d（⚠ 2枠ぶん増えるのが正解）" % [
+		stack_limit + 5, before_used, after_used
+	])
+	if after_used - before_used != 2:
+		push_error("[DebugBoot] 素材の重なりが枠の数に効いていない")
 	var free_before: int = GameManager.get_dungeon_bag_slots() - GameManager.get_dungeon_bag_used()
-	var accepted: int = GameManager.add_to_dungeon_bag("construction_material_1", free_before + 5)
-	print("  空き %d に %d 個入れようとする -> %d 個だけ入った（空きぶんだけが正解） / 鞄 %d/%d" % [
-		free_before, free_before + 5, accepted,
+	var accepted: int = GameManager.add_to_dungeon_bag("training_material_1", free_before * stack_limit + 5)
+	print("  空き %d 枠に %d 個入れようとする -> %d 個入った（⚠ 空き × %d が正解） / 鞄 %d/%d" % [
+		free_before, free_before * stack_limit + 5, accepted, stack_limit,
 		GameManager.get_dungeon_bag_used(), GameManager.get_dungeon_bag_slots(),
 	])
-	var accepted_full: int = GameManager.add_to_dungeon_bag("training_material_1", 1)
+	if accepted != free_before * stack_limit:
+		push_error("[DebugBoot] 空き枠 × 重なる上限まで入っていない")
+	var accepted_full: int = GameManager.add_to_dungeon_bag("forging_material_1", 1)
 	print("  満杯の鞄にもう1個 -> %d 個（0 が正解＝勝手に何かを捨てない）" % accepted_full)
 
 	# ⚠ 鞄のマス目（段階18-d）。⚠ 長さは枠。⚠ 空きマスは空の Dictionary。
@@ -6983,6 +7007,7 @@ func _report_dungeon() -> void:
 	for entry: Variant in bag_layout:
 		if not (entry as Dictionary).is_empty():
 			bag_filled += 1
+	# ⚠ マスの中身＝そのマスに入っている個数（⚠ 重なった素材は 10・10・3 のように分かれる）。
 	print("  鞄のマス目 = %d マス（枠 %d と同じが正解） / 中身 %d（使用 %d と同じが正解）" % [
 		bag_layout.size(), GameManager.get_dungeon_bag_slots(),
 		bag_filled, GameManager.get_dungeon_bag_used(),
@@ -7413,9 +7438,14 @@ func _report_dungeon() -> void:
 	if chest_node_full == "":
 		print("  ⚠ この生成には chest のマスへ着ける道が無かった（⚠ 満杯の枝は測れていない）")
 	else:
+		# ⚠⚠ 2026-09-20・決定42：⚠ 素材は重なるので、⚠ 「空き枠の数」だけ入れても満杯にならない。
+		#   ⚠ 空き枠 × 重なる上限ぶん入れて満杯にする。
 		var _filled: int = GameManager.add_to_dungeon_bag(
 			"construction_material_1",
-			GameManager.get_dungeon_bag_slots() - GameManager.get_dungeon_bag_used()
+			(GameManager.get_dungeon_bag_slots() - GameManager.get_dungeon_bag_used())
+				* GameManager.get_run_bag_stack_limit(
+					GameManager.RUN_KIND_DUNGEON, "construction_material_1"
+				)
 		)
 		var full_result: Dictionary = GameManager.open_dungeon_chest(chest_node_full)
 		# ⚠⚠ 段階20-e：⚠ 満杯でも拾い待ちには積まれる（⚠ 枠が無い）。
@@ -7432,9 +7462,14 @@ func _report_dungeon() -> void:
 		])
 		if GameManager.take_dungeon_pending_loot(full_pick):
 			push_error("[DebugBoot] 満杯の鞄に入った")
-		# ⚠ 鞄から1個捨てると入る（⚠ 人間の指示「入れ替えられる」）。
+		# ⚠ 鞄からそのマスのぶんを捨てると入る（⚠ 人間の指示「入れ替えられる」）。
+		#   ⚠⚠ 2026-09-20・決定42：⚠ 素材は重なるので、⚠ **1個だけ捨てても枠は空かない**。
+		#     ⚠ 画面も「そのマスのぶん」を渡す（⚠ 10個入った枠を空けるのに10回押させない）。
 		var bag_drop_id: String = str(GameManager.get_dungeon_bag().keys()[0])
-		var dropped_ok: bool = GameManager.discard_dungeon_bag_item(bag_drop_id)
+		var bag_drop_count: int = GameManager.get_run_bag_stack_limit(
+			GameManager.RUN_KIND_DUNGEON, bag_drop_id
+		)
+		var dropped_ok: bool = GameManager.discard_dungeon_bag_item(bag_drop_id, bag_drop_count)
 		var took_after: bool = GameManager.take_dungeon_pending_loot(full_pick)
 		print("  ⚠ 鞄から '%s' を捨てる -> %s ／ そのあと入れる -> %s（両方 true が正解＝入れ替えられる）" % [
 			bag_drop_id, str(dropped_ok), str(took_after)

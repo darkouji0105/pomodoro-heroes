@@ -309,9 +309,15 @@ func _on_open_pressed() -> void:
 	_show_currency_gain()
 
 
+# ⚠⚠ 押したマスのぶんを入れる（2026-09-20・決定42）。⚠ 素材は1マスに重なっているので、
+#   ⚠ 1個ずつ入れると10回押すことになる。⚠ 入る口は take_run_pending_loot() の1本のまま（⚠ 回数で呼ぶ）。
 func _on_take_pressed() -> void:
 	var item_id: String = str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-	if not GameManager.take_run_pending_loot(_run_kind, item_id):
+	var want: int = maxi(1, int(_selected_entry.get(GameManager.SLOT_ENTRY_COUNT, 1)))
+	var taken: int = 0
+	while taken < want and GameManager.take_run_pending_loot(_run_kind, item_id):
+		taken += 1
+	if taken <= 0:
 		message_label.text = tr("ui_dungeon_pickup_full")
 		message_label.theme_type_variation = &"ErrorLabel"
 		return
@@ -335,9 +341,11 @@ func _on_discard_loot_pressed() -> void:
 
 
 func _on_discard_bag_pressed() -> void:
+	# ⚠ そのマスのぶんを捨てる（⚠ 素材は重なっている＝決定42）。
 	var _dropped: bool = GameManager.discard_run_bag_item(
 		_run_kind,
-		str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+		str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, "")),
+		maxi(1, int(_selected_entry.get(GameManager.SLOT_ENTRY_COUNT, 1)))
 	)
 	_clear_selection()
 	_rebuild()

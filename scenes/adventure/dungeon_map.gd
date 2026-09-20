@@ -449,7 +449,9 @@ func _open_bag_popover(index: int) -> void:
 			button.name = "Use_%s_%s" % [item_id, character_id]
 	var discard: UiButton = pop.add_action(
 		tr("ui_dungeon_pickup_discard_bag"), UiButton.Variant.GHOST,
-		_on_discard_bag_pressed.bind(item_id)
+		_on_discard_bag_pressed.bind(
+			item_id, maxi(1, int(_selected_bag_entry.get(GameManager.SLOT_ENTRY_COUNT, 1)))
+		)
 	)
 	discard.name = "Discard_" + item_id
 	if usable:
@@ -835,8 +837,9 @@ func _on_use_potion_pressed(item_id: String, character_id: String) -> void:
 #   （⚠ 残すと「押しても何も起きないボタン」になる＝`_rebuild_bag()` と同じ理由）。
 # ⚠ 確認は出していない。⚠ 倉庫（`ui_warehouse_discard_confirm`）と違い、
 #   ⚠ ランの鞄は出れば全部消えるもの（決定7）なので、⚠ 取り返しのつかなさの度合いが違う。
-func _on_discard_bag_pressed(item_id: String) -> void:
-	if not GameManager.discard_dungeon_bag_item(item_id):
+func _on_discard_bag_pressed(item_id: String, count: int = 1) -> void:
+	# ⚠ そのマスのぶんを捨てる（⚠ 素材は重なっている＝決定42・2026-09-20）。
+	if not GameManager.discard_dungeon_bag_item(item_id, count):
 		_say(tr("ui_dungeon_bag_discard_failed"), Tone.WARN)
 		return
 	_say(tr("ui_dungeon_bag_discarded"))
