@@ -107,8 +107,16 @@ const LIGHT_SIZE: float = 420.0
 const LIGHT_COLOR: Color = Color("f0c04a")
 const LIGHT_ALPHA_CENTER: float = 0.10
 const LIGHT_ALPHA_MID: float = 0.045
-const LIGHT_FLICKER_SEC: float = 5.5
-const LIGHT_FLICKER_MIN_ALPHA: float = 0.82
+# ⚠⚠ 揺れ（2026-09-20・人間の指示「⚠ 光源は揺らしてほしい」）。⚠ モックの 5.5秒・薄い揺れでは、
+#   ⚠ 動いていることが分かりにくかったので、⚠ 周期を短く・幅を広げ・位置も少し揺らす。
+#   ⚠ 「炎の揺らぎ」であって明滅ではない（⚠ 読みづらくしない）。
+const LIGHT_FLICKER_SEC: float = 2.6
+const LIGHT_FLICKER_MIN_ALPHA: float = 0.70
+const LIGHT_FLICKER_MAX_ALPHA: float = 1.06
+const LIGHT_FLICKER_MIN_SCALE: float = 0.94
+const LIGHT_FLICKER_MAX_SCALE: float = 1.05
+# ⚠ 光の中心のゆらぎ（px）。⚠ マスが動いて見えない程度に小さく。
+const LIGHT_SWAY: float = 4.0
 const FOG_COLOR: Color = Color("060408")
 const FOG_ALPHA_EDGE: float = 0.6
 const FOG_ALPHA_TOP: float = 0.88
@@ -123,6 +131,7 @@ var torch_reveal_layers: int = -1
 
 # 線（下に描く）とマス（上に描く）。⚠ 同じ矩形に重ねる。
 #   ⚠ 描く順：光 → 線 → 暗さ → マス（⚠ モック v2 の z の順）。
+var _light_anchor: Control = null
 var _light: TextureRect = null
 var _edge_lines: DungeonEdgeLines = null
 var _fog: Control = null
@@ -152,14 +161,22 @@ var layer_separation: int = LAYER_SEPARATION:
 
 
 func _init() -> void:
+	# ⚠⚠ 光は「中心の器」の中に入れる（2026-09-20）。⚠ 器はいまいるマスへ置き直され、
+	#   ⚠ 揺れ（明るさ・大きさ・左右）は器の中だけで起きる。⚠ こうしないと置き直しと揺れが取り合う。
+	_light_anchor = Control.new()
+	_light_anchor.name = "TorchLight"
+	_light_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_light_anchor.visible = false
+	add_child(_light_anchor)
+
 	_light = TextureRect.new()
-	_light.name = "TorchLight"
+	_light.name = "Flame"
 	_light.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_light.texture = _make_light_texture()
 	_light.size = Vector2(LIGHT_SIZE, LIGHT_SIZE)
+	_light.position = -Vector2(LIGHT_SIZE, LIGHT_SIZE) * 0.5
 	_light.pivot_offset = Vector2(LIGHT_SIZE, LIGHT_SIZE) * 0.5
-	_light.visible = false
-	add_child(_light)
+	_light_anchor.add_child(_light)
 
 	_edge_lines = DungeonEdgeLines.new()
 	_edge_lines.name = "EdgeLines"
@@ -442,14 +459,25 @@ func _redraw_edges() -> void:
 
 
 func _ready() -> void:
-	# ⚠ 光をゆっくり揺らす（モック `@keyframes flick`：5.5秒・薄く→戻る）。⚠ 止めない（ループ）。
+	# ⚠ 光をゆらす（⚠ 明るさ・大きさ・位置を少しずつずらす）。⚠ 止めない（ループ）。
+	#   ⚠ 周期をわざと3つに割って、⚠ 同じ間隔で点滅して見えないようにする。
 	var tween: Tween = create_tween().set_loops()
 	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(_light, "modulate:a", LIGHT_FLICKER_MIN_ALPHA, LIGHT_FLICKER_SEC * 0.38)
-	tween.parallel().tween_property(_light, "scale", Vector2(0.975, 0.975), LIGHT_FLICKER_SEC * 0.38)
-	tween.tween_property(_light, "modulate:a", 1.0, LIGHT_FLICKER_SEC * 0.23)
-	tween.parallel().tween_property(_light, "scale", Vector2(1.015, 1.015), LIGHT_FLICKER_SEC * 0.23)
-	tween.tween_property(_light, "scale", Vector2.ONE, LIGHT_FLICKER_SEC * 0.39)
+	tween.tween_property(_light, "modulate:a", LIGHT_FLICKER_MIN_ALPHA, LIGHT_FLICKER_SEC * 0.34)
+	tween.parallel().tween_property(
+		_light, "scale", Vector2(LIGHT_FLICKER_MIN_SCALE, LIGHT_FLICKER_MIN_SCALE),
+		LIGHT_FLICKER_SEC * 0.34
+	)
+	tween.parallel().tween_property(_light, "position:x", -LIGHT_SIZE * 0.5 - LIGHT_SWAY, LIGHT_FLICKER_SEC * 0.34)
+	tween.tween_property(_light, "modulate:a", LIGHT_FLICKER_MAX_ALPHA, LIGHT_FLICKER_SEC * 0.22)
+	tween.parallel().tween_property(
+		_light, "scale", Vector2(LIGHT_FLICKER_MAX_SCALE, LIGHT_FLICKER_MAX_SCALE),
+		LIGHT_FLICKER_SEC * 0.22
+	)
+	tween.parallel().tween_property(_light, "position:x", -LIGHT_SIZE * 0.5 + LIGHT_SWAY, LIGHT_FLICKER_SEC * 0.22)
+	tween.tween_property(_light, "modulate:a", 1.0, LIGHT_FLICKER_SEC * 0.44)
+	tween.parallel().tween_property(_light, "scale", Vector2.ONE, LIGHT_FLICKER_SEC * 0.44)
+	tween.parallel().tween_property(_light, "position:x", -LIGHT_SIZE * 0.5, LIGHT_FLICKER_SEC * 0.44)
 
 
 # 光の絵（中心から外へ薄くなる円）。⚠ 画像ファイルを足さずにコードで作る。
@@ -473,10 +501,9 @@ static func _make_light_texture() -> GradientTexture2D:
 # 光をいまいるマスの真ん中へ。⚠ マスの位置が確定してから（⚠ 線と同じく _redraw_edges の中）。
 func _place_light() -> void:
 	var button: Control = get_node_button(_current_id)
-	_light.visible = button != null
+	_light_anchor.visible = button != null
 	if button != null:
-		var center: Vector2 = button.get_global_rect().get_center() - get_global_rect().position
-		_light.position = center - _light.size * 0.5
+		_light_anchor.position = button.get_global_rect().get_center() - get_global_rect().position
 	_fog.queue_redraw()
 
 
