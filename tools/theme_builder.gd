@@ -624,6 +624,9 @@ const CHIP_COLORS: Dictionary = {
 	"material_training": "7ab885",      # ⚠ 修練（part_slot_charm_color と同値）
 	"material_forging": "a89b94",       # ⚠ 鉄の灰（GhostButton の文字と同値）
 	"material_decor": "a88ccc",         # ⚠ 装飾（part_slot_emblem_color と同値）
+	# ⚠ ランの一時通貨（遺物片・2026-09-20）。⚠ 飛ぶアイコンの色に使う（⚠ 右上のチップには出ない）。
+	#   ⚠ 新しい色は足していない（⚠ 装飾と同じ紫。⚠ 遺物＝装飾寄りの見え方）。
+	"currency": "a88ccc",
 }
 # ⚠ チップの中の数字。⚠ 既定16より1段小さい。⚠ **新しい段は作らない**
 #   （⚠ ボタンと同じ14を使い回す。⚠ 文字の大きさの段はまだ未決なので増やさない）。

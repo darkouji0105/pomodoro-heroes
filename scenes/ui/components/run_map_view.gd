@@ -336,21 +336,31 @@ func _make_node_button(node_id: String, node: Dictionary) -> Button:
 
 
 # 札の四隅の鋲。⚠ 押下を食べない（⚠ IGNORE）。⚠ 札の大きさが変わっても隅に付く（⚠ 全面に張る）。
+#
+# ⚠⚠ 無名関数で描かない（2026-09-20）。⚠ `draw` に自分自身を捕まえた無名関数をつないでいたため、
+#   ⚠ 札が消えたあとに「Lambda capture at index 0 was freed」が赤で出た（⚠ scenario=layout で6件）。
+#   ⚠ 内側のクラスにして、⚠ 捕まえるものを持たせない。
 func _add_pins(button: Button, color: Color) -> void:
-	var pins: Control = Control.new()
+	var pins: NodePins = NodePins.new()
 	pins.name = "Pins"
-	pins.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pins.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	pins.draw.connect(func() -> void:
-		var w: float = pins.size.x
-		var h: float = pins.size.y
-		for p: Vector2 in [
-			Vector2(PIN_INSET, PIN_INSET), Vector2(w - PIN_INSET, PIN_INSET),
-			Vector2(PIN_INSET, h - PIN_INSET), Vector2(w - PIN_INSET, h - PIN_INSET),
-		]:
-			pins.draw_circle(p, PIN_RADIUS, color)
-	)
+	pins.pin_color = color
 	button.add_child(pins)
+
+
+# 札の四隅の鋲を描くだけの器。⚠ 値（大きさ・位置）は外側の const。
+class NodePins extends Control:
+	var pin_color: Color = Color.WHITE
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	func _draw() -> void:
+		for p: Vector2 in [
+			Vector2(PIN_INSET, PIN_INSET), Vector2(size.x - PIN_INSET, PIN_INSET),
+			Vector2(PIN_INSET, size.y - PIN_INSET), Vector2(size.x - PIN_INSET, size.y - PIN_INSET),
+		]:
+			draw_circle(p, PIN_RADIUS, pin_color)
 
 
 # そのマスのボタン。⚠ 無ければ null。⚠ スクロールを寄せる画面が位置を読む。

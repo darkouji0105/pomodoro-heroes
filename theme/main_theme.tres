@@ -1492,6 +1492,7 @@ PrimaryButton/styles/hover = SubResource("StyleBoxFlat_stact")
 PrimaryButton/styles/normal = SubResource("StyleBoxFlat_dyokf")
 PrimaryButton/styles/pressed = SubResource("StyleBoxFlat_r8jmu")
 ResourceChip/base_type = &"PanelContainer"
+ResourceChip/colors/currency = Color(0.65882355, 0.54901963, 0.8, 1)
 ResourceChip/colors/gems = Color(0.4392157, 0.72156864, 0.78039217, 1)
 ResourceChip/colors/gold = Color(0.65882355, 0.4745098, 0.12156863, 1)
 ResourceChip/colors/material_construction = Color(0.78039217, 0.6784314, 0.4, 1)

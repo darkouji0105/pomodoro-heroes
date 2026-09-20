@@ -4282,6 +4282,23 @@ func _report_layout() -> void:
 				])
 				if texture == null:
 					push_error("[DebugBoot] 遺物片の絵が引けていない")
+				# ⚠⚠ 増えたときの演出の着地先（2026-09-20・人間の指示「⚠ リソース入手のエフェクトも実装」）。
+				#   ⚠⚠ ここで実際に飛ばさないこと。⚠ 飛ばすと、⚠ 測り終えて画面を解放したときに
+				#     ⚠ 飛んでいる最中のものが消えた相手を触り、⚠ 「Lambda capture ... was freed」が赤で6本出る
+				#     （⚠ 2026-09-20 に実測）。⚠ 見るのは「⚠ 着地先（同じ resource_id の表示）が見つかるか」だけ。
+				#   ⚠ 実際に飛ぶところは scenario=gain が見ている。
+				if not ResourceGainEffect.is_ready():
+					ResourceGainEffect.spawn_into(get_tree().root)
+					await get_tree().process_frame
+					await get_tree().process_frame
+				var landing: Control = ResourceGainEffect._instance._find_display(
+					GameStateKeys.DUNGEON_RUN_CURRENCY
+				)
+				print("    ⚠ 遺物片の演出の着地先 = %s（⚠ 無しなら飛んでも着地できない）" % [
+					"無し" if landing == null else landing.name
+				])
+				if landing == null:
+					push_error("[DebugBoot] 遺物片の入手の演出の着地先が見つからない")
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので
