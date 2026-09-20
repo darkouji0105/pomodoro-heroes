@@ -75,6 +75,21 @@ layout_mode = 2
 theme_type_variation = &"CaptionLabel"
 text = "ui_dungeon_pickup_waiting"
 
+[node name="CurrencyRow" type="HBoxContainer" parent="Center/Window/Layout/Body/Stack"]
+layout_mode = 2
+theme_type_variation = &"ChipRow"
+
+[node name="CurrencyIcon" type="TextureRect" parent="Center/Window/Layout/Body/Stack/CurrencyRow"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+size_flags_vertical = 4
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CurrencyLabel" type="Label" parent="Center/Window/Layout/Body/Stack/CurrencyRow"]
+layout_mode = 2
+theme_type_variation = &"AccentLabel"
+
 [node name="LootGrid" type="GridContainer" parent="Center/Window/Layout/Body/Stack"]
 layout_mode = 2
 size_flags_horizontal = 0

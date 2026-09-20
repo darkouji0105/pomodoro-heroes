@@ -168,13 +168,16 @@ func _update_header() -> void:
 	currency_value.resource_id = GameStateKeys.DUNGEON_RUN_CURRENCY
 	var currency: int = GameManager.get_dungeon_currency()
 	# ⚠⚠ 増えたら飛ぶ演出（2026-09-20・人間の指示「⚠ リソース入手のエフェクトも実装」）。
-	#   ⚠ 呼ぶのは「出来事を知っている側」＝この画面（`ResourceGainEffect` の冒頭のきまり）。
+	#   ⚠ 呼ぶのは「出来事を知っている側」＝画面（`ResourceGainEffect` の冒頭のきまり）。
 	#   ⚠ ランの一時通貨は状態の資源ではないので、⚠ `resource_changed` では流れてこない。
-	#   ⚠ 減ったとき（罠・買い物）は流さない（⚠ play() が 0 以下を弾く）。
-	#   ⚠ 初回（画面を開いた直後）は流さない。⚠ 流すと入り直すたびに全額ぶん飛ぶ。
-	if _last_currency >= 0:
-		ResourceGainEffect.play(GameStateKeys.DUNGEON_RUN_CURRENCY, currency - _last_currency)
-	_last_currency = currency
+	#   ⚠⚠ 拾いものの窓が出るときは**窓に譲る**（人間「⚠ 拾い物の中に、遺物片を見せてそこから飛ばす」）。
+	#     ⚠ ここで受け取ってしまうと、⚠ 窓が出たときには 0 になっていて見せられない。
+	#   ⚠ 窓が出ないとき（⚠ 通路で遺物片だけ拾ったとき）だけ、⚠ ここから飛ばす。
+	#   ⚠ 減ったとき（罠・買い物）は覚えに入らない（⚠ GameManager 側で増えたぶんだけ数えている）。
+	if GameManager.peek_last_dungeon_currency_gain() > 0 			and not GameManager.has_dungeon_pending_loot() 			and _loot_overlay == null:
+		ResourceGainEffect.play(
+			GameStateKeys.DUNGEON_RUN_CURRENCY, GameManager.take_last_dungeon_currency_gain()
+		)
 	currency_value.set_value(currency)
 	var used: int = GameManager.get_dungeon_bag_used()
 	var slots: int = GameManager.get_dungeon_bag_slots()
@@ -670,10 +673,6 @@ func _notify_edge_event() -> void:
 		self, "ui_dungeon_edge_event_" + effect, [detail], false,
 		_edge_window_options(effect, effect, content)
 	)
-
-
-# 直前に見た遺物片（⚠ 増えたぶんだけ演出を流すため）。⚠ -1 なら画面を開いた直後。
-var _last_currency: int = -1
 
 
 # 進む前の3人の「戦闘時 MAX HP」（⚠ 通路の罠の前後を並べるため）。

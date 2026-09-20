@@ -39,6 +39,12 @@ const OVERLAY_DIM_ALPHA: float = 0.72
 @onready var message_label: Label = $Center/Window/Layout/Body/Stack/MessageLabel
 @onready var bag_label: Label = $Center/Window/Layout/Body/Stack/BagTitleRow/BagLabel
 @onready var loot_grid: ItemGrid = $Center/Window/Layout/Body/Stack/LootGrid
+# ⚠⚠ 拾いものの中に遺物片を見せる（2026-09-20・人間の指示「⚠ 拾い物の中に、遺物片を見せてそこから飛ばす」）。
+#   ⚠ 遺物片は拾った時点でもう入っている（⚠ 選んで入れるものではない）。⚠ だから**見せるだけ**で、マスにしない。
+#   ⚠ 増えたぶんは GameManager が覚えている（`take_last_dungeon_currency_gain()`）。⚠ 受け取ったら消える＝二重に飛ばさない。
+@onready var currency_row: HBoxContainer = $Center/Window/Layout/Body/Stack/CurrencyRow
+@onready var currency_icon: TextureRect = $Center/Window/Layout/Body/Stack/CurrencyRow/CurrencyIcon
+@onready var currency_label: Label = $Center/Window/Layout/Body/Stack/CurrencyRow/CurrencyLabel
 @onready var bag_title_label: Label = $Center/Window/Layout/Body/Stack/BagTitleRow/BagTitleLabel
 @onready var bag_grid: ItemGrid = $Center/Window/Layout/Body/Stack/BagGrid
 @onready var loot_detail: ItemDetail = $Center/Window/Layout/Body/Stack/LootDetail
@@ -119,6 +125,7 @@ func _ready() -> void:
 		_detail_popup.watch(loot_grid)
 		_detail_popup.watch(bag_grid)
 	_rebuild()
+	_show_currency_gain()
 
 
 # 見出し。⚠ 出どころで変える（⚠ マスの宝箱 ／ 通路の宝箱 ／ 通路の拾いもの）。
@@ -175,6 +182,28 @@ func _update_message() -> void:
 		message_label.theme_type_variation = &"ErrorLabel"
 		return
 	message_label.text = tr("ui_dungeon_pickup_hint")
+
+
+# 遺物片の入り（2026-09-20）。⚠ 見せてから、⚠ その場所から右上の表示へ飛ばす。
+#
+# ⚠ 飛ばすのは「見せた場所」から（人間「⚠ 拾い物の中に、遺物片を見せてそこから飛ばす」）。
+# ⚠ 位置は並べ終わってからでないと決まらない。⚠ 1フレーム待ってから飛ばす（⚠ `await` はここだけ。
+#   ⚠ 再描画には持たせていない＝AGENTS.md のきまりは再描画の話）。
+# ⚠ シナリオには一時通貨が無い（⚠ 0 なので行ごと出ない）。
+func _show_currency_gain() -> void:
+	var gain: int = GameManager.take_last_dungeon_currency_gain() if _run_kind == GameManager.RUN_KIND_DUNGEON else 0
+	currency_row.visible = gain > 0
+	if gain <= 0:
+		return
+	currency_icon.texture = IconTextures.for_resource(GameStateKeys.DUNGEON_RUN_CURRENCY)
+	# 数値のみなので tr() は通さない（AGENTS.md）。
+	currency_label.text = "+%d" % gain
+	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	ResourceGainEffect.play(
+		GameStateKeys.DUNGEON_RUN_CURRENCY, gain, currency_row.get_global_rect().get_center()
+	)
 
 
 # 拾い待ちをマス目で出す（段階20-e）。
@@ -276,6 +305,8 @@ func _on_open_pressed() -> void:
 		var _node: Dictionary = GameManager.open_dungeon_chest(_node_id)
 	_clear_selection()
 	_rebuild()
+	# ⚠ 宝箱を開けると遺物片も入る。⚠ その場で見せて、⚠ そこから飛ばす（2026-09-20）。
+	_show_currency_gain()
 
 
 func _on_take_pressed() -> void:

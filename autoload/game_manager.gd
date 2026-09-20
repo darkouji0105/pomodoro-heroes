@@ -7897,6 +7897,8 @@ func start_dungeon_run(dungeon_id: String = DUNGEON_DEFAULT_ID) -> bool:
 		int(config.torch_initial_grade), 0, get_dungeon_torch_max_grade()
 	)
 	_apply_dungeon_map(run, map)
+	# ⚠ 直近に入った遺物片の覚えを落とす（2026-09-20）。⚠ 前のランのぶんを次の画面で飛ばさない。
+	_last_dungeon_currency_gain = 0
 	_state[GameStateKeys.DUNGEON_RUN] = run
 
 	print("[GameManager] start_dungeon_run('%s') -> フロア1 / ノード%d / 鞄 %d 枠 / ランのMAX HP %s" % [
@@ -8101,6 +8103,8 @@ func descend_dungeon_floor() -> bool:
 #   ⚠ 「拠点で買えない・拠点で使えない」ものが拠点の倉庫に並ぶのを、型の判定1つで
 #     止めている。⚠ ID の綴りで見分けないこと。
 func retreat_from_dungeon() -> Dictionary:
+	# ⚠ 直近に入った遺物片の覚えを落とす（2026-09-20）。⚠ 前のランのぶんを次の画面で飛ばさない。
+	_last_dungeon_currency_gain = 0
 	var result: Dictionary = {"granted": {}, "discarded": {}, "left_behind": {}}
 	if not can_retreat_from_dungeon():
 		print("[GameManager] retreat_from_dungeon() -> 何もしない (ボスを倒した先に居ない)")
@@ -8153,6 +8157,8 @@ func retreat_from_dungeon() -> Dictionary:
 #   ⚠ 「装備を除外する条件分岐」を書かないこと。⚠ 鞄に持ち込みが入らないので
 #     構造で外れている。
 func abandon_dungeon_run() -> void:
+	# ⚠ 直近に入った遺物片の覚えを落とす（2026-09-20）。⚠ 前のランのぶんを次の画面で飛ばさない。
+	_last_dungeon_currency_gain = 0
 	if not is_in_dungeon():
 		return
 	var lost: Dictionary = get_dungeon_bag()
@@ -8569,6 +8575,26 @@ func add_dungeon_currency(amount: int) -> void:
 	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
 	run[GameStateKeys.DUNGEON_RUN_CURRENCY] = maxi(0, get_dungeon_currency() + amount)
 	_state[GameStateKeys.DUNGEON_RUN] = run
+	# ⚠ 増えたぶんを覚えておく（2026-09-20）。⚠ 画面が「拾いものの中に遺物片を見せて、そこから飛ばす」のに使う。
+	#   ⚠ 減ったとき（罠・買い物）は数えない。⚠ 状態には入れない（⚠ 見せ方の都合＝セーブに要らない）。
+	if amount > 0:
+		_last_dungeon_currency_gain += amount
+
+
+# ⚠⚠ 直近に入った遺物片（2026-09-20・人間の指示「⚠ 拾い物の中に、遺物片を見せてそこから飛ばす」）。
+#   ⚠ 状態ではない（⚠ セーブに入れない）。⚠ ランを始める・出るときに 0 に戻す。
+#   ⚠ 見せた側が `take_...` で受け取って消す（⚠ 2つの画面で二重に飛ばさないため）。
+var _last_dungeon_currency_gain: int = 0
+
+
+func peek_last_dungeon_currency_gain() -> int:
+	return _last_dungeon_currency_gain
+
+
+func take_last_dungeon_currency_gain() -> int:
+	var gain: int = _last_dungeon_currency_gain
+	_last_dungeon_currency_gain = 0
+	return gain
 
 
 # その item_id がラン専用の型か（決定17・§4-3-1）。

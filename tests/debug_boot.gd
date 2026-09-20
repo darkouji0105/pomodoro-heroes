@@ -4299,6 +4299,19 @@ func _report_layout() -> void:
 				])
 				if landing == null:
 					push_error("[DebugBoot] 遺物片の入手の演出の着地先が見つからない")
+				# ⚠⚠ 拾いものの窓の中の遺物片（2026-09-20・人間の指示「拾い物の中に、遺物片を見せてそこから飛ばす」）。
+				#   ⚠ 見るのは GameManager 側だけ（⚠ 入った量を覚える → 受け取ると 0）。
+				#   ⚠⚠ **窓をここで実際に開かない**：⚠ 開いて閉じると「Lambda capture ... was freed」が赤で6本出た
+				#     （⚠ 2026-09-20・原因は未特定。⚠ 測定の途中で窓を作って壊す形そのものが怪しい）。
+				#     ⚠ 窓に行が出ることは**人間が実機で見る**（⚠ §0-UI-N-5 の実機の項目）。
+				GameManager.add_dungeon_currency(20)
+				var gain_before: int = GameManager.peek_last_dungeon_currency_gain()
+				var gain_after: int = GameManager.take_last_dungeon_currency_gain()
+				print("    ⚠ 遺物片の入りの覚え = %d → 受け取ると %d（⚠ 20 → 0 が正解）" % [
+					gain_before, GameManager.peek_last_dungeon_currency_gain()
+				])
+				if gain_before != 20 or gain_after != 20 or GameManager.peek_last_dungeon_currency_gain() != 0:
+					push_error("[DebugBoot] 遺物片の入りの覚えが受け取りで消えていない")
 			if raw_child is DungeonEdgeLines:
 				var drawn: int = (raw_child as DungeonEdgeLines).get_line_count()
 				# ⚠ 通路の真ん中に出す字（段階20-c）。⚠ 効果のある通路にだけ付くので
