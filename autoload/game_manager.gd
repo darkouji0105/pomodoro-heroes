@@ -8804,7 +8804,7 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 	var seg: Array[int] = _dungeon_segment_of_layers(layers.size())
 	var seg_count: int = _dungeon_segment_count()
 	# ⚠⚠ 区画の「中」の層ごとのノード数（2026-09-20・人間の決定38）。
-	#   ⚠ 合計で `segment_inner_total`。⚠ 真ん中の層から厚くする（⚠ 3層に4なら 1・2・1）。
+	#   ⚠ 中の層はすべて `segment_inner_ways` 本に分かれる（⚠ 出口で合流する）。
 	var inner_by_layer: Array[int] = _dungeon_segment_inner_by_layer(seg)
 
 	# 1. 層ごとにノードを作る。種類だけ抽選する。
@@ -8862,10 +8862,16 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 		var upper_seg: Array = seg_by_layer[layer_index]
 		var lower_seg: Array = seg_by_layer[layer_index + 1]
 		if seg[layer_index] != DUNGEON_SEGMENT_NONE and seg[layer_index + 1] != DUNGEON_SEGMENT_NONE:
+			# ⚠⚠ 中どうしは**真っ直ぐ**繋ぐ（2026-09-20・人間の決定38）。⚠ 1本につき1本だけ。
+			#   ⚠ 斜めに繋ぐと2本の道がすぐ混ざり、⚠ 「分かれて2〜4層すすむ」が消える。
+			#   ⚠ 入口 → 中（分かれる）と 中 → 出口（合流する）は今までどおり。
+			var inner_override: int = 0
+			if seg[layer_index] == DUNGEON_SEGMENT_INNER and seg[layer_index + 1] == DUNGEON_SEGMENT_INNER:
+				inner_override = 1
 			for k: int in range(seg_count):
 				_connect_dungeon_layers(
 					nodes, _dungeon_nodes_of_segment(upper, upper_seg, k),
-					_dungeon_nodes_of_segment(lower, lower_seg, k), dungeon_id
+					_dungeon_nodes_of_segment(lower, lower_seg, k), dungeon_id, inner_override
 				)
 			continue
 		var override: int = 0
@@ -8993,58 +8999,42 @@ func _dungeon_segment_choices() -> int:
 	return 0 if config == null else maxi(1, int(config.segment_choices))
 
 
-func _dungeon_segment_inner_total() -> int:
+func _dungeon_segment_inner_ways() -> int:
 	var config: DungeonConfig = _dungeon()
-	return 1 if config == null else maxi(1, int(config.segment_inner_total))
+	return 1 if config == null else maxi(1, int(config.segment_inner_ways))
 
 
-# 区画の「中」の層ごとに、⚠ 区画1つぶんのノード数を配る（2026-09-20・人間の決定38）。
+# 区画の「中」の層ごとに、⚠ 区画1つぶんのノード数を返す（2026-09-20・人間の決定38）。
 #
-# ⚠⚠ 人間の言葉：「⚠ 5ノード直線の中に分岐で、3〜4ノードを入れる感じ」＋「⚠ 分岐は区間の中の合計」。
-#   ⚠ ＝合計が `segment_inner_total`。⚠ 1層あたりではない。
-# ⚠ 真ん中の層から厚くする（⚠ 3層に4なら 1・2・1 ＝ 分かれて合流する）。
-#   ⚠ 端を厚くすると、⚠ 区画の入口（1マス）から2本出て合流しないまま出口に入る形になり、⚠ 線が長くなる。
-# ⚠ どの層にも最低1マス（⚠ 0 の層があると、⚠ その区画が通れなくなる）。
+# ⚠⚠ 人間の言葉：「⚠ 5ノード直線の中に分岐で、3〜4ノードを入れる感じ」
+#   → ⚠ 「⚠ ぶんきは、1の長さしかないが2から4で」。
+#   ⚠ ＝**中の層はすべて分かれたまま**（⚠ `segment_inner_ways` 本）で、⚠ 出口で合流する。
+#   ⚠ 分かれ道が1層しか続かないと、⚠ 「どちらを通ったか」がほとんど意味を持たない。
+# ⚠ 分岐の長さ（＝中の層数）が Config の範囲から外れたら W35 で知らせる（⚠ 生成は止めない）。
 # ⚠ 配る口はここ1本。⚠ 画面や検査で層の番号から計算し直さないこと。
 func _dungeon_segment_inner_by_layer(seg: Array[int]) -> Array[int]:
 	var result: Array[int] = []
 	for _i: int in range(seg.size()):
 		result.append(1)
-	var total: int = _dungeon_segment_inner_total()
+	var ways: int = _dungeon_segment_inner_ways()
+	var config: DungeonConfig = _dungeon()
+	var min_layers: int = 2 if config == null else maxi(1, int(config.segment_branch_min_layers))
+	var max_layers: int = 4 if config == null else maxi(min_layers, int(config.segment_branch_max_layers))
 	var index: int = 0
 	while index < seg.size():
 		if seg[index] != DUNGEON_SEGMENT_INNER:
 			index += 1
 			continue
-		# ⚠ 続いている「中」の層をひとまとまりで見る。
+		# ⚠ 続いている「中」の層をひとまとまりで見る＝これが分岐の長さ。
 		var run_start: int = index
 		while index < seg.size() and seg[index] == DUNGEON_SEGMENT_INNER:
+			result[index] = ways
 			index += 1
 		var run_length: int = index - run_start
-		var extra: int = maxi(0, total - run_length)
-		# ⚠ 真ん中から順に1つずつ足す（⚠ 3層なら 中央 → 左 → 右 の順）。
-		var order: Array[int] = _middle_out_order(run_length)
-		for step: int in range(extra):
-			result[run_start + order[step % run_length]] += 1
-	return result
-
-
-# 0..count-1 を「真ん中から外へ」の順に並べる（⚠ 3 なら [1, 0, 2]）。
-func _middle_out_order(count: int) -> Array[int]:
-	var result: Array[int] = []
-	var middle: int = count / 2
-	var offset: int = 0
-	while result.size() < count:
-		var left: int = middle - offset
-		var right: int = middle + offset
-		if offset == 0:
-			result.append(middle)
-		else:
-			if left >= 0:
-				result.append(left)
-			if right < count and result.size() < count:
-				result.append(right)
-		offset += 1
+		if run_length < min_layers or run_length > max_layers:
+			push_warning("[GameManager] W35 dungeon_config.gd: 分岐の長さが %d 層（%d〜%d が正解）。segment_layers を直す" % [
+				run_length, min_layers, max_layers
+			])
 	return result
 
 
