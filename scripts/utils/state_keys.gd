@@ -351,7 +351,9 @@ const FLOOR_RUN_TORCH_GRADE: String = "torch_grade"  # int（14-e で使う）
 const FLOOR_RUN_RELICS: String = "relics"            # [{relic_id, character_id}]（14-d）
 const FLOOR_RUN_HP_CARRY: String = "hp_carry"        # {character_id: int}（14-c）
 const FLOOR_RUN_CHEST_COUNT: String = "chest_count"  # int（14-b の最低1回保証）
-const FLOOR_RUN_CONSUMABLES: String = "consumables"  # {item_id: int}（14-e・持ち帰り不可）
+# ⚠ `consumables`（14-e・持ち帰り不可の消耗品）の欄は 2026-09-20 に消した。
+#   ⚠ 14-e から誰も読み書きせず、AGENTS.md の「欄だけ足して実装しない」に触れていたため。
+#   ⚠ 戻すなら「消耗品を使う」汎用の口を同じ回に入れること（`EXEC_SCENARIO_SHOP.md` 申し送り2）。
 # ⚠⚠ ルートの中で持っている宝箱（2026-09-18・人間の決定「ダンジョンの中ではアイテムだが拠点に戻ると宝箱」
 #   「ストーリーのやつはボス倒したら」）。⚠ {chest_id: int}。⚠ ボスを倒したら拠点の PENDING_CHESTS へ届く。
 #   ⚠ 負けて降りた・自分で降りたときは**失う**（⚠ ランごと捨てるので自然にそうなる）。

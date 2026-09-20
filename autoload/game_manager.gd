@@ -6357,10 +6357,6 @@ func load_state(data: Dictionary) -> bool:
 			var hp_carry: Dictionary = run[GameStateKeys.FLOOR_RUN_HP_CARRY]
 			for character_id: String in hp_carry:
 				hp_carry[character_id] = int(hp_carry[character_id])
-		if run.has(GameStateKeys.FLOOR_RUN_CONSUMABLES) and run[GameStateKeys.FLOOR_RUN_CONSUMABLES] is Dictionary:
-			var consumables: Dictionary = run[GameStateKeys.FLOOR_RUN_CONSUMABLES]
-			for item_id: String in consumables:
-				consumables[item_id] = int(consumables[item_id])
 		# ⚠ 鞄と拾い待ち（2026-09-18）。⚠ 前のセーブには欄が無い＝空で足す。
 		for bag_key: String in [GameStateKeys.FLOOR_RUN_BAG, GameStateKeys.FLOOR_RUN_PENDING_LOOT]:
 			if run.has(bag_key) and run[bag_key] is Dictionary:
@@ -6589,7 +6585,8 @@ func is_stage_cleared(stage_id: String) -> bool:
 
 # フロアに入っていない状態の器。
 #
-# ⚠ 9つの欄を最初から全部持たせる（PLAN_SCENARIO_MAP.md §7-1）。
+# ⚠ 11 の欄を最初から全部持たせる（PLAN_SCENARIO_MAP.md §7-1）。
+#   ⚠ `consumables` は 2026-09-20 に欄ごと消した（誰も読み書きしていなかった）。
 #   あとから欄を足すと AGENTS.md の表と load_state() の int() 一覧を何度も触ることになる。
 func _empty_floor_run() -> Dictionary:
 	return {
@@ -6601,7 +6598,6 @@ func _empty_floor_run() -> Dictionary:
 		GameStateKeys.FLOOR_RUN_RELICS: [],
 		GameStateKeys.FLOOR_RUN_HP_CARRY: {},
 		GameStateKeys.FLOOR_RUN_CHEST_COUNT: 0,
-		GameStateKeys.FLOOR_RUN_CONSUMABLES: {},
 		# ⚠⚠ 鞄と拾い待ち（2026-09-18・人間の決定「難ダンジョンのインベントリをシナリオでも適用」）。
 		#   ⚠ 宝箱も道中の戦利品もまず拾い待ちへ。⚠ ボスを倒したら鞄の中身を持ち帰る。
 		#   ⚠ 前の回に入れた「ランの中の宝箱」（`FLOOR_RUN_CHESTS`）はこれに置き換えた。
