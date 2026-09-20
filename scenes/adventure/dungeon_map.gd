@@ -174,7 +174,8 @@ func _update_header() -> void:
 	#     ⚠ ここで受け取ってしまうと、⚠ 窓が出たときには 0 になっていて見せられない。
 	#   ⚠ 窓が出ないとき（⚠ 通路で遺物片だけ拾ったとき）だけ、⚠ ここから飛ばす。
 	#   ⚠ 減ったとき（罠・買い物）は覚えに入らない（⚠ GameManager 側で増えたぶんだけ数えている）。
-	if GameManager.peek_last_dungeon_currency_gain() > 0 			and not GameManager.has_dungeon_pending_loot() 			and _loot_overlay == null:
+	var window_will_show: bool = GameManager.has_dungeon_pending_loot() or _loot_overlay != null
+	if GameManager.peek_last_dungeon_currency_gain() > 0 and not window_will_show:
 		ResourceGainEffect.play(
 			GameStateKeys.DUNGEON_RUN_CURRENCY, GameManager.take_last_dungeon_currency_gain()
 		)
@@ -555,9 +556,16 @@ func _on_node_pressed(node_id: String) -> void:
 	var kind: String = str(
 		GameManager.get_dungeon_node(node_id).get(GameStateKeys.DUNGEON_NODE_KIND, "")
 	)
-	# 通路で何か起きたら知らせる（段階20-d・人間の指示「何かわかるような演出がしたい」）。
-	# ⚠ マスの中身へ進む前に出す（⚠ 通路 → 部屋 の順と揃える）。
-	_notify_edge_event()
+	# ⚠⚠ 通路で何か起きたら知らせ、⚠ **閉じるまで待つ**（2026-09-20・人間の指示
+	#   「⚠ 罠の発動タイミングは、次のノードで何かアクションを始める前に　⚠ モーダルを確認してから
+	#     ⚠ 次のノードへ移動という流れで」）。
+	#   ⚠⚠ 段階20-d の「⚠ await しない」を**覆した**。⚠ 待たないと、⚠ 窓を読む前に戦闘が始まり、
+	#     ⚠ 何が起きたのか分からないまま次へ進む。
+	#   ⚠ 効果そのものは move_in_dungeon() の中で既に効いている（⚠ 窓は知らせるだけ）。
+	await _notify_edge_event()
+	# ⚠ 待っているあいだに画面が外れていたら何もしない（⚠ 解放済みのノードを触らない）。
+	if not is_inside_tree() or not GameManager.is_in_dungeon():
+		return
 	if kind == GameStateKeys.DUNGEON_NODE_KIND_BATTLE \
 			or kind == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
 		_enter_node(node_id)
@@ -637,7 +645,10 @@ func _on_loot_overlay_closed(layer: CanvasLayer) -> void:
 # ⚠⚠ 人間の言葉：「⚠ 通路のイベントは、何かわかるような演出がしたい　モーダルとかなんかで」。
 #   ⚠ 19-c-2 までは黙って効いていて、⚠ 画面に1文字も出ていなかった。
 # ⚠ 何が起きたかは GameManager に聞く（⚠ 画面で数字を組み立て直さない）。
-# ⚠ `await` しない。⚠ 待つと、⚠ このあとの戦闘への遷移が閉じるまで止まる。
+# ⚠⚠ `await` する（2026-09-20 に段階20-d の「await しない」を覆した・人間の指示）。
+#   ⚠ 閉じるまで待ってから、⚠ 次のマスの中身（戦闘・宝箱・拾いもの）へ入る。
+# ⚠⚠ 閉じるまで待つ（2026-09-20）。⚠ 呼ぶ側は `await` すること。
+#   ⚠ 窓が出ないとき（⚠ 何も起きていない）はその場で返る。
 func _notify_edge_event() -> void:
 	var event: Dictionary = GameManager.get_last_dungeon_edge_event()
 	var effect: String = str(event.get(GameStateKeys.DUNGEON_EDGE_EFFECT, ""))
@@ -653,11 +664,13 @@ func _notify_edge_event() -> void:
 	if items.is_empty() and amount <= 0:
 		if left_behind.is_empty():
 			return
-		var _full: ModalDialog = Modal.notify(
+		var full_dialog: ModalDialog = Modal.notify(
 			self, "ui_dungeon_edge_event_resource_full", [_item_names(left_behind)], false,
 			_edge_window_options("resource_full", GameStateKeys.DUNGEON_EDGE_EFFECT_RESOURCE,
 				_item_cells(left_behind, true))
 		)
+		if full_dialog != null:
+			await full_dialog.closed
 		return
 
 	# ⚠ 品を落とした／拾ったときは名前も出す。⚠ 無ければ数だけ。
@@ -669,10 +682,12 @@ func _notify_edge_event() -> void:
 		content = _hp_change_row()
 	elif not items.is_empty():
 		content = _item_cells(items, effect == GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG)
-	var _dialog: ModalDialog = Modal.notify(
+	var dialog: ModalDialog = Modal.notify(
 		self, "ui_dungeon_edge_event_" + effect, [detail], false,
 		_edge_window_options(effect, effect, content)
 	)
+	if dialog != null:
+		await dialog.closed
 
 
 # 進む前の3人の「戦闘時 MAX HP」（⚠ 通路の罠の前後を並べるため）。
