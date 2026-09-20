@@ -8803,7 +8803,9 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 	#   ⚠ 層の並びのどこが区画帯かを先に決める。⚠ 帯の中は「区画ごと」にしか繋がない。
 	var seg: Array[int] = _dungeon_segment_of_layers(layers.size())
 	var seg_count: int = _dungeon_segment_count()
-	var inner_nodes: int = _dungeon_segment_inner_nodes()
+	# ⚠⚠ 区画の「中」の層ごとのノード数（2026-09-20・人間の決定38）。
+	#   ⚠ 合計で `segment_inner_total`。⚠ 真ん中の層から厚くする（⚠ 3層に4なら 1・2・1）。
+	var inner_by_layer: Array[int] = _dungeon_segment_inner_by_layer(seg)
 
 	# 1. 層ごとにノードを作る。種類だけ抽選する。
 	# ⚠ 区画帯の層はノード数を JSON ではなく区画の形から決める
@@ -8825,8 +8827,8 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 				row.append(_make_dungeon_node(nodes, layer_index + 1, i, weights))
 				seg_row.append(DUNGEON_SEGMENT_NONE)
 		else:
-			# ⚠ 区画帯。⚠ 端（入口・出口）は区画ごとに1ノード、⚠ 中は inner_nodes ずつ。
-			var per_segment: int = 1 if (slot == DUNGEON_SEGMENT_EDGE) else inner_nodes
+			# ⚠ 区画帯。⚠ 端（入口・出口）は区画ごとに1ノード、⚠ 中はその層のぶん（決定38）。
+			var per_segment: int = 1 if (slot == DUNGEON_SEGMENT_EDGE) else inner_by_layer[layer_index]
 			var index: int = 0
 			for k: int in range(seg_count):
 				for _n: int in range(per_segment):
@@ -8972,7 +8974,7 @@ func _connect_dungeon_layers(
 const DUNGEON_SEGMENT_NONE: int = -1
 ## 区画帯の端（入口・出口の層）。⚠ 区画ごとに1ノード。
 const DUNGEON_SEGMENT_EDGE: int = 0
-## 区画帯の中の層。⚠ 区画ごとに segment_inner_nodes ノード。
+## 区画帯の中の層。⚠ 区画ごとのノード数は `_dungeon_segment_inner_by_layer()` が配る（決定38）。
 const DUNGEON_SEGMENT_INNER: int = 1
 
 
@@ -8991,9 +8993,59 @@ func _dungeon_segment_choices() -> int:
 	return 0 if config == null else maxi(1, int(config.segment_choices))
 
 
-func _dungeon_segment_inner_nodes() -> int:
+func _dungeon_segment_inner_total() -> int:
 	var config: DungeonConfig = _dungeon()
-	return 1 if config == null else maxi(1, int(config.segment_inner_nodes))
+	return 1 if config == null else maxi(1, int(config.segment_inner_total))
+
+
+# 区画の「中」の層ごとに、⚠ 区画1つぶんのノード数を配る（2026-09-20・人間の決定38）。
+#
+# ⚠⚠ 人間の言葉：「⚠ 5ノード直線の中に分岐で、3〜4ノードを入れる感じ」＋「⚠ 分岐は区間の中の合計」。
+#   ⚠ ＝合計が `segment_inner_total`。⚠ 1層あたりではない。
+# ⚠ 真ん中の層から厚くする（⚠ 3層に4なら 1・2・1 ＝ 分かれて合流する）。
+#   ⚠ 端を厚くすると、⚠ 区画の入口（1マス）から2本出て合流しないまま出口に入る形になり、⚠ 線が長くなる。
+# ⚠ どの層にも最低1マス（⚠ 0 の層があると、⚠ その区画が通れなくなる）。
+# ⚠ 配る口はここ1本。⚠ 画面や検査で層の番号から計算し直さないこと。
+func _dungeon_segment_inner_by_layer(seg: Array[int]) -> Array[int]:
+	var result: Array[int] = []
+	for _i: int in range(seg.size()):
+		result.append(1)
+	var total: int = _dungeon_segment_inner_total()
+	var index: int = 0
+	while index < seg.size():
+		if seg[index] != DUNGEON_SEGMENT_INNER:
+			index += 1
+			continue
+		# ⚠ 続いている「中」の層をひとまとまりで見る。
+		var run_start: int = index
+		while index < seg.size() and seg[index] == DUNGEON_SEGMENT_INNER:
+			index += 1
+		var run_length: int = index - run_start
+		var extra: int = maxi(0, total - run_length)
+		# ⚠ 真ん中から順に1つずつ足す（⚠ 3層なら 中央 → 左 → 右 の順）。
+		var order: Array[int] = _middle_out_order(run_length)
+		for step: int in range(extra):
+			result[run_start + order[step % run_length]] += 1
+	return result
+
+
+# 0..count-1 を「真ん中から外へ」の順に並べる（⚠ 3 なら [1, 0, 2]）。
+func _middle_out_order(count: int) -> Array[int]:
+	var result: Array[int] = []
+	var middle: int = count / 2
+	var offset: int = 0
+	while result.size() < count:
+		var left: int = middle - offset
+		var right: int = middle + offset
+		if offset == 0:
+			result.append(middle)
+		else:
+			if left >= 0:
+				result.append(left)
+			if right < count and result.size() < count:
+				result.append(right)
+		offset += 1
+	return result
 
 
 # 層ごとに「通常 / 区画の端 / 区画の中」を割り当てる（段階20-b）。
