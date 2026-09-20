@@ -130,7 +130,6 @@ ui_relic_select_title,レリックを1つ選ぶ
 ui_relic_select_hint,このフロアのあいだだけ効く。フロアを降りると消える
 ui_relic_pick_character,誰に付けるか選ぶ
 ui_relic_take,取る
-ui_relic_give,これに付ける
 ui_relic_take_failed,取れなかった
 ui_relic_select_locked,選ぶまでここから出られない
 ui_relic_candidates,候補
@@ -790,7 +789,6 @@ ui_dungeon_shop_buy,買う
 ui_dungeon_shop_bought,買った
 ui_dungeon_shop_bag_slot,鞄の枠
 ui_dungeon_shop_torch,たいまつ
-ui_dungeon_shop_torch_now,いま
 ui_dungeon_shop_reject_currency,遺物片が足りない
 ui_dungeon_shop_reject_bag,鞄が満杯
 ui_dungeon_shop_reject_torch_max,たいまつはこれ以上強くならない
@@ -815,7 +813,6 @@ ui_dungeon_chest_opened,中身を鞄に入れた
 ui_dungeon_corridor_chest_title,通路に宝箱があった
 ui_dungeon_edge_event_trap_hp,"通路に罠があった。全員が傷を負った（戦闘時MAX HP -%s）"
 ui_dungeon_edge_event_trap_currency,"通路で足をすくわれた。遺物片を落とした（-%s）"
-ui_dungeon_edge_event_trap_bag,"通路で荷物を落とした（%s）"
 ui_dungeon_edge_event_resource,"通路で拾いものをした（%s）"
 ui_dungeon_edge_event_chest,"通路に宝箱があった（%s）"
 ui_desc_relic_banner_of_war,編成3人の攻撃力が15%上がる。
@@ -833,7 +830,6 @@ ui_desc_relic_thorns,"付けた1人が攻撃を受けたとき、攻撃力の25%
 ui_dungeon_edge_event_resource_full,"通路に拾いものがあったが、鞄が満杯で置いてきた（%s）"
 ui_dungeon_edge_title_trap_hp,通路に罠があった
 ui_dungeon_edge_title_trap_currency,通路で足をすくわれた
-ui_dungeon_edge_title_trap_bag,通路で荷物を落とした
 ui_dungeon_edge_title_resource,通路で拾いものをした
 ui_dungeon_edge_title_chest,通路に宝箱があった
 ui_dungeon_edge_title_resource_full,拾いものを置いてきた
