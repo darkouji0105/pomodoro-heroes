@@ -55,10 +55,10 @@
       "chest": {
         "rolls": 3,
         "entries": [
-          { "item_id": "construction_material_4", "weight": 20, "count": 2 },
-          { "item_id": "training_material_4", "weight": 20, "count": 2 },
-          { "item_id": "forging_material_4", "weight": 18, "count": 2 },
-          { "item_id": "decor_material_4", "weight": 12, "count": 2 },
+          { "item_id": "construction_material_4", "weight": 20, "count": 1 },
+          { "item_id": "training_material_4", "weight": 20, "count": 1 },
+          { "item_id": "forging_material_4", "weight": 18, "count": 1 },
+          { "item_id": "decor_material_4", "weight": 12, "count": 1 },
           { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
           { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
           { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 }
