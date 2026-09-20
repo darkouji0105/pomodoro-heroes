@@ -6771,7 +6771,7 @@ func _report_dungeon() -> void:
 	# ⚠ 区画の判定を道具側で書き直さない。⚠ 「層の中で、⚠ どのノードから
 	#   どのノードへ行けるか」の形だけを見る（⚠ 到達できるノードの集合で分かる）。
 	print("[DebugBoot] --- 区画（⚠ 区画と区画のあいだは合流しない）---")
-	# ⚠ 層ごとのノード数を出す（⚠ 区画帯は端3・中6 になっているはず）。
+	# ⚠ 層ごとのノード数を出す（⚠ 区画帯の端は 3。⚠ 中は区画ごとに 1 か 2 なので 3〜6 で揺れる）。
 	var count_by_layer: Dictionary = {}
 	for node_id: Variant in nodes:
 		var layer_no: int = int((nodes[node_id] as Dictionary).get(GameStateKeys.DUNGEON_NODE_LAYER, 0))
@@ -6841,6 +6841,18 @@ func _report_dungeon() -> void:
 	])
 	if split_layers.size() < int(Balance.dungeon.segment_count):
 		push_error("[DebugBoot] 区画の分離が足りない（区画と区画のあいだで合流している）")
+
+	# ⚠⚠ 区画ごとに分岐の長さが違うか（2026-09-20・2回目・人間が実機で見つけた直し）。
+	#   ⚠ 3つの区画は**横に並んでいる**ので、⚠ 帯に1回だけ振ると層のノード数が
+	#     ⚠ 区画の数で必ず割り切れる（⚠ 3・6・6 のように）。⚠ 区画ごとに振ると割り切れない層が出る。
+	#   ⚠ 数は上の「層ごとのノード数」がもう出している。⚠ ここは割り切れない層を数えるだけ。
+	var seg_total: int = maxi(1, int(Balance.dungeon.segment_count))
+	var uneven: int = 0
+	for raw_layer: Variant in count_by_layer:
+		var at_layer: int = int(count_by_layer[raw_layer])
+		if at_layer > seg_total and (at_layer % seg_total) != 0:
+			uneven += 1
+	print("  ⚠ 区画の数で割り切れない層 = %d 件（⚠ 0 が続くなら3つの区画が同じ形の疑い）" % uneven)
 
 	# --- 5. 全ルート（⚠ 数えるだけ。⚠ 1本ずつ歩かない）---
 	#
@@ -7099,6 +7111,7 @@ func _report_dungeon() -> void:
 			int(row.get(GameManager.DUNGEON_SHOP_COST, 0)),
 			GameManager.get_dungeon_shop_reject_reason(i),
 		])
+	_report_dungeon_map_shop_row()
 	# ⚠ 鞄の枠を買う（⚠ 枠が増えること）。
 	for i: int in range(shop_entries.size()):
 		if str((shop_entries[i] as Dictionary).get(GameManager.DUNGEON_SHOP_KIND, "")) != GameManager.DUNGEON_SHOP_KIND_BAG_SLOT:
@@ -7732,6 +7745,44 @@ func _take_dungeon_relic_on_the_way() -> void:
 		if not GameManager.move_in_dungeon(str(moves[0])):
 			return
 		guard += 1
+
+
+# ⚠⚠ ボスを倒した先のマップに「ショップへ」の行が出ているか（2026-09-20・人間の報告
+#   「⚠ ボス倒したあとショップによれなかった」）。
+#
+# ⚠ GameManager の口（`get_dungeon_shop_entries()`）が 4 件返すことは上で見ている。
+#   ⚠ ここで見るのは**画面が行を作るか**（⚠ 絵は取れないが、⚠ 子の数と大きさは取れる）。
+# ⚠ `_ready()` は `add_child()` の中で走るので `await` は要らない（⚠ 子はその場でできる）。
+# ⚠⚠ 開く前に拾い待ちと「遺物片の覚え」を空にする。
+#   ⚠ 拾い待ちが残っていると `_ready()` が拾いものの窓を重ねる（⚠ 測るものが変わる）。
+#   ⚠ 覚えが残っていると `ResourceGainEffect.play()` が飛び、⚠ 解放と取り合って赤が出る
+#     （CLAUDE.md 10番・2026-09-20 に6本出した件）。
+func _report_dungeon_map_shop_row() -> void:
+	var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
+	var _gain: int = GameManager.take_last_dungeon_currency_gain()
+	var scene: PackedScene = load("res://scenes/adventure/dungeon_map.tscn")
+	if scene == null:
+		push_error("[DebugBoot] dungeon_map.tscn が読めない")
+		return
+	var map: Node = scene.instantiate()
+	add_child(map)
+	var row: Node = map.get_node_or_null("Layout/ShopList")
+	if row == null:
+		push_error("[DebugBoot] ⚠ マップに Layout/ShopList が無い（⚠ シーンの形が変わった）")
+	else:
+		var names: Array = []
+		for child: Node in row.get_children():
+			names.append(child.name)
+		var shown: bool = (row as Control).visible
+		print("  ⚠ マップの「ショップへ」の行 = 子 %d 個 %s ／ 見える=%s ／ 最小 %.0f x %.0f" % [
+			row.get_child_count(), str(names), str(shown),
+			(row as Control).get_combined_minimum_size().x,
+			(row as Control).get_combined_minimum_size().y,
+		])
+		if row.get_child_count() <= 0:
+			push_error("[DebugBoot] ⚠ ボスを倒したのにマップに「ショップへ」の行が出ていない")
+	remove_child(map)
+	map.queue_free()
 
 
 # 中身が見えているノードの数（段階17-e・たいまつ）。

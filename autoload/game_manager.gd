@@ -8801,7 +8801,8 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 	var seg_count: int = _dungeon_segment_count()
 	# ⚠⚠ 区画の「中」の層ごとのノード数（2026-09-20・人間の決定38）。
 	#   ⚠ 中の層はすべて `segment_inner_ways` 本に分かれる（⚠ 出口で合流する）。
-	var inner_by_layer: Array[int] = _dungeon_segment_inner_by_layer(seg)
+	#   ⚠ `inner_by_layer[層][区画k]`。⚠ **区画ごとに長さが違う**（2026-09-20・2回目）。
+	var inner_by_layer: Array = _dungeon_segment_inner_by_layer(seg, seg_count)
 
 	# 1. 層ごとにノードを作る。種類だけ抽選する。
 	# ⚠ 区画帯の層はノード数を JSON ではなく区画の形から決める
@@ -8823,10 +8824,14 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 				row.append(_make_dungeon_node(nodes, layer_index + 1, i, weights))
 				seg_row.append(DUNGEON_SEGMENT_NONE)
 		else:
-			# ⚠ 区画帯。⚠ 端（入口・出口）は区画ごとに1ノード、⚠ 中はその層のぶん（決定38）。
-			var per_segment: int = 1 if (slot == DUNGEON_SEGMENT_EDGE) else inner_by_layer[layer_index]
+			# ⚠ 区画帯。⚠ 端（入口・出口）は区画ごとに1ノード、⚠ 中はその区画のその層のぶん。
+			#   ⚠⚠ 区画ごとに数が違う（2026-09-20・2回目）。⚠ 区画の外でまとめて決めないこと。
 			var index: int = 0
 			for k: int in range(seg_count):
+				var per_segment: int = (
+					1 if (slot == DUNGEON_SEGMENT_EDGE)
+					else _dungeon_inner_nodes_at(inner_by_layer, layer_index, k)
+				)
 				for _n: int in range(per_segment):
 					row.append(_make_dungeon_node(nodes, layer_index + 1, index, weights))
 					seg_row.append(k)
@@ -8865,14 +8870,19 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 			#   ⚠ 分かれる層数を 1〜3 で振るようになり、⚠ 中の 1 → 2（ここで道が分かれる）が
 			#     できた。⚠ ここで 1本しか引かないと**2本目のマスに入る線が0本**になり、
 			#     ⚠ 総当たり（scenario=dungeon）が拾う「絶対に通れないマス」になる。
-			var inner_override: int = 0
-			if (
-					seg[layer_index] == DUNGEON_SEGMENT_INNER
-					and seg[layer_index + 1] == DUNGEON_SEGMENT_INNER
-					and inner_by_layer[layer_index] == inner_by_layer[layer_index + 1]
-			):
-				inner_override = 1
+			# ⚠⚠ 判定は**区画ごと**（2026-09-20・2回目）。⚠ 区画ごとに分かれる層が違うので、
+			#   ⚠ 帯でまとめて決めると、⚠ 1 → 2 の区画まで1本にしてしまう。
+			var both_inner: bool = (
+				seg[layer_index] == DUNGEON_SEGMENT_INNER
+				and seg[layer_index + 1] == DUNGEON_SEGMENT_INNER
+			)
 			for k: int in range(seg_count):
+				var inner_override: int = 0
+				if both_inner and (
+						_dungeon_inner_nodes_at(inner_by_layer, layer_index, k)
+						== _dungeon_inner_nodes_at(inner_by_layer, layer_index + 1, k)
+				):
+					inner_override = 1
 				_connect_dungeon_layers(
 					nodes, _dungeon_nodes_of_segment(upper, upper_seg, k),
 					_dungeon_nodes_of_segment(lower, lower_seg, k), dungeon_id, inner_override
@@ -9013,21 +9023,27 @@ func _dungeon_segment_inner_ways() -> int:
 # ⚠⚠ 2026-09-20（2回目）・人間の指示：「⚠ 5個のルート分岐の中に確定で3つサイドの道が
 #   あるが、⚠ 1から3の中でランダム」。⚠ ＝**中の層のうち何層が分かれるかを区画ごとに振る**。
 #   ⚠ 振った本数ぶんを**出口側に寄せる**（人間の裁き）。⚠ 手前は一本道で、⚠ 進むうちに道が分かれる。
+#   ⚠⚠ **振るのは「区画ごと」**（2026-09-20・人間が実機で見つけた直し）。⚠ 3つの区画は**横に並んでいる**ので、
+#     ⚠ 帯（層のまとまり）に1回だけ振ると**3つとも同じ形**になる（⚠ 最初そう作ってしまった）。
 #   ⚠⚠ これは同じ日の決定38「⚠ 2〜4層つづく・1層だけの分かれ道にしない」を**一部覆したもの**
 #     （⚠ 1 を許す）。⚠ 戻すなら `segment_branch_min_layers` を 2 に上げるだけでよい。
 #
-# 例（⚠ 中が3層・`segment_inner_ways` が 2 のとき）：
+# 例（⚠ 中が3層・`segment_inner_ways` が 2 のとき。⚠ 区画1つぶんの形）：
 #   ⚠ 振った値 3 … 入口1 / 中 2・2・2 / 出口1
 #   ⚠ 振った値 2 … 入口1 / 中 1・2・2 / 出口1
 #   ⚠ 振った値 1 … 入口1 / 中 1・1・2 / 出口1
 #
+# 戻り値：`result[層][区画k]` ＝ **その区画のその層のノード数**（⚠ 層ごとの1本の数ではない）。
 # ⚠ 振る幅は `segment_branch_min_layers`〜`max_layers`。⚠ 中の層数は超えない（⚠ 超えたら切り詰める）。
 # ⚠ 中の層数が下限に届かないときだけ W35 で知らせる（⚠ 生成は止めない）。
 # ⚠ 配る口はここ1本。⚠ 画面や検査で層の番号から計算し直さないこと。
-func _dungeon_segment_inner_by_layer(seg: Array[int]) -> Array[int]:
-	var result: Array[int] = []
+func _dungeon_segment_inner_by_layer(seg: Array[int], seg_count: int) -> Array:
+	var result: Array = []
 	for _i: int in range(seg.size()):
-		result.append(1)
+		var row: Array[int] = []
+		for _k: int in range(maxi(1, seg_count)):
+			row.append(1)
+		result.append(row)
 	var ways: int = _dungeon_segment_inner_ways()
 	var config: DungeonConfig = _dungeon()
 	var min_layers: int = 1 if config == null else maxi(1, int(config.segment_branch_min_layers))
@@ -9037,7 +9053,7 @@ func _dungeon_segment_inner_by_layer(seg: Array[int]) -> Array[int]:
 		if seg[index] != DUNGEON_SEGMENT_INNER:
 			index += 1
 			continue
-		# ⚠ 続いている「中」の層をひとまとまりで見る＝この区画で分かれられる長さの上限。
+		# ⚠ 続いている「中」の層をひとまとまりで見る＝分かれられる長さの上限。
 		var run_start: int = index
 		while index < seg.size() and seg[index] == DUNGEON_SEGMENT_INNER:
 			index += 1
@@ -9046,12 +9062,21 @@ func _dungeon_segment_inner_by_layer(seg: Array[int]) -> Array[int]:
 			push_warning("[GameManager] W35 dungeon_config.gd: 中の層が %d しかなく、分岐の下限 %d に届かない。segment_layers を直す" % [
 				run_length, min_layers
 			])
-		# ⚠ 区画ごとに振る（⚠ 3つの区画がそれぞれ別の長さになる＝どれを選ぶかに差が出る）。
-		var branch: int = clampi(randi_range(min_layers, max_layers), 1, run_length)
-		# ⚠ 出口側に寄せる。⚠ 後ろから branch 層だけ分ける。
-		for i: int in range(index - branch, index):
-			result[i] = ways
+		# ⚠⚠ 区画ごとに振る。⚠ ここを帯に1回にすると、⚠ 横に並ぶ3つの区画が全部同じ形になる。
+		for k: int in range(maxi(1, seg_count)):
+			var branch: int = clampi(randi_range(min_layers, max_layers), 1, run_length)
+			# ⚠ 出口側に寄せる。⚠ 後ろから branch 層だけ分ける。
+			for i: int in range(index - branch, index):
+				(result[i] as Array[int])[k] = ways
 	return result
+
+
+# その区画のその層のノード数。⚠ `_dungeon_segment_inner_by_layer()` の結果を読む口はここ1本。
+func _dungeon_inner_nodes_at(inner_by_layer: Array, layer_index: int, k: int) -> int:
+	if layer_index < 0 or layer_index >= inner_by_layer.size():
+		return 1
+	var row: Array[int] = inner_by_layer[layer_index]
+	return 1 if (k < 0 or k >= row.size()) else row[k]
 
 
 # 層ごとに「通常 / 区画の端 / 区画の中」を割り当てる（段階20-b）。
