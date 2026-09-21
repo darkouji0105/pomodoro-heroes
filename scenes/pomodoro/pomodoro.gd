@@ -310,7 +310,9 @@ func quit_session() -> void:
 	if _quit_confirming:
 		return
 	_quit_confirming = true
-	var confirmed: bool = await Modal.confirm(self, "ui_pomodoro_quit_confirm")
+	var confirmed: bool = await Modal.confirm(self, "ui_pomodoro_quit_confirm", [], false, {
+		Modal.OPTION_TITLE: tr("ui_common_title_confirm"),
+	})
 	_quit_confirming = false
 	if not confirmed:
 		return

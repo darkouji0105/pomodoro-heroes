@@ -14,6 +14,11 @@ ui_common_back,戻る
 ui_common_back_to_base,拠点へ戻る
 ui_common_yes,はい
 ui_common_no,いいえ
+ui_common_title_confirm,確認
+ui_common_title_save,セーブ
+ui_common_title_received,受け取り
+ui_common_title_result,結果
+ui_common_break,壊す
 ui_res_gold,ゴールド
 ui_res_gems,ジェム
 ui_res_stamina,スタミナ

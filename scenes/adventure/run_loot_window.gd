@@ -412,9 +412,12 @@ static func present_auto_result(caller: Node, result: Dictionary) -> String:
 		box.add_child(_cells(taken, false))
 	box.add_child(_caption("ui_dungeon_auto_lost", &"SmallErrorLabel"))
 	box.add_child(_cells(lost, true))
+	# ⚠ マス目が2段（入った／失われた）並ぶので中の幅。⚠ 暗幕は濃いまま（決定 `MD-6`）。
 	var _dialog: ModalDialog = Modal.notify(caller, "ui_dungeon_auto_body", [], false, {
 		Modal.OPTION_TITLE: TranslationServer.translate("ui_dungeon_auto_title"),
 		Modal.OPTION_CONTENT: box,
+		Modal.OPTION_WIDTH: Modal.WIDTH_MEDIUM,
+		Modal.OPTION_DIM: Modal.DIM_HEAVY,
 	})
 	return ""
 

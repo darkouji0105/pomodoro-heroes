@@ -339,7 +339,13 @@ func _on_discard_pressed(item_id: String) -> void:
 	if _selected_index < 0:
 		return
 	var held: int = int(_selected.get(GameManager.SLOT_ENTRY_COUNT, 1))
-	var options: Dictionary = {}
+	# ⚠⚠ 取り返しのつかない確認なので実行を赤に（決定 `MD-5`）。
+	#   ⚠ 文言も「はい」ではなく「捨てる」（⚠ 押した結果が読める）。
+	var options: Dictionary = {
+		Modal.OPTION_TITLE: tr("ui_common_title_confirm"),
+		Modal.OPTION_DANGER: true,
+		Modal.OPTION_CONFIRM_LABEL: "ui_warehouse_discard",
+	}
 	var picker: SpinBox = null
 	# ⚠ 文言は個数の器の有無で変える。⚠ 器を出しているのに「1個捨てます」と書くと、
 	#   ⚠ 器で選んだ数と文面が食い違う（⚠ 2026-09-10 に人間が実機で見つけた）。

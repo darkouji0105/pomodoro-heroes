@@ -208,12 +208,17 @@ func _show_arrival_rewards() -> void:
 		return
 	# ⚠ 0 のほうを読み上げない（2026-09-06・宿題「宝箱を0個」が不格好）。
 	#   ⚠ 文の組み立てをコード側でつなげない（AGENTS.md）。⚠ 文ごとキーを分ける。
+	# ⚠ 窓の指定は1つにまとめる（⚠ 3本とも同じ形。⚠ 決定 `MD-1` / `MD-3`）。
+	var options: Dictionary = {
+		Modal.OPTION_TITLE: tr("ui_common_title_received"),
+		Modal.OPTION_WIDTH: Modal.WIDTH_MEDIUM,
+	}
 	if chests <= 0:
-		Modal.notify(self, "ui_base_potion_received", [potions])
+		Modal.notify(self, "ui_base_potion_received", [potions], false, options)
 	elif potions <= 0:
-		Modal.notify(self, "ui_base_chest_received", [chests])
+		Modal.notify(self, "ui_base_chest_received", [chests], false, options)
 	else:
-		Modal.notify(self, "ui_base_pomodoro_rewards", [potions, chests])
+		Modal.notify(self, "ui_base_pomodoro_rewards", [potions, chests], false, options)
 
 # --- シグナルハンドラ ---
 
@@ -261,15 +266,18 @@ func _on_chest_badge_pressed() -> void:
 	ChestPanel.open_on(self)
 
 func _on_save_pressed() -> void:
+	var save_options: Dictionary = {Modal.OPTION_TITLE: tr("ui_common_title_save")}
 	if SaveManager.save_game():
-		Modal.notify(self, "ui_base_save_completed")
+		Modal.notify(self, "ui_base_save_completed", [], false, save_options)
 	else:
-		Modal.notify(self, "ui_base_save_failed")
+		Modal.notify(self, "ui_base_save_failed", [], false, save_options)
 
 # タイトルへ戻る前に確認する。
 # オートセーブが無いため、ここで戻ると直前のセーブ以降の進行が消える。
 func _on_back_to_title_pressed() -> void:
-	var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
+	var ok: bool = await Modal.confirm(self, "ui_title_back_confirm", [], false, {
+		Modal.OPTION_TITLE: tr("ui_common_title_confirm"),
+	})
 	if not ok:
 		return
 	SceneManager.change_scene(TITLE_PATH)

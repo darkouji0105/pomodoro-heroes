@@ -33,7 +33,9 @@ func _on_start_pressed() -> void:
 			# モーダルなら本人が閉じるまで残る。
 			start_button.disabled = true
 			delete_save_button.disabled = true
-			var dlg: ModalDialog = Modal.notify(self, "ui_title_load_failed")
+			var dlg: ModalDialog = Modal.notify(self, "ui_title_load_failed", [], false, {
+				Modal.OPTION_TITLE: tr("ui_common_title_save"),
+			})
 			if dlg != null:
 				await dlg.closed
 
@@ -50,14 +52,20 @@ func _on_start_pressed() -> void:
 
 # セーブの削除は取り返しがつかない。必ず確認する。
 func _on_delete_save_pressed() -> void:
-	var confirmed: bool = await Modal.confirm(self, "ui_title_delete_confirm")
+	# ⚠⚠ セーブを消すと戻らないので実行を赤に（決定 `MD-5`）。
+	var confirmed: bool = await Modal.confirm(self, "ui_title_delete_confirm", [], false, {
+		Modal.OPTION_TITLE: tr("ui_common_title_confirm"),
+		Modal.OPTION_DANGER: true,
+		Modal.OPTION_CONFIRM_LABEL: "ui_title_delete_save",
+	})
 	if not confirmed:
 		return
 
 	var ok: bool = SaveManager.delete_save()
 	# _refresh_ui() が error_label を隠すため、必ずメッセージ表示より先に呼ぶ
 	_refresh_ui()
+	var save_options: Dictionary = {Modal.OPTION_TITLE: tr("ui_common_title_save")}
 	if ok:
-		Modal.notify(self, "ui_title_delete_done")
+		Modal.notify(self, "ui_title_delete_done", [], false, save_options)
 	else:
-		Modal.notify(self, "ui_title_delete_failed")
+		Modal.notify(self, "ui_title_delete_failed", [], false, save_options)

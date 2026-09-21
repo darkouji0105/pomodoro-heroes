@@ -273,10 +273,12 @@ func _show_reward_window(rewards: Dictionary, title: String, chest_id: String = 
 		label.text = currency
 		box.add_child(label)
 
+	# ⚠ マス目が並ぶので中の幅（決定 `MD-3`）。
 	Modal.notify(self, "", [], false, {
 		Modal.OPTION_TITLE: title,
 		Modal.OPTION_CONTENT: box,
 		Modal.OPTION_CLOSE_LABEL: "ui_warehouse_receive",
+		Modal.OPTION_WIDTH: Modal.WIDTH_MEDIUM,
 	})
 
 

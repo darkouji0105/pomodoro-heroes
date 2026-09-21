@@ -732,10 +732,14 @@ func _party_max_hp() -> Dictionary:
 
 # 窓の題（⚠ 絵文字＋何が起きたか）と中身。⚠ 題の絵文字は通路の字と同じ（Glyphs の1本）。
 func _edge_window_options(title_suffix: String, glyph_effect: String, content: Control) -> Dictionary:
+	# ⚠⚠ ここだけ暗幕を出さない（2026-09-21・人間「⚠ はい 1個ためしてみる」＝決定 `MD-6` の試し）。
+	#   ⚠ マップを見ながら読む窓なので、⚠ 後ろを暗くしないほうがよいかを実機で確かめる。
+	#   ⚠⚠ 暗幕が無くても後ろは押せない（⚠ 受け止めるのは `Blocker`）。
 	var options: Dictionary = {
 		Modal.OPTION_TITLE: "%s %s" % [
 			Glyphs.for_dungeon_edge(glyph_effect), tr("ui_dungeon_edge_title_" + title_suffix)
 		],
+		Modal.OPTION_DIM: Modal.DIM_NONE,
 	}
 	if content != null:
 		options[Modal.OPTION_CONTENT] = content
