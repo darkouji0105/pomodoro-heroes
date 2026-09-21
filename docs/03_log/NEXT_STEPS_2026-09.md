@@ -6,8 +6,51 @@
 > ⚠ 人間の決定（2026-09-21）：⚠ 「⚠ plan はとっかかりだと思う」「⚠ nextsteps はいまの議題だと思う」
 > ⚠ 「⚠ それ（＝過去の回）が溜まってるのが問題かも」。⚠ **3154行・15節を分けた。**
 >
-> ⚠ 入っているのは **§0-UI-N（2026-09-19）〜 §0-L（2026-09-02）**。
-> ⚠ **§0-UI-Q / §0-UI-P / §0-UI-O（直近3節）は `NEXT_STEPS.md` に残してある。**
+> ⚠ 入っているのは **§0-UI-O（2026-09-20）〜 §0-L（2026-09-02）**。
+> ⚠ **§0-UI-R / §0-UI-Q / §0-UI-P（直近3節）は `NEXT_STEPS.md` に残してある。**
+
+---
+
+## 0-UI-O. ✅ **小さい掃除のまとめ（2026-09-20）**　⚠ §0-UI-N の続き
+
+⚠ 人間が「⚠ D：小さい掃除のまとめ」を選んだ回。⚠ 宿題5件を1本ずつ片付けた。
+
+### 0-UI-O-1. ⚠⚠ 人間の決定（**覆さない**）
+
+- ⚠⚠ **`DungeonEdgeLines` は動かさない ／ マスの文言（たたかう／戦闘）は変えない**。
+  ⚠ 09-19（§0-UI-M-1）の決定を**そのまま生かし、宿題の行のほうを消した**（人間「⚠ 決定を残し、宿題の行を消す」）。
+  ⚠⚠ **もう宿題ではない。** ⚠ 触るなら人間の合意を取り直すこと
+- ⚠⚠ **`DungeonChest` → `RunLootWindow` に改名する**（人間）。⚠ シナリオでも使う窓なので名前を中身に合わせた
+
+### 0-UI-O-2. ⚠ 入ったもの
+
+| コミット | 中身 |
+|---|---|
+| `62ec621` | ⚠ **使われなくなった翻訳キー4本**：`ui_relic_give` ／ `ui_dungeon_shop_torch_now` ／ `ui_dungeon_edge_event_trap_bag` ／ `ui_dungeon_edge_title_trap_bag`。⚠ 979 → 975 行 |
+| `a1e0d4b` | ⚠ **`FLOOR_RUN.consumables` の欄を消した**。⚠ 14-e から誰も読み書きしておらず、AGENTS.md「欄だけ足して実装しない」に触れていた。⚠ `state_keys.gd` / `_empty_floor_run()` / `load_state()` の int() / AGENTS.md の表 |
+| `42b7c3c` | ⚠ **`PROJECT_STATUS.md` の「現在地」を 09-16 → 09-20 に**。⚠ 09-17〜09-20 の6行を足した |
+| `05cf4eb` | ⚠⚠ **`DungeonChest` → `RunLootWindow`**。⚠ ファイル3本（`.gd` / `.tscn` / `.gd.uid`）＋ 呼ぶ側4本。⚠ uid の値は変えていない。⚠ `CHEST_SCENE` → `LOOT_WINDOW_SCENE`。⚠ 使われていなかった `CHEST_PATH` も消した |
+
+### 0-UI-O-3. ⚠ 実測
+
+- ⚠ `--import` 赤0（⚠ uid_cache.bin を消した直後の1回目だけ黄1＝フォントの fallback の uid。⚠ 2回目は0）
+- ⚠ `global_script_class_cache.cfg` に `RunLootWindow` が載った ／ ⚠ `DungeonChest` は全ファイル0件
+- ⚠ `dungeon` 赤0 ／ `floor` 赤0（⚠ 黄は `skill_dbg_dot_odd` 1 ＋ わざと弾く2）／ `layout` 赤0 ／ `glyphs` 表 **49件**・NG 0
+- ⚠ `layout`：⚠ `run_loot_window.tscn` 最小 **620 x 342**（⚠ 改名の前後で同じ値）
+
+### 0-UI-O-4. ⚠⚠ 報告（**直していない**）
+
+- ⚠⚠ **引き継ぎの「拾いもの **620 x 316**」は実測と合わない。** ⚠ この回は改名の**前も後も 620 x 342**。⚠ 正は 342
+- ⚠ **翻訳キーは `ui_dungeon_chest_*` のまま**（5本）。⚠ 窓の名前だけ `RunLootWindow` になった。⚠ 寄せるかは未決
+- ⚠ **`GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_BAG` は残っている**（⚠ 綴りの定数だけ・09-20 の前の回の判断）。⚠ いまは誰も読まない
+- ⚠ **`PLAN_SCENARIO_MAP.md` §7（306行目あたり）に `consumables` の行が残っている**（⚠ 台帳なので触っていない）
+- ⚠ **`run_loot_window` の置き場所は `scenes/adventure/` のまま**。⚠ AGENTS.md の「2画面以上は `components/`」には合っていないが、⚠ 使う2画面ともダンジョン系。⚠ `DungeonEdgeLines` を動かさない決定と揃えた
+- ⚠ 宝箱の `chest_id` `"dungeon_chest"` は**改名していない**（⚠ マスターデータの ID・CLAUDE.md 4番）
+
+### 0-UI-O-5. ⚠ 残っているもの
+
+- ⚠⚠ **実機で見る（⚠ 09-19〜20 のぶん全部）。⚠ ここが一番たまっている**
+- ⚠ 実機で見ていない：⚠ 拾いものの窓（⚠ 改名したが中身は1行も変えていない）
 
 ---
 
