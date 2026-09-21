@@ -32,6 +32,11 @@ const FLOOR_NODE_ID: String = "floor_node_id"
 #   ダンジョンでは1つも動かない（台帳 §7）。
 # ⚠ 入っていれば stages.json は1行も引かない（敵は GameManager が dungeon.json から引く）。
 const DUNGEON_NODE_ID: String = "dungeon_node_id"
+# ⚠⚠ ショップを出たら次の階へ潜る（2026-09-21・決定48）。
+#   ⚠ 「わかれ道の画面」で［さらに潜る］を選んだときだけ true。
+#   ⚠⚠ **潜るのはショップを出たあと**。⚠ 先に潜ると `can_retreat_from_dungeon()` が false になり、
+#     ⚠ `get_dungeon_shop_entries()` が空を返して**店が消える**。
+const DUNGEON_DESCEND_AFTER_SHOP: String = "dungeon_descend_after_shop"
 
 # どちらのランから来たか（2026-09-19・レリック選択を1枚にした）。
 # ⚠ 値は GameManager.RUN_KIND_FLOOR ／ RUN_KIND_DUNGEON。

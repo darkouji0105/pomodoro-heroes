@@ -19,6 +19,12 @@ ui_common_title_save,セーブ
 ui_common_title_received,受け取り
 ui_common_title_result,結果
 ui_common_break,壊す
+ui_dungeon_clear_heading,踏破　フロア
+ui_dungeon_clear_caption,ここから先へ進むか、持ち帰るかを選ぶ
+ui_dungeon_clear_loot,いま持っているもの
+ui_dungeon_clear_loot_none,手ぶらだ
+ui_dungeon_clear_descend,さらに潜る
+ui_dungeon_clear_retreat,ここで戻る
 ui_res_gold,ゴールド
 ui_res_gems,ジェム
 ui_res_stamina,スタミナ

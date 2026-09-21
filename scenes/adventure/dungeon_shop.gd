@@ -14,6 +14,9 @@ extends Control
 
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 
+# ⚠ ここを出るときに次の階へ潜るか（2026-09-21・決定48）。
+var _descend_after: bool = false
+
 @onready var title_label: Label = $Layout/Header/TitleLabel
 # ⚠ 遺物片は絵つき（2026-09-20）。⚠ 絵は IconTextures の1本（⚠ いまはレリックの絵を借りている）。
 @onready var currency_value: ResourceDisplay = $Layout/Header/CurrencyValue
@@ -35,7 +38,10 @@ var _item_indexes: Array[int] = []
 
 
 func _ready() -> void:
-	SceneManager.consume_transfer_data()
+	# ⚠ ショップを出たら次の階へ潜るか（2026-09-21・決定48）。⚠ 受け取れるのは1回だけ。
+	_descend_after = bool(
+		SceneManager.consume_transfer_data().get(TransferKeys.DUNGEON_DESCEND_AFTER_SHOP, false)
+	)
 	# ⚠⚠ ランの中では右上の通貨を出さない（2026-09-20・人間の指示
 	#   「⚠ スタミナなどのリソースをダンジョン内で表示しないで」）。⚠ 戦闘・ポモドーロと同じ扱い。
 	#   ⚠ 出し直すのは SceneManager（⚠ 画面を移ると既定で出る）。
@@ -228,5 +234,11 @@ func _on_buy_pressed(index: int) -> void:
 	_rebuild()
 
 
+# ⚠⚠ 「わかれ道の画面」から来たときは、⚠ ここを出るときに次の階へ潜る（決定48）。
+#   ⚠ 潜ってからだと店が消えるので、⚠ 順番を入れ替えないこと（`TransferKeys` の注記）。
 func _on_back_pressed() -> void:
+	if _descend_after:
+		_descend_after = false
+		if not GameManager.descend_dungeon_floor():
+			push_warning("[DungeonShop] ⚠ 次の階へ潜れなかった（⚠ 最後の階か、ボスの先に居ない）")
 	SceneManager.change_scene(DUNGEON_MAP_PATH)

@@ -1,0 +1,71 @@
+[gd_scene format=3 uid="uid://dgnflrclr01"]
+
+[ext_resource type="Script" path="res://scenes/adventure/dungeon_floor_clear.gd" id="1_floor_clear"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_ui_button"]
+
+[node name="DungeonFloorClear" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_floor_clear")
+
+[node name="Background" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_type_variation = &"BackgroundPanel"
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"ScreenMargin"
+
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+alignment = 1
+theme_type_variation = &"SectionStack"
+
+[node name="Heading" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_type_variation = &"HeadingLabel"
+
+[node name="Caption" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_type_variation = &"MutedLabel"
+
+[node name="LootTitle" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_type_variation = &"SectionLabel"
+
+[node name="LootBox" type="VBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+alignment = 1
+theme_type_variation = &"TightList"
+
+[node name="Buttons" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+alignment = 1
+theme_type_variation = &"ButtonRow"
+
+[node name="DescendButton" parent="Margin/Layout/Buttons" instance=ExtResource("2_ui_button")]
+layout_mode = 2
+label_key = "ui_dungeon_clear_descend"
+variant = 1
+
+[node name="RetreatButton" parent="Margin/Layout/Buttons" instance=ExtResource("2_ui_button")]
+layout_mode = 2
+label_key = "ui_dungeon_clear_retreat"

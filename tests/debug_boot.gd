@@ -967,6 +967,11 @@ const SCENARIOS: Dictionary = {
 				],
 			},
 			# ③ 拠点の入口。
+			# ⚠⚠ ボスの後のわかれ道（決定48）は**まだ撮れない**（2026-09-21）。
+			#   ⚠ `prepare: dungeon` はランに入るだけで、⚠ ボスの先に居ないので
+			#   ⚠ 画面が自分でマップへ送り返す（⚠ `dungeon_floor_clear.gd` の守り）。
+			#   ⚠⚠ 足すと**マップの絵が「わかれ道」の名前で保存される**＝本番と違う絵になる。
+			#   ⚠ 撮るには「ボスまで歩く」下ごしらえが要る（⚠ 宿題）。
 			{"name": "04_base", "scene": SCENE_BASE},
 			{"name": "05_guild", "scene": "res://scenes/guild/guild_screen.tscn"},
 			{"name": "06_adventure_select", "scene": "res://scenes/adventure/adventure_select.tscn"},
@@ -7967,10 +7972,12 @@ func _take_dungeon_relic_on_the_way() -> void:
 func _report_dungeon_map_shop_row() -> void:
 	var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
 	var _gain: int = GameManager.take_last_dungeon_currency_gain()
-	print("  ⚠ ショップを自動で出したか（開く前）= %s（false が正解）" % [
+	print("  ⚠ わかれ道の画面を出したか（開く前）= %s（false が正解）" % [
 		str(GameManager.has_seen_dungeon_shop())
 	])
 	GameManager.mark_dungeon_shop_seen()
+
+	# --- ① マップに「ショップへ」の行が出ていないこと（2026-09-21・決定48-b）---
 	var scene: PackedScene = load("res://scenes/adventure/dungeon_map.tscn")
 	if scene == null:
 		push_error("[DebugBoot] dungeon_map.tscn が読めない")
@@ -7978,22 +7985,44 @@ func _report_dungeon_map_shop_row() -> void:
 	var map: Node = scene.instantiate()
 	add_child(map)
 	var row: Node = map.get_node_or_null("Layout/ShopList")
-	if row == null:
-		push_error("[DebugBoot] ⚠ マップに Layout/ShopList が無い（⚠ シーンの形が変わった）")
-	else:
-		var names: Array = []
-		for child: Node in row.get_children():
-			names.append(child.name)
-		var shown: bool = (row as Control).visible
-		print("  ⚠ マップの「ショップへ」の行 = 子 %d 個 %s ／ 見える=%s ／ 最小 %.0f x %.0f" % [
-			row.get_child_count(), str(names), str(shown),
-			(row as Control).get_combined_minimum_size().x,
-			(row as Control).get_combined_minimum_size().y,
-		])
-		if row.get_child_count() <= 0:
-			push_error("[DebugBoot] ⚠ ボスを倒したのにマップに「ショップへ」の行が出ていない")
+	var row_children: int = row.get_child_count() if row != null else -1
+	print("  ⚠ マップの「ショップへ」の行 = 子 %d 個（⚠ 0 が正解＝決定48-b で消した）" % row_children)
+	if row_children != 0:
+		push_error("[DebugBoot] E146 ⚠ 「ショップへ」の行が残っている（⚠ 入口が二重になる）")
+	# ⚠ 続行・撤退もマップには出さない（⚠ 選ぶのはわかれ道の画面）。
+	for button_name: String in ["DescendButton", "RetreatButton"]:
+		var button: Node = map.find_child(button_name, true, false)
+		if button is Control and (button as Control).visible:
+			push_error("[DebugBoot] E146 ⚠ マップに %s が出ている（⚠ 入口が二重になる）" % button_name)
 	remove_child(map)
 	map.queue_free()
+
+	# --- ② わかれ道の画面（決定48）---
+	var clear_scene: PackedScene = load("res://scenes/adventure/dungeon_floor_clear.tscn")
+	if clear_scene == null:
+		push_error("[DebugBoot] E147 dungeon_floor_clear.tscn が読めない")
+		return
+	var clear: Node = clear_scene.instantiate()
+	add_child(clear)
+	var heading: Node = clear.find_child("Heading", true, false)
+	var descend: Node = clear.find_child("DescendButton", true, false)
+	var retreat: Node = clear.find_child("RetreatButton", true, false)
+	var loot_box: Node = clear.find_child("LootBox", true, false)
+	print("  ⚠ わかれ道：見出し='%s' ／ さらに潜る=%s ／ ここで戻る=%s ／ 手に入れたもの=子 %d 個" % [
+		(heading as Label).text if heading is Label else "(無い)",
+		str((descend as Control).visible) if descend is Control else "(無い)",
+		str((retreat as Control).visible) if retreat is Control else "(無い)",
+		loot_box.get_child_count() if loot_box != null else -1,
+	])
+	if heading == null or descend == null or retreat == null or loot_box == null:
+		push_error("[DebugBoot] E147 ⚠ わかれ道の画面の形が変わった")
+	elif (heading as Label).text == "" or not (retreat as Control).visible:
+		push_error("[DebugBoot] E147 ⚠ 見出しが空か、⚠ 「ここで戻る」が出ていない")
+	# ⚠⚠ 左上の「戻る」は出さない（人間「⚠ 2 は出さない」）。
+	if clear.find_child("BackButton", true, false) != null:
+		push_error("[DebugBoot] E147 ⚠ わかれ道の画面に「戻る」がある（⚠ 出さない決定）")
+	remove_child(clear)
+	clear.queue_free()
 
 
 # `shot_dir=<パス>` を読む。⚠ 無ければ user://shots。

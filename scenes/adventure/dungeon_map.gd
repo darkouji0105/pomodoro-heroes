@@ -30,6 +30,8 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 # ⚠ レリック選択はシナリオと1枚（2026-09-19）。⚠ ランの種類を渡す。
 const RELIC_SELECT_PATH: String = "res://scenes/adventure/run_relic_select.tscn"
 const SHOP_PATH: String = "res://scenes/adventure/dungeon_shop.tscn"
+# ⚠ ボスを倒した後の「わかれ道の画面」（2026-09-21・決定48）。
+const FLOOR_CLEAR_PATH: String = "res://scenes/adventure/dungeon_floor_clear.tscn"
 # ⚠ 拾いものの窓（段階19-b・人間の決定21「遺物や宝箱やショップは別画面」）。
 #   ⚠ 2026-09-20：`dungeon_chest` → `run_loot_window` に改名（⚠ シナリオでも使うため）。
 #   ⚠ 決定36 で画面遷移をやめたので、⚠ パスの定数（`CHEST_PATH`）は使う者が居なくなり消した。
@@ -490,29 +492,15 @@ func _rebuild_shop() -> void:
 		shop_list.remove_child(child)
 		child.queue_free()
 
-	if GameManager.get_dungeon_shop_entries().is_empty():
-		return
-
-	# ⚠ 真鍮の主ボタン＋案内（2026-09-19・モック v2 §3）。⚠ ボスの後はここが一番押してほしい場所。
-	var button: UiButton = UiButton.new()
-	button.name = "ShopButton"
-	button.variant = UiButton.Variant.PRIMARY
-	button.text = "%s %s" % [Glyphs.NODE_SHOP, tr("ui_dungeon_shop_enter")]
-	button.pressed.connect(_on_shop_pressed)
-	shop_list.add_child(button)
-	var caption: Label = Label.new()
-	caption.name = "ShopCaption"
-	caption.theme_type_variation = &"CaptionLabel"
-	caption.text = tr("ui_dungeon_shop_here")
-	shop_list.add_child(caption)
+	# ⚠⚠ 2026-09-21（決定48-b）：⚠ 「ショップへ」の行は**出さない**。
+	#   ⚠ 入口は「わかれ道の画面」に移った。⚠ ここにも出すと入口が二重になる。
+	#   ⚠ 行そのもの（`ShopList`）は器として残してある（⚠ `.tscn` を触らないため）。
 
 
-func _on_shop_pressed() -> void:
-	SceneManager.change_scene(SHOP_PATH)
-
-
-# ⚠⚠ ボスを倒したら、⚠ 次の階へ行く前にショップを1回だけ自動で見せる
-#   （2026-09-20・人間の指示「⚠ 地味すぎてわからないので　⚠ 次のフロアに行く前にショップを見せる」）。
+# ⚠⚠ ボスを倒したら「わかれ道の画面」へ送る（2026-09-21・決定48）。
+#   ⚠ 人間の指示「⚠ そもそも上がるか上がらないかの選択肢を、⚠ 別画面で出して、
+#   ⚠ それからショップに遷移するか拠点に戻るように」。
+# ⚠⚠ 09-20 の「⚠ 自動でショップを見せる」を覆した。⚠ ショップは「さらに潜る」の先。
 #
 # ⚠ それまでは「マップの上の 280 x 38 の行」だけだったので、⚠ 実機で見落とされた。
 # ⚠⚠ 「もう見せたか」は GameManager が覚える（`has_seen_dungeon_shop()`）。
@@ -525,10 +513,8 @@ func _auto_enter_shop_after_boss() -> void:
 		return
 	if GameManager.has_seen_dungeon_shop():
 		return
-	if GameManager.get_dungeon_shop_entries().is_empty():
-		return
 	GameManager.mark_dungeon_shop_seen()
-	SceneManager.change_scene(SHOP_PATH)
+	SceneManager.change_scene(FLOOR_CLEAR_PATH)
 
 
 # 通路の宝箱の案内（段階19-c-2）。⚠ 開けずに戻ってきたときだけ出る。
@@ -558,8 +544,11 @@ func _update_footer() -> void:
 	var can_retreat: bool = GameManager.can_retreat_from_dungeon()
 	# ⚠ 最後の階を突破したら「続行」は出さない（段階20-a・決定26）。
 	#   ⚠ 撤退は出す。⚠ 判定は GameManager の2本に聞く（⚠ 階の数をここで数えない）。
-	descend_button.visible = GameManager.can_descend_dungeon_floor()
-	retreat_button.visible = can_retreat
+	# ⚠⚠ 2026-09-21（決定48）：⚠ 続行・撤退を**選ぶのは「わかれ道の画面」**。
+	#   ⚠ ここに出すと入口が二重になる。⚠ 口（`descend_dungeon_floor()` / `retreat_from_dungeon()`）は
+	#   ⚠ そのまま。⚠ 押す場所が変わっただけ。
+	descend_button.visible = false
+	retreat_button.visible = false
 	# ⚠ 「その場で降りる」は常に出す。⚠ 消すと詰んだ人が閉じ込められる（§4-2）。
 	abandon_button.visible = true
 
