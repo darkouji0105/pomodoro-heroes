@@ -7,7 +7,21 @@ extends CanvasLayer
 
 signal closed(result: bool)
 
-const DIMMER_COLOR: Color = Color(0, 0, 0, 0.6)
+# ⚠⚠ 見た目の値は Theme が持つ（`UI-1`）。⚠ ここに数字を書かない。
+#   ⚠ 引くのは `Window` 型（⚠ 結果窓と共通）。
+
+# ⚠ 窓の幅の3段階（決定 `MD-3`）。⚠ 呼ぶ側は `Modal.WIDTH_*` を渡す。
+const WIDTH_SMALL: String = "small"
+const WIDTH_MEDIUM: String = "medium"
+const WIDTH_LARGE: String = "large"
+
+# ⚠ 暗幕の濃さ3通り（決定 `MD-6`）。⚠⚠ `DIM_NONE` でも後ろは押せない（⚠ `Blocker` が受け止める）。
+const DIM_NONE: String = "none"
+const DIM_NORMAL: String = "normal"
+const DIM_HEAVY: String = "heavy"
+
+# ⚠ 本文が何行を超えたら左ぞろえにするか（決定 `MD-9`）。⚠ 1行なら中央のまま。
+const MESSAGE_LEFT_ALIGN_LINES: int = 2
 
 @onready var blocker: Control = $Blocker
 @onready var dimmer: ColorRect = $Blocker/Dimmer
@@ -20,7 +34,10 @@ const DIMMER_COLOR: Color = Color(0, 0, 0, 0.6)
 @onready var title_label: Label = $Blocker/Panel/Window/TitleBar/TitleLabel
 # 中身の置き場（⚠ 宝箱の開封結果のマス目など）。⚠ 渡さなければ出ない。
 @onready var content_box: VBoxContainer = $Blocker/Panel/Window/Margin/VBox/ContentBox
-@onready var message_label: Label = $Blocker/Panel/Window/Margin/VBox/MessageLabel
+# ⚠ 本文の中だけスクロールする（決定 `MD-9`）。⚠ 帯とボタンの行は動かない。
+@onready var message_scroll: ScrollContainer = $Blocker/Panel/Window/Margin/VBox/MessageScroll
+@onready var message_label: Label = $Blocker/Panel/Window/Margin/VBox/MessageScroll/MessageLabel
+@onready var panel: PanelContainer = $Blocker/Panel
 @onready var confirm_button: Button = $Blocker/Panel/Window/Margin/VBox/Buttons/ConfirmButton
 @onready var close_button: Button = $Blocker/Panel/Window/Margin/VBox/Buttons/CloseButton
 
@@ -40,7 +57,13 @@ func _ready() -> void:
 	blocker.mouse_filter = Control.MOUSE_FILTER_STOP
 	# 暗幕は入力を拾わない。拾わせると閉じる経路を作りたくなる。
 	dimmer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dimmer.color = DIMMER_COLOR
+	_apply_dim(DIM_NORMAL)
+
+	# ⚠ 本文がこれより高くなったら中だけスクロールする（決定 `MD-9`）。
+	message_scroll.custom_minimum_size.y = 0
+	# ⚠⚠ 無名関数でつながないこと（2026-09-21）。⚠ `self` を値として捕まえるので、
+	#   ⚠ 畳まれるときに子から通知が飛ぶと `Lambda capture ... was freed` が出る。
+	message_label.resized.connect(_on_message_resized)
 
 	confirm_button.pressed.connect(_on_confirm_pressed)
 	close_button.pressed.connect(_on_close_pressed)
@@ -66,15 +89,73 @@ func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary =
 		content_box.add_child(content as Control)
 		content_box.visible = true
 
+	# ⚠ 窓の幅は3段階の固定（決定 `MD-3`）。⚠ 渡されなければ小。
+	_apply_width(str(options.get(Modal.OPTION_WIDTH, WIDTH_SMALL)))
+	# ⚠ 暗幕の濃さ（決定 `MD-6`）。⚠ 渡されなければ今までどおり 60%。
+	_apply_dim(str(options.get(Modal.OPTION_DIM, DIM_NORMAL)))
+
 	confirm_button.visible = is_confirm
 	if is_confirm:
 		confirm_button.label_key = "ui_common_yes"
 		close_button.label_key = "ui_common_no"
+		# ⚠⚠ 取り返しのつかない確認は実行を赤に（決定 `MD-5`）。
+		#   ⚠ 文言も呼ぶ側が差し替えられる（⚠ 「はい」より「消す」のほうが結果が読める）。
+		if bool(options.get(Modal.OPTION_DANGER, false)):
+			confirm_button.variant = UiButton.Variant.DANGER
+		var yes_key: String = str(options.get(Modal.OPTION_CONFIRM_LABEL, ""))
+		if yes_key != "":
+			confirm_button.label_key = yes_key
 	else:
 		# ⚠ 閉じるボタンの文言を差し替えられる（⚠ 宝箱は「受け取る」）。
 		close_button.label_key = str(options.get(Modal.OPTION_CLOSE_LABEL, "ui_common_close"))
 	if pause:
 		_apply_pause()
+
+
+# --- 器のつまみ（2026-09-21・決定 MD-3 / MD-6 / MD-9）---------------
+
+# ⚠ 窓の幅（決定 `MD-3`）。⚠ 知らない字が来たら小に落とす（⚠ 黙って伸びる形に戻さない）。
+func _apply_width(size_name: String) -> void:
+	var key: StringName = &"width_small"
+	if size_name == WIDTH_MEDIUM:
+		key = &"width_medium"
+	elif size_name == WIDTH_LARGE:
+		key = &"width_large"
+	elif size_name != WIDTH_SMALL:
+		push_warning("[ModalDialog] 知らない窓の幅: %s（小に落とす）" % size_name)
+	var width: float = float(panel.get_theme_constant(key, &"Window"))
+	panel.custom_minimum_size.x = width
+
+
+# ⚠ 暗幕の濃さ（決定 `MD-6`）。⚠⚠ `none` でも後ろは押せない（⚠ 受け止めるのは `Blocker`）。
+func _apply_dim(dim_name: String) -> void:
+	var key: StringName = &"dim_normal_pct"
+	if dim_name == DIM_NONE:
+		key = &"dim_none_pct"
+	elif dim_name == DIM_HEAVY:
+		key = &"dim_heavy_pct"
+	elif dim_name != DIM_NORMAL:
+		push_warning("[ModalDialog] 知らない暗幕の濃さ: %s（60%% に落とす）" % dim_name)
+	var pct: float = float(dimmer.get_theme_constant(key, &"Window"))
+	dimmer.color = Color(0, 0, 0, pct / 100.0)
+
+
+# ⚠ 窓が続けて出るときの間（決定 `MD-8`）。⚠ `Modal` がこれを引く。
+#   ⚠ 窓が自分で答えるので、⚠ 画面のルートが `Control` かどうかに左右されない。
+func queue_gap_ms() -> int:
+	return panel.get_theme_constant(&"queue_gap_ms", &"Window")
+
+
+# ⚠ 本文が2行以上になったら左ぞろえ、⚠ 高くなりすぎたら中だけスクロール（決定 `MD-9`）。
+#   ⚠ 揃え方を変えても大きさは変わらないので、⚠ ここが呼び返されて無限に回ることはない。
+func _on_message_resized() -> void:
+	var lines: int = message_label.get_line_count()
+	if lines >= MESSAGE_LEFT_ALIGN_LINES:
+		message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	else:
+		message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var limit: float = float(message_scroll.get_theme_constant(&"message_max_height", &"Window"))
+	message_scroll.custom_minimum_size.y = minf(message_label.get_combined_minimum_size().y, limit)
 
 
 func _on_confirm_pressed() -> void:

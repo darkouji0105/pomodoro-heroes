@@ -6512,6 +6512,89 @@ func _report_modal_window() -> void:
 		push_error("[DebugBoot] E140 ウィンドウ形式の見出しか中身が入っていない")
 	dialog.free()
 
+	_report_modal_knobs(scene)
+
+
+# ⚠⚠ 窓のつまみ（2026-09-21・決定 `MD-1`〜`MD-9`）。
+#
+# ⚠ 見るのは「⚠ 渡した指定が値になって出てくるか」だけ。⚠ 見え方は人間と絵が見る。
+# ⚠ 幅は Theme が持つので、⚠ ここに 400 / 560 / 720 と書かない（⚠ 引き直して比べる）。
+func _report_modal_knobs(scene: PackedScene) -> void:
+	print("[DebugBoot] --- 窓のつまみ（MD-1〜MD-9）---")
+
+	# --- 幅の3段階（MD-3）---
+	var want: Dictionary = {
+		ModalDialog.WIDTH_SMALL: &"width_small",
+		ModalDialog.WIDTH_MEDIUM: &"width_medium",
+		ModalDialog.WIDTH_LARGE: &"width_large",
+	}
+	for size_name: String in want.keys():
+		var d: ModalDialog = scene.instantiate()
+		add_child(d)
+		d.setup("あ", false, false, {Modal.OPTION_WIDTH: size_name})
+		var got: float = d.panel.custom_minimum_size.x
+		var expected: float = float(d.panel.get_theme_constant(want[size_name], &"Window"))
+		print("  幅 %-6s = %.0f（Theme %.0f）" % [size_name, got, expected])
+		if not is_equal_approx(got, expected):
+			push_error("[DebugBoot] E141 窓の幅が Theme と合わない: " + size_name)
+		d.free()
+
+	# --- 暗幕の3通り（MD-6）---
+	var dims: Dictionary = {
+		ModalDialog.DIM_NONE: &"dim_none_pct",
+		ModalDialog.DIM_NORMAL: &"dim_normal_pct",
+		ModalDialog.DIM_HEAVY: &"dim_heavy_pct",
+	}
+	for dim_name: String in dims.keys():
+		var d2: ModalDialog = scene.instantiate()
+		add_child(d2)
+		d2.setup("あ", false, false, {Modal.OPTION_DIM: dim_name})
+		var alpha: float = d2.dimmer.color.a
+		var want_pct: float = float(d2.dimmer.get_theme_constant(dims[dim_name], &"Window"))
+		# ⚠⚠ 暗幕が無くても後ろは押せない（⚠ 受け止めるのは Blocker）。⚠ ここが崩れたら赤。
+		var blocks: bool = d2.blocker.mouse_filter == Control.MOUSE_FILTER_STOP
+		print("  暗幕 %-6s = %.0f%%（Theme %.0f%%） ／ 後ろを止めるか=%s" % [
+			dim_name, alpha * 100.0, want_pct, str(blocks)
+		])
+		if not is_equal_approx(alpha * 100.0, want_pct) or not blocks:
+			push_error("[DebugBoot] E142 暗幕の濃さか、後ろを止める作りが合わない: " + dim_name)
+		d2.free()
+
+	# --- はいが左・実行を赤（MD-4 / MD-5）---
+	var d3: ModalDialog = scene.instantiate()
+	add_child(d3)
+	d3.setup("消しますか？", true, false, {
+		Modal.OPTION_DANGER: true,
+		Modal.OPTION_CONFIRM_LABEL: "ui_warehouse_discard",
+	})
+	var row: Node = d3.confirm_button.get_parent()
+	var yes_first: bool = row.get_child(0) == d3.confirm_button
+	print("  はいが左か=%s ／ 実行の階層=%d（%d が赤） ／ 文言='%s'" % [
+		str(yes_first), d3.confirm_button.variant, UiButton.Variant.DANGER, d3.confirm_button.text
+	])
+	if not yes_first or d3.confirm_button.variant != UiButton.Variant.DANGER:
+		push_error("[DebugBoot] E143 はいが左でないか、実行が赤になっていない")
+	d3.free()
+
+	# --- 帯は任意（MD-1）---
+	var d4: ModalDialog = scene.instantiate()
+	add_child(d4)
+	d4.setup("題のない窓", false, false, {})
+	print("  題を渡さないとき 帯が出るか=%s（false が正解＝MD-1）" % str(d4.title_bar.visible))
+	if d4.title_bar.visible:
+		push_error("[DebugBoot] E144 題を渡していないのに帯が出ている")
+	d4.free()
+
+	# --- 続けて出るときの間（MD-8）---
+	# ⚠ 窓自身に聞く（⚠ 画面のルートが Control でないと引けない書き方をしない）。
+	var d5: ModalDialog = scene.instantiate()
+	add_child(d5)
+	var gap: int = d5.queue_gap_ms()
+	print("  窓が続くときの間 = %d ms（⚠ 0 だと中身だけ替わって見える）" % gap)
+	if gap <= 0:
+		push_error("[DebugBoot] E145 窓が続くときの間が 0（MD-8 が効かない）")
+	d5.free()
+
 
 # ⚠ 全シーンが読めるか（2026-09-07・ボタンの差し替えで 22 枚の ext_resource を書き換えたため）。
 #
@@ -8678,12 +8761,23 @@ func _report_base_chest() -> void:
 	base.queue_free()
 
 
-# いま出ているモーダルを、⚠ 閉じるボタンと同じ口で閉じる。⚠ 閉じたあとの片付けは1フレーム遅れるので2フレーム待つ。
+# いま出ているモーダルを、⚠ 閉じるボタンと同じ口で閉じる。
+#
+# ⚠ 閉じたあとの片付けは1フレーム遅れるので2フレーム待つ。
+# ⚠⚠ さらに、⚠ 2026-09-21 から**次の窓が出るまでに間が入る**（決定 `MD-8`・既定 150ms）。
+#   ⚠ 待たずに `Modal._queue` を見ると「まだ残っている」で赤になる（⚠ その日に踏んだ）。
+#   ⚠ 間の長さは Theme から引く（⚠ ここに 150 と書かない）。
 func _close_current_modal() -> void:
+	var gap_ms: int = 0
 	if Modal._current != null and is_instance_valid(Modal._current):
+		gap_ms = Modal._current.queue_gap_ms()
 		Modal._current._on_close_pressed()
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if gap_ms > 0:
+		# ⚠ 間より少し長く待つ（⚠ ちょうどだと取りこぼす）。
+		await get_tree().create_timer(float(gap_ms) / 1000.0 + 0.05).timeout
+		await get_tree().process_frame
 
 
 # --- インベントリの窓（2026-09-15） ---

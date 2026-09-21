@@ -533,6 +533,24 @@ const WINDOW_TITLE_HEIGHT: int = 36
 const WINDOW_TITLE_BG: String = BATTLE_BAR_GROOVE
 const WINDOW_TITLE_RULE: String = RING_FILL
 const WINDOW_TITLE_RULE_WIDTH: int = 2
+
+# ⚠⚠ 窓の幅は3段階の固定（2026-09-21・決定 `MD-3`。⚠ 人間の裁き「3はA」）。
+#   ⚠ 中身に合わせて伸ばすと `scenario=layout` で測る値が毎回変わって検査にならない。
+#   ⚠ 小＝文だけ ／ 中＝マス目つき ／ 大＝行が多いもの。
+const WINDOW_WIDTH_SMALL: int = 400
+const WINDOW_WIDTH_MEDIUM: int = 560
+const WINDOW_WIDTH_LARGE: int = 720
+# ⚠ 本文がこれより高くなったら、⚠ **本文の中だけ**スクロールする（決定 `MD-9`）。
+#   ⚠ 帯とボタンの行は動かない。⚠ 6行ぶん。
+const WINDOW_MESSAGE_MAX_HEIGHT: int = 132
+# ⚠⚠ 暗幕の濃さ3通り（決定 `MD-6`・人間「⚠ ないパターンも作る」）。⚠ 単位は %。
+#   ⚠ **0 でも後ろは押せない**（⚠ 受け止めるのは `Blocker`。⚠ 暗幕は見た目だけ）。
+const WINDOW_DIM_NONE_PCT: int = 0
+const WINDOW_DIM_NORMAL_PCT: int = 60
+const WINDOW_DIM_HEAVY_PCT: int = 72
+# ⚠ 窓が続けて出るとき、⚠ 閉じてから次を出すまでの間（ミリ秒・決定 `MD-8`）。
+#   ⚠ 0 にすると「中身だけ差し替わった」ように見えて、⚠ 次の知らせに気づかない。
+const WINDOW_QUEUE_GAP_MS: int = 150
 # ⚠⚠ 見出しはモックの 22px を**既存の段 24 に丸めた**（⚠ 文字の大きさは6段で増やさない）。
 #   ⚠ 24 は「浮かぶ数字」と同じ段（`GAIN_FLOAT_FONT`）。⚠ 色は琥珀（`AccentLabel` と同値）。
 const RESULT_HEADING_SIZE: int = GAIN_FLOAT_FONT
@@ -1278,6 +1296,16 @@ static func _build_battle_result(theme: Theme) -> void:
 	# ⚠⚠ 窓の縁・題の帯・題の字は**窓の共通のもの**（⚠ 結果窓とモーダルの両方が使う）。
 	#   ⚠ 高さは `Window` 型の定数（⚠ 型を1つにしておくと、⚠ 引く側が結果窓かモーダルかを知らずに済む）。
 	theme.set_constant(&"title_height", &"Window", WINDOW_TITLE_HEIGHT)
+	# ⚠ 窓の共通の値（2026-09-21・決定 `MD-3` / `MD-6` / `MD-8` / `MD-9`）。
+	#   ⚠ 引く側（`ModalDialog` / `Modal`）に数字を書かせない。
+	theme.set_constant(&"width_small", &"Window", WINDOW_WIDTH_SMALL)
+	theme.set_constant(&"width_medium", &"Window", WINDOW_WIDTH_MEDIUM)
+	theme.set_constant(&"width_large", &"Window", WINDOW_WIDTH_LARGE)
+	theme.set_constant(&"message_max_height", &"Window", WINDOW_MESSAGE_MAX_HEIGHT)
+	theme.set_constant(&"dim_none_pct", &"Window", WINDOW_DIM_NONE_PCT)
+	theme.set_constant(&"dim_normal_pct", &"Window", WINDOW_DIM_NORMAL_PCT)
+	theme.set_constant(&"dim_heavy_pct", &"Window", WINDOW_DIM_HEAVY_PCT)
+	theme.set_constant(&"queue_gap_ms", &"Window", WINDOW_QUEUE_GAP_MS)
 
 	var window: StyleBoxFlat = StyleBoxFlat.new()
 	window.bg_color = _html(WINDOW_BG)

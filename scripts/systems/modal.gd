@@ -22,10 +22,27 @@ const MODAL_SCENE: PackedScene = preload("res://scenes/ui/components/modal_dialo
 const OPTION_TITLE: String = "title"          # 窓の見出し（⚠ 翻訳済みの文字列）
 const OPTION_CONTENT: String = "content"      # 窓の中に入れる Control（⚠ 1つだけ）
 const OPTION_CLOSE_LABEL: String = "close_label_key"  # 閉じるボタンの翻訳キー
+# ⚠⚠ 2026-09-21（決定 `MD-3` / `MD-5` / `MD-6`）。⚠ 値は `ModalDialog.WIDTH_*` / `DIM_*`。
+const OPTION_WIDTH: String = "width"                  # 窓の幅（小・中・大）
+const OPTION_DIM: String = "dim"                      # 暗幕の濃さ（なし・60%・72%）
+const OPTION_DANGER: String = "danger"                # ⚠ 実行のボタンを赤に（取り返しのつかない確認）
+const OPTION_CONFIRM_LABEL: String = "confirm_label_key"  # ⚠ 「はい」の文言（⚠ 「消す」「捨てる」など）
+
+# ⚠ 呼ぶ側が綴りを書かないための持ち出し（⚠ `ModalDialog` の定数と同じ字）。
+const WIDTH_SMALL: String = ModalDialog.WIDTH_SMALL
+const WIDTH_MEDIUM: String = ModalDialog.WIDTH_MEDIUM
+const WIDTH_LARGE: String = ModalDialog.WIDTH_LARGE
+const DIM_NONE: String = ModalDialog.DIM_NONE
+const DIM_NORMAL: String = ModalDialog.DIM_NORMAL
+const DIM_HEAVY: String = ModalDialog.DIM_HEAVY
 
 static var _current: ModalDialog = null
 static var _queue: Array = []
 static var _queue_scene: Node = null
+# ⚠⚠ 窓が続けて出るときの間（ミリ秒・決定 `MD-8`）。⚠ 値は Theme（`Window/queue_gap_ms`）。
+#   ⚠ **ツリーに入っている窓からしか引けない**（⚠ 積んであるだけの窓は `@onready` が null）。
+#   ⚠ だから「出したとき」に控えておく（⚠ 2026-09-21 に `base_chest` が赤になって気づいた）。
+static var _queue_gap_ms_cache: int = 0
 
 
 # 通知。閉じるまで残る。
@@ -153,6 +170,8 @@ static func _show(item: Dictionary) -> void:
 		caller_window.add_child(dlg)
 	else:
 		current_scene.add_child(dlg)
+	# ⚠ ツリーに入った今なら Theme を引ける。⚠ 次に閉じるときのために控える（決定 `MD-8`）。
+	_queue_gap_ms_cache = dlg.queue_gap_ms()
 	dlg.closed.connect(_on_current_closed, CONNECT_ONE_SHOT)
 	dlg.setup(
 		message,
@@ -166,9 +185,27 @@ static func _show(item: Dictionary) -> void:
 # 前のノードがまだ親にぶら下がったままで add_child が
 # 「Parent node is busy setting up children」になる。
 # 1フレーム遅らせて、破棄が終わってから次を出す。
+# ⚠⚠ 閉じてから次を出すまでに間を置く（2026-09-21・決定 `MD-8`）。
+#   ⚠ 間が無いと「窓は残ったまま中身だけ替わった」ように見えて、⚠ 次の知らせに気づかない
+#   （⚠ 09-20 の「⚠ 地味すぎてわからない」と同じ失敗）。
+# ⚠ 値は Theme（`Window/queue_gap_ms`）。⚠ ここに数字を書かない。
 static func _on_current_closed(_result: bool) -> void:
+	var gap_ms: int = _queue_gap_ms()
 	_current = null
-	_drain_queue.call_deferred()
+	if _queue.is_empty() or gap_ms <= 0:
+		_drain_queue.call_deferred()
+		return
+	var tree: SceneTree = _queue_scene.get_tree() if is_instance_valid(_queue_scene) else null
+	if tree == null:
+		_drain_queue.call_deferred()
+		return
+	# ⚠ `timeout` は名前付きの関数につなぐ（⚠ 無名関数は捕まえた相手が消えると赤になる）。
+	tree.create_timer(float(gap_ms) / 1000.0).timeout.connect(_drain_queue)
+
+
+# ⚠ 間の長さ。⚠ 出したときに控えた値を返す（⚠ 上の `_queue_gap_ms_cache` の注記）。
+static func _queue_gap_ms() -> int:
+	return _queue_gap_ms_cache
 
 
 static func _drain_queue() -> void:
