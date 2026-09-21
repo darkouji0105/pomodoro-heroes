@@ -88,6 +88,30 @@ func setup(view: Dictionary, grade: int) -> void:
 	_refresh()
 
 
+# ⚠⚠ マスを押した（2026-09-22・回3）。⚠ 出すのは押されたこと**だけ**。
+#   ⚠ 何ができるか（刺す・外す・移動量）は画面が決める＝`SlotActionPopover`。
+#   ⚠ ここで GameManager を触らないこと（⚠ この部品は判定を持たない）。
+# ⚠ 繋がない画面（⚠ ホバーの詳細＝`ItemDetail`）では何も起きない。
+signal pressed(view: Dictionary)
+
+
+# ⚠ 押した合図。⚠ `Panel` はボタンではないので自分で拾う。
+#   ⚠ 未開放のマスはそもそも作られない（`PartSlotRow`）ので、⚠ ここで開閉を見ない。
+func _gui_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var button: InputEventMouseButton = event
+	if button.button_index != MOUSE_BUTTON_LEFT or not button.pressed:
+		return
+	accept_event()
+	pressed.emit(get_part_view())
+
+
+# ⚠ この枠の定義（⚠ 何番目の枠か・刺さる種類・刺さっているもの）。⚠ 写しを返す。
+func get_part_view() -> Dictionary:
+	return _view.duplicate(true)
+
+
 # 刺さっているもの。⚠ 空き・未開放なら空の Dictionary。
 func get_part_entry() -> Dictionary:
 	var entry: Variant = _view.get(GameManager.PART_VIEW_ENTRY, null)

@@ -256,6 +256,8 @@ func _apply_material_filter() -> void:
 # --- 5部位のスロット ---
 
 func _rebuild_slots() -> void:
+	# ⚠ 並べ直すとマスが入れ替わる。⚠ 吹き出しは古いマスの位置に出たままになるので閉じる。
+	SlotActionPopover.close_in(self)
 	_clear(slot_list)
 	_create_equipment_grid()
 	for slot: String in GameManager.get_equip_slots():
@@ -382,20 +384,87 @@ func _create_slot_row(slot: String) -> void:
 #   画面が枠の行で埋まる（GAME_DESIGN.md 6-4）。
 # ⚠ 位置（index）は詰めない。get_part_entries() が返す index をそのまま使う。
 #   詰めると別の枠に刺さる（アクセサリーだけ位置3が開くため）。
+#
+# ⚠⚠ 2026-09-22（回3・人間の決定「マス＋吹き出し」）：⚠ **文字の行をやめてマスにした**。
+#   ⚠ 前は「宝石枠：HPの宝石④ HP +131」＋ボタン、⚠ 枠の数だけ行が増えていた（⚠ 倉庫はマス）。
+#   ⚠ 並べるのは `PartSlotRow`（⚠ ホバーの詳細が使っているものと同じ器）。
+#   ⚠ **押したときにできること**は吹き出し（`SlotActionPopover`）＝⚠ 鞄・商人と同じ手触り。
+# ⚠ 段階解放の絞り込みはここで済ませてから渡す（⚠ `PartSlotRow` は等級しか見ない）。
 func _create_part_rows(slot: String) -> void:
 	var instance_id: String = GameManager.get_equipped_instance_id(_character_id, slot)
 	if instance_id == "":
 		return
+	var views: Array = []
 	for view: Variant in GameManager.get_part_entries(instance_id):
 		if not (view is Dictionary):
 			continue
 		# 段階解放（GAME_DESIGN.md 9-5 の #5 装飾 / #10 ルーン）。
-		# ⚠ その枠に刺さる種類が全部閉じているなら、行ごと出さない（人間の決定・出さない）。
+		# ⚠ その枠に刺さる種類が全部閉じているなら、出さない（人間の決定・出さない）。
 		#   ⚠ 種類ごとの分岐ではなく「種類 → 機能ID」の表を1本通すだけ
 		#     （GameManager.is_part_kind_unlocked()）。
 		if not _is_part_slot_unlocked(view as Dictionary):
 			continue
-		_create_part_row(slot, instance_id, view as Dictionary)
+		views.append(view)
+	if views.is_empty():
+		return
+
+	var grade: int = int(
+		GameManager.get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_GRADE, 1)
+	)
+	var row: PartSlotRow = PartSlotRow.create(views, grade)
+	row.name = "PartSlots_" + slot
+	# ⚠ 無名関数で繋がない（⚠ `instance_id` を値で捕まえるため。⚠ CLAUDE.md の罠1）。
+	#   ⚠ 名前付き＋`bind()` なら、⚠ マスが消えたときに Godot が切る。
+	for child: Node in row.get_children():
+		if child is PartSlotIcon:
+			(child as PartSlotIcon).pressed.connect(_on_part_slot_pressed.bind(instance_id))
+	slot_list.add_child(row)
+
+
+# 枠のマスを押した（2026-09-22）。⚠ できることを吹き出しに並べる。
+#
+# ⚠ 判定は GameManager の口に聞く（⚠ 刺せるか・外せるか・移動量の候補）。⚠ ここで計算しない。
+# ⚠⚠ 「外す」は赤（⚠ 外すと壊れる＝取り返しがつかない・GAME_DESIGN.md 7-6）。
+#   ⚠ 確認のモーダルは今までどおりハンドラ側が出す（⚠ ここでは出さない＝口を2本にしない）。
+func _on_part_slot_pressed(view: Dictionary, instance_id: String) -> void:
+	var slot_index: int = int(view.get(GameManager.PART_VIEW_INDEX, 0))
+	var entry: Variant = view.get(GameManager.PART_VIEW_ENTRY, null)
+	var icon: Control = _find_part_slot_icon(instance_id, slot_index)
+	if icon == null:
+		SlotActionPopover.close_in(self)
+		return
+	var pop: SlotActionPopover = SlotActionPopover.open(
+		self,
+		icon.get_global_rect(),
+		tr(_part_slot_label_key(view)),
+		_part_text(entry) if entry is Dictionary else tr("ui_part_slot_empty")
+	)
+	if entry is Dictionary:
+		var detach: UiButton = pop.add_action(
+			tr("ui_part_detach"), UiButton.Variant.DANGER,
+			_on_detach_part_pressed.bind(instance_id, slot_index)
+		)
+		detach.name = "DetachButton"
+		_add_rune_move_actions(pop, entry)
+		return
+	var attach: UiButton = pop.add_action(
+		tr("ui_part_attach"), UiButton.Variant.PRIMARY,
+		_on_select_part_slot_pressed.bind(instance_id, slot_index),
+		_selected_part_target == instance_id and _selected_part_slot == slot_index
+	)
+	attach.name = "AttachButton"
+
+
+# 押したマスそのもの（⚠ 吹き出しを出す位置に要る）。⚠ 名前で引く（⚠ `PartSlotRow` が付けた名前）。
+func _find_part_slot_icon(instance_id: String, slot_index: int) -> Control:
+	for slot: String in GameManager.get_equip_slots():
+		if GameManager.get_equipped_instance_id(_character_id, slot) != instance_id:
+			continue
+		var row: Node = slot_list.get_node_or_null("PartSlots_" + slot)
+		if row == null:
+			return null
+		return row.get_node_or_null("PartSlot_%d" % slot_index) as Control
+	return null
 
 # その枠に刺さる種類のうち、1つでも解放されていれば出す。
 func _is_part_slot_unlocked(view: Dictionary) -> bool:
@@ -407,80 +476,32 @@ func _is_part_slot_unlocked(view: Dictionary) -> bool:
 			return true
 	return false
 
-func _create_part_row(slot: String, instance_id: String, view: Dictionary) -> void:
-	var slot_index: int = int(view.get(GameManager.PART_VIEW_INDEX, 0))
-	var entry: Variant = view.get(GameManager.PART_VIEW_ENTRY, null)
-
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "PartRow_%s_%d" % [slot, slot_index]
-
-	var selected: bool = _selected_part_target == instance_id and _selected_part_slot == slot_index
-
-	var label: Label = Label.new()
-	label.name = "NameLabel"
-	var mark: String = "  > " if selected else "    "
-	var body: String = _part_text(entry) if entry is Dictionary else tr("ui_part_slot_empty")
-	# 枠の名前は種類で出す（宝石枠 / 護符枠 / 紋章枠 / ルーン枠 / ワイルド枠）。
-	# 「枠1」「枠2」だと、どの装飾が刺さるのか画面から分からない。
-	label.text = "%s%s：%s" % [mark, tr(_part_slot_label_key(view)), body]
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(label)
-
-	if entry is Dictionary:
-		# ⚠ 外すと壊れる（GAME_DESIGN.md 7-6）。確認モーダルはハンドラ側。
-		var detach_button: UiButton = UiButton.create()
-		detach_button.name = "DetachButton"
-		detach_button.text = tr("ui_part_detach")
-		detach_button.pressed.connect(_on_detach_part_pressed.bind(instance_id, slot_index))
-		row.add_child(detach_button)
-	else:
-		var attach_button: UiButton = UiButton.create()
-		attach_button.name = "AttachButton"
-		attach_button.text = tr("ui_part_attach")
-		attach_button.disabled = selected
-		attach_button.pressed.connect(_on_select_part_slot_pressed.bind(instance_id, slot_index))
-		row.add_child(attach_button)
-
-	# 移動系ルーンの移動量（段階8・人間の決定・2026-08-24）。
-	# ⚠ 刺す・外すと同じ行に置く。導線を2箇所にしない。
-	# ⚠ 移動系でなければ何も出ない（get_rune_move_choices() が空を返す）。
-	#   ⚠ part_kind で分岐しないこと。
-	_add_rune_move_option(row, entry)
-
-	slot_list.add_child(row)
-
-# 移動量の OptionButton を1つ。移動系ルーンが刺さっていなければ何も足さない。
+# 移動系ルーンの移動量（段階8・人間の決定・2026-08-24）。
 #
 # ⚠ 選べる値も、いま選んである値も GameManager から引く。画面で計算しない。
 # ⚠ 符号を必ず出す（+120 / -60）。出さないと前進か後退か読めない。
-func _add_rune_move_option(row: HBoxContainer, entry: Variant) -> void:
+# ⚠ 移動系でなければ何も足さない（`get_rune_move_choices()` が空を返す）。⚠ part_kind で分岐しない。
+# ⚠⚠ 2026-09-22：⚠ `OptionButton` をやめ、⚠ **吹き出しのボタン**にした（⚠ 刺す・外すと同じ場所）。
+#   ⚠ いま選んである値は押せなくして出す（⚠ 「どれが効いているか」が読める）。
+func _add_rune_move_actions(pop: SlotActionPopover, entry: Variant) -> void:
 	if not (entry is Dictionary):
 		return
 	var item_id: String = str((entry as Dictionary).get(GameStateKeys.PART_ITEM_ID, ""))
 	var choices: Array[int] = GameManager.get_rune_move_choices(item_id)
 	if choices.is_empty():
 		return
-
-	var caption: Label = Label.new()
-	caption.name = "RuneMoveLabel"
-	caption.text = tr("ui_part_rune_move")
-	row.add_child(caption)
-
-	var option: OptionButton = OptionButton.new()
-	option.name = "RuneMoveOption"
 	var current: int = GameManager.get_rune_move(_character_id, item_id)
-	for i: int in range(choices.size()):
-		option.add_item(tr("ui_part_rune_move_format") % choices[i], i)
-		if choices[i] == current:
-			option.select(i)
-	option.item_selected.connect(_on_rune_move_selected.bind(item_id, choices))
-	row.add_child(option)
+	for value: int in choices:
+		var button: UiButton = pop.add_action(
+			tr("ui_part_rune_move_format") % value, UiButton.Variant.GHOST,
+			_on_rune_move_chosen.bind(item_id, value), value == current
+		)
+		button.name = "RuneMove_%d" % value
+	pop.set_note(tr("ui_part_rune_move"))
 
 # ⚠ 判定は set_rune_move() が持つ。ここで choices を検算しない（2本目にしない）。
-func _on_rune_move_selected(item_index: int, item_id: String, choices: Array) -> void:
-	if item_index < 0 or item_index >= choices.size():
-		return
-	GameManager.set_rune_move(_character_id, item_id, int(choices[item_index]))
+func _on_rune_move_chosen(item_id: String, value: int) -> void:
+	GameManager.set_rune_move(_character_id, item_id, value)
 
 # 枠の名前の翻訳キー。刺さる種類が1つならその種類、複数ならワイルド枠。
 # ⚠ 種類ごとに if を分岐させない。種類が増えてもここは変わらない。

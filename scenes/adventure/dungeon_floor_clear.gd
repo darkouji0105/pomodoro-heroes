@@ -73,6 +73,9 @@ func _rebuild_loot() -> void:
 	if item_ids.is_empty():
 		var empty: Label = Label.new()
 		empty.name = "EmptyLabel"
+		# ⚠ この画面は見出しも説明もボタンも中央。⚠ 既定の左寄せだと**ここだけ左端に落ちる**
+		#   （⚠ 2026-09-22 に絵で見つけた。⚠ 空のときにしか出ないので実機で見落とされていた）。
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty.theme_type_variation = &"MutedLabel"
 		empty.text = tr("ui_dungeon_clear_loot_none")
 		loot_box.add_child(empty)

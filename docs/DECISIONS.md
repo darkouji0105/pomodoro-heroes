@@ -98,6 +98,7 @@
 | **BS-11** | ⚠⚠ **装備の個体は `add_to_inventory()` だけが作る** | — | `game_manager.gd` `_create_equipment_instance()`（⚠ 呼び元1箇所） | — | — |
 | **BS-12** | **Linux（Wayland）は対象にしない** | — | — | 09-15 | — |
 | **BS-13** | **設定を作るときはゲームのセーブと別のファイルにする** | ⚠ 設定画面はまだ無い | `user://settings.cfg`（⚠ 予定） | 09-15 | — |
+| **BS-14** | ⚠⚠ **装飾の枠はマス。⚠ 押すと吹き出しで「刺す・外す・移動量」を選ぶ** | ⚠ 幅 236（吹き出し） | `PartSlotRow` ／ `SlotActionPopover` ／ `equipment_screen.gd` | 09-22 | ~~文字の行＋右のボタン＋`OptionButton`~~ |
 
 ## 5. 育成（`GR-n`）
 

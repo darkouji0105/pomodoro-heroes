@@ -19,6 +19,10 @@ extends Node
 
 const SCENE_BATTLE: String = "res://scenes/adventure/battle.tscn"
 const SCENE_BASE: String = "res://scenes/base/base_screen.tscn"
+# ⚠ 装備画面の装飾の枠を出すための下ごしらえ（2026-09-22・`_layout_fill_equipment_parts()`）。
+#   ⚠ 品は `items.json` に在るものを使う。⚠ ここで性能を書かない。
+const LAYOUT_PART_WEAPON_ID: String = "weapon_iron_sword"
+const LAYOUT_PART_ITEM_ID: String = "part_gem_atk_1"
 
 # シナリオの種類。
 # ⚠ screen は窓あり専用。ヘッドレスでは描画がダミーなので何も分からない。
@@ -72,11 +76,14 @@ const SHOT_PREPARE_FLOOR: String = "floor"
 # ⚠ 歩いてボスへ行くのは使えない。⚠ 歩く口はマスを踏むだけで戦闘は画面が起こすので、
 #   ⚠ 戦わずにボスを使い切る（CLAUDE.md の罠・2026-09-21）。⚠ だから `phase` を直に書く口を使う。
 const SHOT_PREPARE_DUNGEON_BOSS: String = "dungeon_boss"
+# ⚠ 装飾の枠を出すための下ごしらえ（2026-09-22・回3）。⚠ 着けて・鍛えて・刺すところまで。
+const SHOT_PREPARE_EQUIPMENT: String = "equipment"
 # ⚠ 画面を開いたあとに窓を出す手（⚠ 増やすなら ShotTaker._after() に1行）。
 const SHOT_AFTER_NONE: String = ""
 const SHOT_AFTER_LOOT_OVERLAY: String = "loot_overlay"
 const SHOT_AFTER_BATTLE_RESULT: String = "battle_result"
 const SHOT_AFTER_MODAL_CONFIRM: String = "modal_confirm"
+const SHOT_AFTER_PART_POPOVER: String = "part_popover"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -1046,6 +1053,16 @@ const SCENARIOS: Dictionary = {
 				"name": "17_modal_confirm",
 				"scene": SCENE_BASE,
 				"after": SHOT_AFTER_MODAL_CONFIRM,
+			},
+			# ⚠⚠ 装飾の枠（2026-09-22・回3・人間の決定「マス＋吹き出し」）。
+			#   ⚠ 08 は**何も着けていない姿**なので枠が1つも出ない。⚠ こちらは着けて鍛えて刺した姿。
+			#   ⚠ 吹き出しも出したまま撮る（⚠ 手触りが変わった当人なので、⚠ 絵で見えないと意味が無い）。
+			{
+				"name": "18_equipment_parts",
+				"scene": "res://scenes/guild/equipment_screen.tscn",
+				"prepare": SHOT_PREPARE_EQUIPMENT,
+				"data": {TransferKeys.CHARACTER_ID: "char_swordsman"},
+				"after": SHOT_AFTER_PART_POPOVER,
 			},
 		],
 	},
@@ -4357,6 +4374,17 @@ func _report_layout() -> void:
 				print("    ⚠ 割り振りの軸 = %d 行（0 行なら組めていない）" % branch_count)
 				if branch_count <= 0:
 					push_error("[DebugBoot] ステータスノードの軸が 0 行")
+			# ⚠⚠ 装備画面の装飾の枠（2026-09-22・回3）。⚠ 「マス＋吹き出し」に変えた側。
+			#   ⚠ 下ごしらえ（`_layout_fill_equipment_parts()`）で1つ刺してあるので、
+			#   ⚠ **0 行なら枠が出ていない**（⚠ 前の「文字の行」に戻ったのと同じ）。
+			if scene_path.get_file() == "equipment_screen.tscn" and raw_child is PartSlotRow:
+				var part_row: PartSlotRow = raw_child
+				print("    ⚠ 装飾の枠 %s = %d/%d ／ %s" % [
+					part_row.name, part_row.get_filled_count(), part_row.get_open_count(),
+					part_row.to_text(),
+				])
+				if part_row.get_open_count() <= 0:
+					push_error("[DebugBoot] %s に開いている枠が無い" % part_row.name)
 			# ⚠ 右の「振ったあとのステータス」（2026-09-12）。⚠ 10軸ぜんぶ出ているか。
 			if scene_path.get_file() == "stat_node_screen.tscn" and raw_child.name == "StatList":
 				var stat_rows: Array[String] = []
@@ -4658,6 +4686,12 @@ func _layout_prepare_for(scene_path: String) -> void:
 	if scene_path == "res://scenes/guild/stat_node_screen.tscn":
 		_layout_fill_stat_nodes(str(GameManager.get_party_members()[0]))
 		return
+	# ⚠⚠ 装備画面の**装飾の枠**（2026-09-22・回3）。⚠ 何も着けていない姿だと枠が1つも出ず、
+	#   ⚠ 「マス＋吹き出し」に変えた側が**一度も通らない**（⚠ 前は文字の行だった）。
+	#   ⚠ 枠は等級3から開く（GAME_DESIGN.md 6-4）ので、⚠ 着けて・鍛えて・刺すところまで作る。
+	if scene_path == "res://scenes/guild/equipment_screen.tscn":
+		_layout_fill_equipment_parts(str(GameManager.get_party_members()[0]))
+		return
 	if scene_path not in [
 		"res://scenes/adventure/run_loot_window.tscn",
 		"res://scenes/adventure/run_relic_select.tscn",
@@ -4671,6 +4705,41 @@ func _layout_prepare_for(scene_path: String) -> void:
 # ⚠ 割り振りに段を入れておく（2026-09-12）。⚠ ポイントは **レベル-1** なので、
 #   ⚠ 先にレベルを上げる。⚠ 上げるには素材が要るので配る（⚠ 測るだけ・保存はしない）。
 # ⚠ 押す順は段の小さい順。⚠ 前提が1本道なので、⚠ 「押せたら次」を繰り返せば埋まる。
+# 装飾を刺した装備を1つ作って着せる（2026-09-22・回3）。
+#
+# ⚠ 個体を作るのは `add_to_inventory()` の1本（CLAUDE.md 8番）。⚠ 直に inventory を書かない。
+# ⚠ 装飾の枠は**段階解放**でも閉じる（`is_part_kind_unlocked()`）ので、⚠ 画面も開けておく。
+# ⚠ 判定は全部 GameManager の口に聞く。⚠ 失敗したら黄で言う（⚠ 黙って枠が出ないのが一番困る）。
+func _layout_fill_equipment_parts(character_id: String) -> void:
+	GameManager.unlock_screen(GameStateKeys.SCREEN_DECORATION)
+	var instance_id: String = _find_instance_of(LAYOUT_PART_WEAPON_ID)
+	if instance_id == "":
+		GameManager.add_to_inventory(LAYOUT_PART_WEAPON_ID, 1)
+		instance_id = _find_instance_of(LAYOUT_PART_WEAPON_ID)
+	if instance_id == "":
+		push_warning("[DebugBoot] ⚠ %s の個体が作れなかった" % LAYOUT_PART_WEAPON_ID)
+		return
+	for material_id: Variant in MasterDataLoader.get_all_items():
+		GameManager.add_material(str(material_id), 99999)
+	# ⚠ 枠が開くまで鍛える（⚠ 等級3から・GAME_DESIGN.md 6-4）。
+	for _i: int in range(3):
+		var _forged: bool = GameManager.forge_equipment(instance_id)
+	var _equipped: bool = GameManager.equip_instance(
+		character_id, GameStateKeys.EQUIP_WEAPON, instance_id
+	)
+	var part_slots: Array = GameManager.get_part_entries(instance_id)
+	if part_slots.is_empty():
+		push_warning("[DebugBoot] ⚠ 枠が1つも開かなかった（⚠ 鍛えられていない）")
+		return
+	# ⚠ 1つだけ刺す（⚠ 「空き」と「刺さっている」を両方測りたい）。
+	if not GameManager.attach_part(
+		instance_id,
+		int((part_slots[0] as Dictionary).get(GameManager.PART_VIEW_INDEX, 0)),
+		LAYOUT_PART_ITEM_ID
+	):
+		push_warning("[DebugBoot] ⚠ %s を刺せなかった" % LAYOUT_PART_ITEM_ID)
+
+
 func _layout_fill_stat_nodes(character_id: String) -> void:
 	if not GameManager.get_stat_nodes(character_id).is_empty():
 		return
@@ -8550,6 +8619,12 @@ class ShotTaker extends Node:
 	const PREPARE_DUNGEON: String = "dungeon"
 	const PREPARE_FLOOR: String = "floor"
 	const PREPARE_DUNGEON_BOSS: String = "dungeon_boss"
+	const PREPARE_EQUIPMENT: String = "equipment"
+	const AFTER_PART_POPOVER: String = "part_popover"
+	# ⚠ 下ごしらえで使う品（⚠ 外側の `LAYOUT_PART_*` と同じ字。⚠ 内側から外の const は引けない）。
+	const PART_WEAPON_ID: String = "weapon_iron_sword"
+	const PART_ITEM_ID: String = "part_gem_atk_1"
+	const PART_CHARACTER_ID: String = "char_swordsman"
 	const AFTER_LOOT_OVERLAY: String = "loot_overlay"
 	const AFTER_BATTLE_RESULT: String = "battle_result"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
@@ -8678,6 +8753,44 @@ class ShotTaker extends Node:
 			#   ⚠ わかれ道へ送らなくなる（⚠ 12枚目のマップの絵がその後の枚に化ける）。
 			GameManager.clear_dungeon_shop_seen()
 			return GameManager.can_retreat_from_dungeon()
+		# ⚠⚠ 装飾の枠を出す（2026-09-22・回3）。⚠ 枠は等級3から開く（GAME_DESIGN.md 6-4）。
+		#   ⚠ 外側の `_layout_fill_equipment_parts()` と同じ手順。⚠ 外側は画面を差し替えた時点で
+		#   ⚠ 消えているので参照を持てない（⚠ マスを探す口と同じ理由でもう1つ持つ）。
+		#   ⚠ 個体を作るのは `add_to_inventory()` の1本（CLAUDE.md 8番）。
+		if kind == PREPARE_EQUIPMENT:
+			GameManager.unlock_screen(GameStateKeys.SCREEN_DECORATION)
+			var equip_id: String = _find_instance_of(PART_WEAPON_ID)
+			if equip_id == "":
+				GameManager.add_to_inventory(PART_WEAPON_ID, 1)
+				equip_id = _find_instance_of(PART_WEAPON_ID)
+			if equip_id == "":
+				push_error("[DebugBoot] ⚠ %s の個体が作れなかった" % PART_WEAPON_ID)
+				return false
+			for material_id: Variant in MasterDataLoader.get_all_items():
+				GameManager.add_material(str(material_id), 99999)
+			for _i: int in range(3):
+				var _forged: bool = GameManager.forge_equipment(equip_id)
+			# ⚠ 刺す品そのものは**倉庫に無いと弾かれる**（⚠ `ui_part_reject_stock`）。
+			#   ⚠ 鍛えるのに素材を食うので、⚠ 鍛えたあとに入れる（⚠ 先に入れても消える）。
+			GameManager.add_to_inventory(PART_ITEM_ID, 1)
+			if not GameManager.equip_instance(
+				PART_CHARACTER_ID, GameStateKeys.EQUIP_WEAPON, equip_id
+			):
+				push_error("[DebugBoot] ⚠ 着けられなかった")
+				return false
+			var slots: Array = GameManager.get_part_entries(equip_id)
+			if slots.is_empty():
+				push_error("[DebugBoot] ⚠ 枠が1つも開かなかった（⚠ 鍛えられていない）")
+				return false
+			var slot_index: int = int((slots[0] as Dictionary).get(GameManager.PART_VIEW_INDEX, 0))
+			if GameManager.attach_part(equip_id, slot_index, PART_ITEM_ID):
+				return true
+			# ⚠ 弾かれた理由は GameManager が持っている。⚠ ここで推測しない。
+			push_error("[DebugBoot] ⚠ %s を枠%d に刺せない：%s" % [
+				PART_ITEM_ID, slot_index,
+				GameManager.get_part_reject_reason(equip_id, slot_index, PART_ITEM_ID),
+			])
+			return false
 		if kind == PREPARE_FLOOR:
 			if GameManager.is_in_floor():
 				return true
@@ -8726,6 +8839,17 @@ class ShotTaker extends Node:
 				BattleResultView.DATA_DAMAGE_TAKEN: 142,
 				BattleResultView.DATA_REWARDS: MasterDataLoader.get_stage("floor_5").get("rewards", {}),
 			})
+		elif kind == AFTER_PART_POPOVER:
+			# ⚠ 本番と同じ口（⚠ マスを押したときに呼ばれるもの）。⚠ `call()` で呼ぶのは
+			#   ⚠ `equipment_screen.gd` に `class_name` が無いため（⚠ 静的解析で通らない）。
+			var equip_id: String = GameManager.get_equipped_instance_id(
+				PART_CHARACTER_ID, GameStateKeys.EQUIP_WEAPON
+			)
+			var slots: Array = GameManager.get_part_entries(equip_id)
+			if slots.is_empty():
+				push_error("[DebugBoot] ⚠ %s は枠が1つも無い" % shot_name)
+				return false
+			screen.call("_on_part_slot_pressed", slots[0] as Dictionary, equip_id)
 		elif kind == AFTER_MODAL_CONFIRM:
 			# ⚠⚠ **`Modal.confirm()` は撮るのに使えない**（⚠ 2026-09-22 に2手とも外れた）。
 			#   ⚠ ① 直に呼ぶ → ⚠ **パースエラー**（`must be called with "await"`）
@@ -8750,6 +8874,16 @@ class ShotTaker extends Node:
 		for _i: int in range(AFTER_FRAMES):
 			await get_tree().process_frame
 		return true
+
+	# ⚠ 持っている個体から1つ探す（⚠ 外側にも同じものが在る。⚠ 理由は下と同じ）。
+	func _find_instance_of(item_id: String) -> String:
+		for view: Variant in GameManager.get_owned_instances():
+			if not (view is Dictionary):
+				continue
+			if str((view as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == item_id:
+				return str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+		return ""
+
 
 	# ⚠ いまのランの中から種で1つ探す（⚠ 外側にも同じものが在るが、⚠ 外側（`debug_boot`）は
 	#   ⚠ 画面を差し替えた時点で消えているので参照を持てない＝ここに持つ）。

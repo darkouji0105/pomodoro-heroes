@@ -118,6 +118,18 @@ func _rebuild() -> void:
 
 	var all_nodes: Dictionary = MasterDataLoader.get_all_character_nodes()
 	var unlocked: Array = GameManager.get_stat_nodes(_character_id)
+	# ⚠⚠ 段が1つも無いキャラ（⚠ `nodes.json` を持たない検証用キャラ・宿題80）は、
+	#   ⚠ 軸の数だけ**中身の無いカード**が並んでいた。⚠ 「壊れて空」なのか「もともと無い」のか読めない。
+	#   ⚠ 1軸でも段があれば今までどおり（⚠ 空の軸はカードだけ出す＝`_create_branch_row()` の注）。
+	var total_entries: int = 0
+	for stat_key: Variant in (allocatable as Array):
+		total_entries += _branch_nodes(str(stat_key), all_nodes).size()
+	if total_entries == 0:
+		branches.add_child(EmptyState.create("ui_stat_node_empty"))
+		_build_side_panel()
+		_build_passives()
+		return
+
 	for stat_key: Variant in (allocatable as Array):
 		branches.add_child(_create_branch_row(str(stat_key), all_nodes, unlocked, remaining))
 
