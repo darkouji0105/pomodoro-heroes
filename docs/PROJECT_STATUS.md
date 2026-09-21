@@ -229,6 +229,32 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 
 ## 実装の体制
 
+> ⚠⚠ **2026-09-21 に書き直した**（⚠ 人間の決定「⚠ claude のみでいい」）。
+> ⚠ **前は4者（あなた・設計役・レビュー役・実装役）だった。⚠ いまは2者。**
+> ⚠ 手順の正は `docs/WORKFLOW.md`。
+
+| 誰 | 役割 |
+|---|---|
+| **あなた（人間）** | ⚠ **決める** ／ ⚠ **実機で見る**（⚠ 「見る回」にまとめる） ／ ⚠ `.tres` を Inspector で編集する ／ ⚠ モックを描く |
+| **設計役（Claude）** | ⚠ **設計・実装・検証・記録・push を通しでやる** |
+
+⚠⚠ **実装役（MiniMax / Ziva）とレビュー役（DeepSeek）は使わない**（⚠ 2026-09-06 の人間の決定）。
+⚠ **当時のための文書は残っているが、もう使わない**：
+⚠ `docs/REVIEWER_GUIDE.md` ／ `docs/PROMPT_IMPL.md` ／ `docs/PROMPT_ZIVA_*.md` ／ `docs/02_exec/IMPL_LOG_TEMPLATE.md`。
+
+### ⚠ 設計役が取れるもの・取れないもの（2026-09-21 に更新）
+
+| | 誰が取るか |
+|---|---|
+| ログ（`godot.log`）／ ファイル（セーブ・`battle_last.jsonl`） | ⚠ **設計役** |
+| ⚠⚠ **画面の絵**（⚠ 在るか・並び・大きさ・形） | ⚠⚠ **設計役**（`scenario=shot`。⚠ `--headless` を外して回す） |
+| ⚠ **色・ボタンの活性・手応え・遷移・気づけるか** | ⚠ **人間だけ** |
+| `.tres` の値の編集（Inspector） | ⚠ 人間（⚠ ただし Theme の再生成は `scenario=theme` で設計役ができる） |
+
+<!-- ⚠ 以下は 2026-09-06 までの体制の記録。⚠ もう使わない。 -->
+<details>
+<summary>⚠ 当時（4者）の体制の記録</summary>
+
 詳細な手順は`WORKFLOW.md`。実装役に渡すプロンプトの全文は`docs/PROMPT_IMPL.md`（**人間が使う運用メモ。実装役には読ませない**）。
 
 | 誰 | 役割 |
@@ -256,6 +282,8 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 - **200行を超える既存ファイルの変更**（`battle_controller.gd` / `base_screen.gd` など）
 - **小さくて境界条件が多いもの**（`game_date.gd`の4時基準の日付判定）
 - **状態機械やタイマーの整理**（`pomodoro.gd`のタイマーが3箇所から書き換えられていた件）
+
+</details>
 
 ### 使うモデル
 
@@ -359,8 +387,10 @@ var ok: bool = await Modal.confirm(self, "ui_title_back_confirm")
 | 新しい会話を始める | このファイル + `NEXT_STEPS.md` |
 | PLAN（第2層）を作る | このファイル + `AGENTS.md` + `SCENES.md` + `DATA_SCHEMA.md`該当章 + 同規模の既存PLAN |
 | 実行指示書を一緒に書く | `AGENTS.md` + 該当`PLAN_◯◯.md` + **依存する実コード** |
-| 実装をAIにさせる | `docs/PROMPT_IMPL.md`【C】の型で投げる |
-| 実装結果をレビューしたい | `IMPL_LOG_◯◯.md` |
+| ⚠⚠ **仕様の値を知りたい** | ⚠⚠ **`docs/DECISIONS.md`**（⚠ 1決定＝1行。⚠ **値の正はここだけ**） |
+| ⚠ 決定の経緯を知りたい | ⚠ `docs/01_plan/PLAN_◯◯.md`（⚠ とっかかり。⚠ **値は古いことがある**） |
+| ⚠ 前の回に何があったか知りたい | ⚠ `docs/03_log/NEXT_STEPS_<年月>.md` |
+| ⚠ 1タスクの通し方を知りたい | ⚠ `docs/WORKFLOW.md` |
 
 ### 第3層を書くたびに守るルール
 
