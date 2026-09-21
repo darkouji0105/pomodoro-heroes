@@ -6854,6 +6854,34 @@ func _report_dungeon() -> void:
 			uneven += 1
 	print("  ⚠ 区画の数で割り切れない層 = %d 件（⚠ 0 が続くなら3つの区画が同じ形の疑い）" % uneven)
 
+	# ⚠⚠ 一本しかない道に罠が付いていないか（2026-09-20・人間の指示
+	#   「⚠ 一本しかない道に罠を作らないように」）。⚠ 選んでいない道の減点は避けようが無い。
+	# ⚠ 得（宝箱・資源）は一本道でも付いてよい。⚠ 数えるのは罠だけ。
+	var lone_traps: Array[String] = []
+	var lone_gains: int = 0
+	for raw_node: Variant in nodes:
+		var next_list: Array = (nodes[raw_node] as Dictionary).get(GameStateKeys.DUNGEON_NODE_NEXT, [])
+		if next_list.size() != 1:
+			continue
+		var effect: String = str((next_list[0] as Dictionary).get(GameStateKeys.DUNGEON_EDGE_EFFECT, ""))
+		if effect == "":
+			continue
+		if effect in [
+			GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP,
+			GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY,
+		]:
+			lone_traps.append("%s->%s(%s)" % [
+				str(raw_node), str((next_list[0] as Dictionary).get(GameStateKeys.DUNGEON_EDGE_TO, "")), effect
+			])
+		else:
+			lone_gains += 1
+	lone_traps.sort()
+	print("  ⚠ 一本しかない道に付いた罠 = %d 件%s（0 が正解）／ ⚠ 得は %d 件（0 でなくてよい）" % [
+		lone_traps.size(), "" if lone_traps.is_empty() else " " + str(lone_traps), lone_gains,
+	])
+	if not lone_traps.is_empty():
+		push_error("[DebugBoot] 一本しかない道に罠が付いている（避けようが無い減点）")
+
 	# --- 5. 全ルート（⚠ 数えるだけ。⚠ 1本ずつ歩かない）---
 	#
 	# ⚠⚠ 段階20-a で「1本ずつ歩いて列挙する」のをやめた。⚠ 1階が 8層 → 25層 になり、
@@ -7147,6 +7175,12 @@ func _report_dungeon() -> void:
 		print("    ⚠ 入口で中身が見えているノード = %d 件（⚠ たいまつ 等級0 なら 4 件だった）" % [
 			_count_revealed_dungeon_nodes()
 		])
+		# ⚠⚠ ショップの覚えは階ごとに戻る（2026-09-20）。⚠ 戻らないと2階のボスの後に出ない。
+		print("    ⚠ ショップを自動で出したか = %s（⚠ false が正解＝階ごとに戻る）" % [
+			str(GameManager.has_seen_dungeon_shop())
+		])
+		if GameManager.has_seen_dungeon_shop():
+			push_error("[DebugBoot] 降りてもショップの覚えが戻っていない（次の階でショップが出ない）")
 		if GameManager.get_dungeon_torch_grade() != torch_before_descend:
 			push_error("[DebugBoot] たいまつがフロアをまたいで消えた（買う意味が無くなる）")
 		# ⚠ 撤退できる状態に戻す（⚠ このあと §12 が持ち帰る）。
@@ -7757,9 +7791,15 @@ func _take_dungeon_relic_on_the_way() -> void:
 #   ⚠ 拾い待ちが残っていると `_ready()` が拾いものの窓を重ねる（⚠ 測るものが変わる）。
 #   ⚠ 覚えが残っていると `ResourceGainEffect.play()` が飛び、⚠ 解放と取り合って赤が出る
 #     （CLAUDE.md 10番・2026-09-20 に6本出した件）。
+# ⚠⚠ 開く前に「ショップはもう見せた」を立てる（2026-09-20・A案を入れたあと）。
+#   ⚠ 立てないと `_ready()` が **自動でショップへ遷移**し、⚠ 測るものが消えてシナリオが壊れる。
 func _report_dungeon_map_shop_row() -> void:
 	var _left: Dictionary = GameManager.clear_dungeon_pending_loot()
 	var _gain: int = GameManager.take_last_dungeon_currency_gain()
+	print("  ⚠ ショップを自動で出したか（開く前）= %s（false が正解）" % [
+		str(GameManager.has_seen_dungeon_shop())
+	])
+	GameManager.mark_dungeon_shop_seen()
 	var scene: PackedScene = load("res://scenes/adventure/dungeon_map.tscn")
 	if scene == null:
 		push_error("[DebugBoot] dungeon_map.tscn が読めない")

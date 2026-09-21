@@ -125,6 +125,8 @@ func _ready() -> void:
 		_enter_corridor_chest()
 	elif GameManager.has_dungeon_pending_loot():
 		_enter_pickup()
+	else:
+		_auto_enter_shop_after_boss()
 
 
 # ⚠ ランが終わったとき（撤退・全ロスト）は dungeon_id が "" で飛んでくる。
@@ -509,6 +511,26 @@ func _on_shop_pressed() -> void:
 	SceneManager.change_scene(SHOP_PATH)
 
 
+# ⚠⚠ ボスを倒したら、⚠ 次の階へ行く前にショップを1回だけ自動で見せる
+#   （2026-09-20・人間の指示「⚠ 地味すぎてわからないので　⚠ 次のフロアに行く前にショップを見せる」）。
+#
+# ⚠ それまでは「マップの上の 280 x 38 の行」だけだったので、⚠ 実機で見落とされた。
+# ⚠⚠ 「もう見せたか」は GameManager が覚える（`has_seen_dungeon_shop()`）。
+#   ⚠ 画面の変数で覚えないこと。⚠ ショップは別画面なので、⚠ 「戻る」で帰った時点で忘れ、
+#     ⚠ 開き直して**マップから出られなくなる**。
+# ⚠ 行（`ShopList`）は消していない。⚠ 一度閉じたあとに自分で寄り直せる。
+# ⚠ 拾いものの窓が出ているあいだは呼ばない（⚠ 呼ぶ側が閉じ切ってから呼ぶ）。
+func _auto_enter_shop_after_boss() -> void:
+	if not GameManager.can_retreat_from_dungeon():
+		return
+	if GameManager.has_seen_dungeon_shop():
+		return
+	if GameManager.get_dungeon_shop_entries().is_empty():
+		return
+	GameManager.mark_dungeon_shop_seen()
+	SceneManager.change_scene(SHOP_PATH)
+
+
 # 通路の宝箱の案内（段階19-c-2）。⚠ 開けずに戻ってきたときだけ出る。
 #
 # ⚠⚠ 決定31（2026-09-05）で「あとから開ける」ボタンを消した。
@@ -636,6 +658,8 @@ func _on_loot_overlay_closed(layer: CanvasLayer) -> void:
 	# ⚠⚠ 割り込みで後回しにしたマスの中身へ入り直す（決定36）。
 	#   ⚠ 先に札を降ろすこと。⚠ _enter_node() が宝箱でもう1枚重ねる場合がある。
 	if _pending_node_entry == "":
+		# ⚠ 拾いものを閉じ切ったところでショップへ（2026-09-20）。⚠ 窓が出ているうちに送らない。
+		_auto_enter_shop_after_boss()
 		return
 	var next_node_id: String = _pending_node_entry
 	_pending_node_entry = ""

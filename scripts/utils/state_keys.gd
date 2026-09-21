@@ -415,6 +415,11 @@ const DUNGEON_RUN_FLOOR_INDEX: String = "floor_index"
 const DUNGEON_RUN_PHASE: String = "phase"
 const DUNGEON_PHASE_MAP: String = "map"
 const DUNGEON_PHASE_BOSS_CLEARED: String = "boss_cleared"
+# ⚠⚠ このフロアのボスの後、⚠ ショップをもう自動で出したか（2026-09-20・人間の指示
+#   「⚠ 地味すぎてわからないので　⚠ 次のフロアに行く前にショップを見せる」）。
+#   ⚠ 覚えないと、⚠ ショップから「戻る」でマップに帰るたびに開き直して出られなくなる。
+#   ⚠ フロアを降りるたびに false に戻す（⚠ 階ごとに1回見せる）。
+const DUNGEON_RUN_SHOP_SEEN: String = "shop_seen"
 
 const DUNGEON_RUN_NODES: String = "nodes"          # {node_id: {layer, kind, next, cleared}}
 const DUNGEON_RUN_POSITION: String = "position"    # 現在のノードID

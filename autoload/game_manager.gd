@@ -7666,6 +7666,8 @@ func _empty_dungeon_run() -> Dictionary:
 		GameStateKeys.DUNGEON_RUN_DUNGEON_ID: "",
 		GameStateKeys.DUNGEON_RUN_FLOOR_INDEX: 0,
 		GameStateKeys.DUNGEON_RUN_PHASE: "",
+		# ⚠ このフロアでショップを自動で出したか（2026-09-20）。⚠ 降りるたびに false に戻す。
+		GameStateKeys.DUNGEON_RUN_SHOP_SEEN: false,
 		GameStateKeys.DUNGEON_RUN_NODES: {},
 		GameStateKeys.DUNGEON_RUN_POSITION: "",
 		GameStateKeys.DUNGEON_RUN_VISITED: {},
@@ -7789,6 +7791,25 @@ func get_dungeon_phase() -> String:
 # ⚠ 判定の口はここ1本。⚠ 画面側で phase の綴りを比べないこと。
 func can_retreat_from_dungeon() -> bool:
 	return is_in_dungeon() and get_dungeon_phase() == GameStateKeys.DUNGEON_PHASE_BOSS_CLEARED
+
+
+# このフロアのボスの後、⚠ ショップをもう自動で出したか（2026-09-20・人間の指示
+# 「⚠ 地味すぎてわからないので　⚠ 次のフロアに行く前にショップを見せる」）。
+#
+# ⚠⚠ 覚えるのは状態の側（⚠ 画面ではない）。⚠ ショップは別画面なので、
+#   ⚠ 画面の変数で覚えると「戻る」でマップに帰った時点で忘れ、⚠ 開き直して出られなくなる。
+# ⚠ 降りるたびに false に戻る（`descend_dungeon_floor()`）＝⚠ 階ごとに1回見せる。
+func has_seen_dungeon_shop() -> bool:
+	return bool(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_SHOP_SEEN, false))
+
+
+# ショップを自動で出したことを覚える。⚠ 書く口はここ1本。
+func mark_dungeon_shop_seen() -> void:
+	if not is_in_dungeon():
+		return
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_SHOP_SEEN] = true
+	_state[GameStateKeys.DUNGEON_RUN] = run
 
 
 # もう1階潜れるか（段階20-a・人間の決定26「1ラン ＝ 3階 × 25層」）。
@@ -7915,6 +7936,9 @@ func _apply_dungeon_map(run: Dictionary, map: Dictionary) -> void:
 	run[GameStateKeys.DUNGEON_RUN_POSITION] = entry_id
 	run[GameStateKeys.DUNGEON_RUN_VISITED] = {entry_id: true}
 	run[GameStateKeys.DUNGEON_RUN_PHASE] = GameStateKeys.DUNGEON_PHASE_MAP
+	# ⚠⚠ ショップを自動で出す覚えは階ごとに戻す（2026-09-20）。⚠ 新しい階のボスの後に、
+	#   ⚠ もう一度出したいため。⚠ ここは start_dungeon_run と descend の両方が通る。
+	run[GameStateKeys.DUNGEON_RUN_SHOP_SEEN] = false
 	# ⚠⚠ たいまつは戻さない（段階17-e で 17-a の実装を覆した）。
 	#   ⚠ 17-a は「フロア単位で戻す（シナリオ側と同じ扱い）」と書いていたが、
 	#     ⚠ 買える場所がボスの先のショップだけ（決定15）なので、⚠ 戻すと
@@ -8893,10 +8917,12 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 			override = _dungeon_segment_choices()
 		_connect_dungeon_layers(nodes, upper, lower, dungeon_id, override)
 	# 最終層 -> ボス（合流）。
-	# ⚠ ボスへの通路にも効果が付く（⚠ 特別扱いしない。⚠ 最後の1歩にも選択が要る）。
+	# ⚠ ボスへの通路にも効果が付く（⚠ 特別扱いしない）。
+	# ⚠⚠ ただし**罠は付かない**（2026-09-20・人間の指示「⚠ 一本しかない道に罠を作らないように」）。
+	#   ⚠ 最終層のどのマスからもボスへの1本しか無い＝選んでいないから。
 	for node_id: Variant in (ids_by_layer[ids_by_layer.size() - 1] as Array):
 		(nodes[str(node_id)] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = [
-			_make_dungeon_edge(boss_id, dungeon_id)
+			_make_dungeon_edge(boss_id, dungeon_id, false)
 		]
 
 	return {
@@ -8978,8 +9004,12 @@ func _connect_dungeon_layers(
 
 	for j: int in range(n):
 		var next_edges: Array = []
+		# ⚠⚠ 出る先が1本しか無いマスの通路には罠を置かない（2026-09-20・人間の指示
+		#   「⚠ 一本しかない道に罠を作らないように」）。⚠ 選んでいない道の減点は避けようが無い。
+		#   ⚠ 本数が決まるのはここ（⚠ 上の「補う」処理が終わったあと）。⚠ 手前で判断しないこと。
+		var allow_trap: bool = (targets_by_upper[j] as Array).size() > 1
 		for k: Variant in (targets_by_upper[j] as Array):
-			next_edges.append(_make_dungeon_edge(str(lower[int(k)]), dungeon_id))
+			next_edges.append(_make_dungeon_edge(str(lower[int(k)]), dungeon_id, allow_trap))
 		(nodes[str(upper[j])] as Dictionary)[GameStateKeys.DUNGEON_NODE_NEXT] = next_edges
 
 
@@ -9149,11 +9179,26 @@ func _make_dungeon_node(nodes: Dictionary, layer: int, index: int, weights: Dict
 # ⚠⚠ 通路を作る口はここ1本だけ。⚠ 2本目を書かないこと（⚠ ノードと同じ流儀）。
 # ⚠ 19-c-1 の時点では effect は必ず ""（⚠ 器だけ先に入れた）。
 #   ⚠ 抽選（5本に1本・決定24）を足すのは 19-c-2。⚠ ここに足す。
-func _make_dungeon_edge(to_node_id: String, dungeon_id: String = "") -> Dictionary:
+#
+# ⚠⚠ `allow_trap` が false なら**罠は引かない**（2026-09-20・人間の指示
+#   「⚠ 一本しかない道に罠を作らないように」）。⚠ 出る先が1つしか無い通路は「選んでいない」ので、
+#   ⚠ そこに罠を置くと**避けようが無い減点**になる。⚠ 得（宝箱・資源）は引いてよい。
+func _make_dungeon_edge(to_node_id: String, dungeon_id: String = "", allow_trap: bool = true) -> Dictionary:
 	return {
 		GameStateKeys.DUNGEON_EDGE_TO: to_node_id,
-		GameStateKeys.DUNGEON_EDGE_EFFECT: _roll_dungeon_edge_effect(dungeon_id),
+		GameStateKeys.DUNGEON_EDGE_EFFECT: _roll_dungeon_edge_effect(dungeon_id, allow_trap),
 	}
+
+
+# その効果は罠か（＝プレイヤーにとって減点か）。
+#
+# ⚠⚠ 罠を増やすときはここにも足すこと（⚠ 足し忘れると一本道に罠が戻る）。
+#   ⚠ 一緒に触る先は `_apply_dungeon_edge_effect()` の分岐・E139 の検証・`Glyphs.for_dungeon_edge()`。
+func _is_dungeon_edge_trap(effect: String) -> bool:
+	return effect in [
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_HP,
+		GameStateKeys.DUNGEON_EDGE_EFFECT_TRAP_CURRENCY,
+	]
 
 
 # 通路の効果を1つ引く（段階19-c-2）。⚠ 付かなければ ""。
@@ -9163,7 +9208,11 @@ func _make_dungeon_edge(to_node_id: String, dungeon_id: String = "") -> Dictiona
 # ⚠⚠ 逃げ道を保証しない（⚠ 人間の決定：「全部ペナルティもあり」）。
 #   ⚠ 「分岐に1本は無害を混ぜる」処理をここに足さないこと。
 # ⚠ dungeon_id が "" なら効果を付けない（⚠ 引く先が分からないため）。
-func _roll_dungeon_edge_effect(dungeon_id: String) -> String:
+#
+# ⚠⚠ `allow_trap` が false なら、⚠ **引く前に罠を表から外す**（2026-09-20・人間の指示）。
+#   ⚠ 「引いてから罠だったら無効」にしないこと（⚠ 一本道だけ効果が出にくくなる）。
+#   ⚠ 外すのは罠だけ。⚠ 宝箱・資源はそのまま引ける。
+func _roll_dungeon_edge_effect(dungeon_id: String, allow_trap: bool = true) -> String:
 	if dungeon_id == "":
 		return ""
 	var config: DungeonConfig = _dungeon()
@@ -9173,6 +9222,10 @@ func _roll_dungeon_edge_effect(dungeon_id: String) -> String:
 	if chance <= 0 or randi_range(1, 100) > chance:
 		return ""
 	var weights: Dictionary = _dungeon_edge_effect_weights(dungeon_id)
+	if not allow_trap:
+		for effect: Variant in weights.keys():
+			if _is_dungeon_edge_trap(str(effect)):
+				weights.erase(effect)
 	if weights.is_empty():
 		return ""
 	var total: int = 0
