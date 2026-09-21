@@ -67,6 +67,16 @@ const SHOT_DIR_DEFAULT: String = "user://shots"
 const SHOT_PREPARE_NONE: String = ""
 const SHOT_PREPARE_DUNGEON: String = "dungeon"
 const SHOT_PREPARE_FLOOR: String = "floor"
+# ⚠⚠ ボスの先に立たせる（2026-09-22）。⚠ 「わかれ道」「商人」はここでないと開かない
+#   （⚠ どちらも `can_retreat_from_dungeon()` で弾く）。
+# ⚠ 歩いてボスへ行くのは使えない。⚠ 歩く口はマスを踏むだけで戦闘は画面が起こすので、
+#   ⚠ 戦わずにボスを使い切る（CLAUDE.md の罠・2026-09-21）。⚠ だから `phase` を直に書く口を使う。
+const SHOT_PREPARE_DUNGEON_BOSS: String = "dungeon_boss"
+# ⚠ 画面を開いたあとに窓を出す手（⚠ 増やすなら ShotTaker._after() に1行）。
+const SHOT_AFTER_NONE: String = ""
+const SHOT_AFTER_LOOT_OVERLAY: String = "loot_overlay"
+const SHOT_AFTER_BATTLE_RESULT: String = "battle_result"
+const SHOT_AFTER_MODAL_CONFIRM: String = "modal_confirm"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -933,8 +943,12 @@ const SCENARIOS: Dictionary = {
 	# ⚠⚠ **何を撮るかは「役割」で選んである**（2026-09-21・人間の指示「⚠ 役割に応じて何開くか決めて」）。
 	#   ⚠ ①ランの中で判断する ／ ⚠ ②戦う ／ ⚠ ③拠点の入口 ／ ⚠ ④育てる ／ ⚠ ⑤回す（経済）。
 	#   ⚠ 同じ役割の画面を2枚撮らない（⚠ `floor_map` と `dungeon_map` だけは**器が別**なので両方撮る＝台帳 §7）。
-	# ⚠ **窓（拾いもの・通路のできごと・戦闘の結果・レリック選択・商人）はまだ撮れない。**
-	#   ⚠ 画面の上に重ねるもので、⚠ `SceneManager` で開くものではないため（⚠ §0-UI-Q-5 の宿題）。
+	# ⚠⚠ **窓も撮れるようになった（2026-09-22・回1）。** ⚠ 撮り方は2通りで、⚠ どちらも本番の口を通す。
+	#   ⚠ ① `SceneManager` で開くもの（⚠ レリック選択・商人・わかれ道）＝ ⚠ 普通の行に `prepare` を足すだけ
+	#   ⚠ ② 画面の上に重ねるもの（⚠ 拾いもの・戦闘の結果・共通モーダル）＝ ⚠ `after` に手を1つ書く
+	# ⚠⚠ 名前と中身がずれないように、⚠ 撮る直前に**開いた画面が `scene` と同じか**を確かめる
+	#   （⚠ `dungeon_floor_clear` のように「条件を満たさないと自分でマップへ送り返す」画面があるため。
+	#   ⚠ 09-21 は**マップの絵が「わかれ道」の名前で保存される**のを恐れて足せなかった。⚠ いまは弾く）。
 	"shot": {
 		"kind": KIND_SHOT,
 		"note": "画面を PNG で撮る。⚠ --headless を外して回す。出し先は shot_dir= で渡す",
@@ -967,11 +981,6 @@ const SCENARIOS: Dictionary = {
 				],
 			},
 			# ③ 拠点の入口。
-			# ⚠⚠ ボスの後のわかれ道（決定48）は**まだ撮れない**（2026-09-21）。
-			#   ⚠ `prepare: dungeon` はランに入るだけで、⚠ ボスの先に居ないので
-			#   ⚠ 画面が自分でマップへ送り返す（⚠ `dungeon_floor_clear.gd` の守り）。
-			#   ⚠⚠ 足すと**マップの絵が「わかれ道」の名前で保存される**＝本番と違う絵になる。
-			#   ⚠ 撮るには「ボスまで歩く」下ごしらえが要る（⚠ 宿題）。
 			{"name": "04_base", "scene": SCENE_BASE},
 			{"name": "05_guild", "scene": "res://scenes/guild/guild_screen.tscn"},
 			{"name": "06_adventure_select", "scene": "res://scenes/adventure/adventure_select.tscn"},
@@ -986,6 +995,58 @@ const SCENARIOS: Dictionary = {
 			{"name": "09_shop", "scene": "res://scenes/guild/shop_screen.tscn"},
 			{"name": "10_workshop", "scene": "res://scenes/guild/workshop_screen.tscn"},
 			{"name": "11_research", "scene": "res://scenes/guild/research_screen.tscn"},
+			# ⑥ 窓（2026-09-22・回1）。⚠ ここから下は「重ねるもの」と「ボスの先のもの」。
+			#
+			# ⚠⚠ 拾いもの。⚠ 本番は**マップの上に重ねる**（決定36）ので、⚠ マップを開いてから
+			#   ⚠ マップ自身の口（`_open_loot_overlay()`）を呼ぶ。
+			#   ⚠ `run_loot_window.tscn` を単体で開くと**本番と違う絵**になる（⚠ 幕が透けない・後ろが無い）。
+			{
+				"name": "12_run_loot_window",
+				"scene": "res://scenes/adventure/dungeon_map.tscn",
+				"prepare": SHOT_PREPARE_DUNGEON,
+				"after": SHOT_AFTER_LOOT_OVERLAY,
+			},
+			# ⚠⚠ 戦闘の結果。⚠ 戦闘画面の子（`HUD/ResultView`）なので、⚠ 戦って勝つ必要は無い。
+			#   ⚠ 中身は `scenario=result` と同じ見本（⚠ floor_5 の報酬）。⚠ 勝ちの側を撮る。
+			{
+				"name": "13_battle_result",
+				"scene": SCENE_BATTLE,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 90,
+				"after": SHOT_AFTER_BATTLE_RESULT,
+			},
+			# ⚠ レリック選択。⚠ `node_id` を渡さないとマップへ戻される（⚠ 宿題73）。⚠ マスは下ごしらえで探す。
+			{
+				"name": "14_relic_select",
+				"scene": "res://scenes/adventure/run_relic_select.tscn",
+				"prepare": SHOT_PREPARE_DUNGEON,
+				"data": {TransferKeys.RUN_KIND: GameManager.RUN_KIND_DUNGEON},
+				# ⚠ マスの ID はランを作るまで分からない。⚠ 種で1つ探して `RUN_NODE_ID` に入れる。
+				"fill_node_id": GameStateKeys.DUNGEON_NODE_KIND_RELIC,
+			},
+			# ⚠⚠ ボスの後のわかれ道（決定48）。⚠ ボスの先でないと自分でマップへ送り返す。
+			{
+				"name": "15_dungeon_floor_clear",
+				"scene": "res://scenes/adventure/dungeon_floor_clear.tscn",
+				"prepare": SHOT_PREPARE_DUNGEON_BOSS,
+			},
+			# ⚠ 商人。⚠ ボスの先だけ（決定15）。⚠ 品はマスターが持つので、⚠ phase を立てれば並ぶ。
+			{
+				"name": "16_dungeon_shop",
+				"scene": "res://scenes/adventure/dungeon_shop.tscn",
+				"prepare": SHOT_PREPARE_DUNGEON_BOSS,
+			},
+			# ⚠⚠ 共通モーダル（決定39・`MD-1`〜`MD-9`）。⚠ 09-21 に器を入れたが**絵は1枚も無い**。
+			#   ⚠ 実行が赤・はいが左・題の帯・暗幕60% が1枚で見える件を撮る（⚠ セーブの削除の確認）。
+			#   ⚠ 撮るだけ。⚠ 押さないので**セーブは消えない**（⚠ `await` していないため先へ進まない）。
+			{
+				"name": "17_modal_confirm",
+				"scene": SCENE_BASE,
+				"after": SHOT_AFTER_MODAL_CONFIRM,
+			},
 		],
 	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
@@ -8485,9 +8546,15 @@ class ShotTaker extends Node:
 	const DRAW_TIMEOUT_FRAMES: int = 180
 	# ⚠ デバッグのパネルは画面の右側を覆うので、⚠ 撮る前に消す（⚠ 既定で出ている）。
 	const DEBUG_OVERLAY_NAME: String = "DebugOverlay"
-	# ⚠ 外側の `SHOT_PREPARE_*` と同じ字。⚠ 内側のクラスから外の const は引けない。
+	# ⚠ 外側の `SHOT_PREPARE_*` / `SHOT_AFTER_*` と同じ字。⚠ 内側のクラスから外の const は引けない。
 	const PREPARE_DUNGEON: String = "dungeon"
 	const PREPARE_FLOOR: String = "floor"
+	const PREPARE_DUNGEON_BOSS: String = "dungeon_boss"
+	const AFTER_LOOT_OVERLAY: String = "loot_overlay"
+	const AFTER_BATTLE_RESULT: String = "battle_result"
+	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
+	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
+	const AFTER_FRAMES: int = 12
 
 	var out_dir: String = ""
 	var shots: Array = []
@@ -8530,14 +8597,36 @@ class ShotTaker extends Node:
 		if not _prepare(str(shot.get("prepare", ""))):
 			push_error("[DebugBoot] ⚠ %s の下ごしらえが通らなかった" % shot_name)
 			return
-		var data: Dictionary = shot.get("data", {})
+		var scene_path: String = str(shot.get("scene", ""))
+		var data: Dictionary = (shot.get("data", {}) as Dictionary).duplicate()
+		# ⚠ マスの ID はランを作るまで分からない（⚠ レリック選択）。⚠ 種で1つ探して入れる。
+		var node_kind: String = str(shot.get("fill_node_id", ""))
+		if node_kind != "":
+			var node_id: String = _find_dungeon_node_of_kind(node_kind)
+			if node_id == "":
+				push_error("[DebugBoot] ⚠ %s の %s のマスが1つも無い" % [shot_name, node_kind])
+				return
+			data[TransferKeys.RUN_NODE_ID] = node_id
 		if data.is_empty():
-			SceneManager.change_scene(str(shot.get("scene", "")))
+			SceneManager.change_scene(scene_path)
 		else:
-			SceneManager.change_scene_with_data(str(shot.get("scene", "")), data)
+			SceneManager.change_scene_with_data(scene_path, data)
 		var settle: int = int(shot.get("settle", SETTLE_FRAMES))
 		for _i: int in range(settle):
 			await get_tree().process_frame
+		# ⚠⚠ 開いた画面が頼んだものと同じか（2026-09-22）。⚠ 条件を満たさない画面は
+		#   ⚠ `_ready()` の中で自分で別の画面へ送り返す（⚠ `dungeon_floor_clear.gd` / `run_relic_select.gd`）。
+		#   ⚠ 確かめないと**別の画面の絵がこの名前で保存される**＝台帳に嘘が載る。
+		var opened: Node = get_tree().current_scene
+		var opened_path: String = "" if opened == null else str(opened.scene_file_path)
+		if opened_path != scene_path:
+			push_error("[DebugBoot] ⚠⚠ %s は開かなかった（⚠ いま居るのは %s）＝保存しない" % [
+				shot_name, opened_path
+			])
+			return
+		# ⚠ 窓を出す手（⚠ 重ねるものはここで出す）。⚠ 出せなければ保存しない。
+		if not await _after(str(shot.get("after", "")), opened, shot_name):
+			return
 		_hide_debug_overlay()
 		# ⚠ 絵だけでは「切れている」のか「余白が無い」のか言い切れない。
 		#   ⚠ 撮ると同時に寸法も取る（2026-09-21）。
@@ -8569,6 +8658,26 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ ダンジョンが1本も無い")
 				return false
 			return GameManager.start_dungeon_run(str(dungeon_ids[0]))
+		# ⚠⚠ ボスの先に立たせる（2026-09-22）。⚠ 「わかれ道」「商人」はここでないと居座れない。
+		#   ⚠ ボスまで歩く手は使えない（⚠ 歩く口はマスを踏むだけ＝戦わずにボスを使い切る）。
+		#   ⚠ だから `phase` を直に書く検証用の口を使う（⚠ リリース前に消す口・CLAUDE.md）。
+		if kind == PREPARE_DUNGEON_BOSS:
+			if not GameManager.is_in_dungeon():
+				var boss_dungeon_ids: Array[String] = MasterDataLoader.get_all_dungeon_ids()
+				if boss_dungeon_ids.is_empty():
+					push_error("[DebugBoot] ⚠ ダンジョンが1本も無い")
+					return false
+				if not GameManager.start_dungeon_run(str(boss_dungeon_ids[0])):
+					return false
+			if GameManager.can_retreat_from_dungeon():
+				return true
+			if not GameManager.debug_mark_dungeon_boss_cleared():
+				push_error("[DebugBoot] ⚠ ボスを倒した扱いにできなかった")
+				return false
+			# ⚠⚠ 「もう見せたか」を戻す。⚠ 立てたままだと `dungeon_map` が
+			#   ⚠ わかれ道へ送らなくなる（⚠ 12枚目のマップの絵がその後の枚に化ける）。
+			GameManager.clear_dungeon_shop_seen()
+			return GameManager.can_retreat_from_dungeon()
 		if kind == PREPARE_FLOOR:
 			if GameManager.is_in_floor():
 				return true
@@ -8584,6 +8693,75 @@ class ShotTaker extends Node:
 			return GameManager.start_floor(floor_ids[0])
 		push_error("[DebugBoot] ⚠ 知らない下ごしらえ: " + kind)
 		return false
+
+	# ⚠⚠ 画面を開いたあとに窓を出す（2026-09-22・回1）。⚠ 増やすならここに1枝。
+	#
+	# ⚠⚠ **本番と同じ口から出すこと。** ⚠ 窓を単体のシーンとして開くと、⚠ 後ろが無い・幕が透けない
+	#   ＝**本番と違う絵**になる（⚠ 09-21 に `add_child()` で踏んだのと同じ話）。
+	# ⚠ 出せなかったら false。⚠ 呼ぶ側が保存を止める（⚠ 窓の無い絵をその名前で残さない）。
+	func _after(kind: String, screen: Node, shot_name: String) -> bool:
+		if kind == "":
+			return true
+		if kind == AFTER_LOOT_OVERLAY:
+			# ⚠ マップ自身の口を呼ぶ（⚠ 本番も `_enter_chest_node()` からこれを呼ぶ）。
+			#   ⚠ 宝箱のマスが無いランなら、⚠ 拾い待ち（通路の資源）の側で出す。
+			var node_id: String = _find_dungeon_node_of_kind(GameStateKeys.DUNGEON_NODE_KIND_CHEST)
+			if node_id == "" and not GameManager.has_dungeon_pending_loot():
+				push_error("[DebugBoot] ⚠ %s は宝箱のマスも拾い待ちも無い" % shot_name)
+				return false
+			# ⚠ `call()` で呼ぶ。⚠ `Node` 型の変数から直に呼ぶと**静的解析で通らない**
+			#   （⚠ `dungeon_map.gd` に `class_name` が無いため）。
+			screen.call("_open_loot_overlay", node_id, false)
+		elif kind == AFTER_BATTLE_RESULT:
+			# ⚠ 戦って勝つ必要は無い。⚠ 器（`HUD/ResultView`）へ見本を流すだけ
+			#   （⚠ `scenario=result` と同じ見本）。
+			var view: BattleResultView = screen.get_node_or_null("HUD/ResultView") as BattleResultView
+			if view == null:
+				push_error("[DebugBoot] ⚠ %s の結果窓が見つからない（⚠ 道が変わった疑い）" % shot_name)
+				return false
+			view.show_result({
+				BattleResultView.DATA_VICTORY: true,
+				BattleResultView.DATA_HEADING: "3層 波 3 / 3",
+				BattleResultView.DATA_ELAPSED_SEC: 84.0,
+				BattleResultView.DATA_DAMAGE_TAKEN: 142,
+				BattleResultView.DATA_REWARDS: MasterDataLoader.get_stage("floor_5").get("rewards", {}),
+			})
+		elif kind == AFTER_MODAL_CONFIRM:
+			# ⚠⚠ **`Modal.confirm()` は撮るのに使えない**（⚠ 2026-09-22 に2手とも外れた）。
+			#   ⚠ ① 直に呼ぶ → ⚠ **パースエラー**（`must be called with "await"`）
+			#   ⚠ ② `Callable` 越しに呼ぶ → ⚠ **実行時に赤**（`Trying to call an async function without "await"`）
+			#   ⚠ `await` してしまうと「はい／いいえ」が押されるまで戻らないので、⚠ 1枚も撮れない。
+			# ⚠⚠ だから**器を作って返す1段下の口**を呼ぶ（⚠ `confirm()` も `notify()` もここを通る）。
+			#   ⚠ 器を自分で `instantiate()` しないこと。⚠ 幅・暗幕・赤・間は向こうが持っている。
+			# ⚠⚠ 押さないので**セーブは消えない**（⚠ 消すのは戻りを見る `title_screen.gd` の側）。
+			var dlg: ModalDialog = Modal._enqueue(
+				screen, "ui_title_delete_confirm", [], true, false, {
+					Modal.OPTION_TITLE: tr("ui_common_title_confirm"),
+					Modal.OPTION_DANGER: true,
+					Modal.OPTION_CONFIRM_LABEL: "ui_title_delete_save",
+				}
+			)
+			if dlg == null:
+				push_error("[DebugBoot] ⚠ %s の窓が出せなかった" % shot_name)
+				return false
+		else:
+			push_error("[DebugBoot] ⚠ 知らない窓の出し方: " + kind)
+			return false
+		for _i: int in range(AFTER_FRAMES):
+			await get_tree().process_frame
+		return true
+
+	# ⚠ いまのランの中から種で1つ探す（⚠ 外側にも同じものが在るが、⚠ 外側（`debug_boot`）は
+	#   ⚠ 画面を差し替えた時点で消えているので参照を持てない＝ここに持つ）。
+	func _find_dungeon_node_of_kind(kind: String) -> String:
+		var nodes: Dictionary = GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_NODES, {})
+		var ids: Array = nodes.keys()
+		ids.sort()
+		for entry: Variant in ids:
+			var node_id: String = str(entry)
+			if str((nodes.get(node_id, {}) as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == kind:
+				return node_id
+		return ""
 
 	# ⚠⚠ `CanvasLayer` は `CanvasItem` ではない。⚠ `is CanvasItem` だけで見ると
 	#   **黙って効かず、パネルが写ったままになる**（⚠ 2026-09-21 の2枚目で踏んだ）。
