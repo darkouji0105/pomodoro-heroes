@@ -122,7 +122,7 @@ grep -n "_create_equipment_instance" autoload/game_manager.gd の
   --path d:\pomodoro-heroes res://tests/debug_boot.tscn -- scenario=shot shot_dir=<パス>
 ```
 
-- ⚠ **PNG で保存され、設計役はそれを読める。** ⚠ いまは **17枚**（⚠ 画面11枚 ＋ ⚠ **窓6枚**・2026-09-22）
+- ⚠ **PNG で保存され、設計役はそれを読める。** ⚠ いまは **18枚**（⚠ 画面11枚 ＋ ⚠ **窓6枚** ＋ ⚠ 装飾の枠1枚・2026-09-22）
 - ⚠ **窓を覆う・最小化すると描画が止まり、1枚も撮れない**
 - ⚠⚠ **撮る画面は必ず `SceneManager` 経由で開く。** ⚠ 直に `add_child()` すると本番と違う絵が撮れる
 - ⚠⚠ **重ねる窓は本番の口から出す**（⚠ `shots` の行に `after` を書く）。⚠ 窓のシーンを単体で開かない
