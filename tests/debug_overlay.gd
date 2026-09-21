@@ -62,6 +62,9 @@ var _root: PanelContainer = null
 var _info_label: Label = null
 var _body: VBoxContainer = null
 var _toggle_button: Button = null
+# ⚠ 画面ごとに出し分ける2つの箱（2026-09-21）。
+var _base_box: VBoxContainer = null
+var _dungeon_box: VBoxContainer = null
 
 
 func _ready() -> void:
@@ -125,28 +128,56 @@ func _build_ui() -> void:
 
 	# ボタンの並び順は「使う頻度」ではなく「押す順番」にしてある。
 	# 研究は素材を持っていないと解放できないので、素材より後ろに置く。
-	_body.add_child(_make_button("ゴールド・ジェム・スタミナ", _grant_currencies))
-	_body.add_child(_make_button("素材を全種類", _grant_all_materials))
-	_body.add_child(_make_button("消費アイテムを全種類", _grant_all_consumables))
-	_body.add_child(_make_button("装備を全種類 1個ずつ", _grant_all_equipment))
-	_body.add_child(_make_button("装飾を全種類", _grant_all_parts))
-	_body.add_child(_make_button("研究を全部解放（先に素材）", _unlock_all_research))
-	_body.add_child(_make_button("画面を全部解放", _unlock_all_screens))
-	_body.add_child(_make_button("製作をすぐ完了させる", _complete_all_crafts))
-	_body.add_child(_make_button("セーブする", _save))
+	# ⚠⚠ 画面ごとに出すものを変える（2026-09-21・人間の指示
+	#   「⚠ デバッグのものは画面ごとで表示するのを変えて　⚠ ダンジョンのなかとわけよう」）。
+	#   ⚠ 拠点でダンジョンの移動は使えないし、⚠ ダンジョンの中で「素材を全種類」も要らない。
+	# ⚠ どちらを出すかは `_apply_scene_group()` が毎フレーム見て決める。
+	_base_box = VBoxContainer.new()
+	_base_box.name = "BaseBox"
+	_body.add_child(_base_box)
+	_base_box.add_child(_make_button("ゴールド・ジェム・スタミナ", _grant_currencies))
+	_base_box.add_child(_make_button("素材を全種類", _grant_all_materials))
+	_base_box.add_child(_make_button("消費アイテムを全種類", _grant_all_consumables))
+	_base_box.add_child(_make_button("装備を全種類 1個ずつ", _grant_all_equipment))
+	_base_box.add_child(_make_button("装飾を全種類", _grant_all_parts))
+	_base_box.add_child(_make_button("研究を全部解放（先に素材）", _unlock_all_research))
+	_base_box.add_child(_make_button("画面を全部解放", _unlock_all_screens))
+	_base_box.add_child(_make_button("製作をすぐ完了させる", _complete_all_crafts))
+	_base_box.add_child(_make_button("セーブする", _save))
 
-	# ⚠⚠ 難ダンジョンの好きな位置へ飛ぶ（2026-09-21・人間の指示
+	# ⚠⚠ 難ダンジョンの中だけで出す（2026-09-21・人間の指示
 	#   「⚠ あとデバッグ用に難ダンジョンの好きな位置に移動できるように」）。
-	#   ⚠ ボスの先まで飛べると、⚠ 「わかれ道の画面」を人も設計役も出せる。
-	# ⚠ 歩くのは本物の口（`move_in_dungeon()`）の1本だけ。⚠ 状態を直に書かない。
-	_body.add_child(_make_separator())
-	_body.add_child(_make_button("難：1つ進む（先頭の道）", _dungeon_step))
-	_body.add_child(_make_button("難：ボスの手前まで", _dungeon_walk_to_boss))
-	_body.add_child(_make_button("難：ボスを倒した先へ", _dungeon_clear_boss))
+	# ⚠ 歩くのは本物の口（`move_in_dungeon()`）の1本だけ。⚠ 状態を直に書かない
+	#   （⚠ 例外は「ボスを倒した扱いにする」の1つだけ。⚠ 下に理由を書いた）。
+	_dungeon_box = VBoxContainer.new()
+	_dungeon_box.name = "DungeonBox"
+	_body.add_child(_dungeon_box)
+	_dungeon_box.add_child(_make_button("難：1つ進む（先頭の道）", _dungeon_step))
+	_dungeon_box.add_child(_make_button("難：ボスの手前まで", _dungeon_walk_to_boss))
+	_dungeon_box.add_child(_make_button("難：ボスを倒した扱いにする", _dungeon_clear_boss))
+	_dungeon_box.add_child(_make_button("難：セーブする", _save))
+	_apply_scene_group()
 
 
 func _make_separator() -> HSeparator:
 	return HSeparator.new()
+
+
+# ⚠⚠ 画面ごとに出すものを変える（2026-09-21・人間の指示）。
+#
+# ⚠ 難ダンジョンの中（マップ・ショップ・わかれ道・レリック選択・戦闘）では**移動だけ**。
+# ⚠ それ以外の画面では**拠点の道具だけ**。
+# ⚠ 画面の綴りをここに書き起こさないため、⚠ 「dungeon」を含むかで見る
+#   （⚠ 画面が増えても追従する。⚠ 検証用なのでこの粗さでよい）。
+func _apply_scene_group() -> void:
+	if _base_box == null or _dungeon_box == null:
+		return
+	var in_dungeon: bool = GameManager.is_in_dungeon()
+	if _base_box.visible == (not in_dungeon) and _dungeon_box.visible == in_dungeon:
+		return
+	_base_box.visible = not in_dungeon
+	_dungeon_box.visible = in_dungeon
+	_place_top_right()
 
 
 # --- 難ダンジョンの移動（2026-09-21）------------------------------
@@ -171,34 +202,54 @@ func _dungeon_step() -> void:
 	print("[DebugOverlay] 難：%s へ進んだ（層 %d）" % [node_id, _dungeon_layer()])
 
 
-# ⚠ ボスの手前まで歩く。⚠ 戦闘のマスは中身が起きるので、⚠ 画面側の流れとは別物。
+# ⚠⚠ ボスの**手前**まで歩く（2026-09-21・人間の報告「⚠ boss の手前まで行っても boss と戦えない」）。
+#
+# ⚠⚠ 歩く口（`move_in_dungeon()`）は「⚠ そのマスを踏んだ」ことにするだけで、⚠ 戦闘は**画面が起こす**。
+#   ⚠ だからボスまで歩くと、⚠ **戦わずにボスのマスを使い切ってしまう**（⚠ 最初の版はこれだった）。
+# ⚠ 戦闘のふつうのマスは踏み越えてよい（⚠ 戦利品が入らないだけ）。⚠ **ボスの手前で必ず止める。**
 func _dungeon_walk_to_boss() -> void:
 	if not GameManager.is_in_dungeon():
 		print("[DebugOverlay] ⚠ 難ダンジョンに入っていない")
 		return
 	var guard: int = 0
+	var stopped_at_boss: bool = false
 	while guard < DUNGEON_WALK_LIMIT:
 		var moves: Array = GameManager.get_dungeon_moves()
 		if moves.is_empty():
 			break
-		if not GameManager.move_in_dungeon(str(moves[0])):
+		var next_id: String = str(moves[0])
+		if _is_boss_node(next_id):
+			stopped_at_boss = true
+			break
+		if not GameManager.move_in_dungeon(next_id):
 			break
 		guard += 1
-	print("[DebugOverlay] 難：%d 手 歩いた（層 %d ／ ボスの先=%s）" % [
-		guard, _dungeon_layer(), str(GameManager.can_retreat_from_dungeon())
+	print("[DebugOverlay] 難：%d 手 歩いた（層 %d ／ ボスの手前で止めた=%s）" % [
+		guard, _dungeon_layer(), str(stopped_at_boss)
 	])
+	if stopped_at_boss:
+		print("[DebugOverlay] ⚠ ここからボスのマスを押すと戦える")
 
 
-# ⚠⚠ ボスを倒した先まで持っていく（⚠ 「わかれ道の画面」が出る状態）。
-#   ⚠ 歩き切っても届かないときは、⚠ 進める先が尽きた＝⚠ 何が起きたかを print する。
+func _is_boss_node(node_id: String) -> bool:
+	var node: Dictionary = GameManager.get_dungeon_node(node_id)
+	return str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BOSS
+
+
+# ⚠⚠ ボスを倒した扱いにする（⚠ 「わかれ道の画面」を戦わずに出すため）。
+#
+# ⚠⚠ **これだけは状態を直に書く**（`debug_mark_dungeon_boss_cleared()`）。
+#   ⚠ 戦闘は画面が起こすので、⚠ パネルからは勝てない。⚠ 検証用の口＝**リリース前に消す**。
 func _dungeon_clear_boss() -> void:
-	_dungeon_walk_to_boss()
-	if GameManager.can_retreat_from_dungeon():
-		# ⚠ 自動で出す覚えを落とす（⚠ もう一度わかれ道の画面を見たいので）。
-		GameManager.clear_dungeon_shop_seen()
-		print("[DebugOverlay] 難：ボスの先に居る（⚠ マップへ入り直すとわかれ道の画面が出る）")
+	if not GameManager.is_in_dungeon():
+		print("[DebugOverlay] ⚠ 難ダンジョンに入っていない")
 		return
-	print("[DebugOverlay] ⚠ ボスの先に届かなかった（⚠ 戦闘のマスで止まっている疑い）")
+	if not GameManager.debug_mark_dungeon_boss_cleared():
+		print("[DebugOverlay] ⚠ ボスを倒した扱いにできなかった")
+		return
+	# ⚠ 自動で出す覚えを落とす（⚠ 何度でもわかれ道の画面を見たいので）。
+	GameManager.clear_dungeon_shop_seen()
+	print("[DebugOverlay] 難：ボスを倒した扱いにした（⚠ マップへ入り直すとわかれ道の画面が出る）")
 
 
 func _dungeon_layer() -> int:
@@ -230,6 +281,12 @@ func _make_button(text: String, handler: Callable) -> Button:
 # こちらは見出しごと消える。
 #
 # ⚠ 操作系のキーをここに足さないこと（冒頭のコメント）。
+# ⚠ 画面が変わったら出すものを入れ替える（2026-09-21）。
+#   ⚠ 比べてから触るので、⚠ 同じ間は何もしない（⚠ 毎フレーム置き直さない）。
+func _process(_delta: float) -> void:
+	_apply_scene_group()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey):
 		return

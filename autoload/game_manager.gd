@@ -7823,6 +7823,21 @@ func clear_dungeon_shop_seen() -> void:
 	_state[GameStateKeys.DUNGEON_RUN] = run
 
 
+# ⚠⚠ ボスを倒した扱いにする（2026-09-21）。⚠ **検証用の口**（`tests/debug_overlay.gd` から呼ぶ）。
+#
+# ⚠⚠ 本番からは呼ばない。⚠ リリース前に消す（⚠ デバッグのパネルごと）。
+# ⚠ 戦闘は画面が起こすので、⚠ パネルからは勝てない。⚠ 「わかれ道の画面」を戦わずに
+#   ⚠ 出すための逃げ道。⚠ phase だけを書き、⚠ position は動かさない。
+func debug_mark_dungeon_boss_cleared() -> bool:
+	if not is_in_dungeon():
+		return false
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_PHASE] = GameStateKeys.DUNGEON_PHASE_BOSS_CLEARED
+	_state[GameStateKeys.DUNGEON_RUN] = run
+	print("[GameManager] debug_mark_dungeon_boss_cleared() -> ボスを倒した扱いにした（⚠ 検証用）")
+	return true
+
+
 # もう1階潜れるか（段階20-a・人間の決定26「1ラン ＝ 3階 × 25層」）。
 #
 # ⚠ 「撤退できるか」とは別物。⚠ 最後の階を突破したら、⚠ 撤退はできるが続行はできない。
