@@ -280,6 +280,13 @@ func _create_equipment_grid() -> void:
 	grid.drag_group = DRAG_GROUP_EQUIPMENT
 	grid.accept_drop_groups = [InventoryWindow.DRAG_GROUP]
 	grid.slot_received.connect(_on_equipment_grid_received)
+	# ⚠⚠ 枠の下に部位の名前を出す（2026-09-21・人間の指示
+	#   「⚠ 枠と、頭などの部位を表すテキストを対応させて」）。
+	#   ⚠ 下の行（頭：なし …）と同じ翻訳キーを引く＝⚠ 字が食い違わない。
+	var captions: PackedStringArray = PackedStringArray()
+	for slot_name: String in GameManager.get_equip_slots():
+		captions.append(tr("ui_equipment_slot_" + slot_name))
+	grid.captions = captions
 	var entries: Array = []
 	for row: Variant in GameManager.get_equipment_slot_entries(_character_id):
 		entries.append((row as Dictionary)[GameManager.SLOT_ENTRY_ENTRY])

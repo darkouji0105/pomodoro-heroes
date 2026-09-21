@@ -10,7 +10,8 @@ signal closed(result: bool)
 # ⚠⚠ 見た目の値は Theme が持つ（`UI-1`）。⚠ ここに数字を書かない。
 #   ⚠ 引くのは `Window` 型（⚠ 結果窓と共通）。
 
-# ⚠ 窓の幅の3段階（決定 `MD-3`）。⚠ 呼ぶ側は `Modal.WIDTH_*` を渡す。
+# ⚠ 窓の幅の4段階（決定 `MD-3`）。⚠ 呼ぶ側は `Modal.WIDTH_*` を渡す。
+const WIDTH_TINY: String = "tiny"
 const WIDTH_SMALL: String = "small"
 const WIDTH_MEDIUM: String = "medium"
 const WIDTH_LARGE: String = "large"
@@ -89,7 +90,7 @@ func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary =
 		content_box.add_child(content as Control)
 		content_box.visible = true
 
-	# ⚠ 窓の幅は3段階の固定（決定 `MD-3`）。⚠ 渡されなければ小。
+	# ⚠ 窓の幅は4段階の固定（決定 `MD-3`）。⚠ 渡されなければ小。
 	_apply_width(str(options.get(Modal.OPTION_WIDTH, WIDTH_SMALL)))
 	# ⚠ 暗幕の濃さ（決定 `MD-6`）。⚠ 渡されなければ今までどおり 60%。
 	_apply_dim(str(options.get(Modal.OPTION_DIM, DIM_NORMAL)))
@@ -117,7 +118,9 @@ func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary =
 # ⚠ 窓の幅（決定 `MD-3`）。⚠ 知らない字が来たら小に落とす（⚠ 黙って伸びる形に戻さない）。
 func _apply_width(size_name: String) -> void:
 	var key: StringName = &"width_small"
-	if size_name == WIDTH_MEDIUM:
+	if size_name == WIDTH_TINY:
+		key = &"width_tiny"
+	elif size_name == WIDTH_MEDIUM:
 		key = &"width_medium"
 	elif size_name == WIDTH_LARGE:
 		key = &"width_large"

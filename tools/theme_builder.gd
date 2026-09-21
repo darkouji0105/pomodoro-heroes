@@ -537,6 +537,10 @@ const WINDOW_TITLE_RULE_WIDTH: int = 2
 # ⚠⚠ 窓の幅は3段階の固定（2026-09-21・決定 `MD-3`。⚠ 人間の裁き「3はA」）。
 #   ⚠ 中身に合わせて伸ばすと `scenario=layout` で測る値が毎回変わって検査にならない。
 #   ⚠ 小＝文だけ ／ 中＝マス目つき ／ 大＝行が多いもの。
+# ⚠⚠ 極小（2026-09-21・人間の裁き「⚠ 詳細ウィンドウが小さいからそれに合わせて」）。
+#   ⚠ 倉庫の詳細パネルと同じ 300。⚠ 品を捨てる確認はその隣に出るので、⚠ 大きいと浮く。
+#   ⚠ `MD-3` を3段階から4段階に広げた。
+const WINDOW_WIDTH_TINY: int = 300
 const WINDOW_WIDTH_SMALL: int = 400
 const WINDOW_WIDTH_MEDIUM: int = 560
 const WINDOW_WIDTH_LARGE: int = 720
@@ -1298,6 +1302,7 @@ static func _build_battle_result(theme: Theme) -> void:
 	theme.set_constant(&"title_height", &"Window", WINDOW_TITLE_HEIGHT)
 	# ⚠ 窓の共通の値（2026-09-21・決定 `MD-3` / `MD-6` / `MD-8` / `MD-9`）。
 	#   ⚠ 引く側（`ModalDialog` / `Modal`）に数字を書かせない。
+	theme.set_constant(&"width_tiny", &"Window", WINDOW_WIDTH_TINY)
 	theme.set_constant(&"width_small", &"Window", WINDOW_WIDTH_SMALL)
 	theme.set_constant(&"width_medium", &"Window", WINDOW_WIDTH_MEDIUM)
 	theme.set_constant(&"width_large", &"Window", WINDOW_WIDTH_LARGE)

@@ -255,6 +255,13 @@ func _apply_hud_theme() -> void:
 		if rect is ColorRect:
 			(rect as ColorRect).custom_minimum_size.y = line_px
 			(rect as ColorRect).color = divider
+	# ⚠⚠ 下部パネルを画面の下端から浮かせる（2026-09-21・人間の裁き「A」）。
+	#   ⚠ 実測では**切れてはいなかった**（⚠ `BottomPanel` = 0,617 1280 x 103・右下ぴったり 1280,720）。
+	#   ⚠ 直したのは「画面の縁にぴたりと接していて窮屈」という見え方のほう。
+	# ⚠ 浮かせる量は画面の外周と同じ（`ScreenMargin`）。⚠ ここに数字を書かない。
+	var screen_margin: int = src.get_theme_constant(&"margin_bottom", &"ScreenMargin")
+	hud_layout.offset_bottom = -float(screen_margin)
+
 	# ⚠ 戦場の地。⚠ 他の画面より一段暗い（モック §1）。
 	var background: Variant = get_node_or_null(^"Background")
 	if background is ColorRect:

@@ -31,6 +31,12 @@ signal slot_moved(from_index: int, to_index: int)
 #   （⚠ 荷物に中身を入れない＝ItemSlot の決まり）。⚠ to_index はこのマス目の中の番号。
 signal slot_received(from_grid: ItemGrid, from_index: int, to_index: int)
 
+# ⚠⚠ マスの下に出す字（2026-09-21・人間の指示「⚠ 枠と、頭などの部位を表すテキストを対応させて」）。
+#   ⚠ 空なら出さない＝**今までの画面は1つも変わらない**（⚠ 倉庫・鞄・宝箱）。
+#   ⚠ 入れると、⚠ マスを器（縦）で包んで下に字を置く。⚠ 列は `columns` のまま揃う。
+#   ⚠ `rebuild()` より先に入れること。
+var captions: PackedStringArray = PackedStringArray()
+
 # 1行に並べるマスの数。⚠ ここは見た目の都合なので画面側が決める。
 const DEFAULT_COLUMNS: int = 8
 # 別のマス目から受ける器のグループ（2026-09-15・段3c）。⚠ OS の別窓から落とし先を探すときに引く。
@@ -93,7 +99,21 @@ func rebuild(entries: Array, slot_count: int = 0) -> void:
 		slot.slot_received.connect(_on_slot_received.bind(i))
 		slot.slot_hovered.connect(_on_slot_hovered.bind(i))
 		slot.slot_unhovered.connect(_on_slot_unhovered.bind(i))
-		add_child(slot)
+		# ⚠ 字があるときだけ器で包む（⚠ 無いときは今までどおりマスを直に並べる）。
+		if i < captions.size():
+			var cell: VBoxContainer = VBoxContainer.new()
+			cell.name = "Cell_%d" % i
+			cell.theme_type_variation = &"TightList"
+			cell.add_child(slot)
+			var caption: Label = Label.new()
+			caption.name = "Caption"
+			caption.theme_type_variation = &"CaptionLabel"
+			caption.text = captions[i]
+			caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cell.add_child(caption)
+			add_child(cell)
+		else:
+			add_child(slot)
 		_slots.append(slot)
 
 

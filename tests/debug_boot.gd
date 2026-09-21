@@ -6524,12 +6524,13 @@ func _report_modal_window() -> void:
 # ⚠⚠ 窓のつまみ（2026-09-21・決定 `MD-1`〜`MD-9`）。
 #
 # ⚠ 見るのは「⚠ 渡した指定が値になって出てくるか」だけ。⚠ 見え方は人間と絵が見る。
-# ⚠ 幅は Theme が持つので、⚠ ここに 400 / 560 / 720 と書かない（⚠ 引き直して比べる）。
+# ⚠ 幅は Theme が持つので、⚠ ここに 300 / 400 / 560 / 720 と書かない（⚠ 引き直して比べる）。
 func _report_modal_knobs(scene: PackedScene) -> void:
 	print("[DebugBoot] --- 窓のつまみ（MD-1〜MD-9）---")
 
 	# --- 幅の3段階（MD-3）---
 	var want: Dictionary = {
+		ModalDialog.WIDTH_TINY: &"width_tiny",
 		ModalDialog.WIDTH_SMALL: &"width_small",
 		ModalDialog.WIDTH_MEDIUM: &"width_medium",
 		ModalDialog.WIDTH_LARGE: &"width_large",

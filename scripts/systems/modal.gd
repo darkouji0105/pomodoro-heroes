@@ -29,6 +29,7 @@ const OPTION_DANGER: String = "danger"                # ⚠ 実行のボタン�
 const OPTION_CONFIRM_LABEL: String = "confirm_label_key"  # ⚠ 「はい」の文言（⚠ 「消す」「捨てる」など）
 
 # ⚠ 呼ぶ側が綴りを書かないための持ち出し（⚠ `ModalDialog` の定数と同じ字）。
+const WIDTH_TINY: String = ModalDialog.WIDTH_TINY
 const WIDTH_SMALL: String = ModalDialog.WIDTH_SMALL
 const WIDTH_MEDIUM: String = ModalDialog.WIDTH_MEDIUM
 const WIDTH_LARGE: String = ModalDialog.WIDTH_LARGE

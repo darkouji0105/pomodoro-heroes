@@ -1690,6 +1690,7 @@ Window/constants/title_height = 36
 Window/constants/width_large = 720
 Window/constants/width_medium = 560
 Window/constants/width_small = 400
+Window/constants/width_tiny = 300
 WindowPanel/base_type = &"PanelContainer"
 WindowPanel/styles/panel = SubResource("StyleBoxFlat_j0ak4")
 WindowTitleLabel/base_type = &"Label"
