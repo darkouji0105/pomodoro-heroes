@@ -24,6 +24,8 @@ const SCENE_BASE: String = "res://scenes/base/base_screen.tscn"
 # ⚠ screen は窓あり専用。ヘッドレスでは描画がダミーなので何も分からない。
 const KIND_BATTLE: String = "battle"
 const KIND_SCREEN: String = "screen"
+# ⚠⚠ 画面を PNG で撮る枝（2026-09-21）。⚠ 窓あり専用。
+const KIND_SHOT: String = "shot"
 # ⚠ 戦闘も画面も使わず、GameManager を直接叩いて print だけして終わる枝。
 #   素材・等級・鍛冶・分解のように「戦闘に1行も出ない」ものは、これが無いと
 #   検証の口が無い（EXEC_MATERIAL_TIERS.md §0-2 の8）。
@@ -51,6 +53,19 @@ const REPORT_INVENTORY_WINDOW: String = "inventory_window"
 const REPORT_EQUIP_DRAG: String = "equip_drag"
 const REPORT_DRAG_CURSOR: String = "drag_cursor"
 const REPORT_BASE_CHEST: String = "base_chest"
+
+# ⚠⚠ 画面を撮る（2026-09-21・人間の許可「⚠ その実験もいいよ　画面とる」）。
+#
+# ⚠⚠ これだけは **`--headless` を付けずに** 回す。⚠ ヘッドレスは描画がダミーで、
+#   ⚠ 撮っても中身の無い絵しか出ない（CLAUDE.md「実行環境の制約」）。
+# ⚠⚠ 窓が人間の画面に出る。⚠ 最小化したり別の窓で覆ったりすると**描画そのものが止まり**、
+#   ⚠ 1枚も撮れない（⚠ 下の「描いた枚数」が増えないまま時間切れになる）。
+# ⚠ 出し先は `shot_dir=<パス>` で渡す。⚠ プロジェクトの中に新しいフォルダを作らないための逃げ道
+#   （⚠ フォルダの新設は人間の承認が要る＝AGENTS.md）。
+const SHOT_DIR_DEFAULT: String = "user://shots"
+# ⚠ 撮る前の下ごしらえ。⚠ 増やすなら ShotTaker._prepare() に1行。
+const SHOT_PREPARE_NONE: String = ""
+const SHOT_PREPARE_DUNGEON: String = "dungeon"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -910,6 +925,20 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_BASE_CHEST,
 		"note": "拠点の宝箱。バッジで一覧が1枚 / 行＝種類 / 1つ開けると1減って結果の窓 / すべて開けると0 / 閉じる",
 	},
+	# 2026-09-21。⚠⚠ 窓あり専用。⚠ 画面を PNG で撮る（⚠ 設計役が絵を見られる唯一の口）。
+	# ⚠ `--headless` を付けないこと。⚠ 出し先は `shot_dir=<パス>`。
+	# ⚠ 撮る画面を増やすなら `shots` に1行足す。⚠ シーンもスクリプトも増やさないこと。
+	"shot": {
+		"kind": KIND_SHOT,
+		"note": "画面を PNG で撮る。⚠ --headless を外して回す。出し先は shot_dir= で渡す",
+		"shots": [
+			{
+				"name": "dungeon_map",
+				"scene": "res://scenes/adventure/dungeon_map.tscn",
+				"prepare": SHOT_PREPARE_DUNGEON,
+			},
+		],
+	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
 	"training": {
 		"kind": KIND_SCREEN,
@@ -986,6 +1015,20 @@ func _ready() -> void:
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
+		return
+
+	if str(scenario.get("kind", KIND_BATTLE)) == KIND_SHOT:
+		# ⚠ ヘッドレスで回されたらここで止める。⚠ 黙って真っ黒な絵を保存するのが一番たちが悪い。
+		if DisplayServer.get_name() == "headless":
+			push_error("[DebugBoot] ⚠ shot は窓あり専用。⚠ --headless を外して回すこと")
+			get_tree().quit()
+			return
+		var taker: ShotTaker = ShotTaker.new()
+		taker.name = "DebugBootShotTaker"
+		taker.out_dir = _read_shot_dir()
+		taker.shots = scenario.get("shots", [])
+		# ⚠ Driver と同じ理由で root に残す。⚠ 画面を差し替えると自分（＝debug_boot）は消える。
+		get_tree().root.add_child.call_deferred(taker)
 		return
 
 	if str(scenario.get("kind", KIND_BATTLE)) == KIND_SCREEN:
@@ -7825,6 +7868,18 @@ func _report_dungeon_map_shop_row() -> void:
 	map.queue_free()
 
 
+# `shot_dir=<パス>` を読む。⚠ 無ければ user://shots。
+func _read_shot_dir() -> String:
+	var args: Array = []
+	args.append_array(OS.get_cmdline_user_args())
+	args.append_array(OS.get_cmdline_args())
+	for raw: Variant in args:
+		var arg: String = str(raw)
+		if arg.begins_with("shot_dir="):
+			return arg.substr("shot_dir=".length())
+	return SHOT_DIR_DEFAULT
+
+
 # 中身が見えているノードの数（段階17-e・たいまつ）。
 func _count_revealed_dungeon_nodes() -> int:
 	var count: int = 0
@@ -8256,6 +8311,121 @@ func _drag_probe_case(label: String, source: Control, target: DragProbeTarget) -
 		"渡った" if passed else "渡らない",
 	])
 	return passed
+
+
+# ⚠⚠ 画面を撮る役（2026-09-21・人間の許可「⚠ その実験もいいよ　画面とる」）。
+#
+# ⚠ `Driver` と同じ理由で root に残す。⚠ 画面を差し替えると debug_boot 自身が消えるため。
+# ⚠⚠ 画面は必ず `SceneManager` 経由で開く。⚠ `add_child()` で直に足すと、
+#   ⚠ **右上の通貨のような「画面が自分の `_ready()` で消すもの」が本番と違う状態で写る**
+#   （⚠ 2026-09-21 の1枚目で踏んだ。⚠ `ResourceHud` がまだ生まれておらず、
+#   ⚠ `dungeon_map.gd:91` の `set_shown(false)` が空振りして、⚠ 出ないはずの通貨が写っていた）。
+class ShotTaker extends Node:
+
+	# ⚠ 画面を開いてから撮るまでに置く間（⚠ 配置と初回の描き込みが落ち着くまで）。
+	const SETTLE_FRAMES: int = 20
+	# ⚠ 窓が1枚も描かないまま諦めるまで。⚠ 覆われている／最小化されていると進まない。
+	const DRAW_TIMEOUT_FRAMES: int = 180
+	# ⚠ デバッグのパネルは画面の右側を覆うので、⚠ 撮る前に消す（⚠ 既定で出ている）。
+	const DEBUG_OVERLAY_NAME: String = "DebugOverlay"
+	# ⚠ 外側の `SHOT_PREPARE_DUNGEON` と同じ字。⚠ 内側のクラスから外の const は引けない。
+	const PREPARE_DUNGEON: String = "dungeon"
+
+	var out_dir: String = ""
+	var shots: Array = []
+
+	func _ready() -> void:
+		await _run()
+		get_tree().quit()
+
+	func _run() -> void:
+		DirAccess.make_dir_recursive_absolute(out_dir)
+		if not DirAccess.dir_exists_absolute(out_dir):
+			push_error("[DebugBoot] ⚠ 出し先が作れない: " + out_dir)
+			return
+		print("[DebugBoot] --- 画面を撮る ---")
+		print("  出し先 = %s" % out_dir)
+		print("  画面の出し方 = %s ／ 窓の大きさ = %s" % [
+			DisplayServer.get_name(), str(DisplayServer.window_get_size())
+		])
+		for raw: Variant in shots:
+			await _take_one(raw as Dictionary)
+
+	func _take_one(shot: Dictionary) -> void:
+		var shot_name: String = str(shot.get("name", "shot"))
+		if not _prepare(str(shot.get("prepare", ""))):
+			push_error("[DebugBoot] ⚠ %s の下ごしらえが通らなかった" % shot_name)
+			return
+		SceneManager.change_scene(str(shot.get("scene", "")))
+		for _i: int in range(SETTLE_FRAMES):
+			await get_tree().process_frame
+		_hide_debug_overlay()
+		var image: Image = await _capture_window()
+		if image == null:
+			push_error(
+				"[DebugBoot] ⚠ %s は1枚も描かれなかった（⚠ 窓が覆われている／最小化されている疑い）"
+				% shot_name
+			)
+			return
+		var path: String = out_dir.path_join(shot_name + ".png")
+		if image.save_png(path) != OK:
+			push_error("[DebugBoot] ⚠ 保存できない: " + path)
+			return
+		print("  ✅ %s = %s（%d x %d）" % [
+			shot_name, path, image.get_width(), image.get_height()
+		])
+
+	# ⚠ 下ごしらえを増やすならここに1行。
+	func _prepare(kind: String) -> bool:
+		if kind == "":
+			return true
+		if kind == PREPARE_DUNGEON:
+			if GameManager.is_in_dungeon():
+				return true
+			var dungeon_ids: Array[String] = MasterDataLoader.get_all_dungeon_ids()
+			if dungeon_ids.is_empty():
+				push_error("[DebugBoot] ⚠ ダンジョンが1本も無い")
+				return false
+			return GameManager.start_dungeon_run(str(dungeon_ids[0]))
+		push_error("[DebugBoot] ⚠ 知らない下ごしらえ: " + kind)
+		return false
+
+	# ⚠⚠ `CanvasLayer` は `CanvasItem` ではない。⚠ `is CanvasItem` だけで見ると
+	#   **黙って効かず、パネルが写ったままになる**（⚠ 2026-09-21 の2枚目で踏んだ）。
+	func _hide_debug_overlay() -> void:
+		var overlay: Node = get_tree().root.get_node_or_null(DEBUG_OVERLAY_NAME)
+		if overlay == null:
+			print("  ⚠ %s が見つからない（⚠ 名前が変わった疑い）" % DEBUG_OVERLAY_NAME)
+			return
+		if overlay is CanvasLayer:
+			(overlay as CanvasLayer).visible = false
+		elif overlay is CanvasItem:
+			(overlay as CanvasItem).visible = false
+		else:
+			push_error("[DebugBoot] ⚠ %s を消せない型: %s" % [
+				DEBUG_OVERLAY_NAME, overlay.get_class()
+			])
+
+	# ⚠ 窓が実際に描いた絵を1枚もらう。
+	#
+	# ⚠⚠ `await RenderingServer.frame_post_draw` は使わない。⚠ 窓が描いていないときに
+	#   **永久に返ってこない**（⚠ `addons/ziva_agent/ziva_input_harness.gd:1049` に同じ注意書きがある）。
+	# ⚠ 「描いた枚数」が進むのを上限つきで待ち、⚠ 進まなければ null を返して知らせる。
+	func _capture_window() -> Image:
+		var drawn_before: int = Engine.get_frames_drawn()
+		var waited: int = 0
+		while Engine.get_frames_drawn() < drawn_before + 2:
+			if waited >= DRAW_TIMEOUT_FRAMES:
+				return null
+			await get_tree().process_frame
+			waited += 1
+		var texture: ViewportTexture = get_tree().root.get_texture()
+		if texture == null:
+			return null
+		var image: Image = texture.get_image()
+		if image == null or image.is_empty():
+			return null
+		return image
 
 
 class DragProbeSource extends ColorRect:
