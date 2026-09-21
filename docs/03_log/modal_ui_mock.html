@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ポモドーロヒーローズ 共通モーダル モック</title>
+<style>
+/* ===== §0 の色だけを使う ===== */
+:root{
+  --screen:#16110f; --win:#1f1a18; --edge:#4a3d36; --band:#2a2320; --brass:#a8791f;
+  --rule:#2e2724; --text:#f0e6df; --sub:#a89b94; --mute:#7d6f68; --red:#e88a8a; --green:#8ed99b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--screen);color:var(--text);
+  font-family:"NotoSansJP","Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;font-size:14px;line-height:1.6}
+.page{width:1280px;margin:0 auto;padding:40px 0 80px}
+.doc-h{font-size:32px;font-weight:700;margin:0 0 4px}
+.doc-sub{color:var(--sub);margin:0 0 40px}
+.fw{margin:0 0 56px}
+.fw>h2{font-size:14px;font-weight:700;margin:0 0 4px;color:var(--text)}
+.fw>p{margin:0 0 12px;color:var(--sub)}
+.frame{position:relative;width:1280px;height:720px;overflow:hidden;background:var(--screen);outline:1px solid var(--edge)}
+
+/* ===== 後ろの画面（仮） ===== */
+.scene{position:absolute;inset:0}
+.scene .sc-h{position:absolute;left:140px;top:22px;font-size:32px;font-weight:700;line-height:1.2}
+.scene .pnl{position:absolute;background:var(--win);border:1px solid var(--edge);border-radius:10px}
+.scene .pnl i{display:block;height:10px;margin:18px 20px;background:var(--rule);border-radius:3px}
+.scene .pnl b{display:block;height:10px;width:40%;margin:18px 20px;background:var(--brass);border-radius:3px}
+.scene .pos{position:absolute;left:24px;top:24px}
+
+/* ===== ボタン5階層＋無効 ===== */
+.btn{font:inherit;font-size:14px;line-height:1.4;border-radius:8px;padding:8px 20px;border:1px solid transparent;white-space:nowrap;cursor:default}
+.b-sec{background:#241d1a;border-color:#4a3d36;color:#e0d5ce}
+.b-pri{background:#a8791f;color:#1a1206}
+.b-gho{background:transparent;border-color:#4a3d36;color:#a89b94}
+.b-dan{background:#a8352f;color:#ffffff}
+.b-bak{background:#4a3526;border-color:#a8791f;color:#f0e6df}
+.b-dis{background:#241d1a;border-color:#3a302b;color:#6f635c}
+
+/* ===== 左右の比較 ===== */
+.split{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr}
+.one{position:absolute;inset:0;display:grid;grid-template-columns:1fr}
+.col{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.split .col+.col{border-left:1px dashed var(--edge)}
+.veil{position:absolute;inset:0;background:#000;opacity:.6}
+.col>*:not(.veil){position:relative}
+.tag{position:absolute!important;left:24px;top:20px;right:24px;color:var(--brass);font-weight:700}
+.tag span{display:block;color:var(--sub);font-weight:400}
+.note{position:absolute!important;left:24px;right:24px;bottom:18px;color:var(--sub);font-size:13px;line-height:1.6}
+
+/* ===== 窓 ===== */
+.m{background:var(--win);border:1px solid var(--edge);border-radius:10px;overflow:hidden;min-width:400px;text-align:center}
+.m-h{height:38px;background:var(--band);border-bottom:2px solid var(--brass);display:flex;align-items:center;justify-content:center;font-weight:700;position:relative}
+.m-h .q{position:absolute;right:14px;color:var(--mute);font-weight:400}
+.m-b{padding:22px 28px 18px}
+.m-b p{margin:0}
+.m-b .warn{color:var(--red);margin-top:6px}
+.m-f{display:flex;gap:12px;justify-content:center;padding:14px 24px 18px;border-top:1px solid var(--rule)}
+.m-f.r{justify-content:flex-end}
+.left .m-b{text-align:left}
+
+/* マス目 */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 24px 20px}
+.cell{background:#241d1a;border:1px solid var(--rule);border-radius:8px;padding:12px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.ico{width:48px;height:48px;border:1px solid var(--edge);border-radius:6px;background:var(--win);display:flex;align-items:center;justify-content:center;flex:none}
+.ico svg{width:30px;height:30px;stroke:var(--sub);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ico.s{width:40px;height:40px}.ico.s svg{width:24px;height:24px}
+.cnt{color:var(--sub)}
+.r1{color:var(--text)}.r2{color:var(--green)}.r3{color:var(--brass)}
+.rows{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:0 24px 20px;text-align:left}
+.row{display:flex;align-items:center;gap:12px;background:#241d1a;border:1px solid var(--rule);border-radius:8px;padding:8px 12px}
+.row .nm{flex:1}
+.lost{opacity:.55}
+.lost .cnt{color:var(--red)}
+.hp{display:flex;justify-content:center;align-items:baseline;gap:14px;margin-top:10px}
+.hp .from{color:var(--sub)} .hp .to{color:var(--red);font-weight:700}
+.sect{color:var(--mute);text-align:left;padding:0 24px 6px}
+
+/* ===== §0 図解 ===== */
+.anat{position:absolute;left:620px;top:150px}
+.call{position:absolute;display:flex;align-items:center;gap:8px;color:var(--sub);font-size:13px;white-space:nowrap}
+.call::before{content:"";width:60px;border-top:1px solid var(--mute)}
+.btn-list{position:absolute;left:48px;top:120px;display:grid;grid-template-columns:auto 1fr;gap:14px 20px;align-items:center}
+.btn-list .d{color:var(--sub);font-size:13px}
+
+/* ===== §5 つなぎ ===== */
+.story{position:absolute;left:48px;right:48px;top:100px;display:flex;flex-direction:column;gap:36px}
+.srow{display:flex;align-items:center;gap:10px}
+.srow .lab{width:120px;color:var(--brass);font-weight:700;flex:none}
+.srow .lab span{display:block;color:var(--sub);font-weight:400;font-size:13px}
+.mini{position:relative;width:208px;height:117px;background:var(--screen);border:1px solid var(--rule);flex:none}
+.mini .bk{position:absolute;left:6px;top:6px;width:22px;height:9px;background:#4a3526;border:1px solid var(--brass);border-radius:2px}
+.mini .v{position:absolute;inset:0;background:#000;opacity:.6}
+.mm{position:absolute;left:50%;top:50%;width:96px;height:58px;transform:translate(-50%,-50%);background:var(--win);border:1px solid var(--edge);border-radius:4px;overflow:hidden}
+.mm::before{content:"";display:block;height:9px;background:var(--band);border-bottom:1px solid var(--brass)}
+.mm i{display:block;height:4px;margin:7px 12px 0;background:var(--sub);border-radius:2px;opacity:.6}
+.mm u{position:absolute;right:4px;top:0;font-size:8px;line-height:9px;color:var(--mute);text-decoration:none}
+.mm.b2 i{background:var(--green)}
+.mini .cap{position:absolute;left:0;right:0;bottom:-24px;text-align:center;color:var(--sub);font-size:12px}
+.arr{flex:none;width:44px;text-align:center;color:var(--mute);font-size:12px;line-height:1.3}
+.arr::after{content:"";display:block;margin:4px auto 0;width:28px;border-top:1px solid var(--mute)}
+
+/* ===== §7 出入り ===== */
+.anim .veil{transition:none}
+.anim .m{transition:none}
+.anim.hide .veil{opacity:0}
+.anim.hide .m{opacity:0}
+.anim.B .veil{transition:opacity 120ms ease-out}
+.anim.B .m{transition:opacity 160ms ease-out,transform 160ms ease-out}
+.anim.B.hide .m{transform:translateY(6px) scale(.98)}
+.anim.B.hide.out .veil{transition-duration:100ms}
+.anim.B.hide.out .m{transition-duration:100ms}
+@media (prefers-reduced-motion: reduce){.anim.B .veil,.anim.B .m{transition:none}}
+
+/* ===== §8 表 ===== */
+.tbl{position:absolute;left:48px;right:48px;top:40px;border-collapse:collapse;width:1184px}
+.tbl th,.tbl td{border-bottom:1px solid var(--rule);padding:13px 14px;text-align:left;vertical-align:top}
+.tbl th{color:var(--sub);font-weight:400;border-bottom:2px solid var(--brass)}
+.tbl td:first-child{font-weight:700;width:170px}
+.tbl .ab{color:var(--brass);font-weight:700;margin-right:6px}
+.tbl .memo{color:var(--mute)}
+.tbl .fixed{color:var(--green)}
+</style>
+</head>
+<body>
+<div class="page">
+<h1 class="doc-h">共通モーダル（窓）モック</h1>
+<p class="doc-sub">ポモドーロヒーローズ／枠はすべて 1280 x 720。色・寸法は依頼書 §0 の値だけを使っています。等級の色と数値は仮です。</p>
+
+<!-- §0 -->
+<section class="fw">
+<h2>§0 部品の寸法とボタン5階層</h2>
+<p>ここに書いた寸法を §1 以降のすべての窓で使っています。</p>
+<div class="frame" data-scene="none">
+  <div class="btn-list">
+    <button class="btn b-sec">いいえ</button><span class="d">既定：並列の選択肢</span>
+    <button class="btn b-pri">はい</button><span class="d">真鍮：主要動作・1画面に1個まで</span>
+    <button class="btn b-gho">あとで</button><span class="d">Ghost：弱い操作</span>
+    <button class="btn b-dan">消す</button><span class="d">赤：取り返しのつかない操作</span>
+    <button class="btn b-bak">戻る</button><span class="d">戻る：全画面で左上（窓には置かない）</span>
+    <button class="btn b-dis">はい</button><span class="d">無効：どの階層もこの見た目</span>
+  </div>
+  <div class="anat">
+    <div class="m" style="width:400px">
+      <div class="m-h">お知らせ</div>
+      <div class="m-b"><p>セーブしました。</p></div>
+      <div class="m-f"><button class="btn b-pri">閉じる</button></div>
+    </div>
+    <div class="call" style="left:400px;top:-4px">縁 #4a3d36 1px ／ 角丸 10px</div>
+    <div class="call" style="left:400px;top:8px;margin-top:14px">題の帯 高さ36px ＋ 真鍮の線 2px ／ 題は14px 太字</div>
+    <div class="call" style="left:400px;top:62px">本文 14px ／ 余白 上22・横28</div>
+    <div class="call" style="left:400px;top:100px">区切り線 #2e2724 1px</div>
+    <div class="call" style="left:400px;top:128px">ボタン 角丸8 ／ 余白 横20・縦8</div>
+    <div class="call" style="left:0;top:180px">幅 400（小）。中身つきは 560（中）・720（大） → §8</div>
+  </div>
+  <div class="note">見出し 32px は画面の見出し用。窓の中では題も本文も 14px にしています（帯の高さ36pxに32pxは入らないため）。</div>
+</div>
+</section>
+
+<!-- §1 -->
+<section class="fw">
+<h2>§1 知らせる窓（文だけ）</h2>
+<p>題の帯は全窓に付ける決定（2026-09-18）なので、決めるのは「帯に何を書くか」。成功と失敗を上下に並べています。</p>
+<div class="frame" data-scene="拠点">
+  <div class="split">
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">A案 題＝窓の種類<span>「お知らせ」「確認」「結果」の3語だけ。呼び出し側は題を渡さなくてよい</span></div>
+      <div class="m" style="width:400px"><div class="m-h">お知らせ</div><div class="m-b"><p>セーブしました。</p></div><div class="m-f"><button class="btn b-pri">閉じる</button></div></div>
+      <div class="m" style="width:400px"><div class="m-h">お知らせ</div><div class="m-b"><p>セーブできませんでした。</p><p class="warn">保存先に書き込めません。空き容量を確かめてください。</p></div><div class="m-f"><button class="btn b-pri">閉じる</button></div></div>
+    </div>
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">B案 題＝できごとの名前<span>「セーブ」「宝箱」「罠」。題を渡さなかったときだけ A案の語に落とす</span></div>
+      <div class="m" style="width:400px"><div class="m-h">セーブ</div><div class="m-b"><p>セーブしました。</p></div><div class="m-f"><button class="btn b-pri">閉じる</button></div></div>
+      <div class="m" style="width:400px"><div class="m-h">セーブ</div><div class="m-b"><p>セーブできませんでした。</p><p class="warn">保存先に書き込めません。空き容量を確かめてください。</p></div><div class="m-f"><button class="btn b-pri">閉じる</button></div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- §1-2 -->
+<section class="fw">
+<h2>§1-2 閉じるボタンの位置</h2>
+<p>拾いものの窓で「下」にした形を全窓の基準にするかどうか。帯に×を置く案は、拾いものの判断に合わないので外しました。</p>
+<div class="frame" data-scene="倉庫">
+  <div class="split">
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">A案 下の中央<span>知らせる窓も確認の窓も、ボタンの行は中央ぞろえ</span></div>
+      <div class="m" style="width:400px"><div class="m-h">お知らせ</div><div class="m-b"><p>セーブしました。</p></div><div class="m-f"><button class="btn b-pri">閉じる</button></div></div>
+      <div class="m" style="width:400px"><div class="m-h">確認</div><div class="m-b"><p>タイトルへ戻りますか？</p></div><div class="m-f"><button class="btn b-sec">いいえ</button><button class="btn b-pri">はい</button></div></div>
+    </div>
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">B案 下の右<span>ボタンの行は右ぞろえ。本文が左ぞろえの窓（§4 B案）と相性がよい</span></div>
+      <div class="m" style="width:400px"><div class="m-h">お知らせ</div><div class="m-b"><p>セーブしました。</p></div><div class="m-f r"><button class="btn b-pri">閉じる</button></div></div>
+      <div class="m" style="width:400px"><div class="m-h">確認</div><div class="m-b"><p>タイトルへ戻りますか？</p></div><div class="m-f r"><button class="btn b-sec">いいえ</button><button class="btn b-pri">はい</button></div></div>
+    </div>
+  </div>
+  <div class="note" style="left:auto;width:560px;text-align:right">どちらも Esc で「閉じる」「いいえ」、Enter で真鍮のボタン。</div>
+</div>
+</section>
+
+<!-- §2 -->
+<section class="fw">
+<h2>§2 確認の窓（ボタンの並び）</h2>
+<p>「いいえ」を左、「はい」を右に固定。変えるのは揃え方だけ。真鍮は「はい」の1個だけです。</p>
+<div class="frame" data-scene="拠点">
+  <div class="split">
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">A案 いいえ｜はい 中央ぞろえ<span>ボタンは同じ幅（最小96px）にそろえる</span></div>
+      <div class="m" style="width:400px"><div class="m-h">確認</div><div class="m-b"><p>タイトルへ戻りますか？</p></div><div class="m-f"><button class="btn b-sec" style="min-width:96px">いいえ</button><button class="btn b-pri" style="min-width:96px">はい</button></div></div>
+      <div class="m" style="width:400px"><div class="m-h">確認</div><div class="m-b"><p>作業をやめますか？</p><p style="color:var(--sub)">いまのポモドーロは数えられません。</p></div><div class="m-f"><button class="btn b-sec" style="min-width:96px">いいえ</button><button class="btn b-pri" style="min-width:96px">やめる</button></div></div>
+    </div>
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">B案 いいえ｜はい 右ぞろえ<span>「はい」が右下の角に来る。視線の終点に主要動作</span></div>
+      <div class="m" style="width:400px"><div class="m-h">確認</div><div class="m-b"><p>タイトルへ戻りますか？</p></div><div class="m-f r"><button class="btn b-sec" style="min-width:96px">いいえ</button><button class="btn b-pri" style="min-width:96px">はい</button></div></div>
+      <div class="m" style="width:400px"><div class="m-h">確認</div><div class="m-b"><p>作業をやめますか？</p><p style="color:var(--sub)">いまのポモドーロは数えられません。</p></div><div class="m-f r"><button class="btn b-sec" style="min-width:96px">いいえ</button><button class="btn b-pri" style="min-width:96px">やめる</button></div></div>
+    </div>
+  </div>
+  <div class="note">「はい」は動詞にできるときは動詞にする案も入れています（やめる・消す・捨てる・壊す）。押した結果が文字で分かるため。</div>
+</div>
+</section>
+
+<!-- §2-2 -->
+<section class="fw">
+<h2>§2-2 取り返しのつかない確認（セーブを消す・品を捨てる・装飾を壊す）</h2>
+<p>どちらの案も本文の下に赤の注記「元に戻せません」を必ず付けます。違いはボタンの重みづけ。</p>
+<div class="frame" data-scene="タイトル">
+  <div class="split">
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">A案 実行ボタンを赤に<span>真鍮は使わない（主要動作を置かない）。いいえ＝既定、実行＝赤</span></div>
+      <div class="m" style="width:400px"><div class="m-h">確認</div><div class="m-b"><p>セーブ 1 を消しますか？</p><p class="warn">消したセーブは元に戻せません。</p></div><div class="m-f"><button class="btn b-sec" style="min-width:96px">いいえ</button><button class="btn b-dan" style="min-width:96px">消す</button></div></div>
+      <div class="m" style="width:400px"><div class="m-h">確認</div><div class="m-b"><p>「鉄の剣」を捨てますか？</p><p class="warn">捨てた品は元に戻せません。</p></div><div class="m-f"><button class="btn b-sec" style="min-width:96px">いいえ</button><button class="btn b-dan" style="min-width:96px">捨てる</button></div></div>
+    </div>
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">B案 安全なほうを真鍮に<span>「やめる」が主要動作。実行は Ghost に沈める。Enter で押されるのは安全側</span></div>
+      <div class="m" style="width:400px"><div class="m-h">確認</div><div class="m-b"><p>セーブ 1 を消しますか？</p><p class="warn">消したセーブは元に戻せません。</p></div><div class="m-f"><button class="btn b-gho" style="min-width:96px">消す</button><button class="btn b-pri" style="min-width:96px">やめる</button></div></div>
+      <div class="m" style="width:400px"><div class="m-h">確認</div><div class="m-b"><p>「鉄の剣」を捨てますか？</p><p class="warn">捨てた品は元に戻せません。</p></div><div class="m-f"><button class="btn b-gho" style="min-width:96px">捨てる</button><button class="btn b-pri" style="min-width:96px">やめる</button></div></div>
+    </div>
+  </div>
+  <div class="note">A案は「危ない」が一目で分かる。B案は赤を使わないぶん、誤って押しにくい。どちらも Esc と Enter の割り当ては左右の見た目に合わせます（A：Enter＝何もしない、B：Enter＝やめる）。</div>
+</div>
+</section>
+
+<!-- §3 -->
+<section class="fw">
+<h2>§3 中身つきの窓（宝箱の開封結果）</h2>
+<p>幅は中（560）。名前の色は等級の色（ここでは §0 の本文・緑・真鍮で代用）。絵は四角い枠＋線画。</p>
+<div class="frame" data-scene="倉庫">
+  <div class="split">
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">A案 3列のマス目<span>絵を大きく見せる。6件で2段、9件まで高さが伸びる</span></div>
+      <div class="m" style="width:560px">
+        <div class="m-h">結果</div>
+        <div class="m-b" style="padding-bottom:14px"><p>宝箱を開けました。6 種類 手に入れました。</p></div>
+        <div class="grid3">
+          <div class="cell"><div class="ico" data-ic="potion"></div><span class="r1">回復ポーション</span><span class="cnt">×3</span></div>
+          <div class="cell"><div class="ico" data-ic="coin"></div><span class="r1">銀貨</span><span class="cnt">×120</span></div>
+          <div class="cell"><div class="ico" data-ic="scroll"></div><span class="r1">古い地図</span><span class="cnt">×1</span></div>
+          <div class="cell"><div class="ico" data-ic="key"></div><span class="r2">真鍮の鍵</span><span class="cnt">×1</span></div>
+          <div class="cell"><div class="ico" data-ic="shield"></div><span class="r2">革の盾</span><span class="cnt">×1</span></div>
+          <div class="cell"><div class="ico" data-ic="ring"></div><span class="r3">灯火の指輪</span><span class="cnt">×1</span></div>
+        </div>
+        <div class="m-f"><button class="btn b-pri">閉じる</button></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">B案 2列の行<span>名前が長くても切れにくい。件数が増えても高さの伸びが小さい</span></div>
+      <div class="m" style="width:560px">
+        <div class="m-h">結果</div>
+        <div class="m-b" style="padding-bottom:14px"><p>宝箱を開けました。6 種類 手に入れました。</p></div>
+        <div class="rows">
+          <div class="row"><div class="ico s" data-ic="potion"></div><span class="nm r1">回復ポーション</span><span class="cnt">×3</span></div>
+          <div class="row"><div class="ico s" data-ic="coin"></div><span class="nm r1">銀貨</span><span class="cnt">×120</span></div>
+          <div class="row"><div class="ico s" data-ic="scroll"></div><span class="nm r1">古い地図</span><span class="cnt">×1</span></div>
+          <div class="row"><div class="ico s" data-ic="key"></div><span class="nm r2">真鍮の鍵</span><span class="cnt">×1</span></div>
+          <div class="row"><div class="ico s" data-ic="shield"></div><span class="nm r2">革の盾</span><span class="cnt">×1</span></div>
+          <div class="row"><div class="ico s" data-ic="ring"></div><span class="nm r3">灯火の指輪</span><span class="cnt">×1</span></div>
+        </div>
+        <div class="m-f"><button class="btn b-pri">閉じる</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- §3-2 -->
+<section class="fw">
+<h2>§3-2 難ダンジョンの2つも同じ部品で</h2>
+<p>実装済みの2つの窓を、§3 と同じ部品（帯・本文・中身・ボタンの行）に載せた形。中身の差し込み口だけが違います。</p>
+<div class="frame" data-scene="難ダンジョン">
+  <div class="split">
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">通路のできごと（罠）<span>中身＝HP の前 → 後</span></div>
+      <div class="m" style="width:400px">
+        <div class="m-h">罠</div>
+        <div class="m-b">
+          <div style="display:flex;justify-content:center"><div class="ico" data-ic="trap"></div></div>
+          <p style="margin-top:12px">矢の罠にかかった。</p>
+          <div class="hp"><span class="cnt">HP</span><span class="from">120</span><span class="cnt">→</span><span class="to">96</span></div>
+        </div>
+        <div class="m-f"><button class="btn b-pri">閉じる</button></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="veil" style="opacity:.72"></div>
+      <div class="tag">鞄に入れた（拾いもの・暗幕72%）<span>中身＝入った／入らず失われた のマス目</span></div>
+      <div class="m" style="width:560px">
+        <div class="m-h">鞄</div>
+        <div class="m-b" style="padding-bottom:12px"><p>拾ったものを鞄に入れました。</p></div>
+        <div class="sect">入った</div>
+        <div class="rows">
+          <div class="row"><div class="ico s" data-ic="potion"></div><span class="nm r1">回復ポーション</span><span class="cnt">×2</span></div>
+          <div class="row"><div class="ico s" data-ic="sword"></div><span class="nm r2">錆びた剣</span><span class="cnt">×1</span></div>
+        </div>
+        <div class="sect">入らず失われた</div>
+        <div class="rows">
+          <div class="row lost"><div class="ico s" data-ic="shield"></div><span class="nm r1">木の盾</span><span class="cnt">失われた</span></div>
+        </div>
+        <div class="m-f"><button class="btn b-pri">閉じる</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- §4 -->
+<section class="fw">
+<h2>§4 長い本文の窓（3〜4行）</h2>
+<p>ポモドーロの受け取り報告。どちらも 6行を超えたら本文の中だけスクロール（帯とボタンは動かない）。</p>
+<div class="frame" data-scene="拠点">
+  <div class="split">
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">A案 中央ぞろえのまま・最大幅 480<span>1行 30字前後で折り返す。短い窓と見た目がそろう</span></div>
+      <div class="m" style="width:480px">
+        <div class="m-h">お知らせ</div>
+        <div class="m-b"><p>ポモドーロ 3回ぶんの報酬を受け取りました。ポーション 2個と宝箱 1個が倉庫に入りました。</p><p class="warn">倉庫がいっぱいのため、宝箱 1個は受け取れていません。空きを作ってから、もう一度受け取ってください。</p></div>
+        <div class="m-f"><button class="btn b-pri">閉じる</button></div>
+      </div>
+    </div>
+    <div class="col left">
+      <div class="veil"></div>
+      <div class="tag">B案 2行以上は左ぞろえ・最大幅 560<span>長い文が読みやすい。1行ならこれまでどおり中央</span></div>
+      <div class="m" style="width:560px">
+        <div class="m-h">お知らせ</div>
+        <div class="m-b"><p>ポモドーロ 3回ぶんの報酬を受け取りました。ポーション 2個と宝箱 1個が倉庫に入りました。</p><p class="warn">倉庫がいっぱいのため、宝箱 1個は受け取れていません。空きを作ってから、もう一度受け取ってください。</p></div>
+        <div class="m-f"><button class="btn b-pri">閉じる</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- §5 -->
+<section class="fw">
+<h2>§5 窓が続けて出るとき</h2>
+<p>1枚目の「閉じる」から2枚目が出るまで。どちらも帯の右に「残りの数」を出して、次があることを先に知らせます。</p>
+<div class="frame" data-scene="none">
+  <div class="story">
+    <div class="srow">
+      <div class="lab">A案<span>そのまま差し替え</span></div>
+      <div class="mini"><div class="bk"></div><div class="v"></div><div class="mm"><u>1/2</u><i></i><i></i><i></i></div><div class="cap">1枚目</div></div>
+      <div class="arr">閉じる</div>
+      <div class="mini"><div class="bk"></div><div class="v"></div><div class="mm b2"><u>2/2</u><i></i><i></i><i></i></div><div class="cap">窓は残り 中身だけ替わる</div></div>
+      <div class="arr">閉じる</div>
+      <div class="mini"><div class="bk"></div><div class="cap">暗幕ごと消える</div></div>
+      <div class="arr" style="width:230px;text-align:left;font-size:13px;line-height:1.6;color:var(--sub)">切れ目が無く速い。<br>ただし中身が替わったことに気づきにくい。</div>
+    </div>
+    <div class="srow">
+      <div class="lab">B案<span>間を置く</span></div>
+      <div class="mini"><div class="bk"></div><div class="v"></div><div class="mm"><u>1/2</u><i></i><i></i><i></i></div><div class="cap">1枚目</div></div>
+      <div class="arr">閉じる</div>
+      <div class="mini"><div class="bk"></div><div class="v"></div><div class="cap">窓だけ消える 暗幕は残す</div></div>
+      <div class="arr">150ms</div>
+      <div class="mini"><div class="bk"></div><div class="v"></div><div class="mm b2"><u>2/2</u><i></i><i></i><i></i></div><div class="cap">2枚目が出る</div></div>
+      <div class="arr" style="width:230px;text-align:left;font-size:13px;line-height:1.6;color:var(--sub)">「別の知らせ」だと分かる。<br>暗幕は消さないので、後ろが一瞬見えてちらつくことはない。</div>
+    </div>
+  </div>
+  <div class="note">どちらの案でも、閉じる直後 200ms は次の窓のボタンを受け付けない（連打で2枚目を読まずに閉じないため）。</div>
+</div>
+</section>
+
+<!-- §6 -->
+<section class="fw">
+<h2>§6 暗幕の濃さ</h2>
+<p>同じ窓を 60% と 72% で並べました。</p>
+<div class="frame" data-scene="難ダンジョン">
+  <div class="split">
+    <div class="col">
+      <div class="veil"></div>
+      <div class="tag">A案 60% を基本、拾いものだけ 72%<span>いまの実装のまま。拾いものは画面が騒がしいので濃く</span></div>
+      <div class="m" style="width:400px"><div class="m-h">お知らせ</div><div class="m-b"><p>セーブしました。</p></div><div class="m-f"><button class="btn b-pri">閉じる</button></div></div>
+    </div>
+    <div class="col">
+      <div class="veil" style="opacity:.72"></div>
+      <div class="tag">B案 全部 72% にそろえる<span>例外が無くなる。後ろの画面はほぼ読めなくなる</span></div>
+      <div class="m" style="width:400px"><div class="m-h">お知らせ</div><div class="m-b"><p>セーブしました。</p></div><div class="m-f"><button class="btn b-pri">閉じる</button></div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- §7 -->
+<section class="fw">
+<h2>§7 出入りの演出</h2>
+<p>くり返し再生しています。B案は短く、動きは 6px だけ。</p>
+<div class="frame" data-scene="拠点">
+  <div class="split">
+    <div class="col anim A">
+      <div class="veil"></div>
+      <div class="tag">A案 演出なし<span>いまのまま。押した瞬間に出て、押した瞬間に消える</span></div>
+      <div class="m" style="width:400px"><div class="m-h">お知らせ</div><div class="m-b"><p>セーブしました。</p></div><div class="m-f"><button class="btn b-pri">閉じる</button></div></div>
+    </div>
+    <div class="col anim B">
+      <div class="veil"></div>
+      <div class="tag">B案 短いフェード<span>入り：暗幕 120ms、窓は下 6px から 160ms／出：どちらも 100ms</span></div>
+      <div class="m" style="width:400px"><div class="m-h">お知らせ</div><div class="m-b"><p>セーブしました。</p></div><div class="m-f"><button class="btn b-pri">閉じる</button></div></div>
+    </div>
+  </div>
+  <div class="note">B案でも、出始めた瞬間からボタンは押せる（演出を待たせない）。</div>
+</div>
+</section>
+
+<!-- §8 -->
+<section class="fw">
+<h2>§8 決めてほしいこと（6点）</h2>
+<p>どれも A案 / B案 から選んでください。見本の枠を右端に書いています。</p>
+<div class="frame" data-scene="none">
+  <table class="tbl">
+    <thead><tr><th>項目</th><th>A案</th><th>B案</th><th>見本</th></tr></thead>
+    <tbody>
+      <tr><td>題の帯</td><td><span class="ab">A</span>種類名（お知らせ／確認／結果）</td><td><span class="ab">B</span>できごとの名前、無ければ種類名</td><td class="memo">§1<br><span class="fixed">帯を出すこと自体は決定済み</span></td></tr>
+      <tr><td>閉じるボタンの位置</td><td><span class="ab">A</span>全窓 下の中央</td><td><span class="ab">B</span>全窓 下の右</td><td class="memo">§1-2</td></tr>
+      <tr><td>窓の幅</td><td><span class="ab">A</span>3段階の固定幅 400／560／720</td><td><span class="ab">B</span>最小 400、中身に合わせて伸び 最大 720</td><td class="memo">§3・§4</td></tr>
+      <tr><td>ボタンの並び</td><td><span class="ab">A</span>いいえ｜はい 中央ぞろえ</td><td><span class="ab">B</span>いいえ｜はい 右ぞろえ</td><td class="memo">§2<br>取り返しのつかない確認は §2-2</td></tr>
+      <tr><td>暗幕の濃さ</td><td><span class="ab">A</span>60%、拾いものだけ 72%</td><td><span class="ab">B</span>全部 72%</td><td class="memo">§6</td></tr>
+      <tr><td>出入りの演出</td><td><span class="ab">A</span>なし</td><td><span class="ab">B</span>入り 160ms／出 100ms のフェード</td><td class="memo">§7</td></tr>
+      <tr><td>続けて出るとき</td><td><span class="ab">A</span>窓を残して中身だけ差し替え</td><td><span class="ab">B</span>窓を閉じ 150ms 置いて次</td><td class="memo">§5（依頼書 §3-5）</td></tr>
+      <tr><td>長い本文</td><td><span class="ab">A</span>中央ぞろえ 最大幅 480</td><td><span class="ab">B</span>2行以上は左ぞろえ 最大幅 560</td><td class="memo">§4（依頼書 §3-4）</td></tr>
+    </tbody>
+  </table>
+  <div class="note">依頼書との差：§1 の「縁は真鍮」は §0 の窓の縁 #4a3d36 に合わせました（真鍮は帯の下の線に使用）。</div>
+</div>
+</section>
+</div>
+
+<script>
+/* 後ろの画面（仮）をすべての枠に敷く */
+document.querySelectorAll('.frame').forEach(f=>{
+  const name=f.dataset.scene; if(name==='none') return;
+  const s=document.createElement('div'); s.className='scene';
+  s.innerHTML=`<button class="btn b-bak pos">戻る</button><div class="sc-h">${name}</div>
+  <div class="pnl" style="left:40px;top:100px;width:360px;height:580px"><b></b><i></i><i></i><i style="width:60%"></i><i></i><i></i><i style="width:40%"></i></div>
+  <div class="pnl" style="left:420px;top:100px;width:820px;height:280px"><b></b><i></i><i style="width:70%"></i><i></i></div>
+  <div class="pnl" style="left:420px;top:400px;width:400px;height:280px"><i></i><i></i><i style="width:50%"></i></div>
+  <div class="pnl" style="left:840px;top:400px;width:400px;height:280px"><b></b><i></i><i></i></div>`;
+  f.prepend(s);
+});
+
+/* 線画（絵文字は使わない） */
+const IC={
+  potion:'<path d="M9 3h6M10 3v5l-4 8a3 3 0 0 0 3 4h6a3 3 0 0 0 3-4l-4-8V3"/><path d="M7.5 14h9"/>',
+  coin:'<circle cx="12" cy="12" r="8"/><path d="M14.5 9h-3.5a1.5 1.5 0 0 0 0 3h2a1.5 1.5 0 0 1 0 3H9.5M12 7.5v1.5M12 15v1.5"/>',
+  scroll:'<path d="M8 4h10v13a3 3 0 0 1-3 3H6a2 2 0 0 1-2-2v-1h10"/><path d="M8 4a2 2 0 0 0-2 2v11M10 8h5M10 11h5"/>',
+  key:'<circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M21 12v2"/>',
+  shield:'<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M12 7v10"/>',
+  ring:'<circle cx="12" cy="15" r="5.5"/><path d="M9.5 6.5L12 4l2.5 2.5L12 9.5z"/>',
+  sword:'<path d="M20 4l-9 9M20 4h-4M20 4v4"/><path d="M8 13l3 3M6.5 17.5L4 20M9.5 14.5l-3 3"/>',
+  trap:'<path d="M4 20L18 6M13 5h6v6"/><path d="M4 15l5 5M6 13l5 5"/>'
+};
+document.querySelectorAll('[data-ic]').forEach(e=>{
+  e.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true">${IC[e.dataset.ic]||''}</svg>`;
+});
+
+/* §7 出入りの再生 */
+const cols=document.querySelectorAll('.anim');
+function cycle(){
+  cols.forEach(c=>{c.classList.remove('out');c.classList.remove('hide');});
+  setTimeout(()=>cols.forEach(c=>{c.classList.add('out');c.classList.add('hide');}),1600);
+  setTimeout(cycle,2400);
+}
+cols.forEach(c=>c.classList.add('hide'));
+setTimeout(cycle,300);
+</script>
+</body>
+</html>
