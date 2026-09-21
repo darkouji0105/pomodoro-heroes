@@ -66,6 +66,7 @@ const SHOT_DIR_DEFAULT: String = "user://shots"
 # ⚠ 撮る前の下ごしらえ。⚠ 増やすなら ShotTaker._prepare() に1行。
 const SHOT_PREPARE_NONE: String = ""
 const SHOT_PREPARE_DUNGEON: String = "dungeon"
+const SHOT_PREPARE_FLOOR: String = "floor"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -928,15 +929,52 @@ const SCENARIOS: Dictionary = {
 	# 2026-09-21。⚠⚠ 窓あり専用。⚠ 画面を PNG で撮る（⚠ 設計役が絵を見られる唯一の口）。
 	# ⚠ `--headless` を付けないこと。⚠ 出し先は `shot_dir=<パス>`。
 	# ⚠ 撮る画面を増やすなら `shots` に1行足す。⚠ シーンもスクリプトも増やさないこと。
+	#
+	# ⚠⚠ **何を撮るかは「役割」で選んである**（2026-09-21・人間の指示「⚠ 役割に応じて何開くか決めて」）。
+	#   ⚠ ①ランの中で判断する ／ ⚠ ②戦う ／ ⚠ ③拠点の入口 ／ ⚠ ④育てる ／ ⚠ ⑤回す（経済）。
+	#   ⚠ 同じ役割の画面を2枚撮らない（⚠ `floor_map` と `dungeon_map` だけは**器が別**なので両方撮る＝台帳 §7）。
+	# ⚠ **窓（拾いもの・通路のできごと・戦闘の結果・レリック選択・商人）はまだ撮れない。**
+	#   ⚠ 画面の上に重ねるもので、⚠ `SceneManager` で開くものではないため（⚠ §0-UI-Q-5 の宿題）。
 	"shot": {
 		"kind": KIND_SHOT,
 		"note": "画面を PNG で撮る。⚠ --headless を外して回す。出し先は shot_dir= で渡す",
 		"shots": [
+			# ① ランの中で判断する。⚠ 器が別なので2枚撮る（台帳 §7）。
 			{
-				"name": "dungeon_map",
+				"name": "01_dungeon_map",
 				"scene": "res://scenes/adventure/dungeon_map.tscn",
 				"prepare": SHOT_PREPARE_DUNGEON,
 			},
+			{
+				"name": "02_floor_map",
+				"scene": "res://scenes/adventure/floor_map.tscn",
+				"prepare": SHOT_PREPARE_FLOOR,
+			},
+			# ② 戦う。⚠ 敵と味方が並ぶまで待つので間を長めに取る。
+			{
+				"name": "03_battle",
+				"scene": SCENE_BATTLE,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 90,
+			},
+			# ③ 拠点の入口。
+			{"name": "04_base", "scene": SCENE_BASE},
+			{"name": "05_guild", "scene": "res://scenes/guild/guild_screen.tscn"},
+			{"name": "06_adventure_select", "scene": "res://scenes/adventure/adventure_select.tscn"},
+			# ④ 育てる。⚠ 装備は「誰の」が要るので渡す。
+			{"name": "07_training", "scene": "res://scenes/guild/training_screen.tscn"},
+			{
+				"name": "08_equipment",
+				"scene": "res://scenes/guild/equipment_screen.tscn",
+				"data": {TransferKeys.CHARACTER_ID: "char_swordsman"},
+			},
+			# ⑤ 回す（経済）。
+			{"name": "09_shop", "scene": "res://scenes/guild/shop_screen.tscn"},
+			{"name": "10_workshop", "scene": "res://scenes/guild/workshop_screen.tscn"},
+			{"name": "11_research", "scene": "res://scenes/guild/research_screen.tscn"},
 		],
 	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
@@ -8328,8 +8366,9 @@ class ShotTaker extends Node:
 	const DRAW_TIMEOUT_FRAMES: int = 180
 	# ⚠ デバッグのパネルは画面の右側を覆うので、⚠ 撮る前に消す（⚠ 既定で出ている）。
 	const DEBUG_OVERLAY_NAME: String = "DebugOverlay"
-	# ⚠ 外側の `SHOT_PREPARE_DUNGEON` と同じ字。⚠ 内側のクラスから外の const は引けない。
+	# ⚠ 外側の `SHOT_PREPARE_*` と同じ字。⚠ 内側のクラスから外の const は引けない。
 	const PREPARE_DUNGEON: String = "dungeon"
+	const PREPARE_FLOOR: String = "floor"
 
 	var out_dir: String = ""
 	var shots: Array = []
@@ -8348,6 +8387,22 @@ class ShotTaker extends Node:
 		print("  画面の出し方 = %s ／ 窓の大きさ = %s" % [
 			DisplayServer.get_name(), str(DisplayServer.window_get_size())
 		])
+		# ⚠ 鍵の掛かった画面は開けないので、⚠ 撮る前に全部開けておく
+		#   （⚠ `tests/debug_overlay.gd` の「画面を全部解放」と同じことをしている）。
+		var opened: int = 0
+		for screen_id: String in GameManager.get_all_screen_ids():
+			if GameManager.is_screen_unlocked(screen_id):
+				continue
+			GameManager.unlock_screen(screen_id)
+			opened += 1
+		print("  ⚠ 撮るために画面を %d 件 解放した（⚠ 保存はしない）" % opened)
+		# ⚠ 下ごしらえ（`start_floor()` のスタミナ等）で資源が動くと演出が飛ぶ。
+		#   ⚠ 飛んでいる最中に次の画面へ移らせないために黙らせる。
+		# ⚠ ここは資源の変化から自動で流れる経路なので `set_muted()` が効く
+		#   （⚠ 効かないのは `play()` を直に呼ぶ経路のほう）。
+		# ⚠⚠ **これでは `resource_hud.gd:117` の赤2本は消えない**（⚠ 2026-09-21 に実測）。
+		#   ⚠ 原因は別。⚠ §0-UI-Q-4 の報告を見ること
+		ResourceGainEffect.set_muted(true)
 		for raw: Variant in shots:
 			await _take_one(raw as Dictionary)
 
@@ -8356,8 +8411,13 @@ class ShotTaker extends Node:
 		if not _prepare(str(shot.get("prepare", ""))):
 			push_error("[DebugBoot] ⚠ %s の下ごしらえが通らなかった" % shot_name)
 			return
-		SceneManager.change_scene(str(shot.get("scene", "")))
-		for _i: int in range(SETTLE_FRAMES):
+		var data: Dictionary = shot.get("data", {})
+		if data.is_empty():
+			SceneManager.change_scene(str(shot.get("scene", "")))
+		else:
+			SceneManager.change_scene_with_data(str(shot.get("scene", "")), data)
+		var settle: int = int(shot.get("settle", SETTLE_FRAMES))
+		for _i: int in range(settle):
 			await get_tree().process_frame
 		_hide_debug_overlay()
 		var image: Image = await _capture_window()
@@ -8387,6 +8447,19 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ ダンジョンが1本も無い")
 				return false
 			return GameManager.start_dungeon_run(str(dungeon_ids[0]))
+		if kind == PREPARE_FLOOR:
+			if GameManager.is_in_floor():
+				return true
+			# ⚠ `floor_1..5` は stages.json の中で `layers` を持つものだけ（`_report_floor()` と同じ引き方）。
+			var floor_ids: Array[String] = []
+			for stage_id: Variant in MasterDataLoader._cache_stages:
+				if GameManager.is_floor_stage(str(stage_id)):
+					floor_ids.append(str(stage_id))
+			floor_ids.sort()
+			if floor_ids.is_empty():
+				push_error("[DebugBoot] ⚠ フロアが1本も無い")
+				return false
+			return GameManager.start_floor(floor_ids[0])
 		push_error("[DebugBoot] ⚠ 知らない下ごしらえ: " + kind)
 		return false
 
