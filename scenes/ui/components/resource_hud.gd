@@ -114,7 +114,16 @@ func _ready() -> void:
 	var margin: float = float(_screen_margin())
 	_row.offset_right = -margin
 	_row.offset_top = margin
-	_row.resized.connect(func() -> void: width_changed.emit(_reserved_width()))
+	# ⚠⚠ ここを無名関数にしないこと（2026-09-21）。
+	#   ⚠ 無名関数は `self` を**値として捕まえる**ので、⚠ 畳まれるときに
+	#   ⚠ 子（`_row`）が外れて `resized` が飛んだ瞬間、⚠ 捕まえていた `self` がもう無い
+	#   （⚠ `Lambda capture at index 0 was freed` ＝ `resource_hud.gd:117`）。
+	# ⚠ 名前付きの関数なら、⚠ Godot が解放のときに自動で切る。
+	_row.resized.connect(_on_row_resized)
+
+
+func _on_row_resized() -> void:
+	width_changed.emit(_reserved_width())
 
 
 # ⚠ 画面側が上に空けるべき高さ（⚠ HUD の下端 ＋ 1つぶんの余白）。

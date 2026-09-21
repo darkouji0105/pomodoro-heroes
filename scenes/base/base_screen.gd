@@ -53,6 +53,18 @@ func _ready() -> void:
 	_connect_signals()
 	_show_arrival_rewards()
 
+
+# ⚠ 右上の素材の帯。⚠ HUD の通知を名前付きの関数で受けるために持っておく（2026-09-21）。
+var _material_bar: ResourceBar = null
+
+
+# ⚠ 通貨の HUD の下へ素材の帯を下げる。⚠ `width_changed` から呼ばれる。
+func _apply_hud_height(_width: float) -> void:
+	if _material_bar == null or not is_instance_valid(_material_bar):
+		return
+	_material_bar.offset_top = ResourceHud.reserved_height()
+
+
 func _init_resource_displays(_state: Dictionary) -> void:
 	# ⚠ 右上の資源。⚠ 中身と更新は `ResourceBar` が自分で持つ。
 	#   ⚠ 拠点は `ScreenHeader` を使っていないので、⚠ ここで直に置く。
@@ -73,13 +85,17 @@ func _init_resource_displays(_state: Dictionary) -> void:
 
 	# ⚠ 通貨の HUD の下から始める（⚠ そうしないと素材の1行目が通貨の下に潜る）。
 	#   ⚠ 高さは HUD が自分で答える。⚠ 桁が変わっても追従するよう通知も受ける。
-	var push_down: Callable = func(_width: float) -> void:
-		if is_instance_valid(bar):
-			bar.offset_top = ResourceHud.reserved_height()
-	push_down.call(0.0)
+	#
+	# ⚠⚠ ここを無名関数にしないこと（2026-09-21）。
+	#   ⚠ 無名関数は `bar` を**値として捕まえる**。⚠ `ResourceHud` は画面をまたいで生き残るので、
+	#   ⚠ 拠点を離れて `bar` が消えても**つなぎっぱなしのまま残り**、⚠ 次に HUD の幅が変わった瞬間に
+	#   ⚠ `Lambda capture at index 0 was freed` が出る（⚠ 中の `is_instance_valid()` は**手前で弾かれるので効かない**）。
+	#   ⚠ 名前付きの関数なら、⚠ Godot がこの画面の解放のときに自動で切る。
+	_material_bar = bar
+	_apply_hud_height(0.0)
 	var hud: ResourceHud = ResourceHud.get_instance()
 	if hud != null:
-		hud.width_changed.connect(push_down)
+		hud.width_changed.connect(_apply_hud_height)
 
 	# ⚠ 絵を付ける（2026-09-09）。⚠ IDを渡すだけ（⚠ 画像の割り当てはここでしない）。
 	potion_value.resource_id = GameStateKeys.ITEM_STAMINA_POTION
