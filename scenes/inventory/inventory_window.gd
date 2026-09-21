@@ -100,11 +100,31 @@ func _ready() -> void:
 
 
 # ⚠ 倉庫画面の根は素の Control で、⚠ 最小サイズを持たない。⚠ 中の Layout に合わせる。
+#
+# ⚠⚠ 2026-09-21（人間が実機の絵で発見「⚠ そうこはこうなってる」）：
+#   ⚠ **1回しか測っていなかったので、⚠ 中身が育っても窓が追わず、⚠ 左右が切れていた**
+#   （⚠ タブの「持ち物」が「ち物」に、⚠ 右の値も切れる）。
+#   ⚠ 最初に測るのは `_ready()` の直後で、⚠ そのときはマス目も詳細も組み上がっていない。
+# ⚠⚠ 中身の最小サイズが変わるたびに測り直す。⚠ **縮めない**（⚠ 人が広げた窓を勝手に戻さない）。
+# ⚠ つなぐのは名前付きの関数（⚠ 無名関数は捕まえた相手が消えると赤になる・2026-09-21）。
 func _fit_to_content() -> void:
-	var layout: Control = warehouse.get_node("Layout") as Control
+	var layout: Control = warehouse.get_node_or_null("Layout") as Control
+	if layout == null:
+		return
+	if not layout.minimum_size_changed.is_connected(_on_content_min_size_changed):
+		layout.minimum_size_changed.connect(_on_content_min_size_changed)
 	var content: Vector2i = Vector2i(layout.get_combined_minimum_size().ceil())
+	if content.x <= 0 or content.y <= 0:
+		return
 	min_size = content
-	size = content
+	# ⚠ 大きくするだけ。⚠ 同じなら触らない（⚠ 触ると測り直しが呼び返されて回る）。
+	var grown: Vector2i = Vector2i(maxi(size.x, content.x), maxi(size.y, content.y))
+	if grown != size:
+		size = grown
+
+
+func _on_content_min_size_changed() -> void:
+	_fit_to_content.call_deferred()
 
 
 func _process(_delta: float) -> void:

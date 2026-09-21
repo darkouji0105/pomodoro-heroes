@@ -7812,6 +7812,17 @@ func mark_dungeon_shop_seen() -> void:
 	_state[GameStateKeys.DUNGEON_RUN] = run
 
 
+# ⚠⚠ 覚えを落とす（2026-09-21）。⚠ **検証用の口**（`tests/debug_overlay.gd` から呼ぶ）。
+#   ⚠ 本番からは呼ばない。⚠ リリース前に消す（⚠ デバッグのパネルごと）。
+# ⚠ 書く口を2本にしないため、⚠ `mark_dungeon_shop_seen()` と同じ形で書く。
+func clear_dungeon_shop_seen() -> void:
+	if not is_in_dungeon():
+		return
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_SHOP_SEEN] = false
+	_state[GameStateKeys.DUNGEON_RUN] = run
+
+
 # もう1階潜れるか（段階20-a・人間の決定26「1ラン ＝ 3階 × 25層」）。
 #
 # ⚠ 「撤退できるか」とは別物。⚠ 最後の階を突破したら、⚠ 撤退はできるが続行はできない。

@@ -55,6 +55,8 @@ const RESEARCH_MAX_PASSES: int = 20
 const PANEL_WIDTH: float = 330.0
 # パネルごと表示・非表示するキー。これ1つだけ。
 const TOGGLE_VISIBLE_KEY: int = KEY_0
+# ⚠ 難ダンジョンを歩くときの上限（⚠ 無限に回らないための保険）。
+const DUNGEON_WALK_LIMIT: int = 200
 
 var _root: PanelContainer = null
 var _info_label: Label = null
@@ -132,6 +134,79 @@ func _build_ui() -> void:
 	_body.add_child(_make_button("画面を全部解放", _unlock_all_screens))
 	_body.add_child(_make_button("製作をすぐ完了させる", _complete_all_crafts))
 	_body.add_child(_make_button("セーブする", _save))
+
+	# ⚠⚠ 難ダンジョンの好きな位置へ飛ぶ（2026-09-21・人間の指示
+	#   「⚠ あとデバッグ用に難ダンジョンの好きな位置に移動できるように」）。
+	#   ⚠ ボスの先まで飛べると、⚠ 「わかれ道の画面」を人も設計役も出せる。
+	# ⚠ 歩くのは本物の口（`move_in_dungeon()`）の1本だけ。⚠ 状態を直に書かない。
+	_body.add_child(_make_separator())
+	_body.add_child(_make_button("難：1つ進む（先頭の道）", _dungeon_step))
+	_body.add_child(_make_button("難：ボスの手前まで", _dungeon_walk_to_boss))
+	_body.add_child(_make_button("難：ボスを倒した先へ", _dungeon_clear_boss))
+
+
+func _make_separator() -> HSeparator:
+	return HSeparator.new()
+
+
+# --- 難ダンジョンの移動（2026-09-21）------------------------------
+#
+# ⚠⚠ 検証用。⚠ リリース前に消す（⚠ このパネルごと）。
+# ⚠ 歩くのは `GameManager.move_in_dungeon()` の1本だけ。⚠ 状態を直に書き換えない
+#   （⚠ 書くと phase と position が食い違って、⚠ 本番では起きない壊れ方をする）。
+
+# ⚠ 進める先の先頭へ1つ進む。
+func _dungeon_step() -> void:
+	if not GameManager.is_in_dungeon():
+		print("[DebugOverlay] ⚠ 難ダンジョンに入っていない")
+		return
+	var moves: Array = GameManager.get_dungeon_moves()
+	if moves.is_empty():
+		print("[DebugOverlay] ⚠ 進める先が無い（⚠ ボスの先か、⚠ 窓が開いたまま）")
+		return
+	var node_id: String = str(moves[0])
+	if not GameManager.move_in_dungeon(node_id):
+		print("[DebugOverlay] ⚠ 進めなかった: " + node_id)
+		return
+	print("[DebugOverlay] 難：%s へ進んだ（層 %d）" % [node_id, _dungeon_layer()])
+
+
+# ⚠ ボスの手前まで歩く。⚠ 戦闘のマスは中身が起きるので、⚠ 画面側の流れとは別物。
+func _dungeon_walk_to_boss() -> void:
+	if not GameManager.is_in_dungeon():
+		print("[DebugOverlay] ⚠ 難ダンジョンに入っていない")
+		return
+	var guard: int = 0
+	while guard < DUNGEON_WALK_LIMIT:
+		var moves: Array = GameManager.get_dungeon_moves()
+		if moves.is_empty():
+			break
+		if not GameManager.move_in_dungeon(str(moves[0])):
+			break
+		guard += 1
+	print("[DebugOverlay] 難：%d 手 歩いた（層 %d ／ ボスの先=%s）" % [
+		guard, _dungeon_layer(), str(GameManager.can_retreat_from_dungeon())
+	])
+
+
+# ⚠⚠ ボスを倒した先まで持っていく（⚠ 「わかれ道の画面」が出る状態）。
+#   ⚠ 歩き切っても届かないときは、⚠ 進める先が尽きた＝⚠ 何が起きたかを print する。
+func _dungeon_clear_boss() -> void:
+	_dungeon_walk_to_boss()
+	if GameManager.can_retreat_from_dungeon():
+		# ⚠ 自動で出す覚えを落とす（⚠ もう一度わかれ道の画面を見たいので）。
+		GameManager.clear_dungeon_shop_seen()
+		print("[DebugOverlay] 難：ボスの先に居る（⚠ マップへ入り直すとわかれ道の画面が出る）")
+		return
+	print("[DebugOverlay] ⚠ ボスの先に届かなかった（⚠ 戦闘のマスで止まっている疑い）")
+
+
+func _dungeon_layer() -> int:
+	var run: Dictionary = GameManager.get_dungeon_run()
+	var node: Dictionary = GameManager.get_dungeon_node(
+		str(run.get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	)
+	return int(node.get(GameStateKeys.DUNGEON_NODE_LAYER, 0))
 
 
 # AGENTS.md は表示テキストに UiButton + label_key を使う決まりだが、
