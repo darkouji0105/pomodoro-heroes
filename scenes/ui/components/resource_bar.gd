@@ -42,6 +42,23 @@ const RESOURCE_DISPLAY_SCENE: PackedScene = preload(
 #   ⚠ 拠点はその上に素材だけを足すので、⚠ ここを false にして二重に出さない。
 @export var show_currencies: bool = true
 
+# ⚠⚠ 素材を絞る（2026-09-21・人間の指示「⚠ 装備の素材もリソースにしてほしい」）。
+#   ⚠ 空なら**持っている素材を全部**（⚠ 拠点の今までどおり）。
+#   ⚠ 入れると**その ID だけ**を、⚠ **並べた順**に出す（⚠ 装備画面＝鍛冶4段＋装飾）。
+# ⚠ 絞ったときは **0 個でも出す**（⚠ 「いくつ必要か」を見る画面なので、⚠ 0 が消えると
+#   ⚠ 何が足りないか分からなくなる）。⚠ 絞らないときは今までどおり 0 は出さない。
+# ⚠⚠ あとから渡してもよい。⚠ 子の `_ready()` は親より先に走るので、
+#   ⚠ 画面側が `_ready()` の中で渡すと間に合わない（⚠ 2026-09-21 に踏んだ）。
+# ⚠ 素材を右に寄せるか（2026-09-21）。⚠ 拠点は右上なので true。
+#   ⚠ 装備画面は左ぞろえの列の中なので false（⚠ まわりと揃わないと浮く）。
+@export var material_align_end: bool = true
+
+@export var material_ids: PackedStringArray = PackedStringArray():
+	set(value):
+		material_ids = value
+		if is_node_ready() and show_materials:
+			_rebuild_materials()
+
 # resource_id -> ResourceDisplay
 var _displays: Dictionary = {}
 # material_id -> PanelContainer（0 個になったら隠す器）
@@ -60,7 +77,9 @@ func _ready() -> void:
 		flow.name = "Flow"
 		flow.theme_type_variation = &"ChipFlow"
 		# ⚠ 右上に置くので右端に揃える（⚠ 折り返した2行目も右に揃う）。
-		flow.alignment = FlowContainer.ALIGNMENT_END
+		flow.alignment = (
+			FlowContainer.ALIGNMENT_END if material_align_end else FlowContainer.ALIGNMENT_BEGIN
+		)
 		flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		flow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(flow)
@@ -74,6 +93,24 @@ func _ready() -> void:
 		GameManager.resource_changed.connect(_on_resource_changed)
 	if show_materials:
 		GameManager.material_changed.connect(_on_material_changed)
+		_rebuild_materials()
+		return
+	_refresh_all()
+
+
+# ⚠ 素材のチップを作り直す。⚠ 絞りを渡し直したときもここを通る。
+#   ⚠ `remove_child()` してから `queue_free()` する（`CLAUDE.md` 5番）。
+func _rebuild_materials() -> void:
+	for material_id: Variant in _material_chips.keys():
+		var chip: Variant = _material_chips[material_id]
+		if chip is Node and is_instance_valid(chip):
+			_slot.remove_child(chip as Node)
+			(chip as Node).queue_free()
+		_displays.erase(str(material_id))
+	_material_chips.clear()
+	# ⚠ 絞っているときは、⚠ 0 個のぶんも先に器を作る（⚠ 並びを固定するため）。
+	for material_id: String in material_ids:
+		_material_chips[material_id] = _make_chip(material_id)
 	_refresh_all()
 
 
@@ -151,6 +188,11 @@ func _refresh_all() -> void:
 		return
 	# ⚠ 0 個の素材は出さない（⚠ 拠点の下段と同じ決まり。⚠ 手に入った時点で出る）。
 	var materials: Dictionary = state.get(GameStateKeys.MATERIALS, {})
+	if not material_ids.is_empty():
+		# ⚠ 絞っているときは並べた順に。⚠ 0 個でも出す（⚠ 上の注記）。
+		for material_id: String in material_ids:
+			_set_material(material_id, int(materials.get(material_id, 0)))
+		return
 	for material_id: Variant in materials.keys():
 		_set_material(str(material_id), int(materials[material_id]))
 
@@ -165,12 +207,15 @@ func _refresh_stamina(state: Dictionary) -> void:
 
 # ⚠ 素材1件。⚠ 0 になったら器ごと隠す（⚠ 消さない。⚠ また増えたときに作り直さないため）。
 func _set_material(material_id: String, amount: int) -> void:
+	var pinned: bool = material_ids.has(material_id)
 	if not _material_chips.has(material_id):
-		if amount <= 0:
+		# ⚠ 絞っていない画面は、⚠ 0 個の素材の器を作らない（⚠ 手に入った時点で出る）。
+		if amount <= 0 and not pinned:
 			return
 		_material_chips[material_id] = _make_chip(material_id)
 	_displays[material_id].set_value(amount)
-	(_material_chips[material_id] as PanelContainer).visible = amount > 0
+	# ⚠ 絞った画面は 0 個でも出したままにする（⚠ 何が足りないかを見る画面のため）。
+	(_material_chips[material_id] as PanelContainer).visible = pinned or amount > 0
 
 
 # ⚠⚠ スタミナだけ第2引数が `current` の `int` 単体で、⚠ `max` を含まない（AGENTS.md）。

@@ -30,7 +30,11 @@ const DRAG_GROUP_EQUIPMENT: String = "equipment"
 # ⚠ ステータスの行の置き場（2026-09-09）。⚠ `.tscn` を触らずコードで作る
 #   （⚠ プリセットの行と同じ流儀）。
 @onready var stats_rows: VBoxContainer = _make_stats_rows()
-@onready var material_label: Label = $Margin/Layout/Body/Right/MaterialLabel
+# ⚠⚠ 2026-09-21：⚠ ベタ書きの1行からリソースのチップに変えた
+#   （⚠ 人間の指示「⚠ 装備の素材もリソースにしてほしい」）。
+#   ⚠ 並べるのは鍛冶4段＋装飾。⚠ 絞り込みは `material_ids`（⚠ 0 個でも出る）。
+#   ⚠ チップの作りは `ResourceBar` の1本だけ（⚠ 2つ目を作らない）。
+@onready var material_bar: ResourceBar = $Margin/Layout/Body/Right/MaterialBar
 @onready var slot_list: VBoxContainer = $Margin/Layout/Body/Right/Scroll/Content/SlotList
 @onready var item_header: Label = $Margin/Layout/Body/Right/Scroll/Content/ItemHeader
 @onready var item_list: VBoxContainer = $Margin/Layout/Body/Right/Scroll/Content/ItemList
@@ -126,7 +130,9 @@ func _build_preset_row() -> void:
 	row.add_child(apply)
 
 	# ⚠ 2026-09-16：⚠ ビルドは装備関連なので**右の列の一番上**（⚠ 左はステータスだけ）。
-	var right: Node = material_label.get_parent()
+	_apply_material_filter()
+
+	var right: Node = material_bar.get_parent()
 	right.add_child(row)
 	# ⚠ add_child は末尾に付くので、必ず移動させる。
 	right.move_child(row, 0)
@@ -195,7 +201,6 @@ func _update_header() -> void:
 	if _character_id == "":
 		name_label.text = ""
 		stats_label.text = ""
-		material_label.text = ""
 		return
 
 	var char_data: Dictionary = MasterDataLoader.get_character(_character_id)
@@ -230,25 +235,23 @@ func _update_header() -> void:
 			IconTextures.for_stat(stat_key)
 		))
 
-	# 鍛冶に使う素材の所持数。鍛冶で減るので、この画面に出しておく。
-	# ⚠ 段階が4つあるので全段階を並べる。段階の数は決め打ちしない
-	#   （EquipmentConfig の対応表を伸ばせば増える）。
-	var material_parts: Array[String] = []
+	# ⚠ 素材の所持数はチップが自分で出す（⚠ `material_changed` を自分で受ける）。
+	#   ⚠ ここで数え直さない（⚠ 同じ数字を2箇所で組み立てない）。
+
+# ⚠ この画面に並べる素材（2026-09-21）。
+#
+# ⚠ 鍛冶に使う素材は鍛冶で減るので出す。⚠ 段階の数は決め打ちしない
+#   （⚠ `EquipmentConfig` の対応表を伸ばせば増える）。
+# ⚠ 装飾素材も並べる。⚠ 外すと壊れて増えるので、⚠ 見えないと「壊した結果」が確認できない
+#   （`EXEC_DECORATION.md` §7-C の 39）。
+func _apply_material_filter() -> void:
+	var ids: PackedStringArray = PackedStringArray()
 	for tier: int in range(1, GameManager.get_forge_material_tier_count() + 1):
-		var material_id: String = GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX + str(tier)
-		material_parts.append("%s %d" % [
-			tr("ui_res_" + material_id),
-			GameManager.get_material_count(material_id),
-		])
-	# ⚠ 装飾素材も並べる。外すと壊れて増えるので、この画面で見えないと
-	#   「壊した結果」が確認できない（EXEC_DECORATION.md §7-C の 39）。
+		ids.append(GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX + str(tier))
 	for tier: int in range(1, GameManager.get_max_part_tier() + 1):
-		var decor_id: String = GameManager.get_decor_material_id(tier)
-		material_parts.append("%s %d" % [
-			tr("ui_res_" + decor_id),
-			GameManager.get_material_count(decor_id),
-		])
-	material_label.text = "  ".join(material_parts)
+		ids.append(GameManager.get_decor_material_id(tier))
+	material_bar.material_ids = ids
+
 
 # --- 5部位のスロット ---
 

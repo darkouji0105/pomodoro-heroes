@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 
 [ext_resource type="PackedScene" uid="uid://b1screenheader01" path="res://scenes/ui/components/screen_header.tscn" id="9_screen_header"]
+[ext_resource type="Script" path="res://scenes/ui/components/resource_bar.gd" id="9_resource_bar"]
 
 [node name="EquipmentScreen" type="Control" unique_id=974945554]
 layout_mode = 3
@@ -57,9 +58,12 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="MaterialLabel" type="Label" parent="Margin/Layout/Body/Right" unique_id=1789292108]
+[node name="MaterialBar" type="HBoxContainer" parent="Margin/Layout/Body/Right" unique_id=1789292108]
 layout_mode = 2
-autowrap_mode = 3
+script = ExtResource("9_resource_bar")
+show_materials = true
+show_currencies = false
+material_align_end = false
 
 [node name="Scroll" type="ScrollContainer" parent="Margin/Layout/Body/Right" unique_id=2040894243]
 layout_mode = 2

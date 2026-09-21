@@ -959,6 +959,12 @@ const SCENARIOS: Dictionary = {
 					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
 				},
 				"settle": 90,
+				# ⚠ 人間の指摘「⚠ したのぱねるもおさめてほしい」（2026-09-21）。
+				"measure": [
+					"HUD/Root/Layout/BottomPanel",
+					"HUD/Root/Layout/BottomPanel/SkillButtons",
+					"HUD/Root/Layout/Header",
+				],
 			},
 			# ③ 拠点の入口。
 			{"name": "04_base", "scene": SCENE_BASE},
@@ -8503,6 +8509,9 @@ class ShotTaker extends Node:
 		for _i: int in range(settle):
 			await get_tree().process_frame
 		_hide_debug_overlay()
+		# ⚠ 絵だけでは「切れている」のか「余白が無い」のか言い切れない。
+		#   ⚠ 撮ると同時に寸法も取る（2026-09-21）。
+		_measure(shot)
 		var image: Image = await _capture_window()
 		if image == null:
 			push_error(
@@ -8548,6 +8557,36 @@ class ShotTaker extends Node:
 
 	# ⚠⚠ `CanvasLayer` は `CanvasItem` ではない。⚠ `is CanvasItem` だけで見ると
 	#   **黙って効かず、パネルが写ったままになる**（⚠ 2026-09-21 の2枚目で踏んだ）。
+	# ⚠ 撮った画面の中の節点の位置と大きさを出す（2026-09-21）。
+	#   ⚠ `shots` の行に `"measure": ["ノードへの道", ...]` を書くと出る。
+	#   ⚠ 画面からはみ出していたら黄で知らせる（⚠ 絵では切れているか判断できない）。
+	func _measure(shot: Dictionary) -> void:
+		var paths: Array = shot.get("measure", [])
+		if paths.is_empty():
+			return
+		var screen: Node = get_tree().current_scene
+		if screen == null:
+			return
+		var view: Vector2 = Vector2(get_tree().root.size)
+		for raw: Variant in paths:
+			var node_path: String = str(raw)
+			var node: Node = screen.get_node_or_null(node_path)
+			if node == null or not (node is Control):
+				push_warning("[DebugBoot] ⚠ 測れない: %s" % node_path)
+				continue
+			var rect: Rect2 = (node as Control).get_global_rect()
+			var over_x: float = rect.end.x - view.x
+			var over_y: float = rect.end.y - view.y
+			print("    %s = %.0f,%.0f %.0f x %.0f ／ 右下 %.0f,%.0f（画面 %.0f x %.0f）" % [
+				node_path, rect.position.x, rect.position.y, rect.size.x, rect.size.y,
+				rect.end.x, rect.end.y, view.x, view.y,
+			])
+			if over_x > 0.5 or over_y > 0.5:
+				push_warning("[DebugBoot] ⚠⚠ %s が画面からはみ出している（右 %.0f / 下 %.0f）" % [
+					node_path, maxf(over_x, 0.0), maxf(over_y, 0.0)
+				])
+
+
 	func _hide_debug_overlay() -> void:
 		var overlay: Node = get_tree().root.get_node_or_null(DEBUG_OVERLAY_NAME)
 		if overlay == null:
