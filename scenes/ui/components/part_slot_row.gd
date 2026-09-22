@@ -13,6 +13,8 @@ extends HBoxContainer
 
 var _open_count: int = 0
 var _filled_count: int = 0
+# ⚠ 次に開く枠の等級（⚠ 0 なら全部開いている／開く見込みが無い）。⚠ 決定 `BS-17`。
+var _next_locked_grade: int = 0
 
 
 # 枠の並びを作る。⚠ `defs` は `get_part_slot_defs()`（品）か
@@ -31,6 +33,7 @@ func rebuild(defs: Array, grade: int) -> void:
 		child.queue_free()
 	_open_count = 0
 	_filled_count = 0
+	_next_locked_grade = 0
 
 	for entry: Variant in defs:
 		if not (entry is Dictionary):
@@ -44,10 +47,26 @@ func rebuild(defs: Array, grade: int) -> void:
 		#      ⚠ 2→1 にした余り・2026-09-07）。⚠ `is_part_slot_open()` は両方 false を返す。
 		# ⚠ 表そのものは触らない（⚠ 長さが `PART_SLOT_COUNT` と合わなくなると赤が出る）。
 		if not GameManager.is_part_slot_open(view, grade):
+			# ⚠⚠ 2026-09-22（決定 `BS-17`）：⚠ **次に開く1つだけ**は鍵で出す。
+			#   ⚠ 09-08 の「1つも出さない」を覆した。⚠ 出さないと**装飾があること自体に気づけない**
+			#   （⚠ 人間「⚠ そもそも装飾をつけれない」「⚠ どこからつけるかわからない」）。
+			# ⚠ 「どの部位にも無い枠」（⚠ 刺さる種類が空）は鍵にもしない。⚠ 等級を上げても開かないため。
+			var kinds: Variant = view.get(GameManager.PART_VIEW_KINDS, [])
+			if not (kinds is Array) or (kinds as Array).is_empty():
+				continue
+			var min_grade: int = int(view.get(GameManager.PART_VIEW_MIN_GRADE, 0))
+			if _next_locked_grade > 0 and min_grade >= _next_locked_grade:
+				continue
+			_next_locked_grade = min_grade
+			var lock: PartSlotIcon = PartSlotIcon.create(view, grade)
+			lock.name = "PartSlotLocked"
+			add_child(lock)
 			continue
 		var icon: PartSlotIcon = PartSlotIcon.create(view, grade)
 		icon.name = "PartSlot_%d" % int(view.get(GameManager.PART_VIEW_INDEX, get_child_count()))
+		# ⚠ 鍵は必ず右端（⚠ 開いた枠のあとに足す）。⚠ 並びが飛ぶと「次に開くもの」に見えない。
 		add_child(icon)
+		move_child(icon, _open_count)
 		_open_count += 1
 		if not icon.get_part_entry().is_empty():
 			_filled_count += 1
@@ -60,6 +79,12 @@ func get_filled_count() -> int:
 
 func get_open_count() -> int:
 	return _open_count
+
+
+# ⚠ 次に開く枠の等級（⚠ 0 なら鍵を1つも出していない）。⚠ 決定 `BS-17`。
+#   ⚠ 「あと何回鍛えるか」を言うのは呼ぶ側（⚠ ここは数えるだけ）。
+func get_next_locked_grade() -> int:
+	return _next_locked_grade
 
 
 # 検証用の1行（⚠ 設計役は画面の絵を取れない）。⚠ ゲームのロジックから呼ばないこと。

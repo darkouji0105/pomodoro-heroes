@@ -8840,16 +8840,24 @@ class ShotTaker extends Node:
 				BattleResultView.DATA_REWARDS: MasterDataLoader.get_stage("floor_5").get("rewards", {}),
 			})
 		elif kind == AFTER_PART_POPOVER:
-			# ⚠ 本番と同じ口（⚠ マスを押したときに呼ばれるもの）。⚠ `call()` で呼ぶのは
-			#   ⚠ `equipment_screen.gd` に `class_name` が無いため（⚠ 静的解析で通らない）。
+			# ⚠ 本番と同じ口（⚠ 枠のマスを押したときに呼ばれるもの）。
+			# ⚠⚠ 2026-09-22（回3-b）：⚠ **空きの枠**を押す。⚠ 右の持ち物が
+			#   ⚠ 「刺せる装飾」に切り替わるところを撮る（⚠ これが2手の1手目）。
 			var equip_id: String = GameManager.get_equipped_instance_id(
 				PART_CHARACTER_ID, GameStateKeys.EQUIP_WEAPON
 			)
-			var slots: Array = GameManager.get_part_entries(equip_id)
-			if slots.is_empty():
-				push_error("[DebugBoot] ⚠ %s は枠が1つも無い" % shot_name)
+			var empty_index: int = -1
+			for raw: Variant in GameManager.get_part_entries(equip_id):
+				if not (raw is Dictionary):
+					continue
+				if (raw as Dictionary).get(GameManager.PART_VIEW_ENTRY, null) is Dictionary:
+					continue
+				empty_index = int((raw as Dictionary).get(GameManager.PART_VIEW_INDEX, 0))
+				break
+			if empty_index < 0:
+				push_error("[DebugBoot] ⚠ %s は空きの枠が1つも無い" % shot_name)
 				return false
-			screen.call("_on_part_slot_pressed", slots[0] as Dictionary, equip_id)
+			screen.call("_on_part_slot_selected", equip_id, empty_index)
 		elif kind == AFTER_MODAL_CONFIRM:
 			# ⚠⚠ **`Modal.confirm()` は撮るのに使えない**（⚠ 2026-09-22 に2手とも外れた）。
 			#   ⚠ ① 直に呼ぶ → ⚠ **パースエラー**（`must be called with "await"`）

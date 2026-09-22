@@ -250,16 +250,21 @@ func _add_part_slots(defs: Array, grade: int, lead_text: String = "") -> void:
 	if defs.is_empty():
 		return
 	var row: PartSlotRow = PartSlotRow.create(defs, grade)
-	# ⚠ 1つも開いていない等級（⚠ 武器・防具は等級1〜2）では見出しごと出さない。
-	#   ⚠ 未開放の枠を出さなくなったので（2026-09-08）、⚠ ここが空の行になりうる。
-	if row.get_open_count() == 0:
+	# ⚠ 枠が1つも無い品（⚠ 消耗品・素材）はここで落ちる（⚠ 鍵も出さない）。
+	if row.get_open_count() == 0 and row.get_next_locked_grade() <= 0:
 		row.queue_free()
 		return
+	# ⚠⚠ 2026-09-22（決定 `BS-17`）：⚠ 1つも開いていなくても、⚠ **鍵が1つ在るなら出す**。
+	#   ⚠ 09-08 の「見出しごと出さない」を覆した。⚠ 出さないと**装飾があること自体に気づけない**。
 	var count_text: String = "%d / %d" % [row.get_filled_count(), row.get_open_count()]
 	if lead_text == "":
 		# ⚠ 常設のパネル。⚠ 見出しの行 → 枠の並び、の2行に分ける（⚠ 幅に余裕がある）。
 		_add_line("%s  %s" % [tr("ui_part_slot_header"), count_text])
 		add_child(row)
+		# ⚠⚠ 鍵の意味を字で言う（⚠ 数字だけでは「何をすれば開くか」が読めない）。
+		#   ⚠ 出すのは常設のパネルだけ（⚠ 要約＝ホバーの枠は1行に収める約束）。
+		if row.get_next_locked_grade() > 0:
+			_add_line(tr("ui_part_slot_next_hint") % row.get_next_locked_grade())
 		return
 
 	# ⚠ 要約（⚠ ホバーの枠）。⚠ 「部位 ／ 枠 ／ 2/7」を1行に収める（⚠ モック3枚目）。

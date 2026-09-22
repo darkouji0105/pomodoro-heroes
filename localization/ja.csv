@@ -984,3 +984,8 @@ ui_desc_skill_wolf_rend,一番近い1体に攻撃力 170% の一撃
 ui_chest_dungeon,深層の宝箱
 ui_chest_dungeon_edge,通路の宝箱
 ui_stat_node_empty,このキャラクターに振れるものはまだ無い
+ui_part_slot_locked_at,等級%d で開く
+ui_part_slot_next_hint,等級%d まで鍛えると、次の装飾の枠が開く
+ui_part_attach_hint,刺したい装飾を押す
+ui_part_none_hint,刺せる装飾を持っていない（冒険で手に入る）
+ui_part_gate_locked,装飾はまだ使えない（冒険を進めると開く）

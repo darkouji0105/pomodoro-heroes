@@ -17,9 +17,12 @@ class_name EquipmentScreen
 extends Control
 
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
-const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
 # 装備マスの組の名前（2026-09-15）。
 const DRAG_GROUP_EQUIPMENT: String = "equipment"
+# ⚠⚠ 2026-09-22（回3-b・決定 `BS-15`）：⚠ **持ち物をこの画面の中に置く**。
+#   ⚠ 人間「⚠ いまいんべんとりもべつにひょうじしてるが　⚠ しょうじきいっしょのほうがべんりだから」。
+#   ⚠ 組の名前は倉庫の別窓と同じ字（⚠ 装備マスが受ける組を変えないため）。
+const DRAG_GROUP_INVENTORY: String = "inventory"
 
 # --- ノード参照 ---
 # ⚠⚠ 2026-09-16：⚠ **左がステータス、右が装備関連**の2列にした（人間の指示
@@ -53,15 +56,25 @@ var _selected_slot: String = GameStateKeys.EQUIP_WEAPON
 var _selected_part_target: String = ""
 var _selected_part_slot: int = -1
 
-# ビルド（キャラプリセット）の行（EXEC_PARTY_PRESETS.md）。
+# ⚠⚠ 2026-09-22（回3-b）：⚠ **ビルドの行はこの画面から消した**（⚠ 人間の裁き「⚠ 消す」）。
+#   ⚠ 同じ行が育成画面にもあり、⚠ 装備画面では3列に組み替えて場所が無くなったため。
+#   ⚠ 口（`save_character_preset()` / `apply_character_preset()`）は**そのまま**。⚠ 押す場所が減っただけ。
+
+# --- 持ち物の列（2026-09-22・決定 `BS-15`） ---
 #
-# ⚠ 育成画面にも同じ行がある。⚠ 判定も文面も GameManager 側の1本を通るので、
-#   ここに書いてあるのは器の組み立てだけ。⚠ 判定を書き足さないこと。
-# ⚠ 共有部品（scripts/components/）にしていないのは、⚠ class_name を新しく作ると
-#   人間がエディタを1回通すまでヘッドレスで検証できず、⚠ 「通っていないものを
-#   人間に渡さない」に反するため（NEXT_STEPS §4）。⚠ 宿題に書いてある。
-var _build_picker: OptionButton = null
-var _selected_build: int = 0
+# ⚠ `.tscn` を触らずコードで作る（⚠ `_make_stats_rows()` と同じ流儀）。
+# ⚠ 中身の引き方は倉庫と同じ口（`get_inventory_page_entries()`）。⚠ ここで数え直さない。
+var _panel: ItemActionPanel = null
+var _inventory_grid: ItemGrid = null
+var _inventory_header: Label = null
+var _page_label: Label = null
+var _prev_button: UiButton = null
+var _next_button: UiButton = null
+var _page: int = 0
+# ⚠ いま説明の窓に出している品。⚠ 空なら何も選んでいない。
+var _selected_entry: Dictionary = {}
+
+
 func _ready() -> void:
 	# 1. どのキャラの装備を編集するかを受け取る。
 	var data: Dictionary = SceneManager.consume_transfer_data()
@@ -75,23 +88,19 @@ func _ready() -> void:
 	#    equipment_instances_changed: 個体が増えた・等級が上がった
 	GameManager.character_growth_changed.connect(_on_character_growth_changed)
 	GameManager.equipment_instances_changed.connect(_on_equipment_instances_changed)
+	# ⚠ 持ち物をこの画面に置いたので、⚠ 中身が動いたら並べ直す（2026-09-22）。
+	GameManager.inventory_changed.connect(_on_inventory_changed)
 
 	# 4. 初期描画
 	notice_label.text = ""
-	_build_preset_row()
+	_apply_material_filter()
+	_build_panel()
+	_build_inventory_column()
 	if _character_id == "":
 		# 直接シーンを開いたときだけ来る。育成画面からは必ず ID が入る。
 		push_warning("[EquipmentScreen] character_id が渡されていない")
 	_rebuild()
 
-# --- ビルドを焼く・当てる ---
-
-# 「[ビルド1 ▼][焼く][適用]」の1行を、ヘッダの下に差し込む。
-#
-# ⚠ 1回だけ作る。⚠ _rebuild() のたびに作り直すと、押すたびに行が増える。
-#   中身（空きかどうか）の更新は _refresh_preset_row() が持つ。
-# ⚠ .tscn を触らずコードで作る。⚠ 兄弟（Label / UiButton）は size_flags を
-#   持たないので、こちらも合わせる（NEXT_STEPS §4「隣の兄弟の size_flags を見る」）。
 # ステータスの行の置き場を1つ作って、`StatsLabel` の直後へ差し込む。
 func _make_stats_rows() -> VBoxContainer:
 	var box: VBoxContainer = VBoxContainer.new()
@@ -102,93 +111,13 @@ func _make_stats_rows() -> VBoxContainer:
 	return box
 
 
-func _build_preset_row() -> void:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "PresetRow"
-
-	_build_picker = OptionButton.new()
-	_build_picker.name = "BuildPicker"
-	_build_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# ⚠ 接続は項目を入れる前でよい（add_item / select は item_selected を出さない）。
-	_build_picker.item_selected.connect(_on_build_selected)
-	row.add_child(_build_picker)
-
-	var burn: UiButton = UI_BUTTON_SCENE.instantiate()
-	burn.name = "BurnButton"
-	burn.label_key = "ui_party_preset_burn"
-	burn.pressed.connect(_on_burn_pressed)
-	row.add_child(burn)
-
-	# ⚠ 「焼く」と「適用」は向きが逆（焼く＝現在→ビルド／適用＝ビルド→現在）。
-	#   ⚠ 1つのボタンにまとめないこと。
-	var apply: UiButton = UI_BUTTON_SCENE.instantiate()
-	apply.name = "ApplyButton"
-	# ⚠ この画面の主要動作＝真鍮（2026-09-07）。⚠ 1画面に1個まで。
-	apply.variant = UiButton.Variant.PRIMARY
-	apply.label_key = "ui_party_preset_apply"
-	apply.pressed.connect(_on_apply_pressed)
-	row.add_child(apply)
-
-	# ⚠ 2026-09-16：⚠ ビルドは装備関連なので**右の列の一番上**（⚠ 左はステータスだけ）。
-	_apply_material_filter()
-
-	var right: Node = material_bar.get_parent()
-	right.add_child(row)
-	# ⚠ add_child は末尾に付くので、必ず移動させる。
-	right.move_child(row, 0)
-
-
-# 選択肢の「（空き）」表示を、いまの保存状態に合わせて作り直す。
-func _refresh_preset_row() -> void:
-	if _build_picker == null or _character_id == "":
-		return
-	var presets: Array = GameManager.get_character_presets(_character_id)
-	var count: int = GameManager.get_character_preset_count()
-	if _selected_build >= count or _selected_build < 0:
-		_selected_build = 0
-
-	_build_picker.clear()
-	for i: int in range(count):
-		var label: String = tr("ui_party_preset_build") % (i + 1)
-		var entry: Variant = presets[i] if i < presets.size() else null
-		var saved: bool = entry is Dictionary and bool((entry as Dictionary).get(GameStateKeys.PRESET_SAVED, false))
-		if not saved:
-			label += "（%s）" % tr("ui_party_preset_empty")
-		_build_picker.add_item(label)
-	_build_picker.select(_selected_build)
-
-
-func _on_build_selected(item_index: int) -> void:
-	# ⚠ ここでは状態を触らない。焼く先・当てる先が変わるだけ。
-	_selected_build = item_index
-
-
-func _on_burn_pressed() -> void:
-	if _character_id == "":
-		return
-	if not GameManager.save_character_preset(_character_id, _selected_build):
-		# 失敗の理由は GameManager 側が push_error 済み。
-		return
-	_refresh_preset_row()
-	notice_label.text = tr("ui_party_preset_burned") % (_selected_build + 1)
-
-
-func _on_apply_pressed() -> void:
-	if _character_id == "":
-		return
-	var report: Dictionary = GameManager.apply_character_preset(_character_id, _selected_build)
-	# ⚠ 文面は GameManager が組む（適用の口が3つあるため）。
-	# ⚠ 適用は character_growth_changed を飛ばすので _rebuild() が走る。
-	#   ⚠ notice はそのあとに入れる（先に入れると上書きされる）。
-	notice_label.text = GameManager.format_apply_report(report)
-
 # --- 描画 ---
 
 func _rebuild() -> void:
 	_update_header()
 	_rebuild_slots()
-	_rebuild_items()
-	_refresh_preset_row()
+	_rebuild_inventory()
+	_rebuild_panel()
 
 # remove_child してから queue_free する。await を挟むと再描画が並走し、行が二重に並ぶ
 # （AGENTS.md「再描画は await を持たせない」）。
@@ -253,6 +182,205 @@ func _apply_material_filter() -> void:
 	material_bar.material_ids = ids
 
 
+# --- 説明の窓（2026-09-22・決定 `BS-16`） ---
+
+# ⚠ 1枚だけ作る。⚠ `_rebuild()` のたびに作り直さない（⚠ 押すたびに増える）。
+# ⚠ 置き場は下段（`ItemList`）。⚠ `.tscn` は触らない。
+func _build_panel() -> void:
+	_panel = ItemActionPanel.new()
+	_panel.accept_drop_groups = [DRAG_GROUP_INVENTORY]
+	_panel.changed.connect(_on_panel_changed)
+	_panel.part_slot_selected.connect(_on_part_slot_selected)
+	_panel.part_slot_dropped.connect(_on_part_slot_dropped)
+	item_list.add_child(_panel)
+	item_header.text = ""
+
+
+# ⚠ 説明の窓に何を出すか。⚠ 選んでいないときは**着けている武器**を出す
+#   （⚠ 空の画面にしない＝開いた直後に「何ができるか」が読める）。
+func _rebuild_panel() -> void:
+	if _panel == null:
+		return
+	if _selected_entry.is_empty():
+		var equipped: Array = GameManager.get_equipment_slot_entries(_character_id)
+		for row: Variant in equipped:
+			var entry: Variant = (row as Dictionary).get(GameManager.SLOT_ENTRY_ENTRY, null)
+			if entry is Dictionary and not (entry as Dictionary).is_empty():
+				_panel.setup(entry as Dictionary, _character_id)
+				return
+		_panel.setup({}, _character_id)
+		return
+	_panel.setup(_selected_entry, _character_id)
+
+
+func _on_panel_changed() -> void:
+	# ⚠ 口が状態を動かした。⚠ 選んでいたものが消えている（⚠ 壊した・段階を上げた）ことがあるので畳む。
+	_selected_entry = {}
+	_rebuild()
+
+
+# --- 持ち物の列（2026-09-22・決定 `BS-15`） ---
+
+# ⚠ 1回だけ作る。⚠ 中身の並べ直しは `_rebuild_inventory()`。
+# ⚠ 器は `Body`（横並び）の3つ目。⚠ 左＝ステータス ／ 中＝装備関連 ／ 右＝持ち物。
+func _build_inventory_column() -> void:
+	var column: VBoxContainer = VBoxContainer.new()
+	column.name = "InventoryColumn"
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	_inventory_header = Label.new()
+	_inventory_header.name = "InventoryHeader"
+	column.add_child(_inventory_header)
+
+	_inventory_grid = ItemGrid.new()
+	_inventory_grid.name = "InventoryGrid"
+	# ⚠ 1ページの大きさは GameManager に聞く（⚠ 決定 `BS-10`。⚠ ここで掛けない）。
+	_inventory_grid.columns = GameManager.get_inventory_columns()
+	_inventory_grid.drag_group = DRAG_GROUP_INVENTORY
+	_inventory_grid.slot_pressed.connect(_on_inventory_slot_pressed)
+	# ⚠⚠ マスは 10 × 10 ＝ 100（決定 `BS-10`）。⚠ そのまま置くと**画面の縦を超える**
+	#   （⚠ 2026-09-22 の実測で `736 > 720`）。⚠ だから器の中でスクロールさせる。
+	#   ⚠ 中の列（装備関連）もスクロールを持っている＝⚠ 形は揃っている。
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "InventoryScroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.add_child(_inventory_grid)
+	column.add_child(scroll)
+
+	var pager: HBoxContainer = HBoxContainer.new()
+	pager.name = "PagerRow"
+	_prev_button = UiButton.create(UiButton.Variant.SECONDARY)
+	_prev_button.name = "PrevPageButton"
+	_prev_button.text = "◀"
+	_prev_button.pressed.connect(_on_prev_page_pressed)
+	pager.add_child(_prev_button)
+	_page_label = Label.new()
+	_page_label.name = "PageLabel"
+	_page_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pager.add_child(_page_label)
+	_next_button = UiButton.create(UiButton.Variant.SECONDARY)
+	_next_button.name = "NextPageButton"
+	_next_button.text = "▶"
+	_next_button.pressed.connect(_on_next_page_pressed)
+	pager.add_child(_next_button)
+	column.add_child(pager)
+
+	var body: Node = material_bar.get_parent().get_parent()
+	body.add_child(column)
+
+
+# ⚠⚠ 中身は倉庫と同じ口（`get_inventory_page_entries()`）。⚠ ここで「何がマスを占めるか」を決めない。
+#   ⚠ 装備中の個体はマスに出てこない（⚠ 人間の決定7。⚠ キャラの装備マスへ移っている）。
+# ⚠ 枠を選んでいるあいだは**刺せる装飾だけ**に絞る（⚠ 決定 `BS-15`・⚠ 2手で刺すため）。
+func _rebuild_inventory() -> void:
+	if _inventory_grid == null:
+		return
+	if _selected_part_slot >= 0:
+		_rebuild_part_items()
+		return
+	_page = clampi(_page, 0, GameManager.get_inventory_page_count() - 1)
+	_inventory_header.text = "%s  %d/%d" % [
+		tr("ui_nav_warehouse"),
+		GameManager.get_inventory_slots_used(), GameManager.get_inventory_slot_max(),
+	]
+	_inventory_grid.accept_drop_groups = []
+	_inventory_grid.visible = true
+	_inventory_grid.rebuild(
+		GameManager.get_inventory_page_entries(_page),
+		GameManager.get_inventory_slots_per_page()
+	)
+	_page_label.text = "%d / %d" % [_page + 1, GameManager.get_inventory_page_count()]
+	_prev_button.disabled = _page <= 0
+	_next_button.disabled = _page >= GameManager.get_inventory_page_count() - 1
+	_prev_button.visible = true
+	_next_button.visible = true
+
+
+# 刺せる装飾だけを並べる（⚠ 枠を押したあと）。
+#
+# ⚠ 押せるかの判定は `get_part_reject_reason()` の1本だけを見る（⚠ 2本目を書かない）。
+# ⚠ その枠に刺さらない種類は**並べない**（⚠ 押せないマスを並べるより「ここには刺さらない」が伝わる）。
+# ⚠ 解放されていない種類も並べない（⚠ 枠と同じ判定を通す）。
+func _rebuild_part_items() -> void:
+	_inventory_header.text = "%s（%s%d）" % [
+		tr("ui_part_owned_header"), tr("ui_part_slot_header"), _selected_part_slot + 1
+	]
+	var inventory: Dictionary = GameManager.get_state().get(GameStateKeys.INVENTORY, {})
+	var rows: Array[String] = []
+	for item_id: String in inventory:
+		var entry: Variant = inventory[item_id]
+		if not (entry is Dictionary):
+			continue
+		if int((entry as Dictionary).get(GameStateKeys.ITEM_COUNT, 0)) <= 0:
+			continue
+		var definition: Dictionary = GameManager.get_part_definition(item_id)
+		if definition.is_empty():
+			continue
+		if GameManager.get_part_reject_reason(
+			_selected_part_target, _selected_part_slot, item_id
+		) == GameManager.PART_REJECT_KIND:
+			continue
+		if not GameManager.is_part_kind_unlocked(
+			str(definition.get(GameManager.ITEM_MASTER_PART_KIND, ""))
+		):
+			continue
+		rows.append(item_id)
+
+	# 並びは items.json の sort_order（種類 → 軸 → 段階）。
+	rows.sort_custom(func(a: String, b: String) -> bool:
+		return int(MasterDataLoader.get_item(a).get(GameManager.INSTANCE_VIEW_SORT_ORDER, 0)) \
+			< int(MasterDataLoader.get_item(b).get(GameManager.INSTANCE_VIEW_SORT_ORDER, 0)))
+
+	var entries: Array = []
+	for item_id: String in rows:
+		entries.append({
+			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+			GameManager.SLOT_ENTRY_ITEM_ID: item_id,
+			GameManager.SLOT_ENTRY_COUNT: int(
+				(inventory[item_id] as Dictionary).get(GameStateKeys.ITEM_COUNT, 0)
+			),
+		})
+	# ⚠⚠ 1つも無いときに**空のマスを10個**並べない（2026-09-22）。
+	#   ⚠ 「持っていない」のか「壊れて出ていない」のかが読めない（⚠ 門3）。
+	_inventory_grid.rebuild(entries, entries.size())
+	_inventory_grid.visible = not entries.is_empty()
+	_page_label.text = (
+		tr("ui_part_attach_hint") if not entries.is_empty() else tr("ui_part_none_hint")
+	)
+	_prev_button.visible = false
+	_next_button.visible = false
+
+
+# 持ち物のマスを押した。
+#
+# ⚠ 枠を選んでいるときは**そのまま刺す**（⚠ 2手＝枠を押す → 装飾を押す）。
+# ⚠ それ以外は説明の窓に出すだけ（⚠ 操作は向こうが並べる）。
+func _on_inventory_slot_pressed(entry: Dictionary, _index: int) -> void:
+	if entry.is_empty():
+		return
+	if _selected_part_slot >= 0:
+		_on_attach_part_pressed(str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, "")))
+		return
+	_selected_entry = entry
+	_rebuild_panel()
+
+
+func _on_prev_page_pressed() -> void:
+	_page = maxi(0, _page - 1)
+	_rebuild_inventory()
+
+
+func _on_next_page_pressed() -> void:
+	_page = mini(GameManager.get_inventory_page_count() - 1, _page + 1)
+	_rebuild_inventory()
+
+
+func _on_inventory_changed(_item_id: String) -> void:
+	_rebuild()
+
+
 # --- 5部位のスロット ---
 
 func _rebuild_slots() -> void:
@@ -260,9 +388,9 @@ func _rebuild_slots() -> void:
 	SlotActionPopover.close_in(self)
 	_clear(slot_list)
 	_create_equipment_grid()
-	for slot: String in GameManager.get_equip_slots():
-		_create_slot_row(slot)
-		_create_part_rows(slot)
+	# ⚠⚠ 2026-09-22（決定 `BS-16`）：⚠ **部位の行5本と装飾の枠の行は消した**。
+	#   ⚠ 「選ぶ・鍛える・外す・刺す」は全部**説明の窓**へ移った。
+	#   ⚠ 前は上の5マスと下の5行が同じことを言い、⚠ 押せない灰色のボタンが12個並んでいた。
 
 
 # キャラの装備マス（段階18-c・人間の決定7）。
@@ -297,16 +425,22 @@ func _create_equipment_grid() -> void:
 	slot_list.add_child(grid)
 
 
-# 装備マスを押した。⚠ 部位を選ぶだけ（＝下の行の「選ぶ」と同じ）。
+# 装備マスを押した。⚠ 部位を選び、⚠ **着けているものを説明の窓に出す**（2026-09-22）。
 #
 # ⚠ 空のマスを押しても部位は選べること（⚠ 何も着けていない枠に着けたい場合がある）。
 # ⚠⚠ 中身で照合しないこと。⚠ 空のマスは中身が全部同じなので、⚠ どれを押しても
 #   最初の空き枠が選ばれてしまう。⚠ 番号（ItemGrid が渡す）で引く。
-func _on_equipment_grid_pressed(_entry: Dictionary, index: int) -> void:
+func _on_equipment_grid_pressed(entry: Dictionary, index: int) -> void:
 	var slots: Array = GameManager.get_equipment_slot_entries(_character_id)
 	if index < 0 or index >= slots.size():
 		return
-	_on_select_slot_pressed(str((slots[index] as Dictionary)[GameManager.SLOT_ENTRY_EQUIP_SLOT]))
+	_selected_slot = str((slots[index] as Dictionary)[GameManager.SLOT_ENTRY_EQUIP_SLOT])
+	# ⚠ 枠の選択は解除する（⚠ 別の装備を見るので、⚠ 「刺せる装飾」の一覧は用が無い）。
+	_selected_part_target = ""
+	_selected_part_slot = -1
+	_selected_entry = entry
+	notice_label.text = ""
+	_rebuild()
 
 # インベントリの窓から装備マスへ落とされた（2026-09-15）。
 #
@@ -332,157 +466,6 @@ func _equip_from_drop(slot: String, instance_id: String) -> void:
 	else:
 		notice_label.text = tr("ui_equipment_failed")
 	# 再描画はシグナル側で行う。
-
-
-func _create_slot_row(slot: String) -> void:
-	var instance_id: String = GameManager.get_equipped_instance_id(_character_id, slot)
-
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "SlotRow_" + slot
-
-	var label: Label = Label.new()
-	label.name = "NameLabel"
-	var mark: String = "> " if slot == _selected_slot else "  "
-	if instance_id == "":
-		label.text = "%s%s：%s" % [mark, tr("ui_equipment_slot_" + slot), tr("ui_equipment_none")]
-	else:
-		label.text = "%s%s：%s" % [mark, tr("ui_equipment_slot_" + slot), _instance_text(instance_id)]
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(label)
-
-	# この部位の一覧を下に出す。
-	var select_button: UiButton = UiButton.create()
-	select_button.name = "SelectButton"
-	select_button.text = tr("ui_equipment_select")
-	select_button.disabled = slot == _selected_slot
-	select_button.pressed.connect(_on_select_slot_pressed.bind(slot))
-	row.add_child(select_button)
-
-	# 装備中のものを鍛える。
-	var forge_button: UiButton = UiButton.create()
-	forge_button.name = "ForgeButton"
-	forge_button.text = _forge_button_text(instance_id)
-	forge_button.disabled = instance_id == "" or not GameManager.can_forge(instance_id)
-	forge_button.pressed.connect(_on_forge_pressed.bind(instance_id))
-	row.add_child(forge_button)
-
-	var unequip_button: UiButton = UiButton.create()
-	unequip_button.name = "UnequipButton"
-	unequip_button.text = tr("ui_equipment_unequip")
-	unequip_button.disabled = instance_id == ""
-	unequip_button.pressed.connect(_on_unequip_pressed.bind(slot))
-	row.add_child(unequip_button)
-
-	slot_list.add_child(row)
-
-# --- 装飾の枠 ---
-
-# その部位に着けている個体の枠を、開いているぶんだけ出す。
-#
-# ⚠ 開いていない枠は行を出さない。等級3から順に開いて最大8枠あるので、
-#   閉じた枠まで出すと5部位×8行＝40行になり、装飾を1つも持っていないうちから
-#   画面が枠の行で埋まる（GAME_DESIGN.md 6-4）。
-# ⚠ 位置（index）は詰めない。get_part_entries() が返す index をそのまま使う。
-#   詰めると別の枠に刺さる（アクセサリーだけ位置3が開くため）。
-#
-# ⚠⚠ 2026-09-22（回3・人間の決定「マス＋吹き出し」）：⚠ **文字の行をやめてマスにした**。
-#   ⚠ 前は「宝石枠：HPの宝石④ HP +131」＋ボタン、⚠ 枠の数だけ行が増えていた（⚠ 倉庫はマス）。
-#   ⚠ 並べるのは `PartSlotRow`（⚠ ホバーの詳細が使っているものと同じ器）。
-#   ⚠ **押したときにできること**は吹き出し（`SlotActionPopover`）＝⚠ 鞄・商人と同じ手触り。
-# ⚠ 段階解放の絞り込みはここで済ませてから渡す（⚠ `PartSlotRow` は等級しか見ない）。
-func _create_part_rows(slot: String) -> void:
-	var instance_id: String = GameManager.get_equipped_instance_id(_character_id, slot)
-	if instance_id == "":
-		return
-	var views: Array = []
-	for view: Variant in GameManager.get_part_entries(instance_id):
-		if not (view is Dictionary):
-			continue
-		# 段階解放（GAME_DESIGN.md 9-5 の #5 装飾 / #10 ルーン）。
-		# ⚠ その枠に刺さる種類が全部閉じているなら、出さない（人間の決定・出さない）。
-		#   ⚠ 種類ごとの分岐ではなく「種類 → 機能ID」の表を1本通すだけ
-		#     （GameManager.is_part_kind_unlocked()）。
-		if not _is_part_slot_unlocked(view as Dictionary):
-			continue
-		views.append(view)
-	if views.is_empty():
-		return
-
-	var grade: int = int(
-		GameManager.get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_GRADE, 1)
-	)
-	var row: PartSlotRow = PartSlotRow.create(views, grade)
-	row.name = "PartSlots_" + slot
-	# ⚠ 無名関数で繋がない（⚠ `instance_id` を値で捕まえるため。⚠ CLAUDE.md の罠1）。
-	#   ⚠ 名前付き＋`bind()` なら、⚠ マスが消えたときに Godot が切る。
-	for child: Node in row.get_children():
-		if child is PartSlotIcon:
-			(child as PartSlotIcon).pressed.connect(_on_part_slot_pressed.bind(instance_id))
-	slot_list.add_child(row)
-
-
-# 枠のマスを押した（2026-09-22）。⚠ できることを吹き出しに並べる。
-#
-# ⚠ 判定は GameManager の口に聞く（⚠ 刺せるか・外せるか・移動量の候補）。⚠ ここで計算しない。
-# ⚠⚠ 「外す」は赤（⚠ 外すと壊れる＝取り返しがつかない・GAME_DESIGN.md 7-6）。
-#   ⚠ 確認のモーダルは今までどおりハンドラ側が出す（⚠ ここでは出さない＝口を2本にしない）。
-func _on_part_slot_pressed(view: Dictionary, instance_id: String) -> void:
-	var slot_index: int = int(view.get(GameManager.PART_VIEW_INDEX, 0))
-	var entry: Variant = view.get(GameManager.PART_VIEW_ENTRY, null)
-	var icon: Control = _find_part_slot_icon(instance_id, slot_index)
-	if icon == null:
-		SlotActionPopover.close_in(self)
-		return
-	var pop: SlotActionPopover = SlotActionPopover.open(
-		self,
-		icon.get_global_rect(),
-		tr(_part_slot_label_key(view)),
-		_part_text(entry) if entry is Dictionary else tr("ui_part_slot_empty")
-	)
-	if entry is Dictionary:
-		var detach: UiButton = pop.add_action(
-			tr("ui_part_detach"), UiButton.Variant.DANGER,
-			_on_detach_part_pressed.bind(instance_id, slot_index)
-		)
-		detach.name = "DetachButton"
-		_add_rune_move_actions(pop, entry)
-		return
-	var attach: UiButton = pop.add_action(
-		tr("ui_part_attach"), UiButton.Variant.PRIMARY,
-		_on_select_part_slot_pressed.bind(instance_id, slot_index),
-		_selected_part_target == instance_id and _selected_part_slot == slot_index
-	)
-	attach.name = "AttachButton"
-
-
-# 押したマスそのもの（⚠ 吹き出しを出す位置に要る）。⚠ 名前で引く（⚠ `PartSlotRow` が付けた名前）。
-func _find_part_slot_icon(instance_id: String, slot_index: int) -> Control:
-	for slot: String in GameManager.get_equip_slots():
-		if GameManager.get_equipped_instance_id(_character_id, slot) != instance_id:
-			continue
-		var row: Node = slot_list.get_node_or_null("PartSlots_" + slot)
-		if row == null:
-			return null
-		return row.get_node_or_null("PartSlot_%d" % slot_index) as Control
-	return null
-
-# その枠に刺さる種類のうち、1つでも解放されていれば出す。
-func _is_part_slot_unlocked(view: Dictionary) -> bool:
-	var kinds: Variant = view.get(GameManager.PART_VIEW_KINDS, [])
-	if not (kinds is Array):
-		return false
-	for kind: Variant in (kinds as Array):
-		if GameManager.is_part_kind_unlocked(str(kind)):
-			return true
-	return false
-
-# 移動系ルーンの移動量（段階8・人間の決定・2026-08-24）。
-#
-# ⚠ 選べる値も、いま選んである値も GameManager から引く。画面で計算しない。
-# ⚠ 符号を必ず出す（+120 / -60）。出さないと前進か後退か読めない。
-# ⚠ 移動系でなければ何も足さない（`get_rune_move_choices()` が空を返す）。⚠ part_kind で分岐しない。
-# ⚠⚠ 2026-09-22：⚠ `OptionButton` をやめ、⚠ **吹き出しのボタン**にした（⚠ 刺す・外すと同じ場所）。
-#   ⚠ いま選んである値は押せなくして出す（⚠ 「どれが効いているか」が読める）。
 func _add_rune_move_actions(pop: SlotActionPopover, entry: Variant) -> void:
 	if not (entry is Dictionary):
 		return
@@ -532,220 +515,92 @@ func _part_text(entry: Variant) -> String:
 		tr("ui_training_stat_" + stat_key),
 		_stat_value_text(stat_key, GameManager.get_part_stat_value(entry)),
 	]
-
-# --- 持っている個体の一覧 ---
-
-func _rebuild_items() -> void:
-	# 枠を選んでいるあいだは「刺せる装飾」に切り替わる。
-	if _selected_part_slot >= 0:
-		_rebuild_part_items()
-		return
-
-	item_header.text = "%s（%s）" % [
-		tr("ui_equipment_owned_header"),
-		tr("ui_equipment_slot_" + _selected_slot),
-	]
-	_clear(item_list)
-
-	var instances: Array = GameManager.get_equippable_instances(_selected_slot)
-	if instances.is_empty():
-		var empty: Label = Label.new()
-		empty.name = "EmptyLabel"
-		empty.text = tr("ui_equipment_empty")
-		item_list.add_child(empty)
-		return
-
-	for entry: Variant in instances:
-		if entry is Dictionary:
-			_create_item_row(entry as Dictionary)
-
-func _create_item_row(view: Dictionary) -> void:
-	var instance_id: String = str(view.get(GameManager.INSTANCE_VIEW_ID, ""))
-
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "ItemRow_" + instance_id
-
-	# 仮アセットのアイコン。⚠ 等級は instance_id ごとに違うので個体から引く。
-	row.add_child(ItemIcon.create(
-		str(view.get(GameStateKeys.INSTANCE_ITEM_ID, "")),
-		int(view.get(GameStateKeys.INSTANCE_GRADE, 1))
-	))
-
-	var label: Label = Label.new()
-	label.name = "NameLabel"
-	label.text = _instance_text(instance_id)
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(label)
-
-	var equip_button: UiButton = UiButton.create()
-	equip_button.name = "EquipButton"
-	equip_button.text = tr("ui_equipment_equip")
-	equip_button.disabled = _character_id == ""
-	equip_button.pressed.connect(_on_equip_pressed.bind(instance_id))
-	row.add_child(equip_button)
-
-	var forge_button: UiButton = UiButton.create()
-	forge_button.name = "ForgeButton"
-	forge_button.text = _forge_button_text(instance_id)
-	forge_button.disabled = not GameManager.can_forge(instance_id)
-	forge_button.pressed.connect(_on_forge_pressed.bind(instance_id))
-	row.add_child(forge_button)
-
-	item_list.add_child(row)
-
-# 刺せる装飾の一覧。
-#
-# ⚠ ボタンの活性は GameManager.get_part_reject_reason() の1本だけを見る。
-#   画面側に2本目の判定を書かないこと（EXEC_DECORATION.md §2-7）。
-# ⚠ その部位に刺さらない種類（武器の枠に宝石）は行ごと出さない。
-#   出して押せないより、並ばないほうが「ここには刺さらない」が伝わる。
-func _rebuild_part_items() -> void:
-	item_header.text = "%s（%s%d）" % [
-		tr("ui_part_owned_header"), tr("ui_part_slot_header"), _selected_part_slot + 1
-	]
-	_clear(item_list)
-
-	var inventory: Dictionary = GameManager.get_state().get(GameStateKeys.INVENTORY, {})
-	var rows: Array[String] = []
-	for item_id: String in inventory:
-		var entry: Variant = inventory[item_id]
-		if not (entry is Dictionary):
-			continue
-		if int((entry as Dictionary).get(GameStateKeys.ITEM_COUNT, 0)) <= 0:
-			continue
-		if GameManager.get_part_definition(item_id).is_empty():
-			continue
-		var reason: String = GameManager.get_part_reject_reason(
-			_selected_part_target, _selected_part_slot, item_id
-		)
-		if reason == GameManager.PART_REJECT_KIND:
-			continue
-		# ⚠ 解放されていない種類は一覧にも出さない。枠の行と同じ判定を通す。
-		if not GameManager.is_part_kind_unlocked(
-			str(GameManager.get_part_definition(item_id).get(GameManager.ITEM_MASTER_PART_KIND, ""))
-		):
-			continue
-		rows.append(item_id)
-
-	# 並びは items.json の sort_order（種類 → 軸 → 段階）。
-	# Dictionary のキー順（＝入った順）だと段階がばらばらに並ぶ。
-	rows.sort_custom(func(a: String, b: String) -> bool:
-		return int(MasterDataLoader.get_item(a).get(GameManager.INSTANCE_VIEW_SORT_ORDER, 0)) \
-			< int(MasterDataLoader.get_item(b).get(GameManager.INSTANCE_VIEW_SORT_ORDER, 0)))
-
-	if rows.is_empty():
-		var empty: Label = Label.new()
-		empty.name = "EmptyLabel"
-		empty.text = tr("ui_equipment_empty")
-		item_list.add_child(empty)
-		return
-
-	for item_id: String in rows:
-		_create_part_item_row(item_id, int((inventory[item_id] as Dictionary).get(GameStateKeys.ITEM_COUNT, 0)))
-
-func _create_part_item_row(item_id: String, count: int) -> void:
-	var definition: Dictionary = GameManager.get_part_definition(item_id)
-	var stat_key: String = str(definition.get(GameManager.ITEM_MASTER_PART_STAT, ""))
-	var base: int = int(definition.get(GameManager.ITEM_MASTER_PART_BASE, 0))
-	var roll_max: int = int(definition.get(GameManager.ITEM_MASTER_PART_ROLL_MAX, 0))
-
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "PartItemRow_" + item_id
-
-	# 仮アセットのアイコン。⚠ 段階は part_tier から引ける。
-	row.add_child(ItemIcon.create(item_id))
-
-	var label: Label = Label.new()
-	label.name = "NameLabel"
-	# ⚠ 出目は刺すときに振れる。確定値ではなく幅で見せる（GAME_DESIGN.md 7-6）。
-	label.text = "%s ×%d  %s +%s〜%s" % [
-		tr("ui_res_" + item_id), count,
-		tr("ui_training_stat_" + stat_key),
-		_stat_value_text(stat_key, base),
-		_stat_value_text(stat_key, base + roll_max),
-	]
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(label)
-
-	var attach_button: UiButton = UiButton.create()
-	attach_button.name = "AttachButton"
-	attach_button.text = tr("ui_part_attach")
-	attach_button.disabled = GameManager.get_part_reject_reason(
-		_selected_part_target, _selected_part_slot, item_id
-	) != ""
-	attach_button.pressed.connect(_on_attach_part_pressed.bind(item_id))
-	row.add_child(attach_button)
-
-	item_list.add_child(row)
-
-# --- 表示の組み立て ---
-
-# 「鉄の剣 等級2  攻撃 +10」の形にする。
-# 装備名だけ翻訳キー（ui_res_*）を引き、性能はデータから組み立てる。
-func _instance_text(instance_id: String) -> String:
-	var instance: Dictionary = GameManager.get_equipment_instance(instance_id)
-	if instance.is_empty():
-		return instance_id
-	var item_id: String = str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
-	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
-	return "%s %s  %s" % [
-		tr("ui_res_" + item_id),
-		tr("ui_equipment_grade") % grade,
-		_stats_text(GameManager.get_instance_stats(instance_id)),
-	]
-
-func _stats_text(stats: Variant) -> String:
-	if not (stats is Dictionary):
-		return ""
-	var parts: Array[String] = []
-	for stat_key: String in GameManager.get_stat_keys():
-		var value: int = int((stats as Dictionary).get(stat_key, 0))
-		# 0 の軸は出さない。10軸ぶん並べると1行が読めなくなる。
-		if value == 0:
-			continue
-		var sign_text: String = "+" if value > 0 else ""
-		parts.append("%s %s%s" % [
-			tr("ui_training_stat_" + stat_key), sign_text, _stat_value_text(stat_key, value)
-		])
-	return "  ".join(parts)
-
-# 「鍛える(鍛冶の欠片 8)」。上限に達していれば「最大」。
-#
-# ⚠ 素材名を出すのは、等級が上がると要求される段階が変わるため
-#   （4→段階2 / 7→段階3 / 10→段階4）。数だけだと何が要るのか画面で分からない。
-func _forge_button_text(instance_id: String) -> String:
-	if instance_id == "":
-		return tr("ui_equipment_forge")
-	var cost: Dictionary = GameManager.get_forge_cost(instance_id)
-	var amount: int = int(cost.get(GameManager.FORGE_COST_AMOUNT, 0))
-	if amount <= 0:
-		return tr("ui_equipment_max_grade")
-	var material_id: String = str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, ""))
-	return "%s(%s %d)" % [tr("ui_equipment_forge"), tr("ui_res_" + material_id), amount]
-
-# ％系は "25%" と出す。実数はそのまま（training_screen.gd と同じ形）。
 func _stat_value_text(stat_key: String, value: int) -> String:
 	if GameManager.is_percent_stat(stat_key):
 		return "%d%%" % value
 	return str(value)
-
-# --- 操作 ---
-
-# 部位の切り替えはシグナルを伴わないため、ここで直接描き直す。
-func _on_select_slot_pressed(slot: String) -> void:
-	_selected_slot = slot
-	# 部位を選び直したら、枠の選択は解除して装備の一覧に戻す。
-	_selected_part_target = ""
-	_selected_part_slot = -1
+# 装飾の枠を押した（2026-09-22・決定 `BS-15`）。
+#
+# ⚠⚠ **空きの枠** → ⚠ 右の持ち物を「刺せる装飾」に切り替える（⚠ 押して刺すまで**2手**）。
+# ⚠ **刺さっている枠** → ⚠ 吹き出し（⚠ 外す・移動量）。⚠ 決定 `BS-14` のまま。
+func _on_part_slot_selected(instance_id: String, slot_index: int) -> void:
 	notice_label.text = ""
-	_rebuild()
-
-# 枠を選ぶ。下段が「刺せる装飾」に切り替わる（シグナルを伴わないので直接描き直す）。
-func _on_select_part_slot_pressed(instance_id: String, slot_index: int) -> void:
+	var entry: Variant = _part_entry_at(instance_id, slot_index)
+	if entry is Dictionary:
+		_open_part_popover(instance_id, slot_index, entry as Dictionary)
+		return
 	_selected_part_target = instance_id
 	_selected_part_slot = slot_index
-	notice_label.text = ""
-	_rebuild()
+	_rebuild_inventory()
+
+
+# 装飾の枠へ持ち物を落とした（2026-09-22）。⚠ **つまんで落とすのも2手**。
+#
+# ⚠ 荷物は「どのマス目の何番か」しか運ばない（決定 `BS-6`）。⚠ 中身はここで引き直す。
+# ⚠⚠ 刺すのは `call_deferred`。⚠ 刺すと両方のマス目が作り直されるので、
+#   ⚠ 落とした処理の途中で、⚠ 受けているマス自身を外すことになる（⚠ 装備マスと同じ）。
+func _on_part_slot_dropped(instance_id: String, slot_index: int, payload: Dictionary) -> void:
+	if _inventory_grid == null:
+		return
+	var entry: Dictionary = _inventory_grid.get_entry_at(int(payload.get(ItemSlot.DRAG_INDEX, -1)))
+	var item_id: String = str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+	if item_id == "":
+		return
+	_attach_from_drop.call_deferred(instance_id, slot_index, item_id)
+
+
+func _attach_from_drop(instance_id: String, slot_index: int, item_id: String) -> void:
+	if GameManager.attach_part(instance_id, slot_index, item_id):
+		notice_label.text = tr("ui_part_attached")
+		return
+	# ⚠ 落とせたのに失敗した＝判定と受けがずれている。⚠ 理由をそのまま出す。
+	notice_label.text = tr(GameManager.get_part_reject_reason(instance_id, slot_index, item_id))
+
+
+# その枠に刺さっているもの（⚠ 無ければ null）。
+#
+# ⚠ `get_part_entries()` は「開いている枠」だけを返し、⚠ index は詰めない。
+#   ⚠ 配列の添字ではなく index で探すこと。
+func _part_entry_at(instance_id: String, slot_index: int) -> Variant:
+	for view: Variant in GameManager.get_part_entries(instance_id):
+		if view is Dictionary and int(
+			(view as Dictionary).get(GameManager.PART_VIEW_INDEX, -1)
+		) == slot_index:
+			return (view as Dictionary).get(GameManager.PART_VIEW_ENTRY, null)
+	return null
+
+
+# 刺さっている枠の吹き出し（⚠ 外す・移動量）。⚠ 幅も置き方も部品が持つ（決定 `BS-14`）。
+func _open_part_popover(instance_id: String, slot_index: int, entry: Dictionary) -> void:
+	var icon: Control = _find_part_slot_icon(slot_index)
+	if icon == null:
+		SlotActionPopover.close_in(self)
+		return
+	var view: Dictionary = {}
+	for raw: Variant in GameManager.get_part_entries(instance_id):
+		if raw is Dictionary and int(
+			(raw as Dictionary).get(GameManager.PART_VIEW_INDEX, -1)
+		) == slot_index:
+			view = raw
+	var pop: SlotActionPopover = SlotActionPopover.open(
+		self, icon.get_global_rect(), tr(_part_slot_label_key(view)), _part_text(entry)
+	)
+	# ⚠⚠ 外すと壊れる（GAME_DESIGN.md 7-6）＝赤（決定 `MD-5`）。⚠ 確認はハンドラ側。
+	var detach: UiButton = pop.add_action(
+		tr("ui_part_detach"), UiButton.Variant.DANGER,
+		_on_detach_part_pressed.bind(instance_id, slot_index)
+	)
+	detach.name = "DetachButton"
+	_add_rune_move_actions(pop, entry)
+
+
+# 押した枠のマス（⚠ 吹き出しを出す位置に要る）。⚠ 描いたのは説明の窓の中の `ItemDetail`。
+func _find_part_slot_icon(slot_index: int) -> Control:
+	if _panel == null:
+		return null
+	for node: Node in _panel.find_children("PartSlot_%d" % slot_index, "", true, false):
+		return node as Control
+	return null
 
 func _on_attach_part_pressed(item_id: String) -> void:
 	var target: String = _selected_part_target
@@ -794,27 +649,6 @@ func _on_detach_part_pressed(instance_id: String, slot_index: int) -> void:
 		notice_label.text = tr("ui_part_broken")
 	else:
 		notice_label.text = tr("ui_equipment_failed")
-
-func _on_equip_pressed(instance_id: String) -> void:
-	if GameManager.equip_instance(_character_id, _selected_slot, instance_id):
-		notice_label.text = tr("ui_equipment_equipped")
-	else:
-		notice_label.text = tr("ui_equipment_failed")
-	# 再描画はシグナル側で行う。
-
-func _on_unequip_pressed(slot: String) -> void:
-	if GameManager.unequip_instance(_character_id, slot):
-		notice_label.text = tr("ui_equipment_unequipped")
-	else:
-		notice_label.text = tr("ui_equipment_failed")
-
-func _on_forge_pressed(instance_id: String) -> void:
-	if GameManager.forge_equipment(instance_id):
-		notice_label.text = tr("ui_equipment_forged")
-	else:
-		notice_label.text = tr("ui_equipment_failed")
-
-# ⚠ 誰の装備を見ていたかを渡して戻る（2026-09-11）。⚠ 渡さないと一覧に落ちる。
 func _on_back_pressed() -> void:
 	SceneManager.change_scene_with_data(TRAINING_PATH, {TransferKeys.CHARACTER_ID: _character_id})
 

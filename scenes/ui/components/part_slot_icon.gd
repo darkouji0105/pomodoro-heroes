@@ -94,6 +94,14 @@ func setup(view: Dictionary, grade: int) -> void:
 # ⚠ 繋がない画面（⚠ ホバーの詳細＝`ItemDetail`）では何も起きない。
 signal pressed(view: Dictionary)
 
+# ⚠⚠ マスに品を落とした（2026-09-22・回3-b・決定 `BS-15`）。
+#   ⚠ 運んでくるのは `ItemSlot` の荷物（⚠ 「何番目のマスか」だけ。⚠ 品は入っていない）。
+#   ⚠ **何が落ちたかを引くのは画面**（⚠ この部品は持ち物を知らない）。
+signal dropped(view: Dictionary, payload: Dictionary)
+
+# ⚠ 落とせる相手を画面が入れる（⚠ `ItemGrid.drag_group` と同じ字）。⚠ 空なら受けない。
+var accept_drop_groups: Array[String] = []
+
 
 # ⚠ 押した合図。⚠ `Panel` はボタンではないので自分で拾う。
 #   ⚠ 未開放のマスはそもそも作られない（`PartSlotRow`）ので、⚠ ここで開閉を見ない。
@@ -105,6 +113,26 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	accept_event()
 	pressed.emit(get_part_view())
+
+
+# ⚠ 落とせるか。⚠ 受けるのは**開いている空きの枠**だけ
+#   （⚠ 刺さっている枠へ落とすと上書き＝黙って壊れる。⚠ `PART_REJECT_OCCUPIED` と同じ考え）。
+# ⚠ 刺さるかどうか（種類・在庫）は画面が `GameManager` に聞く。⚠ ここで判定を持たない。
+func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
+	if not _is_open or not get_part_entry().is_empty():
+		return false
+	if not (data is Dictionary):
+		return false
+	var payload: Dictionary = data
+	if not payload.has(ItemSlot.DRAG_KEY):
+		return false
+	return accept_drop_groups.has(str(payload.get(ItemSlot.DRAG_GROUP, "")))
+
+
+func _drop_data(_at_position: Vector2, data: Variant) -> void:
+	if not (data is Dictionary):
+		return
+	dropped.emit(get_part_view(), (data as Dictionary).duplicate())
 
 
 # ⚠ この枠の定義（⚠ 何番目の枠か・刺さる種類・刺さっているもの）。⚠ 写しを返す。
@@ -133,6 +161,29 @@ func _refresh() -> void:
 
 	var part_entry: Dictionary = get_part_entry()
 	var part_id: String = str(part_entry.get(GameStateKeys.PART_ITEM_ID, ""))
+
+	# ⚠⚠ 閉じた枠（2026-09-22・決定 `BS-17`）。⚠ 出すのは「次の1つ」だけ（⚠ 決めるのは `PartSlotRow`）。
+	#   ⚠ 09-08 の「未開放はそもそも出さない」を覆したもの。⚠ 出さないと**装飾があること自体に気づけない**。
+	# ⚠⚠ 鍵の絵は使わない（⚠ `NotoSansJP` に絵文字が無い＝決定 `UI-9`）。
+	#   ⚠ 代わりに**開く等級の数字**を薄く出す（⚠ 「3」＝等級3で開く）。⚠ 何が要るかが数字で読める。
+	if not _is_open:
+		_draw_rainbow = false
+		var locked_box: StyleBoxFlat = StyleBoxFlat.new()
+		locked_box.bg_color = config.icon_bg_color
+		locked_box.set_corner_radius_all(config.icon_corner_radius)
+		locked_box.border_color = config.color_of_grade(config.default_grade)
+		locked_box.set_border_width_all(maxi(0, config.part_slot_border_width))
+		add_theme_stylebox_override("panel", locked_box)
+		queue_redraw()
+		_glyph_texture.visible = false
+		_glyph_label.visible = true
+		_glyph_label.text = str(int(_view.get(GameManager.PART_VIEW_MIN_GRADE, 0)))
+		_glyph_label.add_theme_font_size_override("font_size", config.part_slot_glyph_font_size)
+		_glyph_label.modulate = Color(1.0, 1.0, 1.0, config.part_slot_dim_alpha)
+		tooltip_text = tr("ui_part_slot_locked_at") % int(
+			_view.get(GameManager.PART_VIEW_MIN_GRADE, 0)
+		)
+		return
 
 	var box: StyleBoxFlat = StyleBoxFlat.new()
 	box.bg_color = config.icon_bg_color
@@ -258,6 +309,12 @@ func _tooltip_text(part_id: String) -> String:
 func to_text() -> String:
 	var part_entry: Dictionary = get_part_entry()
 	var part_id: String = str(part_entry.get(GameStateKeys.PART_ITEM_ID, ""))
+	# ⚠ 閉じた枠は「鍵」と分かる字にする（⚠ 2026-09-22・決定 `BS-17`）。
+	#   ⚠ 空きと同じ字だと、⚠ 検査のログで**開いている枠と見分けが付かない**。
+	if not _is_open:
+		return "[%s]" % (tr("ui_part_slot_locked_at") % int(
+			_view.get(GameManager.PART_VIEW_MIN_GRADE, 0)
+		))
 	if part_id == "":
 		# ⚠ 空きのときは枠の種類まで出す。⚠ 枠線の色が種類を言うようになったが、
 		#   ⚠ 設計役に色は見えない。⚠ ここが「⚠ どの枠に何が刺さるか」の唯一の確かめ方。
