@@ -58,6 +58,14 @@ func _rebuild() -> void:
 	for child: Node in _actions.get_children():
 		_actions.remove_child(child)
 		child.queue_free()
+	# ⚠⚠ 自分の子として足したものも消す（⚠ 2026-09-22 に実機で踏んだ）。
+	#   ⚠ `_actions` の中だけ畳んでいたので、⚠ **「装飾はまだ使えない」が描き直すたびに積もった**
+	#   （⚠ 人間の絵で3行並んでいた）。⚠ 足す側を増やしたら、⚠ 必ずここも見ること。
+	for child: Node in get_children():
+		if child == _detail or child == _actions:
+			continue
+		remove_child(child)
+		child.queue_free()
 
 	_detail.show_entry(_entry)
 	if _entry.is_empty():
