@@ -26,18 +26,20 @@ const SHOP_PATH: String = "res://scenes/guild/shop_screen.tscn"
 #   ⚠ 開くのは stage_3 のクリア（stages.json の unlocks）。閉じている間は
 #     カードが空き枠になる（.tscn 側では閉じない）。
 const WORKSHOP_PATH: String = "res://scenes/guild/workshop_screen.tscn"
+const WAREHOUSE_PATH: String = "res://scenes/guild/warehouse_screen.tscn"
 
 
 # sub_screen_id -> 遷移先パス
 # ⚠ sub_screen_id は GameStateKeys の画面IDと同じ綴り（段階9）。
 #   ⚠ 文字列リテラルを書かないこと（AGENTS.md）。unlocked_screens のキーでもある。
-# ⚠⚠ 倉庫の入口は消した（2026-09-15・人間の指示「倉庫画面は、この窓だけに」「カードを消す」）。
-#   ⚠ 倉庫は右上の「倉庫」ボタンで別窓に出す（`InventoryWindow`）。
+# ⚠⚠ 倉庫のカードを戻した（2026-09-23・人間「⚠ もう倉庫の別窓はいらない」／入口は「1ア」＝ギルドのカード）。
+#   ⚠ 2026-09-15〜22 は右上の「倉庫」ボタンで OS の別窓に出していた（⚠ 窓ごと消した）。
 const GUILD_SCENES: Dictionary = {
 	GameStateKeys.SCREEN_SHOP: SHOP_PATH,
 	GameStateKeys.SCREEN_TRAINING: TRAINING_PATH,
 	GameStateKeys.SCREEN_RESEARCH: RESEARCH_PATH,
 	GameStateKeys.SCREEN_WORKSHOP: WORKSHOP_PATH,
+	GameStateKeys.SCREEN_WAREHOUSE: WAREHOUSE_PATH,
 }
 
 # ⚠ カードの並び（モックの並び）。⚠ `GUILD_SCENES` は Dictionary で順が保証されないので、
@@ -47,6 +49,7 @@ const CARD_ORDER: Array[String] = [
 	GameStateKeys.SCREEN_SHOP,
 	GameStateKeys.SCREEN_RESEARCH,
 	GameStateKeys.SCREEN_WORKSHOP,
+	GameStateKeys.SCREEN_WAREHOUSE,
 ]
 
 # ⚠ 枠の数。⚠ 3 × 2。⚠ 入口が5つでも6つ目の空き枠を出す（⚠ 位置を動かさないため）。
@@ -174,6 +177,8 @@ func _status_text(screen_id: String) -> String:
 			return tr("ui_guild_status_research") % _research_count()
 		GameStateKeys.SCREEN_WORKSHOP:
 			return tr("ui_guild_status_workshop") % GameManager.get_available_recipes().size()
+		GameStateKeys.SCREEN_WAREHOUSE:
+			return tr("ui_guild_status_warehouse") % GameManager.get_inventory_slots_used()
 	return tr("ui_guild_empty_status")
 
 

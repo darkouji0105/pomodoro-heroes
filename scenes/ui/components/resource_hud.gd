@@ -24,11 +24,10 @@ signal width_changed(width: float)
 
 var bar: ResourceBar = null
 var _field: Control = null
-# ⚠ 資源と「倉庫」ボタンを横1列に並べる器（2026-09-15）。⚠ 右上に寄せるのはこちら。
+# ⚠ 資源を横1列に並べる器（2026-09-15）。⚠ 右上に寄せるのはこちら。
+# ⚠⚠ 「倉庫」ボタンは消した（2026-09-23・人間「⚠ もう倉庫の別窓はいらない」）。
+#   ⚠ 倉庫はギルドのカードから入る画面になった（`DECISIONS.md` `BS-15`）。
 var _row: HBoxContainer = null
-# 倉庫の窓を開け閉めする（2026-09-15・人間の決定「ボタン」）。
-#   ⚠ 出すか隠すかは `InventoryWindow` が画面ごとに決める（⚠ タイトル・戦闘・ポモドーロは隠す）。
-var _storage_button: UiButton = null
 
 
 static func spawn_into(root: Node) -> ResourceHud:
@@ -52,19 +51,6 @@ static func set_shown(value: bool) -> void:
 	if hud == null:
 		return
 	hud._field.visible = value
-
-
-# 「倉庫」ボタンを出すか。⚠ 呼ぶのは `InventoryWindow.apply_scene()` の1本。
-static func set_storage_button_shown(value: bool) -> void:
-	var hud: ResourceHud = get_instance()
-	if hud == null or hud._storage_button == null:
-		return
-	hud._storage_button.visible = value
-
-
-static func is_storage_button_shown() -> bool:
-	var hud: ResourceHud = get_instance()
-	return hud != null and hud._storage_button != null and hud._storage_button.visible
 
 
 static func get_instance() -> ResourceHud:
@@ -98,12 +84,6 @@ func _ready() -> void:
 	_row.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_row.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_field.add_child(_row)
-
-	_storage_button = UiButton.create(UiButton.Variant.SECONDARY, "ui_nav_warehouse")
-	_storage_button.name = "StorageButton"
-	_storage_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_storage_button.pressed.connect(func() -> void: InventoryWindow.toggle())
-	_row.add_child(_storage_button)
 
 	bar = ResourceBar.new()
 	bar.name = "Bar"

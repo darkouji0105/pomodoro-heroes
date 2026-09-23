@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="3_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_detail.gd" id="4_item_detail"]
+[ext_resource type="PackedScene" uid="uid://b1screenheader01" path="res://scenes/ui/components/screen_header.tscn" id="5_screen_header"]
 
 [node name="WarehouseScreen" type="Control" unique_id=901550676]
 layout_mode = 3
@@ -22,121 +23,135 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.101961, 0.0784314, 0.0941176, 1)
 
-[node name="Layout" type="VBoxContainer" parent="." unique_id=1641179782]
-layout_mode = 0
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_type_variation = &"ScreenMargin"
 
-[node name="Tabs" type="TabContainer" parent="Layout" unique_id=1276131879]
+[node name="Layout" type="VBoxContainer" parent="Margin" unique_id=1641179782]
+layout_mode = 2
+
+[node name="Header" parent="Margin/Layout" instance=ExtResource("5_screen_header")]
+layout_mode = 2
+title_key = "ui_nav_warehouse"
+
+[node name="Tabs" type="TabContainer" parent="Margin/Layout" unique_id=1276131879]
 layout_mode = 2
 size_flags_vertical = 3
 current_tab = 0
 
-[node name="InventoryTab" type="HBoxContainer" parent="Layout/Tabs"]
+[node name="InventoryTab" type="HBoxContainer" parent="Margin/Layout/Tabs"]
 layout_mode = 2
 metadata/_tab_index = 0
 
-[node name="GridArea" type="VBoxContainer" parent="Layout/Tabs/InventoryTab"]
+[node name="GridArea" type="VBoxContainer" parent="Margin/Layout/Tabs/InventoryTab"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="InventoryHeader" type="HBoxContainer" parent="Layout/Tabs/InventoryTab/GridArea"]
+[node name="InventoryHeader" type="HBoxContainer" parent="Margin/Layout/Tabs/InventoryTab/GridArea"]
 layout_mode = 2
 
-[node name="CapacityLabel" type="Label" parent="Layout/Tabs/InventoryTab/GridArea/InventoryHeader"]
+[node name="CapacityLabel" type="Label" parent="Margin/Layout/Tabs/InventoryTab/GridArea/InventoryHeader"]
 layout_mode = 2
 
-[node name="HeaderSpacer" type="Control" parent="Layout/Tabs/InventoryTab/GridArea/InventoryHeader"]
+[node name="HeaderSpacer" type="Control" parent="Margin/Layout/Tabs/InventoryTab/GridArea/InventoryHeader"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ExpandButton" parent="Layout/Tabs/InventoryTab/GridArea/InventoryHeader" instance=ExtResource("2_primary_btn")]
+[node name="ExpandButton" parent="Margin/Layout/Tabs/InventoryTab/GridArea/InventoryHeader" instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 
-[node name="InventoryGrid" type="GridContainer" parent="Layout/Tabs/InventoryTab/GridArea"]
+[node name="InventoryScroll" type="ScrollContainer" parent="Margin/Layout/Tabs/InventoryTab/GridArea"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="InventoryGrid" type="GridContainer" parent="Margin/Layout/Tabs/InventoryTab/GridArea/InventoryScroll"]
 layout_mode = 2
 size_flags_horizontal = 0
 columns = 20
 script = ExtResource("3_item_grid")
 
-[node name="PagerRow" type="HBoxContainer" parent="Layout/Tabs/InventoryTab/GridArea"]
+[node name="PagerRow" type="HBoxContainer" parent="Margin/Layout/Tabs/InventoryTab/GridArea"]
 layout_mode = 2
 alignment = 1
 
-[node name="PrevPageButton" parent="Layout/Tabs/InventoryTab/GridArea/PagerRow" instance=ExtResource("2_primary_btn")]
+[node name="PrevPageButton" parent="Margin/Layout/Tabs/InventoryTab/GridArea/PagerRow" instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_warehouse_page_prev"
 variant = 2
 
-[node name="PageLabel" type="Label" parent="Layout/Tabs/InventoryTab/GridArea/PagerRow"]
+[node name="PageLabel" type="Label" parent="Margin/Layout/Tabs/InventoryTab/GridArea/PagerRow"]
 layout_mode = 2
 
-[node name="NextPageButton" parent="Layout/Tabs/InventoryTab/GridArea/PagerRow" instance=ExtResource("2_primary_btn")]
+[node name="NextPageButton" parent="Margin/Layout/Tabs/InventoryTab/GridArea/PagerRow" instance=ExtResource("2_primary_btn")]
 layout_mode = 2
 label_key = "ui_warehouse_page_next"
 variant = 2
 
-[node name="DetailPanel" type="PanelContainer" parent="Layout/Tabs/InventoryTab"]
+[node name="DetailPanel" type="PanelContainer" parent="Margin/Layout/Tabs/InventoryTab"]
 custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="DetailMargin" type="MarginContainer" parent="Layout/Tabs/InventoryTab/DetailPanel"]
+[node name="DetailMargin" type="MarginContainer" parent="Margin/Layout/Tabs/InventoryTab/DetailPanel"]
 layout_mode = 2
 
-[node name="DetailLayout" type="VBoxContainer" parent="Layout/Tabs/InventoryTab/DetailPanel/DetailMargin"]
+[node name="DetailLayout" type="VBoxContainer" parent="Margin/Layout/Tabs/InventoryTab/DetailPanel/DetailMargin"]
 layout_mode = 2
 
-[node name="ItemDetail" type="VBoxContainer" parent="Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout"]
+[node name="ItemDetail" type="VBoxContainer" parent="Margin/Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout"]
 layout_mode = 2
 script = ExtResource("4_item_detail")
 
-[node name="DetailSpacer" type="Control" parent="Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout"]
+[node name="DetailSpacer" type="Control" parent="Margin/Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="ActionRow" type="HBoxContainer" parent="Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout"]
+[node name="ActionRow" type="HBoxContainer" parent="Margin/Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout"]
 layout_mode = 2
 
-[node name="MaterialTab" type="HBoxContainer" parent="Layout/Tabs"]
+[node name="MaterialTab" type="HBoxContainer" parent="Margin/Layout/Tabs"]
 visible = false
 layout_mode = 2
 metadata/_tab_index = 1
 
-[node name="MaterialArea" type="VBoxContainer" parent="Layout/Tabs/MaterialTab"]
+[node name="MaterialArea" type="VBoxContainer" parent="Margin/Layout/Tabs/MaterialTab"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="MaterialGrid" type="GridContainer" parent="Layout/Tabs/MaterialTab/MaterialArea"]
+[node name="MaterialGrid" type="GridContainer" parent="Margin/Layout/Tabs/MaterialTab/MaterialArea"]
 layout_mode = 2
 size_flags_horizontal = 0
 columns = 4
 script = ExtResource("3_item_grid")
 
-[node name="MaterialSpacer" type="Control" parent="Layout/Tabs/MaterialTab/MaterialArea"]
+[node name="MaterialSpacer" type="Control" parent="Margin/Layout/Tabs/MaterialTab/MaterialArea"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="MaterialDetailPanel" type="PanelContainer" parent="Layout/Tabs/MaterialTab"]
+[node name="MaterialDetailPanel" type="PanelContainer" parent="Margin/Layout/Tabs/MaterialTab"]
 custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="MaterialDetailMargin" type="MarginContainer" parent="Layout/Tabs/MaterialTab/MaterialDetailPanel"]
+[node name="MaterialDetailMargin" type="MarginContainer" parent="Margin/Layout/Tabs/MaterialTab/MaterialDetailPanel"]
 layout_mode = 2
 
-[node name="MaterialDetail" type="VBoxContainer" parent="Layout/Tabs/MaterialTab/MaterialDetailPanel/MaterialDetailMargin"]
+[node name="MaterialDetail" type="VBoxContainer" parent="Margin/Layout/Tabs/MaterialTab/MaterialDetailPanel/MaterialDetailMargin"]
 layout_mode = 2
 script = ExtResource("4_item_detail")
 
-[node name="CodexTab" type="ScrollContainer" parent="Layout/Tabs" unique_id=611441194]
+[node name="CodexTab" type="ScrollContainer" parent="Margin/Layout/Tabs" unique_id=611441194]
 visible = false
 layout_mode = 2
 metadata/_tab_index = 2
 
-[node name="CodexList" type="VBoxContainer" parent="Layout/Tabs/CodexTab" unique_id=293125764]
+[node name="CodexList" type="VBoxContainer" parent="Margin/Layout/Tabs/CodexTab" unique_id=293125764]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3

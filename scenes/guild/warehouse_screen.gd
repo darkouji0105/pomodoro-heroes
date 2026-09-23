@@ -1,8 +1,10 @@
 # res://scenes/guild/warehouse_screen.gd
 # 倉庫：3タブ（持ち物/素材/図鑑）。指示書 EXEC_GUILD_WAREHOUSE.md §3 準拠。
-# ⚠⚠ 2026-09-15：⚠ **倉庫の窓（`InventoryWindow`）の中でだけ使う**（人間の指示「倉庫画面は、この窓だけに」）。
-#   ⚠ 画面として遷移しない（⚠ 戻る・題・遷移データでのタブ指定は消した）。
+# ⚠⚠ 2026-09-23：⚠ **ふつうの画面に戻した**（人間「⚠ もう倉庫の別窓はいらない」・決定 `BS-15`）。
+#   ⚠ 入口はギルドのカード（⚠ 人間の決定「1ア」）。⚠ 戻るは左上で、⚠ 行き先はギルド。
+#   ⚠ 2026-09-15〜22 は OS の別窓（`InventoryWindow`）の中でだけ使っていた（⚠ 窓ごと消した）。
 #   ⚠ 宝箱タブは拠点の `ChestPanel` へ移した（人間の指示「宝箱は、倉庫側ではなく拠点から直接開けるように」）。
+# ⚠ 持ち物のマス目・ページ送り・枠を買うは**まだ残っている**（⚠ 容量をなくすのは持ち物の画面を作り直す回・決定 `BS-10` `BS-20`）。
 
 class_name WarehouseScreen
 extends Control
@@ -21,30 +23,37 @@ const TAB_TITLE_KEYS: Array[String] = [
 #   **1行＝1系統（段1〜4）** になる（⚠ 建築 ／ 修練 ／ 鍛冶 ／ 装飾 の4行）。
 const MATERIAL_GRID_COLUMNS: int = 4
 
+const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
+# ⚠ 持ち物のマス目の組の名前（⚠ 同じマス目の中の入れ替えに使う）。
+const DRAG_GROUP: String = "inventory"
+
 
 # --- ノード参照 ---
-@onready var tabs: TabContainer = $Layout/Tabs
+# ⚠ 題と戻るは `ScreenHeader` が持つ（⚠ ボタンを直接掴まない）。
+@onready var header: ScreenHeader = $Margin/Layout/Header
+@onready var tabs: TabContainer = $Margin/Layout/Tabs
 # 持ち物タブはマス目（段階18-c・PLAN_INVENTORY.md）。
-# ⚠ ScrollContainer をやめた。⚠ 中が scenario=layout で測れないため（宿題68）。
-#   ⚠ 20列 × 5行 ＝ 100 マスが1ページで、⚠ 5ページを送って見る（人間の決定8）。
-@onready var inventory_grid: ItemGrid = $Layout/Tabs/InventoryTab/GridArea/InventoryGrid
-@onready var capacity_label: Label = $Layout/Tabs/InventoryTab/GridArea/InventoryHeader/CapacityLabel
-@onready var page_label: Label = $Layout/Tabs/InventoryTab/GridArea/PagerRow/PageLabel
+# ⚠⚠ 2026-09-23：⚠ **ScrollContainer に戻した**（⚠ 装備画面の右の持ち物と同じ形）。
+#   ⚠ 別窓をやめて題の帯が乗り、⚠ 1280 x 720 を縦に 30px 超えた（`scenario=layout` で 902 x 750）。
+#   ⚠ 中のマス目は layout で測れなくなる（宿題68）が、⚠ マス目は持ち物の画面を作り直す回で消える（決定 `BS-10`）。
+@onready var inventory_grid: ItemGrid = $Margin/Layout/Tabs/InventoryTab/GridArea/InventoryScroll/InventoryGrid
+@onready var capacity_label: Label = $Margin/Layout/Tabs/InventoryTab/GridArea/InventoryHeader/CapacityLabel
+@onready var page_label: Label = $Margin/Layout/Tabs/InventoryTab/GridArea/PagerRow/PageLabel
 # 枠を買う（段階18-e）。⚠ 値段も押せるかも GameManager に聞く。⚠ ここで式を書かない。
-@onready var expand_button: UiButton = $Layout/Tabs/InventoryTab/GridArea/InventoryHeader/ExpandButton
-@onready var prev_page_button: UiButton = $Layout/Tabs/InventoryTab/GridArea/PagerRow/PrevPageButton
-@onready var next_page_button: UiButton = $Layout/Tabs/InventoryTab/GridArea/PagerRow/NextPageButton
+@onready var expand_button: UiButton = $Margin/Layout/Tabs/InventoryTab/GridArea/InventoryHeader/ExpandButton
+@onready var prev_page_button: UiButton = $Margin/Layout/Tabs/InventoryTab/GridArea/PagerRow/PrevPageButton
+@onready var next_page_button: UiButton = $Margin/Layout/Tabs/InventoryTab/GridArea/PagerRow/NextPageButton
 # 押したマスの詳細（段階18-c-2・共有部品）。⚠ 中身の判定は部品の中で GameManager に聞く。
 # ⚠⚠ 2026-09-08・段階⑤：⚠ マス目の右の **常設パネル**に移した（⚠ 人間のモック）。
 #   ⚠ こちらはフル版（⚠ 分解の戻り・鍛えるコストまで出る）。⚠ ホバーの枠は別の
 #   ⚠ `ItemDetail` を持ち、⚠ そちらは要約（⚠ 段階④）。⚠ 2つは中身を共有しない。
-@onready var item_detail: ItemDetail = $Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout/ItemDetail
-@onready var action_row: HBoxContainer = $Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout/ActionRow
+@onready var item_detail: ItemDetail = $Margin/Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout/ItemDetail
+@onready var action_row: HBoxContainer = $Margin/Layout/Tabs/InventoryTab/DetailPanel/DetailMargin/DetailLayout/ActionRow
 # 素材タブ（2026-09-10）。⚠ 持ち物タブと同じ組み合わせ（⚠ マス目 ＋ 右に常設の詳細）。
 #   ⚠ 素材は倉庫のマスを使わないので、⚠ ページ送りも容量も無い（⚠ 16件が1画面に収まる）。
-@onready var material_grid: ItemGrid = $Layout/Tabs/MaterialTab/MaterialArea/MaterialGrid
-@onready var material_detail: ItemDetail = $Layout/Tabs/MaterialTab/MaterialDetailPanel/MaterialDetailMargin/MaterialDetail
-@onready var codex_list: VBoxContainer = $Layout/Tabs/CodexTab/CodexList
+@onready var material_grid: ItemGrid = $Margin/Layout/Tabs/MaterialTab/MaterialArea/MaterialGrid
+@onready var material_detail: ItemDetail = $Margin/Layout/Tabs/MaterialTab/MaterialDetailPanel/MaterialDetailMargin/MaterialDetail
+@onready var codex_list: VBoxContainer = $Margin/Layout/Tabs/CodexTab/CodexList
 # ⚠⚠ `ResultLabel` は消した（2026-09-10・人間が実機で見つけた）。
 #   ⚠ 2026-09-08 に開封結果の**窓**（マス目）ができたのに、⚠ その前からあった
 #     検証用の文字の行が残っていて、⚠ 開けるたびに窓と二重に出ていた。
@@ -59,8 +68,10 @@ func _ready() -> void:
 	# 1. タブ名を日本語化（ノード名の英語が画面に出る前に上書き）
 	for i: int in range(TAB_TITLE_KEYS.size()):
 		tabs.set_tab_title(i, tr(TAB_TITLE_KEYS[i]))
-	# 2. 持ち物タブから始める（⚠ 窓の中でだけ使うので、⚠ 遷移データは取らない）。
+	# 2. 持ち物タブから始める（⚠ 遷移データでのタブ指定はしない）。
 	tabs.current_tab = 0
+	# 3. 戻る（⚠ 左上・行き先はギルド）。
+	header.back_pressed.connect(_on_back_pressed)
 
 	# 4. GameManager のシグナル購読
 	GameManager.inventory_changed.connect(_on_inventory_changed)
@@ -75,8 +86,7 @@ func _ready() -> void:
 
 	# 5. マス目の配線（段階18-c）。⚠ ページ送りは GameManager に聞く（5 を直接書かない）。
 	inventory_grid.columns = GameManager.get_inventory_columns()
-	# ⚠ 装備マスへドラッグできる組（2026-09-15）。⚠ 受ける側は装備画面が決める。
-	inventory_grid.drag_group = InventoryWindow.DRAG_GROUP
+	inventory_grid.drag_group = DRAG_GROUP
 	inventory_grid.slot_pressed.connect(_on_slot_pressed)
 	inventory_grid.slot_moved.connect(_on_slot_moved)
 	expand_button.pressed.connect(_on_expand_pressed)
@@ -520,3 +530,7 @@ func _on_inventory_changed(_item_id: String) -> void:
 func _on_equipment_instances_changed(_instance_id: String) -> void:
 	_rebuild_inventory()
 	_rebuild_codex()
+
+
+func _on_back_pressed() -> void:
+	SceneManager.change_scene(GUILD_PATH)

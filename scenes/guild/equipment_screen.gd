@@ -21,7 +21,7 @@ const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
 const DRAG_GROUP_EQUIPMENT: String = "equipment"
 # ⚠⚠ 2026-09-22（回3-b・決定 `BS-15`）：⚠ **持ち物をこの画面の中に置く**。
 #   ⚠ 人間「⚠ いまいんべんとりもべつにひょうじしてるが　⚠ しょうじきいっしょのほうがべんりだから」。
-#   ⚠ 組の名前は倉庫の別窓と同じ字（⚠ 装備マスが受ける組を変えないため）。
+#   ⚠ 倉庫の別窓は 2026-09-23 に消した（⚠ 装備マスが受けるのはこの組だけ）。
 const DRAG_GROUP_INVENTORY: String = "inventory"
 
 # --- ノード参照 ---
@@ -406,9 +406,9 @@ func _create_equipment_grid() -> void:
 	grid.name = "EquipmentGrid"
 	# ⚠ 枠の数は GameManager に聞く（⚠ 5 を直接書かない。⚠ 部位が増えたら追従する）。
 	grid.columns = GameManager.get_equip_slots().size()
-	# ⚠ インベントリの窓から落とされたら装備する（2026-09-15）。⚠ rebuild() より先に入れる。
+	# ⚠ 右の持ち物から落とされたら装備する（2026-09-15）。⚠ rebuild() より先に入れる。
 	grid.drag_group = DRAG_GROUP_EQUIPMENT
-	grid.accept_drop_groups = [InventoryWindow.DRAG_GROUP]
+	grid.accept_drop_groups = [DRAG_GROUP_INVENTORY]
 	grid.slot_received.connect(_on_equipment_grid_received)
 	# ⚠⚠ 枠の下に部位の名前を出す（2026-09-21・人間の指示
 	#   「⚠ 枠と、頭などの部位を表すテキストを対応させて」）。

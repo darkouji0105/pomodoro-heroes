@@ -916,19 +916,19 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_SUBWINDOW_DRAG,
 		"note": "ドラッグが渡るか。① 普通の Control 同士 ／ ② 埋め込み Window の中 ／ ③ 埋め込み Window A→B",
 	},
-	# 2026-09-15。⚠ 倉庫の窓（⚠ SceneManager が起動時に1枚作る・右上の「倉庫」ボタンで開閉）。
-	# ⚠ ヘッドレスは OS の窓を作れないので、⚠ force_native が立つかまでしか見られない（⚠ 窓は埋め込みになる）。
+	# 2026-09-15 → ⚠⚠ 2026-09-23 に中身を入れ替えた（⚠ 倉庫の別窓を消した・人間「⚠ もう倉庫の別窓はいらない」）。
+	# ⚠ 名前は残した（⚠ 過去の記録から引けるように）。⚠ 見るのは「窓が無いこと」と「ギルドのカードから入れること」。
 	"inventory_window": {
 		"kind": KIND_REPORT,
 		"report": REPORT_INVENTORY_WINDOW,
-		"note": "倉庫の窓。root に1枚 / 中身が倉庫で見出しが隠れる / 拠点とギルド系だけ出す / ボタンと ✕ で出す出さない / ゲームの窓の右隣",
+		"note": "倉庫の別窓が無い / 右上の倉庫ボタンが無い / ギルドのカードに倉庫 / 倉庫が題と戻るを持つ画面",
 	},
-	# 2026-09-15（段3a）。⚠ インベントリの窓（ゲームの中）から装備マスへドラッグして装備する。
+	# 2026-09-15（段3a）→ ⚠ 2026-09-23：⚠ 装備画面の右の持ち物から装備マスへドラッグして装備する（⚠ 別窓は消した）。
 	# ⚠ 入力は root に push_input（⚠ subwindow_drag と同じ流し方）。⚠ 設定は最後に元へ戻す。
 	"equip_drag": {
 		"kind": KIND_REPORT,
 		"report": REPORT_EQUIP_DRAG,
-		"note": "① 窓→装備マスで装備される ／ ② 装備マス→窓は何も起きない ／ ③ 窓の中の入れ替えは slot_moved が出る",
+		"note": "① 右の持ち物→装備マスで装備される ／ ② 装備マス→右の持ち物は何も起きない",
 	},
 	# 2026-09-15（段3b）。⚠ つまんだ品のカーソルの絵。⚠ 絵そのものは見られないので、⚠ 画素で確かめる。
 	"drag_cursor": {
@@ -1002,6 +1002,8 @@ const SCENARIOS: Dictionary = {
 			{"name": "09_shop", "scene": "res://scenes/guild/shop_screen.tscn"},
 			{"name": "10_workshop", "scene": "res://scenes/guild/workshop_screen.tscn"},
 			{"name": "11_research", "scene": "res://scenes/guild/research_screen.tscn"},
+			# ⚠ 2026-09-23：⚠ 倉庫を別窓からふつうの画面に戻した（⚠ 別窓のころは撮れなかった）。
+			{"name": "19_warehouse", "scene": "res://scenes/guild/warehouse_screen.tscn"},
 			# ⑥ 窓（2026-09-22・回1）。⚠ ここから下は「重ねるもの」と「ボスの先のもの」。
 			#
 			# ⚠⚠ 拾いもの。⚠ 本番は**マップの上に重ねる**（決定36）ので、⚠ マップを開いてから
@@ -9169,139 +9171,85 @@ func _close_current_modal() -> void:
 		await get_tree().process_frame
 
 
-# --- インベントリの窓（2026-09-15） ---
+# --- 倉庫の入口（2026-09-15 → ⚠ 2026-09-23 に入れ替えた） ---
+#
+# ⚠⚠ 倉庫の別窓（`InventoryWindow`）は 2026-09-23 に消した（人間「⚠ もう倉庫の別窓はいらない」）。
+#   ⚠ 倉庫はギルドのカードから入るふつうの画面（⚠ 人間の決定「1ア」・決定 `BS-15`）。
 
 func _report_inventory_window() -> void:
-	# ⚠ _ready() の中から add_child すると弾かれる（⚠ subwindow_drag で踏んだ）。
+	# ⚠ SceneManager の常駐物は call_deferred で足される。⚠ 2フレーム待ってから見る。
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("[DebugBoot] --- 倉庫の窓 ---")
-
-	# ⚠ SceneManager が起動時に作る。⚠ ここでは作らない（⚠ 2枚目ができないかも見る）。
-	var windows: int = 0
-	for child: Node in get_tree().root.get_children():
-		if child is InventoryWindow:
-			windows += 1
-	var window: InventoryWindow = InventoryWindow.get_instance()
-	print("  root にある窓 = %d 枚（⚠ 1 が正解）" % windows)
-	if windows != 1 or window == null:
-		push_error("[DebugBoot] 倉庫の窓が root に1枚ではない")
-		return
-	print("  隠れているか = %s（⚠ true が正解） ／ force_native = %s（⚠ true） ／ 題 = %s ／ 最小サイズ = %s" % [
-		not window.visible, window.force_native, window.title, window.min_size,
-	])
-	var tab_count: int = window.warehouse.tabs.get_tab_count() if window.warehouse != null else -1
-	print("  中身が倉庫か = %s ／ タブの数 = %d（⚠ 3＝持ち物・素材・図鑑） ／ 持ち物のマス = %d（⚠ %d） ／ 組 = %s（⚠ %s）" % [
-		window.warehouse != null, tab_count,
-		window.grid.get_slot_count(), GameManager.get_inventory_slots_per_page(),
-		window.grid.drag_group, InventoryWindow.DRAG_GROUP,
-	])
-	if window.visible or not window.force_native or window.warehouse == null:
-		push_error("[DebugBoot] 倉庫の窓の作りが違う")
-	if tab_count != 3:
-		push_error("[DebugBoot] 倉庫のタブが3つ（持ち物・素材・図鑑）ではない（⚠ 宝箱タブは拠点へ移した）")
-	if window.grid.get_slot_count() != GameManager.get_inventory_slots_per_page() or window.grid.drag_group != InventoryWindow.DRAG_GROUP:
-		push_error("[DebugBoot] 窓の持ち物のマス目が違う")
-	if window.min_size.x <= 0 or window.min_size.y <= 0:
-		push_error("[DebugBoot] 窓の最小サイズが中身に合っていない")
-
-	# ⚠ 出す画面は拠点とギルド系だけ。
-	var expect_allowed: Dictionary = {
-		"res://scenes/base/base_screen.tscn": true,
-		"res://scenes/guild/guild_screen.tscn": true,
-		"res://scenes/guild/equipment_screen.tscn": true,
-		"res://scenes/adventure/party_preset_screen.tscn": true,
-		"res://scenes/adventure/adventure_select.tscn": false,
-		"res://scenes/adventure/dungeon_map.tscn": false,
-		"res://scenes/title/title_screen.tscn": false,
-		"res://scenes/adventure/battle.tscn": false,
-		"res://scenes/pomodoro/pomodoro.tscn": false,
-	}
-	for path: String in expect_allowed:
-		var allowed: bool = InventoryWindow.is_scene_allowed(path)
-		print("  出す画面か %-28s = %s（⚠ %s）" % [path.get_file(), allowed, expect_allowed[path]])
-		if allowed != bool(expect_allowed[path]):
-			push_error("[DebugBoot] 倉庫を出す画面の判定が違う: " + path)
-	# ⚠ 出す画面の一覧に書いたシーンが本当に在るか（⚠ 綴り違いは黙って出なくなる）。
-	for path: String in InventoryWindow.ALLOWED_SCENES:
-		if not ResourceLoader.exists(path):
-			push_error("[DebugBoot] 倉庫を出す画面のシーンが無い: " + path)
-
-	var base: String = "res://scenes/base/base_screen.tscn"
-	var guild: String = "res://scenes/guild/guild_screen.tscn"
-	var battle: String = "res://scenes/adventure/battle.tscn"
+	print("[DebugBoot] --- 倉庫の入口 ---")
 	var checks: Array = []
-	# ① 既定は出す → 拠点に入ると開いて、⚠ ゲームの窓の右隣に付く。
-	window.apply_scene(base)
+
+	# ① 別窓が root に居ない。
+	checks.append(["① root に倉庫の別窓が無い", get_tree().root.get_node_or_null("InventoryWindow") == null])
+	# ② 右上の常駐に「倉庫」ボタンが無い。
+	var hud: ResourceHud = ResourceHud.get_instance()
+	checks.append(["② 右上の常駐が在る", hud != null])
+	if hud != null:
+		checks.append(["② 右上に倉庫ボタンが無い", hud.find_child("StorageButton", true, false) == null])
+
+	# ③ ギルドのカードに倉庫が在り、⚠ 行き先のシーンが在る。
+	var path: String = str(GuildScreen.GUILD_SCENES.get(GameStateKeys.SCREEN_WAREHOUSE, ""))
+	checks.append(["③ カードの並びに倉庫", GuildScreen.CARD_ORDER.has(GameStateKeys.SCREEN_WAREHOUSE)])
+	checks.append(["③ 行き先 %s が在る" % path, path != "" and ResourceLoader.exists(path)])
+	if not GameManager.is_screen_unlocked(GameStateKeys.SCREEN_WAREHOUSE):
+		GameManager.unlock_screen(GameStateKeys.SCREEN_WAREHOUSE)
+	var guild: Control = load("res://scenes/guild/guild_screen.tscn").instantiate()
+	get_tree().root.add_child(guild)
 	await get_tree().process_frame
-	var root: Window = get_tree().root
-	var docked: Vector2i = Vector2i(root.position.x + root.size.x, root.position.y)
-	checks.append(["① 拠点に入ると開く", window.visible])
-	checks.append(["① ボタンが出る", ResourceHud.is_storage_button_shown()])
-	checks.append(["① 右隣 %s（⚠ %s）" % [window.position, docked], window.position == docked])
-	# ② ボタンで閉じる → ギルドへ移っても閉じたまま。
-	InventoryWindow.toggle()
-	window.apply_scene(guild)
+	var card: Node = guild.find_child("Card_warehouse", true, false)
+	var status: Label = null
+	if card != null:
+		status = card.find_child("StatusLabel", true, false) as Label
+	print("  倉庫のカードの状態の行 = %s" % (status.text if status != null else "<無い>"))
+	checks.append(["③ ギルドに倉庫のカードが出る", card != null])
+	checks.append(["③ カードの状態の行が翻訳されている", status != null and not status.text.begins_with("ui_")])
+	get_tree().root.remove_child(guild)
+	guild.queue_free()
+
+	# ④ 倉庫が「題と戻る」を持つ画面になっている。
+	if path == "":
+		push_error("[DebugBoot] 倉庫の入口: 行き先が無い")
+		return
+	var screen: WarehouseScreen = load(path).instantiate()
+	get_tree().root.add_child(screen)
 	await get_tree().process_frame
-	checks.append(["② ボタンで閉じたらギルドでも閉じたまま", not window.visible])
-	# ③ ボタンで開く → 戦闘へ移ると閉じてボタンが隠れる → 拠点へ戻るとまた開く。
-	InventoryWindow.toggle()
-	checks.append(["③ ボタンで開く", window.visible])
-	window.apply_scene(battle)
-	checks.append(["③ 戦闘で閉じる", not window.visible])
-	checks.append(["③ 戦闘でボタンが隠れる", not ResourceHud.is_storage_button_shown()])
-	window.apply_scene(base)
-	checks.append(["③ 拠点へ戻るとまた開く", window.visible])
-	# ④ ゲームの窓の大きさが変わると、⚠ 右隣へ付いていく。
-	window.position = Vector2i(10, 10)
-	root.size = root.size + Vector2i(40, 0)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	docked = Vector2i(root.position.x + root.size.x, root.position.y)
-	checks.append(["④ ゲームの窓が変わると右隣へ付く %s（⚠ %s）" % [window.position, docked], window.position == docked])
-	# ⑥ 画面の切り替えの途中（⚠ 画面が無い一瞬）を挟んで拠点 → ギルドへ移っても、⚠ 閉じずに位置もそのまま。
-	window.see_scene(base)
-	window.position = Vector2i(10, 10)
-	var shown_events: Array = []
-	var on_visibility: Callable = func() -> void: shown_events.append(window.visible)
-	window.visibility_changed.connect(on_visibility)
-	window.see_scene("")
-	window.see_scene(guild)
-	window.visibility_changed.disconnect(on_visibility)
-	checks.append(["⑥ 画面を移っても閉じない（表示の切り替わり %s）" % [shown_events], window.visible and shown_events.is_empty()])
-	checks.append(["⑥ 手で動かした位置のまま %s" % [window.position], window.position == Vector2i(10, 10)])
-	# ⑤ ✕ で閉じる → 出さない状態になる（⚠ 拠点へ入り直しても開かない）。
-	window.close_requested.emit()
-	window.apply_scene(base)
-	checks.append(["⑤ ✕ で閉じたら入り直しても閉じたまま", not window.visible and not window.wanted])
+	var tab_count: int = screen.tabs.get_tab_count()
+	print("  題 = %s ／ タブの数 = %d（⚠ 3＝持ち物・素材・図鑑） ／ 持ち物の組 = %s" % [
+		screen.header.title_key, tab_count, screen.inventory_grid.drag_group,
+	])
+	checks.append(["④ 題が倉庫", screen.header.title_key == "ui_nav_warehouse"])
+	checks.append(["④ タブが3つ", tab_count == 3])
+	checks.append(["④ 戻るがつながっている", screen.header.back_pressed.is_connected(screen._on_back_pressed)])
+	get_tree().root.remove_child(screen)
+	screen.queue_free()
+
 	for check: Variant in checks:
 		print("  %s = %s（⚠ true が正解）" % [(check as Array)[0], (check as Array)[1]])
 		if not bool((check as Array)[1]):
-			push_error("[DebugBoot] 倉庫の窓: " + str((check as Array)[0]))
+			push_error("[DebugBoot] 倉庫の入口: " + str((check as Array)[0]))
 
 
-# --- ドラッグで装備（2026-09-15・段3a） ---
+# --- ドラッグで装備（2026-09-15・段3a → ⚠ 2026-09-23 に入れ替えた） ---
+#
+# ⚠ 2026-09-22 から装備画面の右に持ち物がある（⚠ 3列）。
+#   ⚠ 別窓を消したので、⚠ 落とす元はこちら。⚠ 別窓からの落とし先探し（④）は器ごと消した。
 
 func _report_equip_drag() -> void:
 	await get_tree().process_frame
 	var root: Window = get_tree().root
-	# ⚠ ヘッドレスの root は 64 x 64（⚠ subwindow_drag で踏んだ）。
-	# ⚠⚠ 基準より横に広くする（2026-09-16）。⚠ 装備画面が左右2列になり、⚠ 装備マスが右半分へ移ったので、
-	#   ⚠ 1280 幅だと倉庫の窓（838）が装備マスに重なり、⚠ 落とした先が窓自身になる（⚠ 1回目で踏んだ）。
-	# ⚠⚠ **高さは基準の 720 のまま**にすること（⚠ 2回目で踏んだ）。⚠ stretch が canvas_items なので、
-	#   ⚠ 高さを変えると拡大率が 1 でなくなり、⚠ push_input に渡す位置と画面の座標がずれる
-	#   （⚠ 横だけ広げるぶんには拡大率 1 のまま＝`aspect = expand`）。
-	root.size = Vector2i(2200, 720)
+	# ⚠ ヘッドレスの root は 64 x 64（⚠ subwindow_drag で踏んだ）。⚠ 基準の大きさにする
+	#   （⚠ stretch が canvas_items なので、⚠ 基準から外すと push_input の位置がずれる）。
+	var old_size: Vector2i = root.size
+	root.size = Vector2i(1280, 720)
 	await get_tree().process_frame
-
-	# ⚠ ヘッドレスは OS の窓を作れないので、⚠ インベントリの窓は埋め込みになる
-	#   （⚠ ①〜③ は標準のドラッグ ／ ④ は別窓の道＝落とし先探しを直に呼ぶ）。
 	print("[DebugBoot] --- ドラッグで装備 ---")
 
 	# ⚠ 装備は add_to_inventory() が個体を作る（CLAUDE.md 8番）。
-	# ⚠ ③ で動かす用にもう1本（⚠ 1本だけだと ① で装備したあと窓が空になる・1回目で踏んだ）。
 	GameManager.add_to_inventory("weapon_iron_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
-	GameManager.add_to_inventory("weapon_wooden_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
 	var instance_id: String = _newest_instance()
 	var character_id: String = ""
 	for member: Variant in GameManager.get_party_members():
@@ -9310,127 +9258,74 @@ func _report_equip_drag() -> void:
 			break
 	print("  個体 = %s ／ 着けるキャラ = %s" % [instance_id, character_id])
 	if character_id == "":
-		push_error("[DebugBoot] 木の剣を着けられるキャラが編成にいない")
+		push_error("[DebugBoot] 鉄の剣を着けられるキャラが編成にいない")
+		root.size = old_size
 		return
 
 	SceneManager._transfer_data = {TransferKeys.CHARACTER_ID: character_id}
 	var screen: Control = load("res://scenes/guild/equipment_screen.tscn").instantiate()
 	root.add_child(screen)
-	# ⚠⚠ 装備画面を左に寄せて幅 900 にする（2026-09-16・人間の了解）。⚠ 画面は左右2列で、
-	#   ⚠ 装備マスは右の列に在る。⚠ 画面いっぱいに広げると、⚠ 装備マスが倉庫の窓（838 幅）に近づいて
-	#   ⚠ 落とした先が窓になる（⚠ 画面を広げるほど右列も右へ動く）。⚠ 本番の作りは変えていない。
-	screen.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	screen.position = Vector2.ZERO
-	screen.size = Vector2(900, 720)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	# ⚠ 倉庫の窓は SceneManager が起動時に作っている（⚠ 右上の「倉庫」ボタンと同じ口で開く）。
-	var window: InventoryWindow = InventoryWindow.get_instance()
-	# ⚠ 出すのは拠点とギルド系だけ。⚠ ヘッドレスの current_scene は debug_boot なので、⚠ 装備画面に居ることにする。
-	window.apply_scene("res://scenes/guild/equipment_screen.tscn")
-	if not window.visible:
-		InventoryWindow.toggle()
-	await get_tree().process_frame
-	await get_tree().process_frame
-	# ⚠ 装備マス（右半分）に被らない場所へ置く（⚠ 倉庫は 838 幅）。
-	window.position = Vector2i(1300, 10)
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	var moved: Array = []
-	window.grid.slot_moved.connect(func(from_index: int, to_index: int) -> void: moved.append([from_index, to_index]))
-
-	# ① 窓 → 装備マス。
-	var from_index: int = _grid_find_instance(window.grid, instance_id)
+	var inventory_grid: ItemGrid = screen.find_child("InventoryGrid", true, false)
 	var equip_grid: ItemGrid = screen.find_child("EquipmentGrid", true, false)
+	var scroll: ScrollContainer = screen.find_child("InventoryScroll", true, false)
+	var from_index: int = _grid_find_instance(inventory_grid, instance_id) if inventory_grid != null else -1
 	var weapon_index: int = _equip_grid_index_of(character_id, GameStateKeys.EQUIP_WEAPON)
-	print("  窓のマス = %d ／ 装備マスの武器 = %d" % [from_index, weapon_index])
+	print("  持ち物のマス = %d ／ 装備マスの武器 = %d" % [from_index, weapon_index])
 	if from_index < 0 or weapon_index < 0 or equip_grid == null:
 		push_error("[DebugBoot] 落とす元か先が見つからない")
 	else:
+		# ⚠ 持ち物は器の中でスクロールする（⚠ 10 × 10 が縦に収まらない）。⚠ つまむマスを見える所へ出す。
+		if scroll != null:
+			scroll.ensure_control_visible(inventory_grid.get_child(from_index) as Control)
+			await get_tree().process_frame
+		# ① 右の持ち物 → 装備マス。
 		var started: bool = await _push_drag(
-			_probe_root_point(window.grid.get_child(from_index) as Control),
+			_probe_root_point(inventory_grid.get_child(from_index) as Control),
 			_probe_root_point(equip_grid.get_child(weapon_index) as Control)
 		)
 		await get_tree().process_frame
 		await get_tree().process_frame
 		var equipped: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_WEAPON)
-		var left_in_window: bool = _grid_find_instance(window.grid, instance_id) >= 0
-		# ⚠ 3b：⚠ ドラッグが終わったらカーソルが戻っているか（⚠ つまんだマスは作り直されて消えている）。
+		inventory_grid = screen.find_child("InventoryGrid", true, false)
+		var left_in_grid: bool = _grid_find_instance(inventory_grid, instance_id) >= 0
 		print("  ① のあと カーソルが品の絵のままか = %s（⚠ false が正解）" % ItemDragCursor.is_active())
 		if ItemDragCursor.is_active():
 			push_error("[DebugBoot] ① ドラッグが終わったのにカーソルが戻っていない")
-		print("  ① 窓→装備マス：ドラッグが始まったか = %s ／ 装備 = %s（⚠ %s が正解） ／ 窓に残っているか = %s（⚠ false が正解）" % [
-			started, equipped, instance_id, left_in_window,
+		print("  ① 持ち物→装備マス：ドラッグが始まったか = %s ／ 装備 = %s（⚠ %s が正解） ／ 持ち物に残っているか = %s（⚠ false が正解）" % [
+			started, equipped, instance_id, left_in_grid,
 		])
 		if equipped != instance_id:
 			push_error("[DebugBoot] ① 落としても装備されていない")
-		if left_in_window:
-			push_error("[DebugBoot] ① 装備したのに窓のマスに残っている（決定7）")
+		if left_in_grid:
+			push_error("[DebugBoot] ① 装備したのに持ち物のマスに残っている（決定7）")
 
-	# ② 装備マス → 窓（⚠ 窓は受けない）。
-	equip_grid = screen.find_child("EquipmentGrid", true, false)
-	var empty_index: int = _grid_last_empty(window.grid)
-	moved.clear()
-	await _push_drag(
-		_probe_root_point(equip_grid.get_child(weapon_index) as Control),
-		_probe_root_point(window.grid.get_child(empty_index) as Control)
-	)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var still: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_WEAPON)
-	print("  ② 装備マス→窓：装備 = %s（⚠ %s のままが正解） ／ 窓の入れ替え = %d 回（⚠ 0 が正解）" % [
-		still, instance_id, moved.size(),
-	])
-	if still != instance_id or not moved.is_empty():
-		push_error("[DebugBoot] ② 受けないはずの落としで状態が動いた")
-
-	# ③ 窓の中の入れ替え（⚠ 今までどおり slot_moved が出る）。
-	var filled_index: int = _grid_first_filled(window.grid)
-	empty_index = _grid_last_empty(window.grid)
-	moved.clear()
-	await _push_drag(
-		_probe_root_point(window.grid.get_child(filled_index) as Control),
-		_probe_root_point(window.grid.get_child(empty_index) as Control)
-	)
-	await get_tree().process_frame
-	print("  ③ 窓の中 %d→%d：slot_moved = %s（⚠ [[%d, %d]] が正解）" % [
-		filled_index, empty_index, moved, filled_index, empty_index,
-	])
-	if moved.size() != 1:
-		push_error("[DebugBoot] ③ 同じマス目の中の入れ替えで slot_moved が出ていない")
-
-	# ④ 段3c：⚠ 画面の上の位置から落とし先を探す（⚠ OS の別窓からつまんだときの道）。
-	#   ⚠ ヘッドレスは OS の窓を作れないので、⚠ 座標の変換と落とし先探しだけを直に呼ぶ。
-	await get_tree().process_frame
-	var other_index: int = _grid_first_filled(window.grid)
-	var other_id: String = str(window.grid.get_entry_at(other_index).get(GameManager.SLOT_ENTRY_INSTANCE_ID, ""))
-	equip_grid = screen.find_child("EquipmentGrid", true, false)
-	var target: Control = equip_grid.get_child(weapon_index) as Control
-	var screen_point: Vector2i = Vector2i(
-		root.get_final_transform() * target.get_global_rect().get_center()
-	) + root.position
-	var payload: Dictionary = {
-		ItemSlot.DRAG_KEY: true,
-		ItemSlot.DRAG_INDEX: other_index,
-		ItemSlot.DRAG_GRID_ID: window.grid.get_instance_id(),
-		ItemSlot.DRAG_GROUP: InventoryWindow.DRAG_GROUP,
-	}
-	# ⚠ 変換は落とす前に取る（⚠ 装備するとマス目が作り直されて消える・1回目で踏んだ）。
-	var canvas_point: Vector2 = equip_grid.screen_to_canvas(screen_point)
-	var target_center: Vector2 = target.get_global_rect().get_center()
-	var routed: bool = ItemGrid.route_screen_drop(payload, screen_point, window)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var after_route: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_WEAPON)
-	print("  ④ 画面の位置 %s から落とし先を探す：落とせたか = %s ／ 装備 = %s（⚠ %s が正解） ／ 座標の変換 = %s（⚠ マスの真ん中 %s）" % [
-		screen_point, routed, after_route, other_id, canvas_point, target_center,
-	])
-	if not routed or other_id == "" or after_route != other_id:
-		push_error("[DebugBoot] ④ 画面の位置から装備マスへ落とせていない")
+		# ② 装備マス → 右の持ち物（⚠ 持ち物のマス目は装備マスから受けない）。
+		equip_grid = screen.find_child("EquipmentGrid", true, false)
+		scroll = screen.find_child("InventoryScroll", true, false)
+		var empty_index: int = _grid_first_empty(inventory_grid)
+		if empty_index < 0:
+			push_error("[DebugBoot] ② 持ち物に空きマスが無い")
+		else:
+			if scroll != null:
+				scroll.ensure_control_visible(inventory_grid.get_child(empty_index) as Control)
+				await get_tree().process_frame
+			await _push_drag(
+				_probe_root_point(equip_grid.get_child(weapon_index) as Control),
+				_probe_root_point(inventory_grid.get_child(empty_index) as Control)
+			)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			var still: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_WEAPON)
+			print("  ② 装備マス→持ち物：装備 = %s（⚠ %s のままが正解）" % [still, instance_id])
+			if still != instance_id:
+				push_error("[DebugBoot] ② 受けないはずの落としで装備が外れた")
 
 	root.remove_child(screen)
 	screen.queue_free()
+	root.size = old_size
 
 
 # 押す → 12歩で動かす → 離す。⚠ ドラッグが始まったら true。
@@ -9473,6 +9368,13 @@ func _push_drag(from: Vector2, to: Vector2) -> bool:
 func _grid_find_instance(grid: ItemGrid, instance_id: String) -> int:
 	for i: int in range(grid.get_slot_count()):
 		if str(grid.get_entry_at(i).get(GameManager.SLOT_ENTRY_INSTANCE_ID, "")) == instance_id:
+			return i
+	return -1
+
+
+func _grid_first_empty(grid: ItemGrid) -> int:
+	for i: int in range(grid.get_slot_count()):
+		if grid.get_entry_at(i).is_empty():
 			return i
 	return -1
 
