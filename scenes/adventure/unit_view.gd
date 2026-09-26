@@ -90,12 +90,17 @@ func _paint_body(unit: BattleUnit) -> void:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = body.get_theme_color(StringName("bg_" + key), AVATAR_TYPE)
 	style.set_corner_radius_all(body.get_theme_constant(&"corner_radius", THEME_TYPE))
+	# ⚠⚠ 2026-09-26（回UI-4・手本 Battle）：⚠ 丸い駒にいつも縁を付ける（⚠ 味方＝真鍮 ／ 敵＝赤）。
+	#   ⚠ 行動中は灯りの太い縁（モック §3-2 の枠線を引き継ぐ）。
+	var width: int = body.get_theme_constant(&"ring_width", THEME_TYPE)
+	var ring: Color = body.get_theme_color(
+		&"ring_party" if unit.team == BattleUnit.TEAM_PARTY else &"ring_enemy", THEME_TYPE
+	)
 	if _active:
-		# ⚠ 行動中は枠線を足す（モック §3-2）。⚠ 枠の太さぶん中身が縮まないよう、
-		#   ⚠ `StyleBoxFlat` の枠は外側に描かれないので位置は動かない。
-		var width: int = body.get_theme_constant(&"active_width", THEME_TYPE)
-		style.set_border_width_all(width)
-		style.border_color = body.get_theme_color(&"active_border", THEME_TYPE)
+		width = body.get_theme_constant(&"active_width", THEME_TYPE)
+		ring = body.get_theme_color(&"active_border", THEME_TYPE)
+	style.set_border_width_all(width)
+	style.border_color = ring
 	body.add_theme_stylebox_override(&"panel", style)
 	$GlyphLabel.add_theme_color_override(
 		&"font_color", body.get_theme_color(StringName("fg_" + key), AVATAR_TYPE)
@@ -219,12 +224,16 @@ func pop_label(text: String, color: Color, font_size: int, delay_sec: float = 0.
 		return
 
 	var label: Label = Label.new()
+	# ⚠ 回UI-4：⚠ 太い字（900）と黒い太いふちは Theme の `BattlePopLabel`。⚠ 大きさと色は種類ごと（下）。
+	label.theme_type_variation = &"BattlePopLabel"
 	label.text = text
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	label.z_index = 100
 	parent.add_child(label)
-	label.position = position + Vector2(0.0, -40.0)
+	# ⚠ 回UI-4：⚠ 状態アイコンの上から出す（⚠ 高さは Theme。⚠ 前は -40 を直書き）。
+	var offset: float = float(($Body as Panel).get_theme_constant(&"pop_offset", THEME_TYPE))
+	label.position = position + Vector2(0.0, offset)
 
 	# 動きは種類で変えない。変えると読む速さが揃わない。
 	var rise_px: float = Balance.adventure.pop_rise_px

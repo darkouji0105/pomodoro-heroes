@@ -367,7 +367,7 @@ const BATTLE_SIDE_MARGIN: int = 32
 const BATTLE_PANEL_HEIGHT: int = 102
 const BATTLE_PANEL_PAD: int = 12
 # ⚠ 戦場の地。⚠ 他の画面より一段暗い（⚠ 画面の地 `BACKGROUND_BG` は 16110f）。
-const BATTLE_FIELD_BG: String = "0f0c0b"
+const BATTLE_FIELD_BG: String = TOKEN_FLOOR  # ⚠ 2026-09-26（回UI-4）手本の地へ（前 0f0c0b）
 # ⚠ 段どうし・パネルどうしの区切りの線の太さ。
 # ⚠⚠ 陣営を分ける**中央の縦線は消した**（2026-09-16・人間「中央の線を消して」）。
 #   ⚠ 陣営は位置とHPバーの色（味方は3段・敵は赤1色）で示す。
@@ -393,18 +393,28 @@ const BATTLE_DEAD_PERCENT: int = 40
 
 # ⚠ 戦場のユニット（モック §3）。
 const BATTLE_UNIT_WIDTH: int = 74
-const BATTLE_UNIT_BODY_HEIGHT: int = 64
-const BATTLE_UNIT_CORNER: int = 6
+const BATTLE_UNIT_BODY_HEIGHT: int = 74  # ⚠ 回UI-4：丸い駒（⚠ 幅と同じ。前 64）
+const BATTLE_UNIT_CORNER: int = 37  # ⚠ 回UI-4：幅の半分＝丸（前 6）
 const BATTLE_UNIT_GLYPH: int = 28
 const BATTLE_UNIT_GAP: int = 10
 const BATTLE_UNIT_NAME_SIZE: int = 11
 const BATTLE_UNIT_NAME_GAP: int = 4
 const BATTLE_UNIT_BAR_HEIGHT: int = 5
 const BATTLE_UNIT_BAR_GAP: int = 4
-const BATTLE_UNIT_ACTIVE_WIDTH: int = 1
+const BATTLE_UNIT_ACTIVE_WIDTH: int = 3  # ⚠ 回UI-4：行動中は灯りの太い縁（前 1）
 # ⚠ 敵の行動予告のゲージ（2026-09-18・人間「ゲージは HP の下」）。⚠ HPバーより細い。
 #   ⚠ 色は既存の真鍮2段（⚠ 溜め中＝暗い側 ／ 満タン＝明るい側）。⚠ 新しい色ではない。
 const BATTLE_SP_HEIGHT: int = 3
+# ⚠⚠ 回UI-4（2026-09-26・手本 Battle）：⚠ 駒の縁・名前の枠・浮かぶ数字。
+const BATTLE_UNIT_RING_WIDTH: int = 2
+const BATTLE_RING_PARTY: String = TOKEN_BRASS
+const BATTLE_RING_ENEMY: String = "8a3327"      # ⚠ 手本の red ボタンの地と同じ
+const BATTLE_NAME_BOX_BG: String = TOKEN_FLOOR
+const BATTLE_NAME_BOX_BORDER: String = FACILITY_BAR_RULE
+const BATTLE_NAME_BOX_PAD_H: int = 6
+const BATTLE_POP_WEIGHT: int = 900               # ⚠ 手本「数字は Noto Sans JP 900」
+const BATTLE_POP_OUTLINE: int = 6                # ⚠ 手本「戦闘の数字には黒い太いふち」
+const BATTLE_POP_OFFSET: int = -84               # ⚠ 駒の中心から数字が出る高さ（⚠ 状態アイコンの上）
 const BATTLE_SP_FILL: String = ACTIVE_BORDER
 const BATTLE_SP_FULL: String = SKILL_FLASH
 
@@ -1203,6 +1213,28 @@ static func _build_battle(theme: Theme) -> void:
 	theme.set_color(&"active_border", &"BattleUnitView", _html(ACTIVE_BORDER))
 	theme.set_color(&"sp_fill", &"BattleUnitView", _html(BATTLE_SP_FILL))
 	theme.set_color(&"sp_full", &"BattleUnitView", _html(BATTLE_SP_FULL))
+	theme.set_constant(&"ring_width", &"BattleUnitView", BATTLE_UNIT_RING_WIDTH)
+	theme.set_constant(&"pop_offset", &"BattleUnitView", BATTLE_POP_OFFSET)
+	theme.set_color(&"ring_party", &"BattleUnitView", _html(BATTLE_RING_PARTY))
+	theme.set_color(&"ring_enemy", &"BattleUnitView", _html(BATTLE_RING_ENEMY))
+	# ⚠ 行動中の縁は灯り（⚠ 前は `ACTIVE_BORDER`＝真鍮。⚠ 味方の縁と同じ色になるので分けた）。
+	theme.set_color(&"active_border", &"BattleUnitView", _html(TOKEN_LIGHT))
+
+	# ⚠ 駒の下の名前の枠（回UI-4）。
+	var name_box: StyleBoxFlat = StyleBoxFlat.new()
+	name_box.bg_color = _html(BATTLE_NAME_BOX_BG)
+	name_box.set_border_width_all(1)
+	name_box.border_color = _html(BATTLE_NAME_BOX_BORDER)
+	name_box.set_corner_radius_all(2)
+	name_box.content_margin_left = BATTLE_NAME_BOX_PAD_H
+	name_box.content_margin_right = BATTLE_NAME_BOX_PAD_H
+	theme.set_type_variation(&"BattleUnitNameLabel", &"Label")
+	theme.set_stylebox(&"normal", &"BattleUnitNameLabel", name_box)
+
+	# ⚠ 浮かぶ数字（回UI-4）。⚠ 字は `_build_body_font()` が 900 の包みを当てる。⚠ 大きさと色は `AdventureConfig`。
+	theme.set_type_variation(&"BattlePopLabel", &"Label")
+	theme.set_constant(&"outline_size", &"BattlePopLabel", BATTLE_POP_OUTLINE)
+	theme.set_color(&"font_outline_color", &"BattlePopLabel", Color.BLACK)
 
 	# ⚠ 下部パネルの中の間隔。⚠ 値は上の const が唯一の持ち主
 	#   （⚠ `BattleHud` の定数と同じものを指す。⚠ 数字を書き写さない）。
@@ -1582,6 +1614,10 @@ static func _build_body_font(theme: Theme) -> void:
 	body.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): BODY_FONT_WEIGHT}
 	body.fallbacks = fallbacks
 	theme.default_font = body
+	# ⚠ 回UI-4：戦闘の浮かぶ数字は 900（⚠ 同じファイルを太さ違いで包むだけ）。
+	var number: FontVariation = body.duplicate() as FontVariation
+	number.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): BATTLE_POP_WEIGHT}
+	theme.set_font(&"font", &"BattlePopLabel", number)
 
 
 # --- ⚠⚠ 見出しの明朝（2026-09-26・決定 `UI-12`）---

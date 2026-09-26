@@ -10,16 +10,16 @@ script = ExtResource("1_unit_view")
 
 [node name="Body" type="Panel" parent="."]
 offset_left = -37.0
-offset_top = -32.0
+offset_top = -37.0
 offset_right = 37.0
-offset_bottom = 32.0
+offset_bottom = 37.0
 mouse_filter = 2
 
 [node name="GlyphLabel" type="Label" parent="."]
 offset_left = -37.0
-offset_top = -32.0
+offset_top = -37.0
 offset_right = 37.0
-offset_bottom = 32.0
+offset_bottom = 37.0
 mouse_filter = 2
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -27,35 +27,36 @@ text = ""
 
 [node name="Bar" type="Control" parent="."]
 offset_left = -37.0
-offset_top = -41.0
+offset_top = -47.0
 offset_right = 37.0
-offset_bottom = -36.0
+offset_bottom = -42.0
 mouse_filter = 2
 script = ExtResource("3_battle_bar")
 
 [node name="SpBar" type="Control" parent="."]
 visible = false
 offset_left = -37.0
-offset_top = -35.0
+offset_top = -41.0
 offset_right = 37.0
-offset_bottom = -32.0
+offset_bottom = -38.0
 mouse_filter = 2
 script = ExtResource("4_sp_bar")
 
 [node name="StatusChips" type="BoxContainer" parent="."]
 offset_left = -37.0
-offset_top = 26.0
+offset_top = -66.0
 offset_right = 37.0
-offset_bottom = 41.0
+offset_bottom = -51.0
 alignment = 1
 script = ExtResource("2_status_chips")
 
 [node name="NameLabel" type="Label" parent="."]
 offset_left = -37.0
-offset_top = 36.0
+offset_top = 42.0
 offset_right = 37.0
-offset_bottom = 52.0
+offset_bottom = 60.0
 mouse_filter = 2
+theme_type_variation = &"BattleUnitNameLabel"
 horizontal_alignment = 1
 clip_text = true
 text_overrun_behavior = 3
