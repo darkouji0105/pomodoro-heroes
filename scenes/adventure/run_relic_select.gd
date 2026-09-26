@@ -10,8 +10,11 @@
 #     ⚠ 戻るボタンは .tscn にもスクリプトにも無かった（⚠ 2026-09-19 に報告）。
 # ⚠ 候補は入った瞬間に1回だけ引く。⚠ シナリオは呼ぶたびに引き直すので、⚠ 作り直しで引かない。
 # ⚠ この画面は状態を持たない。⚠ 選んだら GameManager へ渡してマップへ戻る。
-# ⚠⚠ 2026-09-19：モック v2 §9 の形。⚠ 左に候補のマス目・右に詳細と「取る／誰に付けるか」を常設。
-#   ⚠ ヘッダの右に鞄と持っているレリック・3人の行（⚠ 難ダンジョンだけ）。
+# ⚠⚠ 2026-09-26（回UI-4・手本 DungeonRelic・人間の選択「手本の形」＝決定 `RUN-11b`）：
+#   ⚠ **紙のカード3枚**に名前・効き目・誰に効くかを直接書く。⚠ 選んだカードに「選んだ」の判。
+#   ⚠ 下の紙に「付ける人」と「◯◯に付ける」。⚠ **右の常設の詳細は消した**（⚠ `RUN-10` を覆した）。
+#   ⚠ 押す回数は1回増えた（⚠ カード → 人 → 付ける）。⚠ 全員用は人を選ばない。
+#   ⚠ ヘッダの右に鞄と持っているレリック・3人の行（⚠ 難ダンジョンだけ）は前のまま。
 
 extends Control
 
@@ -32,10 +35,7 @@ const DUNGEON_HINT_KEY: String = "ui_dungeon_relic_hint"
 @onready var held_relic_grid: ItemGrid = $Layout/Header/HeldRelicGrid
 @onready var party_list: RunPartyStrip = $Layout/PartyList
 @onready var message_label: Label = $Layout/MessageLabel
-@onready var relic_grid: ItemGrid = $Layout/Body/Left/RelicGrid
-@onready var relic_detail: ItemDetail = $Layout/Body/Right/RelicDetail
-@onready var action_caption: Label = $Layout/Body/Right/ActionCaption
-@onready var action_row: HBoxContainer = $Layout/Body/Right/ActionRow
+@onready var body: VBoxContainer = $Layout/Body
 @onready var hint_label: Label = $Layout/Footer/HintLabel
 
 # 持っているレリックにホバーしたときの詳細（⚠ 候補の詳細は右に常設なので、⚠ 見張るのはヘッダだけ）。
@@ -49,6 +49,13 @@ var _node_id: String = ""
 var _choices: Array = []
 # 選んでいるレリック。⚠ 空なら選んでいない。
 var _selected_relic_id: String = ""
+# 付ける人（⚠ 1人用だけ）。⚠ 空なら選んでいない。
+var _selected_character: String = ""
+# relic_id -> カード（`PaperSheet`）／ そのカードの「選んだ」の判。
+var _cards: Dictionary = {}
+var _stamps: Dictionary = {}
+# 下の紙の中身（⚠ 選び直すたびに作り直す）。
+var _action_row: HBoxContainer = null
 
 
 func _ready() -> void:
@@ -89,8 +96,7 @@ func _ready() -> void:
 	held_relic_grid.visible = not held.is_empty()
 	$Layout/Header/RelicSep.visible = held_relic_grid.visible
 	party_list.refresh(_kind)
-	relic_grid.slot_pressed.connect(_on_relic_pressed)
-	# ⚠ ヘッダのレリックはホバーで詳細（⚠ 右の常設の詳細とは別の器）。
+	# ⚠ ヘッダのレリックはホバーで詳細（⚠ 候補はカードに直接書くので見張らない）。
 	_detail_popup = ItemDetailPopup.adopt(self, ItemDetail.new())
 	if _detail_popup != null:
 		_detail_popup.watch(held_relic_grid)
@@ -102,58 +108,148 @@ func _map_path() -> String:
 
 
 func _rebuild() -> void:
-	var entries: Array = []
+	var cards_row: HBoxContainer = HBoxContainer.new()
+	cards_row.name = "Cards"
+	cards_row.theme_type_variation = &"WideRow"
+	body.add_child(cards_row)
 	for relic_id: Variant in _choices:
-		entries.append(GameManager.make_relic_slot_entry(str(relic_id)))
-	relic_grid.rebuild(entries, entries.size())
-	_rebuild_actions()
+		var card: PaperSheet = _make_card(str(relic_id))
+		cards_row.add_child(card)
+		_cards[str(relic_id)] = card
+		# ⚠ 面ぜんぶを押せる（⚠ 中身を足し終わってから敷く＝`attach_hit` の決まり）。
+		var _hit: Button = UiButton.attach_hit(card, _on_card_pressed.bind(str(relic_id)))
+
+	var sheet: PaperSheet = PaperSheet.new()
+	sheet.name = "ActionSheet"
+	sheet.show_corners = false
+	body.add_child(sheet)
+	_action_row = HBoxContainer.new()
+	_action_row.name = "ActionRow"
+	sheet.add_child(_action_row)
+	_refresh_selection()
 
 
-func _on_relic_pressed(entry: Dictionary, _index: int) -> void:
-	_selected_relic_id = str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-	_rebuild_actions()
+# 候補1枚。⚠ 絵 ／ 名前（明朝）／ 効き目 ／ 罫 ／ 誰に効くか。⚠ 右上に「選んだ」の判（⚠ 選ぶまで透明＝並びが動かない）。
+func _make_card(relic_id: String) -> PaperSheet:
+	var card: PaperSheet = PaperSheet.new()
+	card.name = "Card_" + relic_id
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var column: VBoxContainer = VBoxContainer.new()
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	card.add_child(column)
+
+	var stamp: Stamp = Stamp.new()
+	stamp.label_key = "ui_stamp_chosen"
+	stamp.size_flags_horizontal = Control.SIZE_SHRINK_END
+	stamp.modulate.a = 0.0
+	column.add_child(stamp)
+	_stamps[relic_id] = stamp
+
+	var icon: ItemGrid = ItemGrid.new()
+	icon.name = "Icon"
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(icon)
+	icon.rebuild([GameManager.make_relic_slot_entry(relic_id)], 1)
+
+	var relic: Dictionary = MasterDataLoader.get_relic(relic_id)
+	var name_label: Label = Label.new()
+	name_label.theme_type_variation = &"SheetHeadingLabel"
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.text = tr(str(relic.get("name_key", relic_id)))
+	column.add_child(name_label)
+
+	# ⚠ 効き目は `ui_desc_<id>`（⚠ 効果の中身をここで文章にしない＝`ItemDetail._show_relic()` と同じ）。
+	var desc: Label = Label.new()
+	desc.theme_type_variation = &"AccentLabel"
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.text = tr("ui_desc_" + relic_id)
+	column.add_child(desc)
+
+	column.add_child(HSeparator.new())
+	var scope: Label = Label.new()
+	scope.theme_type_variation = &"CaptionLabel"
+	scope.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	scope.text = tr("ui_relic_scope_single" if GameManager.is_single_relic(relic_id) else "ui_relic_scope_party")
+	column.add_child(scope)
+	return card
 
 
-# 選んだレリックに対してできること。
+func _on_card_pressed(relic_id: String) -> void:
+	if _selected_relic_id == relic_id:
+		return
+	_selected_relic_id = relic_id
+	_selected_character = ""
+	_refresh_selection()
+
+
+func _on_character_pressed(character_id: String) -> void:
+	_selected_character = character_id
+	_refresh_selection()
+
+
+# 選んでいるカードの見た目と、下の紙（付ける人・付ける）を作り直す。
 #
-# ⚠ 全体用は「取る」1つ。⚠ 1人用は編成3人ぶんのボタン（⚠ 鞄のポーションと同じ流儀）。
-# ⚠ 取れるかの判定は take_run_relic() の先が持つ。⚠ ここで条件を書かない。
+# ⚠ 取れるかの判定は take_run_relic() の先が持つ。⚠ ここで条件を書かない（⚠ 脱落は押せなくするだけ）。
 # ⚠ 再描画に await を持たせない。remove_child() してから queue_free()（AGENTS.md）。
-func _rebuild_actions() -> void:
-	for child in action_row.get_children():
-		action_row.remove_child(child)
+func _refresh_selection() -> void:
+	for relic_id: String in _cards:
+		var chosen: bool = relic_id == _selected_relic_id
+		(_cards[relic_id] as PaperSheet).theme_type_variation = &"PaperPanelChosen" if chosen else &"PaperPanel"
+		(_stamps[relic_id] as Stamp).modulate.a = 1.0 if chosen else 0.0
+
+	for child in _action_row.get_children():
+		_action_row.remove_child(child)
 		child.queue_free()
+	var caption: Label = Label.new()
+	caption.theme_type_variation = &"SheetHeadingLabel"
+	caption.text = tr("ui_relic_attach_to")
+	_action_row.add_child(caption)
 
-	relic_detail.show_entry(
-		{} if _selected_relic_id == "" else GameManager.make_relic_slot_entry(_selected_relic_id)
-	)
-	action_caption.text = ""
+	var single: bool = _selected_relic_id != "" and GameManager.is_single_relic(_selected_relic_id)
+	if single:
+		for member: Variant in GameManager.get_party_members():
+			var character_id: String = str(member)
+			if character_id == "":
+				continue
+			var char_data: Dictionary = MasterDataLoader.get_character(character_id)
+			var button: Button = Button.new()
+			button.name = "Give_" + character_id
+			button.text = tr(str(char_data.get("name_key", character_id)))
+			button.theme_type_variation = (
+				&"PaperChoiceSelected" if character_id == _selected_character else &"PaperChoice"
+			)
+			if GameManager.is_run_character_downed(_kind, character_id):
+				button.text = "%s（%s）" % [button.text, tr("ui_dungeon_downed")]
+				button.disabled = true
+			button.pressed.connect(_on_character_pressed.bind(character_id))
+			_action_row.add_child(button)
+	elif _selected_relic_id != "":
+		var everyone: Label = Label.new()
+		everyone.theme_type_variation = &"CaptionLabel"
+		everyone.text = tr("ui_relic_scope_party")
+		_action_row.add_child(everyone)
+
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_action_row.add_child(spacer)
+
+	var take: UiButton = UiButton.new()
+	take.name = "TakeButton"
+	take.variant = UiButton.Variant.PRIMARY
 	if _selected_relic_id == "":
-		return
-
-	if not GameManager.is_single_relic(_selected_relic_id):
-		var take_button: UiButton = UiButton.new()
-		take_button.name = "TakeButton"
-		take_button.variant = UiButton.Variant.PRIMARY
-		take_button.text = tr("ui_relic_take")
-		take_button.pressed.connect(_on_take_pressed.bind(""))
-		action_row.add_child(take_button)
-		return
-
-	action_caption.text = tr("ui_relic_pick_character")
-	for member: Variant in GameManager.get_party_members():
-		var character_id: String = str(member)
-		if character_id == "":
-			continue
-		var char_data: Dictionary = MasterDataLoader.get_character(character_id)
-		var button: UiButton = UiButton.new()
-		button.name = "Give_" + character_id
-		button.text = tr(str(char_data.get("name_key", character_id)))
-		if GameManager.is_run_character_downed(_kind, character_id):
-			button.variant = UiButton.Variant.DANGER
-			button.text = "%s（%s）" % [button.text, tr("ui_dungeon_downed")]
-		button.pressed.connect(_on_take_pressed.bind(character_id))
-		action_row.add_child(button)
+		take.text = tr("ui_relic_take")
+		take.disabled = true
+	elif single and _selected_character == "":
+		take.text = tr("ui_relic_pick_character")
+		take.disabled = true
+	elif single:
+		var picked: Dictionary = MasterDataLoader.get_character(_selected_character)
+		take.text = tr("ui_relic_give_to") % tr(str(picked.get("name_key", _selected_character)))
+	else:
+		take.text = tr("ui_relic_take")
+	take.pressed.connect(_on_take_pressed.bind(_selected_character if single else ""))
+	_action_row.add_child(take)
 
 
 func _on_take_pressed(character_id: String) -> void:

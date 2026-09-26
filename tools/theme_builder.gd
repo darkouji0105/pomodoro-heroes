@@ -1658,6 +1658,8 @@ const SHEET_HEADING_SPACING: int = 3
 const PAPER_CORNER_SIZE: int = 16       # ⚠ 手本 `corner_ornament`
 const PAPER_CORNER_WIDTH: int = 2
 const PAPER_CORNER_INSET: int = 8       # ⚠ 紙の縁から角飾りまで
+const PAPER_CHOSEN_BORDER: int = 2
+const PAPER_CHOICE_CORNER: int = 22
 const SHEET_HEADING_SIZE: int = 20
 const SHEET_HEADING_RULE: int = 2       # ⚠ 太い下線
 const SHEET_HEADING_GAP: int = 6        # ⚠ 字と下線の間
@@ -1695,6 +1697,45 @@ static func _build_paper_parts(theme: Theme) -> void:
 	theme.set_constant(&"corner_size", &"PaperPanel", PAPER_CORNER_SIZE)
 	theme.set_constant(&"corner_width", &"PaperPanel", PAPER_CORNER_WIDTH)
 	theme.set_constant(&"corner_inset", &"PaperPanel", PAPER_CORNER_INSET)
+
+	# ⚠ 選んだ紙（回UI-4 レリック）。⚠ 明るい紙 ＋ 真鍮の墨の縁（⚠ 台帳の「選んでいる行」と同じ2色）。
+	var chosen: StyleBoxFlat = (theme.get_stylebox(&"panel", &"PaperPanel") as StyleBoxFlat).duplicate()
+	chosen.bg_color = _html(TOKEN_PAPER_SELECTED)
+	chosen.set_border_width_all(PAPER_CHOSEN_BORDER)
+	chosen.border_color = _html(TOKEN_BRASS_INK)
+	theme.set_type_variation(&"PaperPanelChosen", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"PaperPanelChosen", chosen)
+
+	# ⚠ 紙の上で1つを選ぶ札（回UI-4 レリックの「付ける人」）。⚠ 丸い札・墨の縁。⚠ 選んだものは明るい紙＋真鍮の墨。
+	#   ⚠ Ghost は紙の上だと字が明るすぎて読めないので、⚠ 紙の上の選択にはこちらを使う。
+	for spec: Dictionary in [
+		{"name": "PaperChoice", "bg": "", "border": TOKEN_INK_SUB, "width": 1},
+		{"name": "PaperChoiceSelected", "bg": TOKEN_PAPER_SELECTED, "border": TOKEN_BRASS_INK, "width": 2},
+	]:
+		var type_name: StringName = StringName(str(spec["name"]))
+		theme.set_type_variation(type_name, &"Button")
+		for state: String in BUTTON_STATES:
+			var pill: StyleBoxFlat = StyleBoxFlat.new()
+			var bg: String = str(spec["bg"])
+			if state == "hover":
+				bg = TOKEN_PAPER_SELECTED
+			pill.bg_color = Color(0, 0, 0, 0) if (bg == "" or state == "focus") else _html(bg)
+			pill.set_corner_radius_all(PAPER_CHOICE_CORNER)
+			pill.content_margin_left = PAPER_TAB_PAD_H
+			pill.content_margin_right = PAPER_TAB_PAD_H
+			pill.content_margin_top = BUTTON_PAD_V
+			pill.content_margin_bottom = BUTTON_PAD_V
+			if state == "focus":
+				pill.set_border_width_all(FOCUS_BORDER_WIDTH)
+				pill.border_color = _html(TOKEN_LIGHT)
+			else:
+				pill.set_border_width_all(int(spec["width"]))
+				pill.border_color = _html(TOKEN_RULE if state == "disabled" else str(spec["border"]))
+			theme.set_stylebox(StringName(state), type_name, pill)
+		for color_name: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			theme.set_color(StringName(color_name), type_name, _html(TOKEN_INK))
+		theme.set_color(&"font_disabled_color", type_name, _html(TOKEN_RULE))
+		theme.set_font_size(&"font_size", type_name, BUTTON_FONT_SIZE)
 
 	# 紙の見出し（明朝・太い下線・菱形の飾り罫）。⚠ 字の色は紙のテーマ側（`PAPER_LABEL_COLORS`）。
 	theme.set_type_variation(&"SheetHeadingLabel", &"Label")

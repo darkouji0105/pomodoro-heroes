@@ -1009,3 +1009,6 @@ ui_facility_belongings,持ち物
 ui_facility_records,記録
 ui_facility_research,研究
 ui_facility_shop,ショップ
+ui_relic_give_to,%sに付ける
+ui_relic_attach_to,付ける人
+ui_stamp_chosen,選んだ

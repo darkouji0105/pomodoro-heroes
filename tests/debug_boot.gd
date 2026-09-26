@@ -84,6 +84,7 @@ const SHOT_AFTER_LOOT_OVERLAY: String = "loot_overlay"
 const SHOT_AFTER_BATTLE_RESULT: String = "battle_result"
 const SHOT_AFTER_MODAL_CONFIRM: String = "modal_confirm"
 const SHOT_AFTER_PART_POPOVER: String = "part_popover"
+const SHOT_AFTER_RELIC_PICK: String = "relic_pick"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -1037,6 +1038,16 @@ const SCENARIOS: Dictionary = {
 				"data": {TransferKeys.RUN_KIND: GameManager.RUN_KIND_DUNGEON},
 				# ⚠ マスの ID はランを作るまで分からない。⚠ 種で1つ探して `RUN_NODE_ID` に入れる。
 				"fill_node_id": GameStateKeys.DUNGEON_NODE_KIND_RELIC,
+			},
+			# ⚠ 2026-09-26（回UI-4 レリック）：⚠ カードを1枚選んだ姿（⚠ 「選んだ」の判・縁・付ける人）。
+			#   ⚠ 1人用の候補があればそれを選び、⚠ 人も1人選ぶ（⚠ 「◯◯に付ける」まで出す）。
+			{
+				"name": "21_relic_chosen",
+				"scene": "res://scenes/adventure/run_relic_select.tscn",
+				"prepare": SHOT_PREPARE_DUNGEON,
+				"data": {TransferKeys.RUN_KIND: GameManager.RUN_KIND_DUNGEON},
+				"fill_node_id": GameStateKeys.DUNGEON_NODE_KIND_RELIC,
+				"after": SHOT_AFTER_RELIC_PICK,
 			},
 			# ⚠⚠ ボスの後のわかれ道（決定48）。⚠ ボスの先でないと自分でマップへ送り返す。
 			{
@@ -8680,6 +8691,7 @@ class ShotTaker extends Node:
 	const AFTER_LOOT_OVERLAY: String = "loot_overlay"
 	const AFTER_BATTLE_RESULT: String = "battle_result"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
+	const AFTER_RELIC_PICK: String = "relic_pick"
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
 	const AFTER_FRAMES: int = 12
 
@@ -8910,6 +8922,20 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ %s は空きの枠が1つも無い" % shot_name)
 				return false
 			screen.call("_on_part_slot_selected", equip_id, empty_index)
+		elif kind == AFTER_RELIC_PICK:
+			# ⚠ 画面自身の口（⚠ カードの当たり・人の札が押されたときに呼ばれるもの）。
+			var choices: Array = screen.get("_choices")
+			if choices == null or choices.is_empty():
+				push_error("[DebugBoot] ⚠ %s は候補が無い" % shot_name)
+				return false
+			var pick: String = str(choices[0])
+			for raw: Variant in choices:
+				if GameManager.is_single_relic(str(raw)):
+					pick = str(raw)
+					break
+			screen.call("_on_card_pressed", pick)
+			if GameManager.is_single_relic(pick):
+				screen.call("_on_character_pressed", str(GameManager.get_party_members()[0]))
 		elif kind == AFTER_MODAL_CONFIRM:
 			# ⚠⚠ **`Modal.confirm()` は撮るのに使えない**（⚠ 2026-09-22 に2手とも外れた）。
 			#   ⚠ ① 直に呼ぶ → ⚠ **パースエラー**（`must be called with "await"`）
