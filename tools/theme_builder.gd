@@ -1518,12 +1518,13 @@ const MAP_MARK_WIDTH: int = 2
 const MAP_EDGE_ALPHA_PCT: int = 75
 const MAP_FAR_ALPHA_PCT: int = 40
 const MAP_DECOR_INK: String = "3b2a1c"        # ⚠ 参考 HTML の線の色
-const MAP_RIVER: String = "4d6a82"            # ⚠ 参考 HTML の川の色
 const MAP_DECOR_AREA: int = 9000              # ⚠ 飾りの候補を何 px² に1つ撒くか（⚠ マスに近いものは描かない）
-const MAP_RIVER_EVERY: int = 800              # ⚠ 地図の縦何 px ごとに川を1本
+const MAP_CHASM_EVERY: int = 800              # ⚠ 地図の縦何 px ごとに地下の裂け目を1本（⚠ 09-27 に川から変えた）
 const MAP_DECOR_CLEARANCE: int = 46           # ⚠ マスの中心から飾りまでの最小の距離
-const MAP_NODE_JITTER: int = 18               # ⚠ マスを列の真ん中から左右にずらす最大（⚠ 人間「⚠ ばらけさせる」）
-const MAP_NODE_JITTER_Y: int = 3
+# ⚠ 09-27（人間「⚠ ルートの位置を意識しすぎてる　⚠ もっとばらけていい」）：⚠ 18 / 3 → 45 / 12。
+#   ⚠ 45 は隣の列のマスと重ならない最大（⚠ 列の間 160 − 丸 40 ＝ 120 ＞ 45 × 2）。
+const MAP_NODE_JITTER: int = 45
+const MAP_NODE_JITTER_Y: int = 12
 const MAP_COMPASS_RADIUS: int = 26
 const MAP_COMPASS_INSET: int = 64
 
@@ -1555,11 +1556,11 @@ static func _build_run_map_view(theme: Theme) -> void:
 	theme.set_constant(&"mark_width", t, MAP_MARK_WIDTH)
 	theme.set_constant(&"edge_alpha_pct", t, MAP_EDGE_ALPHA_PCT)
 	theme.set_constant(&"far_alpha_pct", t, MAP_FAR_ALPHA_PCT)
-	# ⚠ 地図の飾り（09-26）。⚠ 山・草＝焦げ茶の半透明 ／ 川＝青灰（⚠ 人間の参考 HTML の色）。
+	# ⚠ 地図の飾り（09-26 → 09-27 にダンジョンの風景へ）。⚠ 岩・ひびなど＝焦げ茶の半透明 ／ 裂け目＝焦げ茶の薄い塗り。
 	theme.set_color(&"decor", t, Color(_html(MAP_DECOR_INK), 0.4))
-	theme.set_color(&"river", t, Color(_html(MAP_RIVER), 0.45))
+	theme.set_color(&"chasm", t, Color(_html(MAP_DECOR_INK), 0.16))
 	theme.set_constant(&"decor_area", t, MAP_DECOR_AREA)
-	theme.set_constant(&"river_every", t, MAP_RIVER_EVERY)
+	theme.set_constant(&"chasm_every", t, MAP_CHASM_EVERY)
 	theme.set_constant(&"decor_clearance", t, MAP_DECOR_CLEARANCE)
 	theme.set_constant(&"node_jitter", t, MAP_NODE_JITTER)
 	theme.set_constant(&"node_jitter_y", t, MAP_NODE_JITTER_Y)

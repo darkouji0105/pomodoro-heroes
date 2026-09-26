@@ -575,9 +575,11 @@ func _notification(what: int) -> void:
 		queue_redraw()
 
 
-# ⚠⚠ 地図の飾り（2026-09-26・人間「⚠ 山とかそういうのも今は書いといて」）。⚠ 画像は使わず線で描く（⚠ 素材が来たら差し替える）。
-#   ⚠ 山（三角の集まり）・草・川（青灰の波線）。⚠ マスに重ならない所にだけ置く。⚠ 置き方は決まった種から（⚠ 毎回同じ）。
-#   ⚠ 色と数は Theme の `RunMapView`（`decor` / `river` / `decor_count`）。⚠ 線と丸より後ろ（⚠ この Control 自身の描画）。
+# ⚠⚠ 地図の飾り（2026-09-26・人間「⚠ 山とかそういうのも今は書いといて」→ 09-27「⚠ ダンジョンなので外ではなくダンジョンっぽい風景に」）。
+#   ⚠ 画像は使わず線で描く（⚠ 素材が来たら差し替える）。⚠ 屋外の山・草・川はやめた。
+#   ⚠ 描くもの：⚠ 左右の坑道の壁 ／ 地下の裂け目（⚠ 川の代わり）／ 岩の塊 ／ 鍾乳石・石筍 ／ 瓦礫 ／ 壁のひび。
+#   ⚠ マスに重ならない所にだけ置く。⚠ 置き方は決まった種から（⚠ 毎回同じ）。
+#   ⚠ 色と数は Theme の `RunMapView`（`decor` / `chasm` / `decor_area` / `chasm_every`）。⚠ 線と丸より後ろ（⚠ この Control 自身の描画）。
 const DECOR_SEED: int = 23
 
 
@@ -596,66 +598,121 @@ func _draw_decor() -> void:
 	var right: float = size.x - LAYER_CAPTION_WIDTH * 0.5
 	var clearance: float = float(get_theme_constant(&"decor_clearance", THEME_TYPE))
 
-	# ⚠ 川：⚠ 横切る波線（⚠ マスの後ろを通ってよい＝薄い）。⚠ 縦に長い地図（難ダンジョン）は本数を増やす。
-	var river: Color = get_theme_color(&"river", THEME_TYPE)
-	var river_count: int = maxi(1, int(round(size.y / float(get_theme_constant(&"river_every", THEME_TYPE)))))
-	var river_ys: Array[float] = []
-	for n: int in range(river_count):
-		var ry: float = size.y * (float(n) + 0.58) / float(river_count)
-		river_ys.append(ry)
-		var river_points: PackedVector2Array = PackedVector2Array()
-		var steps: int = 40
-		var phase: float = float(n) * 1.7
-		for i: int in range(steps + 1):
-			var t: float = float(i) / float(steps)
-			river_points.append(Vector2(
-				lerpf(left, right, t), ry + sin(t * TAU * 2.3 + phase) * 14.0 + sin(t * TAU * 5.1 + phase) * 5.0
-			))
-		draw_polyline(river_points, river, 4.0, true)
-		draw_polyline(river_points, Color(river, river.a * 0.5), 9.0, true)
+	# ⚠ 左右の坑道の壁：⚠ ぎざぎざの縦の線 ＋ 外向きの短い斜線（⚠ 地図の「ここから先は岩」）。
+	_draw_wall(left - 6.0, -1.0, rng, ink)
+	_draw_wall(right + 6.0, 1.0, rng, ink)
 
-	# ⚠ 山と草：⚠ 候補の点を撒いて、⚠ マスから離れている所にだけ描く。⚠ 候補の数は**地図の面積に比例**
-	#   ⚠ （⚠ 決まった数だと縦に長い難ダンジョンでまばらになった・09-26 の絵）。
+	# ⚠ 地下の裂け目：⚠ 横切るぎざぎざの溝（⚠ マスの後ろを通ってよい＝薄い）。⚠ 縦に長い地図は本数を増やす。
+	var chasm: Color = get_theme_color(&"chasm", THEME_TYPE)
+	var chasm_count: int = maxi(1, int(round(size.y / float(get_theme_constant(&"chasm_every", THEME_TYPE)))))
+	var chasm_ys: Array[float] = []
+	for n: int in range(chasm_count):
+		var cy: float = size.y * (float(n) + 0.58) / float(chasm_count)
+		chasm_ys.append(cy)
+		_draw_chasm(cy, left, right, rng, ink, chasm)
+
+	# ⚠ 岩・とがった岩・瓦礫・ひび：⚠ 候補の点を撒いて、⚠ マスから離れている所にだけ描く。⚠ 候補の数は地図の面積に比例。
 	var candidates: int = int(size.x * size.y / float(get_theme_constant(&"decor_area", THEME_TYPE)))
 	for i: int in range(candidates):
-		var p: Vector2 = Vector2(rng.randf_range(left, right), rng.randf_range(0.0, size.y))
+		var p: Vector2 = Vector2(rng.randf_range(left + 12.0, right - 12.0), rng.randf_range(0.0, size.y))
+		var roll: float = rng.randf()
 		var near: bool = false
 		for c: Vector2 in centers:
 			if c.distance_to(p) < clearance:
 				near = true
 				break
-		for ry: float in river_ys:
-			if absf(p.y - ry) < 24.0:
+		for cy: float in chasm_ys:
+			if absf(p.y - cy) < 26.0:
 				near = true
 		if near:
 			continue
-		if rng.randf() < 0.6:
-			_draw_mountains(p, rng, ink)
+		if roll < 0.35:
+			_draw_rocks(p, rng, ink)
+		elif roll < 0.6:
+			_draw_spikes(p, rng, ink)
+		elif roll < 0.85:
+			_draw_rubble(p, rng, ink)
 		else:
-			_draw_grass(p, rng, ink)
+			_draw_crack(p, rng, ink)
 
 
-# 山の集まり（⚠ 2〜3 の三角・⚠ 右の斜面に斜線＝影）。
-func _draw_mountains(p: Vector2, rng: RandomNumberGenerator, ink: Color) -> void:
-	var count: int = rng.randi_range(2, 3)
-	for k: int in range(count):
-		var w: float = rng.randf_range(14.0, 22.0)
-		var h: float = w * rng.randf_range(0.7, 1.0)
-		var base: Vector2 = p + Vector2(float(k) * w * 0.7 - w * 0.5, float(k % 2) * 4.0)
-		var peak: Vector2 = base + Vector2(w * 0.5, -h)
-		draw_polyline(PackedVector2Array([base, peak, base + Vector2(w, 0.0)]), ink, 1.2, true)
-		for n: int in range(1, 4):
-			var t: float = float(n) / 4.0
-			var a: Vector2 = peak.lerp(base + Vector2(w, 0.0), t)
-			draw_line(a, a + Vector2(-3.0, 3.0), Color(ink, ink.a * 0.8), 0.8, true)
+# 坑道の壁（⚠ `side` は外向き：左＝-1 ／ 右＝+1）。
+func _draw_wall(x: float, side: float, rng: RandomNumberGenerator, ink: Color) -> void:
+	var points: PackedVector2Array = PackedVector2Array()
+	var y: float = 0.0
+	while y <= size.y:
+		points.append(Vector2(x + rng.randf_range(-7.0, 7.0), y))
+		y += rng.randf_range(10.0, 22.0)
+	draw_polyline(points, ink, 1.4, true)
+	for k: int in range(points.size() - 1):
+		var a: Vector2 = points[k]
+		for n: int in range(3):
+			var q: Vector2 = a.lerp(points[k + 1], float(n) / 3.0)
+			draw_line(q, q + Vector2(side * 7.0, -4.0), Color(ink, ink.a * 0.7), 0.8, true)
 
 
-# 草（⚠ 小さな「ᐱ」を3本）。
-func _draw_grass(p: Vector2, rng: RandomNumberGenerator, ink: Color) -> void:
-	for k: int in range(3):
-		var b: Vector2 = p + Vector2(float(k) * 5.0, 0.0)
-		var h: float = rng.randf_range(4.0, 7.0)
-		draw_line(b, b + Vector2(-1.5, -h), ink, 0.9, true)
+# 地下の裂け目（⚠ 上下2本のぎざぎざ線のあいだを暗く塗る）。
+func _draw_chasm(cy: float, left: float, right: float, rng: RandomNumberGenerator, ink: Color, fill: Color) -> void:
+	var top: PackedVector2Array = PackedVector2Array()
+	var bottom: PackedVector2Array = PackedVector2Array()
+	var x: float = left
+	while x <= right:
+		var mid: float = cy + sin(x * 0.012) * 18.0
+		var half: float = rng.randf_range(3.0, 9.0)
+		top.append(Vector2(x, mid - half))
+		bottom.append(Vector2(x, mid + half))
+		x += rng.randf_range(8.0, 16.0)
+	var shape: PackedVector2Array = top.duplicate()
+	var reversed: PackedVector2Array = bottom.duplicate()
+	reversed.reverse()
+	shape.append_array(reversed)
+	draw_colored_polygon(shape, fill)
+	draw_polyline(top, ink, 1.2, true)
+	draw_polyline(bottom, ink, 1.2, true)
+
+
+# 岩の塊（⚠ いびつな多角形を2〜3個・⚠ 右下に斜線＝影）。
+func _draw_rocks(p: Vector2, rng: RandomNumberGenerator, ink: Color) -> void:
+	for k: int in range(rng.randi_range(2, 3)):
+		var c: Vector2 = p + Vector2(float(k) * 11.0 - 8.0, rng.randf_range(-3.0, 3.0))
+		var r: float = rng.randf_range(5.0, 10.0)
+		var shape: PackedVector2Array = PackedVector2Array()
+		var corners: int = rng.randi_range(5, 7)
+		for n: int in range(corners + 1):
+			var angle: float = TAU * float(n % corners) / float(corners)
+			shape.append(c + Vector2.from_angle(angle) * r * rng.randf_range(0.75, 1.1))
+		draw_polyline(shape, ink, 1.1, true)
+		draw_line(c + Vector2(r * 0.1, r * 0.3), c + Vector2(r * 0.5, r * 0.1), Color(ink, ink.a * 0.7), 0.8, true)
+
+
+# 鍾乳石・石筍（⚠ 細いとがった三角を3〜4本）。
+func _draw_spikes(p: Vector2, rng: RandomNumberGenerator, ink: Color) -> void:
+	var down: bool = rng.randf() < 0.5
+	for k: int in range(rng.randi_range(3, 4)):
+		var w: float = rng.randf_range(5.0, 8.0)
+		var h: float = rng.randf_range(10.0, 18.0) * (1.0 if not down else -1.0)
+		var base: Vector2 = p + Vector2(float(k) * w * 0.9, 0.0)
+		draw_polyline(PackedVector2Array([base, base + Vector2(w * 0.5, -h), base + Vector2(w, 0.0)]), ink, 1.0, true)
+	draw_line(p + Vector2(-3.0, 0.0), p + Vector2(30.0, 0.0), Color(ink, ink.a * 0.6), 0.8, true)
+
+
+# 瓦礫（⚠ 小さな点と欠片）。
+func _draw_rubble(p: Vector2, rng: RandomNumberGenerator, ink: Color) -> void:
+	for k: int in range(rng.randi_range(4, 7)):
+		var q: Vector2 = p + Vector2(rng.randf_range(-12.0, 12.0), rng.randf_range(-6.0, 6.0))
+		draw_circle(q, rng.randf_range(0.8, 2.0), ink)
+
+
+# 壁のひび（⚠ 枝分かれするぎざぎざ線）。
+func _draw_crack(p: Vector2, rng: RandomNumberGenerator, ink: Color) -> void:
+	var points: PackedVector2Array = PackedVector2Array([p])
+	var q: Vector2 = p
+	for k: int in range(rng.randi_range(4, 6)):
+		q += Vector2(rng.randf_range(4.0, 9.0), rng.randf_range(-6.0, 6.0))
+		points.append(q)
+	draw_polyline(points, ink, 1.0, true)
+	var branch_at: Vector2 = points[points.size() / 2]
+	draw_line(branch_at, branch_at + Vector2(rng.randf_range(3.0, 8.0), rng.randf_range(5.0, 10.0)), ink, 0.8, true)
 
 
 func _ready() -> void:
