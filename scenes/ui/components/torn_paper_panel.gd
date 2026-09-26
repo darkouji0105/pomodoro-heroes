@@ -12,6 +12,12 @@ const THEME_TYPE: StringName = &"TornPaper"
 # ⚠ ぎざぎざの種（⚠ 数字は形を決めるだけ。⚠ バランスの値ではない）。
 const TEAR_SEED: int = 7
 
+## ⚠ 右下に方位を描くか。
+var show_compass: bool = true:
+	set(value):
+		show_compass = value
+		queue_redraw()
+
 
 func _init() -> void:
 	theme = PaperSheet.PAPER_THEME
@@ -32,6 +38,33 @@ func _draw() -> void:
 	draw_colored_polygon(outline, fill)
 	# ⚠ 焼け（⚠ 縁の内側を少し暗く）。⚠ 手本「焼けは内側の影」。
 	draw_polyline(outline + PackedVector2Array([outline[0]]), get_theme_color(&"burn", THEME_TYPE), depth, true)
+	if show_compass:
+		_draw_compass()
+
+
+# ⚠⚠ 方位（2026-09-26・人間「⚠ 山とかそういうのも今は書いといて」）。⚠ 紙の右下。⚠ 画像は使わず線で描く。
+#   ⚠ 円 ／ 4方向の細い菱形（⚠ 北だけ塗る）／ 「N」。⚠ 色と大きさは Theme の `TornPaper`（`compass` / `compass_radius`）。
+func _draw_compass() -> void:
+	var r: float = float(get_theme_constant(&"compass_radius", THEME_TYPE))
+	var inset: float = float(get_theme_constant(&"compass_inset", THEME_TYPE))
+	var c: Vector2 = size - Vector2(inset, inset)
+	var ink: Color = get_theme_color(&"compass", THEME_TYPE)
+	draw_arc(c, r, 0.0, TAU, 40, ink, 1.2, true)
+	draw_arc(c, r * 0.82, 0.0, TAU, 40, Color(ink, ink.a * 0.6), 0.8, true)
+	for k: int in range(4):
+		var angle: float = float(k) * PI * 0.5 - PI * 0.5
+		var tip: Vector2 = c + Vector2.from_angle(angle) * r * 1.15
+		var side_a: Vector2 = c + Vector2.from_angle(angle + PI * 0.5) * r * 0.16
+		var side_b: Vector2 = c + Vector2.from_angle(angle - PI * 0.5) * r * 0.16
+		var shape: PackedVector2Array = PackedVector2Array([tip, side_a, c, side_b, tip])
+		if k == 0:
+			draw_colored_polygon(PackedVector2Array([tip, side_a, c, side_b]), ink)
+		else:
+			draw_polyline(shape, ink, 1.0, true)
+	var font: Font = get_theme_default_font()
+	var font_size: int = get_theme_constant(&"compass_font", THEME_TYPE)
+	var north: Vector2 = c + Vector2(0.0, -r * 1.15 - 4.0)
+	draw_string(font, north - Vector2(font_size * 0.3, 0.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, ink)
 
 
 # 四辺をぎざぎざにした輪郭（⚠ 時計回り）。⚠ 各辺を `step` ごとに区切り、⚠ 内側へ 0〜`depth` だけ凹ませる。

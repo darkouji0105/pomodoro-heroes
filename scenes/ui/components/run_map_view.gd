@@ -298,12 +298,16 @@ func set_map(nodes: Array, edges: Array, layer_captions: Dictionary = {}) -> voi
 			var node_button: Button = _make_node_button(node_id, by_id[node_id])
 			_node_buttons[node_id] = node_button
 			if round_nodes:
-				# ⚠ 丸は列の幅より細いので、⚠ 列の幅の器の真ん中に置く（⚠ 列を揃えたまま）。
-				var holder: CenterContainer = CenterContainer.new()
+				# ⚠ 丸は列の幅より細いので、⚠ 列の幅の器に置く（⚠ 列を揃えたまま）。
+				# ⚠⚠ 2026-09-26（人間「⚠ ばらけさせる」＝参考の地図はマスが列に揃っていない）：
+				#   ⚠ 器の真ん中から**マスごとに決まった量**だけずらす（⚠ 開くたびに変わらない）。
+				#   ⚠ 列の割り当ては変えない（⚠ 左右に走る道を増やさない＝段階20-g）。
+				var holder: Control = Control.new()
 				holder.name = "Cell_" + node_id
-				holder.custom_minimum_size = Vector2(NODE_WIDTH, 0.0)
+				holder.custom_minimum_size = Vector2(NODE_WIDTH, node_button.custom_minimum_size.y)
 				holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				holder.add_child(node_button)
+				holder.resized.connect(_place_in_cell.bind(holder, node_button, _jitter_of(node_id)))
 				row.add_child(holder)
 			else:
 				row.add_child(node_button)
@@ -361,6 +365,20 @@ func _make_node_button(node_id: String, node: Dictionary) -> Button:
 	if reachable:
 		button.pressed.connect(func() -> void: node_pressed.emit(node_id))
 	return button
+
+
+# マスごとのずれ（⚠ ID から決める＝毎回同じ）。⚠ 幅は Theme の `node_jitter` / `node_jitter_y`。
+func _jitter_of(node_id: String) -> Vector2:
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = hash(node_id)
+	var jx: float = float(get_theme_constant(&"node_jitter", THEME_TYPE))
+	var jy: float = float(get_theme_constant(&"node_jitter_y", THEME_TYPE))
+	return Vector2(rng.randf_range(-jx, jx), rng.randf_range(-jy, jy))
+
+
+func _place_in_cell(holder: Control, button: Control, jitter: Vector2) -> void:
+	button.size = button.custom_minimum_size
+	button.position = (holder.size - button.size) * 0.5 + jitter
 
 
 # ⚠⚠ アイコンだけの丸（2026-09-26・`round_nodes`）。⚠ 字は触れると出る札へ（⚠ ▶ ✓ も付けない＝印で描く）。
@@ -533,12 +551,15 @@ func _redraw_edges() -> void:
 			DungeonEdgeLines.LINE_LABEL: str(edge.get(EDGE_LABEL, "")),
 		})
 	_edge_lines.set_lines(lines)
+	queue_redraw()
 	_place_light()
 	laid_out.emit()
 
 
 # ⚠ 地図の下に紙を敷く（⚠ 地図の矩形より `sheet_pad` だけ広く）。⚠ 面は `PaperPanel` と同じ（⚠ 影つき）。
 func _draw() -> void:
+	if round_nodes:
+		_draw_decor()
 	if not draw_sheet:
 		return
 	var pad: float = float(get_theme_constant(&"sheet_pad", THEME_TYPE))
@@ -552,6 +573,89 @@ func _draw() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		queue_redraw()
+
+
+# ⚠⚠ 地図の飾り（2026-09-26・人間「⚠ 山とかそういうのも今は書いといて」）。⚠ 画像は使わず線で描く（⚠ 素材が来たら差し替える）。
+#   ⚠ 山（三角の集まり）・草・川（青灰の波線）。⚠ マスに重ならない所にだけ置く。⚠ 置き方は決まった種から（⚠ 毎回同じ）。
+#   ⚠ 色と数は Theme の `RunMapView`（`decor` / `river` / `decor_count`）。⚠ 線と丸より後ろ（⚠ この Control 自身の描画）。
+const DECOR_SEED: int = 23
+
+
+func _draw_decor() -> void:
+	var centers: Array[Vector2] = []
+	var origin: Vector2 = get_global_rect().position
+	for raw: Variant in _node_buttons.values():
+		if raw is Control and is_instance_valid(raw):
+			centers.append((raw as Control).get_global_rect().get_center() - origin)
+	if centers.is_empty():
+		return
+	var ink: Color = get_theme_color(&"decor", THEME_TYPE)
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = DECOR_SEED
+	var left: float = LAYER_CAPTION_WIDTH
+	var right: float = size.x - LAYER_CAPTION_WIDTH * 0.5
+	var clearance: float = float(get_theme_constant(&"decor_clearance", THEME_TYPE))
+
+	# ⚠ 川：⚠ 横切る波線（⚠ マスの後ろを通ってよい＝薄い）。⚠ 縦に長い地図（難ダンジョン）は本数を増やす。
+	var river: Color = get_theme_color(&"river", THEME_TYPE)
+	var river_count: int = maxi(1, int(round(size.y / float(get_theme_constant(&"river_every", THEME_TYPE)))))
+	var river_ys: Array[float] = []
+	for n: int in range(river_count):
+		var ry: float = size.y * (float(n) + 0.58) / float(river_count)
+		river_ys.append(ry)
+		var river_points: PackedVector2Array = PackedVector2Array()
+		var steps: int = 40
+		var phase: float = float(n) * 1.7
+		for i: int in range(steps + 1):
+			var t: float = float(i) / float(steps)
+			river_points.append(Vector2(
+				lerpf(left, right, t), ry + sin(t * TAU * 2.3 + phase) * 14.0 + sin(t * TAU * 5.1 + phase) * 5.0
+			))
+		draw_polyline(river_points, river, 4.0, true)
+		draw_polyline(river_points, Color(river, river.a * 0.5), 9.0, true)
+
+	# ⚠ 山と草：⚠ 候補の点を撒いて、⚠ マスから離れている所にだけ描く。⚠ 候補の数は**地図の面積に比例**
+	#   ⚠ （⚠ 決まった数だと縦に長い難ダンジョンでまばらになった・09-26 の絵）。
+	var candidates: int = int(size.x * size.y / float(get_theme_constant(&"decor_area", THEME_TYPE)))
+	for i: int in range(candidates):
+		var p: Vector2 = Vector2(rng.randf_range(left, right), rng.randf_range(0.0, size.y))
+		var near: bool = false
+		for c: Vector2 in centers:
+			if c.distance_to(p) < clearance:
+				near = true
+				break
+		for ry: float in river_ys:
+			if absf(p.y - ry) < 24.0:
+				near = true
+		if near:
+			continue
+		if rng.randf() < 0.6:
+			_draw_mountains(p, rng, ink)
+		else:
+			_draw_grass(p, rng, ink)
+
+
+# 山の集まり（⚠ 2〜3 の三角・⚠ 右の斜面に斜線＝影）。
+func _draw_mountains(p: Vector2, rng: RandomNumberGenerator, ink: Color) -> void:
+	var count: int = rng.randi_range(2, 3)
+	for k: int in range(count):
+		var w: float = rng.randf_range(14.0, 22.0)
+		var h: float = w * rng.randf_range(0.7, 1.0)
+		var base: Vector2 = p + Vector2(float(k) * w * 0.7 - w * 0.5, float(k % 2) * 4.0)
+		var peak: Vector2 = base + Vector2(w * 0.5, -h)
+		draw_polyline(PackedVector2Array([base, peak, base + Vector2(w, 0.0)]), ink, 1.2, true)
+		for n: int in range(1, 4):
+			var t: float = float(n) / 4.0
+			var a: Vector2 = peak.lerp(base + Vector2(w, 0.0), t)
+			draw_line(a, a + Vector2(-3.0, 3.0), Color(ink, ink.a * 0.8), 0.8, true)
+
+
+# 草（⚠ 小さな「ᐱ」を3本）。
+func _draw_grass(p: Vector2, rng: RandomNumberGenerator, ink: Color) -> void:
+	for k: int in range(3):
+		var b: Vector2 = p + Vector2(float(k) * 5.0, 0.0)
+		var h: float = rng.randf_range(4.0, 7.0)
+		draw_line(b, b + Vector2(-1.5, -h), ink, 0.9, true)
 
 
 func _ready() -> void:

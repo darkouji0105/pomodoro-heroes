@@ -1517,6 +1517,15 @@ const MAP_MARK_WIDTH: int = 2
 # ⚠ 09-26（人間の参考 HTML）：⚠ 点線の道は焦げ茶 `#3b2a1c` を 75% ／ ⚠ たいまつが届かないマスと道は 40%（⚠ 人間「⚠ そうでない場合は半透明に」）。
 const MAP_EDGE_ALPHA_PCT: int = 75
 const MAP_FAR_ALPHA_PCT: int = 40
+const MAP_DECOR_INK: String = "3b2a1c"        # ⚠ 参考 HTML の線の色
+const MAP_RIVER: String = "4d6a82"            # ⚠ 参考 HTML の川の色
+const MAP_DECOR_AREA: int = 9000              # ⚠ 飾りの候補を何 px² に1つ撒くか（⚠ マスに近いものは描かない）
+const MAP_RIVER_EVERY: int = 800              # ⚠ 地図の縦何 px ごとに川を1本
+const MAP_DECOR_CLEARANCE: int = 46           # ⚠ マスの中心から飾りまでの最小の距離
+const MAP_NODE_JITTER: int = 18               # ⚠ マスを列の真ん中から左右にずらす最大（⚠ 人間「⚠ ばらけさせる」）
+const MAP_NODE_JITTER_Y: int = 3
+const MAP_COMPASS_RADIUS: int = 26
+const MAP_COMPASS_INSET: int = 64
 
 
 static func _build_run_map_view(theme: Theme) -> void:
@@ -1546,6 +1555,14 @@ static func _build_run_map_view(theme: Theme) -> void:
 	theme.set_constant(&"mark_width", t, MAP_MARK_WIDTH)
 	theme.set_constant(&"edge_alpha_pct", t, MAP_EDGE_ALPHA_PCT)
 	theme.set_constant(&"far_alpha_pct", t, MAP_FAR_ALPHA_PCT)
+	# ⚠ 地図の飾り（09-26）。⚠ 山・草＝焦げ茶の半透明 ／ 川＝青灰（⚠ 人間の参考 HTML の色）。
+	theme.set_color(&"decor", t, Color(_html(MAP_DECOR_INK), 0.4))
+	theme.set_color(&"river", t, Color(_html(MAP_RIVER), 0.45))
+	theme.set_constant(&"decor_area", t, MAP_DECOR_AREA)
+	theme.set_constant(&"river_every", t, MAP_RIVER_EVERY)
+	theme.set_constant(&"decor_clearance", t, MAP_DECOR_CLEARANCE)
+	theme.set_constant(&"node_jitter", t, MAP_NODE_JITTER)
+	theme.set_constant(&"node_jitter_y", t, MAP_NODE_JITTER_Y)
 
 
 # --- ランのマップのマス（2026-09-19・難ダンジョンのモック v2「真鍮の札」）---
@@ -1864,6 +1881,11 @@ static func _build_paper_parts(theme: Theme) -> void:
 	theme.set_constant(&"shadow_offset", &"TornPaper", PAPER_SHADOW_OFFSET)
 	theme.set_color(&"shadow", &"TornPaper", Color(0, 0, 0, 0.45))
 	theme.set_color(&"burn", &"TornPaper", Color(_html(TOKEN_INK_SUB), 0.35))
+	# ⚠ 方位（09-26・人間「⚠ 山とかそういうのも今は書いといて」）。
+	theme.set_color(&"compass", &"TornPaper", Color(_html(MAP_DECOR_INK), 0.55))
+	theme.set_constant(&"compass_radius", &"TornPaper", MAP_COMPASS_RADIUS)
+	theme.set_constant(&"compass_inset", &"TornPaper", MAP_COMPASS_INSET)
+	theme.set_constant(&"compass_font", &"TornPaper", SMALL_FONT_SIZE)
 	# ⚠ 地図の凡例「しるし」（`MapLegend`）。
 	theme.set_constant(&"icon", &"MapLegend", MAP_LEGEND_ICON)
 	theme.set_color(&"icon", &"MapLegend", _html(TOKEN_INK))
