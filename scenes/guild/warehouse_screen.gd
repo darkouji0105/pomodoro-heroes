@@ -359,9 +359,10 @@ func _on_discard_pressed(item_id: String) -> void:
 	#   ⚠ 文言も「はい」ではなく「捨てる」（⚠ 押した結果が読める）。
 	# ⚠ 隣の詳細パネル（幅300）と同じ大きさに合わせる（2026-09-21・決定 `MD-3`）。
 	var options: Dictionary = {
-		Modal.OPTION_TITLE: tr("ui_common_title_confirm"),
+		Modal.OPTION_TITLE: tr("ui_warehouse_discard"),
 		Modal.OPTION_DANGER: true,
 		Modal.OPTION_CONFIRM_LABEL: "ui_warehouse_discard",
+		Modal.OPTION_STAMP: "ui_stamp_irreversible",
 		Modal.OPTION_WIDTH: Modal.WIDTH_TINY,
 	}
 	var picker: SpinBox = null

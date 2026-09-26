@@ -54,9 +54,10 @@ func _on_start_pressed() -> void:
 func _on_delete_save_pressed() -> void:
 	# ⚠⚠ セーブを消すと戻らないので実行を赤に（決定 `MD-5`）。
 	var confirmed: bool = await Modal.confirm(self, "ui_title_delete_confirm", [], false, {
-		Modal.OPTION_TITLE: tr("ui_common_title_confirm"),
+		Modal.OPTION_TITLE: tr("ui_title_delete_save"),
 		Modal.OPTION_DANGER: true,
 		Modal.OPTION_CONFIRM_LABEL: "ui_title_delete_save",
+		Modal.OPTION_STAMP: "ui_stamp_erased",
 	})
 	if not confirmed:
 		return

@@ -23,6 +23,12 @@ enum Shape { RECT, CIRCLE }
 		shape = value
 		_resize()
 
+# ⚠ 枠の中を紙の色で塗る（⚠ 回UI-4 確かめの窓：⚠ 紙の縁からはみ出して暗幕に掛かるため。⚠ 手本 Confirm）。
+@export var filled: bool = false:
+	set(value):
+		filled = value
+		queue_redraw()
+
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -60,6 +66,12 @@ func _draw() -> void:
 	var center: Vector2 = size * 0.5
 	draw_set_transform(center, deg_to_rad(float(get_theme_constant(&"tilt_deg", THEME_TYPE))), Vector2.ONE)
 	var half: Vector2 = custom_minimum_size * 0.5
+	if filled:
+		var fill: Color = get_theme_color(&"fill", THEME_TYPE)
+		if shape == Shape.CIRCLE:
+			draw_circle(Vector2.ZERO, half.x, fill)
+		else:
+			draw_rect(Rect2(-half, half * 2.0), fill)
 	if shape == Shape.CIRCLE:
 		draw_arc(Vector2.ZERO, half.x - border, 0.0, TAU, 48, ink, border)
 	else:

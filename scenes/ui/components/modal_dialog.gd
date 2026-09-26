@@ -42,6 +42,9 @@ const MESSAGE_LEFT_ALIGN_LINES: int = 2
 @onready var confirm_button: Button = $Blocker/Panel/Window/Margin/VBox/Buttons/ConfirmButton
 @onready var close_button: Button = $Blocker/Panel/Window/Margin/VBox/Buttons/CloseButton
 
+# ⚠ 確かめの窓の判（⚠ 紙の右上からはみ出す）。⚠ 渡されなければ作らない。
+var _stamp: Stamp = null
+
 # 自分がポーズを立てたかどうか。
 # これを見ずに解除すると、他のモーダルが立てたポーズを勝手に戻す。
 var _pause: bool = false
@@ -97,8 +100,9 @@ func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary =
 
 	confirm_button.visible = is_confirm
 	if is_confirm:
+		_become_paper(title, str(options.get(Modal.OPTION_STAMP, "")))
 		confirm_button.label_key = "ui_common_yes"
-		close_button.label_key = "ui_common_no"
+		close_button.label_key = "ui_common_cancel"
 		# ⚠⚠ 取り返しのつかない確認は実行を赤に（決定 `MD-5`）。
 		#   ⚠ 文言も呼ぶ側が差し替えられる（⚠ 「はい」より「消す」のほうが結果が読める）。
 		if bool(options.get(Modal.OPTION_DANGER, false)):
@@ -111,6 +115,59 @@ func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary =
 		close_button.label_key = str(options.get(Modal.OPTION_CLOSE_LABEL, "ui_common_close"))
 	if pause:
 		_apply_pause()
+
+
+# --- 確かめの窓は紙（2026-09-27・回UI-4・手本 Confirm）---------------
+#
+# ⚠ 羊皮紙の面・四隅の角飾り・明朝の題と「線 ◆◇◆ 線」・右上に傾いた判・幅いっぱいの2つのボタン。
+# ⚠⚠ 知らせ（`notify`）の窓は暗い窓のまま（⚠ 手本は確かめの窓しか無い。⚠ 中身に暗い地の部品が入る）。
+# ⚠ 並びは「はい｜やめる」のまま（決定 `MD-4`。⚠ 手本は逆）。⚠ 開いたときは「やめる」を選んでおく（⚠ 手本の決まり）。
+# ⚠ 値は Theme（`ConfirmPaperPanel` ／ `Window` の `confirm_*`）。⚠ ここに数字を書かない。
+func _become_paper(title: String, stamp_key: String) -> void:
+	panel.theme_type_variation = &"ConfirmPaperPanel"
+	# ⚠ 中の字は紙のテーマで墨になる（決定 `UI-14`）。⚠ ボタンは紙のテーマに無いので本体のテーマのまま。
+	panel.theme = PaperSheet.PAPER_THEME
+	panel.draw.connect(_on_panel_draw)
+	title_bar.visible = false
+	if title != "":
+		var heading: SheetHeading = SheetHeading.new()
+		heading.name = "PaperHeading"
+		heading.title_text = title
+		heading.ornament = true
+		heading.ornament_below = true
+		var box: VBoxContainer = content_box.get_parent() as VBoxContainer
+		box.add_child(heading)
+		box.move_child(heading, 0)
+	# ⚠ 紙の上で Ghost は字が明るすぎて読めない（`PaperChoice` と同じ理由）。⚠ 「やめる」は既定の革。
+	close_button.variant = UiButton.Variant.SECONDARY
+	var height: float = float(panel.get_theme_constant(&"confirm_button_height", &"Window"))
+	for button: Button in [confirm_button, close_button]:
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size.y = height
+	close_button.grab_focus.call_deferred()
+	if stamp_key != "":
+		_stamp = Stamp.new()
+		_stamp.name = "PaperStamp"
+		_stamp.label_key = stamp_key
+		_stamp.filled = true
+		# ⚠ 窓の面の子にすると `PanelContainer` が広げてしまう。⚠ 隣に置いて、⚠ 面が動くたびに付け直す。
+		blocker.add_child(_stamp)
+		panel.item_rect_changed.connect(_place_stamp)
+		_stamp.resized.connect(_place_stamp)
+		_place_stamp.call_deferred()
+
+
+func _on_panel_draw() -> void:
+	PaperSheet.draw_corners(panel)
+
+
+func _place_stamp() -> void:
+	if _stamp == null or not is_instance_valid(_stamp):
+		return
+	var overhang: float = float(panel.get_theme_constant(&"confirm_stamp_overhang", &"Window"))
+	var right: float = float(panel.get_theme_constant(&"confirm_stamp_right", &"Window"))
+	_stamp.size = _stamp.custom_minimum_size
+	_stamp.position = panel.position + Vector2(panel.size.x - right - _stamp.size.x, -overhang)
 
 
 # --- 器のつまみ（2026-09-21・決定 MD-3 / MD-6 / MD-9）---------------

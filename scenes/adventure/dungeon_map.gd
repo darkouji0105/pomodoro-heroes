@@ -897,8 +897,10 @@ func _on_retreat_pressed() -> void:
 # ⚠ 2026-09-26：⚠ メニューから呼ぶ。⚠ **確かめの窓を通す**（⚠ 前は押した瞬間に全部なくなっていた）。
 func _on_abandon_pressed() -> void:
 	var sure: bool = await Modal.confirm(self, "ui_dungeon_abandon_confirm", [], false, {
+		Modal.OPTION_TITLE: tr("ui_dungeon_abandon_title"),
 		Modal.OPTION_DANGER: true,
-		Modal.OPTION_CONFIRM_LABEL: "ui_dungeon_abandon",
+		Modal.OPTION_CONFIRM_LABEL: "ui_dungeon_abandon_short",
+		Modal.OPTION_STAMP: "ui_stamp_lose_all",
 	})
 	if not sure:
 		return

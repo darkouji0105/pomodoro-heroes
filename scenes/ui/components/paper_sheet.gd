@@ -29,14 +29,19 @@ func _init() -> void:
 func _draw() -> void:
 	if not show_corners:
 		return
-	var color: Color = get_theme_color(&"corner", &"PaperPanel")
-	var length: float = float(get_theme_constant(&"corner_size", &"PaperPanel"))
-	var width: float = float(get_theme_constant(&"corner_width", &"PaperPanel"))
-	var inset: float = float(get_theme_constant(&"corner_inset", &"PaperPanel"))
+	draw_corners(self)
+
+
+# ⚠ 四隅の角飾りを `item` に引く（⚠ 回UI-4 確かめの窓：⚠ 窓の面も紙になるので、⚠ 同じ線をそこから呼ぶ）。
+static func draw_corners(item: Control) -> void:
+	var color: Color = item.get_theme_color(&"corner", &"PaperPanel")
+	var length: float = float(item.get_theme_constant(&"corner_size", &"PaperPanel"))
+	var width: float = float(item.get_theme_constant(&"corner_width", &"PaperPanel"))
+	var inset: float = float(item.get_theme_constant(&"corner_inset", &"PaperPanel"))
 	var left: float = inset
 	var top: float = inset
-	var right: float = size.x - inset
-	var bottom: float = size.y - inset
+	var right: float = item.size.x - inset
+	var bottom: float = item.size.y - inset
 	# ⚠ L字を4つ。⚠ 角から縦横に同じ長さ。
 	for corner: Array in [
 		[Vector2(left, top), Vector2(1, 0), Vector2(0, 1)],
@@ -45,8 +50,8 @@ func _draw() -> void:
 		[Vector2(right, bottom), Vector2(-1, 0), Vector2(0, -1)],
 	]:
 		var origin: Vector2 = corner[0]
-		draw_line(origin, origin + (corner[1] as Vector2) * length, color, width)
-		draw_line(origin, origin + (corner[2] as Vector2) * length, color, width)
+		item.draw_line(origin, origin + (corner[1] as Vector2) * length, color, width)
+		item.draw_line(origin, origin + (corner[2] as Vector2) * length, color, width)
 
 
 func _notification(what: int) -> void:

@@ -28,6 +28,18 @@ const THEME_TYPE: StringName = &"SheetHeading"
 		ornament = value
 		_refresh()
 
+# ⚠ 飾り罫を題の**下**に幅いっぱいで引く（⚠ 回UI-4 確かめの窓・手本 Confirm）。⚠ `ornament` と一緒に立てる。
+@export var ornament_below: bool = false:
+	set(value):
+		ornament_below = value
+		_refresh()
+
+# ⚠ 翻訳済みの題（⚠ 窓の題は呼ぶ側が `tr()` 済みで渡す＝`Modal.OPTION_TITLE`）。⚠ 在れば `title_key` より勝つ。
+var title_text: String = "":
+	set(value):
+		title_text = value
+		_refresh()
+
 var _title: Label = null
 var _right: Label = null
 var _middle: Control = null
@@ -58,6 +70,7 @@ func _init() -> void:
 	_rule_space = Control.new()
 	_rule_space.name = "RuleSpace"
 	_rule_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rule_space.draw.connect(_draw_ornament_below)
 	add_child(_rule_space)
 
 
@@ -68,14 +81,21 @@ func _ready() -> void:
 func _refresh() -> void:
 	if _title == null:
 		return
-	_title.text = tr(title_key) if title_key != "" else ""
+	if title_text != "":
+		_title.text = title_text
+	else:
+		_title.text = tr(title_key) if title_key != "" else ""
 	_right.text = right_text
 	_right.visible = right_text != ""
 	var rule_height: float = 0.0
 	if not ornament and is_inside_tree():
 		rule_height = float(get_theme_constant(&"gap", THEME_TYPE) + get_theme_constant(&"rule_width", THEME_TYPE))
+	elif ornament_below and is_inside_tree():
+		# ⚠ 中抜きの◇（半径 × 1.3）が収まる高さ ＋ 題との間。
+		rule_height = float(get_theme_constant(&"gap", THEME_TYPE)) + float(get_theme_constant(&"diamond", THEME_TYPE)) * 3.0
 	_rule_space.custom_minimum_size = Vector2(0.0, rule_height)
 	_middle.queue_redraw()
+	_rule_space.queue_redraw()
 	queue_redraw()
 
 
@@ -89,20 +109,30 @@ func _draw() -> void:
 
 # ⚠ 「線 ◆◇◆ 線」。⚠ 真ん中の◇だけ中を抜く（⚠ 手本の飾り罫）。
 func _draw_ornament() -> void:
-	if not ornament:
+	if not ornament or ornament_below:
 		return
+	_draw_ornament_on(_middle, float(get_theme_constant(&"diamond", THEME_TYPE)) * 2.0, _middle.size.y * 0.5)
+
+
+# ⚠ 題の下に幅いっぱいで引く形（`ornament_below`）。⚠ 線は端まで伸ばす（⚠ 手本 Confirm）。
+func _draw_ornament_below() -> void:
+	if not ornament or not ornament_below:
+		return
+	var r: float = float(get_theme_constant(&"diamond", THEME_TYPE))
+	_draw_ornament_on(_rule_space, 0.0, _rule_space.size.y - r * 1.5)
+
+
+func _draw_ornament_on(target: Control, pad: float, y: float) -> void:
 	var color: Color = get_theme_color(&"ornament", THEME_TYPE)
 	var r: float = float(get_theme_constant(&"diamond", THEME_TYPE))
-	var w: float = _middle.size.x
-	var y: float = _middle.size.y * 0.5
+	var w: float = target.size.x
 	var cx: float = w * 0.5
-	var pad: float = r * 2.0
 	var cluster: float = r * 5.0
-	_middle.draw_line(Vector2(pad, y), Vector2(cx - cluster, y), color, 1.0)
-	_middle.draw_line(Vector2(cx + cluster, y), Vector2(w - pad, y), color, 1.0)
+	target.draw_line(Vector2(pad, y), Vector2(cx - cluster, y), color, 1.0)
+	target.draw_line(Vector2(cx + cluster, y), Vector2(w - pad, y), color, 1.0)
 	for offset: float in [-r * 3.0, r * 3.0]:
-		_middle.draw_colored_polygon(_diamond(Vector2(cx + offset, y), r * 0.7), color)
-	_middle.draw_polyline(_diamond_closed(Vector2(cx, y), r * 1.3), color, 1.0)
+		target.draw_colored_polygon(_diamond(Vector2(cx + offset, y), r * 0.7), color)
+	target.draw_polyline(_diamond_closed(Vector2(cx, y), r * 1.3), color, 1.0)
 
 
 func _diamond(center: Vector2, radius: float) -> PackedVector2Array:
@@ -122,5 +152,6 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		queue_redraw()
 		_middle.queue_redraw()
+		_rule_space.queue_redraw()
 	elif what == NOTIFICATION_THEME_CHANGED:
 		_refresh()

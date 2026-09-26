@@ -1027,3 +1027,11 @@ ui_dungeon_fork_descend_button,潜る
 ui_dungeon_shop_in_bag,鞄に %d 個
 ui_dungeon_shop_leave_descend,フロア %d へ
 ui_dungeon_shop_leave_map,地図へ戻る
+ui_common_cancel,やめる
+ui_stamp_irreversible,戻せない
+ui_stamp_lose_all,全部なくす
+ui_stamp_erased,消える
+ui_dungeon_abandon_title,その場で降りる
+ui_dungeon_abandon_short,降りる
+ui_part_break_title,装飾を壊す
+ui_pomodoro_quit_title,拠点へ戻る

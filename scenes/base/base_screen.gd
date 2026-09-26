@@ -242,7 +242,7 @@ func _on_save_pressed() -> void:
 # オートセーブが無いため、ここで戻ると直前のセーブ以降の進行が消える。
 func _on_back_to_title_pressed() -> void:
 	var ok: bool = await Modal.confirm(self, "ui_title_back_confirm", [], false, {
-		Modal.OPTION_TITLE: tr("ui_common_title_confirm"),
+		Modal.OPTION_TITLE: tr("ui_base_back_to_title"),
 	})
 	if not ok:
 		return

@@ -635,9 +635,10 @@ func _on_detach_part_pressed(instance_id: String, slot_index: int) -> void:
 	# ⚠⚠ 壊すと戻らないので実行を赤に（決定 `MD-5`）。
 	var confirmed: bool = await Modal.confirm(
 		self, "ui_part_break_confirm", [tr("ui_res_" + item_id)], false, {
-			Modal.OPTION_TITLE: tr("ui_common_title_confirm"),
+			Modal.OPTION_TITLE: tr("ui_part_break_title"),
 			Modal.OPTION_DANGER: true,
 			Modal.OPTION_CONFIRM_LABEL: "ui_common_break",
+			Modal.OPTION_STAMP: "ui_stamp_irreversible",
 		}
 	)
 	if not is_instance_valid(self):

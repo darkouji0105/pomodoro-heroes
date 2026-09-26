@@ -1727,6 +1727,13 @@ const STAMP_BORDER: int = 2
 const STAMP_PAD_H: int = 10
 const STAMP_PAD_V: int = 4
 const STAMP_TILT_DEG: int = -8
+const STAMP_FILL_ALPHA_PCT: int = 90     # ⚠ 手本 Confirm の判の地（紙の色 90%）
+# ⚠ 確かめの窓（回UI-4・手本 Confirm）。⚠ 窓の余白（`DialogMargin` 24／16）に**足す**分＝上 24・下 20。
+const CONFIRM_PAPER_PAD_TOP: int = 8
+const CONFIRM_PAPER_PAD_BOTTOM: int = 4
+const CONFIRM_BUTTON_HEIGHT: int = 50    # ⚠ 手本の2つのボタン（⚠ ふつうのボタンは 44＝`UI-11`）
+const CONFIRM_STAMP_OVERHANG: int = 14   # ⚠ 判が紙の上辺からはみ出す量
+const CONFIRM_STAMP_RIGHT: int = 18      # ⚠ 判の右端から紙の右辺まで
 const FACILITY_BAR_HEIGHT: int = 76     # ⚠ 手本 `facility_bar`
 const RELIC_LIST_WIDTH: int = 960       # ⚠ カード3枚が横に並ぶ幅
 const RELIC_LIST_COLUMNS: int = 3
@@ -1872,6 +1879,22 @@ static func _build_paper_parts(theme: Theme) -> void:
 	theme.set_constant(&"pad_h", &"Stamp", STAMP_PAD_H)
 	theme.set_constant(&"pad_v", &"Stamp", STAMP_PAD_V)
 	theme.set_constant(&"tilt_deg", &"Stamp", STAMP_TILT_DEG)
+	var stamp_fill: Color = _html(TOKEN_PAPER)
+	stamp_fill.a = float(STAMP_FILL_ALPHA_PCT) / 100.0
+	theme.set_color(&"fill", &"Stamp", stamp_fill)
+
+	# ⚠ 確かめの窓の紙（回UI-4・手本 Confirm）。⚠ 面は紙と同じ・余白だけ窓の `DialogMargin` に合わせて薄くする。
+	#   ⚠ 角飾りは `ModalDialog` が `PaperSheet.draw_corners()` で引く。
+	var confirm_paper: StyleBoxFlat = (theme.get_stylebox(&"panel", &"PaperPanel") as StyleBoxFlat).duplicate()
+	confirm_paper.content_margin_left = 0
+	confirm_paper.content_margin_right = 0
+	confirm_paper.content_margin_top = CONFIRM_PAPER_PAD_TOP
+	confirm_paper.content_margin_bottom = CONFIRM_PAPER_PAD_BOTTOM
+	theme.set_type_variation(&"ConfirmPaperPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ConfirmPaperPanel", confirm_paper)
+	theme.set_constant(&"confirm_button_height", &"Window", CONFIRM_BUTTON_HEIGHT)
+	theme.set_constant(&"confirm_stamp_overhang", &"Window", CONFIRM_STAMP_OVERHANG)
+	theme.set_constant(&"confirm_stamp_right", &"Window", CONFIRM_STAMP_RIGHT)
 
 	# 見出しの帯の題（回UI-3）。⚠ 明朝・字間を広く・⚠ 左右に灯りの◆（`ScreenHeader` が描く）。
 	theme.set_type_variation(&"HeaderTitleLabel", &"Label")

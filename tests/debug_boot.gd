@@ -9007,9 +9007,10 @@ class ShotTaker extends Node:
 			# ⚠⚠ 押さないので**セーブは消えない**（⚠ 消すのは戻りを見る `title_screen.gd` の側）。
 			var dlg: ModalDialog = Modal._enqueue(
 				screen, "ui_title_delete_confirm", [], true, false, {
-					Modal.OPTION_TITLE: tr("ui_common_title_confirm"),
+					Modal.OPTION_TITLE: tr("ui_title_delete_save"),
 					Modal.OPTION_DANGER: true,
 					Modal.OPTION_CONFIRM_LABEL: "ui_title_delete_save",
+					Modal.OPTION_STAMP: "ui_stamp_erased",
 				}
 			)
 			if dlg == null:
