@@ -52,7 +52,7 @@ const CHEST_POPUP_SEC: float = 0.9
 var _detail_popup: ItemDetailPopup = null
 var _hud_spacer: Control = null
 @onready var message_label: Label = $Layout/MessageLabel
-@onready var map_view: RunMapView = $Layout/MapView
+@onready var map_view: RunMapView = $Layout/MapSheet/MapStack/MapView
 
 # ⚠⚠ 鞄のマス目（2026-09-18・人間の決定「難ダンジョンのインベントリをシナリオでも適用」）。
 #   ⚠ .tscn を触らずコードで作る（⚠ レリックの行の下）。⚠ 中身は GameManager の鞄の口に聞く。
@@ -101,8 +101,14 @@ func _ready() -> void:
 	map_view.layer_separation = RunMapView.LAYER_SEPARATION_NO_SCROLL
 	# ⚠ 紙を上下にはみ出させない（⚠ 下のフッターの HP に重なるため・2026-09-26）。
 	map_view.sheet_bleed_vertical = false
+	map_view.round_nodes = true
+	# ⚠ 紙は外（`MapSheet`）が敷く。⚠ 地図の最小の大きさを器へ渡す（⚠ 素の Control は子の最小を拾わない）。
+	map_view.draw_sheet = false
+	map_view.minimum_size_changed.connect(_fit_map_stack)
 	_build_bag_grid()
 	_rebuild()
+	_fit_map_stack()
+	_build_map_overlays()
 	# ⚠ 戦闘・ショップ・レリックから戻ってきたとき、⚠ 拾い待ちがあれば選ぶ画面を出す。
 	_open_pickup_if_needed()
 
@@ -112,11 +118,11 @@ func _build_bag_grid() -> void:
 	_bag_grid = ItemGrid.new()
 	_bag_grid.name = "BagGrid"
 	_bag_grid.columns = maxi(1, GameManager.get_run_bag_slots(GameManager.RUN_KIND_FLOOR))
-	# ⚠ 鞄はヘッダーのすぐ下（⚠ 前はレリックの行の下＝その行は 2026-09-26 に消した）。
-	var header: Node = $Layout/Header
-	var layout: Node = header.get_parent()
-	layout.add_child(_bag_grid)
-	layout.move_child(_bag_grid, header.get_index() + 1)
+	# ⚠ 鞄はフッターの左（⚠ 右は3人の HP）。⚠ 難ダンジョンと同じ（⚠ 人間の参考画像・2026-09-26）。
+	var footer: Node = $Layout/Footer
+	footer.add_child(_bag_grid)
+	footer.move_child(_bag_grid, 0)
+	_bag_grid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 
 func _rebuild_bag() -> void:
@@ -236,6 +242,7 @@ func _rebuild_layers() -> void:
 			RunMapView.NODE_ID: node_id,
 			RunMapView.NODE_LAYER: int(node.get(GameStateKeys.FLOOR_NODE_LAYER, 1)),
 			RunMapView.NODE_TEXT: _node_text(node_id, node),
+			RunMapView.NODE_ICON: IconTextures.for_run_node(str(node.get(GameStateKeys.FLOOR_NODE_KIND, ""))),
 			RunMapView.NODE_STATE: state,
 			RunMapView.NODE_HIDDEN: not GameManager.is_floor_node_revealed(node_id),
 			RunMapView.NODE_BOSS: str(node.get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BOSS,
@@ -400,6 +407,36 @@ func _on_abandon_pressed() -> void:
 # 拠点へ。⚠ フロアは降りない。状態に残るので続きから再開できる。
 func _on_back_pressed() -> void:
 	SceneManager.change_scene(BASE_PATH)
+
+
+func _fit_map_stack() -> void:
+	($Layout/MapSheet/MapStack as Control).custom_minimum_size = map_view.get_combined_minimum_size()
+
+
+# ⚠ 題の札と凡例（⚠ 難ダンジョンと同じ・2026-09-26）。⚠ 札の字は見出しと同じ（⚠ 新しい文言を作らない）。
+func _build_map_overlays() -> void:
+	var stack: Control = $Layout/MapSheet/MapStack
+	var plaque: PaperSheet = MapLegend.make_plaque(tr("ui_nav_scenario"), floor_name_label.text)
+	stack.add_child(plaque)
+	# ⚠⚠ シナリオは**左上**に置く（⚠ 難ダンジョンは上の真ん中）。⚠ スクロールしない画面なので、
+	#   ⚠ 札のぶん地図を下げると縦が 720 に収まらず、⚠ 見出しとフッターが画面の外へ出た（⚠ 09-26 に実測）。
+	#   ⚠ シナリオの地図は幅が狭く、⚠ 左側が空いている。
+	plaque.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE)
+	var entries: Array[Dictionary] = []
+	for kind: String in [
+		GameStateKeys.FLOOR_NODE_KIND_BATTLE, GameStateKeys.FLOOR_NODE_KIND_RELIC,
+		GameStateKeys.FLOOR_NODE_KIND_REST, GameStateKeys.FLOOR_NODE_KIND_SHOP,
+		GameStateKeys.FLOOR_NODE_KIND_BOSS,
+	]:
+		entries.append({
+			MapLegend.ENTRY_ICON: IconTextures.for_run_node(kind),
+			MapLegend.ENTRY_TEXT: tr("ui_floor_node_" + kind),
+		})
+	var legend: MapLegend = MapLegend.new()
+	legend.set_entries(tr("ui_map_legend"), entries)
+	stack.add_child(legend)
+	legend.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
+	legend.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 
 
 func _open_relic_list() -> void:

@@ -4550,7 +4550,7 @@ func _report_layout() -> void:
 		# ⚠ いま立っているマスへスクロールが寄っているか（段階20-c・人間の指示）。
 		#   ⚠ 絵は取れないが「スクロール位置が0でない」ことは取れる。
 		#   ⚠ 入口は一番下なので、⚠ 25層ぶん下へ寄っているはず。
-		var raw_scroll: Node = instance.get_node_or_null(NodePath("Layout/MapScroll"))
+		var raw_scroll: Node = instance.get_node_or_null(NodePath("Layout/MapSheet/MapStack/MapScroll"))
 		if raw_scroll is ScrollContainer:
 			var scroller: ScrollContainer = raw_scroll
 			print("    ⚠ スクロール位置 = %d / 中身の高さ %d（⚠ 入口は一番下なので 0 でないのが正解）" % [

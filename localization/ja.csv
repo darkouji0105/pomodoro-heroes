@@ -1019,3 +1019,4 @@ ui_relic_list_open,レリックを見る
 ui_common_suspend_to_base,拠点へ（中断）
 ui_dungeon_abandon_confirm,その場で降りますか？ 鞄の中身とコインがなくなります（装備・レベル・研究はなくなりません）
 ui_floor_abandon_confirm,フロアを降りますか？ たいまつ・レリック・鞄の中身がなくなります
+ui_map_legend,しるし

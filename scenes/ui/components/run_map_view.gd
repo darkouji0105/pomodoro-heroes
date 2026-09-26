@@ -27,6 +27,8 @@ const NODE_STATE: String = "state"
 const NODE_HIDDEN: String = "hidden"
 ## ⚠ ボスか（⚠ 札を一回り大きくする＝モック v2 §3）。
 const NODE_BOSS: String = "boss"
+## ⚠ マスの絵（`Texture2D`・無くてよい）。⚠ `round_nodes` のときだけ使う（⚠ 字の代わりに絵）。
+const NODE_ICON: String = "icon"
 
 # マスの状態（NODE_STATE の値）。
 const STATE_CURRENT: String = "current"
@@ -126,6 +128,19 @@ var _current_id: String = ""
 # {layer: 行の Control}。⚠ 霧（見えていない層）の高さを決めるのに使う。
 # ⚠ 2026-09-20 まで区画の切れ目の高さにも使っていた（⚠ 切れ目は人間の指示で消した）。
 var _rows: Dictionary = {}
+# 通ったマス {node_id: true}（⚠ 通った道を赤くするため）。
+var _walked: Dictionary = {}
+
+## ⚠⚠ マスを**アイコンだけの丸**にするか（2026-09-26・人間の参考画像「地図らしく」）。
+##   ⚠ 字（`NODE_TEXT`）は触れると出る札へ回す。⚠ 通ったマスは赤いチェック、今いるマスは点線の輪。
+##   ⚠ 列の幅（`NODE_WIDTH`）は変えない（⚠ 丸を列の真ん中に置く＝線の並びが崩れない）。
+var round_nodes: bool = false
+
+## ⚠ 地図の下に自分で紙を敷くか。⚠ 外に `TornPaperPanel` を敷く画面は false（⚠ 紙が2枚重なる）。
+var draw_sheet: bool = true:
+	set(value):
+		draw_sheet = value
+		queue_redraw()
 
 ## 紙を上下にもはみ出させるか。⚠ スクロールの無い画面（シナリオ）は false
 ##   （⚠ 2026-09-26：⚠ 上下 24px が**フッターの HP に重なった**）。⚠ 左右はいつもはみ出す。
@@ -210,6 +225,12 @@ func set_map(nodes: Array, edges: Array, layer_captions: Dictionary = {}) -> voi
 	for entry: Variant in nodes:
 		if entry is Dictionary:
 			by_id[str((entry as Dictionary).get(NODE_ID, ""))] = entry
+	# ⚠ 通ったマス（⚠ 通った・今いる）。⚠ 両端がここにある道は「通った道」＝赤い線（⚠ 参考画像）。
+	_walked.clear()
+	for raw_id: Variant in by_id:
+		var walked_state: String = str((by_id[raw_id] as Dictionary).get(NODE_STATE, ""))
+		if walked_state == STATE_VISITED or walked_state == STATE_CURRENT:
+			_walked[str(raw_id)] = true
 	var node_ids: Array = by_id.keys()
 	node_ids.sort()
 	var by_layer: Dictionary = {}
@@ -274,7 +295,16 @@ func set_map(nodes: Array, edges: Array, layer_captions: Dictionary = {}) -> voi
 			var node_id: String = str(column_of[c])
 			var node_button: Button = _make_node_button(node_id, by_id[node_id])
 			_node_buttons[node_id] = node_button
-			row.add_child(node_button)
+			if round_nodes:
+				# ⚠ 丸は列の幅より細いので、⚠ 列の幅の器の真ん中に置く（⚠ 列を揃えたまま）。
+				var holder: CenterContainer = CenterContainer.new()
+				holder.name = "Cell_" + node_id
+				holder.custom_minimum_size = Vector2(NODE_WIDTH, 0.0)
+				holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				holder.add_child(node_button)
+				row.add_child(holder)
+			else:
+				row.add_child(node_button)
 		line.add_child(row)
 		# ⚠⚠ 行の中の並べ替えは外側より後に来ることがある（⚠ 行を1段入れ子にしたため）。
 		#   ⚠ 中の並べ替えでも引き直す（⚠ まとめて1回にする＝_request_redraw）。
@@ -318,6 +348,44 @@ func _make_node_button(node_id: String, node: Dictionary) -> Button:
 			pin_color = get_theme_color(&"pin_reachable", THEME_TYPE)
 		_:
 			button.theme_type_variation = VARIATION_HIDDEN if hidden else VARIATION_FAR
+	if round_nodes:
+		_make_round(button, node, state, hidden)
+	else:
+		_make_plate(button, node, hidden, pin_color)
+	var reachable: bool = state == STATE_REACHABLE
+	button.disabled = not reachable
+	if reachable:
+		button.pressed.connect(func() -> void: node_pressed.emit(node_id))
+	return button
+
+
+# ⚠⚠ アイコンだけの丸（2026-09-26・`round_nodes`）。⚠ 字は触れると出る札へ（⚠ ▶ ✓ も付けない＝印で描く）。
+#   ⚠ 見えないマスは「?」だけ。⚠ 大きさは Theme（`node_size` / `node_size_boss`）。
+func _make_round(button: Button, node: Dictionary, state: String, hidden: bool) -> void:
+	button.tooltip_text = str(node.get(NODE_TEXT, ""))
+	var icon: Texture2D = null if hidden else node.get(NODE_ICON, null) as Texture2D
+	if icon != null:
+		button.text = ""
+		button.icon = icon
+		button.expand_icon = true
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	else:
+		button.text = "?" if hidden else str(node.get(NODE_TEXT, ""))
+	var side: float = float(get_theme_constant(
+		&"node_size_boss" if bool(node.get(NODE_BOSS, false)) else &"node_size", THEME_TYPE
+	))
+	button.custom_minimum_size = Vector2(side, side)
+	if state == STATE_VISITED or state == STATE_CURRENT:
+		var mark: NodeMark = NodeMark.new()
+		mark.name = "Mark"
+		mark.ring = state == STATE_CURRENT
+		mark.color = get_theme_color(&"mark", THEME_TYPE)
+		mark.width = float(get_theme_constant(&"mark_width", THEME_TYPE))
+		button.add_child(mark)
+
+
+# 字の札（⚠ `round_nodes` でないとき＝前からの形）。
+func _make_plate(button: Button, node: Dictionary, hidden: bool, pin_color: Color) -> void:
 	# ⚠ 幅を揃える。⚠ 揃えないと文字の長さで列がずれる（⚠ 「戦闘」と「レリック」）。
 	button.custom_minimum_size = Vector2(NODE_WIDTH, 0.0)
 	if bool(node.get(NODE_BOSS, false)):
@@ -325,11 +393,6 @@ func _make_node_button(node_id: String, node: Dictionary) -> Button:
 	# ⚠ 見えないマスには鋲を打たない（⚠ 進める先でも、⚠ 見えていなければ静か）。
 	if not hidden:
 		_add_pins(button, pin_color)
-	var reachable: bool = state == STATE_REACHABLE
-	button.disabled = not reachable
-	if reachable:
-		button.pressed.connect(func() -> void: node_pressed.emit(node_id))
-	return button
 
 
 # 札の四隅の鋲。⚠ 押下を食べない（⚠ IGNORE）。⚠ 札の大きさが変わっても隅に付く（⚠ 全面に張る）。
@@ -342,6 +405,34 @@ func _add_pins(button: Button, color: Color) -> void:
 	pins.name = "Pins"
 	pins.pin_color = color
 	button.add_child(pins)
+
+
+# 丸いマスの印（2026-09-26）。⚠ 通った＝右上に赤いチェック ／ ⚠ 今いる＝外側に点線の輪。
+#   ⚠ `NodePins` と同じく内側のクラス（⚠ 無名関数で描かない＝「Lambda capture ... was freed」を踏まない）。
+class NodeMark extends Control:
+	var ring: bool = false
+	var color: Color = Color.WHITE
+	var width: float = 2.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	func _draw() -> void:
+		var center: Vector2 = size * 0.5
+		if ring:
+			# ⚠ 点線の輪（⚠ 12 片）。⚠ 丸より一回り外。
+			var radius: float = size.x * 0.5 + width * 3.0
+			var pieces: int = 12
+			for i: int in range(pieces):
+				var from: float = TAU * float(i) / float(pieces)
+				draw_arc(center, radius, from, from + TAU / float(pieces) * 0.55, 6, color, width)
+			return
+		# ⚠ チェック（✓）。⚠ 丸の右上に大きめに重ねる（⚠ 参考画像）。
+		var s: float = size.x
+		draw_polyline(PackedVector2Array([
+			Vector2(s * 0.30, s * 0.52), Vector2(s * 0.48, s * 0.70), Vector2(s * 0.95, s * 0.12),
+		]), color, width * 1.5)
 
 
 # 札の四隅の鋲を描くだけの器。⚠ 値（大きさ・位置）は外側の const。
@@ -425,11 +516,15 @@ func _redraw_edges() -> void:
 			DungeonEdgeLines.LINE_TO: _edge_anchor(
 				to_button, false, in_slot, int(incoming_total.get(to_id, 1))
 			),
-			DungeonEdgeLines.LINE_COLOR: _tone_color(str(edge.get(EDGE_TONE, TONE_PLAIN))),
+			DungeonEdgeLines.LINE_COLOR: (
+				get_theme_color(&"edge_walked", THEME_TYPE) if (_walked.has(from_id) and _walked.has(to_id))
+				else _tone_color(str(edge.get(EDGE_TONE, TONE_PLAIN)))
+			),
 			DungeonEdgeLines.LINE_STYLE: _tone_style(str(edge.get(EDGE_TONE, TONE_PLAIN))),
 			DungeonEdgeLines.LINE_BADGE_BORDER: _tone_badge(str(edge.get(EDGE_TONE, TONE_PLAIN))),
 			DungeonEdgeLines.LINE_WIDTH: (
-				EDGE_WIDTH_CURRENT if from_id == _current_id else EDGE_WIDTH
+				EDGE_WIDTH_CURRENT if (from_id == _current_id or (_walked.has(from_id) and _walked.has(to_id)))
+				else EDGE_WIDTH
 			),
 			DungeonEdgeLines.LINE_LABEL: str(edge.get(EDGE_LABEL, "")),
 		})
@@ -440,6 +535,8 @@ func _redraw_edges() -> void:
 
 # ⚠ 地図の下に紙を敷く（⚠ 地図の矩形より `sheet_pad` だけ広く）。⚠ 面は `PaperPanel` と同じ（⚠ 影つき）。
 func _draw() -> void:
+	if not draw_sheet:
+		return
 	var pad: float = float(get_theme_constant(&"sheet_pad", THEME_TYPE))
 	var pad_v: float = pad if sheet_bleed_vertical else 0.0
 	draw_style_box(

@@ -46,9 +46,9 @@ const HIDDEN_TEXT: String = "？"
 @onready var dungeon_name_label: Label = $Layout/Header/DungeonNameLabel
 @onready var floor_label: Label = $Layout/Header/FloorLabel
 # たいまつの等級（2026-09-19・モック v2 でフロアの行から分けた）。
-@onready var torch_label: Label = $Layout/Header/TorchLabel
+@onready var torch_label: Label = $Layout/Header/RunChip/ChipRow/TorchLabel
 # ⚠ 遺物片は絵つき（2026-09-20・人間の指示「⚠ 遺物片にあいこんを　⚠ リソースと同じで」）。
-@onready var currency_value: ResourceDisplay = $Layout/Header/CurrencyValue
+@onready var currency_value: ResourceDisplay = $Layout/Header/RunChip/ChipRow/CurrencyValue
 @onready var bag_label: Label = $Layout/Header/BagLabel
 # ⚠⚠ 持っているレリック（決定46・2026-09-19・モック v2 §12）。⚠ ヘッダの右端に小さなマス目。
 #   ⚠ 1人用は付けた人の印（`ItemSlot` の装備中の印）。⚠ 効果はホバーの詳細。
@@ -57,18 +57,18 @@ const HIDDEN_TEXT: String = "？"
 # ⚠ 2026-09-26：3人の HP はフッターへ（⚠ 人間「⚠ フッターにHPなどを」）。
 @onready var party_list: RunPartyStrip = $Layout/Footer/PartyList
 @onready var message_label: Label = $Layout/MessageLabel
-@onready var map_scroll: ScrollContainer = $Layout/MapScroll
+@onready var map_scroll: ScrollContainer = $Layout/MapSheet/MapStack/MapScroll
 # 層の並び・マス・通路の線（2026-09-19 に RunMapView へ切り出した）。⚠ シナリオと同じ部品。
 #   ⚠ 真ん中に置く（決定37・2026-09-19）。⚠ `MapCenter`（CenterContainer）が寄せる。
-@onready var map_view: RunMapView = $Layout/MapScroll/MapCenter/MapArea
+@onready var map_view: RunMapView = $Layout/MapSheet/MapStack/MapScroll/MapCenter/MapArea
 # 鞄はマス目（段階18-d）。⚠ 部品は倉庫と同じ。⚠ 引く先だけ別（器が別＝台帳 §7）。
 # ボスの先のショップ（段階17-e）。⚠ 出るかどうかは GameManager に聞く。
 @onready var shop_list: HBoxContainer = $Layout/ShopList
 # 通路の宝箱の案内（段階19-c-2）。⚠ 開けずに戻ってきたときに出る。
 @onready var corridor_chest_list: VBoxContainer = $Layout/CorridorChestList
 # ⚠ 鞄は下の帯（2026-09-19・モック v2）。⚠ 左に「鞄 n/m」。
-@onready var bag_grid: ItemGrid = $Layout/BagRow/BagGrid
-@onready var bag_count_label: Label = $Layout/BagRow/BagCaption/BagCountLabel
+@onready var bag_grid: ItemGrid = $Layout/Footer/BagGrid
+@onready var bag_count_label: Label = $Layout/Footer/BagCaption/BagCountLabel
 @onready var bag_detail: ItemDetail = $Layout/BagDetail
 @onready var descend_button: UiButton = $Layout/Footer/DescendButton
 @onready var retreat_button: UiButton = $Layout/Footer/RetreatButton
@@ -105,6 +105,10 @@ func _ready() -> void:
 	retreat_button.pressed.connect(_on_retreat_pressed)
 	# ⚠⚠ 2026-09-26（人間「⚠ その場で降りるボタンは消す　⚠ メニューからいけるようにする右上の」）：
 	#   ⚠ 「戻る」と「その場で降りる」は右上のメニューへ。⚠ レリックをまとめて見る窓もここから。
+	# ⚠ 09-26（人間の参考画像「地図らしく」）：⚠ マスはアイコンだけの丸（⚠ シナリオも同じ）。
+	map_view.round_nodes = true
+	# ⚠ 紙は外（`MapSheet`＝縁がちぎれた横いっぱいの紙）が敷く。⚠ 地図が自分で敷くと2枚重なる。
+	map_view.draw_sheet = false
 	var menu: RunMenuButton = RunMenuButton.new()
 	$Layout/Header.add_child(menu)
 	var _back_item: UiButton = menu.add_item(tr("ui_common_suspend_to_base"), _on_back_pressed)
@@ -124,6 +128,7 @@ func _ready() -> void:
 		_detail_popup.watch(bag_grid)
 		_detail_popup.watch(relic_grid)
 	_rebuild()
+	_build_map_overlays()
 
 	# ⚠⚠ 戦闘から戻ったときの持ち物（決定31・決定36）。⚠ マップを組んでから重ねる。
 	#   ⚠ 通路の宝箱が先（⚠ 「通路を歩いてから部屋に着く」の順）。
@@ -206,7 +211,6 @@ func _rebuild_relics() -> void:
 	relic_grid.rebuild(entries, entries.size())
 	# ⚠ 1つも無いときは区切りごと出さない（⚠ 空の欄を見せない）。
 	relic_grid.visible = not entries.is_empty()
-	$Layout/Header/RelicSep.visible = relic_grid.visible
 
 
 # メッセージの行（2026-09-19・モック v2）。⚠ 良い知らせは緑・弾かれたら赤・ほかは素。
@@ -338,6 +342,7 @@ func _rebuild_layers() -> void:
 			RunMapView.NODE_ID: node_id,
 			RunMapView.NODE_LAYER: int(node.get(GameStateKeys.DUNGEON_NODE_LAYER, 1)),
 			RunMapView.NODE_TEXT: _node_text(node_id, node),
+			RunMapView.NODE_ICON: IconTextures.for_run_node(str(node.get(GameStateKeys.DUNGEON_NODE_KIND, ""))),
 			RunMapView.NODE_STATE: state,
 			RunMapView.NODE_HIDDEN: not GameManager.is_dungeon_node_revealed(node_id),
 			RunMapView.NODE_BOSS: str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BOSS,
@@ -904,6 +909,35 @@ func _on_abandon_pressed() -> void:
 # 拠点へ。⚠ ランは終わらない（状態に残るので続きから再開できる）。
 func _on_back_pressed() -> void:
 	SceneManager.change_scene(BASE_PATH)
+
+
+# ⚠⚠ 地図の上に重ねる題の札と凡例（2026-09-26・人間の参考画像）。⚠ スクロールしない（⚠ 紙に貼ってある）。
+#   ⚠ 札の字はヘッダーと同じ（⚠ 新しい文言を作らない）。⚠ 凡例はマスの種類ごとの絵と名前。
+func _build_map_overlays() -> void:
+	var stack: Control = $Layout/MapSheet/MapStack
+	var plaque: PaperSheet = MapLegend.make_plaque(dungeon_name_label.text, floor_label.text)
+	stack.add_child(plaque)
+	plaque.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE)
+	plaque.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	# ⚠ 札が一番上のマスに重ならないよう、⚠ スクロールの器を札の高さぶん下げる（⚠ 1回目の絵で重なった）。
+	map_scroll.offset_top = plaque.get_combined_minimum_size().y + float(
+		map_view.get_theme_constant(&"sheet_pad", RunMapView.THEME_TYPE)
+	)
+	var entries: Array[Dictionary] = []
+	for kind: String in [
+		GameStateKeys.DUNGEON_NODE_KIND_BATTLE, GameStateKeys.DUNGEON_NODE_KIND_RELIC,
+		GameStateKeys.DUNGEON_NODE_KIND_REST, GameStateKeys.DUNGEON_NODE_KIND_CHEST,
+		GameStateKeys.DUNGEON_NODE_KIND_BOSS,
+	]:
+		entries.append({
+			MapLegend.ENTRY_ICON: IconTextures.for_run_node(kind),
+			MapLegend.ENTRY_TEXT: tr("ui_dungeon_node_" + kind),
+		})
+	var legend: MapLegend = MapLegend.new()
+	legend.set_entries(tr("ui_map_legend"), entries)
+	stack.add_child(legend)
+	legend.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
+	legend.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 
 
 # 持っているレリックをまとめて見る窓（⚠ ヘッダーのレリック・メニューの両方から）。

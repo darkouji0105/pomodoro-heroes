@@ -176,6 +176,24 @@ static func for_screen(screen_id: String) -> Texture2D:
 	return _load(str(SCREEN_NAMES.get(screen_id, "")))
 
 
+# ⚠⚠ ランの地図のマスの絵（2026-09-26・人間の参考画像「地図らしく」＝アイコンだけの丸いマス）。
+#
+# ⚠ マス専用の絵はまだ無い（⚠ 手本の剣・星・焚き火は素材待ち）。⚠ **既にある線画を仮に割り当てる**。
+# ⚠ 種類はシナリオと難ダンジョンで同じ綴り（`FLOOR_NODE_KIND_*` / `DUNGEON_NODE_KIND_*`）。⚠ 無ければ null＝字で出す。
+const RUN_NODE_NAMES: Dictionary = {
+	"battle": NAME_ITEM_WEAPON,
+	"relic": NAME_ITEM_RELIC,
+	"rest": "rune_heal",
+	"chest": NAME_ITEM_CHEST,
+	"shop": "nav_shop",
+	"boss": NAME_ITEM_EMBLEM,
+}
+
+
+static func for_run_node(kind: String) -> Texture2D:
+	return _load(str(RUN_NODE_NAMES.get(kind, "")))
+
+
 # ⚠⚠ スキルの絵（2026-09-11・人間の指示「⚠ スキルのアイコンを作って SVG で」）。
 #
 # ⚠ **表を持たない。⚠ ファイル名がスキルのIDそのもの**（⚠ `icon_skill_power_slash.svg`）。

@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://scenes/ui/components/run_map_view.gd" id="4_map_view"]
 [ext_resource type="Script" path="res://scenes/ui/components/item_grid.gd" id="5_item_grid"]
 [ext_resource type="Script" path="res://scenes/ui/components/run_party_strip.gd" id="6_party"]
+[ext_resource type="Script" path="res://scenes/ui/components/torn_paper_panel.gd" id="7_torn"]
 
 [node name="FloorMap" type="Control"]
 layout_mode = 3
@@ -56,6 +57,7 @@ size_flags_horizontal = 3
 
 [node name="FloorNameLabel" type="Label" parent="Layout/Header"]
 layout_mode = 2
+theme_type_variation = &"HeaderTitleLabel"
 text = "ui_floor_1"
 
 [node name="Spacer" type="Control" parent="Layout/Header"]
@@ -74,23 +76,35 @@ script = ExtResource("5_item_grid")
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2
 
-[node name="MapView" type="Control" parent="Layout"]
+[node name="MapSheet" type="PanelContainer" parent="Layout"]
 layout_mode = 2
-size_flags_horizontal = 4
 size_flags_vertical = 3
+script = ExtResource("7_torn")
+
+[node name="MapStack" type="Control" parent="Layout/MapSheet"]
+layout_mode = 2
+clip_contents = true
+
+[node name="MapView" type="Control" parent="Layout/MapSheet/MapStack"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("4_map_view")
 
 [node name="Footer" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
-
-[node name="PartyList" type="HBoxContainer" parent="Layout/Footer"]
-layout_mode = 2
-script = ExtResource("6_party")
+theme_type_variation = &"WideRow"
 
 [node name="FooterSpacer" type="Control" parent="Layout/Footer"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="HintLabel" type="Label" parent="Layout/Footer"]
+[node name="PartyList" type="HBoxContainer" parent="Layout/Footer"]
 layout_mode = 2
-text = "ui_floor_depth_hint"
+size_flags_vertical = 4
+script = ExtResource("6_party")

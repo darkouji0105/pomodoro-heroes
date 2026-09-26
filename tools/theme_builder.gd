@@ -1501,10 +1501,19 @@ const MAP_INK_COLORS: Dictionary = {
 	"badge_trap": TOKEN_WAX, "badge_gain": TOKEN_BRASS_INK, "badge_plain": TOKEN_RULE, "badge_bg": TOKEN_PAPER_SELECTED,
 	# ⚠ たいまつが届かない層を覆う暗さ。⚠ 紙の上なので黒ではなく焦げ茶（⚠ 前は 060408・60% / 88%）。
 	"fog": "3a2c22",
+	# ⚠ 09-26：通った道・通ったマスのチェック・今いるマスの点線の輪（⚠ 参考画像の赤）。
+	"edge_walked": TOKEN_WAX,
+	"mark": TOKEN_WAX,
 }
-const MAP_FOG_EDGE_PCT: int = 35
-const MAP_FOG_TOP_PCT: int = 60
+# ⚠ 09-26（人間の参考画像）：⚠ 暗い霧は無く、⚠ 見えていない所は薄く（⚠ 前 35 / 60）。
+# ⚠ 09-26（2回目）：⚠ 紙が横いっぱいになったら霧の四角が浮いた＝⚠ **霧は描かない**（⚠ しくみは残す。見えていないマスは「?」）。
+const MAP_FOG_EDGE_PCT: int = 0
+const MAP_FOG_TOP_PCT: int = 0
 const MAP_SHEET_PAD: int = 24                 # ⚠ 地図の矩形から紙の縁まで
+const MAP_NODE_SIZE: int = 40                 # ⚠ 丸いマスの直径（09-26）
+const MAP_NODE_SIZE_BOSS: int = 54
+const MAP_NODE_ICON: int = 22                 # ⚠ 丸の中の絵の最大幅
+const MAP_MARK_WIDTH: int = 2
 
 
 static func _build_run_map_view(theme: Theme) -> void:
@@ -1529,6 +1538,9 @@ static func _build_run_map_view(theme: Theme) -> void:
 	theme.set_constant(&"fog_edge_pct", t, MAP_FOG_EDGE_PCT)
 	theme.set_constant(&"fog_top_pct", t, MAP_FOG_TOP_PCT)
 	theme.set_constant(&"sheet_pad", t, MAP_SHEET_PAD)
+	theme.set_constant(&"node_size", t, MAP_NODE_SIZE)
+	theme.set_constant(&"node_size_boss", t, MAP_NODE_SIZE_BOSS)
+	theme.set_constant(&"mark_width", t, MAP_MARK_WIDTH)
 
 
 # --- ランのマップのマス（2026-09-19・難ダンジョンのモック v2「真鍮の札」）---
@@ -1537,8 +1549,9 @@ static func _build_run_map_view(theme: Theme) -> void:
 #   ⚠ 使うのは `RunMapView` のマスだけ（⚠ 素の Button に variation を当てる）。
 # ⚠ 札の形は八角（⚠ 角を斜めに切る＝`corner_detail = 1`）。⚠ 状態ごとに枠と地と字の色が違う。
 # ⚠ 押せるのは「進める先」だけ。⚠ ほかの状態は無効（disabled）で出るので、⚠ 無効の箱にその状態の見た目を入れる。
-const MAP_NODE_CORNER: int = 18   # ⚠ 回UI-4：丸みの強い札（⚠ 前は 9 の面取り）
-const MAP_NODE_PAD_H: float = 13.0
+const MAP_NODE_CORNER: int = 30   # ⚠ 回UI-4：丸みの強い札 ／ ⚠ 09-26 参考画像：丸いマス（⚠ 大きさの半分以上＝丸になる。前 18）
+# ⚠ 09-26：丸いマスの中の絵が小さく潰れたので余白を詰めた（⚠ 前 13 / 8）。
+const MAP_NODE_PAD_H: float = 8.0
 const MAP_NODE_PAD_V: float = 8.0
 const MAP_NODE_FONT_SIZE: int = 13
 const MAP_NODE_BORDER: int = 2
@@ -1578,6 +1591,10 @@ static func _build_map_nodes(theme: Theme) -> void:
 		var font: Color = _html(str(level["font"]))
 		for key: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
 			theme.set_color(StringName(key), StringName(type_name), font)
+		# ⚠ 09-26：⚠ 丸いマスの絵も字と同じ色（⚠ 線画は白1色なので Theme で着せる）。
+		for key: String in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color", "icon_disabled_color"]:
+			theme.set_color(StringName(key), StringName(type_name), font)
+		theme.set_constant(&"icon_max_width", StringName(type_name), MAP_NODE_ICON)
 		theme.set_font_size(&"font_size", StringName(type_name), MAP_NODE_FONT_SIZE)
 
 	# ⚠ 押したマスの近くに出す「できること」の吹き出し（2026-09-19・モック v2 `.pop`）。
@@ -1684,6 +1701,11 @@ const FACILITY_BAR_HEIGHT: int = 76     # ⚠ 手本 `facility_bar`
 const RELIC_LIST_WIDTH: int = 960       # ⚠ カード3枚が横に並ぶ幅
 const RELIC_LIST_COLUMNS: int = 3
 const RELIC_LIST_GAP: int = 24
+const TORN_PAD_H: int = 28
+const TORN_PAD_V: int = 20
+const TORN_STEP: int = 18                # ⚠ ちぎれ目の細かさ（⚠ 何 px ごとに凹ませるか）
+const TORN_DEPTH: int = 6                # ⚠ ちぎれ目の深さ
+const MAP_LEGEND_ICON: int = 16
 const HEADER_TITLE_SIZE: int = 22
 const HEADER_DIAMOND: int = 4           # ⚠ 題の左右の◆の半径
 const HEADER_DIAMOND_GAP: int = 10      # ⚠ 題の端から◆の中心まで
@@ -1822,6 +1844,23 @@ static func _build_paper_parts(theme: Theme) -> void:
 	theme.set_color(&"diamond", &"ScreenHeader", _html(TOKEN_LIGHT))
 	theme.set_constant(&"diamond", &"ScreenHeader", HEADER_DIAMOND)
 	theme.set_constant(&"diamond_gap", &"ScreenHeader", HEADER_DIAMOND_GAP)
+
+	# ⚠ 縁がちぎれた羊皮紙（09-26・人間の参考画像・`TornPaperPanel`）。⚠ 面は自分で描くので StyleBox は余白だけ。
+	var torn: StyleBoxEmpty = StyleBoxEmpty.new()
+	torn.content_margin_left = TORN_PAD_H
+	torn.content_margin_right = TORN_PAD_H
+	torn.content_margin_top = TORN_PAD_V
+	torn.content_margin_bottom = TORN_PAD_V
+	theme.set_type_variation(&"TornPaperPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"TornPaperPanel", torn)
+	theme.set_constant(&"tear_step", &"TornPaper", TORN_STEP)
+	theme.set_constant(&"tear_depth", &"TornPaper", TORN_DEPTH)
+	theme.set_constant(&"shadow_offset", &"TornPaper", PAPER_SHADOW_OFFSET)
+	theme.set_color(&"shadow", &"TornPaper", Color(0, 0, 0, 0.45))
+	theme.set_color(&"burn", &"TornPaper", Color(_html(TOKEN_INK_SUB), 0.35))
+	# ⚠ 地図の凡例「しるし」（`MapLegend`）。
+	theme.set_constant(&"icon", &"MapLegend", MAP_LEGEND_ICON)
+	theme.set_color(&"icon", &"MapLegend", _html(TOKEN_INK))
 
 	# ランの右上のメニューの板（回UI-4・`RunMenuButton`）。⚠ 板の面・影つき（⚠ 装飾の吹き出しと同じ作り）。
 	var menu: StyleBoxFlat = StyleBoxFlat.new()
