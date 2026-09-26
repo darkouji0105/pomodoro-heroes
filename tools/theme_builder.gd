@@ -747,6 +747,8 @@ static func build() -> void:
 	_build_map_nodes(theme)
 	_build_run_hp_bar(theme)
 	_build_run_map_view(theme)
+	_build_paper_parts(theme)
+	_build_body_font(theme)
 	_build_heading_font(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
@@ -1557,6 +1559,31 @@ static func _map_node_style(spec: Dictionary) -> StyleBoxFlat:
 	return style
 
 
+# --- ⚠⚠ 本文の太さ（2026-09-26・回UI-2 で見つけた）---
+#
+# ⚠⚠ `NotoSansJP-VariableFont_wght.ttf` は**既定の太さが 100（Thin）**（⚠ `fvar` の既定値を読んだ）。
+#   ⚠ 素のまま `default_font` にしていたので、⚠ **ゲームの字はずっと一番細い太さで出ていた**。
+#   ⚠ 手本の本文は 400〜500（`ui_tokens.json` `fonts.body`）。⚠ 包み（`FontVariation`）で 400 を指定する。
+const BODY_FONT_PATH: String = "res://assets/fonts/NotoSansJP-VariableFont_wght.ttf"
+const BODY_FONT_WEIGHT: int = 400
+
+
+static func _build_body_font(theme: Theme) -> void:
+	var file: Font = load(BODY_FONT_PATH) as Font
+	if file == null:
+		push_warning("[BuildTheme] 本文のフォントを読めない: " + BODY_FONT_PATH)
+		return
+	# ⚠ 既に包んであっても中身は同じファイル。⚠ 毎回作り直す（⚠ 包みの二重包みを作らない）。
+	var fallbacks: Array[Font] = []
+	if theme.default_font != null:
+		fallbacks = theme.default_font.fallbacks
+	var body: FontVariation = FontVariation.new()
+	body.base_font = file
+	body.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): BODY_FONT_WEIGHT}
+	body.fallbacks = fallbacks
+	theme.default_font = body
+
+
 # --- ⚠⚠ 見出しの明朝（2026-09-26・決定 `UI-12`）---
 #
 # ⚠ Shippori Mincho B1 の **ExtraBold 1本だけ**（⚠ 手本は 700〜800。⚠ 1本 15MB なので Bold は入れない）。
@@ -1566,7 +1593,160 @@ static func _map_node_style(spec: Dictionary) -> StyleBoxFlat:
 const HEADING_FONT_PATH: String = "res://assets/fonts/ShipporiMinchoB1-ExtraBold.ttf"
 const HEADING_FONT_TYPES: Array[String] = [
 	"HeadingLabel", "WindowTitleLabel", "ResultHeadingLabel", "ResultDefeatHeadingLabel",
+	# ⚠ 回UI-2：判の字も明朝（⚠ 手本の判は明朝）。
+	"Stamp",
 ]
+const SHEET_HEADING_SPACING: int = 3
+
+
+# --- ⚠⚠ 紙の部品（2026-09-26・回UI-2）---
+#
+# ⚠ 絵（画像）を使わず、⚠ 面と線だけで作る（⚠ 質感の画像は素材待ち）。
+# ⚠ 部品は値を持たない。⚠ 色・寸法はここから `get_theme_*` で引く（`UI-8` と同じ置き方）。
+const PAPER_CORNER_SIZE: int = 16       # ⚠ 手本 `corner_ornament`
+const PAPER_CORNER_WIDTH: int = 2
+const PAPER_CORNER_INSET: int = 8       # ⚠ 紙の縁から角飾りまで
+const SHEET_HEADING_SIZE: int = 20
+const SHEET_HEADING_RULE: int = 2       # ⚠ 太い下線
+const SHEET_HEADING_GAP: int = 6        # ⚠ 字と下線の間
+const SHEET_ORNAMENT_DIAMOND: int = 5   # ⚠ 菱形の半径
+const PAPER_TAB_PAD_H: int = 22
+const PAPER_TAB_PAD_V_OPEN: int = 13    # ⚠ 字14 の行 約20 ＋ 13 × 2 ＝ 手本の 46
+const PAPER_TAB_PAD_V_CLOSED: int = 9   # ⚠ 同 ＝ 手本の 38
+const PAPER_TAB_CORNER: int = 6
+const PAPER_TAB_GAP: int = 4
+const LEDGER_ROW_PAD_V: int = 10
+const LEDGER_SELECTED_LINE: int = 3     # ⚠ 選んでいる行の左の線
+const LEDGER_DASH: int = 3              # ⚠ 点線の罫の1片と間
+const LEDGER_DISABLED_ALPHA_PCT: int = 45
+const STAMP_FONT_SIZE: int = 16
+const STAMP_BORDER: int = 2
+const STAMP_PAD_H: int = 10
+const STAMP_PAD_V: int = 4
+const STAMP_TILT_DEG: int = -8
+const FACILITY_BAR_HEIGHT: int = 76     # ⚠ 手本 `facility_bar`
+const FACILITY_ACTIVE_LINE: int = 3
+const FACILITY_RIBBON_W: int = 12
+const FACILITY_RIBBON_H: int = 24
+const FACILITY_RIBBON_INSET: int = 18
+const FACILITY_BAR_RULE: String = "3a2c22"
+const FACILITY_HOVER_BG: String = "2f241c"
+const FACILITY_ACTIVE_BG: String = "2c2119"
+
+
+static func _build_paper_parts(theme: Theme) -> void:
+	# 紙の角飾り（`PaperSheet` が `_draw()` で引く）。
+	theme.set_color(&"corner", &"PaperPanel", _html(TOKEN_BRASS_INK))
+	theme.set_constant(&"corner_size", &"PaperPanel", PAPER_CORNER_SIZE)
+	theme.set_constant(&"corner_width", &"PaperPanel", PAPER_CORNER_WIDTH)
+	theme.set_constant(&"corner_inset", &"PaperPanel", PAPER_CORNER_INSET)
+
+	# 紙の見出し（明朝・太い下線・菱形の飾り罫）。⚠ 字の色は紙のテーマ側（`PAPER_LABEL_COLORS`）。
+	theme.set_type_variation(&"SheetHeadingLabel", &"Label")
+	theme.set_font_size(&"font_size", &"SheetHeadingLabel", SHEET_HEADING_SIZE)
+	theme.set_type_variation(&"SheetHeading", &"VBoxContainer")
+	theme.set_constant(&"separation", &"SheetHeading", 0)
+	theme.set_color(&"rule", &"SheetHeading", _html(TOKEN_INK))
+	theme.set_color(&"ornament", &"SheetHeading", _html(TOKEN_BRASS_INK))
+	theme.set_constant(&"rule_width", &"SheetHeading", SHEET_HEADING_RULE)
+	theme.set_constant(&"gap", &"SheetHeading", SHEET_HEADING_GAP)
+	theme.set_constant(&"diamond", &"SheetHeading", SHEET_ORNAMENT_DIAMOND)
+
+	# 紙のタブ（⚠ 暗い地の上に出るので、⚠ 字の色はここで持つ）。
+	for spec: Dictionary in [
+		{"name": "PaperTabOpen", "bg": TOKEN_PAPER, "font": TOKEN_INK, "pad": PAPER_TAB_PAD_V_OPEN},
+		{"name": "PaperTabClosed", "bg": TOKEN_RULE, "font": TOKEN_INK_SUB, "pad": PAPER_TAB_PAD_V_CLOSED},
+	]:
+		var type_name: StringName = StringName(str(spec["name"]))
+		theme.set_type_variation(type_name, &"Button")
+		for state: String in BUTTON_STATES:
+			var tab: StyleBoxFlat = StyleBoxFlat.new()
+			tab.bg_color = Color(0, 0, 0, 0) if state == "focus" else _html(str(spec["bg"]))
+			if state == "hover" and spec["name"] == "PaperTabClosed":
+				tab.bg_color = _html(TOKEN_PAPER)
+			if state == "focus":
+				tab.set_border_width_all(FOCUS_BORDER_WIDTH)
+				tab.border_color = _html(TOKEN_LIGHT)
+			tab.corner_radius_top_left = PAPER_TAB_CORNER
+			tab.corner_radius_top_right = PAPER_TAB_CORNER
+			tab.content_margin_left = PAPER_TAB_PAD_H
+			tab.content_margin_right = PAPER_TAB_PAD_H
+			tab.content_margin_top = int(spec["pad"])
+			tab.content_margin_bottom = int(spec["pad"])
+			theme.set_stylebox(StringName(state), type_name, tab)
+		for color_name: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			theme.set_color(StringName(color_name), type_name, _html(str(spec["font"])))
+		theme.set_font_size(&"font_size", type_name, BUTTON_FONT_SIZE)
+
+	# ⚠ タブの並び（⚠ タブどうしの間）と、⚠ 「タブ → 紙」を隙間なく重ねる縦の器。
+	theme.set_type_variation(&"PaperTabRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"PaperTabRow", PAPER_TAB_GAP)
+	theme.set_type_variation(&"PaperTabStack", &"VBoxContainer")
+	theme.set_constant(&"separation", &"PaperTabStack", 0)
+
+	# 台帳の行（⚠ 暗い箱で囲まない。⚠ 区切りは点線の罫）。
+	var row: StyleBoxFlat = StyleBoxFlat.new()
+	row.bg_color = Color(0, 0, 0, 0)
+	row.content_margin_left = ROW_PAD_H
+	row.content_margin_right = ROW_PAD_H
+	row.content_margin_top = LEDGER_ROW_PAD_V
+	row.content_margin_bottom = LEDGER_ROW_PAD_V
+	theme.set_type_variation(&"LedgerRowPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"LedgerRowPanel", row)
+	var selected: StyleBoxFlat = row.duplicate()
+	selected.bg_color = _html(TOKEN_PAPER_SELECTED)
+	selected.border_width_left = LEDGER_SELECTED_LINE
+	selected.border_color = _html(TOKEN_BRASS_INK)
+	theme.set_type_variation(&"LedgerRowSelectedPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"LedgerRowSelectedPanel", selected)
+	theme.set_color(&"rule", &"LedgerRow", _html(TOKEN_RULE))
+	theme.set_constant(&"dash", &"LedgerRow", LEDGER_DASH)
+	theme.set_constant(&"disabled_alpha_pct", &"LedgerRow", LEDGER_DISABLED_ALPHA_PCT)
+
+	# 判（⚠ 状態を紙に押す。⚠ 通知ではない）。
+	theme.set_color(&"ink", &"Stamp", _html(TOKEN_WAX))
+	theme.set_font_size(&"font_size", &"Stamp", STAMP_FONT_SIZE)
+	theme.set_constant(&"border", &"Stamp", STAMP_BORDER)
+	theme.set_constant(&"pad_h", &"Stamp", STAMP_PAD_H)
+	theme.set_constant(&"pad_v", &"Stamp", STAMP_PAD_V)
+	theme.set_constant(&"tilt_deg", &"Stamp", STAMP_TILT_DEG)
+
+	# 施設の帯（⚠ 下に固定・⚠ 用事がある施設にしおり紐）。
+	var bar: StyleBoxFlat = StyleBoxFlat.new()
+	bar.bg_color = _html(TOKEN_BOARD)
+	bar.border_width_top = 1
+	bar.border_color = _html(FACILITY_BAR_RULE)
+	theme.set_type_variation(&"FacilityBarPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"FacilityBarPanel", bar)
+	theme.set_constant(&"height", &"FacilityBar", FACILITY_BAR_HEIGHT)
+	theme.set_type_variation(&"FacilityRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"FacilityRow", 0)
+	theme.set_color(&"ribbon", &"FacilityBar", _html(TOKEN_WAX))
+	theme.set_constant(&"ribbon_w", &"FacilityBar", FACILITY_RIBBON_W)
+	theme.set_constant(&"ribbon_h", &"FacilityBar", FACILITY_RIBBON_H)
+	theme.set_constant(&"ribbon_inset", &"FacilityBar", FACILITY_RIBBON_INSET)
+	for spec: Dictionary in [
+		{"name": "FacilityButton", "bg": "", "hover": FACILITY_HOVER_BG, "font": TOKEN_TEXT_DIM_ON_DARK, "line": false},
+		{"name": "FacilityButtonActive", "bg": FACILITY_ACTIVE_BG, "hover": FACILITY_ACTIVE_BG, "font": TOKEN_TEXT_ON_DARK, "line": true},
+	]:
+		var type_name: StringName = StringName(str(spec["name"]))
+		theme.set_type_variation(type_name, &"Button")
+		for state: String in BUTTON_STATES:
+			var cell: StyleBoxFlat = StyleBoxFlat.new()
+			var bg: String = str(spec["hover"]) if state == "hover" else str(spec["bg"])
+			cell.bg_color = Color(0, 0, 0, 0) if (bg == "" or state == "focus") else _html(bg)
+			if state == "focus":
+				cell.set_border_width_all(FOCUS_BORDER_WIDTH)
+				cell.border_color = _html(TOKEN_LIGHT)
+			elif bool(spec["line"]):
+				cell.border_width_top = FACILITY_ACTIVE_LINE
+				cell.border_color = _html(TOKEN_LIGHT)
+			theme.set_stylebox(StringName(state), type_name, cell)
+		theme.set_color(&"font_color", type_name, _html(str(spec["font"])))
+		theme.set_color(&"font_hover_color", type_name, _html(TOKEN_TEXT_ON_DARK))
+		theme.set_color(&"font_pressed_color", type_name, _html(TOKEN_TEXT_ON_DARK))
+		theme.set_color(&"font_focus_color", type_name, _html(str(spec["font"])))
+		theme.set_font_size(&"font_size", type_name, BUTTON_FONT_SIZE)
 
 
 static func _build_heading_font(theme: Theme) -> void:
@@ -1574,6 +1754,7 @@ static func _build_heading_font(theme: Theme) -> void:
 		push_warning("[BuildTheme] 見出しの明朝が無い（%s）。見出しは NotoSansJP のまま" % HEADING_FONT_PATH)
 		for type_name: String in HEADING_FONT_TYPES:
 			theme.clear_font(&"font", StringName(type_name))
+		theme.clear_font(&"font", &"SheetHeadingLabel")
 		return
 	var base: Font = load(HEADING_FONT_PATH) as Font
 	var heading: FontVariation = FontVariation.new()
@@ -1582,6 +1763,10 @@ static func _build_heading_font(theme: Theme) -> void:
 		heading.fallbacks = [theme.default_font]
 	for type_name: String in HEADING_FONT_TYPES:
 		theme.set_font(&"font", StringName(type_name), heading)
+	# ⚠ 紙の見出しは字間を広く取る（⚠ 手本「字間を広く取る」）。⚠ 包みをもう1つ持つ。
+	var spaced: FontVariation = heading.duplicate() as FontVariation
+	spaced.spacing_glyph = SHEET_HEADING_SPACING
+	theme.set_font(&"font", &"SheetHeadingLabel", spaced)
 
 
 # --- ⚠⚠ 紙の上のテーマ（2026-09-26・決定 `UI-14`）---
@@ -1595,6 +1780,7 @@ static func _build_heading_font(theme: Theme) -> void:
 const PAPER_LABEL_COLORS: Dictionary = {
 	"Label": TOKEN_INK,
 	"HeadingLabel": TOKEN_INK,
+	"SheetHeadingLabel": TOKEN_INK,
 	"SmallLabel": TOKEN_INK,
 	"MutedLabel": TOKEN_INK_SUB,
 	"CaptionLabel": TOKEN_INK_SUB,

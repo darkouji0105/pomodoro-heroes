@@ -153,6 +153,10 @@ func _ready() -> void:
 	_add_heading("ui_uitest_title")
 	_add_action("ui_common_back_to_base", _on_back_pressed)
 
+	# ⚠ 紙の部品（回UI-2）は**一番上**に置く（⚠ `scenario=shot` の `20_ui_parts` が1画面目で撮るため）。
+	_add_heading("ui_uitest_paper")
+	_build_paper_catalog()
+
 	_add_heading("ui_uitest_screens")
 	for path: String in PLAIN_SCENES:
 		_add_action(path.get_file(), _on_plain_scene_pressed.bind(path), false)
@@ -298,6 +302,86 @@ func _build_embedded_views() -> void:
 		holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		layout.add_child(holder)
 		holder.add_child(scene.instantiate())
+
+
+# --- 紙の部品（2026-09-26・回UI-2）---
+
+# ⚠ 手本の Parts（「書類」「施設の帯」）と見比べるための並べ物。⚠ 判定は書かない。
+func _build_paper_catalog() -> void:
+	var stack: VBoxContainer = VBoxContainer.new()
+	stack.name = "PaperCatalog"
+	stack.theme_type_variation = &"PaperTabStack"
+	layout.add_child(stack)
+
+	var tabs: PaperTabs = PaperTabs.new()
+	tabs.name = "PaperTabsSample"
+	stack.add_child(tabs)
+	tabs.set_tabs(["ui_nav_stat_node", "ui_nav_training_skill", "ui_nav_training_equipment"], 0)
+
+	var sheet: PaperSheet = PaperSheet.new()
+	sheet.name = "PaperSheetSample"
+	stack.add_child(sheet)
+	var body: VBoxContainer = VBoxContainer.new()
+	sheet.add_child(body)
+
+	var ornament: SheetHeading = SheetHeading.new()
+	ornament.title_key = "ui_uitest_paper_ornament"
+	ornament.ornament = true
+	body.add_child(ornament)
+	var heading: SheetHeading = SheetHeading.new()
+	heading.title_key = "ui_uitest_paper_heading"
+	heading.right_text = "9"
+	body.add_child(heading)
+
+	for spec: Array in [
+		["ui_uitest_paper_row_normal", false, false],
+		["ui_uitest_paper_row_selected", true, false],
+		["ui_uitest_paper_row_disabled", false, true],
+	]:
+		var row: LedgerRow = LedgerRow.new()
+		row.selected = bool(spec[1])
+		row.disabled = bool(spec[2])
+		var text: Label = Label.new()
+		text.text = tr(str(spec[0]))
+		row.add_child(text)
+		body.add_child(row)
+
+	var note: Label = Label.new()
+	note.theme_type_variation = &"CaptionLabel"
+	note.text = tr("ui_uitest_paper_note")
+	body.add_child(note)
+
+	# ⚠ 判と、⚠ 紙の上のボタン（⚠ 手本も紙の上で同じ見た目）。
+	var marks: HBoxContainer = HBoxContainer.new()
+	marks.name = "StampsAndButtons"
+	body.add_child(marks)
+	for spec: Array in [
+		["ui_stamp_level_up", Stamp.Shape.RECT],
+		["ui_stamp_done", Stamp.Shape.CIRCLE],
+		["ui_stamp_accepted", Stamp.Shape.CIRCLE],
+	]:
+		var stamp: Stamp = Stamp.new()
+		stamp.label_key = str(spec[0])
+		stamp.shape = spec[1]
+		marks.add_child(stamp)
+	for variant: UiButton.Variant in [UiButton.Variant.PRIMARY, UiButton.Variant.SECONDARY, UiButton.Variant.DANGER]:
+		var button: UiButton = UiButton.new()
+		button.variant = variant
+		button.text = tr("ui_uitest_paper_row_normal")
+		marks.add_child(button)
+
+	# ⚠ 施設の帯（⚠ 並びは `NAV-6` の仮。⚠ 名前は今のキーを借りる＝本番の名前は回UI-3）。
+	var bar: FacilityBar = FacilityBar.new()
+	bar.name = "FacilityBarSample"
+	layout.add_child(bar)
+	var entries: Array[Dictionary] = []
+	for screen_id: String in [
+		GameStateKeys.SCREEN_GUILD, GameStateKeys.SCREEN_TRAINING, GameStateKeys.SCREEN_WORKSHOP,
+		GameStateKeys.SCREEN_WAREHOUSE, GameStateKeys.SCREEN_RESEARCH, GameStateKeys.SCREEN_SHOP,
+	]:
+		entries.append({FacilityBar.ENTRY_ID: screen_id, FacilityBar.ENTRY_LABEL_KEY: "ui_nav_" + screen_id})
+	bar.set_facilities(entries, GameStateKeys.SCREEN_GUILD)
+	bar.set_attention(GameStateKeys.SCREEN_TRAINING, true)
 
 
 # --- 部品カタログ ---

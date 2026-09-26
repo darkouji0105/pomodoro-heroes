@@ -1004,6 +1004,8 @@ const SCENARIOS: Dictionary = {
 			{"name": "11_research", "scene": "res://scenes/guild/research_screen.tscn"},
 			# ⚠ 2026-09-23：⚠ 倉庫を別窓からふつうの画面に戻した（⚠ 別窓のころは撮れなかった）。
 			{"name": "19_warehouse", "scene": "res://scenes/guild/warehouse_screen.tscn"},
+			# ⚠ 2026-09-26（回UI-2）：⚠ 紙の部品。⚠ UI テストのページの一番上に並べてある。
+			{"name": "20_ui_parts", "scene": "res://tests/ui_test_page.tscn"},
 			# ⑥ 窓（2026-09-22・回1）。⚠ ここから下は「重ねるもの」と「ボスの先のもの」。
 			#
 			# ⚠⚠ 拾いもの。⚠ 本番は**マップの上に重ねる**（決定36）ので、⚠ マップを開いてから

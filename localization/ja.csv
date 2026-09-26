@@ -991,3 +991,13 @@ ui_part_slot_next_hint,等級%d まで鍛えると、次の装飾の枠が開く
 ui_part_attach_hint,刺したい装飾を押す
 ui_part_none_hint,刺せる装飾を持っていない（冒険で手に入る）
 ui_part_gate_locked,装飾はまだ使えない（冒険を進めると開く）
+ui_uitest_paper,紙の部品（回UI-2）
+ui_uitest_paper_heading,見出し（明朝＋太い下線）
+ui_uitest_paper_ornament,概要
+ui_uitest_paper_row_normal,ふつうの行
+ui_uitest_paper_row_selected,選んでいる行
+ui_uitest_paper_row_disabled,使えない行
+ui_uitest_paper_note,紙の上の小さい字（薄墨）。暗い箱で囲まない
+ui_stamp_done,済
+ui_stamp_accepted,受理
+ui_stamp_level_up,昇級できる

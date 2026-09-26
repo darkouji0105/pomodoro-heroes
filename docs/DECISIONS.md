@@ -75,6 +75,8 @@
 | **UI-12** | ⚠⚠ **見出しの明朝を1本足す**。⚠ **サインの3本は今は入れない**（⚠ 人間「⚠ さいんのふぉんとはいまはいれない」）。⚠ 数字と本文は NotoSansJP のまま | 見出し **Shippori Mincho B1 ExtraBold の1本だけ**（⚠ 1本 15MB なので Bold は入れない）／ ⚠ サイン（Yuji Boku・Klee One・Zen Kurenaido）は**後で** | ✅ `assets/fonts/ShipporiMinchoB1-ExtraBold.ttf` ＋ `OFL_ShipporiMinchoB1.txt` → `theme_builder.gd` の `HEADING_FONT_TYPES`（⚠ 見出しの型4つ・無い字は NotoSansJP へ落ちる） | **09-26** | ~~サインの3本も入れる（09-26・「5い」）~~ |
 | **UI-13** | ⚠ **手本の一式は git に入れる**（⚠ 19MB・png ごと・⚠ 人間「⚠ いれる」）。⚠ **Godot には読ませない** | — | `docs/pomodoro-heroes-ui-docs/`（⚠ `.gdignore` あり。⚠ 無いと `--import` が png 42枚を取り込む） | **09-26** | — |
 | **UI-14** | ⚠⚠ **紙の上の字は「紙用のテーマ」で墨にする**（⚠ 字を1つずつ付け替えない・⚠ 人間「⚠ あで」） | ⚠ 墨 `2B2118` ／ 薄墨 `6E5A43` ／ 強調 `9C7424` ／ 赤 `9C3A2E` ／ 増える `5F7D4F` ／ 罫 `C2AE88`。⚠ 面は `PaperPanel`（羊皮紙 `E9DCC0`・角丸3） | `theme_builder.gd` の `PAPER_LABEL_COLORS` → `theme/paper_theme.tres`。⚠ **紙の部品が `theme` に持つ**（回UI-2）。⚠⚠ **紙のテーマに `PanelContainer` を置かない**（⚠ 置くと面の variation が全部負ける） | **09-26** | — |
+| **UI-15** | ⚠⚠ **本文の太さは 400**（⚠ 手本 `fonts.body` 400〜500） | **400** | `theme_builder.gd` の `BODY_FONT_WEIGHT`（⚠ `default_font` を `FontVariation` で包む） | **09-26** | ~~指定なし＝可変フォントの既定 **100（Thin）** で全画面が出ていた~~ ⚠ 回UI-2 で見つけた |
+| **UI-16** | ⚠⚠ **紙の部品は6つ**（⚠ 紙 `PaperSheet` ／ 紙の見出し `SheetHeading` ／ 紙のタブ `PaperTabs` ／ 台帳の行 `LedgerRow` ／ 判 `Stamp` ／ 施設の帯 `FacilityBar`）。⚠ **絵を使わず線で描く** | ⚠ 値は `theme_builder.gd` の「紙の部品」（⚠ 角飾り16・タブ 46／38・帯 76） | `scenes/ui/components/` ／ 見本は UI テストのページの一番上（`shot` の `20_ui_parts`） | **09-26** | ⚠⚠ **手本の「紙を少し傾ける」はしない**（⚠ `Container` が子の回転を0に戻す）。⚠ 判の傾きは描画だけなので効く |
 
 ## 2. 画面と導線（`NAV-n`）
 
