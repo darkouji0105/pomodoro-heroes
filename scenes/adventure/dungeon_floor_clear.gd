@@ -16,6 +16,11 @@ extends Control
 #   ⚠ ここは「どちらかを選ぶ」画面なので、⚠ 戻る先が無い。
 #
 # ⚠ 判定は GameManager の口に聞く（⚠ 階の数や phase をここで数えない）。
+#
+# ⚠⚠ 2026-09-27（回UI-4・手本 DungeonFork）：⚠ **傾いた紙のカード2枚**にした。
+#   ⚠ 左＝「ここで戻る」（⚠ 鞄の中身を持ち帰る・中身のマス目）／ ⚠ 右＝「さらに潜る」（⚠ 次のフロア・3人の HP・倒れたら鞄は空）。
+#   ⚠ ボタンと持ち物の箱は `.tscn` のまま**カードへ付け替える**（⚠ 名前を保つ＝検査 E147 が名前で探す）。
+#   ⚠ 最後の階では右のカードごと出さない（決定26・判定は `can_descend_dungeon_floor()`）。
 
 const SHOP_PATH: String = "res://scenes/adventure/dungeon_shop.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
@@ -36,6 +41,7 @@ func _ready() -> void:
 
 	descend_button.pressed.connect(_on_descend_pressed)
 	retreat_button.pressed.connect(_on_retreat_pressed)
+	_build_cards()
 
 	# ⚠⚠ ボスを倒した先でなければ、⚠ この画面に居座らせない（⚠ 直接開かれたとき）。
 	if not GameManager.can_retreat_from_dungeon():
@@ -57,6 +63,95 @@ func _rebuild() -> void:
 
 	# ⚠ 最後の階を突破したら「さらに潜る」は出さない（決定26）。⚠ 判定は GameManager に聞く。
 	descend_button.visible = GameManager.can_descend_dungeon_floor()
+	_descend_card.visible = descend_button.visible
+	_next_floor_label.text = tr("ui_dungeon_fork_descend_caption") % (GameManager.get_dungeon_floor_index() + 1)
+	for child in _party_box.get_children():
+		_party_box.remove_child(child)
+		child.queue_free()
+	for member: Variant in GameManager.get_party_members():
+		if str(member) != "":
+			_party_box.add_child(RunPartyStrip.make_cell(GameManager.RUN_KIND_DUNGEON, str(member)))
+
+
+var _descend_card: TiltedSheet = null
+var _next_floor_label: Label = null
+var _party_box: VBoxContainer = null
+
+
+# ⚠ 2枚のカードを組む（⚠ 1回だけ）。⚠ `.tscn` のボタン・持ち物の見出し・箱を付け替える。
+func _build_cards() -> void:
+	heading.theme_type_variation = &"HeadingLabel"
+	var layout: VBoxContainer = $Margin/Layout
+	var cards: HBoxContainer = HBoxContainer.new()
+	cards.name = "Cards"
+	cards.theme_type_variation = &"WideRow"
+	cards.alignment = BoxContainer.ALIGNMENT_CENTER
+	cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.add_child(cards)
+	layout.move_child(cards, caption.get_index() + 1)
+
+	var retreat_card: TiltedSheet = TiltedSheet.create(0)
+	retreat_card.name = "RetreatCard"
+	retreat_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cards.add_child(retreat_card)
+	var left: VBoxContainer = _card_column(retreat_card, "ui_dungeon_clear_retreat", "ui_dungeon_fork_retreat_caption")
+	_move_into(loot_title, left)
+	_move_into(loot_box, left)
+	loot_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	retreat_button.label_key = "ui_dungeon_retreat"
+	retreat_button.variant = UiButton.Variant.SECONDARY
+	retreat_button.size_flags_horizontal = Control.SIZE_FILL
+	_move_into(retreat_button, left)
+
+	_descend_card = TiltedSheet.create(2)
+	_descend_card.name = "DescendCard"
+	_descend_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cards.add_child(_descend_card)
+	var right: VBoxContainer = _card_column(_descend_card, "ui_dungeon_clear_descend", "")
+	_next_floor_label = Label.new()
+	_next_floor_label.theme_type_variation = &"SheetHeadingLabel"
+	_next_floor_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	right.add_child(_next_floor_label)
+	_party_box = VBoxContainer.new()
+	_party_box.name = "PartyBox"
+	_party_box.theme_type_variation = &"TightList"
+	_party_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right.add_child(_party_box)
+	var warning: Label = Label.new()
+	warning.theme_type_variation = &"ErrorLabel"
+	warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	warning.text = tr("ui_dungeon_fork_warning")
+	right.add_child(warning)
+	descend_button.label_key = "ui_dungeon_fork_descend_button"
+	descend_button.variant = UiButton.Variant.SECONDARY
+	descend_button.size_flags_horizontal = Control.SIZE_FILL
+	_move_into(descend_button, right)
+	# ⚠ 空になったボタンの行は隠す（⚠ 消すと検査の道がずれる）。
+	($Margin/Layout/Buttons as Control).visible = false
+
+
+# カードの中の縦の並び（⚠ 題＝明朝 ／ 小さい説明）。
+func _card_column(card: TiltedSheet, title_key: String, caption_key: String) -> VBoxContainer:
+	var column: VBoxContainer = VBoxContainer.new()
+	column.theme_type_variation = &"SectionGap"
+	card.sheet.add_child(column)
+	var title: Label = Label.new()
+	title.theme_type_variation = &"SheetHeadingLabel"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.text = tr(title_key)
+	column.add_child(title)
+	if caption_key != "":
+		var note: Label = Label.new()
+		note.theme_type_variation = &"CaptionLabel"
+		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		note.text = tr(caption_key)
+		column.add_child(note)
+	return column
+
+
+func _move_into(node: Node, parent: Node) -> void:
+	node.get_parent().remove_child(node)
+	parent.add_child(node)
 
 
 # 鞄の中身をマス目で出す。⚠ 空なら「手ぶら」と出す（⚠ 行ごと消さない＝何も無いことが読めない）。
