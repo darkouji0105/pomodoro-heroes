@@ -1679,6 +1679,8 @@ static func _build_body_font(theme: Theme) -> void:
 	var number: FontVariation = body.duplicate() as FontVariation
 	number.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): BATTLE_POP_WEIGHT}
 	theme.set_font(&"font", &"BattlePopLabel", number)
+	# ⚠ 商人の値段も数字の太字（⚠ 手本「数字は Noto Sans JP 900」）。
+	theme.set_font(&"font", &"PriceLabel", number)
 
 
 # --- ⚠⚠ 見出しの明朝（2026-09-26・決定 `UI-12`）---
@@ -1729,6 +1731,12 @@ const FACILITY_BAR_HEIGHT: int = 76     # ⚠ 手本 `facility_bar`
 const RELIC_LIST_WIDTH: int = 960       # ⚠ カード3枚が横に並ぶ幅
 const RELIC_LIST_COLUMNS: int = 3
 const RELIC_LIST_GAP: int = 24
+const SHOP_BOARD_BG: String = "241b16"   # ⚠ 手本の板（⚠ 床より一段明るい）
+const SHOP_BOARD_BORDER: int = 2
+const SHOP_BOARD_PAD: int = 22
+const SHOP_CARD_WIDTH: int = 160   # ⚠ 180 だと値札4枚＋鞄で横 1248 を超え、画面が左へはみ出した（09-27）
+const SHOP_COIN: int = 22
+const SHOP_PRICE_SIZE: int = 28
 const TORN_PAD_H: int = 28
 const TORN_PAD_V: int = 20
 const TORN_STEP: int = 18                # ⚠ ちぎれ目の細かさ（⚠ 何 px ごとに凹ませるか）
@@ -1894,6 +1902,24 @@ static func _build_paper_parts(theme: Theme) -> void:
 	# ⚠ 地図の凡例「しるし」（`MapLegend`）。
 	theme.set_constant(&"icon", &"MapLegend", MAP_LEGEND_ICON)
 	theme.set_color(&"icon", &"MapLegend", _html(TOKEN_INK))
+
+	# ⚠ 商人の値札を留める板（09-27・回UI-4 商人・手本 DungeonShop）。⚠ 暗い板に革の枠。
+	var board: StyleBoxFlat = StyleBoxFlat.new()
+	board.bg_color = _html(SHOP_BOARD_BG)
+	board.set_border_width_all(SHOP_BOARD_BORDER)
+	board.border_color = _html(TOKEN_LEATHER)
+	board.set_corner_radius_all(PAPER_CORNER_RADIUS)
+	board.content_margin_left = SHOP_BOARD_PAD
+	board.content_margin_right = SHOP_BOARD_PAD
+	board.content_margin_top = SHOP_BOARD_PAD
+	board.content_margin_bottom = SHOP_BOARD_PAD
+	theme.set_type_variation(&"ShopBoardPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ShopBoardPanel", board)
+	theme.set_constant(&"card_width", &"ShopCard", SHOP_CARD_WIDTH)
+	theme.set_constant(&"coin", &"ShopCard", SHOP_COIN)
+	theme.set_color(&"coin", &"ShopCard", _html(TOKEN_BRASS_INK))
+	theme.set_type_variation(&"PriceLabel", &"Label")
+	theme.set_font_size(&"font_size", &"PriceLabel", SHOP_PRICE_SIZE)
 
 	# ランの右上のメニューの板（回UI-4・`RunMenuButton`）。⚠ 板の面・影つき（⚠ 装飾の吹き出しと同じ作り）。
 	var menu: StyleBoxFlat = StyleBoxFlat.new()

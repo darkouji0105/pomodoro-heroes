@@ -1024,3 +1024,6 @@ ui_dungeon_fork_retreat_caption,鞄の中身を持ち帰る
 ui_dungeon_fork_descend_caption,次は フロア %d
 ui_dungeon_fork_warning,倒れたら鞄は空になる
 ui_dungeon_fork_descend_button,潜る
+ui_dungeon_shop_in_bag,鞄に %d 個
+ui_dungeon_shop_leave_descend,フロア %d へ
+ui_dungeon_shop_leave_map,地図へ戻る

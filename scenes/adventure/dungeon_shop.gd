@@ -6,9 +6,11 @@
 # ⚠ 共有するのは部品だけ（`ItemGrid` / `ItemSlot` / `ItemDetail` / `SlotActionPopover` / `RunPartyStrip`）。
 # ⚠ 品と値段は `dungeon.json` の `shop`（表）。⚠ 画面で値段を組み立てない。
 # ⚠ 押せるかの判定は `get_dungeon_shop_reject_reason()` の1本に聞く。
-# ⚠⚠ 2026-09-19：モック v2 §10 の形。⚠ 品を2種類に分けて出す：
-#     ⚠ 鞄に入るもの（ポーション）… 左のマス目（⚠ 押す → 吹き出しで「買う(値段)」）
-#     ⚠ 入らないもの（鞄の枠・たいまつ）… 右の行（⚠ 名前・値段・買う・買えない理由）
+# ⚠⚠ 2026-09-27（回UI-4・手本 DungeonShop）：⚠ **板にピンで留めた紙の値札**を品の数だけ並べる。
+#   ⚠ どの品も同じ形（⚠ 絵 ／ 名前 ／ 変化か鞄の個数 ／ 大きな値段 ／ 「買う」 ／ 買えない理由）。
+#   ⚠ 前は「鞄に入る品＝マス目＋吹き出し ／ 入らない品＝行」に分けていた（モック v2 §10）。
+#   ⚠ 右に鞄（⚠ 何個入るかが見える）。⚠ 3人の HP はフッター（`NAV-8`）。
+#   ⚠ 出口は**右下の真鍮のボタン**（⚠ 左上の「戻る」はやめた＝わかれ道と同じく戻る先が無い）。
 
 extends Control
 
@@ -19,22 +21,19 @@ var _descend_after: bool = false
 
 @onready var title_label: Label = $Layout/Header/TitleLabel
 # ⚠ 遺物片は絵つき（2026-09-20）。⚠ 絵は IconTextures の1本（⚠ いまはレリックの絵を借りている）。
-@onready var currency_value: ResourceDisplay = $Layout/Header/CurrencyValue
-@onready var bag_label: Label = $Layout/Header/BagLabel
+@onready var currency_value: ResourceDisplay = $Layout/Header/RunChip/CurrencyValue
+@onready var bag_label: Label = $Layout/Body/BagPanel/BagColumn/BagLabel
 @onready var held_relic_grid: ItemGrid = $Layout/Header/HeldRelicGrid
-@onready var party_list: RunPartyStrip = $Layout/PartyList
+@onready var party_list: RunPartyStrip = $Layout/Footer/PartyList
 @onready var message_label: Label = $Layout/MessageLabel
-@onready var item_grid: ItemGrid = $Layout/Body/Left/ItemGrid
-@onready var bag_grid: ItemGrid = $Layout/Body/Left/BagGrid
-@onready var item_detail: ItemDetail = $Layout/Body/Left/ItemDetail
-@onready var upgrade_list: VBoxContainer = $Layout/Body/Right/UpgradeList
-@onready var back_button: UiButton = $Layout/Header/BackButton
+@onready var cards: HBoxContainer = $Layout/Body/Board/Cards
+@onready var bag_grid: ItemGrid = $Layout/Body/BagPanel/BagColumn/BagGrid
+@onready var item_detail: ItemDetail = $Layout/Body/BagPanel/BagColumn/ItemDetail
+@onready var leave_button: UiButton = $Layout/Footer/LeaveButton
 
-# ホバーで詳細を出す器（2026-09-07）。⚠ 押したときの「買う」は SlotActionPopover。
+# ホバーで詳細を出す器（2026-09-07）。⚠ 「買う」は値札の中（⚠ 09-27 から。前は吹き出し）。
 var _detail_popup: ItemDetailPopup = null
 
-# マス目の何番目が、店の並びの何番目か。⚠ 買う口は店の番号で呼ぶ。
-var _item_indexes: Array[int] = []
 
 
 func _ready() -> void:
@@ -54,15 +53,17 @@ func _ready() -> void:
 		SceneManager.change_scene(DUNGEON_MAP_PATH)
 		return
 
-	title_label.text = "%s %s" % [tr("ui_dungeon_shop"), Glyphs.NODE_SHOP]
+	title_label.text = tr("ui_dungeon_shop")
 	_say(tr("ui_dungeon_shop_currency_note"), &"MutedLabel")
-	item_grid.slot_pressed.connect(_on_item_pressed)
-	back_button.pressed.connect(_on_back_pressed)
+	leave_button.pressed.connect(_on_back_pressed)
+	leave_button.text = (
+		tr("ui_dungeon_shop_leave_descend") % (GameManager.get_dungeon_floor_index() + 1) if _descend_after
+		else tr("ui_dungeon_shop_leave_map")
+	)
 	GameManager.dungeon_run_changed.connect(_on_dungeon_run_changed)
 	# ⚠ 詳細をドロップダウンへ移す（2026-09-07）。
 	_detail_popup = ItemDetailPopup.adopt(self, item_detail)
 	if _detail_popup != null:
-		_detail_popup.watch(item_grid)
 		_detail_popup.watch(bag_grid)
 		_detail_popup.watch(held_relic_grid)
 	_rebuild()
@@ -93,25 +94,96 @@ func _rebuild() -> void:
 	var held: Array = GameManager.get_run_relic_slot_entries(GameManager.RUN_KIND_DUNGEON)
 	held_relic_grid.rebuild(held, held.size())
 	held_relic_grid.visible = not held.is_empty()
-	$Layout/Header/RelicSep.visible = held_relic_grid.visible
 	party_list.refresh(GameManager.RUN_KIND_DUNGEON)
 	bag_grid.rebuild(GameManager.get_dungeon_bag_slot_layout(), slots)
-	_rebuild_items()
-	_rebuild_upgrades()
+	_rebuild_cards()
 
 
-# 鞄に入る品（ポーション）をマス目で出す。
-func _rebuild_items() -> void:
-	var entries: Array = []
-	_item_indexes.clear()
+# 品の値札を並べる。⚠ 押せるかは `get_dungeon_shop_reject_reason()` の1本に聞く（⚠ ここで条件を書かない）。
+# ⚠ 再描画に await を持たせない。remove_child() してから queue_free()（AGENTS.md）。
+func _rebuild_cards() -> void:
+	for child in cards.get_children():
+		cards.remove_child(child)
+		child.queue_free()
 	var shop: Array = GameManager.get_dungeon_shop_entries()
 	for i: int in range(shop.size()):
-		var row: Dictionary = shop[i]
-		if str(row.get(GameManager.DUNGEON_SHOP_KIND, "")) != GameManager.DUNGEON_SHOP_KIND_ITEM:
-			continue
-		entries.append(_slot_entry_of(str(row.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))))
-		_item_indexes.append(i)
-	item_grid.rebuild(entries, entries.size())
+		cards.add_child(_make_card(i, shop[i]))
+
+
+# 値札1枚（⚠ 傾いた紙）。⚠ 中身＝絵 ／ 名前 ／ 変化（鞄の枠・たいまつ）か鞄の個数（品）／ 値段 ／ 買う ／ 理由。
+func _make_card(index: int, entry: Dictionary) -> TiltedSheet:
+	var card: TiltedSheet = TiltedSheet.create(index)
+	card.name = "Card_%d" % index
+	var column: VBoxContainer = VBoxContainer.new()
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.custom_minimum_size.x = float(get_theme_constant(&"card_width", &"ShopCard"))
+	card.sheet.add_child(column)
+
+	var kind: String = str(entry.get(GameManager.DUNGEON_SHOP_KIND, ""))
+	var name_text: String = ""
+	var change_text: String = ""
+	if kind == GameManager.DUNGEON_SHOP_KIND_ITEM:
+		var item_id: String = str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+		var icon: ItemGrid = ItemGrid.new()
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		column.add_child(icon)
+		icon.rebuild([_slot_entry_of(item_id)], 1)
+		if _detail_popup != null:
+			_detail_popup.watch(icon)
+		name_text = tr(GameManager.item_name_key(item_id))
+		change_text = tr("ui_dungeon_shop_in_bag") % int(GameManager.get_dungeon_bag().get(item_id, 0))
+	else:
+		# ⚠ 鞄の枠・たいまつは絵が無い（⚠ 素材待ち）。⚠ いまは大きな字の印。
+		var mark: Label = Label.new()
+		mark.theme_type_variation = &"HeadingLabel"
+		mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		mark.text = Glyphs.TORCH if kind != GameManager.DUNGEON_SHOP_KIND_BAG_SLOT else Glyphs.NODE_SHOP
+		column.add_child(mark)
+		name_text = _upgrade_title(kind, entry)
+		change_text = _upgrade_change(kind, entry)
+
+	var name_label: Label = Label.new()
+	name_label.theme_type_variation = &"SheetHeadingLabel"
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.text = name_text
+	column.add_child(name_label)
+	var change: Label = Label.new()
+	change.theme_type_variation = &"CaptionLabel"
+	change.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	change.text = change_text
+	column.add_child(change)
+
+	# ⚠ 値段は大きく（⚠ 手本の「◎ 40」）。⚠ 通貨の絵つき。
+	var price_row: HBoxContainer = HBoxContainer.new()
+	price_row.theme_type_variation = &"ChipRow"
+	price_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_child(price_row)
+	var coin: TextureRect = TextureRect.new()
+	coin.texture = IconTextures.for_resource(GameStateKeys.DUNGEON_RUN_CURRENCY)
+	coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var coin_side: float = float(get_theme_constant(&"coin", &"ShopCard"))
+	coin.custom_minimum_size = Vector2(coin_side, coin_side)
+	coin.self_modulate = get_theme_color(&"coin", &"ShopCard")
+	price_row.add_child(coin)
+	var price: Label = Label.new()
+	price.theme_type_variation = &"PriceLabel"
+	price.text = str(int(entry.get(GameManager.DUNGEON_SHOP_COST, 0)))
+	price_row.add_child(price)
+
+	var reason: String = GameManager.get_dungeon_shop_reject_reason(index)
+	var buy: UiButton = UiButton.new()
+	buy.name = "Buy_%d" % index
+	buy.text = tr("ui_dungeon_shop_buy")
+	buy.disabled = reason != ""
+	buy.pressed.connect(_on_buy_pressed.bind(index))
+	column.add_child(buy)
+	var why: Label = Label.new()
+	why.theme_type_variation = &"CaptionLabel"
+	why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	why.text = tr("ui_dungeon_shop_reject_" + reason) if reason != "" else " "
+	column.add_child(why)
+	return card
 
 
 # 店の品1つをマスの形に包む。
@@ -128,99 +200,23 @@ func _slot_entry_of(item_id: String) -> Dictionary:
 	}
 
 
-# 押したマスの近くに「買う(値段)」（モック v2 §10）。⚠ 押せるかは GameManager の1本に聞く。
-func _on_item_pressed(_entry: Dictionary, index: int) -> void:
-	if index < 0 or index >= _item_indexes.size() or index >= item_grid.get_child_count():
-		return
-	var shop_index: int = _item_indexes[index]
-	var entry: Dictionary = GameManager.get_dungeon_shop_entries()[shop_index]
-	var item_id: String = str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-	var anchor: Rect2 = (item_grid.get_child(index) as Control).get_global_rect()
-	var pop: SlotActionPopover = SlotActionPopover.open(
-		self, anchor, tr(GameManager.item_name_key(item_id)), ""
-	)
-	var reason: String = GameManager.get_dungeon_shop_reject_reason(shop_index)
-	# 数値のみなので見出しだけ tr()（AGENTS.md）。
-	var buy: UiButton = pop.add_action(
-		"%s（%d）" % [tr("ui_dungeon_shop_buy"), int(entry.get(GameManager.DUNGEON_SHOP_COST, 0))],
-		UiButton.Variant.PRIMARY, _on_buy_pressed.bind(shop_index), reason != ""
-	)
-	buy.name = "BuyButton"
-	if reason != "":
-		pop.set_note(tr("ui_dungeon_shop_reject_" + reason))
-	else:
-		pop.set_note(tr("ui_dungeon_shop_bag_free") % (
-			GameManager.get_dungeon_bag_slots() - GameManager.get_dungeon_bag_used()
-		))
+# 鞄の枠・たいまつの札の名前（⚠ 手本「鞄の枠 +2」「たいまつ +1」）。
+func _upgrade_title(kind: String, entry: Dictionary) -> String:
+	if kind == GameManager.DUNGEON_SHOP_KIND_BAG_SLOT:
+		return "%s +%d" % [tr("ui_dungeon_shop_bag_slot"), int(entry.get(GameManager.DUNGEON_SHOP_AMOUNT, 1))]
+	return tr("ui_dungeon_shop_torch")
 
 
-# 鞄に入らないもの（鞄の枠・たいまつ）。⚠ アイコンが無いのでマスにしない。
-func _rebuild_upgrades() -> void:
-	for child in upgrade_list.get_children():
-		upgrade_list.remove_child(child)
-		child.queue_free()
-
-	var shop: Array = GameManager.get_dungeon_shop_entries()
-	for i: int in range(shop.size()):
-		var entry: Dictionary = shop[i]
-		var kind: String = str(entry.get(GameManager.DUNGEON_SHOP_KIND, ""))
-		if kind == GameManager.DUNGEON_SHOP_KIND_ITEM:
-			continue
-		var reason: String = GameManager.get_dungeon_shop_reject_reason(i)
-
-		var panel: PanelContainer = PanelContainer.new()
-		panel.name = "Upgrade_%d" % i
-		panel.theme_type_variation = &"CompactRowPanel"
-		var row: HBoxContainer = HBoxContainer.new()
-		row.theme_type_variation = &"ButtonRow"
-		panel.add_child(row)
-
-		var name_label: Label = Label.new()
-		name_label.name = "NameLabel"
-		name_label.custom_minimum_size = Vector2(220.0, 0.0)
-		name_label.text = _upgrade_name(kind, entry)
-		row.add_child(name_label)
-
-		var cost_label: Label = Label.new()
-		cost_label.name = "CostLabel"
-		cost_label.theme_type_variation = &"AccentLabel"
-		cost_label.custom_minimum_size = Vector2(44.0, 0.0)
-		cost_label.text = str(int(entry.get(GameManager.DUNGEON_SHOP_COST, 0)))
-		row.add_child(cost_label)
-
-		var button: UiButton = UiButton.new()
-		button.name = "Buy_%d" % i
-		button.variant = UiButton.Variant.PRIMARY
-		button.text = tr("ui_dungeon_shop_buy")
-		button.disabled = reason != ""
-		button.pressed.connect(_on_buy_pressed.bind(i))
-		row.add_child(button)
-
-		# ⚠ 買えないときは理由を行の中に出す（モック v2 §10「買えないときの理由」）。
-		if reason != "":
-			var why: Label = Label.new()
-			why.name = "WhyLabel"
-			why.theme_type_variation = &"CaptionLabel"
-			why.text = tr("ui_dungeon_shop_reject_" + reason)
-			row.add_child(why)
-		upgrade_list.add_child(panel)
-
-
-# 行の名前。⚠ 買うと何が変わるかを「いま → あと」で出す（モック v2 §10）。
-#   ⚠ たいまつの次の層数は GameManager の1本（get_dungeon_next_reveal_layers）。⚠ 表を引き直さない。
-func _upgrade_name(kind: String, entry: Dictionary) -> String:
+# 買うと何が変わるか（⚠ 「いま → あと」）。⚠ たいまつの次の層数は GameManager の1本。
+func _upgrade_change(kind: String, entry: Dictionary) -> String:
 	if kind == GameManager.DUNGEON_SHOP_KIND_BAG_SLOT:
 		var slots: int = GameManager.get_dungeon_bag_slots()
-		var amount: int = int(entry.get(GameManager.DUNGEON_SHOP_AMOUNT, 1))
-		return "%s +%d（%d → %d）" % [tr("ui_dungeon_shop_bag_slot"), amount, slots, slots + amount]
+		return "%d → %d" % [slots, slots + int(entry.get(GameManager.DUNGEON_SHOP_AMOUNT, 1))]
 	var now: int = GameManager.get_dungeon_reveal_layers()
 	var next: int = GameManager.get_dungeon_next_reveal_layers()
 	if next < 0:
-		return "%s %s（%s）" % [Glyphs.TORCH, tr("ui_dungeon_shop_torch"), tr("ui_dungeon_layers_ahead") % now]
-	return "%s %s（%s → %s）" % [
-		Glyphs.TORCH, tr("ui_dungeon_shop_torch"),
-		tr("ui_dungeon_layers_ahead") % now, tr("ui_dungeon_layers_ahead") % next,
-	]
+		return tr("ui_dungeon_layers_ahead") % now
+	return "%s → %s" % [tr("ui_dungeon_layers_ahead") % now, tr("ui_dungeon_layers_ahead") % next]
 
 
 func _on_buy_pressed(index: int) -> void:
