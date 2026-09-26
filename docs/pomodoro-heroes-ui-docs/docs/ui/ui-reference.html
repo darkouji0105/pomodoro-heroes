@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ポモドーロヒーローズ UIリファレンス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Noto+Sans+JP:wght@400;500;700;900&family=Yuji+Boku&family=Klee+One:wght@600&family=Zen+Kurenaido&display=swap" rel="stylesheet">
+<style>
+:root{
+  --floor:#1b1512; --board:#2a201a; --leather:#4a3526; --brass:#b98a2c; --light:#d4a640;
+  --wax:#9c3a2e; --paper:#e9dcc0; --paper-sel:#f4ead3; --ink:#2b2118; --ink-sub:#6e5a43;
+  --rule:#c2ae88; --brass-ink:#9c7424; --lost:#c0624f; --fx-bg:#1f1a17; --fx-gold:#e0b85c;
+  --text-on-dark:#eadfca; --text-dim:#a8987f; --hp:#7fae5a; --buff:#2f79bd; --debuff:#a8402f; --revive:#e0ac2e;
+  --mincho:"Shippori Mincho B1","Hiragino Mincho ProN",serif;
+  --gothic:"Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;
+  --ptex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.3  0 0 0 0 0.14  0 0 0 0.22 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
+  --wtex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.012 0.4' numOctaves='3' seed='8'/><feColorMatrix values='0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.12  0 0 0 0.35 0'/></filter><rect width='300' height='300' filter='url(%23w)'/></svg>");
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --floor:#1b1512; } }
+:root[data-theme="dark"]{ --floor:#1b1512; }
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--floor) var(--wtex);color:var(--text-on-dark);font-family:var(--gothic);font-size:15px;line-height:1.7}
+a{color:var(--light)}
+:focus-visible{outline:2px solid var(--light);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 80px}
+header.top{background:#16100d;border-bottom:1px solid #5a4330;box-shadow:0 1px 0 #2a1f18,0 3px 0 #16100d,0 4px 0 #3a2c22;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+header.top .in{max-width:1180px;margin:0 auto;padding:14px 24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.dia{width:8px;height:8px;transform:rotate(45deg);background:var(--light);flex-shrink:0}
+h1{font-family:var(--mincho);font-weight:800;font-size:clamp(22px,3vw,30px);letter-spacing:.2em;margin:0;color:#f1e6cf}
+nav.toc{display:flex;gap:14px;flex-wrap:wrap;margin-left:auto;font-size:13px}
+nav.toc a{color:var(--text-dim);text-decoration:none}
+nav.toc a:hover{color:var(--light)}
+.lead{margin:36px 0 10px;max-width:720px;color:#d9ccb4}
+section.blk{margin-top:44px}
+h2{font-family:var(--mincho);font-weight:800;font-size:22px;letter-spacing:.2em;color:#f1e6cf;margin:0 0 14px;display:flex;align-items:center;gap:14px}
+h2::after{content:"";flex:1;border-top:1px solid #5a4330}
+.paper{position:relative;background:var(--paper) var(--ptex);color:var(--ink);border-radius:3px;padding:22px 26px;box-shadow:inset 0 0 40px rgba(120,88,40,.35),0 14px 28px rgba(0,0,0,.55)}
+.paper .corner{position:absolute;width:16px;height:16px;border:0 solid var(--brass-ink)}
+.c1{top:8px;left:8px;border-top-width:2px!important;border-left-width:2px!important}
+.c2{top:8px;right:8px;border-top-width:2px!important;border-right-width:2px!important}
+.c3{bottom:8px;left:8px;border-bottom-width:2px!important;border-left-width:2px!important}
+.c4{bottom:8px;right:8px;border-bottom-width:2px!important;border-right-width:2px!important}
+.ptitle{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:8px;border-bottom:2px solid var(--ink);font-family:var(--mincho);font-weight:800;font-size:19px;letter-spacing:.15em}
+.ptitle small{font-family:var(--gothic);font-weight:400;font-size:12px;letter-spacing:0;color:var(--ink-sub)}
+.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.sw{display:flex;flex-direction:column;gap:4px}
+.sw i{display:block;height:48px;border-radius:5px;border:1px solid rgba(0,0,0,.25)}
+.sw b{font-size:13px;font-weight:500}
+.sw span{font-size:11px;color:var(--ink-sub)}
+.swgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));margin-top:14px}
+.num{font-family:var(--gothic);font-weight:900;font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;padding:0 18px;border-radius:6px;font:inherit;font-size:15px;cursor:pointer;text-decoration:none}
+.b-brass{border:1.5px solid #7a5716;background:var(--brass);color:#1f160f;font-weight:700;box-shadow:inset 0 1px 0 #e0b85c}
+.b-leather{border:1.5px solid #5a4330;background:var(--leather);color:#f1e6cf}
+.b-ghost{border:1px solid #6a5340;background:transparent;color:#d9ccb4}
+.b-red{border:1.5px solid #6e2219;background:#8a3327;color:#fbeee6;font-weight:700}
+.b-back{border:1.5px solid #a8791f;background:var(--leather);color:#f1e6cf}
+.b-off{border:1px dashed #b39d74;background:transparent;color:#a8987f;cursor:default}
+.row-demo{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.tabs{display:flex;align-items:flex-end;gap:4px;padding-left:12px;height:46px}
+.tab{border:0;border-radius:10px 10px 0 0;font:inherit;color:var(--ink);box-shadow:0 -3px 8px rgba(0,0,0,.35);padding:0 22px;cursor:pointer}
+.tab[aria-selected="true"]{height:46px;background:var(--paper) var(--ptex);font-weight:700}
+.tab[aria-selected="false"]{height:38px;background:#b59e74}
+.ledger{margin:0;padding:0;list-style:none}
+.ledger li{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 10px;border-bottom:1px dotted #b39d74}
+.ledger li.sel{background:rgba(244,234,211,.85);box-shadow:inset 3px 0 0 var(--brass-ink),inset 0 0 0 1px #b39d74}
+.ledger li.off{color:#a8987f}
+.leader{flex:1;border-bottom:2px dotted #b39d74;height:10px}
+.stamp{display:inline-flex;align-items:center;justify-content:center;border:2.5px solid var(--wax);color:var(--wax);font-family:var(--mincho);font-weight:800;padding:4px 10px;border-radius:4px;transform:rotate(-8deg)}
+.stamp.round{width:56px;height:56px;padding:0;border-radius:50%}
+.ribbon-host{position:relative;display:inline-flex;align-items:center;justify-content:center;width:84px;height:52px;background:var(--board);border:1px solid #3a2c22;border-radius:6px;font-size:13px;color:#b3a48c}
+.ribbon{position:absolute;top:-2px;right:10px;width:12px;height:26px;background:var(--wax);clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%);box-shadow:0 2px 2px rgba(0,0,0,.4)}
+.ribbon.n{width:22px;height:34px;padding-top:4px;color:#fbeee6;font-weight:900;font-size:12px;text-align:center}
+.glow{box-shadow:0 0 0 1.5px var(--light),0 0 14px rgba(224,184,92,.55)}
+.itm{width:52px;height:52px;border-radius:8px;background:#241b16;border:2.5px solid var(--g,#d8d0c2);position:relative}
+.itm::after{content:attr(data-g);position:absolute;top:2px;left:2px;background:var(--g);color:#1b1512;font:900 11px/16px var(--gothic);min-width:16px;text-align:center;border-radius:5px 0 5px 0}
+.hp{display:flex;height:12px;width:min(100%,360px)}
+.hp .now{flex:96 1 0;position:relative;background:#120d0b;border:1px solid #3a2c22;overflow:hidden}
+.hp .now i{position:absolute;inset:0 27% 0 0;background:var(--hp)}
+.hp .lost{flex:24 1 0;margin-left:2px;border:1.5px solid var(--lost)}
+.chip{width:24px;height:24px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center}
+.tip{position:relative}
+.tip:hover::after,.tip:focus-visible::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:3px 8px;border-radius:4px;background:var(--ink);color:#f1e6cf;font-size:12px}
+.fx{background:var(--fx-bg);border:1px solid var(--brass);border-radius:4px;color:var(--paper);padding:12px 14px;box-shadow:inset 0 0 0 3px var(--fx-bg),inset 0 0 0 4px rgba(212,166,64,.35)}
+.bubble{position:relative;display:inline-block;padding:10px 14px;background:#f3e9d2;color:var(--ink);border-radius:10px;font-size:14px;max-width:320px}
+.bubble::after{content:"";position:absolute;left:-6px;top:16px;width:12px;height:12px;background:#f3e9d2;transform:rotate(45deg)}
+pre{margin:0;overflow-x:auto;background:#16100d;border:1px solid #3a2c22;border-radius:6px;padding:16px;font-size:12.5px;line-height:1.6;color:#d9ccb4}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px dotted #b39d74;vertical-align:top}
+th{font-family:var(--mincho);font-weight:800;border-bottom:2px solid var(--ink)}
+.sig{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="in"><span class="dia"></span><h1>UIリファレンス</h1><span class="dia"></span>
+<nav class="toc" aria-label="目次"><a href="#color">色</a><a href="#type">文字</a><a href="#button">ボタン</a><a href="#paper">書類</a><a href="#sign">印</a><a href="#parts">部品</a><a href="#tokens">変数</a></nav></div></header>
+<main class="wrap">
+<p class="lead">ギルドマスターの机に書類を広げる。暗い地は木と革、情報は羊皮紙の上。1つの色・1つの印は1つの意味だけ。詳しい決まりはドキュメント「ポモドーロヒーローズ UIの決まり」、画面はモックのキャンバスを見る。</p>
+
+<section class="blk" id="color"><h2>色</h2>
+<div class="paper"><span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+<div class="ptitle">色と意味<small>等級の色は IconConfig の10段（BS-19）で、ここには含めない</small></div>
+<div class="swgrid">
+<div class="sw"><i style="background:#1b1512"></i><b>夜の床</b><span>#1B1512 画面の地</span></div>
+<div class="sw"><i style="background:#2a201a"></i><b>板</b><span>#2A201A 暗い面</span></div>
+<div class="sw"><i style="background:#4a3526"></i><b>革</b><span>#4A3526 既定ボタン</span></div>
+<div class="sw"><i style="background:#b98a2c"></i><b>真鍮</b><span>#B98A2C 主ボタン</span></div>
+<div class="sw"><i style="background:#d4a640"></i><b>灯り</b><span>#D4A640 選択・光</span></div>
+<div class="sw"><i style="background:#9c3a2e"></i><b>封蝋</b><span>#9C3A2E 危険・しおり・判</span></div>
+<div class="sw"><i style="background:#e9dcc0"></i><b>羊皮紙</b><span>#E9DCC0 書類</span></div>
+<div class="sw"><i style="background:#f4ead3"></i><b>明るい紙</b><span>#F4EAD3 選んでいる行</span></div>
+<div class="sw"><i style="background:#2b2118"></i><b>墨</b><span>#2B2118 紙の字</span></div>
+<div class="sw"><i style="background:#6e5a43"></i><b>薄墨</b><span>#6E5A43 小さい字の下限</span></div>
+<div class="sw"><i style="background:#c2ae88"></i><b>罫</b><span>#C2AE88 点線</span></div>
+<div class="sw"><i style="background:#9c7424"></i><b>真鍮の墨</b><span>#9C7424 紙の上の強調</span></div>
+<div class="sw"><i style="background:#c0624f"></i><b>削れ</b><span>#C0624F 上限のふち</span></div>
+<div class="sw"><i style="background:#1f1a17;border-color:#b98a2c"></i><b>特殊効果</b><span>#1F1A17＋金 #E0B85C</span></div>
+</div></div></section>
+
+<section class="blk" id="type"><h2>文字</h2>
+<div class="grid">
+<div class="paper"><div class="ptitle">見出し<small>Shippori Mincho B1 800</small></div><p style="font-family:var(--mincho);font-weight:800;font-size:34px;letter-spacing:.3em;margin:14px 0 0">身 上 書</p></div>
+<div class="paper"><div class="ptitle">数字<small>Noto Sans JP 900・等幅</small></div><p class="num" style="font-size:48px;line-height:1.1;margin:14px 0 0">120 <span style="font-size:18px;font-weight:500;color:var(--ink-sub)">/ 96</span></p></div>
+<div class="paper"><div class="ptitle">本文<small>Noto Sans JP 400・500</small></div><p style="margin:14px 0 0">拾ったものは出口で持ち帰れる。紙の上の小さい字は薄墨より濃く。</p></div>
+<div class="paper"><div class="ptitle">サイン<small>サインの字だけ</small></div><div class="sig" style="margin-top:12px"><span style="font-family:'Yuji Boku',serif;font-size:34px;transform:rotate(-4deg)">剣士</span><span style="font-family:'Klee One',serif;font-weight:600;font-size:28px;color:#24324e;transform:rotate(2.5deg)">弓兵</span><span style="font-family:'Zen Kurenaido',sans-serif;font-size:30px;color:#3a2a45;transform:rotate(-6deg)">僧侶</span></div></div>
+</div></section>
+
+<section class="blk" id="button"><h2>ボタン</h2>
+<div class="paper" style="background:var(--board);color:var(--text-on-dark);box-shadow:none;border:1px solid #3a2c22">
+<div class="row-demo"><button class="btn b-brass">潜る準備へ</button><button class="btn b-leather">受ける</button><button class="btn b-ghost">編成を変える</button><button class="btn b-red">分解する</button><a class="btn b-back" href="#">戻る</a></div>
+<p style="font-size:13px;color:#cbbca3;margin:12px 0 0">真鍮は1画面に1つ。赤は取り返しがつかない操作だけ。戻るは左上。</p></div>
+<div class="paper" style="margin-top:14px"><div class="row-demo"><button class="btn b-brass">鍛える</button><button class="btn b-leather">刺す</button><button class="btn b-off" disabled>振り直す</button></div><p style="font-size:13px;color:var(--ink-sub);margin:12px 0 0">紙の上でも同じボタン。使えないものは点線。</p></div>
+</section>
+
+<section class="blk" id="paper"><h2>書類</h2>
+<div class="tabs" role="tablist" aria-label="タブの見本"><button class="tab" role="tab" aria-selected="true">装備</button><button class="tab" role="tab" aria-selected="false">装飾</button><button class="tab" role="tab" aria-selected="false">素材</button></div>
+<div class="paper" style="border-radius:0 3px 3px 3px"><span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+<div class="ptitle">装 備<small>9 個</small></div>
+<ul class="ledger">
+<li><span class="itm" style="--g:#5aa0e6" data-g="3"></span><span style="flex:1">ふつうの行</span><span class="num">HP +160</span></li>
+<li class="sel"><span class="itm" style="--g:#4f7fe0" data-g="4"></span><span style="flex:1">選んでいる行</span><span class="num">CD短縮 +27</span></li>
+<li class="off"><span class="itm" style="--g:#b3a48c;opacity:.4" data-g=""></span><span style="flex:1">使えない行</span><span>Lv5</span></li>
+<li><span style="font-family:var(--mincho);font-weight:700">点線リーダー</span><span class="leader"></span><span class="num" style="font-size:18px">0 / 2</span></li>
+</ul>
+<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-top:18px"><span class="stamp">昇級できる</span><span class="stamp round" style="border-color:#5f7d4f;color:#5f7d4f">済</span><span class="stamp round" style="border-color:#b0372a;color:#b0372a">受理</span><span class="stamp">使用中</span></div>
+</div></section>
+
+<section class="blk" id="sign"><h2>印</h2>
+<div class="paper"><div class="tbl"><table>
+<thead><tr><th>印</th><th>見本</th><th>伝えること</th><th>出す場所</th></tr></thead>
+<tbody>
+<tr><td>しおり紐</td><td><span class="ribbon-host">詰所<span class="ribbon"></span></span></td><td>見てほしいことがある。見たら消える</td><td>右上の縁</td></tr>
+<tr><td>しおり紐（数）</td><td><span class="ribbon-host">宝箱<span class="ribbon n">6</span></span></td><td>数に意味がある</td><td>右上の縁</td></tr>
+<tr><td>光</td><td><span class="itm glow" style="--g:#5aa0e6" data-g="3"></span></td><td>いまの素材で鍛えられる</td><td>品のふち</td></tr>
+<tr><td>判</td><td><span class="stamp">可</span></td><td>その紙の事柄の状態</td><td>紙の上</td></tr>
+<tr><td>ふちの色</td><td><span class="itm" style="--g:#e0b040" data-g="7"></span></td><td>等級</td><td>品の枠</td></tr>
+<tr><td>+数</td><td><span class="num" style="padding:0 8px;border-radius:10px;background:rgba(110,90,67,.15);color:var(--ink-sub)">+6</span></td><td>一覧で出していない能力</td><td>一覧の行</td></tr>
+<tr><td>星</td><td><span class="chip" style="border-radius:50%;background:var(--fx-bg);border:1.5px solid var(--light);color:var(--fx-gold)" aria-hidden="true">★</span></td><td>特殊効果（動きが変わる）</td><td>一覧の行・説明の窓</td></tr>
+<tr><td>吹き出し</td><td><span class="bubble" style="padding:4px 10px">…</span></td><td>キャラが話したい（会話の入口）</td><td>キャラ・身上書</td></tr>
+</tbody></table></div></div></section>
+
+<section class="blk" id="parts"><h2>部品</h2>
+<div class="grid">
+<div class="paper"><div class="ptitle">HPバー<small>削れた上限はふちだけ</small></div><div style="margin-top:16px" class="hp"><div class="now"><i></i></div><div class="lost"></div></div><p style="font-size:13px;color:var(--ink-sub);margin:10px 0 0">緑＝いまのHP、暗い＝戦闘で減った、赤いふち＝削れた上限。</p></div>
+<div class="paper"><div class="ptitle">状態アイコン<small>文字なし・触れると名前</small></div><div class="row-demo" style="margin-top:16px"><span class="chip tip" tabindex="0" data-tip="攻撃アップ" style="background:var(--buff);color:#fff">▲</span><span class="chip tip" tabindex="0" data-tip="出血" style="background:var(--debuff);color:#fff">●</span><span class="chip tip" tabindex="0" data-tip="復活" style="background:var(--revive);color:#1b1512">♥</span></div><p style="font-size:13px;color:var(--ink-sub);margin:10px 0 0">良い＝青、悪い＝赤、復活＝黄（BT-3）。絵は仮。</p></div>
+<div class="paper"><div class="ptitle">特殊効果の札<small>墨に金</small></div><div class="fx" style="margin-top:14px"><b style="font-family:var(--mincho);color:#f1e6cf">★ 棘の返し</b><div style="font-size:13px;margin-top:4px">攻撃を受けたとき、物理防御の <b class="num" style="color:#f1e6cf">40%</b> を返す</div></div></div>
+<div class="paper"><div class="ptitle">会話<small>話すのは1人ずつ</small></div><div style="margin:14px 0 0 8px"><span class="bubble"><b style="font-size:11px;color:var(--ink-sub)">剣士</b><br>マスター、修練の証がたまった。</span></div><div class="row-demo" style="margin-top:12px"><button class="btn b-leather" style="height:40px">稽古をつける</button><button class="btn b-ghost" style="height:40px;color:var(--ink);border-color:#8a7458">またあとで</button></div></div>
+</div></section>
+
+<section class="blk" id="tokens"><h2>変数</h2>
+<pre><code>/* 色 */
+--floor:#1B1512;  --board:#2A201A;  --leather:#4A3526;  --brass:#B98A2C;  --light:#D4A640;
+--wax:#9C3A2E;    --paper:#E9DCC0;  --paper-sel:#F4EAD3; --ink:#2B2118;   --ink-sub:#6E5A43;
+--rule:#C2AE88;   --brass-ink:#9C7424; --lost:#C0624F;  --fx-bg:#1F1A17;  --fx-gold:#E0B85C;
+--hp:#7FAE5A;     --buff:#2F79BD;   --debuff:#A8402F;   --revive:#E0AC2E;
+
+/* 文字 */
+見出し  Shippori Mincho B1 700–800  字間 0.15–0.3em
+数字    Noto Sans JP 900  tabular-nums（戦闘は黒いふち 5px）
+本文    Noto Sans JP 400–500  15px
+サイン  剣士 Yuji Boku / 弓兵 Klee One 600 / 僧侶 Zen Kurenaido
+
+/* 寸法 */
+基準画面 1280×720（大きいときは見える範囲を増やす）
+見出しの帯 70px  施設の帯 76px  ボタン 44px（大 52–58px）
+紙のタブ 開 46px / 閉 38px  台帳の行 56–64px  角丸 3px（紙）6px（ボタン）
+紙の傾き -1.2〜+1.4deg  角飾り 16px・2px 真鍮の墨</code></pre>
+</section>
+</main>
+</body>
+</html>

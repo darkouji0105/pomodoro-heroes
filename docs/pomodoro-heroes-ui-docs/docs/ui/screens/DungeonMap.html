@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>難ダンジョンのマップ</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&amp;family=Noto+Sans+JP:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#140f0c;font-family:"Noto Sans JP","Hiragino Sans",sans-serif;color:#eadfca}
+button{font-family:inherit;cursor:pointer}
+a{color:#d4a640}a:hover{color:#e9c46a}
+:root{--ptex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.3  0 0 0 0 0.14  0 0 0 0.22 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");--wtex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.012 0.4' numOctaves='3' seed='8'/><feColorMatrix values='0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.12  0 0 0 0.35 0'/></filter><rect width='300' height='300' filter='url(%23w)'/></svg>")}
+.tip{position:relative;outline:none}.tip:hover::after,.tip:focus-visible::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:3px 8px;border-radius:4px;background:#2b2118;color:#f1e6cf;font-size:12px;font-weight:500;font-family:'Noto Sans JP',sans-serif;z-index:5;pointer-events:none;box-shadow:0 3px 8px rgba(0,0,0,.4)}.tip:focus-visible{box-shadow:0 0 0 2px #9c7424;border-radius:3px}
+.glow{box-shadow:0 0 0 1.5px #d4a640, 0 0 14px rgba(224,184,92,.55)}
+
+</style>
+
+</head>
+<body>
+
+<div style="width: 1280px; height: 720px; box-sizing: border-box; display: flex; flex-direction: column; background: #1b1512; color: #eadfca; overflow: hidden">
+<header style="height: 62px; flex-shrink: 0; box-sizing: border-box; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; background: #231a15; border-bottom: 2px solid #3a2c22">
+<div style="display: flex; align-items: baseline; gap: 14px">
+<span style="font-size: 13px; color: #a8987f; letter-spacing: 0.1em">難ダンジョン</span>
+<span style="font-family: 'Noto Sans JP', sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-size: 32px; color: #f1e6cf">33<span style="font-size: 15px; font-weight: 700"> 層</span></span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #cbbca3"><svg width="14" height="16" viewBox="0 0 14 18" fill="none" stroke="#cbbca3" stroke-width="1.5" aria-hidden="true"><path d="M1 17 V7 C1 3.5 3.5 1 7 1 C10.5 1 13 3.5 13 7 V17"></path></svg>出口まで <b style="font-family: 'Noto Sans JP', sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-size: 17px; color: #e0b85c">7</b></span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="display: flex; align-items: center; gap: 14px; padding: 6px 14px; background: #33261d; border: 1px solid #5a4330; border-radius: 10px; font-size: 13px">
+<span aria-label="たいまつ 等級1" style="display: flex; align-items: center; gap: 8px"><svg width="22" height="30" viewBox="0 0 22 30" aria-hidden="true"><path d="M11 2 C15 7 17 9 17 12.5 C17 16 14.5 18 11 18 C7.5 18 5 16 5 12.5 C5 9.5 8 7.5 11 2 Z" fill="#e0782e"></path><path d="M11 8 C13 10.5 14 11.5 14 13.5 C14 15.5 12.7 16.5 11 16.5 C9.3 16.5 8 15.5 8 13.5 C8 11.8 9.5 10.5 11 8 Z" fill="#ffd36b"></path><path d="M7 18 H15 L13 29 H9 Z" fill="#6b4a2e" stroke="#3b2a1c" stroke-width="1"></path><path d="M7.5 20 H14.5" stroke="#a8791f" stroke-width="1.5"></path></svg><span style="display: flex; gap: 3px"><span style="width: 6px; height: 14px; border-radius: 2px; background: #e0a040"></span><span style="width: 6px; height: 14px; border-radius: 2px; background: #4a382a"></span><span style="width: 6px; height: 14px; border-radius: 2px; background: #4a382a"></span><span style="width: 6px; height: 14px; border-radius: 2px; background: #4a382a"></span></span></span>
+<span style="width: 1px; height: 18px; background: #5a4330"></span>
+<span style="display: flex; align-items: center; gap: 6px"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#d4a640" stroke-width="1.6" aria-label="コイン"><circle cx="9" cy="9" r="7"></circle><path d="M9 5 V13 M6.5 7 H11"></path></svg><b style="font-family: 'Noto Sans JP', sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-size: 17px">42</b></span></div>
+<button style="height: 44px; padding: 0 16px; border-radius: 6px; border: 1px solid #6a5340; background: transparent; color: #d9ccb4; font-size: 14px">拠点へ（中断）</button>
+</div></header>
+<main style="flex-grow: 1; min-height: 0; box-sizing: border-box; padding: 16px 24px; display: grid; grid-template-columns: 250px minmax(0, 1fr) 272px; gap: 20px">
+<aside style="display: flex; flex-direction: column; gap: 16px">
+<section style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #2a201a; border: 1px solid #3a2c22; border-radius: 10px">
+<span style="font-family: 'Shippori Mincho B1', serif; font-weight: 700; font-size: 15px; color: #f1e6cf">潜っている3人</span>
+<div style="display: flex; flex-direction: column; gap: 5px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500"><span style="width: 14px; height: 14px; border-radius: 50%; background: #2f4666; border: 1.5px solid #a8791f"></span>僧侶</span><span style="font-size: 12px; color: #a8987f"><b style="font-family: 'Noto Sans JP', sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; color: #eadfca; font-size: 16px">70</b> / 70</span></div>
+<div style="display: flex; height: 10px"><div style="flex: 70 1 0; position: relative; box-sizing: border-box; background: #120d0b; border: 1px solid #3a2c22; overflow: hidden"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 100.0%; background: #7fae5a"></span></div></div></div>
+<div style="display: flex; flex-direction: column; gap: 5px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500"><span style="width: 14px; height: 14px; border-radius: 50%; background: #34553b; border: 1.5px solid #a8791f"></span>弓兵</span><span style="font-size: 12px; color: #a8987f"><b style="font-family: 'Noto Sans JP', sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; color: #eadfca; font-size: 16px">61</b> / 80</span></div>
+<div style="display: flex; height: 10px"><div style="flex: 61 1 0; position: relative; box-sizing: border-box; background: #120d0b; border: 1px solid #3a2c22; overflow: hidden"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 100.0%; background: #7fae5a"></span></div><div style="flex: 19 1 0; box-sizing: border-box; margin-left: 2px; border: 1.5px solid #c0624f; border-radius: 1px"></div></div></div>
+<div style="display: flex; flex-direction: column; gap: 5px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500"><span style="width: 14px; height: 14px; border-radius: 50%; background: #4b3a63; border: 1.5px solid #a8791f"></span>剣士</span><span style="font-size: 12px; color: #a8987f"><b style="font-family: 'Noto Sans JP', sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; color: #eadfca; font-size: 16px">96</b> / 120</span></div>
+<div style="display: flex; height: 10px"><div style="flex: 96 1 0; position: relative; box-sizing: border-box; background: #120d0b; border: 1px solid #3a2c22; overflow: hidden"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 100.0%; background: #7fae5a"></span></div><div style="flex: 24 1 0; box-sizing: border-box; margin-left: 2px; border: 1.5px solid #c0624f; border-radius: 1px"></div></div></div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 10px; padding: 16px; background: #2a201a; border: 1px solid #3a2c22; border-radius: 10px">
+<span style="font-family: 'Shippori Mincho B1', serif; font-weight: 700; font-size: 15px; color: #f1e6cf">レリック <span style="font-size: 12px; color: #a8987f">3</span></span>
+<div style="display: flex; gap: 8px"><div style="position: relative; width: 40px; height: 40px; flex-shrink: 0; "><svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><polygon points="21,3 43,3 61,21 61,43 43,61 21,61 3,43 3,21" fill="#241b16" stroke="#58a7ee" stroke-width="2.5"></polygon><polygon points="23,8 41,8 56,23 56,41 41,56 23,56 8,41 8,23" fill="none" stroke="#58a7ee" stroke-width="0.8" opacity="0.35"></polygon><g fill="none" stroke="#efe5d2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19 H41 V31 C41 39 37 43 32 46 C27 43 23 39 23 31 Z"></path><path d="M32 23 V41 M26 30 H38"></path></g></svg></div><div style="position: relative; width: 40px; height: 40px; flex-shrink: 0; "><svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><polygon points="21,3 43,3 61,21 61,43 43,61 21,61 3,43 3,21" fill="#241b16" stroke="#58a7ee" stroke-width="2.5"></polygon><polygon points="23,8 41,8 56,23 56,41 41,56 23,56 8,41 8,23" fill="none" stroke="#58a7ee" stroke-width="0.8" opacity="0.35"></polygon><g fill="none" stroke="#efe5d2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 18 L32 29 L40 18"></path><circle cx="32" cy="37" r="8"></circle><circle cx="32" cy="37" r="3"></circle></g></svg></div><div style="position: relative; width: 40px; height: 40px; flex-shrink: 0; "><svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><polygon points="21,3 43,3 61,21 61,43 43,61 21,61 3,43 3,21" fill="#241b16" stroke="#e0b040" stroke-width="2.5"></polygon><polygon points="23,8 41,8 56,23 56,41 41,56 23,56 8,41 8,23" fill="none" stroke="#e0b040" stroke-width="0.8" opacity="0.35"></polygon><g fill="none" stroke="#efe5d2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 28 L27 20 H37 L43 28 L32 45 Z"></path><path d="M21 28 H43"></path><path d="M27 20 L32 28 L37 20"></path></g></svg></div></div>
+</section>
+</aside>
+<section style="position: relative; background: #eadcbf var(--ptex); border-radius: 4px; box-shadow: inset 0 0 0 1px #cdb88f, inset 0 0 30px rgba(107,86,56,0.35), 0 10px 24px rgba(0,0,0,0.5); overflow: hidden; display: flex; align-items: center; justify-content: center">
+<svg width="100%" height="100%" viewBox="0 0 660 600" preserveAspectRatio="xMidYMid meet" aria-label="31層から40層の地図"><defs><radialGradient id="dark" gradientUnits="userSpaceOnUse" cx="300" cy="460" r="300"><stop offset="0" stop-color="#2a1c10" stop-opacity="0"></stop><stop offset="0.28" stop-color="#2a1c10" stop-opacity="0"></stop><stop offset="0.62" stop-color="#2a1c10" stop-opacity="0.38"></stop><stop offset="1" stop-color="#2a1c10" stop-opacity="0.6"></stop></radialGradient><radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="300" cy="460" r="110"><stop offset="0" stop-color="#ffcf70" stop-opacity="0.45"></stop><stop offset="1" stop-color="#ffcf70" stop-opacity="0"></stop></radialGradient></defs>
+<text x="34" y="565" text-anchor="middle" font-size="14" font-weight="500" fill="#7a6448" font-family="Noto Sans JP, sans-serif">31</text>
+<text x="34" y="515" text-anchor="middle" font-size="14" font-weight="500" fill="#7a6448" font-family="Noto Sans JP, sans-serif">32</text>
+<text x="34" y="465" text-anchor="middle" font-size="17" font-weight="900" fill="#9c3a2e" font-family="Noto Sans JP, sans-serif">33</text>
+<text x="34" y="415" text-anchor="middle" font-size="14" font-weight="500" fill="#7a6448" font-family="Noto Sans JP, sans-serif">34</text>
+<text x="34" y="365" text-anchor="middle" font-size="14" font-weight="500" fill="#7a6448" font-family="Noto Sans JP, sans-serif">35</text>
+<text x="34" y="315" text-anchor="middle" font-size="14" font-weight="500" fill="#7a6448" font-family="Noto Sans JP, sans-serif">36</text>
+<text x="34" y="265" text-anchor="middle" font-size="14" font-weight="500" fill="#7a6448" font-family="Noto Sans JP, sans-serif">37</text>
+<text x="34" y="215" text-anchor="middle" font-size="14" font-weight="500" fill="#7a6448" font-family="Noto Sans JP, sans-serif">38</text>
+<text x="34" y="165" text-anchor="middle" font-size="14" font-weight="500" fill="#7a6448" font-family="Noto Sans JP, sans-serif">39</text>
+<text x="34" y="115" text-anchor="middle" font-size="14" font-weight="500" fill="#7a6448" font-family="Noto Sans JP, sans-serif">40</text>
+<path d="M58 80 V585" stroke="#b39d74" stroke-width="1"></path>
+<path d="M620 524 H628 V296 H620" fill="none" stroke="#b39d74" stroke-width="1"></path>
+<path d="M340 560 L200 510" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M340 560 L340 510" stroke="#9c3a2e" stroke-width="3.2" stroke-linecap="round"></path>
+<path d="M340 560 L480 510" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M200 510 L160 460" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M200 510 L240 460" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M160 460 L160 410" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M240 460 L240 410" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M160 410 L200 360" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M240 410 L200 360" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M200 360 L200 310" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M340 510 L300 460" stroke="#9c3a2e" stroke-width="3.2" stroke-linecap="round"></path>
+<path d="M340 510 L380 460" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M300 460 L300 410" stroke="#a8791f" stroke-width="2.4" stroke-dasharray="6 5"></path>
+<path d="M380 460 L380 410" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M300 410 L300 360" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M380 410 L380 360" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M300 360 L340 310" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M380 360 L340 310" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M480 510 L480 460" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M480 460 L440 410" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M480 460 L520 410" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<path d="M440 410 L480 360" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M520 410 L480 360" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M480 360 L480 310" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M200 310 L340 260" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M340 310 L340 260" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M480 310 L340 260" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M340 260 L340 210" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M340 210 L340 160" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M340 160 L340 110" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.35"></path>
+<path d="M340 90 V62" stroke="#3b2a1c" stroke-width="1.4" stroke-dasharray="4 5" opacity="0.7"></path>
+<g transform="translate(316 22)" fill="#efe3c7" stroke="#3b2a1c" stroke-width="2"><path d="M4 44 V18 C4 8 12 2 24 2 C36 2 44 8 44 18 V44 Z"></path><path d="M14 44 V22 C14 16 18 12 24 12 C30 12 34 16 34 22 V44" fill="#3b2a1c" opacity="0.85"></path></g>
+<text x="374" y="52" font-size="13" font-weight="700" fill="#3b2a1c" font-family="Shippori Mincho B1, serif">40層の出口</text>
+<circle cx="340" cy="560" r="18" fill="#e0cfa8" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(328 548) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"><path d="M5 19 L17 7 M15 5 L19 9 M19 19 L7 7 M9 5 L5 9"></path></g>
+<path d="M331 561 L337 567 L350 552" fill="none" stroke="#9c3a2e" stroke-width="2.6" stroke-linecap="round"></path>
+<circle cx="200" cy="510" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(188 498) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M12 3 L14.5 9.5 L21 10 L16 14.5 L17.5 21 L12 17.5 L6.5 21 L8 14.5 L3 10 L9.5 9.5 Z"></path></g>
+<circle cx="340" cy="510" r="18" fill="#e0cfa8" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(328 498) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"><path d="M5 19 L17 7 M15 5 L19 9 M19 19 L7 7 M9 5 L5 9"></path></g>
+<path d="M331 511 L337 517 L350 502" fill="none" stroke="#9c3a2e" stroke-width="2.6" stroke-linecap="round"></path>
+<circle cx="480" cy="510" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(468 498) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M12 4 C15 8 17 10 17 14 C17 17 15 19 12 19 C9 19 7 17 7 14 C7 11 10 9 12 4 Z"></path><path d="M5 21 L19 18 M5 18 L19 21"></path></g>
+<circle cx="160" cy="460" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(148 448) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M5 19 L17 7 M15 5 L19 9 M19 19 L7 7 M9 5 L5 9"></path></g>
+<circle cx="240" cy="460" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(228 448) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M4 11 H20 V19 H4 Z"></path><path d="M4 11 C4 7 8 5 12 5 C16 5 20 7 20 11"></path><path d="M11 11 V14 H13 V11"></path></g>
+<circle cx="300" cy="460" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(288 448) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M5 19 L17 7 M15 5 L19 9 M19 19 L7 7 M9 5 L5 9"></path></g>
+<g transform="translate(308 430)"><path d="M21.4 12.0 21.1 16.4 18.1 19.6 14.3 22.0 9.7 22.0 6.4 19.1 4.0 15.9 1.3 12.0 3.5 7.9 6.1 4.6 9.5 1.2 14.2 2.3 18.7 3.6 21.0 7.7 Z" fill="#9c3a2e" stroke="#6e2219" transform="scale(1.15)"></path><circle cx="9.5" cy="14" r="2" fill="#f2e8d0"></circle><circle cx="14" cy="14" r="2" fill="#f2e8d0"></circle><circle cx="18.5" cy="14" r="2" fill="#f2e8d0"></circle></g>
+<circle cx="380" cy="460" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(368 448) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M12 3 L14.5 9.5 L21 10 L16 14.5 L17.5 21 L12 17.5 L6.5 21 L8 14.5 L3 10 L9.5 9.5 Z"></path></g>
+<circle cx="480" cy="460" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(468 448) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M5 19 L17 7 M15 5 L19 9 M19 19 L7 7 M9 5 L5 9"></path></g>
+<circle cx="160" cy="410" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(148 398) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M12 4 C15 8 17 10 17 14 C17 17 15 19 12 19 C9 19 7 17 7 14 C7 11 10 9 12 4 Z"></path><path d="M5 21 L19 18 M5 18 L19 21"></path></g>
+<circle cx="240" cy="410" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(228 398) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M5 19 L17 7 M15 5 L19 9 M19 19 L7 7 M9 5 L5 9"></path></g>
+<circle cx="300" cy="410" r="25" fill="none" stroke="#a8791f" stroke-width="2" stroke-dasharray="3 4"></circle><circle cx="300" cy="410" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(288 398) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M4 11 H20 V19 H4 Z"></path><path d="M4 11 C4 7 8 5 12 5 C16 5 20 7 20 11"></path><path d="M11 11 V14 H13 V11"></path></g>
+<circle cx="380" cy="410" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(368 398) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M5 19 L17 7 M15 5 L19 9 M19 19 L7 7 M9 5 L5 9"></path></g>
+<circle cx="440" cy="410" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(428 398) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M12 3 L14.5 9.5 L21 10 L16 14.5 L17.5 21 L12 17.5 L6.5 21 L8 14.5 L3 10 L9.5 9.5 Z"></path></g>
+<circle cx="520" cy="410" r="18" fill="#f2e8d0" stroke="#3b2a1c" stroke-width="2"></circle>
+<g transform="translate(508 398) scale(1)" fill="none" stroke="#3b2a1c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M5 19 L17 7 M15 5 L19 9 M19 19 L7 7 M9 5 L5 9"></path></g>
+<circle cx="200" cy="360" r="15" fill="none" stroke="#3b2a1c" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.45"></circle><text x="200" y="365" text-anchor="middle" font-size="14" fill="#3b2a1c" opacity="0.4" font-family="Shippori Mincho B1, serif">?</text>
+<circle cx="300" cy="360" r="15" fill="none" stroke="#3b2a1c" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.45"></circle><text x="300" y="365" text-anchor="middle" font-size="14" fill="#3b2a1c" opacity="0.4" font-family="Shippori Mincho B1, serif">?</text>
+<circle cx="380" cy="360" r="15" fill="none" stroke="#3b2a1c" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.45"></circle><text x="380" y="365" text-anchor="middle" font-size="14" fill="#3b2a1c" opacity="0.4" font-family="Shippori Mincho B1, serif">?</text>
+<circle cx="480" cy="360" r="15" fill="none" stroke="#3b2a1c" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.45"></circle><text x="480" y="365" text-anchor="middle" font-size="14" fill="#3b2a1c" opacity="0.4" font-family="Shippori Mincho B1, serif">?</text>
+<circle cx="200" cy="310" r="15" fill="none" stroke="#3b2a1c" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.45"></circle><text x="200" y="315" text-anchor="middle" font-size="14" fill="#3b2a1c" opacity="0.4" font-family="Shippori Mincho B1, serif">?</text>
+<circle cx="340" cy="310" r="15" fill="none" stroke="#3b2a1c" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.45"></circle><text x="340" y="315" text-anchor="middle" font-size="14" fill="#3b2a1c" opacity="0.4" font-family="Shippori Mincho B1, serif">?</text>
+<circle cx="480" cy="310" r="15" fill="none" stroke="#3b2a1c" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.45"></circle><text x="480" y="315" text-anchor="middle" font-size="14" fill="#3b2a1c" opacity="0.4" font-family="Shippori Mincho B1, serif">?</text>
+<circle cx="340" cy="260" r="15" fill="none" stroke="#3b2a1c" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.45"></circle><text x="340" y="265" text-anchor="middle" font-size="14" fill="#3b2a1c" opacity="0.4" font-family="Shippori Mincho B1, serif">?</text>
+<circle cx="340" cy="210" r="15" fill="none" stroke="#3b2a1c" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.45"></circle><text x="340" y="215" text-anchor="middle" font-size="14" fill="#3b2a1c" opacity="0.4" font-family="Shippori Mincho B1, serif">?</text>
+<circle cx="340" cy="160" r="15" fill="none" stroke="#3b2a1c" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.45"></circle><text x="340" y="165" text-anchor="middle" font-size="14" fill="#3b2a1c" opacity="0.4" font-family="Shippori Mincho B1, serif">?</text>
+<circle cx="340" cy="110" r="24" fill="#f2e8d0" stroke="#9c3a2e" stroke-width="2.6"></circle>
+<g transform="translate(325.0 95.0) scale(1.25)" fill="none" stroke="#9c3a2e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="1"><path d="M4 17 L6 7 L10 12 L12 5 L14 12 L18 7 L20 17 Z"></path><path d="M4 20 H20"></path></g>
+<rect x="0" y="0" width="660" height="600" fill="url(#dark)"></rect><circle cx="300" cy="460" r="110" fill="url(#glow)" style="mix-blend-mode: multiply"></circle>
+<circle cx="340" cy="110" r="24" fill="#f2e8d0" stroke="#9c3a2e" stroke-width="2.6"></circle><g transform="translate(325 95) scale(1.25)" fill="none" stroke="#9c3a2e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17 L6 7 L10 12 L12 5 L14 12 L18 7 L20 17 Z"></path><path d="M4 20 H20"></path></g></svg>
+</section>
+<aside style="display: flex; flex-direction: column; gap: 16px">
+<section style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #2a201a; border: 1px solid #3a2c22; border-radius: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-family: 'Shippori Mincho B1', serif; font-weight: 700; font-size: 15px; color: #f1e6cf">鞄</span><span style="font-size: 13px; color: #a8987f"><b style="font-family: 'Noto Sans JP', sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; color: #eadfca; font-size: 16px">4</b> / 8</span></div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; justify-items: center"><div style="width: 58px; height: 58px; display: flex; align-items: center; justify-content: center"><div style="position: relative; width: 56px; height: 56px; flex-shrink: 0; "><svg width="56" height="56" viewBox="0 0 64 64" aria-hidden="true"><rect x="3" y="3" width="58" height="58" rx="20" fill="#241b16" stroke="#d4a640" stroke-width="2.5"></rect><g fill="none" stroke="#efe5d2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 30 H47 V45 H17 Z"></path><path d="M17 30 C17 23 23 19 32 19 C41 19 47 23 47 30"></path><path d="M29 30 V36 H35 V30"></path></g></svg></div></div><div style="width: 58px; height: 58px; display: flex; align-items: center; justify-content: center"><div style="position: relative; width: 56px; height: 56px; flex-shrink: 0; "><svg width="56" height="56" viewBox="0 0 64 64" aria-hidden="true"><rect x="3" y="3" width="58" height="58" rx="20" fill="#241b16" stroke="#c4534a" stroke-width="2.5"></rect><g fill="none" stroke="#efe5d2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M27 17 H37"></path><path d="M29 17 V26 L21 38 C19 43 22 47 27 47 H37 C42 47 45 43 43 38 L35 26 V17"></path><path d="M32 33 V41 M28 37 H36"></path></g></svg></div></div><div style="width: 58px; height: 58px; display: flex; align-items: center; justify-content: center"><div style="position: relative; width: 56px; height: 56px; flex-shrink: 0; "><svg width="56" height="56" viewBox="0 0 64 64" aria-hidden="true"><polygon points="21,3 43,3 61,21 61,43 43,61 21,61 3,43 3,21" fill="#241b16" stroke="#9a6ce0" stroke-width="2.5"></polygon><polygon points="23,8 41,8 56,23 56,41 41,56 23,56 8,41 8,23" fill="none" stroke="#9a6ce0" stroke-width="0.8" opacity="0.35"></polygon><g fill="none" stroke="#efe5d2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 28 L27 20 H37 L43 28 L32 45 Z"></path><path d="M21 28 H43"></path><path d="M27 20 L32 28 L37 20"></path></g></svg><span style="position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); padding: 0 6px; border-radius: 4px; background: #9a6ce0; color: #1b1512; font-size: 10px; font-weight: 700; white-space: nowrap">段2</span></div></div><div style="width: 58px; height: 58px; display: flex; align-items: center; justify-content: center"><div style="position: relative; width: 56px; height: 56px; flex-shrink: 0; "><svg width="56" height="56" viewBox="0 0 64 64" aria-hidden="true"><rect x="3" y="3" width="58" height="58" rx="8" fill="#241b16" stroke="#e0b040" stroke-width="2.5"></rect><rect x="7" y="7" width="50" height="50" rx="5" fill="none" stroke="#e0b040" stroke-width="0.8" opacity="0.35"></rect><g fill="none" stroke="#efe5d2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 45 L41 23 L45 19 L41 23"></path><path d="M38 19 L45 26"></path><path d="M21 38 L26 43"></path><path d="M41 23 L45 19 L43 25"></path></g></svg><span style="position: absolute; top: 3px; left: 3px; min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 4px; border-radius: 6px 0 6px 0; background: #e0b040; color: #1b1512; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">7</span><span style="position: absolute; bottom: 7px; left: 0; right: 0; display: flex; justify-content: center; gap: 4px"><span style="width: 6px; height: 6px; transform: rotate(45deg); border: 1px solid #8a7a64; box-sizing: border-box"></span><span style="width: 6px; height: 6px; transform: rotate(45deg); border: 1px solid #8a7a64; box-sizing: border-box"></span><span style="width: 6px; height: 6px; transform: rotate(45deg); border: 1px solid #8a7a64; box-sizing: border-box"></span><span style="width: 6px; height: 6px; transform: rotate(45deg); border: 1px solid #8a7a64; box-sizing: border-box"></span><span style="width: 6px; height: 6px; transform: rotate(45deg); border: 1px solid #8a7a64; box-sizing: border-box"></span></span></div></div><div style="width: 58px; height: 58px; box-sizing: border-box; border-radius: 8px; border: 1px dashed #4a382a"></div><div style="width: 58px; height: 58px; box-sizing: border-box; border-radius: 8px; border: 1px dashed #4a382a"></div><div style="width: 58px; height: 58px; box-sizing: border-box; border-radius: 8px; border: 1px dashed #4a382a"></div><div style="width: 58px; height: 58px; box-sizing: border-box; border-radius: 8px; border: 1px dashed #4a382a"></div></div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background: #2a201a; border: 1px solid #3a2c22; border-radius: 10px">
+<span style="font-size: 12px; color: #a8987f">次の出口まで</span>
+<div style="display: flex; gap: 3px">
+<span style="flex: 1; height: 8px; background: #9c3a2e"></span><span style="flex: 1; height: 8px; background: #9c3a2e"></span><span style="flex: 1; height: 8px; background: #d4a640"></span><span style="flex: 1; height: 8px; background: #3a2c22"></span><span style="flex: 1; height: 8px; background: #3a2c22"></span><span style="flex: 1; height: 8px; background: #3a2c22"></span><span style="flex: 1; height: 8px; background: #3a2c22"></span><span style="flex: 1; height: 8px; background: #3a2c22"></span><span style="flex: 1; height: 8px; background: #3a2c22"></span><span style="flex: 1; height: 8px; background: #3a2c22"></span>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 11px; color: #a8987f"><span>31</span><span>ボス 40</span></div>
+</section>
+<button style="margin-top: auto; height: 48px; border-radius: 6px; border: 1.5px solid #6e2219; background: #8a3327; color: #fbeee6; font-size: 14px; font-weight: 700">その場で降りる（全部なくす）</button>
+</aside>
+</main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,103 @@
+{
+  "base_size": [
+    1280,
+    720
+  ],
+  "stretch": {
+    "mode": "canvas_items",
+    "aspect": "expand"
+  },
+  "colors": {
+    "floor": "#1B1512",
+    "board": "#2A201A",
+    "leather": "#4A3526",
+    "brass": "#B98A2C",
+    "light": "#D4A640",
+    "wax": "#9C3A2E",
+    "paper": "#E9DCC0",
+    "paper_selected": "#F4EAD3",
+    "ink": "#2B2118",
+    "ink_sub": "#6E5A43",
+    "rule": "#C2AE88",
+    "brass_ink": "#9C7424",
+    "hp_lost_outline": "#C0624F",
+    "fx_bg": "#1F1A17",
+    "fx_gold": "#E0B85C",
+    "text_on_dark": "#EADFCA",
+    "text_dim_on_dark": "#A8987F",
+    "hp": "#7FAE5A",
+    "buff": "#2F79BD",
+    "debuff": "#A8402F",
+    "revive": "#E0AC2E"
+  },
+  "fonts": {
+    "heading": "Shippori Mincho B1 (700-800)",
+    "number": "Noto Sans JP 900, tabular",
+    "body": "Noto Sans JP 400-500",
+    "signature": {
+      "剣士": "Yuji Boku",
+      "弓兵": "Klee One 600",
+      "僧侶": "Zen Kurenaido"
+    }
+  },
+  "sizes": {
+    "header_bar": 70,
+    "facility_bar": 76,
+    "button": 44,
+    "button_large": [
+      52,
+      58
+    ],
+    "paper_tab_open": 46,
+    "paper_tab_closed": 38,
+    "ledger_row": [
+      56,
+      64
+    ],
+    "radius_paper": 3,
+    "radius_button": 6,
+    "paper_tilt_deg": [
+      -1.2,
+      1.4
+    ],
+    "corner_ornament": 16,
+    "body_text": 15,
+    "small_text_min": 11
+  },
+  "buttons": {
+    "brass": {
+      "bg": "#B98A2C",
+      "border": "#7A5716",
+      "text": "#1F160F"
+    },
+    "leather": {
+      "bg": "#4A3526",
+      "border": "#5A4330",
+      "text": "#F1E6CF"
+    },
+    "ghost": {
+      "bg": "transparent",
+      "border": "#6A5340",
+      "text": "#D9CCB4"
+    },
+    "red": {
+      "bg": "#8A3327",
+      "border": "#6E2219",
+      "text": "#FBEEE6"
+    },
+    "back": {
+      "bg": "#4A3526",
+      "border": "#A8791F",
+      "text": "#F1E6CF"
+    }
+  },
+  "signals": {
+    "ribbon": "通知。右上の縁。見たら消える",
+    "glow": "いまの素材で鍛えられる",
+    "stamp": "紙の事柄の状態",
+    "frame_color": "等級（IconConfig 10段・BS-19）",
+    "plus_n": "一覧に出していない能力の数",
+    "star": "特殊効果",
+    "bubble": "キャラが話したい（会話の入口）"
+  }
+}
