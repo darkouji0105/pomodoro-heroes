@@ -12,14 +12,14 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="." unique_id=2083905283]
+[node name="Background" type="PanelContainer" parent="." unique_id=2083905283]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.101961, 0.0784314, 0.0941176, 1)
+theme_type_variation = &"BackgroundPanel"
 
 [node name="Layout" type="VBoxContainer" parent="." unique_id=273333874]
 layout_mode = 1

@@ -22,12 +22,45 @@ extends RefCounted
 #   `default_font`（NotoSansJP）の割り当てが消える。
 
 const THEME_PATH: String = "res://theme/main_theme.tres"
+# ⚠⚠ 紙の上に当てるテーマ（2026-09-26・決定 `UI-14`・人間「⚠ あで」）。
+#   ⚠ 紙の部品の `theme` にこれを持たせると、⚠ 中の字が全部**墨色**になる
+#   ⚠ （⚠ 字を1つずつ付け替えない）。⚠ ここに無い項目は `main_theme.tres` に落ちる。
+#   ⚠ 値を持つのは引き続きこのファイルだけ（⚠ `.tres` は2枚とも生成物）。
+const PAPER_THEME_PATH: String = "res://theme/paper_theme.tres"
+
+# --- ⚠⚠ 手本の色（2026-09-26・決定 `UI-11`「全部寄せる」）---
+#
+# ⚠ 出どころは `docs/pomodoro-heroes-ui-docs/docs/ui/ui_tokens.json`（⚠ 名前もそのまま）。
+#   ⚠ 下の各所はこの定数を引く。⚠ 16進を2か所に書かない。
+const TOKEN_FLOOR: String = "1b1512"          # 夜の床（画面の地）
+const TOKEN_BOARD: String = "2a201a"          # 板（暗い面・戦闘の欄）
+const TOKEN_LEATHER: String = "4a3526"        # 革（既定ボタン・戻る）
+const TOKEN_BRASS: String = "b98a2c"          # 真鍮（主ボタン・1画面に1つ）
+const TOKEN_LIGHT: String = "d4a640"          # 灯り（選択・線・光）
+const TOKEN_WAX: String = "9c3a2e"            # 封蝋（危険・しおり紐・判）
+const TOKEN_PAPER: String = "e9dcc0"          # 羊皮紙
+const TOKEN_PAPER_SELECTED: String = "f4ead3" # 明るい紙（選んでいる行）
+const TOKEN_INK: String = "2b2118"            # 墨（紙の上の字）
+const TOKEN_INK_SUB: String = "6e5a43"        # 薄墨（⚠ これより薄くしない）
+const TOKEN_RULE: String = "c2ae88"           # 罫
+const TOKEN_BRASS_INK: String = "9c7424"      # 真鍮の墨（紙の上の強調）
+const TOKEN_TEXT_ON_DARK: String = "eadfca"
+const TOKEN_TEXT_DIM_ON_DARK: String = "a8987f"
+const TOKEN_HP: String = "7fae5a"
+const TOKEN_BUFF: String = "2f79bd"
+const TOKEN_DEBUFF: String = "a8402f"
+const TOKEN_REVIVE: String = "e0ac2e"
+# ⚠ 紙の上の「増える」緑。⚠ `ui_tokens.json` には無く、⚠ 手本の HTML（Character / LevelUp）の値。
+const TOKEN_PAPER_GAIN: String = "5f7d4f"
 
 # --- ボタンの共通の寸法 ---
 
-const BUTTON_CORNER_RADIUS: int = 8
+# ⚠ 角丸は手本の 6（`ui_tokens.json` `radius_button`・2026-09-26。⚠ 前は 8）。
+const BUTTON_CORNER_RADIUS: int = 6
 const BUTTON_PAD_H: float = 20.0
-const BUTTON_PAD_V: float = 8.0
+# ⚠⚠ 手本のボタンは高さ 44（`sizes.button`）。⚠ 字14 の行の高さ約20 ＋ 上下12 × 2。
+#   ⚠ 前は 8（⚠ 高さ約36）。⚠ 全画面で縦が 8px 伸びる。
+const BUTTON_PAD_V: float = 12.0
 const BUTTON_FONT_SIZE: int = 14
 const FOCUS_BORDER_WIDTH: int = 2
 # ⚠ 面に重ねる「当たり」のホバーの縁（⚠ 面の外側に出す）。
@@ -39,7 +72,8 @@ const HIT_BORDER_WIDTH: int = 1
 #   ⚠ 前は 地 1e1917 / 枠 2a2320 / 文字 5a4f49（⚠ Ghost だけ文字 3f3835）で、⚠ 一段暗かった。
 # ⚠ 地・枠・文字とも**既存の値の使い回し**（⚠ 地=ボタンの地 ／ 枠=PANEL_BORDER ／ 文字=入力欄の下書き）。
 # ⚠ Ghost だけは地を透明のまま残す（⚠ 「地を持たない」がこの階層の作りそのものなので）。
-const DISABLED_BG: String = "241d1a"
+# ⚠ 2026-09-26：地を手本の「板」へ（`UI-11`）。⚠ 枠・文字は手本に無いので今のまま。
+const DISABLED_BG: String = TOKEN_BOARD
 const DISABLED_BORDER: String = "3a302b"
 const DISABLED_FONT: String = "6f635c"
 
@@ -51,29 +85,36 @@ const DISABLED_FONT: String = "6f635c"
 # ⚠ 赤は「危険・不可逆」に予約する。⚠ ギルド側の主色は真鍮。
 # ⚠ 色は16進の文字列で持つ（Inspector で拾った値と見比べられるようにするため）。
 #   `bg` が "" のときは完全な透明。`border` が "" のときは枠なし。
+#
+# ⚠⚠ 2026-09-26：中身を手本（`ui_tokens.json` の `buttons`）へ差し替えた（`UI-11`）。
+#   ⚠ **名前は変えていない**（`UI-4`）：手本 leather＝`Button` ／ brass＝`PrimaryButton` ／
+#   ⚠ ghost＝`GhostButton` ／ red＝`DangerButton` ／ back＝`BackButton`。
+#   ⚠ 手本が持つのは normal の地・枠・字だけ。⚠ hover / pressed は手本に無いので、
+#   ⚠ normal から1段明るく／暗くした値を置いた（⚠ 手応えは人間の見る回）。
+#   ⚠ focus の縁は手本の「灯り」（`TOKEN_LIGHT`）。
 const BUTTON_LEVELS: Dictionary = {
-	# 既定。並列の選択肢。
+	# 既定。並列の選択肢。⚠ 手本の「革」（⚠ 前は暗い灰 241d1a）。
 	"Button": {
-		"normal": {"bg": "241d1a", "border": "4a3d36", "width": 1},
-		"hover": {"bg": "2e2521", "border": "6b5a4e", "width": 1},
-		"pressed": {"bg": "1c1715", "border": "4a3d36", "width": 1},
+		"normal": {"bg": TOKEN_LEATHER, "border": "5a4330", "width": 1},
+		"hover": {"bg": "5c4230", "border": "6a5340", "width": 1},
+		"pressed": {"bg": "3a2a1e", "border": "5a4330", "width": 1},
 		"disabled": {"bg": DISABLED_BG, "border": DISABLED_BORDER, "width": 1},
-		"focus": {"bg": "", "border": "f0c04a", "width": FOCUS_BORDER_WIDTH},
-		"font_color": "e0d5ce",
-		"font_hover_color": "f0e6df",
-		"font_pressed_color": "e0d5ce",
+		"focus": {"bg": "", "border": TOKEN_LIGHT, "width": FOCUS_BORDER_WIDTH},
+		"font_color": "f1e6cf",
+		"font_hover_color": "ffffff",
+		"font_pressed_color": "f1e6cf",
 		"font_disabled_color": DISABLED_FONT,
 	},
 	# 真鍮。ギルド側の主要動作。⚠ 1画面に1個まで。
 	"PrimaryButton": {
-		"normal": {"bg": "a8791f", "border": "", "width": 0},
-		"hover": {"bg": "c9922e", "border": "", "width": 0},
-		"pressed": {"bg": "8a6114", "border": "", "width": 0},
+		"normal": {"bg": TOKEN_BRASS, "border": "7a5716", "width": 1},
+		"hover": {"bg": TOKEN_LIGHT, "border": "7a5716", "width": 1},
+		"pressed": {"bg": TOKEN_BRASS_INK, "border": "7a5716", "width": 1},
 		"disabled": {"bg": DISABLED_BG, "border": DISABLED_BORDER, "width": 1},
-		"focus": {"bg": "", "border": "f0c04a", "width": FOCUS_BORDER_WIDTH},
-		"font_color": "1a1206",
-		"font_hover_color": "1a1206",
-		"font_pressed_color": "1a1206",
+		"focus": {"bg": "", "border": TOKEN_LIGHT, "width": FOCUS_BORDER_WIDTH},
+		"font_color": "1f160f",
+		"font_hover_color": "1f160f",
+		"font_pressed_color": "1f160f",
 		"font_disabled_color": DISABLED_FONT,
 	},
 	# 戻る・閉じる。⚠ 地は透明のまま。⚠ 枠だけ持たせる（2026-09-08・人間の指示
@@ -82,27 +123,28 @@ const BUTTON_LEVELS: Dictionary = {
 	# ⚠ 枠の色は Secondary と同じ段（⚠ 地の有無だけが違う＝並べたときに揃う）。
 	# ⚠ 無効時は枠も文字も一段暗い（⚠ 地が無いぶん、手がかりが枠と文字の2つになった）。
 	"GhostButton": {
-		"normal": {"bg": "", "border": "4a3d36", "width": 1},
-		"hover": {"bg": "241d1a", "border": "6b5a4e", "width": 1},
-		"pressed": {"bg": "1c1715", "border": "4a3d36", "width": 1},
+		"normal": {"bg": "", "border": "6a5340", "width": 1},
+		"hover": {"bg": TOKEN_BOARD, "border": "8a7458", "width": 1},
+		"pressed": {"bg": TOKEN_FLOOR, "border": "6a5340", "width": 1},
 		"disabled": {"bg": "", "border": DISABLED_BORDER, "width": 1},
-		"focus": {"bg": "", "border": "f0c04a", "width": FOCUS_BORDER_WIDTH},
-		"font_color": "a89b94",
-		"font_hover_color": "f0e6df",
-		"font_pressed_color": "e0d5ce",
+		"focus": {"bg": "", "border": TOKEN_LIGHT, "width": FOCUS_BORDER_WIDTH},
+		"font_color": "d9ccb4",
+		"font_hover_color": TOKEN_TEXT_ON_DARK,
+		"font_pressed_color": "d9ccb4",
 		"font_disabled_color": DISABLED_FONT,
 	},
 	# 冒険側。潜る・撤退など。⚠ 割り当ては未定（画面が決まっていない）。
 	#   ⚠ 前の赤 #c44539 とは別の値。⚠ 流用しないこと（人間の指示・2026-09-07）。
+	# ⚠ 2026-09-26：手本の red（`8a3327` ／ 枠 `6e2219` ／ 字 `fbeee6`）。
 	"DangerButton": {
-		"normal": {"bg": "a8352f", "border": "", "width": 0},
-		"hover": {"bg": "c4433c", "border": "", "width": 0},
-		"pressed": {"bg": "8a2a25", "border": "", "width": 0},
+		"normal": {"bg": "8a3327", "border": "6e2219", "width": 1},
+		"hover": {"bg": "a03d2f", "border": "6e2219", "width": 1},
+		"pressed": {"bg": "6e2219", "border": "6e2219", "width": 1},
 		"disabled": {"bg": DISABLED_BG, "border": DISABLED_BORDER, "width": 1},
 		"focus": {"bg": "", "border": "e07a70", "width": FOCUS_BORDER_WIDTH},
-		"font_color": "ffffff",
+		"font_color": "fbeee6",
 		"font_hover_color": "ffffff",
-		"font_pressed_color": "ffffff",
+		"font_pressed_color": "fbeee6",
 		"font_disabled_color": DISABLED_FONT,
 	},
 	# ⚠⚠ 戻る専用（2026-09-14・人間の指示「⚠ 戻るボタンに色を付けて 専用の ／ 今の戻るボタンは目立たない」）。
@@ -114,14 +156,15 @@ const BUTTON_LEVELS: Dictionary = {
 	#   ⚠ 文字は本文の明るい段（f0e6df）。⚠ 新しい値は地の3段だけ。
 	# ⚠ これで階層は5つ（⚠ 既定 ／ 真鍮 ／ Ghost ／ 赤 ／ 戻る）。
 	"BackButton": {
-		"normal": {"bg": "4a3526", "border": "a8791f", "width": 1},
+		# ⚠ 2026-09-26：手本の back も 地 `4a3526` ／ 枠 `a8791f` で**同じ**（⚠ `UI-5` は覆らない）。⚠ 字だけ手本へ。
+		"normal": {"bg": TOKEN_LEATHER, "border": "a8791f", "width": 1},
 		"hover": {"bg": "5c4230", "border": "c9922e", "width": 1},
 		"pressed": {"bg": "3a2a1e", "border": "a8791f", "width": 1},
 		"disabled": {"bg": DISABLED_BG, "border": DISABLED_BORDER, "width": 1},
-		"focus": {"bg": "", "border": "f0c04a", "width": FOCUS_BORDER_WIDTH},
-		"font_color": "f0e6df",
+		"focus": {"bg": "", "border": TOKEN_LIGHT, "width": FOCUS_BORDER_WIDTH},
+		"font_color": "f1e6cf",
 		"font_hover_color": "ffffff",
-		"font_pressed_color": "f0e6df",
+		"font_pressed_color": "f1e6cf",
 		"font_disabled_color": DISABLED_FONT,
 	},
 }
@@ -179,7 +222,7 @@ const SEPARATION_VARIATIONS: Dictionary = {
 
 # --- 文字（Label）---
 
-const LABEL_FONT_COLOR: String = "f0e6df"
+const LABEL_FONT_COLOR: String = TOKEN_TEXT_ON_DARK  # ⚠ 2026-09-26 手本へ（前 f0e6df）
 const HEADING_FONT_SIZE: int = 32
 const TIMER_FONT_SIZE: int = 64
 # ⚠ 減少・警告の赤。⚠ 前は2箇所で色が違った（(0.9,0.3,0.3) と (1,0.4,0.4)）。
@@ -192,7 +235,7 @@ const GAIN_FONT_COLOR: String = "8ed99b"
 # ⚠ 沈めた字（2026-09-09・人間のモック）。⚠ 「本文より一段引く」ためのもの。
 #   ⚠ 使う先：⚠ 入力欄の上の説明文 ／ ⚠ 加護の3択の右側の値。
 #   ⚠ 新しい色ではない（⚠ GhostButton の文字と同じ値）。⚠ モックが両方に同じ色を当てていた。
-const MUTED_FONT_COLOR: String = "a89b94"
+const MUTED_FONT_COLOR: String = TOKEN_TEXT_DIM_ON_DARK  # ⚠ 2026-09-26 手本へ（前 a89b94）
 # ⚠⚠ 説明文・注記の2段（2026-09-11・人間のモック「ギルド／育成」）。
 #   ⚠ モックは字の色を5段（tx 〜 tx5）で使い分けている。⚠ 上3段は既に在った
 #   （tx = LABEL_FONT_COLOR ／ tx2 = ボタンの文字 ／ tx3 = MUTED_FONT_COLOR）。
@@ -284,7 +327,7 @@ const GAIN_FLYER_COLOR: String = "8ed99b"
 #   ⚠ こうすれば「見た目の値を持つのは theme_builder と main_theme.tres だけ」が崩れない。
 # ⚠⚠ **新しい色は1つも足していない**。⚠ 4つとも既に在る値の使い回し。
 const RING_GROOVE: String = "241d1a"    # ⚠ ボタンの地と同じ。⚠ 開始前から見えている溝
-const RING_FILL: String = "a8791f"      # ⚠ 真鍮。⚠ PrimaryButton の地と同じ
+const RING_FILL: String = TOKEN_BRASS      # ⚠ 真鍮。⚠ PrimaryButton の地と同じ
 const RING_DIAMETER: int = 240
 const RING_STROKE: int = 2
 const DOT_DONE: String = "a89b94"       # ⚠ GhostButton の文字と同じ
@@ -369,7 +412,7 @@ const BATTLE_SP_FULL: String = SKILL_FLASH
 #   「味方のHPは残量に関係なくいつも緑」）。⚠ `BATTLE_HP_LOW` は瀕死の名前の色として残る。
 #   ⚠ シールドは**HPバーの右に継ぎ足す**。⚠ 別の行にしない
 #   （⚠ 2026-09-16 時点の実コードは別の行で、⚠ 剣士だけ縦位置がズレていた）。
-const BATTLE_HP_HIGH: String = "7fbf47"
+const BATTLE_HP_HIGH: String = TOKEN_HP  # ⚠ 2026-09-26 手本へ（前 7fbf47）
 const BATTLE_HP_LOW: String = "e05a4a"
 const BATTLE_HP_ENEMY: String = "c4534a"
 const BATTLE_SHIELD: String = "58a7ee"
@@ -512,9 +555,9 @@ const CHARGE_NAME_OVER: String = "c4877f"
 # ⚠ どれに当たるかを決めるのは `StatusChips.tone_of()` の1本。
 # ⚠⚠ **新しい色は足していない**：⚠ 青＝シールドの色（`BATTLE_SHIELD`）／ ⚠ 赤＝敵のHP（`BATTLE_HP_ENEMY`）／
 #   ⚠ 黄＝琥珀（`SKILL_FLASH`）。⚠ 前は `AdventureConfig` が3色（赤・緑・青）を持っていた。
-const STATUS_CHIP_BUFF: String = BATTLE_SHIELD
-const STATUS_CHIP_DEBUFF: String = BATTLE_HP_ENEMY
-const STATUS_CHIP_REVIVE: String = SKILL_FLASH
+const STATUS_CHIP_BUFF: String = TOKEN_BUFF  # ⚠⚠ 2026-09-26 `BT-3` を覆した（前 58a7ee）
+const STATUS_CHIP_DEBUFF: String = TOKEN_DEBUFF  # ⚠ 同（前 c4534a）
+const STATUS_CHIP_REVIVE: String = TOKEN_REVIVE  # ⚠ 同（前 f0c04a）
 const STATUS_CHIP_TEXT: String = "ffffff"
 
 # --- 窓の縁と題の帯（2026-09-17 に戦闘の結果窓で作り、⚠ 2026-09-18 に全部のモーダルへ広げた）---
@@ -571,7 +614,7 @@ const RESULT_GRID_COLUMNS: int = 6
 
 # --- 面（PanelContainer）---
 
-const PANEL_BG: String = "241d1a"
+const PANEL_BG: String = TOKEN_BOARD  # ⚠ 2026-09-26 手本の「板」へ（前 241d1a）
 const PANEL_BORDER: String = "3a302b"
 const PANEL_CORNER_RADIUS: int = 8
 # ⚠⚠ カード・行・沈めた欄・選択中の4つ（2026-09-11・人間のモック「ギルド／育成」）。
@@ -595,7 +638,7 @@ const ICON_WELL_SIZE: int = 36
 const ICON_WELL_ICON: int = 18
 # ⚠ 選択中・注目（琥珀）。⚠ 地は真鍮の暗い側、⚠ 枠は PrimaryButton の地と同値。
 const ACTIVE_BG: String = "221a14"
-const ACTIVE_BORDER: String = "a8791f"
+const ACTIVE_BORDER: String = TOKEN_BRASS  # ⚠ 2026-09-26 手本へ（前 a8791f）
 # ⚠ 右上に出す資源のチップ（2026-09-09・人間のモック「採用版」の `.hud`）。
 #   ⚠ 枠だけ既定の面より1段明るい（⚠ ボタンの枠と同じ値。⚠ 押せないが「欄」だと分かる濃さ）。
 #   ⚠ 内側の余白は左右16 / 上下8（⚠ モックの `padding:8px 16px`）。
@@ -639,7 +682,7 @@ const CURRENCY_CHIP_ICON: int = 14
 # ⚠ 名前は `ResourceBar` が引くキー。⚠ 通貨はIDそのもの、⚠ 素材は
 #   `IconTextures.MATERIAL_SERIES` の値（⚠ 系統の綴りをここに書き起こさない）。
 const CHIP_COLORS: Dictionary = {
-	"gold": "a8791f",                   # ⚠ 真鍮（PrimaryButton の地と同値）
+	"gold": TOKEN_BRASS,                 # ⚠ 真鍮（PrimaryButton の地と同値）
 	"gems": "70b8c7",                   # ⚠ 宝石（part_slot_gem_color と同値）
 	"stamina": "8ed99b",                # ⚠ 増える緑（GainLabel と同値）
 	"material_construction": "c7ad66",  # ⚠ 木・石（part_slot_rune_color と同値）
@@ -675,7 +718,10 @@ const CHIP_FONT_SIZE: int = BUTTON_FONT_SIZE
 const CHIP_SEPARATION: int = 4
 # ⚠ 画面の地。⚠ 各画面の Background は ColorRect で持っているが、
 #   PanelContainer で地を敷く画面（tests/test_ui_common）はこれを使う。
-const BACKGROUND_BG: String = "16110f"
+const PAPER_CORNER_RADIUS: int = 3     # ⚠ 手本 `radius_paper`
+const PAPER_SHADOW_SIZE: int = 8
+const PAPER_SHADOW_OFFSET: int = 3
+const BACKGROUND_BG: String = TOKEN_FLOOR  # ⚠ 2026-09-26 手本の「夜の床」へ（前 16110f）。⚠ 全画面の Background がこれを引く
 
 
 static func build() -> void:
@@ -706,8 +752,9 @@ static func build() -> void:
 	if err != OK:
 		push_error("[BuildTheme] 保存に失敗した: " + str(err))
 		return
-	_restore_uid(previous_uid)
+	_restore_uid(THEME_PATH, previous_uid)
 	print("[BuildTheme] 書き込んだ -> " + THEME_PATH)
+	_build_paper_theme()
 	print("[BuildTheme] ボタン %d 階層 × %d 状態 ／ 間隔の variation %d 個" % [
 		BUTTON_LEVELS.size(), BUTTON_STATES.size(), SEPARATION_VARIATIONS.size(),
 	])
@@ -939,7 +986,7 @@ static func _build_panels(theme: Theme) -> void:
 			hit.border_color = _html("6b5a4e")
 		elif state == "focus":
 			width = FOCUS_BORDER_WIDTH
-			hit.border_color = _html("f0c04a")
+			hit.border_color = _html(TOKEN_LIGHT)
 		hit.set_border_width_all(width)
 		hit.set_expand_margin_all(float(width))
 		# ⚠ 外へ出したぶん角が大きくなるので、⚠ 角丸も同じだけ足す（⚠ 面の角と平行に走る）。
@@ -977,6 +1024,22 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_type_variation(&"BackgroundPanel", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"BackgroundPanel", background)
 
+	# ⚠⚠ 紙（2026-09-26・`UI-11`）。⚠ 羊皮紙の地・角丸3（`radius_paper`）・下に落ちる影。
+	#   ⚠ 繊維の質感・角飾り・傾きは部品の回（回UI-2）で足す（⚠ ここは素の面だけ）。
+	#   ⚠ 中の字を墨にするのは `paper_theme.tres`（⚠ 使う側が `theme` に持たせる）。
+	var paper: StyleBoxFlat = StyleBoxFlat.new()
+	paper.bg_color = _html(TOKEN_PAPER)
+	paper.set_corner_radius_all(PAPER_CORNER_RADIUS)
+	paper.shadow_color = Color(0, 0, 0, 0.45)
+	paper.shadow_size = PAPER_SHADOW_SIZE
+	paper.shadow_offset = Vector2(0, PAPER_SHADOW_OFFSET)
+	paper.content_margin_left = CARD_PAD_H
+	paper.content_margin_right = CARD_PAD_H
+	paper.content_margin_top = CARD_PAD_V
+	paper.content_margin_bottom = CARD_PAD_V
+	theme.set_type_variation(&"PaperPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"PaperPanel", paper)
+
 
 # ⚠ 入力欄。⚠ LineEdit と TextEdit で**同じ見た目**にする（⚠ 1行と複数行の違いだけ）。
 #   ⚠ `focus` は枠の色をボタンの focus と揃える（⚠ 真鍮の縁）。
@@ -984,7 +1047,7 @@ static func _build_inputs(theme: Theme) -> void:
 	for type_name: String in ["LineEdit", "TextEdit"]:
 		var name: StringName = StringName(type_name)
 		theme.set_stylebox(&"normal", name, _input_style(INPUT_BORDER, 1))
-		theme.set_stylebox(&"focus", name, _input_style("f0c04a", FOCUS_BORDER_WIDTH))
+		theme.set_stylebox(&"focus", name, _input_style(TOKEN_LIGHT, FOCUS_BORDER_WIDTH))
 		theme.set_stylebox(&"read_only", name, _input_style(DISABLED_BORDER, 1))
 		theme.set_color(&"font_color", name, _html(LABEL_FONT_COLOR))
 		theme.set_color(&"font_placeholder_color", name, _html(INPUT_PLACEHOLDER))
@@ -1493,6 +1556,48 @@ static func _map_node_style(spec: Dictionary) -> StyleBoxFlat:
 	return style
 
 
+# --- ⚠⚠ 紙の上のテーマ（2026-09-26・決定 `UI-14`）---
+#
+# ⚠ 紙の部品が `theme` にこれを持つと、⚠ 子孫は**先にこちらを引き、無ければ `main_theme.tres`** へ落ちる
+#   （⚠ Godot の Theme は「祖先のテーマ → プロジェクトのテーマ」の順に探す）。
+# ⚠⚠ **置くのは字の色と罫だけ**（⚠ ボタンは手本も紙の上で同じ見た目＝`main` に任せる）。
+# ⚠⚠ **`PanelContainer` をここに置かないこと。** ⚠ 置くと `ListRowPanel` など `main` の
+#   ⚠ 面の variation が全部これに負ける（⚠ 探す順は「テーマごと」が外側で「型ごと」が内側）。
+#   ⚠ 同じ理由で、⚠ 色を持つ字の variation は**全部ここにも書く**（⚠ 書かないと素の `Label`＝墨に落ちる）。
+const PAPER_LABEL_COLORS: Dictionary = {
+	"Label": TOKEN_INK,
+	"HeadingLabel": TOKEN_INK,
+	"SmallLabel": TOKEN_INK,
+	"MutedLabel": TOKEN_INK_SUB,
+	"CaptionLabel": TOKEN_INK_SUB,
+	"SectionLabel": TOKEN_INK_SUB,
+	"AccentLabel": TOKEN_BRASS_INK,
+	"ErrorLabel": TOKEN_WAX,
+	"SmallErrorLabel": TOKEN_WAX,
+	"GainLabel": TOKEN_PAPER_GAIN,
+}
+
+
+static func _build_paper_theme() -> void:
+	var previous_uid: int = ResourceLoader.get_resource_uid(PAPER_THEME_PATH)
+	# ⚠ 毎回新しく作る（⚠ 消した項目が残らないように）。⚠ フォントは `main` に落ちるので持たない。
+	var paper: Theme = Theme.new()
+	for type_name: String in PAPER_LABEL_COLORS:
+		if type_name != "Label":
+			paper.set_type_variation(StringName(type_name), &"Label")
+		paper.set_color(&"font_color", StringName(type_name), _html(str(PAPER_LABEL_COLORS[type_name])))
+	var rule: StyleBoxFlat = StyleBoxFlat.new()
+	rule.bg_color = _html(TOKEN_RULE)
+	rule.content_margin_top = 1.0
+	paper.set_stylebox(&"separator", &"HSeparator", rule)
+	var err: int = ResourceSaver.save(paper, PAPER_THEME_PATH)
+	if err != OK:
+		push_error("[BuildTheme] 紙のテーマの保存に失敗した: " + str(err))
+		return
+	_restore_uid(PAPER_THEME_PATH, previous_uid)
+	print("[BuildTheme] 書き込んだ -> %s（字の型 %d 個）" % [PAPER_THEME_PATH, PAPER_LABEL_COLORS.size()])
+
+
 static func _html(hex: String) -> Color:
 	return Color.html(hex)
 
@@ -1500,10 +1605,10 @@ static func _html(hex: String) -> Color:
 # ⚠ 1行目に `uid=` を書き戻す。⚠ 元から無ければ何もしない。
 # ⚠ ここだけ `.tres` を文字列として触る。⚠ 生成スクリプトの中なので許される
 #   （⚠ 「`.tres` を手で書き換えない」は人間が手で開くことを指す）。
-static func _restore_uid(previous_uid: int) -> void:
+static func _restore_uid(path: String, previous_uid: int) -> void:
 	if previous_uid == ResourceUID.INVALID_ID:
 		return
-	var text: String = FileAccess.get_file_as_string(THEME_PATH)
+	var text: String = FileAccess.get_file_as_string(path)
 	if text == "":
 		push_warning("[BuildTheme] 保存後の .tres を読み直せない。uid を書き戻せなかった")
 		return
@@ -1518,7 +1623,7 @@ static func _restore_uid(previous_uid: int) -> void:
 	if fixed == head:
 		push_warning("[BuildTheme] 1行目の形が想定と違う。uid を書き戻せなかった: " + head)
 		return
-	var file: FileAccess = FileAccess.open(THEME_PATH, FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		push_warning("[BuildTheme] .tres を開けない。uid を書き戻せなかった")
 		return

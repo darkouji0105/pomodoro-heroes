@@ -61,7 +61,7 @@
 
 | # | 決定（一行） | いま効いている値 | どこが持っているか | 決めた日 | 覆した相手 |
 |---|---|---|---|---|---|
-| **UI-1** | ⚠⚠ **見た目の値を持つのは2つだけ。⚠ `theme_override_` を書かない** | — | `tools/theme_builder.gd` ／ `theme/main_theme.tres` | 09-07 | ~~シーンに `theme_override_` を書く（69箇所）~~ |
+| **UI-1** | ⚠⚠ **見た目の値を持つのは `theme_builder.gd` だけ**（⚠ `.tres` はその生成物）。⚠ `theme_override_` を書かない。⚠ **画面の地もシーンに色を書かない**（`BackgroundPanel`） | — | `tools/theme_builder.gd` → `theme/main_theme.tres` ＋ ⚠ `theme/paper_theme.tres`（`UI-14`） | **09-26** | ~~値を持つのは2つだけ（09-07）~~ ⚠ 09-26 に**画面の地 20 枚が `ColorRect` に色を直書きしていた**のを見つけて直した |
 | **UI-2** | ⚠⚠ **ボタンは5階層** | 既定(Secondary) / 真鍮 / Ghost / 赤 / **戻る** | `UiButton.Variant`（⚠ `BACK` は末尾） | 09-14 | ~~4階層~~ |
 | **UI-3** | **`SecondaryButton` という variation は作らない**（⚠ 基底 `Button` が Secondary） | — | `theme_builder.gd` | 09-07 | — |
 | **UI-4** | **variation の名前は「用途」で付ける。⚠ 大きさで付けない** | — | `theme_builder.gd` | 09-07 | — |
@@ -71,9 +71,10 @@
 | **UI-8** | **自前で `_draw()` する部品も値は Theme が持つ** | — | Theme に `TimerRing` / `SetDots` / `ResourceGainEffect` / `ResourceChip` の型 | 09-10 | — |
 | **UI-9** | ⚠ **NotoSansJP に絵文字は無い**（⚠ 絵文字フォントが入るまで段階19-a は着手しない） | — | `scenario=glyphs` | — | — |
 | **UI-10** | ⚠⚠ **画面の見た目の手本は UI の作り直し一式**（⚠ 人間が別の AI と作った42ファイル）。⚠ **置き場は動かさない**（⚠ 人間「⚠ 1い」） | `docs/pomodoro-heroes-ui-docs/docs/ui/`（⚠ README の中の `docs/ui/` はここを指す） | ⚠ 値は `ui_tokens.json` → `theme_builder.gd` へ写す（⚠ `UI-1` は変えない） | **09-26** | ~~画面ごとのモック依頼書で決める~~ ⚠ ただし持ち物の依頼書は生きている（⚠ 人間「⚠ 6い」） |
-| **UI-11** | ⚠⚠ **色は手本に全部寄せる**（⚠ 人間「⚠ 4あ」） | ⚠ `ui_tokens.json` の `colors` ／ `buttons`（⚠ 真鍮 `B98A2C` ほか） | ⚠ いまは `theme_builder.gd`（⚠ 真鍮 `a8791f`）。⚠ **回 UI-1 で写す** | **09-26** | ~~真鍮 `a8791f`（09-07）~~ ⚠ `UI-5` の戻るの枠 `a8791f` は手本と同じ＝**覆らない** |
+| **UI-11** | ⚠⚠ **色は手本に全部寄せる**（⚠ 人間「⚠ 4あ」） | ⚠ `ui_tokens.json` の `colors` ／ `buttons`（⚠ 真鍮 `B98A2C` ほか）。⚠ ボタンは高さ **44**・角丸 **6**。⚠ 乗せた／押したときの色は手本に無い＝設計役の値（⚠ `HUMAN_CHECK` 2） | ✅ `theme_builder.gd` の `TOKEN_*`（回UI-1）。⚠ **戦闘の色（`BATTLE_*`・`SKILL_*`）は HP と状態アイコンだけ変えた** | **09-26** | ~~真鍮 `a8791f`（09-07）~~ ⚠ `UI-5` の戻るの枠 `a8791f` は手本と同じ＝**覆らない** |
 | **UI-12** | ⚠⚠ **見出しの明朝を1本足す**。⚠ **サインの3本は今は入れない**（⚠ 人間「⚠ さいんのふぉんとはいまはいれない」）。⚠ 数字と本文は NotoSansJP のまま | 見出し **Shippori Mincho B1**（Bold / ExtraBold）／ ⚠ サイン（Yuji Boku・Klee One・Zen Kurenaido）は**後で** | ⚠ **未着**（⚠ `assets/fonts/` に入るまで見出しは NotoSansJP） | **09-26** | ~~サインの3本も入れる（09-26・「5い」）~~ |
-| **UI-13** | ⚠ **手本の一式は git に入れる**（⚠ 19MB・png ごと・⚠ 人間「⚠ いれる」） | — | `docs/pomodoro-heroes-ui-docs/` | **09-26** | — |
+| **UI-13** | ⚠ **手本の一式は git に入れる**（⚠ 19MB・png ごと・⚠ 人間「⚠ いれる」）。⚠ **Godot には読ませない** | — | `docs/pomodoro-heroes-ui-docs/`（⚠ `.gdignore` あり。⚠ 無いと `--import` が png 42枚を取り込む） | **09-26** | — |
+| **UI-14** | ⚠⚠ **紙の上の字は「紙用のテーマ」で墨にする**（⚠ 字を1つずつ付け替えない・⚠ 人間「⚠ あで」） | ⚠ 墨 `2B2118` ／ 薄墨 `6E5A43` ／ 強調 `9C7424` ／ 赤 `9C3A2E` ／ 増える `5F7D4F` ／ 罫 `C2AE88`。⚠ 面は `PaperPanel`（羊皮紙 `E9DCC0`・角丸3） | `theme_builder.gd` の `PAPER_LABEL_COLORS` → `theme/paper_theme.tres`。⚠ **紙の部品が `theme` に持つ**（回UI-2）。⚠⚠ **紙のテーマに `PanelContainer` を置かない**（⚠ 置くと面の variation が全部負ける） | **09-26** | — |
 
 ## 2. 画面と導線（`NAV-n`）
 
@@ -93,7 +94,7 @@
 |---|---|---|---|---|---|
 | **BT-1** | ⚠⚠ **戦闘中は右上の資源を全部出さない** | — | `battle_controller.gd:167` | 09-16 | — |
 | **BT-2** | **層を出すのはフロアと難ダンジョンのときだけ**（⚠ ステージ直行は「波 n / m」） | — | 戦闘のヘッダ | 09-16 | — |
-| **BT-3** | ⚠⚠ **状態異常のチップは「地の色＋白い絵」の2色で決める**（⚠ 手本 Status） | バフ=`2F79BD` ／ デバフ=`A8402F` ／ 復活=`E0AC2E`（⚠ `UI-11`・⚠ **未実装**＝回 UI-1） | Theme | **09-26** | ~~バフ=`58a7ee` ／ デバフ=`c4534a` ／ 復活=`f0c04a`（09-17）~~ |
+| **BT-3** | ⚠⚠ **状態異常のチップは「地の色＋白い絵」の2色で決める**（⚠ 手本 Status） | バフ=`2F79BD` ／ デバフ=`A8402F` ／ 復活=`E0AC2E`（⚠ `UI-11`・✅ 回UI-1） | Theme | **09-26** | ~~バフ=`58a7ee` ／ デバフ=`c4534a` ／ 復活=`f0c04a`（09-17）~~ |
 | **BT-4** | **良い／悪いは付けたときの中身から自動で決める**（⚠ JSON に欄を足さない） | — | `status_registry.gd` | 09-17 | — |
 | **BT-5** | **シールドだけの状態はチップを出さない**（⚠ HPバーに継ぎ足してあるため） | — | 戦闘の HUD | 09-17 | — |
 | **BT-6** | ⚠⚠ **結果窓は `Modal` を使わず `battle.tscn` の中の専用部品** | — | `BattleResultView` | 09-17 | — |

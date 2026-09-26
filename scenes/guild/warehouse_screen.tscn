@@ -15,13 +15,13 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_warehouse")
 
-[node name="Background" type="ColorRect" parent="." unique_id=861184797]
+[node name="Background" type="PanelContainer" parent="." unique_id=861184797]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.101961, 0.0784314, 0.0941176, 1)
+theme_type_variation = &"BackgroundPanel"
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1

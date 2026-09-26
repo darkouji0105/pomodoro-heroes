@@ -6612,6 +6612,54 @@ func _report_theme() -> void:
 			str(theme.get_color(&"font_color", StringName(type_name))) if has_color else "—",
 		])
 
+	# ⚠⚠ 紙の上の字（2026-09-26・`UI-14`）。⚠ 紙の器に `paper_theme.tres` を持たせ、
+	#   ⚠ 中の字が**実際に**墨を引くかを木に入れて聞く（⚠ `.tres` に在るかでは足りない＝探す順を見たい）。
+	#   ⚠ 値は書かない。⚠ `ThemeBuilder` の定数と見比べる。
+	print("[DebugBoot] --- 紙の上の字（⚠ 墨・薄墨になれば正解）---")
+	var paper_theme: Theme = ResourceLoader.load(ThemeBuilder.PAPER_THEME_PATH, "Theme", ResourceLoader.CACHE_MODE_IGNORE)
+	if paper_theme == null:
+		missing.append("paper_theme.tres を読めない")
+	else:
+		var sheet: PanelContainer = PanelContainer.new()
+		sheet.theme_type_variation = &"PaperPanel"
+		sheet.theme = paper_theme
+		var box: VBoxContainer = VBoxContainer.new()
+		sheet.add_child(box)
+		var checks: Dictionary = {
+			"Label": ThemeBuilder.TOKEN_INK,
+			"MutedLabel": ThemeBuilder.TOKEN_INK_SUB,
+			"CaptionLabel": ThemeBuilder.TOKEN_INK_SUB,
+			"AccentLabel": ThemeBuilder.TOKEN_BRASS_INK,
+		}
+		var probes: Dictionary = {}
+		for variation: String in checks:
+			var label: Label = Label.new()
+			if variation != "Label":
+				label.theme_type_variation = StringName(variation)
+			box.add_child(label)
+			probes[variation] = label
+		# ⚠ 紙の外の字（⚠ 暗い地のまま＝墨になっていてはいけない）。
+		var outside: Label = Label.new()
+		add_child(sheet)
+		add_child(outside)
+		for variation: String in checks:
+			var got: Color = (probes[variation] as Label).get_theme_color(&"font_color")
+			var want: Color = Color.html(str(checks[variation]))
+			print("  紙の上 %-14s = %s（期待 %s）" % [variation, got.to_html(false), want.to_html(false)])
+			if not got.is_equal_approx(want):
+				missing.append("紙の上の %s が %s（⚠ 墨になっていない）" % [variation, got.to_html(false)])
+		var outside_color: Color = outside.get_theme_color(&"font_color")
+		print("  紙の外 Label          = %s（期待 %s）" % [outside_color.to_html(false), ThemeBuilder.TOKEN_TEXT_ON_DARK])
+		if not outside_color.is_equal_approx(Color.html(ThemeBuilder.TOKEN_TEXT_ON_DARK)):
+			missing.append("紙の外の Label が %s（⚠ 暗い地の字になっていない）" % outside_color.to_html(false))
+		var paper_box: StyleBox = sheet.get_theme_stylebox(&"panel")
+		if not (paper_box is StyleBoxFlat) or not (paper_box as StyleBoxFlat).bg_color.is_equal_approx(Color.html(ThemeBuilder.TOKEN_PAPER)):
+			missing.append("PaperPanel の地が羊皮紙になっていない")
+		remove_child(sheet)
+		sheet.queue_free()
+		remove_child(outside)
+		outside.queue_free()
+
 	print("[DebugBoot] 欠け = %d 件（0 が正解）" % missing.size())
 	for entry: String in missing:
 		push_error("[DebugBoot] E140 Theme に欠けがある: " + entry)
