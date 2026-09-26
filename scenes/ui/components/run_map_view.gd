@@ -72,7 +72,9 @@ const BOSS_MIN_HEIGHT: float = 46.0
 # 通路の字の台（菱形）の枠。⚠ 罠＝赤茶 ／ 得＝金茶（モック `.edge-badge.bad / .good`）。
 # ⚠ いま立っているマスから出ている線は太くする（⚠ 「次に選ぶのはここ」が読めること）。
 const EDGE_WIDTH: float = 1.6
-const EDGE_WIDTH_CURRENT: float = 3.0
+const EDGE_WIDTH_CURRENT: float = 2.2
+# ⚠ 通った道（⚠ 人間の参考 HTML `stroke-width="3.2"`）。⚠ 09-26：今いるマスから出る道は 3.0 → 2.2（⚠ 点線で太いと通った道と紛れる）。
+const EDGE_WIDTH_WALKED: float = 3.2
 
 # 層の目盛り（2026-09-19・モック v2「左端に層の目盛り」）。⚠ 行の左に置く字の欄の幅。
 #   ⚠ 右にも同じ幅の空きを置く（⚠ 置かないとマスの並びが画面の真ん中からずれる＝決定37）。
@@ -350,6 +352,9 @@ func _make_node_button(node_id: String, node: Dictionary) -> Button:
 			button.theme_type_variation = VARIATION_HIDDEN if hidden else VARIATION_FAR
 	if round_nodes:
 		_make_round(button, node, state, hidden)
+		# ⚠ たいまつが届かないマスは半透明（⚠ 見える範囲だけくっきり）。
+		if hidden:
+			button.modulate.a = float(get_theme_constant(&"far_alpha_pct", THEME_TYPE)) * 0.01
 	else:
 		_make_plate(button, node, hidden, pin_color)
 	var reachable: bool = state == STATE_REACHABLE
@@ -516,14 +521,14 @@ func _redraw_edges() -> void:
 			DungeonEdgeLines.LINE_TO: _edge_anchor(
 				to_button, false, in_slot, int(incoming_total.get(to_id, 1))
 			),
-			DungeonEdgeLines.LINE_COLOR: (
-				get_theme_color(&"edge_walked", THEME_TYPE) if (_walked.has(from_id) and _walked.has(to_id))
-				else _tone_color(str(edge.get(EDGE_TONE, TONE_PLAIN)))
-			),
+			DungeonEdgeLines.LINE_COLOR: _edge_color(from_id, to_id, str(edge.get(EDGE_TONE, TONE_PLAIN))),
+			# ⚠ 通った道だけ実線（⚠ 人間「⚠ 道は点線に　⚠ すでに行った場所を赤いラインに」）。
+			DungeonEdgeLines.LINE_DASHED: not (_walked.has(from_id) and _walked.has(to_id)),
 			DungeonEdgeLines.LINE_STYLE: _tone_style(str(edge.get(EDGE_TONE, TONE_PLAIN))),
 			DungeonEdgeLines.LINE_BADGE_BORDER: _tone_badge(str(edge.get(EDGE_TONE, TONE_PLAIN))),
 			DungeonEdgeLines.LINE_WIDTH: (
-				EDGE_WIDTH_CURRENT if (from_id == _current_id or (_walked.has(from_id) and _walked.has(to_id)))
+				EDGE_WIDTH_WALKED if (_walked.has(from_id) and _walked.has(to_id))
+				else EDGE_WIDTH_CURRENT if from_id == _current_id
 				else EDGE_WIDTH
 			),
 			DungeonEdgeLines.LINE_LABEL: str(edge.get(EDGE_LABEL, "")),
@@ -706,6 +711,19 @@ func _tone_badge(tone: String) -> Color:
 		TONE_GAIN:
 			return get_theme_color(&"badge_gain", THEME_TYPE)
 	return get_theme_color(&"badge_plain", THEME_TYPE)
+
+
+# 道の色。⚠ 通った＝赤 ／ ⚠ ほかは種類の色に「点線の濃さ」を掛ける ／ ⚠ たいまつが届かない道はさらに薄く（半透明）。
+#   ⚠ 人間「⚠ 見える範囲だけ、くっきりと　⚠ そうでない場合は半透明に」。
+func _edge_color(from_id: String, to_id: String, tone: String) -> Color:
+	if _walked.has(from_id) and _walked.has(to_id):
+		return get_theme_color(&"edge_walked", THEME_TYPE)
+	var color: Color = _tone_color(tone)
+	var alpha_pct: int = get_theme_constant(
+		&"far_alpha_pct" if tone == TONE_HIDDEN else &"edge_alpha_pct", THEME_TYPE
+	)
+	color.a *= float(alpha_pct) * 0.01
+	return color
 
 
 func _tone_color(tone: String) -> Color:

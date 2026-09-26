@@ -87,6 +87,7 @@ const SHOT_AFTER_PART_POPOVER: String = "part_popover"
 const SHOT_AFTER_RELIC_PICK: String = "relic_pick"
 const SHOT_AFTER_RUN_MENU: String = "run_menu"
 const SHOT_AFTER_RELIC_LIST: String = "relic_list"
+const SHOT_AFTER_MAP_STEP: String = "map_step"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -1064,6 +1065,13 @@ const SCENARIOS: Dictionary = {
 				"scene": "res://scenes/adventure/dungeon_map.tscn",
 				"prepare": SHOT_PREPARE_DUNGEON,
 				"after": SHOT_AFTER_RELIC_LIST,
+			},
+			# ⚠ 2026-09-26（人間「⚠ すでに行った場所を赤いラインに」）：⚠ 1歩進めた姿（⚠ 通った道の赤い実線）。
+			{
+				"name": "24_map_walked",
+				"scene": "res://scenes/adventure/dungeon_map.tscn",
+				"prepare": SHOT_PREPARE_DUNGEON,
+				"after": SHOT_AFTER_MAP_STEP,
 			},
 			# ⚠⚠ ボスの後のわかれ道（決定48）。⚠ ボスの先でないと自分でマップへ送り返す。
 			{
@@ -8710,6 +8718,7 @@ class ShotTaker extends Node:
 	const AFTER_RELIC_PICK: String = "relic_pick"
 	const AFTER_RUN_MENU: String = "run_menu"
 	const AFTER_RELIC_LIST: String = "relic_list"
+	const AFTER_MAP_STEP: String = "map_step"
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
 	const AFTER_FRAMES: int = 12
 
@@ -8946,6 +8955,13 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ %s にメニューが無い" % shot_name)
 				return false
 			menu.call("_open")
+		elif kind == AFTER_MAP_STEP:
+			# ⚠ 本番の口で1歩進め（`move_in_dungeon()`）、⚠ 画面の口で描き直す（`_rebuild()`）。
+			var steps: Array = GameManager.get_dungeon_moves()
+			if steps.is_empty() or not GameManager.move_in_dungeon(str(steps[0])):
+				push_error("[DebugBoot] ⚠ %s で1歩も進めなかった" % shot_name)
+				return false
+			screen.call("_rebuild")
 		elif kind == AFTER_RELIC_LIST:
 			# ⚠ 本番の口でレリックを1つ持たせる：⚠ 隣のレリックのマスへ `move_in_dungeon()` で移り、⚠ `take_run_relic()` で取る。
 			# ⚠⚠ マップはランダムなので、⚠ **隣にレリックのマスが無い回は空の窓を撮る**（⚠ どちらになったかを必ず print）。

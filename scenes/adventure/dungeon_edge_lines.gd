@@ -28,6 +28,9 @@ const STYLE_ZIGZAG: String = "zigzag"
 const STYLE_DASHED: String = "dashed"
 # ⚠ 字の台（菱形）の枠の色。⚠ 無ければ既定の枠。
 const LINE_BADGE_BORDER: String = "badge_border"
+# ⚠⚠ 点線で描くか（2026-09-26・人間「⚠ 道は点線にしてほしい　⚠ すでに行った場所を赤いラインに」）。
+#   ⚠ 形（曲線・折れ線）はそのまま、⚠ 線だけ点線にする。⚠ 通った道だけ実線（⚠ 渡す側が false にする）。
+const LINE_DASHED: String = "dashed"
 
 # ⚠⚠ 区画の切れ目（2026-09-19・モック v2）は 2026-09-20 に消した（人間の指示
 #   「⚠ 区画の切れ目の表示は消して」）。⚠ 線・字・`SEAM_*` の綴り・`get_seam_count()` ごと。
@@ -46,6 +49,8 @@ const WOBBLE: float = 6.0
 const CURVE_SEGMENTS: int = 16
 # ⚠ 点線の点の長さ（モック `stroke-dasharray: 2 6` をそのまま）。
 const DASH: float = 4.0
+# ⚠ 道の点線の1片と間（⚠ 人間の参考 HTML `stroke-dasharray="5 5"`）。
+const ROAD_DASH: float = 5.0
 
 # 字の台（菱形）。⚠ モック `.edge-badge`（20px の正方形を45度回したもの）。
 const BADGE_HALF: float = 14.0
@@ -139,13 +144,15 @@ func _draw() -> void:
 		var b: Vector2 = line.get(LINE_TO, Vector2.ZERO)
 		var color: Color = line.get(LINE_COLOR, Color.WHITE)
 		var width: float = float(line.get(LINE_WIDTH, 2.0))
-		match str(line.get(LINE_STYLE, STYLE_CURVE)):
-			STYLE_DASHED:
-				draw_dashed_line(a, b, color, width, DASH)
-			STYLE_ZIGZAG:
-				draw_polyline(_zigzag(a, b), color, width, true)
-			_:
-				draw_polyline(_curve(a, b), color, width, true)
+		var style: String = str(line.get(LINE_STYLE, STYLE_CURVE))
+		if style == STYLE_DASHED and not line.has(LINE_DASHED):
+			draw_dashed_line(a, b, color, width, DASH)
+			continue
+		var points: PackedVector2Array = _zigzag(a, b) if style == STYLE_ZIGZAG else _curve(a, b)
+		if bool(line.get(LINE_DASHED, false)):
+			_draw_dashed_polyline(points, color, width, ROAD_DASH)
+		else:
+			draw_polyline(points, color, width, true)
 	# ⚠ 字の台は線の上に描く（⚠ 字の Label はさらにその上＝子）。
 	for entry: Variant in _lines:
 		var line: Dictionary = entry
@@ -160,6 +167,28 @@ func _draw() -> void:
 		var outline: PackedVector2Array = diamond.duplicate()
 		outline.append(diamond[0])
 		draw_polyline(outline, line.get(LINE_BADGE_BORDER, get_theme_color(&"badge_plain", &"RunMapView")), 1.0, true)
+
+
+# 折れ線に沿った点線（⚠ `draw_dashed_line` は直線しか引けないので、⚠ 長さを数えながら片を置く）。
+func _draw_dashed_polyline(points: PackedVector2Array, color: Color, width: float, dash: float) -> void:
+	var drawing: bool = true
+	var left: float = dash
+	for i: int in range(points.size() - 1):
+		var p: Vector2 = points[i]
+		var q: Vector2 = points[i + 1]
+		var remaining: float = p.distance_to(q)
+		var direction: Vector2 = (q - p).normalized()
+		while remaining > 0.0:
+			var step: float = minf(left, remaining)
+			var next: Vector2 = p + direction * step
+			if drawing:
+				draw_line(p, next, color, width, true)
+			p = next
+			remaining -= step
+			left -= step
+			if left <= 0.0:
+				drawing = not drawing
+				left = dash
 
 
 # 手描きの曲線（モック `C x1+j, … x2-j, …`）。⚠ 出口は少し右へ・入口は少し左へ膨らむ。

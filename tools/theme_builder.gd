@@ -1497,7 +1497,7 @@ const MAP_LIGHT_CENTER_PCT: int = 30         # ⚠ 中心の濃さ（⚠ 回UI-4
 const MAP_LIGHT_MID_PCT: int = 14            # ⚠ 途中の濃さ（⚠ 同・前 5）
 const MAP_INK_COLORS: Dictionary = {
 	"pin_reachable": TOKEN_BRASS_INK, "pin_current": TOKEN_WAX, "pin_visited": TOKEN_RULE, "pin_far": "8a7458",
-	"edge_trap": TOKEN_WAX, "edge_gain": TOKEN_BRASS_INK, "edge_plain": "8a7458", "edge_hidden": TOKEN_RULE,
+	"edge_trap": TOKEN_WAX, "edge_gain": TOKEN_BRASS_INK, "edge_plain": "3b2a1c", "edge_hidden": "3b2a1c",
 	"badge_trap": TOKEN_WAX, "badge_gain": TOKEN_BRASS_INK, "badge_plain": TOKEN_RULE, "badge_bg": TOKEN_PAPER_SELECTED,
 	# ⚠ たいまつが届かない層を覆う暗さ。⚠ 紙の上なので黒ではなく焦げ茶（⚠ 前は 060408・60% / 88%）。
 	"fog": "3a2c22",
@@ -1514,6 +1514,9 @@ const MAP_NODE_SIZE: int = 40                 # ⚠ 丸いマスの直径（09-2
 const MAP_NODE_SIZE_BOSS: int = 54
 const MAP_NODE_ICON: int = 22                 # ⚠ 丸の中の絵の最大幅
 const MAP_MARK_WIDTH: int = 2
+# ⚠ 09-26（人間の参考 HTML）：⚠ 点線の道は焦げ茶 `#3b2a1c` を 75% ／ ⚠ たいまつが届かないマスと道は 40%（⚠ 人間「⚠ そうでない場合は半透明に」）。
+const MAP_EDGE_ALPHA_PCT: int = 75
+const MAP_FAR_ALPHA_PCT: int = 40
 
 
 static func _build_run_map_view(theme: Theme) -> void:
@@ -1541,6 +1544,8 @@ static func _build_run_map_view(theme: Theme) -> void:
 	theme.set_constant(&"node_size", t, MAP_NODE_SIZE)
 	theme.set_constant(&"node_size_boss", t, MAP_NODE_SIZE_BOSS)
 	theme.set_constant(&"mark_width", t, MAP_MARK_WIDTH)
+	theme.set_constant(&"edge_alpha_pct", t, MAP_EDGE_ALPHA_PCT)
+	theme.set_constant(&"far_alpha_pct", t, MAP_FAR_ALPHA_PCT)
 
 
 # --- ランのマップのマス（2026-09-19・難ダンジョンのモック v2「真鍮の札」）---
