@@ -51,9 +51,8 @@ var _choices: Array = []
 var _selected_relic_id: String = ""
 # 付ける人（⚠ 1人用だけ）。⚠ 空なら選んでいない。
 var _selected_character: String = ""
-# relic_id -> カード（`PaperSheet`）／ そのカードの「選んだ」の判。
+# relic_id -> カード（`RelicCard`）。
 var _cards: Dictionary = {}
-var _stamps: Dictionary = {}
 # 下の紙の中身（⚠ 選び直すたびに作り直す）。
 var _action_row: HBoxContainer = null
 
@@ -112,12 +111,14 @@ func _rebuild() -> void:
 	cards_row.name = "Cards"
 	cards_row.theme_type_variation = &"WideRow"
 	body.add_child(cards_row)
-	for relic_id: Variant in _choices:
-		var card: PaperSheet = _make_card(str(relic_id))
+	for index: int in _choices.size():
+		var relic_id: String = str(_choices[index])
+		# ⚠ カードは部品（`RelicCard`）。⚠ 傾きは並びの番号で決まる。
+		var card: RelicCard = RelicCard.create(relic_id, index, "", true)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.pressed.connect(_on_card_pressed.bind(relic_id))
 		cards_row.add_child(card)
-		_cards[str(relic_id)] = card
-		# ⚠ 面ぜんぶを押せる（⚠ 中身を足し終わってから敷く＝`attach_hit` の決まり）。
-		var _hit: Button = UiButton.attach_hit(card, _on_card_pressed.bind(str(relic_id)))
+		_cards[relic_id] = card
 
 	var sheet: PaperSheet = PaperSheet.new()
 	sheet.name = "ActionSheet"
@@ -127,52 +128,6 @@ func _rebuild() -> void:
 	_action_row.name = "ActionRow"
 	sheet.add_child(_action_row)
 	_refresh_selection()
-
-
-# 候補1枚。⚠ 絵 ／ 名前（明朝）／ 効き目 ／ 罫 ／ 誰に効くか。⚠ 右上に「選んだ」の判（⚠ 選ぶまで透明＝並びが動かない）。
-func _make_card(relic_id: String) -> PaperSheet:
-	var card: PaperSheet = PaperSheet.new()
-	card.name = "Card_" + relic_id
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var column: VBoxContainer = VBoxContainer.new()
-	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	card.add_child(column)
-
-	var stamp: Stamp = Stamp.new()
-	stamp.label_key = "ui_stamp_chosen"
-	stamp.size_flags_horizontal = Control.SIZE_SHRINK_END
-	stamp.modulate.a = 0.0
-	column.add_child(stamp)
-	_stamps[relic_id] = stamp
-
-	var icon: ItemGrid = ItemGrid.new()
-	icon.name = "Icon"
-	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	column.add_child(icon)
-	icon.rebuild([GameManager.make_relic_slot_entry(relic_id)], 1)
-
-	var relic: Dictionary = MasterDataLoader.get_relic(relic_id)
-	var name_label: Label = Label.new()
-	name_label.theme_type_variation = &"SheetHeadingLabel"
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.text = tr(str(relic.get("name_key", relic_id)))
-	column.add_child(name_label)
-
-	# ⚠ 効き目は `ui_desc_<id>`（⚠ 効果の中身をここで文章にしない＝`ItemDetail._show_relic()` と同じ）。
-	var desc: Label = Label.new()
-	desc.theme_type_variation = &"AccentLabel"
-	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.text = tr("ui_desc_" + relic_id)
-	column.add_child(desc)
-
-	column.add_child(HSeparator.new())
-	var scope: Label = Label.new()
-	scope.theme_type_variation = &"CaptionLabel"
-	scope.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	scope.text = tr("ui_relic_scope_single" if GameManager.is_single_relic(relic_id) else "ui_relic_scope_party")
-	column.add_child(scope)
-	return card
 
 
 func _on_card_pressed(relic_id: String) -> void:
@@ -194,9 +149,7 @@ func _on_character_pressed(character_id: String) -> void:
 # ⚠ 再描画に await を持たせない。remove_child() してから queue_free()（AGENTS.md）。
 func _refresh_selection() -> void:
 	for relic_id: String in _cards:
-		var chosen: bool = relic_id == _selected_relic_id
-		(_cards[relic_id] as PaperSheet).theme_type_variation = &"PaperPanelChosen" if chosen else &"PaperPanel"
-		(_stamps[relic_id] as Stamp).modulate.a = 1.0 if chosen else 0.0
+		(_cards[relic_id] as RelicCard).set_chosen(relic_id == _selected_relic_id)
 
 	for child in _action_row.get_children():
 		_action_row.remove_child(child)

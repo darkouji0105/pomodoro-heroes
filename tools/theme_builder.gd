@@ -1659,6 +1659,8 @@ const PAPER_CORNER_SIZE: int = 16       # ⚠ 手本 `corner_ornament`
 const PAPER_CORNER_WIDTH: int = 2
 const PAPER_CORNER_INSET: int = 8       # ⚠ 紙の縁から角飾りまで
 const PAPER_CHOSEN_BORDER: int = 2
+# ⚠ 手本 `paper_tilt_deg` は -1.2〜1.4。⚠ 並びの番号で順に使う（⚠ `RelicCard.TILT_COUNT` と同じ数）。
+const PAPER_TILTS_TENTHS: Array[int] = [-12, 5, 14]
 const PAPER_CHOICE_CORNER: int = 22
 const SHEET_HEADING_SIZE: int = 20
 const SHEET_HEADING_RULE: int = 2       # ⚠ 太い下線
@@ -1697,6 +1699,9 @@ static func _build_paper_parts(theme: Theme) -> void:
 	theme.set_constant(&"corner_size", &"PaperPanel", PAPER_CORNER_SIZE)
 	theme.set_constant(&"corner_width", &"PaperPanel", PAPER_CORNER_WIDTH)
 	theme.set_constant(&"corner_inset", &"PaperPanel", PAPER_CORNER_INSET)
+	# ⚠ 紙の傾き（回UI-4 レリック・人間「⚠ もっとカードっぽく傾けて」）。⚠ 単位は 0.1 度（⚠ Theme の定数は int）。
+	for i: int in PAPER_TILTS_TENTHS.size():
+		theme.set_constant(StringName("tilt_%d" % i), &"PaperPanel", PAPER_TILTS_TENTHS[i])
 
 	# ⚠ 選んだ紙（回UI-4 レリック）。⚠ 明るい紙 ＋ 真鍮の墨の縁（⚠ 台帳の「選んでいる行」と同じ2色）。
 	var chosen: StyleBoxFlat = (theme.get_stylebox(&"panel", &"PaperPanel") as StyleBoxFlat).duplicate()
