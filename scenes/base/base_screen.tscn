@@ -97,11 +97,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 label_key = "ui_nav_adventure_select"
 
-[node name="GuildButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=819410225 instance=ExtResource("3_button")]
-layout_mode = 2
-size_flags_horizontal = 3
-label_key = "ui_nav_guild"
-
 [node name="PomodoroButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=457427584 instance=ExtResource("3_button")]
 layout_mode = 2
 size_flags_horizontal = 3

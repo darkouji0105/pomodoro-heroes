@@ -9,7 +9,8 @@
 class_name ShopScreen
 extends Control
 
-const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
+# ⚠ 2026-09-26（回UI-3）：⚠ 戻る先はギルドから本部（拠点）へ（⚠ ギルドの画面は消した）。
+const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 
 # 第1弾で表示するショップ種別。文字列リテラルを書かないこと。
 const SHOP_TYPE: String = GameStateKeys.SHOP_TYPE_DAILY
@@ -30,6 +31,7 @@ func _ready() -> void:
 
 	# 2. ボタン接続
 	header.back_pressed.connect(_on_back_pressed)
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.SHOP)
 
 	# 3. GameManager のシグナル購読
 	#    shop_changed: 購入回数・リフレッシュ
@@ -154,7 +156,7 @@ func _on_buy_pressed(slot_id: int) -> void:
 	# 失敗時は状態が変わらずシグナルも飛ばないため、ここでは何もしない。
 
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(GUILD_PATH)
+	SceneManager.change_scene(BASE_PATH)
 
 # --- シグナルハンドラ ---
 

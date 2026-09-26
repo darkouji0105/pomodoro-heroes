@@ -49,3 +49,8 @@ const RUN_NODE_ID: String = "run_node_id"
 # ⚠ true なら DUNGEON_NODE_ID は入っていない（⚠ 通路の宝箱はノードに紐づかない）。
 # ⚠ 開けたかの覚え方が別（⚠ ノード＝cleared ／ 通路＝持ち越しの欄）。
 const DUNGEON_CORRIDOR_CHEST: String = "dungeon_corridor_chest"
+
+# 倉庫をどのタブで開くか（2026-09-26・回UI-3）。⚠ 施設の帯の「記録」が図鑑タブで開くため。
+# ⚠ 値は下の定数（⚠ タブの番号を渡さない＝倉庫のタブの並びを外に漏らさない）。⚠ 無ければ持ち物タブ。
+const WAREHOUSE_TAB: String = "warehouse_tab"
+const WAREHOUSE_TAB_CODEX: String = "codex"

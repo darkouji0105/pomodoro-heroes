@@ -15,7 +15,8 @@
 class_name TrainingScreen
 extends Control
 
-const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
+# ⚠ 2026-09-26（回UI-3）：⚠ 戻る先はギルドから本部（拠点）へ（⚠ ギルドの画面は消した）。
+const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
 
 const EQUIPMENT_PATH: String = "res://scenes/guild/equipment_screen.tscn"
@@ -58,6 +59,7 @@ func _ready() -> void:
 	side_column.custom_minimum_size = Vector2(SIDE_COLUMN_WIDTH, 0.0)
 	level_up_button.pressed.connect(_on_level_up_pressed)
 	header.back_pressed.connect(_on_back_pressed)
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.TRAINING)
 
 	# レベルアップの結果は戻り値ではなくシグナルで受けて描画し直す。
 	# 表示更新の経路を1本にしておくと、他画面から育成データが変わっても追従する。
@@ -654,7 +656,7 @@ func _on_back_pressed() -> void:
 	if _selected_id != "":
 		_show_list()
 		return
-	SceneManager.change_scene(GUILD_PATH)
+	SceneManager.change_scene(BASE_PATH)
 
 
 # --- シグナル ---

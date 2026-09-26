@@ -10,7 +10,8 @@
 class_name WorkshopScreen
 extends Control
 
-const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
+# ⚠ 2026-09-26（回UI-3）：⚠ 戻る先はギルドから本部（拠点）へ（⚠ ギルドの画面は消した）。
+const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 
 # --- ノード参照 ---
 @onready var material_label: Label = $Margin/Layout/MaterialLabel
@@ -33,6 +34,7 @@ func _ready() -> void:
 
 	# 2. ボタン接続
 	header.back_pressed.connect(_on_back_pressed)
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.FORGE)
 	tick.timeout.connect(_on_tick)
 
 	# 3. GameManager のシグナル購読
@@ -255,7 +257,7 @@ func _on_collect_pressed(queue_id: String) -> void:
 		notice_label.text = tr("ui_guild_workshop_failed")
 
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(GUILD_PATH)
+	SceneManager.change_scene(BASE_PATH)
 
 # --- 毎秒の更新 ---
 

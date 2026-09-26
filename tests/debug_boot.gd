@@ -989,7 +989,7 @@ const SCENARIOS: Dictionary = {
 			},
 			# ③ 拠点の入口。
 			{"name": "04_base", "scene": SCENE_BASE},
-			{"name": "05_guild", "scene": "res://scenes/guild/guild_screen.tscn"},
+			# ⚠ `05_guild` は 2026-09-26（回UI-3）に消した（⚠ ギルドの画面ごと無い）。⚠ 番号は空けたまま。
 			{"name": "06_adventure_select", "scene": "res://scenes/adventure/adventure_select.tscn"},
 			# ④ 育てる。⚠ 装備は「誰の」が要るので渡す。
 			{"name": "07_training", "scene": "res://scenes/guild/training_screen.tscn"},
@@ -4676,14 +4676,6 @@ func _row_text(row: PanelContainer) -> String:
 
 
 func _layout_prepare_for(scene_path: String) -> void:
-	# ⚠⚠ ギルドは段階解放で入口が1つずつ増える器（2026-09-11）。
-	#   ⚠ 開いた直後は5つとも閉じていて、⚠ **空き枠が6つ並んだ姿**を測ってしまう。
-	#   ⚠ 前は `LAYOUT_SCENE_SHOW` でボタンを1つずつ `visible = true` にしていたが、
-	#   ⚠ カードは**解放されているかで中身ごと変わる**ので、⚠ 状態のほうを作る。
-	if scene_path == "res://scenes/guild/guild_screen.tscn":
-		for screen_id: String in GuildScreen.GUILD_SCENES:
-			GameManager.unlock_screen(screen_id)
-		return
 	# ⚠⚠ 割り振りは「1段も振っていない姿」だと点が全部暗く、⚠ 合計も緑の数字も出ない
 	#   （2026-09-12）。⚠ **横に一番長いのは値が入った姿**なので、⚠ 先に少し振ってから測る
 	#   （⚠ ギルドと同じ考え方：⚠ `visible` をいじらず**状態のほうを作る**）。
@@ -4995,7 +4987,6 @@ const LAYOUT_SCENES: Array[String] = [
 	#   ⚠ 3枝 × 20段まで伸びるので、⚠ 縦のはみ出しを数字で見る必要がある。
 	"res://scenes/guild/stat_node_screen.tscn",
 	# ⚠ 段階9でボタンの出し分けを足した。ボタンが減ると器の幅が変わる。
-	"res://scenes/guild/guild_screen.tscn",
 	# ⚠ 段階3でパッシブの一覧（見出し＋5行）をコードで足した。今まで測っていない。
 	"res://scenes/guild/skill_select_screen.tscn",
 	# ⚠ 段階10でノードが5件から18件に増え、カテゴリの見出しも足した。今まで測っていない。
@@ -9250,24 +9241,30 @@ func _report_inventory_window() -> void:
 	if hud != null:
 		checks.append(["② 右上に倉庫ボタンが無い", hud.find_child("StorageButton", true, false) == null])
 
-	# ③ ギルドのカードに倉庫が在り、⚠ 行き先のシーンが在る。
-	var path: String = str(GuildScreen.GUILD_SCENES.get(GameStateKeys.SCREEN_WAREHOUSE, ""))
-	checks.append(["③ カードの並びに倉庫", GuildScreen.CARD_ORDER.has(GameStateKeys.SCREEN_WAREHOUSE)])
-	checks.append(["③ 行き先 %s が在る" % path, path != "" and ResourceLoader.exists(path)])
+	# ③ 施設の帯に「持ち物」と「記録」が在り、⚠ 行き先のシーンが在る（⚠ 2026-09-26・回UI-3：
+	#   ⚠ ギルドのカードをやめて帯にした＝決定 `NAV-6`）。
+	var path: String = ""
+	var records_tab: String = ""
+	for entry: Dictionary in BaseFacilityBar.facilities():
+		var id: String = str(entry.get(FacilityBar.ENTRY_ID, ""))
+		if id == BaseFacilityBar.BELONGINGS:
+			path = str(entry.get(BaseFacilityBar.KEY_PATH, ""))
+		elif id == BaseFacilityBar.RECORDS:
+			var data: Dictionary = entry.get(BaseFacilityBar.KEY_DATA, {})
+			records_tab = str(data.get(TransferKeys.WAREHOUSE_TAB, ""))
+	checks.append(["③ 帯の行き先 %s が在る" % path, path != "" and ResourceLoader.exists(path)])
+	checks.append(["③ 記録は図鑑タブで開く", records_tab == TransferKeys.WAREHOUSE_TAB_CODEX])
 	if not GameManager.is_screen_unlocked(GameStateKeys.SCREEN_WAREHOUSE):
 		GameManager.unlock_screen(GameStateKeys.SCREEN_WAREHOUSE)
-	var guild: Control = load("res://scenes/guild/guild_screen.tscn").instantiate()
-	get_tree().root.add_child(guild)
+	var base: Control = load(SCENE_BASE).instantiate()
+	get_tree().root.add_child(base)
 	await get_tree().process_frame
-	var card: Node = guild.find_child("Card_warehouse", true, false)
-	var status: Label = null
-	if card != null:
-		status = card.find_child("StatusLabel", true, false) as Label
-	print("  倉庫のカードの状態の行 = %s" % (status.text if status != null else "<無い>"))
-	checks.append(["③ ギルドに倉庫のカードが出る", card != null])
-	checks.append(["③ カードの状態の行が翻訳されている", status != null and not status.text.begins_with("ui_")])
-	get_tree().root.remove_child(guild)
-	guild.queue_free()
+	var button: Button = base.find_child("Facility_" + BaseFacilityBar.BELONGINGS, true, false) as Button
+	print("  帯の「持ち物」 = %s" % (button.text if button != null else "<無い>"))
+	checks.append(["③ 拠点の帯に持ち物が出る", button != null])
+	checks.append(["③ 帯の字が翻訳されている", button != null and not button.text.begins_with("ui_")])
+	get_tree().root.remove_child(base)
+	base.queue_free()
 
 	# ④ 倉庫が「題と戻る」を持つ画面になっている。
 	if path == "":

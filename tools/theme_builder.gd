@@ -1625,6 +1625,9 @@ const STAMP_PAD_H: int = 10
 const STAMP_PAD_V: int = 4
 const STAMP_TILT_DEG: int = -8
 const FACILITY_BAR_HEIGHT: int = 76     # ⚠ 手本 `facility_bar`
+const HEADER_TITLE_SIZE: int = 22
+const HEADER_DIAMOND: int = 4           # ⚠ 題の左右の◆の半径
+const HEADER_DIAMOND_GAP: int = 10      # ⚠ 題の端から◆の中心まで
 const FACILITY_ACTIVE_LINE: int = 3
 const FACILITY_RIBBON_W: int = 12
 const FACILITY_RIBBON_H: int = 24
@@ -1711,6 +1714,14 @@ static func _build_paper_parts(theme: Theme) -> void:
 	theme.set_constant(&"pad_v", &"Stamp", STAMP_PAD_V)
 	theme.set_constant(&"tilt_deg", &"Stamp", STAMP_TILT_DEG)
 
+	# 見出しの帯の題（回UI-3）。⚠ 明朝・字間を広く・⚠ 左右に灯りの◆（`ScreenHeader` が描く）。
+	theme.set_type_variation(&"HeaderTitleLabel", &"Label")
+	theme.set_font_size(&"font_size", &"HeaderTitleLabel", HEADER_TITLE_SIZE)
+	theme.set_color(&"font_color", &"HeaderTitleLabel", _html(TOKEN_TEXT_ON_DARK))
+	theme.set_color(&"diamond", &"ScreenHeader", _html(TOKEN_LIGHT))
+	theme.set_constant(&"diamond", &"ScreenHeader", HEADER_DIAMOND)
+	theme.set_constant(&"diamond_gap", &"ScreenHeader", HEADER_DIAMOND_GAP)
+
 	# 施設の帯（⚠ 下に固定・⚠ 用事がある施設にしおり紐）。
 	var bar: StyleBoxFlat = StyleBoxFlat.new()
 	bar.bg_color = _html(TOKEN_BOARD)
@@ -1755,6 +1766,7 @@ static func _build_heading_font(theme: Theme) -> void:
 		for type_name: String in HEADING_FONT_TYPES:
 			theme.clear_font(&"font", StringName(type_name))
 		theme.clear_font(&"font", &"SheetHeadingLabel")
+		theme.clear_font(&"font", &"HeaderTitleLabel")
 		return
 	var base: Font = load(HEADING_FONT_PATH) as Font
 	var heading: FontVariation = FontVariation.new()
@@ -1767,6 +1779,7 @@ static func _build_heading_font(theme: Theme) -> void:
 	var spaced: FontVariation = heading.duplicate() as FontVariation
 	spaced.spacing_glyph = SHEET_HEADING_SPACING
 	theme.set_font(&"font", &"SheetHeadingLabel", spaced)
+	theme.set_font(&"font", &"HeaderTitleLabel", spaced)
 
 
 # --- ⚠⚠ 紙の上のテーマ（2026-09-26・決定 `UI-14`）---

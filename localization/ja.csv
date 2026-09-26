@@ -1001,3 +1001,11 @@ ui_uitest_paper_note,紙の上の小さい字（薄墨）。暗い箱で囲ま�
 ui_stamp_done,済
 ui_stamp_accepted,受理
 ui_stamp_level_up,昇級できる
+ui_facility_hq,本部
+ui_facility_barracks,詰所
+ui_facility_training,育成
+ui_facility_forge,鍛冶場
+ui_facility_belongings,持ち物
+ui_facility_records,記録
+ui_facility_research,研究
+ui_facility_shop,ショップ

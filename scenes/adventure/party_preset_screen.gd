@@ -49,6 +49,10 @@ func _ready() -> void:
 
 	message_label.text = ""
 	header.back_pressed.connect(_on_back_pressed)
+	# ⚠ 2026-09-26（回UI-3）：⚠ 拠点から来たときだけ施設の帯を出す（⚠ 詰所）。
+	#   ⚠ 冒険の選択から来たとき（⚠ 出撃の直前）は出さない＝行き来の途中に入口を増やさない。
+	if _return_path == BASE_PATH:
+		BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.BARRACKS)
 	_rebuild()
 
 

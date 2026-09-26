@@ -7,7 +7,8 @@
 class_name ResearchScreen
 extends Control
 
-const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
+# ⚠ 2026-09-26（回UI-3）：⚠ 戻る先はギルドから本部（拠点）へ（⚠ ギルドの画面は消した）。
+const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const UI_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/components/ui_button.tscn")
 
 # research.json 側のキー。状態ではないため GameStateKeys には置かない。
@@ -30,6 +31,7 @@ const CATEGORY_KEY_PREFIX: String = "ui_research_category_"
 
 func _ready() -> void:
 	header.back_pressed.connect(_on_back_pressed)
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.RESEARCH)
 
 	# 解放の結果は戻り値ではなくシグナルで受けて描画し直す。
 	# 素材は戦闘報酬でも増えるため material_changed にも繋ぐ。
@@ -155,7 +157,7 @@ func _on_unlock_pressed(node_id: String) -> void:
 
 
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(GUILD_PATH)
+	SceneManager.change_scene(BASE_PATH)
 
 
 # --- シグナル ---

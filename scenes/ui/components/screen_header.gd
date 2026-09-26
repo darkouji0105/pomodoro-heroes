@@ -67,6 +67,8 @@ var hud_spacer: Control = null
 
 func _ready() -> void:
 	back_button.pressed.connect(func() -> void: back_pressed.emit())
+	# ⚠ 題の◆は題の位置で描く。⚠ 並べ終わる前に描くと左端に出る（⚠ 回UI-3 の絵で踏んだ）。
+	title_label.item_rect_changed.connect(queue_redraw)
 	_build_hud_spacer()
 	_refresh()
 
@@ -92,6 +94,7 @@ func _apply_hud_width(width: float) -> void:
 
 func _refresh() -> void:
 	title_label.text = tr(title_key)
+	queue_redraw()
 	# ⚠⚠ キーが空のときは触らない（2026-09-14）。⚠ `UiButton` の setter が
 	#   ⚠ `text = tr("")` ＝**空文字**を入れ、⚠ **戻るが潰れて見える**
 	#   ⚠ （⚠ 人間が実機で発見：ステータスノードとスキル）。
@@ -123,6 +126,17 @@ func set_subtitle_text(value: String) -> void:
 func _draw() -> void:
 	var color: Color = get_theme_color(&"rule", &"ScreenHeader")
 	draw_line(Vector2(0.0, size.y), Vector2(size.x, size.y), color, 1.0)
+	# ⚠ 2026-09-26（回UI-3）：⚠ 題の左右に灯りの◆（⚠ 手本の見出しの帯）。⚠ 題が空なら描かない。
+	if title_label == null or title_label.text == "":
+		return
+	var diamond: Color = get_theme_color(&"diamond", &"ScreenHeader")
+	var r: float = float(get_theme_constant(&"diamond", &"ScreenHeader"))
+	var gap: float = float(get_theme_constant(&"diamond_gap", &"ScreenHeader"))
+	var y: float = title_label.position.y + title_label.size.y * 0.5
+	for x: float in [title_label.position.x - gap, title_label.position.x + title_label.size.x + gap]:
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(x, y - r), Vector2(x + r, y), Vector2(x, y + r), Vector2(x - r, y),
+		]), diamond)
 
 
 func _notification(what: int) -> void:

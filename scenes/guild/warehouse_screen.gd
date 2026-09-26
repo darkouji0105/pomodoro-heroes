@@ -23,7 +23,9 @@ const TAB_TITLE_KEYS: Array[String] = [
 #   **1行＝1系統（段1〜4）** になる（⚠ 建築 ／ 修練 ／ 鍛冶 ／ 装飾 の4行）。
 const MATERIAL_GRID_COLUMNS: int = 4
 
-const GUILD_PATH: String = "res://scenes/guild/guild_screen.tscn"
+const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
+# ⚠ 図鑑タブの位置（⚠ `TAB_TITLE_KEYS` の3つ目）。
+const CODEX_TAB_INDEX: int = 2
 # ⚠ 持ち物のマス目の組の名前（⚠ 同じマス目の中の入れ替えに使う）。
 const DRAG_GROUP: String = "inventory"
 
@@ -68,10 +70,14 @@ func _ready() -> void:
 	# 1. タブ名を日本語化（ノード名の英語が画面に出る前に上書き）
 	for i: int in range(TAB_TITLE_KEYS.size()):
 		tabs.set_tab_title(i, tr(TAB_TITLE_KEYS[i]))
-	# 2. 持ち物タブから始める（⚠ 遷移データでのタブ指定はしない）。
-	tabs.current_tab = 0
-	# 3. 戻る（⚠ 左上・行き先はギルド）。
+	# 2. 持ち物タブから始める。⚠ 2026-09-26（回UI-3）：⚠ 施設の帯の「記録」だけ図鑑タブで開く
+	#   ⚠ （⚠ 記録の画面ができるまでのつなぎ・人間の選択）。
+	var data: Dictionary = SceneManager.consume_transfer_data()
+	var opens_codex: bool = str(data.get(TransferKeys.WAREHOUSE_TAB, "")) == TransferKeys.WAREHOUSE_TAB_CODEX
+	tabs.current_tab = CODEX_TAB_INDEX if opens_codex else 0
+	# 3. 戻る（⚠ 左上・行き先は本部＝拠点。⚠ ギルドの画面は消した・回UI-3）。
 	header.back_pressed.connect(_on_back_pressed)
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.RECORDS if opens_codex else BaseFacilityBar.BELONGINGS)
 
 	# 4. GameManager のシグナル購読
 	GameManager.inventory_changed.connect(_on_inventory_changed)
@@ -533,4 +539,4 @@ func _on_equipment_instances_changed(_instance_id: String) -> void:
 
 
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(GUILD_PATH)
+	SceneManager.change_scene(BASE_PATH)
