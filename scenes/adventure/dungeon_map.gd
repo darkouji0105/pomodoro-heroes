@@ -54,7 +54,8 @@ const HIDDEN_TEXT: String = "？"
 #   ⚠ 1人用は付けた人の印（`ItemSlot` の装備中の印）。⚠ 効果はホバーの詳細。
 @onready var relic_grid: ItemGrid = $Layout/Header/RelicGrid
 # ⚠ 3人の行は部品（RunPartyStrip・2026-09-19）。⚠ レリック選択・商人と同じ。
-@onready var party_list: RunPartyStrip = $Layout/PartyList
+# ⚠ 2026-09-26：3人の HP はフッターへ（⚠ 人間「⚠ フッターにHPなどを」）。
+@onready var party_list: RunPartyStrip = $Layout/Footer/PartyList
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var map_scroll: ScrollContainer = $Layout/MapScroll
 # 層の並び・マス・通路の線（2026-09-19 に RunMapView へ切り出した）。⚠ シナリオと同じ部品。
@@ -71,8 +72,6 @@ const HIDDEN_TEXT: String = "？"
 @onready var bag_detail: ItemDetail = $Layout/BagDetail
 @onready var descend_button: UiButton = $Layout/Footer/DescendButton
 @onready var retreat_button: UiButton = $Layout/Footer/RetreatButton
-@onready var abandon_button: UiButton = $Layout/Footer/AbandonButton
-@onready var back_button: UiButton = $Layout/Header/BackButton
 
 # 鞄のマスにホバーしたときの詳細（2026-09-07）。⚠ 押したときの「できること」は SlotActionPopover。
 var _detail_popup: ItemDetailPopup = null
@@ -104,8 +103,15 @@ func _ready() -> void:
 	_say("")
 	descend_button.pressed.connect(_on_descend_pressed)
 	retreat_button.pressed.connect(_on_retreat_pressed)
-	abandon_button.pressed.connect(_on_abandon_pressed)
-	back_button.pressed.connect(_on_back_pressed)
+	# ⚠⚠ 2026-09-26（人間「⚠ その場で降りるボタンは消す　⚠ メニューからいけるようにする右上の」）：
+	#   ⚠ 「戻る」と「その場で降りる」は右上のメニューへ。⚠ レリックをまとめて見る窓もここから。
+	var menu: RunMenuButton = RunMenuButton.new()
+	$Layout/Header.add_child(menu)
+	var _back_item: UiButton = menu.add_item(tr("ui_common_suspend_to_base"), _on_back_pressed)
+	var _relic_item: UiButton = menu.add_item(tr("ui_relic_list_open"), _open_relic_list)
+	var _abandon_item: UiButton = menu.add_item(tr("ui_dungeon_abandon"), _on_abandon_pressed, true)
+	# ⚠ ヘッダーのレリックを押しても同じ窓（⚠ 人間の選択）。
+	relic_grid.slot_pressed.connect(func(_entry: Dictionary, _index: int) -> void: _open_relic_list())
 	GameManager.dungeon_run_changed.connect(_on_dungeon_run_changed)
 	bag_grid.columns = GameManager.get_dungeon_bag_slots()
 	bag_grid.slot_pressed.connect(_on_bag_slot_pressed)
@@ -550,7 +556,6 @@ func _update_footer() -> void:
 	descend_button.visible = false
 	retreat_button.visible = false
 	# ⚠ 「その場で降りる」は常に出す。⚠ 消すと詰んだ人が閉じ込められる（§4-2）。
-	abandon_button.visible = true
 
 
 # マスを押した。⚠ 進めるかは GameManager が返す。こちらでは判定しない。
@@ -884,7 +889,14 @@ func _on_retreat_pressed() -> void:
 
 
 # その場で降りる＝全ロスト（§4-2）。⚠ 逃げ道は残す。⚠ ただしタダではない。
+# ⚠ 2026-09-26：⚠ メニューから呼ぶ。⚠ **確かめの窓を通す**（⚠ 前は押した瞬間に全部なくなっていた）。
 func _on_abandon_pressed() -> void:
+	var sure: bool = await Modal.confirm(self, "ui_dungeon_abandon_confirm", [], false, {
+		Modal.OPTION_DANGER: true,
+		Modal.OPTION_CONFIRM_LABEL: "ui_dungeon_abandon",
+	})
+	if not sure:
+		return
 	GameManager.abandon_dungeon_run()
 	SceneManager.change_scene(ADVENTURE_SELECT_PATH)
 
@@ -892,3 +904,8 @@ func _on_abandon_pressed() -> void:
 # 拠点へ。⚠ ランは終わらない（状態に残るので続きから再開できる）。
 func _on_back_pressed() -> void:
 	SceneManager.change_scene(BASE_PATH)
+
+
+# 持っているレリックをまとめて見る窓（⚠ ヘッダーのレリック・メニューの両方から）。
+func _open_relic_list() -> void:
+	var _window: RunRelicListWindow = RunRelicListWindow.open(self, GameManager.RUN_KIND_DUNGEON)

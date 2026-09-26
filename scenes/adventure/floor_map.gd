@@ -44,11 +44,15 @@ const CHEST_POPUP_SEC: float = 0.9
 @onready var floor_name_label: Label = $Layout/Header/FloorNameLabel
 @onready var chest_label: Label = $Layout/Header/ChestLabel
 @onready var chest_popup: Label = $ChestPopup
-@onready var relic_label: Label = $Layout/RelicLabel
+# ⚠ 2026-09-26（人間「⚠ ヘッダーにレリックを並べる」「⚠ フッターにHPなどを」「⚠ シナリオは同じUI」）：
+#   ⚠ レリックはヘッダーのマス（⚠ 押すとまとめて見る窓）。⚠ 3人の HP はフッター。⚠ 難ダンジョンと同じ形。
+@onready var relic_grid: ItemGrid = $Layout/Header/RelicGrid
+@onready var party_list: RunPartyStrip = $Layout/Footer/PartyList
+# ⚠ ヘッダーのレリックのホバーの詳細 ／ 右上の通貨の幅ぶんの空き。
+var _detail_popup: ItemDetailPopup = null
+var _hud_spacer: Control = null
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var map_view: RunMapView = $Layout/MapView
-@onready var abandon_button: UiButton = $Layout/Footer/AbandonButton
-@onready var back_button: UiButton = $Layout/Header/BackButton
 
 # ⚠⚠ 鞄のマス目（2026-09-18・人間の決定「難ダンジョンのインベントリをシナリオでも適用」）。
 #   ⚠ .tscn を触らずコードで作る（⚠ レリックの行の下）。⚠ 中身は GameManager の鞄の口に聞く。
@@ -71,13 +75,32 @@ func _ready() -> void:
 		return
 
 	message_label.text = ""
-	abandon_button.pressed.connect(_on_abandon_pressed)
-	back_button.pressed.connect(_on_back_pressed)
+	# ⚠⚠ 「戻る」と「フロアを降りる」は右上のメニューへ（⚠ 難ダンジョンと同じ）。
+	var menu: RunMenuButton = RunMenuButton.new()
+	$Layout/Header.add_child(menu)
+	var _back_item: UiButton = menu.add_item(tr("ui_common_suspend_to_base"), _on_back_pressed)
+	var _relic_item: UiButton = menu.add_item(tr("ui_relic_list_open"), _open_relic_list)
+	var _abandon_item: UiButton = menu.add_item(tr("ui_floor_abandon"), _on_abandon_pressed, true)
+	relic_grid.slot_pressed.connect(func(_entry: Dictionary, _index: int) -> void: _open_relic_list())
+	_detail_popup = ItemDetailPopup.adopt(self, ItemDetail.new())
+	if _detail_popup != null:
+		_detail_popup.watch(relic_grid)
+	# ⚠ 右上の通貨（⚠ シナリオでは出す）とメニューが重ならないよう、⚠ 通貨の幅だけ空ける（⚠ `ScreenHeader` と同じ）。
+	_hud_spacer = Control.new()
+	_hud_spacer.name = "HudSpacer"
+	_hud_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$Layout/Header.add_child(_hud_spacer)
+	_apply_hud_width(ResourceHud.reserved_width())
+	var hud: ResourceHud = ResourceHud.get_instance()
+	if hud != null:
+		hud.width_changed.connect(_apply_hud_width)
 	GameManager.floor_run_changed.connect(_on_floor_run_changed)
 	GameManager.floor_chest_found.connect(_on_chest_found)
 	map_view.node_pressed.connect(_on_node_pressed)
 	# ⚠ スクロールを持たない画面なので層の間隔を詰める（⚠ 44 だと縦に 2px はみ出した）。
 	map_view.layer_separation = RunMapView.LAYER_SEPARATION_NO_SCROLL
+	# ⚠ 紙を上下にはみ出させない（⚠ 下のフッターの HP に重なるため・2026-09-26）。
+	map_view.sheet_bleed_vertical = false
 	_build_bag_grid()
 	_rebuild()
 	# ⚠ 戦闘・ショップ・レリックから戻ってきたとき、⚠ 拾い待ちがあれば選ぶ画面を出す。
@@ -89,9 +112,11 @@ func _build_bag_grid() -> void:
 	_bag_grid = ItemGrid.new()
 	_bag_grid.name = "BagGrid"
 	_bag_grid.columns = maxi(1, GameManager.get_run_bag_slots(GameManager.RUN_KIND_FLOOR))
-	var layout: Node = relic_label.get_parent()
+	# ⚠ 鞄はヘッダーのすぐ下（⚠ 前はレリックの行の下＝その行は 2026-09-26 に消した）。
+	var header: Node = $Layout/Header
+	var layout: Node = header.get_parent()
 	layout.add_child(_bag_grid)
-	layout.move_child(_bag_grid, relic_label.get_index() + 1)
+	layout.move_child(_bag_grid, header.get_index() + 1)
 
 
 func _rebuild_bag() -> void:
@@ -170,31 +195,15 @@ func _update_header() -> void:
 	#   ⚠ 金・ジェム・スタミナをまとめて出す（⚠ 人間の指示「⚠ シナリオにもリソースを」）。⚠ 同じ数字を2箇所に出さない。
 
 
-# いま持っているレリックの1行（段階14-d・PLAN_SCENARIO_MAP.md §5-2-6）。
+# いま持っているレリック（段階14-d → 2026-09-26 にヘッダーのマスへ）。
 #
-# ⚠ 専用の画面を作らない。フロア中はここが唯一の一覧なので、常に見えていること。
-# ⚠ 1人用は「誰に付いているか」まで出す。出さないと選んだ意味が確かめられない。
+# ⚠ 1人用は「誰に付いているか」をマスの詳細（ホバー）とまとめて見る窓に出す（⚠ 選んだ意味が確かめられること）。
+# ⚠ 3人の HP もここで描き直す（⚠ 戦闘から戻るたびに変わる）。
 func _update_relic_line() -> void:
-	var relics: Array = GameManager.get_floor_relics()
-	if relics.is_empty():
-		relic_label.text = tr("ui_relic_none")
-		return
-	var parts: Array[String] = []
-	for entry: Variant in relics:
-		if not (entry is Dictionary):
-			continue
-		var row: Dictionary = entry
-		var relic_id: String = str(row.get(GameStateKeys.FLOOR_RELIC_ID, ""))
-		var name_text: String = tr(str(
-			MasterDataLoader.get_relic(relic_id).get("name_key", relic_id)
-		))
-		var owner: String = str(row.get(GameStateKeys.FLOOR_RELIC_CHARACTER_ID, ""))
-		if owner == "":
-			parts.append(name_text)
-			continue
-		var char_data: Dictionary = MasterDataLoader.get_character(owner)
-		parts.append("%s(%s)" % [name_text, tr(str(char_data.get("name_key", owner)))])
-	relic_label.text = tr("ui_relic_held") + ": " + " / ".join(parts)
+	var entries: Array = GameManager.get_run_relic_slot_entries(GameManager.RUN_KIND_FLOOR)
+	relic_grid.rebuild(entries, entries.size())
+	relic_grid.visible = not entries.is_empty()
+	party_list.refresh(GameManager.RUN_KIND_FLOOR)
 
 
 # 層を縦に並べる。⚠ 下が入口・上がボス。
@@ -376,7 +385,14 @@ func _enter_battle(node_id: String) -> void:
 
 
 # フロアを降りる。⚠ 進行中のものは全部消える（たいまつ・レリック・持ち越しHP）。
+# ⚠ 2026-09-26：⚠ メニューから呼ぶ。⚠ **確かめの窓を通す**（⚠ 前は押した瞬間に消えていた）。
 func _on_abandon_pressed() -> void:
+	var sure: bool = await Modal.confirm(self, "ui_floor_abandon_confirm", [], false, {
+		Modal.OPTION_DANGER: true,
+		Modal.OPTION_CONFIRM_LABEL: "ui_floor_abandon",
+	})
+	if not sure:
+		return
 	GameManager.abandon_floor()
 	SceneManager.change_scene(ADVENTURE_SELECT_PATH)
 
@@ -384,3 +400,12 @@ func _on_abandon_pressed() -> void:
 # 拠点へ。⚠ フロアは降りない。状態に残るので続きから再開できる。
 func _on_back_pressed() -> void:
 	SceneManager.change_scene(BASE_PATH)
+
+
+func _open_relic_list() -> void:
+	var _window: RunRelicListWindow = RunRelicListWindow.open(self, GameManager.RUN_KIND_FLOOR)
+
+
+func _apply_hud_width(width: float) -> void:
+	if _hud_spacer != null:
+		_hud_spacer.custom_minimum_size = Vector2(maxf(0.0, width), 0.0)

@@ -85,6 +85,8 @@ const SHOT_AFTER_BATTLE_RESULT: String = "battle_result"
 const SHOT_AFTER_MODAL_CONFIRM: String = "modal_confirm"
 const SHOT_AFTER_PART_POPOVER: String = "part_popover"
 const SHOT_AFTER_RELIC_PICK: String = "relic_pick"
+const SHOT_AFTER_RUN_MENU: String = "run_menu"
+const SHOT_AFTER_RELIC_LIST: String = "relic_list"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -1048,6 +1050,20 @@ const SCENARIOS: Dictionary = {
 				"data": {TransferKeys.RUN_KIND: GameManager.RUN_KIND_DUNGEON},
 				"fill_node_id": GameStateKeys.DUNGEON_NODE_KIND_RELIC,
 				"after": SHOT_AFTER_RELIC_PICK,
+			},
+			# ⚠ 2026-09-26（人間「⚠ その場で降りるボタンは消す　⚠ メニューからいけるようにする右上の」
+			#   「⚠ レリックはレリックをまとめて見れるようにしたい」）：⚠ 右上のメニューを開いた姿 ／ ⚠ まとめて見る窓。
+			{
+				"name": "22_run_menu",
+				"scene": "res://scenes/adventure/dungeon_map.tscn",
+				"prepare": SHOT_PREPARE_DUNGEON,
+				"after": SHOT_AFTER_RUN_MENU,
+			},
+			{
+				"name": "23_relic_list",
+				"scene": "res://scenes/adventure/dungeon_map.tscn",
+				"prepare": SHOT_PREPARE_DUNGEON,
+				"after": SHOT_AFTER_RELIC_LIST,
 			},
 			# ⚠⚠ ボスの後のわかれ道（決定48）。⚠ ボスの先でないと自分でマップへ送り返す。
 			{
@@ -8692,6 +8708,8 @@ class ShotTaker extends Node:
 	const AFTER_BATTLE_RESULT: String = "battle_result"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
 	const AFTER_RELIC_PICK: String = "relic_pick"
+	const AFTER_RUN_MENU: String = "run_menu"
+	const AFTER_RELIC_LIST: String = "relic_list"
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
 	const AFTER_FRAMES: int = 12
 
@@ -8922,6 +8940,30 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ %s は空きの枠が1つも無い" % shot_name)
 				return false
 			screen.call("_on_part_slot_selected", equip_id, empty_index)
+		elif kind == AFTER_RUN_MENU:
+			var menu: RunMenuButton = screen.find_child("MenuButton", true, false) as RunMenuButton
+			if menu == null:
+				push_error("[DebugBoot] ⚠ %s にメニューが無い" % shot_name)
+				return false
+			menu.call("_open")
+		elif kind == AFTER_RELIC_LIST:
+			# ⚠ 本番の口でレリックを1つ持たせる：⚠ 隣のレリックのマスへ `move_in_dungeon()` で移り、⚠ `take_run_relic()` で取る。
+			# ⚠⚠ マップはランダムなので、⚠ **隣にレリックのマスが無い回は空の窓を撮る**（⚠ どちらになったかを必ず print）。
+			var relic_node: String = ""
+			for move: Variant in GameManager.get_dungeon_moves():
+				var node: Dictionary = GameManager.get_dungeon_node(str(move))
+				if str(node.get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_RELIC:
+					relic_node = str(move)
+					break
+			if relic_node != "" and GameManager.move_in_dungeon(relic_node):
+				var picks: Array = GameManager.get_run_relic_choices(GameManager.RUN_KIND_DUNGEON, relic_node)
+				var relic_id: String = str(picks[0]) if not picks.is_empty() else ""
+				var owner: String = str(GameManager.get_party_members()[0]) if GameManager.is_single_relic(relic_id) else ""
+				var took: bool = relic_id != "" and GameManager.take_run_relic(GameManager.RUN_KIND_DUNGEON, relic_node, relic_id, owner)
+				print("  %s: 隣のレリック %s を取った = %s" % [shot_name, relic_id, str(took)])
+			else:
+				print("  %s: ⚠ 隣にレリックのマスが無い回 → 空の窓を撮る" % shot_name)
+			screen.call("_open_relic_list")
 		elif kind == AFTER_RELIC_PICK:
 			# ⚠ 画面自身の口（⚠ カードの当たり・人の札が押されたときに呼ばれるもの）。
 			var choices: Array = screen.get("_choices")

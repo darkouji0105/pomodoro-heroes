@@ -44,11 +44,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"WideRow"
 
-[node name="BackButton" parent="Layout/Header" instance=ExtResource("2_button")]
-layout_mode = 2
-label_key = "ui_common_back"
-variant = 4
-
 [node name="DungeonNameLabel" type="Label" parent="Layout/Header"]
 layout_mode = 2
 text = "ui_dungeon_hard"
@@ -93,11 +88,6 @@ script = ExtResource("3_item_grid")
 
 [node name="HeaderRule" type="HSeparator" parent="Layout"]
 layout_mode = 2
-
-[node name="PartyList" type="HBoxContainer" parent="Layout"]
-layout_mode = 2
-theme_type_variation = &"WideRow"
-script = ExtResource("6_party")
 
 [node name="MessageLabel" type="Label" parent="Layout"]
 layout_mode = 2
@@ -161,14 +151,19 @@ layout_mode = 2
 [node name="Footer" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
 
-[node name="HintLabel" type="Label" parent="Layout/Footer"]
+[node name="PartyList" type="HBoxContainer" parent="Layout/Footer"]
 layout_mode = 2
-theme_type_variation = &"CaptionLabel"
-text = "ui_dungeon_hint"
+theme_type_variation = &"WideRow"
+script = ExtResource("6_party")
 
 [node name="FooterSpacer" type="Control" parent="Layout/Footer"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="HintLabel" type="Label" parent="Layout/Footer"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "ui_dungeon_hint"
 
 [node name="DescendButton" parent="Layout/Footer" instance=ExtResource("2_button")]
 layout_mode = 2
@@ -178,8 +173,3 @@ variant = 1
 [node name="RetreatButton" parent="Layout/Footer" instance=ExtResource("2_button")]
 layout_mode = 2
 label_key = "ui_dungeon_retreat"
-
-[node name="AbandonButton" parent="Layout/Footer" instance=ExtResource("2_button")]
-layout_mode = 2
-label_key = "ui_dungeon_abandon"
-variant = 3

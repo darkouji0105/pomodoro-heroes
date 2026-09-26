@@ -1681,6 +1681,9 @@ const STAMP_PAD_H: int = 10
 const STAMP_PAD_V: int = 4
 const STAMP_TILT_DEG: int = -8
 const FACILITY_BAR_HEIGHT: int = 76     # ⚠ 手本 `facility_bar`
+const RELIC_LIST_WIDTH: int = 960       # ⚠ カード3枚が横に並ぶ幅
+const RELIC_LIST_COLUMNS: int = 3
+const RELIC_LIST_GAP: int = 24
 const HEADER_TITLE_SIZE: int = 22
 const HEADER_DIAMOND: int = 4           # ⚠ 題の左右の◆の半径
 const HEADER_DIAMOND_GAP: int = 10      # ⚠ 題の端から◆の中心まで
@@ -1819,6 +1822,24 @@ static func _build_paper_parts(theme: Theme) -> void:
 	theme.set_color(&"diamond", &"ScreenHeader", _html(TOKEN_LIGHT))
 	theme.set_constant(&"diamond", &"ScreenHeader", HEADER_DIAMOND)
 	theme.set_constant(&"diamond_gap", &"ScreenHeader", HEADER_DIAMOND_GAP)
+
+	# ランの右上のメニューの板（回UI-4・`RunMenuButton`）。⚠ 板の面・影つき（⚠ 装飾の吹き出しと同じ作り）。
+	var menu: StyleBoxFlat = StyleBoxFlat.new()
+	menu.bg_color = _html(TOKEN_BOARD)
+	menu.set_border_width_all(1)
+	menu.border_color = _html(FACILITY_BAR_RULE)
+	menu.set_corner_radius_all(PANEL_CORNER_RADIUS)
+	menu.shadow_color = Color(0, 0, 0, 0.6)
+	menu.shadow_size = SLOT_POPOVER_SHADOW
+	theme.set_stylebox(&"panel", &"PopupPanel", _pad_panel(menu, SLOT_POPOVER_PAD, SLOT_POPOVER_PAD))
+
+	# 持っているレリックをまとめて見る窓（`RunRelicListWindow`）。⚠ 暗幕は窓の既定（`MD-6` の 60%）。
+	theme.set_color(&"dim", &"RunRelicList", Color(0, 0, 0, float(WINDOW_DIM_NORMAL_PCT) / 100.0))
+	theme.set_constant(&"width", &"RunRelicList", RELIC_LIST_WIDTH)
+	theme.set_constant(&"columns", &"RunRelicList", RELIC_LIST_COLUMNS)
+	theme.set_type_variation(&"RelicListGrid", &"GridContainer")
+	theme.set_constant(&"h_separation", &"RelicListGrid", RELIC_LIST_GAP)
+	theme.set_constant(&"v_separation", &"RelicListGrid", RELIC_LIST_GAP)
 
 	# 施設の帯（⚠ 下に固定・⚠ 用事がある施設にしおり紐）。
 	var bar: StyleBoxFlat = StyleBoxFlat.new()

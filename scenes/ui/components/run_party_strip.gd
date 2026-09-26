@@ -7,7 +7,7 @@ extends HBoxContainer
 # ⚠ 1人ぶん＝名前・バー（RunHpBar）・今の値＋「/素の値」（暗い）。⚠ 脱落は赤（Theme の ErrorLabel）。
 #   ⚠ どれだけ目減りしたかが読めないと、ポーションを使う判断ができない（§4-4）。
 #   ⚠ 脱落した人の行を消さないこと。消すと「誰が欠けたか」が分からないまま3人目で死亡する。
-# ⚠ シナリオには「戦闘時 MAX HP」が無い。⚠ シナリオでは何も出さない（⚠ 行ごと隠す）。
+# ⚠ シナリオには「戦闘時 MAX HP」が無い。⚠ 2026-09-26 から**持ち越しの HP ／ 素の MAX HP** を出す（⚠ 前は行ごと隠していた）。
 # ⚠ 値は GameManager の口に聞くだけ。⚠ 再描画に await を持たせない（AGENTS.md）。
 
 
@@ -19,9 +19,10 @@ func refresh(kind: String) -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
-	visible = kind == GameManager.RUN_KIND_DUNGEON
-	if not visible:
-		return
+	# ⚠ 2026-09-26：⚠ シナリオにも出す（⚠ 人間「⚠ フッターにHPなどを」「⚠ シナリオは同じUI」）。
+	#   ⚠ シナリオは脱落も目減りも無い。⚠ 持ち越しの HP（⚠ 欄が無ければ満タン）／ 素の MAX HP。
+	var is_floor: bool = kind == GameManager.RUN_KIND_FLOOR
+	var carry: Dictionary = GameManager.get_floor_hp_carry() if is_floor else {}
 	for member: Variant in GameManager.get_party_members():
 		var character_id: String = str(member)
 		if character_id == "":
@@ -36,8 +37,11 @@ func refresh(kind: String) -> void:
 		cell.add_child(name_label)
 
 		var base_max_hp: int = GameManager.get_dungeon_base_max_hp(character_id)
-		var max_hp: int = GameManager.get_dungeon_character_max_hp(character_id)
-		var downed: bool = GameManager.is_dungeon_character_downed(character_id)
+		var max_hp: int = (
+			int(carry.get(character_id, base_max_hp)) if is_floor
+			else GameManager.get_dungeon_character_max_hp(character_id)
+		)
+		var downed: bool = not is_floor and GameManager.is_dungeon_character_downed(character_id)
 		var bar: RunHpBar = RunHpBar.new()
 		bar.name = "Bar"
 		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER

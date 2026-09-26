@@ -127,6 +127,16 @@ var _current_id: String = ""
 # ⚠ 2026-09-20 まで区画の切れ目の高さにも使っていた（⚠ 切れ目は人間の指示で消した）。
 var _rows: Dictionary = {}
 
+## 紙を上下にもはみ出させるか。⚠ スクロールの無い画面（シナリオ）は false
+##   （⚠ 2026-09-26：⚠ 上下 24px が**フッターの HP に重なった**）。⚠ 左右はいつもはみ出す。
+var sheet_bleed_vertical: bool = true:
+	set(value):
+		sheet_bleed_vertical = value
+		queue_redraw()
+		if _fog != null:
+			_fog.queue_redraw()
+
+
 ## 層のあいだの間隔。⚠ LAYER_SEPARATION か LAYER_SEPARATION_NO_SCROLL を入れる（⚠ 値を画面に書かない）。
 var layer_separation: int = LAYER_SEPARATION:
 	set(value):
@@ -431,7 +441,11 @@ func _redraw_edges() -> void:
 # ⚠ 地図の下に紙を敷く（⚠ 地図の矩形より `sheet_pad` だけ広く）。⚠ 面は `PaperPanel` と同じ（⚠ 影つき）。
 func _draw() -> void:
 	var pad: float = float(get_theme_constant(&"sheet_pad", THEME_TYPE))
-	draw_style_box(get_theme_stylebox(&"panel", &"PaperPanel"), Rect2(Vector2.ZERO, size).grow(pad))
+	var pad_v: float = pad if sheet_bleed_vertical else 0.0
+	draw_style_box(
+		get_theme_stylebox(&"panel", &"PaperPanel"),
+		Rect2(Vector2.ZERO, size).grow_individual(pad, pad_v, pad, pad_v)
+	)
 
 
 func _notification(what: int) -> void:
@@ -542,7 +556,8 @@ func _draw_fog() -> void:
 	# ⚠ 1層ぶんの高さは実際の行から取る（⚠ マスの高さを数字で持たない）。
 	var step: float = _layer_step()
 	var pad: float = float(get_theme_constant(&"sheet_pad", THEME_TYPE))
-	var ramp_top: float = maxf(-pad, edge - step * FOG_RAMP_LAYERS)
+	var top_y: float = -pad if sheet_bleed_vertical else 0.0
+	var ramp_top: float = maxf(top_y, edge - step * FOG_RAMP_LAYERS)
 	var x0: float = -pad
 	var x1: float = _fog.size.x + pad
 	var fog: Color = get_theme_color(&"fog", THEME_TYPE)
@@ -554,9 +569,9 @@ func _draw_fog() -> void:
 		PackedColorArray([mid, mid, clear, clear])
 	)
 	# ⚠ 上は紙の縁まで（⚠ 0 で止めると紙の上端に霧のかからない帯が残った）。
-	if ramp_top > -pad:
+	if ramp_top > top_y:
 		_fog.draw_polygon(
-			PackedVector2Array([Vector2(x0, -pad), Vector2(x1, -pad), Vector2(x1, ramp_top), Vector2(x0, ramp_top)]),
+			PackedVector2Array([Vector2(x0, top_y), Vector2(x1, top_y), Vector2(x1, ramp_top), Vector2(x0, ramp_top)]),
 			PackedColorArray([top, top, mid, mid])
 		)
 

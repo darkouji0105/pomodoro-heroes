@@ -33,7 +33,8 @@ const DUNGEON_HINT_KEY: String = "ui_dungeon_relic_hint"
 @onready var title_label: Label = $Layout/Header/TitleLabel
 @onready var bag_label: Label = $Layout/Header/BagLabel
 @onready var held_relic_grid: ItemGrid = $Layout/Header/HeldRelicGrid
-@onready var party_list: RunPartyStrip = $Layout/PartyList
+# ⚠ 2026-09-26：3人の HP はフッター（⚠ 人間「⚠ フッターにHPなどを」）。
+@onready var party_list: RunPartyStrip = $Layout/Footer/PartyList
 @onready var message_label: Label = $Layout/MessageLabel
 @onready var body: VBoxContainer = $Layout/Body
 @onready var hint_label: Label = $Layout/Footer/HintLabel
