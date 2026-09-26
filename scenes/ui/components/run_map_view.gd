@@ -138,6 +138,12 @@ var _walked: Dictionary = {}
 ##   ⚠ 列の幅（`NODE_WIDTH`）は変えない（⚠ 丸を列の真ん中に置く＝線の並びが崩れない）。
 var round_nodes: bool = false
 
+## ⚠ 風景を屋外（山・草・川）にするか。⚠ 既定は洞窟（難ダンジョン）。⚠ シナリオの地図が true（09-27・人間「⚠ い」）。
+var outdoor: bool = false:
+	set(value):
+		outdoor = value
+		queue_redraw()
+
 ## ⚠ 地図の下に自分で紙を敷くか。⚠ 外に `TornPaperPanel` を敷く画面は false（⚠ 紙が2枚重なる）。
 var draw_sheet: bool = true:
 	set(value):
@@ -584,6 +590,9 @@ const DECOR_SEED: int = 23
 
 
 func _draw_decor() -> void:
+	if outdoor:
+		_draw_decor_outdoor()
+		return
 	var centers: Array[Vector2] = []
 	var origin: Vector2 = get_global_rect().position
 	for raw: Variant in _node_buttons.values():
@@ -902,3 +911,83 @@ func _tone_color(tone: String) -> Color:
 		TONE_HIDDEN:
 			return get_theme_color(&"edge_hidden", THEME_TYPE)
 	return get_theme_color(&"edge_plain", THEME_TYPE)
+
+
+# ⚠⚠ 屋外の風景（2026-09-26 の形・09-27 に人間「⚠ い」＝シナリオは屋外に戻す）。⚠ 山・草・川。
+func _draw_decor_outdoor() -> void:
+	var centers: Array[Vector2] = []
+	var origin: Vector2 = get_global_rect().position
+	for raw: Variant in _node_buttons.values():
+		if raw is Control and is_instance_valid(raw):
+			centers.append((raw as Control).get_global_rect().get_center() - origin)
+	if centers.is_empty():
+		return
+	var ink: Color = get_theme_color(&"decor", THEME_TYPE)
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = DECOR_SEED
+	var left: float = LAYER_CAPTION_WIDTH
+	var right: float = size.x - LAYER_CAPTION_WIDTH * 0.5
+	var clearance: float = float(get_theme_constant(&"decor_clearance", THEME_TYPE))
+
+	# ⚠ 川：⚠ 横切る波線（⚠ マスの後ろを通ってよい＝薄い）。⚠ 縦に長い地図（難ダンジョン）は本数を増やす。
+	var river: Color = get_theme_color(&"river", THEME_TYPE)
+	var river_count: int = maxi(1, int(round(size.y / float(get_theme_constant(&"river_every", THEME_TYPE)))))
+	var river_ys: Array[float] = []
+	for n: int in range(river_count):
+		var ry: float = size.y * (float(n) + 0.58) / float(river_count)
+		river_ys.append(ry)
+		var river_points: PackedVector2Array = PackedVector2Array()
+		var steps: int = 40
+		var phase: float = float(n) * 1.7
+		for i: int in range(steps + 1):
+			var t: float = float(i) / float(steps)
+			river_points.append(Vector2(
+				lerpf(left, right, t), ry + sin(t * TAU * 2.3 + phase) * 14.0 + sin(t * TAU * 5.1 + phase) * 5.0
+			))
+		draw_polyline(river_points, river, 4.0, true)
+		draw_polyline(river_points, Color(river, river.a * 0.5), 9.0, true)
+
+	# ⚠ 山と草：⚠ 候補の点を撒いて、⚠ マスから離れている所にだけ描く。⚠ 候補の数は**地図の面積に比例**
+	#   ⚠ （⚠ 決まった数だと縦に長い難ダンジョンでまばらになった・09-26 の絵）。
+	var candidates: int = int(size.x * size.y / float(get_theme_constant(&"decor_area", THEME_TYPE)))
+	for i: int in range(candidates):
+		var p: Vector2 = Vector2(rng.randf_range(left, right), rng.randf_range(0.0, size.y))
+		var near: bool = false
+		for c: Vector2 in centers:
+			if c.distance_to(p) < clearance:
+				near = true
+				break
+		for ry: float in river_ys:
+			if absf(p.y - ry) < 24.0:
+				near = true
+		if near:
+			continue
+		if rng.randf() < 0.6:
+			_draw_mountains(p, rng, ink)
+		else:
+			_draw_grass(p, rng, ink)
+
+
+# 山の集まり（⚠ 2〜3 の三角・⚠ 右の斜面に斜線＝影）。
+
+
+func _draw_mountains(p: Vector2, rng: RandomNumberGenerator, ink: Color) -> void:
+	var count: int = rng.randi_range(2, 3)
+	for k: int in range(count):
+		var w: float = rng.randf_range(14.0, 22.0)
+		var h: float = w * rng.randf_range(0.7, 1.0)
+		var base: Vector2 = p + Vector2(float(k) * w * 0.7 - w * 0.5, float(k % 2) * 4.0)
+		var peak: Vector2 = base + Vector2(w * 0.5, -h)
+		draw_polyline(PackedVector2Array([base, peak, base + Vector2(w, 0.0)]), ink, 1.2, true)
+		for n: int in range(1, 4):
+			var t: float = float(n) / 4.0
+			var a: Vector2 = peak.lerp(base + Vector2(w, 0.0), t)
+			draw_line(a, a + Vector2(-3.0, 3.0), Color(ink, ink.a * 0.8), 0.8, true)
+
+
+# 草（⚠ 小さな「ᐱ」を3本）。
+func _draw_grass(p: Vector2, rng: RandomNumberGenerator, ink: Color) -> void:
+	for k: int in range(3):
+		var b: Vector2 = p + Vector2(float(k) * 5.0, 0.0)
+		var h: float = rng.randf_range(4.0, 7.0)
+		draw_line(b, b + Vector2(-1.5, -h), ink, 0.9, true)

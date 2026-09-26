@@ -102,6 +102,8 @@ func _ready() -> void:
 	# ⚠ 紙を上下にはみ出させない（⚠ 下のフッターの HP に重なるため・2026-09-26）。
 	map_view.sheet_bleed_vertical = false
 	map_view.round_nodes = true
+	# ⚠ シナリオは屋外の風景（⚠ 山・草・川。⚠ 人間 09-27「⚠ い」）。⚠ 難ダンジョンは洞窟のまま。
+	map_view.outdoor = true
 	# ⚠ 紙は外（`MapSheet`）が敷く。⚠ 地図の最小の大きさを器へ渡す（⚠ 素の Control は子の最小を拾わない）。
 	map_view.draw_sheet = false
 	map_view.minimum_size_changed.connect(_fit_map_stack)

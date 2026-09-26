@@ -1518,6 +1518,7 @@ const MAP_MARK_WIDTH: int = 2
 const MAP_EDGE_ALPHA_PCT: int = 75
 const MAP_FAR_ALPHA_PCT: int = 40
 const MAP_DECOR_INK: String = "3b2a1c"        # ⚠ 参考 HTML の線の色
+const MAP_RIVER: String = "4d6a82"            # ⚠ 参考 HTML の川の色（⚠ 屋外＝シナリオだけ）
 const MAP_DECOR_AREA: int = 9000              # ⚠ 飾りの候補を何 px² に1つ撒くか（⚠ マスに近いものは描かない）
 const MAP_CHASM_EVERY: int = 800              # ⚠ 地図の縦何 px ごとに地下の裂け目を1本（⚠ 09-27 に川から変えた）
 const MAP_DECOR_CLEARANCE: int = 46           # ⚠ マスの中心から飾りまでの最小の距離
@@ -1559,6 +1560,9 @@ static func _build_run_map_view(theme: Theme) -> void:
 	# ⚠ 地図の飾り（09-26 → 09-27 にダンジョンの風景へ）。⚠ 岩・ひびなど＝焦げ茶の半透明 ／ 裂け目＝焦げ茶の薄い塗り。
 	theme.set_color(&"decor", t, Color(_html(MAP_DECOR_INK), 0.4))
 	theme.set_color(&"chasm", t, Color(_html(MAP_DECOR_INK), 0.16))
+	# ⚠ 屋外（シナリオ）の川＝青灰（⚠ 人間の参考 HTML の色）。
+	theme.set_color(&"river", t, Color(_html(MAP_RIVER), 0.45))
+	theme.set_constant(&"river_every", t, MAP_CHASM_EVERY)
 	theme.set_constant(&"decor_area", t, MAP_DECOR_AREA)
 	theme.set_constant(&"chasm_every", t, MAP_CHASM_EVERY)
 	theme.set_constant(&"decor_clearance", t, MAP_DECOR_CLEARANCE)
