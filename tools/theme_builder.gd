@@ -747,6 +747,7 @@ static func build() -> void:
 	_build_map_nodes(theme)
 	_build_run_hp_bar(theme)
 	_build_run_map_view(theme)
+	_build_heading_font(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -1554,6 +1555,33 @@ static func _map_node_style(spec: Dictionary) -> StyleBoxFlat:
 	style.set_border_width_all(MAP_NODE_BORDER)
 	style.border_color = _html(str(spec["border"]))
 	return style
+
+
+# --- ⚠⚠ 見出しの明朝（2026-09-26・決定 `UI-12`）---
+#
+# ⚠ Shippori Mincho B1 の **ExtraBold 1本だけ**（⚠ 手本は 700〜800。⚠ 1本 15MB なので Bold は入れない）。
+# ⚠ 明朝に無い字は NotoSansJP（`default_font`）に落ちる（⚠ `FontVariation` のフォールバック）。
+#   ⚠ `.ttf` の中身を書き換えず、⚠ テーマの中に包みを1つ持つ（⚠ 生成物なので毎回作り直す）。
+# ⚠ 数字と本文は NotoSansJP のまま（⚠ 手本「数字は明朝にしない」）。
+const HEADING_FONT_PATH: String = "res://assets/fonts/ShipporiMinchoB1-ExtraBold.ttf"
+const HEADING_FONT_TYPES: Array[String] = [
+	"HeadingLabel", "WindowTitleLabel", "ResultHeadingLabel", "ResultDefeatHeadingLabel",
+]
+
+
+static func _build_heading_font(theme: Theme) -> void:
+	if not ResourceLoader.exists(HEADING_FONT_PATH):
+		push_warning("[BuildTheme] 見出しの明朝が無い（%s）。見出しは NotoSansJP のまま" % HEADING_FONT_PATH)
+		for type_name: String in HEADING_FONT_TYPES:
+			theme.clear_font(&"font", StringName(type_name))
+		return
+	var base: Font = load(HEADING_FONT_PATH) as Font
+	var heading: FontVariation = FontVariation.new()
+	heading.base_font = base
+	if theme.default_font != null:
+		heading.fallbacks = [theme.default_font]
+	for type_name: String in HEADING_FONT_TYPES:
+		theme.set_font(&"font", StringName(type_name), heading)
 
 
 # --- ⚠⚠ 紙の上のテーマ（2026-09-26・決定 `UI-14`）---

@@ -6562,6 +6562,15 @@ func _report_theme() -> void:
 			theme.default_font.get_font_name(), theme.default_font_size,
 		])
 
+	# ⚠ 見出しの明朝（2026-09-26・`UI-12`）。⚠ フォントの名前だけ見る。
+	if not theme.has_font(&"font", &"HeadingLabel"):
+		missing.append("HeadingLabel に見出しのフォントが無い（⚠ 明朝が当たっていない）")
+	else:
+		var heading_font: Font = theme.get_font(&"font", &"HeadingLabel")
+		print("  見出しのフォント = '%s'" % heading_font.get_font_name())
+		if not heading_font.get_font_name().contains("Shippori"):
+			missing.append("見出しのフォントが明朝ではない: " + heading_font.get_font_name())
+
 	print("[DebugBoot] --- ボタン4階層 × 5状態（⚠ 欠けが0件で正解）---")
 	for type_name: String in THEME_BUTTON_TYPES:
 		var states: int = 0
