@@ -351,10 +351,9 @@ func _make_node_button(node_id: String, node: Dictionary) -> Button:
 		_:
 			button.theme_type_variation = VARIATION_HIDDEN if hidden else VARIATION_FAR
 	if round_nodes:
+		# ⚠ たいまつが届かないマスは**縁と字だけ薄く**（⚠ `MapNodeHidden`）。⚠ 地は不透明のまま
+		#   ⚠ （⚠ 丸ごと半透明にしたら後ろを通る道が透けて「く」の字に見えた・09-26 の絵）。
 		_make_round(button, node, state, hidden)
-		# ⚠ たいまつが届かないマスは半透明（⚠ 見える範囲だけくっきり）。
-		if hidden:
-			button.modulate.a = float(get_theme_constant(&"far_alpha_pct", THEME_TYPE)) * 0.01
 	else:
 		_make_plate(button, node, hidden, pin_color)
 	var reachable: bool = state == STATE_REACHABLE
@@ -685,6 +684,10 @@ func _draw_fog() -> void:
 func _edge_anchor(button: Control, top: bool, slot: int = 0, slot_count: int = 1) -> Vector2:
 	var rect: Rect2 = button.get_global_rect()
 	var origin: Vector2 = _edge_lines.get_global_rect().position
+	# ⚠⚠ 丸いマスは**中心から出て中心に入る**（⚠ 人間の参考 HTML：同じマスの道は全部同じ点から）。
+	#   ⚠ 線はマスの後ろに描かれるので、⚠ 丸の縁から出ているように見える。
+	if round_nodes:
+		return rect.get_center() - origin
 	var span: float = rect.size.x * EDGE_ANCHOR_SPREAD
 	var offset: float = 0.0
 	if slot_count > 1:
@@ -696,6 +699,9 @@ func _edge_anchor(button: Control, top: bool, slot: int = 0, slot_count: int = 1
 
 # 線の描き方。⚠ 罠＝折れ線 ／ 見えない＝点線 ／ ほか＝手描きの曲線（モック v2）。
 func _tone_style(tone: String) -> String:
+	# ⚠ 丸いマスの地図は罠の道も同じ曲線（⚠ 参考は全部同じ形。⚠ 罠は色で分かる）。
+	if round_nodes:
+		return DungeonEdgeLines.STYLE_CURVE
 	match tone:
 		TONE_TRAP:
 			return DungeonEdgeLines.STYLE_ZIGZAG

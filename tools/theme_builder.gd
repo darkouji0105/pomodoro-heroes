@@ -1579,7 +1579,8 @@ const MAP_NODE_LEVELS: Dictionary = {
 	# 見えているが、⚠ いまは進めないマス（モック `.node.dim`）。
 	"MapNodeFar": {"normal": {"bg": TOKEN_PAPER, "border": "8a7458"}, "font": TOKEN_INK_SUB},
 	# たいまつが届いていないマス。⚠ 静かにする（⚠ 25層並べたときの騒がしさ対策）。
-	"MapNodeHidden": {"normal": {"bg": TOKEN_PAPER, "border": TOKEN_RULE}, "font": TOKEN_TEXT_DIM_ON_DARK},
+	# ⚠ 09-26：たいまつが届かないマス＝縁も字も紙に溶けるくらい薄く（⚠ 地は不透明＝後ろの道を隠す）。
+	"MapNodeHidden": {"normal": {"bg": TOKEN_PAPER, "border": "d9c9a6"}, "font": TOKEN_RULE},
 }
 
 

@@ -45,8 +45,11 @@ const LABEL_BOX: Vector2 = Vector2(28.0, 24.0)
 
 # ⚠ 手描きの揺れ（モック v2「揺れは ±6px」）。⚠ 曲線の制御点・折れ線の曲がりの横ずれ。
 const WOBBLE: float = 6.0
-# ⚠ 曲線を何本の直線で近似するか。
-const CURVE_SEGMENTS: int = 16
+# ⚠ 曲線を何本の直線で近似するか。⚠ 09-26：横に長い道がかくつくので 16 → 24。
+const CURVE_SEGMENTS: int = 24
+# ⚠ 曲線の取っ手（⚠ 両端から高さの何割か）と、⚠ 取っ手の横の揺れの幅（⚠ 人間の参考 HTML を測った値）。
+const CURVE_HANDLE: float = 0.45
+const CURVE_JITTER: float = 14.0
 # ⚠ 点線の点の長さ（モック `stroke-dasharray: 2 6` をそのまま）。
 const DASH: float = 4.0
 # ⚠ 道の点線の1片と間（⚠ 人間の参考 HTML `stroke-dasharray="5 5"`）。
@@ -191,10 +194,16 @@ func _draw_dashed_polyline(points: PackedVector2Array, color: Color, width: floa
 				left = dash
 
 
-# 手描きの曲線（モック `C x1+j, … x2-j, …`）。⚠ 出口は少し右へ・入口は少し左へ膨らむ。
+# 手描きの曲線。⚠⚠ 2026-09-26：人間の参考 HTML と同じ形（⚠ 人間「⚠ 線の曲がり方も参考と全く同じで」）。
+#   ⚠ 参考の27本を測った：⚠ **取っ手は両端から高さの 45%**（⚠ 出るときも入るときも縦向き）、
+#   ⚠ **取っ手の横の揺れは ±14px**（⚠ 線ごとにばらばら）。⚠ 前は 35% / 65% ・揺れは固定の 6px。
+#   ⚠ 揺れは両端の位置から決める（⚠ 描き直しても同じ形＝ちらつかない）。
 func _curve(a: Vector2, b: Vector2) -> PackedVector2Array:
-	var c1: Vector2 = Vector2(a.x + WOBBLE, a.y + (b.y - a.y) * 0.35)
-	var c2: Vector2 = Vector2(b.x - WOBBLE, a.y + (b.y - a.y) * 0.65)
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = hash(Vector2i(a.round()) * 7 + Vector2i(b.round()) * 13)
+	var dy: float = b.y - a.y
+	var c1: Vector2 = Vector2(a.x + rng.randf_range(-CURVE_JITTER, CURVE_JITTER), a.y + dy * CURVE_HANDLE)
+	var c2: Vector2 = Vector2(b.x + rng.randf_range(-CURVE_JITTER, CURVE_JITTER), b.y - dy * CURVE_HANDLE)
 	var points: PackedVector2Array = PackedVector2Array()
 	for i: int in range(CURVE_SEGMENTS + 1):
 		var t: float = float(i) / float(CURVE_SEGMENTS)
