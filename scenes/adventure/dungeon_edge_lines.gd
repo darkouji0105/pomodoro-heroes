@@ -49,8 +49,6 @@ const DASH: float = 4.0
 
 # 字の台（菱形）。⚠ モック `.edge-badge`（20px の正方形を45度回したもの）。
 const BADGE_HALF: float = 14.0
-const BADGE_BG: Color = Color("15100f")
-const BADGE_BORDER: Color = Color("3a302b")
 
 # 線の一覧。⚠ [{from, to, color, width, label, style, badge_border}]
 var _lines: Array = []
@@ -158,10 +156,10 @@ func _draw() -> void:
 			c + Vector2(0, -BADGE_HALF), c + Vector2(BADGE_HALF, 0),
 			c + Vector2(0, BADGE_HALF), c + Vector2(-BADGE_HALF, 0),
 		])
-		draw_colored_polygon(diamond, BADGE_BG)
+		draw_colored_polygon(diamond, get_theme_color(&"badge_bg", &"RunMapView"))
 		var outline: PackedVector2Array = diamond.duplicate()
 		outline.append(diamond[0])
-		draw_polyline(outline, line.get(LINE_BADGE_BORDER, BADGE_BORDER), 1.0, true)
+		draw_polyline(outline, line.get(LINE_BADGE_BORDER, get_theme_color(&"badge_plain", &"RunMapView")), 1.0, true)
 
 
 # 手描きの曲線（モック `C x1+j, … x2-j, …`）。⚠ 出口は少し右へ・入口は少し左へ膨らむ。

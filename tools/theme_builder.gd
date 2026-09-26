@@ -1493,8 +1493,18 @@ const MAP_LIGHT_SCALE_MAX_PCT: int = 105     # ⚠ 一番広がったときの�
 const MAP_LIGHT_SWAY_PX: int = 4             # ⚠ 左右のゆれ幅
 const MAP_LIGHT_SIZE_PX: int = 420           # ⚠ 光そのものの直径
 const MAP_LIGHT_COLOR: String = "f0c04a"     # ⚠ 炎の色（⚠ フォーカスの金と同値）
-const MAP_LIGHT_CENTER_PCT: int = 10         # ⚠ 中心の濃さ（⚠ 薄い）
-const MAP_LIGHT_MID_PCT: int = 5             # ⚠ 途中の濃さ
+const MAP_LIGHT_CENTER_PCT: int = 30         # ⚠ 中心の濃さ（⚠ 回UI-4：紙の上では 10 だと見えないので上げた）
+const MAP_LIGHT_MID_PCT: int = 14            # ⚠ 途中の濃さ（⚠ 同・前 5）
+const MAP_INK_COLORS: Dictionary = {
+	"pin_reachable": TOKEN_BRASS_INK, "pin_current": TOKEN_WAX, "pin_visited": TOKEN_RULE, "pin_far": "8a7458",
+	"edge_trap": TOKEN_WAX, "edge_gain": TOKEN_BRASS_INK, "edge_plain": "8a7458", "edge_hidden": TOKEN_RULE,
+	"badge_trap": TOKEN_WAX, "badge_gain": TOKEN_BRASS_INK, "badge_plain": TOKEN_RULE, "badge_bg": TOKEN_PAPER_SELECTED,
+	# ⚠ たいまつが届かない層を覆う暗さ。⚠ 紙の上なので黒ではなく焦げ茶（⚠ 前は 060408・60% / 88%）。
+	"fog": "3a2c22",
+}
+const MAP_FOG_EDGE_PCT: int = 35
+const MAP_FOG_TOP_PCT: int = 60
+const MAP_SHEET_PAD: int = 24                 # ⚠ 地図の矩形から紙の縁まで
 
 
 static func _build_run_map_view(theme: Theme) -> void:
@@ -1513,6 +1523,12 @@ static func _build_run_map_view(theme: Theme) -> void:
 	for key: String in numbers.keys():
 		theme.set_constant(StringName(key), t, int(numbers[key]))
 	theme.set_color(&"light", t, _html(MAP_LIGHT_COLOR))
+	# ⚠⚠ 2026-09-26（回UI-4 マップ）：⚠ `run_map_view.gd` に直書きしていた14色をここへ移し、⚠ 紙の上の墨の色にした。
+	for key: String in MAP_INK_COLORS:
+		theme.set_color(StringName(key), t, _html(str(MAP_INK_COLORS[key])))
+	theme.set_constant(&"fog_edge_pct", t, MAP_FOG_EDGE_PCT)
+	theme.set_constant(&"fog_top_pct", t, MAP_FOG_TOP_PCT)
+	theme.set_constant(&"sheet_pad", t, MAP_SHEET_PAD)
 
 
 # --- ランのマップのマス（2026-09-19・難ダンジョンのモック v2「真鍮の札」）---
@@ -1521,7 +1537,7 @@ static func _build_run_map_view(theme: Theme) -> void:
 #   ⚠ 使うのは `RunMapView` のマスだけ（⚠ 素の Button に variation を当てる）。
 # ⚠ 札の形は八角（⚠ 角を斜めに切る＝`corner_detail = 1`）。⚠ 状態ごとに枠と地と字の色が違う。
 # ⚠ 押せるのは「進める先」だけ。⚠ ほかの状態は無効（disabled）で出るので、⚠ 無効の箱にその状態の見た目を入れる。
-const MAP_NODE_CORNER: int = 9
+const MAP_NODE_CORNER: int = 18   # ⚠ 回UI-4：丸みの強い札（⚠ 前は 9 の面取り）
 const MAP_NODE_PAD_H: float = 13.0
 const MAP_NODE_PAD_V: float = 8.0
 const MAP_NODE_FONT_SIZE: int = 13
@@ -1531,20 +1547,21 @@ const SLOT_POPOVER_PAD: int = 10
 const SLOT_POPOVER_SHADOW: int = 9
 const MAP_NODE_LEVELS: Dictionary = {
 	# 進める先。⚠ ホバーで金の枠（モック `.node.can:hover`）。
+	# ⚠⚠ 2026-09-26（回UI-4 マップ）：⚠ 札は**羊皮紙の上**に乗る（⚠ 地図が紙になった）。⚠ 墨の縁と字。
 	"MapNodeButton": {
-		"normal": {"bg": "1d1715", "border": "7b6244"},
-		"hover": {"bg": "221b18", "border": "f0c04a"},
-		"pressed": {"bg": "16110f", "border": "a8791f"},
-		"font": "f0e6df",
+		"normal": {"bg": TOKEN_PAPER_SELECTED, "border": TOKEN_INK},
+		"hover": {"bg": TOKEN_PAPER_SELECTED, "border": TOKEN_BRASS_INK},
+		"pressed": {"bg": TOKEN_PAPER, "border": TOKEN_BRASS_INK},
+		"font": TOKEN_INK,
 	},
 	# いま立っているマス。⚠ 真鍮の枠・暗い琥珀の地・金の字。
-	"MapNodeCurrent": {"normal": {"bg": "2e2110", "border": "a8791f"}, "font": "f0c04a"},
+	"MapNodeCurrent": {"normal": {"bg": "f3dfa6", "border": TOKEN_WAX}, "font": TOKEN_INK},
 	# 通ったマス。⚠ 鋲が沈む＝枠も字も暗い。
-	"MapNodeVisited": {"normal": {"bg": "14100e", "border": "332b27"}, "font": "7d6f68"},
+	"MapNodeVisited": {"normal": {"bg": TOKEN_PAPER, "border": TOKEN_RULE}, "font": "8a7458"},
 	# 見えているが、⚠ いまは進めないマス（モック `.node.dim`）。
-	"MapNodeFar": {"normal": {"bg": "1a1412", "border": "53433a"}, "font": "7d6f68"},
+	"MapNodeFar": {"normal": {"bg": TOKEN_PAPER, "border": "8a7458"}, "font": TOKEN_INK_SUB},
 	# たいまつが届いていないマス。⚠ 静かにする（⚠ 25層並べたときの騒がしさ対策）。
-	"MapNodeHidden": {"normal": {"bg": "120e0d", "border": "2a2320"}, "font": "5a4f49"},
+	"MapNodeHidden": {"normal": {"bg": TOKEN_PAPER, "border": TOKEN_RULE}, "font": TOKEN_TEXT_DIM_ON_DARK},
 }
 
 
@@ -1584,7 +1601,6 @@ static func _map_node_style(spec: Dictionary) -> StyleBoxFlat:
 	style.content_margin_bottom = MAP_NODE_PAD_V
 	style.set_corner_radius_all(MAP_NODE_CORNER)
 	# ⚠ 角を丸めずに斜めに切る（⚠ 1 ＝角1つを直線1本で描く＝八角の札）。
-	style.corner_detail = 1
 	style.bg_color = _html(str(spec["bg"]))
 	style.set_border_width_all(MAP_NODE_BORDER)
 	style.border_color = _html(str(spec["border"]))

@@ -55,14 +55,11 @@ const VARIATION_VISITED: StringName = &"MapNodeVisited"
 const VARIATION_FAR: StringName = &"MapNodeFar"
 const VARIATION_HIDDEN: StringName = &"MapNodeHidden"
 
+# ⚠⚠ 色は 2026-09-26（回UI-4 マップ）に Theme の `RunMapView` へ移した（⚠ 直書き14色＝`UI-1` 違反だった）。
 # 札の四隅の鋲（モック v2）。⚠ 見えないマスには打たない（⚠ 明かりに入ると鋲が点く）。
 #   ⚠ 札の上に描く小さな点なので Theme に対応する概念が無い（⚠ 線の色と同じ扱い）。
 const PIN_RADIUS: float = 1.5
 const PIN_INSET: float = 5.0
-const PIN_COLOR_REACHABLE: Color = Color("a8791f")
-const PIN_COLOR_CURRENT: Color = Color("f0c04a")
-const PIN_COLOR_VISITED: Color = Color("3d342c")
-const PIN_COLOR_FAR: Color = Color("6b5638")
 
 # ボスの札の大きさ（モック v2 §3「一回り大きく」）。⚠ 幅はふつうの札＋この値・高さは最小の高さ。
 const BOSS_EXTRA_WIDTH: float = 22.0
@@ -70,13 +67,7 @@ const BOSS_MIN_HEIGHT: float = 46.0
 
 # 通路の線の色（段階19-e → 2026-09-19 にモック v2 の値へ）。
 #   ⚠ 罠＝赤 ／ 得＝金 ／ 何も無い＝灰 ／ 中身が見えていない＝暗い灰（点線）。
-const COLOR_EDGE_TRAP: Color = Color("e88a8a")
-const COLOR_EDGE_GAIN: Color = Color("f0c04a")
-const COLOR_EDGE_PLAIN: Color = Color("6b5d55")
-const COLOR_EDGE_HIDDEN: Color = Color("2e2724")
 # 通路の字の台（菱形）の枠。⚠ 罠＝赤茶 ／ 得＝金茶（モック `.edge-badge.bad / .good`）。
-const COLOR_BADGE_TRAP: Color = Color("5a2a28")
-const COLOR_BADGE_GAIN: Color = Color("6b5320")
 # ⚠ いま立っているマスから出ている線は太くする（⚠ 「次に選ぶのはここ」が読めること）。
 const EDGE_WIDTH: float = 1.6
 const EDGE_WIDTH_CURRENT: float = 3.0
@@ -107,13 +98,10 @@ const EDGE_ANCHOR_SPREAD: float = 0.55
 #   ⚠ 直すのは `tools/theme_builder.gd` の `MAP_LIGHT_*` → `scenario=theme` を回す。
 # ⚠ 暗さのほうは絵ではなく「見える範囲の線引き」なので、⚠ 引き続きここが持つ。
 const THEME_TYPE: StringName = &"RunMapView"
-const FOG_COLOR: Color = Color("060408")
-const FOG_ALPHA_EDGE: float = 0.6
-const FOG_ALPHA_TOP: float = 0.88
 # ⚠ 暗さの境目から「濃い暗さ」までの長さ（⚠ 層のあいだ何個ぶんか）。
 const FOG_RAMP_LAYERS: float = 1.6
-# ⚠ 暗さを横にはみ出させる幅（⚠ 目盛りの字まで覆う）。
-const FOG_BLEED: float = 80.0
+# ⚠ 暗さを横にはみ出させる幅は**紙の余白ちょうど**（⚠ Theme の `sheet_pad`）。
+#   ⚠ 2026-09-26（回UI-4 マップ）：⚠ 前は 80 固定で、⚠ 地図が紙になったら**紙の外へ**はみ出した。
 
 ## たいまつで何層先まで見えるか。⚠ -1 なら暗さを出さない（⚠ ボスを倒したあと＝部屋いっぱいに明るい）。
 ##   ⚠ set_map() の前に入れる。⚠ 値は画面が GameManager に聞いた結果。
@@ -148,6 +136,9 @@ var layer_separation: int = LAYER_SEPARATION:
 
 
 func _init() -> void:
+	# ⚠⚠ 2026-09-26（回UI-4 マップ・手本 DungeonMap）：⚠ 地図は**羊皮紙の上に墨で描く**。
+	#   ⚠ 紙のテーマを持つ（⚠ 目盛りと線の菱形の字が墨になる）。⚠ 紙そのものは `_draw()` が敷く。
+	theme = PaperSheet.PAPER_THEME
 	# ⚠⚠ 光は「中心の器」の中に入れる（2026-09-20）。⚠ 器はいまいるマスへ置き直され、
 	#   ⚠ 揺れ（明るさ・大きさ・左右）は器の中だけで起きる。⚠ こうしないと置き直しと揺れが取り合う。
 	#   ⚠ 大きさ・色は Theme から引くので、⚠ 中身を作るのは木に入ってから（`_ready()`）。
@@ -302,19 +293,19 @@ func _make_node_button(node_id: String, node: Dictionary) -> Button:
 	button.text = str(node.get(NODE_TEXT, ""))
 	var state: String = str(node.get(NODE_STATE, STATE_FAR))
 	var hidden: bool = bool(node.get(NODE_HIDDEN, false))
-	var pin_color: Color = PIN_COLOR_FAR
+	var pin_color: Color = get_theme_color(&"pin_far", THEME_TYPE)
 	match state:
 		STATE_CURRENT:
 			button.text = "▶ " + button.text
 			button.theme_type_variation = VARIATION_CURRENT
-			pin_color = PIN_COLOR_CURRENT
+			pin_color = get_theme_color(&"pin_current", THEME_TYPE)
 		STATE_VISITED:
 			button.text = "✓ " + button.text
 			button.theme_type_variation = VARIATION_VISITED
-			pin_color = PIN_COLOR_VISITED
+			pin_color = get_theme_color(&"pin_visited", THEME_TYPE)
 		STATE_REACHABLE:
 			button.theme_type_variation = VARIATION_REACHABLE
-			pin_color = PIN_COLOR_REACHABLE
+			pin_color = get_theme_color(&"pin_reachable", THEME_TYPE)
 		_:
 			button.theme_type_variation = VARIATION_HIDDEN if hidden else VARIATION_FAR
 	# ⚠ 幅を揃える。⚠ 揃えないと文字の長さで列がずれる（⚠ 「戦闘」と「レリック」）。
@@ -437,6 +428,17 @@ func _redraw_edges() -> void:
 	laid_out.emit()
 
 
+# ⚠ 地図の下に紙を敷く（⚠ 地図の矩形より `sheet_pad` だけ広く）。⚠ 面は `PaperPanel` と同じ（⚠ 影つき）。
+func _draw() -> void:
+	var pad: float = float(get_theme_constant(&"sheet_pad", THEME_TYPE))
+	draw_style_box(get_theme_stylebox(&"panel", &"PaperPanel"), Rect2(Vector2.ZERO, size).grow(pad))
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		queue_redraw()
+
+
 func _ready() -> void:
 	# ⚠ 光の大きさ・色・揺れ方は Theme（`RunMapView`）から引く（2026-09-20）。
 	var size_px: float = float(_light_number(&"light_size_px"))
@@ -539,19 +541,22 @@ func _draw_fog() -> void:
 		return
 	# ⚠ 1層ぶんの高さは実際の行から取る（⚠ マスの高さを数字で持たない）。
 	var step: float = _layer_step()
-	var ramp_top: float = maxf(0.0, edge - step * FOG_RAMP_LAYERS)
-	var x0: float = -FOG_BLEED
-	var x1: float = _fog.size.x + FOG_BLEED
-	var clear: Color = Color(FOG_COLOR, 0.0)
-	var mid: Color = Color(FOG_COLOR, FOG_ALPHA_EDGE)
-	var top: Color = Color(FOG_COLOR, FOG_ALPHA_TOP)
+	var pad: float = float(get_theme_constant(&"sheet_pad", THEME_TYPE))
+	var ramp_top: float = maxf(-pad, edge - step * FOG_RAMP_LAYERS)
+	var x0: float = -pad
+	var x1: float = _fog.size.x + pad
+	var fog: Color = get_theme_color(&"fog", THEME_TYPE)
+	var clear: Color = Color(fog, 0.0)
+	var mid: Color = Color(fog, float(get_theme_constant(&"fog_edge_pct", THEME_TYPE)) * 0.01)
+	var top: Color = Color(fog, float(get_theme_constant(&"fog_top_pct", THEME_TYPE)) * 0.01)
 	_fog.draw_polygon(
 		PackedVector2Array([Vector2(x0, ramp_top), Vector2(x1, ramp_top), Vector2(x1, edge), Vector2(x0, edge)]),
 		PackedColorArray([mid, mid, clear, clear])
 	)
-	if ramp_top > 0.0:
+	# ⚠ 上は紙の縁まで（⚠ 0 で止めると紙の上端に霧のかからない帯が残った）。
+	if ramp_top > -pad:
 		_fog.draw_polygon(
-			PackedVector2Array([Vector2(x0, 0.0), Vector2(x1, 0.0), Vector2(x1, ramp_top), Vector2(x0, ramp_top)]),
+			PackedVector2Array([Vector2(x0, -pad), Vector2(x1, -pad), Vector2(x1, ramp_top), Vector2(x0, ramp_top)]),
 			PackedColorArray([top, top, mid, mid])
 		)
 
@@ -585,18 +590,18 @@ func _tone_style(tone: String) -> String:
 func _tone_badge(tone: String) -> Color:
 	match tone:
 		TONE_TRAP:
-			return COLOR_BADGE_TRAP
+			return get_theme_color(&"badge_trap", THEME_TYPE)
 		TONE_GAIN:
-			return COLOR_BADGE_GAIN
-	return DungeonEdgeLines.BADGE_BORDER
+			return get_theme_color(&"badge_gain", THEME_TYPE)
+	return get_theme_color(&"badge_plain", THEME_TYPE)
 
 
 func _tone_color(tone: String) -> Color:
 	match tone:
 		TONE_TRAP:
-			return COLOR_EDGE_TRAP
+			return get_theme_color(&"edge_trap", THEME_TYPE)
 		TONE_GAIN:
-			return COLOR_EDGE_GAIN
+			return get_theme_color(&"edge_gain", THEME_TYPE)
 		TONE_HIDDEN:
-			return COLOR_EDGE_HIDDEN
-	return COLOR_EDGE_PLAIN
+			return get_theme_color(&"edge_hidden", THEME_TYPE)
+	return get_theme_color(&"edge_plain", THEME_TYPE)
