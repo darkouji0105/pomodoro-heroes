@@ -1166,8 +1166,6 @@ ui_forge_slot_opened,装飾の枠がひとつ開いた
 ui_forge_grade,等級
 ui_forge_used,使った素材
 ui_forge_lost,なくなった
-ui_forge_again,続けて鍛える
-ui_forge_retry,もう一度鍛える
 ui_forge_to_belongings,持ち物で見る
 ui_forge_arrow,→
 ui_res_forge_guarantee_token,確定成功の札

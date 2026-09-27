@@ -5,7 +5,10 @@
 # ⚠ 人間「⚠ 2あ」＝作業場は「作る」タブ（⚠ いまはタブを押すと作業場の画面へ移る＝⚠ 作業場の中身はまだ作り直していない）。
 # ⚠ 人間「⚠ 3あ」＝持ち物・育成の「鍛える」は、⚠ この画面をその品を選んだ状態で開く（`TransferKeys.FORGE_INSTANCE_ID`）。
 # ⚠ 紙の左に鍛える装備の一覧 ／ ⚠ 右に「前 → 後・成功率・素材・札を使う・鍛える」。⚠ 右の列に札の数と「持ち物を見る」。
-# ⚠ 鍛えると紙が「鍛冶の記録」に変わる（⚠ 前 → いま・成功／失敗の判・値・等級・使った素材）。⚠ 別の画面にはしない（⚠ 昇級申請書と同じ流れ）。
+# ⚠⚠ 鍛えると**紙の窓**で「鍛冶の記録」を出す（⚠ 前 → いま・成功／失敗の判・値・等級・使った素材）。
+#   ⚠ 09-27 の見る回・人間「⚠ 鍛冶の記録はモーダルで結果を伝えるのがいいと思う　⚠ 個別の演出を」→「⚠ 5い」＝ボタンは「閉じる」だけ。
+#   ⚠ 成功＝判が大きく押されて落ち、⚠ 新しい絵が光る ／ ⚠ 失敗＝判が落ちて震え、⚠ 絵が灰色に沈む（⚠ 値は Theme の `Forge` 型）。
+#   ⚠ 前は紙そのものを記録に差し替えていた（⚠ 窓にしたので「続けて鍛える」は無い＝閉じてもう一度「鍛える」）。
 # ⚠ 判定と状態の変更は `GameManager.forge_equipment_roll()` の1本（⚠ ここで成功率や費用を計算しない）。
 # ⚠ 素材は今の費用の形（⚠ 等級ごとに1種類）。⚠ 手本の「素材2つ」には合わせていない（⚠ 費用の器を変えないため）。
 # ⚠ 再描画に await を持たせない（AGENTS.md）。⚠ 画面は自分の操作のあとに自分で描き直す（⚠ シグナルは購読しない）。
@@ -29,8 +32,6 @@ const RESULT_SLOTS_BEFORE: String = "slots_before"
 @onready var side: VBoxContainer = $Margin/Layout/Body/Side
 
 var _selected: String = ""
-# ⚠ 空なら「鍛える」の紙 ／ ⚠ 中身があれば「鍛冶の記録」の紙。
-var _result: Dictionary = {}
 var _use_token: bool = false
 
 
@@ -66,14 +67,10 @@ func _rebuild() -> void:
 	var views: Array = GameManager.get_owned_instances()
 	if _selected == "" or GameManager.get_equipment_instance(_selected).is_empty():
 		_selected = str((views[0] as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")) if not views.is_empty() else ""
-	if _result.is_empty():
-		sheet_body.add_child(_build_list(views))
-		sheet_body.add_child(VSeparator.new())
-		sheet_body.add_child(_build_forge_page())
-		_build_side_forge()
-	else:
-		sheet_body.add_child(_build_record())
-		_build_side_record()
+	sheet_body.add_child(_build_list(views))
+	sheet_body.add_child(VSeparator.new())
+	sheet_body.add_child(_build_forge_page())
+	_build_side_forge()
 
 
 # --- 左：鍛える装備 -----------------------------------------------------
@@ -261,29 +258,32 @@ func _on_forge_pressed() -> void:
 		return
 	result[RESULT_STATS_BEFORE] = stats_before
 	result[RESULT_SLOTS_BEFORE] = slots_before
-	_result = result
 	_use_token = false
 	_rebuild()
+	_show_record(result)
 
 
-# --- 鍛冶の記録（鍛えたあと） ---------------------------------------------
+# --- 鍛冶の記録（⚠ 紙の窓・閉じるだけ＝人間「⚠ 5い」） -------------------------
 
-func _build_record() -> VBoxContainer:
+func _show_record(result: Dictionary) -> void:
+	var content: VBoxContainer = _build_record(result)
+	Modal.notify(self, "", [], false, {
+		Modal.OPTION_TITLE: tr("ui_forge_record"),
+		Modal.OPTION_CONTENT: content,
+		Modal.OPTION_PAPER: true,
+		Modal.OPTION_WIDTH: Modal.WIDTH_MEDIUM,
+	})
+
+
+func _build_record(result: Dictionary) -> VBoxContainer:
 	var page: VBoxContainer = VBoxContainer.new()
 	page.name = "RecordPage"
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var instance: Dictionary = GameManager.get_equipment_instance(_selected)
 	var item_id: String = str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
-	var success: bool = bool(_result.get(GameManager.FORGE_RESULT_SUCCESS, false))
-	var grade_before: int = int(_result.get(GameManager.FORGE_RESULT_GRADE_BEFORE, 1))
-	var grade_after: int = int(_result.get(GameManager.FORGE_RESULT_GRADE_AFTER, 1))
-
-	var heading: SheetHeading = SheetHeading.new()
-	heading.title_key = "ui_forge_record"
-	heading.ornament = true
-	heading.ornament_below = true
-	heading.centered = true
-	page.add_child(heading)
+	var success: bool = bool(result.get(GameManager.FORGE_RESULT_SUCCESS, false))
+	var grade_before: int = int(result.get(GameManager.FORGE_RESULT_GRADE_BEFORE, 1))
+	var grade_after: int = int(result.get(GameManager.FORGE_RESULT_GRADE_AFTER, 1))
 
 	var arrow_row: HBoxContainer = HBoxContainer.new()
 	arrow_row.name = "ArrowRow"
@@ -292,13 +292,20 @@ func _build_record() -> VBoxContainer:
 	page.add_child(arrow_row)
 	arrow_row.add_child(_icon_with_caption(item_id, grade_before, tr("ui_forge_before"), &"CaptionLabel"))
 	arrow_row.add_child(_arrow())
-	arrow_row.add_child(_icon_with_caption(item_id, grade_after, tr("ui_forge_now"), &"CaptionLabel"))
+	var now: VBoxContainer = _icon_with_caption(item_id, grade_after, tr("ui_forge_now"), &"CaptionLabel")
+	now.name = "NowIcon"
+	arrow_row.add_child(now)
+	# ⚠ 判は器（素の Control）に入れる（⚠ `Container` は子の位置と大きさを毎回戻す＝震えと大きさの演出が効かない）。
+	var seal_holder: Control = Control.new()
+	seal_holder.name = "SealHolder"
+	seal_holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	arrow_row.add_child(seal_holder)
 	var seal: Stamp = Stamp.new()
 	seal.name = "ResultStamp"
 	seal.shape = Stamp.Shape.CIRCLE
 	seal.label_key = "ui_forge_success" if success else "ui_forge_fail"
-	seal.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	arrow_row.add_child(seal)
+	seal_holder.add_child(seal)
+	seal.ready.connect(_play_record_fx.bind(seal_holder, seal, now, success))
 
 	var name_label: Label = Label.new()
 	name_label.name = "NameLabel"
@@ -308,7 +315,7 @@ func _build_record() -> VBoxContainer:
 	page.add_child(name_label)
 
 	# 値。
-	var before: Dictionary = _result.get(RESULT_STATS_BEFORE, {})
+	var before: Dictionary = result.get(RESULT_STATS_BEFORE, {})
 	var after: Dictionary = GameManager.get_instance_stats(_selected)
 	var stat_key: String = _main_stat(before)
 	var value_before: String = _value_text(stat_key, before)
@@ -318,7 +325,7 @@ func _build_record() -> VBoxContainer:
 		value_before + (" → " + value_after if success else ""),
 		("+%d" % diff) if success and diff > 0 else tr("ui_forge_unchanged"), success and diff > 0))
 	# 等級（⚠ 失敗しても下がらない＝`EQ-6`）。
-	var slots_before: int = int(_result.get(RESULT_SLOTS_BEFORE, 0))
+	var slots_before: int = int(result.get(RESULT_SLOTS_BEFORE, 0))
 	var slots_after: int = GameManager.get_part_entries(_selected).size()
 	var grade_note: String = tr("ui_forge_not_lowered")
 	if success:
@@ -327,9 +334,9 @@ func _build_record() -> VBoxContainer:
 		"%d → %d" % [grade_before, grade_after] if success else str(grade_before), grade_note, success))
 	# 使った素材（⚠ 失敗しても払う＝`EQ-6`）。
 	var used: HBoxContainer = HBoxContainer.new()
-	used.add_child(ItemIcon.create(str(_result.get(GameManager.FORGE_RESULT_MATERIAL_ID, "")), 0,
-		int(_result.get(GameManager.FORGE_RESULT_AMOUNT, 0))))
-	if bool(_result.get(GameManager.FORGE_RESULT_USED_TOKEN, false)):
+	used.add_child(ItemIcon.create(str(result.get(GameManager.FORGE_RESULT_MATERIAL_ID, "")), 0,
+		int(result.get(GameManager.FORGE_RESULT_AMOUNT, 0))))
+	if bool(result.get(GameManager.FORGE_RESULT_USED_TOKEN, false)):
 		used.add_child(ItemIcon.create(GameStateKeys.ITEM_FORGE_GUARANTEE_TOKEN, 0, 1))
 	page.add_child(_record_row("UsedRow", tr("ui_forge_used"), "", "" if success else tr("ui_forge_lost"), false, used))
 	return page
@@ -394,19 +401,6 @@ func _build_side_forge() -> void:
 	side.add_child(belongings)
 
 
-func _build_side_record() -> void:
-	_add_side_spacer()
-	var success: bool = bool(_result.get(GameManager.FORGE_RESULT_SUCCESS, false))
-	var again: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_forge_again" if success else "ui_forge_retry")
-	again.name = "AgainButton"
-	again.pressed.connect(_on_again_pressed)
-	side.add_child(again)
-	var belongings: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_forge_to_belongings")
-	belongings.name = "BelongingsButton"
-	belongings.pressed.connect(_on_belongings_pressed)
-	side.add_child(belongings)
-
-
 func _add_side_spacer() -> void:
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -414,9 +408,45 @@ func _add_side_spacer() -> void:
 	side.add_child(spacer)
 
 
-func _on_again_pressed() -> void:
-	_result = {}
-	_rebuild()
+func _center_pivot(control: Control) -> void:
+	control.pivot_offset = control.size * 0.5
+
+
+# 記録の窓の演出（⚠ 人間「⚠ 個別の演出を」）。⚠ Tween は判と絵に結びつける（⚠ 窓が閉じれば一緒に止まる）。
+#   ⚠ 成功：判が大きく現れて押し付けられ、⚠ 新しい絵が一度ふくらんで光る。
+#   ⚠ 失敗：判が押し付けられて左右に震え、⚠ 新しい絵（＝前と同じ）が灰色に沈む。
+func _play_record_fx(holder: Control, seal: Stamp, now: Control, success: bool) -> void:
+	holder.custom_minimum_size = seal.custom_minimum_size
+	seal.size = seal.custom_minimum_size
+	seal.pivot_offset = seal.size * 0.5
+	var delay: float = float(get_theme_constant(&"fx_delay_ms", THEME_TYPE)) / 1000.0
+	var slam: float = float(get_theme_constant(&"fx_slam_ms", THEME_TYPE)) / 1000.0
+	var from_scale: float = float(get_theme_constant(&"fx_slam_scale_pct", THEME_TYPE)) / 100.0
+	seal.scale = Vector2.ONE * from_scale
+	seal.modulate.a = 0.0
+	var tween: Tween = seal.create_tween()
+	tween.tween_interval(delay)
+	tween.tween_property(seal, "modulate:a", 1.0, slam)
+	tween.parallel().tween_property(seal, "scale", Vector2.ONE, slam).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	var after: float = float(get_theme_constant(&"fx_after_ms", THEME_TYPE)) / 1000.0
+	var icon_tween: Tween = now.create_tween()
+	icon_tween.tween_interval(delay + slam)
+	# ⚠ 窓が並べ終わってから中心を合わせる（⚠ いまは大きさが 0 のことがある）。
+	icon_tween.tween_callback(_center_pivot.bind(now))
+	if success:
+		var pulse: float = float(get_theme_constant(&"fx_pulse_pct", THEME_TYPE)) / 100.0
+		icon_tween.tween_property(now, "scale", Vector2.ONE * pulse, after * 0.5)
+		icon_tween.parallel().tween_property(now, "modulate", get_theme_color(&"fx_glow", THEME_TYPE), after * 0.5)
+		icon_tween.tween_property(now, "scale", Vector2.ONE, after * 0.5)
+		icon_tween.parallel().tween_property(now, "modulate", Color.WHITE, after * 0.5)
+	else:
+		var shake: float = float(get_theme_constant(&"fx_shake_px", THEME_TYPE))
+		var steps: int = get_theme_constant(&"fx_shake_steps", THEME_TYPE)
+		for i: int in range(steps):
+			var offset: float = shake * (1.0 - float(i) / float(steps)) * (1.0 if i % 2 == 0 else -1.0)
+			tween.tween_property(seal, "position:x", offset, after / float(steps))
+		tween.tween_property(seal, "position:x", 0.0, after / float(steps))
+		icon_tween.tween_property(now, "modulate", get_theme_color(&"fx_dim", THEME_TYPE), after)
 
 
 func _on_belongings_pressed() -> void:

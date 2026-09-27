@@ -2374,6 +2374,14 @@ static func _build_chest(theme: Theme) -> void:
 const FORGE_LIST_WIDTH: int = 240
 const FORGE_SIDE_WIDTH: int = 280
 const FORGE_ARROW_GAP: int = 28          # ⚠ 前の絵・矢印・後の絵の間
+# ⚠ 鍛冶の記録の窓の演出（2026-09-27 の見る回・人間「⚠ 個別の演出を」）。⚠ 値は設計役の値（⚠ 手本に無い）。
+#   ⚠ 判：遅れて大きく現れ、押し付けられる ／ ⚠ 成功は新しい絵がふくらんで光る ／ ⚠ 失敗は判が震え、絵が灰色に沈む。
+const FORGE_FX: Dictionary = {
+	"fx_delay_ms": 150, "fx_slam_ms": 220, "fx_slam_scale_pct": 240, "fx_after_ms": 500,
+	"fx_pulse_pct": 118, "fx_shake_px": 8, "fx_shake_steps": 6,
+}
+const FORGE_FX_GLOW: Color = Color(1.35, 1.25, 0.95)   # ⚠ 絵を明るくする（⚠ 1 を超える modulate）
+const FORGE_FX_DIM: Color = Color(0.55, 0.55, 0.55)
 
 
 static func _build_forge(theme: Theme) -> void:
@@ -2382,6 +2390,10 @@ static func _build_forge(theme: Theme) -> void:
 	theme.set_constant(&"side_width", t, FORGE_SIDE_WIDTH)
 	theme.set_type_variation(&"ForgeArrowRow", &"HBoxContainer")
 	theme.set_constant(&"separation", &"ForgeArrowRow", FORGE_ARROW_GAP)
+	for fx_name: String in FORGE_FX:
+		theme.set_constant(StringName(fx_name), t, int(FORGE_FX[fx_name]))
+	theme.set_color(&"fx_glow", t, FORGE_FX_GLOW)
+	theme.set_color(&"fx_dim", t, FORGE_FX_DIM)
 
 
 static func _build_heading_font(theme: Theme) -> void:

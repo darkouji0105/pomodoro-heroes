@@ -97,6 +97,7 @@ const SHOT_PREPARE_CHESTS: String = "chests"
 const SHOT_AFTER_CHEST_OPEN: String = "chest_open"
 # ⚠ 鍛冶場で「鍛える」を押した姿（2026-09-27）。⚠ 内側の `AFTER_FORGE_PRESS` と同じ字。
 const SHOT_AFTER_FORGE_PRESS: String = "forge_press"
+const SHOT_AFTER_FORGE_FAIL: String = "forge_fail"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1159,6 +1160,8 @@ const SCENARIOS: Dictionary = {
 			#   ⚠ 先頭の個体として選んだ姿 ／ ⚠ 画面の口で「鍛える」を押した姿（⚠ 検査は必ず成功＝「成功」の判）。
 			{"name": "36_forge", "scene": "res://scenes/guild/forge_screen.tscn"},
 			{"name": "37_forge_result", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_FORGE_PRESS},
+			# ⚠ 失敗の窓（2026-09-27 の見る回・人間「⚠ 個別の演出を」）。⚠ 撮影の手の中だけ成功率を 0 にする。
+			{"name": "40_forge_fail", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_FORGE_FAIL},
 			# ⚠ 詰所（2026-09-27・回UI-組 詰所・手本 Barracks・決定 `NAV-11`）。⚠ 拠点から来た姿（⚠ 施設の帯あり）。
 			#   ⚠ 下の紙が施設の帯（下 76）に隠れないか測る（⚠ 1回目は隠れた）。
 			{
@@ -8910,6 +8913,8 @@ class ShotTaker extends Node:
 	const AFTER_CHEST_OPEN: String = "chest_open"
 	const CHEST_RISE_WAIT_FRAMES: int = 90
 	const AFTER_FORGE_PRESS: String = "forge_press"
+	const FORGE_FX_WAIT_FRAMES: int = 60
+	const AFTER_FORGE_FAIL: String = "forge_fail"
 	# ⚠ 高レアの演出の途中（⚠ legendary は 1.4 秒で蓋が開く＝その手前で撮る）。
 	const AFTER_CHEST_FX: String = "chest_fx"
 	const CHEST_FX_WAIT_FRAMES: int = 50
@@ -9219,12 +9224,24 @@ class ShotTaker extends Node:
 			ResourceGainEffect.set_muted(false)
 			for _i: int in range(CHEST_FX_WAIT_FRAMES):
 				await get_tree().process_frame
-		elif kind == AFTER_FORGE_PRESS:
-			# ⚠ 画面の口（⚠ 「鍛える」を押したときに呼ばれるもの）。⚠ 押せない回は鍛える紙のまま撮れる＝赤にする。
+		elif kind == AFTER_FORGE_PRESS or kind == AFTER_FORGE_FAIL:
+			# ⚠ 失敗の姿は成功率を 0 にして押す（⚠ メモリの中だけ。⚠ 押したらすぐ戻す）。
+			var saved_pct: Array[int] = Balance.equipment.forge_success_pct_by_grade.duplicate()
+			if kind == AFTER_FORGE_FAIL:
+				var never: Array[int] = []
+				for _i: int in range(saved_pct.size()):
+					never.append(0)
+				Balance.equipment.forge_success_pct_by_grade = never
 			screen.call("_on_forge_pressed")
-			if screen.find_child("RecordPage", true, false) == null:
-				push_error("[DebugBoot] ⚠ %s で鍛えられなかった" % shot_name)
+			Balance.equipment.forge_success_pct_by_grade = saved_pct
+			# ⚠ 09-27 から結果は紙の窓（⚠ 画面の子に積まれる）。⚠ 判が押されて絵が光るまで待つ。
+			await get_tree().process_frame
+			var record: Node = screen.find_child("RecordPage", true, false)
+			if record == null:
+				push_error("[DebugBoot] ⚠ %s で鍛えられなかった（⚠ 記録の窓が出ない）" % shot_name)
 				return false
+			for _i: int in range(FORGE_FX_WAIT_FRAMES):
+				await get_tree().process_frame
 		elif kind == AFTER_CHEST_OPEN:
 			# ⚠ 画面の口（⚠ 「まとめて開ける」を押したときに呼ばれるもの）。⚠ 種類の色の帯と、⚠ 初めての品のしおり紐が
 			#   ⚠ 両方写るように全部開ける（⚠ 1個だと素材1枚になりがちで紐が写らない）。
@@ -9786,16 +9803,20 @@ class UiFlowRunner extends Node:
 		var grade: int = _grade(instance_id)
 		await _press(f.find_child("ForgeButton", true, false))
 		_check("鍛冶場：「鍛える」で等級 %d → %d" % [grade, _grade(instance_id)], _grade(instance_id) == grade + 1)
-		var seal: Node = f.find_child("ResultStamp", true, false)
-		_check("鍛冶場：紙が鍛冶の記録になり「成功」の判", f.find_child("RecordPage", true, false) != null and seal is Stamp and (seal as Stamp).label_key == "ui_forge_success")
-		await _press(f.find_child("AgainButton", true, false))
-		_check("鍛冶場：「続けて鍛える」で鍛える紙に戻る", f.find_child("ForgePage", true, false) != null)
+		# ⚠ 09-27 の見る回（人間「⚠ 鍛冶の記録はモーダルで結果を伝えるのがいい」「⚠ 5い」）：⚠ 結果は紙の窓・閉じるだけ。
+		var modal: ModalDialog = _modal_of(f)
+		var seal: Node = null if modal == null else modal.find_child("ResultStamp", true, false)
+		_check("鍛冶場：鍛冶の記録が紙の窓で出て「成功」の判（閉じるだけ=%s）" % str(modal != null and not modal.confirm_button.visible),
+			modal != null and modal.panel.theme_type_variation == &"ConfirmPaperPanel" and not modal.confirm_button.visible
+			and seal is Stamp and (seal as Stamp).label_key == "ui_forge_success")
+		await _close_modal(f)
+		_check("鍛冶場：窓を閉じると鍛える紙のまま", _modal_of(f) == null and f.find_child("ForgePage", true, false) != null)
 		# ⚠ 枠が開くまで鍛える（⚠ 等級3から・GAME_DESIGN.md 6-4）。⚠ 押すのは同じボタン。
 		for _i: int in range(4):
 			if _first_empty(instance_id) >= 0:
 				break
 			await _press(f.find_child("ForgeButton", true, false))
-			await _press(f.find_child("AgainButton", true, false))
+			await _close_modal(f)
 
 		# 失敗（`EQ-6`）：⚠ 成功率を 0 にして押す（⚠ メモリの中だけ。⚠ debug_boot は既定で 100 に置いている）。
 		var saved: Array[int] = Balance.equipment.forge_success_pct_by_grade.duplicate()
@@ -9803,19 +9824,20 @@ class UiFlowRunner extends Node:
 		for _i: int in range(saved.size()):
 			never.append(0)
 		Balance.equipment.forge_success_pct_by_grade = never
-		if f.find_child("RecordPage", true, false) != null:
-			await _press(f.find_child("AgainButton", true, false))
 		grade = _grade(instance_id)
 		var cost: Dictionary = GameManager.get_forge_cost(instance_id)
 		var material_id: String = str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, ""))
 		var before_material: int = GameManager.get_material_count(material_id)
 		await _press(f.find_child("ForgeButton", true, false))
-		seal = f.find_child("ResultStamp", true, false)
-		_check("鍛冶場：失敗すると等級はそのまま（%d）・素材は減る（%d → %d）" % [_grade(instance_id), before_material, GameManager.get_material_count(material_id)],
+		modal = _modal_of(f)
+		seal = null if modal == null else modal.find_child("ResultStamp", true, false)
+		_check("鍛冶場：失敗すると等級はそのまま（%d）・素材は減る（%d → %d）・窓に「失敗」の判" % [_grade(instance_id), before_material, GameManager.get_material_count(material_id)],
 			_grade(instance_id) == grade and GameManager.get_material_count(material_id) < before_material and seal is Stamp and (seal as Stamp).label_key == "ui_forge_fail")
+		await _close_modal(f)
 		# 確定成功の札（`EQ-7`）：⚠ 1枚持たせ、⚠ 札を使うに切り替えて押す → ⚠ 成功率 0 でも成功・札が減る。
 		GameManager.add_to_inventory(GameStateKeys.ITEM_FORGE_GUARANTEE_TOKEN, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
-		await _press(f.find_child("AgainButton", true, false))
+		# ⚠ 札が増えたのを画面へ見せる（⚠ 画面は自分の操作でしか描き直さない＝一覧の行を押し直す）。
+		await _press(f.find_child("Item_" + instance_id, true, false))
 		var tokens: int = GameManager.get_forge_token_count()
 		await _press(f.find_child("TokenCheck", true, false))
 		_check("鍛冶場：札を使うに切り替えると成功 100%%（%s）" % _label_text(f, "ForgePage", "ChanceLabel"), _label_text(f, "ForgePage", "ChanceLabel") == tr("ui_forge_chance") % 100)
@@ -9823,6 +9845,7 @@ class UiFlowRunner extends Node:
 		_check("鍛冶場：確定成功の札で成功（等級 %d → %d・札 %d → %d）" % [grade, _grade(instance_id), tokens, GameManager.get_forge_token_count()],
 			_grade(instance_id) == grade + 1 and GameManager.get_forge_token_count() == tokens - 1)
 		Balance.equipment.forge_success_pct_by_grade = saved
+		await _close_modal(f)
 
 		await _press(f.find_child("BelongingsButton", true, false), OPEN_FRAMES)
 		var w: Node = get_tree().current_scene
@@ -10186,6 +10209,21 @@ class UiFlowRunner extends Node:
 		elif node is LedgerRow:
 			(node as LedgerRow).pressed.emit()
 		await _wait(frames)
+
+	# ⚠ 画面の子に積まれた窓（⚠ 無ければ null）。
+	func _modal_of(scene: Node) -> ModalDialog:
+		for node: Node in scene.get_children():
+			if node is ModalDialog and not node.is_queued_for_deletion():
+				return node as ModalDialog
+		return null
+
+	# ⚠ 出ている窓を「閉じる」で閉じる（⚠ 本物のボタン）。⚠ 次の窓が出るまでの間（`MD-8`）も待つ。
+	func _close_modal(scene: Node) -> void:
+		var modal: ModalDialog = _modal_of(scene)
+		if modal == null:
+			return
+		modal.close_button.pressed.emit()
+		await _wait(WAIT_FRAMES * 3)
 
 	# ⚠ 確かめの窓の「はい」を押す（⚠ 窓は画面の子に積まれる）。
 	func _confirm_modal() -> void:

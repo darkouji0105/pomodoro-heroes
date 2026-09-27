@@ -32,6 +32,9 @@ const OPTION_STAMP: String = "stamp_key"
 # ⚠ 実行を**長押し**にする（⚠ いちばん重いもの＝セーブを消す・09-27 人間「⚠ セーブは長押し」）。
 #   ⚠ 値はボタンの下に添える説明の翻訳キー（⚠ 在れば長押し）。⚠ 押す長さは Theme（`Window/confirm_hold_ms`）。
 const OPTION_HOLD: String = "hold_hint_key"
+# ⚠ 知らせ（`notify`）の窓も紙にする（2026-09-27・鍛冶の結果＝人間「⚠ 鍛冶の記録はモーダルで結果を伝えるのがいい」）。
+#   ⚠ 値は true／false。⚠ 渡さなければ今までどおり暗い窓（`MD-10`）。⚠ 紙の窓の閉じるは革（⚠ 紙の上で Ghost は読めない）。
+const OPTION_PAPER: String = "paper"
 
 # ⚠ 呼ぶ側が綴りを書かないための持ち出し（⚠ `ModalDialog` の定数と同じ字）。
 const WIDTH_TINY: String = ModalDialog.WIDTH_TINY

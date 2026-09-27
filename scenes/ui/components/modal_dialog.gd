@@ -122,6 +122,9 @@ func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary =
 	else:
 		# ⚠ 閉じるボタンの文言を差し替えられる（⚠ 宝箱は「受け取る」）。
 		close_button.label_key = str(options.get(Modal.OPTION_CLOSE_LABEL, "ui_common_close"))
+		# ⚠ 知らせの窓も紙にできる（`Modal.OPTION_PAPER`・2026-09-27 鍛冶の結果）。
+		if bool(options.get(Modal.OPTION_PAPER, false)):
+			_become_paper(title, str(options.get(Modal.OPTION_STAMP, "")))
 	if pause:
 		_apply_pause()
 
