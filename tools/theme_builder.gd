@@ -2329,6 +2329,14 @@ const CHEST_BAND_COLORS: Dictionary = {
 	"currency": TOKEN_BRASS,
 	"other": TOKEN_RULE,
 }
+# ⚠ 高レアの演出（2026-09-27 の見る回・人間「⚠ 4あ」＝epic 以上・legendary はさらに強く・まとめて開けるときは全部）。
+#   ⚠ 光輪と光の筋・箱が震える・蓋が開く。⚠ 色はレア度の色（`Balance.icon`）。⚠ 値は設計役の値（⚠ 手本に無い）。
+const CHEST_FX: Dictionary = {
+	"fx_ms": 800, "fx_strong_ms": 1400,
+	"fx_rays": 8, "fx_strong_rays": 16,
+	"fx_shake": 3, "fx_strong_shake": 7,
+	"fx_fade_ms": 300, "fx_halo": 90, "fx_halo_alpha_pct": 35, "fx_ray_len": 80, "fx_ray_width": 3,
+}
 # ⚠ 初めて手に入れた品のしおり紐（⚠ 手本の赤い紐・右上）。
 const CHEST_RIBBON_W: int = 14
 const CHEST_RIBBON_H: int = 30
@@ -2346,6 +2354,8 @@ static func _build_chest(theme: Theme) -> void:
 		["ribbon_w", CHEST_RIBBON_W], ["ribbon_h", CHEST_RIBBON_H], ["ribbon_inset", CHEST_RIBBON_INSET],
 	]:
 		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
+	for fx_name: String in CHEST_FX:
+		theme.set_constant(StringName(fx_name), t, int(CHEST_FX[fx_name]))
 	for kind: String in CHEST_BAND_COLORS:
 		theme.set_color(StringName("band_" + kind), t, _html(str(CHEST_BAND_COLORS[kind])))
 	theme.set_color(&"ribbon", t, _html(TOKEN_WAX))

@@ -22,7 +22,8 @@ const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const THEME_TYPE: StringName = &"Barracks"
 
 @onready var header: ScreenHeader = $Margin/Layout/Header
-@onready var bottom_body: HBoxContainer = $Margin/Layout/Bottom/Body
+# ⚠ 出撃届と控えを縦に積む（⚠ 09-27：出撃届の枠の下にビルドの札を足したら、横に並べると画面の幅を超えた）。
+@onready var bottom_body: VBoxContainer = $Margin/Layout/Bottom/Body
 
 # 「戻る」で帰る先。入口が2つあるので来た側が渡す（TransferKeys.RETURN_PATH）。
 var _return_path: String = BASE_PATH
@@ -60,10 +61,9 @@ func _ready() -> void:
 	_sortie_box.name = "Sortie"
 	_sortie_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_body.add_child(_sortie_box)
-	bottom_body.add_child(VSeparator.new())
+	bottom_body.add_child(HSeparator.new())
 	_reserve_box = VBoxContainer.new()
 	_reserve_box.name = "Reserve"
-	_reserve_box.custom_minimum_size.x = float(get_theme_constant(&"reserve_width", THEME_TYPE))
 	bottom_body.add_child(_reserve_box)
 
 	_rebuild()

@@ -1141,6 +1141,7 @@ ui_chest_kind_key_item,大事なもの
 ui_chest_kind_gift,贈り物
 ui_chest_kind_chest,宝箱
 ui_chest_kind_currency,通貨
+ui_chest_fx_skip_hint,台を押すと飛ばす
 ui_forge_tab_forge,鍛える
 ui_forge_tab_make,作る
 ui_forge_list,鍛える装備

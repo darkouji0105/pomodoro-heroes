@@ -42,6 +42,6 @@ title_key = "ui_facility_barracks"
 layout_mode = 2
 script = ExtResource("10_paper_sheet")
 
-[node name="Body" type="HBoxContainer" parent="Margin/Layout/Bottom"]
+[node name="Body" type="VBoxContainer" parent="Margin/Layout/Bottom"]
 layout_mode = 2
-theme_type_variation = &"WideRow"
+theme_type_variation = &"SectionGap"

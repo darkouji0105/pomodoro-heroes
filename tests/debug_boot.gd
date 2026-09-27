@@ -97,6 +97,8 @@ const SHOT_PREPARE_CHESTS: String = "chests"
 const SHOT_AFTER_CHEST_OPEN: String = "chest_open"
 # ⚠ 鍛冶場で「鍛える」を押した姿（2026-09-27）。⚠ 内側の `AFTER_FORGE_PRESS` と同じ字。
 const SHOT_AFTER_FORGE_PRESS: String = "forge_press"
+# ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
+const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -1163,6 +1165,13 @@ const SCENARIOS: Dictionary = {
 				"name": "34_barracks",
 				"scene": "res://scenes/adventure/party_preset_screen.tscn",
 				"measure": ["Margin/Layout/Bottom", "FacilityBar"],
+			},
+			# ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回・人間「⚠ 4あ」）。⚠ 種類ごとに1個積み直して legendary を開ける。
+			{
+				"name": "39_chest_fx",
+				"scene": "res://scenes/base/chest_screen.tscn",
+				"prepare": SHOT_PREPARE_CHESTS,
+				"after": SHOT_AFTER_CHEST_FX,
 			},
 			# ⚠ 育成の一覧（2026-09-27 の見る回・人間「⚠ 3あ」）。⚠ 身上書カードは詰所からここへ移した。
 			{"name": "38_training_list", "scene": "res://scenes/guild/training_list_screen.tscn"},
@@ -8901,6 +8910,9 @@ class ShotTaker extends Node:
 	const AFTER_CHEST_OPEN: String = "chest_open"
 	const CHEST_RISE_WAIT_FRAMES: int = 90
 	const AFTER_FORGE_PRESS: String = "forge_press"
+	# ⚠ 高レアの演出の途中（⚠ legendary は 1.4 秒で蓋が開く＝その手前で撮る）。
+	const AFTER_CHEST_FX: String = "chest_fx"
+	const CHEST_FX_WAIT_FRAMES: int = 50
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
 	const AFTER_FRAMES: int = 12
 
@@ -9189,6 +9201,24 @@ class ShotTaker extends Node:
 			screen.call("_on_card_pressed", pick)
 			if GameManager.is_single_relic(pick):
 				screen.call("_on_character_pressed", str(GameManager.get_party_members()[0]))
+		elif kind == AFTER_CHEST_FX:
+			# ⚠ legendary の箱を選んで「次を開ける」（⚠ 画面の口）→ ⚠ 演出の途中で撮る。
+			var legend: String = ""
+			for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+				var chest_id: String = str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))
+				if not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)) \
+						and GameManager.get_chest_rarity(chest_id) == GameManager.CHEST_RARITY_LEGENDARY:
+					legend = chest_id
+					break
+			if legend == "":
+				push_error("[DebugBoot] ⚠ %s は legendary の宝箱が無い" % shot_name)
+				return false
+			screen.set("_selected_kind", legend)
+			ResourceGainEffect.set_muted(true)
+			screen.call("_on_next_pressed")
+			ResourceGainEffect.set_muted(false)
+			for _i: int in range(CHEST_FX_WAIT_FRAMES):
+				await get_tree().process_frame
 		elif kind == AFTER_FORGE_PRESS:
 			# ⚠ 画面の口（⚠ 「鍛える」を押したときに呼ばれるもの）。⚠ 押せない回は鍛える紙のまま撮れる＝赤にする。
 			screen.call("_on_forge_pressed")
@@ -9208,6 +9238,12 @@ class ShotTaker extends Node:
 			if GameManager.get_pending_chest_count() >= pending:
 				push_error("[DebugBoot] ⚠ %s で宝箱を開けられなかった" % shot_name)
 				return false
+			# ⚠ 高レアの演出は台を押して飛ばす（⚠ 画面の口＝台の入力）。⚠ 演出の途中の姿は `39_chest_fx` が撮る。
+			var skip: InputEventMouseButton = InputEventMouseButton.new()
+			skip.button_index = MOUSE_BUTTON_LEFT
+			skip.pressed = true
+			await get_tree().process_frame
+			(screen.find_child("Stage", true, false) as Control).gui_input.emit(skip)
 			# ⚠ 札が浮かび上がり終わるまで待つ（⚠ 0.5 秒 ＋ 1枚ずつ 0.15 秒。⚠ 1秒ぶん見ておく）。
 			for _i: int in range(CHEST_RISE_WAIT_FRAMES):
 				await get_tree().process_frame
@@ -10048,11 +10084,53 @@ class UiFlowRunner extends Node:
 		_check("宝箱：台に札が出る（%d 枚）・名前は %s" % [cards, _label_text(c, "Stage", "OpenedName")], cards > 0 and _label_text(c, "Stage", "OpenedName") == tr(GameManager.item_name_key(second)))
 		var box: Node = c.find_child("Box", true, false)
 		_check("宝箱：箱が開いた姿", box is ChestBox and (box as ChestBox).opened)
+		var screen: ChestScreen = c as ChestScreen
+
+		# ⚠ 高レアの演出（09-27 の見る回・人間「⚠ 4あ」）：legendary を1つ開ける → 演出中 → 台を押すと飛ばす → 札。
+		var legend: String = ""
+		for kind: Variant in kinds:
+			if GameManager.get_chest_rarity(str(kind)) == GameManager.CHEST_RARITY_LEGENDARY and _pending_of(str(kind)) > 0:
+				legend = str(kind)
+				break
+		await _press(c.find_child("ChestRow_" + legend, true, false))
+		var played_before: int = screen.fx_played
+		await _press(c.find_child("NextButton", true, false))
+		_check("宝箱：legendary を開けると演出（演出中=%s・箱が光る=%s）" % [str(screen.get("_fx_busy")), str((box as ChestBox).is_playing_fx())],
+			bool(screen.get("_fx_busy")) and (box as ChestBox).is_playing_fx() and screen.fx_played == played_before + 1)
+		var click: InputEventMouseButton = InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		(c.find_child("Stage", true, false) as Control).gui_input.emit(click)
+		await _wait()
+		_check("宝箱：演出中に台を押すと飛ばして札が出る（%d 枚）" % c.find_children("Card_*", "", true, false).size(),
+			not bool(screen.get("_fx_busy")) and c.find_children("Card_*", "", true, false).size() > 0 and (box as ChestBox).opened)
+
+		# まとめて開ける：⚠ 高レアの箱**ぜんぶ**に演出（⚠ 人間「⚠ まとめて開けるときは全部演出を」）。
+		#   ⚠ 待つ時間を縮めるため、⚠ 演出の時間だけメモリの中で短くする（⚠ テーマの `.tres` は書かない）。
+		var theme: Theme = ThemeDB.get_project_theme()
+		var saved_fx: Dictionary = {}
+		for fx_name: StringName in [&"fx_ms", &"fx_strong_ms", &"fx_fade_ms"]:
+			saved_fx[fx_name] = theme.get_constant(fx_name, &"ChestScreen")
+			theme.set_constant(fx_name, &"ChestScreen", 20)
+		var expected_fx: int = 0
+		for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+			if chest is Dictionary and not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)) \
+					and GameManager.get_chest_rarity(str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))) in ChestScreen.FX_RARITIES:
+				expected_fx += 1
+		played_before = screen.fx_played
 		# ⚠ 開ける前の図鑑を控える（⚠ 画面と同じ判定＝前に無く、いま載っている品にしおり紐）。
 		var known: Dictionary = {}
 		for item_id: Variant in GameManager.get_state().get(GameStateKeys.CODEX, {}):
 			known[str(item_id)] = true
 		await _press(c.find_child("OpenAllButton", true, false))
+		for _i: int in range(600):
+			if not bool(screen.get("_fx_busy")):
+				break
+			await get_tree().process_frame
+		for fx_name: StringName in saved_fx:
+			theme.set_constant(fx_name, &"ChestScreen", int(saved_fx[fx_name]))
+		_check("宝箱：まとめて開けると高レアの箱ぜんぶに演出（%d ＝ %d 箱）" % [screen.fx_played - played_before, expected_fx],
+			screen.fx_played - played_before == expected_fx and expected_fx > 0)
 		_check("宝箱：「まとめて開ける」で 0（%d）" % GameManager.get_pending_chest_count(), GameManager.get_pending_chest_count() == 0)
 		var banded: int = 0
 		var ribbons: int = 0

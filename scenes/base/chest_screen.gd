@@ -41,6 +41,10 @@ var _cards: HFlowContainer = null
 var _box: ChestBox = null
 var _note: Label = null
 var _next_button: UiButton = null
+# ⚠ 高レアの演出の最中か ／ 台を押して残りを飛ばすか ／ 流した演出の数（⚠ 検査が読む）。
+var _fx_busy: bool = false
+var _fx_skip: bool = false
+var fx_played: int = 0
 
 
 func _ready() -> void:
@@ -126,8 +130,9 @@ func _rebuild_ledger() -> void:
 	_remain_label.text = tr("ui_chest_remain") % total
 	if not groups.has(_selected_kind):
 		_selected_kind = str(groups.keys()[0]) if not groups.is_empty() else ""
-	_open_all_button.disabled = groups.is_empty()
-	_next_button.disabled = groups.is_empty()
+	# ⚠ 演出の最中は押せない（⚠ 開けると pending_chests_changed でここが走る）。
+	_open_all_button.disabled = groups.is_empty() or _fx_busy
+	_next_button.disabled = groups.is_empty() or _fx_busy
 	_next_button.text = tr("ui_chest_next") % total
 	if groups.is_empty():
 		_list.add_child(EmptyState.create(
@@ -183,6 +188,10 @@ func _on_row_pressed(chest_id: String) -> void:
 # --- 右：台（開けた宝箱の名前・札・箱・次を開ける） ---------------------------
 
 func _build_stage() -> void:
+	# ⚠ 演出の最中に台を押すと残りを飛ばす。⚠ 光の筋が台の外へ出ないよう台で描画を切る。
+	var stage: Control = stage_body.get_parent() as Control
+	stage.gui_input.connect(_on_stage_gui_input)
+	stage.clip_contents = true
 	_opened_name = Label.new()
 	_opened_name.name = "OpenedName"
 	_opened_name.theme_type_variation = &"SheetHeadingLabel"
@@ -230,6 +239,8 @@ func _on_next_pressed() -> void:
 	var groups: Dictionary = _groups()
 	if not groups.has(_selected_kind):
 		return
+	if _fx_busy:
+		return
 	var instance_id: String = str((groups[_selected_kind] as Array)[0])
 	var chest_id: String = _selected_kind
 	# ⚠ 開ける前の図鑑を控える（⚠ 開けたあとに初めて載った品＝しおり紐）。
@@ -238,11 +249,18 @@ func _on_next_pressed() -> void:
 		push_warning("[ChestScreen] open_chest failed: " + instance_id)
 		return
 	# ⚠⚠ 中身は**開けたあと**に読む（⚠ `open_chest()` の中で振られ、開けた記録に残る・2026-09-18）。
-	_show_rewards(_read_chest_rewards(instance_id), tr(GameManager.item_name_key(chest_id)), chest_id, known)
+	var rewards: Dictionary = _read_chest_rewards(instance_id)
+	# ⚠ 高レアなら演出を見せてから札を並べる（⚠ 人間「⚠ 4あ」）。
+	if not await _play_fx([chest_id]):
+		return
+	_show_rewards(rewards, tr(GameManager.item_name_key(chest_id)), chest_id, known)
 
 
 func _on_open_all_pressed() -> void:
+	if _fx_busy:
+		return
 	var known: Dictionary = _codex_snapshot()
+	var opened_ids: Array[String] = []
 	var opened_count: int = 0
 	var combined: Dictionary = _empty_rewards()
 	for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
@@ -252,12 +270,70 @@ func _on_open_all_pressed() -> void:
 		if bool(chest_dict.get(GameStateKeys.CHEST_OPENED, false)):
 			continue
 		var instance_id: String = str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
+		var chest_id: String = str(chest_dict.get(GameStateKeys.CHEST_ID, ""))
 		if GameManager.open_chest(instance_id):
 			_merge_rewards(combined, _read_chest_rewards(instance_id))
+			opened_ids.append(chest_id)
 			opened_count += 1
+	# ⚠ まとめて開けるときは**高レアの箱ぜんぶ**に演出（⚠ 人間「⚠ まとめて開けるときは全部演出を」）。⚠ 台を押すと残りを飛ばす。
+	if not await _play_fx(opened_ids):
+		return
 	if opened_count > 0:
 		# ⚠ まとめて1回ぶんの札（⚠ 種類が混ざるので名前に色は付けない）。
 		_show_rewards(combined, tr("ui_chest_opened_all") % opened_count, "", known)
+
+
+# --- 高レアの演出（2026-09-27 の見る回・人間「⚠ 4あ」） ---------------------------
+
+# ⚠ epic 以上に出す。⚠ legendary は強い演出（⚠ 筋が倍・長く・強く震える）。
+const FX_RARITIES: Array[String] = [GameManager.CHEST_RARITY_EPIC, GameManager.CHEST_RARITY_LEGENDARY]
+
+
+# 開けた箱の並びのうち、高レアのものに1つずつ演出を流す。⚠ 台を押すと残りを飛ばす。
+# ⚠ 戻りが false なら画面が消えた（⚠ 呼ぶ側は何もしない）。
+# ⚠ 演出の間はボタンを押せない（⚠ 2回目の開封が割り込まない）。
+func _play_fx(chest_ids: Array) -> bool:
+	var targets: Array[String] = []
+	for raw: Variant in chest_ids:
+		if GameManager.get_chest_rarity(str(raw)) in FX_RARITIES:
+			targets.append(str(raw))
+	if targets.is_empty():
+		return true
+	_fx_busy = true
+	_fx_skip = false
+	_next_button.disabled = true
+	_open_all_button.disabled = true
+	for child: Node in _cards.get_children():
+		_cards.remove_child(child)
+		child.queue_free()
+	_note.text = tr("ui_chest_fx_skip_hint")
+	for chest_id: String in targets:
+		if _fx_skip:
+			break
+		_opened_name.text = tr(GameManager.item_name_key(chest_id))
+		_opened_name.modulate = Color.WHITE
+		_tint_by_rarity(_opened_name, chest_id)
+		var strong: bool = GameManager.get_chest_rarity(chest_id) == GameManager.CHEST_RARITY_LEGENDARY
+		var tween: Tween = _box.play_fx(_opened_name.modulate, strong)
+		fx_played += 1
+		await tween.finished
+		if not is_inside_tree():
+			return false
+	_fx_busy = false
+	_box.stop_fx()
+	_box.opened = true
+	_rebuild_ledger()
+	return true
+
+
+# ⚠ 演出の最中に台を押したら残りを飛ばす。
+func _on_stage_gui_input(event: InputEvent) -> void:
+	if not _fx_busy:
+		return
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+		_fx_skip = true
+		_box.stop_fx()
 
 
 # 図鑑に載っている品（item_id -> true）。⚠ 複製（`get_state()`）から読む。
