@@ -87,6 +87,8 @@ func _refresh() -> void:
 		_title.text = tr(title_key) if title_key != "" else ""
 	_right.text = right_text
 	_right.visible = right_text != ""
+	# ⚠ 飾り罫だけを引く使い方（⚠ タイトルの看板）では、⚠ 空の題の行を残さない。
+	(_title.get_parent() as Control).visible = not (ornament_below and _title.text == "" and right_text == "")
 	var rule_height: float = 0.0
 	if not ornament and is_inside_tree():
 		rule_height = float(get_theme_constant(&"gap", THEME_TYPE) + get_theme_constant(&"rule_width", THEME_TYPE))

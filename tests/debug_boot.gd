@@ -996,6 +996,8 @@ const SCENARIOS: Dictionary = {
 			},
 			# ③ 拠点の入口。
 			{"name": "04_base", "scene": SCENE_BASE},
+			# ⚠ タイトル（2026-09-27・回UI-4・手本 Title）。⚠ セーブの有無でボタンが変わる（⚠ 撮る側の PC のセーブ次第）。
+			{"name": "25_title", "scene": "res://scenes/title/title_screen.tscn"},
 			# ⚠ `05_guild` は 2026-09-26（回UI-3）に消した（⚠ ギルドの画面ごと無い）。⚠ 番号は空けたまま。
 			{"name": "06_adventure_select", "scene": "res://scenes/adventure/adventure_select.tscn"},
 			# ④ 育てる。⚠ 装備は「誰の」が要るので渡す。
@@ -9034,8 +9036,8 @@ class ShotTaker extends Node:
 			#   ⚠ 器を自分で `instantiate()` しないこと。⚠ 幅・暗幕・赤・間は向こうが持っている。
 			# ⚠⚠ 押さないので**セーブは消えない**（⚠ 消すのは戻りを見る `title_screen.gd` の側）。
 			var dlg: ModalDialog = Modal._enqueue(
-				screen, "ui_title_delete_confirm", [], true, false, {
-					Modal.OPTION_TITLE: tr("ui_title_delete_save"),
+				screen, "ui_title_restart_confirm", [], true, false, {
+					Modal.OPTION_TITLE: tr("ui_title_restart_title"),
 					Modal.OPTION_DANGER: true,
 					Modal.OPTION_CONFIRM_LABEL: "ui_title_delete_save_hold",
 					Modal.OPTION_STAMP: "ui_stamp_erased",

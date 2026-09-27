@@ -1037,3 +1037,7 @@ ui_part_break_title,装飾を壊す
 ui_pomodoro_quit_title,拠点へ戻る
 ui_title_delete_save_hold,消す（長押し）
 ui_title_delete_hold_hint,押しつづけると消える。途中で離せば止まる
+ui_title_guild,冒険者ギルド
+ui_title_quit,終わる
+ui_title_restart_title,はじめからやり直す
+ui_title_restart_confirm,持ち物・3人の育成・記録がすべて消えて、最初からになる。

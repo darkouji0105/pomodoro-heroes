@@ -46,7 +46,12 @@ static func spawn_into(root: Node) -> ResourceHud:
 # ⚠⚠ 隠したままにしないこと。⚠ `SceneManager` が画面を変えるたびに true へ戻し、
 #   ⚠ 隠したい画面が自分の `_ready()` で false にする。⚠ こうすると
 #   ⚠ ポモドーロから抜けたとき（⚠ 中断でも完走でも）に必ず戻る。
+# ⚠⚠ 起動直後の最初の画面（⚠ タイトル）は、⚠ HUD が組み上がる**前**に `_ready()` が走る
+#   （⚠ HUD は1フレーム遅れて付く＝`spawn_into()`）。⚠ そのときの値は控えて、⚠ 組み上がったときに当てる。
+static var _pending_shown: bool = true
+
 static func set_shown(value: bool) -> void:
+	_pending_shown = value
 	var hud: ResourceHud = get_instance()
 	if hud == null:
 		return
@@ -75,6 +80,7 @@ func _ready() -> void:
 	_field.name = "Field"
 	_field.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_field.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_field.visible = _pending_shown
 	add_child(_field)
 
 	# ⚠ 2026-09-15：⚠ 資源の左に「倉庫」ボタンを置くため、⚠ 横1列の器ごと右上に寄せる。

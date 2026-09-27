@@ -760,6 +760,7 @@ static func build() -> void:
 	_build_paper_parts(theme)
 	_build_body_font(theme)
 	_build_heading_font(theme)
+	_build_title_screen(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2005,6 +2006,104 @@ static func _build_paper_parts(theme: Theme) -> void:
 		theme.set_color(&"font_pressed_color", type_name, _html(TOKEN_TEXT_ON_DARK))
 		theme.set_color(&"font_focus_color", type_name, _html(str(spec["font"])))
 		theme.set_font_size(&"font_size", type_name, BUTTON_FONT_SIZE)
+
+
+# --- ⚠⚠ タイトルの吊り看板（2026-09-27・回UI-4・手本 Title）---
+#
+# ⚠ 暗い板・真鍮の縁 3・内側に細い線・上に吊り紐2本。⚠ 盾の紋章は線で描く（⚠ 絵は使わない）。
+# ⚠ 字：冒険者ギルド（13・字間を広く）／ 題（明朝 54・下に影）。⚠ 下にボタン 300 × 54 を縦に並べる。
+# ⚠ 看板の線と紋章は `title_screen.gd` が引く（⚠ 値はここ＝`TitleSign` 型）。
+const TITLE_SIGN_BG: String = "3b2c21"
+const TITLE_SIGN_BORDER: String = "a8791f"
+const TITLE_SIGN_BORDER_WIDTH: int = 3
+const TITLE_SIGN_CORNER: int = 6
+const TITLE_SIGN_INSET: int = 6          # ⚠ 外の縁から内側の細い線まで
+const TITLE_SIGN_INNER_LINE: String = "6b4f2e"
+const TITLE_SIGN_PAD_TOP: int = 27       # ⚠ 手本の余白 34／70／30 から縁と内の線（7）を引いた分
+const TITLE_SIGN_PAD_H: int = 63
+const TITLE_SIGN_PAD_BOTTOM: int = 23
+const TITLE_SIGN_SHADOW: int = 20
+const TITLE_SIGN_STRING_LENGTH: int = 40
+const TITLE_SIGN_STRING_WIDTH: int = 2
+const TITLE_SIGN_STRING_AT_PCT: int = 30  # ⚠ 紐は左右の端から 30% の所
+const TITLE_CREST_WIDTH: int = 84
+const TITLE_CREST_HEIGHT: int = 94
+const TITLE_CREST_LINE: int = 3
+const TITLE_SUBTITLE_SIZE: int = 13
+const TITLE_SUBTITLE_SPACING: int = 10   # ⚠ 手本 0.8em
+const TITLE_SUBTITLE_COLOR: String = "cbbca3"
+const TITLE_NAME_SIZE: int = 54
+const TITLE_NAME_SPACING: int = 6        # ⚠ 手本 0.12em
+const TITLE_NAME_COLOR: String = "f1e6cf"
+const TITLE_NAME_SHADOW_Y: int = 3
+const TITLE_ORNAMENT_WIDTH: int = 420
+const TITLE_SIGN_GAP: int = 12           # ⚠ 看板の中の縦の間
+const TITLE_STACK_GAP: int = 30          # ⚠ 看板とボタンの間
+const TITLE_BUTTON_GAP: int = 10
+const TITLE_BUTTON_WIDTH: int = 300
+const TITLE_BUTTON_HEIGHT: int = 54
+
+
+static func _build_title_screen(theme: Theme) -> void:
+	var board: StyleBoxFlat = StyleBoxFlat.new()
+	board.bg_color = _html(TITLE_SIGN_BG)
+	board.set_border_width_all(TITLE_SIGN_BORDER_WIDTH)
+	board.border_color = _html(TITLE_SIGN_BORDER)
+	board.set_corner_radius_all(TITLE_SIGN_CORNER)
+	board.shadow_color = Color(0, 0, 0, 0.6)
+	board.shadow_size = TITLE_SIGN_SHADOW
+	board.shadow_offset = Vector2(0, TITLE_SIGN_SHADOW)
+	board.set_content_margin_all(TITLE_SIGN_INSET)
+	theme.set_type_variation(&"TitleSignPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"TitleSignPanel", board)
+	var inner: StyleBoxFlat = StyleBoxFlat.new()
+	inner.bg_color = Color(0, 0, 0, 0)
+	inner.set_border_width_all(1)
+	inner.border_color = _html(TITLE_SIGN_INNER_LINE)
+	inner.content_margin_left = TITLE_SIGN_PAD_H
+	inner.content_margin_right = TITLE_SIGN_PAD_H
+	inner.content_margin_top = TITLE_SIGN_PAD_TOP
+	inner.content_margin_bottom = TITLE_SIGN_PAD_BOTTOM
+	theme.set_type_variation(&"TitleSignInnerPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"TitleSignInnerPanel", inner)
+
+	var t: StringName = &"TitleSign"
+	theme.set_color(&"string", t, _html(TITLE_SIGN_INNER_LINE))
+	theme.set_color(&"crest", t, _html(TOKEN_LIGHT))
+	theme.set_color(&"crest_hole", t, _html(TOKEN_FLOOR))
+	theme.set_constant(&"string_length", t, TITLE_SIGN_STRING_LENGTH)
+	theme.set_constant(&"string_width", t, TITLE_SIGN_STRING_WIDTH)
+	theme.set_constant(&"string_at_pct", t, TITLE_SIGN_STRING_AT_PCT)
+	theme.set_constant(&"crest_width", t, TITLE_CREST_WIDTH)
+	theme.set_constant(&"crest_height", t, TITLE_CREST_HEIGHT)
+	theme.set_constant(&"crest_line", t, TITLE_CREST_LINE)
+	theme.set_constant(&"ornament_width", t, TITLE_ORNAMENT_WIDTH)
+	theme.set_constant(&"button_width", t, TITLE_BUTTON_WIDTH)
+	theme.set_constant(&"button_height", t, TITLE_BUTTON_HEIGHT)
+
+	for spec: Array in [["TitleSignStack", TITLE_SIGN_GAP], ["TitleStack", TITLE_STACK_GAP], ["TitleButtons", TITLE_BUTTON_GAP]]:
+		theme.set_type_variation(StringName(str(spec[0])), &"VBoxContainer")
+		theme.set_constant(&"separation", StringName(str(spec[0])), int(spec[1]))
+
+	# ⚠ 字。⚠ どちらも字間を広げた包みを持つ（⚠ 明朝が無ければ本文の字に落ちる）。
+	theme.set_type_variation(&"TitleSubtitleLabel", &"Label")
+	theme.set_font_size(&"font_size", &"TitleSubtitleLabel", TITLE_SUBTITLE_SIZE)
+	theme.set_color(&"font_color", &"TitleSubtitleLabel", _html(TITLE_SUBTITLE_COLOR))
+	theme.set_type_variation(&"GameTitleLabel", &"Label")
+	theme.set_font_size(&"font_size", &"GameTitleLabel", TITLE_NAME_SIZE)
+	theme.set_color(&"font_color", &"GameTitleLabel", _html(TITLE_NAME_COLOR))
+	theme.set_color(&"font_shadow_color", &"GameTitleLabel", Color(0, 0, 0, 1))
+	theme.set_constant(&"shadow_offset_x", &"GameTitleLabel", 0)
+	theme.set_constant(&"shadow_offset_y", &"GameTitleLabel", TITLE_NAME_SHADOW_Y)
+	if theme.default_font is FontVariation:
+		var sub: FontVariation = (theme.default_font as FontVariation).duplicate() as FontVariation
+		sub.spacing_glyph = TITLE_SUBTITLE_SPACING
+		theme.set_font(&"font", &"TitleSubtitleLabel", sub)
+	var heading: Font = theme.get_font(&"font", &"HeadingLabel") if theme.has_font(&"font", &"HeadingLabel") else theme.default_font
+	if heading is FontVariation:
+		var name_font: FontVariation = (heading as FontVariation).duplicate() as FontVariation
+		name_font.spacing_glyph = TITLE_NAME_SPACING
+		theme.set_font(&"font", &"GameTitleLabel", name_font)
 
 
 static func _build_heading_font(theme: Theme) -> void:
