@@ -83,6 +83,8 @@ const SHOT_AFTER_NONE: String = ""
 const SHOT_AFTER_LOOT_OVERLAY: String = "loot_overlay"
 const SHOT_AFTER_BATTLE_RESULT: String = "battle_result"
 const SHOT_AFTER_MODAL_CONFIRM: String = "modal_confirm"
+# ⚠ 昇級申請書で判を押した姿（2026-09-27・回UI-組 育成）。⚠ 画面の口（`_on_press_pressed`）を呼ぶ。
+const SHOT_AFTER_LEVEL_UP_PRESS: String = "level_up_press"
 const SHOT_AFTER_PART_POPOVER: String = "part_popover"
 const SHOT_AFTER_RELIC_PICK: String = "relic_pick"
 const SHOT_AFTER_RUN_MENU: String = "run_menu"
@@ -1004,6 +1006,29 @@ const SCENARIOS: Dictionary = {
 			{"name": "06_adventure_select", "scene": "res://scenes/adventure/adventure_select.tscn"},
 			# ④ 育てる。⚠ 装備は「誰の」が要るので渡す。
 			{"name": "07_training", "scene": "res://scenes/guild/training_screen.tscn"},
+			# ⚠ 育成のタブ（2026-09-27・回UI-組 育成・人間「⚠ 1い」）。⚠ 1画面の中のタブなので `data` のタブで開き分ける。
+			{
+				"name": "27_training_nodes",
+				"scene": "res://scenes/guild/training_screen.tscn",
+				"data": {TransferKeys.CHARACTER_ID: "char_swordsman", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_NODES},
+			},
+			{
+				"name": "28_training_skills",
+				"scene": "res://scenes/guild/training_screen.tscn",
+				"data": {TransferKeys.CHARACTER_ID: "char_swordsman", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_SKILLS},
+			},
+			# ⚠ 昇級申請書（人間「⚠ 3あ」）。⚠ 31 は画面の口で判を押した姿（⚠ 素材は初期の分で足りる。⚠ 保存はしない）。
+			{
+				"name": "30_level_up",
+				"scene": "res://scenes/guild/level_up_screen.tscn",
+				"data": {TransferKeys.CHARACTER_ID: "char_swordsman"},
+			},
+			{
+				"name": "31_level_up_done",
+				"scene": "res://scenes/guild/level_up_screen.tscn",
+				"data": {TransferKeys.CHARACTER_ID: "char_swordsman"},
+				"after": SHOT_AFTER_LEVEL_UP_PRESS,
+			},
 			{
 				"name": "08_equipment",
 				"scene": "res://scenes/guild/equipment_screen.tscn",
@@ -1109,6 +1134,12 @@ const SCENARIOS: Dictionary = {
 				"prepare": SHOT_PREPARE_EQUIPMENT,
 				"data": {TransferKeys.CHARACTER_ID: "char_swordsman"},
 				"after": SHOT_AFTER_PART_POPOVER,
+			},
+			# ⚠ 育成の装備タブ（2026-09-27）。⚠ 18 の下ごしらえ（着けて・鍛えて・刺した姿）をそのまま使う（⚠ 2回呼ぶと「刺せない」で赤）。
+			{
+				"name": "29_training_equip",
+				"scene": "res://scenes/guild/training_screen.tscn",
+				"data": {TransferKeys.CHARACTER_ID: "char_swordsman", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_EQUIP},
 			},
 		],
 	},
@@ -4264,7 +4295,7 @@ func _report_layout() -> void:
 	# ⚠ 画面側の条件を緩めていない。⚠ 満たしてから開いている。
 	for scene_path: String in LAYOUT_SCENES:
 		_layout_prepare_for(scene_path)
-		var other: PackedScene = load(scene_path)
+		var other: PackedScene = load(_layout_load_path(scene_path))
 		if other == null:
 			push_error("[DebugBoot] 開けない: " + scene_path)
 			continue
@@ -4356,39 +4387,54 @@ func _report_layout() -> void:
 				print("    ⚠ 振り返りの文言 = '%s'（⚠ Config の %d が入るのが正解）" % [shown, want])
 				if not shown.contains(str(want)):
 					push_error("[DebugBoot] 振り返りの文言に Config の文字数(%d)が入っていない" % want)
-			# ⚠⚠ 育成の一覧の行（2026-09-11・人間のモック B）。⚠ 絵は取れないが
-			#   ⚠ 「何行あるか」と「何と書いてあるか」は取れる。
-			#   ⚠ 行はコードで作るので、⚠ 0 行なら一覧が空のまま出ている。
-			#   ⚠ 検証用の3体は仕切りの下に来るので、⚠ 行数は キャラ数 + 仕切り1 になる。
-			if scene_path.get_file() == "training_screen.tscn" and raw_child.name == "Roster":
-				var rows: Array[String] = []
+			# ⚠⚠ 育成（2026-09-27・回UI-組 育成・人間「⚠ 1い」）。⚠ 前は一覧の行・ステータスノード・スキルの
+			#   ⚠ 画面を別々に見ていた。⚠ いまは1画面の中のタブなので、⚠ `#タブ` で開き分けて同じ名前を見る。
+			#   ⚠ 絵は取れないが「何行あるか」と「何と書いてあるか」は取れる（⚠ 行はコードで作る＝0 行なら組めていない）。
+			var training_tab: String = scene_path.get_slice("#", 1) if scene_path.contains("#") else ""
+			var in_training: bool = _layout_load_path(scene_path).get_file() == "training_screen.tscn"
+			# ⚠ 右上のキャラの札（⚠ 前の一覧の代わり）。⚠ 0 枚なら切り替えられない。
+			if in_training and training_tab == "" and raw_child.name == "Chips":
+				var chips: int = 0
+				for grand: Node in raw_child.get_children():
+					if grand is CharacterAvatar:
+						chips += 1
+				print("    ⚠ 育成のキャラの札 = %d 枚（0 枚なら切り替えられない）" % chips)
+				if chips <= 0:
+					push_error("[DebugBoot] 育成のキャラの札が 0 枚")
+			# ⚠ 身上書の10軸（⚠ 前の「振ったあとのステータス」の代わり）。⚠ 10軸ぜんぶ出ているか。
+			if in_training and training_tab == "" and raw_child.name == "Stats" and raw_child.get_parent() is CharacterDossier:
+				var stat_rows: int = raw_child.get_child_count()
+				print("    ⚠ 身上書の値 = %d 行" % stat_rows)
+				if stat_rows != GameManager.get_stat_keys().size():
+					push_error("[DebugBoot] 身上書の値が %d 行（%d 軸あるはず）" % [
+						stat_rows, GameManager.get_stat_keys().size()
+					])
+			# ⚠ 概要の行（⚠ ステータスノード・スキル・装備）。
+			if in_training and training_tab == "" and raw_child.name == "Rows":
+				var lines: Array[String] = []
 				for grand: Node in raw_child.get_children():
 					if grand is PanelContainer:
-						rows.append(_row_text(grand as PanelContainer))
-				print("    ⚠ 育成の一覧 = %d 行（0 行なら組めていない）" % rows.size())
-				for text: String in rows:
+						lines.append(_row_text(grand as PanelContainer))
+				print("    ⚠ 概要の行 = %d 行" % lines.size())
+				for text: String in lines:
 					print("      %s" % text)
-				if rows.is_empty():
-					push_error("[DebugBoot] 育成の一覧が 0 行（行が組めていない）")
-			# ⚠⚠ スキル設定の枠と候補（2026-09-11・人間のモック D）。⚠ 記号をやめて
-			#   ⚠ 枠と色で示す形にしたので、⚠ 「何と書いてあるか」でしか確かめられない。
-			#   ⚠ CD は `skills.json` から入る。⚠ チャージは charge のスキルだけに出る。
-			# ⚠⚠ パッシブの絵（2026-09-14）。⚠ 線画15枚を足した回。⚠ 絵は見られないので
-			#   ⚠ 「⚠ 何行あって、⚠ そのうち何行に絵の枠が出たか」を数える。
-			#   ⚠ 行はあるのに枠が 0 なら、⚠ ファイル名と ID が食い違っている。
-			if scene_path.get_file() == "stat_node_screen.tscn" and raw_child.name == "Passives":
+				if lines.is_empty():
+					push_error("[DebugBoot] 育成の概要の行が 0 行")
+			# ⚠ 修練の道（パッシブ）。⚠ 何 pt で開くかの字が全部の行にあるか。
+			if training_tab == TransferKeys.TRAINING_TAB_NODES and raw_child.name == "Passives":
 				var passive_rows: int = 0
-				var with_icon: int = 0
+				var with_points: int = 0
 				for grand: Node in raw_child.get_children():
 					if not str(grand.name).begins_with("Passive_"):
 						continue
 					passive_rows += 1
-					if grand.find_child("IconWell", false, false) != null:
-						with_icon += 1
-				print("    ⚠ パッシブ = %d 行 ／ 絵の枠 = %d 行（⚠ 同じ数が正解）" % [passive_rows, with_icon])
-				if passive_rows > 0 and with_icon != passive_rows:
-					push_error("[DebugBoot] パッシブの絵が %d / %d 行にしか出ていない" % [with_icon, passive_rows])
-			if scene_path.get_file() == "skill_select_screen.tscn" and (
+					var points: Node = grand.find_child("PointsLabel", false, false)
+					if points is Label and (points as Label).text != "":
+						with_points += 1
+				print("    ⚠ 修練の道 = %d 行 ／ pt の字 = %d 行（⚠ 同じ数が正解）" % [passive_rows, with_points])
+				if passive_rows > 0 and with_points != passive_rows:
+					push_error("[DebugBoot] 修練の道の pt が %d / %d 行にしか出ていない" % [with_points, passive_rows])
+			if training_tab == TransferKeys.TRAINING_TAB_SKILLS and (
 				raw_child.name == "Slots" or raw_child.name == "Candidates"
 			):
 				var lines: Array[String] = []
@@ -4399,12 +4445,9 @@ func _report_layout() -> void:
 				for text: String in lines:
 					print("      %s" % text)
 				if lines.is_empty():
-					push_error("[DebugBoot] スキル設定の %s が 0 件" % raw_child.name)
-			# ⚠⚠ ステータスノードの軸の行（2026-09-11。⚠ 2026-09-12 に取り直した）。
-			#   ⚠ 行も点もコードで作るので、⚠ 「何行 × 何段あるか」でしか組めたことを
-			#   ⚠ 確かめられない。⚠ **前は「1軸 = 20行」を数えていた**が、
-			#   ⚠ モックに合わせて **1軸 = 1行 + 点の列**にしたので、⚠ 段は `TierDots` から取る。
-			if scene_path.get_file() == "stat_node_screen.tscn" and raw_child.name == "Branches":
+					push_error("[DebugBoot] スキルのタブの %s が 0 件" % raw_child.name)
+			# ⚠ ステータスノードの軸の行（⚠ 1軸 = 1行 + 点の列。⚠ 段は `TierDots` から取る）。
+			if training_tab == TransferKeys.TRAINING_TAB_NODES and raw_child.name == "Branches":
 				var branch_count: int = 0
 				for grand: Node in raw_child.get_children():
 					if not (grand is PanelContainer):
@@ -4420,7 +4463,22 @@ func _report_layout() -> void:
 				print("    ⚠ 割り振りの軸 = %d 行（0 行なら組めていない）" % branch_count)
 				if branch_count <= 0:
 					push_error("[DebugBoot] ステータスノードの軸が 0 行")
-			# ⚠⚠ 装備画面の装飾の枠（2026-09-22・回3）。⚠ 「マス＋吹き出し」に変えた側。
+			# ⚠ 装備のタブ（⚠ 部位5行 ／ 候補）。⚠ 下ごしらえで装飾を刺した品を着せてあるので ◆ が出るはず。
+			if training_tab == TransferKeys.TRAINING_TAB_EQUIP and (
+				raw_child.name == "SlotColumn" or raw_child.name == "Candidates"
+			):
+				var lines: Array[String] = []
+				for grand: Node in raw_child.get_children():
+					if grand is PanelContainer:
+						lines.append(_row_text(grand as PanelContainer))
+				print("    ⚠ 装備の%s = %d 件" % [raw_child.name, lines.size()])
+				for text: String in lines:
+					print("      %s" % text)
+				if raw_child.name == "SlotColumn" and lines.size() != GameManager.get_equip_slots().size():
+					push_error("[DebugBoot] 装備のタブの部位が %d 行（%d 部位あるはず）" % [
+						lines.size(), GameManager.get_equip_slots().size()
+					])
+			# ⚠⚠ 仮の鍛冶場（⚠ 前の装備画面）の装飾の枠（2026-09-22・回3）。⚠ 「マス＋吹き出し」に変えた側。
 			#   ⚠ 下ごしらえ（`_layout_fill_equipment_parts()`）で1つ刺してあるので、
 			#   ⚠ **0 行なら枠が出ていない**（⚠ 前の「文字の行」に戻ったのと同じ）。
 			if scene_path.get_file() == "equipment_screen.tscn" and raw_child is PartSlotRow:
@@ -4431,19 +4489,6 @@ func _report_layout() -> void:
 				])
 				if part_row.get_open_count() <= 0:
 					push_error("[DebugBoot] %s に開いている枠が無い" % part_row.name)
-			# ⚠ 右の「振ったあとのステータス」（2026-09-12）。⚠ 10軸ぜんぶ出ているか。
-			if scene_path.get_file() == "stat_node_screen.tscn" and raw_child.name == "StatList":
-				var stat_rows: Array[String] = []
-				for grand: Node in raw_child.get_children():
-					if grand is ValueRow:
-						stat_rows.append((grand as ValueRow).to_text())
-				print("    ⚠ 振ったあとのステータス = %d 行" % stat_rows.size())
-				for text: String in stat_rows:
-					print("      %s" % text)
-				if stat_rows.size() != GameManager.get_stat_keys().size():
-					push_error("[DebugBoot] 振ったあとのステータスが %d 行（%d 軸あるはず）" % [
-						stat_rows.size(), GameManager.get_stat_keys().size()
-					])
 			# ⚠⚠ 面に重ねた「当たり」が本当に押せるか（2026-09-11・人間が実機で
 			#   ⚠ 「⚠ ギルド画面でボタンが反応しない」と見つけた事故の再発防止）。
 			#
@@ -4687,10 +4732,7 @@ const LAYOUT_SCENE_BOX: Dictionary = {
 }
 
 const LAYOUT_SCENE_SHOW: Dictionary = {
-	"res://scenes/guild/training_screen.tscn": {
-		"Margin/Layout/ListPanel": false,
-		"Margin/Layout/DetailPanel": true,
-	},
+	# ⚠ 育成の「一覧／詳細」の行は 2026-09-27 に消した（⚠ 一覧が無くなった。⚠ タブは `#タブ` で開き分ける）。
 	# ⚠ ギルドは 2026-09-11 に `_layout_prepare_for()` へ移した（⚠ カードは解放の有無で
 	#   ⚠ 中身ごと変わるため、⚠ `visible` を立てるだけでは中身が空き枠のままになる）。
 }
@@ -4721,8 +4763,14 @@ func _layout_prepare_for(scene_path: String) -> void:
 	# ⚠⚠ 割り振りは「1段も振っていない姿」だと点が全部暗く、⚠ 合計も緑の数字も出ない
 	#   （2026-09-12）。⚠ **横に一番長いのは値が入った姿**なので、⚠ 先に少し振ってから測る
 	#   （⚠ ギルドと同じ考え方：⚠ `visible` をいじらず**状態のほうを作る**）。
-	if scene_path == "res://scenes/guild/stat_node_screen.tscn":
+	if scene_path == "res://scenes/guild/training_screen.tscn#" + TransferKeys.TRAINING_TAB_NODES:
 		_layout_fill_stat_nodes(str(GameManager.get_party_members()[0]))
+		return
+	# ⚠ 育成の装備タブは装飾の下ごしらえを呼ばない（⚠ 前に並ぶ `equipment_screen` で刺した品をそのまま着ている。
+	#   ⚠ 2回呼ぶと「刺せなかった」の黄が1本増える＝2026-09-27 に踏んだ）。
+	# ⚠ ただし装備の段階解放は開ける（⚠ 閉じているとタブごと出ない＝本番の決まり。⚠ 本番の口 `unlock_screen()`）。
+	if scene_path == "res://scenes/guild/training_screen.tscn#" + TransferKeys.TRAINING_TAB_EQUIP:
+		GameManager.unlock_screen(GameStateKeys.SCREEN_EQUIPMENT)
 		return
 	# ⚠⚠ 装備画面の**装飾の枠**（2026-09-22・回3）。⚠ 何も着けていない姿だと枠が1つも出ず、
 	#   ⚠ 「マス＋吹き出し」に変えた側が**一度も通らない**（⚠ 前は文字の行だった）。
@@ -4854,7 +4902,15 @@ func _layout_transfer_for(scene_path: String) -> Dictionary:
 		data[TransferKeys.RUN_NODE_ID] = _find_dungeon_node_of_kind(
 			GameStateKeys.FLOOR_NODE_KIND_RELIC
 		)
+	# ⚠ 育成のタブ（2026-09-27）。⚠ `#` の後ろがタブの字。
+	if scene_path.contains("#"):
+		data[TransferKeys.TRAINING_TAB] = scene_path.get_slice("#", 1)
 	return data
+
+
+# ⚠ 読み込むパス（⚠ `#タブ` を外す・2026-09-27）。
+func _layout_load_path(scene_path: String) -> String:
+	return scene_path.get_slice("#", 0)
 
 
 # いまのランの中から、種で1つ探す（⚠ ノードを組み直さない＝口を2本にしない）。
@@ -5024,13 +5080,14 @@ const LAYOUT_SCENES: Array[String] = [
 	#   （@onready のパス取り違え・move_child の相手違い）。
 	"res://scenes/guild/training_screen.tscn",
 	"res://scenes/guild/equipment_screen.tscn",
-	# ⚠⚠ ステータスノード（2026-09-11）。⚠ ここまで「測っていない5枚」の1つだった。
-	#   ⚠ 枝も段もコードで作る＝⚠ 開かないと分からない画面の筆頭。
-	#   ⚠ 3枝 × 20段まで伸びるので、⚠ 縦のはみ出しを数字で見る必要がある。
-	"res://scenes/guild/stat_node_screen.tscn",
-	# ⚠ 段階9でボタンの出し分けを足した。ボタンが減ると器の幅が変わる。
-	# ⚠ 段階3でパッシブの一覧（見出し＋5行）をコードで足した。今まで測っていない。
-	"res://scenes/guild/skill_select_screen.tscn",
+	# ⚠⚠ 育成のタブ（2026-09-27・回UI-組 育成・人間「⚠ 1い」）。⚠ 前のステータスノード・スキルの画面は消えて、
+	#   ⚠ 育成の中のタブになった。⚠ **`#タブ` を後ろに付けると、そのタブで開く**（⚠ `_layout_transfer_for()`）。
+	#   ⚠ 読み込むのは `#` の前だけ（⚠ `_layout_load_path()`）。
+	"res://scenes/guild/training_screen.tscn#" + TransferKeys.TRAINING_TAB_NODES,
+	"res://scenes/guild/training_screen.tscn#" + TransferKeys.TRAINING_TAB_SKILLS,
+	"res://scenes/guild/training_screen.tscn#" + TransferKeys.TRAINING_TAB_EQUIP,
+	# ⚠ 昇級申請書（2026-09-27・人間「⚠ 3あ」）。
+	"res://scenes/guild/level_up_screen.tscn",
 	# ⚠ 段階10でノードが5件から18件に増え、カテゴリの見出しも足した。今まで測っていない。
 	#   ⚠ ノード行は ScrollContainer の中なので、縦のはみ出しはここでは捕まらない
 	#     （測れるのは横だけ。縦は人間が実機で見る＝EXEC_GUILD_RESEARCH_V2.md §7-3 の S-10）。
@@ -8750,6 +8807,7 @@ class ShotTaker extends Node:
 	const AFTER_LOOT_OVERLAY: String = "loot_overlay"
 	const AFTER_BATTLE_RESULT: String = "battle_result"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
+	const AFTER_LEVEL_UP_PRESS: String = "level_up_press"
 	const AFTER_RELIC_PICK: String = "relic_pick"
 	const AFTER_RUN_MENU: String = "run_menu"
 	const AFTER_RELIC_LIST: String = "relic_list"
@@ -9029,6 +9087,15 @@ class ShotTaker extends Node:
 			screen.call("_on_card_pressed", pick)
 			if GameManager.is_single_relic(pick):
 				screen.call("_on_character_pressed", str(GameManager.get_party_members()[0]))
+		elif kind == AFTER_LEVEL_UP_PRESS:
+			# ⚠ 画面の口で判を押す（⚠ 昇級そのものは `level_up_character()`）。⚠ 押せない回は申請書のまま撮れる＝赤にする。
+			var before: int = int(GameManager.get_character_growth("char_swordsman").get(GameStateKeys.GROWTH_LEVEL, 1))
+			screen.call("_on_press_pressed")
+			var after_level: int = int(GameManager.get_character_growth("char_swordsman").get(GameStateKeys.GROWTH_LEVEL, 1))
+			print("  %s: 判を押した Lv %d → %d" % [shot_name, before, after_level])
+			if after_level <= before:
+				push_error("[DebugBoot] ⚠ %s で昇級できなかった" % shot_name)
+				return false
 		elif kind == AFTER_MODAL_CONFIRM:
 			# ⚠⚠ **`Modal.confirm()` は撮るのに使えない**（⚠ 2026-09-22 に2手とも外れた）。
 			#   ⚠ ① 直に呼ぶ → ⚠ **パースエラー**（`must be called with "await"`）

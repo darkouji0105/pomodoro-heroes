@@ -14,7 +14,7 @@ extends PanelContainer
 # ⚠ 使うのは戦闘だけなので `scenes/adventure/`（AGENTS.md）。
 
 const THEME_TYPE: StringName = &"SkillTile"
-# ⚠ 説明文のキーの頭。⚠ 綴りを散らさない（⚠ `skill_select_screen.gd` と同じ）。
+# ⚠ 説明文のキーの頭。⚠ 綴りを散らさない（⚠ `training_skills_page.gd` と同じ）。
 const DESCRIPTION_PREFIX: String = "ui_desc_"
 
 var _icon: TextureRect = null

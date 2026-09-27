@@ -1316,7 +1316,7 @@ static func _index_by(root: Dictionary, list_key: String, id_key: String, path: 
 # ⚠ 数値（tier / cost / value）は float で来る。呼び出し側で int() を付けること。
 #
 # ⚠ いつ読まれるか（2026-08-16・呼び出し元を全部たどって確認）
-#   ・get_all_character_nodes() … stat_node_screen.gd だけ＝割り振り画面を開いたとき
+#   ・get_all_character_nodes() … training_nodes_page.gd だけ＝育成のステータスノードのタブを開いたとき
 #   ・get_character_node() … GameManager の4箇所。どれも
 #     `for node_id in get_stat_nodes(character_id)` の中なので、
 #     ⚠ 解放済みノードが0件のセーブでは1回も呼ばれない

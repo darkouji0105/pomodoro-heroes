@@ -650,8 +650,12 @@ func _on_detach_part_pressed(instance_id: String, slot_index: int) -> void:
 		notice_label.text = tr("ui_part_broken")
 	else:
 		notice_label.text = tr("ui_equipment_failed")
+# ⚠⚠ 2026-09-27（回UI-組 育成）：⚠ この画面は**仮の鍛冶場**になった（⚠ 育成の装備タブの「鍛冶場で鍛える」から来る）。
+#   ⚠ 戻る先は育成の装備タブ。⚠ 鍛冶場は「仕組みの回①」で作り、⚠ そこでこの画面の扱いを決める。
 func _on_back_pressed() -> void:
-	SceneManager.change_scene_with_data(TRAINING_PATH, {TransferKeys.CHARACTER_ID: _character_id})
+	SceneManager.change_scene_with_data(TRAINING_PATH, {
+		TransferKeys.CHARACTER_ID: _character_id, TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_EQUIP,
+	})
 
 # --- シグナルハンドラ ---
 

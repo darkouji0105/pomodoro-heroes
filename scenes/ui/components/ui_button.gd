@@ -71,6 +71,16 @@ static func create(p_variant: Variant = Variant.SECONDARY, p_label_key: String =
 	return button
 
 
+# ⚠ 紙の上の小さな札（`PaperChoice`・2026-09-27 回UI-組 育成）。⚠ **素の `Button` を返す**。
+#   ⚠ `UiButton` は木に入ると `variant` から色を付け直すので、⚠ 紙の札にしても革に戻る（⚠ 撮った絵で踏んだ）。
+#   ⚠ 5階層（`UI-2`）の外の札なので `variant` を持たせない。⚠ 字は翻訳キー。
+static func create_paper_choice(p_label_key: String) -> Button:
+	var button: Button = Button.new()
+	button.theme_type_variation = &"PaperChoice"
+	button.text = TranslationServer.translate(p_label_key)
+	return button
+
+
 func _apply_variation() -> void:
 	theme_type_variation = VARIATION_NAMES.get(variant, &"")
 

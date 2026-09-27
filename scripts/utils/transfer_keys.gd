@@ -54,3 +54,11 @@ const DUNGEON_CORRIDOR_CHEST: String = "dungeon_corridor_chest"
 # ⚠ 値は下の定数（⚠ タブの番号を渡さない＝倉庫のタブの並びを外に漏らさない）。⚠ 無ければ持ち物タブ。
 const WAREHOUSE_TAB: String = "warehouse_tab"
 const WAREHOUSE_TAB_CODEX: String = "codex"
+
+# 育成をどのタブで開くか（2026-09-27・回UI-組 育成・人間「⚠ 1い」＝1画面の中でタブを切り替える）。
+# ⚠ 値は下の定数（⚠ タブの番号を渡さない）。⚠ 無ければ概要。⚠ 昇級の結果・仮の鍛冶場から戻るときに使う。
+const TRAINING_TAB: String = "training_tab"
+const TRAINING_TAB_OVERVIEW: String = "overview"
+const TRAINING_TAB_NODES: String = "nodes"
+const TRAINING_TAB_SKILLS: String = "skills"
+const TRAINING_TAB_EQUIP: String = "equip"

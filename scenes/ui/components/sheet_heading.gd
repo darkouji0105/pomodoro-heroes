@@ -34,6 +34,12 @@ const THEME_TYPE: StringName = &"SheetHeading"
 		ornament_below = value
 		_refresh()
 
+# ⚠ 題を真ん中に置く（⚠ 身上書・昇級申請書＝手本 Character / LevelUp）。⚠ `ornament_below` と一緒に使う。
+@export var centered: bool = false:
+	set(value):
+		centered = value
+		_refresh()
+
 # ⚠ 翻訳済みの題（⚠ 窓の題は呼ぶ側が `tr()` 済みで渡す＝`Modal.OPTION_TITLE`）。⚠ 在れば `title_key` より勝つ。
 var title_text: String = "":
 	set(value):
@@ -87,6 +93,9 @@ func _refresh() -> void:
 		_title.text = tr(title_key) if title_key != "" else ""
 	_right.text = right_text
 	_right.visible = right_text != ""
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL if centered else Control.SIZE_FILL
+	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
+	_middle.visible = not centered
 	# ⚠ 飾り罫だけを引く使い方（⚠ タイトルの看板）では、⚠ 空の題の行を残さない。
 	(_title.get_parent() as Control).visible = not (ornament_below and _title.text == "" and right_text == "")
 	var rule_height: float = 0.0

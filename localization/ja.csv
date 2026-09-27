@@ -1044,3 +1044,48 @@ ui_title_restart_confirm,持ち物・3人の育成・記録がすべて消えて
 ui_common_minutes_unit,分
 ui_stamp_today,今日はこれ
 ui_pomodoro_start_with,{0}で始める
+ui_dossier_title,身　上　書
+ui_dossier_signature,本人署名
+ui_dossier_lv,Lv
+ui_training_tab_overview,概要
+ui_training_points_value,%d pt
+ui_training_apply_header,昇　級　の　申　請
+ui_training_level_arrow,%d → %d
+ui_training_need_header,必要なもの
+ui_training_need_value,%s %d ／ %d
+ui_training_apply,昇級させる
+ui_training_nodes_heading,ステータスの割り振り
+ui_training_nodes_remaining,残り %d pt
+ui_training_nodes_next,%dpt で %s
+ui_training_passive_road,修練の道
+ui_training_skills_heading,持ち込むスキル
+ui_training_skills_known,覚えている %d ／ %d
+ui_training_skill_in_slot,枠%d
+ui_training_skill_pick,下から選ぶ
+ui_training_equip_heading,装備の割り当て
+ui_training_equip_count,%s %d本
+ui_training_equip_none,この部位の装備はまだ持っていない
+ui_training_equip_empty,空き
+ui_training_equip_wearing,装備中
+ui_training_equip_forge,鍛冶場で鍛える
+ui_training_equip_wear,%s を着ける
+ui_training_equip_pick,右から選ぶ
+ui_training_equip_part_filled,◆
+ui_training_equip_part_open,◇
+ui_level_up_title,昇級
+ui_level_up_form,昇　級　申　請　書
+ui_level_up_done_level,Lv %d
+ui_level_up_next_skill,次に覚えるスキル（Lv%d）
+ui_level_up_approver,承認　ギルドマスター
+ui_level_up_point,ステータスノードの点
+ui_level_up_point_gain,+1
+ui_level_up_go_nodes_short,振りに行く ›
+ui_stamp_level_up_done,昇級
+ui_level_up_seal_here,ここに判
+ui_level_up_left,%s のこり %d
+ui_level_up_uses,使うもの
+ui_level_up_remain,のこり %d → %d
+ui_level_up_go_nodes,点を振りに行く
+ui_level_up_again,続けて昇級させる
+ui_level_up_back,育成へ戻る
+ui_level_up_press,判を押して昇級させる

@@ -762,6 +762,7 @@ static func build() -> void:
 	_build_heading_font(theme)
 	_build_title_screen(theme)
 	_build_protection_cards(theme)
+	_build_training(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2152,6 +2153,77 @@ static func _build_protection_cards(theme: Theme) -> void:
 		theme.set_font(&"font", &"ProtectionMinutesLabel", theme.get_font(&"font", &"PriceLabel"))
 
 
+# --- ⚠⚠ 育成（2026-09-27・回UI-組 育成・手本 Character / Nodes / Skills / Equip / LevelUp）---
+#
+# ⚠ 左に身上書（`CharacterDossier`）・右に紙のタブ4枚。⚠ 右上にキャラの丸い札（⚠ 検証用は薄く）。
+# ⚠ 昇級は別の画面（`level_up_screen`＝昇級申請書 → 判）。
+const DOSSIER_WIDTH: int = 330
+const DOSSIER_PHOTO: int = 84
+const DOSSIER_NAME_SIZE: int = 28
+const DOSSIER_LEVEL_SIZE: int = 26
+const DOSSIER_STAT_ICON: int = 16
+const DOSSIER_STAT_GAP: int = 1          # ⚠ 10軸の行どうしの間（⚠ 縦 720 に収めるため詰める）
+const TRAINING_CHIP: int = 40            # ⚠ 右上のキャラの札
+const TRAINING_CHIP_BORDER: int = 2
+const TRAINING_CHIP_GAP: int = 8
+const TRAINING_CHIP_DEBUG_ALPHA_PCT: int = 45
+const TRAINING_ROW_ICON: int = 18        # ⚠ 概要・装備・スキルの行の絵
+const TRAINING_ITEM_ICON: int = 40       # ⚠ 装備の行のマス
+const TRAINING_APPLY_BORDER: int = 2     # ⚠ 概要の「昇級の申請」の枠
+const TRAINING_APPLY_PAD_H: int = 16
+const TRAINING_APPLY_PAD_V: int = 10
+const LEVEL_ARROW_SIZE: int = 40         # ⚠ 「1 → 2」
+const LEVEL_DONE_SIZE: int = 64          # ⚠ 昇級のあとの「Lv 2」
+const LEVEL_UP_SIDE_WIDTH: int = 380
+const LEVEL_UP_SEAL: int = 84            # ⚠ 「ここに判」の丸
+const SKILL_SLOT_HEIGHT: int = 76
+
+
+static func _build_training(theme: Theme) -> void:
+	var t: StringName = &"Training"
+	for spec: Array in [
+		["dossier_width", DOSSIER_WIDTH], ["dossier_photo", DOSSIER_PHOTO], ["stat_icon", DOSSIER_STAT_ICON],
+		["chip", TRAINING_CHIP], ["chip_border", TRAINING_CHIP_BORDER],
+		["chip_debug_alpha_pct", TRAINING_CHIP_DEBUG_ALPHA_PCT], ["row_icon", TRAINING_ROW_ICON],
+		["item_icon", TRAINING_ITEM_ICON], ["level_up_side_width", LEVEL_UP_SIDE_WIDTH],
+		["seal", LEVEL_UP_SEAL], ["skill_slot_height", SKILL_SLOT_HEIGHT],
+	]:
+		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
+	theme.set_color(&"chip_selected", t, _html(TOKEN_LIGHT))
+	theme.set_color(&"row_icon", t, _html(TOKEN_INK_SUB))
+	theme.set_color(&"seal", t, _html(TOKEN_RULE))
+	for spec: Array in [["TrainingChips", "HBoxContainer", TRAINING_CHIP_GAP], ["DossierStats", "VBoxContainer", DOSSIER_STAT_GAP]]:
+		theme.set_type_variation(StringName(str(spec[0])), StringName(str(spec[1])))
+		theme.set_constant(&"separation", StringName(str(spec[0])), int(spec[2]))
+
+	# ⚠ 概要の「昇級の申請」の枠（⚠ 明るい紙 ＋ 真鍮の墨の二重でなく一重の縁）。
+	var apply: StyleBoxFlat = StyleBoxFlat.new()
+	apply.bg_color = _html(TOKEN_PAPER_SELECTED)
+	apply.set_border_width_all(TRAINING_APPLY_BORDER)
+	apply.border_color = _html(TOKEN_BRASS_INK)
+	apply.content_margin_left = TRAINING_APPLY_PAD_H
+	apply.content_margin_right = TRAINING_APPLY_PAD_H
+	apply.content_margin_top = TRAINING_APPLY_PAD_V
+	apply.content_margin_bottom = TRAINING_APPLY_PAD_V
+	theme.set_type_variation(&"ApplicationPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ApplicationPanel", apply)
+
+	# ⚠ 字。⚠ 名前は明朝・数字は太いゴシック（⚠ 手本「数字は明朝にしない」）。
+	var heading: Font = theme.get_font(&"font", &"HeadingLabel") if theme.has_font(&"font", &"HeadingLabel") else null
+	var number: Font = theme.get_font(&"font", &"PriceLabel") if theme.has_font(&"font", &"PriceLabel") else null
+	for spec: Array in [
+		["DossierNameLabel", DOSSIER_NAME_SIZE, heading],
+		["DossierLevelLabel", DOSSIER_LEVEL_SIZE, number],
+		["LevelArrowLabel", LEVEL_ARROW_SIZE, number],
+		["LevelDoneLabel", LEVEL_DONE_SIZE, number],
+	]:
+		var type_name: StringName = StringName(str(spec[0]))
+		theme.set_type_variation(type_name, &"Label")
+		theme.set_font_size(&"font_size", type_name, int(spec[1]))
+		if spec[2] != null:
+			theme.set_font(&"font", type_name, spec[2] as Font)
+
+
 static func _build_heading_font(theme: Theme) -> void:
 	if not ResourceLoader.exists(HEADING_FONT_PATH):
 		push_warning("[BuildTheme] 見出しの明朝が無い（%s）。見出しは NotoSansJP のまま" % HEADING_FONT_PATH)
@@ -2195,6 +2267,10 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"SmallErrorLabel": TOKEN_WAX,
 	"GainLabel": TOKEN_PAPER_GAIN,
 	"ProtectionMinutesLabel": TOKEN_INK,
+	"DossierNameLabel": TOKEN_INK,
+	"DossierLevelLabel": TOKEN_INK,
+	"LevelArrowLabel": TOKEN_INK,
+	"LevelDoneLabel": TOKEN_INK,
 }
 
 
