@@ -765,6 +765,7 @@ static func build() -> void:
 	_build_training(theme)
 	_build_belongings(theme)
 	_build_barracks(theme)
+	_build_quest_board(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2278,6 +2279,25 @@ static func _build_barracks(theme: Theme) -> void:
 	]:
 		theme.set_type_variation(StringName(str(spec[0])), StringName(str(spec[1])))
 		theme.set_constant(&"separation", StringName(str(spec[0])), int(spec[2]))
+
+
+# --- ⚠⚠ 依頼掲示板（2026-09-27・回UI-組 掲示板・手本 QuestBoard・決定 `NAV-12`）---
+#
+# ⚠ 板（`ShopBoardPanel` を借りる）に傾いた紙の札を 3 × 2。⚠ 解放前の札は薄く。
+const QUEST_CARD_GAP_H: int = 40         # ⚠ 札どうしの横の間（⚠ 手本 3列で板いっぱい）
+const QUEST_CARD_GAP_V: int = 26
+const QUEST_LOCKED_ALPHA_PCT: int = 55   # ⚠ 手本の暗い札
+const QUEST_STAMINA_ICON: int = 14
+
+
+static func _build_quest_board(theme: Theme) -> void:
+	var t: StringName = &"QuestBoard"
+	theme.set_constant(&"locked_alpha_pct", t, QUEST_LOCKED_ALPHA_PCT)
+	theme.set_constant(&"stamina_icon", t, QUEST_STAMINA_ICON)
+	theme.set_color(&"stamina_icon", t, _html(TOKEN_INK_SUB))
+	theme.set_type_variation(&"QuestGrid", &"GridContainer")
+	theme.set_constant(&"h_separation", &"QuestGrid", QUEST_CARD_GAP_H)
+	theme.set_constant(&"v_separation", &"QuestGrid", QUEST_CARD_GAP_V)
 
 
 static func _build_heading_font(theme: Theme) -> void:

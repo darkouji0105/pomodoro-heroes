@@ -1,32 +1,33 @@
-# 次のセッションに渡すプロンプト（2026-09-27 深夜の版）
+# 次のセッションに渡すプロンプト（2026-09-27 深夜・2つ目の版）
 
 > ⚠ **この下の枠をそのままコピーして、次のセッションの1通目に貼る。**
-> ⚠ 前の版（2026-09-27 夜・「詰所を作る回」）は**この版に置き換えた**。
->   ⚠ 詰所（回UI-組 の3つ目）が終わったため（`NEXT_STEPS.md` §0-UI-AS）。
+> ⚠ 前の版（「掲示板の回」）は**この版に置き換えた**。
+>   ⚠ 詰所・掲示板（回UI-組 の3つ目・4つ目）が終わったため（`NEXT_STEPS.md` §0-UI-AS・§0-UI-AT）。
 
 ---
 
 ```
 main の最新（origin/main と同じ）から始めて。作業ツリーは .claude/settings.json 以外クリーン。
 
-## この回の題目：**UI の作り直しの続き（回UI-組 の4つ目＝掲示板）**
+## この回の題目：**UI の作り直しの続き（回UI-組 の最後＝届いた宝箱）**
 
 ⚠ 人間が別の AI と作った UI の手本一式を、⚠ 回に分けて Godot に写している途中。
 ⚠ 手本は `docs/pomodoro-heroes-ui-docs/docs/ui/`（⚠ README.md → UI_GUIDE.md → ui_tokens.json ／ screenshots/*.png ／ screens/*.html）。
-⚠ 進み具合と回の並びは `docs/NEXT_STEPS.md` の一番上（「進み具合」「これからの回」）。⚠ **いまは UI 15 / 27 回（56%）・これからの回ぜんぶ 16 / 36（44%）**。
+⚠ 進み具合と回の並びは `docs/NEXT_STEPS.md` の一番上（「進み具合」「これからの回」）。⚠ **いまは UI 16 / 27 回（59%）・これからの回ぜんぶ 17 / 36（47%）**。
 
-## ⚠⚠ 掲示板は答えがまだ無い（⚠ **方針を先に出して、人間に裁いてもらう**）
+## ⚠⚠ 届いた宝箱は答えがまだ無い（⚠ **方針を先に出して、人間に裁いてもらう**）
 
-- ⚠ 手本 `screenshots/QuestBoard.png` ／ `screens/QuestBoard.html`
-- ⚠ まず「いまのゲームのどの画面・データが掲示板に当たるか」を `grep` で取る（⚠ 推測で決めない）。⚠ 仕組みが要るなら「仕組みの回」へ回す案も出す
+- ⚠ 手本 `screenshots/Chest.png` ／ `screens/Chest.html`
+- ⚠ まず「いまのゲームのどの画面が当たるか」を `grep` で取る（⚠ 推測で決めない。⚠ 拠点の宝箱バッジ → 一覧 `ChestPanel` が候補。⚠ 検査は `scenario=base_chest`）。⚠ 仕組みが要るなら「仕組みの回」へ回す案も出す
 - ⚠ 選択肢は「1あ／1い」の形で出す（⚠ 人間はその形で答える）
+- ⚠ 前の回（掲示板）の残り：⚠ **出撃届は仮の吹き出し**（⚠ 人間「⚠ モックが欲しいなら言って」）
 
 ## 読む順
 
 1. `CLAUDE.md` ／ `AGENTS.md`（⚠ 09-27 に「押した結果も取れる」＝`scenario=ui_flow` の節が増えた）
-2. `docs/NEXT_STEPS.md` の上から「これからの回」「進み具合」と、⚠ 直近の節（§0-UI-AS 〜 §0-UI-AN）
-3. `docs/DECISIONS.md` の ⚠ `NAV-6`〜`NAV-11` ／ `GR-4`〜`GR-6` ／ `BS-9`・`BS-15`・`BS-16` ／ `MD-10`・`MD-11` ／ `UI-10`〜`UI-17`
-4. 手本：`screenshots/QuestBoard.png` と `screens/QuestBoard.html`
+2. `docs/NEXT_STEPS.md` の上から「これからの回」「進み具合」と、⚠ 直近の節（§0-UI-AT 〜 §0-UI-AO）
+3. `docs/DECISIONS.md` の ⚠ `NAV-6`〜`NAV-12` ／ `GR-4`〜`GR-6` ／ `BS-9`・`BS-15`・`BS-16` ／ `MD-10`・`MD-11` ／ `UI-10`〜`UI-17`
+4. 手本：`screenshots/Chest.png` と `screens/Chest.html`
 
 ## ここまでで決まっている作り方（⚠ 詳しくは DECISIONS.md）
 
@@ -36,7 +37,7 @@ main の最新（origin/main と同じ）から始めて。作業ツリーは .c
 - ⚠ 部品：`PaperSheet` `SheetHeading`（`ornament_below` `centered` `title_text`）`PaperTabs` `LedgerRow`（⚠ `compact`＝詰めた行・09-27）`Stamp`（`filled`）`TiltedSheet` `CharacterAvatar` `CharacterDossier`（育成の身上書）`BaseFacilityBar` `SlotActionPopover`
 - ⚠ 確かめの窓は紙（`MD-10`）・判は `Modal.OPTION_STAMP`・長押しは `Modal.OPTION_HOLD`（`MD-11`）。⚠ 並びは `MD-4`「はいが左」
 - ⚠ 撮影は `scenario=shot`（⚠ いま **32枚**。⚠ 窓が十数秒出る。⚠ 覆わない）。⚠ 画面ごとに撮った絵と手本の png を見比べる。⚠ 行に `"measure": [ノードのパス]` を書くと位置が出る
-- ⚠⚠ **押したら何が変わるか・どこへ移るか・押せるかは `scenario=ui_flow`**（⚠ ヘッドレス・いま 51項目）。⚠ 画面を作ったら**手を足して回す**。⚠ `HUMAN_CHECK.md` に積むのは色・手応え・気づけるかだけ
+- ⚠⚠ **押したら何が変わるか・どこへ移るか・押せるかは `scenario=ui_flow`**（⚠ ヘッドレス・いま 62項目）。⚠ 画面を作ったら**手を足して回す**。⚠ `HUMAN_CHECK.md` に積むのは色・手応え・気づけるかだけ
 - ⚠ `layout` は画面のパスの後ろに `#タブ` を付けるとそのタブで開く（⚠ 育成・持ち物）
 
 ## 気をつけること（⚠ ここまでで踏んだ）
@@ -46,10 +47,11 @@ main の最新（origin/main と同じ）から始めて。作業ツリーは .c
 - ⚠ 撮影・検査の下ごしらえを2回呼ぶと「刺せない」で赤になる（⚠ 装飾の下ごしらえは1回だけ）
 - ⚠ 施設の帯のある画面は、⚠ 中身が縦 720 に入りきらないと**帯の裏へ伸びて隠れる**（⚠ 詰所の1枚目で踏んだ）。⚠ 撮った絵で下端を見る
 - ⚠ 吹き出し（`SlotActionPopover`）は、⚠ 作り直したばかりの札を相手にすると位置が取れない（⚠ 開くときは作り直さない）
+- ⚠ 押したボタン自身を渡したいときはラムダで掴まない（⚠ 作った時点の値＝null を取る）。⚠ 作ってから `pressed.connect(f.bind(button))`
 
 ## 次の回（⚠ NEXT_STEPS の表のとおり）
 
-- ⚠ 回UI-組 の残り：⚠ **掲示板** → 届いた宝箱
+- ⚠ 回UI-組 の残り：⚠ **届いた宝箱**（⚠ これで回UI-組 は終わり）
 - ⚠ そのあと：⚠ 仕組みの回（鍛冶・記録・設定 ほか）→ ⚠ ダンジョンの形（決定49）
 - ⚠ **回3-d**（⚠ 拠点の容量の判定を消す・`BS-20`）は器が変わる＝`EXEC` を書く側
 

@@ -951,7 +951,7 @@ const SCENARIOS: Dictionary = {
 	# ⚠ 育成・昇級・持ち物を本物のボタンで押して回る（2026-09-27）。⚠ 状態は書き換えるが保存しない。
 	"ui_flow": {
 		"kind": KIND_UI_FLOW,
-		"note": "育成の札とタブ ／ 割り振り ／ スキル ／ 装備 ／ 昇級 ／ 持ち物（鍛える・刺す・外す・分解・段階・捨てる・図鑑）／ 詰所（ビルド・並べ替え・控え・開く）",
+		"note": "育成の札とタブ ／ 割り振り ／ スキル ／ 装備 ／ 昇級 ／ 持ち物（鍛える・刺す・外す・分解・段階・捨てる・図鑑）／ 詰所（ビルド・並べ替え・控え・開く）／ 掲示板（タブ・札・出撃届・続きから）",
 	},
 	# 2026-09-21。⚠⚠ 窓あり専用。⚠ 画面を PNG で撮る（⚠ 設計役が絵を見られる唯一の口）。
 	# ⚠ `--headless` を付けないこと。⚠ 出し先は `shot_dir=<パス>`。
@@ -9604,6 +9604,8 @@ class UiFlowRunner extends Node:
 	const LEVEL_UP: String = "res://scenes/guild/level_up_screen.tscn"
 	const BELONGINGS: String = "res://scenes/guild/warehouse_screen.tscn"
 	const BARRACKS: String = "res://scenes/adventure/party_preset_screen.tscn"
+	const ADVENTURE: String = "res://scenes/adventure/adventure_select.tscn"
+	const FLOOR_MAP: String = "res://scenes/adventure/floor_map.tscn"
 	const HERO: String = "char_swordsman"
 	const OTHER: String = "char_archer"
 	const WEAPON_ID: String = "weapon_iron_sword"
@@ -9627,6 +9629,7 @@ class UiFlowRunner extends Node:
 		await _flow_belongings_tabs()
 		await _flow_facility()
 		await _flow_barracks()
+		await _flow_quest_board()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
 
@@ -9894,6 +9897,57 @@ class UiFlowRunner extends Node:
 		await _press(b.find_child("Card_" + OTHER, true, false).find_child("OpenButton", true, false) if b.find_child("Card_" + OTHER, true, false) != null else null, OPEN_FRAMES)
 		var t: Node = get_tree().current_scene
 		_check("詰所：「開く ›」で %s の育成が開く" % OTHER, _path_of(t) == TRAINING and str(t.get("_selected_id")) == OTHER)
+
+	# --- 依頼掲示板（2026-09-27・決定 `NAV-12`）：タブ ／ 札 ／ 出撃届（詰所で変える → 戻る ／ 出撃する）／ 続きから ---
+
+	func _flow_quest_board() -> void:
+		var q: Node = await _open(ADVENTURE, {})
+		if q == null:
+			return
+		var story: Array = MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)
+		var first: String = str(story[0])
+		_check("掲示板：編成の行は無い", q.find_child("PartyBox", true, false) == null)
+		var cards: int = q.find_children("StageCard_*", "", true, false).size()
+		_check("掲示板：通常の依頼に話の札が %d 枚＋練習場" % cards, cards == story.size() and q.find_child("TrainingCard", true, false) != null)
+		# ⚠ 解放前の話は薄く・ボタンなし（⚠ 2話目は1話目を終えるまで閉じている）。
+		if story.size() > 1 and not GameManager.is_stage_cleared(first):
+			var second: Node = q.find_child("StageCard_" + str(story[1]), true, false)
+			_check("掲示板：解放前の話は「前の話を終えると」でボタンなし", second != null and second.find_child("LockedLabel", true, false) != null and second.find_child("ChallengeButton", true, false) == null)
+		await _press(_tab_button(q, 1))
+		_check("掲示板：「高難度の依頼」に難ダンジョンの札", q.find_children("DungeonCard_*", "", true, false).size() == MasterDataLoader.get_all_dungeon_ids().size())
+		await _press(_tab_button(q, 2))
+		_check("掲示板：「検証用」に検証用の札", q.find_children("DebugCard_*", "", true, false).size() == MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_DEBUG).size())
+		await _press(_tab_button(q, 0))
+
+		# 受ける → 出撃届（⚠ まだ出ない）→ 詰所で変える → 戻ると掲示板。
+		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false))
+		var pop: Node = _first_of_type(q, "SlotActionPopover")
+		_check("掲示板：「受ける」で出撃届の吹き出し（まだ出ない）", pop != null and not GameManager.is_in_floor() and _path_of(get_tree().current_scene) == ADVENTURE)
+		await _press(null if pop == null else pop.find_child("SortieEditButton", true, false), OPEN_FRAMES)
+		var b: Node = get_tree().current_scene
+		_check("掲示板：出撃届の「詰所で変える」で詰所", _path_of(b) == BARRACKS and b.find_child("FacilityBar", true, false) == null)
+		var back: Node = b.find_child("Header", true, false)
+		await _press(null if back == null else back.find_child("BackButton", true, false), OPEN_FRAMES)
+		q = get_tree().current_scene
+		_check("掲示板：詰所の「戻る」で掲示板へ戻る", _path_of(q) == ADVENTURE)
+		if _path_of(q) != ADVENTURE:
+			return
+
+		# 出撃する → フロアのマップ。
+		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false))
+		pop = _first_of_type(q, "SlotActionPopover")
+		await _press(null if pop == null else pop.find_child("SortieGoButton", true, false), OPEN_FRAMES)
+		_check("掲示板：出撃届の「出撃する」でフロアのマップ", _path_of(get_tree().current_scene) == FLOOR_MAP and GameManager.is_in_floor())
+
+		# 続きから → ⚠ 出撃届を挟まずマップ。
+		q = await _open(ADVENTURE, {})
+		if q == null:
+			return
+		var resume: Node = q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false)
+		_check("掲示板：途中のフロアは「続きから」", resume is Button and (resume as Button).text == tr("ui_floor_resume"))
+		await _press(resume, OPEN_FRAMES)
+		_check("掲示板：「続きから」は出撃届を挟まずマップ", _path_of(get_tree().current_scene) == FLOOR_MAP)
+		GameManager.abandon_floor()
 
 	# --- 小さい道具 ---
 

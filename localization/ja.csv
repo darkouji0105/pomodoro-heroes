@@ -111,17 +111,15 @@ ui_battle_skill_drain_life,吸命
 ui_battle_skill_purge_wave,浄化の波動
 ui_battle_skill_judgement,裁きの雷
 ui_battle_just,JUST!
-ui_adventure_title,冒険
 ui_adventure_stamina_short,スタミナが足りません
 ui_adventure_locked,前のステージをクリアすると解放されます
 ui_adventure_training,トレーニング
 ui_adventure_challenge,挑戦
-ui_adventure_party,編成
-ui_floor_1,1. 草原のスライム
-ui_floor_2,2. 風わたる丘
-ui_floor_3,3. 荒野の群れ
-ui_floor_4,4. 霧ふかき森
-ui_floor_5,5. 森の主
+ui_floor_1,草原のスライム
+ui_floor_2,風わたる丘
+ui_floor_3,荒野の群れ
+ui_floor_4,霧ふかき森
+ui_floor_5,森の主
 ui_floor_node_battle,たたかう
 ui_floor_node_boss,ボス
 ui_floor_node_rest,休憩
@@ -1112,3 +1110,15 @@ ui_barracks_reserve_hint,押すと呼ぶ・残す
 ui_barracks_call,呼ぶ
 ui_barracks_keep,残す
 ui_barracks_kept,控え%d に残しました
+ui_quest_board_title,依頼掲示板
+ui_quest_tab_normal,通常の依頼
+ui_quest_tab_hard,高難度の依頼
+ui_quest_tab_debug,検証用
+ui_quest_episode,第%d話
+ui_quest_training_caption,練習場
+ui_quest_go,行く
+ui_quest_locked,前の話を終えると
+ui_quest_cleared,済
+ui_quest_take,受ける
+ui_quest_sortie_go,出撃する
+ui_quest_sortie_edit,詰所で変える
