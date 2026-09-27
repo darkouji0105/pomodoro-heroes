@@ -544,14 +544,10 @@ ui_part_slot_kind_charm,護符枠
 ui_part_slot_kind_emblem,紋章枠
 ui_part_slot_kind_rune,ルーン枠
 ui_part_slot_kind_wild,ワイルド枠
-ui_party_preset_title,パーティ編成
-ui_party_preset_presets_header,編成プリセット
-ui_party_preset_members_header,いまの編成
-ui_party_preset_slot,編成%d
+ui_party_preset_slot,控え%d
 ui_party_preset_build,ビルド%d
 ui_party_preset_empty,空き
 ui_party_preset_apply,適用
-ui_party_preset_save,保存
 ui_party_preset_clear,消す
 ui_party_preset_burn,焼く
 ui_party_preset_applied,適用しました
@@ -1003,7 +999,6 @@ ui_stamp_accepted,受理
 ui_stamp_level_up,昇級できる
 ui_facility_hq,本部
 ui_facility_barracks,詰所
-ui_facility_training,育成
 ui_facility_forge,鍛冶場
 ui_facility_belongings,持ち物
 ui_facility_records,記録
@@ -1102,3 +1097,18 @@ ui_belongings_forge_note,鍛える：%s %d ／ %d
 ui_belongings_dismantle_confirm,%s を分解して素材に戻す。戻ってくる素材 %d 個。
 ui_belongings_dismantle_title,分解する
 ui_belongings_not_equipped,だれも着けていない
+ui_barracks_open,開く ›
+ui_barracks_can_level_up,昇級できる
+ui_barracks_build_hint,押すと番号が進む（控えに残すときのビルド）
+ui_barracks_skill_empty,［空き］
+ui_barracks_skill_separator,・
+ui_barracks_sortie,出撃届
+ui_barracks_sortie_hint,並びの順に前へ出る
+ui_barracks_reorder,並べ替える
+ui_barracks_reorder_done,並べ替えを終える
+ui_barracks_reorder_hint,入れ替える2人を押す
+ui_barracks_reserve,編成の控え
+ui_barracks_reserve_hint,押すと呼ぶ・残す
+ui_barracks_call,呼ぶ
+ui_barracks_keep,残す
+ui_barracks_kept,控え%d に残しました

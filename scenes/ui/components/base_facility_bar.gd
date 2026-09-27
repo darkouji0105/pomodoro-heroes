@@ -15,7 +15,6 @@ extends FacilityBar
 # ⚠ 施設のID。⚠ 本部・詰所・記録は画面IDを持たないので、⚠ 帯の中だけの名前を付ける。
 const HQ: String = "hq"
 const BARRACKS: String = "barracks"
-const TRAINING: String = "training"
 const FORGE: String = "forge"
 const BELONGINGS: String = "belongings"
 const RECORDS: String = "records"
@@ -27,8 +26,8 @@ const KEY_UNLOCK: String = "unlock"   # ⚠ `""` ならいつも出す
 const KEY_DATA: String = "data"
 
 # ⚠⚠ 並び（`NAV-6`・仮）。⚠ 手本の5つ ＋ 研究・ショップ（人間「⚠ 7あ」）。
-# ⚠⚠ 「育成」は**つなぎ**（⚠ 人間が「詰所＝編成」を選んだため、⚠ 育成の一覧へ入る道が他に無い）。
-#   ⚠ 詰所を手本の形（身上書 → 育成）に作り直す回で帯から外す。
+# ⚠⚠ 「育成」（つなぎ）は 2026-09-27 に外した（⚠ 詰所を手本の形に作り直した＝身上書カードの「開く ›」で育成へ）。
+#   ⚠ 育成の画面の中では詰所を光らせる（⚠ 詰所の下の画面）。
 # ⚠ 「記録」は記録の画面ができるまで**倉庫の図鑑タブ**を開く（⚠ 人間の選択）。
 static func facilities() -> Array[Dictionary]:
 	return [
@@ -36,8 +35,6 @@ static func facilities() -> Array[Dictionary]:
 			KEY_PATH: "res://scenes/base/base_screen.tscn", KEY_UNLOCK: ""},
 		{ENTRY_ID: BARRACKS, ENTRY_LABEL_KEY: "ui_facility_barracks",
 			KEY_PATH: "res://scenes/adventure/party_preset_screen.tscn", KEY_UNLOCK: ""},
-		{ENTRY_ID: TRAINING, ENTRY_LABEL_KEY: "ui_facility_training",
-			KEY_PATH: "res://scenes/guild/training_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_TRAINING},
 		{ENTRY_ID: FORGE, ENTRY_LABEL_KEY: "ui_facility_forge",
 			KEY_PATH: "res://scenes/guild/workshop_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WORKSHOP},
 		{ENTRY_ID: BELONGINGS, ENTRY_LABEL_KEY: "ui_facility_belongings",

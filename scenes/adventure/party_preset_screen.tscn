@@ -1,9 +1,8 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scenes/adventure/party_preset_screen.gd" id="1_party_preset"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
-
 [ext_resource type="PackedScene" uid="uid://b1screenheader01" path="res://scenes/ui/components/screen_header.tscn" id="9_screen_header"]
+[ext_resource type="Script" path="res://scenes/ui/components/paper_sheet.gd" id="10_paper_sheet"]
 
 [node name="PartyPresetScreen" type="Control"]
 layout_mode = 3
@@ -20,6 +19,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 theme_type_variation = &"BackgroundPanel"
 
 [node name="Margin" type="MarginContainer" parent="."]
@@ -32,31 +32,21 @@ theme_type_variation = &"ScreenMargin"
 
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
+theme_type_variation = &"SectionGap"
 
 [node name="Header" parent="Margin/Layout" instance=ExtResource("9_screen_header")]
 layout_mode = 2
-title_key = "ui_party_preset_title"
+title_key = "ui_facility_barracks"
 
-[node name="MembersLabel" type="Label" parent="Margin/Layout"]
-layout_mode = 2
-text = "ui_party_preset_members_header"
-
-[node name="Members" type="VBoxContainer" parent="Margin/Layout"]
-layout_mode = 2
-
-[node name="PresetsLabel" type="Label" parent="Margin/Layout"]
-layout_mode = 2
-text = "ui_party_preset_presets_header"
-
-[node name="Scroll" type="ScrollContainer" parent="Margin/Layout"]
+[node name="Cards" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3
-horizontal_scroll_mode = 0
+theme_type_variation = &"BarracksCards"
 
-[node name="Presets" type="VBoxContainer" parent="Margin/Layout/Scroll"]
+[node name="Bottom" type="PanelContainer" parent="Margin/Layout"]
 layout_mode = 2
-size_flags_horizontal = 3
+script = ExtResource("10_paper_sheet")
 
-[node name="MessageLabel" type="Label" parent="Margin/Layout"]
+[node name="Body" type="HBoxContainer" parent="Margin/Layout/Bottom"]
 layout_mode = 2
-autowrap_mode = 3
+theme_type_variation = &"WideRow"

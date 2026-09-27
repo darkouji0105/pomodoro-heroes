@@ -55,7 +55,8 @@ var _notice_text: String = ""
 
 func _ready() -> void:
 	header.back_pressed.connect(_on_back_pressed)
-	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.TRAINING)
+	# ⚠ 2026-09-27（回UI-組 詰所）：⚠ 帯の「育成」は外した。⚠ 育成は詰所の下の画面なので詰所を光らせる。
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.BARRACKS)
 	GameManager.character_growth_changed.connect(_on_character_growth_changed)
 	GameManager.material_changed.connect(_on_material_changed)
 

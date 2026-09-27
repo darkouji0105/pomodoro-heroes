@@ -30,6 +30,12 @@ const THEME_TYPE: StringName = &"LedgerRow"
 		show_rule = value
 		queue_redraw()
 
+# ⚠ 上下の余白を詰めた行（2026-09-27・詰所の身上書カード。⚠ 縦 720 に下の紙まで収めるため）。
+@export var compact: bool = false:
+	set(value):
+		compact = value
+		_apply()
+
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -41,7 +47,10 @@ func _ready() -> void:
 
 
 func _apply() -> void:
-	theme_type_variation = &"LedgerRowSelectedPanel" if selected else &"LedgerRowPanel"
+	if compact:
+		theme_type_variation = &"LedgerRowCompactSelectedPanel" if selected else &"LedgerRowCompactPanel"
+	else:
+		theme_type_variation = &"LedgerRowSelectedPanel" if selected else &"LedgerRowPanel"
 	var alpha: float = 1.0
 	if disabled and is_inside_tree():
 		alpha = float(get_theme_constant(&"disabled_alpha_pct", THEME_TYPE)) / 100.0

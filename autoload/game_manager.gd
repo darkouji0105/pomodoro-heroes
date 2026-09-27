@@ -4129,7 +4129,9 @@ func is_debug_character(character_id: String) -> bool:
 
 # 編成プリセットの本数（人間の決定・2026-08-23。固定本数。増やす仕組みは作らない）。
 # ⚠ .tres に置かない。バランス数値ではなく構造（SKILL_SLOT_COUNT と同じ扱い）。
-const PARTY_PRESET_COUNT: int = 10
+# ⚠ 2026-09-27：10 → 8（決定 `NAV-11`・人間「⚠ 3い」＝詰所の控えは8件の札）。
+#   ⚠ 9・10番に残した分は `_normalize_presets_from_save()` の `resize()` で読み込み時に落ちる。
+const PARTY_PRESET_COUNT: int = 8
 
 # 1キャラあたりのキャラプリセットの枠数。
 # ⚠ 3 は設計役が置いた数（GAME_DESIGN 5-5 は「キャラごとに複数」としか書いていない）。
@@ -4207,7 +4209,7 @@ func _empty_equipment() -> Dictionary:
 	return equipment
 
 
-# 編成プリセット10件。⚠ 複製を返す。
+# 編成プリセット（`PARTY_PRESET_COUNT` 件）。⚠ 複製を返す。
 func get_party_presets() -> Array:
 	var presets: Variant = _state.get(GameStateKeys.PARTY_PRESETS, [])
 	if not (presets is Array):

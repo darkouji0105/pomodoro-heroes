@@ -764,6 +764,7 @@ static func build() -> void:
 	_build_protection_cards(theme)
 	_build_training(theme)
 	_build_belongings(theme)
+	_build_barracks(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -1723,6 +1724,7 @@ const PAPER_TAB_PAD_V_CLOSED: int = 9   # ⚠ 同 ＝ 手本の 38
 const PAPER_TAB_CORNER: int = 6
 const PAPER_TAB_GAP: int = 4
 const LEDGER_ROW_PAD_V: int = 10
+const LEDGER_ROW_COMPACT_PAD_V: int = 3  # ⚠ 詰めた行（⚠ 詰所のカード・出撃届）
 const LEDGER_SELECTED_LINE: int = 3     # ⚠ 選んでいる行の左の線
 const LEDGER_DASH: int = 3              # ⚠ 点線の罫の1片と間
 const LEDGER_DISABLED_ALPHA_PCT: int = 45
@@ -1875,6 +1877,13 @@ static func _build_paper_parts(theme: Theme) -> void:
 	selected.border_color = _html(TOKEN_BRASS_INK)
 	theme.set_type_variation(&"LedgerRowSelectedPanel", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"LedgerRowSelectedPanel", selected)
+	# ⚠ 詰めた行（`LedgerRow.compact`・2026-09-27 詰所の身上書カード）。⚠ 上下の余白だけ違う。
+	for spec: Array in [["LedgerRowCompactPanel", row], ["LedgerRowCompactSelectedPanel", selected]]:
+		var compact: StyleBoxFlat = (spec[1] as StyleBoxFlat).duplicate()
+		compact.content_margin_top = LEDGER_ROW_COMPACT_PAD_V
+		compact.content_margin_bottom = LEDGER_ROW_COMPACT_PAD_V
+		theme.set_type_variation(StringName(str(spec[0])), &"PanelContainer")
+		theme.set_stylebox(&"panel", StringName(str(spec[0])), compact)
 	theme.set_color(&"rule", &"LedgerRow", _html(TOKEN_RULE))
 	theme.set_constant(&"dash", &"LedgerRow", LEDGER_DASH)
 	theme.set_constant(&"disabled_alpha_pct", &"LedgerRow", LEDGER_DISABLED_ALPHA_PCT)
@@ -2240,6 +2249,35 @@ static func _build_belongings(theme: Theme) -> void:
 	theme.set_constant(&"filter_width", t, BELONGINGS_FILTER_WIDTH)
 	theme.set_constant(&"stat_columns", t, BELONGINGS_STAT_COLUMNS)
 	theme.set_constant(&"head_icon", t, BELONGINGS_HEAD_ICON)
+
+
+# --- ⚠⚠ 詰所（2026-09-27・回UI-組 詰所・手本 Barracks・決定 `NAV-11`）---
+#
+# ⚠ 上に傾いた身上書カード3枚 ／ 下の紙の左に出撃届・右に編成の控え（⚠ 8件の札）。
+# ⚠ カードの名前と Lv は育成の身上書と同じ型（`DossierNameLabel` / `DossierLevelLabel`）。
+const BARRACKS_CARD_GAP: int = 30        # ⚠ カードどうしの間（⚠ 手本 gap 30）
+const BARRACKS_SORTIE_GAP: int = 28      # ⚠ 出撃届の3人の間
+const BARRACKS_SORTIE_PHOTO: int = 40    # ⚠ 出撃届の小さな写真
+const BARRACKS_RESERVE_WIDTH: int = 460  # ⚠ 下の紙の右（編成の控え）の幅
+const BARRACKS_PRESET_GAP: int = 4       # ⚠ 控えの札どうしの間
+const BARRACKS_PRESET_HEIGHT: int = 60
+const BARRACKS_PRESET_EMPTY_ALPHA_PCT: int = 60   # ⚠ 空きの札は薄く（⚠ 手本は暗い紙＋薄墨）
+
+
+static func _build_barracks(theme: Theme) -> void:
+	var t: StringName = &"Barracks"
+	for spec: Array in [
+		["sortie_photo", BARRACKS_SORTIE_PHOTO], ["reserve_width", BARRACKS_RESERVE_WIDTH],
+		["preset_height", BARRACKS_PRESET_HEIGHT], ["preset_empty_alpha_pct", BARRACKS_PRESET_EMPTY_ALPHA_PCT],
+	]:
+		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
+	for spec: Array in [
+		["BarracksCards", "HBoxContainer", BARRACKS_CARD_GAP],
+		["BarracksSortieRow", "HBoxContainer", BARRACKS_SORTIE_GAP],
+		["BarracksPresetRow", "HBoxContainer", BARRACKS_PRESET_GAP],
+	]:
+		theme.set_type_variation(StringName(str(spec[0])), StringName(str(spec[1])))
+		theme.set_constant(&"separation", StringName(str(spec[0])), int(spec[2]))
 
 
 static func _build_heading_font(theme: Theme) -> void:
