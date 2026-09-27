@@ -29,6 +29,9 @@ const OPTION_DANGER: String = "danger"                # ⚠ 実行のボタン�
 const OPTION_CONFIRM_LABEL: String = "confirm_label_key"  # ⚠ 「はい」の文言（⚠ 「消す」「捨てる」など）
 # ⚠ 2026-09-27（回UI-4 確かめの窓・手本 Confirm）。⚠ 紙の右上に押す判の翻訳キー（⚠ 「戻せない」「全部なくす」など）。
 const OPTION_STAMP: String = "stamp_key"
+# ⚠ 実行を**長押し**にする（⚠ いちばん重いもの＝セーブを消す・09-27 人間「⚠ セーブは長押し」）。
+#   ⚠ 値はボタンの下に添える説明の翻訳キー（⚠ 在れば長押し）。⚠ 押す長さは Theme（`Window/confirm_hold_ms`）。
+const OPTION_HOLD: String = "hold_hint_key"
 
 # ⚠ 呼ぶ側が綴りを書かないための持ち出し（⚠ `ModalDialog` の定数と同じ字）。
 const WIDTH_TINY: String = ModalDialog.WIDTH_TINY

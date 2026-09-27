@@ -56,8 +56,10 @@ func _on_delete_save_pressed() -> void:
 	var confirmed: bool = await Modal.confirm(self, "ui_title_delete_confirm", [], false, {
 		Modal.OPTION_TITLE: tr("ui_title_delete_save"),
 		Modal.OPTION_DANGER: true,
-		Modal.OPTION_CONFIRM_LABEL: "ui_title_delete_save",
+		Modal.OPTION_CONFIRM_LABEL: "ui_title_delete_save_hold",
 		Modal.OPTION_STAMP: "ui_stamp_erased",
+		# ⚠ いちばん重いものは長押し（決定 `MD-11`・09-27 人間「⚠ セーブは長押し」）。
+		Modal.OPTION_HOLD: "ui_title_delete_hold_hint",
 	})
 	if not confirmed:
 		return

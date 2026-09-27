@@ -1734,6 +1734,9 @@ const CONFIRM_PAPER_PAD_BOTTOM: int = 4
 const CONFIRM_BUTTON_HEIGHT: int = 50    # ⚠ 手本の2つのボタン（⚠ ふつうのボタンは 44＝`UI-11`）
 const CONFIRM_STAMP_OVERHANG: int = 14   # ⚠ 判が紙の上辺からはみ出す量
 const CONFIRM_STAMP_RIGHT: int = 18      # ⚠ 判の右端から紙の右辺まで
+const CONFIRM_HOLD_MS: int = 2000        # ⚠ 長押しの長さ（⚠ 手本の `hold` 2s）
+const CONFIRM_HOLD_FILL: String = "b0432f"  # ⚠ 押している間に満ちる赤（⚠ 手本の `.fill`）
+const CONFIRM_HOLD_FILL_ALPHA_PCT: int = 60  # ⚠ 字の上に重なるので透かす
 const FACILITY_BAR_HEIGHT: int = 76     # ⚠ 手本 `facility_bar`
 const RELIC_LIST_WIDTH: int = 960       # ⚠ カード3枚が横に並ぶ幅
 const RELIC_LIST_COLUMNS: int = 3
@@ -1895,6 +1898,10 @@ static func _build_paper_parts(theme: Theme) -> void:
 	theme.set_constant(&"confirm_button_height", &"Window", CONFIRM_BUTTON_HEIGHT)
 	theme.set_constant(&"confirm_stamp_overhang", &"Window", CONFIRM_STAMP_OVERHANG)
 	theme.set_constant(&"confirm_stamp_right", &"Window", CONFIRM_STAMP_RIGHT)
+	theme.set_constant(&"confirm_hold_ms", &"Window", CONFIRM_HOLD_MS)
+	var hold_fill: Color = _html(CONFIRM_HOLD_FILL)
+	hold_fill.a = float(CONFIRM_HOLD_FILL_ALPHA_PCT) / 100.0
+	theme.set_color(&"confirm_hold_fill", &"Window", hold_fill)
 
 	# 見出しの帯の題（回UI-3）。⚠ 明朝・字間を広く・⚠ 左右に灯りの◆（`ScreenHeader` が描く）。
 	theme.set_type_variation(&"HeaderTitleLabel", &"Label")

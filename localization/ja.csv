@@ -1035,3 +1035,5 @@ ui_dungeon_abandon_title,その場で降りる
 ui_dungeon_abandon_short,降りる
 ui_part_break_title,装飾を壊す
 ui_pomodoro_quit_title,拠点へ戻る
+ui_title_delete_save_hold,消す（長押し）
+ui_title_delete_hold_hint,押しつづけると消える。途中で離せば止まる

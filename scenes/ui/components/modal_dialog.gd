@@ -45,6 +45,12 @@ const MESSAGE_LEFT_ALIGN_LINES: int = 2
 # ⚠ 確かめの窓の判（⚠ 紙の右上からはみ出す）。⚠ 渡されなければ作らない。
 var _stamp: Stamp = null
 
+# ⚠ 長押しの実行（`Modal.OPTION_HOLD`）。⚠ 長さ 0 ＝ふつうのボタン。
+var _hold_ms: int = 0
+var _hold_elapsed_ms: float = 0.0
+var _holding: bool = false
+var _hold_fill: ColorRect = null
+
 # 自分がポーズを立てたかどうか。
 # これを見ずに解除すると、他のモーダルが立てたポーズを勝手に戻す。
 var _pause: bool = false
@@ -110,6 +116,9 @@ func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary =
 		var yes_key: String = str(options.get(Modal.OPTION_CONFIRM_LABEL, ""))
 		if yes_key != "":
 			confirm_button.label_key = yes_key
+		var hold_hint: String = str(options.get(Modal.OPTION_HOLD, ""))
+		if hold_hint != "":
+			_make_hold(hold_hint)
 	else:
 		# ⚠ 閉じるボタンの文言を差し替えられる（⚠ 宝箱は「受け取る」）。
 		close_button.label_key = str(options.get(Modal.OPTION_CLOSE_LABEL, "ui_common_close"))
@@ -155,6 +164,58 @@ func _become_paper(title: String, stamp_key: String) -> void:
 		panel.item_rect_changed.connect(_place_stamp)
 		_stamp.resized.connect(_place_stamp)
 		_place_stamp.call_deferred()
+
+
+# ⚠ 実行を長押しにする（`Modal.OPTION_HOLD`・手本「押しつづけると消える。途中で離せば止まる」）。
+#   ⚠ 押している間、ボタンの左から明るい赤が満ちる。⚠ 離すと 0 に戻る。
+#   ⚠ キーボードの決定も同じ（⚠ `button_down` / `button_up` はキーでも飛ぶ）。
+func _make_hold(hint_key: String) -> void:
+	_hold_ms = panel.get_theme_constant(&"confirm_hold_ms", &"Window")
+	var hint: Label = Label.new()
+	hint.name = "HoldHint"
+	hint.theme_type_variation = &"CaptionLabel"
+	hint.text = tr(hint_key)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var box: VBoxContainer = content_box.get_parent() as VBoxContainer
+	box.add_child(hint)
+	box.move_child(hint, confirm_button.get_parent().get_index())
+	_hold_fill = ColorRect.new()
+	_hold_fill.name = "HoldFill"
+	_hold_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hold_fill.color = panel.get_theme_color(&"confirm_hold_fill", &"Window")
+	_hold_fill.size = Vector2.ZERO
+	confirm_button.add_child(_hold_fill)
+	confirm_button.button_down.connect(_on_hold_down)
+	confirm_button.button_up.connect(_on_hold_up)
+
+
+func _on_hold_down() -> void:
+	_holding = true
+	_hold_elapsed_ms = 0.0
+
+
+func _on_hold_up() -> void:
+	_holding = false
+	_hold_elapsed_ms = 0.0
+	_update_hold_fill()
+
+
+func _process(delta: float) -> void:
+	if not _holding or _hold_ms <= 0:
+		return
+	_hold_elapsed_ms += delta * 1000.0
+	_update_hold_fill()
+	if _hold_elapsed_ms >= float(_hold_ms):
+		_holding = false
+		_close(true)
+
+
+func _update_hold_fill() -> void:
+	if _hold_fill == null:
+		return
+	var ratio: float = clampf(_hold_elapsed_ms / float(maxi(_hold_ms, 1)), 0.0, 1.0)
+	_hold_fill.position = Vector2.ZERO
+	_hold_fill.size = Vector2(confirm_button.size.x * ratio, confirm_button.size.y)
 
 
 func _on_panel_draw() -> void:
@@ -219,6 +280,9 @@ func _on_message_resized() -> void:
 
 
 func _on_confirm_pressed() -> void:
+	# ⚠ 長押しの窓は押しただけでは決まらない（⚠ 決めるのは `_process()`）。
+	if _hold_ms > 0:
+		return
 	_close(true)
 
 

@@ -6827,6 +6827,34 @@ func _report_modal_knobs(scene: PackedScene) -> void:
 		push_error("[DebugBoot] E145 窓が続くときの間が 0（MD-8 が効かない）")
 	d5.free()
 
+	# --- 長押し（MD-11）---
+	# ⚠ 押すのは本番と同じ口（`button_down` / `button_up` がつながる先）。⚠ 時間は `_process()` に直に渡して進める。
+	var d6: ModalDialog = scene.instantiate()
+	add_child(d6)
+	d6.setup("消しますか？", true, false, {
+		Modal.OPTION_DANGER: true,
+		Modal.OPTION_HOLD: "ui_title_delete_hold_hint",
+	})
+	var results: Array = []
+	d6.closed.connect(func(r: bool) -> void: results.append(r))
+	var hold_ms: float = float(d6.panel.get_theme_constant(&"confirm_hold_ms", &"Window"))
+	d6.confirm_button.pressed.emit()
+	var closed_by_click: bool = not results.is_empty()
+	d6.confirm_button.button_down.emit()
+	d6._process(hold_ms * 0.5 / 1000.0)
+	d6.confirm_button.button_up.emit()
+	d6._process(hold_ms / 1000.0)
+	var closed_by_short: bool = not results.is_empty()
+	d6.confirm_button.button_down.emit()
+	d6._process(hold_ms * 1.05 / 1000.0)
+	var closed_by_hold: bool = results.size() == 1 and bool(results[0])
+	print("  長押し %.0f ms ／ 押しただけで閉じたか=%s ／ 途中で離して閉じたか=%s ／ 押しつづけて「はい」で閉じたか=%s" % [
+		hold_ms, str(closed_by_click), str(closed_by_short), str(closed_by_hold)
+	])
+	if hold_ms <= 0.0 or closed_by_click or closed_by_short or not closed_by_hold:
+		push_error("[DebugBoot] E148 長押しの窓の決まり方が合わない（MD-11）")
+	d6.free()
+
 
 # ⚠ 全シーンが読めるか（2026-09-07・ボタンの差し替えで 22 枚の ext_resource を書き換えたため）。
 #
@@ -9009,8 +9037,9 @@ class ShotTaker extends Node:
 				screen, "ui_title_delete_confirm", [], true, false, {
 					Modal.OPTION_TITLE: tr("ui_title_delete_save"),
 					Modal.OPTION_DANGER: true,
-					Modal.OPTION_CONFIRM_LABEL: "ui_title_delete_save",
+					Modal.OPTION_CONFIRM_LABEL: "ui_title_delete_save_hold",
 					Modal.OPTION_STAMP: "ui_stamp_erased",
+					Modal.OPTION_HOLD: "ui_title_delete_hold_hint",
 				}
 			)
 			if dlg == null:
