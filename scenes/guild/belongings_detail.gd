@@ -4,7 +4,7 @@ extends VBoxContainer
 # 持ち物の右の説明の紙（2026-09-27・回UI-組 持ち物・手本 Belongings / RichItemMulti・人間「⚠ 3あ」）。
 #
 # ⚠ 中身は押した品の種類で変わる（⚠ 装備の個体 ／ 装飾 ／ 素材・消耗品）。⚠ 種類の分岐はここ1本。
-#   ⚠ 装備 … 絵・名前・主な値 ／ 全部の値 ／ 装飾の枠（刺さっている・空き・鍵）／ キャラの札（着ける・外す）／ 鍛える・刺す・分解
+#   ⚠ 装備 … 絵・名前・主な値 ／ 全部の値 ／ 装飾の枠（刺さっている・空き・鍵）／ 誰が着けているか ／ 鍛える・刺す・分解
 #   ⚠ 装飾 … 絵・名前・値の幅 ／ 持っている数 ／ 段階を上げる・壊す（⚠ ルーンは重ねる）
 #   ⚠ 素材 … 絵・名前 ／ 持っている数 ／ ⚠ 持ち物のマスを使う品だけ「捨てる」（⚠ 人間「⚠ 4あ」＝容量の判定を消す回まで残す）
 # ⚠⚠ 前は説明の窓（`ItemActionPanel`）と装備画面（仮の鍛冶場）にあった操作。⚠ 両方消してここへ集めた（決定 `BS-16`）。
@@ -100,7 +100,7 @@ func _build_instance(instance_id: String) -> void:
 	forge_note.theme_type_variation = &"CaptionLabel"
 	forge_note.text = _forge_note(instance_id)
 	add_child(forge_note)
-	add_child(_build_character_chips(instance_id, equip_slot))
+	add_child(_build_owner_line())
 
 	var buttons: HBoxContainer = HBoxContainer.new()
 	buttons.name = "Actions"
@@ -156,28 +156,20 @@ func _build_part_slots(instance_id: String, equip_slot: String, grade: int) -> v
 		add_child(hint)
 
 
-# キャラの札（⚠ 手本の剣士・弓兵・僧侶）。⚠ 押すと**その人に着ける／外す**（人間「⚠ 3あ」）。
-# ⚠ 紙の上なので `PaperChoice`（⚠ 着けている人は `PaperChoiceSelected`）。
-func _build_character_chips(instance_id: String, equip_slot: String) -> HBoxContainer:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "Characters"
+# 誰が着けているか（⚠ 1行だけ）。
+# ⚠⚠ 2026-09-27：⚠ キャラ3人の札（押すと着ける／外す）は**やめた**。⚠ 人間「⚠ 装備１個につき一人分しか装備できないようにするつもりだった」。
+#   ⚠ 着けるのは育成の装備タブ（⚠ その人の部位に1つ）。⚠ ここでは持ち主を見せるだけ。
+func _build_owner_line() -> Label:
+	var line: Label = Label.new()
+	line.name = "OwnerLine"
 	var owner: String = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
-	for raw: Variant in MasterDataLoader.get_all_characters():
-		var character_id: String = str(raw)
-		if GameManager.is_debug_character(character_id):
-			continue
-		var char_data: Dictionary = MasterDataLoader.get_character(character_id)
-		var chip: Button = UiButton.create_paper_choice(str(char_data.get("name_key", character_id)))
-		chip.name = "Chip_" + character_id
-		chip.theme_type_variation = &"PaperChoiceSelected" if character_id == owner else &"PaperChoice"
-		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		# ⚠ 着けられない人（⚠ 判定は GameManager）は押せない。⚠ 持ち主は「これから外す」ので見ない。
-		chip.disabled = character_id != owner and GameManager.get_equip_reject_reason(
-			character_id, equip_slot, instance_id, true
-		) != ""
-		chip.pressed.connect(_on_character_pressed.bind(instance_id, equip_slot, character_id))
-		row.add_child(chip)
-	return row
+	if owner == "":
+		line.theme_type_variation = &"CaptionLabel"
+		line.text = tr("ui_belongings_not_equipped")
+	else:
+		line.theme_type_variation = &"AccentLabel"
+		line.text = tr("ui_equipment_equipped_by") % tr(str(MasterDataLoader.get_character(owner).get("name_key", owner)))
+	return line
 
 
 # 「鍛える：鉄の塊 8 ／ 24」。⚠ 素材と数は `get_forge_cost()` の1本。
@@ -346,17 +338,6 @@ static func part_range_text(item_id: String) -> String:
 
 
 # --- 押されたもの（⚠ 口は全部 `GameManager`。⚠ 描き直しは画面がシグナルで受ける） ---
-
-func _on_character_pressed(instance_id: String, equip_slot: String, character_id: String) -> void:
-	var owner: String = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
-	if owner == character_id:
-		GameManager.unequip_instance(character_id, equip_slot)
-		return
-	# ⚠ 他の人が着けていれば、⚠ 先にその人から外す（⚠ 着けられるかは札を出すときに確かめ済み）。
-	if owner != "" and not GameManager.unequip_instance(owner, equip_slot):
-		return
-	GameManager.equip_instance(character_id, equip_slot, instance_id)
-
 
 func _on_forge_pressed(instance_id: String) -> void:
 	GameManager.forge_equipment(instance_id)

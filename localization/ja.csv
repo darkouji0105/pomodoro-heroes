@@ -1101,3 +1101,4 @@ ui_belongings_dismantle,分解
 ui_belongings_forge_note,鍛える：%s %d ／ %d
 ui_belongings_dismantle_confirm,%s を分解して素材に戻す。戻ってくる素材 %d 個。
 ui_belongings_dismantle_title,分解する
+ui_belongings_not_equipped,だれも着けていない

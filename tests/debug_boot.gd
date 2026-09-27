@@ -34,6 +34,9 @@ const KIND_SHOT: String = "shot"
 #   素材・等級・鍛冶・分解のように「戦闘に1行も出ない」ものは、これが無いと
 #   検証の口が無い（EXEC_MATERIAL_TIERS.md §0-2 の8）。
 const KIND_REPORT: String = "report"
+# ⚠⚠ 画面の本物のボタン・行を押して回る枝（2026-09-27・人間「⚠ それ以外のやつはあなたが確認できると思うがどうか」）。
+#   ⚠ 撮影と同じく root に係を置くので、⚠ 画面を移っても続けられる。⚠ ヘッドレスで回せる（⚠ 絵は取らない）。
+const KIND_UI_FLOW: String = "ui_flow"
 
 # KIND_REPORT の中でどの報告を出すか。
 # ⚠ 枝が増えたら _ready() の match に1行足す。シーンもスクリプトも増やさないこと。
@@ -945,6 +948,11 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_BASE_CHEST,
 		"note": "拠点の宝箱。バッジで一覧が1枚 / 行＝種類 / 1つ開けると1減って結果の窓 / すべて開けると0 / 閉じる",
 	},
+	# ⚠ 育成・昇級・持ち物を本物のボタンで押して回る（2026-09-27）。⚠ 状態は書き換えるが保存しない。
+	"ui_flow": {
+		"kind": KIND_UI_FLOW,
+		"note": "育成の札とタブ ／ 割り振り ／ スキル ／ 装備 ／ 昇級 ／ 持ち物（鍛える・刺す・外す・分解・段階・捨てる・図鑑）",
+	},
 	# 2026-09-21。⚠⚠ 窓あり専用。⚠ 画面を PNG で撮る（⚠ 設計役が絵を見られる唯一の口）。
 	# ⚠ `--headless` を付けないこと。⚠ 出し先は `shot_dir=<パス>`。
 	# ⚠ 撮る画面を増やすなら `shots` に1行足す。⚠ シーンもスクリプトも増やさないこと。
@@ -1229,6 +1237,13 @@ func _ready() -> void:
 		taker.shots = scenario.get("shots", [])
 		# ⚠ Driver と同じ理由で root に残す。⚠ 画面を差し替えると自分（＝debug_boot）は消える。
 		get_tree().root.add_child.call_deferred(taker)
+		return
+
+	if str(scenario.get("kind", KIND_BATTLE)) == KIND_UI_FLOW:
+		var runner: UiFlowRunner = UiFlowRunner.new()
+		runner.name = "DebugBootUiFlow"
+		# ⚠ 撮影の係と同じ理由で root に残す（⚠ 画面を差し替えると自分＝debug_boot は消える）。
+		get_tree().root.add_child.call_deferred(runner)
 		return
 
 	if str(scenario.get("kind", KIND_BATTLE)) == KIND_SCREEN:
@@ -9552,6 +9567,334 @@ func _report_drag_cursor() -> void:
 			push_error("[DebugBoot] %s のカーソルの角が等級の色ではない" % item_id)
 		if has_texture and glyph_pixels == 0:
 			push_error("[DebugBoot] %s は線画があるのにカーソルに乗っていない" % item_id)
+
+
+# ============================================================
+# ⚠⚠ 画面の本物のボタン・行を押して回る係（2026-09-27・人間「⚠ それ以外のやつはあなたが確認できると思うがどうか」）。
+#
+# ⚠ 押すのは**画面が持っている本物の器**（⚠ ボタンの `pressed`・台帳の行の `pressed`・枠の `pressed`）。
+#   ⚠ 状態は GameManager の口で確かめる（⚠ 画面の中の数字を信じない）。⚠ 行き先は `current_scene` で確かめる。
+# ⚠ 確かめの窓は、⚠ 出た窓の「はい」を押す（⚠ `Modal.confirm()` を待つのは画面の側）。
+# ⚠ 撮影の係と同じく root に置く（⚠ 画面を差し替えても消えない）。⚠ 状態は書き換えるが保存しない。
+# ⚠ 分からないもの（⚠ 色・手応え・気づけるか）はここでは見ない＝人間の見る回へ。
+# ============================================================
+class UiFlowRunner extends Node:
+
+	const TRAINING: String = "res://scenes/guild/training_screen.tscn"
+	const LEVEL_UP: String = "res://scenes/guild/level_up_screen.tscn"
+	const BELONGINGS: String = "res://scenes/guild/warehouse_screen.tscn"
+	const HERO: String = "char_swordsman"
+	const OTHER: String = "char_archer"
+	const WEAPON_ID: String = "weapon_iron_sword"
+	const PART_ID: String = "part_gem_atk_1"
+	const POTION_ID: String = "stamina_potion"
+	const WAIT_FRAMES: int = 4
+	const OPEN_FRAMES: int = 10
+
+	var _passed: int = 0
+	var _failed: int = 0
+
+	func _ready() -> void:
+		print("[DebugBoot] --- 画面を押して回る（ui_flow）---")
+		_setup()
+		await _flow_training()
+		await _flow_level_up()
+		await _flow_nodes()
+		await _flow_skills()
+		var instance_id: String = await _flow_equip_tab()
+		await _flow_belongings(instance_id)
+		await _flow_belongings_tabs()
+		await _flow_facility()
+		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
+		get_tree().quit()
+
+	# --- 下ごしらえ（⚠ 本番の口だけ） ---
+
+	func _setup() -> void:
+		ResourceGainEffect.set_muted(true)
+		for screen_id: String in GameManager.get_all_screen_ids():
+			GameManager.unlock_screen(screen_id)
+		for material_id: String in GameManager.get_material_ids():
+			GameManager.add_material(material_id, 99999)
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		# ⚠ 装飾は多めに（⚠ 刺す1つ ＋ 段階を上げるのに同じ装飾を使う）。
+		GameManager.add_to_inventory(PART_ID, 10)
+		GameManager.add_to_inventory(POTION_ID, 3, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+
+	# --- 育成：札とタブ ---
+
+	func _flow_training() -> void:
+		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
+		if t == null:
+			return
+		var chips: Node = t.find_child("Chips", true, false)
+		_check("育成：右上の札が3枚以上", chips != null and chips.get_child_count() >= 3)
+		await _press(_hit_of(t, "Chip_" + OTHER))
+		var other_name: String = tr(str(MasterDataLoader.get_character(OTHER).get("name_key", "")))
+		_check("育成：札を押すと副題が %s" % other_name, (t as TrainingScreen).header.subtitle_label.text == other_name)
+		_check("育成：札を押すと身上書の名前が %s" % other_name, _label_text(t, "Dossier", "NameLabel") == other_name)
+		await _press(_hit_of(t, "Chip_" + HERO))
+		await _press(_tab_button(t, 1))
+		_check("育成：2枚目のタブでステータスノード", t.find_child("NodesPage", true, false) != null)
+		await _press(_tab_button(t, 0))
+		await _press(t.find_child("Row_" + TransferKeys.TRAINING_TAB_SKILLS, true, false))
+		_check("育成：概要のスキルの行を押すとスキルのタブ", t.find_child("SkillsPage", true, false) != null)
+		await _press(_tab_button(t, 0))
+
+	# --- 昇級：申請書 → 判 → 続けて → 点を振りに行く ---
+
+	func _flow_level_up() -> void:
+		var t: Node = get_tree().current_scene
+		await _press(t.find_child("LevelUpButton", true, false), OPEN_FRAMES)
+		var l: Node = get_tree().current_scene
+		_check("昇級：「昇級させる」で昇級申請書が開く", _path_of(l) == LEVEL_UP)
+		if _path_of(l) != LEVEL_UP:
+			return
+		var before: int = _level()
+		await _press(l.find_child("PressButton", true, false))
+		_check("昇級：判を押すと Lv %d → %d" % [before, before + 1], _level() == before + 1)
+		_check("昇級：判（昇級）が出る", l.find_child("Seal", true, false) is Stamp)
+		await _press(l.find_child("AgainButton", true, false))
+		_check("昇級：「続けて昇級させる」で申請書に戻る", l.find_child("PressButton", true, false) != null)
+		await _press(l.find_child("PressButton", true, false))
+		_check("昇級：続けてもう1回 Lv %d" % (before + 2), _level() == before + 2)
+		await _press(l.find_child("GoNodesButton", true, false), OPEN_FRAMES)
+		var t2: Node = get_tree().current_scene
+		_check("昇級：「点を振りに行く」で育成のステータスノード", _path_of(t2) == TRAINING and t2.find_child("NodesPage", true, false) != null)
+
+	# --- ステータスノード：＋ と 振り直す ---
+
+	func _flow_nodes() -> void:
+		var t: Node = get_tree().current_scene
+		var spent: int = GameManager.get_stat_node_spent_points(HERO)
+		var add: Button = null
+		for node: Node in t.find_children("AddButton", "", true, false):
+			if not (node as Button).disabled:
+				add = node as Button
+				break
+		await _press(add)
+		_check("割り振り：＋で使った点が増える（%d → %d）" % [spent, GameManager.get_stat_node_spent_points(HERO)], GameManager.get_stat_node_spent_points(HERO) > spent)
+		await _press(t.find_child("ResetButton", true, false))
+		_check("割り振り：振り直すで 0 に戻る", GameManager.get_stat_node_spent_points(HERO) == 0)
+
+	# --- スキル：枠 → 候補 → 外す ---
+
+	func _flow_skills() -> void:
+		var t: Node = get_tree().current_scene
+		await _press(_tab_button(t, 2))
+		await _press(t.find_child("Slot_1", true, false))
+		var slot: Node = t.find_child("Slot_1", true, false)
+		_check("スキル：枠2を押すと行き先になる", slot is LedgerRow and (slot as LedgerRow).selected)
+		var pick: String = ""
+		var selected: Array = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
+		for raw: Variant in GameManager.get_skill_candidates(HERO, GameManager.SLOT_KIND_SKILL):
+			if not (str(raw) in selected):
+				pick = str(raw)
+				break
+		await _press(t.find_child("Candidate_" + pick, true, false))
+		selected = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
+		_check("スキル：候補 %s を押すと枠2に入る" % pick, selected.size() > 1 and str(selected[1]) == pick)
+		var slot_now: Node = t.find_child("Slot_1", true, false)
+		await _press(slot_now.find_child("ClearButton", true, false) if slot_now != null else null)
+		selected = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
+		_check("スキル：外すで枠2が空く", selected.size() < 2 or str(selected[1]) == "")
+
+	# --- 装備のタブ：部位 → 候補 → 着ける・外す → 鍛冶場で鍛える ---
+
+	func _flow_equip_tab() -> String:
+		var t: Node = get_tree().current_scene
+		await _press(_tab_button(t, 3))
+		await _press(t.find_child("Slot_" + GameStateKeys.EQUIP_WEAPON, true, false))
+		var instance_id: String = _instance_of(WEAPON_ID)
+		await _press(t.find_child("Candidate_" + instance_id, true, false))
+		await _press(t.find_child("EquipButton", true, false))
+		_check("装備：「◯を着ける」で武器に着く", GameManager.get_equipped_instance_id(HERO, GameStateKeys.EQUIP_WEAPON) == instance_id)
+		_check("装備：身上書の攻撃に緑の増分が出る", _label_text(t, "Stat_atk", "DeltaLabel") != "")
+		await _press(t.find_child("UnequipButton", true, false))
+		_check("装備：「外す」で外れる", GameManager.get_equipped_instance_id(HERO, GameStateKeys.EQUIP_WEAPON) == "")
+		await _press(t.find_child("Candidate_" + instance_id, true, false))
+		await _press(t.find_child("EquipButton", true, false))
+		await _press(t.find_child("ForgeButton", true, false), OPEN_FRAMES)
+		var w: Node = get_tree().current_scene
+		_check("装備：「鍛冶場で鍛える」で持ち物がその品を選んで開く", _path_of(w) == BELONGINGS and str(w.get("_selected_key")) == instance_id)
+		return instance_id
+
+	# --- 持ち物：持ち主 ／ 鍛える ／ 刺す ／ 枠の吹き出しで外す ／ 分解 ---
+
+	func _flow_belongings(instance_id: String) -> void:
+		var w: Node = get_tree().current_scene
+		if _path_of(w) != BELONGINGS:
+			return
+		var hero_name: String = tr(str(MasterDataLoader.get_character(HERO).get("name_key", "")))
+		_check("持ち物：右の紙に「装備中：%s」" % hero_name, _label_text(w, "Detail", "OwnerLine").contains(hero_name))
+		_check("持ち物：キャラの札は出ない", w.find_child("Chip_" + HERO, true, false) == null)
+		var grade: int = _grade(instance_id)
+		await _press(w.find_child("ForgeButton", true, false))
+		_check("持ち物：「鍛える」で等級 %d → %d" % [grade, grade + 1], _grade(instance_id) == grade + 1)
+		# ⚠ 枠が開くまで鍛える（⚠ 等級3から・GAME_DESIGN.md 6-4）。⚠ 押すのは同じボタン。
+		for _i: int in range(4):
+			if _first_empty(instance_id) >= 0:
+				break
+			await _press(w.find_child("ForgeButton", true, false))
+		var filled: int = _filled(instance_id)
+		await _press(w.find_child("AttachButton", true, false))
+		_check("持ち物：「刺す」で左が刺せる装飾になる", str(w.get("_attach_instance")) == instance_id)
+		await _press(w.find_child("Row_" + PART_ID, true, false))
+		_check("持ち物：装飾を押すと刺さる（%d → %d）" % [filled, _filled(instance_id)], _filled(instance_id) == filled + 1)
+		_check("持ち物：刺したら一覧が戻る", str(w.get("_attach_instance")) == "")
+		# 刺さっている枠 → 吹き出し → 外す → 確かめの窓の「はい」。
+		var icon: PartSlotIcon = null
+		for node: Node in w.find_children("PartSlot_*", "", true, false):
+			if node is PartSlotIcon and (node as PartSlotIcon).get_part_entry() is Dictionary and not ((node as PartSlotIcon).get_part_entry() as Dictionary).is_empty():
+				icon = node as PartSlotIcon
+				break
+		if icon != null:
+			icon.pressed.emit(icon.get_part_view())
+			await _wait()
+		var popover: Node = _first_of_type(w, "SlotActionPopover")
+		_check("持ち物：刺さっている枠を押すと吹き出し", popover != null)
+		if popover != null:
+			await _press(popover.find_child("DetachButton", true, false))
+			await _confirm_modal()
+		_check("持ち物：吹き出しの「外す」→ はい で枠が空く", _filled(instance_id) == filled)
+		# 分解：⚠ 着けている品は押せない ／ ⚠ 外してから（⚠ 外すのは本番の口）→ 確かめの窓の「はい」で無くなる。
+		var melt: Node = w.find_child("DismantleButton", true, false)
+		_check("持ち物：着けている品の「分解」は押せない", melt is Button and (melt as Button).disabled)
+		GameManager.unequip_instance(HERO, GameStateKeys.EQUIP_WEAPON)
+		await _wait()
+		await _press(w.find_child("DismantleButton", true, false))
+		await _confirm_modal()
+		_check("持ち物：「分解」→ はい で品が無くなる", GameManager.get_equipment_instance(instance_id).is_empty())
+
+	# --- 持ち物：装飾の段階 ／ 捨てる ／ 図鑑 ---
+
+	func _flow_belongings_tabs() -> void:
+		var w: Node = get_tree().current_scene
+		if _path_of(w) != BELONGINGS:
+			return
+		await _press(_tab_button(w, 1))
+		await _press(w.find_child("Row_" + PART_ID, true, false))
+		var before: int = GameManager.get_item_count(PART_ID)
+		await _press(w.find_child("PartUpgradeButton", true, false))
+		_check("持ち物：装飾の「段階を上げる」で %s が減る（%d → %d）" % [PART_ID, before, GameManager.get_item_count(PART_ID)], GameManager.get_item_count(PART_ID) < before)
+		await _press(_tab_button(w, 2))
+		await _press(w.find_child("Row_" + POTION_ID, true, false))
+		var potions: int = GameManager.get_item_count(POTION_ID)
+		await _press(w.find_child("DiscardButton", true, false))
+		await _confirm_modal()
+		_check("持ち物：消耗品の「捨てる」→ はい で1個減る（%d → %d）" % [potions, GameManager.get_item_count(POTION_ID)], GameManager.get_item_count(POTION_ID) == potions - 1)
+		await _press(_tab_button(w, 3))
+		_check("持ち物：4枚目のタブで図鑑", w.find_child("CodexList", true, false) != null)
+
+	# --- 施設の帯：育成 → 持ち物 ---
+
+	func _flow_facility() -> void:
+		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
+		if t == null:
+			return
+		await _press(t.find_child("Facility_" + BaseFacilityBar.BELONGINGS, true, false), OPEN_FRAMES)
+		_check("施設の帯：「持ち物」で持ち物が開く", _path_of(get_tree().current_scene) == BELONGINGS)
+		var w: Node = get_tree().current_scene
+		await _press(w.find_child("Facility_" + BaseFacilityBar.RECORDS, true, false), OPEN_FRAMES)
+		var r: Node = get_tree().current_scene
+		_check("施設の帯：「記録」で図鑑のタブが開く", _path_of(r) == BELONGINGS and r.find_child("CodexList", true, false) != null)
+
+	# --- 小さい道具 ---
+
+	func _open(path: String, data: Dictionary) -> Node:
+		SceneManager.change_scene_with_data(path, data)
+		await _wait(OPEN_FRAMES)
+		var scene: Node = get_tree().current_scene
+		if _path_of(scene) != path:
+			_check("開く：%s" % path.get_file(), false)
+			return null
+		return scene
+
+	func _press(node: Node, frames: int = WAIT_FRAMES) -> void:
+		if node == null:
+			_check("押す相手が見つからない", false)
+			return
+		if node is BaseButton:
+			if (node as BaseButton).disabled:
+				_check("押せない：%s" % node.name, false)
+				return
+			(node as BaseButton).pressed.emit()
+		elif node is LedgerRow:
+			(node as LedgerRow).pressed.emit()
+		await _wait(frames)
+
+	# ⚠ 確かめの窓の「はい」を押す（⚠ 窓は画面の子に積まれる）。
+	func _confirm_modal() -> void:
+		await _wait()
+		var scene: Node = get_tree().current_scene
+		for node: Node in scene.get_children():
+			if node is ModalDialog:
+				(node as ModalDialog).confirm_button.pressed.emit()
+				await _wait()
+				return
+		_check("確かめの窓が出ない", false)
+
+	func _wait(frames: int = WAIT_FRAMES) -> void:
+		for _i: int in range(frames):
+			await get_tree().process_frame
+
+	func _check(label: String, ok: bool) -> void:
+		print("  %s = %s" % [label, "通った" if ok else "⚠ 落ちた"])
+		if ok:
+			_passed += 1
+		else:
+			_failed += 1
+			push_error("[DebugBoot] ui_flow: " + label)
+
+	func _path_of(node: Node) -> String:
+		return "" if node == null else str(node.scene_file_path)
+
+	func _hit_of(scene: Node, chip_name: String) -> Node:
+		var chip: Node = scene.find_child(chip_name, true, false)
+		return null if chip == null else chip.find_child("Hit", false, false)
+
+	func _tab_button(scene: Node, index: int) -> Node:
+		var tabs: Node = scene.find_child("Tabs", true, false)
+		if tabs == null or index >= tabs.get_child_count():
+			return null
+		return tabs.get_child(index)
+
+	func _label_text(scene: Node, holder_name: String, label_name: String) -> String:
+		var holder: Node = scene.find_child(holder_name, true, false)
+		var label: Node = null if holder == null else holder.find_child(label_name, true, false)
+		return (label as Label).text if label is Label else ""
+
+	func _first_of_type(root: Node, type_name: String) -> Node:
+		for node: Node in root.find_children("*", "", true, false):
+			var script: Script = node.get_script() as Script
+			if script != null and script.get_global_name() == StringName(type_name):
+				return node
+		return null
+
+	func _level() -> int:
+		return int(GameManager.get_character_growth(HERO).get(GameStateKeys.GROWTH_LEVEL, 1))
+
+	func _grade(instance_id: String) -> int:
+		return int(GameManager.get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_GRADE, 0))
+
+	func _instance_of(item_id: String) -> String:
+		for view: Variant in GameManager.get_owned_instances():
+			if str((view as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == item_id:
+				return str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+		return ""
+
+	func _first_empty(instance_id: String) -> int:
+		for view: Variant in GameManager.get_part_entries(instance_id):
+			if not ((view as Dictionary).get(GameManager.PART_VIEW_ENTRY, null) is Dictionary):
+				return int((view as Dictionary).get(GameManager.PART_VIEW_INDEX, -1))
+		return -1
+
+	func _filled(instance_id: String) -> int:
+		var count: int = 0
+		for view: Variant in GameManager.get_part_entries(instance_id):
+			if (view as Dictionary).get(GameManager.PART_VIEW_ENTRY, null) is Dictionary:
+				count += 1
+		return count
 
 
 # 画素の色が近いか（⚠ 各色 2/255 まで）。⚠ カーソルの検査だけで使う。
