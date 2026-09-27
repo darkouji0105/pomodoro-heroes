@@ -79,12 +79,9 @@ ui_nav_workshop,作業場
 ui_warehouse_tab_inventory,持ち物
 ui_warehouse_tab_material,素材
 ui_warehouse_tab_codex,図鑑
-ui_warehouse_open_all,すべて開ける
-ui_warehouse_open,開ける
 ui_warehouse_empty,なにもありません
 ui_warehouse_undiscovered,？？？
 ui_warehouse_no_chest,受け取れる宝箱はありません
-ui_warehouse_opened,開けました
 ui_battle_retry,もう一度
 ui_battle_char_swordsman,剣士
 ui_battle_char_archer,弓兵
@@ -1122,3 +1119,24 @@ ui_quest_cleared,済
 ui_quest_take,受ける
 ui_quest_sortie_go,出撃する
 ui_quest_sortie_edit,詰所で変える
+ui_chest_title,届いた宝箱
+ui_chest_subtitle,本部の宝物庫
+ui_chest_ledger,棚の帳面
+ui_chest_remain,あと %d 箱
+ui_chest_open_all,まとめて開ける
+ui_chest_next,次を開ける（あと %d）
+ui_chest_pick_hint,帳面で選んで開ける
+ui_chest_received,持ち物に入れた
+ui_chest_opened_all,まとめて %d 箱
+ui_chest_source_pomodoro,集中の加護から
+ui_chest_source_battle,戦闘から
+ui_chest_source_floor,シナリオから
+ui_chest_source_dungeon,難ダンジョンから
+ui_chest_kind_material,素材
+ui_chest_kind_equipment,装備
+ui_chest_kind_part,装飾
+ui_chest_kind_consumable,消耗品
+ui_chest_kind_key_item,大事なもの
+ui_chest_kind_gift,贈り物
+ui_chest_kind_chest,宝箱
+ui_chest_kind_currency,通貨

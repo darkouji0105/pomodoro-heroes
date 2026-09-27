@@ -766,6 +766,7 @@ static func build() -> void:
 	_build_belongings(theme)
 	_build_barracks(theme)
 	_build_quest_board(theme)
+	_build_chest(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2298,6 +2299,42 @@ static func _build_quest_board(theme: Theme) -> void:
 	theme.set_type_variation(&"QuestGrid", &"GridContainer")
 	theme.set_constant(&"h_separation", &"QuestGrid", QUEST_CARD_GAP_H)
 	theme.set_constant(&"v_separation", &"QuestGrid", QUEST_CARD_GAP_V)
+
+
+# --- ⚠⚠ 届いた宝箱（2026-09-27・回UI-組 宝箱・手本 Chest・決定 `BS-21`）---
+#
+# ⚠ 左に紙の「棚の帳面」・右に暗い台（`ShopBoardPanel` を借りる）。⚠ 台に線で描いた箱と、⚠ 出た品の札。
+# ⚠ 札は箱から浮かび上がる（⚠ 手本 `rise` 0.5 秒・1枚ずつ 0.15 秒遅れ）。
+const CHEST_LEDGER_WIDTH: int = 360
+const CHEST_CARD_WIDTH: int = 150
+const CHEST_CARD_GAP: int = 18
+const CHEST_BOX_WIDTH: int = 164
+const CHEST_BOX_HEIGHT: int = 110
+const CHEST_BOX_LID: int = 38            # ⚠ 蓋の高さ（⚠ 開いた姿は蓋を台形で描く）
+const CHEST_BOX_LINE: int = 3
+const CHEST_BOX_BAND: int = 26           # ⚠ 前の2本の帯の、端からの距離
+const CHEST_RISE_MS: int = 500
+const CHEST_RISE_STEP_MS: int = 150
+const CHEST_RISE_PX: int = 40
+const CHEST_CURRENCY_ICON: int = 40      # ⚠ ゴールド・ジェム・スタミナの札の絵（⚠ 品のマスと同じ大きさ）
+
+
+static func _build_chest(theme: Theme) -> void:
+	var t: StringName = &"ChestScreen"
+	for spec: Array in [
+		["ledger_width", CHEST_LEDGER_WIDTH], ["card_width", CHEST_CARD_WIDTH],
+		["box_width", CHEST_BOX_WIDTH], ["box_height", CHEST_BOX_HEIGHT], ["box_lid", CHEST_BOX_LID],
+		["box_line", CHEST_BOX_LINE], ["box_band", CHEST_BOX_BAND],
+		["rise_ms", CHEST_RISE_MS], ["rise_step_ms", CHEST_RISE_STEP_MS], ["rise_px", CHEST_RISE_PX],
+		["currency_icon", CHEST_CURRENCY_ICON],
+	]:
+		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
+	theme.set_color(&"box_line", t, _html(TOKEN_BRASS))
+	theme.set_color(&"box_fill", t, _html(TOKEN_LEATHER))
+	theme.set_color(&"box_inside", t, _html(TOKEN_BOARD))   # ⚠ 開いた蓋の裏
+	theme.set_type_variation(&"ChestCards", &"HFlowContainer")
+	theme.set_constant(&"h_separation", &"ChestCards", CHEST_CARD_GAP)
+	theme.set_constant(&"v_separation", &"ChestCards", CHEST_CARD_GAP)
 
 
 static func _build_heading_font(theme: Theme) -> void:

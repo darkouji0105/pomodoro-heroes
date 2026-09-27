@@ -9,6 +9,7 @@ extends Control
 const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TITLE_PATH: String = "res://scenes/title/title_screen.tscn"
+const CHEST_PATH: String = "res://scenes/base/chest_screen.tscn"
 # ⚠ UI テストのページ（デバッグビルドのみ。⚠ リリース前に消す）。
 const UI_TEST_PAGE_PATH: String = "res://tests/ui_test_page.tscn"
 
@@ -225,11 +226,12 @@ func _go_to_screen(screen_id: String) -> void:
 	# データ付きで遷移
 	SceneManager.change_scene_with_data(path, {TransferKeys.SCREEN_ID: screen_id})
 
-# 宝箱のバッジ。⚠ 拠点の上に宝箱の一覧を開く（2026-09-15・人間の指示「宝箱は、倉庫側ではなく拠点から直接開けるように」）。
+# 宝箱のバッジ（2026-09-15・人間の指示「宝箱は、倉庫側ではなく拠点から直接開けるように」）。
 #
 # ⚠ 前は倉庫の宝箱タブへ移っていた。⚠ 倉庫は別窓だけになり、⚠ 宝箱タブは消した。
+# ⚠ 2026-09-27（決定 `BS-21`・人間「⚠ 1あ」）：⚠ 拠点の上に重ねる一覧（`ChestPanel`）をやめ、⚠ 「届いた宝箱」の画面へ移る。
 func _on_chest_badge_pressed() -> void:
-	ChestPanel.open_on(self)
+	SceneManager.change_scene(CHEST_PATH)
 
 func _on_save_pressed() -> void:
 	var save_options: Dictionary = {Modal.OPTION_TITLE: tr("ui_common_title_save")}

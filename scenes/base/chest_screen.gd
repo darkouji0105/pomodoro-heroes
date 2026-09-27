@@ -1,0 +1,388 @@
+# res://scenes/base/chest_screen.gd
+# 届いた宝箱（本部の宝物庫）。
+#
+# ⚠⚠ 2026-09-27（回UI-組 宝箱・手本 Chest・決定 `BS-21`）：⚠ 拠点の上に重ねていた一覧（`ChestPanel`）を**1枚の画面にした**。
+#   ⚠ 人間「⚠ 1あ」＝画面にする（⚠ 入口は拠点の宝箱バッジ・「戻る」で拠点）。
+#   ⚠ 人間「⚠ 2あ」＝開けた中身は右の台に札で並べる。⚠ **確かめの窓（受け取る）はやめた**。
+#   ⚠ 人間「⚠ 3あ」＝札は箱から浮かび上がる（⚠ 手本 `rise`）。
+# ⚠ 左＝紙の「棚の帳面」（⚠ 種類ごとに1行・選ぶ）／ 右＝暗い台（⚠ 開けた宝箱の名前・札・箱・「次を開ける」）。
+# ⚠ 開ける仕組みは変えていない（⚠ `open_chest()` が中身を振って配る・2026-09-18）。⚠ ここは見せるだけ。
+# ⚠ 帳面の名前は墨（⚠ レアリティの灰や白は紙の上で読めない）。⚠ 色は行の絵の枠（`ItemIcon`）と、⚠ 台の上の名前に出す。
+# ⚠ 再描画に await を持たせない（AGENTS.md）。⚠ 開けると pending_chests_changed が飛ぶ。
+# ⚠ 拠点からしか開かないので scenes/base/（AGENTS.md「1画面だけならその画面のフォルダ」）。
+
+class_name ChestScreen
+extends Control
+
+const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
+const THEME_TYPE: StringName = &"ChestScreen"
+
+@onready var header: ScreenHeader = $Margin/Layout/Header
+@onready var ledger: PaperSheet = $Margin/Layout/Body/Ledger
+@onready var ledger_body: VBoxContainer = $Margin/Layout/Body/Ledger/LedgerBody
+@onready var stage_body: VBoxContainer = $Margin/Layout/Body/Stage/StageBody
+
+# ⚠ 左で選んでいる種類（chest_id）。⚠ 「次を開ける」はこの種類の1個目を開ける。
+var _selected_kind: String = ""
+
+var _remain_label: Label = null
+var _list: VBoxContainer = null
+var _open_all_button: UiButton = null
+var _opened_name: Label = null
+var _cards: HFlowContainer = null
+var _box: ChestBox = null
+var _note: Label = null
+var _next_button: UiButton = null
+
+
+func _ready() -> void:
+	SceneManager.consume_transfer_data()
+	header.back_pressed.connect(_on_back_pressed)
+	header.set_subtitle_text(tr("ui_chest_subtitle"))
+	ledger.custom_minimum_size.x = float(get_theme_constant(&"ledger_width", THEME_TYPE))
+	_build_ledger()
+	_build_stage()
+	GameManager.pending_chests_changed.connect(_on_pending_chests_changed)
+	_rebuild_ledger()
+
+
+# --- 左：棚の帳面 ------------------------------------------------------
+
+func _build_ledger() -> void:
+	var head: HBoxContainer = HBoxContainer.new()
+	var title: Label = Label.new()
+	title.theme_type_variation = &"SheetHeadingLabel"
+	title.text = tr("ui_chest_ledger")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	_remain_label = Label.new()
+	_remain_label.name = "RemainLabel"
+	_remain_label.theme_type_variation = &"CaptionLabel"
+	_remain_label.size_flags_vertical = Control.SIZE_SHRINK_END
+	head.add_child(_remain_label)
+	ledger_body.add_child(head)
+	ledger_body.add_child(HSeparator.new())
+
+	# ⚠ 種類が多いと紙からはみ出す（⚠ 検査では27種類）＝⚠ 一覧だけ縦に流す。
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "ListScroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	ledger_body.add_child(scroll)
+	_list = VBoxContainer.new()
+	_list.name = "ChestList"
+	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_list)
+
+	_open_all_button = UiButton.create(UiButton.Variant.SECONDARY, "ui_chest_open_all")
+	_open_all_button.name = "OpenAllButton"
+	_open_all_button.pressed.connect(_on_open_all_pressed)
+	ledger_body.add_child(_open_all_button)
+
+
+# 未開封を種類ごとに束ねる。⚠ {chest_id: [instance_id]}。⚠ 並びは入手した順（⚠ Dictionary は入れた順を保つ）。
+func _groups() -> Dictionary:
+	var groups: Dictionary = {}
+	for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+		if not (chest is Dictionary):
+			continue
+		var chest_dict: Dictionary = chest
+		if bool(chest_dict.get(GameStateKeys.CHEST_OPENED, false)):
+			continue
+		var chest_id: String = str(chest_dict.get(GameStateKeys.CHEST_ID, ""))
+		if not groups.has(chest_id):
+			groups[chest_id] = []
+		(groups[chest_id] as Array).append(str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, "")))
+	return groups
+
+
+# ⚠ その種類の1個目の出どころ（⚠ 戦闘・フロア・難ダンジョン・集中の加護）。⚠ 知らない出どころは出さない。
+func _source_text(chest_id: String) -> String:
+	for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+		if not (chest is Dictionary):
+			continue
+		if str((chest as Dictionary).get(GameStateKeys.CHEST_ID, "")) != chest_id:
+			continue
+		var key: String = "ui_chest_source_" + str((chest as Dictionary).get(GameStateKeys.CHEST_SOURCE, ""))
+		var text: String = tr(key)
+		return "" if text == key else text
+	return ""
+
+
+func _rebuild_ledger() -> void:
+	for child: Node in _list.get_children():
+		_list.remove_child(child)
+		child.queue_free()
+	var groups: Dictionary = _groups()
+	var total: int = GameManager.get_pending_chest_count()
+	_remain_label.text = tr("ui_chest_remain") % total
+	if not groups.has(_selected_kind):
+		_selected_kind = str(groups.keys()[0]) if not groups.is_empty() else ""
+	_open_all_button.disabled = groups.is_empty()
+	_next_button.disabled = groups.is_empty()
+	_next_button.text = tr("ui_chest_next") % total
+	if groups.is_empty():
+		_list.add_child(EmptyState.create(
+			"ui_warehouse_no_chest", "ui_warehouse_no_chest_hint", IconTextures.for_chest()
+		))
+		return
+	for chest_id: Variant in groups.keys():
+		_list.add_child(_make_row(str(chest_id), (groups[chest_id] as Array).size()))
+
+
+# 1行 ＝ 絵（⚠ 枠がレアリティの色）／ 名前 と 出どころ ／ ×個数。⚠ 押すとその種類を選ぶ。
+func _make_row(chest_id: String, count: int) -> LedgerRow:
+	var row: LedgerRow = LedgerRow.new()
+	row.name = "ChestRow_" + chest_id
+	row.selected = chest_id == _selected_kind
+	row.pressed.connect(_on_row_pressed.bind(chest_id))
+	var line: HBoxContainer = HBoxContainer.new()
+	row.add_child(line)
+	var glyph: ItemIcon = ItemIcon.create(chest_id)
+	glyph.name = "ChestGlyph"
+	glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(glyph)
+	var column: VBoxContainer = VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(column)
+	var name_label: Label = Label.new()
+	name_label.name = "ChestNameLabel"
+	name_label.text = tr(GameManager.item_name_key(chest_id))
+	column.add_child(name_label)
+	var source: String = _source_text(chest_id)
+	if source != "":
+		var source_label: Label = Label.new()
+		source_label.name = "SourceLabel"
+		source_label.theme_type_variation = &"CaptionLabel"
+		source_label.text = source
+		column.add_child(source_label)
+	# ⚠ 数値だけなので tr() を通さない（AGENTS.md）。
+	var count_label: Label = Label.new()
+	count_label.name = "ChestCountLabel"
+	count_label.theme_type_variation = &"SheetHeadingLabel"
+	count_label.text = "×%d" % count
+	count_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(count_label)
+	return row
+
+
+func _on_row_pressed(chest_id: String) -> void:
+	_selected_kind = chest_id
+	_rebuild_ledger()
+
+
+# --- 右：台（開けた宝箱の名前・札・箱・次を開ける） ---------------------------
+
+func _build_stage() -> void:
+	_opened_name = Label.new()
+	_opened_name.name = "OpenedName"
+	_opened_name.theme_type_variation = &"SheetHeadingLabel"
+	_opened_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stage_body.add_child(_opened_name)
+
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "CardScroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	stage_body.add_child(scroll)
+	_cards = HFlowContainer.new()
+	_cards.name = "Cards"
+	_cards.theme_type_variation = &"ChestCards"
+	_cards.alignment = FlowContainer.ALIGNMENT_CENTER
+	_cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_cards)
+
+	_box = ChestBox.new()
+	_box.name = "Box"
+	stage_body.add_child(_box)
+	stage_body.add_child(HSeparator.new())
+
+	var foot: HBoxContainer = HBoxContainer.new()
+	foot.name = "Foot"
+	stage_body.add_child(foot)
+	_note = Label.new()
+	_note.name = "NoteLabel"
+	_note.theme_type_variation = &"MutedLabel"
+	_note.text = tr("ui_chest_pick_hint")
+	_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	foot.add_child(_note)
+	# ⚠ この画面の主要動作＝真鍮（⚠ 1画面に1個まで）。
+	_next_button = UiButton.create(UiButton.Variant.PRIMARY)
+	_next_button.name = "NextButton"
+	_next_button.pressed.connect(_on_next_pressed)
+	foot.add_child(_next_button)
+
+
+# --- 開ける ------------------------------------------------------------
+
+# 次を開ける＝選んでいる種類の1個目（⚠ 無ければ帳面の一番上の種類＝`_rebuild_ledger()` が選び直す）。
+func _on_next_pressed() -> void:
+	var groups: Dictionary = _groups()
+	if not groups.has(_selected_kind):
+		return
+	var instance_id: String = str((groups[_selected_kind] as Array)[0])
+	var chest_id: String = _selected_kind
+	if not GameManager.open_chest(instance_id):
+		push_warning("[ChestScreen] open_chest failed: " + instance_id)
+		return
+	# ⚠⚠ 中身は**開けたあと**に読む（⚠ `open_chest()` の中で振られ、開けた記録に残る・2026-09-18）。
+	_show_rewards(_read_chest_rewards(instance_id), tr(GameManager.item_name_key(chest_id)), chest_id)
+
+
+func _on_open_all_pressed() -> void:
+	var opened_count: int = 0
+	var combined: Dictionary = _empty_rewards()
+	for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+		if not (chest is Dictionary):
+			continue
+		var chest_dict: Dictionary = chest
+		if bool(chest_dict.get(GameStateKeys.CHEST_OPENED, false)):
+			continue
+		var instance_id: String = str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, ""))
+		if GameManager.open_chest(instance_id):
+			_merge_rewards(combined, _read_chest_rewards(instance_id))
+			opened_count += 1
+	if opened_count > 0:
+		# ⚠ まとめて1回ぶんの札（⚠ 種類が混ざるので名前に色は付けない）。
+		_show_rewards(combined, tr("ui_chest_opened_all") % opened_count, "")
+
+
+# 開けた中身を台に並べる。⚠ 報酬はもう配り終わっている（⚠ `open_chest()` の中で入っている）＝見せるだけ。
+# ⚠ `chest_id` を渡すと名前をレアリティの色で出す（2026-09-18・人間「宝箱を開けるとき…文字の色も」）。
+func _show_rewards(rewards: Dictionary, title: String, chest_id: String) -> void:
+	for child: Node in _cards.get_children():
+		_cards.remove_child(child)
+		child.queue_free()
+	_opened_name.text = title
+	_opened_name.modulate = Color.WHITE
+	if chest_id != "":
+		_tint_by_rarity(_opened_name, chest_id)
+	_box.opened = true
+	_note.text = tr("ui_chest_received")
+
+	var index: int = 0
+	for entry: Variant in RewardEntries.slot_entries(rewards):
+		var item_id: String = str((entry as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+		var count: int = int((entry as Dictionary).get(GameManager.SLOT_ENTRY_COUNT, 0))
+		_add_card(index, _kind_text(item_id, rewards), ItemIcon.create(item_id), tr(GameManager.item_name_key(item_id)), count)
+		index += 1
+	var amounts: Dictionary = RewardEntries.currency_amounts(rewards)
+	for key: String in amounts:
+		var icon: TextureRect = TextureRect.new()
+		icon.texture = IconTextures.for_resource(key)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.custom_minimum_size = Vector2.ONE * float(get_theme_constant(&"currency_icon", THEME_TYPE))
+		icon.self_modulate = get_theme_color(&"box_line", THEME_TYPE)
+		_add_card(index, tr("ui_chest_kind_currency"), icon, tr("ui_res_" + key), int(amounts[key]))
+		index += 1
+
+
+# 札1枚：種類 ／ 絵 ／ 名前 ／ ×個数。⚠ 箱から浮かび上がる（⚠ 人間「⚠ 3あ」・手本 `rise`）。
+func _add_card(index: int, kind: String, icon: Control, title: String, count: int) -> void:
+	var card: TiltedSheet = TiltedSheet.create(index)
+	card.name = "Card_%d" % index
+	card.sheet.custom_minimum_size.x = float(get_theme_constant(&"card_width", THEME_TYPE))
+	var column: VBoxContainer = VBoxContainer.new()
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	card.sheet.add_child(column)
+	var kind_label: Label = Label.new()
+	kind_label.theme_type_variation = &"CaptionLabel"
+	kind_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	kind_label.text = kind
+	column.add_child(kind_label)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(icon)
+	var name_label: Label = Label.new()
+	name_label.name = "NameLabel"
+	name_label.theme_type_variation = &"SheetHeadingLabel"
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_label.text = title
+	column.add_child(name_label)
+	var count_label: Label = Label.new()
+	count_label.name = "CountLabel"
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count_label.text = "×%d" % count
+	column.add_child(count_label)
+	_cards.add_child(card)
+	_rise(card, index)
+
+
+# ⚠ 下から上がりながら現れる。⚠ Tween は札に結びつける（⚠ 札が消えれば一緒に止まる）。
+func _rise(card: TiltedSheet, index: int) -> void:
+	var duration: float = float(get_theme_constant(&"rise_ms", THEME_TYPE)) / 1000.0
+	var delay: float = float(get_theme_constant(&"rise_step_ms", THEME_TYPE)) * index / 1000.0
+	var rise: float = float(get_theme_constant(&"rise_px", THEME_TYPE))
+	card.modulate.a = 0.0
+	var tween: Tween = card.create_tween()
+	tween.tween_interval(delay)
+	tween.tween_property(card, "modulate:a", 1.0, duration)
+	tween.parallel().tween_property(card.sheet, "position:y", 0.0, duration).from(rise) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+# 札の一番上の小さな字（素材・装備・装飾…）。⚠ 素材は報酬の materials 側、⚠ ほかは items.json の item_type。
+func _kind_text(item_id: String, rewards: Dictionary) -> String:
+	var materials: Variant = rewards.get(GameStateKeys.REWARD_MATERIALS, {})
+	if materials is Dictionary and (materials as Dictionary).has(item_id):
+		return tr("ui_chest_kind_" + GameStateKeys.ITEM_TYPE_MATERIAL)
+	if GameManager.is_chest_item(item_id):
+		return tr("ui_chest_kind_chest")
+	var key: String = "ui_chest_kind_" + str(MasterDataLoader.get_item(item_id).get("item_type", ""))
+	var text: String = tr(key)
+	return "" if text == key else text
+
+
+# レアリティの色（2026-09-18）。⚠ 色は `Balance.icon` の10色ランプ（⚠ ここに色を書かない）。
+# ⚠ レアリティが無い宝箱（集中の宝箱など）は何もしない。
+func _tint_by_rarity(target: CanvasItem, chest_id: String) -> void:
+	var rarity: String = GameManager.get_chest_rarity(chest_id)
+	if rarity == "" or Balance.icon == null:
+		return
+	target.modulate = Balance.icon.color_of_grade(
+		Balance.icon.grade_of_tier(int(GameManager.CHEST_RARITY_TIERS.get(rarity, 1)), false)
+	)
+
+
+func _empty_rewards() -> Dictionary:
+	return {
+		GameStateKeys.REWARD_GOLD: 0,
+		GameStateKeys.REWARD_GEMS: 0,
+		GameStateKeys.REWARD_STAMINA: 0,
+		GameStateKeys.REWARD_MATERIALS: {},
+		GameStateKeys.REWARD_INVENTORY: {},
+	}
+
+
+func _merge_rewards(combined: Dictionary, add: Dictionary) -> void:
+	for key: String in [GameStateKeys.REWARD_GOLD, GameStateKeys.REWARD_GEMS, GameStateKeys.REWARD_STAMINA]:
+		combined[key] = int(combined.get(key, 0)) + int(add.get(key, 0))
+	for key: String in [GameStateKeys.REWARD_MATERIALS, GameStateKeys.REWARD_INVENTORY]:
+		var current: Dictionary = combined.get(key, {})
+		var adding: Variant = add.get(key, {})
+		if adding is Dictionary:
+			for item_id: String in (adding as Dictionary):
+				current[item_id] = int(current.get(item_id, 0)) + int((adding as Dictionary)[item_id])
+		combined[key] = current
+
+
+func _read_chest_rewards(instance_id: String) -> Dictionary:
+	for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+		if not (chest is Dictionary):
+			continue
+		var chest_dict: Dictionary = chest
+		if str(chest_dict.get(GameStateKeys.CHEST_INSTANCE_ID, "")) == instance_id:
+			var rewards_val: Variant = chest_dict.get(GameStateKeys.CHEST_REWARDS, {})
+			return rewards_val if rewards_val is Dictionary else {}
+	return {}
+
+
+func _on_pending_chests_changed(_pending_count: int) -> void:
+	_rebuild_ledger()
+
+
+func _on_back_pressed() -> void:
+	SceneManager.change_scene(BASE_PATH)

@@ -92,6 +92,9 @@ const SHOT_AFTER_RELIC_PICK: String = "relic_pick"
 const SHOT_AFTER_RUN_MENU: String = "run_menu"
 const SHOT_AFTER_RELIC_LIST: String = "relic_list"
 const SHOT_AFTER_MAP_STEP: String = "map_step"
+# ⚠ 届いた宝箱（2026-09-27）。⚠ 内側の `PREPARE_CHESTS` / `AFTER_CHEST_OPEN` と同じ字。
+const SHOT_PREPARE_CHESTS: String = "chests"
+const SHOT_AFTER_CHEST_OPEN: String = "chest_open"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -942,11 +945,12 @@ const SCENARIOS: Dictionary = {
 		"note": "カーソルの絵。大きさ / 角が等級の色 / 真ん中に線画の色 / 線画の無い品は地と枠だけ",
 	},
 	# 2026-09-15。⚠ 拠点の宝箱バッジで宝箱の一覧（ChestPanel）を開いて、⚠ 1つずつ／まとめて開ける。
+	# ⚠ 2026-09-27：⚠ 一覧は「届いた宝箱」の画面になった＝⚠ 押して確かめる分は `ui_flow` へ移した。⚠ ここは画面に依らない分だけ。
 	# ⚠ 宝箱は grant_chest() で積む（⚠ 状態は書き換えるが保存しない）。
 	"base_chest": {
 		"kind": KIND_REPORT,
 		"report": REPORT_BASE_CHEST,
-		"note": "拠点の宝箱。バッジで一覧が1枚 / 行＝種類 / 1つ開けると1減って結果の窓 / すべて開けると0 / 閉じる",
+		"note": "宝箱（画面に依らない分）。items と chests のIDの重なり / 宝箱の絵の等級 / 知らせの窓の題の帯 / 呼び出し元が消えた順番待ち",
 	},
 	# ⚠ 育成・昇級・持ち物を本物のボタンで押して回る（2026-09-27）。⚠ 状態は書き換えるが保存しない。
 	"ui_flow": {
@@ -1153,6 +1157,13 @@ const SCENARIOS: Dictionary = {
 				"name": "34_barracks",
 				"scene": "res://scenes/adventure/party_preset_screen.tscn",
 				"measure": ["Margin/Layout/Cards", "Margin/Layout/Bottom", "FacilityBar"],
+			},
+			# ⚠ 届いた宝箱（2026-09-27・回UI-組 宝箱・手本 Chest・決定 `BS-21`）。⚠ 種類ごとに1個積み、⚠ 1個開けた姿。
+			{
+				"name": "35_chest",
+				"scene": "res://scenes/base/chest_screen.tscn",
+				"prepare": SHOT_PREPARE_CHESTS,
+				"after": SHOT_AFTER_CHEST_OPEN,
 			},
 		],
 	},
@@ -8869,6 +8880,10 @@ class ShotTaker extends Node:
 	const AFTER_RUN_MENU: String = "run_menu"
 	const AFTER_RELIC_LIST: String = "relic_list"
 	const AFTER_MAP_STEP: String = "map_step"
+	# ⚠ 届いた宝箱（2026-09-27）：⚠ 種類ごとに1個積む ／ ⚠ 画面の口で「次を開ける」を押す。
+	const PREPARE_CHESTS: String = "chests"
+	const AFTER_CHEST_OPEN: String = "chest_open"
+	const CHEST_RISE_WAIT_FRAMES: int = 90
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
 	const AFTER_FRAMES: int = 12
 
@@ -9032,6 +9047,15 @@ class ShotTaker extends Node:
 				GameManager.get_part_reject_reason(equip_id, slot_index, PART_ITEM_ID),
 			])
 			return false
+		if kind == PREPARE_CHESTS:
+			# ⚠ 積む口は `grant_chest()` の1本。⚠ 抽選のハズレは false（⚠ 正常系）＝積めるまで試す。
+			if GameManager.get_pending_chest_count() > 0:
+				return true
+			for chest_id: Variant in MasterDataLoader.get_all_chests().keys():
+				for _attempt: int in range(20):
+					if GameManager.grant_chest(str(chest_id), GameStateKeys.CHEST_SOURCE_DUNGEON):
+						break
+			return GameManager.get_pending_chest_count() > 0
 		if kind == PREPARE_FLOOR:
 			if GameManager.is_in_floor():
 				return true
@@ -9148,6 +9172,21 @@ class ShotTaker extends Node:
 			screen.call("_on_card_pressed", pick)
 			if GameManager.is_single_relic(pick):
 				screen.call("_on_character_pressed", str(GameManager.get_party_members()[0]))
+		elif kind == AFTER_CHEST_OPEN:
+			# ⚠ 画面の口（⚠ 「次を開ける」を押したときに呼ばれるもの）。
+			var pending: int = GameManager.get_pending_chest_count()
+			# ⚠ 資源が増える演出は止める（CLAUDE.md 10番）。⚠ 止めないと、⚠ 最後の1枚のあと終了したときに
+			#   ⚠ 飛んでいる途中の着地先（通貨の帯）が解放されて「Lambda capture ... was freed」が赤で出る（09-27 に踏んだ）。
+			#   ⚠ 自動で流れる経路なので `set_muted()` が効く。⚠ 演出そのものは `scenario=gain` が見ている。
+			ResourceGainEffect.set_muted(true)
+			screen.call("_on_next_pressed")
+			ResourceGainEffect.set_muted(false)
+			if GameManager.get_pending_chest_count() >= pending:
+				push_error("[DebugBoot] ⚠ %s で宝箱を開けられなかった" % shot_name)
+				return false
+			# ⚠ 札が浮かび上がり終わるまで待つ（⚠ 0.5 秒 ＋ 1枚ずつ 0.15 秒。⚠ 1秒ぶん見ておく）。
+			for _i: int in range(CHEST_RISE_WAIT_FRAMES):
+				await get_tree().process_frame
 		elif kind == AFTER_LEVEL_UP_PRESS:
 			# ⚠ 画面の口で判を押す（⚠ 昇級そのものは `level_up_character()`）。⚠ 押せない回は申請書のまま撮れる＝赤にする。
 			var before: int = int(GameManager.get_character_growth("char_swordsman").get(GameStateKeys.GROWTH_LEVEL, 1))
@@ -9314,45 +9353,10 @@ func _report_base_chest() -> void:
 		push_error("[DebugBoot] 宝箱を2個以上積めなかった")
 		return
 
-	var base: Node = load(SCENE_BASE).instantiate()
-	get_tree().root.add_child(base)
-	await get_tree().process_frame
-	await get_tree().process_frame
-
+	# ⚠⚠ 2026-09-27（決定 `BS-21`）：⚠ 一覧は「届いた宝箱」の画面になった（⚠ 拠点の上の `ChestPanel` は消した）。
+	#   ⚠ 画面を押して確かめる分（⚠ 行・選ぶ・次を開ける・まとめて開ける・戻る）は `scenario=ui_flow` へ移した。
+	#   ⚠ ここに残すのは画面に依らない確かめだけ（⚠ IDの重なり・宝箱の絵の等級・窓の順番待ち）。
 	var checks: Array = []
-	# ① バッジを2回押しても一覧は1枚。
-	var badge: Button = base.get("chest_badge")
-	badge.pressed.emit()
-	badge.pressed.emit()
-	await get_tree().process_frame
-	var panels: int = 0
-	for child: Node in base.get_children():
-		if child is ChestPanel:
-			panels += 1
-	checks.append(["① バッジで一覧が1枚（%d）" % panels, panels == 1])
-	var panel: ChestPanel = base.find_child("ChestPanel", false, false) as ChestPanel
-	if panel == null:
-		push_error("[DebugBoot] 拠点に ChestPanel が開かない")
-		get_tree().root.remove_child(base)
-		base.queue_free()
-		return
-	var list: Node = panel.find_child("ChestList", true, false)
-	checks.append(["① 行の数 %d ＝ 種類 %d" % [list.get_child_count(), kinds.size()], list.get_child_count() == kinds.size()])
-	# ⚠⚠ レアリティの色（2026-09-18・人間「宝箱のアイコンが見れるように　文字の色も」）。
-	#   ⚠ フロアの宝箱（5フロア × 4段 ＝ 20種）だけ色が付き、⚠ ほか（ポモドーロの宝箱・ガチャ）は白のまま。
-	var tinted: int = 0
-	var tinted_glyph: int = 0
-	for row: Node in list.get_children():
-		var name_label: Label = row.find_child("ChestNameLabel", true, false) as Label
-		if name_label != null and name_label.modulate != Color.WHITE:
-			tinted += 1
-		var glyph: CanvasItem = row.find_child("ChestGlyph", true, false) as CanvasItem
-		if glyph != null and glyph.modulate != Color.WHITE:
-			tinted_glyph += 1
-	var floor_kinds: int = 0
-	for kind: Variant in kinds:
-		if GameManager.get_chest_rarity(str(kind)) != "":
-			floor_kinds += 1
 	# ⚠⚠ 鞄のマスに入る宝箱（2026-09-18）。⚠ 品のアイコンと同じ部品で、絵は宝箱・枠はレアリティの色。
 	#   ⚠ items.json と chests.json の ID が重なっていないこと（⚠ 重なると宝箱が品として扱われる）。
 	var overlap: Array[String] = []
@@ -9373,27 +9377,16 @@ func _report_base_chest() -> void:
 			and not GameManager.is_chest_item("weapon_wooden_sword"),
 	])
 	chest_icon.queue_free()
-	checks.append([
-		"① 色の付いた行 名前 %d ／ 絵 %d ＝ レアリティのある種類 %d" % [tinted, tinted_glyph, floor_kinds],
-		tinted == floor_kinds and tinted_glyph == floor_kinds and floor_kinds > 0,
-	])
-
-	# ② 1つ開ける → 1減って結果の窓が出る。
-	(list.get_child(0).find_child("OpenButton", true, false) as UiButton).pressed.emit()
+	# ⚠ 知らせの窓の縁と題の帯（2026-09-18・人間の決定「全部のモーダルに付ける」）。
+	#   ⚠ 前は宝箱の結果の窓で見ていた（⚠ 09-27 に宝箱は窓を出さなくなった）＝⚠ 素の Control を呼び出し元にして出す。
+	var host: Control = Control.new()
+	add_child(host)
+	var _shown: ModalDialog = Modal.notify(host, "ui_warehouse_no_chest", [], false, {Modal.OPTION_TITLE: tr("ui_chest_title")})
 	await get_tree().process_frame
-	var after_one: int = GameManager.get_pending_chest_count()
-	checks.append(["② 1つ開けると %d → %d" % [before, after_one], after_one == before - 1])
-	checks.append(["② 結果の窓が出る", Modal._current != null and is_instance_valid(Modal._current)])
-	# ⚠⚠ 窓の縁と題の帯（2026-09-18・人間の決定「全部のモーダルに付ける」）。
-	#   ⚠ 絵は取れないので「帯が出ているか・高さ・題の字・面の variation」を見る。
+	checks.append(["② 知らせの窓が出る", Modal._current != null and is_instance_valid(Modal._current)])
 	if Modal._current != null and is_instance_valid(Modal._current):
 		var dialog: ModalDialog = Modal._current
 		var window_panel: PanelContainer = dialog.get_node("Blocker/Panel")
-		# ⚠ 窓の頭の宝箱の絵と名前（2026-09-18）。
-		var head: Node = dialog.find_child("ChestHead", true, false)
-		checks.append(["② 窓の頭に宝箱の絵と名前（%s）" % (
-			(head.find_child("ChestHeadName", true, false) as Label).text if head != null else "無い"
-		), head != null and head.find_child("ChestHeadGlyph", true, false) != null])
 		checks.append([
 			"② 題の帯が出る（題='%s' 高さ=%.0f 帯の面=%s 窓の面=%s）" % [
 				dialog.title_label.text, dialog.title_bar.size.y,
@@ -9402,42 +9395,13 @@ func _report_base_chest() -> void:
 			dialog.title_bar.visible and dialog.title_bar.size.y >= 36.0
 				and window_panel.theme_type_variation == &"WindowPanel",
 		])
-	# ⚠ 結果の窓を「受け取る」で閉じてから次を押す（⚠ 窓が出ている間は後ろを押せない＝画面と同じ順）。
-	#   ⚠ 閉じずに次を押すと窓が順番待ちに積まれ、⚠ 一覧を消したあとに Modal が消えた呼び出し元を触って赤になる（1回目で踏んだ）。
-	await _close_current_modal()
-
-	# ③ すべて開ける → 0 ／ 空の表示 ／ ボタンが押せない。
-	var open_all: UiButton = panel.find_child("OpenAllButton", true, false) as UiButton
-	open_all.pressed.emit()
-	await get_tree().process_frame
-	list = panel.find_child("ChestList", true, false)
-	checks.append(["③ すべて開けると 0（%d）" % GameManager.get_pending_chest_count(), GameManager.get_pending_chest_count() == 0])
-	checks.append(["③ 空の表示が1つ", list.get_child_count() == 1 and list.get_child(0) is EmptyState])
-	checks.append(["③ すべて開けるが押せない", open_all.disabled])
-	await _close_current_modal()
-
-	# ④ 閉じる → 一覧が消える。
-	(panel.find_child("CloseButton", true, false) as UiButton).pressed.emit()
-	await get_tree().process_frame
-	checks.append(["④ 閉じると消える", base.find_child("ChestPanel", false, false) == null])
-
 	# ⑤ ⚠ 順番待ちのモーダルの呼び出し元が先に消えても赤を出さない（`modal.gd` の穴・2026-09-16）。
 	#   ⚠ 画面からは踏めない順番（⚠ 窓が出ている間は後ろを押せない）。⚠ ここでは合図を直に出して作る。
-	for chest_id: Variant in MasterDataLoader.get_all_chests().keys():
-		for attempt: int in range(20):
-			if GameManager.grant_chest(str(chest_id), "debug_boot"):
-				break
-	badge.pressed.emit()
+	#   ⚠ 1枚目が出ている間に2枚目を積む → ⚠ 呼び出し元を先に消す → ⚠ 1枚目を閉じる。
+	var _queued: ModalDialog = Modal.notify(host, "ui_warehouse_no_chest", [], false, {})
 	await get_tree().process_frame
-	var panel2: ChestPanel = base.find_child("ChestPanel", false, false) as ChestPanel
-	var list2: Node = panel2.find_child("ChestList", true, false)
-	# ⚠ 1つ開けて窓を出し、⚠ 閉じずに「すべて開ける」で2枚目を順番待ちに積む。
-	(list2.get_child(0).find_child("OpenButton", true, false) as UiButton).pressed.emit()
-	await get_tree().process_frame
-	(panel2.find_child("OpenAllButton", true, false) as UiButton).pressed.emit()
-	await get_tree().process_frame
-	# ⚠ 呼び出し元（一覧）を先に消してから、⚠ 1枚目を閉じる → 順番待ちが出ようとする。
-	panel2.close()
+	remove_child(host)
+	host.queue_free()
 	await get_tree().process_frame
 	await _close_current_modal()
 	checks.append(["⑤ 呼び出し元が消えた順番待ちでも赤を出さない（残り %d）" % Modal._queue.size(), Modal._queue.is_empty()])
@@ -9447,8 +9411,6 @@ func _report_base_chest() -> void:
 		print("  %s = %s（⚠ true が正解）" % [(check as Array)[0], (check as Array)[1]])
 		if not bool((check as Array)[1]):
 			push_error("[DebugBoot] 拠点の宝箱: " + str((check as Array)[0]))
-	get_tree().root.remove_child(base)
-	base.queue_free()
 
 
 # いま出ているモーダルを、⚠ 閉じるボタンと同じ口で閉じる。
@@ -9606,6 +9568,8 @@ class UiFlowRunner extends Node:
 	const BARRACKS: String = "res://scenes/adventure/party_preset_screen.tscn"
 	const ADVENTURE: String = "res://scenes/adventure/adventure_select.tscn"
 	const FLOOR_MAP: String = "res://scenes/adventure/floor_map.tscn"
+	const BASE: String = "res://scenes/base/base_screen.tscn"
+	const CHEST: String = "res://scenes/base/chest_screen.tscn"
 	const HERO: String = "char_swordsman"
 	const OTHER: String = "char_archer"
 	const WEAPON_ID: String = "weapon_iron_sword"
@@ -9630,6 +9594,7 @@ class UiFlowRunner extends Node:
 		await _flow_facility()
 		await _flow_barracks()
 		await _flow_quest_board()
+		await _flow_chest()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
 
@@ -9948,6 +9913,63 @@ class UiFlowRunner extends Node:
 		await _press(resume, OPEN_FRAMES)
 		_check("掲示板：「続きから」は出撃届を挟まずマップ", _path_of(get_tree().current_scene) == FLOOR_MAP)
 		GameManager.abandon_floor()
+
+	# --- 届いた宝箱（2026-09-27・決定 `BS-21`）：バッジ → 画面 ／ 行を選ぶ ／ 次を開ける（窓は出ない）／ まとめて開ける ／ 戻る ---
+
+	func _flow_chest() -> void:
+		# ⚠ 種類ごとに2個ずつ積む（⚠ 抽選のハズレは false＝正常系。⚠ 積めるまで試す）。
+		for chest_id: Variant in MasterDataLoader.get_all_chests().keys():
+			var granted: int = 0
+			for _attempt: int in range(20):
+				if GameManager.grant_chest(str(chest_id), GameStateKeys.CHEST_SOURCE_DUNGEON):
+					granted += 1
+				if granted >= 2:
+					break
+		var kinds: Dictionary = {}
+		for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+			if chest is Dictionary and not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)):
+				kinds[str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))] = true
+		var base: Node = await _open(BASE, {})
+		if base == null:
+			return
+		await _press(base.get("chest_badge"), OPEN_FRAMES)
+		var c: Node = get_tree().current_scene
+		_check("宝箱：拠点のバッジで「届いた宝箱」の画面", _path_of(c) == CHEST)
+		if _path_of(c) != CHEST:
+			return
+		var rows: Array = c.find_children("ChestRow_*", "", true, false)
+		_check("宝箱：帳面の行 %d ＝ 種類 %d" % [rows.size(), kinds.size()], rows.size() == kinds.size() and rows.size() >= 2)
+		_check("宝箱：行の絵は宝箱のマス（枠がレアリティの色）", rows.size() > 0 and (rows[0] as Node).find_child("ChestGlyph", true, false) is ItemIcon)
+		var second: String = str(kinds.keys()[1]) if kinds.size() > 1 else ""
+		await _press(c.find_child("ChestRow_" + second, true, false))
+		_check("宝箱：行を押すとその種類を選ぶ", str(c.get("_selected_kind")) == second)
+		var before: int = GameManager.get_pending_chest_count()
+		var before_kind: int = _pending_of(second)
+		await _press(c.find_child("NextButton", true, false))
+		_check("宝箱：「次を開ける」で選んだ種類が1減る（%d → %d）" % [before_kind, _pending_of(second)], _pending_of(second) == before_kind - 1 and GameManager.get_pending_chest_count() == before - 1)
+		_check("宝箱：確かめの窓は出ない", Modal._current == null or not is_instance_valid(Modal._current))
+		var cards: int = c.find_children("Card_*", "", true, false).size()
+		_check("宝箱：台に札が出る（%d 枚）・名前は %s" % [cards, _label_text(c, "Stage", "OpenedName")], cards > 0 and _label_text(c, "Stage", "OpenedName") == tr(GameManager.item_name_key(second)))
+		var box: Node = c.find_child("Box", true, false)
+		_check("宝箱：箱が開いた姿", box is ChestBox and (box as ChestBox).opened)
+		await _press(c.find_child("OpenAllButton", true, false))
+		_check("宝箱：「まとめて開ける」で 0（%d）" % GameManager.get_pending_chest_count(), GameManager.get_pending_chest_count() == 0)
+		var list: Node = c.find_child("ChestList", true, false)
+		_check("宝箱：空になると空の表示", list != null and list.get_child_count() == 1 and list.get_child(0) is EmptyState)
+		var next: Node = c.find_child("NextButton", true, false)
+		var all: Node = c.find_child("OpenAllButton", true, false)
+		_check("宝箱：空なら「次を開ける」「まとめて開ける」は押せない", next is Button and (next as Button).disabled and all is Button and (all as Button).disabled)
+		var header: Node = c.find_child("Header", true, false)
+		await _press(null if header == null else header.find_child("BackButton", true, false), OPEN_FRAMES)
+		_check("宝箱：「戻る」で拠点", _path_of(get_tree().current_scene) == BASE)
+
+	func _pending_of(chest_id: String) -> int:
+		var count: int = 0
+		for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+			if chest is Dictionary and not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)) \
+					and str((chest as Dictionary).get(GameStateKeys.CHEST_ID, "")) == chest_id:
+				count += 1
+		return count
 
 	# --- 小さい道具 ---
 

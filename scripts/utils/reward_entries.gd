@@ -3,7 +3,7 @@ extends RefCounted
 
 # 報酬 Dictionary（{gold, gems, stamina, materials, inventory}）を画面に出す形へ組む（2026-09-17）。
 #
-# ⚠⚠ 倉庫の開封結果の窓（`chest_panel.gd`）と戦闘の結果窓（`battle_result_view.gd`）の2つが使う。
+# ⚠⚠ 届いた宝箱の画面（`chest_screen.gd`・09-27 までは `chest_panel.gd`）と戦闘の結果窓（`battle_result_view.gd`）の2つが使う。
 #   ⚠ 前は `chest_panel.gd` の中にあった。⚠ 同じものを2つ作らないためにここへ出した。
 # ⚠ 静的関数なので `tr()` は呼べない（AGENTS.md）。⚠ `TranslationServer.translate()` を使う。
 # ⚠ ここで GameManager の状態を読まないこと。⚠ 渡された報酬だけを見る。
