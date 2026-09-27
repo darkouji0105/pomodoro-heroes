@@ -62,3 +62,10 @@ const TRAINING_TAB_OVERVIEW: String = "overview"
 const TRAINING_TAB_NODES: String = "nodes"
 const TRAINING_TAB_SKILLS: String = "skills"
 const TRAINING_TAB_EQUIP: String = "equip"
+
+# 持ち物のほかのタブ（2026-09-27・回UI-組 持ち物）。⚠ `WAREHOUSE_TAB` の値。⚠ 無ければ装備。
+const WAREHOUSE_TAB_EQUIP: String = "equip"
+const WAREHOUSE_TAB_PART: String = "part"
+const WAREHOUSE_TAB_MATERIAL: String = "material"
+# 持ち物を開いたときに選んでおく装備の個体（⚠ 育成の装備タブの「鍛冶場で鍛える」から来る）。
+const WAREHOUSE_INSTANCE_ID: String = "warehouse_instance_id"

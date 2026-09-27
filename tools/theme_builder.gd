@@ -763,6 +763,7 @@ static func build() -> void:
 	_build_title_screen(theme)
 	_build_protection_cards(theme)
 	_build_training(theme)
+	_build_belongings(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2222,6 +2223,23 @@ static func _build_training(theme: Theme) -> void:
 		theme.set_font_size(&"font_size", type_name, int(spec[1]))
 		if spec[2] != null:
 			theme.set_font(&"font", type_name, spec[2] as Font)
+
+
+# --- ⚠⚠ 持ち物（2026-09-27・回UI-組 持ち物・手本 Belongings / RichItem）---
+#
+# ⚠ 左に紙のタブ（装備・装飾・素材・図鑑）・装備は部位の縦タブ・中は台帳の行。⚠ 右に説明の紙。
+const BELONGINGS_DETAIL_WIDTH: int = 380
+const BELONGINGS_FILTER_WIDTH: int = 120
+const BELONGINGS_STAT_COLUMNS: int = 3
+const BELONGINGS_HEAD_ICON: int = 56
+
+
+static func _build_belongings(theme: Theme) -> void:
+	var t: StringName = &"Belongings"
+	theme.set_constant(&"detail_width", t, BELONGINGS_DETAIL_WIDTH)
+	theme.set_constant(&"filter_width", t, BELONGINGS_FILTER_WIDTH)
+	theme.set_constant(&"stat_columns", t, BELONGINGS_STAT_COLUMNS)
+	theme.set_constant(&"head_icon", t, BELONGINGS_HEAD_ICON)
 
 
 static func _build_heading_font(theme: Theme) -> void:

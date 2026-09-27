@@ -64,8 +64,10 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	var click: InputEventMouseButton = event as InputEventMouseButton
 	if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
-		pressed.emit()
+		# ⚠⚠ 先に入力を食べてから知らせる（2026-09-27）。⚠ 受けた画面が描き直すと、⚠ この行は木から外れる。
+		#   ⚠ 外れたあとに `accept_event()` を呼ぶと赤になる（⚠ 育成・持ち物は押すたびに描き直す）。
 		accept_event()
+		pressed.emit()
 
 
 func _notification(what: int) -> void:

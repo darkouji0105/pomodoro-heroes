@@ -93,7 +93,6 @@ const PLAIN_SCENES: Array[String] = [
 	"res://scenes/title/title_screen.tscn",
 	"res://scenes/pomodoro/pomodoro.tscn",
 	"res://scenes/guild/training_screen.tscn",
-	"res://scenes/guild/equipment_screen.tscn",
 	"res://scenes/guild/research_screen.tscn",
 	"res://scenes/guild/workshop_screen.tscn",
 	"res://scenes/guild/shop_screen.tscn",

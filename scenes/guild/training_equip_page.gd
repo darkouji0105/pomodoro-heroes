@@ -6,13 +6,13 @@ extends VBoxContainer
 # ⚠ 左：部位の列（⚠ 頭・上半身・下半身・武器・アクセサリー。⚠ 押すとその部位の候補を右に出す）。
 # ⚠ 右：その部位の個体の一覧（⚠ マス・名前・値・装飾の枠 ◆◇ ／ ⚠ 他の人が着けていればその人）。
 # ⚠ 下：「鍛冶場で鍛える」＋「◯を着ける」（⚠ 選んだのが着けている品なら「外す」）。
-# ⚠⚠ 鍛える・装飾を刺す・外す・分解は、⚠ **前の装備画面（`equipment_screen`）を仮の鍛冶場として開く**。
-#   ⚠ 鍛冶場は「仕組みの回①」で作る。⚠ それまで機能を減らさないためのつなぎ。
+# ⚠⚠ 鍛える・装飾を刺す・外す・分解は、⚠ **持ち物を「その品を選んだ状態」で開く**（2026-09-27・持ち物の回・人間「⚠ 3あ」）。
+#   ⚠ 前は仮の鍛冶場（前の装備画面）を開いていた。⚠ 鍛冶場は「仕組みの回①」で作る。
 # ⚠ 着けられるかの判定は `get_equip_reject_reason()` の1本（⚠ ここで部位や持ち主を見直さない）。
 # ⚠ 購読：character_growth_changed（着脱）／ equipment_instances_changed（鍛えた・増えた）。
 # ⚠ 育成でしか使わないので scenes/guild/（AGENTS.md）。
 
-signal forge_requested
+signal forge_requested(instance_id: String)
 
 var _character_id: String = ""
 var _selected_slot: String = GameStateKeys.EQUIP_WEAPON
@@ -159,7 +159,8 @@ func _build_footer(equipped_id: String) -> HBoxContainer:
 	footer.name = "Footer"
 	var forge: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_training_equip_forge")
 	forge.name = "ForgeButton"
-	forge.pressed.connect(func() -> void: forge_requested.emit())
+	forge.disabled = _selected_instance == ""
+	forge.pressed.connect(_on_forge_pressed)
 	footer.add_child(forge)
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -246,6 +247,10 @@ func _on_candidate_pressed(instance_id: String) -> void:
 		return
 	_selected_instance = instance_id
 	_rebuild()
+
+
+func _on_forge_pressed() -> void:
+	forge_requested.emit(_selected_instance)
 
 
 func _on_equip_pressed() -> void:

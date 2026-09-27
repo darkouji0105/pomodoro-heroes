@@ -1089,3 +1089,15 @@ ui_level_up_go_nodes,点を振りに行く
 ui_level_up_again,続けて昇級させる
 ui_level_up_back,育成へ戻る
 ui_level_up_press,判を押して昇級させる
+ui_belongings_tab_equip,装備
+ui_belongings_tab_part,装飾
+ui_belongings_tab_material,素材
+ui_belongings_filter_all,すべて
+ui_belongings_count,%d 個
+ui_belongings_attach_heading,刺せる装飾（枠%d）
+ui_belongings_owned,持っている %d
+ui_belongings_attach,刺す
+ui_belongings_dismantle,分解
+ui_belongings_forge_note,鍛える：%s %d ／ %d
+ui_belongings_dismantle_confirm,%s を分解して素材に戻す。戻ってくる素材 %d 個。
+ui_belongings_dismantle_title,分解する

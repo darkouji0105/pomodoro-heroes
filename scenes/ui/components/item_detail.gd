@@ -104,22 +104,7 @@ func _show_instance(item_id: String, instance_id: String) -> void:
 	# ⚠⚠ `get_part_entries()` は **開いている枠しか返さない**。⚠ 未開放のマスも出すため、
 	#   ⚠ 枠の並びは `get_part_slot_defs()`（全部）から取り、⚠ 中身だけ index で重ねる。
 	#   ⚠ 「開いているか」の判定は `PartSlotIcon` が `GameManager` に聞く（⚠ ここでしない）。
-	var entries_by_index: Dictionary = {}
-	for view: Variant in GameManager.get_part_entries(instance_id):
-		if view is Dictionary:
-			entries_by_index[int((view as Dictionary).get(GameManager.PART_VIEW_INDEX, 0))] = (
-				(view as Dictionary).get(GameManager.PART_VIEW_ENTRY, null)
-			)
-	var defs: Array = []
-	for def: Variant in GameManager.get_part_slot_defs(equip_slot):
-		if not (def is Dictionary):
-			continue
-		var merged: Dictionary = (def as Dictionary).duplicate(true)
-		merged[GameManager.PART_VIEW_ENTRY] = entries_by_index.get(
-			int(merged.get(GameManager.PART_VIEW_INDEX, 0)), null
-		)
-		defs.append(merged)
-	_add_part_slots(defs, grade, _slot_lead_text(equip_slot))
+	_add_part_slots(merged_part_defs(instance_id, equip_slot), grade, _slot_lead_text(equip_slot))
 
 	# ⚠⚠ 「誰に着いているか」は要約にも出す（2026-09-10）。
 	#   ⚠ 前は要約から外していたが、⚠ 同じことをマスの素のツールチップが出していた。
@@ -240,6 +225,27 @@ func _show_equipment_slots(item_id: String, grade: int) -> void:
 	# ⚠ 「いつ開くか」は出さない（⚠ 2026-09-07 の決定）。⚠ 2026-09-08 に、
 	#   ⚠ **未開放の枠が在ること自体**は鍵のマスで見せるようにした（⚠ モック）。
 	_add_part_slots(GameManager.get_part_slot_defs(equip_slot), grade, _slot_lead_text(equip_slot))
+
+
+# ⚠ 個体の枠の並び（⚠ 未開放も含む全部 ＋ 刺さっている中身を index で重ねたもの）。
+#   ⚠ 2026-09-27：⚠ 持ち物の右の紙でも同じ並びが要るので、⚠ ここから切り出した（⚠ 2本目を書かない）。
+static func merged_part_defs(instance_id: String, equip_slot: String) -> Array:
+	var entries_by_index: Dictionary = {}
+	for view: Variant in GameManager.get_part_entries(instance_id):
+		if view is Dictionary:
+			entries_by_index[int((view as Dictionary).get(GameManager.PART_VIEW_INDEX, 0))] = (
+				(view as Dictionary).get(GameManager.PART_VIEW_ENTRY, null)
+			)
+	var defs: Array = []
+	for def: Variant in GameManager.get_part_slot_defs(equip_slot):
+		if not (def is Dictionary):
+			continue
+		var merged: Dictionary = (def as Dictionary).duplicate(true)
+		merged[GameManager.PART_VIEW_ENTRY] = entries_by_index.get(
+			int(merged.get(GameManager.PART_VIEW_INDEX, 0)), null
+		)
+		defs.append(merged)
+	return defs
 
 
 # 枠を1行のマスで出す（2026-09-08・段階②）。⚠ 見出しに「2 / 7」を付ける。

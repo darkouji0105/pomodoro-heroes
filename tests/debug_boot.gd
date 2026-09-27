@@ -54,7 +54,6 @@ const REPORT_GLYPHS: String = "glyphs"
 const REPORT_THEME: String = "theme"
 const REPORT_SUBWINDOW_DRAG: String = "subwindow_drag"
 const REPORT_INVENTORY_WINDOW: String = "inventory_window"
-const REPORT_EQUIP_DRAG: String = "equip_drag"
 const REPORT_DRAG_CURSOR: String = "drag_cursor"
 const REPORT_BASE_CHEST: String = "base_chest"
 
@@ -932,13 +931,7 @@ const SCENARIOS: Dictionary = {
 		"report": REPORT_INVENTORY_WINDOW,
 		"note": "倉庫の別窓が無い / 右上の倉庫ボタンが無い / ギルドのカードに倉庫 / 倉庫が題と戻るを持つ画面",
 	},
-	# 2026-09-15（段3a）→ ⚠ 2026-09-23：⚠ 装備画面の右の持ち物から装備マスへドラッグして装備する（⚠ 別窓は消した）。
-	# ⚠ 入力は root に push_input（⚠ subwindow_drag と同じ流し方）。⚠ 設定は最後に元へ戻す。
-	"equip_drag": {
-		"kind": KIND_REPORT,
-		"report": REPORT_EQUIP_DRAG,
-		"note": "① 右の持ち物→装備マスで装備される ／ ② 装備マス→右の持ち物は何も起きない",
-	},
+	# ⚠ 「equip_drag」（装備画面でドラッグして装備）は 2026-09-27 に消した（⚠ 装備画面ごと無くなった・持ち物の回・人間「⚠ 3あ」）。
 	# 2026-09-15（段3b）。⚠ つまんだ品のカーソルの絵。⚠ 絵そのものは見られないので、⚠ 画素で確かめる。
 	"drag_cursor": {
 		"kind": KIND_REPORT,
@@ -1029,11 +1022,7 @@ const SCENARIOS: Dictionary = {
 				"data": {TransferKeys.CHARACTER_ID: "char_swordsman"},
 				"after": SHOT_AFTER_LEVEL_UP_PRESS,
 			},
-			{
-				"name": "08_equipment",
-				"scene": "res://scenes/guild/equipment_screen.tscn",
-				"data": {TransferKeys.CHARACTER_ID: "char_swordsman"},
-			},
+			# ⚠ 08（装備画面）は 2026-09-27 に消した（⚠ 画面ごと無くなった・持ち物の右の紙へ移った）。
 			# ⑤ 回す（経済）。
 			{"name": "09_shop", "scene": "res://scenes/guild/shop_screen.tscn"},
 			{"name": "10_workshop", "scene": "res://scenes/guild/workshop_screen.tscn"},
@@ -1125,15 +1114,24 @@ const SCENARIOS: Dictionary = {
 				"scene": SCENE_BASE,
 				"after": SHOT_AFTER_MODAL_CONFIRM,
 			},
-			# ⚠⚠ 装飾の枠（2026-09-22・回3・人間の決定「マス＋吹き出し」）。
-			#   ⚠ 08 は**何も着けていない姿**なので枠が1つも出ない。⚠ こちらは着けて鍛えて刺した姿。
-			#   ⚠ 吹き出しも出したまま撮る（⚠ 手触りが変わった当人なので、⚠ 絵で見えないと意味が無い）。
+			# ⚠⚠ 装飾の枠（2026-09-22・回3・人間の決定「マス＋吹き出し」→ ⚠ 09-27 から持ち物の右の紙）。
+			#   ⚠ 着けて鍛えて刺した武器を選び、⚠ 空きの枠を押して「刺せる装飾」に切り替わった姿（⚠ 2手の1手目）。
 			{
-				"name": "18_equipment_parts",
-				"scene": "res://scenes/guild/equipment_screen.tscn",
+				"name": "18_belongings_attach",
+				"scene": "res://scenes/guild/warehouse_screen.tscn",
 				"prepare": SHOT_PREPARE_EQUIPMENT,
-				"data": {TransferKeys.CHARACTER_ID: "char_swordsman"},
 				"after": SHOT_AFTER_PART_POPOVER,
+			},
+			# ⚠ 持ち物の装飾・素材のタブ（2026-09-27・回UI-組 持ち物）。⚠ 18 の下ごしらえで装飾を持っている。
+			{
+				"name": "32_belongings_part",
+				"scene": "res://scenes/guild/warehouse_screen.tscn",
+				"data": {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART},
+			},
+			{
+				"name": "33_belongings_material",
+				"scene": "res://scenes/guild/warehouse_screen.tscn",
+				"data": {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL},
 			},
 			# ⚠ 育成の装備タブ（2026-09-27）。⚠ 18 の下ごしらえ（着けて・鍛えて・刺した姿）をそのまま使う（⚠ 2回呼ぶと「刺せない」で赤）。
 			{
@@ -1210,8 +1208,6 @@ func _ready() -> void:
 			await _report_subwindow_drag()
 		elif report == REPORT_INVENTORY_WINDOW:
 			await _report_inventory_window()
-		elif report == REPORT_EQUIP_DRAG:
-			await _report_equip_drag()
 		elif report == REPORT_DRAG_CURSOR:
 			_report_drag_cursor()
 		elif report == REPORT_BASE_CHEST:
@@ -4478,10 +4474,26 @@ func _report_layout() -> void:
 					push_error("[DebugBoot] 装備のタブの部位が %d 行（%d 部位あるはず）" % [
 						lines.size(), GameManager.get_equip_slots().size()
 					])
-			# ⚠⚠ 仮の鍛冶場（⚠ 前の装備画面）の装飾の枠（2026-09-22・回3）。⚠ 「マス＋吹き出し」に変えた側。
-			#   ⚠ 下ごしらえ（`_layout_fill_equipment_parts()`）で1つ刺してあるので、
-			#   ⚠ **0 行なら枠が出ていない**（⚠ 前の「文字の行」に戻ったのと同じ）。
-			if scene_path.get_file() == "equipment_screen.tscn" and raw_child is PartSlotRow:
+			# ⚠⚠ 持ち物の右の紙の装飾の枠（2026-09-22・回3 → ⚠ 09-27 に装備画面から移った）。⚠ 「マス＋吹き出し」。
+			#   ⚠ 下ごしらえ（`_layout_fill_equipment_parts()`）で1つ刺した武器を選んで開くので、
+			#   ⚠ **0 行なら枠が出ていない**。
+			var in_belongings: bool = _layout_load_path(scene_path).get_file() == "warehouse_screen.tscn"
+			if in_belongings and raw_child.name == "Rows":
+				var lines: Array[String] = []
+				for grand: Node in raw_child.get_children():
+					if grand is PanelContainer:
+						lines.append(_row_text(grand as PanelContainer))
+				print("    ⚠ 持ち物の行 = %d 行" % lines.size())
+				for text: String in lines.slice(0, 6):
+					print("      %s" % text)
+			if in_belongings and raw_child is BelongingsDetail:
+				var buttons: Array[String] = []
+				for node: Node in raw_child.find_children("*", "Button", true, false):
+					var button: Button = node as Button
+					if button.text != "":
+						buttons.append("[%s%s]" % [button.text, "・押せない" if button.disabled else ""])
+				print("    ⚠ 右の紙のボタン = %s" % " ".join(buttons))
+			if in_belongings and raw_child is PartSlotRow:
 				var part_row: PartSlotRow = raw_child
 				print("    ⚠ 装飾の枠 %s = %d/%d ／ %s" % [
 					part_row.name, part_row.get_filled_count(), part_row.get_open_count(),
@@ -4766,16 +4778,16 @@ func _layout_prepare_for(scene_path: String) -> void:
 	if scene_path == "res://scenes/guild/training_screen.tscn#" + TransferKeys.TRAINING_TAB_NODES:
 		_layout_fill_stat_nodes(str(GameManager.get_party_members()[0]))
 		return
-	# ⚠ 育成の装備タブは装飾の下ごしらえを呼ばない（⚠ 前に並ぶ `equipment_screen` で刺した品をそのまま着ている。
+	# ⚠ 育成の装備タブは装飾の下ごしらえを呼ばない（⚠ 下ごしらえは持ち物（`warehouse_screen`）で1回だけ。
 	#   ⚠ 2回呼ぶと「刺せなかった」の黄が1本増える＝2026-09-27 に踏んだ）。
 	# ⚠ ただし装備の段階解放は開ける（⚠ 閉じているとタブごと出ない＝本番の決まり。⚠ 本番の口 `unlock_screen()`）。
 	if scene_path == "res://scenes/guild/training_screen.tscn#" + TransferKeys.TRAINING_TAB_EQUIP:
 		GameManager.unlock_screen(GameStateKeys.SCREEN_EQUIPMENT)
 		return
-	# ⚠⚠ 装備画面の**装飾の枠**（2026-09-22・回3）。⚠ 何も着けていない姿だと枠が1つも出ず、
-	#   ⚠ 「マス＋吹き出し」に変えた側が**一度も通らない**（⚠ 前は文字の行だった）。
+	# ⚠⚠ 装飾の枠（2026-09-22・回3 → ⚠ 09-27 から持ち物の右の紙）。⚠ 何も着けていない姿だと枠が1つも出ず、
+	#   ⚠ 「マス＋吹き出し」の側が**一度も通らない**。
 	#   ⚠ 枠は等級3から開く（GAME_DESIGN.md 6-4）ので、⚠ 着けて・鍛えて・刺すところまで作る。
-	if scene_path == "res://scenes/guild/equipment_screen.tscn":
+	if scene_path == "res://scenes/guild/warehouse_screen.tscn":
 		_layout_fill_equipment_parts(str(GameManager.get_party_members()[0]))
 		return
 	if scene_path not in [
@@ -4902,9 +4914,15 @@ func _layout_transfer_for(scene_path: String) -> Dictionary:
 		data[TransferKeys.RUN_NODE_ID] = _find_dungeon_node_of_kind(
 			GameStateKeys.FLOOR_NODE_KIND_RELIC
 		)
-	# ⚠ 育成のタブ（2026-09-27）。⚠ `#` の後ろがタブの字。
+	# ⚠ 育成・持ち物のタブ（2026-09-27）。⚠ `#` の後ろがタブの字。
 	if scene_path.contains("#"):
-		data[TransferKeys.TRAINING_TAB] = scene_path.get_slice("#", 1)
+		var tab_key: String = TransferKeys.WAREHOUSE_TAB if scene_path.contains("warehouse_screen") else TransferKeys.TRAINING_TAB
+		data[tab_key] = scene_path.get_slice("#", 1)
+	# ⚠ 持ち物（装備のタブ）は、⚠ 下ごしらえで装飾を刺した武器を選んでおく（⚠ 右の紙に枠が出る）。
+	if scene_path == "res://scenes/guild/warehouse_screen.tscn":
+		data[TransferKeys.WAREHOUSE_INSTANCE_ID] = GameManager.get_equipped_instance_id(
+			str(GameManager.get_party_members()[0]), GameStateKeys.EQUIP_WEAPON
+		)
 	return data
 
 
@@ -5079,7 +5097,7 @@ const LAYOUT_SCENES: Array[String] = [
 	# ⚠ この2枚は、コードでノードを足しているので開かないと分からない
 	#   （@onready のパス取り違え・move_child の相手違い）。
 	"res://scenes/guild/training_screen.tscn",
-	"res://scenes/guild/equipment_screen.tscn",
+	# ⚠ 装備画面（仮の鍛冶場）は 2026-09-27 に消した（⚠ 持ち物の右の紙へ移った・人間「⚠ 3あ」）。
 	# ⚠⚠ 育成のタブ（2026-09-27・回UI-組 育成・人間「⚠ 1い」）。⚠ 前のステータスノード・スキルの画面は消えて、
 	#   ⚠ 育成の中のタブになった。⚠ **`#タブ` を後ろに付けると、そのタブで開く**（⚠ `_layout_transfer_for()`）。
 	#   ⚠ 読み込むのは `#` の前だけ（⚠ `_layout_load_path()`）。
@@ -5099,6 +5117,10 @@ const LAYOUT_SCENES: Array[String] = [
 	#   ⚠ 倉庫は行を GridContainer にコードで積む。持ち物が多いほど横に伸びる
 	#     （測るのは開いた直後の姿だけ。中身の件数は F4 を押した状態と違う）。
 	"res://scenes/guild/warehouse_screen.tscn",
+	# ⚠ 持ち物のほかのタブ（2026-09-27・回UI-組 持ち物）。⚠ `#タブ` で開き分ける（⚠ 育成と同じ）。
+	"res://scenes/guild/warehouse_screen.tscn#" + TransferKeys.WAREHOUSE_TAB_PART,
+	"res://scenes/guild/warehouse_screen.tscn#" + TransferKeys.WAREHOUSE_TAB_MATERIAL,
+	"res://scenes/guild/warehouse_screen.tscn#" + TransferKeys.WAREHOUSE_TAB_CODEX,
 	# ⚠ 同上。ショップは13枠を HBoxContainer の行で積む。1行に器が4つ並ぶ。
 	"res://scenes/guild/shop_screen.tscn",
 	# ⚠⚠ ポモドーロの器と4ビュー（2026-09-09）。⚠ **今まで1枚も測っていなかった**。
@@ -9041,7 +9063,11 @@ class ShotTaker extends Node:
 			if empty_index < 0:
 				push_error("[DebugBoot] ⚠ %s は空きの枠が1つも無い" % shot_name)
 				return false
-			screen.call("_on_part_slot_selected", equip_id, empty_index)
+			# ⚠ 2026-09-27：⚠ 持ち物の口（⚠ 右の紙で空きの枠か「刺す」を押したときに呼ばれるもの）。
+			#   ⚠ 下ごしらえで刺した装飾は持ち物から減っているので、⚠ 並ぶ品を2つ足す（⚠ 本番の口 `add_to_inventory()`）。
+			GameManager.add_to_inventory(PART_ITEM_ID, 2)
+			screen.set("_selected_key", equip_id)
+			screen.call("_on_attach_requested", equip_id, empty_index)
 		elif kind == AFTER_RUN_MENU:
 			var menu: RunMenuButton = screen.find_child("MenuButton", true, false) as RunMenuButton
 			if menu == null:
@@ -9461,12 +9487,11 @@ func _report_inventory_window() -> void:
 	var screen: WarehouseScreen = load(path).instantiate()
 	get_tree().root.add_child(screen)
 	await get_tree().process_frame
-	var tab_count: int = screen.tabs.get_tab_count()
-	print("  題 = %s ／ タブの数 = %d（⚠ 3＝持ち物・素材・図鑑） ／ 持ち物の組 = %s" % [
-		screen.header.title_key, tab_count, screen.inventory_grid.drag_group,
-	])
-	checks.append(["④ 題が倉庫", screen.header.title_key == "ui_nav_warehouse"])
-	checks.append(["④ タブが3つ", tab_count == 3])
+	# ⚠ 2026-09-27（回UI-組 持ち物）：⚠ 題は「持ち物」・タブは紙のタブ4枚（装備・装飾・素材・図鑑＝人間「⚠ 2あ」）。
+	var tab_count: int = screen.tabs.get_child_count()
+	print("  題 = %s ／ タブの数 = %d（⚠ 4＝装備・装飾・素材・図鑑）" % [screen.header.title_key, tab_count])
+	checks.append(["④ 題が持ち物", screen.header.title_key == "ui_facility_belongings"])
+	checks.append(["④ タブが4つ", tab_count == 4])
 	checks.append(["④ 戻るがつながっている", screen.header.back_pressed.is_connected(screen._on_back_pressed)])
 	get_tree().root.remove_child(screen)
 	screen.queue_free()
@@ -9476,173 +9501,6 @@ func _report_inventory_window() -> void:
 		if not bool((check as Array)[1]):
 			push_error("[DebugBoot] 倉庫の入口: " + str((check as Array)[0]))
 
-
-# --- ドラッグで装備（2026-09-15・段3a → ⚠ 2026-09-23 に入れ替えた） ---
-#
-# ⚠ 2026-09-22 から装備画面の右に持ち物がある（⚠ 3列）。
-#   ⚠ 別窓を消したので、⚠ 落とす元はこちら。⚠ 別窓からの落とし先探し（④）は器ごと消した。
-
-func _report_equip_drag() -> void:
-	await get_tree().process_frame
-	var root: Window = get_tree().root
-	# ⚠ ヘッドレスの root は 64 x 64（⚠ subwindow_drag で踏んだ）。⚠ 基準の大きさにする
-	#   （⚠ stretch が canvas_items なので、⚠ 基準から外すと push_input の位置がずれる）。
-	var old_size: Vector2i = root.size
-	root.size = Vector2i(1280, 720)
-	await get_tree().process_frame
-	print("[DebugBoot] --- ドラッグで装備 ---")
-
-	# ⚠ 装備は add_to_inventory() が個体を作る（CLAUDE.md 8番）。
-	GameManager.add_to_inventory("weapon_iron_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
-	var instance_id: String = _newest_instance()
-	var character_id: String = ""
-	for member: Variant in GameManager.get_party_members():
-		if GameManager.get_equip_reject_reason(str(member), GameStateKeys.EQUIP_WEAPON, instance_id) == "":
-			character_id = str(member)
-			break
-	print("  個体 = %s ／ 着けるキャラ = %s" % [instance_id, character_id])
-	if character_id == "":
-		push_error("[DebugBoot] 鉄の剣を着けられるキャラが編成にいない")
-		root.size = old_size
-		return
-
-	SceneManager._transfer_data = {TransferKeys.CHARACTER_ID: character_id}
-	var screen: Control = load("res://scenes/guild/equipment_screen.tscn").instantiate()
-	root.add_child(screen)
-	await get_tree().process_frame
-	await get_tree().process_frame
-
-	var inventory_grid: ItemGrid = screen.find_child("InventoryGrid", true, false)
-	var equip_grid: ItemGrid = screen.find_child("EquipmentGrid", true, false)
-	var scroll: ScrollContainer = screen.find_child("InventoryScroll", true, false)
-	var from_index: int = _grid_find_instance(inventory_grid, instance_id) if inventory_grid != null else -1
-	var weapon_index: int = _equip_grid_index_of(character_id, GameStateKeys.EQUIP_WEAPON)
-	print("  持ち物のマス = %d ／ 装備マスの武器 = %d" % [from_index, weapon_index])
-	if from_index < 0 or weapon_index < 0 or equip_grid == null:
-		push_error("[DebugBoot] 落とす元か先が見つからない")
-	else:
-		# ⚠ 持ち物は器の中でスクロールする（⚠ 10 × 10 が縦に収まらない）。⚠ つまむマスを見える所へ出す。
-		if scroll != null:
-			scroll.ensure_control_visible(inventory_grid.get_child(from_index) as Control)
-			await get_tree().process_frame
-		# ① 右の持ち物 → 装備マス。
-		var started: bool = await _push_drag(
-			_probe_root_point(inventory_grid.get_child(from_index) as Control),
-			_probe_root_point(equip_grid.get_child(weapon_index) as Control)
-		)
-		await get_tree().process_frame
-		await get_tree().process_frame
-		var equipped: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_WEAPON)
-		inventory_grid = screen.find_child("InventoryGrid", true, false)
-		var left_in_grid: bool = _grid_find_instance(inventory_grid, instance_id) >= 0
-		print("  ① のあと カーソルが品の絵のままか = %s（⚠ false が正解）" % ItemDragCursor.is_active())
-		if ItemDragCursor.is_active():
-			push_error("[DebugBoot] ① ドラッグが終わったのにカーソルが戻っていない")
-		print("  ① 持ち物→装備マス：ドラッグが始まったか = %s ／ 装備 = %s（⚠ %s が正解） ／ 持ち物に残っているか = %s（⚠ false が正解）" % [
-			started, equipped, instance_id, left_in_grid,
-		])
-		if equipped != instance_id:
-			push_error("[DebugBoot] ① 落としても装備されていない")
-		if left_in_grid:
-			push_error("[DebugBoot] ① 装備したのに持ち物のマスに残っている（決定7）")
-
-		# ② 装備マス → 右の持ち物（⚠ 持ち物のマス目は装備マスから受けない）。
-		equip_grid = screen.find_child("EquipmentGrid", true, false)
-		scroll = screen.find_child("InventoryScroll", true, false)
-		var empty_index: int = _grid_first_empty(inventory_grid)
-		if empty_index < 0:
-			push_error("[DebugBoot] ② 持ち物に空きマスが無い")
-		else:
-			if scroll != null:
-				scroll.ensure_control_visible(inventory_grid.get_child(empty_index) as Control)
-				await get_tree().process_frame
-			await _push_drag(
-				_probe_root_point(equip_grid.get_child(weapon_index) as Control),
-				_probe_root_point(inventory_grid.get_child(empty_index) as Control)
-			)
-			await get_tree().process_frame
-			await get_tree().process_frame
-			var still: String = GameManager.get_equipped_instance_id(character_id, GameStateKeys.EQUIP_WEAPON)
-			print("  ② 装備マス→持ち物：装備 = %s（⚠ %s のままが正解）" % [still, instance_id])
-			if still != instance_id:
-				push_error("[DebugBoot] ② 受けないはずの落としで装備が外れた")
-
-	root.remove_child(screen)
-	screen.queue_free()
-	root.size = old_size
-
-
-# 押す → 12歩で動かす → 離す。⚠ ドラッグが始まったら true。
-func _push_drag(from: Vector2, to: Vector2) -> bool:
-	var root: Window = get_tree().root
-	var press: InputEventMouseButton = InputEventMouseButton.new()
-	press.button_index = MOUSE_BUTTON_LEFT
-	press.pressed = true
-	press.button_mask = MOUSE_BUTTON_MASK_LEFT
-	press.position = from
-	press.global_position = from
-	root.push_input(press)
-	await get_tree().process_frame
-	var started: bool = false
-	var steps: int = 12
-	for i: int in range(1, steps + 1):
-		var point: Vector2 = from.lerp(to, float(i) / float(steps))
-		var motion: InputEventMouseMotion = InputEventMouseMotion.new()
-		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
-		motion.position = point
-		motion.global_position = point
-		motion.relative = (to - from) / float(steps)
-		root.push_input(motion)
-		await get_tree().process_frame
-		if root.gui_is_dragging():
-			started = true
-		for window: Window in root.get_embedded_subwindows():
-			if window.gui_is_dragging():
-				started = true
-	var release: InputEventMouseButton = InputEventMouseButton.new()
-	release.button_index = MOUSE_BUTTON_LEFT
-	release.pressed = false
-	release.position = to
-	release.global_position = to
-	root.push_input(release)
-	await get_tree().process_frame
-	return started
-
-
-func _grid_find_instance(grid: ItemGrid, instance_id: String) -> int:
-	for i: int in range(grid.get_slot_count()):
-		if str(grid.get_entry_at(i).get(GameManager.SLOT_ENTRY_INSTANCE_ID, "")) == instance_id:
-			return i
-	return -1
-
-
-func _grid_first_empty(grid: ItemGrid) -> int:
-	for i: int in range(grid.get_slot_count()):
-		if grid.get_entry_at(i).is_empty():
-			return i
-	return -1
-
-
-func _grid_last_empty(grid: ItemGrid) -> int:
-	for i: int in range(grid.get_slot_count() - 1, -1, -1):
-		if grid.get_entry_at(i).is_empty():
-			return i
-	return -1
-
-
-func _grid_first_filled(grid: ItemGrid) -> int:
-	for i: int in range(grid.get_slot_count()):
-		if not grid.get_entry_at(i).is_empty():
-			return i
-	return -1
-
-
-func _equip_grid_index_of(character_id: String, slot: String) -> int:
-	var slots: Array = GameManager.get_equipment_slot_entries(character_id)
-	for i: int in range(slots.size()):
-		if str((slots[i] as Dictionary)[GameManager.SLOT_ENTRY_EQUIP_SLOT]) == slot:
-			return i
-	return -1
 
 
 # --- つまんだ品のカーソルの絵（2026-09-15・段3b） ---
