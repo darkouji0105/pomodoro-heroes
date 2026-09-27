@@ -2316,7 +2316,22 @@ const CHEST_BOX_BAND: int = 26           # ⚠ 前の2本の帯の、端から�
 const CHEST_RISE_MS: int = 500
 const CHEST_RISE_STEP_MS: int = 150
 const CHEST_RISE_PX: int = 40
+const CHEST_RISE_MAX_STEPS: int = 6      # ⚠ 7枚目からは6枚目と同時（⚠ まとめて開けたとき待たせない）
 const CHEST_CURRENCY_ICON: int = 40      # ⚠ ゴールド・ジェム・スタミナの札の絵（⚠ 品のマスと同じ大きさ）
+# ⚠ 札の上の色の帯（⚠ 手本 `border-top: 6px`）。⚠ 色は種類ごと。⚠ 素材・装飾は手本の色、⚠ ほかは設計役の値（⚠ 手本に無い）。
+const CHEST_BAND: int = 6
+const CHEST_BAND_COLORS: Dictionary = {
+	"material": TOKEN_LIGHT,     # ⚠ 手本 d4a640
+	"part": "6d8bb3",            # ⚠ 手本（装飾・宝石）
+	"equipment": "a0603c",
+	"consumable": "6f9a74",
+	"currency": TOKEN_BRASS,
+	"other": TOKEN_RULE,
+}
+# ⚠ 初めて手に入れた品のしおり紐（⚠ 手本の赤い紐・右上）。
+const CHEST_RIBBON_W: int = 14
+const CHEST_RIBBON_H: int = 30
+const CHEST_RIBBON_INSET: int = 14
 
 
 static func _build_chest(theme: Theme) -> void:
@@ -2326,9 +2341,13 @@ static func _build_chest(theme: Theme) -> void:
 		["box_width", CHEST_BOX_WIDTH], ["box_height", CHEST_BOX_HEIGHT], ["box_lid", CHEST_BOX_LID],
 		["box_line", CHEST_BOX_LINE], ["box_band", CHEST_BOX_BAND],
 		["rise_ms", CHEST_RISE_MS], ["rise_step_ms", CHEST_RISE_STEP_MS], ["rise_px", CHEST_RISE_PX],
-		["currency_icon", CHEST_CURRENCY_ICON],
+		["currency_icon", CHEST_CURRENCY_ICON], ["band", CHEST_BAND], ["rise_max_steps", CHEST_RISE_MAX_STEPS],
+		["ribbon_w", CHEST_RIBBON_W], ["ribbon_h", CHEST_RIBBON_H], ["ribbon_inset", CHEST_RIBBON_INSET],
 	]:
 		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
+	for kind: String in CHEST_BAND_COLORS:
+		theme.set_color(StringName("band_" + kind), t, _html(str(CHEST_BAND_COLORS[kind])))
+	theme.set_color(&"ribbon", t, _html(TOKEN_WAX))
 	theme.set_color(&"box_line", t, _html(TOKEN_BRASS))
 	theme.set_color(&"box_fill", t, _html(TOKEN_LEATHER))
 	theme.set_color(&"box_inside", t, _html(TOKEN_BOARD))   # ⚠ 開いた蓋の裏

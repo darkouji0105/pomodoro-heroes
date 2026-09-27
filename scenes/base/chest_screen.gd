@@ -16,6 +16,14 @@ extends Control
 
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const THEME_TYPE: StringName = &"ChestScreen"
+# ⚠ items.json の item_type に無い札の種類（⚠ 翻訳キー `ui_chest_kind_<種類>` と色 `band_<種類>` の字）。
+const KIND_CURRENCY: String = "currency"
+const KIND_CHEST: String = "chest"
+const KIND_OTHER: String = "other"
+# ⚠ 札に持たせる印（⚠ 描くときと検査が読む）。
+const META_KIND: StringName = &"chest_kind"
+const META_ITEM_ID: StringName = &"chest_item_id"
+const META_NEW: StringName = &"chest_new"
 
 @onready var header: ScreenHeader = $Margin/Layout/Header
 @onready var ledger: PaperSheet = $Margin/Layout/Body/Ledger
@@ -224,14 +232,17 @@ func _on_next_pressed() -> void:
 		return
 	var instance_id: String = str((groups[_selected_kind] as Array)[0])
 	var chest_id: String = _selected_kind
+	# ⚠ 開ける前の図鑑を控える（⚠ 開けたあとに初めて載った品＝しおり紐）。
+	var known: Dictionary = _codex_snapshot()
 	if not GameManager.open_chest(instance_id):
 		push_warning("[ChestScreen] open_chest failed: " + instance_id)
 		return
 	# ⚠⚠ 中身は**開けたあと**に読む（⚠ `open_chest()` の中で振られ、開けた記録に残る・2026-09-18）。
-	_show_rewards(_read_chest_rewards(instance_id), tr(GameManager.item_name_key(chest_id)), chest_id)
+	_show_rewards(_read_chest_rewards(instance_id), tr(GameManager.item_name_key(chest_id)), chest_id, known)
 
 
 func _on_open_all_pressed() -> void:
+	var known: Dictionary = _codex_snapshot()
 	var opened_count: int = 0
 	var combined: Dictionary = _empty_rewards()
 	for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
@@ -246,12 +257,29 @@ func _on_open_all_pressed() -> void:
 			opened_count += 1
 	if opened_count > 0:
 		# ⚠ まとめて1回ぶんの札（⚠ 種類が混ざるので名前に色は付けない）。
-		_show_rewards(combined, tr("ui_chest_opened_all") % opened_count, "")
+		_show_rewards(combined, tr("ui_chest_opened_all") % opened_count, "", known)
+
+
+# 図鑑に載っている品（item_id -> true）。⚠ 複製（`get_state()`）から読む。
+func _codex_snapshot() -> Dictionary:
+	var known: Dictionary = {}
+	var codex: Variant = GameManager.get_state().get(GameStateKeys.CODEX, {})
+	if codex is Dictionary:
+		for item_id: Variant in (codex as Dictionary):
+			known[str(item_id)] = true
+	return known
+
+
+# 初めて手に入れた品か＝⚠ 開ける前の図鑑に無く、⚠ いまは載っている。
+# ⚠ 素材は図鑑に載らない（⚠ `_mark_codex_discovered()` は持ち物と装備だけ）＝⚠ 素材に紐は付かない（⚠ 手本も装飾だけ）。
+func _is_new(item_id: String, known: Dictionary) -> bool:
+	return not known.has(item_id) and not GameManager.get_codex_entry(item_id).is_empty()
 
 
 # 開けた中身を台に並べる。⚠ 報酬はもう配り終わっている（⚠ `open_chest()` の中で入っている）＝見せるだけ。
 # ⚠ `chest_id` を渡すと名前をレアリティの色で出す（2026-09-18・人間「宝箱を開けるとき…文字の色も」）。
-func _show_rewards(rewards: Dictionary, title: String, chest_id: String) -> void:
+# ⚠ `known` は開ける前の図鑑（⚠ しおり紐の判定）。
+func _show_rewards(rewards: Dictionary, title: String, chest_id: String, known: Dictionary) -> void:
 	for child: Node in _cards.get_children():
 		_cards.remove_child(child)
 		child.queue_free()
@@ -263,10 +291,19 @@ func _show_rewards(rewards: Dictionary, title: String, chest_id: String) -> void
 	_note.text = tr("ui_chest_received")
 
 	var index: int = 0
-	for entry: Variant in RewardEntries.slot_entries(rewards):
+	# ⚠ 初めて手に入れた品を先に並べる（⚠ まとめて開けると札が多く、⚠ 紐の付いた品が下の行に埋もれる）。
+	var entries: Array = RewardEntries.slot_entries(rewards)
+	var fresh: Array = entries.filter(func(e: Variant) -> bool:
+		return _is_new(str((e as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")), known))
+	var rest: Array = entries.filter(func(e: Variant) -> bool:
+		return not _is_new(str((e as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")), known))
+	for entry: Variant in fresh + rest:
 		var item_id: String = str((entry as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
 		var count: int = int((entry as Dictionary).get(GameManager.SLOT_ENTRY_COUNT, 0))
-		_add_card(index, _kind_text(item_id, rewards), ItemIcon.create(item_id), tr(GameManager.item_name_key(item_id)), count)
+		var card: TiltedSheet = _add_card(index, _kind_of(item_id, rewards), ItemIcon.create(item_id), tr(GameManager.item_name_key(item_id)), count)
+		card.set_meta(META_ITEM_ID, item_id)
+		card.set_meta(META_NEW, _is_new(item_id, known))
+		card.sheet.queue_redraw()
 		index += 1
 	var amounts: Dictionary = RewardEntries.currency_amounts(rewards)
 	for key: String in amounts:
@@ -276,22 +313,28 @@ func _show_rewards(rewards: Dictionary, title: String, chest_id: String) -> void
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.custom_minimum_size = Vector2.ONE * float(get_theme_constant(&"currency_icon", THEME_TYPE))
 		icon.self_modulate = get_theme_color(&"box_line", THEME_TYPE)
-		_add_card(index, tr("ui_chest_kind_currency"), icon, tr("ui_res_" + key), int(amounts[key]))
+		var _card: TiltedSheet = _add_card(index, KIND_CURRENCY, icon, tr("ui_res_" + key), int(amounts[key]))
 		index += 1
 
 
-# 札1枚：種類 ／ 絵 ／ 名前 ／ ×個数。⚠ 箱から浮かび上がる（⚠ 人間「⚠ 3あ」・手本 `rise`）。
-func _add_card(index: int, kind: String, icon: Control, title: String, count: int) -> void:
+# 札1枚：上の色の帯（種類）／ 種類 ／ 絵 ／ 名前 ／ ×個数 ／ 初めてならしおり紐。
+# ⚠ 箱から浮かび上がる（⚠ 人間「⚠ 3あ」・手本 `rise`）。⚠ 帯と紐は紙の描画に重ねて引く（⚠ 紐の有無は札の meta）。
+func _add_card(index: int, kind: String, icon: Control, title: String, count: int) -> TiltedSheet:
 	var card: TiltedSheet = TiltedSheet.create(index)
 	card.name = "Card_%d" % index
+	card.set_meta(META_KIND, kind)
 	card.sheet.custom_minimum_size.x = float(get_theme_constant(&"card_width", THEME_TYPE))
+	# ⚠ 手本の札に角飾りは無い（⚠ 上の色の帯と重なる）。
+	card.sheet.show_corners = false
+	card.sheet.draw.connect(_draw_card_marks.bind(card))
 	var column: VBoxContainer = VBoxContainer.new()
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	card.sheet.add_child(column)
 	var kind_label: Label = Label.new()
 	kind_label.theme_type_variation = &"CaptionLabel"
 	kind_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	kind_label.text = kind
+	var kind_key: String = "ui_chest_kind_" + kind
+	kind_label.text = "" if tr(kind_key) == kind_key else tr(kind_key)
 	column.add_child(kind_label)
 	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(icon)
@@ -309,12 +352,35 @@ func _add_card(index: int, kind: String, icon: Control, title: String, count: in
 	column.add_child(count_label)
 	_cards.add_child(card)
 	_rise(card, index)
+	return card
+
+
+# 札の上の色の帯（⚠ 種類ごとの色）と、⚠ 初めて手に入れた品のしおり紐（⚠ 右上・下が切れ込んだ赤い紐）。
+func _draw_card_marks(card: TiltedSheet) -> void:
+	var sheet: PaperSheet = card.sheet
+	var kind: String = str(card.get_meta(META_KIND, KIND_OTHER))
+	var color_name: StringName = StringName("band_" + kind)
+	if not sheet.has_theme_color(color_name, THEME_TYPE):
+		color_name = StringName("band_" + KIND_OTHER)
+	var band: float = float(get_theme_constant(&"band", THEME_TYPE))
+	sheet.draw_rect(Rect2(Vector2.ZERO, Vector2(sheet.size.x, band)), get_theme_color(color_name, THEME_TYPE))
+	if not bool(card.get_meta(META_NEW, false)):
+		return
+	var w: float = float(get_theme_constant(&"ribbon_w", THEME_TYPE))
+	var h: float = float(get_theme_constant(&"ribbon_h", THEME_TYPE))
+	var x: float = sheet.size.x - float(get_theme_constant(&"ribbon_inset", THEME_TYPE)) - w
+	# ⚠ 手本 `clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%)`。
+	sheet.draw_colored_polygon(PackedVector2Array([
+		Vector2(x, 0.0), Vector2(x + w, 0.0), Vector2(x + w, h), Vector2(x + w * 0.5, h * 0.76), Vector2(x, h),
+	]), get_theme_color(&"ribbon", THEME_TYPE))
 
 
 # ⚠ 下から上がりながら現れる。⚠ Tween は札に結びつける（⚠ 札が消えれば一緒に止まる）。
 func _rise(card: TiltedSheet, index: int) -> void:
 	var duration: float = float(get_theme_constant(&"rise_ms", THEME_TYPE)) / 1000.0
-	var delay: float = float(get_theme_constant(&"rise_step_ms", THEME_TYPE)) * index / 1000.0
+	# ⚠ 遅れは段数に上限（⚠ まとめて開けると札が数十枚＝最後の札が数秒遅れて出る）。
+	var step: int = mini(index, get_theme_constant(&"rise_max_steps", THEME_TYPE))
+	var delay: float = float(get_theme_constant(&"rise_step_ms", THEME_TYPE)) * step / 1000.0
 	var rise: float = float(get_theme_constant(&"rise_px", THEME_TYPE))
 	card.modulate.a = 0.0
 	var tween: Tween = card.create_tween()
@@ -324,16 +390,16 @@ func _rise(card: TiltedSheet, index: int) -> void:
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
-# 札の一番上の小さな字（素材・装備・装飾…）。⚠ 素材は報酬の materials 側、⚠ ほかは items.json の item_type。
-func _kind_text(item_id: String, rewards: Dictionary) -> String:
+# 札の種類（素材・装備・装飾…）。⚠ 素材は報酬の materials 側、⚠ ほかは items.json の item_type。
+# ⚠ 札の一番上の小さな字（`ui_chest_kind_<種類>`）と、⚠ 上の色の帯（Theme の `band_<種類>`）の両方に使う。
+func _kind_of(item_id: String, rewards: Dictionary) -> String:
 	var materials: Variant = rewards.get(GameStateKeys.REWARD_MATERIALS, {})
 	if materials is Dictionary and (materials as Dictionary).has(item_id):
-		return tr("ui_chest_kind_" + GameStateKeys.ITEM_TYPE_MATERIAL)
+		return GameStateKeys.ITEM_TYPE_MATERIAL
 	if GameManager.is_chest_item(item_id):
-		return tr("ui_chest_kind_chest")
-	var key: String = "ui_chest_kind_" + str(MasterDataLoader.get_item(item_id).get("item_type", ""))
-	var text: String = tr(key)
-	return "" if text == key else text
+		return KIND_CHEST
+	var item_type: String = str(MasterDataLoader.get_item(item_id).get("item_type", ""))
+	return item_type if item_type != "" else KIND_OTHER
 
 
 # レアリティの色（2026-09-18）。⚠ 色は `Balance.icon` の10色ランプ（⚠ ここに色を書かない）。

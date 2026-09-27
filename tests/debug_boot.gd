@@ -9173,13 +9173,14 @@ class ShotTaker extends Node:
 			if GameManager.is_single_relic(pick):
 				screen.call("_on_character_pressed", str(GameManager.get_party_members()[0]))
 		elif kind == AFTER_CHEST_OPEN:
-			# ⚠ 画面の口（⚠ 「次を開ける」を押したときに呼ばれるもの）。
+			# ⚠ 画面の口（⚠ 「まとめて開ける」を押したときに呼ばれるもの）。⚠ 種類の色の帯と、⚠ 初めての品のしおり紐が
+			#   ⚠ 両方写るように全部開ける（⚠ 1個だと素材1枚になりがちで紐が写らない）。
 			var pending: int = GameManager.get_pending_chest_count()
 			# ⚠ 資源が増える演出は止める（CLAUDE.md 10番）。⚠ 止めないと、⚠ 最後の1枚のあと終了したときに
 			#   ⚠ 飛んでいる途中の着地先（通貨の帯）が解放されて「Lambda capture ... was freed」が赤で出る（09-27 に踏んだ）。
 			#   ⚠ 自動で流れる経路なので `set_muted()` が効く。⚠ 演出そのものは `scenario=gain` が見ている。
 			ResourceGainEffect.set_muted(true)
-			screen.call("_on_next_pressed")
+			screen.call("_on_open_all_pressed")
 			ResourceGainEffect.set_muted(false)
 			if GameManager.get_pending_chest_count() >= pending:
 				push_error("[DebugBoot] ⚠ %s で宝箱を開けられなかった" % shot_name)
@@ -9952,8 +9953,26 @@ class UiFlowRunner extends Node:
 		_check("宝箱：台に札が出る（%d 枚）・名前は %s" % [cards, _label_text(c, "Stage", "OpenedName")], cards > 0 and _label_text(c, "Stage", "OpenedName") == tr(GameManager.item_name_key(second)))
 		var box: Node = c.find_child("Box", true, false)
 		_check("宝箱：箱が開いた姿", box is ChestBox and (box as ChestBox).opened)
+		# ⚠ 開ける前の図鑑を控える（⚠ 画面と同じ判定＝前に無く、いま載っている品にしおり紐）。
+		var known: Dictionary = {}
+		for item_id: Variant in GameManager.get_state().get(GameStateKeys.CODEX, {}):
+			known[str(item_id)] = true
 		await _press(c.find_child("OpenAllButton", true, false))
 		_check("宝箱：「まとめて開ける」で 0（%d）" % GameManager.get_pending_chest_count(), GameManager.get_pending_chest_count() == 0)
+		var banded: int = 0
+		var ribbons: int = 0
+		var expected: int = 0
+		var all_cards: Array = c.find_children("Card_*", "", true, false)
+		for card: Node in all_cards:
+			if str(card.get_meta(ChestScreen.META_KIND, "")) != "":
+				banded += 1
+			if bool(card.get_meta(ChestScreen.META_NEW, false)):
+				ribbons += 1
+			var item_id: String = str(card.get_meta(ChestScreen.META_ITEM_ID, ""))
+			if item_id != "" and not known.has(item_id) and not GameManager.get_codex_entry(item_id).is_empty():
+				expected += 1
+		_check("宝箱：札ぜんぶに種類の帯（%d / %d）" % [banded, all_cards.size()], banded == all_cards.size() and banded > 0)
+		_check("宝箱：しおり紐は初めて手に入れた品だけ（紐 %d ＝ 初めて %d）" % [ribbons, expected], ribbons == expected and ribbons > 0)
 		var list: Node = c.find_child("ChestList", true, false)
 		_check("宝箱：空になると空の表示", list != null and list.get_child_count() == 1 and list.get_child(0) is EmptyState)
 		var next: Node = c.find_child("NextButton", true, false)
