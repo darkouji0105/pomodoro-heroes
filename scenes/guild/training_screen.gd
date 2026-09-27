@@ -15,8 +15,8 @@
 class_name TrainingScreen
 extends Control
 
-# ⚠ 2026-09-26（回UI-3）：⚠ 戻る先は本部（拠点）。
-const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
+# ⚠ 2026-09-26（回UI-3）：⚠ 戻る先は本部（拠点）→ ⚠ 09-27 から育成の一覧（`training_list_screen`）。
+const LIST_PATH: String = "res://scenes/guild/training_list_screen.tscn"
 const LEVEL_UP_PATH: String = "res://scenes/guild/level_up_screen.tscn"
 # ⚠ 鍛冶場（⚠ 装備のタブの「鍛冶場で鍛える」の行き先）。
 const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
@@ -55,8 +55,7 @@ var _notice_text: String = ""
 
 func _ready() -> void:
 	header.back_pressed.connect(_on_back_pressed)
-	# ⚠ 2026-09-27（回UI-組 詰所）：⚠ 帯の「育成」は外した。⚠ 育成は詰所の下の画面なので詰所を光らせる。
-	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.BARRACKS)
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.TRAINING)
 	GameManager.character_growth_changed.connect(_on_character_growth_changed)
 	GameManager.material_changed.connect(_on_material_changed)
 
@@ -440,8 +439,9 @@ func _on_forge_requested(instance_id: String) -> void:
 	SceneManager.change_scene_with_data(FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: instance_id})
 
 
+# ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ 戻る先は育成の一覧（⚠ 身上書カード）。
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(BASE_PATH)
+	SceneManager.change_scene(LIST_PATH)
 
 
 # --- シグナル ---

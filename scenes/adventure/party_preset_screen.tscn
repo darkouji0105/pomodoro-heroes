@@ -38,11 +38,6 @@ theme_type_variation = &"SectionGap"
 layout_mode = 2
 title_key = "ui_facility_barracks"
 
-[node name="Cards" type="HBoxContainer" parent="Margin/Layout"]
-layout_mode = 2
-size_flags_vertical = 3
-theme_type_variation = &"BarracksCards"
-
 [node name="Bottom" type="PanelContainer" parent="Margin/Layout"]
 layout_mode = 2
 script = ExtResource("10_paper_sheet")

@@ -994,6 +994,7 @@ ui_stamp_accepted,受理
 ui_stamp_level_up,昇級できる
 ui_facility_hq,本部
 ui_facility_barracks,詰所
+ui_facility_training,育成
 ui_facility_forge,鍛冶場
 ui_facility_belongings,持ち物
 ui_facility_records,記録

@@ -1162,8 +1162,10 @@ const SCENARIOS: Dictionary = {
 			{
 				"name": "34_barracks",
 				"scene": "res://scenes/adventure/party_preset_screen.tscn",
-				"measure": ["Margin/Layout/Cards", "Margin/Layout/Bottom", "FacilityBar"],
+				"measure": ["Margin/Layout/Bottom", "FacilityBar"],
 			},
+			# ⚠ 育成の一覧（2026-09-27 の見る回・人間「⚠ 3あ」）。⚠ 身上書カードは詰所からここへ移した。
+			{"name": "38_training_list", "scene": "res://scenes/guild/training_list_screen.tscn"},
 			# ⚠ 届いた宝箱（2026-09-27・回UI-組 宝箱・手本 Chest・決定 `BS-21`）。⚠ 種類ごとに1個積み、⚠ 1個開けた姿。
 			{
 				"name": "35_chest",
@@ -9593,6 +9595,9 @@ class UiFlowRunner extends Node:
 	const BASE: String = "res://scenes/base/base_screen.tscn"
 	const CHEST: String = "res://scenes/base/chest_screen.tscn"
 	const FORGE: String = "res://scenes/guild/forge_screen.tscn"
+	const TRAINING_LIST: String = "res://scenes/guild/training_list_screen.tscn"
+	# ⚠ 一覧の画面は class_name を持たない＝⚠ 並びの口は script を読んで呼ぶ。
+	const TrainingListScreenRef: GDScript = preload("res://scenes/guild/training_list_screen.gd")
 	const HERO: String = "char_swordsman"
 	const OTHER: String = "char_archer"
 	const WEAPON_ID: String = "weapon_iron_sword"
@@ -9868,7 +9873,8 @@ class UiFlowRunner extends Node:
 		await _press(w.find_child("Facility_" + BaseFacilityBar.RECORDS, true, false), OPEN_FRAMES)
 		var r: Node = get_tree().current_scene
 		_check("施設の帯：「記録」で図鑑のタブが開く", _path_of(r) == BELONGINGS and r.find_child("CodexList", true, false) != null)
-		_check("施設の帯：「育成」は無い（⚠ 詰所の「開く ›」から）", r.find_child("Facility_training", true, false) == null)
+		# ⚠ 09-27 の見る回で「育成」を戻した（⚠ 人間「⚠ 育成タブを復活させたほうがいい」）。
+		_check("施設の帯：「育成」がある", r.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false) != null)
 
 	# --- 詰所（2026-09-27・決定 `NAV-11`）：カード ／ ビルドの行 ／ 並べ替える ／ 控えの札の吹き出し ／ 開く ---
 
@@ -9880,24 +9886,18 @@ class UiFlowRunner extends Node:
 		if _path_of(b) != BARRACKS:
 			return
 		var members: Array = GameManager.get_party_members()
-		var cards: int = 0
-		for member: Variant in members:
-			if b.find_child("Card_" + str(member), true, false) != null:
-				cards += 1
-		_check("詰所：身上書カードが編成の3人ぶん（%d 枚）" % cards, cards == members.size())
+		# ⚠ 09-27 の見る回：⚠ 身上書カードは育成の一覧へ移した（⚠ 詰所は配置だけ）。
+		_check("詰所：身上書カードは無い（⚠ 育成の一覧へ移した）", b.find_children("Card_*", "", true, false).is_empty())
 		var tabs: int = b.find_children("Preset_*", "", true, false).size()
 		_check("詰所：控えの札が %d 枚（%d 枚のはず）" % [tabs, GameManager.get_party_preset_count()], tabs == GameManager.get_party_preset_count())
-		# ⚠ 下ごしらえで素材を持たせてあるので、⚠ 上限でなければ上がれる＝判が出る。
-		var can: bool = int(GameManager.get_character_growth(HERO).get(GameStateKeys.GROWTH_LEVEL, 1)) < GameManager.get_effective_level_cap(HERO)
-		var stamp: Node = b.find_child("Card_" + HERO, true, false).find_child("LevelUpStamp", true, false) if b.find_child("Card_" + HERO, true, false) != null else null
-		_check("詰所：上がれるなら「昇級できる」の判（上がれる=%s）" % str(can), (stamp != null) == can)
 
-		# ビルドの行：番号が1つ進む ／ ⚠ 状態は変えない。
+		# ビルドの番号（⚠ 出撃届の枠の下）：番号が1つ進む ／ ⚠ 状態は変えない。
 		var builds_before: Array = GameManager.get_character_presets(HERO)
 		await _press(b.find_child("Build_" + HERO, true, false))
-		var build_label: String = _label_text(b, "Build_" + HERO, "ValueLabel")
-		_check("詰所：ビルドの行を押すと「%s」" % build_label, build_label.begins_with(tr("ui_party_preset_build") % 2))
-		_check("詰所：ビルドの行を押しても状態は変わらない", GameManager.get_character_presets(HERO) == builds_before)
+		var build_button: Node = b.find_child("Build_" + HERO, true, false)
+		var build_label: String = (build_button as Button).text if build_button is Button else ""
+		_check("詰所：ビルドを押すと「%s」" % build_label, build_label.begins_with(tr("ui_party_preset_build") % 2))
+		_check("詰所：ビルドを押しても状態は変わらない", GameManager.get_character_presets(HERO) == builds_before)
 
 		# 並べ替える：⚠ 押す前は枠を押しても変わらない ／ 押したあと2つの枠で入れ替わる。
 		await _press(b.find_child("Sortie_0", true, false))
@@ -9938,10 +9938,26 @@ class UiFlowRunner extends Node:
 		await _press(null if pop == null else pop.find_child("ClearButton", true, false))
 		_check("詰所：「消す」で控え1が空く", not bool((GameManager.get_party_presets()[0] as Dictionary).get(GameStateKeys.PRESET_SAVED, true)))
 
-		# 開く：その人で育成が開く。
-		await _press(b.find_child("Card_" + OTHER, true, false).find_child("OpenButton", true, false) if b.find_child("Card_" + OTHER, true, false) != null else null, OPEN_FRAMES)
+		# 育成の一覧（⚠ 09-27 の見る回・人間「⚠ 3あ」）：施設の帯 → 身上書カード → 開く → 育成 → 戻るで一覧。
+		await _press(b.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false), OPEN_FRAMES)
+		var l: Node = get_tree().current_scene
+		_check("育成の一覧：施設の帯の「育成」で一覧が開く", _path_of(l) == TRAINING_LIST)
+		if _path_of(l) != TRAINING_LIST:
+			return
+		var cards: int = l.find_children("Dossier", "", true, false).size()
+		_check("育成の一覧：身上書カードが %d 枚（キャラ %d 人）" % [cards, TrainingListScreenRef.character_order().size()], cards == TrainingListScreenRef.character_order().size())
+		# ⚠ 下ごしらえで素材を持たせてあるので、⚠ 上限でなければ上がれる＝判が出る。
+		var can: bool = DossierCard.can_level_up(HERO)
+		var hero_card: Node = l.find_child("Card_" + HERO, true, false)
+		var stamp: Node = null if hero_card == null else hero_card.find_child("LevelUpStamp", true, false)
+		_check("育成の一覧：上がれるなら「昇級できる」の判（上がれる=%s）" % str(can), (stamp != null) == can)
+		var other_card: Node = l.find_child("Card_" + OTHER, true, false)
+		await _press(null if other_card == null else other_card.find_child("OpenButton", true, false), OPEN_FRAMES)
 		var t: Node = get_tree().current_scene
-		_check("詰所：「開く ›」で %s の育成が開く" % OTHER, _path_of(t) == TRAINING and str(t.get("_selected_id")) == OTHER)
+		_check("育成の一覧：「開く ›」で %s の育成が開く" % OTHER, _path_of(t) == TRAINING and str(t.get("_selected_id")) == OTHER)
+		var t_header: Node = t.find_child("Header", true, false)
+		await _press(null if t_header == null else t_header.find_child("BackButton", true, false), OPEN_FRAMES)
+		_check("育成：「戻る」で育成の一覧", _path_of(get_tree().current_scene) == TRAINING_LIST)
 
 	# --- 依頼掲示板（2026-09-27・決定 `NAV-12`）：タブ ／ 札 ／ 出撃届（詰所で変える → 戻る ／ 出撃する）／ 続きから ---
 
