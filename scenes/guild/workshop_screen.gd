@@ -12,6 +12,7 @@ extends Control
 
 # ⚠ 2026-09-26（回UI-3）：⚠ 戻る先はギルドから本部（拠点）へ（⚠ ギルドの画面は消した）。
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
+const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
 
 # --- ノード参照 ---
 @onready var material_label: Label = $Margin/Layout/MaterialLabel
@@ -35,6 +36,14 @@ func _ready() -> void:
 	# 2. ボタン接続
 	header.back_pressed.connect(_on_back_pressed)
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.FORGE)
+	# ⚠ 2026-09-27（回UI-仕組み①・人間「⚠ 2あ」）：⚠ 作業場は鍛冶場の「作る」タブ。⚠ 「鍛える」で鍛冶場へ移る。
+	#   ⚠ 中身（キューとレシピの行）はまだ作り直していない（⚠ 紙の形にするのは別の回）。
+	var tabs: PaperTabs = PaperTabs.new()
+	tabs.name = "Tabs"
+	tabs.set_tabs(ForgeScreen.TAB_KEYS, ForgeScreen.TAB_MAKE)
+	tabs.tab_changed.connect(_on_forge_tab_changed)
+	$Margin/Layout.add_child(tabs)
+	$Margin/Layout.move_child(tabs, header.get_index() + 1)
 	tick.timeout.connect(_on_tick)
 
 	# 3. GameManager のシグナル購読
@@ -47,6 +56,10 @@ func _ready() -> void:
 	# 4. 初期描画
 	notice_label.text = ""
 	_rebuild()
+
+func _on_forge_tab_changed(index: int) -> void:
+	if index != ForgeScreen.TAB_MAKE:
+		SceneManager.change_scene(FORGE_PATH)
 
 # --- 描画 ---
 

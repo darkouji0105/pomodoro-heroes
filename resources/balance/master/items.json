@@ -890,6 +890,12 @@
 	  "part_base": 0,
 	  "part_roll_max": 0,
 	  "sort_order": 144
+	},
+	{
+	  "item_id": "forge_guarantee_token",
+	  "storage": "inventory",
+	  "item_type": "consumable",
+	  "sort_order": 145
 	}
   ]
 }

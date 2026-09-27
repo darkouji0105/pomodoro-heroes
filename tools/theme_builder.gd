@@ -767,6 +767,7 @@ static func build() -> void:
 	_build_barracks(theme)
 	_build_quest_board(theme)
 	_build_chest(theme)
+	_build_forge(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2354,6 +2355,23 @@ static func _build_chest(theme: Theme) -> void:
 	theme.set_type_variation(&"ChestCards", &"HFlowContainer")
 	theme.set_constant(&"h_separation", &"ChestCards", CHEST_CARD_GAP)
 	theme.set_constant(&"v_separation", &"ChestCards", CHEST_CARD_GAP)
+
+
+# --- ⚠⚠ 鍛冶場（2026-09-27・回UI-仕組み①・手本 Forge / ForgeResult / ForgeResultFail・決定 `EQ-6`・`EQ-7`）---
+#
+# ⚠ 紙のタブ 鍛える｜作る（⚠ 作るは作業場）／ ⚠ 紙の左に鍛える装備の一覧・右に「前 → 後・成功率・素材・札」／ ⚠ 右の列に札の数。
+# ⚠ 鍛えたあとは紙が「鍛冶の記録」に変わる（⚠ 前 → いま・成功／失敗の判・値・等級・使った素材）。
+const FORGE_LIST_WIDTH: int = 240
+const FORGE_SIDE_WIDTH: int = 280
+const FORGE_ARROW_GAP: int = 28          # ⚠ 前の絵・矢印・後の絵の間
+
+
+static func _build_forge(theme: Theme) -> void:
+	var t: StringName = &"Forge"
+	theme.set_constant(&"list_width", t, FORGE_LIST_WIDTH)
+	theme.set_constant(&"side_width", t, FORGE_SIDE_WIDTH)
+	theme.set_type_variation(&"ForgeArrowRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"ForgeArrowRow", FORGE_ARROW_GAP)
 
 
 static func _build_heading_font(theme: Theme) -> void:

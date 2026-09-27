@@ -1140,3 +1140,34 @@ ui_chest_kind_key_item,大事なもの
 ui_chest_kind_gift,贈り物
 ui_chest_kind_chest,宝箱
 ui_chest_kind_currency,通貨
+ui_forge_tab_forge,鍛える
+ui_forge_tab_make,作る
+ui_forge_list,鍛える装備
+ui_forge_no_equipment,鍛えられる装備が無い
+ui_forge_no_equipment_hint,装備は難ダンジョンや宝箱で手に入る
+ui_forge_reject_max,これ以上は鍛えられない
+ui_forge_chance,成功 %d%%
+ui_forge_need,%d ／ %d 持ち
+ui_forge_use_token,確定成功の札を使う
+ui_forge_use_token_on,確定成功の札を使う（使う）
+ui_forge_token_left,のこり %d
+ui_forge_note,等級5→6 から失敗がある。失敗しても等級は下がらない
+ui_forge_do,鍛える
+ui_forge_record,鍛　冶　の　記　録
+ui_forge_before,前
+ui_forge_now,いま
+ui_forge_success,成功
+ui_forge_fail,失敗
+ui_forge_unchanged,そのまま
+ui_forge_not_lowered,下がらない
+ui_forge_slot_opened,装飾の枠がひとつ開いた
+ui_forge_grade,等級
+ui_forge_used,使った素材
+ui_forge_lost,なくなった
+ui_forge_again,続けて鍛える
+ui_forge_retry,もう一度鍛える
+ui_forge_to_belongings,持ち物で見る
+ui_forge_arrow,→
+ui_res_forge_guarantee_token,確定成功の札
+ui_icon_forge_guarantee_token,確
+ui_desc_forge_guarantee_token,鍛冶場で使うと、その1回は必ず成功する。難ダンジョンの宝箱からたまに出る

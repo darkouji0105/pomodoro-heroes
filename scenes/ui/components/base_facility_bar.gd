@@ -36,7 +36,8 @@ static func facilities() -> Array[Dictionary]:
 		{ENTRY_ID: BARRACKS, ENTRY_LABEL_KEY: "ui_facility_barracks",
 			KEY_PATH: "res://scenes/adventure/party_preset_screen.tscn", KEY_UNLOCK: ""},
 		{ENTRY_ID: FORGE, ENTRY_LABEL_KEY: "ui_facility_forge",
-			KEY_PATH: "res://scenes/guild/workshop_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WORKSHOP},
+			# ⚠ 2026-09-27（回UI-仕組み①・人間「⚠ 2あ」）：⚠ 鍛冶場は「鍛える」タブから開く（⚠ 作業場は「作る」タブ）。
+			KEY_PATH: "res://scenes/guild/forge_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WORKSHOP},
 		{ENTRY_ID: BELONGINGS, ENTRY_LABEL_KEY: "ui_facility_belongings",
 			KEY_PATH: "res://scenes/guild/warehouse_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WAREHOUSE},
 		{ENTRY_ID: RECORDS, ENTRY_LABEL_KEY: "ui_facility_records",

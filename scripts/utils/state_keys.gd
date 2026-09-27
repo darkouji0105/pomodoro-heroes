@@ -319,6 +319,9 @@ const CHEST_SOURCE_DUNGEON: String = "dungeon"
 const POTION_FOCUS_REMAINDER: String = "potion_focus_remainder"
 const ITEM_STAMINA_POTION: String = "stamina_potion"
 
+# 確定成功の札（2026-09-27・決定 `EQ-7`）。⚠ 1つ使うとその1回の鍛冶は必ず成功する。⚠ 難ダンジョンの宝箱からたまに出る。
+const ITEM_FORGE_GUARANTEE_TOKEN: String = "forge_guarantee_token"
+
 # ============================================================
 # ステージ種別（BattleSession.stage_type / 冒険選択画面で使用）
 # ============================================================

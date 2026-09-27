@@ -7,7 +7,7 @@
 #   ⚠ 人間「⚠ 1い」＝**1画面の中でタブを切り替える**。⚠ 前は割り振り・スキル・装備が別の画面だった。
 #   ⚠ 人間「⚠ 4あ」＝検証用のキャラは札を薄くして後ろに並べる（⚠ リリースビルドでは出さない）。
 #   ⚠ 昇級は別の画面（`level_up_screen`＝昇級申請書・人間「⚠ 3あ」）。⚠ 概要の「昇級させる」から入る。
-#   ⚠ 装備のタブの「鍛冶場で鍛える」は**持ち物をその品を選んだ状態で開く**（⚠ 鍛冶場は仕組みの回①・09-27 持ち物の回で仮の鍛冶場を消した）。
+#   ⚠ 装備のタブの「鍛冶場で鍛える」は**鍛冶場をその品を選んだ状態で開く**（⚠ 09-27 回UI-仕組み①・人間「⚠ 3あ」）。
 #
 # ⚠ キャラの一覧は `MasterDataLoader.get_all_characters()` から引く（⚠ 決め打ちしない）。
 # ⚠ 検証用（`char_debug_*`）の判定は `GameManager.is_debug_character()`。
@@ -18,8 +18,8 @@ extends Control
 # ⚠ 2026-09-26（回UI-3）：⚠ 戻る先は本部（拠点）。
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const LEVEL_UP_PATH: String = "res://scenes/guild/level_up_screen.tscn"
-# ⚠ 持ち物（⚠ 鍛える・刺す・外す・分解は右の説明の紙が持っている）。
-const BELONGINGS_PATH: String = "res://scenes/guild/warehouse_screen.tscn"
+# ⚠ 鍛冶場（⚠ 装備のタブの「鍛冶場で鍛える」の行き先）。
+const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
 const THEME_TYPE: StringName = &"Training"
 
 # ⚠ タブの並び。⚠ 外から開くときは `TransferKeys.TRAINING_TAB_*` の字で指す（⚠ 番号を漏らさない）。
@@ -435,8 +435,9 @@ func _on_level_up_pressed() -> void:
 	SceneManager.change_scene_with_data(LEVEL_UP_PATH, {TransferKeys.CHARACTER_ID: _selected_id})
 
 
+# ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ 鍛冶場をその品を選んだ状態で開く（⚠ 前は持ち物を開いていた）。
 func _on_forge_requested(instance_id: String) -> void:
-	SceneManager.change_scene_with_data(BELONGINGS_PATH, {TransferKeys.WAREHOUSE_INSTANCE_ID: instance_id})
+	SceneManager.change_scene_with_data(FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: instance_id})
 
 
 func _on_back_pressed() -> void:

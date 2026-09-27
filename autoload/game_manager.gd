@@ -329,6 +329,20 @@ const PART_VIEW_MIN_GRADE: String = "min_grade"
 # get_forge_cost() が返す Dictionary のキー。
 const FORGE_COST_MATERIAL_ID: String = "material_id"
 const FORGE_COST_AMOUNT: String = "amount"
+# `forge_equipment_roll()` の戻り値のキー（2026-09-27・`EQ-6`・`EQ-7`）。⚠ 状態には入らない。
+const FORGE_RESULT_OK: String = "ok"
+const FORGE_RESULT_SUCCESS: String = "success"
+const FORGE_RESULT_GRADE_BEFORE: String = "grade_before"
+const FORGE_RESULT_GRADE_AFTER: String = "grade_after"
+const FORGE_RESULT_MATERIAL_ID: String = "material_id"
+const FORGE_RESULT_AMOUNT: String = "amount"
+const FORGE_RESULT_USED_TOKEN: String = "used_token"
+const FORGE_RESULT_REASON: String = "reason"
+# reason に入る字（⚠ 画面は `ui_forge_reject_<字>` を引く）。
+const FORGE_REJECT_UNKNOWN: String = "unknown"
+const FORGE_REJECT_MAX: String = "max"
+const FORGE_REJECT_MATERIAL: String = "material"
+const FORGE_REJECT_TOKEN: String = "token"
 
 # get_equippable_instances() / get_owned_instances() が返す Dictionary のキー。
 const INSTANCE_VIEW_ID: String = "instance_id"
@@ -2881,51 +2895,118 @@ func can_forge(instance_id: String) -> bool:
 		return false
 	return get_material_count(str(cost.get(FORGE_COST_MATERIAL_ID, ""))) >= amount
 
-# 等級を1つ上げる。失敗しない（素材と判定を通れば必ず上がる）。
-#
-# 待ち時間は持たせていない。時間を入れるならキューがもう1本要り、作業場の Tick を
-# 装備画面にもう1つ作ることになるため、あとで個体に grade_up_at を足す形にする。
-#
-# add_material() が material_changed を飛ばすが、装備画面はそれを購読しない
-# （equipment_instances_changed だけを見て再描画する。2本飛ぶと行が二重に並ぶ）。
-func forge_equipment(instance_id: String) -> bool:
+# 次の等級へ上げるときの成功率（%）。⚠ 上限・知らない個体は 100（⚠ 押せない側で弾く）。
+# ⚠ 添字は `forge_cost_by_grade` と同じ（⚠ 0 が「等級2へ上げる」）。⚠ 足りないときは末尾で埋めて赤。
+func get_forge_success_pct(instance_id: String) -> int:
 	var instance: Dictionary = get_equipment_instance(instance_id)
-	if instance.is_empty():
-		print("[GameManager] forge_equipment('%s') -> false (unknown instance)" % instance_id)
-		return false
-
+	var config: EquipmentConfig = _equipment()
+	if instance.is_empty() or config == null:
+		return 100
 	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
 	if grade >= get_max_equipment_grade():
+		return 100
+	var table: Array[int] = config.forge_success_pct_by_grade
+	if table.is_empty():
+		return 100
+	var index: int = grade + 1 - 2
+	if index >= table.size():
+		push_error("[GameManager] forge_success_pct_by_grade が短い（等級%d ぶんが無い）。末尾の値で埋める" % (grade + 1))
+		index = table.size() - 1
+	return clampi(int(table[index]), 0, 100)
+
+
+# 確定成功の札（`EQ-7`）の数。
+func get_forge_token_count() -> int:
+	return get_item_count(GameStateKeys.ITEM_FORGE_GUARANTEE_TOKEN)
+
+
+# 等級を1つ上げる（⚠ 鍛えたかどうかだけを返す＝⚠ **失敗しても素材を払っていれば true**）。
+# ⚠ 成功したか・何を払ったかが要る画面は `forge_equipment_roll()` を呼ぶ。
+# ⚠ 検査の多くが `while forge_equipment(id):` で上限まで回すので、⚠ 戻り値の意味は変えない
+#   （⚠ 失敗で false にすると途中で止まる）。
+func forge_equipment(instance_id: String, use_token: bool = false) -> bool:
+	return bool(forge_equipment_roll(instance_id, use_token).get(FORGE_RESULT_OK, false))
+
+
+# 鍛える（2026-09-27・決定 `EQ-6`・`EQ-7`・人間「⚠ 1あ」）。
+#
+# ⚠ 等級5→6 から失敗する（⚠ 成功率は `get_forge_success_pct()`）。⚠ **失敗は素材を失うだけ**（⚠ 等級は下がらない）。
+# ⚠ `use_token` で確定成功の札を1つ使う（⚠ 成功率が 100 のときは使わない＝減らさない）。
+# ⚠ 状態を変える前に全部の判定を終える（CLAUDE.md 6番）。
+# 待ち時間は持たせていない。時間を入れるならキューがもう1本要り、作業場の Tick を
+# もう1つ作ることになるため、あとで個体に grade_up_at を足す形にする。
+# add_material() が material_changed を飛ばす。⚠ 成功したときだけ equipment_instances_changed を飛ばす。
+#
+# 戻り値：{ok, success, grade_before, grade_after, material_id, amount, used_token, reason}
+#   ⚠ ok が false なら何も変わっていない（reason に理由）。
+func forge_equipment_roll(instance_id: String, use_token: bool = false) -> Dictionary:
+	var result: Dictionary = {
+		FORGE_RESULT_OK: false, FORGE_RESULT_SUCCESS: false,
+		FORGE_RESULT_GRADE_BEFORE: 0, FORGE_RESULT_GRADE_AFTER: 0,
+		FORGE_RESULT_MATERIAL_ID: "", FORGE_RESULT_AMOUNT: 0,
+		FORGE_RESULT_USED_TOKEN: false, FORGE_RESULT_REASON: "",
+	}
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	if instance.is_empty():
+		result[FORGE_RESULT_REASON] = FORGE_REJECT_UNKNOWN
+		print("[GameManager] forge_equipment('%s') -> false (unknown instance)" % instance_id)
+		return result
+
+	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
+	result[FORGE_RESULT_GRADE_BEFORE] = grade
+	result[FORGE_RESULT_GRADE_AFTER] = grade
+	if grade >= get_max_equipment_grade():
+		result[FORGE_RESULT_REASON] = FORGE_REJECT_MAX
 		print("[GameManager] forge_equipment('%s') -> false (grade %d >= max %d)" % [
 			instance_id, grade, get_max_equipment_grade()
 		])
-		return false
+		return result
 
 	var cost: Dictionary = get_forge_cost(instance_id)
 	var material_id: String = str(cost.get(FORGE_COST_MATERIAL_ID, ""))
 	var amount: int = int(cost.get(FORGE_COST_AMOUNT, 0))
 	var owned: int = get_material_count(material_id)
 	if owned < amount:
+		result[FORGE_RESULT_REASON] = FORGE_REJECT_MATERIAL
 		print("[GameManager] forge_equipment('%s') -> false (material %s: %d < %d)" % [
 			instance_id, material_id, owned, amount
 		])
-		return false
+		return result
+
+	var pct: int = get_forge_success_pct(instance_id)
+	# ⚠ 必ず成功する段では札を使わない（⚠ 減らすだけになる）。
+	var token: bool = use_token and pct < 100
+	if token and get_forge_token_count() <= 0:
+		result[FORGE_RESULT_REASON] = FORGE_REJECT_TOKEN
+		print("[GameManager] forge_equipment('%s') -> false (確定成功の札が無い)" % instance_id)
+		return result
 
 	# --- ここから状態を変える ---
 
 	if amount > 0:
 		add_material(material_id, -amount)
+	if token:
+		_remove_from_inventory(GameStateKeys.ITEM_FORGE_GUARANTEE_TOKEN, 1)
+	var success: bool = token or pct >= 100 or randi_range(1, 100) <= pct
 
-	var new_grade: int = grade + 1
-	instance[GameStateKeys.INSTANCE_GRADE] = new_grade
-	_write_instance(instance_id, instance)
+	var new_grade: int = grade + 1 if success else grade
+	if success:
+		instance[GameStateKeys.INSTANCE_GRADE] = new_grade
+		_write_instance(instance_id, instance)
 
-	print("[GameManager] forge_equipment('%s') -> true (grade %d -> %d cost=%d stats=%s slots=%d)" % [
-		instance_id, grade, new_grade, amount, get_instance_stats(instance_id),
-		get_open_part_slot_count(_instance_equip_slot(instance_id), new_grade)
+	result[FORGE_RESULT_OK] = true
+	result[FORGE_RESULT_SUCCESS] = success
+	result[FORGE_RESULT_GRADE_AFTER] = new_grade
+	result[FORGE_RESULT_MATERIAL_ID] = material_id
+	result[FORGE_RESULT_AMOUNT] = amount
+	result[FORGE_RESULT_USED_TOKEN] = token
+	print("[GameManager] forge_equipment('%s') -> true (%s grade %d -> %d pct=%d token=%s cost=%d stats=%s slots=%d)" % [
+		instance_id, "成功" if success else "失敗", grade, new_grade, pct, str(token), amount,
+		get_instance_stats(instance_id), get_open_part_slot_count(_instance_equip_slot(instance_id), new_grade)
 	])
-	equipment_instances_changed.emit(instance_id)
-	return true
+	if success:
+		equipment_instances_changed.emit(instance_id)
+	return result
 
 # 素材に戻したときの戻り量。{material_id: count} を返す。
 #

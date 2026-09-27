@@ -18,6 +18,7 @@ signal attach_requested(instance_id: String, slot_index: int)
 signal discard_requested(item_id: String)
 
 const THEME_TYPE: StringName = &"Belongings"
+const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
 const DESCRIPTION_PREFIX: String = "ui_desc_"
 
 # ⚠ 吹き出しを出す画面（⚠ `SlotActionPopover` の置き場）。⚠ 画面が入れる。
@@ -107,7 +108,8 @@ func _build_instance(instance_id: String) -> void:
 	var forge: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_equipment_forge")
 	forge.name = "ForgeButton"
 	forge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	forge.disabled = not GameManager.can_forge(instance_id)
+	# ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ ここでは鍛えない。⚠ 鍛冶場をこの品を選んだ状態で開く（⚠ 素材の足りる・足りないは鍛冶場が出す）。
+	forge.disabled = int(GameManager.get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_GRADE, 1)) >= GameManager.get_max_equipment_grade()
 	forge.pressed.connect(_on_forge_pressed.bind(instance_id))
 	buttons.add_child(forge)
 	var attach: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_belongings_attach")
@@ -340,7 +342,7 @@ static func part_range_text(item_id: String) -> String:
 # --- 押されたもの（⚠ 口は全部 `GameManager`。⚠ 描き直しは画面がシグナルで受ける） ---
 
 func _on_forge_pressed(instance_id: String) -> void:
-	GameManager.forge_equipment(instance_id)
+	SceneManager.change_scene_with_data(FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: instance_id})
 
 
 func _on_attach_pressed(instance_id: String, slot_index: int) -> void:

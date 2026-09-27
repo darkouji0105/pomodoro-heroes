@@ -95,6 +95,8 @@ const SHOT_AFTER_MAP_STEP: String = "map_step"
 # ⚠ 届いた宝箱（2026-09-27）。⚠ 内側の `PREPARE_CHESTS` / `AFTER_CHEST_OPEN` と同じ字。
 const SHOT_PREPARE_CHESTS: String = "chests"
 const SHOT_AFTER_CHEST_OPEN: String = "chest_open"
+# ⚠ 鍛冶場で「鍛える」を押した姿（2026-09-27）。⚠ 内側の `AFTER_FORGE_PRESS` と同じ字。
+const SHOT_AFTER_FORGE_PRESS: String = "forge_press"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -1151,6 +1153,10 @@ const SCENARIOS: Dictionary = {
 				"scene": "res://scenes/guild/training_screen.tscn",
 				"data": {TransferKeys.CHARACTER_ID: "char_swordsman", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_EQUIP},
 			},
+			# ⚠ 鍛冶場（2026-09-27・回UI-仕組み①・手本 Forge / ForgeResult）。⚠ 18 の下ごしらえの装備（⚠ 2回呼ぶと「刺せない」で赤）を
+			#   ⚠ 先頭の個体として選んだ姿 ／ ⚠ 画面の口で「鍛える」を押した姿（⚠ 検査は必ず成功＝「成功」の判）。
+			{"name": "36_forge", "scene": "res://scenes/guild/forge_screen.tscn"},
+			{"name": "37_forge_result", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_FORGE_PRESS},
 			# ⚠ 詰所（2026-09-27・回UI-組 詰所・手本 Barracks・決定 `NAV-11`）。⚠ 拠点から来た姿（⚠ 施設の帯あり）。
 			#   ⚠ 下の紙が施設の帯（下 76）に隠れないか測る（⚠ 1回目は隠れた）。
 			{
@@ -1190,6 +1196,14 @@ func _ready() -> void:
 	#   set_party_member() / select_skill() は本物の状態を触るので、保存すると
 	#   人間の編成とスキル枠が黙って変わる。SaveManager をこのファイルから呼ばないこと。
 	_apply_party(scenario)
+	# ⚠⚠ 鍛冶を必ず成功にする（2026-09-27・`EQ-6` で等級5→6 から失敗するようになった）。
+	#   ⚠ 検査の多くが「鍛えたら等級が1上がる」を前提に数えている＝⚠ 乱数で揺れると毎回コードを疑うことになる（AGENTS.md）。
+	#   ⚠ 失敗を見る検査（`ui_flow` の鍛冶場）は自分で下げてから戻す。⚠ メモリの中だけ（⚠ `.tres` は書かない）。
+	if Balance.equipment != null:
+		var always: Array[int] = []
+		for _i: int in range(Balance.equipment.forge_success_pct_by_grade.size()):
+			always.append(100)
+		Balance.equipment.forge_success_pct_by_grade = always
 	# ⚠ レベルはスキル枠より先に上げる。select_skill() は unlock_level で弾くため、
 	#   Lv1 のままだと上位のスキルが「候補に無い」で入らない。
 	_apply_levels(scenario)
@@ -8884,6 +8898,7 @@ class ShotTaker extends Node:
 	const PREPARE_CHESTS: String = "chests"
 	const AFTER_CHEST_OPEN: String = "chest_open"
 	const CHEST_RISE_WAIT_FRAMES: int = 90
+	const AFTER_FORGE_PRESS: String = "forge_press"
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
 	const AFTER_FRAMES: int = 12
 
@@ -9172,6 +9187,12 @@ class ShotTaker extends Node:
 			screen.call("_on_card_pressed", pick)
 			if GameManager.is_single_relic(pick):
 				screen.call("_on_character_pressed", str(GameManager.get_party_members()[0]))
+		elif kind == AFTER_FORGE_PRESS:
+			# ⚠ 画面の口（⚠ 「鍛える」を押したときに呼ばれるもの）。⚠ 押せない回は鍛える紙のまま撮れる＝赤にする。
+			screen.call("_on_forge_pressed")
+			if screen.find_child("RecordPage", true, false) == null:
+				push_error("[DebugBoot] ⚠ %s で鍛えられなかった" % shot_name)
+				return false
 		elif kind == AFTER_CHEST_OPEN:
 			# ⚠ 画面の口（⚠ 「まとめて開ける」を押したときに呼ばれるもの）。⚠ 種類の色の帯と、⚠ 初めての品のしおり紐が
 			#   ⚠ 両方写るように全部開ける（⚠ 1個だと素材1枚になりがちで紐が写らない）。
@@ -9571,6 +9592,7 @@ class UiFlowRunner extends Node:
 	const FLOOR_MAP: String = "res://scenes/adventure/floor_map.tscn"
 	const BASE: String = "res://scenes/base/base_screen.tscn"
 	const CHEST: String = "res://scenes/base/chest_screen.tscn"
+	const FORGE: String = "res://scenes/guild/forge_screen.tscn"
 	const HERO: String = "char_swordsman"
 	const OTHER: String = "char_archer"
 	const WEAPON_ID: String = "weapon_iron_sword"
@@ -9706,9 +9728,64 @@ class UiFlowRunner extends Node:
 		await _press(t.find_child("Candidate_" + instance_id, true, false))
 		await _press(t.find_child("EquipButton", true, false))
 		await _press(t.find_child("ForgeButton", true, false), OPEN_FRAMES)
-		var w: Node = get_tree().current_scene
-		_check("装備：「鍛冶場で鍛える」で持ち物がその品を選んで開く", _path_of(w) == BELONGINGS and str(w.get("_selected_key")) == instance_id)
+		var f: Node = get_tree().current_scene
+		# ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ 鍛冶場をその品を選んで開く（⚠ 前は持ち物）。
+		_check("装備：「鍛冶場で鍛える」で鍛冶場がその品を選んで開く", _path_of(f) == FORGE and str(f.get("_selected")) == instance_id)
+		await _flow_forge(instance_id)
 		return instance_id
+
+	# --- 鍛冶場（2026-09-27・`EQ-6`・`EQ-7`）：鍛える → 記録 ／ 失敗 ／ 確定成功の札 ／ 持ち物で見る ---
+
+	func _flow_forge(instance_id: String) -> void:
+		var f: Node = get_tree().current_scene
+		if _path_of(f) != FORGE:
+			return
+		var row: Node = f.find_child("Item_" + instance_id, true, false)
+		_check("鍛冶場：左の一覧でその品が選ばれている", row is LedgerRow and (row as LedgerRow).selected)
+		var grade: int = _grade(instance_id)
+		await _press(f.find_child("ForgeButton", true, false))
+		_check("鍛冶場：「鍛える」で等級 %d → %d" % [grade, _grade(instance_id)], _grade(instance_id) == grade + 1)
+		var seal: Node = f.find_child("ResultStamp", true, false)
+		_check("鍛冶場：紙が鍛冶の記録になり「成功」の判", f.find_child("RecordPage", true, false) != null and seal is Stamp and (seal as Stamp).label_key == "ui_forge_success")
+		await _press(f.find_child("AgainButton", true, false))
+		_check("鍛冶場：「続けて鍛える」で鍛える紙に戻る", f.find_child("ForgePage", true, false) != null)
+		# ⚠ 枠が開くまで鍛える（⚠ 等級3から・GAME_DESIGN.md 6-4）。⚠ 押すのは同じボタン。
+		for _i: int in range(4):
+			if _first_empty(instance_id) >= 0:
+				break
+			await _press(f.find_child("ForgeButton", true, false))
+			await _press(f.find_child("AgainButton", true, false))
+
+		# 失敗（`EQ-6`）：⚠ 成功率を 0 にして押す（⚠ メモリの中だけ。⚠ debug_boot は既定で 100 に置いている）。
+		var saved: Array[int] = Balance.equipment.forge_success_pct_by_grade.duplicate()
+		var never: Array[int] = []
+		for _i: int in range(saved.size()):
+			never.append(0)
+		Balance.equipment.forge_success_pct_by_grade = never
+		if f.find_child("RecordPage", true, false) != null:
+			await _press(f.find_child("AgainButton", true, false))
+		grade = _grade(instance_id)
+		var cost: Dictionary = GameManager.get_forge_cost(instance_id)
+		var material_id: String = str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, ""))
+		var before_material: int = GameManager.get_material_count(material_id)
+		await _press(f.find_child("ForgeButton", true, false))
+		seal = f.find_child("ResultStamp", true, false)
+		_check("鍛冶場：失敗すると等級はそのまま（%d）・素材は減る（%d → %d）" % [_grade(instance_id), before_material, GameManager.get_material_count(material_id)],
+			_grade(instance_id) == grade and GameManager.get_material_count(material_id) < before_material and seal is Stamp and (seal as Stamp).label_key == "ui_forge_fail")
+		# 確定成功の札（`EQ-7`）：⚠ 1枚持たせ、⚠ 札を使うに切り替えて押す → ⚠ 成功率 0 でも成功・札が減る。
+		GameManager.add_to_inventory(GameStateKeys.ITEM_FORGE_GUARANTEE_TOKEN, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+		await _press(f.find_child("AgainButton", true, false))
+		var tokens: int = GameManager.get_forge_token_count()
+		await _press(f.find_child("TokenCheck", true, false))
+		_check("鍛冶場：札を使うに切り替えると成功 100%%（%s）" % _label_text(f, "ForgePage", "ChanceLabel"), _label_text(f, "ForgePage", "ChanceLabel") == tr("ui_forge_chance") % 100)
+		await _press(f.find_child("ForgeButton", true, false))
+		_check("鍛冶場：確定成功の札で成功（等級 %d → %d・札 %d → %d）" % [grade, _grade(instance_id), tokens, GameManager.get_forge_token_count()],
+			_grade(instance_id) == grade + 1 and GameManager.get_forge_token_count() == tokens - 1)
+		Balance.equipment.forge_success_pct_by_grade = saved
+
+		await _press(f.find_child("BelongingsButton", true, false), OPEN_FRAMES)
+		var w: Node = get_tree().current_scene
+		_check("鍛冶場：「持ち物で見る」で持ち物がその品を選んで開く", _path_of(w) == BELONGINGS and str(w.get("_selected_key")) == instance_id)
 
 	# --- 持ち物：持ち主 ／ 鍛える ／ 刺す ／ 枠の吹き出しで外す ／ 分解 ---
 
@@ -9719,14 +9796,16 @@ class UiFlowRunner extends Node:
 		var hero_name: String = tr(str(MasterDataLoader.get_character(HERO).get("name_key", "")))
 		_check("持ち物：右の紙に「装備中：%s」" % hero_name, _label_text(w, "Detail", "OwnerLine").contains(hero_name))
 		_check("持ち物：キャラの札は出ない", w.find_child("Chip_" + HERO, true, false) == null)
+		# ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ 「鍛える」は鍛冶場をその品を選んで開く（⚠ ここでは鍛えない）。⚠ 「持ち物で見る」で戻る。
 		var grade: int = _grade(instance_id)
-		await _press(w.find_child("ForgeButton", true, false))
-		_check("持ち物：「鍛える」で等級 %d → %d" % [grade, grade + 1], _grade(instance_id) == grade + 1)
-		# ⚠ 枠が開くまで鍛える（⚠ 等級3から・GAME_DESIGN.md 6-4）。⚠ 押すのは同じボタン。
-		for _i: int in range(4):
-			if _first_empty(instance_id) >= 0:
-				break
-			await _press(w.find_child("ForgeButton", true, false))
+		await _press(w.find_child("ForgeButton", true, false), OPEN_FRAMES)
+		var f: Node = get_tree().current_scene
+		_check("持ち物：「鍛える」で鍛冶場がその品を選んで開く（等級は %d のまま）" % _grade(instance_id), _path_of(f) == FORGE and str(f.get("_selected")) == instance_id and _grade(instance_id) == grade)
+		await _press(f.find_child("BelongingsButton", true, false), OPEN_FRAMES)
+		w = get_tree().current_scene
+		if _path_of(w) != BELONGINGS:
+			_check("持ち物：鍛冶場から持ち物へ戻れない", false)
+			return
 		var filled: int = _filled(instance_id)
 		await _press(w.find_child("AttachButton", true, false))
 		_check("持ち物：「刺す」で左が刺せる装飾になる", str(w.get("_attach_instance")) == instance_id)
