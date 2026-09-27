@@ -24,25 +24,22 @@ theme_type_variation = &"PhaseStack"
 [node name="TitleLabel" type="Label" parent="Layout"]
 layout_mode = 2
 size_flags_horizontal = 4
-theme_type_variation = &"HeadingLabel"
-text = "加護を選択してください"
+theme_type_variation = &"HeaderTitleLabel"
+text = "ui_pomodoro_select_protection"
 
-[node name="Choices" type="VBoxContainer" parent="Layout"]
+[node name="Body" type="VBoxContainer" parent="Layout"]
 layout_mode = 2
 size_flags_horizontal = 4
 theme_type_variation = &"SectionStack"
 
-[node name="LightButton" parent="Layout/Choices" instance=ExtResource("2_ui_button")]
-custom_minimum_size = Vector2(480, 0)
+[node name="Choices" type="HBoxContainer" parent="Layout/Body"]
 layout_mode = 2
-label_key = "ui_pomodoro_protection_light"
+theme_type_variation = &"ProtectionRow"
 
-[node name="MiddleButton" parent="Layout/Choices" instance=ExtResource("2_ui_button")]
-custom_minimum_size = Vector2(480, 0)
+[node name="Footer" type="HBoxContainer" parent="Layout/Body"]
 layout_mode = 2
-label_key = "ui_pomodoro_protection_middle"
+alignment = 2
 
-[node name="HardButton" parent="Layout/Choices" instance=ExtResource("2_ui_button")]
-custom_minimum_size = Vector2(480, 0)
+[node name="StartButton" parent="Layout/Body/Footer" instance=ExtResource("2_ui_button")]
 layout_mode = 2
-label_key = "ui_pomodoro_protection_hard"
+variant = 1

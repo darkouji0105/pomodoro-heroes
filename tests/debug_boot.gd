@@ -998,6 +998,8 @@ const SCENARIOS: Dictionary = {
 			{"name": "04_base", "scene": SCENE_BASE},
 			# ⚠ タイトル（2026-09-27・回UI-4・手本 Title）。⚠ セーブの有無でボタンが変わる（⚠ 撮る側の PC のセーブ次第）。
 			{"name": "25_title", "scene": "res://scenes/title/title_screen.tscn"},
+			# ⚠ 加護を選ぶ（2026-09-27・回UI-4・手本 Pomodoro）。⚠ 今日まだ選んでいない状態なら加護のカードが出る。
+			{"name": "26_pomodoro", "scene": "res://scenes/pomodoro/pomodoro.tscn"},
 			# ⚠ `05_guild` は 2026-09-26（回UI-3）に消した（⚠ ギルドの画面ごと無い）。⚠ 番号は空けたまま。
 			{"name": "06_adventure_select", "scene": "res://scenes/adventure/adventure_select.tscn"},
 			# ④ 育てる。⚠ 装備は「誰の」が要るので渡す。

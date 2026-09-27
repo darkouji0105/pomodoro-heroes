@@ -1041,3 +1041,6 @@ ui_title_guild,冒険者ギルド
 ui_title_quit,終わる
 ui_title_restart_title,はじめからやり直す
 ui_title_restart_confirm,持ち物・3人の育成・記録がすべて消えて、最初からになる。
+ui_common_minutes_unit,分
+ui_stamp_today,今日はこれ
+ui_pomodoro_start_with,{0}で始める

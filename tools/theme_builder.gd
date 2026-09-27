@@ -761,6 +761,7 @@ static func build() -> void:
 	_build_body_font(theme)
 	_build_heading_font(theme)
 	_build_title_screen(theme)
+	_build_protection_cards(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2106,6 +2107,51 @@ static func _build_title_screen(theme: Theme) -> void:
 		theme.set_font(&"font", &"GameTitleLabel", name_font)
 
 
+# --- ⚠⚠ 加護を選ぶカード（2026-09-27・回UI-4・手本 Pomodoro）---
+#
+# ⚠ 傾いた紙3枚：線で描いた砂時計 ／ 名前（明朝）／ 大きな分 ／ 点線 ／ ボーナス宝箱。
+# ⚠ 砂時計は `Hourglass` が `_draw()` で引く（⚠ 絵は使わない）。⚠ 砂の量は加護の重さ（⚠ 見た目だけ）。
+const PROTECTION_CARD_WIDTH: int = 300
+const PROTECTION_ROW_GAP: int = 28
+const PROTECTION_MINUTES_SIZE: int = 40
+const PROTECTION_CHEST_ICON: int = 20
+const PROTECTION_MINUTES_GAP: int = 4    # ⚠ 数字と「分」の間
+const HOURGLASS_WIDTH: int = 84
+const HOURGLASS_HEIGHT: int = 128
+const HOURGLASS_LINE: int = 3
+const HOURGLASS_CAP: int = 5             # ⚠ 上下の真鍮の横木の太さ
+const HOURGLASS_SAND: String = "e0b85c"
+# ⚠ 上の砂・下の砂（%）。⚠ 並びはライト・ミドル・ハード（⚠ 長いほど上に砂が残っている）。
+const HOURGLASS_SAND_TOP_PCT: Array[int] = [25, 55, 90]
+const HOURGLASS_SAND_BOTTOM_PCT: Array[int] = [55, 30, 8]
+
+
+static func _build_protection_cards(theme: Theme) -> void:
+	var t: StringName = &"Hourglass"
+	theme.set_color(&"frame", t, _html(TOKEN_BRASS))
+	theme.set_color(&"glass", t, _html(TOKEN_INK))
+	theme.set_color(&"sand", t, _html(HOURGLASS_SAND))
+	theme.set_constant(&"width", t, HOURGLASS_WIDTH)
+	theme.set_constant(&"height", t, HOURGLASS_HEIGHT)
+	theme.set_constant(&"line", t, HOURGLASS_LINE)
+	theme.set_constant(&"cap", t, HOURGLASS_CAP)
+	for i: int in HOURGLASS_SAND_TOP_PCT.size():
+		theme.set_constant(StringName("sand_top_%d" % i), t, HOURGLASS_SAND_TOP_PCT[i])
+		theme.set_constant(StringName("sand_bottom_%d" % i), t, HOURGLASS_SAND_BOTTOM_PCT[i])
+	theme.set_constant(&"card_width", &"ProtectionCard", PROTECTION_CARD_WIDTH)
+	theme.set_constant(&"chest_icon", &"ProtectionCard", PROTECTION_CHEST_ICON)
+	theme.set_color(&"chest_icon", &"ProtectionCard", _html(TOKEN_BRASS_INK))
+	theme.set_type_variation(&"ProtectionRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"ProtectionRow", PROTECTION_ROW_GAP)
+	theme.set_type_variation(&"ProtectionMinutesRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"ProtectionMinutesRow", PROTECTION_MINUTES_GAP)
+	# ⚠ 分の数字は値段と同じ太字（⚠ 手本「数字は Noto Sans JP 900」）。
+	theme.set_type_variation(&"ProtectionMinutesLabel", &"Label")
+	theme.set_font_size(&"font_size", &"ProtectionMinutesLabel", PROTECTION_MINUTES_SIZE)
+	if theme.has_font(&"font", &"PriceLabel"):
+		theme.set_font(&"font", &"ProtectionMinutesLabel", theme.get_font(&"font", &"PriceLabel"))
+
+
 static func _build_heading_font(theme: Theme) -> void:
 	if not ResourceLoader.exists(HEADING_FONT_PATH):
 		push_warning("[BuildTheme] 見出しの明朝が無い（%s）。見出しは NotoSansJP のまま" % HEADING_FONT_PATH)
@@ -2148,6 +2194,7 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"ErrorLabel": TOKEN_WAX,
 	"SmallErrorLabel": TOKEN_WAX,
 	"GainLabel": TOKEN_PAPER_GAIN,
+	"ProtectionMinutesLabel": TOKEN_INK,
 }
 
 
