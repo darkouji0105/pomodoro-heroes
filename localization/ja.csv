@@ -998,6 +998,25 @@ ui_facility_training,育成
 ui_facility_forge,鍛冶場
 ui_facility_belongings,持ち物
 ui_facility_records,記録
+ui_records_tab_codex,アイテム図鑑
+ui_records_tab_focus,集中の履歴
+ui_records_tab_characters,キャラの情報
+ui_records_tab_dungeons,ダンジョンの情報
+ui_records_codex_title,初めて手に入れた記録
+ui_records_kind_equipment,装備
+ui_records_kind_part,装飾
+ui_records_kind_material,素材
+ui_records_unknown,？
+ui_records_focus_total,集中を終えた回数（合計）
+ui_records_focus_today,今日の集中
+ui_records_focus_last,最後に終えた日時
+ui_records_focus_note,日ごとの履歴はまだ記録していない。
+ui_records_count,%d 回
+ui_records_minutes,%d 分
+ui_records_none,—
+ui_records_cleared,済
+ui_records_not_cleared,まだ
+ui_records_in_progress,潜っている途中
 ui_facility_research,研究
 ui_facility_shop,ショップ
 ui_relic_give_to,%sに付ける

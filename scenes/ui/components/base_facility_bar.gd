@@ -29,7 +29,6 @@ const KEY_DATA: String = "data"
 # ⚠⚠ 並び（`NAV-6`・仮）。⚠ 手本の5つ ＋ 研究・ショップ（人間「⚠ 7あ」）。
 # ⚠⚠ 「育成」は 2026-09-27 に一度外し、⚠ 同じ日に**戻した**（⚠ 人間「⚠ 育成タブを復活させたほうがいい
 #   ⚠ キャラの配置とキャラ個別のものはべつにしよう」）。⚠ 詰所＝配置 ／ 育成＝キャラ個別（⚠ 身上書カードの一覧 → 育成）。
-# ⚠ 「記録」は記録の画面ができるまで**倉庫の図鑑タブ**を開く（⚠ 人間の選択）。
 static func facilities() -> Array[Dictionary]:
 	return [
 		{ENTRY_ID: HQ, ENTRY_LABEL_KEY: "ui_facility_hq",
@@ -40,12 +39,14 @@ static func facilities() -> Array[Dictionary]:
 			KEY_PATH: "res://scenes/guild/training_list_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_TRAINING},
 		{ENTRY_ID: FORGE, ENTRY_LABEL_KEY: "ui_facility_forge",
 			# ⚠ 2026-09-27（回UI-仕組み①・人間「⚠ 2あ」）：⚠ 鍛冶場は「鍛える」タブから開く（⚠ 作業場は「作る」タブ）。
-			KEY_PATH: "res://scenes/guild/forge_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WORKSHOP},
+			# ⚠ 09-28 人間「⚠ 鍛冶場を装備以外のところからいけるようにしたい」：⚠ 前は作業場の解放（ステージのクリア）まで
+			#   帯に出ず、⚠ 装備・持ち物の「鍛える」からしか行けなかった＝⚠ 持ち物と同じ解放で出す（⚠ 「作る」タブは作業場の解放まで出ない）。
+			KEY_PATH: "res://scenes/guild/forge_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WAREHOUSE},
 		{ENTRY_ID: BELONGINGS, ENTRY_LABEL_KEY: "ui_facility_belongings",
 			KEY_PATH: "res://scenes/guild/warehouse_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WAREHOUSE},
+		# ⚠ 09-28（回UI-仕組み②）：⚠ 記録の画面（⚠ 前は持ち物の図鑑タブ）。
 		{ENTRY_ID: RECORDS, ENTRY_LABEL_KEY: "ui_facility_records",
-			KEY_PATH: "res://scenes/guild/warehouse_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WAREHOUSE,
-			KEY_DATA: {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_CODEX}},
+			KEY_PATH: "res://scenes/guild/records_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WAREHOUSE},
 		{ENTRY_ID: RESEARCH, ENTRY_LABEL_KEY: "ui_facility_research",
 			KEY_PATH: "res://scenes/guild/research_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_RESEARCH},
 		{ENTRY_ID: SHOP, ENTRY_LABEL_KEY: "ui_facility_shop",

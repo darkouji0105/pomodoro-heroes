@@ -1189,6 +1189,8 @@ const SCENARIOS: Dictionary = {
 				"data": {TransferKeys.SORTIE_STAGE_ID: "floor_1", TransferKeys.RETURN_PATH: "res://scenes/adventure/adventure_select.tscn"},
 				"after": SHOT_AFTER_SORTIE_PICK,
 			},
+			# ⚠ 記録（2026-09-28・回UI-仕組み②・手本 Records）。⚠ 図鑑のタブ。
+			{"name": "45_records", "scene": "res://scenes/guild/records_screen.tscn"},
 			# ⚠ 「出撃する」→ 署名を書き終えて「受理」の判が押された姿（⚠ 出発の前で止める＝フロアに入らない）。
 			{
 				"name": "44_sortie_sign",
@@ -5221,7 +5223,8 @@ const LAYOUT_SCENES: Array[String] = [
 	# ⚠ 持ち物のほかのタブ（2026-09-27・回UI-組 持ち物）。⚠ `#タブ` で開き分ける（⚠ 育成と同じ）。
 	"res://scenes/guild/warehouse_screen.tscn#" + TransferKeys.WAREHOUSE_TAB_PART,
 	"res://scenes/guild/warehouse_screen.tscn#" + TransferKeys.WAREHOUSE_TAB_MATERIAL,
-	"res://scenes/guild/warehouse_screen.tscn#" + TransferKeys.WAREHOUSE_TAB_CODEX,
+	# ⚠ 記録（2026-09-28・回UI-仕組み②）。⚠ 図鑑は持ち物のタブからここへ移した。
+	"res://scenes/guild/records_screen.tscn",
 	# ⚠ 同上。ショップは13枠を HBoxContainer の行で積む。1行に器が4つ並ぶ。
 	"res://scenes/guild/shop_screen.tscn",
 	# ⚠⚠ ポモドーロの器と4ビュー（2026-09-09）。⚠ **今まで1枚も測っていなかった**。
@@ -9595,16 +9598,16 @@ func _report_inventory_window() -> void:
 	# ③ 施設の帯に「持ち物」と「記録」が在り、⚠ 行き先のシーンが在る（⚠ 2026-09-26・回UI-3：
 	#   ⚠ ギルドのカードをやめて帯にした＝決定 `NAV-6`）。
 	var path: String = ""
-	var records_tab: String = ""
+	var records_path: String = ""
 	for entry: Dictionary in BaseFacilityBar.facilities():
 		var id: String = str(entry.get(FacilityBar.ENTRY_ID, ""))
 		if id == BaseFacilityBar.BELONGINGS:
 			path = str(entry.get(BaseFacilityBar.KEY_PATH, ""))
 		elif id == BaseFacilityBar.RECORDS:
-			var data: Dictionary = entry.get(BaseFacilityBar.KEY_DATA, {})
-			records_tab = str(data.get(TransferKeys.WAREHOUSE_TAB, ""))
+			records_path = str(entry.get(BaseFacilityBar.KEY_PATH, ""))
 	checks.append(["③ 帯の行き先 %s が在る" % path, path != "" and ResourceLoader.exists(path)])
-	checks.append(["③ 記録は図鑑タブで開く", records_tab == TransferKeys.WAREHOUSE_TAB_CODEX])
+	# ⚠ 2026-09-28：記録は記録の画面（⚠ 前は持ち物の図鑑タブ）。
+	checks.append(["③ 記録は記録の画面 %s" % records_path, records_path == "res://scenes/guild/records_screen.tscn" and ResourceLoader.exists(records_path)])
 	if not GameManager.is_screen_unlocked(GameStateKeys.SCREEN_WAREHOUSE):
 		GameManager.unlock_screen(GameStateKeys.SCREEN_WAREHOUSE)
 	var base: Control = load(SCENE_BASE).instantiate()
@@ -9711,6 +9714,7 @@ class UiFlowRunner extends Node:
 	const BASE: String = "res://scenes/base/base_screen.tscn"
 	const CHEST: String = "res://scenes/base/chest_screen.tscn"
 	const FORGE: String = "res://scenes/guild/forge_screen.tscn"
+	const RECORDS: String = "res://scenes/guild/records_screen.tscn"
 	const TRAINING_LIST: String = "res://scenes/guild/training_list_screen.tscn"
 	# ⚠ 一覧の画面は class_name を持たない＝⚠ 並びの口は script を読んで呼ぶ。
 	const TrainingListScreenRef: GDScript = preload("res://scenes/guild/training_list_screen.gd")
@@ -10001,8 +10005,8 @@ class UiFlowRunner extends Node:
 		await _press(w.find_child("DiscardButton", true, false))
 		await _confirm_modal()
 		_check("持ち物：消耗品の「捨てる」→ はい で1個減る（%d → %d）" % [potions, GameManager.get_item_count(POTION_ID)], GameManager.get_item_count(POTION_ID) == potions - 1)
-		await _press(_tab_button(w, 3))
-		_check("持ち物：4枚目のタブで図鑑", w.find_child("CodexList", true, false) != null)
+		# ⚠ 2026-09-28（人間「⚠ 4あ」）：⚠ 図鑑タブは記録の画面へ移した＝持ち物は3枚。
+		_check("持ち物：タブは装備・装飾・素材の3枚（図鑑は記録へ）", _tab_button(w, 2) != null and _tab_button(w, 3) == null)
 
 	# --- 施設の帯：育成 → 持ち物 ---
 
@@ -10015,9 +10019,64 @@ class UiFlowRunner extends Node:
 		var w: Node = get_tree().current_scene
 		await _press(w.find_child("Facility_" + BaseFacilityBar.RECORDS, true, false), OPEN_FRAMES)
 		var r: Node = get_tree().current_scene
-		_check("施設の帯：「記録」で図鑑のタブが開く", _path_of(r) == BELONGINGS and r.find_child("CodexList", true, false) != null)
+		_check("施設の帯：「記録」で記録の画面（図鑑）が開く", _path_of(r) == RECORDS and r.find_child("CodexHeading", true, false) != null)
 		# ⚠ 09-27 の見る回で「育成」を戻した（⚠ 人間「⚠ 育成タブを復活させたほうがいい」）。
 		_check("施設の帯：「育成」がある", r.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false) != null)
+		# ⚠ 09-28 人間「⚠ 鍛冶場を装備以外のところからいけるようにしたい」＝⚠ 持ち物と同じ解放で帯に出る。
+		_check("施設の帯：「鍛冶場」がある（持ち物と同じ解放）", r.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) != null)
+		await _flow_records()
+
+	# --- 記録（2026-09-28・回UI-仕組み②・手本 Records・人間「⚠ 1い　⚠ 2あ　⚠ 3い　⚠ 4あ　⚠ 5あ」） ---
+
+	func _flow_records() -> void:
+		var r: Node = get_tree().current_scene
+		if _path_of(r) != RECORDS:
+			return
+		# 図鑑：⚠ 数は GameManager の口と揃う・⚠ 手に入れていない品は「？」の枠・⚠ 素材の段もある。
+		var found: int = 0
+		var total: int = 0
+		for kind: String in GameManager.CODEX_KINDS:
+			for item_id: String in GameManager.get_codex_ids(kind):
+				total += 1
+				if GameManager.is_codex_discovered(item_id):
+					found += 1
+		var heading: Node = r.find_child("CodexHeading", true, false)
+		_check("記録：図鑑の見出しに「%d / %d」" % [found, total], heading is SheetHeading and (heading as SheetHeading).right_text == "%d / %d" % [found, total] and total > 0)
+		_check("記録：装備・装飾・素材の3段", r.find_child("Section_equipment", true, false) != null and r.find_child("Section_part", true, false) != null and r.find_child("Section_material", true, false) != null)
+		_check("記録：手に入れた品は絵・まだの品は「？」（絵 %d ／ ？ %d）" % [r.find_children("Found_*", "", true, false).size(), r.find_children("Unknown_*", "", true, false).size()],
+			r.find_children("Found_*", "", true, false).size() == found and r.find_children("Unknown_*", "", true, false).size() == total - found)
+		# ⚠ 素材も図鑑に載る（「⚠ 2あ」）：⚠ まだの素材を1個入れると載る。
+		var fresh: String = ""
+		for material_id: String in GameManager.get_codex_ids(GameManager.CODEX_KIND_MATERIAL):
+			if not GameManager.is_codex_discovered(material_id):
+				fresh = material_id
+				break
+		if fresh != "":
+			GameManager.add_material(fresh, 1)
+			await _press(_tab_button(r, 1))
+			await _press(_tab_button(r, 0))
+			_check("記録：素材を手に入れると図鑑に載る（%s）" % fresh, GameManager.is_codex_discovered(fresh) and r.find_child("Found_" + fresh, true, false) != null)
+		# 集中の履歴：合計・今日・最後（⚠ 日ごとの履歴はまだ＝「⚠ 5あ」）。
+		await _press(_tab_button(r, 1))
+		_check("記録：集中の履歴に合計 %s・今日 %s" % [_label_text(r, "TotalRow", "ValueLabel"), _label_text(r, "TodayRow", "ValueLabel")],
+			_label_text(r, "TotalRow", "ValueLabel") == tr("ui_records_count") % GameManager.get_total_pomodoro_completed()
+			and _label_text(r, "TodayRow", "ValueLabel") == tr("ui_records_minutes") % GameManager.get_cumulative_focus_minutes_today()
+			and r.find_child("FocusNote", true, false) != null)
+		# キャラの情報：⚠ 候補ぜんぶの行・⚠ 押すとその人の育成。
+		await _press(_tab_button(r, 2))
+		var candidates: Array = GameManager.get_party_candidates()
+		_check("記録：キャラの情報に %d 人" % candidates.size(), r.find_children("Character_*", "", true, false).size() == candidates.size() and candidates.size() > 0)
+		# ダンジョンの情報：⚠ 話ごとに済・まだ ／ 難ダンジョン。
+		await _press(_tab_button(r, 3))
+		var order: Array = MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)
+		var first_stage: String = str(order[0]) if not order.is_empty() else ""
+		_check("記録：ダンジョンの情報に話 %d・難ダンジョン %d（1話=%s）" % [r.find_children("Stage_*", "", true, false).size(), r.find_children("Dungeon_*", "", true, false).size(), _label_text(r, "Stage_" + first_stage, "ValueLabel")],
+			r.find_children("Stage_*", "", true, false).size() == order.size() and r.find_children("Dungeon_*", "", true, false).size() == MasterDataLoader.get_all_dungeon_ids().size()
+			and _label_text(r, "Stage_" + first_stage, "ValueLabel") == tr("ui_records_cleared" if GameManager.is_stage_cleared(first_stage) else "ui_records_not_cleared"))
+		await _press(_tab_button(r, 2))
+		var hero_row: Node = r.find_child("Character_" + str(candidates[0]), true, false)
+		await _press(hero_row, OPEN_FRAMES)
+		_check("記録：キャラの行を押すとその人の育成", _path_of(get_tree().current_scene) == TRAINING)
 
 	# --- 詰所＝出撃の準備（2026-09-28・モック・決定 `NAV-11`）：ガイド ／ 枠 → 名簿 ／ ビルド ▼ ／ 控え（残す・呼ぶ）／ 選んだ人を育成で ---
 

@@ -49,7 +49,11 @@ func _ready() -> void:
 	side.custom_minimum_size.x = float(get_theme_constant(&"side_width", THEME_TYPE))
 	var tabs: PaperTabs = PaperTabs.new()
 	tabs.name = "Tabs"
-	tabs.set_tabs(TAB_KEYS, 0)
+	# ⚠ 「作る」（作業場）は作業場を解放してから（⚠ 09-28・鍛冶場は持ち物と同じ解放で帯に出る）。
+	var keys: Array[String] = TAB_KEYS.duplicate()
+	if not GameManager.is_screen_unlocked(GameStateKeys.SCREEN_WORKSHOP):
+		keys = [TAB_KEYS[0]]
+	tabs.set_tabs(keys, 0)
 	tabs.tab_changed.connect(_on_tab_changed)
 	main_stack.add_child(tabs)
 	main_stack.move_child(tabs, 0)

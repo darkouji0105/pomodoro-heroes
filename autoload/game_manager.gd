@@ -643,6 +643,9 @@ func add_material(material_id: String, amount: int) -> void:
 	var new_amount: int = int(materials.get(material_id, 0)) + amount
 	materials[material_id] = new_amount
 	_state[GameStateKeys.MATERIALS] = materials
+	# ⚠ 素材も図鑑に載せる（2026-09-28・記録の画面・人間「⚠ 2あ」）。⚠ 減らすとき（負の数）は載せない。
+	if amount > 0:
+		_mark_codex_discovered(material_id)
 	print("[GameManager] add_material('%s', %d) -> %d" % [material_id, amount, new_amount])
 	# 辞書全体ではなく「どの素材がいくつになったか」を通知する。
 	# 拠点画面は素材の種類ごとにラベルを持つため、種類が特定できないと差分更新できない。
@@ -1316,6 +1319,41 @@ func get_codex_entry(item_id: String) -> Dictionary:
 	var codex: Dictionary = _state.get(GameStateKeys.CODEX, {})
 	var entry: Dictionary = codex.get(item_id, {})
 	return entry.duplicate(true)
+
+
+# 図鑑に載る品の種類（2026-09-28・記録の画面・手本 Records「装備 ／ 装飾 ／ 素材」）。
+const CODEX_KIND_EQUIPMENT: String = "equipment"
+const CODEX_KIND_PART: String = "part"
+const CODEX_KIND_MATERIAL: String = "material"
+const CODEX_KINDS: Array[String] = [CODEX_KIND_EQUIPMENT, CODEX_KIND_PART, CODEX_KIND_MATERIAL]
+
+
+# その種類の品を全部（⚠ 手に入れていないものも＝図鑑の「？」の枠と「n / 全体」の全体）。⚠ sort_order の昇順。
+# ⚠ 種類の見分けは既存の口（装備＝`_is_equipment_item()` ／ 装飾＝`get_part_definition()` ／ 素材＝`get_material_ids()`）。
+func get_codex_ids(kind: String) -> Array[String]:
+	if kind == CODEX_KIND_MATERIAL:
+		return get_material_ids()
+	var ids: Array[String] = []
+	for raw: Variant in MasterDataLoader.get_all_items():
+		var item_id: String = str(raw)
+		if kind == CODEX_KIND_EQUIPMENT and _is_equipment_item(item_id):
+			ids.append(item_id)
+		elif kind == CODEX_KIND_PART and not get_part_definition(item_id).is_empty():
+			ids.append(item_id)
+	ids.sort_custom(func(a: String, b: String) -> bool:
+		return int(MasterDataLoader.get_item(a).get(ITEM_MASTER_SORT_ORDER, 0)) < int(
+			MasterDataLoader.get_item(b).get(ITEM_MASTER_SORT_ORDER, 0)
+		))
+	return ids
+
+
+func is_codex_discovered(item_id: String) -> bool:
+	return bool(get_codex_entry(item_id).get(GameStateKeys.CODEX_DISCOVERED, false))
+
+
+# ポモドーロを終えた回数の合計（⚠ 記録の画面「集中の履歴」）。
+func get_total_pomodoro_completed() -> int:
+	return int(_state.get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0))
 
 # --- マス目（段階18-a・PLAN_INVENTORY.md） -----------------------------
 #
@@ -6433,6 +6471,16 @@ func load_state(data: Dictionary) -> bool:
 		var mats: Dictionary = new_state[GameStateKeys.MATERIALS]
 		for mat_id: String in mats:
 			mats[mat_id] = int(mats[mat_id])
+		# ⚠ 素材も図鑑に載る（2026-09-28・記録の画面・人間「⚠ 2あ」）。⚠ それより前のセーブは、⚠ いま持っている素材だけ載せる
+		#   （⚠ 使い切った素材は分からない＝載らない）。⚠ 手に入れた日時は読み込んだ時刻。
+		if new_state.get(GameStateKeys.CODEX) is Dictionary:
+			var codex_now: Dictionary = new_state[GameStateKeys.CODEX]
+			for mat_id: String in mats:
+				if int(mats[mat_id]) > 0 and not codex_now.has(mat_id):
+					codex_now[mat_id] = {
+						GameStateKeys.CODEX_DISCOVERED: true,
+						GameStateKeys.CODEX_OBTAINED_AT: str(Time.get_unix_time_from_system()),
+					}
 	# 持ち物の個数。materials と同じ理由で int に戻す（宿題12・2026-08-25）。
 	# ⚠ これを飛ばすと、セーブ→ロード→セーブで "count": 5.0 と書かれ続ける。
 	#   読む側（get_item_count / _remove_from_inventory / use_stamina_potion）が

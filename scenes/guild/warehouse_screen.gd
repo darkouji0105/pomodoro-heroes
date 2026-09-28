@@ -2,11 +2,11 @@
 # 持ち物（⚠ ファイル名は前の「倉庫」のまま＝決定 `BS-15`「画面は増やさず、いまの倉庫画面を作り替える」）。
 #
 # ⚠⚠ 2026-09-27（回UI-組 持ち物・手本 Belongings / RichItemMulti・人間「⚠ 1あ 2あ 3あ 4あ」）：⚠ **作り替えた**。
-#   ⚠ 左：紙のタブ（装備・装飾・素材・図鑑）。⚠ 装備は部位の縦タブ（すべて・頭・…）で絞る。⚠ 中は台帳の行。
+#   ⚠ 左：紙のタブ（装備・装飾・素材）。⚠ 装備は部位の縦タブ（すべて・頭・…）で絞る。⚠ 中は台帳の行。
 #   ⚠ 右：説明の紙（`BelongingsDetail`）＝ ⚠ 着ける・外す・鍛える・刺す・外す・分解・段階を上げる・重ねる・捨てる。
 #   ⚠ マス目・ページ・「マス 0/500」・「枠を買う」は画面から消した（決定 `BS-10`）。
 #   ⚠ **容量の判定は `GameManager` に残っている**（人間「⚠ 1あ」＝判定を消す `BS-20` は別の回に EXEC を書いてから）。
-#   ⚠ 図鑑は記録の画面ができるまで4枚目のタブ（人間「⚠ 2あ」）。⚠ 施設の帯の「記録」はここを開く。
+#   ⚠ 図鑑は 2026-09-28 に記録の画面へ移した（⚠ 人間「⚠ 4あ」＝持ち物のタブから外した）。
 #   ⚠ 前の装備画面（仮の鍛冶場）と説明の窓（`ItemActionPanel`）は消した（人間「⚠ 3あ」）。
 #   ⚠ 「捨てる」は持ち物のマスを使う品だけに残した（人間「⚠ 4あ」・`EQ-14` は判定を消す回で）。
 # ⚠ 何が何個あるかは全部 `GameManager` の口（⚠ 装備＝`get_owned_instances()` ／ 持ち物＝`get_inventory_slot_entries()` ／
@@ -21,10 +21,10 @@ const THEME_TYPE: StringName = &"Belongings"
 # ⚠ タブの並び。⚠ 外から開くときは `TransferKeys.WAREHOUSE_TAB_*` の字で指す（⚠ 番号を漏らさない）。
 const TAB_IDS: Array[String] = [
 	TransferKeys.WAREHOUSE_TAB_EQUIP, TransferKeys.WAREHOUSE_TAB_PART,
-	TransferKeys.WAREHOUSE_TAB_MATERIAL, TransferKeys.WAREHOUSE_TAB_CODEX,
+	TransferKeys.WAREHOUSE_TAB_MATERIAL,
 ]
 const TAB_KEYS: Array[String] = [
-	"ui_belongings_tab_equip", "ui_belongings_tab_part", "ui_belongings_tab_material", "ui_warehouse_tab_codex",
+	"ui_belongings_tab_equip", "ui_belongings_tab_part", "ui_belongings_tab_material",
 ]
 # ⚠ 行の中身の鍵（⚠ 行と右の紙で同じ品を指すため）。
 const ROW_ENTRY: String = "entry"
@@ -59,8 +59,7 @@ func _ready() -> void:
 		_selected_key = wanted_instance
 
 	header.back_pressed.connect(_on_back_pressed)
-	var opens_codex: bool = _tab == TransferKeys.WAREHOUSE_TAB_CODEX
-	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.RECORDS if opens_codex else BaseFacilityBar.BELONGINGS)
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.BELONGINGS)
 
 	tabs = PaperTabs.new()
 	tabs.name = "Tabs"
@@ -100,11 +99,6 @@ func _rebuild() -> void:
 	for child: Node in _page.get_children():
 		_page.remove_child(child)
 		child.queue_free()
-	if _tab == TransferKeys.WAREHOUSE_TAB_CODEX:
-		_detail.get_parent().get_parent().visible = false
-		_build_codex()
-		return
-	_detail.get_parent().get_parent().visible = true
 	if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP and _attach_instance == "":
 		_page.add_child(_build_filter())
 		_page.add_child(VSeparator.new())
@@ -345,41 +339,7 @@ func _instance_entry(instance_id: String) -> Dictionary:
 	}
 
 
-# --- 図鑑（⚠ 記録の画面ができるまでのつなぎ・人間「⚠ 2あ」） ---
-
-func _build_codex() -> void:
-	var column: VBoxContainer = VBoxContainer.new()
-	column.name = "CodexList"
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_page.add_child(column)
-	var heading: SheetHeading = SheetHeading.new()
-	heading.title_key = "ui_warehouse_tab_codex"
-	heading.ornament = true
-	column.add_child(heading)
-	var codex: Dictionary = GameManager.get_state().get(GameStateKeys.CODEX, {})
-	if codex.is_empty():
-		column.add_child(EmptyState.create("ui_warehouse_empty"))
-		return
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_child(scroll)
-	var list: VBoxContainer = VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(list)
-	for item_id: String in codex:
-		var discovered: bool = bool((codex[item_id] as Dictionary).get(GameStateKeys.CODEX_DISCOVERED, false))
-		var row: HBoxContainer = HBoxContainer.new()
-		row.name = "CodexRow_" + item_id
-		# ⚠ 未発見の行にアイコンを出さない。文字で中身が割れる。
-		if discovered:
-			row.add_child(ItemIcon.create(item_id))
-		var name_label: Label = Label.new()
-		name_label.name = "NameLabel"
-		name_label.text = tr("ui_res_" + item_id) if discovered else tr("ui_warehouse_undiscovered")
-		row.add_child(name_label)
-		list.add_child(row)
-
+# ⚠ 図鑑は 2026-09-28 に記録の画面（`records_screen`）へ移した（⚠ 人間「⚠ 4あ」）。
 
 # --- 操作 ---
 

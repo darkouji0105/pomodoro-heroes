@@ -1,0 +1,54 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/guild/records_screen.gd" id="1_records"]
+[ext_resource type="PackedScene" uid="uid://b1screenheader01" path="res://scenes/ui/components/screen_header.tscn" id="2_screen_header"]
+[ext_resource type="Script" path="res://scenes/ui/components/paper_sheet.gd" id="3_paper_sheet"]
+
+[node name="RecordsScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_records")
+
+[node name="Background" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_type_variation = &"BackgroundPanel"
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"ScreenMargin"
+
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_type_variation = &"SectionGap"
+
+[node name="Header" parent="Margin/Layout" instance=ExtResource("2_screen_header")]
+layout_mode = 2
+title_key = "ui_facility_records"
+
+[node name="Main" type="VBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"PaperTabStack"
+
+[node name="Sheet" type="PanelContainer" parent="Margin/Layout/Main"]
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("3_paper_sheet")
+
+[node name="SheetBody" type="VBoxContainer" parent="Margin/Layout/Main/Sheet"]
+layout_mode = 2

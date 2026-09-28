@@ -769,6 +769,7 @@ static func build() -> void:
 	_build_chest(theme)
 	_build_forge(theme)
 	_build_sortie(theme)
+	_build_records(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2446,6 +2447,35 @@ const SORTIE_SIGN: Dictionary = {
 const SORTIE_SIGN_COLORS: Dictionary = {
 	"sign_brush": "1e1814", "sign_pen": "24324e", "sign_soft": "3a2a45", "sign_rule": "a8926a",
 }
+
+
+# --- ⚠⚠ 記録（2026-09-28・回UI-仕組み②・手本 Records）---
+#
+# ⚠ 紙のタブ（アイテム図鑑・集中の履歴・キャラの情報・ダンジョンの情報）。⚠ 図鑑は種類ごとに絵と「？」の枠。
+const RECORDS_CELL: int = 40            # ⚠ 「？」の枠（⚠ `ItemIcon` と同じ 40）
+const RECORDS_CELL_GAP: int = 6
+const RECORDS_PHOTO: int = 40           # ⚠ キャラの情報の顔
+const RECORDS_STAT_WIDTH: int = 110     # ⚠ キャラの情報の値1つぶん
+const RECORDS_UNKNOWN_ALPHA_PCT: int = 60  # ⚠ 「？」の枠線（⚠ 手本は破線＝⚠ Godot の面は破線を引けないので薄い実線）
+
+
+static func _build_records(theme: Theme) -> void:
+	var t: StringName = &"Records"
+	theme.set_constant(&"cell", t, RECORDS_CELL)
+	theme.set_constant(&"photo", t, RECORDS_PHOTO)
+	theme.set_constant(&"stat_width", t, RECORDS_STAT_WIDTH)
+	theme.set_type_variation(&"RecordsCells", &"HFlowContainer")
+	theme.set_constant(&"h_separation", &"RecordsCells", RECORDS_CELL_GAP)
+	theme.set_constant(&"v_separation", &"RecordsCells", RECORDS_CELL_GAP)
+	var cell: StyleBoxFlat = StyleBoxFlat.new()
+	cell.bg_color = Color(0, 0, 0, 0)
+	var line: Color = _html(TOKEN_RULE)
+	line.a = float(RECORDS_UNKNOWN_ALPHA_PCT) / 100.0
+	cell.border_color = line
+	cell.set_border_width_all(1)
+	cell.set_corner_radius_all(4)
+	theme.set_type_variation(&"RecordsUnknownCell", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"RecordsUnknownCell", cell)
 
 
 static func _build_sortie(theme: Theme) -> void:
