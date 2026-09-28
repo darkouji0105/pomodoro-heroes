@@ -54,6 +54,13 @@ func _show_step() -> void:
 	_hole = _hole.grow(float(get_theme_constant(&"guide_hole_pad", THEME_TYPE)))
 	_hole.position -= get_global_rect().position
 	queue_redraw()
+	# ⚠ 穴の縁を派手に脈打たせる（⚠ 09-28 人間「⚠ 入れ替えるためのガイドを派手に　⚠ 枠を囲むとか派手な色で」）。
+	for child: Node in get_children():
+		if child is PulseFrame:
+			remove_child(child)
+			child.queue_free()
+	var ring: PulseFrame = PulseFrame.attach(self, PulseFrame.Strength.STRONG)
+	ring.target_rect = _hole
 
 	_bubble = PaperSheet.new()
 	_bubble.name = "Bubble"
@@ -118,7 +125,7 @@ func _finish() -> void:
 	queue_free()
 
 
-# 暗幕（⚠ 穴の周りの4枚）と、⚠ 穴の縁の灯りの線。
+# 暗幕（⚠ 穴の周りの4枚）。
 func _draw() -> void:
 	var dim: Color = get_theme_color(&"guide_dim", THEME_TYPE)
 	if _hole.size == Vector2.ZERO:
@@ -128,4 +135,4 @@ func _draw() -> void:
 	draw_rect(Rect2(0.0, _hole.end.y, size.x, size.y - _hole.end.y), dim)
 	draw_rect(Rect2(0.0, _hole.position.y, _hole.position.x, _hole.size.y), dim)
 	draw_rect(Rect2(_hole.end.x, _hole.position.y, size.x - _hole.end.x, _hole.size.y), dim)
-	draw_rect(_hole, get_theme_color(&"guide_ring", THEME_TYPE), false, 2.0)
+	# ⚠ 穴の縁は `PulseFrame` が脈打って引く（⚠ ここでは引かない）。

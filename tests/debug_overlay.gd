@@ -140,6 +140,9 @@ func _build_ui() -> void:
 	_base_box.add_child(_make_button("消費アイテムを全種類", _grant_all_consumables))
 	_base_box.add_child(_make_button("装備を全種類 1個ずつ", _grant_all_equipment))
 	_base_box.add_child(_make_button("装飾を全種類", _grant_all_parts))
+	# ⚠ 2026-09-28（人間「⚠ デバッグ用で、たからばこや、鍛冶用にアイテムをゲットしたい　⚠ それから見る」）。
+	_base_box.add_child(_make_button("宝箱：高レア（epic・legendary）を積む", _grant_rare_chests))
+	_base_box.add_child(_make_button("鍛冶：等級5の装備＋素材＋確定成功の札", _grant_forge_set))
 	_base_box.add_child(_make_button("研究を全部解放（先に素材）", _unlock_all_research))
 	_base_box.add_child(_make_button("画面を全部解放", _unlock_all_screens))
 	_base_box.add_child(_make_button("製作をすぐ完了させる", _complete_all_crafts))
@@ -461,6 +464,59 @@ func _grant_all_equipment() -> void:
 		GameManager.add_to_inventory(item_id, EQUIPMENT_COUNT, GameStateKeys.ITEM_TYPE_EQUIPMENT)
 		count += 1
 	print("[DebugOverlay] 装備 %d種を %d個ずつ（個体を生成）" % [count, EQUIPMENT_COUNT])
+
+
+# 高レアの宝箱を積む（2026-09-28・宝箱の演出を見るため＝`BS-21`）。
+#
+# ⚠ 積む口は `grant_chest()` の1本（⚠ 抽選のハズレは false＝正常系なので積めるまで試す）。
+# ⚠ epic と legendary を1個ずつ、全フロアぶん。⚠ 見比べ用に common も1個。
+const CHEST_TRIES: int = 20
+
+func _grant_rare_chests() -> void:
+	var granted: int = 0
+	for chest_id: Variant in MasterDataLoader.get_all_chests().keys():
+		var rarity: String = GameManager.get_chest_rarity(str(chest_id))
+		if rarity != GameManager.CHEST_RARITY_EPIC and rarity != GameManager.CHEST_RARITY_LEGENDARY \
+				and str(chest_id) != "floor_1_common":
+			continue
+		for _i: int in range(CHEST_TRIES):
+			if GameManager.grant_chest(str(chest_id), GameStateKeys.CHEST_SOURCE_DUNGEON):
+				granted += 1
+				break
+	print("[DebugOverlay] 宝箱を %d 個 積んだ（⚠ 拠点の宝箱のバッジから開ける）" % granted)
+
+
+# 鍛冶を試す一式（2026-09-28・鍛冶の失敗と確定成功の札を見るため＝`EQ-6`・`EQ-7`）。
+#
+# ⚠ 鉄の剣を1本作り（⚠ 個体を作るのは `add_to_inventory()` の1本＝CLAUDE.md 8番）、
+#   ⚠ 本物の口 `forge_equipment()` で等級5まで上げる（⚠ 等級5までは必ず成功）。⚠ 次の1回（5→6）から失敗しうる。
+# ⚠ 素材は全種類を配る（⚠ 鍛える素材の段階が等級で変わるため）。⚠ 確定成功の札を3枚。
+const FORGE_ITEM_ID: String = "weapon_iron_sword"
+const FORGE_TARGET_GRADE: int = 5
+const FORGE_TOKEN_COUNT: int = 3
+
+func _grant_forge_set() -> void:
+	_grant_all_materials()
+	var before: Dictionary = {}
+	for view: Variant in GameManager.get_owned_instances():
+		before[str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))] = true
+	GameManager.add_to_inventory(FORGE_ITEM_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var made: String = ""
+	for view: Variant in GameManager.get_owned_instances():
+		var id: String = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+		if not before.has(id):
+			made = id
+	if made == "":
+		push_warning("[DebugOverlay] 鍛冶の一式：装備の個体が作れなかった")
+		return
+	var guard: int = 0
+	while int(GameManager.get_equipment_instance(made).get(GameStateKeys.INSTANCE_GRADE, 1)) < FORGE_TARGET_GRADE and guard < FORGE_TARGET_GRADE:
+		var _forged: bool = GameManager.forge_equipment(made)
+		guard += 1
+	GameManager.add_to_inventory(GameStateKeys.ITEM_FORGE_GUARANTEE_TOKEN, FORGE_TOKEN_COUNT, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+	print("[DebugOverlay] 鍛冶の一式：%s（等級 %d）＋素材＋確定成功の札 %d 枚" % [
+		made, int(GameManager.get_equipment_instance(made).get(GameStateKeys.INSTANCE_GRADE, 1)), FORGE_TOKEN_COUNT
+	])
 
 
 # 段階解放（GAME_DESIGN.md 9-5）を全部飛ばす。

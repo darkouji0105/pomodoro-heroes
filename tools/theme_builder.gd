@@ -2415,6 +2415,13 @@ const SORTIE_PAPER_PAD_V: int = 8
 const SORTIE_TIGHT_PAD_H: int = 10       # ⚠ 帯・名簿の札
 const SORTIE_TIGHT_PAD_V: int = 4
 const SORTIE_BOARD_PAD: int = 10         # ⚠ 名簿の板
+# ⚠ 脈打つ枠。⚠ 色は手本に無い派手な橙（⚠ 灯りの金より強く・紙の上でも暗い板の上でも目立つ）＝設計役の値。
+const SORTIE_PULSE_STRONG: String = "ff9f1c"
+const SORTIE_PULSE_SOFT_ALPHA_PCT: int = 45
+const SORTIE_PULSE_WIDTH: int = 4
+const SORTIE_PULSE_SOFT_WIDTH: int = 2
+const SORTIE_PULSE_GROW: int = 6
+const SORTIE_PULSE_PERIOD_MS: int = 1100
 
 
 static func _build_sortie(theme: Theme) -> void:
@@ -2429,6 +2436,16 @@ static func _build_sortie(theme: Theme) -> void:
 	dim.a = float(SORTIE_GUIDE_DIM_ALPHA_PCT) / 100.0
 	theme.set_color(&"guide_dim", t, dim)
 	theme.set_color(&"guide_ring", t, _html(TOKEN_LIGHT))
+	# ⚠ 脈打つ枠（`PulseFrame`・09-28 人間「⚠ 入れ替えるためのガイドを派手に　⚠ 枠を囲むとか派手な色で」）。
+	theme.set_color(&"pulse_strong", t, _html(SORTIE_PULSE_STRONG))
+	var soft: Color = _html(SORTIE_PULSE_STRONG)
+	soft.a = float(SORTIE_PULSE_SOFT_ALPHA_PCT) / 100.0
+	theme.set_color(&"pulse_soft", t, soft)
+	for spec: Array in [
+		["pulse_width", SORTIE_PULSE_WIDTH], ["pulse_soft_width", SORTIE_PULSE_SOFT_WIDTH],
+		["pulse_grow", SORTIE_PULSE_GROW], ["pulse_period_ms", SORTIE_PULSE_PERIOD_MS],
+	]:
+		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
 	# ⚠ 余白を詰めた紙と板（⚠ 帯・枠・控え・名簿を縦 720 に収めるため＝1枚目の絵で下に 72px はみ出した）。
 	for spec: Array in [
 		["SortiePaperPanel", &"PaperPanel", SORTIE_PAPER_PAD_H, SORTIE_PAPER_PAD_V],

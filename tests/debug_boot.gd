@@ -9707,6 +9707,7 @@ class UiFlowRunner extends Node:
 		await _flow_barracks()
 		await _flow_quest_board()
 		await _flow_chest()
+		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
 
@@ -9992,8 +9993,20 @@ class UiFlowRunner extends Node:
 			b.find_children("Slot_*", "", true, false).size() == 3 and b.find_children("Preset_*", "", true, false).size() == GameManager.get_party_preset_count()
 			and b.find_child("OpenTrainingButton", true, false) != null and b.find_child("SortieButton", true, false) == null)
 
+		# 脈打つ枠（⚠ 09-28 人間「⚠ 枠を囲むとか派手な色で」）：⚠ 選ぶ前はどの枠も弱く ／ ⚠ 選ぶと その枠と名簿が強く。
+		var soft: int = 0
+		for i: int in range(3):
+			var frame: Node = b.find_child("Slot_%d" % i, true, false).find_child("PulseFrame", false, false)
+			if frame is PulseFrame and (frame as PulseFrame).strength == PulseFrame.Strength.SOFT:
+				soft += 1
+		_check("詰所：選ぶ前は3つの枠に弱い光の枠（%d）" % soft, soft == 3)
 		# 枠 → 名簿（⚠ 人間「⚠ キャラを選んで入れ替えるってのが大事」）：3番を押す → 1番の人に「1番と入れ替わる」→ 押すと入れ替わる。
 		await _press(_slot_hit(b, 2))
+		var picked_frame: Node = b.find_child("Slot_2", true, false).find_child("PulseFrame", false, false)
+		var roster_frame: Node = b.find_child("Roster", true, false).find_child("PulseFrame", false, false)
+		_check("詰所：3番を押すと その枠と名簿に強い光の枠",
+			picked_frame is PulseFrame and (picked_frame as PulseFrame).strength == PulseFrame.Strength.STRONG
+			and roster_frame is PulseFrame and (roster_frame as PulseFrame).strength == PulseFrame.Strength.STRONG)
 		var badge: String = _label_text(b, "Roster_" + str(members[0]), "Badge")
 		_check("詰所：3番の枠を押すと名簿に「1番と入れ替わる」（%s）" % badge, badge == tr("ui_sortie_swap_with") % 1)
 		await _press(_roster_hit(b, str(members[0])))
@@ -10232,6 +10245,38 @@ class UiFlowRunner extends Node:
 		var header: Node = c.find_child("Header", true, false)
 		await _press(null if header == null else header.find_child("BackButton", true, false), OPEN_FRAMES)
 		_check("宝箱：「戻る」で拠点", _path_of(get_tree().current_scene) == BASE)
+
+	# --- デバッグの窓の2つのボタン（2026-09-28・人間「⚠ デバッグ用で、たからばこや、鍛冶用にアイテムをゲットしたい」）---
+	#   ⚠ 窓（`tests/debug_overlay.gd`）は root に常駐している。⚠ ボタンの先の関数を呼ぶ（⚠ ボタンは文字で作っていて名前が無い）。
+
+	func _flow_debug_tools() -> void:
+		var overlay: Node = null
+		for node: Node in get_tree().root.get_children():
+			if node.has_method("_grant_rare_chests"):
+				overlay = node
+		if overlay == null:
+			_check("デバッグの窓が無い", false)
+			return
+		var rare_before: int = 0
+		for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+			if chest is Dictionary and not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)) \
+					and GameManager.get_chest_rarity(str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))) in ChestScreen.FX_RARITIES:
+				rare_before += 1
+		overlay.call("_grant_rare_chests")
+		var rare_after: int = 0
+		for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+			if chest is Dictionary and not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)) \
+					and GameManager.get_chest_rarity(str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))) in ChestScreen.FX_RARITIES:
+				rare_after += 1
+		_check("デバッグ：「宝箱：高レア」で epic・legendary が積まれる（%d → %d）" % [rare_before, rare_after], rare_after > rare_before)
+		var tokens: int = GameManager.get_forge_token_count()
+		overlay.call("_grant_forge_set")
+		var grade5: bool = false
+		for view: Variant in GameManager.get_owned_instances():
+			if int((view as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 1)) >= 5:
+				grade5 = true
+		_check("デバッグ：「鍛冶の一式」で等級5の装備と確定成功の札（札 %d → %d）" % [tokens, GameManager.get_forge_token_count()],
+			grade5 and GameManager.get_forge_token_count() == tokens + 3)
 
 	func _pending_of(chest_id: String) -> int:
 		var count: int = 0

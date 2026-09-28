@@ -4,7 +4,8 @@
 # ⚠⚠ 2026-09-28（モック `docs/pomodoro-heroes-ui-docs/barracks/`・決定 `NAV-11`）：⚠ **作り替えた**。
 #   ⚠ 人間「⚠ 出撃前の画面を用意　⚠ プリセットに応じて決めたり、この画面で決めたり」「⚠ キャラを選んで入れ替えるってのが大事」
 #     「⚠ キャラの配置とキャラ個別のものはべつにしよう」→ 答え「⚠ 1い　⚠ 2あ　⚠ 3い　⚠ 4あ」。
-#   ⚠ 依頼掲示板から開く（`TransferKeys.SORTIE_STAGE_ID` ／ `SORTIE_DUNGEON_ID`）＝「出撃の準備」：⚠ 上の帯に依頼 ／ 右下に「出撃する」（⚠ 周回できれば「周回する」）。
+#   ⚠ 依頼掲示板から開く（`TransferKeys.SORTIE_STAGE_ID` ／ `SORTIE_DUNGEON_ID`）＝「出撃の準備」：⚠ 上の帯に依頼 ／ 右下に「出撃する」。
+#     ⚠ 周回は通さない（⚠ 09-28 人間「⚠ 周回の時は編成画面はいらない」＝掲示板でその場で回す）。
 #   ⚠ 施設の帯から開く（⚠ どちらも無い）＝「詰所」：⚠ 右下に「選んだ人を育成で開く」（⚠ モック Q1 A案）。
 #   ⚠ 3つの枠（傾いた紙）：番号・写真・名前・役割・Lv・HP の棒・主な値・「ビルド ▼」・「押すと入れ替え」。
 #   ⚠ 枠を押す → 下の名簿から選ぶ（⚠ 出ている人を選ぶと入れ替わる）。⚠ 名簿は Lv か名前で並べる（⚠ 役割で絞るのは「⚠ 3い」＝まだ）。
@@ -13,7 +14,7 @@
 #   ⚠ はじめてのガイド（⚠ 人間「⚠ 2あ」）：初めて開いたときだけ（`SortieGuide`・`GameManager.GUIDE_SORTIE`）。
 #   ⚠ 難ダンジョンも同じ画面（⚠ 人間「⚠ 4あ」）。⚠ 手本の「潜る深さ」は決定49 の回で足す。
 #   ⚠ 「ビルド ▼」は選ぶと**そのビルドを当てる**（⚠ 出撃前の画面なので、選んだものが戦闘に効かないと意味が無い。⚠ 中身の無いビルドは選べない）。
-# ⚠ 出撃の手続き（⚠ 解放・スタミナ・フロア・戦闘・難ダンジョン・周回）は前は掲示板にあった。⚠ ここへ移した（⚠ 判定は GameManager の口のまま）。
+# ⚠ 出撃の手続き（⚠ 解放・スタミナ・フロア・戦闘・難ダンジョン）は前は掲示板にあった。⚠ ここへ移した（⚠ 判定は GameManager の口のまま）。
 # ⚠ 装備を選ぶ欄は作らない（GAME_DESIGN 13章「装備の変更はできない。ギルドで行う」）。
 # ⚠ 再描画に await を持たせない（CLAUDE.md 5番）。remove_child() してから queue_free()。
 
@@ -258,6 +259,12 @@ func _make_slot(slot_index: int, character_id: String, hp_max: int) -> TiltedShe
 	body.add_child(hint)
 	# ⚠ 面ぜんぶを押せる（⚠ 中の「ビルド」は本物のボタンのまま生きる）。
 	UiButton.attach_hit(holder.sheet, _on_slot_pressed.bind(slot_index))
+	# ⚠ 脈打つ枠（⚠ 09-28 人間「⚠ わからない　⚠ 枠を囲むとか派手な色で」）：⚠ 選んでいる枠は強く・⚠ 選ぶ前はどの枠も弱く（⚠ 押せる合図）。
+	#   ⚠ 別の枠を選んでいる間は、⚠ ほかの枠は光らせない（⚠ 次に押すのは名簿＝そちらを光らせる）。
+	if slot_index == _pick:
+		PulseFrame.attach(holder, PulseFrame.Strength.STRONG)
+	elif _pick < 0:
+		PulseFrame.attach(holder, PulseFrame.Strength.SOFT)
 	return holder
 
 
@@ -536,6 +543,14 @@ func _roster_ids() -> Array[String]:
 
 func _rebuild_roster() -> void:
 	_clear(roster_body)
+	# ⚠ 枠を選んでいる間は名簿を派手に脈打たせる（⚠ 次に押すのはここ＝09-28 人間「⚠ 派手な色で」）。
+	var roster_panel: Control = roster_body.get_parent() as Control
+	for child: Node in roster_panel.get_children():
+		if child is PulseFrame:
+			roster_panel.remove_child(child)
+			child.queue_free()
+	if _pick >= 0:
+		PulseFrame.attach(roster_panel, PulseFrame.Strength.STRONG)
 	var title_column: VBoxContainer = VBoxContainer.new()
 	var title: Label = Label.new()
 	title.theme_type_variation = &"SheetHeadingLabel"
@@ -543,7 +558,8 @@ func _rebuild_roster() -> void:
 	title_column.add_child(title)
 	var count: Label = Label.new()
 	count.name = "RosterHint"
-	count.theme_type_variation = &"CaptionLabel"
+	# ⚠ 選んでいる間の案内は強調の色（⚠ 目に入るように）。
+	count.theme_type_variation = &"AccentLabel" if _pick >= 0 else &"CaptionLabel"
 	count.text = tr("ui_sortie_roster_for") % [_pick + 1, tr(POSITION_KEYS[_pick])] if _pick >= 0 else tr("ui_sortie_roster_hint")
 	title_column.add_child(count)
 	var sort_row: HBoxContainer = HBoxContainer.new()
@@ -604,7 +620,7 @@ func _rebuild_roster() -> void:
 		UiButton.attach_hit(card, _on_roster_pressed.bind(character_id))
 		cards.add_child(card)
 
-	# 右下のボタン（⚠ 出撃の準備＝出撃する・周回する ／ 詰所＝選んだ人を育成で開く）。
+	# 右下のボタン（⚠ 出撃の準備＝出撃する ／ 詰所＝選んだ人を育成で開く）。
 	var actions: VBoxContainer = VBoxContainer.new()
 	actions.name = "Actions"
 	actions.alignment = BoxContainer.ALIGNMENT_END
@@ -615,11 +631,7 @@ func _rebuild_roster() -> void:
 		open.pressed.connect(_on_open_training_pressed)
 		actions.add_child(open)
 		return
-	if _stage_id != "" and GameManager.is_floor_stage(_stage_id) and GameManager.is_stage_cleared(_stage_id):
-		var repeat: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_sortie_repeat")
-		repeat.name = "RepeatButton"
-		repeat.pressed.connect(_on_repeat_pressed)
-		actions.add_child(repeat)
+	# ⚠ 「周回する」は置かない（⚠ 2026-09-28・人間「⚠ 周回の時は編成画面はいらない」＝周回は掲示板でその場で回す）。
 	var go: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_quest_sortie_go")
 	go.name = "SortieButton"
 	go.pressed.connect(_on_sortie_pressed)
@@ -708,23 +720,6 @@ func _start_dungeon() -> void:
 		_say(tr("ui_dungeon_start_failed"), true)
 		return
 	SceneManager.change_scene(DUNGEON_MAP_PATH)
-
-
-# 周回（段階14-f）。⚠ 断る理由は GameManager が返す。
-func _on_repeat_pressed() -> void:
-	var reason: String = GameManager.get_floor_auto_reject_reason(_stage_id)
-	if reason != "":
-		_say(tr("ui_floor_repeat_reject_" + reason), true)
-		return
-	var result: Dictionary = GameManager.run_floor_auto(_stage_id)
-	var rewards: Dictionary = result.get(GameManager.AUTO_RUN_REWARDS, {})
-	# 数値のみの組み立てなので tr() を通すのは見出しだけ（AGENTS.md）。
-	_say("%s  %s %d / %s %d / %s %d" % [
-		tr("ui_floor_repeat_done"),
-		tr("ui_res_gold"), int(rewards.get(GameStateKeys.REWARD_GOLD, 0)),
-		tr("ui_floor_chest_count"), int(result.get(GameManager.AUTO_RUN_CHESTS, 0)),
-		tr("ui_floor_repeat_gacha"), int(result.get(GameManager.AUTO_RUN_GACHA, 0)),
-	])
 
 
 # 解放判定。stage_order の index 関係のみを使う（EXEC §4.2）。

@@ -1193,7 +1193,6 @@ ui_sortie_swap_with,%d番と入れ替わる
 ui_sortie_in_slot,出撃 %d
 ui_sortie_roster_picked,%s を選んだ
 ui_sortie_open_training,選んだ人を育成で開く
-ui_sortie_repeat,周回する
 ui_sortie_guide_count,はじめての出撃届　%d / %d
 ui_sortie_guide_skip,とばす
 ui_sortie_guide_next,つぎへ

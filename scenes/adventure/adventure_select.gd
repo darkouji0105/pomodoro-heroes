@@ -196,9 +196,9 @@ func _add_story_card(index: int, stage_id: String, stage_data: Dictionary) -> vo
 	_add_cost(foot)
 
 	# 周回（段階14-f）。⚠ 踏破済みのフロアだけ。⚠ 出すかどうかの判定は GameManager に聞く。
-	# ⚠ 2026-09-28：⚠ 周回も出撃の準備を通す（⚠ モック Q9＝「周回する」は「出撃する」の横）。
+	# ⚠ 周回はその場で回す（⚠ 2026-09-28・人間「⚠ 周回の時は編成画面はいらない」＝出撃の準備を通さない）。
 	if GameManager.is_floor_stage(stage_id) and cleared:
-		_add_button(foot, "RepeatButton", "ui_floor_repeat", _open_sortie.bind(stage_id, ""))
+		_add_button(foot, "RepeatButton", "ui_floor_repeat", _on_repeat_pressed.bind(stage_id))
 
 	# 進行中のフロアは「続きから」（段階14-c）。⚠ 出撃の準備は通さない（⚠ ランの途中で編成は変えない）。
 	var in_progress: bool = GameManager.is_in_floor() and str(
@@ -245,6 +245,26 @@ func _open_sortie(stage_id: String, dungeon_id: String) -> void:
 		TransferKeys.SORTIE_DUNGEON_ID: dungeon_id,
 		TransferKeys.RETURN_PATH: ADVENTURE_SELECT_PATH,
 	})
+
+
+# 周回（段階14-f）。⚠ 内部で1周ぶん歩かせて結果だけ受け取る。
+# ⚠ 断る理由は GameManager が返す。ここで条件を書き直さない。
+# ⚠ 札を作り直す（クリア済みの印もスタミナも変わるため）。
+func _on_repeat_pressed(stage_id: String) -> void:
+	var reason: String = GameManager.get_floor_auto_reject_reason(stage_id)
+	if reason != "":
+		message_label.text = tr("ui_floor_repeat_reject_" + reason)
+		return
+	var result: Dictionary = GameManager.run_floor_auto(stage_id)
+	var rewards: Dictionary = result.get(GameManager.AUTO_RUN_REWARDS, {})
+	_rebuild()
+	# 数値のみの組み立てなので tr() を通すのは見出しだけ（AGENTS.md）。
+	message_label.text = "%s  %s %d / %s %d / %s %d" % [
+		tr("ui_floor_repeat_done"),
+		tr("ui_res_gold"), int(rewards.get(GameStateKeys.REWARD_GOLD, 0)),
+		tr("ui_floor_chest_count"), int(result.get(GameManager.AUTO_RUN_CHESTS, 0)),
+		tr("ui_floor_repeat_gacha"), int(result.get(GameManager.AUTO_RUN_GACHA, 0)),
+	]
 
 
 # 続きから（⚠ 出撃の準備は通さない）。
