@@ -2391,6 +2391,15 @@ const FORGE_FX: Dictionary = {
 }
 const FORGE_FX_GLOW: Color = Color(1.35, 1.25, 0.95)   # ⚠ 絵を明るくする（⚠ 1 を超える modulate）
 const FORGE_FX_DIM: Color = Color(0.55, 0.55, 0.55)
+# ⚠ 鍛える演出の画面（`ForgeStrike`・09-28 見る回・人間「⚠ 鍛冶場で鍛えるとき、演出を入れたい　⚠ 別の画面でやる」）。
+#   ⚠ 金床の上の品を槌で打つ（回数・1打の長さ）→ ⚠ 最後の一打の光／沈み。⚠ 値は設計役の値（⚠ 手本に無い）。
+const FORGE_STRIKE: Dictionary = {
+	"strike_count": 3, "strike_ms": 520, "strike_final_ms": 700, "strike_sparks": 12, "strike_spark_len": 80,
+	"strike_shake_px": 7, "strike_icon_scale_pct": 250, "strike_icon_lift": 8, "strike_anvil_y": 60, "strike_caption_y": 90,
+}
+const FORGE_STRIKE_COLORS: Dictionary = {
+	"strike_bg": "140f0cff", "strike_metal": "3a2c22", "strike_line": "b98a2c", "strike_spark": "ffd36b", "strike_spark_fail": "8a8176",
+}
 const FORGE_FX_FLASH: Color = Color(1.0, 0.83, 0.42, 0.6)      # ⚠ 成功の光（⚠ 灯りの金）
 const FORGE_FX_FLASH_FAIL: Color = Color(0.08, 0.06, 0.05, 0.45)  # ⚠ 失敗の沈み
 
@@ -2407,6 +2416,10 @@ static func _build_forge(theme: Theme) -> void:
 	theme.set_color(&"fx_dim", t, FORGE_FX_DIM)
 	theme.set_color(&"fx_flash", t, FORGE_FX_FLASH)
 	theme.set_color(&"fx_flash_fail", t, FORGE_FX_FLASH_FAIL)
+	for strike_name: String in FORGE_STRIKE:
+		theme.set_constant(StringName(strike_name), t, int(FORGE_STRIKE[strike_name]))
+	for strike_name: String in FORGE_STRIKE_COLORS:
+		theme.set_color(StringName(strike_name), t, _html(str(FORGE_STRIKE_COLORS[strike_name])))
 
 
 # --- ⚠⚠ 出撃の準備／詰所（2026-09-28・モック `docs/pomodoro-heroes-ui-docs/barracks/`・決定 `NAV-11`）---
@@ -2457,7 +2470,10 @@ const RECORDS_CELL: int = 40            # ⚠ 「？」の枠（⚠ `ItemIcon` �
 const RECORDS_CELL_GAP: int = 6
 const RECORDS_PHOTO: int = 40           # ⚠ キャラの情報の顔
 const RECORDS_STAT_WIDTH: int = 110     # ⚠ キャラの情報の値1つぶん
-const RECORDS_UNKNOWN_ALPHA_PCT: int = 60  # ⚠ 「？」の枠線（⚠ 手本は破線＝⚠ Godot の面は破線を引けないので薄い実線）
+const RECORDS_UNKNOWN_ALPHA_PCT: int = 60
+const RECORDS_DETAIL_WIDTH: int = 280      # ⚠ 右の詳しい中身の幅
+const RECORDS_DETAIL_ICON_PCT: int = 160   # ⚠ 右の絵の大きさ（⚠ 40 の 160%）
+const RECORDS_PICKED_BORDER: int = 2       # ⚠ 選んでいる品の金の縁  # ⚠ 「？」の枠線（⚠ 手本は破線＝⚠ Godot の面は破線を引けないので薄い実線）
 
 
 static func _build_records(theme: Theme) -> void:
@@ -2477,6 +2493,26 @@ static func _build_records(theme: Theme) -> void:
 	cell.set_corner_radius_all(4)
 	theme.set_type_variation(&"RecordsUnknownCell", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"RecordsUnknownCell", cell)
+	# ⚠ 手に入れた品の枠＝押せる（⚠ 09-28 見る回・人間「⚠ クリックすると詳細も見れるようにしたい」）。⚠ 選んでいる品は金の縁。
+	theme.set_constant(&"detail_width", t, RECORDS_DETAIL_WIDTH)
+	theme.set_constant(&"detail_icon_scale_pct", t, RECORDS_DETAIL_ICON_PCT)
+	var plain: StyleBoxEmpty = StyleBoxEmpty.new()
+	var hover: StyleBoxFlat = StyleBoxFlat.new()
+	hover.bg_color = Color(0, 0, 0, 0)
+	hover.border_color = _html(TOKEN_RULE)
+	hover.set_border_width_all(1)
+	hover.set_corner_radius_all(4)
+	var picked: StyleBoxFlat = hover.duplicate()
+	picked.border_color = _html(TOKEN_BRASS)
+	picked.set_border_width_all(RECORDS_PICKED_BORDER)
+	picked.set_expand_margin_all(RECORDS_PICKED_BORDER)
+	for spec: Array in [[&"RecordsCell", plain, hover], [&"RecordsCellPicked", picked, picked]]:
+		var type_name: StringName = spec[0]
+		theme.set_type_variation(type_name, &"Button")
+		theme.set_stylebox(&"normal", type_name, spec[1])
+		theme.set_stylebox(&"hover", type_name, spec[2])
+		theme.set_stylebox(&"pressed", type_name, spec[2])
+		theme.set_stylebox(&"focus", type_name, StyleBoxEmpty.new())
 
 
 # --- ⚠⚠ 設定（2026-09-28・回UI-仕組み③・手本 Settings）---

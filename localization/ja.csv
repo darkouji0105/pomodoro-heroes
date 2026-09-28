@@ -1032,6 +1032,13 @@ ui_records_kind_equipment,装備
 ui_records_kind_part,装飾
 ui_records_kind_material,素材
 ui_records_unknown,？
+ui_records_detail_none,品を押すと、ここに詳しく出る
+ui_records_detail_slot,部位
+ui_records_detail_tier,段階
+ui_records_detail_range,+%d〜%d
+ui_records_detail_owned,持っている数
+ui_records_detail_count,%d 個
+ui_records_detail_obtained,初めて手に入れた日
 ui_records_focus_total,集中を終えた回数（合計）
 ui_records_focus_today,今日の集中
 ui_records_focus_last,最後に終えた日時
@@ -1193,6 +1200,8 @@ ui_forge_note,等級5→6 から失敗がある。失敗しても等級は下が
 ui_forge_do,鍛える
 ui_forge_record,鍛　冶　の　記　録
 ui_forge_result_subtitle,鍛えた結果
+ui_forge_striking,鍛えている…
+ui_forge_strike_skip,押すと飛ばす
 ui_forge_continue,続けて鍛える
 ui_forge_retry,もう一度鍛える
 ui_forge_before,前

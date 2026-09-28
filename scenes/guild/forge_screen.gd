@@ -9,6 +9,7 @@
 #   （⚠ 前 → いま・成功／失敗の判・値・等級・使った素材）／ ⚠ 右に「続けて鍛える（失敗は もう一度鍛える）」「持ち物で見る」。
 #   ⚠ 09-27 は紙の窓だった → ⚠ 09-28 人間「⚠ 鍛冶の演出は、これも専用画面がいる」。⚠ 「戻る」は鍛える紙へ戻る。
 #   ⚠ 「続けて鍛える」「もう一度鍛える」は**その場でもう一度鍛える**（⚠ 09-28 人間「⚠ 続けて鍛えるで元の画面に戻らないで」）。
+#   ⚠ 鍛えるたびに**演出の画面**（`ForgeStrike`＝金床を槌で打つ）を被せ、⚠ 終わってから結果の画面（⚠ 09-28 人間「⚠ 別の画面でやる」）。
 #   ⚠ 成功＝判が大きく押されて紙いっぱいが金に光り、⚠ 新しい絵がふくらむ ／ ⚠ 失敗＝紙が暗く沈んで震え、⚠ 絵が灰色になる
 #   （⚠ 値は Theme の `Forge` 型）。⚠ 鍛冶の腕（`EQ-5`）と失敗の一言（手本の吹き出し）はまだ無い。
 # ⚠ 判定と状態の変更は `GameManager.forge_equipment_roll()` の1本（⚠ ここで成功率や費用を計算しない）。
@@ -277,6 +278,17 @@ func _on_forge_pressed() -> void:
 	result[RESULT_STATS_BEFORE] = stats_before
 	result[RESULT_SLOTS_BEFORE] = slots_before
 	_use_token = false
+	# ⚠ 鍛える演出の画面を被せ、⚠ 終わってから結果の画面（⚠ 09-28 人間「⚠ 鍛冶場で鍛えるとき、演出を入れたい　⚠ 別の画面でやる」）。
+	#   ⚠ 状態はもう変わっている（⚠ 演出は見せるだけ）。⚠ 結果の判の演出は結果の画面を出したときに流れる。
+	var item_id: String = str(GameManager.get_equipment_instance(_selected).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+	var strike: ForgeStrike = ForgeStrike.play(self, item_id, int(result.get(GameManager.FORGE_RESULT_GRADE_BEFORE, 1)),
+		bool(result.get(GameManager.FORGE_RESULT_SUCCESS, false)))
+	strike.finished.connect(_show_result.bind(result))
+
+
+func _show_result(result: Dictionary) -> void:
+	if not is_inside_tree():
+		return
 	_result = result
 	_rebuild()
 

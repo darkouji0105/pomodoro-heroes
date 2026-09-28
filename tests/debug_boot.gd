@@ -108,6 +108,10 @@ const SHOT_AFTER_SORTIE_SIGN: String = "sortie_sign"
 # ⚠ 設定の「ポモドーロと小窓」タブ（2026-09-28・手本 Settings と同じタブ）。⚠ 内側の `AFTER_SETTINGS_POMODORO` と同じ字。
 const SHOT_AFTER_SETTINGS_POMODORO: String = "settings_pomodoro"
 const SHOT_AFTER_SETTINGS_AUDIO: String = "settings_audio"
+# ⚠ 鍛える演出の画面の途中（2026-09-28・人間「⚠ 別の画面でやる」）。⚠ 内側の `AFTER_FORGE_STRIKE` と同じ字。
+const SHOT_AFTER_FORGE_STRIKE: String = "forge_strike"
+# ⚠ 記録の図鑑で品を1つ押した姿（2026-09-28・右に詳しく）。⚠ 内側の `AFTER_RECORDS_PICK` と同じ字。
+const SHOT_AFTER_RECORDS_PICK: String = "records_pick"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1172,6 +1176,8 @@ const SCENARIOS: Dictionary = {
 			{"name": "37_forge_result", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_FORGE_PRESS},
 			# ⚠ 失敗の窓（2026-09-27 の見る回・人間「⚠ 個別の演出を」）。⚠ 撮影の手の中だけ成功率を 0 にする。
 			{"name": "40_forge_fail", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_FORGE_FAIL},
+			# ⚠ 鍛える演出の画面（2026-09-28・人間「⚠ 鍛冶場で鍛えるとき、演出を入れたい　⚠ 別の画面でやる」）。
+			{"name": "48_forge_strike", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_FORGE_STRIKE},
 			# ⚠ 詰所（2026-09-27・回UI-組 詰所・手本 Barracks・決定 `NAV-11`）。⚠ 拠点から来た姿（⚠ 施設の帯あり）。
 			#   ⚠ 下の紙が施設の帯（下 76）に隠れないか測る（⚠ 1回目は隠れた）。
 			# ⚠⚠ 2026-09-28：⚠ 詰所＝出撃の準備（モック）。⚠ 初めて開くとガイドが出る＝`41` がその姿、⚠ `34` はガイドを「とばす」で閉じた姿。
@@ -1195,7 +1201,7 @@ const SCENARIOS: Dictionary = {
 				"after": SHOT_AFTER_SORTIE_PICK,
 			},
 			# ⚠ 記録（2026-09-28・回UI-仕組み②・手本 Records）。⚠ 図鑑のタブ。
-			{"name": "45_records", "scene": "res://scenes/guild/records_screen.tscn"},
+			{"name": "45_records", "scene": "res://scenes/guild/records_screen.tscn", "after": SHOT_AFTER_RECORDS_PICK},
 			# ⚠ 設定（2026-09-28・回UI-仕組み③・手本 Settings）。⚠ 手本と同じ「ポモドーロと小窓」タブ ／ ⚠ 音のタブ（つまみ）。
 			{"name": "46_settings", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_POMODORO},
 			{"name": "47_settings_audio", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_AUDIO},
@@ -8958,6 +8964,9 @@ class ShotTaker extends Node:
 	const AFTER_SORTIE_SIGN: String = "sortie_sign"
 	const AFTER_SETTINGS_POMODORO: String = "settings_pomodoro"
 	const AFTER_SETTINGS_AUDIO: String = "settings_audio"
+	const AFTER_FORGE_STRIKE: String = "forge_strike"
+	const AFTER_RECORDS_PICK: String = "records_pick"
+	const FORGE_STRIKE_WAIT_MS: int = 4000
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
 	const AFTER_FORGE_PRESS: String = "forge_press"
@@ -9271,6 +9280,29 @@ class ShotTaker extends Node:
 				return false
 			(hit as BaseButton).pressed.emit()
 			await get_tree().process_frame
+		elif kind == AFTER_RECORDS_PICK:
+			# ⚠ 鉄の剣の枠を押す（⚠ 本物の枠）。
+			var cell: Node = screen.find_child("Found_weapon_iron_sword", true, false)
+			if not (cell is BaseButton):
+				push_error("[DebugBoot] ⚠ %s で図鑑の枠が押せない" % shot_name)
+				return false
+			(cell as BaseButton).pressed.emit()
+			for _i: int in range(3):
+				await get_tree().process_frame
+		elif kind == AFTER_FORGE_STRIKE:
+			# ⚠ 「鍛える」（⚠ 画面の口）→ ⚠ 最後の一打の火花が飛んでいるところで撮る（⚠ 成功＝金の光）。
+			screen.call("_on_forge_pressed")
+			var strike_node: Node = screen.find_child("ForgeStrike", true, false)
+			if not (strike_node is ForgeStrike):
+				push_error("[DebugBoot] ⚠ %s で鍛える演出が出ない" % shot_name)
+				return false
+			var until: int = Time.get_ticks_msec() + FORGE_STRIKE_WAIT_MS
+			# ⚠ 2打目の途中（⚠ 最後の一打の金の光は画面ぜんぶを塗る＝⚠ 金床と槌が見える姿を撮る）。
+			#   ⚠ 1打＝`strike_ms`（⚠ 頭の待ち 0.4 ＋ 振り下ろし 0.3 ＋ 戻り 0.7）＝2打目が当たった直後まで時間で待つ。
+			var strike_ms: int = (strike_node as Control).get_theme_constant(&"strike_ms", &"Forge")
+			until = Time.get_ticks_msec() + int(float(strike_ms) * (0.4 + 1.0 + 0.3)) + 60
+			while Time.get_ticks_msec() < until and is_instance_valid(strike_node):
+				await get_tree().process_frame
 		elif kind == AFTER_SETTINGS_POMODORO or kind == AFTER_SETTINGS_AUDIO:
 			# ⚠ ポモドーロ＝3枚目 ／ 音＝2枚目のタブ（⚠ 本物のタブの札を押す）。
 			var tab_index: int = 2 if kind == AFTER_SETTINGS_POMODORO else 1
@@ -9328,6 +9360,10 @@ class ShotTaker extends Node:
 				Balance.equipment.forge_success_pct_by_grade = never
 			screen.call("_on_forge_pressed")
 			Balance.equipment.forge_success_pct_by_grade = saved_pct
+			# ⚠ 09-28：⚠ 鍛える演出の画面（`ForgeStrike`）を飛ばす（⚠ 途中の姿は `48_forge_strike`）。
+			var strike: Node = screen.find_child("ForgeStrike", true, false)
+			if strike is ForgeStrike:
+				(strike as ForgeStrike).skip()
 			# ⚠ 09-28 から結果は結果の画面（⚠ 紙が記録に変わる）。⚠ 判が押されて紙が光る・震えるまで待つ。
 			await get_tree().process_frame
 			var record: Node = screen.find_child("RecordPage", true, false)
@@ -9897,7 +9933,18 @@ class UiFlowRunner extends Node:
 		var row: Node = f.find_child("Item_" + instance_id, true, false)
 		_check("鍛冶場：左の一覧でその品が選ばれている", row is LedgerRow and (row as LedgerRow).selected)
 		var grade: int = _grade(instance_id)
+		# ⚠ 09-28（人間「⚠ 鍛冶場で鍛えるとき、演出を入れたい　⚠ 別の画面でやる」）：⚠ 押すと演出の画面が被さり、⚠ 結果はまだ出ない。
 		await _press(f.find_child("ForgeButton", true, false))
+		var strike: Node = f.find_child("ForgeStrike", true, false)
+		_check("鍛冶場：「鍛える」で演出の画面が被さる（結果はまだ・押すと飛ばす）",
+			strike is ForgeStrike and (strike as ForgeStrike).is_playing() and f.find_child("RecordPage", true, false) == null)
+		var click: InputEventMouseButton = InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		if strike is Control:
+			(strike as Control).gui_input.emit(click)
+		await _wait()
+		_check("鍛冶場：演出を押すと飛ばして結果の画面", f.find_child("ForgeStrike", true, false) == null and f.find_child("RecordPage", true, false) != null)
 		_check("鍛冶場：「鍛える」で等級 %d → %d" % [grade, _grade(instance_id)], _grade(instance_id) == grade + 1)
 		# ⚠ 09-28（人間「⚠ 鍛冶の演出は、これも専用画面がいる」）：⚠ 結果は窓でなく結果の画面（⚠ タブと一覧が消え、紙いっぱいに記録）。
 		var seal: Node = f.find_child("ResultStamp", true, false)
@@ -9910,7 +9957,7 @@ class UiFlowRunner extends Node:
 		_check("鍛冶場：結果の画面に「続けて鍛える」", again is Button and (again as Button).text == tr("ui_forge_continue") and not (again as Button).disabled)
 		# ⚠ 09-28 人間「⚠ 続けて鍛えるで元の画面に戻らないで」＝⚠ その場でもう一度鍛え、結果の画面のまま。
 		grade = _grade(instance_id)
-		await _press(again)
+		await _forge_press(again)
 		_check("鍛冶場：「続けて鍛える」でその場でもう一度鍛える（等級 %d → %d・結果の画面のまま）" % [grade, _grade(instance_id)],
 			_grade(instance_id) == grade + 1 and f.find_child("RecordPage", true, false) != null and f.find_child("ForgePage", true, false) == null
 			and str(f.get("_selected")) == instance_id and not (tabs as Control).visible)
@@ -9921,11 +9968,11 @@ class UiFlowRunner extends Node:
 			get_tree().current_scene == f and f.find_child("ForgePage", true, false) != null and (tabs as Control).visible)
 		# ⚠ 枠が開くまで鍛える（⚠ 等級3から・GAME_DESIGN.md 6-4）。⚠ 1回目は「鍛える」・あとは結果の画面の「続けて鍛える」。
 		if _first_empty(instance_id) < 0:
-			await _press(f.find_child("ForgeButton", true, false))
+			await _forge_press(f.find_child("ForgeButton", true, false))
 			for _i: int in range(4):
 				if _first_empty(instance_id) >= 0:
 					break
-				await _press(f.find_child("ContinueButton", true, false))
+				await _forge_press(f.find_child("ContinueButton", true, false))
 			f.call("_on_back_pressed")
 			await get_tree().process_frame
 
@@ -9939,14 +9986,14 @@ class UiFlowRunner extends Node:
 		var cost: Dictionary = GameManager.get_forge_cost(instance_id)
 		var material_id: String = str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, ""))
 		var before_material: int = GameManager.get_material_count(material_id)
-		await _press(f.find_child("ForgeButton", true, false))
+		await _forge_press(f.find_child("ForgeButton", true, false))
 		seal = f.find_child("ResultStamp", true, false)
 		again = f.find_child("ContinueButton", true, false)
 		_check("鍛冶場：失敗すると等級はそのまま（%d）・素材は減る（%d → %d）・「失敗」の判・「もう一度鍛える」" % [_grade(instance_id), before_material, GameManager.get_material_count(material_id)],
 			_grade(instance_id) == grade and GameManager.get_material_count(material_id) < before_material and seal is Stamp and (seal as Stamp).label_key == "ui_forge_fail"
 			and again is Button and (again as Button).text == tr("ui_forge_retry"))
 		before_material = GameManager.get_material_count(material_id)
-		await _press(again)
+		await _forge_press(again)
 		_check("鍛冶場：「もう一度鍛える」もその場で鍛える（素材 %d → %d・結果の画面のまま）" % [before_material, GameManager.get_material_count(material_id)],
 			GameManager.get_material_count(material_id) < before_material and f.find_child("RecordPage", true, false) != null)
 		f.call("_on_back_pressed")
@@ -9958,7 +10005,7 @@ class UiFlowRunner extends Node:
 		var tokens: int = GameManager.get_forge_token_count()
 		await _press(f.find_child("TokenCheck", true, false))
 		_check("鍛冶場：札を使うに切り替えると成功 100%%（%s）" % _label_text(f, "ForgePage", "ChanceLabel"), _label_text(f, "ForgePage", "ChanceLabel") == tr("ui_forge_chance") % 100)
-		await _press(f.find_child("ForgeButton", true, false))
+		await _forge_press(f.find_child("ForgeButton", true, false))
 		_check("鍛冶場：確定成功の札で成功（等級 %d → %d・札 %d → %d）" % [grade, _grade(instance_id), tokens, GameManager.get_forge_token_count()],
 			_grade(instance_id) == grade + 1 and GameManager.get_forge_token_count() == tokens - 1)
 		Balance.equipment.forge_success_pct_by_grade = saved
@@ -10133,6 +10180,19 @@ class UiFlowRunner extends Node:
 		_check("記録：装備・装飾・素材の3段", r.find_child("Section_equipment", true, false) != null and r.find_child("Section_part", true, false) != null and r.find_child("Section_material", true, false) != null)
 		_check("記録：手に入れた品は絵・まだの品は「？」（絵 %d ／ ？ %d）" % [r.find_children("Found_*", "", true, false).size(), r.find_children("Unknown_*", "", true, false).size()],
 			r.find_children("Found_*", "", true, false).size() == found and r.find_children("Unknown_*", "", true, false).size() == total - found)
+		# ⚠ 品を押すと右に詳しく出る（⚠ 09-28 見る回・人間「⚠ クリックすると詳細も見れるようにしたい」）。
+		_check("記録：選ぶ前は右に「品を押すと」の案内", r.find_child("DetailNone", true, false) != null)
+		var first_found: Node = null
+		for cell: Node in r.find_children("Found_*", "", true, false):
+			if cell.name.begins_with("Found_weapon") or first_found == null:
+				first_found = cell
+		var picked_id: String = "" if first_found == null else str(first_found.name).trim_prefix("Found_")
+		await _press(first_found)
+		await _wait()
+		_check("記録：品を押すと右に名前と持っている数・初めて手に入れた日（%s）" % _label_text(r, "CodexDetail", "DetailName"),
+			picked_id != "" and _label_text(r, "CodexDetail", "DetailName") == tr(GameManager.item_name_key(picked_id))
+			and r.find_child("OwnedLine", true, false) != null and r.find_child("ObtainedLine", true, false) != null
+			and (r.find_child("Found_" + picked_id, true, false) as Button).theme_type_variation == &"RecordsCellPicked")
 		# ⚠ 素材も図鑑に載る（「⚠ 2あ」）：⚠ まだの素材を1個入れると載る。
 		var fresh: String = ""
 		for material_id: String in GameManager.get_codex_ids(GameManager.CODEX_KIND_MATERIAL):
@@ -10640,6 +10700,15 @@ class UiFlowRunner extends Node:
 	func _hit_of(scene: Node, chip_name: String) -> Node:
 		var chip: Node = scene.find_child(chip_name, true, false)
 		return null if chip == null else chip.find_child("Hit", false, false)
+
+	# 鍛える（⚠ 押す → ⚠ 演出の画面 `ForgeStrike` を飛ばす → ⚠ 結果の画面が出るまで）。
+	func _forge_press(node: Node) -> void:
+		await _press(node)
+		var scene: Node = get_tree().current_scene
+		var strike: Node = null if scene == null else scene.find_child("ForgeStrike", true, false)
+		if strike is ForgeStrike:
+			(strike as ForgeStrike).skip()
+			await _wait()
 
 	func _tab_button(scene: Node, index: int) -> Node:
 		var tabs: Node = scene.find_child("Tabs", true, false)
