@@ -38,10 +38,33 @@ theme_type_variation = &"SectionGap"
 layout_mode = 2
 title_key = "ui_facility_barracks"
 
-[node name="Bottom" type="PanelContainer" parent="Margin/Layout"]
+[node name="Strip" type="PanelContainer" parent="Margin/Layout"]
 layout_mode = 2
 script = ExtResource("10_paper_sheet")
+theme_type_variation = &"SortieTightPaperPanel"
+show_corners = false
 
-[node name="Body" type="VBoxContainer" parent="Margin/Layout/Bottom"]
+[node name="Body" type="HBoxContainer" parent="Margin/Layout/Strip"]
 layout_mode = 2
-theme_type_variation = &"SectionGap"
+theme_type_variation = &"WideRow"
+
+[node name="Middle" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"BarracksCards"
+
+[node name="Slots" type="HBoxContainer" parent="Margin/Layout/Middle"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"BarracksCards"
+
+[node name="Side" type="VBoxContainer" parent="Margin/Layout/Middle"]
+layout_mode = 2
+
+[node name="Roster" type="PanelContainer" parent="Margin/Layout"]
+layout_mode = 2
+theme_type_variation = &"SortieBoardPanel"
+
+[node name="Body" type="HBoxContainer" parent="Margin/Layout/Roster"]
+layout_mode = 2
+theme_type_variation = &"WideRow"

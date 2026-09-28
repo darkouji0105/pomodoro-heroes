@@ -33,6 +33,9 @@ const LAST_SAVED_AT: String = "last_saved_at"
 const STORY: String = "story"
 const TRAINING_MODE_UNLOCKED: String = "training_mode_unlocked"
 const CODEX: String = "codex"
+# 見たガイド（2026-09-28・出撃の準備の「はじめてのガイド」＝人間「⚠ 2あ」）：{guide_id: true}。
+# ⚠ 読み書きは `GameManager.is_guide_seen()` / `mark_guide_seen()` の口だけ。⚠ guide_id はリリース後に改名しない。
+const GUIDES_SEEN: String = "guides_seen"
 const DAILY_SHOP: String = "daily_shop"
 const WEEKLY_SHOP: String = "weekly_shop"
 const MONTHLY_SHOP: String = "monthly_shop"

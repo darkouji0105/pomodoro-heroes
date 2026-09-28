@@ -98,6 +98,9 @@ const SHOT_AFTER_CHEST_OPEN: String = "chest_open"
 # ⚠ 鍛冶場で「鍛える」を押した姿（2026-09-27）。⚠ 内側の `AFTER_FORGE_PRESS` と同じ字。
 const SHOT_AFTER_FORGE_PRESS: String = "forge_press"
 const SHOT_AFTER_FORGE_FAIL: String = "forge_fail"
+# ⚠ 出撃の準備（2026-09-28）：⚠ ガイドを「とばす」／ ⚠ 3番の枠を押す。⚠ 内側の同じ名前の字と揃える。
+const SHOT_AFTER_GUIDE_SKIP: String = "guide_skip"
+const SHOT_AFTER_SORTIE_PICK: String = "sortie_pick"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1164,10 +1167,25 @@ const SCENARIOS: Dictionary = {
 			{"name": "40_forge_fail", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_FORGE_FAIL},
 			# ⚠ 詰所（2026-09-27・回UI-組 詰所・手本 Barracks・決定 `NAV-11`）。⚠ 拠点から来た姿（⚠ 施設の帯あり）。
 			#   ⚠ 下の紙が施設の帯（下 76）に隠れないか測る（⚠ 1回目は隠れた）。
+			# ⚠⚠ 2026-09-28：⚠ 詰所＝出撃の準備（モック）。⚠ 初めて開くとガイドが出る＝`41` がその姿、⚠ `34` はガイドを「とばす」で閉じた姿。
+			{"name": "41_sortie_guide", "scene": "res://scenes/adventure/party_preset_screen.tscn"},
 			{
 				"name": "34_barracks",
 				"scene": "res://scenes/adventure/party_preset_screen.tscn",
-				"measure": ["Margin/Layout/Bottom", "FacilityBar"],
+				"after": SHOT_AFTER_GUIDE_SKIP,
+				"measure": ["Margin/Layout/Roster", "FacilityBar"],
+			},
+			# ⚠ 依頼を受けた姿（⚠ 1話）／ ⚠ 3番の枠を押して名簿から選ぶ姿。
+			{
+				"name": "42_sortie",
+				"scene": "res://scenes/adventure/party_preset_screen.tscn",
+				"data": {TransferKeys.SORTIE_STAGE_ID: "floor_1", TransferKeys.RETURN_PATH: "res://scenes/adventure/adventure_select.tscn"},
+			},
+			{
+				"name": "43_sortie_pick",
+				"scene": "res://scenes/adventure/party_preset_screen.tscn",
+				"data": {TransferKeys.SORTIE_STAGE_ID: "floor_1", TransferKeys.RETURN_PATH: "res://scenes/adventure/adventure_select.tscn"},
+				"after": SHOT_AFTER_SORTIE_PICK,
 			},
 			# ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回・人間「⚠ 4あ」）。⚠ 種類ごとに1個積み直して legendary を開ける。
 			{
@@ -8915,6 +8933,8 @@ class ShotTaker extends Node:
 	const AFTER_FORGE_PRESS: String = "forge_press"
 	const FORGE_FX_WAIT_FRAMES: int = 60
 	const AFTER_FORGE_FAIL: String = "forge_fail"
+	const AFTER_GUIDE_SKIP: String = "guide_skip"
+	const AFTER_SORTIE_PICK: String = "sortie_pick"
 	# ⚠ 高レアの演出の途中（⚠ legendary は 1.4 秒で蓋が開く＝その手前で撮る）。
 	const AFTER_CHEST_FX: String = "chest_fx"
 	const CHEST_FX_WAIT_FRAMES: int = 50
@@ -9206,6 +9226,21 @@ class ShotTaker extends Node:
 			screen.call("_on_card_pressed", pick)
 			if GameManager.is_single_relic(pick):
 				screen.call("_on_character_pressed", str(GameManager.get_party_members()[0]))
+		elif kind == AFTER_GUIDE_SKIP:
+			# ⚠ ガイドの「とばす」（⚠ 本物のボタン）。⚠ 押すと「見た」になり、⚠ 以後の枚には出ない。
+			var skip_button: Node = screen.find_child("GuideSkip", true, false)
+			if skip_button is BaseButton:
+				(skip_button as BaseButton).pressed.emit()
+			await get_tree().process_frame
+		elif kind == AFTER_SORTIE_PICK:
+			# ⚠ 3番の枠の面を押す（⚠ 本物の当たり）→ ⚠ 名簿に「◯番と入れ替わる」が出る。
+			var slot: Node = screen.find_child("Slot_2", true, false)
+			var hit: Node = null if slot == null else slot.find_child("Hit", true, false)
+			if not (hit is BaseButton):
+				push_error("[DebugBoot] ⚠ %s の3番の枠が押せない" % shot_name)
+				return false
+			(hit as BaseButton).pressed.emit()
+			await get_tree().process_frame
 		elif kind == AFTER_CHEST_FX:
 			# ⚠ legendary の箱を選んで「次を開ける」（⚠ 画面の口）→ ⚠ 演出の途中で撮る。
 			var legend: String = ""
@@ -9219,9 +9254,8 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ %s は legendary の宝箱が無い" % shot_name)
 				return false
 			screen.set("_selected_kind", legend)
-			ResourceGainEffect.set_muted(true)
+			# ⚠ 資源の演出は撮影の頭（`_run`）で止めてある。⚠ ここで戻さない（⚠ 戻すと後の枚で飛び、終了時に赤）。
 			screen.call("_on_next_pressed")
-			ResourceGainEffect.set_muted(false)
 			for _i: int in range(CHEST_FX_WAIT_FRAMES):
 				await get_tree().process_frame
 		elif kind == AFTER_FORGE_PRESS or kind == AFTER_FORGE_FAIL:
@@ -9246,12 +9280,9 @@ class ShotTaker extends Node:
 			# ⚠ 画面の口（⚠ 「まとめて開ける」を押したときに呼ばれるもの）。⚠ 種類の色の帯と、⚠ 初めての品のしおり紐が
 			#   ⚠ 両方写るように全部開ける（⚠ 1個だと素材1枚になりがちで紐が写らない）。
 			var pending: int = GameManager.get_pending_chest_count()
-			# ⚠ 資源が増える演出は止める（CLAUDE.md 10番）。⚠ 止めないと、⚠ 最後の1枚のあと終了したときに
-			#   ⚠ 飛んでいる途中の着地先（通貨の帯）が解放されて「Lambda capture ... was freed」が赤で出る（09-27 に踏んだ）。
-			#   ⚠ 自動で流れる経路なので `set_muted()` が効く。⚠ 演出そのものは `scenario=gain` が見ている。
-			ResourceGainEffect.set_muted(true)
+			# ⚠ 資源が増える演出は撮影の頭（`_run`）で止めてある（CLAUDE.md 10番）。⚠⚠ ここで `set_muted(false)` に戻さないこと
+			#   （⚠ 09-28 に踏んだ：⚠ 戻すと後の枚で演出が飛び、⚠ 終了時に着地先が解放されて「Lambda capture ... was freed」が赤3本）。
 			screen.call("_on_open_all_pressed")
-			ResourceGainEffect.set_muted(false)
 			if GameManager.get_pending_chest_count() >= pending:
 				push_error("[DebugBoot] ⚠ %s で宝箱を開けられなかった" % shot_name)
 				return false
@@ -9935,67 +9966,81 @@ class UiFlowRunner extends Node:
 		# ⚠ 09-27 の見る回で「育成」を戻した（⚠ 人間「⚠ 育成タブを復活させたほうがいい」）。
 		_check("施設の帯：「育成」がある", r.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false) != null)
 
-	# --- 詰所（2026-09-27・決定 `NAV-11`）：カード ／ ビルドの行 ／ 並べ替える ／ 控えの札の吹き出し ／ 開く ---
+	# --- 詰所＝出撃の準備（2026-09-28・モック・決定 `NAV-11`）：ガイド ／ 枠 → 名簿 ／ ビルド ▼ ／ 控え（残す・呼ぶ）／ 選んだ人を育成で ---
 
 	func _flow_barracks() -> void:
+		# ⚠ 名簿の検査のため、⚠ 英雄のビルド2を先に焼いておく（⚠ 本番の口）。
+		GameManager.save_character_preset(HERO, 1)
 		var r: Node = get_tree().current_scene
 		await _press(r.find_child("Facility_" + BaseFacilityBar.BARRACKS, true, false), OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
 		_check("詰所：施設の帯の「詰所」で詰所が開く", _path_of(b) == BARRACKS)
 		if _path_of(b) != BARRACKS:
 			return
+
+		# はじめてのガイド（⚠ 人間「⚠ 2あ」）：⚠ 初めてだけ出る ／ つぎへ → はじめるで消えて「見た」になる。
+		var guide: Node = b.find_child("SortieGuide", true, false)
+		_check("詰所：はじめてのガイドが出る（見た=%s）" % str(GameManager.is_guide_seen(GameManager.GUIDE_SORTIE)), guide is SortieGuide and not GameManager.is_guide_seen(GameManager.GUIDE_SORTIE))
+		var first_title: String = _label_text(b, "SortieGuide", "TitleLabel")
+		await _press(null if guide == null else guide.find_child("GuideNext", true, false))
+		_check("詰所：「つぎへ」でガイドの2枚目（%s → %s）" % [first_title, _label_text(b, "SortieGuide", "TitleLabel")], _label_text(b, "SortieGuide", "TitleLabel") != first_title and _label_text(b, "SortieGuide", "TitleLabel") != "")
+		await _press(null if guide == null else guide.find_child("GuideNext", true, false))
+		_check("詰所：「はじめる」でガイドが消えて「見た」になる", b.find_child("SortieGuide", true, false) == null and GameManager.is_guide_seen(GameManager.GUIDE_SORTIE))
+
 		var members: Array = GameManager.get_party_members()
-		# ⚠ 09-27 の見る回：⚠ 身上書カードは育成の一覧へ移した（⚠ 詰所は配置だけ）。
-		_check("詰所：身上書カードは無い（⚠ 育成の一覧へ移した）", b.find_children("Card_*", "", true, false).is_empty())
-		var tabs: int = b.find_children("Preset_*", "", true, false).size()
-		_check("詰所：控えの札が %d 枚（%d 枚のはず）" % [tabs, GameManager.get_party_preset_count()], tabs == GameManager.get_party_preset_count())
+		_check("詰所：3つの枠・控え %d 件・「選んだ人を育成で開く」（出撃するは無い）" % b.find_children("Preset_*", "", true, false).size(),
+			b.find_children("Slot_*", "", true, false).size() == 3 and b.find_children("Preset_*", "", true, false).size() == GameManager.get_party_preset_count()
+			and b.find_child("OpenTrainingButton", true, false) != null and b.find_child("SortieButton", true, false) == null)
 
-		# ビルドの番号（⚠ 出撃届の枠の下）：番号が1つ進む ／ ⚠ 状態は変えない。
-		var builds_before: Array = GameManager.get_character_presets(HERO)
-		await _press(b.find_child("Build_" + HERO, true, false))
-		var build_button: Node = b.find_child("Build_" + HERO, true, false)
-		var build_label: String = (build_button as Button).text if build_button is Button else ""
-		_check("詰所：ビルドを押すと「%s」" % build_label, build_label.begins_with(tr("ui_party_preset_build") % 2))
-		_check("詰所：ビルドを押しても状態は変わらない", GameManager.get_character_presets(HERO) == builds_before)
-
-		# 並べ替える：⚠ 押す前は枠を押しても変わらない ／ 押したあと2つの枠で入れ替わる。
-		await _press(b.find_child("Sortie_0", true, false))
-		_check("詰所：「並べ替える」の前は枠を押しても並びが同じ", GameManager.get_party_members() == members)
-		await _press(b.find_child("ReorderButton", true, false))
-		await _press(b.find_child("Sortie_0", true, false))
-		var picked: Node = b.find_child("Sortie_0", true, false)
-		_check("詰所：1つ目の枠を押すと選んだ印", picked is LedgerRow and (picked as LedgerRow).selected)
-		await _press(b.find_child("Sortie_2", true, false))
+		# 枠 → 名簿（⚠ 人間「⚠ キャラを選んで入れ替えるってのが大事」）：3番を押す → 1番の人に「1番と入れ替わる」→ 押すと入れ替わる。
+		await _press(_slot_hit(b, 2))
+		var badge: String = _label_text(b, "Roster_" + str(members[0]), "Badge")
+		_check("詰所：3番の枠を押すと名簿に「1番と入れ替わる」（%s）" % badge, badge == tr("ui_sortie_swap_with") % 1)
+		await _press(_roster_hit(b, str(members[0])))
 		var swapped: Array = GameManager.get_party_members()
-		_check("詰所：2つ目の枠で入れ替わる（%s → %s）" % [str(members), str(swapped)], swapped.size() == 3 and swapped[0] == members[2] and swapped[2] == members[0] and swapped[1] == members[1])
-		await _press(b.find_child("ReorderButton", true, false))
+		_check("詰所：名簿で1番の人を選ぶと入れ替わる（%s → %s）" % [str(members), str(swapped)], swapped[2] == members[0] and swapped[0] == members[2] and swapped[1] == members[1])
 
-		# 控えの札：吹き出し → 残す ／ 並びを変えて → 呼ぶで戻る ／ 消す。
-		await _press(b.find_child("Preset_0", true, false))
+		# ビルド ▼：吹き出しで選ぶと当てる（⚠ 中身の無いビルドは押せない）。
+		await _press(b.find_child("Build_" + HERO, true, false))
 		var pop: Node = _first_of_type(b, "SlotActionPopover")
-		_check("詰所：控えの札を押すと吹き出し", pop != null)
-		var call_button: Node = null if pop == null else pop.find_child("CallButton", true, false)
-		_check("詰所：空きの控えの「呼ぶ」は押せない", call_button is Button and (call_button as Button).disabled)
-		await _press(null if pop == null else pop.find_child("KeepButton", true, false))
+		var empty_choice: Node = null if pop == null else pop.find_child("BuildChoice_2", true, false)
+		_check("詰所：ビルドの吹き出し・中身の無いビルド3は押せない", pop != null and empty_choice is Button and (empty_choice as Button).disabled)
+		await _press(null if pop == null else pop.find_child("BuildChoice_1", true, false))
+		var build_button: Node = b.find_child("Build_" + HERO, true, false)
+		_check("詰所：ビルド2を選ぶと当たる（%s）" % ((build_button as Button).text if build_button is Button else ""), int(b.get("_selected_builds").get(HERO, -1)) == 1)
+
+		# 控え：1件目で「いまを残す」→「いまと同じ」の判 ／ 並びを変えて「呼ぶ」→ 予告の窓 → 呼ぶで戻る ／ 上書きは確かめる。
+		await _press(b.find_child("Preset_0", true, false))
+		await _press(b.find_child("KeepButton", true, false))
 		var preset: Dictionary = GameManager.get_party_presets()[0]
 		var hero_index: int = -1
 		for entry: Variant in preset.get(GameStateKeys.PRESET_SLOTS, []):
 			if str((entry as Dictionary).get(GameStateKeys.PRESET_CHARACTER_ID, "")) == HERO:
 				hero_index = int((entry as Dictionary).get(GameStateKeys.PRESET_INDEX, -1))
-		_check("詰所：「残す」で控え1に残る（ビルド番号 %d）" % (hero_index + 1), bool(preset.get(GameStateKeys.PRESET_SAVED, false)) and hero_index == 1)
+		_check("詰所：「いまを残す」で控え1に残る（ビルド番号 %d）・「いまと同じ」の判" % (hero_index + 1),
+			bool(preset.get(GameStateKeys.PRESET_SAVED, false)) and hero_index == 1 and b.find_child("Preset_0", true, false).find_child("SameStamp", true, false) != null)
 		var kept: Array = GameManager.get_party_members()
-		await _press(b.find_child("ReorderButton", true, false))
-		await _press(b.find_child("Sortie_0", true, false))
-		await _press(b.find_child("Sortie_1", true, false))
-		await _press(b.find_child("ReorderButton", true, false))
-		await _press(b.find_child("Preset_0", true, false))
-		pop = _first_of_type(b, "SlotActionPopover")
-		await _press(null if pop == null else pop.find_child("CallButton", true, false))
-		_check("詰所：「呼ぶ」で残した並びに戻る（%s）" % str(GameManager.get_party_members()), GameManager.get_party_members() == kept)
-		await _press(b.find_child("Preset_0", true, false))
-		pop = _first_of_type(b, "SlotActionPopover")
-		await _press(null if pop == null else pop.find_child("ClearButton", true, false))
-		_check("詰所：「消す」で控え1が空く", not bool((GameManager.get_party_presets()[0] as Dictionary).get(GameStateKeys.PRESET_SAVED, true)))
+		await _press(_slot_hit(b, 0))
+		await _press(_roster_hit(b, str(kept[1])))
+		_check("詰所：並びを変えると「いまと同じ」が消える", b.find_child("Preset_0", true, false).find_child("SameStamp", true, false) == null)
+		await _press(b.find_child("CallButton", true, false))
+		var modal: ModalDialog = _modal_of(b)
+		_check("詰所：「呼ぶ」で予告の窓（並び・ビルド）", modal != null and modal.find_child("CallPreview", true, false) != null)
+		await _confirm_modal()
+		_check("詰所：予告の窓で「呼ぶ」→ 残した並びに戻る（%s）" % str(GameManager.get_party_members()), GameManager.get_party_members() == kept)
+		await _press(b.find_child("KeepButton", true, false))
+		_check("詰所：保存済みの控えに「いまを残す」は上書きを確かめる", _modal_of(b) != null)
+		await _confirm_modal()
+
+		# 詰所：名簿で人を押して「選んだ人を育成で開く」→ その人の育成。⚠ 戻ると育成の一覧（⚠ 下の手へ続く）。
+		await _press(_roster_hit(b, OTHER))
+		await _press(b.find_child("OpenTrainingButton", true, false), OPEN_FRAMES)
+		var opened: Node = get_tree().current_scene
+		_check("詰所：「選んだ人を育成で開く」で %s の育成" % OTHER, _path_of(opened) == TRAINING and str(opened.get("_selected_id")) == OTHER)
+		b = await _open(BARRACKS, {})
+		if b == null:
+			return
+		_check("詰所：2回目はガイドが出ない", b.find_child("SortieGuide", true, false) == null)
 
 		# 育成の一覧（⚠ 09-27 の見る回・人間「⚠ 3あ」）：施設の帯 → 身上書カード → 開く → 育成 → 戻るで一覧。
 		await _press(b.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false), OPEN_FRAMES)
@@ -10039,25 +10084,35 @@ class UiFlowRunner extends Node:
 		_check("掲示板：「検証用」に検証用の札", q.find_children("DebugCard_*", "", true, false).size() == MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_DEBUG).size())
 		await _press(_tab_button(q, 0))
 
-		# 受ける → 出撃届（⚠ まだ出ない）→ 詰所で変える → 戻ると掲示板。
-		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false))
-		var pop: Node = _first_of_type(q, "SlotActionPopover")
-		_check("掲示板：「受ける」で出撃届の吹き出し（まだ出ない）", pop != null and not GameManager.is_in_floor() and _path_of(get_tree().current_scene) == ADVENTURE)
-		await _press(null if pop == null else pop.find_child("SortieEditButton", true, false), OPEN_FRAMES)
+		# 受ける → 出撃の準備（⚠ まだ出ない）→ 戻ると掲示板（⚠ 2026-09-28・モック）。
+		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false), OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
-		_check("掲示板：出撃届の「詰所で変える」で詰所", _path_of(b) == BARRACKS and b.find_child("FacilityBar", true, false) == null)
+		var quest_title: String = _label_text(b, "Strip", "QuestTitle")
+		_check("掲示板：「受ける」で出撃の準備（依頼=%s・まだ出ない）" % quest_title,
+			_path_of(b) == BARRACKS and quest_title.contains(tr(str(MasterDataLoader.get_stage(first).get("name_key", ""))))
+			and b.find_child("SortieButton", true, false) != null and b.find_child("FacilityBar", true, false) == null and not GameManager.is_in_floor())
 		var back: Node = b.find_child("Header", true, false)
 		await _press(null if back == null else back.find_child("BackButton", true, false), OPEN_FRAMES)
 		q = get_tree().current_scene
-		_check("掲示板：詰所の「戻る」で掲示板へ戻る", _path_of(q) == ADVENTURE)
+		_check("掲示板：出撃の準備の「戻る」で掲示板へ戻る", _path_of(q) == ADVENTURE)
 		if _path_of(q) != ADVENTURE:
 			return
 
+		# 難ダンジョンも出撃の準備を通す（⚠ 人間「⚠ 4あ」）。
+		await _press(_tab_button(q, 1))
+		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
+		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
+		b = get_tree().current_scene
+		_check("掲示板：難ダンジョンの「受ける」で出撃の準備", _path_of(b) == BARRACKS and _label_text(b, "Strip", "QuestTitle") == tr(str(MasterDataLoader.get_dungeon(dungeon_id).get("name_key", ""))))
+		q = await _open(ADVENTURE, {})
+		if q == null:
+			return
+
 		# 出撃する → フロアのマップ。
-		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false))
-		pop = _first_of_type(q, "SlotActionPopover")
-		await _press(null if pop == null else pop.find_child("SortieGoButton", true, false), OPEN_FRAMES)
-		_check("掲示板：出撃届の「出撃する」でフロアのマップ", _path_of(get_tree().current_scene) == FLOOR_MAP and GameManager.is_in_floor())
+		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false), OPEN_FRAMES)
+		b = get_tree().current_scene
+		await _press(b.find_child("SortieButton", true, false), OPEN_FRAMES)
+		_check("掲示板：出撃の準備の「出撃する」でフロアのマップ", _path_of(get_tree().current_scene) == FLOOR_MAP and GameManager.is_in_floor())
 
 		# 続きから → ⚠ 出撃届を挟まずマップ。
 		q = await _open(ADVENTURE, {})
@@ -10209,6 +10264,16 @@ class UiFlowRunner extends Node:
 		elif node is LedgerRow:
 			(node as LedgerRow).pressed.emit()
 		await _wait(frames)
+
+	# 出撃の準備の枠の面の当たり（⚠ 枠は傾いた紙＝`Slot_<n>/Sheet/Hit`）。
+	func _slot_hit(scene: Node, slot_index: int) -> Node:
+		var slot: Node = scene.find_child("Slot_%d" % slot_index, true, false)
+		return null if slot == null else slot.find_child("Hit", true, false)
+
+	# 出撃の準備の名簿の札の当たり。
+	func _roster_hit(scene: Node, character_id: String) -> Node:
+		var card: Node = scene.find_child("Roster_" + character_id, true, false)
+		return null if card == null else card.find_child("Hit", false, false)
 
 	# ⚠ 画面の子に積まれた窓（⚠ 無ければ null）。
 	func _modal_of(scene: Node) -> ModalDialog:

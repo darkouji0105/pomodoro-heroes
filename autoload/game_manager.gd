@@ -549,6 +549,8 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.STORY: {GameStateKeys.STORY_CURRENT_CHAPTER: 1, GameStateKeys.STORY_STAGES: {}},
 		GameStateKeys.TRAINING_MODE_UNLOCKED: false,
 		GameStateKeys.CODEX: {},
+		# 見たガイド（2026-09-28）。⚠ 空＝どれもまだ見ていない（⚠ 前のセーブも空で読まれる）。
+		GameStateKeys.GUIDES_SEEN: {},
 		GameStateKeys.DAILY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.WEEKLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.MONTHLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
@@ -1290,6 +1292,25 @@ func _roll_weighted_table(rows: Variant, rolls: int) -> Dictionary:
 	return drawn
 
 # --- 倉庫：図鑑・インベントリ整理 ---
+
+# --- ガイド（2026-09-28・出撃の準備の「はじめてのガイド」・人間「⚠ 2あ」） ---
+
+# ⚠ 出撃の準備のガイドの ID（⚠ リリース後に改名しない＝改名すると見た人にもう一度出る）。
+const GUIDE_SORTIE: String = "sortie"
+
+
+func is_guide_seen(guide_id: String) -> bool:
+	var seen: Variant = _state.get(GameStateKeys.GUIDES_SEEN, {})
+	return seen is Dictionary and bool((seen as Dictionary).get(guide_id, false))
+
+
+# 見たことにする（⚠ 「とばす」でも「はじめる」でも同じ）。
+func mark_guide_seen(guide_id: String) -> void:
+	var seen: Dictionary = _copy_dict(GameStateKeys.GUIDES_SEEN)
+	seen[guide_id] = true
+	_state[GameStateKeys.GUIDES_SEEN] = seen
+	print("[GameManager] mark_guide_seen('%s')" % guide_id)
+
 
 func get_codex_entry(item_id: String) -> Dictionary:
 	var codex: Dictionary = _state.get(GameStateKeys.CODEX, {})

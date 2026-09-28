@@ -1095,18 +1095,11 @@ ui_belongings_dismantle_title,分解する
 ui_belongings_not_equipped,だれも着けていない
 ui_barracks_open,開く ›
 ui_barracks_can_level_up,昇級できる
-ui_barracks_build_hint,押すと番号が進む（控えに残すときのビルド）
 ui_barracks_skill_empty,［空き］
 ui_barracks_skill_separator,・
 ui_barracks_sortie,出撃届
-ui_barracks_sortie_hint,並びの順に前へ出る
-ui_barracks_reorder,並べ替える
-ui_barracks_reorder_done,並べ替えを終える
-ui_barracks_reorder_hint,入れ替える2人を押す
 ui_barracks_reserve,編成の控え
-ui_barracks_reserve_hint,押すと呼ぶ・残す
 ui_barracks_call,呼ぶ
-ui_barracks_keep,残す
 ui_barracks_kept,控え%d に残しました
 ui_quest_board_title,依頼掲示板
 ui_quest_tab_normal,通常の依頼
@@ -1119,7 +1112,6 @@ ui_quest_locked,前の話を終えると
 ui_quest_cleared,済
 ui_quest_take,受ける
 ui_quest_sortie_go,出撃する
-ui_quest_sortie_edit,詰所で変える
 ui_chest_title,届いた宝箱
 ui_chest_subtitle,本部の宝物庫
 ui_chest_ledger,棚の帳面
@@ -1171,3 +1163,42 @@ ui_forge_arrow,→
 ui_res_forge_guarantee_token,確定成功の札
 ui_icon_forge_guarantee_token,確
 ui_desc_forge_guarantee_token,鍛冶場で使うと、その1回は必ず成功する。難ダンジョンの宝箱からたまに出る
+ui_sortie_title,出撃の準備
+ui_sortie_barracks_subtitle,出撃の並びと控え
+ui_sortie_barracks_tag,依頼を受けずに開いた
+ui_sortie_barracks_note,ここで決めた並びが、次の出撃の最初の形になる。育てるのは育成で。
+ui_sortie_stamina,スタミナ %d
+ui_sortie_front,いちばん前
+ui_sortie_middle,まんなか
+ui_sortie_back,いちばん後ろ
+ui_sortie_dropdown,▼
+ui_sortie_pick_hint,この枠に入れる人を、下の名簿から選ぶ
+ui_sortie_swap_hint,押すと入れ替え
+ui_sortie_build_note,選ぶとそのビルドを当てる
+ui_sortie_reserve_count,%d件
+ui_sortie_same,いまと同じ
+ui_sortie_keep,いまを残す
+ui_sortie_call_title,控え%dを呼ぶ
+ui_sortie_call_order,並び
+ui_sortie_call_moves,装備が移る
+ui_sortie_call_move_line,%s　%s → %s
+ui_sortie_keep_overwrite,控え%d を、いまの並びで上書きする
+ui_sortie_keep_title,控え%dに残す
+ui_sortie_roster,名簿
+ui_sortie_roster_hint,枠を押すと、ここから選べる
+ui_sortie_roster_for,%d番（%s）に入れる人
+ui_sortie_sort_level,Lv
+ui_sortie_sort_name,名前
+ui_sortie_swap_with,%d番と入れ替わる
+ui_sortie_in_slot,出撃 %d
+ui_sortie_roster_picked,%s を選んだ
+ui_sortie_open_training,選んだ人を育成で開く
+ui_sortie_repeat,周回する
+ui_sortie_guide_count,はじめての出撃届　%d / %d
+ui_sortie_guide_skip,とばす
+ui_sortie_guide_next,つぎへ
+ui_sortie_guide_start,はじめる
+ui_sortie_guide_1_title,枠を押すと、出る人を入れ替えられる
+ui_sortie_guide_1_body,1番がいちばん前に立つ。控えを呼べば、並びとビルドをまとめて変えられる。
+ui_sortie_guide_2_title,入れる人は名簿から選ぶ
+ui_sortie_guide_2_body,枠を押してから、下の名簿で入れる人を押す。ほかの枠にいる人を選ぶと入れ替わる。

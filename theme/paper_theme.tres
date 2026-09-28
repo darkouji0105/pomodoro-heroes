@@ -37,3 +37,7 @@ SmallErrorLabel/base_type = &"Label"
 SmallErrorLabel/colors/font_color = Color(0.6117647, 0.22745098, 0.18039216, 1)
 SmallLabel/base_type = &"Label"
 SmallLabel/colors/font_color = Color(0.16862746, 0.12941177, 0.09411765, 1)
+SortieFrontNumberLabel/base_type = &"Label"
+SortieFrontNumberLabel/colors/font_color = Color(0.6117647, 0.22745098, 0.18039216, 1)
+SortieNumberLabel/base_type = &"Label"
+SortieNumberLabel/colors/font_color = Color(0.16862746, 0.12941177, 0.09411765, 1)

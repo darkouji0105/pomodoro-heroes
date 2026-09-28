@@ -7,9 +7,9 @@
 #   ⚠ クリアした話は「済」の判 ＋「周回」＋「受ける」（⚠ 人間「⚠ 4い」＝自分でもう一度戦える）。
 #   ⚠ 解放前の話は薄くして「前の話を終えると」（⚠ ボタンを出さない）。
 #   ⚠ 高難度＝難ダンジョンごとに札（⚠ いまは1本。⚠ 「潜る準備」の画面は決定49 の回）。
-#   ⚠⚠ 編成の行は消した（⚠ 人間「⚠ 3い」）。⚠ **出撃の直前に「出撃届」の吹き出しを挟む**
-#     （⚠ 人間「⚠ 編成は出撃する直前に一回挟む　画面を　⚠ 今は仮でいい」）：3人の並び ／ 出撃する ／ 詰所で変える。
-#     ⚠ 挟むのは新しく出るとき（受ける・周回・難ダンジョンに入る）だけ。⚠ 続きからは挟まない（⚠ ランの途中で編成は変えない）。
+#   ⚠⚠ 編成の行は消した（⚠ 人間「⚠ 3い」）。⚠⚠ 新しく出るとき（受ける・周回・難ダンジョンに入る）は**出撃の準備**の画面を開く
+#     （2026-09-28・`party_preset_screen`・モック `docs/pomodoro-heroes-ui-docs/barracks/`）。⚠ 前の仮の吹き出しはやめた。
+#     ⚠ 続きからは挟まない（⚠ ランの途中で編成は変えない）。
 # ステージ一覧は stage_order.json 順、解放判定は GameManager.is_stage_cleared()。
 # スタミナの判定はこの画面で行う（戦闘画面では見ない）。
 
@@ -139,15 +139,11 @@ func _add_cost(foot: HBoxContainer) -> void:
 	foot.add_child(cost)
 
 
-# ⚠ `sortie` が true なら、押すと先に出撃届（`_request_sortie`）を出し、「出撃する」で `handler` を呼ぶ。
-func _add_button(foot: HBoxContainer, button_name: String, label_key: String, handler: Callable, sortie: bool = false) -> UiButton:
+func _add_button(foot: HBoxContainer, button_name: String, label_key: String, handler: Callable) -> UiButton:
 	var button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, label_key)
 	button.name = button_name
 	button.size_flags_vertical = Control.SIZE_SHRINK_END
-	if sortie:
-		button.pressed.connect(_request_sortie.bind(button, handler))
-	else:
-		button.pressed.connect(handler)
+	button.pressed.connect(handler)
 	foot.add_child(button)
 	return button
 
@@ -200,17 +196,18 @@ func _add_story_card(index: int, stage_id: String, stage_data: Dictionary) -> vo
 	_add_cost(foot)
 
 	# 周回（段階14-f）。⚠ 踏破済みのフロアだけ。⚠ 出すかどうかの判定は GameManager に聞く。
+	# ⚠ 2026-09-28：⚠ 周回も出撃の準備を通す（⚠ モック Q9＝「周回する」は「出撃する」の横）。
 	if GameManager.is_floor_stage(stage_id) and cleared:
-		_add_button(foot, "RepeatButton", "ui_floor_repeat", _on_repeat_pressed.bind(stage_id), true)
+		_add_button(foot, "RepeatButton", "ui_floor_repeat", _open_sortie.bind(stage_id, ""))
 
-	# 進行中のフロアは「続きから」（段階14-c）。⚠ 出撃届は挟まない。
+	# 進行中のフロアは「続きから」（段階14-c）。⚠ 出撃の準備は通さない（⚠ ランの途中で編成は変えない）。
 	var in_progress: bool = GameManager.is_in_floor() and str(
 		GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")
 	) == stage_id
 	if in_progress:
-		_add_button(foot, "ChallengeButton", "ui_floor_resume", _on_challenge_pressed.bind(stage_id))
+		_add_button(foot, "ChallengeButton", "ui_floor_resume", _on_resume_floor_pressed)
 	else:
-		_add_button(foot, "ChallengeButton", "ui_quest_take", _on_challenge_pressed.bind(stage_id), true)
+		_add_button(foot, "ChallengeButton", "ui_quest_take", _open_sortie.bind(stage_id, ""))
 
 
 # --- 高難度の依頼（難ダンジョンごとに札） --------------------------------
@@ -235,28 +232,27 @@ func _build_dungeon_cards() -> void:
 			GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")
 		) == dungeon_id
 		if in_progress:
-			_add_button(foot, "DungeonButton", "ui_dungeon_resume", _on_dungeon_pressed.bind(dungeon_id))
+			_add_button(foot, "DungeonButton", "ui_dungeon_resume", _on_resume_dungeon_pressed)
 		else:
-			_add_button(foot, "DungeonButton", "ui_quest_take", _on_dungeon_pressed.bind(dungeon_id), true)
+			# ⚠ 2026-09-28（人間「⚠ 4あ」）：⚠ 難ダンジョンも出撃の準備を通す。
+			_add_button(foot, "DungeonButton", "ui_quest_take", _open_sortie.bind("", dungeon_id))
 
 
-# ダンジョンへ入る／続きから。
-#
-# ⚠ 入れるかの判定は GameManager が持つ（start_dungeon_run が false を返す）。
-# ⚠ 別のランの途中なら断る（⚠ 黙って捨てると鞄も戦闘時 MAX HP も消える）。
-func _on_dungeon_pressed(dungeon_id: String) -> void:
-	if GameManager.is_in_dungeon():
-		var current_id: String = str(GameManager.get_dungeon_run().get(
-			GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""
-		))
-		if current_id != dungeon_id:
-			message_label.text = tr("ui_dungeon_other_in_progress")
-			return
-		SceneManager.change_scene(DUNGEON_MAP_PATH)
-		return
-	if not GameManager.start_dungeon_run(dungeon_id):
-		message_label.text = tr("ui_dungeon_start_failed")
-		return
+# 出撃の準備へ（2026-09-28・`party_preset_screen`）。⚠ 入る判定と手続きは向こうが持つ（⚠ ここに2本目を書かない）。
+func _open_sortie(stage_id: String, dungeon_id: String) -> void:
+	SceneManager.change_scene_with_data(PARTY_PRESET_PATH, {
+		TransferKeys.SORTIE_STAGE_ID: stage_id,
+		TransferKeys.SORTIE_DUNGEON_ID: dungeon_id,
+		TransferKeys.RETURN_PATH: ADVENTURE_SELECT_PATH,
+	})
+
+
+# 続きから（⚠ 出撃の準備は通さない）。
+func _on_resume_floor_pressed() -> void:
+	SceneManager.change_scene(FLOOR_MAP_PATH)
+
+
+func _on_resume_dungeon_pressed() -> void:
 	SceneManager.change_scene(DUNGEON_MAP_PATH)
 
 
@@ -297,100 +293,8 @@ func _on_debug_challenge_pressed(stage_id: String) -> void:
 	)
 
 
-# --- 出撃届（⚠ 仮・人間「⚠ 編成は出撃する直前に一回挟む」） ------------------
-
-# ⚠ 押したボタンの近くに吹き出し：題「出撃届」／ 並び「1 僧侶 ／ 2 弓兵 ／ 3 剣士」／ 出撃する ／ 詰所で変える。
-# ⚠ 詰所から戻ると掲示板（⚠ `RETURN_PATH`）。⚠ もう1回「受ける」を押すと、変えた並びで出る。
-# ⚠ 出撃するを押したら、⚠ 渡された処理（`action`）をそのまま呼ぶ（⚠ 判定はそちらが持つ）。
-func _request_sortie(anchor: Control, action: Callable) -> void:
-	message_label.text = ""
-	var parts: Array[String] = []
-	var members: Array = GameManager.get_party_members()
-	for i: int in range(members.size()):
-		var char_data: Dictionary = MasterDataLoader.get_character(str(members[i]))
-		parts.append("%d %s" % [i + 1, tr(str(char_data.get("name_key", str(members[i]))))])
-	var pop: SlotActionPopover = SlotActionPopover.open(
-		self, anchor.get_global_rect(), tr("ui_barracks_sortie"), " ／ ".join(parts)
-	)
-	var go: UiButton = pop.add_action(tr("ui_quest_sortie_go"), UiButton.Variant.PRIMARY, action)
-	go.name = "SortieGoButton"
-	var edit: UiButton = pop.add_action(tr("ui_quest_sortie_edit"), UiButton.Variant.SECONDARY, _on_party_edit_pressed)
-	edit.name = "SortieEditButton"
-
-
-# 詰所へ。⚠ 戻る先を渡す（入口が2つあるため。TransferKeys.RETURN_PATH）。
-func _on_party_edit_pressed() -> void:
-	SceneManager.change_scene_with_data(
-		PARTY_PRESET_PATH,
-		{TransferKeys.RETURN_PATH: ADVENTURE_SELECT_PATH}
-	)
-
-
-# --- 受ける ------------------------------------------------------------
-
-func _on_challenge_pressed(stage_id: String) -> void:
-	# 解放状態の最終チェック（EXEC §5.1）
-	if not _is_unlocked(stage_id):
-		message_label.text = tr("ui_adventure_locked")
-		return
-
-	# スタミナの確認（EXEC §5.2 / §5.3）
-	var cost: int = int(Balance.adventure.stamina_cost_per_stage)
-	var state: Dictionary = GameManager.get_state()
-	var stamina: Dictionary = state.get(GameStateKeys.STAMINA, {})
-	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0))
-	if current < cost:
-		message_label.text = tr("ui_adventure_stamina_short") + " (%d / %d)" % [cost, current]
-		return
-
-	# フロア形式（段階14-c）。⚠ 戦闘画面へ直行せず、マップ画面へ入る。
-	# ⚠ すでに同じフロアの途中なら続きから。別のフロアに入っていたら断る
-	#   （黙って捨てると、たいまつもレリックも持ち越しHPも消える）。
-	if GameManager.is_floor_stage(stage_id):
-		if GameManager.is_in_floor():
-			var current_floor: String = str(GameManager.get_floor_run().get(
-				GameStateKeys.FLOOR_RUN_FLOOR_ID, ""
-			))
-			if current_floor != stage_id:
-				message_label.text = tr("ui_floor_other_in_progress")
-				return
-			SceneManager.change_scene(FLOOR_MAP_PATH)
-			return
-		if not GameManager.start_floor(stage_id):
-			message_label.text = tr("ui_floor_start_failed")
-			return
-		SceneManager.change_scene(FLOOR_MAP_PATH)
-		return
-
-	# 遷移（EXEC §5.4）。PARTY_ID は渡さない
-	SceneManager.change_scene_with_data(
-		BATTLE_PATH,
-		{
-			TransferKeys.STAGE_ID: stage_id,
-			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY,
-		}
-	)
-
-
-# 周回（段階14-f）。⚠ 内部で1周ぶん歩かせて結果だけ受け取る。
-#
-# ⚠ 断る理由は GameManager が返す。ここで条件を書き直さない。
-# ⚠ 札を作り直す（クリア済みの印もスタミナも変わるため）。
-func _on_repeat_pressed(stage_id: String) -> void:
-	var reason: String = GameManager.get_floor_auto_reject_reason(stage_id)
-	if reason != "":
-		message_label.text = tr("ui_floor_repeat_reject_" + reason)
-		return
-	var result: Dictionary = GameManager.run_floor_auto(stage_id)
-	var rewards: Dictionary = result.get(GameManager.AUTO_RUN_REWARDS, {})
-	_rebuild()
-	# 数値のみの組み立てなので tr() を通すのは見出しだけ（AGENTS.md）。
-	message_label.text = "%s  %s %d / %s %d / %s %d" % [
-		tr("ui_floor_repeat_done"),
-		tr("ui_res_gold"), int(rewards.get(GameStateKeys.REWARD_GOLD, 0)),
-		tr("ui_floor_chest_count"), int(result.get(GameManager.AUTO_RUN_CHESTS, 0)),
-		tr("ui_floor_repeat_gacha"), int(result.get(GameManager.AUTO_RUN_GACHA, 0)),
-	]
+# ⚠ 2026-09-28：⚠ 出撃の手続き（⚠ 受ける・周回・難ダンジョンに入る）と仮の出撃届の吹き出しは、
+#   ⚠ 出撃の準備（`party_preset_screen`）へ移した（⚠ モック `docs/pomodoro-heroes-ui-docs/barracks/`）。
 
 
 func _on_training_pressed() -> void:

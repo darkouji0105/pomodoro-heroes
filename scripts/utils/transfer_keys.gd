@@ -69,5 +69,8 @@ const WAREHOUSE_TAB_PART: String = "part"
 const WAREHOUSE_TAB_MATERIAL: String = "material"
 # 持ち物を開いたときに選んでおく装備の個体（⚠ 育成の装備タブの「鍛冶場で鍛える」から来る）。
 const WAREHOUSE_INSTANCE_ID: String = "warehouse_instance_id"
+# 出撃の準備（2026-09-28・`party_preset_screen`＝詰所と同じ画面）で受ける依頼。⚠ どちらも無ければ詰所として開く。
+const SORTIE_STAGE_ID: String = "sortie_stage_id"
+const SORTIE_DUNGEON_ID: String = "sortie_dungeon_id"
 # 鍛冶場を開いたときに選んでおく装備の個体（2026-09-27・人間「⚠ 3あ」＝持ち物・育成の「鍛える」から来る）。
 const FORGE_INSTANCE_ID: String = "forge_instance_id"

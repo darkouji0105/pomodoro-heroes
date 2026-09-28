@@ -768,6 +768,7 @@ static func build() -> void:
 	_build_quest_board(theme)
 	_build_chest(theme)
 	_build_forge(theme)
+	_build_sortie(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2396,6 +2397,64 @@ static func _build_forge(theme: Theme) -> void:
 	theme.set_color(&"fx_dim", t, FORGE_FX_DIM)
 
 
+# --- ⚠⚠ 出撃の準備／詰所（2026-09-28・モック `docs/pomodoro-heroes-ui-docs/barracks/`・決定 `NAV-11`）---
+#
+# ⚠ 上の帯（依頼）／ 3つの枠（傾いた紙）＋右に編成の控え ／ 下の暗い板に名簿 ／ 右下に「出撃する」。
+# ⚠ はじめてのガイド＝暗幕に穴（光らせる所）＋紙の吹き出し。
+const SORTIE_SIDE_WIDTH: int = 250       # ⚠ 右の控え
+const SORTIE_PHOTO: int = 56             # ⚠ 枠の写真
+const SORTIE_MINI_PHOTO: int = 22        # ⚠ 控えの行の3人の顔
+const SORTIE_ROSTER_PHOTO: int = 36      # ⚠ 名簿の札の顔
+const SORTIE_ROSTER_CARD: int = 104      # ⚠ 名簿の札の幅
+const SORTIE_NUMBER_SIZE: int = 34       # ⚠ 枠の「1」「2」「3」
+const SORTIE_GUIDE_WIDTH: int = 360
+const SORTIE_GUIDE_HOLE_PAD: int = 8     # ⚠ 光らせる所の穴を広げる幅
+const SORTIE_GUIDE_DIM_ALPHA_PCT: int = 62
+const SORTIE_PAPER_PAD_H: int = 14       # ⚠ 枠・控えの紙
+const SORTIE_PAPER_PAD_V: int = 8
+const SORTIE_TIGHT_PAD_H: int = 10       # ⚠ 帯・名簿の札
+const SORTIE_TIGHT_PAD_V: int = 4
+const SORTIE_BOARD_PAD: int = 10         # ⚠ 名簿の板
+
+
+static func _build_sortie(theme: Theme) -> void:
+	var t: StringName = &"Sortie"
+	for spec: Array in [
+		["side_width", SORTIE_SIDE_WIDTH], ["photo", SORTIE_PHOTO], ["mini_photo", SORTIE_MINI_PHOTO],
+		["roster_photo", SORTIE_ROSTER_PHOTO], ["roster_card", SORTIE_ROSTER_CARD],
+		["guide_width", SORTIE_GUIDE_WIDTH], ["guide_hole_pad", SORTIE_GUIDE_HOLE_PAD],
+	]:
+		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
+	var dim: Color = Color.BLACK
+	dim.a = float(SORTIE_GUIDE_DIM_ALPHA_PCT) / 100.0
+	theme.set_color(&"guide_dim", t, dim)
+	theme.set_color(&"guide_ring", t, _html(TOKEN_LIGHT))
+	# ⚠ 余白を詰めた紙と板（⚠ 帯・枠・控え・名簿を縦 720 に収めるため＝1枚目の絵で下に 72px はみ出した）。
+	for spec: Array in [
+		["SortiePaperPanel", &"PaperPanel", SORTIE_PAPER_PAD_H, SORTIE_PAPER_PAD_V],
+		["SortiePaperChosenPanel", &"PaperPanelChosen", SORTIE_PAPER_PAD_H, SORTIE_PAPER_PAD_V],
+		["SortieTightPaperPanel", &"PaperPanel", SORTIE_TIGHT_PAD_H, SORTIE_TIGHT_PAD_V],
+		["SortieBoardPanel", &"ShopBoardPanel", SORTIE_BOARD_PAD, SORTIE_BOARD_PAD],
+	]:
+		var base: StyleBox = theme.get_stylebox(&"panel", spec[1] as StringName)
+		if not (base is StyleBoxFlat):
+			push_error("[BuildTheme] %s の元の面が無い（%s）" % [str(spec[0]), str(spec[1])])
+			continue
+		var box: StyleBoxFlat = (base as StyleBoxFlat).duplicate()
+		box.content_margin_left = int(spec[2])
+		box.content_margin_right = int(spec[2])
+		box.content_margin_top = int(spec[3])
+		box.content_margin_bottom = int(spec[3])
+		theme.set_type_variation(StringName(str(spec[0])), &"PanelContainer")
+		theme.set_stylebox(&"panel", StringName(str(spec[0])), box)
+	var number: Font = theme.get_font(&"font", &"PriceLabel") if theme.has_font(&"font", &"PriceLabel") else null
+	for type_name: StringName in [&"SortieNumberLabel", &"SortieFrontNumberLabel"]:
+		theme.set_type_variation(type_name, &"Label")
+		theme.set_font_size(&"font_size", type_name, SORTIE_NUMBER_SIZE)
+		if number != null:
+			theme.set_font(&"font", type_name, number)
+
+
 static func _build_heading_font(theme: Theme) -> void:
 	if not ResourceLoader.exists(HEADING_FONT_PATH):
 		push_warning("[BuildTheme] 見出しの明朝が無い（%s）。見出しは NotoSansJP のまま" % HEADING_FONT_PATH)
@@ -2443,6 +2502,9 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"DossierLevelLabel": TOKEN_INK,
 	"LevelArrowLabel": TOKEN_INK,
 	"LevelDoneLabel": TOKEN_INK,
+	# ⚠ 出撃の準備の枠の番号（⚠ 1番＝いちばん前は封蝋の赤・手本のモック）。
+	"SortieNumberLabel": TOKEN_INK,
+	"SortieFrontNumberLabel": TOKEN_WAX,
 }
 
 
