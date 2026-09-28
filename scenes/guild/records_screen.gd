@@ -32,6 +32,8 @@ var _tabs: PaperTabs = null
 var _picked: String = ""
 # ⚠ 装備は等級の枠を押す（⚠ 0＝装備以外）。
 var _picked_grade: int = 0
+# ⚠ 図鑑で出している種類（⚠ 09-29 人間「⚠ 2あ」）。
+var _codex_kind: String = GameManager.CODEX_KIND_EQUIPMENT
 
 
 func _ready() -> void:
@@ -107,11 +109,32 @@ func _build_codex() -> void:
 	var heading: SheetHeading = _heading("ui_records_codex_title", "%d / %d" % [found, total])
 	heading.name = "CodexHeading"
 	left.add_child(heading)
-	var list: VBoxContainer = _scroll_list(left)
+	# ⚠ 種類の切り替え「装備｜装飾｜素材」（⚠ 09-29 見る回・人間「⚠ 2あ」＝装備の表が縦に長いので1つずつ出す）。
+	var kinds: HBoxContainer = HBoxContainer.new()
+	kinds.name = "KindChoices"
+	kinds.theme_type_variation = &"SettingsChoices"
 	for kind: String in GameManager.CODEX_KINDS:
-		list.add_child(_codex_section(kind))
+		var counts: Vector2i = codex_counts(kind)
+		var choice: Button = UiButton.create_paper_choice("")
+		choice.name = "Kind_" + kind
+		choice.text = "%s %d/%d" % [tr("ui_records_kind_" + kind), counts.x, counts.y]
+		if kind == _codex_kind:
+			choice.theme_type_variation = &"PaperChoiceSelected"
+		choice.pressed.connect(_on_codex_kind_pressed.bind(kind))
+		kinds.add_child(choice)
+	left.add_child(kinds)
+	var list: VBoxContainer = _scroll_list(left)
+	list.add_child(_codex_section(_codex_kind))
 	body.add_child(VSeparator.new())
 	body.add_child(_codex_detail())
+
+
+func _on_codex_kind_pressed(kind: String) -> void:
+	if kind == _codex_kind:
+		return
+	_codex_kind = kind
+	# ⚠ 押した札を押している最中に外さない（⚠ 次のフレームで描き直す）。
+	_rebuild.call_deferred()
 
 
 # 埋まった数と全体（x＝埋まった ／ y＝全体）。⚠ 装備は「品 × 等級」で数える（⚠ `EXEC_CODEX_GRADES.md` §6）。
@@ -328,7 +351,8 @@ func _codex_detail() -> VBoxContainer:
 				tr("ui_records_detail_range") % [base, base + int(part.get(GameManager.ITEM_MASTER_PART_ROLL_MAX, 0))]))
 		_:
 			detail.add_child(_detail_line("TierLine", tr("ui_records_detail_tier"), str(GameManager.get_material_tier(_picked))))
-	detail.add_child(_detail_line("OwnedLine", tr("ui_records_detail_owned"), tr("ui_records_detail_count") % _owned_count(_picked, kind)))
+	# ⚠ 手に入れた数（⚠ 09-29 人間「⚠ 持っている数ではなく手に入れた数で」・使っても減らない）。
+	detail.add_child(_detail_line("ObtainedCountLine", tr("ui_records_detail_obtained_count"), tr("ui_records_detail_count") % GameManager.get_codex_obtained_count(_picked)))
 	var obtained: String = str(GameManager.get_codex_entry(_picked).get(GameStateKeys.CODEX_OBTAINED_AT, ""))
 	var date_text: String = tr("ui_records_none")
 	if obtained != "":
@@ -358,19 +382,6 @@ func _kind_of(item_id: String) -> String:
 			return kind
 	return GameManager.CODEX_KIND_MATERIAL
 
-
-# 持っている数（⚠ 装備＝個体の数 ／ 装飾＝持ち物の数 ／ 素材＝素材の数）。
-func _owned_count(item_id: String, kind: String) -> int:
-	match kind:
-		GameManager.CODEX_KIND_EQUIPMENT:
-			var count: int = 0
-			for raw: Variant in GameManager.get_owned_instances():
-				if str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == item_id:
-					count += 1
-			return count
-		GameManager.CODEX_KIND_PART:
-			return GameManager.get_item_count(item_id)
-	return GameManager.get_material_count(item_id)
 
 
 func _unknown_cell(item_id: String) -> PanelContainer:

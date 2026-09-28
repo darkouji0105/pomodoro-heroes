@@ -154,6 +154,8 @@ const CODEX_DISCOVERED: String = "discovered"
 const CODEX_OBTAINED_AT: String = "obtained_at"
 # ⚠ 装備の行だけ：手に入れたことのある等級（int の昇順・重ならない）。⚠ 2026-09-28・`docs/02_exec/EXEC_CODEX_GRADES.md`。
 const CODEX_GRADES: String = "grades"
+# ⚠ 手に入れた数（⚠ 使っても減らない）。⚠ 2026-09-29・`EXEC_CODEX_GRADES.md` §7-2。
+const CODEX_OBTAINED_COUNT: String = "obtained_count"
 
 # 各SHOP: {"refresh_at": String, "line_up": Array}
 const SHOP_REFRESH_AT: String = "refresh_at"

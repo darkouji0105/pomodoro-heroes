@@ -13,8 +13,8 @@ main の最新（origin/main と同じ）から始めて。作業ツリーは .c
 
 ## ⚠ 見る回は済んだ（⚠ 09-28・9回目）・⚠⚠ 返事待ち1つ
 
-- ⚠⚠ **未確認 3 件＝見る回**（⚠ 鍛える演出の画面 ／ 図鑑の詳しい中身 ／ 図鑑の装備＝等級ごとの表）
-- ⚠⚠ **返事待ち**：⚠ 図鑑の装備の表が縦に長く、⚠ 装飾・素材がスクロールしないと見えない（⚠ `EXEC_CODEX_GRADES.md` §8 で止めた・§0-UI-BD）
+- ⚠ 見る回は済んだ（⚠ 09-29・10回目）。⚠ 未確認 1 件（⚠ 図鑑の切り替えと手に入れた数）＝ ⚠ 3件たまるまで積む
+- ⚠ push は人間がする（⚠ 09-28 人間「⚠ ぷっしゅはじぶんでする」）＝⚠ コミットまで
 - ⚠ 報告の残り：⚠ `shot` の「Lambda capture ... was freed」が出たり出なかったりする（⚠ 32→33 の間・§0-UI-AX の報告・2手で止めた）
 
 ⚠ 人間が別の AI と作った UI の手本一式を、⚠ 回に分けて Godot に写している途中。
@@ -46,7 +46,7 @@ main の最新（origin/main と同じ）から始めて。作業ツリーは .c
 - ⚠ 部品：`PaperSheet` `SheetHeading`（`ornament_below` `centered` `title_text`）`PaperTabs` `LedgerRow`（⚠ `compact`＝詰めた行・09-27）`Stamp`（`filled`）`TiltedSheet` `CharacterAvatar` `CharacterDossier`（育成の身上書）`BaseFacilityBar` `SlotActionPopover`
 - ⚠ 確かめの窓は紙（`MD-10`）・判は `Modal.OPTION_STAMP`・長押しは `Modal.OPTION_HOLD`（`MD-11`）。⚠ 並びは `MD-4`「はいが左」
 - ⚠ 撮影は `scenario=shot`（⚠ いま **46枚**。⚠ 窓が十数秒出る。⚠ 覆わない）。⚠ 画面ごとに撮った絵と手本の png を見比べる。⚠ 行に `"measure": [ノードのパス]` を書くと位置が出る
-- ⚠⚠ **押したら何が変わるか・どこへ移るか・押せるかは `scenario=ui_flow`**（⚠ ヘッドレス・いま 132項目・⚠ `debug_boot` は鍛冶を既定で必ず成功にしている）。⚠ 画面を作ったら**手を足して回す**。⚠ `HUMAN_CHECK.md` に積むのは色・手応え・気づけるかだけ
+- ⚠⚠ **押したら何が変わるか・どこへ移るか・押せるかは `scenario=ui_flow`**（⚠ ヘッドレス・いま 139項目・⚠ `debug_boot` は鍛冶を既定で必ず成功にしている）。⚠ 画面を作ったら**手を足して回す**。⚠ `HUMAN_CHECK.md` に積むのは色・手応え・気づけるかだけ
 - ⚠ `layout` は画面のパスの後ろに `#タブ` を付けるとそのタブで開く（⚠ 育成・持ち物）
 
 ## 気をつけること（⚠ ここまでで踏んだ）

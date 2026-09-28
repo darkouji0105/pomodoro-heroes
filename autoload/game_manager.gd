@@ -644,8 +644,10 @@ func add_material(material_id: String, amount: int) -> void:
 	materials[material_id] = new_amount
 	_state[GameStateKeys.MATERIALS] = materials
 	# ⚠ 素材も図鑑に載せる（2026-09-28・記録の画面・人間「⚠ 2あ」）。⚠ 減らすとき（負の数）は載せない。
-	if amount > 0:
+	# ⚠ 素材として扱う品だけ（⚠ 09-29：撮影の下ごしらえが素材でない品にも足していて、⚠ 鉄の剣の「手に入れた数」が 100000 になった）。
+	if amount > 0 and _item_storage(material_id) == ITEM_STORAGE_MATERIAL:
 		_mark_codex_discovered(material_id)
+		_add_codex_obtained(material_id, amount)
 	print("[GameManager] add_material('%s', %d) -> %d" % [material_id, amount, new_amount])
 	# 辞書全体ではなく「どの素材がいくつになったか」を通知する。
 	# 拠点画面は素材の種類ごとにラベルを持つため、種類が特定できないと差分更新できない。
@@ -747,6 +749,7 @@ func add_to_inventory(item_id: String, count: int, item_type: String = GameState
 		var last_instance_id: String = ""
 		for i: int in range(count):
 			last_instance_id = _create_equipment_instance(item_id)
+		_add_codex_obtained(item_id, count)
 		print("[GameManager] add_to_inventory('%s', %d) -> equipment instances (last=%s newly_discovered=%s)" % [
 			item_id, count, last_instance_id, newly
 		])
@@ -772,6 +775,7 @@ func add_to_inventory(item_id: String, count: int, item_type: String = GameState
 	_state[GameStateKeys.INVENTORY] = inventory
 
 	var newly_discovered: bool = _mark_codex_discovered(item_id)
+	_add_codex_obtained(item_id, count)
 	print("[GameManager] add_to_inventory('%s', %d, type='%s') -> count=%d newly_discovered=%s" % [
 		item_id, count, str(entry[GameStateKeys.ITEM_TYPE]), int(entry[GameStateKeys.ITEM_COUNT]), newly_discovered])
 	inventory_changed.emit(item_id)
@@ -789,6 +793,18 @@ func _mark_codex_discovered(item_id: String) -> bool:
 	}
 	_state[GameStateKeys.CODEX] = codex
 	return true
+
+
+# 図鑑の行の「手に入れた数」を足す（2026-09-29・`EXEC_CODEX_GRADES.md` §7-2）。⚠ 減らす口は作らない。
+# ⚠ 呼ぶのは `add_to_inventory()`（実際に入った数）と `add_material()`（増えるときだけ）。
+func _add_codex_obtained(item_id: String, count: int) -> void:
+	if count <= 0:
+		return
+	var codex: Dictionary = _copy_dict(GameStateKeys.CODEX)
+	var entry: Dictionary = (codex.get(item_id, {}) as Dictionary).duplicate(true)
+	entry[GameStateKeys.CODEX_OBTAINED_COUNT] = int(entry.get(GameStateKeys.CODEX_OBTAINED_COUNT, 0)) + count
+	codex[item_id] = entry
+	_state[GameStateKeys.CODEX] = codex
 
 
 # 図鑑の装備の行に、手に入れた等級を足す（2026-09-28・`EXEC_CODEX_GRADES.md` §4）。
@@ -1366,6 +1382,11 @@ func get_codex_ids(kind: String) -> Array[String]:
 
 func is_codex_discovered(item_id: String) -> bool:
 	return bool(get_codex_entry(item_id).get(GameStateKeys.CODEX_DISCOVERED, false))
+
+
+# 手に入れた数（⚠ 使っても減らない）。⚠ 2026-09-29・`EXEC_CODEX_GRADES.md` §7-2。
+func get_codex_obtained_count(item_id: String) -> int:
+	return int(get_codex_entry(item_id).get(GameStateKeys.CODEX_OBTAINED_COUNT, 0))
 
 
 # 装備の手に入れたことのある等級（昇順）。⚠ 2026-09-28・`EXEC_CODEX_GRADES.md`。
@@ -6533,6 +6554,35 @@ func load_state(data: Dictionary) -> bool:
 					continue
 				var held_item: String = str((instance as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
 				held[held_item] = maxi(int(held.get(held_item, 0)), int((instance as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 1)))
+		# ⚠ 手に入れた数（2026-09-29・§7-2）：⚠ 前のセーブは、いま持っている数で埋める（⚠ 下限＝使ったぶんは分からない）。
+		var held_count: Dictionary = {}
+		if raw_instances is Dictionary:
+			for instance_id: Variant in (raw_instances as Dictionary):
+				var instance_entry: Variant = (raw_instances as Dictionary)[instance_id]
+				if instance_entry is Dictionary:
+					var count_item: String = str((instance_entry as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+					held_count[count_item] = int(held_count.get(count_item, 0)) + 1
+		var raw_inventory: Variant = new_state.get(GameStateKeys.INVENTORY, {})
+		if raw_inventory is Dictionary:
+			for inventory_id: Variant in (raw_inventory as Dictionary):
+				var inventory_entry: Variant = (raw_inventory as Dictionary)[inventory_id]
+				if inventory_entry is Dictionary:
+					held_count[str(inventory_id)] = int((inventory_entry as Dictionary).get(GameStateKeys.ITEM_COUNT, 0))
+		var raw_materials: Variant = new_state.get(GameStateKeys.MATERIALS, {})
+		if raw_materials is Dictionary:
+			for material_key: Variant in (raw_materials as Dictionary):
+				# ⚠ 素材の欄に素材でない品が入っていることがある（⚠ デバッグの配り方）＝⚠ 素材として扱う品だけ。
+				if _item_storage(str(material_key)) == ITEM_STORAGE_MATERIAL:
+					held_count[str(material_key)] = int((raw_materials as Dictionary)[material_key])
+		for count_id: Variant in codex_grades:
+			var count_entry: Variant = codex_grades[count_id]
+			if not (count_entry is Dictionary):
+				continue
+			var count_dict: Dictionary = count_entry
+			if count_dict.has(GameStateKeys.CODEX_OBTAINED_COUNT):
+				count_dict[GameStateKeys.CODEX_OBTAINED_COUNT] = int(count_dict[GameStateKeys.CODEX_OBTAINED_COUNT])
+			else:
+				count_dict[GameStateKeys.CODEX_OBTAINED_COUNT] = maxi(0, int(held_count.get(str(count_id), 0)))
 		for item_id: Variant in codex_grades:
 			var entry: Variant = codex_grades[item_id]
 			if not (entry is Dictionary):

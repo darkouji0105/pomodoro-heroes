@@ -10182,10 +10182,21 @@ class UiFlowRunner extends Node:
 			total += counts.y
 		var heading: Node = r.find_child("CodexHeading", true, false)
 		_check("記録：図鑑の見出しに「%d / %d」" % [found, total], heading is SheetHeading and (heading as SheetHeading).right_text == "%d / %d" % [found, total] and total > 0)
-		_check("記録：装備・装飾・素材の3段", r.find_child("Section_equipment", true, false) != null and r.find_child("Section_part", true, false) != null and r.find_child("Section_material", true, false) != null)
-		var shown: int = r.find_children("Found_*", "", true, false).size() + r.find_children("Grade_*", "", true, false).size()
-		var unknown: int = r.find_children("Unknown_*", "", true, false).size() + r.find_children("UnknownGrade_*", "", true, false).size()
-		_check("記録：手に入れた品（装備は等級）は絵・まだは「？」（絵 %d ／ ？ %d）" % [shown, unknown], shown == found and unknown == total - found)
+		# ⚠ 種類の切り替え（⚠ 09-29 人間「⚠ 2あ」）：⚠ 最初は装備だけ・⚠ 札を押すとその種類だけ。
+		_check("記録：図鑑は「装備｜装飾｜素材」の切り替え・最初は装備だけ",
+			r.find_child("KindChoices", true, false) != null and r.find_child("KindChoices", true, false).get_child_count() == 3
+			and r.find_child("Section_equipment", true, false) != null and r.find_child("Section_part", true, false) == null and r.find_child("Section_material", true, false) == null)
+		var shown: int = 0
+		var unknown: int = 0
+		for kind: String in GameManager.CODEX_KINDS:
+			await _press(r.find_child("Kind_" + kind, true, false))
+			await _wait()
+			shown += r.find_children("Found_*", "", true, false).size() + r.find_children("Grade_*", "", true, false).size()
+			unknown += r.find_children("Unknown_*", "", true, false).size() + r.find_children("UnknownGrade_*", "", true, false).size()
+		_check("記録：3種類を切り替えると、手に入れた品（装備は等級）は絵・まだは「？」（絵 %d ／ ？ %d）" % [shown, unknown], shown == found and unknown == total - found)
+		_check("記録：「素材」を押すと素材の段だけ", r.find_child("Section_material", true, false) != null and r.find_child("Section_equipment", true, false) == null)
+		await _press(r.find_child("Kind_" + GameManager.CODEX_KIND_EQUIPMENT, true, false))
+		await _wait()
 		# ⚠ 装備は部位ごとの表（⚠ 09-28 人間「⚠ 等級ごとに列を作って　⚠ カテゴリごとに分ける」）：⚠ 列＝等級1〜最大 ／ 部位の小見出し。
 		var header_row: Node = r.find_child("GradeHeader", true, false)
 		_check("記録：装備の表は等級の列（%d）と部位の小見出し（%d）" % [0 if header_row == null else header_row.get_child_count() - 1, r.find_children("Slot_*", "", true, false).size()],
@@ -10193,17 +10204,28 @@ class UiFlowRunner extends Node:
 			and r.find_children("Slot_*", "", true, false).size() > 1 and r.find_children("Row_*", "", true, false).size() == GameManager.get_codex_ids(GameManager.CODEX_KIND_EQUIPMENT).size())
 		# ⚠ 品を押すと右に詳しく出る（⚠ 09-28 見る回・人間「⚠ クリックすると詳細も見れるようにしたい」）。
 		_check("記録：選ぶ前は右に「品を押すと」の案内", r.find_child("DetailNone", true, false) != null)
-		var first_found: Node = null
-		for cell: Node in r.find_children("Found_*", "", true, false):
-			if cell.name.begins_with("Found_weapon") or first_found == null:
-				first_found = cell
+		# ⚠ 素材の段で品を押す → ⚠ 右に名前・手に入れた数（⚠ 09-29 人間「⚠ 持っている数ではなく手に入れた数で」）・初めて手に入れた日。
+		await _press(r.find_child("Kind_" + GameManager.CODEX_KIND_MATERIAL, true, false))
+		await _wait()
+		var founds: Array = r.find_children("Found_*", "", true, false)
+		var first_found: Node = null if founds.is_empty() else founds[0]
 		var picked_id: String = "" if first_found == null else str(first_found.name).trim_prefix("Found_")
 		await _press(first_found)
 		await _wait()
-		_check("記録：品を押すと右に名前と持っている数・初めて手に入れた日（%s）" % _label_text(r, "CodexDetail", "DetailName"),
+		_check("記録：品を押すと右に名前と手に入れた数 %s（口 %d）・初めて手に入れた日（%s）" % [_label_text(r, "ObtainedCountLine", "ValueLabel"), GameManager.get_codex_obtained_count(picked_id), _label_text(r, "CodexDetail", "DetailName")],
 			picked_id != "" and _label_text(r, "CodexDetail", "DetailName") == tr(GameManager.item_name_key(picked_id))
-			and r.find_child("OwnedLine", true, false) != null and r.find_child("ObtainedLine", true, false) != null
+			and _label_text(r, "ObtainedCountLine", "ValueLabel") == tr("ui_records_detail_count") % GameManager.get_codex_obtained_count(picked_id)
+			and r.find_child("ObtainedLine", true, false) != null
 			and (r.find_child("Found_" + picked_id, true, false) as Button).theme_type_variation == &"RecordsCellPicked")
+		# ⚠ 手に入れた数は増えるだけ（⚠ 入れると増え・⚠ 使っても減らない）。
+		if picked_id != "":
+			var obtained_before: int = GameManager.get_codex_obtained_count(picked_id)
+			GameManager.add_material(picked_id, 3)
+			GameManager.add_material(picked_id, -2)
+			_check("記録：素材を3個入れると手に入れた数が3増え、2個使っても減らない（%d → %d）" % [obtained_before, GameManager.get_codex_obtained_count(picked_id)],
+				GameManager.get_codex_obtained_count(picked_id) == obtained_before + 3)
+		await _press(r.find_child("Kind_" + GameManager.CODEX_KIND_EQUIPMENT, true, false))
+		await _wait()
 		# ⚠ 装備の等級の枠を押すと、その等級の値（⚠ `get_item_stats_at_grade()`）。
 		var grade_cells: Array = r.find_children("Grade_*", "", true, false)
 		if not grade_cells.is_empty():
@@ -10225,6 +10247,8 @@ class UiFlowRunner extends Node:
 			GameManager.add_material(fresh, 1)
 			await _press(_tab_button(r, 1))
 			await _press(_tab_button(r, 0))
+			await _press(r.find_child("Kind_" + GameManager.CODEX_KIND_MATERIAL, true, false))
+			await _wait()
 			_check("記録：素材を手に入れると図鑑に載る（%s）" % fresh, GameManager.is_codex_discovered(fresh) and r.find_child("Found_" + fresh, true, false) != null)
 		# 集中の履歴：合計・今日・最後（⚠ 日ごとの履歴はまだ＝「⚠ 5あ」）。
 		await _press(_tab_button(r, 1))
@@ -10260,7 +10284,12 @@ class UiFlowRunner extends Node:
 			top[held_id] = maxi(int(top.get(held_id, 0)), int((raw as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 1)))
 		for item_id: Variant in (old_state[GameStateKeys.CODEX] as Dictionary):
 			((old_state[GameStateKeys.CODEX] as Dictionary)[item_id] as Dictionary).erase(GameStateKeys.CODEX_GRADES)
+			((old_state[GameStateKeys.CODEX] as Dictionary)[item_id] as Dictionary).erase(GameStateKeys.CODEX_OBTAINED_COUNT)
 		GameManager.load_state(old_state)
+		# ⚠ 手に入れた数は、いま持っている数で埋まる（⚠ §7-2・下限）。
+		if picked_id != "":
+			_check("記録：前のセーブを読むと手に入れた数は持っている数（%s %d ＝ %d）" % [picked_id, GameManager.get_codex_obtained_count(picked_id), GameManager.get_material_count(picked_id)],
+				GameManager.get_codex_obtained_count(picked_id) == GameManager.get_material_count(picked_id))
 		var migrated: bool = not top.is_empty()
 		for held_id: String in top:
 			var expect: Array[int] = []

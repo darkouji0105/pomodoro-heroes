@@ -1037,7 +1037,7 @@ ui_records_grade,%d
 ui_records_detail_slot,部位
 ui_records_detail_tier,段階
 ui_records_detail_range,+%d〜%d
-ui_records_detail_owned,持っている数
+ui_records_detail_obtained_count,手に入れた数
 ui_records_detail_count,%d 個
 ui_records_detail_obtained,初めて手に入れた日
 ui_records_focus_total,集中を終えた回数（合計）
