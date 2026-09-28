@@ -9243,6 +9243,7 @@ class ShotTaker extends Node:
 			await get_tree().process_frame
 		elif kind == AFTER_CHEST_FX:
 			# ⚠ legendary の箱を選んで「次を開ける」（⚠ 画面の口）→ ⚠ 演出の途中で撮る。
+			#   ⚠ 09-28 から演出は中身の等級で決まる＝⚠ メモリの中だけ閾値を 0 にして必ず出す（⚠ 強い演出も 0 から＝強いほうを撮る）。
 			var legend: String = ""
 			for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
 				var chest_id: String = str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))
@@ -9254,8 +9255,14 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ %s は legendary の宝箱が無い" % shot_name)
 				return false
 			screen.set("_selected_kind", legend)
+			var fx_theme: Theme = ThemeDB.get_project_theme()
+			var saved_grades: Array[int] = [fx_theme.get_constant(&"fx_grade", &"ChestScreen"), fx_theme.get_constant(&"fx_strong_grade", &"ChestScreen")]
+			fx_theme.set_constant(&"fx_grade", &"ChestScreen", 0)
+			fx_theme.set_constant(&"fx_strong_grade", &"ChestScreen", 0)
 			# ⚠ 資源の演出は撮影の頭（`_run`）で止めてある。⚠ ここで戻さない（⚠ 戻すと後の枚で飛び、終了時に赤）。
 			screen.call("_on_next_pressed")
+			fx_theme.set_constant(&"fx_grade", &"ChestScreen", saved_grades[0])
+			fx_theme.set_constant(&"fx_strong_grade", &"ChestScreen", saved_grades[1])
 			for _i: int in range(CHEST_FX_WAIT_FRAMES):
 				await get_tree().process_frame
 		elif kind == AFTER_FORGE_PRESS or kind == AFTER_FORGE_FAIL:
@@ -10201,16 +10208,25 @@ class UiFlowRunner extends Node:
 		_check("宝箱：箱が開いた姿", box is ChestBox and (box as ChestBox).opened)
 		var screen: ChestScreen = c as ChestScreen
 
-		# ⚠ 高レアの演出（09-27 の見る回・人間「⚠ 4あ」）：legendary を1つ開ける → 演出中 → 台を押すと飛ばす → 札。
-		var legend: String = ""
+		# ⚠ 演出は**出た品の等級**で決まる（⚠ 09-28 人間「⚠ 出るアイテムの等級で」「⚠ 1い」＝5 以上・8 以上で強く）。
+		var theme: Theme = ThemeDB.get_project_theme()
+		var low: Dictionary = {GameStateKeys.REWARD_MATERIALS: {"forging_material_1": 1}}
+		var high: Dictionary = {GameStateKeys.REWARD_MATERIALS: {"forging_material_1": 3, "forging_material_4": 1}}
+		_check("宝箱：中身のいちばん高い等級で決める（段階1=%d は出さない・段階4=%d は出す／強い=%d 以上）" % [screen.top_grade_of(low), screen.top_grade_of(high), theme.get_constant(&"fx_strong_grade", &"ChestScreen")],
+			not screen.is_fx_grade(screen.top_grade_of(low)) and screen.is_fx_grade(screen.top_grade_of(high))
+			and screen.top_grade_of(high) >= theme.get_constant(&"fx_strong_grade", &"ChestScreen")
+			and theme.get_constant(&"fx_grade", &"ChestScreen") == 5)
+		# ⚠ 1つ開ける → 演出中 → 台を押すと飛ばす → 札。⚠ 中身は振られる＝⚠ メモリの中だけ閾値を 0 にして必ず出す。
 		for kind: Variant in kinds:
-			if GameManager.get_chest_rarity(str(kind)) == GameManager.CHEST_RARITY_LEGENDARY and _pending_of(str(kind)) > 0:
-				legend = str(kind)
+			if _pending_of(str(kind)) > 0:
+				await _press(c.find_child("ChestRow_" + str(kind), true, false))
 				break
-		await _press(c.find_child("ChestRow_" + legend, true, false))
+		var saved_grade: int = theme.get_constant(&"fx_grade", &"ChestScreen")
+		theme.set_constant(&"fx_grade", &"ChestScreen", 0)
 		var played_before: int = screen.fx_played
 		await _press(c.find_child("NextButton", true, false))
-		_check("宝箱：legendary を開けると演出（演出中=%s・箱が光る=%s）" % [str(screen.get("_fx_busy")), str((box as ChestBox).is_playing_fx())],
+		theme.set_constant(&"fx_grade", &"ChestScreen", saved_grade)
+		_check("宝箱：高い等級の品が出ると演出（演出中=%s・箱が光る=%s）" % [str(screen.get("_fx_busy")), str((box as ChestBox).is_playing_fx())],
 			bool(screen.get("_fx_busy")) and (box as ChestBox).is_playing_fx() and screen.fx_played == played_before + 1)
 		var click: InputEventMouseButton = InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
@@ -10220,18 +10236,17 @@ class UiFlowRunner extends Node:
 		_check("宝箱：演出中に台を押すと飛ばして札が出る（%d 枚）" % c.find_children("Card_*", "", true, false).size(),
 			not bool(screen.get("_fx_busy")) and c.find_children("Card_*", "", true, false).size() > 0 and (box as ChestBox).opened)
 
-		# まとめて開ける：⚠ 高レアの箱**ぜんぶ**に演出（⚠ 人間「⚠ まとめて開けるときは全部演出を」）。
+		# まとめて開ける：⚠ 高い等級の品が出た箱**ぜんぶ**に演出（⚠ 人間「⚠ まとめて開けるときは全部演出を」）。
 		#   ⚠ 待つ時間を縮めるため、⚠ 演出の時間だけメモリの中で短くする（⚠ テーマの `.tres` は書かない）。
-		var theme: Theme = ThemeDB.get_project_theme()
 		var saved_fx: Dictionary = {}
 		for fx_name: StringName in [&"fx_ms", &"fx_strong_ms", &"fx_fade_ms"]:
 			saved_fx[fx_name] = theme.get_constant(fx_name, &"ChestScreen")
 			theme.set_constant(fx_name, &"ChestScreen", 20)
-		var expected_fx: int = 0
+		# ⚠ 開ける前にまだの箱を控える（⚠ 中身は開けたときに振られる＝数えるのは開けたあと）。
+		var unopened: Array[String] = []
 		for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
-			if chest is Dictionary and not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)) \
-					and GameManager.get_chest_rarity(str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))) in ChestScreen.FX_RARITIES:
-				expected_fx += 1
+			if chest is Dictionary and not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)):
+				unopened.append(str((chest as Dictionary).get(GameStateKeys.CHEST_INSTANCE_ID, "")))
 		played_before = screen.fx_played
 		# ⚠ 開ける前の図鑑を控える（⚠ 画面と同じ判定＝前に無く、いま載っている品にしおり紐）。
 		var known: Dictionary = {}
@@ -10244,8 +10259,15 @@ class UiFlowRunner extends Node:
 			await get_tree().process_frame
 		for fx_name: StringName in saved_fx:
 			theme.set_constant(fx_name, &"ChestScreen", int(saved_fx[fx_name]))
-		_check("宝箱：まとめて開けると高レアの箱ぜんぶに演出（%d ＝ %d 箱）" % [screen.fx_played - played_before, expected_fx],
-			screen.fx_played - played_before == expected_fx and expected_fx > 0)
+		var expected_fx: int = 0
+		var grades: Array[int] = []
+		for instance_id: String in unopened:
+			var top: int = screen.top_grade_of(screen.call("_read_chest_rewards", instance_id))
+			grades.append(top)
+			if screen.is_fx_grade(top):
+				expected_fx += 1
+		_check("宝箱：まとめて開けると高い等級の品が出た箱ぜんぶに演出（%d ＝ %d 箱・中身のいちばん高い等級 %s）" % [screen.fx_played - played_before, expected_fx, str(grades)],
+			screen.fx_played - played_before == expected_fx and not unopened.is_empty())
 		_check("宝箱：「まとめて開ける」で 0（%d）" % GameManager.get_pending_chest_count(), GameManager.get_pending_chest_count() == 0)
 		var banded: int = 0
 		var ribbons: int = 0
@@ -10281,16 +10303,17 @@ class UiFlowRunner extends Node:
 		if overlay == null:
 			_check("デバッグの窓が無い", false)
 			return
+		var rare: Array[String] = [GameManager.CHEST_RARITY_EPIC, GameManager.CHEST_RARITY_LEGENDARY]
 		var rare_before: int = 0
 		for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
 			if chest is Dictionary and not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)) \
-					and GameManager.get_chest_rarity(str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))) in ChestScreen.FX_RARITIES:
+					and GameManager.get_chest_rarity(str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))) in rare:
 				rare_before += 1
 		overlay.call("_grant_rare_chests")
 		var rare_after: int = 0
 		for chest: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
 			if chest is Dictionary and not bool((chest as Dictionary).get(GameStateKeys.CHEST_OPENED, false)) \
-					and GameManager.get_chest_rarity(str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))) in ChestScreen.FX_RARITIES:
+					and GameManager.get_chest_rarity(str((chest as Dictionary).get(GameStateKeys.CHEST_ID, ""))) in rare:
 				rare_after += 1
 		_check("デバッグ：「宝箱：高レア」で epic・legendary が積まれる（%d → %d）" % [rare_before, rare_after], rare_after > rare_before)
 		var tokens: int = GameManager.get_forge_token_count()

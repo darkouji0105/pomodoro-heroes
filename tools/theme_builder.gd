@@ -2330,9 +2330,12 @@ const CHEST_BAND_COLORS: Dictionary = {
 	"currency": TOKEN_BRASS,
 	"other": TOKEN_RULE,
 }
-# ⚠ 高レアの演出（2026-09-27 の見る回・人間「⚠ 4あ」＝epic 以上・legendary はさらに強く・まとめて開けるときは全部）。
-#   ⚠ 光輪と光の筋・箱が震える・蓋が開く。⚠ 色はレア度の色（`Balance.icon`）。⚠ 値は設計役の値（⚠ 手本に無い）。
+# ⚠ 高い等級の品が出たときの演出（2026-09-27 の見る回・人間「⚠ 4あ」・まとめて開けるときは全部）。
+#   ⚠ 09-28 の見る回：人間「⚠ 宝箱のレア度で演出を入れるのではなく、出るアイテムの等級で演出を」→「⚠ 1い」＝
+#   ⚠ 中身のいちばん高い色の等級（1〜10）が **5 以上で演出・8 以上で強い演出**（`fx_grade` `fx_strong_grade`）。
+#   ⚠ 光輪と光の筋・箱が震える・蓋が開く。⚠ 色はその品の等級の色（`Balance.icon`）。⚠ 値は設計役の値（⚠ 手本に無い）。
 const CHEST_FX: Dictionary = {
+	"fx_grade": 5, "fx_strong_grade": 8,
 	"fx_ms": 800, "fx_strong_ms": 1400,
 	"fx_rays": 8, "fx_strong_rays": 16,
 	"fx_shake": 3, "fx_strong_shake": 7,
