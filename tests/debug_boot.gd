@@ -101,6 +101,8 @@ const SHOT_AFTER_FORGE_FAIL: String = "forge_fail"
 # ⚠ 出撃の準備（2026-09-28）：⚠ ガイドを「とばす」／ ⚠ 3番の枠を押す。⚠ 内側の同じ名前の字と揃える。
 const SHOT_AFTER_GUIDE_SKIP: String = "guide_skip"
 const SHOT_AFTER_SORTIE_PICK: String = "sortie_pick"
+# ⚠ 出撃の署名を書き終えて「受理」の判が押された姿（2026-09-28・手本 Sign）。⚠ 内側の `AFTER_SORTIE_SIGN` と同じ字。
+const SHOT_AFTER_SORTIE_SIGN: String = "sortie_sign"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1186,6 +1188,13 @@ const SCENARIOS: Dictionary = {
 				"scene": "res://scenes/adventure/party_preset_screen.tscn",
 				"data": {TransferKeys.SORTIE_STAGE_ID: "floor_1", TransferKeys.RETURN_PATH: "res://scenes/adventure/adventure_select.tscn"},
 				"after": SHOT_AFTER_SORTIE_PICK,
+			},
+			# ⚠ 「出撃する」→ 署名を書き終えて「受理」の判が押された姿（⚠ 出発の前で止める＝フロアに入らない）。
+			{
+				"name": "44_sortie_sign",
+				"scene": "res://scenes/adventure/party_preset_screen.tscn",
+				"data": {TransferKeys.SORTIE_STAGE_ID: "floor_1", TransferKeys.RETURN_PATH: "res://scenes/adventure/adventure_select.tscn"},
+				"after": SHOT_AFTER_SORTIE_SIGN,
 			},
 			# ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回・人間「⚠ 4あ」）。⚠ 種類ごとに1個積み直して legendary を開ける。
 			{
@@ -8929,6 +8938,8 @@ class ShotTaker extends Node:
 	# ⚠ 届いた宝箱（2026-09-27）：⚠ 種類ごとに1個積む ／ ⚠ 画面の口で「次を開ける」を押す。
 	const PREPARE_CHESTS: String = "chests"
 	const AFTER_CHEST_OPEN: String = "chest_open"
+	const AFTER_SORTIE_SIGN: String = "sortie_sign"
+	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
 	const AFTER_FORGE_PRESS: String = "forge_press"
 	const FORGE_FX_WAIT_FRAMES: int = 60
@@ -9240,6 +9251,20 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ %s の3番の枠が押せない" % shot_name)
 				return false
 			(hit as BaseButton).pressed.emit()
+			await get_tree().process_frame
+		elif kind == AFTER_SORTIE_SIGN:
+			# ⚠ 「出撃する」（⚠ 画面の口）→ ⚠ 判が押されるまで待つ → ⚠ 出発の前で流れを止める（⚠ 撮影でフロアに入らない）。
+			screen.call("_on_sortie_pressed")
+			var stamp: Node = screen.find_child("AcceptStamp", true, false)
+			if not bool(screen.get("_signing")) or not (stamp is Stamp):
+				push_error("[DebugBoot] ⚠ %s で署名が始まらない（⚠ 出られない理由は帯の右端）" % shot_name)
+				return false
+			var until: int = Time.get_ticks_msec() + SIGN_WAIT_MS
+			while (stamp as Stamp).modulate.a < 1.0 and Time.get_ticks_msec() < until:
+				await get_tree().process_frame
+			var sign_tween: Variant = screen.get("_sign_tween")
+			if sign_tween is Tween and (sign_tween as Tween).is_valid():
+				(sign_tween as Tween).kill()
 			await get_tree().process_frame
 		elif kind == AFTER_CHEST_FX:
 			# ⚠ legendary の箱を選んで「次を開ける」（⚠ 画面の口）→ ⚠ 演出の途中で撮る。
@@ -10007,9 +10032,10 @@ class UiFlowRunner extends Node:
 		_check("詰所：「はじめる」でガイドが消えて「見た」になる", b.find_child("SortieGuide", true, false) == null and GameManager.is_guide_seen(GameManager.GUIDE_SORTIE))
 
 		var members: Array = GameManager.get_party_members()
-		_check("詰所：3つの枠・控え %d 件・「選んだ人を育成で開く」（出撃するは無い）" % b.find_children("Preset_*", "", true, false).size(),
+		_check("詰所：3つの枠・控え %d 件・「選んだ人を育成で開く」（出撃する・署名の行・受理の判は無い）" % b.find_children("Preset_*", "", true, false).size(),
 			b.find_children("Slot_*", "", true, false).size() == 3 and b.find_children("Preset_*", "", true, false).size() == GameManager.get_party_preset_count()
-			and b.find_child("OpenTrainingButton", true, false) != null and b.find_child("SortieButton", true, false) == null)
+			and b.find_child("OpenTrainingButton", true, false) != null and b.find_child("SortieButton", true, false) == null
+			and b.find_children("Signature_*", "", true, false).is_empty() and b.find_child("AcceptStamp", true, false) == null)
 
 		# 光り方（⚠ 09-28 人間「⚠ ハイライトするのは入れ替えもとだけでいい」「⚠ 出撃してない人だけハイライト」）：
 		#   ⚠ 選ぶ前はどの枠も光らない ／ ⚠ 名簿は出撃していない人の札だけ光る ／ ⚠ 枠を押すとその枠だけ光る。
@@ -10152,11 +10178,41 @@ class UiFlowRunner extends Node:
 		if q == null:
 			return
 
-		# 出撃する → フロアのマップ。
+		# 出撃する → ⚠ 署名（1番から順）→「受理」の判 → フロアのマップ（⚠ 2026-09-28・手本 Sign・人間「⚠ 2い　⚠ 3あ」）。
 		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false), OPEN_FRAMES)
 		b = get_tree().current_scene
-		await _press(b.find_child("SortieButton", true, false), OPEN_FRAMES)
-		_check("掲示板：出撃の準備の「出撃する」でフロアのマップ", _path_of(get_tree().current_scene) == FLOOR_MAP and GameManager.is_in_floor())
+		var sigs: Array = b.find_children("Signature_*", "", true, false)
+		var styles: Dictionary = {}
+		for sig: Node in sigs:
+			styles[(sig as SortieSignature).style()] = true
+		var members: Array = GameManager.get_party_members()
+		var expect_styles: Dictionary = {}
+		for cid: Variant in members:
+			expect_styles[str(MasterDataLoader.get_character(str(cid)).get("sign_style", SortieSignature.STYLE_PEN))] = true
+		_check("出撃の準備：枠ごとに署名の行（%d 本・書き方 %s）・まだ書いていない" % [sigs.size(), str(styles.keys())],
+			sigs.size() == members.size() and styles.size() == expect_styles.size() and sigs.all(func(s: Node) -> bool: return (s as SortieSignature).progress == 0.0))
+		await _press(b.find_child("SortieButton", true, false))
+		var stamp: Node = b.find_child("AcceptStamp", true, false)
+		_check("出撃の準備：「出撃する」で署名が始まる（まだ出ない・押すと飛ばす幕・判はまだ）",
+			bool(b.get("_signing")) and b.find_child("SignBlocker", true, false) != null and _path_of(get_tree().current_scene) == BARRACKS
+			and stamp is Stamp and (stamp as Stamp).modulate.a == 0.0)
+		# ⚠ 1番が書き終わった時点では2番・3番はまだ（⚠ 順に書く）・判もまだ。
+		var first_sig: SortieSignature = b.find_child("Signature_0", true, false) as SortieSignature
+		var last_sig: SortieSignature = b.find_child("Signature_%d" % (members.size() - 1), true, false) as SortieSignature
+		var until: int = Time.get_ticks_msec() + 5000
+		while first_sig != null and first_sig.progress < 1.0 and Time.get_ticks_msec() < until:
+			await get_tree().process_frame
+		_check("出撃の準備：1番から順に書く（1番 %.2f ／ 最後 %.2f・判 %.2f）" % [first_sig.progress, last_sig.progress, (stamp as Stamp).modulate.a],
+			first_sig.progress >= 1.0 and last_sig.progress < 1.0 and (stamp as Stamp).modulate.a == 0.0)
+		until = Time.get_ticks_msec() + 5000
+		while is_instance_valid(stamp) and (stamp as Stamp).modulate.a < 1.0 and Time.get_ticks_msec() < until:
+			await get_tree().process_frame
+		_check("出撃の準備：全員が書き終わってから「受理」の判", is_instance_valid(stamp) and (stamp as Stamp).modulate.a >= 1.0 and last_sig.progress >= 1.0)
+		until = Time.get_ticks_msec() + 5000
+		while _path_of(get_tree().current_scene) != FLOOR_MAP and Time.get_ticks_msec() < until:
+			await get_tree().process_frame
+		await _wait(OPEN_FRAMES)
+		_check("掲示板：出撃の準備の「出撃する」→ 署名と判のあとフロアのマップ", _path_of(get_tree().current_scene) == FLOOR_MAP and GameManager.is_in_floor())
 
 		# 続きから → ⚠ 出撃届を挟まずマップ。
 		q = await _open(ADVENTURE, {})
@@ -10166,6 +10222,23 @@ class UiFlowRunner extends Node:
 		_check("掲示板：途中のフロアは「続きから」", resume is Button and (resume as Button).text == tr("ui_floor_resume"))
 		await _press(resume, OPEN_FRAMES)
 		_check("掲示板：「続きから」は出撃届を挟まずマップ", _path_of(get_tree().current_scene) == FLOOR_MAP)
+		GameManager.abandon_floor()
+
+		# 署名の途中で画面を押すと飛ばしてすぐ出発（⚠ 全員書いた姿・判を押した姿にしてから）。
+		q = await _open(ADVENTURE, {})
+		if q == null:
+			return
+		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false), OPEN_FRAMES)
+		b = get_tree().current_scene
+		await _press(b.find_child("SortieButton", true, false))
+		var blocker: Node = b.find_child("SignBlocker", true, false)
+		var click: InputEventMouseButton = InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		if blocker is Control:
+			(blocker as Control).gui_input.emit(click)
+		await _wait(OPEN_FRAMES)
+		_check("出撃の準備：署名の途中で押すと飛ばしてすぐフロアのマップ", _path_of(get_tree().current_scene) == FLOOR_MAP and GameManager.is_in_floor())
 		GameManager.abandon_floor()
 
 	# --- 届いた宝箱（2026-09-27・決定 `BS-21`）：バッジ → 画面 ／ 行を選ぶ ／ 次を開ける（窓は出ない）／ まとめて開ける ／ 戻る ---

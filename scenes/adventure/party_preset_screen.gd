@@ -54,6 +54,12 @@ var _message: String = ""
 var _message_error: bool = false
 # ⚠ 詰所で最後に押した名簿の人（⚠ 「選んだ人を育成で開く」の相手・⚠ 無ければ1番の人）。
 var _roster_pick: String = ""
+# ⚠ 出撃の署名（⚠ 出撃の準備だけ）：枠ごとの署名の行・帯の「受理」の判・書いている最中か・流している Tween・押すと飛ばす幕。
+var _signatures: Array[SortieSignature] = []
+var _stamp: Stamp = null
+var _signing: bool = false
+var _sign_tween: Tween = null
+var _sign_blocker: Control = null
 
 
 func _ready() -> void:
@@ -125,6 +131,7 @@ func _say(text: String, error: bool = false) -> void:
 
 func _rebuild_strip() -> void:
 	_clear(strip_body)
+	_stamp = null
 	if _is_barracks():
 		var tag: Label = Label.new()
 		tag.theme_type_variation = &"CaptionLabel"
@@ -154,6 +161,19 @@ func _rebuild_strip() -> void:
 		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		strip_body.add_child(gap)
+		# ⚠ 「受理」の判（⚠ 手本 Sign のマスターの判）。⚠ 署名を書き終えると押される＝それまで見えない。
+		#   ⚠ 器は素の Control（⚠ `Container` は子の位置と大きさを戻す＝大きさの演出が効かない）。⚠ 判は帯からはみ出してよい。
+		var holder: Control = Control.new()
+		holder.name = "StampHolder"
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		strip_body.add_child(holder)
+		_stamp = Stamp.new()
+		_stamp.name = "AcceptStamp"
+		_stamp.shape = Stamp.Shape.CIRCLE
+		_stamp.label_key = "ui_sortie_accepted"
+		_stamp.modulate.a = 0.0
+		holder.add_child(_stamp)
+		_fit_stamp(holder)
 	if _message != "":
 		var message: Label = Label.new()
 		message.name = "MessageLabel"
@@ -182,6 +202,7 @@ func _quest_title() -> String:
 
 func _rebuild_slots() -> void:
 	_clear(slots_box)
+	_signatures.clear()
 	var members: Array = GameManager.get_party_members()
 	var hp_max: int = 1
 	for character_id: String in _roster_ids():
@@ -251,6 +272,12 @@ func _make_slot(slot_index: int, character_id: String, hp_max: int) -> TiltedShe
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(spacer)
+	# ⚠ 署名の行（⚠ 出撃の準備だけ・人間「⚠ 2い」＝枠の中で書く）。⚠ 「出撃する」を押すと1番から順に書く。
+	if not _is_barracks():
+		var signature: SortieSignature = SortieSignature.create(character_id)
+		signature.name = "Signature_%d" % slot_index
+		body.add_child(signature)
+		_signatures.append(signature)
 	# ⚠ 下の段：「◀」隣と入れ替え ／ 案内 ／ 「▶」隣と入れ替え（⚠ 09-28 人間「⚠ 入れ替えは、上側でできるように　⚠ 右と左にボタンを作ってそこと入れ替え」）。
 	var foot: HBoxContainer = HBoxContainer.new()
 	foot.name = "Foot"
@@ -693,7 +720,126 @@ func _on_open_training_pressed() -> void:
 
 # --- 出撃の手続き（⚠ 前は依頼掲示板にあった。⚠ 判定は GameManager の口のまま） --------------------
 
+# 「出撃する」：⚠ 出られるかを先に全部見る（CLAUDE.md 6番）→ ⚠ 署名を書いて判を押す（手本 Sign）→ ⚠ 出発。
+#   ⚠ 出られないときは署名を書かない（⚠ 書き終わってから断られると嘘の演出になる）。
 func _on_sortie_pressed() -> void:
+	if _signing:
+		return
+	var error: String = _sortie_error()
+	if error != "":
+		_say(error, true)
+		return
+	_play_sign()
+
+
+# 出られない理由（⚠ 空なら出られる）。⚠ 状態は触らない。
+func _sortie_error() -> String:
+	if _dungeon_id != "":
+		# ⚠ 別のランの途中なら断る（⚠ 黙って捨てると鞄も戦闘時 MAX HP も消える）。
+		if GameManager.is_in_dungeon():
+			var current_id: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+			if current_id != _dungeon_id:
+				return tr("ui_dungeon_other_in_progress")
+		return ""
+	# 解放状態の最終チェック（EXEC §5.1）
+	if not _is_unlocked(_stage_id):
+		return tr("ui_adventure_locked")
+	# スタミナの確認（EXEC §5.2 / §5.3）
+	var cost: int = int(Balance.adventure.stamina_cost_per_stage)
+	var stamina: Dictionary = GameManager.get_state().get(GameStateKeys.STAMINA, {})
+	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0))
+	if current < cost:
+		return tr("ui_adventure_stamina_short") + " (%d / %d)" % [cost, current]
+	# フロア形式（段階14-c）。⚠ 別のフロアに入っていたら断る（黙って捨てると、たいまつもレリックも持ち越しHPも消える）。
+	if GameManager.is_floor_stage(_stage_id) and GameManager.is_in_floor():
+		var current_floor: String = str(GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_FLOOR_ID, ""))
+		if current_floor != _stage_id:
+			return tr("ui_floor_other_in_progress")
+	return ""
+
+
+# --- 出撃の署名（2026-09-28・手本 Sign・人間「⚠ 2い　⚠ 3あ　⚠ 4それで」） ---------------
+#   ⚠ 1番から順に署名 → 帯に「受理」の判 → 出発。⚠ 画面のどこかを押すと飛ばしてすぐ出発。⚠ 値は Theme の `Sortie` 型（`sign_*`）。
+
+func _play_sign() -> void:
+	_signing = true
+	var go: Node = find_child("SortieButton", true, false)
+	if go is BaseButton:
+		(go as BaseButton).disabled = true
+	# ⚠ 押すと飛ばす幕（⚠ 書いている間は枠・名簿・控えを押させない）。
+	_sign_blocker = Control.new()
+	_sign_blocker.name = "SignBlocker"
+	_sign_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	_sign_blocker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_sign_blocker.gui_input.connect(_on_sign_blocker_input)
+	add_child(_sign_blocker)
+	var write: float = float(get_theme_constant(&"sign_write_ms", THEME_TYPE)) / 1000.0
+	var gap: float = float(get_theme_constant(&"sign_gap_ms", THEME_TYPE)) / 1000.0
+	var tween: Tween = create_tween()
+	for signature: SortieSignature in _signatures:
+		tween.tween_property(signature, "progress", 1.0, write).from(0.0)
+		tween.tween_interval(gap)
+	if _stamp != null:
+		var from_scale: float = float(get_theme_constant(&"sign_stamp_from_pct", THEME_TYPE)) / 100.0
+		var final_scale: float = float(get_theme_constant(&"sign_stamp_scale_pct", THEME_TYPE)) / 100.0
+		var slam: float = float(get_theme_constant(&"sign_stamp_slam_ms", THEME_TYPE)) / 1000.0
+		_stamp.scale = Vector2.ONE * from_scale
+		tween.tween_interval(float(get_theme_constant(&"sign_stamp_delay_ms", THEME_TYPE)) / 1000.0)
+		tween.tween_property(_stamp, "modulate:a", 1.0, slam)
+		tween.parallel().tween_property(_stamp, "scale", Vector2.ONE * final_scale, slam).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tween.tween_interval(float(get_theme_constant(&"sign_hold_ms", THEME_TYPE)) / 1000.0)
+	tween.tween_callback(_depart)
+	_sign_tween = tween
+
+
+# 判の大きさと中心（⚠ 器の高さは帯の高さ＝判はそこからはみ出して上下の真ん中に置く）。
+func _fit_stamp(holder: Control) -> void:
+	if _stamp == null or not is_instance_valid(_stamp):
+		return
+	var final_scale: float = float(get_theme_constant(&"sign_stamp_scale_pct", THEME_TYPE)) / 100.0
+	_stamp.size = _stamp.custom_minimum_size
+	_stamp.pivot_offset = _stamp.size * 0.5
+	_stamp.rotation = deg_to_rad(-14.0)
+	holder.custom_minimum_size.x = _stamp.size.x * final_scale
+	_center_stamp(holder)
+	# ⚠ 帯の高さは並べ終わってから決まる（⚠ ラムダで掴まない＝CLAUDE.md 10番）。
+	holder.resized.connect(_center_stamp.bind(holder))
+
+
+func _center_stamp(holder: Control) -> void:
+	if _stamp == null or not is_instance_valid(_stamp) or _stamp.get_parent() != holder:
+		return
+	_stamp.position = Vector2((holder.size.x - _stamp.size.x) * 0.5, (holder.size.y - _stamp.size.y) * 0.5)
+
+
+func _on_sign_blocker_input(event: InputEvent) -> void:
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+		skip_sign()
+
+
+# 飛ばす：⚠ 全員書き終え・判を押した姿にして、すぐ出発。
+func skip_sign() -> void:
+	if not _signing:
+		return
+	if _sign_tween != null and _sign_tween.is_valid():
+		_sign_tween.kill()
+	for signature: SortieSignature in _signatures:
+		signature.progress = 1.0
+	if _stamp != null:
+		_stamp.modulate.a = 1.0
+		_stamp.scale = Vector2.ONE * float(get_theme_constant(&"sign_stamp_scale_pct", THEME_TYPE)) / 100.0
+	_depart()
+
+
+func _depart() -> void:
+	if not _signing:
+		return
+	_signing = false
+	if _sign_blocker != null and is_instance_valid(_sign_blocker):
+		remove_child(_sign_blocker)
+		_sign_blocker.queue_free()
+	_sign_blocker = null
 	if _dungeon_id != "":
 		_start_dungeon()
 	else:
@@ -701,24 +847,14 @@ func _on_sortie_pressed() -> void:
 
 
 func _start_stage() -> void:
-	# 解放状態の最終チェック（EXEC §5.1）
-	if not _is_unlocked(_stage_id):
-		_say(tr("ui_adventure_locked"), true)
+	# ⚠ 判定は `_sortie_error()`（⚠ 署名の前に見た。⚠ ここでもう一度見る＝書いている間に変わっていないか）。
+	var error: String = _sortie_error()
+	if error != "":
+		_say(error, true)
 		return
-	# スタミナの確認（EXEC §5.2 / §5.3）
-	var cost: int = int(Balance.adventure.stamina_cost_per_stage)
-	var stamina: Dictionary = GameManager.get_state().get(GameStateKeys.STAMINA, {})
-	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0))
-	if current < cost:
-		_say(tr("ui_adventure_stamina_short") + " (%d / %d)" % [cost, current], true)
-		return
-	# フロア形式（段階14-c）。⚠ 別のフロアに入っていたら断る（黙って捨てると、たいまつもレリックも持ち越しHPも消える）。
+	# フロア形式（段階14-c）。⚠ 同じフロアの途中なら続きへ。
 	if GameManager.is_floor_stage(_stage_id):
 		if GameManager.is_in_floor():
-			var current_floor: String = str(GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_FLOOR_ID, ""))
-			if current_floor != _stage_id:
-				_say(tr("ui_floor_other_in_progress"), true)
-				return
 			SceneManager.change_scene(FLOOR_MAP_PATH)
 			return
 		if not GameManager.start_floor(_stage_id):
@@ -736,11 +872,11 @@ func _start_stage() -> void:
 # ⚠ 入れるかの判定は GameManager が持つ。⚠ 別のランの途中なら断る（⚠ 黙って捨てると鞄も戦闘時 MAX HP も消える）。
 # ⚠ 入るコストは取らない（決定11）。
 func _start_dungeon() -> void:
+	var error: String = _sortie_error()
+	if error != "":
+		_say(error, true)
+		return
 	if GameManager.is_in_dungeon():
-		var current_id: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
-		if current_id != _dungeon_id:
-			_say(tr("ui_dungeon_other_in_progress"), true)
-			return
 		SceneManager.change_scene(DUNGEON_MAP_PATH)
 		return
 	if not GameManager.start_dungeon_run(_dungeon_id):

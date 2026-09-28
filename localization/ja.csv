@@ -1182,6 +1182,7 @@ ui_sortie_move_right,▶
 ui_sortie_move_left_hint,左の枠と入れ替える
 ui_sortie_move_right_hint,右の枠と入れ替える
 ui_sortie_not_out,出撃していない
+ui_sortie_accepted,受理
 ui_sortie_build_note,選ぶとそのビルドを当てる
 ui_sortie_reserve_count,%d件
 ui_sortie_same,いまと同じ

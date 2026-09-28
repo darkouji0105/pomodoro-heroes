@@ -2432,6 +2432,20 @@ const SORTIE_PULSE_WIDTH: int = 4
 const SORTIE_PULSE_SOFT_WIDTH: int = 2
 const SORTIE_PULSE_GROW: int = 6
 const SORTIE_PULSE_PERIOD_MS: int = 1100
+# ⚠ 出撃の署名（2026-09-28・手本 Sign・人間「⚠ 2い　⚠ 3あ」＝枠の中で書く・キャラごとの書き方）。
+#   ⚠ 手本の書体（Yuji Boku ほか）は入っていない＝⚠ 大きさ・縁取りの太さ・傾き（0.1度）・色で差を付ける。⚠ 色は手本の墨。
+const SORTIE_SIGN: Dictionary = {
+	"sign_height": 44, "sign_indent": 10, "sign_lift": 6, "sign_mark_gap": 8,
+	"sign_brush_size": 30, "sign_brush_outline": 2, "sign_brush_tilt_ddeg": -40,
+	"sign_pen_size": 24, "sign_pen_outline": 0, "sign_pen_tilt_ddeg": 25,
+	"sign_soft_size": 26, "sign_soft_outline": 1, "sign_soft_tilt_ddeg": -60,
+	# ⚠ 順番：1人ぶん書く・次の人まで ／ 最後に「受理」の判（遅れて大きく現れ押し付けられる）・押してから出発まで。
+	"sign_write_ms": 700, "sign_gap_ms": 150, "sign_stamp_delay_ms": 200, "sign_stamp_slam_ms": 240,
+	"sign_stamp_from_pct": 260, "sign_stamp_scale_pct": 130, "sign_hold_ms": 700,
+}
+const SORTIE_SIGN_COLORS: Dictionary = {
+	"sign_brush": "1e1814", "sign_pen": "24324e", "sign_soft": "3a2a45", "sign_rule": "a8926a",
+}
 
 
 static func _build_sortie(theme: Theme) -> void:
@@ -2456,6 +2470,11 @@ static func _build_sortie(theme: Theme) -> void:
 		["pulse_grow", SORTIE_PULSE_GROW], ["pulse_period_ms", SORTIE_PULSE_PERIOD_MS],
 	]:
 		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
+	# ⚠ 出撃の署名（`SortieSignature`）。
+	for sign_name: String in SORTIE_SIGN:
+		theme.set_constant(StringName(sign_name), t, int(SORTIE_SIGN[sign_name]))
+	for sign_name: String in SORTIE_SIGN_COLORS:
+		theme.set_color(StringName(sign_name), t, _html(str(SORTIE_SIGN_COLORS[sign_name])))
 	# ⚠ 余白を詰めた紙と板（⚠ 帯・枠・控え・名簿を縦 720 に収めるため＝1枚目の絵で下に 72px はみ出した）。
 	for spec: Array in [
 		["SortiePaperPanel", &"PaperPanel", SORTIE_PAPER_PAD_H, SORTIE_PAPER_PAD_V],
