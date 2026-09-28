@@ -9993,20 +9993,33 @@ class UiFlowRunner extends Node:
 			b.find_children("Slot_*", "", true, false).size() == 3 and b.find_children("Preset_*", "", true, false).size() == GameManager.get_party_preset_count()
 			and b.find_child("OpenTrainingButton", true, false) != null and b.find_child("SortieButton", true, false) == null)
 
-		# 脈打つ枠（⚠ 09-28 人間「⚠ 枠を囲むとか派手な色で」）：⚠ 選ぶ前はどの枠も弱く ／ ⚠ 選ぶと その枠と名簿が強く。
-		var soft: int = 0
+		# 光り方（⚠ 09-28 人間「⚠ ハイライトするのは入れ替えもとだけでいい」「⚠ 出撃してない人だけハイライト」）：
+		#   ⚠ 選ぶ前はどの枠も光らない ／ ⚠ 名簿は出撃していない人の札だけ光る ／ ⚠ 枠を押すとその枠だけ光る。
+		var lit_slots: int = 0
 		for i: int in range(3):
-			var frame: Node = b.find_child("Slot_%d" % i, true, false).find_child("PulseFrame", false, false)
-			if frame is PulseFrame and (frame as PulseFrame).strength == PulseFrame.Strength.SOFT:
-				soft += 1
-		_check("詰所：選ぶ前は3つの枠に弱い光の枠（%d）" % soft, soft == 3)
+			if b.find_child("Slot_%d" % i, true, false).find_child("PulseFrame", false, false) != null:
+				lit_slots += 1
+		var lit_ok: bool = true
+		for character_id: String in GameManager.get_party_candidates():
+			var card: Node = b.find_child("Roster_" + character_id, true, false)
+			var lit: bool = card != null and card.find_child("PulseFrame", false, false) != null
+			if lit == (character_id in members):
+				lit_ok = false
+		_check("詰所：選ぶ前は枠が光らない（%d）・名簿は出撃していない人だけ光る" % lit_slots, lit_slots == 0 and lit_ok)
+		# ◀ ▶（⚠ 09-28 人間「⚠ 入れ替えは、上側でできるように　⚠ 右と左にボタンを作ってそこと入れ替え」）。
+		_check("詰所：1番の「◀」と3番の「▶」は押せない",
+			(b.find_child("MoveLeft_0", true, false) as Button).disabled and (b.find_child("MoveRight_2", true, false) as Button).disabled)
+		await _press(b.find_child("MoveRight_0", true, false))
+		var moved: Array = GameManager.get_party_members()
+		_check("詰所：1番の「▶」で2番と入れ替わる（%s → %s）" % [str(members), str(moved)], moved[0] == members[1] and moved[1] == members[0] and moved[2] == members[2])
+		await _press(b.find_child("MoveLeft_1", true, false))
+		_check("詰所：2番の「◀」で元に戻る", GameManager.get_party_members() == members)
 		# 枠 → 名簿（⚠ 人間「⚠ キャラを選んで入れ替えるってのが大事」）：3番を押す → 1番の人に「1番と入れ替わる」→ 押すと入れ替わる。
 		await _press(_slot_hit(b, 2))
 		var picked_frame: Node = b.find_child("Slot_2", true, false).find_child("PulseFrame", false, false)
-		var roster_frame: Node = b.find_child("Roster", true, false).find_child("PulseFrame", false, false)
-		_check("詰所：3番を押すと その枠と名簿に強い光の枠",
-			picked_frame is PulseFrame and (picked_frame as PulseFrame).strength == PulseFrame.Strength.STRONG
-			and roster_frame is PulseFrame and (roster_frame as PulseFrame).strength == PulseFrame.Strength.STRONG)
+		_check("詰所：3番を押すとその枠だけ光る（名簿の板は光らない）",
+			picked_frame is PulseFrame and b.find_child("Slot_0", true, false).find_child("PulseFrame", false, false) == null
+			and b.find_child("Roster", true, false).find_child("PulseFrame", false, false) == null)
 		var badge: String = _label_text(b, "Roster_" + str(members[0]), "Badge")
 		_check("詰所：3番の枠を押すと名簿に「1番と入れ替わる」（%s）" % badge, badge == tr("ui_sortie_swap_with") % 1)
 		await _press(_roster_hit(b, str(members[0])))

@@ -1173,7 +1173,12 @@ ui_sortie_middle,まんなか
 ui_sortie_back,いちばん後ろ
 ui_sortie_dropdown,▼
 ui_sortie_pick_hint,この枠に入れる人を、下の名簿から選ぶ
-ui_sortie_swap_hint,押すと入れ替え
+ui_sortie_swap_hint,押すと名簿から選ぶ
+ui_sortie_move_left,◀
+ui_sortie_move_right,▶
+ui_sortie_move_left_hint,左の枠と入れ替える
+ui_sortie_move_right_hint,右の枠と入れ替える
+ui_sortie_not_out,出撃していない
 ui_sortie_build_note,選ぶとそのビルドを当てる
 ui_sortie_reserve_count,%d件
 ui_sortie_same,いまと同じ
@@ -1197,7 +1202,7 @@ ui_sortie_guide_count,はじめての出撃届　%d / %d
 ui_sortie_guide_skip,とばす
 ui_sortie_guide_next,つぎへ
 ui_sortie_guide_start,はじめる
-ui_sortie_guide_1_title,枠を押すと、出る人を入れ替えられる
-ui_sortie_guide_1_body,1番がいちばん前に立つ。控えを呼べば、並びとビルドをまとめて変えられる。
-ui_sortie_guide_2_title,入れる人は名簿から選ぶ
-ui_sortie_guide_2_body,枠を押してから、下の名簿で入れる人を押す。ほかの枠にいる人を選ぶと入れ替わる。
+ui_sortie_guide_1_title,◀ ▶ で並びを入れ替えられる
+ui_sortie_guide_1_body,1番がいちばん前に立つ。枠の下の ◀ ▶ で隣と入れ替わる。控えを呼べば、並びとビルドをまとめて変えられる。
+ui_sortie_guide_2_title,光っている人は、まだ出ていない人
+ui_sortie_guide_2_body,枠を押してから、下の名簿で光っている人を押すと、その枠に入る。

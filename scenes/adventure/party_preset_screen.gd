@@ -251,21 +251,47 @@ func _make_slot(slot_index: int, character_id: String, hp_max: int) -> TiltedShe
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(spacer)
+	# ⚠ 下の段：「◀」隣と入れ替え ／ 案内 ／ 「▶」隣と入れ替え（⚠ 09-28 人間「⚠ 入れ替えは、上側でできるように　⚠ 右と左にボタンを作ってそこと入れ替え」）。
+	var foot: HBoxContainer = HBoxContainer.new()
+	foot.name = "Foot"
+	var left: Button = UiButton.create_paper_choice("ui_sortie_move_left")
+	left.name = "MoveLeft_%d" % slot_index
+	left.disabled = slot_index <= 0
+	left.tooltip_text = tr("ui_sortie_move_left_hint")
+	left.pressed.connect(_on_move_pressed.bind(slot_index, -1))
+	foot.add_child(left)
 	var hint: Label = Label.new()
 	hint.name = "SwapHint"
-	hint.theme_type_variation = &"CaptionLabel"
+	hint.theme_type_variation = &"AccentLabel" if slot_index == _pick else &"CaptionLabel"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.text = tr("ui_sortie_pick_hint") if slot_index == _pick else tr("ui_sortie_swap_hint")
-	body.add_child(hint)
-	# ⚠ 面ぜんぶを押せる（⚠ 中の「ビルド」は本物のボタンのまま生きる）。
+	foot.add_child(hint)
+	var right: Button = UiButton.create_paper_choice("ui_sortie_move_right")
+	right.name = "MoveRight_%d" % slot_index
+	right.disabled = slot_index >= GameStateKeys.PARTY_SLOT_COUNT - 1
+	right.tooltip_text = tr("ui_sortie_move_right_hint")
+	right.pressed.connect(_on_move_pressed.bind(slot_index, 1))
+	foot.add_child(right)
+	body.add_child(foot)
+	# ⚠ 面ぜんぶを押せる（⚠ 中の「ビルド」「◀」「▶」は本物のボタンのまま生きる）。
 	UiButton.attach_hit(holder.sheet, _on_slot_pressed.bind(slot_index))
-	# ⚠ 脈打つ枠（⚠ 09-28 人間「⚠ わからない　⚠ 枠を囲むとか派手な色で」）：⚠ 選んでいる枠は強く・⚠ 選ぶ前はどの枠も弱く（⚠ 押せる合図）。
-	#   ⚠ 別の枠を選んでいる間は、⚠ ほかの枠は光らせない（⚠ 次に押すのは名簿＝そちらを光らせる）。
+	# ⚠ 脈打つ枠は**入れ替え元（押して選んだ枠）だけ**（⚠ 09-28 人間「⚠ ハイライトするのは入れ替えもとだけでいい」）。
 	if slot_index == _pick:
 		PulseFrame.attach(holder, PulseFrame.Strength.STRONG)
-	elif _pick < 0:
-		PulseFrame.attach(holder, PulseFrame.Strength.SOFT)
 	return holder
+
+
+# 「◀」「▶」：隣の枠と入れ替える（⚠ `set_party_member()` の1本＝別の枠にいる人を置くと交換になる）。
+func _on_move_pressed(slot_index: int, step: int) -> void:
+	var members: Array = GameManager.get_party_members()
+	var other: int = slot_index + step
+	if other < 0 or other >= members.size():
+		return
+	GameManager.set_party_member(other, str(members[slot_index]))
+	_pick = -1
+	_message = ""
+	_rebuild()
 
 
 func _stat_line(caption_text: String, value_text: String) -> HBoxContainer:
@@ -543,14 +569,8 @@ func _roster_ids() -> Array[String]:
 
 func _rebuild_roster() -> void:
 	_clear(roster_body)
-	# ⚠ 枠を選んでいる間は名簿を派手に脈打たせる（⚠ 次に押すのはここ＝09-28 人間「⚠ 派手な色で」）。
-	var roster_panel: Control = roster_body.get_parent() as Control
-	for child: Node in roster_panel.get_children():
-		if child is PulseFrame:
-			roster_panel.remove_child(child)
-			child.queue_free()
-	if _pick >= 0:
-		PulseFrame.attach(roster_panel, PulseFrame.Strength.STRONG)
+	# ⚠ 名簿の板そのものは光らせない（⚠ 09-28 人間「⚠ ハイライトするのは入れ替えもとだけでいい」）。
+	#   ⚠ 代わりに**出撃していない人の札**を光らせる（⚠ 同「⚠ 出撃してない人だけハイライトしてわかるようにする」）。
 	var title_column: VBoxContainer = VBoxContainer.new()
 	var title: Label = Label.new()
 	title.theme_type_variation = &"SheetHeadingLabel"
@@ -604,7 +624,7 @@ func _rebuild_roster() -> void:
 		elif in_slot >= 0:
 			badge.text = tr("ui_sortie_in_slot") % (in_slot + 1)
 		else:
-			badge.text = " "
+			badge.text = tr("ui_sortie_not_out")
 		column.add_child(badge)
 		var avatar: CharacterAvatar = CharacterAvatar.create(character_id, get_theme_constant(&"roster_photo", THEME_TYPE))
 		column.add_child(avatar)
@@ -618,6 +638,11 @@ func _rebuild_roster() -> void:
 		level.text = "%s %d" % [tr("ui_dossier_lv"), _level_of(character_id)]
 		column.add_child(level)
 		UiButton.attach_hit(card, _on_roster_pressed.bind(character_id))
+		# ⚠ 出撃していない人だけ光らせる（⚠ 09-28 人間「⚠ 出撃してない人だけハイライトしてわかるようにする」）。
+		#   ⚠ 名簿はスクロールの中＝外へ広げると切れるので内側に引く。
+		if in_slot < 0:
+			var glow: PulseFrame = PulseFrame.attach(card, PulseFrame.Strength.STRONG)
+			glow.inward = true
 		cards.add_child(card)
 
 	# 右下のボタン（⚠ 出撃の準備＝出撃する ／ 詰所＝選んだ人を育成で開く）。

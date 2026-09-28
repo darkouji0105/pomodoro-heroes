@@ -14,6 +14,8 @@ const THEME_TYPE: StringName = &"Sortie"
 enum Strength { SOFT, STRONG }
 
 var strength: Strength = Strength.STRONG
+# ⚠ 内側に引く（⚠ スクロールの中の札など＝外へ広げると切れる所）。
+var inward: bool = false
 # ⚠ 描く矩形（⚠ 親の座標）。⚠ 空なら自分の大きさいっぱい。
 var target_rect: Rect2 = Rect2()
 var _time: float = 0.0
@@ -54,4 +56,6 @@ func _draw() -> void:
 		var ring: Color = color
 		ring.a = color.a * (1.0 - float(i) * 0.33) * (0.55 + 0.45 * wave)
 		var spread: float = grow + float(i) * width * (0.8 + 0.6 * wave)
+		if inward:
+			spread = -(width * 0.5 + float(i) * width * (0.8 + 0.6 * wave))
 		draw_rect(rect.grow(spread), ring, false, width)
