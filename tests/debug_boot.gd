@@ -81,6 +81,8 @@ const SHOT_PREPARE_DUNGEON_BOSS: String = "dungeon_boss"
 # ⚠ 装飾の枠を出すための下ごしらえ（2026-09-22・回3）。⚠ 着けて・鍛えて・刺すところまで。
 const SHOT_PREPARE_EQUIPMENT: String = "equipment"
 # ⚠ 画面を開いたあとに窓を出す手（⚠ 増やすなら ShotTaker._after() に1行）。
+# ⚠ 検査の設定ファイル（⚠ 本物の `user://settings.cfg` を書かない・2026-09-28）。
+const SETTINGS_TEST_PATH: String = "user://settings_debug_boot.cfg"
 const SHOT_AFTER_NONE: String = ""
 const SHOT_AFTER_LOOT_OVERLAY: String = "loot_overlay"
 const SHOT_AFTER_BATTLE_RESULT: String = "battle_result"
@@ -103,6 +105,9 @@ const SHOT_AFTER_GUIDE_SKIP: String = "guide_skip"
 const SHOT_AFTER_SORTIE_PICK: String = "sortie_pick"
 # ⚠ 出撃の署名を書き終えて「受理」の判が押された姿（2026-09-28・手本 Sign）。⚠ 内側の `AFTER_SORTIE_SIGN` と同じ字。
 const SHOT_AFTER_SORTIE_SIGN: String = "sortie_sign"
+# ⚠ 設定の「ポモドーロと小窓」タブ（2026-09-28・手本 Settings と同じタブ）。⚠ 内側の `AFTER_SETTINGS_POMODORO` と同じ字。
+const SHOT_AFTER_SETTINGS_POMODORO: String = "settings_pomodoro"
+const SHOT_AFTER_SETTINGS_AUDIO: String = "settings_audio"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1191,6 +1196,9 @@ const SCENARIOS: Dictionary = {
 			},
 			# ⚠ 記録（2026-09-28・回UI-仕組み②・手本 Records）。⚠ 図鑑のタブ。
 			{"name": "45_records", "scene": "res://scenes/guild/records_screen.tscn"},
+			# ⚠ 設定（2026-09-28・回UI-仕組み③・手本 Settings）。⚠ 手本と同じ「ポモドーロと小窓」タブ ／ ⚠ 音のタブ（つまみ）。
+			{"name": "46_settings", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_POMODORO},
+			{"name": "47_settings_audio", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_AUDIO},
 			# ⚠ 「出撃する」→ 署名を書き終えて「受理」の判が押された姿（⚠ 出発の前で止める＝フロアに入らない）。
 			{
 				"name": "44_sortie_sign",
@@ -1235,6 +1243,12 @@ func _ready() -> void:
 	var scenario: Dictionary = SCENARIOS[scenario_name]
 	print("[DebugBoot] scenario=%s : %s" % [scenario_name, str(scenario.get("note", ""))])
 
+	# ⚠⚠ 設定（`GameSettings`・2026-09-28）は検査用のファイルへ差し替え、毎回既定から始める。
+	#   ⚠ 遊んでいる人の `user://settings.cfg` を書き換えない。⚠ 窓で撮るので全画面を戻す。
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_TEST_PATH))
+	GameSettings.use_path(SETTINGS_TEST_PATH)
+	GameSettings.apply_display()
+	SoundManager.refresh_volumes()
 	# ⚠ 状態は書き換えるが、絶対に保存しない。
 	#   set_party_member() / select_skill() は本物の状態を触るので、保存すると
 	#   人間の編成とスキル枠が黙って変わる。SaveManager をこのファイルから呼ばないこと。
@@ -8942,6 +8956,8 @@ class ShotTaker extends Node:
 	const PREPARE_CHESTS: String = "chests"
 	const AFTER_CHEST_OPEN: String = "chest_open"
 	const AFTER_SORTIE_SIGN: String = "sortie_sign"
+	const AFTER_SETTINGS_POMODORO: String = "settings_pomodoro"
+	const AFTER_SETTINGS_AUDIO: String = "settings_audio"
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
 	const AFTER_FORGE_PRESS: String = "forge_press"
@@ -9254,6 +9270,15 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ %s の3番の枠が押せない" % shot_name)
 				return false
 			(hit as BaseButton).pressed.emit()
+			await get_tree().process_frame
+		elif kind == AFTER_SETTINGS_POMODORO or kind == AFTER_SETTINGS_AUDIO:
+			# ⚠ ポモドーロ＝3枚目 ／ 音＝2枚目のタブ（⚠ 本物のタブの札を押す）。
+			var tab_index: int = 2 if kind == AFTER_SETTINGS_POMODORO else 1
+			var tabs: Node = screen.find_child("Tabs", true, false)
+			if tabs == null or tabs.get_child_count() <= tab_index or not (tabs.get_child(tab_index) is BaseButton):
+				push_error("[DebugBoot] ⚠ %s の設定のタブが無い" % shot_name)
+				return false
+			(tabs.get_child(tab_index) as BaseButton).pressed.emit()
 			await get_tree().process_frame
 		elif kind == AFTER_SORTIE_SIGN:
 			# ⚠ 「出撃する」（⚠ 画面の口）→ ⚠ 判が押されるまで待つ → ⚠ 出発の前で流れを止める（⚠ 撮影でフロアに入らない）。
@@ -9715,6 +9740,8 @@ class UiFlowRunner extends Node:
 	const CHEST: String = "res://scenes/base/chest_screen.tscn"
 	const FORGE: String = "res://scenes/guild/forge_screen.tscn"
 	const RECORDS: String = "res://scenes/guild/records_screen.tscn"
+	const SETTINGS: String = "res://scenes/base/settings_screen.tscn"
+	const POMODORO: String = "res://scenes/pomodoro/pomodoro.tscn"
 	const TRAINING_LIST: String = "res://scenes/guild/training_list_screen.tscn"
 	# ⚠ 一覧の画面は class_name を持たない＝⚠ 並びの口は script を読んで呼ぶ。
 	const TrainingListScreenRef: GDScript = preload("res://scenes/guild/training_list_screen.gd")
@@ -9743,6 +9770,7 @@ class UiFlowRunner extends Node:
 		await _flow_barracks()
 		await _flow_quest_board()
 		await _flow_chest()
+		await _flow_settings()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -10023,8 +10051,68 @@ class UiFlowRunner extends Node:
 		# ⚠ 09-27 の見る回で「育成」を戻した（⚠ 人間「⚠ 育成タブを復活させたほうがいい」）。
 		_check("施設の帯：「育成」がある", r.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false) != null)
 		# ⚠ 09-28 人間「⚠ 鍛冶場を装備以外のところからいけるようにしたい」＝⚠ 持ち物と同じ解放で帯に出る。
-		_check("施設の帯：「鍛冶場」がある（持ち物と同じ解放）", r.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) != null)
+		# ⚠ `_setup()` は全部を解放している＝⚠ 帯の定義で「解放の条件が持ち物と同じ」を見る。
+		var unlocks: Dictionary = {}
+		for entry: Dictionary in BaseFacilityBar.facilities():
+			unlocks[str(entry.get(FacilityBar.ENTRY_ID, ""))] = str(entry.get(BaseFacilityBar.KEY_UNLOCK, ""))
+		_check("施設の帯：「鍛冶場」は持ち物と同じ解放で出る（%s）" % str(unlocks.get(BaseFacilityBar.FORGE, "")),
+			r.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) != null
+			and unlocks.get(BaseFacilityBar.FORGE, "?") == unlocks.get(BaseFacilityBar.BELONGINGS, "!"))
 		await _flow_records()
+
+	# --- 設定（2026-09-28・回UI-仕組み③・手本 Settings・人間「⚠ 1あ　⚠ 2あ　⚠ 3い　⚠ 4あ」） ---
+	#   ⚠ 設定のファイルは検査用（`SETTINGS_TEST_PATH`）に差し替えてある。
+
+	func _flow_settings() -> void:
+		# ⚠ 09-28：⚠ 途中で置き場所が本物へ戻り、本物の設定を書いた（⚠ static 変数が初期値に戻った）＝⚠ ここで見張る。
+		_check("設定：検査の設定ファイルを使っている（%s）" % GameSettings.path(), GameSettings.path() == SETTINGS_TEST_PATH)
+		if GameSettings.path() != SETTINGS_TEST_PATH:
+			return
+		var b: Node = await _open(BASE, {})
+		if b == null:
+			return
+		var settings_button: Node = b.find_child("SettingsButton", true, false)
+		_check("本部：「設定」ボタンが出ている", settings_button is Control and (settings_button as Control).visible)
+		await _press(settings_button, OPEN_FRAMES)
+		var s: Node = get_tree().current_scene
+		_check("本部の「設定」で設定の画面（タブ4枚）", _path_of(s) == SETTINGS and _tab_button(s, 3) != null and _tab_button(s, 4) == null)
+		if _path_of(s) != SETTINGS:
+			return
+		# 表示：⚠ 全画面を選ぶと設定に残る（⚠ ヘッドレスでは窓は変わらない）→ 窓に戻す。
+		await _press(s.find_child("Display_true", true, false))
+		var chosen: Node = s.find_child("Display_true", true, false)
+		_check("設定：表示「全画面」を選ぶと残る・札が選ばれた姿", GameSettings.is_fullscreen() and chosen is Button and (chosen as Button).theme_type_variation == &"PaperChoiceSelected")
+		await _press(s.find_child("Display_false", true, false))
+		_check("設定：表示「窓」に戻せる", not GameSettings.is_fullscreen())
+		# 音：⚠ つまみを動かすと設定に残り、⚠ 右の % が変わる。
+		await _press(_tab_button(s, 1))
+		var slider: Node = s.find_child("SeRow", true, false).find_child("Slider", true, false) if s.find_child("SeRow", true, false) != null else null
+		if slider is HSlider:
+			(slider as HSlider).value = 40
+			await get_tree().process_frame
+		_check("設定：効果音を 40%% にすると残る（%d%%・表示 %s）" % [GameSettings.volume_pct(GameSettings.KEY_SE), _label_text(s, "SeRow", "ValueLabel")],
+			GameSettings.volume_pct(GameSettings.KEY_SE) == 40 and _label_text(s, "SeRow", "ValueLabel") == tr("ui_settings_percent") % 40)
+		# ポモドーロ：⚠ 集中 45分・休憩 10分を選ぶ → ⚠ ポモドーロの画面の長さが変わる。
+		await _press(_tab_button(s, 2))
+		await _press(s.find_child("Focus_45", true, false))
+		await _press(s.find_child("Break_10", true, false))
+		_check("設定：集中 45分・休憩 10分を選ぶと残る（%d・%d）" % [GameSettings.focus_minutes(), GameSettings.break_minutes()],
+			GameSettings.focus_minutes() == 45 and GameSettings.break_minutes() == 10)
+		_check("設定：小窓の2行と「話しかける」は「まだ」", s.find_child("MiniWindowRow", true, false) != null and s.find_child("TalkRow", true, false) != null
+			and s.find_children("LaterLabel", "", true, false).size() == 3)
+		# データ：⚠ セーブを消すは置かない（「⚠ 3い」）。
+		await _press(_tab_button(s, 3))
+		var sheet_body: Node = s.find_child("SheetBody", true, false)
+		_check("設定：データはセーブを消すボタンが無く案内だけ", s.find_child("DataNoteRow", true, false) != null
+			and sheet_body != null and sheet_body.find_children("*", "BaseButton", true, false).is_empty())
+		var header: Node = s.find_child("Header", true, false)
+		await _press(null if header == null else header.find_child("BackButton", true, false), OPEN_FRAMES)
+		_check("設定：「戻る」で本部", _path_of(get_tree().current_scene) == BASE)
+		var p: Node = await _open(POMODORO, {})
+		if p != null:
+			var preset: Variant = p.get("current_preset")
+			_check("ポモドーロ：設定の長さで始まる（集中 %s 秒・休憩 %s 秒）" % [str(preset.focus_duration_sec) if preset != null else "?", str(preset.short_break_sec) if preset != null else "?"],
+				preset != null and int(preset.focus_duration_sec) == 45 * 60 and int(preset.short_break_sec) == 10 * 60)
 
 	# --- 記録（2026-09-28・回UI-仕組み②・手本 Records・人間「⚠ 1い　⚠ 2あ　⚠ 3い　⚠ 4あ　⚠ 5あ」） ---
 

@@ -57,6 +57,11 @@ func _ready() -> void:
 			push_error("[Pomodoro] No presets found in Balance.pomodoro")
 			SceneManager.change_scene(BASE_PATH)
 			return
+	# ⚠ 集中と休憩の長さは遊ぶ人の設定（2026-09-28・設定の画面・人間「⚠ 2あ」）。⚠ マスターのプリセットは書き換えない（⚠ 複製）。
+	#   ⚠ 長い休憩・間隔・セット数はプリセットのまま。
+	current_preset = current_preset.duplicate()
+	current_preset.focus_duration_sec = GameSettings.focus_minutes() * 60
+	current_preset.short_break_sec = GameSettings.break_minutes() * 60
 
 	current_total_sets = current_preset.default_total_sets
 	set_titles.resize(current_total_sets)

@@ -22,6 +22,13 @@ extends Resource
 #   見られず、素材IDの改名から漏れて無音で壊れる（EXEC_STAGE_DROPS.md §11）。
 @export var session_title_max_length: int
 
+# ⚠ 設定の画面で選べる集中と休憩の長さ（2026-09-28・回UI-仕組み③・手本 Settings・人間「⚠ 2あ」）。⚠ 分。
+#   ⚠ 選んだ値は `user://settings.cfg`（`GameSettings`・`BS-13`）。⚠ 長い休憩・セット数はプリセットのまま。
+@export var focus_minute_choices: Array[int] = [25, 45, 50]
+@export var break_minute_choices: Array[int] = [5, 10, 15]
+@export var default_focus_minutes: int = 25
+@export var default_break_minutes: int = 5
+
 @export var potion_focus_minutes_per_unit: int = 25
 @export var stamina_potion_recovery: int = 50
 

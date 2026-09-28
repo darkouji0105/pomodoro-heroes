@@ -770,6 +770,7 @@ static func build() -> void:
 	_build_forge(theme)
 	_build_sortie(theme)
 	_build_records(theme)
+	_build_settings(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2476,6 +2477,41 @@ static func _build_records(theme: Theme) -> void:
 	cell.set_corner_radius_all(4)
 	theme.set_type_variation(&"RecordsUnknownCell", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"RecordsUnknownCell", cell)
+
+
+# --- ⚠⚠ 設定（2026-09-28・回UI-仕組み③・手本 Settings）---
+#
+# ⚠ 真ん中に紙（⚠ 手本は幅 1040）。⚠ 行＝左に名前・右に並んだ札 ／ つまみ。⚠ まだ無い行は薄く。
+const SETTINGS_SHEET_WIDTH: int = 1040
+const SETTINGS_CHOICE_WIDTH: int = 64
+const SETTINGS_SLIDER_WIDTH: int = 260
+const SETTINGS_VALUE_WIDTH: int = 60
+const SETTINGS_LATER_ALPHA_PCT: int = 50
+const SETTINGS_SLIDER_GROOVE: int = 6    # ⚠ 音量のつまみの溝の太さ
+
+
+static func _build_settings(theme: Theme) -> void:
+	var t: StringName = &"Settings"
+	theme.set_constant(&"sheet_width", t, SETTINGS_SHEET_WIDTH)
+	theme.set_constant(&"choice_width", t, SETTINGS_CHOICE_WIDTH)
+	theme.set_constant(&"slider_width", t, SETTINGS_SLIDER_WIDTH)
+	theme.set_constant(&"value_width", t, SETTINGS_VALUE_WIDTH)
+	theme.set_constant(&"later_alpha_pct", t, SETTINGS_LATER_ALPHA_PCT)
+	# ⚠ 並んだ札はくっつける（⚠ 手本の「25分｜45分｜50分」）。
+	theme.set_type_variation(&"SettingsChoices", &"HBoxContainer")
+	theme.set_constant(&"separation", &"SettingsChoices", 0)
+	# ⚠ 音量のつまみ（⚠ 既定の灰色は紙の上で浮いた＝撮った絵）：⚠ 溝は罫の色・満ちた部分は真鍮。
+	theme.set_type_variation(&"SettingsSlider", &"HSlider")
+	var groove: StyleBoxFlat = StyleBoxFlat.new()
+	groove.bg_color = _html(TOKEN_RULE)
+	groove.set_corner_radius_all(3)
+	groove.content_margin_top = SETTINGS_SLIDER_GROOVE / 2.0
+	groove.content_margin_bottom = SETTINGS_SLIDER_GROOVE / 2.0
+	theme.set_stylebox(&"slider", &"SettingsSlider", groove)
+	var filled: StyleBoxFlat = groove.duplicate()
+	filled.bg_color = _html(TOKEN_BRASS)
+	theme.set_stylebox(&"grabber_area", &"SettingsSlider", filled)
+	theme.set_stylebox(&"grabber_area_highlight", &"SettingsSlider", filled)
 
 
 static func _build_sortie(theme: Theme) -> void:

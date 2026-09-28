@@ -118,14 +118,24 @@ func _pick_player() -> AudioStreamPlayer:
 
 
 func _apply_bus_volumes() -> void:
-	_set_bus_volume(MASTER_BUS_NAME, _config.master_volume_db)
-	_set_bus_volume(SE_BUS_NAME, _config.se_volume_db)
-	_set_bus_volume(BGM_BUS_NAME, _config.bgm_volume_db)
+	_set_bus_volume(MASTER_BUS_NAME, _config.master_volume_db, GameSettings.KEY_MASTER)
+	_set_bus_volume(SE_BUS_NAME, _config.se_volume_db, GameSettings.KEY_SE)
+	_set_bus_volume(BGM_BUS_NAME, _config.bgm_volume_db, GameSettings.KEY_BGM)
 
 
-func _set_bus_volume(bus_name: String, volume_db: float) -> void:
+# 設定の音量を変えたあとに呼ぶ（2026-09-28・設定の画面）。
+func refresh_volumes() -> void:
+	if _config == null:
+		return
+	_apply_bus_volumes()
+
+
+# ⚠ 基準の音量（`SoundConfig`）に、⚠ 遊ぶ人の設定の割合（`GameSettings`・0〜100%）を掛ける。⚠ 0% は消音。
+func _set_bus_volume(bus_name: String, volume_db: float, setting_key: String) -> void:
 	var index: int = AudioServer.get_bus_index(bus_name)
 	if index == -1:
 		push_warning("[Sound] bus not found: %s" % bus_name)
 		return
-	AudioServer.set_bus_volume_db(index, volume_db)
+	var pct: int = GameSettings.volume_pct(setting_key)
+	AudioServer.set_bus_mute(index, pct <= 0)
+	AudioServer.set_bus_volume_db(index, volume_db + (linear_to_db(float(pct) / 100.0) if pct > 0 else 0.0))

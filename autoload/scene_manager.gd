@@ -24,6 +24,8 @@ func _ready() -> void:
 	# ⚠ 通貨3つの表示も画面をまたいで常駐させる（2026-09-09・人間の指示
 	#   「⚠ ページをまたぐコンポーネントにするところからだと思う」）。
 	_spawn_resource_hud.call_deferred()
+	# ⚠ 遊ぶ人の設定の「全画面」（2026-09-28・`GameSettings`・`BS-13`）。⚠ リリースでも要る＝デバッグの早期 return より前。
+	_apply_display_setting.call_deferred()
 
 	if not OS.is_debug_build():
 		return
@@ -42,6 +44,10 @@ func _spawn_resource_gain_effect() -> void:
 
 
 # ⚠ 右上の通貨（2026-09-09）。⚠ 検証用ではない。消さないこと。
+func _apply_display_setting() -> void:
+	GameSettings.apply_display()
+
+
 func _spawn_resource_hud() -> void:
 	ResourceHud.spawn_into(get_tree().root)
 	print("[SceneManager] ResourceHud を生成した")

@@ -16,7 +16,8 @@ const UI_TEST_PAGE_PATH: String = "res://tests/ui_test_page.tscn"
 const SCREEN_SCENES: Dictionary = {
 	GameStateKeys.SCREEN_ADVENTURE_SELECT: "res://scenes/adventure/adventure_select.tscn",
 	GameStateKeys.SCREEN_POMODORO: "res://scenes/pomodoro/pomodoro.tscn",
-	GameStateKeys.SCREEN_SETTINGS: PLACEHOLDER_PATH,
+	# ⚠ 2026-09-28（回UI-仕組み③）：⚠ 設定の画面。
+	GameStateKeys.SCREEN_SETTINGS: "res://scenes/base/settings_screen.tscn",
 	GameStateKeys.SCREEN_SCENARIO: PLACEHOLDER_PATH,
 }
 
@@ -113,7 +114,8 @@ func _init_navigation_buttons() -> void:
 	for screen_id: String in _navigation_buttons:
 		var btn: UiButton = _navigation_buttons[screen_id]
 		# 解放状態の反映
-		btn.visible = GameManager.is_screen_unlocked(screen_id)
+		# ⚠ 設定はいつも出す（2026-09-28・設定の画面を作った回）。⚠ 設定を解放するステージは無い＝前は出なかった。
+		btn.visible = screen_id == GameStateKeys.SCREEN_SETTINGS or GameManager.is_screen_unlocked(screen_id)
 		# 遷移イベント接続
 		btn.pressed.connect(_go_to_screen.bind(screen_id))
 
