@@ -7,7 +7,8 @@
 # ⚠ 紙の左に鍛える装備の一覧 ／ ⚠ 右に「前 → 後・成功率・素材・札を使う・鍛える」。⚠ 右の列に札の数と「持ち物を見る」。
 # ⚠⚠ 鍛えると**結果の画面**（⚠ 手本 ForgeResult / ForgeResultFail）：⚠ タブと一覧を消し、紙いっぱいに「鍛冶の記録」
 #   （⚠ 前 → いま・成功／失敗の判・値・等級・使った素材）／ ⚠ 右に「続けて鍛える（失敗は もう一度鍛える）」「持ち物で見る」。
-#   ⚠ 09-27 は紙の窓だった → ⚠ 09-28 人間「⚠ 鍛冶の演出は、これも専用画面がいる」。⚠ 「戻る」「続けて鍛える」は鍛える紙へ戻る。
+#   ⚠ 09-27 は紙の窓だった → ⚠ 09-28 人間「⚠ 鍛冶の演出は、これも専用画面がいる」。⚠ 「戻る」は鍛える紙へ戻る。
+#   ⚠ 「続けて鍛える」「もう一度鍛える」は**その場でもう一度鍛える**（⚠ 09-28 人間「⚠ 続けて鍛えるで元の画面に戻らないで」）。
 #   ⚠ 成功＝判が大きく押されて紙いっぱいが金に光り、⚠ 新しい絵がふくらむ ／ ⚠ 失敗＝紙が暗く沈んで震え、⚠ 絵が灰色になる
 #   （⚠ 値は Theme の `Forge` 型）。⚠ 鍛冶の腕（`EQ-5`）と失敗の一言（手本の吹き出し）はまだ無い。
 # ⚠ 判定と状態の変更は `GameManager.forge_equipment_roll()` の1本（⚠ ここで成功率や費用を計算しない）。
@@ -419,10 +420,26 @@ func _build_side_forge() -> void:
 func _build_side_result() -> void:
 	_add_side_spacer()
 	var success: bool = bool(_result.get(GameManager.FORGE_RESULT_SUCCESS, false))
+	# ⚠ 押すと**その場でもう一度鍛える**（⚠ 09-28 人間「⚠ 続けて鍛えるで元の画面に戻らないで」）。⚠ 札は使わない（⚠ 使うなら「戻る」で鍛える紙から）。
+	var grade: int = int(GameManager.get_equipment_instance(_selected).get(GameStateKeys.INSTANCE_GRADE, 1))
+	var cost: Dictionary = GameManager.get_forge_cost(_selected)
+	var material_id: String = str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, ""))
+	var amount: int = int(cost.get(GameManager.FORGE_COST_AMOUNT, 0))
+	var owned: int = GameManager.get_material_count(material_id)
+	var at_max: bool = grade >= GameManager.get_max_equipment_grade()
 	var again: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_forge_continue" if success else "ui_forge_retry")
 	again.name = "ContinueButton"
-	again.pressed.connect(_leave_result)
+	again.disabled = at_max or owned < amount
+	again.pressed.connect(_on_forge_pressed)
 	side.add_child(again)
+	if again.disabled:
+		# ⚠ 押せない理由（⚠ 最大の等級 ／ 素材が足りない）。
+		var reason: Label = Label.new()
+		reason.name = "ContinueReason"
+		reason.theme_type_variation = &"CaptionLabel" if at_max else &"ErrorLabel"
+		reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		reason.text = tr("ui_forge_reject_max") if at_max else "%s %s" % [tr("ui_res_" + material_id), tr("ui_forge_need") % [amount, owned]]
+		side.add_child(reason)
 	var belongings: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_forge_to_belongings")
 	belongings.name = "BelongingsButton"
 	belongings.pressed.connect(_on_belongings_pressed)
