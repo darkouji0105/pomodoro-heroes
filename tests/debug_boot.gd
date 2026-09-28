@@ -9281,8 +9281,9 @@ class ShotTaker extends Node:
 			(hit as BaseButton).pressed.emit()
 			await get_tree().process_frame
 		elif kind == AFTER_RECORDS_PICK:
-			# ⚠ 鉄の剣の枠を押す（⚠ 本物の枠）。
-			var cell: Node = screen.find_child("Found_weapon_iron_sword", true, false)
+			# ⚠ 装備の表のいちばん右下の等級の枠を押す（⚠ 本物の枠）。
+			var grade_cells: Array = screen.find_children("Grade_*", "", true, false)
+			var cell: Node = null if grade_cells.is_empty() else grade_cells[grade_cells.size() - 1]
 			if not (cell is BaseButton):
 				push_error("[DebugBoot] ⚠ %s で図鑑の枠が押せない" % shot_name)
 				return false
@@ -9946,6 +9947,10 @@ class UiFlowRunner extends Node:
 		await _wait()
 		_check("鍛冶場：演出を押すと飛ばして結果の画面", f.find_child("ForgeStrike", true, false) == null and f.find_child("RecordPage", true, false) != null)
 		_check("鍛冶場：「鍛える」で等級 %d → %d" % [grade, _grade(instance_id)], _grade(instance_id) == grade + 1)
+		# ⚠ 図鑑に新しい等級が載る（2026-09-28・`EXEC_CODEX_GRADES.md` §4）。
+		var forged_item: String = str(GameManager.get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+		_check("鍛冶場：鍛えると図鑑にその等級が載る（%s %s）" % [forged_item, str(GameManager.get_codex_grades(forged_item))],
+			_grade(instance_id) in GameManager.get_codex_grades(forged_item))
 		# ⚠ 09-28（人間「⚠ 鍛冶の演出は、これも専用画面がいる」）：⚠ 結果は窓でなく結果の画面（⚠ タブと一覧が消え、紙いっぱいに記録）。
 		var seal: Node = f.find_child("ResultStamp", true, false)
 		var tabs: Node = f.find_child("Tabs", true, false)
@@ -10170,16 +10175,22 @@ class UiFlowRunner extends Node:
 		# 図鑑：⚠ 数は GameManager の口と揃う・⚠ 手に入れていない品は「？」の枠・⚠ 素材の段もある。
 		var found: int = 0
 		var total: int = 0
+		var records: RecordsScreen = r as RecordsScreen
 		for kind: String in GameManager.CODEX_KINDS:
-			for item_id: String in GameManager.get_codex_ids(kind):
-				total += 1
-				if GameManager.is_codex_discovered(item_id):
-					found += 1
+			var counts: Vector2i = records.codex_counts(kind)
+			found += counts.x
+			total += counts.y
 		var heading: Node = r.find_child("CodexHeading", true, false)
 		_check("記録：図鑑の見出しに「%d / %d」" % [found, total], heading is SheetHeading and (heading as SheetHeading).right_text == "%d / %d" % [found, total] and total > 0)
 		_check("記録：装備・装飾・素材の3段", r.find_child("Section_equipment", true, false) != null and r.find_child("Section_part", true, false) != null and r.find_child("Section_material", true, false) != null)
-		_check("記録：手に入れた品は絵・まだの品は「？」（絵 %d ／ ？ %d）" % [r.find_children("Found_*", "", true, false).size(), r.find_children("Unknown_*", "", true, false).size()],
-			r.find_children("Found_*", "", true, false).size() == found and r.find_children("Unknown_*", "", true, false).size() == total - found)
+		var shown: int = r.find_children("Found_*", "", true, false).size() + r.find_children("Grade_*", "", true, false).size()
+		var unknown: int = r.find_children("Unknown_*", "", true, false).size() + r.find_children("UnknownGrade_*", "", true, false).size()
+		_check("記録：手に入れた品（装備は等級）は絵・まだは「？」（絵 %d ／ ？ %d）" % [shown, unknown], shown == found and unknown == total - found)
+		# ⚠ 装備は部位ごとの表（⚠ 09-28 人間「⚠ 等級ごとに列を作って　⚠ カテゴリごとに分ける」）：⚠ 列＝等級1〜最大 ／ 部位の小見出し。
+		var header_row: Node = r.find_child("GradeHeader", true, false)
+		_check("記録：装備の表は等級の列（%d）と部位の小見出し（%d）" % [0 if header_row == null else header_row.get_child_count() - 1, r.find_children("Slot_*", "", true, false).size()],
+			header_row != null and header_row.get_child_count() - 1 == GameManager.get_max_equipment_grade()
+			and r.find_children("Slot_*", "", true, false).size() > 1 and r.find_children("Row_*", "", true, false).size() == GameManager.get_codex_ids(GameManager.CODEX_KIND_EQUIPMENT).size())
 		# ⚠ 品を押すと右に詳しく出る（⚠ 09-28 見る回・人間「⚠ クリックすると詳細も見れるようにしたい」）。
 		_check("記録：選ぶ前は右に「品を押すと」の案内", r.find_child("DetailNone", true, false) != null)
 		var first_found: Node = null
@@ -10193,6 +10204,17 @@ class UiFlowRunner extends Node:
 			picked_id != "" and _label_text(r, "CodexDetail", "DetailName") == tr(GameManager.item_name_key(picked_id))
 			and r.find_child("OwnedLine", true, false) != null and r.find_child("ObtainedLine", true, false) != null
 			and (r.find_child("Found_" + picked_id, true, false) as Button).theme_type_variation == &"RecordsCellPicked")
+		# ⚠ 装備の等級の枠を押すと、その等級の値（⚠ `get_item_stats_at_grade()`）。
+		var grade_cells: Array = r.find_children("Grade_*", "", true, false)
+		if not grade_cells.is_empty():
+			var grade_cell: Node = grade_cells[grade_cells.size() - 1]
+			var parts: PackedStringArray = str(grade_cell.name).trim_prefix("Grade_").rsplit("_", true, 1)
+			await _press(grade_cell)
+			await _wait()
+			_check("記録：装備の等級の枠を押すとその等級（%s・等級 %s）" % [parts[0], _label_text(r, "GradeLine", "ValueLabel")],
+				_label_text(r, "CodexDetail", "DetailName") == tr(GameManager.item_name_key(parts[0])) and _label_text(r, "GradeLine", "ValueLabel") == parts[1])
+		else:
+			_check("記録：装備の等級の枠が1つも無い", false)
 		# ⚠ 素材も図鑑に載る（「⚠ 2あ」）：⚠ まだの素材を1個入れると載る。
 		var fresh: String = ""
 		for material_id: String in GameManager.get_codex_ids(GameManager.CODEX_KIND_MATERIAL):
@@ -10221,6 +10243,32 @@ class UiFlowRunner extends Node:
 		_check("記録：ダンジョンの情報に話 %d・難ダンジョン %d（1話=%s）" % [r.find_children("Stage_*", "", true, false).size(), r.find_children("Dungeon_*", "", true, false).size(), _label_text(r, "Stage_" + first_stage, "ValueLabel")],
 			r.find_children("Stage_*", "", true, false).size() == order.size() and r.find_children("Dungeon_*", "", true, false).size() == MasterDataLoader.get_all_dungeon_ids().size()
 			and _label_text(r, "Stage_" + first_stage, "ValueLabel") == tr("ui_records_cleared" if GameManager.is_stage_cleared(first_stage) else "ui_records_not_cleared"))
+		# ⚠ 前のセーブ（図鑑の装備に grades が無い）を読むと、⚠ 持っている個体の等級まで埋まる（`EXEC_CODEX_GRADES.md` §5）。
+		#   ⚠ ここまでの手で装備を手放していることがある＝⚠ 木の剣を1本入れて等級3まで鍛えてから見る（⚠ 本番の口だけ）。
+		GameManager.add_to_inventory("weapon_wooden_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		for raw: Variant in GameManager.get_owned_instances():
+			if str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "weapon_wooden_sword" \
+					and int((raw as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 1)) == 1:
+				var sword_id: String = str((raw as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+				GameManager.forge_equipment(sword_id)
+				GameManager.forge_equipment(sword_id)
+				break
+		var old_state: Dictionary = GameManager.get_state().duplicate(true)
+		var top: Dictionary = {}
+		for raw: Variant in GameManager.get_owned_instances():
+			var held_id: String = str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+			top[held_id] = maxi(int(top.get(held_id, 0)), int((raw as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 1)))
+		for item_id: Variant in (old_state[GameStateKeys.CODEX] as Dictionary):
+			((old_state[GameStateKeys.CODEX] as Dictionary)[item_id] as Dictionary).erase(GameStateKeys.CODEX_GRADES)
+		GameManager.load_state(old_state)
+		var migrated: bool = not top.is_empty()
+		for held_id: String in top:
+			var expect: Array[int] = []
+			for grade: int in range(1, int(top[held_id]) + 1):
+				expect.append(grade)
+			if GameManager.get_codex_grades(held_id) != expect:
+				migrated = false
+		_check("記録：前のセーブを読むと持っている装備の等級まで図鑑が埋まる（%d 品）" % top.size(), migrated)
 		await _press(_tab_button(r, 2))
 		var hero_row: Node = r.find_child("Character_" + str(candidates[0]), true, false)
 		await _press(hero_row, OPEN_FRAMES)

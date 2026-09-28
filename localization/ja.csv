@@ -1033,6 +1033,7 @@ ui_records_kind_part,装飾
 ui_records_kind_material,素材
 ui_records_unknown,？
 ui_records_detail_none,品を押すと、ここに詳しく出る
+ui_records_grade,%d
 ui_records_detail_slot,部位
 ui_records_detail_tier,段階
 ui_records_detail_range,+%d〜%d

@@ -30,6 +30,8 @@ var _tab: int = TAB_CODEX
 var _tabs: PaperTabs = null
 # ⚠ 図鑑で押して選んだ品（⚠ 右に詳しく出す・09-28 見る回・人間「⚠ クリックすると詳細も見れるようにしたい」）。
 var _picked: String = ""
+# ⚠ 装備は等級の枠を押す（⚠ 0＝装備以外）。
+var _picked_grade: int = 0
 
 
 func _ready() -> void:
@@ -91,10 +93,9 @@ func _build_codex() -> void:
 	var found: int = 0
 	var total: int = 0
 	for kind: String in GameManager.CODEX_KINDS:
-		for item_id: String in GameManager.get_codex_ids(kind):
-			total += 1
-			if GameManager.is_codex_discovered(item_id):
-				found += 1
+		var counts: Vector2i = codex_counts(kind)
+		found += counts.x
+		total += counts.y
 	# ⚠ 左に一覧 ／ 縦の線 ／ 右に押した品の詳しい中身。
 	var body: HBoxContainer = HBoxContainer.new()
 	body.name = "CodexBody"
@@ -113,15 +114,27 @@ func _build_codex() -> void:
 	body.add_child(_codex_detail())
 
 
+# 埋まった数と全体（x＝埋まった ／ y＝全体）。⚠ 装備は「品 × 等級」で数える（⚠ `EXEC_CODEX_GRADES.md` §6）。
+func codex_counts(kind: String) -> Vector2i:
+	var ids: Array[String] = GameManager.get_codex_ids(kind)
+	var found: int = 0
+	if kind == GameManager.CODEX_KIND_EQUIPMENT:
+		for item_id: String in ids:
+			found += GameManager.get_codex_grades(item_id).size()
+		return Vector2i(found, ids.size() * GameManager.get_max_equipment_grade())
+	for item_id: String in ids:
+		if GameManager.is_codex_discovered(item_id):
+			found += 1
+	return Vector2i(found, ids.size())
+
+
 # 種類ひとつ：見出し「装備　4 / 15」＋ 絵と「？」の枠。⚠ 手に入れていない品は名前も絵も出さない（⚠ 中身が割れる）。
+# ⚠ 装備だけは部位ごとの表（⚠ 列＝等級1〜10・行＝品）＝`_equipment_table()`（⚠ 09-28 人間「⚠ 等級ごとに列を作って　⚠ カテゴリごとに分ける」）。
 func _codex_section(kind: String) -> VBoxContainer:
 	var section: VBoxContainer = VBoxContainer.new()
 	section.name = "Section_" + kind
 	var ids: Array[String] = GameManager.get_codex_ids(kind)
-	var found: int = 0
-	for item_id: String in ids:
-		if GameManager.is_codex_discovered(item_id):
-			found += 1
+	var counts: Vector2i = codex_counts(kind)
 	var line: HBoxContainer = HBoxContainer.new()
 	var caption: Label = Label.new()
 	caption.theme_type_variation = &"CaptionLabel"
@@ -130,9 +143,13 @@ func _codex_section(kind: String) -> VBoxContainer:
 	line.add_child(caption)
 	var count: Label = Label.new()
 	count.name = "CountLabel"
-	count.text = "%d / %d" % [found, ids.size()]
+	count.text = "%d / %d" % [counts.x, counts.y]
 	line.add_child(count)
 	section.add_child(line)
+	if kind == GameManager.CODEX_KIND_EQUIPMENT:
+		section.add_child(_equipment_table(ids))
+		section.add_child(HSeparator.new())
+		return section
 	var cells: HFlowContainer = HFlowContainer.new()
 	cells.name = "Cells"
 	cells.theme_type_variation = &"RecordsCells"
@@ -158,10 +175,94 @@ func _codex_section(kind: String) -> VBoxContainer:
 	return section
 
 
-func _on_item_picked(item_id: String) -> void:
-	if item_id == _picked:
+# 装備の表：⚠ 上に等級の見出し（1〜10）・⚠ 部位ごとに小見出しと品の行。⚠ 行＝品の名前（まだなら「？」）＋ 等級の枠。
+#   ⚠ 手に入れた等級＝その等級の色の絵（押せる）／ ⚠ まだ＝「？」の枠に等級の数字を薄く。
+func _equipment_table(ids: Array[String]) -> VBoxContainer:
+	var table: VBoxContainer = VBoxContainer.new()
+	table.name = "EquipmentTable"
+	var max_grade: int = GameManager.get_max_equipment_grade()
+	var header: HBoxContainer = _table_row()
+	header.name = "GradeHeader"
+	header.add_child(_name_cell(""))
+	for grade: int in range(1, max_grade + 1):
+		var number: Label = Label.new()
+		number.theme_type_variation = &"CaptionLabel"
+		number.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		number.custom_minimum_size.x = float(get_theme_constant(&"cell", THEME_TYPE))
+		number.text = tr("ui_records_grade") % grade
+		header.add_child(number)
+	table.add_child(header)
+	# ⚠ 部位の順は品の並び順（sort_order）で最初に出た順（⚠ 武器が先）。
+	var slots: Array[String] = []
+	for item_id: String in ids:
+		var item_slot: String = str(MasterDataLoader.get_item(item_id).get("equip_slot", ""))
+		if not (item_slot in slots):
+			slots.append(item_slot)
+	for slot: String in slots:
+		var slot_ids: Array[String] = []
+		for item_id: String in ids:
+			if str(MasterDataLoader.get_item(item_id).get("equip_slot", "")) == slot:
+				slot_ids.append(item_id)
+		if slot_ids.is_empty():
+			continue
+		var slot_label: Label = Label.new()
+		slot_label.name = "Slot_" + slot
+		slot_label.theme_type_variation = &"CaptionLabel"
+		slot_label.text = tr("ui_equipment_slot_" + slot)
+		table.add_child(slot_label)
+		for item_id: String in slot_ids:
+			var row: HBoxContainer = _table_row()
+			row.name = "Row_" + item_id
+			var grades: Array[int] = GameManager.get_codex_grades(item_id)
+			row.add_child(_name_cell(tr(GameManager.item_name_key(item_id)) if GameManager.is_codex_discovered(item_id) else tr("ui_records_unknown")))
+			for grade: int in range(1, max_grade + 1):
+				if grade in grades:
+					row.add_child(_found_cell(item_id, grade))
+				else:
+					var cell: PanelContainer = _unknown_cell(item_id)
+					cell.name = "UnknownGrade_%s_%d" % [item_id, grade]
+					(cell.get_child(0) as Label).text = str(grade)
+					row.add_child(cell)
+			table.add_child(row)
+	return table
+
+
+func _table_row() -> HBoxContainer:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.theme_type_variation = &"RecordsTableRow"
+	return row
+
+
+func _name_cell(text: String) -> Label:
+	var label: Label = Label.new()
+	label.custom_minimum_size.x = float(get_theme_constant(&"name_width", THEME_TYPE))
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.text = text
+	return label
+
+
+# 手に入れた等級の枠（⚠ 押すと右にその等級の値）。
+func _found_cell(item_id: String, grade: int) -> Button:
+	var cell: Button = Button.new()
+	cell.name = "Grade_%s_%d" % [item_id, grade]
+	cell.theme_type_variation = &"RecordsCellPicked" if (item_id == _picked and grade == _picked_grade) else &"RecordsCell"
+	cell.tooltip_text = "%s %s" % [tr(GameManager.item_name_key(item_id)), tr("ui_records_grade") % grade]
+	var side: float = float(get_theme_constant(&"cell", THEME_TYPE))
+	cell.custom_minimum_size = Vector2(side, side)
+	cell.pressed.connect(_on_item_picked.bind(item_id, grade))
+	var icon: ItemIcon = ItemIcon.create(item_id, grade)
+	icon.name = "Icon"
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(icon)
+	return cell
+
+
+func _on_item_picked(item_id: String, grade: int = 0) -> void:
+	if item_id == _picked and grade == _picked_grade:
 		return
 	_picked = item_id
+	_picked_grade = grade
 	# ⚠ 押した枠を押している最中に外さない（⚠ 次のフレームで描き直す）。
 	_rebuild.call_deferred()
 
@@ -184,7 +285,7 @@ func _codex_detail() -> VBoxContainer:
 	var head: HBoxContainer = HBoxContainer.new()
 	var holder: Control = Control.new()
 	var icon_scale: float = float(get_theme_constant(&"detail_icon_scale_pct", THEME_TYPE)) / 100.0
-	var icon: ItemIcon = ItemIcon.create(_picked)
+	var icon: ItemIcon = ItemIcon.create(_picked, _picked_grade)
 	holder.add_child(icon)
 	holder.scale = Vector2.ONE * icon_scale
 	holder.custom_minimum_size = Vector2.ONE * float(get_theme_constant(&"cell", THEME_TYPE))
@@ -211,11 +312,14 @@ func _codex_detail() -> VBoxContainer:
 	detail.add_child(HSeparator.new())
 	match kind:
 		GameManager.CODEX_KIND_EQUIPMENT:
+			# ⚠ 押した等級の素の値（⚠ `get_item_stats_at_grade()`＝式は1か所・`EXEC_CODEX_GRADES.md` §6）。
+			var grade: int = maxi(1, _picked_grade)
 			detail.add_child(_detail_line("SlotLine", tr("ui_records_detail_slot"), tr("ui_equipment_slot_" + str(master.get("equip_slot", "")))))
-			var stats: Variant = master.get("equip_stats", {})
-			if stats is Dictionary:
-				for stat_key: String in (stats as Dictionary):
-					detail.add_child(_detail_line("Stat_" + stat_key, tr("ui_training_stat_" + stat_key), "+%d" % int((stats as Dictionary)[stat_key])))
+			detail.add_child(_detail_line("GradeLine", tr("ui_forge_grade"), str(grade)))
+			var stats: Dictionary = GameManager.get_item_stats_at_grade(_picked, grade)
+			for stat_key: String in stats:
+				if int(stats[stat_key]) != 0:
+					detail.add_child(_detail_line("Stat_" + stat_key, tr("ui_training_stat_" + stat_key), "%+d" % int(stats[stat_key])))
 		GameManager.CODEX_KIND_PART:
 			var part: Dictionary = GameManager.get_part_definition(_picked)
 			var base: int = int(part.get(GameManager.ITEM_MASTER_PART_BASE, 0))

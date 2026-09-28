@@ -790,6 +790,23 @@ func _mark_codex_discovered(item_id: String) -> bool:
 	_state[GameStateKeys.CODEX] = codex
 	return true
 
+
+# 図鑑の装備の行に、手に入れた等級を足す（2026-09-28・`EXEC_CODEX_GRADES.md` §4）。
+# ⚠ 呼ぶのは2か所だけ：`_create_equipment_instance()`（生まれた等級）／ `forge_equipment_roll()` の成功。
+# ⚠ 消す口は作らない（⚠ 図鑑は「手に入れたことがある」の記録）。
+func _mark_codex_grade(item_id: String, grade: int) -> void:
+	_mark_codex_discovered(item_id)
+	var codex: Dictionary = _copy_dict(GameStateKeys.CODEX)
+	var entry: Dictionary = (codex.get(item_id, {}) as Dictionary).duplicate(true)
+	var grades: Array = (entry.get(GameStateKeys.CODEX_GRADES, []) as Array).duplicate()
+	if grade in grades:
+		return
+	grades.append(grade)
+	grades.sort()
+	entry[GameStateKeys.CODEX_GRADES] = grades
+	codex[item_id] = entry
+	_state[GameStateKeys.CODEX] = codex
+
 # --- 画面アンロック ---
 
 func unlock_screen(screen_id: String) -> void:
@@ -1349,6 +1366,16 @@ func get_codex_ids(kind: String) -> Array[String]:
 
 func is_codex_discovered(item_id: String) -> bool:
 	return bool(get_codex_entry(item_id).get(GameStateKeys.CODEX_DISCOVERED, false))
+
+
+# 装備の手に入れたことのある等級（昇順）。⚠ 2026-09-28・`EXEC_CODEX_GRADES.md`。
+func get_codex_grades(item_id: String) -> Array[int]:
+	var grades: Array[int] = []
+	var raw: Variant = get_codex_entry(item_id).get(GameStateKeys.CODEX_GRADES, [])
+	if raw is Array:
+		for value: Variant in (raw as Array):
+			grades.append(int(value))
+	return grades
 
 
 # ポモドーロを終えた回数の合計（⚠ 記録の画面「集中の履歴」）。
@@ -2491,6 +2518,8 @@ func _create_equipment_instance(item_id: String) -> String:
 	}
 	_state[GameStateKeys.EQUIPMENT_INSTANCES] = instances
 	_state[GameStateKeys.NEXT_EQUIPMENT_INSTANCE_ID] = next_id + 1
+	# ⚠ 図鑑に生まれた等級を記録（2026-09-28・`EXEC_CODEX_GRADES.md` §4）。
+	_mark_codex_grade(item_id, 1)
 
 	print("[GameManager] _create_equipment_instance('%s') -> %s" % [item_id, instance_id])
 	return instance_id
@@ -2563,6 +2592,21 @@ func get_instance_stats(instance_id: String) -> Dictionary:
 # ⚠ 計算はここ1本。⚠ get_instance_stats() もここを通すので、⚠ 見込みと鍛えた後が食い違わない。
 # ⚠ 装飾の加算は今の等級で開いている枠のまま（⚠ 等級を上げても開いた枠が閉じることは無く、
 #   ⚠ 新しく開く枠は空なので、⚠ 加算は変わらない）。
+# 品と等級だけから素の値（⚠ 装飾は入らない）。⚠ 2026-09-28 に `get_instance_stats_at_grade()` から式を切り出した
+#   （⚠ 記録の図鑑が等級ごとの値を出すため・`EXEC_CODEX_GRADES.md` §6）。⚠ 式はここ1か所。
+func get_item_stats_at_grade(item_id: String, grade: int) -> Dictionary:
+	var result: Dictionary = {}
+	for stat_key: String in _stat_keys():
+		result[stat_key] = 0
+	var equip_stats: Variant = MasterDataLoader.get_item(item_id).get(ITEM_MASTER_EQUIP_STATS, {})
+	if not (equip_stats is Dictionary):
+		return result
+	for stat_key: String in _stat_keys():
+		var base: int = int((equip_stats as Dictionary).get(stat_key, 0))
+		result[stat_key] = base + int(floor(float(base) * GRADE_STAT_RATIO * float(grade - 1)))
+	return result
+
+
 func get_instance_stats_at_grade(instance_id: String, grade: int) -> Dictionary:
 	var result: Dictionary = {}
 	for stat_key: String in _stat_keys():
@@ -2573,21 +2617,14 @@ func get_instance_stats_at_grade(instance_id: String, grade: int) -> Dictionary:
 		return result
 
 	var item_id: String = str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
-	var definition: Dictionary = MasterDataLoader.get_item(item_id)
-	if definition.is_empty():
+	if MasterDataLoader.get_item(item_id).is_empty():
 		# items.json から消えたIDを装備したまま。装備は外れないが加算されない。
 		# リリース後にアイテムIDを改名しないこと（レシピIDと同じ制約）。
 		push_warning("[GameManager] get_instance_stats: items.json に無いID: " + item_id)
 		return result
 
-	var equip_stats: Variant = definition.get(ITEM_MASTER_EQUIP_STATS, {})
-	if not (equip_stats is Dictionary):
-		return result
-
-	# ⚠ 等級は引数のもの（⚠ 個体の等級を読み直さない）。
-	for stat_key: String in _stat_keys():
-		var base: int = int((equip_stats as Dictionary).get(stat_key, 0))
-		result[stat_key] = base + int(floor(float(base) * GRADE_STAT_RATIO * float(grade - 1)))
+	# ⚠ 等級は引数のもの（⚠ 個体の等級を読み直さない）。⚠ 素の値の式は `get_item_stats_at_grade()` の1か所。
+	result = get_item_stats_at_grade(item_id, grade)
 
 	# 刺さっている装飾の加算（EXEC_DECORATION.md §1-2）。
 	# ⚠ 装飾がステータスに乗る合流点はここ1箇所だけ。この先は
@@ -3052,6 +3089,8 @@ func forge_equipment_roll(instance_id: String, use_token: bool = false) -> Dicti
 	if success:
 		instance[GameStateKeys.INSTANCE_GRADE] = new_grade
 		_write_instance(instance_id, instance)
+		# ⚠ 図鑑に新しい等級を記録（2026-09-28・`EXEC_CODEX_GRADES.md` §4）。⚠ 失敗では何もしない。
+		_mark_codex_grade(str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, "")), new_grade)
 
 	result[FORGE_RESULT_OK] = true
 	result[FORGE_RESULT_SUCCESS] = success
@@ -6481,6 +6520,34 @@ func load_state(data: Dictionary) -> bool:
 						GameStateKeys.CODEX_DISCOVERED: true,
 						GameStateKeys.CODEX_OBTAINED_AT: str(Time.get_unix_time_from_system()),
 					}
+	# ⚠ 図鑑の装備の等級（2026-09-28・`EXEC_CODEX_GRADES.md` §5）：⚠ 数を int に戻す（CLAUDE.md 3番）／
+	#   ⚠ 前のセーブ（grades が無い行）は、いま持っている個体の等級 N から 1〜N を埋める（⚠ 1で生まれ1つずつ上がったはず）。
+	if new_state.get(GameStateKeys.CODEX) is Dictionary:
+		var codex_grades: Dictionary = new_state[GameStateKeys.CODEX]
+		var held: Dictionary = {}
+		var raw_instances: Variant = new_state.get(GameStateKeys.EQUIPMENT_INSTANCES, {})
+		if raw_instances is Dictionary:
+			for instance_id: Variant in (raw_instances as Dictionary):
+				var instance: Variant = (raw_instances as Dictionary)[instance_id]
+				if not (instance is Dictionary):
+					continue
+				var held_item: String = str((instance as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+				held[held_item] = maxi(int(held.get(held_item, 0)), int((instance as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 1)))
+		for item_id: Variant in codex_grades:
+			var entry: Variant = codex_grades[item_id]
+			if not (entry is Dictionary):
+				continue
+			var entry_dict: Dictionary = entry
+			if entry_dict.get(GameStateKeys.CODEX_GRADES) is Array:
+				var cast: Array = []
+				for value: Variant in (entry_dict[GameStateKeys.CODEX_GRADES] as Array):
+					cast.append(int(value))
+				entry_dict[GameStateKeys.CODEX_GRADES] = cast
+			elif held.has(str(item_id)):
+				var filled: Array = []
+				for grade: int in range(1, int(held[str(item_id)]) + 1):
+					filled.append(grade)
+				entry_dict[GameStateKeys.CODEX_GRADES] = filled
 	# 持ち物の個数。materials と同じ理由で int に戻す（宿題12・2026-08-25）。
 	# ⚠ これを飛ばすと、セーブ→ロード→セーブで "count": 5.0 と書かれ続ける。
 	#   読む側（get_item_count / _remove_from_inventory / use_stamina_potion）が

@@ -2472,6 +2472,7 @@ const RECORDS_PHOTO: int = 40           # ⚠ キャラの情報の顔
 const RECORDS_STAT_WIDTH: int = 110     # ⚠ キャラの情報の値1つぶん
 const RECORDS_UNKNOWN_ALPHA_PCT: int = 60
 const RECORDS_DETAIL_WIDTH: int = 280      # ⚠ 右の詳しい中身の幅
+const RECORDS_NAME_WIDTH: int = 150        # ⚠ 装備の表の品の名前の列
 const RECORDS_DETAIL_ICON_PCT: int = 160   # ⚠ 右の絵の大きさ（⚠ 40 の 160%）
 const RECORDS_PICKED_BORDER: int = 2       # ⚠ 選んでいる品の金の縁  # ⚠ 「？」の枠線（⚠ 手本は破線＝⚠ Godot の面は破線を引けないので薄い実線）
 
@@ -2494,6 +2495,10 @@ static func _build_records(theme: Theme) -> void:
 	theme.set_type_variation(&"RecordsUnknownCell", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"RecordsUnknownCell", cell)
 	# ⚠ 手に入れた品の枠＝押せる（⚠ 09-28 見る回・人間「⚠ クリックすると詳細も見れるようにしたい」）。⚠ 選んでいる品は金の縁。
+	# ⚠ 装備の表（⚠ 09-28 人間「⚠ 等級ごとに列を作って　⚠ カテゴリごとに分ける」）：⚠ 左に品の名前・右に等級の枠。
+	theme.set_constant(&"name_width", t, RECORDS_NAME_WIDTH)
+	theme.set_type_variation(&"RecordsTableRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"RecordsTableRow", RECORDS_CELL_GAP)
 	theme.set_constant(&"detail_width", t, RECORDS_DETAIL_WIDTH)
 	theme.set_constant(&"detail_icon_scale_pct", t, RECORDS_DETAIL_ICON_PCT)
 	var plain: StyleBoxEmpty = StyleBoxEmpty.new()
