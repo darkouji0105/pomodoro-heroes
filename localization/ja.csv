@@ -1148,6 +1148,9 @@ ui_forge_token_left,のこり %d
 ui_forge_note,等級5→6 から失敗がある。失敗しても等級は下がらない
 ui_forge_do,鍛える
 ui_forge_record,鍛　冶　の　記　録
+ui_forge_result_subtitle,鍛えた結果
+ui_forge_continue,続けて鍛える
+ui_forge_retry,もう一度鍛える
 ui_forge_before,前
 ui_forge_now,いま
 ui_forge_success,成功
@@ -1172,7 +1175,7 @@ ui_sortie_front,いちばん前
 ui_sortie_middle,まんなか
 ui_sortie_back,いちばん後ろ
 ui_sortie_dropdown,▼
-ui_sortie_pick_hint,この枠に入れる人を、下の名簿から選ぶ
+ui_sortie_pick_hint,下の名簿から選ぶ
 ui_sortie_swap_hint,押すと名簿から選ぶ
 ui_sortie_move_left,◀
 ui_sortie_move_right,▶

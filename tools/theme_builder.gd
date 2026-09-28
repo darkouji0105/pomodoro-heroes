@@ -2375,14 +2375,19 @@ static func _build_chest(theme: Theme) -> void:
 const FORGE_LIST_WIDTH: int = 240
 const FORGE_SIDE_WIDTH: int = 280
 const FORGE_ARROW_GAP: int = 28          # ⚠ 前の絵・矢印・後の絵の間
-# ⚠ 鍛冶の記録の窓の演出（2026-09-27 の見る回・人間「⚠ 個別の演出を」）。⚠ 値は設計役の値（⚠ 手本に無い）。
+# ⚠ 鍛冶の記録の演出（2026-09-27 の見る回・人間「⚠ 個別の演出を」）。⚠ 値は設計役の値（⚠ 手本に無い）。
 #   ⚠ 判：遅れて大きく現れ、押し付けられる ／ ⚠ 成功は新しい絵がふくらんで光る ／ ⚠ 失敗は判が震え、絵が灰色に沈む。
+#   ⚠ 09-28（人間「⚠ 鍛冶の演出は、これも専用画面がいる」）：⚠ 窓をやめて結果の画面に。⚠ 判を大きく（`fx_seal_scale_pct`）、
+#   ⚠ 判が押された瞬間に紙いっぱいが光る（成功＝金 ／ 失敗＝暗く沈む）・⚠ 失敗は紙ごと震える。
 const FORGE_FX: Dictionary = {
-	"fx_delay_ms": 150, "fx_slam_ms": 220, "fx_slam_scale_pct": 240, "fx_after_ms": 500,
-	"fx_pulse_pct": 118, "fx_shake_px": 8, "fx_shake_steps": 6,
+	"fx_delay_ms": 250, "fx_slam_ms": 240, "fx_slam_scale_pct": 260, "fx_after_ms": 600,
+	"fx_pulse_pct": 125, "fx_shake_px": 8, "fx_shake_steps": 6,
+	"fx_seal_scale_pct": 150, "fx_flash_ms": 800, "fx_sheet_shake_px": 10,
 }
 const FORGE_FX_GLOW: Color = Color(1.35, 1.25, 0.95)   # ⚠ 絵を明るくする（⚠ 1 を超える modulate）
 const FORGE_FX_DIM: Color = Color(0.55, 0.55, 0.55)
+const FORGE_FX_FLASH: Color = Color(1.0, 0.83, 0.42, 0.6)      # ⚠ 成功の光（⚠ 灯りの金）
+const FORGE_FX_FLASH_FAIL: Color = Color(0.08, 0.06, 0.05, 0.45)  # ⚠ 失敗の沈み
 
 
 static func _build_forge(theme: Theme) -> void:
@@ -2395,6 +2400,8 @@ static func _build_forge(theme: Theme) -> void:
 		theme.set_constant(StringName(fx_name), t, int(FORGE_FX[fx_name]))
 	theme.set_color(&"fx_glow", t, FORGE_FX_GLOW)
 	theme.set_color(&"fx_dim", t, FORGE_FX_DIM)
+	theme.set_color(&"fx_flash", t, FORGE_FX_FLASH)
+	theme.set_color(&"fx_flash_fail", t, FORGE_FX_FLASH_FAIL)
 
 
 # --- ⚠⚠ 出撃の準備／詰所（2026-09-28・モック `docs/pomodoro-heroes-ui-docs/barracks/`・決定 `NAV-11`）---

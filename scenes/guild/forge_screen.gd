@@ -5,10 +5,11 @@
 # ⚠ 人間「⚠ 2あ」＝作業場は「作る」タブ（⚠ いまはタブを押すと作業場の画面へ移る＝⚠ 作業場の中身はまだ作り直していない）。
 # ⚠ 人間「⚠ 3あ」＝持ち物・育成の「鍛える」は、⚠ この画面をその品を選んだ状態で開く（`TransferKeys.FORGE_INSTANCE_ID`）。
 # ⚠ 紙の左に鍛える装備の一覧 ／ ⚠ 右に「前 → 後・成功率・素材・札を使う・鍛える」。⚠ 右の列に札の数と「持ち物を見る」。
-# ⚠⚠ 鍛えると**紙の窓**で「鍛冶の記録」を出す（⚠ 前 → いま・成功／失敗の判・値・等級・使った素材）。
-#   ⚠ 09-27 の見る回・人間「⚠ 鍛冶の記録はモーダルで結果を伝えるのがいいと思う　⚠ 個別の演出を」→「⚠ 5い」＝ボタンは「閉じる」だけ。
-#   ⚠ 成功＝判が大きく押されて落ち、⚠ 新しい絵が光る ／ ⚠ 失敗＝判が落ちて震え、⚠ 絵が灰色に沈む（⚠ 値は Theme の `Forge` 型）。
-#   ⚠ 前は紙そのものを記録に差し替えていた（⚠ 窓にしたので「続けて鍛える」は無い＝閉じてもう一度「鍛える」）。
+# ⚠⚠ 鍛えると**結果の画面**（⚠ 手本 ForgeResult / ForgeResultFail）：⚠ タブと一覧を消し、紙いっぱいに「鍛冶の記録」
+#   （⚠ 前 → いま・成功／失敗の判・値・等級・使った素材）／ ⚠ 右に「続けて鍛える（失敗は もう一度鍛える）」「持ち物で見る」。
+#   ⚠ 09-27 は紙の窓だった → ⚠ 09-28 人間「⚠ 鍛冶の演出は、これも専用画面がいる」。⚠ 「戻る」「続けて鍛える」は鍛える紙へ戻る。
+#   ⚠ 成功＝判が大きく押されて紙いっぱいが金に光り、⚠ 新しい絵がふくらむ ／ ⚠ 失敗＝紙が暗く沈んで震え、⚠ 絵が灰色になる
+#   （⚠ 値は Theme の `Forge` 型）。⚠ 鍛冶の腕（`EQ-5`）と失敗の一言（手本の吹き出し）はまだ無い。
 # ⚠ 判定と状態の変更は `GameManager.forge_equipment_roll()` の1本（⚠ ここで成功率や費用を計算しない）。
 # ⚠ 素材は今の費用の形（⚠ 等級ごとに1種類）。⚠ 手本の「素材2つ」には合わせていない（⚠ 費用の器を変えないため）。
 # ⚠ 再描画に await を持たせない（AGENTS.md）。⚠ 画面は自分の操作のあとに自分で描き直す（⚠ シグナルは購読しない）。
@@ -30,9 +31,13 @@ const RESULT_SLOTS_BEFORE: String = "slots_before"
 @onready var main_stack: VBoxContainer = $Margin/Layout/Body/Main
 @onready var sheet_body: HBoxContainer = $Margin/Layout/Body/Main/Sheet/SheetBody
 @onready var side: VBoxContainer = $Margin/Layout/Body/Side
+@onready var sheet: PaperSheet = $Margin/Layout/Body/Main/Sheet
 
 var _selected: String = ""
 var _use_token: bool = false
+# ⚠ 空でなければ結果の画面（⚠ `forge_equipment_roll()` の戻り値 ＋ 前の値）。
+var _result: Dictionary = {}
+var _tabs: PaperTabs = null
 
 
 func _ready() -> void:
@@ -47,6 +52,7 @@ func _ready() -> void:
 	tabs.tab_changed.connect(_on_tab_changed)
 	main_stack.add_child(tabs)
 	main_stack.move_child(tabs, 0)
+	_tabs = tabs
 	_rebuild()
 
 
@@ -64,6 +70,13 @@ func _clear(box: Node) -> void:
 func _rebuild() -> void:
 	_clear(sheet_body)
 	_clear(side)
+	var showing: bool = not _result.is_empty()
+	_tabs.visible = not showing
+	header.set_subtitle_text(tr("ui_forge_result_subtitle") if showing else "")
+	if showing:
+		sheet_body.add_child(_build_record(_result))
+		_build_side_result()
+		return
 	var views: Array = GameManager.get_owned_instances()
 	if _selected == "" or GameManager.get_equipment_instance(_selected).is_empty():
 		_selected = str((views[0] as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")) if not views.is_empty() else ""
@@ -259,26 +272,27 @@ func _on_forge_pressed() -> void:
 	result[RESULT_STATS_BEFORE] = stats_before
 	result[RESULT_SLOTS_BEFORE] = slots_before
 	_use_token = false
+	_result = result
 	_rebuild()
-	_show_record(result)
 
 
-# --- 鍛冶の記録（⚠ 紙の窓・閉じるだけ＝人間「⚠ 5い」） -------------------------
+# 結果の画面から鍛える紙へ戻る（⚠ 「続けて鍛える」「戻る」）。⚠ 選んでいる品はそのまま。
+func _leave_result() -> void:
+	_result = {}
+	_rebuild()
 
-func _show_record(result: Dictionary) -> void:
-	var content: VBoxContainer = _build_record(result)
-	Modal.notify(self, "", [], false, {
-		Modal.OPTION_TITLE: tr("ui_forge_record"),
-		Modal.OPTION_CONTENT: content,
-		Modal.OPTION_PAPER: true,
-		Modal.OPTION_WIDTH: Modal.WIDTH_MEDIUM,
-	})
 
+# --- 鍛冶の記録（⚠ 結果の画面の紙・09-28 人間「⚠ これも専用画面がいる」） ---------------
 
 func _build_record(result: Dictionary) -> VBoxContainer:
 	var page: VBoxContainer = VBoxContainer.new()
 	page.name = "RecordPage"
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var heading: SheetHeading = SheetHeading.new()
+	heading.title_key = "ui_forge_record"
+	heading.centered = true
+	heading.ornament_below = true
+	page.add_child(heading)
 	var instance: Dictionary = GameManager.get_equipment_instance(_selected)
 	var item_id: String = str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
 	var success: bool = bool(result.get(GameManager.FORGE_RESULT_SUCCESS, false))
@@ -401,6 +415,20 @@ func _build_side_forge() -> void:
 	side.add_child(belongings)
 
 
+# 結果の画面の右の列（⚠ 手本：下に「続けて鍛える」「持ち物で見る」）。
+func _build_side_result() -> void:
+	_add_side_spacer()
+	var success: bool = bool(_result.get(GameManager.FORGE_RESULT_SUCCESS, false))
+	var again: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_forge_continue" if success else "ui_forge_retry")
+	again.name = "ContinueButton"
+	again.pressed.connect(_leave_result)
+	side.add_child(again)
+	var belongings: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_forge_to_belongings")
+	belongings.name = "BelongingsButton"
+	belongings.pressed.connect(_on_belongings_pressed)
+	side.add_child(belongings)
+
+
 func _add_side_spacer() -> void:
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -412,12 +440,14 @@ func _center_pivot(control: Control) -> void:
 	control.pivot_offset = control.size * 0.5
 
 
-# 記録の窓の演出（⚠ 人間「⚠ 個別の演出を」）。⚠ Tween は判と絵に結びつける（⚠ 窓が閉じれば一緒に止まる）。
-#   ⚠ 成功：判が大きく現れて押し付けられ、⚠ 新しい絵が一度ふくらんで光る。
-#   ⚠ 失敗：判が押し付けられて左右に震え、⚠ 新しい絵（＝前と同じ）が灰色に沈む。
+# 記録の演出（⚠ 人間「⚠ 個別の演出を」「⚠ 専用画面がいる」）。⚠ Tween は判・絵・光に結びつける（⚠ 画面を離れれば一緒に止まる）。
+#   ⚠ 成功：判が大きく現れて押し付けられ、⚠ 紙いっぱいが金に光り、⚠ 新しい絵が一度ふくらんで光る。
+#   ⚠ 失敗：判が押し付けられて左右に震え、⚠ 紙が暗く沈んで紙ごと震え、⚠ 新しい絵（＝前と同じ）が灰色に沈む。
 func _play_record_fx(holder: Control, seal: Stamp, now: Control, success: bool) -> void:
-	holder.custom_minimum_size = seal.custom_minimum_size
+	var final_scale: float = float(get_theme_constant(&"fx_seal_scale_pct", THEME_TYPE)) / 100.0
 	seal.size = seal.custom_minimum_size
+	holder.custom_minimum_size = seal.custom_minimum_size * final_scale
+	seal.position = (holder.custom_minimum_size - seal.size) * 0.5
 	seal.pivot_offset = seal.size * 0.5
 	var delay: float = float(get_theme_constant(&"fx_delay_ms", THEME_TYPE)) / 1000.0
 	var slam: float = float(get_theme_constant(&"fx_slam_ms", THEME_TYPE)) / 1000.0
@@ -427,8 +457,11 @@ func _play_record_fx(holder: Control, seal: Stamp, now: Control, success: bool) 
 	var tween: Tween = seal.create_tween()
 	tween.tween_interval(delay)
 	tween.tween_property(seal, "modulate:a", 1.0, slam)
-	tween.parallel().tween_property(seal, "scale", Vector2.ONE, slam).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(seal, "scale", Vector2.ONE * final_scale, slam).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	var after: float = float(get_theme_constant(&"fx_after_ms", THEME_TYPE)) / 1000.0
+	_flash_sheet(delay + slam, success)
+	if not success:
+		_shake_sheet(delay + slam, after)
 	var icon_tween: Tween = now.create_tween()
 	icon_tween.tween_interval(delay + slam)
 	# ⚠ 窓が並べ終わってから中心を合わせる（⚠ いまは大きさが 0 のことがある）。
@@ -449,11 +482,42 @@ func _play_record_fx(holder: Control, seal: Stamp, now: Control, success: bool) 
 		icon_tween.tween_property(now, "modulate", get_theme_color(&"fx_dim", THEME_TYPE), after)
 
 
+# 判が押された瞬間に紙いっぱいを光らせる（⚠ 成功＝金 ／ 失敗＝暗く沈む）。⚠ 光は紙の子＝紙いっぱいに敷かれ、⚠ 消えたら自分で外れる。
+func _flash_sheet(at: float, success: bool) -> void:
+	var flash: ColorRect = ColorRect.new()
+	flash.name = "RecordFlash"
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flash.color = get_theme_color(&"fx_flash" if success else &"fx_flash_fail", THEME_TYPE)
+	flash.modulate.a = 0.0
+	sheet.add_child(flash)
+	var tween: Tween = flash.create_tween()
+	tween.tween_interval(at)
+	tween.tween_property(flash, "modulate:a", 1.0, 0.05)
+	tween.tween_property(flash, "modulate:a", 0.0, float(get_theme_constant(&"fx_flash_ms", THEME_TYPE)) / 1000.0)
+	tween.tween_callback(flash.queue_free)
+
+
+# 紙ごと左右に震わせる（⚠ 相対で動かす＝最後は元の位置）。
+func _shake_sheet(at: float, duration: float) -> void:
+	var shake: float = float(get_theme_constant(&"fx_sheet_shake_px", THEME_TYPE))
+	var steps: int = get_theme_constant(&"fx_shake_steps", THEME_TYPE)
+	var tween: Tween = sheet.create_tween()
+	tween.tween_interval(at)
+	var last: float = 0.0
+	for i: int in range(steps + 1):
+		var offset: float = 0.0 if i == steps else shake * (1.0 - float(i) / float(steps)) * (1.0 if i % 2 == 0 else -1.0)
+		tween.tween_property(sheet, "position:x", offset - last, duration / float(steps + 1)).as_relative()
+		last = offset
+
+
 func _on_belongings_pressed() -> void:
 	SceneManager.change_scene_with_data(BELONGINGS_PATH, {TransferKeys.WAREHOUSE_INSTANCE_ID: _selected})
 
 
 func _on_back_pressed() -> void:
+	if not _result.is_empty():
+		_leave_result()
+		return
 	SceneManager.change_scene(BASE_PATH)
 
 

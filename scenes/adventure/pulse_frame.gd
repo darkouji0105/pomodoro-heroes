@@ -5,7 +5,7 @@ extends Control
 #   ⚠ 枠を囲むとか派手な色で」）。
 #
 # ⚠ 親の矩形の**外側**に、⚠ 派手な色の太い線を重ねて引き、⚠ 太さと明るさを周期で揺らす（⚠ 光って見える）。
-# ⚠ 強さは2段：`STRONG`（ガイド・選んでいる枠・選んでいる間の名簿）／ `SOFT`（選ぶ前の枠＝押せる合図）。
+# ⚠ 強さは2段：`STRONG`（ガイド・入れ替え元の枠・出撃していない名簿の札）／ `SOFT`（⚠ 09-28 からは使っていない）。
 # ⚠ 押下は拾わない（⚠ 下の枠や名簿がそのまま押せる）。⚠ 値は Theme の `Sortie` 型（`pulse_*`）。
 # ⚠ 出撃の準備でしか使わないので scenes/adventure/（AGENTS.md）。
 
@@ -57,5 +57,6 @@ func _draw() -> void:
 		ring.a = color.a * (1.0 - float(i) * 0.33) * (0.55 + 0.45 * wave)
 		var spread: float = grow + float(i) * width * (0.8 + 0.6 * wave)
 		if inward:
-			spread = -(width * 0.5 + float(i) * width * (0.8 + 0.6 * wave))
+			# ⚠ 内側は浅く重ねる（⚠ 深く引くと札の上の字を覆った）。
+			spread = -(width * 0.5 + float(i) * width * 0.4 * wave)
 		draw_rect(rect.grow(spread), ring, false, width)

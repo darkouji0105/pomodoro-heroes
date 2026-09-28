@@ -265,6 +265,8 @@ func _make_slot(slot_index: int, character_id: String, hp_max: int) -> TiltedShe
 	hint.theme_type_variation = &"AccentLabel" if slot_index == _pick else &"CaptionLabel"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# ⚠ 折り返す（⚠ 選んだ枠の案内は長い＝1行のままだと枠が横に広がり、画面ごと左へずれた）。
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.text = tr("ui_sortie_pick_hint") if slot_index == _pick else tr("ui_sortie_swap_hint")
 	foot.add_child(hint)
 	var right: Button = UiButton.create_paper_choice("ui_sortie_move_right")
