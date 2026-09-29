@@ -17,9 +17,12 @@ signal start_requested(title: String)
 #   ⚠ 2行で打ち切る（`max_lines_visible = 2`）。⚠ 長い題で下のボタンを押し下げないため。
 @onready var work_title: Label = $Layout/InputBlock/WorkTitle
 @onready var start_button: UiButton = $Layout/StartButton
+var _links: PomodoroLinks = null
 
 
 func setup(preset: PomodoroPreset) -> void:
+	# ⚠ 集中中は輪の代わりに選んだ道具の絵（2026-09-29・回UI-仕組み⑤・人間「⚠ 2あ」・`GameSettings.focus_tool()`）。
+	timer_ring.use_tool(GameSettings.focus_tool())
 	update_timer(preset.focus_duration_sec, float(preset.focus_duration_sec))
 	title_edit.max_length = Balance.pomodoro.session_title_max_length
 
@@ -27,6 +30,11 @@ func setup(preset: PomodoroPreset) -> void:
 	# ⚠ 入力欄の下書きの字（2026-09-09）。⚠ `.tscn` に日本語が直書きされていて、
 	#   ⚠ ここでも上書きしていなかった＝⚠ 翻訳表を通っていない唯一の文字だった。
 	title_edit.placeholder_text = tr("ui_pomodoro_title_placeholder")
+	# ⚠ 開始前だけ「集中の道具」「ポモドーロの設定」（2026-09-29・`PomodoroLinks`）。⚠ 2回目からは加護を選ぶビューを通らないため。
+	if _links == null:
+		_links = PomodoroLinks.create()
+		_links.alignment = BoxContainer.ALIGNMENT_CENTER
+		start_button.get_parent().add_child(_links)
 
 
 # ⚠ 前のセットのタイトルを引き継ぐ口（2026-09-09）。
@@ -49,6 +57,11 @@ func _on_start_pressed() -> void:
 	work_title.text = title
 	work_title.visible = true
 	start_button.disabled = true
+	# ⚠ 始めたら道具と設定へは行かせない（⚠ 消さずに透明＝上が跳ねない）。
+	if _links != null:
+		_links.modulate.a = 0.0
+		for child: Node in _links.get_children():
+			(child as BaseButton).disabled = true
 	start_requested.emit(title)
 
 

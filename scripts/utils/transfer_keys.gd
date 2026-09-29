@@ -55,6 +55,10 @@ const DUNGEON_CORRIDOR_CHEST: String = "dungeon_corridor_chest"
 # ⚠ 図鑑タブ（`WAREHOUSE_TAB_CODEX`）は 2026-09-28 に記録の画面へ移して消した。
 const WAREHOUSE_TAB: String = "warehouse_tab"
 
+# 設定をどのタブで開くか（2026-09-29・人間「⚠ ポモドーロ設定はポモドーロ画面から開ける」）。⚠ 値は `SettingsScreen.TAB_*`。
+#   ⚠ 戻り先は `RETURN_PATH`（⚠ 無ければ本部）。
+const SETTINGS_TAB: String = "settings_tab"
+
 # 育成をどのタブで開くか（2026-09-27・回UI-組 育成・人間「⚠ 1い」＝1画面の中でタブを切り替える）。
 # ⚠ 値は下の定数（⚠ タブの番号を渡さない）。⚠ 無ければ概要。⚠ 昇級の結果・仮の鍛冶場から戻るときに使う。
 const TRAINING_TAB: String = "training_tab"

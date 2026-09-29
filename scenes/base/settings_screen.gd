@@ -27,10 +27,16 @@ const VOLUME_STEP: int = 10
 @onready var sheet_body: VBoxContainer = $Margin/Layout/Main/Sheet/SheetBody
 
 var _tab: int = TAB_DISPLAY
+# ⚠ 戻り先（⚠ 2026-09-29・ポモドーロから開いたときはポモドーロへ戻る）。
+var _return_path: String = BASE_PATH
 
 
 func _ready() -> void:
-	SceneManager.consume_transfer_data()
+	var data: Dictionary = SceneManager.consume_transfer_data()
+	_tab = clampi(int(data.get(TransferKeys.SETTINGS_TAB, TAB_DISPLAY)), 0, TAB_KEYS.size() - 1)
+	var path: String = str(data.get(TransferKeys.RETURN_PATH, ""))
+	if path != "":
+		_return_path = path
 	header.back_pressed.connect(_on_back_pressed)
 	main_stack.custom_minimum_size.x = float(get_theme_constant(&"sheet_width", THEME_TYPE))
 	var tabs: PaperTabs = PaperTabs.new()
@@ -205,4 +211,4 @@ func _build_data() -> void:
 
 
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(BASE_PATH)
+	SceneManager.change_scene(_return_path)

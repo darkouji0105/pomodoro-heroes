@@ -29,6 +29,39 @@ var timer_label: Label = null
 
 # 0.0 〜 1.0。⚠ 満ちた量。
 var _ratio: float = 0.0
+# ⚠ 道具の姿（2026-09-29・回UI-仕組み⑤・人間「⚠ 2あ」＝集中中は輪の代わりに道具の絵）。⚠ null なら輪。
+var _tool: FocusTool = null
+var _tool_caption: Label = null
+
+
+# 輪の代わりに道具の絵を出す（⚠ 上に道具・下に「集中」と時間）。⚠ 集中中のビューだけが呼ぶ。
+func use_tool(tool_id: String) -> void:
+	var tool_side: float = float(get_theme_constant(&"focus_size", &"FocusTool"))
+	var caption_h: float = float(get_theme_constant(&"caption_height", &"FocusTool"))
+	var number_h: float = float(get_theme_constant(&"number_height", &"FocusTool"))
+	if _tool == null:
+		_tool = FocusTool.create(tool_id, tool_side)
+		_tool.name = "FocusTool"
+		add_child(_tool)
+		_tool_caption = Label.new()
+		_tool_caption.name = "ToolCaption"
+		_tool_caption.theme_type_variation = &"CaptionLabel"
+		_tool_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_tool_caption.text = tr("ui_focus_tool_caption")
+		_tool_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_tool_caption)
+	_tool.tool_id = tool_id
+	custom_minimum_size = Vector2(maxf(tool_side, custom_minimum_size.x), tool_side + caption_h + number_h)
+	_tool.position = Vector2((custom_minimum_size.x - tool_side) * 0.5, 0.0)
+	_tool.size = Vector2(tool_side, tool_side)
+	_tool_caption.position = Vector2(0.0, tool_side)
+	_tool_caption.size = Vector2(custom_minimum_size.x, caption_h)
+	if timer_label != null:
+		timer_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		timer_label.position = Vector2(0.0, tool_side + caption_h)
+		timer_label.size = Vector2(custom_minimum_size.x, number_h)
+	_tool.progress = _ratio
+	queue_redraw()
 
 
 func _ready() -> void:
@@ -63,6 +96,8 @@ func set_time(remaining_sec: int, total_sec: float) -> void:
 		timer_label.text = "%02d:%02d" % [m, s]
 
 	_ratio = 0.0 if total_sec <= 0.0 else clampf(1.0 - (float(remaining_sec) / total_sec), 0.0, 1.0)
+	if _tool != null:
+		_tool.progress = _ratio
 	queue_redraw()
 
 
@@ -71,6 +106,9 @@ func get_ratio() -> float:
 
 
 func _draw() -> void:
+	# ⚠ 道具の姿では輪を描かない（⚠ 道具が進みを見せる）。
+	if _tool != null:
+		return
 	var stroke: int = get_theme_constant(&"stroke", &"TimerRing")
 	var diameter: int = get_theme_constant(&"diameter", &"TimerRing")
 	var center: Vector2 = Vector2(diameter, diameter) * 0.5

@@ -1001,6 +1001,23 @@ ui_facility_records,記録
 ui_records_tab_codex,アイテム図鑑
 ui_settings_title,設定
 ui_report_heading,帰還
+ui_focus_tools_title,集中の道具
+ui_focus_tools_subtitle,ポモドーロの見た目を選ぶ
+ui_focus_tools_open,集中の道具
+ui_pomodoro_settings_open,ポモドーロの設定
+ui_focus_tools_preview,見本（集中中）
+ui_focus_tool_caption,集　中
+ui_focus_tools_catalog,道具の目録
+ui_focus_tools_use,%sを使う
+ui_focus_tools_in_use,使用中
+ui_focus_tools_owned,持っている
+ui_focus_tools_not_owned,まだ持っていない
+ui_focus_tools_how,手に入れ方はまだ
+ui_focus_tool_hourglass,砂時計
+ui_focus_tool_candle,ろうそく
+ui_focus_tool_clock,柱時計
+ui_focus_tool_water_clock,水時計
+ui_focus_tool_unknown,［まだ見ぬ道具］
 ui_report_title_returned,帰還報告書
 ui_report_title_defeated,敗走報告書
 ui_report_title_abandoned,撤退報告書

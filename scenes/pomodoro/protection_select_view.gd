@@ -41,7 +41,21 @@ func _ready() -> void:
 		choices.add_child(card)
 		_cards.append(card)
 	start_button.pressed.connect(_on_start_pressed)
+	_add_side_buttons()
 	_select(0)
+
+
+# 左下に「集中の道具」「ポモドーロの設定」（2026-09-29・回UI-仕組み⑤・人間「⚠ 4い」
+#   「⚠ ポモドーロ設定はポモドーロ画面から開ける」）。⚠ どちらも戻るとポモドーロ（⚠ 加護を選ぶ前＝まだ何も始まっていない）。
+func _add_side_buttons() -> void:
+	var footer: HBoxContainer = start_button.get_parent() as HBoxContainer
+	footer.add_child(PomodoroLinks.create())
+	footer.move_child(footer.get_child(footer.get_child_count() - 1), 0)
+	var gap: Control = Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	footer.add_child(gap)
+	footer.move_child(gap, 1)
 
 
 func _make_card(index: int, config: ProtectionTypeConfig) -> TiltedSheet:

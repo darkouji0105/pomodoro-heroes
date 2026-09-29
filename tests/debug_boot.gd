@@ -115,6 +115,9 @@ const SHOT_AFTER_SETTINGS_AUDIO: String = "settings_audio"
 const SHOT_AFTER_FORGE_STRIKE: String = "forge_strike"
 # ⚠ 記録の図鑑で品を1つ押した姿（2026-09-28・右に詳しく）。⚠ 内側の `AFTER_RECORDS_PICK` と同じ字。
 const SHOT_AFTER_RECORDS_PICK: String = "records_pick"
+# ⚠ 集中の道具（2026-09-29）：⚠ 柱時計を押した姿 ／ ⚠ 集中を始めて6割進んだ姿。⚠ 内側の同じ名前の字と揃える。
+const SHOT_AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
+const SHOT_AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1208,6 +1211,9 @@ const SCENARIOS: Dictionary = {
 			# ⚠ 設定（2026-09-28・回UI-仕組み③・手本 Settings）。⚠ 手本と同じ「ポモドーロと小窓」タブ ／ ⚠ 音のタブ（つまみ）。
 			{"name": "46_settings", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_POMODORO},
 			{"name": "47_settings_audio", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_AUDIO},
+			# ⚠ 集中の道具（2026-09-29・回UI-仕組み⑤・手本 PomoSkin / Focus）。
+			{"name": "51_focus_tools", "scene": "res://scenes/pomodoro/focus_tools_screen.tscn", "after": SHOT_AFTER_FOCUS_TOOLS_CLOCK},
+			{"name": "52_focus_running", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_POMODORO_RUNNING},
 			# ⚠ 「出撃する」→ 署名を書き終えて「受理」の判が押された姿（⚠ 出発の前で止める＝フロアに入らない）。
 			{
 				"name": "44_sortie_sign",
@@ -8975,6 +8981,8 @@ class ShotTaker extends Node:
 	const AFTER_SETTINGS_AUDIO: String = "settings_audio"
 	const AFTER_FORGE_STRIKE: String = "forge_strike"
 	const AFTER_RECORDS_PICK: String = "records_pick"
+	const AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
+	const AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 	const FORGE_STRIKE_WAIT_MS: int = 4000
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
@@ -9304,6 +9312,31 @@ class ShotTaker extends Node:
 				return false
 			(hit as BaseButton).pressed.emit()
 			await get_tree().process_frame
+		elif kind == AFTER_FOCUS_TOOLS_CLOCK:
+			# ⚠ 柱時計の行を押す（⚠ 本物の行）→ ⚠ 見本が柱時計で動く。
+			var clock_row: Node = screen.find_child("Tool_clock", true, false)
+			if not (clock_row is LedgerRow):
+				push_error("[DebugBoot] ⚠ %s に柱時計の行が無い" % shot_name)
+				return false
+			(clock_row as LedgerRow).pressed.emit()
+			for _i: int in range(20):
+				await get_tree().process_frame
+		elif kind == AFTER_POMODORO_RUNNING:
+			# ⚠ 加護を選ぶ（⚠ 出ていれば「始める」）→ ⚠ 集中の「開始」→ ⚠ 残りを4割にして道具の進みを見せる。
+			var select_view: Node = screen.find_child("ProtectionSelectView", true, false)
+			if select_view != null:
+				(select_view.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				for _i: int in range(3):
+					await get_tree().process_frame
+			var focus_start: Node = screen.find_child("StartButton", true, false)
+			if not (focus_start is BaseButton):
+				push_error("[DebugBoot] ⚠ %s で集中の「開始」が無い" % shot_name)
+				return false
+			(focus_start as BaseButton).pressed.emit()
+			await get_tree().process_frame
+			screen.set("time_left_sec", float(screen.get("phase_total_sec")) * 0.4)
+			for _i: int in range(5):
+				await get_tree().process_frame
 		elif kind == AFTER_RECORDS_PICK:
 			# ⚠ 装備の表のいちばん右下の等級の枠を押す（⚠ 本物の枠）。
 			var grade_cells: Array = screen.find_children("Grade_*", "", true, false)
@@ -9803,6 +9836,7 @@ class UiFlowRunner extends Node:
 	const RECORDS: String = "res://scenes/guild/records_screen.tscn"
 	const SETTINGS: String = "res://scenes/base/settings_screen.tscn"
 	const REPORT: String = "res://scenes/adventure/run_report_screen.tscn"
+	const FOCUS_TOOLS: String = "res://scenes/pomodoro/focus_tools_screen.tscn"
 	const DUNGEON_FLOOR_CLEAR: String = "res://scenes/adventure/dungeon_floor_clear.tscn"
 	const DUNGEON_MAP: String = "res://scenes/adventure/dungeon_map.tscn"
 	const POMODORO: String = "res://scenes/pomodoro/pomodoro.tscn"
@@ -9836,6 +9870,7 @@ class UiFlowRunner extends Node:
 		await _flow_chest()
 		await _flow_settings()
 		await _flow_run_report()
+		await _flow_focus_tools()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -10139,6 +10174,55 @@ class UiFlowRunner extends Node:
 			r.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) != null
 			and unlocks.get(BaseFacilityBar.FORGE, "?") == unlocks.get(BaseFacilityBar.BELONGINGS, "!"))
 		await _flow_records()
+
+	# --- 集中の道具（2026-09-29・回UI-仕組み⑤・手本 PomoSkin / Focus・人間「⚠ 1あ　⚠ 2あ　⚠ 3あ　⚠ 4い」） ---
+	#   ⚠ 選んだ道具は設定のファイル（⚠ 検査用に差し替えてある）。
+
+	func _flow_focus_tools() -> void:
+		var p: Node = await _open(POMODORO, {})
+		if p == null:
+			return
+		var tools_button: Node = p.find_child("FocusToolsButton", true, false)
+		_check("ポモドーロ：「集中の道具」「ポモドーロの設定」がある", tools_button != null and p.find_child("PomodoroSettingsButton", true, false) != null)
+		await _press(tools_button, OPEN_FRAMES)
+		var t: Node = get_tree().current_scene
+		var rows_ok: bool = true
+		for tool_id: String in ["hourglass", "candle", "clock", "water_clock", "unknown"]:
+			rows_ok = rows_ok and t.find_child("Tool_" + tool_id, true, false) != null
+		var hourglass_row: Node = t.find_child("Tool_hourglass", true, false)
+		_check("集中の道具：目録に5行（持っている3・まだ2）・砂時計が使用中・「使う」は押せない",
+			_path_of(t) == FOCUS_TOOLS and rows_ok and hourglass_row != null and hourglass_row.find_child("InUseStamp", true, false) != null
+			and (t.find_child("UseButton", true, false) as Button).disabled)
+		await _press(t.find_child("Tool_candle", true, false))
+		await _wait()
+		var preview: Node = t.find_child("PreviewTool", true, false)
+		var use: Button = t.find_child("UseButton", true, false) as Button
+		_check("集中の道具：ろうそくを押すと見本がろうそく・「ろうそくを使う」が押せる（%s）" % (use.text if use != null else "?"),
+			preview is FocusTool and (preview as FocusTool).tool_id == "candle" and use != null and not use.disabled
+			and use.text == tr("ui_focus_tools_use") % tr("ui_focus_tool_candle"))
+		await _press(use)
+		await _wait()
+		var candle_row: Node = t.find_child("Tool_candle", true, false)
+		_check("集中の道具：「使う」でろうそくが使用中（設定 %s）" % GameSettings.focus_tool(),
+			GameSettings.focus_tool() == "candle" and candle_row != null and candle_row.find_child("InUseStamp", true, false) != null)
+		var header: Node = t.find_child("Header", true, false)
+		await _press(null if header == null else header.find_child("BackButton", true, false), OPEN_FRAMES)
+		p = get_tree().current_scene
+		_check("集中の道具：「戻る」でポモドーロ", _path_of(p) == POMODORO)
+		# ⚠ 加護を選ぶビューなら「始める」を押して集中のビューへ（⚠ 本物のボタン）。
+		var start: Node = p.find_child("ProtectionSelectView", true, false)
+		if start != null:
+			await _press(start.find_child("StartButton", true, false), OPEN_FRAMES)
+		var tool: Node = p.find_child("FocusTool", true, false)
+		_check("ポモドーロ：集中の画面は輪の代わりに選んだ道具（%s・進み %s）" % [str(tool.get("tool_id")) if tool != null else "無い", str(tool.get("progress")) if tool != null else "?"],
+			tool is FocusTool and (tool as FocusTool).tool_id == "candle" and (tool as FocusTool).progress == 0.0)
+		# ⚠ ポモドーロの設定：⚠ 「ポモドーロと小窓」のタブで開き、⚠ 戻るとポモドーロ。
+		await _press(p.find_child("PomodoroSettingsButton", true, false), OPEN_FRAMES)
+		var s: Node = get_tree().current_scene
+		_check("ポモドーロ：「ポモドーロの設定」で設定の「ポモドーロと小窓」", _path_of(s) == SETTINGS and s.find_child("Focus_25", true, false) != null)
+		header = s.find_child("Header", true, false)
+		await _press(null if header == null else header.find_child("BackButton", true, false), OPEN_FRAMES)
+		_check("設定：ポモドーロから開いたら「戻る」でポモドーロ", _path_of(get_tree().current_scene) == POMODORO)
 
 	# --- 帰還報告書（2026-09-29・回UI-仕組み④・`EXEC_RUN_REPORT.md`・人間「⚠ 1い　⚠ 2あ　⚠ 3い」） ---
 	#   ⚠ 持ち帰り（わかれ道の「ここで戻る」）／ 2回目の浅い持ち帰り ／ 降りた（マップのメニュー）／ 倒れた ／ 通常の依頼のクリア ／ 最深のセーブ。

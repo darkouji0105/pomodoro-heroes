@@ -772,6 +772,7 @@ static func build() -> void:
 	_build_records(theme)
 	_build_settings(theme)
 	_build_run_report(theme)
+	_build_focus_tool(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2554,6 +2555,28 @@ static func _build_settings(theme: Theme) -> void:
 	filled.bg_color = _html(TOKEN_BRASS)
 	theme.set_stylebox(&"grabber_area", &"SettingsSlider", filled)
 	theme.set_stylebox(&"grabber_area_highlight", &"SettingsSlider", filled)
+
+
+# --- ⚠⚠ 集中の道具（2026-09-29・回UI-仕組み⑤・手本 Focus / FocusSkins / PomoSkin）---
+#
+# ⚠ 砂時計・ろうそく・柱時計を線と面で描く（`FocusTool`）。⚠ 色は手本の真鍮・砂・蝋・炎。⚠ 大きさは集中中の画面と目録。
+const FOCUS_TOOL: Dictionary = {
+	"line_pct": 18, "focus_size": 200, "caption_height": 28, "number_height": 96,
+	"preview_width": 480, "preview_cycle_ms": 8000, "row_icon": 48, "locked_alpha_pct": 50,
+}
+const FOCUS_TOOL_COLORS: Dictionary = {
+	"brass": "d4a640", "glass": "2b2118", "sand": "e0b85c",
+	"wax": "eadcbf", "wax_edge": "c2ae88", "wick": "2b2118", "flame": "e8812f", "flame_core": "ffd36b",
+	"case": "4a3424", "face": "f1e0b0", "face_passed": "e0b85c80", "hand": "2b2118",
+}
+
+
+static func _build_focus_tool(theme: Theme) -> void:
+	var t: StringName = &"FocusTool"
+	for key: String in FOCUS_TOOL:
+		theme.set_constant(StringName(key), t, int(FOCUS_TOOL[key]))
+	for key: String in FOCUS_TOOL_COLORS:
+		theme.set_color(StringName(key), t, _html(str(FOCUS_TOOL_COLORS[key])))
 
 
 # --- ⚠⚠ 帰還報告書（2026-09-29・回UI-仕組み④・手本 DungeonResult・`EXEC_RUN_REPORT.md`）---

@@ -17,6 +17,8 @@ const KEY_SE: String = "se_pct"
 const KEY_BGM: String = "bgm_pct"
 const KEY_FOCUS_MINUTES: String = "focus_minutes"
 const KEY_BREAK_MINUTES: String = "break_minutes"
+# ⚠ 集中の道具（2026-09-29・回UI-仕組み⑤）。⚠ 値は `FocusTool.TOOL_*`（⚠ 最初から全部持っている＝見た目の好みなので設定に置く）。
+const KEY_FOCUS_TOOL: String = "focus_tool"
 const VOLUME_MAX_PCT: int = 100
 const DEFAULT_PATH: String = "user://settings.cfg"
 # ⚠⚠ 置き場所の差し替えは Engine のメタに持つ（⚠ static 変数は途中で台本が読み直されると初期値に戻る＝
@@ -64,6 +66,8 @@ static func _default(section: String, key: String) -> Variant:
 			return Balance.pomodoro.default_focus_minutes if Balance.pomodoro != null else 25
 		KEY_BREAK_MINUTES:
 			return Balance.pomodoro.default_break_minutes if Balance.pomodoro != null else 5
+		KEY_FOCUS_TOOL:
+			return "hourglass"
 	push_warning("[GameSettings] 知らない設定 %s/%s" % [section, key])
 	return null
 
@@ -97,6 +101,12 @@ static func focus_minutes() -> int:
 
 static func break_minutes() -> int:
 	return int(get_value(SECTION_POMODORO, KEY_BREAK_MINUTES))
+
+
+# 選んだ集中の道具（⚠ 知らない値なら砂時計＝設定のファイルを手で書き換えられても落ちない）。
+static func focus_tool() -> String:
+	var value: String = str(get_value(SECTION_POMODORO, KEY_FOCUS_TOOL))
+	return value if value in FocusTool.OWNED_TOOLS else FocusTool.TOOL_HOURGLASS
 
 
 # 全画面か窓か（⚠ 起動時は SceneManager が呼ぶ）。⚠ ヘッドレスでは何もしない。
