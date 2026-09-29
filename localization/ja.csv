@@ -1000,6 +1000,32 @@ ui_facility_belongings,持ち物
 ui_facility_records,記録
 ui_records_tab_codex,アイテム図鑑
 ui_settings_title,設定
+ui_report_heading,帰還
+ui_report_title_returned,帰還報告書
+ui_report_title_defeated,敗走報告書
+ui_report_title_abandoned,撤退報告書
+ui_report_cleared_caption,踏破
+ui_report_floor_unit,フロア
+ui_report_how_returned,ボスを倒した先から戻った
+ui_report_how_defeated,全員が倒れた。鞄の中身は失った
+ui_report_how_abandoned,その場で降りた。鞄の中身は失った
+ui_report_best_updated,最深更新
+ui_report_best,最深 %dフロア
+ui_report_no_boss,ボスはまだ倒していない
+ui_report_floor,第%dフロア
+ui_report_boss,ボス
+ui_report_boss_cleared,突破
+ui_report_kept,装備・レベルはそのまま
+ui_report_items_granted,持ち帰った品
+ui_report_items_lost,失った品
+ui_report_kinds,%d 種
+ui_report_no_items,何も持っていなかった
+ui_report_note_chest,宝箱は宝物庫へ。開けると中身が決まる
+ui_report_note_discarded,%s ×%d は置いてきた（ランの中だけの品）
+ui_report_note_left_behind,%s ×%d は持ち物が満杯で置いてきた
+ui_report_note_lost,装備・装飾・レベル・研究は失わない
+ui_report_open_chests,宝箱を開けに行く
+ui_report_home,本部へ戻る
 ui_settings_tab_display,表示
 ui_settings_tab_audio,音
 ui_settings_tab_pomodoro,ポモドーロと小窓

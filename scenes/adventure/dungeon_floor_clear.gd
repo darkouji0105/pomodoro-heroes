@@ -25,6 +25,7 @@ extends Control
 const SHOP_PATH: String = "res://scenes/adventure/dungeon_shop.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
+const REPORT_PATH: String = "res://scenes/adventure/run_report_screen.tscn"
 
 @onready var heading: Label = $Margin/Layout/Heading
 @onready var caption: Label = $Margin/Layout/Caption
@@ -202,6 +203,7 @@ func _on_descend_pressed() -> void:
 
 # ⚠⚠ ここで戻る＝鞄の中身を持ち帰ってラン終了（決定48-a）。⚠ 拠点へ直行。
 #   ⚠ ラン専用の品は消える（決定17）。⚠ 全ロストではない（⚠ 自分で降りたので）。
+#   ⚠ 2026-09-29（回UI-仕組み④・`EXEC_RUN_REPORT.md`）：⚠ 拠点へ直行せず**帰還報告書**へ（⚠ 本部へはそこから）。
 func _on_retreat_pressed() -> void:
 	var _result: Dictionary = GameManager.retreat_from_dungeon()
-	SceneManager.change_scene(BASE_PATH)
+	SceneManager.change_scene(REPORT_PATH)

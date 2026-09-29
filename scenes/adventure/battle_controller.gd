@@ -33,6 +33,8 @@ const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
 # 難ダンジョンのマップ（段階17-d）。⚠ フロアのマップと別の画面。
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
+# ⚠ 帰還報告書（2026-09-29・`EXEC_RUN_REPORT.md`）：⚠ 難ダンジョンで倒れた・通常の依頼をクリアしたときの行き先。
+const REPORT_PATH: String = "res://scenes/adventure/run_report_screen.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 
 const UNIT_VIEW_SCENE: PackedScene = preload("res://scenes/adventure/unit_view.tscn")
@@ -2417,14 +2419,16 @@ func _on_result_next_pressed() -> void:
 		if GameManager.is_in_dungeon():
 			SceneManager.change_scene(DUNGEON_MAP_PATH)
 			return
-		SceneManager.change_scene(ADVENTURE_SELECT_PATH)
+		# ⚠ ランが終わった（＝倒れた）＝⚠ 敗走報告書（2026-09-29・人間「⚠ 1い」）。
+		SceneManager.change_scene(REPORT_PATH if GameManager.has_unseen_run_report() else ADVENTURE_SELECT_PATH)
 		return
 
 	# フロアの中から来たとき（段階14-c）。
 	# ⚠ ボスを倒したときは _enter_victory() が既にフロアを降りている。
 	if _floor_node_id != "":
 		if not GameManager.is_in_floor():
-			SceneManager.change_scene(ADVENTURE_SELECT_PATH)
+			# ⚠ 通常の依頼をクリアした＝⚠ 帰還報告書（2026-09-29・人間「⚠ 3い」）。
+			SceneManager.change_scene(REPORT_PATH if GameManager.has_unseen_run_report() else ADVENTURE_SELECT_PATH)
 			return
 		SceneManager.change_scene(FLOOR_MAP_PATH)
 		return
@@ -2442,7 +2446,10 @@ func _on_result_next_pressed() -> void:
 func _on_result_base_pressed() -> void:
 	if _floor_node_id != "" and _session != null and _session.state == BattleSession.STATE_DEFEAT:
 		GameManager.abandon_floor()
-	SceneManager.change_scene(BASE_PATH)
+	# ⚠ ランが終わっていて報告を見ていない（⚠ 倒れた・通常の依頼をクリアした）＝⚠ 帰還報告書（⚠ 本部へはそこから）。
+	var ended: bool = (_dungeon_node_id != "" and not GameManager.is_in_dungeon()) \
+		or (_floor_node_id != "" and not GameManager.is_in_floor() and _session != null and _session.state != BattleSession.STATE_DEFEAT)
+	SceneManager.change_scene(REPORT_PATH if ended and GameManager.has_unseen_run_report() else BASE_PATH)
 
 
 # ============================================================

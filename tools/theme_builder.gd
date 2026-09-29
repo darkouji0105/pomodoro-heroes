@@ -771,6 +771,7 @@ static func build() -> void:
 	_build_sortie(theme)
 	_build_records(theme)
 	_build_settings(theme)
+	_build_run_report(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2553,6 +2554,28 @@ static func _build_settings(theme: Theme) -> void:
 	filled.bg_color = _html(TOKEN_BRASS)
 	theme.set_stylebox(&"grabber_area", &"SettingsSlider", filled)
 	theme.set_stylebox(&"grabber_area_highlight", &"SettingsSlider", filled)
+
+
+# --- ⚠⚠ 帰還報告書（2026-09-29・回UI-仕組み④・手本 DungeonResult・`EXEC_RUN_REPORT.md`）---
+#
+# ⚠ 左の紙＝大きなフロアの数・ボス突破の行・3人 ／ ⚠ 右の紙＝持ち帰った品（失った品は薄く）。
+const REPORT_BIG_SIZE: int = 72           # ⚠ 手本の「20」
+const REPORT_FLOOR_WIDTH: int = 120       # ⚠ ボスの行の「第nフロア」
+const REPORT_PHOTO: int = 36
+const REPORT_CARD_WIDTH: int = 92         # ⚠ 品の札（絵＋名前）
+const REPORT_LOST_TINT: Color = Color(0.6, 0.6, 0.6, 0.7)   # ⚠ 失った品は薄く灰色に
+
+
+static func _build_run_report(theme: Theme) -> void:
+	var t: StringName = &"RunReport"
+	theme.set_constant(&"floor_width", t, REPORT_FLOOR_WIDTH)
+	theme.set_constant(&"photo", t, REPORT_PHOTO)
+	theme.set_constant(&"card_width", t, REPORT_CARD_WIDTH)
+	theme.set_color(&"lost_tint", t, REPORT_LOST_TINT)
+	theme.set_type_variation(&"RunReportBigLabel", &"Label")
+	theme.set_font_size(&"font_size", &"RunReportBigLabel", REPORT_BIG_SIZE)
+	if theme.has_font(&"font", &"PriceLabel"):
+		theme.set_font(&"font", &"RunReportBigLabel", theme.get_font(&"font", &"PriceLabel"))
 
 
 static func _build_sortie(theme: Theme) -> void:

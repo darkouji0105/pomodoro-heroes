@@ -96,6 +96,9 @@ const SHOT_AFTER_RELIC_LIST: String = "relic_list"
 const SHOT_AFTER_MAP_STEP: String = "map_step"
 # ⚠ 届いた宝箱（2026-09-27）。⚠ 内側の `PREPARE_CHESTS` / `AFTER_CHEST_OPEN` と同じ字。
 const SHOT_PREPARE_CHESTS: String = "chests"
+# ⚠ 帰還報告書（2026-09-29）。⚠ 内側の `PREPARE_REPORT_*` と同じ字。
+const SHOT_PREPARE_REPORT_RETURNED: String = "report_returned"
+const SHOT_PREPARE_REPORT_DEFEATED: String = "report_defeated"
 const SHOT_AFTER_CHEST_OPEN: String = "chest_open"
 # ⚠ 鍛冶場で「鍛える」を押した姿（2026-09-27）。⚠ 内側の `AFTER_FORGE_PRESS` と同じ字。
 const SHOT_AFTER_FORGE_PRESS: String = "forge_press"
@@ -1228,6 +1231,10 @@ const SCENARIOS: Dictionary = {
 				"prepare": SHOT_PREPARE_CHESTS,
 				"after": SHOT_AFTER_CHEST_OPEN,
 			},
+			# ⚠ 帰還報告書（2026-09-29・回UI-仕組み④・手本 DungeonResult）。⚠ 持ち帰り ／ 倒れた。
+			#   ⚠⚠ **いちばん最後に置く**（⚠ ランを終わらせ、⚠ 持ち帰った宝箱が宝物庫に積まれる＝宝箱の枚の下ごしらえが狂う）。
+			{"name": "49_run_report", "scene": "res://scenes/adventure/run_report_screen.tscn", "prepare": SHOT_PREPARE_REPORT_RETURNED},
+			{"name": "50_run_report_defeated", "scene": "res://scenes/adventure/run_report_screen.tscn", "prepare": SHOT_PREPARE_REPORT_DEFEATED},
 		],
 	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
@@ -8960,6 +8967,8 @@ class ShotTaker extends Node:
 	const AFTER_MAP_STEP: String = "map_step"
 	# ⚠ 届いた宝箱（2026-09-27）：⚠ 種類ごとに1個積む ／ ⚠ 画面の口で「次を開ける」を押す。
 	const PREPARE_CHESTS: String = "chests"
+	const PREPARE_REPORT_RETURNED: String = "report_returned"
+	const PREPARE_REPORT_DEFEATED: String = "report_defeated"
 	const AFTER_CHEST_OPEN: String = "chest_open"
 	const AFTER_SORTIE_SIGN: String = "sortie_sign"
 	const AFTER_SETTINGS_POMODORO: String = "settings_pomodoro"
@@ -9162,6 +9171,21 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ フロアが1本も無い")
 				return false
 			return GameManager.start_floor(floor_ids[0])
+		if kind == PREPARE_REPORT_RETURNED or kind == PREPARE_REPORT_DEFEATED:
+			# ⚠ 帰還報告書（2026-09-29）：⚠ ランを本番の口で終わらせて報告を作る（⚠ 鞄に宝箱・素材・装飾）。
+			var dungeon_ids: Array[String] = MasterDataLoader.get_all_dungeon_ids()
+			if not GameManager.is_in_dungeon() and not GameManager.start_dungeon_run(str(dungeon_ids[0])):
+				return false
+			var chest_ids: Array = MasterDataLoader.get_all_chests().keys()
+			GameManager.add_to_dungeon_bag(str(chest_ids[0]), 2)
+			GameManager.add_to_dungeon_bag(GameManager.get_material_ids()[0], 10)
+			GameManager.add_to_dungeon_bag(PART_ITEM_ID, 1)
+			if kind == PREPARE_REPORT_RETURNED:
+				GameManager.debug_mark_dungeon_boss_cleared()
+				var _returned: Dictionary = GameManager.retreat_from_dungeon()
+			else:
+				GameManager.abandon_dungeon_run(GameManager.RUN_END_DEFEATED)
+			return GameManager.has_unseen_run_report()
 		push_error("[DebugBoot] ⚠ 知らない下ごしらえ: " + kind)
 		return false
 
@@ -9778,6 +9802,9 @@ class UiFlowRunner extends Node:
 	const FORGE: String = "res://scenes/guild/forge_screen.tscn"
 	const RECORDS: String = "res://scenes/guild/records_screen.tscn"
 	const SETTINGS: String = "res://scenes/base/settings_screen.tscn"
+	const REPORT: String = "res://scenes/adventure/run_report_screen.tscn"
+	const DUNGEON_FLOOR_CLEAR: String = "res://scenes/adventure/dungeon_floor_clear.tscn"
+	const DUNGEON_MAP: String = "res://scenes/adventure/dungeon_map.tscn"
 	const POMODORO: String = "res://scenes/pomodoro/pomodoro.tscn"
 	const TRAINING_LIST: String = "res://scenes/guild/training_list_screen.tscn"
 	# ⚠ 一覧の画面は class_name を持たない＝⚠ 並びの口は script を読んで呼ぶ。
@@ -9808,6 +9835,7 @@ class UiFlowRunner extends Node:
 		await _flow_quest_board()
 		await _flow_chest()
 		await _flow_settings()
+		await _flow_run_report()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -10111,6 +10139,97 @@ class UiFlowRunner extends Node:
 			r.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) != null
 			and unlocks.get(BaseFacilityBar.FORGE, "?") == unlocks.get(BaseFacilityBar.BELONGINGS, "!"))
 		await _flow_records()
+
+	# --- 帰還報告書（2026-09-29・回UI-仕組み④・`EXEC_RUN_REPORT.md`・人間「⚠ 1い　⚠ 2あ　⚠ 3い」） ---
+	#   ⚠ 持ち帰り（わかれ道の「ここで戻る」）／ 2回目の浅い持ち帰り ／ 降りた（マップのメニュー）／ 倒れた ／ 通常の依頼のクリア ／ 最深のセーブ。
+
+	func _flow_run_report() -> void:
+		if GameManager.is_in_dungeon():
+			GameManager.abandon_dungeon_run()
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
+		# ⚠ 宝箱は chests.json（⚠ items.json には無い）。
+		var chest_id: String = ""
+		for raw: Variant in MasterDataLoader.get_all_chests():
+			if GameManager.is_chest_item(str(raw)):
+				chest_id = str(raw)
+				break
+		var material_id: String = GameManager.get_material_ids()[0]
+		var best_before: int = GameManager.get_dungeon_best_floors(dungeon_id)
+
+		# 持ち帰り：⚠ ボスを倒した先で宝箱と素材を鞄に入れ、⚠ わかれ道の「ここで戻る」を押す。
+		GameManager.start_dungeon_run(dungeon_id)
+		GameManager.debug_mark_dungeon_boss_cleared()
+		GameManager.add_to_dungeon_bag(chest_id, 1)
+		GameManager.add_to_dungeon_bag(material_id, 2)
+		var fork: Node = await _open(DUNGEON_FLOOR_CLEAR, {})
+		if fork == null:
+			return
+		await _press(fork.find_child("RetreatButton", true, false), OPEN_FRAMES)
+		var r: Node = get_tree().current_scene
+		var heading: Node = r.find_child("ReportHeading", true, false)
+		_check("帰還報告書：「ここで戻る」で帰還報告書（題=%s・フロア %s）" % [str(heading.get("title_key")) if heading != null else "?", _label_text(r, "FloorLine", "FloorsLabel")],
+			_path_of(r) == REPORT and heading is SheetHeading and (heading as SheetHeading).title_key == "ui_report_title_returned"
+			and _label_text(r, "FloorLine", "FloorsLabel") == "1" and r.find_child("Boss_1", true, false) != null)
+		_check("帰還報告書：持ち帰った品（宝箱・素材）と「宝箱は宝物庫へ」・「宝箱を開けに行く」",
+			r.find_child("Item_" + chest_id, true, false) != null and r.find_child("Item_" + material_id, true, false) != null
+			and r.find_child("ChestNote", true, false) != null and r.find_child("ChestButton", true, false) != null)
+		_check("帰還報告書：最深を更新したら判（最深 %d → %d）" % [best_before, GameManager.get_dungeon_best_floors(dungeon_id)],
+			GameManager.get_dungeon_best_floors(dungeon_id) == maxi(best_before, 1)
+			and ((r.find_child("BestStamp", true, false) != null) == (best_before < 1)))
+		_check("帰還報告書：開いたら「見た」になる", not GameManager.has_unseen_run_report())
+		await _press(r.find_child("ChestButton", true, false), OPEN_FRAMES)
+		_check("帰還報告書：「宝箱を開けに行く」で届いた宝箱", _path_of(get_tree().current_scene) == CHEST)
+
+		# 2回目：⚠ 同じ深さでは判は出ない（⚠ 今の最深を小さく出す）。
+		GameManager.start_dungeon_run(dungeon_id)
+		GameManager.debug_mark_dungeon_boss_cleared()
+		var _again: Dictionary = GameManager.retreat_from_dungeon()
+		r = await _open(REPORT, {})
+		_check("帰還報告書：同じ深さでは「最深 更新」の判は出ない（%s）" % _label_text(r, "FloorLine", "BestLabel"),
+			r.find_child("BestStamp", true, false) == null and _label_text(r, "FloorLine", "BestLabel") == tr("ui_report_best") % GameManager.get_dungeon_best_floors(dungeon_id))
+		await _press(r.find_child("HomeButton", true, false), OPEN_FRAMES)
+		_check("帰還報告書：「本部へ戻る」で本部", _path_of(get_tree().current_scene) == BASE)
+
+		# 降りた：⚠ マップのメニューの「その場で降りる」→ 確かめの窓の「はい」→ 撤退報告書（失った品）。
+		GameManager.start_dungeon_run(dungeon_id)
+		GameManager.add_to_dungeon_bag(material_id, 5)
+		var map: Node = await _open(DUNGEON_MAP, {})
+		if map != null:
+			map.call("_on_abandon_pressed")
+			await _confirm_modal()
+			await _wait(OPEN_FRAMES)
+			r = get_tree().current_scene
+			heading = r.find_child("ReportHeading", true, false)
+			_check("帰還報告書：降りると撤退報告書・失った品・「失わないもの」の注記・宝箱の口は無い",
+				_path_of(r) == REPORT and heading is SheetHeading and (heading as SheetHeading).title_key == "ui_report_title_abandoned"
+				and r.find_child("Item_" + material_id, true, false) != null and r.find_child("LostNote", true, false) != null
+				and r.find_child("ChestButton", true, false) == null and r.find_child("NoBossLabel", true, false) != null)
+
+		# 倒れた：⚠ 全員脱落の口（`apply_dungeon_battle_result()` が呼ぶ形）→ 敗走報告書。
+		GameManager.start_dungeon_run(dungeon_id)
+		GameManager.abandon_dungeon_run(GameManager.RUN_END_DEFEATED)
+		_check("帰還報告書：倒れると見ていない報告がある", GameManager.has_unseen_run_report())
+		r = await _open(REPORT, {})
+		heading = r.find_child("ReportHeading", true, false)
+		_check("帰還報告書：倒れると敗走報告書", heading is SheetHeading and (heading as SheetHeading).title_key == "ui_report_title_defeated")
+
+		# 通常の依頼のクリア：⚠ 鞄を持ち帰る口（ボスを倒したとき）→ 帰還報告書（通常の依頼）。
+		GameManager.start_floor("floor_1")
+		GameManager.add_to_run_bag(GameManager.RUN_KIND_FLOOR, material_id, 3)
+		var _delivered: Dictionary = GameManager.deliver_floor_bag()
+		GameManager.abandon_floor()
+		r = await _open(REPORT, {})
+		heading = r.find_child("ReportHeading", true, false)
+		_check("帰還報告書：通常の依頼のクリアにも帰還報告書（%s）" % str(heading.get("right_text")) if heading != null else "?",
+			heading is SheetHeading and (heading as SheetHeading).title_key == "ui_report_title_returned"
+			and (heading as SheetHeading).right_text == tr("ui_quest_tab_normal") and r.find_child("Item_" + material_id, true, false) != null)
+
+		# 最深はセーブに残る（⚠ 読み込みで int に戻る）。
+		var best_now: int = GameManager.get_dungeon_best_floors(dungeon_id)
+		GameManager.load_state(GameManager.get_state().duplicate(true))
+		_check("帰還報告書：最深はセーブに残る（%d）" % GameManager.get_dungeon_best_floors(dungeon_id), best_now > 0 and GameManager.get_dungeon_best_floors(dungeon_id) == best_now)
 
 	# --- 設定（2026-09-28・回UI-仕組み③・手本 Settings・人間「⚠ 1あ　⚠ 2あ　⚠ 3い　⚠ 4あ」） ---
 	#   ⚠ 設定のファイルは検査用（`SETTINGS_TEST_PATH`）に差し替えてある。

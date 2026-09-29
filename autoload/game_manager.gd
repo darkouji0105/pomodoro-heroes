@@ -551,6 +551,8 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.CODEX: {},
 		# 見たガイド（2026-09-28）。⚠ 空＝どれもまだ見ていない（⚠ 前のセーブも空で読まれる）。
 		GameStateKeys.GUIDES_SEEN: {},
+		# ⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3（⚠ 帰還報告書の「最深 更新」）。
+		GameStateKeys.DUNGEON_BEST_FLOORS: {},
 		GameStateKeys.DAILY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.WEEKLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.MONTHLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
@@ -6527,6 +6529,11 @@ func load_state(data: Dictionary) -> bool:
 		new_state[GameStateKeys.SCENARIO_CHAPTER] = int(new_state[GameStateKeys.SCENARIO_CHAPTER])
 	if new_state.has(GameStateKeys.SAVE_VERSION):
 		new_state[GameStateKeys.SAVE_VERSION] = int(new_state[GameStateKeys.SAVE_VERSION])
+	# ⚠ 最深（2026-09-29・`EXEC_RUN_REPORT.md` §3）を int に戻す。
+	if new_state.get(GameStateKeys.DUNGEON_BEST_FLOORS) is Dictionary:
+		var best: Dictionary = new_state[GameStateKeys.DUNGEON_BEST_FLOORS]
+		for dungeon_key: Variant in best:
+			best[dungeon_key] = int(best[dungeon_key])
 	if new_state.has(GameStateKeys.MATERIALS) and new_state[GameStateKeys.MATERIALS] is Dictionary:
 		var mats: Dictionary = new_state[GameStateKeys.MATERIALS]
 		for mat_id: String in mats:
@@ -7457,6 +7464,10 @@ func deliver_floor_bag() -> Dictionary:
 	run[GameStateKeys.FLOOR_RUN_BAG] = {}
 	run[GameStateKeys.FLOOR_RUN_PENDING_LOOT] = {}
 	_state[GameStateKeys.FLOOR_RUN] = run
+	# ⚠ 帰還報告書（2026-09-29・`EXEC_RUN_REPORT.md` §4・人間「⚠ 3い」＝通常の依頼のクリアにも）。
+	_record_run_report(REPORT_KIND_FLOOR, RUN_END_RETURNED, str(run.get(GameStateKeys.FLOOR_RUN_FLOOR_ID, "")), 1, false, {
+		REPORT_GRANTED: result["granted"], REPORT_LEFT_BEHIND: result["left_behind"],
+	})
 	print("[GameManager] deliver_floor_bag() -> 持ち帰った %s ／ 倉庫が満杯で置いてきた %s" % [
 		str(result["granted"]), str(result["left_behind"]),
 	])
@@ -7571,6 +7582,8 @@ func run_floor_auto(floor_id: String) -> Dictionary:
 	#   ⚠ ボスを倒した扱いなので鞄の中身を持ち帰ってから降りる（2026-09-18）。
 	var _taken: Dictionary = take_all_run_pending_loot(RUN_KIND_FLOOR)
 	var _delivered: Dictionary = deliver_floor_bag()
+	# ⚠ 周回は掲示板のその場で結果を出す（⚠ 帰還報告書は出さない＝見たことにする・`EXEC_RUN_REPORT.md`）。
+	mark_run_report_seen()
 	abandon_floor()
 
 	print("[GameManager] run_floor_auto('%s') -> %d手 / 宝箱 %d / ガチャ %d" % [
@@ -8457,6 +8470,12 @@ func retreat_from_dungeon() -> Dictionary:
 		(result["granted"] as Dictionary)[item_id] = count
 
 	var floors: int = get_dungeon_floor_index()
+	# ⚠ 帰還報告書（2026-09-29・`EXEC_RUN_REPORT.md` §4）。⚠ ランを捨てる前に数える。
+	var dungeon_id: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	var cleared: int = _cleared_dungeon_floors()
+	_record_run_report(REPORT_KIND_DUNGEON, RUN_END_RETURNED, dungeon_id, cleared, _update_dungeon_best(dungeon_id, cleared), {
+		REPORT_GRANTED: result["granted"], REPORT_DISCARDED: result["discarded"], REPORT_LEFT_BEHIND: result["left_behind"],
+	})
 	_end_dungeon_run()
 	print("[GameManager] retreat_from_dungeon() -> フロア%d まで潜って持ち帰った: %s（ラン専用で消えたもの: %s ／ 倉庫が満杯で置いてきたもの: %s）" % [
 		floors, str(result["granted"]), str(result["discarded"]), str(result["left_behind"]),
@@ -8471,15 +8490,100 @@ func retreat_from_dungeon() -> Dictionary:
 # ⚠ 失うのは鞄と一時通貨だけ。⚠ 装備・装飾・ルーン・レベル・研究は失わない（決定7）。
 #   ⚠ 「装備を除外する条件分岐」を書かないこと。⚠ 鞄に持ち込みが入らないので
 #     構造で外れている。
-func abandon_dungeon_run() -> void:
+# ⚠ `reason`：⚠ 降りた（既定・マップのメニュー）／ 倒れた（`apply_dungeon_battle_result()`）＝⚠ 帰還報告書の見出しが変わる。
+func abandon_dungeon_run(reason: String = RUN_END_ABANDONED) -> void:
 	# ⚠ 直近に入った遺物片の覚えを落とす（2026-09-20）。⚠ 前のランのぶんを次の画面で飛ばさない。
 	_last_dungeon_currency_gain = 0
 	if not is_in_dungeon():
 		return
 	var lost: Dictionary = get_dungeon_bag()
 	var floors: int = get_dungeon_floor_index()
+	# ⚠ 帰還報告書（2026-09-29・`EXEC_RUN_REPORT.md` §4）：⚠ 失った品 ／ ⚠ そこまで潜った最深は残る。
+	var dungeon_id: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	var cleared: int = _cleared_dungeon_floors()
+	_record_run_report(REPORT_KIND_DUNGEON, reason, dungeon_id, cleared, _update_dungeon_best(dungeon_id, cleared), {
+		REPORT_LOST: lost,
+	})
 	_end_dungeon_run()
 	print("[GameManager] abandon_dungeon_run() -> フロア%d で全ロスト。失った鞄の中身: %s" % [floors, str(lost)])
+
+
+# --- 帰還報告書（2026-09-29・回UI-仕組み④・`EXEC_RUN_REPORT.md`） ---------------------
+#
+# ⚠ 最後に終わったランの報告を1つだけメモリに持つ（⚠ セーブしない）。⚠ 画面は `get_last_run_report()` を読むだけ。
+# ⚠ 書くのはランが終わる口だけ：`retreat_from_dungeon()` ／ `abandon_dungeon_run()` ／ `deliver_floor_bag()`。
+const REPORT_KIND: String = "kind"
+const REPORT_KIND_DUNGEON: String = "dungeon"
+const REPORT_KIND_FLOOR: String = "floor"
+const REPORT_END: String = "end"
+const RUN_END_RETURNED: String = "returned"
+const RUN_END_DEFEATED: String = "defeated"
+const RUN_END_ABANDONED: String = "abandoned"
+const REPORT_TARGET_ID: String = "target_id"
+const REPORT_FLOORS: String = "floors"
+const REPORT_BEST_UPDATED: String = "best_updated"
+const REPORT_BEST: String = "best"
+const REPORT_MEMBERS: String = "members"
+const REPORT_GRANTED: String = "granted"
+const REPORT_DISCARDED: String = "discarded"
+const REPORT_LEFT_BEHIND: String = "left_behind"
+const REPORT_LOST: String = "lost"
+
+var _last_run_report: Dictionary = {}
+var _run_report_seen: bool = true
+
+
+func get_last_run_report() -> Dictionary:
+	return _last_run_report.duplicate(true)
+
+
+# 見ていない報告があるか（⚠ 戦闘の結果の窓・マップ・わかれ道の行き先を報告書へ差し替えるかの判定）。
+func has_unseen_run_report() -> bool:
+	return not _last_run_report.is_empty() and not _run_report_seen
+
+
+func mark_run_report_seen() -> void:
+	_run_report_seen = true
+
+
+# そのダンジョンの最深（⚠ ボスを倒したフロアの数のいちばん大きい値・無ければ 0）。
+func get_dungeon_best_floors(dungeon_id: String) -> int:
+	var best: Variant = _state.get(GameStateKeys.DUNGEON_BEST_FLOORS, {})
+	return int((best as Dictionary).get(dungeon_id, 0)) if best is Dictionary else 0
+
+
+# いまのランでボスを倒したフロアの数（⚠ 今のフロアのボスを倒していれば今のフロア・まだなら1つ前）。
+func _cleared_dungeon_floors() -> int:
+	var floor_index: int = get_dungeon_floor_index()
+	return floor_index if can_retreat_from_dungeon() else maxi(0, floor_index - 1)
+
+
+# 最深を更新する（⚠ 更新したら true）。⚠ 書くのはここ1本。
+func _update_dungeon_best(dungeon_id: String, floors: int) -> bool:
+	if dungeon_id == "" or floors <= get_dungeon_best_floors(dungeon_id):
+		return false
+	var best: Dictionary = _copy_dict(GameStateKeys.DUNGEON_BEST_FLOORS)
+	best[dungeon_id] = floors
+	_state[GameStateKeys.DUNGEON_BEST_FLOORS] = best
+	return true
+
+
+func _record_run_report(kind: String, end: String, target_id: String, floors: int, best_updated: bool, items: Dictionary) -> void:
+	_last_run_report = {
+		REPORT_KIND: kind,
+		REPORT_END: end,
+		REPORT_TARGET_ID: target_id,
+		REPORT_FLOORS: floors,
+		REPORT_BEST_UPDATED: best_updated,
+		REPORT_BEST: get_dungeon_best_floors(target_id) if kind == REPORT_KIND_DUNGEON else 0,
+		REPORT_MEMBERS: get_party_members().duplicate(),
+		REPORT_GRANTED: (items.get(REPORT_GRANTED, {}) as Dictionary).duplicate(true),
+		REPORT_DISCARDED: (items.get(REPORT_DISCARDED, {}) as Dictionary).duplicate(true),
+		REPORT_LEFT_BEHIND: (items.get(REPORT_LEFT_BEHIND, {}) as Dictionary).duplicate(true),
+		REPORT_LOST: (items.get(REPORT_LOST, {}) as Dictionary).duplicate(true),
+	}
+	_run_report_seen = false
+	print("[GameManager] 帰還報告書: %s" % str(_last_run_report))
 
 
 # ランの状態を捨てる。⚠ 撤退と全ロストの共通部分。
@@ -9744,7 +9848,7 @@ func apply_dungeon_battle_result(hp_by_character: Dictionary) -> bool:
 	#   鞄に持ち込みが入らないので、条件分岐を書かずに構造で外れている）。
 	if get_dungeon_active_members().is_empty():
 		print("[GameManager] 編成が全員脱落した -> 死亡（鞄を失う）")
-		abandon_dungeon_run()
+		abandon_dungeon_run(RUN_END_DEFEATED)
 		return true
 
 	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))

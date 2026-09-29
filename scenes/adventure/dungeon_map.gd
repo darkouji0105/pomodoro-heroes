@@ -26,6 +26,7 @@ extends Control
 const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.tscn"
+const REPORT_PATH: String = "res://scenes/adventure/run_report_screen.tscn"
 # ⚠ 別画面に切り出したもの（段階17-e-3・人間の指示）。⚠ ここから遷移するだけ。
 # ⚠ レリック選択はシナリオと1枚（2026-09-19）。⚠ ランの種類を渡す。
 const RELIC_SELECT_PATH: String = "res://scenes/adventure/run_relic_select.tscn"
@@ -905,7 +906,8 @@ func _on_abandon_pressed() -> void:
 	if not sure:
 		return
 	GameManager.abandon_dungeon_run()
-	SceneManager.change_scene(ADVENTURE_SELECT_PATH)
+	# ⚠ 2026-09-29（`EXEC_RUN_REPORT.md`・人間「⚠ 1い」）：⚠ 撤退報告書（失った品）へ。
+	SceneManager.change_scene(REPORT_PATH)
 
 
 # 拠点へ。⚠ ランは終わらない（状態に残るので続きから再開できる）。
