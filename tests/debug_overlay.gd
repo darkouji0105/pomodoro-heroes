@@ -63,6 +63,9 @@ var _info_label: Label = null
 var _body: VBoxContainer = null
 var _toggle_button: Button = null
 # ⚠ 画面ごとに出し分ける2つの箱（2026-09-21）。
+var _scroll: ScrollContainer = null
+# ⚠ 本体の枠の下に残す高さ（⚠ 見出しの行・余白）。
+const SCROLL_BOTTOM_RESERVE: float = 60.0
 var _base_box: VBoxContainer = null
 var _dungeon_box: VBoxContainer = null
 
@@ -116,8 +119,15 @@ func _build_ui() -> void:
 	header.add_child(_toggle_button)
 
 	# --- 本体（畳む対象） ---
+	# ⚠ スクロールの枠に入れる（2026-10-03・人間「⚠ デバッグのパネルをスクロールできるようにして」）。
+	#   ⚠ 高さは画面の下端まで（`_place_top_right()` が合わせる）。⚠ 畳むのは枠ごと。
+	_scroll = ScrollContainer.new()
+	_scroll.name = "BodyScroll"
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(_scroll)
 	_body = VBoxContainer.new()
-	box.add_child(_body)
+	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(_body)
 
 	_info_label = Label.new()
 	_info_label.add_theme_font_size_override("font_size", 13)
@@ -162,6 +172,8 @@ func _build_ui() -> void:
 	_dungeon_box.add_child(_make_button("難：ボスを倒した扱いにする", _dungeon_clear_boss))
 	_dungeon_box.add_child(_make_button("難：セーブする", _save))
 	_apply_scene_group()
+	# ⚠ 中身が揃ってから本体の枠の高さを合わせる。
+	_place_top_right.call_deferred()
 
 
 func _make_separator() -> HSeparator:
@@ -309,8 +321,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_toggle_pressed() -> void:
-	_body.visible = not _body.visible
-	_toggle_button.text = "▲ 畳む" if _body.visible else "▼ 開く"
+	_scroll.visible = not _scroll.visible
+	_toggle_button.text = "▲ 畳む" if _scroll.visible else "▼ 開く"
 	# 畳むとパネルが小さくなる。位置は右上のままにしたいので置き直す。
 	_place_top_right.call_deferred()
 
@@ -342,6 +354,10 @@ func _place_top_right() -> void:
 	var top: float = maxf(8.0, ResourceHud.reserved_height())
 	# サイズが確定する前に呼ばれても破綻しないよう、実サイズではなく想定幅で引く。
 	_root.position = Vector2(max(8.0, view_width - PANEL_WIDTH - 8.0), top)
+	# ⚠ 本体の枠は画面の下端まで（⚠ 見出しの行と余白のぶん引く）。⚠ 中身が短ければ中身の高さ。
+	if _scroll != null and _body != null:
+		var available: float = get_viewport().get_visible_rect().size.y - top - SCROLL_BOTTOM_RESERVE
+		_scroll.custom_minimum_size = Vector2(PANEL_WIDTH - 20.0, minf(_body.get_combined_minimum_size().y, maxf(120.0, available)))
 
 
 # 毎フレーム更新しない。get_state() が状態を丸ごと duplicate(true) するため、
