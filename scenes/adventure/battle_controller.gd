@@ -633,9 +633,10 @@ func _current_layer() -> int:
 			GameStateKeys.FLOOR_NODE_LAYER, 0
 		))
 	if _dungeon_node_id != "":
-		return int(GameManager.get_dungeon_node(_dungeon_node_id).get(
+		# ⚠ 入口から数えた層（2026-10-03・決定49）。⚠ 数え方は GameManager の1本。
+		return GameManager.get_dungeon_absolute_layer(int(GameManager.get_dungeon_node(_dungeon_node_id).get(
 			GameStateKeys.DUNGEON_NODE_LAYER, 0
-		))
+		)))
 	return 0
 
 

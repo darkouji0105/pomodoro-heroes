@@ -61,6 +61,11 @@ func _build_report() -> TiltedSheet:
 	column.add_child(heading)
 
 	var floors: int = int(_report.get(GameManager.REPORT_FLOORS, 0))
+	# ⚠⚠ 難ダンジョンは層で出す（2026-10-03・決定49・手本 DungeonResult「31 → 50 層」）。
+	#   ⚠ `floors` は入口から数えたフロアの番号（⚠ ボスを倒したいちばん深いもの）。⚠ このランで倒したのは `start`〜`floors`。
+	var start: int = maxi(1, int(_report.get(GameManager.REPORT_START_FLOOR, 1)))
+	var per_floor: int = maxi(1, int(_report.get(GameManager.REPORT_LAYERS_PER_FLOOR, 1)))
+	var cleared_from: int = start if _is_dungeon() else 1
 	var caption: Label = Label.new()
 	caption.theme_type_variation = &"CaptionLabel"
 	caption.text = tr("ui_report_cleared_caption")
@@ -72,9 +77,11 @@ func _build_report() -> TiltedSheet:
 	big.name = "FloorsLabel"
 	big.theme_type_variation = &"RunReportBigLabel"
 	big.text = str(floors)
+	if _is_dungeon():
+		big.text = tr("ui_report_layer_span") % [(start - 1) * per_floor + 1, floors * per_floor] if floors >= start else "0"
 	line.add_child(big)
 	var unit: Label = Label.new()
-	unit.text = tr("ui_report_floor_unit")
+	unit.text = tr("ui_report_layer_unit") if _is_dungeon() else tr("ui_report_floor_unit")
 	unit.size_flags_vertical = Control.SIZE_SHRINK_END
 	line.add_child(unit)
 	var range_column: VBoxContainer = VBoxContainer.new()
@@ -104,17 +111,26 @@ func _build_report() -> TiltedSheet:
 			best.name = "BestLabel"
 			best.theme_type_variation = &"CaptionLabel"
 			best.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			best.text = tr("ui_report_best") % int(_report.get(GameManager.REPORT_BEST, 0))
+			best.text = tr("ui_report_best") % (int(_report.get(GameManager.REPORT_BEST, 0)) * per_floor)
 			line.add_child(best)
 
 	# ⚠ フロアごとのボス突破（⚠ 手本の「40層　ボス：…　突破」）。
-	if floors <= 0:
+	if floors < cleared_from:
 		var none: Label = Label.new()
 		none.name = "NoBossLabel"
 		none.theme_type_variation = &"CaptionLabel"
 		none.text = tr("ui_report_no_boss")
 		column.add_child(none)
-	for floor_number: int in range(1, floors + 1):
+	# ⚠ 行は深いほうから `boss_rows` 本まで（2026-10-03・決定49＝1ランで何十フロアも潜れる）。⚠ 残りは1行にまとめる。
+	var rows_max: int = maxi(1, get_theme_constant(&"boss_rows", THEME_TYPE))
+	var shown_from: int = maxi(cleared_from, floors - rows_max + 1)
+	if shown_from > cleared_from:
+		var more: Label = Label.new()
+		more.name = "MoreBossLabel"
+		more.theme_type_variation = &"CaptionLabel"
+		more.text = tr("ui_report_boss_more") % (shown_from - cleared_from)
+		column.add_child(more)
+	for floor_number: int in range(shown_from, floors + 1):
 		var row: LedgerRow = LedgerRow.new()
 		row.name = "Boss_%d" % floor_number
 		row.compact = true
@@ -124,7 +140,7 @@ func _build_report() -> TiltedSheet:
 		var floor_label: Label = Label.new()
 		floor_label.theme_type_variation = &"SheetHeadingLabel"
 		floor_label.custom_minimum_size.x = float(get_theme_constant(&"floor_width", THEME_TYPE))
-		floor_label.text = tr("ui_report_floor") % floor_number if _is_dungeon() else _target_name()
+		floor_label.text = tr("ui_report_floor") % (floor_number * per_floor) if _is_dungeon() else _target_name()
 		boss_line.add_child(floor_label)
 		var boss: Label = Label.new()
 		boss.theme_type_variation = &"CaptionLabel"

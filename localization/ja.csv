@@ -19,12 +19,12 @@ ui_common_title_save,セーブ
 ui_common_title_received,受け取り
 ui_common_title_result,結果
 ui_common_break,壊す
-ui_dungeon_clear_heading,踏破　フロア
+ui_dungeon_clear_heading,%d層　ボスを倒した
 ui_dungeon_clear_caption,ここから先へ進むか、持ち帰るかを選ぶ
 ui_dungeon_clear_loot,いま持っているもの
 ui_dungeon_clear_loot_none,手ぶらだ
 ui_dungeon_clear_descend,さらに潜る
-ui_dungeon_clear_retreat,ここで戻る
+ui_dungeon_clear_retreat,出る
 ui_res_gold,ゴールド
 ui_res_gems,ジェム
 ui_res_stamina,スタミナ
@@ -764,7 +764,20 @@ ui_dungeon_section,難ダンジョン
 ui_dungeon_resume,続きから
 ui_dungeon_start_failed,ダンジョンに入れなかった
 ui_dungeon_other_in_progress,別のランの途中です
-ui_dungeon_floor,フロア
+ui_depth_title,潜る深さ
+ui_depth_step,%d層ごと
+ui_depth_from,層から
+ui_depth_from_exit,%d層の出口から
+ui_depth_from_entrance,入口から
+ui_depth_next_exit,次の出口 %d層
+ui_depth_carry,持ち込みなし・鞄は空の%d枠
+ui_depth_minus,−%d
+ui_depth_plus,+%d
+ui_depth_deepest,最深へ
+ui_depth_gauge_entrance,入口
+ui_depth_gauge_limit,%d層まで
+ui_depth_gauge_best,最深
+ui_sortie_preset_short,控え
 ui_dungeon_currency,遺物片
 ui_dungeon_bag,鞄
 ui_dungeon_downed,脱落
@@ -1053,9 +1066,12 @@ ui_report_how_returned,ボスを倒した先から戻った
 ui_report_how_defeated,全員が倒れた。鞄の中身は失った
 ui_report_how_abandoned,その場で降りた。鞄の中身は失った
 ui_report_best_updated,最深更新
-ui_report_best,最深 %dフロア
+ui_report_best,最深 %d層
 ui_report_no_boss,ボスはまだ倒していない
-ui_report_floor,第%dフロア
+ui_report_floor,%d層
+ui_report_layer_unit,層
+ui_report_layer_span,%d → %d
+ui_report_boss_more,ほかに %d 体のボスを突破した
 ui_report_boss,ボス
 ui_report_boss_cleared,突破
 ui_report_kept,装備・レベルはそのまま
@@ -1138,11 +1154,12 @@ ui_dungeon_abandon_confirm,その場で降りますか？ 鞄の中身とコイ�
 ui_floor_abandon_confirm,フロアを降りますか？ たいまつ・レリック・鞄の中身がなくなります
 ui_map_legend,しるし
 ui_dungeon_fork_retreat_caption,鞄の中身を持ち帰る
-ui_dungeon_fork_descend_caption,次は フロア %d
+ui_dungeon_fork_descend_title,もう%d層
+ui_dungeon_layer_range,%d–%d層
 ui_dungeon_fork_warning,倒れたら鞄は空になる
 ui_dungeon_fork_descend_button,潜る
 ui_dungeon_shop_in_bag,鞄に %d 個
-ui_dungeon_shop_leave_descend,フロア %d へ
+ui_dungeon_shop_leave_descend,%d層へ
 ui_dungeon_shop_leave_map,地図へ戻る
 ui_common_cancel,やめる
 ui_stamp_irreversible,戻せない

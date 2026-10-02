@@ -12,7 +12,7 @@
 #   ⚠ 右に編成の控え（8件）：3人の顔・「いまと同じ」の判 ／ 「呼ぶ」（⚠ 並び・ビルド・装備が移るを予告する窓を通す）・「いまを残す」。
 #   ⚠ 名前（控えの「ボス用」・ビルドの「支える」）は入れない（⚠ 人間「⚠ 1い」）。
 #   ⚠ はじめてのガイド（⚠ 人間「⚠ 2あ」）：初めて開いたときだけ（`SortieGuide`・`GameManager.GUIDE_SORTIE`）。
-#   ⚠ 難ダンジョンも同じ画面（⚠ 人間「⚠ 4あ」）。⚠ 手本の「潜る深さ」は決定49 の回で足す。
+#   ⚠ 難ダンジョンも同じ画面（⚠ 人間「⚠ 4あ」）。⚠ 新しく入るときは右の欄の上に「潜る深さ」（⚠ 10-03・決定49・モック Q8 A案）。
 #   ⚠ 「ビルド ▼」は選ぶと**そのビルドを当てる**（⚠ 出撃前の画面なので、選んだものが戦闘に効かないと意味が無い。⚠ 中身の無いビルドは選べない）。
 # ⚠ 出撃の手続き（⚠ 解放・スタミナ・フロア・戦闘・難ダンジョン）は前は掲示板にあった。⚠ ここへ移した（⚠ 判定は GameManager の口のまま）。
 # ⚠ 装備を選ぶ欄は作らない（GAME_DESIGN 13章「装備の変更はできない。ギルドで行う」）。
@@ -60,6 +60,8 @@ var _stamp: Stamp = null
 var _signing: bool = false
 var _sign_tween: Tween = null
 var _sign_blocker: Control = null
+# ⚠ 難ダンジョンに入るフロア（⚠ 0＝まだ選んでいない＝最深の次・決定49）。⚠ 状態には無い（⚠ 出撃するときに渡す）。
+var _start_floor: int = 0
 
 
 func _ready() -> void:
@@ -166,6 +168,12 @@ func _rebuild_strip() -> void:
 			ticket.theme_type_variation = &"SmallLabel" if have >= use else &"SmallErrorLabel"
 			ticket.text = tr("ui_quota_ticket_use") % [use, have, maxi(0, have - use)]
 			strip_body.add_child(ticket)
+			# ⚠ 持ち込みなし（2026-10-03・決定49・手本 DungeonGate「持ち込み できない」・モック Q8 は帯の右）。
+			var carry: Label = Label.new()
+			carry.name = "CarryLabel"
+			carry.theme_type_variation = &"SmallLabel"
+			carry.text = tr("ui_depth_carry") % int(Balance.dungeon.bag_initial_slots)
+			strip_body.add_child(carry)
 		var gap: Control = Control.new()
 		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -386,6 +394,9 @@ func _on_build_chosen(character_id: String, index: int) -> void:
 
 func _rebuild_side() -> void:
 	_clear(side)
+	# ⚠ 潜る深さ（2026-10-03・決定49・モック Q8 A案「難ダンジョンを1枚にまとめる」）。⚠ 新しく入るときだけ（⚠ 続きからは出さない）。
+	if _is_new_dungeon_entry():
+		side.add_child(_build_depth_sheet())
 	var holder: TiltedSheet = TiltedSheet.create(2)
 	holder.name = "Reserve"
 	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -393,11 +404,17 @@ func _rebuild_side() -> void:
 	side.add_child(holder)
 	var body: VBoxContainer = VBoxContainer.new()
 	holder.sheet.add_child(body)
+	var presets: Array = GameManager.get_party_presets()
+	# ⚠ 潜る深さを出すときは控えを ▼ の1行に縮める（⚠ モック Q8 A案「控え1 いまと同じ ▼」・縦 720 に収めるため）。
+	if _is_new_dungeon_entry():
+		holder.size_flags_vertical = Control.SIZE_SHRINK_END
+		body.add_child(_build_preset_picker(presets))
+		_add_preset_buttons(body, presets)
+		return
 	var heading: SheetHeading = SheetHeading.new()
 	heading.title_key = "ui_barracks_reserve"
 	heading.right_text = tr("ui_sortie_reserve_count") % GameManager.get_party_preset_count()
 	body.add_child(heading)
-	var presets: Array = GameManager.get_party_presets()
 	var face: int = get_theme_constant(&"mini_photo", THEME_TYPE)
 	# ⚠ 8行は縦に長い（⚠ 詰所は下に施設の帯がある＝1枚目の絵で名簿が帯の裏に隠れた）＝⚠ 一覧だけ縦に流す。
 	var scroll: ScrollContainer = ScrollContainer.new()
@@ -439,6 +456,11 @@ func _rebuild_side() -> void:
 			stamp.label_key = "ui_sortie_same"
 			line.add_child(stamp)
 		rows.add_child(row)
+	_add_preset_buttons(body, presets)
+
+
+# 「呼ぶ」「いまを残す」（⚠ 一覧のときも ▼ のときも同じ2つ）。
+func _add_preset_buttons(body: VBoxContainer, presets: Array) -> void:
 	var buttons: HBoxContainer = HBoxContainer.new()
 	body.add_child(buttons)
 	var call_button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_barracks_call")
@@ -452,6 +474,139 @@ func _rebuild_side() -> void:
 	keep_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	keep_button.pressed.connect(_on_keep_pressed)
 	buttons.add_child(keep_button)
+
+
+# 控えを ▼ で選ぶ1行（⚠ モック Q8 A案）。⚠ 選ぶと一覧の行を押したのと同じ（`_on_preset_row_pressed()`）。
+func _build_preset_picker(presets: Array) -> HBoxContainer:
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = "PresetPickerLine"
+	var caption: Label = Label.new()
+	caption.theme_type_variation = &"CaptionLabel"
+	caption.text = tr("ui_barracks_reserve")
+	line.add_child(caption)
+	var picker: MenuButton = MenuButton.new()
+	picker.name = "PresetPicker"
+	picker.theme_type_variation = &"PaperChoice"
+	picker.flat = false
+	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	picker.text = "%s ▼" % _preset_label(_preset_pick, presets)
+	var popup: PopupMenu = picker.get_popup()
+	for index: int in range(GameManager.get_party_preset_count()):
+		popup.add_item(_preset_label(index, presets), index)
+	popup.id_pressed.connect(_on_preset_picked)
+	line.add_child(picker)
+	return line
+
+
+# ⚠ 窓（PopupMenu）の合図の中で作り直さない（⚠ 次のフレームで）。
+func _on_preset_picked(index: int) -> void:
+	_preset_pick = index
+	_rebuild_side.call_deferred()
+
+
+# 「控え1 いまと同じ」／「控え2 空き」。
+func _preset_label(index: int, presets: Array) -> String:
+	var preset: Variant = presets[index] if index < presets.size() else null
+	var state: String = tr("ui_party_preset_empty")
+	if _is_saved(preset):
+		state = tr("ui_sortie_same") if _matches_now(preset) else ""
+	return ("%s%d %s" % [tr("ui_sortie_preset_short"), index + 1, state]).strip_edges()
+
+
+# --- 潜る深さ（2026-10-03・決定49・`EXEC_DUNGEON_SHAPE.md` §5-5・人間「⚠ 2あ　⚠ 4あ」） ---------------
+#   ⚠ 選べる深さの判定は GameManager の1本（`get_dungeon_start_floor_options()`）。⚠ 画面は番号を持つだけ。
+
+func _is_new_dungeon_entry() -> bool:
+	return _dungeon_id != "" and not GameManager.is_in_dungeon()
+
+
+# 入るフロア（⚠ まだ選んでいなければ最深の次＝手本の「31層から」）。⚠ 開いていない深さを指していたら丸める。
+func _chosen_start_floor() -> int:
+	var options: Array[int] = GameManager.get_dungeon_start_floor_options(_dungeon_id)
+	if options.is_empty():
+		return 1
+	if _start_floor in options:
+		return _start_floor
+	return options[options.size() - 1]
+
+
+func _build_depth_sheet() -> TiltedSheet:
+	var options: Array[int] = GameManager.get_dungeon_start_floor_options(_dungeon_id)
+	var chosen: int = _chosen_start_floor()
+	var per_floor: int = GameManager.get_dungeon_layers_per_floor(_dungeon_id)
+	var first_layer: int = (chosen - 1) * per_floor + 1
+	var holder: TiltedSheet = TiltedSheet.create(1)
+	holder.name = "Depth"
+	holder.sheet.theme_type_variation = &"SortiePaperPanel"
+	var body: VBoxContainer = VBoxContainer.new()
+	holder.sheet.add_child(body)
+	var heading: SheetHeading = SheetHeading.new()
+	heading.title_key = "ui_depth_title"
+	heading.right_text = tr("ui_depth_step") % per_floor
+	body.add_child(heading)
+	var row: HBoxContainer = HBoxContainer.new()
+	body.add_child(row)
+	var gauge: DepthGauge = DepthGauge.new()
+	gauge.name = "DepthGauge"
+	gauge.max_floors = GameManager.get_dungeon_max_floors()
+	gauge.layers_per_floor = per_floor
+	gauge.best_floor = GameManager.get_dungeon_best_floors(_dungeon_id)
+	gauge.deepest_start = options[options.size() - 1] if not options.is_empty() else 1
+	gauge.start_floor = chosen
+	gauge.floor_picked.connect(_on_depth_picked)
+	row.add_child(gauge)
+	var info: VBoxContainer = VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(info)
+	var from: Label = Label.new()
+	from.name = "FromExitLabel"
+	from.theme_type_variation = &"CaptionLabel"
+	from.text = tr("ui_depth_from_entrance") if chosen <= 1 else tr("ui_depth_from_exit") % (first_layer - 1)
+	info.add_child(from)
+	var big_line: HBoxContainer = HBoxContainer.new()
+	info.add_child(big_line)
+	var big: Label = Label.new()
+	big.name = "StartLayerLabel"
+	big.theme_type_variation = &"DepthBigLabel"
+	big.text = str(first_layer)
+	big_line.add_child(big)
+	var unit: Label = Label.new()
+	unit.text = tr("ui_depth_from")
+	unit.size_flags_vertical = Control.SIZE_SHRINK_END
+	big_line.add_child(unit)
+	var next_exit: Label = Label.new()
+	next_exit.name = "NextExitLabel"
+	next_exit.theme_type_variation = &"SmallLabel"
+	next_exit.text = tr("ui_depth_next_exit") % (chosen * per_floor)
+	info.add_child(next_exit)
+	# −10 ／ +10 ／ 最深へ（⚠ 端は押せない）。
+	var buttons: HBoxContainer = HBoxContainer.new()
+	buttons.name = "DepthButtons"
+	body.add_child(buttons)
+	var deepest: int = options[options.size() - 1] if not options.is_empty() else 1
+	for spec: Array in [
+		["DepthMinusButton", tr("ui_depth_minus") % per_floor, chosen - 1, chosen <= 1],
+		["DepthPlusButton", tr("ui_depth_plus") % per_floor, chosen + 1, chosen >= deepest],
+		["DepthDeepestButton", tr("ui_depth_deepest"), deepest, chosen >= deepest],
+	]:
+		var button: Button = UiButton.create_paper_choice("")
+		button.theme_type_variation = &"DepthStepButton"
+		button.name = str(spec[0])
+		button.text = str(spec[1])
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.disabled = bool(spec[3])
+		button.pressed.connect(_on_depth_picked.bind(int(spec[2])))
+		buttons.add_child(button)
+	return holder
+
+
+func _on_depth_picked(start_floor: int) -> void:
+	if not (start_floor in GameManager.get_dungeon_start_floor_options(_dungeon_id)):
+		return
+	_start_floor = start_floor
+	# ⚠ 押したボタンを押している最中に作り直さない（⚠ 次のフレームで）。
+	_rebuild_side.call_deferred()
 
 
 func _is_saved(preset: Variant) -> bool:
@@ -753,6 +908,9 @@ func _sortie_error() -> String:
 		# ⚠ 新しく入るにはノルマ札（2026-10-02・`EXEC_QUOTA_TICKET.md`・人間「⚠ 4あ」）。
 		if not GameManager.has_quota_ticket_for_entry():
 			return tr("ui_quota_ticket_needed")
+		# ⚠ 開いていない深さ（⚠ 選び直したあと最深が変わることは無いが、⚠ 判定は口に聞く）。
+		if not (_chosen_start_floor() in GameManager.get_dungeon_start_floor_options(_dungeon_id)):
+			return tr("ui_dungeon_start_failed")
 		return ""
 	# 解放状態の最終チェック（EXEC §5.1）
 	if not _is_unlocked(_stage_id):
@@ -883,7 +1041,7 @@ func _start_stage() -> void:
 
 
 # ⚠ 入れるかの判定は GameManager が持つ。⚠ 別のランの途中なら断る（⚠ 黙って捨てると鞄も戦闘時 MAX HP も消える）。
-# ⚠ 入るコストは取らない（決定11）。
+# ⚠ 入るとノルマ札を1枚使う（`DG-1`）。⚠ 選んだ深さから入る（決定49）。
 func _start_dungeon() -> void:
 	var error: String = _sortie_error()
 	if error != "":
@@ -893,7 +1051,7 @@ func _start_dungeon() -> void:
 		SceneManager.change_scene(DUNGEON_MAP_PATH)
 		return
 	# ⚠ 新しく入る＝ノルマ札を使う（⚠ 判定・入る・減らすは GameManager の1本）。
-	if not GameManager.enter_dungeon_with_ticket(_dungeon_id):
+	if not GameManager.enter_dungeon_with_ticket(_dungeon_id, _chosen_start_floor()):
 		_say(tr("ui_dungeon_start_failed"), true)
 		return
 	SceneManager.change_scene(DUNGEON_MAP_PATH)

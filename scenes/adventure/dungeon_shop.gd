@@ -57,7 +57,8 @@ func _ready() -> void:
 	_say(tr("ui_dungeon_shop_currency_note"), &"MutedLabel")
 	leave_button.pressed.connect(_on_back_pressed)
 	leave_button.text = (
-		tr("ui_dungeon_shop_leave_descend") % (GameManager.get_dungeon_floor_index() + 1) if _descend_after
+		# ⚠ 「41層へ」（2026-10-03・決定49）＝次のフロアの最初の層。
+		tr("ui_dungeon_shop_leave_descend") % GameManager.get_dungeon_floor_first_layer(GameManager.get_dungeon_floor_index() + 1) if _descend_after
 		else tr("ui_dungeon_shop_leave_map")
 	)
 	GameManager.dungeon_run_changed.connect(_on_dungeon_run_changed)

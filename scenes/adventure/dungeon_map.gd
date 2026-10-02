@@ -168,11 +168,11 @@ func _update_header() -> void:
 	dungeon_name_label.text = tr(str(dungeon.get("name_key", dungeon_id)))
 
 	# 数値のみの組み立てなので、tr() を通すのは見出しだけ（AGENTS.md）。
-	# ⚠ 「3階のうち何階目か」を出す（段階20-a・決定26）。⚠ 残りが見えないと
-	#   「もう1枚潜るか」の判断ができない。⚠ 階の数を画面で数えないこと。
-	floor_label.text = "%s %d/%d" % [
-		tr("ui_dungeon_floor"), GameManager.get_dungeon_floor_index(),
-		GameManager.get_dungeon_max_floors(),
+	# ⚠ このフロアの層の幅「31–40層」（2026-10-03・決定49。⚠ 前は「フロア n/3」＝決定26）。
+	#   ⚠ 層の数え方は GameManager の1本（⚠ 画面で掛け算しない）。
+	floor_label.text = tr("ui_dungeon_layer_range") % [
+		GameManager.get_dungeon_absolute_layer(1),
+		GameManager.get_dungeon_absolute_layer(GameManager.get_dungeon_layers_per_floor()),
 	]
 	# ⚠⚠ たいまつの等級（決定32）。⚠ 2026-09-19 にフロアの行から分けた（モック v2 のヘッダ）。
 	#   ⚠ 何層先まで見えているかが読めないと、⚠ ショップで買うかどうかを決められない。
@@ -382,7 +382,8 @@ func _layer_captions(nodes: Dictionary, layer_key: String, kind_key: String, bos
 	for raw: Variant in nodes.values():
 		var node: Dictionary = raw
 		var layer: int = int(node.get(layer_key, 1))
-		var text: String = tr("ui_dungeon_layer_no") % layer
+		# ⚠ 字は入口から数えた層（2026-10-03・決定49）。⚠ 鍵（並び）はマップの中の層のまま。
+		var text: String = tr("ui_dungeon_layer_no") % GameManager.get_dungeon_absolute_layer(layer)
 		if str(node.get(kind_key, "")) == boss_kind:
 			text = "%s %s" % [Glyphs.NODE_BOSS, text]
 		result[layer] = text

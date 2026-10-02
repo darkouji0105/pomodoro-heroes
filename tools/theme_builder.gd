@@ -772,6 +772,7 @@ static func build() -> void:
 	_build_records(theme)
 	_build_settings(theme)
 	_build_run_report(theme)
+	_build_depth_gauge(theme)
 	_build_focus_tool(theme)
 	_build_mini_window(theme)
 	_build_special_effect(theme)
@@ -2642,11 +2643,13 @@ const REPORT_FLOOR_WIDTH: int = 120       # ⚠ ボスの行の「第nフロア�
 const REPORT_PHOTO: int = 36
 const REPORT_CARD_WIDTH: int = 92         # ⚠ 品の札（絵＋名前）
 const REPORT_LOST_TINT: Color = Color(0.6, 0.6, 0.6, 0.7)   # ⚠ 失った品は薄く灰色に
+const REPORT_BOSS_ROWS: int = 4           # ⚠ ボスの行は深いほうからこの数まで（⚠ 2026-10-03・決定49＝何十フロアも潜れる）
 
 
 static func _build_run_report(theme: Theme) -> void:
 	var t: StringName = &"RunReport"
 	theme.set_constant(&"floor_width", t, REPORT_FLOOR_WIDTH)
+	theme.set_constant(&"boss_rows", t, REPORT_BOSS_ROWS)
 	theme.set_constant(&"photo", t, REPORT_PHOTO)
 	theme.set_constant(&"card_width", t, REPORT_CARD_WIDTH)
 	theme.set_color(&"lost_tint", t, REPORT_LOST_TINT)
@@ -2654,6 +2657,47 @@ static func _build_run_report(theme: Theme) -> void:
 	theme.set_font_size(&"font_size", &"RunReportBigLabel", REPORT_BIG_SIZE)
 	if theme.has_font(&"font", &"PriceLabel"):
 		theme.set_font(&"font", &"RunReportBigLabel", theme.get_font(&"font", &"PriceLabel"))
+
+
+# --- 潜る深さ（2026-10-03・決定49・手本 DungeonGate ／ モック `barracks/Q8 A案`）---
+#   ⚠ 坑道の縦図 `DepthGauge` と大きな「31 層から」。⚠ 色は手本（`#dccaa3` の坑道・`#c9ad7c` の掘った所・真鍮のつまみ）。
+const DEPTH_GAUGE: Dictionary = {
+	"width": 120, "height": 168,           # ⚠ モック Q8 は 120 × 230。⚠ 出撃の準備を縦 720 に収めるため低くした（⚠ 1枚目の絵で 90px はみ出した）
+	"tube_x": 40, "tube_width": 26,          # ⚠ 坑道の左端と幅
+	"tick_out": 5,                           # ⚠ 目盛りが坑道から左右にはみ出す長さ
+	"marks": 6,                              # ⚠ 窓に描く目盛り（⚠ 入口・10・…・50）
+	"pad_top": 8, "pad_bottom": 20,          # ⚠ 下は「500層まで」の字の場所
+	"font_size": 11, "knob_radius": 10,
+}
+const DEPTH_GAUGE_COLORS: Dictionary = {
+	"tube": "dccaa3", "tube_fill": "c9ad7c",
+	"ink": TOKEN_INK, "ink_faint": "8a7458", "cleared": TOKEN_WAX,
+	"knob": TOKEN_BRASS, "knob_edge": "7a5716",
+}
+const DEPTH_BIG_SIZE: int = 34             # ⚠ 「31」（⚠ モック Q8 の 34px）
+const DEPTH_STEP_PAD_H: int = 8            # ⚠ 「−10」「+10」「最深へ」の札の左右（⚠ 紙の札の 22 だと右の欄が 250 → 282 に広がった）
+
+
+static func _build_depth_gauge(theme: Theme) -> void:
+	var t: StringName = &"DepthGauge"
+	for key: String in DEPTH_GAUGE:
+		theme.set_constant(StringName(key), t, int(DEPTH_GAUGE[key]))
+	for key: String in DEPTH_GAUGE_COLORS:
+		theme.set_color(StringName(key), t, _html(str(DEPTH_GAUGE_COLORS[key])))
+	# ⚠ 札は紙の札（`PaperChoice`）の左右だけ詰めたもの（⚠ 紙の部品は先に組んである）。
+	theme.set_type_variation(&"DepthStepButton", &"PaperChoice")
+	for state: String in BUTTON_STATES:
+		var base: StyleBox = theme.get_stylebox(StringName(state), &"PaperChoice")
+		if base == null:
+			continue
+		var step: StyleBox = base.duplicate()
+		step.content_margin_left = DEPTH_STEP_PAD_H
+		step.content_margin_right = DEPTH_STEP_PAD_H
+		theme.set_stylebox(StringName(state), &"DepthStepButton", step)
+	theme.set_type_variation(&"DepthBigLabel", &"Label")
+	theme.set_font_size(&"font_size", &"DepthBigLabel", DEPTH_BIG_SIZE)
+	if theme.has_font(&"font", &"PriceLabel"):
+		theme.set_font(&"font", &"DepthBigLabel", theme.get_font(&"font", &"PriceLabel"))
 
 
 static func _build_sortie(theme: Theme) -> void:

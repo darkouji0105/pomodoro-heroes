@@ -99,6 +99,8 @@ const SHOT_PREPARE_CHESTS: String = "chests"
 # ⚠ 帰還報告書（2026-09-29）。⚠ 内側の `PREPARE_REPORT_*` と同じ字。
 const SHOT_PREPARE_REPORT_RETURNED: String = "report_returned"
 const SHOT_PREPARE_REPORT_DEFEATED: String = "report_defeated"
+# ⚠ 潜る深さ（2026-10-03・決定49）：⚠ 最深 3（30層）・ノルマ札1枚で出撃の準備（難ダンジョン）。⚠ 内側の `PREPARE_SORTIE_DEPTH` と同じ字。
+const SHOT_PREPARE_SORTIE_DEPTH: String = "sortie_depth"
 const SHOT_AFTER_CHEST_OPEN: String = "chest_open"
 # ⚠ 鍛冶場で「鍛える」を押した姿（2026-09-27）。⚠ 内側の `AFTER_FORGE_PRESS` と同じ字。
 const SHOT_AFTER_FORGE_PRESS: String = "forge_press"
@@ -1227,6 +1229,14 @@ const SCENARIOS: Dictionary = {
 			{"name": "54_special_effect", "scene": "res://scenes/guild/warehouse_screen.tscn", "after": SHOT_AFTER_SPECIAL_EFFECT},
 			# ⚠ ノルマ札（2026-10-02・回UI-仕組み⑧）。⚠ 高難度の依頼＝札が要る姿。
 			{"name": "55_board_hard", "scene": "res://scenes/adventure/adventure_select.tscn", "after": SHOT_AFTER_BOARD_HARD},
+			# ⚠ 潜る深さ（2026-10-03・決定49・モック Q8 A案）。⚠ 最深 30層・ノルマ札1枚＝「31層から」。
+			{
+				"name": "58_sortie_depth",
+				"scene": "res://scenes/adventure/party_preset_screen.tscn",
+				"prepare": SHOT_PREPARE_SORTIE_DEPTH,
+				"data": {TransferKeys.SORTIE_DUNGEON_ID: "dungeon_hard", TransferKeys.RETURN_PATH: "res://scenes/adventure/adventure_select.tscn"},
+				"measure": ["Margin/Layout/Middle/Side", "Margin/Layout/Middle/Side/Depth", "Margin/Layout/Middle/Side/Reserve"],
+			},
 			# ⚠ ポモドーロの画面の設定の窓（2026-10-02・人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）。
 			{"name": "56_pomodoro_settings", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_POMODORO_SETTINGS},
 			# ⚠ 「出撃する」→ 署名を書き終えて「受理」の判が押された姿（⚠ 出発の前で止める＝フロアに入らない）。
@@ -8994,6 +9004,7 @@ class ShotTaker extends Node:
 	const PREPARE_CHESTS: String = "chests"
 	const PREPARE_REPORT_RETURNED: String = "report_returned"
 	const PREPARE_REPORT_DEFEATED: String = "report_defeated"
+	const PREPARE_SORTIE_DEPTH: String = "sortie_depth"
 	const AFTER_CHEST_OPEN: String = "chest_open"
 	const AFTER_SORTIE_SIGN: String = "sortie_sign"
 	const AFTER_SETTINGS_POMODORO: String = "settings_pomodoro"
@@ -9113,6 +9124,24 @@ class ShotTaker extends Node:
 			shot_name, path, image.get_width(), image.get_height()
 		])
 
+	# 最深を `floors` にして、⚠ ランの外・ノルマ札1枚の姿にする（⚠ 最深を書く口は本番のランの終わりだけ＝本番の口で潜って持ち帰る）。
+	func _prepare_best_floors(floors: int) -> bool:
+		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
+		if GameManager.is_in_dungeon():
+			GameManager.abandon_dungeon_run()
+		if GameManager.get_dungeon_best_floors(dungeon_id) < floors:
+			if not GameManager.start_dungeon_run(dungeon_id):
+				return false
+			for i: int in range(floors):
+				GameManager.debug_mark_dungeon_boss_cleared()
+				if i < floors - 1 and not GameManager.descend_dungeon_floor():
+					return false
+			var _back: Dictionary = GameManager.retreat_from_dungeon()
+			GameManager.mark_run_report_seen()
+		if GameManager.get_quota_ticket_count() < 1:
+			GameManager.add_to_inventory(GameStateKeys.ITEM_QUOTA_TICKET, 1)
+		return GameManager.get_dungeon_best_floors(dungeon_id) >= floors and GameManager.has_quota_ticket_for_entry()
+
 	# ⚠ 下ごしらえを増やすならここに1行。
 	func _prepare(kind: String) -> bool:
 		if kind == "":
@@ -9220,6 +9249,9 @@ class ShotTaker extends Node:
 			else:
 				GameManager.abandon_dungeon_run(GameManager.RUN_END_DEFEATED)
 			return GameManager.has_unseen_run_report()
+		if kind == PREPARE_SORTIE_DEPTH:
+			# ⚠ 潜る深さ（2026-10-03・決定49）：⚠ 本番の口でボスを3体倒して持ち帰る＝最深 3（30層）→ ⚠ 札を1枚持たせる。
+			return _prepare_best_floors(3)
 		push_error("[DebugBoot] ⚠ 知らない下ごしらえ: " + kind)
 		return false
 
@@ -10537,7 +10569,8 @@ class UiFlowRunner extends Node:
 		var heading: Node = r.find_child("ReportHeading", true, false)
 		_check("帰還報告書：「ここで戻る」で帰還報告書（題=%s・フロア %s）" % [str(heading.get("title_key")) if heading != null else "?", _label_text(r, "FloorLine", "FloorsLabel")],
 			_path_of(r) == REPORT and heading is SheetHeading and (heading as SheetHeading).title_key == "ui_report_title_returned"
-			and _label_text(r, "FloorLine", "FloorsLabel") == "1" and r.find_child("Boss_1", true, false) != null)
+			and _label_text(r, "FloorLine", "FloorsLabel") == tr("ui_report_layer_span") % [1, GameManager.get_dungeon_layers_per_floor(dungeon_id)]
+			and r.find_child("Boss_1", true, false) != null)
 		_check("帰還報告書：持ち帰った品（宝箱・素材）と「宝箱は宝物庫へ」・「宝箱を開けに行く」",
 			r.find_child("Item_" + chest_id, true, false) != null and r.find_child("Item_" + material_id, true, false) != null
 			and r.find_child("ChestNote", true, false) != null and r.find_child("ChestButton", true, false) != null)
@@ -10554,7 +10587,8 @@ class UiFlowRunner extends Node:
 		var _again: Dictionary = GameManager.retreat_from_dungeon()
 		r = await _open(REPORT, {})
 		_check("帰還報告書：同じ深さでは「最深 更新」の判は出ない（%s）" % _label_text(r, "FloorLine", "BestLabel"),
-			r.find_child("BestStamp", true, false) == null and _label_text(r, "FloorLine", "BestLabel") == tr("ui_report_best") % GameManager.get_dungeon_best_floors(dungeon_id))
+			r.find_child("BestStamp", true, false) == null and _label_text(r, "FloorLine", "BestLabel")
+			== tr("ui_report_best") % (GameManager.get_dungeon_best_floors(dungeon_id) * GameManager.get_dungeon_layers_per_floor(dungeon_id)))
 		await _press(r.find_child("HomeButton", true, false), OPEN_FRAMES)
 		_check("帰還報告書：「本部へ戻る」で本部", _path_of(get_tree().current_scene) == BASE)
 
