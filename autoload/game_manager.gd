@@ -2026,6 +2026,12 @@ func purchase_shop_item(shop_type: String, slot_id: int) -> bool:
 	# ⚠ 段階18-b：倉庫に入らないなら買わせない（PLAN_INVENTORY.md §4-1）。
 	#   ⚠ ゴールドを払ってから「渡せません」になるのが最悪。⚠ 判定はここまでに終える。
 	#   ⚠ 素材で受け取るぶん（payout_type=material）はマスを使わない（人間の決定5）。
+	# ⚠ ノルマ札は上限まで（2026-10-02・`EXEC_QUOTA_TICKET.md`・人間「⚠ 3あ」）。⚠ 払う前に弾く。
+	if item_id == GameStateKeys.ITEM_QUOTA_TICKET and get_quota_ticket_count() + payout_count > get_quota_ticket_max():
+		print("[GameManager] purchase_shop_item('%s', %d) -> false (ノルマ札が上限 %d/%d)" % [
+			shop_type, slot_id, get_quota_ticket_count(), get_quota_ticket_max()
+		])
+		return false
 	if payout_type == PAYOUT_TYPE_ITEM and not can_accept_inventory(payout_count):
 		print("[GameManager] purchase_shop_item('%s', %d) -> false (倉庫が満杯 %d/%d・要る %d マス)" % [
 			shop_type, slot_id, get_inventory_slots_used(), get_inventory_slot_max(), payout_count
@@ -3075,6 +3081,41 @@ func get_forge_success_pct(instance_id: String) -> int:
 # 確定成功の札（`EQ-7`）の数。
 func get_forge_token_count() -> int:
 	return get_item_count(GameStateKeys.ITEM_FORGE_GUARANTEE_TOKEN)
+
+
+# --- ノルマ札（2026-10-02・回UI-仕組み⑧・`EXEC_QUOTA_TICKET.md`） ---
+#   ⚠ 決定11（入口のコストは無し）を覆した＝⚠ 難ダンジョンに**新しく**入るとき1枚使う（⚠ 続きからは使わない）。
+
+func get_quota_ticket_count() -> int:
+	return get_item_count(GameStateKeys.ITEM_QUOTA_TICKET)
+
+
+func get_quota_ticket_max() -> int:
+	var config: DungeonConfig = _dungeon()
+	return 3 if config == null else config.quota_ticket_max
+
+
+func get_quota_tickets_per_entry() -> int:
+	var config: DungeonConfig = _dungeon()
+	return 1 if config == null else config.quota_tickets_per_entry
+
+
+# 新しく入れるだけの札があるか。
+func has_quota_ticket_for_entry() -> bool:
+	return get_quota_ticket_count() >= get_quota_tickets_per_entry()
+
+
+# 札を使って入る（⚠ 判定 → 入る → 札を減らす。⚠ 入れなかったら減らさない）。⚠ `start_dungeon_run()` は札を見ない
+#   （⚠ 検査・続きの口を変えないため）。⚠ 画面はこちらを呼ぶ。
+func enter_dungeon_with_ticket(dungeon_id: String) -> bool:
+	if not has_quota_ticket_for_entry():
+		print("[GameManager] enter_dungeon_with_ticket('%s') -> false (ノルマ札 %d < %d)" % [dungeon_id, get_quota_ticket_count(), get_quota_tickets_per_entry()])
+		return false
+	if not start_dungeon_run(dungeon_id):
+		return false
+	_remove_from_inventory(GameStateKeys.ITEM_QUOTA_TICKET, get_quota_tickets_per_entry())
+	print("[GameManager] enter_dungeon_with_ticket('%s') -> true (ノルマ札 残り %d)" % [dungeon_id, get_quota_ticket_count()])
+	return true
 
 
 # 等級を1つ上げる（⚠ 鍛えたかどうかだけを返す＝⚠ **失敗しても素材を払っていれば true**）。

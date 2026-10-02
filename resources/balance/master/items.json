@@ -923,6 +923,12 @@
 	  "storage": "inventory",
 	  "item_type": "consumable",
 	  "sort_order": 145
+	},
+	{
+	  "item_id": "quota_ticket",
+	  "storage": "inventory",
+	  "item_type": "consumable",
+	  "sort_order": 146
 	}
   ]
 }

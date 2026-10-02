@@ -157,6 +157,15 @@ func _rebuild_strip() -> void:
 			cost.theme_type_variation = &"SmallLabel"
 			cost.text = tr("ui_sortie_stamina") % int(Balance.adventure.stamina_cost_per_stage)
 			strip_body.add_child(cost)
+		elif not GameManager.is_in_dungeon():
+			# ⚠ ノルマ札（2026-10-02・手本 DungeonGate「入るのに使う：ノルマ札1枚　3 → 2」）。⚠ 続きからは使わない。
+			var have: int = GameManager.get_quota_ticket_count()
+			var use: int = GameManager.get_quota_tickets_per_entry()
+			var ticket: Label = Label.new()
+			ticket.name = "QuotaTicketLabel"
+			ticket.theme_type_variation = &"SmallLabel" if have >= use else &"SmallErrorLabel"
+			ticket.text = tr("ui_quota_ticket_use") % [use, have, maxi(0, have - use)]
+			strip_body.add_child(ticket)
 		var gap: Control = Control.new()
 		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -740,6 +749,10 @@ func _sortie_error() -> String:
 			var current_id: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
 			if current_id != _dungeon_id:
 				return tr("ui_dungeon_other_in_progress")
+			return ""
+		# ⚠ 新しく入るにはノルマ札（2026-10-02・`EXEC_QUOTA_TICKET.md`・人間「⚠ 4あ」）。
+		if not GameManager.has_quota_ticket_for_entry():
+			return tr("ui_quota_ticket_needed")
 		return ""
 	# 解放状態の最終チェック（EXEC §5.1）
 	if not _is_unlocked(_stage_id):
@@ -879,7 +892,8 @@ func _start_dungeon() -> void:
 	if GameManager.is_in_dungeon():
 		SceneManager.change_scene(DUNGEON_MAP_PATH)
 		return
-	if not GameManager.start_dungeon_run(_dungeon_id):
+	# ⚠ 新しく入る＝ノルマ札を使う（⚠ 判定・入る・減らすは GameManager の1本）。
+	if not GameManager.enter_dungeon_with_ticket(_dungeon_id):
 		_say(tr("ui_dungeon_start_failed"), true)
 		return
 	SceneManager.change_scene(DUNGEON_MAP_PATH)

@@ -121,6 +121,8 @@ const SHOT_AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 const SHOT_AFTER_MINI_WINDOW: String = "mini_window"
 # ⚠ 装備の特殊効果（2026-10-02）：⚠ いばらの鎧を入れて選んだ持ち物。⚠ 内側の `AFTER_SPECIAL_EFFECT` と同じ字。
 const SHOT_AFTER_SPECIAL_EFFECT: String = "special_effect"
+# ⚠ 掲示板の「高難度の依頼」タブ（2026-10-02・ノルマ札）。⚠ 内側の `AFTER_BOARD_HARD` と同じ字。
+const SHOT_AFTER_BOARD_HARD: String = "board_hard"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1219,6 +1221,8 @@ const SCENARIOS: Dictionary = {
 			{"name": "52_focus_running", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_POMODORO_RUNNING},
 			# ⚠ 装備の特殊効果（2026-10-02・回UI-仕組み⑦・手本 RichItemFx）。
 			{"name": "54_special_effect", "scene": "res://scenes/guild/warehouse_screen.tscn", "after": SHOT_AFTER_SPECIAL_EFFECT},
+			# ⚠ ノルマ札（2026-10-02・回UI-仕組み⑧）。⚠ 高難度の依頼＝札が要る姿。
+			{"name": "55_board_hard", "scene": "res://scenes/adventure/adventure_select.tscn", "after": SHOT_AFTER_BOARD_HARD},
 			# ⚠ 「出撃する」→ 署名を書き終えて「受理」の判が押された姿（⚠ 出発の前で止める＝フロアに入らない）。
 			{
 				"name": "44_sortie_sign",
@@ -8992,6 +8996,7 @@ class ShotTaker extends Node:
 	const AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 	const AFTER_MINI_WINDOW: String = "mini_window"
 	const AFTER_SPECIAL_EFFECT: String = "special_effect"
+	const AFTER_BOARD_HARD: String = "board_hard"
 	const FORGE_STRIKE_WAIT_MS: int = 4000
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
@@ -9329,6 +9334,20 @@ class ShotTaker extends Node:
 				return false
 			(clock_row as LedgerRow).pressed.emit()
 			for _i: int in range(20):
+				await get_tree().process_frame
+		elif kind == AFTER_BOARD_HARD:
+			# ⚠ 2枚目のタブ（⚠ 本物のタブの札）。⚠ 札は持たせない＝「ノルマ札が要る」の姿。
+			#   ⚠ 前の枚の下ごしらえでダンジョンの途中＝「続きから」になる＝⚠ ランを終えてからタブを押し直す。
+			if GameManager.is_in_dungeon():
+				GameManager.abandon_dungeon_run()
+			var board_tabs: Node = screen.find_child("Tabs", true, false)
+			if board_tabs == null or board_tabs.get_child_count() < 2:
+				push_error("[DebugBoot] ⚠ %s に掲示板のタブが無い" % shot_name)
+				return false
+			(board_tabs.get_child(0) as BaseButton).pressed.emit()
+			await get_tree().process_frame
+			(board_tabs.get_child(1) as BaseButton).pressed.emit()
+			for _i: int in range(3):
 				await get_tree().process_frame
 		elif kind == AFTER_SPECIAL_EFFECT:
 			# ⚠ いばらの鎧と竜殺しの大剣を入れ（⚠ 本番の口）→ ⚠ いばらの鎧の行を押す。
@@ -9916,6 +9935,7 @@ class UiFlowRunner extends Node:
 		await _flow_run_report()
 		await _flow_focus_tools()
 		await _flow_special_effects()
+		await _flow_quota_ticket()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -10225,6 +10245,56 @@ class UiFlowRunner extends Node:
 			and unlocks.get(BaseFacilityBar.FORGE, "?") == unlocks.get(BaseFacilityBar.BELONGINGS, "!"))
 		await _flow_records()
 
+	# --- ノルマ札（2026-10-02・回UI-仕組み⑧・`EXEC_QUOTA_TICKET.md`・人間「⚠ 1あ　⚠ 2あ　⚠ 3あ　⚠ 4あ」） ---
+
+	func _flow_quota_ticket() -> void:
+		const TICKET: String = GameStateKeys.ITEM_QUOTA_TICKET
+		if GameManager.is_in_dungeon():
+			GameManager.abandon_dungeon_run()
+		var have: int = GameManager.get_quota_ticket_count()
+		if have > 0:
+			GameManager.call("_remove_from_inventory", TICKET, have)
+		GameManager.add_gold(99999)
+		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
+		# 0 枚：⚠ 掲示板の難ダンジョンは押せず「ノルマ札が要る」。
+		var q: Node = await _open(ADVENTURE, {})
+		await _press(_tab_button(q, 1))
+		var take: Node = q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false)
+		_check("ノルマ札：0 枚なら難ダンジョンの「受ける」が押せない・「%s」" % _label_text(q, "DungeonCard_" + dungeon_id, "QuotaTicketLabel"),
+			take is BaseButton and (take as BaseButton).disabled and _label_text(q, "DungeonCard_" + dungeon_id, "QuotaTicketLabel") == tr("ui_quota_ticket_needed"))
+		# 上限：⚠ 3 枚持っていたらショップで買えない（⚠ 金貨も棚も減らない）。
+		GameManager.add_to_inventory(TICKET, GameManager.get_quota_ticket_max(), GameStateKeys.ITEM_TYPE_CONSUMABLE)
+		var gold: int = int(GameManager.get_state().get(GameStateKeys.GOLD, 0))
+		_check("ノルマ札：上限（%d 枚）なら買えない" % GameManager.get_quota_ticket_count(),
+			not GameManager.purchase_shop_item(GameStateKeys.SHOP_TYPE_DAILY, 13) and int(GameManager.get_state().get(GameStateKeys.GOLD, 0)) == gold)
+		GameManager.call("_remove_from_inventory", TICKET, GameManager.get_quota_ticket_count())
+		# ショップ：⚠ 金貨で1枚・1日1枚。
+		_check("ノルマ札：ショップで買うと1枚（%d）" % (GameManager.get_quota_ticket_count() + 1),
+			GameManager.purchase_shop_item(GameStateKeys.SHOP_TYPE_DAILY, 13) and GameManager.get_quota_ticket_count() == 1 and int(GameManager.get_state().get(GameStateKeys.GOLD, 0)) == gold - 1000)
+		_check("ノルマ札：同じ日にもう1枚は買えない（在庫1）", not GameManager.purchase_shop_item(GameStateKeys.SHOP_TYPE_DAILY, 13))
+		# 1 枚：⚠ 掲示板の「受ける」→ 出撃の準備（⚠ 帯に「1枚（1 → 0）」）→ 出撃すると0枚。
+		q = await _open(ADVENTURE, {})
+		await _press(_tab_button(q, 1))
+		take = q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false)
+		_check("ノルマ札：1 枚なら「受ける」が押せる・「%s」" % _label_text(q, "DungeonCard_" + dungeon_id, "QuotaTicketLabel"),
+			take is BaseButton and not (take as BaseButton).disabled)
+		await _press(take, OPEN_FRAMES)
+		var b: Node = get_tree().current_scene
+		_check("ノルマ札：出撃の準備の帯に「%s」" % _label_text(b, "Strip", "QuotaTicketLabel"),
+			_label_text(b, "Strip", "QuotaTicketLabel") == tr("ui_quota_ticket_use") % [1, 1, 0])
+		await _press(b.find_child("SortieButton", true, false))
+		if b.has_method("skip_sign"):
+			b.call("skip_sign")
+		await _wait(OPEN_FRAMES)
+		_check("ノルマ札：出撃すると1枚使ってマップ（残り %d）" % GameManager.get_quota_ticket_count(),
+			_path_of(get_tree().current_scene) == DUNGEON_MAP and GameManager.is_in_dungeon() and GameManager.get_quota_ticket_count() == 0)
+		# 続きから：⚠ 札は使わない。
+		q = await _open(ADVENTURE, {})
+		await _press(_tab_button(q, 1))
+		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
+		_check("ノルマ札：「続きから」は札が無くても入れる", _path_of(get_tree().current_scene) == DUNGEON_MAP)
+		GameManager.abandon_dungeon_run()
+
 	# --- 装備の特殊効果（2026-10-02・回UI-仕組み⑦・手本 RichItemFx・人間「⚠ 1い　⚠ 2あ　⚠ 3あ」） ---
 
 	func _flow_special_effects() -> void:
@@ -10253,7 +10323,12 @@ class UiFlowRunner extends Node:
 		for node: Node in w.find_children("Row_*", "", true, false):
 			if node.find_child("SpecialStar", true, false) != null:
 				iron_rows += 1
-		_check("特殊効果：星は特殊効果のある品だけ（%d 行）" % iron_rows, iron_rows == 1)
+		# ⚠ ほかの手で特殊効果つきの装備が手に入っていることがある（⚠ 伝説の宝箱）＝⚠ 持っている数と比べる。
+		var with_effect: int = 0
+		for raw: Variant in GameManager.get_owned_instances():
+			if GameManager.get_item_special_effect(str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, ""))) != "":
+				with_effect += 1
+		_check("特殊効果：星は特殊効果のある品だけ（%d 行 ＝ %d 個）" % [iron_rows, with_effect], iron_rows == with_effect and with_effect >= 1)
 		# 戦闘：⚠ 剣士のユニットのパッシブに入っている（⚠ 本物の戦闘の画面）。
 		var b: Node = await _open(BATTLE, {
 			TransferKeys.STAGE_ID: "stage_dbg_area",
@@ -10817,7 +10892,10 @@ class UiFlowRunner extends Node:
 		if _path_of(q) != ADVENTURE:
 			return
 
-		# 難ダンジョンも出撃の準備を通す（⚠ 人間「⚠ 4あ」）。
+		# 難ダンジョンも出撃の準備を通す（⚠ 人間「⚠ 4あ」）。⚠ 10-02 から入るのにノルマ札が要る＝1枚持たせて開き直す。
+		if not GameManager.has_quota_ticket_for_entry():
+			GameManager.add_to_inventory(GameStateKeys.ITEM_QUOTA_TICKET, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+			q = await _open(ADVENTURE, {})
 		await _press(_tab_button(q, 1))
 		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
 		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)

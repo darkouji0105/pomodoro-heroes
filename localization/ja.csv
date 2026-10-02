@@ -659,6 +659,12 @@ ui_eqfx_trigger_dealt_damage,攻撃が当たったとき
 ui_eqfx_trigger_low_hp,HP が半分以下のあいだ
 ui_eqfx_star,★
 ui_eqfx_legend,特殊効果
+ui_res_quota_ticket,ノルマ札
+ui_icon_quota_ticket,札
+ui_desc_quota_ticket,難ダンジョンに新しく入るとき1枚使う。ショップで買える（3枚まで）
+ui_quota_ticket_count,ノルマ札 %d / %d
+ui_quota_ticket_needed,ノルマ札が要る（ショップで買える）
+ui_quota_ticket_use,ノルマ札 %d 枚（%d → %d）
 ui_icon_relic_banner_of_war,旗
 ui_icon_relic_iron_wall,壁
 ui_icon_relic_warding_stone,護

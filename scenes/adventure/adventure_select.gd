@@ -215,8 +215,8 @@ func _add_story_card(index: int, stage_id: String, stage_data: Dictionary) -> vo
 # ⚠ stage_order.json に混ぜない。⚠ ダンジョンは stages.json に1行も無く、
 #   解放の連鎖（前のステージをクリアしたか）にも入らない（台帳 §7）。
 # ⚠ 一覧は MasterDataLoader.get_all_dungeon_ids() の1本。⚠ IDを名指ししない。
-# ⚠ 入るコストは取らない（決定11。⚠ テストプレイ優先。⚠ リリース前に必ず入れ直す＝未決7）。
-#   ⚠ ここにスタミナの判定を書かないこと。書くと「入口のコスト」が2箇所に散る。
+# ⚠ 入るコストは**ノルマ札**（2026-10-02・決定11 を覆した・`EXEC_QUOTA_TICKET.md`）。⚠ 判定は GameManager の口
+#   （`has_quota_ticket_for_entry()`）・⚠ 使うのは出撃の準備（`enter_dungeon_with_ticket()`）。⚠ ここで数えない。
 func _build_dungeon_cards() -> void:
 	var dungeon_ids: Array[String] = MasterDataLoader.get_all_dungeon_ids()
 	for i: int in range(dungeon_ids.size()):
@@ -234,8 +234,21 @@ func _build_dungeon_cards() -> void:
 		if in_progress:
 			_add_button(foot, "DungeonButton", "ui_dungeon_resume", _on_resume_dungeon_pressed)
 		else:
+			# ⚠ ノルマ札（2026-10-02・`EXEC_QUOTA_TICKET.md`・人間「⚠ 4あ」）：⚠ 「n / 3」・⚠ 足りなければ押せない。
+			var ticket: Label = Label.new()
+			ticket.name = "QuotaTicketLabel"
+			var enough: bool = GameManager.has_quota_ticket_for_entry()
+			ticket.theme_type_variation = &"CaptionLabel" if enough else &"SmallErrorLabel"
+			ticket.text = tr("ui_quota_ticket_count") % [GameManager.get_quota_ticket_count(), GameManager.get_quota_ticket_max()] \
+				if enough else tr("ui_quota_ticket_needed")
+			ticket.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			foot.add_child(ticket)
+			foot.move_child(ticket, 0)
 			# ⚠ 2026-09-28（人間「⚠ 4あ」）：⚠ 難ダンジョンも出撃の準備を通す。
 			_add_button(foot, "DungeonButton", "ui_quest_take", _open_sortie.bind("", dungeon_id))
+			var take: Node = foot.find_child("DungeonButton", false, false)
+			if take is BaseButton:
+				(take as BaseButton).disabled = not enough
 
 
 # 出撃の準備へ（2026-09-28・`party_preset_screen`）。⚠ 入る判定と手続きは向こうが持つ（⚠ ここに2本目を書かない）。

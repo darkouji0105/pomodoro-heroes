@@ -264,3 +264,12 @@ extends Resource
 
 ## レリックのマスで何件から選ぶか。
 @export var relic_choice_count: int = 3
+
+# --- ノルマ札（2026-10-02・回UI-仕組み⑧・`EXEC_QUOTA_TICKET.md`・人間「⚠ 1あ　⚠ 3あ　⚠ 4あ」） ---
+#
+# ⚠ 難ダンジョンに新しく入るとき使う枚数 ／ 持てる上限（⚠ ショップで買える）。
+
+## 新しく入るときに使うノルマ札の枚数。
+@export var quota_tickets_per_entry: int = 1
+## ノルマ札を持てる上限。
+@export var quota_ticket_max: int = 3

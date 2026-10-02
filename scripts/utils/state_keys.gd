@@ -330,6 +330,8 @@ const ITEM_STAMINA_POTION: String = "stamina_potion"
 
 # 確定成功の札（2026-09-27・決定 `EQ-7`）。⚠ 1つ使うとその1回の鍛冶は必ず成功する。⚠ 難ダンジョンの宝箱からたまに出る。
 const ITEM_FORGE_GUARANTEE_TOKEN: String = "forge_guarantee_token"
+# ⚠ ノルマ札（2026-10-02・回UI-仕組み⑧・`EXEC_QUOTA_TICKET.md`）＝難ダンジョンに新しく入るとき1枚使う。
+const ITEM_QUOTA_TICKET: String = "quota_ticket"
 
 # ============================================================
 # ステージ種別（BattleSession.stage_type / 冒険選択画面で使用）
