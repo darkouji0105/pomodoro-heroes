@@ -2731,6 +2731,44 @@ func get_equipment_bonus(character_id: String) -> Dictionary:
 			result[stat_key] = int(result[stat_key]) + int(stats.get(stat_key, 0))
 	return result
 
+# --- 装備の特殊効果（2026-10-02・回UI-仕組み⑦・人間「⚠ 1い　⚠ 2あ　⚠ 3あ」） ---
+#
+# ⚠ 品の `special_effect`（items.json）が `equip_effects.json` のIDを指す。⚠ 中身は戦闘の効果（パッシブと同じ形）。
+# ⚠ 等級で強さは変わらない（「⚠ 2あ」）。⚠ 状態には何も書かない（⚠ 性能はマスターから毎回引く＝CLAUDE.md 4番）。
+const ITEM_MASTER_SPECIAL_EFFECT: String = "special_effect"
+
+
+# その品の特殊効果のID（⚠ 無ければ ""）。
+func get_item_special_effect(item_id: String) -> String:
+	return str(MasterDataLoader.get_item(item_id).get(ITEM_MASTER_SPECIAL_EFFECT, ""))
+
+
+# 特殊効果の見せ方（名前・いつ起きるか・中身の一文の翻訳キー）。⚠ 無ければ空。
+func get_special_effect_view(effect_id: String) -> Dictionary:
+	if effect_id == "":
+		return {}
+	var data: Dictionary = MasterDataLoader.get_skill(effect_id)
+	if data.is_empty():
+		return {}
+	return {
+		"name_key": str(data.get("name_key", "")),
+		"trigger_key": str(data.get(SkillSchema.FIELD_EQUIP_TRIGGER_KEY, "")),
+		"desc_key": str(data.get(SkillSchema.FIELD_EQUIP_DESC_KEY, "")),
+	}
+
+
+# 着けている装備の特殊効果（⚠ 戦闘が passive_ids に足す・レリックと同じ扱い）。
+func get_equipment_effect_passives(character_id: String) -> Array:
+	var result: Array = []
+	for slot: String in _equip_slots():
+		var instance_id: String = get_equipped_instance_id(character_id, slot)
+		if instance_id == "":
+			continue
+		var effect_id: String = get_item_special_effect(str(get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_ITEM_ID, "")))
+		if effect_id != "":
+			result.append(effect_id)
+	return result
+
 # --- 装備：一覧 ---
 
 # 指定スロットに装備している個体ID。何も装備していなければ ""。

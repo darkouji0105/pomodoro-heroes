@@ -119,6 +119,8 @@ const SHOT_AFTER_RECORDS_PICK: String = "records_pick"
 const SHOT_AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
 const SHOT_AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 const SHOT_AFTER_MINI_WINDOW: String = "mini_window"
+# ⚠ 装備の特殊効果（2026-10-02）：⚠ いばらの鎧を入れて選んだ持ち物。⚠ 内側の `AFTER_SPECIAL_EFFECT` と同じ字。
+const SHOT_AFTER_SPECIAL_EFFECT: String = "special_effect"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1215,6 +1217,8 @@ const SCENARIOS: Dictionary = {
 			# ⚠ 集中の道具（2026-09-29・回UI-仕組み⑤・手本 PomoSkin / Focus）。
 			{"name": "51_focus_tools", "scene": "res://scenes/pomodoro/focus_tools_screen.tscn", "after": SHOT_AFTER_FOCUS_TOOLS_CLOCK},
 			{"name": "52_focus_running", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_POMODORO_RUNNING},
+			# ⚠ 装備の特殊効果（2026-10-02・回UI-仕組み⑦・手本 RichItemFx）。
+			{"name": "54_special_effect", "scene": "res://scenes/guild/warehouse_screen.tscn", "after": SHOT_AFTER_SPECIAL_EFFECT},
 			# ⚠ 「出撃する」→ 署名を書き終えて「受理」の判が押された姿（⚠ 出発の前で止める＝フロアに入らない）。
 			{
 				"name": "44_sortie_sign",
@@ -8987,6 +8991,7 @@ class ShotTaker extends Node:
 	const AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
 	const AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 	const AFTER_MINI_WINDOW: String = "mini_window"
+	const AFTER_SPECIAL_EFFECT: String = "special_effect"
 	const FORGE_STRIKE_WAIT_MS: int = 4000
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
@@ -9324,6 +9329,22 @@ class ShotTaker extends Node:
 				return false
 			(clock_row as LedgerRow).pressed.emit()
 			for _i: int in range(20):
+				await get_tree().process_frame
+		elif kind == AFTER_SPECIAL_EFFECT:
+			# ⚠ いばらの鎧と竜殺しの大剣を入れ（⚠ 本番の口）→ ⚠ いばらの鎧の行を押す。
+			GameManager.add_to_inventory("armor_thorn_mail", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+			GameManager.add_to_inventory("weapon_dragon_greatsword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+			for _i: int in range(3):
+				await get_tree().process_frame
+			var thorn_row: Node = null
+			for raw: Variant in GameManager.get_owned_instances():
+				if str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "armor_thorn_mail":
+					thorn_row = screen.find_child("Row_" + str((raw as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")), true, false)
+			if not (thorn_row is LedgerRow):
+				push_error("[DebugBoot] ⚠ %s にいばらの鎧の行が無い" % shot_name)
+				return false
+			(thorn_row as LedgerRow).pressed.emit()
+			for _i: int in range(3):
 				await get_tree().process_frame
 		elif kind == AFTER_MINI_WINDOW:
 			# ⚠ 設定（⚠ 検査用のファイル）で小窓をオン → ⚠ 加護「始める」→ 集中「開始」→ ⚠ 小窓（⚠ 窓が本当に小さくなる）。
@@ -9859,6 +9880,7 @@ class UiFlowRunner extends Node:
 	const SETTINGS: String = "res://scenes/base/settings_screen.tscn"
 	const REPORT: String = "res://scenes/adventure/run_report_screen.tscn"
 	const FOCUS_TOOLS: String = "res://scenes/pomodoro/focus_tools_screen.tscn"
+	const BATTLE: String = "res://scenes/adventure/battle.tscn"
 	const DUNGEON_FLOOR_CLEAR: String = "res://scenes/adventure/dungeon_floor_clear.tscn"
 	const DUNGEON_MAP: String = "res://scenes/adventure/dungeon_map.tscn"
 	const POMODORO: String = "res://scenes/pomodoro/pomodoro.tscn"
@@ -9893,6 +9915,7 @@ class UiFlowRunner extends Node:
 		await _flow_settings()
 		await _flow_run_report()
 		await _flow_focus_tools()
+		await _flow_special_effects()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -10201,6 +10224,50 @@ class UiFlowRunner extends Node:
 			r.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) != null
 			and unlocks.get(BaseFacilityBar.FORGE, "?") == unlocks.get(BaseFacilityBar.BELONGINGS, "!"))
 		await _flow_records()
+
+	# --- 装備の特殊効果（2026-10-02・回UI-仕組み⑦・手本 RichItemFx・人間「⚠ 1い　⚠ 2あ　⚠ 3あ」） ---
+
+	func _flow_special_effects() -> void:
+		const THORN: String = "armor_thorn_mail"
+		_check("特殊効果：いばらの鎧は「棘の返し」・鉄の鎧には無い",
+			GameManager.get_item_special_effect(THORN) == "eqfx_thorn" and GameManager.get_item_special_effect("armor_iron_mail") == ""
+			and not GameManager.get_special_effect_view("eqfx_thorn").is_empty())
+		# ⚠ 入れて剣士に着せる（⚠ 本番の口）。
+		GameManager.add_to_inventory(THORN, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		var thorn_id: String = ""
+		for raw: Variant in GameManager.get_owned_instances():
+			if str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == THORN:
+				thorn_id = str((raw as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+		var slot: String = str(MasterDataLoader.get_item(THORN).get(GameManager.ITEM_MASTER_EQUIP_SLOT, ""))
+		GameManager.equip_instance(HERO, slot, thorn_id)
+		_check("特殊効果：着けると戦闘のパッシブに入る（%s）" % str(GameManager.get_equipment_effect_passives(HERO)),
+			"eqfx_thorn" in GameManager.get_equipment_effect_passives(HERO))
+		# 持ち物：⚠ 行に星・右の紙に札。
+		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_INSTANCE_ID: thorn_id})
+		var row: Node = w.find_child("Row_" + thorn_id, true, false)
+		var card: Node = w.find_child("SpecialEffectCard", true, false)
+		_check("特殊効果：持ち物の行に星・説明の紙に札（%s）" % _label_text(w, "SpecialEffectCard", "EffectName"),
+			row != null and row.find_child("SpecialStar", true, false) != null and card != null
+			and _label_text(w, "SpecialEffectCard", "EffectTrigger") == tr("ui_eqfx_trigger_took_damage"))
+		var iron_rows: int = 0
+		for node: Node in w.find_children("Row_*", "", true, false):
+			if node.find_child("SpecialStar", true, false) != null:
+				iron_rows += 1
+		_check("特殊効果：星は特殊効果のある品だけ（%d 行）" % iron_rows, iron_rows == 1)
+		# 戦闘：⚠ 剣士のユニットのパッシブに入っている（⚠ 本物の戦闘の画面）。
+		var b: Node = await _open(BATTLE, {
+			TransferKeys.STAGE_ID: "stage_dbg_area",
+			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+		})
+		await _wait(OPEN_FRAMES)
+		var session: Variant = null if b == null else b.get("_session")
+		var found: bool = false
+		if session is BattleSession:
+			for unit: Variant in (session as BattleSession).party_units:
+				if unit is BattleUnit and (unit as BattleUnit).master_id == HERO and "eqfx_thorn" in (unit as BattleUnit).passive_ids:
+					found = true
+		_check("特殊効果：戦闘で着けている人に「棘の返し」がかかる", found)
+		GameManager.unequip_instance(HERO, slot)
 
 	# --- 集中の道具（2026-09-29・回UI-仕組み⑤・手本 PomoSkin / Focus・人間「⚠ 1あ　⚠ 2あ　⚠ 3あ　⚠ 4い」） ---
 	#   ⚠ 選んだ道具は設定のファイル（⚠ 検査用に差し替えてある）。

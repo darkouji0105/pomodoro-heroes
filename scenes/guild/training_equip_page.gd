@@ -106,6 +106,9 @@ func _create_slot_row(row_data: Dictionary) -> LedgerRow:
 	var item_id: String = str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
 	name_label.text = tr(GameManager.item_name_key(item_id)) if item_id != "" else tr("ui_training_equip_empty")
 	column.add_child(name_label)
+	var star: Label = SpecialEffectCard.star(item_id) if item_id != "" else null
+	if star != null:
+		line.add_child(star)
 	return row
 
 
@@ -140,6 +143,12 @@ func _create_candidate_row(view: Dictionary) -> LedgerRow:
 	stats.theme_type_variation = &"SmallLabel"
 	stats.text = _stats_text(view.get(GameManager.INSTANCE_VIEW_STATS, {}) as Dictionary) + _parts_text(instance_id)
 	column.add_child(stats)
+	# ⚠ 特殊効果（2026-10-02・回UI-仕組み⑦）：⚠ 行の星 ／ ⚠ 選んでいる候補だけ札を開く（⚠ 全部開くと縦に長い）。
+	var star: Label = SpecialEffectCard.star(item_id)
+	if star != null:
+		line.add_child(star)
+		if instance_id == _selected_instance:
+			column.add_child(SpecialEffectCard.create_for_item(item_id))
 	if owner != "":
 		var owner_label: Label = Label.new()
 		owner_label.name = "OwnerLabel"

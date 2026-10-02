@@ -9,18 +9,18 @@
 ```
 main の最新（origin/main と同じ）から始めて。作業ツリーは .claude/settings.json 以外クリーン。
 
-## この回の題目：**UI の作り直しの続き（回UI-仕組み の⑦＝特殊効果）**
+## この回の題目：**UI の作り直しの続き（回UI-仕組み の⑧＝ノルマ札）**
 
 ## ⚠ 見る回（⚠ 10-02・11回目まで済み）
 
-- ⚠ 未確認 1 件（⚠ デスクトップの小窓＝窓の動きは人間しか見られない）。⚠ ⑦特殊効果の方針から始める（⚠ `NEXT_STEPS` の表では「★・決定が無い」）
+- ⚠ 未確認 2 件（⚠ デスクトップの小窓 ／ 装備の特殊効果）。⚠ ⑧ノルマ札の方針から始める
 - ⚠ ui_flow は下ごしらえで効果音を止めている（⚠ ヘッドレスで鳴らすと終了時に赤・§0-UI-BH）
 - ⚠ push は人間がする（⚠ 09-28 人間「⚠ ぷっしゅはじぶんでする」）＝⚠ コミットまで
 - ⚠ 報告の残り：⚠ `shot` の「Lambda capture ... was freed」が出たり出なかったりする（⚠ 32→33 の間・§0-UI-AX の報告・2手で止めた）
 
 ⚠ 人間が別の AI と作った UI の手本一式を、⚠ 回に分けて Godot に写している途中。
 ⚠ 手本は `docs/pomodoro-heroes-ui-docs/docs/ui/`（⚠ README.md → UI_GUIDE.md → ui_tokens.json ／ screenshots/*.png ／ screens/*.html）。
-⚠ 進み具合と回の並びは `docs/NEXT_STEPS.md` の一番上（「進み具合」「これからの回」）。⚠ **いまは UI 24 / 28 回（86%）・これからの回ぜんぶ 25 / 37（68%）**。
+⚠ 進み具合と回の並びは `docs/NEXT_STEPS.md` の一番上（「進み具合」「これからの回」）。⚠ **いまは UI 25 / 28 回（89%）・これからの回ぜんぶ 26 / 37（70%）**。
 
 ## ⚠⚠ 回UI-仕組み は「新しい仕組みが要る画面」＝ ⚠ **決定を先に出す**（⚠ 着手前に人間に裁いてもらう）
 
@@ -48,8 +48,8 @@ main の最新（origin/main と同じ）から始めて。作業ツリーは .c
 - ⚠ 傾けたい紙は `TiltedSheet`（⚠ 幅は `holder.sheet.custom_minimum_size` に付ける。⚠ 器に付けると `_fit()` が上書きする）
 - ⚠ 部品：`PaperSheet` `SheetHeading`（`ornament_below` `centered` `title_text`）`PaperTabs` `LedgerRow`（⚠ `compact`＝詰めた行・09-27）`Stamp`（`filled`）`TiltedSheet` `CharacterAvatar` `CharacterDossier`（育成の身上書）`BaseFacilityBar` `SlotActionPopover`
 - ⚠ 確かめの窓は紙（`MD-10`）・判は `Modal.OPTION_STAMP`・長押しは `Modal.OPTION_HOLD`（`MD-11`）。⚠ 並びは `MD-4`「はいが左」
-- ⚠ 撮影は `scenario=shot`（⚠ いま **51枚**。⚠ 窓が十数秒出る。⚠ 覆わない）。⚠ 画面ごとに撮った絵と手本の png を見比べる。⚠ 行に `"measure": [ノードのパス]` を書くと位置が出る
-- ⚠⚠ **押したら何が変わるか・どこへ移るか・押せるかは `scenario=ui_flow`**（⚠ ヘッドレス・いま 166項目・⚠ `debug_boot` は鍛冶を既定で必ず成功にしている）。⚠ 画面を作ったら**手を足して回す**。⚠ `HUMAN_CHECK.md` に積むのは色・手応え・気づけるかだけ
+- ⚠ 撮影は `scenario=shot`（⚠ いま **52枚**。⚠ 窓が十数秒出る。⚠ 覆わない）。⚠ 画面ごとに撮った絵と手本の png を見比べる。⚠ 行に `"measure": [ノードのパス]` を書くと位置が出る
+- ⚠⚠ **押したら何が変わるか・どこへ移るか・押せるかは `scenario=ui_flow`**（⚠ ヘッドレス・いま 171項目・⚠ `debug_boot` は鍛冶を既定で必ず成功にしている）。⚠ 画面を作ったら**手を足して回す**。⚠ `HUMAN_CHECK.md` に積むのは色・手応え・気づけるかだけ
 - ⚠ `layout` は画面のパスの後ろに `#タブ` を付けるとそのタブで開く（⚠ 育成・持ち物）
 
 ## 気をつけること（⚠ ここまでで踏んだ）

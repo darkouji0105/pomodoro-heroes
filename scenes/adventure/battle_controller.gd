@@ -454,6 +454,8 @@ func _init_party_units() -> void:
 		#   （⚠ 器が別。⚠ どちらも「ランの中だけ」だが読む先が違う）。
 		#   ⚠ ランに入っていなければ空が返るので、⚠ ここに if を書かない。
 		unit.passive_ids.append_array(GameManager.get_dungeon_relic_passives(character_id))
+		# 装備の特殊効果（2026-10-02・回UI-仕組み⑦）。⚠ 着けている装備の品が持つ効果をパッシブとしてかける。
+		unit.passive_ids.append_array(GameManager.get_equipment_effect_passives(character_id))
 
 		# 刺さっているルーン（段階8・GAME_DESIGN.md 7-5）。
 		# ⚠ 紐付け（武器＝スキル1／アクセサリー＝スキル2）は GameManager が持つ。

@@ -89,6 +89,10 @@ func _build_instance(instance_id: String) -> void:
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(cell)
 	add_child(grid)
+	# ⚠ 特殊効果の札（2026-10-02・回UI-仕組み⑦・手本 RichItemFx＝値の下・装飾の上）。
+	var effect_card: SpecialEffectCard = SpecialEffectCard.create_for_item(item_id)
+	if effect_card != null:
+		add_child(effect_card)
 	add_child(HSeparator.new())
 	_build_part_slots(instance_id, equip_slot, grade)
 

@@ -343,6 +343,10 @@ func _codex_detail() -> VBoxContainer:
 			for stat_key: String in stats:
 				if int(stats[stat_key]) != 0:
 					detail.add_child(_detail_line("Stat_" + stat_key, tr("ui_training_stat_" + stat_key), "%+d" % int(stats[stat_key])))
+			# ⚠ 特殊効果の札（2026-10-02・回UI-仕組み⑦）。
+			var effect_card: SpecialEffectCard = SpecialEffectCard.create_for_item(_picked)
+			if effect_card != null:
+				detail.add_child(effect_card)
 		GameManager.CODEX_KIND_PART:
 			var part: Dictionary = GameManager.get_part_definition(_picked)
 			var base: int = int(part.get(GameManager.ITEM_MASTER_PART_BASE, 0))

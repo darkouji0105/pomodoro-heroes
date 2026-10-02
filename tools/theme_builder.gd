@@ -774,6 +774,7 @@ static func build() -> void:
 	_build_run_report(theme)
 	_build_focus_tool(theme)
 	_build_mini_window(theme)
+	_build_special_effect(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2572,6 +2573,37 @@ const FOCUS_TOOL_COLORS: Dictionary = {
 }
 
 
+# ⚠ 装備の特殊効果（2026-10-02・回UI-仕組み⑦・`UI_GUIDE.md`「墨 #1F1A17 に金 #E0B85C」）。⚠ 札（黒地・金の縁）と一覧の星。
+const SPECIAL_INK: String = "1f1a17"
+const SPECIAL_GOLD: String = "e0b85c"
+const SPECIAL_TEXT: String = "eadfca"
+const SPECIAL_PAD: int = 10
+const SPECIAL_STAR_SIZE: int = 22
+
+
+static func _build_special_effect(theme: Theme) -> void:
+	var panel: StyleBoxFlat = StyleBoxFlat.new()
+	panel.bg_color = _html(SPECIAL_INK)
+	panel.border_color = _html(SPECIAL_GOLD)
+	panel.set_border_width_all(1)
+	panel.set_corner_radius_all(3)
+	panel.set_content_margin_all(SPECIAL_PAD)
+	theme.set_type_variation(&"SpecialEffectPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"SpecialEffectPanel", panel)
+	for spec: Array in [[&"SpecialEffectTitleLabel", SPECIAL_GOLD], [&"SpecialEffectTagLabel", SPECIAL_GOLD], [&"SpecialEffectTextLabel", SPECIAL_TEXT]]:
+		theme.set_type_variation(spec[0], &"Label")
+		theme.set_color(&"font_color", spec[0], _html(str(spec[1])))
+	if theme.has_font(&"font", &"SheetHeadingLabel"):
+		theme.set_font(&"font", &"SpecialEffectTitleLabel", theme.get_font(&"font", &"SheetHeadingLabel"))
+	var star: StyleBoxFlat = StyleBoxFlat.new()
+	star.bg_color = _html(SPECIAL_INK)
+	star.set_corner_radius_all(SPECIAL_STAR_SIZE)
+	theme.set_type_variation(&"SpecialStarLabel", &"Label")
+	theme.set_stylebox(&"normal", &"SpecialStarLabel", star)
+	theme.set_color(&"font_color", &"SpecialStarLabel", _html(SPECIAL_GOLD))
+	theme.set_constant(&"star_size", &"SpecialEffect", SPECIAL_STAR_SIZE + 6)
+
+
 # ⚠ デスクトップの小窓（2026-09-29・回UI-仕組み⑥・手本 Companion）。⚠ 大きさは手本の 260×170 に近く。⚠ 部屋の色は手本の焦茶と暖炉の橙。
 const MINI_WINDOW: Dictionary = {
 	"width": 300, "height": 180, "margin": 16, "photo": 56, "button_width": 76,
@@ -2724,6 +2756,11 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	# ⚠ 出撃の準備の枠の番号（⚠ 1番＝いちばん前は封蝋の赤・手本のモック）。
 	"SortieNumberLabel": TOKEN_INK,
 	"SortieFrontNumberLabel": TOKEN_WAX,
+	# ⚠ 装備の特殊効果の札（2026-10-02）：⚠ 紙の上に出るが**黒地に金**（⚠ ここに無いと紙の「Label」の墨が勝つ）。
+	"SpecialEffectTitleLabel": SPECIAL_GOLD,
+	"SpecialEffectTagLabel": SPECIAL_GOLD,
+	"SpecialEffectTextLabel": SPECIAL_TEXT,
+	"SpecialStarLabel": SPECIAL_GOLD,
 }
 
 

@@ -321,6 +321,9 @@ ui_res_armor_leather_boots,革のブーツ
 ui_res_armor_iron_greaves,鉄の具足
 ui_res_acc_ring_power,力の指輪
 ui_res_acc_amulet_life,生命の護符
+ui_res_weapon_dragon_greatsword,竜殺しの大剣
+ui_res_armor_thorn_mail,いばらの鎧
+ui_res_acc_guardian_charm,守りのお守り
 ui_equipment_slot_header,装備している部位
 ui_equipment_slot_head,頭
 ui_equipment_slot_armor,上半身
@@ -608,6 +611,9 @@ ui_battle_passive_pr_benediction,祝祷（魔力+20・詠唱速度+10）
 ui_status_ch_status_sw_whetstone,研
 ui_status_ch_status_sw_last_wall,壁
 ui_status_ch_status_sw_thorn_mail,棘
+ui_status_ch_status_eqfx_thorn,棘
+ui_status_ch_status_eqfx_follow_strike,追
+ui_status_ch_status_eqfx_last_guard,守
 ui_status_ch_status_sw_bloodlust,昂
 ui_status_ch_status_sw_vanguard_def,陣
 ui_status_ch_status_sw_vanguard_mdef,盾
@@ -639,6 +645,20 @@ ui_icon_armor_leather_boots,革
 ui_icon_armor_iron_greaves,鉄
 ui_icon_acc_ring_power,力
 ui_icon_acc_amulet_life,命
+ui_icon_weapon_dragon_greatsword,竜
+ui_icon_armor_thorn_mail,棘
+ui_icon_acc_guardian_charm,守
+ui_eqfx_thorn,棘の返し
+ui_eqfx_thorn_desc,防御の 40% のダメージを相手に返す
+ui_eqfx_follow_strike,追い打ち
+ui_eqfx_follow_strike_desc,攻撃が当たるたび、攻撃力の 30% で追撃する
+ui_eqfx_last_guard,最後の守り
+ui_eqfx_last_guard_desc,防御 +20
+ui_eqfx_trigger_took_damage,攻撃を受けたとき
+ui_eqfx_trigger_dealt_damage,攻撃が当たったとき
+ui_eqfx_trigger_low_hp,HP が半分以下のあいだ
+ui_eqfx_star,★
+ui_eqfx_legend,特殊効果
 ui_icon_relic_banner_of_war,旗
 ui_icon_relic_iron_wall,壁
 ui_icon_relic_warding_stone,護

@@ -221,6 +221,33 @@
 	  "sort_order": 61
 	},
 	{
+	  "item_id": "weapon_dragon_greatsword",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "equip_stats": { "atk": 18 },
+	  "special_effect": "eqfx_follow_strike",
+	  "sort_order": 23
+	},
+	{
+	  "item_id": "armor_thorn_mail",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": { "hp": 30, "def": 10 },
+	  "special_effect": "eqfx_thorn",
+	  "sort_order": 42
+	},
+	{
+	  "item_id": "acc_guardian_charm",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": { "hp": 20 },
+	  "special_effect": "eqfx_last_guard",
+	  "sort_order": 62
+	},
+	{
 	  "item_id": "part_gem_hp_1",
 	  "storage": "inventory",
 	  "item_type": "part",

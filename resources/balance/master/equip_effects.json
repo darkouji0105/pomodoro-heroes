@@ -1,0 +1,92 @@
+{
+	"eqfx_thorn": {
+		"name_key": "ui_eqfx_thorn",
+		"trigger_key": "ui_eqfx_trigger_took_damage",
+		"desc_key": "ui_eqfx_thorn_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_eqfx_thorn",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "took_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 0.4,
+							"attack_type": "physical",
+							"scale_from": "def",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"eqfx_follow_strike": {
+		"name_key": "ui_eqfx_follow_strike",
+		"trigger_key": "ui_eqfx_trigger_dealt_damage",
+		"desc_key": "ui_eqfx_follow_strike_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_eqfx_follow_strike",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "dealt_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 0.3,
+							"attack_type": "physical",
+							"scale_from": "atk",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"eqfx_last_guard": {
+		"name_key": "ui_eqfx_last_guard",
+		"trigger_key": "ui_eqfx_trigger_low_hp",
+		"desc_key": "ui_eqfx_last_guard_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_last_guard",
+				"stat": "def",
+				"value": 20,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "lte",
+					"value": 0.5
+				}
+			}
+		]
+	}
+}

@@ -358,7 +358,14 @@ const SKILL_FIELDS_KNOWN: Array = [
 	# レリック（段階14-d）。⚠ relics.json は skills.json と同じ辞書へマージされるので、
 	#   ここに並べないと E26「知らない欄がある」で全件が赤になる。
 	FIELD_RELIC_SCOPE,
+	# 装備の特殊効果（2026-10-02・回UI-仕組み⑦・`equip_effects.json`）。⚠ 画面の札が読む欄。
+	FIELD_EQUIP_TRIGGER_KEY, FIELD_EQUIP_DESC_KEY,
 ]
+
+# 装備の特殊効果（2026-10-02）。⚠ `trigger_key` を持つエントリは装備の特殊効果＝⚠ キャラに紐づかず解放も無い（⚠ レリックと同じ例外）。
+#   ⚠ 判定はこの1欄の有無だけ（⚠ IDの綴り `eqfx_` で見分けない）。
+const FIELD_EQUIP_TRIGGER_KEY: String = "trigger_key"
+const FIELD_EQUIP_DESC_KEY: String = "desc_key"
 
 # レリックの適用範囲（段階14-d・PLAN_SCENARIO_MAP.md §5-2-5）。
 #
@@ -565,13 +572,14 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	#     user_character_id（E3）と unlock_level（E4）を要求しない。
 	#   ⚠ 判定はこの1欄の有無だけ。IDの綴りで見分けないこと。
 	var relic_scope: String = str(data.get(FIELD_RELIC_SCOPE, ""))
-	var is_relic: bool = relic_scope != ""
+	# ⚠ 装備の特殊効果もキャラに紐づかない（⚠ 2026-10-02・下の E3 / E4 の例外に乗せる）。
+	var is_relic: bool = relic_scope != "" or data.has(FIELD_EQUIP_TRIGGER_KEY)
 	# E130 … relic_scope の値が party / single のどちらでもない。
 	#   ⚠ 2026-08-25：最初 E128 と書いたが、あれは research.json の検証が
 	#     既に使っていた（master_data_loader.gd:344）。E129 も workshop が使用済み。
 	#     ⚠ 番号の続きは NEXT_STEPS §2-7 を見てから採ること。
 	#   ⚠ 綴りを間違えると「全員に効くつもりが1人にも効かない」が無音で起きる。
-	if is_relic and not (relic_scope in RELIC_SCOPES_KNOWN):
+	if relic_scope != "" and not (relic_scope in RELIC_SCOPES_KNOWN):
 		_err(issues, skill_id, "%s が不明: '%s'（%s のどちらか）" % [
 			FIELD_RELIC_SCOPE, relic_scope, str(RELIC_SCOPES_KNOWN)
 		])

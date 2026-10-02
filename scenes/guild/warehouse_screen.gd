@@ -296,6 +296,10 @@ func _create_row(row_data: Dictionary) -> LedgerRow:
 		var stats: Dictionary = GameManager.get_instance_stats(instance_id)
 		var main_key: String = BelongingsDetail.main_stat_of(stats)
 		value.text = "%s %s" % [tr("ui_training_stat_" + main_key), BelongingsDetail.stat_text(main_key, int(stats.get(main_key, 0)))] if main_key != "" else ""
+		# ⚠ 特殊効果の星（2026-10-02・回UI-仕組み⑦・手本 RichItemFx）。⚠ 値の右。
+		var star: Label = SpecialEffectCard.star(item_id)
+		if star != null:
+			line.add_child(star)
 		var owner: String = str(entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
 		var owner_label: Label = Label.new()
 		owner_label.name = "OwnerLabel"

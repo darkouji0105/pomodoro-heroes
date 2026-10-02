@@ -21,6 +21,7 @@ const PATH_STAGES: String = DIR_PATH + "stages.json"
 # レリック（段階14-d）。⚠ キャラに紐づかないので characters/ の下ではなく直下。
 #   ⚠ 中身は _cache_skills にマージされる（パッシブと同じ器を借りるため）。
 const PATH_RELICS: String = DIR_PATH + "relics.json"
+const PATH_EQUIP_EFFECTS: String = DIR_PATH + "equip_effects.json"
 # 召喚ユニットの素データ（段階6・EXEC_SKILL_SPAWN.md §3-1）。
 #
 # ⚠ enemies.json と分けてある（人間の確認待ち・EXEC §0-1 の1）。混ぜると
@@ -277,6 +278,9 @@ static func _ensure_loaded() -> void:
 	#     入っているので、レリックだけを取り出す条件が2箇所に散る。
 	_cache_relics = _load_json(PATH_RELICS)
 	_merge_id_map(_cache_skills, PATH_RELICS, true, "レリック")
+	# ⚠ 装備の特殊効果も同じ辞書へ（2026-10-02・回UI-仕組み⑦）。⚠ 戦闘は着けている人のパッシブとして引く
+	#   （`GameManager.get_equipment_effect_passives()`）。⚠ 品の `special_effect` がここのIDを指す。
+	_merge_id_map(_cache_skills, PATH_EQUIP_EFFECTS, true, "装備の特殊効果")
 	# スキルは自由度が高いぶん「書けるが壊れている」組み合わせが増えた。
 	# resolver 側だけで防ぐと実戦で撃つまで気づけないので、読んだ直後に全件見る
 	# （PLAN_SKILL_TEMPLATE.md 5-4）。characters.json も読み終わっているので、
