@@ -168,48 +168,10 @@ func _on_volume_changed(pct: float, key: String, label: Label) -> void:
 
 # --- ポモドーロと小窓 ---
 
+# ⚠ 2026-10-02 から行はポモドーロの画面と共通の部品（`PomodoroSettingsPanel`・人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）。
 func _build_pomodoro() -> void:
-	var focus_values: Array = Balance.pomodoro.focus_minute_choices.duplicate()
-	var break_values: Array = Balance.pomodoro.break_minute_choices.duplicate()
-	var focus_labels: Array[String] = []
-	for minutes: Variant in focus_values:
-		focus_labels.append(tr("ui_settings_minutes") % int(minutes))
-	var break_labels: Array[String] = []
-	for minutes: Variant in break_values:
-		break_labels.append(tr("ui_settings_minutes") % int(minutes))
-	_row("FocusRow", "ui_settings_focus", "", _choices("Focus", focus_values, focus_labels, GameSettings.focus_minutes(), _on_focus_chosen))
-	_row("BreakRow", "ui_settings_break", "", _choices("Break", break_values, break_labels, GameSettings.break_minutes(), _on_break_chosen))
-	# ⚠ 小窓（2026-09-29・回UI-仕組み⑥）：⚠ オフ｜オン。
-	var off_on: Array[String] = [tr("ui_settings_off"), tr("ui_settings_on")]
-	_row("MiniWindowRow", "ui_settings_mini_window", "ui_settings_mini_window_note",
-		_choices("Mini", [false, true], off_on, GameSettings.mini_window(), _on_mini_chosen.bind(GameSettings.KEY_MINI_WINDOW)))
-	_row("MiniWindowTopRow", "ui_settings_mini_window_top", "ui_settings_mini_window_top_note",
-		_choices("MiniTop", [false, true], off_on, GameSettings.mini_window_on_top(), _on_mini_chosen.bind(GameSettings.KEY_MINI_ON_TOP)))
-	# ⚠ まだ無いもの（⚠ 手本の行は見せて「まだ」と分かるようにする）。⚠ 話しかけるのは人間「⚠ 3い」＝今回は作らない。
-	for spec: Array in [
-		["TalkRow", "ui_settings_talk", ""],
-	]:
-		var later: Label = Label.new()
-		later.name = "LaterLabel"
-		later.theme_type_variation = &"CaptionLabel"
-		later.text = tr("ui_settings_later")
-		var row: LedgerRow = _row(str(spec[0]), str(spec[1]), str(spec[2]), later)
-		row.modulate.a = float(get_theme_constant(&"later_alpha_pct", THEME_TYPE)) / 100.0
-
-
-func _on_mini_chosen(value: bool, key: String) -> void:
-	GameSettings.set_value(GameSettings.SECTION_POMODORO, key, value)
-	_rebuild()
-
-
-func _on_focus_chosen(minutes: int) -> void:
-	GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_FOCUS_MINUTES, minutes)
-	_rebuild()
-
-
-func _on_break_chosen(minutes: int) -> void:
-	GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_BREAK_MINUTES, minutes)
-	_rebuild()
+	var panel: PomodoroSettingsPanel = PomodoroSettingsPanel.new()
+	sheet_body.add_child(panel)
 
 
 # --- データ（⚠ セーブを消すは置かない＝「⚠ 3い」） ---

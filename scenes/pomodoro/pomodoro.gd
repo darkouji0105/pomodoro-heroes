@@ -139,6 +139,19 @@ func _update_mini_window() -> void:
 		_mini.leave()
 
 
+# 設定の窓で長さを変えたとき（2026-10-02・`PomodoroLinks`）。⚠ 集中を始める前なら、⚠ 待っている時間もすぐ変える。
+#   ⚠ 動いているタイマーは変えない（⚠ 設定の窓は始める前にしか開けない＝念のため）。
+func apply_settings() -> void:
+	if current_preset == null:
+		return
+	current_preset.focus_duration_sec = GameSettings.focus_minutes() * 60
+	current_preset.short_break_sec = GameSettings.break_minutes() * 60
+	if current_state == State.FOCUS and not is_timer_active:
+		time_left_sec = float(current_preset.focus_duration_sec)
+		phase_total_sec = time_left_sec
+		_update_view_timer()
+
+
 func _on_mini_expand() -> void:
 	_mini_expanded = true
 	_update_mini_window()

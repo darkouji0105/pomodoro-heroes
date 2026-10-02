@@ -7,8 +7,6 @@ extends HBoxContainer
 # ⚠ どちらも戻るとポモドーロ（⚠ まだ何も始まっていないときだけ出す）。
 
 const FOCUS_TOOLS_PATH: String = "res://scenes/pomodoro/focus_tools_screen.tscn"
-const SETTINGS_PATH: String = "res://scenes/base/settings_screen.tscn"
-const POMODORO_PATH: String = "res://scenes/pomodoro/pomodoro.tscn"
 
 
 static func create() -> PomodoroLinks:
@@ -29,8 +27,17 @@ func _on_tools_pressed() -> void:
 	SceneManager.change_scene(FOCUS_TOOLS_PATH)
 
 
+# ⚠ 2026-10-02（人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）：⚠ 画面を移らず、⚠ 紙の窓で設定する。
+#   ⚠ 変えたらポモドーロの画面に今の長さを効かせる（`apply_settings()`）。
 func _on_settings_pressed() -> void:
-	SceneManager.change_scene_with_data(SETTINGS_PATH, {
-		TransferKeys.SETTINGS_TAB: SettingsScreen.TAB_POMODORO,
-		TransferKeys.RETURN_PATH: POMODORO_PATH,
+	var panel: PomodoroSettingsPanel = PomodoroSettingsPanel.new()
+	panel.custom_minimum_size.x = float(get_theme_constant(&"panel_width", &"PomodoroSettings"))
+	var host: Node = get_tree().current_scene
+	if host != null and host.has_method("apply_settings"):
+		panel.changed.connect(Callable(host, "apply_settings"))
+	Modal.notify(host, "", [], false, {
+		Modal.OPTION_TITLE: tr("ui_pomodoro_settings_open"),
+		Modal.OPTION_CONTENT: panel,
+		Modal.OPTION_PAPER: true,
+		Modal.OPTION_WIDTH: Modal.WIDTH_MEDIUM,
 	})

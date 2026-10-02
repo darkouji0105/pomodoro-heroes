@@ -123,6 +123,8 @@ const SHOT_AFTER_MINI_WINDOW: String = "mini_window"
 const SHOT_AFTER_SPECIAL_EFFECT: String = "special_effect"
 # ⚠ 掲示板の「高難度の依頼」タブ（2026-10-02・ノルマ札）。⚠ 内側の `AFTER_BOARD_HARD` と同じ字。
 const SHOT_AFTER_BOARD_HARD: String = "board_hard"
+# ⚠ ポモドーロの画面の設定の窓（2026-10-02）。⚠ 内側の `AFTER_POMODORO_SETTINGS` と同じ字。
+const SHOT_AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1223,6 +1225,8 @@ const SCENARIOS: Dictionary = {
 			{"name": "54_special_effect", "scene": "res://scenes/guild/warehouse_screen.tscn", "after": SHOT_AFTER_SPECIAL_EFFECT},
 			# ⚠ ノルマ札（2026-10-02・回UI-仕組み⑧）。⚠ 高難度の依頼＝札が要る姿。
 			{"name": "55_board_hard", "scene": "res://scenes/adventure/adventure_select.tscn", "after": SHOT_AFTER_BOARD_HARD},
+			# ⚠ ポモドーロの画面の設定の窓（2026-10-02・人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）。
+			{"name": "56_pomodoro_settings", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_POMODORO_SETTINGS},
 			# ⚠ 「出撃する」→ 署名を書き終えて「受理」の判が押された姿（⚠ 出発の前で止める＝フロアに入らない）。
 			{
 				"name": "44_sortie_sign",
@@ -8997,6 +9001,7 @@ class ShotTaker extends Node:
 	const AFTER_MINI_WINDOW: String = "mini_window"
 	const AFTER_SPECIAL_EFFECT: String = "special_effect"
 	const AFTER_BOARD_HARD: String = "board_hard"
+	const AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
 	const FORGE_STRIKE_WAIT_MS: int = 4000
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
@@ -9334,6 +9339,14 @@ class ShotTaker extends Node:
 				return false
 			(clock_row as LedgerRow).pressed.emit()
 			for _i: int in range(20):
+				await get_tree().process_frame
+		elif kind == AFTER_POMODORO_SETTINGS:
+			var settings_button: Node = screen.find_child("PomodoroSettingsButton", true, false)
+			if not (settings_button is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に「ポモドーロの設定」が無い" % shot_name)
+				return false
+			(settings_button as BaseButton).pressed.emit()
+			for _i: int in range(6):
 				await get_tree().process_frame
 		elif kind == AFTER_BOARD_HARD:
 			# ⚠ 2枚目のタブ（⚠ 本物のタブの札）。⚠ 札は持たせない＝「ノルマ札が要る」の姿。
@@ -10385,13 +10398,20 @@ class UiFlowRunner extends Node:
 		var tool: Node = p.find_child("FocusTool", true, false)
 		_check("ポモドーロ：集中の画面は輪の代わりに選んだ道具（%s・進み %s）" % [str(tool.get("tool_id")) if tool != null else "無い", str(tool.get("progress")) if tool != null else "?"],
 			tool is FocusTool and (tool as FocusTool).tool_id == "candle" and (tool as FocusTool).progress == 0.0)
-		# ⚠ ポモドーロの設定：⚠ 「ポモドーロと小窓」のタブで開き、⚠ 戻るとポモドーロ。
-		await _press(p.find_child("PomodoroSettingsButton", true, false), OPEN_FRAMES)
-		var s: Node = get_tree().current_scene
-		_check("ポモドーロ：「ポモドーロの設定」で設定の「ポモドーロと小窓」", _path_of(s) == SETTINGS and s.find_child("Focus_25", true, false) != null)
-		header = s.find_child("Header", true, false)
-		await _press(null if header == null else header.find_child("BackButton", true, false), OPEN_FRAMES)
-		_check("設定：ポモドーロから開いたら「戻る」でポモドーロ", _path_of(get_tree().current_scene) == POMODORO)
+		# ⚠ ポモドーロの設定（⚠ 10-02 人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）：⚠ 画面を移らず紙の窓。
+		await _press(p.find_child("PomodoroSettingsButton", true, false))
+		await _wait()
+		var modal: ModalDialog = _modal_of(p)
+		var panel: Node = null if modal == null else modal.find_child("PomodoroSettingsPanel", true, false)
+		_check("ポモドーロ：「ポモドーロの設定」は画面を移らず紙の窓（集中・休憩・小窓の行）",
+			_path_of(get_tree().current_scene) == POMODORO and panel != null and panel.find_child("FocusRow", true, false) != null
+			and panel.find_child("MiniWindowRow", true, false) != null)
+		await _press(panel.find_child("Focus_50", true, false))
+		await _wait()
+		_check("ポモドーロ：窓で集中 50分を選ぶと、始める前の時間がすぐ 50:00（%s 秒）" % str(p.get("time_left_sec")),
+			GameSettings.focus_minutes() == 50 and int(p.get("time_left_sec")) == 50 * 60)
+		await _close_modal(p)
+		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_FOCUS_MINUTES, 25)
 		await _flow_mini_window()
 
 	# --- デスクトップの小窓（2026-09-29・回UI-仕組み⑥・人間「⚠ 1あ　⚠ 2あ　⚠ 3い　⚠ 4あ」） ---
@@ -11124,6 +11144,16 @@ class UiFlowRunner extends Node:
 				grade5 = true
 		_check("デバッグ：「鍛冶の一式」で等級5の装備と確定成功の札（札 %d → %d）" % [tokens, GameManager.get_forge_token_count()],
 			grade5 and GameManager.get_forge_token_count() == tokens + 3)
+		# ⚠ 好きな装備をもらう（⚠ 10-02 人間「⚠ すきなそうびをげっとできるようにしたい」）：⚠ 竜殺しの大剣を等級7で。
+		var picker: Node = overlay.find_child("EquipmentPicker", true, false)
+		var made: String = str(overlay.call("grant_equipment", "weapon_dragon_greatsword", 7))
+		var made_view: Dictionary = GameManager.get_equipment_instance(made)
+		_check("デバッグ：「装備をもらう」で選んだ装備を選んだ等級で（%s 等級 %s・一覧 %d 品）" % [
+			str(made_view.get(GameStateKeys.INSTANCE_ITEM_ID, "")), str(made_view.get(GameStateKeys.INSTANCE_GRADE, 0)),
+			0 if picker == null else (picker.find_child("EquipmentPick", true, false) as OptionButton).item_count],
+			picker != null and str(made_view.get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "weapon_dragon_greatsword"
+			and int(made_view.get(GameStateKeys.INSTANCE_GRADE, 0)) == 7
+			and (picker.find_child("EquipmentPick", true, false) as OptionButton).item_count == GameManager.get_codex_ids(GameManager.CODEX_KIND_EQUIPMENT).size())
 
 	func _pending_of(chest_id: String) -> int:
 		var count: int = 0

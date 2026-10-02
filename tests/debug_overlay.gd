@@ -143,6 +143,8 @@ func _build_ui() -> void:
 	# ⚠ 2026-09-28（人間「⚠ デバッグ用で、たからばこや、鍛冶用にアイテムをゲットしたい　⚠ それから見る」）。
 	_base_box.add_child(_make_button("宝箱：高レア（epic・legendary）を積む", _grant_rare_chests))
 	_base_box.add_child(_make_button("鍛冶：等級5の装備＋素材＋確定成功の札", _grant_forge_set))
+	# ⚠ 2026-10-02（人間「⚠ すきなそうびをげっとできるようにしたい」）：⚠ 装備と等級を選んでもらう。
+	_base_box.add_child(_build_equipment_picker())
 	_base_box.add_child(_make_button("研究を全部解放（先に素材）", _unlock_all_research))
 	_base_box.add_child(_make_button("画面を全部解放", _unlock_all_screens))
 	_base_box.add_child(_make_button("製作をすぐ完了させる", _complete_all_crafts))
@@ -494,25 +496,71 @@ func _grant_rare_chests() -> void:
 const FORGE_ITEM_ID: String = "weapon_iron_sword"
 const FORGE_TARGET_GRADE: int = 5
 const FORGE_TOKEN_COUNT: int = 3
+# ⚠ 等級を上げるときの鍛える回数の上限（⚠ 等級6 からは失敗する＝何回か要る・素材は配ってある）。
+const GRANT_FORGE_GUARD: int = 300
 
-func _grant_forge_set() -> void:
+
+# 好きな装備を好きな等級で1つもらう（2026-10-02・人間「⚠ 装備のデバッグをするときに便利だから　⚠ すきなそうびをげっとできるようにしたい」）。
+# ⚠ 個体は `add_to_inventory()` の1本だけが作る（CLAUDE.md 8番）。⚠ 等級は本番の `forge_equipment()` で上げる（⚠ 素材は配る）。
+# ⚠ 戻りは作った個体のID（⚠ 作れなければ ""）。⚠ 検査（debug_boot）も呼ぶ。
+func grant_equipment(item_id: String, grade: int) -> String:
 	_grant_all_materials()
 	var before: Dictionary = {}
 	for view: Variant in GameManager.get_owned_instances():
 		before[str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))] = true
-	GameManager.add_to_inventory(FORGE_ITEM_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	GameManager.add_to_inventory(item_id, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
 	var made: String = ""
 	for view: Variant in GameManager.get_owned_instances():
 		var id: String = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
 		if not before.has(id):
 			made = id
 	if made == "":
-		push_warning("[DebugOverlay] 鍛冶の一式：装備の個体が作れなかった")
-		return
+		push_warning("[DebugOverlay] 装備をもらう：%s の個体が作れなかった（⚠ 持ち物が満杯かも）" % item_id)
+		return ""
+	var target: int = clampi(grade, 1, GameManager.get_max_equipment_grade())
 	var guard: int = 0
-	while int(GameManager.get_equipment_instance(made).get(GameStateKeys.INSTANCE_GRADE, 1)) < FORGE_TARGET_GRADE and guard < FORGE_TARGET_GRADE:
+	while int(GameManager.get_equipment_instance(made).get(GameStateKeys.INSTANCE_GRADE, 1)) < target and guard < GRANT_FORGE_GUARD:
 		var _forged: bool = GameManager.forge_equipment(made)
 		guard += 1
+	print("[DebugOverlay] 装備をもらう：%s → %s（等級 %d）" % [item_id, made, int(GameManager.get_equipment_instance(made).get(GameStateKeys.INSTANCE_GRADE, 1))])
+	return made
+
+
+# 「装備をもらう」の行：⚠ 装備の一覧 ／ 等級 ／ もらう。
+var _equip_pick: OptionButton = null
+var _equip_grade: SpinBox = null
+
+
+func _build_equipment_picker() -> HBoxContainer:
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = "EquipmentPicker"
+	_equip_pick = OptionButton.new()
+	_equip_pick.name = "EquipmentPick"
+	_equip_pick.focus_mode = Control.FOCUS_NONE
+	for item_id: String in GameManager.get_codex_ids(GameManager.CODEX_KIND_EQUIPMENT):
+		_equip_pick.add_item(tr(GameManager.item_name_key(item_id)))
+		_equip_pick.set_item_metadata(_equip_pick.item_count - 1, item_id)
+	line.add_child(_equip_pick)
+	_equip_grade = SpinBox.new()
+	_equip_grade.name = "EquipmentGrade"
+	_equip_grade.min_value = 1
+	_equip_grade.max_value = GameManager.get_max_equipment_grade()
+	_equip_grade.value = 1
+	_equip_grade.prefix = "等級"
+	line.add_child(_equip_grade)
+	line.add_child(_make_button("もらう", _on_grant_picked_equipment))
+	return line
+
+
+func _on_grant_picked_equipment() -> void:
+	if _equip_pick == null or _equip_pick.selected < 0:
+		return
+	var _made: String = grant_equipment(str(_equip_pick.get_item_metadata(_equip_pick.selected)), int(_equip_grade.value))
+
+func _grant_forge_set() -> void:
+	var made: String = grant_equipment(FORGE_ITEM_ID, FORGE_TARGET_GRADE)
+	if made == "":
+		return
 	GameManager.add_to_inventory(GameStateKeys.ITEM_FORGE_GUARANTEE_TOKEN, FORGE_TOKEN_COUNT, GameStateKeys.ITEM_TYPE_CONSUMABLE)
 	print("[DebugOverlay] 鍛冶の一式：%s（等級 %d）＋素材＋確定成功の札 %d 枚" % [
 		made, int(GameManager.get_equipment_instance(made).get(GameStateKeys.INSTANCE_GRADE, 1)), FORGE_TOKEN_COUNT

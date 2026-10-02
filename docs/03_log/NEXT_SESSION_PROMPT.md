@@ -50,8 +50,8 @@ main の最新（origin/main と同じ）から始めて。作業ツリーは .c
 - ⚠ 傾けたい紙は `TiltedSheet`（⚠ 幅は `holder.sheet.custom_minimum_size` に付ける。⚠ 器に付けると `_fit()` が上書きする）
 - ⚠ 部品：`PaperSheet` `SheetHeading`（`ornament_below` `centered` `title_text`）`PaperTabs` `LedgerRow`（⚠ `compact`＝詰めた行・09-27）`Stamp`（`filled`）`TiltedSheet` `CharacterAvatar` `CharacterDossier`（育成の身上書）`BaseFacilityBar` `SlotActionPopover`
 - ⚠ 確かめの窓は紙（`MD-10`）・判は `Modal.OPTION_STAMP`・長押しは `Modal.OPTION_HOLD`（`MD-11`）。⚠ 並びは `MD-4`「はいが左」
-- ⚠ 撮影は `scenario=shot`（⚠ いま **53枚**。⚠ 窓が十数秒出る。⚠ 覆わない）。⚠ 画面ごとに撮った絵と手本の png を見比べる。⚠ 行に `"measure": [ノードのパス]` を書くと位置が出る
-- ⚠⚠ **押したら何が変わるか・どこへ移るか・押せるかは `scenario=ui_flow`**（⚠ ヘッドレス・いま 179項目・⚠ `debug_boot` は鍛冶を既定で必ず成功にしている）。⚠ 画面を作ったら**手を足して回す**。⚠ `HUMAN_CHECK.md` に積むのは色・手応え・気づけるかだけ
+- ⚠ 撮影は `scenario=shot`（⚠ いま **54枚**。⚠ 窓が十数秒出る。⚠ 覆わない）。⚠ 画面ごとに撮った絵と手本の png を見比べる。⚠ 行に `"measure": [ノードのパス]` を書くと位置が出る
+- ⚠⚠ **押したら何が変わるか・どこへ移るか・押せるかは `scenario=ui_flow`**（⚠ ヘッドレス・いま 180項目・⚠ `debug_boot` は鍛冶を既定で必ず成功にしている）。⚠ 画面を作ったら**手を足して回す**。⚠ `HUMAN_CHECK.md` に積むのは色・手応え・気づけるかだけ
 - ⚠ `layout` は画面のパスの後ろに `#タブ` を付けるとそのタブで開く（⚠ 育成・持ち物）
 
 ## 気をつけること（⚠ ここまでで踏んだ）
