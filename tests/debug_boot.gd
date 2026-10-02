@@ -125,6 +125,8 @@ const SHOT_AFTER_SPECIAL_EFFECT: String = "special_effect"
 const SHOT_AFTER_BOARD_HARD: String = "board_hard"
 # ⚠ ポモドーロの画面の設定の窓（2026-10-02）。⚠ 内側の `AFTER_POMODORO_SETTINGS` と同じ字。
 const SHOT_AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
+# ⚠ デバッグの窓を出した姿（2026-10-03・人間「⚠ デバッグ窓はもっとコンパクトに」）。⚠ 内側の `AFTER_DEBUG_OVERLAY` と同じ字。
+const SHOT_AFTER_DEBUG_OVERLAY: String = "debug_overlay"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1256,6 +1258,8 @@ const SCENARIOS: Dictionary = {
 			{"name": "50_run_report_defeated", "scene": "res://scenes/adventure/run_report_screen.tscn", "prepare": SHOT_PREPARE_REPORT_DEFEATED},
 			# ⚠ デスクトップの小窓（2026-10-02・回UI-仕組み⑥・手本 Companion）。⚠ 窓が本当に小さくなる＝⚠⚠ いちばん最後。
 			{"name": "53_mini_window", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_MINI_WINDOW},
+			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
+			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
 	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
@@ -9002,6 +9006,7 @@ class ShotTaker extends Node:
 	const AFTER_SPECIAL_EFFECT: String = "special_effect"
 	const AFTER_BOARD_HARD: String = "board_hard"
 	const AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
+	const AFTER_DEBUG_OVERLAY: String = "debug_overlay"
 	const FORGE_STRIKE_WAIT_MS: int = 4000
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
@@ -9087,7 +9092,9 @@ class ShotTaker extends Node:
 		# ⚠ 窓を出す手（⚠ 重ねるものはここで出す）。⚠ 出せなければ保存しない。
 		if not await _after(str(shot.get("after", "")), opened, shot_name):
 			return
-		_hide_debug_overlay()
+		# ⚠ デバッグの窓を撮る枚（2026-10-03）だけは消さない。
+		if str(shot.get("after", "")) != AFTER_DEBUG_OVERLAY:
+			_hide_debug_overlay()
 		# ⚠ 絵だけでは「切れている」のか「余白が無い」のか言い切れない。
 		#   ⚠ 撮ると同時に寸法も取る（2026-09-21）。
 		_measure(shot)
@@ -9339,6 +9346,14 @@ class ShotTaker extends Node:
 				return false
 			(clock_row as LedgerRow).pressed.emit()
 			for _i: int in range(20):
+				await get_tree().process_frame
+		elif kind == AFTER_DEBUG_OVERLAY:
+			var overlay: Node = get_tree().root.find_child("DebugOverlay", true, false)
+			if overlay == null:
+				push_error("[DebugBoot] ⚠ %s にデバッグの窓が無い" % shot_name)
+				return false
+			overlay.set("visible", true)
+			for _i: int in range(4):
 				await get_tree().process_frame
 		elif kind == AFTER_POMODORO_SETTINGS:
 			var settings_button: Node = screen.find_child("PomodoroSettingsButton", true, false)
@@ -9913,6 +9928,7 @@ class UiFlowRunner extends Node:
 	const REPORT: String = "res://scenes/adventure/run_report_screen.tscn"
 	const FOCUS_TOOLS: String = "res://scenes/pomodoro/focus_tools_screen.tscn"
 	const BATTLE: String = "res://scenes/adventure/battle.tscn"
+	const FOLLOW_STRIKE_WAIT_SEC: float = 8.0
 	const DUNGEON_FLOOR_CLEAR: String = "res://scenes/adventure/dungeon_floor_clear.tscn"
 	const DUNGEON_MAP: String = "res://scenes/adventure/dungeon_map.tscn"
 	const POMODORO: String = "res://scenes/pomodoro/pomodoro.tscn"
@@ -10356,6 +10372,27 @@ class UiFlowRunner extends Node:
 					found = true
 		_check("特殊効果：戦闘で着けている人に「棘の返し」がかかる", found)
 		GameManager.unequip_instance(HERO, slot)
+		# ⚠ 追い打ちが本当に発火するか（2026-10-03・人間「⚠ 追撃は出てないのか、同じタイミングで出て見えないのか」）。
+		#   ⚠ 竜殺しの大剣を持たせて戦闘を数秒回し、⚠ 戦闘の記録（battle_last.jsonl）に反応の行があるかを見る。
+		var sword_id: String = str(get_tree().root.find_child("DebugOverlay", true, false).call("grant_equipment", "weapon_dragon_greatsword", 1)) \
+			if get_tree().root.find_child("DebugOverlay", true, false) != null else ""
+		if sword_id == "":
+			GameManager.add_to_inventory("weapon_dragon_greatsword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+			for raw: Variant in GameManager.get_owned_instances():
+				if str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "weapon_dragon_greatsword":
+					sword_id = str((raw as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+		GameManager.equip_instance(HERO, GameStateKeys.EQUIP_WEAPON, sword_id)
+		b = await _open(BATTLE, {
+			TransferKeys.STAGE_ID: "stage_dbg_area",
+			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+		})
+		await get_tree().create_timer(FOLLOW_STRIKE_WAIT_SEC).timeout
+		BattleLog.flush()
+		var log_text: String = FileAccess.get_file_as_string(BattleLog.FILE_PATH)
+		var reacts: int = log_text.count("status_eqfx_follow_strike")
+		print("  [追い打ち] 記録の行 %d" % reacts)
+		_check("特殊効果：竜殺しの大剣の追い打ちが戦闘で発火する（記録 %d 行）" % reacts, reacts > 0)
+		GameManager.unequip_instance(HERO, GameStateKeys.EQUIP_WEAPON)
 
 	# --- 集中の道具（2026-09-29・回UI-仕組み⑤・手本 PomoSkin / Focus・人間「⚠ 1あ　⚠ 2あ　⚠ 3あ　⚠ 4い」） ---
 	#   ⚠ 選んだ道具は設定のファイル（⚠ 検査用に差し替えてある）。

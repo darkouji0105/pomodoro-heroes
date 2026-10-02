@@ -53,6 +53,8 @@ const RESEARCH_MAX_PASSES: int = 20
 # 右上に寄せるときの想定幅。実サイズはレイアウト確定後にしか取れないため、
 # 位置決めにはこの固定値を使う。多少ずれても検証には困らない。
 const PANEL_WIDTH: float = 330.0
+# ⚠ 小さなボタンの高さ（2026-10-03）。
+const COMPACT_BUTTON_HEIGHT: float = 24.0
 # パネルごと表示・非表示するキー。これ1つだけ。
 const TOGGLE_VISIBLE_KEY: int = KEY_0
 # ⚠ 難ダンジョンを歩くときの上限（⚠ 無限に回らないための保険）。
@@ -130,7 +132,7 @@ func _build_ui() -> void:
 	_scroll.add_child(_body)
 
 	_info_label = Label.new()
-	_info_label.add_theme_font_size_override("font_size", 13)
+	_info_label.add_theme_font_size_override("font_size", 11)
 	_body.add_child(_info_label)
 
 	var separator: HSeparator = HSeparator.new()
@@ -144,21 +146,28 @@ func _build_ui() -> void:
 	# ⚠ どちらを出すかは `_apply_scene_group()` が毎フレーム見て決める。
 	_base_box = VBoxContainer.new()
 	_base_box.name = "BaseBox"
+	_base_box.add_theme_constant_override("separation", 4)
 	_body.add_child(_base_box)
-	_base_box.add_child(_make_button("ゴールド・ジェム・スタミナ", _grant_currencies))
-	_base_box.add_child(_make_button("素材を全種類", _grant_all_materials))
-	_base_box.add_child(_make_button("消費アイテムを全種類", _grant_all_consumables))
-	_base_box.add_child(_make_button("装備を全種類 1個ずつ", _grant_all_equipment))
-	_base_box.add_child(_make_button("装飾を全種類", _grant_all_parts))
+	# ⚠ 2列に並べる（2026-10-03・人間「⚠ デバッグ窓はもっとコンパクトに」）。⚠ 名前は短く（⚠ 長い説明はツールチップ）。
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	_base_box.add_child(grid)
+	grid.add_child(_make_button("資源（金・石・体）", _grant_currencies))
+	grid.add_child(_make_button("素材 全種", _grant_all_materials))
+	grid.add_child(_make_button("消費品 全種", _grant_all_consumables))
+	grid.add_child(_make_button("装備 全種1個", _grant_all_equipment))
+	grid.add_child(_make_button("装飾 全種", _grant_all_parts))
 	# ⚠ 2026-09-28（人間「⚠ デバッグ用で、たからばこや、鍛冶用にアイテムをゲットしたい　⚠ それから見る」）。
-	_base_box.add_child(_make_button("宝箱：高レア（epic・legendary）を積む", _grant_rare_chests))
-	_base_box.add_child(_make_button("鍛冶：等級5の装備＋素材＋確定成功の札", _grant_forge_set))
+	grid.add_child(_make_button("宝箱 高レア", _grant_rare_chests))
+	grid.add_child(_make_button("鍛冶の一式（等級5）", _grant_forge_set))
+	grid.add_child(_make_button("研究 全解放", _unlock_all_research))
+	grid.add_child(_make_button("画面 全解放", _unlock_all_screens))
+	grid.add_child(_make_button("製作 すぐ完了", _complete_all_crafts))
+	grid.add_child(_make_button("セーブ", _save))
 	# ⚠ 2026-10-02（人間「⚠ すきなそうびをげっとできるようにしたい」）：⚠ 装備と等級を選んでもらう。
 	_base_box.add_child(_build_equipment_picker())
-	_base_box.add_child(_make_button("研究を全部解放（先に素材）", _unlock_all_research))
-	_base_box.add_child(_make_button("画面を全部解放", _unlock_all_screens))
-	_base_box.add_child(_make_button("製作をすぐ完了させる", _complete_all_crafts))
-	_base_box.add_child(_make_button("セーブする", _save))
 
 	# ⚠⚠ 難ダンジョンの中だけで出す（2026-09-21・人間の指示
 	#   「⚠ あとデバッグ用に難ダンジョンの好きな位置に移動できるように」）。
@@ -286,7 +295,24 @@ func _make_button(text: String, handler: Callable) -> Button:
 	var button: Button = Button.new()
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
-	button.add_theme_font_size_override("font_size", 12)
+	# ⚠ 小さく（2026-10-03・人間「⚠ デバッグ窓はもっとコンパクトに」）：⚠ 字 11・高さ 24・2列に並ぶので文字は切る。
+	button.add_theme_font_size_override("font_size", 11)
+	button.custom_minimum_size = Vector2(0.0, COMPACT_BUTTON_HEIGHT)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.clip_text = true
+	button.tooltip_text = text
+	var flat: StyleBoxFlat = StyleBoxFlat.new()
+	flat.bg_color = Color(0.22, 0.18, 0.15)
+	flat.set_corner_radius_all(3)
+	flat.content_margin_left = 6
+	flat.content_margin_right = 6
+	flat.content_margin_top = 2
+	flat.content_margin_bottom = 2
+	var hover: StyleBoxFlat = flat.duplicate()
+	hover.bg_color = Color(0.32, 0.26, 0.2)
+	button.add_theme_stylebox_override("normal", flat)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", hover)
 	button.pressed.connect(func() -> void:
 		handler.call()
 		_refresh_info()
@@ -553,6 +579,10 @@ func _build_equipment_picker() -> HBoxContainer:
 	_equip_pick = OptionButton.new()
 	_equip_pick.name = "EquipmentPick"
 	_equip_pick.focus_mode = Control.FOCUS_NONE
+	_equip_pick.add_theme_font_size_override("font_size", 11)
+	_equip_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_equip_pick.clip_text = true
+	_equip_pick.custom_minimum_size.y = COMPACT_BUTTON_HEIGHT
 	for item_id: String in GameManager.get_codex_ids(GameManager.CODEX_KIND_EQUIPMENT):
 		_equip_pick.add_item(tr(GameManager.item_name_key(item_id)))
 		_equip_pick.set_item_metadata(_equip_pick.item_count - 1, item_id)
@@ -562,9 +592,13 @@ func _build_equipment_picker() -> HBoxContainer:
 	_equip_grade.min_value = 1
 	_equip_grade.max_value = GameManager.get_max_equipment_grade()
 	_equip_grade.value = 1
-	_equip_grade.prefix = "等級"
+	_equip_grade.prefix = "等"
+	_equip_grade.get_line_edit().add_theme_font_size_override("font_size", 11)
 	line.add_child(_equip_grade)
-	line.add_child(_make_button("もらう", _on_grant_picked_equipment))
+	var grant: Button = _make_button("もらう", _on_grant_picked_equipment)
+	grant.size_flags_horizontal = Control.SIZE_SHRINK_END
+	grant.custom_minimum_size.x = 56.0
+	line.add_child(grant)
 	return line
 
 

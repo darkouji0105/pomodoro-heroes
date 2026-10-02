@@ -101,6 +101,9 @@ var _floor_waves: Array = []
 var _dungeon_node_id: String = ""
 var _dungeon_waves: Array = []
 var _session: BattleSession = null
+# ⚠ 同じフレームに出した数字の数（⚠ 攻撃をまたいでずらすため・`_on_skill_effects_applied()`）。
+var _pop_frame: int = -1
+var _pop_frame_count: int = 0
 
 # 敵 UnitView の参照配列。ウェーブ切替時に queue_free して clear する。
 var _enemy_views: Array = []
@@ -1872,7 +1875,14 @@ func _on_skill_effects_applied(results: Array) -> void:
 	# ⚠⚠ 同じ瞬間に何件も返る（範囲攻撃・多段）。⚠ 数字を 1件ずつ遅らせて出す
 	#   （2026-09-18・モック §11）。⚠ ずらさないと同じ場所に重なって読めない。
 	# ⚠ 数えるのは**数字を出した件だけ**（⚠ 召喚や数字の出ない件で間が空かないように）。
-	var popped: int = 0
+	# ⚠⚠ 同じフレームの**別の攻撃**の数字も続けてずらす（2026-10-03・人間「⚠ 追撃は出てないのか、同じタイミングで出て
+	#   追撃のダメージの数字が見えないか」）：⚠ 装備の追い打ちは元の攻撃と同じ瞬間の別の攻撃＝⚠ 前は 0 から数え直して
+	#   ⚠ 元の数字（61）の真上に追撃（10）が重なり、見えなかった（⚠ 戦闘の記録では両方出ていた）。
+	var frame: int = Engine.get_process_frames()
+	if frame != _pop_frame:
+		_pop_frame = frame
+		_pop_frame_count = 0
+	var popped: int = _pop_frame_count
 	var stagger: float = float(Balance.adventure.pop_stagger_sec)
 	for r in results:
 		if not (r is Dictionary):
@@ -1899,6 +1909,7 @@ func _on_skill_effects_applied(results: Array) -> void:
 				delay
 			)
 		popped += 1
+	_pop_frame_count = popped
 
 
 # ============================================================

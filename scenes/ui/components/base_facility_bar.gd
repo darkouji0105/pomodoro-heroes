@@ -49,8 +49,9 @@ static func facilities() -> Array[Dictionary]:
 			KEY_PATH: "res://scenes/guild/records_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WAREHOUSE},
 		{ENTRY_ID: RESEARCH, ENTRY_LABEL_KEY: "ui_facility_research",
 			KEY_PATH: "res://scenes/guild/research_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_RESEARCH},
+		# ⚠ 2026-10-03（人間「⚠ ショップがないどこからいくの」→「⚠ 1あ」）：⚠ **いつも出す**（⚠ ノルマ札を買う所＝難ダンジョンは最初から入れる）。
 		{ENTRY_ID: SHOP, ENTRY_LABEL_KEY: "ui_facility_shop",
-			KEY_PATH: "res://scenes/guild/shop_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_SHOP},
+			KEY_PATH: "res://scenes/guild/shop_screen.tscn", KEY_UNLOCK: ""},
 	]
 
 
