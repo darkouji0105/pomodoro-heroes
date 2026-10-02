@@ -3107,11 +3107,12 @@ func has_quota_ticket_for_entry() -> bool:
 
 # 札を使って入る（⚠ 判定 → 入る → 札を減らす。⚠ 入れなかったら減らさない）。⚠ `start_dungeon_run()` は札を見ない
 #   （⚠ 検査・続きの口を変えないため）。⚠ 画面はこちらを呼ぶ。
-func enter_dungeon_with_ticket(dungeon_id: String) -> bool:
+# ⚠ `start_floor`＝入るフロア（2026-10-03・決定49「出口から再開」）。⚠ 選べない深さは `start_dungeon_run()` が弾く＝札は減らない。
+func enter_dungeon_with_ticket(dungeon_id: String, start_floor: int = 1) -> bool:
 	if not has_quota_ticket_for_entry():
 		print("[GameManager] enter_dungeon_with_ticket('%s') -> false (ノルマ札 %d < %d)" % [dungeon_id, get_quota_ticket_count(), get_quota_tickets_per_entry()])
 		return false
-	if not start_dungeon_run(dungeon_id):
+	if not start_dungeon_run(dungeon_id, start_floor):
 		return false
 	_remove_from_inventory(GameStateKeys.ITEM_QUOTA_TICKET, get_quota_tickets_per_entry())
 	print("[GameManager] enter_dungeon_with_ticket('%s') -> true (ノルマ札 残り %d)" % [dungeon_id, get_quota_ticket_count()])
@@ -6749,6 +6750,7 @@ func load_state(data: Dictionary) -> bool:
 		var dungeon_run: Dictionary = new_state[GameStateKeys.DUNGEON_RUN]
 		for number_key: String in [
 			GameStateKeys.DUNGEON_RUN_FLOOR_INDEX,
+			GameStateKeys.DUNGEON_RUN_START_FLOOR,
 			GameStateKeys.DUNGEON_RUN_BAG_SLOTS,
 			GameStateKeys.DUNGEON_RUN_CURRENCY,
 			GameStateKeys.DUNGEON_RUN_TORCH_GRADE,
@@ -8026,6 +8028,8 @@ func _empty_dungeon_run() -> Dictionary:
 	return {
 		GameStateKeys.DUNGEON_RUN_DUNGEON_ID: "",
 		GameStateKeys.DUNGEON_RUN_FLOOR_INDEX: 0,
+		# ⚠ 入ったフロア（2026-10-03・決定49）。⚠ 前のセーブに無ければ 1（`get_dungeon_start_floor()`）。
+		GameStateKeys.DUNGEON_RUN_START_FLOOR: 1,
 		GameStateKeys.DUNGEON_RUN_PHASE: "",
 		# ⚠ このフロアでショップを自動で出したか（2026-09-20）。⚠ 降りるたびに false に戻す。
 		GameStateKeys.DUNGEON_RUN_SHOP_SEEN: false,
@@ -8199,7 +8203,7 @@ func debug_mark_dungeon_boss_cleared() -> bool:
 	return true
 
 
-# もう1階潜れるか（段階20-a・人間の決定26「1ラン ＝ 3階 × 25層」）。
+# もう1階潜れるか（段階20-a・⚠ 2026-10-03 から決定49「500層まで・10層ごとに出口」）。
 #
 # ⚠ 「撤退できるか」とは別物。⚠ 最後の階を突破したら、⚠ 撤退はできるが続行はできない。
 # ⚠ 画面で階の数を数えないこと。⚠ 判定はここ1本。
@@ -8212,10 +8216,49 @@ func can_descend_dungeon_floor() -> bool:
 	return get_dungeon_floor_index() < maxi(1, int(config.max_floors))
 
 
-# 1ランで潜れる階の数（＝フロアの枚数）。⚠ 画面が「3階のうち何階目か」を出すのに使う。
+# 潜れるフロアの数（⚠ 2026-10-03・決定49：入口から数えて 500層＝50フロアまで）。
 func get_dungeon_max_floors() -> int:
 	var config: DungeonConfig = _dungeon()
 	return 1 if config == null else maxi(1, int(config.max_floors))
+
+
+# --- 層の数え方（2026-10-03・決定49・`EXEC_DUNGEON_SHAPE.md` §5-1） ---
+#   ⚠ フロア＝マップ1枚＝`dungeon.json` の layers ＋ ボスの層。⚠ `floor_index` は入口から数えた番号。
+#   ⚠ 画面で掛け算しないこと（⚠ 層の表示は `get_dungeon_absolute_layer()` の1本）。
+
+# 1フロアの層の数（⚠ ボスの層を含む）。⚠ ランの外では既定のダンジョンで数える。
+func get_dungeon_layers_per_floor(dungeon_id: String = "") -> int:
+	var id: String = dungeon_id
+	if id == "":
+		id = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")) if is_in_dungeon() else DUNGEON_DEFAULT_ID
+	var raw_layers: Variant = MasterDataLoader.get_dungeon(id).get(DUNGEON_MASTER_LAYERS, [])
+	return (raw_layers as Array).size() + 1 if raw_layers is Array else 1
+
+
+# このランに入ったフロアの番号（⚠ 前のセーブのランは鍵が無い＝1）。
+func get_dungeon_start_floor() -> int:
+	return maxi(1, int(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_START_FLOOR, 1)))
+
+
+# フロアの最初の層（⚠ 入口から数えた層・`floor` を省くといまのフロア）。⚠ 4 → 31。
+func get_dungeon_floor_first_layer(floor_number: int = 0) -> int:
+	var index: int = floor_number if floor_number > 0 else maxi(1, get_dungeon_floor_index())
+	return (index - 1) * get_dungeon_layers_per_floor() + 1
+
+
+# マップの中の層（ノードの layer・1 から）を入口から数えた層にする。⚠ 層の表示はここ1本。
+func get_dungeon_absolute_layer(layer: int) -> int:
+	return get_dungeon_floor_first_layer() + maxi(1, layer) - 1
+
+
+# 入れるフロアの番号（⚠ 1＝入口・⚠ ボスを倒したいちばん深いフロアの次まで・上限 `max_floors`）。
+# ⚠ 「出口から再開」（決定49・人間「⚠ 2あ」）の判定はここ1本。⚠ 画面はここから選ばせる。
+func get_dungeon_start_floor_options(dungeon_id: String = DUNGEON_DEFAULT_ID) -> Array[int]:
+	var options: Array[int] = []
+	var deepest: int = mini(get_dungeon_best_floors(dungeon_id) + 1, get_dungeon_max_floors())
+	for floor_number: int in range(1, maxi(1, deepest) + 1):
+		options.append(floor_number)
+	return options
 
 
 # 鞄の中身。{item_id: 個数}。⚠ 中身は共通の口（`get_run_bag`・2026-09-18）。
@@ -8262,13 +8305,19 @@ func get_dungeon_hp() -> Dictionary:
 # ランに入る。⚠ 鞄は空・一時通貨0・ランの MAX HP は素の MAX HP から写す。
 #
 # ⚠ 状態を触るのは最後の1回だけ（CLAUDE.md 6番）。判定を全部先に終える。
-# ⚠ 入るコストは取らない（決定11。テストプレイ優先。⚠ リリース前に必ず入れ直す＝未決7）。
-func start_dungeon_run(dungeon_id: String = DUNGEON_DEFAULT_ID) -> bool:
+# ⚠ ここは札を見ない（⚠ 札は `enter_dungeon_with_ticket()`・`DG-1`）。
+# ⚠ `start_floor`＝入るフロア（2026-10-03・決定49）。⚠ 選べるのは `get_dungeon_start_floor_options()` の中だけ。
+func start_dungeon_run(dungeon_id: String = DUNGEON_DEFAULT_ID, start_floor: int = 1) -> bool:
 	if is_in_dungeon():
 		push_warning("[GameManager] start_dungeon_run: すでにランの中にいる（先に abandon_dungeon_run()）")
 		return false
 	if MasterDataLoader.get_dungeon(dungeon_id).is_empty():
 		push_warning("[GameManager] start_dungeon_run: dungeon.json に無い: " + dungeon_id)
+		return false
+	if not (start_floor in get_dungeon_start_floor_options(dungeon_id)):
+		print("[GameManager] start_dungeon_run('%s', %d) -> false (まだ開いていない深さ。選べるのは %s)" % [
+			dungeon_id, start_floor, str(get_dungeon_start_floor_options(dungeon_id))
+		])
 		return false
 	var config: DungeonConfig = _dungeon()
 	if config == null:
@@ -8289,7 +8338,8 @@ func start_dungeon_run(dungeon_id: String = DUNGEON_DEFAULT_ID) -> bool:
 	# ここから状態を触る。
 	var run: Dictionary = _empty_dungeon_run()
 	run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID] = dungeon_id
-	run[GameStateKeys.DUNGEON_RUN_FLOOR_INDEX] = 1
+	run[GameStateKeys.DUNGEON_RUN_FLOOR_INDEX] = start_floor
+	run[GameStateKeys.DUNGEON_RUN_START_FLOOR] = start_floor
 	run[GameStateKeys.DUNGEON_RUN_MAX_HP] = max_hp
 	# ⚠ 入った時点では満タン。⚠ 同じ数値だが意味が別（§4-4 の表）。
 	run[GameStateKeys.DUNGEON_RUN_HP] = max_hp.duplicate(true)
@@ -8305,8 +8355,8 @@ func start_dungeon_run(dungeon_id: String = DUNGEON_DEFAULT_ID) -> bool:
 	_last_dungeon_currency_gain = 0
 	_state[GameStateKeys.DUNGEON_RUN] = run
 
-	print("[GameManager] start_dungeon_run('%s') -> フロア1 / ノード%d / 鞄 %d 枠 / ランのMAX HP %s" % [
-		dungeon_id, (run[GameStateKeys.DUNGEON_RUN_NODES] as Dictionary).size(),
+	print("[GameManager] start_dungeon_run('%s') -> フロア%d（%d層から） / ノード%d / 鞄 %d 枠 / ランのMAX HP %s" % [
+		dungeon_id, start_floor, get_dungeon_absolute_layer(1), (run[GameStateKeys.DUNGEON_RUN_NODES] as Dictionary).size(),
 		int(run[GameStateKeys.DUNGEON_RUN_BAG_SLOTS]), str(max_hp),
 	])
 	dungeon_run_changed.emit(dungeon_id)
@@ -8477,7 +8527,7 @@ func descend_dungeon_floor() -> bool:
 	if not can_retreat_from_dungeon():
 		print("[GameManager] descend_dungeon_floor() -> false (ボスを倒した先に居ない)")
 		return false
-	# ⚠ 1ランは3階まで（段階20-a・決定26）。⚠ 最後の階のボスを倒したら持ち帰るしかない。
+	# ⚠ 500層＝`max_floors` まで（⚠ 2026-10-03・決定49 が決定26 を覆した）。⚠ 最後の階のボスを倒したら持ち帰るしかない。
 	if not can_descend_dungeon_floor():
 		print("[GameManager] descend_dungeon_floor() -> false (最後の階。持ち帰るしかない)")
 		return false
@@ -8600,6 +8650,8 @@ const RUN_END_DEFEATED: String = "defeated"
 const RUN_END_ABANDONED: String = "abandoned"
 const REPORT_TARGET_ID: String = "target_id"
 const REPORT_FLOORS: String = "floors"
+const REPORT_START_FLOOR: String = "start_floor"
+const REPORT_LAYERS_PER_FLOOR: String = "layers_per_floor"
 const REPORT_BEST_UPDATED: String = "best_updated"
 const REPORT_BEST: String = "best"
 const REPORT_MEMBERS: String = "members"
@@ -8653,6 +8705,9 @@ func _record_run_report(kind: String, end: String, target_id: String, floors: in
 		REPORT_END: end,
 		REPORT_TARGET_ID: target_id,
 		REPORT_FLOORS: floors,
+		# ⚠ 2026-10-03（決定49）：⚠ 入ったフロアと1フロアの層の数（⚠ 報告書が「31 → 50層」を出す。⚠ ランを捨てる前に写す）。
+		REPORT_START_FLOOR: get_dungeon_start_floor() if kind == REPORT_KIND_DUNGEON else 1,
+		REPORT_LAYERS_PER_FLOOR: get_dungeon_layers_per_floor(target_id) if kind == REPORT_KIND_DUNGEON else 1,
 		REPORT_BEST_UPDATED: best_updated,
 		REPORT_BEST: get_dungeon_best_floors(target_id) if kind == REPORT_KIND_DUNGEON else 0,
 		REPORT_MEMBERS: get_party_members().duplicate(),
@@ -9159,7 +9214,8 @@ func _grant_dungeon_chest_item(kind: String, chest_id: String) -> Dictionary:
 		var base: int = int((currency_table as Dictionary).get(kind, 0))
 		if base > 0:
 			var growth: int = maxi(0, int(config.currency_growth_pct_per_floor))
-			var depth: int = maxi(0, get_dungeon_floor_index() - 1)
+			# ⚠ そのランで潜った数（2026-10-03・決定49「3あ」＝入った深さでは伸ばさない）。
+			var depth: int = maxi(0, get_dungeon_floor_index() - get_dungeon_start_floor())
 			add_dungeon_currency(int(float(base) * (1.0 + float(growth) * float(depth) / 100.0)))
 
 	if MasterDataLoader.get_chest(chest_id).is_empty():
@@ -9212,7 +9268,8 @@ func _grant_dungeon_node_gains(kind: String, to_pending: bool = false) -> Dictio
 		var base: int = int((currency_table as Dictionary).get(kind, 0))
 		if base > 0:
 			var growth: int = maxi(0, int(config.currency_growth_pct_per_floor))
-			var depth: int = maxi(0, get_dungeon_floor_index() - 1)
+			# ⚠ そのランで潜った数（2026-10-03・決定49「3あ」＝入った深さでは伸ばさない）。
+			var depth: int = maxi(0, get_dungeon_floor_index() - get_dungeon_start_floor())
 			add_dungeon_currency(int(float(base) * (1.0 + float(growth) * float(depth) / 100.0)))
 
 	# 2. 戦利品。⚠ ノード種ごとの確率で引く。

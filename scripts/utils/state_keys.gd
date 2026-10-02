@@ -422,8 +422,10 @@ const FLOOR_NODE_KIND_BOSS: String = "boss"
 const DUNGEON_RUN: String = "dungeon_run"
 
 const DUNGEON_RUN_DUNGEON_ID: String = "dungeon_id"
-# ⚠ 何枚目のフロアか（1 から）。⚠ 上限は置かない（未決1-c・上限なしから始める）。
+# ⚠ 何枚目のフロアか（1 から）。⚠⚠ 2026-10-03（決定49）から**入口から数えた番号**（⚠ 31層から入ったら 4）。
 const DUNGEON_RUN_FLOOR_INDEX: String = "floor_index"
+# ⚠ 入ったフロアの番号（2026-10-03・決定49「出口から再開」・`EXEC_DUNGEON_SHAPE.md`）。⚠ 前のセーブに無ければ 1。
+const DUNGEON_RUN_START_FLOOR: String = "start_floor_index"
 # ⚠ いま「マップを歩いている」のか「ボスを倒した先に居る」のか。
 #   ⚠ 撤退できるのは boss_cleared のときだけ（決定15）。層の途中に降り口を足さない。
 const DUNGEON_RUN_PHASE: String = "phase"

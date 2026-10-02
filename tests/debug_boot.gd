@@ -7648,7 +7648,7 @@ func _report_dungeon() -> void:
 	var max_hp_before_descend: Dictionary = GameManager.get_dungeon_max_hp()
 	# ⚠ 潜る「前」に聞く（段階20-a）。⚠ 潜ったあとは phase が map に戻るので、
 	#   ⚠ can_descend_dungeon_floor() は false を返す（⚠ 正しい挙動だがログが誤解を招く）。
-	print("  ⚠ 1ランで潜れる階 = %d（決定26：3階＝75層） / いま %d 階目 / もう1階潜れるか %s（true が正解）" % [
+	print("  ⚠ 潜れる階 = %d（決定49：50階＝500層） / いま %d 階目 / もう1階潜れるか %s（true が正解）" % [
 		GameManager.get_dungeon_max_floors(), GameManager.get_dungeon_floor_index(),
 		str(GameManager.can_descend_dungeon_floor()),
 	])
@@ -7852,7 +7852,7 @@ func _report_dungeon() -> void:
 
 	# ⚠⚠ 最後の階では続行できないこと（段階20-a・決定26）。
 	#   ⚠ 上限まで潜ってから叩く。⚠ 撤退はできるが続行はできないのが正解。
-	print("[DebugBoot] --- 1ランの上限（⚠ 決定26：3階＝75層）---")
+	print("[DebugBoot] --- 潜れる上限（⚠ 決定49：50階＝500層）---")
 	for _floor_try: int in range(GameManager.get_dungeon_max_floors() + 2):
 		if not GameManager.can_descend_dungeon_floor():
 			break
