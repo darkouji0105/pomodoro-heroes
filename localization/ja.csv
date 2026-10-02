@@ -1063,6 +1063,11 @@ ui_settings_mini_window_top,小窓をいつも前に出す
 ui_settings_mini_window_top_note,ポモドーロ中のみ
 ui_settings_talk,休憩に入ったら話しかける
 ui_settings_later,まだ
+ui_settings_off,オフ
+ui_settings_on,オン
+ui_mini_break,休憩 %s
+ui_mini_sleep,z z
+ui_mini_expand,大きく
 ui_settings_data_reset,セーブを消す
 ui_settings_data_reset_note,タイトルの「はじめから」を長押しすると、最初からやり直せる
 ui_settings_data_separate,設定はセーブと別に残る

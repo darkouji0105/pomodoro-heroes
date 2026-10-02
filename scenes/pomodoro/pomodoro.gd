@@ -98,6 +98,8 @@ func _update_view_timer() -> void:
 	if _current_view.has_method("update_timer"):
 		_current_view.update_timer(int(ceil(time_left_sec)), phase_total_sec)
 	_update_set_dots()
+	if _mini != null and _mini.is_active():
+		_mini.set_state(int(ceil(time_left_sec)), current_state == State.FOCUS)
 
 
 func _start_phase_timer(seconds: float) -> void:
@@ -105,16 +107,53 @@ func _start_phase_timer(seconds: float) -> void:
 	phase_total_sec = seconds
 	is_timer_active = true
 	_update_view_timer()
+	_update_mini_window()
 
 
 func _stop_phase_timer() -> void:
 	is_timer_active = false
+	_update_mini_window()
+
+
+# --- デスクトップの小窓（2026-09-29・回UI-仕組み⑥・`MiniWindow`） ---
+#   ⚠ 小窓になるのは設定がオンで、⚠ タイマーが動いている集中と休憩のあいだだけ（⚠ 振り返りと次の「開始」は元の大きさ）。
+#   ⚠ 「大きく」を押したら、⚠ そのフェーズのあいだは元の大きさ（⚠ フェーズが変わると小窓に戻る）。
+
+var _mini: MiniWindow = null
+var _mini_expanded: bool = false
+
+
+func _update_mini_window() -> void:
+	var want: bool = GameSettings.mini_window() and is_timer_active and not _mini_expanded \
+		and (current_state == State.FOCUS or current_state == State.BREAK)
+	if want and _mini == null:
+		_mini = MiniWindow.create()
+		_mini.expand_requested.connect(_on_mini_expand)
+		add_child(_mini)
+	if _mini == null:
+		return
+	if want:
+		_mini.enter()
+		_mini.set_state(int(ceil(time_left_sec)), current_state == State.FOCUS)
+	else:
+		_mini.leave()
+
+
+func _on_mini_expand() -> void:
+	_mini_expanded = true
+	_update_mini_window()
+
+
+func is_mini_window_active() -> bool:
+	return _mini != null and _mini.is_active()
 
 
 # --- ビュー切り替え ---
 
 func _switch_view(new_state: State) -> void:
 	current_state = new_state
+	# ⚠ フェーズが変わったら「大きく」は解く（⚠ 次の集中・休憩はまた小窓）。
+	_mini_expanded = false
 	_stop_phase_timer()
 	# ⚠ 点の数はセット数で決まる。⚠ 毎フレーム作り直さない（_update_set_dots() は光り方だけ）。
 	set_dots.setup(current_total_sets)

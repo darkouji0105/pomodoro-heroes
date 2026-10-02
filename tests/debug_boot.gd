@@ -118,6 +118,7 @@ const SHOT_AFTER_RECORDS_PICK: String = "records_pick"
 # ⚠ 集中の道具（2026-09-29）：⚠ 柱時計を押した姿 ／ ⚠ 集中を始めて6割進んだ姿。⚠ 内側の同じ名前の字と揃える。
 const SHOT_AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
 const SHOT_AFTER_POMODORO_RUNNING: String = "pomodoro_running"
+const SHOT_AFTER_MINI_WINDOW: String = "mini_window"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 
@@ -1241,6 +1242,8 @@ const SCENARIOS: Dictionary = {
 			#   ⚠⚠ **いちばん最後に置く**（⚠ ランを終わらせ、⚠ 持ち帰った宝箱が宝物庫に積まれる＝宝箱の枚の下ごしらえが狂う）。
 			{"name": "49_run_report", "scene": "res://scenes/adventure/run_report_screen.tscn", "prepare": SHOT_PREPARE_REPORT_RETURNED},
 			{"name": "50_run_report_defeated", "scene": "res://scenes/adventure/run_report_screen.tscn", "prepare": SHOT_PREPARE_REPORT_DEFEATED},
+			# ⚠ デスクトップの小窓（2026-10-02・回UI-仕組み⑥・手本 Companion）。⚠ 窓が本当に小さくなる＝⚠⚠ いちばん最後。
+			{"name": "53_mini_window", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_MINI_WINDOW},
 		],
 	},
 	# 画面をいきなり開くだけのシナリオ。⚠ 窓あり専用。
@@ -8983,6 +8986,7 @@ class ShotTaker extends Node:
 	const AFTER_RECORDS_PICK: String = "records_pick"
 	const AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
 	const AFTER_POMODORO_RUNNING: String = "pomodoro_running"
+	const AFTER_MINI_WINDOW: String = "mini_window"
 	const FORGE_STRIKE_WAIT_MS: int = 4000
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
@@ -9321,6 +9325,24 @@ class ShotTaker extends Node:
 			(clock_row as LedgerRow).pressed.emit()
 			for _i: int in range(20):
 				await get_tree().process_frame
+		elif kind == AFTER_MINI_WINDOW:
+			# ⚠ 設定（⚠ 検査用のファイル）で小窓をオン → ⚠ 加護「始める」→ 集中「開始」→ ⚠ 小窓（⚠ 窓が本当に小さくなる）。
+			GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, true)
+			var mini_select: Node = screen.find_child("ProtectionSelectView", true, false)
+			if mini_select != null:
+				(mini_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				for _i: int in range(3):
+					await get_tree().process_frame
+			var mini_start: Node = screen.find_child("StartButton", true, false)
+			if not (mini_start is BaseButton):
+				push_error("[DebugBoot] ⚠ %s で集中の「開始」が無い" % shot_name)
+				return false
+			(mini_start as BaseButton).pressed.emit()
+			for _i: int in range(20):
+				await get_tree().process_frame
+			if not bool(screen.call("is_mini_window_active")):
+				push_error("[DebugBoot] ⚠ %s で小窓にならない" % shot_name)
+				return false
 		elif kind == AFTER_POMODORO_RUNNING:
 			# ⚠ 加護を選ぶ（⚠ 出ていれば「始める」）→ ⚠ 集中の「開始」→ ⚠ 残りを4割にして道具の進みを見せる。
 			var select_view: Node = screen.find_child("ProtectionSelectView", true, false)
@@ -9879,6 +9901,11 @@ class UiFlowRunner extends Node:
 
 	func _setup() -> void:
 		ResourceGainEffect.set_muted(true)
+		# ⚠⚠ 効果音を鳴らさない（2026-10-02）：⚠ ヘッドレスで効果音（集中が終わったアラーム）を鳴らすと、
+		#   ⚠ 終了時に「1 resources still in use at exit」の赤が出たり出なかったりした（⚠ 鳴らすと4回中3回・止めると4回中0回）。
+		#   ⚠ 再生を `stop()` しても消えなかった＝⚠ 音を出す先が無いので、再生が片付かないまま終わる。⚠ 小窓のせいではなかった。
+		#   ⚠ `SoundManager` は設定（`_config`）が無いと何も鳴らさない作り＝⚠ それを使う。
+		SoundManager.set("_config", null)
 		for screen_id: String in GameManager.get_all_screen_ids():
 			GameManager.unlock_screen(screen_id)
 		for material_id: String in GameManager.get_material_ids():
@@ -10223,6 +10250,62 @@ class UiFlowRunner extends Node:
 		header = s.find_child("Header", true, false)
 		await _press(null if header == null else header.find_child("BackButton", true, false), OPEN_FRAMES)
 		_check("設定：ポモドーロから開いたら「戻る」でポモドーロ", _path_of(get_tree().current_scene) == POMODORO)
+		await _flow_mini_window()
+
+	# --- デスクトップの小窓（2026-09-29・回UI-仕組み⑥・人間「⚠ 1あ　⚠ 2あ　⚠ 3い　⚠ 4あ」） ---
+	#   ⚠ ヘッドレス＝窓は動かない。⚠ 見るのは中身の出し入れと画面の論理の大きさ（`content_scale_size`）。
+
+	func _flow_mini_window() -> void:
+		var root_window: Window = get_tree().root
+		var full_size: Vector2i = root_window.content_scale_size
+		# ⚠ 既定オフ：⚠ 集中を始めても小窓にならない。
+		var p: Node = await _open(POMODORO, {})
+		await _pomodoro_start_focus(p)
+		_check("小窓：設定がオフなら集中を始めても小窓にならない", not bool(p.call("is_mini_window_active")))
+		# ⚠ 設定の画面でオンにする（⚠ 本物の札）。
+		var s: Node = await _open(SETTINGS, {TransferKeys.SETTINGS_TAB: SettingsScreen.TAB_POMODORO})
+		await _press(s.find_child("Mini_true", true, false))
+		_check("小窓：設定の「オン」で残る", GameSettings.mini_window())
+		p = await _open(POMODORO, {})
+		await _pomodoro_start_focus(p)
+		var mini: Node = p.find_child("MiniWindow", true, false)
+		var mini_size: Vector2i = Vector2i(ThemeDB.get_project_theme().get_constant(&"width", &"MiniWindow"), ThemeDB.get_project_theme().get_constant(&"height", &"MiniWindow"))
+		_check("小窓：集中を始めると小窓（画面の大きさ %s・眠っている=%s）" % [str(root_window.content_scale_size), str(mini.find_child("SleepLabel", true, false).visible) if mini != null else "?"],
+			bool(p.call("is_mini_window_active")) and root_window.content_scale_size == mini_size
+			and mini != null and (mini.find_child("SleepLabel", true, false) as Label).visible)
+		# ⚠ 「大きく」→ ⚠ このフェーズは元の大きさ。
+		await _press(mini.find_child("ExpandButton", true, false))
+		_check("小窓：「大きく」で元の大きさ（%s）" % str(root_window.content_scale_size), not bool(p.call("is_mini_window_active")) and root_window.content_scale_size == full_size)
+		# ⚠ 集中が終わる → 振り返り（⚠ 元の大きさ）→ 休憩（⚠ また小窓・起きている）。
+		p.set("time_left_sec", 0.01)
+		await _wait()
+		_check("小窓：振り返りは元の大きさ", not bool(p.call("is_mini_window_active")))
+		var reflection: Node = p.find_child("SkipButton", true, false)
+		if reflection == null:
+			p.call("_on_reflection_completed", "", true)
+		else:
+			await _press(reflection)
+		await _wait()
+		mini = p.find_child("MiniWindow", true, false)
+		_check("小窓：休憩はまた小窓・起きている（%s）" % (_label_text(p, "MiniWindow", "TimeLabel")),
+			bool(p.call("is_mini_window_active")) and not (mini.find_child("SleepLabel", true, false) as Label).visible
+			and _label_text(p, "MiniWindow", "TimeLabel").begins_with(tr("ui_mini_break").split("%")[0]))
+		# ⚠ 小窓のまま拠点へ出る → ⚠ 元の大きさに戻る。
+		SceneManager.change_scene(BASE)
+		await _wait(OPEN_FRAMES)
+		_check("小窓：小窓のまま画面を離れると元の大きさ（%s）" % str(root_window.content_scale_size), root_window.content_scale_size == full_size)
+		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, false)
+
+	# ポモドーロで集中を始める（⚠ 加護を選ぶビューなら「始める」→ ⚠ 集中の「開始」）。
+	func _pomodoro_start_focus(p: Node) -> void:
+		if p == null:
+			return
+		var select_view: Node = p.find_child("ProtectionSelectView", true, false)
+		if select_view != null:
+			await _press(select_view.find_child("StartButton", true, false), OPEN_FRAMES)
+		var focus_view: Node = p.find_child("FocusView", true, false)
+		if focus_view != null:
+			await _press(focus_view.find_child("StartButton", true, false))
 
 	# --- 帰還報告書（2026-09-29・回UI-仕組み④・`EXEC_RUN_REPORT.md`・人間「⚠ 1い　⚠ 2あ　⚠ 3い」） ---
 	#   ⚠ 持ち帰り（わかれ道の「ここで戻る」）／ 2回目の浅い持ち帰り ／ 降りた（マップのメニュー）／ 倒れた ／ 通常の依頼のクリア ／ 最深のセーブ。
@@ -10353,8 +10436,11 @@ class UiFlowRunner extends Node:
 		await _press(s.find_child("Break_10", true, false))
 		_check("設定：集中 45分・休憩 10分を選ぶと残る（%d・%d）" % [GameSettings.focus_minutes(), GameSettings.break_minutes()],
 			GameSettings.focus_minutes() == 45 and GameSettings.break_minutes() == 10)
-		_check("設定：小窓の2行と「話しかける」は「まだ」", s.find_child("MiniWindowRow", true, false) != null and s.find_child("TalkRow", true, false) != null
-			and s.find_children("LaterLabel", "", true, false).size() == 3)
+		# ⚠ 09-29（回UI-仕組み⑥）：⚠ 小窓の2行はオフ｜オン（⚠ 既定オフ・いつも前はオン）／ ⚠ 「話しかける」だけ「まだ」。
+		_check("設定：小窓はオフ｜オン（既定オフ）・いつも前は既定オン・「話しかける」だけ「まだ」",
+			s.find_child("Mini_false", true, false) is Button and (s.find_child("Mini_false", true, false) as Button).theme_type_variation == &"PaperChoiceSelected"
+			and s.find_child("MiniTop_true", true, false) is Button and (s.find_child("MiniTop_true", true, false) as Button).theme_type_variation == &"PaperChoiceSelected"
+			and s.find_child("TalkRow", true, false) != null and s.find_children("LaterLabel", "", true, false).size() == 1)
 		# データ：⚠ セーブを消すは置かない（「⚠ 3い」）。
 		await _press(_tab_button(s, 3))
 		var sheet_body: Node = s.find_child("SheetBody", true, false)

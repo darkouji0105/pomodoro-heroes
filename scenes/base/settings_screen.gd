@@ -179,10 +179,14 @@ func _build_pomodoro() -> void:
 		break_labels.append(tr("ui_settings_minutes") % int(minutes))
 	_row("FocusRow", "ui_settings_focus", "", _choices("Focus", focus_values, focus_labels, GameSettings.focus_minutes(), _on_focus_chosen))
 	_row("BreakRow", "ui_settings_break", "", _choices("Break", break_values, break_labels, GameSettings.break_minutes(), _on_break_chosen))
-	# ⚠ まだ無いもの（⚠ 手本の行は見せて「まだ」と分かるようにする）。
+	# ⚠ 小窓（2026-09-29・回UI-仕組み⑥）：⚠ オフ｜オン。
+	var off_on: Array[String] = [tr("ui_settings_off"), tr("ui_settings_on")]
+	_row("MiniWindowRow", "ui_settings_mini_window", "ui_settings_mini_window_note",
+		_choices("Mini", [false, true], off_on, GameSettings.mini_window(), _on_mini_chosen.bind(GameSettings.KEY_MINI_WINDOW)))
+	_row("MiniWindowTopRow", "ui_settings_mini_window_top", "ui_settings_mini_window_top_note",
+		_choices("MiniTop", [false, true], off_on, GameSettings.mini_window_on_top(), _on_mini_chosen.bind(GameSettings.KEY_MINI_ON_TOP)))
+	# ⚠ まだ無いもの（⚠ 手本の行は見せて「まだ」と分かるようにする）。⚠ 話しかけるのは人間「⚠ 3い」＝今回は作らない。
 	for spec: Array in [
-		["MiniWindowRow", "ui_settings_mini_window", "ui_settings_mini_window_note"],
-		["MiniWindowTopRow", "ui_settings_mini_window_top", "ui_settings_mini_window_top_note"],
 		["TalkRow", "ui_settings_talk", ""],
 	]:
 		var later: Label = Label.new()
@@ -191,6 +195,11 @@ func _build_pomodoro() -> void:
 		later.text = tr("ui_settings_later")
 		var row: LedgerRow = _row(str(spec[0]), str(spec[1]), str(spec[2]), later)
 		row.modulate.a = float(get_theme_constant(&"later_alpha_pct", THEME_TYPE)) / 100.0
+
+
+func _on_mini_chosen(value: bool, key: String) -> void:
+	GameSettings.set_value(GameSettings.SECTION_POMODORO, key, value)
+	_rebuild()
 
 
 func _on_focus_chosen(minutes: int) -> void:

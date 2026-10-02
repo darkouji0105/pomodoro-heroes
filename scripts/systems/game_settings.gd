@@ -19,6 +19,9 @@ const KEY_FOCUS_MINUTES: String = "focus_minutes"
 const KEY_BREAK_MINUTES: String = "break_minutes"
 # ⚠ 集中の道具（2026-09-29・回UI-仕組み⑤）。⚠ 値は `FocusTool.TOOL_*`（⚠ 最初から全部持っている＝見た目の好みなので設定に置く）。
 const KEY_FOCUS_TOOL: String = "focus_tool"
+# ⚠ 小窓（2026-09-29・回UI-仕組み⑥・人間「⚠ 4あ」＝既定はオフ）／ ⚠ 小窓をいつも前に出す（既定オン）。
+const KEY_MINI_WINDOW: String = "mini_window"
+const KEY_MINI_ON_TOP: String = "mini_window_on_top"
 const VOLUME_MAX_PCT: int = 100
 const DEFAULT_PATH: String = "user://settings.cfg"
 # ⚠⚠ 置き場所の差し替えは Engine のメタに持つ（⚠ static 変数は途中で台本が読み直されると初期値に戻る＝
@@ -68,6 +71,10 @@ static func _default(section: String, key: String) -> Variant:
 			return Balance.pomodoro.default_break_minutes if Balance.pomodoro != null else 5
 		KEY_FOCUS_TOOL:
 			return "hourglass"
+		KEY_MINI_WINDOW:
+			return false
+		KEY_MINI_ON_TOP:
+			return true
 	push_warning("[GameSettings] 知らない設定 %s/%s" % [section, key])
 	return null
 
@@ -101,6 +108,14 @@ static func focus_minutes() -> int:
 
 static func break_minutes() -> int:
 	return int(get_value(SECTION_POMODORO, KEY_BREAK_MINUTES))
+
+
+static func mini_window() -> bool:
+	return bool(get_value(SECTION_POMODORO, KEY_MINI_WINDOW))
+
+
+static func mini_window_on_top() -> bool:
+	return bool(get_value(SECTION_POMODORO, KEY_MINI_ON_TOP))
 
 
 # 選んだ集中の道具（⚠ 知らない値なら砂時計＝設定のファイルを手で書き換えられても落ちない）。

@@ -773,6 +773,7 @@ static func build() -> void:
 	_build_settings(theme)
 	_build_run_report(theme)
 	_build_focus_tool(theme)
+	_build_mini_window(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2569,6 +2570,25 @@ const FOCUS_TOOL_COLORS: Dictionary = {
 	"wax": "eadcbf", "wax_edge": "c2ae88", "wick": "2b2118", "flame": "e8812f", "flame_core": "ffd36b",
 	"case": "4a3424", "face": "f1e0b0", "face_passed": "e0b85c80", "hand": "2b2118",
 }
+
+
+# ⚠ デスクトップの小窓（2026-09-29・回UI-仕組み⑥・手本 Companion）。⚠ 大きさは手本の 260×170 に近く。⚠ 部屋の色は手本の焦茶と暖炉の橙。
+const MINI_WINDOW: Dictionary = {
+	"width": 300, "height": 180, "margin": 16, "photo": 56, "button_width": 76,
+}
+const MINI_WINDOW_COLORS: Dictionary = {
+	"wall": "3a2c22", "floor": "251b14", "hearth": "5a4a3e", "fire": "e8812f", "text": "f1e6cf", "sleep_tint": "b0a898",
+}
+
+
+static func _build_mini_window(theme: Theme) -> void:
+	var t: StringName = &"MiniWindow"
+	for key: String in MINI_WINDOW:
+		theme.set_constant(StringName(key), t, int(MINI_WINDOW[key]))
+	for key: String in MINI_WINDOW_COLORS:
+		theme.set_color(StringName(key), t, _html(str(MINI_WINDOW_COLORS[key])))
+	theme.set_type_variation(&"MiniTimeLabel", &"Label")
+	theme.set_color(&"font_color", &"MiniTimeLabel", _html(str(MINI_WINDOW_COLORS["text"])))
 
 
 static func _build_focus_tool(theme: Theme) -> void:
