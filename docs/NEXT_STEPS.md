@@ -72,7 +72,7 @@
 | **回6** | ⚠⚠ **通しプレイ → 数値の調整** | ⚠ 台帳 §6-B の「作ってから測るもの」6件（⚠ MAX HP の目減り量・1フロアの大きさ・ポーションの供給量・一時通貨のカーブ・鞄の初期枠・たいまつの半径と値段）。⚠ **人間が遊ばないと決まらない** | ⚠ 3階を通しで遊べる ／ ⚠ 数字が `DECISIONS.md` に入る |
 | **回7** | ⚠ **シナリオ（floor_1..5）の実機確認** | ⚠ 人間「⚠ 難ダンジョンの後でいい」。⚠ 鞄・マップ・レリックは共通部品になっているので**見るだけ**のはず | ⚠ 絵と実機で通る |
 | **回8** | ⚠ **段階16：`floor_1..5` のバランス** | ⚠ 決定2「難しいほう → 簡単なほう」。⚠ **難ダンジョンの数字が決まってから落とす** | ⚠ 5フロアが通る |
-| **回9** | ⚠ **リリース前の片付け** | ⚠ `inventory_window` の古い検査「④ タブが4つ」（⚠ 3枚が正しい・10-03 に見つけた）／ ⚠ 宿題77（⚠ `tests/ui_test_page.*` ／ `base_screen.gd` の入口 ／ `debug_boot.gd` の1行 ／ `tests/resource_gain_demo.*`）／ ⚠ `debug_instant`・0Gスロット・`weapon_debug_blade`・ポモドーロの「残り1秒」ボタン ／ ⚠⚠ **`scenario=shot` と `tests/` 一式** ／ ⚠ 当時の文書4本（`REVIEWER_GUIDE` / `PROMPT_IMPL` / `PROMPT_ZIVA_*` / `IMPL_LOG_TEMPLATE`・911行） | ⚠ 検証用が0件 |
+| **回9** | ⚠ **リリース前の片付け** | ⚠ `GameManager.debug_restock_shops()`（⚠ 10-03 に足した検証用）／ ⚠ `inventory_window` の古い検査「④ タブが4つ」（⚠ 3枚が正しい・10-03 に見つけた）／ ⚠ 宿題77（⚠ `tests/ui_test_page.*` ／ `base_screen.gd` の入口 ／ `debug_boot.gd` の1行 ／ `tests/resource_gain_demo.*`）／ ⚠ `debug_instant`・0Gスロット・`weapon_debug_blade`・ポモドーロの「残り1秒」ボタン ／ ⚠⚠ **`scenario=shot` と `tests/` 一式** ／ ⚠ 当時の文書4本（`REVIEWER_GUIDE` / `PROMPT_IMPL` / `PROMPT_ZIVA_*` / `IMPL_LOG_TEMPLATE`・911行） | ⚠ 検証用が0件 |
 
 ### ⚠ 割り込み（**順番に入れない**）
 
@@ -108,6 +108,7 @@
 - ⚠ 難ダンジョンとシナリオの両方（⚠ `NAV-8`「シナリオも同じ形」）。⚠ フッターは空になるので隠した（⚠ 続行・撤退のボタンはもともと出さない＝決定48-b）
 - ⚠ 3人の行の部品 `RunPartyStrip` を `HBoxContainer` → `BoxContainer` に（⚠ 縦にできる。⚠ HBox は向きを変えられず赤が6本出た）・`.tscn` 4枚の器の型も
 - ⚠ 検査：⚠ `ui_flow` **193 通った・0 落ちた**（⚠ 「地図の左の板」1項目）／ ⚠ `shot` 56枚・赤0 ／ ⚠ `layout` の「マップが真ん中に無い（153px）」は物差しを**地図の紙の真ん中**に直した（⚠ 左に板が入った＝決定37 を書き直した）→ ずれ 0・赤0 ／ `dungeon`・`floor`・`dungeon_battle` 赤0
+- ⚠⚠ **続き（同じ日）**：⚠ 人間「⚠ デバッグにショップの在庫回復を　⚠ もっとインベントリ用のスペースのために幅を取って　⚠ 体力関連はずれてるからきれいに並べて」→ ⚠ 板を 290 → **380**・鞄 4 → **6列** ／ ⚠ 3人の行の名前・値・素の値に決まった幅（`RunParty` 型・⚠ 値は右寄せ・⚠ 脱落中も素の値の欄を空で残す＝わかれ道・商人のフッターでもそろう）／ ⚠ デバッグの窓に「ショップ 在庫を戻す」（`GameManager.debug_restock_shops()`・⚠ 日替わりの入れ替えと同じ `_reset_shop_stock()` を呼ぶ・⚠ 検証用＝回9 で消す）。⚠ `ui_flow` 193 / 0 ・`layout`・`economy`・`dungeon`・`shot` 赤0
 - ⚠ 人間が見るもの：⚠ 左の板が読みやすいか（`HUMAN_CHECK.md` 3）
 
 ---
