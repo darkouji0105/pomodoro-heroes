@@ -227,7 +227,8 @@ func _build_items() -> TiltedSheet:
 	# ⚠ 注記の行（⚠ 手本：宝箱は宝物庫へ ／ ランの中だけの品は置いてきた）。
 	if _has_chest(items) and not _is_lost():
 		column.add_child(_note("ChestNote", tr("ui_report_note_chest")))
-	for spec: Array in [[GameManager.REPORT_DISCARDED, "ui_report_note_discarded"], [GameManager.REPORT_LEFT_BEHIND, "ui_report_note_left_behind"]]:
+	# ⚠ 「持ち物が満杯で置いてきた」は消した（2026-10-03・回3-d・`BS-20`＝拠点に容量は無い）。
+	for spec: Array in [[GameManager.REPORT_DISCARDED, "ui_report_note_discarded"]]:
 		var extra: Dictionary = _report.get(str(spec[0]), {})
 		for raw: Variant in extra:
 			column.add_child(_note("Note_%s_%s" % [str(spec[0]), str(raw)], tr(str(spec[1])) % [tr(GameManager.item_name_key(str(raw))), int(extra[raw])]))

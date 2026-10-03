@@ -872,7 +872,7 @@ func _on_use_potion_pressed(item_id: String, character_id: String) -> void:
 #
 # ⚠ 選んでいたものが無くなることがある（⚠ 最後の1個だった）。⚠ 選択を外してから描き直す
 #   （⚠ 残すと「押しても何も起きないボタン」になる＝`_rebuild_bag()` と同じ理由）。
-# ⚠ 確認は出していない。⚠ 倉庫（`ui_warehouse_discard_confirm`）と違い、
+# ⚠ 確認は出していない。⚠ 前の倉庫の「捨てる」（⚠ 10-03 に消した）と違い、
 #   ⚠ ランの鞄は出れば全部消えるもの（決定7）なので、⚠ 取り返しのつかなさの度合いが違う。
 func _on_discard_bag_pressed(item_id: String, count: int = 1) -> void:
 	# ⚠ そのマスのぶんを捨てる（⚠ 素材は重なっている＝決定42・2026-09-20）。

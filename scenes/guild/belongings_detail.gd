@@ -14,8 +14,6 @@ extends VBoxContainer
 
 # ⚠ 装飾の枠を押した・「刺す」を押した（⚠ 刺せる装飾を並べるのは画面の仕事）。
 signal attach_requested(instance_id: String, slot_index: int)
-# ⚠ 「捨てる」を押した（⚠ マスの番号と個数の確かめは画面の仕事）。
-signal discard_requested(item_id: String)
 
 const THEME_TYPE: StringName = &"Belongings"
 const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
@@ -25,13 +23,11 @@ const DESCRIPTION_PREFIX: String = "ui_desc_"
 var host: Control = null
 
 var _entry: Dictionary = {}
-# ⚠ その品が持ち物のマスを使うか（⚠ 素材の状態の品は使わない＝捨てても空かない）。
-var _in_inventory: bool = false
 
 
-func setup(entry: Dictionary, in_inventory: bool) -> void:
+# ⚠ 2つ目の引数（持ち物のマスを使うか）は「捨てる」にだけ使っていた（⚠ 10-03 に消した・`EQ-14`）。⚠ 呼び手を変えないため残す。
+func setup(entry: Dictionary, _in_inventory: bool) -> void:
 	_entry = entry.duplicate(true)
-	_in_inventory = in_inventory
 	_rebuild()
 
 
@@ -257,13 +253,7 @@ func _build_item(item_id: String) -> void:
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(spacer)
-	if not _in_inventory:
-		return
-	# ⚠ 捨てるは戻ってくるものが何も無い＝赤（⚠ 前の倉庫と同じ）。
-	var discard: UiButton = UiButton.create(UiButton.Variant.DANGER, "ui_warehouse_discard")
-	discard.name = "DiscardButton"
-	discard.pressed.connect(_on_discard_pressed.bind(item_id))
-	add_child(discard)
+	# ⚠ 「捨てる」は消した（2026-10-03・回3-d・`EQ-14`＝拠点に容量が無い）。
 
 
 # --- 小さい器 ---
@@ -468,7 +458,3 @@ func _on_part_dismantle_pressed(item_id: String) -> void:
 
 func _on_part_upgrade_pressed(item_id: String) -> void:
 	GameManager.upgrade_part(item_id)
-
-
-func _on_discard_pressed(item_id: String) -> void:
-	discard_requested.emit(item_id)

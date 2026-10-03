@@ -81,7 +81,6 @@ func _ready() -> void:
 	_detail.name = "Detail"
 	_detail.host = self
 	_detail.attach_requested.connect(_on_attach_requested)
-	_detail.discard_requested.connect(_on_discard_requested)
 	holder.sheet.add_child(_detail)
 	body.add_child(holder)
 
@@ -391,48 +390,8 @@ func _end_attach() -> void:
 	_rebuild()
 
 
-# 捨てる（⚠ 持ち物のマスを使う品だけ・人間「⚠ 4あ」）。⚠ 2個以上あるときだけ個数を選ばせる。
-# ⚠ 口はマスの番号で呼ぶ（`discard_inventory_slot()`）。⚠ 番号は `get_inventory_slot_layout()` から引く。
-func _on_discard_requested(item_id: String) -> void:
-	var layout: Array = GameManager.get_inventory_slot_layout()
-	var index: int = -1
-	for i: int in layout.size():
-		var entry: Dictionary = layout[i]
-		if str(entry.get(GameManager.SLOT_ENTRY_KIND, "")) == GameManager.SLOT_KIND_ITEM and str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, "")) == item_id:
-			index = i
-			break
-	if index < 0:
-		return
-	var held: int = int((layout[index] as Dictionary).get(GameManager.SLOT_ENTRY_COUNT, 1))
-	# ⚠⚠ 取り返しのつかない確認なので実行を赤に（決定 `MD-5`）。
-	var options: Dictionary = {
-		Modal.OPTION_TITLE: tr("ui_warehouse_discard"),
-		Modal.OPTION_DANGER: true,
-		Modal.OPTION_CONFIRM_LABEL: "ui_warehouse_discard",
-		Modal.OPTION_STAMP: "ui_stamp_irreversible",
-		Modal.OPTION_WIDTH: Modal.WIDTH_TINY,
-	}
-	var picker: SpinBox = null
-	# ⚠ 文言は個数の器の有無で変える（⚠ 器で選んだ数と文面が食い違わないように）。
-	var message_key: String = "ui_warehouse_discard_confirm"
-	if held > 1:
-		picker = SpinBox.new()
-		picker.name = "DiscardCount"
-		picker.min_value = 1
-		picker.max_value = held
-		picker.value = 1
-		picker.step = 1
-		picker.allow_greater = false
-		picker.allow_lesser = false
-		options[Modal.OPTION_CONTENT] = picker
-		message_key = "ui_warehouse_discard_confirm_count"
-	var confirmed: bool = await Modal.confirm(self, message_key, [tr("ui_res_" + item_id)], false, options)
-	if not confirmed or not is_instance_valid(self):
-		return
-	var count: int = 1
-	if picker != null and is_instance_valid(picker):
-		count = int(picker.value)
-	GameManager.discard_inventory_slot(index, count)
+# ⚠ 「捨てる」は消した（2026-10-03・回3-d・`EQ-14`・人間「⚠ 4あ」＝拠点に容量が無いので捨てる理由が無い）。
+#   ⚠ 装備は「素材にする」（分解）が残る。
 
 
 func _on_state_changed() -> void:

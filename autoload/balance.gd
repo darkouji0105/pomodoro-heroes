@@ -29,5 +29,4 @@ extends Node
 #   出方・鞄の枠・一時通貨の伸び。⚠ FloorConfig（シナリオ側）とは別枠。混ぜないこと。
 #   割り当てを忘れると null になり、ランに入った瞬間に落ちる（E133 が起動時に見張る）。
 @export var dungeon: DungeonConfig
-# 持ち物のマス目（段階18-b・PLAN_INVENTORY.md）。⚠ 倉庫の容量はここ1本。
-@export var inventory: InventoryConfig
+# ⚠ 持ち物のマス目（`InventoryConfig`）は消した（2026-10-03・回3-d・`BS-20`＝拠点に容量は無い）。

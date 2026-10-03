@@ -822,9 +822,6 @@ ui_desc_decor_material_3,装飾の段階上げに使う飾りの素材。段3
 ui_desc_decor_material_4,飾りの素材。段4（最上）
 ui_warehouse_expand,枠を買う
 ui_warehouse_expand_max,枠は上限
-ui_warehouse_discard,捨てる
-ui_warehouse_discard_confirm,%s を1個捨てます。戻せません。よろしいですか？
-ui_warehouse_discard_confirm_count,%s を捨てます。個数を選んでください。戻せません。
 ui_dungeon_shop,ボスの間の商人
 ui_dungeon_shop_buy,買う
 ui_dungeon_shop_bought,買った
@@ -1081,7 +1078,6 @@ ui_report_kinds,%d 種
 ui_report_no_items,何も持っていなかった
 ui_report_note_chest,宝箱は宝物庫へ。開けると中身が決まる
 ui_report_note_discarded,%s ×%d は置いてきた（ランの中だけの品）
-ui_report_note_left_behind,%s ×%d は持ち物が満杯で置いてきた
 ui_report_note_lost,装備・装飾・レベル・研究は失わない
 ui_report_open_chests,宝箱を開けに行く
 ui_report_home,本部へ戻る
