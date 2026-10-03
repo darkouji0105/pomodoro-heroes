@@ -2680,13 +2680,20 @@ const DEPTH_STEP_PAD_H: int = 8            # ⚠ 「−10」「+10」「最深�
 
 
 # --- ランの地図の左の板（2026-10-03・人間「⚠ 左側にインベントリやHPの状況などを」・`RunSidePanel`）---
-const RUN_SIDE_WIDTH: int = 290            # ⚠ 3人の行（名前・棒・値）が1行に収まる幅
-const RUN_SIDE_BAG_COLUMNS: int = 4        # ⚠ 鞄のマスの列（⚠ 枠が増えたら下へ折り返す＝横にずれない）
+const RUN_SIDE_WIDTH: int = 380            # ⚠ 10-03 人間「⚠ もっとインベントリ用のスペースのために幅を取って」（⚠ 290 → 380）
+const RUN_SIDE_BAG_COLUMNS: int = 6        # ⚠ 鞄のマスの列（⚠ 枠が増えたら下へ折り返す＝横にずれない・4 → 6）
+# ⚠ 3人の行の欄の幅（⚠ 10-03 人間「⚠ 体力関連はずれてるからきれいに並べて」＝名前・値・素の値の幅をそろえて縦に並ぶように）。
+const RUN_PARTY_NAME_WIDTH: int = 56
+const RUN_PARTY_VALUE_WIDTH: int = 40
+const RUN_PARTY_BASE_WIDTH: int = 48
 
 
 static func _build_run_side(theme: Theme) -> void:
 	theme.set_constant(&"width", &"RunSide", RUN_SIDE_WIDTH)
 	theme.set_constant(&"bag_columns", &"RunSide", RUN_SIDE_BAG_COLUMNS)
+	theme.set_constant(&"name_width", &"RunParty", RUN_PARTY_NAME_WIDTH)
+	theme.set_constant(&"value_width", &"RunParty", RUN_PARTY_VALUE_WIDTH)
+	theme.set_constant(&"base_width", &"RunParty", RUN_PARTY_BASE_WIDTH)
 
 
 static func _build_depth_gauge(theme: Theme) -> void:

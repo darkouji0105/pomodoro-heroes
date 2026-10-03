@@ -165,6 +165,8 @@ func _build_ui() -> void:
 	grid.add_child(_make_button("研究 全解放", _unlock_all_research))
 	grid.add_child(_make_button("画面 全解放", _unlock_all_screens))
 	grid.add_child(_make_button("製作 すぐ完了", _complete_all_crafts))
+	# ⚠ 2026-10-03（人間「⚠ デバッグにショップの在庫回復を」）：⚠ 日替わり・週・月の棚の「買った数」を 0 に（⚠ ノルマ札を何度も買える）。
+	grid.add_child(_make_button("ショップ 在庫を戻す", GameManager.debug_restock_shops))
 	grid.add_child(_make_button("セーブ", _save))
 	# ⚠ 2026-10-02（人間「⚠ すきなそうびをげっとできるようにしたい」）：⚠ 装備と等級を選んでもらう。
 	_base_box.add_child(_build_equipment_picker())

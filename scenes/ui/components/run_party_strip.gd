@@ -38,9 +38,14 @@ static func make_cell(kind: String, character_id: String) -> HBoxContainer:
 	var cell: HBoxContainer = HBoxContainer.new()
 	cell.name = "Party_" + character_id
 	var char_data: Dictionary = MasterDataLoader.get_character(character_id)
+	# ⚠⚠ 欄の幅をそろえる（2026-10-03・人間「⚠ 体力関連はずれてるからきれいに並べて」）：⚠ 名前・値・素の値に決まった幅
+	#   ⚠ （⚠ 前は字の長さで棒と数字の位置が人ごとにずれた）。⚠ 値は Theme の `RunParty` 型（⚠ 静的関数なので ThemeDB から）。
+	var theme: Theme = ThemeDB.get_project_theme()
 	var name_label: Label = Label.new()
 	name_label.name = "Name"
 	name_label.text = TranslationServer.translate(str(char_data.get("name_key", character_id)))
+	name_label.custom_minimum_size.x = _width(theme, &"name_width")
+	name_label.clip_text = true
 	cell.add_child(name_label)
 
 	var base_max_hp: int = GameManager.get_dungeon_base_max_hp(character_id)
@@ -60,12 +65,18 @@ static func make_cell(kind: String, character_id: String) -> HBoxContainer:
 	value.text = TranslationServer.translate("ui_dungeon_downed") if downed else "%d" % max_hp
 	if downed:
 		value.theme_type_variation = &"ErrorLabel"
+	value.custom_minimum_size.x = _width(theme, &"value_width")
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	cell.add_child(value)
-	# ⚠ 素の MAX HP は暗く添える（⚠ 脱落中は「脱落」だけ）。
-	if not downed:
-		var base: Label = Label.new()
-		base.name = "Base"
-		base.theme_type_variation = &"CaptionLabel"
-		base.text = "/%d" % base_max_hp
-		cell.add_child(base)
+	# ⚠ 素の MAX HP は暗く添える（⚠ 脱落中は「脱落」だけ＝⚠ 欄は空のまま残して幅をそろえる）。
+	var base: Label = Label.new()
+	base.name = "Base"
+	base.theme_type_variation = &"CaptionLabel"
+	base.text = "" if downed else "/%d" % base_max_hp
+	base.custom_minimum_size.x = _width(theme, &"base_width")
+	cell.add_child(base)
 	return cell
+
+
+static func _width(theme: Theme, constant: StringName) -> float:
+	return float(theme.get_constant(constant, &"RunParty")) if theme != null and theme.has_constant(constant, &"RunParty") else 0.0

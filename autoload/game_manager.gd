@@ -1696,6 +1696,19 @@ func refresh_shop_if_needed(shop_type: String) -> void:
 		print("[GameManager] refresh_shop_if_needed('%s') -> no refresh (%s)" % [shop_type, today])
 		return
 
+	var slots: int = _reset_shop_stock(key)
+	var new_shop: Dictionary = _copy_dict(key)
+	new_shop[GameStateKeys.SHOP_REFRESH_AT] = today
+	_state[key] = new_shop
+
+	print("[GameManager] refresh_shop_if_needed('%s') -> refreshed (%s -> %s, %d slots)" % [
+		shop_type, last_refreshed, today, slots
+	])
+	shop_changed.emit(shop_type)
+
+
+# 棚の「買った数」を全部 0 に戻す（⚠ 日替わりの入れ替えとデバッグの「在庫を戻す」の共通部分・戻り値は棚の数）。
+func _reset_shop_stock(key: String) -> int:
 	var new_shop: Dictionary = _copy_dict(key)
 	var line_up: Variant = new_shop.get(GameStateKeys.SHOP_LINE_UP, [])
 	var new_line_up: Array = []
@@ -1708,13 +1721,17 @@ func refresh_shop_if_needed(shop_type: String) -> void:
 		slot[GameStateKeys.SHOP_PURCHASED_COUNT] = 0
 		new_line_up[i] = slot
 	new_shop[GameStateKeys.SHOP_LINE_UP] = new_line_up
-	new_shop[GameStateKeys.SHOP_REFRESH_AT] = today
 	_state[key] = new_shop
+	return new_line_up.size()
 
-	print("[GameManager] refresh_shop_if_needed('%s') -> refreshed (%s -> %s, %d slots)" % [
-		shop_type, last_refreshed, today, new_line_up.size()
-	])
-	shop_changed.emit(shop_type)
+
+# ⚠⚠ ショップの在庫を全部戻す（2026-10-03・人間「⚠ デバッグにショップの在庫回復を」）。⚠ **検証用の口**（`tests/debug_overlay.gd`）。
+#   ⚠ 本番からは呼ばない。⚠ リリース前に消す（⚠ デバッグの窓ごと）。⚠ 日付（refresh_at）は触らない。
+func debug_restock_shops() -> void:
+	for shop_type: String in [GameStateKeys.SHOP_TYPE_DAILY, GameStateKeys.SHOP_TYPE_WEEKLY, GameStateKeys.SHOP_TYPE_MONTHLY]:
+		var slots: int = _reset_shop_stock(_shop_key(shop_type))
+		print("[GameManager] debug_restock_shops() -> %s の %d 棚を戻した（⚠ 検証用）" % [shop_type, slots])
+		shop_changed.emit(shop_type)
 
 # --- ショップ：内部ヘルパー ---
 
