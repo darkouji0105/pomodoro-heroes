@@ -37,6 +37,8 @@ const KIND_REPORT: String = "report"
 # ⚠⚠ 画面の本物のボタン・行を押して回る枝（2026-09-27・人間「⚠ それ以外のやつはあなたが確認できると思うがどうか」）。
 #   ⚠ 撮影と同じく root に係を置くので、⚠ 画面を移っても続けられる。⚠ ヘッドレスで回せる（⚠ 絵は取らない）。
 const KIND_UI_FLOW: String = "ui_flow"
+# ⚠ 難ダンジョンを自動で潜って数字を取る枝（2026-10-03・回6）。⚠ 係（`DungeonSimRunner`）を root に置く。
+const KIND_DUNGEON_SIM: String = "dungeon_sim"
 
 # KIND_REPORT の中でどの報告を出すか。
 # ⚠ 枝が増えたら _ready() の match に1行足す。シーンもスクリプトも増やさないこと。
@@ -989,6 +991,12 @@ const SCENARIOS: Dictionary = {
 		"note": "宝箱（画面に依らない分）。items と chests のIDの重なり / 宝箱の絵の等級 / 知らせの窓の題の帯 / 呼び出し元が消えた順番待ち",
 	},
 	# ⚠ 育成・昇級・持ち物を本物のボタンで押して回る（2026-09-27）。⚠ 状態は書き換えるが保存しない。
+	# ⚠ 難ダンジョンを自動で潜って数字を取る（2026-10-03・回6・人間「⚠ １　あ」）。⚠ 引数 runs= level= floors= speed=。
+	"dungeon_sim": {
+		"kind": KIND_DUNGEON_SIM,
+		"note": "難ダンジョンを自動で潜る（スキルは撃てたら撃つ・休憩・ポーション・商人）→ 何層で倒れるか・コイン・ポーションの数字",
+		"party": ["char_swordsman", "char_archer", "char_priest"],
+	},
 	"ui_flow": {
 		"kind": KIND_UI_FLOW,
 		"note": "育成の札とタブ ／ 割り振り ／ スキル ／ 装備 ／ 昇級 ／ 持ち物（鍛える・刺す・外す・分解・段階・捨てる・図鑑）／ 詰所（ビルド・並べ替え・控え・開く）／ 掲示板（タブ・札・出撃届・続きから）",
@@ -1289,6 +1297,15 @@ func _ready() -> void:
 		return
 
 	var scenario: Dictionary = SCENARIOS[scenario_name]
+	# ⚠ 自動で潜る枝（2026-10-03・回6）は `level=` で3人の Lv を決める（⚠ 1 なら新しいセーブのまま）。
+	if str(scenario.get("kind", "")) == KIND_DUNGEON_SIM:
+		scenario = scenario.duplicate(true)
+		for arg: String in OS.get_cmdline_user_args():
+			if arg.begins_with("level=") and int(arg.substr(6)) > 1:
+				var levels: Dictionary = {}
+				for member: Variant in scenario.get("party", []):
+					levels[str(member)] = int(arg.substr(6))
+				scenario["levels"] = levels
 	print("[DebugBoot] scenario=%s : %s" % [scenario_name, str(scenario.get("note", ""))])
 
 	# ⚠⚠ 設定（`GameSettings`・2026-09-28）は検査用のファイルへ差し替え、毎回既定から始める。
@@ -1374,6 +1391,12 @@ func _ready() -> void:
 		taker.shots = scenario.get("shots", [])
 		# ⚠ Driver と同じ理由で root に残す。⚠ 画面を差し替えると自分（＝debug_boot）は消える。
 		get_tree().root.add_child.call_deferred(taker)
+		return
+
+	if str(scenario.get("kind", KIND_BATTLE)) == KIND_DUNGEON_SIM:
+		var sim: DungeonSimRunner = DungeonSimRunner.new()
+		sim.name = "DebugBootDungeonSim"
+		get_tree().root.add_child.call_deferred(sim)
 		return
 
 	if str(scenario.get("kind", KIND_BATTLE)) == KIND_UI_FLOW:
@@ -5339,6 +5362,244 @@ func _owner_of(instance_id: String) -> String:
 # 撃つ役。画面遷移で消えないよう root に付く。
 # ⚠ 本番のノードを1つも作らない。見るだけ・呼ぶだけ。
 # ============================================================
+# ============================================================
+# 難ダンジョンを自動で潜って数字を取る（2026-10-03・回6・人間「⚠ １　あ」＝⚠ 設計役が数字を出してから決める）。
+#
+# ⚠ 戦闘は本物の戦闘画面（⚠ 勝ち負けは画面が GameManager に書く＝`_finish_dungeon_battle()`）。⚠ スキルは撃てたら撃つ。
+# ⚠ 道：HP が減っていれば休憩・ほかはランダム ／ ⚠ 宝箱は開ける ／ ⚠ レリックは1枚目 ／ ⚠ 拾いものは入るだけ ／
+#   ⚠ ボスの後：商人で蘇生1・回復を3本まで → 潜る ／ ⚠ 戦闘のあと：脱落なら蘇生・素の 50% を切ったら回復。
+# ⚠ 引数：`runs=`（既定 10）・`level=`（3人の Lv・既定 1＝新しいセーブのまま）・`floors=`（ここまで潜ったら持ち帰る・既定 10）・`speed=`（既定 8）。
+# ⚠ 状態は書き換えるが保存しない（⚠ debug_boot の約束）。
+# ============================================================
+class DungeonSimRunner extends Node:
+	const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
+	const POTION_HEAL: String = "dungeon_potion_heal"
+	const POTION_REVIVE: String = "dungeon_potion_revive"
+	const GIVE_UP_GAME_SEC: float = 240.0
+	const REST_BELOW_PCT: float = 0.6
+	const HEAL_BELOW_PCT: float = 0.5
+	const HEAL_STOCK: int = 3
+
+	var runs: int = 10
+	var floors_cap: int = 10
+	var speed: float = 8.0
+	var _results: Array = []
+	# 1回ぶんの数字。
+	var _r: Dictionary = {}
+
+	func _ready() -> void:
+		for arg: String in OS.get_cmdline_user_args():
+			if arg.begins_with("runs="):
+				runs = maxi(1, int(arg.substr(5)))
+			elif arg.begins_with("floors="):
+				floors_cap = maxi(1, int(arg.substr(7)))
+			elif arg.begins_with("speed="):
+				speed = maxf(1.0, float(arg.substr(6)))
+		ResourceGainEffect.set_muted(true)
+		SoundManager.set("_config", null)
+		Engine.time_scale = speed
+		for i: int in range(runs):
+			await _one_run(i)
+		_summary()
+		Engine.time_scale = 1.0
+		get_tree().quit()
+
+	func _one_run(index: int) -> void:
+		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
+		if GameManager.is_in_dungeon():
+			GameManager.abandon_dungeon_run()
+		seed(1000 + index)
+		_r = {"run": index + 1, "end": "", "floors": 0, "layer": 1, "battles": 0, "battle_sec": 0.0, "hp_lost": 0,
+			"coin_got": 0, "coin_spent": 0, "coin_left": 0, "heal_bought": 0, "revive_bought": 0, "heal_used": 0, "revive_used": 0,
+			"rests": 0, "relics": 0, "bag_max": 0, "picked": 0, "equips": 0, "stalemate": 0}
+		if not GameManager.start_dungeon_run(dungeon_id):
+			push_error("[DungeonSim] 入れなかった")
+			return
+		var guard: int = 0
+		while GameManager.is_in_dungeon() and guard < 2000:
+			guard += 1
+			_r["layer"] = maxi(int(_r["layer"]), GameManager.get_dungeon_current_layer())
+			if GameManager.can_retreat_from_dungeon():
+				_r["floors"] = GameManager.get_dungeon_floor_index()
+				if GameManager.get_dungeon_floor_index() >= floors_cap or not GameManager.can_descend_dungeon_floor():
+					_r["coin_left"] = GameManager.get_dungeon_currency()
+					var _back: Dictionary = GameManager.retreat_from_dungeon()
+					_r["end"] = "持ち帰り"
+					break
+				_shop()
+				GameManager.descend_dungeon_floor()
+				continue
+			var moves: Array = GameManager.get_dungeon_moves()
+			if moves.is_empty():
+				_r["end"] = "行き止まり"
+				break
+			var next: String = _choose(moves)
+			var coin_before: int = GameManager.get_dungeon_currency()
+			if not GameManager.move_in_dungeon(next):
+				_r["end"] = "進めない"
+				break
+			var kind: String = str(GameManager.get_dungeon_node(next).get(GameStateKeys.DUNGEON_NODE_KIND, ""))
+			if kind == GameStateKeys.DUNGEON_NODE_KIND_BATTLE or kind == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+				await _battle(next)
+				if not GameManager.is_in_dungeon():
+					_r["end"] = "倒れた"
+					break
+			elif kind == GameStateKeys.DUNGEON_NODE_KIND_CHEST:
+				var _opened: Dictionary = GameManager.open_dungeon_chest(next)
+			elif kind == GameStateKeys.DUNGEON_NODE_KIND_RELIC:
+				_take_relic(next)
+			elif kind == GameStateKeys.DUNGEON_NODE_KIND_REST:
+				_r["rests"] = int(_r["rests"]) + 1
+			if GameManager.has_pending_dungeon_corridor_chest():
+				var _corridor: Dictionary = GameManager.open_dungeon_corridor_chest()
+			_pick_up()
+			_use_potions()
+			_r["coin_got"] = int(_r["coin_got"]) + maxi(0, GameManager.get_dungeon_currency() - coin_before)
+		if _r["end"] == "":
+			_r["end"] = "上限"
+		_results.append(_r.duplicate(true))
+		print("[DungeonSim] %d回目: %s ／ %d層まで・%dフロア突破 ／ 戦闘 %d（平均 %.0f 秒）・削られた HP %d ／ コイン 得 %d 使 %d 残 %d ／ 回復 買%d 使%d・蘇生 買%d 使%d ／ 休憩 %d・レリック %d ／ 鞄 最大 %d・拾った %d（装備 %d）・決着せず %d" % [
+			int(_r["run"]), str(_r["end"]), int(_r["layer"]), int(_r["floors"]), int(_r["battles"]),
+			float(_r["battle_sec"]) / maxf(1.0, float(_r["battles"])), int(_r["hp_lost"]),
+			int(_r["coin_got"]), int(_r["coin_spent"]), int(_r["coin_left"]),
+			int(_r["heal_bought"]), int(_r["heal_used"]), int(_r["revive_bought"]), int(_r["revive_used"]),
+			int(_r["rests"]), int(_r["relics"]), int(_r["bag_max"]), int(_r["picked"]), int(_r["equips"]), int(_r["stalemate"]),
+		])
+
+	# HP が減っていて休憩が選べれば休憩・ほかはランダム。
+	func _choose(moves: Array) -> String:
+		if _lowest_ratio() < REST_BELOW_PCT:
+			for raw: Variant in moves:
+				if str(GameManager.get_dungeon_node(str(raw)).get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_REST:
+					return str(raw)
+		return str(moves[randi() % moves.size()])
+
+	func _lowest_ratio() -> float:
+		var lowest: float = 1.0
+		for member: Variant in GameManager.get_party_members():
+			var id: String = str(member)
+			var base: int = maxi(1, GameManager.get_dungeon_base_max_hp(id))
+			lowest = minf(lowest, float(GameManager.get_dungeon_character_max_hp(id)) / float(base))
+		return lowest
+
+	func _party_hp() -> int:
+		var total: int = 0
+		for member: Variant in GameManager.get_party_members():
+			total += GameManager.get_dungeon_character_max_hp(str(member))
+		return total
+
+	func _battle(node_id: String) -> void:
+		var hp_before: int = _party_hp()
+		SceneManager.change_scene_with_data(BATTLE_PATH, {
+			TransferKeys.DUNGEON_NODE_ID: node_id,
+			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY,
+		})
+		var battle: Node = null
+		for _i: int in range(600):
+			await get_tree().process_frame
+			var scene: Node = get_tree().current_scene
+			if scene != null and scene.scene_file_path == BATTLE_PATH and scene.has_method("get_session") and scene.call("get_session") != null:
+				battle = scene
+				break
+		if battle == null:
+			push_error("[DungeonSim] 戦闘画面が開かなかった")
+			return
+		var session: BattleSession = battle.call("get_session")
+		while session.state != BattleSession.STATE_VICTORY and session.state != BattleSession.STATE_DEFEAT:
+			if session.elapsed_sec > GIVE_UP_GAME_SEC:
+				# ⚠ 決着しない（⚠ 削り合いが終わらない）＝倒れた扱いにはしない。⚠ 数えて全員を倒させる。
+				_r["stalemate"] = int(_r["stalemate"]) + 1
+				battle.call("debug_kill_all_enemies")
+				for _w: int in range(30):
+					await get_tree().process_frame
+					if session.state == BattleSession.STATE_VICTORY or session.state == BattleSession.STATE_DEFEAT:
+						break
+				break
+			for entry: Variant in battle.get("_skill_buttons"):
+				var tile: Variant = (entry as Dictionary).get("button", null)
+				var user: Variant = (entry as Dictionary).get("user", null)
+				if tile is BaseButton and is_instance_valid(tile) and not (tile as BaseButton).disabled and user is BattleUnit and (user as BattleUnit).is_alive():
+					battle.call("_on_skill_button_pressed", user, str((entry as Dictionary).get("skill_id", "")))
+			await get_tree().process_frame
+		for _i: int in range(5):
+			await get_tree().process_frame
+		_r["battles"] = int(_r["battles"]) + 1
+		_r["battle_sec"] = float(_r["battle_sec"]) + session.elapsed_sec
+		if GameManager.is_in_dungeon():
+			_r["hp_lost"] = int(_r["hp_lost"]) + maxi(0, hp_before - _party_hp())
+
+	func _take_relic(node_id: String) -> void:
+		var choices: Array = GameManager.get_dungeon_relic_choices(node_id)
+		if choices.is_empty():
+			return
+		var relic_id: String = str(choices[0])
+		if GameManager.take_dungeon_relic(node_id, relic_id, "") or GameManager.take_dungeon_relic(node_id, relic_id, str(GameManager.get_party_members()[0])):
+			_r["relics"] = int(_r["relics"]) + 1
+
+	func _pick_up() -> void:
+		var pending: Dictionary = GameManager.get_run_pending_loot(GameManager.RUN_KIND_DUNGEON)
+		var taken: Dictionary = GameManager.take_all_run_pending_loot(GameManager.RUN_KIND_DUNGEON)
+		for key: Variant in taken:
+			_r["picked"] = int(_r["picked"]) + int(taken[key])
+			if GameManager.run_bag_grade(str(key)) > 0:
+				_r["equips"] = int(_r["equips"]) + int(taken[key])
+		if not pending.is_empty():
+			var _left: Dictionary = GameManager.clear_run_pending_loot(GameManager.RUN_KIND_DUNGEON)
+		_r["bag_max"] = maxi(int(_r["bag_max"]), GameManager.get_dungeon_bag_used())
+
+	func _bag_count(item_id: String) -> int:
+		return int(GameManager.get_dungeon_bag().get(item_id, 0))
+
+	func _use_potions() -> void:
+		for member: Variant in GameManager.get_party_members():
+			var id: String = str(member)
+			if GameManager.is_dungeon_character_downed(id) and _bag_count(POTION_REVIVE) > 0:
+				if GameManager.use_dungeon_item(POTION_REVIVE, id):
+					_r["revive_used"] = int(_r["revive_used"]) + 1
+			var base: int = maxi(1, GameManager.get_dungeon_base_max_hp(id))
+			if not GameManager.is_dungeon_character_downed(id) and float(GameManager.get_dungeon_character_max_hp(id)) / float(base) < HEAL_BELOW_PCT and _bag_count(POTION_HEAL) > 0:
+				if GameManager.use_dungeon_item(POTION_HEAL, id):
+					_r["heal_used"] = int(_r["heal_used"]) + 1
+
+	# 商人：⚠ 蘇生が無ければ1本・回復を HEAL_STOCK 本まで。
+	func _shop() -> void:
+		var entries: Array = GameManager.get_dungeon_shop_entries()
+		for _round: int in range(HEAL_STOCK + 1):
+			for i: int in range(entries.size()):
+				var entry: Dictionary = entries[i]
+				var item_id: String = str(entry.get("item_id", ""))
+				var want: bool = (item_id == POTION_REVIVE and _bag_count(POTION_REVIVE) < 1) \
+					or (item_id == POTION_HEAL and _bag_count(POTION_HEAL) < HEAL_STOCK)
+				if not want:
+					continue
+				var before: int = GameManager.get_dungeon_currency()
+				if GameManager.buy_dungeon_shop_entry(i):
+					_r["coin_spent"] = int(_r["coin_spent"]) + maxi(0, before - GameManager.get_dungeon_currency())
+					var counter: String = "revive_bought" if item_id == POTION_REVIVE else "heal_bought"
+					_r[counter] = int(_r[counter]) + 1
+		GameManager.mark_dungeon_shop_seen()
+
+	func _summary() -> void:
+		print("[DungeonSim] ===== まとめ（%d 回・3人 Lv %s・上限 %d フロア）=====" % [
+			_results.size(), str(GameManager.get_character_growth(str(GameManager.get_party_members()[0])).get(GameStateKeys.GROWTH_LEVEL, 1)), floors_cap
+		])
+		var ends: Dictionary = {}
+		var sums: Dictionary = {}
+		var layers: Array[int] = []
+		for raw: Variant in _results:
+			var r: Dictionary = raw
+			ends[str(r["end"])] = int(ends.get(str(r["end"]), 0)) + 1
+			layers.append(int(r["layer"]))
+			for key: String in ["floors", "battles", "battle_sec", "hp_lost", "coin_got", "coin_spent", "coin_left", "heal_bought", "heal_used", "revive_bought", "revive_used", "rests", "bag_max", "picked", "equips", "stalemate"]:
+				sums[key] = float(sums.get(key, 0.0)) + float(r[key])
+		layers.sort()
+		var n: float = maxf(1.0, float(_results.size()))
+		print("  終わり方 = %s" % str(ends))
+		print("  届いた層 = 最小 %d ／ 中央 %d ／ 最大 %d ／ 全部 %s" % [layers[0], layers[layers.size() / 2], layers[layers.size() - 1], str(layers)])
+		for key: Variant in sums:
+			print("  平均 %-14s = %.1f" % [str(key), float(sums[key]) / n])
+
+
 class Driver extends Node:
 
 	# 撃つ間隔。⚠ これは「配置が整ったか」の合図ではなく、単なる間隔。
