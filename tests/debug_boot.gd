@@ -8334,16 +8334,22 @@ func _report_dungeon_depth() -> void:
 				slime_hp_4 = int(((raw as Dictionary).get("stat_overrides", {}) as Dictionary).get(GameStateKeys.STAT_HP, 0))
 		if slime_hp_4 > 0:
 			break
-	print("  強さ フロア1 = %d%% ／ フロア4 = %d%%（⚠ 100 と 130 が正解・伸び %d%%）" % [
-		pct_1, pct_4, int(Balance.dungeon.enemy_stat_growth_pct_per_floor)
+	# ⚠ 2026-10-03（回6・人間「⚠ １あ」）：⚠ HP・攻撃には難ダンジョンの素の倍率（`enemy_base_stat_pct`）も掛かる＝能力ごとの倍率で数える。
+	var base_pct: int = int(Balance.dungeon.enemy_base_stat_pct)
+	var hp_pct_4: int = int(round(float(pct_4) * float(base_pct) / 100.0))
+	var boss_atk_master: int = 30
+	print("  強さ フロア1 = %d%% ／ フロア4 = %d%%（⚠ 100 と 130 が正解・伸び %d%%）／ HP・攻撃の素の倍率 %d%%" % [
+		pct_1, pct_4, int(Balance.dungeon.enemy_stat_growth_pct_per_floor), base_pct
 	])
-	print("  ボスの攻撃 フロア1 = %d ／ フロア4 = %d（⚠ 30 → 39 が正解） ／ スライムの HP フロア4 = %d（⚠ 素の %d → 52 が正解）" % [
-		boss_atk_1, boss_atk_4, slime_hp_4, slime_hp
+	print("  ボスの攻撃 フロア1 = %d ／ フロア4 = %d（⚠ 表の 30 × %d%% ／ × %d%%） ／ スライムの HP フロア4 = %d（⚠ 素の %d × %d%%）" % [
+		boss_atk_1, boss_atk_4, base_pct, hp_pct_4, slime_hp_4, slime_hp, hp_pct_4
 	])
 	var growth: int = int(Balance.dungeon.enemy_stat_growth_pct_per_floor)
 	if pct_1 != 100 or pct_4 != 100 + growth * 3:
 		push_error("[DebugBoot] 敵の強さがフロアで伸びていない")
-	if boss_atk_4 != int(round(float(boss_atk_1) * float(pct_4) / 100.0)) or slime_hp_4 != int(round(float(slime_hp) * float(pct_4) / 100.0)):
+	if boss_atk_1 != int(round(float(boss_atk_master) * float(base_pct) / 100.0)) \
+			or boss_atk_4 != int(round(float(boss_atk_master) * float(hp_pct_4) / 100.0)) \
+			or slime_hp_4 != int(round(float(slime_hp) * float(hp_pct_4) / 100.0)):
 		push_error("[DebugBoot] 敵の値に強さが掛かっていない")
 
 	# ② 帯を差し込む（⚠ 検査の中だけ・キャッシュを書き換える＝保存しない）。⚠ フロア4（31〜40層）から狼だけ・ボスは狼。

@@ -38,7 +38,21 @@
           { "item_id": "training_material_4", "weight": 30, "count": 1 },
           { "item_id": "forging_material_4", "weight": 25, "count": 1 },
           { "item_id": "decor_material_4", "weight": 15, "count": 1 },
-          { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 }
+          { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+          { "item_id": "weapon_wooden_sword", "weight": 1, "count": 1 },
+          { "item_id": "weapon_iron_sword", "weight": 1, "count": 1 },
+          { "item_id": "weapon_steel_sword", "weight": 1, "count": 1 },
+          { "item_id": "armor_leather_cap", "weight": 1, "count": 1 },
+          { "item_id": "armor_iron_helm", "weight": 1, "count": 1 },
+          { "item_id": "armor_leather_vest", "weight": 1, "count": 1 },
+          { "item_id": "armor_iron_mail", "weight": 1, "count": 1 },
+          { "item_id": "armor_leather_boots", "weight": 1, "count": 1 },
+          { "item_id": "armor_iron_greaves", "weight": 1, "count": 1 },
+          { "item_id": "acc_ring_power", "weight": 1, "count": 1 },
+          { "item_id": "acc_amulet_life", "weight": 1, "count": 1 },
+          { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
+          { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
+          { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
         ]
       },
       "relic": { "rolls": 0, "entries": [] },
@@ -74,20 +88,20 @@
           { "item_id": "training_material_4", "weight": 30, "count": 1 },
           { "item_id": "forging_material_4", "weight": 25, "count": 1 },
           { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
-          { "item_id": "weapon_wooden_sword", "weight": 2, "count": 1 },
-          { "item_id": "weapon_iron_sword", "weight": 2, "count": 1 },
-          { "item_id": "weapon_steel_sword", "weight": 2, "count": 1 },
-          { "item_id": "armor_leather_cap", "weight": 2, "count": 1 },
-          { "item_id": "armor_iron_helm", "weight": 2, "count": 1 },
-          { "item_id": "armor_leather_vest", "weight": 2, "count": 1 },
-          { "item_id": "armor_iron_mail", "weight": 2, "count": 1 },
-          { "item_id": "armor_leather_boots", "weight": 2, "count": 1 },
-          { "item_id": "armor_iron_greaves", "weight": 2, "count": 1 },
-          { "item_id": "acc_ring_power", "weight": 2, "count": 1 },
-          { "item_id": "acc_amulet_life", "weight": 2, "count": 1 },
-          { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
-          { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
-          { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 },
+          { "item_id": "weapon_wooden_sword", "weight": 6, "count": 1 },
+          { "item_id": "weapon_iron_sword", "weight": 6, "count": 1 },
+          { "item_id": "weapon_steel_sword", "weight": 6, "count": 1 },
+          { "item_id": "armor_leather_cap", "weight": 6, "count": 1 },
+          { "item_id": "armor_iron_helm", "weight": 6, "count": 1 },
+          { "item_id": "armor_leather_vest", "weight": 6, "count": 1 },
+          { "item_id": "armor_iron_mail", "weight": 6, "count": 1 },
+          { "item_id": "armor_leather_boots", "weight": 6, "count": 1 },
+          { "item_id": "armor_iron_greaves", "weight": 6, "count": 1 },
+          { "item_id": "acc_ring_power", "weight": 6, "count": 1 },
+          { "item_id": "acc_amulet_life", "weight": 6, "count": 1 },
+          { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
+          { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
+          { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
           { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
           { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 }
         ]
@@ -110,10 +124,10 @@
     },
     "shop": {
       "entries": [
-        { "kind": "item", "item_id": "dungeon_potion_heal", "cost": 30 },
-        { "kind": "item", "item_id": "dungeon_potion_revive", "cost": 60 },
-        { "kind": "bag_slot", "cost": 40, "amount": 2 },
-        { "kind": "torch", "cost": 35 }
+        { "kind": "item", "item_id": "dungeon_potion_heal", "cost": 60 },
+        { "kind": "item", "item_id": "dungeon_potion_revive", "cost": 120 },
+        { "kind": "bag_slot", "cost": 80, "amount": 2 },
+        { "kind": "torch", "cost": 70 }
       ]
     },
     "currency": {

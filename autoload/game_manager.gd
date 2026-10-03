@@ -9650,18 +9650,19 @@ func _roll_drop_grade(item_id: String, grade_range: Vector2i) -> int:
 
 
 # いまのフロアの敵の強さ（％・100＝そのまま）。⚠ 入口から数えたフロアで伸びる（⚠ 31層から入っても強い）。
-func get_dungeon_enemy_stat_pct() -> int:
+# ⚠ `stat` を渡すと、⚠ HP・攻撃には難ダンジョンの素の倍率（`enemy_base_stat_pct`・2026-10-03・回6）も掛かる。⚠ 防御は伸びだけ。
+func get_dungeon_enemy_stat_pct(stat: String = "") -> int:
 	var config: DungeonConfig = _dungeon()
 	var growth: int = 0 if config == null else maxi(0, int(config.enemy_stat_growth_pct_per_floor))
-	return 100 + growth * maxi(0, get_dungeon_floor_index() - 1)
+	var pct: int = 100 + growth * maxi(0, get_dungeon_floor_index() - 1)
+	if config != null and (stat == GameStateKeys.STAT_HP or stat == GameStateKeys.STAT_ATK):
+		pct = int(round(float(pct) * float(maxi(0, int(config.enemy_base_stat_pct))) / 100.0))
+	return pct
 
 
 # 敵の HP・攻撃・防御を深さで伸ばす（⚠ `stat_overrides` に書く＝戦闘は今までどおり被せるだけ）。
 #   ⚠ 元は enemies.json の値 → ⚠ 表の `stat_overrides` があればそちらを元にする（⚠ ボスの攻撃 30 など）。
 func _scale_dungeon_wave(wave: Dictionary) -> Dictionary:
-	var pct: int = get_dungeon_enemy_stat_pct()
-	if pct == 100:
-		return wave
 	var enemies: Variant = wave.get("enemies", [])
 	if not (enemies is Array):
 		return wave
@@ -9675,6 +9676,9 @@ func _scale_dungeon_wave(wave: Dictionary) -> Dictionary:
 			overrides = (entry.get("stat_overrides", {}) as Dictionary).duplicate(true)
 		for stat: String in [GameStateKeys.STAT_HP, GameStateKeys.STAT_ATK, GameStateKeys.STAT_DEF]:
 			if not overrides.has(stat) and not base.has(stat):
+				continue
+			var pct: int = get_dungeon_enemy_stat_pct(stat)
+			if pct == 100:
 				continue
 			var value: int = int(overrides.get(stat, base.get(stat, 0)))
 			overrides[stat] = int(round(float(value) * float(pct) / 100.0))
