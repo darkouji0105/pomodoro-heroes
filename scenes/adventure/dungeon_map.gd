@@ -161,6 +161,14 @@ func _rebuild() -> void:
 	_update_footer()
 
 
+# このフロアの層の幅「31–40層」（⚠ 地図の題の札）。
+func _layer_range_text() -> String:
+	return tr("ui_dungeon_layer_range") % [
+		GameManager.get_dungeon_absolute_layer(1),
+		GameManager.get_dungeon_absolute_layer(GameManager.get_dungeon_layers_per_floor()),
+	]
+
+
 func _update_header() -> void:
 	var run: Dictionary = GameManager.get_dungeon_run()
 	var dungeon_id: String = str(run.get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
@@ -168,11 +176,10 @@ func _update_header() -> void:
 	dungeon_name_label.text = tr(str(dungeon.get("name_key", dungeon_id)))
 
 	# 数値のみの組み立てなので、tr() を通すのは見出しだけ（AGENTS.md）。
-	# ⚠ このフロアの層の幅「31–40層」（2026-10-03・決定49。⚠ 前は「フロア n/3」＝決定26）。
-	#   ⚠ 層の数え方は GameManager の1本（⚠ 画面で掛け算しない）。
-	floor_label.text = tr("ui_dungeon_layer_range") % [
-		GameManager.get_dungeon_absolute_layer(1),
-		GameManager.get_dungeon_absolute_layer(GameManager.get_dungeon_layers_per_floor()),
+	# ⚠ いまの層と次の出口まで「33層　∩ 出口まで 7」（2026-10-03・決定49・手本 DungeonMap。⚠ 前は「フロア n/3」＝決定26）。
+	#   ⚠ 層の数え方は GameManager の1本（⚠ 画面で掛け算しない）。⚠ 層の幅「31–40層」は地図の題の札。
+	floor_label.text = tr("ui_dungeon_header_layer") % [
+		GameManager.get_dungeon_current_layer(), GameManager.get_dungeon_layers_to_exit(),
 	]
 	# ⚠⚠ たいまつの等級（決定32）。⚠ 2026-09-19 にフロアの行から分けた（モック v2 のヘッダ）。
 	#   ⚠ 何層先まで見えているかが読めないと、⚠ ショップで買うかどうかを決められない。
@@ -917,10 +924,10 @@ func _on_back_pressed() -> void:
 
 
 # ⚠⚠ 地図の上に重ねる題の札と凡例（2026-09-26・人間の参考画像）。⚠ スクロールしない（⚠ 紙に貼ってある）。
-#   ⚠ 札の字はヘッダーと同じ（⚠ 新しい文言を作らない）。⚠ 凡例はマスの種類ごとの絵と名前。
+#   ⚠ 札の字はこのフロアの層の幅「31–40層」（⚠ 10-03 からヘッダーは「33層　∩ 出口まで 7」＝別の字）。⚠ 凡例はマスの種類ごとの絵と名前。
 func _build_map_overlays() -> void:
 	var stack: Control = $Layout/MapSheet/MapStack
-	var plaque: PaperSheet = MapLegend.make_plaque(dungeon_name_label.text, floor_label.text)
+	var plaque: PaperSheet = MapLegend.make_plaque(dungeon_name_label.text, _layer_range_text())
 	stack.add_child(plaque)
 	plaque.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE)
 	plaque.grow_horizontal = Control.GROW_DIRECTION_BOTH

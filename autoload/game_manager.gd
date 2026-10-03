@@ -8251,6 +8251,21 @@ func get_dungeon_absolute_layer(layer: int) -> int:
 	return get_dungeon_floor_first_layer() + maxi(1, layer) - 1
 
 
+# いま立っているマスの層（⚠ 入口から数えた層・ランの外は 0）。⚠ 手本 DungeonMap の見出し「33層」。
+func get_dungeon_current_layer() -> int:
+	if not is_in_dungeon():
+		return 0
+	var position: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	return get_dungeon_absolute_layer(int(get_dungeon_node(position).get(GameStateKeys.DUNGEON_NODE_LAYER, 1)))
+
+
+# 次の出口（⚠ このフロアのボスの層）まであと何層か（⚠ 手本「⋂ 出口まで 7」・ボスの上で 0）。
+func get_dungeon_layers_to_exit() -> int:
+	if not is_in_dungeon():
+		return 0
+	return maxi(0, get_dungeon_absolute_layer(get_dungeon_layers_per_floor()) - get_dungeon_current_layer())
+
+
 # 入れるフロアの番号（⚠ 1＝入口・⚠ ボスを倒したいちばん深いフロアの次まで・上限 `max_floors`）。
 # ⚠ 「出口から再開」（決定49・人間「⚠ 2あ」）の判定はここ1本。⚠ 画面はここから選ばせる。
 func get_dungeon_start_floor_options(dungeon_id: String = DUNGEON_DEFAULT_ID) -> Array[int]:

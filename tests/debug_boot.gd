@@ -10424,7 +10424,8 @@ class UiFlowRunner extends Node:
 		_check("深さ：出撃するとフロア %d（入ったフロア %d）・札 %d 枚・見出し「%s」" % [GameManager.get_dungeon_floor_index(), GameManager.get_dungeon_start_floor(), GameManager.get_quota_ticket_count(), _label_text(m, "Header", "FloorLabel")],
 			_path_of(m) == DUNGEON_MAP and GameManager.get_dungeon_floor_index() == best + 1 and GameManager.get_dungeon_start_floor() == best + 1
 			and GameManager.get_quota_ticket_count() == 0
-			and _label_text(m, "Header", "FloorLabel") == tr("ui_dungeon_layer_range") % [deepest_layer, deepest_layer + per_floor - 1])
+			and _label_text(m, "Header", "FloorLabel") == tr("ui_dungeon_header_layer") % [deepest_layer, per_floor - 1]
+			and GameManager.get_dungeon_layers_to_exit() == per_floor - 1)
 		# ⚠ セーブの形（⚠ JSON を通すと 4.0 になる＝読み込みで int に戻るか）。
 		var saved: Variant = JSON.parse_string(JSON.stringify(GameManager.get_state()))
 		GameManager.load_state(saved as Dictionary)

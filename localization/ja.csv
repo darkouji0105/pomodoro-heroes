@@ -1156,6 +1156,7 @@ ui_map_legend,しるし
 ui_dungeon_fork_retreat_caption,鞄の中身を持ち帰る
 ui_dungeon_fork_descend_title,もう%d層
 ui_dungeon_layer_range,%d–%d層
+ui_dungeon_header_layer,%d層　∩ 出口まで %d
 ui_dungeon_fork_warning,倒れたら鞄は空になる
 ui_dungeon_fork_descend_button,潜る
 ui_dungeon_shop_in_bag,鞄に %d 個
