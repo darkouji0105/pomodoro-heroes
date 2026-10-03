@@ -8039,6 +8039,84 @@ func _report_dungeon() -> void:
 		"" if dungeon_typed.is_empty() else " " + str(dungeon_typed),
 	])
 	print("  ⚠ 17-c で 2 件（回復・蘇生）が入った。⚠ どちらも撤退では持ち帰れない（決定17・§4-3-1）")
+	_report_dungeon_depth()
+
+
+# 深さで変わる難ダンジョン（2026-10-03・回4・決定47・`EXEC_DUNGEON_DEPTH.md`）。
+#   ⚠ 見るのは ① 敵の強さがフロアで伸びる（⚠ フロア1 は 100%）② 帯を差し込むとその層から顔ぶれが変わる。
+func _report_dungeon_depth() -> void:
+	print("[DebugBoot] --- 深さ（⚠ 敵の強さ・帯）---")
+	var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
+	if GameManager.is_in_dungeon():
+		GameManager.abandon_dungeon_run()
+	GameManager.start_dungeon_run(dungeon_id)
+	var battle_id: String = _find_dungeon_node_of_kind(GameStateKeys.DUNGEON_NODE_KIND_BATTLE)
+	var boss_id: String = "d_boss"
+	var slime_hp: int = int(MasterDataLoader.get_enemy("enemy_slime").get(GameStateKeys.STAT_HP, 0))
+	var pct_1: int = GameManager.get_dungeon_enemy_stat_pct()
+	var boss_atk_1: int = _wave_stat(GameManager.get_dungeon_node_wave(boss_id), GameStateKeys.STAT_ATK)
+	for _i: int in range(3):
+		GameManager.debug_mark_dungeon_boss_cleared()
+		GameManager.descend_dungeon_floor()
+	var pct_4: int = GameManager.get_dungeon_enemy_stat_pct()
+	var boss_atk_4: int = _wave_stat(GameManager.get_dungeon_node_wave(boss_id), GameStateKeys.STAT_ATK)
+	battle_id = _find_dungeon_node_of_kind(GameStateKeys.DUNGEON_NODE_KIND_BATTLE)
+	var slime_hp_4: int = 0
+	for _try: int in range(30):
+		var wave: Dictionary = GameManager.get_dungeon_node_wave(battle_id)
+		for raw: Variant in (wave.get("enemies", []) as Array):
+			if str((raw as Dictionary).get("enemy_type_id", "")) == "enemy_slime":
+				slime_hp_4 = int(((raw as Dictionary).get("stat_overrides", {}) as Dictionary).get(GameStateKeys.STAT_HP, 0))
+		if slime_hp_4 > 0:
+			break
+	print("  強さ フロア1 = %d%% ／ フロア4 = %d%%（⚠ 100 と 130 が正解・伸び %d%%）" % [
+		pct_1, pct_4, int(Balance.dungeon.enemy_stat_growth_pct_per_floor)
+	])
+	print("  ボスの攻撃 フロア1 = %d ／ フロア4 = %d（⚠ 30 → 39 が正解） ／ スライムの HP フロア4 = %d（⚠ 素の %d → 52 が正解）" % [
+		boss_atk_1, boss_atk_4, slime_hp_4, slime_hp
+	])
+	var growth: int = int(Balance.dungeon.enemy_stat_growth_pct_per_floor)
+	if pct_1 != 100 or pct_4 != 100 + growth * 3:
+		push_error("[DebugBoot] 敵の強さがフロアで伸びていない")
+	if boss_atk_4 != int(round(float(boss_atk_1) * float(pct_4) / 100.0)) or slime_hp_4 != int(round(float(slime_hp) * float(pct_4) / 100.0)):
+		push_error("[DebugBoot] 敵の値に強さが掛かっていない")
+
+	# ② 帯を差し込む（⚠ 検査の中だけ・キャッシュを書き換える＝保存しない）。⚠ フロア4（31〜40層）から狼だけ・ボスは狼。
+	var cache: Dictionary = MasterDataLoader._cache_dungeons[dungeon_id]
+	var band_from: int = GameManager.get_dungeon_floor_first_layer()
+	cache[GameManager.DUNGEON_MASTER_DEPTH_BANDS] = [{
+		GameManager.DUNGEON_BAND_FROM_LAYER: band_from,
+		GameManager.DUNGEON_MASTER_BATTLE_POOL: [{"enemies": [{"enemy_type_id": "enemy_wolf", "count": 4}]}],
+	}]
+	var banded: Dictionary = GameManager.get_dungeon_node_wave(battle_id)
+	var first_enemy: String = str(((banded.get("enemies", []) as Array)[0] as Dictionary).get("enemy_type_id", ""))
+	var boss_enemy: String = str(((GameManager.get_dungeon_node_wave(boss_id).get("enemies", []) as Array)[0] as Dictionary).get("enemy_type_id", ""))
+	print("  帯（%d層から 狼×4）を差し込む -> 戦闘 '%s' ×%d（狼×4 が正解） ／ ボスは '%s'（帯に書いていない＝入口のまま）" % [
+		band_from, first_enemy, int(((banded.get("enemies", []) as Array)[0] as Dictionary).get("count", 0)), boss_enemy
+	])
+	if first_enemy != "enemy_wolf" or boss_enemy != "boss_slime_king":
+		push_error("[DebugBoot] 帯から顔ぶれが引けていない（または書いていない鍵まで変わった）")
+	# ⚠ 手前の層（帯より浅い）は入口のまま。⚠ 帯の境目を1つ先へずらして同じマスで見る。
+	(cache[GameManager.DUNGEON_MASTER_DEPTH_BANDS] as Array)[0][GameManager.DUNGEON_BAND_FROM_LAYER] = band_from + 100
+	var before_band: Dictionary = GameManager.get_dungeon_node_wave(battle_id)
+	var count_wolf4: bool = false
+	for raw: Variant in (before_band.get("enemies", []) as Array):
+		if int((raw as Dictionary).get("count", 0)) == 4:
+			count_wolf4 = true
+	print("  帯を %d層からにずらす -> 狼×4 が出ない=%s（true が正解＝手前は入口の表）" % [band_from + 100, str(not count_wolf4)])
+	if count_wolf4:
+		push_error("[DebugBoot] 帯より浅い層で帯の顔ぶれが出た")
+	cache[GameManager.DUNGEON_MASTER_DEPTH_BANDS] = []
+	GameManager.abandon_dungeon_run()
+
+
+func _wave_stat(wave: Dictionary, stat: String) -> int:
+	var enemies: Array = wave.get("enemies", [])
+	if enemies.is_empty():
+		return 0
+	var entry: Dictionary = enemies[0]
+	var base: Dictionary = MasterDataLoader.get_enemy(str(entry.get("enemy_type_id", "")))
+	return int((entry.get("stat_overrides", {}) as Dictionary).get(stat, base.get(stat, 0)))
 
 
 # 鞄に入っている item_id について、拠点側の所持数を数える。

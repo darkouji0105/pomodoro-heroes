@@ -7562,6 +7562,11 @@ const DUNGEON_MASTER_LAYERS: String = "layers"
 const DUNGEON_MASTER_BATTLE_POOL: String = "battle_pool"
 const DUNGEON_MASTER_BOSS: String = "boss"
 const DUNGEON_MASTER_LOOT: String = "loot"
+# 深さの帯（2026-10-03・決定47・`EXEC_DUNGEON_DEPTH.md`）＝`[{from_layer, battle_pool?, boss?, loot?}]`。
+const DUNGEON_MASTER_DEPTH_BANDS: String = "depth_bands"
+const DUNGEON_BAND_FROM_LAYER: String = "from_layer"
+# ⚠ 帯で上書きできる鍵（⚠ ほかの鍵を帯に書いても読まない＝E133 が言う）。
+const DUNGEON_BAND_KEYS: Array[String] = [DUNGEON_MASTER_BATTLE_POOL, DUNGEON_MASTER_BOSS, DUNGEON_MASTER_LOOT]
 const DUNGEON_MASTER_CURRENCY: String = "currency"
 # 通路の表（段階19-c-2・決定24）。⚠ 何が出るかは JSON、⚠ どれくらい出るかは Config。
 const DUNGEON_MASTER_EDGES: String = "edges"
@@ -8843,7 +8848,8 @@ func _grant_dungeon_node_gains(kind: String, to_pending: bool = false) -> Dictio
 	var chance: int = _dungeon_loot_chance_pct(kind)
 	if chance <= 0 or randi_range(1, 100) > chance:
 		return result
-	var loot_table: Variant = dungeon.get(DUNGEON_MASTER_LOOT, null)
+	# ⚠ いま立っている層の帯から引く（2026-10-03・決定47）。⚠ 宝箱の中身は拠点で開けるときに入口の表から引く（`_dungeon_loot_draw_of()`）。
+	var loot_table: Variant = _dungeon_master_at(dungeon, DUNGEON_MASTER_LOOT, get_dungeon_current_layer())
 	if not (loot_table is Dictionary):
 		return result
 	var entry: Variant = (loot_table as Dictionary).get(kind, null)
@@ -9434,6 +9440,8 @@ func _roll_dungeon_node_kind(weights: Dictionary) -> String:
 #
 # ⚠ ボスなら dungeon.json の boss、それ以外は battle_pool から1本引く。
 # ⚠ 戦闘画面が battle_pool を直接読まないこと（引き方が2箇所になる）。
+# ⚠⚠ 2026-10-03（決定47・`EXEC_DUNGEON_DEPTH.md`）：⚠ 表はそのマスの層の帯から引く（`_dungeon_master_at()`）・
+#   ⚠ HP・攻撃・防御を深さで伸ばして `stat_overrides` に書く（`_scale_dungeon_wave()`）。⚠ 戦闘の側は触らない。
 func get_dungeon_node_wave(node_id: String) -> Dictionary:
 	if not is_in_dungeon():
 		return {}
@@ -9443,18 +9451,115 @@ func get_dungeon_node_wave(node_id: String) -> Dictionary:
 	if dungeon.is_empty():
 		return {}
 	var node: Dictionary = get_dungeon_node(node_id)
+	var layer: int = get_dungeon_absolute_layer(int(node.get(GameStateKeys.DUNGEON_NODE_LAYER, 1)))
 	if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
-		var boss: Variant = dungeon.get(DUNGEON_MASTER_BOSS, null)
+		var boss: Variant = _dungeon_master_at(dungeon, DUNGEON_MASTER_BOSS, layer)
 		if boss is Dictionary:
-			return (boss as Dictionary).duplicate(true)
+			return _scale_dungeon_wave((boss as Dictionary).duplicate(true))
 		push_warning("[GameManager] get_dungeon_node_wave: boss が無い")
 		return {}
-	var pool: Variant = dungeon.get(DUNGEON_MASTER_BATTLE_POOL, null)
+	var pool: Variant = _dungeon_master_at(dungeon, DUNGEON_MASTER_BATTLE_POOL, layer)
 	if not (pool is Array) or (pool as Array).is_empty():
 		push_warning("[GameManager] get_dungeon_node_wave: battle_pool が無い")
 		return {}
 	var list: Array = pool as Array
-	return (list[randi() % list.size()] as Dictionary).duplicate(true)
+	return _scale_dungeon_wave((list[randi() % list.size()] as Dictionary).duplicate(true))
+
+
+# --- 深さ（2026-10-03・回4・決定47・人間「⚠ １あ　⚠ ２あ　⚠ ３あ」・`EXEC_DUNGEON_DEPTH.md`） ---
+
+# 深さの帯から鍵を引く（⚠ 引く口はここ1本）。
+#   ⚠ `from_layer` が `layer` 以下の帯のうち一番深いもので、⚠ その鍵を持つもの → ⚠ 無ければ入口の表（dungeon.json の上の段）。
+#   ⚠ 帯に書いていない鍵は入口のまま（⚠ 同じ数字を2か所に書かない）。
+func _dungeon_master_at(dungeon: Dictionary, key: String, layer: int) -> Variant:
+	var found: Variant = dungeon.get(key, null)
+	var found_from: int = 0
+	var bands: Variant = dungeon.get(DUNGEON_MASTER_DEPTH_BANDS, [])
+	if bands is Array:
+		for raw: Variant in (bands as Array):
+			if not (raw is Dictionary) or not (raw as Dictionary).has(key):
+				continue
+			# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
+			var from_layer: int = int((raw as Dictionary).get(DUNGEON_BAND_FROM_LAYER, 0))
+			if from_layer <= layer and from_layer > found_from:
+				found = (raw as Dictionary)[key]
+				found_from = from_layer
+	return found
+
+
+# 深さの帯を見張る（E133・⚠ 赤の数を返す）。⚠ 読む口（`_dungeon_master_at()`）は壊れた帯を黙って飛ばすので、⚠ ここで言う。
+func _validate_dungeon_bands(dungeon_id: String, dungeon: Dictionary) -> int:
+	var errors: int = 0
+	var bands: Variant = dungeon.get(DUNGEON_MASTER_DEPTH_BANDS, [])
+	if not (bands is Array):
+		push_error("[GameManager] E133 dungeon.json: %s の depth_bands が配列でない" % dungeon_id)
+		return 1
+	var last_from: int = 1
+	for raw: Variant in (bands as Array):
+		if not (raw is Dictionary):
+			push_error("[GameManager] E133 dungeon.json: %s の depth_bands に Dictionary でない行がある" % dungeon_id)
+			errors += 1
+			continue
+		var band: Dictionary = raw
+		var from_layer: int = int(band.get(DUNGEON_BAND_FROM_LAYER, 0))
+		if from_layer <= last_from:
+			push_error("[GameManager] E133 dungeon.json: %s の depth_bands の from_layer %d が1より大きく昇順になっていない（⚠ 1層は入口の表）" % [dungeon_id, from_layer])
+			errors += 1
+		last_from = maxi(last_from, from_layer)
+		for key: Variant in band:
+			if str(key) != DUNGEON_BAND_FROM_LAYER and not (str(key) in DUNGEON_BAND_KEYS) and not str(key).begins_with("_"):
+				push_error("[GameManager] E133 dungeon.json: %s の帯 %d層 に読まない鍵 '%s'（⚠ 帯で変えられるのは %s）" % [dungeon_id, from_layer, str(key), str(DUNGEON_BAND_KEYS)])
+				errors += 1
+		if band.has(DUNGEON_MASTER_BATTLE_POOL) and (not (band[DUNGEON_MASTER_BATTLE_POOL] is Array) or (band[DUNGEON_MASTER_BATTLE_POOL] as Array).is_empty()):
+			push_error("[GameManager] E133 dungeon.json: %s の帯 %d層 の battle_pool が空" % [dungeon_id, from_layer])
+			errors += 1
+		if band.has(DUNGEON_MASTER_BOSS) and not (band[DUNGEON_MASTER_BOSS] is Dictionary):
+			push_error("[GameManager] E133 dungeon.json: %s の帯 %d層 の boss が Dictionary でない" % [dungeon_id, from_layer])
+			errors += 1
+		if band.get(DUNGEON_MASTER_LOOT, {}) is Dictionary:
+			for kind: Variant in (band.get(DUNGEON_MASTER_LOOT, {}) as Dictionary):
+				var draw: Variant = (band[DUNGEON_MASTER_LOOT] as Dictionary)[kind]
+				if not (draw is Dictionary):
+					continue
+				for row: Variant in ((draw as Dictionary).get(CHEST_DRAW_ENTRIES, []) as Array):
+					var item_id: String = str((row as Dictionary).get(CHEST_DRAW_ITEM_ID, "")) if row is Dictionary else ""
+					if MasterDataLoader.get_item(item_id).is_empty():
+						push_error("[GameManager] E133 dungeon.json: %s の帯 %d層 の loot.%s に items.json に無いID: %s" % [dungeon_id, from_layer, str(kind), item_id])
+						errors += 1
+	return errors
+
+
+# いまのフロアの敵の強さ（％・100＝そのまま）。⚠ 入口から数えたフロアで伸びる（⚠ 31層から入っても強い）。
+func get_dungeon_enemy_stat_pct() -> int:
+	var config: DungeonConfig = _dungeon()
+	var growth: int = 0 if config == null else maxi(0, int(config.enemy_stat_growth_pct_per_floor))
+	return 100 + growth * maxi(0, get_dungeon_floor_index() - 1)
+
+
+# 敵の HP・攻撃・防御を深さで伸ばす（⚠ `stat_overrides` に書く＝戦闘は今までどおり被せるだけ）。
+#   ⚠ 元は enemies.json の値 → ⚠ 表の `stat_overrides` があればそちらを元にする（⚠ ボスの攻撃 30 など）。
+func _scale_dungeon_wave(wave: Dictionary) -> Dictionary:
+	var pct: int = get_dungeon_enemy_stat_pct()
+	if pct == 100:
+		return wave
+	var enemies: Variant = wave.get("enemies", [])
+	if not (enemies is Array):
+		return wave
+	for raw: Variant in (enemies as Array):
+		if not (raw is Dictionary):
+			continue
+		var entry: Dictionary = raw
+		var base: Dictionary = MasterDataLoader.get_enemy(str(entry.get("enemy_type_id", "")))
+		var overrides: Dictionary = {}
+		if entry.get("stat_overrides", {}) is Dictionary:
+			overrides = (entry.get("stat_overrides", {}) as Dictionary).duplicate(true)
+		for stat: String in [GameStateKeys.STAT_HP, GameStateKeys.STAT_ATK, GameStateKeys.STAT_DEF]:
+			if not overrides.has(stat) and not base.has(stat):
+				continue
+			var value: int = int(overrides.get(stat, base.get(stat, 0)))
+			overrides[stat] = int(round(float(value) * float(pct) / 100.0))
+		entry["stat_overrides"] = overrides
+	return wave
 
 
 # --- 戦闘との接続（段階17-b・§4-4 / §4-4-2） --------------------------
@@ -10496,6 +10601,7 @@ func _validate_dungeon_config() -> void:
 							dungeon_id, str(kind), item_id
 						])
 						errors += 1
+		errors += _validate_dungeon_bands(dungeon_id, dungeon)
 
 	# ラン専用アイテムと休憩（段階17-c・E134 / W24）。
 	#

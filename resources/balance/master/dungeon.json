@@ -6,6 +6,8 @@
       { "node_count": 1 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 },
       { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }
     ],
+    "_depth_bands_note": "⚠⚠ 2026-10-03（決定47・人間「⚠ １あ」・EXEC_DUNGEON_DEPTH.md）：⚠ 深さの帯。⚠ 行の形は { \"from_layer\": 51, \"battle_pool\": [...], \"boss\": {...}, \"loot\": {...} }（⚠ battle_pool / boss / loot はどれも省いてよい＝省いた鍵は下の入口の表のまま）。⚠ from_layer は 2 以上・昇順（⚠ 1層からは下の入口の表）。⚠ 敵の強さは帯ではなく DungeonConfig.enemy_stat_growth_pct_per_floor（1フロアごと）。⚠ 宝箱の中身（loot.chest / loot.edge_chest）は拠点で開けるときに入口の表から引く＝帯で変えても効かない。⚠ いまは1本も無い（⚠ 帯の境目と顔ぶれは回6 で決める）。",
+    "depth_bands": [],
     "battle_pool": [
       { "enemies": [{ "enemy_type_id": "enemy_slime", "count": 3 }] },
       { "enemies": [{ "enemy_type_id": "enemy_wolf", "count": 2 }] },

@@ -199,6 +199,10 @@ extends Resource
 ## ⚠ 0 以下にすると1階も潜れない。
 @export var max_floors: int = 50
 
+## フロアが1枚深くなるごとに、敵とボスの HP・攻撃・防御が何％増えるか（2026-10-03・決定47・人間「⚠ ２あ」）。
+## ⚠ 入口から数えたフロアで伸びる（⚠ 31層から入っても 31層の強さ）。⚠ 仮（⚠ 回6 で決める）。⚠ 0 にすると伸びない。
+@export var enemy_stat_growth_pct_per_floor: int = 10
+
 ## フロアが1枚深くなるごとに、一時通貨の入手が何％増えるか。
 ## ⚠ 「深く潜る＝より良い戦利品」（§2 の表）を数値にしたもの。
 @export var currency_growth_pct_per_floor: int = 25
