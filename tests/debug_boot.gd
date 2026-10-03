@@ -4701,9 +4701,12 @@ func _report_layout() -> void:
 			#   ⚠ 絵は取れないが、⚠ マスの並びの中心と画面の中心の差は取れる。
 			if raw_child is RunMapView:
 				var map_rect: Rect2 = (raw_child as RunMapView).get_global_rect()
-				var screen_rect: Rect2 = instance.get_global_rect()
+				# ⚠⚠ 2026-10-03（人間「⚠ 左側にインベントリやHPの状況などを」）：⚠ 左に板（`RunSide`）が入った＝⚠ 物差しは**地図の紙の真ん中**。
+				#   ⚠ 紙が無い画面（⚠ 板の無い古い形）は今までどおり画面の真ん中。
+				var sheet: Node = instance.find_child("MapSheet", true, false)
+				var screen_rect: Rect2 = (sheet as Control).get_global_rect() if sheet is Control else instance.get_global_rect()
 				var off: float = map_rect.get_center().x - screen_rect.get_center().x
-				print("    ⚠ マップの中心 − 画面の中心 = %.0f px（⚠ 0 に近いのが正解）／ マップの幅 %.0f" % [
+				print("    ⚠ マップの中心 − 地図の紙の中心 = %.0f px（⚠ 0 に近いのが正解）／ マップの幅 %.0f" % [
 					off, map_rect.size.x
 				])
 				if absf(off) > MAP_CENTER_TOLERANCE:
@@ -4783,7 +4786,8 @@ func _report_layout() -> void:
 		# ⚠ いま立っているマスへスクロールが寄っているか（段階20-c・人間の指示）。
 		#   ⚠ 絵は取れないが「スクロール位置が0でない」ことは取れる。
 		#   ⚠ 入口は一番下なので、⚠ 25層ぶん下へ寄っているはず。
-		var raw_scroll: Node = instance.get_node_or_null(NodePath("Layout/MapSheet/MapStack/MapScroll"))
+		# ⚠ 2026-10-03：紙は左の板と並ぶ器（`Body`）へ移った＝名前で探す。
+		var raw_scroll: Node = instance.find_child("MapScroll", true, false)
 		if raw_scroll is ScrollContainer:
 			var scroller: ScrollContainer = raw_scroll
 			print("    ⚠ スクロール位置 = %d / 中身の高さ %d ／ 見える高さ %d（⚠ 入口は一番下なので 0 でないのが正解）" % [
@@ -10290,6 +10294,13 @@ class UiFlowRunner extends Node:
 			and GameManager.get_quota_ticket_count() == 0
 			and _label_text(m, "Header", "FloorLabel") == tr("ui_dungeon_header_layer") % [deepest_layer, per_floor - 1]
 			and GameManager.get_dungeon_layers_to_exit() == per_floor - 1)
+		# ⚠ 地図の左の板（2026-10-03・人間「⚠ 左側にインベントリやHPの状況などを　⚠ 長くなるならスクロール」）。
+		var bag_node: Node = m.find_child("BagGrid", true, false)
+		var side_node: Node = m.find_child("RunSide", true, false)
+		_check("地図の左の板：3人の行と鞄が板の中・鞄は %s 列で折り返し・スクロールの枠の中" % (str((bag_node as GridContainer).columns) if bag_node is GridContainer else "?"),
+			side_node != null and bag_node is GridContainer and side_node.is_ancestor_of(bag_node)
+			and (bag_node as GridContainer).columns == (side_node as RunSidePanel).bag_columns()
+			and bag_node.get_parent() is ScrollContainer and side_node.find_child("PartyList", true, false) != null)
 		# ⚠ セーブの形（⚠ JSON を通すと 4.0 になる＝読み込みで int に戻るか）。
 		var saved: Variant = JSON.parse_string(JSON.stringify(GameManager.get_state()))
 		GameManager.load_state(saved as Dictionary)

@@ -119,12 +119,16 @@ func _ready() -> void:
 func _build_bag_grid() -> void:
 	_bag_grid = ItemGrid.new()
 	_bag_grid.name = "BagGrid"
-	_bag_grid.columns = maxi(1, GameManager.get_run_bag_slots(GameManager.RUN_KIND_FLOOR))
-	# ⚠ 鞄はフッターの左（⚠ 右は3人の HP）。⚠ 難ダンジョンと同じ（⚠ 人間の参考画像・2026-09-26）。
+	# ⚠⚠ 2026-10-03（人間「⚠ 左側にインベントリやHPの状況などを」）：⚠ 3人の HP と鞄は地図の左の板（`RunSidePanel`）。
+	#   ⚠ 難ダンジョンと同じ形（`NAV-8`）。⚠ 鞄は決まった列で折り返す・⚠ 長くなったら縦にスクロール。⚠ フッターは空になる＝隠す。
 	var footer: Node = $Layout/Footer
 	footer.add_child(_bag_grid)
-	footer.move_child(_bag_grid, 0)
-	_bag_grid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var side: RunSidePanel = RunSidePanel.attach($Layout/MapSheet)
+	side.add_heading(tr("ui_run_side_party"))
+	side.take_party(party_list)
+	side.add_heading(tr("ui_run_side_bag"))
+	var _bag_scroll: ScrollContainer = side.take_bag(null, _bag_grid)
+	(footer as Control).visible = false
 
 
 func _rebuild_bag() -> void:
@@ -414,12 +418,13 @@ func _on_back_pressed() -> void:
 
 
 func _fit_map_stack() -> void:
-	($Layout/MapSheet/MapStack as Control).custom_minimum_size = map_view.get_combined_minimum_size()
+	# ⚠ 紙は左の板と並ぶ器（`Body`）へ移っている（2026-10-03）＝道で引かない。
+	(map_view.get_parent() as Control).custom_minimum_size = map_view.get_combined_minimum_size()
 
 
 # ⚠ 題の札と凡例（⚠ 難ダンジョンと同じ・2026-09-26）。⚠ 札の字は見出しと同じ（⚠ 新しい文言を作らない）。
 func _build_map_overlays() -> void:
-	var stack: Control = $Layout/MapSheet/MapStack
+	var stack: Control = map_view.get_parent() as Control
 	var plaque: PaperSheet = MapLegend.make_plaque(tr("ui_nav_scenario"), floor_name_label.text)
 	stack.add_child(plaque)
 	# ⚠⚠ シナリオは**左上**に置く（⚠ 難ダンジョンは上の真ん中）。⚠ スクロールしない画面なので、

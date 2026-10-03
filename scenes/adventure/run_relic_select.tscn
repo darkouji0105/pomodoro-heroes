@@ -79,7 +79,7 @@ layout_mode = 2
 [node name="Footer" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
 
-[node name="PartyList" type="HBoxContainer" parent="Layout/Footer"]
+[node name="PartyList" type="BoxContainer" parent="Layout/Footer"]
 layout_mode = 2
 script = ExtResource("5_party")
 

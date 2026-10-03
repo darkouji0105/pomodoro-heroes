@@ -161,7 +161,7 @@ script = ExtResource("3_item_grid")
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="PartyList" type="HBoxContainer" parent="Layout/Footer"]
+[node name="PartyList" type="BoxContainer" parent="Layout/Footer"]
 layout_mode = 2
 size_flags_vertical = 4
 theme_type_variation = &"WideRow"

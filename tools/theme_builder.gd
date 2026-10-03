@@ -773,6 +773,7 @@ static func build() -> void:
 	_build_settings(theme)
 	_build_run_report(theme)
 	_build_depth_gauge(theme)
+	_build_run_side(theme)
 	_build_focus_tool(theme)
 	_build_mini_window(theme)
 	_build_special_effect(theme)
@@ -2676,6 +2677,16 @@ const DEPTH_GAUGE_COLORS: Dictionary = {
 }
 const DEPTH_BIG_SIZE: int = 34             # ⚠ 「31」（⚠ モック Q8 の 34px）
 const DEPTH_STEP_PAD_H: int = 8            # ⚠ 「−10」「+10」「最深へ」の札の左右（⚠ 紙の札の 22 だと右の欄が 250 → 282 に広がった）
+
+
+# --- ランの地図の左の板（2026-10-03・人間「⚠ 左側にインベントリやHPの状況などを」・`RunSidePanel`）---
+const RUN_SIDE_WIDTH: int = 290            # ⚠ 3人の行（名前・棒・値）が1行に収まる幅
+const RUN_SIDE_BAG_COLUMNS: int = 4        # ⚠ 鞄のマスの列（⚠ 枠が増えたら下へ折り返す＝横にずれない）
+
+
+static func _build_run_side(theme: Theme) -> void:
+	theme.set_constant(&"width", &"RunSide", RUN_SIDE_WIDTH)
+	theme.set_constant(&"bag_columns", &"RunSide", RUN_SIDE_BAG_COLUMNS)
 
 
 static func _build_depth_gauge(theme: Theme) -> void:

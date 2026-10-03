@@ -779,6 +779,8 @@ ui_depth_gauge_entrance,入口
 ui_depth_gauge_limit,%d層まで
 ui_depth_gauge_best,最深
 ui_sortie_preset_short,控え
+ui_run_side_party,潜っている3人
+ui_run_side_bag,鞄
 ui_dungeon_currency,コイン
 ui_dungeon_bag,鞄
 ui_dungeon_downed,脱落

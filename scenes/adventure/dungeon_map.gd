@@ -118,7 +118,16 @@ func _ready() -> void:
 	# ⚠ ヘッダーのレリックを押しても同じ窓（⚠ 人間の選択）。
 	relic_grid.slot_pressed.connect(func(_entry: Dictionary, _index: int) -> void: _open_relic_list())
 	GameManager.dungeon_run_changed.connect(_on_dungeon_run_changed)
-	bag_grid.columns = GameManager.get_dungeon_bag_slots()
+	# ⚠⚠ 2026-10-03（人間「⚠ かばんのわくがふえると横にずれていくので見づらい　⚠ 左側にインベントリやHPの状況などを
+	#   ⚠ インベントリが長くなるならスクロールできるように」）：⚠ 3人の HP と鞄を地図の左の板へ（`RunSidePanel`）。
+	#   ⚠ 鞄は決まった列で折り返す（⚠ 前は枠の数＝1列に並べていて、枠が増えるたびに横へ伸びた）。
+	#   ⚠ フッターは空になる（⚠ 続行・撤退のボタンはもともと出さない＝決定48-b）＝隠す。
+	var side: RunSidePanel = RunSidePanel.attach($Layout/MapSheet)
+	side.add_heading(tr("ui_run_side_party"))
+	side.take_party(party_list)
+	var _bag_scroll: ScrollContainer = side.take_bag($Layout/Footer/BagCaption, bag_grid)
+	($Layout/Footer as Control).visible = false
+	($Layout/FooterRule as Control).visible = false
 	bag_grid.slot_pressed.connect(_on_bag_slot_pressed)
 	# ⚠ マスを押したら進む。⚠ 線を引き直すたびに（＝マスの位置が確定したら）スクロールを寄せる。
 	map_view.node_pressed.connect(_on_node_pressed)
@@ -921,7 +930,8 @@ func _on_back_pressed() -> void:
 # ⚠⚠ 地図の上に重ねる題の札と凡例（2026-09-26・人間の参考画像）。⚠ スクロールしない（⚠ 紙に貼ってある）。
 #   ⚠ 札の字はこのフロアの層の幅「31–40層」（⚠ 10-03 からヘッダーは「33層　∩ 出口まで 7」＝別の字）。⚠ 凡例はマスの種類ごとの絵と名前。
 func _build_map_overlays() -> void:
-	var stack: Control = $Layout/MapSheet/MapStack
+	# ⚠ 紙は左の板と並ぶ器（`Body`）へ移っている（2026-10-03）＝道で引かない。
+	var stack: Control = map_scroll.get_parent() as Control
 	var plaque: PaperSheet = MapLegend.make_plaque(dungeon_name_label.text, _layer_range_text())
 	stack.add_child(plaque)
 	plaque.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE)

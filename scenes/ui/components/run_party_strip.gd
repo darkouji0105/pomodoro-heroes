@@ -1,5 +1,7 @@
 class_name RunPartyStrip
-extends HBoxContainer
+# ⚠ 2026-10-03：`HBoxContainer` → `BoxContainer`（⚠ 地図の左の板で縦に並べる＝`RunSidePanel`。⚠ HBox は向きを変えられない＝赤が出た）。
+#   ⚠ 既定は横（⚠ `vertical` を立てたときだけ縦）。⚠ `.tscn` の器の型も `BoxContainer`。
+extends BoxContainer
 
 # 3人の「戦闘時 MAX HP」の行（2026-09-19・難ダンジョンのモック v2）。
 #
