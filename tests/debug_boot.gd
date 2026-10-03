@@ -4790,10 +4790,12 @@ func _report_layout() -> void:
 		var raw_scroll: Node = instance.get_node_or_null(NodePath("Layout/MapSheet/MapStack/MapScroll"))
 		if raw_scroll is ScrollContainer:
 			var scroller: ScrollContainer = raw_scroll
-			print("    ⚠ スクロール位置 = %d / 中身の高さ %d（⚠ 入口は一番下なので 0 でないのが正解）" % [
-				scroller.scroll_vertical, int(scroller.get_v_scroll_bar().max_value),
+			print("    ⚠ スクロール位置 = %d / 中身の高さ %d ／ 見える高さ %d（⚠ 入口は一番下なので 0 でないのが正解）" % [
+				scroller.scroll_vertical, int(scroller.get_v_scroll_bar().max_value), int(scroller.size.y),
 			])
-			if scroller.scroll_vertical <= 0:
+			# ⚠ 2026-10-03（決定49）：1フロアが 10層になり、⚠ 検査の窓（見える高さ 960）にはマップが全部入る＝動かさないのが正解。
+			#   ⚠ 中身が見える高さより大きいときだけ見る（⚠ 窓ありの撮影 `01_dungeon_map` では寄っている）。
+			if scroller.get_v_scroll_bar().max_value > scroller.size.y and scroller.scroll_vertical <= 0:
 				push_error("[DebugBoot] スクロールが先頭のまま（段階20-c が効いていない）")
 		# ⚠⚠ 押したマスの近くの「できること」（2026-09-19・モック v2）。⚠ 拾いものの窓で最初のマスを押す。
 		#   ⚠ 絵は取れないが「吹き出しが出たか・ボタンが何個か・画面の中に収まったか」は取れる。
@@ -9997,6 +9999,7 @@ class UiFlowRunner extends Node:
 		await _flow_focus_tools()
 		await _flow_special_effects()
 		await _flow_quota_ticket()
+		await _flow_dungeon_depth()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -10355,6 +10358,92 @@ class UiFlowRunner extends Node:
 		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
 		_check("ノルマ札：「続きから」は札が無くても入れる", _path_of(get_tree().current_scene) == DUNGEON_MAP)
 		GameManager.abandon_dungeon_run()
+
+	# --- ダンジョンの形（2026-10-03・決定49・`EXEC_DUNGEON_SHAPE.md`・人間「⚠ 1い　⚠ 2あ　⚠ 3あ　⚠ 4あ　⚠ 5あ」） ---
+	#   ⚠ 最深を書く口は本番のランの終わりだけ＝⚠ 本番の口でボスを3体倒して持ち帰る（最深 3＝30層）。
+
+	func _flow_dungeon_depth() -> void:
+		const TICKET: String = GameStateKeys.ITEM_QUOTA_TICKET
+		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
+		var per_floor: int = GameManager.get_dungeon_layers_per_floor(dungeon_id)
+		if GameManager.is_in_dungeon():
+			GameManager.abandon_dungeon_run()
+		if GameManager.get_dungeon_best_floors(dungeon_id) < 3:
+			GameManager.start_dungeon_run(dungeon_id)
+			for i: int in range(3):
+				GameManager.debug_mark_dungeon_boss_cleared()
+				if i < 2:
+					GameManager.descend_dungeon_floor()
+			var _back: Dictionary = GameManager.retreat_from_dungeon()
+			GameManager.mark_run_report_seen()
+		var best: int = GameManager.get_dungeon_best_floors(dungeon_id)
+		_check("深さ：1フロアは %d 層・最深 %d で入れるのは %s" % [per_floor, best, str(GameManager.get_dungeon_start_floor_options(dungeon_id))],
+			per_floor == 10 and str(GameManager.get_dungeon_start_floor_options(dungeon_id)) == str(range(1, best + 2)))
+		# ⚠ 開いていない深さは入れない（⚠ 札も減らない）。
+		var have: int = GameManager.get_quota_ticket_count()
+		if have > 0:
+			GameManager.call("_remove_from_inventory", TICKET, have)
+		GameManager.add_to_inventory(TICKET, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+		_check("深さ：開いていない深さ（%d）では入れず札も減らない" % (best + 2),
+			not GameManager.enter_dungeon_with_ticket(dungeon_id, best + 2) and not GameManager.is_in_dungeon() and GameManager.get_quota_ticket_count() == 1)
+		# 掲示板の「受ける」→ 出撃の準備に「潜る深さ」（⚠ 最初は最深の次）。
+		var q: Node = await _open(ADVENTURE, {})
+		await _press(_tab_button(q, 1))
+		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
+		var b: Node = get_tree().current_scene
+		var deepest_layer: int = best * per_floor + 1
+		_check("深さ：出撃の準備に「%s 層から」・「%s」・「%s」" % [_label_text(b, "Depth", "StartLayerLabel"), _label_text(b, "Depth", "FromExitLabel"), _label_text(b, "Depth", "NextExitLabel")],
+			_label_text(b, "Depth", "StartLayerLabel") == str(deepest_layer)
+			and _label_text(b, "Depth", "FromExitLabel") == tr("ui_depth_from_exit") % (deepest_layer - 1)
+			and _label_text(b, "Depth", "NextExitLabel") == tr("ui_depth_next_exit") % ((best + 1) * per_floor)
+			and _label_text(b, "Strip", "CarryLabel") != "")
+		_check("深さ：最深の次なら「+10」「最深へ」は押せない・「−10」は押せる",
+			(b.find_child("DepthPlusButton", true, false) as BaseButton).disabled and (b.find_child("DepthDeepestButton", true, false) as BaseButton).disabled
+			and not (b.find_child("DepthMinusButton", true, false) as BaseButton).disabled)
+		await _press(b.find_child("DepthMinusButton", true, false))
+		await _wait(OPEN_FRAMES)
+		_check("深さ：「−10」で %s 層から・「+10」が押せる" % _label_text(b, "Depth", "StartLayerLabel"),
+			_label_text(b, "Depth", "StartLayerLabel") == str(deepest_layer - per_floor) and not (b.find_child("DepthPlusButton", true, false) as BaseButton).disabled)
+		for _i: int in range(best):
+			var minus: Node = b.find_child("DepthMinusButton", true, false)
+			if minus is BaseButton and not (minus as BaseButton).disabled:
+				await _press(minus)
+				await _wait(OPEN_FRAMES)
+		_check("深さ：いちばん浅いと「%s」・%s 層から・「−10」は押せない" % [_label_text(b, "Depth", "FromExitLabel"), _label_text(b, "Depth", "StartLayerLabel")],
+			_label_text(b, "Depth", "StartLayerLabel") == "1" and _label_text(b, "Depth", "FromExitLabel") == tr("ui_depth_from_entrance")
+			and (b.find_child("DepthMinusButton", true, false) as BaseButton).disabled)
+		await _press(b.find_child("DepthDeepestButton", true, false))
+		await _wait(OPEN_FRAMES)
+		_check("深さ：「最深へ」で %s 層から" % _label_text(b, "Depth", "StartLayerLabel"), _label_text(b, "Depth", "StartLayerLabel") == str(deepest_layer))
+		# 出撃 → 選んだ深さから（⚠ 札を1枚使う）。
+		await _press(b.find_child("SortieButton", true, false))
+		if b.has_method("skip_sign"):
+			b.call("skip_sign")
+		await _wait(OPEN_FRAMES)
+		var m: Node = get_tree().current_scene
+		_check("深さ：出撃するとフロア %d（入ったフロア %d）・札 %d 枚・見出し「%s」" % [GameManager.get_dungeon_floor_index(), GameManager.get_dungeon_start_floor(), GameManager.get_quota_ticket_count(), _label_text(m, "Header", "FloorLabel")],
+			_path_of(m) == DUNGEON_MAP and GameManager.get_dungeon_floor_index() == best + 1 and GameManager.get_dungeon_start_floor() == best + 1
+			and GameManager.get_quota_ticket_count() == 0
+			and _label_text(m, "Header", "FloorLabel") == tr("ui_dungeon_layer_range") % [deepest_layer, deepest_layer + per_floor - 1])
+		# ⚠ セーブの形（⚠ JSON を通すと 4.0 になる＝読み込みで int に戻るか）。
+		var saved: Variant = JSON.parse_string(JSON.stringify(GameManager.get_state()))
+		GameManager.load_state(saved as Dictionary)
+		var start_value: Variant = GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_START_FLOOR, null)
+		_check("深さ：セーブを通しても start_floor_index は int の %s" % str(start_value), typeof(start_value) == TYPE_INT and int(start_value) == best + 1)
+		# わかれ道：⚠ 「40層　ボスを倒した」「もう10層」「41–50層」→ 出る → 報告書「31 → 40」。
+		GameManager.debug_mark_dungeon_boss_cleared()
+		var fork: Node = await _open(DUNGEON_FLOOR_CLEAR, {})
+		if fork == null:
+			return
+		var exit_layer: int = (best + 1) * per_floor
+		_check("深さ：わかれ道「%s」・「%s」" % [(fork.get("heading") as Label).text, _label_text(fork, "DescendCard", "NextRangeLabel")],
+			(fork.get("heading") as Label).text == tr("ui_dungeon_clear_heading") % exit_layer
+			and _label_text(fork, "DescendCard", "NextRangeLabel") == tr("ui_dungeon_layer_range") % [exit_layer + 1, exit_layer + per_floor])
+		await _press(fork.find_child("RetreatButton", true, false), OPEN_FRAMES)
+		var r: Node = get_tree().current_scene
+		_check("深さ：報告書「%s」・最深 %d" % [_label_text(r, "FloorLine", "FloorsLabel"), GameManager.get_dungeon_best_floors(dungeon_id)],
+			_path_of(r) == REPORT and _label_text(r, "FloorLine", "FloorsLabel") == tr("ui_report_layer_span") % [deepest_layer, exit_layer]
+			and GameManager.get_dungeon_best_floors(dungeon_id) == best + 1)
 
 	# --- 装備の特殊効果（2026-10-02・回UI-仕組み⑦・手本 RichItemFx・人間「⚠ 1い　⚠ 2あ　⚠ 3あ」） ---
 
