@@ -62,3 +62,13 @@
 ## 6. 止まる条件
 
 - ⚠ `Balance` の欄を消したあと、⚠ ほかの Config が `null` になったら（⚠ AGENTS.md「移動したあとは Balance の各欄を読むシナリオを回す」）止めて報告
+
+---
+
+## 7. 実施結果（2026-10-03）
+
+| | 何をしたら何が出たか |
+|---|---|
+| ログ | ⚠ §3 の `grep`（消した口の名前・`Balance.inventory`・`ui_warehouse_discard`・`REPORT_LEFT_BEHIND`）は**注釈を除いて 0 件** ／ ⚠ `inventory`：装備 600 本で個体 +600・宝箱は開く・ショップで買える・作業場で受け取れる・撤退で装備2本とも持ち帰り `left_behind` の鍵が無い・赤0 ／ ⚠ `ui_flow` **192 通った・0 落ちた**（⚠ 「持ち物：消耗品に『捨てる』が無い」）／ ⚠ `--import` 赤0（⚠ `uid_cache.bin` を消してから）／ ⚠ Balance の各欄を読む検査（`materials` `parts` `drops` `research` `economy` `floor` `layout` `passives`）赤0 |
+| 画面 | ⚠ `shot` 赤0（⚠ `33_belongings_material` は前と同じ姿） |
+| 報告 | ⚠ `inventory_window` の「④ タブが4つ」は前からの古い検査（⚠ 今回と関係ない） |
