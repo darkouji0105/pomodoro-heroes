@@ -708,7 +708,8 @@ func get_material_slot_entries() -> Array:
 #   ⚠ 満杯なら 0 が返る。⚠ 呼び元は戻り値を見て、⚠ 払ったものを取り消すのではなく
 #     「払う前に弾く」こと（CLAUDE.md 6番）。⚠ ここは最後の砦であって、判定の場所ではない。
 #   ⚠ 素材（add_material）はマスを使わないので、ここを通らない（人間の決定5）。
-func add_to_inventory(item_id: String, count: int, item_type: String = GameStateKeys.ITEM_TYPE_UNKNOWN) -> int:
+# ⚠ `grade`＝装備の個体が生まれる等級（2026-10-03・回4-b）。⚠ 装備以外は見ない。
+func add_to_inventory(item_id: String, count: int, item_type: String = GameStateKeys.ITEM_TYPE_UNKNOWN, grade: int = 1) -> int:
 	if count <= 0:
 		return 0
 	# ⚠⚠ 拠点に容量は無い（2026-10-03・回3-d・`BS-20`）＝⚠ 渡された数をそのまま入れる（⚠ 前は入るぶんまで削っていた）。
@@ -717,7 +718,7 @@ func add_to_inventory(item_id: String, count: int, item_type: String = GameState
 		var newly: bool = _mark_codex_discovered(item_id)
 		var last_instance_id: String = ""
 		for i: int in range(count):
-			last_instance_id = _create_equipment_instance(item_id)
+			last_instance_id = _create_equipment_instance(item_id, grade)
 		_add_codex_obtained(item_id, count)
 		print("[GameManager] add_to_inventory('%s', %d) -> equipment instances (last=%s newly_discovered=%s)" % [
 			item_id, count, last_instance_id, newly
@@ -1382,6 +1383,8 @@ const SLOT_ENTRY_GRADE: String = "grade"
 const SLOT_ENTRY_EQUIPPED_BY: String = "equipped_by"
 # ⚠ 何個持っているか（⚠ 鞄のマスだけが入れる。⚠ 倉庫は拠点の所持数を引けるので入れない）。
 const SLOT_ENTRY_COUNT: String = "count"
+# ⚠ ランの鞄・拾い待ちのマスだけが持つ「鍵」（2026-10-03・回4-b）。⚠ 等級つきの装備は `item_id#等級`。⚠ 画面は拾う・捨てるときにこれを返す（`run_entry_key()`）。
+const SLOT_ENTRY_BAG_KEY: String = "bag_key"
 # ⚠ 種類は2つだけ。⚠ 増やすときは ItemSlot の描き分けも同じ回に足すこと。
 const SLOT_KIND_ITEM: String = "item"
 const SLOT_KIND_INSTANCE: String = "instance"
@@ -2129,7 +2132,9 @@ func get_equipment_instance(instance_id: String) -> Dictionary:
 
 # 個体を1つ作る。戻り値は新しい instance_id。
 # 呼ぶのは add_to_inventory() だけ（シグナルもそちらが1本だけ飛ばす）。
-func _create_equipment_instance(item_id: String) -> String:
+# ⚠ `grade`＝生まれる等級（2026-10-03・回4-b・`EQ-13`：⚠ 難ダンジョンで拾った装備は等級つき）。⚠ 既定 1。
+func _create_equipment_instance(item_id: String, grade: int = 1) -> String:
+	grade = clampi(grade, 1, get_max_equipment_grade())
 	var next_id: int = int(_state.get(GameStateKeys.NEXT_EQUIPMENT_INSTANCE_ID, 1))
 	var instance_id: String = INSTANCE_ID_PREFIX + str(next_id)
 
@@ -2142,15 +2147,15 @@ func _create_equipment_instance(item_id: String) -> String:
 	var instances: Dictionary = _copy_dict(GameStateKeys.EQUIPMENT_INSTANCES)
 	instances[instance_id] = {
 		GameStateKeys.INSTANCE_ITEM_ID: item_id,
-		GameStateKeys.INSTANCE_GRADE: 1,
+		GameStateKeys.INSTANCE_GRADE: grade,
 		GameStateKeys.INSTANCE_PARTS: parts,
 	}
 	_state[GameStateKeys.EQUIPMENT_INSTANCES] = instances
 	_state[GameStateKeys.NEXT_EQUIPMENT_INSTANCE_ID] = next_id + 1
 	# ⚠ 図鑑に生まれた等級を記録（2026-09-28・`EXEC_CODEX_GRADES.md` §4）。
-	_mark_codex_grade(item_id, 1)
+	_mark_codex_grade(item_id, grade)
 
-	print("[GameManager] _create_equipment_instance('%s') -> %s" % [item_id, instance_id])
+	print("[GameManager] _create_equipment_instance('%s', 等級%d) -> %s" % [item_id, grade, instance_id])
 	return instance_id
 
 # 個体1つ分を _state へ書き戻す（_write_growth() と同じ形）。
@@ -5879,13 +5884,15 @@ func _consume_item(item_id: String, count: int) -> void:
 		return
 	push_warning("[GameManager] _consume_item: items.json に無いID: " + item_id)
 
-func _grant_item(item_id: String, count: int) -> void:
+# ⚠ `item_id` にランの鞄の鍵（`item_id#等級`）が来てもよい（2026-10-03・回4-b）＝⚠ 等級つきの個体になる。
+func _grant_item(key: String, count: int) -> void:
+	var item_id: String = run_bag_item_id(key)
 	var storage: String = _item_storage(item_id)
 	if storage == ITEM_STORAGE_MATERIAL:
 		add_material(item_id, count)
 		return
 	if storage == ITEM_STORAGE_INVENTORY:
-		add_to_inventory(item_id, count, str(MasterDataLoader.get_item(item_id).get(ITEM_MASTER_ITEM_TYPE, GameStateKeys.ITEM_TYPE_UNKNOWN)))
+		add_to_inventory(item_id, count, str(MasterDataLoader.get_item(item_id).get(ITEM_MASTER_ITEM_TYPE, GameStateKeys.ITEM_TYPE_UNKNOWN)), maxi(1, run_bag_grade(key)))
 		return
 	push_warning("[GameManager] _grant_item: items.json に無いID: " + item_id)
 
@@ -6764,7 +6771,8 @@ func is_chest_item(item_id: String) -> bool:
 func item_name_key(item_id: String) -> String:
 	if is_chest_item(item_id):
 		return str(MasterDataLoader.get_chest(item_id).get(CHEST_NAME_KEY, item_id))
-	return "ui_res_" + item_id
+	# ⚠ ランの鞄の鍵（`item_id#等級`）が来ても品の名前を返す（2026-10-03・回4-b）。
+	return "ui_res_" + run_bag_item_id(item_id)
 
 
 # 宝箱のレアリティ（2026-09-18・人間「宝箱を開けるとき宝箱のアイコンが見れるように　文字の色も」）。
@@ -7565,8 +7573,12 @@ const DUNGEON_MASTER_LOOT: String = "loot"
 # 深さの帯（2026-10-03・決定47・`EXEC_DUNGEON_DEPTH.md`）＝`[{from_layer, battle_pool?, boss?, loot?}]`。
 const DUNGEON_MASTER_DEPTH_BANDS: String = "depth_bands"
 const DUNGEON_BAND_FROM_LAYER: String = "from_layer"
+# 落ちる装備の等級 `[下限, 上限]`（2026-10-03・回4-b・人間「⚠ ２あ」）。⚠ 帯で上書きできる。
+const DUNGEON_MASTER_EQUIP_GRADE: String = "equip_grade"
 # ⚠ 帯で上書きできる鍵（⚠ ほかの鍵を帯に書いても読まない＝E133 が言う）。
-const DUNGEON_BAND_KEYS: Array[String] = [DUNGEON_MASTER_BATTLE_POOL, DUNGEON_MASTER_BOSS, DUNGEON_MASTER_LOOT]
+const DUNGEON_BAND_KEYS: Array[String] = [DUNGEON_MASTER_BATTLE_POOL, DUNGEON_MASTER_BOSS, DUNGEON_MASTER_LOOT, DUNGEON_MASTER_EQUIP_GRADE]
+# 品が落ちる最低の等級（2026-10-03・回4-b・`EQ-13`・人間「⚠ ３あ」）＝items.json の欄。⚠ 無ければ 1。
+const ITEM_MASTER_DROP_MIN_GRADE: String = "drop_min_grade"
 const DUNGEON_MASTER_CURRENCY: String = "currency"
 # 通路の表（段階19-c-2・決定24）。⚠ 何が出るかは JSON、⚠ どれくらい出るかは Config。
 const DUNGEON_MASTER_EDGES: String = "edges"
@@ -8284,9 +8296,10 @@ func _record_run_report(kind: String, end: String, target_id: String, floors: in
 		REPORT_BEST_UPDATED: best_updated,
 		REPORT_BEST: get_dungeon_best_floors(target_id) if kind == REPORT_KIND_DUNGEON else 0,
 		REPORT_MEMBERS: get_party_members().duplicate(),
-		REPORT_GRANTED: (items.get(REPORT_GRANTED, {}) as Dictionary).duplicate(true),
-		REPORT_DISCARDED: (items.get(REPORT_DISCARDED, {}) as Dictionary).duplicate(true),
-		REPORT_LOST: (items.get(REPORT_LOST, {}) as Dictionary).duplicate(true),
+		# ⚠ ランの鞄の鍵（`item_id#等級`）は品の ID でまとめる（2026-10-03・回4-b・⚠ 報告書は品の名前と数だけ）。
+		REPORT_GRANTED: _merge_run_keys(items.get(REPORT_GRANTED, {}) as Dictionary),
+		REPORT_DISCARDED: _merge_run_keys(items.get(REPORT_DISCARDED, {}) as Dictionary),
+		REPORT_LOST: _merge_run_keys(items.get(REPORT_LOST, {}) as Dictionary),
 	}
 	_run_report_seen = false
 	print("[GameManager] 帰還報告書: %s" % str(_last_run_report))
@@ -8463,6 +8476,55 @@ func is_run_character_downed(kind: String, character_id: String) -> bool:
 	return is_dungeon_character_downed(character_id)
 
 
+# --- 鞄・拾い待ちの鍵（2026-10-03・回4-b・`EXEC_EQUIP_DROP.md`・人間「⚠ １あ」＝拾った瞬間に等級が決まる） ---
+#   ⚠ 等級つきの装備だけ `item_id#等級`。⚠ ほかの品は今までどおり `item_id`。
+#   ⚠ 組み立て・読み解きはこの口だけ（⚠ 画面で `#` を探さない）。
+const RUN_BAG_GRADE_SEP: String = "#"
+
+
+func make_run_bag_key(item_id: String, grade: int) -> String:
+	return item_id if grade <= 0 else "%s%s%d" % [item_id, RUN_BAG_GRADE_SEP, grade]
+
+
+func run_bag_item_id(key: String) -> String:
+	var at: int = key.find(RUN_BAG_GRADE_SEP)
+	return key if at < 0 else key.substr(0, at)
+
+
+# 鍵の等級（⚠ 等級の無い品は 0）。
+func run_bag_grade(key: String) -> int:
+	var at: int = key.find(RUN_BAG_GRADE_SEP)
+	return 0 if at < 0 else int(key.substr(at + 1))
+
+
+# 鍵と個数からマスを作る（⚠ 画面が鞄の辞書からマスを作るときもこれを使う）。
+func make_run_item_entry(key: String, count: int) -> Dictionary:
+	return {
+		SLOT_ENTRY_KIND: SLOT_KIND_ITEM,
+		SLOT_ENTRY_ITEM_ID: run_bag_item_id(key),
+		SLOT_ENTRY_INSTANCE_ID: "",
+		SLOT_ENTRY_GRADE: run_bag_grade(key),
+		SLOT_ENTRY_EQUIPPED_BY: "",
+		# ⚠ このマスに入っている個数（⚠ 拠点の所持数ではない）。
+		SLOT_ENTRY_COUNT: count,
+		SLOT_ENTRY_BAG_KEY: key,
+	}
+
+
+# マスの鍵（⚠ 拾う・捨てる口へ返すもの）。⚠ 鍵を持たないマスは品の ID。
+func run_entry_key(entry: Dictionary) -> String:
+	return str(entry.get(SLOT_ENTRY_BAG_KEY, entry.get(SLOT_ENTRY_ITEM_ID, "")))
+
+
+# 鍵の辞書を品の ID でまとめる（⚠ 報告書など・等級を落とす）。
+func _merge_run_keys(source: Dictionary) -> Dictionary:
+	var merged: Dictionary = {}
+	for key: Variant in source:
+		var item_id: String = run_bag_item_id(str(key))
+		merged[item_id] = int(merged.get(item_id, 0)) + int(source[key])
+	return merged
+
+
 # 鞄の中身。{item_id: 個数}（⚠ 複製）。
 func get_run_bag(kind: String) -> Dictionary:
 	var run: Dictionary = _state.get(_run_state_key(kind), {})
@@ -8488,7 +8550,7 @@ func get_run_bag_slots(kind: String) -> int:
 func get_run_bag_stack_limit(kind: String, item_id: String) -> int:
 	var config: Variant = Balance.floor if kind == RUN_KIND_FLOOR else Balance.dungeon
 	var limit: int = 1 if config == null else maxi(1, int(config.bag_material_stack))
-	var definition: Dictionary = MasterDataLoader.get_item(item_id)
+	var definition: Dictionary = MasterDataLoader.get_item(run_bag_item_id(item_id))
 	if str(definition.get(ITEM_MASTER_ITEM_TYPE, "")) != GameStateKeys.ITEM_TYPE_MATERIAL:
 		return 1
 	return limit
@@ -8550,15 +8612,8 @@ func _run_item_slot_layout(kind: String, source: Dictionary) -> Array:
 		while left > 0:
 			var here: int = mini(left, limit)
 			left -= here
-			result.append({
-				SLOT_ENTRY_KIND: SLOT_KIND_ITEM,
-				SLOT_ENTRY_ITEM_ID: item_id,
-				SLOT_ENTRY_INSTANCE_ID: "",
-				SLOT_ENTRY_GRADE: 0,
-				SLOT_ENTRY_EQUIPPED_BY: "",
-				# ⚠ このマスに入っている個数（⚠ 拠点の所持数ではない）。
-				SLOT_ENTRY_COUNT: here,
-			})
+			# ⚠ `item_id` はここでは鍵（⚠ 等級つきの装備は `item_id#等級`・2026-10-03）。
+			result.append(make_run_item_entry(item_id, here))
 	return result
 
 
@@ -8859,7 +8914,11 @@ func _grant_dungeon_node_gains(kind: String, to_pending: bool = false) -> Dictio
 	var rolls: int = int(draw.get(CHEST_DRAW_ROLLS, 0))
 	if rolls <= 0:
 		return result
-	var rolled: Dictionary = _roll_weighted_table(draw.get(CHEST_DRAW_ENTRIES, []), rolls)
+	# ⚠⚠ 装備は等級つきで落ちる（2026-10-03・回4-b・`EQ-13`）：⚠ この層の範囲で落ちない珍しい品は表から外す。
+	var grade_range: Vector2i = get_dungeon_equip_grade_range(
+		str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")), get_dungeon_current_layer()
+	)
+	var rolled: Dictionary = _roll_weighted_table(_filter_drop_rows(draw.get(CHEST_DRAW_ENTRIES, []), grade_range), rolls)
 	# ⚠ 綴り順で入れる（Dictionary のキー順は不定。鞄が溢れたときに
 	#   「何が入って何が入らなかったか」が起動ごとに変わらないようにする）。
 	var item_ids: Array = rolled.keys()
@@ -8867,6 +8926,13 @@ func _grant_dungeon_node_gains(kind: String, to_pending: bool = false) -> Dictio
 	for item_entry: Variant in item_ids:
 		var item_id: String = str(item_entry)
 		var wanted: int = int(rolled[item_entry])
+		if to_pending and _is_equipment_item(item_id):
+			# ⚠ 装備は1個ずつ等級を振って鍵にする（⚠ 拾った瞬間に決まる＝人間「⚠ １あ」）。
+			for _n: int in range(wanted):
+				var graded: String = make_run_bag_key(item_id, _roll_drop_grade(item_id, grade_range))
+				_add_dungeon_pending_loot(graded, 1)
+				(result["granted"] as Dictionary)[graded] = int((result["granted"] as Dictionary).get(graded, 0)) + 1
+			continue
 		if to_pending:
 			# ⚠ 拾い待ちには枠が無いので全部積む。⚠ 鞄へ入れるのはプレイヤーが選ぶ。
 			_add_dungeon_pending_loot(item_id, wanted)
@@ -9527,6 +9593,43 @@ func _validate_dungeon_bands(dungeon_id: String, dungeon: Dictionary) -> int:
 						push_error("[GameManager] E133 dungeon.json: %s の帯 %d層 の loot.%s に items.json に無いID: %s" % [dungeon_id, from_layer, str(kind), item_id])
 						errors += 1
 	return errors
+
+
+# その層で落ちる装備の等級 `[下限, 上限]`（⚠ 帯 → 入口の表 → 無ければ [1, 1]）。⚠ 潜る深さの紙もこれを読む。
+func get_dungeon_equip_grade_range(dungeon_id: String, layer: int) -> Vector2i:
+	var raw: Variant = _dungeon_master_at(MasterDataLoader.get_dungeon(dungeon_id), DUNGEON_MASTER_EQUIP_GRADE, layer)
+	var low: int = 1
+	var high: int = 1
+	if raw is Array and (raw as Array).size() >= 2:
+		low = int((raw as Array)[0])
+		high = int((raw as Array)[1])
+	var top: int = get_max_equipment_grade()
+	low = clampi(low, 1, top)
+	return Vector2i(low, clampi(high, low, top))
+
+
+# 品が落ちる最低の等級（⚠ 珍しい品は高い等級でしか落ちない＝`EQ-13`）。
+func get_item_drop_min_grade(item_id: String) -> int:
+	return maxi(1, int(MasterDataLoader.get_item(item_id).get(ITEM_MASTER_DROP_MIN_GRADE, 1)))
+
+
+# 戦利品の表から、⚠ この等級の範囲では落ちない装備の行を外す（⚠ 珍しい品＝最低等級が上限より上）。
+func _filter_drop_rows(rows: Variant, grade_range: Vector2i) -> Array:
+	var kept: Array = []
+	if not (rows is Array):
+		return kept
+	for row: Variant in (rows as Array):
+		if row is Dictionary:
+			var item_id: String = str((row as Dictionary).get(CHEST_DRAW_ITEM_ID, ""))
+			if _is_equipment_item(item_id) and get_item_drop_min_grade(item_id) > grade_range.y:
+				continue
+		kept.append(row)
+	return kept
+
+
+# 落ちた装備1個の等級（⚠ 下限は帯と品の最低の大きいほう）。
+func _roll_drop_grade(item_id: String, grade_range: Vector2i) -> int:
+	return randi_range(maxi(grade_range.x, mini(get_item_drop_min_grade(item_id), grade_range.y)), grade_range.y)
 
 
 # いまのフロアの敵の強さ（％・100＝そのまま）。⚠ 入口から数えたフロアで伸びる（⚠ 31層から入っても強い）。

@@ -8108,6 +8108,93 @@ func _report_dungeon_depth() -> void:
 		push_error("[DebugBoot] 帯より浅い層で帯の顔ぶれが出た")
 	cache[GameManager.DUNGEON_MASTER_DEPTH_BANDS] = []
 	GameManager.abandon_dungeon_run()
+	_report_equip_drop()
+
+
+# 装備のドロップ（2026-10-03・回4-b・`EXEC_EQUIP_DROP.md`・人間「⚠ １あ　⚠ ２あ　⚠ ３あ　⚠ ４あ」）。
+func _report_equip_drop() -> void:
+	print("[DebugBoot] --- 装備のドロップ（⚠ 拾った瞬間に等級・珍しい品・拠点の宝箱）---")
+	var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
+	GameManager.start_dungeon_run(dungeon_id)
+	var grade_range: Vector2i = GameManager.get_dungeon_equip_grade_range(dungeon_id, 1)
+	# ① 入口の帯：⚠ ボスの戦利品を 200 回引き、⚠ 装備の鍵と等級・珍しい品を数える。
+	var keys: Dictionary = {}
+	for _i: int in range(200):
+		var _got: Dictionary = GameManager.call("_grant_dungeon_node_gains", GameStateKeys.DUNGEON_NODE_KIND_BOSS, true)
+	for raw: Variant in GameManager.get_run_pending_loot(GameManager.RUN_KIND_DUNGEON):
+		var key: String = str(raw)
+		if GameManager.call("_is_equipment_item", GameManager.run_bag_item_id(key)):
+			keys[key] = true
+	var bad_grade: int = 0
+	var rare: int = 0
+	for key: Variant in keys:
+		var grade: int = GameManager.run_bag_grade(str(key))
+		if grade < grade_range.x or grade > grade_range.y:
+			bad_grade += 1
+		if GameManager.get_item_drop_min_grade(GameManager.run_bag_item_id(str(key))) > grade_range.y:
+			rare += 1
+	print("  入口の帯の範囲 = %s ／ 出た装備の鍵 %d 種（例 %s） ／ 範囲の外 %d（0 が正解） ／ 珍しい品 %d（0 が正解）" % [
+		str(grade_range), keys.size(), str(keys.keys().slice(0, 3)), bad_grade, rare
+	])
+	if keys.is_empty() or bad_grade > 0 or rare > 0:
+		push_error("[DebugBoot] 装備が等級つきで落ちていない（または珍しい品が入口で出た）")
+	# ② 拾って持ち帰る：⚠ その等級の個体になる。
+	if not keys.is_empty():
+		var pick: String = str(keys.keys()[0])
+		GameManager.call("_remove_run_pending_loot", GameManager.RUN_KIND_DUNGEON, pick)
+		GameManager.clear_run_pending_loot(GameManager.RUN_KIND_DUNGEON)
+		GameManager.call("_add_run_pending_loot", GameManager.RUN_KIND_DUNGEON, pick, 1)
+		var taken: bool = GameManager.take_run_pending_loot(GameManager.RUN_KIND_DUNGEON, pick)
+		var before: Dictionary = {}
+		for view: Variant in GameManager.get_owned_instances():
+			before[str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))] = true
+		GameManager.debug_mark_dungeon_boss_cleared()
+		var report: Dictionary = GameManager.retreat_from_dungeon()
+		var made_grade: int = 0
+		for view: Variant in GameManager.get_owned_instances():
+			var id: String = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+			if not before.has(id):
+				made_grade = int(GameManager.get_equipment_instance(id).get(GameStateKeys.INSTANCE_GRADE, 0))
+		print("  '%s' を拾う -> %s ／ 持ち帰ると個体の等級 %d（%d が正解） ／ 報告書の品 %s（品の ID でまとまる）" % [
+			pick, str(taken), made_grade, GameManager.run_bag_grade(pick), str(GameManager.get_last_run_report().get(GameManager.REPORT_GRANTED, {}))
+		])
+		if not taken or made_grade != GameManager.run_bag_grade(pick):
+			push_error("[DebugBoot] 拾った等級で個体が生まれていない")
+		if (GameManager.get_last_run_report().get(GameManager.REPORT_GRANTED, {}) as Dictionary).has(pick):
+			push_error("[DebugBoot] 報告書に鍵（item_id#等級）がそのまま残っている")
+	# ③ 帯で範囲を 9〜9 にすると、⚠ 珍しい品も 9 で出る（⚠ 検査の中だけ・キャッシュを書き換える）。
+	var cache: Dictionary = MasterDataLoader._cache_dungeons[dungeon_id]
+	cache[GameManager.DUNGEON_MASTER_DEPTH_BANDS] = [{GameManager.DUNGEON_BAND_FROM_LAYER: 1, GameManager.DUNGEON_MASTER_EQUIP_GRADE: [9, 9]}]
+	if GameManager.is_in_dungeon():
+		GameManager.abandon_dungeon_run()
+	GameManager.start_dungeon_run(dungeon_id)
+	for _i: int in range(400):
+		var _got: Dictionary = GameManager.call("_grant_dungeon_node_gains", GameStateKeys.DUNGEON_NODE_KIND_BOSS, true)
+	var rare_seen: int = 0
+	var not_nine: int = 0
+	for raw: Variant in GameManager.get_run_pending_loot(GameManager.RUN_KIND_DUNGEON):
+		var item_id: String = GameManager.run_bag_item_id(str(raw))
+		if not GameManager.call("_is_equipment_item", item_id):
+			continue
+		if GameManager.run_bag_grade(str(raw)) != 9:
+			not_nine += 1
+		if GameManager.get_item_drop_min_grade(item_id) == 9:
+			rare_seen += 1
+	print("  帯で 9〜9 -> 等級9 以外 %d（0 が正解） ／ 珍しい品の種類 %d（1 以上が正解）" % [not_nine, rare_seen])
+	if not_nine > 0 or rare_seen == 0:
+		push_error("[DebugBoot] 帯の等級の範囲が効いていない（または珍しい品が出ない）")
+	cache[GameManager.DUNGEON_MASTER_DEPTH_BANDS] = []
+	GameManager.abandon_dungeon_run()
+	# ④ 拠点の宝箱に装備の行が無い（`EQ-12`）。
+	var equip_rows: int = 0
+	for chest_id: Variant in MasterDataLoader.get_all_chests():
+		var draw: Dictionary = MasterDataLoader.get_chest(str(chest_id)).get("draw", {})
+		for row: Variant in (draw.get("entries", []) as Array):
+			if GameManager.call("_is_equipment_item", str((row as Dictionary).get("item_id", ""))):
+				equip_rows += 1
+	print("  拠点の宝箱の装備の行 = %d（0 が正解）" % equip_rows)
+	if equip_rows > 0:
+		push_error("[DebugBoot] 拠点の宝箱に装備が残っている（EQ-12）")
 
 
 func _wave_stat(wave: Dictionary, stat: String) -> int:

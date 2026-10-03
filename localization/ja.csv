@@ -770,6 +770,7 @@ ui_depth_from,層から
 ui_depth_from_exit,%d層の出口から
 ui_depth_from_entrance,入口から
 ui_depth_next_exit,次の出口 %d層
+ui_depth_equip_grade,出る装備 等級%d以上
 ui_depth_carry,持ち込みなし・鞄は空の%d枠
 ui_depth_minus,−%d
 ui_depth_plus,+%d

@@ -190,10 +190,8 @@ func _rebuild_loot() -> void:
 	var entries: Array = []
 	for raw: Variant in item_ids:
 		var item_id: String = str(raw)
-		entries.append({
-			GameManager.SLOT_ENTRY_ITEM_ID: item_id,
-			GameManager.SLOT_ENTRY_COUNT: int(bag[item_id]),
-		})
+		# ⚠ 鍵（⚠ 等級つきの装備は `item_id#等級`）からマスを作る口は GameManager の1本（2026-10-03・回4-b）。
+		entries.append(GameManager.make_run_item_entry(item_id, int(bag[item_id])))
 	grid.rebuild(entries, entries.size())
 	loot_box.add_child(grid)
 

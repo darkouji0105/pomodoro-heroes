@@ -316,7 +316,8 @@ func _on_open_pressed() -> void:
 # ⚠⚠ 押したマスのぶんを入れる（2026-09-20・決定42）。⚠ 素材は1マスに重なっているので、
 #   ⚠ 1個ずつ入れると10回押すことになる。⚠ 入る口は take_run_pending_loot() の1本のまま（⚠ 回数で呼ぶ）。
 func _on_take_pressed() -> void:
-	var item_id: String = str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+	# ⚠ 口へ返すのはマスの鍵（⚠ 等級つきの装備は `item_id#等級`・2026-10-03・回4-b）。
+	var item_id: String = GameManager.run_entry_key(_selected_entry)
 	var want: int = maxi(1, int(_selected_entry.get(GameManager.SLOT_ENTRY_COUNT, 1)))
 	var taken: int = 0
 	while taken < want and GameManager.take_run_pending_loot(_run_kind, item_id):
@@ -338,7 +339,7 @@ func _on_take_all_pressed() -> void:
 func _on_discard_loot_pressed() -> void:
 	var _dropped: bool = GameManager.discard_run_pending_loot(
 		_run_kind,
-		str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
+		GameManager.run_entry_key(_selected_entry)
 	)
 	_clear_selection()
 	_rebuild()
@@ -348,7 +349,7 @@ func _on_discard_bag_pressed() -> void:
 	# ⚠ そのマスのぶんを捨てる（⚠ 素材は重なっている＝決定42）。
 	var _dropped: bool = GameManager.discard_run_bag_item(
 		_run_kind,
-		str(_selected_entry.get(GameManager.SLOT_ENTRY_ITEM_ID, "")),
+		GameManager.run_entry_key(_selected_entry),
 		maxi(1, int(_selected_entry.get(GameManager.SLOT_ENTRY_COUNT, 1)))
 	)
 	_clear_selection()
@@ -437,14 +438,8 @@ static func _cells(items: Dictionary, lost: bool) -> ItemGrid:
 	var ids: Array = items.keys()
 	ids.sort()
 	for raw_id: Variant in ids:
-		entries.append({
-			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
-			GameManager.SLOT_ENTRY_ITEM_ID: str(raw_id),
-			GameManager.SLOT_ENTRY_INSTANCE_ID: "",
-			GameManager.SLOT_ENTRY_GRADE: 0,
-			GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
-			GameManager.SLOT_ENTRY_COUNT: int(items[raw_id]),
-		})
+		# ⚠ 鍵（⚠ 等級つきの装備は `item_id#等級`）からマスを作る口は GameManager の1本（2026-10-03・回4-b）。
+		entries.append(GameManager.make_run_item_entry(str(raw_id), int(items[raw_id])))
 	grid.rebuild(entries, entries.size())
 	if lost:
 		grid.modulate = ItemSlot.EMPTY_MODULATE

@@ -473,8 +473,9 @@ func _open_bag_popover(index: int) -> void:
 			button.name = "Use_%s_%s" % [item_id, character_id]
 	var discard: UiButton = pop.add_action(
 		tr("ui_dungeon_pickup_discard_bag"), UiButton.Variant.GHOST,
+		# ⚠ 口へ返すのはマスの鍵（⚠ 等級つきの装備は `item_id#等級`・2026-10-03・回4-b）。
 		_on_discard_bag_pressed.bind(
-			item_id, maxi(1, int(_selected_bag_entry.get(GameManager.SLOT_ENTRY_COUNT, 1)))
+			GameManager.run_entry_key(_selected_bag_entry), maxi(1, int(_selected_bag_entry.get(GameManager.SLOT_ENTRY_COUNT, 1)))
 		)
 	)
 	discard.name = "Discard_" + item_id
@@ -788,14 +789,8 @@ func _item_cells(items: Dictionary, lost: bool) -> Control:
 	var ids: Array = items.keys()
 	ids.sort()
 	for raw_id: Variant in ids:
-		entries.append({
-			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
-			GameManager.SLOT_ENTRY_ITEM_ID: str(raw_id),
-			GameManager.SLOT_ENTRY_INSTANCE_ID: "",
-			GameManager.SLOT_ENTRY_GRADE: 0,
-			GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
-			GameManager.SLOT_ENTRY_COUNT: int(items[raw_id]),
-		})
+		# ⚠ 鍵（⚠ 等級つきの装備は `item_id#等級`）からマスを作る口は GameManager の1本（2026-10-03・回4-b）。
+		entries.append(GameManager.make_run_item_entry(str(raw_id), int(items[raw_id])))
 	grid.rebuild(entries, entries.size())
 	if lost:
 		grid.modulate = ItemSlot.EMPTY_MODULATE

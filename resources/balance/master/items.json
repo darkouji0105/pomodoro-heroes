@@ -222,6 +222,7 @@
 	},
 	{
 	  "item_id": "weapon_dragon_greatsword",
+	  "drop_min_grade": 9,
 	  "storage": "inventory",
 	  "item_type": "equipment",
 	  "equip_slot": "weapon",
@@ -231,6 +232,7 @@
 	},
 	{
 	  "item_id": "armor_thorn_mail",
+	  "drop_min_grade": 9,
 	  "storage": "inventory",
 	  "item_type": "equipment",
 	  "equip_slot": "armor",
@@ -240,6 +242,7 @@
 	},
 	{
 	  "item_id": "acc_guardian_charm",
+	  "drop_min_grade": 9,
 	  "storage": "inventory",
 	  "item_type": "equipment",
 	  "equip_slot": "accessory",

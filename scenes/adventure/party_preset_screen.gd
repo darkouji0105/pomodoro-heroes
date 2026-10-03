@@ -580,6 +580,12 @@ func _build_depth_sheet() -> TiltedSheet:
 	next_exit.theme_type_variation = &"SmallLabel"
 	next_exit.text = tr("ui_depth_next_exit") % (chosen * per_floor)
 	info.add_child(next_exit)
+	# ⚠ 出るものの下限（2026-10-03・回4-b・手本 DungeonGate「出るものの下限［等級◯以上］」）。⚠ 入る層の帯で決まる。
+	var equip_floor: Label = Label.new()
+	equip_floor.name = "EquipGradeLabel"
+	equip_floor.theme_type_variation = &"SmallLabel"
+	equip_floor.text = tr("ui_depth_equip_grade") % GameManager.get_dungeon_equip_grade_range(_dungeon_id, first_layer).x
+	info.add_child(equip_floor)
 	# −10 ／ +10 ／ 最深へ（⚠ 端は押せない）。
 	var buttons: HBoxContainer = HBoxContainer.new()
 	buttons.name = "DepthButtons"
