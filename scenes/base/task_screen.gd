@@ -312,7 +312,18 @@ func _rebuild_detail() -> void:
 	count.name = "PomodoroCountLabel"
 	count.theme_type_variation = &"CaptionLabel"
 	count.text = tr("ui_task_pomodoro_total") % int(task.get(GameStateKeys.TASK_POMODORO_COUNT, 0))
-	detail_body.add_child(count)
+	count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# ⚠ 消す（2026-10-04・`TK-15`）。⚠ 取り返しがつかない＝赤（`MD-5`）・確かめの窓を挟む。
+	#   ⚠ ポモドーロの回数と同じ行（⚠ 行を増やすと紙が縦 720 に収まらず、画面ごと上へ押し上がった＝撮った絵）。
+	var foot: HBoxContainer = HBoxContainer.new()
+	foot.name = "FootRow"
+	foot.add_child(count)
+	var delete: UiButton = UiButton.create(UiButton.Variant.DANGER, "ui_task_delete")
+	delete.name = "DeleteButton"
+	delete.pressed.connect(_on_delete_pressed.bind(task_id))
+	foot.add_child(delete)
+	detail_body.add_child(foot)
 
 
 func _caption(key: String) -> Label:
@@ -442,6 +453,21 @@ func _on_tag_add_pressed(edit: LineEdit, task_id: String) -> void:
 
 func _on_tag_remove_pressed(task_id: String, tag: String) -> void:
 	if GameManager.remove_task_tag(task_id, tag):
+		_queue_detail()
+
+
+# ⚠ 状態を触るのは「消す」を押したあと（CLAUDE.md 6番）。⚠ 窓を待つ間に画面を離れたら何もしない。
+func _on_delete_pressed(task_id: String) -> void:
+	var title: String = str(GameManager.get_task(task_id).get(GameStateKeys.TASK_TITLE, ""))
+	var ok: bool = await Modal.confirm(self, "ui_task_delete_confirm", [title], false, {
+		Modal.OPTION_TITLE: tr("ui_task_delete"),
+		Modal.OPTION_DANGER: true,
+		Modal.OPTION_CONFIRM_LABEL: "ui_task_delete",
+	})
+	if not ok or not is_inside_tree():
+		return
+	if GameManager.delete_task(task_id) and task_id == _selected_id:
+		_selected_id = ""
 		_queue_detail()
 
 

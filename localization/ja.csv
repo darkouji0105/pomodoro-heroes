@@ -1408,3 +1408,5 @@ ui_records_tasks_empty,終わったタスクはまだありません
 ui_records_tasks_empty_hint,終えたタスクは、次の朝4:00にここへ移ります
 ui_pomodoro_task_list,リスト
 ui_pomodoro_task_list_empty_hint,拠点の紙か「リストに足す」から足せます
+ui_task_delete,消す
+ui_task_delete_confirm,「%s」を消しますか？ 記録にも残りません

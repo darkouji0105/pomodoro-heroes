@@ -139,6 +139,7 @@ const SHOT_PREPARE_TASK_LOG: String = "task_log"
 const SHOT_AFTER_TASK_DETAIL: String = "task_detail"
 const SHOT_AFTER_TASK_PICK: String = "task_pick"
 const SHOT_AFTER_TASK_LIST: String = "task_list"
+const SHOT_AFTER_TASK_DELETE: String = "task_delete"
 const SHOT_AFTER_RECORDS_TASKS: String = "records_tasks"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
@@ -1257,6 +1258,8 @@ const SCENARIOS: Dictionary = {
 			{"name": "60_task_screen", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DETAIL},
 			{"name": "61_task_pick", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_PICK},
 			# ⚠ 集中中に右上の「リスト」を開いた姿（10-04・人間「⚠ ポモドーロ中にリストを見れるように　メニューと同じように」）。
+			# ⚠ 「消す」の確かめの窓（10-04・`TK-15`）。⚠ 押さないので消えない。
+			{"name": "64_task_delete", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DELETE},
 			{"name": "63_task_list_running", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_LIST},
 			# ⚠ 記録へ移すので、⚠ タスクの枚のいちばん後ろ。
 			{"name": "62_records_tasks", "scene": "res://scenes/guild/records_screen.tscn", "prepare": SHOT_PREPARE_TASK_LOG, "after": SHOT_AFTER_RECORDS_TASKS},
@@ -9187,6 +9190,7 @@ class ShotTaker extends Node:
 	const AFTER_TASK_DETAIL: String = "task_detail"
 	const AFTER_TASK_PICK: String = "task_pick"
 	const AFTER_TASK_LIST: String = "task_list"
+	const AFTER_TASK_DELETE: String = "task_delete"
 	const AFTER_RECORDS_TASKS: String = "records_tasks"
 	const CHEST_FX_WAIT_FRAMES: int = 50
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
@@ -9611,6 +9615,21 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ %s に「リストから選ぶ」が無い" % shot_name)
 				return false
 			(pick_button as BaseButton).pressed.emit()
+			for _i: int in range(6):
+				await get_tree().process_frame
+		elif kind == AFTER_TASK_DELETE:
+			# ⚠ 1行目を押す →「消す」（⚠ 本物のボタン＝確かめの窓が出る。⚠ 「はい」は押さない）。
+			for node: Node in screen.find_children("Task_*", "", true, false):
+				if node is LedgerRow:
+					(node as LedgerRow).pressed.emit()
+					break
+			for _i: int in range(4):
+				await get_tree().process_frame
+			var delete_button: Node = screen.find_child("DeleteButton", true, false)
+			if not (delete_button is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に「消す」が無い" % shot_name)
+				return false
+			(delete_button as BaseButton).pressed.emit()
 			for _i: int in range(6):
 				await get_tree().process_frame
 		elif kind == AFTER_TASK_LIST:
@@ -11777,6 +11796,22 @@ class UiFlowRunner extends Node:
 		var first: Dictionary = {} if restored.is_empty() else restored[0] as Dictionary
 		_check("セーブ：JSON から戻すと色・🍅・日付が int（%s）" % type_string(typeof(first.get(GameStateKeys.TASK_POMODORO_COUNT))),
 			first.get(GameStateKeys.TASK_POMODORO_COUNT) is int and first.get(GameStateKeys.TASK_DONE_AT) is int and first.get(GameStateKeys.TASK_COLOR) is int)
+		# 消す（`TK-15`）：⚠ D を選ぶ →「消す」→ 確かめの窓の「いいえ」では消えない →「消す」→「はい」で一覧から消え、記録は増えない。
+		var t2: Node = await _open(TASK_SCREEN, {})
+		if t2 == null:
+			return
+		await _press(t2.find_child("Task_" + d_id, true, false))
+		var tasks_before_delete: int = GameManager.get_tasks().size()
+		var log_before_delete: int = GameManager.get_task_log().size()
+		await _press(t2.find_child("DeleteButton", true, false))
+		await _close_modal(t2)
+		_check("消す：確かめの窓で「いいえ」なら消えない", not GameManager.get_task(d_id).is_empty())
+		await _press(t2.find_child("DeleteButton", true, false))
+		await _confirm_modal()
+		_check("消す：「はい」で一覧から消える（TASKS %d → %d・TASK_LOG %d のまま）・行も消える" % [tasks_before_delete, GameManager.get_tasks().size(), GameManager.get_task_log().size()],
+			GameManager.get_task(d_id).is_empty() and GameManager.get_tasks().size() == tasks_before_delete - 1
+			and GameManager.get_task_log().size() == log_before_delete and t2.find_child("Task_" + d_id, true, false) == null
+			and t2.find_child("DetailNone", true, false) != null)
 
 	func _task_order() -> Array[String]:
 		var order: Array[String] = []

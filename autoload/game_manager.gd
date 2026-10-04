@@ -1485,6 +1485,20 @@ func set_task_done(task_id: String, done: bool) -> bool:
 	return _write_task(task_id, {GameStateKeys.TASK_DONE_AT: int(Time.get_unix_time_from_system()) if done else 0})
 
 
+# 消す（2026-10-04・`TK-15`）。⚠ 一覧から取り除くだけ（⚠ 記録＝`TASK_LOG` には残さない）。⚠ 確かめの窓は画面の側。
+#   ⚠ ポモドーロで選んでいたタスクを消すと、⚠ そのセットの🍅はどれにも数えない（⚠ `add_task_pomodoro()` が見つけられない）。
+func delete_task(task_id: String) -> bool:
+	var index: int = _task_index(task_id)
+	if index < 0:
+		return false
+	var tasks: Array = _copy_array(GameStateKeys.TASKS)
+	tasks.remove_at(index)
+	_state[GameStateKeys.TASKS] = tasks
+	print("[GameManager] delete_task(%s)" % task_id)
+	tasks_changed.emit()
+	return true
+
+
 # 🍅を1つ（`TK-5`＝集中のタイマーが0になった時）。⚠ 呼ぶのはポモドーロの画面だけ。
 #   ⚠ 選んでいない集中は呼ばない（`TK-11`）。⚠ 一覧から記録へ移ったあとなら記録の側に数える。
 func add_task_pomodoro(task_id: String) -> bool:
