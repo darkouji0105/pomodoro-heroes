@@ -20,6 +20,8 @@ var time_left_sec: float = 0.0
 var is_timer_active: bool = false
 var session_accumulated_focus_min: int = 0
 var set_titles: Array[String] = []
+# ⚠ セットごとにリストから選んだタスク（2026-10-04・`TK-5`・`TK-11`）。⚠ "" なら選んでいない＝🍅をどれにも数えない。
+var set_task_ids: Array[String] = []
 var reflections: Array[Dictionary] = [] # { text: String, skipped: bool }
 
 # 現在表示中のビュー。view_container.get_child(0) を使わないこと。
@@ -44,6 +46,8 @@ func _ready() -> void:
 	ResourceHud.set_shown(false)
 
 	GameManager.reset_daily_pomodoro_state_if_needed()
+	# ⚠ 朝4:00 の移し（2026-10-04・`TK-6`）。⚠ 選ぶ窓に昨日終えたものを出さない。
+	var _moved: int = GameManager.roll_over_done_tasks()
 
 	# プリセット初期化
 	for p in Balance.pomodoro.presets:
@@ -66,6 +70,8 @@ func _ready() -> void:
 	current_total_sets = current_preset.default_total_sets
 	set_titles.resize(current_total_sets)
 	set_titles.fill("")
+	set_task_ids.resize(current_total_sets)
+	set_task_ids.fill("")
 
 	_build_debug_panel()
 
@@ -197,11 +203,16 @@ func _switch_view(new_state: State) -> void:
 
 		State.FOCUS:
 			var prev_title: String = ""
+			var prev_task: String = ""
 			if current_set_index > 0:
 				prev_title = set_titles[current_set_index - 1]
+				prev_task = set_task_ids[current_set_index - 1]
 			view.setup(current_preset)
 			if prev_title != "":
 				view.set_title_text(prev_title)
+			# ⚠ 前のセットで選んだタスクも引き継ぐ（⚠ 名前は今のタスクの名前になる）。
+			if prev_task != "":
+				view.set_task(prev_task)
 			view.start_requested.connect(_on_focus_started)
 			# ここではタイマーを走らせない。開始ボタンを押すまで待つ
 			time_left_sec = float(current_preset.focus_duration_sec)
@@ -250,8 +261,9 @@ func _on_protection_selected(protection_id: String) -> void:
 	_switch_view(State.FOCUS)
 
 
-func _on_focus_started(title: String) -> void:
+func _on_focus_started(title: String, task_id: String) -> void:
 	set_titles[current_set_index] = title
+	set_task_ids[current_set_index] = task_id
 	_start_phase_timer(float(current_preset.focus_duration_sec))
 
 
@@ -259,6 +271,7 @@ func _on_timer_finished() -> void:
 	match current_state:
 		State.FOCUS:
 			_notify_focus_finished()
+			_count_task_pomodoro()
 			_switch_view(State.REFLECTION)
 		State.REFLECTION:
 			# 制限時間内に確定しなかった → skipped 扱いで次へ進む
@@ -325,6 +338,18 @@ func _on_break_skipped() -> void:
 func _go_to_next_set() -> void:
 	current_set_index += 1
 	_switch_view(State.FOCUS)
+
+
+# 🍅を1つ数える（2026-10-04・`TK-5`＝集中のタイマーが0になった時）。⚠ 振り返りを確定したかは問わない。
+#   ⚠ 選ばずに始めたセットは数えない（`TK-11`）。⚠ 報酬とは繋げない（`TK-14`）。
+func _count_task_pomodoro() -> void:
+	if current_set_index >= set_task_ids.size():
+		return
+	var task_id: String = set_task_ids[current_set_index]
+	if task_id == "":
+		return
+	var counted: bool = GameManager.add_task_pomodoro(task_id)
+	print("[Pomodoro] task pomodoro +1: %s -> %s" % [task_id, str(counted)])
 
 
 # --- 通知 ---
