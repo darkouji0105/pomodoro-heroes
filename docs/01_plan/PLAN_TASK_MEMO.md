@@ -83,7 +83,7 @@ TASK_LOG:   [{task_id, title, color, tags, pomodoro_count, created_at, done_at}]
 ### 3-4. 数値の置き場
 
 ⚠ 拠点の紙は**全部出す**（10-04・`TK-3`）＝件数のつまみは要らない。⚠ 紙の高さは決めて、溢れたら紙の中で送る。
-⚠ 色の数は**つまみ**＝`AGENTS.md` 数値管理ルールで Config に置く（⚠ 未決・案 6）。
+⚠ 色の数は**つまみ**＝`AGENTS.md` 数値管理ルールで Config に置く（⚠ **6 に決まった**・10-04・`TK-12`）。
 ⚠ 案：`PomodoroConfig` に `@export` を足す（⚠ 新しい Config を作ると `balance.tscn` に配線が要る）。
 ⚠ **色そのもの**は Theme 側（`tools/theme_builder.gd`）。⚠ シーンに色を書かない。
 
@@ -120,4 +120,4 @@ TASK_LOG:   [{task_id, title, color, tags, pomodoro_count, created_at, done_at}]
 
 ## 更新履歴
 
-- **2026-10-04** … 新設（議論の回・問1〜13）。⚠ 同じ日に未決2つを裁いた（⚠ 🍅＝タイマーが0 ／ ⚠ 紙＝全部出す）。⚠ 残りは色の数だけ。
+- **2026-10-04** … 新設（議論の回・問1〜13）。⚠ 同じ日に未決2つを裁いた（⚠ 🍅＝タイマーが0 ／ ⚠ 紙＝全部出す）。⚠ 色は 6 に決まった＝未決は無い。
