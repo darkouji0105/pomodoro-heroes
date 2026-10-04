@@ -1355,3 +1355,54 @@ ui_sortie_guide_1_title,◀ ▶ で並びを入れ替えられる
 ui_sortie_guide_1_body,1番がいちばん前に立つ。枠の下の ◀ ▶ で隣と入れ替わる。控えを呼べば、並びとビルドをまとめて変えられる。
 ui_sortie_guide_2_title,光っている人は、まだ出ていない人
 ui_sortie_guide_2_body,枠を押してから、下の名簿で光っている人を押すと、その枠に入る。
+ui_task_title,タスク
+ui_task_list_title,やること
+ui_task_count,%d件
+ui_task_new_placeholder,新しいタスクを書く
+ui_task_add,足す
+ui_task_filter_all,すべて
+ui_task_tag,#%s
+ui_task_list_empty,タスクはまだありません
+ui_task_list_empty_hint,上の欄に書いて「足す」を押すと溜めておけます
+ui_task_move_up,▲
+ui_task_move_down,▼
+ui_task_due_short,期限 %s
+ui_task_pomodoro_count,ポモドーロ %d回
+ui_task_note_separator,　・　
+ui_task_detail_title,詳しく
+ui_task_detail_none,左のタスクを押すと、ここで詳しく決められます
+ui_task_field_title,名前
+ui_task_field_memo,メモ
+ui_task_memo_placeholder,メモを書く（任意）
+ui_task_field_due,期限
+ui_task_due_none,なし
+ui_task_due_set_today,今日
+ui_task_due_minus,−1日
+ui_task_due_plus,＋1日
+ui_task_field_color,色
+ui_task_color_0,赤
+ui_task_color_1,黄
+ui_task_color_2,緑
+ui_task_color_3,藍
+ui_task_color_4,紫
+ui_task_color_5,茶
+ui_task_field_tags,タグ（押すと外す）
+ui_task_tag_remove,#%s ×
+ui_task_tag_placeholder,タグを書く
+ui_task_tag_add,タグを足す
+ui_task_pomodoro_total,これまでのポモドーロ　%d回
+ui_task_due_overdue,期限切れ
+ui_task_due_today,今日まで
+ui_task_wall_title,やること
+ui_task_wall_open,ひらく
+ui_task_wall_empty,やることはまだありません
+ui_task_wall_empty_hint,「ひらく」から足せます
+ui_pomodoro_task_pick,リストから選ぶ
+ui_pomodoro_task_add,リストに足す
+ui_pomodoro_task_linked,リストのタスクとして数えます
+ui_pomodoro_task_pick_empty,まだのタスクはありません
+ui_pomodoro_task_pick_empty_hint,題を書いて「リストに足す」を押すと足せます
+ui_pomodoro_task_pick_none,選ばない（どのタスクにも数えない）
+ui_records_tab_tasks,終わったタスク
+ui_records_tasks_empty,終わったタスクはまだありません
+ui_records_tasks_empty_hint,終えたタスクは、次の朝4:00にここへ移ります

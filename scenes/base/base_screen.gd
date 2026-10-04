@@ -46,7 +46,11 @@ func _ready() -> void:
 	# GameManager の状態を取得
 	var state: Dictionary = GameManager.get_state()
 
+	# ⚠ 朝4:00 の移し（2026-10-04・`TK-6`）。⚠ 紙を描く前に（⚠ 昨日終えたものを紙に残さない）。
+	var _moved: int = GameManager.roll_over_done_tasks()
+
 	_init_resource_displays(state)
+	_init_task_note()
 	_init_navigation_buttons()
 	# ⚠ 2026-09-26（回UI-3・`NAV-6`）：⚠ 施設の帯。⚠ ギルドのボタンと編成のボタンは帯へ移した。
 	BaseFacilityBar.attach(self, $Layout, BaseFacilityBar.HQ)
@@ -102,6 +106,15 @@ func _init_resource_displays(_state: Dictionary) -> void:
 	potion_value.resource_id = GameStateKeys.ITEM_STAMINA_POTION
 	potion_value.set_value(GameManager.get_stamina_potion_count())
 	potion_use_button.disabled = GameManager.get_stamina_potion_count() <= 0
+
+# ⚠ 壁の紙（2026-10-04・`TK-3`）。⚠ 左上に置く（⚠ 右上は素材の帯）。⚠ 位置と大きさは Theme の `Task/wall_*`。
+func _init_task_note() -> void:
+	var note: TaskWallNote = TaskWallNote.create()
+	top_area.add_child(note)
+	var margin: float = float(note.get_theme_constant(&"wall_left", TaskWallNote.THEME_TYPE))
+	note.position = Vector2(margin, margin)
+	note.size = note.custom_minimum_size
+
 
 func _init_navigation_buttons() -> void:
 	_navigation_buttons = {
