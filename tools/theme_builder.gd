@@ -777,6 +777,7 @@ static func build() -> void:
 	_build_focus_tool(theme)
 	_build_mini_window(theme)
 	_build_special_effect(theme)
+	_build_task(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -2609,6 +2610,43 @@ static func _build_special_effect(theme: Theme) -> void:
 	theme.set_constant(&"star_size", &"SpecialEffect", SPECIAL_STAR_SIZE + 6)
 
 
+# --- ⚠⚠ タスクのメモ（2026-10-04・DECISIONS.md `TK-3`・`TK-12`・`TK-13`）---
+#
+# ⚠ 色は6つ（⚠ 数のつまみは `PomodoroConfig.task_color_count`・⚠ ここは色そのもの）。⚠ 紙の上で見分けがつく、くすんだ色。
+#   ⚠ 並びの番号＝セーブの `color`（⚠ 入れ替えると前のセーブの色が変わる＝⚠ 足すなら末尾）。
+const TASK_COLORS: Array[String] = [
+	"9c3a2e",   # 0 封蝋の赤
+	"b98a2c",   # 1 真鍮の黄
+	"5f7d4f",   # 2 草の緑
+	"2f5f8c",   # 3 藍
+	"6a4a7c",   # 4 紫
+	"6e5a43",   # 5 薄墨の茶
+]
+const TASK: Dictionary = {
+	"mark": 14,               # ⚠ 色の印（丸）の直径
+	"wall_width": 340,        # ⚠ 拠点の壁の紙
+	"wall_height": 300,       # ⚠ 溢れたら紙の中で送る（`TK-3`＝全部出す）
+	"wall_left": 24,          # ⚠ 画面の左からの位置
+	"list_width": 560,        # ⚠ タスクの画面の左の紙
+	"detail_width": 520,      # ⚠ 右の紙（詳しく）
+	"memo_height": 140,
+	"swatch": 28,             # ⚠ 詳しくの色の札の大きさ
+	"strike": 2,              # ⚠ 終えたタスクの線の太さ
+	"pick_height": 320,       # ⚠ ポモドーロの選ぶ窓の一覧の高さ（⚠ 溢れたら送る）
+}
+
+
+static func _build_task(theme: Theme) -> void:
+	var t: StringName = &"Task"
+	for key: String in TASK:
+		theme.set_constant(StringName(key), t, int(TASK[key]))
+	for i: int in range(TASK_COLORS.size()):
+		theme.set_color(StringName("color_%d" % i), &"TaskColor", _html(TASK_COLORS[i]))
+	theme.set_constant(&"count", &"TaskColor", TASK_COLORS.size())
+	theme.set_type_variation(&"TaskDoneLabel", &"Label")
+	theme.set_color(&"font_color", &"TaskDoneLabel", _html(DIM_FONT_COLOR))
+
+
 # ⚠ デスクトップの小窓（2026-09-29・回UI-仕組み⑥・手本 Companion）。⚠ 大きさは手本の 260×170 に近く。⚠ 部屋の色は手本の焦茶と暖炉の橙。
 const MINI_WINDOW: Dictionary = {
 	"width": 300, "height": 180, "margin": 16, "photo": 56, "button_width": 76,
@@ -2808,6 +2846,8 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"SmallLabel": TOKEN_INK,
 	"MutedLabel": TOKEN_INK_SUB,
 	"CaptionLabel": TOKEN_INK_SUB,
+	# ⚠ 終えたタスク（2026-10-04・`TK-6`）：⚠ 薄墨＋線（⚠ 線はタスクの画面が引く）。
+	"TaskDoneLabel": TOKEN_INK_SUB,
 	"SectionLabel": TOKEN_INK_SUB,
 	"AccentLabel": TOKEN_BRASS_INK,
 	"ErrorLabel": TOKEN_WAX,

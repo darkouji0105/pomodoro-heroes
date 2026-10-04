@@ -49,3 +49,5 @@ SpecialEffectTitleLabel/base_type = &"Label"
 SpecialEffectTitleLabel/colors/font_color = Color(0.8784314, 0.72156864, 0.36078432, 1)
 SpecialStarLabel/base_type = &"Label"
 SpecialStarLabel/colors/font_color = Color(0.8784314, 0.72156864, 0.36078432, 1)
+TaskDoneLabel/base_type = &"Label"
+TaskDoneLabel/colors/font_color = Color(0.43137255, 0.3529412, 0.2627451, 1)
