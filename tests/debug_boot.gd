@@ -133,6 +133,12 @@ const SHOT_AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
 const SHOT_AFTER_DEBUG_OVERLAY: String = "debug_overlay"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
+# ⚠ タスクのメモ（2026-10-04・`TK-n`）：⚠ タスクを並べる ／ 終えたものを記録へ移す ／ 詳しくを開く ／ 選ぶ窓 ／ 記録のタブ。⚠ 内側の同じ名前の字と揃える。
+const SHOT_PREPARE_TASKS: String = "tasks"
+const SHOT_PREPARE_TASK_LOG: String = "task_log"
+const SHOT_AFTER_TASK_DETAIL: String = "task_detail"
+const SHOT_AFTER_TASK_PICK: String = "task_pick"
+const SHOT_AFTER_RECORDS_TASKS: String = "records_tasks"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
 #   ⚠ 値（色・寸法）はここに書かない。⚠ 「在るか」しか見ない。
@@ -1245,6 +1251,12 @@ const SCENARIOS: Dictionary = {
 				"data": {TransferKeys.SORTIE_DUNGEON_ID: "dungeon_hard", TransferKeys.RETURN_PATH: "res://scenes/adventure/adventure_select.tscn"},
 				"measure": ["Margin/Layout/Middle/Side", "Margin/Layout/Middle/Side/Depth", "Margin/Layout/Middle/Side/Reserve"],
 			},
+			# ⚠ タスクのメモ（2026-10-04・`TK-3`・`TK-7`・`TK-10`・`TK-8`）。⚠ 拠点（紙あり・溢れて送る）／ タスクの画面（詳しく）／ ポモドーロの選ぶ窓 ／ 記録のタブ。
+			{"name": "59_base_tasks", "scene": SCENE_BASE, "prepare": SHOT_PREPARE_TASKS, "measure": ["Layout/TopArea/TaskWallNote"]},
+			{"name": "60_task_screen", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DETAIL},
+			{"name": "61_task_pick", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_PICK},
+			# ⚠ 記録へ移すので、⚠ タスクの枚のいちばん後ろ。
+			{"name": "62_records_tasks", "scene": "res://scenes/guild/records_screen.tscn", "prepare": SHOT_PREPARE_TASK_LOG, "after": SHOT_AFTER_RECORDS_TASKS},
 			# ⚠ ポモドーロの画面の設定の窓（2026-10-02・人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）。
 			{"name": "56_pomodoro_settings", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_POMODORO_SETTINGS},
 			# ⚠ 「出撃する」→ 署名を書き終えて「受理」の判が押された姿（⚠ 出発の前で止める＝フロアに入らない）。
@@ -9167,6 +9179,11 @@ class ShotTaker extends Node:
 	const AFTER_SORTIE_PICK: String = "sortie_pick"
 	# ⚠ 高レアの演出の途中（⚠ legendary は 1.4 秒で蓋が開く＝その手前で撮る）。
 	const AFTER_CHEST_FX: String = "chest_fx"
+	const PREPARE_TASKS: String = "tasks"
+	const PREPARE_TASK_LOG: String = "task_log"
+	const AFTER_TASK_DETAIL: String = "task_detail"
+	const AFTER_TASK_PICK: String = "task_pick"
+	const AFTER_RECORDS_TASKS: String = "records_tasks"
 	const CHEST_FX_WAIT_FRAMES: int = 50
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
 	const AFTER_FRAMES: int = 12
@@ -9281,6 +9298,41 @@ class ShotTaker extends Node:
 			GameManager.add_to_inventory(GameStateKeys.ITEM_QUOTA_TICKET, 1)
 		return GameManager.get_dungeon_best_floors(dungeon_id) >= floors and GameManager.has_quota_ticket_for_entry()
 
+	# タスクを並べる（⚠ 本番の口だけ）。⚠ 紙が溢れて送る姿を撮るために 9 件。⚠ 色・期限（今日・昨日・先）・タグ・🍅・終えた1件。
+	func _prepare_tasks() -> bool:
+		if not GameManager.get_tasks().is_empty():
+			return true
+		var today: String = GameDate.get_game_date_string()
+		var specs: Array = [
+			["企画書の下書きを書く", 0, TaskScreen._shift_date(today, -1), ["仕事"], 3],
+			["週報をまとめる", 3, today, ["仕事"], 1],
+			["英単語を30個", 2, "", ["勉強"], 2],
+			["メールの返信", 1, TaskScreen._shift_date(today, 2), ["仕事"], 0],
+			["部屋の片付け", 5, "", [], 0],
+			["本を1章読む", 4, "", ["勉強", "読書"], 1],
+			["請求書を出す", 0, TaskScreen._shift_date(today, 5), [], 0],
+			["ギターの練習", 2, "", ["趣味"], 0],
+			["買い物リストを作る", 1, "", [], 0],
+		]
+		var first_id: String = ""
+		for spec: Array in specs:
+			var task_id: String = GameManager.add_task(str(spec[0]))
+			if task_id == "":
+				return false
+			if first_id == "":
+				first_id = task_id
+			var _c: bool = GameManager.set_task_color(task_id, int(spec[1]))
+			if str(spec[2]) != "":
+				var _d: bool = GameManager.set_task_due(task_id, str(spec[2]))
+			for tag: Variant in spec[3]:
+				var _t: bool = GameManager.add_task_tag(task_id, str(tag))
+			for _i: int in range(int(spec[4])):
+				var _p: bool = GameManager.add_task_pomodoro(task_id)
+		var _m: bool = GameManager.set_task_memo(first_id, "結論を先に。図は3枚まで。")
+		# ⚠ 終えた1件（⚠ 一覧では線を引いて残る＝`TK-6`）。
+		var done_id: String = str((GameManager.get_tasks()[2] as Dictionary).get(GameStateKeys.TASK_ID, ""))
+		return GameManager.set_task_done(done_id, true)
+
 	# ⚠ 下ごしらえを増やすならここに1行。
 	func _prepare(kind: String) -> bool:
 		if kind == "":
@@ -9391,6 +9443,18 @@ class ShotTaker extends Node:
 		if kind == PREPARE_SORTIE_DEPTH:
 			# ⚠ 潜る深さ（2026-10-03・決定49）：⚠ 本番の口でボスを3体倒して持ち帰る＝最深 3（30層）→ ⚠ 札を1枚持たせる。
 			return _prepare_best_floors(3)
+		if kind == PREPARE_TASKS:
+			return _prepare_tasks()
+		if kind == PREPARE_TASK_LOG:
+			# ⚠ 終えたものを記録へ移す（⚠ 明日の「今」を渡す＝朝4:00 をまたいだ姿）。⚠ 2件目を終えてから移す＝記録が2行。
+			if not _prepare_tasks():
+				return false
+			if GameManager.get_task_log().is_empty():
+				var open_tasks: Array = GameManager.get_open_tasks()
+				if not open_tasks.is_empty():
+					var _done: bool = GameManager.set_task_done(str((open_tasks[0] as Dictionary).get(GameStateKeys.TASK_ID, "")), true)
+				var _moved: int = GameManager.roll_over_done_tasks(Time.get_unix_time_from_system() + 86400.0)
+			return not GameManager.get_task_log().is_empty()
 		push_error("[DebugBoot] ⚠ 知らない下ごしらえ: " + kind)
 		return false
 
@@ -9517,6 +9581,41 @@ class ShotTaker extends Node:
 				return false
 			(clock_row as LedgerRow).pressed.emit()
 			for _i: int in range(20):
+				await get_tree().process_frame
+		elif kind == AFTER_TASK_DETAIL:
+			# ⚠ 1行目（⚠ 期限切れ・メモあり）を押して右に詳しく（⚠ 本物の行）。
+			var first_row: Node = null
+			for node: Node in screen.find_children("Task_*", "", true, false):
+				if node is LedgerRow:
+					first_row = node
+					break
+			if first_row == null:
+				push_error("[DebugBoot] ⚠ %s にタスクの行が無い" % shot_name)
+				return false
+			(first_row as LedgerRow).pressed.emit()
+			for _i: int in range(4):
+				await get_tree().process_frame
+		elif kind == AFTER_TASK_PICK:
+			# ⚠ 加護を選ぶ（⚠ 出ていれば「始める」）→ ⚠ 「リストから選ぶ」（⚠ 本物のボタン）。
+			var pick_select: Node = screen.find_child("ProtectionSelectView", true, false)
+			if pick_select != null:
+				(pick_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				for _i: int in range(3):
+					await get_tree().process_frame
+			var pick_button: Node = screen.find_child("PickTaskButton", true, false)
+			if not (pick_button is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に「リストから選ぶ」が無い" % shot_name)
+				return false
+			(pick_button as BaseButton).pressed.emit()
+			for _i: int in range(6):
+				await get_tree().process_frame
+		elif kind == AFTER_RECORDS_TASKS:
+			var records_tabs: Node = screen.find_child("Tabs", true, false)
+			if records_tabs == null or records_tabs.get_child_count() <= RecordsScreen.TAB_TASKS:
+				push_error("[DebugBoot] ⚠ %s に「終わったタスク」のタブが無い" % shot_name)
+				return false
+			(records_tabs.get_child(RecordsScreen.TAB_TASKS) as BaseButton).pressed.emit()
+			for _i: int in range(3):
 				await get_tree().process_frame
 		elif kind == AFTER_DEBUG_OVERLAY:
 			var overlay: Node = get_tree().root.find_child("DebugOverlay", true, false)
