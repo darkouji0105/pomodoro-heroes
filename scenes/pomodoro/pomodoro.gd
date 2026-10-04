@@ -74,6 +74,7 @@ func _ready() -> void:
 	set_task_ids.fill("")
 
 	_build_debug_panel()
+	_build_task_list_button()
 
 	if GameManager.has_selected_protection_today():
 		_switch_view(State.FOCUS)
@@ -350,6 +351,31 @@ func _count_task_pomodoro() -> void:
 		return
 	var counted: bool = GameManager.add_task_pomodoro(task_id)
 	print("[Pomodoro] task pomodoro +1: %s -> %s" % [task_id, str(counted)])
+
+
+# ⚠ ポモドーロ中にリストを見る（2026-10-04・人間「⚠ ポモドーロ中にリストを見れるように　メニューと同じように」）。
+#   ⚠ 右上の「やめる」の左に並べる（⚠ 地図の右上のメニューと同じ置き方）。⚠ どのフェーズでも出す。
+func _build_task_list_button() -> void:
+	var quit: Control = $Margin/Layout/TopBar/QuitButton
+	var box: HBoxContainer = HBoxContainer.new()
+	box.name = "TopRight"
+	box.theme_type_variation = &"ButtonRow"
+	box.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	quit.get_parent().add_child(box)
+	var list_button: TaskListButton = TaskListButton.new()
+	list_button.current_task_provider = _current_task_id
+	box.add_child(list_button)
+	quit.reparent(box)
+
+
+# いま数えているタスク（⚠ 始める前は集中のビューで選んでいるもの・⚠ 始めたらそのセットで選んだもの）。
+func _current_task_id() -> String:
+	if current_state == State.FOCUS and not is_timer_active and _current_view != null and _current_view.has_method("get_task_id"):
+		return str(_current_view.call("get_task_id"))
+	if current_set_index < set_task_ids.size():
+		return set_task_ids[current_set_index]
+	return ""
 
 
 # --- 通知 ---

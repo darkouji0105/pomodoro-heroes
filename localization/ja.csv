@@ -1406,3 +1406,5 @@ ui_pomodoro_task_pick_none,選ばない（どのタスクにも数えない）
 ui_records_tab_tasks,終わったタスク
 ui_records_tasks_empty,終わったタスクはまだありません
 ui_records_tasks_empty_hint,終えたタスクは、次の朝4:00にここへ移ります
+ui_pomodoro_task_list,リスト
+ui_pomodoro_task_list_empty_hint,拠点の紙か「リストに足す」から足せます

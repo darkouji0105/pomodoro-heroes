@@ -138,6 +138,7 @@ const SHOT_PREPARE_TASKS: String = "tasks"
 const SHOT_PREPARE_TASK_LOG: String = "task_log"
 const SHOT_AFTER_TASK_DETAIL: String = "task_detail"
 const SHOT_AFTER_TASK_PICK: String = "task_pick"
+const SHOT_AFTER_TASK_LIST: String = "task_list"
 const SHOT_AFTER_RECORDS_TASKS: String = "records_tasks"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
@@ -1255,6 +1256,8 @@ const SCENARIOS: Dictionary = {
 			{"name": "59_base_tasks", "scene": SCENE_BASE, "prepare": SHOT_PREPARE_TASKS, "measure": ["Layout/TopArea/TaskWallNote"]},
 			{"name": "60_task_screen", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DETAIL},
 			{"name": "61_task_pick", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_PICK},
+			# ⚠ 集中中に右上の「リスト」を開いた姿（10-04・人間「⚠ ポモドーロ中にリストを見れるように　メニューと同じように」）。
+			{"name": "63_task_list_running", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_LIST},
 			# ⚠ 記録へ移すので、⚠ タスクの枚のいちばん後ろ。
 			{"name": "62_records_tasks", "scene": "res://scenes/guild/records_screen.tscn", "prepare": SHOT_PREPARE_TASK_LOG, "after": SHOT_AFTER_RECORDS_TASKS},
 			# ⚠ ポモドーロの画面の設定の窓（2026-10-02・人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）。
@@ -9183,6 +9186,7 @@ class ShotTaker extends Node:
 	const PREPARE_TASK_LOG: String = "task_log"
 	const AFTER_TASK_DETAIL: String = "task_detail"
 	const AFTER_TASK_PICK: String = "task_pick"
+	const AFTER_TASK_LIST: String = "task_list"
 	const AFTER_RECORDS_TASKS: String = "records_tasks"
 	const CHEST_FX_WAIT_FRAMES: int = 50
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
@@ -9607,6 +9611,38 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ %s に「リストから選ぶ」が無い" % shot_name)
 				return false
 			(pick_button as BaseButton).pressed.emit()
+			for _i: int in range(6):
+				await get_tree().process_frame
+		elif kind == AFTER_TASK_LIST:
+			# ⚠ 加護（⚠ 出ていれば「始める」）→ ⚠ 1件目を選ぶ（⚠ 選ぶ窓の本物の行）→ ⚠ 集中の「開始」→ ⚠ 右上の「リスト」。
+			var list_select: Node = screen.find_child("ProtectionSelectView", true, false)
+			if list_select != null:
+				(list_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				for _i: int in range(3):
+					await get_tree().process_frame
+			var list_pick: Node = screen.find_child("PickTaskButton", true, false)
+			if list_pick is BaseButton:
+				(list_pick as BaseButton).pressed.emit()
+				for _i: int in range(3):
+					await get_tree().process_frame
+				var first_pick: Node = null
+				for node: Node in screen.find_children("Pick_*", "", true, false):
+					if node is LedgerRow:
+						first_pick = node
+						break
+				if first_pick != null:
+					(first_pick as LedgerRow).pressed.emit()
+				for _i: int in range(3):
+					await get_tree().process_frame
+			var list_start: Node = screen.find_child("FocusView", true, false)
+			list_start = null if list_start == null else list_start.find_child("StartButton", true, false)
+			var list_open: Node = screen.find_child("TaskListButton", true, false)
+			if not (list_start is BaseButton) or not (list_open is BaseButton):
+				push_error("[DebugBoot] ⚠ %s で「開始」か「リスト」が無い" % shot_name)
+				return false
+			(list_start as BaseButton).pressed.emit()
+			await get_tree().process_frame
+			(list_open as BaseButton).pressed.emit()
 			for _i: int in range(6):
 				await get_tree().process_frame
 		elif kind == AFTER_RECORDS_TASKS:
@@ -11696,6 +11732,16 @@ class UiFlowRunner extends Node:
 		await _press(null if modal == null else modal.find_child("Pick_" + b_id, true, false))
 		var counts_before: Dictionary = _task_counts()
 		await _press(view.find_child("StartButton", true, false))
+		# ⚠ ポモドーロ中にリストを見る（10-04・人間「⚠ メニューと同じように」）：⚠ 右上の「リスト」→ 板が開く・まだのタスクが全部・B が明るい行。
+		var list_button: Node = p.find_child("TaskListButton", true, false)
+		await _press(list_button)
+		var list_rows: Array = [] if list_button == null else list_button.find_children("List_*", "", true, false)
+		var b_list_row: Node = null if list_button == null else list_button.find_child("List_" + b_id, true, false)
+		_check("ポモドーロ：集中中に右上の「リスト」で板が開く（%d 行 ／ まだ %d）・いまの B が選んだ行" % [list_rows.size(), GameManager.get_open_tasks().size()],
+			list_button is TaskListButton and (list_button as TaskListButton).is_open() and bool(p.get("is_timer_active"))
+			and list_rows.size() == GameManager.get_open_tasks().size() and b_list_row is LedgerRow and (b_list_row as LedgerRow).selected)
+		if list_button is TaskListButton:
+			(list_button.get_node("TaskListPopup") as PopupPanel).hide()
 		p.set("time_left_sec", 0.01)
 		await _wait()
 		var counts_after: Dictionary = _task_counts()
