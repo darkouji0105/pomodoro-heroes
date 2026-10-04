@@ -114,6 +114,9 @@ func _init_task_note() -> void:
 	var margin: float = float(note.get_theme_constant(&"wall_left", TaskWallNote.THEME_TYPE))
 	note.position = Vector2(margin, margin)
 	note.size = note.custom_minimum_size
+	# ⚠ 素材の帯は紙の右から始める（⚠ 撮った絵で、帯の左の段が紙の下に潜っていた）。
+	if _material_bar != null:
+		_material_bar.offset_left = note.position.x + note.size.x + margin
 
 
 func _init_navigation_buttons() -> void:
