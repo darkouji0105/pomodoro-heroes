@@ -16,11 +16,13 @@ extends Control
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
 const THEME_TYPE: StringName = &"Records"
-const TAB_KEYS: Array[String] = ["ui_records_tab_codex", "ui_records_tab_focus", "ui_records_tab_characters", "ui_records_tab_dungeons"]
+const TAB_KEYS: Array[String] = ["ui_records_tab_codex", "ui_records_tab_focus", "ui_records_tab_characters", "ui_records_tab_dungeons", "ui_records_tab_tasks"]
 const TAB_CODEX: int = 0
 const TAB_FOCUS: int = 1
 const TAB_CHARACTERS: int = 2
 const TAB_DUNGEONS: int = 3
+# ⚠ 終わったタスク（2026-10-04・`TK-8`）。⚠ `TK-8` は「4つ目」と書くが、⚠ 既に4枚あった＝⚠ 末尾に足した（⚠ 既存の番号をずらさない）。
+const TAB_TASKS: int = 4
 
 @onready var header: ScreenHeader = $Margin/Layout/Header
 @onready var main_stack: VBoxContainer = $Margin/Layout/Main
@@ -38,6 +40,8 @@ var _codex_kind: String = GameManager.CODEX_KIND_EQUIPMENT
 
 func _ready() -> void:
 	SceneManager.consume_transfer_data()
+	# ⚠ 朝4:00 の移し（2026-10-04・`TK-6`）。⚠ 昨日終えたタスクを「終わったタスク」に載せてから描く。
+	var _moved: int = GameManager.roll_over_done_tasks()
 	header.back_pressed.connect(_on_back_pressed)
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.RECORDS)
 	_tabs = PaperTabs.new()
@@ -65,6 +69,8 @@ func _rebuild() -> void:
 			_build_characters()
 		TAB_DUNGEONS:
 			_build_dungeons()
+		TAB_TASKS:
+			_build_tasks()
 		_:
 			_build_codex()
 
@@ -516,6 +522,45 @@ func _build_dungeons() -> void:
 	for dungeon_id: String in MasterDataLoader.get_all_dungeon_ids():
 		var name_text: String = tr(str(MasterDataLoader.get_dungeon(dungeon_id).get("name_key", dungeon_id)))
 		list.add_child(_value_row("Dungeon_" + dungeon_id, name_text, tr("ui_records_in_progress") if dungeon_id == current_dungeon else tr("ui_records_none")))
+
+
+# --- 終わったタスク（2026-10-04・`TK-8`・`TK-9`＝上限なし） ---------------------
+#   ⚠ 1行＝終えた日 ／ 色の印と題 ／ 🍅の数。⚠ 新しいものが上。
+
+func _build_tasks() -> void:
+	var task_log: Array = GameManager.get_task_log()
+	sheet_body.add_child(_heading("ui_records_tab_tasks", tr("ui_task_count") % task_log.size()))
+	var list: VBoxContainer = _scroll_list()
+	if task_log.is_empty():
+		list.add_child(EmptyState.create("ui_records_tasks_empty", "ui_records_tasks_empty_hint"))
+		return
+	for i: int in range(task_log.size() - 1, -1, -1):
+		var entry: Dictionary = task_log[i] as Dictionary
+		var row: LedgerRow = LedgerRow.new()
+		row.name = "DoneTask_" + str(entry.get(GameStateKeys.TASK_ID, ""))
+		row.compact = true
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var line: HBoxContainer = HBoxContainer.new()
+		row.add_child(line)
+		var date: Label = Label.new()
+		date.name = "DateLabel"
+		date.theme_type_variation = &"CaptionLabel"
+		date.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		date.text = GameDate.get_game_date_string(float(int(entry.get(GameStateKeys.TASK_DONE_AT, 0))))
+		line.add_child(date)
+		line.add_child(TaskColorMark.create(int(entry.get(GameStateKeys.TASK_COLOR, 0))))
+		var title: Label = Label.new()
+		title.name = "TitleLabel"
+		title.text = str(entry.get(GameStateKeys.TASK_TITLE, ""))
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		line.add_child(title)
+		var count: Label = Label.new()
+		count.name = "CountLabel"
+		count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		count.text = tr("ui_task_pomodoro_count") % int(entry.get(GameStateKeys.TASK_POMODORO_COUNT, 0))
+		line.add_child(count)
+		list.add_child(row)
 
 
 func _on_back_pressed() -> void:
