@@ -53,6 +53,10 @@ signal floor_chest_found(chest_id: String, rarity: String)
 # ⚠ dungeon_id は「変わったあとの値」。ランが終わったときは "" が飛ぶ。
 signal dungeon_run_changed(dungeon_id: String)
 
+# タスクのメモが変わった（2026-10-04・`TK-1`）。⚠ 足す・名前・メモ・期限・色・タグ・並べ替え・チェック・🍅・朝4:00 の移しのどれでも飛ぶ。
+# ⚠ 拠点の紙とタスクの画面はこれで描き直す（⚠ 再描画に await を持たせない＝CLAUDE.md 5番）。
+signal tasks_changed()
+
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
 const LEVEL_UP_COST_MATERIAL_ID: String = "material_id"
@@ -550,6 +554,10 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.GUIDES_SEEN: {},
 		# ⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3（⚠ 帰還報告書の「最深 更新」）。
 		GameStateKeys.DUNGEON_BEST_FLOORS: {},
+		# ⚠ タスクのメモ（2026-10-04・`TK-1`・`TK-6`）。⚠ 前のセーブも空で読まれる。
+		GameStateKeys.TASKS: [],
+		GameStateKeys.TASK_LOG: [],
+		GameStateKeys.NEXT_TASK_ID: 1,
 		GameStateKeys.DAILY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.WEEKLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.MONTHLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
@@ -1305,6 +1313,285 @@ func mark_guide_seen(guide_id: String) -> void:
 	seen[guide_id] = true
 	_state[GameStateKeys.GUIDES_SEEN] = seen
 	print("[GameManager] mark_guide_seen('%s')" % guide_id)
+
+
+# --- タスクのメモ（2026-10-04・DECISIONS.md `TK-1`〜`TK-14`・PLAN_TASK_MEMO.md） ---
+#
+# ⚠ 書き換えの口はここだけ（⚠ 画面から TASKS を直に触らない）。⚠ 変えたら `tasks_changed` を1本飛ばす。
+# ⚠ 状態を変える前に判定を全部終える（CLAUDE.md 6番）。⚠ 弾いたら false（⚠ 状態は触っていない）。
+# ⚠ タスクは報酬と繋げない（`TK-14`）＝⚠ ここから資源を1つも動かさない。
+
+# 期限の具合（拠点の紙と一覧の判・`TK-13`）。
+const TASK_DUE_NONE: int = 0
+const TASK_DUE_TODAY: int = 1
+const TASK_DUE_OVERDUE: int = 2
+
+
+# 一覧の全部（⚠ まだのものと、その日に終えたもの）。⚠ 並び＝表示の順（`TK-7`）。
+func get_tasks() -> Array:
+	return _copy_array(GameStateKeys.TASKS).duplicate(true)
+
+
+# まだのタスクだけ（⚠ 拠点の紙・ポモドーロの選ぶ窓）。⚠ 並びは一覧と同じ。
+func get_open_tasks() -> Array:
+	var open: Array = []
+	for task: Variant in get_tasks():
+		if task is Dictionary and int((task as Dictionary).get(GameStateKeys.TASK_DONE_AT, 0)) == 0:
+			open.append(task)
+	return open
+
+
+# 1件（⚠ 無ければ空）。⚠ 記録へ移ったものは引かない（⚠ 一覧に居るものだけ）。
+func get_task(task_id: String) -> Dictionary:
+	var index: int = _task_index(task_id)
+	if index < 0:
+		return {}
+	return (_state[GameStateKeys.TASKS][index] as Dictionary).duplicate(true)
+
+
+# 終わったタスクの記録（`TK-8`・`TK-9`＝上限なし）。⚠ 古いものが先。
+func get_task_log() -> Array:
+	return _copy_array(GameStateKeys.TASK_LOG).duplicate(true)
+
+
+# 一覧に出てくるタグの全部（⚠ 絞り込みの札・`TK-12`）。⚠ 出てきた順。
+func get_task_tags() -> Array[String]:
+	var tags: Array[String] = []
+	for task: Variant in get_tasks():
+		for tag: Variant in (task as Dictionary).get(GameStateKeys.TASK_TAGS, []):
+			if not (str(tag) in tags):
+				tags.append(str(tag))
+	return tags
+
+
+# 色の数（`TK-12`）。⚠ つまみは Config（⚠ 値は DECISIONS.md）。
+func get_task_color_count() -> int:
+	return maxi(1, Balance.pomodoro.task_color_count)
+
+
+# 期限の具合（`TK-13`）。⚠ 終えたものは判を押さない（⚠ 線を引いてある）。⚠ 「今日」は朝4:00 区切り（`GameDate`）。
+func get_task_due_state(task: Dictionary, now_unix: float = -1.0) -> int:
+	var due: String = str(task.get(GameStateKeys.TASK_DUE, ""))
+	if due == "" or int(task.get(GameStateKeys.TASK_DONE_AT, 0)) != 0:
+		return TASK_DUE_NONE
+	var today: String = GameDate.get_game_date_string(now_unix)
+	if due < today:
+		return TASK_DUE_OVERDUE
+	if due == today:
+		return TASK_DUE_TODAY
+	return TASK_DUE_NONE
+
+
+# 足す（`TK-2`）。⚠ 一覧のいちばん下に入る。⚠ 題が空なら足さない（"" を返す）。⚠ 足した task_id を返す。
+func add_task(title: String) -> String:
+	var clean: String = title.strip_edges()
+	if clean == "":
+		return ""
+	var next_id: int = int(_state.get(GameStateKeys.NEXT_TASK_ID, 1))
+	var task_id: String = "task_%d" % next_id
+	var tasks: Array = _copy_array(GameStateKeys.TASKS)
+	tasks.append({
+		GameStateKeys.TASK_ID: task_id,
+		GameStateKeys.TASK_TITLE: clean,
+		GameStateKeys.TASK_MEMO: "",
+		GameStateKeys.TASK_DUE: "",
+		GameStateKeys.TASK_COLOR: 0,
+		GameStateKeys.TASK_TAGS: [],
+		GameStateKeys.TASK_POMODORO_COUNT: 0,
+		GameStateKeys.TASK_CREATED_AT: int(Time.get_unix_time_from_system()),
+		GameStateKeys.TASK_DONE_AT: 0,
+	})
+	_state[GameStateKeys.TASKS] = tasks
+	_state[GameStateKeys.NEXT_TASK_ID] = next_id + 1
+	print("[GameManager] add_task('%s') -> %s" % [clean, task_id])
+	tasks_changed.emit()
+	return task_id
+
+
+# 名前を変える（⚠ ポモドーロの1行の題を書き換えたときも・`TK-10`）。⚠ 空にはしない。
+func rename_task(task_id: String, title: String) -> bool:
+	var clean: String = title.strip_edges()
+	if clean == "":
+		return false
+	return _write_task(task_id, {GameStateKeys.TASK_TITLE: clean})
+
+
+func set_task_memo(task_id: String, memo: String) -> bool:
+	return _write_task(task_id, {GameStateKeys.TASK_MEMO: memo})
+
+
+# 期限（`TK-7`）。⚠ "" か `YYYY-MM-DD` だけ受ける。
+func set_task_due(task_id: String, due: String) -> bool:
+	if due != "" and not _is_game_date_string(due):
+		push_warning("[GameManager] set_task_due: not a date '%s'" % due)
+		return false
+	return _write_task(task_id, {GameStateKeys.TASK_DUE: due})
+
+
+# 色（`TK-12`）。⚠ 0 から色の数 - 1。
+func set_task_color(task_id: String, color: int) -> bool:
+	if color < 0 or color >= get_task_color_count():
+		return false
+	return _write_task(task_id, {GameStateKeys.TASK_COLOR: color})
+
+
+# タグを足す（`TK-12`）。⚠ 空・同じタグは足さない。
+func add_task_tag(task_id: String, tag: String) -> bool:
+	var clean: String = tag.strip_edges()
+	var task: Dictionary = get_task(task_id)
+	if clean == "" or task.is_empty():
+		return false
+	var tags: Array = (task.get(GameStateKeys.TASK_TAGS, []) as Array).duplicate()
+	if clean in tags:
+		return false
+	tags.append(clean)
+	return _write_task(task_id, {GameStateKeys.TASK_TAGS: tags})
+
+
+func remove_task_tag(task_id: String, tag: String) -> bool:
+	var task: Dictionary = get_task(task_id)
+	if task.is_empty():
+		return false
+	var tags: Array = (task.get(GameStateKeys.TASK_TAGS, []) as Array).duplicate()
+	if not (tag in tags):
+		return false
+	tags.erase(tag)
+	return _write_task(task_id, {GameStateKeys.TASK_TAGS: tags})
+
+
+# 並べ替え（`TK-7`）。⚠ `delta` は -1（上へ）か +1（下へ）。⚠ 端からはみ出すなら false。
+func move_task(task_id: String, delta: int) -> bool:
+	var index: int = _task_index(task_id)
+	var target: int = index + delta
+	var tasks: Array = _copy_array(GameStateKeys.TASKS)
+	if index < 0 or delta == 0 or target < 0 or target >= tasks.size():
+		return false
+	var moving: Variant = tasks[index]
+	tasks.remove_at(index)
+	tasks.insert(target, moving)
+	_state[GameStateKeys.TASKS] = tasks
+	tasks_changed.emit()
+	return true
+
+
+# 終えた・戻した（`TK-4`＝自分でチェック）。⚠ 終えたものはその日のうちは一覧に残る（`TK-6`）。
+func set_task_done(task_id: String, done: bool) -> bool:
+	var task: Dictionary = get_task(task_id)
+	if task.is_empty():
+		return false
+	var was_done: bool = int(task.get(GameStateKeys.TASK_DONE_AT, 0)) != 0
+	if was_done == done:
+		return false
+	return _write_task(task_id, {GameStateKeys.TASK_DONE_AT: int(Time.get_unix_time_from_system()) if done else 0})
+
+
+# 🍅を1つ（`TK-5`＝集中のタイマーが0になった時）。⚠ 呼ぶのはポモドーロの画面だけ。
+#   ⚠ 選んでいない集中は呼ばない（`TK-11`）。⚠ 一覧から記録へ移ったあとなら記録の側に数える。
+func add_task_pomodoro(task_id: String) -> bool:
+	var index: int = _task_index(task_id)
+	if index >= 0:
+		var count: int = int((_state[GameStateKeys.TASKS][index] as Dictionary).get(GameStateKeys.TASK_POMODORO_COUNT, 0))
+		return _write_task(task_id, {GameStateKeys.TASK_POMODORO_COUNT: count + 1})
+	var task_log: Array = _copy_array(GameStateKeys.TASK_LOG)
+	for i: int in range(task_log.size()):
+		var entry: Dictionary = (task_log[i] as Dictionary).duplicate(true)
+		if str(entry.get(GameStateKeys.TASK_ID, "")) != task_id:
+			continue
+		entry[GameStateKeys.TASK_POMODORO_COUNT] = int(entry.get(GameStateKeys.TASK_POMODORO_COUNT, 0)) + 1
+		task_log[i] = entry
+		_state[GameStateKeys.TASK_LOG] = task_log
+		tasks_changed.emit()
+		return true
+	return false
+
+
+# 朝4:00 の移し（`TK-6`）：⚠ 終えた日（ゲーム内の日付）が今日でないタスクを、一覧から記録へ移す。⚠ 上限は付けない（`TK-9`）。
+#   ⚠ 呼ぶのは画面を開いたとき（⚠ 拠点・ポモドーロ・タスクの画面・記録）。⚠ 移した件数を返す。
+#   ⚠ `now_unix` は検査が日付を差し替えるための口（⚠ 本番は渡さない）。
+func roll_over_done_tasks(now_unix: float = -1.0) -> int:
+	var today: String = GameDate.get_game_date_string(now_unix)
+	var keep: Array = []
+	var moved: Array = []
+	for task: Variant in _copy_array(GameStateKeys.TASKS):
+		var done_at: int = int((task as Dictionary).get(GameStateKeys.TASK_DONE_AT, 0))
+		if done_at != 0 and GameDate.get_game_date_string(float(done_at)) != today:
+			moved.append(task)
+		else:
+			keep.append(task)
+	if moved.is_empty():
+		return 0
+	var task_log: Array = _copy_array(GameStateKeys.TASK_LOG)
+	for task: Variant in moved:
+		var entry: Dictionary = task as Dictionary
+		# ⚠ 記録が持つのは題・色・タグ・🍅・日付だけ（⚠ メモと期限は持たない＝PLAN §3-1）。
+		task_log.append({
+			GameStateKeys.TASK_ID: entry.get(GameStateKeys.TASK_ID, ""),
+			GameStateKeys.TASK_TITLE: entry.get(GameStateKeys.TASK_TITLE, ""),
+			GameStateKeys.TASK_COLOR: int(entry.get(GameStateKeys.TASK_COLOR, 0)),
+			GameStateKeys.TASK_TAGS: (entry.get(GameStateKeys.TASK_TAGS, []) as Array).duplicate(),
+			GameStateKeys.TASK_POMODORO_COUNT: int(entry.get(GameStateKeys.TASK_POMODORO_COUNT, 0)),
+			GameStateKeys.TASK_CREATED_AT: int(entry.get(GameStateKeys.TASK_CREATED_AT, 0)),
+			GameStateKeys.TASK_DONE_AT: int(entry.get(GameStateKeys.TASK_DONE_AT, 0)),
+		})
+	_state[GameStateKeys.TASKS] = keep
+	_state[GameStateKeys.TASK_LOG] = task_log
+	print("[GameManager] roll_over_done_tasks: %d -> task_log（一覧 %d ／ 記録 %d）" % [moved.size(), keep.size(), task_log.size()])
+	tasks_changed.emit()
+	return moved.size()
+
+
+func _task_index(task_id: String) -> int:
+	var tasks: Variant = _state.get(GameStateKeys.TASKS, [])
+	if not (tasks is Array):
+		return -1
+	for i: int in range((tasks as Array).size()):
+		var task: Variant = (tasks as Array)[i]
+		if task is Dictionary and str((task as Dictionary).get(GameStateKeys.TASK_ID, "")) == task_id:
+			return i
+	return -1
+
+
+# 1件の欄を書き換えて知らせる（⚠ 複製してから代入し直す＝AGENTS.md）。
+func _write_task(task_id: String, changes: Dictionary) -> bool:
+	var index: int = _task_index(task_id)
+	if index < 0:
+		return false
+	var tasks: Array = _copy_array(GameStateKeys.TASKS)
+	var task: Dictionary = (tasks[index] as Dictionary).duplicate(true)
+	for key: Variant in changes:
+		task[key] = changes[key]
+	tasks[index] = task
+	_state[GameStateKeys.TASKS] = tasks
+	tasks_changed.emit()
+	return true
+
+
+static func _is_game_date_string(text: String) -> bool:
+	if text.length() != 10 or text[4] != "-" or text[7] != "-":
+		return false
+	return text.substr(0, 4).is_valid_int() and text.substr(5, 2).is_valid_int() and text.substr(8, 2).is_valid_int()
+
+
+# セーブから戻したタスクの数を int に戻す（CLAUDE.md 3番）。⚠ 形の崩れた行は捨てる（⚠ 落とさない）。
+static func _normalize_task_list(raw: Variant) -> Array:
+	var out: Array = []
+	if not (raw is Array):
+		return out
+	for task: Variant in (raw as Array):
+		if not (task is Dictionary):
+			continue
+		var entry: Dictionary = (task as Dictionary).duplicate(true)
+		for number_key: String in [GameStateKeys.TASK_COLOR, GameStateKeys.TASK_POMODORO_COUNT, GameStateKeys.TASK_CREATED_AT, GameStateKeys.TASK_DONE_AT]:
+			if entry.has(number_key):
+				entry[number_key] = int(entry[number_key])
+		var tags: Array = []
+		var raw_tags: Variant = entry.get(GameStateKeys.TASK_TAGS, [])
+		if raw_tags is Array:
+			for tag: Variant in (raw_tags as Array):
+				tags.append(str(tag))
+		entry[GameStateKeys.TASK_TAGS] = tags
+		out.append(entry)
+	return out
 
 
 func get_codex_entry(item_id: String) -> Dictionary:
@@ -6212,6 +6499,10 @@ func load_state(data: Dictionary) -> bool:
 		var best: Dictionary = new_state[GameStateKeys.DUNGEON_BEST_FLOORS]
 		for dungeon_key: Variant in best:
 			best[dungeon_key] = int(best[dungeon_key])
+	# ⚠ タスクのメモ（2026-10-04・`TK-1`）：⚠ 色・🍅・日付を int に戻す（CLAUDE.md 3番）。
+	new_state[GameStateKeys.TASKS] = _normalize_task_list(new_state.get(GameStateKeys.TASKS, []))
+	new_state[GameStateKeys.TASK_LOG] = _normalize_task_list(new_state.get(GameStateKeys.TASK_LOG, []))
+	new_state[GameStateKeys.NEXT_TASK_ID] = int(new_state.get(GameStateKeys.NEXT_TASK_ID, 1))
 	if new_state.has(GameStateKeys.MATERIALS) and new_state[GameStateKeys.MATERIALS] is Dictionary:
 		var mats: Dictionary = new_state[GameStateKeys.MATERIALS]
 		for mat_id: String in mats:

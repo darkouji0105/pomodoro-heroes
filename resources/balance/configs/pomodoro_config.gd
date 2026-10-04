@@ -34,3 +34,7 @@ extends Resource
 
 @export var reflection_min_chars: int = 20
 @export var reflection_time_limit_sec: int = 120
+
+# ⚠ タスクのメモの色の数（2026-10-04・`TK-12`・人間「⚠ ６色で」）。⚠ 色そのものは Theme の `TaskColor` 型（`tools/theme_builder.gd`）。
+#   ⚠ Theme に並べた色より多くしない（⚠ 足りない番号は色が引けない）。
+@export var task_color_count: int = 6

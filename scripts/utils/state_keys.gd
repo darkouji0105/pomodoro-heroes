@@ -633,3 +633,33 @@ const PRESET_INDEX: String = "preset_index"
 #   ⚠ GAME_DESIGN.md 7-6 は「{装飾ID, 等級, 出目}」と書いているが、等級は落としている。
 const PART_ITEM_ID: String = "item_id"
 const PART_ROLL: String = "roll"
+
+# ============================================================
+# タスクのメモ（2026-10-04・DECISIONS.md `TK-1`〜`TK-14`・PLAN_TASK_MEMO.md）
+# ⚠ 読み書きは GameManager の `*_task*` の口だけ（⚠ 画面から直に触らない）。
+# ⚠ タスクの文は遊ぶ人が書いたもの＝マスターではない（⚠ CLAUDE.md 4番には当たらない）。
+# ============================================================
+
+# まだのタスクと、その日に終えたタスク（`TK-1`・`TK-6`）。⚠ 配列の並び＝表示の順（`TK-7`）。
+#   [{task_id, title, memo, due, color, tags, pomodoro_count, created_at, done_at}]
+const TASKS: String = "tasks"
+# 終わったタスクの記録（`TK-6`・`TK-8`・`TK-9`＝上限なし）。⚠ 朝4:00 に TASKS から移す。
+#   [{task_id, title, color, tags, pomodoro_count, created_at, done_at}]
+const TASK_LOG: String = "task_log"
+# 次に振る task_id の番号（⚠ 装備の個体の NEXT_EQUIPMENT_INSTANCE_ID と同じ形）。
+const NEXT_TASK_ID: String = "next_task_id"
+
+# タスク1件の中身。
+const TASK_ID: String = "task_id"
+const TASK_TITLE: String = "title"
+const TASK_MEMO: String = "memo"
+# ⚠ 期限は `GameDate.get_game_date_string()` と同じ形の文字列（`"2026-10-04"`）。⚠ "" なら期限なし。
+const TASK_DUE: String = "due"
+# ⚠ 色の番号（0 から `Balance.pomodoro.task_color_count` - 1）。⚠ 色そのものは Theme の `TaskColor` 型。
+const TASK_COLOR: String = "color"
+const TASK_TAGS: String = "tags"
+# ⚠ 集中のタイマーが0になった回数（`TK-5`）。
+const TASK_POMODORO_COUNT: String = "pomodoro_count"
+# ⚠ どちらも unix 秒の int。⚠ done_at が 0 ならまだ。
+const TASK_CREATED_AT: String = "created_at"
+const TASK_DONE_AT: String = "done_at"
