@@ -73,7 +73,8 @@ TASK_LOG:   [{task_id, title, color, tags, pomodoro_count, created_at, done_at}]
 
 ### 3-3. 🍅を数える時
 
-⚠⚠ **未決（人間に聞く）。** ⚠ 設計役のおすすめは「**集中のタイマーが0になった時**」。
+⚠⚠ **決まった（10-04・`TK-5`）：集中のタイマーが0になった時。** ⚠ 人間「⚠ ０になったとき」。⚠ 以下は裁く前の材料。
+⚠ 入れる場所の目安：`pomodoro.gd` `_on_timer_finished()` の `State.FOCUS` の枝（⚠ `_notify_focus_finished()` と同じ所）。⚠ デバッグの「このフェーズを終わらせる」もここを通る。
 
 - ⚠ いまの「集中の分」は振り返りを確定したときだけ加算される（`pomodoro.gd` `_on_reflection_completed()` の `if not skipped`）
 - ⚠ `TK-4` で「振り返りでは聞かない」と決まったので、⚠ 🍅を振り返りに縛る理由が無い
@@ -81,7 +82,8 @@ TASK_LOG:   [{task_id, title, color, tags, pomodoro_count, created_at, done_at}]
 
 ### 3-4. 数値の置き場
 
-⚠ 拠点の紙に出す件数・色の数は**つまみ**＝`AGENTS.md` 数値管理ルールで Config に置く。
+⚠ 拠点の紙は**全部出す**（10-04・`TK-3`）＝件数のつまみは要らない。⚠ 紙の高さは決めて、溢れたら紙の中で送る。
+⚠ 色の数は**つまみ**＝`AGENTS.md` 数値管理ルールで Config に置く（⚠ 未決・案 6）。
 ⚠ 案：`PomodoroConfig` に `@export` を足す（⚠ 新しい Config を作ると `balance.tscn` に配線が要る）。
 ⚠ **色そのもの**は Theme 側（`tools/theme_builder.gd`）。⚠ シーンに色を書かない。
 
@@ -118,4 +120,4 @@ TASK_LOG:   [{task_id, title, color, tags, pomodoro_count, created_at, done_at}]
 
 ## 更新履歴
 
-- **2026-10-04** … 新設（議論の回・問1〜13）。
+- **2026-10-04** … 新設（議論の回・問1〜13）。⚠ 同じ日に未決2つを裁いた（⚠ 🍅＝タイマーが0 ／ ⚠ 紙＝全部出す）。⚠ 残りは色の数だけ。
