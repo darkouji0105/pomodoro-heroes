@@ -172,6 +172,21 @@ func _on_volume_changed(pct: float, key: String, label: Label) -> void:
 func _build_pomodoro() -> void:
 	var panel: PomodoroSettingsPanel = PomodoroSettingsPanel.new()
 	sheet_body.add_child(panel)
+	# ⚠ タスク（2026-10-05・`TK-17`・モック3「設定に足す行」）：⚠ 期限の札「今週中」が入れる曜日。
+	var task_heading: SheetHeading = SheetHeading.new()
+	task_heading.name = "TaskHeading"
+	task_heading.title_key = "ui_settings_task"
+	sheet_body.add_child(task_heading)
+	var labels: Array[String] = []
+	for weekday: int in GameSettings.WEEK_END_CHOICES:
+		labels.append(tr("ui_settings_weekday_%d" % weekday))
+	_row("WeekEndRow", "ui_settings_week_end", "ui_settings_week_end_note",
+		_choices("WeekEnd", GameSettings.WEEK_END_CHOICES, labels, GameSettings.week_end_weekday(), _on_week_end_chosen))
+
+
+func _on_week_end_chosen(weekday: int) -> void:
+	GameSettings.set_value(GameSettings.SECTION_TASK, GameSettings.KEY_WEEK_END, weekday)
+	_rebuild()
 
 
 # --- データ（⚠ セーブを消すは置かない＝「⚠ 3い」） ---
