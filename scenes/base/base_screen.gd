@@ -1,7 +1,7 @@
 # res://scenes/base/base_screen.gd
 # 拠点画面（下部：リソース表示と遷移ボタン）の実装
 # AGENTS.md 準拠。
-# オートセーブ未実装の間は SaveButton / BackToTitleButton を残している。
+# ⚠ 2026-10-05（回P-1）から自動セーブがある（`SaveManager.autosave()`）。⚠ SaveButton は人間の決定で残す（「⚠ ｑ２　あ」）。
 
 extends Control
 
@@ -259,7 +259,7 @@ func _on_save_pressed() -> void:
 		Modal.notify(self, "ui_base_save_failed", [], false, save_options)
 
 # タイトルへ戻る前に確認する。
-# オートセーブが無いため、ここで戻ると直前のセーブ以降の進行が消える。
+# ⚠ 戻るときに自動セーブされる（`SceneManager.change_scene()`・回P-1）。⚠ 確かめの窓は押し間違いのため残す。
 func _on_back_to_title_pressed() -> void:
 	var ok: bool = await Modal.confirm(self, "ui_title_back_confirm", [], false, {
 		Modal.OPTION_TITLE: tr("ui_base_back_to_title"),

@@ -223,7 +223,7 @@ ui_uitest_cat_gift,贈り物
 ui_uitest_cat_rune,ルーン
 ui_uitest_cat_relic,レリック
 ui_uitest_cat_other,その他
-ui_title_back_confirm,タイトルに戻りますか？ 保存していない進行状況は失われます
+ui_title_back_confirm,タイトルに戻りますか？ 進行状況は自動でセーブされます
 ui_base_pomodoro_rewards,ポーションを%d個、宝箱を%d個受け取りました
 ui_title_delete_confirm,セーブデータを削除しますか？ この操作は取り消せません
 ui_res_training_material_1,修練の証

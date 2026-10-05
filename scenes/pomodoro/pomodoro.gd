@@ -75,6 +75,8 @@ func _ready() -> void:
 
 	_build_debug_panel()
 	_build_sidebar()
+	# ⚠ 窓を閉じたら「やめる」と同じに確定する（2026-10-05・回P-1・人間「⚠ ｑ１　あ」）。⚠ 書くのは SaveManager。
+	SaveManager.quitting.connect(_settle_session)
 
 	if GameManager.has_selected_protection_today():
 		_switch_view(State.FOCUS)
@@ -309,6 +311,8 @@ func _on_reflection_completed(text: String, skipped: bool = false) -> void:
 	if current_set_index + 1 >= current_total_sets:
 		_return_to_base()
 	else:
+		# ⚠ セットが終わるたびに自動セーブ（2026-10-05・回P-1）。⚠ 最後のセットは拠点へ移るときに書く。
+		SaveManager.autosave()
 		_switch_view(State.BREAK)
 
 
@@ -516,21 +520,35 @@ func quit_session() -> void:
 
 
 func _return_to_base() -> void:
-	# ⚠ 集中の途中でやめたら、⚠ そこまでの時間を選んでいたタスクに記録する（`TK-5`）。
-	_flush_task_time()
-	_stop_phase_timer()
-
-	var potion_count: int = GameManager.grant_stamina_potions(session_accumulated_focus_min)
-	GameManager.apply_pomodoro_rewards({})
-	var claimed_chest_count: int = GameManager.claim_pending_chests()
-	print("[Pomodoro] potions=%d, claimed_chests=%d" % [potion_count, claimed_chest_count])
+	_settle_session()
 
 	# 受け取り報告は拠点に着いてから出す。
 	# ここでモーダルを出しても直後の遷移で消えるため、数だけ渡す。
 	SceneManager.change_scene_with_data(BASE_PATH, {
-		TransferKeys.POMODORO_POTIONS: potion_count,
-		TransferKeys.POMODORO_CHESTS: claimed_chest_count,
+		TransferKeys.POMODORO_POTIONS: _settled_potions,
+		TransferKeys.POMODORO_CHESTS: _settled_chests,
 	})
+
+
+# ⚠⚠ セッションを確定する口（2026-10-05・回P-1）。⚠ 「やめる」・最後のセット・窓を閉じる（`SaveManager.quitting`）の3つがここを通る。
+#   ⚠ 1回だけ（⚠ 閉じる合図と拠点へ移るのが重なっても二重に配らない）。⚠ 画面は移らない（⚠ 移るのは `_return_to_base()`）。
+var _settled: bool = false
+var _settled_potions: int = 0
+var _settled_chests: int = 0
+
+
+func _settle_session() -> void:
+	if _settled:
+		return
+	_settled = true
+	# ⚠ 集中の途中でやめたら、⚠ そこまでの時間を選んでいたタスクに記録する（`TK-5`）。
+	_flush_task_time()
+	_stop_phase_timer()
+
+	_settled_potions = GameManager.grant_stamina_potions(session_accumulated_focus_min)
+	GameManager.apply_pomodoro_rewards({})
+	_settled_chests = GameManager.claim_pending_chests()
+	print("[Pomodoro] settled: potions=%d, claimed_chests=%d" % [_settled_potions, _settled_chests])
 
 
 func get_presence_status() -> Dictionary:

@@ -37,6 +37,7 @@ const KIND_REPORT: String = "report"
 # ⚠⚠ 画面の本物のボタン・行を押して回る枝（2026-09-27・人間「⚠ それ以外のやつはあなたが確認できると思うがどうか」）。
 #   ⚠ 撮影と同じく root に係を置くので、⚠ 画面を移っても続けられる。⚠ ヘッドレスで回せる（⚠ 絵は取らない）。
 const KIND_UI_FLOW: String = "ui_flow"
+const KIND_CLOSE: String = "close"
 # ⚠ 難ダンジョンを自動で潜って数字を取る枝（2026-10-03・回6）。⚠ 係（`DungeonSimRunner`）を root に置く。
 const KIND_DUNGEON_SIM: String = "dungeon_sim"
 
@@ -85,6 +86,7 @@ const SHOT_PREPARE_EQUIPMENT: String = "equipment"
 # ⚠ 画面を開いたあとに窓を出す手（⚠ 増やすなら ShotTaker._after() に1行）。
 # ⚠ 検査の設定ファイル（⚠ 本物の `user://settings.cfg` を書かない・2026-09-28）。
 const SETTINGS_TEST_PATH: String = "user://settings_debug_boot.cfg"
+const SAVE_TEST_PATH: String = "user://saves/save_debug_boot.json"
 const SHOT_AFTER_NONE: String = ""
 const SHOT_AFTER_LOOT_OVERLAY: String = "loot_overlay"
 const SHOT_AFTER_BATTLE_RESULT: String = "battle_result"
@@ -1010,6 +1012,10 @@ const SCENARIOS: Dictionary = {
 		"note": "難ダンジョンを自動で潜る（スキルは撃てたら撃つ・休憩・ポーション・商人）→ 何層で倒れるか・コイン・ポーションの数字",
 		"party": ["char_swordsman", "char_archer", "char_priest"],
 	},
+	"close": {
+		"kind": KIND_CLOSE,
+		"note": "窓を閉じる道（回P-1）：ポモドーロを開いて閉じる合図 → 確定 → 検査用のファイルに書いて終わる",
+	},
 	"ui_flow": {
 		"kind": KIND_UI_FLOW,
 		"note": "育成の札とタブ ／ 割り振り ／ スキル ／ 装備 ／ 昇級 ／ 持ち物（鍛える・刺す・外す・分解・段階・捨てる・図鑑）／ 詰所（ビルド・並べ替え・控え・開く）／ 掲示板（タブ・札・出撃届・続きから）",
@@ -1339,6 +1345,10 @@ func _ready() -> void:
 	#   ⚠ 遊んでいる人の `user://settings.cfg` を書き換えない。⚠ 窓で撮るので全画面を戻す。
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_TEST_PATH))
 	GameSettings.use_path(SETTINGS_TEST_PATH)
+	# ⚠⚠ セーブも検査用のファイルへ（2026-10-05・回P-1・自動セーブが入った）。⚠ 遊んでいる人の save_slot_0.json を書かない。
+	#   ⚠ 自動で書くのはタイトルで始めたあとだけ＝⚠ ここでは書かない（⚠ 下の「SaveManager を呼ばない」は守ったまま）。
+	SaveManager.use_path(SAVE_TEST_PATH)
+	SaveManager.end_session()
 	GameSettings.apply_display()
 	SoundManager.refresh_volumes()
 	# ⚠ 状態は書き換えるが、絶対に保存しない。
@@ -1424,6 +1434,20 @@ func _ready() -> void:
 		var sim: DungeonSimRunner = DungeonSimRunner.new()
 		sim.name = "DebugBootDungeonSim"
 		get_tree().root.add_child.call_deferred(sim)
+		return
+
+	# ⚠ 窓を閉じる道（2026-10-05・回P-1）：⚠ 始めた状態でポモドーロを開き、2秒後に本物の「閉じる」の合図を root に流す。
+	#   ⚠ 見るのはログ（⚠ `[Pomodoro] settled` → `[SaveManager] save_game -> 検査用のファイル` → 終わる）。⚠ 書くのは検査用のファイルだけ。
+	if str(scenario.get("kind", KIND_BATTLE)) == KIND_CLOSE:
+		SaveManager.begin_session()
+		var timer: Timer = Timer.new()
+		timer.wait_time = 2.0
+		timer.one_shot = true
+		timer.autostart = true
+		# ⚠ root のメソッドにつなぐ（⚠ この debug_boot は画面を移ると消える＝ラムダで掴まない）。
+		timer.timeout.connect(get_tree().root.propagate_notification.bind(NOTIFICATION_WM_CLOSE_REQUEST))
+		get_tree().root.add_child.call_deferred(timer)
+		SceneManager.change_scene_with_data.call_deferred("res://scenes/pomodoro/pomodoro.tscn", {})
 		return
 
 	if str(scenario.get("kind", KIND_BATTLE)) == KIND_UI_FLOW:
@@ -10362,6 +10386,7 @@ class UiFlowRunner extends Node:
 		await _flow_quota_ticket()
 		await _flow_dungeon_depth()
 		await _flow_tasks()
+		await _flow_autosave()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -10985,6 +11010,48 @@ class UiFlowRunner extends Node:
 		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, false)
 
 	# ポモドーロで集中を始める（⚠ 加護を選ぶビューなら「始める」→ ⚠ 集中の「開始」）。
+	# --- 自動セーブと閉じたとき（2026-10-05・回P-1・人間「⚠ ｑ１　あ　ｑ２　あ　ｑ３　いい」） ---
+	#   ⚠ 本当に窓を閉じると検査ごと終わる＝⚠ 閉じる合図（`SaveManager.quitting`）と書き込み（`autosave()`）を分けて見る。
+	func _flow_autosave() -> void:
+		var test_file: String = ProjectSettings.globalize_path(SAVE_TEST_PATH)
+		_check("自動セーブ：検査は検査用のファイルに書く（%s）" % SaveManager.save_path(), SaveManager.save_path() == SAVE_TEST_PATH)
+		DirAccess.remove_absolute(test_file)
+		_check("自動セーブ：タイトルで始めていないあいだは書かない", not SaveManager.autosave() and not FileAccess.file_exists(SAVE_TEST_PATH))
+		SaveManager.begin_session()
+		var b: Node = await _open(BASE, {})
+		_check("自動セーブ：始めたあとは画面を移ると書く", b != null and FileAccess.file_exists(SAVE_TEST_PATH))
+		# 閉じたとき：⚠ 集中の途中 → 閉じる合図 → 「やめる」と同じ確定（⚠ タスクの時間・セッションの回数・タイマーが止まる）。
+		var task_id: String = GameManager.add_task("自動セーブ検査")
+		var p: Node = await _open(POMODORO, {})
+		if p == null:
+			SaveManager.end_session()
+			return
+		var select_view: Node = p.find_child("ProtectionSelectView", true, false)
+		if select_view != null:
+			await _press(select_view.find_child("StartButton", true, false), OPEN_FRAMES)
+		var view: Node = p.find_child("FocusView", true, false)
+		if view != null:
+			view.call("set_task", task_id)
+			await _press(view.find_child("StartButton", true, false))
+		var total_sec: float = float(p.get("phase_total_sec"))
+		p.set("time_left_sec", total_sec - 120.0)
+		var sessions_before: int = int(GameManager.get_state().get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0))
+		DirAccess.remove_absolute(test_file)
+		SaveManager.quitting.emit()
+		var saved: bool = SaveManager.autosave()
+		var task_sec: int = int(GameManager.get_task(task_id).get(GameStateKeys.TASK_FOCUS_SEC, 0))
+		var sessions_after: int = int(GameManager.get_state().get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0))
+		_check("閉じたとき：集中の途中でも確定する（タスクに %d 秒・回数 %d → %d・タイマー止まる）・書く" % [task_sec, sessions_before, sessions_after],
+			absi(task_sec - 120) <= 1 and sessions_after == sessions_before + 1 and not bool(p.get("is_timer_active")) and saved and FileAccess.file_exists(SAVE_TEST_PATH))
+		SaveManager.quitting.emit()
+		_check("閉じたとき：合図が2回来ても二重に配らない（回数 %d）" % int(GameManager.get_state().get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0)),
+			int(GameManager.get_state().get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0)) == sessions_after)
+		# ⚠ 後片付け：⚠ 以降の検査では書かない・⚠ 足したタスクは消す・⚠ 検査用のファイルは残さない。
+		SaveManager.end_session()
+		var _deleted: bool = GameManager.delete_task(task_id)
+		DirAccess.remove_absolute(test_file)
+		await _open(BASE, {})
+
 	func _pomodoro_start_focus(p: Node) -> void:
 		if p == null:
 			return

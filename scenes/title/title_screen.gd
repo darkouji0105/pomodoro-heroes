@@ -22,6 +22,8 @@ const THEME_TYPE: StringName = &"TitleSign"
 func _ready() -> void:
 	# ⚠ タイトルに通貨は出さない（⚠ 手本 Title。⚠ セーブを読む前の数字は意味が無い）。
 	ResourceHud.set_shown(false)
+	# ⚠ タイトルにいる間は自動セーブしない（2026-10-05・回P-1）。⚠ 始めたら `begin_session()`。
+	SaveManager.end_session()
 	_build_sign()
 	var width: float = float(get_theme_constant(&"button_width", THEME_TYPE))
 	var height: float = float(get_theme_constant(&"button_height", THEME_TYPE))
@@ -128,6 +130,8 @@ func _on_start_pressed() -> void:
 	if start_new:
 		GameManager.reset_to_new_game()
 
+	# ⚠ ここから自動セーブ（2026-10-05・回P-1）。⚠ 読み込み・新規の両方がここを通る。
+	SaveManager.begin_session()
 	SceneManager.change_scene("res://scenes/base/base_screen.tscn")
 
 # 「はじめから」＝セーブを消して新しく始める。取り返しがつかない。必ず確認する。

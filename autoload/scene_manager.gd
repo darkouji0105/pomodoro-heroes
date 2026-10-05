@@ -66,6 +66,8 @@ func change_scene(scene_path: String) -> void:
 	# ⚠ 右上の通貨は既定で出す（2026-09-09）。⚠ 隠したい画面が自分の `_ready()` で消す。
 	#   ⚠ ここで戻さないと、⚠ ポモドーロから抜けたあと通貨が消えたままになる。
 	ResourceHud.set_shown(true)
+	# ⚠ 画面を移るたびに自動セーブ（2026-10-05・回P-1・⚠ 遊んでいる最中だけ＝`SaveManager.autosave()`）。
+	SaveManager.autosave()
 	get_tree().change_scene_to_file(scene_path)
 
 func go_back() -> void:
@@ -85,6 +87,8 @@ func change_scene_with_data(scene_path: String, data: Dictionary) -> void:
 	# ⚠ 右上の通貨は既定で出す（2026-09-09）。⚠ 隠したい画面が自分の `_ready()` で消す。
 	#   ⚠ ここで戻さないと、⚠ ポモドーロから抜けたあと通貨が消えたままになる。
 	ResourceHud.set_shown(true)
+	# ⚠ 画面を移るたびに自動セーブ（2026-10-05・回P-1・⚠ 遊んでいる最中だけ＝`SaveManager.autosave()`）。
+	SaveManager.autosave()
 	get_tree().change_scene_to_file(scene_path)
 
 func consume_transfer_data() -> Dictionary:
