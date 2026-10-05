@@ -2739,11 +2739,18 @@ static func _build_task(theme: Theme) -> void:
 
 
 # ⚠ デスクトップの小窓（2026-09-29・回UI-仕組み⑥・手本 Companion）。⚠ 大きさは手本の 260×170 に近く。⚠ 部屋の色は手本の焦茶と暖炉の橙。
+# ⚠ 2026-10-05（回P-2・人間「⚠ ｑ３　い」）：⚠ 部屋の絵をやめてタイマーが真ん中（⚠ 人・暖炉・床の値は外した）。
 const MINI_WINDOW: Dictionary = {
-	"width": 300, "height": 180, "margin": 16, "photo": 56, "button_width": 76,
+	"width": 300, "height": 180, "margin": 16,
+	"pad": 8,                 # ⚠ 小窓の内側の余白
+	"gap": 2,                 # ⚠ 行と行の間
+	"task_width": 200,        # ⚠ タスクの名前（⚠ 越えたら …）
+	"big_time_size": 52,      # ⚠ 真ん中の残り時間
+	"button_pad_h": 8,
+	"button_pad_v": 2,
 }
 const MINI_WINDOW_COLORS: Dictionary = {
-	"wall": "3a2c22", "floor": "251b14", "hearth": "5a4a3e", "fire": "e8812f", "text": "f1e6cf", "sleep_tint": "b0a898",
+	"wall": "3a2c22", "text": "f1e6cf",
 }
 
 
@@ -2755,6 +2762,28 @@ static func _build_mini_window(theme: Theme) -> void:
 		theme.set_color(StringName(key), t, _html(str(MINI_WINDOW_COLORS[key])))
 	theme.set_type_variation(&"MiniTimeLabel", &"Label")
 	theme.set_color(&"font_color", &"MiniTimeLabel", _html(str(MINI_WINDOW_COLORS["text"])))
+	theme.set_font_size(&"font_size", &"MiniTimeLabel", SMALL_FONT_SIZE)
+	theme.set_type_variation(&"MiniBigTimeLabel", &"Label")
+	theme.set_color(&"font_color", &"MiniBigTimeLabel", _html(str(MINI_WINDOW_COLORS["text"])))
+	theme.set_font_size(&"font_size", &"MiniBigTimeLabel", int(MINI_WINDOW["big_time_size"]))
+	theme.set_type_variation(&"MiniMargin", &"MarginContainer")
+	for side: String in ["left", "right", "top", "bottom"]:
+		theme.set_constant(StringName("margin_" + side), &"MiniMargin", int(MINI_WINDOW["pad"]))
+	theme.set_type_variation(&"MiniColumn", &"VBoxContainer")
+	theme.set_constant(&"separation", &"MiniColumn", int(MINI_WINDOW["gap"]))
+	# ⚠ 小窓のボタン（⚠ ふつうのボタンの余白を詰めて字を小さく）。
+	theme.set_type_variation(&"MiniButton", &"Button")
+	for state: String in BUTTON_STATES:
+		var base: StyleBox = theme.get_stylebox(StringName(state), &"Button")
+		if base == null:
+			continue
+		var small: StyleBox = base.duplicate()
+		small.content_margin_left = int(MINI_WINDOW["button_pad_h"])
+		small.content_margin_right = int(MINI_WINDOW["button_pad_h"])
+		small.content_margin_top = int(MINI_WINDOW["button_pad_v"])
+		small.content_margin_bottom = int(MINI_WINDOW["button_pad_v"])
+		theme.set_stylebox(StringName(state), &"MiniButton", small)
+	theme.set_font_size(&"font_size", &"MiniButton", SMALL_FONT_SIZE)
 
 
 static func _build_focus_tool(theme: Theme) -> void:

@@ -4,7 +4,10 @@ extends CanvasLayer
 # デスクトップの小窓（2026-09-29・回UI-仕組み⑥・手本 Companion）。
 #
 # ⚠ 人間「⚠ 1あ　⚠ 2あ　⚠ 3い　⚠ 4あ」：⚠ **ゲームの窓そのもの**を小さくしてデスクトップの隅へ（⚠ 終われば元の大きさ・位置）／
-#   ⚠ 中身は広間ができるまでの仮＝暗い部屋・暖炉・出撃1番の人・残り時間（⚠ 集中中は「z z」で眠る）／ ⚠ 話しかけない ／ ⚠ 設定の既定はオフ。
+#   ⚠ 話しかけない ／ ⚠ 設定の既定はオフ。
+# ⚠⚠ 2026-10-05（回P-2・人間「⚠ 小窓中にもポモドーロの機能を充実させたい　⚠ タイマーと最小限のものを」→「⚠ q１あ　ｑｗ　あ　ｑ３　い」）：
+#   ⚠ 部屋の絵（暖炉・人・z z）はやめて**タイマーが真ん中**。⚠ 上＝集中／休憩・セットの点・「大きく」／ 真ん中＝残り時間 ／
+#   ⚠ その下＝いまのタスク（色の印と名前）／ ⚠ 下＝集中中は「タスクを終える」（⚠ 選んでいるときだけ）・休憩中は「休憩をとばす」。
 # ⚠ 小窓になるのは**タイマーが動いている集中と休憩のあいだだけ**（⚠ 振り返り＝文字を打つ・次のセットの「開始」は元の大きさ）。
 # ⚠ 窓を小さくするとき、⚠ 画面の論理の大きさ（`content_scale_size`）も小窓の大きさにする（⚠ 1280×720 のまま縮めると字が潰れる）。
 # ⚠ 窓の操作はヘッドレスでは何もしない（⚠ 中身の出し入れだけは動く＝検査が見る）。⚠ 値は Theme の `MiniWindow` 型。
@@ -13,6 +16,9 @@ const THEME_TYPE: StringName = &"MiniWindow"
 const LAYER: int = 90
 
 signal expand_requested
+# ⚠ 2026-10-05（回P-2）：⚠ 小窓のまま押せるもの。⚠ 中身は器（`pomodoro.gd`）がやる＝ここは知らせるだけ。
+signal skip_requested
+signal finish_task_requested
 
 var _active: bool = false
 var _saved_mode: DisplayServer.WindowMode = DisplayServer.WINDOW_MODE_WINDOWED
@@ -22,9 +28,14 @@ var _saved_borderless: bool = false
 var _saved_on_top: bool = false
 var _saved_scale_size: Vector2i = Vector2i.ZERO
 var _root: Control = null
+var _phase_label: Label = null
+var _dots: SetDots = null
 var _time_label: Label = null
-var _sleep_label: Label = null
-var _avatar: Control = null
+var _task_line: HBoxContainer = null
+var _task_mark: TaskColorMark = null
+var _task_label: Label = null
+var _finish_button: Button = null
+var _skip_button: Button = null
 
 
 static func create() -> MiniWindow:
@@ -85,14 +96,32 @@ func leave() -> void:
 		DisplayServer.window_set_mode(_saved_mode)
 
 
-# 残り時間と、⚠ 眠っているか（集中中）を出す。
-func set_state(seconds: int, focusing: bool) -> void:
+# いまの姿を出す（⚠ 器が毎フレーム呼ぶ）。⚠ `task` は選んでいるタスク（⚠ 無ければ空）。
+func set_state(seconds: int, focusing: bool, set_index: int = -1, set_total: int = 0, ratio: float = 0.0, task: Dictionary = {}) -> void:
 	if _time_label == null:
 		return
-	var time_text: String = "%02d:%02d" % [seconds / 60, seconds % 60]
-	_time_label.text = time_text if focusing else tr("ui_mini_break") % time_text
-	_sleep_label.visible = focusing
-	_avatar.modulate = get_theme_color_safe(&"sleep_tint") if focusing else Color.WHITE
+	_phase_label.text = tr("ui_mini_phase_focus") if focusing else tr("ui_mini_phase_break")
+	_time_label.text = "%02d:%02d" % [seconds / 60, seconds % 60]
+	if set_total > 0 and _dots_total != set_total:
+		_dots_total = set_total
+		_dots.setup(set_total)
+	_dots.set_state(set_index, ratio)
+	var has_task: bool = not task.is_empty()
+	_task_line.visible = has_task
+	if has_task:
+		var title: String = str(task.get(GameStateKeys.TASK_TITLE, ""))
+		if _task_label.text != title:
+			_task_label.text = title
+			# ⚠ 名前の長さまで縮める（⚠ 幅を固定すると短い名前で色の印と離れた＝撮った絵）。⚠ 長い名前は `task_width` で … 。
+			var font: Font = _task_label.get_theme_font(&"font")
+			var width: float = font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, _task_label.get_theme_font_size(&"font_size")).x
+			_task_label.custom_minimum_size.x = minf(ceilf(width), float(_c(&"task_width")))
+		_task_mark.color_index = int(task.get(GameStateKeys.TASK_COLOR, 0))
+	_finish_button.visible = focusing and has_task
+	_skip_button.visible = not focusing
+
+
+var _dots_total: int = 0
 
 
 func _exit_tree() -> void:
@@ -108,7 +137,7 @@ func get_theme_color_safe(key: StringName) -> Color:
 	return ThemeDB.get_project_theme().get_color(key, THEME_TYPE)
 
 
-# 中身（⚠ 仮の部屋）：⚠ 床・暖炉・人・残り時間・「大きくする」。
+# 中身（⚠ 回P-2）：⚠ 暗い地・上の行・残り時間・タスク・下のボタン。⚠ 値は Theme の `MiniWindow` 型と `Mini*` の型。
 func _build() -> void:
 	if _root != null:
 		return
@@ -116,69 +145,91 @@ func _build() -> void:
 	_root.name = "MiniRoot"
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_root)
-	var room: ColorRect = ColorRect.new()
-	room.name = "Room"
-	room.color = get_theme_color_safe(&"wall")
-	room.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	room.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(room)
-	var floor_rect: ColorRect = ColorRect.new()
-	floor_rect.color = get_theme_color_safe(&"floor")
-	floor_rect.anchor_left = 0.0
-	floor_rect.anchor_right = 1.0
-	floor_rect.anchor_top = 0.68
-	floor_rect.anchor_bottom = 1.0
-	floor_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(floor_rect)
-	# ⚠ 暖炉（⚠ 右奥）。
-	var hearth: ColorRect = ColorRect.new()
-	hearth.color = get_theme_color_safe(&"hearth")
-	hearth.anchor_left = 0.62
-	hearth.anchor_right = 0.85
-	hearth.anchor_top = 0.2
-	hearth.anchor_bottom = 0.68
-	hearth.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(hearth)
-	var fire: ColorRect = ColorRect.new()
-	fire.color = get_theme_color_safe(&"fire")
-	fire.anchor_left = 0.68
-	fire.anchor_right = 0.79
-	fire.anchor_top = 0.45
-	fire.anchor_bottom = 0.68
-	fire.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(fire)
-	# ⚠ 出撃1番の人（⚠ 左手前）。
-	var members: Array = GameManager.get_party_members()
-	var leader: String = str(members[0]) if not members.is_empty() else ""
-	_avatar = CharacterAvatar.create(leader, _c(&"photo"))
-	_avatar.name = "Leader"
-	_avatar.position = Vector2(float(_c(&"width")) * 0.2, float(_c(&"height")) * 0.68 - float(_c(&"photo")))
-	_root.add_child(_avatar)
-	_sleep_label = Label.new()
-	_sleep_label.name = "SleepLabel"
-	_sleep_label.text = tr("ui_mini_sleep")
-	_sleep_label.position = _avatar.position + Vector2(float(_c(&"photo")), -16.0)
-	_sleep_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(_sleep_label)
-	# ⚠ 左上に残り時間（⚠ 手本の札）。
-	_time_label = Label.new()
-	_time_label.name = "TimeLabel"
-	_time_label.theme_type_variation = &"MiniTimeLabel"
-	_time_label.position = Vector2(8.0, 6.0)
-	_time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(_time_label)
-	# ⚠ 右上に「大きくする」（⚠ このフェーズのあいだ元の大きさに戻す）。
+	var back: ColorRect = ColorRect.new()
+	back.name = "Back"
+	back.color = get_theme_color_safe(&"wall")
+	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(back)
+	var margin: MarginContainer = MarginContainer.new()
+	margin.theme_type_variation = &"MiniMargin"
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(margin)
+	var column: VBoxContainer = VBoxContainer.new()
+	column.theme_type_variation = &"MiniColumn"
+	margin.add_child(column)
+	# ⚠ 上の行：集中／休憩 ・ セットの点 ・ 「大きく」。
+	var top: HBoxContainer = HBoxContainer.new()
+	top.name = "Top"
+	column.add_child(top)
+	_phase_label = Label.new()
+	_phase_label.name = "PhaseLabel"
+	_phase_label.theme_type_variation = &"MiniTimeLabel"
+	_phase_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(_phase_label)
+	var dots_box: CenterContainer = CenterContainer.new()
+	dots_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(dots_box)
+	_dots = SetDots.new()
+	_dots.name = "MiniSetDots"
+	dots_box.add_child(_dots)
 	var expand: Button = Button.new()
 	expand.name = "ExpandButton"
 	expand.text = tr("ui_mini_expand")
-	expand.anchor_left = 1.0
-	expand.anchor_right = 1.0
-	expand.offset_left = -float(_c(&"button_width")) - 6.0
-	expand.offset_right = -6.0
-	expand.offset_top = 6.0
+	expand.theme_type_variation = &"MiniButton"
+	expand.focus_mode = Control.FOCUS_NONE
 	expand.pressed.connect(_on_expand_pressed)
-	_root.add_child(expand)
+	top.add_child(expand)
+	# ⚠ 真ん中：残り時間（⚠ 大きく）。
+	_time_label = Label.new()
+	_time_label.name = "TimeLabel"
+	_time_label.theme_type_variation = &"MiniBigTimeLabel"
+	_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_time_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(_time_label)
+	# ⚠ いまのタスク（⚠ 選んでいないときは出さない）。
+	_task_line = HBoxContainer.new()
+	_task_line.name = "TaskLine"
+	_task_line.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_child(_task_line)
+	_task_mark = TaskColorMark.create(0)
+	_task_mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_task_line.add_child(_task_mark)
+	_task_label = Label.new()
+	_task_label.name = "TaskLabel"
+	_task_label.theme_type_variation = &"MiniTimeLabel"
+	_task_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_task_line.add_child(_task_label)
+	# ⚠ 下：集中中は「タスクを終える」・休憩中は「休憩をとばす」（⚠ どちらかだけ出る）。
+	var bottom: HBoxContainer = HBoxContainer.new()
+	bottom.name = "Bottom"
+	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_child(bottom)
+	_finish_button = _make_button("FinishTaskButton", "ui_mini_finish_task", _on_finish_pressed)
+	bottom.add_child(_finish_button)
+	_skip_button = _make_button("SkipBreakButton", "ui_mini_skip_break", _on_skip_pressed)
+	bottom.add_child(_skip_button)
+
+
+func _make_button(node_name: String, key: String, handler: Callable) -> Button:
+	var button: Button = Button.new()
+	button.name = node_name
+	button.text = tr(key)
+	button.theme_type_variation = &"MiniButton"
+	button.focus_mode = Control.FOCUS_NONE
+	button.pressed.connect(handler)
+	return button
 
 
 func _on_expand_pressed() -> void:
 	expand_requested.emit()
+
+
+# ⚠ 押した最中に器が小窓を外す（⚠ とばすとタイマーが止まる）＝⚠ 知らせるのは次のフレーム。
+func _on_skip_pressed() -> void:
+	skip_requested.emit.call_deferred()
+
+
+func _on_finish_pressed() -> void:
+	finish_task_requested.emit.call_deferred()

@@ -9819,6 +9819,10 @@ class ShotTaker extends Node:
 				(mini_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
 				for _i: int in range(3):
 					await get_tree().process_frame
+			# ⚠ 2026-10-05（回P-2）：⚠ タスクを選んでから始める（⚠ 小窓にタスクの行と「タスクを終える」を写す）。
+			var mini_view: Node = screen.find_child("FocusView", true, false)
+			if mini_view != null:
+				mini_view.call("set_task", GameManager.add_task("企画書の下書きを書く"))
 			var mini_start: Node = screen.find_child("StartButton", true, false)
 			if not (mini_start is BaseButton):
 				push_error("[DebugBoot] ⚠ %s で集中の「開始」が無い" % shot_name)
@@ -10979,17 +10983,35 @@ class UiFlowRunner extends Node:
 		var s: Node = await _open(SETTINGS, {TransferKeys.SETTINGS_TAB: SettingsScreen.TAB_POMODORO})
 		await _press(s.find_child("Mini_true", true, false))
 		_check("小窓：設定の「オン」で残る", GameSettings.mini_window())
+		# ⚠ 2026-10-05（回P-2）：⚠ タスクを選んで始める（⚠ 小窓にタスクの名前と「タスクを終える」が出る）。
+		var mini_task: String = GameManager.add_task("小窓の検査")
 		p = await _open(POMODORO, {})
-		await _pomodoro_start_focus(p)
+		var select_view: Node = p.find_child("ProtectionSelectView", true, false)
+		if select_view != null:
+			await _press(select_view.find_child("StartButton", true, false), OPEN_FRAMES)
+		var focus_view: Node = p.find_child("FocusView", true, false)
+		if focus_view != null:
+			focus_view.call("set_task", mini_task)
+			await _press(focus_view.find_child("StartButton", true, false))
+		await _wait()
 		var mini: Node = p.find_child("MiniWindow", true, false)
 		var mini_size: Vector2i = Vector2i(ThemeDB.get_project_theme().get_constant(&"width", &"MiniWindow"), ThemeDB.get_project_theme().get_constant(&"height", &"MiniWindow"))
-		_check("小窓：集中を始めると小窓（画面の大きさ %s・眠っている=%s）" % [str(root_window.content_scale_size), str(mini.find_child("SleepLabel", true, false).visible) if mini != null else "?"],
-			bool(p.call("is_mini_window_active")) and root_window.content_scale_size == mini_size
-			and mini != null and (mini.find_child("SleepLabel", true, false) as Label).visible)
+		_check("小窓：集中を始めると小窓（画面の大きさ %s・%s %s・タスク「%s」）" % [str(root_window.content_scale_size), _label_text(p, "MiniWindow", "PhaseLabel"), _label_text(p, "MiniWindow", "TimeLabel"), _label_text(p, "MiniWindow", "TaskLabel")],
+			bool(p.call("is_mini_window_active")) and root_window.content_scale_size == mini_size and mini != null
+			and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_phase_focus") and _label_text(p, "MiniWindow", "TaskLabel") == "小窓の検査"
+			and mini.find_child("MiniSetDots", true, false) is SetDots and mini.find_child("Leader", true, false) == null)
+		_check("小窓：集中中は「タスクを終える」だけ（「休憩をとばす」は出ない）",
+			(mini.find_child("FinishTaskButton", true, false) as Button).visible and not (mini.find_child("SkipBreakButton", true, false) as Button).visible)
+		# ⚠ 小窓のまま「タスクを終える」→ ⚠ 終わる・選んでいない・小窓のまま・タイマーは動いたまま。
+		await _press(mini.find_child("FinishTaskButton", true, false))
+		await _wait()
+		_check("小窓：「タスクを終える」で終わる（終えた=%s）・タスクの行が消える・小窓のまま・タイマーは動く" % str(int(GameManager.get_task(mini_task).get(GameStateKeys.TASK_DONE_AT, 0)) != 0),
+			int(GameManager.get_task(mini_task).get(GameStateKeys.TASK_DONE_AT, 0)) != 0 and not (mini.find_child("TaskLine", true, false) as Control).visible
+			and bool(p.call("is_mini_window_active")) and bool(p.get("is_timer_active")) and str(p.call("_current_task_id")) == "")
 		# ⚠ 「大きく」→ ⚠ このフェーズは元の大きさ。
 		await _press(mini.find_child("ExpandButton", true, false))
 		_check("小窓：「大きく」で元の大きさ（%s）" % str(root_window.content_scale_size), not bool(p.call("is_mini_window_active")) and root_window.content_scale_size == full_size)
-		# ⚠ 集中が終わる → 振り返り（⚠ 元の大きさ）→ 休憩（⚠ また小窓・起きている）。
+		# ⚠ 集中が終わる → 振り返り（⚠ 元の大きさ）→ 休憩（⚠ また小窓）。
 		p.set("time_left_sec", 0.01)
 		await _wait()
 		_check("小窓：振り返りは元の大きさ", not bool(p.call("is_mini_window_active")))
@@ -11000,13 +11022,24 @@ class UiFlowRunner extends Node:
 			await _press(reflection)
 		await _wait()
 		mini = p.find_child("MiniWindow", true, false)
-		_check("小窓：休憩はまた小窓・起きている（%s）" % (_label_text(p, "MiniWindow", "TimeLabel")),
-			bool(p.call("is_mini_window_active")) and not (mini.find_child("SleepLabel", true, false) as Label).visible
-			and _label_text(p, "MiniWindow", "TimeLabel").begins_with(tr("ui_mini_break").split("%")[0]))
-		# ⚠ 小窓のまま拠点へ出る → ⚠ 元の大きさに戻る。
+		_check("小窓：休憩はまた小窓・「%s」・「休憩をとばす」だけ" % _label_text(p, "MiniWindow", "PhaseLabel"),
+			bool(p.call("is_mini_window_active")) and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_phase_break")
+			and (mini.find_child("SkipBreakButton", true, false) as Button).visible and not (mini.find_child("FinishTaskButton", true, false) as Button).visible)
+		# ⚠ 小窓のまま「休憩をとばす」→ ⚠ 次のセットの集中（⚠ 始める前＝元の大きさ）。
+		var set_before: int = int(p.get("current_set_index"))
+		await _press(mini.find_child("SkipBreakButton", true, false))
+		await _wait()
+		_check("小窓：「休憩をとばす」で次のセット（%d → %d）・始める前なので元の大きさ" % [set_before, int(p.get("current_set_index"))],
+			int(p.get("current_set_index")) == set_before + 1 and not bool(p.call("is_mini_window_active")) and root_window.content_scale_size == full_size)
+		# ⚠ もう一度始めて小窓 → ⚠ 小窓のまま拠点へ出る → ⚠ 元の大きさに戻る。
+		focus_view = p.find_child("FocusView", true, false)
+		if focus_view != null:
+			await _press(focus_view.find_child("StartButton", true, false))
+		_check("小窓：次のセットを始めるとまた小窓", bool(p.call("is_mini_window_active")))
 		SceneManager.change_scene(BASE)
 		await _wait(OPEN_FRAMES)
 		_check("小窓：小窓のまま画面を離れると元の大きさ（%s）" % str(root_window.content_scale_size), root_window.content_scale_size == full_size)
+		var _deleted: bool = GameManager.delete_task(mini_task)
 		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, false)
 
 	# ポモドーロで集中を始める（⚠ 加護を選ぶビューなら「始める」→ ⚠ 集中の「開始」）。

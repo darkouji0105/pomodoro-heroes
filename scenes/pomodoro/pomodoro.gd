@@ -107,8 +107,7 @@ func _update_view_timer() -> void:
 	if _current_view.has_method("update_timer"):
 		_current_view.update_timer(int(ceil(time_left_sec)), phase_total_sec)
 	_update_set_dots()
-	if _mini != null and _mini.is_active():
-		_mini.set_state(int(ceil(time_left_sec)), current_state == State.FOCUS)
+	_push_mini_state()
 
 
 func _start_phase_timer(seconds: float) -> void:
@@ -138,12 +137,14 @@ func _update_mini_window() -> void:
 	if want and _mini == null:
 		_mini = MiniWindow.create()
 		_mini.expand_requested.connect(_on_mini_expand)
+		_mini.skip_requested.connect(_on_mini_skip)
+		_mini.finish_task_requested.connect(_on_mini_finish_task)
 		add_child(_mini)
 	if _mini == null:
 		return
 	if want:
 		_mini.enter()
-		_mini.set_state(int(ceil(time_left_sec)), current_state == State.FOCUS)
+		_push_mini_state()
 	else:
 		_mini.leave()
 	_fit_sidebar()
@@ -165,6 +166,32 @@ func apply_settings() -> void:
 func _on_mini_expand() -> void:
 	_mini_expanded = true
 	_update_mini_window()
+
+
+# ⚠ 小窓に今の姿を渡す（2026-10-05・回P-2）：⚠ 残り時間・集中か休憩か・セットの点・いまのタスク。
+func _push_mini_state() -> void:
+	if _mini == null or not _mini.is_active():
+		return
+	var ratio: float = 0.0 if phase_total_sec <= 0.0 else 1.0 - time_left_sec / phase_total_sec
+	var focusing: bool = current_state == State.FOCUS
+	var task: Dictionary = GameManager.get_task(_current_task_id()) if focusing else {}
+	_mini.set_state(int(ceil(time_left_sec)), focusing, current_set_index, current_total_sets, ratio, task)
+
+
+# ⚠ 小窓の「休憩をとばす」（⚠ 休憩の画面の「とばす」と同じ口）。⚠ 休憩のあいだだけ。
+func _on_mini_skip() -> void:
+	if current_state != State.BREAK:
+		return
+	_on_break_skipped()
+
+
+# ⚠ 小窓の「タスクを終える」（⚠ サイドバーの四角と同じ口＝`TK-16`）。⚠ 小窓のまま「選んでいない」に戻る。
+func _on_mini_finish_task() -> void:
+	var task_id: String = _current_task_id()
+	if current_state != State.FOCUS or task_id == "":
+		return
+	finish_task_from_list(task_id, true)
+	_push_mini_state()
 
 
 func is_mini_window_active() -> bool:
