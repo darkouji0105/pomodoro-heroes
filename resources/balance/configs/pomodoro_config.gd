@@ -28,6 +28,10 @@ extends Resource
 @export var break_minute_choices: Array[int] = [5, 10, 15]
 @export var default_focus_minutes: int = 25
 @export var default_break_minutes: int = 5
+# ⚠ 回P-3（2026-10-05・人間「⚠ 全部作って一気に確認したい」）：⚠ 「＋◯分」で集中を延ばす分（⚠ 延ばした分も報酬と今日の分に入る）。
+@export var extend_minutes: int = 5
+# ⚠ 1日の目標（⚠ 今日集中した分＝`CUMULATIVE_FOCUS_MINUTES_TODAY`）。⚠ 0＝目標なし。⚠ 選んだ値は `GameSettings`。
+@export var daily_goal_minute_choices: Array[int] = [0, 60, 120, 180, 240]
 
 @export var potion_focus_minutes_per_unit: int = 25
 @export var stamina_potion_recovery: int = 50

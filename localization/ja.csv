@@ -1452,3 +1452,14 @@ ui_task_cal_prev_year,«
 ui_task_cal_next_year,»
 ui_task_cal_prev_year_tip,前の年
 ui_task_cal_next_year_tip,次の年
+ui_pomodoro_pause,一時停止
+ui_pomodoro_resume,再開
+ui_pomodoro_extend,＋%d分
+ui_pomodoro_today_minutes,今日 %d分
+ui_pomodoro_goal_progress,今日 %d / %d分
+ui_pomodoro_goal_reached,今日 %d / %d分　達成
+ui_mini_paused,%s（停止中）
+ui_settings_auto_start,休憩明けに自動で始める
+ui_settings_auto_start_note,休憩が終わったら、前と同じ題とタスクで次の集中を始めます
+ui_settings_daily_goal,1日の目標（集中した分）
+ui_settings_goal_none,なし

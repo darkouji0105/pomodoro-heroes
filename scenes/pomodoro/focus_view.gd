@@ -95,6 +95,13 @@ func _on_start_pressed() -> void:
 	start_requested.emit(title, _task_id)
 
 
+# ⚠ 「開始」を押したのと同じ（2026-10-05・回P-3）：⚠ 休憩明けの自動開始とスペースキーが呼ぶ。⚠ 始めたあとは何もしない。
+func start_now() -> void:
+	if _started:
+		return
+	_on_start_pressed()
+
+
 func update_timer(seconds: int, total_sec: float) -> void:
 	timer_ring.set_time(seconds, total_sec)
 

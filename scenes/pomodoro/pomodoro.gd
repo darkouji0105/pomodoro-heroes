@@ -7,6 +7,9 @@ extends Control
 # time_left_sec / is_timer_active を書き換えてよいのは _start_phase_timer() と
 # _stop_phase_timer() と _process() のみ。各ビューの分岐から直接触らないこと。
 # 3箇所から書き換えると、どこか1つ抜けたときにタイマーが止まる。
+# ⚠ 2026-10-05（回P-3）：⚠ 例外は「＋5分」の `_extend_focus()`（⚠ 残りと長さを同じだけ足すだけ）。
+#   ⚠ 一時停止は `is_timer_active` を触らない（⚠ `_paused` で `_process()` が減らさないだけ＝小窓もそのまま）。
+#   ⚠ 減らす量はフレームの差分ではなく**時計の差分**（⚠ PC のスリープをまたいでもずれない）。
 
 enum State { PROTECTION_SELECT, FOCUS, REFLECTION, BREAK }
 
@@ -75,6 +78,7 @@ func _ready() -> void:
 
 	_build_debug_panel()
 	_build_sidebar()
+	_build_controls()
 	# ⚠ 窓を閉じたら「やめる」と同じに確定する（2026-10-05・回P-1・人間「⚠ ｑ１　あ」）。⚠ 書くのは SaveManager。
 	SaveManager.quitting.connect(_settle_session)
 
@@ -84,11 +88,17 @@ func _ready() -> void:
 		_switch_view(State.PROTECTION_SELECT)
 
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if not is_timer_active:
 		return
+	# ⚠ 時計の差分で減らす（2026-10-05・回P-3）。⚠ 止めているあいだは減らさない（⚠ 時計の基準だけ進める）。
+	var now: float = Time.get_unix_time_from_system()
+	var elapsed: float = maxf(0.0, now - _last_wall)
+	_last_wall = now
+	if _paused:
+		return
 
-	time_left_sec -= delta
+	time_left_sec -= elapsed
 
 	if time_left_sec <= 0.0:
 		time_left_sec = 0.0
@@ -114,13 +124,132 @@ func _start_phase_timer(seconds: float) -> void:
 	time_left_sec = seconds
 	phase_total_sec = seconds
 	is_timer_active = true
+	_paused = false
+	_last_wall = Time.get_unix_time_from_system()
 	_update_view_timer()
 	_update_mini_window()
+	_refresh_controls()
 
 
 func _stop_phase_timer() -> void:
 	is_timer_active = false
+	_paused = false
 	_update_mini_window()
+	_refresh_controls()
+
+
+# --- 一時停止・延長・目標・キー（2026-10-05・回P-3・人間「⚠ 全部作って一気に確認したい」） ---
+
+var _paused: bool = false
+var _last_wall: float = 0.0
+# ⚠ このセットで延ばした秒（⚠ 振り返りで報酬と今日の分に足す）。⚠ 振り返りから先へ移ると 0。
+var _extended_sec: float = 0.0
+var _pause_button: UiButton = null
+var _extend_button: UiButton = null
+var _goal_label: Label = null
+
+
+func is_paused() -> bool:
+	return _paused
+
+
+# ⚠ 一時停止 ⇔ 再開。⚠ タイマーが動いている集中（始めたあと）と休憩だけ。
+func toggle_pause() -> void:
+	if not _can_pause():
+		return
+	_paused = not _paused
+	_last_wall = Time.get_unix_time_from_system()
+	_refresh_controls()
+	_push_mini_state()
+
+
+func _can_pause() -> bool:
+	return is_timer_active and (current_state == State.BREAK or (current_state == State.FOCUS and _focus_started))
+
+
+# ⚠ 「＋5分」：⚠ 集中中だけ。⚠ 残りと長さを同じだけ延ばす（⚠ 輪の進みが跳ねない）。
+func _extend_focus() -> void:
+	if not (is_timer_active and current_state == State.FOCUS and _focus_started):
+		return
+	var add_sec: float = float(Balance.pomodoro.extend_minutes * 60)
+	time_left_sec += add_sec
+	phase_total_sec += add_sec
+	_segment_left += add_sec
+	_extended_sec += add_sec
+	_update_view_timer()
+
+
+# ⚠ 上の段の右：[一時停止][＋5分][やめる]（⚠ やめるは .tscn にあるものを入れる）／ ⚠ セットの点の右に今日の分。
+func _build_controls() -> void:
+	var quit: Control = $Margin/Layout/TopBar/QuitButton
+	var top_bar: Control = quit.get_parent()
+	var right: HBoxContainer = HBoxContainer.new()
+	right.name = "TopControls"
+	right.anchor_left = 1.0
+	right.anchor_right = 1.0
+	right.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	top_bar.add_child(right)
+	_pause_button = UiButton.create(UiButton.Variant.GHOST, "ui_pomodoro_pause")
+	_pause_button.name = "PauseButton"
+	_pause_button.pressed.connect(toggle_pause)
+	right.add_child(_pause_button)
+	_extend_button = UiButton.create(UiButton.Variant.GHOST, "")
+	_extend_button.name = "ExtendButton"
+	_extend_button.text = tr("ui_pomodoro_extend") % Balance.pomodoro.extend_minutes
+	_extend_button.pressed.connect(_extend_focus)
+	right.add_child(_extend_button)
+	top_bar.remove_child(quit)
+	right.add_child(quit)
+	var center: Node = set_dots.get_parent()
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = "DotsLine"
+	center.remove_child(set_dots)
+	center.add_child(line)
+	line.add_child(set_dots)
+	set_dots.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_goal_label = Label.new()
+	_goal_label.name = "GoalLabel"
+	_goal_label.theme_type_variation = &"CaptionLabel"
+	_goal_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(_goal_label)
+	_refresh_goal()
+	_refresh_controls()
+
+
+func _refresh_controls() -> void:
+	if _pause_button == null:
+		return
+	_pause_button.visible = _can_pause()
+	_pause_button.label_key = "ui_pomodoro_resume" if _paused else "ui_pomodoro_pause"
+	_extend_button.visible = is_timer_active and current_state == State.FOCUS and _focus_started
+
+
+# ⚠ 今日集中した分 ／ 目標（⚠ 目標なしなら今日の分だけ）。⚠ 届いたら「達成」。
+func _refresh_goal() -> void:
+	if _goal_label == null:
+		return
+	var today: int = GameManager.get_cumulative_focus_minutes()
+	var goal: int = GameSettings.daily_goal_minutes()
+	if goal <= 0:
+		_goal_label.text = tr("ui_pomodoro_today_minutes") % today
+	elif today >= goal:
+		_goal_label.text = tr("ui_pomodoro_goal_reached") % [today, goal]
+	else:
+		_goal_label.text = tr("ui_pomodoro_goal_progress") % [today, goal]
+
+
+# ⚠ スペース＝始める（集中の前）・止める／再開（⚠ 字を打っている欄があるときは欄が先に取る＝ここへ来ない）。
+func _unhandled_key_input(event: InputEvent) -> void:
+	var key: InputEventKey = event as InputEventKey
+	if key == null or not key.pressed or key.echo or key.keycode != KEY_SPACE:
+		return
+	if _can_pause():
+		toggle_pause()
+	elif current_state == State.FOCUS and not _focus_started and _current_view != null and _current_view.has_method("start_now"):
+		_current_view.call("start_now")
+	else:
+		return
+	get_viewport().set_input_as_handled()
 
 
 # --- デスクトップの小窓（2026-09-29・回UI-仕組み⑥・`MiniWindow`） ---
@@ -139,6 +268,7 @@ func _update_mini_window() -> void:
 		_mini.expand_requested.connect(_on_mini_expand)
 		_mini.skip_requested.connect(_on_mini_skip)
 		_mini.finish_task_requested.connect(_on_mini_finish_task)
+		_mini.pause_requested.connect(toggle_pause)
 		add_child(_mini)
 	if _mini == null:
 		return
@@ -175,7 +305,7 @@ func _push_mini_state() -> void:
 	var ratio: float = 0.0 if phase_total_sec <= 0.0 else 1.0 - time_left_sec / phase_total_sec
 	var focusing: bool = current_state == State.FOCUS
 	var task: Dictionary = GameManager.get_task(_current_task_id()) if focusing else {}
-	_mini.set_state(int(ceil(time_left_sec)), focusing, current_set_index, current_total_sets, ratio, task)
+	_mini.set_state(int(ceil(time_left_sec)), focusing, current_set_index, current_total_sets, ratio, task, _paused, _can_pause())
 
 
 # ⚠ 小窓の「休憩をとばす」（⚠ 休憩の画面の「とばす」と同じ口）。⚠ 休憩のあいだだけ。
@@ -203,6 +333,9 @@ func is_mini_window_active() -> bool:
 func _switch_view(new_state: State) -> void:
 	current_state = new_state
 	_focus_started = false
+	# ⚠ 延ばした分は振り返りが使ったあと（⚠ 振り返りから先へ移るときに 0）。
+	if new_state != State.REFLECTION:
+		_extended_sec = 0.0
 	# ⚠ フェーズが変わったら「大きく」は解く（⚠ 次の集中・休憩はまた小窓）。
 	_mini_expanded = false
 	_stop_phase_timer()
@@ -302,6 +435,7 @@ func _on_focus_started(title: String, task_id: String) -> void:
 	_start_phase_timer(float(current_preset.focus_duration_sec))
 	_focus_started = true
 	_segment_left = time_left_sec
+	_refresh_controls()
 
 
 func _on_timer_finished() -> void:
@@ -319,6 +453,9 @@ func _on_timer_finished() -> void:
 		State.BREAK:
 			_notify_break_finished()
 			_go_to_next_set()
+			# ⚠ 休憩明けの自動開始（2026-10-05・回P-3・設定・既定オフ）。⚠ 前のセットの題とタスクのまま始める。
+			if GameSettings.auto_start_focus() and _current_view != null and _current_view.has_method("start_now"):
+				_current_view.call("start_now")
 
 
 func _on_reflection_completed(text: String, skipped: bool = false) -> void:
@@ -331,9 +468,11 @@ func _on_reflection_completed(text: String, skipped: bool = false) -> void:
 	reflections.append({"text": text, "skipped": skipped})
 
 	if not skipped:
-		var focus_min: int = int(current_preset.focus_duration_sec / 60.0)
+		# ⚠ 延ばした分も入れる（2026-10-05・回P-3）。
+		var focus_min: int = int((float(current_preset.focus_duration_sec) + _extended_sec) / 60.0)
 		session_accumulated_focus_min += focus_min
 		_check_thresholds(focus_min)
+		_refresh_goal()
 
 	if current_set_index + 1 >= current_total_sets:
 		_return_to_base()

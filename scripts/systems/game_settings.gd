@@ -22,6 +22,9 @@ const KEY_FOCUS_TOOL: String = "focus_tool"
 # ⚠ 小窓（2026-09-29・回UI-仕組み⑥・人間「⚠ 4あ」＝既定はオフ）／ ⚠ 小窓をいつも前に出す（既定オン）。
 const KEY_MINI_WINDOW: String = "mini_window"
 const KEY_MINI_ON_TOP: String = "mini_window_on_top"
+# ⚠ 回P-3（2026-10-05）：⚠ 休憩明けに次の集中を自動で始める（既定オフ）／ ⚠ 1日の目標（分・0＝なし・既定なし）。
+const KEY_AUTO_START: String = "auto_start_focus"
+const KEY_DAILY_GOAL: String = "daily_goal_minutes"
 # ⚠ タスクの期限の札「今週中」が入れる曜日（2026-10-05・`TK-17`・人間「⚠ 設定に足す・既定は土曜」）。⚠ 値は曜日の番号（0＝日 … 6＝土・Godot の `weekday` と同じ）。
 const SECTION_TASK: String = "task"
 const KEY_WEEK_END: String = "week_end_weekday"
@@ -79,6 +82,10 @@ static func _default(section: String, key: String) -> Variant:
 			return false
 		KEY_MINI_ON_TOP:
 			return true
+		KEY_AUTO_START:
+			return false
+		KEY_DAILY_GOAL:
+			return 0
 		KEY_WEEK_END:
 			return 6
 	push_warning("[GameSettings] 知らない設定 %s/%s" % [section, key])
@@ -122,6 +129,14 @@ static func mini_window() -> bool:
 
 static func mini_window_on_top() -> bool:
 	return bool(get_value(SECTION_POMODORO, KEY_MINI_ON_TOP))
+
+
+static func auto_start_focus() -> bool:
+	return bool(get_value(SECTION_POMODORO, KEY_AUTO_START))
+
+
+static func daily_goal_minutes() -> int:
+	return maxi(0, int(get_value(SECTION_POMODORO, KEY_DAILY_GOAL)))
 
 
 # 週の終わりの曜日（⚠ 0〜6 の外なら土曜）。

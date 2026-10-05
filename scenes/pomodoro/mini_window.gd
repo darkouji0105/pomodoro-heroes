@@ -8,6 +8,7 @@ extends CanvasLayer
 # ⚠⚠ 2026-10-05（回P-2・人間「⚠ 小窓中にもポモドーロの機能を充実させたい　⚠ タイマーと最小限のものを」→「⚠ q１あ　ｑｗ　あ　ｑ３　い」）：
 #   ⚠ 部屋の絵（暖炉・人・z z）はやめて**タイマーが真ん中**。⚠ 上＝集中／休憩・セットの点・「大きく」／ 真ん中＝残り時間 ／
 #   ⚠ その下＝いまのタスク（色の印と名前）／ ⚠ 下＝集中中は「タスクを終える」（⚠ 選んでいるときだけ）・休憩中は「休憩をとばす」。
+#   ⚠ 回P-3（10-05）：⚠ 下に「一時停止」⇔「再開」も（⚠ 止めているあいだは上が「集中（停止中）」）。
 # ⚠ 小窓になるのは**タイマーが動いている集中と休憩のあいだだけ**（⚠ 振り返り＝文字を打つ・次のセットの「開始」は元の大きさ）。
 # ⚠ 窓を小さくするとき、⚠ 画面の論理の大きさ（`content_scale_size`）も小窓の大きさにする（⚠ 1280×720 のまま縮めると字が潰れる）。
 # ⚠ 窓の操作はヘッドレスでは何もしない（⚠ 中身の出し入れだけは動く＝検査が見る）。⚠ 値は Theme の `MiniWindow` 型。
@@ -19,6 +20,8 @@ signal expand_requested
 # ⚠ 2026-10-05（回P-2）：⚠ 小窓のまま押せるもの。⚠ 中身は器（`pomodoro.gd`）がやる＝ここは知らせるだけ。
 signal skip_requested
 signal finish_task_requested
+# ⚠ 回P-3（2026-10-05）：⚠ 一時停止 ⇔ 再開。
+signal pause_requested
 
 var _active: bool = false
 var _saved_mode: DisplayServer.WindowMode = DisplayServer.WINDOW_MODE_WINDOWED
@@ -36,6 +39,7 @@ var _task_mark: TaskColorMark = null
 var _task_label: Label = null
 var _finish_button: Button = null
 var _skip_button: Button = null
+var _pause_button: Button = null
 
 
 static func create() -> MiniWindow:
@@ -97,10 +101,14 @@ func leave() -> void:
 
 
 # いまの姿を出す（⚠ 器が毎フレーム呼ぶ）。⚠ `task` は選んでいるタスク（⚠ 無ければ空）。
-func set_state(seconds: int, focusing: bool, set_index: int = -1, set_total: int = 0, ratio: float = 0.0, task: Dictionary = {}) -> void:
+func set_state(seconds: int, focusing: bool, set_index: int = -1, set_total: int = 0, ratio: float = 0.0, task: Dictionary = {}, paused: bool = false, can_pause: bool = false) -> void:
 	if _time_label == null:
 		return
 	_phase_label.text = tr("ui_mini_phase_focus") if focusing else tr("ui_mini_phase_break")
+	if paused:
+		_phase_label.text = tr("ui_mini_paused") % _phase_label.text
+	_pause_button.visible = can_pause
+	_pause_button.text = tr("ui_pomodoro_resume") if paused else tr("ui_pomodoro_pause")
 	_time_label.text = "%02d:%02d" % [seconds / 60, seconds % 60]
 	if set_total > 0 and _dots_total != set_total:
 		_dots_total = set_total
@@ -210,6 +218,9 @@ func _build() -> void:
 	bottom.add_child(_finish_button)
 	_skip_button = _make_button("SkipBreakButton", "ui_mini_skip_break", _on_skip_pressed)
 	bottom.add_child(_skip_button)
+	# ⚠ 回P-3：⚠ 一時停止（⚠ 集中を始めたあとと休憩のあいだ）。
+	_pause_button = _make_button("MiniPauseButton", "ui_pomodoro_pause", _on_pause_pressed)
+	bottom.add_child(_pause_button)
 
 
 func _make_button(node_name: String, key: String, handler: Callable) -> Button:
@@ -233,3 +244,7 @@ func _on_skip_pressed() -> void:
 
 func _on_finish_pressed() -> void:
 	finish_task_requested.emit.call_deferred()
+
+
+func _on_pause_pressed() -> void:
+	pause_requested.emit.call_deferred()

@@ -10391,6 +10391,7 @@ class UiFlowRunner extends Node:
 		await _flow_dungeon_depth()
 		await _flow_tasks()
 		await _flow_autosave()
+		await _flow_pomodoro_extras()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -11002,6 +11003,12 @@ class UiFlowRunner extends Node:
 			and mini.find_child("MiniSetDots", true, false) is SetDots and mini.find_child("Leader", true, false) == null)
 		_check("小窓：集中中は「タスクを終える」だけ（「休憩をとばす」は出ない）",
 			(mini.find_child("FinishTaskButton", true, false) as Button).visible and not (mini.find_child("SkipBreakButton", true, false) as Button).visible)
+		# ⚠ 小窓の「一時停止」（回P-3）→ ⚠ 止まる・上が「集中（停止中）」→ もう一度で再開。
+		await _press(mini.find_child("MiniPauseButton", true, false))
+		_check("小窓：「一時停止」で止まる・「%s」・小窓のまま" % _label_text(p, "MiniWindow", "PhaseLabel"),
+			bool(p.call("is_paused")) and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_paused") % tr("ui_mini_phase_focus") and bool(p.call("is_mini_window_active")))
+		await _press(mini.find_child("MiniPauseButton", true, false))
+		_check("小窓：もう一度押すと再開", not bool(p.call("is_paused")))
 		# ⚠ 小窓のまま「タスクを終える」→ ⚠ 終わる・選んでいない・小窓のまま・タイマーは動いたまま。
 		await _press(mini.find_child("FinishTaskButton", true, false))
 		await _wait()
@@ -11083,6 +11090,81 @@ class UiFlowRunner extends Node:
 		SaveManager.end_session()
 		var _deleted: bool = GameManager.delete_task(task_id)
 		DirAccess.remove_absolute(test_file)
+		await _open(BASE, {})
+
+	# --- ポモドーロの残り（2026-10-05・回P-3・人間「⚠ 全部作って一気に確認したい」） ---
+	#   ⚠ 一時停止 ／ ＋5分 ／ スペースキー ／ 時計の差分 ／ 1日の目標 ／ 休憩明けの自動開始。
+	func _flow_pomodoro_extras() -> void:
+		# ⚠ 設定の画面で目標を 120分・自動開始をオンに（⚠ 本物の札）。
+		var s: Node = await _open(SETTINGS, {TransferKeys.SETTINGS_TAB: SettingsScreen.TAB_POMODORO})
+		if s == null:
+			return
+		await _press(s.find_child("Goal_120", true, false))
+		await _press(s.find_child("AutoStart_true", true, false))
+		_check("設定：1日の目標 %d分・休憩明けの自動開始 %s" % [GameSettings.daily_goal_minutes(), str(GameSettings.auto_start_focus())],
+			GameSettings.daily_goal_minutes() == 120 and GameSettings.auto_start_focus())
+		var p: Node = await _open(POMODORO, {})
+		if p == null:
+			return
+		var today_before: int = GameManager.get_cumulative_focus_minutes()
+		_check("目標：上に「%s」" % _label_text(p, "TopBar", "GoalLabel"), _label_text(p, "TopBar", "GoalLabel") == tr("ui_pomodoro_goal_progress") % [today_before, 120]
+			or (today_before >= 120 and _label_text(p, "TopBar", "GoalLabel") == tr("ui_pomodoro_goal_reached") % [today_before, 120]))
+		var select_view: Node = p.find_child("ProtectionSelectView", true, false)
+		if select_view != null:
+			await _press(select_view.find_child("StartButton", true, false), OPEN_FRAMES)
+		var pause: Button = p.find_child("PauseButton", true, false) as Button
+		var extend: Button = p.find_child("ExtendButton", true, false) as Button
+		_check("一時停止：始める前は「一時停止」「＋5分」が出ない", pause != null and extend != null and not pause.visible and not extend.visible)
+		# スペースキー（始める前）＝始める。
+		var space: InputEventKey = InputEventKey.new()
+		space.keycode = KEY_SPACE
+		space.pressed = true
+		get_viewport().push_input(space)
+		await _wait()
+		_check("スペース：始める前に押すと集中が始まる", bool(p.get("is_timer_active")) and bool(p.get("_focus_started")))
+		_check("一時停止：始めたら「一時停止」「＋5分」が出る", pause.visible and extend.visible and pause.text == tr("ui_pomodoro_pause"))
+		await _press(pause)
+		var held: float = float(p.get("time_left_sec"))
+		await get_tree().create_timer(0.3).timeout
+		_check("一時停止：止めると残りが減らない（%.2f → %.2f）・字が「再開」" % [held, float(p.get("time_left_sec"))],
+			bool(p.call("is_paused")) and is_equal_approx(float(p.get("time_left_sec")), held) and pause.text == tr("ui_pomodoro_resume"))
+		get_viewport().push_input(space)
+		await get_tree().create_timer(0.3).timeout
+		_check("スペース：止めているときに押すと再開・残りが減る（%.2f → %.2f）" % [held, float(p.get("time_left_sec"))],
+			not bool(p.call("is_paused")) and float(p.get("time_left_sec")) < held)
+		# ＋5分。
+		var left_before: float = float(p.get("time_left_sec"))
+		var total_before: float = float(p.get("phase_total_sec"))
+		await _press(extend)
+		var add_sec: float = float(Balance.pomodoro.extend_minutes * 60)
+		_check("＋5分：残り %.0f → %.0f・長さ %.0f → %.0f" % [left_before, float(p.get("time_left_sec")), total_before, float(p.get("phase_total_sec"))],
+			absf(float(p.get("time_left_sec")) - left_before - add_sec) < 1.0 and is_equal_approx(float(p.get("phase_total_sec")), total_before + add_sec))
+		# 時計の差分：⚠ 2分眠っていたことにする（⚠ 時計の基準を 120 秒前へ）。
+		var before_sleep: float = float(p.get("time_left_sec"))
+		p.set("_last_wall", Time.get_unix_time_from_system() - 120.0)
+		await _wait()
+		_check("時計：スリープ明けのように時計が 120 秒進むと残りも 120 秒減る（%.0f → %.0f）" % [before_sleep, float(p.get("time_left_sec"))],
+			absf(before_sleep - float(p.get("time_left_sec")) - 120.0) < 1.0)
+		# 振り返りを書いて確定 → ⚠ 延ばした 5分も今日の分に入る。
+		p.set("time_left_sec", 0.01)
+		await _wait()
+		var focus_min: int = GameSettings.focus_minutes() + Balance.pomodoro.extend_minutes
+		p.call("_on_reflection_completed", "延ばした分を数えるかの検査です。二十字を超えるように書く。", false)
+		await _wait()
+		var today_after: int = GameManager.get_cumulative_focus_minutes()
+		_check("＋5分：延ばした分も今日の分に入る（%d → %d・%d分）・目標の字も変わる（%s）" % [today_before, today_after, focus_min, _label_text(p, "TopBar", "GoalLabel")],
+			today_after == today_before + focus_min and _label_text(p, "TopBar", "GoalLabel").begins_with(tr("ui_pomodoro_goal_progress").split("%")[0])
+			and _label_text(p, "TopBar", "GoalLabel").contains(str(today_after)))
+		# 休憩：⚠ 一時停止は出る・＋5分は出ない → ⚠ 終わると自動で次の集中が始まる。
+		_check("休憩：「一時停止」は出る・「＋5分」は出ない", int(p.get("current_state")) == 3 and pause.visible and not extend.visible)
+		var set_before: int = int(p.get("current_set_index"))
+		p.set("time_left_sec", 0.01)
+		await _wait(OPEN_FRAMES)
+		_check("自動開始：休憩が終わると次のセット（%d → %d）の集中が始まっている" % [set_before, int(p.get("current_set_index"))],
+			int(p.get("current_set_index")) == set_before + 1 and int(p.get("current_state")) == 1 and bool(p.get("is_timer_active")) and bool(p.get("_focus_started")))
+		# ⚠ 後片付け（⚠ 設定を既定に戻す）。
+		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_DAILY_GOAL, 0)
+		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_AUTO_START, false)
 		await _open(BASE, {})
 
 	func _pomodoro_start_focus(p: Node) -> void:
