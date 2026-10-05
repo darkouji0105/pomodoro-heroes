@@ -22,6 +22,10 @@ const KEY_FOCUS_TOOL: String = "focus_tool"
 # ⚠ 小窓（2026-09-29・回UI-仕組み⑥・人間「⚠ 4あ」＝既定はオフ）／ ⚠ 小窓をいつも前に出す（既定オン）。
 const KEY_MINI_WINDOW: String = "mini_window"
 const KEY_MINI_ON_TOP: String = "mini_window_on_top"
+# ⚠ タスクの期限の札「今週中」が入れる曜日（2026-10-05・`TK-17`・人間「⚠ 設定に足す・既定は土曜」）。⚠ 値は曜日の番号（0＝日 … 6＝土・Godot の `weekday` と同じ）。
+const SECTION_TASK: String = "task"
+const KEY_WEEK_END: String = "week_end_weekday"
+const WEEK_END_CHOICES: Array[int] = [5, 6, 0]
 const VOLUME_MAX_PCT: int = 100
 const DEFAULT_PATH: String = "user://settings.cfg"
 # ⚠⚠ 置き場所の差し替えは Engine のメタに持つ（⚠ static 変数は途中で台本が読み直されると初期値に戻る＝
@@ -75,6 +79,8 @@ static func _default(section: String, key: String) -> Variant:
 			return false
 		KEY_MINI_ON_TOP:
 			return true
+		KEY_WEEK_END:
+			return 6
 	push_warning("[GameSettings] 知らない設定 %s/%s" % [section, key])
 	return null
 
@@ -116,6 +122,12 @@ static func mini_window() -> bool:
 
 static func mini_window_on_top() -> bool:
 	return bool(get_value(SECTION_POMODORO, KEY_MINI_ON_TOP))
+
+
+# 週の終わりの曜日（⚠ 0〜6 の外なら土曜）。
+static func week_end_weekday() -> int:
+	var value: int = int(get_value(SECTION_TASK, KEY_WEEK_END))
+	return value if value >= 0 and value <= 6 else 6
 
 
 # 選んだ集中の道具（⚠ 知らない値なら砂時計＝設定のファイルを手で書き換えられても落ちない）。

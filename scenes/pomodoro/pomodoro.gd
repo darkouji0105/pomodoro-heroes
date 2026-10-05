@@ -172,6 +172,7 @@ func is_mini_window_active() -> bool:
 
 func _switch_view(new_state: State) -> void:
 	current_state = new_state
+	_focus_started = false
 	# ⚠ フェーズが変わったら「大きく」は解く（⚠ 次の集中・休憩はまた小窓）。
 	_mini_expanded = false
 	_stop_phase_timer()
@@ -266,13 +267,15 @@ func _on_focus_started(title: String, task_id: String) -> void:
 	set_titles[current_set_index] = title
 	set_task_ids[current_set_index] = task_id
 	_start_phase_timer(float(current_preset.focus_duration_sec))
+	_focus_started = true
+	_segment_left = time_left_sec
 
 
 func _on_timer_finished() -> void:
 	match current_state:
 		State.FOCUS:
 			_notify_focus_finished()
-			_count_task_pomodoro()
+			_flush_task_time()
 			_switch_view(State.REFLECTION)
 		State.REFLECTION:
 			# 制限時間内に確定しなかった → skipped 扱いで次へ進む
@@ -341,16 +344,59 @@ func _go_to_next_set() -> void:
 	_switch_view(State.FOCUS)
 
 
-# 🍅を1つ数える（2026-10-04・`TK-5`＝集中のタイマーが0になった時）。⚠ 振り返りを確定したかは問わない。
-#   ⚠ 選ばずに始めたセットは数えない（`TK-11`）。⚠ 報酬とは繋げない（`TK-14`）。
-func _count_task_pomodoro() -> void:
-	if current_set_index >= set_task_ids.size():
+# ⚠⚠ タスクに集中した時間（2026-10-05・`TK-5` を覆した・人間「⚠ タスクごとにチェックさせてその時のタイマーの時間を記録したい」）。
+#   ⚠ 区切りから区切りまでの秒をそのタスクに足す。⚠ 区切り＝集中を始めた ／ 替えた ／ 終えた ／ タイマーが0 ／ やめた。
+#   ⚠ 選ばずに始めた区間はどれにも記録しない（`TK-11`）。⚠ 報酬とは繋げない（`TK-14`）。
+var _focus_started: bool = false
+# ⚠ いまの区切りが始まったときの残り時間（秒）。
+var _segment_left: float = 0.0
+
+
+func _flush_task_time() -> void:
+	if current_state != State.FOCUS or not _focus_started or current_set_index >= set_task_ids.size():
 		return
+	var elapsed: int = int(round(_segment_left - time_left_sec))
+	_segment_left = time_left_sec
 	var task_id: String = set_task_ids[current_set_index]
-	if task_id == "":
+	if task_id == "" or elapsed <= 0:
 		return
-	var counted: bool = GameManager.add_task_pomodoro(task_id)
-	print("[Pomodoro] task pomodoro +1: %s -> %s" % [task_id, str(counted)])
+	var written: bool = GameManager.add_task_focus_seconds(task_id, elapsed)
+	print("[Pomodoro] task focus +%d sec: %s -> %s" % [elapsed, task_id, str(written)])
+
+
+# 集中中のリストで行を押した（⚠ いまのタスクを替える）。⚠ 始める前なら集中のビューで選び直す。
+func switch_task(task_id: String) -> void:
+	if GameManager.get_task(task_id).is_empty() or task_id == _current_task_id():
+		return
+	if current_state == State.FOCUS and not _focus_started:
+		if _current_view != null and _current_view.has_method("set_task"):
+			_current_view.call("set_task", task_id)
+		return
+	_flush_task_time()
+	set_task_ids[current_set_index] = task_id
+	_show_running_title()
+
+
+# 集中中のリストで四角を押した（⚠ 終えた・戻した）。⚠ いまのタスクを終えたら、⚠ そこまでの時間を記録して「選んでいない」に戻す。
+func finish_task_from_list(task_id: String, done: bool) -> void:
+	if GameManager.get_task(task_id).is_empty():
+		return
+	if done and task_id == _current_task_id():
+		if current_state == State.FOCUS and not _focus_started:
+			if _current_view != null and _current_view.has_method("set_task"):
+				_current_view.call("set_task", "")
+		else:
+			_flush_task_time()
+			set_task_ids[current_set_index] = ""
+	var _changed: bool = GameManager.set_task_done(task_id, done)
+
+
+# ⚠ 集中中の大きい題を、いまのタスクの名前に（⚠ 選んでいなければそのまま）。
+func _show_running_title() -> void:
+	var task: Dictionary = GameManager.get_task(_current_task_id())
+	if task.is_empty() or _current_view == null or not _current_view.has_method("show_running_title"):
+		return
+	_current_view.call("show_running_title", str(task.get(GameStateKeys.TASK_TITLE, "")))
 
 
 # ⚠ ポモドーロ中にリストを見る（2026-10-04・人間「⚠ ポモドーロ中にリストを見れるように　メニューと同じように」）。
@@ -365,6 +411,9 @@ func _build_task_list_button() -> void:
 	quit.get_parent().add_child(box)
 	var list_button: TaskListButton = TaskListButton.new()
 	list_button.current_task_provider = _current_task_id
+	# ⚠ 2026-10-05（モック6）：⚠ 行を押す＝いまのタスクを替える ／ ⚠ 四角＝終えた・戻した（⚠ そこまでの時間を記録する）。
+	list_button.task_pressed.connect(switch_task)
+	list_button.task_checked.connect(finish_task_from_list)
 	box.add_child(list_button)
 	quit.reparent(box)
 
@@ -430,6 +479,8 @@ func quit_session() -> void:
 
 
 func _return_to_base() -> void:
+	# ⚠ 集中の途中でやめたら、⚠ そこまでの時間を選んでいたタスクに記録する（`TK-5`）。
+	_flush_task_time()
 	_stop_phase_timer()
 
 	var potion_count: int = GameManager.grant_stamina_potions(session_accumulated_focus_min)

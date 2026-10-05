@@ -1397,7 +1397,7 @@ func add_task(title: String) -> String:
 		GameStateKeys.TASK_DUE: "",
 		GameStateKeys.TASK_COLOR: 0,
 		GameStateKeys.TASK_TAGS: [],
-		GameStateKeys.TASK_POMODORO_COUNT: 0,
+		GameStateKeys.TASK_FOCUS_SEC: 0,
 		GameStateKeys.TASK_CREATED_AT: int(Time.get_unix_time_from_system()),
 		GameStateKeys.TASK_DONE_AT: 0,
 	})
@@ -1486,7 +1486,7 @@ func set_task_done(task_id: String, done: bool) -> bool:
 
 
 # 消す（2026-10-04・`TK-15`）。⚠ 一覧から取り除くだけ（⚠ 記録＝`TASK_LOG` には残さない）。⚠ 確かめの窓は画面の側。
-#   ⚠ ポモドーロで選んでいたタスクを消すと、⚠ そのセットの🍅はどれにも数えない（⚠ `add_task_pomodoro()` が見つけられない）。
+#   ⚠ ポモドーロで選んでいたタスクを消すと、⚠ その時間はどれにも記録しない（⚠ `add_task_focus_seconds()` が見つけられない）。
 func delete_task(task_id: String) -> bool:
 	var index: int = _task_index(task_id)
 	if index < 0:
@@ -1499,24 +1499,35 @@ func delete_task(task_id: String) -> bool:
 	return true
 
 
-# 🍅を1つ（`TK-5`＝集中のタイマーが0になった時）。⚠ 呼ぶのはポモドーロの画面だけ。
-#   ⚠ 選んでいない集中は呼ばない（`TK-11`）。⚠ 一覧から記録へ移ったあとなら記録の側に数える。
-func add_task_pomodoro(task_id: String) -> bool:
+# 集中した時間を足す（2026-10-05・`TK-5` を覆した＝回数ではなく秒）。⚠ 呼ぶのはポモドーロの画面だけ。
+#   ⚠ 区切り＝そのタスクを終えた・替えた・タイマーが0・やめた（⚠ その時までの分）。⚠ 選んでいない集中は呼ばない（`TK-11`）。
+#   ⚠ 一覧から記録へ移ったあとなら記録の側に足す。⚠ 0 秒以下は足さない。
+func add_task_focus_seconds(task_id: String, seconds: int) -> bool:
+	if seconds <= 0:
+		return false
 	var index: int = _task_index(task_id)
 	if index >= 0:
-		var count: int = int((_state[GameStateKeys.TASKS][index] as Dictionary).get(GameStateKeys.TASK_POMODORO_COUNT, 0))
-		return _write_task(task_id, {GameStateKeys.TASK_POMODORO_COUNT: count + 1})
+		var total: int = int((_state[GameStateKeys.TASKS][index] as Dictionary).get(GameStateKeys.TASK_FOCUS_SEC, 0))
+		return _write_task(task_id, {GameStateKeys.TASK_FOCUS_SEC: total + seconds})
 	var task_log: Array = _copy_array(GameStateKeys.TASK_LOG)
 	for i: int in range(task_log.size()):
 		var entry: Dictionary = (task_log[i] as Dictionary).duplicate(true)
 		if str(entry.get(GameStateKeys.TASK_ID, "")) != task_id:
 			continue
-		entry[GameStateKeys.TASK_POMODORO_COUNT] = int(entry.get(GameStateKeys.TASK_POMODORO_COUNT, 0)) + 1
+		entry[GameStateKeys.TASK_FOCUS_SEC] = int(entry.get(GameStateKeys.TASK_FOCUS_SEC, 0)) + seconds
 		task_log[i] = entry
 		_state[GameStateKeys.TASK_LOG] = task_log
 		tasks_changed.emit()
 		return true
 	return false
+
+
+# 集中した時間の字（⚠ 「6分」「1時間12分」）。⚠ 秒は切り捨て。⚠ 一覧・詳しく・ポモドーロ・記録で同じ字にする。
+func task_focus_text(seconds: int) -> String:
+	var minutes: int = floori(maxi(0, seconds) / 60.0)
+	if minutes < 60:
+		return tr("ui_task_focus_minutes") % minutes
+	return tr("ui_task_focus_hours") % [floori(minutes / 60.0), minutes % 60]
 
 
 # 朝4:00 の移し（`TK-6`）：⚠ 終えた日（ゲーム内の日付）が今日でないタスクを、一覧から記録へ移す。⚠ 上限は付けない（`TK-9`）。
@@ -1543,7 +1554,7 @@ func roll_over_done_tasks(now_unix: float = -1.0) -> int:
 			GameStateKeys.TASK_TITLE: entry.get(GameStateKeys.TASK_TITLE, ""),
 			GameStateKeys.TASK_COLOR: int(entry.get(GameStateKeys.TASK_COLOR, 0)),
 			GameStateKeys.TASK_TAGS: (entry.get(GameStateKeys.TASK_TAGS, []) as Array).duplicate(),
-			GameStateKeys.TASK_POMODORO_COUNT: int(entry.get(GameStateKeys.TASK_POMODORO_COUNT, 0)),
+			GameStateKeys.TASK_FOCUS_SEC: int(entry.get(GameStateKeys.TASK_FOCUS_SEC, 0)),
 			GameStateKeys.TASK_CREATED_AT: int(entry.get(GameStateKeys.TASK_CREATED_AT, 0)),
 			GameStateKeys.TASK_DONE_AT: int(entry.get(GameStateKeys.TASK_DONE_AT, 0)),
 		})
@@ -1595,9 +1606,13 @@ static func _normalize_task_list(raw: Variant) -> Array:
 		if not (task is Dictionary):
 			continue
 		var entry: Dictionary = (task as Dictionary).duplicate(true)
-		for number_key: String in [GameStateKeys.TASK_COLOR, GameStateKeys.TASK_POMODORO_COUNT, GameStateKeys.TASK_CREATED_AT, GameStateKeys.TASK_DONE_AT]:
+		for number_key: String in [GameStateKeys.TASK_COLOR, GameStateKeys.TASK_FOCUS_SEC, GameStateKeys.TASK_CREATED_AT, GameStateKeys.TASK_DONE_AT]:
 			if entry.has(number_key):
 				entry[number_key] = int(entry[number_key])
+		# ⚠ 10-04 の回数（`TASK_POMODORO_COUNT`）は捨てる（⚠ 時間に置き換えた＝`TK-5`。⚠ 回数から時間は作らない）。
+		entry.erase(GameStateKeys.TASK_POMODORO_COUNT)
+		if not entry.has(GameStateKeys.TASK_FOCUS_SEC):
+			entry[GameStateKeys.TASK_FOCUS_SEC] = 0
 		var tags: Array = []
 		var raw_tags: Variant = entry.get(GameStateKeys.TASK_TAGS, [])
 		if raw_tags is Array:

@@ -663,3 +663,6 @@ const TASK_POMODORO_COUNT: String = "pomodoro_count"
 # ⚠ どちらも unix 秒の int。⚠ done_at が 0 ならまだ。
 const TASK_CREATED_AT: String = "created_at"
 const TASK_DONE_AT: String = "done_at"
+# ⚠⚠ 2026-10-05：⚠ 回数（`TASK_POMODORO_COUNT`）をやめ、⚠ そのタスクに集中した秒を足し上げる（人間「⚠ タスクごとにチェックさせてその時のタイマーの時間を記録したい」・`TK-5` を覆した）。
+#   ⚠ `TASK_POMODORO_COUNT` は消さない（⚠ このファイルは追記のみ）。⚠ もう書かない・読まない。
+const TASK_FOCUS_SEC: String = "focus_sec"
