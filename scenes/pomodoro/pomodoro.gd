@@ -74,7 +74,7 @@ func _ready() -> void:
 	set_task_ids.fill("")
 
 	_build_debug_panel()
-	_build_task_list_button()
+	_build_sidebar()
 
 	if GameManager.has_selected_protection_today():
 		_switch_view(State.FOCUS)
@@ -144,6 +144,7 @@ func _update_mini_window() -> void:
 		_mini.set_state(int(ceil(time_left_sec)), current_state == State.FOCUS)
 	else:
 		_mini.leave()
+	_fit_sidebar()
 
 
 # 設定の窓で長さを変えたとき（2026-10-02・`PomodoroLinks`）。⚠ 集中を始める前なら、⚠ 待っている時間もすぐ変える。
@@ -198,6 +199,8 @@ func _switch_view(new_state: State) -> void:
 	var view: Node = load(scene_path).instantiate()
 	view_container.add_child(view)
 	_current_view = view
+	_refresh_sidebar()
+	_fit_sidebar()
 
 	match new_state:
 		State.PROTECTION_SELECT:
@@ -216,6 +219,7 @@ func _switch_view(new_state: State) -> void:
 			if prev_task != "":
 				view.set_task(prev_task)
 			view.start_requested.connect(_on_focus_started)
+			view.task_selected.connect(_on_view_task_selected)
 			# ここではタイマーを走らせない。開始ボタンを押すまで待つ
 			time_left_sec = float(current_preset.focus_duration_sec)
 			phase_total_sec = time_left_sec
@@ -375,6 +379,7 @@ func switch_task(task_id: String) -> void:
 	_flush_task_time()
 	set_task_ids[current_set_index] = task_id
 	_show_running_title()
+	_refresh_sidebar()
 
 
 # 集中中のリストで四角を押した（⚠ 終えた・戻した）。⚠ いまのタスクを終えたら、⚠ そこまでの時間を記録して「選んでいない」に戻す。
@@ -392,6 +397,15 @@ func finish_task_from_list(task_id: String, done: bool) -> void:
 
 
 # ⚠ 集中中の大きい題を、いまのタスクの名前に（⚠ 選んでいなければそのまま）。
+func _on_view_task_selected(_task_id: String) -> void:
+	_refresh_sidebar()
+
+
+func _refresh_sidebar() -> void:
+	if _sidebar != null:
+		_sidebar.refresh()
+
+
 func _show_running_title() -> void:
 	var task: Dictionary = GameManager.get_task(_current_task_id())
 	if task.is_empty() or _current_view == null or not _current_view.has_method("show_running_title"):
@@ -399,23 +413,46 @@ func _show_running_title() -> void:
 	_current_view.call("show_running_title", str(task.get(GameStateKeys.TASK_TITLE, "")))
 
 
-# ⚠ ポモドーロ中にリストを見る（2026-10-04・人間「⚠ ポモドーロ中にリストを見れるように　メニューと同じように」）。
-#   ⚠ 右上の「やめる」の左に並べる（⚠ 地図の右上のメニューと同じ置き方）。⚠ どのフェーズでも出す。
-func _build_task_list_button() -> void:
-	var quit: Control = $Margin/Layout/TopBar/QuitButton
-	var box: HBoxContainer = HBoxContainer.new()
-	box.name = "TopRight"
-	box.theme_type_variation = &"ButtonRow"
-	box.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	quit.get_parent().add_child(box)
-	var list_button: TaskListButton = TaskListButton.new()
-	list_button.current_task_provider = _current_task_id
-	# ⚠ 2026-10-05（モック6）：⚠ 行を押す＝いまのタスクを替える ／ ⚠ 四角＝終えた・戻した（⚠ そこまでの時間を記録する）。
-	list_button.task_pressed.connect(switch_task)
-	list_button.task_checked.connect(finish_task_from_list)
-	box.add_child(list_button)
-	quit.reparent(box)
+# ⚠ 右のサイドバー「やること」（2026-10-05・人間「⚠ やることリストはサイドバーにする」「⚠ ポモドーロ中もやることリストを追加できるように」）。
+#   ⚠ 前は右上の「リスト」で開く板（10-04）。⚠ どのフェーズでもいつも出す。⚠ 中身の柱（`Margin`）はサイドバーの手前までにする（⚠ 時計はその真ん中）。
+#   ⚠ 行を押す＝いまのタスクにする（⚠ 始める前は選ぶ・集中中は替える＝`TK-16`）／ ⚠ 四角＝終えた・戻した（⚠ そこまでの時間を記録する）。
+var _sidebar: TaskSidebar = null
+
+
+func _build_sidebar() -> void:
+	var margin: MarginContainer = $Margin
+	var outer: int = margin.get_theme_constant(&"margin_right")
+	var gap: int = get_theme_constant(&"side_gap", &"Task")
+	_sidebar = TaskSidebar.create()
+	_sidebar.current_task_provider = _current_task_id
+	_sidebar.task_pressed.connect(switch_task)
+	_sidebar.task_checked.connect(finish_task_from_list)
+	add_child(_sidebar)
+	# ⚠ 小窓（`MiniWindow`）より下に置く（⚠ 小窓は CanvasLayer＝いつも上）。⚠ デバッグのパネルより下。
+	move_child(_sidebar, margin.get_index() + 1)
+	var width: float = float(get_theme_constant(&"side_width", &"Task"))
+	_sidebar.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+	_sidebar.offset_left = -width - float(outer)
+	_sidebar.offset_right = -float(outer)
+	_sidebar.offset_top = float(margin.get_theme_constant(&"margin_top"))
+	_sidebar.offset_bottom = -float(margin.get_theme_constant(&"margin_bottom"))
+	_sidebar_room = width + float(gap)
+	_fit_sidebar()
+
+
+# ⚠⚠ 小窓のあいだ ／ 加護を選ぶあいだはサイドバーを隠し、⚠ 中身の柱を画面いっぱいに戻す（2026-10-05）。
+#   ⚠ 小窓は画面の論理の大きさを 300×180 にする＝⚠ サイドバーのぶん引くと柱の幅がマイナスになり、
+#   ⚠ 折り返しの字の大きさが決まらずに回り続けて落ちた（⚠ ui_flow の小窓の手で実測・exit がアクセス違反）。
+#   ⚠ 加護のカード3枚は柱の幅に入らず、⚠ サイドバーの下に潜った（⚠ 撮った絵）＝選ぶのは1日1回なので隠す。
+var _sidebar_room: float = 0.0
+
+
+func _fit_sidebar() -> void:
+	if _sidebar == null:
+		return
+	var tucked: bool = current_state == State.PROTECTION_SELECT or (_mini != null and _mini.is_active())
+	_sidebar.visible = not tucked
+	($Margin as Control).offset_right = 0.0 if tucked else -_sidebar_room
 
 
 # いま数えているタスク（⚠ 始める前は集中のビューで選んでいるもの・⚠ 始めたらそのセットで選んだもの）。

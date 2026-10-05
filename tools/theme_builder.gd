@@ -204,10 +204,12 @@ const SEPARATION_VARIATIONS: Dictionary = {
 	# ⚠ フェーズの中身の柱（ポモドーロの4ビュー・2026-09-09）。
 	#   ⚠ 「見出し／タイマー／入力／ボタン」のまとまりどうしの間。
 	#   ⚠ まとまりの中（説明文と入力欄）は既定の 8。
-	"PhaseStack": {"value": 24, "base": "VBoxContainer"},
+	# ⚠ 2026-10-05（人間「⚠ ポモドーロがめんがもっとこんぱくとに」）：24 → 16。
+	"PhaseStack": {"value": 16, "base": "VBoxContainer"},
 	# ⚠ 上部バーと中身の間（ポモドーロの器・2026-09-09）。
 	#   ⚠ 画面の外周 32 の2倍。⚠ タイマーを画面の上寄りに置きすぎないための間。
-	"PhaseTopGap": {"value": 64, "base": "VBoxContainer"},
+	# ⚠ 2026-10-05（同）：64 → 24（⚠ 集中を始める前の画面が下にはみ出ていた）。
+	"PhaseTopGap": {"value": 24, "base": "VBoxContainer"},
 	# ⚠ 戦闘の3段（ヘッダー／戦場／下部パネル・2026-09-16）。
 	#   ⚠ 段どうしは1pxの線で接するので、⚠ 間を空けない。
 	"BattleBands": {"value": 0, "base": "VBoxContainer"},
@@ -2569,7 +2571,7 @@ static func _build_settings(theme: Theme) -> void:
 #
 # ⚠ 砂時計・ろうそく・柱時計を線と面で描く（`FocusTool`）。⚠ 色は手本の真鍮・砂・蝋・炎。⚠ 大きさは集中中の画面と目録。
 const FOCUS_TOOL: Dictionary = {
-	"line_pct": 18, "focus_size": 200, "caption_height": 28, "number_height": 96,
+	"line_pct": 18, "focus_size": 170, "caption_height": 28, "number_height": 84,
 	"preview_width": 480, "preview_cycle_ms": 8000, "row_icon": 48, "locked_alpha_pct": 50,
 }
 const FOCUS_TOOL_COLORS: Dictionary = {
@@ -2632,11 +2634,10 @@ const TASK: Dictionary = {
 	"memo_height": 110,       # ⚠ 10-04：140 → 110（⚠ 「消す」を足して紙が縦 720 に収まらなくなった）
 	"swatch": 28,             # ⚠ 詳しくの色の札の大きさ
 	"strike": 2,              # ⚠ 終えたタスクの線の太さ
-	"pick_height": 260,       # ⚠ ポモドーロの選ぶ窓の一覧の高さ（⚠ 溢れたら送る）（⚠ 10-05：320 → 260＝窓が縦いっぱいだった）
 	# ⚠ 10-05（モック・人間「⚠ 7枚ぜんぶ」）：⚠ 下の値はモックの寸法から。
-	"pick_width": 500,        # ⚠ 選ぶ窓の一覧の幅
-	"running_width": 330,     # ⚠ 集中中のリストの板
-	"running_height": 400,
+	# ⚠ 10-05（人間「⚠ やることリストはサイドバーにする」）：⚠ ポモドーロの右のサイドバー。⚠ 選ぶ窓と「リスト」の板は消した。
+	"side_width": 320,
+	"side_gap": 24,           # ⚠ 中身の柱とサイドバーの間
 	"check": 18,              # ⚠ 紙に描いた四角（終えたか）
 	"check_line": 2,
 	"link_pad": 30,           # ⚠ 選んだときの題の欄の左（⚠ 色の印のぶん）

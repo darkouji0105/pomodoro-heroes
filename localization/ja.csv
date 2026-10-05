@@ -1392,16 +1392,13 @@ ui_task_wall_title,やること
 ui_task_wall_open,ひらく
 ui_task_wall_empty,やることはまだありません
 ui_task_wall_empty_hint,「ひらく」から足せます
-ui_pomodoro_task_pick,リストから選ぶ
 ui_pomodoro_task_add,書いた題をリストに足す
 ui_pomodoro_task_pick_empty,まだのタスクはありません
 ui_pomodoro_task_pick_empty_hint,題を書いて「リストに足す」を押すと足せます
-ui_pomodoro_task_pick_none,選ばない（どのタスクにも数えない）
 ui_records_tab_tasks,終わったタスク
 ui_records_tasks_empty,終わったタスクはまだありません
 ui_records_tasks_empty_hint,終えたタスクは、次の朝4:00にここへ移ります
-ui_pomodoro_task_list,リスト
-ui_pomodoro_task_list_empty_hint,拠点の紙か「リストに足す」から足せます
+ui_pomodoro_task_list_empty_hint,下の欄に書いて「足す」で足せます
 ui_task_delete,消す
 ui_task_delete_confirm,「%s」を消しますか？ 記録にも残りません
 ui_task_focus_minutes,%d分
@@ -1435,16 +1432,11 @@ ui_settings_week_end_note,期限の札「今週中」が入れる日です
 ui_settings_weekday_5,金曜
 ui_settings_weekday_6,土曜
 ui_settings_weekday_0,日曜
-ui_pomodoro_task_pick_count,リストから選ぶ　まだ %d件
 ui_pomodoro_task_linked_stamp,リストのタスク
 ui_pomodoro_task_so_far,これまで %s
-ui_pomodoro_task_repick,選び直す
 ui_pomodoro_task_unlink,外す
 ui_pomodoro_task_rename_note,"題を書き換えると、リストのタスクの名前も変わります"
-ui_pomodoro_task_pick_open,まだ %d件
-ui_pomodoro_task_pick_new,新しく書いて足す
-ui_pomodoro_task_pick_add,足して選ぶ
-ui_pomodoro_task_list_hint,"四角を押すと終わり　行を押すと、いまのタスクを替えます"
+ui_pomodoro_task_list_hint,"行を押すと、いまのタスクにします　四角を押すと終わり"
 ui_records_tasks_total,ぜんぶで %d件　集中 %s
 ui_records_tasks_year,%d年
 ui_records_tasks_month,%d月

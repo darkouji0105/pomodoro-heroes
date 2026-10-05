@@ -1259,7 +1259,8 @@ const SCENARIOS: Dictionary = {
 			# ⚠ タスクのメモ（2026-10-04・`TK-3`・`TK-7`・`TK-10`・`TK-8`）。⚠ 拠点（紙あり・溢れて送る）／ タスクの画面（詳しく）／ ポモドーロの選ぶ窓 ／ 記録のタブ。
 			{"name": "59_base_tasks", "scene": SCENE_BASE, "prepare": SHOT_PREPARE_TASKS, "measure": ["Layout/TopArea/TaskWallNote"]},
 			{"name": "60_task_screen", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DETAIL},
-			{"name": "61_task_pick", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_PICK},
+			# ⚠ 10-05（人間「⚠ やることリストはサイドバーにする」）：⚠ 選ぶ窓 → 右のサイドバー。⚠ 集中を始める前の姿。
+			{"name": "61_pomodoro_sidebar", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_PICK, "measure": ["Margin", "TaskSidebar", "Margin/Layout/CurrentViewContainer/FocusView/Layout/StartButton"]},
 			# ⚠ 集中中に右上の「リスト」を開いた姿（10-04・人間「⚠ ポモドーロ中にリストを見れるように　メニューと同じように」）。
 			# ⚠ 「消す」の確かめの窓（10-04・`TK-15`）。⚠ 押さないので消えない。
 			{"name": "64_task_delete", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DELETE},
@@ -9611,38 +9612,31 @@ class ShotTaker extends Node:
 			for _i: int in range(4):
 				await get_tree().process_frame
 		elif kind == AFTER_TASK_PICK:
-			# ⚠ 加護を選ぶ（⚠ 出ていれば「始める」）→ ⚠ 「リストから選ぶ」（⚠ 本物のボタン）。
+			# ⚠ 10-05：⚠ 選ぶ窓は消した＝⚠ 集中を始める前のサイドバーの姿（⚠ 加護だけ進める）。
 			var pick_select: Node = screen.find_child("ProtectionSelectView", true, false)
 			if pick_select != null:
 				(pick_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
 				for _i: int in range(3):
 					await get_tree().process_frame
-			var pick_button: Node = screen.find_child("PickTaskButton", true, false)
-			if not (pick_button is BaseButton):
-				push_error("[DebugBoot] ⚠ %s に「リストから選ぶ」が無い" % shot_name)
-				return false
-			(pick_button as BaseButton).pressed.emit()
-			for _i: int in range(6):
+			for _i: int in range(3):
 				await get_tree().process_frame
 		elif kind == AFTER_TASK_LINKED:
-			# ⚠ 加護（⚠ 出ていれば「始める」）→「リストから選ぶ」→ 1件目（⚠ 期限切れ）を押す。⚠ 始めない。
+			# ⚠ 加護（⚠ 出ていれば「始める」）→ サイドバーの1件目（⚠ 期限切れ）を押す。⚠ 始めない。
 			var linked_select: Node = screen.find_child("ProtectionSelectView", true, false)
 			if linked_select != null:
 				(linked_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
 				for _i: int in range(3):
 					await get_tree().process_frame
-			var linked_pick: Node = screen.find_child("PickTaskButton", true, false)
-			if not (linked_pick is BaseButton):
-				push_error("[DebugBoot] ⚠ %s に「リストから選ぶ」が無い" % shot_name)
-				return false
-			(linked_pick as BaseButton).pressed.emit()
-			for _i: int in range(3):
-				await get_tree().process_frame
-			for node: Node in screen.find_children("Pick_*", "", true, false):
+			var linked_row: Node = null
+			for node: Node in screen.find_children("Side_*", "", true, false):
 				if node is LedgerRow:
-					(node as LedgerRow).pressed.emit()
+					linked_row = node
 					break
-			for _i: int in range(6):
+			if linked_row == null:
+				push_error("[DebugBoot] ⚠ %s のサイドバーに行が無い" % shot_name)
+				return false
+			(linked_row as LedgerRow).pressed.emit()
+			for _i: int in range(4):
 				await get_tree().process_frame
 		elif kind == AFTER_TASK_CALENDAR:
 			# ⚠ 4行目（⚠ 先の期限）を押す →「日付を選ぶ ▼」。
@@ -9676,36 +9670,32 @@ class ShotTaker extends Node:
 			for _i: int in range(6):
 				await get_tree().process_frame
 		elif kind == AFTER_TASK_LIST:
-			# ⚠ 加護（⚠ 出ていれば「始める」）→ ⚠ 1件目を選ぶ（⚠ 選ぶ窓の本物の行）→ ⚠ 集中の「開始」→ ⚠ 右上の「リスト」。
+			# ⚠ 加護 → サイドバーの1件目 →「はじめる」→ ⚠ 残りを6割にして集中中の姿。
 			var list_select: Node = screen.find_child("ProtectionSelectView", true, false)
 			if list_select != null:
 				(list_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
 				for _i: int in range(3):
 					await get_tree().process_frame
-			var list_pick: Node = screen.find_child("PickTaskButton", true, false)
-			if list_pick is BaseButton:
-				(list_pick as BaseButton).pressed.emit()
-				for _i: int in range(3):
-					await get_tree().process_frame
-				var first_pick: Node = null
-				for node: Node in screen.find_children("Pick_*", "", true, false):
-					if node is LedgerRow:
-						first_pick = node
-						break
-				if first_pick != null:
-					(first_pick as LedgerRow).pressed.emit()
-				for _i: int in range(3):
-					await get_tree().process_frame
+			var list_row: Node = null
+			for node: Node in screen.find_children("Side_*", "", true, false):
+				if node is LedgerRow:
+					list_row = node
+					break
+			if list_row == null:
+				push_error("[DebugBoot] ⚠ %s のサイドバーに行が無い" % shot_name)
+				return false
+			(list_row as LedgerRow).pressed.emit()
+			for _i: int in range(4):
+				await get_tree().process_frame
 			var list_start: Node = screen.find_child("FocusView", true, false)
 			list_start = null if list_start == null else list_start.find_child("StartButton", true, false)
-			var list_open: Node = screen.find_child("TaskListButton", true, false)
-			if not (list_start is BaseButton) or not (list_open is BaseButton):
-				push_error("[DebugBoot] ⚠ %s で「開始」か「リスト」が無い" % shot_name)
+			if not (list_start is BaseButton):
+				push_error("[DebugBoot] ⚠ %s で「はじめる」が無い" % shot_name)
 				return false
 			(list_start as BaseButton).pressed.emit()
 			await get_tree().process_frame
-			(list_open as BaseButton).pressed.emit()
-			for _i: int in range(6):
+			screen.set("time_left_sec", float(screen.get("phase_total_sec")) * 0.6)
+			for _i: int in range(5):
 				await get_tree().process_frame
 		elif kind == AFTER_RECORDS_TASKS:
 			var records_tabs: Node = screen.find_child("Tabs", true, false)
@@ -11780,7 +11770,7 @@ class UiFlowRunner extends Node:
 			_path_of(b) == BASE and note_rows == open_count and b.find_child("Note_" + a_id, true, false) == null)
 		var b_note: Node = null if b == null else b.find_child("Note_" + b_id, true, false)
 		_check("タスク：紙の B に「期限切れ」の判", b_note != null and b_note.find_child("DueStamp", true, false) is Stamp)
-		# ポモドーロ（`TK-10`）：⚠ リストから選ぶ → 題がタスクの名前 → 書き換えると名前が変わる。
+		# ポモドーロ（`TK-10`・10-05 サイドバー）：⚠ 右のサイドバーの行を押す → 題がタスクの名前 → 書き換えると名前が変わる。
 		var p: Node = await _open(POMODORO, {})
 		if p == null:
 			return
@@ -11788,18 +11778,20 @@ class UiFlowRunner extends Node:
 		if select_view != null:
 			await _press(select_view.find_child("StartButton", true, false), OPEN_FRAMES)
 		var view: Node = p.find_child("FocusView", true, false)
-		if view == null:
-			_check("ポモドーロ：集中のビューが無い", false)
+		var side: Node = p.find_child("TaskSidebar", true, false)
+		if view == null or side == null:
+			_check("ポモドーロ：集中のビューかサイドバーが無い", false)
 			return
-		await _press(view.find_child("PickTaskButton", true, false))
-		var modal: ModalDialog = _modal_of(p)
-		var picks: int = 0 if modal == null else modal.find_children("Pick_*", "", true, false).size()
-		_check("ポモドーロ：「リストから選ぶ」で窓・まだのタスクが全部（%d）＋「選ばない」" % picks,
-			modal != null and picks == open_count and modal.find_child("PickNone", true, false) != null)
-		await _press(null if modal == null else modal.find_child("Pick_" + b_id, true, false))
+		var side_rows: int = side.find_children("Side_*", "", true, false).size()
+		var margin_right: float = (p.get_node("Margin/Layout") as Control).get_global_rect().end.x
+		_check("ポモドーロ：右にサイドバー（%d 行 ／ 一覧 %d）・中身の柱はサイドバーの手前まで（%.0f ≦ %.0f）" % [side_rows, GameManager.get_tasks().size(), margin_right, (side as Control).get_global_rect().position.x],
+			side_rows == GameManager.get_tasks().size() and margin_right <= (side as Control).get_global_rect().position.x
+			and view.find_child("PickTaskButton", true, false) == null)
+		await _press(side.find_child("Side_" + b_id, true, false))
 		var focus_title: LineEdit = view.find_child("TitleEdit", true, false) as LineEdit
-		_check("ポモドーロ：B を選ぶと窓が閉じ、題が「%s」" % ("" if focus_title == null else focus_title.text),
-			_modal_of(p) == null and str(view.call("get_task_id")) == b_id and focus_title != null and focus_title.text == "TK検査B2")
+		var b_side: Node = side.find_child("Side_" + b_id, true, false)
+		_check("ポモドーロ：サイドバーで B を押すと選ばれ、題が「%s」・B が明るい行" % ("" if focus_title == null else focus_title.text),
+			str(view.call("get_task_id")) == b_id and focus_title != null and focus_title.text == "TK検査B2" and b_side is LedgerRow and (b_side as LedgerRow).selected)
 		if focus_title == null:
 			return
 		focus_title.text = "TK検査B3"
@@ -11807,63 +11799,54 @@ class UiFlowRunner extends Node:
 		_check("ポモドーロ：選んだあとに題を書き換えるとタスクの名前が変わる（%s）" % str(GameManager.get_task(b_id).get(GameStateKeys.TASK_TITLE, "")),
 			str(GameManager.get_task(b_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査B3")
 		var band: Node = view.find_child("LinkedBand", true, false)
-		_check("ポモドーロ：選ぶと紙の帯（「リストのタスク」の判・期限切れの判・選び直す・外す）・題の欄の左に色の印",
+		_check("ポモドーロ：選ぶと紙の帯（「リストのタスク」の判・期限切れの判・外す）・題の欄の左に色の印",
 			band is Control and (band as Control).visible and band.find_child("LinkedStamp", true, false) is Stamp and band.find_child("DueStamp", true, false) is Stamp
 			and band.find_child("UnlinkButton", true, false) != null and (view.find_child("TitleMark", true, false) as Control).visible)
-		# 「外す」→ 選んでいない姿に戻る。
+		# 「外す」→ 選んでいない（⚠ 題が残っているので「書いた題をリストに足す」が出る）。
 		await _press(null if band == null else band.find_child("UnlinkButton", true, false))
-		var pick_button: Button = view.find_child("PickTaskButton", true, false) as Button
-		_check("ポモドーロ：「外す」で選んでいない（「%s」）" % ("" if pick_button == null else pick_button.text),
-			str(view.call("get_task_id")) == "" and pick_button != null and pick_button.is_visible_in_tree()
-			and pick_button.text == tr("ui_pomodoro_task_pick_count") % GameManager.get_open_tasks().size())
-		# 選ぶ窓：⚠ タグで絞る ／ ⚠ その場で書いて「足して選ぶ」（モック5）。
-		await _press(pick_button)
-		modal = _modal_of(p)
-		await _press(null if modal == null else modal.find_child("PickFilter_検査", true, false))
-		var filtered: int = 0 if modal == null else modal.find_children("Pick_*", "", true, false).size()
-		_check("選ぶ窓：タグで絞ると B だけ（%d 行）" % filtered, filtered == 1 and modal.find_child("Pick_" + b_id, true, false) != null)
-		if modal != null:
-			(modal.find_child("PickNewEdit", true, false) as LineEdit).text = "TK検査E"
-		await _press(null if modal == null else modal.find_child("PickAddButton", true, false))
-		var e_id: String = str(view.call("get_task_id"))
-		_check("選ぶ窓：「足して選ぶ」で足して選ばれ、窓が閉じる（%s）" % str(GameManager.get_task(e_id).get(GameStateKeys.TASK_TITLE, "")),
-			str(GameManager.get_task(e_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査E" and _modal_of(p) == null)
-		# 「選び直す」→「選ばない」→ 題を打って「リストに足す」。
-		await _press(view.find_child("RepickButton", true, false))
-		modal = _modal_of(p)
-		await _press(null if modal == null else modal.find_child("PickNone", true, false))
+		var add_to_list: Node = view.find_child("AddToListButton", true, false)
+		_check("ポモドーロ：「外す」で選んでいない・サイドバーの明るい行が消える・題があるので「書いた題をリストに足す」",
+			str(view.call("get_task_id")) == "" and not ((side.find_child("Side_" + b_id, true, false) as LedgerRow).selected)
+			and add_to_list is Button and (add_to_list as Button).visible and str(GameManager.get_task(b_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査B3")
+		focus_title.text = ""
+		focus_title.text_changed.emit("")
+		_check("ポモドーロ：題が空なら「書いた題をリストに足す」は出ない（コンパクト）", not (add_to_list as Button).visible)
+		# サイドバーで足す（⚠ ポモドーロ中も足せる＝人間の指示）：⚠ 足すだけ（⚠ 選ばない）。
+		var count_before_side: int = GameManager.get_tasks().size()
+		(side.find_child("SideNewEdit", true, false) as LineEdit).text = "TK検査E"
+		await _press(side.find_child("SideAddButton", true, false))
+		var e_id: String = _task_order().back() if GameManager.get_tasks().size() > count_before_side else ""
+		_check("サイドバー：下の欄で足すと一覧に1件・行が出る・選びはしない（%s）" % str(GameManager.get_task(e_id).get(GameStateKeys.TASK_TITLE, "")),
+			str(GameManager.get_task(e_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査E" and side.find_child("Side_" + e_id, true, false) != null
+			and str(view.call("get_task_id")) == "" and (side.find_child("SideNewEdit", true, false) as LineEdit).text == "")
+		# 題を打って「リストに足す」。
 		focus_title.text = "TK検査D"
 		focus_title.text_changed.emit(focus_title.text)
-		_check("ポモドーロ：「選ばない」で外れる（名前は変わらない）", str(view.call("get_task_id")) == "" and str(GameManager.get_task(b_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査B3")
 		var count_before_add: int = GameManager.get_tasks().size()
 		await _press(view.find_child("AddToListButton", true, false))
 		var d_id: String = str(view.call("get_task_id"))
-		_check("ポモドーロ：「リストに足す」で1件増えて選ばれる（%s）" % str(GameManager.get_task(d_id).get(GameStateKeys.TASK_TITLE, "")),
+		_check("ポモドーロ：「書いた題をリストに足す」で1件増えて選ばれる（%s）" % str(GameManager.get_task(d_id).get(GameStateKeys.TASK_TITLE, "")),
 			GameManager.get_tasks().size() == count_before_add + 1 and str(GameManager.get_task(d_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査D")
-		# 集中した時間（`TK-5`・10-05）：⚠ B を選び直して集中 → 5分で C に替える → さらに3分20秒で C を終える → 残りは選んでいない＝記録しない。
-		await _press(view.find_child("RepickButton", true, false))
-		modal = _modal_of(p)
-		await _press(null if modal == null else modal.find_child("Pick_" + b_id, true, false))
+		# 集中した時間（`TK-5`）：⚠ サイドバーで B を選び直して集中 → 5分で C に替える → さらに3分20秒で C を終える → 残りは選んでいない＝記録しない。
+		await _press(side.find_child("Side_" + b_id, true, false))
 		var counts_before: Dictionary = _task_counts()
 		await _press(view.find_child("StartButton", true, false))
 		var total_sec: float = float(p.get("phase_total_sec"))
-		# ⚠ ポモドーロ中にリストを見る（10-04・人間「⚠ メニューと同じように」）：⚠ 右上の「リスト」→ 板が開く・まだのタスクが全部・B が明るい行。
-		var list_button: Node = p.find_child("TaskListButton", true, false)
-		await _press(list_button)
-		var list_rows: Array = [] if list_button == null else list_button.find_children("List_*", "", true, false)
-		var b_list_row: Node = null if list_button == null else list_button.find_child("List_" + b_id, true, false)
-		_check("ポモドーロ：集中中に右上の「リスト」で板が開く（%d 行 ／ 一覧 %d）・いまの B が選んだ行" % [list_rows.size(), GameManager.get_tasks().size()],
-			list_button is TaskListButton and (list_button as TaskListButton).is_open() and bool(p.get("is_timer_active"))
-			and list_rows.size() == GameManager.get_tasks().size() and b_list_row is LedgerRow and (b_list_row as LedgerRow).selected)
+		b_side = side.find_child("Side_" + b_id, true, false)
+		_check("集中中：サイドバーはそのまま・いまの B が明るい行", bool(p.get("is_timer_active")) and b_side is LedgerRow and (b_side as LedgerRow).selected)
+		# ⚠ 集中中に足しても時間の区切りにならない（⚠ いまのタスクは変わらない）。
+		(side.find_child("SideNewEdit", true, false) as LineEdit).text = "TK検査F"
+		await _press(side.find_child("SideAddButton", true, false))
+		_check("集中中：サイドバーで足せる（いまは B のまま）", str(GameManager.get_tasks().back().get(GameStateKeys.TASK_TITLE, "")) == "TK検査F" and str(p.call("_current_task_id")) == b_id)
 		p.set("time_left_sec", total_sec - 300.0)
-		await _press(null if list_button == null else list_button.find_child("List_" + c_id, true, false))
+		await _press(side.find_child("Side_" + c_id, true, false))
 		var after_switch: Dictionary = _task_counts()
 		var work_title: Label = view.find_child("WorkTitle", true, false) as Label
 		_check("集中中：行を押して C に替えると、B に 5分（%d 秒）・大きい題が C（%s）" % [int(after_switch.get(b_id, 0)) - int(counts_before.get(b_id, 0)), "" if work_title == null else work_title.text],
 			absi(int(after_switch.get(b_id, 0)) - int(counts_before.get(b_id, 0)) - 300) <= 1 and str(p.call("_current_task_id")) == c_id
 			and work_title != null and work_title.text == "TK検査C")
 		p.set("time_left_sec", total_sec - 500.0)
-		var c_row: Node = null if list_button == null else list_button.find_child("List_" + c_id, true, false)
+		var c_row: Node = side.find_child("Side_" + c_id, true, false)
 		var c_check: Node = null if c_row == null else c_row.find_child("DoneCheck", true, false)
 		if c_check is TaskCheck:
 			(c_check as TaskCheck).button_pressed = true
@@ -11872,8 +11855,6 @@ class UiFlowRunner extends Node:
 		_check("集中中：C の四角で終えると、C に 3分20秒（%d 秒）・C は終えた・いまは選んでいない" % (int(after_finish.get(c_id, 0)) - int(counts_before.get(c_id, 0))),
 			absi(int(after_finish.get(c_id, 0)) - int(counts_before.get(c_id, 0)) - 200) <= 1
 			and int(GameManager.get_task(c_id).get(GameStateKeys.TASK_DONE_AT, 0)) != 0 and str(p.call("_current_task_id")) == "")
-		if list_button is TaskListButton:
-			(list_button.get_node("TaskListPopup") as PopupPanel).hide()
 		p.set("time_left_sec", 0.01)
 		await _wait()
 		var counts_after: Dictionary = _task_counts()
