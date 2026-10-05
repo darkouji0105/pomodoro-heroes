@@ -11776,6 +11776,15 @@ class UiFlowRunner extends Node:
 		GameSettings.set_value(GameSettings.SECTION_TASK, GameSettings.KEY_WEEK_END, 6)
 		await _press(t.find_child("DuePick", true, false))
 		var calendar: Node = t.find_child("TaskCalendar", true, false)
+		# 年を送る（10-05・人間「⚠ 日付の選択は年も選べるように」）：» で次の年 → « で戻す。
+		var month_label: Label = null if calendar == null else calendar.find_child("MonthLabel", true, false) as Label
+		var cal_year: int = int(today.split("-")[0])
+		var cal_month: int = int(today.split("-")[1])
+		await _press(null if calendar == null else calendar.find_child("CalNextYear", true, false))
+		var next_year_text: String = "" if month_label == null else month_label.text
+		await _press(null if calendar == null else calendar.find_child("CalPrevYear", true, false))
+		_check("期限：カレンダーの » で次の年（%s）・« で戻る（%s）" % [next_year_text, "" if month_label == null else month_label.text],
+			next_year_text == tr("ui_task_cal_month") % [cal_year + 1, cal_month] and month_label != null and month_label.text == tr("ui_task_cal_month") % [cal_year, cal_month])
 		var yesterday: String = TaskParts.shift_date(today, -1)
 		if calendar != null and calendar.find_child("Day_" + yesterday, true, false) == null:
 			# ⚠ 昨日が先月なら ◀ で1か月戻す。
@@ -11876,7 +11885,10 @@ class UiFlowRunner extends Node:
 		_check("集中中：サイドバーで足せる（いまは B のまま）", str(GameManager.get_tasks().back().get(GameStateKeys.TASK_TITLE, "")) == "TK検査F" and str(p.call("_current_task_id")) == b_id)
 		# 詳しく（10-05・人間「⚠ 詳しいこともポモドーロ中に決められるように」）：⚠ サイドバーの B の「詳しく」→ 紙の窓 → 色・メモ・期限 → 閉じる。⚠ タイマーは止めない。
 		var b_detail_row: Node = side.find_child("Side_" + b_id, true, false)
-		await _press(null if b_detail_row == null else b_detail_row.find_child("DetailButton", true, false))
+		var memo_button: Button = null if b_detail_row == null else b_detail_row.find_child("DetailButton", true, false) as Button
+		_check("サイドバー：行の右はメモのアイコン（字は無い・絵 %s）" % str(memo_button != null and memo_button.icon != null),
+			memo_button != null and memo_button.icon != null and memo_button.text == "" and memo_button.theme_type_variation == &"TaskMemoButton")
+		await _press(memo_button)
 		var detail_modal: ModalDialog = _modal_of(p)
 		var detail_panel: Node = null if detail_modal == null else detail_modal.find_child("TaskDetailPanel", true, false)
 		_check("集中中：「詳しく」で紙の窓（名前 %s・消すは無い）" % ("" if detail_panel == null else (detail_panel.find_child("TitleEdit", true, false) as LineEdit).text),
@@ -11896,6 +11908,11 @@ class UiFlowRunner extends Node:
 		await _close_modal(p)
 		_check("集中中：窓を閉じても B のまま・サイドバーの B の色の印が藍→紫", _modal_of(p) == null and str(p.call("_current_task_id")) == b_id
 			and ((side.find_child("Side_" + b_id, true, false) as Node).find_child("ColorMark", true, false) as TaskColorMark).color_index == 4)
+		# 選んでいる行のメモ（10-05・人間「⚠ 選択中のタスクは、メモを見れるように」）：⚠ 集中中もサイドバーの B の下に出る。
+		var b_memo: Label = (side.find_child("Side_" + b_id, true, false) as Node).find_child("MemoLabel", true, false) as Label
+		var other_memos: int = side.find_children("MemoLabel", "", true, false).size()
+		_check("集中中：選んでいる B の行の下にメモ（%s）・ほかの行には出ない（メモの数 %d）" % ["" if b_memo == null else b_memo.text, other_memos],
+			b_memo != null and b_memo.text == "集中中のメモ" and other_memos == 1)
 		p.set("time_left_sec", total_sec - 300.0)
 		await _press(side.find_child("Side_" + c_id, true, false))
 		var after_switch: Dictionary = _task_counts()

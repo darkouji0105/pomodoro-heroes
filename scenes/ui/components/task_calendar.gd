@@ -5,7 +5,7 @@ extends PopupPanel
 #
 # ⚠ 「日付を選ぶ ▼」の下に開く板（⚠ 外を押すと閉じる）。⚠ 中は紙（⚠ 字が墨になる）。
 # ⚠ 真鍮の輪＝今日（朝4:00 区切り）／ 墨で塗った日＝選んでいる日 ／ 過ぎた日は薄墨（⚠ 選べる）。
-# ⚠ 日を押すと `date_picked` を出して閉じる。⚠ 月は ◀ ▶ で送る。⚠ 値は Theme の `Task` 型と `TaskCal*`。
+# ⚠ 日を押すと `date_picked` を出して閉じる。⚠ 月は ◀ ▶・年は « »（10-05）で送る。⚠ 値は Theme の `Task` 型と `TaskCal*`。
 # ⚠ タスクの画面とポモドーロ（詳しくの窓）で使う＝scenes/ui/components/（AGENTS.md・10-05 に scenes/base/ から移した）。
 
 signal date_picked(date: String)
@@ -30,6 +30,13 @@ func _init() -> void:
 	var head: HBoxContainer = HBoxContainer.new()
 	head.name = "Head"
 	body.add_child(head)
+	# ⚠ 年も送れる（10-05・人間「⚠ 日付の選択は年も選べるように」）：« ◀ 年月 ▶ »。
+	var prev_year: Button = UiButton.create_paper_choice("ui_task_cal_prev_year")
+	prev_year.name = "CalPrevYear"
+	prev_year.theme_type_variation = &"TaskMoveButton"
+	prev_year.tooltip_text = tr("ui_task_cal_prev_year_tip")
+	prev_year.pressed.connect(_on_year_step.bind(-1))
+	head.add_child(prev_year)
 	var prev: Button = UiButton.create_paper_choice("ui_task_cal_prev")
 	prev.name = "CalPrev"
 	prev.theme_type_variation = &"TaskMoveButton"
@@ -46,6 +53,12 @@ func _init() -> void:
 	next.theme_type_variation = &"TaskMoveButton"
 	next.pressed.connect(_on_month_step.bind(1))
 	head.add_child(next)
+	var next_year: Button = UiButton.create_paper_choice("ui_task_cal_next_year")
+	next_year.name = "CalNextYear"
+	next_year.theme_type_variation = &"TaskMoveButton"
+	next_year.tooltip_text = tr("ui_task_cal_next_year_tip")
+	next_year.pressed.connect(_on_year_step.bind(1))
+	head.add_child(next_year)
 	_grid = GridContainer.new()
 	_grid.name = "Days"
 	_grid.columns = 7
@@ -74,6 +87,11 @@ func _on_month_step(step: int) -> void:
 	elif _month > 12:
 		_month = 1
 		_year += 1
+	_rebuild.call_deferred()
+
+
+func _on_year_step(step: int) -> void:
+	_year += step
 	_rebuild.call_deferred()
 
 

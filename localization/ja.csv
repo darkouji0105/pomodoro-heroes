@@ -1444,4 +1444,9 @@ ui_records_tasks_day,%d月%d日（%s）
 ui_records_tasks_open,▼
 ui_records_tasks_closed,▶
 ui_records_tasks_sum,%d件　%s
-ui_task_detail_open,詳しく
+ui_pomodoro_task_memo_tip,メモ・期限・色を見る／書く
+ui_pomodoro_task_edit_title,タスクのメモ
+ui_task_cal_prev_year,«
+ui_task_cal_next_year,»
+ui_task_cal_prev_year_tip,前の年
+ui_task_cal_next_year_tip,次の年

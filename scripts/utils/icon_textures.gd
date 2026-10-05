@@ -204,6 +204,14 @@ static func for_skill(skill_id: String) -> Texture2D:
 	return _load(skill_id)
 
 
+# ⚠ タスクのメモ（2026-10-05・人間「⚠ メモのアイコンにしてほしい　⚠ 詳しくというものではなく」）。⚠ ポモドーロのサイドバーの行の右。
+const NAME_TASK_MEMO: String = "task_memo"
+
+
+static func for_task_memo() -> Texture2D:
+	return _load(NAME_TASK_MEMO)
+
+
 # ⚠⚠ 絵文字 -> ファイル名。⚠ ここが `Glyphs` と線画をつなぐ唯一の場所。
 #   ⚠ こうすると「どの品がどの種類か」の判定が `Glyphs` の1本のままになる。
 static func _name_of_glyph(glyph: String) -> String:
@@ -261,7 +269,7 @@ static func all_for_check() -> Dictionary:
 		NAME_ITEM_WEAPON, NAME_ITEM_HEAD, NAME_ITEM_ARMOR, NAME_ITEM_LEGS,
 		NAME_ITEM_ACCESSORY, NAME_ITEM_GEM, NAME_ITEM_CHARM, NAME_ITEM_EMBLEM,
 		NAME_ITEM_RUNE, NAME_ITEM_MATERIAL, NAME_ITEM_CONSUMABLE,
-		NAME_ITEM_RELIC, NAME_ITEM_CHEST,
+		NAME_ITEM_RELIC, NAME_ITEM_CHEST, NAME_TASK_MEMO,
 	]:
 		result[name] = _load(name)
 	for prefix: String in MATERIAL_SERIES:

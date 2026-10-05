@@ -7,8 +7,9 @@ extends PaperSheet
 # ⚠ 行を押す＝いまのタスクにする（⚠ 始める前は選ぶ・集中中は替える＝`TK-16`）／ ⚠ 四角＝終えた・戻した ／ ⚠ 下の欄で足す（⚠ 選びはしない）。
 # ⚠ 中身＝一覧と同じ（⚠ まだのもの ＋ 今日終えたもの＝線）・色の印・集中した時間（`TK-5`）・期限の小さい判（`TK-13`）。
 # ⚠ 時間の区切りは画面（`pomodoro.gd`）が持つ。⚠ ここは知らせるだけ（`task_pressed` / `task_checked`）。
-# ⚠ 2026-10-05（人間「⚠ 詳しいこともポモドーロ中に決められるように」）：⚠ まだの行の右に「詳しく」＝紙の窓でタスクの画面と同じ中身
+# ⚠ 2026-10-05（人間「⚠ 詳しいこともポモドーロ中に決められるように」）：⚠ まだの行の右にメモのアイコン（⚠ 同じ日に「詳しく」の字から替えた）＝紙の窓でタスクの画面と同じ中身
 #   （`TaskDetailPanel`・⚠ 消すは出さない＝窓の上に確かめの窓は重ねられない）。⚠ タイマーは止めない。
+# ⚠ 選んでいる行は下にメモを出す（⚠ 同じ日・人間「⚠ 選択中のタスクは、メモを見れるように」）。
 # ⚠ 大きさは Theme の `Task/side_*`。⚠ ポモドーロの画面だけで使う＝scenes/pomodoro/（AGENTS.md 置き場のルール）。
 # ⚠ 描き直しは次のフレーム（⚠ 押した四角・行を押している最中に外さない）。⚠ 再描画に await を持たせない（CLAUDE.md 5番）。
 
@@ -143,9 +144,13 @@ func _rebuild() -> void:
 			title.draw.connect(_draw_strike.bind(title))
 		title_line.add_child(title)
 		if not done:
-			var detail: Button = UiButton.create_paper_choice("ui_task_detail_open")
+			# ⚠ メモのアイコン（10-05・人間「⚠ メモのアイコンにしてほしい　⚠ 詳しくというものではなく」）。⚠ 字は触れると出る札へ。
+			var detail: Button = Button.new()
 			detail.name = "DetailButton"
-			detail.theme_type_variation = &"TaskMoveButton"
+			detail.theme_type_variation = &"TaskMemoButton"
+			detail.icon = IconTextures.for_task_memo()
+			detail.focus_mode = Control.FOCUS_NONE
+			detail.tooltip_text = tr("ui_pomodoro_task_memo_tip")
 			detail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			detail.pressed.connect(_on_detail_pressed.bind(task_id))
 			title_line.add_child(detail)
@@ -166,6 +171,18 @@ func _rebuild() -> void:
 				meta.add_child(focus)
 			if stamp != null:
 				meta.add_child(stamp)
+		# ⚠ 選んでいる行だけメモを出す（10-05・人間「⚠ 選択中のタスクは、メモを見れるように」）。⚠ 集中中も見える（⚠ 帯は始めると透明）。
+		var memo_text: String = str(task.get(GameStateKeys.TASK_MEMO, "")).strip_edges()
+		if row.selected and memo_text != "":
+			var memo: Label = Label.new()
+			memo.name = "MemoLabel"
+			memo.theme_type_variation = &"CaptionLabel"
+			memo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			memo.max_lines_visible = get_theme_constant(&"side_memo_lines", THEME_TYPE)
+			memo.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			memo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			memo.text = memo_text
+			column.add_child(memo)
 		_list.add_child(row)
 
 
@@ -191,7 +208,7 @@ func _on_detail_pressed(task_id: String) -> void:
 	var panel: TaskDetailPanel = TaskDetailPanel.create(task_id, false, float(get_theme_constant(&"detail_window_height", THEME_TYPE)))
 	panel.custom_minimum_size.x = float(get_theme_constant(&"detail_width", THEME_TYPE))
 	Modal.notify(self, "", [], false, {
-		Modal.OPTION_TITLE: tr("ui_task_detail_title"),
+		Modal.OPTION_TITLE: tr("ui_pomodoro_task_edit_title"),
 		Modal.OPTION_CONTENT: panel,
 		Modal.OPTION_PAPER: true,
 		Modal.OPTION_WIDTH: Modal.WIDTH_LARGE,

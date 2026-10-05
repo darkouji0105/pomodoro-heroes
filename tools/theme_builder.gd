@@ -2639,6 +2639,8 @@ const TASK: Dictionary = {
 	"side_width": 320,
 	"side_gap": 24,           # ⚠ 中身の柱とサイドバーの間
 	"detail_window_height": 380,   # ⚠ ポモドーロの「詳しく」の窓の中の送り（10-05）
+	"memo_icon": 16,          # ⚠ サイドバーのメモのアイコン（10-05）
+	"side_memo_lines": 6,     # ⚠ サイドバーで選んでいる行の下に出すメモの行数（⚠ 越えたら …）
 	"check": 18,              # ⚠ 紙に描いた四角（終えたか）
 	"check_line": 2,
 	"link_pad": 30,           # ⚠ 選んだときの題の欄の左（⚠ 色の印のぶん）
@@ -2677,6 +2679,12 @@ static func _build_task(theme: Theme) -> void:
 		small.content_margin_bottom = 1
 		theme.set_stylebox(StringName(state), &"TaskMoveButton", small)
 	theme.set_font_size(&"font_size", &"TaskMoveButton", SMALL_FONT_SIZE)
+	# ⚠ メモのアイコンの札（2026-10-05・ポモドーロのサイドバー）。⚠ 線画は白1色＝墨を着せる。
+	theme.set_type_variation(&"TaskMemoButton", &"TaskMoveButton")
+	for key: String in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
+		theme.set_color(StringName(key), &"TaskMemoButton", _html(TOKEN_INK))
+	theme.set_color(&"icon_disabled_color", &"TaskMemoButton", _html(TOKEN_RULE))
+	theme.set_constant(&"icon_max_width", &"TaskMemoButton", int(TASK["memo_icon"]))
 	# ⚠ 小さい判（⚠ 行の中で題を切らないため）。⚠ 色と字は判と同じ。
 	theme.set_color(&"ink", &"StampSmall", _html(TOKEN_WAX))
 	theme.set_font_size(&"font_size", &"StampSmall", SMALL_FONT_SIZE)
