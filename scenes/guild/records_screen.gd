@@ -525,42 +525,175 @@ func _build_dungeons() -> void:
 
 
 # --- 終わったタスク（2026-10-04・`TK-8`・`TK-9`＝上限なし） ---------------------
-#   ⚠ 1行＝終えた日 ／ 色の印と題 ／ 🍅の数。⚠ 新しいものが上。
+#   ⚠ 2026-10-05（モック8）：⚠ 年 → 月 → 日で畳む（⚠ 何百件になっても開いた月だけ並ぶ）・⚠ タグで絞る・⚠ 見出しの右に「ぜんぶで n件　集中 ◯」。
+#   ⚠ 新しいものが上。⚠ 開いている年と月は画面の中だけで持つ（⚠ 既定は新しい年と月だけ開く）。⚠ 1行＝色の印・題・タグ・集中した時間（`TK-5`）。
+
+var _task_filter: String = ""
+var _task_open: Dictionary = {}   # "2026" / "2026-10" -> bool
+
 
 func _build_tasks() -> void:
 	var task_log: Array = GameManager.get_task_log()
-	sheet_body.add_child(_heading("ui_records_tab_tasks", tr("ui_task_count") % task_log.size()))
+	var total_sec: int = 0
+	var tags: Array[String] = []
+	for raw: Variant in task_log:
+		total_sec += int((raw as Dictionary).get(GameStateKeys.TASK_FOCUS_SEC, 0))
+		for tag: Variant in (raw as Dictionary).get(GameStateKeys.TASK_TAGS, []):
+			if not (str(tag) in tags):
+				tags.append(str(tag))
+	if _task_filter != "" and not (_task_filter in tags):
+		_task_filter = ""
+	sheet_body.add_child(_heading("ui_records_tab_tasks", tr("ui_records_tasks_total") % [task_log.size(), GameManager.task_focus_text(total_sec)]))
+	if not tags.is_empty():
+		var filter: HFlowContainer = HFlowContainer.new()
+		filter.name = "TaskFilter"
+		var choices: Array[String] = [""]
+		choices.append_array(tags)
+		for tag: String in choices:
+			var choice: Button = UiButton.create_paper_choice("ui_task_filter_all" if tag == "" else "")
+			choice.name = "TaskFilter_all" if tag == "" else "TaskFilter_" + tag
+			if tag != "":
+				choice.text = tr("ui_task_tag") % tag
+			if tag == _task_filter:
+				choice.theme_type_variation = &"PaperChoiceSelected"
+			choice.pressed.connect(_on_task_filter_pressed.bind(tag))
+			filter.add_child(choice)
+		sheet_body.add_child(filter)
 	var list: VBoxContainer = _scroll_list()
 	if task_log.is_empty():
 		list.add_child(EmptyState.create("ui_records_tasks_empty", "ui_records_tasks_empty_hint"))
 		return
+	# ⚠ 新しいものから：⚠ 年 → 月 → 日に分ける（⚠ 日付は朝4:00 区切り＝終えた日のゲーム内の日付）。
+	var groups: Dictionary = {}   # year -> {month -> {date -> [entry]}}
+	var years: Array[String] = []
 	for i: int in range(task_log.size() - 1, -1, -1):
 		var entry: Dictionary = task_log[i] as Dictionary
-		var row: LedgerRow = LedgerRow.new()
-		row.name = "DoneTask_" + str(entry.get(GameStateKeys.TASK_ID, ""))
-		row.compact = true
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var line: HBoxContainer = HBoxContainer.new()
-		row.add_child(line)
-		var date: Label = Label.new()
-		date.name = "DateLabel"
-		date.theme_type_variation = &"CaptionLabel"
-		date.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		date.text = GameDate.get_game_date_string(float(int(entry.get(GameStateKeys.TASK_DONE_AT, 0))))
-		line.add_child(date)
-		line.add_child(TaskColorMark.create(int(entry.get(GameStateKeys.TASK_COLOR, 0))))
-		var title: Label = Label.new()
-		title.name = "TitleLabel"
-		title.text = str(entry.get(GameStateKeys.TASK_TITLE, ""))
-		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		line.add_child(title)
-		var count: Label = Label.new()
-		count.name = "CountLabel"
-		count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		count.text = tr("ui_task_pomodoro_count") % int(entry.get(GameStateKeys.TASK_POMODORO_COUNT, 0))
-		line.add_child(count)
-		list.add_child(row)
+		if _task_filter != "" and not (_task_filter in (entry.get(GameStateKeys.TASK_TAGS, []) as Array)):
+			continue
+		var date: String = GameDate.get_game_date_string(float(int(entry.get(GameStateKeys.TASK_DONE_AT, 0))))
+		var year: String = date.substr(0, 4)
+		var month: String = date.substr(0, 7)
+		if not groups.has(year):
+			groups[year] = {}
+			years.append(year)
+		var months: Dictionary = groups[year]
+		if not months.has(month):
+			months[month] = {}
+		var days: Dictionary = months[month]
+		if not days.has(date):
+			days[date] = []
+		(days[date] as Array).append(entry)
+	years.sort()
+	years.reverse()
+	for year: String in years:
+		var months: Dictionary = groups[year]
+		var year_open: bool = bool(_task_open.get(year, year == years[0]))
+		list.add_child(_task_band("Year_" + year, tr("ui_records_tasks_year") % int(year), _group_entries(months), year_open, year, &"TaskYearBand", &"TaskBandLabel"))
+		if not year_open:
+			continue
+		var month_keys: Array = months.keys()
+		month_keys.sort()
+		month_keys.reverse()
+		for month: Variant in month_keys:
+			var days: Dictionary = months[month]
+			var month_open: bool = bool(_task_open.get(str(month), year == years[0] and month == month_keys[0]))
+			var entries: Array = []
+			for date: Variant in days:
+				entries.append_array(days[date])
+			list.add_child(_task_band("Month_" + str(month), tr("ui_records_tasks_month") % int(str(month).substr(5, 2)), entries, month_open, str(month), &"TaskMonthBand", &"Label"))
+			if not month_open:
+				continue
+			var day_keys: Array = days.keys()
+			day_keys.sort()
+			day_keys.reverse()
+			for date: Variant in day_keys:
+				var day_label: Label = Label.new()
+				day_label.name = "Day_" + str(date)
+				day_label.theme_type_variation = &"CaptionLabel"
+				var parts: PackedStringArray = str(date).split("-")
+				day_label.text = tr("ui_records_tasks_day") % [int(parts[1]), int(parts[2]), tr("ui_weekday_%d" % TaskParts.weekday(str(date)))]
+				list.add_child(day_label)
+				for raw: Variant in days[date]:
+					list.add_child(_done_task_row(raw as Dictionary))
+
+
+func _group_entries(months: Dictionary) -> Array:
+	var entries: Array = []
+	for month: Variant in months:
+		for date: Variant in months[month]:
+			entries.append_array(months[month][date])
+	return entries
+
+
+# 年・月の帯（⚠ 押すと開く・畳む）：⚠ 左に「▼ 2026年」・右に「n件　◯時間」。
+func _task_band(band_name: String, title: String, entries: Array, is_open: bool, key: String, panel_type: StringName, label_type: StringName) -> PanelContainer:
+	var band: PanelContainer = PanelContainer.new()
+	band.name = band_name
+	band.theme_type_variation = panel_type
+	var line: HBoxContainer = HBoxContainer.new()
+	band.add_child(line)
+	var head: Label = Label.new()
+	head.name = "TitleLabel"
+	head.theme_type_variation = label_type
+	head.text = "%s %s" % [tr("ui_records_tasks_open") if is_open else tr("ui_records_tasks_closed"), title]
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(head)
+	var seconds: int = 0
+	for raw: Variant in entries:
+		seconds += int((raw as Dictionary).get(GameStateKeys.TASK_FOCUS_SEC, 0))
+	var sum: Label = Label.new()
+	sum.name = "SumLabel"
+	sum.theme_type_variation = label_type
+	sum.text = tr("ui_records_tasks_sum") % [entries.size(), GameManager.task_focus_text(seconds)]
+	line.add_child(sum)
+	var _hit: Button = UiButton.attach_hit(band, _on_task_band_pressed.bind(key, is_open))
+	return band
+
+
+func _done_task_row(entry: Dictionary) -> LedgerRow:
+	var row: LedgerRow = LedgerRow.new()
+	row.name = "DoneTask_" + str(entry.get(GameStateKeys.TASK_ID, ""))
+	row.compact = true
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var line: HBoxContainer = HBoxContainer.new()
+	row.add_child(line)
+	line.add_child(TaskColorMark.create(int(entry.get(GameStateKeys.TASK_COLOR, 0))))
+	var title: Label = Label.new()
+	title.name = "TitleLabel"
+	title.text = str(entry.get(GameStateKeys.TASK_TITLE, ""))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	line.add_child(title)
+	var tag_texts: PackedStringArray = PackedStringArray()
+	for tag: Variant in entry.get(GameStateKeys.TASK_TAGS, []):
+		tag_texts.append(tr("ui_task_tag") % str(tag))
+	if not tag_texts.is_empty():
+		var tags: Label = Label.new()
+		tags.name = "TagsLabel"
+		tags.theme_type_variation = &"CaptionLabel"
+		tags.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tags.text = " ".join(tag_texts)
+		line.add_child(tags)
+	var focus: Label = Label.new()
+	focus.name = "FocusLabel"
+	focus.custom_minimum_size.x = float(get_theme_constant(&"stat_width", THEME_TYPE))
+	focus.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	focus.text = GameManager.task_focus_text(int(entry.get(GameStateKeys.TASK_FOCUS_SEC, 0)))
+	line.add_child(focus)
+	return row
+
+
+func _on_task_band_pressed(key: String, was_open: bool) -> void:
+	_task_open[key] = not was_open
+	# ⚠ 押した帯を押している最中に外さない（⚠ 次のフレームで描き直す）。
+	_rebuild.call_deferred()
+
+
+func _on_task_filter_pressed(tag: String) -> void:
+	if tag == _task_filter:
+		return
+	_task_filter = tag
+	_rebuild.call_deferred()
 
 
 func _on_back_pressed() -> void:
