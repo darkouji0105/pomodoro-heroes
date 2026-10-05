@@ -2624,16 +2624,28 @@ const TASK_COLORS: Array[String] = [
 ]
 const TASK: Dictionary = {
 	"mark": 14,               # ⚠ 色の印（丸）の直径
-	"wall_width": 340,        # ⚠ 拠点の壁の紙
-	"wall_height": 300,       # ⚠ 溢れたら紙の中で送る（`TK-3`＝全部出す）
+	"wall_width": 300,        # ⚠ 拠点の壁の紙（⚠ 10-05 モック：340×300 → 300×390）
+	"wall_height": 390,       # ⚠ 溢れたら紙の中で送る（`TK-3`＝全部出す）
 	"wall_left": 24,          # ⚠ 画面の左からの位置
 	"list_width": 560,        # ⚠ タスクの画面の左の紙
 	"detail_width": 520,      # ⚠ 右の紙（詳しく）
 	"memo_height": 110,       # ⚠ 10-04：140 → 110（⚠ 「消す」を足して紙が縦 720 に収まらなくなった）
 	"swatch": 28,             # ⚠ 詳しくの色の札の大きさ
 	"strike": 2,              # ⚠ 終えたタスクの線の太さ
-	"pick_height": 320,       # ⚠ ポモドーロの選ぶ窓の一覧の高さ（⚠ 溢れたら送る）
+	"pick_height": 260,       # ⚠ ポモドーロの選ぶ窓の一覧の高さ（⚠ 溢れたら送る）（⚠ 10-05：320 → 260＝窓が縦いっぱいだった）
+	# ⚠ 10-05（モック・人間「⚠ 7枚ぜんぶ」）：⚠ 下の値はモックの寸法から。
+	"pick_width": 500,        # ⚠ 選ぶ窓の一覧の幅
+	"running_width": 330,     # ⚠ 集中中のリストの板
+	"running_height": 400,
+	"check": 18,              # ⚠ 紙に描いた四角（終えたか）
+	"check_line": 2,
+	"link_pad": 30,           # ⚠ 選んだときの題の欄の左（⚠ 色の印のぶん）
+	"cal_cell": 34,           # ⚠ カレンダーの1日
+	"cal_ring": 2,            # ⚠ 今日の真鍮の輪
+	"band_pad_v": 6,          # ⚠ 記録の年・月の帯
 }
+# ⚠ 記録の年の帯は墨の地に紙の字、⚠ 月の帯は少し濃い紙。
+const TASK_MONTH_BAND: String = "dccdaa"
 
 
 static func _build_task(theme: Theme) -> void:
@@ -2645,6 +2657,75 @@ static func _build_task(theme: Theme) -> void:
 	theme.set_constant(&"count", &"TaskColor", TASK_COLORS.size())
 	theme.set_type_variation(&"TaskDoneLabel", &"Label")
 	theme.set_color(&"font_color", &"TaskDoneLabel", _html(DIM_FONT_COLOR))
+	theme.set_color(&"check_ink", t, _html(TOKEN_INK))
+	# ⚠ 紙に描いた四角（`TaskCheck`）：⚠ 面は持たない（⚠ 革色の箱が重かった＝10-04 の見る回の宿題）。
+	theme.set_type_variation(&"TaskCheck", &"Button")
+	for state: String in BUTTON_STATES:
+		theme.set_stylebox(StringName(state), &"TaskCheck", StyleBoxEmpty.new())
+	# ⚠ 並べ替えの小さい札（⚠ 選んだ行にだけ出す）。⚠ 紙の札の余白を詰めたもの。
+	theme.set_type_variation(&"TaskMoveButton", &"PaperChoice")
+	for state: String in BUTTON_STATES:
+		var base: StyleBox = theme.get_stylebox(StringName(state), &"PaperChoice")
+		if base == null:
+			continue
+		var small: StyleBox = base.duplicate()
+		small.content_margin_left = 6
+		small.content_margin_right = 6
+		small.content_margin_top = 1
+		small.content_margin_bottom = 1
+		theme.set_stylebox(StringName(state), &"TaskMoveButton", small)
+	theme.set_font_size(&"font_size", &"TaskMoveButton", SMALL_FONT_SIZE)
+	# ⚠ 小さい判（⚠ 行の中で題を切らないため）。⚠ 色と字は判と同じ。
+	theme.set_color(&"ink", &"StampSmall", _html(TOKEN_WAX))
+	theme.set_font_size(&"font_size", &"StampSmall", SMALL_FONT_SIZE)
+	theme.set_constant(&"border", &"StampSmall", 1)
+	theme.set_constant(&"pad_h", &"StampSmall", 5)
+	theme.set_constant(&"pad_v", &"StampSmall", 1)
+	theme.set_constant(&"tilt_deg", &"StampSmall", STAMP_TILT_DEG)
+	theme.set_color(&"fill", &"StampSmall", theme.get_color(&"fill", &"Stamp"))
+	if theme.has_font(&"font", &"Stamp"):
+		theme.set_font(&"font", &"StampSmall", theme.get_font(&"font", &"Stamp"))
+	# ⚠ リストのタスクを選んだときの題の欄（⚠ 左に色の印を置くぶん空ける）。
+	theme.set_type_variation(&"TaskLinkedEdit", &"LineEdit")
+	for state: String in ["normal", "focus", "read_only"]:
+		var edit: StyleBox = theme.get_stylebox(StringName(state), &"LineEdit").duplicate()
+		edit.content_margin_left = float(TASK["link_pad"])
+		theme.set_stylebox(StringName(state), &"TaskLinkedEdit", edit)
+	# ⚠ カレンダー：⚠ ふつうの日＝面なし ／ 今日＝真鍮の輪 ／ 選んだ日＝墨で塗る。
+	var day_hover: StyleBoxFlat = StyleBoxFlat.new()
+	day_hover.bg_color = _html(TOKEN_PAPER_SELECTED)
+	day_hover.set_corner_radius_all(3)
+	var today: StyleBoxFlat = StyleBoxFlat.new()
+	today.bg_color = Color(0, 0, 0, 0)
+	today.border_color = _html(TOKEN_BRASS)
+	today.set_border_width_all(int(TASK["cal_ring"]))
+	today.set_corner_radius_all(3)
+	var picked: StyleBoxFlat = StyleBoxFlat.new()
+	picked.bg_color = _html(TOKEN_INK)
+	picked.set_corner_radius_all(3)
+	for spec: Array in [[&"TaskCalDay", StyleBoxEmpty.new(), TOKEN_INK], [&"TaskCalToday", today, TOKEN_INK], [&"TaskCalSelected", picked, TOKEN_PAPER]]:
+		var type_name: StringName = spec[0]
+		theme.set_type_variation(type_name, &"Button")
+		theme.set_stylebox(&"normal", type_name, spec[1])
+		theme.set_stylebox(&"hover", type_name, day_hover if type_name == &"TaskCalDay" else spec[1])
+		theme.set_stylebox(&"pressed", type_name, spec[1])
+		theme.set_stylebox(&"focus", type_name, StyleBoxEmpty.new())
+		for color_name: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			theme.set_color(StringName(color_name), type_name, _html(str(spec[2])))
+	# ⚠ 記録の年と月の帯（⚠ 押すと畳む）。⚠ 字は帯の中のラベル（⚠ 紙のテーマで色を持つ）。
+	var pad: int = int(TASK["band_pad_v"])
+	var year_band: StyleBoxFlat = StyleBoxFlat.new()
+	year_band.bg_color = _html(TOKEN_INK)
+	year_band.set_content_margin_all(pad)
+	year_band.content_margin_left = 10
+	year_band.content_margin_right = 10
+	var month_band: StyleBoxFlat = year_band.duplicate()
+	month_band.bg_color = _html(TASK_MONTH_BAND)
+	theme.set_type_variation(&"TaskBandLabel", &"Label")
+	theme.set_color(&"font_color", &"TaskBandLabel", _html(TOKEN_PAPER))
+	for spec: Array in [[&"TaskYearBand", year_band], [&"TaskMonthBand", month_band]]:
+		theme.set_type_variation(spec[0], &"PanelContainer")
+		theme.set_stylebox(&"panel", spec[0], spec[1])
 
 
 # ⚠ デスクトップの小窓（2026-09-29・回UI-仕組み⑥・手本 Companion）。⚠ 大きさは手本の 260×170 に近く。⚠ 部屋の色は手本の焦茶と暖炉の橙。
@@ -2848,6 +2929,8 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"CaptionLabel": TOKEN_INK_SUB,
 	# ⚠ 終えたタスク（2026-10-04・`TK-6`）：⚠ 薄墨＋線（⚠ 線はタスクの画面が引く）。
 	"TaskDoneLabel": TOKEN_INK_SUB,
+	# ⚠ 記録の年の帯（墨の地）の字（2026-10-05）。
+	"TaskBandLabel": TOKEN_PAPER,
 	"SectionLabel": TOKEN_INK_SUB,
 	"AccentLabel": TOKEN_BRASS_INK,
 	"ErrorLabel": TOKEN_WAX,

@@ -23,6 +23,12 @@ enum Shape { RECT, CIRCLE }
 		shape = value
 		_resize()
 
+# ⚠ 小さい判（2026-10-05・タスクのモック：行の中で題を切らないため）。⚠ 値は Theme の `StampSmall` 型。
+@export var small: bool = false:
+	set(value):
+		small = value
+		_resize()
+
 # ⚠ 枠の中を紙の色で塗る（⚠ 回UI-4 確かめの窓：⚠ 紙の縁からはみ出して暗幕に掛かるため。⚠ 手本 Confirm）。
 @export var filled: bool = false:
 	set(value):
@@ -45,11 +51,11 @@ func _text() -> String:
 func _resize() -> void:
 	if not is_inside_tree():
 		return
-	var font: Font = get_theme_font(&"font", THEME_TYPE)
-	var font_size: int = get_theme_font_size(&"font_size", THEME_TYPE)
+	var font: Font = get_theme_font(&"font", _type())
+	var font_size: int = get_theme_font_size(&"font_size", _type())
 	var text_size: Vector2 = font.get_string_size(_text(), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-	var pad_h: float = float(get_theme_constant(&"pad_h", THEME_TYPE))
-	var pad_v: float = float(get_theme_constant(&"pad_v", THEME_TYPE))
+	var pad_h: float = float(get_theme_constant(&"pad_h", _type()))
+	var pad_v: float = float(get_theme_constant(&"pad_v", _type()))
 	var box: Vector2 = text_size + Vector2(pad_h, pad_v) * 2.0
 	if shape == Shape.CIRCLE:
 		var side: float = maxf(box.x, box.y)
@@ -59,15 +65,15 @@ func _resize() -> void:
 
 
 func _draw() -> void:
-	var ink: Color = get_theme_color(&"ink", THEME_TYPE)
-	var border: float = float(get_theme_constant(&"border", THEME_TYPE))
-	var font: Font = get_theme_font(&"font", THEME_TYPE)
-	var font_size: int = get_theme_font_size(&"font_size", THEME_TYPE)
+	var ink: Color = get_theme_color(&"ink", _type())
+	var border: float = float(get_theme_constant(&"border", _type()))
+	var font: Font = get_theme_font(&"font", _type())
+	var font_size: int = get_theme_font_size(&"font_size", _type())
 	var center: Vector2 = size * 0.5
-	draw_set_transform(center, deg_to_rad(float(get_theme_constant(&"tilt_deg", THEME_TYPE))), Vector2.ONE)
+	draw_set_transform(center, deg_to_rad(float(get_theme_constant(&"tilt_deg", _type()))), Vector2.ONE)
 	var half: Vector2 = custom_minimum_size * 0.5
 	if filled:
-		var fill: Color = get_theme_color(&"fill", THEME_TYPE)
+		var fill: Color = get_theme_color(&"fill", _type())
 		if shape == Shape.CIRCLE:
 			draw_circle(Vector2.ZERO, half.x, fill)
 		else:
@@ -86,3 +92,7 @@ func _draw() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED:
 		_resize()
+
+
+func _type() -> StringName:
+	return &"StampSmall" if small else THEME_TYPE

@@ -84,6 +84,13 @@ func _ready() -> void:
 	_refresh()
 
 
+# 右の字の手前に部品を足す（2026-10-05・拠点の紙の「期限切れ 1　今日まで 1」＝赤い字）。
+func add_before_right(control: Control) -> void:
+	var row: Node = _right.get_parent()
+	row.add_child(control)
+	row.move_child(control, _right.get_index())
+
+
 func _refresh() -> void:
 	if _title == null:
 		return
