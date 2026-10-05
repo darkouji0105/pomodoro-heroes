@@ -140,6 +140,9 @@ const SHOT_AFTER_TASK_DETAIL: String = "task_detail"
 const SHOT_AFTER_TASK_PICK: String = "task_pick"
 const SHOT_AFTER_TASK_LIST: String = "task_list"
 const SHOT_AFTER_TASK_DELETE: String = "task_delete"
+# ⚠ 10-05（モック4・3）：⚠ 集中を始める前にリストのタスクを選んだ姿 ／ ⚠ 期限のカレンダーを開いた姿。
+const SHOT_AFTER_TASK_LINKED: String = "task_linked"
+const SHOT_AFTER_TASK_CALENDAR: String = "task_calendar"
 const SHOT_AFTER_RECORDS_TASKS: String = "records_tasks"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
@@ -1260,6 +1263,8 @@ const SCENARIOS: Dictionary = {
 			# ⚠ 集中中に右上の「リスト」を開いた姿（10-04・人間「⚠ ポモドーロ中にリストを見れるように　メニューと同じように」）。
 			# ⚠ 「消す」の確かめの窓（10-04・`TK-15`）。⚠ 押さないので消えない。
 			{"name": "64_task_delete", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DELETE},
+			{"name": "65_task_linked", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_LINKED},
+			{"name": "66_task_calendar", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_CALENDAR},
 			{"name": "63_task_list_running", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_LIST},
 			# ⚠ 記録へ移すので、⚠ タスクの枚のいちばん後ろ。
 			{"name": "62_records_tasks", "scene": "res://scenes/guild/records_screen.tscn", "prepare": SHOT_PREPARE_TASK_LOG, "after": SHOT_AFTER_RECORDS_TASKS},
@@ -9191,6 +9196,8 @@ class ShotTaker extends Node:
 	const AFTER_TASK_PICK: String = "task_pick"
 	const AFTER_TASK_LIST: String = "task_list"
 	const AFTER_TASK_DELETE: String = "task_delete"
+	const AFTER_TASK_LINKED: String = "task_linked"
+	const AFTER_TASK_CALENDAR: String = "task_calendar"
 	const AFTER_RECORDS_TASKS: String = "records_tasks"
 	const CHEST_FX_WAIT_FRAMES: int = 50
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
@@ -9312,13 +9319,13 @@ class ShotTaker extends Node:
 			return true
 		var today: String = GameDate.get_game_date_string()
 		var specs: Array = [
-			["企画書の下書きを書く", 0, TaskScreen._shift_date(today, -1), ["仕事"], 3],
+			["企画書の下書きを書く", 0, TaskParts.shift_date(today, -1), ["仕事"], 3],
 			["週報をまとめる", 3, today, ["仕事"], 1],
 			["英単語を30個", 2, "", ["勉強"], 2],
-			["メールの返信", 1, TaskScreen._shift_date(today, 2), ["仕事"], 0],
+			["メールの返信", 1, TaskParts.shift_date(today, 2), ["仕事"], 0],
 			["部屋の片付け", 5, "", [], 0],
 			["本を1章読む", 4, "", ["勉強", "読書"], 1],
-			["請求書を出す", 0, TaskScreen._shift_date(today, 5), [], 0],
+			["請求書を出す", 0, TaskParts.shift_date(today, 5), [], 0],
 			["ギターの練習", 2, "", ["趣味"], 0],
 			["買い物リストを作る", 1, "", [], 0],
 		]
@@ -9335,7 +9342,7 @@ class ShotTaker extends Node:
 			for tag: Variant in spec[3]:
 				var _t: bool = GameManager.add_task_tag(task_id, str(tag))
 			for _i: int in range(int(spec[4])):
-				var _p: bool = GameManager.add_task_pomodoro(task_id)
+				var _p: bool = GameManager.add_task_focus_seconds(task_id, 1500)
 		var _m: bool = GameManager.set_task_memo(first_id, "結論を先に。図は3枚まで。")
 		# ⚠ 終えた1件（⚠ 一覧では線を引いて残る＝`TK-6`）。
 		var done_id: String = str((GameManager.get_tasks()[2] as Dictionary).get(GameStateKeys.TASK_ID, ""))
@@ -9615,6 +9622,42 @@ class ShotTaker extends Node:
 				push_error("[DebugBoot] ⚠ %s に「リストから選ぶ」が無い" % shot_name)
 				return false
 			(pick_button as BaseButton).pressed.emit()
+			for _i: int in range(6):
+				await get_tree().process_frame
+		elif kind == AFTER_TASK_LINKED:
+			# ⚠ 加護（⚠ 出ていれば「始める」）→「リストから選ぶ」→ 1件目（⚠ 期限切れ）を押す。⚠ 始めない。
+			var linked_select: Node = screen.find_child("ProtectionSelectView", true, false)
+			if linked_select != null:
+				(linked_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				for _i: int in range(3):
+					await get_tree().process_frame
+			var linked_pick: Node = screen.find_child("PickTaskButton", true, false)
+			if not (linked_pick is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に「リストから選ぶ」が無い" % shot_name)
+				return false
+			(linked_pick as BaseButton).pressed.emit()
+			for _i: int in range(3):
+				await get_tree().process_frame
+			for node: Node in screen.find_children("Pick_*", "", true, false):
+				if node is LedgerRow:
+					(node as LedgerRow).pressed.emit()
+					break
+			for _i: int in range(6):
+				await get_tree().process_frame
+		elif kind == AFTER_TASK_CALENDAR:
+			# ⚠ 4行目（⚠ 先の期限）を押す →「日付を選ぶ ▼」。
+			var rows: Array = screen.find_children("Task_*", "", true, false)
+			if rows.size() < 4:
+				push_error("[DebugBoot] ⚠ %s にタスクの行が足りない" % shot_name)
+				return false
+			(rows[3] as LedgerRow).pressed.emit()
+			for _i: int in range(4):
+				await get_tree().process_frame
+			var due_pick: Node = screen.find_child("DuePick", true, false)
+			if not (due_pick is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に「日付を選ぶ」が無い" % shot_name)
+				return false
+			(due_pick as BaseButton).pressed.emit()
 			for _i: int in range(6):
 				await get_tree().process_frame
 		elif kind == AFTER_TASK_DELETE:
@@ -11644,19 +11687,22 @@ class UiFlowRunner extends Node:
 		var c_id: String = ids[before + 2]
 		_check("タスク：足した3件が一覧の行に出る", t.find_child("Task_" + a_id, true, false) != null and t.find_child("Task_" + c_id, true, false) != null)
 		var a_task: Dictionary = GameManager.get_task(a_id)
-		_check("タスク：足した行の数の欄が int（色 %s・🍅 %s・作った時刻 %s）" % [type_string(typeof(a_task.get(GameStateKeys.TASK_COLOR))), type_string(typeof(a_task.get(GameStateKeys.TASK_POMODORO_COUNT))), type_string(typeof(a_task.get(GameStateKeys.TASK_CREATED_AT)))],
-			a_task.get(GameStateKeys.TASK_COLOR) is int and a_task.get(GameStateKeys.TASK_POMODORO_COUNT) is int and a_task.get(GameStateKeys.TASK_CREATED_AT) is int)
+		_check("タスク：足した行の数の欄が int（色 %s・集中した秒 %s・作った時刻 %s）" % [type_string(typeof(a_task.get(GameStateKeys.TASK_COLOR))), type_string(typeof(a_task.get(GameStateKeys.TASK_FOCUS_SEC))), type_string(typeof(a_task.get(GameStateKeys.TASK_CREATED_AT)))],
+			a_task.get(GameStateKeys.TASK_COLOR) is int and a_task.get(GameStateKeys.TASK_FOCUS_SEC) is int and a_task.get(GameStateKeys.TASK_CREATED_AT) is int)
 		# チェック（`TK-4`・`TK-6`）：⚠ 終えても一覧に残り、薄墨＋線。
 		var a_row: Node = t.find_child("Task_" + a_id, true, false)
 		var check: Node = null if a_row == null else a_row.find_child("DoneCheck", true, false)
-		if check is CheckBox:
-			(check as CheckBox).button_pressed = true
+		if check is TaskCheck:
+			(check as TaskCheck).button_pressed = true
 		await _wait()
 		a_row = t.find_child("Task_" + a_id, true, false)
 		var a_title: Node = null if a_row == null else a_row.find_child("TitleLabel", true, false)
 		_check("タスク：チェックで終えたことになり、一覧に線を引いて残る",
 			int(GameManager.get_task(a_id).get(GameStateKeys.TASK_DONE_AT, 0)) != 0 and a_title is Label and (a_title as Label).theme_type_variation == &"TaskDoneLabel")
-		# 並べ替え（`TK-7`）：⚠ A を1つ下へ。
+		# 並べ替え（`TK-7`）：⚠ A を押して選ぶ（⚠ ▲▼ は選んだ行にだけ出る・モック2）→ 1つ下へ。
+		_check("タスク：選んでいない行に ▲▼ は出ない", a_row != null and a_row.find_child("DownButton", true, false) == null)
+		await _press(a_row)
+		a_row = t.find_child("Task_" + a_id, true, false)
 		await _press(null if a_row == null else a_row.find_child("DownButton", true, false))
 		_check("タスク：▼で A が1つ下へ（%s）" % str(_task_order()), _task_order().find(a_id) == before + 1 and _task_order().find(b_id) == before)
 		# 詳しく：⚠ B を押す → 名前 ／ メモ ／ 色 ／ 期限 ／ タグ。
@@ -11685,16 +11731,43 @@ class UiFlowRunner extends Node:
 		var b_row: Node = t.find_child("Task_" + b_id, true, false)
 		var b_stamp: Node = null if b_row == null else b_row.find_child("DueStamp", true, false)
 		_check("タスク：今日が期限なら一覧の行に「今日まで」の判（`TK-13`）", b_stamp is Stamp and (b_stamp as Stamp).label_key == "ui_task_due_today")
-		await _press(t.find_child("DuePlus", true, false))
-		await _press(t.find_child("DueMinus", true, false))
-		await _press(t.find_child("DueMinus", true, false))
+		# 期限の札（モック3）：⚠ 明日＝「あと1日」／ ⚠ 今週中＝設定の週の終わりの日（`TK-17`）／ ⚠ カレンダーで昨日＝「期限切れ」。
+		var today: String = GameDate.get_game_date_string()
+		await _press(t.find_child("DueTomorrow", true, false))
+		_check("期限：「明日」で %s・「%s」" % [str(GameManager.get_task(b_id).get(GameStateKeys.TASK_DUE, "")), _label_text(t, "DueRow", "DaysLeftLabel")],
+			str(GameManager.get_task(b_id).get(GameStateKeys.TASK_DUE, "")) == TaskParts.shift_date(today, 1) and _label_text(t, "DueRow", "DaysLeftLabel") == tr("ui_task_days_left") % 1)
+		var s_screen: Node = await _open(SETTINGS, {TransferKeys.SETTINGS_TAB: SettingsScreen.TAB_POMODORO})
+		await _press(null if s_screen == null else s_screen.find_child("WeekEnd_0", true, false))
+		_check("設定：「週の終わりの日」を日曜に（%d）" % GameSettings.week_end_weekday(), GameSettings.week_end_weekday() == 0)
+		t = await _open(TASK_SCREEN, {})
+		if t == null:
+			return
+		await _press(t.find_child("Task_" + b_id, true, false))
+		await _press(t.find_child("DueWeek", true, false))
+		var week_due: String = str(GameManager.get_task(b_id).get(GameStateKeys.TASK_DUE, ""))
+		_check("期限：「今週中」は次の日曜（%s・曜日 %d・あと %d日）" % [week_due, TaskParts.weekday(week_due), TaskParts.days_from_today(week_due)],
+			TaskParts.weekday(week_due) == 0 and TaskParts.days_from_today(week_due) >= 0 and TaskParts.days_from_today(week_due) <= 6)
+		GameSettings.set_value(GameSettings.SECTION_TASK, GameSettings.KEY_WEEK_END, 6)
+		await _press(t.find_child("DuePick", true, false))
+		var calendar: Node = t.find_child("TaskCalendar", true, false)
+		var yesterday: String = TaskParts.shift_date(today, -1)
+		if calendar != null and calendar.find_child("Day_" + yesterday, true, false) == null:
+			# ⚠ 昨日が先月なら ◀ で1か月戻す。
+			await _press(calendar.find_child("CalPrev", true, false))
+		var today_cell: Node = null if calendar == null else calendar.find_child("Day_" + today, true, false)
+		_check("期限：「日付を選ぶ」でカレンダー（今日＝真鍮の輪）", calendar is TaskCalendar and (calendar as TaskCalendar).visible
+			and (today_cell == null or (today_cell as Button).theme_type_variation == &"TaskCalToday"))
+		await _press(null if calendar == null else calendar.find_child("Day_" + yesterday, true, false))
 		b_row = t.find_child("Task_" + b_id, true, false)
 		b_stamp = null if b_row == null else b_row.find_child("DueStamp", true, false)
-		_check("タスク：＋1日・−1日・−1日で昨日＝「期限切れ」の判（%s）" % str(GameManager.get_task(b_id).get(GameStateKeys.TASK_DUE, "")),
-			GameManager.get_task_due_state(GameManager.get_task(b_id)) == GameManager.TASK_DUE_OVERDUE and b_stamp is Stamp and (b_stamp as Stamp).label_key == "ui_task_due_overdue")
+		_check("期限：カレンダーで昨日を押すと閉じて「期限切れ」の小さい判（%s）" % str(GameManager.get_task(b_id).get(GameStateKeys.TASK_DUE, "")),
+			calendar is TaskCalendar and not (calendar as TaskCalendar).visible and str(GameManager.get_task(b_id).get(GameStateKeys.TASK_DUE, "")) == yesterday
+			and b_stamp is Stamp and (b_stamp as Stamp).label_key == "ui_task_due_overdue" and (b_stamp as Stamp).small)
 		# タグで絞る（`TK-12`）。
 		await _press(t.find_child("Filter_検査", true, false))
-		_check("タスク：タグで絞ると B だけ", t.find_child("Task_" + b_id, true, false) != null and t.find_child("Task_" + a_id, true, false) == null and t.find_child("Task_" + c_id, true, false) == null)
+		_check("タスク：タグで絞ると B だけ・「%s」「%s」" % [_label_text(t, "ListSheet", "FilterNote"), _label_text(t, "ListSheet", "HiddenNote")],
+			t.find_child("Task_" + b_id, true, false) != null and t.find_child("Task_" + a_id, true, false) == null and t.find_child("Task_" + c_id, true, false) == null
+			and _label_text(t, "ListSheet", "FilterNote") == tr("ui_task_filter_note") % ["検査", 1] and _label_text(t, "ListSheet", "HiddenNote") == tr("ui_task_hidden_note") % 2)
 		await _press(t.find_child("Filter_all", true, false))
 		_check("タスク：「すべて」で戻る", t.find_child("Task_" + a_id, true, false) != null)
 		# 拠点の紙（`TK-3`）：⚠ まだのものだけ全部・⚠ 期限切れの判。
@@ -11733,8 +11806,30 @@ class UiFlowRunner extends Node:
 		focus_title.text_changed.emit(focus_title.text)
 		_check("ポモドーロ：選んだあとに題を書き換えるとタスクの名前が変わる（%s）" % str(GameManager.get_task(b_id).get(GameStateKeys.TASK_TITLE, "")),
 			str(GameManager.get_task(b_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査B3")
-		# 「選ばない」→ 題を打って「リストに足す」。
-		await _press(view.find_child("PickTaskButton", true, false))
+		var band: Node = view.find_child("LinkedBand", true, false)
+		_check("ポモドーロ：選ぶと紙の帯（「リストのタスク」の判・期限切れの判・選び直す・外す）・題の欄の左に色の印",
+			band is Control and (band as Control).visible and band.find_child("LinkedStamp", true, false) is Stamp and band.find_child("DueStamp", true, false) is Stamp
+			and band.find_child("UnlinkButton", true, false) != null and (view.find_child("TitleMark", true, false) as Control).visible)
+		# 「外す」→ 選んでいない姿に戻る。
+		await _press(null if band == null else band.find_child("UnlinkButton", true, false))
+		var pick_button: Button = view.find_child("PickTaskButton", true, false) as Button
+		_check("ポモドーロ：「外す」で選んでいない（「%s」）" % ("" if pick_button == null else pick_button.text),
+			str(view.call("get_task_id")) == "" and pick_button != null and pick_button.is_visible_in_tree()
+			and pick_button.text == tr("ui_pomodoro_task_pick_count") % GameManager.get_open_tasks().size())
+		# 選ぶ窓：⚠ タグで絞る ／ ⚠ その場で書いて「足して選ぶ」（モック5）。
+		await _press(pick_button)
+		modal = _modal_of(p)
+		await _press(null if modal == null else modal.find_child("PickFilter_検査", true, false))
+		var filtered: int = 0 if modal == null else modal.find_children("Pick_*", "", true, false).size()
+		_check("選ぶ窓：タグで絞ると B だけ（%d 行）" % filtered, filtered == 1 and modal.find_child("Pick_" + b_id, true, false) != null)
+		if modal != null:
+			(modal.find_child("PickNewEdit", true, false) as LineEdit).text = "TK検査E"
+		await _press(null if modal == null else modal.find_child("PickAddButton", true, false))
+		var e_id: String = str(view.call("get_task_id"))
+		_check("選ぶ窓：「足して選ぶ」で足して選ばれ、窓が閉じる（%s）" % str(GameManager.get_task(e_id).get(GameStateKeys.TASK_TITLE, "")),
+			str(GameManager.get_task(e_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査E" and _modal_of(p) == null)
+		# 「選び直す」→「選ばない」→ 題を打って「リストに足す」。
+		await _press(view.find_child("RepickButton", true, false))
 		modal = _modal_of(p)
 		await _press(null if modal == null else modal.find_child("PickNone", true, false))
 		focus_title.text = "TK検査D"
@@ -11745,27 +11840,45 @@ class UiFlowRunner extends Node:
 		var d_id: String = str(view.call("get_task_id"))
 		_check("ポモドーロ：「リストに足す」で1件増えて選ばれる（%s）" % str(GameManager.get_task(d_id).get(GameStateKeys.TASK_TITLE, "")),
 			GameManager.get_tasks().size() == count_before_add + 1 and str(GameManager.get_task(d_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査D")
-		# 🍅（`TK-5`）：⚠ B を選び直して集中 → タイマーが0 → B だけ +1。
-		await _press(view.find_child("PickTaskButton", true, false))
+		# 集中した時間（`TK-5`・10-05）：⚠ B を選び直して集中 → 5分で C に替える → さらに3分20秒で C を終える → 残りは選んでいない＝記録しない。
+		await _press(view.find_child("RepickButton", true, false))
 		modal = _modal_of(p)
 		await _press(null if modal == null else modal.find_child("Pick_" + b_id, true, false))
 		var counts_before: Dictionary = _task_counts()
 		await _press(view.find_child("StartButton", true, false))
+		var total_sec: float = float(p.get("phase_total_sec"))
 		# ⚠ ポモドーロ中にリストを見る（10-04・人間「⚠ メニューと同じように」）：⚠ 右上の「リスト」→ 板が開く・まだのタスクが全部・B が明るい行。
 		var list_button: Node = p.find_child("TaskListButton", true, false)
 		await _press(list_button)
 		var list_rows: Array = [] if list_button == null else list_button.find_children("List_*", "", true, false)
 		var b_list_row: Node = null if list_button == null else list_button.find_child("List_" + b_id, true, false)
-		_check("ポモドーロ：集中中に右上の「リスト」で板が開く（%d 行 ／ まだ %d）・いまの B が選んだ行" % [list_rows.size(), GameManager.get_open_tasks().size()],
+		_check("ポモドーロ：集中中に右上の「リスト」で板が開く（%d 行 ／ 一覧 %d）・いまの B が選んだ行" % [list_rows.size(), GameManager.get_tasks().size()],
 			list_button is TaskListButton and (list_button as TaskListButton).is_open() and bool(p.get("is_timer_active"))
-			and list_rows.size() == GameManager.get_open_tasks().size() and b_list_row is LedgerRow and (b_list_row as LedgerRow).selected)
+			and list_rows.size() == GameManager.get_tasks().size() and b_list_row is LedgerRow and (b_list_row as LedgerRow).selected)
+		p.set("time_left_sec", total_sec - 300.0)
+		await _press(null if list_button == null else list_button.find_child("List_" + c_id, true, false))
+		var after_switch: Dictionary = _task_counts()
+		var work_title: Label = view.find_child("WorkTitle", true, false) as Label
+		_check("集中中：行を押して C に替えると、B に 5分（%d 秒）・大きい題が C（%s）" % [int(after_switch.get(b_id, 0)) - int(counts_before.get(b_id, 0)), "" if work_title == null else work_title.text],
+			absi(int(after_switch.get(b_id, 0)) - int(counts_before.get(b_id, 0)) - 300) <= 1 and str(p.call("_current_task_id")) == c_id
+			and work_title != null and work_title.text == "TK検査C")
+		p.set("time_left_sec", total_sec - 500.0)
+		var c_row: Node = null if list_button == null else list_button.find_child("List_" + c_id, true, false)
+		var c_check: Node = null if c_row == null else c_row.find_child("DoneCheck", true, false)
+		if c_check is TaskCheck:
+			(c_check as TaskCheck).button_pressed = true
+		await _wait()
+		var after_finish: Dictionary = _task_counts()
+		_check("集中中：C の四角で終えると、C に 3分20秒（%d 秒）・C は終えた・いまは選んでいない" % (int(after_finish.get(c_id, 0)) - int(counts_before.get(c_id, 0))),
+			absi(int(after_finish.get(c_id, 0)) - int(counts_before.get(c_id, 0)) - 200) <= 1
+			and int(GameManager.get_task(c_id).get(GameStateKeys.TASK_DONE_AT, 0)) != 0 and str(p.call("_current_task_id")) == "")
 		if list_button is TaskListButton:
 			(list_button.get_node("TaskListPopup") as PopupPanel).hide()
 		p.set("time_left_sec", 0.01)
 		await _wait()
 		var counts_after: Dictionary = _task_counts()
-		_check("🍅：選んで集中が0になると B だけ +1（%s → %s）" % [str(counts_before), str(counts_after)],
-			int(counts_after.get(b_id, 0)) == int(counts_before.get(b_id, 0)) + 1 and _counts_same_except(counts_before, counts_after, b_id))
+		_check("集中中：選んでいない残りはどれにも記録しない（%s → %s）" % [str(after_finish), str(counts_after)],
+			_counts_same_except(after_finish, counts_after, ""))
 		# 選ばずに集中（`TK-11`）：⚠ どれも増えない。
 		p = await _open(POMODORO, {})
 		await _pomodoro_start_focus(p)
@@ -11773,29 +11886,40 @@ class UiFlowRunner extends Node:
 		if p != null:
 			p.set("time_left_sec", 0.01)
 		await _wait()
-		_check("🍅：選ばずに集中が0になってもどれも増えない（%s）" % str(_task_counts()),
+		_check("集中した時間：選ばずに集中が0になってもどれも増えない（%s）" % str(_task_counts()),
 			p != null and str(p.get("current_state")) != "1" and _counts_same_except(counts_before, _task_counts(), ""))
 		# 朝4:00（`TK-6`）：⚠ 明日の「今」を渡す → 終えた A が記録へ。
+		# ⚠ 終えたのは A（一覧のチェック）と C（集中中の四角）＝2件が移るはず。
 		var tasks_before: int = GameManager.get_tasks().size()
 		var log_before: int = GameManager.get_task_log().size()
+		var done_before: int = tasks_before - GameManager.get_open_tasks().size()
 		var moved: int = GameManager.roll_over_done_tasks(Time.get_unix_time_from_system() + 86400.0)
-		var last_log: Dictionary = {} if GameManager.get_task_log().is_empty() else GameManager.get_task_log().back() as Dictionary
-		_check("朝4:00：またぐと TASKS %d → %d・TASK_LOG %d → %d（移した %d）" % [tasks_before, GameManager.get_tasks().size(), log_before, GameManager.get_task_log().size(), moved],
-			moved == 1 and GameManager.get_tasks().size() == tasks_before - 1 and GameManager.get_task_log().size() == log_before + 1
-			and str(last_log.get(GameStateKeys.TASK_ID, "")) == a_id)
+		var log_ids: Array[String] = []
+		for entry: Variant in GameManager.get_task_log():
+			log_ids.append(str((entry as Dictionary).get(GameStateKeys.TASK_ID, "")))
+		_check("朝4:00：またぐと終えた %d 件が移る（TASKS %d → %d・TASK_LOG %d → %d・C の時間 %s）" % [done_before, tasks_before, GameManager.get_tasks().size(), log_before, GameManager.get_task_log().size(), str(_log_focus(c_id))],
+			done_before == 2 and moved == 2 and GameManager.get_tasks().size() == tasks_before - 2 and GameManager.get_task_log().size() == log_before + 2
+			and a_id in log_ids and c_id in log_ids and absi(_log_focus(c_id) - 200) <= 1)
 		_check("朝4:00：同じ日のうちは移さない", GameManager.roll_over_done_tasks() == 0)
 		# 記録（`TK-8`）。
 		var r: Node = await _open(RECORDS, {})
 		if r == null:
 			return
 		await _press(_tab_button(r, RecordsScreen.TAB_TASKS))
-		_check("記録：「終わったタスク」のタブに A（%s）" % _label_text(r, "DoneTask_" + a_id, "TitleLabel"),
-			_label_text(r, "DoneTask_" + a_id, "TitleLabel") == "TK検査A")
+		var year_key: String = GameDate.get_game_date_string().substr(0, 4)
+		var month_key: String = GameDate.get_game_date_string().substr(0, 7)
+		_check("記録：「終わったタスク」のタブ＝年・月の帯が開いて A（%s）" % _label_text(r, "DoneTask_" + a_id, "TitleLabel"),
+			_label_text(r, "DoneTask_" + a_id, "TitleLabel") == "TK検査A" and r.find_child("Year_" + year_key, true, false) != null and r.find_child("Month_" + month_key, true, false) != null)
+		var month_band: Node = r.find_child("Month_" + month_key, true, false)
+		await _press(null if month_band == null else month_band.find_child("Hit", false, false))
+		_check("記録：月の帯を押すと畳む（A が隠れる）", r.find_child("DoneTask_" + a_id, true, false) == null and r.find_child("Month_" + month_key, true, false) != null)
 		# ⚠ セーブから戻したとき int に戻るか（CLAUDE.md 3番）：⚠ JSON を通した形に `load_state()` と同じ直しを当てる（⚠ ファイルは書かない）。
 		var restored: Array = GameManager._normalize_task_list(JSON.parse_string(JSON.stringify(GameManager.get_tasks())))
 		var first: Dictionary = {} if restored.is_empty() else restored[0] as Dictionary
-		_check("セーブ：JSON から戻すと色・🍅・日付が int（%s）" % type_string(typeof(first.get(GameStateKeys.TASK_POMODORO_COUNT))),
-			first.get(GameStateKeys.TASK_POMODORO_COUNT) is int and first.get(GameStateKeys.TASK_DONE_AT) is int and first.get(GameStateKeys.TASK_COLOR) is int)
+		_check("セーブ：JSON から戻すと色・集中した秒・日付が int（%s）" % type_string(typeof(first.get(GameStateKeys.TASK_FOCUS_SEC))),
+			first.get(GameStateKeys.TASK_FOCUS_SEC) is int and first.get(GameStateKeys.TASK_DONE_AT) is int and first.get(GameStateKeys.TASK_COLOR) is int)
+		var legacy: Array = GameManager._normalize_task_list([{GameStateKeys.TASK_ID: "task_old", GameStateKeys.TASK_POMODORO_COUNT: 3.0}])
+		_check("セーブ：10-04 の回数は捨て、集中した秒は 0 で生える", not (legacy[0] as Dictionary).has(GameStateKeys.TASK_POMODORO_COUNT) and (legacy[0] as Dictionary).get(GameStateKeys.TASK_FOCUS_SEC) == 0)
 		# 消す（`TK-15`）：⚠ D を選ぶ →「消す」→ 確かめの窓の「いいえ」では消えない →「消す」→「はい」で一覧から消え、記録は増えない。
 		var t2: Node = await _open(TASK_SCREEN, {})
 		if t2 == null:
@@ -11819,10 +11943,16 @@ class UiFlowRunner extends Node:
 			order.append(str((task as Dictionary).get(GameStateKeys.TASK_ID, "")))
 		return order
 
+	func _log_focus(task_id: String) -> int:
+		for entry: Variant in GameManager.get_task_log():
+			if str((entry as Dictionary).get(GameStateKeys.TASK_ID, "")) == task_id:
+				return int((entry as Dictionary).get(GameStateKeys.TASK_FOCUS_SEC, 0))
+		return -1
+
 	func _task_counts() -> Dictionary:
 		var counts: Dictionary = {}
 		for task: Variant in GameManager.get_tasks():
-			counts[str((task as Dictionary).get(GameStateKeys.TASK_ID, ""))] = int((task as Dictionary).get(GameStateKeys.TASK_POMODORO_COUNT, 0))
+			counts[str((task as Dictionary).get(GameStateKeys.TASK_ID, ""))] = int((task as Dictionary).get(GameStateKeys.TASK_FOCUS_SEC, 0))
 		return counts
 
 	func _counts_same_except(before_counts: Dictionary, after_counts: Dictionary, skip_id: String) -> bool:

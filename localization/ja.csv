@@ -50,7 +50,7 @@ ui_chest_common,ふるびた宝箱
 ui_chest_rare,かがやく宝箱
 ui_chest_epic,ほうぎょくの宝箱
 ui_chest_legendary,でんせつの宝箱
-ui_pomodoro_title_placeholder,何に取り組みますか？（任意）
+ui_pomodoro_title_placeholder,何に集中しますか（空のままでも始められます）
 ui_pomodoro_reflection_placeholder,{0}文字以上で入力してください
 ui_pomodoro_break_short,休憩
 ui_pomodoro_break_long,長い休憩
@@ -1366,8 +1366,6 @@ ui_task_list_empty,タスクはまだありません
 ui_task_list_empty_hint,上の欄に書いて「足す」を押すと溜めておけます
 ui_task_move_up,▲
 ui_task_move_down,▼
-ui_task_due_short,期限 %s
-ui_task_pomodoro_count,ポモドーロ %d回
 ui_task_note_separator,　・　
 ui_task_detail_title,詳しく
 ui_task_detail_none,左のタスクを押すと、ここで詳しく決められます
@@ -1377,8 +1375,6 @@ ui_task_memo_placeholder,メモを書く（任意）
 ui_task_field_due,期限
 ui_task_due_none,なし
 ui_task_due_set_today,今日
-ui_task_due_minus,−1日
-ui_task_due_plus,＋1日
 ui_task_field_color,色
 ui_task_color_0,赤
 ui_task_color_1,黄
@@ -1390,7 +1386,6 @@ ui_task_field_tags,タグ（押すと外す）
 ui_task_tag_remove,#%s ×
 ui_task_tag_placeholder,タグを書く
 ui_task_tag_add,タグを足す
-ui_task_pomodoro_total,これまでのポモドーロ　%d回
 ui_task_due_overdue,期限切れ
 ui_task_due_today,今日まで
 ui_task_wall_title,やること
@@ -1398,8 +1393,7 @@ ui_task_wall_open,ひらく
 ui_task_wall_empty,やることはまだありません
 ui_task_wall_empty_hint,「ひらく」から足せます
 ui_pomodoro_task_pick,リストから選ぶ
-ui_pomodoro_task_add,リストに足す
-ui_pomodoro_task_linked,リストのタスクとして数えます
+ui_pomodoro_task_add,書いた題をリストに足す
 ui_pomodoro_task_pick_empty,まだのタスクはありません
 ui_pomodoro_task_pick_empty_hint,題を書いて「リストに足す」を押すと足せます
 ui_pomodoro_task_pick_none,選ばない（どのタスクにも数えない）
@@ -1410,3 +1404,51 @@ ui_pomodoro_task_list,リスト
 ui_pomodoro_task_list_empty_hint,拠点の紙か「リストに足す」から足せます
 ui_task_delete,消す
 ui_task_delete_confirm,「%s」を消しますか？ 記録にも残りません
+ui_task_focus_minutes,%d分
+ui_task_focus_hours,%d時間%d分
+ui_weekday_0,日
+ui_weekday_1,月
+ui_weekday_2,火
+ui_weekday_3,水
+ui_weekday_4,木
+ui_weekday_5,金
+ui_weekday_6,土
+ui_task_date_long,%s（%s）
+ui_task_summary_overdue,期限切れ %d
+ui_task_summary_today,今日まで %d
+ui_task_wall_more,下にあと%d件
+ui_task_list_counts,まだ %d件　今日終えた %d件
+ui_task_filter_note,#%s の%d件を出しています
+ui_task_hidden_note,ほかのタグの%d件は隠れています
+ui_task_focus_total,これまでの集中　%s
+ui_task_delete_this,このタスクを消す
+ui_task_days_left,あと%d日
+ui_task_due_tomorrow,明日
+ui_task_due_week,今週中
+ui_task_due_pick,日付を選ぶ ▼
+ui_task_cal_prev,◀
+ui_task_cal_next,▶
+ui_task_cal_month,%d年 %d月
+ui_settings_task,タスク
+ui_settings_week_end,週の終わりの日
+ui_settings_week_end_note,期限の札「今週中」が入れる日です
+ui_settings_weekday_5,金曜
+ui_settings_weekday_6,土曜
+ui_settings_weekday_0,日曜
+ui_pomodoro_task_pick_count,リストから選ぶ　まだ %d件
+ui_pomodoro_task_linked_stamp,リストのタスク
+ui_pomodoro_task_so_far,これまで %s
+ui_pomodoro_task_repick,選び直す
+ui_pomodoro_task_unlink,外す
+ui_pomodoro_task_rename_note,"題を書き換えると、リストのタスクの名前も変わります"
+ui_pomodoro_task_pick_open,まだ %d件
+ui_pomodoro_task_pick_new,新しく書いて足す
+ui_pomodoro_task_pick_add,足して選ぶ
+ui_pomodoro_task_list_hint,"四角を押すと終わり　行を押すと、いまのタスクを替えます"
+ui_records_tasks_total,ぜんぶで %d件　集中 %s
+ui_records_tasks_year,%d年
+ui_records_tasks_month,%d月
+ui_records_tasks_day,%d月%d日（%s）
+ui_records_tasks_open,▼
+ui_records_tasks_closed,▶
+ui_records_tasks_sum,%d件　%s
