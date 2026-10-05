@@ -143,6 +143,8 @@ const SHOT_AFTER_TASK_DELETE: String = "task_delete"
 # ⚠ 10-05（モック4・3）：⚠ 集中を始める前にリストのタスクを選んだ姿 ／ ⚠ 期限のカレンダーを開いた姿。
 const SHOT_AFTER_TASK_LINKED: String = "task_linked"
 const SHOT_AFTER_TASK_CALENDAR: String = "task_calendar"
+# ⚠ 10-05（人間「⚠ 詳しいこともポモドーロ中に決められるように」）：⚠ 集中中にサイドバーの「詳しく」を開いた姿。
+const SHOT_AFTER_TASK_DETAIL_RUNNING: String = "task_detail_running"
 const SHOT_AFTER_RECORDS_TASKS: String = "records_tasks"
 
 # ⚠ Theme の検証で見る型（2026-09-07）。⚠ 名前は `tools/build_theme.gd` と揃えること。
@@ -1266,6 +1268,7 @@ const SCENARIOS: Dictionary = {
 			{"name": "64_task_delete", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DELETE},
 			{"name": "65_task_linked", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_LINKED},
 			{"name": "66_task_calendar", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_CALENDAR},
+			{"name": "67_task_detail_running", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DETAIL_RUNNING},
 			{"name": "63_task_list_running", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_LIST},
 			# ⚠ 記録へ移すので、⚠ タスクの枚のいちばん後ろ。
 			{"name": "62_records_tasks", "scene": "res://scenes/guild/records_screen.tscn", "prepare": SHOT_PREPARE_TASK_LOG, "after": SHOT_AFTER_RECORDS_TASKS},
@@ -9199,6 +9202,7 @@ class ShotTaker extends Node:
 	const AFTER_TASK_DELETE: String = "task_delete"
 	const AFTER_TASK_LINKED: String = "task_linked"
 	const AFTER_TASK_CALENDAR: String = "task_calendar"
+	const AFTER_TASK_DETAIL_RUNNING: String = "task_detail_running"
 	const AFTER_RECORDS_TASKS: String = "records_tasks"
 	const CHEST_FX_WAIT_FRAMES: int = 50
 	# ⚠ 窓を出してから撮るまでに置く間（⚠ 重ねたものが並び終わるまで）。
@@ -9637,6 +9641,38 @@ class ShotTaker extends Node:
 				return false
 			(linked_row as LedgerRow).pressed.emit()
 			for _i: int in range(4):
+				await get_tree().process_frame
+		elif kind == AFTER_TASK_DETAIL_RUNNING:
+			# ⚠ 加護 → サイドバーの1件目 →「はじめる」→ その行の「詳しく」。
+			var detail_select: Node = screen.find_child("ProtectionSelectView", true, false)
+			if detail_select != null:
+				(detail_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				for _i: int in range(3):
+					await get_tree().process_frame
+			var detail_row: Node = null
+			for node: Node in screen.find_children("Side_*", "", true, false):
+				if node is LedgerRow:
+					detail_row = node
+					break
+			var detail_start: Node = screen.find_child("FocusView", true, false)
+			detail_start = null if detail_start == null else detail_start.find_child("StartButton", true, false)
+			if detail_row == null or not (detail_start is BaseButton):
+				push_error("[DebugBoot] ⚠ %s でサイドバーの行か「はじめる」が無い" % shot_name)
+				return false
+			var detail_row_name: String = str(detail_row.name)
+			(detail_row as LedgerRow).pressed.emit()
+			for _i: int in range(3):
+				await get_tree().process_frame
+			(detail_start as BaseButton).pressed.emit()
+			for _i: int in range(3):
+				await get_tree().process_frame
+			detail_row = screen.find_child(detail_row_name, true, false)
+			var detail_button: Node = null if detail_row == null else detail_row.find_child("DetailButton", true, false)
+			if not (detail_button is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に「詳しく」が無い" % shot_name)
+				return false
+			(detail_button as BaseButton).pressed.emit()
+			for _i: int in range(8):
 				await get_tree().process_frame
 		elif kind == AFTER_TASK_CALENDAR:
 			# ⚠ 4行目（⚠ 先の期限）を押す →「日付を選ぶ ▼」。
@@ -11838,6 +11874,28 @@ class UiFlowRunner extends Node:
 		(side.find_child("SideNewEdit", true, false) as LineEdit).text = "TK検査F"
 		await _press(side.find_child("SideAddButton", true, false))
 		_check("集中中：サイドバーで足せる（いまは B のまま）", str(GameManager.get_tasks().back().get(GameStateKeys.TASK_TITLE, "")) == "TK検査F" and str(p.call("_current_task_id")) == b_id)
+		# 詳しく（10-05・人間「⚠ 詳しいこともポモドーロ中に決められるように」）：⚠ サイドバーの B の「詳しく」→ 紙の窓 → 色・メモ・期限 → 閉じる。⚠ タイマーは止めない。
+		var b_detail_row: Node = side.find_child("Side_" + b_id, true, false)
+		await _press(null if b_detail_row == null else b_detail_row.find_child("DetailButton", true, false))
+		var detail_modal: ModalDialog = _modal_of(p)
+		var detail_panel: Node = null if detail_modal == null else detail_modal.find_child("TaskDetailPanel", true, false)
+		_check("集中中：「詳しく」で紙の窓（名前 %s・消すは無い）" % ("" if detail_panel == null else (detail_panel.find_child("TitleEdit", true, false) as LineEdit).text),
+			detail_panel is TaskDetailPanel and (detail_panel.find_child("TitleEdit", true, false) as LineEdit).text == "TK検査B3"
+			and detail_panel.find_child("DeleteButton", true, false) == null)
+		if detail_panel != null:
+			await _press(detail_panel.find_child("Color_4", true, false))
+			var detail_memo: TextEdit = detail_panel.find_child("MemoEdit", true, false) as TextEdit
+			if detail_memo != null:
+				detail_memo.text = "集中中のメモ"
+				detail_memo.text_changed.emit()
+			await _press(detail_panel.find_child("DueTomorrow", true, false))
+		var bd: Dictionary = GameManager.get_task(b_id)
+		_check("集中中：窓で色・メモ・期限が入る（%d / %s / %s）・タイマーは動いたまま" % [int(bd.get(GameStateKeys.TASK_COLOR, -1)), str(bd.get(GameStateKeys.TASK_MEMO, "")), str(bd.get(GameStateKeys.TASK_DUE, ""))],
+			int(bd.get(GameStateKeys.TASK_COLOR, -1)) == 4 and str(bd.get(GameStateKeys.TASK_MEMO, "")) == "集中中のメモ"
+			and str(bd.get(GameStateKeys.TASK_DUE, "")) == TaskParts.shift_date(GameDate.get_game_date_string(), 1) and bool(p.get("is_timer_active")))
+		await _close_modal(p)
+		_check("集中中：窓を閉じても B のまま・サイドバーの B の色の印が藍→紫", _modal_of(p) == null and str(p.call("_current_task_id")) == b_id
+			and ((side.find_child("Side_" + b_id, true, false) as Node).find_child("ColorMark", true, false) as TaskColorMark).color_index == 4)
 		p.set("time_left_sec", total_sec - 300.0)
 		await _press(side.find_child("Side_" + c_id, true, false))
 		var after_switch: Dictionary = _task_counts()

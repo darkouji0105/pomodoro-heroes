@@ -7,6 +7,8 @@ extends PaperSheet
 # ⚠ 行を押す＝いまのタスクにする（⚠ 始める前は選ぶ・集中中は替える＝`TK-16`）／ ⚠ 四角＝終えた・戻した ／ ⚠ 下の欄で足す（⚠ 選びはしない）。
 # ⚠ 中身＝一覧と同じ（⚠ まだのもの ＋ 今日終えたもの＝線）・色の印・集中した時間（`TK-5`）・期限の小さい判（`TK-13`）。
 # ⚠ 時間の区切りは画面（`pomodoro.gd`）が持つ。⚠ ここは知らせるだけ（`task_pressed` / `task_checked`）。
+# ⚠ 2026-10-05（人間「⚠ 詳しいこともポモドーロ中に決められるように」）：⚠ まだの行の右に「詳しく」＝紙の窓でタスクの画面と同じ中身
+#   （`TaskDetailPanel`・⚠ 消すは出さない＝窓の上に確かめの窓は重ねられない）。⚠ タイマーは止めない。
 # ⚠ 大きさは Theme の `Task/side_*`。⚠ ポモドーロの画面だけで使う＝scenes/pomodoro/（AGENTS.md 置き場のルール）。
 # ⚠ 描き直しは次のフレーム（⚠ 押した四角・行を押している最中に外さない）。⚠ 再描画に await を持たせない（CLAUDE.md 5番）。
 
@@ -126,15 +128,27 @@ func _rebuild() -> void:
 		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		line.add_child(column)
+		var title_line: HBoxContainer = HBoxContainer.new()
+		title_line.name = "TitleLine"
+		title_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_child(title_line)
 		var title: Label = Label.new()
 		title.name = "TitleLabel"
 		title.text = str(task.get(GameStateKeys.TASK_TITLE, ""))
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if done:
 			title.theme_type_variation = &"TaskDoneLabel"
 			title.draw.connect(_draw_strike.bind(title))
-		column.add_child(title)
+		title_line.add_child(title)
+		if not done:
+			var detail: Button = UiButton.create_paper_choice("ui_task_detail_open")
+			detail.name = "DetailButton"
+			detail.theme_type_variation = &"TaskMoveButton"
+			detail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			detail.pressed.connect(_on_detail_pressed.bind(task_id))
+			title_line.add_child(detail)
 		var seconds: int = int(task.get(GameStateKeys.TASK_FOCUS_SEC, 0))
 		var stamp: Stamp = TaskParts.due_stamp(task)
 		if seconds >= 60 or stamp != null:
@@ -170,6 +184,18 @@ func _on_row_pressed(task_id: String) -> void:
 
 func _on_check_toggled(on: bool, task_id: String) -> void:
 	task_checked.emit(task_id, on)
+
+
+# 詳しくの窓（⚠ 画面を移らない＝タイマーは進んだまま）。
+func _on_detail_pressed(task_id: String) -> void:
+	var panel: TaskDetailPanel = TaskDetailPanel.create(task_id, false, float(get_theme_constant(&"detail_window_height", THEME_TYPE)))
+	panel.custom_minimum_size.x = float(get_theme_constant(&"detail_width", THEME_TYPE))
+	Modal.notify(self, "", [], false, {
+		Modal.OPTION_TITLE: tr("ui_task_detail_title"),
+		Modal.OPTION_CONTENT: panel,
+		Modal.OPTION_PAPER: true,
+		Modal.OPTION_WIDTH: Modal.WIDTH_LARGE,
+	})
 
 
 func _on_new_submitted(_text: String) -> void:

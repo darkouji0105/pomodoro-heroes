@@ -3160,6 +3160,7 @@ Task/constants/cal_ring = 2
 Task/constants/check = 18
 Task/constants/check_line = 2
 Task/constants/detail_width = 520
+Task/constants/detail_window_height = 380
 Task/constants/link_pad = 30
 Task/constants/list_width = 560
 Task/constants/mark = 14

@@ -32,7 +32,7 @@ var _filter_box: HFlowContainer = null
 var _filter_note: Label = null
 var _hidden_note: Label = null
 var _list: VBoxContainer = null
-var _calendar: TaskCalendar = null
+var _detail: TaskDetailPanel = null
 var _list_dirty: bool = false
 var _detail_dirty: bool = false
 
@@ -43,13 +43,10 @@ func _ready() -> void:
 	header.back_pressed.connect(_on_back_pressed)
 	list_sheet.custom_minimum_size.x = float(get_theme_constant(&"list_width", THEME_TYPE))
 	detail_sheet.custom_minimum_size.x = float(get_theme_constant(&"detail_width", THEME_TYPE))
-	_calendar = TaskCalendar.new()
-	_calendar.date_picked.connect(_on_calendar_picked)
-	add_child(_calendar)
 	_build_list_frame()
+	_build_detail()
 	GameManager.tasks_changed.connect(_on_tasks_changed)
 	_rebuild_list()
-	_rebuild_detail()
 
 
 # --- 左：一覧 ----------------------------------------------------------------
@@ -285,220 +282,22 @@ func _on_filter_pressed(tag: String) -> void:
 
 
 # --- 右：詳しく ----------------------------------------------------------------
+#   ⚠ 中身は部品（`TaskDetailPanel`・10-05）。⚠ ポモドーロの「詳しく」の窓と同じもの。
 
-func _rebuild_detail() -> void:
-	_detail_dirty = false
-	if not is_inside_tree():
-		return
-	for child: Node in detail_body.get_children():
-		detail_body.remove_child(child)
-		child.queue_free()
+func _build_detail() -> void:
 	var heading: SheetHeading = SheetHeading.new()
 	heading.name = "DetailHeading"
 	heading.title_key = "ui_task_detail_title"
 	detail_body.add_child(heading)
-	var task: Dictionary = GameManager.get_task(_selected_id)
-	if task.is_empty():
-		_selected_id = ""
-		var none: Label = _caption_label("DetailNone")
-		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		none.text = tr("ui_task_detail_none")
-		detail_body.add_child(none)
-		return
-	var task_id: String = _selected_id
-	# ⚠ 中は送る（⚠ 紙を縦 720 に収める）。⚠ 下の「これまでの集中」と「消す」は送りの外。
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.name = "DetailScroll"
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	detail_body.add_child(scroll)
-	var fields: VBoxContainer = VBoxContainer.new()
-	fields.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(fields)
-	# ⚠ 名前とメモは打つたびに書く（⚠ 右の紙は描き直さない＝打っている欄を消さない）。
-	fields.add_child(_caption("ui_task_field_title"))
-	var title_edit: LineEdit = LineEdit.new()
-	title_edit.name = "TitleEdit"
-	title_edit.max_length = Balance.pomodoro.session_title_max_length
-	title_edit.text = str(task.get(GameStateKeys.TASK_TITLE, ""))
-	title_edit.text_changed.connect(_on_title_changed.bind(task_id))
-	fields.add_child(title_edit)
-	fields.add_child(_due_line(task))
-	fields.add_child(_due_choices(task))
-	fields.add_child(_caption("ui_task_field_color"))
-	fields.add_child(_color_row(task))
-	fields.add_child(_caption("ui_task_field_memo"))
-	var memo: TextEdit = TextEdit.new()
-	memo.name = "MemoEdit"
-	memo.custom_minimum_size.y = float(get_theme_constant(&"memo_height", THEME_TYPE))
-	memo.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
-	memo.placeholder_text = tr("ui_task_memo_placeholder")
-	memo.text = str(task.get(GameStateKeys.TASK_MEMO, ""))
-	memo.text_changed.connect(_on_memo_changed.bind(memo, task_id))
-	fields.add_child(memo)
-	fields.add_child(_tag_row(task))
-	# ⚠ 下：これまでの集中（`TK-5`＝時間）・消す（`TK-15`・赤・確かめの窓を挟む）。
-	detail_body.add_child(HSeparator.new())
-	var foot: HBoxContainer = HBoxContainer.new()
-	foot.name = "FootRow"
-	var total: Label = Label.new()
-	total.name = "FocusTotalLabel"
-	total.text = tr("ui_task_focus_total") % GameManager.task_focus_text(int(task.get(GameStateKeys.TASK_FOCUS_SEC, 0)))
-	total.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	total.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	foot.add_child(total)
-	var delete: UiButton = UiButton.create(UiButton.Variant.DANGER, "ui_task_delete_this")
-	delete.name = "DeleteButton"
-	delete.pressed.connect(_on_delete_pressed.bind(task_id))
-	foot.add_child(delete)
-	detail_body.add_child(foot)
+	_detail = TaskDetailPanel.create(_selected_id)
+	_detail.delete_requested.connect(_on_delete_pressed)
+	detail_body.add_child(_detail)
 
 
-func _caption(key: String) -> Label:
-	var label: Label = Label.new()
-	label.theme_type_variation = &"CaptionLabel"
-	label.text = tr(key)
-	return label
-
-
-func _on_title_changed(text: String, task_id: String) -> void:
-	var _renamed: bool = GameManager.rename_task(task_id, text)
-
-
-func _on_memo_changed(memo: TextEdit, task_id: String) -> void:
-	var _written: bool = GameManager.set_task_memo(task_id, memo.text)
-
-
-# 期限の行：⚠ 「期限　10/03（土）」＋ ⚠ 判（期限切れ・今日まで）か「あと n日」。
-func _due_line(task: Dictionary) -> HBoxContainer:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "DueRow"
-	var caption: Label = _caption("ui_task_field_due")
-	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(caption)
-	var due: String = str(task.get(GameStateKeys.TASK_DUE, ""))
-	var value: Label = Label.new()
-	value.name = "DueLabel"
-	value.text = TaskParts.long_date(due) if due != "" else tr("ui_task_due_none")
-	value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(value)
-	var stamp: Stamp = TaskParts.due_stamp(task)
-	if stamp != null:
-		row.add_child(stamp)
-	elif due != "":
-		row.add_child(_row_caption("DaysLeftLabel", tr("ui_task_days_left") % TaskParts.days_from_today(due)))
-	return row
-
-
-# 期限の札（モック3）：⚠ なし ／ 今日 ／ 明日 ／ 今週中（⚠ 設定の「週の終わりの日」＝`TK-17`）／ 日付を選ぶ ▼（カレンダー）。
-func _due_choices(task: Dictionary) -> HFlowContainer:
-	var task_id: String = str(task.get(GameStateKeys.TASK_ID, ""))
-	var due: String = str(task.get(GameStateKeys.TASK_DUE, ""))
-	var today: String = GameDate.get_game_date_string()
-	var box: HFlowContainer = HFlowContainer.new()
-	box.name = "DueChoices"
-	for spec: Array in [
-		["DueNone", "ui_task_due_none", ""],
-		["DueToday", "ui_task_due_set_today", today],
-		["DueTomorrow", "ui_task_due_tomorrow", TaskParts.shift_date(today, 1)],
-		["DueWeek", "ui_task_due_week", TaskParts.week_end_date()],
-	]:
-		var button: Button = UiButton.create_paper_choice(str(spec[1]))
-		button.name = str(spec[0])
-		if str(spec[2]) == due:
-			button.theme_type_variation = &"PaperChoiceSelected"
-		button.pressed.connect(_on_due_pressed.bind(task_id, str(spec[2])))
-		box.add_child(button)
-	var pick: Button = UiButton.create_paper_choice("ui_task_due_pick")
-	pick.name = "DuePick"
-	pick.pressed.connect(_on_due_pick_pressed.bind(pick, due))
-	box.add_child(pick)
-	return box
-
-
-func _on_due_pressed(task_id: String, due: String) -> void:
-	if GameManager.set_task_due(task_id, due):
-		_queue_detail()
-
-
-func _on_due_pick_pressed(anchor: Control, due: String) -> void:
-	_calendar.open_under(anchor, due)
-
-
-func _on_calendar_picked(date: String) -> void:
-	_on_due_pressed(_selected_id, date)
-
-
-# 色（`TK-12`）：⚠ 決まった色から1つ（⚠ 数は Config）。⚠ 選んでいる札は `PaperChoiceSelected`。
-func _color_row(task: Dictionary) -> HBoxContainer:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "ColorRow"
-	var current: int = int(task.get(GameStateKeys.TASK_COLOR, 0))
-	var swatch: int = get_theme_constant(&"swatch", THEME_TYPE)
-	for i: int in range(GameManager.get_task_color_count()):
-		var button: Button = UiButton.create_paper_choice("")
-		button.name = "Color_%d" % i
-		button.tooltip_text = tr("ui_task_color_%d" % i)
-		if i == current:
-			button.theme_type_variation = &"PaperChoiceSelected"
-		# ⚠ ボタンは器ではない＝⚠ 真ん中に置く器を全面に敷いて、その中に丸。
-		var center: CenterContainer = CenterContainer.new()
-		center.set_anchors_preset(Control.PRESET_FULL_RECT)
-		center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		center.add_child(TaskColorMark.create(i, swatch))
-		button.add_child(center)
-		button.custom_minimum_size = Vector2(float(swatch), float(swatch)) * 1.4
-		button.pressed.connect(_on_color_pressed.bind(str(task.get(GameStateKeys.TASK_ID, "")), i))
-		row.add_child(button)
-	return row
-
-
-func _on_color_pressed(task_id: String, color: int) -> void:
-	if GameManager.set_task_color(task_id, color):
-		_queue_detail()
-
-
-# タグ（`TK-12`）：⚠ 自由に打てる・複数。⚠ 札を押すと外す。⚠ 札と打つ欄を1行に流す（モック2）。
-func _tag_row(task: Dictionary) -> VBoxContainer:
-	var task_id: String = str(task.get(GameStateKeys.TASK_ID, ""))
-	var box: VBoxContainer = VBoxContainer.new()
-	box.name = "TagRow"
-	box.add_child(_caption("ui_task_field_tags"))
-	var line: HFlowContainer = HFlowContainer.new()
-	line.name = "TagChips"
-	box.add_child(line)
-	for tag: Variant in task.get(GameStateKeys.TASK_TAGS, []):
-		var chip: Button = UiButton.create_paper_choice("")
-		chip.name = "Tag_" + str(tag)
-		chip.text = tr("ui_task_tag_remove") % str(tag)
-		chip.pressed.connect(_on_tag_remove_pressed.bind(task_id, str(tag)))
-		line.add_child(chip)
-	var edit: LineEdit = LineEdit.new()
-	edit.name = "TagEdit"
-	edit.placeholder_text = tr("ui_task_tag_placeholder")
-	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	edit.custom_minimum_size.x = 200.0
-	edit.text_submitted.connect(_on_tag_submitted.bind(edit, task_id))
-	line.add_child(edit)
-	var add: Button = UiButton.create_paper_choice("ui_task_add")
-	add.name = "AddTagButton"
-	add.pressed.connect(_on_tag_add_pressed.bind(edit, task_id))
-	line.add_child(add)
-	return box
-
-
-func _on_tag_submitted(_text: String, edit: LineEdit, task_id: String) -> void:
-	_on_tag_add_pressed(edit, task_id)
-
-
-func _on_tag_add_pressed(edit: LineEdit, task_id: String) -> void:
-	if GameManager.add_task_tag(task_id, edit.text):
-		_queue_detail()
-
-
-func _on_tag_remove_pressed(task_id: String, tag: String) -> void:
-	if GameManager.remove_task_tag(task_id, tag):
-		_queue_detail()
+func _rebuild_detail() -> void:
+	_detail_dirty = false
+	if _detail != null:
+		_detail.set_task(_selected_id)
 
 
 # ⚠ 状態を触るのは「消す」を押したあと（CLAUDE.md 6番）。⚠ 窓を待つ間に画面を離れたら何もしない。

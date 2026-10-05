@@ -6,7 +6,7 @@ extends PopupPanel
 # ⚠ 「日付を選ぶ ▼」の下に開く板（⚠ 外を押すと閉じる）。⚠ 中は紙（⚠ 字が墨になる）。
 # ⚠ 真鍮の輪＝今日（朝4:00 区切り）／ 墨で塗った日＝選んでいる日 ／ 過ぎた日は薄墨（⚠ 選べる）。
 # ⚠ 日を押すと `date_picked` を出して閉じる。⚠ 月は ◀ ▶ で送る。⚠ 値は Theme の `Task` 型と `TaskCal*`。
-# ⚠ タスクの画面だけで使う＝scenes/base/（AGENTS.md 置き場のルール）。
+# ⚠ タスクの画面とポモドーロ（詳しくの窓）で使う＝scenes/ui/components/（AGENTS.md・10-05 に scenes/base/ から移した）。
 
 signal date_picked(date: String)
 

@@ -1444,3 +1444,4 @@ ui_records_tasks_day,%d月%d日（%s）
 ui_records_tasks_open,▼
 ui_records_tasks_closed,▶
 ui_records_tasks_sum,%d件　%s
+ui_task_detail_open,詳しく
