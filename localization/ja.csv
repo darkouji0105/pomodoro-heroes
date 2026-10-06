@@ -1463,3 +1463,8 @@ ui_settings_auto_start,休憩明けに自動で始める
 ui_settings_auto_start_note,休憩が終わったら、前と同じ題とタスクで次の集中を始めます
 ui_settings_daily_goal,1日の目標（集中した分）
 ui_settings_goal_none,なし
+ui_pomodoro_task_empty_prompt,やることがまだありません。題を書いて「リストに足す」か、右の欄で足しましょう
+ui_mini_list_open,リスト ▼
+ui_mini_list_close,リスト ▲
+ui_mini_list_current,▶ %s
+ui_mini_list_check,□

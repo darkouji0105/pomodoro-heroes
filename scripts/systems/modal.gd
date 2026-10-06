@@ -35,6 +35,8 @@ const OPTION_HOLD: String = "hold_hint_key"
 # ⚠ 知らせ（`notify`）の窓も紙にする（2026-09-27・鍛冶の結果＝人間「⚠ 鍛冶の記録はモーダルで結果を伝えるのがいい」）。
 #   ⚠ 値は true／false。⚠ 渡さなければ今までどおり暗い窓（`MD-10`）。⚠ 紙の窓の閉じるは革（⚠ 紙の上で Ghost は読めない）。
 const OPTION_PAPER: String = "paper"
+# ⚠ 窓の外（暗幕）を押したら閉じる（2026-10-06・人間「⚠ 窓が出たとき画面外をクリックしても閉じるように」）。⚠ 知らせの窓だけ（⚠ 確かめの窓は閉じない＝誤って決まらないように）。⚠ 値は true／false。
+const OPTION_CLOSE_OUTSIDE: String = "close_outside"
 
 # ⚠ 呼ぶ側が綴りを書かないための持ち出し（⚠ `ModalDialog` の定数と同じ字）。
 const WIDTH_TINY: String = ModalDialog.WIDTH_TINY

@@ -179,27 +179,9 @@ func _extend_focus() -> void:
 	_update_view_timer()
 
 
-# ⚠ 上の段の右：[一時停止][＋5分][やめる]（⚠ やめるは .tscn にあるものを入れる）／ ⚠ セットの点の右に今日の分。
+# ⚠ セットの点の右に今日の分（回P-3）。
+# ⚠ 一時停止と「＋5分」は画面の真ん中（10-06・見る回・人間「⚠ 一時停止は画面中央付近に」）＝⚠ ビューごとに `_attach_run_controls()` が置く。
 func _build_controls() -> void:
-	var quit: Control = $Margin/Layout/TopBar/QuitButton
-	var top_bar: Control = quit.get_parent()
-	var right: HBoxContainer = HBoxContainer.new()
-	right.name = "TopControls"
-	right.anchor_left = 1.0
-	right.anchor_right = 1.0
-	right.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	top_bar.add_child(right)
-	_pause_button = UiButton.create(UiButton.Variant.GHOST, "ui_pomodoro_pause")
-	_pause_button.name = "PauseButton"
-	_pause_button.pressed.connect(toggle_pause)
-	right.add_child(_pause_button)
-	_extend_button = UiButton.create(UiButton.Variant.GHOST, "")
-	_extend_button.name = "ExtendButton"
-	_extend_button.text = tr("ui_pomodoro_extend") % Balance.pomodoro.extend_minutes
-	_extend_button.pressed.connect(_extend_focus)
-	right.add_child(_extend_button)
-	top_bar.remove_child(quit)
-	right.add_child(quit)
 	var center: Node = set_dots.get_parent()
 	var line: HBoxContainer = HBoxContainer.new()
 	line.name = "DotsLine"
@@ -213,15 +195,49 @@ func _build_controls() -> void:
 	_goal_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(_goal_label)
 	_refresh_goal()
+
+
+# ⚠ 集中のビューは「はじめる」の下、⚠ 休憩のビューは「とばす」の下に [一時停止][＋5分] の行（⚠ ＋5分は集中だけ）。
+func _attach_run_controls(view: Node) -> void:
+	_pause_button = null
+	_extend_button = null
+	var layout: VBoxContainer = view.get_node_or_null("Layout") as VBoxContainer
+	if layout == null:
+		return
+	var anchor: Node = layout.get_node_or_null("StartButton")
+	if anchor == null:
+		anchor = layout.get_node_or_null("SkipButton")
+	if anchor == null:
+		return
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "RunControls"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	layout.add_child(row)
+	layout.move_child(row, anchor.get_index() + 1)
+	_pause_button = UiButton.create(UiButton.Variant.SECONDARY, "ui_pomodoro_pause")
+	_pause_button.name = "PauseButton"
+	_pause_button.pressed.connect(toggle_pause)
+	row.add_child(_pause_button)
+	if current_state == State.FOCUS:
+		_extend_button = UiButton.create(UiButton.Variant.GHOST, "")
+		_extend_button.name = "ExtendButton"
+		_extend_button.text = tr("ui_pomodoro_extend") % Balance.pomodoro.extend_minutes
+		_extend_button.pressed.connect(_extend_focus)
+		row.add_child(_extend_button)
 	_refresh_controls()
 
 
 func _refresh_controls() -> void:
-	if _pause_button == null:
-		return
-	_pause_button.visible = _can_pause()
-	_pause_button.label_key = "ui_pomodoro_resume" if _paused else "ui_pomodoro_pause"
-	_extend_button.visible = is_timer_active and current_state == State.FOCUS and _focus_started
+	if _pause_button != null and is_instance_valid(_pause_button):
+		_pause_button.visible = _can_pause()
+		_pause_button.label_key = "ui_pomodoro_resume" if _paused else "ui_pomodoro_pause"
+	if _extend_button != null and is_instance_valid(_extend_button):
+		_extend_button.visible = is_timer_active and current_state == State.FOCUS and _focus_started
+	# ⚠ 始めたら「はじめる」は消す（⚠ 同じ場所に [一時停止][＋5分] が来る）。
+	if current_state == State.FOCUS and _current_view != null and is_instance_valid(_current_view):
+		var start: Control = _current_view.get_node_or_null("Layout/StartButton") as Control
+		if start != null:
+			start.visible = not _focus_started
 
 
 # ⚠ 今日集中した分 ／ 目標（⚠ 目標なしなら今日の分だけ）。⚠ 届いたら「達成」。
@@ -269,6 +285,9 @@ func _update_mini_window() -> void:
 		_mini.skip_requested.connect(_on_mini_skip)
 		_mini.finish_task_requested.connect(_on_mini_finish_task)
 		_mini.pause_requested.connect(toggle_pause)
+		# ⚠ 小窓のリスト（10-06）：⚠ サイドバーと同じ口（⚠ 行＝替える・四角＝終える）。
+		_mini.task_pressed.connect(switch_task)
+		_mini.task_checked.connect(finish_task_from_list)
 		add_child(_mini)
 	if _mini == null:
 		return
@@ -363,6 +382,7 @@ func _switch_view(new_state: State) -> void:
 	_current_view = view
 	_refresh_sidebar()
 	_fit_sidebar()
+	_attach_run_controls(view)
 
 	match new_state:
 		State.PROTECTION_SELECT:
@@ -380,6 +400,12 @@ func _switch_view(new_state: State) -> void:
 			# ⚠ 前のセットで選んだタスクも引き継ぐ（⚠ 名前は今のタスクの名前になる）。
 			if prev_task != "":
 				view.set_task(prev_task)
+			# ⚠⚠ 何も選んでいなければ、⚠ リストのいちばん上のまだのタスクを選ぶ（10-06・見る回・人間「⚠ 選ぶことに何もない場合は、真ん中に、するタスクを自動で選択」）。
+			#   ⚠ 前のセットで題だけ書いて選ばなかったときは選ばない（⚠ 本人が外した）。⚠ リストが空なら、ビューが「足しましょう」と促す。
+			elif prev_title == "":
+				var open: Array = GameManager.get_open_tasks()
+				if not open.is_empty():
+					view.set_task(str((open[0] as Dictionary).get(GameStateKeys.TASK_ID, "")))
 			view.start_requested.connect(_on_focus_started)
 			view.task_selected.connect(_on_view_task_selected)
 			# ここではタイマーを走らせない。開始ボタンを押すまで待つ

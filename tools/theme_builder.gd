@@ -2748,6 +2748,7 @@ const MINI_WINDOW: Dictionary = {
 	"big_time_size": 52,      # ⚠ 真ん中の残り時間
 	"button_pad_h": 8,
 	"button_pad_v": 2,
+	"list_height": 200,       # ⚠ 「リスト」を開くと下へ伸びる高さ（10-06）
 }
 const MINI_WINDOW_COLORS: Dictionary = {
 	"wall": "3a2c22", "text": "f1e6cf",

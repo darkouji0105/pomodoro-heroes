@@ -9,6 +9,8 @@ extends CanvasLayer
 #   ⚠ 部屋の絵（暖炉・人・z z）はやめて**タイマーが真ん中**。⚠ 上＝集中／休憩・セットの点・「大きく」／ 真ん中＝残り時間 ／
 #   ⚠ その下＝いまのタスク（色の印と名前）／ ⚠ 下＝集中中は「タスクを終える」（⚠ 選んでいるときだけ）・休憩中は「休憩をとばす」。
 #   ⚠ 回P-3（10-05）：⚠ 下に「一時停止」⇔「再開」も（⚠ 止めているあいだは上が「集中（停止中）」）。
+# ⚠⚠ 2026-10-06（見る回・人間「⚠ 小窓でも、リストを出し入れできるように」）：⚠ 上の「リスト」で窓が下へ伸び、まだのタスクが並ぶ
+#   （⚠ 行＝いまのタスクにする・四角＝終える＝サイドバーと同じ口）。⚠ もう一度押すと縮む。⚠ 伸びる高さは Theme の `list_height`。
 # ⚠ 小窓になるのは**タイマーが動いている集中と休憩のあいだだけ**（⚠ 振り返り＝文字を打つ・次のセットの「開始」は元の大きさ）。
 # ⚠ 窓を小さくするとき、⚠ 画面の論理の大きさ（`content_scale_size`）も小窓の大きさにする（⚠ 1280×720 のまま縮めると字が潰れる）。
 # ⚠ 窓の操作はヘッドレスでは何もしない（⚠ 中身の出し入れだけは動く＝検査が見る）。⚠ 値は Theme の `MiniWindow` 型。
@@ -22,6 +24,9 @@ signal skip_requested
 signal finish_task_requested
 # ⚠ 回P-3（2026-10-05）：⚠ 一時停止 ⇔ 再開。
 signal pause_requested
+# ⚠ 10-06：⚠ 小窓のリスト（⚠ サイドバーの `task_pressed` / `task_checked` と同じ形）。
+signal task_pressed(task_id: String)
+signal task_checked(task_id: String, done: bool)
 
 var _active: bool = false
 var _saved_mode: DisplayServer.WindowMode = DisplayServer.WINDOW_MODE_WINDOWED
@@ -40,6 +45,12 @@ var _task_label: Label = null
 var _finish_button: Button = null
 var _skip_button: Button = null
 var _pause_button: Button = null
+var _list_button: Button = null
+var _list_scroll: ScrollContainer = null
+var _list_box: VBoxContainer = null
+var _list_open: bool = false
+var _list_current: String = ""
+var _list_dirty: bool = false
 
 
 static func create() -> MiniWindow:
@@ -61,7 +72,7 @@ func enter() -> void:
 	_active = true
 	_build()
 	visible = true
-	var mini_size: Vector2i = Vector2i(_c(&"width"), _c(&"height"))
+	var mini_size: Vector2i = _mini_size()
 	var root_window: Window = get_tree().root
 	_saved_scale_size = root_window.content_scale_size
 	root_window.content_scale_size = mini_size
@@ -81,6 +92,88 @@ func enter() -> void:
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
 	var margin: int = _c(&"margin")
 	DisplayServer.window_set_position(usable.position + usable.size - mini_size - Vector2i(margin, margin))
+
+
+# 小窓の大きさ（⚠ リストを開いているあいだは下へ伸びる）。
+func _mini_size() -> Vector2i:
+	return Vector2i(_c(&"width"), _c(&"height") + (_c(&"list_height") if _list_open else 0))
+
+
+func is_list_open() -> bool:
+	return _list_open
+
+
+# リストを出し入れする（⚠ 窓ごと伸び縮み・⚠ 右下に付いたまま）。
+func toggle_list() -> void:
+	_list_open = not _list_open
+	_list_scroll.visible = _list_open
+	_list_button.text = tr("ui_mini_list_close") if _list_open else tr("ui_mini_list_open")
+	if _list_open:
+		_rebuild_list()
+	if not _active:
+		return
+	var mini_size: Vector2i = _mini_size()
+	get_tree().root.content_scale_size = mini_size
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_size(mini_size)
+	var usable: Rect2i = DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
+	var margin: int = _c(&"margin")
+	DisplayServer.window_set_position(usable.position + usable.size - mini_size - Vector2i(margin, margin))
+
+
+func _refresh_list() -> void:
+	if not _list_open or _list_dirty:
+		return
+	_list_dirty = true
+	_rebuild_list.call_deferred()
+
+
+# ⚠ まだのタスクを並べる（⚠ いまのタスクは「▶」）。⚠ 押した行を押している最中に外さない＝⚠ 知らせは次のフレーム・描き直しも次のフレーム。
+func _rebuild_list() -> void:
+	_list_dirty = false
+	if _list_box == null:
+		return
+	for child: Node in _list_box.get_children():
+		_list_box.remove_child(child)
+		child.queue_free()
+	var open: Array = GameManager.get_open_tasks()
+	if open.is_empty():
+		var empty: Label = Label.new()
+		empty.name = "MiniListEmpty"
+		empty.theme_type_variation = &"MiniTimeLabel"
+		empty.text = tr("ui_pomodoro_task_pick_empty")
+		_list_box.add_child(empty)
+		return
+	for raw: Variant in open:
+		var task: Dictionary = raw as Dictionary
+		var task_id: String = str(task.get(GameStateKeys.TASK_ID, ""))
+		var line: HBoxContainer = HBoxContainer.new()
+		line.name = "MiniTask_" + task_id
+		_list_box.add_child(line)
+		# ⚠ 四角は小さい札「□」（⚠ CheckBox は Theme の箱が大きく、行が高くなって4行しか入らなかった＝撮った絵）。⚠ 押すと終える。
+		var check: Button = _make_button("MiniCheck", "ui_mini_list_check", _on_list_checked.bind(true, task_id))
+		check.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(check)
+		var mark: TaskColorMark = TaskColorMark.create(int(task.get(GameStateKeys.TASK_COLOR, 0)))
+		mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(mark)
+		var title: String = str(task.get(GameStateKeys.TASK_TITLE, ""))
+		var row: Button = _make_button("MiniRow", "", _on_list_row_pressed.bind(task_id))
+		row.text = tr("ui_mini_list_current") % title if task_id == _list_current else title
+		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		row.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(row)
+
+
+func _on_list_row_pressed(task_id: String) -> void:
+	task_pressed.emit.call_deferred(task_id)
+
+
+func _on_list_checked(on: bool, task_id: String) -> void:
+	task_checked.emit.call_deferred(task_id, on)
 
 
 # 元の大きさ・位置に戻す。
@@ -115,6 +208,11 @@ func set_state(seconds: int, focusing: bool, set_index: int = -1, set_total: int
 		_dots.setup(set_total)
 	_dots.set_state(set_index, ratio)
 	var has_task: bool = not task.is_empty()
+	# ⚠ いまのタスクが変わったらリストの「▶」を描き直す。
+	var current: String = str(task.get(GameStateKeys.TASK_ID, "")) if has_task else ""
+	if current != _list_current:
+		_list_current = current
+		_refresh_list()
 	_task_line.visible = has_task
 	if has_task:
 		var title: String = str(task.get(GameStateKeys.TASK_TITLE, ""))
@@ -181,6 +279,9 @@ func _build() -> void:
 	_dots = SetDots.new()
 	_dots.name = "MiniSetDots"
 	dots_box.add_child(_dots)
+	# ⚠ リストの出し入れ（10-06）。
+	_list_button = _make_button("MiniListButton", "ui_mini_list_open", toggle_list)
+	top.add_child(_list_button)
 	var expand: Button = Button.new()
 	expand.name = "ExpandButton"
 	expand.text = tr("ui_mini_expand")
@@ -221,6 +322,18 @@ func _build() -> void:
 	# ⚠ 回P-3：⚠ 一時停止（⚠ 集中を始めたあとと休憩のあいだ）。
 	_pause_button = _make_button("MiniPauseButton", "ui_pomodoro_pause", _on_pause_pressed)
 	bottom.add_child(_pause_button)
+	# ⚠ リスト（10-06）：⚠ 開いているあいだだけ。⚠ 中で送る。
+	_list_scroll = ScrollContainer.new()
+	_list_scroll.name = "MiniList"
+	_list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_list_scroll.custom_minimum_size.y = float(_c(&"list_height")) - float(_c(&"gap"))
+	_list_scroll.visible = _list_open
+	column.add_child(_list_scroll)
+	_list_box = VBoxContainer.new()
+	_list_box.name = "MiniListBox"
+	_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_list_scroll.add_child(_list_box)
+	GameManager.tasks_changed.connect(_refresh_list)
 
 
 func _make_button(node_name: String, key: String, handler: Callable) -> Button:

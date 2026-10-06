@@ -125,6 +125,8 @@ const SHOT_AFTER_RECORDS_PICK: String = "records_pick"
 const SHOT_AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
 const SHOT_AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 const SHOT_AFTER_MINI_WINDOW: String = "mini_window"
+# ⚠ 10-06：⚠ 小窓のリストを開いた姿（⚠ 小窓の枚と同じ手 ＋ 「リスト」）。
+const SHOT_AFTER_MINI_LIST: String = "mini_list"
 # ⚠ 装備の特殊効果（2026-10-02）：⚠ いばらの鎧を入れて選んだ持ち物。⚠ 内側の `AFTER_SPECIAL_EFFECT` と同じ字。
 const SHOT_AFTER_SPECIAL_EFFECT: String = "special_effect"
 # ⚠ 掲示板の「高難度の依頼」タブ（2026-10-02・ノルマ札）。⚠ 内側の `AFTER_BOARD_HARD` と同じ字。
@@ -1309,6 +1311,7 @@ const SCENARIOS: Dictionary = {
 			{"name": "50_run_report_defeated", "scene": "res://scenes/adventure/run_report_screen.tscn", "prepare": SHOT_PREPARE_REPORT_DEFEATED},
 			# ⚠ デスクトップの小窓（2026-10-02・回UI-仕組み⑥・手本 Companion）。⚠ 窓が本当に小さくなる＝⚠⚠ いちばん最後。
 			{"name": "53_mini_window", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_MINI_WINDOW},
+			{"name": "68_mini_list", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_LIST},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -9204,6 +9207,7 @@ class ShotTaker extends Node:
 	const AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
 	const AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 	const AFTER_MINI_WINDOW: String = "mini_window"
+	const AFTER_MINI_LIST: String = "mini_list"
 	const AFTER_SPECIAL_EFFECT: String = "special_effect"
 	const AFTER_BOARD_HARD: String = "board_hard"
 	const AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
@@ -9811,7 +9815,7 @@ class ShotTaker extends Node:
 			(thorn_row as LedgerRow).pressed.emit()
 			for _i: int in range(3):
 				await get_tree().process_frame
-		elif kind == AFTER_MINI_WINDOW:
+		elif kind == AFTER_MINI_WINDOW or kind == AFTER_MINI_LIST:
 			# ⚠ 設定（⚠ 検査用のファイル）で小窓をオン → ⚠ 加護「始める」→ 集中「開始」→ ⚠ 小窓（⚠ 窓が本当に小さくなる）。
 			GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, true)
 			var mini_select: Node = screen.find_child("ProtectionSelectView", true, false)
@@ -9821,7 +9825,7 @@ class ShotTaker extends Node:
 					await get_tree().process_frame
 			# ⚠ 2026-10-05（回P-2）：⚠ タスクを選んでから始める（⚠ 小窓にタスクの行と「タスクを終える」を写す）。
 			var mini_view: Node = screen.find_child("FocusView", true, false)
-			if mini_view != null:
+			if mini_view != null and kind == AFTER_MINI_WINDOW:
 				mini_view.call("set_task", GameManager.add_task("企画書の下書きを書く"))
 			var mini_start: Node = screen.find_child("StartButton", true, false)
 			if not (mini_start is BaseButton):
@@ -9833,6 +9837,12 @@ class ShotTaker extends Node:
 			if not bool(screen.call("is_mini_window_active")):
 				push_error("[DebugBoot] ⚠ %s で小窓にならない" % shot_name)
 				return false
+			if kind == AFTER_MINI_LIST:
+				var mini_node: Node = screen.find_child("MiniWindow", true, false)
+				if mini_node != null:
+					mini_node.call("toggle_list")
+				for _i: int in range(20):
+					await get_tree().process_frame
 		elif kind == AFTER_POMODORO_RUNNING:
 			# ⚠ 加護を選ぶ（⚠ 出ていれば「始める」）→ ⚠ 集中の「開始」→ ⚠ 残りを4割にして道具の進みを見せる。
 			var select_view: Node = screen.find_child("ProtectionSelectView", true, false)
@@ -11003,6 +11013,31 @@ class UiFlowRunner extends Node:
 			and mini.find_child("MiniSetDots", true, false) is SetDots and mini.find_child("Leader", true, false) == null)
 		_check("小窓：集中中は「タスクを終える」だけ（「休憩をとばす」は出ない）",
 			(mini.find_child("FinishTaskButton", true, false) as Button).visible and not (mini.find_child("SkipBreakButton", true, false) as Button).visible)
+		# ⚠ 小窓のリスト（10-06・人間「⚠ 小窓でも、リストを出し入れできるように」）：⚠ 開く → 窓が伸びる・まだのタスクが並ぶ → 行で替える → 閉じる。
+		var mini_other: String = GameManager.add_task("小窓の検査2")
+		await _press(mini.find_child("MiniListButton", true, false))
+		await _wait()
+		var list_size: Vector2i = mini_size + Vector2i(0, ThemeDB.get_project_theme().get_constant(&"list_height", &"MiniWindow"))
+		var mini_rows: int = mini.find_children("MiniTask_*", "", true, false).size()
+		_check("小窓：「リスト」で窓が伸びる（%s）・まだのタスクが並ぶ（%d 行 ／ まだ %d）" % [str(root_window.content_scale_size), mini_rows, GameManager.get_open_tasks().size()],
+			bool(mini.call("is_list_open")) and root_window.content_scale_size == list_size and mini_rows == GameManager.get_open_tasks().size())
+		var other_row: Node = mini.find_child("MiniTask_" + mini_other, true, false)
+		await _press(null if other_row == null else other_row.find_child("MiniRow", true, false))
+		await _wait()
+		_check("小窓：リストの行を押すといまのタスクが替わる（%s）・小窓のまま" % _label_text(p, "MiniWindow", "TaskLabel"),
+			str(p.call("_current_task_id")) == mini_other and _label_text(p, "MiniWindow", "TaskLabel") == "小窓の検査2" and bool(p.call("is_mini_window_active")))
+		var back_line: Node = mini.find_child("MiniTask_" + mini_task, true, false)
+		if back_line == null:
+			var names: Array[String] = []
+			for child: Node in mini.find_child("MiniListBox", true, false).get_children():
+				names.append(str(child.name))
+			print("[DebugBoot] 小窓のリストの行（%s を探した）: %s" % [mini_task, str(names)])
+		await _press(null if back_line == null else back_line.find_child("MiniRow", true, false))
+		await _wait()
+		await _press(mini.find_child("MiniListButton", true, false))
+		_check("小窓：もう一度「リスト」で縮む（%s）・いまのタスクは戻した（%s）" % [str(root_window.content_scale_size), str(GameManager.get_task(str(p.call("_current_task_id"))).get(GameStateKeys.TASK_TITLE, ""))],
+			not bool(mini.call("is_list_open")) and root_window.content_scale_size == mini_size and str(p.call("_current_task_id")) == mini_task)
+		var _deleted_other: bool = GameManager.delete_task(mini_other)
 		# ⚠ 小窓の「一時停止」（回P-3）→ ⚠ 止まる・上が「集中（停止中）」→ もう一度で再開。
 		await _press(mini.find_child("MiniPauseButton", true, false))
 		_check("小窓：「一時停止」で止まる・「%s」・小窓のまま" % _label_text(p, "MiniWindow", "PhaseLabel"),
@@ -11122,7 +11157,9 @@ class UiFlowRunner extends Node:
 		get_viewport().push_input(space)
 		await _wait()
 		_check("スペース：始める前に押すと集中が始まる", bool(p.get("is_timer_active")) and bool(p.get("_focus_started")))
-		_check("一時停止：始めたら「一時停止」「＋5分」が出る", pause.visible and extend.visible and pause.text == tr("ui_pomodoro_pause"))
+		_check("一時停止：始めたら「一時停止」「＋5分」が真ん中（「はじめる」の場所）に出る・「はじめる」は消える",
+			pause.visible and extend.visible and pause.text == tr("ui_pomodoro_pause") and pause.get_parent().name == &"RunControls"
+			and p.find_child("FocusView", true, false).is_ancestor_of(pause) and not (p.find_child("FocusView", true, false).get_node("Layout/StartButton") as Control).visible)
 		await _press(pause)
 		var held: float = float(p.get("time_left_sec"))
 		await get_tree().create_timer(0.3).timeout
@@ -11156,7 +11193,9 @@ class UiFlowRunner extends Node:
 			today_after == today_before + focus_min and _label_text(p, "TopBar", "GoalLabel").begins_with(tr("ui_pomodoro_goal_progress").split("%")[0])
 			and _label_text(p, "TopBar", "GoalLabel").contains(str(today_after)))
 		# 休憩：⚠ 一時停止は出る・＋5分は出ない → ⚠ 終わると自動で次の集中が始まる。
-		_check("休憩：「一時停止」は出る・「＋5分」は出ない", int(p.get("current_state")) == 3 and pause.visible and not extend.visible)
+		pause = p.find_child("PauseButton", true, false) as Button
+		_check("休憩：「とばす」の下に「一時停止」・「＋5分」は無い", int(p.get("current_state")) == 3 and pause != null and pause.visible
+			and p.find_child("BreakView", true, false).is_ancestor_of(pause) and p.find_child("ExtendButton", true, false) == null)
 		var set_before: int = int(p.get("current_set_index"))
 		p.set("time_left_sec", 0.01)
 		await _wait(OPEN_FRAMES)
@@ -11871,6 +11910,19 @@ class UiFlowRunner extends Node:
 
 	func _flow_tasks() -> void:
 		var before: int = GameManager.get_tasks().size()
+		# ⚠ やることが1件も無いポモドーロ（10-06・人間「⚠ 追加するよう促す」）：⚠ 真ん中に促し・選んでいない。
+		if GameManager.get_open_tasks().is_empty():
+			var p0: Node = await _open(POMODORO, {})
+			if p0 != null:
+				var select0: Node = p0.find_child("ProtectionSelectView", true, false)
+				if select0 != null:
+					await _press(select0.find_child("StartButton", true, false), OPEN_FRAMES)
+				var prompt: Label = p0.find_child("EmptyPrompt", true, false) as Label
+				var view0: Node = p0.find_child("FocusView", true, false)
+				_check("ポモドーロ：やることが無いと真ん中に「%s」・選んでいない" % ("" if prompt == null else prompt.text),
+					prompt != null and prompt.visible and view0 != null and str(view0.call("get_task_id")) == "")
+		else:
+			_check("ポモドーロ：やることが無い姿を見られない（まだ %d 件）" % GameManager.get_open_tasks().size(), false)
 		var b: Node = await _open(BASE, {})
 		if b == null:
 			return
@@ -12009,6 +12061,9 @@ class UiFlowRunner extends Node:
 		if view == null or side == null:
 			_check("ポモドーロ：集中のビューかサイドバーが無い", false)
 			return
+		var first_open: String = str((GameManager.get_open_tasks()[0] as Dictionary).get(GameStateKeys.TASK_ID, "")) if not GameManager.get_open_tasks().is_empty() else ""
+		_check("ポモドーロ：何も選んでいなければリストのいちばん上（%s）を自動で選ぶ・促しは出ない" % str(GameManager.get_task(first_open).get(GameStateKeys.TASK_TITLE, "")),
+			first_open != "" and str(view.call("get_task_id")) == first_open and not (view.find_child("EmptyPrompt", true, false) as Label).visible)
 		var side_rows: int = side.find_children("Side_*", "", true, false).size()
 		var margin_right: float = (p.get_node("Margin/Layout") as Control).get_global_rect().end.x
 		_check("ポモドーロ：右にサイドバー（%d 行 ／ 一覧 %d）・中身の柱はサイドバーの手前まで（%.0f ≦ %.0f）" % [side_rows, GameManager.get_tasks().size(), margin_right, (side as Control).get_global_rect().position.x],
@@ -12087,7 +12142,23 @@ class UiFlowRunner extends Node:
 		_check("集中中：窓で色・メモ・期限が入る（%d / %s / %s）・タイマーは動いたまま" % [int(bd.get(GameStateKeys.TASK_COLOR, -1)), str(bd.get(GameStateKeys.TASK_MEMO, "")), str(bd.get(GameStateKeys.TASK_DUE, ""))],
 			int(bd.get(GameStateKeys.TASK_COLOR, -1)) == 4 and str(bd.get(GameStateKeys.TASK_MEMO, "")) == "集中中のメモ"
 			and str(bd.get(GameStateKeys.TASK_DUE, "")) == TaskParts.shift_date(GameDate.get_game_date_string(), 1) and bool(p.get("is_timer_active")))
-		await _close_modal(p)
+		# ⚠ 窓の外（暗幕の左上）を押して閉じる（10-06・人間「⚠ 窓が出たとき画面外をクリックしても閉じるように」）。⚠ 窓の中を押しても閉じない。
+		var outside_modal: ModalDialog = _modal_of(p)
+		if outside_modal != null:
+			var inside_click: InputEventMouseButton = InputEventMouseButton.new()
+			inside_click.button_index = MOUSE_BUTTON_LEFT
+			inside_click.pressed = true
+			inside_click.global_position = outside_modal.panel.get_global_rect().get_center()
+			outside_modal.blocker.gui_input.emit(inside_click)
+			await _wait()
+			var stayed: bool = _modal_of(p) != null
+			var outside_click: InputEventMouseButton = inside_click.duplicate() as InputEventMouseButton
+			outside_click.global_position = Vector2(2.0, 2.0)
+			outside_modal.blocker.gui_input.emit(outside_click)
+			await _wait(WAIT_FRAMES * 3)
+			_check("集中中：窓の中を押しても閉じない（%s）・外を押すと閉じる" % str(stayed), stayed and _modal_of(p) == null)
+		else:
+			_check("集中中：窓が無い", false)
 		_check("集中中：窓を閉じても B のまま・サイドバーの B の色の印が藍→紫", _modal_of(p) == null and str(p.call("_current_task_id")) == b_id
 			and ((side.find_child("Side_" + b_id, true, false) as Node).find_child("ColorMark", true, false) as TaskColorMark).color_index == 4)
 		# 選んでいる行のメモ（10-05・人間「⚠ 選択中のタスクは、メモを見れるように」）：⚠ 集中中もサイドバーの B の下に出る。
@@ -12117,8 +12188,15 @@ class UiFlowRunner extends Node:
 		var counts_after: Dictionary = _task_counts()
 		_check("集中中：選んでいない残りはどれにも記録しない（%s → %s）" % [str(after_finish), str(counts_after)],
 			_counts_same_except(after_finish, counts_after, ""))
-		# 選ばずに集中（`TK-11`）：⚠ どれも増えない。
+		# 選ばずに集中（`TK-11`）：⚠ どれも増えない。⚠ 10-06 から開くといちばん上を自動で選ぶ＝⚠ 「外す」を押してから始める。
 		p = await _open(POMODORO, {})
+		if p != null:
+			var select_unlink: Node = p.find_child("ProtectionSelectView", true, false)
+			if select_unlink != null:
+				await _press(select_unlink.find_child("StartButton", true, false), OPEN_FRAMES)
+			var unlink_band: Node = p.find_child("LinkedBand", true, false)
+			if unlink_band != null and (unlink_band as Control).visible:
+				await _press(unlink_band.find_child("UnlinkButton", true, false))
 		await _pomodoro_start_focus(p)
 		counts_before = _task_counts()
 		if p != null:

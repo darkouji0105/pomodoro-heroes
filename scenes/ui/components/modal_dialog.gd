@@ -125,6 +125,9 @@ func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary =
 		# ⚠ 知らせの窓も紙にできる（`Modal.OPTION_PAPER`・2026-09-27 鍛冶の結果）。
 		if bool(options.get(Modal.OPTION_PAPER, false)):
 			_become_paper(title, str(options.get(Modal.OPTION_STAMP, "")))
+		# ⚠ 外を押したら閉じる（`Modal.OPTION_CLOSE_OUTSIDE`・10-06）。⚠ 知らせの窓だけ。
+		if bool(options.get(Modal.OPTION_CLOSE_OUTSIDE, false)):
+			blocker.gui_input.connect(_on_blocker_input)
 	if pause:
 		_apply_pause()
 
@@ -296,6 +299,16 @@ func _on_close_pressed() -> void:
 # 暗幕のクリックでは閉じない。
 # gui_input を接続していないので、閉じる経路がそもそも存在しない。
 # 確認ダイアログで誤って閉じると、意図しない結果になるため。
+# ⚠ 例外：知らせの窓で `Modal.OPTION_CLOSE_OUTSIDE` を渡したときだけ（10-06）。⚠ 窓の中を押しても閉じない（⚠ 中は窓が受け止める）。
+func _on_blocker_input(event: InputEvent) -> void:
+	var mouse: InputEventMouseButton = event as InputEventMouseButton
+	if mouse == null or not mouse.pressed or mouse.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if panel.get_global_rect().has_point(mouse.global_position):
+		return
+	_close(false)
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey):
 		return

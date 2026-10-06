@@ -2790,6 +2790,7 @@ MiniWindow/constants/button_pad_v = 2
 MiniWindow/constants/button_width = 76
 MiniWindow/constants/gap = 2
 MiniWindow/constants/height = 180
+MiniWindow/constants/list_height = 200
 MiniWindow/constants/margin = 16
 MiniWindow/constants/pad = 8
 MiniWindow/constants/photo = 56

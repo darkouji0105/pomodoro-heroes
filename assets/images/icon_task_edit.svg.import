@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bnwtgw5uifi3v"
-path="res://.godot/imported/icon_task_memo.svg-e9212ffaedb931b71b4d4800a0d8210f.ctex"
+uid="uid://bffoughlwcf36"
+path="res://.godot/imported/icon_task_edit.svg-dca1fd7e07a59d0321677ed14928aff2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/images/icon_task_memo.svg"
-dest_files=["res://.godot/imported/icon_task_memo.svg-e9212ffaedb931b71b4d4800a0d8210f.ctex"]
+source_file="res://assets/images/icon_task_edit.svg"
+dest_files=["res://.godot/imported/icon_task_edit.svg-dca1fd7e07a59d0321677ed14928aff2.ctex"]
 
 [params]
 

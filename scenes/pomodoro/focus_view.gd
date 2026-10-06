@@ -32,6 +32,8 @@ var _add_button: Button = null
 var _linked_band: PaperSheet = null
 var _linked_line: HBoxContainer = null
 var _title_mark: TaskColorMark = null
+# ⚠ リストが空のときの促し（10-06・見る回・人間「⚠ もしくは追加するよう促す」）。
+var _empty_prompt: Label = null
 # ⚠ 始めたあと（⚠ 帯を描き直しても「外す」を押せないままにする＝透明なので押せると困る）。
 var _started: bool = false
 
@@ -122,6 +124,14 @@ func _build_task_box() -> void:
 	_add_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_add_button.pressed.connect(_on_add_to_list_pressed)
 	_task_box.add_child(_add_button)
+	# ⚠ やることが1件も無いとき（⚠ 選びようが無い）＝⚠ 足すように促す。⚠ 題を打てば「書いた題をリストに足す」が出る。
+	_empty_prompt = Label.new()
+	_empty_prompt.name = "EmptyPrompt"
+	_empty_prompt.theme_type_variation = &"AccentLabel"
+	_empty_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_empty_prompt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_empty_prompt.text = tr("ui_pomodoro_task_empty_prompt")
+	_task_box.add_child(_empty_prompt)
 	# 選んだ姿：⚠ 紙の帯（⚠ 角飾りは出さない＝細い帯）。
 	_linked_band = PaperSheet.new()
 	_linked_band.name = "LinkedBand"
@@ -172,6 +182,7 @@ func _refresh_task_link() -> void:
 	title_edit.tooltip_text = tr("ui_pomodoro_task_rename_note") if linked else ""
 	_add_button.visible = not linked and title_edit.text.strip_edges() != ""
 	_add_button.disabled = _started
+	_empty_prompt.visible = not linked and not _started and GameManager.get_open_tasks().is_empty()
 	for child: Node in _linked_line.get_children():
 		_linked_line.remove_child(child)
 		child.queue_free()

@@ -144,11 +144,11 @@ func _rebuild() -> void:
 			title.draw.connect(_draw_strike.bind(title))
 		title_line.add_child(title)
 		if not done:
-			# ⚠ メモのアイコン（10-05・人間「⚠ メモのアイコンにしてほしい　⚠ 詳しくというものではなく」）。⚠ 字は触れると出る札へ。
+			# ⚠ ペンのアイコン（10-05「⚠ メモのアイコンにしてほしい」→ 10-06「⚠ ペンのアイコンに変える」）。⚠ 字は触れると出る札へ。
 			var detail: Button = Button.new()
 			detail.name = "DetailButton"
 			detail.theme_type_variation = &"TaskMemoButton"
-			detail.icon = IconTextures.for_task_memo()
+			detail.icon = IconTextures.for_task_edit()
 			detail.focus_mode = Control.FOCUS_NONE
 			detail.tooltip_text = tr("ui_pomodoro_task_memo_tip")
 			detail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -212,6 +212,8 @@ func _on_detail_pressed(task_id: String) -> void:
 		Modal.OPTION_CONTENT: panel,
 		Modal.OPTION_PAPER: true,
 		Modal.OPTION_WIDTH: Modal.WIDTH_LARGE,
+		# ⚠ 外を押しても閉じる（10-06・人間「⚠ 窓が出たとき画面外をクリックしても閉じるように」）。
+		Modal.OPTION_CLOSE_OUTSIDE: true,
 	})
 
 
