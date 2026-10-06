@@ -191,6 +191,13 @@ func _refresh_task_link() -> void:
 	_title_mark.color_index = int(task.get(GameStateKeys.TASK_COLOR, 0))
 	_place_title_mark()
 	# ⚠ 「リストのタスク」の判をやめて題を出す（10-06・見る回・人間「⚠ タイトルを表示するように　リストのタスク　ではなく」）。
+	# ⚠ 同じ日にもう一度（人間「⚠ 気づけないから選択中にする」）：⚠ 題の左に「選択中」の判。
+	var selected_stamp: Stamp = Stamp.new()
+	selected_stamp.name = "LinkedStamp"
+	selected_stamp.label_key = "ui_pomodoro_task_selected_stamp"
+	selected_stamp.small = true
+	selected_stamp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_linked_line.add_child(selected_stamp)
 	var linked_title: Label = Label.new()
 	linked_title.name = "LinkedTitle"
 	linked_title.text = str(task.get(GameStateKeys.TASK_TITLE, ""))

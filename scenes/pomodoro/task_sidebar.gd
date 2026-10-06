@@ -24,6 +24,8 @@ var current_task_provider: Callable = Callable()
 var show_edit: bool = true
 # ⚠ 下の「足す」欄と案内（⚠ 小窓では出さない＝10-06 人間「⚠ 追加はいらないかも　とりあえず」）。⚠ `_ready()` より前に決める。
 var show_add: bool = true
+# ⚠ 下の案内（⚠ 小窓では出さない＝狭い）。⚠ `_ready()` より前に決める。
+var show_hint: bool = true
 
 var _heading: SheetHeading = null
 var _list: VBoxContainer = null
@@ -77,7 +79,7 @@ func _ready() -> void:
 	hint.text = tr("ui_pomodoro_task_list_hint")
 	body.add_child(hint)
 	add_line.visible = show_add
-	hint.visible = show_add
+	hint.visible = show_add and show_hint
 	GameManager.tasks_changed.connect(refresh)
 	_rebuild()
 

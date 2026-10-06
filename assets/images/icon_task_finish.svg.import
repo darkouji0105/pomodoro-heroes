@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://5lspvv13478m"
-path="res://.godot/imported/icon_timer_extend.svg-7d9c96aa2f646cb43f812ca0a2bfb14b.ctex"
+uid="uid://d1uwc7vg8s483"
+path="res://.godot/imported/icon_task_finish.svg-c10f917d34f7c4c60cb1f849bf5d22d2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/images/icon_timer_extend.svg"
-dest_files=["res://.godot/imported/icon_timer_extend.svg-7d9c96aa2f646cb43f812ca0a2bfb14b.ctex"]
+source_file="res://assets/images/icon_task_finish.svg"
+dest_files=["res://.godot/imported/icon_task_finish.svg-c10f917d34f7c4c60cb1f849bf5d22d2.ctex"]
 
 [params]
 

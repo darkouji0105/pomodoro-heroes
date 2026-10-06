@@ -2749,8 +2749,10 @@ const MINI_WINDOW: Dictionary = {
 	"button_pad_h": 8,
 	"button_pad_v": 2,
 	"list_gap": 8,            # ⚠ 「リスト」のサイドバーとタイマーの柱の間（10-06）
-	"list_top_height": 300,   # ⚠ 「リスト」を開くと上へ伸びる高さ（10-06・3回目・⚠ 240 では3行しか見えなかった）
-	"icon_size": 16,          # ⚠ 小窓の一時停止のアイコン
+	"list_top_height": 380,   # ⚠ 「リスト」を開くと上へ伸びる高さ（10-06・⚠ 240 では3行・⚠ 足す欄を出すので 380）
+	"icon_size": 16,          # ⚠ 小窓の上の「リスト」「大きく」と ✓ のアイコン
+	"timer_button_icon": 18,  # ⚠ 小窓の [一時停止][次へ]（10-06）
+	"timer_button_pad": 6,
 }
 # ⚠ タイマーのアイコンのボタン（10-06・人間「⚠ タイマーのように、アイコンにしてほしい」）：⚠ 丸い札・灯りの色の線画。
 const TIMER_ICON_BUTTON: Dictionary = {"icon": 26, "pad": 12, "radius": 30}
@@ -2812,6 +2814,19 @@ static func _build_mini_window(theme: Theme) -> void:
 	for key: String in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
 		theme.set_color(StringName(key), &"TimerIconButton", _html(TOKEN_LIGHT))
 	theme.set_constant(&"icon_max_width", &"TimerIconButton", int(TIMER_ICON_BUTTON["icon"]))
+	# ⚠ 小窓の [一時停止][次へ]（10-06・人間「⚠ 大きな方の窓と同じアセットを」）：⚠ 真ん中と同じ丸い札を小さく。
+	theme.set_type_variation(&"MiniTimerButton", &"TimerIconButton")
+	for state: String in BUTTON_STATES:
+		var big_round: StyleBox = theme.get_stylebox(StringName(state), &"TimerIconButton")
+		if big_round == null:
+			continue
+		var small_round: StyleBox = big_round.duplicate()
+		small_round.content_margin_left = int(MINI_WINDOW["timer_button_pad"])
+		small_round.content_margin_right = int(MINI_WINDOW["timer_button_pad"])
+		small_round.content_margin_top = int(MINI_WINDOW["timer_button_pad"])
+		small_round.content_margin_bottom = int(MINI_WINDOW["timer_button_pad"])
+		theme.set_stylebox(StringName(state), &"MiniTimerButton", small_round)
+	theme.set_constant(&"icon_max_width", &"MiniTimerButton", int(MINI_WINDOW["timer_button_icon"]))
 
 
 static func _build_focus_tool(theme: Theme) -> void:

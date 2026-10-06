@@ -7,7 +7,7 @@ extends Control
 # time_left_sec / is_timer_active を書き換えてよいのは _start_phase_timer() と
 # _stop_phase_timer() と _process() のみ。各ビューの分岐から直接触らないこと。
 # 3箇所から書き換えると、どこか1つ抜けたときにタイマーが止まる。
-# ⚠ 2026-10-05（回P-3）：⚠ 例外は「＋5分」の `_extend_focus()`（⚠ 残りと長さを同じだけ足すだけ）。
+# ⚠ 2026-10-05（回P-3）の「＋5分」は 10-06 にやめた（⚠ 人間「⚠ あと5分追加いらない」）＝⚠ 例外は無い。
 #   ⚠ 一時停止は `is_timer_active` を触らない（⚠ `_paused` で `_process()` が減らさないだけ＝小窓もそのまま）。
 #   ⚠ 減らす量はフレームの差分ではなく**時計の差分**（⚠ PC のスリープをまたいでもずれない）。
 
@@ -142,10 +142,10 @@ func _stop_phase_timer() -> void:
 
 var _paused: bool = false
 var _last_wall: float = 0.0
-# ⚠ このセットで延ばした秒（⚠ 振り返りで報酬と今日の分に足す）。⚠ 振り返りから先へ移ると 0。
-var _extended_sec: float = 0.0
+# ⚠ 集中を途中で終えたときに集中した秒（10-06・`end_phase()`）。⚠ -1＝最後まで（⚠ 振り返りで報酬と今日の分に使う）。
+var _focused_sec: float = -1.0
 var _pause_button: Button = null
-var _extend_button: Button = null
+var _next_button: Button = null
 var _goal_label: Label = null
 
 
@@ -167,16 +167,28 @@ func _can_pause() -> bool:
 	return is_timer_active and (current_state == State.BREAK or (current_state == State.FOCUS and _focus_started))
 
 
-# ⚠ 「＋5分」：⚠ 集中中だけ。⚠ 残りと長さを同じだけ延ばす（⚠ 輪の進みが跳ねない）。
-func _extend_focus() -> void:
-	if not (is_timer_active and current_state == State.FOCUS and _focus_started):
-		return
-	var add_sec: float = float(Balance.pomodoro.extend_minutes * 60)
-	time_left_sec += add_sec
-	phase_total_sec += add_sec
-	_segment_left += add_sec
-	_extended_sec += add_sec
-	_update_view_timer()
+# ⚠ いまのフェーズを終わらせる（10-06・人間「⚠ 今のポモドーロのフェーズを終わらせるボタンも　小窓もこれにも」「⚠ 次へ行くボタンは真ん中付近に」）。
+#   ⚠ 始める前＝はじめる ／ ⚠ 集中中＝ここで終えて振り返りへ（⚠ 報酬と今日の分は**集中した分だけ**・⚠ 音は鳴らさない）／ ⚠ 休憩＝とばす。
+func end_phase() -> void:
+	match current_state:
+		State.FOCUS:
+			if not _focus_started:
+				if _current_view != null and _current_view.has_method("start_now"):
+					_current_view.call("start_now")
+				return
+			_focused_sec = maxf(0.0, phase_total_sec - time_left_sec)
+			_flush_task_time()
+			_switch_view(State.REFLECTION)
+		State.BREAK:
+			_on_break_skipped()
+
+
+func _next_tip() -> String:
+	if current_state == State.FOCUS:
+		return tr("ui_mini_next_start") if not _focus_started else tr("ui_pomodoro_end_focus")
+	if current_state == State.BREAK:
+		return tr("ui_mini_skip_break")
+	return ""
 
 
 # ⚠ セットの点の右に今日の分（回P-3）。
@@ -216,7 +228,7 @@ func _build_controls() -> void:
 # ⚠ 集中のビューは「はじめる」の下、⚠ 休憩のビューは「とばす」の下に [一時停止][＋5分] の行（⚠ ＋5分は集中だけ）。
 func _attach_run_controls(view: Node) -> void:
 	_pause_button = null
-	_extend_button = null
+	_next_button = null
 	var layout: VBoxContainer = view.get_node_or_null("Layout") as VBoxContainer
 	if layout == null:
 		return
@@ -237,16 +249,16 @@ func _attach_run_controls(view: Node) -> void:
 	_pause_button.focus_mode = Control.FOCUS_NONE
 	_pause_button.pressed.connect(toggle_pause)
 	row.add_child(_pause_button)
-	if current_state == State.FOCUS:
-		_extend_button = Button.new()
-		_extend_button.name = "ExtendButton"
-		_extend_button.theme_type_variation = &"TimerIconButton"
-		_extend_button.focus_mode = Control.FOCUS_NONE
-		_extend_button.icon = IconTextures.for_timer(IconTextures.NAME_TIMER_EXTEND)
-		_extend_button.text = tr("ui_pomodoro_extend_short") % Balance.pomodoro.extend_minutes
-		_extend_button.tooltip_text = tr("ui_pomodoro_extend") % Balance.pomodoro.extend_minutes
-		_extend_button.pressed.connect(_extend_focus)
-		row.add_child(_extend_button)
+	# ⚠ 次へ（10-06）：⚠ 集中中＝集中を終える ／ 休憩＝とばす（⚠ 休憩の「とばす」の札はこれにまとめて隠す）。
+	_next_button = Button.new()
+	_next_button.name = "NextButton"
+	_next_button.theme_type_variation = &"TimerIconButton"
+	_next_button.focus_mode = Control.FOCUS_NONE
+	_next_button.icon = IconTextures.for_timer(IconTextures.NAME_TIMER_NEXT)
+	_next_button.pressed.connect(end_phase)
+	row.add_child(_next_button)
+	if anchor.name == &"SkipButton":
+		(anchor as Control).visible = false
 	_refresh_controls()
 
 
@@ -255,9 +267,10 @@ func _refresh_controls() -> void:
 		_pause_button.visible = _can_pause()
 		_pause_button.icon = IconTextures.for_timer(IconTextures.NAME_TIMER_PLAY if _paused else IconTextures.NAME_TIMER_PAUSE)
 		_pause_button.tooltip_text = tr("ui_pomodoro_resume") if _paused else tr("ui_pomodoro_pause")
-	if _extend_button != null and is_instance_valid(_extend_button):
-		_extend_button.visible = is_timer_active and current_state == State.FOCUS and _focus_started
-	# ⚠ 始めたら「はじめる」は消す（⚠ 同じ場所に [一時停止][＋5分] が来る）。
+	if _next_button != null and is_instance_valid(_next_button):
+		_next_button.visible = current_state == State.BREAK or (current_state == State.FOCUS and _focus_started)
+		_next_button.tooltip_text = _next_tip()
+	# ⚠ 始めたら「はじめる」は消す（⚠ 同じ場所に [一時停止][次へ] が来る）。
 	if current_state == State.FOCUS and _current_view != null and is_instance_valid(_current_view):
 		var start: Control = _current_view.get_node_or_null("Layout/StartButton") as Control
 		if start != null:
@@ -371,19 +384,14 @@ func _push_mini_state() -> void:
 	var ratio: float = 0.0 if phase_total_sec <= 0.0 else 1.0 - time_left_sec / phase_total_sec
 	var focusing: bool = current_state == State.FOCUS
 	var task: Dictionary = GameManager.get_task(_current_task_id()) if focusing else {}
-	# ⚠ 次のフェーズへ（10-06）：⚠ 始める前＝はじめる ／ 休憩＝とばす。⚠ 集中中は出さない（⚠ 画面にも無い＝途中で終える口は作らない）。
+	# ⚠ 次のフェーズへ（10-06）：⚠ 始める前＝はじめる ／ 集中中＝集中を終える ／ 休憩＝とばす（`end_phase()`）。
 	var waiting: bool = focusing and not _focus_started
-	var next_tip: String = tr("ui_mini_next_start") if waiting else (tr("ui_mini_skip_break") if current_state == State.BREAK else "")
-	_mini.set_state(int(ceil(time_left_sec)), focusing, current_set_index, current_total_sets, ratio, task, _paused, _can_pause(), waiting, next_tip)
+	_mini.set_state(int(ceil(time_left_sec)), focusing, current_set_index, current_total_sets, ratio, task, _paused, _can_pause(), waiting, _next_tip())
 
 
-# ⚠ 小窓の「次へ」（10-06・人間「⚠ 次のフェーズに移るボタンを小窓に」）。
+# ⚠ 小窓の「次へ」（10-06）＝⚠ 画面の真ん中の「次へ」と同じ口。
 func _on_mini_next() -> void:
-	if current_state == State.FOCUS and not _focus_started:
-		if _current_view != null and _current_view.has_method("start_now"):
-			_current_view.call("start_now")
-	elif current_state == State.BREAK:
-		_on_break_skipped()
+	end_phase()
 
 
 # ⚠ 小窓の「タスクを終える」（⚠ サイドバーの四角と同じ口＝`TK-16`）。⚠ 小窓のまま「選んでいない」に戻る。
@@ -404,9 +412,9 @@ func is_mini_window_active() -> bool:
 func _switch_view(new_state: State) -> void:
 	current_state = new_state
 	_focus_started = false
-	# ⚠ 延ばした分は振り返りが使ったあと（⚠ 振り返りから先へ移るときに 0）。
+	# ⚠ 途中で終えた分は振り返りが使ったあと（⚠ 振り返りから先へ移るときに戻す）。
 	if new_state != State.REFLECTION:
-		_extended_sec = 0.0
+		_focused_sec = -1.0
 	# ⚠ フェーズが変わったら「大きく」は解く（⚠ 次の集中・休憩はまた小窓）。
 	_mini_expanded = false
 	_stop_phase_timer()
@@ -548,8 +556,8 @@ func _on_reflection_completed(text: String, skipped: bool = false) -> void:
 	reflections.append({"text": text, "skipped": skipped})
 
 	if not skipped:
-		# ⚠ 延ばした分も入れる（2026-10-05・回P-3）。
-		var focus_min: int = int((float(current_preset.focus_duration_sec) + _extended_sec) / 60.0)
+		# ⚠ 途中で終えたら集中した分だけ（10-06・`end_phase()`）。
+		var focus_min: int = int((float(current_preset.focus_duration_sec) if _focused_sec < 0.0 else _focused_sec) / 60.0)
 		session_accumulated_focus_min += focus_min
 		_check_thresholds(focus_min)
 		_refresh_goal()

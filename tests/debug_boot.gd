@@ -11011,8 +11011,11 @@ class UiFlowRunner extends Node:
 			bool(p.call("is_mini_window_active")) and root_window.content_scale_size == mini_size and mini != null
 			and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_phase_focus") and _label_text(p, "MiniWindow", "TaskLabel") == "小窓の検査"
 			and mini.find_child("MiniSetDots", true, false) is SetDots and mini.find_child("Leader", true, false) == null)
-		_check("小窓：集中中は「タスクを終える」だけ（「次へ」は出ない）",
-			(mini.find_child("FinishTaskButton", true, false) as Button).visible and not (mini.find_child("MiniNextButton", true, false) as Button).visible)
+		_check("小窓：集中中は時間の下に [一時停止][次へ]（%s）・タスクの右に ✓" % (mini.find_child("MiniNextButton", true, false) as Button).tooltip_text,
+			(mini.find_child("FinishTaskButton", true, false) as Button).visible and (mini.find_child("MiniNextButton", true, false) as Button).visible
+			and (mini.find_child("MiniNextButton", true, false) as Button).tooltip_text == tr("ui_pomodoro_end_focus")
+			and mini.find_child("Controls", true, false).is_ancestor_of(mini.find_child("MiniPauseButton", true, false))
+			and mini.find_child("TaskLine", true, false).is_ancestor_of(mini.find_child("FinishTaskButton", true, false)))
 		# ⚠ 小窓のリスト（10-06・人間「⚠ 小窓でも、リストを出し入れできるように」→「⚠ リストのサイドバーをそのまま追加で伸ばす形に」）：
 		#   ⚠ 10-06 3回目「⚠ 上にリストを出して追加はいらないかも」：⚠ 開く → 窓が上へ伸びてサイドバー（⚠ ペンと足す欄は無い）→ 行で替える → 閉じる。
 		var mini_other: String = GameManager.add_task("小窓の検査2")
@@ -11023,10 +11026,10 @@ class UiFlowRunner extends Node:
 		var mini_side: Node = mini.find_child("MiniSidebar", true, false)
 		var mini_rows: int = 0 if mini_side == null else mini_side.find_children("Side_*", "", true, false).size()
 		var timer_column: Control = mini.find_child("TimeLabel", true, false) as Control
-		_check("小窓：「リスト」で窓が上へ伸びる（%s）・サイドバーがタイマーの上（%d 行 ／ 一覧 %d）・ペンと足す欄は無い" % [str(root_window.content_scale_size), mini_rows, GameManager.get_tasks().size()],
+		_check("小窓：「リスト」で窓が上へ伸びる（%s）・サイドバーがタイマーの上（%d 行 ／ 一覧 %d）・ペンは無い・足す欄はある" % [str(root_window.content_scale_size), mini_rows, GameManager.get_tasks().size()],
 			bool(mini.call("is_list_open")) and root_window.content_scale_size == list_size and mini_side is TaskSidebar and (mini_side as Control).visible
 			and mini_rows == GameManager.get_tasks().size() and mini_side.find_child("DetailButton", true, false) == null
-			and not (mini_side.find_child("AddLine", true, false) as Control).visible
+			and (mini_side.find_child("AddLine", true, false) as Control).visible and not (mini_side.find_child("HintLabel", true, false) as Control).visible
 			and timer_column != null and (mini_side as Control).get_global_rect().position.y < timer_column.get_global_rect().position.y)
 		await _press(null if mini_side == null else mini_side.find_child("Side_" + mini_other, true, false))
 		await _wait()
@@ -11038,6 +11041,18 @@ class UiFlowRunner extends Node:
 		await _press(mini.find_child("MiniListButton", true, false))
 		_check("小窓：もう一度「リスト」で縮む（%s）・いまのタスクは戻した（%s）" % [str(root_window.content_scale_size), str(GameManager.get_task(str(p.call("_current_task_id"))).get(GameStateKeys.TASK_TITLE, ""))],
 			not bool(mini.call("is_list_open")) and root_window.content_scale_size == mini_size and str(p.call("_current_task_id")) == mini_task)
+		# ⚠ 小窓のリストから足す（10-06）：⚠ 足すだけ（⚠ いまのタスクは変えない）。
+		var count_before_mini_add: int = GameManager.get_tasks().size()
+		await _press(mini.find_child("MiniListButton", true, false))
+		await _wait()
+		(mini_side.find_child("SideNewEdit", true, false) as LineEdit).text = "小窓から足した"
+		await _press(mini_side.find_child("SideAddButton", true, false))
+		var mini_added: String = str((GameManager.get_tasks().back() as Dictionary).get(GameStateKeys.TASK_ID, ""))
+		_check("小窓：リストの下の欄で足せる（%s）・いまのタスクは変わらない" % str(GameManager.get_task(mini_added).get(GameStateKeys.TASK_TITLE, "")),
+			GameManager.get_tasks().size() == count_before_mini_add + 1 and str(GameManager.get_task(mini_added).get(GameStateKeys.TASK_TITLE, "")) == "小窓から足した"
+			and str(p.call("_current_task_id")) == mini_task)
+		await _press(mini.find_child("MiniListButton", true, false))
+		var _deleted_added: bool = GameManager.delete_task(mini_added)
 		var _deleted_other: bool = GameManager.delete_task(mini_other)
 		# ⚠ 小窓の「一時停止」（回P-3）→ ⚠ 止まる・上が「集中（停止中）」→ もう一度で再開。
 		await _press(mini.find_child("MiniPauseButton", true, false))
@@ -11100,6 +11115,10 @@ class UiFlowRunner extends Node:
 		_check("いつでも小窓：始める前に「小窓にする」で小窓（%s・「%s」・次へ=%s）" % [str(root_window.content_scale_size), _label_text(p, "MiniWindow", "PhaseLabel"), "" if next_button == null else next_button.tooltip_text],
 			bool(p.call("is_mini_window_active")) and root_window.content_scale_size == mini_size and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_phase_ready")
 			and next_button != null and next_button.visible and next_button.tooltip_text == tr("ui_mini_next_start") and not bool(p.get("is_timer_active")))
+		var mini_top: Control = mini.find_child("Top", true, false) as Control
+		var inner_width: int = ThemeDB.get_project_theme().get_constant(&"width", &"MiniWindow") - 2 * ThemeDB.get_project_theme().get_constant(&"pad", &"MiniWindow")
+		_check("いつでも小窓：「これから集中」でも上の行が入りきる（%.0f ≦ %d）" % [mini_top.get_combined_minimum_size().x, inner_width],
+			mini_top.get_combined_minimum_size().x <= float(inner_width))
 		await _press(next_button)
 		await _wait()
 		_check("いつでも小窓：「次へ」で集中が始まる・小窓のまま", bool(p.get("is_timer_active")) and bool(p.get("_focus_started")) and bool(p.call("is_mini_window_active")))
@@ -11183,8 +11202,9 @@ class UiFlowRunner extends Node:
 		if select_view != null:
 			await _press(select_view.find_child("StartButton", true, false), OPEN_FRAMES)
 		var pause: Button = p.find_child("PauseButton", true, false) as Button
-		var extend: Button = p.find_child("ExtendButton", true, false) as Button
-		_check("一時停止：始める前は「一時停止」「＋5分」が出ない", pause != null and extend != null and not pause.visible and not extend.visible)
+		var next: Button = p.find_child("NextButton", true, false) as Button
+		_check("一時停止：始める前は「一時停止」「次へ」が出ない（「はじめる」がある）・「＋5分」は無い", pause != null and next != null and not pause.visible and not next.visible
+			and p.find_child("ExtendButton", true, false) == null)
 		# スペースキー（始める前）＝始める。
 		var space: InputEventKey = InputEventKey.new()
 		space.keycode = KEY_SPACE
@@ -11192,8 +11212,8 @@ class UiFlowRunner extends Node:
 		get_viewport().push_input(space)
 		await _wait()
 		_check("スペース：始める前に押すと集中が始まる", bool(p.get("is_timer_active")) and bool(p.get("_focus_started")))
-		_check("一時停止：始めたら「一時停止」「＋5分」が真ん中（「はじめる」の場所）に出る・「はじめる」は消える",
-			pause.visible and extend.visible and pause.tooltip_text == tr("ui_pomodoro_pause") and pause.icon != null and pause.get_parent().name == &"RunControls"
+		_check("一時停止：始めたら「一時停止」「次へ」（%s）が真ん中（「はじめる」の場所）に出る・「はじめる」は消える" % next.tooltip_text,
+			pause.visible and next.visible and next.tooltip_text == tr("ui_pomodoro_end_focus") and pause.tooltip_text == tr("ui_pomodoro_pause") and pause.icon != null and pause.get_parent().name == &"RunControls"
 			and p.find_child("FocusView", true, false).is_ancestor_of(pause) and not (p.find_child("FocusView", true, false).get_node("Layout/StartButton") as Control).visible)
 		await _press(pause)
 		var held: float = float(p.get("time_left_sec"))
@@ -11204,33 +11224,33 @@ class UiFlowRunner extends Node:
 		await get_tree().create_timer(0.3).timeout
 		_check("スペース：止めているときに押すと再開・残りが減る（%.2f → %.2f）" % [held, float(p.get("time_left_sec"))],
 			not bool(p.call("is_paused")) and float(p.get("time_left_sec")) < held)
-		# ＋5分。
-		var left_before: float = float(p.get("time_left_sec"))
-		var total_before: float = float(p.get("phase_total_sec"))
-		await _press(extend)
-		var add_sec: float = float(Balance.pomodoro.extend_minutes * 60)
-		_check("＋5分：残り %.0f → %.0f・長さ %.0f → %.0f" % [left_before, float(p.get("time_left_sec")), total_before, float(p.get("phase_total_sec"))],
-			absf(float(p.get("time_left_sec")) - left_before - add_sec) < 1.0 and is_equal_approx(float(p.get("phase_total_sec")), total_before + add_sec))
 		# 時計の差分：⚠ 2分眠っていたことにする（⚠ 時計の基準を 120 秒前へ）。
 		var before_sleep: float = float(p.get("time_left_sec"))
 		p.set("_last_wall", Time.get_unix_time_from_system() - 120.0)
 		await _wait()
 		_check("時計：スリープ明けのように時計が 120 秒進むと残りも 120 秒減る（%.0f → %.0f）" % [before_sleep, float(p.get("time_left_sec"))],
 			absf(before_sleep - float(p.get("time_left_sec")) - 120.0) < 1.0)
-		# 振り返りを書いて確定 → ⚠ 延ばした 5分も今日の分に入る。
-		p.set("time_left_sec", 0.01)
+		# 次へ（10-06・人間「⚠ 今のポモドーロのフェーズを終わらせるボタンも」）：⚠ 10分集中したところで「次へ」→ 振り返り → ⚠ 今日の分は集中した分だけ。
+		p.set("time_left_sec", float(p.get("phase_total_sec")) - 600.0)
 		await _wait()
-		var focus_min: int = GameSettings.focus_minutes() + Balance.pomodoro.extend_minutes
-		p.call("_on_reflection_completed", "延ばした分を数えるかの検査です。二十字を超えるように書く。", false)
+		var focused_sec: float = float(p.get("phase_total_sec")) - float(p.get("time_left_sec"))
+		await _press(next)
+		await _wait()
+		var focus_min: int = int(focused_sec / 60.0)
+		_check("次へ：集中中に押すとそこで終えて振り返り（集中した %.0f 秒）" % focused_sec, int(p.get("current_state")) == 2)
+		p.call("_on_reflection_completed", "途中で終えた分を数えるかの検査です。二十字を超えるように書く。", false)
 		await _wait()
 		var today_after: int = GameManager.get_cumulative_focus_minutes()
-		_check("＋5分：延ばした分も今日の分に入る（%d → %d・%d分）・目標の字も変わる（%s）" % [today_before, today_after, focus_min, _label_text(p, "TopBar", "GoalLabel")],
+		_check("次へ：今日の分は集中した分だけ入る（%d → %d・%d分）・目標の字も変わる（%s）" % [today_before, today_after, focus_min, _label_text(p, "TopBar", "GoalLabel")],
 			today_after == today_before + focus_min and _label_text(p, "TopBar", "GoalLabel").begins_with(tr("ui_pomodoro_goal_progress").split("%")[0])
 			and _label_text(p, "TopBar", "GoalLabel").contains(str(today_after)))
-		# 休憩：⚠ 一時停止は出る・＋5分は出ない → ⚠ 終わると自動で次の集中が始まる。
+		# 休憩：⚠ 真ん中に [一時停止][次へ]・⚠ 「とばす」の札は隠れる → ⚠ 終わると自動で次の集中が始まる。
 		pause = p.find_child("PauseButton", true, false) as Button
-		_check("休憩：「とばす」の下に「一時停止」・「＋5分」は無い", int(p.get("current_state")) == 3 and pause != null and pause.visible
-			and p.find_child("BreakView", true, false).is_ancestor_of(pause) and p.find_child("ExtendButton", true, false) == null)
+		next = p.find_child("NextButton", true, false) as Button
+		var break_view: Node = p.find_child("BreakView", true, false)
+		_check("休憩：真ん中に「一時停止」「次へ」（%s）・「とばす」の札は隠れる" % ("" if next == null else next.tooltip_text), int(p.get("current_state")) == 3 and pause != null and pause.visible
+			and break_view.is_ancestor_of(pause) and next != null and next.visible and next.tooltip_text == tr("ui_mini_skip_break")
+			and not (break_view.get_node("Layout/SkipButton") as Control).visible)
 		var set_before: int = int(p.get("current_set_index"))
 		p.set("time_left_sec", 0.01)
 		await _wait(OPEN_FRAMES)
@@ -12117,7 +12137,8 @@ class UiFlowRunner extends Node:
 			str(GameManager.get_task(b_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査B3")
 		var band: Node = view.find_child("LinkedBand", true, false)
 		_check("ポモドーロ：選ぶと紙の帯（題・期限切れの判・外す）・題の欄の左に色の印",
-			band is Control and (band as Control).visible and band.find_child("LinkedTitle", true, false) is Label and (band.find_child("LinkedTitle", true, false) as Label).text == "TK検査B3" and band.find_child("DueStamp", true, false) is Stamp
+			band is Control and (band as Control).visible and band.find_child("LinkedTitle", true, false) is Label and band.find_child("LinkedStamp", true, false) is Stamp
+				and (band.find_child("LinkedStamp", true, false) as Stamp).label_key == "ui_pomodoro_task_selected_stamp" and (band.find_child("LinkedTitle", true, false) as Label).text == "TK検査B3" and band.find_child("DueStamp", true, false) is Stamp
 			and band.find_child("UnlinkButton", true, false) != null and (view.find_child("TitleMark", true, false) as Control).visible)
 		# 「外す」→ 選んでいない（⚠ 題が残っているので「書いた題をリストに足す」が出る）。
 		await _press(null if band == null else band.find_child("UnlinkButton", true, false))

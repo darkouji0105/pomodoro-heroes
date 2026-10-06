@@ -11,8 +11,11 @@ extends CanvasLayer
 #   ⚠ 回P-3（10-05）：⚠ 下に「一時停止」⇔「再開」も（⚠ 止めているあいだは上が「集中（停止中）」）。
 # ⚠⚠ 2026-10-06（見る回・人間「⚠ 小窓でも、リストを出し入れできるように」→「⚠ リストのサイドバーをそのまま」→「⚠ 上にリストを出して追加はいらないかも」）：
 #   ⚠ 上の「リスト」で窓が**上へ**伸び、⚠ ポモドーロの右のサイドバー（`TaskSidebar`）をタイマーの上に出す（⚠ 行＝替える・四角＝終える）。
-#   ⚠ ペンと「足す」欄は出さない。⚠ もう一度押すと縮む。⚠ 伸びる高さは Theme の `list_top_height`。
-# ⚠ 下の「次へ」（10-06・人間「⚠ 次のフェーズに移るボタンを小窓に」）：⚠ 始める前＝はじめる ／ 休憩＝とばす（⚠ 器が決める）。
+#   ⚠ ペンは出さない・⚠ 「足す」欄は出す（⚠ 同じ日・人間「⚠ 小窓のリストからもタスクを追加できるように　大きな方の窓と同じアセットを」）。⚠ 伸びる高さは Theme の `list_top_height`。
+# ⚠ 時間の下に [一時停止][次へ]（10-06・人間「⚠ 次へ行くボタンは真ん中付近に」）：⚠ 画面の真ん中と同じ丸いアイコン（`MiniTimerButton`）。
+#   ⚠ 次へ＝始める前はじめる ／ 集中中は集中を終える ／ 休憩はとばす（⚠ 器の `end_phase()`）。
+# ⚠ 上の「リスト」「大きく」はアイコン（⚠ 字だと「これから集中」のとき上の行が 300 に入りきらなかった＝人間「⚠ いりきってないボタンがある」）。
+# ⚠ 「タスクを終える」はタスクの行の右の ✓（⚠ 行を1つ減らす）。
 # ⚠ 小窓になるのは**タイマーが動いている集中と休憩のあいだだけ**（⚠ 振り返り＝文字を打つ・次のセットの「開始」は元の大きさ）。
 # ⚠ 窓を小さくするとき、⚠ 画面の論理の大きさ（`content_scale_size`）も小窓の大きさにする（⚠ 1280×720 のまま縮めると字が潰れる）。
 # ⚠ 窓の操作はヘッドレスでは何もしない（⚠ 中身の出し入れだけは動く＝検査が見る）。⚠ 値は Theme の `MiniWindow` 型。
@@ -107,7 +110,7 @@ func is_list_open() -> bool:
 func toggle_list() -> void:
 	_list_open = not _list_open
 	_sidebar.visible = _list_open
-	_list_button.text = tr("ui_mini_list_close") if _list_open else tr("ui_mini_list_open")
+	_list_button.tooltip_text = tr("ui_mini_list_close") if _list_open else tr("ui_mini_list_open")
 	if _list_open:
 		_sidebar.refresh()
 	if not _active:
@@ -249,14 +252,15 @@ func _build() -> void:
 	_dots.name = "MiniSetDots"
 	dots_box.add_child(_dots)
 	# ⚠ リストの出し入れ（10-06）。
-	_list_button = _make_button("MiniListButton", "ui_mini_list_open", toggle_list)
+	_list_button = _make_button("MiniListButton", "", toggle_list)
+	_list_button.theme_type_variation = &"MiniIconButton"
+	_list_button.icon = IconTextures.for_timer(IconTextures.NAME_MINI_LIST)
+	_list_button.tooltip_text = tr("ui_mini_list_open")
 	top.add_child(_list_button)
-	var expand: Button = Button.new()
-	expand.name = "ExpandButton"
-	expand.text = tr("ui_mini_expand")
-	expand.theme_type_variation = &"MiniButton"
-	expand.focus_mode = Control.FOCUS_NONE
-	expand.pressed.connect(_on_expand_pressed)
+	var expand: Button = _make_button("ExpandButton", "", _on_expand_pressed)
+	expand.theme_type_variation = &"MiniIconButton"
+	expand.icon = IconTextures.for_timer(IconTextures.NAME_MINI_EXPAND)
+	expand.tooltip_text = tr("ui_mini_expand")
 	top.add_child(expand)
 	# ⚠ 真ん中：残り時間（⚠ 大きく）。
 	_time_label = Label.new()
@@ -266,6 +270,18 @@ func _build() -> void:
 	_time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_time_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(_time_label)
+	# ⚠ 時間のすぐ下：[一時停止][次へ]（10-06）。
+	var controls: HBoxContainer = HBoxContainer.new()
+	controls.name = "Controls"
+	controls.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_child(controls)
+	_pause_button = _make_button("MiniPauseButton", "", _on_pause_pressed)
+	_pause_button.theme_type_variation = &"MiniTimerButton"
+	controls.add_child(_pause_button)
+	_next_button = _make_button("MiniNextButton", "", _on_next_pressed)
+	_next_button.theme_type_variation = &"MiniTimerButton"
+	_next_button.icon = IconTextures.for_timer(IconTextures.NAME_TIMER_NEXT)
+	controls.add_child(_next_button)
 	# ⚠ いまのタスク（⚠ 選んでいないときは出さない）。
 	_task_line = HBoxContainer.new()
 	_task_line.name = "TaskLine"
@@ -279,26 +295,17 @@ func _build() -> void:
 	_task_label.theme_type_variation = &"MiniTimeLabel"
 	_task_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_task_line.add_child(_task_label)
-	# ⚠ 下：集中中は「タスクを終える」・⚠ 「次へ」（始める前・休憩）・一時停止。
-	var bottom: HBoxContainer = HBoxContainer.new()
-	bottom.name = "Bottom"
-	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.add_child(bottom)
-	_finish_button = _make_button("FinishTaskButton", "ui_mini_finish_task", _on_finish_pressed)
-	bottom.add_child(_finish_button)
-	_next_button = _make_button("MiniNextButton", "", _on_next_pressed)
-	_next_button.theme_type_variation = &"MiniIconButton"
-	_next_button.icon = IconTextures.for_timer(IconTextures.NAME_TIMER_NEXT)
-	bottom.add_child(_next_button)
-	# ⚠ 回P-3：⚠ 一時停止（⚠ 集中を始めたあとと休憩のあいだ）。
-	_pause_button = _make_button("MiniPauseButton", "", _on_pause_pressed)
-	_pause_button.theme_type_variation = &"MiniIconButton"
-	bottom.add_child(_pause_button)
+	# ⚠ 「タスクを終える」＝行の右の ✓（10-06）。
+	_finish_button = _make_button("FinishTaskButton", "", _on_finish_pressed)
+	_finish_button.theme_type_variation = &"MiniIconButton"
+	_finish_button.icon = IconTextures.for_task_finish()
+	_finish_button.tooltip_text = tr("ui_mini_finish_task")
+	_task_line.add_child(_finish_button)
 	# ⚠ リスト（10-06）：⚠ ポモドーロのサイドバーと同じ部品。⚠ 開いているあいだだけ。
 	_sidebar = TaskSidebar.create()
 	_sidebar.name = "MiniSidebar"
 	_sidebar.show_edit = false
-	_sidebar.show_add = false
+	_sidebar.show_hint = false
 	_sidebar.current_task_provider = _current_for_list
 	_sidebar.task_pressed.connect(_on_side_pressed)
 	_sidebar.task_checked.connect(_on_side_checked)

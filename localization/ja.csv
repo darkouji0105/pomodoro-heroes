@@ -1453,7 +1453,6 @@ ui_task_cal_prev_year_tip,前の年
 ui_task_cal_next_year_tip,次の年
 ui_pomodoro_pause,一時停止
 ui_pomodoro_resume,再開
-ui_pomodoro_extend,＋%d分
 ui_pomodoro_today_minutes,今日 %d分
 ui_pomodoro_goal_progress,今日 %d / %d分
 ui_pomodoro_goal_reached,今日 %d / %d分　達成
@@ -1463,9 +1462,10 @@ ui_settings_auto_start_note,休憩が終わったら、前と同じ題とタス�
 ui_settings_daily_goal,1日の目標（集中した分）
 ui_settings_goal_none,なし
 ui_pomodoro_task_empty_prompt,やることがまだありません。題を書いて「リストに足す」か、右の欄で足しましょう
-ui_mini_list_open,リスト ▼
-ui_mini_list_close,リスト ▲
-ui_pomodoro_extend_short,＋%d
+ui_mini_list_open,リストを出す
+ui_mini_list_close,リストをしまう
 ui_pomodoro_to_mini,小窓にする
 ui_mini_phase_ready,これから集中
 ui_mini_next_start,はじめる
+ui_pomodoro_end_focus,集中を終える（集中した分だけ数える）
+ui_pomodoro_task_selected_stamp,選択中
