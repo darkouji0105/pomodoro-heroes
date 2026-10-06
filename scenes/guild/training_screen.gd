@@ -348,6 +348,15 @@ func _build_application() -> VBoxContainer:
 		need_value.theme_type_variation = &"" if enough else &"ErrorLabel"
 		need_value.text = tr("ui_training_need_value") % [tr("ui_res_" + material_id), amount, owned]
 	need.add_child(need_value)
+	# ⚠ 10-06（`NAV-19`）：⚠ 昇級に使う素材の入手先（⚠ 紙の上なので紙の札）。
+	if not at_cap:
+		var level_material: String = str(GameManager.get_level_up_cost(_selected_id).get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
+		var level_amount: int = int(GameManager.get_level_up_cost(_selected_id).get(GameManager.LEVEL_UP_COST_AMOUNT, 0))
+		var source: Button = UiButton.create_paper_choice("ui_source_open")
+		source.name = "SourceButton"
+		source.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		source.pressed.connect(ItemSourceWindow.open.bind(self, level_material, level_amount, _return_data()))
+		line.add_child(source)
 
 	var button: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_training_apply")
 	button.name = "LevelUpButton"

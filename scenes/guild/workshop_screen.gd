@@ -170,6 +170,19 @@ func _create_recipe_row(recipe: Dictionary) -> void:
 	start_button.disabled = _queue_is_full() or not _can_afford(recipe)
 	start_button.pressed.connect(_on_start_pressed.bind(recipe_id))
 	row.add_child(start_button)
+	# ⚠ 10-06（`NAV-19`）：⚠ 材料ごとに入手先（⚠ 素材だけ）。
+	var inputs: Variant = recipe.get(GameManager.RECIPE_INPUTS, [])
+	if inputs is Array:
+		for entry: Variant in (inputs as Array):
+			if not (entry is Dictionary):
+				continue
+			var input_id: String = str((entry as Dictionary).get(GameManager.RECIPE_IO_ITEM_ID, ""))
+			if not GameManager.get_material_ids().has(input_id):
+				continue
+			var source: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_source_open")
+			source.name = "SourceButton_" + input_id
+			source.pressed.connect(ItemSourceWindow.open.bind(self, input_id, int((entry as Dictionary).get(GameManager.RECIPE_IO_COUNT, 0)), {}))
+			row.add_child(source)
 
 	recipe_list.add_child(row)
 

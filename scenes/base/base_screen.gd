@@ -83,6 +83,8 @@ func _init_resource_displays(_state: Dictionary) -> void:
 	# ⚠ 通貨3つは `ResourceHud` が画面をまたいで常駐で出す（2026-09-09）。
 	#   ⚠ ここでも出すと二重になるので、⚠ 拠点は**素材だけ**を足す。
 	bar.show_currencies = false
+	# ⚠ 10-06（`NAV-19`）：⚠ 素材のチップを押すと入手先の窓。
+	bar.open_sources = true
 	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
 	# ⚠ 面が押せてしまうと、⚠ 後ろに何か置いたときに押せなくなる。
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE

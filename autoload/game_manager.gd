@@ -460,6 +460,8 @@ func _validate_balance_item_refs() -> void:
 	if "character" in Balance and Balance.character != null:
 		errors += _report_missing_balance_item(
 			str(Balance.character.level_up_material_id), "character_config.tres", "level_up_material_id")
+		for higher_id: String in Balance.character.level_up_higher_material_ids:
+			errors += _report_missing_balance_item(higher_id, "character_config.gd", "level_up_higher_material_ids")
 
 	# ⚠ 宝箱の中身はここで見ない。chests.json へ移したので E118 が見る
 	#   （EXEC_CHEST_REGISTRY.md §3-B）。.tres に残っている chest_contents は
@@ -2355,9 +2357,20 @@ func get_level_up_cost(character_id: String) -> Dictionary:
 		amount = 0
 
 	return {
-		LEVEL_UP_COST_MATERIAL_ID: config.level_up_material_id,
+		LEVEL_UP_COST_MATERIAL_ID: get_level_up_material_id(level),
 		LEVEL_UP_COST_AMOUNT: amount,
 	}
+
+
+# そのレベルから1つ上げるのに使う素材（2026-10-06・`GR-7`）。⚠ 上の段ほど後ろ（⚠ 段の境目は `CharacterConfig`）。
+func get_level_up_material_id(level: int) -> String:
+	var config: CharacterConfig = Balance.character
+	var material_id: String = config.level_up_material_id
+	var count: int = mini(config.level_up_higher_material_ids.size(), config.level_up_higher_from_levels.size())
+	for i: int in range(count):
+		if level >= int(config.level_up_higher_from_levels[i]):
+			material_id = config.level_up_higher_material_ids[i]
+	return material_id
 
 # レベルを1つ上げる。上限到達・素材不足のときは何もせず false を返す。
 # 成功時は素材を消費し、stats を再計算して character_growth_changed を発火する。

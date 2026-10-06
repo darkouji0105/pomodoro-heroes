@@ -12715,7 +12715,61 @@ class UiFlowRunner extends Node:
 				training_kinds.append(str(source.get(GameManager.ITEM_SOURCE_KIND, "")))
 			_check("入手先：%s は通常の依頼で手に入る（%s）" % [training_id, str(training_kinds)], GameManager.ITEM_SOURCE_STAGE in training_kinds)
 		await _flow_board_quick()
+		await _flow_source_everywhere()
 		await _open(BASE, {})
+
+	# --- 素材を見せる所はどこからでも入手先の窓（2026-10-06・人間「⚠ 素材関連は全部広げる」） ---
+
+	func _flow_source_everywhere() -> void:
+		const RESEARCH_SCREEN: String = "res://scenes/guild/research_screen.tscn"
+		const WORKSHOP_SCREEN: String = "res://scenes/guild/workshop_screen.tscn"
+		# ⚠ 昇級の素材の段（`GR-7`）。
+		var tiers: Array[String] = []
+		for level: int in [1, 20, 21, 40, 41, 60, 61, 99]:
+			tiers.append(GameManager.get_level_up_material_id(level))
+		_check("昇級の素材：Lv1・20＝1 ／ 21・40＝2 ／ 41・60＝3 ／ 61・99＝4（%s）" % str(tiers),
+			tiers == ["training_material_1", "training_material_1", "training_material_2", "training_material_2",
+				"training_material_3", "training_material_3", "training_material_4", "training_material_4"])
+		# 本部の右上の素材のチップ。
+		var base: Node = await _open(BASE, {})
+		if base != null:
+			var chip: Node = base.find_child("Chip_forging_material_1", true, false)
+			await _press(chip.find_child("Hit", false, false) if chip != null else null)
+			_check("入手先：本部の右上の素材を押すと窓", _source_window(base) != null)
+			await _close_modal(base)
+		# 育成の概要の昇級の行。
+		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
+		if t != null:
+			await _press(t.find_child("SourceButton", true, false))
+			_check("入手先：育成の昇級の行から窓", _source_window(t) != null)
+			await _close_modal(t)
+		# 研究のノード。
+		var rs: Node = await _open(RESEARCH_SCREEN, {})
+		if rs != null:
+			var research_source: Node = null
+			for node: Node in rs.find_children("SourceButton_*", "", true, false):
+				research_source = node
+				break
+			await _press(research_source)
+			_check("入手先：研究のノードから窓", _source_window(rs) != null)
+			await _close_modal(rs)
+		# 作業場のレシピの材料。
+		var ws: Node = await _open(WORKSHOP_SCREEN, {})
+		if ws != null:
+			var workshop_source: Node = null
+			for node: Node in ws.find_children("SourceButton_*", "", true, false):
+				workshop_source = node
+				break
+			await _press(workshop_source)
+			_check("入手先：作業場の材料から窓", _source_window(ws) != null)
+			await _close_modal(ws)
+		# 持ち物の装飾の「段階を上げる」。
+		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART})
+		if w != null:
+			await _press(w.find_child("Row_" + PART_ID, true, false))
+			await _press(w.find_child("SourceButton", true, false))
+			_check("入手先：装飾の段階を上げる素材から窓", _source_window(w) != null)
+			await _close_modal(w)
 
 	# --- 施設の帯の掲示板 ／ 「すぐ出撃」（2026-10-06・人間「⚠ ３はどっちも行う」） ---
 

@@ -138,12 +138,23 @@ func _add_node_row(node_id: String, node: Dictionary) -> void:
 	info.text = "\n".join(lines)
 
 	var button: UiButton = UI_BUTTON_SCENE.instantiate()
-	node_list.add_child(button)
+	# ⚠ 10-06：⚠ 「解放する」と「入手先を見る」は1行に並べる（⚠ 縦に積むと全幅のボタンが2本＝撮った絵）。
+	var actions: HBoxContainer = HBoxContainer.new()
+	actions.name = "Actions_" + node_id
+	node_list.add_child(actions)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(button)
 	# label_key は使わず text を直接入れる（解放済みで文言が変わるため）。
 	button.text = tr("ui_research_unlocked") if unlocked else tr("ui_research_unlock")
 	# 押せてから失敗するより、押せないほうが分かりやすい（育成画面と同じ方針）。
 	button.disabled = unlocked or not prerequisites_met or not enough
 	button.pressed.connect(_on_unlock_pressed.bind(node_id))
+	# ⚠ 10-06（`NAV-19`）：⚠ まだ解放していないノードは、使う素材の入手先を開ける。
+	if not unlocked and material_id != "":
+		var source: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_source_open")
+		source.name = "SourceButton_" + node_id
+		source.pressed.connect(ItemSourceWindow.open.bind(self, material_id, amount, {}))
+		actions.add_child(source)
 
 	node_list.add_child(HSeparator.new())
 

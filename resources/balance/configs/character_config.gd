@@ -5,7 +5,14 @@ extends Resource
 # 実際の値は res://resources/balance/configs/character_config.tres を Inspector で編集する。
 
 # --- レベルアップに必要な素材 ---
+# ⚠ `level_up_material_id` は**いちばん下の段**（Lv1〜）の素材。
 @export var level_up_material_id: String
+# ⚠⚠ 2026-10-06（人間「⚠ 高いレベルで使うようになっていく」・`GR-7`）：⚠ 上の段の素材。
+#   ⚠ `level_up_higher_from_levels[i]` 以上のレベルから `level_up_higher_material_ids[i]` を使う（⚠ 2つは同じ長さ・昇順）。
+#   ⚠ 既定は研究で上限が 20 ずつ開くのに合わせた仮の値（⚠ 数は人間が遊んでから＝`DG-2`）。
+#   ⚠ .tres に行が無い＝効いているのはここの既定値（⚠ `level_up_cost_formula` と同じ）。
+@export var level_up_higher_material_ids: Array[String] = ["training_material_2", "training_material_3", "training_material_4"]
+@export var level_up_higher_from_levels: Array[int] = [21, 41, 61]
 @export var base_level_up_cost: int
 @export var cost_growth_per_level: float
 

@@ -234,6 +234,12 @@ func _build_part(item_id: String) -> void:
 		upgrade.disabled = not GameManager.can_upgrade_part(item_id)
 		upgrade.pressed.connect(_on_part_upgrade_pressed.bind(item_id))
 		buttons.add_child(upgrade)
+		# ⚠ 10-06（`NAV-19`）：⚠ 段階を上げる素材の入手先（⚠ 行った先の「戻る」で装飾のタブへ）。
+		var source: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_source_open")
+		source.name = "SourceButton"
+		source.pressed.connect(ItemSourceWindow.open.bind(self, str(cost.get(GameManager.PART_UPGRADE_MATERIAL_ID, "")),
+			int(cost.get(GameManager.PART_UPGRADE_AMOUNT, 0)), {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART}))
+		buttons.add_child(source)
 	var refund_total: int = 0
 	for amount: Variant in GameManager.get_part_dismantle_refund(item_id, 1).values():
 		refund_total += int(amount)

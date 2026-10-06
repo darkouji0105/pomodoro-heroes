@@ -53,6 +53,10 @@ const RESOURCE_DISPLAY_SCENE: PackedScene = preload(
 #   ⚠ 装備画面は左ぞろえの列の中なので false（⚠ まわりと揃わないと浮く）。
 @export var material_align_end: bool = true
 
+# ⚠ 素材のチップを押すと入手先の窓（2026-10-06・人間「⚠ 素材関連は全部広げる」・`NAV-19`）。⚠ 拠点だけ true。
+#   ⚠ 通貨のチップは押せない（⚠ 入手先の窓は品のためのもの）。
+@export var open_sources: bool = false
+
 @export var material_ids: PackedStringArray = PackedStringArray():
 	set(value):
 		material_ids = value
@@ -149,9 +153,16 @@ func _make_chip(resource_id: String) -> PanelContainer:
 	icon.modulate = _color_of(resource_id, chip)
 	var value_label: Label = display.get_node("ValueLabel")
 	value_label.theme_type_variation = &"ChipValueLabel"
+	if open_sources and not is_currency:
+		var hit: Button = UiButton.attach_hit(chip, _on_chip_pressed.bind(resource_id))
+		hit.tooltip_text = tr("ui_source_open")
 
 	_displays[resource_id] = display
 	return chip
+
+
+func _on_chip_pressed(resource_id: String) -> void:
+	var _window: ModalDialog = ItemSourceWindow.open(self, resource_id)
 
 
 # ⚠ その資源の色。⚠ 通貨はIDそのもの、⚠ 素材は系統（建築・修練・鍛冶・装飾）で引く。
