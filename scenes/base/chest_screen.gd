@@ -541,4 +541,5 @@ func _on_pending_chests_changed(_pending_count: int) -> void:
 
 
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(BASE_PATH)
+	# ⚠ 10-06（`NAV-19`）：⚠ 入手先の窓から寄り道で来たなら、窓を開いた画面へ。
+	SceneManager.go_back_or(BASE_PATH)

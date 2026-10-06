@@ -255,6 +255,12 @@ func _build_item(item_id: String) -> void:
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(spacer)
 	# ⚠ 「捨てる」は消した（2026-10-03・回3-d・`EQ-14`＝拠点に容量が無い）。
+	# ⚠ 10-06（`NAV-19`）：⚠ 入手先の窓（⚠ 行った先の「戻る」で持ち物の素材タブへ戻る）。
+	if GameManager.get_material_ids().has(item_id):
+		var source: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_source_open")
+		source.name = "SourceButton"
+		source.pressed.connect(ItemSourceWindow.open.bind(self, item_id, 0, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL}))
+		add_child(source)
 
 
 # --- 小さい器 ---

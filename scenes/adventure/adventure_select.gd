@@ -354,20 +354,17 @@ func _on_go_shop_pressed() -> void:
 
 func _on_back_pressed() -> void:
 	# 履歴に依存せず明示的に拠点へ（EXEC §5-7 / base_screen.gd と同じ）
-	SceneManager.change_scene(BASE_PATH)
+	# ⚠ 10-06（`NAV-19`）：⚠ 入手先の窓から寄り道で来たなら、窓を開いた画面へ。
+	SceneManager.go_back_or(BASE_PATH)
 
 
 # --- ヘルパー ---
 
 # 解放判定。stage_order の index 関係のみを使う（EXEC §4.2）。
 # ステージ ID から数字を切り出さない（PRE_PLAN §4.3）。
+# ⚠ 10-06：⚠ 判定は GameManager へ移した（⚠ 入手先の窓も同じものを使う）。
 func _is_unlocked(stage_id: String) -> bool:
-	var order: Array = MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)
-	var idx: int = order.find(stage_id)
-	if idx < 0:
+	if not (stage_id in MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)):
 		push_error("[AdventureSelect] stage_id not in order: " + stage_id)
 		return false
-	if idx == 0:
-		return true
-	var prev_id: String = order[idx - 1]
-	return GameManager.is_stage_cleared(prev_id)
+	return GameManager.is_story_stage_unlocked(stage_id)

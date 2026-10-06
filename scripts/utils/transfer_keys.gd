@@ -84,5 +84,7 @@ const SORTIE_START_FLOOR: String = "sortie_start_floor"
 const RECORDS_TAB: String = "records_tab"
 # 依頼掲示板で開いておくタブ（⚠ 値は `AdventureSelect` の `TAB_*`）。
 const QUEST_TAB: String = "quest_tab"
+# ⚠ 高難度の依頼のタブ（⚠ `AdventureSelect` の `TAB_HARD` と同じ値。⚠ 入手先の窓が使う）。
+const QUEST_TAB_HARD: int = 1
 # ポモドーロを開いたときに選んでおくタスク（⚠ タスクの画面の「これで集中」）。
 const TASK_ID: String = "task_id"

@@ -125,6 +125,8 @@ const SHOT_AFTER_RECORDS_PICK: String = "records_pick"
 const SHOT_AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
 const SHOT_AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 const SHOT_AFTER_MINI_ASK: String = "mini_ask"
+# ⚠ 10-06（`NAV-19`）：⚠ 鍛冶場で「入手先を見る」を押した姿。⚠ 内側の `AFTER_ITEM_SOURCE` と同じ字。
+const SHOT_AFTER_ITEM_SOURCE: String = "item_source"
 const SHOT_AFTER_MINI_WINDOW: String = "mini_window"
 # ⚠ 10-06：⚠ 小窓のリストを開いた姿（⚠ 小窓の枚と同じ手 ＋ 「リスト」）。
 const SHOT_AFTER_MINI_LIST: String = "mini_list"
@@ -1317,6 +1319,7 @@ const SCENARIOS: Dictionary = {
 			{"name": "68_mini_list", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_LIST},
 			# ⚠ 「小窓にしますか？」（10-06・不便7）：⚠ はじめて集中を始めたときの窓。
 			{"name": "70_mini_ask", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_MINI_ASK},
+			{"name": "71_item_source", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_ITEM_SOURCE},
 			{"name": "69_mini_reflection", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_REFLECTION},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
@@ -9215,6 +9218,7 @@ class ShotTaker extends Node:
 	const AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
 	const AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 	const AFTER_MINI_ASK: String = "mini_ask"
+	const AFTER_ITEM_SOURCE: String = "item_source"
 	const AFTER_MINI_WINDOW: String = "mini_window"
 	const AFTER_MINI_LIST: String = "mini_list"
 	const AFTER_MINI_REFLECTION: String = "mini_reflection"
@@ -9857,6 +9861,14 @@ class ShotTaker extends Node:
 					mini_node.call("toggle_list")
 				for _i: int in range(20):
 					await get_tree().process_frame
+		elif kind == AFTER_ITEM_SOURCE:
+			var source_button: Node = screen.find_child("SourceButton", true, false)
+			if not (source_button is BaseButton):
+				push_error("[DebugBoot] ⚠ %s で「入手先を見る」が無い" % shot_name)
+				return false
+			(source_button as BaseButton).pressed.emit()
+			for _i: int in range(10):
+				await get_tree().process_frame
 		elif kind == AFTER_MINI_ASK:
 			# ⚠ まだ聞いていないことにして集中を始める（⚠ 窓は本番の口＝`_ask_mini_window()` が出す）。⚠ 聞いた印は窓が書き戻す。
 			GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_ASKED, false)
@@ -10435,6 +10447,7 @@ class UiFlowRunner extends Node:
 		await _flow_pomodoro_extras()
 		await _flow_mini_ask()
 		await _flow_return_paths()
+		await _flow_item_sources()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -12566,6 +12579,124 @@ class UiFlowRunner extends Node:
 		if picked == "" and _path_of(p) == POMODORO:
 			picked = str(p.get("_wanted_task_id"))
 		_check("戻り先：「これで集中」でポモドーロ・そのタスクを選んでいる（%s）" % picked, _path_of(p) == POMODORO and picked == task_id)
+		await _open(BASE, {})
+
+	# --- 入手先の窓（2026-10-06・`NAV-19`） ---
+
+	func _source_window(scene: Node) -> Node:
+		var modal: ModalDialog = _modal_of(scene)
+		return null if modal == null else modal.find_child("ItemSourceWindow", true, false)
+
+	# ⚠ 窓の中で、その種類の行の「行く」を探す（⚠ 並びは `get_item_sources()` と同じ）。
+	func _source_go(window: Node, item_id: String, kind: String) -> Node:
+		var sources: Array[Dictionary] = GameManager.get_item_sources(item_id)
+		for i: int in range(sources.size()):
+			if str(sources[i].get(GameManager.ITEM_SOURCE_KIND, "")) == kind:
+				var row: Node = window.find_child("Source_%d" % i, true, false)
+				return null if row == null else row.find_child("GoButton", true, false)
+		return null
+
+	func _flow_item_sources() -> void:
+		const SHOP_SCREEN: String = "res://scenes/guild/shop_screen.tscn"
+		# ⚠ データの口：マスターから引けているか（⚠ 手書きの表は無い）。
+		var kinds: Array[String] = []
+		for source: Dictionary in GameManager.get_item_sources("forging_material_1"):
+			kinds.append(str(source.get(GameManager.ITEM_SOURCE_KIND, "")))
+		_check("入手先：鍛冶の素材1 は ショップ・通常の依頼（%s）" % str(kinds),
+			GameManager.ITEM_SOURCE_SHOP in kinds and GameManager.ITEM_SOURCE_STAGE in kinds)
+		kinds.clear()
+		for source: Dictionary in GameManager.get_item_sources("forging_material_4"):
+			kinds.append(str(source.get(GameManager.ITEM_SOURCE_KIND, "")))
+		_check("入手先：鍛冶の素材4 は 高難度の依頼（%s）" % str(kinds), GameManager.ITEM_SOURCE_DUNGEON in kinds)
+		# ⚠ 入手先が1つも無い素材（⚠ 報告：いまマスターのどこにも出てこない）。
+		var orphans: Array[String] = []
+		for material_id: String in GameManager.get_material_ids():
+			if GameManager.get_item_sources(material_id).is_empty():
+				orphans.append(material_id)
+		print("[DebugBoot] 入手先が無い素材: %s" % str(orphans))
+		# ① 鍛冶場の素材の行 → 窓 → ショップへ → 戻る → その品を選んだ鍛冶場。
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		var instance_id: String = _instance_of(WEAPON_ID)
+		var f: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: instance_id})
+		if f == null:
+			return
+		var cost: Dictionary = GameManager.get_forge_cost(instance_id)
+		var material_id: String = str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, ""))
+		await _press(f.find_child("SourceButton", true, false))
+		var window: Node = _source_window(f)
+		var rows: int = 0 if window == null else window.find_children("Source_*", "", true, false).size()
+		_check("入手先：鍛冶場の「入手先を見る」で窓・行は %d（入手先 %d）" % [rows, GameManager.get_item_sources(material_id).size()],
+			window != null and rows == GameManager.get_item_sources(material_id).size() and rows > 0)
+		var locked_ok: bool = true
+		var sources: Array[Dictionary] = GameManager.get_item_sources(material_id)
+		for i: int in range(sources.size()):
+			var go: Node = window.find_child("Source_%d" % i, true, false).find_child("GoButton", true, false) if window != null else null
+			if not (go is BaseButton) or (go as BaseButton).disabled == bool(sources[i].get(GameManager.ITEM_SOURCE_OPEN, false)):
+				locked_ok = false
+		_check("入手先：まだ行けない行だけ「行く」が押せない", locked_ok)
+		await _press(_source_go(window, material_id, GameManager.ITEM_SOURCE_SHOP), OPEN_FRAMES)
+		_check("入手先：「ショップへ」でショップ", _path_of(get_tree().current_scene) == SHOP_SCREEN)
+		await _back(get_tree().current_scene)
+		f = get_tree().current_scene
+		_check("入手先：ショップの「戻る」でその品を選んだ鍛冶場", _path_of(f) == FORGE and str(f.get("_selected")) == instance_id)
+		# ② 届いた宝箱がその素材を出しうるなら、窓のいちばん上に「開けに行く」→ 宝箱 → 戻る → 鍛冶場。
+		var chest_id: String = ""
+		for raw: Variant in MasterDataLoader.get_all_chests():
+			if GameManager.chest_can_give(str(raw), material_id):
+				chest_id = str(raw)
+				break
+		if chest_id != "" and GameManager.grant_chest(chest_id, "debug_boot"):
+			await _press(f.find_child("SourceButton", true, false))
+			window = _source_window(f)
+			var first: Dictionary = GameManager.get_item_sources(material_id)[0]
+			_check("入手先：届いた宝箱（%s）がいちばん上" % chest_id, str(first.get(GameManager.ITEM_SOURCE_KIND, "")) == GameManager.ITEM_SOURCE_PENDING_CHEST)
+			await _press(_source_go(window, material_id, GameManager.ITEM_SOURCE_PENDING_CHEST), OPEN_FRAMES)
+			_check("入手先：「開けに行く」で届いた宝箱", _path_of(get_tree().current_scene) == CHEST)
+			await _back(get_tree().current_scene)
+			_check("入手先：宝箱の「戻る」で鍛冶場", _path_of(get_tree().current_scene) == FORGE)
+		else:
+			_check("入手先：%s を出す宝箱が見つからない" % material_id, false)
+		# ③ 昇級 → 窓 → 出撃の準備へ（その話）→ 戻る → 昇級（同じキャラ）→ 戻る → 本部（積んだものは尽きた）。
+		var l: Node = await _open(LEVEL_UP, {TransferKeys.CHARACTER_ID: HERO})
+		if l == null:
+			return
+		var level_material: String = ""
+		await _press(l.find_child("SourceButton", true, false))
+		window = _source_window(l)
+		var stage_go: Node = null
+		var stage_ref: String = ""
+		if window != null:
+			var head_name: String = _label_text(window, "Head", "NameLabel")
+			for item_id: String in GameManager.get_material_ids():
+				if tr(GameManager.item_name_key(item_id)) == head_name:
+					level_material = item_id
+			for source: Dictionary in GameManager.get_item_sources(level_material):
+				if str(source.get(GameManager.ITEM_SOURCE_KIND, "")) == GameManager.ITEM_SOURCE_STAGE and bool(source.get(GameManager.ITEM_SOURCE_OPEN, false)):
+					stage_ref = str(source.get(GameManager.ITEM_SOURCE_REF, ""))
+					break
+			stage_go = _source_go(window, level_material, GameManager.ITEM_SOURCE_STAGE)
+		_check("入手先：昇級の「入手先を見る」で窓（%s）・通常の依頼の行がある" % level_material, window != null and stage_go is BaseButton)
+		await _press(stage_go, OPEN_FRAMES)
+		var b: Node = get_tree().current_scene
+		_check("入手先：「出撃の準備へ」でその話の出撃の準備（%s）" % str(b.get("_stage_id")), _path_of(b) == BARRACKS and str(b.get("_stage_id")) == stage_ref)
+		await _back(b)
+		l = get_tree().current_scene
+		_check("入手先：出撃の準備の「戻る」で昇級（%s）" % str(l.get("_character_id")), _path_of(l) == LEVEL_UP and str(l.get("_character_id")) == HERO)
+		await _back(l)
+		_check("入手先：昇級の「戻る」は育成（積んだものは尽きた＝前と同じ）", _path_of(get_tree().current_scene) == TRAINING)
+		# ④ 持ち物の素材 → 窓 → 掲示板へ（高難度）→ 戻る → 持ち物の素材タブ。
+		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL})
+		if w == null:
+			return
+		await _press(w.find_child("Row_forging_material_4", true, false))
+		await _press(w.find_child("SourceButton", true, false))
+		window = _source_window(w)
+		await _press(_source_go(window, "forging_material_4", GameManager.ITEM_SOURCE_DUNGEON) if window != null else null, OPEN_FRAMES)
+		var q: Node = get_tree().current_scene
+		_check("入手先：「掲示板へ」で掲示板の高難度タブ", _path_of(q) == ADVENTURE and int(q.get("_tab")) == TransferKeys.QUEST_TAB_HARD)
+		await _back(q)
+		w = get_tree().current_scene
+		_check("入手先：掲示板の「戻る」で持ち物の素材タブ（%s）" % str(w.get("_tab")), _path_of(w) == BELONGINGS and str(w.get("_tab")) == TransferKeys.WAREHOUSE_TAB_MATERIAL)
 		await _open(BASE, {})
 
 	func _task_order() -> Array[String]:

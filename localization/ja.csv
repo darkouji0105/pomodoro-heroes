@@ -1488,3 +1488,24 @@ ui_mini_reflection_remaining,あと %d文字
 ui_mini_reflection_ready,確定できます
 ui_quest_go_shop,ショップで買う
 ui_task_focus_this,これで集中
+ui_source_title,入手先
+ui_source_open,入手先を見る
+ui_source_owned,持っている数　%d
+ui_source_owned_need,持っている数　%d ／ 要る %d
+ui_source_none,いまは手に入れる方法がありません
+ui_source_none_hint,入手先が増えるとここに出ます
+ui_source_kind_pending_chest,届いた宝箱から
+ui_source_kind_shop,ショップで買う
+ui_source_kind_stage,通常の依頼で手に入る
+ui_source_kind_dungeon,高難度の依頼で手に入る
+ui_source_kind_pomodoro,ポモドーロの宝箱から
+ui_source_where_chest,%s（%d箱）
+ui_source_where_shop_daily,毎日の品
+ui_source_where_pomodoro,集中して加護の宝箱を手に入れる
+ui_source_locked,まだ受けられない
+ui_source_go,行く
+ui_source_go_chest,開けに行く
+ui_source_go_shop,ショップへ
+ui_source_go_stage,出撃の準備へ
+ui_source_go_dungeon,掲示板へ
+ui_source_go_pomodoro,ポモドーロへ

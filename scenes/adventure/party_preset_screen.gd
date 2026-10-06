@@ -1103,4 +1103,8 @@ func _on_guide_finished() -> void:
 
 func _on_back_pressed() -> void:
 	# 履歴に依存せず明示的に帰る（base_screen.gd と同じ流儀）。
+	# ⚠ 10-06（`NAV-19`）：⚠ 入手先の窓から寄り道で来た（＝戻り先が積んである）なら、窓を開いた画面へ。
+	if SceneManager.has_return():
+		SceneManager.go_back_or(_return_path)
+		return
 	SceneManager.change_scene(_return_path)

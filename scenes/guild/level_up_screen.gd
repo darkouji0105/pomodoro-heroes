@@ -235,6 +235,12 @@ func _build_side() -> VBoxContainer:
 		remain.theme_type_variation = &"" if owned >= amount else &"ErrorLabel"
 		remain.text = tr("ui_level_up_remain") % [owned, maxi(0, owned - amount)]
 		card_column.add_child(remain)
+		# ⚠ 10-06（`NAV-19`）：⚠ 入手先の窓（⚠ 行った先の「戻る」でこの申請書へ戻る）。
+		# ⚠ 紙の上なので紙の札（⚠ Ghost は紙の上で読めない＝撮った絵）。
+		var source: Button = UiButton.create_paper_choice("ui_source_open")
+		source.name = "SourceButton"
+		source.pressed.connect(ItemSourceWindow.open.bind(self, material_id, amount, {TransferKeys.CHARACTER_ID: _character_id}))
+		card_column.add_child(source)
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL

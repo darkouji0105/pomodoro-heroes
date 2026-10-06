@@ -210,6 +210,8 @@ const STAGE_MASTER_CHEST_IDS: String = "chest_ids"
 const STAGE_MASTER_NODE_REWARDS: String = "node_rewards"
 # 道中の戦闘の戦利品に使う宝箱の表（2026-09-18）。⚠ chests.json の chest_id（⚠ 表を二重に持たない）。
 const STAGE_MASTER_NODE_LOOT_CHEST: String = "node_loot_chest"
+# ⚠ 話をクリアしたときの報酬（⚠ 戦闘は `_stage_data.get("rewards")` で読んでいる＝同じ字）。
+const STAGE_MASTER_REWARDS: String = "rewards"
 
 # レアリティの綴り。⚠ chests.json の chest_id の後半と stages.json の chest_ids の
 #   キーが、この4つで揃っていること。
@@ -951,6 +953,128 @@ func get_pending_chest_count() -> int:
 		if not bool(chest.get(GameStateKeys.CHEST_OPENED, false)):
 			count += 1
 	return count
+
+# --- 品の入手先（2026-10-06・人間「⚠ 足りない素材など、素材の入手にすぐ行けるようにしたい」・`NAV-19`） ---
+#
+# ⚠⚠ **手書きの表を持たない**。⚠ 依頼の報酬・宝箱・難ダンジョンの戦利品・ショップ・ポモドーロの加護の宝箱を
+#   ⚠ 毎回マスターから引く（⚠ 入手先の表を別に書くと、報酬を直したときに必ず食い違う＝CLAUDE.md 4番と同じ理由）。
+# ⚠ 戻りは並べる順（⚠ すぐ手に入るものが上）：届いた宝箱 → ショップ → 通常の依頼 → 高難度の依頼 → ポモドーロ。
+# ⚠ 1行 = {kind, ref, open, count}。⚠ `open` は「いま行けるか」（⚠ まだ受けられない話は false）。
+const ITEM_SOURCE_KIND: String = "kind"
+const ITEM_SOURCE_REF: String = "ref"        # ⚠ stage_id / dungeon_id / chest_id / shop_type
+const ITEM_SOURCE_OPEN: String = "open"
+const ITEM_SOURCE_COUNT: String = "count"    # ⚠ 届いた宝箱の数だけ
+const ITEM_SOURCE_PENDING_CHEST: String = "pending_chest"
+const ITEM_SOURCE_SHOP: String = "shop"
+const ITEM_SOURCE_STAGE: String = "stage"
+const ITEM_SOURCE_DUNGEON: String = "dungeon"
+const ITEM_SOURCE_POMODORO: String = "pomodoro"
+
+
+func get_item_sources(item_id: String) -> Array[Dictionary]:
+	var sources: Array[Dictionary] = []
+	if item_id == "":
+		return sources
+	# 届いた宝箱（⚠ 開ければすぐ手に入る＝いちばん上）。⚠ 種類ごとに1行・数を添える。
+	var pending: Dictionary = {}
+	for raw: Variant in _state.get(GameStateKeys.PENDING_CHESTS, []):
+		if not (raw is Dictionary) or bool((raw as Dictionary).get(GameStateKeys.CHEST_OPENED, false)):
+			continue
+		var chest_id: String = str((raw as Dictionary).get(GameStateKeys.CHEST_ID, ""))
+		if chest_can_give(chest_id, item_id):
+			pending[chest_id] = int(pending.get(chest_id, 0)) + 1
+	for chest_id: String in pending:
+		sources.append(_item_source(ITEM_SOURCE_PENDING_CHEST, chest_id, true, int(pending[chest_id])))
+	# ショップ。
+	for raw_type: Variant in MasterDataLoader.get_all_shop_types():
+		for slot: Variant in MasterDataLoader.get_shop_slots(str(raw_type)):
+			if slot is Dictionary and str((slot as Dictionary).get(CHEST_DRAW_ITEM_ID, "")) == item_id:
+				sources.append(_item_source(ITEM_SOURCE_SHOP, str(raw_type), true))
+				break
+	# 通常の依頼（⚠ クリアの報酬 ＋ 道中の宝箱）。
+	for raw_stage: Variant in MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY):
+		var stage_id: String = str(raw_stage)
+		if _stage_can_give(MasterDataLoader.get_stage(stage_id), item_id):
+			sources.append(_item_source(ITEM_SOURCE_STAGE, stage_id, is_story_stage_unlocked(stage_id)))
+	# 高難度の依頼（⚠ 戦利品・道の資源・宝箱＝dungeon.json のどこかに品の名前がある）。
+	for dungeon_id: String in MasterDataLoader.get_all_dungeon_ids():
+		if _master_mentions_item(MasterDataLoader.get_dungeon(dungeon_id), item_id):
+			sources.append(_item_source(ITEM_SOURCE_DUNGEON, dungeon_id, true))
+	# ポモドーロ（⚠ 加護の宝箱）。
+	for protection: ProtectionTypeConfig in [Balance.pomodoro.protection_light, Balance.pomodoro.protection_middle, Balance.pomodoro.protection_hard]:
+		if protection == null:
+			continue
+		var found: bool = false
+		for entry: ChestScheduleEntry in protection.schedule:
+			if entry != null and chest_can_give(entry.chest_type, item_id):
+				found = true
+				break
+		if found:
+			sources.append(_item_source(ITEM_SOURCE_POMODORO, "", is_screen_unlocked(GameStateKeys.SCREEN_POMODORO)))
+			break
+	return sources
+
+
+func _item_source(kind: String, ref: String, open: bool, count: int = 0) -> Dictionary:
+	return {ITEM_SOURCE_KIND: kind, ITEM_SOURCE_REF: ref, ITEM_SOURCE_OPEN: open, ITEM_SOURCE_COUNT: count}
+
+
+# その宝箱から出うるか（⚠ 固定ぶん ＋ 抽選の表。⚠ 難ダンジョンの表を借りる宝箱は借りた表を見る＝`_roll_chest_rewards()` と同じ読み方）。
+func chest_can_give(chest_id: String, item_id: String) -> bool:
+	var chest: Dictionary = MasterDataLoader.get_chest(chest_id)
+	if chest.is_empty():
+		return false
+	if _master_mentions_item(chest.get(GameStateKeys.CHEST_REWARDS, {}), item_id):
+		return true
+	var draw_def: Variant = chest.get(CHEST_DRAW, null)
+	if draw_def == null:
+		draw_def = _dungeon_loot_draw_of(chest)
+	return draw_def != null and _master_mentions_item(draw_def, item_id)
+
+
+func _stage_can_give(stage: Dictionary, item_id: String) -> bool:
+	if stage.is_empty():
+		return false
+	if _master_mentions_item(stage.get(STAGE_MASTER_REWARDS, {}), item_id):
+		return true
+	var chest_ids: Array[String] = [str(stage.get(STAGE_MASTER_NODE_LOOT_CHEST, ""))]
+	var by_rarity: Variant = stage.get(STAGE_MASTER_CHEST_IDS, {})
+	if by_rarity is Dictionary:
+		for rarity: Variant in by_rarity:
+			chest_ids.append(str((by_rarity as Dictionary)[rarity]))
+	for chest_id: String in chest_ids:
+		if chest_id != "" and chest_can_give(chest_id, item_id):
+			return true
+	return false
+
+
+# マスターの塊のどこかに、その品が出てくるか（⚠ `item_id` の欄 ／ `{item_id: 数}` の鍵のどちらか）。
+func _master_mentions_item(data: Variant, item_id: String) -> bool:
+	if data is Dictionary:
+		var dict: Dictionary = data as Dictionary
+		if dict.has(item_id) or str(dict.get(CHEST_DRAW_ITEM_ID, "")) == item_id:
+			return true
+		for value: Variant in dict.values():
+			if _master_mentions_item(value, item_id):
+				return true
+	elif data is Array:
+		for value: Variant in data:
+			if _master_mentions_item(value, item_id):
+				return true
+	return false
+
+
+# 物語の話を受けられるか（⚠ stage_order の並びで、前の話をクリアしていれば）。
+# ⚠ 10-06 に依頼掲示板（`_is_unlocked()`）から移した＝入手先の窓も同じ判定を使う（⚠ 2本目を書かない）。
+func is_story_stage_unlocked(stage_id: String) -> bool:
+	var order: Array = MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)
+	var idx: int = order.find(stage_id)
+	if idx < 0:
+		return false
+	if idx == 0:
+		return true
+	return is_stage_cleared(str(order[idx - 1]))
+
 
 # --- ポモドーロ報酬 ---
 
