@@ -2538,6 +2538,7 @@ const SETTINGS_SLIDER_WIDTH: int = 260
 const SETTINGS_VALUE_WIDTH: int = 60
 const SETTINGS_LATER_ALPHA_PCT: int = 50
 const SETTINGS_POMODORO_PANEL_WIDTH: int = 620   # ⚠ ポモドーロの画面の設定の窓の中身
+const SETTINGS_POMODORO_PANEL_HEIGHT: int = 460  # ⚠ 同じ窓の中の送りの高さ（10-06・長い休憩の行で縦 720 からはみ出した＝撮った絵）
 const SETTINGS_SLIDER_GROOVE: int = 6    # ⚠ 音量のつまみの溝の太さ
 
 
@@ -2550,6 +2551,7 @@ static func _build_settings(theme: Theme) -> void:
 	theme.set_constant(&"later_alpha_pct", t, SETTINGS_LATER_ALPHA_PCT)
 	# ⚠ ポモドーロの画面の設定の窓（2026-10-02・`PomodoroSettingsPanel`）。
 	theme.set_constant(&"panel_width", &"PomodoroSettings", SETTINGS_POMODORO_PANEL_WIDTH)
+	theme.set_constant(&"panel_height", &"PomodoroSettings", SETTINGS_POMODORO_PANEL_HEIGHT)
 	# ⚠ 並んだ札はくっつける（⚠ 手本の「25分｜45分｜50分」）。
 	theme.set_type_variation(&"SettingsChoices", &"HBoxContainer")
 	theme.set_constant(&"separation", &"SettingsChoices", 0)

@@ -32,12 +32,19 @@ func _on_tools_pressed() -> void:
 func _on_settings_pressed() -> void:
 	var panel: PomodoroSettingsPanel = PomodoroSettingsPanel.new()
 	panel.custom_minimum_size.x = float(get_theme_constant(&"panel_width", &"PomodoroSettings"))
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var host: Node = get_tree().current_scene
 	if host != null and host.has_method("apply_settings"):
 		panel.changed.connect(Callable(host, "apply_settings"))
+	# ⚠ 中は送る（10-06・⚠ 長い休憩の行を足したら紙が縦 720 からはみ出し、題と「閉じる」が切れた＝撮った絵）。
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "PomodoroSettingsScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size.y = float(get_theme_constant(&"panel_height", &"PomodoroSettings"))
+	scroll.add_child(panel)
 	Modal.notify(host, "", [], false, {
 		Modal.OPTION_TITLE: tr("ui_pomodoro_settings_open"),
-		Modal.OPTION_CONTENT: panel,
+		Modal.OPTION_CONTENT: scroll,
 		Modal.OPTION_PAPER: true,
 		Modal.OPTION_WIDTH: Modal.WIDTH_MEDIUM,
 	})

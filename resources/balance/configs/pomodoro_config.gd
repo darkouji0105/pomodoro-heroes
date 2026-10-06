@@ -24,10 +24,13 @@ extends Resource
 
 # ⚠ 設定の画面で選べる集中と休憩の長さ（2026-09-28・回UI-仕組み③・手本 Settings・人間「⚠ 2あ」）。⚠ 分。
 #   ⚠ 選んだ値は `user://settings.cfg`（`GameSettings`・`BS-13`）。⚠ 長い休憩・セット数はプリセットのまま。
-@export var focus_minute_choices: Array[int] = [25, 45, 50]
+# ⚠ 10-06（PLAN_POMODORO_USABILITY 不便9・人間「⚠ 選択肢はあなたに任せる」）：⚠ 集中に15分を足した・⚠ 長い休憩も選べる（⚠ 4回ごと＝プリセットの `long_break_interval`）。
+@export var focus_minute_choices: Array[int] = [15, 25, 45, 50]
 @export var break_minute_choices: Array[int] = [5, 10, 15]
 @export var default_focus_minutes: int = 25
 @export var default_break_minutes: int = 5
+@export var long_break_minute_choices: Array[int] = [15, 20, 30]
+@export var default_long_break_minutes: int = 30
 # ⚠ 1日の目標（⚠ 今日集中した分＝`CUMULATIVE_FOCUS_MINUTES_TODAY`）。⚠ 0＝目標なし。⚠ 選んだ値は `GameSettings`。
 @export var daily_goal_minute_choices: Array[int] = [0, 60, 120, 180, 240]
 

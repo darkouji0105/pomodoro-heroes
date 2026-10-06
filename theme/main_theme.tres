@@ -3052,6 +3052,7 @@ PhaseTopGap/constants/separation = 24
 PointsLabel/base_type = &"Label"
 PointsLabel/colors/font_color = Color(0.9411765, 0.7529412, 0.2901961, 1)
 PointsLabel/font_sizes/font_size = 24
+PomodoroSettings/constants/panel_height = 460
 PomodoroSettings/constants/panel_width = 620
 PopupPanel/styles/panel = SubResource("StyleBoxFlat_2n110")
 PriceLabel/base_type = &"Label"

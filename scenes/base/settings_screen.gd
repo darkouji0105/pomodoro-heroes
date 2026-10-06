@@ -73,7 +73,8 @@ func _rebuild() -> void:
 
 
 # 1行：左に名前（⚠ 下に小さな説明）・右に操作。
-func _row(row_name: String, caption_key: String, note_key: String, control: Control) -> LedgerRow:
+# ⚠ `target` を渡すとそこへ足す（⚠ 既定は紙の中＝`sheet_body`）。
+func _row(row_name: String, caption_key: String, note_key: String, control: Control, target: Node = null) -> LedgerRow:
 	var row: LedgerRow = LedgerRow.new()
 	row.name = row_name
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -95,7 +96,7 @@ func _row(row_name: String, caption_key: String, note_key: String, control: Cont
 	if control != null:
 		control.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		line.add_child(control)
-	sheet_body.add_child(row)
+	(sheet_body if target == null else target).add_child(row)
 	return row
 
 
@@ -169,19 +170,29 @@ func _on_volume_changed(pct: float, key: String, label: Label) -> void:
 # --- ポモドーロと小窓 ---
 
 # ⚠ 2026-10-02 から行はポモドーロの画面と共通の部品（`PomodoroSettingsPanel`・人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）。
+# ⚠ 中は送る（10-06・⚠ 長い休憩の行を足したら紙が縦 720 を超え、上のタブまで画面の外へ押し出された＝撮った絵・⚠ 前から下の「週の終わりの日」は切れていた）。
 func _build_pomodoro() -> void:
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "PomodoroScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sheet_body.add_child(scroll)
+	var body: VBoxContainer = VBoxContainer.new()
+	body.name = "PomodoroBody"
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(body)
 	var panel: PomodoroSettingsPanel = PomodoroSettingsPanel.new()
-	sheet_body.add_child(panel)
+	body.add_child(panel)
 	# ⚠ タスク（2026-10-05・`TK-17`・モック3「設定に足す行」）：⚠ 期限の札「今週中」が入れる曜日。
 	var task_heading: SheetHeading = SheetHeading.new()
 	task_heading.name = "TaskHeading"
 	task_heading.title_key = "ui_settings_task"
-	sheet_body.add_child(task_heading)
+	body.add_child(task_heading)
 	var labels: Array[String] = []
 	for weekday: int in GameSettings.WEEK_END_CHOICES:
 		labels.append(tr("ui_settings_weekday_%d" % weekday))
 	_row("WeekEndRow", "ui_settings_week_end", "ui_settings_week_end_note",
-		_choices("WeekEnd", GameSettings.WEEK_END_CHOICES, labels, GameSettings.week_end_weekday(), _on_week_end_chosen))
+		_choices("WeekEnd", GameSettings.WEEK_END_CHOICES, labels, GameSettings.week_end_weekday(), _on_week_end_chosen), body)
 
 
 func _on_week_end_chosen(weekday: int) -> void:

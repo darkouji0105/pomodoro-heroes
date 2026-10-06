@@ -17,6 +17,7 @@ const KEY_SE: String = "se_pct"
 const KEY_BGM: String = "bgm_pct"
 const KEY_FOCUS_MINUTES: String = "focus_minutes"
 const KEY_BREAK_MINUTES: String = "break_minutes"
+const KEY_LONG_BREAK_MINUTES: String = "long_break_minutes"
 # ⚠ 集中の道具（2026-09-29・回UI-仕組み⑤）。⚠ 値は `FocusTool.TOOL_*`（⚠ 最初から全部持っている＝見た目の好みなので設定に置く）。
 const KEY_FOCUS_TOOL: String = "focus_tool"
 # ⚠ 小窓（2026-09-29・回UI-仕組み⑥・人間「⚠ 4あ」＝既定はオフ）／ ⚠ 小窓をいつも前に出す（既定オン）。
@@ -76,6 +77,8 @@ static func _default(section: String, key: String) -> Variant:
 			return Balance.pomodoro.default_focus_minutes if Balance.pomodoro != null else 25
 		KEY_BREAK_MINUTES:
 			return Balance.pomodoro.default_break_minutes if Balance.pomodoro != null else 5
+		KEY_LONG_BREAK_MINUTES:
+			return Balance.pomodoro.default_long_break_minutes if Balance.pomodoro != null else 30
 		KEY_FOCUS_TOOL:
 			return "hourglass"
 		KEY_MINI_WINDOW:
@@ -121,6 +124,11 @@ static func focus_minutes() -> int:
 
 static func break_minutes() -> int:
 	return int(get_value(SECTION_POMODORO, KEY_BREAK_MINUTES))
+
+
+# 長い休憩（⚠ 4回ごと・10-06）。
+static func long_break_minutes() -> int:
+	return int(get_value(SECTION_POMODORO, KEY_LONG_BREAK_MINUTES))
 
 
 static func mini_window() -> bool:

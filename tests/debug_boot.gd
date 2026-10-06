@@ -11230,6 +11230,10 @@ class UiFlowRunner extends Node:
 		await _press(s.find_child("AutoStart_true", true, false))
 		_check("設定：1日の目標 %d分・休憩明けの自動開始 %s" % [GameSettings.daily_goal_minutes(), str(GameSettings.auto_start_focus())],
 			GameSettings.daily_goal_minutes() == 120 and GameSettings.auto_start_focus())
+		# ⚠ 10-06（PLAN_POMODORO_USABILITY 不便9）：⚠ 集中に15分・⚠ 長い休憩を選べる（⚠ 20分にして、あとで長い休憩の長さを見る）。
+		await _press(s.find_child("LongBreak_20", true, false))
+		_check("設定：集中に15分の札がある・長い休憩を %d分に" % GameSettings.long_break_minutes(),
+			s.find_child("Focus_15", true, false) != null and GameSettings.long_break_minutes() == 20)
 		var p: Node = await _open(POMODORO, {})
 		if p == null:
 			return
@@ -11319,9 +11323,27 @@ class UiFlowRunner extends Node:
 		_check("時間切れ：振り返りが時間切れでも集中の分は入る（%d → %d・%d分）・書きかけの字は残る（%s）・休憩へ" % [today_before_timeout, GameManager.get_cumulative_focus_minutes(), timeout_min, str(last)],
 			GameManager.get_cumulative_focus_minutes() == today_before_timeout + timeout_min and bool(last.get("skipped", false))
 			and str(last.get("text", "")) == half_text and int(p.get("current_state")) == 3)
+		# 続ける（10-06・不便2・人間「⚠ ２は続けられるように」）：⚠ 4セット目の振り返りのあとも拠点へ戻らず長い休憩 → ⚠ 5セット目は「2周目」。
+		p.set("current_set_index", 2)
+		p.set("time_left_sec", 0.01)
+		await _wait(OPEN_FRAMES)
+		p.set("time_left_sec", 0.01)
+		await _wait()
+		_check("続ける：4セット目（%d）の集中が終わると振り返り" % int(p.get("current_set_index")), int(p.get("current_set_index")) == 3 and int(p.get("current_state")) == 2)
+		p.call("_on_reflection_completed", "四セット目の振り返りです。二十字を超えるように書いておく。", false)
+		await _wait()
+		_check("続ける：4セット目のあとも拠点へ戻らず長い休憩（%.0f 秒・%s）" % [float(p.get("phase_total_sec")), str(get_tree().current_scene == p)],
+			get_tree().current_scene == p and int(p.get("current_state")) == 3 and is_equal_approx(float(p.get("phase_total_sec")), 20.0 * 60.0)
+			and _label_text(p, "BreakView", "TypeLabel") == tr("ui_pomodoro_break_long"))
+		p.set("time_left_sec", 0.01)
+		await _wait(OPEN_FRAMES)
+		_check("続ける：長い休憩のあとは5セット目・上に「%s」" % _label_text(p, "TopBar", "RoundLabel"),
+			int(p.get("current_set_index")) == 4 and int(p.get("current_state")) == 1 and (p.get("set_titles") as Array).size() == 5
+			and _label_text(p, "TopBar", "RoundLabel") == tr("ui_pomodoro_round") % 2 and (p.find_child("RoundLabel", true, false) as Control).visible)
 		# ⚠ 後片付け（⚠ 設定を既定に戻す）。
 		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_DAILY_GOAL, 0)
 		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_AUTO_START, false)
+		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_LONG_BREAK_MINUTES, 30)
 		await _open(BASE, {})
 
 	func _pomodoro_start_focus(p: Node) -> void:

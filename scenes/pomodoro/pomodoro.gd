@@ -69,6 +69,7 @@ func _ready() -> void:
 	current_preset = current_preset.duplicate()
 	current_preset.focus_duration_sec = GameSettings.focus_minutes() * 60
 	current_preset.short_break_sec = GameSettings.break_minutes() * 60
+	current_preset.long_break_sec = GameSettings.long_break_minutes() * 60
 
 	current_total_sets = current_preset.default_total_sets
 	set_titles.resize(current_total_sets)
@@ -148,6 +149,8 @@ var _last_wall: float = 0.0
 var _pause_button: Button = null
 var _next_button: Button = null
 var _goal_label: Label = null
+# ⚠ 「◯周目」（10-06・続ける）。
+var _round_label: Label = null
 
 
 func is_paused() -> bool:
@@ -218,6 +221,13 @@ func _build_controls() -> void:
 	center.add_child(line)
 	line.add_child(set_dots)
 	set_dots.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_round_label = Label.new()
+	_round_label.name = "RoundLabel"
+	_round_label.theme_type_variation = &"CaptionLabel"
+	_round_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_round_label.visible = false
+	line.add_child(_round_label)
+	line.move_child(_round_label, 0)
 	_goal_label = Label.new()
 	_goal_label.name = "GoalLabel"
 	_goal_label.theme_type_variation = &"CaptionLabel"
@@ -386,6 +396,7 @@ func apply_settings() -> void:
 		return
 	current_preset.focus_duration_sec = GameSettings.focus_minutes() * 60
 	current_preset.short_break_sec = GameSettings.break_minutes() * 60
+	current_preset.long_break_sec = GameSettings.long_break_minutes() * 60
 	if current_state == State.FOCUS and not is_timer_active:
 		time_left_sec = float(current_preset.focus_duration_sec)
 		phase_total_sec = time_left_sec
@@ -427,7 +438,7 @@ func _push_mini_state() -> void:
 	var task: Dictionary = GameManager.get_task(_current_task_id()) if focusing else {}
 	# ⚠ 次のフェーズへ（10-06）：⚠ 始める前＝はじめる ／ 集中中＝集中を終える ／ 休憩＝とばす（`end_phase()`）。
 	var waiting: bool = focusing and not _focus_started
-	_mini.set_state(int(ceil(time_left_sec)), focusing, current_set_index, current_total_sets, ratio, task, _paused, _can_pause(), waiting, _next_tip())
+	_mini.set_state(int(ceil(time_left_sec)), focusing, _round_set_index(), current_total_sets, ratio, task, _paused, _can_pause(), waiting, _next_tip())
 	# ⚠ 振り返り（10-06）：⚠ 小窓の欄と「確定」・あと何文字。
 	var reflecting: bool = current_state == State.REFLECTION
 	var remaining: int = 0
@@ -545,7 +556,12 @@ func _update_set_dots() -> void:
 	var ratio: float = 0.0
 	if phase_total_sec > 0.0:
 		ratio = clampf(1.0 - (time_left_sec / phase_total_sec), 0.0, 1.0)
-	set_dots.set_state(current_set_index, ratio)
+	set_dots.set_state(_round_set_index(), ratio)
+	# ⚠ 2周目からは点の左に「◯周目」（10-06）。
+	if _round_label != null:
+		_round_label.visible = _round_number() > 1
+		if _round_label.visible:
+			_round_label.text = tr("ui_pomodoro_round") % _round_number()
 
 
 # ⚠⚠ 振り返りの制限時間（2026-09-12・宿題4）。⚠ **前はここに `120.0` を直書きしていた**。
@@ -604,12 +620,12 @@ func _on_reflection_completed(text: String, skipped: bool = false) -> void:
 	_stop_phase_timer()
 	reflections.append({"text": text, "skipped": skipped})
 
-	if current_set_index + 1 >= current_total_sets:
-		_return_to_base()
-	else:
-		# ⚠ セットが終わるたびに自動セーブ（2026-10-05・回P-1）。⚠ 最後のセットは拠点へ移るときに書く。
-		SaveManager.autosave()
-		_switch_view(State.BREAK)
+	# ⚠⚠ 4セットで終わらない（10-06・PLAN_POMODORO_USABILITY 不便2・人間「⚠ ２は続けられるように」）。
+	#   ⚠ 前は最後のセットの振り返りで拠点へ戻った＝⚠ 4回ごとの長い休憩が一度も来なかった。
+	#   ⚠ セット数（`current_total_sets`）は**1周の長さ**（⚠ 点の数）。⚠ 終えるのは「やめる」だけ。
+	# ⚠ セットが終わるたびに自動セーブ（2026-10-05・回P-1）。
+	SaveManager.autosave()
+	_switch_view(State.BREAK)
 
 
 # ⚠⚠ 集中した分を今日の分・宝箱・報酬へ（10-06・PLAN_POMODORO_USABILITY 不便1・3・人間「⚠ 集中が終わった時点で入れる」「⚠ 集中した分だけ入れる」）。
@@ -657,7 +673,21 @@ func _on_break_skipped() -> void:
 
 func _go_to_next_set() -> void:
 	current_set_index += 1
+	# ⚠ 1周を超えたら題とタスクの欄を伸ばす（10-06・続ける）。
+	if current_set_index >= set_titles.size():
+		set_titles.append("")
+		set_task_ids.append("")
 	_switch_view(State.FOCUS)
+
+
+# 1周の中で何番目か（⚠ 点と小窓はこれで光らせる＝5セット目は2周目の1つ目）。
+func _round_set_index() -> int:
+	return current_set_index % maxi(1, current_total_sets)
+
+
+# いま何周目か（⚠ 1から）。
+func _round_number() -> int:
+	return floori(float(current_set_index) / float(maxi(1, current_total_sets))) + 1
 
 
 # ⚠⚠ タスクに集中した時間（2026-10-05・`TK-5` を覆した・人間「⚠ タスクごとにチェックさせてその時のタイマーの時間を記録したい」）。

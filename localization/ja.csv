@@ -1179,7 +1179,7 @@ ui_title_restart_title,はじめからやり直す
 ui_title_restart_confirm,持ち物・3人の育成・記録がすべて消えて、最初からになる。
 ui_common_minutes_unit,分
 ui_stamp_today,今日はこれ
-ui_pomodoro_start_with,{0}で始める
+ui_pomodoro_start_with,{0}で集中を始める
 ui_dossier_title,身　上　書
 ui_dossier_signature,本人署名
 ui_dossier_lv,Lv
@@ -1472,6 +1472,13 @@ ui_pomodoro_task_selected_stamp,選択中
 ui_mini_phase_reflection,振り返り
 ui_mini_reflection_placeholder,やったこと（{0}字以上）
 ui_pomodoro_default_title,作業
+ui_pomodoro_protection_note,ポモドーロで集中した時間に応じて宝箱がもらえます。今日の目標を選んでください（1日1回）
+ui_pomodoro_protection_minutes_unit,分 集中で
+ui_pomodoro_protection_midway,途中も %d分ごとに宝箱（%d個）
+ui_pomodoro_protection_midway_none,途中の宝箱なし
+ui_pomodoro_round,%d周目
+ui_settings_long_break,長い休憩の長さ
+ui_settings_long_break_note,4回集中するごとの休憩
 ui_mini_reflection_ok,確定
 ui_mini_reflection_remaining,あと %d文字
 ui_mini_reflection_ready,確定できます

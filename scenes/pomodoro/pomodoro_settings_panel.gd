@@ -3,7 +3,7 @@ extends VBoxContainer
 
 # ポモドーロの設定の行（2026-10-02・人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）。
 #
-# ⚠ 集中の長さ ／ 休憩の長さ ／ 小窓 ／ 小窓をいつも前に ／ 休憩明けの自動開始 ／ 1日の目標（10-05・回P-3）／ 話しかける（まだ）。
+# ⚠ 集中の長さ ／ 休憩の長さ ／ 長い休憩の長さ（10-06）／ 小窓 ／ 小窓をいつも前に ／ 休憩明けの自動開始 ／ 1日の目標（10-05・回P-3）／ 話しかける（まだ）。
 # ⚠ 置き場は2つ：⚠ ポモドーロの画面の紙の窓（`PomodoroLinks`）／ ⚠ 設定の画面の「ポモドーロと小窓」タブ（⚠ 同じ部品）。
 # ⚠ 押したらすぐ `GameSettings` に書き、⚠ 自分を描き直す（⚠ 押した札を押している最中に外さない＝次のフレーム）。
 # ⚠ 見た目の値は Theme の `Settings` 型（⚠ 設定の画面と同じ）。⚠ 行と札の名前は検査が読む（`FocusRow` `Focus_45` `Mini_true` …）。
@@ -34,6 +34,13 @@ func _rebuild() -> void:
 		_on_chosen.bind(GameSettings.KEY_FOCUS_MINUTES)))
 	_row("BreakRow", "ui_settings_break", "", _choices("Break", break_values, break_labels, GameSettings.break_minutes(),
 		_on_chosen.bind(GameSettings.KEY_BREAK_MINUTES)))
+	# ⚠ 長い休憩（10-06・PLAN_POMODORO_USABILITY 不便9）：⚠ 4回ごと。
+	var long_values: Array = Balance.pomodoro.long_break_minute_choices.duplicate()
+	var long_labels: Array[String] = []
+	for minutes: Variant in long_values:
+		long_labels.append(tr("ui_settings_minutes") % int(minutes))
+	_row("LongBreakRow", "ui_settings_long_break", "ui_settings_long_break_note", _choices("LongBreak", long_values, long_labels, GameSettings.long_break_minutes(),
+		_on_chosen.bind(GameSettings.KEY_LONG_BREAK_MINUTES)))
 	# ⚠ 小窓（2026-09-29・回UI-仕組み⑥）：⚠ オフ｜オン。
 	var off_on: Array[String] = [tr("ui_settings_off"), tr("ui_settings_on")]
 	_row("MiniWindowRow", "ui_settings_mini_window", "ui_settings_mini_window_note",

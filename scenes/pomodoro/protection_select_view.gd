@@ -42,6 +42,7 @@ func _ready() -> void:
 		_cards.append(card)
 	start_button.pressed.connect(_on_start_pressed)
 	_add_side_buttons()
+	_add_note()
 	_select(0)
 
 
@@ -56,6 +57,19 @@ func _add_side_buttons() -> void:
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	footer.add_child(gap)
 	footer.move_child(gap, 1)
+
+
+# ⚠⚠ 見出しの下に「集中した時間で宝箱」（10-06・PLAN_POMODORO_USABILITY 不便10・人間「⚠ タイマーの報酬だとわかるようにしたい」）。
+#   ⚠ 前は「今日の加護を選ぶ」とカードだけ＝⚠ タイマーの話として読めなかった。
+func _add_note() -> void:
+	var layout: VBoxContainer = $Layout
+	var note: Label = Label.new()
+	note.name = "ProtectionNote"
+	note.theme_type_variation = &"CaptionLabel"
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	note.text = tr("ui_pomodoro_protection_note")
+	layout.add_child(note)
+	layout.move_child(note, $Layout/TitleLabel.get_index() + 1)
 
 
 func _make_card(index: int, config: ProtectionTypeConfig) -> TiltedSheet:
@@ -91,7 +105,8 @@ func _make_card(index: int, config: ProtectionTypeConfig) -> TiltedSheet:
 	minutes_row.add_child(minutes)
 	var unit: Label = Label.new()
 	unit.theme_type_variation = &"CaptionLabel"
-	unit.text = tr("ui_common_minutes_unit")
+	# ⚠ 「45 分集中で」（10-06）：⚠ 分の数が集中の時間だと分かるように。
+	unit.text = tr("ui_pomodoro_protection_minutes_unit")
 	unit.size_flags_vertical = Control.SIZE_SHRINK_END
 	minutes_row.add_child(unit)
 	column.add_child(minutes_row)
@@ -115,6 +130,14 @@ func _make_card(index: int, config: ProtectionTypeConfig) -> TiltedSheet:
 	chest.text = tr("ui_chest_" + goal.chest_type) if goal != null else ""
 	chest_row.add_child(chest)
 	column.add_child(chest_row)
+	# ⚠ 途中の宝箱（10-06）：⚠ ミドル・ハードは到達点の前にも宝箱がある（⚠ 前は出していなかった）。⚠ 無いカードも行を出す（⚠ 3枚の高さをそろえる）。
+	var midway: Label = Label.new()
+	midway.name = "MidwayLabel"
+	midway.theme_type_variation = &"CaptionLabel"
+	midway.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var midway_count: int = 0 if config == null else maxi(0, config.schedule.size() - 1)
+	midway.text = tr("ui_pomodoro_protection_midway") % [config.schedule[0].threshold_min, midway_count] if midway_count > 0 else tr("ui_pomodoro_protection_midway_none")
+	column.add_child(midway)
 
 	# ⚠ 面ぜんぶを押せる（⚠ 中身を足し終わってから敷く＝`attach_hit` の決まり）。⚠ 当たりも一緒に傾く。
 	var _hit: Button = UiButton.attach_hit(card.sheet, _select.bind(index))
