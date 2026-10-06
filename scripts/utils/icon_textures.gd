@@ -216,6 +216,7 @@ static func for_task_edit() -> Texture2D:
 const NAME_TIMER_PAUSE: String = "timer_pause"
 const NAME_TIMER_PLAY: String = "timer_play"
 const NAME_TIMER_EXTEND: String = "timer_extend"
+const NAME_TIMER_NEXT: String = "timer_next"
 
 
 static func for_timer(name: String) -> Texture2D:
@@ -280,7 +281,7 @@ static func all_for_check() -> Dictionary:
 		NAME_ITEM_ACCESSORY, NAME_ITEM_GEM, NAME_ITEM_CHARM, NAME_ITEM_EMBLEM,
 		NAME_ITEM_RUNE, NAME_ITEM_MATERIAL, NAME_ITEM_CONSUMABLE,
 		NAME_ITEM_RELIC, NAME_ITEM_CHEST, NAME_TASK_EDIT,
-		NAME_TIMER_PAUSE, NAME_TIMER_PLAY, NAME_TIMER_EXTEND,
+		NAME_TIMER_PAUSE, NAME_TIMER_PLAY, NAME_TIMER_EXTEND, NAME_TIMER_NEXT,
 	]:
 		result[name] = _load(name)
 	for prefix: String in MATERIAL_SERIES:

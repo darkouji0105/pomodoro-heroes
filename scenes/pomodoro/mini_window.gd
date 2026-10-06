@@ -9,9 +9,10 @@ extends CanvasLayer
 #   ⚠ 部屋の絵（暖炉・人・z z）はやめて**タイマーが真ん中**。⚠ 上＝集中／休憩・セットの点・「大きく」／ 真ん中＝残り時間 ／
 #   ⚠ その下＝いまのタスク（色の印と名前）／ ⚠ 下＝集中中は「タスクを終える」（⚠ 選んでいるときだけ）・休憩中は「休憩をとばす」。
 #   ⚠ 回P-3（10-05）：⚠ 下に「一時停止」⇔「再開」も（⚠ 止めているあいだは上が「集中（停止中）」）。
-# ⚠⚠ 2026-10-06（見る回・人間「⚠ 小窓でも、リストを出し入れできるように」→「⚠ リストのサイドバーをそのまま追加で伸ばす形に」）：
-#   ⚠ 上の「リスト」で窓が**右へ**伸び、⚠ ポモドーロの右のサイドバー（`TaskSidebar`）を**そのまま**出す（⚠ 行＝替える・四角＝終える・下で足す）。
-#   ⚠ ペンは出さない（⚠ 紙の窓が小窓に収まらない）。⚠ もう一度押すと縮む。⚠ 大きさは Theme の `list_gap` / `list_window_height` と `Task/side_width`。
+# ⚠⚠ 2026-10-06（見る回・人間「⚠ 小窓でも、リストを出し入れできるように」→「⚠ リストのサイドバーをそのまま」→「⚠ 上にリストを出して追加はいらないかも」）：
+#   ⚠ 上の「リスト」で窓が**上へ**伸び、⚠ ポモドーロの右のサイドバー（`TaskSidebar`）をタイマーの上に出す（⚠ 行＝替える・四角＝終える）。
+#   ⚠ ペンと「足す」欄は出さない。⚠ もう一度押すと縮む。⚠ 伸びる高さは Theme の `list_top_height`。
+# ⚠ 下の「次へ」（10-06・人間「⚠ 次のフェーズに移るボタンを小窓に」）：⚠ 始める前＝はじめる ／ 休憩＝とばす（⚠ 器が決める）。
 # ⚠ 小窓になるのは**タイマーが動いている集中と休憩のあいだだけ**（⚠ 振り返り＝文字を打つ・次のセットの「開始」は元の大きさ）。
 # ⚠ 窓を小さくするとき、⚠ 画面の論理の大きさ（`content_scale_size`）も小窓の大きさにする（⚠ 1280×720 のまま縮めると字が潰れる）。
 # ⚠ 窓の操作はヘッドレスでは何もしない（⚠ 中身の出し入れだけは動く＝検査が見る）。⚠ 値は Theme の `MiniWindow` 型。
@@ -21,7 +22,7 @@ const LAYER: int = 90
 
 signal expand_requested
 # ⚠ 2026-10-05（回P-2）：⚠ 小窓のまま押せるもの。⚠ 中身は器（`pomodoro.gd`）がやる＝ここは知らせるだけ。
-signal skip_requested
+signal next_requested
 signal finish_task_requested
 # ⚠ 回P-3（2026-10-05）：⚠ 一時停止 ⇔ 再開。
 signal pause_requested
@@ -44,7 +45,7 @@ var _task_line: HBoxContainer = null
 var _task_mark: TaskColorMark = null
 var _task_label: Label = null
 var _finish_button: Button = null
-var _skip_button: Button = null
+var _next_button: Button = null
 var _pause_button: Button = null
 var _list_button: Button = null
 var _sidebar: TaskSidebar = null
@@ -93,12 +94,9 @@ func enter() -> void:
 	DisplayServer.window_set_position(usable.position + usable.size - mini_size - Vector2i(margin, margin))
 
 
-# 小窓の大きさ（⚠ リストを開いているあいだは右にサイドバーのぶん伸び、高さも伸びる）。
+# 小窓の大きさ（⚠ リストを開いているあいだは上へ伸びる）。
 func _mini_size() -> Vector2i:
-	if not _list_open:
-		return Vector2i(_c(&"width"), _c(&"height"))
-	var side: int = ThemeDB.get_project_theme().get_constant(&"side_width", &"Task")
-	return Vector2i(_c(&"width") + _c(&"list_gap") + side, maxi(_c(&"height"), _c(&"list_window_height")))
+	return Vector2i(_c(&"width"), _c(&"height") + (_c(&"list_top_height") if _list_open else 0))
 
 
 func is_list_open() -> bool:
@@ -154,10 +152,14 @@ func leave() -> void:
 
 
 # いまの姿を出す（⚠ 器が毎フレーム呼ぶ）。⚠ `task` は選んでいるタスク（⚠ 無ければ空）。
-func set_state(seconds: int, focusing: bool, set_index: int = -1, set_total: int = 0, ratio: float = 0.0, task: Dictionary = {}, paused: bool = false, can_pause: bool = false) -> void:
+func set_state(seconds: int, focusing: bool, set_index: int = -1, set_total: int = 0, ratio: float = 0.0, task: Dictionary = {}, paused: bool = false, can_pause: bool = false, waiting: bool = false, next_tip: String = "") -> void:
 	if _time_label == null:
 		return
 	_phase_label.text = tr("ui_mini_phase_focus") if focusing else tr("ui_mini_phase_break")
+	if waiting:
+		_phase_label.text = tr("ui_mini_phase_ready")
+	_next_button.visible = next_tip != ""
+	_next_button.tooltip_text = next_tip
 	if paused:
 		_phase_label.text = tr("ui_mini_paused") % _phase_label.text
 	_pause_button.visible = can_pause
@@ -186,7 +188,6 @@ func set_state(seconds: int, focusing: bool, set_index: int = -1, set_total: int
 			_task_label.custom_minimum_size.x = minf(ceilf(width), float(_c(&"task_width")))
 		_task_mark.color_index = int(task.get(GameStateKeys.TASK_COLOR, 0))
 	_finish_button.visible = focusing and has_task
-	_skip_button.visible = not focusing
 
 
 var _dots_total: int = 0
@@ -223,14 +224,14 @@ func _build() -> void:
 	margin.theme_type_variation = &"MiniMargin"
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(margin)
-	# ⚠ 左＝タイマーの柱（⚠ 幅は小窓の幅のまま）／ ⚠ 右＝サイドバー（⚠ 「リスト」のあいだだけ）。
-	var body: HBoxContainer = HBoxContainer.new()
+	# ⚠ 上＝サイドバー（⚠ 「リスト」のあいだだけ）／ ⚠ 下＝タイマーの柱。
+	var body: VBoxContainer = VBoxContainer.new()
 	body.name = "MiniBody"
 	body.theme_type_variation = &"MiniBody"
 	margin.add_child(body)
 	var column: VBoxContainer = VBoxContainer.new()
 	column.theme_type_variation = &"MiniColumn"
-	column.custom_minimum_size.x = float(_c(&"width") - _c(&"pad") * 2)
+	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(column)
 	# ⚠ 上の行：集中／休憩 ・ セットの点 ・ 「大きく」。
 	var top: HBoxContainer = HBoxContainer.new()
@@ -278,15 +279,17 @@ func _build() -> void:
 	_task_label.theme_type_variation = &"MiniTimeLabel"
 	_task_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_task_line.add_child(_task_label)
-	# ⚠ 下：集中中は「タスクを終える」・休憩中は「休憩をとばす」（⚠ どちらかだけ出る）。
+	# ⚠ 下：集中中は「タスクを終える」・⚠ 「次へ」（始める前・休憩）・一時停止。
 	var bottom: HBoxContainer = HBoxContainer.new()
 	bottom.name = "Bottom"
 	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_child(bottom)
 	_finish_button = _make_button("FinishTaskButton", "ui_mini_finish_task", _on_finish_pressed)
 	bottom.add_child(_finish_button)
-	_skip_button = _make_button("SkipBreakButton", "ui_mini_skip_break", _on_skip_pressed)
-	bottom.add_child(_skip_button)
+	_next_button = _make_button("MiniNextButton", "", _on_next_pressed)
+	_next_button.theme_type_variation = &"MiniIconButton"
+	_next_button.icon = IconTextures.for_timer(IconTextures.NAME_TIMER_NEXT)
+	bottom.add_child(_next_button)
 	# ⚠ 回P-3：⚠ 一時停止（⚠ 集中を始めたあとと休憩のあいだ）。
 	_pause_button = _make_button("MiniPauseButton", "", _on_pause_pressed)
 	_pause_button.theme_type_variation = &"MiniIconButton"
@@ -295,11 +298,15 @@ func _build() -> void:
 	_sidebar = TaskSidebar.create()
 	_sidebar.name = "MiniSidebar"
 	_sidebar.show_edit = false
+	_sidebar.show_add = false
 	_sidebar.current_task_provider = _current_for_list
 	_sidebar.task_pressed.connect(_on_side_pressed)
 	_sidebar.task_checked.connect(_on_side_checked)
 	_sidebar.visible = _list_open
 	body.add_child(_sidebar)
+	body.move_child(_sidebar, 0)
+	# ⚠ 小窓の幅に合わせる（⚠ サイドバーは自分で 320 を取る＝小窓 300 からはみ出す）・⚠ 高さは伸びたぶん。
+	_sidebar.custom_minimum_size = Vector2(0.0, float(_c(&"list_top_height") - _c(&"gap")))
 
 
 func _make_button(node_name: String, key: String, handler: Callable) -> Button:
@@ -316,9 +323,9 @@ func _on_expand_pressed() -> void:
 	expand_requested.emit()
 
 
-# ⚠ 押した最中に器が小窓を外す（⚠ とばすとタイマーが止まる）＝⚠ 知らせるのは次のフレーム。
-func _on_skip_pressed() -> void:
-	skip_requested.emit.call_deferred()
+# ⚠ 押した最中に器が小窓を外すことがある＝⚠ 知らせるのは次のフレーム。
+func _on_next_pressed() -> void:
+	next_requested.emit.call_deferred()
 
 
 func _on_finish_pressed() -> void:

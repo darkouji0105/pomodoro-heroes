@@ -1466,3 +1466,6 @@ ui_pomodoro_task_empty_prompt,やることがまだありません。題を書�
 ui_mini_list_open,リスト ▼
 ui_mini_list_close,リスト ▲
 ui_pomodoro_extend_short,＋%d
+ui_pomodoro_to_mini,小窓にする
+ui_mini_phase_ready,これから集中
+ui_mini_next_start,はじめる

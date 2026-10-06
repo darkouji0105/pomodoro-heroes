@@ -182,6 +182,22 @@ func _extend_focus() -> void:
 # ⚠ セットの点の右に今日の分（回P-3）。
 # ⚠ 一時停止と「＋5分」は画面の真ん中（10-06・見る回・人間「⚠ 一時停止は画面中央付近に」）＝⚠ ビューごとに `_attach_run_controls()` が置く。
 func _build_controls() -> void:
+	# ⚠ 右上：[小窓にする][やめる]（10-06）。⚠ やめるは .tscn のものを中へ移す。
+	var quit: Control = $Margin/Layout/TopBar/QuitButton
+	var top_bar: Control = quit.get_parent()
+	var right: HBoxContainer = HBoxContainer.new()
+	right.name = "TopControls"
+	right.anchor_left = 1.0
+	right.anchor_right = 1.0
+	right.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	top_bar.add_child(right)
+	_mini_mode_button = UiButton.create(UiButton.Variant.GHOST, "ui_pomodoro_to_mini")
+	_mini_mode_button.name = "MiniModeButton"
+	_mini_mode_button.pressed.connect(_on_mini_mode_pressed)
+	right.add_child(_mini_mode_button)
+	top_bar.remove_child(quit)
+	right.add_child(quit)
+	_refresh_mini_mode_button()
 	var center: Node = set_dots.get_parent()
 	var line: HBoxContainer = HBoxContainer.new()
 	line.name = "DotsLine"
@@ -285,12 +301,14 @@ var _mini_expanded: bool = false
 
 
 func _update_mini_window() -> void:
-	var want: bool = GameSettings.mini_window() and is_timer_active and not _mini_expanded \
-		and (current_state == State.FOCUS or current_state == State.BREAK)
+	# ⚠ 10-06（人間「⚠ いつでも小窓にできるように」）：⚠ 上の「小窓にする」を押したら（`_mini_manual`）始める前でも小窓。
+	#   ⚠ 振り返りだけは元の大きさ（⚠ 字を打つ・⚠ 120 秒で「とばした」扱い＝報酬なしになるので小窓で見落とさせない）。⚠ 振り返りが終わればまた小窓。
+	var want: bool = not _mini_expanded and (current_state == State.FOCUS or current_state == State.BREAK) \
+		and (_mini_manual or (GameSettings.mini_window() and is_timer_active))
 	if want and _mini == null:
 		_mini = MiniWindow.create()
 		_mini.expand_requested.connect(_on_mini_expand)
-		_mini.skip_requested.connect(_on_mini_skip)
+		_mini.next_requested.connect(_on_mini_next)
 		_mini.finish_task_requested.connect(_on_mini_finish_task)
 		_mini.pause_requested.connect(toggle_pause)
 		# ⚠ 小窓のリスト（10-06）：⚠ サイドバーと同じ口（⚠ 行＝替える・四角＝終える）。
@@ -322,7 +340,28 @@ func apply_settings() -> void:
 
 func _on_mini_expand() -> void:
 	_mini_expanded = true
+	_mini_manual = false
 	_update_mini_window()
+	_refresh_mini_mode_button()
+
+
+# ⚠ 「小窓にする」（10-06）：⚠ 集中（始める前も）と休憩のあいだ。⚠ 「大きく」まで続く。
+var _mini_manual: bool = false
+var _mini_mode_button: UiButton = null
+
+
+func _on_mini_mode_pressed() -> void:
+	if not (current_state == State.FOCUS or current_state == State.BREAK):
+		return
+	_mini_manual = true
+	_mini_expanded = false
+	_update_mini_window()
+	_refresh_mini_mode_button()
+
+
+func _refresh_mini_mode_button() -> void:
+	if _mini_mode_button != null:
+		_mini_mode_button.visible = current_state == State.FOCUS or current_state == State.BREAK
 
 
 # ⚠ 小窓に今の姿を渡す（2026-10-05・回P-2）：⚠ 残り時間・集中か休憩か・セットの点・いまのタスク。
@@ -332,14 +371,19 @@ func _push_mini_state() -> void:
 	var ratio: float = 0.0 if phase_total_sec <= 0.0 else 1.0 - time_left_sec / phase_total_sec
 	var focusing: bool = current_state == State.FOCUS
 	var task: Dictionary = GameManager.get_task(_current_task_id()) if focusing else {}
-	_mini.set_state(int(ceil(time_left_sec)), focusing, current_set_index, current_total_sets, ratio, task, _paused, _can_pause())
+	# ⚠ 次のフェーズへ（10-06）：⚠ 始める前＝はじめる ／ 休憩＝とばす。⚠ 集中中は出さない（⚠ 画面にも無い＝途中で終える口は作らない）。
+	var waiting: bool = focusing and not _focus_started
+	var next_tip: String = tr("ui_mini_next_start") if waiting else (tr("ui_mini_skip_break") if current_state == State.BREAK else "")
+	_mini.set_state(int(ceil(time_left_sec)), focusing, current_set_index, current_total_sets, ratio, task, _paused, _can_pause(), waiting, next_tip)
 
 
-# ⚠ 小窓の「休憩をとばす」（⚠ 休憩の画面の「とばす」と同じ口）。⚠ 休憩のあいだだけ。
-func _on_mini_skip() -> void:
-	if current_state != State.BREAK:
-		return
-	_on_break_skipped()
+# ⚠ 小窓の「次へ」（10-06・人間「⚠ 次のフェーズに移るボタンを小窓に」）。
+func _on_mini_next() -> void:
+	if current_state == State.FOCUS and not _focus_started:
+		if _current_view != null and _current_view.has_method("start_now"):
+			_current_view.call("start_now")
+	elif current_state == State.BREAK:
+		_on_break_skipped()
 
 
 # ⚠ 小窓の「タスクを終える」（⚠ サイドバーの四角と同じ口＝`TK-16`）。⚠ 小窓のまま「選んでいない」に戻る。
@@ -391,6 +435,7 @@ func _switch_view(new_state: State) -> void:
 	_refresh_sidebar()
 	_fit_sidebar()
 	_attach_run_controls(view)
+	_refresh_mini_mode_button()
 
 	match new_state:
 		State.PROTECTION_SELECT:
@@ -420,6 +465,7 @@ func _switch_view(new_state: State) -> void:
 			time_left_sec = float(current_preset.focus_duration_sec)
 			phase_total_sec = time_left_sec
 			_update_view_timer()
+			_update_mini_window()
 
 		State.REFLECTION:
 			view.reflection_completed.connect(_on_reflection_completed)

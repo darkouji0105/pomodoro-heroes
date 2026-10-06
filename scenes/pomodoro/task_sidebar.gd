@@ -22,6 +22,8 @@ const THEME_TYPE: StringName = &"Task"
 var current_task_provider: Callable = Callable()
 # ⚠ 行の右のペン（⚠ 小窓に置いたときは出さない＝窓が小さく、紙の窓が収まらない・10-06）。
 var show_edit: bool = true
+# ⚠ 下の「足す」欄と案内（⚠ 小窓では出さない＝10-06 人間「⚠ 追加はいらないかも　とりあえず」）。⚠ `_ready()` より前に決める。
+var show_add: bool = true
 
 var _heading: SheetHeading = null
 var _list: VBoxContainer = null
@@ -74,6 +76,8 @@ func _ready() -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.text = tr("ui_pomodoro_task_list_hint")
 	body.add_child(hint)
+	add_line.visible = show_add
+	hint.visible = show_add
 	GameManager.tasks_changed.connect(refresh)
 	_rebuild()
 
