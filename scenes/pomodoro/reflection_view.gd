@@ -56,5 +56,34 @@ func _on_complete_pressed() -> void:
 	reflection_completed.emit(reflection_edit.text)
 
 
+# ⚠ 小窓から書く・確定する口（10-06・人間「⚠ 振り返りも小窓でできるように」）。⚠ 判定はこの画面と同じ（⚠ 2本目を作らない）。
+func get_text() -> String:
+	return reflection_edit.text
+
+
+func set_text(value: String) -> void:
+	if reflection_edit.text == value:
+		return
+	reflection_edit.text = value
+	_on_text_changed()
+
+
+func can_complete() -> bool:
+	return not complete_button.disabled
+
+
+# ⚠ 足りないときは何もしない（⚠ false）。
+func submit() -> bool:
+	if not can_complete():
+		return false
+	_on_complete_pressed()
+	return true
+
+
+# あと何文字（⚠ 小窓の案内）。
+func remaining_chars() -> int:
+	return maxi(0, _min_chars() - reflection_edit.text.strip_edges().length())
+
+
 func update_timer(seconds: int, total_sec: float) -> void:
 	timer_ring.set_time(seconds, total_sec)

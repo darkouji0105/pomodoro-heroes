@@ -127,6 +127,8 @@ const SHOT_AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 const SHOT_AFTER_MINI_WINDOW: String = "mini_window"
 # ⚠ 10-06：⚠ 小窓のリストを開いた姿（⚠ 小窓の枚と同じ手 ＋ 「リスト」）。
 const SHOT_AFTER_MINI_LIST: String = "mini_list"
+# ⚠ 10-06：⚠ 小窓のまま振り返り（⚠ 小窓の枚と同じ手 ＋ 「次へ」で集中を終える）。
+const SHOT_AFTER_MINI_REFLECTION: String = "mini_reflection"
 # ⚠ 装備の特殊効果（2026-10-02）：⚠ いばらの鎧を入れて選んだ持ち物。⚠ 内側の `AFTER_SPECIAL_EFFECT` と同じ字。
 const SHOT_AFTER_SPECIAL_EFFECT: String = "special_effect"
 # ⚠ 掲示板の「高難度の依頼」タブ（2026-10-02・ノルマ札）。⚠ 内側の `AFTER_BOARD_HARD` と同じ字。
@@ -1312,6 +1314,7 @@ const SCENARIOS: Dictionary = {
 			# ⚠ デスクトップの小窓（2026-10-02・回UI-仕組み⑥・手本 Companion）。⚠ 窓が本当に小さくなる＝⚠⚠ いちばん最後。
 			{"name": "53_mini_window", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_MINI_WINDOW},
 			{"name": "68_mini_list", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_LIST},
+			{"name": "69_mini_reflection", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_REFLECTION},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -9208,6 +9211,7 @@ class ShotTaker extends Node:
 	const AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 	const AFTER_MINI_WINDOW: String = "mini_window"
 	const AFTER_MINI_LIST: String = "mini_list"
+	const AFTER_MINI_REFLECTION: String = "mini_reflection"
 	const AFTER_SPECIAL_EFFECT: String = "special_effect"
 	const AFTER_BOARD_HARD: String = "board_hard"
 	const AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
@@ -9815,7 +9819,7 @@ class ShotTaker extends Node:
 			(thorn_row as LedgerRow).pressed.emit()
 			for _i: int in range(3):
 				await get_tree().process_frame
-		elif kind == AFTER_MINI_WINDOW or kind == AFTER_MINI_LIST:
+		elif kind == AFTER_MINI_WINDOW or kind == AFTER_MINI_LIST or kind == AFTER_MINI_REFLECTION:
 			# ⚠ 設定（⚠ 検査用のファイル）で小窓をオン → ⚠ 加護「始める」→ 集中「開始」→ ⚠ 小窓（⚠ 窓が本当に小さくなる）。
 			GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, true)
 			var mini_select: Node = screen.find_child("ProtectionSelectView", true, false)
@@ -9837,6 +9841,10 @@ class ShotTaker extends Node:
 			if not bool(screen.call("is_mini_window_active")):
 				push_error("[DebugBoot] ⚠ %s で小窓にならない" % shot_name)
 				return false
+			if kind == AFTER_MINI_REFLECTION:
+				screen.call("end_phase")
+				for _i: int in range(20):
+					await get_tree().process_frame
 			if kind == AFTER_MINI_LIST:
 				var mini_node: Node = screen.find_child("MiniWindow", true, false)
 				if mini_node != null:
@@ -11072,7 +11080,8 @@ class UiFlowRunner extends Node:
 		# ⚠ 集中が終わる → 振り返り（⚠ 元の大きさ）→ 休憩（⚠ また小窓）。
 		p.set("time_left_sec", 0.01)
 		await _wait()
-		_check("小窓：振り返りは元の大きさ", not bool(p.call("is_mini_window_active")))
+		_check("小窓：振り返りも小窓（10-06）・欄と「確定」", bool(p.call("is_mini_window_active"))
+			and (p.find_child("MiniWindow", true, false).find_child("ReflectionLine", true, false) as Control).visible)
 		var reflection: Node = p.find_child("SkipButton", true, false)
 		if reflection == null:
 			p.call("_on_reflection_completed", "", true)
@@ -11124,9 +11133,24 @@ class UiFlowRunner extends Node:
 		_check("いつでも小窓：「次へ」で集中が始まる・小窓のまま", bool(p.get("is_timer_active")) and bool(p.get("_focus_started")) and bool(p.call("is_mini_window_active")))
 		p.set("time_left_sec", 0.01)
 		await _wait()
-		_check("いつでも小窓：振り返りは元の大きさ", int(p.get("current_state")) == 2 and not bool(p.call("is_mini_window_active")))
-		p.call("_on_reflection_completed", "", true)
+		# ⚠ 振り返りも小窓で書く（10-06・人間「⚠ 振り返りも小窓でできるように」）：⚠ 足りないと確定できない → ⚠ 書くと画面の欄にも入る → 確定で休憩。
+		var mini_edit: LineEdit = mini.find_child("MiniReflectionEdit", true, false) as LineEdit
+		var mini_ok: Button = mini.find_child("MiniReflectionOk", true, false) as Button
+		_check("いつでも小窓：振り返りも小窓・「%s」・欄と「確定」（まだ押せない・%s）" % [_label_text(p, "MiniWindow", "PhaseLabel"), _label_text(p, "MiniWindow", "MiniReflectionHint")],
+			int(p.get("current_state")) == 2 and bool(p.call("is_mini_window_active")) and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_phase_reflection")
+			and mini_edit != null and mini_edit.is_visible_in_tree() and mini_ok != null and mini_ok.disabled
+			and not (mini.find_child("Controls", true, false) as Control).visible)
+		var today_before_reflect: int = GameManager.get_cumulative_focus_minutes()
+		mini_edit.text = "小窓から書いた振り返りです。二十字を超えるように書いておく。"
+		mini_edit.text_changed.emit(mini_edit.text)
 		await _wait()
+		var view_text: String = str(p.find_child("ReflectionView", true, false).call("get_text"))
+		_check("いつでも小窓：小窓で書くと画面の欄にも入る・「確定」が押せる（%s）" % _label_text(p, "MiniWindow", "MiniReflectionHint"),
+			view_text == mini_edit.text and not mini_ok.disabled)
+		await _press(mini_ok)
+		await _wait()
+		_check("いつでも小窓：小窓の「確定」で振り返りが終わる・今日の分が増える（%d → %d）" % [today_before_reflect, GameManager.get_cumulative_focus_minutes()],
+			int(p.get("current_state")) == 3 and GameManager.get_cumulative_focus_minutes() > today_before_reflect)
 		_check("いつでも小窓：振り返りが終わると休憩でまた小窓", int(p.get("current_state")) == 3 and bool(p.call("is_mini_window_active")))
 		await _press(mini.find_child("MiniNextButton", true, false))
 		await _wait()

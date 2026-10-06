@@ -315,13 +315,15 @@ var _mini_expanded: bool = false
 
 func _update_mini_window() -> void:
 	# ⚠ 10-06（人間「⚠ いつでも小窓にできるように」）：⚠ 上の「小窓にする」を押したら（`_mini_manual`）始める前でも小窓。
-	#   ⚠ 振り返りだけは元の大きさ（⚠ 字を打つ・⚠ 120 秒で「とばした」扱い＝報酬なしになるので小窓で見落とさせない）。⚠ 振り返りが終わればまた小窓。
-	var want: bool = not _mini_expanded and (current_state == State.FOCUS or current_state == State.BREAK) \
+	#   ⚠ 振り返りも小窓のまま（10-06・人間「⚠ 振り返りも小窓でできるように」）＝⚠ 小窓に1行の欄と「確定」。
+	var want: bool = not _mini_expanded and _mini_phase() \
 		and (_mini_manual or (GameSettings.mini_window() and is_timer_active))
 	if want and _mini == null:
 		_mini = MiniWindow.create()
 		_mini.expand_requested.connect(_on_mini_expand)
 		_mini.next_requested.connect(_on_mini_next)
+		_mini.reflection_changed.connect(_on_mini_reflection_changed)
+		_mini.reflection_submitted.connect(_on_mini_reflection_submitted)
 		_mini.finish_task_requested.connect(_on_mini_finish_task)
 		_mini.pause_requested.connect(toggle_pause)
 		# ⚠ 小窓のリスト（10-06）：⚠ サイドバーと同じ口（⚠ 行＝替える・四角＝終える）。
@@ -331,11 +333,38 @@ func _update_mini_window() -> void:
 	if _mini == null:
 		return
 	if want:
+		var was_active: bool = _mini.is_active()
 		_mini.enter()
+		# ⚠ 振り返りの途中で小窓にしたら、⚠ 大きい画面で書いたぶんを小窓の欄へ。
+		if not was_active and current_state == State.REFLECTION:
+			_mini.set_reflection_text(_reflection_view_text())
 		_push_mini_state()
 	else:
 		_mini.leave()
 	_fit_sidebar()
+
+
+# 小窓にできるフェーズ（⚠ 加護を選ぶあいだ以外）。
+func _mini_phase() -> bool:
+	return current_state == State.FOCUS or current_state == State.BREAK or current_state == State.REFLECTION
+
+
+func _reflection_view_text() -> String:
+	if current_state == State.REFLECTION and _current_view != null and _current_view.has_method("get_text"):
+		return str(_current_view.call("get_text"))
+	return ""
+
+
+# ⚠ 小窓の欄 → 振り返りの画面（⚠ 判定と確定は画面の口を通す）。
+func _on_mini_reflection_changed(text: String) -> void:
+	if current_state == State.REFLECTION and _current_view != null and _current_view.has_method("set_text"):
+		_current_view.call("set_text", text)
+	_push_mini_state()
+
+
+func _on_mini_reflection_submitted() -> void:
+	if current_state == State.REFLECTION and _current_view != null and _current_view.has_method("submit"):
+		var _done: bool = bool(_current_view.call("submit"))
 
 
 # 設定の窓で長さを変えたとき（2026-10-02・`PomodoroLinks`）。⚠ 集中を始める前なら、⚠ 待っている時間もすぐ変える。
@@ -364,7 +393,7 @@ var _mini_mode_button: UiButton = null
 
 
 func _on_mini_mode_pressed() -> void:
-	if not (current_state == State.FOCUS or current_state == State.BREAK):
+	if not _mini_phase():
 		return
 	_mini_manual = true
 	_mini_expanded = false
@@ -374,7 +403,7 @@ func _on_mini_mode_pressed() -> void:
 
 func _refresh_mini_mode_button() -> void:
 	if _mini_mode_button != null:
-		_mini_mode_button.visible = current_state == State.FOCUS or current_state == State.BREAK
+		_mini_mode_button.visible = _mini_phase()
 
 
 # ⚠ 小窓に今の姿を渡す（2026-10-05・回P-2）：⚠ 残り時間・集中か休憩か・セットの点・いまのタスク。
@@ -387,6 +416,12 @@ func _push_mini_state() -> void:
 	# ⚠ 次のフェーズへ（10-06）：⚠ 始める前＝はじめる ／ 集中中＝集中を終える ／ 休憩＝とばす（`end_phase()`）。
 	var waiting: bool = focusing and not _focus_started
 	_mini.set_state(int(ceil(time_left_sec)), focusing, current_set_index, current_total_sets, ratio, task, _paused, _can_pause(), waiting, _next_tip())
+	# ⚠ 振り返り（10-06）：⚠ 小窓の欄と「確定」・あと何文字。
+	var reflecting: bool = current_state == State.REFLECTION
+	var remaining: int = 0
+	if reflecting and _current_view != null and _current_view.has_method("remaining_chars"):
+		remaining = int(_current_view.call("remaining_chars"))
+	_mini.set_reflection_state(reflecting, remaining)
 
 
 # ⚠ 小窓の「次へ」（10-06）＝⚠ 画面の真ん中の「次へ」と同じ口。
@@ -477,6 +512,8 @@ func _switch_view(new_state: State) -> void:
 
 		State.REFLECTION:
 			view.reflection_completed.connect(_on_reflection_completed)
+			if _mini != null:
+				_mini.set_reflection_text("")
 			_start_phase_timer(_reflection_time_limit_sec())
 
 		State.BREAK:
