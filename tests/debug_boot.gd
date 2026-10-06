@@ -144,6 +144,8 @@ const SHOT_AFTER_DEBUG_OVERLAY: String = "debug_overlay"
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 # ⚠ タスクのメモ（2026-10-04・`TK-n`）：⚠ タスクを並べる ／ 終えたものを記録へ移す ／ 詳しくを開く ／ 選ぶ窓 ／ 記録のタブ。⚠ 内側の同じ名前の字と揃える。
 const SHOT_PREPARE_TASKS: String = "tasks"
+# ⚠ 10-06：⚠ 第1話・第2話を済みにしてフロアを降りた姿（⚠ 札の足が「済・周回・受ける・すぐ出撃」でいちばん混む）。⚠ 内側の `PREPARE_BOARD_CLEARED` と同じ字。
+const SHOT_PREPARE_BOARD_CLEARED: String = "board_cleared"
 const SHOT_PREPARE_TASK_LOG: String = "task_log"
 const SHOT_AFTER_TASK_DETAIL: String = "task_detail"
 const SHOT_AFTER_TASK_PICK: String = "task_pick"
@@ -1320,6 +1322,7 @@ const SCENARIOS: Dictionary = {
 			# ⚠ 「小窓にしますか？」（10-06・不便7）：⚠ はじめて集中を始めたときの窓。
 			{"name": "70_mini_ask", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_MINI_ASK},
 			{"name": "71_item_source", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_ITEM_SOURCE},
+			{"name": "72_board_quick", "scene": "res://scenes/adventure/adventure_select.tscn", "prepare": SHOT_PREPARE_BOARD_CLEARED},
 			{"name": "69_mini_reflection", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_REFLECTION},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
@@ -9209,6 +9212,7 @@ class ShotTaker extends Node:
 	const PREPARE_REPORT_RETURNED: String = "report_returned"
 	const PREPARE_REPORT_DEFEATED: String = "report_defeated"
 	const PREPARE_SORTIE_DEPTH: String = "sortie_depth"
+	const PREPARE_BOARD_CLEARED: String = "board_cleared"
 	const AFTER_CHEST_OPEN: String = "chest_open"
 	const AFTER_SORTIE_SIGN: String = "sortie_sign"
 	const AFTER_SETTINGS_POMODORO: String = "settings_pomodoro"
@@ -9507,6 +9511,13 @@ class ShotTaker extends Node:
 			return _prepare_best_floors(3)
 		if kind == PREPARE_TASKS:
 			return _prepare_tasks()
+		if kind == PREPARE_BOARD_CLEARED:
+			if GameManager.is_in_floor():
+				GameManager.abandon_floor()
+			var order: Array = MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)
+			GameManager.mark_stage_cleared(str(order[0]))
+			GameManager.mark_stage_cleared(str(order[1]))
+			return true
 		if kind == PREPARE_TASK_LOG:
 			# ⚠ 終えたものを記録へ移す（⚠ 明日の「今」を渡す＝朝4:00 をまたいだ姿）。⚠ 2件目を終えてから移す＝記録が2行。
 			if not _prepare_tasks():
@@ -12697,7 +12708,40 @@ class UiFlowRunner extends Node:
 		await _back(q)
 		w = get_tree().current_scene
 		_check("入手先：掲示板の「戻る」で持ち物の素材タブ（%s）" % str(w.get("_tab")), _path_of(w) == BELONGINGS and str(w.get("_tab")) == TransferKeys.WAREHOUSE_TAB_MATERIAL)
+		# ⚠ 修練の素材2・3（10-06・人間「⚠ trainingmateriualはシナリオ報酬と宝箱」）。
+		for training_id: String in ["training_material_2", "training_material_3"]:
+			var training_kinds: Array[String] = []
+			for source: Dictionary in GameManager.get_item_sources(training_id):
+				training_kinds.append(str(source.get(GameManager.ITEM_SOURCE_KIND, "")))
+			_check("入手先：%s は通常の依頼で手に入る（%s）" % [training_id, str(training_kinds)], GameManager.ITEM_SOURCE_STAGE in training_kinds)
+		await _flow_board_quick()
 		await _open(BASE, {})
+
+	# --- 施設の帯の掲示板 ／ 「すぐ出撃」（2026-10-06・人間「⚠ ３はどっちも行う」） ---
+
+	func _flow_board_quick() -> void:
+		var r: Node = await _open(RECORDS, {})
+		if r == null:
+			return
+		await _press(r.find_child("Facility_" + BaseFacilityBar.BOARD, true, false), OPEN_FRAMES)
+		var q: Node = get_tree().current_scene
+		_check("掲示板：施設の帯の「掲示板」で依頼掲示板（帯つき）", _path_of(q) == ADVENTURE and q.find_child("FacilityBar", false, false) != null)
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		GameManager.add_stamina(9999)
+		q = await _open(ADVENTURE, {})
+		var stage_id: String = str(MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)[0])
+		var card: Node = q.find_child("StageCard_" + stage_id, true, false)
+		var quick: Node = null if card == null else card.find_child("QuickSortieButton", true, false)
+		_check("掲示板：札に「すぐ出撃」", quick is BaseButton)
+		await _press(quick, OPEN_FRAMES)
+		var b: Node = get_tree().current_scene
+		if _path_of(b) == BARRACKS and b.has_method("skip_sign"):
+			b.call("skip_sign")
+		await _wait(OPEN_FRAMES)
+		_check("掲示板：「すぐ出撃」で準備の「出撃する」を押さずに出発（%s）" % _path_of(get_tree().current_scene).get_file(),
+			_path_of(get_tree().current_scene) == FLOOR_MAP and GameManager.is_in_floor())
+		GameManager.abandon_floor()
 
 	func _task_order() -> Array[String]:
 		var order: Array[String] = []

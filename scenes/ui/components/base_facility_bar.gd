@@ -14,6 +14,7 @@ extends FacilityBar
 
 # ⚠ 施設のID。⚠ 本部・詰所・記録は画面IDを持たないので、⚠ 帯の中だけの名前を付ける。
 const HQ: String = "hq"
+const BOARD: String = "board"
 const BARRACKS: String = "barracks"
 const TRAINING: String = "training"
 const FORGE: String = "forge"
@@ -33,6 +34,9 @@ static func facilities() -> Array[Dictionary]:
 	return [
 		{ENTRY_ID: HQ, ENTRY_LABEL_KEY: "ui_facility_hq",
 			KEY_PATH: "res://scenes/base/base_screen.tscn", KEY_UNLOCK: ""},
+		# ⚠ 2026-10-06（`NAV-6`・人間「⚠ ３はどっちも行う」）：⚠ 依頼掲示板（⚠ 前は本部 → 冒険 の2回）。⚠ 解放は本部の「冒険」と同じ。
+		{ENTRY_ID: BOARD, ENTRY_LABEL_KEY: "ui_facility_board",
+			KEY_PATH: "res://scenes/adventure/adventure_select.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_ADVENTURE_SELECT},
 		{ENTRY_ID: BARRACKS, ENTRY_LABEL_KEY: "ui_facility_barracks",
 			KEY_PATH: "res://scenes/adventure/party_preset_screen.tscn", KEY_UNLOCK: ""},
 		{ENTRY_ID: TRAINING, ENTRY_LABEL_KEY: "ui_facility_training",

@@ -1509,3 +1509,5 @@ ui_source_go_shop,ショップへ
 ui_source_go_stage,出撃の準備へ
 ui_source_go_dungeon,掲示板へ
 ui_source_go_pomodoro,ポモドーロへ
+ui_facility_board,掲示板
+ui_quest_quick_go,すぐ出撃

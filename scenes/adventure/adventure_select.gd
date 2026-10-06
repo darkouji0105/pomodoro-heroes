@@ -49,6 +49,8 @@ func _ready() -> void:
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	_tab = int(data.get(TransferKeys.QUEST_TAB, TAB_NORMAL))
 	header.back_pressed.connect(_on_back_pressed)
+	# ⚠ 10-06（`NAV-6`）：⚠ 施設の帯に掲示板を足した＝掲示板にも帯を敷く。
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.BOARD)
 
 	_tabs = PaperTabs.new()
 	_tabs.name = "Tabs"
@@ -199,6 +201,12 @@ func _add_story_card(index: int, stage_id: String, stage_data: Dictionary) -> vo
 		foot.add_child(stamp)
 	_add_gap(foot)
 	_add_cost(foot)
+	# ⚠ 10-06：⚠ ボタンは下の段（⚠ 「すぐ出撃」を足したら1段に入らず、掲示板ごと画面の左へはみ出した＝撮った絵）。
+	var actions: HBoxContainer = HBoxContainer.new()
+	actions.name = "Actions"
+	actions.alignment = BoxContainer.ALIGNMENT_END
+	foot.get_parent().add_child(actions)
+	foot = actions
 
 	# 周回（段階14-f）。⚠ 踏破済みのフロアだけ。⚠ 出すかどうかの判定は GameManager に聞く。
 	# ⚠ 周回はその場で回す（⚠ 2026-09-28・人間「⚠ 周回の時は編成画面はいらない」＝出撃の準備を通さない）。
@@ -213,6 +221,7 @@ func _add_story_card(index: int, stage_id: String, stage_data: Dictionary) -> vo
 		_add_button(foot, "ChallengeButton", "ui_floor_resume", _on_resume_floor_pressed)
 	else:
 		_add_button(foot, "ChallengeButton", "ui_quest_take", _open_sortie.bind(stage_id, ""))
+		_add_quick_button(foot, stage_id, "")
 
 
 # --- 高難度の依頼（難ダンジョンごとに札） --------------------------------
@@ -256,17 +265,30 @@ func _build_dungeon_cards() -> void:
 				(take as BaseButton).disabled = not enough
 			# ⚠ 10-06（`NAV-18`）：⚠ 足りなければその場でショップへ（⚠ 寄り道＝ショップの「戻る」でこのタブへ戻る）。
 			#   ⚠ 前は 戻る → 本部 → ショップ → 買う → 本部 → 冒険 → 高難度 → 受ける の8回。
+			if enough:
+				_add_quick_button(foot, "", dungeon_id)
 			if not enough and take != null:
 				var shop: UiButton = _add_button(foot, "ShopLinkButton", "ui_quest_go_shop", _on_go_shop_pressed)
 				foot.move_child(shop, take.get_index())
 
 
+# 「すぐ出撃」（2026-10-06・人間「⚠ ３はどっちも行う」）：⚠ 札の上で出撃まで済む（⚠ 「受ける」→ 右下の「出撃する」が約900px）。
+#   ⚠ 出撃の手続きは出撃の準備の口のまま（⚠ 準備の画面を開いて、その「出撃する」を通す＝判定を2本にしない）。
+func _add_quick_button(foot: HBoxContainer, stage_id: String, dungeon_id: String) -> void:
+	var quick: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_quest_quick_go")
+	quick.name = "QuickSortieButton"
+	quick.size_flags_vertical = Control.SIZE_SHRINK_END
+	quick.pressed.connect(_open_sortie.bind(stage_id, dungeon_id, true))
+	foot.add_child(quick)
+
+
 # 出撃の準備へ（2026-09-28・`party_preset_screen`）。⚠ 入る判定と手続きは向こうが持つ（⚠ ここに2本目を書かない）。
-func _open_sortie(stage_id: String, dungeon_id: String) -> void:
+func _open_sortie(stage_id: String, dungeon_id: String, auto_go: bool = false) -> void:
 	SceneManager.change_scene_with_data(PARTY_PRESET_PATH, {
 		TransferKeys.SORTIE_STAGE_ID: stage_id,
 		TransferKeys.SORTIE_DUNGEON_ID: dungeon_id,
 		TransferKeys.RETURN_PATH: ADVENTURE_SELECT_PATH,
+		TransferKeys.SORTIE_AUTO_GO: auto_go,
 	})
 
 

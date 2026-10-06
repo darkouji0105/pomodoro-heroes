@@ -87,6 +87,11 @@ func _ready() -> void:
 	# ⚠ はじめてのガイド（⚠ 人間「⚠ 2あ」）。⚠ 並べ終わってから穴の位置を取る。
 	if not GameManager.is_guide_seen(GameManager.GUIDE_SORTIE):
 		_open_guide.call_deferred()
+	# ⚠ 10-06（人間「⚠ ３はどっちも行う」）：⚠ 掲示板の「すぐ出撃」＝開いたらそのまま「出撃する」と同じ口を通す
+	#   （⚠ 「受ける」から右下の「出撃する」まで約900px 動かしていた）。⚠ 出られなければこの画面に理由が出る。
+	#   ⚠ ガイドを見ていない人は止める（⚠ はじめは準備の画面を見せる）。
+	elif bool(data.get(TransferKeys.SORTIE_AUTO_GO, false)) and not _is_barracks():
+		_on_sortie_pressed.call_deferred()
 
 
 func _is_barracks() -> bool:

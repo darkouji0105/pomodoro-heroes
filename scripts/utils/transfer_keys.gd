@@ -80,6 +80,8 @@ const SORTIE_DUNGEON_ID: String = "sortie_dungeon_id"
 const FORGE_INSTANCE_ID: String = "forge_instance_id"# ⚠ 寄り道から戻ったときに元の姿へ戻すためのもの（2026-10-06・拠点の遷移の見直し・`NAV-18`）。
 # 出撃の準備で選んでいた難ダンジョンの入るフロア（⚠ 状態に無い＝画面が持っている）。
 const SORTIE_START_FLOOR: String = "sortie_start_floor"
+# 掲示板の「すぐ出撃」（⚠ true なら出撃の準備を開いてすぐ「出撃する」と同じ口を通す）。
+const SORTIE_AUTO_GO: String = "sortie_auto_go"
 # 記録の画面で開いておくタブ（⚠ 値は `RecordsScreen.TAB_*`）。
 const RECORDS_TAB: String = "records_tab"
 # 依頼掲示板で開いておくタブ（⚠ 値は `AdventureSelect` の `TAB_*`）。
