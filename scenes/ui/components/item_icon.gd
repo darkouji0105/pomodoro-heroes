@@ -212,7 +212,8 @@ func _refresh() -> void:
 	if texture != null:
 		_ensure_glyph_texture()
 		_glyph_texture.texture = texture
-		_glyph_texture.modulate = grade_color
+		# ⚠ 画像素材なら色を着せない（10-06・`IconTextures.tint_for()`）。⚠ 等級は枠線の色が持つのでそのまま分かる。
+		_glyph_texture.modulate = IconTextures.tint_for(_item_id, grade_color)
 		_glyph_texture.visible = config.glyph_font_size > 0
 		_glyph_texture.size = Vector2(glyph_size, glyph_size)
 		# ⚠ 中央に置く。⚠ 器はコンテナではないので、⚠ 位置も自分で当てる。
@@ -223,7 +224,8 @@ func _refresh() -> void:
 		# ⚠⚠ 装飾は枠の中にステータスの絵を重ねる（2026-09-08・人間の指示）。
 		#   ⚠ 枠＝宝石／護符／紋章、⚠ 中身＝その装飾が上げる軸。
 		#   ⚠ 中身を持たない品（⚠ 装備・素材・ルーン）では出さない。
-		var inner: Texture2D = IconTextures.inner_for_item(_item_id)
+		# ⚠ 画像素材は1枚で完成している＝中身を重ねない（10-06）。
+		var inner: Texture2D = null if IconTextures.has_art(_item_id) else IconTextures.inner_for_item(_item_id)
 		if inner != null:
 			var inner_size: float = glyph_size * INNER_RATIO
 			_inner_texture.texture = inner

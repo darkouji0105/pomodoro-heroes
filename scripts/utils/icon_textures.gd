@@ -19,6 +19,15 @@ const ICON_DIR: String = "res://assets/images/"
 const ICON_PREFIX: String = "icon_"
 const ICON_SUFFIX: String = ".svg"
 
+# ⚠⚠ 画像素材への差し替え（2026-10-06・人間「⚠ こういうアイコンはいずれ画像素材に置き換えるのでそれ前提の調整をしといてほしい」）。
+#   ⚠ `res://assets/images/art_<品のID>.png`（または .webp）を置けば、⚠ **その品だけ**線画の代わりにそれが出る（⚠ コードは触らない）。
+#   ⚠ 画像は色つきの完成品なので、⚠ **色を着せない**（⚠ 呼ぶ側は `tint_for()` を通す＝線画なら段の色・画像なら白＝そのまま）。
+#   ⚠ 置き場所を変えたくなったら `ART_DIR` だけ直す（⚠ 新しいフォルダは人間の承認が要る＝いまは画像の置き場の中）。
+#   ⚠ 通貨・資源（`for_resource()`）も同じ名前の決まりで差し替わる（⚠ `art_gold.png` など）。
+const ART_DIR: String = ICON_DIR
+const ART_PREFIX: String = "art_"
+const ART_SUFFIXES: Array[String] = [".png", ".webp"]
+
 # アイテムの種類 -> ファイル名の後半。⚠ `Glyphs.for_item()` と同じ分け方にすること。
 const NAME_ITEM_WEAPON: String = "item_weapon"
 const NAME_ITEM_HEAD: String = "item_head"
@@ -96,6 +105,9 @@ static var _cache: Dictionary = {}
 # ⚠ 種類の見分け方を写さない。⚠ `Glyphs.for_item()` が返した絵文字から引き直す
 #   （⚠ 2つの表が別々に育つと、⚠ 絵文字と線画で違う種類が出る）。
 static func for_item(item_id: String) -> Texture2D:
+	var art: Texture2D = art_for(item_id)
+	if art != null:
+		return art
 	# ⚠ 素材だけは系統ごとに分ける（⚠ `Glyphs` は11種の型でしか分けていない）。
 	var series: String = _material_series_name(item_id)
 	if series != "":
@@ -136,6 +148,9 @@ static func _material_series_name(item_id: String) -> String:
 #
 # ⚠⚠ 呼ぶ側は「金なのか素材なのか」を気にしなくてよい。⚠ ここが振り分ける。
 static func for_resource(resource_id: String) -> Texture2D:
+	var art: Texture2D = art_for(resource_id)
+	if art != null:
+		return art
 	if RESOURCE_NAMES.has(resource_id):
 		return _load(str(RESOURCE_NAMES[resource_id]))
 	return for_item(resource_id)
@@ -261,6 +276,35 @@ static func _name_of_glyph(glyph: String) -> String:
 	# ⚠ ポーション類（🍷 ❤）とフォールバック（📦）は線画を持たせていない。
 	#   ⚠ null が返り、⚠ 呼ぶ側が絵文字に落ちる。
 	return ""
+
+
+# その品・資源の画像素材（⚠ 無ければ null＝線画に落ちる）。
+static func art_for(item_id: String) -> Texture2D:
+	if item_id == "":
+		return null
+	var cache_key: String = ART_PREFIX + item_id
+	if _cache.has(cache_key):
+		return _cache[cache_key]
+	var texture: Texture2D = null
+	for suffix: String in ART_SUFFIXES:
+		var path: String = ART_DIR + ART_PREFIX + item_id + suffix
+		if ResourceLoader.exists(path):
+			var loaded: Resource = load(path)
+			if loaded is Texture2D:
+				texture = loaded as Texture2D
+				break
+	_cache[cache_key] = texture
+	return texture
+
+
+static func has_art(item_id: String) -> bool:
+	return art_for(item_id) != null
+
+
+# ⚠ 絵に着せる色。⚠ 画像素材があれば白（⚠ そのままの色で出す）・線画なら渡した色。
+#   ⚠ 色を着せる所は全部ここを通す（⚠ 画像を置いた品だけ色が抜ける＝1枚ずつ差し替えられる）。
+static func tint_for(item_id: String, color: Color) -> Color:
+	return Color.WHITE if has_art(item_id) else color
 
 
 static func _load(name: String) -> Texture2D:

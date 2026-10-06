@@ -180,10 +180,24 @@ func _on_chip_pressed(resource_id: String) -> void:
 #   （⚠ 絵の振り分けと色の振り分けが互いにずれないように）。
 #   ⚠ 表に無いIDは白のまま（⚠ 色を決めていない資源が増えても落ちない）。
 func _color_of(resource_id: String, chip: PanelContainer) -> Color:
-	var key: String = color_key_for(resource_id)
-	if not chip.has_theme_color(StringName(key), &"ResourceChip"):
-		return Color.WHITE
-	return chip.get_theme_color(StringName(key), &"ResourceChip")
+	return icon_color_for(resource_id, chip)
+
+
+# ⚠⚠ 資源の絵に着せる色（2026-10-06・人間「⚠ 上にあるアイコンの色が全部白いので見分けがつかない」）。
+#   ⚠ **素材は段の色**（⚠ 持ち物の枠線と同じ＝`ItemIcon.grade_of()` → `IconConfig.color_of_grade()`。白・青・紫・金）。
+#     ⚠ 前は系統の色だった＝⚠ 見出しには同じ系統の4段が並ぶので**4つとも同じ色**で見分けられなかった。
+#   ⚠ 通貨は今までどおり Theme の色（`ResourceChip` の名前つきの色）。⚠ 決めていなければ `fallback`。
+#   ⚠ 画像素材を置いた品は色を着せない（`IconTextures.tint_for()`）。
+#   ⚠ チップ・増えたときに飛ぶ絵・戦闘の結果の3か所がここを通す（⚠ 色が食い違わない）。
+static func icon_color_for(resource_id: String, theme_owner: Control, fallback: Color = Color.WHITE) -> Color:
+	var color: Color = fallback
+	if GameManager.get_material_tier(resource_id) > 0 and Balance.icon != null:
+		color = Balance.icon.color_of_grade(int(ItemIcon.grade_of(resource_id, 0).get(ItemIcon.RESULT_GRADE, 1)))
+	else:
+		var key: StringName = StringName(color_key_for(resource_id))
+		if theme_owner != null and theme_owner.has_theme_color(key, &"ResourceChip"):
+			color = theme_owner.get_theme_color(key, &"ResourceChip")
+	return IconTextures.tint_for(resource_id, color)
 
 
 # ⚠ その資源の色を Theme から引くときの名前。⚠ 通貨はIDそのもの、⚠ 素材は系統。

@@ -221,9 +221,7 @@ func _rebuild_pills(amounts: Dictionary) -> void:
 			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			icon.custom_minimum_size = Vector2(side, side)
-			var key: StringName = StringName(ResourceBar.color_key_for(resource_id))
-			if chip.has_theme_color(key, &"ResourceChip"):
-				icon.modulate = chip.get_theme_color(key, &"ResourceChip")
+			icon.modulate = ResourceBar.icon_color_for(resource_id, chip)
 			row.add_child(icon)
 		var value: Label = Label.new()
 		value.name = "Value"

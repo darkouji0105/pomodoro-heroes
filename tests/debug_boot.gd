@@ -12751,9 +12751,29 @@ class UiFlowRunner extends Node:
 			var first: Node = null if bar == null else bar.find_child("Chip_" + ids[0], true, false)
 			_check("素材の帯：%s の見出しに %s の %d 件（%d）・「＋」" % [path.get_file(), str(headers[path]), ids.size(), chips],
 				chips == ids.size() and first != null and first.find_child("PlusMark", true, false) != null)
+			# ⚠ 4段の絵の色が全部違う（10-06・人間「⚠ 上にあるアイコンの色が全部白いので見分けがつかない」）。
+			var colors: Array[String] = []
+			for id: String in ids:
+				var chip_node: Node = null if bar == null else bar.find_child("Chip_" + id, true, false)
+				var icon_node: Node = null if chip_node == null else chip_node.find_child("Icon", true, false)
+				if icon_node is CanvasItem:
+					var html: String = (icon_node as CanvasItem).modulate.to_html(false)
+					if not (html in colors):
+						colors.append(html)
+			_check("素材の帯：%s の4段の絵が別々の色（%s）" % [path.get_file(), str(colors)], colors.size() == ids.size())
 			await _press(first.find_child("Hit", false, false) if first != null else null)
 			_check("入手先：%s の見出しの素材を押すと窓" % path.get_file(), _source_window(screen) != null)
 			await _close_modal(screen)
+		# ⚠ 画像素材への差し替え（10-06）：⚠ 画像がある品は線画の代わりに画像・色は着せない。⚠ 無い品は今までどおり。
+		#   ⚠ 本物のファイルは置かない＝読み込みの覚え（`_cache`）に画像を1枚入れて確かめ、すぐ外す。
+		var art_id: String = GameManager.get_material_ids_of_series(GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX)[1]
+		var fake: ImageTexture = ImageTexture.create_from_image(Image.create(8, 8, false, Image.FORMAT_RGBA8))
+		var before_art: bool = IconTextures.has_art(art_id)
+		IconTextures._cache[IconTextures.ART_PREFIX + art_id] = fake
+		_check("画像素材：置いた品は画像が出て色を着せない・置いていない品は段の色のまま（前 %s）" % str(before_art),
+			not before_art and IconTextures.for_item(art_id) == fake and IconTextures.tint_for(art_id, Color.RED) == Color.WHITE
+			and IconTextures.tint_for("forging_material_1", Color.RED) == Color.RED)
+		var _cleared: bool = IconTextures._cache.erase(IconTextures.ART_PREFIX + art_id)
 		# 育成の概要の昇級の行。
 		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
 		if t != null:

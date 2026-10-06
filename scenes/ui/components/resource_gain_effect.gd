@@ -364,7 +364,14 @@ func _spawn_flyer(
 		0.0, 1.0, seconds,
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_callback(icon.queue_free)
-	tween.tween_callback(func() -> void: _land(target, step))
+	# ⚠⚠ 着地先は弱い参照で持つ（2026-10-06）。⚠ 無名関数で `target` を捕まえると、着く前に画面が替わったとき
+	#   ⚠ 「Lambda capture at index 0 was freed」の赤が出る（⚠ 素材のチップが見出しに出るようになり、撮影の実行で3本出た）。
+	tween.tween_callback(_land_weak.bind(weakref(target) if target != null else null, step))
+
+
+func _land_weak(target_ref: WeakRef, step: int) -> void:
+	var target: Variant = null if target_ref == null else target_ref.get_ref()
+	_land(target as Control if target is Control else null, step)
 
 
 # ⚠ 着いたときの反応。⚠ ふくらみは**増える量で変えない**（⚠ モックの決定）。
@@ -438,7 +445,4 @@ func _color(name: StringName) -> Color:
 #   ⚠ 2箇所で判定するとチップと飛ぶアイコンで色が食い違う）。
 # ⚠ 色を決めていない資源は増える緑のまま（⚠ 落ちない）。
 func _color_of(resource_id: String) -> Color:
-	var key: StringName = StringName(ResourceBar.color_key_for(resource_id))
-	if field.has_theme_color(key, &"ResourceChip"):
-		return field.get_theme_color(key, &"ResourceChip")
-	return _color(&"flyer")
+	return ResourceBar.icon_color_for(resource_id, field, _color(&"flyer"))

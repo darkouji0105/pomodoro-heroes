@@ -218,7 +218,7 @@ func _build_side() -> VBoxContainer:
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			var icon_side: float = float(get_theme_constant(&"row_icon", THEME_TYPE)) * 1.5
 			icon.custom_minimum_size = Vector2(icon_side, icon_side)
-			icon.modulate = get_theme_color(&"row_icon", THEME_TYPE)
+			icon.modulate = IconTextures.tint_for(material_id, get_theme_color(&"row_icon", THEME_TYPE))
 			icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			line.add_child(icon)
 		var material_label: Label = Label.new()
