@@ -117,6 +117,7 @@ func _update_view_timer() -> void:
 	if _current_view.has_method("update_timer"):
 		_current_view.update_timer(int(ceil(time_left_sec)), phase_total_sec)
 	_update_set_dots()
+	_refresh_goal()
 	_push_mini_state()
 
 
@@ -134,6 +135,8 @@ func _start_phase_timer(seconds: float) -> void:
 func _stop_phase_timer() -> void:
 	is_timer_active = false
 	_paused = false
+	# ⚠ 経過分の上乗せを外す（⚠ `_bank_focus()` で足した直後に二重に見えないように）。
+	_refresh_goal()
 	_update_mini_window()
 	_refresh_controls()
 
@@ -276,17 +279,28 @@ func _refresh_controls() -> void:
 
 
 # ⚠ 今日集中した分 ／ 目標（⚠ 目標なしなら今日の分だけ）。⚠ 届いたら「達成」。
+# ⚠ 集中中はいまの集中の経過分も足して出す（10-06・PLAN_POMODORO_USABILITY 不便8）。⚠ 足すのは見た目だけ（⚠ 数えるのは `_bank_focus()`）。
 func _refresh_goal() -> void:
 	if _goal_label == null:
 		return
-	var today: int = GameManager.get_cumulative_focus_minutes()
+	var today: int = GameManager.get_cumulative_focus_minutes() + _live_focus_minutes()
 	var goal: int = GameSettings.daily_goal_minutes()
+	var text: String = ""
 	if goal <= 0:
-		_goal_label.text = tr("ui_pomodoro_today_minutes") % today
+		text = tr("ui_pomodoro_today_minutes") % today
 	elif today >= goal:
-		_goal_label.text = tr("ui_pomodoro_goal_reached") % [today, goal]
+		text = tr("ui_pomodoro_goal_reached") % [today, goal]
 	else:
-		_goal_label.text = tr("ui_pomodoro_goal_progress") % [today, goal]
+		text = tr("ui_pomodoro_goal_progress") % [today, goal]
+	if _goal_label.text != text:
+		_goal_label.text = text
+
+
+# いまの集中でまだ数えていない分（⚠ 集中を始めたあと・タイマーが動いているあいだだけ）。
+func _live_focus_minutes() -> int:
+	if current_state != State.FOCUS or not _focus_started or not is_timer_active:
+		return 0
+	return int(maxf(0.0, phase_total_sec - time_left_sec) / 60.0)
 
 
 # ⚠ スペース＝始める（集中の前）・止める／再開（⚠ 字を打っている欄があるときは欄が先に取る＝ここへ来ない）。
@@ -563,6 +577,7 @@ func _on_timer_finished() -> void:
 		State.FOCUS:
 			_notify_focus_finished()
 			_bank_focus(phase_total_sec)
+			GameManager.record_focus_completed()
 			_flush_task_time()
 			_switch_view(State.REFLECTION)
 		State.REFLECTION:

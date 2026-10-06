@@ -71,7 +71,8 @@ func set_title_text(value: String) -> void:
 func _on_start_pressed() -> void:
 	var title: String = title_edit.text.strip_edges()
 	if title == "":
-		title = "Work"
+		# ⚠ 10-06（PLAN_POMODORO_USABILITY 不便11）：⚠ 前は "Work" の直書き（⚠ 翻訳表を通っていなかった）。
+		title = tr("ui_pomodoro_default_title")
 	# ⚠ 始めたらこの帯は触らせない（⚠ 消さずに透明＝上が跳ねない）。⚠ 替えるのは右のサイドバーから。
 	_started = true
 	if _task_box != null:

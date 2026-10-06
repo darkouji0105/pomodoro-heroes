@@ -429,6 +429,9 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 - **音量設定・ミュートのUIが無い。** `SoundConfig`の`master_volume_db` / `se_volume_db` / `bgm_volume_db`が起動時に各バスへ適用されるだけ。**設定画面を作る回に、セーブ構造ごと決める**
 - **BGMは鳴らせない。** `SoundManager`に`play_bgm()`は無い。バス`BGM`と音量欄だけ用意済み
 
+- **`tests/test_common_infra.tscn` の TEST #7 が FAIL のまま**（2026-10-06 に発見・⚠ 変更前の HEAD でも同じ）：`shop=true level=false research=false craft=false collect=false stamina=false`。⚠ 施設の解放の検査が今の解放の形に追いついていない見込み（⚠ 中は見ていない）
+- **ポモドーロの使い勝手の残り**（2026-10-06・`docs/01_plan/PLAN_POMODORO_USABILITY.md`）：⚠ 人間の判断待ち＝不便2（セット数・長い休憩）・3（振り返りの2分）・4（振り返りを残すか）・7（通知の方式）・9（長さの選択肢＝`BS-13`）・10（加護を1押し）・11 の残り（止めた時間・キー）
+
 ### UI の仕上げの回で足した宿題（2026-09-12〜14）
 
 ⚠ **一覧の正は `NEXT_STEPS.md` §0-UI-C-6。** ⚠ ここには番号だけ振る（⚠ 同じことを2箇所に書かない）。

@@ -11132,15 +11132,19 @@ class UiFlowRunner extends Node:
 		await _wait()
 		_check("いつでも小窓：「次へ」で集中が始まる・小窓のまま", bool(p.get("is_timer_active")) and bool(p.get("_focus_started")) and bool(p.call("is_mini_window_active")))
 		var today_before_end: int = GameManager.get_cumulative_focus_minutes()
+		var count_before_end: int = GameManager.get_total_pomodoro_completed()
 		var full_min: int = int(float(p.get("phase_total_sec")) / 60.0)
 		p.set("time_left_sec", 0.01)
 		await _wait()
-		# ⚠ 10-06（PLAN_POMODORO_USABILITY 不便1）：⚠ 今日の分は集中が終わった時点で入る（⚠ 振り返りを待たない）。
-		_check("集中の分：タイマーが0になった時点で今日の分に入る（%d → %d・%d分）" % [today_before_end, GameManager.get_cumulative_focus_minutes(), full_min],
-			int(p.get("current_state")) == 2 and GameManager.get_cumulative_focus_minutes() == today_before_end + full_min)
+		# ⚠ 10-06（PLAN_POMODORO_USABILITY 不便1・6）：⚠ 今日の分は集中が終わった時点で入る（⚠ 振り返りを待たない）・⚠ 回数も +1。
+		_check("集中の分：タイマーが0になった時点で今日の分に入る（%d → %d・%d分）・回数 +1（%d → %d）" % [today_before_end, GameManager.get_cumulative_focus_minutes(), full_min, count_before_end, GameManager.get_total_pomodoro_completed()],
+			int(p.get("current_state")) == 2 and GameManager.get_cumulative_focus_minutes() == today_before_end + full_min
+			and GameManager.get_total_pomodoro_completed() == count_before_end + 1)
 		# ⚠ 振り返りも小窓で書く（10-06・人間「⚠ 振り返りも小窓でできるように」）：⚠ 足りないと確定できない → ⚠ 書くと画面の欄にも入る → 確定で休憩。
 		var mini_edit: LineEdit = mini.find_child("MiniReflectionEdit", true, false) as LineEdit
 		var mini_ok: Button = mini.find_child("MiniReflectionOk", true, false) as Button
+		_check("いつでも小窓：振り返りの下書きに要る文字数が出る（%s）" % ("" if mini_edit == null else mini_edit.placeholder_text),
+			mini_edit != null and mini_edit.placeholder_text.contains(str(int(Balance.pomodoro.reflection_min_chars))))
 		_check("いつでも小窓：振り返りも小窓・「%s」・欄と「確定」（まだ押せない・%s）" % [_label_text(p, "MiniWindow", "PhaseLabel"), _label_text(p, "MiniWindow", "MiniReflectionHint")],
 			int(p.get("current_state")) == 2 and bool(p.call("is_mini_window_active")) and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_phase_reflection")
 			and mini_edit != null and mini_edit.is_visible_in_tree() and mini_ok != null and mini_ok.disabled
@@ -11200,8 +11204,9 @@ class UiFlowRunner extends Node:
 		var saved: bool = SaveManager.autosave()
 		var task_sec: int = int(GameManager.get_task(task_id).get(GameStateKeys.TASK_FOCUS_SEC, 0))
 		var sessions_after: int = int(GameManager.get_state().get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0))
-		_check("閉じたとき：集中の途中でも確定する（タスクに %d 秒・回数 %d → %d・タイマー止まる）・書く" % [task_sec, sessions_before, sessions_after],
-			absi(task_sec - 120) <= 1 and sessions_after == sessions_before + 1 and not bool(p.get("is_timer_active")) and saved and FileAccess.file_exists(SAVE_TEST_PATH))
+		# ⚠ 10-06（不便6）：⚠ 途中で閉じたのは「集中を終えた回数」に数えない。
+		_check("閉じたとき：集中の途中でも確定する（タスクに %d 秒・回数は増えない %d → %d・タイマー止まる）・書く" % [task_sec, sessions_before, sessions_after],
+			absi(task_sec - 120) <= 1 and sessions_after == sessions_before and not bool(p.get("is_timer_active")) and saved and FileAccess.file_exists(SAVE_TEST_PATH))
 		# ⚠ 10-06（`BS-22` を覆した）：⚠ 途中まで集中した分（2分）も今日の分に入る。
 		_check("閉じたとき：途中まで集中した分も今日の分に入る（%d → %d）" % [today_before_close, GameManager.get_cumulative_focus_minutes()],
 			GameManager.get_cumulative_focus_minutes() == today_before_close + 2)
@@ -11263,6 +11268,12 @@ class UiFlowRunner extends Node:
 		await _wait()
 		_check("時計：スリープ明けのように時計が 120 秒進むと残りも 120 秒減る（%.0f → %.0f）" % [before_sleep, float(p.get("time_left_sec"))],
 			absf(before_sleep - float(p.get("time_left_sec")) - 120.0) < 1.0)
+		# ⚠ 10-06（不便8）：⚠ 集中中も上の「今日」が経過分だけ動く（⚠ 数えたのではない＝今日の分そのものは増えない）。
+		var live_min: int = int((float(p.get("phase_total_sec")) - float(p.get("time_left_sec"))) / 60.0)
+		_check("目標：集中中も上の「今日」が経過分（%d分）だけ動く（%s）・今日の分そのものは %d のまま" % [live_min, _label_text(p, "TopBar", "GoalLabel"), GameManager.get_cumulative_focus_minutes()],
+			live_min >= 2 and _label_text(p, "TopBar", "GoalLabel") == tr("ui_pomodoro_goal_progress") % [today_before + live_min, 120]
+			and GameManager.get_cumulative_focus_minutes() == today_before)
+		var count_before_next: int = GameManager.get_total_pomodoro_completed()
 		# 次へ（10-06・人間「⚠ 今のポモドーロのフェーズを終わらせるボタンも」）：⚠ 10分集中したところで「次へ」→ 振り返り → ⚠ 今日の分は集中した分だけ。
 		p.set("time_left_sec", float(p.get("phase_total_sec")) - 600.0)
 		await _wait()
@@ -11275,8 +11286,8 @@ class UiFlowRunner extends Node:
 		var today_after: int = GameManager.get_cumulative_focus_minutes()
 		p.call("_on_reflection_completed", "途中で終えた分を数えるかの検査です。二十字を超えるように書く。", false)
 		await _wait()
-		_check("次へ：振り返りを確定しても今日の分は二重に足さない（%d → %d）" % [today_after, GameManager.get_cumulative_focus_minutes()],
-			GameManager.get_cumulative_focus_minutes() == today_after)
+		_check("次へ：振り返りを確定しても今日の分は二重に足さない（%d → %d）・途中で終えたのは回数に数えない（%d → %d）" % [today_after, GameManager.get_cumulative_focus_minutes(), count_before_next, GameManager.get_total_pomodoro_completed()],
+			GameManager.get_cumulative_focus_minutes() == today_after and GameManager.get_total_pomodoro_completed() == count_before_next)
 		_check("次へ：今日の分は集中した分だけ入る（%d → %d・%d分）・目標の字も変わる（%s）" % [today_before, today_after, focus_min, _label_text(p, "TopBar", "GoalLabel")],
 			today_after == today_before + focus_min and _label_text(p, "TopBar", "GoalLabel").begins_with(tr("ui_pomodoro_goal_progress").split("%")[0])
 			and _label_text(p, "TopBar", "GoalLabel").contains(str(today_after)))

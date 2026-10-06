@@ -328,7 +328,8 @@ func _build() -> void:
 	column.add_child(_reflection_line)
 	_reflection_edit = LineEdit.new()
 	_reflection_edit.name = "MiniReflectionEdit"
-	_reflection_edit.placeholder_text = tr("ui_mini_reflection_placeholder")
+	# ⚠ 下書きにも要る文字数（10-06・PLAN_POMODORO_USABILITY 不便5）：⚠ 前は「何をしたか一言」なのに「あと20文字」と出た。
+	_reflection_edit.placeholder_text = tr("ui_mini_reflection_placeholder").format([int(Balance.pomodoro.reflection_min_chars)])
 	_reflection_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_reflection_edit.text_changed.connect(_on_reflection_text_changed)
 	_reflection_edit.text_submitted.connect(_on_reflection_text_submitted)

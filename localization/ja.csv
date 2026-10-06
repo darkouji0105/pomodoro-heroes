@@ -1470,7 +1470,8 @@ ui_mini_next_start,はじめる
 ui_pomodoro_end_focus,集中を終える（集中した分だけ数える）
 ui_pomodoro_task_selected_stamp,選択中
 ui_mini_phase_reflection,振り返り
-ui_mini_reflection_placeholder,何をしたか一言
+ui_mini_reflection_placeholder,やったこと（{0}字以上）
+ui_pomodoro_default_title,作業
 ui_mini_reflection_ok,確定
 ui_mini_reflection_remaining,あと %d文字
 ui_mini_reflection_ready,確定できます

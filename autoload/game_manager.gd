@@ -955,8 +955,9 @@ func get_pending_chest_count() -> int:
 # --- ポモドーロ報酬 ---
 
 func apply_pomodoro_rewards(reward_data: Dictionary) -> void:
-	# gold/stamina/materialsの反映、total_pomodoro_completedの加算、
-	# last_pomodoro_end_atの更新、SignalBus.pomodoro_session_completedの発火までを一括で行う
+	# gold/stamina/materialsの反映、SignalBus.pomodoro_session_completedの発火までを一括で行う
+	# ⚠ 回数（total_pomodoro_completed）と最後の日時はここで数えない（10-06・`record_focus_completed()`）。
+	#   ⚠ 前は通しを確定するたび +1＝入ってすぐ「やめる」でも +1・4セットでも +1 だった（記録の「集中を終えた回数」と食い違い）。
 	print("[GameManager] apply_pomodoro_rewards(%s)" % reward_data)
 	if reward_data.has(GameStateKeys.REWARD_GOLD):
 		add_gold(int(reward_data[GameStateKeys.REWARD_GOLD]))
@@ -966,13 +967,16 @@ func apply_pomodoro_rewards(reward_data: Dictionary) -> void:
 		var mats: Dictionary = reward_data[GameStateKeys.REWARD_MATERIALS]
 		for mat_id: String in mats:
 			add_material(mat_id, int(mats[mat_id]))
-	# total_pomodoro_completed +1
-	_state[GameStateKeys.TOTAL_POMODORO_COMPLETED] = int(_state.get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0)) + 1
-	# last_pomodoro_end_at 更新
-	_state[GameStateKeys.LAST_POMODORO_END_AT] = str(Time.get_unix_time_from_system())
-	print("[GameManager] total_pomodoro_completed -> %d" % _state[GameStateKeys.TOTAL_POMODORO_COMPLETED])
 	# 発火元をGameManagerに一本化（呼び出し元のポモドーロ画面側では発火させない・二重発火防止）
 	SignalBus.pomodoro_session_completed.emit(reward_data)
+
+
+# ⚠ 集中を1回やり終えた（⚠ タイマーが0になったときだけ・10-06・PLAN_POMODORO_USABILITY 不便6）。
+#   ⚠ 「次へ」で途中で終えた・やめた・閉じたは数えない（⚠ 今日の分には集中した分だけ入る＝`_bank_focus()`）。
+func record_focus_completed() -> void:
+	_state[GameStateKeys.TOTAL_POMODORO_COMPLETED] = int(_state.get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0)) + 1
+	_state[GameStateKeys.LAST_POMODORO_END_AT] = str(Time.get_unix_time_from_system())
+	print("[GameManager] total_pomodoro_completed -> %d" % _state[GameStateKeys.TOTAL_POMODORO_COMPLETED])
 
 # --- ポモドーロ：しきい値と宝箱 ---
 

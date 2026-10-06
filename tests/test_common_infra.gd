@@ -81,7 +81,8 @@ func _test_pomodoro_rewards() -> void:
 	var ok: bool = (
 		int(after[GameStateKeys.GOLD]) == gold_before + 200
 		and int(after[GameStateKeys.STAMINA][GameStateKeys.STAMINA_CURRENT]) == stamina_before + 3
-		and int(after[GameStateKeys.TOTAL_POMODORO_COMPLETED]) == total_before + 1
+		# ⚠ 10-06：回数は報酬では数えない（`record_focus_completed()` が数える）。
+		and int(after[GameStateKeys.TOTAL_POMODORO_COMPLETED]) == total_before
 		and bus_fired.size() == 1
 	)
 	print("[TEST #5] %s | gold %d->%d | stamina %d->%d | total %d->%d | bus_fired=%d" % [
