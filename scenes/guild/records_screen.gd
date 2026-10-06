@@ -15,6 +15,7 @@ extends Control
 
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
+const RECORDS_PATH: String = "res://scenes/guild/records_screen.tscn"
 const THEME_TYPE: StringName = &"Records"
 const TAB_KEYS: Array[String] = ["ui_records_tab_codex", "ui_records_tab_focus", "ui_records_tab_characters", "ui_records_tab_dungeons", "ui_records_tab_tasks"]
 const TAB_CODEX: int = 0
@@ -39,7 +40,9 @@ var _codex_kind: String = GameManager.CODEX_KIND_EQUIPMENT
 
 
 func _ready() -> void:
-	SceneManager.consume_transfer_data()
+	# ⚠ 10-06（`NAV-18`）：⚠ 寄り道（育成）から戻ったときは、そのときのタブで開く。
+	var data: Dictionary = SceneManager.consume_transfer_data()
+	_tab = clampi(int(data.get(TransferKeys.RECORDS_TAB, TAB_CODEX)), 0, TAB_KEYS.size() - 1)
 	# ⚠ 朝4:00 の移し（2026-10-04・`TK-6`）。⚠ 昨日終えたタスクを「終わったタスク」に載せてから描く。
 	var _moved: int = GameManager.roll_over_done_tasks()
 	header.back_pressed.connect(_on_back_pressed)
@@ -490,7 +493,8 @@ func _build_characters() -> void:
 
 
 func _on_character_pressed(character_id: String) -> void:
-	SceneManager.change_scene_with_data(TRAINING_PATH, {TransferKeys.CHARACTER_ID: character_id})
+	SceneManager.open_detour(TRAINING_PATH, {TransferKeys.CHARACTER_ID: character_id},
+		RECORDS_PATH, {TransferKeys.RECORDS_TAB: _tab})
 
 
 # --- ダンジョンの情報（⚠ 話ごとの済・難ダンジョンの途中） --------------------

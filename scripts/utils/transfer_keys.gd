@@ -77,4 +77,12 @@ const WAREHOUSE_INSTANCE_ID: String = "warehouse_instance_id"
 const SORTIE_STAGE_ID: String = "sortie_stage_id"
 const SORTIE_DUNGEON_ID: String = "sortie_dungeon_id"
 # 鍛冶場を開いたときに選んでおく装備の個体（2026-09-27・人間「⚠ 3あ」＝持ち物・育成の「鍛える」から来る）。
-const FORGE_INSTANCE_ID: String = "forge_instance_id"
+const FORGE_INSTANCE_ID: String = "forge_instance_id"# ⚠ 寄り道から戻ったときに元の姿へ戻すためのもの（2026-10-06・拠点の遷移の見直し・`NAV-18`）。
+# 出撃の準備で選んでいた難ダンジョンの入るフロア（⚠ 状態に無い＝画面が持っている）。
+const SORTIE_START_FLOOR: String = "sortie_start_floor"
+# 記録の画面で開いておくタブ（⚠ 値は `RecordsScreen.TAB_*`）。
+const RECORDS_TAB: String = "records_tab"
+# 依頼掲示板で開いておくタブ（⚠ 値は `AdventureSelect` の `TAB_*`）。
+const QUEST_TAB: String = "quest_tab"
+# ポモドーロを開いたときに選んでおくタスク（⚠ タスクの画面の「これで集中」）。
+const TASK_ID: String = "task_id"

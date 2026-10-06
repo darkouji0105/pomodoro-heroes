@@ -308,7 +308,8 @@ func _on_again_pressed() -> void:
 	_rebuild()
 
 
+# ⚠ 10-06（`NAV-18`）：⚠ 育成は寄り道で昇級を開く＝⚠ 積んだ戻り先へ（⚠ 育成の下に積んである記録・詰所の戻り先を消さない）。
 func _back_to_training(tab_id: String) -> void:
-	SceneManager.change_scene_with_data(TRAINING_PATH, {
+	SceneManager.go_back_or(TRAINING_PATH, {
 		TransferKeys.CHARACTER_ID: _character_id, TransferKeys.TRAINING_TAB: tab_id,
 	})

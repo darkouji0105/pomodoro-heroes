@@ -41,8 +41,13 @@ var _current_view: Node = null
 #   ⚠ 書き換えてよいのは _start_phase_timer() と FOCUS の分岐だけ（タイマーと同じ決まり）。
 var phase_total_sec: float = 0.0
 
+# ⚠ タスクの画面の「これで集中」から来たときに選んでおくタスク（2026-10-06・`NAV-18`）。⚠ 最初の集中のビューで1回だけ使う。
+var _wanted_task_id: String = ""
+
 
 func _ready() -> void:
+	var transfer: Dictionary = SceneManager.consume_transfer_data()
+	_wanted_task_id = str(transfer.get(TransferKeys.TASK_ID, ""))
 	# ⚠ 右上の通貨を隠す（2026-09-09・人間の指示「ポモドーロは直して」）。
 	#   ⚠ 集中を邪魔しない画面にする決まり。⚠ 戻すのは `SceneManager` の役目
 	#   （⚠ 画面を変えるたびに既定へ戻る）。⚠ ここで戻そうとしないこと。
@@ -529,8 +534,12 @@ func _switch_view(new_state: State) -> void:
 			view.setup(current_preset)
 			if prev_title != "":
 				view.set_title_text(prev_title)
+			# ⚠ タスクの画面の「これで集中」で選んだもの（⚠ 自動で選ぶより先）。
+			if _wanted_task_id != "" and not GameManager.get_task(_wanted_task_id).is_empty():
+				view.set_task(_wanted_task_id)
+				_wanted_task_id = ""
 			# ⚠ 前のセットで選んだタスクも引き継ぐ（⚠ 名前は今のタスクの名前になる）。
-			if prev_task != "":
+			elif prev_task != "":
 				view.set_task(prev_task)
 			# ⚠⚠ 何も選んでいなければ、⚠ リストのいちばん上のまだのタスクを選ぶ（10-06・見る回・人間「⚠ 選ぶことに何もない場合は、真ん中に、するタスクを自動で選択」）。
 			#   ⚠ 前のセットで題だけ書いて選ばなかったときは選ばない（⚠ 本人が外した）。⚠ リストが空なら、ビューが「足しましょう」と促す。

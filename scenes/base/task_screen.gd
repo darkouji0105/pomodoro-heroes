@@ -15,6 +15,7 @@ class_name TaskScreen
 extends Control
 
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
+const POMODORO_PATH: String = "res://scenes/pomodoro/pomodoro.tscn"
 const THEME_TYPE: StringName = &"Task"
 
 @onready var header: ScreenHeader = $Margin/Layout/Header
@@ -292,12 +293,37 @@ func _build_detail() -> void:
 	_detail = TaskDetailPanel.create(_selected_id)
 	_detail.delete_requested.connect(_on_delete_pressed)
 	detail_body.add_child(_detail)
+	# ⚠ 10-06（`NAV-18`）：⚠ 選んだタスクでそのまま集中へ（⚠ 前は 戻る → ポモドーロ → サイドバーで選び直す）。
+	_focus_button = UiButton.create(UiButton.Variant.PRIMARY, "ui_task_focus_this")
+	_focus_button.name = "FocusThisButton"
+	_focus_button.pressed.connect(_on_focus_this_pressed)
+	heading.add_before_right(_focus_button)
+	_refresh_focus_button()
 
 
 func _rebuild_detail() -> void:
 	_detail_dirty = false
 	if _detail != null:
 		_detail.set_task(_selected_id)
+	_refresh_focus_button()
+
+
+var _focus_button: UiButton = null
+
+
+# ⚠ まだのタスクを選んでいて、⚠ ポモドーロを解放しているときだけ。
+func _refresh_focus_button() -> void:
+	if _focus_button == null:
+		return
+	var task: Dictionary = GameManager.get_task(_selected_id)
+	_focus_button.visible = not task.is_empty() and int(task.get(GameStateKeys.TASK_DONE_AT, 0)) == 0 \
+		and GameManager.is_screen_unlocked(GameStateKeys.SCREEN_POMODORO)
+
+
+func _on_focus_this_pressed() -> void:
+	if GameManager.get_task(_selected_id).is_empty():
+		return
+	SceneManager.change_scene_with_data(POMODORO_PATH, {TransferKeys.TASK_ID: _selected_id})
 
 
 # ⚠ 状態を触るのは「消す」を押したあと（CLAUDE.md 6番）。⚠ 窓を待つ間に画面を離れたら何もしない。

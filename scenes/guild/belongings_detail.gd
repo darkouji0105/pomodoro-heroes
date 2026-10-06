@@ -17,6 +17,7 @@ signal attach_requested(instance_id: String, slot_index: int)
 
 const THEME_TYPE: StringName = &"Belongings"
 const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
+const WAREHOUSE_PATH: String = "res://scenes/guild/warehouse_screen.tscn"
 const DESCRIPTION_PREFIX: String = "ui_desc_"
 
 # ⚠ 吹き出しを出す画面（⚠ `SlotActionPopover` の置き場）。⚠ 画面が入れる。
@@ -335,8 +336,10 @@ static func part_range_text(item_id: String) -> String:
 
 # --- 押されたもの（⚠ 口は全部 `GameManager`。⚠ 描き直しは画面がシグナルで受ける） ---
 
+# ⚠ 10-06（`NAV-18`）：⚠ 寄り道＝鍛冶場の「戻る」でこの品を選んだ持ち物へ（⚠ 前は本部へ飛んだ）。
 func _on_forge_pressed(instance_id: String) -> void:
-	SceneManager.change_scene_with_data(FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: instance_id})
+	SceneManager.open_detour(FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: instance_id},
+		WAREHOUSE_PATH, {TransferKeys.WAREHOUSE_INSTANCE_ID: instance_id})
 
 
 func _on_attach_pressed(instance_id: String, slot_index: int) -> void:

@@ -20,6 +20,7 @@ const LIST_PATH: String = "res://scenes/guild/training_list_screen.tscn"
 const LEVEL_UP_PATH: String = "res://scenes/guild/level_up_screen.tscn"
 # ⚠ 鍛冶場（⚠ 装備のタブの「鍛冶場で鍛える」の行き先）。
 const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
+const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
 const THEME_TYPE: StringName = &"Training"
 
 # ⚠ タブの並び。⚠ 外から開くときは `TransferKeys.TRAINING_TAB_*` の字で指す（⚠ 番号を漏らさない）。
@@ -431,17 +432,24 @@ func _on_apply_pressed() -> void:
 
 # ⚠ 昇級は申請書の画面で行う（人間「⚠ 3あ」）。⚠ ここでは上げない。
 func _on_level_up_pressed() -> void:
-	SceneManager.change_scene_with_data(LEVEL_UP_PATH, {TransferKeys.CHARACTER_ID: _selected_id})
+	SceneManager.open_detour(LEVEL_UP_PATH, {TransferKeys.CHARACTER_ID: _selected_id}, TRAINING_PATH, _return_data())
 
 
 # ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ 鍛冶場をその品を選んだ状態で開く（⚠ 前は持ち物を開いていた）。
+#   ⚠ 10-06（`NAV-18`）：⚠ 寄り道で開く＝鍛冶場の「戻る」でこのキャラの装備タブへ戻る（⚠ 前は本部へ飛んだ）。
 func _on_forge_requested(instance_id: String) -> void:
-	SceneManager.change_scene_with_data(FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: instance_id})
+	SceneManager.open_detour(FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: instance_id}, TRAINING_PATH, _return_data())
+
+
+# ⚠ 寄り道から戻ったときに、⚠ いまのキャラとタブで開き直すためのデータ。
+func _return_data() -> Dictionary:
+	return {TransferKeys.CHARACTER_ID: _selected_id, TransferKeys.TRAINING_TAB: _tab}
 
 
 # ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ 戻る先は育成の一覧（⚠ 身上書カード）。
+# ⚠ 10-06（`NAV-18`）：⚠ 寄り道で来た（⚠ 記録・詰所・出撃の準備から）なら来た画面へ。
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(LIST_PATH)
+	SceneManager.go_back_or(LIST_PATH)
 
 
 # --- シグナル ---

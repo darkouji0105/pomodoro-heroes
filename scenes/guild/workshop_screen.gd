@@ -59,7 +59,7 @@ func _ready() -> void:
 
 func _on_forge_tab_changed(index: int) -> void:
 	if index != ForgeScreen.TAB_MAKE:
-		SceneManager.change_scene(FORGE_PATH)
+		SceneManager.swap_scene(FORGE_PATH)
 
 # --- 描画 ---
 
@@ -270,7 +270,7 @@ func _on_collect_pressed(queue_id: String) -> void:
 		notice_label.text = tr("ui_guild_workshop_failed")
 
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(BASE_PATH)
+	SceneManager.go_back_or(BASE_PATH)
 
 # --- 毎秒の更新 ---
 

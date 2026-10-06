@@ -26,6 +26,7 @@ const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
 const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
+const PARTY_PRESET_PATH: String = "res://scenes/adventure/party_preset_screen.tscn"
 const THEME_TYPE: StringName = &"Sortie"
 const TRAINING_THEME_TYPE: StringName = &"Training"
 const POSITION_KEYS: Array[String] = ["ui_sortie_front", "ui_sortie_middle", "ui_sortie_back"]
@@ -71,6 +72,7 @@ func _ready() -> void:
 		_return_path = path
 	_stage_id = str(data.get(TransferKeys.SORTIE_STAGE_ID, ""))
 	_dungeon_id = str(data.get(TransferKeys.SORTIE_DUNGEON_ID, ""))
+	_start_floor = int(data.get(TransferKeys.SORTIE_START_FLOOR, 0))
 	header.back_pressed.connect(_on_back_pressed)
 	if _is_barracks():
 		header.set_subtitle_text(tr("ui_sortie_barracks_subtitle"))
@@ -849,11 +851,12 @@ func _rebuild_roster() -> void:
 	actions.name = "Actions"
 	actions.alignment = BoxContainer.ALIGNMENT_END
 	roster_body.add_child(actions)
+	# ⚠ 10-06（`NAV-18`）：⚠ 出撃の準備でも出す（⚠ 前は詰所だけ＝装備を替えるのに依頼を選び直していた）。
+	var open: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_sortie_open_training")
+	open.name = "OpenTrainingButton"
+	open.pressed.connect(_on_open_training_pressed)
+	actions.add_child(open)
 	if _is_barracks():
-		var open: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_sortie_open_training")
-		open.name = "OpenTrainingButton"
-		open.pressed.connect(_on_open_training_pressed)
-		actions.add_child(open)
 		return
 	# ⚠ 「周回する」は置かない（⚠ 2026-09-28・人間「⚠ 周回の時は編成画面はいらない」＝周回は掲示板でその場で回す）。
 	var go: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_quest_sortie_go")
@@ -885,7 +888,13 @@ func _on_open_training_pressed() -> void:
 	if target == "":
 		var members: Array = GameManager.get_party_members()
 		target = str(members[0]) if not members.is_empty() else ""
-	SceneManager.change_scene_with_data(TRAINING_PATH, {TransferKeys.CHARACTER_ID: target})
+	# ⚠ 10-06（`NAV-18`）：⚠ 寄り道＝育成の「戻る」で、この画面（⚠ 同じ依頼・同じ深さ）へ戻る。
+	SceneManager.open_detour(TRAINING_PATH, {TransferKeys.CHARACTER_ID: target}, PARTY_PRESET_PATH, {
+		TransferKeys.RETURN_PATH: _return_path,
+		TransferKeys.SORTIE_STAGE_ID: _stage_id,
+		TransferKeys.SORTIE_DUNGEON_ID: _dungeon_id,
+		TransferKeys.SORTIE_START_FLOOR: _start_floor,
+	})
 
 
 # --- 出撃の手続き（⚠ 前は依頼掲示板にあった。⚠ 判定は GameManager の口のまま） --------------------

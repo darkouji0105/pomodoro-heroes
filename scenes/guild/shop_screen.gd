@@ -156,7 +156,8 @@ func _on_buy_pressed(slot_id: int) -> void:
 	# 失敗時は状態が変わらずシグナルも飛ばないため、ここでは何もしない。
 
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(BASE_PATH)
+	# ⚠ 10-06（`NAV-18`）：⚠ 掲示板から寄り道で来たなら掲示板へ。
+	SceneManager.go_back_or(BASE_PATH)
 
 # --- シグナルハンドラ ---
 

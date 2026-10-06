@@ -22,6 +22,7 @@ extends Control
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const WORKSHOP_PATH: String = "res://scenes/guild/workshop_screen.tscn"
 const BELONGINGS_PATH: String = "res://scenes/guild/warehouse_screen.tscn"
+const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
 const THEME_TYPE: StringName = &"Forge"
 const TAB_KEYS: Array[String] = ["ui_forge_tab_forge", "ui_forge_tab_make"]
 const TAB_MAKE: int = 1
@@ -64,7 +65,7 @@ func _ready() -> void:
 
 func _on_tab_changed(index: int) -> void:
 	if index == TAB_MAKE:
-		SceneManager.change_scene(WORKSHOP_PATH)
+		SceneManager.swap_scene(WORKSHOP_PATH)
 
 
 func _clear(box: Node) -> void:
@@ -543,15 +544,18 @@ func _shake_sheet(at: float, duration: float) -> void:
 		last = offset
 
 
+# ⚠ 10-06（`NAV-18`）：⚠ 寄り道＝持ち物の「戻る」でこの品を選んだ鍛冶場へ。
 func _on_belongings_pressed() -> void:
-	SceneManager.change_scene_with_data(BELONGINGS_PATH, {TransferKeys.WAREHOUSE_INSTANCE_ID: _selected})
+	SceneManager.open_detour(BELONGINGS_PATH, {TransferKeys.WAREHOUSE_INSTANCE_ID: _selected},
+		FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: _selected})
 
 
 func _on_back_pressed() -> void:
 	if not _result.is_empty():
 		_leave_result()
 		return
-	SceneManager.change_scene(BASE_PATH)
+	# ⚠ 10-06（`NAV-18`）：⚠ 育成・持ち物から寄り道で来たなら、そこへ戻る。
+	SceneManager.go_back_or(BASE_PATH)
 
 
 # --- 小さい道具 ----------------------------------------------------------

@@ -62,11 +62,61 @@ func _spawn_debug_overlay() -> void:
 
 func change_scene(scene_path: String) -> void:
 	print("[SceneManager] change_scene -> %s" % scene_path)
+	_return_stack.clear()
 	_record_history()
 	# ⚠ 右上の通貨は既定で出す（2026-09-09）。⚠ 隠したい画面が自分の `_ready()` で消す。
 	#   ⚠ ここで戻さないと、⚠ ポモドーロから抜けたあと通貨が消えたままになる。
 	ResourceHud.set_shown(true)
 	# ⚠ 画面を移るたびに自動セーブ（2026-10-05・回P-1・⚠ 遊んでいる最中だけ＝`SaveManager.autosave()`）。
+	SaveManager.autosave()
+	get_tree().change_scene_to_file(scene_path)
+
+
+# ⚠⚠ 寄り道（2026-10-06・拠点の遷移の見直し・`NAV-18`）。
+#   ⚠ 「育成 → 鍛冶場 → 戻る」で本部へ飛ばされ、⚠ キャラ・タブ・依頼を選び直していた。
+#   ⚠ 寄り道で開くときは**戻り先（画面と、そこへ渡すデータ）を積む**。⚠ 開いた画面の「戻る」は `go_back_or()` で積んだ先へ。
+#   ⚠ 積んだものは**ふつうの遷移（`change_scene*`）で全部捨てる**＝⚠ 施設の帯・出撃・タイトルで切れる（⚠ 古い戻り先が残らない）。
+#   ⚠ 入れ子は積み重なる（⚠ 記録 → 育成 → 鍛冶場 → 戻る → 育成 → 戻る → 記録）。
+var _return_stack: Array[Dictionary] = []
+const _RETURN_PATH_KEY: String = "path"
+const _RETURN_DATA_KEY: String = "data"
+
+
+func open_detour(scene_path: String, data: Dictionary, return_path: String, return_data: Dictionary = {}) -> void:
+	print("[SceneManager] open_detour -> %s (return %s)" % [scene_path, return_path])
+	_return_stack.push_back({_RETURN_PATH_KEY: return_path, _RETURN_DATA_KEY: return_data.duplicate(true)})
+	_go_keeping_returns(scene_path, data)
+
+
+# ⚠ 寄り道から戻る。⚠ 積んでいなければ `default_path` へ（⚠ 施設の帯から来たときの今までの戻り先）。
+#   ⚠ `override` は戻り先のデータに上書きする（⚠ 昇級のあと「ノードへ」のように戻るタブだけ変えたいとき）。
+func go_back_or(default_path: String, override: Dictionary = {}) -> void:
+	if _return_stack.is_empty():
+		if override.is_empty():
+			change_scene(default_path)
+		else:
+			change_scene_with_data(default_path, override)
+		return
+	var entry: Dictionary = _return_stack.pop_back()
+	var data: Dictionary = (entry.get(_RETURN_DATA_KEY, {}) as Dictionary).duplicate(true)
+	data.merge(override, true)
+	print("[SceneManager] go_back_or -> %s" % str(entry.get(_RETURN_PATH_KEY, "")))
+	_go_keeping_returns(str(entry.get(_RETURN_PATH_KEY, default_path)), data)
+
+
+# ⚠ 同じ施設の中でタブが別の画面になっているもの（⚠ 鍛冶場の「鍛える」⇔「作る」）。⚠ 戻り先を捨てない。
+func swap_scene(scene_path: String, data: Dictionary = {}) -> void:
+	_go_keeping_returns(scene_path, data)
+
+
+func has_return() -> bool:
+	return not _return_stack.is_empty()
+
+
+func _go_keeping_returns(scene_path: String, data: Dictionary) -> void:
+	_transfer_data = data.duplicate(true)
+	_record_history()
+	ResourceHud.set_shown(true)
 	SaveManager.autosave()
 	get_tree().change_scene_to_file(scene_path)
 
@@ -83,6 +133,7 @@ func change_scene_with_data(scene_path: String, data: Dictionary) -> void:
 	# _transfer_dataをセットしてからchange_sceneと同様の遷移を行う
 	print("[SceneManager] change_scene_with_data -> %s, data=%s" % [scene_path, data])
 	_transfer_data = data.duplicate(true)
+	_return_stack.clear()
 	_record_history()
 	# ⚠ 右上の通貨は既定で出す（2026-09-09）。⚠ 隠したい画面が自分の `_ready()` で消す。
 	#   ⚠ ここで戻さないと、⚠ ポモドーロから抜けたあと通貨が消えたままになる。

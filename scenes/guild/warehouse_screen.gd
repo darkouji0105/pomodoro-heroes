@@ -399,4 +399,4 @@ func _on_state_changed() -> void:
 
 
 func _on_back_pressed() -> void:
-	SceneManager.change_scene(BASE_PATH)
+	SceneManager.go_back_or(BASE_PATH)

@@ -10434,6 +10434,7 @@ class UiFlowRunner extends Node:
 		await _flow_autosave()
 		await _flow_pomodoro_extras()
 		await _flow_mini_ask()
+		await _flow_return_paths()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -12451,6 +12452,121 @@ class UiFlowRunner extends Node:
 			GameManager.get_task(d_id).is_empty() and GameManager.get_tasks().size() == tasks_before_delete - 1
 			and GameManager.get_task_log().size() == log_before_delete and t2.find_child("Task_" + d_id, true, false) == null
 			and t2.find_child("DetailNone", true, false) != null)
+
+	# --- 寄り道の「戻る」は来た画面へ（2026-10-06・拠点の遷移の見直し・`NAV-18`） ---
+
+	func _back(scene: Node) -> void:
+		var header: Node = scene.find_child("Header", true, false)
+		await _press(header.find_child("BackButton", false, false) if header != null else null, OPEN_FRAMES)
+
+	func _flow_return_paths() -> void:
+		const ADVENTURE_SHOP: String = "res://scenes/guild/shop_screen.tscn"
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		var instance_id: String = _instance_of(WEAPON_ID)
+		# ① 育成（装備タブ）→ 鍛冶場 → 戻る → 同じキャラの装備タブ → 戻る → 一覧。
+		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: OTHER, TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_EQUIP})
+		if t == null:
+			return
+		await _press(t.find_child("Slot_" + GameStateKeys.EQUIP_WEAPON, true, false))
+		await _press(t.find_child("Candidate_" + instance_id, true, false))
+		await _press(t.find_child("EquipButton", true, false))
+		await _press(t.find_child("ForgeButton", true, false), OPEN_FRAMES)
+		var f: Node = get_tree().current_scene
+		_check("戻り先：育成の「鍛冶場で鍛える」で鍛冶場", _path_of(f) == FORGE)
+		await _back(f)
+		t = get_tree().current_scene
+		_check("戻り先：鍛冶場の「戻る」で育成（%s・%s）に戻る（前は本部）" % [str(t.get("_selected_id")), str(t.get("_tab"))],
+			_path_of(t) == TRAINING and str(t.get("_selected_id")) == OTHER and str(t.get("_tab")) == TransferKeys.TRAINING_TAB_EQUIP)
+		await _back(t)
+		_check("戻り先：もう一度「戻る」で育成の一覧（積んだものは尽きた）", _path_of(get_tree().current_scene) == TRAINING_LIST)
+		GameManager.unequip_instance(OTHER, GameStateKeys.EQUIP_WEAPON)
+		# ② 持ち物 → 鍛える → 戻る → その品を選んだ持ち物 → 戻る → 本部。
+		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_INSTANCE_ID: instance_id})
+		if w == null:
+			return
+		await _press(w.find_child("ForgeButton", true, false), OPEN_FRAMES)
+		await _back(get_tree().current_scene)
+		w = get_tree().current_scene
+		_check("戻り先：持ち物 → 鍛冶場 →「戻る」で持ち物（その品を選んだまま）",
+			_path_of(w) == BELONGINGS and str(w.get("_selected_key")) == instance_id)
+		await _back(w)
+		_check("戻り先：持ち物の「戻る」は本部", _path_of(get_tree().current_scene) == BASE)
+		# ③ 鍛冶場（帯から）→ 持ち物で見る → 戻る → その品を選んだ鍛冶場。
+		f = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: instance_id})
+		if f == null:
+			return
+		await _press(f.find_child("BelongingsButton", true, false), OPEN_FRAMES)
+		await _back(get_tree().current_scene)
+		f = get_tree().current_scene
+		_check("戻り先：鍛冶場 → 持ち物で見る →「戻る」で鍛冶場（その品のまま）", _path_of(f) == FORGE and str(f.get("_selected")) == instance_id)
+		# ⚠ 施設の帯で移ると積んだものは捨てる（⚠ 古い戻り先が残らない）。
+		await _press(f.find_child("Facility_" + BaseFacilityBar.RECORDS, true, false), OPEN_FRAMES)
+		_check("戻り先：施設の帯で移ると積んだ戻り先は消える", _path_of(get_tree().current_scene) == RECORDS and not SceneManager.has_return())
+		# ④ 記録（キャラ）→ 育成 → 昇級 → 戻る → 育成 → 戻る → 記録のキャラのタブ。
+		var r: Node = await _open(RECORDS, {TransferKeys.RECORDS_TAB: RecordsScreen.TAB_CHARACTERS})
+		if r == null:
+			return
+		await _press(r.find_child("Character_" + HERO, true, false), OPEN_FRAMES)
+		t = get_tree().current_scene
+		_check("戻り先：記録のキャラを押すと育成", _path_of(t) == TRAINING)
+		await _press(t.find_child("LevelUpButton", true, false), OPEN_FRAMES)
+		await _back(get_tree().current_scene)
+		t = get_tree().current_scene
+		_check("戻り先：昇級の「戻る」で育成（%s）" % str(t.get("_selected_id")), _path_of(t) == TRAINING and str(t.get("_selected_id")) == HERO)
+		await _back(t)
+		r = get_tree().current_scene
+		_check("戻り先：育成の「戻る」で記録のキャラのタブ（前は育成の一覧）（%s）" % str(r.get("_tab")),
+			_path_of(r) == RECORDS and int(r.get("_tab")) == RecordsScreen.TAB_CHARACTERS)
+		# ⑤ 詰所 → 育成 → 戻る → 詰所（帯つき）。
+		var b: Node = await _open(BARRACKS, {})
+		if b == null:
+			return
+		await _press(b.find_child("OpenTrainingButton", true, false), OPEN_FRAMES)
+		await _back(get_tree().current_scene)
+		b = get_tree().current_scene
+		_check("戻り先：詰所 → 育成 →「戻る」で詰所（帯つき）", _path_of(b) == BARRACKS and b.find_child("FacilityBar", false, false) != null)
+		# ⑥ 出撃の準備（依頼つき）→ 育成 → 戻る → 同じ依頼の準備。
+		var stage_id: String = str(MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)[0])
+		b = await _open(BARRACKS, {TransferKeys.SORTIE_STAGE_ID: stage_id, TransferKeys.RETURN_PATH: ADVENTURE})
+		if b == null:
+			return
+		_check("戻り先：出撃の準備にも「育成」がある", b.find_child("OpenTrainingButton", true, false) != null and b.find_child("SortieButton", true, false) != null)
+		await _press(b.find_child("OpenTrainingButton", true, false), OPEN_FRAMES)
+		await _back(get_tree().current_scene)
+		b = get_tree().current_scene
+		_check("戻り先：出撃の準備 → 育成 →「戻る」で同じ依頼の準備（%s・戻り先 %s）" % [str(b.get("_stage_id")), str(b.get("_return_path")).get_file()],
+			_path_of(b) == BARRACKS and str(b.get("_stage_id")) == stage_id and str(b.get("_return_path")) == ADVENTURE)
+		# ⑦ 掲示板（高難度・札0）→ ショップで買う → 戻る → 掲示板の高難度タブ。
+		var have: int = GameManager.get_quota_ticket_count()
+		if have > 0:
+			GameManager.call("_remove_from_inventory", GameStateKeys.ITEM_QUOTA_TICKET, have)
+		var q: Node = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 1})
+		if q == null:
+			return
+		var shop_link: Node = q.find_child("ShopLinkButton", true, false)
+		_check("戻り先：札が足りない高難度の札に「ショップで買う」", shop_link is BaseButton)
+		await _press(shop_link, OPEN_FRAMES)
+		_check("戻り先：「ショップで買う」でショップ", _path_of(get_tree().current_scene) == ADVENTURE_SHOP)
+		await _back(get_tree().current_scene)
+		q = get_tree().current_scene
+		_check("戻り先：ショップの「戻る」で掲示板の高難度タブ（%s）" % str(q.get("_tab")), _path_of(q) == ADVENTURE and int(q.get("_tab")) == 1)
+		# ⑧ タスクの画面で選ぶ →「これで集中」→ ポモドーロでそのタスクが選ばれている。
+		var task_id: String = GameManager.add_task("寄り道の検査")
+		var ts: Node = await _open(TASK_SCREEN, {})
+		if ts == null:
+			return
+		var focus_this: Node = ts.find_child("FocusThisButton", true, false)
+		_check("戻り先：何も選んでいなければ「これで集中」は出ない", focus_this is Control and not (focus_this as Control).visible)
+		await _press(ts.find_child("Task_" + task_id, true, false))
+		focus_this = ts.find_child("FocusThisButton", true, false)
+		_check("戻り先：タスクを選ぶと「これで集中」", focus_this is Control and (focus_this as Control).visible)
+		await _press(focus_this, OPEN_FRAMES)
+		var p: Node = get_tree().current_scene
+		var picked: String = str(p.call("_current_task_id")) if _path_of(p) == POMODORO else ""
+		if picked == "" and _path_of(p) == POMODORO:
+			picked = str(p.get("_wanted_task_id"))
+		_check("戻り先：「これで集中」でポモドーロ・そのタスクを選んでいる（%s）" % picked, _path_of(p) == POMODORO and picked == task_id)
+		await _open(BASE, {})
 
 	func _task_order() -> Array[String]:
 		var order: Array[String] = []

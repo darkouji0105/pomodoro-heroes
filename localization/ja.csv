@@ -1486,3 +1486,5 @@ ui_settings_long_break_note,4回集中するごとの休憩
 ui_mini_reflection_ok,確定
 ui_mini_reflection_remaining,あと %d文字
 ui_mini_reflection_ready,確定できます
+ui_quest_go_shop,ショップで買う
+ui_task_focus_this,これで集中

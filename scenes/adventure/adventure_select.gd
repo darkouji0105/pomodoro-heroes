@@ -25,6 +25,7 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
 # 難ダンジョン（段階17-d）。⚠ フロアのマップとは別の画面（器も仕様も別＝台帳 §7）。
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
+const SHOP_PATH: String = "res://scenes/guild/shop_screen.tscn"
 const THEME_TYPE: StringName = &"QuestBoard"
 
 const TAB_NORMAL: int = 0
@@ -44,7 +45,9 @@ var _tab: int = TAB_NORMAL
 func _ready() -> void:
 	# 拠点から渡される transfer data を 1 回だけ消費して捨てる（EXEC §5-1）。
 	# 呼ばないと次の遷移に前回のデータが残るため必須。
-	SceneManager.consume_transfer_data()
+	# ⚠ 10-06（`NAV-18`）：⚠ 寄り道（ショップ）から戻ったときは、そのときのタブで開く。
+	var data: Dictionary = SceneManager.consume_transfer_data()
+	_tab = int(data.get(TransferKeys.QUEST_TAB, TAB_NORMAL))
 	header.back_pressed.connect(_on_back_pressed)
 
 	_tabs = PaperTabs.new()
@@ -53,7 +56,9 @@ func _ready() -> void:
 	# ⚠ 検証用のタブはデバッグビルドだけ（⚠ リリース前に "debug" の列ごと消す＝宿題16）。
 	if OS.is_debug_build() and not MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_DEBUG).is_empty():
 		keys.append("ui_quest_tab_debug")
-	_tabs.set_tabs(keys, TAB_NORMAL)
+	if _tab < 0 or _tab >= keys.size():
+		_tab = TAB_NORMAL
+	_tabs.set_tabs(keys, _tab)
 	_tabs.tab_changed.connect(_on_tab_changed)
 	board_stack.add_child(_tabs)
 	board_stack.move_child(_tabs, 0)
@@ -249,6 +254,11 @@ func _build_dungeon_cards() -> void:
 			var take: Node = foot.find_child("DungeonButton", false, false)
 			if take is BaseButton:
 				(take as BaseButton).disabled = not enough
+			# ⚠ 10-06（`NAV-18`）：⚠ 足りなければその場でショップへ（⚠ 寄り道＝ショップの「戻る」でこのタブへ戻る）。
+			#   ⚠ 前は 戻る → 本部 → ショップ → 買う → 本部 → 冒険 → 高難度 → 受ける の8回。
+			if not enough and take != null:
+				var shop: UiButton = _add_button(foot, "ShopLinkButton", "ui_quest_go_shop", _on_go_shop_pressed)
+				foot.move_child(shop, take.get_index())
 
 
 # 出撃の準備へ（2026-09-28・`party_preset_screen`）。⚠ 入る判定と手続きは向こうが持つ（⚠ ここに2本目を書かない）。
@@ -336,6 +346,10 @@ func _on_training_pressed() -> void:
 		PLACEHOLDER_PATH,
 		{TransferKeys.SCREEN_ID: GameStateKeys.SCREEN_ADVENTURE_SELECT}
 	)
+
+
+func _on_go_shop_pressed() -> void:
+	SceneManager.open_detour(SHOP_PATH, {}, ADVENTURE_SELECT_PATH, {TransferKeys.QUEST_TAB: _tab})
 
 
 func _on_back_pressed() -> void:
