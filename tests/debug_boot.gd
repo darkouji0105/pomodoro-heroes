@@ -12730,13 +12730,30 @@ class UiFlowRunner extends Node:
 		_check("昇級の素材：Lv1・20＝1 ／ 21・40＝2 ／ 41・60＝3 ／ 61・99＝4（%s）" % str(tiers),
 			tiers == ["training_material_1", "training_material_1", "training_material_2", "training_material_2",
 				"training_material_3", "training_material_3", "training_material_4", "training_material_4"])
-		# 本部の右上の素材のチップ。
+		# ⚠ 本部には素材を出さない（10-06・人間「⚠ 拠点では書かずに、関連する画面でのみ表示するように」）。
 		var base: Node = await _open(BASE, {})
 		if base != null:
-			var chip: Node = base.find_child("Chip_forging_material_1", true, false)
-			await _press(chip.find_child("Hit", false, false) if chip != null else null)
-			_check("入手先：本部の右上の素材を押すと窓", _source_window(base) != null)
-			await _close_modal(base)
+			_check("素材の帯：本部には素材のチップが無い", base.find_child("Chip_forging_material_1", true, false) == null)
+		# 見出しの素材のチップ（⚠ その画面の系統だけ・「＋」つき・押すと窓）。
+		var headers: Dictionary = {
+			TRAINING_LIST: GameStateKeys.ITEM_TRAINING_MATERIAL_PREFIX,
+			FORGE: GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX,
+			RESEARCH_SCREEN: GameStateKeys.ITEM_CONSTRUCTION_MATERIAL_PREFIX,
+			WORKSHOP_SCREEN: GameStateKeys.ITEM_DECOR_MATERIAL_PREFIX,
+		}
+		for path: String in headers:
+			var screen: Node = await _open(path, {})
+			if screen == null:
+				continue
+			var bar: Node = screen.find_child("MaterialBar", true, false)
+			var ids: Array[String] = GameManager.get_material_ids_of_series(str(headers[path]))
+			var chips: int = 0 if bar == null else bar.find_children("Chip_*", "", true, false).size()
+			var first: Node = null if bar == null else bar.find_child("Chip_" + ids[0], true, false)
+			_check("素材の帯：%s の見出しに %s の %d 件（%d）・「＋」" % [path.get_file(), str(headers[path]), ids.size(), chips],
+				chips == ids.size() and first != null and first.find_child("PlusMark", true, false) != null)
+			await _press(first.find_child("Hit", false, false) if first != null else null)
+			_check("入手先：%s の見出しの素材を押すと窓" % path.get_file(), _source_window(screen) != null)
+			await _close_modal(screen)
 		# 育成の概要の昇級の行。
 		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
 		if t != null:

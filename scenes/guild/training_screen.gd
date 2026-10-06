@@ -106,6 +106,8 @@ func _build_chips() -> void:
 	# ⚠ 右の HUD の場所は空けたまま（⚠ `ScreenHeader.hud_spacer` を一番右に残す）。
 	if header.hud_spacer != null:
 		header.move_child(header.hud_spacer, header.get_child_count() - 1)
+	# ⚠ 10-06（`NAV-19`）：⚠ この画面で使う素材を見出しに（⚠ 本部の右上の素材16件はやめた）。
+	var _bar: ResourceBar = header.show_materials(GameManager.get_material_ids_of_series(GameStateKeys.ITEM_TRAINING_MATERIAL_PREFIX))
 
 
 func _rebuild_chips() -> void:

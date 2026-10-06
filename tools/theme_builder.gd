@@ -659,6 +659,8 @@ const CHIP_BORDER: String = "4a3d36"
 #   ⚠ 前は 左右16 / 上下8。⚠ 素材16件が右上に並ぶようになり、⚠ その大きさでは入らない。
 const CHIP_PAD_H: int = 10
 const CHIP_PAD_V: int = 4
+# ⚠ 「＋」の丸の左右の余白（⚠ 字の幅と合わせて丸に見える値）。
+const CHIP_PLUS_PAD_H: int = 5
 # ⚠ チップの中のアイコン（⚠ モックの `.hud .ic` は 20px）。
 #   ⚠ `ResourceDisplay` の既定は 24px だが、⚠ チップの中だけモックに合わせて 20px。
 # ⚠⚠ **縦は縮まなかった**（実測：24px でも 20px でも倉庫は 712）。
@@ -945,6 +947,17 @@ static func _build_panels(theme: Theme) -> void:
 	# ⚠ チップの中の数字。⚠ `ResourceDisplay` の中の Label に当てる。
 	theme.set_type_variation(&"ChipValueLabel", &"Label")
 	theme.set_font_size(&"font_size", &"ChipValueLabel", CHIP_FONT_SIZE)
+	# ⚠ 入手先へ行ける素材のチップの右端の「＋」（2026-10-06・人間「⚠ プラスマークを付けて　ソシャゲのように」・`NAV-19`）。
+	#   ⚠ 真鍮の丸に墨の「＋」（⚠ 押せると分かる色＝主ボタンと同じ真鍮）。
+	var plus: StyleBoxFlat = StyleBoxFlat.new()
+	plus.bg_color = _html(TOKEN_BRASS)
+	plus.set_corner_radius_all(CHIP_CORNER_RADIUS)
+	plus.content_margin_left = CHIP_PLUS_PAD_H
+	plus.content_margin_right = CHIP_PLUS_PAD_H
+	theme.set_type_variation(&"ChipPlusLabel", &"Label")
+	theme.set_stylebox(&"normal", &"ChipPlusLabel", plus)
+	theme.set_color(&"font_color", &"ChipPlusLabel", _html(TOKEN_INK))
+	theme.set_font_size(&"font_size", &"ChipPlusLabel", CHIP_FONT_SIZE)
 	# ⚠ 絵と数字の間 ／ チップどうしの間。⚠ 同じ値を2箇所で使う。
 	theme.set_type_variation(&"ChipRow", &"HBoxContainer")
 	theme.set_constant(&"separation", &"ChipRow", CHIP_SEPARATION)

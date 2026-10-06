@@ -31,6 +31,8 @@ const CATEGORY_KEY_PREFIX: String = "ui_research_category_"
 
 func _ready() -> void:
 	header.back_pressed.connect(_on_back_pressed)
+	# ⚠ 10-06（`NAV-19`）：⚠ この画面で使う素材を見出しに（⚠ 本部の右上の素材16件はやめた）。
+	var _bar: ResourceBar = header.show_materials(GameManager.get_material_ids_of_series(GameStateKeys.ITEM_CONSTRUCTION_MATERIAL_PREFIX))
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.RESEARCH)
 
 	# 解放の結果は戻り値ではなくシグナルで受けて描画し直す。
@@ -71,6 +73,8 @@ func _refresh_header() -> void:
 			GameManager.get_material_count(material_id),
 		])
 	material_label.text = "　".join(parts)
+	# ⚠ 10-06：⚠ 素材は見出しのチップへ移した（⚠ 字の行は出さない）。
+	material_label.visible = false
 
 
 func _build_node_list() -> void:

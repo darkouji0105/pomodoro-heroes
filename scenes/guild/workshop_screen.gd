@@ -35,6 +35,8 @@ func _ready() -> void:
 
 	# 2. ボタン接続
 	header.back_pressed.connect(_on_back_pressed)
+	# ⚠ 10-06（`NAV-19`）：⚠ この画面で使う素材を見出しに（⚠ 本部の右上の素材16件はやめた）。
+	var _bar: ResourceBar = header.show_materials(GameManager.get_material_ids_of_series(GameStateKeys.ITEM_DECOR_MATERIAL_PREFIX))
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.FORGE)
 	# ⚠ 2026-09-27（回UI-仕組み①・人間「⚠ 2あ」）：⚠ 作業場は鍛冶場の「作る」タブ。⚠ 「鍛える」で鍛冶場へ移る。
 	#   ⚠ 中身（キューとレシピの行）はまだ作り直していない（⚠ 紙の形にするのは別の回）。
@@ -110,6 +112,8 @@ func _update_header() -> void:
 	for material_id: String in materials:
 		parts.append("%s %d" % [tr("ui_res_" + material_id), int(materials[material_id])])
 	material_label.text = "  ".join(parts)
+	# ⚠ 10-06：⚠ 素材は見出しのチップへ移した（⚠ 字の行は出さない）。
+	material_label.visible = false
 
 # --- 製作中の行 ---
 

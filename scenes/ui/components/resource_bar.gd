@@ -57,6 +57,9 @@ const RESOURCE_DISPLAY_SCENE: PackedScene = preload(
 #   ⚠ 通貨のチップは押せない（⚠ 入手先の窓は品のためのもの）。
 @export var open_sources: bool = false
 
+# ⚠ 素材を折り返すか（⚠ 見出しの中に置くときは false＝横一列。⚠ 折り返す器は幅が1チップぶんに縮むため）。
+@export var wrap_materials: bool = true
+
 @export var material_ids: PackedStringArray = PackedStringArray():
 	set(value):
 		material_ids = value
@@ -76,7 +79,7 @@ var _slot: Container = null
 func _ready() -> void:
 	theme_type_variation = &"ChipRow"
 	_slot = self
-	if show_materials:
+	if show_materials and wrap_materials:
 		var flow: HFlowContainer = HFlowContainer.new()
 		flow.name = "Flow"
 		flow.theme_type_variation = &"ChipFlow"
@@ -154,6 +157,13 @@ func _make_chip(resource_id: String) -> PanelContainer:
 	var value_label: Label = display.get_node("ValueLabel")
 	value_label.theme_type_variation = &"ChipValueLabel"
 	if open_sources and not is_currency:
+		# ⚠ 右端に「＋」（10-06・人間「⚠ 気づかない　プラスマークを付けて　ソシャゲのように」）。⚠ 記号なので tr() を通さない。
+		var plus: Label = Label.new()
+		plus.name = "PlusMark"
+		plus.theme_type_variation = &"ChipPlusLabel"
+		plus.text = "+"
+		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		display.add_child(plus)
 		var hit: Button = UiButton.attach_hit(chip, _on_chip_pressed.bind(resource_id))
 		hit.tooltip_text = tr("ui_source_open")
 

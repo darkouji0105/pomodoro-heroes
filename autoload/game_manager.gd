@@ -675,6 +675,15 @@ func get_material_count(material_id: String) -> int:
 # ⚠⚠ **持っていないものも返す**（⚠ 0個の素材も並ぶ）。⚠ 状態（MATERIALS）ではなく
 #   マスターを引くのはこのため。⚠ 右上のチップ（`ResourceBar`）は状態側を見ていて
 #   ⚠ 0個を出さないが、⚠ あちらは「いま増えたもの」を見せる器で役割が違う。
+# 系統（`GameStateKeys.ITEM_*_MATERIAL_PREFIX`）の素材だけ、段の順に（2026-10-06・見出しの素材の帯）。
+func get_material_ids_of_series(prefix: String) -> Array[String]:
+	var ids: Array[String] = []
+	for material_id: String in get_material_ids():
+		if material_id.begins_with(prefix):
+			ids.append(material_id)
+	return ids
+
+
 func get_material_ids() -> Array[String]:
 	var ids: Array[String] = []
 	for entry: Variant in MasterDataLoader.get_all_items():

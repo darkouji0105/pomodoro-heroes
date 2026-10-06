@@ -47,6 +47,8 @@ func _ready() -> void:
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	_selected = str(data.get(TransferKeys.FORGE_INSTANCE_ID, ""))
 	header.back_pressed.connect(_on_back_pressed)
+	# ⚠ 10-06（`NAV-19`）：⚠ この画面で使う素材を見出しに（⚠ 本部の右上の素材16件はやめた）。
+	var _bar: ResourceBar = header.show_materials(GameManager.get_material_ids_of_series(GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX))
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.FORGE)
 	side.custom_minimum_size.x = float(get_theme_constant(&"side_width", THEME_TYPE))
 	var tabs: PaperTabs = PaperTabs.new()

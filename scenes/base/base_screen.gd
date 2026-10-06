@@ -59,66 +59,21 @@ func _ready() -> void:
 	_show_arrival_rewards()
 
 
-# ⚠ 右上の素材の帯。⚠ HUD の通知を名前付きの関数で受けるために持っておく（2026-09-21）。
-var _material_bar: ResourceBar = null
-
-
-# ⚠ 通貨の HUD の下へ素材の帯を下げる。⚠ `width_changed` から呼ばれる。
-func _apply_hud_height(_width: float) -> void:
-	if _material_bar == null or not is_instance_valid(_material_bar):
-		return
-	_material_bar.offset_top = ResourceHud.reserved_height()
-
-
 func _init_resource_displays(_state: Dictionary) -> void:
-	# ⚠ 右上の資源。⚠ 中身と更新は `ResourceBar` が自分で持つ。
-	#   ⚠ 拠点は `ScreenHeader` を使っていないので、⚠ ここで直に置く。
-	# ⚠⚠ 拠点だけ**素材16件も出す**（人間の指示「拠点のすべての素材を右上に」）。
-	#   ⚠ 通貨3＋素材16で19個並ぶので、⚠ 1行では 1280 に入らない。
-	#   ⚠ `TopArea` いっぱいに広げて折り返させる（⚠ `HFlowContainer` ＋ 右揃え）。
-	#   ⚠ `TopArea` は空の器なので、⚠ 全面に広げてもぶつかるものが無い。
-	var bar: ResourceBar = ResourceBar.new()
-	bar.name = "ResourceBar"
-	bar.show_materials = true
-	# ⚠ 通貨3つは `ResourceHud` が画面をまたいで常駐で出す（2026-09-09）。
-	#   ⚠ ここでも出すと二重になるので、⚠ 拠点は**素材だけ**を足す。
-	bar.show_currencies = false
-	# ⚠ 10-06（`NAV-19`）：⚠ 素材のチップを押すと入手先の窓。
-	bar.open_sources = true
-	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
-	# ⚠ 面が押せてしまうと、⚠ 後ろに何か置いたときに押せなくなる。
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top_area.add_child(bar)
-
-	# ⚠ 通貨の HUD の下から始める（⚠ そうしないと素材の1行目が通貨の下に潜る）。
-	#   ⚠ 高さは HUD が自分で答える。⚠ 桁が変わっても追従するよう通知も受ける。
-	#
-	# ⚠⚠ ここを無名関数にしないこと（2026-09-21）。
-	#   ⚠ 無名関数は `bar` を**値として捕まえる**。⚠ `ResourceHud` は画面をまたいで生き残るので、
-	#   ⚠ 拠点を離れて `bar` が消えても**つなぎっぱなしのまま残り**、⚠ 次に HUD の幅が変わった瞬間に
-	#   ⚠ `Lambda capture at index 0 was freed` が出る（⚠ 中の `is_instance_valid()` は**手前で弾かれるので効かない**）。
-	#   ⚠ 名前付きの関数なら、⚠ Godot がこの画面の解放のときに自動で切る。
-	_material_bar = bar
-	_apply_hud_height(0.0)
-	var hud: ResourceHud = ResourceHud.get_instance()
-	if hud != null:
-		hud.width_changed.connect(_apply_hud_height)
-
+	# ⚠⚠ 2026-10-06：⚠ 右上の素材16件の帯をやめた（⚠ 人間「⚠ 拠点では書かずに、関連する画面でのみ表示するように　リソースは」）。
+	#   ⚠ 素材は使う画面の見出しに出る（`ScreenHeader.show_materials()`・育成／鍛冶場／作業場／研究）。⚠ 通貨は今までどおり `ResourceHud`。
 	# ⚠ 絵を付ける（2026-09-09）。⚠ IDを渡すだけ（⚠ 画像の割り当てはここでしない）。
 	potion_value.resource_id = GameStateKeys.ITEM_STAMINA_POTION
 	potion_value.set_value(GameManager.get_stamina_potion_count())
 	potion_use_button.disabled = GameManager.get_stamina_potion_count() <= 0
 
-# ⚠ 壁の紙（2026-10-04・`TK-3`）。⚠ 左上に置く（⚠ 右上は素材の帯）。⚠ 位置と大きさは Theme の `Task/wall_*`。
+# ⚠ 壁の紙（2026-10-04・`TK-3`）。⚠ 左上に置く。⚠ 位置と大きさは Theme の `Task/wall_*`。
 func _init_task_note() -> void:
 	var note: TaskWallNote = TaskWallNote.create()
 	top_area.add_child(note)
 	var margin: float = float(note.get_theme_constant(&"wall_left", TaskWallNote.THEME_TYPE))
 	note.position = Vector2(margin, margin)
 	note.size = note.custom_minimum_size
-	# ⚠ 素材の帯は紙の右から始める（⚠ 撮った絵で、帯の左の段が紙の下に潜っていた）。
-	if _material_bar != null:
-		_material_bar.offset_left = note.position.x + note.size.x + margin
 
 
 func _init_navigation_buttons() -> void:

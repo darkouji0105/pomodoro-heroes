@@ -26,6 +26,8 @@ func _ready() -> void:
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	_character_id = str(data.get(TransferKeys.CHARACTER_ID, ""))
 	header.back_pressed.connect(_back_to_training.bind(TransferKeys.TRAINING_TAB_OVERVIEW))
+	# ⚠ 10-06（`NAV-19`）：⚠ この画面で使う素材を見出しに（⚠ 本部の右上の素材16件はやめた）。
+	var _bar: ResourceBar = header.show_materials(GameManager.get_material_ids_of_series(GameStateKeys.ITEM_TRAINING_MATERIAL_PREFIX))
 	var char_data: Dictionary = MasterDataLoader.get_character(_character_id)
 	header.set_subtitle_text(tr(str(char_data.get("name_key", ""))))
 	if _character_id == "":

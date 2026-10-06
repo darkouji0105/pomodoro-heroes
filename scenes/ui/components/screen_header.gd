@@ -110,6 +110,26 @@ func _refresh() -> void:
 	subtitle_label.visible = subtitle_label.text != ""
 
 
+# ⚠ その画面に関係する素材を、右上の通貨の左に並べる（2026-10-06・人間「⚠ 拠点では書かずに、関連する画面でのみ表示するように　リソースは」・`NAV-19`）。
+#   ⚠ 0 個でも出す（⚠ 何が足りないかを見る画面なので）。⚠ 押すと入手先の窓（右端の「＋」）。
+#   ⚠ 見出しに後から何かを足す画面（⚠ 育成のキャラの札）は、それを足したあとに呼ぶ（⚠ 通貨の手前に入る）。
+func show_materials(ids: Array[String]) -> ResourceBar:
+	var bar: ResourceBar = ResourceBar.new()
+	bar.name = "MaterialBar"
+	bar.show_currencies = false
+	bar.show_materials = true
+	bar.wrap_materials = false
+	bar.open_sources = true
+	bar.material_ids = PackedStringArray(ids)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# ⚠ 伸ばして右に寄せる（⚠ 副題の無い画面では、伸びる部品が無く題のすぐ右に寄った＝撮った絵）。
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(bar)
+	if hud_spacer != null:
+		move_child(bar, hud_spacer.get_index())
+	return bar
+
+
 # 翻訳を通さない副題（⚠ キャラの名前・ステージの名前）。
 # ⚠ `subtitle_key` と両方入れないこと。⚠ あとから入れたほうが残る。
 func set_subtitle_text(value: String) -> void:

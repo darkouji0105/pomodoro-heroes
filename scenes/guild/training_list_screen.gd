@@ -19,6 +19,8 @@ const TRAINING_THEME_TYPE: StringName = &"Training"
 func _ready() -> void:
 	SceneManager.consume_transfer_data()
 	header.back_pressed.connect(_on_back_pressed)
+	# ⚠ 10-06（`NAV-19`）：⚠ この画面で使う素材を見出しに（⚠ 本部の右上の素材16件はやめた）。
+	var _bar: ResourceBar = header.show_materials(GameManager.get_material_ids_of_series(GameStateKeys.ITEM_TRAINING_MATERIAL_PREFIX))
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.TRAINING)
 	var debug_alpha: float = float(get_theme_constant(&"chip_debug_alpha_pct", TRAINING_THEME_TYPE)) / 100.0
 	var index: int = 0
