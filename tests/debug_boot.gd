@@ -11013,26 +11013,25 @@ class UiFlowRunner extends Node:
 			and mini.find_child("MiniSetDots", true, false) is SetDots and mini.find_child("Leader", true, false) == null)
 		_check("小窓：集中中は「タスクを終える」だけ（「休憩をとばす」は出ない）",
 			(mini.find_child("FinishTaskButton", true, false) as Button).visible and not (mini.find_child("SkipBreakButton", true, false) as Button).visible)
-		# ⚠ 小窓のリスト（10-06・人間「⚠ 小窓でも、リストを出し入れできるように」）：⚠ 開く → 窓が伸びる・まだのタスクが並ぶ → 行で替える → 閉じる。
+		# ⚠ 小窓のリスト（10-06・人間「⚠ 小窓でも、リストを出し入れできるように」→「⚠ リストのサイドバーをそのまま追加で伸ばす形に」）：
+		#   ⚠ 開く → 窓が右へ伸びてサイドバー（⚠ ペンは無い）→ 行で替える → 閉じる。
 		var mini_other: String = GameManager.add_task("小窓の検査2")
 		await _press(mini.find_child("MiniListButton", true, false))
 		await _wait()
-		var list_size: Vector2i = mini_size + Vector2i(0, ThemeDB.get_project_theme().get_constant(&"list_height", &"MiniWindow"))
-		var mini_rows: int = mini.find_children("MiniTask_*", "", true, false).size()
-		_check("小窓：「リスト」で窓が伸びる（%s）・まだのタスクが並ぶ（%d 行 ／ まだ %d）" % [str(root_window.content_scale_size), mini_rows, GameManager.get_open_tasks().size()],
-			bool(mini.call("is_list_open")) and root_window.content_scale_size == list_size and mini_rows == GameManager.get_open_tasks().size())
-		var other_row: Node = mini.find_child("MiniTask_" + mini_other, true, false)
-		await _press(null if other_row == null else other_row.find_child("MiniRow", true, false))
+		var theme_now: Theme = ThemeDB.get_project_theme()
+		var list_size: Vector2i = Vector2i(mini_size.x + theme_now.get_constant(&"list_gap", &"MiniWindow") + theme_now.get_constant(&"side_width", &"Task"),
+			maxi(mini_size.y, theme_now.get_constant(&"list_window_height", &"MiniWindow")))
+		var mini_side: Node = mini.find_child("MiniSidebar", true, false)
+		var mini_rows: int = 0 if mini_side == null else mini_side.find_children("Side_*", "", true, false).size()
+		_check("小窓：「リスト」で窓が右へ伸びる（%s）・サイドバーがそのまま出る（%d 行 ／ 一覧 %d）・ペンは無い" % [str(root_window.content_scale_size), mini_rows, GameManager.get_tasks().size()],
+			bool(mini.call("is_list_open")) and root_window.content_scale_size == list_size and mini_side is TaskSidebar and (mini_side as Control).visible
+			and mini_rows == GameManager.get_tasks().size() and mini_side.find_child("DetailButton", true, false) == null)
+		await _press(null if mini_side == null else mini_side.find_child("Side_" + mini_other, true, false))
 		await _wait()
-		_check("小窓：リストの行を押すといまのタスクが替わる（%s）・小窓のまま" % _label_text(p, "MiniWindow", "TaskLabel"),
-			str(p.call("_current_task_id")) == mini_other and _label_text(p, "MiniWindow", "TaskLabel") == "小窓の検査2" and bool(p.call("is_mini_window_active")))
-		var back_line: Node = mini.find_child("MiniTask_" + mini_task, true, false)
-		if back_line == null:
-			var names: Array[String] = []
-			for child: Node in mini.find_child("MiniListBox", true, false).get_children():
-				names.append(str(child.name))
-			print("[DebugBoot] 小窓のリストの行（%s を探した）: %s" % [mini_task, str(names)])
-		await _press(null if back_line == null else back_line.find_child("MiniRow", true, false))
+		_check("小窓：サイドバーの行を押すといまのタスクが替わる（%s）・明るい行・小窓のまま" % _label_text(p, "MiniWindow", "TaskLabel"),
+			str(p.call("_current_task_id")) == mini_other and _label_text(p, "MiniWindow", "TaskLabel") == "小窓の検査2" and bool(p.call("is_mini_window_active"))
+			and (mini_side.find_child("Side_" + mini_other, true, false) as LedgerRow).selected)
+		await _press(null if mini_side == null else mini_side.find_child("Side_" + mini_task, true, false))
 		await _wait()
 		await _press(mini.find_child("MiniListButton", true, false))
 		_check("小窓：もう一度「リスト」で縮む（%s）・いまのタスクは戻した（%s）" % [str(root_window.content_scale_size), str(GameManager.get_task(str(p.call("_current_task_id"))).get(GameStateKeys.TASK_TITLE, ""))],
@@ -11158,13 +11157,13 @@ class UiFlowRunner extends Node:
 		await _wait()
 		_check("スペース：始める前に押すと集中が始まる", bool(p.get("is_timer_active")) and bool(p.get("_focus_started")))
 		_check("一時停止：始めたら「一時停止」「＋5分」が真ん中（「はじめる」の場所）に出る・「はじめる」は消える",
-			pause.visible and extend.visible and pause.text == tr("ui_pomodoro_pause") and pause.get_parent().name == &"RunControls"
+			pause.visible and extend.visible and pause.tooltip_text == tr("ui_pomodoro_pause") and pause.icon != null and pause.get_parent().name == &"RunControls"
 			and p.find_child("FocusView", true, false).is_ancestor_of(pause) and not (p.find_child("FocusView", true, false).get_node("Layout/StartButton") as Control).visible)
 		await _press(pause)
 		var held: float = float(p.get("time_left_sec"))
 		await get_tree().create_timer(0.3).timeout
 		_check("一時停止：止めると残りが減らない（%.2f → %.2f）・字が「再開」" % [held, float(p.get("time_left_sec"))],
-			bool(p.call("is_paused")) and is_equal_approx(float(p.get("time_left_sec")), held) and pause.text == tr("ui_pomodoro_resume"))
+			bool(p.call("is_paused")) and is_equal_approx(float(p.get("time_left_sec")), held) and pause.tooltip_text == tr("ui_pomodoro_resume"))
 		get_viewport().push_input(space)
 		await get_tree().create_timer(0.3).timeout
 		_check("スペース：止めているときに押すと再開・残りが減る（%.2f → %.2f）" % [held, float(p.get("time_left_sec"))],
@@ -12081,8 +12080,8 @@ class UiFlowRunner extends Node:
 		_check("ポモドーロ：選んだあとに題を書き換えるとタスクの名前が変わる（%s）" % str(GameManager.get_task(b_id).get(GameStateKeys.TASK_TITLE, "")),
 			str(GameManager.get_task(b_id).get(GameStateKeys.TASK_TITLE, "")) == "TK検査B3")
 		var band: Node = view.find_child("LinkedBand", true, false)
-		_check("ポモドーロ：選ぶと紙の帯（「リストのタスク」の判・期限切れの判・外す）・題の欄の左に色の印",
-			band is Control and (band as Control).visible and band.find_child("LinkedStamp", true, false) is Stamp and band.find_child("DueStamp", true, false) is Stamp
+		_check("ポモドーロ：選ぶと紙の帯（題・期限切れの判・外す）・題の欄の左に色の印",
+			band is Control and (band as Control).visible and band.find_child("LinkedTitle", true, false) is Label and (band.find_child("LinkedTitle", true, false) as Label).text == "TK検査B3" and band.find_child("DueStamp", true, false) is Stamp
 			and band.find_child("UnlinkButton", true, false) != null and (view.find_child("TitleMark", true, false) as Control).visible)
 		# 「外す」→ 選んでいない（⚠ 題が残っているので「書いた題をリストに足す」が出る）。
 		await _press(null if band == null else band.find_child("UnlinkButton", true, false))

@@ -20,6 +20,8 @@ const THEME_TYPE: StringName = &"Task"
 
 # いま数えているタスクの task_id を返す口（⚠ 画面が渡す。⚠ 無ければ ""）。
 var current_task_provider: Callable = Callable()
+# ⚠ 行の右のペン（⚠ 小窓に置いたときは出さない＝窓が小さく、紙の窓が収まらない・10-06）。
+var show_edit: bool = true
 
 var _heading: SheetHeading = null
 var _list: VBoxContainer = null
@@ -143,7 +145,7 @@ func _rebuild() -> void:
 			title.theme_type_variation = &"TaskDoneLabel"
 			title.draw.connect(_draw_strike.bind(title))
 		title_line.add_child(title)
-		if not done:
+		if not done and show_edit:
 			# ⚠ ペンのアイコン（10-05「⚠ メモのアイコンにしてほしい」→ 10-06「⚠ ペンのアイコンに変える」）。⚠ 字は触れると出る札へ。
 			var detail: Button = Button.new()
 			detail.name = "DetailButton"

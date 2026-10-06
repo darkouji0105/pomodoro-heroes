@@ -2748,8 +2748,12 @@ const MINI_WINDOW: Dictionary = {
 	"big_time_size": 52,      # ⚠ 真ん中の残り時間
 	"button_pad_h": 8,
 	"button_pad_v": 2,
-	"list_height": 200,       # ⚠ 「リスト」を開くと下へ伸びる高さ（10-06）
+	"list_gap": 8,            # ⚠ 「リスト」を開くと右にサイドバー（10-06・2回目）＝タイマーの柱との間
+	"list_window_height": 420,  # ⚠ サイドバーを出しているあいだの小窓の高さ
+	"icon_size": 16,          # ⚠ 小窓の一時停止のアイコン
 }
+# ⚠ タイマーのアイコンのボタン（10-06・人間「⚠ タイマーのように、アイコンにしてほしい」）：⚠ 丸い札・灯りの色の線画。
+const TIMER_ICON_BUTTON: Dictionary = {"icon": 26, "pad": 12, "radius": 30}
 const MINI_WINDOW_COLORS: Dictionary = {
 	"wall": "3a2c22", "text": "f1e6cf",
 }
@@ -2785,6 +2789,29 @@ static func _build_mini_window(theme: Theme) -> void:
 		small.content_margin_bottom = int(MINI_WINDOW["button_pad_v"])
 		theme.set_stylebox(StringName(state), &"MiniButton", small)
 	theme.set_font_size(&"font_size", &"MiniButton", SMALL_FONT_SIZE)
+	theme.set_type_variation(&"MiniBody", &"HBoxContainer")
+	theme.set_constant(&"separation", &"MiniBody", int(MINI_WINDOW["list_gap"]))
+	theme.set_type_variation(&"MiniIconButton", &"MiniButton")
+	for key: String in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
+		theme.set_color(StringName(key), &"MiniIconButton", _html(str(MINI_WINDOW_COLORS["text"])))
+	theme.set_constant(&"icon_max_width", &"MiniIconButton", int(MINI_WINDOW["icon_size"]))
+	# ⚠ 真ん中の [一時停止][＋5分]（10-06）：⚠ 丸い札・アイコンの色は灯り。
+	theme.set_type_variation(&"TimerIconButton", &"Button")
+	for state: String in BUTTON_STATES:
+		var base_round: StyleBox = theme.get_stylebox(StringName(state), &"Button")
+		if base_round == null:
+			continue
+		var round_box: StyleBox = base_round.duplicate()
+		round_box.content_margin_left = int(TIMER_ICON_BUTTON["pad"])
+		round_box.content_margin_right = int(TIMER_ICON_BUTTON["pad"])
+		round_box.content_margin_top = int(TIMER_ICON_BUTTON["pad"])
+		round_box.content_margin_bottom = int(TIMER_ICON_BUTTON["pad"])
+		if round_box is StyleBoxFlat:
+			(round_box as StyleBoxFlat).set_corner_radius_all(int(TIMER_ICON_BUTTON["radius"]))
+		theme.set_stylebox(StringName(state), &"TimerIconButton", round_box)
+	for key: String in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
+		theme.set_color(StringName(key), &"TimerIconButton", _html(TOKEN_LIGHT))
+	theme.set_constant(&"icon_max_width", &"TimerIconButton", int(TIMER_ICON_BUTTON["icon"]))
 
 
 static func _build_focus_tool(theme: Theme) -> void:

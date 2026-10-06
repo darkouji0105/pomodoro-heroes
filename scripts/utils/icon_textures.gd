@@ -212,6 +212,16 @@ static func for_task_edit() -> Texture2D:
 	return _load(NAME_TASK_EDIT)
 
 
+# ⚠ タイマーの操作（10-06・人間「⚠ タイマーのように、アイコンにしてほしい」）：⚠ 一時停止（二本線）・再開（三角）・延長（時計）。
+const NAME_TIMER_PAUSE: String = "timer_pause"
+const NAME_TIMER_PLAY: String = "timer_play"
+const NAME_TIMER_EXTEND: String = "timer_extend"
+
+
+static func for_timer(name: String) -> Texture2D:
+	return _load(name)
+
+
 # ⚠⚠ 絵文字 -> ファイル名。⚠ ここが `Glyphs` と線画をつなぐ唯一の場所。
 #   ⚠ こうすると「どの品がどの種類か」の判定が `Glyphs` の1本のままになる。
 static func _name_of_glyph(glyph: String) -> String:
@@ -270,6 +280,7 @@ static func all_for_check() -> Dictionary:
 		NAME_ITEM_ACCESSORY, NAME_ITEM_GEM, NAME_ITEM_CHARM, NAME_ITEM_EMBLEM,
 		NAME_ITEM_RUNE, NAME_ITEM_MATERIAL, NAME_ITEM_CONSUMABLE,
 		NAME_ITEM_RELIC, NAME_ITEM_CHEST, NAME_TASK_EDIT,
+		NAME_TIMER_PAUSE, NAME_TIMER_PLAY, NAME_TIMER_EXTEND,
 	]:
 		result[name] = _load(name)
 	for prefix: String in MATERIAL_SERIES:

@@ -144,8 +144,8 @@ var _paused: bool = false
 var _last_wall: float = 0.0
 # ⚠ このセットで延ばした秒（⚠ 振り返りで報酬と今日の分に足す）。⚠ 振り返りから先へ移ると 0。
 var _extended_sec: float = 0.0
-var _pause_button: UiButton = null
-var _extend_button: UiButton = null
+var _pause_button: Button = null
+var _extend_button: Button = null
 var _goal_label: Label = null
 
 
@@ -214,14 +214,21 @@ func _attach_run_controls(view: Node) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	layout.add_child(row)
 	layout.move_child(row, anchor.get_index() + 1)
-	_pause_button = UiButton.create(UiButton.Variant.SECONDARY, "ui_pomodoro_pause")
+	# ⚠ タイマーのようなアイコン（10-06・人間「⚠ タイマーのように、アイコンにしてほしい」）。⚠ 字は触れると出る札。
+	_pause_button = Button.new()
 	_pause_button.name = "PauseButton"
+	_pause_button.theme_type_variation = &"TimerIconButton"
+	_pause_button.focus_mode = Control.FOCUS_NONE
 	_pause_button.pressed.connect(toggle_pause)
 	row.add_child(_pause_button)
 	if current_state == State.FOCUS:
-		_extend_button = UiButton.create(UiButton.Variant.GHOST, "")
+		_extend_button = Button.new()
 		_extend_button.name = "ExtendButton"
-		_extend_button.text = tr("ui_pomodoro_extend") % Balance.pomodoro.extend_minutes
+		_extend_button.theme_type_variation = &"TimerIconButton"
+		_extend_button.focus_mode = Control.FOCUS_NONE
+		_extend_button.icon = IconTextures.for_timer(IconTextures.NAME_TIMER_EXTEND)
+		_extend_button.text = tr("ui_pomodoro_extend_short") % Balance.pomodoro.extend_minutes
+		_extend_button.tooltip_text = tr("ui_pomodoro_extend") % Balance.pomodoro.extend_minutes
 		_extend_button.pressed.connect(_extend_focus)
 		row.add_child(_extend_button)
 	_refresh_controls()
@@ -230,7 +237,8 @@ func _attach_run_controls(view: Node) -> void:
 func _refresh_controls() -> void:
 	if _pause_button != null and is_instance_valid(_pause_button):
 		_pause_button.visible = _can_pause()
-		_pause_button.label_key = "ui_pomodoro_resume" if _paused else "ui_pomodoro_pause"
+		_pause_button.icon = IconTextures.for_timer(IconTextures.NAME_TIMER_PLAY if _paused else IconTextures.NAME_TIMER_PAUSE)
+		_pause_button.tooltip_text = tr("ui_pomodoro_resume") if _paused else tr("ui_pomodoro_pause")
 	if _extend_button != null and is_instance_valid(_extend_button):
 		_extend_button.visible = is_timer_active and current_state == State.FOCUS and _focus_started
 	# ⚠ 始めたら「はじめる」は消す（⚠ 同じ場所に [一時停止][＋5分] が来る）。

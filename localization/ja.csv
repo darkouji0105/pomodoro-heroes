@@ -1434,7 +1434,6 @@ ui_settings_week_end_note,期限の札「今週中」が入れる日です
 ui_settings_weekday_5,金曜
 ui_settings_weekday_6,土曜
 ui_settings_weekday_0,日曜
-ui_pomodoro_task_linked_stamp,リストのタスク
 ui_pomodoro_task_so_far,これまで %s
 ui_pomodoro_task_unlink,外す
 ui_pomodoro_task_rename_note,"題を書き換えると、リストのタスクの名前も変わります"
@@ -1466,5 +1465,4 @@ ui_settings_goal_none,なし
 ui_pomodoro_task_empty_prompt,やることがまだありません。題を書いて「リストに足す」か、右の欄で足しましょう
 ui_mini_list_open,リスト ▼
 ui_mini_list_close,リスト ▲
-ui_mini_list_current,▶ %s
-ui_mini_list_check,□
+ui_pomodoro_extend_short,＋%d

@@ -190,12 +190,17 @@ func _refresh_task_link() -> void:
 		return
 	_title_mark.color_index = int(task.get(GameStateKeys.TASK_COLOR, 0))
 	_place_title_mark()
-	var stamp: Stamp = Stamp.new()
-	stamp.name = "LinkedStamp"
-	stamp.label_key = "ui_pomodoro_task_linked_stamp"
-	stamp.small = true
-	stamp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_linked_line.add_child(stamp)
+	# ⚠ 「リストのタスク」の判をやめて題を出す（10-06・見る回・人間「⚠ タイトルを表示するように　リストのタスク　ではなく」）。
+	var linked_title: Label = Label.new()
+	linked_title.name = "LinkedTitle"
+	linked_title.text = str(task.get(GameStateKeys.TASK_TITLE, ""))
+	linked_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	linked_title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_linked_line.add_child(linked_title)
+	# ⚠ 題の長さまで取る（⚠ 右の空きと分け合うと「企画書の下書…」で切れた＝撮った絵）。⚠ 長い題は帯の半分で … 。
+	var title_font: Font = linked_title.get_theme_font(&"font")
+	var title_width: float = title_font.get_string_size(linked_title.text, HORIZONTAL_ALIGNMENT_LEFT, -1, linked_title.get_theme_font_size(&"font_size")).x
+	linked_title.custom_minimum_size.x = minf(ceilf(title_width), title_edit.size.x * 0.5)
 	var focus: Label = Label.new()
 	focus.name = "LinkedFocusLabel"
 	focus.text = tr("ui_pomodoro_task_so_far") % GameManager.task_focus_text(int(task.get(GameStateKeys.TASK_FOCUS_SEC, 0)))
