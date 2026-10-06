@@ -328,18 +328,20 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 # --- デスクトップの小窓（2026-09-29・回UI-仕組み⑥・`MiniWindow`） ---
-#   ⚠ 小窓になるのは設定がオンで、⚠ タイマーが動いている集中と休憩のあいだだけ（⚠ 振り返りと次の「開始」は元の大きさ）。
-#   ⚠ 「大きく」を押したら、⚠ そのフェーズのあいだは元の大きさ（⚠ フェーズが変わると小窓に戻る）。
+#   ⚠⚠ 10-06（人間「⚠ フェーズが変わるとき小窓にするかどうかは今の画面が小窓かどうかで判断するように」）：
+#   ⚠ 小窓かどうかは `_mini_on` の1つだけが持つ。⚠ **フェーズが変わっても触らない**（⚠ 小窓なら小窓のまま・大きければ大きいまま）。
+#   ⚠ 変えるのは3つだけ：⚠ 上の「小窓にする」＝オン ／ ⚠ 小窓の「大きく」＝オフ ／ ⚠ 設定「ポモドーロ中は小窓にする」＝**この回の最初の集中を始めたとき**にオン。
+#   ⚠ 前は「大きく」がそのフェーズだけで、⚠ フェーズが変わるとまた小窓になった（⚠ 設定の小窓は始める前・振り返りでは大きかった）。
 
 var _mini: MiniWindow = null
-var _mini_expanded: bool = false
+var _mini_on: bool = false
+# ⚠ 設定の小窓をもう効かせたか（⚠ この回の最初の集中で1回だけ）。
+var _mini_auto_done: bool = false
 
 
 func _update_mini_window() -> void:
-	# ⚠ 10-06（人間「⚠ いつでも小窓にできるように」）：⚠ 上の「小窓にする」を押したら（`_mini_manual`）始める前でも小窓。
-	#   ⚠ 振り返りも小窓のまま（10-06・人間「⚠ 振り返りも小窓でできるように」）＝⚠ 小窓に1行の欄と「確定」。
-	var want: bool = not _mini_expanded and _mini_phase() \
-		and (_mini_manual or (GameSettings.mini_window() and is_timer_active))
+	# ⚠ 振り返りも小窓のまま（10-06・人間「⚠ 振り返りも小窓でできるように」）＝⚠ 小窓に1行の欄と「確定」。
+	var want: bool = _mini_on and _mini_phase()
 	if want and _mini == null:
 		_mini = MiniWindow.create()
 		_mini.expand_requested.connect(_on_mini_expand)
@@ -404,22 +406,19 @@ func apply_settings() -> void:
 
 
 func _on_mini_expand() -> void:
-	_mini_expanded = true
-	_mini_manual = false
+	_mini_on = false
 	_update_mini_window()
 	_refresh_mini_mode_button()
 
 
-# ⚠ 「小窓にする」（10-06）：⚠ 集中（始める前も）と休憩のあいだ。⚠ 「大きく」まで続く。
-var _mini_manual: bool = false
+# ⚠ 「小窓にする」（10-06）：⚠ 集中（始める前も）・振り返り・休憩のあいだ。⚠ 「大きく」まで続く（⚠ フェーズをまたいでも）。
 var _mini_mode_button: UiButton = null
 
 
 func _on_mini_mode_pressed() -> void:
 	if not _mini_phase():
 		return
-	_mini_manual = true
-	_mini_expanded = false
+	_mini_on = true
 	_update_mini_window()
 	_refresh_mini_mode_button()
 
@@ -470,8 +469,6 @@ func is_mini_window_active() -> bool:
 func _switch_view(new_state: State) -> void:
 	current_state = new_state
 	_focus_started = false
-	# ⚠ フェーズが変わったら「大きく」は解く（⚠ 次の集中・休憩はまた小窓）。
-	_mini_expanded = false
 	_stop_phase_timer()
 	# ⚠ 点の数はセット数で決まる。⚠ 毎フレーム作り直さない（_update_set_dots() は光り方だけ）。
 	set_dots.setup(current_total_sets)
@@ -582,6 +579,11 @@ func _on_protection_selected(protection_id: String) -> void:
 func _on_focus_started(title: String, task_id: String) -> void:
 	set_titles[current_set_index] = title
 	set_task_ids[current_set_index] = task_id
+	# ⚠ 設定の小窓はこの回の最初の集中だけ（10-06）。⚠ あとは今の大きさのまま。
+	if not _mini_auto_done:
+		_mini_auto_done = true
+		if GameSettings.mini_window():
+			_mini_on = true
 	_start_phase_timer(float(current_preset.focus_duration_sec))
 	_focus_started = true
 	_segment_left = time_left_sec

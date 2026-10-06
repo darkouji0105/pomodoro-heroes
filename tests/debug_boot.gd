@@ -11077,8 +11077,12 @@ class UiFlowRunner extends Node:
 		# ⚠ 「大きく」→ ⚠ このフェーズは元の大きさ。
 		await _press(mini.find_child("ExpandButton", true, false))
 		_check("小窓：「大きく」で元の大きさ（%s）" % str(root_window.content_scale_size), not bool(p.call("is_mini_window_active")) and root_window.content_scale_size == full_size)
-		# ⚠ 集中が終わる → 振り返り（⚠ 元の大きさ）→ 休憩（⚠ また小窓）。
+		# ⚠ 10-06（人間「⚠ フェーズが変わるとき小窓にするかどうかは今の画面が小窓かどうかで判断するように」）：
+		#   ⚠ 大きいまま集中が終わる → 振り返りも大きいまま → 「小窓にする」→ 休憩・次のセットも小窓のまま。
 		p.set("time_left_sec", 0.01)
+		await _wait()
+		_check("小窓：大きくしたあとフェーズが変わっても大きいまま（振り返り）", int(p.get("current_state")) == 2 and not bool(p.call("is_mini_window_active")) and root_window.content_scale_size == full_size)
+		await _press(p.find_child("MiniModeButton", true, false))
 		await _wait()
 		_check("小窓：振り返りも小窓（10-06）・欄と「確定」", bool(p.call("is_mini_window_active"))
 			and (p.find_child("MiniWindow", true, false).find_child("ReflectionLine", true, false) as Control).visible)
@@ -11089,21 +11093,21 @@ class UiFlowRunner extends Node:
 			await _press(reflection)
 		await _wait()
 		mini = p.find_child("MiniWindow", true, false)
-		_check("小窓：休憩はまた小窓・「%s」・「次へ」（とばす）だけ" % _label_text(p, "MiniWindow", "PhaseLabel"),
+		_check("小窓：小窓のまま振り返りが終わると休憩も小窓・「%s」・「次へ」（とばす）だけ" % _label_text(p, "MiniWindow", "PhaseLabel"),
 			bool(p.call("is_mini_window_active")) and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_phase_break")
 			and (mini.find_child("MiniNextButton", true, false) as Button).visible and (mini.find_child("MiniNextButton", true, false) as Button).tooltip_text == tr("ui_mini_skip_break")
 			and not (mini.find_child("FinishTaskButton", true, false) as Button).visible)
-		# ⚠ 小窓のまま「次へ」→ ⚠ 次のセットの集中（⚠ 設定の自動の小窓は始める前＝元の大きさ）。
+		# ⚠ 小窓のまま「次へ」→ ⚠ 次のセットの始める前も小窓のまま（10-06・今の画面で決める）。
 		var set_before: int = int(p.get("current_set_index"))
 		await _press(mini.find_child("MiniNextButton", true, false))
 		await _wait()
-		_check("小窓：「次へ」で次のセット（%d → %d）・始める前なので元の大きさ" % [set_before, int(p.get("current_set_index"))],
-			int(p.get("current_set_index")) == set_before + 1 and not bool(p.call("is_mini_window_active")) and root_window.content_scale_size == full_size)
-		# ⚠ もう一度始めて小窓 → ⚠ 小窓のまま拠点へ出る → ⚠ 元の大きさに戻る。
-		focus_view = p.find_child("FocusView", true, false)
-		if focus_view != null:
-			await _press(focus_view.find_child("StartButton", true, false))
-		_check("小窓：次のセットを始めるとまた小窓", bool(p.call("is_mini_window_active")))
+		_check("小窓：「次へ」で次のセット（%d → %d）・始める前も小窓のまま（%s）" % [set_before, int(p.get("current_set_index")), _label_text(p, "MiniWindow", "PhaseLabel")],
+			int(p.get("current_set_index")) == set_before + 1 and bool(p.call("is_mini_window_active")) and root_window.content_scale_size == mini_size
+			and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_phase_ready"))
+		# ⚠ 小窓の「次へ」で始めても小窓 → ⚠ 小窓のまま拠点へ出る → ⚠ 元の大きさに戻る。
+		await _press(mini.find_child("MiniNextButton", true, false))
+		await _wait()
+		_check("小窓：次のセットを始めても小窓のまま", bool(p.call("is_mini_window_active")) and bool(p.get("_focus_started")))
 		SceneManager.change_scene(BASE)
 		await _wait(OPEN_FRAMES)
 		_check("小窓：小窓のまま画面を離れると元の大きさ（%s）" % str(root_window.content_scale_size), root_window.content_scale_size == full_size)
