@@ -142,8 +142,6 @@ func _stop_phase_timer() -> void:
 
 var _paused: bool = false
 var _last_wall: float = 0.0
-# ⚠ 集中を途中で終えたときに集中した秒（10-06・`end_phase()`）。⚠ -1＝最後まで（⚠ 振り返りで報酬と今日の分に使う）。
-var _focused_sec: float = -1.0
 var _pause_button: Button = null
 var _next_button: Button = null
 var _goal_label: Label = null
@@ -176,7 +174,7 @@ func end_phase() -> void:
 				if _current_view != null and _current_view.has_method("start_now"):
 					_current_view.call("start_now")
 				return
-			_focused_sec = maxf(0.0, phase_total_sec - time_left_sec)
+			_bank_focus(maxf(0.0, phase_total_sec - time_left_sec))
 			_flush_task_time()
 			_switch_view(State.REFLECTION)
 		State.BREAK:
@@ -447,9 +445,6 @@ func is_mini_window_active() -> bool:
 func _switch_view(new_state: State) -> void:
 	current_state = new_state
 	_focus_started = false
-	# ⚠ 途中で終えた分は振り返りが使ったあと（⚠ 振り返りから先へ移るときに戻す）。
-	if new_state != State.REFLECTION:
-		_focused_sec = -1.0
 	# ⚠ フェーズが変わったら「大きく」は解く（⚠ 次の集中・休憩はまた小窓）。
 	_mini_expanded = false
 	_stop_phase_timer()
@@ -567,14 +562,16 @@ func _on_timer_finished() -> void:
 	match current_state:
 		State.FOCUS:
 			_notify_focus_finished()
+			_bank_focus(phase_total_sec)
 			_flush_task_time()
 			_switch_view(State.REFLECTION)
 		State.REFLECTION:
 			# 制限時間内に確定しなかった → skipped 扱いで次へ進む
+			# ⚠ 集中の分は集中が終わったときに数え済み（10-06）＝⚠ ここで失うものは無い。⚠ 打ちかけの字も捨てない。
 			print("[Pomodoro] reflection timed out (%.0f sec) -> skipped" % (
 				_reflection_time_limit_sec()
 			))
-			_on_reflection_completed("", true)
+			_on_reflection_completed(_reflection_view_text(), true)
 		State.BREAK:
 			_notify_break_finished()
 			_go_to_next_set()
@@ -592,19 +589,24 @@ func _on_reflection_completed(text: String, skipped: bool = false) -> void:
 	_stop_phase_timer()
 	reflections.append({"text": text, "skipped": skipped})
 
-	if not skipped:
-		# ⚠ 途中で終えたら集中した分だけ（10-06・`end_phase()`）。
-		var focus_min: int = int((float(current_preset.focus_duration_sec) if _focused_sec < 0.0 else _focused_sec) / 60.0)
-		session_accumulated_focus_min += focus_min
-		_check_thresholds(focus_min)
-		_refresh_goal()
-
 	if current_set_index + 1 >= current_total_sets:
 		_return_to_base()
 	else:
 		# ⚠ セットが終わるたびに自動セーブ（2026-10-05・回P-1）。⚠ 最後のセットは拠点へ移るときに書く。
 		SaveManager.autosave()
 		_switch_view(State.BREAK)
+
+
+# ⚠⚠ 集中した分を今日の分・宝箱・報酬へ（10-06・PLAN_POMODORO_USABILITY 不便1・3・人間「⚠ 集中が終わった時点で入れる」「⚠ 集中した分だけ入れる」）。
+#   ⚠ 前は振り返りの確定でだけ数えた＝⚠ 2分の時間切れで集中が丸ごと消えた。
+#   ⚠ 呼ぶのは3つ：⚠ タイマーが0 ／ ⚠ 「次へ」で集中を終える ／ ⚠ 集中の途中で確定する（やめる・閉じる＝`_settle_session()`）。
+func _bank_focus(seconds: float) -> void:
+	var focus_min: int = int(seconds / 60.0)
+	if focus_min <= 0:
+		return
+	session_accumulated_focus_min += focus_min
+	_check_thresholds(focus_min)
+	_refresh_goal()
 
 
 func _check_thresholds(added_min: int) -> void:
@@ -833,6 +835,9 @@ func _settle_session() -> void:
 		return
 	_settled = true
 	# ⚠ 集中の途中でやめたら、⚠ そこまでの時間を選んでいたタスクに記録する（`TK-5`）。
+	# ⚠ 今日の分・報酬にも集中した分だけ入れる（10-06・`BS-22` を覆した・人間「⚠ 集中した分だけ入れる」）。
+	if current_state == State.FOCUS and _focus_started:
+		_bank_focus(maxf(0.0, phase_total_sec - time_left_sec))
 	_flush_task_time()
 	_stop_phase_timer()
 
