@@ -124,6 +124,7 @@ const SHOT_AFTER_RECORDS_PICK: String = "records_pick"
 # ⚠ 集中の道具（2026-09-29）：⚠ 柱時計を押した姿 ／ ⚠ 集中を始めて6割進んだ姿。⚠ 内側の同じ名前の字と揃える。
 const SHOT_AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
 const SHOT_AFTER_POMODORO_RUNNING: String = "pomodoro_running"
+const SHOT_AFTER_MINI_ASK: String = "mini_ask"
 const SHOT_AFTER_MINI_WINDOW: String = "mini_window"
 # ⚠ 10-06：⚠ 小窓のリストを開いた姿（⚠ 小窓の枚と同じ手 ＋ 「リスト」）。
 const SHOT_AFTER_MINI_LIST: String = "mini_list"
@@ -1314,6 +1315,8 @@ const SCENARIOS: Dictionary = {
 			# ⚠ デスクトップの小窓（2026-10-02・回UI-仕組み⑥・手本 Companion）。⚠ 窓が本当に小さくなる＝⚠⚠ いちばん最後。
 			{"name": "53_mini_window", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_MINI_WINDOW},
 			{"name": "68_mini_list", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_LIST},
+			# ⚠ 「小窓にしますか？」（10-06・不便7）：⚠ はじめて集中を始めたときの窓。
+			{"name": "70_mini_ask", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_MINI_ASK},
 			{"name": "69_mini_reflection", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_REFLECTION},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
@@ -1351,6 +1354,8 @@ func _ready() -> void:
 	#   ⚠ 遊んでいる人の `user://settings.cfg` を書き換えない。⚠ 窓で撮るので全画面を戻す。
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_TEST_PATH))
 	GameSettings.use_path(SETTINGS_TEST_PATH)
+	# ⚠ 「小窓にしますか？」はもう聞いたことにする（10-06）：⚠ 集中を始めるたびに窓が出て、⚠ ほかの手を塞がないように。⚠ 聞く手は ui_flow の `_flow_mini_ask()` だけ。
+	GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_ASKED, true)
 	# ⚠⚠ セーブも検査用のファイルへ（2026-10-05・回P-1・自動セーブが入った）。⚠ 遊んでいる人の save_slot_0.json を書かない。
 	#   ⚠ 自動で書くのはタイトルで始めたあとだけ＝⚠ ここでは書かない（⚠ 下の「SaveManager を呼ばない」は守ったまま）。
 	SaveManager.use_path(SAVE_TEST_PATH)
@@ -9209,6 +9214,7 @@ class ShotTaker extends Node:
 	const AFTER_RECORDS_PICK: String = "records_pick"
 	const AFTER_FOCUS_TOOLS_CLOCK: String = "focus_tools_clock"
 	const AFTER_POMODORO_RUNNING: String = "pomodoro_running"
+	const AFTER_MINI_ASK: String = "mini_ask"
 	const AFTER_MINI_WINDOW: String = "mini_window"
 	const AFTER_MINI_LIST: String = "mini_list"
 	const AFTER_MINI_REFLECTION: String = "mini_reflection"
@@ -9851,6 +9857,23 @@ class ShotTaker extends Node:
 					mini_node.call("toggle_list")
 				for _i: int in range(20):
 					await get_tree().process_frame
+		elif kind == AFTER_MINI_ASK:
+			# ⚠ まだ聞いていないことにして集中を始める（⚠ 窓は本番の口＝`_ask_mini_window()` が出す）。⚠ 聞いた印は窓が書き戻す。
+			GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_ASKED, false)
+			# ⚠ 前の撮影（53 ほか）で小窓がオンのまま＝⚠ オンなら聞かない作りなので、⚠ オフに戻してから始める。
+			GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, false)
+			var ask_select: Node = screen.find_child("ProtectionSelectView", true, false)
+			if ask_select != null:
+				(ask_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				for _i: int in range(3):
+					await get_tree().process_frame
+			var ask_start: Node = screen.find_child("StartButton", true, false)
+			if not (ask_start is BaseButton):
+				push_error("[DebugBoot] ⚠ %s で集中の「開始」が無い" % shot_name)
+				return false
+			(ask_start as BaseButton).pressed.emit()
+			for _i: int in range(15):
+				await get_tree().process_frame
 		elif kind == AFTER_POMODORO_RUNNING:
 			# ⚠ 加護を選ぶ（⚠ 出ていれば「始める」）→ ⚠ 集中の「開始」→ ⚠ 残りを4割にして道具の進みを見せる。
 			var select_view: Node = screen.find_child("ProtectionSelectView", true, false)
@@ -10410,6 +10433,7 @@ class UiFlowRunner extends Node:
 		await _flow_tasks()
 		await _flow_autosave()
 		await _flow_pomodoro_extras()
+		await _flow_mini_ask()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -11348,6 +11372,36 @@ class UiFlowRunner extends Node:
 		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_DAILY_GOAL, 0)
 		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_AUTO_START, false)
 		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_LONG_BREAK_MINUTES, 30)
+		await _open(BASE, {})
+
+	# --- 小窓にしますか？（10-06・PLAN_POMODORO_USABILITY 不便7・人間「⚠ 初回だけ聞く」） ---
+	#   ⚠ 「このまま」→ 設定はオフのまま・もう聞かない → ⚠ もう一度聞く状態に戻して「小窓にする」→ 設定オン・小窓。
+	func _flow_mini_ask() -> void:
+		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, false)
+		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_ASKED, false)
+		var p: Node = await _open(POMODORO, {})
+		await _pomodoro_start_focus(p)
+		await _wait()
+		var modal: ModalDialog = _modal_of(p)
+		_check("小窓を聞く：はじめて集中を始めると「%s」の窓（はい=%s・いいえ=%s）" % ["" if modal == null else modal.title_label.text, "" if modal == null else modal.confirm_button.text, "" if modal == null else modal.close_button.text],
+			modal != null and modal.confirm_button.text == tr("ui_pomodoro_mini_ask_yes") and modal.close_button.text == tr("ui_pomodoro_mini_ask_no")
+			and GameSettings.mini_window_asked() and bool(p.get("is_timer_active")))
+		if modal != null:
+			modal.close_button.pressed.emit()
+		await _wait(WAIT_FRAMES * 3)
+		_check("小窓を聞く：「このまま」で設定はオフのまま・大きいまま", not GameSettings.mini_window() and not bool(p.call("is_mini_window_active")) and _modal_of(p) == null)
+		p = await _open(POMODORO, {})
+		await _pomodoro_start_focus(p)
+		await _wait()
+		_check("小窓を聞く：2回目は聞かない", _modal_of(p) == null and bool(p.get("is_timer_active")))
+		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_ASKED, false)
+		p = await _open(POMODORO, {})
+		await _pomodoro_start_focus(p)
+		await _confirm_modal()
+		_check("小窓を聞く：「小窓にする」で設定がオン・いま小窓", GameSettings.mini_window() and bool(p.call("is_mini_window_active")))
+		# ⚠ 後片付け（⚠ 既定に戻す・⚠ 聞いたことにしておく）。
+		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, false)
+		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_ASKED, true)
 		await _open(BASE, {})
 
 	func _pomodoro_start_focus(p: Node) -> void:

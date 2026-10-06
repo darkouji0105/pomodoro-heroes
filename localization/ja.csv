@@ -1477,6 +1477,10 @@ ui_pomodoro_protection_minutes_unit,分 集中で
 ui_pomodoro_protection_midway,途中も %d分ごとに宝箱（%d個）
 ui_pomodoro_protection_midway_none,途中の宝箱なし
 ui_pomodoro_round,%d周目
+ui_pomodoro_mini_ask_title,小窓にしますか
+ui_pomodoro_mini_ask,ポモドーロのあいだ、ゲームの窓を小さくして画面の右下に出せます。作業の邪魔をせずに残り時間が見えて、終わったときにも気づけます。これから集中を始めたら小窓にしますか？（設定でいつでも変えられます）
+ui_pomodoro_mini_ask_yes,小窓にする
+ui_pomodoro_mini_ask_no,このまま
 ui_settings_long_break,長い休憩の長さ
 ui_settings_long_break_note,4回集中するごとの休憩
 ui_mini_reflection_ok,確定

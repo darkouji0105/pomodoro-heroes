@@ -116,6 +116,10 @@ func setup(message: String, is_confirm: bool, pause: bool, options: Dictionary =
 		var yes_key: String = str(options.get(Modal.OPTION_CONFIRM_LABEL, ""))
 		if yes_key != "":
 			confirm_button.label_key = yes_key
+		# ⚠ 「いいえ」側も差し替えられる（10-06・「小窓にしますか？」＝⚠ 既定の「やめる」だとポモドーロをやめると読めた）。
+		var no_key: String = str(options.get(Modal.OPTION_CLOSE_LABEL, ""))
+		if no_key != "":
+			close_button.label_key = no_key
 		var hold_hint: String = str(options.get(Modal.OPTION_HOLD, ""))
 		if hold_hint != "":
 			_make_hold(hold_hint)

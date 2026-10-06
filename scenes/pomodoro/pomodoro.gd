@@ -405,6 +405,25 @@ func apply_settings() -> void:
 		_update_view_timer()
 
 
+# ⚠⚠ 「小窓にしますか？」（10-06・PLAN_POMODORO_USABILITY 不便7・人間「⚠ 初回だけ聞く」）。
+#   ⚠ 前は小窓が既定オフのまま誰にも知らされず、⚠ 窓が裏に隠れたまま集中が終わっていた（⚠ 気づけない）。
+#   ⚠ 聞いたことは**先に**書く（⚠ 答えずに窓を閉じても、⚠ 二度は聞かない）。⚠ 書くのは設定のファイル（⚠ セーブではない）。
+#   ⚠ 窓が開いているあいだもタイマーは進む（⚠ `quit_session()` と同じ）。
+func _ask_mini_window() -> void:
+	GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_ASKED, true)
+	var yes: bool = await Modal.confirm(self, "ui_pomodoro_mini_ask", [], false, {
+		Modal.OPTION_TITLE: tr("ui_pomodoro_mini_ask_title"),
+		Modal.OPTION_CONFIRM_LABEL: "ui_pomodoro_mini_ask_yes",
+		Modal.OPTION_CLOSE_LABEL: "ui_pomodoro_mini_ask_no",
+	})
+	if not yes or not is_inside_tree():
+		return
+	GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, true)
+	_mini_on = true
+	_update_mini_window()
+	_refresh_mini_mode_button()
+
+
 func _on_mini_expand() -> void:
 	_mini_on = false
 	_update_mini_window()
@@ -586,6 +605,9 @@ func _on_focus_started(title: String, task_id: String) -> void:
 			_mini_on = true
 	_start_phase_timer(float(current_preset.focus_duration_sec))
 	_focus_started = true
+	# ⚠ 小窓をまだ知らない人に1回だけ聞く（10-06・不便7）。⚠ もう小窓なら聞かない（⚠ 300×180 に窓は収まらない）。
+	if not _mini_on and not GameSettings.mini_window() and not GameSettings.mini_window_asked():
+		_ask_mini_window.call_deferred()
 	_segment_left = time_left_sec
 	_refresh_controls()
 

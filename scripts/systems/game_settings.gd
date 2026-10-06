@@ -23,6 +23,8 @@ const KEY_FOCUS_TOOL: String = "focus_tool"
 # ⚠ 小窓（2026-09-29・回UI-仕組み⑥・人間「⚠ 4あ」＝既定はオフ）／ ⚠ 小窓をいつも前に出す（既定オン）。
 const KEY_MINI_WINDOW: String = "mini_window"
 const KEY_MINI_ON_TOP: String = "mini_window_on_top"
+# ⚠ 小窓にするかをもう聞いたか（10-06・PLAN_POMODORO_USABILITY 不便7・人間「⚠ 初回だけ聞く」）。
+const KEY_MINI_ASKED: String = "mini_window_asked"
 # ⚠ 回P-3（2026-10-05）：⚠ 休憩明けに次の集中を自動で始める（既定オフ）／ ⚠ 1日の目標（分・0＝なし・既定なし）。
 const KEY_AUTO_START: String = "auto_start_focus"
 const KEY_DAILY_GOAL: String = "daily_goal_minutes"
@@ -85,6 +87,8 @@ static func _default(section: String, key: String) -> Variant:
 			return false
 		KEY_MINI_ON_TOP:
 			return true
+		KEY_MINI_ASKED:
+			return false
 		KEY_AUTO_START:
 			return false
 		KEY_DAILY_GOAL:
@@ -133,6 +137,10 @@ static func long_break_minutes() -> int:
 
 static func mini_window() -> bool:
 	return bool(get_value(SECTION_POMODORO, KEY_MINI_WINDOW))
+
+
+static func mini_window_asked() -> bool:
+	return bool(get_value(SECTION_POMODORO, KEY_MINI_ASKED))
 
 
 static func mini_window_on_top() -> bool:
