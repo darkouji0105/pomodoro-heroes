@@ -1815,6 +1815,9 @@ const CONFIRM_HOLD_MS: int = 2000        # ⚠ 長押しの長さ（⚠ 手本�
 const CONFIRM_HOLD_FILL: String = "b0432f"  # ⚠ 押している間に満ちる赤（⚠ 手本の `.fill`）
 const CONFIRM_HOLD_FILL_ALPHA_PCT: int = 60  # ⚠ 字の上に重なるので透かす
 const FACILITY_BAR_HEIGHT: int = 76     # ⚠ 手本 `facility_bar`
+# ⚠ 10-07（回HB-1）：⚠ 育成の仲間の画面では 帯 44 ＋ 中のタブ 32 ＝ 帯1本ぶん（76）に収める（⚠ 中身の高さを変えない）。
+const FACILITY_GROUP_BAR_HEIGHT: int = 44
+const FACILITY_SUB_BAR_HEIGHT: int = 32
 const RELIC_LIST_WIDTH: int = 960       # ⚠ カード3枚が横に並ぶ幅
 const RELIC_LIST_COLUMNS: int = 3
 const RELIC_LIST_GAP: int = 24
@@ -2061,6 +2064,15 @@ static func _build_paper_parts(theme: Theme) -> void:
 	theme.set_type_variation(&"FacilityBarPanel", &"PanelContainer")
 	theme.set_stylebox(&"panel", &"FacilityBarPanel", bar)
 	theme.set_constant(&"height", &"FacilityBar", FACILITY_BAR_HEIGHT)
+	# ⚠ 育成の中のタブ（10-07・回HB-1）。⚠ 地は帯の「いまいる施設」と同じ色＝「育成」の続きに見せる。
+	var sub_bar: StyleBoxFlat = StyleBoxFlat.new()
+	sub_bar.bg_color = _html(FACILITY_ACTIVE_BG)
+	sub_bar.border_width_top = 1
+	sub_bar.border_color = _html(FACILITY_BAR_RULE)
+	theme.set_type_variation(&"FacilitySubBarPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"FacilitySubBarPanel", sub_bar)
+	theme.set_constant(&"height", &"FacilitySubBar", FACILITY_SUB_BAR_HEIGHT)
+	theme.set_constant(&"group_height", &"FacilityBar", FACILITY_GROUP_BAR_HEIGHT)
 	theme.set_type_variation(&"FacilityRow", &"HBoxContainer")
 	theme.set_constant(&"separation", &"FacilityRow", 0)
 	theme.set_color(&"ribbon", &"FacilityBar", _html(TOKEN_WAX))
@@ -2710,7 +2722,29 @@ const TASK: Dictionary = {
 const TASK_MONTH_BAND: String = "dccdaa"
 
 
+# --- ⚠⚠ 本部の机と拠点の全体（2026-10-07・回HB-1・`NAV-21`）---
+#
+# ⚠ 机＝壁の紙（`TASK` の wall_*）の右に「今日の紙」。⚠ 全体＝建物の札を並べ、⚠ 下の道を編成の3人の顔が歩く。
+# ⚠ 建物と歩く人の絵はまだ無い（⚠ 段階13・素材待ち）＝札と顔の仮の形。
+const BASE_DESK: Dictionary = {
+	"today_width": 340,       # ⚠ 今日の紙（⚠ 高さは壁の紙と揃える＝`TASK.wall_height`）
+	"today_gap": 24,          # ⚠ 壁の紙との間
+	"top": 72,                # ⚠ 右上の小さいボタンの列（⚠ 通貨の下）
+	"building_width": 132,
+	"building_height": 112,
+	"building_gap": 16,
+	"walker": 48,             # ⚠ 歩く人の顔の大きさ
+	"road": 72,               # ⚠ 建物の下の道の高さ
+	"walk_speed": 36,         # ⚠ 歩く速さ（px／秒）
+}
+
+
 static func _build_task(theme: Theme) -> void:
+	for key: String in BASE_DESK:
+		theme.set_constant(StringName(key), &"BaseDesk", int(BASE_DESK[key]))
+	theme.set_color(&"road", &"BaseDesk", _html(FACILITY_BAR_RULE))
+	theme.set_type_variation(&"BaseBuildingRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"BaseBuildingRow", int(BASE_DESK["building_gap"]))
 	var t: StringName = &"Task"
 	for key: String in TASK:
 		theme.set_constant(StringName(key), t, int(TASK[key]))

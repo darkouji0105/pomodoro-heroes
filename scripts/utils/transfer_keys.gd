@@ -96,3 +96,5 @@ const MEMORY_RECORDS_TAB: String = "memory_records_tab"
 const MEMORY_QUEST_TAB: String = "memory_quest_tab"
 const MEMORY_ROSTER_SORT: String = "memory_roster_sort"
 const MEMORY_TASK_FILTER: String = "memory_task_filter"
+# ⚠ 10-07（回HB-1）：⚠ 本部の見え方（⚠ 机 ／ 拠点の全体）。
+const MEMORY_BASE_VIEW: String = "memory_base_view"

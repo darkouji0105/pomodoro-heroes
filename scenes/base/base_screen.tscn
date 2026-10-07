@@ -34,27 +34,22 @@ layout_mode = 2
 size_flags_vertical = 3
 
 [node name="BottomArea" type="PanelContainer" parent="Layout" unique_id=150811097]
-custom_minimum_size = Vector2(0, 160)
 layout_mode = 2
 
 [node name="BottomLayout" type="VBoxContainer" parent="Layout/BottomArea" unique_id=1174182404]
 layout_mode = 2
 
-[node name="ResourceRow" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout" unique_id=1573716456]
-custom_minimum_size = Vector2(0, 56)
+[node name="NavigationButtons" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout" unique_id=763492719]
+custom_minimum_size = Vector2(0, 104)
 layout_mode = 2
-theme_type_variation = &"WideRow"
+theme_type_variation = &"ButtonRow"
 
-[node name="Spacer" type="Control" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1140693099]
+[node name="ChestBadge" type="Button" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=1098589026]
 layout_mode = 2
 size_flags_horizontal = 3
-
-[node name="ChestBadge" type="Button" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1098589026]
-layout_mode = 2
 text = "ui_base_chest"
-theme_type_variation = &"PrimaryButton"
 
-[node name="ChestCountLabel" type="Label" parent="Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge" unique_id=426545088]
+[node name="ChestCountLabel" type="Label" parent="Layout/BottomArea/BottomLayout/NavigationButtons/ChestBadge" unique_id=426545088]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
@@ -63,36 +58,42 @@ offset_left = -20.0
 offset_bottom = 23.0
 grow_horizontal = 0
 
-[node name="SaveButton" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=296771634 instance=ExtResource("3_button")]
-layout_mode = 2
-label_key = "ui_base_save"
-variant = 2
-
-[node name="BackToTitleButton" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1704690069 instance=ExtResource("3_button")]
-layout_mode = 2
-label_key = "ui_base_back_to_title"
-
-[node name="NavigationButtons" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout" unique_id=763492719]
-custom_minimum_size = Vector2(0, 104)
-layout_mode = 2
-theme_type_variation = &"ButtonRow"
-
-[node name="AdventureButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=1292228329 instance=ExtResource("3_button")]
-layout_mode = 2
-size_flags_horizontal = 3
-label_key = "ui_nav_adventure_select"
-
 [node name="PomodoroButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=457427584 instance=ExtResource("3_button")]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.0
 label_key = "ui_nav_pomodoro"
-
-[node name="SettingsButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=1311972806 instance=ExtResource("3_button")]
-layout_mode = 2
-size_flags_horizontal = 3
-label_key = "ui_nav_settings"
+variant = 1
 
 [node name="ScenarioButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=785895846 instance=ExtResource("3_button")]
 layout_mode = 2
 size_flags_horizontal = 3
 label_key = "ui_nav_scenario"
+
+[node name="SystemButtons" type="HBoxContainer" parent="." unique_id=1311972807]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+grow_horizontal = 0
+theme_type_variation = &"ButtonRow"
+
+[node name="ViewToggle" parent="SystemButtons" unique_id=1311972808 instance=ExtResource("3_button")]
+layout_mode = 2
+label_key = "ui_base_view_town"
+variant = 2
+
+[node name="SettingsButton" parent="SystemButtons" unique_id=1311972806 instance=ExtResource("3_button")]
+layout_mode = 2
+label_key = "ui_nav_settings"
+variant = 2
+
+[node name="SaveButton" parent="SystemButtons" unique_id=296771634 instance=ExtResource("3_button")]
+layout_mode = 2
+label_key = "ui_base_save"
+variant = 2
+
+[node name="BackToTitleButton" parent="SystemButtons" unique_id=1704690069 instance=ExtResource("3_button")]
+layout_mode = 2
+label_key = "ui_base_back_to_title"
+variant = 2

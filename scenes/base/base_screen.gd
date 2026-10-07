@@ -15,8 +15,8 @@ const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 # ⚠ UI テストのページ（デバッグビルドのみ。⚠ リリース前に消す）。
 const UI_TEST_PAGE_PATH: String = "res://tests/ui_test_page.tscn"
 
+# ⚠ 10-07（回HB-1・人間「⚠ ２じゃあ」）：⚠ 「冒険」のボタンは消した＝⚠ 出撃の入口は帯の「掲示板」だけ。
 const SCREEN_SCENES: Dictionary = {
-	GameStateKeys.SCREEN_ADVENTURE_SELECT: "res://scenes/adventure/adventure_select.tscn",
 	GameStateKeys.SCREEN_POMODORO: "res://scenes/pomodoro/pomodoro.tscn",
 	# ⚠ 2026-09-28（回UI-仕組み③）：⚠ 設定の画面。
 	GameStateKeys.SCREEN_SETTINGS: "res://scenes/base/settings_screen.tscn",
@@ -27,20 +27,29 @@ const SCREEN_SCENES: Dictionary = {
 # ⚠⚠ 金・スタミナは**右上の `ResourceBar` へ移した**（2026-09-09・人間の決定
 #   「資源は、右上に表示する」「右上へ移して下段からは消す」）。
 #   ⚠ 下段に残るのはポーション（⚠ 「使う」ボタンと対になっているため）と素材の行。
+# ⚠⚠ 10-07（回HB-1・人間「⚠ ４あ」）：⚠ 下の列は ポモドーロ（主役・2倍の幅）・シナリオ・届いた宝箱。
+#   ⚠ 設定・セーブ・タイトルへ は右上の小さいボタン（`SystemButtons`・通貨の下）。⚠ 下段の資源の列は消した。
 @onready var top_area: Control = $Layout/TopArea
-@onready var chest_badge: Button = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge
-@onready var chest_count_label: Label = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge/ChestCountLabel
+@onready var chest_badge: Button = $Layout/BottomArea/BottomLayout/NavigationButtons/ChestBadge
+@onready var chest_count_label: Label = $Layout/BottomArea/BottomLayout/NavigationButtons/ChestBadge/ChestCountLabel
 
-@onready var save_button: UiButton = $Layout/BottomArea/BottomLayout/ResourceRow/SaveButton
-@onready var back_to_title_button: UiButton = $Layout/BottomArea/BottomLayout/ResourceRow/BackToTitleButton
+@onready var system_buttons: HBoxContainer = $SystemButtons
+@onready var view_toggle: UiButton = $SystemButtons/ViewToggle
+@onready var save_button: UiButton = $SystemButtons/SaveButton
+@onready var back_to_title_button: UiButton = $SystemButtons/BackToTitleButton
+@onready var settings_button: UiButton = $SystemButtons/SettingsButton
 
-@onready var adventure_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/AdventureButton
 @onready var pomodoro_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/PomodoroButton
-@onready var settings_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/SettingsButton
 @onready var scenario_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/ScenarioButton
+
+# ⚠ 本部の見え方（10-07・回HB-1・人間「⚠ ５あだけど　拠点が見れるビューもとグルで見れるようにする」）。
+const VIEW_DESK: String = "desk"
+const VIEW_TOWN: String = "town"
 
 # 内部状態
 var _navigation_buttons: Dictionary = {} # screen_id -> UiButton
+var _desk_view: Control = null
+var _town_view: BaseTownView = null
 
 func _ready() -> void:
 	# GameManager の状態を取得
@@ -50,7 +59,8 @@ func _ready() -> void:
 	var _moved: int = GameManager.roll_over_done_tasks()
 
 	_init_resource_displays(state)
-	_init_task_note()
+	_init_views()
+	_init_system_buttons()
 	_init_navigation_buttons()
 	# ⚠ 2026-09-26（回UI-3・`NAV-6`）：⚠ 施設の帯。⚠ ギルドのボタンと編成のボタンは帯へ移した。
 	BaseFacilityBar.attach(self, $Layout, BaseFacilityBar.HQ)
@@ -65,18 +75,64 @@ func _init_resource_displays(_state: Dictionary) -> void:
 	# ⚠⚠ 2026-10-07：⚠ 下段の「スタミナポーション 使う」もやめた（⚠ 人間「⚠ 片方にまとめて」）＝右上のスタミナの「＋」→「使う」。
 	pass
 
-# ⚠ 壁の紙（2026-10-04・`TK-3`）。⚠ 左上に置く。⚠ 位置と大きさは Theme の `Task/wall_*`。
-func _init_task_note() -> void:
+# ⚠⚠ 本部の2つの見え方（10-07・回HB-1・`NAV-21`）。⚠ 切り替えは右上の「拠点を見渡す」／「机に戻る」。
+#   ⚠ 机＝壁の紙（2026-10-04・`TK-3`・左上）＋ 今日の紙（その右）。⚠ 全体＝建物と歩く人（`BaseTownView`）。
+#   ⚠ どちらを見ていたかは画面を出ても覚える（`SceneManager.remember()`）。
+func _init_views() -> void:
+	_desk_view = Control.new()
+	_desk_view.name = "DeskView"
+	_desk_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_area.add_child(_desk_view)
+	_desk_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# ⚠ 壁の紙。⚠ 位置と大きさは Theme の `Task/wall_*`。
 	var note: TaskWallNote = TaskWallNote.create()
-	top_area.add_child(note)
+	_desk_view.add_child(note)
 	var margin: float = float(note.get_theme_constant(&"wall_left", TaskWallNote.THEME_TYPE))
 	note.position = Vector2(margin, margin)
 	note.size = note.custom_minimum_size
+	var today: BaseTodaySheet = BaseTodaySheet.create()
+	_desk_view.add_child(today)
+	var gap: float = float(today.get_theme_constant(&"today_gap", BaseTodaySheet.THEME_TYPE))
+	today.position = Vector2(margin + note.custom_minimum_size.x + gap, margin)
+	today.size = today.custom_minimum_size
+
+	_town_view = BaseTownView.create()
+	top_area.add_child(_town_view)
+	_town_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_town_view.offset_left = margin
+	_town_view.offset_right = -margin
+	_town_view.offset_top = margin
+	view_toggle.pressed.connect(_on_view_toggle_pressed)
+	_show_view(str(SceneManager.recall(TransferKeys.MEMORY_BASE_VIEW, VIEW_DESK)))
+
+
+func _show_view(view: String) -> void:
+	var town: bool = view == VIEW_TOWN
+	_town_view.visible = town
+	_desk_view.visible = not town
+	view_toggle.label_key = "ui_base_view_desk" if town else "ui_base_view_town"
+	SceneManager.remember(TransferKeys.MEMORY_BASE_VIEW, VIEW_TOWN if town else VIEW_DESK)
+
+
+func _on_view_toggle_pressed() -> void:
+	_show_view(VIEW_DESK if _town_view.visible else VIEW_TOWN)
+
+
+# ⚠ 検査用：⚠ いまの見え方。
+func current_view() -> String:
+	return VIEW_TOWN if _town_view != null and _town_view.visible else VIEW_DESK
+
+
+# ⚠ 右上（⚠ 通貨の下）。⚠ 余白は画面ルートの余白（`ScreenMargin`）・高さは `BaseDesk/top`。
+func _init_system_buttons() -> void:
+	var margin: float = float(get_theme_constant(&"margin_right", &"ScreenMargin"))
+	system_buttons.offset_right = -margin
+	system_buttons.offset_left = -margin
+	system_buttons.offset_top = float(get_theme_constant(&"top", BaseTodaySheet.THEME_TYPE))
 
 
 func _init_navigation_buttons() -> void:
 	_navigation_buttons = {
-		GameStateKeys.SCREEN_ADVENTURE_SELECT: adventure_button,
 		GameStateKeys.SCREEN_POMODORO: pomodoro_button,
 		GameStateKeys.SCREEN_SETTINGS: settings_button,
 		GameStateKeys.SCREEN_SCENARIO: scenario_button,
@@ -105,12 +161,13 @@ func _add_continue_button() -> void:
 		path = FLOOR_MAP_PATH
 	if path == "":
 		return
-	var button: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_base_continue_run")
+	# ⚠ 10-07（回HB-1・人間「⚠ ４あ」）：⚠ 真鍮はポモドーロだけ（⚠ PRIMARY は1画面に1個）＝⚠ 続きからは並の革。
+	var button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_base_continue_run")
 	button.name = "ContinueRunButton"
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(SceneManager.change_scene.bind(path))
-	adventure_button.get_parent().add_child(button)
-	adventure_button.get_parent().move_child(button, 0)
+	pomodoro_button.get_parent().add_child(button)
+	pomodoro_button.get_parent().move_child(button, 0)
 
 # ⚠⚠ UI テストのページへの入口（2026-09-06・人間の決定「拠点にデバッグ入口」）。
 #
@@ -128,7 +185,7 @@ func _add_ui_test_button() -> void:
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.clip_text = true
 	button.pressed.connect(_on_ui_test_pressed)
-	adventure_button.get_parent().add_child(button)
+	pomodoro_button.get_parent().add_child(button)
 
 func _on_ui_test_pressed() -> void:
 	SceneManager.change_scene(UI_TEST_PAGE_PATH)

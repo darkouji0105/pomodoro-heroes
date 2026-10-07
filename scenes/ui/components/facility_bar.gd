@@ -20,6 +20,8 @@ var _row: HBoxContainer = null
 var _buttons: Dictionary = {}   # id -> Button
 var _active_id: String = ""
 var _attention: Dictionary = {}  # id -> true
+# ⚠ 10-07（回HB-1）：⚠ 高さを引く Theme 型。⚠ 育成の中のタブ（帯の上の1段）は `FacilitySubBar` を渡す。
+var height_type: StringName = THEME_TYPE
 
 
 func _init() -> void:
@@ -31,7 +33,7 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	custom_minimum_size.y = float(get_theme_constant(&"height", THEME_TYPE))
+	custom_minimum_size.y = float(get_theme_constant(&"height", height_type))
 
 
 # ⚠ 入口を作り直す。⚠ 前のボタンは `remove_child()` してから捨てる（⚠ await を持たない）。
@@ -85,3 +87,8 @@ func _draw_ribbon(button: Button, id: String) -> void:
 # ⚠ 検査用：⚠ いま紐を出している施設。
 func has_attention(id: String) -> bool:
 	return _attention.has(id)
+
+
+# ⚠ 検査用：⚠ いま灯りの線が乗っている施設。
+func active_id() -> String:
+	return _active_id

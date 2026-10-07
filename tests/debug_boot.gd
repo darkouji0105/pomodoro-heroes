@@ -142,6 +142,8 @@ const SHOT_AFTER_BOARD_HARD: String = "board_hard"
 const SHOT_AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
 # ⚠ デバッグの窓を出した姿（2026-10-03・人間「⚠ デバッグ窓はもっとコンパクトに」）。⚠ 内側の `AFTER_DEBUG_OVERLAY` と同じ字。
 const SHOT_AFTER_DEBUG_OVERLAY: String = "debug_overlay"
+# ⚠ 本部の「拠点の全体」（2026-10-07・回HB-1）。⚠ 内側の `AFTER_BASE_TOWN` と同じ字。
+const SHOT_AFTER_BASE_TOWN: String = "base_town"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 # ⚠ タスクのメモ（2026-10-04・`TK-n`）：⚠ タスクを並べる ／ 終えたものを記録へ移す ／ 詳しくを開く ／ 選ぶ窓 ／ 記録のタブ。⚠ 内側の同じ名前の字と揃える。
@@ -1276,7 +1278,7 @@ const SCENARIOS: Dictionary = {
 				"measure": ["Margin/Layout/Middle/Side", "Margin/Layout/Middle/Side/Depth", "Margin/Layout/Middle/Side/Reserve"],
 			},
 			# ⚠ タスクのメモ（2026-10-04・`TK-3`・`TK-7`・`TK-10`・`TK-8`）。⚠ 拠点（紙あり・溢れて送る）／ タスクの画面（詳しく）／ ポモドーロの選ぶ窓 ／ 記録のタブ。
-			{"name": "59_base_tasks", "scene": SCENE_BASE, "prepare": SHOT_PREPARE_TASKS, "measure": ["Layout/TopArea/TaskWallNote"]},
+			{"name": "59_base_tasks", "scene": SCENE_BASE, "prepare": SHOT_PREPARE_TASKS, "measure": ["Layout/TopArea/DeskView/TaskWallNote", "Layout/TopArea/DeskView/TodaySheet"]},
 			{"name": "60_task_screen", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DETAIL},
 			# ⚠ 10-05（人間「⚠ やることリストはサイドバーにする」）：⚠ 選ぶ窓 → 右のサイドバー。⚠ 集中を始める前の姿。
 			{"name": "61_pomodoro_sidebar", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_PICK, "measure": ["Margin", "TaskSidebar", "Margin/Layout/CurrentViewContainer/FocusView/Layout/StartButton"]},
@@ -1327,6 +1329,7 @@ const SCENARIOS: Dictionary = {
 			{"name": "73_plus_hover", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_PLUS_HOVER},
 			{"name": "72_board_quick", "scene": "res://scenes/adventure/adventure_select.tscn", "prepare": SHOT_PREPARE_BOARD_CLEARED},
 			{"name": "69_mini_reflection", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_REFLECTION},
+			{"name": "74_base_town", "scene": SCENE_BASE, "after": SHOT_AFTER_BASE_TOWN, "measure": ["Layout/TopArea/TownView"]},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -4956,15 +4959,16 @@ const LAYOUT_PATHS: Array[String] = [
 	"Layout",
 	"Layout/BottomArea",
 	"Layout/BottomArea/BottomLayout",
-	"Layout/BottomArea/BottomLayout/ResourceRow",
 	# ⚠ `MaterialsScroll` / `MaterialsDisplay` は消した（2026-09-10）。
 	#   ⚠ 素材16件は右上の `ResourceBar` へ移り、⚠ 拠点の下段から無くなったため。
+	# ⚠ `ResourceRow` は消した（2026-10-07・回HB-1）。⚠ 宝箱は下の列へ・設定たちは右上の `SystemButtons` へ。
 	"Layout/BottomArea/BottomLayout/NavigationButtons",
+	"SystemButtons",
 ]
 
 const LAYOUT_ROWS: Array[String] = [
-	"Layout/BottomArea/BottomLayout/ResourceRow",
 	"Layout/BottomArea/BottomLayout/NavigationButtons",
+	"SystemButtons",
 ]
 
 # 手書きした .tscn が本当に開くかも、ついでにここで見る。
@@ -9234,6 +9238,7 @@ class ShotTaker extends Node:
 	const AFTER_BOARD_HARD: String = "board_hard"
 	const AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
 	const AFTER_DEBUG_OVERLAY: String = "debug_overlay"
+	const AFTER_BASE_TOWN: String = "base_town"
 	const FORGE_STRIKE_WAIT_MS: int = 4000
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
@@ -9797,6 +9802,17 @@ class ShotTaker extends Node:
 				return false
 			(records_tabs.get_child(RecordsScreen.TAB_TASKS) as BaseButton).pressed.emit()
 			for _i: int in range(3):
+				await get_tree().process_frame
+		elif kind == AFTER_BASE_TOWN:
+			var toggle: Node = screen.find_child("ViewToggle", true, false)
+			if not (toggle is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に「拠点を見渡す」が無い" % shot_name)
+				return false
+			(toggle as BaseButton).pressed.emit()
+			# ⚠ 覚えた見え方は机へ戻しておく（⚠ 後の本部の絵が全体で撮れてしまう）。⚠ いま出ている姿は変わらない。
+			SceneManager.remember(TransferKeys.MEMORY_BASE_VIEW, "desk")
+			# ⚠ 歩き出すまで（⚠ 道の大きさが決まってから）。
+			for _i: int in range(30):
 				await get_tree().process_frame
 		elif kind == AFTER_DEBUG_OVERLAY:
 			var overlay: Node = get_tree().root.find_child("DebugOverlay", true, false)
@@ -10467,6 +10483,7 @@ class UiFlowRunner extends Node:
 		await _flow_belongings(instance_id)
 		await _flow_belongings_tabs()
 		await _flow_facility()
+		await _flow_base_hub()
 		await _flow_barracks()
 		await _flow_quest_board()
 		await _flow_chest()
@@ -10779,15 +10796,102 @@ class UiFlowRunner extends Node:
 		_check("施設の帯：「記録」で記録の画面（図鑑）が開く", _path_of(r) == RECORDS and r.find_child("CodexHeading", true, false) != null)
 		# ⚠ 09-27 の見る回で「育成」を戻した（⚠ 人間「⚠ 育成タブを復活させたほうがいい」）。
 		_check("施設の帯：「育成」がある", r.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false) != null)
-		# ⚠ 09-28 人間「⚠ 鍛冶場を装備以外のところからいけるようにしたい」＝⚠ 持ち物と同じ解放で帯に出る。
-		# ⚠ `_setup()` は全部を解放している＝⚠ 帯の定義で「解放の条件が持ち物と同じ」を見る。
+		# ⚠ 09-28 人間「⚠ 鍛冶場を装備以外のところからいけるようにしたい」＝⚠ 持ち物と同じ解放で出る。
+		# ⚠ 10-07（回HB-1）から鍛冶場は育成の中のタブ＝⚠ 定義で「解放の条件が持ち物と同じ」を見る。
+		# ⚠ `_setup()` は全部を解放している。
 		var unlocks: Dictionary = {}
-		for entry: Dictionary in BaseFacilityBar.facilities():
+		for entry: Dictionary in BaseFacilityBar.facilities() + BaseFacilityBar.training_tabs():
 			unlocks[str(entry.get(FacilityBar.ENTRY_ID, ""))] = str(entry.get(BaseFacilityBar.KEY_UNLOCK, ""))
-		_check("施設の帯：「鍛冶場」は持ち物と同じ解放で出る（%s）" % str(unlocks.get(BaseFacilityBar.FORGE, "")),
-			r.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) != null
+		_check("育成の中：「鍛冶場」は持ち物と同じ解放で出る（%s）" % str(unlocks.get(BaseFacilityBar.FORGE, "")),
+			BaseFacilityBar.is_training_tab(BaseFacilityBar.FORGE)
 			and unlocks.get(BaseFacilityBar.FORGE, "?") == unlocks.get(BaseFacilityBar.BELONGINGS, "!"))
 		await _flow_records()
+
+	# --- 回HB-1 拠点の整理（2026-10-07・人間「⚠ 育成にいくつかまとめる　２じゃあ　３はい　４あ　５あだけど　拠点が見れるビューもとグルで見れるようにする」） ---
+	# ⚠ 状態は変えない（⚠ 宝箱を足さない＝後の検査の数を動かさない）。⚠ 終わりは記録の画面（⚠ 次の `_flow_barracks()` が帯を押す）。
+
+	func _flow_base_hub() -> void:
+		const RESEARCH_SCREEN: String = "res://scenes/guild/research_screen.tscn"
+		var ids: Array[String] = []
+		for entry: Dictionary in BaseFacilityBar.visible_facilities():
+			ids.append(str(entry.get(FacilityBar.ENTRY_ID, "")))
+		_check("帯：本部・掲示板・育成・持ち物・記録・ショップの6つ（%s）" % ",".join(ids), ",".join(ids) == "hq,board,training,belongings,records,shop")
+		var base: Node = await _open(BASE, {})
+		if base == null:
+			return
+		_check("本部：育成の中のタブは出さない", base.find_child("TrainingTabs", false, false) == null
+			and base.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) == null)
+		# ② 「冒険」は消した ／ ③ シナリオは残す ／ ④ ポモドーロが主役・設定たちは右上。
+		var pomodoro: Node = base.find_child("PomodoroButton", true, false)
+		var system: Node = base.find_child("SystemButtons", false, false)
+		_check("本部：「冒険」のボタンが無い", base.find_child("AdventureButton", true, false) == null)
+		_check("本部：「シナリオ」のボタンは残る", base.find_child("ScenarioButton", true, false) != null)
+		_check("本部：ポモドーロは真鍮・2倍の幅", pomodoro is UiButton and (pomodoro as UiButton).variant == UiButton.Variant.PRIMARY
+			and is_equal_approx((pomodoro as Control).size_flags_stretch_ratio, 2.0))
+		_check("本部：設定・セーブ・タイトルへは右上", system != null and system.find_child("SettingsButton", false, false) != null
+			and system.find_child("SaveButton", false, false) != null and system.find_child("BackToTitleButton", false, false) != null)
+		# ⑤ 机：壁の紙と今日の紙。⚠ 用事の行は帯の紐と同じ口。
+		_check("本部：はじめは机（壁の紙と今日の紙）", str(base.call("current_view")) == "desk"
+			and base.find_child("TaskWallNote", true, false) != null and base.find_child("TodaySheet", true, false) != null)
+		var errands: Array[Dictionary] = BaseTodaySheet.current_errands()
+		var rows: Array[Node] = base.find_children("Errand_*", "", true, false)
+		_check("今日の紙：用事の行が %d 本（紐と同じ口）" % errands.size(), rows.size() == errands.size()
+			and (not errands.is_empty() or base.find_child("NoErrands", true, false) != null))
+		if not errands.is_empty():
+			var first: Dictionary = errands[0]
+			await _press(base.find_child("Errand_" + str(first[BaseTodaySheet.KEY_ID]), true, false), OPEN_FRAMES)
+			_check("今日の紙：「%s」でその画面へ" % tr(str(first[BaseTodaySheet.KEY_TEXT])), _path_of(get_tree().current_scene) == str(first[BaseTodaySheet.KEY_PATH]))
+			base = await _open(BASE, {})
+			if base == null:
+				return
+		# ⑤ 拠点の全体：切り替え ／ 建物 ／ 歩く人 ／ 覚える。
+		await _press(base.find_child("ViewToggle", true, false))
+		var town: Node = base.find_child("TownView", true, false)
+		var walkers: int = 0
+		for raw: Variant in GameManager.get_party_members():
+			if str(raw) != "":
+				walkers += 1
+		_check("全体：「拠点を見渡す」で全体（机は隠れる）", str(base.call("current_view")) == "town" and town is Control and (town as Control).visible
+			and not (base.find_child("DeskView", true, false) as Control).visible)
+		_check("全体：建物が並ぶ（掲示板・育成・詰所・鍛冶場・研究）", town != null and town.find_child("Building_" + BaseFacilityBar.BOARD, true, false) != null
+			and town.find_child("Building_" + BaseFacilityBar.BARRACKS, true, false) != null and town.find_child("Building_" + BaseFacilityBar.FORGE, true, false) != null
+			and town.find_child("Building_" + BaseFacilityBar.RESEARCH, true, false) != null and town.find_child("Building_" + BaseFacilityBar.HQ, true, false) == null)
+		_check("全体：編成の %d 人が道を歩く" % walkers, town != null and town.find_children("Walker_*", "", true, false).size() == walkers)
+		await _press(town.find_child("Building_" + BaseFacilityBar.BOARD, true, false), OPEN_FRAMES)
+		_check("全体：建物「掲示板」で依頼掲示板", _path_of(get_tree().current_scene) == ADVENTURE)
+		base = await _open(BASE, {})
+		if base == null:
+			return
+		_check("全体：本部に戻っても全体のまま（覚える）", str(base.call("current_view")) == "town")
+		await _press(base.find_child("ViewToggle", true, false))
+		_check("机：「机に戻る」で机", str(base.call("current_view")) == "desk")
+		# 育成の中のタブ（⚠ 帯の灯りは「育成」）。
+		var l: Node = await _open(TRAINING_LIST, {})
+		if l == null:
+			return
+		var tabs: FacilityBar = l.find_child("TrainingTabs", false, false) as FacilityBar
+		var bar: FacilityBar = l.find_child("FacilityBar", false, false) as FacilityBar
+		_check("育成：帯の上に中のタブ（キャラ・詰所・鍛冶場・研究）", tabs != null and tabs.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false) != null
+			and tabs.find_child("Facility_" + BaseFacilityBar.BARRACKS, true, false) != null and tabs.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) != null
+			and tabs.find_child("Facility_" + BaseFacilityBar.RESEARCH, true, false) != null)
+		_check("育成：灯りは帯の「育成」と中の「キャラ」", bar != null and bar.active_id() == BaseFacilityBar.TRAINING and tabs != null and tabs.active_id() == BaseFacilityBar.TRAINING)
+		if tabs == null:
+			return
+		await _press(tabs.find_child("Facility_" + BaseFacilityBar.FORGE, true, false), OPEN_FRAMES)
+		var f: Node = get_tree().current_scene
+		var f_tabs: FacilityBar = null if f == null else f.find_child("TrainingTabs", false, false) as FacilityBar
+		var f_bar: FacilityBar = null if f == null else f.find_child("FacilityBar", false, false) as FacilityBar
+		_check("育成：中の「鍛冶場」で鍛冶場（灯りは育成・鍛冶場）", _path_of(f) == FORGE and f_tabs != null and f_tabs.active_id() == BaseFacilityBar.FORGE
+			and f_bar != null and f_bar.active_id() == BaseFacilityBar.TRAINING)
+		if f_tabs == null:
+			return
+		await _press(f_tabs.find_child("Facility_" + BaseFacilityBar.RESEARCH, true, false), OPEN_FRAMES)
+		var rs: Node = get_tree().current_scene
+		_check("育成：中の「研究」で研究", _path_of(rs) == RESEARCH_SCREEN and rs.find_child("TrainingTabs", false, false) != null)
+		var rs_bar: Node = rs.find_child("FacilityBar", false, false)
+		await _press(null if rs_bar == null else rs_bar.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false), OPEN_FRAMES)
+		_check("育成：帯の「育成」はキャラの一覧へ", _path_of(get_tree().current_scene) == TRAINING_LIST)
+		var _r: Node = await _open(RECORDS, {TransferKeys.RECORDS_TAB: 0})
 
 	# --- ノルマ札（2026-10-02・回UI-仕組み⑧・`EXEC_QUOTA_TICKET.md`・人間「⚠ 1あ　⚠ 2あ　⚠ 3あ　⚠ 4あ」） ---
 
@@ -11759,9 +11863,12 @@ class UiFlowRunner extends Node:
 		# ⚠ 名簿の検査のため、⚠ 英雄のビルド2を先に焼いておく（⚠ 本番の口）。
 		GameManager.save_character_preset(HERO, 1)
 		var r: Node = get_tree().current_scene
+		# ⚠ 10-07（回HB-1）：⚠ 詰所は育成の中のタブ＝⚠ 帯の「育成」→ 中のタブの「詰所」。
+		await _press(r.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false), OPEN_FRAMES)
+		r = get_tree().current_scene
 		await _press(r.find_child("Facility_" + BaseFacilityBar.BARRACKS, true, false), OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
-		_check("詰所：施設の帯の「詰所」で詰所が開く", _path_of(b) == BARRACKS)
+		_check("詰所：帯の「育成」→ 中のタブの「詰所」で詰所が開く", _path_of(b) == BARRACKS)
 		if _path_of(b) != BARRACKS:
 			return
 

@@ -1528,3 +1528,15 @@ ui_settings_effect_speed_1,1.5倍
 ui_settings_effect_speed_2,2倍
 ui_settings_effect_speed_3,3倍
 ui_settings_effect_speed_4,とばす
+ui_training_tab_characters,キャラ
+ui_base_view_town,拠点を見渡す
+ui_base_view_desk,机に戻る
+ui_base_today_title,今日の紙
+ui_base_today_errands,用事
+ui_base_today_none,いまの用事はありません
+ui_base_today_hq,本部：届いた宝箱がある
+ui_base_today_training,育成：昇級できる人がいる
+ui_base_today_forge,鍛冶場：作業場の品ができた
+ui_base_today_research,研究：解放できるものがある
+ui_base_today_belongings,持ち物：新しく入った品がある
+ui_base_today_shop,ショップ：品揃えが替わった
