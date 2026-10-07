@@ -3612,6 +3612,21 @@ func get_guild_relic_value(relic_id: String, level: int = -1) -> int:
 	return int(values[mini(at, values.size()) - 1])
 
 
+# ⚠ 遺物が育ち始める等級（⚠ いちばん低い遺物の等級）。⚠ 「等級◯から捧げられる」の◯。
+func get_guild_relic_grade_min() -> int:
+	var lowest: int = 0
+	for relic_id: String in MasterDataLoader.get_guild_relic_ids():
+		var grade: int = int(MasterDataLoader.get_guild_relic(relic_id).get(MasterDataLoader.GUILD_RELIC_GRADE, 0))
+		if lowest == 0 or grade < lowest:
+			lowest = grade
+	return lowest
+
+
+# ⚠ その個体を着けている人（⚠ 誰も着けていなければ ""）。⚠ 画面から引く公開の口（⚠ 中身は `_equipped_owner()`）。
+func get_equipped_owner(instance_id: String) -> String:
+	return _equipped_owner(instance_id)
+
+
 # ⚠ その等級の装備で育つ遺物（⚠ 無ければ ""＝等級4以下）。
 func get_guild_relic_of_grade(grade: int) -> String:
 	for relic_id: String in MasterDataLoader.get_guild_relic_ids():

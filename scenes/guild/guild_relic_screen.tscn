@@ -45,9 +45,14 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_type_variation = &"WideRow"
 
-[node name="RelicSheet" type="PanelContainer" parent="Margin/Layout/Body"]
+[node name="Main" type="VBoxContainer" parent="Margin/Layout/Body"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"PaperTabStack"
+
+[node name="RelicSheet" type="PanelContainer" parent="Margin/Layout/Body/Main"]
+layout_mode = 2
+size_flags_vertical = 3
 script = ExtResource("3_paper_sheet")
 
 [node name="AltarSheet" type="PanelContainer" parent="Margin/Layout/Body"]

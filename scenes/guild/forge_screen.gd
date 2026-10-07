@@ -24,8 +24,15 @@ const WORKSHOP_PATH: String = "res://scenes/guild/workshop_screen.tscn"
 const BELONGINGS_PATH: String = "res://scenes/guild/warehouse_screen.tscn"
 const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
 const THEME_TYPE: StringName = &"Forge"
-const TAB_KEYS: Array[String] = ["ui_forge_tab_forge", "ui_forge_tab_make"]
-const TAB_MAKE: int = 1
+# ⚠⚠ 鍛冶場のタブ（10-07・見る回22回目・人間「⚠ 鍛冶場の中に遺物のカテゴリを」）：⚠ 鍛える ／ 作る ／ 遺物。
+#   ⚠ 並びと行き先はここ1か所（⚠ 鍛冶場・作業場・遺物の3画面が同じタブを出す＝`create_tabs()`）。
+const TAB_FORGE_ID: String = "forge"
+const TAB_MAKE_ID: String = "make"
+const TAB_RELIC_ID: String = "relic"
+const RELIC_PATH: String = "res://scenes/guild/guild_relic_screen.tscn"
+const TAB_ENTRY_ID: String = "id"
+const TAB_ENTRY_KEY: String = "key"
+const TAB_ENTRY_PATH: String = "path"
 # ⚠ 鍛えたあとの記録に、⚠ 鍛える前の値を持ち越す（⚠ `forge_equipment_roll()` の戻り値に足す字）。
 const RESULT_STATS_BEFORE: String = "stats_before"
 const RESULT_SLOTS_BEFORE: String = "slots_before"
@@ -53,25 +60,42 @@ func _ready() -> void:
 	var _bar: ResourceBar = header.show_materials(GameManager.get_material_ids_of_series(GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX))
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.FORGE)
 	side.custom_minimum_size.x = float(get_theme_constant(&"side_width", THEME_TYPE))
-	var tabs: PaperTabs = PaperTabs.new()
-	tabs.name = "Tabs"
-	# ⚠ 「作る」（作業場）は作業場を解放してから（⚠ 09-28・鍛冶場は持ち物と同じ解放で帯に出る）。
-	var keys: Array[String] = TAB_KEYS.duplicate()
-	if not GameManager.is_screen_unlocked(GameStateKeys.SCREEN_WORKSHOP):
-		keys = [TAB_KEYS[0]]
-	tabs.set_tabs(keys, 0)
-	tabs.tab_changed.connect(_on_tab_changed)
+	var tabs: PaperTabs = create_tabs(TAB_FORGE_ID)
 	main_stack.add_child(tabs)
 	main_stack.move_child(tabs, 0)
 	_tabs = tabs
-	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 作業場の品が完成していたら「作る」のタブに紐。
-	tabs.set_attention(TAB_MAKE, GameManager.has_completed_craft())
 	_rebuild()
 
 
-func _on_tab_changed(index: int) -> void:
-	if index == TAB_MAKE:
-		SceneManager.swap_scene(WORKSHOP_PATH)
+# ⚠ 鍛冶場のタブの並び。⚠ 「作る」（作業場）は作業場を解放してから（⚠ 09-28・鍛冶場は持ち物と同じ解放で出る）。
+static func tab_entries() -> Array[Dictionary]:
+	var list: Array[Dictionary] = [{TAB_ENTRY_ID: TAB_FORGE_ID, TAB_ENTRY_KEY: "ui_forge_tab_forge", TAB_ENTRY_PATH: FORGE_PATH}]
+	if GameManager.is_screen_unlocked(GameStateKeys.SCREEN_WORKSHOP):
+		list.append({TAB_ENTRY_ID: TAB_MAKE_ID, TAB_ENTRY_KEY: "ui_forge_tab_make", TAB_ENTRY_PATH: WORKSHOP_PATH})
+	list.append({TAB_ENTRY_ID: TAB_RELIC_ID, TAB_ENTRY_KEY: "ui_facility_guild_relic", TAB_ENTRY_PATH: RELIC_PATH})
+	return list
+
+
+# ⚠ 鍛冶場のタブを作る（⚠ 押すとその画面へ差し替える）。⚠ 置き場所は使う画面が決める。
+# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 作業場の品が完成していたら「作る」のタブに紐。
+static func create_tabs(active_id: String) -> PaperTabs:
+	var entries: Array[Dictionary] = tab_entries()
+	var keys: Array[String] = []
+	var paths: Array[String] = []
+	var selected: int = 0
+	for i: int in range(entries.size()):
+		keys.append(str(entries[i][TAB_ENTRY_KEY]))
+		paths.append(str(entries[i][TAB_ENTRY_PATH]))
+		if str(entries[i][TAB_ENTRY_ID]) == active_id:
+			selected = i
+	var tabs: PaperTabs = PaperTabs.new()
+	tabs.name = "Tabs"
+	tabs.set_tabs(keys, selected)
+	tabs.tab_changed.connect(func(index: int) -> void: SceneManager.swap_scene(paths[index]))
+	for i: int in range(entries.size()):
+		if str(entries[i][TAB_ENTRY_ID]) == TAB_MAKE_ID:
+			tabs.set_attention(i, GameManager.has_completed_craft())
+	return tabs
 
 
 func _clear(box: Node) -> void:
@@ -441,12 +465,70 @@ func _build_side_forge() -> void:
 	count.text = str(GameManager.get_forge_token_count())
 	line.add_child(count)
 	side.add_child(holder)
+	_build_side_offer()
 	_add_side_spacer()
 	var belongings: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_forge_to_belongings")
 	belongings.name = "BelongingsButton"
 	belongings.disabled = _selected == ""
 	belongings.pressed.connect(_on_belongings_pressed)
 	side.add_child(belongings)
+
+
+# ⚠⚠ 捧げる（10-07・見る回22回目・人間「⚠ ささげるのは、鍛冶場からでもできるように」）。
+#   ⚠ 選んでいる品を、⚠ その場で遺物に捧げる（⚠ 口は `dismantle_equipment()` の1本＝遺物の画面の祭壇と同じ）。
+#   ⚠ 捧げられないときは理由（⚠ 等級5から ／ 着けている装備は出せない）。
+func _build_side_offer() -> void:
+	if _selected == "":
+		return
+	var holder: TiltedSheet = TiltedSheet.create(2)
+	holder.name = "OfferSheet"
+	var body: VBoxContainer = VBoxContainer.new()
+	holder.sheet.add_child(body)
+	var offer: Dictionary = GameManager.get_offer_preview(_selected)
+	var equipped_by: String = GameManager.get_equipped_owner(_selected)
+	var line: HBoxContainer = HBoxContainer.new()
+	body.add_child(line)
+	var text: Label = Label.new()
+	text.name = "OfferText"
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if offer.is_empty():
+		text.theme_type_variation = &"CaptionLabel"
+		text.text = tr("ui_forge_offer_from_grade") % GameManager.get_guild_relic_grade_min()
+	else:
+		var relic_id: String = str(offer[GameManager.OFFER_RELIC_ID])
+		line.add_child(ItemIcon.create(relic_id, int(MasterDataLoader.get_guild_relic(relic_id).get(MasterDataLoader.GUILD_RELIC_GRADE, 0))))
+		text.text = tr("ui_forge_offer_preview") % [tr(str(MasterDataLoader.get_guild_relic(relic_id).get("name_key", ""))), int(offer[GameManager.OFFER_POINTS])]
+	line.add_child(text)
+	if not offer.is_empty():
+		if equipped_by != "":
+			var reason: Label = Label.new()
+			reason.name = "OfferReason"
+			reason.theme_type_variation = &"CaptionLabel"
+			reason.text = tr("ui_forge_offer_equipped")
+			body.add_child(reason)
+		var button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_grelic_offer")
+		button.name = "ForgeOfferButton"
+		button.disabled = equipped_by != ""
+		button.pressed.connect(_on_offer_pressed)
+		body.add_child(button)
+	side.add_child(holder)
+
+
+func _on_offer_pressed() -> void:
+	var instance_id: String = _selected
+	var item_id: String = str(GameManager.get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+	var ok: bool = await Modal.confirm(self, "ui_grelic_offer_confirm", [tr(GameManager.item_name_key(item_id))], false, {
+		Modal.OPTION_TITLE: tr("ui_grelic_offer"),
+	})
+	if not ok:
+		return
+	var offer: Dictionary = GameManager.get_offer_preview(instance_id)
+	if GameManager.dismantle_equipment(instance_id):
+		_selected = ""
+		_rebuild()
+		GuildRelicScreen.notify_offered(self, offer)
 
 
 # 結果の画面の右の列（⚠ 手本：下に「続けて鍛える」「持ち物で見る」）。

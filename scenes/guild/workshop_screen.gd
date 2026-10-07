@@ -40,12 +40,12 @@ func _ready() -> void:
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.FORGE)
 	# ⚠ 2026-09-27（回UI-仕組み①・人間「⚠ 2あ」）：⚠ 作業場は鍛冶場の「作る」タブ。⚠ 「鍛える」で鍛冶場へ移る。
 	#   ⚠ 中身（キューとレシピの行）はまだ作り直していない（⚠ 紙の形にするのは別の回）。
-	var tabs: PaperTabs = PaperTabs.new()
-	tabs.name = "Tabs"
-	tabs.set_tabs(ForgeScreen.TAB_KEYS, ForgeScreen.TAB_MAKE)
-	tabs.tab_changed.connect(_on_forge_tab_changed)
+	# ⚠ 10-07（見る回22回目）：⚠ タブの並びと行き先は `ForgeScreen.create_tabs()` の1か所（⚠ 鍛える／作る／遺物）。
+	var tabs: PaperTabs = ForgeScreen.create_tabs(ForgeScreen.TAB_MAKE_ID)
 	$Margin/Layout.add_child(tabs)
-	$Margin/Layout.move_child(tabs, header.get_index() + 1)
+	# ⚠ 見出し（⚠ 育成の部屋のタブがあれば、見出しとタブを重ねた器 `HeaderStack`）のすぐ下に置く。
+	var above: Node = header if header.get_parent() == $Margin/Layout else header.get_parent()
+	$Margin/Layout.move_child(tabs, above.get_index() + 1)
 	tick.timeout.connect(_on_tick)
 
 	# 3. GameManager のシグナル購読
@@ -76,10 +76,6 @@ static func header_material_ids() -> Array[String]:
 		return a < b)
 	return ids
 
-
-func _on_forge_tab_changed(index: int) -> void:
-	if index != ForgeScreen.TAB_MAKE:
-		SceneManager.swap_scene(FORGE_PATH)
 
 # --- 描画 ---
 

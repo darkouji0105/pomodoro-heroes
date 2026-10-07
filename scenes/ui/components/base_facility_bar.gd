@@ -70,7 +70,13 @@ static func training_tabs() -> Array[Dictionary]:
 			KEY_PATH: "res://scenes/guild/forge_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WAREHOUSE},
 		{ENTRY_ID: RESEARCH, ENTRY_LABEL_KEY: "ui_facility_research",
 			KEY_PATH: "res://scenes/guild/research_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_RESEARCH},
-		# ⚠ 10-07（回HB-3）：⚠ 遺物（⚠ 捧げる＝分解＝鍛冶場と同じ解放）。
+	]
+
+
+# ⚠ 帯にも育成の中にも出ない部屋（⚠ 拠点の全体の建物・今日の紙が引く）。
+#   ⚠ 10-07（見る回22回目・人間「⚠ 鍛冶場の中に遺物のカテゴリを」）：⚠ 遺物は鍛冶場のタブ（`ForgeScreen.tab_entries()`）へ移した。
+static func other_rooms() -> Array[Dictionary]:
+	return [
 		{ENTRY_ID: GUILD_RELIC, ENTRY_LABEL_KEY: "ui_facility_guild_relic",
 			KEY_PATH: "res://scenes/guild/guild_relic_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WAREHOUSE},
 	]
@@ -96,7 +102,7 @@ static func _unlocked(entries: Array[Dictionary]) -> Array[Dictionary]:
 
 # ⚠ その施設（⚠ 育成の中のタブも）がいま開けるか。
 static func is_open(id: String) -> bool:
-	for entry: Dictionary in facilities() + training_tabs():
+	for entry: Dictionary in facilities() + training_tabs() + other_rooms():
 		if str(entry.get(ENTRY_ID, "")) == id:
 			var unlock: String = str(entry.get(KEY_UNLOCK, ""))
 			return unlock == "" or GameManager.is_screen_unlocked(unlock)
@@ -118,18 +124,44 @@ static func training_path() -> String:
 
 
 # ⚠ 画面の下に帯を敷く。⚠ `content` は画面いっぱいに広がる中身（⚠ `Margin` / `Layout`）。
-#   ⚠ 育成の中のタブの ID を渡すと、⚠ 帯の上に中のタブを1段敷く。
+#   ⚠ 育成の中のタブの ID を渡すと、⚠ 見出しの下に部屋のタブ（紙のタブ）を差し込む。
+#   ⚠ 10-07（見る回22回目・人間「⚠ 育成のところは、部屋の切り替えみたいな感じでタブを切り替えて移動できるように」→「上に紙のタブ」）：
+#     ⚠ 前は帯の上の細い段（`FacilityBar`）。⚠ 見出しが無い画面では帯の上に置く（⚠ 落ちないための逃げ道）。
 static func attach(screen: Control, content: Control, active_id: String) -> BaseFacilityBar:
 	var bar: BaseFacilityBar = BaseFacilityBar.new()
 	bar.name = "FacilityBar"
 	bar._content = content
 	if is_training_tab(active_id):
-		var tabs: FacilityBar = FacilityBar.new()
+		var entries: Array[Dictionary] = visible_training_tabs()
+		var keys: Array[String] = []
+		var ids: Array[String] = []
+		var selected: int = 0
+		for i: int in range(entries.size()):
+			keys.append(str(entries[i].get(ENTRY_LABEL_KEY, "")))
+			ids.append(str(entries[i].get(ENTRY_ID, "")))
+			if ids[i] == active_id:
+				selected = i
+		var tabs: PaperTabs = PaperTabs.new()
 		tabs.name = "TrainingTabs"
-		tabs.theme_type_variation = &"FacilitySubBarPanel"
-		tabs.height_type = SUB_THEME_TYPE
-		screen.add_child(tabs)
-		tabs.set_facilities(visible_training_tabs(), active_id)
+		tabs.variation_prefix = "RoomTab"
+		tabs.set_tabs(keys, selected)
+		tabs.set_meta(META_ROOM_IDS, ids)
+		# ⚠ 押す相手を名前で引けるように（⚠ 検査・前の帯の段と同じ名前）。
+		for i: int in range(ids.size()):
+			tabs.get_child(i).name = "Facility_" + ids[i]
+		var header: Node = content.get_node_or_null("Layout/Header")
+		if header != null:
+			# ⚠ 見出しとタブを隙間なく重ねる（⚠ 縦の器 `PaperTabStack`＝間0）。⚠ 画面の縦の間（`SectionGap`）を1つ減らす。
+			var layout: Node = header.get_parent()
+			var stack: VBoxContainer = VBoxContainer.new()
+			stack.name = "HeaderStack"
+			stack.theme_type_variation = &"PaperTabStack"
+			layout.add_child(stack)
+			layout.move_child(stack, header.get_index())
+			header.reparent(stack, false)
+			stack.add_child(tabs)
+		else:
+			screen.add_child(tabs)
 		bar._tabs = tabs
 	screen.add_child(bar)
 	bar.set_facilities(visible_facilities(), TRAINING if is_training_tab(active_id) else active_id)
@@ -138,7 +170,17 @@ static func attach(screen: Control, content: Control, active_id: String) -> Base
 
 var _content: Control = null
 var _entries: Dictionary = {}  # id -> entry
-var _tabs: FacilityBar = null  # ⚠ 育成の中のタブ（⚠ 育成の仲間の画面だけ）
+var _tabs: PaperTabs = null  # ⚠ 育成の部屋のタブ（⚠ 育成の仲間の画面だけ）
+
+const META_ROOM_IDS: StringName = &"room_ids"
+
+
+# ⚠ 部屋のタブでいま開いている部屋の ID（⚠ 検査用）。
+static func room_id_of(tabs: PaperTabs) -> String:
+	if tabs == null or not tabs.has_meta(META_ROOM_IDS):
+		return ""
+	var ids: Array = tabs.get_meta(META_ROOM_IDS)
+	return str(ids[tabs.current]) if tabs.current < ids.size() else ""
 
 
 func _ready() -> void:
@@ -146,16 +188,20 @@ func _ready() -> void:
 	var height: float = float(get_theme_constant(&"height", THEME_TYPE))
 	var covered: float = height
 	if _tabs != null:
-		# ⚠ 育成の仲間の画面では帯を細くし、⚠ 中のタブと合わせて帯1本ぶん（`height`）に収める。
-		#   ⚠ 中のタブのぶん中身を縮めると、⚠ 育成の身上書と「ビルド」の行が裏に隠れた（10-07 の絵）。
-		var tabs_height: float = float(get_theme_constant(&"height", SUB_THEME_TYPE))
+		# ⚠ 育成の仲間の画面では帯を細くする（⚠ 部屋のタブが見出しの下で場所を取るぶん）。
+		#   ⚠ 中身の高さを削ると、⚠ 育成の身上書と「ビルド」の行が裏に隠れた（10-07 の絵）。
 		height = float(get_theme_constant(&"group_height", THEME_TYPE))
 		custom_minimum_size.y = height
-		_tabs.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-		_tabs.offset_top = -height - tabs_height
-		_tabs.offset_bottom = -height
-		_tabs.facility_pressed.connect(_on_tab_pressed)
-		covered = height + tabs_height
+		_tabs.tab_changed.connect(_on_room_tab_changed)
+		if _tabs.get_parent() == get_parent():
+			# ⚠ 見出しの無い画面（逃げ道）：⚠ 帯のすぐ上に置く。
+			var tabs_height: float = float(get_theme_constant(&"height", SUB_THEME_TYPE))
+			_tabs.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+			_tabs.offset_top = -height - tabs_height
+			_tabs.offset_bottom = -height
+			covered = height + tabs_height
+		else:
+			covered = height
 	set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	offset_top = -height
 	if _content != null:
@@ -212,14 +258,14 @@ static func facility_attention(id: String) -> bool:
 func refresh_attention() -> void:
 	for id: String in _entries:
 		set_attention(id, facility_attention(id))
-	if _tabs != null:
-		for entry: Dictionary in visible_training_tabs():
-			var id: String = str(entry.get(ENTRY_ID, ""))
-			_tabs.set_attention(id, attention_of(id))
+	if _tabs != null and _tabs.has_meta(META_ROOM_IDS):
+		var ids: Array = _tabs.get_meta(META_ROOM_IDS)
+		for i: int in range(ids.size()):
+			_tabs.set_attention(i, attention_of(str(ids[i])))
 
 
-# ⚠ 検査用：⚠ 育成の中のタブ（⚠ 無ければ null）。
-func training_tabs_bar() -> FacilityBar:
+# ⚠ 検査用：⚠ 育成の部屋のタブ（⚠ 無ければ null）。
+func training_tabs_bar() -> PaperTabs:
 	return _tabs
 
 
@@ -247,6 +293,12 @@ func _on_facility_pressed(id: String) -> void:
 	var entry: Dictionary = _entries.get(id, {})
 	var path: String = training_path() if id == TRAINING else str(entry.get(KEY_PATH, ""))
 	_go(id, path, entry.get(KEY_DATA, {}))
+
+
+func _on_room_tab_changed(index: int) -> void:
+	var ids: Array = _tabs.get_meta(META_ROOM_IDS) if _tabs != null and _tabs.has_meta(META_ROOM_IDS) else []
+	if index >= 0 and index < ids.size():
+		_on_tab_pressed(str(ids[index]))
 
 
 func _on_tab_pressed(id: String) -> void:

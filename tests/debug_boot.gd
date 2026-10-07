@@ -10932,12 +10932,20 @@ class UiFlowRunner extends Node:
 				g5 = id
 			elif int((view as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 0)) == 4:
 				g4 = id
-		# ⑥ 育成の中のタブ「遺物」。
-		var l: Node = await _open(TRAINING_LIST, {})
-		var tabs: Node = null if l == null else l.find_child("TrainingTabs", false, false)
-		await _press(null if tabs == null else tabs.find_child("Facility_" + BaseFacilityBar.GUILD_RELIC, true, false), OPEN_FRAMES)
+		# ⑥ 鍛冶場のタブ「遺物」（⚠ 10-07 見る回22回目・人間「⚠ 鍛冶場の中に遺物のカテゴリを」）。
+		var fs: Node = await _open(FORGE, {})
+		var forge_tabs: Node = null if fs == null else fs.find_child("Tabs", true, false)
+		var relic_index: int = -1
+		var entries: Array[Dictionary] = ForgeScreen.tab_entries()
+		for i: int in range(entries.size()):
+			if str(entries[i][ForgeScreen.TAB_ENTRY_ID]) == ForgeScreen.TAB_RELIC_ID:
+				relic_index = i
+		await _press(null if forge_tabs == null else forge_tabs.find_child("Tab%d" % relic_index, false, false), OPEN_FRAMES)
 		var r: Node = get_tree().current_scene
-		_check("遺物：育成の中のタブ「遺物」で遺物の画面", _path_of(r) == RELIC_SCREEN)
+		_check("遺物：鍛冶場のタブ「遺物」で遺物の画面（部屋は鍛冶場）", _path_of(r) == RELIC_SCREEN
+			and BaseFacilityBar.room_id_of(r.find_child("TrainingTabs", true, false) as PaperTabs) == BaseFacilityBar.FORGE)
+		_check("遺物：遺物ごとにアイコンと目盛り", r.find_children("RelicIcon", "", true, false).size() == MasterDataLoader.get_guild_relic_ids().size()
+			and r.find_children("PointsGauge", "", true, false).size() == MasterDataLoader.get_guild_relic_ids().size())
 		if _path_of(r) != RELIC_SCREEN:
 			var _restored_early: bool = GameManager.load_state(snapshot)
 			return
@@ -10951,6 +10959,10 @@ class UiFlowRunner extends Node:
 		await _press(r.find_child("OfferButton", true, false))
 		await _confirm_modal()
 		await _wait()
+		# ⚠ 「⚠ ささげるとポイントがたまるのもわかるように」：⚠ 知らせの窓・その遺物の行に「+1 点」。
+		_check("遺物：捧げると知らせの窓が出て、力の遺物の行に「+1 点」", _modal_of(get_tree().current_scene) != null
+			and r.find_child("Relic_grelic_power", true, false) != null and r.find_child("Relic_grelic_power", true, false).find_child("GainedLabel", true, false) != null)
+		await _close_modal(get_tree().current_scene)
 		_check("遺物：捧げると力の遺物 +1 点・装備は消える・素材が戻る（%d → %d）" % [forge_before, GameManager.get_resource_amount("forging_material_1")],
 			GameManager.get_guild_relic_points("grelic_power") == 1 and GameManager.get_equipment_instance(g5).is_empty()
 			and GameManager.get_resource_amount("forging_material_1") > forge_before)
@@ -10958,6 +10970,22 @@ class UiFlowRunner extends Node:
 		var atk_after: int = int(GameManager.get_effective_stats(HERO).get("atk", 0))
 		_check("遺物：力の遺物 Lv1 で攻撃 %d → %d（+%d）" % [atk_before, atk_after, GameManager.get_guild_relic_value("grelic_power")],
 			GameManager.get_guild_relic_level("grelic_power") == 1 and atk_after == atk_before + GameManager.get_guild_relic_value("grelic_power"))
+		# ⑦ 鍛冶場の「鍛える」からも捧げられる（⚠ 人間「⚠ ささげるのは、鍛冶場からでもできるように」）。
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 5)
+		var g5b: String = ""
+		for view: Variant in GameManager.get_owned_instances():
+			var id_b: String = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+			if not (id_b in before_items) and id_b != g5 and id_b != g4 and int((view as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 0)) == 5:
+				g5b = id_b
+		var fo: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: g5b})
+		var forge_offer: Node = null if fo == null else fo.find_child("ForgeOfferButton", true, false)
+		_check("遺物：鍛冶場の「鍛える」に捧げるの紙（%s）" % (_label_text(fo, "OfferSheet", "OfferText") if fo != null else ""), forge_offer is BaseButton and not (forge_offer as BaseButton).disabled)
+		await _press(forge_offer)
+		await _confirm_modal()
+		await _wait()
+		_check("遺物：鍛冶場から捧げても力の遺物に点数（%d 点）・知らせの窓" % GameManager.get_guild_relic_points("grelic_power"),
+			GameManager.get_guild_relic_points("grelic_power") == 2 and GameManager.get_equipment_instance(g5b).is_empty() and _modal_of(get_tree().current_scene) != null)
+		await _close_modal(get_tree().current_scene)
 		# ⑤ 富の遺物（⚠ 点数は状態に直に入れる＝等級9の装備を作らずに見る）。
 		var points: Dictionary = GameManager.get("_state")[GameStateKeys.GUILD_RELICS]
 		points["grelic_fortune"] = 1
@@ -11049,25 +11077,27 @@ class UiFlowRunner extends Node:
 		var l: Node = await _open(TRAINING_LIST, {})
 		if l == null:
 			return
-		var tabs: FacilityBar = l.find_child("TrainingTabs", false, false) as FacilityBar
+		# ⚠ 10-07（見る回22回目・人間「⚠ 部屋の切り替えみたいな感じで」→「上に紙のタブ」）：⚠ 見出しの下に紙のタブ。
+		var tabs: PaperTabs = l.find_child("TrainingTabs", true, false) as PaperTabs
 		var bar: FacilityBar = l.find_child("FacilityBar", false, false) as FacilityBar
-		_check("育成：帯の上に中のタブ（キャラ・詰所・鍛冶場・研究）", tabs != null and tabs.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false) != null
+		_check("育成：見出しの下に部屋の紙のタブ（キャラ・詰所・鍛冶場・研究・遺物は無い）", tabs != null and tabs.get_parent().name == "HeaderStack"
+			and tabs.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false) != null
 			and tabs.find_child("Facility_" + BaseFacilityBar.BARRACKS, true, false) != null and tabs.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) != null
-			and tabs.find_child("Facility_" + BaseFacilityBar.RESEARCH, true, false) != null)
-		_check("育成：灯りは帯の「育成」と中の「キャラ」", bar != null and bar.active_id() == BaseFacilityBar.TRAINING and tabs != null and tabs.active_id() == BaseFacilityBar.TRAINING)
+			and tabs.find_child("Facility_" + BaseFacilityBar.RESEARCH, true, false) != null and tabs.find_child("Facility_" + BaseFacilityBar.GUILD_RELIC, true, false) == null)
+		_check("育成：灯りは帯の「育成」と部屋の「キャラ」", bar != null and bar.active_id() == BaseFacilityBar.TRAINING and BaseFacilityBar.room_id_of(tabs) == BaseFacilityBar.TRAINING)
 		if tabs == null:
 			return
 		await _press(tabs.find_child("Facility_" + BaseFacilityBar.FORGE, true, false), OPEN_FRAMES)
 		var f: Node = get_tree().current_scene
-		var f_tabs: FacilityBar = null if f == null else f.find_child("TrainingTabs", false, false) as FacilityBar
+		var f_tabs: PaperTabs = null if f == null else f.find_child("TrainingTabs", true, false) as PaperTabs
 		var f_bar: FacilityBar = null if f == null else f.find_child("FacilityBar", false, false) as FacilityBar
-		_check("育成：中の「鍛冶場」で鍛冶場（灯りは育成・鍛冶場）", _path_of(f) == FORGE and f_tabs != null and f_tabs.active_id() == BaseFacilityBar.FORGE
+		_check("育成：部屋の「鍛冶場」で鍛冶場（灯りは育成・鍛冶場）", _path_of(f) == FORGE and BaseFacilityBar.room_id_of(f_tabs) == BaseFacilityBar.FORGE
 			and f_bar != null and f_bar.active_id() == BaseFacilityBar.TRAINING)
 		if f_tabs == null:
 			return
 		await _press(f_tabs.find_child("Facility_" + BaseFacilityBar.RESEARCH, true, false), OPEN_FRAMES)
 		var rs: Node = get_tree().current_scene
-		_check("育成：中の「研究」で研究", _path_of(rs) == RESEARCH_SCREEN and rs.find_child("TrainingTabs", false, false) != null)
+		_check("育成：部屋の「研究」で研究", _path_of(rs) == RESEARCH_SCREEN and rs.find_child("TrainingTabs", true, false) != null)
 		var rs_bar: Node = rs.find_child("FacilityBar", false, false)
 		await _press(null if rs_bar == null else rs_bar.find_child("Facility_" + BaseFacilityBar.TRAINING, true, false), OPEN_FRAMES)
 		_check("育成：帯の「育成」はキャラの一覧へ", _path_of(get_tree().current_scene) == TRAINING_LIST)
@@ -13272,11 +13302,12 @@ class UiFlowRunner extends Node:
 			for node: Node in sp.find_children("ShopRow_*", "", true, false):
 				shop_row = node
 				break
-		_check("入った先：新しい品揃えのショップは品の行に紐", shop_row is Control and RibbonMark.has_ribbon(shop_row as Control))
+		# ⚠ 10-07（見る回22回目）：⚠ 紐は行の左の枠（`RibbonSlot`）に描く（⚠ 右端はボタンの裏に隠れていた）。
+		_check("入った先：新しい品揃えのショップは品の行（品の絵の前）に紐", shop_row is Control and RibbonMark.has_ribbon(_shop_ribbon(shop_row)))
 		var rows_now: Array[Node] = [] if sp == null else sp.find_children("ShopRow_*", "", true, false)
 		if rows_now.size() >= 2:
 			(rows_now[0] as Control).mouse_entered.emit()
-			_check("入った先：ショップは乗せた行だけ紐が消える", not RibbonMark.has_ribbon(rows_now[0] as Control) and RibbonMark.has_ribbon(rows_now[1] as Control))
+			_check("入った先：ショップは乗せた行だけ紐が消える", not RibbonMark.has_ribbon(_shop_ribbon(rows_now[0])) and RibbonMark.has_ribbon(_shop_ribbon(rows_now[1])))
 		# K：演出の速さ5段。
 		var settings: Node = await _open(SETTINGS, {})
 		var fast: Node = null if settings == null else settings.find_child("EffectSpeed_4", true, false)
@@ -13678,6 +13709,10 @@ class UiFlowRunner extends Node:
 
 	func _grade(instance_id: String) -> int:
 		return int(GameManager.get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_GRADE, 0))
+
+	# ⚠ ショップの行の紐の枠（⚠ 無ければ null）。
+	func _shop_ribbon(row: Node) -> Control:
+		return null if row == null else row.find_child("RibbonSlot", false, false) as Control
 
 	func _instance_of(item_id: String) -> String:
 		for view: Variant in GameManager.get_owned_instances():

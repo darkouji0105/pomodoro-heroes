@@ -18,6 +18,8 @@ var current: int = 0:
 		_apply()
 
 var _buttons: Array[Button] = []
+# ⚠ 見た目の型の頭（⚠ `<頭>Open` / `<頭>Closed`）。⚠ 10-07（見る回22回目）：⚠ 育成の部屋のタブは低い作り（`RoomTab`）。
+var variation_prefix: String = "PaperTab"
 
 
 func _init() -> void:
@@ -50,7 +52,7 @@ func set_attention(index: int, on: bool) -> void:
 
 func _apply() -> void:
 	for index: int in _buttons.size():
-		_buttons[index].theme_type_variation = &"PaperTabOpen" if index == current else &"PaperTabClosed"
+		_buttons[index].theme_type_variation = StringName(variation_prefix + ("Open" if index == current else "Closed"))
 
 
 func _on_tab_pressed(index: int) -> void:

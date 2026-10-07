@@ -1793,6 +1793,8 @@ const PAPER_TAB_PAD_H: int = 22
 const PAPER_TAB_PAD_V_OPEN: int = 13    # ⚠ 字14 の行 約20 ＋ 13 × 2 ＝ 手本の 46
 const PAPER_TAB_PAD_V_CLOSED: int = 9   # ⚠ 同 ＝ 手本の 38
 const PAPER_TAB_CORNER: int = 6
+const ROOM_TAB_PAD_V_OPEN: int = 7     # ⚠ 字の行 約20 ＋ 7 × 2 ＝ 34（⚠ 部屋のタブ・10-07）
+const ROOM_TAB_PAD_V_CLOSED: int = 5   # ⚠ 同 ＝ 30
 const PAPER_TAB_GAP: int = 4
 const LEDGER_ROW_PAD_V: int = 10
 const LEDGER_ROW_COMPACT_PAD_V: int = 3  # ⚠ 詰めた行（⚠ 詰所のカード・出撃届）
@@ -1816,7 +1818,7 @@ const CONFIRM_HOLD_FILL: String = "b0432f"  # ⚠ 押している間に満ちる
 const CONFIRM_HOLD_FILL_ALPHA_PCT: int = 60  # ⚠ 字の上に重なるので透かす
 const FACILITY_BAR_HEIGHT: int = 76     # ⚠ 手本 `facility_bar`
 # ⚠ 10-07（回HB-1）：⚠ 育成の仲間の画面では 帯 44 ＋ 中のタブ 32 ＝ 帯1本ぶん（76）に収める（⚠ 中身の高さを変えない）。
-const FACILITY_GROUP_BAR_HEIGHT: int = 44
+const FACILITY_GROUP_BAR_HEIGHT: int = 40
 const FACILITY_SUB_BAR_HEIGHT: int = 32
 const RELIC_LIST_WIDTH: int = 960       # ⚠ カード3枚が横に並ぶ幅
 const RELIC_LIST_COLUMNS: int = 3
@@ -1908,13 +1910,16 @@ static func _build_paper_parts(theme: Theme) -> void:
 	for spec: Dictionary in [
 		{"name": "PaperTabOpen", "bg": TOKEN_PAPER, "font": TOKEN_INK, "pad": PAPER_TAB_PAD_V_OPEN},
 		{"name": "PaperTabClosed", "bg": TOKEN_RULE, "font": TOKEN_INK_SUB, "pad": PAPER_TAB_PAD_V_CLOSED},
+		# ⚠ 育成の部屋のタブ（10-07・見る回22回目）。⚠ 見出しの下に重ねるので低い（⚠ 育成の中身を帯の裏へ押し出さない）。
+		{"name": "RoomTabOpen", "bg": TOKEN_PAPER, "font": TOKEN_INK, "pad": ROOM_TAB_PAD_V_OPEN},
+		{"name": "RoomTabClosed", "bg": TOKEN_RULE, "font": TOKEN_INK_SUB, "pad": ROOM_TAB_PAD_V_CLOSED},
 	]:
 		var type_name: StringName = StringName(str(spec["name"]))
 		theme.set_type_variation(type_name, &"Button")
 		for state: String in BUTTON_STATES:
 			var tab: StyleBoxFlat = StyleBoxFlat.new()
 			tab.bg_color = Color(0, 0, 0, 0) if state == "focus" else _html(str(spec["bg"]))
-			if state == "hover" and spec["name"] == "PaperTabClosed":
+			if state == "hover" and str(spec["name"]).ends_with("Closed"):
 				tab.bg_color = _html(TOKEN_PAPER)
 			if state == "focus":
 				tab.set_border_width_all(FOCUS_BORDER_WIDTH)

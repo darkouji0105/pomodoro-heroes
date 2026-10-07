@@ -166,6 +166,9 @@ static func for_item(item_id: String) -> String:
 		#   ⚠ ItemDetail._show_relic() が同じ順（items → relics）で引いている。
 		if not MasterDataLoader.get_relic(item_id).is_empty():
 			return RELIC
+		# ⚠ 10-07（見る回22回目・人間「⚠ 遺物にはアイコンを」）：⚠ 拠点の遺物（guild_relics.json）も同じ絵。⚠ 1文字は "ui_icon_" + ID。
+		if not MasterDataLoader.get_guild_relic(item_id).is_empty():
+			return RELIC
 		return ITEM_FALLBACK
 	var item_type: String = str(definition.get(GameManager.ITEM_MASTER_ITEM_TYPE, ""))
 	match item_type:

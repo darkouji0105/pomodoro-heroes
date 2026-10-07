@@ -3,7 +3,10 @@
 #
 # ⚠ 左＝遺物6つ（段・次の段までの点数・いまと次の効き目）。⚠ 右＝祭壇（等級5以上・誰も着けていない装備）。
 # ⚠ 捧げる＝分解（`GameManager.dismantle_equipment()` の1本）。⚠ 素材は分解と同じく戻り、その等級の遺物に点数が入る。
-# ⚠ 育成の中のタブ（`BaseFacilityBar.GUILD_RELIC`）。⚠ 寸法は Theme の `GuildRelic` 型。
+# ⚠ 10-07（見る回22回目・人間「⚠ 鍛冶場の中に遺物のカテゴリを」）：⚠ 鍛冶場のタブ（鍛える／作る／遺物）の3つめ。⚠ 部屋は鍛冶場。
+#   ⚠ 「⚠ ささげるとポイントがたまるのもわかるように」：⚠ 遺物ごとの目盛り・捧げたら窓で知らせ・目盛りが伸びる。
+#   ⚠ 「⚠ 遺物にはアイコンを」：⚠ 品の絵の部品（`ItemIcon`）・枠は育つ等級の色。
+# ⚠ 寸法は Theme の `GuildRelic` 型。
 # ⚠ 描き直しに await を持たせない（CLAUDE.md 5番＝`remove_child()` してから `queue_free()`）。
 
 class_name GuildRelicScreen
@@ -13,17 +16,25 @@ const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const THEME_TYPE: StringName = &"GuildRelic"
 
 @onready var header: ScreenHeader = $Margin/Layout/Header
-@onready var relic_sheet: PaperSheet = $Margin/Layout/Body/RelicSheet
+@onready var main_stack: VBoxContainer = $Margin/Layout/Body/Main
+@onready var relic_sheet: PaperSheet = $Margin/Layout/Body/Main/RelicSheet
 @onready var altar_sheet: PaperSheet = $Margin/Layout/Body/AltarSheet
 
 var _selected: String = ""
 var _notice: String = ""
+# ⚠ いま点数が入った遺物と、入る前の目盛り（⚠ 描き直したあとに目盛りを伸ばして見せる）。
+var _gained_relic: String = ""
+var _gained_from: int = 0
+var _gained_points: int = 0
 
 
 func _ready() -> void:
 	header.back_pressed.connect(_on_back_pressed)
 	header.set_subtitle_text(tr("ui_grelic_subtitle"))
-	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.GUILD_RELIC)
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.FORGE)
+	var tabs: PaperTabs = ForgeScreen.create_tabs(ForgeScreen.TAB_RELIC_ID)
+	main_stack.add_child(tabs)
+	main_stack.move_child(tabs, 0)
 	altar_sheet.custom_minimum_size.x = float(get_theme_constant(&"altar_width", THEME_TYPE))
 	GameManager.guild_relic_changed.connect(_on_relic_changed)
 	GameManager.equipment_instances_changed.connect(_on_instances_changed)
@@ -75,8 +86,16 @@ func _relic_row(relic_id: String, last: bool) -> LedgerRow:
 	row.compact = true
 	row.show_rule = not last
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var outer: HBoxContainer = HBoxContainer.new()
+	row.add_child(outer)
+	# ⚠ アイコン（⚠ 枠の色＝育つ等級）。
+	var icon: ItemIcon = ItemIcon.create(relic_id, int(relic.get(MasterDataLoader.GUILD_RELIC_GRADE, 0)))
+	icon.name = "RelicIcon"
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	outer.add_child(icon)
 	var lines: VBoxContainer = VBoxContainer.new()
-	row.add_child(lines)
+	lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer.add_child(lines)
 	var top: HBoxContainer = HBoxContainer.new()
 	lines.add_child(top)
 	var name_label: Label = Label.new()
@@ -108,8 +127,33 @@ func _relic_row(relic_id: String, last: bool) -> LedgerRow:
 	points.name = "PointsLabel"
 	points.theme_type_variation = &"CaptionLabel"
 	var need: int = int(progress.get(GameManager.GUILD_RELIC_PROGRESS_NEED, 0))
-	points.text = tr("ui_grelic_max") if need <= 0 else tr("ui_grelic_points") % [int(progress.get(GameManager.GUILD_RELIC_PROGRESS_HAVE, 0)), need]
+	var have: int = int(progress.get(GameManager.GUILD_RELIC_PROGRESS_HAVE, 0))
+	points.text = tr("ui_grelic_max") if need <= 0 else tr("ui_grelic_points") % [have, need]
 	bottom.add_child(points)
+	# ⚠ 点数の目盛り（⚠ 次の段まで）。⚠ 最大なら満ちたまま。
+	var gauge: ProgressBar = ProgressBar.new()
+	gauge.name = "PointsGauge"
+	gauge.show_percentage = false
+	gauge.theme_type_variation = &"LevelBar"   # ⚠ 育成のレベルの進みと同じ細い帯（溝＋真鍮）
+	gauge.custom_minimum_size.y = float(get_theme_constant(&"height", &"LevelBar"))
+	gauge.max_value = float(maxi(need, 1))
+	gauge.value = float(need) if need <= 0 else float(have)
+	if need <= 0:
+		gauge.max_value = 1.0
+		gauge.value = 1.0
+	lines.add_child(gauge)
+	# ⚠ いま点数が入った遺物は、⚠ 入る前の目盛りから伸ばす（⚠ 段が上がったときは0から）。
+	if relic_id == _gained_relic:
+		var target: float = gauge.value
+		gauge.value = minf(float(_gained_from), target) if _gained_from <= have else 0.0
+		var tween: Tween = gauge.create_tween()
+		tween.tween_property(gauge, "value", target, 0.6 / GameSettings.effect_speed())
+		var gained: Label = Label.new()
+		gained.name = "GainedLabel"
+		gained.theme_type_variation = &"GainLabel"
+		gained.text = tr("ui_grelic_gained") % _gained_points
+		top.add_child(gained)
+		top.move_child(gained, level_label.get_index())
 	return row
 
 
@@ -226,6 +270,7 @@ func _preview_text() -> String:
 func _on_offer_row_pressed(instance_id: String) -> void:
 	_selected = instance_id
 	_notice = ""
+	_gained_relic = ""
 	_rebuild()
 
 
@@ -240,15 +285,39 @@ func _on_offer_pressed() -> void:
 	if not ok:
 		return
 	var offer: Dictionary = GameManager.get_offer_preview(instance_id)
+	var relic_id: String = str(offer.get(GameManager.OFFER_RELIC_ID, ""))
+	var from: int = int(GameManager.get_guild_relic_progress(relic_id).get(GameManager.GUILD_RELIC_PROGRESS_HAVE, 0))
 	if GameManager.dismantle_equipment(instance_id):
 		_selected = ""
+		_gained_relic = relic_id
+		_gained_from = from
+		_gained_points = int(offer.get(GameManager.OFFER_POINTS, 0))
 		_notice = tr("ui_grelic_offered") % [
-			tr(str(MasterDataLoader.get_guild_relic(str(offer.get(GameManager.OFFER_RELIC_ID, ""))).get("name_key", ""))),
-			int(offer.get(GameManager.OFFER_POINTS, 0)),
+			tr(str(MasterDataLoader.get_guild_relic(relic_id).get("name_key", ""))),
+			_gained_points,
 		]
-	else:
-		_notice = tr("ui_grelic_offer_failed")
+		_rebuild()
+		notify_offered(self, offer)
+		return
+	_notice = tr("ui_grelic_offer_failed")
 	_rebuild()
+
+
+# ⚠ 捧げたあとの知らせ（⚠ 鍛冶場の「鍛える」からも呼ぶ＝同じ文）。
+#   「力の遺物に 1 点入った（Lv 2・次まで 1 / 3 点）」。
+static func notify_offered(caller: Node, offer: Dictionary) -> void:
+	var relic_id: String = str(offer.get(GameManager.OFFER_RELIC_ID, ""))
+	if relic_id == "":
+		return
+	var relic_name: String = TranslationServer.translate(str(MasterDataLoader.get_guild_relic(relic_id).get("name_key", "")))
+	var progress: Dictionary = GameManager.get_guild_relic_progress(relic_id)
+	var need: int = int(progress.get(GameManager.GUILD_RELIC_PROGRESS_NEED, 0))
+	var options: Dictionary = {Modal.OPTION_TITLE: TranslationServer.translate("ui_grelic_offer")}
+	if need <= 0:
+		Modal.notify(caller, "ui_grelic_offered_max", [relic_name, int(offer.get(GameManager.OFFER_POINTS, 0)), GameManager.get_guild_relic_level(relic_id)], false, options)
+	else:
+		Modal.notify(caller, "ui_grelic_offered_notify", [relic_name, int(offer.get(GameManager.OFFER_POINTS, 0)), GameManager.get_guild_relic_level(relic_id),
+			int(progress.get(GameManager.GUILD_RELIC_PROGRESS_HAVE, 0)), need], false, options)
 
 
 func _on_relic_changed(_relic_id: String) -> void:

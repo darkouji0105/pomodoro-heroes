@@ -67,7 +67,7 @@ func _ready() -> void:
 # ⚠ 名前と行き先は帯・育成の中のタブの表から（⚠ 「育成」の建物＝キャラの一覧）。
 func _make_building(id: String) -> Button:
 	var entry: Dictionary = {}
-	for raw: Dictionary in BaseFacilityBar.facilities() + BaseFacilityBar.training_tabs():
+	for raw: Dictionary in BaseFacilityBar.facilities() + BaseFacilityBar.training_tabs() + BaseFacilityBar.other_rooms():
 		if str(raw.get(FacilityBar.ENTRY_ID, "")) == id and str(raw.get(BaseFacilityBar.KEY_PATH, "")) != "":
 			entry = raw
 	var button: Button = Button.new()

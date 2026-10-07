@@ -130,9 +130,17 @@ func _create_slot_row(slot: Dictionary) -> void:
 	row.name = "ShopRow_%d" % slot_id
 	# ⚠ 10-07（人間「⚠ そのページの紐が全部一気に消えてしまう　一個ずつ消えていくように確認したら」）：⚠ まだ見ていない品の行に紐。⚠ カーソルを乗せるか買ったら、その行だけ消える。
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	# ⚠ 10-07（見る回22回目・人間「⚠ ショップのしおりが分からない」→「⚠ 品物にしおりが出てこない」）：
+	#   ⚠ 前は行の右端に描いていた＝⚠ 子の「購入する」ボタンが上に描かれて紐が隠れていた。⚠ 品の絵の前に紐だけの枠を置く。
+	var ribbon_slot: Control = Control.new()
+	ribbon_slot.name = "RibbonSlot"
+	ribbon_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ribbon_slot.custom_minimum_size.x = float(ribbon_slot.get_theme_constant(&"ribbon_w", RibbonMark.THEME_TYPE))
+	ribbon_slot.set_meta(RibbonMark.META_INSET, 0.0)
+	row.add_child(ribbon_slot)
 	if not GameManager.is_shop_slot_seen(slot_id):
-		RibbonMark.attach(row)
-		row.mouse_entered.connect(_on_row_seen.bind(row, slot_id))
+		RibbonMark.attach(ribbon_slot)
+		row.mouse_entered.connect(_on_row_seen.bind(ribbon_slot, slot_id))
 
 	# 仮アセットのアイコン。⚠ daily の13枠は全部 items.json の実在のIDを売る。
 	var item_icon: ItemIcon = ItemIcon.create(item_id)
