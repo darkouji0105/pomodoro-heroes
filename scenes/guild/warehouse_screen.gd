@@ -114,6 +114,9 @@ func _rebuild() -> void:
 	if selected.is_empty() and _attach_instance == "" and not rows.is_empty():
 		selected = rows[0]
 		_selected_key = str(selected.get(ROW_KEY, ""))
+	# ⚠ 10-07（人間「⚠ そのページの紐が全部一気に消えてしまう　一個ずつ消えていくように確認したら」）：⚠ 「見た」にするのは右の紙に出した品だけ（⚠ 前は一覧に出した品を全部＝紐が一気に消えた）。
+	if not selected.is_empty() and _attach_instance == "":
+		GameManager.mark_items_seen([str((selected.get(ROW_ENTRY, {}) as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))])
 
 	var column: VBoxContainer = VBoxContainer.new()
 	column.name = "ListColumn"
@@ -131,12 +134,8 @@ func _rebuild() -> void:
 	scroll.add_child(list)
 	if rows.is_empty():
 		list.add_child(EmptyState.create("ui_part_none_hint" if _attach_instance != "" else "ui_warehouse_empty"))
-	var shown_ids: Array = []
 	for row: Dictionary in rows:
 		list.add_child(_create_row(row))
-		shown_ids.append(str((row.get(ROW_ENTRY, {}) as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")))
-	# ⚠ 10-07（NEW のしおり紐）：⚠ 出した品は「見た」にする（⚠ 紐はこの1回だけ出る）。⚠ 施設の帯の紐も引き直す。
-	GameManager.mark_items_seen(shown_ids)
 	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ NEW の品があるタブに紐（⚠ いま見ているタブは「見た」になったので消える）。
 	if tabs != null:
 		for index: int in range(TAB_IDS.size()):

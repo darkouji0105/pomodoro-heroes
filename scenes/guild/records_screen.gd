@@ -134,6 +134,14 @@ func _build_codex() -> void:
 		if kind == _codex_kind:
 			choice.theme_type_variation = &"PaperChoiceSelected"
 		choice.pressed.connect(_on_codex_kind_pressed.bind(kind))
+		# ⚠ 10-07：⚠ NEW の品がある種類に紐（⚠ どれを押せばよいか）。
+		var has_new: bool = false
+		for codex_id: String in GameManager.get_codex_ids(kind):
+			if GameManager.is_item_new(codex_id):
+				has_new = true
+				break
+		choice.set_meta(RibbonMark.META_INSET, 0.0)
+		RibbonMark.set_on(choice, has_new)
 		kinds.add_child(choice)
 	left.add_child(kinds)
 	var list: VBoxContainer = _scroll_list(left)
@@ -203,7 +211,6 @@ func _codex_section(kind: String) -> VBoxContainer:
 			# ⚠ 10-07（人間「⚠ EはAとおなじ」）：⚠ まだ見ていない品にしおり紐（⚠ 見せたら「見た」）。
 			if GameManager.is_item_new(item_id):
 				RibbonMark.attach(cell)
-				GameManager.mark_items_seen([item_id])
 			var icon: ItemIcon = ItemIcon.create(item_id)
 			icon.name = "Icon"
 			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -291,6 +298,9 @@ func _found_cell(item_id: String, grade: int) -> Button:
 	var side: float = float(get_theme_constant(&"cell", THEME_TYPE))
 	cell.custom_minimum_size = Vector2(side, side)
 	cell.pressed.connect(_on_item_picked.bind(item_id, grade))
+	# ⚠ 10-07：⚠ 装備の図鑑も NEW のしおり紐（⚠ 品ごと＝その品のどの等級を押しても消える）。
+	if GameManager.is_item_new(item_id):
+		RibbonMark.attach(cell)
 	var icon: ItemIcon = ItemIcon.create(item_id, grade)
 	icon.name = "Icon"
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -303,6 +313,8 @@ func _on_item_picked(item_id: String, grade: int = 0) -> void:
 		return
 	_picked = item_id
 	_picked_grade = grade
+	# ⚠ 10-07（人間「⚠ そのページの紐が全部一気に消えてしまう　一個ずつ消えていくように確認したら」）：⚠ 押して詳しくを見た品だけ「見た」。
+	GameManager.mark_items_seen([item_id])
 	# ⚠ 押した枠を押している最中に外さない（⚠ 次のフレームで描き直す）。
 	_rebuild.call_deferred()
 

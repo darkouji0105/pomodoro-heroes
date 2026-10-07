@@ -28,10 +28,6 @@ func _ready() -> void:
 	# 1. 画面を開いた時点で日付を見る。
 	#    起動しっぱなしで 4:00 をまたいだ場合、起動時のチェックだけでは在庫が戻らない。
 	GameManager.refresh_shop_if_needed(SHOP_TYPE)
-	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 新しい品揃えなら、この1回は品の行に紐。
-	_fresh_line_up = not GameManager.is_shop_line_up_seen()
-	# ⚠ 10-07：⚠ 品揃えを見た（⚠ 施設の帯のしおり紐が消える）。
-	GameManager.mark_shop_line_up_seen()
 
 	# 2. ボタン接続
 	header.back_pressed.connect(_on_back_pressed)
@@ -109,7 +105,14 @@ func _process(delta: float) -> void:
 	GameManager.refresh_shop_if_needed(SHOP_TYPE)
 	_update_next_refresh()
 
-var _fresh_line_up: bool = false
+# ⚠ その品を見た（⚠ 紐を外し、施設の帯の紐も引き直す）。
+func _on_row_seen(row: Control, slot_id: int) -> void:
+	GameManager.mark_shop_slot_seen(slot_id)
+	if is_instance_valid(row):
+		RibbonMark.detach(row)
+	var facility: Node = get_node_or_null("FacilityBar")
+	if facility is BaseFacilityBar:
+		(facility as BaseFacilityBar).refresh_attention()
 
 
 func _create_slot_row(slot: Dictionary) -> void:
@@ -125,8 +128,11 @@ func _create_slot_row(slot: Dictionary) -> void:
 
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "ShopRow_%d" % slot_id
-	if _fresh_line_up:
+	# ⚠ 10-07（人間「⚠ そのページの紐が全部一気に消えてしまう　一個ずつ消えていくように確認したら」）：⚠ まだ見ていない品の行に紐。⚠ カーソルを乗せるか買ったら、その行だけ消える。
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	if not GameManager.is_shop_slot_seen(slot_id):
 		RibbonMark.attach(row)
+		row.mouse_entered.connect(_on_row_seen.bind(row, slot_id))
 
 	# 仮アセットのアイコン。⚠ daily の13枠は全部 items.json の実在のIDを売る。
 	var item_icon: ItemIcon = ItemIcon.create(item_id)
@@ -195,6 +201,7 @@ func _get_balance(currency_type: String) -> int:
 # （研究画面と同じ判断。EXEC_GUILD_SHOP.md §2-6）。
 # ボタンは条件を満たさないと押せないため、誤操作は「押せる状態のものを押す」ときだけ起きる。
 func _on_buy_pressed(slot_id: int, currency_type: String = "", amount: int = 0) -> void:
+	GameManager.mark_shop_slot_seen(slot_id)
 	if ItemSourceWindow.open_if_short(self, currency_type, amount, {}):
 		return
 	var success: bool = GameManager.purchase_shop_item(SHOP_TYPE, slot_id)

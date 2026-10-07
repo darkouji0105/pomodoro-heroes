@@ -1508,18 +1508,46 @@ func has_new_items() -> bool:
 const SHOP_SEEN_GUIDE_ID: String = "shop_line_up_seen_at"
 
 
-func is_shop_line_up_seen() -> bool:
+# ⚠⚠ 10-07：⚠ 品ごと（⚠ 人間「⚠ 一個ずつ消えていくように確認したら」）。⚠ 覚えるのは {更新日, 見た枠}。⚠ 更新日が替われば全部「見ていない」。
+const SHOP_SEEN_AT: String = "at"
+const SHOP_SEEN_SLOTS: String = "slots"
+
+
+func _shop_seen_record() -> Dictionary:
 	var shop: Variant = _state.get(GameStateKeys.DAILY_SHOP, {})
 	var refresh_at: String = str((shop as Dictionary).get(GameStateKeys.SHOP_REFRESH_AT, "")) if shop is Dictionary else ""
 	var seen: Variant = _state.get(GameStateKeys.GUIDES_SEEN, {})
-	return refresh_at == "" or (seen is Dictionary and str((seen as Dictionary).get(SHOP_SEEN_GUIDE_ID, "")) == refresh_at)
+	var record: Variant = (seen as Dictionary).get(SHOP_SEEN_GUIDE_ID, {}) if seen is Dictionary else {}
+	if not (record is Dictionary) or str((record as Dictionary).get(SHOP_SEEN_AT, "")) != refresh_at:
+		return {SHOP_SEEN_AT: refresh_at, SHOP_SEEN_SLOTS: {}}
+	return (record as Dictionary).duplicate(true)
 
 
-func mark_shop_line_up_seen() -> void:
-	var shop: Variant = _state.get(GameStateKeys.DAILY_SHOP, {})
+func is_shop_slot_seen(slot_id: int) -> bool:
+	return ((_shop_seen_record().get(SHOP_SEEN_SLOTS, {})) as Dictionary).has(str(slot_id))
+
+
+func mark_shop_slot_seen(slot_id: int) -> void:
+	var record: Dictionary = _shop_seen_record()
+	var slots: Dictionary = record.get(SHOP_SEEN_SLOTS, {})
+	if slots.has(str(slot_id)):
+		return
+	slots[str(slot_id)] = true
+	record[SHOP_SEEN_SLOTS] = slots
 	var seen: Dictionary = _copy_dict(GameStateKeys.GUIDES_SEEN)
-	seen[SHOP_SEEN_GUIDE_ID] = str((shop as Dictionary).get(GameStateKeys.SHOP_REFRESH_AT, "")) if shop is Dictionary else ""
+	seen[SHOP_SEEN_GUIDE_ID] = record
 	_state[GameStateKeys.GUIDES_SEEN] = seen
+
+
+# ⚠ 並んでいる品を全部見たか（⚠ 施設の帯の紐）。
+func is_shop_line_up_seen() -> bool:
+	var shop: Variant = _state.get(GameStateKeys.DAILY_SHOP, {})
+	if not (shop is Dictionary):
+		return true
+	for raw: Variant in (shop as Dictionary).get(GameStateKeys.SHOP_LINE_UP, []):
+		if raw is Dictionary and not is_shop_slot_seen(int((raw as Dictionary).get(GameStateKeys.SHOP_SLOT_ID, -1))):
+			return false
+	return true
 
 
 # ⚠ いま昇級できるか（⚠ 上限 ／ 素材）。⚠ 育成の札の「昇級できる」と施設の帯のしおり紐が同じ判定を使う。

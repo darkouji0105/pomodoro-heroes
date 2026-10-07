@@ -12843,7 +12843,11 @@ class UiFlowRunner extends Node:
 			and not bar.has_attention(BaseFacilityBar.BARRACKS) and not bar.has_attention(BaseFacilityBar.RECORDS))
 		var shop: Node = await _open(SHOP_SCREEN, {})
 		var shop_bar: BaseFacilityBar = null if shop == null else shop.find_child("FacilityBar", false, false) as BaseFacilityBar
-		_check("しおり紐：ショップを開くと品揃えを見たことになる（紐が消える）", shop_bar != null and not shop_bar.has_attention(BaseFacilityBar.SHOP))
+		# ⚠ 10-07：⚠ 品ごとに見た＝全部の行にカーソルを乗せたら施設の帯の紐が消える。
+		if shop != null:
+			for node: Node in shop.find_children("ShopRow_*", "", true, false):
+				(node as Control).mouse_entered.emit()
+		_check("しおり紐：ショップの品を全部見たら紐が消える", shop_bar != null and not shop_bar.has_attention(BaseFacilityBar.SHOP))
 		# I：ショップの次の更新まで。
 		_check("ショップ：次の更新までの残り（%s）" % _label_text(shop, "Layout", "RefreshLabel"),
 			_label_text(shop, "Layout", "RefreshLabel").contains(tr("ui_guild_shop_next_refresh").split(" ")[0]))
@@ -12893,14 +12897,36 @@ class UiFlowRunner extends Node:
 		else:
 			_check("まとめて：完成が1つなら「まとめて受け取る」は出さない（同時に %d）" % GameManager.get_max_queue_slots(), not had_all)
 		# E：NEW のしおり紐。
+		# ⚠ 10-07（人間「⚠ 一個ずつ消えていくように確認したら」）：⚠ 選んで右の紙に出した品だけ「見た」。
 		var seen: Dictionary = GameManager.get("_state")[GameStateKeys.SEEN_ITEMS]
-		seen.erase(PART_ID)
-		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART})
-		var row: Node = null if w == null else w.find_child("Row_" + PART_ID, true, false)
-		_check("NEW：見ていない品の行にしおり紐", row is Control and RibbonMark.has_ribbon(row as Control))
-		var w_bar: BaseFacilityBar = null if w == null else w.find_child("FacilityBar", false, false) as BaseFacilityBar
-		_check("NEW：出したら「見た」になる・持ち物の紐は NEW が残っているかどおり（%s）" % str(GameManager.has_new_items()),
-			GameManager.is_item_seen(PART_ID) and w_bar != null and w_bar.has_attention(BaseFacilityBar.BELONGINGS) == GameManager.has_new_items())
+		seen.erase("forging_material_1")
+		seen.erase("forging_material_2")
+		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL})
+		var row_a: Node = null if w == null else w.find_child("Row_forging_material_1", true, false)
+		var row_b: Node = null if w == null else w.find_child("Row_forging_material_2", true, false)
+		_check("NEW：見ていない2つの行にしおり紐", row_a is Control and RibbonMark.has_ribbon(row_a as Control) and row_b is Control and RibbonMark.has_ribbon(row_b as Control))
+		await _press(row_a)
+		w = get_tree().current_scene
+		row_a = w.find_child("Row_forging_material_1", true, false)
+		row_b = w.find_child("Row_forging_material_2", true, false)
+		_check("NEW：選んだ1つだけ紐が消える（もう1つは残る）", row_a is Control and not RibbonMark.has_ribbon(row_a as Control)
+			and row_b is Control and RibbonMark.has_ribbon(row_b as Control) and GameManager.is_item_seen("forging_material_1") and not GameManager.is_item_seen("forging_material_2"))
+		await _press(row_b)
+		_check("NEW：もう1つも選ぶと消える", GameManager.is_item_seen("forging_material_2"))
+		# ⚠ 図鑑も押したマスだけ。
+		# ⚠ 図鑑は素材の見出しで（⚠ 装備は等級ごとのマス）。⚠ 2つ「見ていない」にして、1つだけ押す。
+		# ⚠ いちばん左の品は開いたとき自動で選ばれて詳しくに出る＝「見た」になる（⚠ 持ち物と同じ）＝2つ目と3つ目で見る。
+		seen.erase("construction_material_2")
+		seen.erase("construction_material_3")
+		var rec: Node = await _open(RECORDS, {TransferKeys.RECORDS_TAB: 0})
+		if rec != null:
+			rec.call("_on_codex_kind_pressed", GameManager.CODEX_KIND_MATERIAL)
+			await _wait(OPEN_FRAMES)
+		var found_a: Node = null if rec == null else rec.find_child("Found_construction_material_2", true, false)
+		var found_b: Node = null if rec == null else rec.find_child("Found_construction_material_3", true, false)
+		_check("NEW：図鑑の見ていないマスに紐", found_a is Control and RibbonMark.has_ribbon(found_a as Control) and found_b is Control and RibbonMark.has_ribbon(found_b as Control))
+		await _press(found_a, OPEN_FRAMES)
+		_check("NEW：図鑑のマスを押すとその品だけ「見た」", GameManager.is_item_seen("construction_material_2") and not GameManager.is_item_seen("construction_material_3"))
 		# 入った先の紐（10-07・人間「⚠ そこから言ったページで何を見ればいいのかわかんなかった」）。
 		var base_page: Node = await _open(BASE, {})
 		var badge: Node = null if base_page == null else base_page.find_child("ChestBadge", true, false)
@@ -12936,6 +12962,10 @@ class UiFlowRunner extends Node:
 				shop_row = node
 				break
 		_check("入った先：新しい品揃えのショップは品の行に紐", shop_row is Control and RibbonMark.has_ribbon(shop_row as Control))
+		var rows_now: Array[Node] = [] if sp == null else sp.find_children("ShopRow_*", "", true, false)
+		if rows_now.size() >= 2:
+			(rows_now[0] as Control).mouse_entered.emit()
+			_check("入った先：ショップは乗せた行だけ紐が消える", not RibbonMark.has_ribbon(rows_now[0] as Control) and RibbonMark.has_ribbon(rows_now[1] as Control))
 		# K：演出の速さ5段。
 		var settings: Node = await _open(SETTINGS, {})
 		var fast: Node = null if settings == null else settings.find_child("EffectSpeed_4", true, false)
