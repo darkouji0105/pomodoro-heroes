@@ -15,8 +15,11 @@ const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 # ⚠ UI テストのページ（デバッグビルドのみ。⚠ リリース前に消す）。
 const UI_TEST_PAGE_PATH: String = "res://tests/ui_test_page.tscn"
 
-# ⚠ 10-07（回HB-1・人間「⚠ ２じゃあ」）：⚠ 「冒険」のボタンは消した＝⚠ 出撃の入口は帯の「掲示板」だけ。
+# ⚠ 10-07（回HB-1・人間「⚠ ２じゃあ」）：⚠ 「冒険」のボタンは消した。
+# ⚠ 10-07（人間「⚠ 掲示板とポモドーロを同列に扱ってほしい」「⚠ 同じぐらいの重要度だという意味だった、上側で隣同士において」）：
+#   ⚠ 下の列に「掲示板」（⚠ 帯の掲示板と同じ画面・同じ字）をポモドーロの隣に置く。
 const SCREEN_SCENES: Dictionary = {
+	GameStateKeys.SCREEN_ADVENTURE_SELECT: "res://scenes/adventure/adventure_select.tscn",
 	GameStateKeys.SCREEN_POMODORO: "res://scenes/pomodoro/pomodoro.tscn",
 	# ⚠ 2026-09-28（回UI-仕組み③）：⚠ 設定の画面。
 	GameStateKeys.SCREEN_SETTINGS: "res://scenes/base/settings_screen.tscn",
@@ -27,7 +30,7 @@ const SCREEN_SCENES: Dictionary = {
 # ⚠⚠ 金・スタミナは**右上の `ResourceBar` へ移した**（2026-09-09・人間の決定
 #   「資源は、右上に表示する」「右上へ移して下段からは消す」）。
 #   ⚠ 下段に残るのはポーション（⚠ 「使う」ボタンと対になっているため）と素材の行。
-# ⚠⚠ 10-07（回HB-1・人間「⚠ ４あ」）：⚠ 下の列は ポモドーロ（主役・2倍の幅）・シナリオ・届いた宝箱。
+# ⚠⚠ 10-07（回HB-1・人間「⚠ ４あ」）：⚠ 下の列は 掲示板とポモドーロ（⚠ 同じ重さ＝どちらも真鍮・2倍の幅）・シナリオ・届いた宝箱。
 #   ⚠ 設定・セーブ・タイトルへ は右上の小さいボタン（`SystemButtons`・通貨の下）。⚠ 下段の資源の列は消した。
 @onready var top_area: Control = $Layout/TopArea
 @onready var chest_badge: Button = $Layout/BottomArea/BottomLayout/NavigationButtons/ChestBadge
@@ -39,6 +42,7 @@ const SCREEN_SCENES: Dictionary = {
 @onready var back_to_title_button: UiButton = $SystemButtons/BackToTitleButton
 @onready var settings_button: UiButton = $SystemButtons/SettingsButton
 
+@onready var board_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/BoardButton
 @onready var pomodoro_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/PomodoroButton
 @onready var scenario_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/ScenarioButton
 
@@ -133,6 +137,7 @@ func _init_system_buttons() -> void:
 
 func _init_navigation_buttons() -> void:
 	_navigation_buttons = {
+		GameStateKeys.SCREEN_ADVENTURE_SELECT: board_button,
 		GameStateKeys.SCREEN_POMODORO: pomodoro_button,
 		GameStateKeys.SCREEN_SETTINGS: settings_button,
 		GameStateKeys.SCREEN_SCENARIO: scenario_button,
@@ -161,7 +166,7 @@ func _add_continue_button() -> void:
 		path = FLOOR_MAP_PATH
 	if path == "":
 		return
-	# ⚠ 10-07（回HB-1・人間「⚠ ４あ」）：⚠ 真鍮はポモドーロだけ（⚠ PRIMARY は1画面に1個）＝⚠ 続きからは並の革。
+	# ⚠ 10-07（回HB-1）：⚠ 真鍮は掲示板とポモドーロ＝⚠ 続きからは並の革（⚠ 人間「⚠ 通常のボタンのままでいい」）。
 	var button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_base_continue_run")
 	button.name = "ContinueRunButton"
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

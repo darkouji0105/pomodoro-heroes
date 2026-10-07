@@ -10824,10 +10824,20 @@ class UiFlowRunner extends Node:
 		# ② 「冒険」は消した ／ ③ シナリオは残す ／ ④ ポモドーロが主役・設定たちは右上。
 		var pomodoro: Node = base.find_child("PomodoroButton", true, false)
 		var system: Node = base.find_child("SystemButtons", false, false)
+		# ⚠ 10-07（人間「⚠ 同じぐらいの重要度だという意味だった、上側で隣同士において」）：⚠ 掲示板とポモドーロは隣で同じ扱い。
+		var board_button: Node = base.find_child("BoardButton", true, false)
 		_check("本部：「冒険」のボタンが無い", base.find_child("AdventureButton", true, false) == null)
 		_check("本部：「シナリオ」のボタンは残る", base.find_child("ScenarioButton", true, false) != null)
-		_check("本部：ポモドーロは真鍮・2倍の幅", pomodoro is UiButton and (pomodoro as UiButton).variant == UiButton.Variant.PRIMARY
-			and is_equal_approx((pomodoro as Control).size_flags_stretch_ratio, 2.0))
+		_check("本部：掲示板とポモドーロは隣同士・どちらも真鍮・2倍の幅", pomodoro is UiButton and board_button is UiButton
+			and board_button.get_index() + 1 == pomodoro.get_index()
+			and (pomodoro as UiButton).variant == UiButton.Variant.PRIMARY and (board_button as UiButton).variant == UiButton.Variant.PRIMARY
+			and is_equal_approx((pomodoro as Control).size_flags_stretch_ratio, 2.0) and is_equal_approx((board_button as Control).size_flags_stretch_ratio, 2.0))
+		await _press(board_button, OPEN_FRAMES)
+		_check("本部：下の列の「掲示板」で依頼掲示板", _path_of(get_tree().current_scene) == ADVENTURE)
+		base = await _open(BASE, {})
+		if base == null:
+			return
+		system = base.find_child("SystemButtons", false, false)
 		_check("本部：設定・セーブ・タイトルへは右上", system != null and system.find_child("SettingsButton", false, false) != null
 			and system.find_child("SaveButton", false, false) != null and system.find_child("BackToTitleButton", false, false) != null)
 		# ⑤ 机：壁の紙と今日の紙。⚠ 用事の行は帯の紐と同じ口。

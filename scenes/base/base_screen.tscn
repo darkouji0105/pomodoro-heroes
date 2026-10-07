@@ -58,6 +58,13 @@ offset_left = -20.0
 offset_bottom = 23.0
 grow_horizontal = 0
 
+[node name="BoardButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=1292228329 instance=ExtResource("3_button")]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.0
+label_key = "ui_facility_board"
+variant = 1
+
 [node name="PomodoroButton" parent="Layout/BottomArea/BottomLayout/NavigationButtons" unique_id=457427584 instance=ExtResource("3_button")]
 layout_mode = 2
 size_flags_horizontal = 3
