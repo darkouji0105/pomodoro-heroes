@@ -661,6 +661,13 @@ const CHIP_PAD_H: int = 10
 const CHIP_PAD_V: int = 4
 # ⚠ 「＋」の丸の左右の余白（⚠ 字の幅と合わせて丸に見える値）。
 const CHIP_PLUS_PAD_H: int = 5
+# ⚠ 「＋」の動き（10-06）。⚠ 触れると 130%・脈打ちは 118% を 2.4秒ごと（⚠ 4つが同時に動かないよう 0.15秒ずつずらす）。
+const CHIP_PLUS_HOVER_SCALE_PCT: int = 130
+const CHIP_PLUS_HOVER_MS: int = 120
+const CHIP_PLUS_PULSE_SCALE_PCT: int = 118
+const CHIP_PLUS_PULSE_MS: int = 500
+const CHIP_PLUS_PULSE_PERIOD_MS: int = 2400
+const CHIP_PLUS_PULSE_STAGGER_MS: int = 150
 # ⚠ チップの中のアイコン（⚠ モックの `.hud .ic` は 20px）。
 #   ⚠ `ResourceDisplay` の既定は 24px だが、⚠ チップの中だけモックに合わせて 20px。
 # ⚠⚠ **縦は縮まなかった**（実測：24px でも 20px でも倉庫は 712）。
@@ -961,6 +968,23 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_stylebox(&"normal", &"ChipPlusLabel", plus)
 	theme.set_color(&"font_color", &"ChipPlusLabel", _html(TOKEN_INK))
 	theme.set_font_size(&"font_size", &"ChipPlusLabel", CHIP_FONT_SIZE)
+	# ⚠ 触れたときの「＋」（10-06・人間「⚠ 素材のプラスをホバーしたらぷらすぼたんにえんしゅつを　⚠ 素材周りにふちがつくのではなく」）。
+	#   ⚠ 灯りの色に明るくなり、⚠ 大きくなる。⚠ チップのまわりには縁を出さない（`ChipHitButton`）。
+	var plus_hover: StyleBoxFlat = plus.duplicate()
+	plus_hover.bg_color = _html(TOKEN_LIGHT)
+	theme.set_type_variation(&"ChipPlusLabelHover", &"ChipPlusLabel")
+	theme.set_stylebox(&"normal", &"ChipPlusLabelHover", plus_hover)
+	# ⚠ 動きの値（⚠ 押せると気づかせる脈打ち ／ 触れたときの大きさ）。
+	theme.set_constant(&"hover_scale_pct", &"ChipPlusLabel", CHIP_PLUS_HOVER_SCALE_PCT)
+	theme.set_constant(&"hover_ms", &"ChipPlusLabel", CHIP_PLUS_HOVER_MS)
+	theme.set_constant(&"pulse_scale_pct", &"ChipPlusLabel", CHIP_PLUS_PULSE_SCALE_PCT)
+	theme.set_constant(&"pulse_ms", &"ChipPlusLabel", CHIP_PLUS_PULSE_MS)
+	theme.set_constant(&"pulse_period_ms", &"ChipPlusLabel", CHIP_PLUS_PULSE_PERIOD_MS)
+	theme.set_constant(&"pulse_stagger_ms", &"ChipPlusLabel", CHIP_PLUS_PULSE_STAGGER_MS)
+	# ⚠ チップ全体の当たり。⚠ 縁は**出さない**（⚠ 触れたことは「＋」が知らせる）。
+	for state: String in BUTTON_STATES:
+		theme.set_stylebox(StringName(state), &"ChipHitButton", StyleBoxEmpty.new())
+	theme.set_type_variation(&"ChipHitButton", &"Button")
 	# ⚠ 絵と数字の間 ／ チップどうしの間。⚠ 同じ値を2箇所で使う。
 	theme.set_type_variation(&"ChipRow", &"HBoxContainer")
 	theme.set_constant(&"separation", &"ChipRow", CHIP_SEPARATION)

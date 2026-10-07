@@ -127,6 +127,8 @@ const SHOT_AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 const SHOT_AFTER_MINI_ASK: String = "mini_ask"
 # ⚠ 10-06（`NAV-19`）：⚠ 鍛冶場で「入手先を見る」を押した姿。⚠ 内側の `AFTER_ITEM_SOURCE` と同じ字。
 const SHOT_AFTER_ITEM_SOURCE: String = "item_source"
+# ⚠ 10-06：⚠ 見出しの素材の「＋」に触れた姿。⚠ 内側の `AFTER_PLUS_HOVER` と同じ字。
+const SHOT_AFTER_PLUS_HOVER: String = "plus_hover"
 const SHOT_AFTER_MINI_WINDOW: String = "mini_window"
 # ⚠ 10-06：⚠ 小窓のリストを開いた姿（⚠ 小窓の枚と同じ手 ＋ 「リスト」）。
 const SHOT_AFTER_MINI_LIST: String = "mini_list"
@@ -1322,6 +1324,7 @@ const SCENARIOS: Dictionary = {
 			# ⚠ 「小窓にしますか？」（10-06・不便7）：⚠ はじめて集中を始めたときの窓。
 			{"name": "70_mini_ask", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_MINI_ASK},
 			{"name": "71_item_source", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_ITEM_SOURCE},
+			{"name": "73_plus_hover", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_PLUS_HOVER},
 			{"name": "72_board_quick", "scene": "res://scenes/adventure/adventure_select.tscn", "prepare": SHOT_PREPARE_BOARD_CLEARED},
 			{"name": "69_mini_reflection", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_REFLECTION},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
@@ -9223,6 +9226,7 @@ class ShotTaker extends Node:
 	const AFTER_POMODORO_RUNNING: String = "pomodoro_running"
 	const AFTER_MINI_ASK: String = "mini_ask"
 	const AFTER_ITEM_SOURCE: String = "item_source"
+	const AFTER_PLUS_HOVER: String = "plus_hover"
 	const AFTER_MINI_WINDOW: String = "mini_window"
 	const AFTER_MINI_LIST: String = "mini_list"
 	const AFTER_MINI_REFLECTION: String = "mini_reflection"
@@ -9872,6 +9876,19 @@ class ShotTaker extends Node:
 					mini_node.call("toggle_list")
 				for _i: int in range(20):
 					await get_tree().process_frame
+		elif kind == AFTER_PLUS_HOVER:
+			var plus_bar: Node = screen.find_child("MaterialBar", true, false)
+			var plus_hit: Node = null
+			if plus_bar != null:
+				for hit_candidate: Node in plus_bar.find_children("Hit", "Button", true, false):
+					plus_hit = hit_candidate
+					break
+			if not (plus_hit is Button):
+				push_error("[DebugBoot] ⚠ %s で見出しの素材の当たりが無い" % shot_name)
+				return false
+			(plus_hit as Button).mouse_entered.emit()
+			for _i: int in range(20):
+				await get_tree().process_frame
 		elif kind == AFTER_ITEM_SOURCE:
 			var source_button: Node = screen.find_child("SourceButton", true, false)
 			if not (source_button is BaseButton):
@@ -12761,6 +12778,23 @@ class UiFlowRunner extends Node:
 					if not (html in colors):
 						colors.append(html)
 			_check("素材の帯：%s の4段の絵が別々の色（%s）" % [path.get_file(), str(colors)], colors.size() == ids.size())
+			# ⚠ 「＋」の動き（10-06・人間「⚠ 素材周りにふちがつくのではなくプラスボタンが押せると気づかせる」）。
+			var hit_node: Node = null if first == null else first.find_child("Hit", false, false)
+			var plus_node: Node = null if first == null else first.find_child("PlusMark", true, false)
+			if hit_node is Button and plus_node is Label:
+				var hit_button: Button = hit_node as Button
+				var plus_label: Label = plus_node as Label
+				var pulse: Variant = plus_label.get_meta(&"plus_pulse", null)
+				_check("「＋」：%s でチップに縁が出ない・脈打ちが動いている" % path.get_file(),
+					hit_button.get_theme_stylebox(&"hover") is StyleBoxEmpty and pulse is Tween and (pulse as Tween).is_valid())
+				hit_button.mouse_entered.emit()
+				await _wait(OPEN_FRAMES * 2)
+				_check("「＋」：触れると明るく大きくなる（%s・%.2f）" % [str(plus_label.theme_type_variation), plus_label.scale.x],
+					plus_label.theme_type_variation == &"ChipPlusLabelHover" and plus_label.scale.x > 1.05)
+				hit_button.mouse_exited.emit()
+				await _wait(OPEN_FRAMES * 2)
+				_check("「＋」：離れると戻る（%s・%.2f）" % [str(plus_label.theme_type_variation), plus_label.scale.x],
+					plus_label.theme_type_variation == &"ChipPlusLabel" and plus_label.scale.x < 1.05)
 			await _press(first.find_child("Hit", false, false) if first != null else null)
 			_check("入手先：%s の見出しの素材を押すと窓" % path.get_file(), _source_window(screen) != null)
 			await _close_modal(screen)

@@ -164,11 +164,71 @@ func _make_chip(resource_id: String) -> PanelContainer:
 		plus.text = "+"
 		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		display.add_child(plus)
-		var hit: Button = UiButton.attach_hit(chip, _on_chip_pressed.bind(resource_id))
+		# ⚠ チップ全体を押せる当たり。⚠ 縁は出さない（10-06・人間「⚠ 素材周りにふちがつくのではなく」）＝`HitButton` を使わない
+		#   （⚠ `UiButton.attach_hit()` は縁を足す作り）。⚠ 触れたら「＋」が動く。
+		var hit: Button = Button.new()
+		hit.name = "Hit"
+		hit.theme_type_variation = &"ChipHitButton"
 		hit.tooltip_text = tr("ui_source_open")
+		hit.pressed.connect(_on_chip_pressed.bind(resource_id))
+		hit.mouse_entered.connect(_on_plus_hover.bind(plus, true))
+		hit.mouse_exited.connect(_on_plus_hover.bind(plus, false))
+		chip.add_child(hit)
+		chip.move_child(hit, 0)
+		UiButton._ignore_mouse(chip, hit)
+		_start_plus_pulse(plus, _plus_count)
+		_plus_count += 1
 
 	_displays[resource_id] = display
 	return chip
+
+
+# --- 「＋」の動き（2026-10-06・人間「⚠ プラスボタンが押せると気づかせるためのものをつけて」） ---
+#   ⚠ 脈打ち＝ときどき少し大きくなって戻る（⚠ 並んだ「＋」が同時に動かないよう、順にずらす）。
+#   ⚠ 触れたら＝灯りの色で大きく（⚠ 脈打ちは止める）・離れたら戻して脈打ちを再開。
+#   ⚠ 値は Theme（`ChipPlusLabel` の定数）。⚠ Tween は「＋」に付ける（⚠ 画面と一緒に消える）。
+var _plus_count: int = 0
+const PLUS_TWEEN_META: StringName = &"plus_pulse"
+
+
+func _plus_constant(plus: Label, name: StringName) -> float:
+	return float(plus.get_theme_constant(name, &"ChipPlusLabel"))
+
+
+func _start_plus_pulse(plus: Label, order: int) -> void:
+	var period: float = _plus_constant(plus, &"pulse_period_ms") / 1000.0
+	var seconds: float = _plus_constant(plus, &"pulse_ms") / 1000.0
+	if period <= 0.0 or seconds <= 0.0:
+		return
+	var grow: Vector2 = Vector2.ONE * _plus_constant(plus, &"pulse_scale_pct") / 100.0
+	var tween: Tween = plus.create_tween()
+	tween.set_loops()
+	tween.tween_interval(maxf(0.01, period - seconds + _plus_constant(plus, &"pulse_stagger_ms") / 1000.0 * float(order % 4)))
+	tween.tween_callback(_center_pivot.bind(plus))
+	tween.tween_property(plus, "scale", grow, seconds * 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(plus, "scale", Vector2.ONE, seconds * 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	plus.set_meta(PLUS_TWEEN_META, tween)
+
+
+func _center_pivot(plus: Label) -> void:
+	plus.pivot_offset = plus.size * 0.5
+
+
+func _on_plus_hover(plus: Label, entered: bool) -> void:
+	if not is_instance_valid(plus):
+		return
+	var running: Variant = plus.get_meta(PLUS_TWEEN_META, null)
+	if running is Tween and (running as Tween).is_valid():
+		(running as Tween).kill()
+	plus.theme_type_variation = &"ChipPlusLabelHover" if entered else &"ChipPlusLabel"
+	_center_pivot(plus)
+	var target: Vector2 = Vector2.ONE * (_plus_constant(plus, &"hover_scale_pct") / 100.0 if entered else 1.0)
+	var tween: Tween = plus.create_tween()
+	tween.tween_property(plus, "scale", target, _plus_constant(plus, &"hover_ms") / 1000.0).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if entered:
+		plus.set_meta(PLUS_TWEEN_META, tween)
+	else:
+		tween.tween_callback(_start_plus_pulse.bind(plus, 0))
 
 
 func _on_chip_pressed(resource_id: String) -> void:
