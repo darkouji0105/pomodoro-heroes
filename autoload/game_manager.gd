@@ -171,6 +171,16 @@ const ITEM_STORAGE_INVENTORY: String = "inventory"
 # 引いているため。性能値だけ別ファイルにすると、同期の型がもう1枚要る。
 const ITEM_MASTER_EQUIP_SLOT: String = "equip_slot"
 const ITEM_MASTER_EQUIP_STATS: String = "equip_stats"
+# ⚠⚠ 武器のジャンル（2026-10-07・回HB-2・`EQ-1`・`EXEC_EQUIP_CRAFT.md`）。⚠ 武器と characters.json の両方が持つ。
+#   ⚠ どちらかが持たなければ縛らない（⚠ 検証用のキャラ・防具）。
+const ITEM_MASTER_WEAPON_GENRE: String = "weapon_genre"
+# ⚠⚠ 消した品の置き換え先（2026-10-07・回HB-2・`EQ-2`＝木・鉄・鋼の縦の並びをやめた・人間「⚠ ２あ」）。
+#   ⚠ セーブを読むときだけ使う（`_migrate_legacy_item_ids()`）。⚠ 等級・装飾はそのまま。
+const LEGACY_ITEM_IDS: Dictionary = {
+	"weapon_wooden_sword": "weapon_sword_swift",
+	"weapon_iron_sword": "weapon_sword_swift",
+	"weapon_steel_sword": "weapon_sword_swift",
+}
 
 # items.json の装飾エントリだけが持つキー（EXEC_DECORATION.md §3-A）。
 #
@@ -2856,6 +2866,10 @@ func get_item_stats_at_grade(item_id: String, grade: int) -> Dictionary:
 		return result
 	for stat_key: String in _stat_keys():
 		var base: int = int((equip_stats as Dictionary).get(stat_key, 0))
+		# ⚠ 10-07（回HB-2・人間「⚠ ６あ」）：⚠ 型の「下げる値」（マイナス）は等級で伸ばさない＝等級1のまま。
+		if base <= 0:
+			result[stat_key] = base
+			continue
 		result[stat_key] = base + int(floor(float(base) * GRADE_STAT_RATIO * float(grade - 1)))
 	return result
 
@@ -3061,6 +3075,24 @@ func _sort_instance_view(list: Array) -> void:
 
 # --- 装備：着脱 ---
 
+# ⚠⚠ 武器のジャンル（2026-10-07・回HB-2・`EQ-1`）。⚠ 無ければ ""（⚠ 防具・アクセサリー）。
+func get_weapon_genre(item_id: String) -> String:
+	return str(MasterDataLoader.get_item(item_id).get(ITEM_MASTER_WEAPON_GENRE, ""))
+
+
+# ⚠ キャラが持てるジャンル。⚠ 無ければ ""（⚠ 検証用のキャラ＝どれでも持てる）。
+func get_character_weapon_genre(character_id: String) -> String:
+	return str(MasterDataLoader.get_character(character_id).get(ITEM_MASTER_WEAPON_GENRE, ""))
+
+
+# ⚠ その品をそのキャラが持てるか（⚠ ジャンルだけを見る。⚠ 部位・持ち主は `get_equip_reject_reason()`）。
+#   ⚠ 品かキャラのどちらかがジャンルを持たなければ縛らない。
+func can_wield(character_id: String, item_id: String) -> bool:
+	var genre: String = get_weapon_genre(item_id)
+	var wield: String = get_character_weapon_genre(character_id)
+	return genre == "" or wield == "" or genre == wield
+
+
 # 着けられない理由。着けられるなら ""（get_part_reject_reason() と同じ形）。
 #
 # ⚠ 戻り値は翻訳キーではなくログ用の英文。装備の可否は画面が
@@ -3095,6 +3127,10 @@ func get_equip_reject_reason(
 	var item_slot: String = str(definition.get(ITEM_MASTER_EQUIP_SLOT, ""))
 	if item_slot != slot:
 		return "slot mismatch: item=%s requested=%s" % [item_slot, slot]
+
+	# ⚠ 10-07（回HB-2・`EQ-1`）：⚠ 武器はジャンルで持てる人が決まる。
+	if not can_wield(character_id, item_id):
+		return "genre mismatch: item=%s character=%s" % [get_weapon_genre(item_id), get_character_weapon_genre(character_id)]
 
 	if not ignore_owner:
 		var owner: String = _equipped_owner(instance_id)
@@ -6777,6 +6813,90 @@ func _normalize_equipment_from_save() -> void:
 	_state[GameStateKeys.CHARACTER_GROWTH] = all_growth
 
 
+# ⚠⚠ 消した品の ID を置き換える（2026-10-07・回HB-2・`LEGACY_ITEM_IDS`）。⚠ `load_state()` から、⚠ `_state` に入れる前の形に対して呼ぶ。
+#   ⚠ 個体の item_id ／ 持ち物・図鑑・見た品のキー ／ ランの鞄と拾い待ちのキー（⚠ `item_id#等級` の形もある）。
+#   ⚠ 等級・装飾・個体の ID はそのまま（⚠ 編成の控えは個体の ID で持つ＝触らない）。
+func _migrate_legacy_item_ids(state: Dictionary) -> void:
+	var instances: Variant = state.get(GameStateKeys.EQUIPMENT_INSTANCES, {})
+	if instances is Dictionary:
+		for instance_id: Variant in (instances as Dictionary):
+			var instance: Variant = (instances as Dictionary)[instance_id]
+			if instance is Dictionary:
+				var old_id: String = str((instance as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+				if LEGACY_ITEM_IDS.has(old_id):
+					(instance as Dictionary)[GameStateKeys.INSTANCE_ITEM_ID] = str(LEGACY_ITEM_IDS[old_id])
+	for key: String in [GameStateKeys.INVENTORY, GameStateKeys.CODEX, GameStateKeys.SEEN_ITEMS]:
+		if state.get(key) is Dictionary:
+			state[key] = _renamed_item_keys(state[key] as Dictionary)
+	for run_key: String in [GameStateKeys.FLOOR_RUN, GameStateKeys.DUNGEON_RUN]:
+		var run: Variant = state.get(run_key)
+		if not (run is Dictionary):
+			continue
+		for bag_key: String in [GameStateKeys.RUN_BAG, GameStateKeys.RUN_PENDING_LOOT]:
+			if (run as Dictionary).get(bag_key) is Dictionary:
+				(run as Dictionary)[bag_key] = _renamed_item_keys((run as Dictionary)[bag_key] as Dictionary)
+
+
+# ⚠ キーの置き換え。⚠ 置き換え先が既にあれば数は足す ／ 図鑑の行は先にあったほうを残す（⚠ 等級の列と手に入れた数だけ合わせる）。
+func _renamed_item_keys(source: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for raw_key: Variant in source:
+		var key: String = str(raw_key)
+		var value: Variant = source[raw_key]
+		var base: String = key.get_slice("#", 0)
+		if LEGACY_ITEM_IDS.has(base):
+			key = str(LEGACY_ITEM_IDS[base]) + key.substr(base.length())
+		if not result.has(key):
+			result[key] = value
+			continue
+		var held: Variant = result[key]
+		if (held is int or held is float) and (value is int or value is float):
+			result[key] = int(held) + int(value)
+		elif held is Dictionary and value is Dictionary:
+			var merged: Dictionary = (held as Dictionary).duplicate(true)
+			if merged.has(GameStateKeys.ITEM_COUNT):
+				merged[GameStateKeys.ITEM_COUNT] = int(merged[GameStateKeys.ITEM_COUNT]) + int((value as Dictionary).get(GameStateKeys.ITEM_COUNT, 0))
+			if merged.has(GameStateKeys.CODEX_OBTAINED_COUNT):
+				merged[GameStateKeys.CODEX_OBTAINED_COUNT] = int(merged[GameStateKeys.CODEX_OBTAINED_COUNT]) + int((value as Dictionary).get(GameStateKeys.CODEX_OBTAINED_COUNT, 0))
+			if merged.get(GameStateKeys.CODEX_GRADES) is Array and (value as Dictionary).get(GameStateKeys.CODEX_GRADES) is Array:
+				var grades: Array = (merged[GameStateKeys.CODEX_GRADES] as Array).duplicate()
+				for grade: Variant in ((value as Dictionary)[GameStateKeys.CODEX_GRADES] as Array):
+					if not grades.has(grade):
+						grades.append(grade)
+				grades.sort()
+				merged[GameStateKeys.CODEX_GRADES] = grades
+			result[key] = merged
+	return result
+
+
+# ⚠ 持てないジャンルの武器を外す（2026-10-07・回HB-2）。⚠ 個体は持ち物に残る（⚠ 外すだけ）。
+func _unequip_unwieldable_weapons() -> void:
+	var all_growth: Dictionary = _copy_dict(GameStateKeys.CHARACTER_GROWTH)
+	var changed: bool = false
+	for character_id: String in all_growth:
+		if not (all_growth[character_id] is Dictionary):
+			continue
+		var entry: Dictionary = all_growth[character_id]
+		var equipment: Variant = entry.get(GameStateKeys.GROWTH_EQUIPMENT, {})
+		if not (equipment is Dictionary):
+			continue
+		var weapon: Variant = (equipment as Dictionary).get(GameStateKeys.EQUIP_WEAPON, null)
+		if weapon == null:
+			continue
+		var item_id: String = str(get_equipment_instance(str(weapon)).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+		if can_wield(character_id, item_id):
+			continue
+		print("[GameManager] load_state: 持てないジャンルの武器を外した（%s の %s）" % [character_id, item_id])
+		var new_equipment: Dictionary = (equipment as Dictionary).duplicate(true)
+		new_equipment[GameStateKeys.EQUIP_WEAPON] = null
+		var new_entry: Dictionary = entry.duplicate(true)
+		new_entry[GameStateKeys.GROWTH_EQUIPMENT] = new_equipment
+		all_growth[character_id] = new_entry
+		changed = true
+	if changed:
+		_state[GameStateKeys.CHARACTER_GROWTH] = all_growth
+
+
 func load_state(data: Dictionary) -> bool:
 	if data == null or not (data is Dictionary):
 		return false
@@ -6798,7 +6918,9 @@ func load_state(data: Dictionary) -> bool:
 			for codex_id: Variant in (codex_data as Dictionary):
 				seeded[str(codex_id)] = true
 		new_state[GameStateKeys.SEEN_ITEMS] = seeded
-	
+	# ⚠ 10-07（回HB-2）：⚠ 消した品の ID を置き換える（⚠ 図鑑・個体の数え直しより前）。
+	_migrate_legacy_item_ids(new_state)
+
 	# 数値の int() キャスト（JSON復元時は float になるため）
 	# §6-2 の決定事項に従い、対象を限定する。
 	if new_state.has(GameStateKeys.GOLD):
@@ -7027,6 +7149,8 @@ func load_state(data: Dictionary) -> bool:
 	# 装備の個体を正規化する。JSONから戻すと grade が float になる。
 	# 第1弾の装備（equipment に item_id の文字列が入っている）はここで捨てる。
 	_normalize_equipment_from_save()
+	# ⚠ 10-07（回HB-2・`EQ-1`）：⚠ 持てないジャンルの武器を着けていたら外す（⚠ 置き換えた剣を弓兵が着けていた、など）。
+	_unequip_unwieldable_weapons()
 	# プリセットの形を揃え、分解された個体への参照を null に戻す。
 	# ⚠ _normalize_equipment_from_save() より後であること（消えた個体の判定に、
 	#   正規化済みの equipment_instances が要る）。

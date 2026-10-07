@@ -332,11 +332,11 @@ static func main_stat_of(stats: Dictionary) -> String:
 	return best
 
 
-# 「+160」「+17%」。
+# 「+160」「+17%」。⚠ 10-07（回HB-2）：⚠ マイナスは「−」のまま（⚠ 型の「下げる値」）。
 static func stat_text(stat_key: String, value: int) -> String:
 	if GameManager.is_percent_stat(stat_key):
-		return "+%d%%" % value
-	return "+%d" % value
+		return "%+d%%" % value
+	return "%+d" % value
 
 
 # 装飾の値の幅（⚠ 出目で変わる＝`part_base` 〜 `part_base + part_roll_max`）。

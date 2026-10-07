@@ -537,7 +537,7 @@ func _grant_rare_chests() -> void:
 # ⚠ 鉄の剣を1本作り（⚠ 個体を作るのは `add_to_inventory()` の1本＝CLAUDE.md 8番）、
 #   ⚠ 本物の口 `forge_equipment()` で等級5まで上げる（⚠ 等級5までは必ず成功）。⚠ 次の1回（5→6）から失敗しうる。
 # ⚠ 素材は全種類を配る（⚠ 鍛える素材の段階が等級で変わるため）。⚠ 確定成功の札を3枚。
-const FORGE_ITEM_ID: String = "weapon_iron_sword"
+const FORGE_ITEM_ID: String = "weapon_sword_swift"
 const FORGE_TARGET_GRADE: int = 5
 const FORGE_TOKEN_COUNT: int = 3
 # ⚠ 等級を上げるときの鍛える回数の上限（⚠ 等級6 からは失敗する＝何回か要る・素材は配ってある）。

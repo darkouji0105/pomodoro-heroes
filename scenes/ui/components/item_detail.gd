@@ -95,6 +95,10 @@ func _show_instance(item_id: String, instance_id: String) -> void:
 	var sub_parts: Array[String] = [tr("ui_equipment_grade") % grade]
 	if equip_slot != "" and not _summary:
 		sub_parts.append(tr("ui_equipment_slot_" + equip_slot))
+		# ⚠ 10-07（回HB-2・`EQ-1`）：⚠ 武器はジャンル（剣・弓・杖）も出す＝誰が持てるかが分かる。
+		var genre: String = GameManager.get_weapon_genre(item_id)
+		if genre != "":
+			sub_parts.append(tr("ui_weapon_genre_" + genre))
 	_add_header(item_id, grade, sub_parts)
 
 	_add_stat_rows(GameManager.get_instance_stats(instance_id))
@@ -151,6 +155,10 @@ func _show_item(item_id: String) -> void:
 	)
 	if equip_slot != "" and not _summary:
 		sub_parts.append(tr("ui_equipment_slot_" + equip_slot))
+		# ⚠ 10-07（回HB-2・`EQ-1`）：⚠ 武器はジャンル（剣・弓・杖）も出す＝誰が持てるかが分かる。
+		var genre: String = GameManager.get_weapon_genre(item_id)
+		if genre != "":
+			sub_parts.append(tr("ui_weapon_genre_" + genre))
 	if grade <= 0:
 		sub_parts.append("×%d" % int(_entry.get(
 			GameManager.SLOT_ENTRY_COUNT, GameManager.get_item_count(item_id)

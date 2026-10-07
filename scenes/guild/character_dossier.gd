@@ -143,9 +143,10 @@ func _build_stats() -> VBoxContainer:
 		var added: int = int(bonus.get(stat_key, 0))
 		var delta: Label = Label.new()
 		delta.name = "DeltaLabel"
-		delta.theme_type_variation = &"GainLabel"
+		# ⚠ 10-07（回HB-2）：⚠ 型の「下げる値」で減ることがある＝⚠ 減ったら赤で「-10」。
+		delta.theme_type_variation = &"ErrorLabel" if added < 0 else &"GainLabel"
 		# ⚠ 増えていない行にも空の欄を置く（⚠ 置かないと値の右端が行ごとにずれる）。
-		delta.text = "+" + _stat_text(stat_key, added) if added > 0 else ""
+		delta.text = "+" + _stat_text(stat_key, added) if added > 0 else (_stat_text(stat_key, added) if added < 0 else "")
 		delta.custom_minimum_size.x = icon_size * 3.0
 		delta.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(delta)

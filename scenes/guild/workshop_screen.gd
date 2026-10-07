@@ -36,7 +36,7 @@ func _ready() -> void:
 	# 2. ボタン接続
 	header.back_pressed.connect(_on_back_pressed)
 	# ⚠ 10-06（`NAV-19`）：⚠ この画面で使う素材を見出しに（⚠ 本部の右上の素材16件はやめた）。
-	var _bar: ResourceBar = header.show_materials(GameManager.get_material_ids_of_series(GameStateKeys.ITEM_DECOR_MATERIAL_PREFIX))
+	var _bar: ResourceBar = header.show_materials(header_material_ids())
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.FORGE)
 	# ⚠ 2026-09-27（回UI-仕組み①・人間「⚠ 2あ」）：⚠ 作業場は鍛冶場の「作る」タブ。⚠ 「鍛える」で鍛冶場へ移る。
 	#   ⚠ 中身（キューとレシピの行）はまだ作り直していない（⚠ 紙の形にするのは別の回）。
@@ -58,6 +58,24 @@ func _ready() -> void:
 	# 4. 初期描画
 	notice_label.text = ""
 	_rebuild()
+
+# ⚠ 見出しの素材（10-07・回HB-2）。⚠ 装備のレシピは鍛冶の欠片・特殊効果のくじは鍛冶の結晶＝⚠ その2つを装飾の素材の前に。
+#   ⚠ レシピの材料から引く（⚠ 決め打ちにしない＝recipes.json を変えても追従する）。⚠ 並びは系統 → 段。
+static func header_material_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for recipe: Variant in MasterDataLoader.get_all_recipes().values():
+		for entry: Variant in ((recipe as Dictionary).get(GameManager.RECIPE_INPUTS, []) as Array):
+			var input_id: String = str((entry as Dictionary).get(GameManager.RECIPE_IO_ITEM_ID, ""))
+			if input_id != "" and not ids.has(input_id):
+				ids.append(input_id)
+	ids.sort_custom(func(a: String, b: String) -> bool:
+		var a_forge: bool = a.begins_with(GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX)
+		var b_forge: bool = b.begins_with(GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX)
+		if a_forge != b_forge:
+			return a_forge
+		return a < b)
+	return ids
+
 
 func _on_forge_tab_changed(index: int) -> void:
 	if index != ForgeScreen.TAB_MAKE:

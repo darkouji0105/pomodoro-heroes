@@ -121,7 +121,7 @@ const EMBEDDED_VIEWS: Array[String] = [
 const EMBEDDED_VIEW_HEIGHT: float = 480.0
 
 # 等級の見本に使う個体（⚠ 10色を並べるため）。⚠ items.json に在るIDだけ。
-const SAMPLE_EQUIP_ITEM_ID: String = "weapon_iron_sword"
+const SAMPLE_EQUIP_ITEM_ID: String = "weapon_sword_swift"
 const SAMPLE_MATERIAL_ITEM_ID: String = "construction_material_4"
 const SAMPLE_RELIC_ID: String = "relic_banner_of_war"
 

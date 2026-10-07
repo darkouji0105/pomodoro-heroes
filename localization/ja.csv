@@ -298,9 +298,6 @@ ui_guild_workshop_done,完成
 ui_guild_workshop_started,製作を開始しました
 ui_guild_workshop_collected,受け取りました
 ui_guild_workshop_failed,実行できませんでした
-ui_res_weapon_wooden_sword,木の剣
-ui_res_weapon_iron_sword,鉄の剣
-ui_res_weapon_steel_sword,鋼の剣
 ui_equipment_title,装備
 ui_equipment_slot_weapon,武器
 ui_equipment_none,なし
@@ -633,9 +630,6 @@ ui_research_b2_craft_2,作業台の増設
 ui_research_effect_craft_speed,製作時間 -%d%%
 ui_research_effect_craft_slot,同時製作 +%d
 ui_guild_workshop_draw,装飾（ランダム）
-ui_icon_weapon_wooden_sword,木
-ui_icon_weapon_iron_sword,鉄
-ui_icon_weapon_steel_sword,鋼
 ui_icon_armor_leather_cap,革
 ui_icon_armor_iron_helm,鉄
 ui_icon_armor_leather_vest,革
@@ -1540,3 +1534,59 @@ ui_base_today_forge,鍛冶場：作業場の品ができた
 ui_base_today_research,研究：解放できるものがある
 ui_base_today_belongings,持ち物：新しく入った品がある
 ui_base_today_shop,ショップ：品揃えが替わった
+ui_res_weapon_sword_guard,騎士の剣
+ui_icon_weapon_sword_guard,騎
+ui_res_weapon_sword_swift,細身の剣
+ui_icon_weapon_sword_swift,細
+ui_res_weapon_sword_rune,紋の剣
+ui_icon_weapon_sword_rune,紋
+ui_res_weapon_bow_heavy,大弓
+ui_icon_weapon_bow_heavy,大
+ui_res_weapon_bow_short,短弓
+ui_icon_weapon_bow_short,短
+ui_res_weapon_bow_hunter,狩人の弓
+ui_icon_weapon_bow_hunter,狩
+ui_res_weapon_bow_gale,疾風の大弓
+ui_icon_weapon_bow_gale,風
+ui_res_weapon_staff_oak,樫の杖
+ui_icon_weapon_staff_oak,樫
+ui_res_weapon_staff_quick,早読みの杖
+ui_icon_weapon_staff_quick,早
+ui_res_weapon_staff_prayer,祈りの杖
+ui_icon_weapon_staff_prayer,祈
+ui_res_weapon_staff_grove,聖樹の杖
+ui_icon_weapon_staff_grove,聖
+ui_res_armor_head_guard,守りの兜
+ui_icon_armor_head_guard,守
+ui_res_armor_head_swift,羽根の帽子
+ui_icon_armor_head_swift,羽
+ui_res_armor_head_sage,学者の頭巾
+ui_icon_armor_head_sage,学
+ui_res_armor_body_guard,板金の鎧
+ui_icon_armor_body_guard,板
+ui_res_armor_body_swift,軽業の胴着
+ui_icon_armor_body_swift,軽
+ui_res_armor_body_sage,祈祷の法衣
+ui_icon_armor_body_sage,法
+ui_res_armor_legs_guard,鋼の脛当て
+ui_icon_armor_legs_guard,脛
+ui_res_armor_legs_swift,疾風の靴
+ui_icon_armor_legs_swift,靴
+ui_res_armor_legs_sage,巡礼の靴
+ui_icon_armor_legs_sage,巡
+ui_res_acc_guard,命の首飾り
+ui_icon_acc_guard,首
+ui_res_acc_swift,早足の指輪
+ui_icon_acc_swift,輪
+ui_res_acc_sage,知恵の耳飾り
+ui_icon_acc_sage,耳
+ui_eqfx_first_shot,先手の矢
+ui_eqfx_first_shot_desc,攻撃 +30%
+ui_eqfx_trigger_battle_start,戦闘の始め 20 秒
+ui_eqfx_grove_mend,癒しの余波
+ui_eqfx_grove_mend_desc,魔力の 10% だけ自分の HP を回復する
+ui_status_ch_status_eqfx_first_shot,先
+ui_status_ch_status_eqfx_grove_mend,癒
+ui_weapon_genre_sword,剣
+ui_weapon_genre_bow,弓
+ui_weapon_genre_staff,杖

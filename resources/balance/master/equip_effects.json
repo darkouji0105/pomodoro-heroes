@@ -88,5 +88,61 @@
 				}
 			}
 		]
+	},
+	"eqfx_first_shot": {
+		"name_key": "ui_eqfx_first_shot",
+		"trigger_key": "ui_eqfx_trigger_battle_start",
+		"desc_key": "ui_eqfx_first_shot_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_first_shot",
+				"atk_mult_pct": 30,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "elapsed_sec",
+					"of": "host",
+					"op": "lte",
+					"value": 20
+				}
+			}
+		]
+	},
+	"eqfx_grove_mend": {
+		"name_key": "ui_eqfx_grove_mend",
+		"trigger_key": "ui_eqfx_trigger_dealt_damage",
+		"desc_key": "ui_eqfx_grove_mend_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_eqfx_grove_mend",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "dealt_damage",
+					"effects": [
+						{
+							"type": "heal",
+							"multiplier": 0.1,
+							"scale_from": "mag",
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
 	}
 }

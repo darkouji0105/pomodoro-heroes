@@ -21,7 +21,7 @@ const SCENE_BATTLE: String = "res://scenes/adventure/battle.tscn"
 const SCENE_BASE: String = "res://scenes/base/base_screen.tscn"
 # ⚠ 装備画面の装飾の枠を出すための下ごしらえ（2026-09-22・`_layout_fill_equipment_parts()`）。
 #   ⚠ 品は `items.json` に在るものを使う。⚠ ここで性能を書かない。
-const LAYOUT_PART_WEAPON_ID: String = "weapon_iron_sword"
+const LAYOUT_PART_WEAPON_ID: String = "weapon_sword_swift"
 const LAYOUT_PART_ITEM_ID: String = "part_gem_atk_1"
 
 # シナリオの種類。
@@ -2740,7 +2740,7 @@ func _apply_runes(scenario: Dictionary) -> void:
 			GameManager.add_material(str(material_id), 99999)
 
 	var base_item: Dictionary = {
-		GameStateKeys.EQUIP_WEAPON: "weapon_iron_sword",
+		GameStateKeys.EQUIP_WEAPON: "weapon_sword_swift",
 		GameStateKeys.EQUIP_ACCESSORY: "acc_ring_power",
 	}
 
@@ -2890,7 +2890,7 @@ func _report_materials() -> void:
 	for tier: int in range(1, GameManager.get_forge_material_tier_count() + 1):
 		GameManager.add_material(GameStateKeys.ITEM_FORGING_MATERIAL_PREFIX + str(tier), 9999)
 
-	GameManager.add_to_inventory("weapon_iron_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	GameManager.add_to_inventory("weapon_sword_swift", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
 	var owned: Array = GameManager.get_owned_instances()
 	if owned.is_empty():
 		push_error("[DebugBoot] 個体が作られなかった（add_to_inventory が個体を作っていない）")
@@ -3077,8 +3077,8 @@ func _report_parts() -> void:
 	print("  3 枠が埋まっている -> '%s'（宝石枠1）" % GameManager.get_part_reject_reason(helm_id, 0, test_id))
 	print("  4 知らない装飾     -> '%s'" % GameManager.get_part_reject_reason(helm_id, 1, "part_gem_hp_99"))
 
-	GameManager.add_to_inventory("weapon_iron_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
-	var sword_id: String = _find_instance_of("weapon_iron_sword")
+	GameManager.add_to_inventory("weapon_sword_swift", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var sword_id: String = _find_instance_of("weapon_sword_swift")
 	while GameManager.forge_equipment(sword_id):
 		pass
 	# ⚠ 枠の種類は部位ではなく枠で決まる。武器にも宝石枠（位置0・等級3）はある。
@@ -3411,7 +3411,7 @@ func _report_drops() -> void:
 	var zero_weight: Dictionary = {
 		GameManager.CHEST_DRAW_ROLLS: 1,
 		GameManager.CHEST_DRAW_ENTRIES: [
-			{GameManager.CHEST_DRAW_ITEM_ID: "weapon_wooden_sword", GameManager.CHEST_DRAW_WEIGHT: 0},
+			{GameManager.CHEST_DRAW_ITEM_ID: "weapon_sword_guard", GameManager.CHEST_DRAW_WEIGHT: 0},
 		],
 	}
 	print("  weight 合計0 -> %s（空が正解・赤も黄も出ないこと）" % str(GameManager._roll_chest_draw(zero_weight)))
@@ -3619,8 +3619,11 @@ func _report_presets() -> void:
 	# --- 2. 焼く ---
 	print("[DebugBoot] --- 焼く（現在の状態を書き写す）---")
 	# 装備を1つ着けてから焼く。⚠ 個体を作る口は add_to_inventory() だけ（CLAUDE.md 8番）。
-	GameManager.add_to_inventory("weapon_wooden_sword", 1)
-	var sword: String = _find_instance_of("weapon_wooden_sword")
+	# ⚠ 10-07（回HB-2・`EQ-1`）：⚠ 武器はジャンルで持てる人が決まる＝⚠ char_a が持てる品を選ぶ。
+	var weapon_item: String = str({"sword": "weapon_sword_guard", "bow": "weapon_bow_heavy", "staff": "weapon_staff_oak"}.get(
+		GameManager.get_character_weapon_genre(char_a), "weapon_sword_guard"))
+	GameManager.add_to_inventory(weapon_item, 1)
+	var sword: String = _find_instance_of(weapon_item)
 	print("  個体を1つ作った: %s" % sword)
 	print("  %s に着ける -> %s" % [char_a, str(GameManager.equip_instance(char_a, GameStateKeys.EQUIP_WEAPON, sword))])
 	print("  save_character_preset('%s', 0) -> %s" % [char_a, str(GameManager.save_character_preset(char_a, 0))])
@@ -4379,8 +4382,8 @@ func _report_item_icons() -> void:
 	print("[DebugBoot] --- 仮アセットのアイコン（⚠ 字・右下の数字・色）---")
 	# [item_id, 渡す等級（装備の個体だけ。0 なら item_id から引く）]
 	var samples: Array = [
-		["weapon_wooden_sword", 1], ["armor_iron_mail", 4],
-		["acc_ring_power", 7], ["weapon_steel_sword", 10],
+		["weapon_sword_guard", 1], ["armor_iron_mail", 4],
+		["acc_ring_power", 7], ["weapon_sword_rune", 10],
 		["part_gem_atk_1", 0], ["part_gem_atk_4", 0],
 		["part_charm_mdef_2", 0], ["part_emblem_crit_dmg_3", 0],
 		["part_rune_buff_1", 0], ["part_rune_shield_5", 0],
@@ -5075,12 +5078,15 @@ func _layout_prepare_for(scene_path: String) -> void:
 # ⚠ 判定は全部 GameManager の口に聞く。⚠ 失敗したら黄で言う（⚠ 黙って枠が出ないのが一番困る）。
 func _layout_fill_equipment_parts(character_id: String) -> void:
 	GameManager.unlock_screen(GameStateKeys.SCREEN_DECORATION)
-	var instance_id: String = _find_instance_of(LAYOUT_PART_WEAPON_ID)
+	# ⚠ 10-07（回HB-2・`EQ-1`）：⚠ 武器はジャンルで持てる人が決まる＝⚠ そのキャラが持てる品を選ぶ（⚠ 剣は剣士だけ）。
+	var weapon_id: String = str({"sword": LAYOUT_PART_WEAPON_ID, "bow": "weapon_bow_short", "staff": "weapon_staff_quick"}.get(
+		GameManager.get_character_weapon_genre(character_id), LAYOUT_PART_WEAPON_ID))
+	var instance_id: String = _find_instance_of(weapon_id)
 	if instance_id == "":
-		GameManager.add_to_inventory(LAYOUT_PART_WEAPON_ID, 1)
-		instance_id = _find_instance_of(LAYOUT_PART_WEAPON_ID)
+		GameManager.add_to_inventory(weapon_id, 1)
+		instance_id = _find_instance_of(weapon_id)
 	if instance_id == "":
-		push_warning("[DebugBoot] ⚠ %s の個体が作れなかった" % LAYOUT_PART_WEAPON_ID)
+		push_warning("[DebugBoot] ⚠ %s の個体が作れなかった" % weapon_id)
 		return
 	for material_id: Variant in MasterDataLoader.get_all_items():
 		GameManager.add_material(str(material_id), 99999)
@@ -6427,7 +6433,7 @@ func _report_inventory() -> void:
 
 	# 4. 装備は個体なので 1個＝1件。
 	var before_equip: int = _inventory_entry_count()
-	GameManager.add_to_inventory("weapon_iron_sword", 2, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	GameManager.add_to_inventory("weapon_sword_swift", 2, GameStateKeys.ITEM_TYPE_EQUIPMENT)
 	print("  装備を 2 本足す -> %d 件（+2 が正解＝個体）" % _inventory_entry_count())
 	if _inventory_entry_count() != before_equip + 2:
 		push_error("[DebugBoot] 装備の数え方が 1個＝1件 になっていない")
@@ -6570,7 +6576,7 @@ func _report_inventory() -> void:
 			print("    %s" % line)
 	# ⚠ 装飾を刺した装備も見る（⚠ 等級1では枠が1つも開かないので、⚠ 先に鍛える）。
 	#   ⚠ 枠は等級3から開く（GAME_DESIGN.md 6-4）。⚠ ここを飛ばすと「枠の行」が一度も出ない。
-	var forge_target: String = _find_instance_of("weapon_iron_sword")
+	var forge_target: String = _find_instance_of("weapon_sword_swift")
 	if forge_target != "":
 		for material_id: Variant in MasterDataLoader.get_all_items():
 			GameManager.add_material(str(material_id), 99999)
@@ -6587,7 +6593,7 @@ func _report_inventory() -> void:
 			)
 			detail.show_entry({
 				GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_INSTANCE,
-				GameManager.SLOT_ENTRY_ITEM_ID: "weapon_iron_sword",
+				GameManager.SLOT_ENTRY_ITEM_ID: "weapon_sword_swift",
 				GameManager.SLOT_ENTRY_INSTANCE_ID: forge_target,
 				GameManager.SLOT_ENTRY_GRADE: int(GameManager.get_equipment_instance(forge_target).get(
 					GameStateKeys.INSTANCE_GRADE, 1
@@ -6617,12 +6623,12 @@ func _report_inventory() -> void:
 	for probe_grade: int in [0, 1, 5, GameManager.get_max_equipment_grade()]:
 		detail.show_entry({
 			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
-			GameManager.SLOT_ENTRY_ITEM_ID: "weapon_iron_sword",
+			GameManager.SLOT_ENTRY_ITEM_ID: "weapon_sword_swift",
 			GameManager.SLOT_ENTRY_INSTANCE_ID: "",
 			GameManager.SLOT_ENTRY_GRADE: probe_grade,
 			GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
 		})
-		print("  weapon_iron_sword 等級%d（⚠ 品としての装備。⚠ 開いている枠だけ出るか）" % probe_grade)
+		print("  weapon_sword_swift 等級%d（⚠ 品としての装備。⚠ 開いている枠だけ出るか）" % probe_grade)
 		for line: String in detail.get_lines():
 			print("    %s" % line)
 
@@ -6670,7 +6676,7 @@ func _report_inventory() -> void:
 	if forge_target != "":
 		detail.show_entry({
 			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_INSTANCE,
-			GameManager.SLOT_ENTRY_ITEM_ID: "weapon_iron_sword",
+			GameManager.SLOT_ENTRY_ITEM_ID: "weapon_sword_swift",
 			GameManager.SLOT_ENTRY_INSTANCE_ID: forge_target,
 			GameManager.SLOT_ENTRY_GRADE: int(GameManager.get_equipment_instance(forge_target).get(
 				GameStateKeys.INSTANCE_GRADE, 1
@@ -6685,7 +6691,7 @@ func _report_inventory() -> void:
 		#   ⚠ その二重表示を止めたので、⚠ 要約が唯一の出どころになった。
 		detail.show_entry({
 			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_INSTANCE,
-			GameManager.SLOT_ENTRY_ITEM_ID: "weapon_iron_sword",
+			GameManager.SLOT_ENTRY_ITEM_ID: "weapon_sword_swift",
 			GameManager.SLOT_ENTRY_INSTANCE_ID: forge_target,
 			GameManager.SLOT_ENTRY_GRADE: int(GameManager.get_equipment_instance(forge_target).get(
 				GameStateKeys.INSTANCE_GRADE, 1
@@ -6759,7 +6765,7 @@ func _report_inventory_no_capacity() -> void:
 	print("[DebugBoot] --- 拠点に容量が無い（⚠ どの口も全部入るのが正解）---")
 	# ① 直接入れる：⚠ 装備を 600 本（⚠ 前の上限 500 マスを超える）入れても全部個体になる。
 	var instances_before: int = GameManager.get_owned_instances().size()
-	var granted: int = GameManager.add_to_inventory("weapon_iron_sword", 600, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var granted: int = GameManager.add_to_inventory("weapon_sword_swift", 600, GameStateKeys.ITEM_TYPE_EQUIPMENT)
 	var instances_after: int = GameManager.get_owned_instances().size()
 	print("  ① add_to_inventory（装備 600 本） -> %d 本入った ／ 個体 %d -> %d（+600 が正解）" % [
 		granted, instances_before, instances_after
@@ -6829,7 +6835,7 @@ func _report_inventory_no_capacity() -> void:
 	if GameManager.is_in_dungeon():
 		GameManager.abandon_dungeon_run()
 	if GameManager.start_dungeon_run():
-		var _got: int = GameManager.add_to_dungeon_bag("weapon_iron_sword", 2)
+		var _got: int = GameManager.add_to_dungeon_bag("weapon_sword_swift", 2)
 		var _got2: int = GameManager.add_to_dungeon_bag("construction_material_1", 3)
 		_walk_dungeon_to_boss()
 		var _cleared: bool = GameManager.clear_dungeon_boss()
@@ -6837,7 +6843,7 @@ func _report_inventory_no_capacity() -> void:
 		print("  ⑤ retreat_from_dungeon -> 持ち帰った %s ／ 鍵 left_behind が無い=%s（true が正解）" % [
 			str(report.get("granted", {})), str(not report.has("left_behind"))
 		])
-		if int((report.get("granted", {}) as Dictionary).get("weapon_iron_sword", 0)) != 2 or report.has("left_behind"):
+		if int((report.get("granted", {}) as Dictionary).get("weapon_sword_swift", 0)) != 2 or report.has("left_behind"):
 			push_error("[DebugBoot] 撤退で装備が全部持ち帰れていない")
 
 	print("  ⚠ 最後に 持ち物 %d 件" % _inventory_entry_count())
@@ -7304,7 +7310,7 @@ func _report_glyphs() -> void:
 	for enemy_id: String in ["enemy_slime", "enemy_wolf", "boss_slime_king", "enemy_dbg_react"]:
 		print("  敵    %-20s %s" % [enemy_id, Glyphs.for_enemy(enemy_id)])
 	var samples: Array[String] = [
-		"weapon_iron_sword", "armor_iron_helm", "part_gem_atk_1", "part_charm_def_1",
+		"weapon_sword_swift", "armor_iron_helm", "part_gem_atk_1", "part_charm_def_1",
 		"part_emblem_crit_rate_1", "part_rune_buff_1", "construction_material_1",
 		"stamina_potion", "dungeon_potion_heal", "dungeon_potion_revive", "not_an_item",
 	]
@@ -9203,7 +9209,7 @@ class ShotTaker extends Node:
 	const PREPARE_EQUIPMENT: String = "equipment"
 	const AFTER_PART_POPOVER: String = "part_popover"
 	# ⚠ 下ごしらえで使う品（⚠ 外側の `LAYOUT_PART_*` と同じ字。⚠ 内側から外の const は引けない）。
-	const PART_WEAPON_ID: String = "weapon_iron_sword"
+	const PART_WEAPON_ID: String = "weapon_sword_swift"
 	const PART_ITEM_ID: String = "part_gem_atk_1"
 	const PART_CHARACTER_ID: String = "char_swordsman"
 	const AFTER_LOOT_OVERLAY: String = "loot_overlay"
@@ -10251,7 +10257,7 @@ func _report_base_chest() -> void:
 			legend_grade, common_grade,
 		],
 		GameManager.is_chest_item("floor_1_legendary") and legend_grade > common_grade
-			and not GameManager.is_chest_item("weapon_wooden_sword"),
+			and not GameManager.is_chest_item("weapon_sword_guard"),
 	])
 	chest_icon.queue_free()
 	# ⚠ 知らせの窓の縁と題の帯（2026-09-18・人間の決定「全部のモーダルに付ける」）。
@@ -10388,7 +10394,7 @@ func _report_drag_cursor() -> void:
 		config.icon_size_px, config.glyph_font_size, config.icon_border_width,
 	])
 	# ⚠ 装備（等級3）／ 装飾（中身の絵あり）／ 素材。
-	var cases: Array = [["weapon_iron_sword", 3], ["part_gem_hp_2", 0], ["part_rune_buff_1", 0]]
+	var cases: Array = [["weapon_sword_swift", 3], ["part_gem_hp_2", 0], ["part_rune_buff_1", 0]]
 	for material_id: Variant in MasterDataLoader.get_all_items():
 		if str(MasterDataLoader.get_item(str(material_id)).get(GameManager.ITEM_MASTER_ITEM_TYPE, "")) == GameStateKeys.ITEM_TYPE_MATERIAL:
 			cases.append([str(material_id), 0])
@@ -10463,7 +10469,7 @@ class UiFlowRunner extends Node:
 	const TrainingListScreenRef: GDScript = preload("res://scenes/guild/training_list_screen.gd")
 	const HERO: String = "char_swordsman"
 	const OTHER: String = "char_archer"
-	const WEAPON_ID: String = "weapon_iron_sword"
+	const WEAPON_ID: String = "weapon_sword_swift"
 	const PART_ID: String = "part_gem_atk_1"
 	const POTION_ID: String = "stamina_potion"
 	const WAIT_FRAMES: int = 4
@@ -10482,6 +10488,7 @@ class UiFlowRunner extends Node:
 		var instance_id: String = await _flow_equip_tab()
 		await _flow_belongings(instance_id)
 		await _flow_belongings_tabs()
+		await _flow_equip_craft()
 		await _flow_facility()
 		await _flow_base_hub()
 		await _flow_barracks()
@@ -10807,6 +10814,83 @@ class UiFlowRunner extends Node:
 			and unlocks.get(BaseFacilityBar.FORGE, "?") == unlocks.get(BaseFacilityBar.BELONGINGS, "!"))
 		await _flow_records()
 
+	# --- 回HB-2 装備を作る・職ごとの武器（2026-10-07・`EXEC_EQUIP_CRAFT.md` §5・人間「⚠ １あ　で固有持ってるものも作る　２あ　３い　４あ　５あ　６あ」） ---
+	# ⚠ 終わりにセーブの読み直しで状態を戻す（⚠ 後の検査の数を動かさない）。
+
+	func _flow_equip_craft() -> void:
+		const WORKSHOP_SCREEN: String = "res://scenes/guild/workshop_screen.tscn"
+		const SWORD: String = "weapon_sword_guard"
+		const BOW: String = "weapon_bow_short"
+		var weapon_slot: String = GameStateKeys.EQUIP_WEAPON
+		GameManager.add_to_inventory(SWORD, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		var sword: String = _instance_of(SWORD)
+		# ① ジャンル（`EQ-1`）。
+		_check("ジャンル：剣士は剣を着けられる", sword != "" and GameManager.get_equip_reject_reason(HERO, weapon_slot, sword) == "")
+		_check("ジャンル：弓兵は剣を着けられない（%s）" % GameManager.get_equip_reject_reason(OTHER, weapon_slot, sword),
+			sword != "" and GameManager.get_equip_reject_reason(OTHER, weapon_slot, sword).begins_with("genre"))
+		# ② 育成の装備タブの候補。
+		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: OTHER})
+		if t == null:
+			return
+		await _press(_tab_button(t, 3))
+		await _press(t.find_child("Slot_" + weapon_slot, true, false))
+		_check("ジャンル：弓兵の武器の候補に剣が出ない", t.find_child("Candidate_" + sword, true, false) == null)
+		# ③ 等級の伸び（⚠ マイナスは伸ばさない＝人間「⚠ ６あ」）。
+		var g1: Dictionary = GameManager.get_item_stats_at_grade("weapon_sword_swift", 1)
+		var g5: Dictionary = GameManager.get_item_stats_at_grade("weapon_sword_swift", 5)
+		_check("等級：細身の剣 等級5 の HP は %d のまま・攻撃速度は %d → %d" % [int(g5.get("hp", 0)), int(g1.get("atkspd", 0)), int(g5.get("atkspd", 0))],
+			int(g5.get("hp", 0)) == int(g1.get("hp", 0)) and int(g1.get("hp", 0)) < 0 and int(g5.get("atkspd", 0)) > int(g1.get("atkspd", 0)))
+		# ④ 作業場で作って受け取る。
+		var snapshot: Dictionary = GameManager.get_state()
+		var before_bows: int = 0
+		for view: Variant in GameManager.get_owned_instances():
+			if str((view as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == BOW:
+				before_bows += 1
+		GameManager.add_material("forging_material_1", 10)
+		var ws: Node = await _open(WORKSHOP_SCREEN, {})
+		if ws == null:
+			return
+		var rows: int = ws.find_children("RecipeRow_craft_*", "", true, false).size()
+		var row: Node = ws.find_child("RecipeRow_craft_" + BOW, true, false)
+		_check("作業場：装備のレシピが並ぶ（%d 行）" % rows, row != null and rows == MasterDataLoader.get_all_recipes().size())
+		var queued_before: int = GameManager.get_crafting_queue().size()
+		await _press(null if row == null else row.find_child("StartButton", true, false))
+		_check("作業場：短弓の「作る」で始まる（キュー %d → %d）" % [queued_before, GameManager.get_crafting_queue().size()], GameManager.get_crafting_queue().size() == queued_before + 1)
+		for entry: Variant in GameManager.get("_state")[GameStateKeys.CRAFTING_QUEUE]:
+			if entry is Dictionary:
+				(entry as Dictionary)[GameStateKeys.CRAFT_STARTED_AT] = 0
+		GameManager.refresh_crafting_queue_if_needed()
+		await _wait()
+		await _press(ws.find_child("CollectButton", true, false))
+		var after_bows: int = 0
+		var bow_grade: int = 0
+		for view: Variant in GameManager.get_owned_instances():
+			if str((view as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == BOW:
+				after_bows += 1
+				bow_grade = int((view as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 0))
+		_check("作業場：受け取ると短弓の個体が増える（%d → %d・等級 %d）" % [before_bows, after_bows, bow_grade], after_bows == before_bows + 1 and bow_grade == 1)
+		# ⑤ セーブの置き換え（⚠ 古い剣を弓兵が着けていたセーブを読む）。
+		var save: Dictionary = snapshot.duplicate(true)
+		((save[GameStateKeys.EQUIPMENT_INSTANCES] as Dictionary)[sword] as Dictionary)[GameStateKeys.INSTANCE_ITEM_ID] = "weapon_iron_sword"
+		var growth: Dictionary = save[GameStateKeys.CHARACTER_GROWTH]
+		for character_id: Variant in growth:
+			var equipment: Dictionary = (growth[character_id] as Dictionary)[GameStateKeys.GROWTH_EQUIPMENT]
+			if equipment.get(weapon_slot) != null and str(equipment[weapon_slot]) == sword:
+				equipment[weapon_slot] = null
+		# ⚠ 下ごしらえでは育成の行が剣士にしか無い（⚠ 弓兵はまだ作られていない）＝⚠ 剣士の行を写して弓兵の行を作る。
+		if not growth.has(OTHER):
+			growth[OTHER] = (growth[HERO] as Dictionary).duplicate(true)
+			var blank: Dictionary = {}
+			for slot: String in GameManager.get_equip_slots():
+				blank[slot] = null
+			(growth[OTHER] as Dictionary)[GameStateKeys.GROWTH_EQUIPMENT] = blank
+		((growth[OTHER] as Dictionary)[GameStateKeys.GROWTH_EQUIPMENT] as Dictionary)[weapon_slot] = sword
+		var loaded: bool = GameManager.load_state(save)
+		_check("置き換え：古い剣は細身の剣になる（%s）" % str(GameManager.get_equipment_instance(sword).get(GameStateKeys.INSTANCE_ITEM_ID, "")),
+			loaded and str(GameManager.get_equipment_instance(sword).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "weapon_sword_swift")
+		_check("置き換え：弓兵が着けていた剣は外れる", GameManager.get_equipped_instance_id(OTHER, weapon_slot) == "")
+		var _restored: bool = GameManager.load_state(snapshot)
+
 	# --- 回HB-1 拠点の整理（2026-10-07・人間「⚠ 育成にいくつかまとめる　２じゃあ　３はい　４あ　５あだけど　拠点が見れるビューもとグルで見れるようにする」） ---
 	# ⚠ 状態は変えない（⚠ 宝箱を足さない＝後の検査の数を動かさない）。⚠ 終わりは記録の画面（⚠ 次の `_flow_barracks()` が帯を押す）。
 
@@ -11120,6 +11204,28 @@ class UiFlowRunner extends Node:
 		print("  [追い打ち] 記録の行 %d" % reacts)
 		_check("特殊効果：竜殺しの大剣の追い打ちが戦闘で発火する（記録 %d 行）" % reacts, reacts > 0)
 		GameManager.unequip_instance(HERO, GameStateKeys.EQUIP_WEAPON)
+		# ⚠ 10-07（回HB-2・人間「⚠ １あ　で固有持ってるものも作る」）：⚠ 弓と杖の特殊効果も戦闘で動くか（⚠ 同じ見方）。
+		#   ⚠ 先手の矢＝始めの20秒の強化（記録に状態の行）／ 癒しの余波＝当たるたびの回復（記録に反応の行）。
+		var special_weapons: Dictionary = {OTHER: "weapon_bow_gale", "char_priest": "weapon_staff_grove"}
+		for wielder: String in special_weapons:
+			var special_item: String = str(special_weapons[wielder])
+			GameManager.add_to_inventory(special_item, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+			_check("特殊効果：%s を %s が着けられる" % [special_item, wielder],
+				GameManager.equip_instance(wielder, GameStateKeys.EQUIP_WEAPON, _instance_of(special_item)))
+		b = await _open(BATTLE, {
+			TransferKeys.STAGE_ID: "stage_dbg_area",
+			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+		})
+		await get_tree().create_timer(FOLLOW_STRIKE_WAIT_SEC).timeout
+		BattleLog.flush()
+		log_text = FileAccess.get_file_as_string(BattleLog.FILE_PATH)
+		var first_shot: int = log_text.count("status_eqfx_first_shot")
+		var grove_mend: int = log_text.count("status_eqfx_grove_mend")
+		print("  [先手の矢] 記録の行 %d ／ [癒しの余波] 記録の行 %d" % [first_shot, grove_mend])
+		_check("特殊効果：疾風の大弓の先手の矢が戦闘でかかる（記録 %d 行）" % first_shot, first_shot > 0)
+		_check("特殊効果：聖樹の杖の癒しの余波が戦闘で発火する（記録 %d 行）" % grove_mend, grove_mend > 0)
+		for wielder: String in special_weapons:
+			GameManager.unequip_instance(wielder, GameStateKeys.EQUIP_WEAPON)
 
 	# --- 集中の道具（2026-09-29・回UI-仕組み⑤・手本 PomoSkin / Focus・人間「⚠ 1あ　⚠ 2あ　⚠ 3あ　⚠ 4い」） ---
 	#   ⚠ 選んだ道具は設定のファイル（⚠ 検査用に差し替えてある）。
@@ -11833,9 +11939,9 @@ class UiFlowRunner extends Node:
 			and _label_text(r, "Stage_" + first_stage, "ValueLabel") == tr("ui_records_cleared" if GameManager.is_stage_cleared(first_stage) else "ui_records_not_cleared"))
 		# ⚠ 前のセーブ（図鑑の装備に grades が無い）を読むと、⚠ 持っている個体の等級まで埋まる（`EXEC_CODEX_GRADES.md` §5）。
 		#   ⚠ ここまでの手で装備を手放していることがある＝⚠ 木の剣を1本入れて等級3まで鍛えてから見る（⚠ 本番の口だけ）。
-		GameManager.add_to_inventory("weapon_wooden_sword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		GameManager.add_to_inventory("weapon_sword_guard", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
 		for raw: Variant in GameManager.get_owned_instances():
-			if str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "weapon_wooden_sword" \
+			if str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "weapon_sword_guard" \
 					and int((raw as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 1)) == 1:
 				var sword_id: String = str((raw as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
 				GameManager.forge_equipment(sword_id)
@@ -12629,8 +12735,10 @@ class UiFlowRunner extends Node:
 
 	func _flow_return_paths() -> void:
 		const ADVENTURE_SHOP: String = "res://scenes/guild/shop_screen.tscn"
-		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
-		var instance_id: String = _instance_of(WEAPON_ID)
+		# ⚠ 10-07（回HB-2・`EQ-1`）：⚠ 弓兵が持てるのは弓＝⚠ 剣（`WEAPON_ID`）ではなく弓で回る。
+		const OTHER_WEAPON_ID: String = "weapon_bow_heavy"
+		GameManager.add_to_inventory(OTHER_WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		var instance_id: String = _instance_of(OTHER_WEAPON_ID)
 		# ① 育成（装備タブ）→ 鍛冶場 → 戻る → 同じキャラの装備タブ → 戻る → 一覧。
 		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: OTHER, TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_EQUIP})
 		if t == null:
@@ -13205,6 +13313,10 @@ class UiFlowRunner extends Node:
 				continue
 			var bar: Node = screen.find_child("MaterialBar", true, false)
 			var ids: Array[String] = GameManager.get_material_ids_of_series(str(headers[path]))
+			# ⚠ 10-07（回HB-2）：⚠ 作業場は2系統（鍛冶の欠片・結晶 ＋ 装飾）＝⚠ 並びは画面の口から引く・⚠ 色は系統ごとに違えばよい（⚠ 段の色は系統をまたいで同じ）。
+			var mixed: bool = path == WORKSHOP_SCREEN
+			if mixed:
+				ids = WorkshopScreen.header_material_ids()
 			var chips: int = 0 if bar == null else bar.find_children("Chip_*", "", true, false).size()
 			var first: Node = null if bar == null else bar.find_child("Chip_" + ids[0], true, false)
 			_check("素材の帯：%s の見出しに %s の %d 件（%d）・「＋」" % [path.get_file(), str(headers[path]), ids.size(), chips],
@@ -13218,7 +13330,8 @@ class UiFlowRunner extends Node:
 					var html: String = (icon_node as CanvasItem).modulate.to_html(false)
 					if not (html in colors):
 						colors.append(html)
-			_check("素材の帯：%s の4段の絵が別々の色（%s）" % [path.get_file(), str(colors)], colors.size() == ids.size())
+			if not mixed:
+				_check("素材の帯：%s の4段の絵が別々の色（%s）" % [path.get_file(), str(colors)], colors.size() == ids.size())
 			# ⚠ 「＋」の動き（10-06・人間「⚠ 素材周りにふちがつくのではなくプラスボタンが押せると気づかせる」）。
 			var hit_node: Node = null if first == null else first.find_child("Hit", false, false)
 			var plus_node: Node = null if first == null else first.find_child("PlusMark", true, false)

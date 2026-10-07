@@ -199,8 +199,10 @@ func _candidates_of(slot: String) -> Array:
 	var result: Array = []
 	for entry: Variant in GameManager.get_owned_instances():
 		var view: Dictionary = entry
-		var definition: Dictionary = MasterDataLoader.get_item(str(view.get(GameStateKeys.INSTANCE_ITEM_ID, "")))
-		if str(definition.get(GameManager.ITEM_MASTER_EQUIP_SLOT, "")) == slot:
+		var item_id: String = str(view.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+		var definition: Dictionary = MasterDataLoader.get_item(item_id)
+		# ⚠ 10-07（回HB-2・`EQ-1`）：⚠ 持てないジャンルの武器は並べない。
+		if str(definition.get(GameManager.ITEM_MASTER_EQUIP_SLOT, "")) == slot and GameManager.can_wield(_character_id, item_id):
 			result.append(view)
 	return result
 
@@ -229,8 +231,9 @@ func _stats_text(stats: Dictionary) -> String:
 		var value: int = int(stats.get(stat_key, 0))
 		if value == 0:
 			continue
-		var shown: String = ("%d%%" % value) if GameManager.is_percent_stat(stat_key) else str(value)
-		parts.append("%s +%s" % [tr("ui_training_stat_" + stat_key), shown])
+		# ⚠ 10-07（回HB-2）：⚠ 型の「下げる値」はマイナス＝符号は値から（⚠ 「+-10」にしない）。
+		var shown: String = ("%+d%%" % value) if GameManager.is_percent_stat(stat_key) else ("%+d" % value)
+		parts.append("%s %s" % [tr("ui_training_stat_" + stat_key), shown])
 	return "  ".join(parts)
 
 

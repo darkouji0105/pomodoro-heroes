@@ -133,92 +133,31 @@
 	  "sort_order": 18
 	},
 	{
-	  "item_id": "weapon_wooden_sword",
+	  "item_id": "weapon_sword_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",
 	  "equip_slot": "weapon",
-	  "equip_stats": { "atk": 3 },
+	  "weapon_genre": "sword",
+	  "equip_stats": { "hp": 20, "atk": 6, "atkspd": -5 },
 	  "sort_order": 20
 	},
 	{
-	  "item_id": "weapon_iron_sword",
+	  "item_id": "weapon_sword_swift",
 	  "storage": "inventory",
 	  "item_type": "equipment",
 	  "equip_slot": "weapon",
-	  "equip_stats": { "atk": 8 },
+	  "weapon_genre": "sword",
+	  "equip_stats": { "hp": -10, "atk": 5, "atkspd": 10 },
 	  "sort_order": 21
 	},
 	{
-	  "item_id": "weapon_steel_sword",
+	  "item_id": "weapon_sword_rune",
 	  "storage": "inventory",
 	  "item_type": "equipment",
 	  "equip_slot": "weapon",
-	  "equip_stats": { "atk": 15 },
+	  "weapon_genre": "sword",
+	  "equip_stats": { "atk": 6, "haste": 10, "crit_rate": -3 },
 	  "sort_order": 22
-	},
-	{
-	  "item_id": "armor_leather_cap",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "head",
-	  "equip_stats": { "def": 2 },
-	  "sort_order": 30
-	},
-	{
-	  "item_id": "armor_iron_helm",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "head",
-	  "equip_stats": { "hp": 10, "def": 5 },
-	  "sort_order": 31
-	},
-	{
-	  "item_id": "armor_leather_vest",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "armor",
-	  "equip_stats": { "hp": 15, "def": 4 },
-	  "sort_order": 40
-	},
-	{
-	  "item_id": "armor_iron_mail",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "armor",
-	  "equip_stats": { "hp": 30, "def": 9 },
-	  "sort_order": 41
-	},
-	{
-	  "item_id": "armor_leather_boots",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "legs",
-	  "equip_stats": { "spd": 4 },
-	  "sort_order": 50
-	},
-	{
-	  "item_id": "armor_iron_greaves",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "legs",
-	  "equip_stats": { "def": 4, "spd": 2 },
-	  "sort_order": 51
-	},
-	{
-	  "item_id": "acc_ring_power",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "accessory",
-	  "equip_stats": { "atk": 4 },
-	  "sort_order": 60
-	},
-	{
-	  "item_id": "acc_amulet_life",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "accessory",
-	  "equip_stats": { "hp": 25 },
-	  "sort_order": 61
 	},
 	{
 	  "item_id": "weapon_dragon_greatsword",
@@ -226,9 +165,142 @@
 	  "storage": "inventory",
 	  "item_type": "equipment",
 	  "equip_slot": "weapon",
+	  "weapon_genre": "sword",
 	  "equip_stats": { "atk": 18 },
 	  "special_effect": "eqfx_follow_strike",
 	  "sort_order": 23
+	},
+	{
+	  "item_id": "weapon_bow_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "bow",
+	  "equip_stats": { "hp": 15, "atk": 6, "atkspd": -5 },
+	  "sort_order": 24
+	},
+	{
+	  "item_id": "weapon_bow_short",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "bow",
+	  "equip_stats": { "atk": 4, "atkspd": 12, "crit_dmg": -10 },
+	  "sort_order": 25
+	},
+	{
+	  "item_id": "weapon_bow_hunter",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "bow",
+	  "equip_stats": { "hp": -10, "atk": 5, "haste": 10 },
+	  "sort_order": 26
+	},
+	{
+	  "item_id": "weapon_bow_gale",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "bow",
+	  "equip_stats": { "atk": 16 },
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_first_shot",
+	  "sort_order": 27
+	},
+	{
+	  "item_id": "weapon_staff_oak",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "staff",
+	  "equip_stats": { "hp": 15, "mag": 6, "haste": -5 },
+	  "sort_order": 28
+	},
+	{
+	  "item_id": "weapon_staff_quick",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "staff",
+	  "equip_stats": { "hp": -10, "mag": 5, "atkspd": 10 },
+	  "sort_order": 29
+	},
+	{
+	  "item_id": "weapon_staff_prayer",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "staff",
+	  "equip_stats": { "mag": 6, "atkspd": -5, "haste": 12 },
+	  "sort_order": 30
+	},
+	{
+	  "item_id": "weapon_staff_grove",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "staff",
+	  "equip_stats": { "hp": 10, "mag": 16 },
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_grove_mend",
+	  "sort_order": 31
+	},
+	{
+	  "item_id": "armor_leather_cap",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": { "def": 2 },
+	  "sort_order": 32
+	},
+	{
+	  "item_id": "armor_iron_helm",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": { "hp": 10, "def": 5 },
+	  "sort_order": 33
+	},
+	{
+	  "item_id": "armor_head_guard",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": { "hp": 10, "def": 5, "spd": -3 },
+	  "sort_order": 34
+	},
+	{
+	  "item_id": "armor_head_swift",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": { "hp": -5, "def": 2, "spd": 5 },
+	  "sort_order": 35
+	},
+	{
+	  "item_id": "armor_head_sage",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": { "def": -2, "mdef": 4, "haste": 5 },
+	  "sort_order": 36
+	},
+	{
+	  "item_id": "armor_leather_vest",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": { "hp": 15, "def": 4 },
+	  "sort_order": 37
+	},
+	{
+	  "item_id": "armor_iron_mail",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": { "hp": 30, "def": 9 },
+	  "sort_order": 38
 	},
 	{
 	  "item_id": "armor_thorn_mail",
@@ -238,7 +310,87 @@
 	  "equip_slot": "armor",
 	  "equip_stats": { "hp": 30, "def": 10 },
 	  "special_effect": "eqfx_thorn",
+	  "sort_order": 39
+	},
+	{
+	  "item_id": "armor_body_guard",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": { "hp": 30, "def": 8, "spd": -4 },
+	  "sort_order": 40
+	},
+	{
+	  "item_id": "armor_body_swift",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": { "hp": -10, "def": 3, "atkspd": 6 },
+	  "sort_order": 41
+	},
+	{
+	  "item_id": "armor_body_sage",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": { "def": -3, "mdef": 8, "haste": 6 },
 	  "sort_order": 42
+	},
+	{
+	  "item_id": "armor_leather_boots",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": { "spd": 4 },
+	  "sort_order": 43
+	},
+	{
+	  "item_id": "armor_iron_greaves",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": { "def": 4, "spd": 2 },
+	  "sort_order": 44
+	},
+	{
+	  "item_id": "armor_legs_guard",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": { "hp": 10, "def": 5, "spd": -3 },
+	  "sort_order": 45
+	},
+	{
+	  "item_id": "armor_legs_swift",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": { "hp": -5, "def": 1, "spd": 8 },
+	  "sort_order": 46
+	},
+	{
+	  "item_id": "armor_legs_sage",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": { "mdef": 3, "haste": 5, "spd": -2 },
+	  "sort_order": 47
+	},
+	{
+	  "item_id": "acc_ring_power",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": { "atk": 4 },
+	  "sort_order": 48
+	},
+	{
+	  "item_id": "acc_amulet_life",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": { "hp": 25 },
+	  "sort_order": 49
 	},
 	{
 	  "item_id": "acc_guardian_charm",
@@ -248,7 +400,31 @@
 	  "equip_slot": "accessory",
 	  "equip_stats": { "hp": 20 },
 	  "special_effect": "eqfx_last_guard",
-	  "sort_order": 62
+	  "sort_order": 50
+	},
+	{
+	  "item_id": "acc_guard",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": { "hp": 25, "crit_rate": -3 },
+	  "sort_order": 51
+	},
+	{
+	  "item_id": "acc_swift",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": { "hp": -10, "atkspd": 8 },
+	  "sort_order": 52
+	},
+	{
+	  "item_id": "acc_sage",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": { "hp": -10, "haste": 8 },
+	  "sort_order": 53
 	},
 	{
 	  "item_id": "part_gem_hp_1",
