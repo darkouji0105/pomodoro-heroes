@@ -44,6 +44,8 @@ var _tabs: PaperTabs = null
 
 
 func _ready() -> void:
+	# ⚠ 10-07：⚠ 入手先の窓から戻ってきたときの姿を預ける（`SceneManager.set_return_data_provider()`）。
+	SceneManager.set_return_data_provider(_source_return_data)
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	_selected = str(data.get(TransferKeys.FORGE_INSTANCE_ID, ""))
 	header.back_pressed.connect(_on_back_pressed)
@@ -213,13 +215,7 @@ func _build_forge_page() -> VBoxContainer:
 		need.text = tr("ui_forge_need") % [amount, owned]
 		need.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		line.add_child(need)
-		# ⚠ 10-06（`NAV-19`）：⚠ 入手先の窓（⚠ 行った先の「戻る」でこの品を選んだ鍛冶場へ戻る）。
-		# ⚠ 紙の上なので紙の札（⚠ Ghost は紙の上で読めない＝撮った絵）。
-		var source: Button = UiButton.create_paper_choice("ui_source_open")
-		source.name = "SourceButton"
-		source.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		source.pressed.connect(ItemSourceWindow.open.bind(self, material_id, amount, {TransferKeys.FORGE_INSTANCE_ID: _selected}))
-		line.add_child(source)
+		# ⚠ 「入手先を見る」は 10-07 に外した（⚠ 人間「⚠ 減らして」）＝足りないまま「鍛える」を押すと窓・見出しの素材の「＋」。
 		page.add_child(cost_row)
 
 		# 確定成功の札（`EQ-7`）。⚠ 必ず成功する段・札が無いときは押せない。
@@ -622,3 +618,8 @@ func _value_text(stat_key: String, stats: Dictionary) -> String:
 		return ""
 	var value: int = int(stats.get(stat_key, 0))
 	return "%d%%" % value if GameManager.is_percent_stat(stat_key) else str(value)
+
+
+# 入手先の窓から戻ってきたときの姿（⚠ 同じ品を選んだ鍛冶場）。
+func _source_return_data() -> Dictionary:
+	return {TransferKeys.FORGE_INSTANCE_ID: _selected}

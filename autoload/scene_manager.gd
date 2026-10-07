@@ -63,6 +63,7 @@ func _spawn_debug_overlay() -> void:
 func change_scene(scene_path: String) -> void:
 	print("[SceneManager] change_scene -> %s" % scene_path)
 	_return_stack.clear()
+	_return_provider = Callable()
 	_record_history()
 	# ⚠ 右上の通貨は既定で出す（2026-09-09）。⚠ 隠したい画面が自分の `_ready()` で消す。
 	#   ⚠ ここで戻さないと、⚠ ポモドーロから抜けたあと通貨が消えたままになる。
@@ -113,8 +114,26 @@ func has_return() -> bool:
 	return not _return_stack.is_empty()
 
 
+# ⚠⚠ いまの画面の「戻ってきたときの姿」（2026-10-07）。⚠ 右上の通貨・見出しの素材の「＋」は画面の状態を知らないので、
+#   ⚠ 画面が自分の `_ready()` で口を預けておく（⚠ 預けていなければ空＝今までどおり素の姿で開き直す）。
+#   ⚠ 画面を移るたびに捨てる（⚠ 前の画面の口を呼ばない）。⚠ 入手先の窓（`ItemSourceWindow.open()`）が使う。
+var _return_provider: Callable = Callable()
+
+
+func set_return_data_provider(provider: Callable) -> void:
+	_return_provider = provider
+
+
+func current_return_data() -> Dictionary:
+	if not _return_provider.is_valid():
+		return {}
+	var data: Variant = _return_provider.call()
+	return (data as Dictionary).duplicate(true) if data is Dictionary else {}
+
+
 func _go_keeping_returns(scene_path: String, data: Dictionary) -> void:
 	_transfer_data = data.duplicate(true)
+	_return_provider = Callable()
 	_record_history()
 	ResourceHud.set_shown(true)
 	SaveManager.autosave()
@@ -134,6 +153,7 @@ func change_scene_with_data(scene_path: String, data: Dictionary) -> void:
 	print("[SceneManager] change_scene_with_data -> %s, data=%s" % [scene_path, data])
 	_transfer_data = data.duplicate(true)
 	_return_stack.clear()
+	_return_provider = Callable()
 	_record_history()
 	# ⚠ 右上の通貨は既定で出す（2026-09-09）。⚠ 隠したい画面が自分の `_ready()` で消す。
 	#   ⚠ ここで戻さないと、⚠ ポモドーロから抜けたあと通貨が消えたままになる。

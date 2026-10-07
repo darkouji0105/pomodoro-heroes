@@ -163,6 +163,20 @@ func _create_recipe_row(recipe: Dictionary) -> void:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(name_label)
 
+	# ⚠ 10-07（人間「⚠ 足りないボタンは不足とは出さないで数字の色で」）：⚠ 材料の「持っている数 / 要る数」。⚠ 足りなければ赤。
+	var have_label: Label = Label.new()
+	have_label.name = "HaveLabel"
+	var have_parts: Array[String] = []
+	var inputs: Variant = recipe.get(GameManager.RECIPE_INPUTS, [])
+	if inputs is Array:
+		for entry: Variant in (inputs as Array):
+			if entry is Dictionary:
+				var input_id: String = str((entry as Dictionary).get(GameManager.RECIPE_IO_ITEM_ID, ""))
+				have_parts.append("%d / %d" % [GameManager.get_resource_amount(input_id), int((entry as Dictionary).get(GameManager.RECIPE_IO_COUNT, 0))])
+	have_label.text = "  ".join(have_parts)
+	have_label.theme_type_variation = &"" if _can_afford(recipe) else &"ErrorLabel"
+	row.add_child(have_label)
+
 	var duration_label: Label = Label.new()
 	duration_label.name = "DurationLabel"
 	duration_label.text = _format_duration(int(recipe.get(GameManager.RECIPE_DURATION_SEC, 0)))
@@ -175,19 +189,7 @@ func _create_recipe_row(recipe: Dictionary) -> void:
 	start_button.disabled = _queue_is_full()
 	start_button.pressed.connect(_on_start_pressed.bind(recipe_id))
 	row.add_child(start_button)
-	# ⚠ 10-06（`NAV-19`）：⚠ 材料ごとに入手先（⚠ 素材だけ）。
-	var inputs: Variant = recipe.get(GameManager.RECIPE_INPUTS, [])
-	if inputs is Array:
-		for entry: Variant in (inputs as Array):
-			if not (entry is Dictionary):
-				continue
-			var input_id: String = str((entry as Dictionary).get(GameManager.RECIPE_IO_ITEM_ID, ""))
-			if not GameManager.get_material_ids().has(input_id):
-				continue
-			var source: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_source_open")
-			source.name = "SourceButton_" + input_id
-			source.pressed.connect(ItemSourceWindow.open.bind(self, input_id, int((entry as Dictionary).get(GameManager.RECIPE_IO_COUNT, 0)), {}))
-			row.add_child(source)
+	# ⚠ 「入手先を見る」は 10-07 に外した（⚠ 人間「⚠ 減らして」）＝足りないまま「作る」を押すと窓・見出しの素材の「＋」。
 
 	recipe_list.add_child(row)
 

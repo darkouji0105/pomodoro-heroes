@@ -9890,9 +9890,15 @@ class ShotTaker extends Node:
 			for _i: int in range(20):
 				await get_tree().process_frame
 		elif kind == AFTER_ITEM_SOURCE:
-			var source_button: Node = screen.find_child("SourceButton", true, false)
+			# ⚠ 10-07：⚠ 「入手先を見る」は外した＝見出しの素材の「＋」（いちばん左のチップ）を押す。
+			var source_bar: Node = screen.find_child("MaterialBar", true, false)
+			var source_button: Node = null
+			if source_bar != null:
+				for hit_candidate: Node in source_bar.find_children("Hit", "Button", true, false):
+					source_button = hit_candidate
+					break
 			if not (source_button is BaseButton):
-				push_error("[DebugBoot] ⚠ %s で「入手先を見る」が無い" % shot_name)
+				push_error("[DebugBoot] ⚠ %s で見出しの素材の「＋」が無い" % shot_name)
 				return false
 			(source_button as BaseButton).pressed.emit()
 			for _i: int in range(10):
@@ -10794,12 +10800,16 @@ class UiFlowRunner extends Node:
 			GameManager.call("_remove_from_inventory", TICKET, have)
 		GameManager.add_gold(99999)
 		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
-		# 0 枚：⚠ 掲示板の難ダンジョンは押せず「ノルマ札が要る」。
+		# 0 枚：⚠ 10-07（人間「⚠ 同じ作りで」「⚠ 数字の色で」）＝「受ける」は押せる・札の数は赤・押すと札の入手先の窓（⚠ 準備へは移らない）。
 		var q: Node = await _open(ADVENTURE, {})
 		await _press(_tab_button(q, 1))
 		var take: Node = q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false)
-		_check("ノルマ札：0 枚なら難ダンジョンの「受ける」が押せない・「%s」" % _label_text(q, "DungeonCard_" + dungeon_id, "QuotaTicketLabel"),
-			take is BaseButton and (take as BaseButton).disabled and _label_text(q, "DungeonCard_" + dungeon_id, "QuotaTicketLabel") == tr("ui_quota_ticket_needed"))
+		var ticket_label: Node = q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("QuotaTicketLabel", true, false)
+		_check("ノルマ札：0 枚でも「受ける」は押せる・札の数は赤（%s）" % _label_text(q, "DungeonCard_" + dungeon_id, "QuotaTicketLabel"),
+			take is BaseButton and not (take as BaseButton).disabled and ticket_label is Label and (ticket_label as Label).theme_type_variation == &"SmallErrorLabel")
+		await _press(take, OPEN_FRAMES)
+		_check("ノルマ札：0 枚で「受ける」を押すと札の入手先の窓（掲示板のまま）", _path_of(get_tree().current_scene) == ADVENTURE and _source_window(q) != null)
+		await _close_modal(q)
 		# 上限：⚠ 3 枚持っていたらショップで買えない（⚠ 金貨も棚も減らない）。
 		GameManager.add_to_inventory(TICKET, GameManager.get_quota_ticket_max(), GameStateKeys.ITEM_TYPE_CONSUMABLE)
 		var gold: int = int(GameManager.get_state().get(GameStateKeys.GOLD, 0))
@@ -12577,17 +12587,18 @@ class UiFlowRunner extends Node:
 		b = get_tree().current_scene
 		_check("戻り先：出撃の準備 → 育成 →「戻る」で同じ依頼の準備（%s・戻り先 %s）" % [str(b.get("_stage_id")), str(b.get("_return_path")).get_file()],
 			_path_of(b) == BARRACKS and str(b.get("_stage_id")) == stage_id and str(b.get("_return_path")) == ADVENTURE)
-		# ⑦ 掲示板（高難度・札0）→ ショップで買う → 戻る → 掲示板の高難度タブ。
+		# ⑦ 掲示板（高難度・札0）→「受ける」→ 札の入手先の窓 →「ショップへ」→ 戻る → 掲示板の高難度タブ。
 		var have: int = GameManager.get_quota_ticket_count()
 		if have > 0:
 			GameManager.call("_remove_from_inventory", GameStateKeys.ITEM_QUOTA_TICKET, have)
 		var q: Node = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 1})
 		if q == null:
 			return
-		var shop_link: Node = q.find_child("ShopLinkButton", true, false)
-		_check("戻り先：札が足りない高難度の札に「ショップで買う」", shop_link is BaseButton)
-		await _press(shop_link, OPEN_FRAMES)
-		_check("戻り先：「ショップで買う」でショップ", _path_of(get_tree().current_scene) == ADVENTURE_SHOP)
+		_check("戻り先：「ショップで買う」は無い（⚠ 10-07 に窓へそろえた）", q.find_child("ShopLinkButton", true, false) == null)
+		await _press(q.find_child("DungeonButton", true, false), OPEN_FRAMES)
+		var ticket_window: Node = _source_window(q)
+		await _press(null if ticket_window == null else _source_go(ticket_window, GameStateKeys.ITEM_QUOTA_TICKET, GameManager.ITEM_SOURCE_SHOP), OPEN_FRAMES)
+		_check("戻り先：札の窓の「ショップへ」でショップ", _path_of(get_tree().current_scene) == ADVENTURE_SHOP)
 		await _back(get_tree().current_scene)
 		q = get_tree().current_scene
 		_check("戻り先：ショップの「戻る」で掲示板の高難度タブ（%s）" % str(q.get("_tab")), _path_of(q) == ADVENTURE and int(q.get("_tab")) == 1)
@@ -12624,6 +12635,12 @@ class UiFlowRunner extends Node:
 				return null if row == null else row.find_child("GoButton", true, false)
 		return null
 
+	# 見出しの素材のチップの当たり（⚠ 「＋」ごとチップ全体）。
+	func _header_chip_hit(scene: Node, item_id: String) -> Node:
+		var bar: Node = null if scene == null else scene.find_child("MaterialBar", true, false)
+		var chip: Node = null if bar == null else bar.find_child("Chip_" + item_id, true, false)
+		return null if chip == null else chip.find_child("Hit", false, false)
+
 	func _flow_item_sources() -> void:
 		const SHOP_SCREEN: String = "res://scenes/guild/shop_screen.tscn"
 		# ⚠ データの口：マスターから引けているか（⚠ 手書きの表は無い）。
@@ -12650,10 +12667,12 @@ class UiFlowRunner extends Node:
 			return
 		var cost: Dictionary = GameManager.get_forge_cost(instance_id)
 		var material_id: String = str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, ""))
-		await _press(f.find_child("SourceButton", true, false))
+		# ⚠ 10-07：⚠ 鍛冶場の行の「入手先を見る」は外した（⚠ 人間「⚠ 減らして」）＝見出しの素材の「＋」から開く。
+		_check("入手先：鍛冶場の行に「入手先を見る」が無い", f.find_child("SourceButton", true, false) == null)
+		await _press(_header_chip_hit(f, material_id))
 		var window: Node = _source_window(f)
 		var rows: int = 0 if window == null else window.find_children("Source_*", "", true, false).size()
-		_check("入手先：鍛冶場の「入手先を見る」で窓・行は %d（入手先 %d）" % [rows, GameManager.get_item_sources(material_id).size()],
+		_check("入手先：鍛冶場の見出しの「＋」で窓・行は %d（入手先 %d）" % [rows, GameManager.get_item_sources(material_id).size()],
 			window != null and rows == GameManager.get_item_sources(material_id).size() and rows > 0)
 		var locked_ok: bool = true
 		var sources: Array[Dictionary] = GameManager.get_item_sources(material_id)
@@ -12674,7 +12693,7 @@ class UiFlowRunner extends Node:
 				chest_id = str(raw)
 				break
 		if chest_id != "" and GameManager.grant_chest(chest_id, "debug_boot"):
-			await _press(f.find_child("SourceButton", true, false))
+			await _press(_header_chip_hit(f, material_id))
 			window = _source_window(f)
 			var first: Dictionary = GameManager.get_item_sources(material_id)[0]
 			_check("入手先：届いた宝箱（%s）がいちばん上" % chest_id, str(first.get(GameManager.ITEM_SOURCE_KIND, "")) == GameManager.ITEM_SOURCE_PENDING_CHEST)
@@ -12688,22 +12707,19 @@ class UiFlowRunner extends Node:
 		var l: Node = await _open(LEVEL_UP, {TransferKeys.CHARACTER_ID: HERO})
 		if l == null:
 			return
-		var level_material: String = ""
-		await _press(l.find_child("SourceButton", true, false))
+		var level_material: String = str(GameManager.get_level_up_cost(HERO).get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
+		_check("入手先：昇級の申請書に「入手先を見る」が無い", l.find_child("SourceButton", true, false) == null)
+		await _press(_header_chip_hit(l, level_material))
 		window = _source_window(l)
 		var stage_go: Node = null
 		var stage_ref: String = ""
 		if window != null:
-			var head_name: String = _label_text(window, "Head", "NameLabel")
-			for item_id: String in GameManager.get_material_ids():
-				if tr(GameManager.item_name_key(item_id)) == head_name:
-					level_material = item_id
 			for source: Dictionary in GameManager.get_item_sources(level_material):
 				if str(source.get(GameManager.ITEM_SOURCE_KIND, "")) == GameManager.ITEM_SOURCE_STAGE and bool(source.get(GameManager.ITEM_SOURCE_OPEN, false)):
 					stage_ref = str(source.get(GameManager.ITEM_SOURCE_REF, ""))
 					break
 			stage_go = _source_go(window, level_material, GameManager.ITEM_SOURCE_STAGE)
-		_check("入手先：昇級の「入手先を見る」で窓（%s）・通常の依頼の行がある" % level_material, window != null and stage_go is BaseButton)
+		_check("入手先：昇級の見出しの「＋」で窓（%s）・通常の依頼の行がある" % level_material, window != null and stage_go is BaseButton)
 		await _press(stage_go, OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
 		_check("入手先：「出撃の準備へ」でその話の出撃の準備（%s）" % str(b.get("_stage_id")), _path_of(b) == BARRACKS and str(b.get("_stage_id")) == stage_ref)
@@ -12746,6 +12762,8 @@ class UiFlowRunner extends Node:
 		var hud: ResourceHud = ResourceHud.get_instance()
 		var stamina_chip: Node = null if hud == null else hud.find_child("Chip_" + GameStateKeys.STAMINA, true, false)
 		_check("通貨：右上のスタミナにも「＋」", stamina_chip != null and stamina_chip.find_child("PlusMark", true, false) != null)
+		_check("通貨：宝石は右上に出さない・本部にスタミナポーションの行は無い（10-07）",
+			hud != null and hud.find_child("Chip_" + GameStateKeys.GEMS, true, false) == null and base != null and base.find_child("PotionEntry", true, false) == null)
 		# スタミナの窓：ポーションをその場で使う。
 		GameManager.add_to_inventory(POTION_ID, 2, GameStateKeys.ITEM_TYPE_CONSUMABLE)
 		var potions: int = GameManager.get_stamina_potion_count()
@@ -12881,39 +12899,66 @@ class UiFlowRunner extends Node:
 			not before_art and IconTextures.for_item(art_id) == fake and IconTextures.tint_for(art_id, Color.RED) == Color.WHITE
 			and IconTextures.tint_for("forging_material_1", Color.RED) == Color.RED)
 		var _cleared: bool = IconTextures._cache.erase(IconTextures.ART_PREFIX + art_id)
-		# 育成の概要の昇級の行。
+		# ⚠ 10-07（人間「⚠ 減らして」「⚠ 数字の色で」）：⚠ 「入手先を見る」は無い ／ ⚠ 足りない数字は赤 ／ ⚠ 足りないまま押すと窓。
+		var saved: Dictionary = _zero_series(GameStateKeys.ITEM_TRAINING_MATERIAL_PREFIX)
 		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
 		if t != null:
-			await _press(t.find_child("SourceButton", true, false))
-			_check("入手先：育成の昇級の行から窓", _source_window(t) != null)
+			var need: Node = t.find_child("NeedLabel", true, false)
+			_check("足りない：育成の昇級の行は「入手先を見る」無し・数字が赤",
+				t.find_child("SourceButton", true, false) == null and need is Label and (need as Label).theme_type_variation == &"ErrorLabel")
+			await _press(t.find_child("LevelUpButton", true, false))
+			_check("足りない：育成の「昇級させる」で窓", _source_window(t) != null)
 			await _close_modal(t)
-		# 研究のノード。
+		_restore_materials(saved)
+		saved = _zero_series(GameStateKeys.ITEM_CONSTRUCTION_MATERIAL_PREFIX)
 		var rs: Node = await _open(RESEARCH_SCREEN, {})
 		if rs != null:
-			var research_source: Node = null
-			for node: Node in rs.find_children("SourceButton_*", "", true, false):
-				research_source = node
-				break
-			await _press(research_source)
-			_check("入手先：研究のノードから窓", _source_window(rs) != null)
+			var unlock: Node = null
+			for actions: Node in rs.find_children("Actions_*", "", true, false):
+				var candidate: Node = actions.get_child(0) if actions.get_child_count() > 0 else null
+				if candidate is BaseButton and not (candidate as BaseButton).disabled:
+					unlock = candidate
+					break
+			var red: bool = false
+			for label: Node in rs.find_children("CostLabel_*", "", true, false):
+				if label is Label and (label as Label).theme_type_variation == &"ErrorLabel":
+					red = true
+			_check("足りない：研究は「入手先を見る」無し・必要素材が赤", rs.find_children("SourceButton*", "", true, false).is_empty() and red)
+			await _press(unlock)
+			_check("足りない：研究の「解放する」で窓", _source_window(rs) != null)
 			await _close_modal(rs)
-		# 作業場のレシピの材料。
+		_restore_materials(saved)
+		saved = _zero_series(GameStateKeys.ITEM_DECOR_MATERIAL_PREFIX)
 		var ws: Node = await _open(WORKSHOP_SCREEN, {})
 		if ws != null:
-			var workshop_source: Node = null
-			for node: Node in ws.find_children("SourceButton_*", "", true, false):
-				workshop_source = node
-				break
-			await _press(workshop_source)
-			_check("入手先：作業場の材料から窓", _source_window(ws) != null)
+			var have: Node = ws.find_child("HaveLabel", true, false)
+			_check("足りない：作業場は「入手先を見る」無し・材料の数が赤（%s）" % _label_text(ws, "RecipeList", "HaveLabel"),
+				ws.find_children("SourceButton*", "", true, false).is_empty() and have is Label and (have as Label).theme_type_variation == &"ErrorLabel")
+			await _press(ws.find_child("StartButton", true, false))
+			_check("足りない：作業場の「作る」で窓", _source_window(ws) != null)
 			await _close_modal(ws)
-		# 持ち物の装飾の「段階を上げる」。
 		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART})
 		if w != null:
 			await _press(w.find_child("Row_" + PART_ID, true, false))
-			await _press(w.find_child("SourceButton", true, false))
-			_check("入手先：装飾の段階を上げる素材から窓", _source_window(w) != null)
+			var part_cost: Node = w.find_child("PartUpgradeCostLabel", true, false)
+			_check("足りない：装飾は「入手先を見る」無し・素材の数が赤",
+				w.find_child("SourceButton", true, false) == null and part_cost is Label and (part_cost as Label).theme_type_variation == &"ErrorLabel")
+			await _press(w.find_child("PartUpgradeButton", true, false))
+			_check("足りない：装飾の「段階を上げる」で窓", _source_window(w) != null)
 			await _close_modal(w)
+		_restore_materials(saved)
+
+	# 系統の素材を 0 にする（⚠ 戻すための数を返す）。
+	func _zero_series(prefix: String) -> Dictionary:
+		var had: Dictionary = {}
+		for material_id: String in GameManager.get_material_ids_of_series(prefix):
+			had[material_id] = GameManager.get_material_count(material_id)
+			GameManager.add_material(material_id, -int(had[material_id]))
+		return had
+
+	func _restore_materials(had: Dictionary) -> void:
+		for material_id: String in had:
+			GameManager.add_material(material_id, int(had[material_id]))
 
 	# --- 施設の帯の掲示板 ／ 「すぐ出撃」（2026-10-06・人間「⚠ ３はどっちも行う」） ---
 

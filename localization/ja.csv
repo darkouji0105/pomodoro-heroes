@@ -66,7 +66,6 @@ ui_pomodoro_reflection_warning_chars,あと{0}文字必要です
 ui_pomodoro_reflection_complete,確定する
 ui_pomodoro_break_skip,休憩をスキップ
 ui_res_stamina_potion,スタミナポーション
-ui_base_use_potion,使う
 ui_guild_shop,ショップ
 ui_guild_training,育成
 ui_guild_research,研究
@@ -1486,7 +1485,6 @@ ui_settings_long_break_note,4回集中するごとの休憩
 ui_mini_reflection_ok,確定
 ui_mini_reflection_remaining,あと %d文字
 ui_mini_reflection_ready,確定できます
-ui_quest_go_shop,ショップで買う
 ui_task_focus_this,これで集中
 ui_source_title,入手先
 ui_source_open,入手先を見る

@@ -129,17 +129,18 @@ func _add_node_row(node_id: String, node: Dictionary) -> void:
 	]
 	if unlocked:
 		lines.append(tr("ui_research_unlocked"))
-	else:
-		lines.append("%s  %s x%d　（%s %d）" % [
-			tr("ui_research_cost"),
-			tr("ui_res_" + material_id),
-			amount,
-			tr("ui_research_owned"),
-			owned,
-		])
-		if not prerequisites_met:
-			lines.append(tr("ui_research_locked") % _prerequisite_names(node))
+	elif not prerequisites_met:
+		lines.append(tr("ui_research_locked") % _prerequisite_names(node))
 	info.text = "\n".join(lines)
+	# ⚠ 10-07（人間「⚠ 足りないボタンは不足とは出さないで数字の色で」）：⚠ 必要素材は別の行にして、足りなければ赤。
+	if not unlocked:
+		var cost_label: Label = Label.new()
+		cost_label.name = "CostLabel_" + node_id
+		cost_label.theme_type_variation = &"" if enough else &"ErrorLabel"
+		cost_label.text = "%s  %s x%d　（%s %d）" % [
+			tr("ui_research_cost"), tr("ui_res_" + material_id), amount, tr("ui_research_owned"), owned,
+		]
+		node_list.add_child(cost_label)
 
 	var button: UiButton = UI_BUTTON_SCENE.instantiate()
 	# ⚠ 10-06：⚠ 「解放する」と「入手先を見る」は1行に並べる（⚠ 縦に積むと全幅のボタンが2本＝撮った絵）。
@@ -154,12 +155,7 @@ func _add_node_row(node_id: String, node: Dictionary) -> void:
 	# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ 足りなくても押せる＝押すと入手先の窓。⚠ 押せないのは解放済み・前提だけ。
 	button.disabled = unlocked or not prerequisites_met
 	button.pressed.connect(_on_unlock_pressed.bind(node_id))
-	# ⚠ 10-06（`NAV-19`）：⚠ まだ解放していないノードは、使う素材の入手先を開ける。
-	if not unlocked and material_id != "":
-		var source: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_source_open")
-		source.name = "SourceButton_" + node_id
-		source.pressed.connect(ItemSourceWindow.open.bind(self, material_id, amount, {}))
-		actions.add_child(source)
+	# ⚠ 「入手先を見る」は 10-07 に外した（⚠ 人間「⚠ 減らして」）＝足りないまま「解放する」を押すと窓・見出しの素材の「＋」。
 
 	node_list.add_child(HSeparator.new())
 

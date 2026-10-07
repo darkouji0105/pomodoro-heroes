@@ -43,6 +43,9 @@ static func open_if_short(caller: Node, item_id: String, need: int, return_data:
 
 # ⚠ 窓を出す。⚠ 戻り先は呼んだ画面（`current_scene`）。
 static func open(caller: Node, item_id: String, need: int = 0, return_data: Dictionary = {}) -> ModalDialog:
+	# ⚠ 渡されなければ、画面が預けた「戻ってきたときの姿」（`SceneManager.current_return_data()`）。
+	if return_data.is_empty():
+		return_data = SceneManager.current_return_data()
 	var content: ItemSourceWindow = create(item_id, need, caller.get_tree().current_scene.scene_file_path, return_data)
 	return Modal.notify(caller, "", [], false, {
 		Modal.OPTION_TITLE: TranslationServer.translate("ui_source_title"),

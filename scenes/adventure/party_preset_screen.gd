@@ -66,6 +66,8 @@ var _start_floor: int = 0
 
 
 func _ready() -> void:
+	# ⚠ 10-07：⚠ 入手先の窓から戻ってきたときの姿を預ける（`SceneManager.set_return_data_provider()`）。
+	SceneManager.set_return_data_provider(_source_return_data)
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	var path: String = str(data.get(TransferKeys.RETURN_PATH, ""))
 	if path != "":
@@ -163,8 +165,11 @@ func _rebuild_strip() -> void:
 		strip_body.add_child(title)
 		if _stage_id != "":
 			var cost: Label = Label.new()
-			cost.theme_type_variation = &"SmallLabel"
-			cost.text = tr("ui_sortie_stamina") % int(Balance.adventure.stamina_cost_per_stage)
+			# ⚠ 10-07（人間「⚠ 足りないボタンは不足とは出さないで数字の色で」）：⚠ スタミナが足りなければ数字を赤に。
+			var stamina_cost: int = int(Balance.adventure.stamina_cost_per_stage)
+			cost.name = "StaminaCostLabel"
+			cost.theme_type_variation = &"SmallLabel" if GameManager.get_resource_amount(GameStateKeys.STAMINA) >= stamina_cost else &"SmallErrorLabel"
+			cost.text = tr("ui_sortie_stamina") % stamina_cost
 			strip_body.add_child(cost)
 		elif not GameManager.is_in_dungeon():
 			# ⚠ ノルマ札（2026-10-02・手本 DungeonGate「入るのに使う：ノルマ札1枚　3 → 2」）。⚠ 続きからは使わない。
@@ -913,11 +918,14 @@ func _on_sortie_pressed() -> void:
 	if error != "":
 		_say(error, true)
 		# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ スタミナが足りないときは入手先の窓も出す（⚠ ポーションを使う・ショップ・ポモドーロ）。
+		var back_data: Dictionary = {
+			TransferKeys.RETURN_PATH: _return_path, TransferKeys.SORTIE_STAGE_ID: _stage_id,
+			TransferKeys.SORTIE_DUNGEON_ID: _dungeon_id, TransferKeys.SORTIE_START_FLOOR: _start_floor,
+		}
 		if _dungeon_id == "" and _is_unlocked(_stage_id):
-			var _shown: bool = ItemSourceWindow.open_if_short(self, GameStateKeys.STAMINA, int(Balance.adventure.stamina_cost_per_stage), {
-				TransferKeys.RETURN_PATH: _return_path, TransferKeys.SORTIE_STAGE_ID: _stage_id,
-				TransferKeys.SORTIE_DUNGEON_ID: _dungeon_id, TransferKeys.SORTIE_START_FLOOR: _start_floor,
-			})
+			var _shown: bool = ItemSourceWindow.open_if_short(self, GameStateKeys.STAMINA, int(Balance.adventure.stamina_cost_per_stage), back_data)
+		elif _dungeon_id != "" and not GameManager.is_in_dungeon():
+			var _ticket: bool = ItemSourceWindow.open_if_short(self, GameStateKeys.ITEM_QUOTA_TICKET, GameManager.get_quota_tickets_per_entry(), back_data)
 		return
 	_play_sign()
 
@@ -1119,3 +1127,11 @@ func _on_back_pressed() -> void:
 		SceneManager.go_back_or(_return_path)
 		return
 	SceneManager.change_scene(_return_path)
+
+
+# 入手先の窓から戻ってきたときの姿（⚠ 同じ依頼・同じ深さの出撃の準備）。
+func _source_return_data() -> Dictionary:
+	return {
+		TransferKeys.RETURN_PATH: _return_path, TransferKeys.SORTIE_STAGE_ID: _stage_id,
+		TransferKeys.SORTIE_DUNGEON_ID: _dungeon_id, TransferKeys.SORTIE_START_FLOOR: _start_floor,
+	}

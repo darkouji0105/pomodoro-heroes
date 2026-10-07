@@ -226,21 +226,21 @@ func _build_part(item_id: String) -> void:
 		var cost: Dictionary = GameManager.get_part_upgrade_cost(item_id)
 		var upgrade: UiButton = UiButton.create()
 		upgrade.name = "PartUpgradeButton"
-		upgrade.text = "%s(%s %d)" % [
-			tr("ui_part_upgrade"),
-			tr("ui_res_" + str(cost.get(GameManager.PART_UPGRADE_MATERIAL_ID, ""))),
-			int(cost.get(GameManager.PART_UPGRADE_AMOUNT, 0)),
-		]
+		upgrade.text = tr("ui_part_upgrade")
+		# ⚠ 10-07（人間「⚠ 足りないボタンは不足とは出さないで数字の色で」）：⚠ 素材の数はボタンの外に出して、足りなければ赤。
+		var upgrade_material: String = str(cost.get(GameManager.PART_UPGRADE_MATERIAL_ID, ""))
+		var upgrade_amount: int = int(cost.get(GameManager.PART_UPGRADE_AMOUNT, 0))
+		var upgrade_cost: Label = Label.new()
+		upgrade_cost.name = "PartUpgradeCostLabel"
+		upgrade_cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		upgrade_cost.text = "%s %d / %d" % [tr("ui_res_" + upgrade_material), GameManager.get_material_count(upgrade_material), upgrade_amount]
+		upgrade_cost.theme_type_variation = &"" if GameManager.get_material_count(upgrade_material) >= upgrade_amount else &"ErrorLabel"
+		buttons.add_child(upgrade_cost)
 		# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ 素材が足りなくても押せる＝押すと入手先の窓。
 		upgrade.disabled = GameManager.get_item_count(item_id) <= 0
 		upgrade.pressed.connect(_on_part_upgrade_pressed.bind(item_id))
 		buttons.add_child(upgrade)
-		# ⚠ 10-06（`NAV-19`）：⚠ 段階を上げる素材の入手先（⚠ 行った先の「戻る」で装飾のタブへ）。
-		var source: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_source_open")
-		source.name = "SourceButton"
-		source.pressed.connect(ItemSourceWindow.open.bind(self, str(cost.get(GameManager.PART_UPGRADE_MATERIAL_ID, "")),
-			int(cost.get(GameManager.PART_UPGRADE_AMOUNT, 0)), {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART}))
-		buttons.add_child(source)
+		# ⚠ 「入手先を見る」は 10-07 に外した（⚠ 人間「⚠ 減らして」）＝足りないまま「段階を上げる」を押すと窓。
 	var refund_total: int = 0
 	for amount: Variant in GameManager.get_part_dismantle_refund(item_id, 1).values():
 		refund_total += int(amount)

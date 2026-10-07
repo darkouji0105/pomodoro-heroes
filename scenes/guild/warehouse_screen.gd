@@ -50,6 +50,8 @@ var _detail: BelongingsDetail = null
 
 
 func _ready() -> void:
+	# ⚠ 10-07：⚠ 入手先の窓から戻ってきたときの姿を預ける（`SceneManager.set_return_data_provider()`）。
+	SceneManager.set_return_data_provider(_source_return_data)
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	var wanted_tab: String = str(data.get(TransferKeys.WAREHOUSE_TAB, TransferKeys.WAREHOUSE_TAB_EQUIP))
 	_tab = wanted_tab if wanted_tab in TAB_IDS else TransferKeys.WAREHOUSE_TAB_EQUIP
@@ -400,3 +402,8 @@ func _on_state_changed() -> void:
 
 func _on_back_pressed() -> void:
 	SceneManager.go_back_or(BASE_PATH)
+
+
+# 入手先の窓から戻ってきたときの姿（⚠ 同じタブ・装備なら同じ品）。
+func _source_return_data() -> Dictionary:
+	return {TransferKeys.WAREHOUSE_TAB: _tab, TransferKeys.WAREHOUSE_INSTANCE_ID: _selected_key if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP else ""}

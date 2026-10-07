@@ -26,8 +26,6 @@ const SCREEN_SCENES: Dictionary = {
 #   「資源は、右上に表示する」「右上へ移して下段からは消す」）。
 #   ⚠ 下段に残るのはポーション（⚠ 「使う」ボタンと対になっているため）と素材の行。
 @onready var top_area: Control = $Layout/TopArea
-@onready var potion_value: ResourceDisplay = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/Value
-@onready var potion_use_button: UiButton = $Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry/UseButton
 @onready var chest_badge: Button = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge
 @onready var chest_count_label: Label = $Layout/BottomArea/BottomLayout/ResourceRow/ChestBadge/ChestCountLabel
 
@@ -62,10 +60,8 @@ func _ready() -> void:
 func _init_resource_displays(_state: Dictionary) -> void:
 	# ⚠⚠ 2026-10-06：⚠ 右上の素材16件の帯をやめた（⚠ 人間「⚠ 拠点では書かずに、関連する画面でのみ表示するように　リソースは」）。
 	#   ⚠ 素材は使う画面の見出しに出る（`ScreenHeader.show_materials()`・育成／鍛冶場／作業場／研究）。⚠ 通貨は今までどおり `ResourceHud`。
-	# ⚠ 絵を付ける（2026-09-09）。⚠ IDを渡すだけ（⚠ 画像の割り当てはここでしない）。
-	potion_value.resource_id = GameStateKeys.ITEM_STAMINA_POTION
-	potion_value.set_value(GameManager.get_stamina_potion_count())
-	potion_use_button.disabled = GameManager.get_stamina_potion_count() <= 0
+	# ⚠⚠ 2026-10-07：⚠ 下段の「スタミナポーション 使う」もやめた（⚠ 人間「⚠ 片方にまとめて」）＝右上のスタミナの「＋」→「使う」。
+	pass
 
 # ⚠ 壁の紙（2026-10-04・`TK-3`）。⚠ 左上に置く。⚠ 位置と大きさは Theme の `Task/wall_*`。
 func _init_task_note() -> void:
@@ -125,8 +121,6 @@ func _connect_signals() -> void:
 	#   ⚠ 更新は `ResourceBar` が自分で受ける。⚠ ここに残すと二重に更新することになる。
 	GameManager.screen_unlocked.connect(_on_screen_unlocked)
 	GameManager.pending_chests_changed.connect(_on_pending_chests_changed)
-	GameManager.inventory_changed.connect(_on_inventory_changed)
-	potion_use_button.pressed.connect(_on_use_potion_pressed)
 
 	# その他ボタン
 	chest_badge.pressed.connect(_on_chest_badge_pressed)
@@ -172,16 +166,6 @@ func _on_screen_unlocked(screen_id: String) -> void:
 
 func _on_pending_chests_changed(pending_count: int) -> void:
 	_update_chest_badge(pending_count)
-
-func _on_inventory_changed(item_id: String) -> void:
-	if item_id != GameStateKeys.ITEM_STAMINA_POTION:
-		return
-	var count: int = GameManager.get_stamina_potion_count()
-	potion_value.set_value(count)
-	potion_use_button.disabled = count <= 0
-
-func _on_use_potion_pressed() -> void:
-	GameManager.use_stamina_potion()
 
 # --- ヘルパー ---
 

@@ -25,7 +25,6 @@ const ADVENTURE_SELECT_PATH: String = "res://scenes/adventure/adventure_select.t
 const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
 # 難ダンジョン（段階17-d）。⚠ フロアのマップとは別の画面（器も仕様も別＝台帳 §7）。
 const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
-const SHOP_PATH: String = "res://scenes/guild/shop_screen.tscn"
 const THEME_TYPE: StringName = &"QuestBoard"
 
 const TAB_NORMAL: int = 0
@@ -43,6 +42,8 @@ var _tab: int = TAB_NORMAL
 
 
 func _ready() -> void:
+	# ⚠ 10-07：⚠ 入手先の窓から戻ってきたときの姿を預ける（`SceneManager.set_return_data_provider()`）。
+	SceneManager.set_return_data_provider(_source_return_data)
 	# 拠点から渡される transfer data を 1 回だけ消費して捨てる（EXEC §5-1）。
 	# 呼ばないと次の遷移に前回のデータが残るため必須。
 	# ⚠ 10-06（`NAV-18`）：⚠ 寄り道（ショップ）から戻ったときは、そのときのタブで開く。
@@ -253,23 +254,16 @@ func _build_dungeon_cards() -> void:
 			ticket.name = "QuotaTicketLabel"
 			var enough: bool = GameManager.has_quota_ticket_for_entry()
 			ticket.theme_type_variation = &"CaptionLabel" if enough else &"SmallErrorLabel"
-			ticket.text = tr("ui_quota_ticket_count") % [GameManager.get_quota_ticket_count(), GameManager.get_quota_ticket_max()] \
-				if enough else tr("ui_quota_ticket_needed")
+			# ⚠ 10-07（人間「⚠ 足りないボタンは不足とは出さないで数字の色で」）：⚠ 足りなくても「n / m」＝数字の色（赤）で見せる。
+			ticket.text = tr("ui_quota_ticket_count") % [GameManager.get_quota_ticket_count(), GameManager.get_quota_ticket_max()]
 			ticket.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			foot.add_child(ticket)
 			foot.move_child(ticket, 0)
 			# ⚠ 2026-09-28（人間「⚠ 4あ」）：⚠ 難ダンジョンも出撃の準備を通す。
 			_add_button(foot, "DungeonButton", "ui_quest_take", _open_sortie.bind("", dungeon_id))
-			var take: Node = foot.find_child("DungeonButton", false, false)
-			if take is BaseButton:
-				(take as BaseButton).disabled = not enough
-			# ⚠ 10-06（`NAV-18`）：⚠ 足りなければその場でショップへ（⚠ 寄り道＝ショップの「戻る」でこのタブへ戻る）。
-			#   ⚠ 前は 戻る → 本部 → ショップ → 買う → 本部 → 冒険 → 高難度 → 受ける の8回。
-			if enough:
-				_add_quick_button(foot, "", dungeon_id)
-			if not enough and take != null:
-				var shop: UiButton = _add_button(foot, "ShopLinkButton", "ui_quest_go_shop", _on_go_shop_pressed)
-				foot.move_child(shop, take.get_index())
+			# ⚠ 10-07（人間「⚠ 同じ作りで」）：⚠ 札が足りなくても押せる＝押すと札の入手先の窓（`_open_sortie()` の入口）。
+			#   ⚠ 前は押せず、横に「ショップで買う」を出していた。
+			_add_quick_button(foot, "", dungeon_id)
 
 
 # 「すぐ出撃」（2026-10-06・人間「⚠ ３はどっちも行う」）：⚠ 札の上で出撃まで済む（⚠ 「受ける」→ 右下の「出撃する」が約900px）。
@@ -284,6 +278,10 @@ func _add_quick_button(foot: HBoxContainer, stage_id: String, dungeon_id: String
 
 # 出撃の準備へ（2026-09-28・`party_preset_screen`）。⚠ 入る判定と手続きは向こうが持つ（⚠ ここに2本目を書かない）。
 func _open_sortie(stage_id: String, dungeon_id: String, auto_go: bool = false) -> void:
+	# ⚠ 難ダンジョンに新しく入るのに札が足りなければ、札の入手先の窓（⚠ 戻ると高難度のタブ）。
+	if dungeon_id != "" and not GameManager.is_in_dungeon() and ItemSourceWindow.open_if_short(
+			self, GameStateKeys.ITEM_QUOTA_TICKET, GameManager.get_quota_tickets_per_entry(), {TransferKeys.QUEST_TAB: _tab}):
+		return
 	SceneManager.change_scene_with_data(PARTY_PRESET_PATH, {
 		TransferKeys.SORTIE_STAGE_ID: stage_id,
 		TransferKeys.SORTIE_DUNGEON_ID: dungeon_id,
@@ -370,10 +368,6 @@ func _on_training_pressed() -> void:
 	)
 
 
-func _on_go_shop_pressed() -> void:
-	SceneManager.open_detour(SHOP_PATH, {}, ADVENTURE_SELECT_PATH, {TransferKeys.QUEST_TAB: _tab})
-
-
 func _on_back_pressed() -> void:
 	# 履歴に依存せず明示的に拠点へ（EXEC §5-7 / base_screen.gd と同じ）
 	# ⚠ 10-06（`NAV-19`）：⚠ 入手先の窓から寄り道で来たなら、窓を開いた画面へ。
@@ -390,3 +384,8 @@ func _is_unlocked(stage_id: String) -> bool:
 		push_error("[AdventureSelect] stage_id not in order: " + stage_id)
 		return false
 	return GameManager.is_story_stage_unlocked(stage_id)
+
+
+# 入手先の窓から戻ってきたときの姿（⚠ 同じタブ）。
+func _source_return_data() -> Dictionary:
+	return {TransferKeys.QUEST_TAB: _tab}

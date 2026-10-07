@@ -73,6 +73,8 @@ func _rebuild() -> void:
 func _update_header() -> void:
 	var state: Dictionary = GameManager.get_state()
 	gold_label.text = "%s %d" % [tr("ui_res_gold"), int(state.get(GameStateKeys.GOLD, 0))]
+	# ⚠ 10-07（人間「⚠ まとめて」）：⚠ 所持金は右上の通貨と重なるので出さない。
+	gold_label.visible = false
 
 	# 「いつ在庫が戻ったか」を出す。出していないと、翌日に購入回数が戻ったことが
 	# 画面から確認できない（在庫表示が動くだけで、原因が分からない）。
@@ -127,6 +129,9 @@ func _create_slot_row(slot: Dictionary) -> void:
 	# ここが抜けても状態は壊れない（二重に守る）。
 	# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ お金が足りなくても押せる＝押すと入手先の窓。⚠ 押せないのは売り切れだけ。
 	buy_button.disabled = sold_out
+	# ⚠ 10-07（人間「⚠ 足りないボタンは不足とは出さないで数字の色で」）：⚠ 値段の数字を赤に。
+	if not sold_out and not affordable:
+		cost_label.theme_type_variation = &"ErrorLabel"
 	buy_button.pressed.connect(_on_buy_pressed.bind(slot_id, currency_type, amount))
 	row.add_child(buy_button)
 

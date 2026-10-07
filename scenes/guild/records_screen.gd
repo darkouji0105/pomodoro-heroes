@@ -40,6 +40,8 @@ var _codex_kind: String = GameManager.CODEX_KIND_EQUIPMENT
 
 
 func _ready() -> void:
+	# ⚠ 10-07：⚠ 入手先の窓から戻ってきたときの姿を預ける（`SceneManager.set_return_data_provider()`）。
+	SceneManager.set_return_data_provider(_source_return_data)
 	# ⚠ 10-06（`NAV-18`）：⚠ 寄り道（育成）から戻ったときは、そのときのタブで開く。
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	_tab = clampi(int(data.get(TransferKeys.RECORDS_TAB, TAB_CODEX)), 0, TAB_KEYS.size() - 1)
@@ -702,3 +704,8 @@ func _on_task_filter_pressed(tag: String) -> void:
 
 func _on_back_pressed() -> void:
 	SceneManager.change_scene(BASE_PATH)
+
+
+# 入手先の窓から戻ってきたときの姿（⚠ 同じタブ）。
+func _source_return_data() -> Dictionary:
+	return {TransferKeys.RECORDS_TAB: _tab}

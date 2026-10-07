@@ -24,9 +24,9 @@ extends HBoxContainer
 # ⚠ 2画面以上で使うので `scenes/ui/components/`（AGENTS.md）。
 
 # ⚠ 通貨の並び順。⚠ ここを増やすと出るものが増える（⚠ 画面ごとに分岐を書かない）。
+# ⚠⚠ 2026-10-07：⚠ 宝石を外した（⚠ 人間「⚠ 宝石は使い道もない気がする」＝入手先も使い道も無い）。⚠ 状態の `GEMS` は消していない（⚠ 戻すならここに1行）。
 const CURRENCY_IDS: Array[String] = [
 	GameStateKeys.GOLD,
-	GameStateKeys.GEMS,
 	GameStateKeys.STAMINA,
 ]
 

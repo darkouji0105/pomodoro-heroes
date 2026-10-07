@@ -55,6 +55,8 @@ var _notice_text: String = ""
 
 
 func _ready() -> void:
+	# ⚠ 10-07：⚠ 入手先の窓から戻ってきたときの姿を預ける（`SceneManager.set_return_data_provider()`）。
+	SceneManager.set_return_data_provider(_return_data)
 	header.back_pressed.connect(_on_back_pressed)
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.TRAINING)
 	GameManager.character_growth_changed.connect(_on_character_growth_changed)
@@ -350,15 +352,7 @@ func _build_application() -> VBoxContainer:
 		need_value.theme_type_variation = &"" if enough else &"ErrorLabel"
 		need_value.text = tr("ui_training_need_value") % [tr("ui_res_" + material_id), amount, owned]
 	need.add_child(need_value)
-	# ⚠ 10-06（`NAV-19`）：⚠ 昇級に使う素材の入手先（⚠ 紙の上なので紙の札）。
-	if not at_cap:
-		var level_material: String = str(GameManager.get_level_up_cost(_selected_id).get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
-		var level_amount: int = int(GameManager.get_level_up_cost(_selected_id).get(GameManager.LEVEL_UP_COST_AMOUNT, 0))
-		var source: Button = UiButton.create_paper_choice("ui_source_open")
-		source.name = "SourceButton"
-		source.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		source.pressed.connect(ItemSourceWindow.open.bind(self, level_material, level_amount, _return_data()))
-		line.add_child(source)
+	# ⚠ 「入手先を見る」は 10-07 に外した（⚠ 人間「⚠ 減らして」）＝足りないまま「昇級させる」を押すと窓・見出しの素材の「＋」。
 
 	var button: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_training_apply")
 	button.name = "LevelUpButton"
@@ -512,3 +506,5 @@ func _equipped_count() -> int:
 		if GameManager.get_equipped_instance_id(_selected_id, slot) != "":
 			count += 1
 	return count
+
+

@@ -23,6 +23,8 @@ var _done: bool = false
 
 
 func _ready() -> void:
+	# ⚠ 10-07：⚠ 入手先の窓から戻ってきたときの姿を預ける（`SceneManager.set_return_data_provider()`）。
+	SceneManager.set_return_data_provider(_source_return_data)
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	_character_id = str(data.get(TransferKeys.CHARACTER_ID, ""))
 	header.back_pressed.connect(_back_to_training.bind(TransferKeys.TRAINING_TAB_OVERVIEW))
@@ -237,12 +239,7 @@ func _build_side() -> VBoxContainer:
 		remain.theme_type_variation = &"" if owned >= amount else &"ErrorLabel"
 		remain.text = tr("ui_level_up_remain") % [owned, maxi(0, owned - amount)]
 		card_column.add_child(remain)
-		# ⚠ 10-06（`NAV-19`）：⚠ 入手先の窓（⚠ 行った先の「戻る」でこの申請書へ戻る）。
-		# ⚠ 紙の上なので紙の札（⚠ Ghost は紙の上で読めない＝撮った絵）。
-		var source: Button = UiButton.create_paper_choice("ui_source_open")
-		source.name = "SourceButton"
-		source.pressed.connect(ItemSourceWindow.open.bind(self, material_id, amount, {TransferKeys.CHARACTER_ID: _character_id}))
-		card_column.add_child(source)
+		# ⚠ 「入手先を見る」は 10-07 に外した（⚠ 人間「⚠ 減らして」）＝足りないまま判を押すと窓・見出しの素材の「＋」。
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -337,3 +334,8 @@ func _back_to_training(tab_id: String) -> void:
 	SceneManager.go_back_or(TRAINING_PATH, {
 		TransferKeys.CHARACTER_ID: _character_id, TransferKeys.TRAINING_TAB: tab_id,
 	})
+
+
+# 入手先の窓から戻ってきたときの姿（⚠ 同じキャラの申請書）。
+func _source_return_data() -> Dictionary:
+	return {TransferKeys.CHARACTER_ID: _character_id}

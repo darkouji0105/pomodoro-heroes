@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://dwn0r400shdkt"]
 
 [ext_resource type="Script" uid="uid://bpifkrpnu4gld" path="res://scenes/base/base_screen.gd" id="1_script"]
-[ext_resource type="PackedScene" path="res://scenes/ui/components/resource_display.tscn" id="2_resource_dsp"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/ui_button.tscn" id="3_button"]
 
 [node name="BaseScreen" type="Control" unique_id=789240081]
@@ -45,20 +44,6 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 theme_type_variation = &"WideRow"
-
-[node name="PotionEntry" type="HBoxContainer" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1360655837]
-layout_mode = 2
-
-[node name="NameLabel" type="Label" parent="Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry" unique_id=1057863260]
-layout_mode = 2
-text = "ui_res_stamina_potion"
-
-[node name="Value" parent="Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry" unique_id=812266074 instance=ExtResource("2_resource_dsp")]
-layout_mode = 2
-
-[node name="UseButton" parent="Layout/BottomArea/BottomLayout/ResourceRow/PotionEntry" unique_id=752057559 instance=ExtResource("3_button")]
-layout_mode = 2
-label_key = "ui_base_use_potion"
 
 [node name="Spacer" type="Control" parent="Layout/BottomArea/BottomLayout/ResourceRow" unique_id=1140693099]
 layout_mode = 2
