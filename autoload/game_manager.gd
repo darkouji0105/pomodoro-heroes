@@ -980,11 +980,29 @@ const ITEM_SOURCE_SHOP: String = "shop"
 const ITEM_SOURCE_STAGE: String = "stage"
 const ITEM_SOURCE_DUNGEON: String = "dungeon"
 const ITEM_SOURCE_POMODORO: String = "pomodoro"
+# ⚠ スタミナ（10-07）：⚠ 持っているスタミナポーションを使う（⚠ 窓の中でその場で使う）。
+const ITEM_SOURCE_USE_POTION: String = "use_potion"
+
+
+# 資源・品の「いま持っている数」（2026-10-07・入手先の窓と「足りなければ窓」）。⚠ 通貨・スタミナ・素材・持ち物の1本。
+func get_resource_amount(resource_id: String) -> int:
+	match resource_id:
+		GameStateKeys.GOLD, GameStateKeys.GEMS:
+			return int(_state.get(resource_id, 0))
+		GameStateKeys.STAMINA:
+			return int((_state.get(GameStateKeys.STAMINA, {}) as Dictionary).get(GameStateKeys.STAMINA_CURRENT, 0))
+	return maxi(0, get_item_count(resource_id))
 
 
 func get_item_sources(item_id: String) -> Array[Dictionary]:
 	var sources: Array[Dictionary] = []
 	if item_id == "":
+		return sources
+	# ⚠ スタミナ（10-07・人間「⚠ すべてのリソースに適用したい　スタミナなど」）：⚠ 持っているポーションを使う ＋ ポーションの入手先。
+	if item_id == GameStateKeys.STAMINA:
+		var potions: int = get_stamina_potion_count()
+		sources.append(_item_source(ITEM_SOURCE_USE_POTION, GameStateKeys.ITEM_STAMINA_POTION, potions > 0, potions))
+		sources.append_array(get_item_sources(GameStateKeys.ITEM_STAMINA_POTION))
 		return sources
 	# 届いた宝箱（⚠ 開ければすぐ手に入る＝いちばん上）。⚠ 種類ごとに1行・数を添える。
 	var pending: Dictionary = {}
@@ -1011,6 +1029,10 @@ func get_item_sources(item_id: String) -> Array[Dictionary]:
 	for dungeon_id: String in MasterDataLoader.get_all_dungeon_ids():
 		if _master_mentions_item(MasterDataLoader.get_dungeon(dungeon_id), item_id):
 			sources.append(_item_source(ITEM_SOURCE_DUNGEON, dungeon_id, true))
+	# ポモドーロ（⚠ 集中した分のスタミナポーション＝`PomodoroConfig.potion_focus_minutes_per_unit`）。
+	if item_id == GameStateKeys.ITEM_STAMINA_POTION and Balance.pomodoro.potion_focus_minutes_per_unit > 0:
+		sources.append(_item_source(ITEM_SOURCE_POMODORO, "", is_screen_unlocked(GameStateKeys.SCREEN_POMODORO)))
+		return sources
 	# ポモドーロ（⚠ 加護の宝箱）。
 	for protection: ProtectionTypeConfig in [Balance.pomodoro.protection_light, Balance.pomodoro.protection_middle, Balance.pomodoro.protection_hard]:
 		if protection == null:

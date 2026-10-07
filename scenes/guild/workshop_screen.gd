@@ -171,7 +171,8 @@ func _create_recipe_row(recipe: Dictionary) -> void:
 	var start_button: UiButton = UiButton.create()
 	start_button.name = "StartButton"
 	start_button.text = tr("ui_guild_workshop_start")
-	start_button.disabled = _queue_is_full() or not _can_afford(recipe)
+	# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ 足りなくても押せる＝押すと足りない材料の入手先の窓。
+	start_button.disabled = _queue_is_full()
 	start_button.pressed.connect(_on_start_pressed.bind(recipe_id))
 	row.add_child(start_button)
 	# ⚠ 10-06（`NAV-19`）：⚠ 材料ごとに入手先（⚠ 素材だけ）。
@@ -273,6 +274,12 @@ func _can_afford(recipe: Dictionary) -> bool:
 # 確認モーダルは入れていない。Modal.confirm() の待ち方が未確認のため
 # （研究・ショップと同じ判断）。キャンセルが無いので、押し間違いは素材が減る形で残る。
 func _on_start_pressed(recipe_id: String) -> void:
+	var inputs: Variant = MasterDataLoader.get_recipe(recipe_id).get(GameManager.RECIPE_INPUTS, [])
+	if inputs is Array:
+		for entry: Variant in (inputs as Array):
+			if entry is Dictionary and ItemSourceWindow.open_if_short(self, str((entry as Dictionary).get(GameManager.RECIPE_IO_ITEM_ID, "")),
+					int((entry as Dictionary).get(GameManager.RECIPE_IO_COUNT, 0)), {}):
+				return
 	if GameManager.start_craft(recipe_id):
 		notice_label.text = tr("ui_guild_workshop_started")
 	else:

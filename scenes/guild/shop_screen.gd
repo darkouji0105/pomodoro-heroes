@@ -125,8 +125,9 @@ func _create_slot_row(slot: Dictionary) -> void:
 		buy_button.text = tr("ui_guild_shop_buy")
 	# 購入できない理由は表示側でも弾く。GameManager 側も同じ判定を持っているため、
 	# ここが抜けても状態は壊れない（二重に守る）。
-	buy_button.disabled = sold_out or not affordable
-	buy_button.pressed.connect(_on_buy_pressed.bind(slot_id))
+	# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ お金が足りなくても押せる＝押すと入手先の窓。⚠ 押せないのは売り切れだけ。
+	buy_button.disabled = sold_out
+	buy_button.pressed.connect(_on_buy_pressed.bind(slot_id, currency_type, amount))
 	row.add_child(buy_button)
 
 	slot_list.add_child(row)
@@ -145,7 +146,9 @@ func _get_balance(currency_type: String) -> int:
 # 確認モーダルは入れていない。Modal.confirm() の待ち方が未確認のため
 # （研究画面と同じ判断。EXEC_GUILD_SHOP.md §2-6）。
 # ボタンは条件を満たさないと押せないため、誤操作は「押せる状態のものを押す」ときだけ起きる。
-func _on_buy_pressed(slot_id: int) -> void:
+func _on_buy_pressed(slot_id: int, currency_type: String = "", amount: int = 0) -> void:
+	if ItemSourceWindow.open_if_short(self, currency_type, amount, {}):
+		return
 	var success: bool = GameManager.purchase_shop_item(SHOP_TYPE, slot_id)
 	if success:
 		notice_label.text = tr("ui_guild_shop_purchased")

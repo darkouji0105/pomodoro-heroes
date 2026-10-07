@@ -264,7 +264,8 @@ func _build_forge_page() -> VBoxContainer:
 	foot.add_child(note)
 	var forge: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_forge_do")
 	forge.name = "ForgeButton"
-	forge.disabled = at_max or owned < amount
+	# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ 足りなくても押せる＝押すと入手先の窓。
+	forge.disabled = at_max
 	forge.pressed.connect(_on_forge_pressed)
 	foot.add_child(forge)
 	return page
@@ -277,6 +278,10 @@ func _on_token_toggled(pressed: bool) -> void:
 
 # 鍛える。⚠ 判定と乱数は `forge_equipment_roll()`。⚠ 前の値を控えてから呼ぶ（⚠ 記録に出す）。
 func _on_forge_pressed() -> void:
+	var cost: Dictionary = GameManager.get_forge_cost(_selected)
+	if ItemSourceWindow.open_if_short(self, str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, "")),
+			int(cost.get(GameManager.FORGE_COST_AMOUNT, 0)), {TransferKeys.FORGE_INSTANCE_ID: _selected}):
+		return
 	var stats_before: Dictionary = GameManager.get_instance_stats(_selected)
 	var slots_before: int = GameManager.get_part_entries(_selected).size()
 	var result: Dictionary = GameManager.forge_equipment_roll(_selected, _use_token)

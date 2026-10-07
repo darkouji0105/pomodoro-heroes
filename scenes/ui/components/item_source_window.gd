@@ -23,12 +23,22 @@ const GO_KEYS: Dictionary = {
 	GameManager.ITEM_SOURCE_STAGE: "ui_source_go_stage",
 	GameManager.ITEM_SOURCE_DUNGEON: "ui_source_go_dungeon",
 	GameManager.ITEM_SOURCE_POMODORO: "ui_source_go_pomodoro",
+	GameManager.ITEM_SOURCE_USE_POTION: "ui_source_go_use_potion",
 }
 
 var _item_id: String = ""
 var _need: int = 0
 var _return_path: String = ""
 var _return_data: Dictionary = {}
+
+
+# ⚠ 足りなければ入手先の窓を出して true（2026-10-07・人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」）。
+#   ⚠ 呼ぶ側は「押したら」これを先に聞き、true なら何もしない（⚠ ボタンは足りなくても押せる＝押すと何が足りないかとその入手先が出る）。
+static func open_if_short(caller: Node, item_id: String, need: int, return_data: Dictionary = {}) -> bool:
+	if item_id == "" or need <= 0 or GameManager.get_resource_amount(item_id) >= need:
+		return false
+	var _window: ModalDialog = open(caller, item_id, need, return_data)
+	return true
 
 
 # ⚠ 窓を出す。⚠ 戻り先は呼んだ画面（`current_scene`）。
@@ -55,6 +65,14 @@ static func create(item_id: String, need: int, return_path: String, return_data:
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_rebuild()
+
+
+# ⚠ その場で使ったとき（スタミナポーション）に数を描き直す。⚠ remove_child() してから queue_free()（CLAUDE.md 5番）。
+func _rebuild() -> void:
+	for child: Node in get_children():
+		remove_child(child)
+		child.queue_free()
 	_build_head()
 	add_child(HSeparator.new())
 	var sources: Array[Dictionary] = GameManager.get_item_sources(_item_id)
@@ -73,7 +91,20 @@ func _ready() -> void:
 func _build_head() -> void:
 	var head: HBoxContainer = HBoxContainer.new()
 	head.name = "Head"
-	head.add_child(ItemIcon.create(_item_id))
+	# ⚠ 通貨・スタミナは品のマスではなく資源の絵（⚠ チップと同じ絵と色）。
+	if _item_id in ResourceBar.CURRENCY_IDS:
+		var icon: TextureRect = TextureRect.new()
+		icon.name = "ResourceIcon"
+		icon.texture = IconTextures.for_resource(_item_id)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var side: float = float(get_theme_constant(&"icon", &"CurrencyChip")) * 2.0
+		icon.custom_minimum_size = Vector2(side, side)
+		icon.modulate = ResourceBar.icon_color_for(_item_id, self)
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		head.add_child(icon)
+	else:
+		head.add_child(ItemIcon.create(_item_id))
 	var name_label: Label = Label.new()
 	name_label.name = "NameLabel"
 	name_label.theme_type_variation = &"SheetHeadingLabel"
@@ -81,7 +112,7 @@ func _build_head() -> void:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(name_label)
-	var owned: int = maxi(0, GameManager.get_item_count(_item_id))
+	var owned: int = GameManager.get_resource_amount(_item_id)
 	var count_label: Label = Label.new()
 	count_label.name = "OwnedLabel"
 	count_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -145,7 +176,9 @@ func _where_text(kind: String, ref: String, count: int) -> String:
 		GameManager.ITEM_SOURCE_DUNGEON:
 			return tr(str(MasterDataLoader.get_dungeon(ref).get("name_key", ref)))
 		GameManager.ITEM_SOURCE_POMODORO:
-			return tr("ui_source_where_pomodoro")
+			return tr("ui_source_where_pomodoro_potion" if _item_id in [GameStateKeys.STAMINA, GameStateKeys.ITEM_STAMINA_POTION] else "ui_source_where_pomodoro")
+		GameManager.ITEM_SOURCE_USE_POTION:
+			return tr("ui_source_where_use_potion") % [count, int(Balance.pomodoro.stamina_potion_recovery)]
 	return ref
 
 
@@ -164,3 +197,7 @@ func _on_go_pressed(kind: String, ref: String) -> void:
 			SceneManager.open_detour(ADVENTURE_PATH, {TransferKeys.QUEST_TAB: TransferKeys.QUEST_TAB_HARD}, _return_path, _return_data)
 		GameManager.ITEM_SOURCE_POMODORO:
 			SceneManager.change_scene(POMODORO_PATH)
+		GameManager.ITEM_SOURCE_USE_POTION:
+			# ⚠ その場で使う（⚠ 画面を移らない）。⚠ 使えたら数を描き直す。
+			if GameManager.use_stamina_potion():
+				_rebuild()

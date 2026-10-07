@@ -255,7 +255,8 @@ func _build_side() -> VBoxContainer:
 		side.add_child(go)
 		var again: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_level_up_again")
 		again.name = "AgainButton"
-		again.disabled = not can_level
+		# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ 素材が足りなくても押せる＝押すと入手先の窓。⚠ 押せないのは上限だけ。
+		again.disabled = _at_cap()
 		again.pressed.connect(_on_again_pressed)
 		side.add_child(again)
 		var back: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_level_up_back")
@@ -266,7 +267,7 @@ func _build_side() -> VBoxContainer:
 		var press: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_level_up_press")
 		press.name = "PressButton"
 		# ⚠ 押せてから失敗するより、押せないほうが分かりやすい（⚠ 判定は前の育成の詳細と同じ2つ）。
-		press.disabled = not can_level
+		press.disabled = _at_cap()
 		press.pressed.connect(_on_press_pressed)
 		side.add_child(press)
 		var cancel: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_common_cancel")
@@ -283,6 +284,17 @@ func _level() -> int:
 
 
 # ⚠ 上限 ／ 素材の2つ（⚠ 前の育成の詳細と同じ）。⚠ 本当の判定は `level_up_character()` が持つ。
+func _at_cap() -> bool:
+	return _level() >= GameManager.get_effective_level_cap(_character_id)
+
+
+# ⚠ 素材が足りなければ入手先の窓を出して true。
+func _open_short_material() -> bool:
+	var cost: Dictionary = GameManager.get_level_up_cost(_character_id)
+	return ItemSourceWindow.open_if_short(self, str(cost.get(GameManager.LEVEL_UP_COST_MATERIAL_ID, "")),
+		int(cost.get(GameManager.LEVEL_UP_COST_AMOUNT, 0)), {TransferKeys.CHARACTER_ID: _character_id})
+
+
 func _can_level_up() -> bool:
 	if _level() >= GameManager.get_effective_level_cap(_character_id):
 		return false
@@ -305,6 +317,8 @@ func _next_skill() -> String:
 
 
 func _on_press_pressed() -> void:
+	if _open_short_material():
+		return
 	if not GameManager.level_up_character(_character_id):
 		return
 	_done = true
@@ -312,6 +326,8 @@ func _on_press_pressed() -> void:
 
 
 func _on_again_pressed() -> void:
+	if _open_short_material():
+		return
 	_done = false
 	_rebuild()
 

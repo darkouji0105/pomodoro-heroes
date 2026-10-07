@@ -231,7 +231,8 @@ func _build_part(item_id: String) -> void:
 			tr("ui_res_" + str(cost.get(GameManager.PART_UPGRADE_MATERIAL_ID, ""))),
 			int(cost.get(GameManager.PART_UPGRADE_AMOUNT, 0)),
 		]
-		upgrade.disabled = not GameManager.can_upgrade_part(item_id)
+		# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ 素材が足りなくても押せる＝押すと入手先の窓。
+		upgrade.disabled = GameManager.get_item_count(item_id) <= 0
 		upgrade.pressed.connect(_on_part_upgrade_pressed.bind(item_id))
 		buttons.add_child(upgrade)
 		# ⚠ 10-06（`NAV-19`）：⚠ 段階を上げる素材の入手先（⚠ 行った先の「戻る」で装飾のタブへ）。
@@ -472,4 +473,8 @@ func _on_part_dismantle_pressed(item_id: String) -> void:
 
 
 func _on_part_upgrade_pressed(item_id: String) -> void:
+	var cost: Dictionary = GameManager.get_part_upgrade_cost(item_id)
+	if ItemSourceWindow.open_if_short(self, str(cost.get(GameManager.PART_UPGRADE_MATERIAL_ID, "")),
+			int(cost.get(GameManager.PART_UPGRADE_AMOUNT, 0)), {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART}):
+		return
 	GameManager.upgrade_part(item_id)

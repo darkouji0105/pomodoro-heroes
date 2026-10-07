@@ -912,6 +912,12 @@ func _on_sortie_pressed() -> void:
 	var error: String = _sortie_error()
 	if error != "":
 		_say(error, true)
+		# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ スタミナが足りないときは入手先の窓も出す（⚠ ポーションを使う・ショップ・ポモドーロ）。
+		if _dungeon_id == "" and _is_unlocked(_stage_id):
+			var _shown: bool = ItemSourceWindow.open_if_short(self, GameStateKeys.STAMINA, int(Balance.adventure.stamina_cost_per_stage), {
+				TransferKeys.RETURN_PATH: _return_path, TransferKeys.SORTIE_STAGE_ID: _stage_id,
+				TransferKeys.SORTIE_DUNGEON_ID: _dungeon_id, TransferKeys.SORTIE_START_FLOOR: _start_floor,
+			})
 		return
 	_play_sign()
 

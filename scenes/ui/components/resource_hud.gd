@@ -94,6 +94,8 @@ func _ready() -> void:
 	bar = ResourceBar.new()
 	bar.name = "Bar"
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# ⚠ 10-07（人間「⚠ すべてのリソースに適用したい　スタミナなど」・`NAV-19`）：⚠ 通貨にも「＋」＝押すと入手先の窓。
+	bar.open_sources = true
 	_row.add_child(bar)
 
 	# ⚠ 画面の外周と同じ余白で右上に寄せる（⚠ 値は Theme が持つ）。

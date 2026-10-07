@@ -12733,7 +12733,80 @@ class UiFlowRunner extends Node:
 			_check("入手先：%s は通常の依頼で手に入る（%s）" % [training_id, str(training_kinds)], GameManager.ITEM_SOURCE_STAGE in training_kinds)
 		await _flow_board_quick()
 		await _flow_source_everywhere()
+		await _flow_short_opens_sources()
 		await _open(BASE, {})
+
+	# --- すべての資源に「＋」・足りないまま押すと入手先の窓（2026-10-07・人間「⚠ すべてのリソースに適用したい　スタミナなど
+	#     ⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」） ---
+
+	func _flow_short_opens_sources() -> void:
+		const SHOP_SCREEN: String = "res://scenes/guild/shop_screen.tscn"
+		# 通貨の「＋」（⚠ 右上の常駐の帯）。
+		var base: Node = await _open(BASE, {})
+		var hud: ResourceHud = ResourceHud.get_instance()
+		var stamina_chip: Node = null if hud == null else hud.find_child("Chip_" + GameStateKeys.STAMINA, true, false)
+		_check("通貨：右上のスタミナにも「＋」", stamina_chip != null and stamina_chip.find_child("PlusMark", true, false) != null)
+		# スタミナの窓：ポーションをその場で使う。
+		GameManager.add_to_inventory(POTION_ID, 2, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+		var potions: int = GameManager.get_stamina_potion_count()
+		var stamina: int = GameManager.get_resource_amount(GameStateKeys.STAMINA)
+		await _press(stamina_chip.find_child("Hit", false, false) if stamina_chip != null else null)
+		var window: Node = _source_window(base)
+		var use: Node = null if window == null else _source_go(window, GameStateKeys.STAMINA, GameManager.ITEM_SOURCE_USE_POTION)
+		_check("通貨：スタミナの「＋」で窓・いちばん上が「使う」", use is BaseButton and not (use as BaseButton).disabled)
+		await _press(use)
+		_check("通貨：窓の「使う」でその場で回復（スタミナ %d → %d・ポーション %d → %d）" % [stamina, GameManager.get_resource_amount(GameStateKeys.STAMINA), potions, GameManager.get_stamina_potion_count()],
+			GameManager.get_resource_amount(GameStateKeys.STAMINA) > stamina and GameManager.get_stamina_potion_count() == potions - 1 and _source_window(base) != null)
+		await _close_modal(base)
+		var gold_kinds: Array[String] = []
+		for source: Dictionary in GameManager.get_item_sources(GameStateKeys.GOLD):
+			gold_kinds.append(str(source.get(GameManager.ITEM_SOURCE_KIND, "")))
+		_check("通貨：金は依頼の報酬から（%s）" % str(gold_kinds), GameManager.ITEM_SOURCE_STAGE in gold_kinds)
+		# 足りないまま押すと窓（⚠ 状態は変わらない）。⚠ 昇級の素材を 0 にして押す。
+		var material_id: String = str(GameManager.get_level_up_cost(HERO).get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
+		var had: int = GameManager.get_material_count(material_id)
+		GameManager.add_material(material_id, -had)
+		var level: int = _level()
+		var l: Node = await _open(LEVEL_UP, {TransferKeys.CHARACTER_ID: HERO})
+		var press: Node = null if l == null else l.find_child("PressButton", true, false)
+		_check("足りない：昇級の判のボタンは押せる", press is BaseButton and not (press as BaseButton).disabled)
+		await _press(press)
+		_check("足りない：押すと入手先の窓・レベルは %d のまま" % _level(), l != null and _source_window(l) != null and _level() == level)
+		if l != null:
+			await _close_modal(l)
+		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
+		await _press(t.find_child("LevelUpButton", true, false) if t != null else null)
+		_check("足りない：育成の「昇級させる」でも窓（申請書へは移らない）", t != null and _path_of(get_tree().current_scene) == TRAINING and _source_window(t) != null)
+		if t != null:
+			await _close_modal(t)
+		GameManager.add_material(material_id, had)
+		# ショップ：お金が足りない。
+		var gold: int = GameManager.get_resource_amount(GameStateKeys.GOLD)
+		GameManager.add_gold(-gold)
+		var shop: Node = await _open(SHOP_SCREEN, {})
+		var buy: Node = null
+		if shop != null:
+			for node: Node in shop.find_children("BuyButton", "", true, false):
+				if node is BaseButton and not (node as BaseButton).disabled:
+					buy = node
+					break
+		await _press(buy)
+		_check("足りない：ショップでお金が足りないと金の入手先の窓", shop != null and _source_window(shop) != null and GameManager.get_resource_amount(GameStateKeys.GOLD) == 0)
+		if shop != null:
+			await _close_modal(shop)
+		GameManager.add_gold(gold)
+		# 出撃：スタミナが足りない。
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		var spare: int = GameManager.get_resource_amount(GameStateKeys.STAMINA)
+		GameManager.add_stamina(-spare)
+		var stage_id: String = str(MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)[0])
+		var b: Node = await _open(BARRACKS, {TransferKeys.SORTIE_STAGE_ID: stage_id, TransferKeys.RETURN_PATH: ADVENTURE})
+		await _press(b.find_child("SortieButton", true, false) if b != null else null)
+		_check("足りない：出撃でスタミナが足りないとスタミナの入手先の窓", b != null and _source_window(b) != null and not GameManager.is_in_floor())
+		if b != null:
+			await _close_modal(b)
+		GameManager.add_stamina(spare)
 
 	# --- 素材を見せる所はどこからでも入手先の窓（2026-10-06・人間「⚠ 素材関連は全部広げる」） ---
 
@@ -12784,9 +12857,9 @@ class UiFlowRunner extends Node:
 			if hit_node is Button and plus_node is Label:
 				var hit_button: Button = hit_node as Button
 				var plus_label: Label = plus_node as Label
-				var pulse: Variant = plus_label.get_meta(&"plus_pulse", null)
-				_check("「＋」：%s でチップに縁が出ない・脈打ちが動いている" % path.get_file(),
-					hit_button.get_theme_stylebox(&"hover") is StyleBoxEmpty and pulse is Tween and (pulse as Tween).is_valid())
+				# ⚠ 脈打ちは消した（10-07・人間「⚠ 脈打つのは消して」）＝触れる前は動きが無い。
+				_check("「＋」：%s でチップに縁が出ない・脈打たない" % path.get_file(),
+					hit_button.get_theme_stylebox(&"hover") is StyleBoxEmpty and not plus_label.has_meta(&"plus_hover") and is_equal_approx(plus_label.scale.x, 1.0))
 				hit_button.mouse_entered.emit()
 				await _wait(OPEN_FRAMES * 2)
 				_check("「＋」：触れると明るく大きくなる（%s・%.2f）" % [str(plus_label.theme_type_variation), plus_label.scale.x],

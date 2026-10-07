@@ -151,7 +151,8 @@ func _add_node_row(node_id: String, node: Dictionary) -> void:
 	# label_key は使わず text を直接入れる（解放済みで文言が変わるため）。
 	button.text = tr("ui_research_unlocked") if unlocked else tr("ui_research_unlock")
 	# 押せてから失敗するより、押せないほうが分かりやすい（育成画面と同じ方針）。
-	button.disabled = unlocked or not prerequisites_met or not enough
+	# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ 足りなくても押せる＝押すと入手先の窓。⚠ 押せないのは解放済み・前提だけ。
+	button.disabled = unlocked or not prerequisites_met
 	button.pressed.connect(_on_unlock_pressed.bind(node_id))
 	# ⚠ 10-06（`NAV-19`）：⚠ まだ解放していないノードは、使う素材の入手先を開ける。
 	if not unlocked and material_id != "":
@@ -166,6 +167,10 @@ func _add_node_row(node_id: String, node: Dictionary) -> void:
 # --- 操作 ---
 
 func _on_unlock_pressed(node_id: String) -> void:
+	var cost: Dictionary = GameManager.get_research_unlock_cost(node_id)
+	if ItemSourceWindow.open_if_short(self, str(cost.get(GameManager.RESEARCH_COST_MATERIAL_ID, "")),
+			int(cost.get(GameManager.RESEARCH_COST_AMOUNT, 0)), {}):
+		return
 	# 戻り値は見ない。成功なら research_node_unlocked 経由で描画し直される。
 	# 失敗（前提未達・素材不足）はボタンが押せない状態で防いでいる。
 	GameManager.unlock_research_node(node_id)

@@ -363,7 +363,8 @@ func _build_application() -> VBoxContainer:
 	var button: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_training_apply")
 	button.name = "LevelUpButton"
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	button.disabled = at_cap or not enough
+	# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ 足りなくても押せる＝押すと入手先の窓。
+	button.disabled = at_cap
 	button.pressed.connect(_on_level_up_pressed)
 	line.add_child(button)
 	return block
@@ -443,6 +444,10 @@ func _on_apply_pressed() -> void:
 
 # ⚠ 昇級は申請書の画面で行う（人間「⚠ 3あ」）。⚠ ここでは上げない。
 func _on_level_up_pressed() -> void:
+	var cost: Dictionary = GameManager.get_level_up_cost(_selected_id)
+	if ItemSourceWindow.open_if_short(self, str(cost.get(GameManager.LEVEL_UP_COST_MATERIAL_ID, "")),
+			int(cost.get(GameManager.LEVEL_UP_COST_AMOUNT, 0)), _return_data()):
+		return
 	SceneManager.open_detour(LEVEL_UP_PATH, {TransferKeys.CHARACTER_ID: _selected_id}, TRAINING_PATH, _return_data())
 
 
