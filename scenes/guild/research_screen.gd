@@ -155,6 +155,8 @@ func _add_node_row(node_id: String, node: Dictionary) -> void:
 	# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ 足りなくても押せる＝押すと入手先の窓。⚠ 押せないのは解放済み・前提だけ。
 	button.disabled = unlocked or not prerequisites_met
 	button.pressed.connect(_on_unlock_pressed.bind(node_id))
+	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ いま解放できるノードの「解放する」に紐。
+	RibbonMark.set_on(button, not unlocked and prerequisites_met and enough)
 	# ⚠ 「入手先を見る」は 10-07 に外した（⚠ 人間「⚠ 減らして」）＝足りないまま「解放する」を押すと窓・見出しの素材の「＋」。
 
 	node_list.add_child(HSeparator.new())

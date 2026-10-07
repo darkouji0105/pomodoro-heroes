@@ -10,6 +10,8 @@ extends RefCounted
 
 const THEME_TYPE: StringName = &"FacilityBar"
 const META_ON: StringName = &"ribbon_on"
+# ⚠ 右端からの余白を変える（⚠ 細い器＝紙のタブは右端いっぱい。⚠ 施設の帯の余白のままだと字に重なった＝撮った絵）。
+const META_INSET: StringName = &"ribbon_inset"
 
 
 static func attach(control: Control) -> void:
@@ -19,6 +21,21 @@ static func attach(control: Control) -> void:
 	if not control.draw.is_connected(_on_draw.bind(control)):
 		control.draw.connect(_on_draw.bind(control))
 	control.queue_redraw()
+
+
+static func detach(control: Control) -> void:
+	if control == null or not control.has_meta(META_ON):
+		return
+	control.set_meta(META_ON, false)
+	control.queue_redraw()
+
+
+# ⚠ 付けるか外すかを1行で（⚠ 描き直しのたびに判定し直す画面向け）。
+static func set_on(control: Control, on: bool) -> void:
+	if on:
+		attach(control)
+	else:
+		detach(control)
 
 
 static func has_ribbon(control: Control) -> bool:
@@ -33,7 +50,7 @@ static func _on_draw(control: Control) -> void:
 static func draw_on(control: Control) -> void:
 	var w: float = float(control.get_theme_constant(&"ribbon_w", THEME_TYPE))
 	var h: float = float(control.get_theme_constant(&"ribbon_h", THEME_TYPE))
-	var inset: float = float(control.get_theme_constant(&"ribbon_inset", THEME_TYPE))
+	var inset: float = float(control.get_meta(META_INSET)) if control.has_meta(META_INSET) else float(control.get_theme_constant(&"ribbon_inset", THEME_TYPE))
 	var x: float = control.size.x - inset - w
 	control.draw_colored_polygon(PackedVector2Array([
 		Vector2(x, 0.0), Vector2(x + w, 0.0), Vector2(x + w, h),

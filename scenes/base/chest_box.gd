@@ -47,7 +47,7 @@ func play_fx(color: Color, strong: bool) -> Tween:
 	_fx_shake_px = float(get_theme_constant(StringName(prefix + "shake"), THEME_TYPE))
 	var build: float = float(get_theme_constant(StringName(prefix + "ms"), THEME_TYPE)) / 1000.0
 	var fade: float = float(get_theme_constant(&"fx_fade_ms", THEME_TYPE)) / 1000.0
-	_fx_tween = create_tween()
+	_fx_tween = create_tween().set_speed_scale(GameSettings.effect_speed())
 	_fx_tween.tween_method(_fx_step, 0.0, 1.0, build)
 	_fx_tween.tween_callback(_fx_open)
 	_fx_tween.tween_property(self, "fx_amount", 0.0, fade)

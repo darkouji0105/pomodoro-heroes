@@ -64,6 +64,8 @@ func _ready() -> void:
 	main_stack.add_child(tabs)
 	main_stack.move_child(tabs, 0)
 	_tabs = tabs
+	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 作業場の品が完成していたら「作る」のタブに紐。
+	tabs.set_attention(TAB_MAKE, GameManager.has_completed_craft())
 	_rebuild()
 
 
@@ -502,7 +504,7 @@ func _play_record_fx(holder: Control, seal: Stamp, now: Control, success: bool) 
 	var from_scale: float = float(get_theme_constant(&"fx_slam_scale_pct", THEME_TYPE)) / 100.0
 	seal.scale = Vector2.ONE * from_scale
 	seal.modulate.a = 0.0
-	var tween: Tween = seal.create_tween()
+	var tween: Tween = seal.create_tween().set_speed_scale(GameSettings.effect_speed())
 	tween.tween_interval(delay)
 	tween.tween_property(seal, "modulate:a", 1.0, slam)
 	tween.parallel().tween_property(seal, "scale", Vector2.ONE * final_scale, slam).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
@@ -510,7 +512,7 @@ func _play_record_fx(holder: Control, seal: Stamp, now: Control, success: bool) 
 	_flash_sheet(delay + slam, success)
 	if not success:
 		_shake_sheet(delay + slam, after)
-	var icon_tween: Tween = now.create_tween()
+	var icon_tween: Tween = now.create_tween().set_speed_scale(GameSettings.effect_speed())
 	icon_tween.tween_interval(delay + slam)
 	# ⚠ 窓が並べ終わってから中心を合わせる（⚠ いまは大きさが 0 のことがある）。
 	icon_tween.tween_callback(_center_pivot.bind(now))
@@ -538,7 +540,7 @@ func _flash_sheet(at: float, success: bool) -> void:
 	flash.color = get_theme_color(&"fx_flash" if success else &"fx_flash_fail", THEME_TYPE)
 	flash.modulate.a = 0.0
 	sheet.add_child(flash)
-	var tween: Tween = flash.create_tween()
+	var tween: Tween = flash.create_tween().set_speed_scale(GameSettings.effect_speed())
 	tween.tween_interval(at)
 	tween.tween_property(flash, "modulate:a", 1.0, 0.05)
 	tween.tween_property(flash, "modulate:a", 0.0, float(get_theme_constant(&"fx_flash_ms", THEME_TYPE)) / 1000.0)
@@ -549,7 +551,7 @@ func _flash_sheet(at: float, success: bool) -> void:
 func _shake_sheet(at: float, duration: float) -> void:
 	var shake: float = float(get_theme_constant(&"fx_sheet_shake_px", THEME_TYPE))
 	var steps: int = get_theme_constant(&"fx_shake_steps", THEME_TYPE)
-	var tween: Tween = sheet.create_tween()
+	var tween: Tween = sheet.create_tween().set_speed_scale(GameSettings.effect_speed())
 	tween.tween_interval(at)
 	var last: float = 0.0
 	for i: int in range(steps + 1):

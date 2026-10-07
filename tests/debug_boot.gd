@@ -12878,6 +12878,8 @@ class UiFlowRunner extends Node:
 		_check("知らせ：作業場の品が完成すると画面の上に知らせ（始めた %d）" % started,
 			toast != null and toast.find_child("ToastItem", true, false) != null)
 		var ws: Node = await _open(WORKSHOP_SCREEN, {})
+		var collect: Node = null if ws == null else ws.find_child("CollectButton", true, false)
+		_check("入った先：作業場の完成した「受け取る」に紐", collect is Control and RibbonMark.has_ribbon(collect as Control))
 		var all_button: Node = null if ws == null else ws.find_child("CollectAllButton", true, false)
 		var had_all: bool = all_button is BaseButton
 		# ⚠ 同時に作れる数が1つなら完成も1つ＝「まとめて」は出ない（⚠ 2つ以上で出す作り）。
@@ -12899,6 +12901,50 @@ class UiFlowRunner extends Node:
 		var w_bar: BaseFacilityBar = null if w == null else w.find_child("FacilityBar", false, false) as BaseFacilityBar
 		_check("NEW：出したら「見た」になる・持ち物の紐は NEW が残っているかどおり（%s）" % str(GameManager.has_new_items()),
 			GameManager.is_item_seen(PART_ID) and w_bar != null and w_bar.has_attention(BaseFacilityBar.BELONGINGS) == GameManager.has_new_items())
+		# 入った先の紐（10-07・人間「⚠ そこから言ったページで何を見ればいいのかわかんなかった」）。
+		var base_page: Node = await _open(BASE, {})
+		var badge: Node = null if base_page == null else base_page.find_child("ChestBadge", true, false)
+		_check("入った先：本部の届いた宝箱に紐", badge is Control and RibbonMark.has_ribbon(badge as Control))
+		var list: Node = await _open(TRAINING_LIST, {})
+		var other_card: Node = null if list == null else list.find_child("Card_" + OTHER, true, false)
+		var other_sheet: Node = null if other_card == null else (other_card as TiltedSheet).sheet
+		_check("入った先：育成の一覧で昇級できる人の札に紐（%s）" % str(GameManager.can_level_up_now(OTHER)),
+			other_sheet is Control and RibbonMark.has_ribbon(other_sheet as Control) == GameManager.can_level_up_now(OTHER))
+		var to: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: OTHER})
+		var other_chip: Node = null if to == null else to.find_child("Chip_" + OTHER, true, false)
+		var level_button: Node = null if to == null else to.find_child("LevelUpButton", true, false)
+		_check("入った先：育成で昇級できる人の札と「昇級させる」に紐",
+			other_chip is Control and RibbonMark.has_ribbon(other_chip as Control) and level_button is Control and RibbonMark.has_ribbon(level_button as Control))
+		var rs_page: Node = await _open("res://scenes/guild/research_screen.tscn", {})
+		var ribboned: int = 0
+		if rs_page != null:
+			for node: Node in rs_page.find_children("*", "Button", true, false):
+				if node is Control and RibbonMark.has_ribbon(node as Control):
+					ribboned += 1
+		_check("入った先：研究で解放できる「解放する」に紐（%d）" % ribboned, ribboned > 0 == GameManager.has_unlockable_research())
+		var seen_now: Dictionary = GameManager.get("_state")[GameStateKeys.SEEN_ITEMS]
+		seen_now.erase("forging_material_1")
+		var wp: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART})
+		var material_tab: Node = _tab_button(wp, 2)
+		_check("入った先：持ち物で NEW がある「素材」のタブに紐", material_tab is Control and RibbonMark.has_ribbon(material_tab as Control))
+		var guides: Dictionary = GameManager.get("_state")[GameStateKeys.GUIDES_SEEN]
+		guides.erase(GameManager.SHOP_SEEN_GUIDE_ID)
+		var sp: Node = await _open(SHOP_SCREEN, {})
+		var shop_row: Node = null if sp == null else sp.find_child("ShopRow_*", true, false)
+		if sp != null:
+			for node: Node in sp.find_children("ShopRow_*", "", true, false):
+				shop_row = node
+				break
+		_check("入った先：新しい品揃えのショップは品の行に紐", shop_row is Control and RibbonMark.has_ribbon(shop_row as Control))
+		# K：演出の速さ5段。
+		var settings: Node = await _open(SETTINGS, {})
+		var fast: Node = null if settings == null else settings.find_child("EffectSpeed_4", true, false)
+		await _press(fast)
+		_check("演出の速さ：設定の「とばす」で %.1f 倍（5段）" % GameSettings.effect_speed(),
+			GameSettings.EFFECT_SPEEDS.size() == 5 and is_equal_approx(GameSettings.effect_speed(), GameSettings.EFFECT_SPEEDS[4]))
+		settings = get_tree().current_scene
+		await _press(null if settings == null else settings.find_child("EffectSpeed_0", true, false))
+		_check("演出の速さ：「ふつう」で 1 倍に戻る", is_equal_approx(GameSettings.effect_speed(), 1.0))
 		# B：Esc ／ 右クリックで戻る。
 		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
 		var header: Node = null if t == null else t.find_child("Header", true, false)

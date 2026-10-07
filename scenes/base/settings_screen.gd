@@ -122,6 +122,19 @@ func _choices(prefix: String, values: Array, labels: Array[String], current: Var
 func _build_display() -> void:
 	var labels: Array[String] = [tr("ui_settings_windowed"), tr("ui_settings_fullscreen")]
 	_row("FullscreenRow", "ui_settings_display_mode", "", _choices("Display", [false, true], labels, GameSettings.is_fullscreen(), _on_fullscreen_chosen))
+	# ⚠ 10-07（回UI-便 K）：⚠ 演出の速さ5段（⚠ 鍛冶・宝箱・判・出撃の署名）。
+	var speed_labels: Array[String] = []
+	var speed_values: Array = []
+	for i: int in range(GameSettings.EFFECT_SPEEDS.size()):
+		speed_labels.append(tr("ui_settings_effect_speed_%d" % i))
+		speed_values.append(i)
+	_row("EffectSpeedRow", "ui_settings_effect_speed", "ui_settings_effect_speed_note",
+		_choices("EffectSpeed", speed_values, speed_labels, GameSettings.effect_speed_index(), _on_effect_speed_chosen))
+
+
+func _on_effect_speed_chosen(value: int) -> void:
+	GameSettings.set_value(GameSettings.SECTION_DISPLAY, GameSettings.KEY_EFFECT_SPEED, value)
+	_rebuild()
 
 
 func _on_fullscreen_chosen(value: bool) -> void:

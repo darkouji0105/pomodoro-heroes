@@ -121,6 +121,8 @@ func _rebuild_chips() -> void:
 	for character_id: String in _character_order():
 		var chip: CharacterAvatar = CharacterAvatar.create(character_id, side)
 		chip.name = "Chip_" + character_id
+		# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 昇級できる人の札に紐。
+		RibbonMark.set_on(chip, GameManager.can_level_up_now(character_id))
 		chip.tooltip_text = tr(str(MasterDataLoader.get_character(character_id).get("name_key", character_id)))
 		if GameManager.is_debug_character(character_id):
 			chip.modulate.a = debug_alpha
@@ -360,6 +362,8 @@ func _build_application() -> VBoxContainer:
 	# ⚠ 10-07（人間「⚠ プラスボタン押さなくても　例えば必要な素材を提示する画面などがあれば」・`NAV-19`）：⚠ 足りなくても押せる＝押すと入手先の窓。
 	button.disabled = at_cap
 	button.pressed.connect(_on_level_up_pressed)
+	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 上げられるなら「昇級させる」に紐。
+	RibbonMark.set_on(button, GameManager.can_level_up_now(_selected_id))
 	line.add_child(button)
 	return block
 

@@ -41,6 +41,13 @@ func set_tabs(label_keys: Array[String], selected: int = 0) -> void:
 	current = clampi(selected, 0, maxi(label_keys.size() - 1, 0))
 
 
+# ⚠ タブにしおり紐（2026-10-07・⚠ 施設の帯の紐から入ったとき、どのタブを見ればよいか）。
+func set_attention(index: int, on: bool) -> void:
+	if index >= 0 and index < _buttons.size():
+		_buttons[index].set_meta(RibbonMark.META_INSET, 0.0)
+		RibbonMark.set_on(_buttons[index], on)
+
+
 func _apply() -> void:
 	for index: int in _buttons.size():
 		_buttons[index].theme_type_variation = &"PaperTabOpen" if index == current else &"PaperTabClosed"

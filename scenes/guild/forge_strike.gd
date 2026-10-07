@@ -80,7 +80,7 @@ func _start(item_id: String, grade: int) -> void:
 func _build_tween() -> void:
 	var strike: float = float(get_theme_constant(&"strike_ms", THEME_TYPE)) / 1000.0
 	var count: int = maxi(1, get_theme_constant(&"strike_count", THEME_TYPE))
-	_tween = create_tween()
+	_tween = create_tween().set_speed_scale(GameSettings.effect_speed())
 	_tween.tween_interval(strike * 0.4)
 	for i: int in range(count):
 		_tween.tween_method(_set_hammer, 0.0, 1.0, strike * 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)

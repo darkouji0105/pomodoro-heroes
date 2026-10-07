@@ -1521,3 +1521,10 @@ ui_guild_shop_purchased_bulk,%d回まとめて買った
 ui_base_continue_run,続きから
 ui_guild_shop_next_refresh,次の更新まで %d時間%d分
 ui_toast_craft_done,作業場の品が完成した（%d個）
+ui_settings_effect_speed,演出の速さ
+ui_settings_effect_speed_note,鍛冶・宝箱・判・出撃の署名
+ui_settings_effect_speed_0,ふつう
+ui_settings_effect_speed_1,1.5倍
+ui_settings_effect_speed_2,2倍
+ui_settings_effect_speed_3,3倍
+ui_settings_effect_speed_4,とばす

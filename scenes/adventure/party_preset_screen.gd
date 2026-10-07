@@ -983,7 +983,7 @@ func _play_sign() -> void:
 	add_child(_sign_blocker)
 	var write: float = float(get_theme_constant(&"sign_write_ms", THEME_TYPE)) / 1000.0
 	var gap: float = float(get_theme_constant(&"sign_gap_ms", THEME_TYPE)) / 1000.0
-	var tween: Tween = create_tween()
+	var tween: Tween = create_tween().set_speed_scale(GameSettings.effect_speed())
 	for signature: SortieSignature in _signatures:
 		tween.tween_property(signature, "progress", 1.0, write).from(0.0)
 		tween.tween_interval(gap)

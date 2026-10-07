@@ -28,6 +28,8 @@ func _ready() -> void:
 	# 1. 画面を開いた時点で日付を見る。
 	#    起動しっぱなしで 4:00 をまたいだ場合、起動時のチェックだけでは在庫が戻らない。
 	GameManager.refresh_shop_if_needed(SHOP_TYPE)
+	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 新しい品揃えなら、この1回は品の行に紐。
+	_fresh_line_up = not GameManager.is_shop_line_up_seen()
 	# ⚠ 10-07：⚠ 品揃えを見た（⚠ 施設の帯のしおり紐が消える）。
 	GameManager.mark_shop_line_up_seen()
 
@@ -107,6 +109,9 @@ func _process(delta: float) -> void:
 	GameManager.refresh_shop_if_needed(SHOP_TYPE)
 	_update_next_refresh()
 
+var _fresh_line_up: bool = false
+
+
 func _create_slot_row(slot: Dictionary) -> void:
 	var slot_id: int = int(slot.get(GameStateKeys.SHOP_SLOT_ID, -1))
 	var item_id: String = str(slot.get(GameStateKeys.SHOP_ITEM_ID, ""))
@@ -120,6 +125,8 @@ func _create_slot_row(slot: Dictionary) -> void:
 
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "ShopRow_%d" % slot_id
+	if _fresh_line_up:
+		RibbonMark.attach(row)
 
 	# 仮アセットのアイコン。⚠ daily の13枠は全部 items.json の実在のIDを売る。
 	var item_icon: ItemIcon = ItemIcon.create(item_id)

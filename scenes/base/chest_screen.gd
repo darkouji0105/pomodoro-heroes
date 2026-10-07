@@ -473,7 +473,7 @@ func _rise(card: TiltedSheet, index: int) -> void:
 	var delay: float = float(get_theme_constant(&"rise_step_ms", THEME_TYPE)) * step / 1000.0
 	var rise: float = float(get_theme_constant(&"rise_px", THEME_TYPE))
 	card.modulate.a = 0.0
-	var tween: Tween = card.create_tween()
+	var tween: Tween = card.create_tween().set_speed_scale(GameSettings.effect_speed())
 	tween.tween_interval(delay)
 	tween.tween_property(card, "modulate:a", 1.0, duration)
 	tween.parallel().tween_property(card.sheet, "position:y", 0.0, duration).from(rise) \

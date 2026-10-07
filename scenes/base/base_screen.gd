@@ -194,6 +194,8 @@ func _on_pending_chests_changed(pending_count: int) -> void:
 func _update_chest_badge(count: int) -> void:
 	if count > 0:
 		chest_badge.visible = true
+		# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 本部の紐の行き先＝届いた宝箱にも紐。
+		RibbonMark.attach(chest_badge)
 		chest_count_label.text = str(count)
 	else:
 		chest_badge.visible = false

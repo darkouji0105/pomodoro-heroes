@@ -137,6 +137,10 @@ func _rebuild() -> void:
 		shown_ids.append(str((row.get(ROW_ENTRY, {}) as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")))
 	# ⚠ 10-07（NEW のしおり紐）：⚠ 出した品は「見た」にする（⚠ 紐はこの1回だけ出る）。⚠ 施設の帯の紐も引き直す。
 	GameManager.mark_items_seen(shown_ids)
+	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ NEW の品があるタブに紐（⚠ いま見ているタブは「見た」になったので消える）。
+	if tabs != null:
+		for index: int in range(TAB_IDS.size()):
+			tabs.set_attention(index, _tab_has_new(TAB_IDS[index]))
 	var facility: Node = get_node_or_null("FacilityBar")
 	if facility is BaseFacilityBar:
 		(facility as BaseFacilityBar).refresh_attention()
@@ -192,6 +196,24 @@ func _build_heading(count: int) -> Control:
 
 
 # --- 行 ---
+
+# ⚠ そのタブに NEW の品があるか（⚠ 装備は部位の絞り込みを見ない）。
+func _tab_has_new(tab_id: String) -> bool:
+	match tab_id:
+		TransferKeys.WAREHOUSE_TAB_PART:
+			for row: Dictionary in _part_rows():
+				if GameManager.is_item_new(str((row.get(ROW_ENTRY, {}) as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))):
+					return true
+		TransferKeys.WAREHOUSE_TAB_MATERIAL:
+			for row: Dictionary in _material_rows():
+				if GameManager.is_item_new(str((row.get(ROW_ENTRY, {}) as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))):
+					return true
+		_:
+			for raw: Variant in GameManager.get_owned_instances():
+				if GameManager.is_item_new(str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, ""))):
+					return true
+	return false
+
 
 func _rows() -> Array[Dictionary]:
 	if _attach_instance != "":

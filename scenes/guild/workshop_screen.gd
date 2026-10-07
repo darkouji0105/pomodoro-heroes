@@ -150,6 +150,8 @@ func _create_queue_row(entry: Dictionary) -> void:
 	collect_button.disabled = status != GameStateKeys.CRAFT_STATUS_COMPLETED
 	collect_button.pressed.connect(_on_collect_pressed.bind(queue_id))
 	row.add_child(collect_button)
+	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 完成したら「受け取る」に紐。
+	RibbonMark.set_on(collect_button, status == GameStateKeys.CRAFT_STATUS_COMPLETED)
 
 	queue_list.add_child(row)
 

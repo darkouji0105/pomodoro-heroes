@@ -31,8 +31,12 @@ const KEY_DAILY_GOAL: String = "daily_goal_minutes"
 # ⚠ タスクの期限の札「今週中」が入れる曜日（2026-10-05・`TK-17`・人間「⚠ 設定に足す・既定は土曜」）。⚠ 値は曜日の番号（0＝日 … 6＝土・Godot の `weekday` と同じ）。
 const SECTION_TASK: String = "task"
 const KEY_WEEK_END: String = "week_end_weekday"
+# ⚠ 演出の速さ（2026-10-07・回UI-便 K・人間「⚠ Kは５で」）：⚠ 0〜4 の段（⚠ 倍率は下の `EFFECT_SPEEDS`）。
+const KEY_EFFECT_SPEED: String = "effect_speed"
 const WEEK_END_CHOICES: Array[int] = [5, 6, 0]
 const VOLUME_MAX_PCT: int = 100
+# ⚠ 演出の速さの5段（⚠ ふつう・1.5倍・2倍・3倍・とばす）。⚠ 「とばす」は 20倍＝ほぼ一瞬（⚠ 演出の終わりで次へ進む作りを崩さない）。
+const EFFECT_SPEEDS: Array[float] = [1.0, 1.5, 2.0, 3.0, 20.0]
 const DEFAULT_PATH: String = "user://settings.cfg"
 # ⚠⚠ 置き場所の差し替えは Engine のメタに持つ（⚠ static 変数は途中で台本が読み直されると初期値に戻る＝
 #   ⚠ 09-28 に検査が本物の `settings.cfg` を書いた）。
@@ -95,6 +99,8 @@ static func _default(section: String, key: String) -> Variant:
 			return 0
 		KEY_WEEK_END:
 			return 6
+		KEY_EFFECT_SPEED:
+			return 0
 	push_warning("[GameSettings] 知らない設定 %s/%s" % [section, key])
 	return null
 
@@ -153,6 +159,15 @@ static func auto_start_focus() -> bool:
 
 static func daily_goal_minutes() -> int:
 	return maxi(0, int(get_value(SECTION_POMODORO, KEY_DAILY_GOAL)))
+
+
+# 演出の速さの倍率（⚠ 鍛冶・宝箱・判・出撃の署名の Tween に `set_speed_scale()` で掛ける）。
+static func effect_speed_index() -> int:
+	return clampi(int(get_value(SECTION_DISPLAY, KEY_EFFECT_SPEED)), 0, EFFECT_SPEEDS.size() - 1)
+
+
+static func effect_speed() -> float:
+	return EFFECT_SPEEDS[effect_speed_index()]
 
 
 # 週の終わりの曜日（⚠ 0〜6 の外なら土曜）。

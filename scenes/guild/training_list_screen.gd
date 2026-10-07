@@ -36,6 +36,8 @@ func _ready() -> void:
 		card.setup(character_id)
 		card.name = "Dossier"
 		card.open_pressed.connect(_on_open_pressed)
+		# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 昇級できる人の札に紐。
+		RibbonMark.set_on(holder.sheet, GameManager.can_level_up_now(character_id))
 		index += 1
 
 
