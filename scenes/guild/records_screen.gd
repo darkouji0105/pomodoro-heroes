@@ -320,6 +320,9 @@ func _codex_detail() -> VBoxContainer:
 	var holder: Control = Control.new()
 	var icon_scale: float = float(get_theme_constant(&"detail_icon_scale_pct", THEME_TYPE)) / 100.0
 	var icon: ItemIcon = ItemIcon.create(_picked, _picked_grade)
+	icon.name = "DetailIcon"
+	# ⚠ 10-07：⚠ アイコンを押しても入手先の窓。
+	ItemSourceWindow.attach_to(icon, _picked)
 	holder.add_child(icon)
 	holder.scale = Vector2.ONE * icon_scale
 	holder.custom_minimum_size = Vector2.ONE * float(get_theme_constant(&"cell", THEME_TYPE))

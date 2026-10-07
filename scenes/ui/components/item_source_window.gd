@@ -41,6 +41,28 @@ static func open_if_short(caller: Node, item_id: String, need: int, return_data:
 	return true
 
 
+# ⚠ アイコンを押しても窓（2026-10-07・人間「⚠ アイコンをクリックしても窓が出るように」）。
+#   ⚠ 品・素材を見せているアイコンに1行で付ける。⚠ 指の形・触れると「入手先を見る」。⚠ 戻ったときの姿は画面が預けたもの。
+#   ⚠ 一覧の行の中のアイコン（⚠ 押すと行を選ぶ）には付けない（⚠ 行の選び方が変わる）。
+static func attach_to(control: Control, item_id: String, need: int = 0) -> void:
+	if control == null or item_id == "":
+		return
+	control.mouse_filter = Control.MOUSE_FILTER_STOP
+	control.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	control.tooltip_text = TranslationServer.translate("ui_source_open")
+	control.gui_input.connect(_on_attached_input.bind(control, item_id, need))
+
+
+static func _on_attached_input(event: InputEvent, control: Control, item_id: String, need: int) -> void:
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if not is_instance_valid(control) or not control.is_inside_tree():
+		return
+	control.accept_event()
+	var _window: ModalDialog = open(control, item_id, need)
+
+
 # ⚠ 窓を出す。⚠ 戻り先は呼んだ画面（`current_scene`）。
 static func open(caller: Node, item_id: String, need: int = 0, return_data: Dictionary = {}) -> ModalDialog:
 	# ⚠ 渡されなければ、画面が預けた「戻ってきたときの姿」（`SceneManager.current_return_data()`）。

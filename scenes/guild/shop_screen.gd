@@ -98,7 +98,11 @@ func _create_slot_row(slot: Dictionary) -> void:
 	row.name = "ShopRow_%d" % slot_id
 
 	# 仮アセットのアイコン。⚠ daily の13枠は全部 items.json の実在のIDを売る。
-	row.add_child(ItemIcon.create(item_id))
+	var item_icon: ItemIcon = ItemIcon.create(item_id)
+	item_icon.name = "ItemIcon"
+	# ⚠ 10-07：⚠ アイコンを押しても入手先の窓（⚠ ほかにどこで手に入るか）。
+	ItemSourceWindow.attach_to(item_icon, item_id)
+	row.add_child(item_icon)
 
 	# 商品名 ×個数。素材名は "ui_res_" + item_id で引く（AGENTS.md 翻訳キーの運用）
 	var name_label: Label = Label.new()

@@ -207,6 +207,8 @@ func _build_items() -> TiltedSheet:
 		card.custom_minimum_size.x = float(get_theme_constant(&"card_width", THEME_TYPE))
 		var icon: ItemIcon = ItemIcon.create(item_id, 0, int(items[raw]))
 		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		# ⚠ 10-07：⚠ アイコンを押しても入手先の窓。
+		ItemSourceWindow.attach_to(icon, item_id)
 		if _is_lost():
 			icon.modulate = get_theme_color(&"lost_tint", THEME_TYPE)
 		card.add_child(icon)

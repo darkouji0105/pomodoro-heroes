@@ -203,7 +203,11 @@ func _build_forge_page() -> VBoxContainer:
 		cost_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var line: HBoxContainer = HBoxContainer.new()
 		cost_row.add_child(line)
-		line.add_child(ItemIcon.create(material_id))
+		var cost_icon: ItemIcon = ItemIcon.create(material_id)
+		cost_icon.name = "CostIcon"
+		# ⚠ 10-07：⚠ アイコンを押しても入手先の窓。
+		ItemSourceWindow.attach_to(cost_icon, material_id, amount)
+		line.add_child(cost_icon)
 		var material_name: Label = Label.new()
 		material_name.text = tr("ui_res_" + material_id)
 		material_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL

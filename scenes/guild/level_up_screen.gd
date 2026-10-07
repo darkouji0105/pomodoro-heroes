@@ -215,7 +215,10 @@ func _build_side() -> VBoxContainer:
 		var texture: Texture2D = IconTextures.for_item(material_id)
 		if texture != null:
 			var icon: TextureRect = TextureRect.new()
+			icon.name = "UsesIcon"
 			icon.texture = texture
+			# ⚠ 10-07：⚠ アイコンを押しても入手先の窓。
+			ItemSourceWindow.attach_to(icon, material_id, amount)
 			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			var icon_side: float = float(get_theme_constant(&"row_icon", THEME_TYPE)) * 1.5

@@ -12825,6 +12825,44 @@ class UiFlowRunner extends Node:
 		if b != null:
 			await _close_modal(b)
 		GameManager.add_stamina(spare)
+		await _flow_icon_opens_sources()
+
+	# --- アイコンを押しても窓（2026-10-07・人間「⚠ アイコンをクリックしても窓が出るように」） ---
+
+	func _click(control: Node) -> void:
+		if not (control is Control):
+			_check("押すアイコンが見つからない", false)
+			return
+		var click: InputEventMouseButton = InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		(control as Control).gui_input.emit(click)
+		await _wait()
+
+	func _flow_icon_opens_sources() -> void:
+		const SHOP_SCREEN: String = "res://scenes/guild/shop_screen.tscn"
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		var instance_id: String = _instance_of(WEAPON_ID)
+		var cases: Array = [
+			[FORGE, {TransferKeys.FORGE_INSTANCE_ID: instance_id}, "CostIcon", "鍛冶場の必要素材"],
+			[LEVEL_UP, {TransferKeys.CHARACTER_ID: HERO}, "UsesIcon", "昇級の使うもの"],
+			[SHOP_SCREEN, {}, "ItemIcon", "ショップの品"],
+		]
+		for case: Array in cases:
+			var screen: Node = await _open(str(case[0]), case[1])
+			if screen == null:
+				continue
+			var icon: Node = screen.find_child(str(case[2]), true, false)
+			await _click(icon)
+			_check("アイコン：%sのアイコンを押すと窓（指の形 %s）" % [str(case[3]), str(icon is Control and (icon as Control).mouse_default_cursor_shape == Control.CURSOR_POINTING_HAND)],
+				_source_window(screen) != null)
+			await _close_modal(screen)
+		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL})
+		if w != null:
+			await _press(w.find_child("Row_forging_material_1", true, false))
+			await _click(w.find_child("HeadIcon", true, false))
+			_check("アイコン：持ち物の右の紙のアイコンを押すと窓", _source_window(w) != null)
+			await _close_modal(w)
 
 	# --- 素材を見せる所はどこからでも入手先の窓（2026-10-06・人間「⚠ 素材関連は全部広げる」） ---
 

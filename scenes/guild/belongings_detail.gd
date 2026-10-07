@@ -277,9 +277,12 @@ func _add_head(entry: Dictionary, name_text: String, sub_text: String, main_text
 	var head: HBoxContainer = HBoxContainer.new()
 	head.name = "Head"
 	var icon: ItemSlot = ItemSlot.create(entry)
+	icon.name = "HeadIcon"
 	var side: float = float(get_theme_constant(&"head_icon", THEME_TYPE))
 	icon.custom_minimum_size = Vector2(side, side)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# ⚠ 10-07：⚠ アイコンを押しても入手先の窓（⚠ 装備の個体は品のIDで引く）。
+	ItemSourceWindow.attach_to(icon, str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, "")))
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(icon)
 	var column: VBoxContainer = VBoxContainer.new()
