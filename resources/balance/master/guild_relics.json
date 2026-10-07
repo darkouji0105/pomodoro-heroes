@@ -7,6 +7,7 @@
 			"atk"
 		],
 		"offer_points": 1,
+		"fail_points": 1,
 		"costs": [
 			1,
 			2,
@@ -41,6 +42,7 @@
 			"hp"
 		],
 		"offer_points": 2,
+		"fail_points": 1,
 		"costs": [
 			1,
 			2,
@@ -76,6 +78,7 @@
 			"mdef"
 		],
 		"offer_points": 3,
+		"fail_points": 2,
 		"costs": [
 			1,
 			2,
@@ -107,6 +110,7 @@
 		"grade": 8,
 		"axis": "heal_taken_pct",
 		"offer_points": 4,
+		"fail_points": 2,
 		"costs": [
 			1,
 			2,
@@ -138,6 +142,7 @@
 		"grade": 9,
 		"axis": "battle_gold_pct",
 		"offer_points": 5,
+		"fail_points": 3,
 		"costs": [
 			1,
 			2,
@@ -169,6 +174,7 @@
 		"grade": 10,
 		"axis": "rare_drop_pct",
 		"offer_points": 6,
+		"fail_points": 3,
 		"costs": [
 			1,
 			2,

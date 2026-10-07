@@ -309,14 +309,6 @@ ui_equipment_equipped,装備した
 ui_equipment_unequipped,外した
 ui_equipment_failed,装備できなかった
 ui_res_forging_material_1,鍛冶の欠片
-ui_res_armor_leather_cap,革の帽子
-ui_res_armor_iron_helm,鉄の兜
-ui_res_armor_leather_vest,革の胴着
-ui_res_armor_iron_mail,鉄の鎧
-ui_res_armor_leather_boots,革のブーツ
-ui_res_armor_iron_greaves,鉄の具足
-ui_res_acc_ring_power,力の指輪
-ui_res_acc_amulet_life,生命の護符
 ui_res_weapon_dragon_greatsword,竜殺しの大剣
 ui_res_armor_thorn_mail,いばらの鎧
 ui_res_acc_guardian_charm,守りのお守り
@@ -630,14 +622,6 @@ ui_research_b2_craft_2,作業台の増設
 ui_research_effect_craft_speed,製作時間 -%d%%
 ui_research_effect_craft_slot,同時製作 +%d
 ui_guild_workshop_draw,装飾（ランダム）
-ui_icon_armor_leather_cap,革
-ui_icon_armor_iron_helm,鉄
-ui_icon_armor_leather_vest,革
-ui_icon_armor_iron_mail,鉄
-ui_icon_armor_leather_boots,革
-ui_icon_armor_iron_greaves,鉄
-ui_icon_acc_ring_power,力
-ui_icon_acc_amulet_life,命
 ui_icon_weapon_dragon_greatsword,竜
 ui_icon_armor_thorn_mail,棘
 ui_icon_acc_guardian_charm,守
@@ -1631,3 +1615,6 @@ ui_grelic_offered_max,%sに %d 点 入った（Lv %d・最大）
 ui_forge_offer_preview,捧げると %s +%d 点
 ui_forge_offer_from_grade,等級%d から遺物に捧げられる
 ui_forge_offer_equipped,着けている装備は捧げられない
+ui_forge_fail_relic_caption,失敗の手応えが遺物に残った
+ui_grelic_offer_preview_short,%s +%d 点
+ui_grelic_offer_preview_item,%s（等級%d）→ %s +%d 点 ／ 戻る素材 %d 個

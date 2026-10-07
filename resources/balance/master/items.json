@@ -247,22 +247,6 @@
 	  "sort_order": 31
 	},
 	{
-	  "item_id": "armor_leather_cap",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "head",
-	  "equip_stats": { "def": 2 },
-	  "sort_order": 32
-	},
-	{
-	  "item_id": "armor_iron_helm",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "head",
-	  "equip_stats": { "hp": 10, "def": 5 },
-	  "sort_order": 33
-	},
-	{
 	  "item_id": "armor_head_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",
@@ -285,22 +269,6 @@
 	  "equip_slot": "head",
 	  "equip_stats": { "def": -2, "mdef": 4, "haste": 5 },
 	  "sort_order": 36
-	},
-	{
-	  "item_id": "armor_leather_vest",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "armor",
-	  "equip_stats": { "hp": 15, "def": 4 },
-	  "sort_order": 37
-	},
-	{
-	  "item_id": "armor_iron_mail",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "armor",
-	  "equip_stats": { "hp": 30, "def": 9 },
-	  "sort_order": 38
 	},
 	{
 	  "item_id": "armor_thorn_mail",
@@ -337,22 +305,6 @@
 	  "sort_order": 42
 	},
 	{
-	  "item_id": "armor_leather_boots",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "legs",
-	  "equip_stats": { "spd": 4 },
-	  "sort_order": 43
-	},
-	{
-	  "item_id": "armor_iron_greaves",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "legs",
-	  "equip_stats": { "def": 4, "spd": 2 },
-	  "sort_order": 44
-	},
-	{
 	  "item_id": "armor_legs_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",
@@ -375,22 +327,6 @@
 	  "equip_slot": "legs",
 	  "equip_stats": { "mdef": 3, "haste": 5, "spd": -2 },
 	  "sort_order": 47
-	},
-	{
-	  "item_id": "acc_ring_power",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "accessory",
-	  "equip_stats": { "atk": 4 },
-	  "sort_order": 48
-	},
-	{
-	  "item_id": "acc_amulet_life",
-	  "storage": "inventory",
-	  "item_type": "equipment",
-	  "equip_slot": "accessory",
-	  "equip_stats": { "hp": 25 },
-	  "sort_order": 49
 	},
 	{
 	  "item_id": "acc_guardian_charm",

@@ -2745,6 +2745,7 @@ const BASE_DESK: Dictionary = {
 
 
 const GUILD_RELIC_ALTAR_WIDTH: int = 440
+const GUILD_RELIC_ALTAR_COLUMNS: int = 5
 
 
 static func _build_task(theme: Theme) -> void:
@@ -2753,6 +2754,8 @@ static func _build_task(theme: Theme) -> void:
 	theme.set_color(&"road", &"BaseDesk", _html(FACILITY_BAR_RULE))
 	# ⚠ 拠点の遺物の画面（10-07・回HB-3）。⚠ 右の祭壇の紙の幅。
 	theme.set_constant(&"altar_width", &"GuildRelic", GUILD_RELIC_ALTAR_WIDTH)
+	# ⚠ 10-07（見る回23回目）：⚠ 祭壇のマス目の列の数。
+	theme.set_constant(&"altar_columns", &"GuildRelic", GUILD_RELIC_ALTAR_COLUMNS)
 	theme.set_type_variation(&"BaseBuildingRow", &"HBoxContainer")
 	theme.set_constant(&"separation", &"BaseBuildingRow", int(BASE_DESK["building_gap"]))
 	var t: StringName = &"Task"

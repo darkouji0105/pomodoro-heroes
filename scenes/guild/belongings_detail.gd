@@ -121,7 +121,10 @@ func _build_instance(instance_id: String) -> void:
 	attach.pressed.connect(_on_attach_pressed.bind(instance_id, empty_slot))
 	buttons.add_child(attach)
 	# ⚠ 分解は戻らない＝赤（決定 `MD-5`）。⚠ 着けている個体は外してから（⚠ 前と同じ）。
-	var melt: UiButton = UiButton.create(UiButton.Variant.DANGER, "ui_belongings_dismantle")
+	# ⚠ 10-07（見る回23回目・人間「⚠ 持ち物の画面から武器を分解できるが、ささげると同じに」）：⚠ 遺物に点数が入る品（等級5以上）は「捧げる」。
+	#   ⚠ 口は同じ `dismantle_equipment()`・⚠ 確かめの窓と知らせも遺物の画面と同じ（`GuildRelicScreen.notify_offered()`）。
+	var offerable: bool = not GameManager.get_offer_preview(instance_id).is_empty()
+	var melt: UiButton = UiButton.create(UiButton.Variant.DANGER, "ui_grelic_offer" if offerable else "ui_belongings_dismantle")
 	melt.name = "DismantleButton"
 	melt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	melt.disabled = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, "")) != ""
@@ -366,6 +369,17 @@ func _on_attach_pressed(instance_id: String, slot_index: int) -> void:
 # ⚠ 分解は戻らない。⚠ 確かめの窓を通す（決定 `MD-10`・手本 Confirm「分解する」）。
 func _on_dismantle_pressed(instance_id: String) -> void:
 	var item_id: String = str(GameManager.get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+	var offer: Dictionary = GameManager.get_offer_preview(instance_id)
+	if not offer.is_empty():
+		var offered: bool = await Modal.confirm(self, "ui_grelic_offer_confirm", [tr(GameManager.item_name_key(item_id))], false, {
+			Modal.OPTION_TITLE: tr("ui_grelic_offer"),
+		})
+		if not offered or not is_instance_valid(self):
+			return
+		var host: Node = get_tree().current_scene
+		if GameManager.dismantle_equipment(instance_id):
+			GuildRelicScreen.notify_offered(host, offer)
+		return
 	var confirmed: bool = await Modal.confirm(
 		self, "ui_belongings_dismantle_confirm",
 		[tr(GameManager.item_name_key(item_id)), GameManager.get_dismantle_refund_total(instance_id)], false, {

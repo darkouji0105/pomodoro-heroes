@@ -182,6 +182,15 @@ const LEGACY_ITEM_IDS: Dictionary = {
 	"weapon_wooden_sword": "weapon_sword_swift",
 	"weapon_iron_sword": "weapon_sword_swift",
 	"weapon_steel_sword": "weapon_sword_swift",
+	# ⚠ 10-07（見る回23回目・人間「⚠ 鉄の防具とかは消していい」）：⚠ 型を持たない前からの防具・アクセサリー8品＝同じ部位の「守り」の型へ。
+	"armor_leather_cap": "armor_head_guard",
+	"armor_iron_helm": "armor_head_guard",
+	"armor_leather_vest": "armor_body_guard",
+	"armor_iron_mail": "armor_body_guard",
+	"armor_leather_boots": "armor_legs_guard",
+	"armor_iron_greaves": "armor_legs_guard",
+	"acc_ring_power": "acc_guard",
+	"acc_amulet_life": "acc_guard",
 }
 
 # items.json の装飾エントリだけが持つキー（EXEC_DECORATION.md §3-A）。
@@ -356,6 +365,10 @@ const FORGE_RESULT_MATERIAL_ID: String = "material_id"
 const FORGE_RESULT_AMOUNT: String = "amount"
 const FORGE_RESULT_USED_TOKEN: String = "used_token"
 const FORGE_RESULT_REASON: String = "reason"
+# ⚠ 10-07（見る回23回目）：⚠ 失敗したときに点数が入った遺物・点数・入る前の目盛り（⚠ 結果の画面が伸ばして見せる）。⚠ 入らなければ relic_id は ""。
+const FORGE_RESULT_RELIC_ID: String = "relic_id"
+const FORGE_RESULT_RELIC_POINTS: String = "relic_points"
+const FORGE_RESULT_RELIC_HAVE_BEFORE: String = "relic_have_before"
 # reason に入る字（⚠ 画面は `ui_forge_reject_<字>` を引く）。
 const FORGE_REJECT_UNKNOWN: String = "unknown"
 const FORGE_REJECT_MAX: String = "max"
@@ -3402,6 +3415,7 @@ func forge_equipment_roll(instance_id: String, use_token: bool = false) -> Dicti
 		FORGE_RESULT_GRADE_BEFORE: 0, FORGE_RESULT_GRADE_AFTER: 0,
 		FORGE_RESULT_MATERIAL_ID: "", FORGE_RESULT_AMOUNT: 0,
 		FORGE_RESULT_USED_TOKEN: false, FORGE_RESULT_REASON: "",
+		FORGE_RESULT_RELIC_ID: "", FORGE_RESULT_RELIC_POINTS: 0, FORGE_RESULT_RELIC_HAVE_BEFORE: 0,
 	}
 	var instance: Dictionary = get_equipment_instance(instance_id)
 	if instance.is_empty():
@@ -3438,6 +3452,10 @@ func forge_equipment_roll(instance_id: String, use_token: bool = false) -> Dicti
 		print("[GameManager] forge_equipment('%s') -> false (確定成功の札が無い)" % instance_id)
 		return result
 
+	# ⚠ 10-07（見る回23回目・人間「⚠ 鍛冶が失敗すると遺物にポイントが入るように」）：⚠ 失敗したら今の等級の遺物に点数（⚠ 状態を変える前に決める）。
+	var fail_relic: String = get_guild_relic_of_grade(grade)
+	var fail_points: int = int(MasterDataLoader.get_guild_relic(fail_relic).get(MasterDataLoader.GUILD_RELIC_FAIL_POINTS, 0)) if fail_relic != "" else 0
+
 	# --- ここから状態を変える ---
 
 	if amount > 0:
@@ -3459,12 +3477,19 @@ func forge_equipment_roll(instance_id: String, use_token: bool = false) -> Dicti
 	result[FORGE_RESULT_MATERIAL_ID] = material_id
 	result[FORGE_RESULT_AMOUNT] = amount
 	result[FORGE_RESULT_USED_TOKEN] = token
+	if not success and fail_points > 0:
+		result[FORGE_RESULT_RELIC_ID] = fail_relic
+		result[FORGE_RESULT_RELIC_POINTS] = fail_points
+		result[FORGE_RESULT_RELIC_HAVE_BEFORE] = int(get_guild_relic_progress(fail_relic).get(GUILD_RELIC_PROGRESS_HAVE, 0))
+		_add_guild_relic_points(fail_relic, fail_points)
 	print("[GameManager] forge_equipment('%s') -> true (%s grade %d -> %d pct=%d token=%s cost=%d stats=%s slots=%d)" % [
 		instance_id, "成功" if success else "失敗", grade, new_grade, pct, str(token), amount,
 		get_instance_stats(instance_id), get_open_part_slot_count(_instance_equip_slot(instance_id), new_grade)
 	])
 	if success:
 		equipment_instances_changed.emit(instance_id)
+	if str(result[FORGE_RESULT_RELIC_ID]) != "":
+		guild_relic_changed.emit(str(result[FORGE_RESULT_RELIC_ID]))
 	return result
 
 # 素材に戻したときの戻り量。{material_id: count} を返す。
@@ -3541,10 +3566,7 @@ func dismantle_equipment(instance_id: String) -> bool:
 		add_material(str(material_id), int(refund[material_id]))
 
 	if not offer.is_empty():
-		var relic_id: String = str(offer[OFFER_RELIC_ID])
-		var points: Dictionary = _copy_dict(GameStateKeys.GUILD_RELICS)
-		points[relic_id] = int(points.get(relic_id, 0)) + int(offer[OFFER_POINTS])
-		_state[GameStateKeys.GUILD_RELICS] = points
+		_add_guild_relic_points(str(offer[OFFER_RELIC_ID]), int(offer[OFFER_POINTS]))
 
 	print("[GameManager] dismantle_equipment('%s') -> true (item=%s grade=%d refund=%s offer=%s)" % [
 		instance_id, str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, "")),
@@ -3569,6 +3591,13 @@ const OFFER_RELIC_ID: String = "relic_id"
 const OFFER_POINTS: String = "points"
 const GUILD_RELIC_PROGRESS_HAVE: String = "have"
 const GUILD_RELIC_PROGRESS_NEED: String = "need"
+
+
+# ⚠ 点数を足す唯一の口（⚠ 捧げる＝`dismantle_equipment()` ／ 鍛えるのに失敗＝`forge_equipment_roll()`）。⚠ シグナルは呼ぶ側が出す。
+func _add_guild_relic_points(relic_id: String, points: int) -> void:
+	var all_points: Dictionary = _copy_dict(GameStateKeys.GUILD_RELICS)
+	all_points[relic_id] = int(all_points.get(relic_id, 0)) + points
+	_state[GameStateKeys.GUILD_RELICS] = all_points
 
 
 func get_guild_relic_points(relic_id: String) -> int:

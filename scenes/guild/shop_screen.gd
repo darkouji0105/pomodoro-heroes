@@ -105,6 +105,11 @@ func _process(delta: float) -> void:
 	GameManager.refresh_shop_if_needed(SHOP_TYPE)
 	_update_next_refresh()
 
+func _on_row_input(event: InputEvent, ribbon_slot: Control, slot_id: int) -> void:
+	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		_on_row_seen(ribbon_slot, slot_id)
+
+
 # ⚠ その品を見た（⚠ 紐を外し、施設の帯の紐も引き直す）。
 func _on_row_seen(row: Control, slot_id: int) -> void:
 	GameManager.mark_shop_slot_seen(slot_id)
@@ -138,9 +143,10 @@ func _create_slot_row(slot: Dictionary) -> void:
 	ribbon_slot.custom_minimum_size.x = float(ribbon_slot.get_theme_constant(&"ribbon_w", RibbonMark.THEME_TYPE))
 	ribbon_slot.set_meta(RibbonMark.META_INSET, 0.0)
 	row.add_child(ribbon_slot)
+	# ⚠ 10-07（見る回23回目・人間「⚠ ショップのひもに気づくが、クリックして確認しないと、消えないように」）：⚠ カーソルを乗せただけでは消さない。⚠ 行を押すか買ったら消える。
 	if not GameManager.is_shop_slot_seen(slot_id):
 		RibbonMark.attach(ribbon_slot)
-		row.mouse_entered.connect(_on_row_seen.bind(ribbon_slot, slot_id))
+		row.gui_input.connect(_on_row_input.bind(ribbon_slot, slot_id))
 
 	# 仮アセットのアイコン。⚠ daily の13枠は全部 items.json の実在のIDを売る。
 	var item_icon: ItemIcon = ItemIcon.create(item_id)

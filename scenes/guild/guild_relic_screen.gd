@@ -146,8 +146,8 @@ func _relic_row(relic_id: String, last: bool) -> LedgerRow:
 	if relic_id == _gained_relic:
 		var target: float = gauge.value
 		gauge.value = minf(float(_gained_from), target) if _gained_from <= have else 0.0
-		var tween: Tween = gauge.create_tween()
-		tween.tween_property(gauge, "value", target, 0.6 / GameSettings.effect_speed())
+		# ⚠ 木に入れてから伸ばす（⚠ 行はこのあと一覧に入る）。
+		gauge.ready.connect(func() -> void: gauge.create_tween().tween_property(gauge, "value", target, 0.6 / GameSettings.effect_speed()))
 		var gained: Label = Label.new()
 		gained.name = "GainedLabel"
 		gained.theme_type_variation = &"GainLabel"
@@ -194,12 +194,13 @@ func _build_altar() -> VBoxContainer:
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		body.add_child(scroll)
-		var rows: VBoxContainer = VBoxContainer.new()
-		rows.name = "Rows"
-		rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		scroll.add_child(rows)
+		# ⚠ 10-07（見る回23回目・人間「⚠ リストだとブキが見ずらいので、インベントリ風に」）：⚠ マス目。⚠ 選んだマスは明るい紙で囲む。
+		var grid: GridContainer = GridContainer.new()
+		grid.name = "Cells"
+		grid.columns = get_theme_constant(&"altar_columns", THEME_TYPE)
+		scroll.add_child(grid)
 		for raw: Variant in views:
-			rows.add_child(_offer_row(raw as Dictionary))
+			grid.add_child(_offer_cell(raw as Dictionary))
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL if views.is_empty() else Control.SIZE_FILL
 	body.add_child(spacer)
@@ -221,30 +222,24 @@ func _build_altar() -> VBoxContainer:
 	return body
 
 
-func _offer_row(view: Dictionary) -> LedgerRow:
+func _offer_cell(view: Dictionary) -> PanelContainer:
 	var instance_id: String = str(view.get(GameManager.INSTANCE_VIEW_ID, ""))
 	var item_id: String = str(view.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
 	var grade: int = int(view.get(GameStateKeys.INSTANCE_GRADE, 1))
-	var row: LedgerRow = LedgerRow.new()
-	row.name = "Offer_" + instance_id
-	row.compact = true
-	row.selected = instance_id == _selected
-	row.pressed.connect(_on_offer_row_pressed.bind(instance_id))
-	var line: HBoxContainer = HBoxContainer.new()
-	row.add_child(line)
-	line.add_child(ItemIcon.create(item_id, grade))
-	var name_label: Label = Label.new()
-	name_label.text = tr(GameManager.item_name_key(item_id))
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	line.add_child(name_label)
-	var relic_label: Label = Label.new()
-	relic_label.theme_type_variation = &"CaptionLabel"
-	relic_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	relic_label.text = tr(str(MasterDataLoader.get_guild_relic(GameManager.get_guild_relic_of_grade(grade)).get("name_key", "")))
-	line.add_child(relic_label)
-	return row
+	var cell: PanelContainer = PanelContainer.new()
+	cell.name = "OfferCell_" + instance_id
+	cell.theme_type_variation = &"LedgerRowSelectedPanel" if instance_id == _selected else &"LedgerRowPanel"
+	var slot: ItemSlot = ItemSlot.create({
+		GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_INSTANCE,
+		GameManager.SLOT_ENTRY_ITEM_ID: item_id,
+		GameManager.SLOT_ENTRY_INSTANCE_ID: instance_id,
+		GameManager.SLOT_ENTRY_GRADE: grade,
+		GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
+	})
+	slot.name = "Offer_" + instance_id
+	slot.slot_pressed.connect(func(_entry: Dictionary) -> void: _on_offer_row_pressed(instance_id))
+	cell.add_child(slot)
+	return cell
 
 
 func _has_view(views: Array, instance_id: String) -> bool:
@@ -262,7 +257,10 @@ func _preview_text() -> String:
 	if offer.is_empty():
 		return ""
 	var relic_name: String = tr(str(MasterDataLoader.get_guild_relic(str(offer[GameManager.OFFER_RELIC_ID])).get("name_key", "")))
-	return tr("ui_grelic_offer_preview") % [relic_name, int(offer[GameManager.OFFER_POINTS]), GameManager.get_dismantle_refund_total(_selected)]
+	var instance: Dictionary = GameManager.get_equipment_instance(_selected)
+	var item_name: String = tr(GameManager.item_name_key(str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, ""))))
+	return tr("ui_grelic_offer_preview_item") % [item_name, int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)),
+		relic_name, int(offer[GameManager.OFFER_POINTS]), GameManager.get_dismantle_refund_total(_selected)]
 
 
 # --- 操作 -------------------------------------------------------------

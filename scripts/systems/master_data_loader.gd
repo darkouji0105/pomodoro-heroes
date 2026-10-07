@@ -29,6 +29,8 @@ const GUILD_RELIC_GRADE: String = "grade"
 const GUILD_RELIC_AXIS: String = "axis"
 const GUILD_RELIC_STATS: String = "stats"
 const GUILD_RELIC_OFFER_POINTS: String = "offer_points"
+# ⚠ 鍛えるのに失敗したときの点数（10-07・見る回23回目・人間「⚠ 鍛冶が失敗すると遺物にポイントが入るように」）。
+const GUILD_RELIC_FAIL_POINTS: String = "fail_points"
 const GUILD_RELIC_COSTS: String = "costs"
 const GUILD_RELIC_VALUES: String = "values"
 const GUILD_RELIC_AXIS_STAT: String = "stat"

@@ -531,8 +531,59 @@ func _on_offer_pressed() -> void:
 		GuildRelicScreen.notify_offered(self, offer)
 
 
+# ⚠⚠ 失敗で遺物に点数が入った（10-07・見る回23回目・人間「⚠ 鍛冶が失敗すると遺物にポイントが入るように、その際、遺物にポイントがたまる様子も見せる」）。
+#   ⚠ 遺物のアイコン ／「力の遺物 +1 点」／ 目盛りが入る前から伸びる（⚠ 段が上がったら0から）／ 次まで ◯ / ◯ 点。
+func _build_side_relic_gain() -> void:
+	var relic_id: String = str(_result.get(GameManager.FORGE_RESULT_RELIC_ID, ""))
+	if relic_id == "":
+		return
+	var relic: Dictionary = MasterDataLoader.get_guild_relic(relic_id)
+	var holder: TiltedSheet = TiltedSheet.create(2)
+	holder.name = "RelicGainSheet"
+	var body: VBoxContainer = VBoxContainer.new()
+	holder.sheet.add_child(body)
+	var caption: Label = Label.new()
+	caption.theme_type_variation = &"CaptionLabel"
+	caption.text = tr("ui_forge_fail_relic_caption")
+	body.add_child(caption)
+	var line: HBoxContainer = HBoxContainer.new()
+	body.add_child(line)
+	line.add_child(ItemIcon.create(relic_id, int(relic.get(MasterDataLoader.GUILD_RELIC_GRADE, 0))))
+	var text: Label = Label.new()
+	text.name = "RelicGainText"
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	text.text = tr("ui_grelic_offer_preview_short") % [tr(str(relic.get("name_key", ""))), int(_result.get(GameManager.FORGE_RESULT_RELIC_POINTS, 0))]
+	line.add_child(text)
+	var progress: Dictionary = GameManager.get_guild_relic_progress(relic_id)
+	var need: int = int(progress.get(GameManager.GUILD_RELIC_PROGRESS_NEED, 0))
+	var have: int = int(progress.get(GameManager.GUILD_RELIC_PROGRESS_HAVE, 0))
+	var gauge: ProgressBar = ProgressBar.new()
+	gauge.name = "RelicGauge"
+	gauge.show_percentage = false
+	gauge.theme_type_variation = &"LevelBar"
+	gauge.custom_minimum_size.y = float(get_theme_constant(&"height", &"LevelBar"))
+	gauge.max_value = float(maxi(need, 1))
+	var target: float = 1.0 if need <= 0 else float(have)
+	if need <= 0:
+		gauge.max_value = 1.0
+	var before: int = int(_result.get(GameManager.FORGE_RESULT_RELIC_HAVE_BEFORE, 0))
+	gauge.value = float(before) if before <= have else 0.0
+	body.add_child(gauge)
+	var points: Label = Label.new()
+	points.name = "RelicGainPoints"
+	points.theme_type_variation = &"CaptionLabel"
+	points.text = tr("ui_grelic_level") % [GameManager.get_guild_relic_level(relic_id), GameManager.get_guild_relic_max_level(relic_id)] + "　" + (
+		tr("ui_grelic_max") if need <= 0 else tr("ui_grelic_points") % [have, need])
+	body.add_child(points)
+	side.add_child(holder)
+	# ⚠ 木に入れてから伸ばす（⚠ 入る前の目盛りから）。
+	gauge.create_tween().tween_property(gauge, "value", target, 0.6 / GameSettings.effect_speed())
+
+
 # 結果の画面の右の列（⚠ 手本：下に「続けて鍛える」「持ち物で見る」）。
 func _build_side_result() -> void:
+	_build_side_relic_gain()
 	_add_side_spacer()
 	var success: bool = bool(_result.get(GameManager.FORGE_RESULT_SUCCESS, false))
 	# ⚠ 押すと**その場でもう一度鍛える**（⚠ 09-28 人間「⚠ 続けて鍛えるで元の画面に戻らないで」）。⚠ 札は使わない（⚠ 使うなら「戻る」で鍛える紙から）。

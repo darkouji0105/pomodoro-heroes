@@ -2744,7 +2744,7 @@ func _apply_runes(scenario: Dictionary) -> void:
 
 	var base_item: Dictionary = {
 		GameStateKeys.EQUIP_WEAPON: "weapon_sword_swift",
-		GameStateKeys.EQUIP_ACCESSORY: "acc_ring_power",
+		GameStateKeys.EQUIP_ACCESSORY: "acc_guard",
 	}
 
 	for raw_character_id: Variant in table.keys():
@@ -3011,8 +3011,8 @@ func _report_parts() -> void:
 			continue
 		GameManager.add_to_inventory(part_id, 300, GameStateKeys.ITEM_TYPE_PART)
 
-	GameManager.add_to_inventory("armor_iron_helm", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
-	var helm_id: String = _find_instance_of("armor_iron_helm")
+	GameManager.add_to_inventory("armor_head_guard", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var helm_id: String = _find_instance_of("armor_head_guard")
 	if helm_id == "":
 		push_error("[DebugBoot] 個体が作られなかった（add_to_inventory が個体を作っていない）")
 		return
@@ -3072,8 +3072,8 @@ func _report_parts() -> void:
 	print("[DebugBoot] --- 刺せない理由（判定1〜6が別々のキーを返すこと）---")
 	print("  1 個体が無い       -> '%s'" % GameManager.get_part_reject_reason("eq_9999", 0, test_id))
 
-	GameManager.add_to_inventory("armor_leather_cap", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
-	var cap_id: String = _find_instance_of("armor_leather_cap")
+	GameManager.add_to_inventory("armor_head_swift", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var cap_id: String = _find_instance_of("armor_head_swift")
 	print("  2 枠が開いていない -> '%s'（等級1の頭）" % GameManager.get_part_reject_reason(cap_id, 0, test_id))
 
 	GameManager.attach_part(helm_id, 0, test_id)
@@ -3098,8 +3098,8 @@ func _report_parts() -> void:
 	print("  防具のワイルド枠（位置2）に護符 -> '%s'（空文字が正解）" % GameManager.get_part_reject_reason(helm_id, 2, "part_charm_def_1"))
 	print("  防具のワイルド枠（位置2）に紋章 -> '%s'（空文字が正解）" % GameManager.get_part_reject_reason(helm_id, 2, "part_emblem_haste_1"))
 	print("  防具の位置3（アクセ専用）      -> '%s'（locked が正解）" % GameManager.get_part_reject_reason(helm_id, 3, "part_gem_atk_1"))
-	GameManager.add_to_inventory("acc_ring_power", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
-	var acc_id: String = _find_instance_of("acc_ring_power")
+	GameManager.add_to_inventory("acc_guard", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+	var acc_id: String = _find_instance_of("acc_guard")
 	while GameManager.forge_equipment(acc_id):
 		pass
 	print("  アクセの位置2/3 に刺さる種類   -> %s / %s（どちらもルーン枠）" % [
@@ -3257,7 +3257,7 @@ func _report_runes(acc_id: String) -> void:
 		GameManager.get_character_growth(character_id).get(GameStateKeys.GROWTH_RUNE_MOVE, null)
 	))
 	# ⚠ アクセを装備していないとルーンが誰にも紐づかない。先に着ける。
-	var acc_instance: String = _find_instance_of("acc_ring_power")
+	var acc_instance: String = _find_instance_of("acc_guard")
 	GameManager.equip_instance(character_id, GameStateKeys.EQUIP_ACCESSORY, acc_instance)
 	print("  刺さっているルーンのIDを壊す -> get_battle_runes() が %s" % str(
 		_broken_rune_lookup(character_id)
@@ -4385,8 +4385,8 @@ func _report_item_icons() -> void:
 	print("[DebugBoot] --- 仮アセットのアイコン（⚠ 字・右下の数字・色）---")
 	# [item_id, 渡す等級（装備の個体だけ。0 なら item_id から引く）]
 	var samples: Array = [
-		["weapon_sword_guard", 1], ["armor_iron_mail", 4],
-		["acc_ring_power", 7], ["weapon_sword_rune", 10],
+		["weapon_sword_guard", 1], ["armor_body_guard", 4],
+		["acc_guard", 7], ["weapon_sword_rune", 10],
 		["part_gem_atk_1", 0], ["part_gem_atk_4", 0],
 		["part_charm_mdef_2", 0], ["part_emblem_crit_dmg_3", 0],
 		["part_rune_buff_1", 0], ["part_rune_shield_5", 0],
@@ -6639,12 +6639,12 @@ func _report_inventory() -> void:
 	#   ⚠ 最大等級で **ルーン枠が1つ**なのが正解（⚠ 前は2つだった）。
 	detail.show_entry({
 		GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
-		GameManager.SLOT_ENTRY_ITEM_ID: "acc_ring_power",
+		GameManager.SLOT_ENTRY_ITEM_ID: "acc_guard",
 		GameManager.SLOT_ENTRY_INSTANCE_ID: "",
 		GameManager.SLOT_ENTRY_GRADE: GameManager.get_max_equipment_grade(),
 		GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
 	})
-	print("  acc_ring_power 最大等級（⚠ ルーン枠が1つなのが正解）")
+	print("  acc_guard 最大等級（⚠ ルーン枠が1つなのが正解）")
 	for line: String in detail.get_lines():
 		print("    %s" % line)
 
@@ -6653,12 +6653,12 @@ func _report_inventory() -> void:
 	#   ⚠ 「⚠ ワイルド枠がここにしか出ない」ことはこの行で分かる。
 	detail.show_entry({
 		GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
-		GameManager.SLOT_ENTRY_ITEM_ID: "armor_iron_helm",
+		GameManager.SLOT_ENTRY_ITEM_ID: "armor_head_guard",
 		GameManager.SLOT_ENTRY_INSTANCE_ID: "",
 		GameManager.SLOT_ENTRY_GRADE: GameManager.get_max_equipment_grade(),
 		GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
 	})
-	print("  armor_iron_helm 最大等級（⚠ ワイルド枠が1つ出るのが正解＝虹色の枠）")
+	print("  armor_head_guard 最大等級（⚠ ワイルド枠が1つ出るのが正解＝虹色の枠）")
 	for line: String in detail.get_lines():
 		print("    %s" % line)
 
@@ -6668,12 +6668,12 @@ func _report_inventory() -> void:
 	detail.set_summary(true)
 	detail.show_entry({
 		GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
-		GameManager.SLOT_ENTRY_ITEM_ID: "armor_iron_helm",
+		GameManager.SLOT_ENTRY_ITEM_ID: "armor_head_guard",
 		GameManager.SLOT_ENTRY_INSTANCE_ID: "",
 		GameManager.SLOT_ENTRY_GRADE: GameManager.get_max_equipment_grade(),
 		GameManager.SLOT_ENTRY_EQUIPPED_BY: "",
 	})
-	print("  ⚠ 要約 armor_iron_helm 最大等級（⚠ 「頭 ／ 枠 ／ 0 / 7」が1行になるのが正解）")
+	print("  ⚠ 要約 armor_head_guard 最大等級（⚠ 「頭 ／ 枠 ／ 0 / 7」が1行になるのが正解）")
 	for line: String in detail.get_lines():
 		print("    %s" % line)
 	if forge_target != "":
@@ -6722,9 +6722,9 @@ func _report_inventory_equip() -> void:
 	var character_id: String = str(GameManager.get_party_members()[0])
 	# ⚠ 素の状態から見たいので、⚠ 空いている個体を1つ作る。
 	var _accepted: int = GameManager.add_to_inventory(
-		"armor_iron_helm", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT
+		"armor_head_guard", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT
 	)
-	var instance_id: String = _find_instance_of("armor_iron_helm")
+	var instance_id: String = _find_instance_of("armor_head_guard")
 	if instance_id == "":
 		push_error("[DebugBoot] 個体を作れなかった（装備の検証ができない）")
 		return
@@ -7313,7 +7313,7 @@ func _report_glyphs() -> void:
 	for enemy_id: String in ["enemy_slime", "enemy_wolf", "boss_slime_king", "enemy_dbg_react"]:
 		print("  敵    %-20s %s" % [enemy_id, Glyphs.for_enemy(enemy_id)])
 	var samples: Array[String] = [
-		"weapon_sword_swift", "armor_iron_helm", "part_gem_atk_1", "part_charm_def_1",
+		"weapon_sword_swift", "armor_head_guard", "part_gem_atk_1", "part_charm_def_1",
 		"part_emblem_crit_rate_1", "part_rune_buff_1", "construction_material_1",
 		"stamina_potion", "dungeon_potion_heal", "dungeon_potion_revive", "not_an_item",
 	]
@@ -9822,10 +9822,10 @@ class ShotTaker extends Node:
 			for node: Node in screen.find_children("Offer_*", "", true, false):
 				offer_row = node
 				break
-			if not (offer_row is LedgerRow):
+			if not (offer_row is BaseButton):
 				push_error("[DebugBoot] ⚠ %s の祭壇に装備が無い" % shot_name)
 				return false
-			(offer_row as LedgerRow).pressed.emit()
+			(offer_row as BaseButton).pressed.emit()
 			for _i: int in range(4):
 				await get_tree().process_frame
 		elif kind == AFTER_BASE_TOWN:
@@ -10986,6 +10986,33 @@ class UiFlowRunner extends Node:
 		_check("遺物：鍛冶場から捧げても力の遺物に点数（%d 点）・知らせの窓" % GameManager.get_guild_relic_points("grelic_power"),
 			GameManager.get_guild_relic_points("grelic_power") == 2 and GameManager.get_equipment_instance(g5b).is_empty() and _modal_of(get_tree().current_scene) != null)
 		await _close_modal(get_tree().current_scene)
+		# ⑧ 鍛えるのに失敗すると遺物に点数（⚠ 10-07 見る回23回目・人間「⚠ 火事が失敗すると遺物にポイントが入るように、その際、遺物にポイントがたまる様子も見せる」）。
+		#   ⚠ 成功率はメモリの中だけ 0 にして、⚠ 押したらすぐ戻す（⚠ 撮影の失敗の窓と同じ手）。
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 5)
+		var g5c: String = ""
+		for view: Variant in GameManager.get_owned_instances():
+			var id_c: String = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+			if not (id_c in before_items) and not (id_c in [g5, g4, g5b]) and int((view as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 0)) == 5:
+				g5c = id_c
+		GameManager.add_material(GameManager.get_forge_material_id(6), 999)
+		var power_before: int = GameManager.get_guild_relic_points("grelic_power")
+		var ff: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: g5c})
+		var saved_pct: Array[int] = Balance.equipment.forge_success_pct_by_grade.duplicate()
+		var never: Array[int] = []
+		for _i: int in range(saved_pct.size()):
+			never.append(0)
+		Balance.equipment.forge_success_pct_by_grade = never
+		if ff != null:
+			ff.call("_on_forge_pressed")
+		Balance.equipment.forge_success_pct_by_grade = saved_pct
+		var strike: Node = null if ff == null else ff.find_child("ForgeStrike", true, false)
+		if strike is ForgeStrike:
+			(strike as ForgeStrike).skip()
+		await _wait(OPEN_FRAMES)
+		_check("遺物：鍛えるのに失敗すると力の遺物に点数（%d → %d）・等級は下がらない" % [power_before, GameManager.get_guild_relic_points("grelic_power")],
+			GameManager.get_guild_relic_points("grelic_power") > power_before and int(GameManager.get_equipment_instance(g5c).get(GameStateKeys.INSTANCE_GRADE, 0)) == 5)
+		_check("遺物：失敗の結果に「遺物に残った」紙と目盛り（%s）" % (_label_text(ff, "RelicGainSheet", "RelicGainText") if ff != null else ""),
+			ff != null and ff.find_child("RelicGainSheet", true, false) != null and ff.find_child("RelicGauge", true, false) != null)
 		# ⑤ 富の遺物（⚠ 点数は状態に直に入れる＝等級9の装備を作らずに見る）。
 		var points: Dictionary = GameManager.get("_state")[GameStateKeys.GUILD_RELICS]
 		points["grelic_fortune"] = 1
@@ -11256,7 +11283,7 @@ class UiFlowRunner extends Node:
 	func _flow_special_effects() -> void:
 		const THORN: String = "armor_thorn_mail"
 		_check("特殊効果：いばらの鎧は「棘の返し」・鉄の鎧には無い",
-			GameManager.get_item_special_effect(THORN) == "eqfx_thorn" and GameManager.get_item_special_effect("armor_iron_mail") == ""
+			GameManager.get_item_special_effect(THORN) == "eqfx_thorn" and GameManager.get_item_special_effect("armor_body_guard") == ""
 			and not GameManager.get_special_effect_view("eqfx_thorn").is_empty())
 		# ⚠ 入れて剣士に着せる（⚠ 本番の口）。
 		GameManager.add_to_inventory(THORN, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
@@ -13187,7 +13214,7 @@ class UiFlowRunner extends Node:
 		# ⚠ 10-07：⚠ 品ごとに見た＝全部の行にカーソルを乗せたら施設の帯の紐が消える。
 		if shop != null:
 			for node: Node in shop.find_children("ShopRow_*", "", true, false):
-				(node as Control).mouse_entered.emit()
+				await _click(node)
 		_check("しおり紐：ショップの品を全部見たら紐が消える", shop_bar != null and not shop_bar.has_attention(BaseFacilityBar.SHOP))
 		# I：ショップの次の更新まで。
 		_check("ショップ：次の更新までの残り（%s）" % _label_text(shop, "Layout", "RefreshLabel"),
@@ -13306,8 +13333,11 @@ class UiFlowRunner extends Node:
 		_check("入った先：新しい品揃えのショップは品の行（品の絵の前）に紐", shop_row is Control and RibbonMark.has_ribbon(_shop_ribbon(shop_row)))
 		var rows_now: Array[Node] = [] if sp == null else sp.find_children("ShopRow_*", "", true, false)
 		if rows_now.size() >= 2:
+			# ⚠ 10-07（見る回23回目・人間「⚠ クリックして確認しないと、消えないように」）：⚠ 乗せただけでは消えない・押したら消える。
 			(rows_now[0] as Control).mouse_entered.emit()
-			_check("入った先：ショップは乗せた行だけ紐が消える", not RibbonMark.has_ribbon(_shop_ribbon(rows_now[0])) and RibbonMark.has_ribbon(_shop_ribbon(rows_now[1])))
+			_check("入った先：ショップはカーソルを乗せただけでは紐が消えない", RibbonMark.has_ribbon(_shop_ribbon(rows_now[0])))
+			await _click(rows_now[0])
+			_check("入った先：ショップは押した行だけ紐が消える", not RibbonMark.has_ribbon(_shop_ribbon(rows_now[0])) and RibbonMark.has_ribbon(_shop_ribbon(rows_now[1])))
 		# K：演出の速さ5段。
 		var settings: Node = await _open(SETTINGS, {})
 		var fast: Node = null if settings == null else settings.find_child("EffectSpeed_4", true, false)
