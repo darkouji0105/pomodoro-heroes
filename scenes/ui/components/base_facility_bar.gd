@@ -94,6 +94,55 @@ func _ready() -> void:
 		#   （⚠ 回UI-3 の絵：育成の一覧が検証用3人ぶん長い）。⚠ **下（帯の裏）へだけ伸ばす**。
 		_content.grow_vertical = Control.GROW_DIRECTION_END
 	facility_pressed.connect(_on_facility_pressed)
+	# ⚠ しおり紐（2026-10-07・人間「⚠ Aはしおり的な奴がUIテストにあるのでそれを」）：⚠ 用事がある施設に。⚠ 状態が変わったら引き直す。
+	refresh_attention()
+	GameManager.pending_chests_changed.connect(_on_state_changed_int)
+	GameManager.material_changed.connect(_on_material_changed)
+	GameManager.crafting_queue_changed.connect(refresh_attention)
+	GameManager.research_node_unlocked.connect(_on_state_changed_str)
+	GameManager.character_growth_changed.connect(_on_state_changed_str)
+	GameManager.shop_changed.connect(_on_state_changed_str)
+	GameManager.inventory_changed.connect(_on_state_changed_str)
+
+
+# ⚠⚠ 用事がある施設（⚠ 判定は全部 GameManager の口＝ここに2本目を書かない）。
+#   ⚠ 本部＝届いた宝箱 ／ 育成＝昇級できる人がいる ／ 鍛冶場＝作業場の品が完成 ／ 持ち物＝NEW の品
+#   ／ 研究＝解放できる ／ ショップ＝品揃えが替わってまだ見ていない。⚠ 掲示板・詰所・記録は出さない。
+static func attention_of(id: String) -> bool:
+	match id:
+		HQ:
+			return GameManager.get_pending_chest_count() > 0
+		TRAINING:
+			for raw: Variant in GameManager.get_party_candidates():
+				if GameManager.can_level_up_now(str(raw)):
+					return true
+			return false
+		FORGE:
+			return GameManager.has_completed_craft()
+		BELONGINGS:
+			return GameManager.has_new_items()
+		RESEARCH:
+			return GameManager.has_unlockable_research()
+		SHOP:
+			return not GameManager.is_shop_line_up_seen()
+	return false
+
+
+func refresh_attention() -> void:
+	for id: String in _entries:
+		set_attention(id, attention_of(id))
+
+
+func _on_state_changed_int(_value: int) -> void:
+	refresh_attention()
+
+
+func _on_state_changed_str(_value: String) -> void:
+	refresh_attention()
+
+
+func _on_material_changed(_material_id: String, _amount: int) -> void:
+	refresh_attention()
 
 
 func set_facilities(entries: Array[Dictionary], active_id: String = "") -> void:
@@ -101,6 +150,7 @@ func set_facilities(entries: Array[Dictionary], active_id: String = "") -> void:
 	for entry: Dictionary in entries:
 		_entries[str(entry.get(ENTRY_ID, ""))] = entry
 	super.set_facilities(entries, active_id)
+	refresh_attention()
 
 
 func _on_facility_pressed(id: String) -> void:

@@ -90,3 +90,9 @@ const QUEST_TAB: String = "quest_tab"
 const QUEST_TAB_HARD: int = 1
 # ポモドーロを開いたときに選んでおくタスク（⚠ タスクの画面の「これで集中」）。
 const TASK_ID: String = "task_id"
+# ⚠ 画面の覚え（2026-10-07・`SceneManager.remember()` / `recall()` の鍵）。⚠ 遊んでいるあいだだけ。
+const MEMORY_WAREHOUSE_TAB: String = "memory_warehouse_tab"
+const MEMORY_RECORDS_TAB: String = "memory_records_tab"
+const MEMORY_QUEST_TAB: String = "memory_quest_tab"
+const MEMORY_ROSTER_SORT: String = "memory_roster_sort"
+const MEMORY_TASK_FILTER: String = "memory_task_filter"

@@ -39,6 +39,19 @@ static func is_same_game_day(unix_time_a: float, unix_time_b: float) -> bool:
 	return get_game_date_string(unix_time_a) == get_game_date_string(unix_time_b)
 
 
+# 次の日の区切り（⚠ 朝4:00）までの秒（2026-10-07・ショップの「次の更新まで」）。
+static func seconds_until_next_day(unix_time: float = -1.0) -> int:
+	var t: float = unix_time
+	if t < 0.0:
+		t = Time.get_unix_time_from_system()
+	var local_t: int = int(t) + _get_timezone_offset_sec()
+	var into_day: int = posmod(local_t, SECONDS_PER_DAY)
+	var boundary: int = DAY_BOUNDARY_HOUR * 3600
+	if into_day < boundary:
+		return boundary - into_day
+	return SECONDS_PER_DAY - into_day + boundary
+
+
 # システムのタイムゾーン差を秒で返す（日本なら +32400）。
 # get_time_zone_from_system() の bias は分単位。
 static func _get_timezone_offset_sec() -> int:

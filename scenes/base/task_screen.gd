@@ -41,6 +41,8 @@ var _detail_dirty: bool = false
 func _ready() -> void:
 	SceneManager.consume_transfer_data()
 	var _moved: int = GameManager.roll_over_done_tasks()
+	# ⚠ 10-07（H）：⚠ タグの絞り込みを覚える（⚠ そのタグが無くなっていれば一覧を描くときに外れる）。
+	_filter_tag = str(SceneManager.recall(TransferKeys.MEMORY_TASK_FILTER, ""))
 	header.back_pressed.connect(_on_back_pressed)
 	list_sheet.custom_minimum_size.x = float(get_theme_constant(&"list_width", THEME_TYPE))
 	detail_sheet.custom_minimum_size.x = float(get_theme_constant(&"detail_width", THEME_TYPE))
@@ -279,6 +281,7 @@ func _on_filter_pressed(tag: String) -> void:
 	if tag == _filter_tag:
 		return
 	_filter_tag = tag
+	SceneManager.remember(TransferKeys.MEMORY_TASK_FILTER, _filter_tag)
 	_queue_list()
 
 

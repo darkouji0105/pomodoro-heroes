@@ -53,7 +53,8 @@ func _ready() -> void:
 	# ⚠ 10-07：⚠ 入手先の窓から戻ってきたときの姿を預ける（`SceneManager.set_return_data_provider()`）。
 	SceneManager.set_return_data_provider(_source_return_data)
 	var data: Dictionary = SceneManager.consume_transfer_data()
-	var wanted_tab: String = str(data.get(TransferKeys.WAREHOUSE_TAB, TransferKeys.WAREHOUSE_TAB_EQUIP))
+	# ⚠ 10-07（H）：⚠ 渡されなければ前に開いていたタブ。
+	var wanted_tab: String = str(data.get(TransferKeys.WAREHOUSE_TAB, SceneManager.recall(TransferKeys.MEMORY_WAREHOUSE_TAB, TransferKeys.WAREHOUSE_TAB_EQUIP)))
 	_tab = wanted_tab if wanted_tab in TAB_IDS else TransferKeys.WAREHOUSE_TAB_EQUIP
 	var wanted_instance: String = str(data.get(TransferKeys.WAREHOUSE_INSTANCE_ID, ""))
 	if wanted_instance != "":
@@ -130,8 +131,15 @@ func _rebuild() -> void:
 	scroll.add_child(list)
 	if rows.is_empty():
 		list.add_child(EmptyState.create("ui_part_none_hint" if _attach_instance != "" else "ui_warehouse_empty"))
+	var shown_ids: Array = []
 	for row: Dictionary in rows:
 		list.add_child(_create_row(row))
+		shown_ids.append(str((row.get(ROW_ENTRY, {}) as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, "")))
+	# ⚠ 10-07（NEW のしおり紐）：⚠ 出した品は「見た」にする（⚠ 紐はこの1回だけ出る）。⚠ 施設の帯の紐も引き直す。
+	GameManager.mark_items_seen(shown_ids)
+	var facility: Node = get_node_or_null("FacilityBar")
+	if facility is BaseFacilityBar:
+		(facility as BaseFacilityBar).refresh_attention()
 
 	# ⚠ 刺せる装飾を並べているあいだも、⚠ 右の紙は刺す相手（装備）のまま。
 	if _attach_instance != "":
@@ -261,6 +269,9 @@ func _create_row(row_data: Dictionary) -> LedgerRow:
 	var item_id: String = str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
 	var row: LedgerRow = LedgerRow.new()
 	row.name = "Row_" + key
+	# ⚠ 10-07（人間「⚠ EはAとおなじ」）：⚠ 新しく手に入れた品にしおり紐。
+	if GameManager.is_item_new(item_id):
+		RibbonMark.attach(row)
 	row.selected = key == _selected_key and _attach_instance == ""
 	row.pressed.connect(_on_row_pressed.bind(key))
 	var line: HBoxContainer = HBoxContainer.new()
@@ -350,6 +361,7 @@ func _instance_entry(instance_id: String) -> Dictionary:
 
 func _on_tab_changed(index: int) -> void:
 	_tab = TAB_IDS[index]
+	SceneManager.remember(TransferKeys.MEMORY_WAREHOUSE_TAB, _tab)
 	_selected_key = ""
 	_attach_instance = ""
 	_attach_slot = -1

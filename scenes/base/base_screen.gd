@@ -10,6 +10,8 @@ const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TITLE_PATH: String = "res://scenes/title/title_screen.tscn"
 const CHEST_PATH: String = "res://scenes/base/chest_screen.tscn"
+const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
+const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 # ⚠ UI テストのページ（デバッグビルドのみ。⚠ リリース前に消す）。
 const UI_TEST_PAGE_PATH: String = "res://tests/ui_test_page.tscn"
 
@@ -89,6 +91,26 @@ func _init_navigation_buttons() -> void:
 		btn.pressed.connect(_go_to_screen.bind(screen_id))
 
 	_add_ui_test_button()
+	_add_continue_button()
+
+
+# ⚠⚠ 途中のランへ1回で（2026-10-07・人間「⚠ 判断がいらないものをとりあえずぜんぶ」＝回UI-便 G）。
+#   ⚠ 前は 掲示板 → 札の「続きから」の2回。⚠ 入り方は掲示板の「続きから」と同じ（⚠ 地図へ移るだけ・出撃届は挟まない）。
+#   ⚠ 途中のランが無ければ出さない。
+func _add_continue_button() -> void:
+	var path: String = ""
+	if GameManager.is_in_dungeon():
+		path = DUNGEON_MAP_PATH
+	elif GameManager.is_in_floor():
+		path = FLOOR_MAP_PATH
+	if path == "":
+		return
+	var button: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_base_continue_run")
+	button.name = "ContinueRunButton"
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.pressed.connect(SceneManager.change_scene.bind(path))
+	adventure_button.get_parent().add_child(button)
+	adventure_button.get_parent().move_child(button, 0)
 
 # ⚠⚠ UI テストのページへの入口（2026-09-06・人間の決定「拠点にデバッグ入口」）。
 #

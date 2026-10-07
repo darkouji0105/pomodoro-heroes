@@ -75,6 +75,8 @@ func _ready() -> void:
 	_stage_id = str(data.get(TransferKeys.SORTIE_STAGE_ID, ""))
 	_dungeon_id = str(data.get(TransferKeys.SORTIE_DUNGEON_ID, ""))
 	_start_floor = int(data.get(TransferKeys.SORTIE_START_FLOOR, 0))
+	# ⚠ 10-07（H）：⚠ 名簿の並べ替えを覚える。
+	_sort = str(SceneManager.recall(TransferKeys.MEMORY_ROSTER_SORT, _sort))
 	header.back_pressed.connect(_on_back_pressed)
 	if _is_barracks():
 		header.set_subtitle_text(tr("ui_sortie_barracks_subtitle"))
@@ -877,6 +879,7 @@ func _rebuild_roster() -> void:
 
 func _on_sort_pressed(sort: String) -> void:
 	_sort = sort
+	SceneManager.remember(TransferKeys.MEMORY_ROSTER_SORT, _sort)
 	_rebuild_roster()
 
 

@@ -1513,3 +1513,11 @@ ui_source_kind_use_potion,持っているものを使う
 ui_source_where_use_potion,スタミナポーション（%d個・1個で +%d）
 ui_source_go_use_potion,使う
 ui_source_where_pomodoro_potion,集中するとスタミナポーションがもらえる
+ui_guild_workshop_collect_all,まとめて受け取る
+ui_guild_workshop_collected_all,%d個まとめて受け取った
+ui_level_up_max,上げられるだけ上げる
+ui_guild_shop_buy_bulk,まとめて買う（%d）
+ui_guild_shop_purchased_bulk,%d回まとめて買った
+ui_base_continue_run,続きから
+ui_guild_shop_next_refresh,次の更新まで %d時間%d分
+ui_toast_craft_done,作業場の品が完成した（%d個）

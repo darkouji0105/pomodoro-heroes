@@ -278,5 +278,10 @@ static func _free_option_content(options: Dictionary) -> void:
 		(content as Node).free()
 
 
+# ⚠ 窓が出ているか（2026-10-07・Esc／右クリックで画面を戻すときに見る＝窓が出ている間は戻らない）。
+static func is_open() -> bool:
+	return _current_is_alive()
+
+
 static func _current_is_alive() -> bool:
 	return _current != null and is_instance_valid(_current)

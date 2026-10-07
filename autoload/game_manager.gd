@@ -556,6 +556,8 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.CODEX: {},
 		# 見たガイド（2026-09-28）。⚠ 空＝どれもまだ見ていない（⚠ 前のセーブも空で読まれる）。
 		GameStateKeys.GUIDES_SEEN: {},
+		# ⚠ 見た品（2026-10-07・NEW のしおり紐）。⚠ 前のセーブは load_state() で図鑑から埋める。
+		GameStateKeys.SEEN_ITEMS: {},
 		# ⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3（⚠ 帰還報告書の「最深 更新」）。
 		GameStateKeys.DUNGEON_BEST_FLOORS: {},
 		# ⚠ タスクのメモ（2026-10-04・`TK-1`・`TK-6`）。⚠ 前のセーブも空で読まれる。
@@ -1466,6 +1468,90 @@ const GUIDE_SORTIE: String = "sortie"
 func is_guide_seen(guide_id: String) -> bool:
 	var seen: Variant = _state.get(GameStateKeys.GUIDES_SEEN, {})
 	return seen is Dictionary and bool((seen as Dictionary).get(guide_id, false))
+
+
+# --- 見た品（2026-10-07・NEW のしおり紐） ---
+# ⚠ NEW＝図鑑に載っていて、まだ見ていない品。⚠ 「見た」にするのは画面（⚠ そのタブ・その図鑑を出したとき）。
+
+func is_item_seen(item_id: String) -> bool:
+	var seen: Variant = _state.get(GameStateKeys.SEEN_ITEMS, {})
+	return seen is Dictionary and bool((seen as Dictionary).get(item_id, false))
+
+
+func is_item_new(item_id: String) -> bool:
+	return is_codex_discovered(item_id) and not is_item_seen(item_id)
+
+
+func mark_items_seen(item_ids: Array) -> void:
+	var seen: Dictionary = _copy_dict(GameStateKeys.SEEN_ITEMS)
+	var changed: bool = false
+	for raw: Variant in item_ids:
+		var item_id: String = str(raw)
+		if item_id != "" and not bool(seen.get(item_id, false)):
+			seen[item_id] = true
+			changed = true
+	if changed:
+		_state[GameStateKeys.SEEN_ITEMS] = seen
+
+
+func has_new_items() -> bool:
+	var codex_data: Variant = _state.get(GameStateKeys.CODEX, {})
+	if not (codex_data is Dictionary):
+		return false
+	for raw: Variant in (codex_data as Dictionary):
+		if is_item_new(str(raw)):
+			return true
+	return false
+
+
+# ⚠ ショップの品揃えを見たか（⚠ 見た更新日を覚える＝日が変わって並び替わると、また「見ていない」）。
+const SHOP_SEEN_GUIDE_ID: String = "shop_line_up_seen_at"
+
+
+func is_shop_line_up_seen() -> bool:
+	var shop: Variant = _state.get(GameStateKeys.DAILY_SHOP, {})
+	var refresh_at: String = str((shop as Dictionary).get(GameStateKeys.SHOP_REFRESH_AT, "")) if shop is Dictionary else ""
+	var seen: Variant = _state.get(GameStateKeys.GUIDES_SEEN, {})
+	return refresh_at == "" or (seen is Dictionary and str((seen as Dictionary).get(SHOP_SEEN_GUIDE_ID, "")) == refresh_at)
+
+
+func mark_shop_line_up_seen() -> void:
+	var shop: Variant = _state.get(GameStateKeys.DAILY_SHOP, {})
+	var seen: Dictionary = _copy_dict(GameStateKeys.GUIDES_SEEN)
+	seen[SHOP_SEEN_GUIDE_ID] = str((shop as Dictionary).get(GameStateKeys.SHOP_REFRESH_AT, "")) if shop is Dictionary else ""
+	_state[GameStateKeys.GUIDES_SEEN] = seen
+
+
+# ⚠ いま昇級できるか（⚠ 上限 ／ 素材）。⚠ 育成の札の「昇級できる」と施設の帯のしおり紐が同じ判定を使う。
+func can_level_up_now(character_id: String) -> bool:
+	var level: int = int(get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
+	if level >= get_effective_level_cap(character_id):
+		return false
+	var cost: Dictionary = get_level_up_cost(character_id)
+	var material_id: String = str(cost.get(LEVEL_UP_COST_MATERIAL_ID, ""))
+	return material_id != "" and get_material_count(material_id) >= int(cost.get(LEVEL_UP_COST_AMOUNT, 0))
+
+
+# ⚠ いま解放できる研究があるか（⚠ 前提 ／ 素材）。
+func has_unlockable_research() -> bool:
+	var tree: Dictionary = get_research_tree()
+	for node_id: String in tree:
+		var node: Dictionary = tree[node_id]
+		if bool(node.get(GameStateKeys.NODE_UNLOCKED, false)) or not can_unlock_research_node(node_id):
+			continue
+		var cost: Dictionary = get_research_unlock_cost(node_id)
+		if get_material_count(str(cost.get(RESEARCH_COST_MATERIAL_ID, ""))) >= int(cost.get(RESEARCH_COST_AMOUNT, 0)):
+			return true
+	return false
+
+
+# ⚠ 受け取れる作業場の品があるか。
+func has_completed_craft() -> bool:
+	refresh_crafting_queue_if_needed()
+	for raw: Variant in get_crafting_queue():
+		if raw is Dictionary and str((raw as Dictionary).get(GameStateKeys.CRAFT_STATUS, "")) == GameStateKeys.CRAFT_STATUS_COMPLETED:
+			return true
+	return false
 
 
 # 見たことにする（⚠ 「とばす」でも「はじめる」でも同じ）。
@@ -6676,6 +6762,14 @@ func load_state(data: Dictionary) -> bool:
 	for key: String in data:
 		if new_state.has(key):
 			new_state[key] = data[key]
+	# ⚠ 見た品が無い前のセーブ（2026-10-07）：⚠ 図鑑の品を全部見たことにする（⚠ 読んだとたん NEW だらけにしない）。
+	if not data.has(GameStateKeys.SEEN_ITEMS):
+		var seeded: Dictionary = {}
+		var codex_data: Variant = new_state.get(GameStateKeys.CODEX, {})
+		if codex_data is Dictionary:
+			for codex_id: Variant in (codex_data as Dictionary):
+				seeded[str(codex_id)] = true
+		new_state[GameStateKeys.SEEN_ITEMS] = seeded
 	
 	# 数値の int() キャスト（JSON復元時は float になるため）
 	# §6-2 の決定事項に従い、対象を限定する。

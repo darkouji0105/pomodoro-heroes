@@ -86,6 +86,12 @@ func _rebuild() -> void:
 		for entry: Variant in queue:
 			if entry is Dictionary:
 				_create_queue_row(entry as Dictionary)
+		# ⚠ 10-07（人間「⚠ C」＝まとめて）：⚠ 完成が2つ以上なら「まとめて受け取る」。
+		if _completed_queue_ids().size() >= 2:
+			var all_button: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_guild_workshop_collect_all")
+			all_button.name = "CollectAllButton"
+			all_button.pressed.connect(_on_collect_all_pressed)
+			queue_list.add_child(all_button)
 
 	var recipes: Array = GameManager.get_available_recipes()
 	if recipes.is_empty():
@@ -288,6 +294,23 @@ func _on_start_pressed(recipe_id: String) -> void:
 		# ここに来るのは、ボタンの活性判定と GameManager の判定がずれたときだけ。
 		notice_label.text = tr("ui_guild_workshop_failed")
 	# 再描画は crafting_queue_changed 側で行う（成功時）。
+
+func _completed_queue_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for entry: Variant in GameManager.get_crafting_queue():
+		if entry is Dictionary and str((entry as Dictionary).get(GameStateKeys.CRAFT_STATUS, "")) == GameStateKeys.CRAFT_STATUS_COMPLETED:
+			ids.append(str((entry as Dictionary).get(GameStateKeys.CRAFT_QUEUE_ID, "")))
+	return ids
+
+
+# ⚠ 先に完成の ID を全部控えてから受け取る（⚠ 受け取るたびに描き直しが走る）。⚠ 受け取りの口は1つずつと同じ。
+func _on_collect_all_pressed() -> void:
+	var collected: int = 0
+	for queue_id: String in _completed_queue_ids():
+		if GameManager.collect_craft(queue_id):
+			collected += 1
+	notice_label.text = tr("ui_guild_workshop_collected_all") % collected if collected > 0 else tr("ui_guild_workshop_failed")
+
 
 func _on_collect_pressed(queue_id: String) -> void:
 	if GameManager.collect_craft(queue_id):

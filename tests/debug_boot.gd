@@ -10801,7 +10801,7 @@ class UiFlowRunner extends Node:
 		GameManager.add_gold(99999)
 		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
 		# 0 枚：⚠ 10-07（人間「⚠ 同じ作りで」「⚠ 数字の色で」）＝「受ける」は押せる・札の数は赤・押すと札の入手先の窓（⚠ 準備へは移らない）。
-		var q: Node = await _open(ADVENTURE, {})
+		var q: Node = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
 		var take: Node = q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false)
 		var ticket_label: Node = q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("QuotaTicketLabel", true, false)
@@ -10821,7 +10821,7 @@ class UiFlowRunner extends Node:
 			GameManager.purchase_shop_item(GameStateKeys.SHOP_TYPE_DAILY, 13) and GameManager.get_quota_ticket_count() == 1 and int(GameManager.get_state().get(GameStateKeys.GOLD, 0)) == gold - 1000)
 		_check("ノルマ札：同じ日にもう1枚は買えない（在庫1）", not GameManager.purchase_shop_item(GameStateKeys.SHOP_TYPE_DAILY, 13))
 		# 1 枚：⚠ 掲示板の「受ける」→ 出撃の準備（⚠ 帯に「1枚（1 → 0）」）→ 出撃すると0枚。
-		q = await _open(ADVENTURE, {})
+		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
 		take = q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false)
 		_check("ノルマ札：1 枚なら「受ける」が押せる・「%s」" % _label_text(q, "DungeonCard_" + dungeon_id, "QuotaTicketLabel"),
@@ -10837,7 +10837,7 @@ class UiFlowRunner extends Node:
 		_check("ノルマ札：出撃すると1枚使ってマップ（残り %d）" % GameManager.get_quota_ticket_count(),
 			_path_of(get_tree().current_scene) == DUNGEON_MAP and GameManager.is_in_dungeon() and GameManager.get_quota_ticket_count() == 0)
 		# 続きから：⚠ 札は使わない。
-		q = await _open(ADVENTURE, {})
+		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
 		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
 		_check("ノルマ札：「続きから」は札が無くても入れる", _path_of(get_tree().current_scene) == DUNGEON_MAP)
@@ -10871,7 +10871,7 @@ class UiFlowRunner extends Node:
 		_check("深さ：開いていない深さ（%d）では入れず札も減らない" % (best + 2),
 			not GameManager.enter_dungeon_with_ticket(dungeon_id, best + 2) and not GameManager.is_in_dungeon() and GameManager.get_quota_ticket_count() == 1)
 		# 掲示板の「受ける」→ 出撃の準備に「潜る深さ」（⚠ 最初は最深の次）。
-		var q: Node = await _open(ADVENTURE, {})
+		var q: Node = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
 		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
@@ -11879,7 +11879,7 @@ class UiFlowRunner extends Node:
 	# --- 依頼掲示板（2026-09-27・決定 `NAV-12`）：タブ ／ 札 ／ 出撃届（詰所で変える → 戻る ／ 出撃する）／ 続きから ---
 
 	func _flow_quest_board() -> void:
-		var q: Node = await _open(ADVENTURE, {})
+		var q: Node = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		if q == null:
 			return
 		var story: Array = MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)
@@ -11914,13 +11914,13 @@ class UiFlowRunner extends Node:
 		# 難ダンジョンも出撃の準備を通す（⚠ 人間「⚠ 4あ」）。⚠ 10-02 から入るのにノルマ札が要る＝1枚持たせて開き直す。
 		if not GameManager.has_quota_ticket_for_entry():
 			GameManager.add_to_inventory(GameStateKeys.ITEM_QUOTA_TICKET, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
-			q = await _open(ADVENTURE, {})
+			q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
 		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
 		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
 		b = get_tree().current_scene
 		_check("掲示板：難ダンジョンの「受ける」で出撃の準備", _path_of(b) == BARRACKS and _label_text(b, "Strip", "QuestTitle") == tr(str(MasterDataLoader.get_dungeon(dungeon_id).get("name_key", ""))))
-		q = await _open(ADVENTURE, {})
+		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		if q == null:
 			return
 
@@ -11961,7 +11961,7 @@ class UiFlowRunner extends Node:
 		_check("掲示板：出撃の準備の「出撃する」→ 署名と判のあとフロアのマップ", _path_of(get_tree().current_scene) == FLOOR_MAP and GameManager.is_in_floor())
 
 		# 続きから → ⚠ 出撃届を挟まずマップ。
-		q = await _open(ADVENTURE, {})
+		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		if q == null:
 			return
 		var resume: Node = q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false)
@@ -11971,7 +11971,7 @@ class UiFlowRunner extends Node:
 		GameManager.abandon_floor()
 
 		# 署名の途中で画面を押すと飛ばしてすぐ出発（⚠ 全員書いた姿・判を押した姿にしてから）。
-		q = await _open(ADVENTURE, {})
+		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		if q == null:
 			return
 		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false), OPEN_FRAMES)
@@ -12469,7 +12469,7 @@ class UiFlowRunner extends Node:
 			and a_id in log_ids and c_id in log_ids and absi(_log_focus(c_id) - 200) <= 1)
 		_check("朝4:00：同じ日のうちは移さない", GameManager.roll_over_done_tasks() == 0)
 		# 記録（`TK-8`）。
-		var r: Node = await _open(RECORDS, {})
+		var r: Node = await _open(RECORDS, {TransferKeys.RECORDS_TAB: 0})
 		if r == null:
 			return
 		await _press(_tab_button(r, RecordsScreen.TAB_TASKS))
@@ -12826,6 +12826,125 @@ class UiFlowRunner extends Node:
 			await _close_modal(b)
 		GameManager.add_stamina(spare)
 		await _flow_icon_opens_sources()
+		await _flow_conveniences()
+
+	# --- 回UI-便（2026-10-07・人間「⚠ Aはしおり的な奴…　B　C　も　EはAとおなじ　判断がいらないものをとりあえずぜんぶ」） ---
+
+	func _flow_conveniences() -> void:
+		const SHOP_SCREEN: String = "res://scenes/guild/shop_screen.tscn"
+		const WORKSHOP_SCREEN: String = "res://scenes/guild/workshop_screen.tscn"
+		# A：施設の帯のしおり紐。
+		var chest_ok: bool = GameManager.grant_chest(str(MasterDataLoader.get_all_chests().keys()[0]), "debug_boot")
+		var r: Node = await _open(RECORDS, {TransferKeys.RECORDS_TAB: 0})
+		var bar: BaseFacilityBar = null if r == null else r.find_child("FacilityBar", false, false) as BaseFacilityBar
+		_check("しおり紐：宝箱が届いたら本部に（%s）・昇級できる人がいれば育成に" % str(chest_ok),
+			bar != null and bar.has_attention(BaseFacilityBar.HQ) and bar.has_attention(BaseFacilityBar.TRAINING))
+		_check("しおり紐：掲示板・詰所・記録には出さない", bar != null and not bar.has_attention(BaseFacilityBar.BOARD)
+			and not bar.has_attention(BaseFacilityBar.BARRACKS) and not bar.has_attention(BaseFacilityBar.RECORDS))
+		var shop: Node = await _open(SHOP_SCREEN, {})
+		var shop_bar: BaseFacilityBar = null if shop == null else shop.find_child("FacilityBar", false, false) as BaseFacilityBar
+		_check("しおり紐：ショップを開くと品揃えを見たことになる（紐が消える）", shop_bar != null and not shop_bar.has_attention(BaseFacilityBar.SHOP))
+		# I：ショップの次の更新まで。
+		_check("ショップ：次の更新までの残り（%s）" % _label_text(shop, "Layout", "RefreshLabel"),
+			_label_text(shop, "Layout", "RefreshLabel").contains(tr("ui_guild_shop_next_refresh").split(" ")[0]))
+		# C：まとめて買う。
+		GameManager.add_gold(99999)
+		shop = await _open(SHOP_SCREEN, {})
+		var bulk: Node = null if shop == null else shop.find_child("BulkBuyButton", true, false)
+		var before_gold: int = GameManager.get_resource_amount(GameStateKeys.GOLD)
+		var had_bulk: bool = bulk is BaseButton
+		await _press(bulk)
+		_check("まとめて：ショップの「まとめて買う」で2回以上買う（金 %d → %d）" % [before_gold, GameManager.get_resource_amount(GameStateKeys.GOLD)],
+			had_bulk and GameManager.get_resource_amount(GameStateKeys.GOLD) < before_gold)
+		# C：上げられるだけ上げる。
+		var level: int = _level()
+		var l: Node = await _open(LEVEL_UP, {TransferKeys.CHARACTER_ID: HERO})
+		await _press(null if l == null else l.find_child("MaxButton", true, false))
+		_check("まとめて：「上げられるだけ上げる」で Lv %d → %d（上限 %d）" % [level, _level(), GameManager.get_effective_level_cap(HERO)],
+			_level() > level + 1 or _level() == GameManager.get_effective_level_cap(HERO))
+		# C：まとめて受け取る ／ F：作業場の完成の知らせ。
+		var recipes: Array = GameManager.get_available_recipes()
+		var recipe_id: String = str((recipes[0] as Dictionary).get(GameManager.RECIPE_ID, "")) if not recipes.is_empty() else ""
+		var started: int = 0
+		for _i: int in range(2):
+			if recipe_id != "" and GameManager.start_craft(recipe_id):
+				started += 1
+		var queue: Array = GameManager.get("_state")[GameStateKeys.CRAFTING_QUEUE]
+		for entry: Variant in queue:
+			if entry is Dictionary:
+				(entry as Dictionary)[GameStateKeys.CRAFT_STARTED_AT] = 0
+		await get_tree().create_timer(1.5).timeout
+		var toast: Toast = Toast.get_instance()
+		_check("知らせ：作業場の品が完成すると画面の上に知らせ（始めた %d）" % started,
+			toast != null and toast.find_child("ToastItem", true, false) != null)
+		var ws: Node = await _open(WORKSHOP_SCREEN, {})
+		var all_button: Node = null if ws == null else ws.find_child("CollectAllButton", true, false)
+		var had_all: bool = all_button is BaseButton
+		# ⚠ 同時に作れる数が1つなら完成も1つ＝「まとめて」は出ない（⚠ 2つ以上で出す作り）。
+		if started >= 2:
+			await _press(all_button)
+			var left: int = 0
+			for entry: Variant in GameManager.get_crafting_queue():
+				if entry is Dictionary and str((entry as Dictionary).get(GameStateKeys.CRAFT_STATUS, "")) == GameStateKeys.CRAFT_STATUS_COMPLETED:
+					left += 1
+			_check("まとめて：作業場の「まとめて受け取る」で完成が 0 に（残り %d）" % left, had_all and left == 0)
+		else:
+			_check("まとめて：完成が1つなら「まとめて受け取る」は出さない（同時に %d）" % GameManager.get_max_queue_slots(), not had_all)
+		# E：NEW のしおり紐。
+		var seen: Dictionary = GameManager.get("_state")[GameStateKeys.SEEN_ITEMS]
+		seen.erase(PART_ID)
+		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART})
+		var row: Node = null if w == null else w.find_child("Row_" + PART_ID, true, false)
+		_check("NEW：見ていない品の行にしおり紐", row is Control and RibbonMark.has_ribbon(row as Control))
+		var w_bar: BaseFacilityBar = null if w == null else w.find_child("FacilityBar", false, false) as BaseFacilityBar
+		_check("NEW：出したら「見た」になる・持ち物の紐は NEW が残っているかどおり（%s）" % str(GameManager.has_new_items()),
+			GameManager.is_item_seen(PART_ID) and w_bar != null and w_bar.has_attention(BaseFacilityBar.BELONGINGS) == GameManager.has_new_items())
+		# B：Esc ／ 右クリックで戻る。
+		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
+		var header: Node = null if t == null else t.find_child("Header", true, false)
+		var esc: InputEventAction = InputEventAction.new()
+		esc.action = &"ui_cancel"
+		esc.pressed = true
+		if header != null:
+			header.call("_unhandled_input", esc)
+		await _wait(OPEN_FRAMES)
+		_check("戻る：Esc で「戻る」と同じ（育成 → 一覧）", _path_of(get_tree().current_scene) == TRAINING_LIST)
+		t = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
+		header = null if t == null else t.find_child("Header", true, false)
+		var right: InputEventMouseButton = InputEventMouseButton.new()
+		right.button_index = MOUSE_BUTTON_RIGHT
+		right.pressed = true
+		if header != null:
+			header.call("_unhandled_input", right)
+		await _wait(OPEN_FRAMES)
+		_check("戻る：右クリックでも戻る", _path_of(get_tree().current_scene) == TRAINING_LIST)
+		var f: Node = await _open(FORGE, {})
+		ItemSourceWindow.open(f, "forging_material_1")
+		await _wait()
+		header = null if f == null else f.find_child("Header", true, false)
+		if header != null:
+			header.call("_unhandled_input", right)
+		await _wait(OPEN_FRAMES)
+		_check("戻る：窓が出ているあいだは右クリックで戻らない", _path_of(get_tree().current_scene) == FORGE)
+		if f != null:
+			await _close_modal(f)
+		# H：タブを覚える。
+		var q: Node = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
+		await _press(_tab_button(q, 1))
+		q = await _open(ADVENTURE, {})
+		_check("覚える：掲示板を出て戻っても高難度のタブ（%s）" % str(q.get("_tab") if q != null else -1), q != null and int(q.get("_tab")) == 1)
+		await _press(_tab_button(q, 0))
+		# G：本部の「続きから」。
+		if not GameManager.is_in_floor():
+			var _entered: bool = GameManager.start_floor(str(MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)[0]))
+		var base: Node = await _open(BASE, {})
+		var cont: Node = null if base == null else base.find_child("ContinueRunButton", true, false)
+		var had_cont: bool = cont is BaseButton
+		await _press(cont, OPEN_FRAMES)
+		_check("続きから：本部の「続きから」で途中のフロアへ1回で", had_cont and _path_of(get_tree().current_scene) == FLOOR_MAP)
+		GameManager.abandon_floor()
+		base = await _open(BASE, {})
+		_check("続きから：途中のランが無ければ出さない", base != null and base.find_child("ContinueRunButton", true, false) == null)
 
 	# --- アイコンを押しても窓（2026-10-07・人間「⚠ アイコンをクリックしても窓が出るように」） ---
 
@@ -13001,7 +13120,7 @@ class UiFlowRunner extends Node:
 	# --- 施設の帯の掲示板 ／ 「すぐ出撃」（2026-10-06・人間「⚠ ３はどっちも行う」） ---
 
 	func _flow_board_quick() -> void:
-		var r: Node = await _open(RECORDS, {})
+		var r: Node = await _open(RECORDS, {TransferKeys.RECORDS_TAB: 0})
 		if r == null:
 			return
 		await _press(r.find_child("Facility_" + BaseFacilityBar.BOARD, true, false), OPEN_FRAMES)
@@ -13010,7 +13129,7 @@ class UiFlowRunner extends Node:
 		if GameManager.is_in_floor():
 			GameManager.abandon_floor()
 		GameManager.add_stamina(9999)
-		q = await _open(ADVENTURE, {})
+		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		var stage_id: String = str(MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)[0])
 		var card: Node = q.find_child("StageCard_" + stage_id, true, false)
 		var quick: Node = null if card == null else card.find_child("QuickSortieButton", true, false)

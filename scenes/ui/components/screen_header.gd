@@ -130,6 +130,26 @@ func show_materials(ids: Array[String]) -> ResourceBar:
 	return bar
 
 
+# ⚠⚠ Esc ／ 右クリックで「戻る」（2026-10-07・人間「⚠ B」＝PCなのでマウスを左上まで動かさない）。
+#   ⚠ 「戻る」を押したのと同じ（`back_pressed`）。⚠ 戻らないとき：⚠ 「戻る」が出ていない・押せない ／ ⚠ 窓が出ている
+#   （⚠ 窓の Esc は窓が先に受けて閉じる）／ ⚠ 字を打っている（⚠ 欄の Esc は欄のもの）。
+func _unhandled_input(event: InputEvent) -> void:
+	var by_key: bool = event.is_action_pressed(&"ui_cancel")
+	var mouse: InputEventMouseButton = event as InputEventMouseButton
+	var by_mouse: bool = mouse != null and mouse.pressed and mouse.button_index == MOUSE_BUTTON_RIGHT
+	if not by_key and not by_mouse:
+		return
+	if not show_back or not is_visible_in_tree() or back_button == null or not back_button.visible or back_button.disabled:
+		return
+	if Modal.is_open():
+		return
+	var focus: Control = get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return
+	get_viewport().set_input_as_handled()
+	back_pressed.emit()
+
+
 # 翻訳を通さない副題（⚠ キャラの名前・ステージの名前）。
 # ⚠ `subtitle_key` と両方入れないこと。⚠ あとから入れたほうが残る。
 func set_subtitle_text(value: String) -> void:

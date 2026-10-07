@@ -78,11 +78,10 @@ func _on_pressed(id: String) -> void:
 func _draw_ribbon(button: Button, id: String) -> void:
 	if not _attention.has(id):
 		return
-	var w: float = float(get_theme_constant(&"ribbon_w", THEME_TYPE))
-	var h: float = float(get_theme_constant(&"ribbon_h", THEME_TYPE))
-	var inset: float = float(get_theme_constant(&"ribbon_inset", THEME_TYPE))
-	var x: float = button.size.x - inset - w
-	button.draw_colored_polygon(PackedVector2Array([
-		Vector2(x, 0.0), Vector2(x + w, 0.0), Vector2(x + w, h),
-		Vector2(x + w * 0.5, h - w * 0.5), Vector2(x, h),
-	]), get_theme_color(&"ribbon", THEME_TYPE))
+	# ⚠ 10-07：⚠ 形と色は `RibbonMark` の1本（⚠ 行・マスと同じ紐）。
+	RibbonMark.draw_on(button)
+
+
+# ⚠ 検査用：⚠ いま紐を出している施設。
+func has_attention(id: String) -> bool:
+	return _attention.has(id)

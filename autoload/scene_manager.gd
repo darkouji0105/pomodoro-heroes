@@ -24,6 +24,8 @@ func _ready() -> void:
 	# ⚠ 通貨3つの表示も画面をまたいで常駐させる（2026-09-09・人間の指示
 	#   「⚠ ページをまたぐコンポーネントにするところからだと思う」）。
 	_spawn_resource_hud.call_deferred()
+	# ⚠ 画面の上の小さな知らせ（2026-10-07・`Toast`）。⚠ リリースでも要る。
+	_spawn_toast.call_deferred()
 	# ⚠ 遊ぶ人の設定の「全画面」（2026-09-28・`GameSettings`・`BS-13`）。⚠ リリースでも要る＝デバッグの早期 return より前。
 	_apply_display_setting.call_deferred()
 
@@ -46,6 +48,10 @@ func _spawn_resource_gain_effect() -> void:
 # ⚠ 右上の通貨（2026-09-09）。⚠ 検証用ではない。消さないこと。
 func _apply_display_setting() -> void:
 	GameSettings.apply_display()
+
+
+func _spawn_toast() -> void:
+	var _toast: Toast = Toast.spawn_into(get_tree().root)
 
 
 func _spawn_resource_hud() -> void:
@@ -118,6 +124,20 @@ func has_return() -> bool:
 #   ⚠ 画面が自分の `_ready()` で口を預けておく（⚠ 預けていなければ空＝今までどおり素の姿で開き直す）。
 #   ⚠ 画面を移るたびに捨てる（⚠ 前の画面の口を呼ばない）。⚠ 入手先の窓（`ItemSourceWindow.open()`）が使う。
 var _return_provider: Callable = Callable()
+
+
+# ⚠⚠ 画面の覚え（2026-10-07・回UI-便 H）：⚠ タブ・並べ替え・絞り込みを、画面を出て戻っても同じに。
+#   ⚠ 遊んでいるあいだだけ（⚠ セーブには書かない＝起動し直すと既定）。⚠ 鍵は `TransferKeys.MEMORY_*`。
+#   ⚠ 渡されたデータ（寄り道から戻る・入手先の窓から戻る）があればそちらが勝つ（⚠ 画面の側で先に見る）。
+var _ui_memory: Dictionary = {}
+
+
+func remember(key: String, value: Variant) -> void:
+	_ui_memory[key] = value
+
+
+func recall(key: String, fallback: Variant) -> Variant:
+	return _ui_memory.get(key, fallback)
 
 
 func set_return_data_provider(provider: Callable) -> void:

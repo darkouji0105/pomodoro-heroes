@@ -60,14 +60,9 @@ func _on_open_pressed() -> void:
 
 
 # ⚠ 判定は育成の概要の「昇級させる」と同じ2つ（⚠ 上限 ／ 素材）。
+# ⚠ 10-07：⚠ 判定は GameManager へ移した（⚠ 施設の帯のしおり紐も同じものを使う）。
 static func can_level_up(id: String) -> bool:
-	var level: int = int(GameManager.get_character_growth(id).get(GameStateKeys.GROWTH_LEVEL, 1))
-	if level >= GameManager.get_effective_level_cap(id):
-		return false
-	var cost: Dictionary = GameManager.get_level_up_cost(id)
-	var material_id: String = str(cost.get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
-	var amount: int = int(cost.get(GameManager.LEVEL_UP_COST_AMOUNT, 0))
-	return material_id != "" and GameManager.get_material_count(material_id) >= amount
+	return GameManager.can_level_up_now(id)
 
 
 # 写真・「身上書」・名前・役割・Lv。⚠ 育成の身上書（`CharacterDossier`）と同じ型の字を使う。

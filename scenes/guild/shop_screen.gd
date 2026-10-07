@@ -28,6 +28,8 @@ func _ready() -> void:
 	# 1. 画面を開いた時点で日付を見る。
 	#    起動しっぱなしで 4:00 をまたいだ場合、起動時のチェックだけでは在庫が戻らない。
 	GameManager.refresh_shop_if_needed(SHOP_TYPE)
+	# ⚠ 10-07：⚠ 品揃えを見た（⚠ 施設の帯のしおり紐が消える）。
+	GameManager.mark_shop_line_up_seen()
 
 	# 2. ボタン接続
 	header.back_pressed.connect(_on_back_pressed)
@@ -82,6 +84,28 @@ func _update_header() -> void:
 	# tr() の戻り値に % を掛けない。ja.csv にキーが無いとキー名がそのまま返り、
 	# 書式指定子を含まない文字列に % を適用してエラーになる（AGENTS.md はキー名表示を許容している）。
 	refresh_label.text = "%s %s" % [tr("ui_guild_shop_refreshed_at"), str(shop.get(GameStateKeys.SHOP_REFRESH_AT, ""))]
+	_update_next_refresh()
+
+
+# ⚠ 次の更新までの残り（2026-10-07・回UI-便 I）。⚠ 更新日のうしろに足す。⚠ 30秒ごとに書き直す（⚠ 分までしか出さない）。
+var _next_refresh_wait: float = 0.0
+const NEXT_REFRESH_TICK_SEC: float = 30.0
+
+
+func _update_next_refresh() -> void:
+	var left: int = GameDate.seconds_until_next_day()
+	var base_text: String = refresh_label.text.split("　")[0]
+	refresh_label.text = "%s　%s" % [base_text, tr("ui_guild_shop_next_refresh") % [left / 3600, (left % 3600) / 60]]
+
+
+func _process(delta: float) -> void:
+	_next_refresh_wait += delta
+	if _next_refresh_wait < NEXT_REFRESH_TICK_SEC:
+		return
+	_next_refresh_wait = 0.0
+	# ⚠ 区切りをまたいだら品揃えを引き直す（⚠ 開いたまま 4:00 を越えたとき）。
+	GameManager.refresh_shop_if_needed(SHOP_TYPE)
+	_update_next_refresh()
 
 func _create_slot_row(slot: Dictionary) -> void:
 	var slot_id: int = int(slot.get(GameStateKeys.SHOP_SLOT_ID, -1))
@@ -138,6 +162,14 @@ func _create_slot_row(slot: Dictionary) -> void:
 		cost_label.theme_type_variation = &"ErrorLabel"
 	buy_button.pressed.connect(_on_buy_pressed.bind(slot_id, currency_type, amount))
 	row.add_child(buy_button)
+	# ⚠ 10-07（人間「⚠ C」＝まとめて）：⚠ 残りが2つ以上で、2つ以上買えるなら「まとめて買う(n)」（⚠ n＝残りと払える数の小さいほう）。
+	var bulk: int = mini(stock_limit - purchased_count, _get_balance(currency_type) / maxi(1, amount))
+	if not sold_out and bulk >= 2:
+		var bulk_button: UiButton = UiButton.create()
+		bulk_button.name = "BulkBuyButton"
+		bulk_button.text = tr("ui_guild_shop_buy_bulk") % bulk
+		bulk_button.pressed.connect(_on_bulk_buy_pressed.bind(slot_id, bulk))
+		row.add_child(bulk_button)
 
 	slot_list.add_child(row)
 
@@ -166,6 +198,16 @@ func _on_buy_pressed(slot_id: int, currency_type: String = "", amount: int = 0) 
 		notice_label.text = tr("ui_guild_shop_failed")
 	# 再描画は shop_changed / resource_changed 側で行う（成功時）。
 	# 失敗時は状態が変わらずシグナルも飛ばないため、ここでは何もしない。
+
+# ⚠ 1つずつ本番の口（`purchase_shop_item()`）で買う。⚠ 途中で買えなくなったら止まる。
+func _on_bulk_buy_pressed(slot_id: int, count: int) -> void:
+	var bought: int = 0
+	for _i: int in range(count):
+		if not GameManager.purchase_shop_item(SHOP_TYPE, slot_id):
+			break
+		bought += 1
+	notice_label.text = tr("ui_guild_shop_purchased_bulk") % bought if bought > 0 else tr("ui_guild_shop_failed")
+
 
 func _on_back_pressed() -> void:
 	# ⚠ 10-06（`NAV-18`）：⚠ 掲示板から寄り道で来たなら掲示板へ。

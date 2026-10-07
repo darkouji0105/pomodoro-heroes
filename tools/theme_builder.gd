@@ -663,6 +663,12 @@ const CHIP_PAD_V: int = 4
 const CHIP_PLUS_PAD_H: int = 5
 # ⚠ 「＋」に触れたとき（10-06）。⚠ 130%。
 const CHIP_PLUS_HOVER_SCALE_PCT: int = 130
+# ⚠ 画面の上の小さな知らせ（10-07）。⚠ 見出しの下（88）に出し、2.6秒で 0.4秒かけて消える。
+const TOAST_PAD_H: int = 16
+const TOAST_PAD_V: int = 8
+const TOAST_TOP: int = 88
+const TOAST_SHOW_MS: int = 2600
+const TOAST_FADE_MS: int = 400
 const CHIP_PLUS_HOVER_MS: int = 120
 # ⚠ チップの中のアイコン（⚠ モックの `.hud .ic` は 20px）。
 #   ⚠ `ResourceDisplay` の既定は 24px だが、⚠ チップの中だけモックに合わせて 20px。
@@ -973,6 +979,24 @@ static func _build_panels(theme: Theme) -> void:
 	# ⚠ 触れたときの大きさ（⚠ 脈打ちは 10-07 に消した・人間「⚠ 脈打つのは消して」）。
 	theme.set_constant(&"hover_scale_pct", &"ChipPlusLabel", CHIP_PLUS_HOVER_SCALE_PCT)
 	theme.set_constant(&"hover_ms", &"ChipPlusLabel", CHIP_PLUS_HOVER_MS)
+	# ⚠ 画面の上の小さな知らせ（10-07・回UI-便 F・`Toast`）。⚠ 板の地に灯りの縁。
+	var toast: StyleBoxFlat = StyleBoxFlat.new()
+	toast.bg_color = _html(TOKEN_BOARD)
+	toast.border_color = _html(TOKEN_LIGHT)
+	toast.set_border_width_all(1)
+	toast.set_corner_radius_all(PANEL_CORNER_RADIUS)
+	toast.content_margin_left = TOAST_PAD_H
+	toast.content_margin_right = TOAST_PAD_H
+	toast.content_margin_top = TOAST_PAD_V
+	toast.content_margin_bottom = TOAST_PAD_V
+	theme.set_type_variation(&"ToastPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ToastPanel", toast)
+	theme.set_type_variation(&"ToastLabel", &"Label")
+	theme.set_color(&"font_color", &"ToastLabel", _html(TOKEN_TEXT_ON_DARK))
+	theme.set_font_size(&"font_size", &"ToastLabel", BUTTON_FONT_SIZE)
+	theme.set_constant(&"top", &"Toast", TOAST_TOP)
+	theme.set_constant(&"show_ms", &"Toast", TOAST_SHOW_MS)
+	theme.set_constant(&"fade_ms", &"Toast", TOAST_FADE_MS)
 	# ⚠ チップ全体の当たり。⚠ 縁は**出さない**（⚠ 触れたことは「＋」が知らせる）。
 	for state: String in BUTTON_STATES:
 		theme.set_stylebox(StringName(state), &"ChipHitButton", StyleBoxEmpty.new())

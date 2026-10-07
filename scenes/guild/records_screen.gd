@@ -44,7 +44,8 @@ func _ready() -> void:
 	SceneManager.set_return_data_provider(_source_return_data)
 	# ⚠ 10-06（`NAV-18`）：⚠ 寄り道（育成）から戻ったときは、そのときのタブで開く。
 	var data: Dictionary = SceneManager.consume_transfer_data()
-	_tab = clampi(int(data.get(TransferKeys.RECORDS_TAB, TAB_CODEX)), 0, TAB_KEYS.size() - 1)
+	# ⚠ 10-07（H）：⚠ 渡されなければ前に開いていたタブ。
+	_tab = clampi(int(data.get(TransferKeys.RECORDS_TAB, SceneManager.recall(TransferKeys.MEMORY_RECORDS_TAB, TAB_CODEX))), 0, TAB_KEYS.size() - 1)
 	# ⚠ 朝4:00 の移し（2026-10-04・`TK-6`）。⚠ 昨日終えたタスクを「終わったタスク」に載せてから描く。
 	var _moved: int = GameManager.roll_over_done_tasks()
 	header.back_pressed.connect(_on_back_pressed)
@@ -60,6 +61,7 @@ func _ready() -> void:
 
 func _on_tab_changed(index: int) -> void:
 	_tab = index
+	SceneManager.remember(TransferKeys.MEMORY_RECORDS_TAB, _tab)
 	_rebuild()
 
 
@@ -198,6 +200,10 @@ func _codex_section(kind: String) -> VBoxContainer:
 			var side: float = float(get_theme_constant(&"cell", THEME_TYPE))
 			cell.custom_minimum_size = Vector2(side, side)
 			cell.pressed.connect(_on_item_picked.bind(item_id))
+			# ⚠ 10-07（人間「⚠ EはAとおなじ」）：⚠ まだ見ていない品にしおり紐（⚠ 見せたら「見た」）。
+			if GameManager.is_item_new(item_id):
+				RibbonMark.attach(cell)
+				GameManager.mark_items_seen([item_id])
 			var icon: ItemIcon = ItemIcon.create(item_id)
 			icon.name = "Icon"
 			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE

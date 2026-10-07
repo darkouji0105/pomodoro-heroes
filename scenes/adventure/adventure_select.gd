@@ -48,7 +48,8 @@ func _ready() -> void:
 	# 呼ばないと次の遷移に前回のデータが残るため必須。
 	# ⚠ 10-06（`NAV-18`）：⚠ 寄り道（ショップ）から戻ったときは、そのときのタブで開く。
 	var data: Dictionary = SceneManager.consume_transfer_data()
-	_tab = int(data.get(TransferKeys.QUEST_TAB, TAB_NORMAL))
+	# ⚠ 10-07（H）：⚠ 渡されなければ前に開いていたタブ。
+	_tab = int(data.get(TransferKeys.QUEST_TAB, SceneManager.recall(TransferKeys.MEMORY_QUEST_TAB, TAB_NORMAL)))
 	header.back_pressed.connect(_on_back_pressed)
 	# ⚠ 10-06（`NAV-6`）：⚠ 施設の帯に掲示板を足した＝掲示板にも帯を敷く。
 	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.BOARD)
@@ -72,6 +73,7 @@ func _ready() -> void:
 
 func _on_tab_changed(index: int) -> void:
 	_tab = index
+	SceneManager.remember(TransferKeys.MEMORY_QUEST_TAB, _tab)
 	message_label.text = ""
 	_rebuild()
 

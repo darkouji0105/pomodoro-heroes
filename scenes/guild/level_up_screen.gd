@@ -270,6 +270,12 @@ func _build_side() -> VBoxContainer:
 		press.disabled = _at_cap()
 		press.pressed.connect(_on_press_pressed)
 		side.add_child(press)
+		# ⚠ 10-07（人間「⚠ C」＝まとめて）：⚠ 上げられるだけ上げる（⚠ 足りなければ窓＝判と同じ）。
+		var max_button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_level_up_max")
+		max_button.name = "MaxButton"
+		max_button.disabled = _at_cap()
+		max_button.pressed.connect(_on_max_pressed)
+		side.add_child(max_button)
 		var cancel: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_common_cancel")
 		cancel.name = "CancelButton"
 		cancel.pressed.connect(_back_to_training.bind(TransferKeys.TRAINING_TAB_OVERVIEW))
@@ -320,6 +326,21 @@ func _on_press_pressed() -> void:
 	if _open_short_material():
 		return
 	if not GameManager.level_up_character(_character_id):
+		return
+	_done = true
+	_rebuild()
+
+
+# ⚠ 1段ずつ本番の口（`level_up_character()`）で上げる。⚠ 上限か素材が尽きたら止まる。
+func _on_max_pressed() -> void:
+	if _open_short_material():
+		return
+	var raised: int = 0
+	while not _at_cap() and GameManager.can_level_up_now(_character_id):
+		if not GameManager.level_up_character(_character_id):
+			break
+		raised += 1
+	if raised <= 0:
 		return
 	_done = true
 	_rebuild()
