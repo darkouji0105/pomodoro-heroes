@@ -459,6 +459,8 @@ func _init_party_units() -> void:
 		unit.passive_ids.append_array(GameManager.get_dungeon_relic_passives(character_id))
 		# 装備の特殊効果（2026-10-02・回UI-仕組み⑦）。⚠ 着けている装備の品が持つ効果をパッシブとしてかける。
 		unit.passive_ids.append_array(GameManager.get_equipment_effect_passives(character_id))
+		# 拠点の遺物（2026-10-07・回HB-3）。⚠ 受ける回復の遺物＝全員に同じパッシブ。
+		unit.passive_ids.append_array(GameManager.get_guild_relic_passives())
 
 		# 刺さっているルーン（段階8・GAME_DESIGN.md 7-5）。
 		# ⚠ 紐付け（武器＝スキル1／アクセサリー＝スキル2）は GameManager が持つ。
@@ -2110,6 +2112,8 @@ func _enter_victory() -> void:
 		# ⚠ 戦闘ノードかどうかは GameManager が決める（戦闘以外は空が返る）。
 		#   ⚠ ここで kind を見ないこと。判定が2箇所になる（CLAUDE.md 6番）。
 		rewards = GameManager.get_floor_node_rewards(_stage_id, _floor_node_id)
+	# ⚠ 10-07（回HB-3）：⚠ 富の遺物でゴールドを増やす（⚠ 結果画面に出す前＝出す数と配る数を揃える）。
+	rewards = GameManager.with_guild_relic_gold_bonus(rewards)
 
 	var result_data: Dictionary = {
 		GameStateKeys.BATTLE_VICTORY: true,

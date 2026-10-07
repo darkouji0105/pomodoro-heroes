@@ -39,6 +39,9 @@ const GUIDES_SEEN: String = "guides_seen"
 # 見た品（2026-10-07・「NEW」のしおり紐＝人間「⚠ EはAとおなじ」）：{item_id: true}。⚠ 図鑑に載っていてここに無い品が NEW。
 # ⚠ 読み書きは `GameManager.is_item_seen()` / `mark_items_seen()` の口だけ。⚠ 前のセーブには無い＝読んだときに図鑑の品を全部見たことにする。
 const SEEN_ITEMS: String = "seen_items"
+# ⚠ 拠点の遺物（2026-10-07・回HB-3・`EQ-8`）：{relic_id: 点数の合計 int}。⚠ 段は点数からマスターの costs で毎回計算（CLAUDE.md 4番）。
+# ⚠ 足す口は `GameManager.dismantle_equipment()` だけ（⚠ 捧げる＝分解）。⚠ relic_id はリリース後に改名しない。
+const GUILD_RELICS: String = "guild_relics"
 # ⚠ 難ダンジョンごとの最深（⚠ ボスを倒したフロアの数のいちばん大きい値）。⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3。
 const DUNGEON_BEST_FLOORS: String = "dungeon_best_floors"
 const DAILY_SHOP: String = "daily_shop"

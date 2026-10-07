@@ -2730,7 +2730,7 @@ const BASE_DESK: Dictionary = {
 	"today_width": 340,       # ⚠ 今日の紙（⚠ 高さは壁の紙と揃える＝`TASK.wall_height`）
 	"today_gap": 24,          # ⚠ 壁の紙との間
 	"top": 72,                # ⚠ 右上の小さいボタンの列（⚠ 通貨の下）
-	"building_width": 132,
+	"building_width": 120,
 	"building_height": 112,
 	"building_gap": 16,
 	"walker": 48,             # ⚠ 歩く人の顔の大きさ
@@ -2739,10 +2739,15 @@ const BASE_DESK: Dictionary = {
 }
 
 
+const GUILD_RELIC_ALTAR_WIDTH: int = 440
+
+
 static func _build_task(theme: Theme) -> void:
 	for key: String in BASE_DESK:
 		theme.set_constant(StringName(key), &"BaseDesk", int(BASE_DESK[key]))
 	theme.set_color(&"road", &"BaseDesk", _html(FACILITY_BAR_RULE))
+	# ⚠ 拠点の遺物の画面（10-07・回HB-3）。⚠ 右の祭壇の紙の幅。
+	theme.set_constant(&"altar_width", &"GuildRelic", GUILD_RELIC_ALTAR_WIDTH)
 	theme.set_type_variation(&"BaseBuildingRow", &"HBoxContainer")
 	theme.set_constant(&"separation", &"BaseBuildingRow", int(BASE_DESK["building_gap"]))
 	var t: StringName = &"Task"

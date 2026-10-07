@@ -13,7 +13,7 @@ const THEME_TYPE: StringName = &"BaseDesk"
 # ⚠ 建物の並び（⚠ 本部は「いまいる所」なので建てない）。
 const BUILDING_IDS: Array[String] = [
 	BaseFacilityBar.BOARD, BaseFacilityBar.TRAINING, BaseFacilityBar.BARRACKS, BaseFacilityBar.FORGE,
-	BaseFacilityBar.RESEARCH, BaseFacilityBar.BELONGINGS, BaseFacilityBar.RECORDS, BaseFacilityBar.SHOP,
+	BaseFacilityBar.RESEARCH, BaseFacilityBar.GUILD_RELIC, BaseFacilityBar.BELONGINGS, BaseFacilityBar.RECORDS, BaseFacilityBar.SHOP,
 ]
 # ⚠ 立ち止まる長さ（⚠ 秒）の幅。
 const PAUSE_MIN_SEC: float = 0.8

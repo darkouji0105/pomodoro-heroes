@@ -22,6 +22,19 @@ const PATH_STAGES: String = DIR_PATH + "stages.json"
 #   ⚠ 中身は _cache_skills にマージされる（パッシブと同じ器を借りるため）。
 const PATH_RELICS: String = DIR_PATH + "relics.json"
 const PATH_EQUIP_EFFECTS: String = DIR_PATH + "equip_effects.json"
+# ⚠ 拠点の遺物（2026-10-07・回HB-3・`EQ-8`・`EXEC_GUILD_RELIC.md`）。⚠ ランの「レリック」（relics.json）とは別。
+const PATH_GUILD_RELICS: String = DIR_PATH + "guild_relics.json"
+# ⚠ 遺物の欄（⚠ 状態ではないので GameStateKeys に置かない）。
+const GUILD_RELIC_GRADE: String = "grade"
+const GUILD_RELIC_AXIS: String = "axis"
+const GUILD_RELIC_STATS: String = "stats"
+const GUILD_RELIC_OFFER_POINTS: String = "offer_points"
+const GUILD_RELIC_COSTS: String = "costs"
+const GUILD_RELIC_VALUES: String = "values"
+const GUILD_RELIC_AXIS_STAT: String = "stat"
+const GUILD_RELIC_AXIS_HEAL_TAKEN: String = "heal_taken_pct"
+const GUILD_RELIC_AXIS_BATTLE_GOLD: String = "battle_gold_pct"
+const GUILD_RELIC_AXIS_RARE_DROP: String = "rare_drop_pct"
 # 召喚ユニットの素データ（段階6・EXEC_SKILL_SPAWN.md §3-1）。
 #
 # ⚠ enemies.json と分けてある（人間の確認待ち・EXEC §0-1 の1）。混ぜると
@@ -129,6 +142,8 @@ static var _cache_summons: Dictionary = {}
 # レリック（段階14-d）。⚠ 中身は _cache_skills にも入っている。
 #   こちらは「レリックだけの一覧」を作るためだけに持つ。
 static var _cache_relics: Dictionary = {}
+# ⚠ 拠点の遺物（回HB-3）。⚠ 戦闘のパッシブ（癒しの遺物の段ごと）は _cache_skills に組み立てて入れる。
+static var _cache_guild_relics: Dictionary = {}
 static var _cache_skills: Dictionary = {}
 # 難ダンジョン（段階17-a）。⚠ _cache_stages とは別の辞書。混ぜないこと。
 static var _cache_dungeons: Dictionary = {}
@@ -196,6 +211,54 @@ static func get_all_relic_ids() -> Array[String]:
 		ids.append(str(relic_id))
 	ids.sort()
 	return ids
+
+
+# 拠点の遺物（2026-10-07・回HB-3）。⚠ 並びは sort_order（＝等級の順）。
+static func get_guild_relic_ids() -> Array[String]:
+	_ensure_loaded()
+	var ids: Array[String] = []
+	for relic_id: Variant in _cache_guild_relics:
+		ids.append(str(relic_id))
+	ids.sort_custom(func(a: String, b: String) -> bool:
+		return int((_cache_guild_relics[a] as Dictionary).get("sort_order", 0)) < int((_cache_guild_relics[b] as Dictionary).get("sort_order", 0)))
+	return ids
+
+
+static func get_guild_relic(id: String) -> Dictionary:
+	_ensure_loaded()
+	if not _cache_guild_relics.has(id):
+		return {}
+	return (_cache_guild_relics[id] as Dictionary).duplicate(true)
+
+
+# ⚠ 癒しの遺物の段ごとのパッシブ ID（⚠ 組み立てる側と引く側で綴りを1か所に）。
+static func guild_relic_passive_id(relic_id: String, level: int) -> String:
+	return "%s_lv%d" % [relic_id, level]
+
+
+# ⚠ 「受ける回復 +%」の遺物を、段ごとのパッシブとして組み立てる（⚠ 形は装備の特殊効果と同じ・`intervene.heal_taken_pct`）。
+static func _build_guild_relic_passives() -> void:
+	for relic_id: Variant in _cache_guild_relics:
+		var relic: Dictionary = _cache_guild_relics[relic_id]
+		if str(relic.get(GUILD_RELIC_AXIS, "")) != GUILD_RELIC_AXIS_HEAL_TAKEN:
+			continue
+		var values: Array = relic.get(GUILD_RELIC_VALUES, []) as Array
+		for i: int in range(values.size()):
+			var passive_id: String = guild_relic_passive_id(str(relic_id), i + 1)
+			if _cache_skills.has(passive_id):
+				push_error("[MasterDataLoader] 遺物のパッシブの ID が重複: " + passive_id)
+				continue
+			_cache_skills[passive_id] = {
+				SkillSchema.FIELD_GUILD_RELIC_ID: str(relic_id),
+				"name_key": str(relic.get("name_key", "")),
+				"activation": "passive",
+				"target": {"team": "self"},
+				"effects": [{
+					"type": "buff", "host": "unit", "status_id": "status_" + str(relic_id),
+					"duration_sec": 99999.0, "stack": "refresh",
+					"intervene": {GUILD_RELIC_AXIS_HEAL_TAKEN: int(values[i])},
+				}],
+			}
 
 
 # レリック1件の定義。⚠ 戦闘が引くのは get_skill()（同じ辞書に入っている）。
@@ -281,6 +344,10 @@ static func _ensure_loaded() -> void:
 	# ⚠ 装備の特殊効果も同じ辞書へ（2026-10-02・回UI-仕組み⑦）。⚠ 戦闘は着けている人のパッシブとして引く
 	#   （`GameManager.get_equipment_effect_passives()`）。⚠ 品の `special_effect` がここのIDを指す。
 	_merge_id_map(_cache_skills, PATH_EQUIP_EFFECTS, true, "装備の特殊効果")
+	# ⚠ 拠点の遺物（2026-10-07・回HB-3）。⚠ 「受ける回復」の遺物は段ごとのパッシブを組み立てて同じ辞書へ
+	#   （`GameManager.get_guild_relic_passives()` が `grelic_mend_lv<n>` を返す）。⚠ _validate_all_skills() より前。
+	_cache_guild_relics = _load_json(PATH_GUILD_RELICS)
+	_build_guild_relic_passives()
 	# スキルは自由度が高いぶん「書けるが壊れている」組み合わせが増えた。
 	# resolver 側だけで防ぐと実戦で撃つまで気づけないので、読んだ直後に全件見る
 	# （PLAN_SKILL_TEMPLATE.md 5-4）。characters.json も読み終わっているので、

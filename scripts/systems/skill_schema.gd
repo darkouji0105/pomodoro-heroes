@@ -360,7 +360,12 @@ const SKILL_FIELDS_KNOWN: Array = [
 	FIELD_RELIC_SCOPE,
 	# 装備の特殊効果（2026-10-02・回UI-仕組み⑦・`equip_effects.json`）。⚠ 画面の札が読む欄。
 	FIELD_EQUIP_TRIGGER_KEY, FIELD_EQUIP_DESC_KEY,
+	# 拠点の遺物の段ごとのパッシブ（2026-10-07・回HB-3・`MasterDataLoader._build_guild_relic_passives()`）。
+	FIELD_GUILD_RELIC_ID,
 ]
+
+# ⚠ 拠点の遺物（2026-10-07）。⚠ この欄を持つエントリは遺物が組み立てたパッシブ＝⚠ キャラに紐づかず解放も無い（⚠ レリックと同じ例外）。
+const FIELD_GUILD_RELIC_ID: String = "guild_relic_id"
 
 # 装備の特殊効果（2026-10-02）。⚠ `trigger_key` を持つエントリは装備の特殊効果＝⚠ キャラに紐づかず解放も無い（⚠ レリックと同じ例外）。
 #   ⚠ 判定はこの1欄の有無だけ（⚠ IDの綴り `eqfx_` で見分けない）。
@@ -573,7 +578,7 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	#   ⚠ 判定はこの1欄の有無だけ。IDの綴りで見分けないこと。
 	var relic_scope: String = str(data.get(FIELD_RELIC_SCOPE, ""))
 	# ⚠ 装備の特殊効果もキャラに紐づかない（⚠ 2026-10-02・下の E3 / E4 の例外に乗せる）。
-	var is_relic: bool = relic_scope != "" or data.has(FIELD_EQUIP_TRIGGER_KEY)
+	var is_relic: bool = relic_scope != "" or data.has(FIELD_EQUIP_TRIGGER_KEY) or data.has(FIELD_GUILD_RELIC_ID)
 	# E130 … relic_scope の値が party / single のどちらでもない。
 	#   ⚠ 2026-08-25：最初 E128 と書いたが、あれは research.json の検証が
 	#     既に使っていた（master_data_loader.gd:344）。E129 も workshop が使用済み。

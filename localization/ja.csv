@@ -1590,3 +1590,32 @@ ui_status_ch_status_eqfx_grove_mend,癒
 ui_weapon_genre_sword,剣
 ui_weapon_genre_bow,弓
 ui_weapon_genre_staff,杖
+ui_facility_guild_relic,遺物
+ui_grelic_power,力の遺物
+ui_grelic_life,命の遺物
+ui_grelic_guard,守りの遺物
+ui_grelic_mend,癒しの遺物
+ui_grelic_fortune,富の遺物
+ui_grelic_treasure,宝の遺物
+ui_grelic_subtitle,等級5以上の装備を捧げて育てる
+ui_grelic_list_title,遺物
+ui_grelic_grows_by,等級%d の装備で育つ
+ui_grelic_level,Lv %d / %d
+ui_grelic_effect_next,%s → 次 %s
+ui_grelic_points,次まで %d / %d 点
+ui_grelic_max,最大
+ui_grelic_effect_none,なし
+ui_grelic_effect_heal_taken_pct,受ける回復 +%d%%
+ui_grelic_effect_battle_gold_pct,戦闘のゴールド +%d%%
+ui_grelic_effect_rare_drop_pct,特殊効果の品の出やすさ +%d%%
+ui_grelic_altar_title,祭壇
+ui_grelic_altar_hint,捧げると分解と同じく素材が戻り、その等級の遺物が育つ
+ui_grelic_altar_empty,捧げられる装備がありません
+ui_grelic_altar_empty_hint,鍛冶場で等級5まで鍛えると捧げられる（着けている装備は出ない）
+ui_grelic_pick_hint,捧げる装備を選ぶ
+ui_grelic_offer,捧げる
+ui_grelic_offer_preview,%s +%d 点 ／ 戻る素材 %d 個
+ui_grelic_offer_confirm,%sを捧げますか？ 装備はなくなります
+ui_grelic_offered,%sに %d 点
+ui_grelic_offer_failed,捧げられなかった
+ui_status_ch_status_grelic_mend,癒

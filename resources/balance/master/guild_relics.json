@@ -1,0 +1,198 @@
+{
+	"grelic_power": {
+		"name_key": "ui_grelic_power",
+		"grade": 5,
+		"axis": "stat",
+		"stats": [
+			"atk"
+		],
+		"offer_points": 1,
+		"costs": [
+			1,
+			2,
+			3,
+			4,
+			5,
+			6,
+			7,
+			8,
+			9,
+			10
+		],
+		"values": [
+			2,
+			4,
+			6,
+			8,
+			9,
+			10,
+			11,
+			12,
+			13,
+			14
+		],
+		"sort_order": 1
+	},
+	"grelic_life": {
+		"name_key": "ui_grelic_life",
+		"grade": 6,
+		"axis": "stat",
+		"stats": [
+			"hp"
+		],
+		"offer_points": 2,
+		"costs": [
+			1,
+			2,
+			3,
+			4,
+			5,
+			6,
+			7,
+			8,
+			9,
+			10
+		],
+		"values": [
+			10,
+			20,
+			30,
+			38,
+			46,
+			54,
+			60,
+			66,
+			72,
+			78
+		],
+		"sort_order": 2
+	},
+	"grelic_guard": {
+		"name_key": "ui_grelic_guard",
+		"grade": 7,
+		"axis": "stat",
+		"stats": [
+			"def",
+			"mdef"
+		],
+		"offer_points": 3,
+		"costs": [
+			1,
+			2,
+			3,
+			4,
+			5,
+			6,
+			7,
+			8,
+			9,
+			10
+		],
+		"values": [
+			1,
+			2,
+			3,
+			4,
+			5,
+			6,
+			7,
+			8,
+			9,
+			10
+		],
+		"sort_order": 3
+	},
+	"grelic_mend": {
+		"name_key": "ui_grelic_mend",
+		"grade": 8,
+		"axis": "heal_taken_pct",
+		"offer_points": 4,
+		"costs": [
+			1,
+			2,
+			3,
+			4,
+			5,
+			6,
+			7,
+			8,
+			9,
+			10
+		],
+		"values": [
+			5,
+			10,
+			15,
+			18,
+			21,
+			24,
+			26,
+			28,
+			30,
+			32
+		],
+		"sort_order": 4
+	},
+	"grelic_fortune": {
+		"name_key": "ui_grelic_fortune",
+		"grade": 9,
+		"axis": "battle_gold_pct",
+		"offer_points": 5,
+		"costs": [
+			1,
+			2,
+			3,
+			4,
+			5,
+			6,
+			7,
+			8,
+			9,
+			10
+		],
+		"values": [
+			5,
+			10,
+			15,
+			18,
+			21,
+			24,
+			26,
+			28,
+			30,
+			32
+		],
+		"sort_order": 5
+	},
+	"grelic_treasure": {
+		"name_key": "ui_grelic_treasure",
+		"grade": 10,
+		"axis": "rare_drop_pct",
+		"offer_points": 6,
+		"costs": [
+			1,
+			2,
+			3,
+			4,
+			5,
+			6,
+			7,
+			8,
+			9,
+			10
+		],
+		"values": [
+			10,
+			20,
+			30,
+			38,
+			46,
+			54,
+			60,
+			66,
+			72,
+			78
+		],
+		"sort_order": 6
+	}
+}

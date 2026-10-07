@@ -56,6 +56,8 @@ signal dungeon_run_changed(dungeon_id: String)
 # タスクのメモが変わった（2026-10-04・`TK-1`）。⚠ 足す・名前・メモ・期限・色・タグ・並べ替え・チェック・🍅・朝4:00 の移しのどれでも飛ぶ。
 # ⚠ 拠点の紙とタスクの画面はこれで描き直す（⚠ 再描画に await を持たせない＝CLAUDE.md 5番）。
 signal tasks_changed()
+# ⚠ 拠点の遺物の点数が変わった（2026-10-07・回HB-3）。⚠ 捧げた（分解した）とき。
+signal guild_relic_changed(relic_id: String)
 
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
@@ -568,6 +570,7 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.GUIDES_SEEN: {},
 		# ⚠ 見た品（2026-10-07・NEW のしおり紐）。⚠ 前のセーブは load_state() で図鑑から埋める。
 		GameStateKeys.SEEN_ITEMS: {},
+		GameStateKeys.GUILD_RELICS: {},
 		# ⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3（⚠ 帰還報告書の「最深 更新」）。
 		GameStateKeys.DUNGEON_BEST_FLOORS: {},
 		# ⚠ タスクのメモ（2026-10-04・`TK-1`・`TK-6`）。⚠ 前のセーブも空で読まれる。
@@ -2473,6 +2476,8 @@ func get_effective_stats(character_id: String) -> Dictionary:
 	# 割り振り（ステータスノード）。5項目めとして足す。
 	# これを忘れると「ノードを押しても戦闘にも育成画面にも出ない」になる。
 	var nodes: Dictionary = get_stat_node_bonus(character_id)
+	# ⚠ 10-07（回HB-3）：⚠ 拠点の遺物（全員に同じだけ）。6項目め。
+	var relics: Dictionary = get_guild_relic_stat_bonus()
 
 	var result: Dictionary = {}
 	var percent_keys: Array[String] = _percent_stat_keys()
@@ -2486,6 +2491,7 @@ func get_effective_stats(character_id: String) -> Dictionary:
 			+ all_bonus
 			+ int(equip.get(stat_key, 0))
 			+ int(nodes.get(stat_key, 0))
+			+ int(relics.get(stat_key, 0))
 		)
 	return result
 
@@ -3518,6 +3524,9 @@ func dismantle_equipment(instance_id: String) -> bool:
 		print("[GameManager] dismantle_equipment('%s') -> false (equipped by %s)" % [instance_id, owner])
 		return false
 
+	# ⚠ 10-07（回HB-3・`EQ-8`）：⚠ 捧げる＝分解。⚠ 等級5以上ならその等級の遺物に点数（⚠ 状態を変える前に決める＝CLAUDE.md 6番）。
+	var offer: Dictionary = get_offer_preview(instance_id)
+
 	# --- ここから状態を変える ---
 
 	var refund: Dictionary = get_dismantle_refund(instance_id)
@@ -3531,12 +3540,174 @@ func dismantle_equipment(instance_id: String) -> bool:
 	for material_id: Variant in refund:
 		add_material(str(material_id), int(refund[material_id]))
 
-	print("[GameManager] dismantle_equipment('%s') -> true (item=%s grade=%d refund=%s)" % [
+	if not offer.is_empty():
+		var relic_id: String = str(offer[OFFER_RELIC_ID])
+		var points: Dictionary = _copy_dict(GameStateKeys.GUILD_RELICS)
+		points[relic_id] = int(points.get(relic_id, 0)) + int(offer[OFFER_POINTS])
+		_state[GameStateKeys.GUILD_RELICS] = points
+
+	print("[GameManager] dismantle_equipment('%s') -> true (item=%s grade=%d refund=%s offer=%s)" % [
 		instance_id, str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, "")),
-		int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)), str(refund)
+		int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)), str(refund), str(offer)
 	])
 	equipment_instances_changed.emit(instance_id)
+	if not offer.is_empty():
+		guild_relic_changed.emit(str(offer[OFFER_RELIC_ID]))
 	return true
+
+
+# ============================================================
+# 拠点の遺物（2026-10-07・回HB-3・`EQ-8`・`EXEC_GUILD_RELIC.md`）
+# ============================================================
+#
+# ⚠ 状態が持つのは遺物ごとの点数の合計だけ（`GUILD_RELICS`）。⚠ 段・効き目は guild_relics.json から毎回（CLAUDE.md 4番）。
+# ⚠ 点数を足す口は `dismantle_equipment()` だけ（⚠ 捧げる＝分解・人間「⚠ １　う　分解でたまる形に」）。
+# ⚠ 効き目の合流点：ステータス＝`get_effective_stats()` ／ 受ける回復＝`get_guild_relic_passives()`（戦闘のパッシブ）
+#   ／ ゴールド＝`with_guild_relic_gold_bonus()` ／ 特殊効果の品＝`_boost_rare_drop_rows()`。
+
+const OFFER_RELIC_ID: String = "relic_id"
+const OFFER_POINTS: String = "points"
+const GUILD_RELIC_PROGRESS_HAVE: String = "have"
+const GUILD_RELIC_PROGRESS_NEED: String = "need"
+
+
+func get_guild_relic_points(relic_id: String) -> int:
+	var points: Variant = _state.get(GameStateKeys.GUILD_RELICS, {})
+	return int((points as Dictionary).get(relic_id, 0)) if points is Dictionary else 0
+
+
+func get_guild_relic_max_level(relic_id: String) -> int:
+	return (MasterDataLoader.get_guild_relic(relic_id).get(MasterDataLoader.GUILD_RELIC_COSTS, []) as Array).size()
+
+
+# ⚠ 段（0〜最大）。⚠ costs は「その段に上がるのに要る点数」（⚠ 累計ではない）。
+func get_guild_relic_level(relic_id: String) -> int:
+	return int(_guild_relic_walk(relic_id).get("level", 0))
+
+
+# ⚠ 次の段まで：{have, need}（⚠ 最大の段なら need = 0）。
+func get_guild_relic_progress(relic_id: String) -> Dictionary:
+	var walk: Dictionary = _guild_relic_walk(relic_id)
+	return {GUILD_RELIC_PROGRESS_HAVE: int(walk.get("rest", 0)), GUILD_RELIC_PROGRESS_NEED: int(walk.get("need", 0))}
+
+
+func _guild_relic_walk(relic_id: String) -> Dictionary:
+	var costs: Array = MasterDataLoader.get_guild_relic(relic_id).get(MasterDataLoader.GUILD_RELIC_COSTS, []) as Array
+	var rest: int = get_guild_relic_points(relic_id)
+	var level: int = 0
+	for cost: Variant in costs:
+		if rest < int(cost):
+			return {"level": level, "rest": rest, "need": int(cost)}
+		rest -= int(cost)
+		level += 1
+	return {"level": level, "rest": rest, "need": 0}
+
+
+# ⚠ その段の効き目（⚠ values は段ごとの合計）。⚠ level を省くと今の段。
+func get_guild_relic_value(relic_id: String, level: int = -1) -> int:
+	var at: int = get_guild_relic_level(relic_id) if level < 0 else level
+	var values: Array = MasterDataLoader.get_guild_relic(relic_id).get(MasterDataLoader.GUILD_RELIC_VALUES, []) as Array
+	if at <= 0 or values.is_empty():
+		return 0
+	return int(values[mini(at, values.size()) - 1])
+
+
+# ⚠ その等級の装備で育つ遺物（⚠ 無ければ ""＝等級4以下）。
+func get_guild_relic_of_grade(grade: int) -> String:
+	for relic_id: String in MasterDataLoader.get_guild_relic_ids():
+		if int(MasterDataLoader.get_guild_relic(relic_id).get(MasterDataLoader.GUILD_RELIC_GRADE, 0)) == grade:
+			return relic_id
+	return ""
+
+
+# ⚠ 捧げたら（分解したら）どの遺物に何点入るか。⚠ 入らなければ空。
+func get_offer_preview(instance_id: String) -> Dictionary:
+	var instance: Dictionary = get_equipment_instance(instance_id)
+	if instance.is_empty():
+		return {}
+	var relic_id: String = get_guild_relic_of_grade(int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)))
+	if relic_id == "":
+		return {}
+	return {
+		OFFER_RELIC_ID: relic_id,
+		OFFER_POINTS: int(MasterDataLoader.get_guild_relic(relic_id).get(MasterDataLoader.GUILD_RELIC_OFFER_POINTS, 0)),
+	}
+
+
+# ⚠ 祭壇に並べる個体（⚠ 遺物に点が入る等級・誰も着けていない）。⚠ 並びは `get_owned_instances()` のまま。
+func get_offerable_instances() -> Array:
+	var result: Array = []
+	for view: Variant in get_owned_instances():
+		var entry: Dictionary = view
+		if str(entry.get(INSTANCE_VIEW_EQUIPPED_BY, "")) != "":
+			continue
+		if get_guild_relic_of_grade(int(entry.get(GameStateKeys.INSTANCE_GRADE, 1))) == "":
+			continue
+		result.append(entry)
+	return result
+
+
+# ⚠ その軸の遺物の効き目の合計。
+func _guild_relic_axis_total(axis: String) -> int:
+	var total: int = 0
+	for relic_id: String in MasterDataLoader.get_guild_relic_ids():
+		if str(MasterDataLoader.get_guild_relic(relic_id).get(MasterDataLoader.GUILD_RELIC_AXIS, "")) == axis:
+			total += get_guild_relic_value(relic_id)
+	return total
+
+
+# ⚠ ステータスの加算（⚠ 全員に同じだけ）。⚠ `get_effective_stats()` の6本目の項。
+func get_guild_relic_stat_bonus() -> Dictionary:
+	var result: Dictionary = {}
+	for relic_id: String in MasterDataLoader.get_guild_relic_ids():
+		var relic: Dictionary = MasterDataLoader.get_guild_relic(relic_id)
+		if str(relic.get(MasterDataLoader.GUILD_RELIC_AXIS, "")) != MasterDataLoader.GUILD_RELIC_AXIS_STAT:
+			continue
+		var value: int = get_guild_relic_value(relic_id)
+		if value == 0:
+			continue
+		for stat_key: Variant in (relic.get(MasterDataLoader.GUILD_RELIC_STATS, []) as Array):
+			result[str(stat_key)] = int(result.get(str(stat_key), 0)) + value
+	return result
+
+
+# ⚠ 戦闘のパッシブ（⚠ 受ける回復の遺物＝段ごとの ID）。⚠ `battle_controller.gd` が味方に足す。
+func get_guild_relic_passives() -> Array:
+	var result: Array = []
+	for relic_id: String in MasterDataLoader.get_guild_relic_ids():
+		if str(MasterDataLoader.get_guild_relic(relic_id).get(MasterDataLoader.GUILD_RELIC_AXIS, "")) != MasterDataLoader.GUILD_RELIC_AXIS_HEAL_TAKEN:
+			continue
+		var level: int = get_guild_relic_level(relic_id)
+		if level > 0:
+			result.append(MasterDataLoader.guild_relic_passive_id(relic_id, level))
+	return result
+
+
+# ⚠ 戦闘の報酬のゴールドを増やした写し（⚠ 結果画面に出す前に通す＝出す数と配る数を揃える）。
+func with_guild_relic_gold_bonus(rewards: Dictionary) -> Dictionary:
+	var pct: int = _guild_relic_axis_total(MasterDataLoader.GUILD_RELIC_AXIS_BATTLE_GOLD)
+	if pct <= 0 or not rewards.has(GameStateKeys.REWARD_GOLD):
+		return rewards
+	var boosted: Dictionary = rewards.duplicate(true)
+	var gold: int = int(rewards[GameStateKeys.REWARD_GOLD])
+	boosted[GameStateKeys.REWARD_GOLD] = gold + int(floor(float(gold) * float(pct) / 100.0))
+	return boosted
+
+
+# ⚠ 難ダンジョンの抽選の表で、特殊効果の品の重みを増やした写し（⚠ 抽選の本体には足さない）。
+func _boost_rare_drop_rows(rows: Variant) -> Variant:
+	var pct: int = _guild_relic_axis_total(MasterDataLoader.GUILD_RELIC_AXIS_RARE_DROP)
+	if pct <= 0 or not (rows is Array):
+		return rows
+	var boosted: Array = []
+	for row: Variant in (rows as Array):
+		if row is Dictionary and get_item_special_effect(str((row as Dictionary).get(CHEST_DRAW_ITEM_ID, ""))) != "":
+			var copy: Dictionary = (row as Dictionary).duplicate(true)
+			copy[CHEST_DRAW_WEIGHT] = int(floor(float(int(copy.get(CHEST_DRAW_WEIGHT, 0))) * float(100 + pct) / 100.0))
+			boosted.append(copy)
+		else:
+			boosted.append(row)
+	return boosted
 
 # ============================================================
 # 装飾（宝石・護符・紋章）— EXEC_DECORATION.md
@@ -6944,6 +7115,13 @@ func load_state(data: Dictionary) -> bool:
 		var best: Dictionary = new_state[GameStateKeys.DUNGEON_BEST_FLOORS]
 		for dungeon_key: Variant in best:
 			best[dungeon_key] = int(best[dungeon_key])
+	# ⚠ 拠点の遺物の点数（2026-10-07・回HB-3）を int に戻す（CLAUDE.md 3番）。⚠ 前のセーブには無い＝空のまま。
+	if new_state.get(GameStateKeys.GUILD_RELICS) is Dictionary:
+		var relic_points: Dictionary = new_state[GameStateKeys.GUILD_RELICS]
+		for relic_key: Variant in relic_points:
+			relic_points[relic_key] = int(relic_points[relic_key])
+	else:
+		new_state[GameStateKeys.GUILD_RELICS] = {}
 	# ⚠ タスクのメモ（2026-10-04・`TK-1`）：⚠ 色・🍅・日付を int に戻す（CLAUDE.md 3番）。
 	new_state[GameStateKeys.TASKS] = _normalize_task_list(new_state.get(GameStateKeys.TASKS, []))
 	new_state[GameStateKeys.TASK_LOG] = _normalize_task_list(new_state.get(GameStateKeys.TASK_LOG, []))
@@ -7975,6 +8153,8 @@ func run_floor_auto(floor_id: String) -> Dictionary:
 	# ⚠ 足すのは gold だけ。⚠ node_rewards に materials を入れない決定（定数のコメント）。
 	if node_gold > 0:
 		rewards[GameStateKeys.REWARD_GOLD] = int(rewards.get(GameStateKeys.REWARD_GOLD, 0)) + node_gold
+	# ⚠ 10-07（回HB-3）：⚠ 富の遺物（⚠ 戦闘の結果画面と同じ口）。
+	rewards = with_guild_relic_gold_bonus(rewards)
 	print("[GameManager] run_floor_auto('%s') 道中の戦闘 %d 回 -> +%d G" % [floor_id, node_battles, node_gold])
 
 	# ⚠ 初回と同じ順で配る。スタミナ → 報酬 → 降りる。
@@ -9673,7 +9853,8 @@ func _grant_dungeon_node_gains(kind: String, to_pending: bool = false) -> Dictio
 	var grade_range: Vector2i = get_dungeon_equip_grade_range(
 		str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")), get_dungeon_current_layer()
 	)
-	var rolled: Dictionary = _roll_weighted_table(_filter_drop_rows(draw.get(CHEST_DRAW_ENTRIES, []), grade_range), rolls)
+	# ⚠ 10-07（回HB-3）：⚠ 宝の遺物＝特殊効果の品の重みを増やす（⚠ 抽選の本体には足さない）。
+	var rolled: Dictionary = _roll_weighted_table(_boost_rare_drop_rows(_filter_drop_rows(draw.get(CHEST_DRAW_ENTRIES, []), grade_range)), rolls)
 	# ⚠ 綴り順で入れる（Dictionary のキー順は不定。鞄が溢れたときに
 	#   「何が入って何が入らなかったか」が起動ごとに変わらないようにする）。
 	var item_ids: Array = rolled.keys()

@@ -26,6 +26,8 @@ const BELONGINGS: String = "belongings"
 const RECORDS: String = "records"
 const RESEARCH: String = "research"
 const SHOP: String = "shop"
+# ⚠ 10-07（回HB-3・`EQ-8`・人間「⚠ ３あ」）：⚠ 拠点の遺物（育成の中のタブ）。
+const GUILD_RELIC: String = "guild_relic"
 
 const KEY_PATH: String = "path"
 const KEY_UNLOCK: String = "unlock"   # ⚠ `""` ならいつも出す
@@ -68,6 +70,9 @@ static func training_tabs() -> Array[Dictionary]:
 			KEY_PATH: "res://scenes/guild/forge_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WAREHOUSE},
 		{ENTRY_ID: RESEARCH, ENTRY_LABEL_KEY: "ui_facility_research",
 			KEY_PATH: "res://scenes/guild/research_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_RESEARCH},
+		# ⚠ 10-07（回HB-3）：⚠ 遺物（⚠ 捧げる＝分解＝鍛冶場と同じ解放）。
+		{ENTRY_ID: GUILD_RELIC, ENTRY_LABEL_KEY: "ui_facility_guild_relic",
+			KEY_PATH: "res://scenes/guild/guild_relic_screen.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_WAREHOUSE},
 	]
 
 

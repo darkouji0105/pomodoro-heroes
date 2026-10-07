@@ -144,6 +144,8 @@ const SHOT_AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
 const SHOT_AFTER_DEBUG_OVERLAY: String = "debug_overlay"
 # ⚠ 本部の「拠点の全体」（2026-10-07・回HB-1）。⚠ 内側の `AFTER_BASE_TOWN` と同じ字。
 const SHOT_AFTER_BASE_TOWN: String = "base_town"
+# ⚠ 拠点の遺物の画面（2026-10-07・回HB-3）。⚠ 内側の `AFTER_GUILD_RELIC` と同じ字。
+const SHOT_AFTER_GUILD_RELIC: String = "guild_relic"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 # ⚠ タスクのメモ（2026-10-04・`TK-n`）：⚠ タスクを並べる ／ 終えたものを記録へ移す ／ 詳しくを開く ／ 選ぶ窓 ／ 記録のタブ。⚠ 内側の同じ名前の字と揃える。
@@ -1330,6 +1332,7 @@ const SCENARIOS: Dictionary = {
 			{"name": "72_board_quick", "scene": "res://scenes/adventure/adventure_select.tscn", "prepare": SHOT_PREPARE_BOARD_CLEARED},
 			{"name": "69_mini_reflection", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_REFLECTION},
 			{"name": "74_base_town", "scene": SCENE_BASE, "after": SHOT_AFTER_BASE_TOWN, "measure": ["Layout/TopArea/TownView"]},
+			{"name": "75_guild_relic", "scene": "res://scenes/guild/guild_relic_screen.tscn", "after": SHOT_AFTER_GUILD_RELIC},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -9245,6 +9248,7 @@ class ShotTaker extends Node:
 	const AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
 	const AFTER_DEBUG_OVERLAY: String = "debug_overlay"
 	const AFTER_BASE_TOWN: String = "base_town"
+	const AFTER_GUILD_RELIC: String = "guild_relic"
 	const FORGE_STRIKE_WAIT_MS: int = 4000
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
@@ -9808,6 +9812,21 @@ class ShotTaker extends Node:
 				return false
 			(records_tabs.get_child(RecordsScreen.TAB_TASKS) as BaseButton).pressed.emit()
 			for _i: int in range(3):
+				await get_tree().process_frame
+		elif kind == AFTER_GUILD_RELIC:
+			# ⚠ 等級6の装備を1つ持たせ（⚠ 個体を作るのは `add_to_inventory()` の1本）、⚠ 力の遺物に少し点を入れ、⚠ 祭壇で選んだ姿。
+			GameManager.add_to_inventory(PART_WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 6)
+			(GameManager.get("_state")[GameStateKeys.GUILD_RELICS] as Dictionary)["grelic_power"] = 4
+			screen.call("_rebuild")
+			var offer_row: Node = null
+			for node: Node in screen.find_children("Offer_*", "", true, false):
+				offer_row = node
+				break
+			if not (offer_row is LedgerRow):
+				push_error("[DebugBoot] ⚠ %s の祭壇に装備が無い" % shot_name)
+				return false
+			(offer_row as LedgerRow).pressed.emit()
+			for _i: int in range(4):
 				await get_tree().process_frame
 		elif kind == AFTER_BASE_TOWN:
 			var toggle: Node = screen.find_child("ViewToggle", true, false)
@@ -10489,6 +10508,7 @@ class UiFlowRunner extends Node:
 		await _flow_belongings(instance_id)
 		await _flow_belongings_tabs()
 		await _flow_equip_craft()
+		await _flow_guild_relic()
 		await _flow_facility()
 		await _flow_base_hub()
 		await _flow_barracks()
@@ -10889,6 +10909,72 @@ class UiFlowRunner extends Node:
 		_check("置き換え：古い剣は細身の剣になる（%s）" % str(GameManager.get_equipment_instance(sword).get(GameStateKeys.INSTANCE_ITEM_ID, "")),
 			loaded and str(GameManager.get_equipment_instance(sword).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "weapon_sword_swift")
 		_check("置き換え：弓兵が着けていた剣は外れる", GameManager.get_equipped_instance_id(OTHER, weapon_slot) == "")
+		var _restored: bool = GameManager.load_state(snapshot)
+
+	# --- 回HB-3 拠点の遺物（2026-10-07・`EXEC_GUILD_RELIC.md` §4・人間「⚠ １　う　分解でたまる形に　２あ　３あ　４あ　５あ」） ---
+	# ⚠ 終わりにセーブの読み直しで状態を戻す（⚠ 後の検査の数を動かさない）。
+
+	func _flow_guild_relic() -> void:
+		const RELIC_SCREEN: String = "res://scenes/guild/guild_relic_screen.tscn"
+		var snapshot: Dictionary = GameManager.get_state()
+		var before_items: Array[String] = []
+		for view: Variant in GameManager.get_owned_instances():
+			before_items.append(str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")))
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 5)
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 4)
+		var g5: String = ""
+		var g4: String = ""
+		for view: Variant in GameManager.get_owned_instances():
+			var id: String = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+			if id in before_items:
+				continue
+			if int((view as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 0)) == 5:
+				g5 = id
+			elif int((view as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 0)) == 4:
+				g4 = id
+		# ⑥ 育成の中のタブ「遺物」。
+		var l: Node = await _open(TRAINING_LIST, {})
+		var tabs: Node = null if l == null else l.find_child("TrainingTabs", false, false)
+		await _press(null if tabs == null else tabs.find_child("Facility_" + BaseFacilityBar.GUILD_RELIC, true, false), OPEN_FRAMES)
+		var r: Node = get_tree().current_scene
+		_check("遺物：育成の中のタブ「遺物」で遺物の画面", _path_of(r) == RELIC_SCREEN)
+		if _path_of(r) != RELIC_SCREEN:
+			var _restored_early: bool = GameManager.load_state(snapshot)
+			return
+		_check("遺物：遺物が6つ並ぶ（%d）" % r.find_children("Relic_*", "", true, false).size(), r.find_children("Relic_*", "", true, false).size() == MasterDataLoader.get_guild_relic_ids().size())
+		# ② 等級4以下は祭壇に出ない。
+		_check("遺物：祭壇に等級5は出て等級4は出ない", g5 != "" and g4 != "" and r.find_child("Offer_" + g5, true, false) != null and r.find_child("Offer_" + g4, true, false) == null)
+		# ① 捧げる＝分解。
+		var atk_before: int = int(GameManager.get_effective_stats(HERO).get("atk", 0))
+		var forge_before: int = GameManager.get_resource_amount("forging_material_1")
+		await _press(r.find_child("Offer_" + g5, true, false))
+		await _press(r.find_child("OfferButton", true, false))
+		await _confirm_modal()
+		await _wait()
+		_check("遺物：捧げると力の遺物 +1 点・装備は消える・素材が戻る（%d → %d）" % [forge_before, GameManager.get_resource_amount("forging_material_1")],
+			GameManager.get_guild_relic_points("grelic_power") == 1 and GameManager.get_equipment_instance(g5).is_empty()
+			and GameManager.get_resource_amount("forging_material_1") > forge_before)
+		# ③ 段が上がると全員の攻撃が上がる。
+		var atk_after: int = int(GameManager.get_effective_stats(HERO).get("atk", 0))
+		_check("遺物：力の遺物 Lv1 で攻撃 %d → %d（+%d）" % [atk_before, atk_after, GameManager.get_guild_relic_value("grelic_power")],
+			GameManager.get_guild_relic_level("grelic_power") == 1 and atk_after == atk_before + GameManager.get_guild_relic_value("grelic_power"))
+		# ⑤ 富の遺物（⚠ 点数は状態に直に入れる＝等級9の装備を作らずに見る）。
+		var points: Dictionary = GameManager.get("_state")[GameStateKeys.GUILD_RELICS]
+		points["grelic_fortune"] = 1
+		points["grelic_mend"] = 1
+		var boosted: Dictionary = GameManager.with_guild_relic_gold_bonus({GameStateKeys.REWARD_GOLD: 100})
+		_check("遺物：富の遺物 Lv1 で戦闘のゴールド 100 → %d" % int(boosted.get(GameStateKeys.REWARD_GOLD, 0)), int(boosted.get(GameStateKeys.REWARD_GOLD, 0)) == 105)
+		# ④ 癒しの遺物＝戦闘のパッシブ。
+		var passives: Array = GameManager.get_guild_relic_passives()
+		_check("遺物：癒しの遺物 Lv1 のパッシブ（%s）" % str(passives), passives.size() == 1 and not MasterDataLoader.get_skill(str(passives[0])).is_empty())
+		var b: Node = await _open(BATTLE, {
+			TransferKeys.STAGE_ID: "stage_dbg_area",
+			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+		})
+		await get_tree().create_timer(2.0).timeout
+		BattleLog.flush()
+		var mend_lines: int = FileAccess.get_file_as_string(BattleLog.FILE_PATH).count("status_grelic_mend")
+		_check("遺物：戦闘で癒しの遺物がかかる（記録 %d 行）" % mend_lines, b != null and mend_lines > 0)
 		var _restored: bool = GameManager.load_state(snapshot)
 
 	# --- 回HB-1 拠点の整理（2026-10-07・人間「⚠ 育成にいくつかまとめる　２じゃあ　３はい　４あ　５あだけど　拠点が見れるビューもとグルで見れるようにする」） ---
