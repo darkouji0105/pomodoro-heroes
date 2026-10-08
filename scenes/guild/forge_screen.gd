@@ -531,7 +531,8 @@ func _on_offer_pressed() -> void:
 		GuildRelicScreen.notify_offered(self, offer)
 
 
-# ⚠⚠ 失敗で遺物に点数が入った（10-07・見る回23回目・人間「⚠ 鍛冶が失敗すると遺物にポイントが入るように、その際、遺物にポイントがたまる様子も見せる」）。
+# ⚠⚠ 鍛えて遺物に点数が入った（10-07・見る回23回目・人間「⚠ 鍛冶が失敗すると遺物にポイントが入るように、その際、遺物にポイントがたまる様子も見せる」
+#   ⚠ ／ 10-09・見る回24回目・人間「⚠ 鍛えたら成功でも遺物がたまるように」＝成功でも出す）。
 #   ⚠ 遺物のアイコン ／「力の遺物 +1 点」／ 目盛りが入る前から伸びる（⚠ 段が上がったら0から）／ 次まで ◯ / ◯ 点。
 func _build_side_relic_gain() -> void:
 	var relic_id: String = str(_result.get(GameManager.FORGE_RESULT_RELIC_ID, ""))

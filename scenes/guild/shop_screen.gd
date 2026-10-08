@@ -153,6 +153,10 @@ func _create_slot_row(slot: Dictionary) -> void:
 	item_icon.name = "ItemIcon"
 	# ⚠ 10-07：⚠ アイコンを押しても入手先の窓（⚠ ほかにどこで手に入るか）。
 	ItemSourceWindow.attach_to(item_icon, item_id)
+	# ⚠ 10-09（見る回24回目・人間「⚠ 紐を押すのではなく、アイテムクリックで消す」）：⚠ 品の絵を押しても「見た」。
+	#   ⚠ 絵は押下を食べる（⚠ 入手先の窓）＝行まで届かず、⚠ 前は紐が消えなかった。
+	if not GameManager.is_shop_slot_seen(slot_id):
+		item_icon.gui_input.connect(_on_row_input.bind(ribbon_slot, slot_id))
 	row.add_child(item_icon)
 
 	# 商品名 ×個数。素材名は "ui_res_" + item_id で引く（AGENTS.md 翻訳キーの運用）

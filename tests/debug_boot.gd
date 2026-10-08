@@ -11013,6 +11013,23 @@ class UiFlowRunner extends Node:
 			GameManager.get_guild_relic_points("grelic_power") > power_before and int(GameManager.get_equipment_instance(g5c).get(GameStateKeys.INSTANCE_GRADE, 0)) == 5)
 		_check("遺物：失敗の結果に「遺物に残った」紙と目盛り（%s）" % (_label_text(ff, "RelicGainSheet", "RelicGainText") if ff != null else ""),
 			ff != null and ff.find_child("RelicGainSheet", true, false) != null and ff.find_child("RelicGauge", true, false) != null)
+		# ⚠ 10-09（見る回24回目・人間「⚠ 鍛えたら成功でも遺物がたまるように」）：⚠ 成功率をメモリの中だけ 100 にして、もう一度。
+		var power_mid: int = GameManager.get_guild_relic_points("grelic_power")
+		var fs2: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: g5c})
+		var always: Array[int] = []
+		for _i: int in range(saved_pct.size()):
+			always.append(100)
+		Balance.equipment.forge_success_pct_by_grade = always
+		if fs2 != null:
+			fs2.call("_on_forge_pressed")
+		Balance.equipment.forge_success_pct_by_grade = saved_pct
+		var strike2: Node = null if fs2 == null else fs2.find_child("ForgeStrike", true, false)
+		if strike2 is ForgeStrike:
+			(strike2 as ForgeStrike).skip()
+		await _wait(OPEN_FRAMES)
+		_check("遺物：鍛えるのに成功しても力の遺物に点数（%d → %d）・等級は上がる・結果に紙" % [power_mid, GameManager.get_guild_relic_points("grelic_power")],
+			GameManager.get_guild_relic_points("grelic_power") > power_mid and int(GameManager.get_equipment_instance(g5c).get(GameStateKeys.INSTANCE_GRADE, 0)) == 6
+			and fs2 != null and fs2.find_child("RelicGainSheet", true, false) != null)
 		# ⑤ 富の遺物（⚠ 点数は状態に直に入れる＝等級9の装備を作らずに見る）。
 		var points: Dictionary = GameManager.get("_state")[GameStateKeys.GUILD_RELICS]
 		points["grelic_fortune"] = 1
@@ -13338,6 +13355,10 @@ class UiFlowRunner extends Node:
 			_check("入った先：ショップはカーソルを乗せただけでは紐が消えない", RibbonMark.has_ribbon(_shop_ribbon(rows_now[0])))
 			await _click(rows_now[0])
 			_check("入った先：ショップは押した行だけ紐が消える", not RibbonMark.has_ribbon(_shop_ribbon(rows_now[0])) and RibbonMark.has_ribbon(_shop_ribbon(rows_now[1])))
+			# ⚠ 10-09（見る回24回目・人間「⚠ 紐を押すのではなく、アイテムクリックで消す」）：⚠ 品の絵を押しても消える（⚠ 入手先の窓は開く）。
+			await _click(rows_now[1].find_child("ItemIcon", true, false))
+			_check("入った先：ショップは品の絵を押しても紐が消える（入手先の窓も開く）", not RibbonMark.has_ribbon(_shop_ribbon(rows_now[1])) and _modal_of(get_tree().current_scene) != null)
+			await _close_modal(get_tree().current_scene)
 		# K：演出の速さ5段。
 		var settings: Node = await _open(SETTINGS, {})
 		var fast: Node = null if settings == null else settings.find_child("EffectSpeed_4", true, false)

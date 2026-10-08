@@ -365,7 +365,7 @@ const FORGE_RESULT_MATERIAL_ID: String = "material_id"
 const FORGE_RESULT_AMOUNT: String = "amount"
 const FORGE_RESULT_USED_TOKEN: String = "used_token"
 const FORGE_RESULT_REASON: String = "reason"
-# ⚠ 10-07（見る回23回目）：⚠ 失敗したときに点数が入った遺物・点数・入る前の目盛り（⚠ 結果の画面が伸ばして見せる）。⚠ 入らなければ relic_id は ""。
+# ⚠ 10-07（見る回23回目）／ 10-09（見る回24回目）：⚠ 鍛えたとき（成功でも失敗でも）点数が入った遺物・点数・入る前の目盛り（⚠ 結果の画面が伸ばして見せる）。⚠ 入らなければ relic_id は ""。
 const FORGE_RESULT_RELIC_ID: String = "relic_id"
 const FORGE_RESULT_RELIC_POINTS: String = "relic_points"
 const FORGE_RESULT_RELIC_HAVE_BEFORE: String = "relic_have_before"
@@ -3452,9 +3452,10 @@ func forge_equipment_roll(instance_id: String, use_token: bool = false) -> Dicti
 		print("[GameManager] forge_equipment('%s') -> false (確定成功の札が無い)" % instance_id)
 		return result
 
-	# ⚠ 10-07（見る回23回目・人間「⚠ 鍛冶が失敗すると遺物にポイントが入るように」）：⚠ 失敗したら今の等級の遺物に点数（⚠ 状態を変える前に決める）。
-	var fail_relic: String = get_guild_relic_of_grade(grade)
-	var fail_points: int = int(MasterDataLoader.get_guild_relic(fail_relic).get(MasterDataLoader.GUILD_RELIC_FAIL_POINTS, 0)) if fail_relic != "" else 0
+	# ⚠ 10-07（見る回23回目・人間「⚠ 鍛冶が失敗すると遺物にポイントが入るように」）・10-09（見る回24回目・人間「⚠ 鍛えたら成功でも遺物がたまるように」）：
+	#   ⚠ 鍛えたら（成功でも失敗でも）鍛える前の等級の遺物に点数（⚠ 状態を変える前に決める）。
+	var forge_relic: String = get_guild_relic_of_grade(grade)
+	var forge_points: int = int(MasterDataLoader.get_guild_relic(forge_relic).get(MasterDataLoader.GUILD_RELIC_FORGE_POINTS, 0)) if forge_relic != "" else 0
 
 	# --- ここから状態を変える ---
 
@@ -3477,11 +3478,11 @@ func forge_equipment_roll(instance_id: String, use_token: bool = false) -> Dicti
 	result[FORGE_RESULT_MATERIAL_ID] = material_id
 	result[FORGE_RESULT_AMOUNT] = amount
 	result[FORGE_RESULT_USED_TOKEN] = token
-	if not success and fail_points > 0:
-		result[FORGE_RESULT_RELIC_ID] = fail_relic
-		result[FORGE_RESULT_RELIC_POINTS] = fail_points
-		result[FORGE_RESULT_RELIC_HAVE_BEFORE] = int(get_guild_relic_progress(fail_relic).get(GUILD_RELIC_PROGRESS_HAVE, 0))
-		_add_guild_relic_points(fail_relic, fail_points)
+	if forge_points > 0:
+		result[FORGE_RESULT_RELIC_ID] = forge_relic
+		result[FORGE_RESULT_RELIC_POINTS] = forge_points
+		result[FORGE_RESULT_RELIC_HAVE_BEFORE] = int(get_guild_relic_progress(forge_relic).get(GUILD_RELIC_PROGRESS_HAVE, 0))
+		_add_guild_relic_points(forge_relic, forge_points)
 	print("[GameManager] forge_equipment('%s') -> true (%s grade %d -> %d pct=%d token=%s cost=%d stats=%s slots=%d)" % [
 		instance_id, "成功" if success else "失敗", grade, new_grade, pct, str(token), amount,
 		get_instance_stats(instance_id), get_open_part_slot_count(_instance_equip_slot(instance_id), new_grade)
@@ -3593,7 +3594,7 @@ const GUILD_RELIC_PROGRESS_HAVE: String = "have"
 const GUILD_RELIC_PROGRESS_NEED: String = "need"
 
 
-# ⚠ 点数を足す唯一の口（⚠ 捧げる＝`dismantle_equipment()` ／ 鍛えるのに失敗＝`forge_equipment_roll()`）。⚠ シグナルは呼ぶ側が出す。
+# ⚠ 点数を足す唯一の口（⚠ 捧げる＝`dismantle_equipment()` ／ 鍛える＝`forge_equipment_roll()`）。⚠ シグナルは呼ぶ側が出す。
 func _add_guild_relic_points(relic_id: String, points: int) -> void:
 	var all_points: Dictionary = _copy_dict(GameStateKeys.GUILD_RELICS)
 	all_points[relic_id] = int(all_points.get(relic_id, 0)) + points

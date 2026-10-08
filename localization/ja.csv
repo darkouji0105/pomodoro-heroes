@@ -1615,6 +1615,6 @@ ui_grelic_offered_max,%sに %d 点 入った（Lv %d・最大）
 ui_forge_offer_preview,捧げると %s +%d 点
 ui_forge_offer_from_grade,等級%d から遺物に捧げられる
 ui_forge_offer_equipped,着けている装備は捧げられない
-ui_forge_fail_relic_caption,失敗の手応えが遺物に残った
+ui_forge_fail_relic_caption,鍛えた手応えが遺物に残った
 ui_grelic_offer_preview_short,%s +%d 点
 ui_grelic_offer_preview_item,%s（等級%d）→ %s +%d 点 ／ 戻る素材 %d 個
