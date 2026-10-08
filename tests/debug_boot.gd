@@ -9414,6 +9414,17 @@ class ShotTaker extends Node:
 			for _i: int in range(int(spec[4])):
 				var _p: bool = GameManager.add_task_focus_seconds(task_id, 1500)
 		var _m: bool = GameManager.set_task_memo(first_id, "結論を先に。図は3枚まで。")
+		# ⚠ 10-09（回TK-F）：⚠ フォルダ2つ（⚠ 開いた「仕事」・畳んだ「家のこと」）。⚠ 残りはフォルダなし（一番下）。
+		var work: String = GameManager.add_task_folder("仕事")
+		var home: String = GameManager.add_task_folder("家のこと")
+		for raw: Variant in GameManager.get_tasks():
+			var entry: Dictionary = raw as Dictionary
+			var entry_id: String = str(entry.get(GameStateKeys.TASK_ID, ""))
+			if "仕事" in (entry.get(GameStateKeys.TASK_TAGS, []) as Array):
+				var _f: bool = GameManager.set_task_folder(entry_id, work)
+			elif str(entry.get(GameStateKeys.TASK_TITLE, "")) in ["部屋の片付け", "買い物リストを作る"]:
+				var _h: bool = GameManager.set_task_folder(entry_id, home)
+		var _fold: bool = GameManager.set_task_folder_collapsed(home, true)
 		# ⚠ 終えた1件（⚠ 一覧では線を引いて残る＝`TK-6`）。
 		var done_id: String = str((GameManager.get_tasks()[2] as Dictionary).get(GameStateKeys.TASK_ID, ""))
 		return GameManager.set_task_done(done_id, true)
@@ -10521,6 +10532,7 @@ class UiFlowRunner extends Node:
 		await _flow_quota_ticket()
 		await _flow_dungeon_depth()
 		await _flow_tasks()
+		await _flow_task_folders()
 		await _flow_autosave()
 		await _flow_pomodoro_extras()
 		await _flow_mini_ask()
@@ -12540,6 +12552,88 @@ class UiFlowRunner extends Node:
 	# --- タスクのメモ（2026-10-04・DECISIONS.md `TK-1`〜`TK-14`・PLAN_TASK_MEMO.md §5） ---
 	#   ⚠ 拠点の紙 → タスクの画面 → 足す・チェック・並べ替え・名前・色・期限・タグ → 拠点の紙 → ポモドーロで選ぶ・足す → 🍅 → 朝4:00 → 記録。
 	#   ⚠ 朝4:00 は画面から起こせない＝⚠ 移す口に「今」を渡して日付を差し替える（⚠ 本物のセーブ・設定は書かない）。
+
+	# --- 回TK-F タスクのフォルダ（2026-10-09・`EXEC_TASK_FOLDER.md` §4・人間「⚠ １あ　２あ　３あ　４あ　５あ　６い」） ---
+	# ⚠ 終わりにセーブの読み直しで状態を戻す（⚠ 後の検査の数を動かさない）。
+
+	func _flow_task_folders() -> void:
+		var snapshot: Dictionary = GameManager.get_state()
+		var a: String = GameManager.add_task("フォルダの検査A")
+		var d: String = GameManager.add_task("フォルダの検査D")
+		var loose: String = GameManager.add_task("フォルダの検査（なし）")
+		var t: Node = await _open(TASK_SCREEN, {})
+		if t == null:
+			return
+		# ① 作ると見出しが出る。
+		var edit: LineEdit = t.find_child("NewFolderEdit", true, false) as LineEdit
+		if edit != null:
+			edit.text = "検査のフォルダ"
+		var before: int = GameManager.get_task_folders().size()
+		await _press(t.find_child("AddFolderButton", true, false))
+		var folders: Array = GameManager.get_task_folders()
+		var folder_id: String = str((folders[folders.size() - 1] as Dictionary).get(GameStateKeys.FOLDER_ID, "")) if folders.size() > before else ""
+		await _wait()
+		_check("フォルダ：「フォルダを作る」で見出しが出る（%s）" % folder_id, folder_id != "" and t.find_child("Folder_" + folder_id, true, false) != null)
+		# ② 「詳しく」のフォルダ ▼ で入れる（⚠ A と D）。
+		for task_id: String in [a, d]:
+			await _press(t.find_child("Task_" + task_id, true, false))
+			await _wait()
+			var option: OptionButton = t.find_child("FolderOption", true, false) as OptionButton
+			if option != null:
+				for i: int in range(option.item_count):
+					if str(option.get_item_metadata(i)) == folder_id:
+						option.select(i)
+						option.item_selected.emit(i)
+			await _wait()
+		_check("フォルダ：「詳しく」のフォルダ ▼ で入る", str(GameManager.get_task(a).get(GameStateKeys.TASK_FOLDER, "")) == folder_id
+			and str(GameManager.get_task(d).get(GameStateKeys.TASK_FOLDER, "")) == folder_id)
+		# ③ 並び：⚠ フォルダの見出し → その中のタスク …… ⚠ フォルダなしは一番下。
+		var list: Node = t.find_child("List", true, false)
+		var order: Array[String] = []
+		if list != null:
+			for child: Node in list.get_children():
+				order.append(str(child.name))
+		var head_at: int = order.find("Folder_" + folder_id)
+		_check("フォルダ：見出しの下に中のタスク・フォルダなしは一番下（%s）" % ",".join(order.slice(maxi(0, head_at), mini(order.size(), head_at + 3))),
+			head_at >= 0 and order.find("Task_" + a) > head_at and order.find("Folder_none") > order.find("Task_" + d)
+			and order.find("Task_" + loose) > order.find("Folder_none"))
+		# ⑤ ▲▼は同じフォルダの中（⚠ A を下へ＝D と入れ替わる・フォルダなしの行は飛ばす）。
+		var _moved: bool = GameManager.move_task(a, 1)
+		var ids: Array[String] = []
+		for task: Variant in GameManager.get_tasks():
+			if str((task as Dictionary).get(GameStateKeys.TASK_FOLDER, "")) == folder_id:
+				ids.append(str((task as Dictionary).get(GameStateKeys.TASK_ID, "")))
+		_check("フォルダ：▲▼は同じフォルダの中で入れ替わる（%s）" % ",".join(ids), ids.size() == 2 and ids[0] == d and ids[1] == a)
+		# ④ 畳む（⚠ 拠点の紙・ポモドーロのサイドバーにも効く）。
+		t = await _open(TASK_SCREEN, {})
+		await _press(t.find_child("Folder_" + folder_id, true, false))
+		await _wait()
+		_check("フォルダ：見出しを押すと畳む（中のタスクが隠れる）", GameManager.is_task_folder_collapsed(folder_id) and t.find_child("Task_" + a, true, false) == null)
+		var b: Node = await _open(BASE, {})
+		_check("フォルダ：拠点の紙でも畳んだまま", b != null and b.find_child("Folder_" + folder_id, true, false) != null and b.find_child("Note_" + a, true, false) == null
+			and b.find_child("Note_" + loose, true, false) != null)
+		var pomo: Node = await _open(POMODORO, {})
+		_check("フォルダ：ポモドーロのサイドバーでも畳んだまま", pomo != null and pomo.find_child("Folder_" + folder_id, true, false) != null
+			and pomo.find_child("Side_" + a, true, false) == null and pomo.find_child("Side_" + loose, true, false) != null)
+		# ⑥ 消す（⚠ 中のタスクも・確かめの窓）。
+		t = await _open(TASK_SCREEN, {})
+		await _press(t.find_child("FolderDelete", true, false))
+		await _confirm_modal()
+		await _wait()
+		_check("フォルダ：消すと中のタスクも消える（フォルダなしは残る）", GameManager.get_task(a).is_empty() and GameManager.get_task(d).is_empty()
+			and not GameManager.get_task(loose).is_empty() and GameManager.get_task_folders().size() == before)
+		# ⚠ 前のセーブ（⚠ folder の欄もフォルダの一覧も無い）を読むと全部フォルダなし。
+		var old: Dictionary = snapshot.duplicate(true)
+		old.erase(GameStateKeys.TASK_FOLDERS)
+		old.erase(GameStateKeys.NEXT_TASK_FOLDER_ID)
+		for task: Variant in (old.get(GameStateKeys.TASKS, []) as Array):
+			(task as Dictionary).erase(GameStateKeys.TASK_FOLDER)
+		var loaded: bool = GameManager.load_state(old)
+		var all_loose: bool = true
+		for task: Variant in GameManager.get_tasks():
+			all_loose = all_loose and str((task as Dictionary).get(GameStateKeys.TASK_FOLDER, "?")) == ""
+		_check("フォルダ：前のセーブは全部フォルダなし・フォルダは空", loaded and all_loose and GameManager.get_task_folders().is_empty())
+		var _restored: bool = GameManager.load_state(snapshot)
 
 	func _flow_tasks() -> void:
 		var before: int = GameManager.get_tasks().size()

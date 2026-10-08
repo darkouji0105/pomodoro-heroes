@@ -83,22 +83,23 @@ func _init_resource_displays(_state: Dictionary) -> void:
 #   ⚠ 机＝壁の紙（2026-10-04・`TK-3`・左上）＋ 今日の紙（その右）。⚠ 全体＝建物と歩く人（`BaseTownView`）。
 #   ⚠ どちらを見ていたかは画面を出ても覚える（`SceneManager.remember()`）。
 func _init_views() -> void:
-	_desk_view = Control.new()
+	# ⚠ 10-09（回TK-F の絵）：⚠ 壁の紙と今日の紙を横並びの器に入れる（⚠ 間は `BaseDesk/today_gap`＝`BaseDeskRow`）。
+	#   ⚠ 前は今日の紙を「壁の紙の幅 300 の右」に決め打ちで置いていた＝⚠ 壁の紙の見出しに「期限切れ・今日まで」が入ると
+	#     ⚠ 紙が広がって今日の紙に重なった（⚠ HB-1 からあった・タスクのある絵 `59` で見つけた）。
+	_desk_view = HBoxContainer.new()
 	_desk_view.name = "DeskView"
+	_desk_view.theme_type_variation = &"BaseDeskRow"
 	_desk_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_area.add_child(_desk_view)
-	_desk_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# ⚠ 壁の紙。⚠ 位置と大きさは Theme の `Task/wall_*`。
 	var note: TaskWallNote = TaskWallNote.create()
+	note.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_desk_view.add_child(note)
 	var margin: float = float(note.get_theme_constant(&"wall_left", TaskWallNote.THEME_TYPE))
-	note.position = Vector2(margin, margin)
-	note.size = note.custom_minimum_size
+	_desk_view.position = Vector2(margin, margin)
 	var today: BaseTodaySheet = BaseTodaySheet.create()
+	today.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_desk_view.add_child(today)
-	var gap: float = float(today.get_theme_constant(&"today_gap", BaseTodaySheet.THEME_TYPE))
-	today.position = Vector2(margin + note.custom_minimum_size.x + gap, margin)
-	today.size = today.custom_minimum_size
 
 	_town_view = BaseTownView.create()
 	top_area.add_child(_town_view)

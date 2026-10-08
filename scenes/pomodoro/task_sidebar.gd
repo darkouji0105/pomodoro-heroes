@@ -110,88 +110,101 @@ func _rebuild() -> void:
 				(child as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_list.add_child(empty)
 		return
-	for raw: Variant in tasks:
-		var task: Dictionary = raw as Dictionary
-		var task_id: String = str(task.get(GameStateKeys.TASK_ID, ""))
-		var done: bool = int(task.get(GameStateKeys.TASK_DONE_AT, 0)) != 0
-		var row: LedgerRow = LedgerRow.new()
-		row.name = "Side_" + task_id
-		row.compact = true
-		row.selected = task_id == current
-		if done:
-			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		else:
-			row.pressed.connect(_on_row_pressed.bind(task_id))
-		var line: HBoxContainer = HBoxContainer.new()
-		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(line)
-		var check: TaskCheck = TaskCheck.create(done)
-		check.toggled.connect(_on_check_toggled.bind(task_id))
-		line.add_child(check)
-		var mark: TaskColorMark = TaskColorMark.create(int(task.get(GameStateKeys.TASK_COLOR, 0)))
-		if done:
-			mark.modulate.a = 0.4
-		line.add_child(mark)
-		# ⚠ 題は1行目いっぱい・⚠ 時間と判は2行目（⚠ 1行に並べると幅 320 で題が「企」まで切れた＝撮った絵）。
-		var column: VBoxContainer = VBoxContainer.new()
-		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		line.add_child(column)
-		var title_line: HBoxContainer = HBoxContainer.new()
-		title_line.name = "TitleLine"
-		title_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		column.add_child(title_line)
-		var title: Label = Label.new()
-		title.name = "TitleLabel"
-		title.text = str(task.get(GameStateKeys.TASK_TITLE, ""))
-		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if done:
-			title.theme_type_variation = &"TaskDoneLabel"
-			title.draw.connect(_draw_strike.bind(title))
-		title_line.add_child(title)
-		if not done and show_edit:
-			# ⚠ ペンのアイコン（10-05「⚠ メモのアイコンにしてほしい」→ 10-06「⚠ ペンのアイコンに変える」）。⚠ 字は触れると出る札へ。
-			var detail: Button = Button.new()
-			detail.name = "DetailButton"
-			detail.theme_type_variation = &"TaskMemoButton"
-			detail.icon = IconTextures.for_task_edit()
-			detail.focus_mode = Control.FOCUS_NONE
-			detail.tooltip_text = tr("ui_pomodoro_task_memo_tip")
-			detail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			detail.pressed.connect(_on_detail_pressed.bind(task_id))
-			title_line.add_child(detail)
-		var seconds: int = int(task.get(GameStateKeys.TASK_FOCUS_SEC, 0))
-		var stamp: Stamp = TaskParts.due_stamp(task)
-		if seconds >= 60 or stamp != null:
-			var meta: HBoxContainer = HBoxContainer.new()
-			meta.name = "Meta"
-			meta.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			column.add_child(meta)
-			if seconds >= 60:
-				var focus: Label = Label.new()
-				focus.name = "FocusLabel"
-				focus.theme_type_variation = &"CaptionLabel"
-				focus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-				focus.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				focus.text = GameManager.task_focus_text(seconds)
-				meta.add_child(focus)
-			if stamp != null:
-				meta.add_child(stamp)
-		# ⚠ 選んでいる行だけメモを出す（10-05・人間「⚠ 選択中のタスクは、メモを見れるように」）。⚠ 集中中も見える（⚠ 帯は始めると透明）。
-		var memo_text: String = str(task.get(GameStateKeys.TASK_MEMO, "")).strip_edges()
-		if row.selected and memo_text != "":
-			var memo: Label = Label.new()
-			memo.name = "MemoLabel"
-			memo.theme_type_variation = &"CaptionLabel"
-			memo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			memo.max_lines_visible = get_theme_constant(&"side_memo_lines", THEME_TYPE)
-			memo.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			memo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			memo.text = memo_text
-			column.add_child(memo)
-		_list.add_child(row)
+	# ⚠ 10-09（回TK-F・`TK-18`）：⚠ フォルダごとに見出し（⚠ 押すと畳む＝タスクの画面・拠点の紙と共通）。⚠ フォルダが1つも無ければ見出しは出さない。
+	var show_headers: bool = not GameManager.get_task_folders().is_empty()
+	for raw_group: Variant in GameManager.get_task_groups(tasks):
+		var group: Dictionary = raw_group as Dictionary
+		var members: Array = group.get(GameManager.TASK_GROUP_TASKS, []) as Array
+		if show_headers:
+			_list.add_child(TaskFolderHeader.create(group, members.size()))
+			if bool(group.get(GameManager.TASK_GROUP_COLLAPSED, false)):
+				continue
+		for raw: Variant in members:
+			_add_task_row(raw as Dictionary, current)
+
+
+# ⚠ 1行（⚠ 10-09 回TK-F で `_rebuild()` から切り出した＝中身は前のまま）。
+func _add_task_row(task: Dictionary, current: String) -> void:
+	var task_id: String = str(task.get(GameStateKeys.TASK_ID, ""))
+	var done: bool = int(task.get(GameStateKeys.TASK_DONE_AT, 0)) != 0
+	var row: LedgerRow = LedgerRow.new()
+	row.name = "Side_" + task_id
+	row.compact = true
+	row.selected = task_id == current
+	if done:
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	else:
+		row.pressed.connect(_on_row_pressed.bind(task_id))
+	var line: HBoxContainer = HBoxContainer.new()
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(line)
+	var check: TaskCheck = TaskCheck.create(done)
+	check.toggled.connect(_on_check_toggled.bind(task_id))
+	line.add_child(check)
+	var mark: TaskColorMark = TaskColorMark.create(int(task.get(GameStateKeys.TASK_COLOR, 0)))
+	if done:
+		mark.modulate.a = 0.4
+	line.add_child(mark)
+	# ⚠ 題は1行目いっぱい・⚠ 時間と判は2行目（⚠ 1行に並べると幅 320 で題が「企」まで切れた＝撮った絵）。
+	var column: VBoxContainer = VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_child(column)
+	var title_line: HBoxContainer = HBoxContainer.new()
+	title_line.name = "TitleLine"
+	title_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(title_line)
+	var title: Label = Label.new()
+	title.name = "TitleLabel"
+	title.text = str(task.get(GameStateKeys.TASK_TITLE, ""))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if done:
+		title.theme_type_variation = &"TaskDoneLabel"
+		title.draw.connect(_draw_strike.bind(title))
+	title_line.add_child(title)
+	if not done and show_edit:
+		# ⚠ ペンのアイコン（10-05「⚠ メモのアイコンにしてほしい」→ 10-06「⚠ ペンのアイコンに変える」）。⚠ 字は触れると出る札へ。
+		var detail: Button = Button.new()
+		detail.name = "DetailButton"
+		detail.theme_type_variation = &"TaskMemoButton"
+		detail.icon = IconTextures.for_task_edit()
+		detail.focus_mode = Control.FOCUS_NONE
+		detail.tooltip_text = tr("ui_pomodoro_task_memo_tip")
+		detail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		detail.pressed.connect(_on_detail_pressed.bind(task_id))
+		title_line.add_child(detail)
+	var seconds: int = int(task.get(GameStateKeys.TASK_FOCUS_SEC, 0))
+	var stamp: Stamp = TaskParts.due_stamp(task)
+	if seconds >= 60 or stamp != null:
+		var meta: HBoxContainer = HBoxContainer.new()
+		meta.name = "Meta"
+		meta.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_child(meta)
+		if seconds >= 60:
+			var focus: Label = Label.new()
+			focus.name = "FocusLabel"
+			focus.theme_type_variation = &"CaptionLabel"
+			focus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			focus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			focus.text = GameManager.task_focus_text(seconds)
+			meta.add_child(focus)
+		if stamp != null:
+			meta.add_child(stamp)
+	# ⚠ 選んでいる行だけメモを出す（10-05・人間「⚠ 選択中のタスクは、メモを見れるように」）。⚠ 集中中も見える（⚠ 帯は始めると透明）。
+	var memo_text: String = str(task.get(GameStateKeys.TASK_MEMO, "")).strip_edges()
+	if row.selected and memo_text != "":
+		var memo: Label = Label.new()
+		memo.name = "MemoLabel"
+		memo.theme_type_variation = &"CaptionLabel"
+		memo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		memo.max_lines_visible = get_theme_constant(&"side_memo_lines", THEME_TYPE)
+		memo.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		memo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		memo.text = memo_text
+		column.add_child(memo)
+	_list.add_child(row)
 
 
 func _draw_strike(label: Label) -> void:

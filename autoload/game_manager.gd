@@ -590,6 +590,8 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.TASKS: [],
 		GameStateKeys.TASK_LOG: [],
 		GameStateKeys.NEXT_TASK_ID: 1,
+		GameStateKeys.TASK_FOLDERS: [],
+		GameStateKeys.NEXT_TASK_FOLDER_ID: 1,
 		GameStateKeys.DAILY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.WEEKLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
 		GameStateKeys.MONTHLY_SHOP: {GameStateKeys.SHOP_REFRESH_AT: "", GameStateKeys.SHOP_LINE_UP: []},
@@ -1684,7 +1686,8 @@ func get_task_due_state(task: Dictionary, now_unix: float = -1.0) -> int:
 
 
 # 足す（`TK-2`）。⚠ 一覧のいちばん下に入る。⚠ 題が空なら足さない（"" を返す）。⚠ 足した task_id を返す。
-func add_task(title: String) -> String:
+#   ⚠ 10-09（回TK-F）：⚠ フォルダを渡せばその中に（⚠ 無いフォルダならフォルダなし）。
+func add_task(title: String, folder_id: String = "") -> String:
 	var clean: String = title.strip_edges()
 	if clean == "":
 		return ""
@@ -1701,6 +1704,7 @@ func add_task(title: String) -> String:
 		GameStateKeys.TASK_FOCUS_SEC: 0,
 		GameStateKeys.TASK_CREATED_AT: int(Time.get_unix_time_from_system()),
 		GameStateKeys.TASK_DONE_AT: 0,
+		GameStateKeys.TASK_FOLDER: folder_id if _task_folder_index(folder_id) >= 0 else "",
 	})
 	_state[GameStateKeys.TASKS] = tasks
 	_state[GameStateKeys.NEXT_TASK_ID] = next_id + 1
@@ -1761,11 +1765,17 @@ func remove_task_tag(task_id: String, tag: String) -> bool:
 
 
 # 並べ替え（`TK-7`）。⚠ `delta` は -1（上へ）か +1（下へ）。⚠ 端からはみ出すなら false。
+#   ⚠ 10-09（回TK-F）：⚠ 同じフォルダの中の隣と入れ替える（⚠ ほかのフォルダの行は飛ばす）。
 func move_task(task_id: String, delta: int) -> bool:
 	var index: int = _task_index(task_id)
-	var target: int = index + delta
 	var tasks: Array = _copy_array(GameStateKeys.TASKS)
-	if index < 0 or delta == 0 or target < 0 or target >= tasks.size():
+	if index < 0 or delta == 0:
+		return false
+	var folder_id: String = str((tasks[index] as Dictionary).get(GameStateKeys.TASK_FOLDER, ""))
+	var target: int = index + signi(delta)
+	while target >= 0 and target < tasks.size() and str((tasks[target] as Dictionary).get(GameStateKeys.TASK_FOLDER, "")) != folder_id:
+		target += signi(delta)
+	if target < 0 or target >= tasks.size():
 		return false
 	var moving: Variant = tasks[index]
 	tasks.remove_at(index)
@@ -1864,6 +1874,150 @@ func roll_over_done_tasks(now_unix: float = -1.0) -> int:
 	print("[GameManager] roll_over_done_tasks: %d -> task_log（一覧 %d ／ 記録 %d）" % [moved.size(), keep.size(), task_log.size()])
 	tasks_changed.emit()
 	return moved.size()
+
+
+# ============================================================
+# タスクのフォルダ（2026-10-09・回TK-F・`TK-18`・`EXEC_TASK_FOLDER.md`）
+# ============================================================
+#
+# ⚠ フォルダは入れ物（⚠ 1タスクに1つ・入れ子なし）。⚠ タグ（`TK-12`）は別の印のまま。
+# ⚠ 画面の並びは `get_task_groups()` の1本（⚠ フォルダの順 → 最後にフォルダなし）。
+
+const TASK_GROUP_FOLDER_ID: String = "folder_id"
+const TASK_GROUP_NAME: String = "name"
+const TASK_GROUP_COLLAPSED: String = "collapsed"
+const TASK_GROUP_TASKS: String = "tasks"
+
+
+func get_task_folders() -> Array:
+	return _copy_array(GameStateKeys.TASK_FOLDERS).duplicate(true)
+
+
+# ⚠ 作る。⚠ 名前が空なら作らない（"" を返す）。⚠ 作った folder_id を返す。
+func add_task_folder(name: String) -> String:
+	var clean: String = name.strip_edges()
+	if clean == "":
+		return ""
+	var next_id: int = int(_state.get(GameStateKeys.NEXT_TASK_FOLDER_ID, 1))
+	var folder_id: String = "folder_%d" % next_id
+	var folders: Array = _copy_array(GameStateKeys.TASK_FOLDERS)
+	folders.append({GameStateKeys.FOLDER_ID: folder_id, GameStateKeys.FOLDER_NAME: clean, GameStateKeys.FOLDER_COLLAPSED: false})
+	_state[GameStateKeys.TASK_FOLDERS] = folders
+	_state[GameStateKeys.NEXT_TASK_FOLDER_ID] = next_id + 1
+	print("[GameManager] add_task_folder('%s') -> %s" % [clean, folder_id])
+	tasks_changed.emit()
+	return folder_id
+
+
+func rename_task_folder(folder_id: String, name: String) -> bool:
+	var clean: String = name.strip_edges()
+	if clean == "":
+		return false
+	return _write_task_folder(folder_id, {GameStateKeys.FOLDER_NAME: clean})
+
+
+func set_task_folder_collapsed(folder_id: String, collapsed: bool) -> bool:
+	return _write_task_folder(folder_id, {GameStateKeys.FOLDER_COLLAPSED: collapsed})
+
+
+func is_task_folder_collapsed(folder_id: String) -> bool:
+	var index: int = _task_folder_index(folder_id)
+	return index >= 0 and bool((_state[GameStateKeys.TASK_FOLDERS][index] as Dictionary).get(GameStateKeys.FOLDER_COLLAPSED, false))
+
+
+# ⚠ 消す（⚠ 10-09 人間「⚠ ６い」＝中のタスクも一緒に消す）。⚠ 確かめの窓は画面の側。⚠ 消したタスクは記録に残らない（`TK-15`）。
+func delete_task_folder(folder_id: String) -> bool:
+	var index: int = _task_folder_index(folder_id)
+	if index < 0:
+		return false
+	var folders: Array = _copy_array(GameStateKeys.TASK_FOLDERS)
+	folders.remove_at(index)
+	var keep: Array = []
+	var removed: int = 0
+	for task: Variant in _copy_array(GameStateKeys.TASKS):
+		if str((task as Dictionary).get(GameStateKeys.TASK_FOLDER, "")) == folder_id:
+			removed += 1
+		else:
+			keep.append(task)
+	_state[GameStateKeys.TASK_FOLDERS] = folders
+	_state[GameStateKeys.TASKS] = keep
+	print("[GameManager] delete_task_folder(%s) -> タスク %d 件も消した" % [folder_id, removed])
+	tasks_changed.emit()
+	return true
+
+
+# ⚠ タスクをフォルダへ入れる（⚠ "" ＝フォルダなしへ）。⚠ 無いフォルダなら false。
+func set_task_folder(task_id: String, folder_id: String) -> bool:
+	if folder_id != "" and _task_folder_index(folder_id) < 0:
+		return false
+	return _write_task(task_id, {GameStateKeys.TASK_FOLDER: folder_id})
+
+
+# ⚠ 画面が並べる組（⚠ フォルダの順 → 最後にフォルダなし・5あ）。⚠ 中のタスクは渡した順のまま。
+#   ⚠ 空のフォルダも組に出す（⚠ 作ったばかりでも見える）。⚠ フォルダなしは中があるときだけ。
+#   [{folder_id, name, collapsed, tasks: [task]}]
+func get_task_groups(tasks: Array) -> Array:
+	var groups: Array = []
+	var by_id: Dictionary = {}
+	for folder: Variant in get_task_folders():
+		var group: Dictionary = {
+			TASK_GROUP_FOLDER_ID: str((folder as Dictionary).get(GameStateKeys.FOLDER_ID, "")),
+			TASK_GROUP_NAME: str((folder as Dictionary).get(GameStateKeys.FOLDER_NAME, "")),
+			TASK_GROUP_COLLAPSED: bool((folder as Dictionary).get(GameStateKeys.FOLDER_COLLAPSED, false)),
+			TASK_GROUP_TASKS: [],
+		}
+		groups.append(group)
+		by_id[group[TASK_GROUP_FOLDER_ID]] = group
+	var loose: Dictionary = {TASK_GROUP_FOLDER_ID: "", TASK_GROUP_NAME: "", TASK_GROUP_COLLAPSED: false, TASK_GROUP_TASKS: []}
+	for task: Variant in tasks:
+		var folder_id: String = str((task as Dictionary).get(GameStateKeys.TASK_FOLDER, ""))
+		var target: Dictionary = by_id.get(folder_id, loose)
+		(target[TASK_GROUP_TASKS] as Array).append(task)
+	if not (loose[TASK_GROUP_TASKS] as Array).is_empty():
+		groups.append(loose)
+	return groups
+
+
+func _task_folder_index(folder_id: String) -> int:
+	if folder_id == "":
+		return -1
+	var folders: Variant = _state.get(GameStateKeys.TASK_FOLDERS, [])
+	if not (folders is Array):
+		return -1
+	for i: int in range((folders as Array).size()):
+		if str(((folders as Array)[i] as Dictionary).get(GameStateKeys.FOLDER_ID, "")) == folder_id:
+			return i
+	return -1
+
+
+func _write_task_folder(folder_id: String, changes: Dictionary) -> bool:
+	var index: int = _task_folder_index(folder_id)
+	if index < 0:
+		return false
+	var folders: Array = _copy_array(GameStateKeys.TASK_FOLDERS)
+	var folder: Dictionary = (folders[index] as Dictionary).duplicate(true)
+	for key: Variant in changes:
+		folder[key] = changes[key]
+	folders[index] = folder
+	_state[GameStateKeys.TASK_FOLDERS] = folders
+	tasks_changed.emit()
+	return true
+
+
+# ⚠ セーブから戻したフォルダの形を揃える（⚠ 名前は文字・畳んだかは bool）。
+static func _normalize_task_folders(raw: Variant) -> Array:
+	var out: Array = []
+	if not (raw is Array):
+		return out
+	for folder: Variant in (raw as Array):
+		if not (folder is Dictionary) or str((folder as Dictionary).get(GameStateKeys.FOLDER_ID, "")) == "":
+			continue
+		out.append({
+			GameStateKeys.FOLDER_ID: str((folder as Dictionary).get(GameStateKeys.FOLDER_ID, "")),
+			GameStateKeys.FOLDER_NAME: str((folder as Dictionary).get(GameStateKeys.FOLDER_NAME, "")),
+			GameStateKeys.FOLDER_COLLAPSED: bool((folder as Dictionary).get(GameStateKeys.FOLDER_COLLAPSED, false)),
+		})
+	return out
 
 
 func _task_index(task_id: String) -> int:
@@ -7171,6 +7325,15 @@ func load_state(data: Dictionary) -> bool:
 	new_state[GameStateKeys.TASKS] = _normalize_task_list(new_state.get(GameStateKeys.TASKS, []))
 	new_state[GameStateKeys.TASK_LOG] = _normalize_task_list(new_state.get(GameStateKeys.TASK_LOG, []))
 	new_state[GameStateKeys.NEXT_TASK_ID] = int(new_state.get(GameStateKeys.NEXT_TASK_ID, 1))
+	# ⚠ 10-09（回TK-F）：⚠ フォルダの形を揃える ／ ⚠ 一覧に無いフォルダを指すタスクはフォルダなしへ（⚠ 前のセーブは全部フォルダなし）。
+	new_state[GameStateKeys.TASK_FOLDERS] = _normalize_task_folders(new_state.get(GameStateKeys.TASK_FOLDERS, []))
+	new_state[GameStateKeys.NEXT_TASK_FOLDER_ID] = int(new_state.get(GameStateKeys.NEXT_TASK_FOLDER_ID, 1))
+	var folder_ids: Array = []
+	for folder: Variant in (new_state[GameStateKeys.TASK_FOLDERS] as Array):
+		folder_ids.append(str((folder as Dictionary).get(GameStateKeys.FOLDER_ID, "")))
+	for task: Variant in (new_state[GameStateKeys.TASKS] as Array):
+		var folder_of: String = str((task as Dictionary).get(GameStateKeys.TASK_FOLDER, ""))
+		(task as Dictionary)[GameStateKeys.TASK_FOLDER] = folder_of if folder_of in folder_ids else ""
 	if new_state.has(GameStateKeys.MATERIALS) and new_state[GameStateKeys.MATERIALS] is Dictionary:
 		var mats: Dictionary = new_state[GameStateKeys.MATERIALS]
 		for mat_id: String in mats:

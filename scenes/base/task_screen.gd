@@ -36,6 +36,9 @@ var _list: VBoxContainer = null
 var _detail: TaskDetailPanel = null
 var _list_dirty: bool = false
 var _detail_dirty: bool = false
+# ⚠ 10-09（回TK-F）：⚠ 名前を書き換えているフォルダ（⚠ "" なら無し）と、⚠ フォルダを作る欄。
+var _renaming_folder: String = ""
+var _folder_edit: LineEdit = null
 
 
 func _ready() -> void:
@@ -93,6 +96,21 @@ func _build_list_frame() -> void:
 	inner.add_child(_list)
 	_hidden_note = _caption_label("HiddenNote")
 	inner.add_child(_hidden_note)
+	# ⚠ 10-09（回TK-F・`TK-18`）：⚠ 一覧の下にフォルダを作る欄。
+	var folder_row: HBoxContainer = HBoxContainer.new()
+	folder_row.name = "FolderAddRow"
+	inner.add_child(folder_row)
+	_folder_edit = LineEdit.new()
+	_folder_edit.name = "NewFolderEdit"
+	_folder_edit.max_length = Balance.pomodoro.session_title_max_length
+	_folder_edit.placeholder_text = tr("ui_task_folder_new_placeholder")
+	_folder_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_folder_edit.text_submitted.connect(_on_folder_submitted)
+	folder_row.add_child(_folder_edit)
+	var folder_button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_task_folder_add")
+	folder_button.name = "AddFolderButton"
+	folder_button.pressed.connect(_on_add_folder_pressed)
+	folder_row.add_child(folder_button)
 
 
 func _caption_label(label_name: String) -> Label:
@@ -137,16 +155,110 @@ func _rebuild_list() -> void:
 	if tasks.is_empty():
 		_list.add_child(EmptyState.create("ui_task_list_empty", "ui_task_list_empty_hint"))
 	var shown: int = 0
-	for i: int in range(tasks.size()):
-		var task: Dictionary = tasks[i] as Dictionary
-		if _filter_tag != "" and not (_filter_tag in (task.get(GameStateKeys.TASK_TAGS, []) as Array)):
-			continue
-		shown += 1
-		_list.add_child(_task_row(task, i == 0, i == tasks.size() - 1))
+	# ⚠ 10-09（回TK-F・`TK-18`）：⚠ フォルダごとに見出し（⚠ 押すと畳む）。⚠ フォルダが無ければ見出しは出さない（⚠ 前のまま）。
+	#   ⚠ ▲▼の端は「同じフォルダの中の端」（⚠ `GameManager.move_task()` も同じフォルダの中で動く）。
+	var show_headers: bool = not GameManager.get_task_folders().is_empty()
+	for raw_group: Variant in GameManager.get_task_groups(tasks):
+		var group: Dictionary = raw_group as Dictionary
+		var members: Array = group.get(GameManager.TASK_GROUP_TASKS, []) as Array
+		var visible_members: Array = []
+		for raw: Variant in members:
+			if _filter_tag == "" or (_filter_tag in ((raw as Dictionary).get(GameStateKeys.TASK_TAGS, []) as Array)):
+				visible_members.append(raw)
+		if show_headers:
+			# ⚠ 絞っているときは、⚠ 当たる行の無いフォルダは出さない。
+			if _filter_tag != "" and visible_members.is_empty():
+				continue
+			_list.add_child(_folder_header(group, visible_members.size()))
+			if bool(group.get(GameManager.TASK_GROUP_COLLAPSED, false)):
+				shown += visible_members.size()
+				continue
+		for raw: Variant in visible_members:
+			var task: Dictionary = raw as Dictionary
+			var index: int = members.find(raw)
+			shown += 1
+			_list.add_child(_task_row(task, index == 0, index == members.size() - 1))
 	_filter_note.visible = _filter_tag != ""
 	_filter_note.text = tr("ui_task_filter_note") % [_filter_tag, shown] if _filter_tag != "" else ""
 	_hidden_note.visible = _filter_tag != "" and tasks.size() > shown
 	_hidden_note.text = tr("ui_task_hidden_note") % (tasks.size() - shown) if _hidden_note.visible else ""
+
+
+# ⚠ フォルダの見出し（10-09・回TK-F）：⚠ 押すと畳む ／ ⚠ 右に「名前を変える」「消す」（⚠ フォルダなしには出さない）。
+#   ⚠ 名前を書き換えている間は、⚠ 右に名前の欄と「決める」。
+func _folder_header(group: Dictionary, count: int) -> TaskFolderHeader:
+	var header: TaskFolderHeader = TaskFolderHeader.create(group, count)
+	var folder_id: String = header.folder_id
+	if folder_id == "":
+		return header
+	if folder_id == _renaming_folder:
+		var edit: LineEdit = LineEdit.new()
+		edit.name = "FolderNameEdit"
+		edit.max_length = Balance.pomodoro.session_title_max_length
+		edit.text = str(group.get(GameManager.TASK_GROUP_NAME, ""))
+		edit.custom_minimum_size.x = float(get_theme_constant(&"folder_edit_width", THEME_TYPE))
+		edit.text_submitted.connect(func(text: String) -> void: _on_folder_rename_submitted(folder_id, text))
+		header.actions.add_child(edit)
+		var decide: Button = UiButton.create_paper_choice("ui_task_folder_rename_ok")
+		decide.name = "FolderRenameOk"
+		decide.theme_type_variation = &"TaskMoveButton"
+		decide.pressed.connect(func() -> void: _on_folder_rename_submitted(folder_id, edit.text))
+		header.actions.add_child(decide)
+		return header
+	for spec: Array in [["FolderRename", "ui_task_folder_rename"], ["FolderDelete", "ui_task_folder_delete"]]:
+		var button: Button = UiButton.create_paper_choice(str(spec[1]))
+		button.name = str(spec[0])
+		button.theme_type_variation = &"TaskMoveButton"
+		button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		header.actions.add_child(button)
+		if str(spec[0]) == "FolderRename":
+			button.pressed.connect(_on_folder_rename_pressed.bind(folder_id))
+		else:
+			button.pressed.connect(_on_folder_delete_pressed.bind(folder_id))
+	return header
+
+
+func _on_folder_submitted(_text: String) -> void:
+	_on_add_folder_pressed()
+
+
+func _on_add_folder_pressed() -> void:
+	if GameManager.add_task_folder(_folder_edit.text) == "":
+		return
+	_folder_edit.text = ""
+
+
+func _on_folder_rename_pressed(folder_id: String) -> void:
+	_renaming_folder = folder_id
+	_queue_list()
+
+
+func _on_folder_rename_submitted(folder_id: String, text: String) -> void:
+	_renaming_folder = ""
+	if not GameManager.rename_task_folder(folder_id, text):
+		_queue_list()
+
+
+# ⚠ 10-09（人間「⚠ ６い」）：⚠ 中のタスクも一緒に消す＝⚠ 確かめの窓（赤）で件数を出す。⚠ 状態を触るのは「消す」を押したあと。
+func _on_folder_delete_pressed(folder_id: String) -> void:
+	var name: String = ""
+	var count: int = 0
+	for folder: Variant in GameManager.get_task_folders():
+		if str((folder as Dictionary).get(GameStateKeys.FOLDER_ID, "")) == folder_id:
+			name = str((folder as Dictionary).get(GameStateKeys.FOLDER_NAME, ""))
+	for task: Variant in GameManager.get_tasks():
+		if str((task as Dictionary).get(GameStateKeys.TASK_FOLDER, "")) == folder_id:
+			count += 1
+	var ok: bool = await Modal.confirm(self, "ui_task_folder_delete_confirm", [name, count], false, {
+		Modal.OPTION_TITLE: tr("ui_task_folder_delete_title"),
+		Modal.OPTION_DANGER: true,
+		Modal.OPTION_CONFIRM_LABEL: "ui_task_folder_delete_title",
+	})
+	if not ok or not is_inside_tree():
+		return
+	if GameManager.delete_task_folder(folder_id) and GameManager.get_task(_selected_id).is_empty():
+		_selected_id = ""
+		_queue_detail()
 
 
 # 絞り込みの札（⚠ 全部 ＋ 一覧に出てくるタグ）。⚠ タグが1つも無ければ出さない。

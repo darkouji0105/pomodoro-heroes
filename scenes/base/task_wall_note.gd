@@ -92,29 +92,42 @@ func _rebuild() -> void:
 	_due_summary.visible = not summary.is_empty()
 	if open_tasks.is_empty():
 		_list.add_child(EmptyState.create("ui_task_wall_empty", "ui_task_wall_empty_hint"))
-	for raw: Variant in open_tasks:
-		var task: Dictionary = raw as Dictionary
-		var task_id: String = str(task.get(GameStateKeys.TASK_ID, ""))
-		var row: LedgerRow = LedgerRow.new()
-		row.name = "Note_" + task_id
-		row.compact = true
-		row.pressed.connect(_open_task_screen)
-		var line: HBoxContainer = HBoxContainer.new()
-		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(line)
-		line.add_child(TaskColorMark.create(int(task.get(GameStateKeys.TASK_COLOR, 0))))
-		var title: Label = Label.new()
-		title.name = "TitleLabel"
-		title.text = str(task.get(GameStateKeys.TASK_TITLE, ""))
-		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		line.add_child(title)
-		var stamp: Stamp = TaskParts.due_stamp(task)
-		if stamp != null:
-			line.add_child(stamp)
-		_list.add_child(row)
+	# ⚠ 10-09（回TK-F・`TK-18`）：⚠ フォルダごとに見出し（⚠ 押すと畳む＝タスクの画面・ポモドーロと共通）。⚠ フォルダが無ければ前のまま。
+	var show_headers: bool = not GameManager.get_task_folders().is_empty()
+	for raw_group: Variant in GameManager.get_task_groups(open_tasks):
+		var group: Dictionary = raw_group as Dictionary
+		var members: Array = group.get(GameManager.TASK_GROUP_TASKS, []) as Array
+		if show_headers:
+			_list.add_child(TaskFolderHeader.create(group, members.size()))
+			if bool(group.get(GameManager.TASK_GROUP_COLLAPSED, false)):
+				continue
+		for raw: Variant in members:
+			_add_row(raw as Dictionary)
 	_update_more.call_deferred()
+
+
+# ⚠ 1行（⚠ 10-09 回TK-F で `_rebuild()` から切り出した＝中身は前のまま）。
+func _add_row(task: Dictionary) -> void:
+	var task_id: String = str(task.get(GameStateKeys.TASK_ID, ""))
+	var row: LedgerRow = LedgerRow.new()
+	row.name = "Note_" + task_id
+	row.compact = true
+	row.pressed.connect(_open_task_screen)
+	var line: HBoxContainer = HBoxContainer.new()
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(line)
+	line.add_child(TaskColorMark.create(int(task.get(GameStateKeys.TASK_COLOR, 0))))
+	var title: Label = Label.new()
+	title.name = "TitleLabel"
+	title.text = str(task.get(GameStateKeys.TASK_TITLE, ""))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_child(title)
+	var stamp: Stamp = TaskParts.due_stamp(task)
+	if stamp != null:
+		line.add_child(stamp)
+	_list.add_child(row)
 
 
 func _on_scrolled(_value: float) -> void:
@@ -128,7 +141,8 @@ func _update_more() -> void:
 	var bottom: float = float(_scroll.scroll_vertical) + _scroll.size.y
 	var hidden: int = 0
 	for row: Node in _list.get_children():
-		if row is LedgerRow and (row as Control).position.y + (row as Control).size.y * 0.5 > bottom:
+		# ⚠ 数えるのはタスクの行だけ（⚠ フォルダの見出しは数えない・10-09）。
+		if row is LedgerRow and not (row is TaskFolderHeader) and (row as Control).position.y + (row as Control).size.y * 0.5 > bottom:
 			hidden += 1
 	_more.text = tr("ui_task_wall_more") % hidden if hidden > 0 else ""
 

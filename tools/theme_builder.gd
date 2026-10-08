@@ -2722,6 +2722,7 @@ const TASK: Dictionary = {
 	"cal_cell": 34,           # ⚠ カレンダーの1日
 	"cal_ring": 2,            # ⚠ 今日の真鍮の輪
 	"band_pad_v": 6,          # ⚠ 記録の年・月の帯
+	"folder_edit_width": 180, # ⚠ 10-09（回TK-F）：⚠ フォルダの名前を書き換える欄
 }
 # ⚠ 記録の年の帯は墨の地に紙の字、⚠ 月の帯は少し濃い紙。
 const TASK_MONTH_BAND: String = "dccdaa"
@@ -2756,6 +2757,9 @@ static func _build_task(theme: Theme) -> void:
 	theme.set_constant(&"altar_width", &"GuildRelic", GUILD_RELIC_ALTAR_WIDTH)
 	# ⚠ 10-07（見る回23回目）：⚠ 祭壇のマス目の列の数。
 	theme.set_constant(&"altar_columns", &"GuildRelic", GUILD_RELIC_ALTAR_COLUMNS)
+	# ⚠ 机の2枚（壁の紙・今日の紙）の横並び（10-09）。
+	theme.set_type_variation(&"BaseDeskRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"BaseDeskRow", int(BASE_DESK["today_gap"]))
 	theme.set_type_variation(&"BaseBuildingRow", &"HBoxContainer")
 	theme.set_constant(&"separation", &"BaseBuildingRow", int(BASE_DESK["building_gap"]))
 	var t: StringName = &"Task"

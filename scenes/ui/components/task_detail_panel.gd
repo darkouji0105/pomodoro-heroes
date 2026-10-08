@@ -98,6 +98,10 @@ func _rebuild() -> void:
 	title_edit.text = str(task.get(GameStateKeys.TASK_TITLE, ""))
 	title_edit.text_changed.connect(_on_title_changed.bind(task_id))
 	fields.add_child(title_edit)
+	# ⚠ 10-09（回TK-F・`TK-18`・人間「⚠ ４あ」）：⚠ フォルダを選ぶ（⚠ フォルダが1つも無ければ出さない）。
+	if not GameManager.get_task_folders().is_empty():
+		fields.add_child(_caption("ui_task_field_folder"))
+		fields.add_child(_folder_option(task))
 	fields.add_child(_due_line(task))
 	fields.add_child(_due_choices(task))
 	fields.add_child(_caption("ui_task_field_color"))
@@ -128,6 +132,29 @@ func _rebuild() -> void:
 		delete.pressed.connect(_on_delete_pressed.bind(task_id))
 		foot.add_child(delete)
 	_body.add_child(foot)
+
+
+# ⚠ フォルダ ▼（⚠ 先頭はフォルダなし・あとはフォルダの並び）。⚠ 選んだら `GameManager.set_task_folder()`。
+func _folder_option(task: Dictionary) -> OptionButton:
+	var option: OptionButton = OptionButton.new()
+	option.name = "FolderOption"
+	var task_id: String = str(task.get(GameStateKeys.TASK_ID, ""))
+	var current: String = str(task.get(GameStateKeys.TASK_FOLDER, ""))
+	option.add_item(tr("ui_task_folder_none"))
+	option.set_item_metadata(0, "")
+	var folders: Array = GameManager.get_task_folders()
+	for i: int in range(folders.size()):
+		var folder: Dictionary = folders[i] as Dictionary
+		option.add_item(str(folder.get(GameStateKeys.FOLDER_NAME, "")))
+		option.set_item_metadata(i + 1, str(folder.get(GameStateKeys.FOLDER_ID, "")))
+		if str(folder.get(GameStateKeys.FOLDER_ID, "")) == current:
+			option.select(i + 1)
+	option.item_selected.connect(func(index: int) -> void: _on_folder_selected(task_id, str(option.get_item_metadata(index))))
+	return option
+
+
+func _on_folder_selected(task_id: String, folder_id: String) -> void:
+	var _changed: bool = GameManager.set_task_folder(task_id, folder_id)
 
 
 func _caption(key: String) -> Label:

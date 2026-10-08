@@ -1618,3 +1618,12 @@ ui_forge_offer_equipped,着けている装備は捧げられない
 ui_forge_fail_relic_caption,鍛えた手応えが遺物に残った
 ui_grelic_offer_preview_short,%s +%d 点
 ui_grelic_offer_preview_item,%s（等級%d）→ %s +%d 点 ／ 戻る素材 %d 個
+ui_task_folder_none,フォルダなし
+ui_task_folder_new_placeholder,新しいフォルダの名前
+ui_task_folder_add,フォルダを作る
+ui_task_folder_rename,名前を変える
+ui_task_folder_rename_ok,決める
+ui_task_folder_delete,消す
+ui_task_folder_delete_title,フォルダを消す
+ui_task_folder_delete_confirm,「%s」のフォルダと、中のタスク %d 件を消しますか？
+ui_task_field_folder,フォルダ

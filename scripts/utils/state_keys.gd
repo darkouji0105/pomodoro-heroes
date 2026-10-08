@@ -672,3 +672,12 @@ const TASK_DONE_AT: String = "done_at"
 # ⚠⚠ 2026-10-05：⚠ 回数（`TASK_POMODORO_COUNT`）をやめ、⚠ そのタスクに集中した秒を足し上げる（人間「⚠ タスクごとにチェックさせてその時のタイマーの時間を記録したい」・`TK-5` を覆した）。
 #   ⚠ `TASK_POMODORO_COUNT` は消さない（⚠ このファイルは追記のみ）。⚠ もう書かない・読まない。
 const TASK_FOCUS_SEC: String = "focus_sec"
+# ⚠⚠ 2026-10-09（回TK-F・`TK-18`）：⚠ タスクの入っているフォルダの folder_id（⚠ "" ＝フォルダなし）。⚠ 記録（TASK_LOG）には持たせない。
+const TASK_FOLDER: String = "folder"
+# ⚠ タスクのフォルダの一覧（⚠ 並び＝作った順）：[{folder_id, name, collapsed}]。⚠ 書き換えは `GameManager` の `*_task_folder*` の口だけ。
+const TASK_FOLDERS: String = "task_folders"
+const NEXT_TASK_FOLDER_ID: String = "next_task_folder_id"
+const FOLDER_ID: String = "folder_id"
+const FOLDER_NAME: String = "name"
+# ⚠ 畳んでいるか（⚠ タスクの画面・拠点の紙・ポモドーロのサイドバーで共通＝`TK-18` の3あ）。
+const FOLDER_COLLAPSED: String = "collapsed"
