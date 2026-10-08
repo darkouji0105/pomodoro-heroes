@@ -10533,6 +10533,7 @@ class UiFlowRunner extends Node:
 		await _flow_dungeon_depth()
 		await _flow_tasks()
 		await _flow_task_folders()
+		await _flow_workshop_tabs()
 		await _flow_autosave()
 		await _flow_pomodoro_extras()
 		await _flow_mini_ask()
@@ -12642,6 +12643,49 @@ class UiFlowRunner extends Node:
 			all_loose = all_loose and str((task as Dictionary).get(GameStateKeys.TASK_FOLDER, "?")) == ""
 		_check("フォルダ：前のセーブは全部フォルダなし・フォルダは空", loaded and all_loose and GameManager.get_task_folders().is_empty())
 		var _restored: bool = GameManager.load_state(snapshot)
+
+	# ⚠ 回SYS-1（10-09・人間「⚠ １あ　２い　３い」）：⚠ 作業場のレシピを分類の紙のタブで絞る・⚠ 最後に選んだタブを覚える。
+	func _flow_workshop_tabs() -> void:
+		const WORKSHOP_SCREEN: String = "res://scenes/guild/workshop_screen.tscn"
+		SceneManager.remember(TransferKeys.MEMORY_WORKSHOP_CATEGORY, "")
+		var counts: Dictionary = {}
+		var all: int = 0
+		for recipe: Variant in GameManager.get_available_recipes():
+			var category: String = str((recipe as Dictionary).get(GameManager.RECIPE_CATEGORY, ""))
+			counts[category] = int(counts.get(category, 0)) + 1
+			all += 1
+		var ws: Node = await _open(WORKSHOP_SCREEN, {})
+		if ws == null:
+			return
+		var tabs: PaperTabs = ws.find_child("CategoryTabs", true, false) as PaperTabs
+		var rows: int = ws.find_children("RecipeRow_*", "", true, false).size()
+		_check("作業場のタブ：既定は「すべて」で %d 行（タブ %d 枚）" % [rows, 0 if tabs == null else tabs.get_child_count()],
+			tabs != null and tabs.current == 0 and tabs.get_child_count() == GameManager.RECIPE_CATEGORIES.size() + 1 and rows == all)
+		# ⚠ 武器 → 9行（⚠ 着手前に書いた数字：25 → 9）。
+		await _press(null if tabs == null else tabs.find_child("Tab1", false, false))
+		await _wait()
+		rows = ws.find_children("RecipeRow_*", "", true, false).size()
+		_check("作業場のタブ：「武器」で %d 行（武器のレシピ %d）・装飾は出ない" % [rows, int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0))],
+			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 9
+			and ws.find_child("RecipeRow_craft_weapon_bow_short", true, false) != null and ws.find_child("RecipeRow_craft_part_1", true, false) == null)
+		# ⚠ 出て戻っても「武器」のまま。
+		var _base: Node = await _open(BASE, {})
+		ws = await _open(WORKSHOP_SCREEN, {})
+		tabs = null if ws == null else ws.find_child("CategoryTabs", true, false) as PaperTabs
+		rows = 0 if ws == null else ws.find_children("RecipeRow_*", "", true, false).size()
+		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 9)
+		# ⚠ くじ → 1行。
+		await _press(null if tabs == null else tabs.find_child("Tab5", false, false))
+		await _wait()
+		rows = 0 if ws == null else ws.find_children("RecipeRow_*", "", true, false).size()
+		_check("作業場のタブ：「くじ」で %d 行（特殊効果のくじ）" % rows, rows == int(counts.get(GameManager.RECIPE_CATEGORY_DRAW, 0)) and rows == 1
+			and ws.find_child("RecipeRow_craft_equip_rare", true, false) != null)
+		# ⚠ 分類の行の数の合計＝すべて（⚠ どのタブにも出ないレシピが無い）。
+		var summed: int = 0
+		for category: String in GameManager.RECIPE_CATEGORIES:
+			summed += int(counts.get(category, 0))
+		_check("作業場のタブ：分類の合計 %d ＝すべて %d" % [summed, all], summed == all)
+		SceneManager.remember(TransferKeys.MEMORY_WORKSHOP_CATEGORY, "")
 
 	func _flow_tasks() -> void:
 		var before: int = GameManager.get_tasks().size()

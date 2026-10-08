@@ -29,7 +29,8 @@
 		]
 	  },
 	  "unlocked_by_default": true,
-	  "sort_order": 1
+	  "sort_order": 1,
+	  "category": "decor"
 	},
 	{
 	  "recipe_id": "craft_part_2",
@@ -69,7 +70,8 @@
 		]
 	  },
 	  "unlocked_by_default": true,
-	  "sort_order": 2
+	  "sort_order": 2,
+	  "category": "decor"
 	},
 	{
 	  "recipe_id": "craft_part_3",
@@ -109,7 +111,8 @@
 		]
 	  },
 	  "unlocked_by_default": true,
-	  "sort_order": 3
+	  "sort_order": 3,
+	  "category": "decor"
 	},
 	{
 	  "recipe_id": "craft_weapon_sword_guard",
@@ -117,7 +120,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "weapon_sword_guard", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 10
+	  "sort_order": 10,
+	  "category": "weapon"
 	},
 	{
 	  "recipe_id": "craft_weapon_sword_swift",
@@ -125,7 +129,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "weapon_sword_swift", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 11
+	  "sort_order": 11,
+	  "category": "weapon"
 	},
 	{
 	  "recipe_id": "craft_weapon_sword_rune",
@@ -133,7 +138,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "weapon_sword_rune", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 12
+	  "sort_order": 12,
+	  "category": "weapon"
 	},
 	{
 	  "recipe_id": "craft_weapon_bow_heavy",
@@ -141,7 +147,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "weapon_bow_heavy", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 13
+	  "sort_order": 13,
+	  "category": "weapon"
 	},
 	{
 	  "recipe_id": "craft_weapon_bow_short",
@@ -149,7 +156,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "weapon_bow_short", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 14
+	  "sort_order": 14,
+	  "category": "weapon"
 	},
 	{
 	  "recipe_id": "craft_weapon_bow_hunter",
@@ -157,7 +165,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "weapon_bow_hunter", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 15
+	  "sort_order": 15,
+	  "category": "weapon"
 	},
 	{
 	  "recipe_id": "craft_weapon_staff_oak",
@@ -165,7 +174,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "weapon_staff_oak", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 16
+	  "sort_order": 16,
+	  "category": "weapon"
 	},
 	{
 	  "recipe_id": "craft_weapon_staff_quick",
@@ -173,7 +183,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "weapon_staff_quick", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 17
+	  "sort_order": 17,
+	  "category": "weapon"
 	},
 	{
 	  "recipe_id": "craft_weapon_staff_prayer",
@@ -181,7 +192,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "weapon_staff_prayer", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 18
+	  "sort_order": 18,
+	  "category": "weapon"
 	},
 	{
 	  "recipe_id": "craft_armor_head_guard",
@@ -189,7 +201,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "armor_head_guard", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 19
+	  "sort_order": 19,
+	  "category": "armor"
 	},
 	{
 	  "recipe_id": "craft_armor_head_swift",
@@ -197,7 +210,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "armor_head_swift", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 20
+	  "sort_order": 20,
+	  "category": "armor"
 	},
 	{
 	  "recipe_id": "craft_armor_head_sage",
@@ -205,7 +219,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "armor_head_sage", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 21
+	  "sort_order": 21,
+	  "category": "armor"
 	},
 	{
 	  "recipe_id": "craft_armor_body_guard",
@@ -213,7 +228,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "armor_body_guard", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 22
+	  "sort_order": 22,
+	  "category": "armor"
 	},
 	{
 	  "recipe_id": "craft_armor_body_swift",
@@ -221,7 +237,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "armor_body_swift", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 23
+	  "sort_order": 23,
+	  "category": "armor"
 	},
 	{
 	  "recipe_id": "craft_armor_body_sage",
@@ -229,7 +246,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "armor_body_sage", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 24
+	  "sort_order": 24,
+	  "category": "armor"
 	},
 	{
 	  "recipe_id": "craft_armor_legs_guard",
@@ -237,7 +255,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "armor_legs_guard", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 25
+	  "sort_order": 25,
+	  "category": "armor"
 	},
 	{
 	  "recipe_id": "craft_armor_legs_swift",
@@ -245,7 +264,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "armor_legs_swift", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 26
+	  "sort_order": 26,
+	  "category": "armor"
 	},
 	{
 	  "recipe_id": "craft_armor_legs_sage",
@@ -253,7 +273,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "armor_legs_sage", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 27
+	  "sort_order": 27,
+	  "category": "armor"
 	},
 	{
 	  "recipe_id": "craft_acc_guard",
@@ -261,7 +282,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "acc_guard", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 28
+	  "sort_order": 28,
+	  "category": "accessory"
 	},
 	{
 	  "recipe_id": "craft_acc_swift",
@@ -269,7 +291,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "acc_swift", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 29
+	  "sort_order": 29,
+	  "category": "accessory"
 	},
 	{
 	  "recipe_id": "craft_acc_sage",
@@ -277,7 +300,8 @@
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
 	  "outputs": [ { "item_id": "acc_sage", "count": 1 } ],
 	  "unlocked_by_default": true,
-	  "sort_order": 30
+	  "sort_order": 30,
+	  "category": "accessory"
 	},
 	{
 	  "recipe_id": "craft_equip_rare",
@@ -295,7 +319,8 @@
 		]
 	  },
 	  "unlocked_by_default": true,
-	  "sort_order": 31
+	  "sort_order": 31,
+	  "category": "draw"
 	}
   ]
 }

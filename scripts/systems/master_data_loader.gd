@@ -533,6 +533,11 @@ static func _validate_all_item_refs() -> void:
 					"%s.%s" % [str(recipe_id), list_key]
 				)
 		errors += _validate_recipe_draw(str(recipe_id), recipe as Dictionary)
+		# E140 … 作業場のタブの分類（10-09・回SYS-1）。⚠ 無い・知らない値だと、どのタブにも出ない（「すべて」にだけ出る）。
+		var category: String = str((recipe as Dictionary).get(GameManager.RECIPE_CATEGORY, ""))
+		if not (category in GameManager.RECIPE_CATEGORIES):
+			push_error("[MasterDataLoader] E140 recipes.json (%s): category '%s' が %s のどれでもない" % [str(recipe_id), category, str(GameManager.RECIPE_CATEGORIES)])
+			errors += 1
 
 	# chests.json … rewards の中身と draw の抽選テーブル（E118 / E120 / W20）。
 	_ensure_chests_loaded()

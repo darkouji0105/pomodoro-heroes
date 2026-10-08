@@ -1627,3 +1627,9 @@ ui_task_folder_delete,消す
 ui_task_folder_delete_title,フォルダを消す
 ui_task_folder_delete_confirm,「%s」のフォルダと、中のタスク %d 件を消しますか？
 ui_task_field_folder,フォルダ
+ui_guild_workshop_tab_all,すべて
+ui_guild_workshop_tab_weapon,武器
+ui_guild_workshop_tab_armor,防具
+ui_guild_workshop_tab_accessory,アクセサリー
+ui_guild_workshop_tab_decor,装飾
+ui_guild_workshop_tab_draw,くじ

@@ -28,6 +28,10 @@ const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
 # _rebuild() のたびに作り直す（古いノードを掴んだままにしない）。
 var _remaining_labels: Dictionary = {}
 
+# ⚠ レシピの分類のタブ（10-09・回SYS-1）。⚠ "" ＝すべて。⚠ 覚える鍵は `TransferKeys.MEMORY_WORKSHOP_CATEGORY`。
+var _category: String = ""
+var _category_tabs: PaperTabs = null
+
 func _ready() -> void:
 	# 1. 画面を開いた時点で完了判定を回す。
 	#    アプリを閉じている間に完成した製作は、ここで in_progress -> completed になる。
@@ -46,6 +50,20 @@ func _ready() -> void:
 	# ⚠ 見出し（⚠ 育成の部屋のタブがあれば、見出しとタブを重ねた器 `HeaderStack`）のすぐ下に置く。
 	var above: Node = header if header.get_parent() == $Margin/Layout else header.get_parent()
 	$Margin/Layout.move_child(tabs, above.get_index() + 1)
+	# ⚠ 10-09（回SYS-1・人間「⚠ １あ　２い　３い」）：⚠ レシピの分類の紙のタブ（⚠ 鍛える／作る／遺物の下＝3段目）。
+	#   ⚠ 先頭は「すべて」（⚠ 既定）・⚠ 最後に選んだタブを覚える（`SceneManager.remember()`＝画面を出て戻っても同じ）。
+	_category = str(SceneManager.recall(TransferKeys.MEMORY_WORKSHOP_CATEGORY, ""))
+	if _category != "" and not (_category in GameManager.RECIPE_CATEGORIES):
+		_category = ""
+	_category_tabs = PaperTabs.new()
+	_category_tabs.name = "CategoryTabs"
+	var keys: Array[String] = ["ui_guild_workshop_tab_all"]
+	for category: String in GameManager.RECIPE_CATEGORIES:
+		keys.append("ui_guild_workshop_tab_" + category)
+	_category_tabs.set_tabs(keys, GameManager.RECIPE_CATEGORIES.find(_category) + 1)
+	_category_tabs.tab_changed.connect(_on_category_changed)
+	$Margin/Layout.add_child(_category_tabs)
+	$Margin/Layout.move_child(_category_tabs, tabs.get_index() + 1)
 	tick.timeout.connect(_on_tick)
 
 	# 3. GameManager のシグナル購読
@@ -107,7 +125,10 @@ func _rebuild() -> void:
 			all_button.pressed.connect(_on_collect_all_pressed)
 			queue_list.add_child(all_button)
 
-	var recipes: Array = GameManager.get_available_recipes()
+	var recipes: Array = []
+	for entry: Variant in GameManager.get_available_recipes():
+		if _category == "" or str((entry as Dictionary).get(GameManager.RECIPE_CATEGORY, "")) == _category:
+			recipes.append(entry)
 	if recipes.is_empty():
 		var empty_recipes: Label = Label.new()
 		empty_recipes.name = "EmptyRecipeLabel"
@@ -117,6 +138,13 @@ func _rebuild() -> void:
 		for entry: Variant in recipes:
 			if entry is Dictionary:
 				_create_recipe_row(entry as Dictionary)
+
+# ⚠ 分類のタブ（10-09・回SYS-1）。⚠ 0 ＝すべて。
+func _on_category_changed(index: int) -> void:
+	_category = "" if index <= 0 else GameManager.RECIPE_CATEGORIES[index - 1]
+	SceneManager.remember(TransferKeys.MEMORY_WORKSHOP_CATEGORY, _category)
+	_rebuild()
+
 
 func _clear(container: VBoxContainer) -> void:
 	for child: Node in container.get_children():

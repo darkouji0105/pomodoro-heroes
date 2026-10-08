@@ -98,3 +98,5 @@ const MEMORY_ROSTER_SORT: String = "memory_roster_sort"
 const MEMORY_TASK_FILTER: String = "memory_task_filter"
 # ⚠ 10-07（回HB-1）：⚠ 本部の見え方（⚠ 机 ／ 拠点の全体）。
 const MEMORY_BASE_VIEW: String = "memory_base_view"
+# ⚠ 10-09（回SYS-1）：⚠ 作業場のレシピの分類のタブ（⚠ "" ＝すべて）。
+const MEMORY_WORKSHOP_CATEGORY: String = "memory_workshop_category"

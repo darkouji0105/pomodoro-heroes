@@ -134,6 +134,15 @@ const RECIPE_IO_ITEM_ID: String = "item_id"
 const RECIPE_IO_COUNT: String = "count"
 const RECIPE_UNLOCKED_BY_DEFAULT: String = "unlocked_by_default"
 const RECIPE_SORT_ORDER: String = "sort_order"
+# ⚠ 作業場のタブの分類（10-09・回SYS-1・人間「⚠ １あ　２い　３い」）。⚠ 並び＝タブの並び（⚠ 先頭に「すべて」は画面が足す）。
+#   ⚠ 値はリリース後に改名しない（⚠ 覚えたタブが外れる）。⚠ 無い・知らない値は E140 が赤で言う。
+const RECIPE_CATEGORY: String = "category"
+const RECIPE_CATEGORY_WEAPON: String = "weapon"
+const RECIPE_CATEGORY_ARMOR: String = "armor"
+const RECIPE_CATEGORY_ACCESSORY: String = "accessory"
+const RECIPE_CATEGORY_DECOR: String = "decor"
+const RECIPE_CATEGORY_DRAW: String = "draw"
+const RECIPE_CATEGORIES: Array[String] = [RECIPE_CATEGORY_WEAPON, RECIPE_CATEGORY_ARMOR, RECIPE_CATEGORY_ACCESSORY, RECIPE_CATEGORY_DECOR, RECIPE_CATEGORY_DRAW]
 # ⚠ 装飾のランダム製作（段階11・EXEC_WORKSHOP_REVIVE.md 決め1）。
 #   ⚠ 中身の形は chests.json の draw と同じ（rolls / entries[{item_id, weight, count}]）ので、
 #     ⚠ 読む定数は CHEST_DRAW_* を使い回す。新しい綴りを増やさない。
@@ -6980,6 +6989,7 @@ func _normalized_recipe(recipe_id: String) -> Dictionary:
 		RECIPE_OUTPUTS: outputs,
 		RECIPE_DRAW: draw,
 		RECIPE_SORT_ORDER: int(definition.get(RECIPE_SORT_ORDER, 0)),
+		RECIPE_CATEGORY: str(definition.get(RECIPE_CATEGORY, "")),
 	}
 
 
