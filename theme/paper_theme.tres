@@ -53,3 +53,5 @@ TaskBandLabel/base_type = &"Label"
 TaskBandLabel/colors/font_color = Color(0.9137255, 0.8627451, 0.7529412, 1)
 TaskDoneLabel/base_type = &"Label"
 TaskDoneLabel/colors/font_color = Color(0.43137255, 0.3529412, 0.2627451, 1)
+TaskFolderTitleLabel/base_type = &"Label"
+TaskFolderTitleLabel/colors/font_color = Color(0.16862746, 0.12941177, 0.09411765, 1)

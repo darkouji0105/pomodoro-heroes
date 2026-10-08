@@ -12588,15 +12588,23 @@ class UiFlowRunner extends Node:
 		_check("フォルダ：「詳しく」のフォルダ ▼ で入る", str(GameManager.get_task(a).get(GameStateKeys.TASK_FOLDER, "")) == folder_id
 			and str(GameManager.get_task(d).get(GameStateKeys.TASK_FOLDER, "")) == folder_id)
 		# ③ 並び：⚠ フォルダの見出し → その中のタスク …… ⚠ フォルダなしは一番下。
+		#   ⚠ 10-09（回TK-F2）：⚠ 行は箱（`Box_<id>`）の中に入る＝⚠ 子孫を木の順に読む（⚠ `find_children` は前から深さ優先）。
 		var list: Node = t.find_child("List", true, false)
 		var order: Array[String] = []
 		if list != null:
-			for child: Node in list.get_children():
-				order.append(str(child.name))
+			for node: Node in list.find_children("*", "", true, false):
+				if str(node.name).begins_with("Folder_") or str(node.name).begins_with("Task_"):
+					order.append(str(node.name))
 		var head_at: int = order.find("Folder_" + folder_id)
 		_check("フォルダ：見出しの下に中のタスク・フォルダなしは一番下（%s）" % ",".join(order.slice(maxi(0, head_at), mini(order.size(), head_at + 3))),
 			head_at >= 0 and order.find("Task_" + a) > head_at and order.find("Folder_none") > order.find("Task_" + d)
 			and order.find("Task_" + loose) > order.find("Folder_none"))
+		# ⚠ 回TK-F2（人間「⚠ １い　３う」）：⚠ 中のタスクはそのフォルダの箱の中・⚠ フォルダなしも箱の中。
+		var box: Node = t.find_child("Box_" + folder_id, true, false)
+		var none_box: Node = t.find_child("Box_none", true, false)
+		_check("フォルダ：中のタスクは箱の中・フォルダなしも箱（回TK-F2）", box != null and none_box != null
+			and box.find_child("Folder_" + folder_id, true, false) != null and box.find_child("Task_" + a, true, false) != null
+			and box.find_child("Task_" + loose, true, false) == null and none_box.find_child("Task_" + loose, true, false) != null)
 		# ⑤ ▲▼は同じフォルダの中（⚠ A を下へ＝D と入れ替わる・フォルダなしの行は飛ばす）。
 		var _moved: bool = GameManager.move_task(a, 1)
 		var ids: Array[String] = []

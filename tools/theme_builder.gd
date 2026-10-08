@@ -1770,6 +1770,8 @@ const HEADING_FONT_TYPES: Array[String] = [
 	"HeadingLabel", "WindowTitleLabel", "ResultHeadingLabel", "ResultDefeatHeadingLabel",
 	# ⚠ 回UI-2：判の字も明朝（⚠ 手本の判は明朝）。
 	"Stamp",
+	# ⚠ 10-09（回TK-F2）：⚠ フォルダの見出し（⚠ 字間は詰めたまま＝紙の見出しと格を分ける）。
+	"TaskFolderTitleLabel",
 ]
 const SHEET_HEADING_SPACING: int = 3
 
@@ -2723,7 +2725,17 @@ const TASK: Dictionary = {
 	"cal_ring": 2,            # ⚠ 今日の真鍮の輪
 	"band_pad_v": 6,          # ⚠ 記録の年・月の帯
 	"folder_edit_width": 180, # ⚠ 10-09（回TK-F）：⚠ フォルダの名前を書き換える欄
+	# ⚠ 10-09（回TK-F2・人間「⚠ １い　２あ　３う」）：⚠ フォルダごとの箱（⚠ 見出しは箱の上の帯・中身は箱の中）。
+	"folder_corner": 4,       # ⚠ 箱の角
+	"folder_border": 1,       # ⚠ 箱の縁（罫の色）
+	"folder_gap": 8,          # ⚠ 箱と箱の間
+	"folder_band_pad_v": 3,   # ⚠ 見出しの帯の上下
+	"folder_pad_bottom": 2,   # ⚠ 箱の中の最後の行の下
+	"folder_title_size": 16,  # ⚠ 見出しの字（⚠ 「やること」の 20 より一段小さく）
 }
+# ⚠ 10-09（回TK-F2）：⚠ フォルダの箱の地は紙より一段濃く、⚠ 見出しの帯はもう一段濃い。
+const TASK_FOLDER_BOX: String = "e2d3b2"
+const TASK_FOLDER_BAND: String = "d3bf96"
 # ⚠ 記録の年の帯は墨の地に紙の字、⚠ 月の帯は少し濃い紙。
 const TASK_MONTH_BAND: String = "dccdaa"
 
@@ -2845,6 +2857,43 @@ static func _build_task(theme: Theme) -> void:
 	for spec: Array in [[&"TaskYearBand", year_band], [&"TaskMonthBand", month_band]]:
 		theme.set_type_variation(spec[0], &"PanelContainer")
 		theme.set_stylebox(&"panel", spec[0], spec[1])
+	# ⚠ フォルダの箱（10-09・回TK-F2・`TK-18`）：⚠ 箱＝一段濃い紙＋罫の縁 ／ ⚠ 見出し＝箱の上の帯（⚠ 縁の内側に収める）。
+	var border: int = int(TASK["folder_border"])
+	var corner: int = int(TASK["folder_corner"])
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = _html(TASK_FOLDER_BOX)
+	box.border_color = _html(TOKEN_RULE)
+	box.set_border_width_all(border)
+	box.set_corner_radius_all(corner)
+	box.set_content_margin_all(border)
+	box.content_margin_bottom = border + int(TASK["folder_pad_bottom"])
+	theme.set_type_variation(&"TaskFolderBox", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"TaskFolderBox", box)
+	var band: StyleBoxFlat = StyleBoxFlat.new()
+	band.bg_color = _html(TASK_FOLDER_BAND)
+	band.corner_radius_top_left = maxi(0, corner - border)
+	band.corner_radius_top_right = maxi(0, corner - border)
+	band.content_margin_left = ROW_PAD_H
+	band.content_margin_right = ROW_PAD_H
+	band.content_margin_top = int(TASK["folder_band_pad_v"])
+	band.content_margin_bottom = int(TASK["folder_band_pad_v"])
+	theme.set_type_variation(&"TaskFolderHeaderPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"TaskFolderHeaderPanel", band)
+	# ⚠ 畳んだ箱（人間「⚠ ２あ」＝見出しだけ）：⚠ 下の余白を持たず、⚠ 帯の下の角も丸める（⚠ 箱の地がはみ出さない）。
+	var box_closed: StyleBoxFlat = box.duplicate()
+	box_closed.content_margin_bottom = border
+	theme.set_type_variation(&"TaskFolderBoxClosed", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"TaskFolderBoxClosed", box_closed)
+	var band_closed: StyleBoxFlat = band.duplicate()
+	band_closed.set_corner_radius_all(maxi(0, corner - border))
+	theme.set_type_variation(&"TaskFolderHeaderClosedPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"TaskFolderHeaderClosedPanel", band_closed)
+	theme.set_type_variation(&"TaskFolderInner", &"VBoxContainer")
+	theme.set_constant(&"separation", &"TaskFolderInner", 0)
+	theme.set_type_variation(&"TaskFolderStack", &"VBoxContainer")
+	theme.set_constant(&"separation", &"TaskFolderStack", int(TASK["folder_gap"]))
+	theme.set_type_variation(&"TaskFolderTitleLabel", &"Label")
+	theme.set_font_size(&"font_size", &"TaskFolderTitleLabel", int(TASK["folder_title_size"]))
 
 
 # ⚠ デスクトップの小窓（2026-09-29・回UI-仕組み⑥・手本 Companion）。⚠ 大きさは手本の 260×170 に近く。⚠ 部屋の色は手本の焦茶と暖炉の橙。
@@ -3115,6 +3164,7 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"Label": TOKEN_INK,
 	"HeadingLabel": TOKEN_INK,
 	"SheetHeadingLabel": TOKEN_INK,
+	"TaskFolderTitleLabel": TOKEN_INK,
 	"SmallLabel": TOKEN_INK,
 	"MutedLabel": TOKEN_INK_SUB,
 	"CaptionLabel": TOKEN_INK_SUB,

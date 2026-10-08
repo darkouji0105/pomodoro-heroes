@@ -157,7 +157,9 @@ func _rebuild_list() -> void:
 	var shown: int = 0
 	# ⚠ 10-09（回TK-F・`TK-18`）：⚠ フォルダごとに見出し（⚠ 押すと畳む）。⚠ フォルダが無ければ見出しは出さない（⚠ 前のまま）。
 	#   ⚠ ▲▼の端は「同じフォルダの中の端」（⚠ `GameManager.move_task()` も同じフォルダの中で動く）。
+	#   ⚠ 10-09（回TK-F2）：⚠ フォルダごとの箱（`TaskFolderBox`）の中に並べる。
 	var show_headers: bool = not GameManager.get_task_folders().is_empty()
+	_list.theme_type_variation = &"TaskFolderStack" if show_headers else &""
 	for raw_group: Variant in GameManager.get_task_groups(tasks):
 		var group: Dictionary = raw_group as Dictionary
 		var members: Array = group.get(GameManager.TASK_GROUP_TASKS, []) as Array
@@ -165,19 +167,26 @@ func _rebuild_list() -> void:
 		for raw: Variant in members:
 			if _filter_tag == "" or (_filter_tag in ((raw as Dictionary).get(GameStateKeys.TASK_TAGS, []) as Array)):
 				visible_members.append(raw)
+		var parent: Node = _list
+		var box: TaskFolderBox = null
 		if show_headers:
 			# ⚠ 絞っているときは、⚠ 当たる行の無いフォルダは出さない。
 			if _filter_tag != "" and visible_members.is_empty():
 				continue
-			_list.add_child(_folder_header(group, visible_members.size()))
+			box = _folder_box(group, visible_members.size())
+			_list.add_child(box)
+			parent = box.rows
 			if bool(group.get(GameManager.TASK_GROUP_COLLAPSED, false)):
 				shown += visible_members.size()
+				box.finish()
 				continue
 		for raw: Variant in visible_members:
 			var task: Dictionary = raw as Dictionary
 			var index: int = members.find(raw)
 			shown += 1
-			_list.add_child(_task_row(task, index == 0, index == members.size() - 1))
+			parent.add_child(_task_row(task, index == 0, index == members.size() - 1))
+		if box != null:
+			box.finish()
 	_filter_note.visible = _filter_tag != ""
 	_filter_note.text = tr("ui_task_filter_note") % [_filter_tag, shown] if _filter_tag != "" else ""
 	_hidden_note.visible = _filter_tag != "" and tasks.size() > shown
@@ -186,11 +195,13 @@ func _rebuild_list() -> void:
 
 # ⚠ フォルダの見出し（10-09・回TK-F）：⚠ 押すと畳む ／ ⚠ 右に「名前を変える」「消す」（⚠ フォルダなしには出さない）。
 #   ⚠ 名前を書き換えている間は、⚠ 右に名前の欄と「決める」。
-func _folder_header(group: Dictionary, count: int) -> TaskFolderHeader:
-	var header: TaskFolderHeader = TaskFolderHeader.create(group, count)
+#   ⚠ 10-09（回TK-F2）：⚠ 箱ごと返す（⚠ 見出しは箱の上の帯・中のタスクは `box.rows` へ）。
+func _folder_box(group: Dictionary, count: int) -> TaskFolderBox:
+	var box: TaskFolderBox = TaskFolderBox.create(group, count)
+	var header: TaskFolderHeader = box.header
 	var folder_id: String = header.folder_id
 	if folder_id == "":
-		return header
+		return box
 	if folder_id == _renaming_folder:
 		var edit: LineEdit = LineEdit.new()
 		edit.name = "FolderNameEdit"
@@ -204,7 +215,7 @@ func _folder_header(group: Dictionary, count: int) -> TaskFolderHeader:
 		decide.theme_type_variation = &"TaskMoveButton"
 		decide.pressed.connect(func() -> void: _on_folder_rename_submitted(folder_id, edit.text))
 		header.actions.add_child(decide)
-		return header
+		return box
 	for spec: Array in [["FolderRename", "ui_task_folder_rename"], ["FolderDelete", "ui_task_folder_delete"]]:
 		var button: Button = UiButton.create_paper_choice(str(spec[1]))
 		button.name = str(spec[0])
@@ -215,7 +226,7 @@ func _folder_header(group: Dictionary, count: int) -> TaskFolderHeader:
 			button.pressed.connect(_on_folder_rename_pressed.bind(folder_id))
 		else:
 			button.pressed.connect(_on_folder_delete_pressed.bind(folder_id))
-	return header
+	return box
 
 
 func _on_folder_submitted(_text: String) -> void:

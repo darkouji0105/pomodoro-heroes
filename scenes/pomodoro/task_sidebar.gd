@@ -111,20 +111,26 @@ func _rebuild() -> void:
 		_list.add_child(empty)
 		return
 	# ⚠ 10-09（回TK-F・`TK-18`）：⚠ フォルダごとに見出し（⚠ 押すと畳む＝タスクの画面・拠点の紙と共通）。⚠ フォルダが1つも無ければ見出しは出さない。
+	#   ⚠ 10-09（回TK-F2）：⚠ フォルダごとの箱（`TaskFolderBox`）の中に並べる。
 	var show_headers: bool = not GameManager.get_task_folders().is_empty()
+	_list.theme_type_variation = &"TaskFolderStack" if show_headers else &""
 	for raw_group: Variant in GameManager.get_task_groups(tasks):
 		var group: Dictionary = raw_group as Dictionary
 		var members: Array = group.get(GameManager.TASK_GROUP_TASKS, []) as Array
-		if show_headers:
-			_list.add_child(TaskFolderHeader.create(group, members.size()))
-			if bool(group.get(GameManager.TASK_GROUP_COLLAPSED, false)):
-				continue
-		for raw: Variant in members:
-			_add_task_row(raw as Dictionary, current)
+		if not show_headers:
+			for raw: Variant in members:
+				_add_task_row(raw as Dictionary, current, _list)
+			continue
+		var box: TaskFolderBox = TaskFolderBox.create(group, members.size())
+		_list.add_child(box)
+		if not bool(group.get(GameManager.TASK_GROUP_COLLAPSED, false)):
+			for raw: Variant in members:
+				_add_task_row(raw as Dictionary, current, box.rows)
+		box.finish()
 
 
-# ⚠ 1行（⚠ 10-09 回TK-F で `_rebuild()` から切り出した＝中身は前のまま）。
-func _add_task_row(task: Dictionary, current: String) -> void:
+# ⚠ 1行（⚠ 10-09 回TK-F で `_rebuild()` から切り出した＝中身は前のまま）。⚠ 回TK-F2：⚠ 置き先（`_list` か箱の中）を渡す。
+func _add_task_row(task: Dictionary, current: String, parent: Node) -> void:
 	var task_id: String = str(task.get(GameStateKeys.TASK_ID, ""))
 	var done: bool = int(task.get(GameStateKeys.TASK_DONE_AT, 0)) != 0
 	var row: LedgerRow = LedgerRow.new()
@@ -204,7 +210,7 @@ func _add_task_row(task: Dictionary, current: String) -> void:
 		memo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		memo.text = memo_text
 		column.add_child(memo)
-	_list.add_child(row)
+	parent.add_child(row)
 
 
 func _draw_strike(label: Label) -> void:
