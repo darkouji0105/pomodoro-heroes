@@ -55,6 +55,13 @@ extends Resource
 	"atkspd": 3, "haste": 3, "spd": 3, "crit_dmg": 5, "crit_rate": 0,
 }
 
+# --- 初回の記録 ---（2026-10-09・回SYS-3・決定 `EQ-9`・人間「⚠ １い、う　２…今回はHP１にするけどいつでも変えられるように　３あ　４う」）
+# ⚠ 記録＝図鑑の埋まった枠（⚠ 装備は品×等級・装飾と素材は品ごと）。⚠ 状態は増やさない（⚠ 図鑑から毎回数える）。
+# 1記録で全キャラに足す量（軸ごと）。⚠ 軸を足す・量を変えるのはここだけでよい（例：{"hp": 1, "atk": 1}）。
+@export var first_record_bonus_per_record: Dictionary[String, int] = {"hp": 1}
+# 数える図鑑の種類（⚠ `GameManager.CODEX_KIND_*` の値＝"equipment" / "part" / "material"）。
+@export var first_record_kinds: Array[String] = ["equipment", "part", "material"]
+
 # --- 分解 ---
 # 等級1の装備を素材に戻したときの基礎量（返却率を掛ける前）。
 @export var dismantle_refund_base: int = 3

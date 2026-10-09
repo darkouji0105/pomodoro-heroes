@@ -60,6 +60,8 @@ signal tasks_changed()
 signal guild_relic_changed(relic_id: String)
 # ⚠ 鍛冶のレベルが上がった（2026-10-09・回SYS-2・`EQ-5`）。⚠ 画面の上の知らせ（`Toast`）が受ける。
 signal forge_level_changed(level: int)
+# ⚠ 初回の記録が1つ増えた（2026-10-09・回SYS-3・`EQ-9`）。⚠ 図鑑に新しい枠が埋まったとき（⚠ 数える種類だけ）。⚠ `Toast` が受ける。
+signal first_record_added(item_id: String)
 
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
@@ -826,6 +828,9 @@ func _mark_codex_discovered(item_id: String) -> bool:
 		GameStateKeys.CODEX_OBTAINED_AT: str(Time.get_unix_time_from_system()),
 	}
 	_state[GameStateKeys.CODEX] = codex
+	# ⚠ 10-09（回SYS-3）：⚠ 装飾・素材は品ごとに1記録（⚠ 装備は等級ごと＝`_mark_codex_grade()` が知らせる）。
+	if get_codex_kind(item_id) != CODEX_KIND_EQUIPMENT:
+		_note_first_record(item_id)
 	return true
 
 
@@ -856,6 +861,8 @@ func _mark_codex_grade(item_id: String, grade: int) -> void:
 	entry[GameStateKeys.CODEX_GRADES] = grades
 	codex[item_id] = entry
 	_state[GameStateKeys.CODEX] = codex
+	# ⚠ 10-09（回SYS-3）：⚠ 装備は品×等級で1記録。
+	_note_first_record(item_id)
 
 # --- 画面アンロック ---
 
@@ -2142,6 +2149,92 @@ func get_codex_grades(item_id: String) -> Array[int]:
 	return grades
 
 
+# その品の図鑑の種類（⚠ 装備 ／ 装飾 ／ 素材）。⚠ どれでもない（ポーション・札など）は ""。
+func get_codex_kind(item_id: String) -> String:
+	if _is_equipment_item(item_id):
+		return CODEX_KIND_EQUIPMENT
+	if not get_part_definition(item_id).is_empty():
+		return CODEX_KIND_PART
+	if item_id in get_material_ids():
+		return CODEX_KIND_MATERIAL
+	return ""
+
+
+# 図鑑の埋まった数と全体（x＝埋まった ／ y＝全体）。⚠ 装備は「品 × 等級」（`EXEC_CODEX_GRADES.md` §6）・装飾と素材は品ごと。
+# ⚠ 10-09（回SYS-3）：⚠ 記録の画面から移した（⚠ 初回の記録と同じ数え方を1か所に）。
+func get_codex_counts(kind: String) -> Vector2i:
+	var ids: Array[String] = get_codex_ids(kind)
+	var found: int = 0
+	if kind == CODEX_KIND_EQUIPMENT:
+		for item_id: String in ids:
+			found += get_codex_grades(item_id).size()
+		return Vector2i(found, ids.size() * get_max_equipment_grade())
+	for item_id: String in ids:
+		if is_codex_discovered(item_id):
+			found += 1
+	return Vector2i(found, ids.size())
+
+
+# ============================================================
+# 初回の記録（2026-10-09・回SYS-3・`EQ-9`・人間「⚠ １い、う　２ HP１（いつでも変えられるように）　３あ　４う」）
+# ============================================================
+#
+# ⚠ 記録＝図鑑の埋まった枠（⚠ どこから手に入れても・装備は品×等級）。⚠ 状態は持たない（⚠ 図鑑から毎回数える）。
+# ⚠ 補正は全キャラに同じだけ＝ `get_effective_stats()` の8項目め。⚠ 量と数える種類は `EquipmentConfig.first_record_*`。
+
+func get_first_record_count() -> int:
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return 0
+	var count: int = 0
+	for kind: String in config.first_record_kinds:
+		count += get_codex_counts(kind).x
+	return count
+
+
+func get_first_record_total() -> int:
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return 0
+	var total: int = 0
+	for kind: String in config.first_record_kinds:
+		total += get_codex_counts(kind).y
+	return total
+
+
+# 1記録ぶんの補正（軸ごと・0 の軸は入れない）。
+func get_first_record_bonus_per_record() -> Dictionary:
+	var result: Dictionary = {}
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return result
+	for stat_key: String in _stat_keys():
+		var value: int = int(config.first_record_bonus_per_record.get(stat_key, 0))
+		if value != 0:
+			result[stat_key] = value
+	return result
+
+
+# いまの補正（軸ごと）＝ 1記録ぶん × 記録の数。
+func get_first_record_bonus() -> Dictionary:
+	var result: Dictionary = {}
+	var count: int = get_first_record_count()
+	if count <= 0:
+		return result
+	var per: Dictionary = get_first_record_bonus_per_record()
+	for stat_key: Variant in per:
+		result[stat_key] = int(per[stat_key]) * count
+	return result
+
+
+# ⚠ 図鑑に新しい枠が埋まったときに呼ぶ（⚠ `_mark_codex_discovered()`（装飾・素材）／ `_mark_codex_grade()`（装備））。⚠ 数える種類だけ知らせる。
+func _note_first_record(item_id: String) -> void:
+	var config: EquipmentConfig = _equipment()
+	if config == null or not (get_codex_kind(item_id) in config.first_record_kinds):
+		return
+	first_record_added.emit(item_id)
+
+
 # ポモドーロを終えた回数の合計（⚠ 記録の画面「集中の履歴」）。
 func get_total_pomodoro_completed() -> int:
 	return int(_state.get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0))
@@ -2660,6 +2753,8 @@ func get_effective_stats(character_id: String) -> Dictionary:
 	var relics: Dictionary = get_guild_relic_stat_bonus()
 	# ⚠ 10-09（回SYS-2・`EQ-5`）：⚠ 鍛冶のレベル（全員に同じだけ）。7項目め。
 	var forge_level: Dictionary = get_forge_level_bonus()
+	# ⚠ 10-09（回SYS-3・`EQ-9`）：⚠ 初回の記録（全員に同じだけ）。8項目め。
+	var first_record: Dictionary = get_first_record_bonus()
 
 	var result: Dictionary = {}
 	var percent_keys: Array[String] = _percent_stat_keys()
@@ -2675,6 +2770,7 @@ func get_effective_stats(character_id: String) -> Dictionary:
 			+ int(nodes.get(stat_key, 0))
 			+ int(relics.get(stat_key, 0))
 			+ int(forge_level.get(stat_key, 0))
+			+ int(first_record.get(stat_key, 0))
 		)
 	return result
 

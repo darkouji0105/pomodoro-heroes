@@ -4,7 +4,7 @@ extends CanvasLayer
 # 画面の上の小さな知らせ（2026-10-07・回UI-便 F・人間「⚠ 判断がいらないものをとりあえずぜんぶ」）。
 #
 # ⚠ 窓を出さずに上の真ん中へ流し、しばらくすると消える（⚠ 押さなくてよい・操作を止めない）。
-# ⚠ いま流すのは**作業場の完成**と**鍛冶のレベルが上がった**（10-09・`EQ-5`）だけ（⚠ 作業場は時間で勝手に進むので、どの画面にいても気づけない）。
+# ⚠ いま流すのは**作業場の完成**と**鍛冶のレベルが上がった**（10-09・`EQ-5`）と**初回の記録**（10-09・`EQ-9`）だけ（⚠ 作業場は時間で勝手に進むので、どの画面にいても気づけない）。
 #   ⚠ 宝箱・研究などは自分で操作した直後に画面に出るので流さない（⚠ 二重になる）。
 # ⚠ 置き場は `ResourceGainEffect` と同じく root の常駐（⚠ `SceneManager` が生やす・Autoload を増やさない）。
 # ⚠ 値は Theme の `Toast` 型（⚠ 出ている長さ・消える長さ・上の余白）と `ToastPanel` / `ToastLabel`。
@@ -19,6 +19,7 @@ static var _instance: Toast = null
 var _column: VBoxContainer = null
 var _completed: Dictionary = {}   # queue_id -> true（⚠ もう知らせた完成）
 var _wait: float = 0.0
+var _first_records: int = 0   # ⚠ このフレームに増えた初回の記録（⚠ まとめて1本で知らせる）
 
 
 static func spawn_into(root: Node) -> Toast:
@@ -53,10 +54,31 @@ func _ready() -> void:
 	_completed = _completed_ids()
 	# ⚠ 10-09（回SYS-2・`EQ-5`・人間「⚠ ４あ」）：⚠ 鍛冶のレベルが上がったら知らせる（⚠ 鍛える・作るの直後に気づけるように）。
 	GameManager.forge_level_changed.connect(_on_forge_level_changed)
+	# ⚠ 10-09（回SYS-3・`EQ-9`・人間「⚠ ３あ」）：⚠ 初回の記録が増えたら知らせる。⚠ 宝箱などで一度に何件も増えるので、⚠ そのフレームの分を1本にまとめる。
+	GameManager.first_record_added.connect(_on_first_record_added)
 
 
 func _on_forge_level_changed(level: int) -> void:
 	show_message(tr("ui_toast_forge_level_up") % level)
+
+
+func _on_first_record_added(_item_id: String) -> void:
+	_first_records += 1
+	if _first_records == 1:
+		_flush_first_records.call_deferred()
+
+
+func _flush_first_records() -> void:
+	var count: int = _first_records
+	_first_records = 0
+	if count <= 0:
+		return
+	var parts: Array[String] = []
+	var per: Dictionary = GameManager.get_first_record_bonus_per_record()
+	for stat_key: String in GameManager.get_stat_keys():
+		if per.has(stat_key):
+			parts.append("%s +%d%s" % [tr("ui_training_stat_" + stat_key), int(per[stat_key]) * count, "%" if GameManager.is_percent_stat(stat_key) else ""])
+	show_message(tr("ui_toast_first_record") % [count, "  ".join(parts)])
 
 
 func _process(delta: float) -> void:

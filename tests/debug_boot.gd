@@ -10535,6 +10535,7 @@ class UiFlowRunner extends Node:
 		await _flow_task_folders()
 		await _flow_workshop_tabs()
 		await _flow_forge_level()
+		await _flow_first_record()
 		await _flow_autosave()
 		await _flow_pomodoro_extras()
 		await _flow_mini_ask()
@@ -12645,6 +12646,68 @@ class UiFlowRunner extends Node:
 		_check("フォルダ：前のセーブは全部フォルダなし・フォルダは空", loaded and all_loose and GameManager.get_task_folders().is_empty())
 		var _restored: bool = GameManager.load_state(snapshot)
 
+	# ⚠ 回SYS-3（10-09・`EQ-9`・人間「⚠ １い、う　２ HP１（いつでも変えられるように）　３あ　４う」）：
+	#   ⚠ 初回の記録＝図鑑の埋まった枠 ×（Config の1記録ぶん）が全員に乗る・⚠ 新しく埋まると知らせ・⚠ 図鑑に合計。
+	func _flow_first_record() -> void:
+		var snapshot: Dictionary = GameManager.get_state()
+		var count: int = GameManager.get_first_record_count()
+		var found: int = 0
+		var total: int = 0
+		for kind: String in GameManager.CODEX_KINDS:
+			found += GameManager.get_codex_counts(kind).x
+			total += GameManager.get_codex_counts(kind).y
+		_check("初回の記録：図鑑の埋まった枠 %d / %d を全部数える（装備・装飾・素材）" % [count, GameManager.get_first_record_total()],
+			count == found and GameManager.get_first_record_total() == total and count > 0)
+		_check("初回の記録：いまの補正は HP +%d（1記録 HP +1）" % int(GameManager.get_first_record_bonus().get("hp", 0)),
+			int(GameManager.get_first_record_bonus().get("hp", 0)) == count and GameManager.get_first_record_bonus().size() == 1)
+		# ⚠ まだ記録していない等級へ鍛える（⚠ 本物の「鍛える」を押す）。
+		var instance_id: String = ""
+		for view: Variant in GameManager.get_owned_instances():
+			var id: String = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+			var item_id: String = str(GameManager.get_equipment_instance(id).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+			var next_grade: int = _grade(id) + 1
+			if next_grade <= GameManager.get_max_equipment_grade() and not (next_grade in GameManager.get_codex_grades(item_id)):
+				instance_id = id
+				break
+		var party: Array = snapshot.get(GameStateKeys.PARTY_MEMBERS, []) as Array
+		var hero: String = str(party[0]) if not party.is_empty() else ""
+		_check("初回の記録：まだ記録していない等級へ鍛えられる品がある（%s）" % instance_id, instance_id != "" and hero != "")
+		if instance_id == "" or hero == "":
+			return
+		var cost: Dictionary = GameManager.get_forge_cost(instance_id)
+		GameManager.add_material(str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, "")), int(cost.get(GameManager.FORGE_COST_AMOUNT, 0)))
+		count = GameManager.get_first_record_count()
+		var f: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: instance_id})
+		if f == null:
+			return
+		var eff_before: int = int(GameManager.get_effective_stats(hero).get("hp", 0)) - int(GameManager.get_equipment_bonus(hero).get("hp", 0)) - int(GameManager.get_forge_level_bonus().get("hp", 0))
+		var toast: Toast = Toast.get_instance()
+		await _forge_press(f.find_child("ForgeButton", true, false))
+		await _wait()
+		var eff_after: int = int(GameManager.get_effective_stats(hero).get("hp", 0)) - int(GameManager.get_equipment_bonus(hero).get("hp", 0)) - int(GameManager.get_forge_level_bonus().get("hp", 0))
+		_check("初回の記録：新しい等級に鍛えると記録 %d → %d・全員の HP +%d" % [count, GameManager.get_first_record_count(), eff_after - eff_before],
+			GameManager.get_first_record_count() == count + 1 and eff_after - eff_before == 1)
+		var told: bool = false
+		if toast != null:
+			for label: Node in toast.find_children("ToastLabel", "", true, false):
+				if (label as Label).text == tr("ui_toast_first_record") % [1, "%s +1" % tr("ui_training_stat_hp")]:
+					told = true
+		_check("初回の記録：画面の上に「初回の記録 +1：全員 HP +1」", told)
+		# ⚠ 図鑑（記録の画面の1枚目）に合計。
+		var r: Node = await _open(RECORDS, {TransferKeys.RECORDS_TAB: 0})
+		var line: Label = null if r == null else r.find_child("FirstRecordLine", true, false) as Label
+		var expect: String = "%d / %d" % [GameManager.get_first_record_count(), GameManager.get_first_record_total()]
+		_check("初回の記録：図鑑に合計（%s）" % ("" if line == null else line.text), line != null and line.text.contains(expect)
+			and line.text.contains("%s +%d" % [tr("ui_training_stat_hp"), GameManager.get_first_record_count()]))
+		# ⚠ 1記録ぶんは Config で変えられる（⚠ 人間「⚠ いつでも変えられるように」）。
+		var config: EquipmentConfig = Balance.equipment
+		var keep: Dictionary[String, int] = config.first_record_bonus_per_record.duplicate()
+		config.first_record_bonus_per_record = {"hp": 1, "atk": 1}
+		var atk: int = int(GameManager.get_first_record_bonus().get("atk", 0))
+		config.first_record_bonus_per_record = keep
+		_check("初回の記録：Config に攻撃を足すと全員 攻撃 +%d（記録 %d）" % [atk, GameManager.get_first_record_count()], atk == GameManager.get_first_record_count())
+		var _restored: bool = GameManager.load_state(snapshot)
+
 	# ⚠ 回SYS-2（10-09・`EQ-5`・`EXEC_FORGE_LEVEL.md` §4）：⚠ 鍛冶のレベル＝鍛える・作るで点 → Lv が上がる → 全員のステータスに補正。
 	func _flow_forge_level() -> void:
 		const WORKSHOP_SCREEN: String = "res://scenes/guild/workshop_screen.tscn"
@@ -12675,13 +12738,16 @@ class UiFlowRunner extends Node:
 			level_label != null and level_label.text == tr("ui_forge_level_value") % 1 and next_label != null and next_label.text == tr("ui_forge_level_next") % 1)
 		var eff_before: Dictionary = GameManager.get_effective_stats(hero)
 		var equip_before: Dictionary = GameManager.get_equipment_bonus(hero)
+		# ⚠ 10-09（回SYS-3）：⚠ 新しい等級に上がると初回の記録でも HP が上がる＝⚠ その分は差し引く。
+		var record_before: int = int(GameManager.get_first_record_bonus().get("hp", 0))
 		var toast: Toast = Toast.get_instance()
 		var toasts_before: int = 0 if toast == null else toast.find_children("ToastItem", "", true, false).size()
 		await _forge_press(f.find_child("ForgeButton", true, false))
 		var bonus: Dictionary = GameManager.get_forge_level_bonus(2)
 		var eff_after: Dictionary = GameManager.get_effective_stats(hero)
 		var equip_after: Dictionary = GameManager.get_equipment_bonus(hero)
-		var hp_gain: int = (int(eff_after.get("hp", 0)) - int(equip_after.get("hp", 0))) - (int(eff_before.get("hp", 0)) - int(equip_before.get("hp", 0)))
+		var record_after: int = int(GameManager.get_first_record_bonus().get("hp", 0))
+		var hp_gain: int = (int(eff_after.get("hp", 0)) - int(equip_after.get("hp", 0)) - record_after) - (int(eff_before.get("hp", 0)) - int(equip_before.get("hp", 0)) - record_before)
 		_check("鍛冶のレベル：鍛えると点 %d → %d で Lv2・HP が補正の分 +%d（表 %d）" % [first_total - 1, GameManager.get_forge_exp(), hp_gain, int(bonus.get("hp", 0))],
 			GameManager.get_forge_exp() == first_total and GameManager.get_forge_level() == 2 and hp_gain == int(bonus.get("hp", 0)) and hp_gain > 0)
 		var toasts_after: int = 0 if toast == null else toast.find_children("ToastItem", "", true, false).size()

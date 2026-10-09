@@ -122,6 +122,14 @@ func _build_codex() -> void:
 	var heading: SheetHeading = _heading("ui_records_codex_title", "%d / %d" % [found, total])
 	heading.name = "CodexHeading"
 	left.add_child(heading)
+	# ⚠ 10-09（回SYS-3・`EQ-9`・人間「⚠ ３あ」）：⚠ 初回の記録＝図鑑の埋まった枠ごとに全員が上がる。⚠ いまの合計と1記録ぶん。
+	var record: Label = Label.new()
+	record.name = "FirstRecordLine"
+	record.theme_type_variation = &"CaptionLabel"
+	record.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	record.text = tr("ui_records_first_record") % [GameManager.get_first_record_count(), GameManager.get_first_record_total(),
+		_bonus_text(GameManager.get_first_record_bonus()), _bonus_text(GameManager.get_first_record_bonus_per_record())]
+	left.add_child(record)
 	# ⚠ 種類の切り替え「装備｜装飾｜素材」（⚠ 09-29 見る回・人間「⚠ 2あ」＝装備の表が縦に長いので1つずつ出す）。
 	var kinds: HBoxContainer = HBoxContainer.new()
 	kinds.name = "KindChoices"
@@ -150,6 +158,15 @@ func _build_codex() -> void:
 	body.add_child(_codex_detail())
 
 
+# 「HP +12」（⚠ 軸の並びは `get_stat_keys()`・0 の軸は出さない）。⚠ 何も無ければ「HP +0」の形にせず「なし」。
+func _bonus_text(bonus: Dictionary) -> String:
+	var parts: Array[String] = []
+	for stat_key: String in GameManager.get_stat_keys():
+		if int(bonus.get(stat_key, 0)) != 0:
+			parts.append("%s +%d%s" % [tr("ui_training_stat_" + stat_key), int(bonus[stat_key]), "%" if GameManager.is_percent_stat(stat_key) else ""])
+	return "  ".join(parts) if not parts.is_empty() else tr("ui_records_first_record_none")
+
+
 func _on_codex_kind_pressed(kind: String) -> void:
 	if kind == _codex_kind:
 		return
@@ -159,17 +176,9 @@ func _on_codex_kind_pressed(kind: String) -> void:
 
 
 # 埋まった数と全体（x＝埋まった ／ y＝全体）。⚠ 装備は「品 × 等級」で数える（⚠ `EXEC_CODEX_GRADES.md` §6）。
+# ⚠ 10-09（回SYS-3）：⚠ 数え方は `GameManager.get_codex_counts()` へ移した（⚠ 初回の記録と同じ1か所）。
 func codex_counts(kind: String) -> Vector2i:
-	var ids: Array[String] = GameManager.get_codex_ids(kind)
-	var found: int = 0
-	if kind == GameManager.CODEX_KIND_EQUIPMENT:
-		for item_id: String in ids:
-			found += GameManager.get_codex_grades(item_id).size()
-		return Vector2i(found, ids.size() * GameManager.get_max_equipment_grade())
-	for item_id: String in ids:
-		if GameManager.is_codex_discovered(item_id):
-			found += 1
-	return Vector2i(found, ids.size())
+	return GameManager.get_codex_counts(kind)
 
 
 # 種類ひとつ：見出し「装備　4 / 15」＋ 絵と「？」の枠。⚠ 手に入れていない品は名前も絵も出さない（⚠ 中身が割れる）。
