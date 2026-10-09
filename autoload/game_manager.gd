@@ -58,6 +58,8 @@ signal dungeon_run_changed(dungeon_id: String)
 signal tasks_changed()
 # ⚠ 拠点の遺物の点数が変わった（2026-10-07・回HB-3）。⚠ 捧げた（分解した）とき。
 signal guild_relic_changed(relic_id: String)
+# ⚠ 鍛冶のレベルが上がった（2026-10-09・回SYS-2・`EQ-5`）。⚠ 画面の上の知らせ（`Toast`）が受ける。
+signal forge_level_changed(level: int)
 
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
@@ -593,6 +595,8 @@ func _empty_state_template() -> Dictionary:
 		# ⚠ 見た品（2026-10-07・NEW のしおり紐）。⚠ 前のセーブは load_state() で図鑑から埋める。
 		GameStateKeys.SEEN_ITEMS: {},
 		GameStateKeys.GUILD_RELICS: {},
+		# ⚠ 鍛冶のレベルの経験値（2026-10-09・回SYS-2）。⚠ 前のセーブは 0（Lv1）。
+		GameStateKeys.FORGE_EXP: 0,
 		# ⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3（⚠ 帰還報告書の「最深 更新」）。
 		GameStateKeys.DUNGEON_BEST_FLOORS: {},
 		# ⚠ タスクのメモ（2026-10-04・`TK-1`・`TK-6`）。⚠ 前のセーブも空で読まれる。
@@ -2654,6 +2658,8 @@ func get_effective_stats(character_id: String) -> Dictionary:
 	var nodes: Dictionary = get_stat_node_bonus(character_id)
 	# ⚠ 10-07（回HB-3）：⚠ 拠点の遺物（全員に同じだけ）。6項目め。
 	var relics: Dictionary = get_guild_relic_stat_bonus()
+	# ⚠ 10-09（回SYS-2・`EQ-5`）：⚠ 鍛冶のレベル（全員に同じだけ）。7項目め。
+	var forge_level: Dictionary = get_forge_level_bonus()
 
 	var result: Dictionary = {}
 	var percent_keys: Array[String] = _percent_stat_keys()
@@ -2668,6 +2674,7 @@ func get_effective_stats(character_id: String) -> Dictionary:
 			+ int(equip.get(stat_key, 0))
 			+ int(nodes.get(stat_key, 0))
 			+ int(relics.get(stat_key, 0))
+			+ int(forge_level.get(stat_key, 0))
 		)
 	return result
 
@@ -3654,6 +3661,8 @@ func forge_equipment_roll(instance_id: String, use_token: bool = false) -> Dicti
 		equipment_instances_changed.emit(instance_id)
 	if str(result[FORGE_RESULT_RELIC_ID]) != "":
 		guild_relic_changed.emit(str(result[FORGE_RESULT_RELIC_ID]))
+	# ⚠ 10-09（回SYS-2・人間「⚠ １あ」）：⚠ 鍛えたら（成功でも失敗でも）鍛冶の経験値。
+	_add_forge_exp()
 	return result
 
 # 素材に戻したときの戻り量。{material_id: count} を返す。
@@ -3877,6 +3886,73 @@ func get_guild_relic_stat_bonus() -> Dictionary:
 		for stat_key: Variant in (relic.get(MasterDataLoader.GUILD_RELIC_STATS, []) as Array):
 			result[str(stat_key)] = int(result.get(str(stat_key), 0)) + value
 	return result
+
+
+# ============================================================
+# 鍛冶のレベル（2026-10-09・回SYS-2・`EQ-5`・`EXEC_FORGE_LEVEL.md`）
+# ============================================================
+#
+# ⚠ 状態が持つのは経験値の合計だけ（`FORGE_EXP`）。⚠ レベル・補正は `EquipmentConfig` から毎回（CLAUDE.md 4番）。
+# ⚠ 補正は全キャラに同じだけ（人間「⚠ ５い」）＝ `get_effective_stats()` の7項目め。
+
+func get_forge_exp() -> int:
+	return int(_state.get(GameStateKeys.FORGE_EXP, 0))
+
+
+func get_forge_level_max() -> int:
+	var config: EquipmentConfig = _equipment()
+	return 1 if config == null else config.forge_level_exp_totals.size() + 1
+
+
+func get_forge_level() -> int:
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return 1
+	var points: int = get_forge_exp()
+	var level: int = 1
+	for total: int in config.forge_level_exp_totals:
+		if points < total:
+			break
+		level += 1
+	return level
+
+
+# 次のレベルまでに要る残りの点。⚠ 最大なら 0。
+func get_forge_exp_to_next() -> int:
+	var config: EquipmentConfig = _equipment()
+	var level: int = get_forge_level()
+	if config == null or level >= get_forge_level_max():
+		return 0
+	return maxi(0, int(config.forge_level_exp_totals[level - 1]) - get_forge_exp())
+
+
+# 軸ごとの補正（⚠ 全キャラ同じ）。⚠ level を渡さなければいまのレベル。⚠ 最大で `forge_level_max_bonus`・途中は比例で切り捨て。
+func get_forge_level_bonus(level: int = -1) -> Dictionary:
+	var result: Dictionary = {}
+	var config: EquipmentConfig = _equipment()
+	var top: int = get_forge_level_max()
+	if config == null or top <= 1:
+		return result
+	var at: int = clampi(get_forge_level() if level < 0 else level, 1, top)
+	for stat_key: String in _stat_keys():
+		var full: int = int(config.forge_level_max_bonus.get(stat_key, 0))
+		var value: int = int(floor(float(full) * float(at - 1) / float(top - 1)))
+		if value != 0:
+			result[stat_key] = value
+	return result
+
+
+# ⚠ 経験値を足す唯一の口（⚠ 鍛える＝`forge_equipment_roll()` ／ 作る＝`start_craft()`＝どちらも払ったあと）。⚠ 上がったら知らせる。
+func _add_forge_exp() -> void:
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return
+	var before: int = get_forge_level()
+	_state[GameStateKeys.FORGE_EXP] = get_forge_exp() + maxi(0, config.forge_level_exp_per_action)
+	var after: int = get_forge_level()
+	print("[GameManager] 鍛冶の経験値 -> %d（Lv%d）" % [get_forge_exp(), after])
+	if after > before:
+		forge_level_changed.emit(after)
 
 
 # ⚠ 戦闘のパッシブ（⚠ 受ける回復の遺物＝段ごとの ID）。⚠ `battle_controller.gd` が味方に足す。
@@ -6795,6 +6871,8 @@ func start_craft(recipe_id: String) -> bool:
 		recipe_id, duration_sec, new_queue.size(), max_slots
 	])
 	crafting_queue_changed.emit()
+	# ⚠ 10-09（回SYS-2・人間「⚠ １あ」）：⚠ 作るを始めたら（払ったら）鍛冶の経験値。
+	_add_forge_exp()
 	return true
 
 # 完成した製作物を受け取る。完了前・存在しない queue_id なら何もせず false。
@@ -7331,6 +7409,8 @@ func load_state(data: Dictionary) -> bool:
 			relic_points[relic_key] = int(relic_points[relic_key])
 	else:
 		new_state[GameStateKeys.GUILD_RELICS] = {}
+	# ⚠ 鍛冶のレベルの経験値（2026-10-09・回SYS-2）を int に戻す（CLAUDE.md 3番）。⚠ 前のセーブには無い＝0。
+	new_state[GameStateKeys.FORGE_EXP] = maxi(0, int(new_state.get(GameStateKeys.FORGE_EXP, 0)))
 	# ⚠ タスクのメモ（2026-10-04・`TK-1`）：⚠ 色・🍅・日付を int に戻す（CLAUDE.md 3番）。
 	new_state[GameStateKeys.TASKS] = _normalize_task_list(new_state.get(GameStateKeys.TASKS, []))
 	new_state[GameStateKeys.TASK_LOG] = _normalize_task_list(new_state.get(GameStateKeys.TASK_LOG, []))

@@ -4,7 +4,7 @@ extends CanvasLayer
 # 画面の上の小さな知らせ（2026-10-07・回UI-便 F・人間「⚠ 判断がいらないものをとりあえずぜんぶ」）。
 #
 # ⚠ 窓を出さずに上の真ん中へ流し、しばらくすると消える（⚠ 押さなくてよい・操作を止めない）。
-# ⚠ いま流すのは**作業場の完成**だけ（⚠ 時間で勝手に進むので、どの画面にいても気づけない）。
+# ⚠ いま流すのは**作業場の完成**と**鍛冶のレベルが上がった**（10-09・`EQ-5`）だけ（⚠ 作業場は時間で勝手に進むので、どの画面にいても気づけない）。
 #   ⚠ 宝箱・研究などは自分で操作した直後に画面に出るので流さない（⚠ 二重になる）。
 # ⚠ 置き場は `ResourceGainEffect` と同じく root の常駐（⚠ `SceneManager` が生やす・Autoload を増やさない）。
 # ⚠ 値は Theme の `Toast` 型（⚠ 出ている長さ・消える長さ・上の余白）と `ToastPanel` / `ToastLabel`。
@@ -51,6 +51,12 @@ func _ready() -> void:
 	field.add_child(_column)
 	# ⚠ 起動したときに既に完成しているものは知らせない（⚠ 前のセッションの完成）。
 	_completed = _completed_ids()
+	# ⚠ 10-09（回SYS-2・`EQ-5`・人間「⚠ ４あ」）：⚠ 鍛冶のレベルが上がったら知らせる（⚠ 鍛える・作るの直後に気づけるように）。
+	GameManager.forge_level_changed.connect(_on_forge_level_changed)
+
+
+func _on_forge_level_changed(level: int) -> void:
+	show_message(tr("ui_toast_forge_level_up") % level)
 
 
 func _process(delta: float) -> void:

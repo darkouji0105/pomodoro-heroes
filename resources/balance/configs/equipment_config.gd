@@ -42,6 +42,19 @@ extends Resource
 # ⚠ 確定成功の札（`EQ-7`）を使うと、その1回はこの値に関係なく成功する。
 @export var forge_success_pct_by_grade: Array[int] = [100, 100, 100, 100, 90, 80, 70, 60, 50]
 
+# --- 鍛冶のレベル ---（2026-10-09・回SYS-2・決定 `EQ-5`・`EXEC_FORGE_LEVEL.md`・人間「⚠ １あ　２い　３あ　４あ　５い」）
+# ⚠⚠ 値は**仮**（⚠ 設計役が置いた）。⚠ 遊んでから直す。
+# 作る・鍛える1回でもらう点（⚠ 成功も失敗も同じ）。
+@export var forge_level_exp_per_action: int = 1
+# Lv2〜Lv10 に要る経験値の**合計**。⚠ 長さ＋1 が最大レベル（⚠ いま 10）。⚠ だんだん増える。
+@export var forge_level_exp_totals: Array[int] = [3, 8, 15, 25, 40, 60, 85, 115, 150]
+# 最大レベルで全キャラに足す量（軸ごと）。⚠ 途中のレベルは比例で切り捨て（Lv1 は 0）。
+# ⚠ だいたい「等級1つ分」。⚠ 会心率は小さい軸なので伸ばさない。
+@export var forge_level_max_bonus: Dictionary[String, int] = {
+	"hp": 30, "atk": 6, "mag": 6, "def": 5, "mdef": 5,
+	"atkspd": 3, "haste": 3, "spd": 3, "crit_dmg": 5, "crit_rate": 0,
+}
+
 # --- 分解 ---
 # 等級1の装備を素材に戻したときの基礎量（返却率を掛ける前）。
 @export var dismantle_refund_base: int = 3

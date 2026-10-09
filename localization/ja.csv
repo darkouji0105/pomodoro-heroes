@@ -1633,3 +1633,10 @@ ui_guild_workshop_tab_armor,防具
 ui_guild_workshop_tab_accessory,アクセサリー
 ui_guild_workshop_tab_decor,装飾
 ui_guild_workshop_tab_draw,くじ
+ui_forge_level_title,鍛冶の腕
+ui_forge_level_value,Lv%d
+ui_forge_level_next,次まで あと%d回
+ui_forge_level_max,最大
+ui_forge_level_bonus,全員 %s
+ui_forge_level_bonus_none,全員への補正はまだ無い
+ui_toast_forge_level_up,鍛冶の腕が Lv%d に上がった

@@ -10534,6 +10534,7 @@ class UiFlowRunner extends Node:
 		await _flow_tasks()
 		await _flow_task_folders()
 		await _flow_workshop_tabs()
+		await _flow_forge_level()
 		await _flow_autosave()
 		await _flow_pomodoro_extras()
 		await _flow_mini_ask()
@@ -12642,6 +12643,67 @@ class UiFlowRunner extends Node:
 		for task: Variant in GameManager.get_tasks():
 			all_loose = all_loose and str((task as Dictionary).get(GameStateKeys.TASK_FOLDER, "?")) == ""
 		_check("フォルダ：前のセーブは全部フォルダなし・フォルダは空", loaded and all_loose and GameManager.get_task_folders().is_empty())
+		var _restored: bool = GameManager.load_state(snapshot)
+
+	# ⚠ 回SYS-2（10-09・`EQ-5`・`EXEC_FORGE_LEVEL.md` §4）：⚠ 鍛冶のレベル＝鍛える・作るで点 → Lv が上がる → 全員のステータスに補正。
+	func _flow_forge_level() -> void:
+		const WORKSHOP_SCREEN: String = "res://scenes/guild/workshop_screen.tscn"
+		var snapshot: Dictionary = GameManager.get_state()
+		var instance_id: String = ""
+		for view: Variant in GameManager.get_owned_instances():
+			var id: String = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+			if _grade(id) < GameManager.get_max_equipment_grade():
+				instance_id = id
+				break
+		var party: Array = snapshot.get(GameStateKeys.PARTY_MEMBERS, []) as Array
+		var hero: String = str(party[0]) if not party.is_empty() else ""
+		_check("鍛冶のレベル：鍛える品と仲間がいる（%s / %s）" % [instance_id, hero], instance_id != "" and hero != "")
+		if instance_id == "" or hero == "":
+			return
+		# ⚠ Lv2 の1つ手前（⚠ 表の最初の合計 −1）から始める。
+		var first_total: int = int(Balance.equipment.forge_level_exp_totals[0])
+		GameManager.get("_state")[GameStateKeys.FORGE_EXP] = first_total - 1
+		var cost: Dictionary = GameManager.get_forge_cost(instance_id)
+		GameManager.add_material(str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, "")), int(cost.get(GameManager.FORGE_COST_AMOUNT, 0)))
+		var f: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: instance_id})
+		if f == null:
+			return
+		var level_label: Label = f.find_child("ForgeLevelLabel", true, false) as Label
+		var next_label: Label = f.find_child("ForgeLevelNext", true, false) as Label
+		_check("鍛冶のレベル：鍛冶場の右上に Lv と次まで（%s ／ %s）" % [
+			"" if level_label == null else level_label.text, "" if next_label == null else next_label.text],
+			level_label != null and level_label.text == tr("ui_forge_level_value") % 1 and next_label != null and next_label.text == tr("ui_forge_level_next") % 1)
+		var eff_before: Dictionary = GameManager.get_effective_stats(hero)
+		var equip_before: Dictionary = GameManager.get_equipment_bonus(hero)
+		var toast: Toast = Toast.get_instance()
+		var toasts_before: int = 0 if toast == null else toast.find_children("ToastItem", "", true, false).size()
+		await _forge_press(f.find_child("ForgeButton", true, false))
+		var bonus: Dictionary = GameManager.get_forge_level_bonus(2)
+		var eff_after: Dictionary = GameManager.get_effective_stats(hero)
+		var equip_after: Dictionary = GameManager.get_equipment_bonus(hero)
+		var hp_gain: int = (int(eff_after.get("hp", 0)) - int(equip_after.get("hp", 0))) - (int(eff_before.get("hp", 0)) - int(equip_before.get("hp", 0)))
+		_check("鍛冶のレベル：鍛えると点 %d → %d で Lv2・HP が補正の分 +%d（表 %d）" % [first_total - 1, GameManager.get_forge_exp(), hp_gain, int(bonus.get("hp", 0))],
+			GameManager.get_forge_exp() == first_total and GameManager.get_forge_level() == 2 and hp_gain == int(bonus.get("hp", 0)) and hp_gain > 0)
+		var toasts_after: int = 0 if toast == null else toast.find_children("ToastItem", "", true, false).size()
+		_check("鍛冶のレベル：上がったら画面の上に知らせ（%d → %d）" % [toasts_before, toasts_after], toasts_after > toasts_before)
+		f.call("_on_back_pressed")
+		await get_tree().process_frame
+		level_label = f.find_child("ForgeLevelLabel", true, false) as Label
+		_check("鍛冶のレベル：鍛える紙に戻ると Lv2", level_label != null and level_label.text == tr("ui_forge_level_value") % 2)
+		# ⚠ 作るを始めても1点。
+		GameManager.add_material("forging_material_1", 10)
+		var ws: Node = await _open(WORKSHOP_SCREEN, {})
+		var points: int = GameManager.get_forge_exp()
+		var queued: int = GameManager.get_crafting_queue().size()
+		var row: Node = null if ws == null else ws.find_child("RecipeRow_craft_weapon_bow_short", true, false)
+		await _press(null if row == null else row.find_child("StartButton", true, false))
+		_check("鍛冶のレベル：作るを始めると点 %d → %d（キュー %d → %d）" % [points, GameManager.get_forge_exp(), queued, GameManager.get_crafting_queue().size()],
+			GameManager.get_crafting_queue().size() == queued + 1 and GameManager.get_forge_exp() == points + 1)
+		# ⚠ 前のセーブ（⚠ 経験値の欄が無い）は Lv1・補正なし。
+		var old: Dictionary = snapshot.duplicate(true)
+		old.erase(GameStateKeys.FORGE_EXP)
+		var loaded: bool = GameManager.load_state(old)
+		_check("鍛冶のレベル：前のセーブは Lv1・補正なし", loaded and GameManager.get_forge_exp() == 0 and GameManager.get_forge_level() == 1 and GameManager.get_forge_level_bonus().is_empty())
 		var _restored: bool = GameManager.load_state(snapshot)
 
 	# ⚠ 回SYS-1（10-09・人間「⚠ １あ　２い　３い」）：⚠ 作業場のレシピを分類の紙のタブで絞る・⚠ 最後に選んだタブを覚える。

@@ -42,6 +42,9 @@ const SEEN_ITEMS: String = "seen_items"
 # ⚠ 拠点の遺物（2026-10-07・回HB-3・`EQ-8`）：{relic_id: 点数の合計 int}。⚠ 段は点数からマスターの costs で毎回計算（CLAUDE.md 4番）。
 # ⚠ 足す口は `GameManager.dismantle_equipment()` だけ（⚠ 捧げる＝分解）。⚠ relic_id はリリース後に改名しない。
 const GUILD_RELICS: String = "guild_relics"
+# ⚠ 鍛冶のレベル（2026-10-09・回SYS-2・`EQ-5`）：経験値の合計 int。⚠ レベルと補正は `EquipmentConfig` から毎回計算（CLAUDE.md 4番）。
+# ⚠ 足す口は `GameManager._add_forge_exp()`（⚠ 鍛える・作るを始める）。
+const FORGE_EXP: String = "forge_exp"
 # ⚠ 難ダンジョンごとの最深（⚠ ボスを倒したフロアの数のいちばん大きい値）。⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3。
 const DUNGEON_BEST_FLOORS: String = "dungeon_best_floors"
 const DAILY_SHOP: String = "daily_shop"

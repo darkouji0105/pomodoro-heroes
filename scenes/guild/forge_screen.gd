@@ -1,7 +1,7 @@
 # res://scenes/guild/forge_screen.gd
 # 鍛冶場（2026-09-27・回UI-仕組み①・手本 Forge / ForgeResult / ForgeResultFail）。
 #
-# ⚠ 人間「⚠ 1あ」＝画面 ＋ **失敗（`EQ-6`）と確定成功の札（`EQ-7`）**。⚠ 鍛冶のレベル（`EQ-5`）は右上の欄ごと後回し。
+# ⚠ 人間「⚠ 1あ」＝画面 ＋ **失敗（`EQ-6`）と確定成功の札（`EQ-7`）**。⚠ 鍛冶のレベル（`EQ-5`）は 10-09（回SYS-2）に右の列の上へ入った（`_build_side_level()`）。
 # ⚠ 人間「⚠ 2あ」＝作業場は「作る」タブ（⚠ いまはタブを押すと作業場の画面へ移る＝⚠ 作業場の中身はまだ作り直していない）。
 # ⚠ 人間「⚠ 3あ」＝持ち物・育成の「鍛える」は、⚠ この画面をその品を選んだ状態で開く（`TransferKeys.FORGE_INSTANCE_ID`）。
 # ⚠ 紙の左に鍛える装備の一覧 ／ ⚠ 右に「前 → 後・成功率・素材・札を使う・鍛える」。⚠ 右の列に札の数と「持ち物を見る」。
@@ -449,6 +449,7 @@ func _record_row(row_name: String, caption_text: String, value_text: String, not
 # --- 右の列 ------------------------------------------------------------
 
 func _build_side_forge() -> void:
+	_build_side_level()
 	var holder: TiltedSheet = TiltedSheet.create(1)
 	holder.name = "TokenSheet"
 	var line: HBoxContainer = HBoxContainer.new()
@@ -472,6 +473,45 @@ func _build_side_forge() -> void:
 	belongings.disabled = _selected == ""
 	belongings.pressed.connect(_on_belongings_pressed)
 	side.add_child(belongings)
+
+
+# ⚠⚠ 鍛冶のレベル（10-09・回SYS-2・`EQ-5`・人間「⚠ ４あ」＝右上）。⚠ Lv ／ 次まで ／ いまの補正（⚠ 全員・0 の軸は出さない）。
+#   ⚠ 値は `GameManager.get_forge_*` から毎回（⚠ この画面で計算しない）。
+func _build_side_level() -> void:
+	var holder: TiltedSheet = TiltedSheet.create(0)
+	holder.name = "ForgeLevelSheet"
+	var column: VBoxContainer = VBoxContainer.new()
+	holder.sheet.add_child(column)
+	var line: HBoxContainer = HBoxContainer.new()
+	column.add_child(line)
+	var caption: Label = Label.new()
+	caption.text = tr("ui_forge_level_title")
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(caption)
+	var level: Label = Label.new()
+	level.name = "ForgeLevelLabel"
+	level.theme_type_variation = &"DossierLevelLabel"
+	level.text = tr("ui_forge_level_value") % GameManager.get_forge_level()
+	line.add_child(level)
+	var next: Label = Label.new()
+	next.name = "ForgeLevelNext"
+	next.theme_type_variation = &"CaptionLabel"
+	var to_next: int = GameManager.get_forge_exp_to_next()
+	next.text = tr("ui_forge_level_next") % to_next if to_next > 0 else tr("ui_forge_level_max")
+	column.add_child(next)
+	var bonus: Dictionary = GameManager.get_forge_level_bonus()
+	var parts: Array[String] = []
+	for stat_key: String in GameManager.get_stat_keys():
+		if int(bonus.get(stat_key, 0)) != 0:
+			parts.append(_stat_text(stat_key, bonus))
+	var effect: Label = Label.new()
+	effect.name = "ForgeLevelBonus"
+	effect.theme_type_variation = &"CaptionLabel"
+	effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	effect.text = tr("ui_forge_level_bonus") % "  ".join(parts) if not parts.is_empty() else tr("ui_forge_level_bonus_none")
+	column.add_child(effect)
+	side.add_child(holder)
 
 
 # ⚠⚠ 捧げる（10-07・見る回22回目・人間「⚠ ささげるのは、鍛冶場からでもできるように」）。
