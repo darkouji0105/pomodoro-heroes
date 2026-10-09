@@ -3212,6 +3212,7 @@ GhostButton/styles/pressed = SubResource("StyleBoxFlat_64y5x")
 Goal/constants/sidebar_top = 120
 Goal/constants/sidebar_width = 360
 Goal/constants/stepper_width = 44
+GoalRunner/constants/step_ms = 600
 GoalStripButton/base_type = &"Button"
 GoalStripButton/colors/font_color = Color(0.16862746, 0.12941177, 0.09411765, 1)
 GoalStripButton/colors/font_focus_color = Color(0.16862746, 0.12941177, 0.09411765, 1)

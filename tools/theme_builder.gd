@@ -680,6 +680,8 @@ const GOAL_STEPPER_WIDTH: int = 44  # ⚠ 数（n）の欄の幅
 # ⚠ 戦闘の「自動」「速さ」（10-09・回AUTO-2）。⚠ 戦闘の上の帯（高さ 40）に収まる低いボタン。
 const BATTLE_TOGGLE_PAD_H: int = 12
 const BATTLE_TOGGLE_PAD_V: int = 3
+# ⚠ おまかせで集める（10-09・回AUTO-3・`GoalRunner`）：⚠ 1つ操作するごとに見せる長さ（⚠ 演出の速さの設定で割る）。
+const GOAL_RUNNER_STEP_MS: int = 600
 const CHIP_PLUS_HOVER_MS: int = 120
 # ⚠ チップの中のアイコン（⚠ モックの `.hud .ic` は 20px）。
 #   ⚠ `ResourceDisplay` の既定は 24px だが、⚠ チップの中だけモックに合わせて 20px。
@@ -1072,6 +1074,7 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_constant(&"sidebar_width", &"Goal", GOAL_SIDEBAR_WIDTH)
 	theme.set_constant(&"sidebar_top", &"Goal", GOAL_SIDEBAR_TOP)
 	theme.set_constant(&"stepper_width", &"Goal", GOAL_STEPPER_WIDTH)
+	theme.set_constant(&"step_ms", &"GoalRunner", GOAL_RUNNER_STEP_MS)
 	# ⚠ チップ全体の当たり。⚠ 縁は**出さない**（⚠ 触れたことは「＋」が知らせる）。
 	for state: String in BUTTON_STATES:
 		theme.set_stylebox(StringName(state), &"ChipHitButton", StyleBoxEmpty.new())

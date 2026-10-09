@@ -10613,6 +10613,7 @@ class UiFlowRunner extends Node:
 		await _flow_item_sources()
 		await _flow_goal()
 		await _flow_battle_auto()
+		await _flow_goal_runner()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -13526,6 +13527,101 @@ class UiFlowRunner extends Node:
 
 	# ⚠ 戦闘の「自動」と速さ（2026-10-09・回AUTO-2・人間「⚠ １あ　２あ　３あ　４い」）。
 	#   ⚠ 終わりの合図＝「自動」を入れたら人が触らずに決着する。⚠ 第1話の波を検証用（報酬なし）で開く。
+	# ⚠ おまかせで集める（2026-10-09・回AUTO-3・人間「⚠ １あ　２戦闘関連はまだ作らない　３あ　４あ　５あ」）。
+	#   ⚠ 宝箱 → ショップ → 周回をそれぞれ1つだけ効く形にして押す ／ ⚠ 何も無いときは止まって理由と入手先の窓。⚠ 終わったら状態を戻す。
+	func _flow_goal_runner() -> void:
+		const ITEM: String = "forging_material_1"
+		var snapshot: Dictionary = GameManager.get_state()
+		GameSettings.set_value(GameSettings.SECTION_DISPLAY, GameSettings.KEY_EFFECT_SPEED, GameSettings.EFFECT_SPEEDS.size() - 1)
+		GameSettings.set_value(GameSettings.SECTION_DISPLAY, GameSettings.KEY_GOAL_STYLE, GameSettings.GOAL_STYLE_STRIP)
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		_set_material(ITEM, 5)
+		# ① 宝箱だけで届く：⚠ ショップと周回を塞ぐ（金貨 0・スタミナ 0）＋ 必ずその品を出す宝箱を1つ。
+		#   ⚠ 鍛冶の欠片を必ず出す宝箱は無い（⚠ くじだけ）＝⚠ 宝箱の手は建築素材1（`generic` が必ず出す）で見る。
+		const CHEST_ITEM: String = "construction_material_1"
+		_clear_chests_for(CHEST_ITEM)
+		GameManager.add_gold(-GameManager.get_resource_amount(GameStateKeys.GOLD))
+		GameManager.add_stamina(-GameManager.get_resource_amount(GameStateKeys.STAMINA))
+		var chest_id: String = ""
+		for raw: Variant in MasterDataLoader.get_all_chests():
+			if _chest_always_gives(str(raw), CHEST_ITEM):
+				chest_id = str(raw)
+				break
+		_set_material(CHEST_ITEM, 0)
+		var _granted: bool = GameManager.grant_chest(chest_id, "debug_boot")
+		var _set: bool = GameManager.set_goal({CHEST_ITEM: 1}, GameStateKeys.GOAL_ORIGIN_ITEM, CHEST_ITEM)
+		await _run_goal_runner()
+		_check("おまかせ：宝箱だけで届く（%s を開けた・目標は消えた）" % chest_id,
+			chest_id != "" and not GameManager.has_goal() and _chests_for(CHEST_ITEM) == 0 and GameManager.get_resource_amount(CHEST_ITEM) >= 1)
+		# ② ショップだけで届く：⚠ 金貨を持たせる（⚠ スタミナ 0 のまま）。
+		_set_material(ITEM, 5)
+		GameManager.add_gold(100000)
+		var gold_before: int = GameManager.get_resource_amount(GameStateKeys.GOLD)
+		var _set2: bool = GameManager.set_goal({ITEM: 6}, GameStateKeys.GOAL_ORIGIN_ITEM, ITEM)
+		await _run_goal_runner()
+		_check("おまかせ：ショップで買って届く（金貨 %d → %d）" % [gold_before, GameManager.get_resource_amount(GameStateKeys.GOLD)],
+			not GameManager.has_goal() and GameManager.get_resource_amount(GameStateKeys.GOLD) < gold_before)
+		# ③ 周回：⚠ 金貨 0・スタミナを満たす・第1話を踏破済みに。⚠ 届くまでは保証できない（⚠ 周回の中身はくじ）＝周回した（スタミナが減った）ことを見る。
+		_set_material(ITEM, 5)
+		GameManager.add_gold(-GameManager.get_resource_amount(GameStateKeys.GOLD))
+		GameManager.add_stamina(9999)
+		GameManager.mark_stage_cleared("floor_1")
+		var stamina_before: int = GameManager.get_resource_amount(GameStateKeys.STAMINA)
+		var _set3: bool = GameManager.set_goal({ITEM: 7}, GameStateKeys.GOAL_ORIGIN_ITEM, ITEM)
+		await _run_goal_runner()
+		_check("おまかせ：踏破済みの依頼を周回する（スタミナ %d → %d）" % [stamina_before, GameManager.get_resource_amount(GameStateKeys.STAMINA)],
+			GameManager.get_resource_amount(GameStateKeys.STAMINA) < stamina_before)
+		# ④ 何も無い：⚠ 金貨 0・スタミナ 0・届かない数 → 止まる・目標は残る・入手先の窓・理由の知らせ。
+		GameManager.clear_goal()
+		_set_material(ITEM, 5)
+		GameManager.add_stamina(-GameManager.get_resource_amount(GameStateKeys.STAMINA))
+		_clear_chests_for(ITEM)
+		var toast: Toast = Toast.get_instance()
+		var _set4: bool = GameManager.set_goal({ITEM: 99999}, GameStateKeys.GOAL_ORIGIN_ITEM, ITEM)
+		await _run_goal_runner()
+		var reasons: int = 0
+		if toast != null:
+			for label: Node in toast.find_children("ToastLabel", "", true, false):
+				if (label as Label).text in [tr("ui_goal_auto_stop_gold"), tr("ui_goal_auto_stop_stamina"), tr("ui_goal_auto_stop_nothing")]:
+					reasons += 1
+		_check("おまかせ：集められないときは止まり、目標は残り、理由の知らせと入手先の窓（理由 %d）" % reasons,
+			GameManager.has_goal() and reasons > 0 and _source_window(get_tree().current_scene) != null)
+		await _close_modal(get_tree().current_scene)
+		GameSettings.set_value(GameSettings.SECTION_DISPLAY, GameSettings.KEY_EFFECT_SPEED, 0)
+		var _restored: bool = GameManager.load_state(snapshot)
+
+	# 帯 → 目標の紙 → 「おまかせで集める」を押し、終わるまで待つ（⚠ 本物のボタン）。
+	func _run_goal_runner() -> void:
+		var _base: Node = await _open(BASE, {})
+		var hud: GoalHud = GoalHud.get_instance()
+		await _press(null if hud == null else hud.find_child("GoalStrip", true, false))
+		var modal: ModalDialog = _modal_of(get_tree().current_scene)
+		await _press(null if modal == null else modal.find_child("AutoButton", true, false))
+		var started: float = Time.get_ticks_msec() / 1000.0
+		await _wait()
+		while GoalRunner.is_running() and Time.get_ticks_msec() / 1000.0 - started < 120.0:
+			await get_tree().process_frame
+		await _wait(OPEN_FRAMES)
+
+	func _chests_for(item_id: String) -> int:
+		var count: int = 0
+		for raw: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+			if not bool((raw as Dictionary).get(GameStateKeys.CHEST_OPENED, false)) and GameManager.chest_can_give(str((raw as Dictionary).get(GameStateKeys.CHEST_ID, "")), item_id):
+				count += 1
+		return count
+
+	# その品が出うる届いた宝箱を全部開けておく（⚠ 手の前提をそろえる）。
+	func _clear_chests_for(item_id: String) -> void:
+		for raw: Variant in GameManager.get_state().get(GameStateKeys.PENDING_CHESTS, []):
+			if not bool((raw as Dictionary).get(GameStateKeys.CHEST_OPENED, false)) and GameManager.chest_can_give(str((raw as Dictionary).get(GameStateKeys.CHEST_ID, "")), item_id):
+				var _opened: bool = GameManager.open_chest(str((raw as Dictionary).get(GameStateKeys.CHEST_INSTANCE_ID, "")))
+
+	# 固定の中身にその品があるか（⚠ くじの宝箱だと開けても出ないことがある＝手が揺れる）。
+	func _chest_always_gives(chest_id: String, item_id: String) -> bool:
+		var rewards: Variant = MasterDataLoader.get_chest(chest_id).get(GameStateKeys.CHEST_REWARDS, {})
+		return JSON.stringify(rewards).contains("\"%s\"" % item_id)
+
 	# 戦闘の記録（`battle_last.jsonl`）の、味方（`party_*`）が**ボタンのスキル**を撃った数。⚠ 記録は戦闘を開くたびに空から。
 	#   ⚠ パッシブ（遺物・特殊効果）も「cast」で記録される＝⚠ ボタンに載っているスキルだけ数える。
 	func _party_casts(battle: Node) -> int:

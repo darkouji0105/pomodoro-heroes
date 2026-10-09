@@ -1671,3 +1671,9 @@ ui_settings_goal_sidebar,右のサイドバー
 ui_battle_auto_on,自動：オン
 ui_battle_auto_off,自動：オフ
 ui_battle_speed,速さ ×%d
+ui_goal_auto,おまかせで集める
+ui_goal_auto_done,おまかせ：宝箱 %d・買った %d・周回 %d
+ui_goal_auto_stop_nothing,ここから先は自分で集める（まだの依頼・難ダンジョンなど）
+ui_goal_auto_stop_gold,金貨が足りないので止めた
+ui_goal_auto_stop_stamina,スタミナが足りないので止めた
+ui_goal_auto_stop_moved,画面を移ったので、おまかせを止めた

@@ -59,6 +59,12 @@ func _rebuild() -> void:
 	add_child(list)
 	for line: Dictionary in GameManager.get_goal_progress():
 		list.add_child(_make_line(line))
+	# ⚠ 10-09（回AUTO-3）：⚠ おまかせで集める（⚠ 宝箱 → ショップ → 周回を画面を見せながら・`GoalRunner`）。⚠ 走っているあいだは押せない。
+	var auto: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_goal_auto")
+	auto.name = "AutoButton"
+	auto.disabled = GoalRunner.is_running()
+	auto.pressed.connect(_on_auto_pressed)
+	add_child(auto)
 	# ⚠ 紙の上なので紙の選び札（⚠ 透かしのボタンは暗い地用＝紙の上だと字が消える・10-09 の撮影で見た）。
 	var stop: Button = UiButton.create_paper_choice("ui_goal_stop")
 	stop.name = "StopButton"
@@ -108,6 +114,13 @@ func _on_source_pressed(item_id: String, target: int) -> void:
 		owner_dialog.close()
 	if scene != null:
 		var _window: ModalDialog = ItemSourceWindow.open(scene, item_id, target)
+
+
+func _on_auto_pressed() -> void:
+	var owner_dialog: ModalDialog = _owner_dialog()
+	if owner_dialog != null:
+		owner_dialog.close()
+	var _runner: GoalRunner = GoalRunner.start(self)
 
 
 func _owner_dialog() -> ModalDialog:
