@@ -3,7 +3,7 @@ extends VBoxContainer
 
 # ポモドーロの設定の行（2026-10-02・人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）。
 #
-# ⚠ 集中の長さ ／ 休憩の長さ ／ 長い休憩の長さ（10-06）／ 小窓 ／ 小窓をいつも前に ／ 休憩明けの自動開始 ／ 1日の目標（10-05・回P-3）／ 話しかける（まだ）。
+# ⚠ 集中の長さ ／ 休憩の長さ ／ 長い休憩の長さ（10-06）／ 小窓 ／ 小窓をいつも前に ／ 休憩明けの自動開始 ／ タスクバーを光らせる（10-09）／ 1日の目標（10-05・回P-3）／ 話しかける（まだ）。
 # ⚠ 置き場は2つ：⚠ ポモドーロの画面の紙の窓（`PomodoroLinks`）／ ⚠ 設定の画面の「ポモドーロと小窓」タブ（⚠ 同じ部品）。
 # ⚠ 押したらすぐ `GameSettings` に書き、⚠ 自分を描き直す（⚠ 押した札を押している最中に外さない＝次のフレーム）。
 # ⚠ 見た目の値は Theme の `Settings` 型（⚠ 設定の画面と同じ）。⚠ 行と札の名前は検査が読む（`FocusRow` `Focus_45` `Mini_true` …）。
@@ -50,6 +50,9 @@ func _rebuild() -> void:
 	# ⚠ 回P-3（2026-10-05）：⚠ 休憩明けの自動開始（オフ｜オン）／ ⚠ 1日の目標（なし｜60分 …）。
 	_row("AutoStartRow", "ui_settings_auto_start", "ui_settings_auto_start_note",
 		_choices("AutoStart", [false, true], off_on, GameSettings.auto_start_focus(), _on_chosen.bind(GameSettings.KEY_AUTO_START)))
+	# ⚠ 10-09（回SYS-4・人間「⚠ う」）：⚠ 終わったらタスクバーを光らせる（オフ｜オン・既定オン）。⚠ 音はこの設定に関係なく鳴る。
+	_row("FlashRow", "ui_settings_flash_taskbar", "ui_settings_flash_taskbar_note",
+		_choices("Flash", [false, true], off_on, GameSettings.flash_taskbar(), _on_chosen.bind(GameSettings.KEY_FLASH_TASKBAR)))
 	var goal_values: Array = Balance.pomodoro.daily_goal_minute_choices.duplicate()
 	var goal_labels: Array[String] = []
 	for minutes: Variant in goal_values:

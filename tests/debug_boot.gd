@@ -10536,6 +10536,7 @@ class UiFlowRunner extends Node:
 		await _flow_workshop_tabs()
 		await _flow_forge_level()
 		await _flow_first_record()
+		await _flow_flash_taskbar()
 		await _flow_autosave()
 		await _flow_pomodoro_extras()
 		await _flow_mini_ask()
@@ -12645,6 +12646,22 @@ class UiFlowRunner extends Node:
 			all_loose = all_loose and str((task as Dictionary).get(GameStateKeys.TASK_FOLDER, "?")) == ""
 		_check("フォルダ：前のセーブは全部フォルダなし・フォルダは空", loaded and all_loose and GameManager.get_task_folders().is_empty())
 		var _restored: bool = GameManager.load_state(snapshot)
+
+	# ⚠ 回SYS-4（10-09・人間「⚠ う」）：⚠ 終わったらタスクバーを光らせるかを設定で選べる（既定オン）。⚠ 光ったかは `request_attention()` の戻り値で見る。
+	func _flow_flash_taskbar() -> void:
+		var s: Node = await _open(SETTINGS, {TransferKeys.SETTINGS_TAB: SettingsScreen.TAB_POMODORO})
+		if s == null:
+			return
+		_check("タスクバー：設定に「終わったらタスクバーを光らせる」・既定オン", s.find_child("FlashRow", true, false) != null and GameSettings.flash_taskbar())
+		await _press(s.find_child("Flash_false", true, false))
+		var p: Node = await _open(POMODORO, {})
+		var off: bool = false if p == null else bool(p.call("request_attention"))
+		_check("タスクバー：オフにすると終わっても光らせない（%s）" % str(GameSettings.flash_taskbar()), not GameSettings.flash_taskbar() and p != null and not off)
+		s = await _open(SETTINGS, {TransferKeys.SETTINGS_TAB: SettingsScreen.TAB_POMODORO})
+		await _press(null if s == null else s.find_child("Flash_true", true, false))
+		p = await _open(POMODORO, {})
+		var on: bool = false if p == null else bool(p.call("request_attention"))
+		_check("タスクバー：オンに戻すと光らせる", GameSettings.flash_taskbar() and on)
 
 	# ⚠ 回SYS-3（10-09・`EQ-9`・人間「⚠ １い、う　２ HP１（いつでも変えられるように）　３あ　４う」）：
 	#   ⚠ 初回の記録＝図鑑の埋まった枠 ×（Config の1記録ぶん）が全員に乗る・⚠ 新しく埋まると知らせ・⚠ 図鑑に合計。

@@ -28,6 +28,8 @@ const KEY_MINI_ASKED: String = "mini_window_asked"
 # ⚠ 回P-3（2026-10-05）：⚠ 休憩明けに次の集中を自動で始める（既定オフ）／ ⚠ 1日の目標（分・0＝なし・既定なし）。
 const KEY_AUTO_START: String = "auto_start_focus"
 const KEY_DAILY_GOAL: String = "daily_goal_minutes"
+# ⚠ 集中・休憩が終わったらタスクバーを光らせる（2026-10-09・回SYS-4・人間「⚠ う」＝選べる・既定オン）。
+const KEY_FLASH_TASKBAR: String = "flash_taskbar"
 # ⚠ タスクの期限の札「今週中」が入れる曜日（2026-10-05・`TK-17`・人間「⚠ 設定に足す・既定は土曜」）。⚠ 値は曜日の番号（0＝日 … 6＝土・Godot の `weekday` と同じ）。
 const SECTION_TASK: String = "task"
 const KEY_WEEK_END: String = "week_end_weekday"
@@ -97,6 +99,8 @@ static func _default(section: String, key: String) -> Variant:
 			return false
 		KEY_DAILY_GOAL:
 			return 0
+		KEY_FLASH_TASKBAR:
+			return true
 		KEY_WEEK_END:
 			return 6
 		KEY_EFFECT_SPEED:
@@ -155,6 +159,10 @@ static func mini_window_on_top() -> bool:
 
 static func auto_start_focus() -> bool:
 	return bool(get_value(SECTION_POMODORO, KEY_AUTO_START))
+
+
+static func flash_taskbar() -> bool:
+	return bool(get_value(SECTION_POMODORO, KEY_FLASH_TASKBAR))
 
 
 static func daily_goal_minutes() -> int:

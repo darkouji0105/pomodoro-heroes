@@ -1643,3 +1643,5 @@ ui_toast_forge_level_up,鍛冶の腕が Lv%d に上がった
 ui_records_first_record,初回の記録 %d / %d：全員 %s（1つ記録するごとに %s）
 ui_records_first_record_none,なし
 ui_toast_first_record,初回の記録 +%d：全員 %s
+ui_settings_flash_taskbar,終わったらタスクバーを光らせる
+ui_settings_flash_taskbar_note,集中・休憩が終わったとき、ほかの窓を見ていても気づけるように（音はいつも鳴る）

@@ -841,12 +841,12 @@ func _current_task_id() -> String:
 
 # --- 通知 ---
 
-# 作業終了をOSに知らせる。体験版向けの暫定対応。
-# 本番ではトースト通知など別方式を検討する（PROJECT_STATUS.md 未確定事項）。
+# 作業終了を知らせる（音 ＋ タスクバーを光らせる）。
+# ⚠ 10-09（回SYS-4・人間「⚠ う」）：⚠ 暫定をやめて正式に。⚠ 光らせるかは設定で選べる（`GameSettings.flash_taskbar()`・既定オン）。⚠ 音はいつも鳴る。
 func _notify_focus_finished() -> void:
 	SoundManager.play_se(SoundIds.ALARM_FOCUS_END)
-	DisplayServer.window_request_attention()
-	print("[Pomodoro] focus finished - requested window attention")
+	var flashed: bool = request_attention()
+	print("[Pomodoro] focus finished - window attention %s" % ("requested" if flashed else "off"))
 
 
 # 休憩終了を知らせる。休憩明けは自動開始せず「開始」ボタン待ちで止まるため、
@@ -854,8 +854,16 @@ func _notify_focus_finished() -> void:
 # スキップボタン経由では鳴らさない（自分で押したので終わりは分かっている）。
 func _notify_break_finished() -> void:
 	SoundManager.play_se(SoundIds.ALARM_BREAK_END)
+	var flashed: bool = request_attention()
+	print("[Pomodoro] break finished - window attention %s" % ("requested" if flashed else "off"))
+
+
+# タスクバーを光らせる（⚠ 設定がオフなら何もしない）。⚠ 光らせたかを返す（⚠ 検査が読む）。
+func request_attention() -> bool:
+	if not GameSettings.flash_taskbar():
+		return false
 	DisplayServer.window_request_attention()
-	print("[Pomodoro] break finished - requested window attention")
+	return true
 
 
 # --- 終了処理 ---
