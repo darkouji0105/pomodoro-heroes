@@ -35,6 +35,10 @@ const SECTION_TASK: String = "task"
 const KEY_WEEK_END: String = "week_end_weekday"
 # ⚠ 演出の速さ（2026-10-07・回UI-便 K・人間「⚠ Kは５で」）：⚠ 0〜4 の段（⚠ 倍率は下の `EFFECT_SPEEDS`）。
 const KEY_EFFECT_SPEED: String = "effect_speed"
+# ⚠ 目標の出し方（2026-10-09・回AUTO-1・人間「⚠ １あか別枠のサイドバー」）：⚠ 見比べるための仮の設定（⚠ 設定の画面にはまだ出さない）。
+const KEY_GOAL_STYLE: String = "goal_style"
+const GOAL_STYLE_STRIP: String = "strip"
+const GOAL_STYLE_SIDEBAR: String = "sidebar"
 const WEEK_END_CHOICES: Array[int] = [5, 6, 0]
 const VOLUME_MAX_PCT: int = 100
 # ⚠ 演出の速さの5段（⚠ ふつう・1.5倍・2倍・3倍・とばす）。⚠ 「とばす」は 20倍＝ほぼ一瞬（⚠ 演出の終わりで次へ進む作りを崩さない）。
@@ -105,6 +109,8 @@ static func _default(section: String, key: String) -> Variant:
 			return 6
 		KEY_EFFECT_SPEED:
 			return 0
+		KEY_GOAL_STYLE:
+			return GOAL_STYLE_STRIP
 	push_warning("[GameSettings] 知らない設定 %s/%s" % [section, key])
 	return null
 
@@ -159,6 +165,11 @@ static func mini_window_on_top() -> bool:
 
 static func auto_start_focus() -> bool:
 	return bool(get_value(SECTION_POMODORO, KEY_AUTO_START))
+
+
+static func goal_style() -> String:
+	var style: String = str(get_value(SECTION_DISPLAY, KEY_GOAL_STYLE))
+	return style if style in [GOAL_STYLE_STRIP, GOAL_STYLE_SIDEBAR] else GOAL_STYLE_STRIP
 
 
 static func flash_taskbar() -> bool:

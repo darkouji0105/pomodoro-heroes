@@ -26,6 +26,8 @@ func _ready() -> void:
 	_spawn_resource_hud.call_deferred()
 	# ⚠ 画面の上の小さな知らせ（2026-10-07・`Toast`）。⚠ リリースでも要る。
 	_spawn_toast.call_deferred()
+	# ⚠ 目標（2026-10-09・回AUTO-1・`GoalHud`）。⚠ リリースでも要る。
+	_spawn_goal_hud.call_deferred()
 	# ⚠ 遊ぶ人の設定の「全画面」（2026-09-28・`GameSettings`・`BS-13`）。⚠ リリースでも要る＝デバッグの早期 return より前。
 	_apply_display_setting.call_deferred()
 
@@ -52,6 +54,10 @@ func _apply_display_setting() -> void:
 
 func _spawn_toast() -> void:
 	var _toast: Toast = Toast.spawn_into(get_tree().root)
+
+
+func _spawn_goal_hud() -> void:
+	var _hud: GoalHud = GoalHud.spawn_into(get_tree().root)
 
 
 func _spawn_resource_hud() -> void:

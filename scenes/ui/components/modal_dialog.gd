@@ -325,6 +325,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	_close(false)
 
 
+# ⚠ 中身から窓を閉じる（2026-10-09・回AUTO-1）。⚠ 目標の紙の「入手先」が、⚠ 入手先の窓を出す前に自分の窓を閉じる
+#   （⚠ 窓は1つずつ＝閉じないと次の窓が後ろで待つ）。⚠ 「閉じる」と同じ（false）。
+func close() -> void:
+	_close(false)
+
+
 func _close(result: bool) -> void:
 	emit_closed_once(result)
 	_release_pause()

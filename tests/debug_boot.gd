@@ -10542,6 +10542,7 @@ class UiFlowRunner extends Node:
 		await _flow_mini_ask()
 		await _flow_return_paths()
 		await _flow_item_sources()
+		await _flow_goal()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -13316,6 +13317,132 @@ class UiFlowRunner extends Node:
 		var bar: Node = null if scene == null else scene.find_child("MaterialBar", true, false)
 		var chip: Node = null if bar == null else bar.find_child("Chip_" + item_id, true, false)
 		return null if chip == null else chip.find_child("Hit", false, false)
+
+	# 素材の数をちょうど `count` にする（⚠ 本番の口 `add_material()` で差分を足す）。
+	func _set_material(material_id: String, count: int) -> void:
+		GameManager.add_material(material_id, count - GameManager.get_material_count(material_id))
+
+	# ⚠ 目標（2026-10-09・回AUTO-1・`EXEC_GOAL.md` §5）。⚠ 入口3つ・帯・サイドバー・届く・やめる・読み直し。
+	func _flow_goal() -> void:
+		const WORKSHOP_SCREEN: String = "res://scenes/guild/workshop_screen.tscn"
+		GameManager.clear_goal()
+		GameSettings.set_value(GameSettings.SECTION_DISPLAY, GameSettings.KEY_GOAL_STYLE, GameSettings.GOAL_STYLE_STRIP)
+		GoalHud.refresh()
+		# ① 入手先の窓の「目標にする」（⚠ 鍛冶場の見出しの「＋」から）。
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		var instance_id: String = _instance_of(WEAPON_ID)
+		var material_id: String = str(GameManager.get_forge_cost(instance_id).get(GameManager.FORGE_COST_MATERIAL_ID, ""))
+		_set_material(material_id, 5)
+		var f: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: instance_id})
+		if f == null:
+			return
+		await _press(_header_chip_hit(f, material_id))
+		var window: Node = _source_window(f)
+		var count_label: Label = null if window == null else window.find_child("GoalCount", true, false) as Label
+		var before: int = -1 if count_label == null else int(count_label.text)
+		await _press(null if window == null else window.find_child("GoalPlus", true, false))
+		count_label = null if window == null else window.find_child("GoalCount", true, false) as Label
+		var after: int = -1 if count_label == null else int(count_label.text)
+		_check("目標：入手先の窓の ＋ で数が増える（%d → %d）" % [before, after], before > 5 and after == before + 1)
+		await _press(null if window == null else window.find_child("GoalSetButton", true, false))
+		var lines: Dictionary = GameManager.get_goal().get(GameStateKeys.GOAL_LINES, {})
+		_check("目標：「目標にする」で品と数が入る（%s）" % str(lines), lines.size() == 1 and int(lines.get(material_id, 0)) == after)
+		_check("目標：もう届いている数では入らない", not GameManager.set_goal({material_id: 3}, GameStateKeys.GOAL_ORIGIN_ITEM, material_id))
+		var modal: ModalDialog = _modal_of(f)
+		if modal != null:
+			modal.close()
+		await _wait()
+		# ② 上の帯：出ている ／ 押すと目標の紙の窓。
+		var hud: GoalHud = GoalHud.get_instance()
+		var strip: Button = null if hud == null else hud.find_child("GoalStrip", true, false) as Button
+		_check("目標：上の帯が出て品の名前が載る（%s）" % ("" if strip == null else strip.text),
+			strip != null and strip.visible and strip.text.contains(tr(GameManager.item_name_key(material_id))))
+		await _press(strip)
+		modal = _modal_of(f)
+		_check("目標：帯を押すと目標の紙の窓", modal != null and modal.find_child("GoalSheet", true, false) != null)
+		if modal != null:
+			modal.close()
+		await _wait()
+		# ③ サイドバー：つまみで開け閉め。
+		GameSettings.set_value(GameSettings.SECTION_DISPLAY, GameSettings.KEY_GOAL_STYLE, GameSettings.GOAL_STYLE_SIDEBAR)
+		SceneManager.remember(TransferKeys.MEMORY_GOAL_SIDEBAR_OPEN, false)
+		GoalHud.refresh()
+		var tab: Button = null if hud == null else hud.find_child("GoalTab", true, false) as Button
+		var sidebar: Control = null if hud == null else hud.find_child("GoalSidebar", true, false) as Control
+		_check("目標：サイドバーの形では帯が消えてつまみだけ", tab != null and tab.visible and strip != null and not strip.visible and sidebar != null and not sidebar.visible)
+		await _press(tab)
+		_check("目標：つまみで右の紙が開く（中に目標の紙）", sidebar != null and sidebar.visible and sidebar.find_child("GoalSheet", true, false) != null)
+		await _press(tab)
+		_check("目標：もう一度押すと閉じる", sidebar != null and not sidebar.visible)
+		GameSettings.set_value(GameSettings.SECTION_DISPLAY, GameSettings.KEY_GOAL_STYLE, GameSettings.GOAL_STYLE_STRIP)
+		GoalHud.refresh()
+		# ④ 届く：素材が目標の数になると消え、知らせが出る。
+		var toast: Toast = Toast.get_instance()
+		var toasts_before: int = 0 if toast == null else toast.find_children("ToastItem", "", true, false).size()
+		_set_material(material_id, after)
+		await _wait()
+		var toasts_after: int = 0 if toast == null else toast.find_children("ToastItem", "", true, false).size()
+		_check("目標：届くと消える", not GameManager.has_goal())
+		_check("目標：届くと知らせが1本（%d → %d）" % [toasts_before, toasts_after], toasts_after == toasts_before + 1)
+		_check("目標：届いたら帯も消える", strip != null and not strip.visible)
+		# ⑤ 作業場のレシピの「目標に」（⚠ 入力を0にしたレシピ）。
+		var recipe: Dictionary = GameManager.get_available_recipes()[0]
+		var recipe_id: String = str(recipe.get(GameManager.RECIPE_ID, ""))
+		var recipe_lines: Dictionary = GameManager.get_recipe_goal_lines(recipe_id)
+		for input_id: String in recipe_lines:
+			_set_material(input_id, 0)
+		var ws: Node = await _open(WORKSHOP_SCREEN, {})
+		if ws == null:
+			return
+		var row: Node = ws.find_child("RecipeRow_" + recipe_id, true, false)
+		await _press(null if row == null else row.find_child("GoalButton", true, false))
+		var goal: Dictionary = GameManager.get_goal()
+		_check("目標：作業場の「目標に」でレシピの入力が全部入る（%s）" % str(goal.get(GameStateKeys.GOAL_LINES, {})),
+			goal.get(GameStateKeys.GOAL_LINES, {}) == recipe_lines and str(goal.get(GameStateKeys.GOAL_ORIGIN, "")) == GameStateKeys.GOAL_ORIGIN_RECIPE)
+		for input_id: String in recipe_lines:
+			_set_material(input_id, 99999)
+		await _wait()
+		# ⑥ 昇級の「Lv n まで」（⚠ 合計は検査の側で1段ずつ足して突き合わせる）。
+		# ⚠ 剣士は前の手で上限まで上げてある（⚠ 上限なら目標の紙は出ない＝正しい）＝⚠ 上限に届いていない人を選ぶ。
+		var who: String = ""
+		for raw_id: Variant in (GameManager.get_state().get(GameStateKeys.CHARACTER_GROWTH, {}) as Dictionary):
+			if int(GameManager.get_character_growth(str(raw_id)).get(GameStateKeys.GROWTH_LEVEL, 1)) + 1 < GameManager.get_effective_level_cap(str(raw_id)):
+				who = str(raw_id)
+				break
+		_check("目標：上限に届いていないキャラがいる（%s）" % who, who != "")
+		var level_material: String = str(GameManager.get_level_up_cost(who).get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
+		var level_material_had: int = GameManager.get_material_count(level_material)
+		_set_material(level_material, 0)
+		var lu: Node = await _open(LEVEL_UP, {TransferKeys.CHARACTER_ID: who})
+		if lu == null:
+			return
+		await _press(lu.find_child("GoalPlus", true, false))
+		var target_level: int = int(lu.get("_goal_level"))
+		await _press(lu.find_child("GoalSetButton", true, false))
+		var expected: Dictionary = {}
+		var level: int = int(GameManager.get_character_growth(who).get(GameStateKeys.GROWTH_LEVEL, 1))
+		for at: int in range(level, mini(target_level, GameManager.get_effective_level_cap(who))):
+			var cost: Dictionary = GameManager.get_level_up_cost_at(at)
+			var cost_id: String = str(cost.get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
+			expected[cost_id] = int(expected.get(cost_id, 0)) + int(cost.get(GameManager.LEVEL_UP_COST_AMOUNT, 0))
+		goal = GameManager.get_goal()
+		_check("目標：昇級の「Lv%d まで」で合計が1段ずつの和と同じ（%s）" % [target_level, str(goal.get(GameStateKeys.GOAL_LINES, {}))],
+			not expected.is_empty() and goal.get(GameStateKeys.GOAL_LINES, {}) == expected and int(goal.get(GameStateKeys.GOAL_VALUE, 0)) == target_level)
+		# ⑦ 読み直し：JSON を通しても数は int のまま。
+		var round_trip: Variant = JSON.parse_string(JSON.stringify(GameManager.get_state()))
+		var loaded: bool = round_trip is Dictionary and GameManager.load_state(round_trip as Dictionary)
+		var int_ok: bool = loaded and GameManager.has_goal()
+		for raw: Variant in (GameManager.get_goal().get(GameStateKeys.GOAL_LINES, {}) as Dictionary).values():
+			int_ok = int_ok and typeof(raw) == TYPE_INT
+		_check("目標：JSON を通して読み直しても数は int のまま", int_ok)
+		# ⑧ やめる：帯 → 紙の「目標をやめる」→ 空・窓も閉じる。
+		lu = await _open(LEVEL_UP, {TransferKeys.CHARACTER_ID: who})
+		await _press(strip)
+		modal = _modal_of(lu)
+		await _press(null if modal == null else modal.find_child("StopButton", true, false))
+		_check("目標：「目標をやめる」で空になり窓も閉じる", not GameManager.has_goal() and _modal_of(lu) == null)
+		_set_material(material_id, 99999)
+		_set_material(level_material, level_material_had)
 
 	func _flow_item_sources() -> void:
 		const SHOP_SCREEN: String = "res://scenes/guild/shop_screen.tscn"

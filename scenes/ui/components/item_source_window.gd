@@ -28,6 +28,8 @@ const GO_KEYS: Dictionary = {
 
 var _item_id: String = ""
 var _need: int = 0
+# ⚠ 目標にする数（2026-10-09・回AUTO-1）。⚠ -1 ＝まだ決めていない（⚠ 初めて描くときに決める）。
+var _goal_target: int = -1
 var _return_path: String = ""
 var _return_data: Dictionary = {}
 
@@ -99,6 +101,7 @@ func _rebuild() -> void:
 		remove_child(child)
 		child.queue_free()
 	_build_head()
+	_build_goal_row()
 	add_child(HSeparator.new())
 	var sources: Array[Dictionary] = GameManager.get_item_sources(_item_id)
 	if sources.is_empty():
@@ -148,6 +151,67 @@ func _build_head() -> void:
 		count_label.text = tr("ui_source_owned") % owned
 	head.add_child(count_label)
 	add_child(head)
+
+
+# 目標の行（2026-10-09・回AUTO-1・人間「⚠ その個数とか指定した後一時的にクエストにする」）：
+#   ⚠ 「目標 [−] n [＋] ［目標にする］」。⚠ n は「持っている数がいくつに届けばよいか」。
+#   ⚠ 初めの数＝要る数（⚠ 渡されなければ持っている数 ＋ 1）。⚠ いまの目標がこの品だけならその数。
+#   ⚠ スタミナは目標にしない（⚠ 時間で戻るもの）。
+func _build_goal_row() -> void:
+	if _item_id == GameStateKeys.STAMINA:
+		return
+	var owned: int = GameManager.get_resource_amount(_item_id)
+	var current: Dictionary = GameManager.get_goal().get(GameStateKeys.GOAL_LINES, {})
+	var is_current: bool = current.size() == 1 and current.has(_item_id)
+	if _goal_target < 0:
+		_goal_target = int(current[_item_id]) if is_current else maxi(_need, owned + 1)
+	_goal_target = maxi(_goal_target, owned + 1)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "GoalRow"
+	var caption: Label = Label.new()
+	caption.name = "GoalCaption"
+	caption.theme_type_variation = &"CaptionLabel"
+	caption.text = tr("ui_goal_current" if is_current else "ui_goal_title")
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(caption)
+	var minus: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_goal_minus")
+	minus.name = "GoalMinus"
+	minus.disabled = _goal_target <= owned + 1
+	minus.pressed.connect(_on_goal_step.bind(-1))
+	row.add_child(minus)
+	var count: Label = Label.new()
+	count.name = "GoalCount"
+	count.text = str(_goal_target)
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.custom_minimum_size.x = float(get_theme_constant(&"stepper_width", &"Goal"))
+	count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(count)
+	var plus: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_goal_plus")
+	plus.name = "GoalPlus"
+	plus.pressed.connect(_on_goal_step.bind(1))
+	row.add_child(plus)
+	var set_key: String = "ui_goal_set"
+	if is_current:
+		set_key = "ui_goal_change"
+	elif GameManager.has_goal():
+		set_key = "ui_goal_replace"
+	var set_button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, set_key)
+	set_button.name = "GoalSetButton"
+	set_button.disabled = is_current and int(current[_item_id]) == _goal_target
+	set_button.pressed.connect(_on_goal_set_pressed)
+	row.add_child(set_button)
+	add_child(row)
+
+
+func _on_goal_step(step: int) -> void:
+	_goal_target += step
+	_rebuild()
+
+
+func _on_goal_set_pressed() -> void:
+	if GameManager.set_goal({_item_id: _goal_target}, GameStateKeys.GOAL_ORIGIN_ITEM, _item_id, _goal_target):
+		_rebuild()
 
 
 # 1行：何で（小さい字）・どこで（名前）・行く。⚠ まだ行けないところは押せず、理由を添える。

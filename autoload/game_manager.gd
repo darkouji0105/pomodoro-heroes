@@ -62,6 +62,10 @@ signal guild_relic_changed(relic_id: String)
 signal forge_level_changed(level: int)
 # ⚠ 初回の記録が1つ増えた（2026-10-09・回SYS-3・`EQ-9`）。⚠ 図鑑に新しい枠が埋まったとき（⚠ 数える種類だけ）。⚠ `Toast` が受ける。
 signal first_record_added(item_id: String)
+# ⚠ 目標が入った・入れ替わった・やめた・届いた（2026-10-09・回AUTO-1）。⚠ `GoalHud` が描き直す。
+signal goal_changed()
+# ⚠ 目標に届いた（⚠ 届いた目標の写しを渡す・状態からはもう消えている）。⚠ `Toast` が受ける。
+signal goal_achieved(goal: Dictionary)
 
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
@@ -403,6 +407,10 @@ func _ready() -> void:
 	# ⚠ .tres が持つ素材ID・アイテムIDを items.json と突き合わせる（E121）。
 	#   ⚠ 起動時に1回だけ。⚠ reset_to_new_game() では呼ばない（マスターは変わらない）。
 	_validate_balance_item_refs()
+	# ⚠ 目標に届いたか（2026-10-09・回AUTO-1）：⚠ 増える口は何十本もあるので、⚠ 口ごとに書かず変化の合図を自分で聞く。
+	resource_changed.connect(_on_amount_changed_for_goal)
+	material_changed.connect(_on_amount_changed_for_goal)
+	inventory_changed.connect(_on_amount_changed_for_goal)
 
 
 # 「最初から」を押したときに、状態を新規開始の中身に作り直す。
@@ -473,6 +481,8 @@ func _build_new_game_state(caller: String) -> void:
 		_state.get(GameStateKeys.MATERIALS, {}),
 		_state.get(GameStateKeys.UNLOCKED_SCREENS, {}),
 	])
+	# ⚠ 目標（2026-10-09・回AUTO-1）：⚠ 「最初から」で前の目標が帯に残らないように。
+	goal_changed.emit()
 
 # .tres 側の素材ID・アイテムIDが items.json に在るかを見る（E121）。
 #
@@ -599,6 +609,8 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.GUILD_RELICS: {},
 		# ⚠ 鍛冶のレベルの経験値（2026-10-09・回SYS-2）。⚠ 前のセーブは 0（Lv1）。
 		GameStateKeys.FORGE_EXP: 0,
+		# ⚠ 目標（2026-10-09・回AUTO-1・`EXEC_GOAL.md`）。⚠ 空＝目標なし（⚠ 前のセーブも空で読まれる）。
+		GameStateKeys.GOAL: {},
 		# ⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3（⚠ 帰還報告書の「最深 更新」）。
 		GameStateKeys.DUNGEON_BEST_FLOORS: {},
 		# ⚠ タスクのメモ（2026-10-04・`TK-1`・`TK-6`）。⚠ 前のセーブも空で読まれる。
@@ -1100,6 +1112,151 @@ func get_item_sources(item_id: String) -> Array[Dictionary]:
 
 func _item_source(kind: String, ref: String, open: bool, count: int = 0) -> Dictionary:
 	return {ITEM_SOURCE_KIND: kind, ITEM_SOURCE_REF: ref, ITEM_SOURCE_OPEN: open, ITEM_SOURCE_COUNT: count}
+
+
+# --- 目標（2026-10-09・回AUTO-1・`EXEC_GOAL.md`・人間「⚠ 素材とか必要なら、その個数とか指定した後一時的にクエストにする」） ---
+#
+# ⚠ 目標は1つ（人間「⚠ ３あ」）。⚠ 中身は「品ごとに、持っている数がいくつに届けばよいか」だけ。
+# ⚠ 届いたかは毎回数え直す（⚠ 進みを状態に持たない＝CLAUDE.md 4番）。⚠ 届いたら自分で消して `goal_achieved`。
+# ⚠ 1行 = {item_id, owned, target}（`get_goal_progress()`）。
+const GOAL_LINE_ITEM_ID: String = "item_id"
+const GOAL_LINE_OWNED: String = "owned"
+const GOAL_LINE_TARGET: String = "target"
+
+var _goal_check_queued: bool = false
+
+
+func get_goal() -> Dictionary:
+	return (_state.get(GameStateKeys.GOAL, {}) as Dictionary).duplicate(true)
+
+
+func has_goal() -> bool:
+	return not (_state.get(GameStateKeys.GOAL, {}) as Dictionary).is_empty()
+
+
+# 目標を入れる（⚠ 前の目標は入れ替え）。⚠ 全部の判定を先に終える（CLAUDE.md 6番）。
+#   ⚠ 空・0以下・数えられない品・いま全部届いている → false（⚠ 届いている目標は入れた瞬間に消えるだけ）。
+func set_goal(lines: Dictionary, origin: String, ref: String, value: int = 0) -> bool:
+	var clean: Dictionary = {}
+	for raw_id: Variant in lines:
+		var item_id: String = str(raw_id)
+		var target: int = int(lines[raw_id])
+		if item_id == "" or item_id == GameStateKeys.STAMINA or target <= 0:
+			print("[GameManager] set_goal -> false (bad line %s = %d)" % [item_id, target])
+			return false
+		if not (item_id in [GameStateKeys.GOLD, GameStateKeys.GEMS]) and _item_storage(item_id) == "":
+			print("[GameManager] set_goal -> false (unknown item %s)" % item_id)
+			return false
+		clean[item_id] = target
+	if clean.is_empty():
+		print("[GameManager] set_goal -> false (empty)")
+		return false
+	if _goal_lines_met(clean):
+		print("[GameManager] set_goal -> false (already met)")
+		return false
+	_state[GameStateKeys.GOAL] = {
+		GameStateKeys.GOAL_LINES: clean,
+		GameStateKeys.GOAL_ORIGIN: origin,
+		GameStateKeys.GOAL_REF: ref,
+		GameStateKeys.GOAL_VALUE: value,
+		GameStateKeys.GOAL_SET_AT: Time.get_datetime_string_from_system(),
+	}
+	print("[GameManager] set_goal -> true %s (%s %s %d)" % [str(clean), origin, ref, value])
+	goal_changed.emit()
+	return true
+
+
+func clear_goal() -> void:
+	if not has_goal():
+		return
+	_state[GameStateKeys.GOAL] = {}
+	print("[GameManager] clear_goal")
+	goal_changed.emit()
+
+
+# 品ごとの進み（⚠ 目標に書いた順）。
+func get_goal_progress() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var lines: Dictionary = get_goal().get(GameStateKeys.GOAL_LINES, {})
+	for item_id: String in lines:
+		result.append({
+			GOAL_LINE_ITEM_ID: item_id,
+			GOAL_LINE_OWNED: get_resource_amount(item_id),
+			GOAL_LINE_TARGET: int(lines[item_id]),
+		})
+	return result
+
+
+func _goal_lines_met(lines: Dictionary) -> bool:
+	for item_id: String in lines:
+		if get_resource_amount(item_id) < int(lines[item_id]):
+			return false
+	return true
+
+
+# ⚠ 1回の操作で何本も合図が飛ぶ（⚠ 宝箱・周回）ので、⚠ 次のフレームに1回だけ見る。
+func _on_amount_changed_for_goal(_a: Variant = null, _b: Variant = null) -> void:
+	if not has_goal() or _goal_check_queued:
+		return
+	_goal_check_queued = true
+	_check_goal_achieved.call_deferred()
+
+
+func _check_goal_achieved() -> void:
+	_goal_check_queued = false
+	if not has_goal():
+		return
+	var goal: Dictionary = get_goal()
+	if not _goal_lines_met(goal.get(GameStateKeys.GOAL_LINES, {})):
+		return
+	_state[GameStateKeys.GOAL] = {}
+	print("[GameManager] goal achieved %s" % str(goal))
+	goal_achieved.emit(goal)
+	goal_changed.emit()
+
+
+# 「Lv◯まで」の目標の行（⚠ いまの Lv から目標 Lv までの素材の合計＝それだけ持っていれば上げきれる）。
+#   ⚠ 段で素材が変わるので行が分かれる。⚠ 上限を越えた分は数えない。
+func get_level_goal_lines(character_id: String, target_level: int) -> Dictionary:
+	var level: int = int(get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
+	var last: int = mini(target_level, get_effective_level_cap(character_id))
+	var lines: Dictionary = {}
+	for at: int in range(level, last):
+		var cost: Dictionary = get_level_up_cost_at(at)
+		var material_id: String = str(cost.get(LEVEL_UP_COST_MATERIAL_ID, ""))
+		if material_id == "":
+			continue
+		lines[material_id] = int(lines.get(material_id, 0)) + int(cost.get(LEVEL_UP_COST_AMOUNT, 0))
+	return lines
+
+
+# レシピを1回作る目標の行（⚠ 入力をそのまま）。
+func get_recipe_goal_lines(recipe_id: String) -> Dictionary:
+	var lines: Dictionary = {}
+	for raw: Variant in _normalized_recipe(recipe_id).get(RECIPE_INPUTS, []):
+		if raw is Dictionary:
+			var item_id: String = str((raw as Dictionary).get(RECIPE_IO_ITEM_ID, ""))
+			lines[item_id] = int(lines.get(item_id, 0)) + int((raw as Dictionary).get(RECIPE_IO_COUNT, 0))
+	return lines
+
+
+func _normalize_goal(raw: Variant) -> Dictionary:
+	if not (raw is Dictionary) or (raw as Dictionary).is_empty():
+		return {}
+	var goal: Dictionary = raw
+	var raw_lines: Variant = goal.get(GameStateKeys.GOAL_LINES, {})
+	if not (raw_lines is Dictionary) or (raw_lines as Dictionary).is_empty():
+		return {}
+	var lines: Dictionary = {}
+	for item_id: Variant in raw_lines:
+		lines[str(item_id)] = int((raw_lines as Dictionary)[item_id])
+	return {
+		GameStateKeys.GOAL_LINES: lines,
+		GameStateKeys.GOAL_ORIGIN: str(goal.get(GameStateKeys.GOAL_ORIGIN, GameStateKeys.GOAL_ORIGIN_ITEM)),
+		GameStateKeys.GOAL_REF: str(goal.get(GameStateKeys.GOAL_REF, "")),
+		GameStateKeys.GOAL_VALUE: int(goal.get(GameStateKeys.GOAL_VALUE, 0)),
+		GameStateKeys.GOAL_SET_AT: str(goal.get(GameStateKeys.GOAL_SET_AT, "")),
+	}
 
 
 # その宝箱から出うるか（⚠ 固定ぶん ＋ 抽選の表。⚠ 難ダンジョンの表を借りる宝箱は借りた表を見る＝`_roll_chest_rewards()` と同じ読み方）。
@@ -2777,13 +2934,17 @@ func get_effective_stats(character_id: String) -> Dictionary:
 # 現在のレベルから1つ上げるのに必要な素材を返す。
 # 戻り値: {material_id: String, amount: int}
 func get_level_up_cost(character_id: String) -> Dictionary:
+	return get_level_up_cost_at(int(get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1)))
+
+
+# そのレベルから1つ上げる費用（2026-10-09・回AUTO-1）。⚠ 目標の「Lv◯まで」が先のレベルの分を足すために分けた（⚠ 式は1つ）。
+func get_level_up_cost_at(level: int) -> Dictionary:
 	var empty: Dictionary = {LEVEL_UP_COST_MATERIAL_ID: "", LEVEL_UP_COST_AMOUNT: 0}
 	if Balance == null or Balance.character == null:
-		push_warning("[GameManager] get_level_up_cost: Balance.character is null")
+		push_warning("[GameManager] get_level_up_cost_at: Balance.character is null")
 		return empty
 
 	var config: CharacterConfig = Balance.character
-	var level: int = int(get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))
 	var base: float = float(config.base_level_up_cost)
 	var growth: float = config.cost_growth_per_level
 	var fallback: float = base + growth * float(level - 1)
@@ -7507,6 +7668,8 @@ func load_state(data: Dictionary) -> bool:
 		new_state[GameStateKeys.GUILD_RELICS] = {}
 	# ⚠ 鍛冶のレベルの経験値（2026-10-09・回SYS-2）を int に戻す（CLAUDE.md 3番）。⚠ 前のセーブには無い＝0。
 	new_state[GameStateKeys.FORGE_EXP] = maxi(0, int(new_state.get(GameStateKeys.FORGE_EXP, 0)))
+	# ⚠ 目標（2026-10-09・回AUTO-1）：⚠ 数を int に戻す（CLAUDE.md 3番）。⚠ 形が壊れていたら目標なし。
+	new_state[GameStateKeys.GOAL] = _normalize_goal(new_state.get(GameStateKeys.GOAL, {}))
 	# ⚠ タスクのメモ（2026-10-04・`TK-1`）：⚠ 色・🍅・日付を int に戻す（CLAUDE.md 3番）。
 	new_state[GameStateKeys.TASKS] = _normalize_task_list(new_state.get(GameStateKeys.TASKS, []))
 	new_state[GameStateKeys.TASK_LOG] = _normalize_task_list(new_state.get(GameStateKeys.TASK_LOG, []))
@@ -7758,7 +7921,9 @@ func load_state(data: Dictionary) -> bool:
 		material_changed.emit(mat_id, int(materials[mat_id]))
 	
 	pending_chests_changed.emit(get_pending_chest_count())
-	
+	# ⚠ 目標（2026-10-09・回AUTO-1）：⚠ 常駐の `GoalHud` が描き直す。
+	goal_changed.emit()
+
 	return true
 
 # 保存直前に呼ばれ、last_saved_atを更新する

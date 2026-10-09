@@ -52,6 +52,8 @@ static var _pending_shown: bool = true
 
 static func set_shown(value: bool) -> void:
 	_pending_shown = value
+	# ⚠ 目標の表示も同じ時に出す・隠す（2026-10-09・回AUTO-1・⚠ 画面ごとに2回書かせない）。
+	GoalHud.set_shown(value)
 	var hud: ResourceHud = get_instance()
 	if hud == null:
 		return

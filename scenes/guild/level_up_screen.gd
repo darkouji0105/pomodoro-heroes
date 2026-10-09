@@ -17,6 +17,9 @@ const THEME_TYPE: StringName = &"Training"
 var _character_id: String = ""
 # ⚠ 判を押したあとか（⚠ 状態ではなく画面の都合）。
 var _done: bool = false
+# ⚠ 目標の「Lv◯まで」（2026-10-09・回AUTO-1・入口の案 E3）。⚠ -1 ＝まだ決めていない。
+var _goal_level: int = -1
+const GOAL_LEVEL_STEP_DEFAULT: int = 5
 
 @onready var header: ScreenHeader = $Margin/Layout/Header
 @onready var body: HBoxContainer = $Margin/Layout/Body
@@ -243,6 +246,8 @@ func _build_side() -> VBoxContainer:
 		remain.text = tr("ui_level_up_remain") % [owned, maxi(0, owned - amount)]
 		card_column.add_child(remain)
 		# ⚠ 「入手先を見る」は 10-07 に外した（⚠ 人間「⚠ 減らして」）＝足りないまま判を押すと窓・見出しの素材の「＋」。
+		if not _at_cap():
+			side.add_child(_build_goal_card())
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -281,6 +286,71 @@ func _build_side() -> VBoxContainer:
 		cancel.pressed.connect(_back_to_training.bind(TransferKeys.TRAINING_TAB_OVERVIEW))
 		side.add_child(cancel)
 	return side
+
+
+# 目標の紙（2026-10-09・回AUTO-1・`EXEC_GOAL.md` 入口の案 E3）：⚠ 「Lv [−] n [＋] まで」・要る素材の合計・［目標にする］。
+#   ⚠ 合計は `GameManager.get_level_goal_lines()` の1本（⚠ 段で素材が変わると行が分かれる）。
+func _build_goal_card() -> PaperSheet:
+	var cap: int = GameManager.get_effective_level_cap(_character_id)
+	if _goal_level < 0:
+		_goal_level = mini(_level() + GOAL_LEVEL_STEP_DEFAULT, cap)
+	_goal_level = clampi(_goal_level, _level() + 1, cap)
+	var card: PaperSheet = PaperSheet.new()
+	card.name = "GoalCard"
+	card.show_corners = false
+	var column: VBoxContainer = VBoxContainer.new()
+	card.add_child(column)
+	var caption: Label = Label.new()
+	caption.theme_type_variation = &"CaptionLabel"
+	caption.text = tr("ui_goal_title")
+	column.add_child(caption)
+	var step_row: HBoxContainer = HBoxContainer.new()
+	step_row.name = "GoalStepRow"
+	var minus: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_goal_minus")
+	minus.name = "GoalMinus"
+	minus.disabled = _goal_level <= _level() + 1
+	minus.pressed.connect(_on_goal_level_step.bind(-1))
+	step_row.add_child(minus)
+	var level_label: Label = Label.new()
+	level_label.name = "GoalLevelLabel"
+	level_label.text = tr("ui_goal_level_until") % _goal_level
+	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	level_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	step_row.add_child(level_label)
+	var plus: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_goal_plus")
+	plus.name = "GoalPlus"
+	plus.disabled = _goal_level >= cap
+	plus.pressed.connect(_on_goal_level_step.bind(1))
+	step_row.add_child(plus)
+	column.add_child(step_row)
+	var lines: Dictionary = GameManager.get_level_goal_lines(_character_id, _goal_level)
+	var met: bool = true
+	for material_id: String in lines:
+		var owned: int = GameManager.get_resource_amount(material_id)
+		var need: int = int(lines[material_id])
+		met = met and owned >= need
+		var line: Label = Label.new()
+		line.name = "GoalLine_" + material_id
+		line.text = tr("ui_goal_line") % [tr(GameManager.item_name_key(material_id)), owned, need]
+		line.theme_type_variation = &"" if owned >= need else &"ErrorLabel"
+		column.add_child(line)
+	var set_button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_goal_replace" if GameManager.has_goal() else "ui_goal_set")
+	set_button.name = "GoalSetButton"
+	set_button.disabled = met or lines.is_empty()
+	set_button.pressed.connect(_on_goal_set_pressed)
+	column.add_child(set_button)
+	return card
+
+
+func _on_goal_level_step(step: int) -> void:
+	_goal_level += step
+	_rebuild()
+
+
+func _on_goal_set_pressed() -> void:
+	if GameManager.set_goal(GameManager.get_level_goal_lines(_character_id, _goal_level), GameStateKeys.GOAL_ORIGIN_LEVEL, _character_id, _goal_level):
+		_rebuild()
 
 
 # --- 判定と操作 ---

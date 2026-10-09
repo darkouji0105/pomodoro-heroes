@@ -669,6 +669,14 @@ const TOAST_PAD_V: int = 8
 const TOAST_TOP: int = 88
 const TOAST_SHOW_MS: int = 2600
 const TOAST_FADE_MS: int = 400
+# ⚠ 目標（10-09・回AUTO-1・`GoalHud`）。⚠ 帯は画面の上の縁の余白（`ScreenMargin` 24〜32）に収まる高さ。
+const GOAL_STRIP_PAD_H: int = 14
+const GOAL_STRIP_PAD_V: int = 3
+const GOAL_TAB_PAD_H: int = 6
+const GOAL_TAB_PAD_V: int = 12
+const GOAL_SIDEBAR_WIDTH: int = 320
+const GOAL_SIDEBAR_TOP: int = 120   # ⚠ 見出しと施設のタブの下から
+const GOAL_STEPPER_WIDTH: int = 44  # ⚠ 数（n）の欄の幅
 const CHIP_PLUS_HOVER_MS: int = 120
 # ⚠ チップの中のアイコン（⚠ モックの `.hud .ic` は 20px）。
 #   ⚠ `ResourceDisplay` の既定は 24px だが、⚠ チップの中だけモックに合わせて 20px。
@@ -997,6 +1005,47 @@ static func _build_panels(theme: Theme) -> void:
 	theme.set_constant(&"top", &"Toast", TOAST_TOP)
 	theme.set_constant(&"show_ms", &"Toast", TOAST_SHOW_MS)
 	theme.set_constant(&"fade_ms", &"Toast", TOAST_FADE_MS)
+	# ⚠ 目標（10-09・回AUTO-1・`GoalHud`）。⚠ 帯＝上の縁から垂れた紙の札（⚠ 上の角は丸めない）／ ⚠ つまみ＝右の縁から出た紙（⚠ 右の角は丸めない）。
+	for state: String in BUTTON_STATES:
+		# ⚠ 焦点は上に重ねて描かれる＝紙を描くと触れた色が隠れる。⚠ 何も描かない。
+		if state == "focus":
+			theme.set_stylebox(&"focus", &"GoalStripButton", StyleBoxEmpty.new())
+			theme.set_stylebox(&"focus", &"GoalTabButton", StyleBoxEmpty.new())
+			continue
+		var strip: StyleBoxFlat = StyleBoxFlat.new()
+		strip.bg_color = _html(TOKEN_PAPER_SELECTED if state == "hover" or state == "pressed" else TOKEN_PAPER)
+		strip.border_color = _html(TOKEN_BRASS_INK)
+		strip.border_width_left = 1
+		strip.border_width_right = 1
+		strip.border_width_bottom = 1
+		strip.corner_radius_bottom_left = PANEL_CORNER_RADIUS
+		strip.corner_radius_bottom_right = PANEL_CORNER_RADIUS
+		strip.content_margin_left = GOAL_STRIP_PAD_H
+		strip.content_margin_right = GOAL_STRIP_PAD_H
+		strip.content_margin_top = GOAL_STRIP_PAD_V
+		strip.content_margin_bottom = GOAL_STRIP_PAD_V
+		theme.set_stylebox(StringName(state), &"GoalStripButton", strip)
+		var tab: StyleBoxFlat = StyleBoxFlat.new()
+		tab.bg_color = strip.bg_color
+		tab.border_color = _html(TOKEN_BRASS_INK)
+		tab.border_width_left = 1
+		tab.border_width_top = 1
+		tab.border_width_bottom = 1
+		tab.corner_radius_top_left = PANEL_CORNER_RADIUS
+		tab.corner_radius_bottom_left = PANEL_CORNER_RADIUS
+		tab.content_margin_left = GOAL_TAB_PAD_H
+		tab.content_margin_right = GOAL_TAB_PAD_H
+		tab.content_margin_top = GOAL_TAB_PAD_V
+		tab.content_margin_bottom = GOAL_TAB_PAD_V
+		theme.set_stylebox(StringName(state), &"GoalTabButton", tab)
+	for button_type: StringName in [&"GoalStripButton", &"GoalTabButton"]:
+		theme.set_type_variation(button_type, &"Button")
+		for color_name: StringName in [&"font_color", &"font_hover_color", &"font_pressed_color", &"font_focus_color"]:
+			theme.set_color(color_name, button_type, _html(TOKEN_INK))
+		theme.set_font_size(&"font_size", button_type, SMALL_FONT_SIZE)
+	theme.set_constant(&"sidebar_width", &"Goal", GOAL_SIDEBAR_WIDTH)
+	theme.set_constant(&"sidebar_top", &"Goal", GOAL_SIDEBAR_TOP)
+	theme.set_constant(&"stepper_width", &"Goal", GOAL_STEPPER_WIDTH)
 	# ⚠ チップ全体の当たり。⚠ 縁は**出さない**（⚠ 触れたことは「＋」が知らせる）。
 	for state: String in BUTTON_STATES:
 		theme.set_stylebox(StringName(state), &"ChipHitButton", StyleBoxEmpty.new())

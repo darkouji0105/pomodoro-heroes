@@ -100,3 +100,5 @@ const MEMORY_TASK_FILTER: String = "memory_task_filter"
 const MEMORY_BASE_VIEW: String = "memory_base_view"
 # ⚠ 10-09（回SYS-1）：⚠ 作業場のレシピの分類のタブ（⚠ "" ＝すべて）。
 const MEMORY_WORKSHOP_CATEGORY: String = "memory_workshop_category"
+# ⚠ 目標のサイドバーを開いているか（2026-10-09・回AUTO-1・`GoalHud`）。⚠ 画面をまたいでも開いたまま。
+const MEMORY_GOAL_SIDEBAR_OPEN: String = "memory_goal_sidebar_open"

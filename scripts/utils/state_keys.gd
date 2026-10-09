@@ -45,6 +45,18 @@ const GUILD_RELICS: String = "guild_relics"
 # ⚠ 鍛冶のレベル（2026-10-09・回SYS-2・`EQ-5`）：経験値の合計 int。⚠ レベルと補正は `EquipmentConfig` から毎回計算（CLAUDE.md 4番）。
 # ⚠ 足す口は `GameManager._add_forge_exp()`（⚠ 鍛える・作るを始める）。
 const FORGE_EXP: String = "forge_exp"
+# ⚠ 目標（2026-10-09・回AUTO-1・`EXEC_GOAL.md`）：{} か {lines: {item_id: 届けたい所持数 int}, origin, ref, value, set_at}。
+# ⚠ 読み書きは `GameManager.set_goal()` / `clear_goal()` の口だけ。⚠ 届いたら GameManager が自分で消す。
+const GOAL: String = "goal"
+const GOAL_LINES: String = "lines"
+const GOAL_ORIGIN: String = "origin"
+const GOAL_REF: String = "ref"
+const GOAL_VALUE: String = "value"
+const GOAL_SET_AT: String = "set_at"
+# ⚠ origin の種類（⚠ 回AUTO-3 が届いたあとに本来の操作をするための控え）。⚠ リリース後に改名しない。
+const GOAL_ORIGIN_ITEM: String = "item"
+const GOAL_ORIGIN_RECIPE: String = "recipe"
+const GOAL_ORIGIN_LEVEL: String = "level"
 # ⚠ 難ダンジョンごとの最深（⚠ ボスを倒したフロアの数のいちばん大きい値）。⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3。
 const DUNGEON_BEST_FLOORS: String = "dungeon_best_floors"
 const DAILY_SHOP: String = "daily_shop"

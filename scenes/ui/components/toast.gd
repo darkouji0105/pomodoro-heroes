@@ -56,6 +56,18 @@ func _ready() -> void:
 	GameManager.forge_level_changed.connect(_on_forge_level_changed)
 	# ⚠ 10-09（回SYS-3・`EQ-9`・人間「⚠ ３あ」）：⚠ 初回の記録が増えたら知らせる。⚠ 宝箱などで一度に何件も増えるので、⚠ そのフレームの分を1本にまとめる。
 	GameManager.first_record_added.connect(_on_first_record_added)
+	# ⚠ 10-09（回AUTO-1・`EXEC_GOAL.md`）：⚠ 目標に届いたら知らせる（⚠ 目標の札は消えるので、⚠ 消えた理由が分かるように）。
+	GameManager.goal_achieved.connect(_on_goal_achieved)
+
+
+func _on_goal_achieved(goal: Dictionary) -> void:
+	var origin: String = GoalSheet.origin_text(goal)
+	if origin == "":
+		var names: Array[String] = []
+		for item_id: String in (goal.get(GameStateKeys.GOAL_LINES, {}) as Dictionary):
+			names.append(tr(GameManager.item_name_key(item_id)))
+		origin = tr("ui_goal_join").join(names)
+	show_message(tr("ui_toast_goal_achieved") % origin)
 
 
 func _on_forge_level_changed(level: int) -> void:

@@ -232,6 +232,13 @@ func _create_recipe_row(recipe: Dictionary) -> void:
 	duration_label.text = _format_duration(int(recipe.get(GameManager.RECIPE_DURATION_SEC, 0)))
 	row.add_child(duration_label)
 
+	# ⚠ 10-09（回AUTO-1・`EXEC_GOAL.md`・入口の案 E2）：⚠ このレシピを1回作る分を目標に。⚠ 足りているレシピは押せない。
+	var goal_button: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_goal_set_short")
+	goal_button.name = "GoalButton"
+	goal_button.disabled = _can_afford(recipe)
+	goal_button.pressed.connect(_on_goal_pressed.bind(recipe_id))
+	row.add_child(goal_button)
+
 	var start_button: UiButton = UiButton.create()
 	start_button.name = "StartButton"
 	start_button.text = tr("ui_guild_workshop_start")
@@ -322,6 +329,10 @@ func _can_afford(recipe: Dictionary) -> bool:
 	return true
 
 # --- 操作 ---
+
+func _on_goal_pressed(recipe_id: String) -> void:
+	var _set: bool = GameManager.set_goal(GameManager.get_recipe_goal_lines(recipe_id), GameStateKeys.GOAL_ORIGIN_RECIPE, recipe_id, 1)
+
 
 # 確認モーダルは入れていない。Modal.confirm() の待ち方が未確認のため
 # （研究・ショップと同じ判断）。キャンセルが無いので、押し間違いは素材が減る形で残る。

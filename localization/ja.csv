@@ -1645,3 +1645,22 @@ ui_records_first_record_none,なし
 ui_toast_first_record,初回の記録 +%d：全員 %s
 ui_settings_flash_taskbar,終わったらタスクバーを光らせる
 ui_settings_flash_taskbar_note,集中・休憩が終わったとき、ほかの窓を見ていても気づけるように（音はいつも鳴る）
+ui_goal_title,目標
+ui_goal_current,いまの目標
+ui_goal_minus,−
+ui_goal_plus,＋
+ui_goal_set,目標にする
+ui_goal_change,目標を変える
+ui_goal_replace,目標を入れ替える
+ui_goal_set_short,目標に
+ui_goal_stop,目標をやめる
+ui_goal_sources,入手先
+ui_goal_line,%s %d / %d
+ui_goal_join,・
+ui_goal_strip,目標　%s
+ui_goal_tab,目標
+ui_goal_tab_close,閉じる
+ui_goal_origin_recipe,作る：%s
+ui_goal_origin_level,昇級：%s Lv%d まで
+ui_goal_level_until,Lv%d まで
+ui_toast_goal_achieved,目標を達成：%s
