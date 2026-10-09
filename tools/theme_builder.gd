@@ -677,6 +677,9 @@ const GOAL_TAB_PAD_V: int = 12
 const GOAL_SIDEBAR_WIDTH: int = 360
 const GOAL_SIDEBAR_TOP: int = 120   # ⚠ 見出しと施設のタブの下から
 const GOAL_STEPPER_WIDTH: int = 44  # ⚠ 数（n）の欄の幅
+# ⚠ 戦闘の「自動」「速さ」（10-09・回AUTO-2）。⚠ 戦闘の上の帯（高さ 40）に収まる低いボタン。
+const BATTLE_TOGGLE_PAD_H: int = 12
+const BATTLE_TOGGLE_PAD_V: int = 3
 const CHIP_PLUS_HOVER_MS: int = 120
 # ⚠ チップの中のアイコン（⚠ モックの `.hud .ic` は 20px）。
 #   ⚠ `ResourceDisplay` の既定は 24px だが、⚠ チップの中だけモックに合わせて 20px。
@@ -840,6 +843,29 @@ static func _build_buttons(theme: Theme) -> void:
 		theme.set_color(&"font_focus_color", StringName(type_name), _html(str(level["font_color"])))
 		theme.set_color(&"font_disabled_color", StringName(type_name), _html(str(level["font_disabled_color"])))
 		theme.set_font_size(&"font_size", StringName(type_name), BUTTON_FONT_SIZE)
+	# ⚠ 戦闘の「自動」「速さ」の切り替え（10-09・回AUTO-2）。⚠ 革のボタンを低くしたもの・⚠ 入っているあいだは真鍮（⚠ オンが一目で分かる）。
+	var leather: Dictionary = BUTTON_LEVELS["Button"]
+	var brass: Dictionary = BUTTON_LEVELS["PrimaryButton"]
+	theme.set_type_variation(&"BattleToggleButton", &"Button")
+	for state: String in BUTTON_STATES:
+		var style: StyleBoxFlat = _button_style(leather[state])
+		style.content_margin_left = BATTLE_TOGGLE_PAD_H
+		style.content_margin_right = BATTLE_TOGGLE_PAD_H
+		style.content_margin_top = BATTLE_TOGGLE_PAD_V
+		style.content_margin_bottom = BATTLE_TOGGLE_PAD_V
+		theme.set_stylebox(StringName(state), &"BattleToggleButton", style)
+	for state: String in ["pressed", "hover_pressed"]:
+		var on: StyleBoxFlat = _button_style(brass["normal"])
+		on.content_margin_left = BATTLE_TOGGLE_PAD_H
+		on.content_margin_right = BATTLE_TOGGLE_PAD_H
+		on.content_margin_top = BATTLE_TOGGLE_PAD_V
+		on.content_margin_bottom = BATTLE_TOGGLE_PAD_V
+		theme.set_stylebox(StringName(state), &"BattleToggleButton", on)
+	theme.set_color(&"font_color", &"BattleToggleButton", _html(str(leather["font_color"])))
+	theme.set_color(&"font_hover_color", &"BattleToggleButton", _html(str(leather["font_hover_color"])))
+	theme.set_color(&"font_pressed_color", &"BattleToggleButton", _html(str(brass["font_pressed_color"])))
+	theme.set_color(&"font_hover_pressed_color", &"BattleToggleButton", _html(str(brass["font_pressed_color"])))
+	theme.set_font_size(&"font_size", &"BattleToggleButton", BUTTON_FONT_SIZE)
 
 
 static func _button_style(spec: Dictionary) -> StyleBoxFlat:

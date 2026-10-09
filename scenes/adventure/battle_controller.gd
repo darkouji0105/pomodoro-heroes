@@ -163,6 +163,12 @@ var _result_applied: bool = false
 
 var _debug_panel: CanvasLayer = null
 
+# ⚠ 自動と速さ（2026-10-09・回AUTO-2・人間「⚠ １あ　２あ　３あ　４い」）。⚠ 上の帯の右端の切り替え。
+#   ⚠ 自動＝押せるスキルを押せた瞬間に全部撃つ（⚠ 溜め技は溜めずに撃つ・回復も HP を見ない＝`dungeon_sim` と同じ）。
+#   ⚠ 自動のあいだも人が押せる（⚠ 混ざる）。⚠ どちらも `GameSettings` に覚える＝次の戦闘でもそのまま。
+var _auto_toggle: Button = null
+var _speed_toggle: Button = null
+
 
 func _ready() -> void:
 	# ⚠ 右上の資源（金・ジェム・スタミナ）を隠す（2026-09-16・人間の決定
@@ -173,6 +179,7 @@ func _ready() -> void:
 
 	# ⚠ 先に見た目を当てる。⚠ _init_party_units() が並び始めの位置を使う。
 	_apply_hud_theme()
+	_build_battle_toggles()
 
 	# 起動時に SceneManager から transfer_data を 1 回だけ取り出す。
 	# 2 回呼ぶと 2 回目は空 dict になる。
@@ -284,6 +291,69 @@ func _apply_hud_theme() -> void:
 	_party_base_x = center - gap - step * float(PARTY_SLOT_COUNT - 1)
 	_enemy_step_x = step
 	_enemy_base_x = center + gap
+
+
+# 上の帯の右端に「自動」「速さ」（2026-10-09・回AUTO-2）。⚠ 速さはここで当てる（⚠ 抜けるときは `_exit_tree()` が 1 に戻す）。
+func _build_battle_toggles() -> void:
+	var row: HBoxContainer = floor_label.get_parent() as HBoxContainer
+	var spacer: Control = Control.new()
+	spacer.name = "ToggleSpacer"
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+	# ⚠ 素の `Button` に低い型（`BattleToggleButton`・⚠ 入っているあいだは真鍮）。⚠ `UiButton` は自分の型を当て直すので使わない。
+	_auto_toggle = Button.new()
+	_auto_toggle.theme_type_variation = &"BattleToggleButton"
+	_auto_toggle.name = "AutoToggle"
+	_auto_toggle.toggle_mode = true
+	_auto_toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_auto_toggle.focus_mode = Control.FOCUS_NONE
+	_auto_toggle.pressed.connect(_on_auto_toggled)
+	row.add_child(_auto_toggle)
+	_speed_toggle = Button.new()
+	_speed_toggle.theme_type_variation = &"BattleToggleButton"
+	_speed_toggle.name = "SpeedToggle"
+	_speed_toggle.toggle_mode = true
+	_speed_toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_speed_toggle.focus_mode = Control.FOCUS_NONE
+	_speed_toggle.pressed.connect(_on_speed_toggled)
+	row.add_child(_speed_toggle)
+	Engine.time_scale = float(GameSettings.battle_speed())
+	_refresh_battle_toggles()
+
+
+func _refresh_battle_toggles() -> void:
+	var auto: bool = GameSettings.battle_auto()
+	_auto_toggle.set_pressed_no_signal(auto)
+	_auto_toggle.text = tr("ui_battle_auto_on" if auto else "ui_battle_auto_off")
+	var speed: int = GameSettings.battle_speed()
+	_speed_toggle.set_pressed_no_signal(speed > 1)
+	_speed_toggle.text = tr("ui_battle_speed") % speed
+
+
+func _on_auto_toggled() -> void:
+	GameSettings.set_value(GameSettings.SECTION_BATTLE, GameSettings.KEY_BATTLE_AUTO, not GameSettings.battle_auto())
+	_refresh_battle_toggles()
+
+
+func _on_speed_toggled() -> void:
+	var speeds: Array[int] = GameSettings.BATTLE_SPEEDS
+	var next: int = speeds[(speeds.find(GameSettings.battle_speed()) + 1) % speeds.size()]
+	GameSettings.set_value(GameSettings.SECTION_BATTLE, GameSettings.KEY_BATTLE_SPEED, next)
+	Engine.time_scale = float(next)
+	print("[Battle] speed = %dx" % next)
+	_refresh_battle_toggles()
+
+
+# 自動で撃つ（⚠ 押せるボタンを押すのと同じ口＝`_on_skill_button_pressed()`。⚠ 撃てるかの判定は持たない）。
+#   ⚠ ボタンの押せる／押せないは `_update_skill_buttons()` がこのフレームに決めたもの。⚠ 溜めている最中は撃たない。
+func _auto_fire() -> void:
+	if not GameSettings.battle_auto() or _session.state != BattleSession.STATE_BATTLE_ACTIVE or not _charging.is_empty():
+		return
+	for entry: Dictionary in _skill_buttons:
+		var tile: Variant = entry.get("button", null)
+		var user: Variant = entry.get("user", null)
+		if tile is BaseButton and is_instance_valid(tile) and not (tile as BaseButton).disabled and user is BattleUnit and (user as BattleUnit).is_alive():
+			_on_skill_button_pressed(user as BattleUnit, str(entry.get("skill_id", "")))
 
 
 # デバッグ実行時のみパネルを生成する。リリースビルドには出ない。
@@ -652,6 +722,7 @@ func _process(delta: float) -> void:
 	# ウェーブ間の待機中にボタンが押せる状態のまま固まる。
 	_tick_charge(delta)
 	_update_skill_buttons()
+	_auto_fire()
 	# 状態のマスも状態ガードの外で回す。⚠ 内側に置くと、勝敗が決まった瞬間に
 	#   マスが最後の顔ぶれのまま固まる（死んだ敵のマスが結果画面まで残る）。
 	_update_status_chips()

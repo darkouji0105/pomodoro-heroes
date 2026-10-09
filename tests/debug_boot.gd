@@ -10612,6 +10612,7 @@ class UiFlowRunner extends Node:
 		await _flow_return_paths()
 		await _flow_item_sources()
 		await _flow_goal()
+		await _flow_battle_auto()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -13522,6 +13523,82 @@ class UiFlowRunner extends Node:
 		GameManager.clear_goal()
 		_set_material(material_id, 99999)
 		_set_material(level_material, level_material_had)
+
+	# ⚠ 戦闘の「自動」と速さ（2026-10-09・回AUTO-2・人間「⚠ １あ　２あ　３あ　４い」）。
+	#   ⚠ 終わりの合図＝「自動」を入れたら人が触らずに決着する。⚠ 第1話の波を検証用（報酬なし）で開く。
+	# 戦闘の記録（`battle_last.jsonl`）の、味方（`party_*`）が**ボタンのスキル**を撃った数。⚠ 記録は戦闘を開くたびに空から。
+	#   ⚠ パッシブ（遺物・特殊効果）も「cast」で記録される＝⚠ ボタンに載っているスキルだけ数える。
+	func _party_casts(battle: Node) -> int:
+		var slot_skills: Dictionary = {}
+		if battle != null:
+			for entry: Variant in battle.get("_skill_buttons"):
+				slot_skills[str((entry as Dictionary).get("skill_id", ""))] = true
+		var casts: int = 0
+		for line: String in FileAccess.get_file_as_string(BattleLog.FILE_PATH).split("
+"):
+			var parsed: Variant = JSON.parse_string(line) if line.strip_edges() != "" else null
+			if parsed is Dictionary and str((parsed as Dictionary).get("ev", "")) == "cast" and str((parsed as Dictionary).get("unit", "")).begins_with("party_") 					and slot_skills.has(str((parsed as Dictionary).get("skill", ""))):
+				casts += 1
+		return casts
+
+	func _flow_battle_auto() -> void:
+		const GIVE_UP_REAL_SEC: float = 90.0
+		# ⚠ 第1話のフロアの本物の戦闘のマス（⚠ stages.json の floor_1 は波を持たない＝マスから組む）。⚠ 終わったら状態を戻す。
+		var snapshot: Dictionary = GameManager.get_state()
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		var _started: bool = GameManager.start_floor("floor_1")
+		var node_id: String = ""
+		var nodes: Dictionary = GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_NODES, {})
+		for raw_id: Variant in nodes:
+			if str((nodes[raw_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+				node_id = str(raw_id)
+				break
+		var data: Dictionary = {
+			TransferKeys.STAGE_ID: "floor_1", TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY, TransferKeys.FLOOR_NODE_ID: node_id,
+		}
+		_check("自動戦闘：第1話のフロアに戦闘のマスがある（%s）" % node_id, node_id != "")
+		# ⚠ 先に「自動：オフ」で2秒（⚠ 味方のスキルは0回のはず＝⚠ 後の「撃った」が自動のおかげだと言える）。
+		var b: Node = await _open(BATTLE, data)
+		await get_tree().create_timer(2.0).timeout
+		BattleLog.flush()
+		var manual_casts: int = _party_casts(b)
+		_check("自動戦闘：オフのままなら味方のスキルは撃たれない（%d 回）" % manual_casts, b != null and manual_casts == 0)
+		b = await _open(BATTLE, data)
+		if b == null:
+			return
+		var auto: Node = b.find_child("AutoToggle", true, false)
+		var speed: Node = b.find_child("SpeedToggle", true, false)
+		_check("自動戦闘：上の帯に「自動」「速さ」・既定はオフと ×1（%s ／ %s ／ %.0f 倍）" % [
+			"" if auto == null else (auto as Button).text, "" if speed == null else (speed as Button).text, Engine.time_scale],
+			auto != null and speed != null and not GameSettings.battle_auto() and is_equal_approx(Engine.time_scale, 1.0))
+		await _press(speed)
+		_check("自動戦闘：「速さ」で ×2（%.0f 倍）" % Engine.time_scale, GameSettings.battle_speed() == 2 and is_equal_approx(Engine.time_scale, 2.0))
+		await _press(auto)
+		_check("自動戦闘：「自動」でオン", GameSettings.battle_auto() and (auto as Button).button_pressed)
+		var session: BattleSession = b.call("get_session")
+		var started: float = Time.get_ticks_msec() / 1000.0
+		while session.state != BattleSession.STATE_VICTORY and session.state != BattleSession.STATE_DEFEAT:
+			if Time.get_ticks_msec() / 1000.0 - started > GIVE_UP_REAL_SEC:
+				break
+			await get_tree().process_frame
+		BattleLog.flush()
+		# ⚠ 味方は通常攻撃を勝手に打つ＝決着だけでは「自動で撃った」の証にならない。⚠ 味方（`party_*`）のスキルの記録を数える。
+		#   ⚠ ここまでの手で育ちきっているので一瞬で勝つことがある（⚠ 秒では見ない）。⚠ 波が無い戦闘（即勝ち）だけは弾く。
+		var casts: int = _party_casts(b)
+		_check("自動戦闘：人が触らずに決着した（%s・ゲームの中 %.1f 秒・味方のスキル %d 回）" % [
+			"勝ち" if session.state == BattleSession.STATE_VICTORY else ("負け" if session.state == BattleSession.STATE_DEFEAT else "決着せず"), session.elapsed_sec, casts],
+			(session.state == BattleSession.STATE_VICTORY or session.state == BattleSession.STATE_DEFEAT) and casts > 0 and session.total_waves > 0)
+		var _base: Node = await _open(BASE, {})
+		_check("自動戦闘：戦闘を出ると速さは 1 倍に戻る（%.0f 倍）" % Engine.time_scale, is_equal_approx(Engine.time_scale, 1.0))
+		b = await _open(BATTLE, data)
+		auto = null if b == null else b.find_child("AutoToggle", true, false)
+		_check("自動戦闘：次の戦闘でも自動と ×2 のまま（%.0f 倍）" % Engine.time_scale,
+			auto != null and (auto as Button).button_pressed and is_equal_approx(Engine.time_scale, 2.0))
+		GameSettings.set_value(GameSettings.SECTION_BATTLE, GameSettings.KEY_BATTLE_AUTO, false)
+		GameSettings.set_value(GameSettings.SECTION_BATTLE, GameSettings.KEY_BATTLE_SPEED, 1)
+		_base = await _open(BASE, {})
+		var _restored: bool = GameManager.load_state(snapshot)
 
 	func _flow_item_sources() -> void:
 		const SHOP_SCREEN: String = "res://scenes/guild/shop_screen.tscn"

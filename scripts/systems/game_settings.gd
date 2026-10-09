@@ -39,6 +39,11 @@ const KEY_EFFECT_SPEED: String = "effect_speed"
 const KEY_GOAL_STYLE: String = "goal_style"
 const GOAL_STYLE_STRIP: String = "strip"
 const GOAL_STYLE_SIDEBAR: String = "sidebar"
+# ⚠ 戦闘の「自動」と速さ（2026-10-09・回AUTO-2・人間「⚠ １あ　２あ　３あ　４い」）：⚠ 戦闘画面の上の帯で切り替え・次の戦闘でもそのまま。
+const SECTION_BATTLE: String = "battle"
+const KEY_BATTLE_AUTO: String = "auto"
+const KEY_BATTLE_SPEED: String = "speed"
+const BATTLE_SPEEDS: Array[int] = [1, 2]
 const WEEK_END_CHOICES: Array[int] = [5, 6, 0]
 const VOLUME_MAX_PCT: int = 100
 # ⚠ 演出の速さの5段（⚠ ふつう・1.5倍・2倍・3倍・とばす）。⚠ 「とばす」は 20倍＝ほぼ一瞬（⚠ 演出の終わりで次へ進む作りを崩さない）。
@@ -111,6 +116,10 @@ static func _default(section: String, key: String) -> Variant:
 			return 0
 		KEY_GOAL_STYLE:
 			return GOAL_STYLE_STRIP
+		KEY_BATTLE_AUTO:
+			return false
+		KEY_BATTLE_SPEED:
+			return 1
 	push_warning("[GameSettings] 知らない設定 %s/%s" % [section, key])
 	return null
 
@@ -165,6 +174,16 @@ static func mini_window_on_top() -> bool:
 
 static func auto_start_focus() -> bool:
 	return bool(get_value(SECTION_POMODORO, KEY_AUTO_START))
+
+
+static func battle_auto() -> bool:
+	return bool(get_value(SECTION_BATTLE, KEY_BATTLE_AUTO))
+
+
+# ⚠ 1 か 2（⚠ 知らない値は 1）。
+static func battle_speed() -> int:
+	var speed: int = int(get_value(SECTION_BATTLE, KEY_BATTLE_SPEED))
+	return speed if speed in BATTLE_SPEEDS else 1
 
 
 static func goal_style() -> String:

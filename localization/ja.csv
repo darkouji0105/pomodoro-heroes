@@ -1668,3 +1668,6 @@ ui_settings_goal_style,目標の出し方
 ui_settings_goal_style_note,目標を決めたとき、どこに出すか
 ui_settings_goal_strip,上の帯
 ui_settings_goal_sidebar,右のサイドバー
+ui_battle_auto_on,自動：オン
+ui_battle_auto_off,自動：オフ
+ui_battle_speed,速さ ×%d
