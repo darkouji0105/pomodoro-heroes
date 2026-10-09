@@ -35,7 +35,7 @@ const SECTION_TASK: String = "task"
 const KEY_WEEK_END: String = "week_end_weekday"
 # ⚠ 演出の速さ（2026-10-07・回UI-便 K・人間「⚠ Kは５で」）：⚠ 0〜4 の段（⚠ 倍率は下の `EFFECT_SPEEDS`）。
 const KEY_EFFECT_SPEED: String = "effect_speed"
-# ⚠ 目標の出し方（2026-10-09・回AUTO-1・人間「⚠ １あか別枠のサイドバー」）：⚠ 見比べるための仮の設定（⚠ 設定の画面にはまだ出さない）。
+# ⚠ 目標の出し方（2026-10-09・回AUTO-1・人間「⚠ １う」＝両方残して選べる・`NAV-24`）：⚠ 設定の画面の「表示」で選ぶ（既定は上の帯）。
 const KEY_GOAL_STYLE: String = "goal_style"
 const GOAL_STYLE_STRIP: String = "strip"
 const GOAL_STYLE_SIDEBAR: String = "sidebar"

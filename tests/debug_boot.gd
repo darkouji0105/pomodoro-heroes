@@ -13510,6 +13510,16 @@ class UiFlowRunner extends Node:
 		modal = _modal_of(lu)
 		await _press(null if modal == null else modal.find_child("StopButton", true, false))
 		_check("目標：「目標をやめる」で空になり窓も閉じる", not GameManager.has_goal() and _modal_of(lu) == null)
+		# ⑨ 設定の画面の「表示」で出し方を選ぶ（⚠ 人間「⚠ １う」）。⚠ 目標を入れておき、⚠ 選んだらすぐ帯 ⇔ つまみが入れ替わる。
+		var _again: bool = GameManager.set_goal({material_id: GameManager.get_material_count(material_id) + 5}, GameStateKeys.GOAL_ORIGIN_ITEM, material_id)
+		var settings: Node = await _open(SETTINGS, {})
+		await _press(null if settings == null else settings.find_child("GoalStyle_" + GameSettings.GOAL_STYLE_SIDEBAR, true, false))
+		_check("目標：設定で「右のサイドバー」を選ぶと帯が消えてつまみ（%s）" % GameSettings.goal_style(),
+			GameSettings.goal_style() == GameSettings.GOAL_STYLE_SIDEBAR and tab != null and tab.visible and strip != null and not strip.visible)
+		settings = get_tree().current_scene
+		await _press(null if settings == null else settings.find_child("GoalStyle_" + GameSettings.GOAL_STYLE_STRIP, true, false))
+		_check("目標：「上の帯」に戻すと帯", GameSettings.goal_style() == GameSettings.GOAL_STYLE_STRIP and strip != null and strip.visible)
+		GameManager.clear_goal()
 		_set_material(material_id, 99999)
 		_set_material(level_material, level_material_had)
 

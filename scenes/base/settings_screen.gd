@@ -130,6 +130,16 @@ func _build_display() -> void:
 		speed_values.append(i)
 	_row("EffectSpeedRow", "ui_settings_effect_speed", "ui_settings_effect_speed_note",
 		_choices("EffectSpeed", speed_values, speed_labels, GameSettings.effect_speed_index(), _on_effect_speed_chosen))
+	# ⚠ 10-09（回AUTO-1・`NAV-24`・人間「⚠ １う」＝両方残して選べる）：⚠ 目標の出し方（上の帯 ／ 右のサイドバー）。
+	var goal_labels: Array[String] = [tr("ui_settings_goal_strip"), tr("ui_settings_goal_sidebar")]
+	_row("GoalStyleRow", "ui_settings_goal_style", "ui_settings_goal_style_note",
+		_choices("GoalStyle", [GameSettings.GOAL_STYLE_STRIP, GameSettings.GOAL_STYLE_SIDEBAR], goal_labels, GameSettings.goal_style(), _on_goal_style_chosen))
+
+
+func _on_goal_style_chosen(value: String) -> void:
+	GameSettings.set_value(GameSettings.SECTION_DISPLAY, GameSettings.KEY_GOAL_STYLE, value)
+	GoalHud.refresh()
+	_rebuild()
 
 
 func _on_effect_speed_chosen(value: int) -> void:
