@@ -146,6 +146,13 @@ const SHOT_AFTER_DEBUG_OVERLAY: String = "debug_overlay"
 const SHOT_AFTER_BASE_TOWN: String = "base_town"
 # ⚠ 拠点の遺物の画面（2026-10-07・回HB-3）。⚠ 内側の `AFTER_GUILD_RELIC` と同じ字。
 const SHOT_AFTER_GUILD_RELIC: String = "guild_relic"
+# ⚠ 目標（2026-10-09・回AUTO-1・`EXEC_GOAL.md`）。⚠ 内側の `PREPARE_GOAL_*` / `AFTER_GOAL_*` と同じ字。⚠ `shot_only=goal` で目標の枚だけ撮れる。
+const SHOT_PREPARE_GOAL_ITEM: String = "goal_item"
+const SHOT_PREPARE_GOAL_LEVEL: String = "goal_level"
+const SHOT_PREPARE_GOAL_SIDEBAR: String = "goal_sidebar"
+const SHOT_PREPARE_GOAL_ENTRY: String = "goal_entry"
+const SHOT_AFTER_GOAL_SHEET: String = "goal_sheet"
+const SHOT_AFTER_GOAL_SIDEBAR_OPEN: String = "goal_sidebar_open"
 # ⚠ 宝箱の高レアの演出の途中（2026-09-27 の見る回）。⚠ 内側の `AFTER_CHEST_FX` と同じ字。
 const SHOT_AFTER_CHEST_FX: String = "chest_fx"
 # ⚠ タスクのメモ（2026-10-04・`TK-n`）：⚠ タスクを並べる ／ 終えたものを記録へ移す ／ 詳しくを開く ／ 選ぶ窓 ／ 記録のタブ。⚠ 内側の同じ名前の字と揃える。
@@ -1333,6 +1340,16 @@ const SCENARIOS: Dictionary = {
 			{"name": "69_mini_reflection", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_REFLECTION},
 			{"name": "74_base_town", "scene": SCENE_BASE, "after": SHOT_AFTER_BASE_TOWN, "measure": ["Layout/TopArea/TownView"]},
 			{"name": "75_guild_relic", "scene": "res://scenes/guild/guild_relic_screen.tscn", "after": SHOT_AFTER_GUILD_RELIC},
+			# ⚠ 目標（2026-10-09・回AUTO-1・人間「⚠ ５い」＝形を撮って見比べる）。⚠ 表示＝上の帯（鍛冶場・本部・押した紙）／ サイドバー（閉・開）。
+			{"name": "76_goal_strip_forge", "scene": "res://scenes/guild/forge_screen.tscn", "prepare": SHOT_PREPARE_GOAL_ITEM},
+			{"name": "77_goal_strip_base", "scene": SCENE_BASE, "prepare": SHOT_PREPARE_GOAL_LEVEL},
+			{"name": "78_goal_strip_sheet", "scene": "res://scenes/guild/forge_screen.tscn", "prepare": SHOT_PREPARE_GOAL_ITEM, "after": SHOT_AFTER_GOAL_SHEET},
+			{"name": "79_goal_sidebar_closed", "scene": "res://scenes/guild/forge_screen.tscn", "prepare": SHOT_PREPARE_GOAL_SIDEBAR},
+			{"name": "80_goal_sidebar_open", "scene": "res://scenes/guild/workshop_screen.tscn", "prepare": SHOT_PREPARE_GOAL_SIDEBAR, "after": SHOT_AFTER_GOAL_SIDEBAR_OPEN},
+			# ⚠ 入口の3案（⚠ 目標なし・帯の形に戻す＝あとの枚に目標を残さない）。
+			{"name": "81_goal_entry_source", "scene": "res://scenes/guild/forge_screen.tscn", "prepare": SHOT_PREPARE_GOAL_ENTRY, "after": SHOT_AFTER_ITEM_SOURCE},
+			{"name": "82_goal_entry_workshop", "scene": "res://scenes/guild/workshop_screen.tscn", "prepare": SHOT_PREPARE_GOAL_ENTRY},
+			{"name": "83_goal_entry_level", "scene": "res://scenes/guild/level_up_screen.tscn", "prepare": SHOT_PREPARE_GOAL_ENTRY, "data": {TransferKeys.CHARACTER_ID: "char_swordsman"}},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -1452,6 +1469,7 @@ func _ready() -> void:
 		taker.name = "DebugBootShotTaker"
 		taker.out_dir = _read_shot_dir()
 		taker.shots = scenario.get("shots", [])
+		taker.only = _read_user_arg("shot_only=")
 		# ⚠ Driver と同じ理由で root に残す。⚠ 画面を差し替えると自分（＝debug_boot）は消える。
 		get_tree().root.add_child.call_deferred(taker)
 		return
@@ -8745,6 +8763,14 @@ func _report_dungeon_map_shop_row() -> void:
 	clear.queue_free()
 
 
+# `<名前>=<値>` の値を読む（⚠ 無ければ ""）。
+func _read_user_arg(prefix: String) -> String:
+	for raw: Variant in OS.get_cmdline_user_args():
+		if str(raw).begins_with(prefix):
+			return str(raw).substr(prefix.length())
+	return ""
+
+
 # `shot_dir=<パス>` を読む。⚠ 無ければ user://shots。
 func _read_shot_dir() -> String:
 	var args: Array = []
@@ -9249,6 +9275,14 @@ class ShotTaker extends Node:
 	const AFTER_DEBUG_OVERLAY: String = "debug_overlay"
 	const AFTER_BASE_TOWN: String = "base_town"
 	const AFTER_GUILD_RELIC: String = "guild_relic"
+	const PREPARE_GOAL_ITEM: String = "goal_item"
+	const PREPARE_GOAL_LEVEL: String = "goal_level"
+	const PREPARE_GOAL_SIDEBAR: String = "goal_sidebar"
+	const PREPARE_GOAL_ENTRY: String = "goal_entry"
+	const AFTER_GOAL_SHEET: String = "goal_sheet"
+	const AFTER_GOAL_SIDEBAR_OPEN: String = "goal_sidebar_open"
+	const GOAL_SHOT_MATERIAL: String = "forging_material_1"
+	const GOAL_SHOT_HERO: String = "char_swordsman"
 	const FORGE_STRIKE_WAIT_MS: int = 4000
 	const SIGN_WAIT_MS: int = 8000
 	const CHEST_RISE_WAIT_FRAMES: int = 90
@@ -9275,6 +9309,8 @@ class ShotTaker extends Node:
 
 	var out_dir: String = ""
 	var shots: Array = []
+	# ⚠ 名前にこの字を含む枚だけ撮る（2026-10-09・`shot_only=goal`）。⚠ 空なら全部。
+	var only: String = ""
 
 	func _ready() -> void:
 		await _run()
@@ -9307,6 +9343,8 @@ class ShotTaker extends Node:
 		#   ⚠ 原因は別。⚠ §0-UI-Q-4 の報告を見ること
 		ResourceGainEffect.set_muted(true)
 		for raw: Variant in shots:
+			if only != "" and not str((raw as Dictionary).get("name", "")).contains(only):
+				continue
 			await _take_one(raw as Dictionary)
 
 	func _take_one(shot: Dictionary) -> void:
@@ -9430,6 +9468,25 @@ class ShotTaker extends Node:
 		return GameManager.set_task_done(done_id, true)
 
 	# ⚠ 下ごしらえを増やすならここに1行。
+	# 目標の枚の下ごしらえ（⚠ 本番の口 `set_goal()` だけ）。⚠ 素材は「足りない」姿にする（⚠ 撮影は全部 99999 持たせている）。
+	func _prepare_goal(kind: String) -> bool:
+		GameManager.clear_goal()
+		GameManager.add_material(GOAL_SHOT_MATERIAL, 5 - GameManager.get_material_count(GOAL_SHOT_MATERIAL))
+		var level_material: String = str(GameManager.get_level_up_cost(GOAL_SHOT_HERO).get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
+		GameManager.add_material(level_material, 2 - GameManager.get_material_count(level_material))
+		var style: String = GameSettings.GOAL_STYLE_SIDEBAR if kind == PREPARE_GOAL_SIDEBAR else GameSettings.GOAL_STYLE_STRIP
+		GameSettings.set_value(GameSettings.SECTION_DISPLAY, GameSettings.KEY_GOAL_STYLE, style)
+		SceneManager.remember(TransferKeys.MEMORY_GOAL_SIDEBAR_OPEN, false)
+		var ok: bool = true
+		if kind in [PREPARE_GOAL_ITEM, PREPARE_GOAL_SIDEBAR]:
+			ok = GameManager.set_goal({GOAL_SHOT_MATERIAL: 12}, GameStateKeys.GOAL_ORIGIN_ITEM, GOAL_SHOT_MATERIAL, 12)
+		elif kind == PREPARE_GOAL_LEVEL:
+			var level: int = int(GameManager.get_character_growth(GOAL_SHOT_HERO).get(GameStateKeys.GROWTH_LEVEL, 1))
+			var target: int = mini(level + 5, GameManager.get_effective_level_cap(GOAL_SHOT_HERO))
+			ok = GameManager.set_goal(GameManager.get_level_goal_lines(GOAL_SHOT_HERO, target), GameStateKeys.GOAL_ORIGIN_LEVEL, GOAL_SHOT_HERO, target)
+		GoalHud.refresh()
+		return ok
+
 	func _prepare(kind: String) -> bool:
 		if kind == "":
 			return true
@@ -9541,6 +9598,8 @@ class ShotTaker extends Node:
 			return _prepare_best_floors(3)
 		if kind == PREPARE_TASKS:
 			return _prepare_tasks()
+		if kind in [PREPARE_GOAL_ITEM, PREPARE_GOAL_LEVEL, PREPARE_GOAL_SIDEBAR, PREPARE_GOAL_ENTRY]:
+			return _prepare_goal(kind)
 		if kind == PREPARE_BOARD_CLEARED:
 			if GameManager.is_in_floor():
 				GameManager.abandon_floor()
@@ -9823,6 +9882,16 @@ class ShotTaker extends Node:
 				return false
 			(records_tabs.get_child(RecordsScreen.TAB_TASKS) as BaseButton).pressed.emit()
 			for _i: int in range(3):
+				await get_tree().process_frame
+		elif kind == AFTER_GOAL_SHEET or kind == AFTER_GOAL_SIDEBAR_OPEN:
+			# ⚠ 常駐の帯・つまみの本物のボタンを押す。
+			var hud: GoalHud = GoalHud.get_instance()
+			var button: Node = null if hud == null else hud.find_child("GoalStrip" if kind == AFTER_GOAL_SHEET else "GoalTab", true, false)
+			if not (button is BaseButton) or not (button as BaseButton).visible:
+				push_error("[DebugBoot] ⚠ %s で目標の帯・つまみが出ていない" % shot_name)
+				return false
+			(button as BaseButton).pressed.emit()
+			for _i: int in range(10):
 				await get_tree().process_frame
 		elif kind == AFTER_GUILD_RELIC:
 			# ⚠ 等級6の装備を1つ持たせ（⚠ 個体を作るのは `add_to_inventory()` の1本）、⚠ 力の遺物に少し点を入れ、⚠ 祭壇で選んだ姿。

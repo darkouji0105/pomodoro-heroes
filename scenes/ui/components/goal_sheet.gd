@@ -59,7 +59,8 @@ func _rebuild() -> void:
 	add_child(list)
 	for line: Dictionary in GameManager.get_goal_progress():
 		list.add_child(_make_line(line))
-	var stop: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_goal_stop")
+	# ⚠ 紙の上なので紙の選び札（⚠ 透かしのボタンは暗い地用＝紙の上だと字が消える・10-09 の撮影で見た）。
+	var stop: Button = UiButton.create_paper_choice("ui_goal_stop")
 	stop.name = "StopButton"
 	stop.pressed.connect(GameManager.clear_goal)
 	add_child(stop)
@@ -82,7 +83,8 @@ func _make_line(line: Dictionary) -> LedgerRow:
 	name_label.text = tr(GameManager.item_name_key(item_id))
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# ⚠ 折り返さない・切らない（⚠ サイドバーで「鍛冶／の欠／片」と3行に割れた → 切ると「鍛冶の…」・10-09 の撮影）。
+	#   ⚠ 名前の幅が要る分は紙が左へ広がる。
 	box.add_child(name_label)
 	var count_label: Label = Label.new()
 	count_label.name = "CountLabel"
