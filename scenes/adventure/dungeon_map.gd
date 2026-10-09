@@ -108,12 +108,16 @@ func _ready() -> void:
 	#   ⚠ 「戻る」と「その場で降りる」は右上のメニューへ。⚠ レリックをまとめて見る窓もここから。
 	# ⚠ 09-26（人間の参考画像「地図らしく」）：⚠ マスはアイコンだけの丸（⚠ シナリオも同じ）。
 	map_view.round_nodes = true
+	# ⚠ 塔はマスを揺らさない（2026-10-09・回D-塔・1本の線）。
+	map_view.straight = GameManager.is_tower_dungeon()
 	# ⚠ 紙は外（`MapSheet`＝縁がちぎれた横いっぱいの紙）が敷く。⚠ 地図が自分で敷くと2枚重なる。
 	map_view.draw_sheet = false
 	var menu: RunMenuButton = RunMenuButton.new()
 	$Layout/Header.add_child(menu)
 	var _back_item: UiButton = menu.add_item(tr("ui_common_suspend_to_base"), _on_back_pressed)
-	var _relic_item: UiButton = menu.add_item(tr("ui_relic_list_open"), _open_relic_list)
+	# ⚠ 塔にレリックは無い（`DG-4`・人間「⚠ ９全部消していい」）＝⚠ 窓を開く口も出さない。
+	if not GameManager.is_tower_dungeon():
+		var _relic_item: UiButton = menu.add_item(tr("ui_relic_list_open"), _open_relic_list)
 	var _abandon_item: UiButton = menu.add_item(tr("ui_dungeon_abandon"), _on_abandon_pressed, true)
 	# ⚠ ヘッダーのレリックを押しても同じ窓（⚠ 人間の選択）。
 	relic_grid.slot_pressed.connect(func(_entry: Dictionary, _index: int) -> void: _open_relic_list())
@@ -172,6 +176,9 @@ func _rebuild() -> void:
 
 # このフロアの層の幅「31–40層」（⚠ 地図の題の札）。
 func _layer_range_text() -> String:
+	# ⚠ 塔は「12階」（2026-10-09・回D-塔・人間「⚠ ６あ」＝「層」の字は出さない）。
+	if GameManager.is_tower_dungeon():
+		return tr("ui_tower_floor_no") % GameManager.get_dungeon_floor_index()
 	return tr("ui_dungeon_layer_range") % [
 		GameManager.get_dungeon_absolute_layer(1),
 		GameManager.get_dungeon_absolute_layer(GameManager.get_dungeon_layers_per_floor()),
@@ -190,6 +197,17 @@ func _update_header() -> void:
 	floor_label.text = tr("ui_dungeon_header_layer") % [
 		GameManager.get_dungeon_current_layer(), GameManager.get_dungeon_layers_to_exit(),
 	]
+	# ⚠ 塔は「12階　2 / 5 戦」・特別な階は「13階　商人の階」（2026-10-09・回D-塔）。⚠ たいまつは無い（人間「⚠ ７い」）。
+	var tower: bool = GameManager.is_tower_dungeon()
+	torch_label.visible = not tower
+	if tower:
+		var progress: Vector2i = GameManager.get_tower_battle_progress()
+		floor_label.text = (
+			tr("ui_tower_header") % [GameManager.get_dungeon_floor_index(), progress.x, progress.y] if progress.y > 0
+			else tr("ui_tower_header_special") % [
+				GameManager.get_dungeon_floor_index(), tr("ui_tower_floor_kind_" + GameManager.get_dungeon_floor_kind()),
+			]
+		)
 	# ⚠⚠ たいまつの等級（決定32）。⚠ 2026-09-19 にフロアの行から分けた（モック v2 のヘッダ）。
 	#   ⚠ 何層先まで見えているかが読めないと、⚠ ショップで買うかどうかを決められない。
 	torch_label.text = "%s %s" % [
@@ -377,7 +395,8 @@ func _rebuild_layers() -> void:
 	# ⚠ たいまつの暗さ（2026-09-19・モック v2 §0）。⚠ 何層先まで見えるかは GameManager の1本に聞く。
 	#   ⚠ ボスを倒したあと（⚠ 撤退できる＝決定15）は暗さを外す（モック §3「明かりが部屋いっぱいに広がる」）。
 	map_view.torch_reveal_layers = (
-		-1 if GameManager.can_retreat_from_dungeon() else GameManager.get_dungeon_reveal_layers()
+		-1 if GameManager.can_retreat_from_dungeon() or GameManager.is_tower_dungeon()
+		else GameManager.get_dungeon_reveal_layers()
 	)
 	# ⚠ 層の目盛り（2026-09-19・モック v2）。
 	# ⚠ 2026-09-20：区画の切れ目の表示は人間の指示で消した（⚠ 区画そのものは残っている）。
@@ -395,6 +414,17 @@ func _rebuild_layers() -> void:
 # 層の目盛りの字 {layer: "12層"}。⚠ ボスの層は 🏰 を前に付ける（モック v2）。
 func _layer_captions(nodes: Dictionary, layer_key: String, kind_key: String, boss_kind: String) -> Dictionary:
 	var result: Dictionary = {}
+	# ⚠ 塔は「入口・1戦目…・階の主」（2026-10-09・回D-塔）。⚠ 層の字は出さない。
+	if GameManager.is_tower_dungeon():
+		for raw: Variant in nodes.values():
+			var tower_node: Dictionary = raw
+			var tower_layer: int = int(tower_node.get(layer_key, 1))
+			var kind: String = str(tower_node.get(kind_key, ""))
+			result[tower_layer] = (
+				tr("ui_tower_battle_no") % (tower_layer - 1) if kind == GameStateKeys.DUNGEON_NODE_KIND_BATTLE
+				else tr("ui_tower_caption_" + kind)
+			)
+		return result
 	for raw: Variant in nodes.values():
 		var node: Dictionary = raw
 		var layer: int = int(node.get(layer_key, 1))
@@ -841,6 +871,9 @@ func _enter_node(node_id: String) -> void:
 			# 宝箱（段階19-b）。⚠ 別画面へ移る。⚠ 開けるのは向こう。
 			#   ⚠ ここで open_dungeon_chest() を呼ばないこと（⚠ 中身を見せる前に配ってしまう）。
 			_enter_chest_node(node_id)
+		GameStateKeys.DUNGEON_NODE_KIND_MERCHANT:
+			# ⚠ 塔の商人の階（2026-10-09・回D-塔）。⚠ 店を出たら階が済む（`dungeon_shop.gd` → `finish_dungeon_merchant()`）。
+			SceneManager.change_scene(SHOP_PATH)
 		_:
 			push_warning("[DungeonMap] 知らないノードの種類: " + kind)
 			_say(tr("ui_dungeon_node_not_ready"))
@@ -941,11 +974,18 @@ func _build_map_overlays() -> void:
 		map_view.get_theme_constant(&"sheet_pad", RunMapView.THEME_TYPE)
 	)
 	var entries: Array[Dictionary] = []
-	for kind: String in [
+	# ⚠ 塔の凡例は塔に出るものだけ（2026-10-09・回D-塔・⚠ レリック・休憩は無い）。
+	var legend_kinds: Array[String] = [
 		GameStateKeys.DUNGEON_NODE_KIND_BATTLE, GameStateKeys.DUNGEON_NODE_KIND_RELIC,
 		GameStateKeys.DUNGEON_NODE_KIND_REST, GameStateKeys.DUNGEON_NODE_KIND_CHEST,
 		GameStateKeys.DUNGEON_NODE_KIND_BOSS,
-	]:
+	]
+	if GameManager.is_tower_dungeon():
+		legend_kinds = [
+			GameStateKeys.DUNGEON_NODE_KIND_BATTLE, GameStateKeys.DUNGEON_NODE_KIND_BOSS,
+			GameStateKeys.DUNGEON_NODE_KIND_MERCHANT, GameStateKeys.DUNGEON_NODE_KIND_CHEST,
+		]
+	for kind: String in legend_kinds:
 		entries.append({
 			MapLegend.ENTRY_ICON: IconTextures.for_run_node(kind),
 			MapLegend.ENTRY_TEXT: tr("ui_dungeon_node_" + kind),

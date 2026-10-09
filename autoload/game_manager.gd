@@ -613,6 +613,8 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.GOAL: {},
 		# ⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3（⚠ 帰還報告書の「最深 更新」）。
 		GameStateKeys.DUNGEON_BEST_FLOORS: {},
+		# ⚠ 塔の次に入る階（2026-10-09・回D-塔）。⚠ 前のセーブも空で読まれる（＝1階から）。
+		GameStateKeys.DUNGEON_RESUME_FLOORS: {},
 		# ⚠ タスクのメモ（2026-10-04・`TK-1`・`TK-6`）。⚠ 前のセーブも空で読まれる。
 		GameStateKeys.TASKS: [],
 		GameStateKeys.TASK_LOG: [],
@@ -7659,6 +7661,13 @@ func load_state(data: Dictionary) -> bool:
 		var best: Dictionary = new_state[GameStateKeys.DUNGEON_BEST_FLOORS]
 		for dungeon_key: Variant in best:
 			best[dungeon_key] = int(best[dungeon_key])
+	# ⚠ 塔の次に入る階（2026-10-09・回D-塔）を int に戻す（CLAUDE.md 3番）。⚠ 前のセーブには無い＝空。
+	if new_state.get(GameStateKeys.DUNGEON_RESUME_FLOORS) is Dictionary:
+		var resume: Dictionary = new_state[GameStateKeys.DUNGEON_RESUME_FLOORS]
+		for resume_key: Variant in resume:
+			resume[resume_key] = int(resume[resume_key])
+	else:
+		new_state[GameStateKeys.DUNGEON_RESUME_FLOORS] = {}
 	# ⚠ 拠点の遺物の点数（2026-10-07・回HB-3）を int に戻す（CLAUDE.md 3番）。⚠ 前のセーブには無い＝空のまま。
 	if new_state.get(GameStateKeys.GUILD_RELICS) is Dictionary:
 		var relic_points: Dictionary = new_state[GameStateKeys.GUILD_RELICS]
@@ -9061,6 +9070,19 @@ const DUNGEON_DEFAULT_ID: String = "dungeon_hard"
 
 # dungeon.json のキー。⚠ stages.json の STAGE_MASTER_* とは別（ファイルが別）。
 const DUNGEON_MASTER_LAYERS: String = "layers"
+# ⚠ 形（2026-10-09・回D-塔・`DG-3`）。⚠ "tower" なら1本道の塔・⚠ 無ければ網（決定49 のまま）。
+#   ⚠ 人間「⚠ 大前提として、今のダンジョンも残して、テストプレイで比べられるように」＝⚠ 網の `dungeon_hard` は消さない。
+const DUNGEON_MASTER_SHAPE: String = "shape"
+const DUNGEON_SHAPE_TOWER: String = "tower"
+# 塔のつまみ `{battles, special_floor_pct, special_floor_weights: {merchant, treasure}}`（⚠ 値は仮・`DG-2`）。
+const DUNGEON_MASTER_TOWER: String = "tower"
+const TOWER_BATTLES: String = "battles"
+const TOWER_SPECIAL_FLOOR_PCT: String = "special_floor_pct"
+const TOWER_SPECIAL_FLOOR_WEIGHTS: String = "special_floor_weights"
+# 塔のマスの ID（⚠ 入口・戦闘・特別な階のマス。⚠ 主は網と同じ "d_boss"）。
+const TOWER_GATE_ID: String = "t_0"
+const TOWER_NODE_PREFIX: String = "t_"
+const DUNGEON_BOSS_ID: String = "d_boss"
 const DUNGEON_MASTER_BATTLE_POOL: String = "battle_pool"
 const DUNGEON_MASTER_BOSS: String = "boss"
 const DUNGEON_MASTER_LOOT: String = "loot"
@@ -9106,6 +9128,8 @@ func _empty_dungeon_run() -> Dictionary:
 		# ⚠ 入ったフロア（2026-10-03・決定49）。⚠ 前のセーブに無ければ 1（`get_dungeon_start_floor()`）。
 		GameStateKeys.DUNGEON_RUN_START_FLOOR: 1,
 		GameStateKeys.DUNGEON_RUN_PHASE: "",
+		# ⚠ 塔の階の種類（2026-10-09・回D-塔）。⚠ 網はいつも normal。⚠ 前のセーブに無ければ normal。
+		GameStateKeys.DUNGEON_RUN_FLOOR_KIND: GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL,
 		# ⚠ このフロアでショップを自動で出したか（2026-09-20）。⚠ 降りるたびに false に戻す。
 		GameStateKeys.DUNGEON_RUN_SHOP_SEEN: false,
 		GameStateKeys.DUNGEON_RUN_NODES: {},
@@ -9138,6 +9162,163 @@ func _dungeon() -> DungeonConfig:
 			push_error("[GameManager] E133 balance.tscn: Balance.dungeon が null。dungeon_config.tres を Balance ノードの dungeon 欄に割り当てること")
 		return null
 	return Balance.dungeon
+
+
+# --- 塔（2026-10-09・回D-塔・`DG-3`・`EXEC_DUNGEON_TOWER.md`） ---------------
+#   ⚠ 網と同じ器（`DUNGEON_RUN` の nodes / position / visited）に、⚠ 1本の線を載せる。
+#   ⚠ 「塔か」の判定はここ1本（⚠ 画面で shape の綴りを比べない）。
+
+# そのダンジョンは塔か（⚠ `dungeon_id` を省くといまのラン・ランの外なら false）。
+func is_tower_dungeon(dungeon_id: String = "") -> bool:
+	var id: String = dungeon_id
+	if id == "":
+		if not is_in_dungeon():
+			return false
+		id = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	return str(MasterDataLoader.get_dungeon(id).get(DUNGEON_MASTER_SHAPE, "")) == DUNGEON_SHAPE_TOWER
+
+
+func _tower_master(dungeon_id: String) -> Dictionary:
+	var raw: Variant = MasterDataLoader.get_dungeon(dungeon_id).get(DUNGEON_MASTER_TOWER, {})
+	return raw as Dictionary if raw is Dictionary else {}
+
+
+# 1階の雑魚の戦闘の数（⚠ 階の主は数えない＝`DG-3` の「5戦」は ここ＋1）。
+func get_tower_battles_per_floor(dungeon_id: String = "") -> int:
+	var id: String = dungeon_id
+	if id == "":
+		id = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
+	return maxi(1, int(_tower_master(id).get(TOWER_BATTLES, 4)))
+
+
+# いまの階の種類（normal / merchant / treasure）。⚠ ランの外・網は normal。
+func get_dungeon_floor_kind() -> String:
+	return str(get_dungeon_run().get(
+		GameStateKeys.DUNGEON_RUN_FLOOR_KIND, GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL
+	))
+
+
+# この階で済ませた戦闘の数と全体（⚠ 主を含む・特別な階は {0, 0}）。⚠ 見出し「2 / 5 戦」。
+func get_tower_battle_progress() -> Vector2i:
+	if not is_tower_dungeon() or get_dungeon_floor_kind() != GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL:
+		return Vector2i.ZERO
+	var done: int = 0
+	var total: int = 0
+	var nodes: Dictionary = get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	for raw: Variant in nodes.values():
+		var kind: String = str((raw as Dictionary).get(GameStateKeys.DUNGEON_NODE_KIND, ""))
+		if kind != GameStateKeys.DUNGEON_NODE_KIND_BATTLE and kind != GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+			continue
+		total += 1
+		if bool((raw as Dictionary).get(GameStateKeys.DUNGEON_NODE_CLEARED, false)):
+			done += 1
+	return Vector2i(done, total)
+
+
+# 次に入る階（⚠ 最後に帰った階の次・人間「⚠ ２あ」）。⚠ まだ帰ったことが無ければ 1。
+func get_tower_resume_floor(dungeon_id: String) -> int:
+	var resume: Variant = _state.get(GameStateKeys.DUNGEON_RESUME_FLOORS, {})
+	var floor_number: int = int((resume as Dictionary).get(dungeon_id, 1)) if resume is Dictionary else 1
+	return clampi(floor_number, 1, get_dungeon_max_floors())
+
+
+# 上った先の階の種類を引く（⚠ 人間「⚠ ９らんだむ」「⚠ ４あ」＝続けては出ない）。
+func _roll_tower_floor_kind(dungeon_id: String, previous_kind: String) -> String:
+	if previous_kind != GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL:
+		return GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL
+	var tower: Dictionary = _tower_master(dungeon_id)
+	var pct: int = clampi(int(tower.get(TOWER_SPECIAL_FLOOR_PCT, 0)), 0, 100)
+	if pct <= 0 or randi_range(1, 100) > pct:
+		return GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL
+	var weights: Variant = tower.get(TOWER_SPECIAL_FLOOR_WEIGHTS, {})
+	var total: int = 0
+	var kinds: Array = []
+	if weights is Dictionary:
+		kinds = (weights as Dictionary).keys()
+		kinds.sort()
+		for kind: Variant in kinds:
+			total += maxi(0, int((weights as Dictionary)[kind]))
+	if total <= 0:
+		return GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL
+	var roll: int = randi() % total
+	for kind: Variant in kinds:
+		roll -= maxi(0, int((weights as Dictionary)[kind]))
+		if roll < 0:
+			return str(kind)
+	return GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL
+
+
+# 塔の1階ぶんの線を組む（⚠ 形は `_build_dungeon_map()` と同じ戻り値）。
+#   ⚠ ふつうの階：入口 → 戦闘 × battles → 主 ／ ⚠ 特別な階：入口 → 商人 か 宝箱（⚠ 1マス・戦わない）。
+#   ⚠ 通路に効果は付けない（⚠ 罠の道は無し・人間「⚠ ７い」）。⚠ 入口は済んだマスとして置く（⚠ 戦わない）。
+func _build_tower_map(dungeon_id: String, floor_kind: String) -> Dictionary:
+	var nodes: Dictionary = {}
+	var order: Array[String] = [TOWER_GATE_ID]
+	var kinds: Array[String] = [GameStateKeys.DUNGEON_NODE_KIND_GATE]
+	match floor_kind:
+		GameStateKeys.DUNGEON_FLOOR_KIND_MERCHANT:
+			kinds.append(GameStateKeys.DUNGEON_NODE_KIND_MERCHANT)
+		GameStateKeys.DUNGEON_FLOOR_KIND_TREASURE:
+			kinds.append(GameStateKeys.DUNGEON_NODE_KIND_CHEST)
+		_:
+			for _i: int in range(get_tower_battles_per_floor(dungeon_id)):
+				kinds.append(GameStateKeys.DUNGEON_NODE_KIND_BATTLE)
+			kinds.append(GameStateKeys.DUNGEON_NODE_KIND_BOSS)
+	for i: int in range(1, kinds.size()):
+		order.append(DUNGEON_BOSS_ID if kinds[i] == GameStateKeys.DUNGEON_NODE_KIND_BOSS else "%s%d" % [TOWER_NODE_PREFIX, i])
+	for i: int in range(order.size()):
+		var next: Array = []
+		if i + 1 < order.size():
+			next.append({GameStateKeys.DUNGEON_EDGE_TO: order[i + 1], GameStateKeys.DUNGEON_EDGE_EFFECT: ""})
+		nodes[order[i]] = {
+			GameStateKeys.DUNGEON_NODE_LAYER: i + 1,
+			GameStateKeys.DUNGEON_NODE_KIND: kinds[i],
+			GameStateKeys.DUNGEON_NODE_NEXT: next,
+			GameStateKeys.DUNGEON_NODE_CLEARED: i == 0,
+		}
+	return {"entry": TOWER_GATE_ID, "boss": order[order.size() - 1], "nodes": nodes}
+
+
+# 上った階の頭で HP を戻す（⚠ `DG-3`「HP は階の中だけ持ち越す」）。
+#   ⚠ 倒れた人は倒れたまま（⚠ 人間「⚠ ７い」＝起こすのは蘇生ポーションだけ）。⚠ 素の MAX HP から写す（決定8）。
+func _restore_tower_hp(run: Dictionary) -> void:
+	var max_hp: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_MAX_HP, {})
+	var hp: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_HP, {})
+	for raw: Variant in max_hp.keys():
+		var character_id: String = str(raw)
+		if int(max_hp[raw]) <= 0:
+			continue
+		var base: int = get_dungeon_base_max_hp(character_id)
+		max_hp[raw] = base
+		hp[raw] = base
+	run[GameStateKeys.DUNGEON_RUN_MAX_HP] = max_hp
+	run[GameStateKeys.DUNGEON_RUN_HP] = hp
+
+
+# 塔の商人のマスに居て、まだ済ませていないか（⚠ 店が開くかの判定の片方）。
+func _is_at_tower_merchant() -> bool:
+	if not is_tower_dungeon() or get_dungeon_phase() != GameStateKeys.DUNGEON_PHASE_MAP:
+		return false
+	var node: Dictionary = get_dungeon_node(str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")))
+	return str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_MERCHANT \
+		and not bool(node.get(GameStateKeys.DUNGEON_NODE_CLEARED, false))
+
+
+# 塔の商人を出た（⚠ 商人の階はこれで済み＝上る／帰る へ）。⚠ 商人のマスに居なければ false。
+func finish_dungeon_merchant() -> bool:
+	if not _is_at_tower_merchant():
+		return false
+	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	var position: String = str(run.get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	var nodes: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_NODES, {})
+	(nodes[position] as Dictionary)[GameStateKeys.DUNGEON_NODE_CLEARED] = true
+	run[GameStateKeys.DUNGEON_RUN_NODES] = nodes
+	run[GameStateKeys.DUNGEON_RUN_PHASE] = GameStateKeys.DUNGEON_PHASE_BOSS_CLEARED
+	_state[GameStateKeys.DUNGEON_RUN] = run
+	print("[GameManager] finish_dungeon_merchant() -> %d階 商人の階を済ませた" % get_dungeon_floor_index())
+	dungeon_run_changed.emit(str(run[GameStateKeys.DUNGEON_RUN_DUNGEON_ID]))
+	return true
 
 
 # --- 読み取り ---------------------------------------------------------
@@ -9306,6 +9487,9 @@ func get_dungeon_layers_per_floor(dungeon_id: String = "") -> int:
 	var id: String = dungeon_id
 	if id == "":
 		id = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, "")) if is_in_dungeon() else DUNGEON_DEFAULT_ID
+	# ⚠ 塔は1階＝1（⚠ 「層」は数えない・人間「⚠ ６あ」＝「階」で呼ぶ）。⚠ 帯の from_layer も階で読む。
+	if is_tower_dungeon(id):
+		return 1
 	var raw_layers: Variant = MasterDataLoader.get_dungeon(id).get(DUNGEON_MASTER_LAYERS, [])
 	return (raw_layers as Array).size() + 1 if raw_layers is Array else 1
 
@@ -9323,6 +9507,9 @@ func get_dungeon_floor_first_layer(floor_number: int = 0) -> int:
 
 # マップの中の層（ノードの layer・1 から）を入口から数えた層にする。⚠ 層の表示はここ1本。
 func get_dungeon_absolute_layer(layer: int) -> int:
+	# ⚠ 塔はどのマスもその階（⚠ マスの layer は線の並びだけ）。
+	if is_tower_dungeon():
+		return get_dungeon_floor_first_layer()
 	return get_dungeon_floor_first_layer() + maxi(1, layer) - 1
 
 
@@ -9345,6 +9532,10 @@ func get_dungeon_layers_to_exit() -> int:
 # ⚠ 「出口から再開」（決定49・人間「⚠ 2あ」）の判定はここ1本。⚠ 画面はここから選ばせる。
 func get_dungeon_start_floor_options(dungeon_id: String = DUNGEON_DEFAULT_ID) -> Array[int]:
 	var options: Array[int] = []
+	# ⚠ 塔は選べない（⚠ 最後に帰った階の次だけ・人間「⚠ ２あ」）。
+	if is_tower_dungeon(dungeon_id):
+		options.append(get_tower_resume_floor(dungeon_id))
+		return options
 	var deepest: int = mini(get_dungeon_best_floors(dungeon_id) + 1, get_dungeon_max_floors())
 	for floor_number: int in range(1, maxi(1, deepest) + 1):
 		options.append(floor_number)
@@ -9412,7 +9603,8 @@ func start_dungeon_run(dungeon_id: String = DUNGEON_DEFAULT_ID, start_floor: int
 	var config: DungeonConfig = _dungeon()
 	if config == null:
 		return false
-	var map: Dictionary = _build_dungeon_map(dungeon_id)
+	# ⚠ 塔の入った階は必ずふつうの階（⚠ 特別な階は上ったときだけ）。
+	var map: Dictionary = _build_dungeon_map(dungeon_id, GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL)
 	if map.is_empty():
 		push_warning("[GameManager] start_dungeon_run: マップを組めなかった: " + dungeon_id)
 		return false
@@ -9520,9 +9712,12 @@ func move_in_dungeon(node_id: String) -> bool:
 	# ⚠⚠ 戦闘のマスも踏んだだけでは出ない（不1・2026-09-05）。⚠ clear_dungeon_battle() が配る。
 	#   ⚠ 踏んだ時点で配っていたため、⚠ (1) 負けても報酬が残り、⚠ (2) 拾い待ちが立って
 	#     画面が拾いものへ送られ、⚠ 戦闘そのものが起きなかった（⚠ 人間「戦闘が起きずに報酬だけもらえる」）。
+	# ⚠ 塔の入口と商人も配らない（⚠ 商人は店を出たときに済む＝`finish_dungeon_merchant()`）。
 	if kind != GameStateKeys.DUNGEON_NODE_KIND_BOSS \
 			and kind != GameStateKeys.DUNGEON_NODE_KIND_CHEST \
-			and kind != GameStateKeys.DUNGEON_NODE_KIND_BATTLE:
+			and kind != GameStateKeys.DUNGEON_NODE_KIND_BATTLE \
+			and kind != GameStateKeys.DUNGEON_NODE_KIND_GATE \
+			and kind != GameStateKeys.DUNGEON_NODE_KIND_MERCHANT:
 		# ⚠⚠ 段階20-f：⚠ 戦利品も拾い待ちへ（⚠ 人間の指示「戦利品も選ばせる」）。
 		#   ⚠ これで鞄へ直接入る経路は1つも無くなった。⚠ 入れるのは必ずプレイヤーが選ぶ。
 		_grant_dungeon_node_gains(kind, true)
@@ -9622,19 +9817,28 @@ func descend_dungeon_floor() -> bool:
 		print("[GameManager] descend_dungeon_floor() -> false (最後の階。持ち帰るしかない)")
 		return false
 	var dungeon_id: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
-	var map: Dictionary = _build_dungeon_map(dungeon_id)
+	# ⚠ 塔は上るたびに階の種類を引く（⚠ 網はいつも normal）。
+	var tower: bool = is_tower_dungeon(dungeon_id)
+	var floor_kind: String = (
+		_roll_tower_floor_kind(dungeon_id, get_dungeon_floor_kind()) if tower
+		else GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL
+	)
+	var map: Dictionary = _build_dungeon_map(dungeon_id, floor_kind)
 	if map.is_empty():
 		push_warning("[GameManager] descend_dungeon_floor: マップを組めなかった: " + dungeon_id)
 		return false
 
 	var run: Dictionary = (_state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
 	run[GameStateKeys.DUNGEON_RUN_FLOOR_INDEX] = get_dungeon_floor_index() + 1
+	run[GameStateKeys.DUNGEON_RUN_FLOOR_KIND] = floor_kind
+	if tower:
+		_restore_tower_hp(run)
 	_apply_dungeon_map(run, map)
 	_state[GameStateKeys.DUNGEON_RUN] = run
 
-	print("[GameManager] descend_dungeon_floor() -> フロア%d / 鞄 %d/%d / 通貨 %d（持ち越した）" % [
-		int(run[GameStateKeys.DUNGEON_RUN_FLOOR_INDEX]),
-		get_dungeon_bag_used(), get_dungeon_bag_slots(), get_dungeon_currency(),
+	print("[GameManager] descend_dungeon_floor() -> フロア%d（%s）/ 鞄 %d/%d / 通貨 %d（持ち越した）/ ランのMAX HP %s" % [
+		int(run[GameStateKeys.DUNGEON_RUN_FLOOR_INDEX]), floor_kind,
+		get_dungeon_bag_used(), get_dungeon_bag_slots(), get_dungeon_currency(), str(get_dungeon_max_hp()),
 	])
 	dungeon_run_changed.emit(dungeon_id)
 	return true
@@ -9682,6 +9886,11 @@ func retreat_from_dungeon() -> Dictionary:
 	# ⚠ 帰還報告書（2026-09-29・`EXEC_RUN_REPORT.md` §4）。⚠ ランを捨てる前に数える。
 	var dungeon_id: String = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
 	var cleared: int = _cleared_dungeon_floors()
+	# ⚠ 塔の「次に入る階」＝帰った階の次（⚠ 人間「⚠ ２あ」・⚠ 上限で丸める）。⚠ 書くのはここ1本。
+	if is_tower_dungeon(dungeon_id):
+		var resume: Dictionary = _copy_dict(GameStateKeys.DUNGEON_RESUME_FLOORS)
+		resume[dungeon_id] = mini(floors + 1, get_dungeon_max_floors())
+		_state[GameStateKeys.DUNGEON_RESUME_FLOORS] = resume
 	_record_run_report(REPORT_KIND_DUNGEON, RUN_END_RETURNED, dungeon_id, cleared, _update_dungeon_best(dungeon_id, cleared), {
 		REPORT_GRANTED: result["granted"], REPORT_DISCARDED: result["discarded"],
 	})
@@ -10481,7 +10690,10 @@ func _dungeon_loot_chance_pct(kind: String) -> int:
 # ⚠ 接続は決め打ち（乱数を使わない）。乱数が入るのはノードの種類だけ。
 #   接続まで乱数にすると「ボスに着かないルート」が低確率で生まれ、再現できない事故になる。
 # ⚠ 最終層の全ノードがボスへ入る＝どのルートを選んでも必ずボスに着く。
-func _build_dungeon_map(dungeon_id: String) -> Dictionary:
+func _build_dungeon_map(dungeon_id: String, floor_kind: String = GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL) -> Dictionary:
+	# ⚠ 塔は1本の線（2026-10-09・回D-塔）。⚠ 網の組み方には入らない。
+	if is_tower_dungeon(dungeon_id):
+		return _build_tower_map(dungeon_id, floor_kind)
 	var dungeon: Dictionary = MasterDataLoader.get_dungeon(dungeon_id)
 	var raw_layers: Variant = dungeon.get(DUNGEON_MASTER_LAYERS, null)
 	if not (raw_layers is Array) or (raw_layers as Array).is_empty():
@@ -10538,7 +10750,7 @@ func _build_dungeon_map(dungeon_id: String) -> Dictionary:
 		seg_by_layer.append(seg_row)
 
 	# 2. ボス。最終層の1つ先に置く。
-	var boss_id: String = "d_boss"
+	var boss_id: String = DUNGEON_BOSS_ID
 	nodes[boss_id] = {
 		GameStateKeys.DUNGEON_NODE_LAYER: layers.size() + 1,
 		GameStateKeys.DUNGEON_NODE_KIND: GameStateKeys.DUNGEON_NODE_KIND_BOSS,
@@ -11768,6 +11980,9 @@ func open_dungeon_chest(node_id: String) -> Dictionary:
 	var nodes: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_NODES, {})
 	(nodes[node_id] as Dictionary)[GameStateKeys.DUNGEON_NODE_CLEARED] = true
 	run[GameStateKeys.DUNGEON_RUN_NODES] = nodes
+	# ⚠ 塔の宝の階はこれで済み（⚠ 上る／帰る へ・2026-10-09・回D-塔）。
+	if is_tower_dungeon():
+		run[GameStateKeys.DUNGEON_RUN_PHASE] = GameStateKeys.DUNGEON_PHASE_BOSS_CLEARED
 	_state[GameStateKeys.DUNGEON_RUN] = run
 
 	# ⚠⚠ 2026-09-18：⚠ 中身をその場で引かない（人間の決定「難ダンジョンの宝箱も同じように
@@ -11852,7 +12067,8 @@ const DUNGEON_SHOP_REJECT_TORCH_MAX: String = "torch_max"
 # ⚠ ボスの先に居ないときは空（＝店が無い）。⚠ 画面で phase を見ないこと。
 func get_dungeon_shop_entries() -> Array:
 	var result: Array = []
-	if not can_retreat_from_dungeon():
+	# ⚠ 塔は商人の階の商人のマスだけ（⚠ 主の後には開かない・2026-10-09・回D-塔）。
+	if not (_is_at_tower_merchant() if is_tower_dungeon() else can_retreat_from_dungeon()):
 		return result
 	var dungeon: Dictionary = MasterDataLoader.get_dungeon(
 		str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
@@ -11991,6 +12207,9 @@ func is_dungeon_node_revealed(node_id: String) -> bool:
 		return false
 	if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
 		return true
+	# ⚠ 塔は全部見える（⚠ たいまつ・視界は無し・人間「⚠ ７い」）。
+	if is_tower_dungeon():
+		return true
 	var run: Dictionary = _state.get(GameStateKeys.DUNGEON_RUN, {})
 	var visited: Dictionary = run.get(GameStateKeys.DUNGEON_RUN_VISITED, {})
 	if visited.has(node_id):
@@ -12091,6 +12310,9 @@ func _validate_dungeon_config() -> void:
 		])
 		errors += 1
 	for edge_dungeon_id: String in MasterDataLoader.get_all_dungeon_ids():
+		# ⚠ 塔は通路に効果を付けない（⚠ 罠の道は無し・2026-10-09・回D-塔）。
+		if is_tower_dungeon(edge_dungeon_id):
+			continue
 		var edge_master: Variant = MasterDataLoader.get_dungeon(edge_dungeon_id).get(DUNGEON_MASTER_EDGES, null)
 		if not (edge_master is Dictionary):
 			push_error("[GameManager] E139 dungeon.json: %s に edges が無い（通路に効果を付けられない）" % edge_dungeon_id)
@@ -12173,7 +12395,8 @@ func _validate_dungeon_config() -> void:
 	for dungeon_id: String in dungeon_ids:
 		var dungeon: Dictionary = MasterDataLoader.get_dungeon(dungeon_id)
 		var layers: Variant = dungeon.get(DUNGEON_MASTER_LAYERS, null)
-		if not (layers is Array) or (layers as Array).is_empty():
+		# ⚠ 塔は layers を持たない（⚠ 線は `tower.battles` から組む・2026-10-09・回D-塔）。
+		if not is_tower_dungeon(dungeon_id) and (not (layers is Array) or (layers as Array).is_empty()):
 			push_error("[GameManager] E133 dungeon.json: %s に layers が無い" % dungeon_id)
 			errors += 1
 		if not (dungeon.get(DUNGEON_MASTER_BOSS, null) is Dictionary):

@@ -545,6 +545,9 @@ func _chosen_start_floor() -> int:
 
 
 func _build_depth_sheet() -> TiltedSheet:
+	# ⚠ 塔は選べない＝縦図を出さず「12階から」の1枚（2026-10-09・回D-塔・人間「⚠ ２あ」）。
+	if GameManager.is_tower_dungeon(_dungeon_id):
+		return _build_tower_sheet()
 	var options: Array[int] = GameManager.get_dungeon_start_floor_options(_dungeon_id)
 	var chosen: int = _chosen_start_floor()
 	var per_floor: int = GameManager.get_dungeon_layers_per_floor(_dungeon_id)
@@ -618,6 +621,37 @@ func _build_depth_sheet() -> TiltedSheet:
 		button.disabled = bool(spec[3])
 		button.pressed.connect(_on_depth_picked.bind(int(spec[2])))
 		buttons.add_child(button)
+	return holder
+
+
+# 塔の入る階（⚠ 最後に帰った階の次・選べない）。⚠ 名前は縦図の紙と同じ（⚠ 検査が名前で探す）。
+func _build_tower_sheet() -> TiltedSheet:
+	var holder: TiltedSheet = TiltedSheet.create(1)
+	holder.name = "Depth"
+	holder.sheet.theme_type_variation = &"SortiePaperPanel"
+	var body: VBoxContainer = VBoxContainer.new()
+	holder.sheet.add_child(body)
+	var heading: SheetHeading = SheetHeading.new()
+	heading.title_key = "ui_tower_depth_title"
+	body.add_child(heading)
+	var big_line: HBoxContainer = HBoxContainer.new()
+	big_line.alignment = BoxContainer.ALIGNMENT_CENTER
+	body.add_child(big_line)
+	var big: Label = Label.new()
+	big.name = "StartLayerLabel"
+	big.theme_type_variation = &"DepthBigLabel"
+	big.text = str(_chosen_start_floor())
+	big_line.add_child(big)
+	var unit: Label = Label.new()
+	unit.text = tr("ui_tower_depth_from")
+	unit.size_flags_vertical = Control.SIZE_SHRINK_END
+	big_line.add_child(unit)
+	var best: Label = Label.new()
+	best.name = "TowerBestLabel"
+	best.theme_type_variation = &"SmallLabel"
+	best.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	best.text = tr("ui_tower_depth_best") % GameManager.get_dungeon_best_floors(_dungeon_id)
+	body.add_child(best)
 	return holder
 
 

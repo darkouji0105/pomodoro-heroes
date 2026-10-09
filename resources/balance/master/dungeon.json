@@ -161,5 +161,462 @@
       "chest": 20,
       "boss": 45
     }
+  },
+  "dungeon_tower": {
+    "name_key": "ui_dungeon_tower",
+    "_shape_note": "⚠⚠ 2026-10-09（回D-塔・DG-3・人間「⚠ 大前提として、今のダンジョンも残して、テストプレイで比べられるように」）：⚠ 1本道の塔。⚠ 網の dungeon_hard は残して比べる。⚠ 階＝入口→戦闘 tower.battles 回→階の主。⚠ 上るたびに tower.special_floor_pct ％で特別な階（商人・宝＝special_floor_weights・続けては出ない・入った階は必ずふつう）。⚠ 罠の道・たいまつ・休憩・レリックは置かない（人間「⚠ ７い　⚠ ９全部消していい」）。⚠ 数字は仮（DG-2）。",
+    "shape": "tower",
+    "tower": {
+      "battles": 4,
+      "special_floor_pct": 20,
+      "special_floor_weights": {
+        "merchant": 1,
+        "treasure": 1
+      }
+    },
+    "_depth_bands_note": "⚠ 塔では from_layer は「階」（⚠ 1階＝1）。⚠ いまは1本も無い。",
+    "depth_bands": [],
+    "equip_grade": [
+      1,
+      2
+    ],
+    "battle_pool": [
+      {
+        "enemies": [
+          {
+            "enemy_type_id": "enemy_slime",
+            "count": 3
+          }
+        ]
+      },
+      {
+        "enemies": [
+          {
+            "enemy_type_id": "enemy_wolf",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "enemies": [
+          {
+            "enemy_type_id": "enemy_slime",
+            "count": 2
+          },
+          {
+            "enemy_type_id": "enemy_wolf",
+            "count": 1
+          }
+        ]
+      }
+    ],
+    "boss": {
+      "enemies": [
+        {
+          "enemy_type_id": "boss_slime_king",
+          "count": 1,
+          "is_boss": true,
+          "stat_overrides": {
+            "atk": 30
+          }
+        }
+      ]
+    },
+    "loot": {
+      "battle": {
+        "rolls": 1,
+        "entries": [
+          {
+            "item_id": "construction_material_4",
+            "weight": 30,
+            "count": 1
+          },
+          {
+            "item_id": "training_material_4",
+            "weight": 30,
+            "count": 1
+          },
+          {
+            "item_id": "forging_material_4",
+            "weight": 25,
+            "count": 1
+          },
+          {
+            "item_id": "decor_material_4",
+            "weight": 15,
+            "count": 1
+          },
+          {
+            "item_id": "dungeon_potion_heal",
+            "weight": 20,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_guard",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_swift",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_rune",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_short",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_hunter",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_oak",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_quick",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_prayer",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_guard",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_swift",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_sage",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_guard",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_swift",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_sage",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_guard",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_swift",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_sage",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_guard",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_swift",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_sage",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_gale",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_grove",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_dragon_greatsword",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_thorn_mail",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_guardian_charm",
+            "weight": 1,
+            "count": 1
+          }
+        ]
+      },
+      "chest": {
+        "rolls": 3,
+        "entries": [
+          {
+            "item_id": "construction_material_4",
+            "weight": 20,
+            "count": 1
+          },
+          {
+            "item_id": "training_material_4",
+            "weight": 20,
+            "count": 1
+          },
+          {
+            "item_id": "forging_material_4",
+            "weight": 18,
+            "count": 1
+          },
+          {
+            "item_id": "decor_material_4",
+            "weight": 12,
+            "count": 1
+          },
+          {
+            "item_id": "part_gem_atk_1",
+            "weight": 10,
+            "count": 1
+          },
+          {
+            "item_id": "dungeon_potion_heal",
+            "weight": 15,
+            "count": 1
+          },
+          {
+            "item_id": "dungeon_potion_revive",
+            "weight": 5,
+            "count": 1
+          },
+          {
+            "item_id": "forge_guarantee_token",
+            "weight": 3,
+            "count": 1
+          }
+        ]
+      },
+      "boss": {
+        "rolls": 3,
+        "entries": [
+          {
+            "item_id": "construction_material_4",
+            "weight": 30,
+            "count": 1
+          },
+          {
+            "item_id": "training_material_4",
+            "weight": 30,
+            "count": 1
+          },
+          {
+            "item_id": "forging_material_4",
+            "weight": 25,
+            "count": 1
+          },
+          {
+            "item_id": "part_gem_atk_2",
+            "weight": 10,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_guard",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_swift",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_rune",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_short",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_hunter",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_oak",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_quick",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_prayer",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_guard",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_swift",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_sage",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_guard",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_swift",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_sage",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_guard",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_swift",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_sage",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "acc_guard",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "acc_swift",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "acc_sage",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_gale",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_grove",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_dragon_greatsword",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_thorn_mail",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "acc_guardian_charm",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "dungeon_potion_heal",
+            "weight": 20,
+            "count": 1
+          },
+          {
+            "item_id": "dungeon_potion_revive",
+            "weight": 8,
+            "count": 1
+          }
+        ]
+      }
+    },
+    "shop": {
+      "entries": [
+        {
+          "kind": "item",
+          "item_id": "dungeon_potion_heal",
+          "cost": 60
+        },
+        {
+          "kind": "item",
+          "item_id": "dungeon_potion_revive",
+          "cost": 120
+        },
+        {
+          "kind": "bag_slot",
+          "cost": 80,
+          "amount": 2
+        }
+      ]
+    },
+    "currency": {
+      "battle": 12,
+      "chest": 20,
+      "boss": 45
+    }
   }
 }

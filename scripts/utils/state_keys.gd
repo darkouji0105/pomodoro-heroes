@@ -59,6 +59,9 @@ const GOAL_ORIGIN_RECIPE: String = "recipe"
 const GOAL_ORIGIN_LEVEL: String = "level"
 # ⚠ 難ダンジョンごとの最深（⚠ ボスを倒したフロアの数のいちばん大きい値）。⚠ 2026-09-29・`EXEC_RUN_REPORT.md` §3。
 const DUNGEON_BEST_FLOORS: String = "dungeon_best_floors"
+# ⚠ 塔の「次に入る階」（2026-10-09・回D-塔・`DG-3`・人間「⚠ ２あ」＝最後に帰った階の次）。{dungeon_id: int}。
+#   ⚠ 書くのは `retreat_from_dungeon()` だけ（⚠ 倒れた・降りたでは書かない）。⚠ `dungeon_id` はリリース後に改名しない。
+const DUNGEON_RESUME_FLOORS: String = "dungeon_resume_floors"
 const DAILY_SHOP: String = "daily_shop"
 const WEEKLY_SHOP: String = "weekly_shop"
 const MONTHLY_SHOP: String = "monthly_shop"
@@ -452,6 +455,11 @@ const DUNGEON_RUN_START_FLOOR: String = "start_floor_index"
 const DUNGEON_RUN_PHASE: String = "phase"
 const DUNGEON_PHASE_MAP: String = "map"
 const DUNGEON_PHASE_BOSS_CLEARED: String = "boss_cleared"
+# ⚠ 塔の階の種類（2026-10-09・回D-塔・`DG-3`）。⚠ 網の難ダンジョンは常に normal。⚠ リリース後に改名しない。
+const DUNGEON_RUN_FLOOR_KIND: String = "floor_kind"
+const DUNGEON_FLOOR_KIND_NORMAL: String = "normal"
+const DUNGEON_FLOOR_KIND_MERCHANT: String = "merchant"
+const DUNGEON_FLOOR_KIND_TREASURE: String = "treasure"
 # ⚠⚠ このフロアのボスの後、⚠ ショップをもう自動で出したか（2026-09-20・人間の指示
 #   「⚠ 地味すぎてわからないので　⚠ 次のフロアに行く前にショップを見せる」）。
 #   ⚠ 覚えないと、⚠ ショップから「戻る」でマップに帰るたびに開き直して出られなくなる。
@@ -559,6 +567,10 @@ const DUNGEON_NODE_KIND_BOSS: String = "boss"
 #   ⚠ 積むと「死んでも宝箱は残る」になり、⚠ 全ロスト（決定7・§4-8）が1点で崩れる。
 # ⚠ 種を増やしたら DungeonConfig の層の重みも1本増やすこと（E133 が長さを見張る）。
 const DUNGEON_NODE_KIND_CHEST: String = "chest"
+# ⚠ 塔だけ（2026-10-09・回D-塔）：⚠ 階の入口（⚠ 何も起きない・立っているだけ）／ ⚠ 商人の階の商人。
+#   ⚠ 網の難ダンジョンの層には置かない（⚠ 層の重みに入れない）。
+const DUNGEON_NODE_KIND_GATE: String = "gate"
+const DUNGEON_NODE_KIND_MERCHANT: String = "merchant"
 
 # ============================================================
 # 装備の個体管理（第2弾）

@@ -1677,3 +1677,26 @@ ui_goal_auto_stop_nothing,ここから先は自分で集める（まだの依頼
 ui_goal_auto_stop_gold,金貨が足りないので止めた
 ui_goal_auto_stop_stamina,スタミナが足りないので止めた
 ui_goal_auto_stop_moved,画面を移ったので、おまかせを止めた
+ui_dungeon_tower,塔（試作）
+ui_dungeon_node_gate,入口
+ui_dungeon_node_merchant,商人
+ui_tower_floor_no,%d階
+ui_tower_header,%d階　%d / %d 戦
+ui_tower_header_special,%d階　%s
+ui_tower_floor_kind_merchant,商人の階
+ui_tower_floor_kind_treasure,宝の階
+ui_tower_battle_no,%d戦目
+ui_tower_caption_gate,入口
+ui_tower_caption_boss,階の主
+ui_tower_caption_merchant,商人
+ui_tower_caption_chest,宝
+ui_tower_clear_heading,%d階を抜けた
+ui_tower_fork_descend_title,上る
+ui_tower_shop_leave,先へ進む
+ui_tower_depth_title,塔に入る
+ui_tower_depth_from,階から
+ui_tower_depth_best,いちばん高く上ったのは %d階
+ui_report_tower_unit,階
+ui_report_tower_best,最高 %d階
+ui_report_tower_floor,%d階
+ui_tower_fork_descend_button,次の階へ

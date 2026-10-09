@@ -94,6 +94,8 @@ const NODE_RELIC: String = "🔮"
 const NODE_REST: String = "⛺"
 const NODE_CHEST: String = "🎁"
 const NODE_BOSS: String = "🏰"
+# ⚠ 塔の階の入口（2026-10-09・回D-塔）。
+const NODE_GATE: String = "🚪"
 ## ⚠ シナリオのショップのマス（2026-09-19・マップの見た目を難ダンジョンに揃えた）。
 ##   ⚠ 難ダンジョンにはショップのマスが無い（⚠ ボスの先のボタン）。
 const NODE_SHOP: String = "🏪"
@@ -274,6 +276,11 @@ static func for_dungeon_node(kind: String) -> String:
 			return NODE_CHEST
 		GameStateKeys.DUNGEON_NODE_KIND_BOSS:
 			return NODE_BOSS
+		# ⚠ 塔だけ（2026-10-09・回D-塔）。⚠ 商人はシナリオのショップと同じ字。
+		GameStateKeys.DUNGEON_NODE_KIND_GATE:
+			return NODE_GATE
+		GameStateKeys.DUNGEON_NODE_KIND_MERCHANT:
+			return NODE_SHOP
 	return NODE_HIDDEN
 
 
@@ -362,6 +369,7 @@ static func all_for_check() -> Dictionary:
 		"TORCH": TORCH,
 		"NODE_CHEST": NODE_CHEST,
 		"NODE_BOSS": NODE_BOSS,
+		"NODE_GATE": NODE_GATE,
 		"NODE_HIDDEN": NODE_HIDDEN,
 		"EDGE_TRAP_HP": EDGE_TRAP_HP,
 		"EDGE_TRAP_CURRENCY": EDGE_TRAP_CURRENCY,

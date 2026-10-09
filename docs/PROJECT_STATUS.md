@@ -405,6 +405,8 @@ PLANは「意図」の記録であり、実際のコードとはズレる。**�
 
 ## 溜まっている宿題（小さいもの）
 
+- **網の難ダンジョンを畳むか**（2026-10-09・回D-塔）：⚠ 塔 `dungeon_tower` と網 `dungeon_hard` を並べて比べている（⚠ 人間「⚠ 今のダンジョンも残して、テストプレイで比べられるように」）。⚠ 畳むなら**レリック（`DG-4`・人間「⚠ ９全部消していい」）・罠の道・たいまつ・休憩・区画・縦図のコード**もそこで消す。⚠ 塔の名前の「（試作）」も外す
+- **`scenario=dungeon` の赤3本「素の MAX HP が動いた」**（2026-10-09 に発見・⚠ 変更前の HEAD でも同じ）：⚠ 網の節の最後で素の MAX HP が +6〜7 動く（⚠ 値は回ごとに違う＝何かのくじ）。⚠ 原因は見ていない
 - ~~検証用のものを消す~~ **✅ 完了。** `debug_instant` / 0Gスロット9件 / `weapon_debug_blade`（`items.json`・`shop.json`・`ja.csv`）を削除済み。エントリ数は items 15 / recipes 14 / shop 6
 - ~~倉庫の宝箱タブ0件時の表示を`ui_warehouse_no_chest`に直す~~ **✅ 既に直っている**（2026-09-14 に確認。`warehouse_screen.gd` が `ui_warehouse_no_chest` を出す）
 - ~~プロジェクト直下の`bash` / `bashsedstamina_per_focus_minute`~~ **✅ 既に消えている**（ルート直下は`AGENTS.md`/`CLAUDE.md`/`icon.svg`/`icon.svg.import`/`project.godot`のみ）

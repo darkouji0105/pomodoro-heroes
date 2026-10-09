@@ -59,6 +59,7 @@ func _ready() -> void:
 	leave_button.text = (
 		# ⚠ 「41層へ」（2026-10-03・決定49）＝次のフロアの最初の層。
 		tr("ui_dungeon_shop_leave_descend") % GameManager.get_dungeon_floor_first_layer(GameManager.get_dungeon_floor_index() + 1) if _descend_after
+		else tr("ui_tower_shop_leave") if GameManager.is_tower_dungeon()
 		else tr("ui_dungeon_shop_leave_map")
 	)
 	GameManager.dungeon_run_changed.connect(_on_dungeon_run_changed)
@@ -234,6 +235,9 @@ func _on_buy_pressed(index: int) -> void:
 # ⚠⚠ 「わかれ道の画面」から来たときは、⚠ ここを出るときに次の階へ潜る（決定48）。
 #   ⚠ 潜ってからだと店が消えるので、⚠ 順番を入れ替えないこと（`TransferKeys` の注記）。
 func _on_back_pressed() -> void:
+	# ⚠ 塔の商人の階は、⚠ 店を出たら済む（⚠ マップから上る／帰る へ・2026-10-09・回D-塔）。
+	if GameManager.is_tower_dungeon():
+		var _finished: bool = GameManager.finish_dungeon_merchant()
 	if _descend_after:
 		_descend_after = false
 		if not GameManager.descend_dungeon_floor():

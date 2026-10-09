@@ -45,6 +45,11 @@ func _is_dungeon() -> bool:
 	return str(_report.get(GameManager.REPORT_KIND, "")) == GameManager.REPORT_KIND_DUNGEON
 
 
+# 塔か（2026-10-09・回D-塔）。⚠ 塔は「12 → 15 階」（⚠ 層の字は出さない・人間「⚠ ６あ」）。
+func _is_tower() -> bool:
+	return _is_dungeon() and GameManager.is_tower_dungeon(str(_report.get(GameManager.REPORT_TARGET_ID, "")))
+
+
 # --- 左：報告 -----------------------------------------------------------
 
 func _build_report() -> TiltedSheet:
@@ -81,7 +86,7 @@ func _build_report() -> TiltedSheet:
 		big.text = tr("ui_report_layer_span") % [(start - 1) * per_floor + 1, floors * per_floor] if floors >= start else "0"
 	line.add_child(big)
 	var unit: Label = Label.new()
-	unit.text = tr("ui_report_layer_unit") if _is_dungeon() else tr("ui_report_floor_unit")
+	unit.text = tr("ui_report_tower_unit") if _is_tower() else tr("ui_report_layer_unit") if _is_dungeon() else tr("ui_report_floor_unit")
 	unit.size_flags_vertical = Control.SIZE_SHRINK_END
 	line.add_child(unit)
 	var range_column: VBoxContainer = VBoxContainer.new()
@@ -111,7 +116,7 @@ func _build_report() -> TiltedSheet:
 			best.name = "BestLabel"
 			best.theme_type_variation = &"CaptionLabel"
 			best.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			best.text = tr("ui_report_best") % (int(_report.get(GameManager.REPORT_BEST, 0)) * per_floor)
+			best.text = tr("ui_report_tower_best" if _is_tower() else "ui_report_best") % (int(_report.get(GameManager.REPORT_BEST, 0)) * per_floor)
 			line.add_child(best)
 
 	# ⚠ フロアごとのボス突破（⚠ 手本の「40層　ボス：…　突破」）。
@@ -140,7 +145,7 @@ func _build_report() -> TiltedSheet:
 		var floor_label: Label = Label.new()
 		floor_label.theme_type_variation = &"SheetHeadingLabel"
 		floor_label.custom_minimum_size.x = float(get_theme_constant(&"floor_width", THEME_TYPE))
-		floor_label.text = tr("ui_report_floor") % (floor_number * per_floor) if _is_dungeon() else _target_name()
+		floor_label.text = tr("ui_report_tower_floor" if _is_tower() else "ui_report_floor") % (floor_number * per_floor) if _is_dungeon() else _target_name()
 		boss_line.add_child(floor_label)
 		var boss: Label = Label.new()
 		boss.theme_type_variation = &"CaptionLabel"

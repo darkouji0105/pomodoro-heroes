@@ -59,6 +59,10 @@ func _rebuild() -> void:
 	var per_floor: int = GameManager.get_dungeon_layers_per_floor()
 	heading.text = tr("ui_dungeon_clear_heading") % GameManager.get_dungeon_absolute_layer(per_floor)
 	caption.text = tr("ui_dungeon_clear_caption")
+	# ⚠ 塔は「12階を抜けた」（2026-10-09・回D-塔・⚠ 層の字は出さない）。
+	var tower: bool = GameManager.is_tower_dungeon()
+	if tower:
+		heading.text = tr("ui_tower_clear_heading") % GameManager.get_dungeon_floor_index()
 
 	# ⚠⚠ 何を手に入れたかを見せる（決定48-a・人間「⚠ 何を手に入れたか見れる画面を」）。
 	#   ⚠ 見せるのは**鞄の中身**（⚠ まだ渡していない。⚠ 「ここで戻る」を押したときに渡る）。
@@ -69,7 +73,10 @@ func _rebuild() -> void:
 	_descend_card.visible = descend_button.visible
 	# ⚠ 次のフロアの層の幅「41–50層」。
 	var next_first: int = GameManager.get_dungeon_floor_first_layer(GameManager.get_dungeon_floor_index() + 1)
-	_next_floor_label.text = tr("ui_dungeon_layer_range") % [next_first, next_first + per_floor - 1]
+	_next_floor_label.text = (
+		tr("ui_tower_floor_no") % (GameManager.get_dungeon_floor_index() + 1) if tower
+		else tr("ui_dungeon_layer_range") % [next_first, next_first + per_floor - 1]
+	)
 	for child in _party_box.get_children():
 		_party_box.remove_child(child)
 		child.queue_free()
@@ -115,6 +122,9 @@ func _build_cards() -> void:
 	var right: VBoxContainer = _card_column(_descend_card, "ui_dungeon_clear_descend", "")
 	# ⚠ 題は「もう10層」（2026-10-03・決定49・手本 DungeonFork）。⚠ 層の数は GameManager に聞く。
 	(right.get_child(0) as Label).text = tr("ui_dungeon_fork_descend_title") % GameManager.get_dungeon_layers_per_floor()
+	# ⚠ 塔は「上る」（2026-10-09・回D-塔）。
+	if GameManager.is_tower_dungeon():
+		(right.get_child(0) as Label).text = tr("ui_tower_fork_descend_title")
 	_next_floor_label = Label.new()
 	_next_floor_label.name = "NextRangeLabel"
 	_next_floor_label.theme_type_variation = &"SheetHeadingLabel"
@@ -130,7 +140,7 @@ func _build_cards() -> void:
 	warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	warning.text = tr("ui_dungeon_fork_warning")
 	right.add_child(warning)
-	descend_button.label_key = "ui_dungeon_fork_descend_button"
+	descend_button.label_key = "ui_tower_fork_descend_button" if GameManager.is_tower_dungeon() else "ui_dungeon_fork_descend_button"
 	descend_button.variant = UiButton.Variant.SECONDARY
 	descend_button.size_flags_horizontal = Control.SIZE_FILL
 	_move_into(descend_button, right)
@@ -201,6 +211,12 @@ func _rebuild_loot() -> void:
 #   ⚠ 潜るのは**ショップを出たとき**（`dungeon_shop.gd`）。
 # ⚠ ショップは飛ばせない（人間「⚠ 飛ばさないでもいいと思う　⚠ ただ出ればいいだけだから」）。
 func _on_descend_pressed() -> void:
+	# ⚠⚠ 塔は店を挟まず上る（2026-10-09・回D-塔・`DG-3`＝商人は特別な階だけ）。
+	if GameManager.is_tower_dungeon():
+		if not GameManager.descend_dungeon_floor():
+			push_warning("[DungeonFloorClear] ⚠ 塔の次の階へ上れなかった（⚠ 最後の階か、主の先に居ない）")
+		SceneManager.change_scene(DUNGEON_MAP_PATH)
+		return
 	SceneManager.change_scene_with_data(SHOP_PATH, {
 		TransferKeys.DUNGEON_DESCEND_AFTER_SHOP: true,
 	})

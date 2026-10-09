@@ -137,6 +137,8 @@ var _walked: Dictionary = {}
 ##   ⚠ 字（`NODE_TEXT`）は触れると出る札へ回す。⚠ 通ったマスは赤いチェック、今いるマスは点線の輪。
 ##   ⚠ 列の幅（`NODE_WIDTH`）は変えない（⚠ 丸を列の真ん中に置く＝線の並びが崩れない）。
 var round_nodes: bool = false
+# ⚠ マスを揺らさず1本の線に並べる（2026-10-09・回D-塔・`RUN-17`「マスを1本の線に」）。⚠ 既定は揺らす（`RUN-16`）。
+var straight: bool = false
 
 ## ⚠ 風景を屋外（山・草・川）にするか。⚠ 既定は洞窟（難ダンジョン）。⚠ シナリオの地図が true（09-27・人間「⚠ い」）。
 var outdoor: bool = false:
@@ -375,6 +377,8 @@ func _make_node_button(node_id: String, node: Dictionary) -> Button:
 
 # マスごとのずれ（⚠ ID から決める＝毎回同じ）。⚠ 幅は Theme の `node_jitter` / `node_jitter_y`。
 func _jitter_of(node_id: String) -> Vector2:
+	if straight:
+		return Vector2.ZERO
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = hash(node_id)
 	var jx: float = float(get_theme_constant(&"node_jitter", THEME_TYPE))

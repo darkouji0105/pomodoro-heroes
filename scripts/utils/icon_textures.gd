@@ -202,6 +202,9 @@ const RUN_NODE_NAMES: Dictionary = {
 	"chest": NAME_ITEM_CHEST,
 	"shop": "nav_shop",
 	"boss": NAME_ITEM_EMBLEM,
+	# ⚠ 塔だけ（2026-10-09・回D-塔）。⚠ 絵は仮（⚠ 入口＝移動のルーン・商人＝ショップの線画を借りた）。
+	"gate": "rune_move",
+	"merchant": "nav_shop",
 }
 
 

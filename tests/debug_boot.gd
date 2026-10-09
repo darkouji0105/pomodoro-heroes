@@ -105,6 +105,11 @@ const SHOT_PREPARE_REPORT_RETURNED: String = "report_returned"
 const SHOT_PREPARE_REPORT_DEFEATED: String = "report_defeated"
 # ⚠ 潜る深さ（2026-10-03・決定49）：⚠ 最深 3（30層）・ノルマ札1枚で出撃の準備（難ダンジョン）。⚠ 内側の `PREPARE_SORTIE_DEPTH` と同じ字。
 const SHOT_PREPARE_SORTIE_DEPTH: String = "sortie_depth"
+# ⚠ 塔（2026-10-09・回D-塔）：⚠ 塔に入る ／ 主の先 ／ 商人の階 ／ 入る前（3階から）。⚠ 内側の `PREPARE_TOWER*` と同じ字。
+const SHOT_PREPARE_TOWER: String = "tower"
+const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
+const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
+const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
 const SHOT_AFTER_CHEST_OPEN: String = "chest_open"
 # ⚠ 鍛冶場で「鍛える」を押した姿（2026-09-27）。⚠ 内側の `AFTER_FORGE_PRESS` と同じ字。
 const SHOT_AFTER_FORGE_PRESS: String = "forge_press"
@@ -1350,6 +1355,12 @@ const SCENARIOS: Dictionary = {
 			{"name": "81_goal_entry_source", "scene": "res://scenes/guild/forge_screen.tscn", "prepare": SHOT_PREPARE_GOAL_ENTRY, "after": SHOT_AFTER_ITEM_SOURCE},
 			{"name": "82_goal_entry_workshop", "scene": "res://scenes/guild/workshop_screen.tscn", "prepare": SHOT_PREPARE_GOAL_ENTRY},
 			{"name": "83_goal_entry_level", "scene": "res://scenes/guild/level_up_screen.tscn", "prepare": SHOT_PREPARE_GOAL_ENTRY, "data": {TransferKeys.CHARACTER_ID: "char_swordsman"}},
+			# ⚠ 塔（2026-10-09・回D-塔・`EXEC_DUNGEON_TOWER.md` §6 画面）。⚠ `shot_only=tower` で4枚だけ撮れる。
+			{"name": "84_tower_sortie", "scene": "res://scenes/adventure/party_preset_screen.tscn", "prepare": SHOT_PREPARE_TOWER_OUT,
+				"data": {TransferKeys.SORTIE_DUNGEON_ID: "dungeon_tower", TransferKeys.RETURN_PATH: "res://scenes/adventure/adventure_select.tscn"}},
+			{"name": "85_tower_map", "scene": "res://scenes/adventure/dungeon_map.tscn", "prepare": SHOT_PREPARE_TOWER},
+			{"name": "86_tower_floor_clear", "scene": "res://scenes/adventure/dungeon_floor_clear.tscn", "prepare": SHOT_PREPARE_TOWER_BOSS},
+			{"name": "87_tower_merchant_map", "scene": "res://scenes/adventure/dungeon_map.tscn", "prepare": SHOT_PREPARE_TOWER_MERCHANT},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -1435,6 +1446,7 @@ func _ready() -> void:
 			_report_floor()
 		elif report == REPORT_DUNGEON:
 			_report_dungeon()
+			_report_tower()
 		elif report == REPORT_INVENTORY:
 			_report_inventory()
 		elif report == REPORT_GLYPHS:
@@ -5485,6 +5497,8 @@ class DungeonSimRunner extends Node:
 	var runs: int = 10
 	var floors_cap: int = 10
 	var speed: float = 8.0
+	# ⚠ 潜るダンジョン（2026-10-09・回D-塔）。⚠ `dungeon=tower` で塔（⚠ 名前の一部で探す）・既定は一覧の先頭（網）。
+	var dungeon_key: String = ""
 	var _results: Array = []
 	# 1回ぶんの数字。
 	var _r: Dictionary = {}
@@ -5497,6 +5511,8 @@ class DungeonSimRunner extends Node:
 				floors_cap = maxi(1, int(arg.substr(7)))
 			elif arg.begins_with("speed="):
 				speed = maxf(1.0, float(arg.substr(6)))
+			elif arg.begins_with("dungeon="):
+				dungeon_key = arg.substr(8)
 		ResourceGainEffect.set_muted(true)
 		SoundManager.set("_config", null)
 		Engine.time_scale = speed
@@ -5508,12 +5524,15 @@ class DungeonSimRunner extends Node:
 
 	func _one_run(index: int) -> void:
 		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
+		for candidate: String in MasterDataLoader.get_all_dungeon_ids():
+			if dungeon_key != "" and candidate.contains(dungeon_key):
+				dungeon_id = candidate
 		if GameManager.is_in_dungeon():
 			GameManager.abandon_dungeon_run()
 		seed(1000 + index)
 		_r = {"run": index + 1, "end": "", "floors": 0, "layer": 1, "battles": 0, "battle_sec": 0.0, "hp_lost": 0,
 			"coin_got": 0, "coin_spent": 0, "coin_left": 0, "heal_bought": 0, "revive_bought": 0, "heal_used": 0, "revive_used": 0,
-			"rests": 0, "relics": 0, "bag_max": 0, "picked": 0, "equips": 0, "stalemate": 0}
+			"rests": 0, "relics": 0, "bag_max": 0, "picked": 0, "equips": 0, "stalemate": 0, "merchant": 0, "treasure": 0}
 		if not GameManager.start_dungeon_run(dungeon_id):
 			push_error("[DungeonSim] 入れなかった")
 			return
@@ -5547,7 +5566,14 @@ class DungeonSimRunner extends Node:
 					_r["end"] = "倒れた"
 					break
 			elif kind == GameStateKeys.DUNGEON_NODE_KIND_CHEST:
+				if GameManager.get_dungeon_floor_kind() == GameStateKeys.DUNGEON_FLOOR_KIND_TREASURE:
+					_r["treasure"] = int(_r["treasure"]) + 1
 				var _opened: Dictionary = GameManager.open_dungeon_chest(next)
+			elif kind == GameStateKeys.DUNGEON_NODE_KIND_MERCHANT:
+				# ⚠ 塔の商人の階（回D-塔）：⚠ 買って出る＝階が済む。
+				_r["merchant"] = int(_r["merchant"]) + 1
+				_shop()
+				var _done: bool = GameManager.finish_dungeon_merchant()
 			elif kind == GameStateKeys.DUNGEON_NODE_KIND_RELIC:
 				_take_relic(next)
 			elif kind == GameStateKeys.DUNGEON_NODE_KIND_REST:
@@ -5560,6 +5586,7 @@ class DungeonSimRunner extends Node:
 		if _r["end"] == "":
 			_r["end"] = "上限"
 		_results.append(_r.duplicate(true))
+		print("[DungeonSim] %s 商人の階 %d・宝の階 %d" % [dungeon_id, int(_r["merchant"]), int(_r["treasure"])])
 		print("[DungeonSim] %d回目: %s ／ %d層まで・%dフロア突破 ／ 戦闘 %d（平均 %.0f 秒）・削られた HP %d ／ コイン 得 %d 使 %d 残 %d ／ 回復 買%d 使%d・蘇生 買%d 使%d ／ 休憩 %d・レリック %d ／ 鞄 最大 %d・拾った %d（装備 %d）・決着せず %d" % [
 			int(_r["run"]), str(_r["end"]), int(_r["layer"]), int(_r["floors"]), int(_r["battles"]),
 			float(_r["battle_sec"]) / maxf(1.0, float(_r["battles"])), int(_r["hp_lost"]),
@@ -5692,7 +5719,7 @@ class DungeonSimRunner extends Node:
 			var r: Dictionary = raw
 			ends[str(r["end"])] = int(ends.get(str(r["end"]), 0)) + 1
 			layers.append(int(r["layer"]))
-			for key: String in ["floors", "battles", "battle_sec", "hp_lost", "coin_got", "coin_spent", "coin_left", "heal_bought", "heal_used", "revive_bought", "revive_used", "rests", "bag_max", "picked", "equips", "stalemate"]:
+			for key: String in ["floors", "battles", "battle_sec", "hp_lost", "coin_got", "coin_spent", "coin_left", "heal_bought", "heal_used", "revive_bought", "revive_used", "rests", "bag_max", "picked", "equips", "stalemate", "merchant", "treasure"]:
 				sums[key] = float(sums.get(key, 0.0)) + float(r[key])
 		layers.sort()
 		var n: float = maxf(1.0, float(_results.size()))
@@ -8411,6 +8438,177 @@ func _report_dungeon() -> void:
 
 # 深さで変わる難ダンジョン（2026-10-03・回4・決定47・`EXEC_DUNGEON_DEPTH.md`）。
 #   ⚠ 見るのは ① 敵の強さがフロアで伸びる（⚠ フロア1 は 100%）② 帯を差し込むとその層から顔ぶれが変わる。
+# 塔（2026-10-09・回D-塔・`EXEC_DUNGEON_TOWER.md` §6 ログ1・2）。⚠ 網の `dungeon_hard` の検査はそのまま（⚠ 上）。
+#   ⚠ 戦闘は回さない（⚠ HP は `apply_dungeon_battle_result()` に直に渡す）。⚠ 特別な階は線を直に組んで載せる。
+func _report_tower() -> void:
+	print("[DebugBoot] --- 塔（回D-塔）---")
+	var tower_id: String = ""
+	for dungeon_id: String in MasterDataLoader.get_all_dungeon_ids():
+		if GameManager.is_tower_dungeon(dungeon_id):
+			tower_id = dungeon_id
+	if tower_id == "":
+		push_error("[DebugBoot] 塔が dungeon.json に無い（shape=tower）")
+		return
+	if GameManager.is_in_dungeon():
+		GameManager.abandon_dungeon_run()
+	var bad: int = 0
+	print("  %s 入れる階 = %s（[1] が正解）" % [tower_id, str(GameManager.get_dungeon_start_floor_options(tower_id))])
+	if GameManager.start_dungeon_run(tower_id, 2):
+		push_error("[DebugBoot] 塔に選べない階（2）から入れた")
+		bad += 1
+		GameManager.abandon_dungeon_run()
+	if not GameManager.start_dungeon_run(tower_id, 1):
+		push_error("[DebugBoot] 塔に入れなかった")
+		return
+
+	# 1. 線の形：入口 → 戦闘 × battles → 主・どのマスも次は1つだけ。
+	var kinds: Array[String] = []
+	var guard: int = 0
+	var here: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	kinds.append(str(GameManager.get_dungeon_node(here).get(GameStateKeys.DUNGEON_NODE_KIND, "")))
+	var hp_seen: Array[String] = []
+	var victim: String = str(GameManager.get_party_members()[0])
+	var downed: String = str(GameManager.get_party_members()[1])
+	while guard < 20:
+		guard += 1
+		var moves: Array = GameManager.get_dungeon_moves()
+		if moves.is_empty():
+			break
+		if moves.size() != 1:
+			push_error("[DebugBoot] 塔のマス %s から %d 本出ている（1 本が正解）" % [here, moves.size()])
+			bad += 1
+		here = str(moves[0])
+		var edge: Dictionary = GameManager.get_dungeon_edge(
+			str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, "")), here
+		)
+		if str(edge.get(GameStateKeys.DUNGEON_EDGE_EFFECT, "")) != "":
+			push_error("[DebugBoot] 塔の通路に効果が付いている: %s" % str(edge))
+			bad += 1
+		if not GameManager.is_dungeon_node_revealed(here):
+			push_error("[DebugBoot] 塔のマスが伏せられている: " + here)
+			bad += 1
+		var _moved: bool = GameManager.move_in_dungeon(here)
+		var kind: String = str(GameManager.get_dungeon_node(here).get(GameStateKeys.DUNGEON_NODE_KIND, ""))
+		kinds.append(kind)
+		if kind == GameStateKeys.DUNGEON_NODE_KIND_BATTLE:
+			var _cleared: bool = GameManager.clear_dungeon_battle()
+			# ⚠ 1人を削り、1人を倒す（⚠ 階の中で持ち越し、上った階で戻るか＝決定 DG-3 ／ 倒れた人は倒れたまま＝人間「⚠ ７い」）。
+			if kinds.size() == 2:
+				var hp: Dictionary = GameManager.get_dungeon_hp()
+				hp[victim] = int(hp[victim]) / 2
+				hp[downed] = 0
+				var _dead: bool = GameManager.apply_dungeon_battle_result(hp)
+			hp_seen.append(str(GameManager.get_dungeon_max_hp()))
+		elif kind == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+			var _boss: bool = GameManager.clear_dungeon_boss()
+		var _left: Dictionary = GameManager.clear_run_pending_loot(GameManager.RUN_KIND_DUNGEON)
+	var expected: Array[String] = [GameStateKeys.DUNGEON_NODE_KIND_GATE]
+	for _i: int in range(GameManager.get_tower_battles_per_floor(tower_id)):
+		expected.append(GameStateKeys.DUNGEON_NODE_KIND_BATTLE)
+	expected.append(GameStateKeys.DUNGEON_NODE_KIND_BOSS)
+	print("  ふつうの階の線 = %s（%s が正解）" % [" → ".join(kinds), " → ".join(expected)])
+	if kinds != expected:
+		push_error("[DebugBoot] 塔のふつうの階の線が違う")
+		bad += 1
+	print("  階の中の ランのMAX HP（戦闘ごと）= %s" % " / ".join(hp_seen))
+	var progress: Vector2i = GameManager.get_tower_battle_progress()
+	print("  済んだ戦闘 = %d / %d（%d / %d が正解）／ phase = '%s'（boss_cleared が正解）／ 店の品 = %d（0 が正解＝主の後に店は開かない）" % [
+		progress.x, progress.y, expected.size() - 1, expected.size() - 1, GameManager.get_dungeon_phase(),
+		GameManager.get_dungeon_shop_entries().size(),
+	])
+	if progress.x != expected.size() - 1 or not GameManager.can_retreat_from_dungeon() or not GameManager.get_dungeon_shop_entries().is_empty():
+		push_error("[DebugBoot] 塔の主を倒したあとの形が違う")
+		bad += 1
+
+	# 2. 上る：HP が戻る（⚠ 倒れた人は 0 のまま）・特別な階は続けて出ない。
+	var _up: bool = GameManager.descend_dungeon_floor()
+	var base_victim: int = GameManager.get_dungeon_base_max_hp(victim)
+	print("  2階の頭：%s ランのMAX HP = %d（素の %d が正解）／ %s = %d（0 が正解＝倒れたまま）" % [
+		victim, GameManager.get_dungeon_character_max_hp(victim), base_victim,
+		downed, GameManager.get_dungeon_character_max_hp(downed),
+	])
+	if GameManager.get_dungeon_character_max_hp(victim) != base_victim or GameManager.get_dungeon_character_max_hp(downed) != 0:
+		push_error("[DebugBoot] 塔の上った階の HP が違う")
+		bad += 1
+	var counts: Dictionary = {}
+	var after_special: int = 0
+	for _i: int in range(1000):
+		var rolled: String = GameManager._roll_tower_floor_kind(tower_id, GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL)
+		counts[rolled] = int(counts.get(rolled, 0)) + 1
+		if rolled != GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL \
+				and GameManager._roll_tower_floor_kind(tower_id, rolled) != GameStateKeys.DUNGEON_FLOOR_KIND_NORMAL:
+			after_special += 1
+	print("  階の種類を1000回引く = %s（特別な階が 2 割前後が正解）／ 特別な階の次に特別な階 = %d（0 が正解）" % [str(counts), after_special])
+	if after_special != 0:
+		push_error("[DebugBoot] 塔の特別な階が続けて出た")
+		bad += 1
+
+	# 3. 商人の階：店が開く → 出たら階が済む。
+	_tower_force_floor(tower_id, GameStateKeys.DUNGEON_FLOOR_KIND_MERCHANT)
+	var merchant_id: String = str(GameManager.get_dungeon_moves()[0])
+	var _m: bool = GameManager.move_in_dungeon(merchant_id)
+	var shop_open: int = GameManager.get_dungeon_shop_entries().size()
+	var has_torch: bool = false
+	for entry: Variant in GameManager.get_dungeon_shop_entries():
+		if str((entry as Dictionary).get(GameManager.DUNGEON_SHOP_KIND, "")) == GameManager.DUNGEON_SHOP_KIND_TORCH:
+			has_torch = true
+	var finished: bool = GameManager.finish_dungeon_merchant()
+	print("  商人の階：店の品 = %d（3 が正解）／ たいまつ = %s（false が正解）／ 出る = %s ／ phase = '%s'（boss_cleared が正解）／ 見出し = %s" % [
+		shop_open, str(has_torch), str(finished), GameManager.get_dungeon_phase(), str(GameManager.get_tower_battle_progress()),
+	])
+	if shop_open <= 0 or has_torch or not finished or not GameManager.can_retreat_from_dungeon():
+		push_error("[DebugBoot] 塔の商人の階が違う")
+		bad += 1
+
+	# 4. 宝の階：宝箱が拾い待ちへ → 階が済む。
+	_tower_force_floor(tower_id, GameStateKeys.DUNGEON_FLOOR_KIND_TREASURE)
+	var chest_id: String = str(GameManager.get_dungeon_moves()[0])
+	var _c: bool = GameManager.move_in_dungeon(chest_id)
+	var opened: Dictionary = GameManager.open_dungeon_chest(chest_id)
+	print("  宝の階：拾い待ち = %s（宝箱1つが正解）／ phase = '%s'（boss_cleared が正解）" % [
+		str(opened.get("granted", {})), GameManager.get_dungeon_phase()
+	])
+	if (opened.get("granted", {}) as Dictionary).is_empty() or not GameManager.can_retreat_from_dungeon():
+		push_error("[DebugBoot] 塔の宝の階が違う")
+		bad += 1
+	var _left2: Dictionary = GameManager.clear_run_pending_loot(GameManager.RUN_KIND_DUNGEON)
+
+	# 5. 帰る → 次は帰った階の次から ／ 倒れた（降りた）では動かない。
+	var floor_now: int = GameManager.get_dungeon_floor_index()
+	var _back: Dictionary = GameManager.retreat_from_dungeon()
+	var resume: Array[int] = GameManager.get_dungeon_start_floor_options(tower_id)
+	print("  %d階で帰った → 入れる階 = %s（[%d] が正解）／ セーブの値 = %s（int が正解）" % [
+		floor_now, str(resume), floor_now + 1, str(GameManager._state.get(GameStateKeys.DUNGEON_RESUME_FLOORS, {})),
+	])
+	if resume != [floor_now + 1] or typeof((GameManager._state[GameStateKeys.DUNGEON_RESUME_FLOORS] as Dictionary)[tower_id]) != TYPE_INT:
+		push_error("[DebugBoot] 塔の次に入る階が違う")
+		bad += 1
+	var _again: bool = GameManager.start_dungeon_run(tower_id, floor_now + 1)
+	print("  %d階から入った：フロア = %d ／ 階の種類 = %s（normal が正解）" % [
+		floor_now + 1, GameManager.get_dungeon_floor_index(), GameManager.get_dungeon_floor_kind()
+	])
+	GameManager.abandon_dungeon_run(GameManager.RUN_END_DEFEATED)
+	print("  倒れたあと 入れる階 = %s（[%d] が正解＝やはり最後に帰った階の次）" % [
+		str(GameManager.get_dungeon_start_floor_options(tower_id)), floor_now + 1
+	])
+	if GameManager.get_dungeon_start_floor_options(tower_id) != [floor_now + 1]:
+		push_error("[DebugBoot] 塔で倒れたら入る階が動いた")
+		bad += 1
+	# ⚠ 網のダンジョンに塔の手が当たっていないか（⚠ 入れる深さは今までどおり）。
+	print("  網（%s）の入れる深さ = %s（今までどおり＝最深＋1 まで）" % [
+		GameManager.DUNGEON_DEFAULT_ID, str(GameManager.get_dungeon_start_floor_options(GameManager.DUNGEON_DEFAULT_ID))
+	])
+	print("  塔の NG = %d（0 が正解）" % bad)
+
+
+# 塔のいまの階を、指定した種類の線に置き換える（⚠ 検査だけ。⚠ 本番は上るたびに抽選）。
+func _tower_force_floor(tower_id: String, floor_kind: String) -> void:
+	var run: Dictionary = (GameManager._state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+	run[GameStateKeys.DUNGEON_RUN_FLOOR_KIND] = floor_kind
+	GameManager._apply_dungeon_map(run, GameManager._build_tower_map(tower_id, floor_kind))
+	GameManager._state[GameStateKeys.DUNGEON_RUN] = run
+
+
 func _report_dungeon_depth() -> void:
 	print("[DebugBoot] --- 深さ（⚠ 敵の強さ・帯）---")
 	var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
@@ -9254,6 +9452,11 @@ class ShotTaker extends Node:
 	const PREPARE_REPORT_RETURNED: String = "report_returned"
 	const PREPARE_REPORT_DEFEATED: String = "report_defeated"
 	const PREPARE_SORTIE_DEPTH: String = "sortie_depth"
+	const PREPARE_TOWER: String = "tower"
+	const PREPARE_TOWER_BOSS: String = "tower_boss"
+	const PREPARE_TOWER_MERCHANT: String = "tower_merchant"
+	const PREPARE_TOWER_OUT: String = "tower_out"
+	const TOWER_ID: String = "dungeon_tower"
 	const PREPARE_BOARD_CLEARED: String = "board_cleared"
 	const AFTER_CHEST_OPEN: String = "chest_open"
 	const AFTER_SORTIE_SIGN: String = "sortie_sign"
@@ -9593,6 +9796,32 @@ class ShotTaker extends Node:
 			else:
 				GameManager.abandon_dungeon_run(GameManager.RUN_END_DEFEATED)
 			return GameManager.has_unseen_run_report()
+		# ⚠ 塔（2026-10-09・回D-塔）。⚠ 網のランが残っていたら降りてから入る。
+		if kind in [PREPARE_TOWER, PREPARE_TOWER_BOSS, PREPARE_TOWER_MERCHANT, PREPARE_TOWER_OUT]:
+			if GameManager.is_in_dungeon():
+				GameManager.abandon_dungeon_run()
+				GameManager.mark_run_report_seen()
+			GameManager._state[GameStateKeys.DUNGEON_RESUME_FLOORS] = {TOWER_ID: 3}
+			if kind == PREPARE_TOWER_OUT:
+				if GameManager.get_quota_ticket_count() <= 0:
+					GameManager.add_to_inventory(GameStateKeys.ITEM_QUOTA_TICKET, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+				return true
+			if not GameManager.start_dungeon_run(TOWER_ID, 3):
+				return false
+			if kind == PREPARE_TOWER:
+				# ⚠ 2戦済ませた姿（⚠ 戦闘は回さない＝マスを踏んで済んだ印だけ）。
+				for _i: int in range(2):
+					var _moved: bool = GameManager.move_in_dungeon(str(GameManager.get_dungeon_moves()[0]))
+					var _won: bool = GameManager.clear_dungeon_battle()
+					var _left: Dictionary = GameManager.clear_run_pending_loot(GameManager.RUN_KIND_DUNGEON)
+				return true
+			if kind == PREPARE_TOWER_MERCHANT:
+				var run: Dictionary = (GameManager._state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+				run[GameStateKeys.DUNGEON_RUN_FLOOR_KIND] = GameStateKeys.DUNGEON_FLOOR_KIND_MERCHANT
+				GameManager._apply_dungeon_map(run, GameManager._build_tower_map(TOWER_ID, GameStateKeys.DUNGEON_FLOOR_KIND_MERCHANT))
+				GameManager._state[GameStateKeys.DUNGEON_RUN] = run
+				return true
+			return GameManager.debug_mark_dungeon_boss_cleared()
 		if kind == PREPARE_SORTIE_DEPTH:
 			# ⚠ 潜る深さ（2026-10-03・決定49）：⚠ 本番の口でボスを3体倒して持ち帰る＝最深 3（30層）→ ⚠ 札を1枚持たせる。
 			return _prepare_best_floors(3)
@@ -10600,6 +10829,7 @@ class UiFlowRunner extends Node:
 		await _flow_special_effects()
 		await _flow_quota_ticket()
 		await _flow_dungeon_depth()
+		await _flow_tower()
 		await _flow_tasks()
 		await _flow_task_folders()
 		await _flow_workshop_tabs()
@@ -11382,6 +11612,89 @@ class UiFlowRunner extends Node:
 		_check("深さ：報告書「%s」・最深 %d" % [_label_text(r, "FloorLine", "FloorsLabel"), GameManager.get_dungeon_best_floors(dungeon_id)],
 			_path_of(r) == REPORT and _label_text(r, "FloorLine", "FloorsLabel") == tr("ui_report_layer_span") % [deepest_layer, exit_layer]
 			and GameManager.get_dungeon_best_floors(dungeon_id) == best + 1)
+
+	# --- 塔（2026-10-09・回D-塔・`EXEC_DUNGEON_TOWER.md` §6 ログ4） ---
+	#   ⚠ 戦闘は回さない（⚠ 主を倒した扱いは `debug_mark_dungeon_boss_cleared()`）。⚠ 商人の階は線を直に組んで載せる。
+	func _flow_tower() -> void:
+		const TICKET: String = GameStateKeys.ITEM_QUOTA_TICKET
+		var tower_id: String = ""
+		for candidate: String in MasterDataLoader.get_all_dungeon_ids():
+			if GameManager.is_tower_dungeon(candidate):
+				tower_id = candidate
+		_check("塔：dungeon.json に塔がある（%s）・網の %s も残っている" % [tower_id, GameManager.DUNGEON_DEFAULT_ID],
+			tower_id != "" and not MasterDataLoader.get_dungeon(GameManager.DUNGEON_DEFAULT_ID).is_empty())
+		if tower_id == "":
+			return
+		if GameManager.is_in_dungeon():
+			GameManager.abandon_dungeon_run()
+		GameManager._state[GameStateKeys.DUNGEON_RESUME_FLOORS] = {}
+		var have: int = GameManager.get_quota_ticket_count()
+		if have > 0:
+			GameManager.call("_remove_from_inventory", TICKET, have)
+		GameManager.add_to_inventory(TICKET, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+		# 掲示板に札が2枚（網と塔）→ 塔の「受ける」→ 出撃の準備は「1 階から」（⚠ 縦図は出ない）。
+		var q: Node = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
+		if q == null:
+			return
+		await _press(_tab_button(q, 1))
+		_check("塔：掲示板に網と塔の札が両方ある",
+			q.find_child("DungeonCard_" + tower_id, true, false) != null and q.find_child("DungeonCard_" + GameManager.DUNGEON_DEFAULT_ID, true, false) != null)
+		await _press(q.find_child("DungeonCard_" + tower_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
+		var b: Node = get_tree().current_scene
+		_check("塔：出撃の準備に「%s %s」・縦図は無い" % [_label_text(b, "Depth", "StartLayerLabel"), tr("ui_tower_depth_from")],
+			_label_text(b, "Depth", "StartLayerLabel") == "1" and b.find_child("DepthGauge", true, false) == null
+			and b.find_child("TowerBestLabel", true, false) != null)
+		await _press(b.find_child("SortieButton", true, false))
+		if b.has_method("skip_sign"):
+			b.call("skip_sign")
+		await _wait(OPEN_FRAMES)
+		var m: Node = get_tree().current_scene
+		var battles: int = GameManager.get_tower_battles_per_floor(tower_id)
+		_check("塔：出撃すると地図・見出し「%s」・札 %d 枚・たいまつは出ない" % [_label_text(m, "Header", "FloorLabel"), GameManager.get_quota_ticket_count()],
+			_path_of(m) == DUNGEON_MAP and GameManager.is_tower_dungeon()
+			and _label_text(m, "Header", "FloorLabel") == tr("ui_tower_header") % [1, 0, battles + 1]
+			and GameManager.get_quota_ticket_count() == 0
+			and not (m.get("torch_label") as Control).visible)
+		# 主を倒した扱い → わかれ道「1階を抜けた」「上る」「2階」→ 上る＝店を挟まず地図。
+		GameManager.debug_mark_dungeon_boss_cleared()
+		var fork: Node = await _open(DUNGEON_FLOOR_CLEAR, {})
+		if fork == null:
+			return
+		_check("塔：わかれ道「%s」・「%s」" % [(fork.get("heading") as Label).text, _label_text(fork, "DescendCard", "NextRangeLabel")],
+			(fork.get("heading") as Label).text == tr("ui_tower_clear_heading") % 1
+			and _label_text(fork, "DescendCard", "NextRangeLabel") == tr("ui_tower_floor_no") % 2)
+		await _press(fork.find_child("DescendButton", true, false), OPEN_FRAMES)
+		var m2: Node = get_tree().current_scene
+		_check("塔：上ると店を挟まず地図・2階（%s）" % _label_text(m2, "Header", "FloorLabel"),
+			_path_of(m2) == DUNGEON_MAP and GameManager.get_dungeon_floor_index() == 2)
+		# 商人の階（⚠ 線を直に載せる）→ 商人のマスを押す → 店 → 「先へ進む」→ わかれ道。
+		var run: Dictionary = (GameManager._state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+		run[GameStateKeys.DUNGEON_RUN_FLOOR_KIND] = GameStateKeys.DUNGEON_FLOOR_KIND_MERCHANT
+		GameManager._apply_dungeon_map(run, GameManager._build_tower_map(tower_id, GameStateKeys.DUNGEON_FLOOR_KIND_MERCHANT))
+		GameManager._state[GameStateKeys.DUNGEON_RUN] = run
+		var m3: Node = await _open(DUNGEON_MAP, {})
+		if m3 == null:
+			return
+		_check("塔：商人の階の見出し「%s」" % _label_text(m3, "Header", "FloorLabel"),
+			_label_text(m3, "Header", "FloorLabel") == tr("ui_tower_header_special") % [2, tr("ui_tower_floor_kind_merchant")])
+		(m3.get("map_view") as RunMapView).node_pressed.emit(str(GameManager.get_dungeon_moves()[0]))
+		await _wait(OPEN_FRAMES)
+		var shop: Node = get_tree().current_scene
+		_check("塔：商人のマスで店が開く・品 %d・出る札「%s」" % [GameManager.get_dungeon_shop_entries().size(), (shop.get("leave_button") as Button).text if shop.get("leave_button") is Button else "?"],
+			shop.scene_file_path.ends_with("dungeon_shop.tscn") and not GameManager.get_dungeon_shop_entries().is_empty()
+			and (shop.get("leave_button") as Button).text == tr("ui_tower_shop_leave"))
+		await _press(shop.get("leave_button") as Node, OPEN_FRAMES)
+		await _wait(OPEN_FRAMES)
+		var fork2: Node = get_tree().current_scene
+		_check("塔：店を出ると商人の階が済み、わかれ道へ（%s）" % _path_of(fork2).get_file(),
+			_path_of(fork2) == DUNGEON_FLOOR_CLEAR and GameManager.can_retreat_from_dungeon())
+		# 帰る → 報告書「1 → 2 階」→ 次は3階から。
+		await _press(fork2.find_child("RetreatButton", true, false), OPEN_FRAMES)
+		var r: Node = get_tree().current_scene
+		_check("塔：報告書「%s」・次に入る階 %s" % [_label_text(r, "FloorLine", "FloorsLabel"), str(GameManager.get_dungeon_start_floor_options(tower_id))],
+			_path_of(r) == REPORT and _label_text(r, "FloorLine", "FloorsLabel") == tr("ui_report_layer_span") % [1, 2]
+			and GameManager.get_dungeon_start_floor_options(tower_id) == [3])
+		GameManager.mark_run_report_seen()
 
 	# --- 装備の特殊効果（2026-10-02・回UI-仕組み⑦・手本 RichItemFx・人間「⚠ 1い　⚠ 2あ　⚠ 3あ」） ---
 
