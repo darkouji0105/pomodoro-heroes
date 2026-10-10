@@ -422,6 +422,8 @@ static func _apply_damage(
 		var evade: Dictionary = registry.take_evade(target.unit_id)
 		if not evade.is_empty():
 			BattleLog.log_intervene("evade", target.unit_id, "", user.unit_id)
+			# ⚠ 画面に「回避」を出す（⚠ 結果に載せるだけ＝数字は出さない・召喚と同じ kind の1件）。
+			results.append({"kind": SkillSchema.FIELD_EVADE, "unit_id": target.unit_id, "source_unit_id": user.unit_id})
 			for raw: Variant in (evade.get("effects", []) as Array):
 				if raw is Dictionary:
 					results.append_array(resolve({"effects": [raw]}, target, session, [user.unit_id], registry))

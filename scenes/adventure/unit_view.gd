@@ -244,6 +244,12 @@ func pop_miss() -> void:
 	pop_label(tr("ui_battle_miss"), cfg.pop_miss_color, cfg.pop_damage_font_size)
 
 
+# 避けた（回MC-1）。⚠ 避けた本人の頭上。
+func pop_evade() -> void:
+	var cfg: AdventureConfig = Balance.adventure
+	pop_label(tr("ui_battle_evade"), cfg.pop_evade_color, cfg.pop_damage_font_size)
+
+
 func pop_label(text: String, color: Color, font_size: int, delay_sec: float = 0.0) -> void:
 	var parent: Node = get_parent()
 	if parent == null:

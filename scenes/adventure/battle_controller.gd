@@ -2221,6 +2221,12 @@ func _on_skill_effects_applied(results: Array) -> void:
 		if str(r.get("kind", "")) == SkillSchema.EFFECT_SUMMON:
 			_spawn_summon(r as Dictionary)
 			continue
+		# 避けた（回MC-1）。⚠ 避けた本人の頭上に「回避」（⚠ 数字の並びには数えない）。
+		if str(r.get("kind", "")) == SkillSchema.FIELD_EVADE:
+			var evader: Variant = _views_by_unit_id.get(str(r.get("unit_id", "")), null)
+			if evader is UnitView and is_instance_valid(evader):
+				(evader as UnitView).pop_evade()
+			continue
 		# 召喚を使った（回NC-1）。⚠ 消すのはここ（⚠ _remove_summon() が唯一の出口）。
 		if str(r.get("kind", "")) == SkillSchema.EFFECT_SUMMON_CONSUME:
 			for summon_id: Variant in (r.get("summon_ids", []) as Array):

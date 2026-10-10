@@ -120,6 +120,8 @@ extends Resource
 
 ## ⚠ 目くらましで通常攻撃が外れたときの「ミス」の色（回DB-1）。⚠ 値は設計役の**仮**。
 @export var pop_miss_color: Color = Color(0.75, 0.75, 0.75)
+# 避けた（回MC-1・人間「⚠ よけたとき通知を出したい」）。⚠ 避けた本人の頭上に「回避」。⚠ ミス（灰）と見分けるため水色。
+@export var pop_evade_color: Color = Color(0.55, 0.85, 1.0)
 
 # --- 状態のマス（EXEC_STATUS_UI.md） ---
 #

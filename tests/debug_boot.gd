@@ -92,6 +92,15 @@ const SAVE_TEST_PATH: String = "user://saves/save_debug_boot.json"
 const SHOT_AFTER_NONE: String = ""
 const SHOT_AFTER_LOOT_OVERLAY: String = "loot_overlay"
 const SHOT_AFTER_BATTLE_RESULT: String = "battle_result"
+# ⚠ 戦闘の途中（2026-10-10・人間「⚠ あなたが見れる分は見てみて」）。⚠ 内側の `AFTER_BATTLE_*` と同じ字。
+const SHOT_AFTER_BATTLE_EVADE: String = "battle_evade"
+const SHOT_AFTER_BATTLE_AIM: String = "battle_aim"
+const SHOT_AFTER_BATTLE_SUMMON: String = "battle_summon"
+const SHOT_AFTER_BATTLE_HOLY: String = "battle_holy"
+const SHOT_AFTER_BATTLE_DEBUFF: String = "battle_debuff"
+const SHOT_AFTER_BATTLE_PIERCE: String = "battle_pierce"
+# ⚠ 王女（回PQ-1）：⚠ 王女を1番目に入れる（⚠ 内側の `PREPARE_PRINCESS_PARTY` と同じ字）。
+const SHOT_PREPARE_PRINCESS_PARTY: String = "princess_party"
 const SHOT_AFTER_MODAL_CONFIRM: String = "modal_confirm"
 # ⚠ 昇級申請書で判を押した姿（2026-09-27・回UI-組 育成）。⚠ 画面の口（`_on_press_pressed`）を呼ぶ。
 const SHOT_AFTER_LEVEL_UP_PRESS: String = "level_up_press"
@@ -1656,6 +1665,78 @@ const SCENARIOS: Dictionary = {
 				"name": "91_zealot_battle",
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			# ⚠ 傭兵のフェイントで避けた瞬間（「回避」）（2026-10-10）。
+			{
+				"name": "93_merc_evade",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_MERC_PARTY,
+				"after": SHOT_AFTER_BATTLE_EVADE,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			# ⚠ 神の使いの審判の十字を溜めている途中（狙いの円）（2026-10-10）。
+			{
+				"name": "94_zealot_aim",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
+				"after": SHOT_AFTER_BATTLE_AIM,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			# ⚠ ネクロがゾンビを出し、魂が7つ（2026-10-10）。
+			{
+				"name": "95_necro_zombies",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_NECRO_PARTY,
+				"after": SHOT_AFTER_BATTLE_SUMMON,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			# ⚠ 敵と味方の「炎」のマス（2026-10-10）。
+			{
+				"name": "96_zealot_holy",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
+				"after": SHOT_AFTER_BATTLE_HOLY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			# ⚠ 敵の赤いマス5種類と「ミス」（2026-10-10）。
+			{
+				"name": "97_debuff_chips",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
+				"after": SHOT_AFTER_BATTLE_DEBUFF,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			# ⚠ 王女のとっておきの矢が飛んでいる途中（2026-10-10）。
+			{
+				"name": "98_princess_pierce",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_PRINCESS_PARTY,
+				"after": SHOT_AFTER_BATTLE_PIERCE,
 				"data": {
 					TransferKeys.STAGE_ID: "stage_dbg_area",
 					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
@@ -11239,6 +11320,12 @@ class ShotTaker extends Node:
 	const PART_CHARACTER_ID: String = "char_swordsman"
 	const AFTER_LOOT_OVERLAY: String = "loot_overlay"
 	const AFTER_BATTLE_RESULT: String = "battle_result"
+	const AFTER_BATTLE_EVADE: String = "battle_evade"
+	const AFTER_BATTLE_AIM: String = "battle_aim"
+	const AFTER_BATTLE_SUMMON: String = "battle_summon"
+	const AFTER_BATTLE_HOLY: String = "battle_holy"
+	const AFTER_BATTLE_DEBUFF: String = "battle_debuff"
+	const AFTER_BATTLE_PIERCE: String = "battle_pierce"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
 	const AFTER_LEVEL_UP_PRESS: String = "level_up_press"
 	const AFTER_RELIC_PICK: String = "relic_pick"
@@ -11259,6 +11346,7 @@ class ShotTaker extends Node:
 	const PREPARE_NECRO_PARTY: String = "necro_party"
 	const PREPARE_ZEALOT_PARTY: String = "zealot_party"
 	const PREPARE_MERC_PARTY: String = "merc_party"
+	const PREPARE_PRINCESS_PARTY: String = "princess_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
 	const DEBUG_PARTY_SKILLS: Dictionary = {
@@ -11631,6 +11719,11 @@ class ShotTaker extends Node:
 				GameManager._state[GameStateKeys.DUNGEON_RUN] = run
 				return true
 			return GameManager.debug_mark_dungeon_boss_cleared()
+		if kind == PREPARE_PRINCESS_PARTY:
+			for princess_i: int in range(3):
+				if not GameManager.set_party_member(princess_i, ["char_princess", "char_archer", "char_priest"][princess_i]):
+					return false
+			return true
 		if kind == PREPARE_MERC_PARTY:
 			for merc_i: int in range(3):
 				if not GameManager.set_party_member(merc_i, ["char_mercenary", "char_archer", "char_priest"][merc_i]):
@@ -11694,6 +11787,73 @@ class ShotTaker extends Node:
 	# ⚠⚠ **本番と同じ口から出すこと。** ⚠ 窓を単体のシーンとして開くと、⚠ 後ろが無い・幕が透けない
 	#   ＝**本番と違う絵**になる（⚠ 09-21 に `add_child()` で踏んだのと同じ話）。
 	# ⚠ 出せなかったら false。⚠ 呼ぶ側が保存を止める（⚠ 窓の無い絵をその名前で残さない）。
+	# 戦闘の途中を撮る（2026-10-10・人間「⚠ あなたが見れる分は見てみて」）。⚠ 戦闘が始まるのを待ってから。
+	func _after_battle(kind: String, screen: Node, shot_name: String) -> bool:
+		var session: BattleSession = screen.call("get_session") as BattleSession
+		for _i: int in range(600):
+			if session != null and session.state == BattleSession.STATE_BATTLE_ACTIVE:
+				break
+			await get_tree().process_frame
+		if session == null or session.state != BattleSession.STATE_BATTLE_ACTIVE or session.party_units.is_empty():
+			push_error("[DebugBoot] ⚠ %s の戦闘が始まらない" % shot_name)
+			return false
+		var me: BattleUnit = session.party_units[0] as BattleUnit
+		var registry: StatusRegistry = screen.call("get_status_registry") as StatusRegistry
+		if kind == AFTER_BATTLE_EVADE:
+			var feint: Dictionary = MasterDataLoader.get_skill("skill_mc_feint")
+			SkillResolver.resolve({"effects": [(feint["effects"] as Array)[0]]}, me, session, [me.unit_id], registry)
+			var foe: BattleUnit = session.enemy_units[0] as BattleUnit
+			var hit: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk"}
+			screen.call("_on_skill_effects_applied", SkillResolver.resolve({"effects": [hit]}, foe, session, [me.unit_id], registry))
+			for _i: int in range(12):
+				await get_tree().process_frame
+		elif kind == AFTER_BATTLE_AIM:
+			var cross: Dictionary = MasterDataLoader.get_skill("skill_zl_cross")
+			if not ("skill_zl_cross" in me.skill_ids):
+				me.skill_ids.append("skill_zl_cross")
+			me.skill_cooldowns["skill_zl_cross"] = 0.0
+			screen.call("_on_charge_button_down", {"user": me, "skill_id": "skill_zl_cross", "charge": cross.get("charge", {}), "charge_row": -1})
+			for _i: int in range(30):
+				await get_tree().process_frame
+			print("[DebugBoot] %s：狙い x=%.1f（使う人 x=%.1f）" % [shot_name, me.aim_x, me.x])
+		elif kind == AFTER_BATTLE_HOLY:
+			# ⚠ 放射の2つの効果（敵＝一番近い敵の周り・味方＝自分の周り）を本物の SkillRuntime から撃つ。
+			var runtime: SkillRuntime = screen.get("_skill_runtime") as SkillRuntime
+			runtime.cast(me, "skill_zl_spray", MasterDataLoader.get_skill("skill_zl_spray"), 1.0)
+			for _i: int in range(10):
+				await get_tree().process_frame
+		elif kind == AFTER_BATTLE_DEBUFF:
+			# ⚠ 共通のデバフ5種類を敵それぞれに（statuses.json の形をそのまま）。⚠ 1体目は全部。⚠ 「ミス」を1つ出す。
+			var ids: Array = ["poison", "burn", "bleed", "shock", "blind"]
+			for i: int in range(session.enemy_units.size()):
+				var foe: BattleUnit = session.enemy_units[i] as BattleUnit
+				for j: int in range(ids.size()):
+					if i != 0 and j != i % ids.size():
+						continue
+					var def: Dictionary = (MasterDataLoader._cache_statuses[ids[j]] as Dictionary).duplicate(true)
+					def["type"] = str(def.get("kind", ""))
+					def.erase("kind")
+					def["host"] = SkillSchema.HOST_UNIT
+					def["status_id"] = ids[j]
+					registry.add(def, me, foe, session)
+			var miss_view: Variant = (screen.get("_views_by_unit_id") as Dictionary).get((session.enemy_units[0] as BattleUnit).unit_id, null)
+			if miss_view is UnitView:
+				(miss_view as UnitView).pop_miss()
+			for _i: int in range(10):
+				await get_tree().process_frame
+		elif kind == AFTER_BATTLE_PIERCE:
+			var runtime_p: SkillRuntime = screen.get("_skill_runtime") as SkillRuntime
+			runtime_p.cast(me, "skill_pq_trump", MasterDataLoader.get_skill("skill_pq_trump"), 1.0)
+			for _i: int in range(6):
+				await get_tree().process_frame
+		elif kind == AFTER_BATTLE_SUMMON:
+			var raise: Dictionary = MasterDataLoader.get_skill("skill_nc_raise")
+			screen.call("_on_skill_effects_applied", SkillResolver.resolve({"effects": [(raise["effects"] as Array)[0]]}, me, session, [me.unit_id], registry))
+			me.set_resource("soul", 7)
+			for _i: int in range(10):
+				await get_tree().process_frame
+		return true
+
 	func _after(kind: String, screen: Node, shot_name: String) -> bool:
 		if kind == "":
 			return true
@@ -11707,6 +11867,10 @@ class ShotTaker extends Node:
 			# ⚠ `call()` で呼ぶ。⚠ `Node` 型の変数から直に呼ぶと**静的解析で通らない**
 			#   （⚠ `dungeon_map.gd` に `class_name` が無いため）。
 			screen.call("_open_loot_overlay", node_id, false)
+		elif kind in [AFTER_BATTLE_EVADE, AFTER_BATTLE_AIM, AFTER_BATTLE_SUMMON, AFTER_BATTLE_HOLY, AFTER_BATTLE_DEBUFF, AFTER_BATTLE_PIERCE]:
+			# ⚠ 戦闘の途中（2026-10-10）。⚠ 表示は本物の口（結果の表示・溜めのボタン）を通す。
+			if not await _after_battle(kind, screen, shot_name):
+				return false
 		elif kind == AFTER_BATTLE_RESULT:
 			# ⚠ 戦って勝つ必要は無い。⚠ 器（`HUD/ResultView`）へ見本を流すだけ
 			#   （⚠ `scenario=result` と同じ見本）。
