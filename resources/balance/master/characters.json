@@ -323,6 +323,83 @@
 			"spd": 1
 		}
 	},
+	"char_necro": {
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "magic",
+					"multiplier": 0.8,
+					"attack_type": "magic",
+					"scale_from": "mag",
+					"trigger": "event:hit"
+				}
+			]
+		},
+		"name_key": "ui_battle_char_necro",
+		"sign_style": "soft",
+		"sign_mark": "cross",
+		"weapon_genre": "staff",
+		"resources": [
+			{
+				"id": "soul",
+				"kind": "stock",
+				"max": 10,
+				"start": 0,
+				"carry_over": true,
+				"name_key": "ui_res_char_necro_soul",
+				"on_full": {
+					"spend": 10,
+					"effects": [
+						{
+							"type": "summon",
+							"unit_id": "summon_nc_zombie",
+							"count": 1,
+							"duration_sec": 30.0,
+							"offset_x": 40.0,
+							"max_per_owner": 6
+						}
+					]
+				}
+			}
+		],
+		"hp": 100,
+		"atk": 8,
+		"mag": 15,
+		"def": 5,
+		"mdef": 6,
+		"spd": 60,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 5,
+		"crit_dmg": 150,
+		"attack_type": "magic",
+		"attack_range": 200,
+		"attack_interval_sec": 1.8,
+		"skills": [
+			"skill_nc_raise",
+			"skill_nc_bone_ward",
+			"skill_nc_beam",
+			"skill_nc_detonate",
+			"skill_nc_soul_mend",
+			"skill_nc_elite"
+		],
+		"passives": [
+			"passive_nc_undead",
+			"passive_nc_harvest"
+		],
+		"allocatable_stats": [
+			"hp",
+			"mag",
+			"mdef"
+		],
+		"growth_per_level": {
+			"hp": 5,
+			"atk": 1,
+			"def": 1,
+			"spd": 1
+		}
+	},
 	"char_debug_status": {
 		"basic_attack": {
 			"effects": [

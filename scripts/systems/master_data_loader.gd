@@ -101,6 +101,8 @@ const CHARACTER_DIRS_REQUIRED: Array[String] = [
 	DIR_CHARACTERS + "char_scholar/",
 	# ⚠ 弓兵の王女（2026-10-10・回PQ-1）。
 	DIR_CHARACTERS + "char_princess/",
+	# ⚠ ネクロマンサー（2026-10-10・回NC-1）。
+	DIR_CHARACTERS + "char_necro/",
 ]
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const CHARACTER_DIRS_OPTIONAL: Array[String] = [
@@ -830,6 +832,13 @@ static func _validate_all_summons() -> void:
 				push_error("[MasterDataLoader] summons %s: '%s' は書けない（段階6では召喚はスキルを撃たない）" % [
 					str(summon_id), forbidden
 				])
+		# E180 … 敵がいなくなったら資源に戻る（回NC-1）。⚠ 資源が持ち主にあるかは戦闘の中で見る（⚠ 召喚は誰が呼ぶか決まっていない）。
+		if (entry as Dictionary).has("clear_refund"):
+			var refund: Variant = (entry as Dictionary)["clear_refund"]
+			if not (refund is Dictionary) or str((refund as Dictionary).get("resource_id", "")) == "" \
+					or not ((refund as Dictionary).get("ratio", null) is float or (refund as Dictionary).get("ratio", null) is int) \
+					or float((refund as Dictionary).get("ratio", 0.0)) <= 0.0 or (refund as Dictionary).size() != 2:
+				push_error("[MasterDataLoader] summons %s: clear_refund は {resource_id, ratio（正の数）} だけ" % str(summon_id))
 
 
 # キャラのフォルダから同じ名前のファイルを集めて1つの辞書にまとめる。
@@ -1553,6 +1562,8 @@ static func _validate_all_skills() -> void:
 		#   phase_of() が data をそのまま返すので、書き方は1本で済む。
 		# 資源を払うスキル（回CH-2・E160）。⚠ cost はスキルの直下だけ＝スキルごとに1回。
 		error_count += _check_cost_owner(str(skill_id), data)
+		if data.get(SkillSchema.FIELD_NEED_SUMMONS, null) is Dictionary:
+			error_count += _check_summon_ids(str(skill_id), (data[SkillSchema.FIELD_NEED_SUMMONS] as Dictionary).get(SkillSchema.CONSUME_FIELD_UNIT_IDS, []))
 		for phase_index: int in range(SkillSchema.phase_count(data)):
 			var phase: Dictionary = SkillSchema.phase_of(data, phase_index)
 			var raw_effects: Variant = phase.get("effects", null)
@@ -1563,6 +1574,10 @@ static func _validate_all_skills() -> void:
 					continue
 				if str((raw_effect as Dictionary).get("type", "")) == SkillSchema.EFFECT_RESOURCE:
 					error_count += _check_resource_effect_owner(str(skill_id), data, raw_effect as Dictionary)
+					continue
+				# 召喚を使う（回NC-1）。⚠ unit_ids が summons.json にあるか。
+				if str((raw_effect as Dictionary).get("type", "")) == SkillSchema.EFFECT_SUMMON_CONSUME:
+					error_count += _check_summon_ids(str(skill_id), (raw_effect as Dictionary).get(SkillSchema.CONSUME_FIELD_UNIT_IDS, []))
 					continue
 				if str((raw_effect as Dictionary).get("type", "")) != SkillSchema.EFFECT_SUMMON:
 					continue
@@ -1745,7 +1760,54 @@ static func character_resource_issues(character_id: String, entry: Dictionary) -
 				issues.append(at + ".labels が max + 1 個の配列でない（kind: 'state' は必須）")
 		elif raw_labels != null:
 			issues.append(at + ".labels は kind: 'state' にしか書けない")
+		# E181 満タンで払って召喚（回NC-1）。⚠ 撃てるのは召喚だけ・払う量は 1〜max。
+		if def.has("on_full"):
+			issues.append_array(_on_full_issues(at, def.get("on_full", null), max_value))
 	return issues
+
+
+static func _on_full_issues(at: String, raw: Variant, max_value: int) -> Array[String]:
+	var issues: Array[String] = []
+	if not (raw is Dictionary):
+		issues.append(at + ".on_full が辞書でない")
+		return issues
+	var on_full: Dictionary = raw as Dictionary
+	for key: Variant in on_full:
+		if not (str(key) in ["spend", "effects"]):
+			issues.append(at + ".on_full に知らない欄がある: '%s'" % str(key))
+	var spend: Variant = on_full.get("spend", null)
+	if not (spend is float or spend is int) or float(spend) != floor(float(spend)) \
+			or int(spend) < 1 or int(spend) > max_value:
+		issues.append(at + ".on_full.spend が 1〜max の整数でない（⚠ 0 だと満タンのまま毎回撃つ）")
+	var effects: Variant = on_full.get("effects", null)
+	if not (effects is Array) or (effects as Array).is_empty():
+		issues.append(at + ".on_full.effects が空でない配列でない")
+		return issues
+	for i: int in range((effects as Array).size()):
+		var eff: Variant = (effects as Array)[i]
+		if not (eff is Dictionary) or str((eff as Dictionary).get("type", "")) != SkillSchema.EFFECT_SUMMON:
+			issues.append(at + ".on_full.effects[%d] は召喚（type: 'summon'）だけ" % i)
+			continue
+		var schema_issues: Array = []
+		SkillSchema._validate_summon_effect(schema_issues, "on_full", eff as Dictionary, "%s.on_full.effects[%d]" % [at, i])
+		for issue: Variant in schema_issues:
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				issues.append(str((issue as Dictionary).get("message", "")))
+		if not has_summon(str((eff as Dictionary).get("unit_id", ""))):
+			issues.append(at + ".on_full.effects[%d].unit_id が summons.json に無い" % i)
+	return issues
+
+
+# 召喚のIDの並びが summons.json にあるか（回NC-1）。戻り値は赤の件数。⚠ 形は SkillSchema が見る。
+static func _check_summon_ids(skill_id: String, raw_ids: Variant) -> int:
+	var errors: int = 0
+	if not (raw_ids is Array):
+		return 0
+	for raw_id: Variant in (raw_ids as Array):
+		if not has_summon(str(raw_id)):
+			errors += 1
+			push_error("[MasterDataLoader] skills %s: 召喚のID '%s' が summons.json に無い" % [skill_id, str(raw_id)])
+	return errors
 
 
 # スキルの resource 効果が指す資源が、持ち主にあるか（回CH-1・E146）。戻り値は赤の件数。

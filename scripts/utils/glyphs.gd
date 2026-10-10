@@ -26,6 +26,7 @@ const CHAR_ARCHER: String = "🎯"
 const CHAR_PRIEST: String = "😇"
 const CHAR_SCHOLAR: String = "🧪"
 const CHAR_PRINCESS: String = "👸"
+const CHAR_NECRO: String = "💀"
 ## ⚠ 表に無いキャラ（検証用の char_debug_* を含む）。
 const CHAR_FALLBACK: String = "👤"
 
@@ -133,6 +134,8 @@ static func for_character(character_id: String) -> String:
 			return CHAR_SCHOLAR
 		"char_princess":
 			return CHAR_PRINCESS
+		"char_necro":
+			return CHAR_NECRO
 	return CHAR_FALLBACK
 
 

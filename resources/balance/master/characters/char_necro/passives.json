@@ -1,0 +1,84 @@
+{
+	"passive_nc_undead": {
+		"name_key": "ui_battle_passive_nc_undead",
+		"user_character_id": "char_necro",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_nc_undead",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "skill_used",
+					"effects": [
+						{
+							"type": "summon",
+							"unit_id": "summon_nc_zombie",
+							"count": 1,
+							"duration_sec": 30.0,
+							"offset_x": 40.0,
+							"max_per_owner": 6
+						}
+					]
+				}
+			}
+		]
+	},
+	"passive_nc_harvest": {
+		"name_key": "ui_battle_passive_nc_harvest",
+		"user_character_id": "char_necro",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_nc_harvest_hit",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "basic_hit",
+					"effects": [
+						{
+							"type": "resource",
+							"resource_id": "soul",
+							"amount": 1,
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			},
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_nc_harvest_kill",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "foe_died",
+					"effects": [
+						{
+							"type": "resource",
+							"resource_id": "soul",
+							"amount": 1,
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	}
+}

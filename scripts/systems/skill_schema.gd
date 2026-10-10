@@ -110,6 +110,23 @@ const COOLDOWN_FIELD_EXCEPT: String = "_except"
 # ⚠ デバフ＝状態のマスが赤いもの（人間「⚠ ３い」＝`StatusRegistry.is_debuff_entry()`）・バフ＝それ以外。
 # ⚠ パッシブの状態は消しても次のフレームで付け直る（`_restore_passives()`）＝実質消えない。
 const EFFECT_DISPEL: String = "dispel"
+# 自分の召喚を使う（回NC-1・ネクロの「爆破」「古い順に3体で上級」）。⚠ 古い順に count 体（"all" なら全部）を消す。
+#   {"type": "summon_consume", "unit_ids": ["summon_nc_zombie"], "count": 3}
+#   {"type": "summon_consume", "unit_ids": [...], "count": "all", "blast_radius": 100, "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag"}
+# ⚠ blast_radius を書くと、消える1体ごとに「その位置から半径の中の敵」へダメージ（⚠ 威力は撃った本人の能力値）。
+# ⚠ 消すのは戦闘の画面（⚠ 結果に載せるだけ＝召喚と同じ）。⚠ 消え方は死亡ではない（⚠ 「敵が倒された」は出ない）。
+const EFFECT_SUMMON_CONSUME: String = "summon_consume"
+const CONSUME_COUNT_ALL: String = "all"
+const CONSUME_FIELD_UNIT_IDS: String = "unit_ids"
+const CONSUME_FIELD_BLAST_RADIUS: String = "blast_radius"
+# 対象を取らない効果（回NC-1）。⚠ 購読の中でも target が要らない（E54 の例外）・実行時も対象を選ばない。
+const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
+# 召喚の上限（回NC-1・人間「⚠ あ６」＝⚠ 段階6の決定5「上限なし」を召喚ごとに上書きできるようにした）。
+# ⚠ 召喚した人1人ぶんの召喚の数（⚠ 種類を問わない）。⚠ 超えたら古いほうから消える。⚠ 書かなければ上限なし（⚠ いままでどおり）。
+const SUMMON_FIELD_MAX_PER_OWNER: String = "max_per_owner"
+# 自分の召喚が足りないと撃てない（回NC-1）。⚠ スキルの直下に書く（⚠ cost と同じ場所・同じ暗転）。
+#   "need_summons": {"unit_ids": ["summon_nc_zombie"], "count": 3}
+const FIELD_NEED_SUMMONS: String = "need_summons"
 # 相手の状態で効果が変わる（回CH-8・EXEC_CHAR_RESOURCE.md §15）。⚠ どの効果にも書ける。
 #   "when_target": {"source": "status_has", "status_id": "bleed"}            … 相手がその状態か
 #   "when_target": {"source": "debuff_count", "op": "gte", "value": 2}       … 相手の赤いマスの数
@@ -138,6 +155,8 @@ const FIELD_WHEN_USER: String = "when_user"
 const FIELD_PIERCE_LENGTH: String = "pierce_length"
 # ⚠ 敵ごとの着弾の合図の頭（"hit:<unit_id>"）。⚠ SkillRuntime と BattleController だけが使う。
 const EVENT_PIERCE_HIT_PREFIX: String = "hit:"
+# ⚠ damage の矢に乗せられる効果（回NC-1・ネクロのビーム＝当たった相手の回復量を下げ、1体ごとに魂）。
+const PIERCE_RIDER_TYPES: Array = [EFFECT_BUFF, EFFECT_RESOURCE]
 const WHEN_ENEMIES_WITHIN: String = "enemies_within"
 # 能力値を割合で上げ下げする（回DB-1・人間「⚠ ４あ」）。⚠ buff と dot に書ける。⚠ −20 なら −20%。
 # ⚠ 計算は（素の値 ＋ value）×（1 ＋ 割合の合計/100）。⚠ atkspd だけは攻撃間隔に掛ける（⚠ −10 なら間隔が伸びる）。
@@ -157,12 +176,14 @@ const DASH_TOS_KNOWN: Array = [DASH_TO_TARGET, DASH_TO_BACK]
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
+	EFFECT_SUMMON_CONSUME,
 	"cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
+	EFFECT_SUMMON_CONSUME,
 ]
 # resource の欄。⚠ amount（足す・負なら減らす）と set_to（その値にする）はどちらか1つ。
 # ⚠ 持ち主にその資源があるか・種類と欄が合うかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
@@ -318,6 +339,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	FIELD_STAT_PCT, FIELD_MISS_PCT, FIELD_WHEN_USER, FIELD_PIERCE_LENGTH,
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to", "per_target_stack",
+	CONSUME_FIELD_UNIT_IDS, CONSUME_FIELD_BLAST_RADIUS, SUMMON_FIELD_MAX_PER_OWNER,
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -535,6 +557,8 @@ const SKILL_FIELDS_KNOWN: Array = [
 	"activation", "charge", "recast", "target", "effects", "phases",
 	# 資源を払う（2026-10-10・回CH-2）。
 	FIELD_COST,
+	# 自分の召喚が足りないと撃てない（回NC-1）。
+	FIELD_NEED_SUMMONS,
 	# トグル型（回CH-9）。
 	FIELD_TOGGLE,
 	# レリック（段階14-d）。⚠ relics.json は skills.json と同じ辞書へマージされるので、
@@ -773,6 +797,7 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 
 	# E156〜E159 資源を払う（回CH-2）
 	_validate_cost(issues, skill_id, data)
+	_validate_need_summons(issues, skill_id, data)
 
 	# E3
 	if str(data.get("name_key", "")) == "":
@@ -1100,6 +1125,12 @@ static func _validate_summon_effect(
 		elif float(raw_count) != float(int(float(raw_count))) or int(float(raw_count)) < 1:
 			_err(issues, skill_id, "%s.count は 1 以上の整数であること: %s" % [where, str(raw_count)])
 
+	# E179 … 召喚の上限（回NC-1）。⚠ 書かなければ上限なし。
+	if effect.has(SUMMON_FIELD_MAX_PER_OWNER):
+		var cap: Variant = effect.get(SUMMON_FIELD_MAX_PER_OWNER, null)
+		if not _is_num(cap) or float(cap) < 1.0 or float(cap) != floor(float(cap)):
+			_err(issues, skill_id, "%s.max_per_owner が1以上の整数でない" % where)
+
 	# E98 … 召喚は対象を取らず、威力の式も持たない
 	for forbidden: String in SUMMON_FIELDS_FORBIDDEN:
 		if effect.has(forbidden):
@@ -1154,7 +1185,10 @@ static func _validate_effect(
 		# E99 … 召喚だけの欄を他の効果に書かせない。
 		# ⚠ unit_id は「召喚するID」の意味で、results が持つ unit_id（＝殴られた側）と
 		#   紛らわしい。1つの語が2つの意味を持つ状態を作らない（PLAN 1章の病気）。
-		for summon_field: String in SUMMON_ONLY_FIELDS:
+		# ⚠ count だけは召喚を使う効果（summon_consume）にも書く（⚠ 何体使うか）。
+		for summon_field: String in SUMMON_ONLY_FIELDS + [SUMMON_FIELD_MAX_PER_OWNER]:
+			if summon_field == "count" and effect_type == EFFECT_SUMMON_CONSUME:
+				continue
 			if effect.has(summon_field):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（type: 'summon' だけの欄）" % [
 					where, effect_type, summon_field
@@ -1203,13 +1237,25 @@ static func _validate_effect(
 			if effect.has(dash_field):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（dash だけ）" % [where, effect_type, dash_field])
 
+	# E178 自分の召喚を使う（回NC-1）
+	if effect_type == EFFECT_SUMMON_CONSUME:
+		_validate_summon_consume(issues, skill_id, effect, where)
+	else:
+		for consume_field: String in [CONSUME_FIELD_UNIT_IDS, CONSUME_FIELD_BLAST_RADIUS]:
+			if effect.has(consume_field):
+				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（summon_consume だけ）" % [where, effect_type, consume_field])
+
 	# E177 貫通する飛び道具（回PQ-2）
 	if effect.has(FIELD_PIERCE_LENGTH):
 		var length: Variant = effect.get(FIELD_PIERCE_LENGTH, null)
 		if not _is_num(length) or float(length) <= 0.0:
 			_err(issues, skill_id, "%s.pierce_length が正の数でない" % where)
-		if not (str(effect.get("delivery", "")) in [DELIVERY_PROJECTILE, DELIVERY_MAGIC]):
-			_err(issues, skill_id, "%s.pierce_length は delivery: 'projectile' ／ 'magic' にしか書けない（飛ぶもの）" % where)
+		# ⚠ damage は送り方が要る（飛ぶもの）。⚠ 回NC-1：buff・resource にも書ける（⚠ 同じ矢に乗る＝通り過ぎた敵ごとに付く・増える）。
+		if effect_type == EFFECT_DAMAGE:
+			if not (str(effect.get("delivery", "")) in [DELIVERY_PROJECTILE, DELIVERY_MAGIC]):
+				_err(issues, skill_id, "%s.pierce_length は delivery: 'projectile' ／ 'magic' にしか書けない（飛ぶもの）" % where)
+		elif not (effect_type in PIERCE_RIDER_TYPES):
+			_err(issues, skill_id, "%s.type: '%s' に pierce_length は書けない（damage ／ %s）" % [where, effect_type, str(PIERCE_RIDER_TYPES)])
 		if str(effect.get("trigger", "")) != TRIGGER_PREFIX_EVENT + EVENT_HIT:
 			_err(issues, skill_id, "%s.pierce_length は trigger: 'event:hit' と一緒に書く（通り過ぎた瞬間に当たる）" % where)
 		if effect.has("target"):
@@ -1500,7 +1546,9 @@ static func _validate_react_effect(
 		else:
 			# E54 … 購読にはスキルの target が無い（反応する側の効果は単独で立つ）。
 			# ⚠ 書き忘れると実行時に「target が無い」の赤が出るだけで、何も起きない。
-			if not (raw_effect as Dictionary).has("target"):
+			# ⚠ 召喚・召喚を使う効果は対象を取らない（⚠ target は書けない＝E98／E178）＝除く（回NC-1）。
+			if not (raw_effect as Dictionary).has("target") \
+					and not (str((raw_effect as Dictionary).get("type", "")) in TARGETLESS_EFFECT_TYPES):
 				_err(issues, skill_id, "%s.react.effects[%d] に target が無い（購読の効果は各自に要る）" % [where, index])
 			_validate_effect(
 				issues, skill_id, raw_effect as Dictionary, index, activation,
@@ -2068,6 +2116,59 @@ static func _validate_scale_from(
 
 
 # cost の形（回CH-2）。
+# 自分の召喚が足りないと撃てない（回NC-1・E179）。⚠ unit_ids が summons.json にあるかは MasterDataLoader（E100 と同じ場所）。
+static func _validate_need_summons(issues: Array, skill_id: String, data: Dictionary) -> void:
+	if not data.has(FIELD_NEED_SUMMONS):
+		return
+	var raw: Variant = data.get(FIELD_NEED_SUMMONS, null)
+	if not (raw is Dictionary):
+		_err(issues, skill_id, "need_summons が辞書でない")
+		return
+	var need: Dictionary = raw as Dictionary
+	for key: Variant in need:
+		if not (str(key) in [CONSUME_FIELD_UNIT_IDS, "count"]):
+			_err(issues, skill_id, "need_summons に知らない欄がある: '%s'" % str(key))
+	if not _is_id_list(need.get(CONSUME_FIELD_UNIT_IDS, null)):
+		_err(issues, skill_id, "need_summons.unit_ids が空でない文字列の配列でない")
+	var count: Variant = need.get("count", null)
+	if not _is_num(count) or float(count) < 1.0 or float(count) != floor(float(count)):
+		_err(issues, skill_id, "need_summons.count が1以上の整数でない")
+	if str(data.get("activation", "")) == ACTIVATION_PASSIVE:
+		_err(issues, skill_id, "activation: 'passive' に need_summons は書けない（撃つ瞬間が無い）")
+
+
+# 召喚を使う効果（回NC-1・E178）。
+static func _validate_summon_consume(issues: Array, skill_id: String, effect: Dictionary, where: String) -> void:
+	if not _is_id_list(effect.get(CONSUME_FIELD_UNIT_IDS, null)):
+		_err(issues, skill_id, "%s.unit_ids が空でない文字列の配列でない（summons.json のID）" % where)
+	var count: Variant = effect.get("count", null)
+	var count_ok: bool = str(count) == CONSUME_COUNT_ALL if count is String \
+			else (_is_num(count) and float(count) >= 1.0 and float(count) == floor(float(count)))
+	if not count_ok:
+		_err(issues, skill_id, "%s.count が1以上の整数か 'all' でない" % where)
+	for forbidden: String in ["target", "host"]:
+		if effect.has(forbidden):
+			_err(issues, skill_id, "%s.type: 'summon_consume' に %s は書けない（自分の召喚が相手）" % [where, forbidden])
+	# ⚠ 爆発の欄はそろって書く（⚠ 半径だけ・威力だけは無音で何も起きない）。
+	var has_blast: bool = effect.has(CONSUME_FIELD_BLAST_RADIUS)
+	if has_blast:
+		var radius: Variant = effect.get(CONSUME_FIELD_BLAST_RADIUS, null)
+		if not _is_num(radius) or float(radius) <= 0.0:
+			_err(issues, skill_id, "%s.blast_radius が正の数でない" % where)
+	for blast_field: String in ["multiplier", "attack_type", "scale_from"]:
+		if effect.has(blast_field) != has_blast:
+			_err(issues, skill_id, "%s.%s は blast_radius と一緒に書く（爆発の威力）" % [where, blast_field])
+
+
+static func _is_id_list(raw: Variant) -> bool:
+	if not (raw is Array) or (raw as Array).is_empty():
+		return false
+	for v: Variant in (raw as Array):
+		if not (v is String) or str(v) == "":
+			return false
+	return true
+
+
 static func _validate_cost(issues: Array, skill_id: String, data: Dictionary) -> void:
 	var uses_spent: bool = uses_resource_spent(data)
 	if not data.has(FIELD_COST):

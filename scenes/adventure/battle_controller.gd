@@ -55,6 +55,9 @@ const SPAWN_WHY_EXPIRE: String = "expire"
 const SPAWN_WHY_OWNER_DEATH: String = "owner_death"
 const SPAWN_WHY_DEATH: String = "death"
 const SPAWN_WHY_CLEAR: String = "clear"
+# 回NC-1。⚠ スキルで使った（爆破・上級の材料）／ ⚠ 上限を超えて古いほうが崩れた。
+const SPAWN_WHY_CONSUME: String = "consume"
+const SPAWN_WHY_CAP: String = "cap"
 
 # 通常攻撃を待ち行列に積むときの skill_id。⚠ どのスキルファイルにも存在しない。
 # 警告文と待ち行列の中身にしか出ず、マスターを引くのには使わない
@@ -969,6 +972,7 @@ func _spawn_summon(r: Dictionary) -> void:
 		_next_summon_serial += 1
 		unit.is_summon = true
 		unit.summon_owner_id = owner.unit_id
+		unit.summon_kind_id = source_id
 		unit.summon_remaining = duration_sec
 		# ⚠ N体目は offset_x * (n+1)。同じ x に重ねると数字が読めない（宿題28）。
 		unit.x = owner.x + dir * offset_x * float(n + 1)
@@ -976,6 +980,52 @@ func _spawn_summon(r: Dictionary) -> void:
 		_session.summon_units.append(unit)
 		_summon_views.append(_make_unit_view(unit, self))
 		BattleLog.log_spawn(owner.unit_id, unit.unit_id, source_id, unit.x, SPAWN_WHY_BEGIN)
+		_cap_summons(owner, int(r.get("max_per_owner", 0)))
+
+
+# 召喚の上限（回NC-1・人間「⚠ あ６」）。⚠ 召喚した人1人ぶん・種類を問わず数え、超えたら古いほうから崩す。
+# ⚠ 0 は上限なし（⚠ 段階6の決定5のまま）。⚠ 崩れるのは死亡ではない（⚠ 期限切れと同じく静かに消える）。
+func _cap_summons(owner: BattleUnit, cap: int) -> void:
+	if cap <= 0:
+		return
+	var mine: Array = []
+	for raw: Variant in _session.summon_units:
+		var u: BattleUnit = raw as BattleUnit
+		if u != null and u.is_alive() and u.summon_owner_id == owner.unit_id:
+			mine.append(u)
+	for i: int in range(mine.size() - cap):
+		_remove_summon(mine[i] as BattleUnit, SPAWN_WHY_CAP)
+
+
+# 敵がいなくなったら、召喚が資源に戻る（回NC-1・ネクロ「⚠ 敵０を制圧したとき、ゾンビは死ぬが、半分はストックになる」）。
+# ⚠ summons.json の `"clear_refund": {"resource_id": "soul", "ratio": 0.5}`。⚠ 召喚した人ごとに 数 × ratio を切り捨てて足す。
+# ⚠ 呼ぶのは _enter_wave_clear() の頭（⚠ 召喚を捨てる前・最後のウェーブで持ち越しを書き戻す前）。
+func _refund_summons_on_clear() -> void:
+	if _session == null:
+		return
+	var sums: Dictionary = {}  # {owner_id: {resource_id: float}}
+	for raw: Variant in _session.summon_units:
+		var u: BattleUnit = raw as BattleUnit
+		if u == null or not u.is_alive():
+			continue
+		var refund: Variant = MasterDataLoader.get_summon(u.summon_kind_id).get("clear_refund", null)
+		if not (refund is Dictionary):
+			continue
+		var per_owner: Dictionary = sums.get(u.summon_owner_id, {})
+		var rid: String = str((refund as Dictionary).get("resource_id", ""))
+		per_owner[rid] = float(per_owner.get(rid, 0.0)) + float((refund as Dictionary).get("ratio", 0.0))
+		sums[u.summon_owner_id] = per_owner
+	for owner_id: Variant in sums:
+		var owner: BattleUnit = _find_unit_by_id(str(owner_id))
+		if owner == null:
+			continue
+		for rid: Variant in (sums[owner_id] as Dictionary):
+			if owner.resource_def(str(rid)).is_empty():
+				continue
+			var gain: int = int(floor(float((sums[owner_id] as Dictionary)[rid]) + 0.0001))
+			var before: int = owner.get_resource(str(rid))
+			owner.add_resource(str(rid), gain)
+			print("[Battle] clear_refund %s.%s %d -> %d" % [owner.unit_id, str(rid), before, owner.get_resource(str(rid))])
 
 
 # 期限・召喚者の死亡・召喚自身の死亡をまとめて片付ける。
@@ -1733,7 +1783,7 @@ func _update_skill_buttons() -> void:
 		var remaining: float = 0.0
 		var alive: bool = false
 		# 資源が足りない（回CH-2・人間「⚠ １あ」＝暗くして押せない）。
-		var short: bool = SkillActivation.is_cost_short(user, skill_id)
+		var short: bool = SkillActivation.is_cost_short(user, skill_id, _session)
 		# スタン中（回CH-5）。⚠ 足りないときと同じく暗く押せない。
 		if user != null and user.stunned:
 			short = true
@@ -2160,6 +2210,13 @@ func _on_skill_effects_applied(results: Array) -> void:
 		if str(r.get("kind", "")) == SkillSchema.EFFECT_SUMMON:
 			_spawn_summon(r as Dictionary)
 			continue
+		# 召喚を使った（回NC-1）。⚠ 消すのはここ（⚠ _remove_summon() が唯一の出口）。
+		if str(r.get("kind", "")) == SkillSchema.EFFECT_SUMMON_CONSUME:
+			for summon_id: Variant in (r.get("summon_ids", []) as Array):
+				var used: BattleUnit = _find_unit_by_id(str(summon_id))
+				if used != null and used.is_summon:
+					_remove_summon(used, SPAWN_WHY_CONSUME)
+			continue
 		# ノックバック（回CH-5）。⚠ 座標を触るのはこの層だけ（ルーンの移動と同じ端で止める）。
 		if str(r.get("kind", "")) == SkillSchema.EFFECT_KNOCKBACK:
 			var pushed: BattleUnit = _find_unit_by_id(str(r.get("unit_id", "")))
@@ -2208,7 +2265,7 @@ func _on_charge_button_down(entry: Dictionary) -> void:
 	if not user.is_skill_ready(skill_id):
 		return
 	# ⚠ 資源が足りないと溜め始めない（回CH-2）。⚠ 溜めてから離して撃てない、を防ぐ。
-	if SkillActivation.is_cost_short(user, skill_id):
+	if SkillActivation.is_cost_short(user, skill_id, _session):
 		return
 	_charging = {"entry": entry, "time": 0.0}
 
@@ -2320,6 +2377,8 @@ func _charge_power_ratio(entry: Dictionary, t: float) -> float:
 
 func _enter_wave_clear() -> void:
 	_session.state = BattleSession.STATE_WAVE_CLEAR
+	# ⚠ 召喚を捨てる前（回NC-1）。⚠ 最後のウェーブでも（⚠ 勝ったあとに持ち越しを書き戻す）。
+	_refund_summons_on_clear()
 	if _session.is_final_wave():
 		_enter_victory()
 		return

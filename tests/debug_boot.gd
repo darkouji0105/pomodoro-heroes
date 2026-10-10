@@ -113,6 +113,8 @@ const SHOT_PREPARE_TOWER: String = "tower"
 const SHOT_PREPARE_DEBUG_PARTY: String = "debug_party"
 # ⚠ 学者（回SC-1）：⚠ 学者を1番目に入れる（⚠ 内側の `PREPARE_SCHOLAR_PARTY` と同じ字）。
 const SHOT_PREPARE_SCHOLAR_PARTY: String = "scholar_party"
+# ⚠ ネクロ（回NC-1）：⚠ ネクロを1番目に入れる（⚠ 内側の `PREPARE_NECRO_PARTY` と同じ字）。
+const SHOT_PREPARE_NECRO_PARTY: String = "necro_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1092,6 +1094,56 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_pq_trump", "prepare": PREPARE_NONE, "gap": 1.0},
 		],
 	},
+	# ネクロマンサー（回NC-1）。⚠ 本物の戦闘で撃つ。⚠ Lv20 に上げてから枠に入れる。
+	"necro_a": {
+		"kind": KIND_BATTLE,
+		"note": "ネクロ A：死者の行進（3体＋パッシブで1体）→ 屍の継ぎ接ぎ（古い3体で上級）→ 制圧で半分が魂に",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_necro", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_necro": 20},
+		"skills": {"char_necro": ["skill_nc_raise", "skill_nc_elite"]},
+		"fire": [
+			{"skill": "skill_nc_raise", "prepare": PREPARE_NONE},
+			{"skill": "skill_nc_elite", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"necro_c": {
+		"kind": KIND_BATTLE,
+		"note": "ネクロ C：死者の行進 → 屍爆（全員爆破・周りの敵にダメージ）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_necro", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_necro": 20},
+		"skills": {"char_necro": ["skill_nc_raise", "skill_nc_detonate"]},
+		"fire": [
+			{"skill": "skill_nc_raise", "prepare": PREPARE_NONE},
+			{"skill": "skill_nc_detonate", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"necro_d": {
+		"kind": KIND_BATTLE,
+		"note": "ネクロ D：死者の行進（4体）→ 骨の結界（＋1体＝5）→ 死者の行進（＋4体）＝上限6で古い3体が崩れる",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_necro", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_necro": 20},
+		"skills": {"char_necro": ["skill_nc_raise", "skill_nc_bone_ward"]},
+		"fire": [
+			{"skill": "skill_nc_raise", "prepare": PREPARE_NONE},
+			{"skill": "skill_nc_bone_ward", "prepare": PREPARE_NONE, "gap": 1.0},
+			{"skill": "skill_nc_raise", "prepare": PREPARE_NONE, "gap": 11.2},
+		],
+	},
+	"necro_b": {
+		"kind": KIND_BATTLE,
+		"note": "ネクロ B：腐蝕の光線（貫通・回復低下・1体ごとに魂）→ 魂の慰め（魂を全部使って回復）。骨の結界は necro_d の枠",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_necro", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_necro": 20},
+		"skills": {"char_necro": ["skill_nc_beam", "skill_nc_soul_mend"]},
+		"fire": [
+			{"skill": "skill_nc_beam", "prepare": PREPARE_NONE, "gap": 1.0},
+			{"skill": "skill_nc_soul_mend", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1498,6 +1550,17 @@ const SCENARIOS: Dictionary = {
 				},
 				"settle": 60,
 			},
+			# ⚠ ネクロ（回NC-1）：⚠ 顔・名前・魂の丸 10 個が枠に収まるか。
+			{
+				"name": "90_necro_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_NECRO_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -1617,6 +1680,7 @@ func _ready() -> void:
 			_report_scholar()
 			_report_princess()
 			_report_pierce()
+			_report_necro()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -8396,6 +8460,156 @@ func _report_pierce() -> void:
 				errors += 1
 		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(probe[0]), errors])
 
+# ネクロマンサー（回NC-1）。⚠ 召喚を生やす・消すのは戦闘の画面＝ここでは結果に載ったものを見る（⚠ 生やす・消すは necro_a）。
+func _report_necro() -> void:
+	var me: BattleUnit = _resource_unit("char_necro", 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 100000
+	var foes: Array = []
+	for i: int in range(3):
+		foes.append(BattleUnit.create("enemy_%d" % i, BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime"))
+	(foes[0] as BattleUnit).x = 400.0
+	(foes[1] as BattleUnit).x = 650.0
+	(foes[2] as BattleUnit).x = 900.0
+	me.x = 300.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = foes
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	var got: Array = []
+	var on_results: Callable = func(results: Array) -> void:
+		got.append_array(results)
+	runtime.effects_applied.connect(on_results)
+
+	print("[DebugBoot] --- 48. 腐蝕の光線（⚠ 貫通 400・回復量 −50%・当たった1体ごとに魂 +1・矢は1本）---")
+	var arrows: Array = [0]
+	var on_pierce: Callable = func(_c: int, _d: String, _u: String, _l: float, _ids: Array) -> void:
+		arrows[0] += 1
+	runtime.pierce_requested.connect(on_pierce)
+	var cast_id: int = runtime._next_cast_id
+	runtime.cast(me, "skill_nc_beam", MasterDataLoader.get_skill("skill_nc_beam"), 1.0)
+	print("  頼んだ矢：%d 本（1）・撃った直後の魂 %d（0）" % [arrows[0], me.get_resource("soul")])
+	runtime.notify_event(cast_id, SkillSchema.EVENT_PIERCE_HIT_PREFIX + "enemy_0")
+	print("  enemy_0 を通過：魂 %d（1）・回復量 enemy_0 %d ／ enemy_1 %d（-50 ／ 0）" % [
+		me.get_resource("soul"), int(registry.heal_taken_pct("enemy_0")), int(registry.heal_taken_pct("enemy_1"))])
+	runtime.notify_event(cast_id, SkillSchema.EVENT_PIERCE_HIT_PREFIX + "enemy_1")
+	print("  enemy_1 を通過：魂 %d（2）・回復量 enemy_1 %d（-50）・遠い enemy_2 は %d（0＝400 の外）" % [
+		me.get_resource("soul"), int(registry.heal_taken_pct("enemy_1")), int(registry.heal_taken_pct("enemy_2"))])
+	runtime.pierce_requested.disconnect(on_pierce)
+
+	print("[DebugBoot] --- 49. 魂が10で払ってゾンビ（⚠ 人間「⚠ 上限10　ゾンビ10」＝10 使って1体）---")
+	me.set_resource("soul", 9)
+	var r49: Array = SkillResolver.resolve({"effects": [{"type": "resource", "resource_id": "soul", "amount": 1}]}, me, session, [], registry)
+	var summon49: Dictionary = {}
+	for r: Variant in r49:
+		if r is Dictionary and str((r as Dictionary).get("kind", "")) == SkillSchema.EFFECT_SUMMON:
+			summon49 = r as Dictionary
+	print("  9 → +1：魂 %d（0）・召喚 %s %s 体・上限 %s（summon_nc_zombie 1 体・6）" % [
+		me.get_resource("soul"), str(summon49.get("summon_unit_id", "なし")), str(summon49.get("count", 0)),
+		str(summon49.get("max_per_owner", 0))])
+	me.set_resource("soul", 5)
+	var r49b: Array = SkillResolver.resolve({"effects": [{"type": "resource", "resource_id": "soul", "amount": 1}]}, me, session, [], registry)
+	print("  5 → +1：魂 %d（6）・結果 %d 件（0＝満タンでなければ呼ばない）" % [me.get_resource("soul"), r49b.size()])
+
+	print("[DebugBoot] --- 50. 屍の継ぎ接ぎ・屍爆（⚠ 古い順・need_summons で暗転）---")
+	var zombie_data: Dictionary = MasterDataLoader.get_summon("summon_nc_zombie")
+	var zs: Array = []
+	for i: int in range(4):
+		var z: BattleUnit = BattleUnit.create("summon_%d" % i, BattleUnit.TEAM_PARTY, zombie_data, zombie_data, false, "summon_nc_zombie")
+		z.is_summon = true
+		z.summon_owner_id = me.unit_id
+		z.summon_kind_id = "summon_nc_zombie"
+		z.x = 340.0 + 40.0 * float(i)
+		zs.append(z)
+	me.skill_ids = ["skill_nc_elite", "skill_nc_detonate"]
+	me.skill_cooldowns = {"skill_nc_elite": 0.0, "skill_nc_detonate": 0.0}
+	session.summon_units = [zs[0], zs[1]]
+	print("  ゾンビ2体：上級に '%s' ／ 爆破 '%s'（'cost' ／ ''）" % [
+		_cost_reason(me, "skill_nc_elite", session), _cost_reason(me, "skill_nc_detonate", session)])
+	session.summon_units = zs.duplicate()
+	print("  ゾンビ4体：上級に '%s'（''＝撃てる）" % _cost_reason(me, "skill_nc_elite", session))
+	var r50: Array = _control_cast("skill_nc_elite", me, [me], session, registry)
+	for r: Variant in r50:
+		if r is Dictionary and (r as Dictionary).has("kind"):
+			print("  上級：%s %s" % [str((r as Dictionary)["kind"]), str((r as Dictionary).get("summon_ids", (r as Dictionary).get("summon_unit_id", "")))])
+	print("  （summon_consume [summon_0, summon_1, summon_2]＝古い3体 ／ summon summon_nc_zombie_elite）")
+	var r50b: Array = _control_cast("skill_nc_detonate", me, [me], session, registry)
+	var hits: Array = []
+	for r: Variant in r50b:
+		if r is Dictionary and not (r as Dictionary).has("kind"):
+			hits.append(str((r as Dictionary).get("unit_id", "")))
+		elif r is Dictionary:
+			print("  爆破で消す：%s（4 体全部）" % str((r as Dictionary).get("summon_ids", [])))
+	print("  爆発が当たった：%s（enemy_0 に 4 回＝ゾンビ 340〜460 から 100 以内・enemy_1／2 は遠い）" % str(hits))
+
+	print("[DebugBoot] --- 51. パッシブ（⚠ スキルを使ったらゾンビ・殴る／倒れるで魂）---")
+	session.summon_units = []
+	runtime.cast(me, "passive_nc_undead", MasterDataLoader.get_skill("passive_nc_undead"), 1.0)
+	runtime.cast(me, "passive_nc_harvest", MasterDataLoader.get_skill("passive_nc_harvest"), 1.0)
+	got.clear()
+	runtime.notify_skill_used(me)
+	var spawned: int = 0
+	for r: Variant in got:
+		if r is Dictionary and str((r as Dictionary).get("kind", "")) == SkillSchema.EFFECT_SUMMON:
+			spawned += int((r as Dictionary).get("count", 0))
+	print("  スキルを使った：召喚 %d 体（1）" % spawned)
+	me.set_resource("soul", 0)
+	var basic_cast: int = runtime._next_cast_id
+	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, me.basic_attack, 1.0, ["enemy_0"])
+	runtime.notify_event(basic_cast, SkillSchema.EVENT_HIT)
+	print("  通常攻撃が当たった：魂 %d（1）" % me.get_resource("soul"))
+	(foes[2] as BattleUnit).last_attacker_id = "party_9"
+	(foes[2] as BattleUnit).hp = 0
+	runtime.notify_foe_died(foes[2])
+	print("  敵が倒れた（ほかの人が倒した）：魂 %d（2）" % me.get_resource("soul"))
+	runtime.effects_applied.disconnect(on_results)
+
+	print("[DebugBoot] --- 52. 魂の慰め（⚠ 全部払う・魔力×0.5 ＋ 払った魂×5）---")
+	me.set_resource("soul", 6)
+	me.hp = 1
+	me.skill_ids = ["skill_nc_soul_mend"]
+	me.skill_cooldowns = {"skill_nc_soul_mend": 0.0}
+	var spent: int = _cost_fire(me, "skill_nc_soul_mend", session, registry)
+	print("  払った %d（6）・残り %d（0）・HP 1 → %d（1 + 魔力 %d × 0.5 + 30）" % [spent, me.get_resource("soul"), me.hp, me.get_stat("mag")])
+	print("  魂 0 で：'%s'（'cost'）" % _cost_reason(me, "skill_nc_soul_mend", session))
+
+	print("[DebugBoot] --- 53. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var probes: Array = [
+		["consume に unit_ids が無い", {"type": "summon_consume", "count": 3}, {}, true],
+		["consume の count が 0", {"type": "summon_consume", "unit_ids": ["summon_nc_zombie"], "count": 0}, {}, true],
+		["爆発の半径だけ", {"type": "summon_consume", "unit_ids": ["summon_nc_zombie"], "count": "all", "blast_radius": 100}, {}, true],
+		["summon の上限 0", {"type": "summon", "unit_id": "summon_nc_zombie", "count": 1, "duration_sec": 10.0, "offset_x": 40.0, "max_per_owner": 0}, {}, true],
+		["damage に unit_ids", {"type": "damage", "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag", "unit_ids": ["x"]}, {}, true],
+		["need_summons の count が 0", {"type": "summon_consume", "unit_ids": ["summon_nc_zombie"], "count": 1}, {"need_summons": {"unit_ids": ["summon_nc_zombie"], "count": 0}}, true],
+		["heal に pierce_length", {"type": "heal", "multiplier": 1.0, "scale_from": "mag", "trigger": "event:hit", "pierce_length": 100}, {}, true],
+		["resource に pierce_length（正しい）", {"type": "resource", "resource_id": "soul", "amount": 1, "trigger": "event:hit", "pierce_length": 100}, {}, false],
+		["購読の中の summon に target 無し（正しい）", {"type": "react", "host": "unit", "status_id": "st_x", "stack": "refresh", "duration_sec": 5.0, "react": {"event": "skill_used", "effects": [{"type": "summon", "unit_id": "summon_nc_zombie", "count": 1, "duration_sec": 10.0, "offset_x": 40.0}]}}, {}, false],
+		["consume で全部を爆発（正しい）", {"type": "summon_consume", "unit_ids": ["summon_nc_zombie"], "count": "all", "blast_radius": 100, "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag"}, {}, false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_necro", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "self"}, "effects": [probe[1]],
+		}
+		data.merge(probe[2] as Dictionary, true)
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[3]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+	var bad_char: Dictionary = (MasterDataLoader.get_character("char_necro") as Dictionary).duplicate(true)
+	var soul_def: Dictionary = (bad_char["resources"] as Array)[0] as Dictionary
+	soul_def["on_full"] = {"spend": 0, "effects": [{"type": "damage"}]}
+	print("  on_full の spend 0・召喚でない効果 -> %d 件（2 以上）" % MasterDataLoader.character_resource_issues("char_necro", bad_char).size())
+	print("  本物のネクロ -> %d 件（0）" % MasterDataLoader.character_resource_issues("char_necro", MasterDataLoader.get_character("char_necro")).size())
+
+
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
 
@@ -10658,6 +10872,7 @@ class ShotTaker extends Node:
 	const PREPARE_TOWER_OUT: String = "tower_out"
 	const PREPARE_DEBUG_PARTY: String = "debug_party"
 	const PREPARE_SCHOLAR_PARTY: String = "scholar_party"
+	const PREPARE_NECRO_PARTY: String = "necro_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
 	const DEBUG_PARTY_SKILLS: Dictionary = {
@@ -11030,6 +11245,11 @@ class ShotTaker extends Node:
 				GameManager._state[GameStateKeys.DUNGEON_RUN] = run
 				return true
 			return GameManager.debug_mark_dungeon_boss_cleared()
+		if kind == PREPARE_NECRO_PARTY:
+			for necro_i: int in range(3):
+				if not GameManager.set_party_member(necro_i, ["char_necro", "char_archer", "char_priest"][necro_i]):
+					return false
+			return true
 		if kind == PREPARE_SCHOLAR_PARTY:
 			for scholar_i: int in range(3):
 				var scholar_member: String = ["char_scholar", "char_archer", "char_priest"][scholar_i]

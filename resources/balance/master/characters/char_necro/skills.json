@@ -1,0 +1,188 @@
+{
+	"skill_nc_raise": {
+		"name_key": "ui_battle_skill_nc_raise",
+		"user_character_id": "char_necro",
+		"unlock_level": 1,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "summon",
+				"unit_id": "summon_nc_zombie",
+				"count": 3,
+				"duration_sec": 30.0,
+				"offset_x": 40.0,
+				"max_per_owner": 6
+			}
+		]
+	},
+	"skill_nc_bone_ward": {
+		"name_key": "ui_battle_skill_nc_bone_ward",
+		"user_character_id": "char_necro",
+		"unlock_level": 1,
+		"cooldown_sec": 14.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "point",
+				"status_id": "st_nc_bone_ward",
+				"duration_sec": 8.0,
+				"stack": "refresh",
+				"zone": {
+					"radius": 160.0,
+					"team": "ally",
+					"follow": false
+				},
+				"stat": "def",
+				"stat_pct": 30
+			}
+		]
+	},
+	"skill_nc_beam": {
+		"name_key": "ui_battle_skill_nc_beam",
+		"user_character_id": "char_necro",
+		"unlock_level": 5,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 400.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "magic",
+				"multiplier": 1.4,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "event:hit",
+				"pierce_length": 400.0
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_nc_rot",
+				"duration_sec": 6.0,
+				"stack": "refresh",
+				"intervene": {
+					"heal_taken_pct": -50
+				},
+				"trigger": "event:hit",
+				"pierce_length": 400.0
+			},
+			{
+				"type": "resource",
+				"resource_id": "soul",
+				"amount": 1,
+				"trigger": "event:hit",
+				"pierce_length": 400.0
+			}
+		]
+	},
+	"skill_nc_detonate": {
+		"name_key": "ui_battle_skill_nc_detonate",
+		"user_character_id": "char_necro",
+		"unlock_level": 10,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"need_summons": {
+			"unit_ids": [
+				"summon_nc_zombie",
+				"summon_nc_zombie_elite"
+			],
+			"count": 1
+		},
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "summon_consume",
+				"unit_ids": [
+					"summon_nc_zombie",
+					"summon_nc_zombie_elite"
+				],
+				"count": "all",
+				"blast_radius": 100.0,
+				"multiplier": 1.0,
+				"attack_type": "magic",
+				"scale_from": "mag"
+			}
+		]
+	},
+	"skill_nc_soul_mend": {
+		"name_key": "ui_battle_skill_nc_soul_mend",
+		"user_character_id": "char_necro",
+		"unlock_level": 15,
+		"cooldown_sec": 15.0,
+		"activation": "instant",
+		"cost": {
+			"resource_id": "soul",
+			"all": true
+		},
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "heal",
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "mag",
+						"weight": 0.5
+					},
+					{
+						"source": "resource_spent",
+						"weight": 5.0
+					}
+				]
+			}
+		]
+	},
+	"skill_nc_elite": {
+		"name_key": "ui_battle_skill_nc_elite",
+		"user_character_id": "char_necro",
+		"unlock_level": 20,
+		"cooldown_sec": 15.0,
+		"activation": "instant",
+		"need_summons": {
+			"unit_ids": [
+				"summon_nc_zombie"
+			],
+			"count": 3
+		},
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "summon_consume",
+				"unit_ids": [
+					"summon_nc_zombie"
+				],
+				"count": 3
+			},
+			{
+				"type": "summon",
+				"unit_id": "summon_nc_zombie_elite",
+				"count": 1,
+				"duration_sec": 30.0,
+				"offset_x": 40.0,
+				"max_per_owner": 6
+			}
+		]
+	}
+}

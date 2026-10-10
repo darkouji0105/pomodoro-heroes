@@ -145,6 +145,8 @@ func cast(
 	# ⚠ これが無いと、ダメージと DoT の2効果が同じ矢を待っているだけなのに
 	#   矢が2本飛ぶ（癒しの光の DoT 付きなど）。
 	var flying_sent: Dictionary = {}
+	# 貫通の矢も長さ1つにつき1本（回NC-1）。⚠ damage に乗せた buff・resource は同じ矢を待つ（⚠ 頼み直すと矢が2本飛ぶ）。
+	var pierce_sent: Dictionary = {}
 
 	# 先頭から順に。effects の並び順が多段の順番になる（PLAN 6-2）。
 	for raw_effect: Variant in (raw_effects as Array):
@@ -170,7 +172,9 @@ func cast(
 				pierce_entry["remaining"] = EVENT_TIMEOUT_SEC
 				pierce_entry["event_name"] = SkillSchema.EVENT_PIERCE_HIT_PREFIX + str(pierce_id)
 				_pending.append(pierce_entry)
-			pierce_requested.emit(cast_id, str(effect.get("delivery", SkillSchema.DELIVERY_PROJECTILE)), user.unit_id, length, pierce_ids)
+			if not pierce_sent.has(length):
+				pierce_sent[length] = true
+				pierce_requested.emit(cast_id, str(effect.get("delivery", SkillSchema.DELIVERY_MAGIC)), user.unit_id, length, pierce_ids)
 			continue
 
 		var entry: Dictionary = _make_entry(
@@ -383,7 +387,10 @@ func _make_entry(
 		target_def = raw_target as Dictionary
 
 	var target_ids: Array = []
-	if target_def.is_empty():
+	# ⚠ 召喚・召喚を使う効果は対象を取らない（回NC-1・購読の中で target が無いのが正しい）。
+	if target_def.is_empty() and str(effect.get("type", "")) in SkillSchema.TARGETLESS_EFFECT_TYPES:
+		pass
+	elif target_def.is_empty():
 		push_error("[SkillRuntime] target が無い (skill_id=%s)" % skill_id)
 	else:
 		target_ids = SkillResolver.select_targets(target_def, user, _session, source_unit_id)

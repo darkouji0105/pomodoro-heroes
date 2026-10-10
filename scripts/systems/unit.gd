@@ -311,6 +311,8 @@ var is_summon: bool = false
 var summon_owner_id: String = ""
 # 期限の残り秒。⚠ 0以下になったら「死亡ではなく」静かに消える（人間の決定）。
 var summon_remaining: float = 0.0
+# 召喚の種類（summons.json のID・回NC-1）。⚠ 「古い順に3体」「ゾンビを全部」の数え分けに使う（⚠ master_id は見た目専用なので別に持つ）。
+var summon_kind_id: String = ""
 
 
 # 生成の唯一の入口。BattleUnit.new() を直接呼ばないこと。

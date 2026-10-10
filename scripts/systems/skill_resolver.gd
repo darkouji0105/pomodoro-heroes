@@ -365,7 +365,9 @@ static func resolve(
 		elif effect_type == SkillSchema.EFFECT_SUMMON:
 			_apply_summon(effect, user, results)
 		elif effect_type == SkillSchema.EFFECT_RESOURCE:
-			_apply_resource(effect, user, targets, registry)
+			_apply_resource(effect, user, targets, registry, session, results)
+		elif effect_type == SkillSchema.EFFECT_SUMMON_CONSUME:
+			_apply_summon_consume(effect, user, results, session, registry, is_dot)
 		elif effect_type == SkillSchema.EFFECT_KNOCKBACK:
 			for t: BattleUnit in targets:
 				_apply_knockback(effect, user, t, results)
@@ -846,7 +848,10 @@ static func _apply_dash(effect: Dictionary, user: BattleUnit, targets: Array, re
 
 # 固有の資源（回CH-1）。⚠ 宛先は撃った本人だけ（⚠ target_ids を読まない）。
 # ⚠ 0〜max に切るのは BattleUnit の側（⚠ ここで切らない）。
-static func _apply_resource(effect: Dictionary, user: BattleUnit, targets: Array, registry: RefCounted) -> void:
+static func _apply_resource(
+		effect: Dictionary, user: BattleUnit, targets: Array, registry: RefCounted,
+		session: BattleSession, results: Array
+) -> void:
 	var resource_id: String = str(effect.get(SkillSchema.RESOURCE_FIELD_ID, ""))
 	var before: int = user.get_resource(resource_id)
 	if effect.has(SkillSchema.RESOURCE_FIELD_SET_TO):
@@ -864,6 +869,73 @@ static func _apply_resource(effect: Dictionary, user: BattleUnit, targets: Array
 	print("[SkillResolver] resource %s.%s %d -> %d" % [
 		user.unit_id, resource_id, before, user.get_resource(resource_id)
 	])
+	_resource_on_full(user, resource_id, registry, session, results)
+
+
+# 満タンになったら払って効果を撃つ（回NC-1・ネクロ「⚠ 魂ストックがたまるとゾンビを召喚する」）。
+# ⚠ 資源の定義（characters.json の resources[]）に `"on_full": {"spend": 10, "effects": [...]}`。
+# ⚠ 合図（購読）にしない：⚠ 魂は購読の中で増えるので、購読から生まれた行動は反応を生まない（10-2）に止められる。
+# ⚠ 撃つ効果は召喚だけ（⚠ MasterDataLoader が見る）。⚠ results に足す＝召喚と同じ道で戦闘の画面が生やす。
+static func _resource_on_full(
+		user: BattleUnit, resource_id: String, registry: RefCounted,
+		session: BattleSession, results: Array
+) -> void:
+	var def: Dictionary = user.resource_def(resource_id)
+	var on_full: Variant = def.get("on_full", null)
+	if not (on_full is Dictionary):
+		return
+	if user.get_resource(resource_id) < int(def.get("max", 0)):
+		return
+	user.add_resource(resource_id, -int((on_full as Dictionary).get("spend", 0)))
+	print("[SkillResolver] resource %s.%s full -> spend %d" % [
+		user.unit_id, resource_id, int((on_full as Dictionary).get("spend", 0))
+	])
+	for raw: Variant in ((on_full as Dictionary).get("effects", []) as Array):
+		if raw is Dictionary:
+			results.append_array(resolve({"effects": [raw]}, user, session, [], registry))
+
+
+# 自分の召喚を使う（回NC-1）。⚠ 古い順＝summon_units の並び（⚠ 生やした順に足してある）。
+# ⚠ ここでは消さない（⚠ 結果に載せるだけ・消すのは戦闘の画面＝召喚と同じ）。
+# ⚠ blast_radius があれば、消える1体ごとに「その位置から半径の中の敵」へダメージ（⚠ 威力は撃った本人）。
+static func _apply_summon_consume(
+		effect: Dictionary, user: BattleUnit, results: Array,
+		session: BattleSession, registry: RefCounted, is_dot: bool
+) -> void:
+	var picked: Array = own_summons(user, session, effect.get(SkillSchema.CONSUME_FIELD_UNIT_IDS, []) as Array)
+	var raw_count: Variant = effect.get("count", 0)
+	if not (raw_count is String and str(raw_count) == SkillSchema.CONSUME_COUNT_ALL):
+		picked = picked.slice(0, int(float(raw_count)))
+	if picked.is_empty():
+		return
+	if effect.has(SkillSchema.CONSUME_FIELD_BLAST_RADIUS):
+		var radius: float = float(effect.get(SkillSchema.CONSUME_FIELD_BLAST_RADIUS, 0.0))
+		var foe_team: String = BattleUnit.TEAM_ENEMY if user.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
+		for z: BattleUnit in picked:
+			for raw_foe: Variant in session.get_alive_units(foe_team):
+				var foe: BattleUnit = raw_foe as BattleUnit
+				if absf(foe.x - z.x) <= radius:
+					_apply_damage(effect, user, foe, results, session, registry, is_dot)
+	var ids: Array = []
+	for z: BattleUnit in picked:
+		ids.append(z.unit_id)
+	results.append({
+		"kind": SkillSchema.EFFECT_SUMMON_CONSUME,
+		"source_unit_id": user.unit_id,
+		"summon_ids": ids,
+	})
+
+
+# 自分の召喚（⚠ 生きているもの・古い順）。⚠ unit_ids の種類だけ（⚠ 撃てるかの判定＝SkillActivation も使う）。
+static func own_summons(user: BattleUnit, session: BattleSession, unit_ids: Array) -> Array:
+	var list: Array = []
+	if user == null or session == null:
+		return list
+	for raw: Variant in session.summon_units:
+		var u: BattleUnit = raw as BattleUnit
+		if u != null and u.is_alive() and u.summon_owner_id == user.unit_id and u.summon_kind_id in unit_ids:
+			list.append(u)
+	return list
 
 
 static func _apply_summon(effect: Dictionary, user: BattleUnit, results: Array) -> void:
@@ -876,6 +948,8 @@ static func _apply_summon(effect: Dictionary, user: BattleUnit, results: Array) 
 		"count": int(float(effect.get("count", 0))),
 		"duration_sec": float(effect.get("duration_sec", 0.0)),
 		"offset_x": float(effect.get("offset_x", 0.0)),
+		# 上限（回NC-1）。⚠ 0＝上限なし（⚠ 書かなければいままでどおり）。
+		"max_per_owner": int(float(effect.get(SkillSchema.SUMMON_FIELD_MAX_PER_OWNER, 0))),
 	})
 
 

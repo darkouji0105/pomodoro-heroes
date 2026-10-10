@@ -26,10 +26,21 @@ const REASON_STUNNED: String = "stunned"
 # 資源が足りないか（回CH-2）。⚠ 構え中（2段目以降）は見ない（⚠ 払うのは1段目だけ＝クールダウンと同じ）。
 # ⚠ cost は段ではなくスキルの直下にあるので、⚠ 段のデータではなくマスターから引く。
 # ⚠ マスの暗転とチャージの押し始めもこれを呼ぶ（⚠ 判定を2本にしない）。
-static func is_cost_short(user: BattleUnit, skill_id: String) -> bool:
+# ⚠ 自分の召喚が足りない（回NC-1・`need_summons`）もここ（⚠ 暗転を同じにする）。⚠ session が無ければ召喚は見ない。
+static func is_cost_short(user: BattleUnit, skill_id: String, session: BattleSession = null) -> bool:
 	if user == null or user.recast_phase(skill_id) >= 0:
 		return false
-	return not user.can_pay_cost(SkillSchema.cost_of(MasterDataLoader.get_skill(skill_id)))
+	var data: Dictionary = MasterDataLoader.get_skill(skill_id)
+	if not user.can_pay_cost(SkillSchema.cost_of(data)):
+		return true
+	var need: Variant = data.get(SkillSchema.FIELD_NEED_SUMMONS, null)
+	if need is Dictionary and session != null:
+		var have: int = SkillResolver.own_summons(
+			user, session, (need as Dictionary).get(SkillSchema.CONSUME_FIELD_UNIT_IDS, []) as Array
+		).size()
+		if have < int(float((need as Dictionary).get("count", 0))):
+			return true
+	return false
 
 
 # 撃てない理由を返す。撃てるなら REASON_OK（空文字）。
@@ -59,7 +70,7 @@ static func blocked_reason(
 	#   （PLAN 12章）。bool を引数にすると、呼び出し側が判定を持つことになる。
 	if user.recast_phase(skill_id) < 0 and not user.is_skill_ready(skill_id):
 		return REASON_COOLDOWN
-	if is_cost_short(user, skill_id):
+	if is_cost_short(user, skill_id, session):
 		return REASON_COST
 
 	# 射程で絞った結果が0体なら発動しない（決定1-6）。

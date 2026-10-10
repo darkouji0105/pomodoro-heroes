@@ -758,6 +758,8 @@ const AVATAR_COLORS: Dictionary = {
 	"char_scholar": {"bg": "2f5a5a", "fg": "bcecec"},
 	# ⚠ 弓兵の王女（回PQ-1）。⚠ 王家の赤紫（⚠ 設計役の仮）。
 	"char_princess": {"bg": "6b2f4a", "fg": "ecbcd4"},
+	# ⚠ ネクロマンサー（回NC-1）。⚠ ゴスの紫がかった灰（⚠ 設計役の仮）。
+	"char_necro": {"bg": "3a2f4a", "fg": "d4c4ec"},
 	"fallback": {"bg": "2a2320", "fg": "7d6f68"},
 }
 const AVATAR_CORNER_RADIUS: int = 8

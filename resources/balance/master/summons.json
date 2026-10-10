@@ -25,5 +25,67 @@
 				}
 			]
 		}
+	},
+	"summon_nc_zombie": {
+		"name_key": "ui_battle_summon_nc_zombie",
+		"hp": 60,
+		"atk": 8,
+		"mag": 1,
+		"def": 4,
+		"mdef": 2,
+		"spd": 50,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 50,
+		"attack_interval_sec": 1.5,
+		"clear_refund": {
+			"resource_id": "soul",
+			"ratio": 0.5
+		},
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		}
+	},
+	"summon_nc_zombie_elite": {
+		"name_key": "ui_battle_summon_nc_zombie_elite",
+		"hp": 200,
+		"atk": 22,
+		"mag": 1,
+		"def": 8,
+		"mdef": 5,
+		"spd": 50,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 60,
+		"attack_interval_sec": 1.5,
+		"clear_refund": {
+			"resource_id": "soul",
+			"ratio": 0.5
+		},
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		}
 	}
 }
