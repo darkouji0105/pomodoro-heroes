@@ -62,16 +62,20 @@
 		"activation": "instant",
 		"target": {
 			"team": "enemy",
-			"mode": "area",
-			"origin": "user",
-			"radius": 400.0
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 400.0
 		},
 		"effects": [
 			{
 				"type": "damage",
+				"delivery": "projectile",
 				"multiplier": 2.0,
 				"attack_type": "physical",
-				"scale_from": "atk"
+				"scale_from": "atk",
+				"trigger": "event:hit",
+				"pierce_length": 400.0
 			}
 		]
 	},

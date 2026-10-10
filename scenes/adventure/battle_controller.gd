@@ -234,6 +234,8 @@ func _ready() -> void:
 	# ⚠ ここが「データとビューが出会う場所」（PLAN 7-1）。新層はノードを触らず、
 	#   投射物が要るときはシグナルで頼んでくる。生成はこの画面の担当。
 	_skill_runtime.projectile_requested.connect(_on_projectile_requested)
+	# 貫通の矢（回PQ-2）。
+	_skill_runtime.pierce_requested.connect(_on_pierce_requested)
 
 	_init_party_units()
 	result_view.hide()
@@ -2038,6 +2040,32 @@ func _on_projectile_requested(
 			_projectile_color(delivery)
 		)
 		_projectile_views.append(view)
+
+
+# 貫通の矢を1本飛ばす（回PQ-2）。⚠ 前へ length まっすぐ（⚠ 戦場の端で止まる）。
+func _on_pierce_requested(cast_id: int, delivery: String, user_id: String, length: float, target_ids: Array) -> void:
+	var user: BattleUnit = _find_unit_by_id(user_id)
+	if user == null:
+		return
+	_prune_projectiles()
+	var forward: float = 1.0 if user.team == BattleUnit.TEAM_PARTY else -1.0
+	var end_x: float = clampf(user.x + forward * length, RUNE_MOVE_MIN_X, RUNE_MOVE_MAX_X)
+	var view: Node2D = Node2D.new()
+	view.set_script(PROJECTILE_VIEW_SCRIPT)
+	add_child(view)
+	view.setup_pierce(
+		self, cast_id, target_ids,
+		Vector2(user.x, _ground_y), Vector2(end_x, _ground_y),
+		_projectile_speed(delivery), _projectile_color(delivery)
+	)
+	_projectile_views.append(view)
+
+
+# 貫通の矢が敵を通り過ぎた（回PQ-2）。⚠ その敵の分の着弾待ちだけを発火する。
+func on_pierce_hit(cast_id: int, unit_id: String) -> void:
+	if _skill_runtime == null:
+		return
+	_skill_runtime.notify_event(cast_id, SkillSchema.EVENT_PIERCE_HIT_PREFIX + unit_id)
 
 
 # 着弾の合図。演出シーンから呼ばれる。

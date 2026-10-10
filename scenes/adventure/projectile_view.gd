@@ -45,6 +45,10 @@ var _color: Color = COLOR_PROJECTILE
 var _fallback_position: Vector2 = Vector2.ZERO
 var _life_sec: float = 0.0
 var _done: bool = false
+# 貫通（回PQ-2）。⚠ 空でなければ「まっすぐ飛ぶ」形。⚠ 残りの対象（まだ通り過ぎていない）。
+var _pierce_ids: Array = []
+var _pierce_end: Vector2 = Vector2.ZERO
+var _pierce_dir: float = 0.0
 
 
 # from_position … 発射位置
@@ -63,6 +67,19 @@ func setup(
 	queue_redraw()
 
 
+# 貫通の矢（回PQ-2）。⚠ 誘導しない。⚠ end へまっすぐ飛び、通り過ぎた敵ごとに合図を返す。
+func setup_pierce(
+		controller: Node, cast_id: int, target_ids: Array,
+		from_position: Vector2, end_position: Vector2, speed: float, color: Color
+) -> void:
+	setup(controller, cast_id, "", from_position, end_position, speed, color)
+	_pierce_ids = target_ids.duplicate()
+	_pierce_end = end_position
+	_pierce_dir = signf(end_position.x - from_position.x)
+	if _pierce_dir == 0.0:
+		_pierce_dir = 1.0
+
+
 # ⚠ _process を使う。Engine.time_scale（デバッグパネルの 1〜4 で最大8倍）に
 #   自動で追従する。Timer や Tween に置き換えないこと。
 func _process(delta: float) -> void:
@@ -70,6 +87,10 @@ func _process(delta: float) -> void:
 		return
 
 	_life_sec += delta
+	# 貫通（回PQ-2）。⚠ 通り過ぎた敵の分を返しながら、終点まで飛ぶ。
+	if _pierce_dir != 0.0:
+		_step_pierce(delta)
+		return
 	if _life_sec >= MAX_LIFE_SEC:
 		# 届かないまま時間切れ。⚠ それでも合図は返す（外れても合図を出す規約）。
 		_arrive()
@@ -86,6 +107,42 @@ func _process(delta: float) -> void:
 	position += to_goal.normalized() * step
 	rotation = to_goal.angle()
 	queue_redraw()
+
+
+func _step_pierce(delta: float) -> void:
+	var step: float = _speed * delta
+	var left: float = (_pierce_end.x - position.x) * _pierce_dir
+	var reached_end: bool = left <= step or _life_sec >= MAX_LIFE_SEC
+	position.x = _pierce_end.x if reached_end else position.x + _pierce_dir * step
+	rotation = 0.0 if _pierce_dir > 0.0 else PI
+	queue_redraw()
+	# ⚠ 通り過ぎた（＝矢より後ろ、または当たりの距離の中）敵の分を返す。⚠ 倒れていても返す（外れても合図を出す規約）。
+	var rest: Array = []
+	for raw_id: Variant in _pierce_ids:
+		var unit: BattleUnit = _find_unit_by(str(raw_id))
+		var passed: bool = unit == null or (unit.x - position.x) * _pierce_dir <= _hit_distance()
+		if passed or reached_end:
+			_notify_pierce(str(raw_id))
+		else:
+			rest.append(raw_id)
+	_pierce_ids = rest
+	if reached_end:
+		_done = true
+		queue_free()
+
+
+func _notify_pierce(unit_id: String) -> void:
+	if _controller != null and _controller.has_method("on_pierce_hit"):
+		_controller.on_pierce_hit(_cast_id, unit_id)
+
+
+func _find_unit_by(unit_id: String) -> BattleUnit:
+	if _controller == null:
+		return null
+	var session: BattleSession = _controller.get_session()
+	if session == null:
+		return null
+	return session.find_unit(unit_id)
 
 
 # 追う先。対象が生きていればその位置、消えていれば発射時の座標。

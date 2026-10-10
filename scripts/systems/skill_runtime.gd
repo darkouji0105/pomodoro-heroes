@@ -36,6 +36,8 @@ signal effects_applied(results: Array)
 # ⚠ ここで Node を作らないこと。SkillRuntime / SkillResolver / StatusRegistry は
 #   全部 RefCounted で、ノードツリーを知らない。これは偶然ではなく契約。
 signal projectile_requested(cast_id: int, delivery: String, user_id: String, target_ids: Array)
+# 貫通の矢を1本頼む（回PQ-2）。⚠ 矢は前へ length まっすぐ飛び、通り過ぎた敵ごとに notify_event(cast_id, "hit:<id>") を返す。
+signal pierce_requested(cast_id: int, delivery: String, user_id: String, length: float, target_ids: Array)
 
 # 飛ぶ送り方。melee はその場で当たるので飛ばさない。
 const DELIVERIES_FLYING: Array = [SkillSchema.DELIVERY_PROJECTILE, SkillSchema.DELIVERY_MAGIC]
@@ -154,6 +156,21 @@ func cast(
 
 		# charge_start は charge_start() の担当。ここでは扱わない。
 		if trigger == SkillSchema.TRIGGER_CHARGE_START:
+			continue
+
+		# 貫通（回PQ-2）。⚠ 敵ごとに別々の着弾待ちを積み、矢は1本だけ頼む。⚠ 下の通常の枝へは行かない。
+		if effect.has(SkillSchema.FIELD_PIERCE_LENGTH):
+			var length: float = float(effect.get(SkillSchema.FIELD_PIERCE_LENGTH, 0.0))
+			var pierce_ids: Array = SkillResolver.select_pierce(user, _session, length)
+			for pierce_id: Variant in pierce_ids:
+				var pierce_entry: Dictionary = _make_entry(
+					cast_id, user, skill_id, effect, skill_target, [str(pierce_id)], react_ctx
+				)
+				pierce_entry["wait"] = WAIT_EVENT
+				pierce_entry["remaining"] = EVENT_TIMEOUT_SEC
+				pierce_entry["event_name"] = SkillSchema.EVENT_PIERCE_HIT_PREFIX + str(pierce_id)
+				_pending.append(pierce_entry)
+			pierce_requested.emit(cast_id, str(effect.get("delivery", SkillSchema.DELIVERY_PROJECTILE)), user.unit_id, length, pierce_ids)
 			continue
 
 		var entry: Dictionary = _make_entry(

@@ -130,6 +130,14 @@ const FIELD_EXECUTE_BELOW: String = "execute_below"
 #   "when_user": {"source": "enemies_within", "radius": 80, "op": "eq", "value": 0}
 # ⚠ 満たさないと、その効果は当たらない（⚠ 絞り込みではなく、効果ごと飛ばす）。
 const FIELD_WHEN_USER: String = "when_user"
+# 貫通する飛び道具（回PQ-2・人間「⚠ 貫通する飛び道具にして」）。⚠ 効果に書く。
+#   {"type": "damage", "delivery": "projectile", "trigger": "event:hit", "pierce_length": 400, ...}
+# ⚠ 撃った瞬間に「自分から前へ pierce_length の中の敵」を近い順に拾う（⚠ スキルの target は撃てるかの判定だけに使う）。
+# ⚠ 矢は1本・前へまっすぐ飛び、⚠ 通り過ぎた敵ごとに**その瞬間**に当たる（⚠ 着弾待ちを敵ごとに分ける）。
+# ⚠ 前＝相手の陣の向き（味方は右・敵は左）。⚠ 戦場は横の1次元＝「線」はこれ。
+const FIELD_PIERCE_LENGTH: String = "pierce_length"
+# ⚠ 敵ごとの着弾の合図の頭（"hit:<unit_id>"）。⚠ SkillRuntime と BattleController だけが使う。
+const EVENT_PIERCE_HIT_PREFIX: String = "hit:"
 const WHEN_ENEMIES_WITHIN: String = "enemies_within"
 # 能力値を割合で上げ下げする（回DB-1・人間「⚠ ４あ」）。⚠ buff と dot に書ける。⚠ −20 なら −20%。
 # ⚠ 計算は（素の値 ＋ value）×（1 ＋ 割合の合計/100）。⚠ atkspd だけは攻撃間隔に掛ける（⚠ −10 なら間隔が伸びる）。
@@ -307,7 +315,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	BUFF_BASIC_ATTACK, BUFF_USES, BUFF_CONTROL, "distance", "to", "offset",
 	"sec", "pct", "all", "skills", "what",
 	FIELD_WHEN_TARGET, FIELD_WHEN_MULT, FIELD_WHEN_CRIT, FIELD_EXECUTE_BELOW, FIELD_EXECUTE_BOSS_MULT,
-	FIELD_STAT_PCT, FIELD_MISS_PCT, FIELD_WHEN_USER,
+	FIELD_STAT_PCT, FIELD_MISS_PCT, FIELD_WHEN_USER, FIELD_PIERCE_LENGTH,
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to", "per_target_stack",
 ]
@@ -1194,6 +1202,18 @@ static func _validate_effect(
 		for dash_field: String in ["to", "offset"]:
 			if effect.has(dash_field):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（dash だけ）" % [where, effect_type, dash_field])
+
+	# E177 貫通する飛び道具（回PQ-2）
+	if effect.has(FIELD_PIERCE_LENGTH):
+		var length: Variant = effect.get(FIELD_PIERCE_LENGTH, null)
+		if not _is_num(length) or float(length) <= 0.0:
+			_err(issues, skill_id, "%s.pierce_length が正の数でない" % where)
+		if not (str(effect.get("delivery", "")) in [DELIVERY_PROJECTILE, DELIVERY_MAGIC]):
+			_err(issues, skill_id, "%s.pierce_length は delivery: 'projectile' ／ 'magic' にしか書けない（飛ぶもの）" % where)
+		if str(effect.get("trigger", "")) != TRIGGER_PREFIX_EVENT + EVENT_HIT:
+			_err(issues, skill_id, "%s.pierce_length は trigger: 'event:hit' と一緒に書く（通り過ぎた瞬間に当たる）" % where)
+		if effect.has("target"):
+			_err(issues, skill_id, "%s.pierce_length に target は書けない（前へ pierce_length の中の敵が対象）" % where)
 
 	# E176 自分についての条件（回PQ-1）
 	if effect.has(FIELD_WHEN_USER):

@@ -1081,6 +1081,17 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_pq_command", "prepare": PREPARE_NONE, "gap": 0.5},
 		],
 	},
+	"princess_c": {
+		"kind": KIND_BATTLE,
+		"note": "王女 C：とっておき（貫通の矢＝前へ 400 飛び、通り過ぎた敵ごとに当たる）を2回",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_princess", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_princess": 20},
+		"skills": {"char_princess": ["skill_pq_trump", "skill_pq_rapid"]},
+		"fire": [
+			{"skill": "skill_pq_trump", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1605,6 +1616,7 @@ func _ready() -> void:
 			_report_debuffs()
 			_report_scholar()
 			_report_princess()
+			_report_pierce()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -8323,6 +8335,66 @@ func _report_princess() -> void:
 	print("  ダンス：下がる先 x = %s（280）・無敵 %s（true）・会心倍率 %d（150 + 50 = 200）" % [_dash_x(dance), str(me.invulnerable), me.get_stat("crit_dmg")])
 	registry.tick(0.7)
 	print("  0.7秒後：無敵 %s（false）・会心倍率 %d（200 のまま）" % [str(me.invulnerable), me.get_stat("crit_dmg")])
+
+# 貫通する飛び道具（回PQ-2・人間「⚠ 貫通する飛び道具にして」）。⚠ 王女の「とっておき」。
+func _report_pierce() -> void:
+	var me: BattleUnit = _resource_unit("char_princess", 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 100000
+	var foes: Array = []
+	for i: int in range(4):
+		var f: BattleUnit = BattleUnit.create("enemy_%d" % i, BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+		foes.append(f)
+	me.x = 300.0
+	(foes[0] as BattleUnit).x = 650.0
+	(foes[1] as BattleUnit).x = 400.0
+	(foes[2] as BattleUnit).x = 900.0
+	(foes[3] as BattleUnit).x = 200.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = foes
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	print("[DebugBoot] --- 47. 貫通（⚠ 自分 300・敵 650／400／900／200・長さ 400＝前の 300〜700）---")
+	var asked: Array = []
+	var on_pierce: Callable = func(_cast_id: int, _delivery: String, _user_id: String, _length: float, ids: Array) -> void:
+		asked.append_array(ids)
+	runtime.pierce_requested.connect(on_pierce)
+	var cast_id: int = runtime._next_cast_id
+	runtime.cast(me, "skill_pq_trump", MasterDataLoader.get_skill("skill_pq_trump"), 1.0)
+	print("  矢を頼んだ相手：%s（[enemy_1, enemy_0]＝近い順・後ろの enemy_3 と遠い enemy_2 は入らない）" % str(asked))
+	var hp_before: Array = []
+	for f: BattleUnit in foes:
+		hp_before.append(f.hp)
+	runtime.notify_event(cast_id, SkillSchema.EVENT_PIERCE_HIT_PREFIX + "enemy_1")
+	var hit_now: Array = []
+	for i: int in range(foes.size()):
+		if (foes[i] as BattleUnit).hp < int(hp_before[i]):
+			hit_now.append((foes[i] as BattleUnit).unit_id)
+	print("  enemy_1 を通り過ぎた合図：当たった %s（[enemy_1] だけ）" % str(hit_now))
+	runtime.notify_event(cast_id, SkillSchema.EVENT_PIERCE_HIT_PREFIX + "enemy_0")
+	hit_now.clear()
+	for i: int in range(foes.size()):
+		if (foes[i] as BattleUnit).hp < int(hp_before[i]):
+			hit_now.append((foes[i] as BattleUnit).unit_id)
+	print("  enemy_0 を通り過ぎた合図：当たった %s（[enemy_0, enemy_1]）" % str(hit_now))
+	runtime.pierce_requested.disconnect(on_pierce)
+	var probes: Array = [
+		["pierce_length が 0", {"type": "damage", "delivery": "projectile", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "trigger": "event:hit", "pierce_length": 0}],
+		["melee に pierce_length", {"type": "damage", "delivery": "melee", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "trigger": "event:hit", "pierce_length": 100}],
+		["trigger が無い", {"type": "damage", "delivery": "projectile", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "pierce_length": 100}],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_princess", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(probe[0]), errors])
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)

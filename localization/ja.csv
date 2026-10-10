@@ -1795,7 +1795,7 @@ ui_role_char_princess,支援・単体火力
 ui_battle_skill_pq_rapid,速射
 ui_desc_skill_pq_rapid,一番近い敵に矢を5本すばやく撃つ
 ui_battle_skill_pq_trump,とっておき
-ui_desc_skill_pq_trump,いちばん大きいボウガンで、前にいる敵をまとめて貫く
+ui_desc_skill_pq_trump,いちばん大きいボウガンの矢が前へまっすぐ飛び、通り過ぎた敵に次々当たる
 ui_battle_skill_pq_back_off,はなれなさい！
 ui_desc_skill_pq_back_off,近くの敵を蹴飛ばす。近くにいなければ、次の通常攻撃が強くなり押し出す
 ui_battle_skill_pq_party_mode,イケイケモード

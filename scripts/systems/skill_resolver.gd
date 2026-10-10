@@ -526,6 +526,25 @@ static func _step_execute(effect: Dictionary, user: BattleUnit, target: BattleUn
 	})
 
 
+# 貫通の対象（回PQ-2）。⚠ 自分から前へ length の中の、生きている相手を近い順に。⚠ ID で返す（select_targets と同じ）。
+static func select_pierce(user: BattleUnit, session: BattleSession, length: float) -> Array:
+	var ids: Array = []
+	if user == null or session == null:
+		return ids
+	var foe_team: String = BattleUnit.TEAM_ENEMY if user.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
+	var forward: float = 1.0 if user.team == BattleUnit.TEAM_PARTY else -1.0
+	var found: Array = []
+	for raw: Variant in session.get_alive_units(foe_team):
+		var u: BattleUnit = raw as BattleUnit
+		var ahead: float = (u.x - user.x) * forward
+		if ahead >= 0.0 and ahead <= length:
+			found.append(u)
+	found.sort_custom(func(a: BattleUnit, b: BattleUnit) -> bool: return absf(a.x - user.x) < absf(b.x - user.x))
+	for u: BattleUnit in found:
+		ids.append(u.unit_id)
+	return ids
+
+
 # 自分についての条件（回PQ-1）。⚠ いまは「自分の周り radius の中にいる、生きている敵の数」だけ。
 static func when_user_ok(effect: Dictionary, user: BattleUnit, session: BattleSession) -> bool:
 	if user == null or session == null:
