@@ -187,14 +187,16 @@ func _create_passive_row(passive_id: String, is_unlocked: bool) -> HBoxContainer
 	row.name = "Passive_" + passive_id
 	row.modulate.a = 1.0 if is_unlocked else 0.5
 	# ⚠ 何 pt で開くか（⚠ 手本の丸の中の数字）。
-	var points: Label = Label.new()
-	points.name = "PointsLabel"
-	points.theme_type_variation = &"AccentLabel" if is_unlocked else &"CaptionLabel"
-	points.text = str(GameManager.get_passive_unlock_points(passive_id))
-	points.custom_minimum_size.x = float(get_theme_constant(&"row_icon", &"Training")) * 2.0
-	points.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	points.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	row.add_child(points)
+	# ⚠⚠ 10-10（人間「⚠ 消して」）：⚠ パッシブが最初から全部効く間（`CharacterConfig.passives_all_unlocked`）は出さない。
+	if not Balance.character.passives_all_unlocked:
+		var points: Label = Label.new()
+		points.name = "PointsLabel"
+		points.theme_type_variation = &"AccentLabel" if is_unlocked else &"CaptionLabel"
+		points.text = str(GameManager.get_passive_unlock_points(passive_id))
+		points.custom_minimum_size.x = float(get_theme_constant(&"row_icon", &"Training")) * 2.0
+		points.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		points.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		row.add_child(points)
 
 	var column: VBoxContainer = VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL

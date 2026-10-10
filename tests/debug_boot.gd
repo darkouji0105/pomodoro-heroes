@@ -4833,9 +4833,11 @@ func _report_layout() -> void:
 					var points: Node = grand.find_child("PointsLabel", false, false)
 					if points is Label and (points as Label).text != "":
 						with_points += 1
-				print("    ⚠ 修練の道 = %d 行 ／ pt の字 = %d 行（⚠ 同じ数が正解）" % [passive_rows, with_points])
-				if passive_rows > 0 and with_points != passive_rows:
-					push_error("[DebugBoot] 修練の道の pt が %d / %d 行にしか出ていない" % [with_points, passive_rows])
+				# ⚠ 10-10：パッシブが最初から全部効く間は pt の字を出さない（⚠ 0 行が正解）。
+				var want_points: int = 0 if Balance.character.passives_all_unlocked else passive_rows
+				print("    ⚠ 修練の道 = %d 行 ／ pt の字 = %d 行（⚠ %d 行が正解）" % [passive_rows, with_points, want_points])
+				if passive_rows > 0 and with_points != want_points:
+					push_error("[DebugBoot] 修練の道の pt の字が %d 行（⚠ %d 行のはず）" % [with_points, want_points])
 			if training_tab == TransferKeys.TRAINING_TAB_SKILLS and (
 				raw_child.name == "Slots" or raw_child.name == "Candidates"
 			):

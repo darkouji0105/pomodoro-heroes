@@ -193,7 +193,7 @@
 
 | # | 決定（一行） | いま効いている値 | どこが持っているか | 決めた日 | 覆した相手 |
 |---|---|---|---|---|---|
-| **GR-1** | ⚠⚠ **パッシブは最初から全部効く**（10-10・人間「⚠ passiveはもう全部開放してていいかも」） | ⚠ 全キャラ・総ポイント 0 から全部 ／ ⚠ 切り替え `CharacterConfig.passives_all_unlocked`（既定 true・false で下の旧ルールに戻る） | `CharacterConfig.passives_all_unlocked` ／ `GameManager._is_candidate_unlocked()` ／ 検査 `char_resource` の 42 | **10-10** | ~~総ポイント（獲得した分）で自動解放 20 / 40 / 60 / 80 / 100（09-14）~~ ⚠ `passives.json` の `unlock_total_points` は残してある（⚠ 育成の画面の数字・切り替えを戻したとき用） |
+| **GR-1** | ⚠⚠ **パッシブは最初から全部効く**（10-10・人間「⚠ passiveはもう全部開放してていいかも」） | ⚠ 全キャラ・総ポイント 0 から全部 ／ ⚠ 切り替え `CharacterConfig.passives_all_unlocked`（既定 true・false で下の旧ルールに戻る） | `CharacterConfig.passives_all_unlocked` ／ `GameManager._is_candidate_unlocked()` ／ 検査 `char_resource` の 42 | **10-10** | ~~総ポイント（獲得した分）で自動解放 20 / 40 / 60 / 80 / 100（09-14）~~ ⚠ `passives.json` の `unlock_total_points` は残してある（⚠ 切り替えを戻したとき用）・⚠ **育成の画面の「何 pt で開くか」の数字は切り替えがオンの間は出さない**（10-10・人間「⚠ 消して」） |
 | **GR-2** | **パッシブの表示はステータスノード画面**（⚠ スキル設定からは消した） | — | `stat_node_screen` | 09-14 | — |
 | **GR-3** | **割り振りは 10 軸で作る。⚠ ＋は1回1段** | いまは3軸 | `allocatable_stats` | 09-14 | ~~モックのシールド・SP（⚠ 存在しない軸）~~ |
 | **GR-4** | **編成のプリセットは参照方式**（⚠ 編成側にキャラの中身を複製しない） | — | `PARTY_PRESETS` | — | — |
