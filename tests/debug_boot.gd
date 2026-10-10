@@ -132,6 +132,8 @@ const SHOT_PREPARE_MERC_PARTY: String = "merc_party"
 const SHOT_PREPARE_VAMP_PARTY: String = "vamp_party"
 # ⚠ フェニックス（回PX-1）：⚠ フェニックスを1番目に入れる（⚠ 内側の `PREPARE_PHOENIX_PARTY` と同じ字）。
 const SHOT_PREPARE_PHOENIX_PARTY: String = "phoenix_party"
+# ⚠ 学者の生徒（回ST-1）：⚠ 生徒を1番目に入れる（⚠ 内側の `PREPARE_STUDENT_PARTY` と同じ字）。
+const SHOT_PREPARE_STUDENT_PARTY: String = "student_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1312,6 +1314,43 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_px_claw", "prepare": PREPARE_NONE, "gap": 1.5},
 		],
 	},
+	# 学者の生徒（回ST-1）。⚠ Lv20 に上げてから枠に入れる。
+	"sd_a": {
+		"kind": KIND_BATTLE,
+		"note": "生徒 A：スモッグ（毒・移動速度ダウンの霧）→ ミサイル",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_student", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_student": 20},
+		"skills": {"char_student": ["skill_sd_missile", "skill_sd_smog"]},
+		"fire": [
+			{"skill": "skill_sd_smog", "prepare": PREPARE_NONE},
+			{"skill": "skill_sd_missile", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"sd_b": {
+		"kind": KIND_BATTLE,
+		"note": "生徒 B：アナライズ（防御ダウン・分析）→ 触媒発射（デバフの時間を戻す）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_student", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_student": 20},
+		"skills": {"char_student": ["skill_sd_catalyst", "skill_sd_analyze"]},
+		"fire": [
+			{"skill": "skill_sd_analyze", "prepare": PREPARE_NONE},
+			{"skill": "skill_sd_catalyst", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"sd_c": {
+		"kind": KIND_BATTLE,
+		"note": "生徒 C：ケミカルX → レーザー（トグル・0.2 秒ごと・5回ごとに追加と分析）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_student", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_student": 20},
+		"skills": {"char_student": ["skill_sd_chemx", "skill_sd_laser"]},
+		"fire": [
+			{"skill": "skill_sd_chemx", "prepare": PREPARE_NONE},
+			{"skill": "skill_sd_laser", "prepare": PREPARE_NONE, "gap": 0.5},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1731,6 +1770,16 @@ const SCENARIOS: Dictionary = {
 			},
 			# ⚠ 狂った神の使い（回GM-1）：⚠ 顔・パッシブのマス・スキルのマス。
 			{
+				"name": "9b_student_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_STUDENT_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			{
 				"name": "9a_phoenix_battle",
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_PHOENIX_PARTY,
@@ -1966,6 +2015,7 @@ func _ready() -> void:
 			_report_mercenary()
 			_report_vampire()
 			_report_phoenix()
+			_report_student()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -9405,6 +9455,162 @@ func _report_phoenix() -> void:
 		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
 
 
+# 学者の生徒（回ST-1）。⚠ 1つを選ぶ・デバフ全部の時間を戻す・付けた人から受ける・毎秒の倍・たまったら・状態の数だけ・解除で消えない。
+func _report_student() -> void:
+	var me: BattleUnit = _resource_unit("char_student", 0)
+	var other: BattleUnit = _resource_unit("char_archer", 1)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 50000
+	foe_data["def"] = 0
+	foe_data["mdef"] = 0
+	var foes: Array = []
+	for i: int in range(3):
+		foes.append(BattleUnit.create("enemy_%d" % i, BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime"))
+	me.x = 300.0
+	other.x = 280.0
+	var f0: BattleUnit = foes[0] as BattleUnit
+	var f1: BattleUnit = foes[1] as BattleUnit
+	var f2: BattleUnit = foes[2] as BattleUnit
+	f0.x = 450.0
+	f1.x = 500.0
+	f2.x = 1200.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me, other]
+	session.enemy_units = foes
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	var plain: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "true", "scale_from": "mag"}
+
+	print("[DebugBoot] --- 81. 通常攻撃のポーション（⚠ 感電・毒・火傷から1つ）---")
+	var pick: Dictionary = (me.basic_attack.get("effects", []) as Array)[1] as Dictionary
+	var seen: Dictionary = {}
+	for _i: int in range(30):
+		for sid: String in ["shock", "poison", "burn"]:
+			registry.remove_status("enemy_2", sid)
+		SkillResolver.resolve({"effects": [pick]}, me, session, ["enemy_2"], registry)
+		for sid: String in ["shock", "poison", "burn"]:
+			if registry.has({"host_unit_id": "enemy_2", "status_id": sid}):
+				seen[sid] = int(seen.get(sid, 0)) + 1
+	print("  30回：%s（3種類とも出る・1回に1つ）" % str(seen))
+
+	print("[DebugBoot] --- 82. 触媒発射（⚠ デバフ全部の時間を最初に戻す）---")
+	var poison: Dictionary = _status_effect("poison")
+	var burn: Dictionary = _status_effect("burn")
+	registry.add(poison, me, f0, session)
+	registry.add(burn, me, f0, session)
+	registry.tick(3.0)
+	var before: String = "%.1f／%.1f" % [_status_elapsed(registry, "enemy_0", "poison"), _status_elapsed(registry, "enemy_0", "burn")]
+	var catalyst: Dictionary = MasterDataLoader.get_skill("skill_sd_catalyst")
+	SkillResolver.resolve({"effects": [(catalyst["effects"] as Array)[1]]}, me, session, ["enemy_0"], registry)
+	print("  毒／火傷の経過 %s → %.1f／%.1f（0.0／0.0）" % [before, _status_elapsed(registry, "enemy_0", "poison"), _status_elapsed(registry, "enemy_0", "burn")])
+
+	print("[DebugBoot] --- 83. 分析（⚠ 生徒から受けるダメージ +5%%/段・最大10段・解除で消えない）---")
+	var base_hit: int = _first_amount(SkillResolver.resolve({"effects": [plain]}, me, session, ["enemy_1"], registry))
+	var analyze: Dictionary = MasterDataLoader.get_skill("skill_sd_analyze")
+	for _i: int in range(3):
+		SkillResolver.resolve({"effects": [(analyze["effects"] as Array)[1]]}, me, session, ["enemy_1"], registry)
+	var hit3: int = _first_amount(SkillResolver.resolve({"effects": [plain]}, me, session, ["enemy_1"], registry))
+	var other_hit: int = _first_amount(SkillResolver.resolve({"effects": [plain]}, other, session, ["enemy_1"], registry))
+	print("  分析なし %d ／ 3段 %d（+15%%）／ 弓兵から %d（増えない）" % [base_hit, hit3, other_hit])
+	for _i: int in range(12):
+		SkillResolver.resolve({"effects": [(analyze["effects"] as Array)[1]]}, me, session, ["enemy_1"], registry)
+	print("  15回かけても %d 段（10）" % registry.count_stacks("enemy_1", "st_sd_analysis"))
+	registry.dispel("enemy_1", true)
+	print("  デバフを解除しても %d 段（10＝消えない）・防御ダウンは消えた %s（true）" % [
+		registry.count_stacks("enemy_1", "st_sd_analysis"), str(not registry.has({"host_unit_id": "enemy_1", "status_id": "st_sd_analyze_def"}))])
+
+	print("[DebugBoot] --- 84. ケミカルX（⚠ 毎秒のダメージ 4 倍）---")
+	var hp_a: int = f0.hp
+	registry.tick(1.0)
+	var tick_a: int = hp_a - f0.hp
+	var chemx: Dictionary = MasterDataLoader.get_skill("skill_sd_chemx")
+	SkillResolver.resolve({"effects": [(chemx["effects"] as Array)[0]]}, me, session, ["enemy_0"], registry)
+	hp_a = f0.hp
+	registry.tick(1.0)
+	print("  1秒の毒＋火傷：%d → %d（≒ 4 倍・パッシブ無し）" % [tick_a, hp_a - f0.hp])
+
+	print("[DebugBoot] --- 85. レーザー（⚠ 印が5つたまったら追加ダメージと分析1段・印は消える）---")
+	var laser: Dictionary = MasterDataLoader.get_skill("skill_sd_laser")
+	var mark: Dictionary = (laser["effects"] as Array)[1] as Dictionary
+	var got: Array = []
+	var on_status: Callable = func(results: Array) -> void:
+		got.append_array(results)
+	registry.effects_applied.connect(on_status)
+	for _i: int in range(4):
+		SkillResolver.resolve({"effects": [mark]}, me, session, ["enemy_2"], registry)
+	print("  4回：印 %d・分析 %d・追加ダメージ %d 件（4・0・0）" % [registry.count_stacks("enemy_2", "st_sd_laser"), registry.count_stacks("enemy_2", "st_sd_analysis"), got.size()])
+	SkillResolver.resolve({"effects": [mark]}, me, session, ["enemy_2"], registry)
+	print("  5回目：印 %d・分析 %d・追加ダメージ %s（0・1・1件）" % [registry.count_stacks("enemy_2", "st_sd_laser"), registry.count_stacks("enemy_2", "st_sd_analysis"), str(_amounts(got))])
+	registry.effects_applied.disconnect(on_status)
+
+	print("[DebugBoot] --- 86. 毒物学（⚠ ダメージの出る状態1つにつき +4%%・上限 +40%%）---")
+	runtime.cast(me, "passive_sd_toxicology", MasterDataLoader.get_skill("passive_sd_toxicology"), 1.0)
+	var clean: BattleUnit = BattleUnit.create("enemy_7", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var dirty: BattleUnit = BattleUnit.create("enemy_8", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	session.enemy_units.append_array([clean, dirty])
+	for _i: int in range(3):
+		registry.add(poison, me, dirty, session)
+	registry.add(burn, me, dirty, session)
+	var clean_hit: int = _first_amount(SkillResolver.resolve({"effects": [plain]}, me, session, ["enemy_7"], registry))
+	var dirty_hit: int = _first_amount(SkillResolver.resolve({"effects": [plain]}, me, session, ["enemy_8"], registry))
+	print("  状態なし %d ／ 毒3＋火傷1 %d（+16%%）" % [clean_hit, dirty_hit])
+	for _i: int in range(10):
+		registry.add(_status_effect("bleed"), me, dirty, session)
+	var capped: int = _first_amount(SkillResolver.resolve({"effects": [plain]}, me, session, ["enemy_8"], registry))
+	print("  ＋出血10（14個）：%d（+40%% で止まる）" % capped)
+
+	print("[DebugBoot] --- 87. スモッグ（⚠ 撃った瞬間に毒・中は移動速度 −30%%）---")
+	var spd0: int = f1.get_stat("spd")
+	runtime.cast(me, "skill_sd_smog", MasterDataLoader.get_skill("skill_sd_smog"), 1.0)
+	registry.tick(0.05)
+	print("  enemy_0 に毒 %s ／ 移動速度 %d → %d（−30%%）" % [str(registry.has({"host_unit_id": "enemy_0", "status_id": "poison"})), spd0, f1.get_stat("spd")])
+
+	print("[DebugBoot] --- 88. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var probes: Array = [
+		["pick が1つだけ", {"type": "pick", "effects": [plain]}, true],
+		["refresh_status に status_id と what", {"type": "refresh_status", "status_id": "poison", "what": "debuff"}, true],
+		["on_stack を refresh に", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "on_stack": {"count": 3, "effects": [plain]}}, true],
+		["on_stack の count が 1", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "independent", "max_stack": 5, "duration_sec": 3.0, "on_stack": {"count": 1, "effects": [plain]}}, true],
+		["bonus_per_dot_cap だけ", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "intervene": {"bonus_per_dot_cap": 40}}, true],
+		["keep_on_dispel が false", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "stat": "atk", "value": 1, "keep_on_dispel": false}, true],
+		["pick（正しい）", {"type": "pick", "effects": [plain, plain]}, false],
+		["デバフ全部の時間を戻す（正しい）", {"type": "refresh_status", "what": "debuff"}, false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_student", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[2]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
+# ダメージの1件目の量（⚠ 回復と kind は除く・無ければ 0）。⚠ `_amounts()` は表示用の文字列を返す。
+func _first_amount(results: Array) -> int:
+	for r: Variant in results:
+		if r is Dictionary and not bool((r as Dictionary).get("is_heal", false)) and not (r as Dictionary).has("kind"):
+			return int((r as Dictionary).get("amount", 0))
+	return 0
+
+
+# 共通の状態を展開した形（statuses.json の1件）。
+func _status_effect(status_id: String) -> Dictionary:
+	var def: Dictionary = (MasterDataLoader._cache_statuses[status_id] as Dictionary).duplicate(true)
+	def["type"] = str(def.get("kind", ""))
+	def.erase("kind")
+	def["host"] = SkillSchema.HOST_UNIT
+	def["status_id"] = status_id
+	return def
+
+
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
 
@@ -11678,6 +11884,7 @@ class ShotTaker extends Node:
 	const PREPARE_MERC_PARTY: String = "merc_party"
 	const PREPARE_VAMP_PARTY: String = "vamp_party"
 	const PREPARE_PHOENIX_PARTY: String = "phoenix_party"
+	const PREPARE_STUDENT_PARTY: String = "student_party"
 	const PREPARE_PRINCESS_PARTY: String = "princess_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
@@ -12054,6 +12261,11 @@ class ShotTaker extends Node:
 		if kind == PREPARE_PRINCESS_PARTY:
 			for princess_i: int in range(3):
 				if not GameManager.set_party_member(princess_i, ["char_princess", "char_archer", "char_priest"][princess_i]):
+					return false
+			return true
+		if kind == PREPARE_STUDENT_PARTY:
+			for student_i: int in range(3):
+				if not GameManager.set_party_member(student_i, ["char_student", "char_archer", "char_priest"][student_i]):
 					return false
 			return true
 		if kind == PREPARE_PHOENIX_PARTY:
@@ -15551,19 +15763,19 @@ class UiFlowRunner extends Node:
 		var rows: int = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：既定は「すべて」で %d 行（タブ %d 枚）" % [rows, 0 if tabs == null else tabs.get_child_count()],
 			tabs != null and tabs.current == 0 and tabs.get_child_count() == GameManager.RECIPE_CATEGORIES.size() + 1 and rows == all)
-		# ⚠ 武器 → 21行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12 ／ 回GM-1 でショットガン3本を足して 15 ／ 回MC-1 で大剣3本を足して 18 ／ 回VP-1 で爪3本を足して 21）。
+		# ⚠ 武器 → 24行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12 ／ 回GM-1 でショットガン3本を足して 15 ／ 回MC-1 で大剣3本を足して 18 ／ 回VP-1 で爪3本を足して 21 ／ 回ST-1 で拳銃3本を足して 24）。
 		await _press(null if tabs == null else tabs.find_child("Tab1", false, false))
 		await _wait()
 		rows = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：「武器」で %d 行（武器のレシピ %d）・装飾は出ない" % [rows, int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0))],
-			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 21
+			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 24
 			and ws.find_child("RecipeRow_craft_weapon_bow_short", true, false) != null and ws.find_child("RecipeRow_craft_part_1", true, false) == null)
 		# ⚠ 出て戻っても「武器」のまま。
 		var _base: Node = await _open(BASE, {})
 		ws = await _open(WORKSHOP_SCREEN, {})
 		tabs = null if ws == null else ws.find_child("CategoryTabs", true, false) as PaperTabs
 		rows = 0 if ws == null else ws.find_children("RecipeRow_*", "", true, false).size()
-		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 21)
+		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 24)
 		# ⚠ くじ → 1行。
 		await _press(null if tabs == null else tabs.find_child("Tab5", false, false))
 		await _wait()

@@ -60,6 +60,9 @@
           { "item_id": "weapon_claw_iron", "weight": 1, "count": 1 },
           { "item_id": "weapon_claw_razor", "weight": 1, "count": 1 },
           { "item_id": "weapon_claw_blood", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_quick", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_arcane", "weight": 1, "count": 1 },
           { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
           { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
           { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
@@ -133,6 +136,9 @@
           { "item_id": "weapon_claw_iron", "weight": 6, "count": 1 },
           { "item_id": "weapon_claw_razor", "weight": 6, "count": 1 },
           { "item_id": "weapon_claw_blood", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_quick", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_arcane", "weight": 6, "count": 1 },
           { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
           { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
           { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
@@ -377,6 +383,21 @@
           },
           {
             "item_id": "weapon_claw_blood",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_iron",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_quick",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_arcane",
             "weight": 1,
             "count": 1
           },
@@ -637,6 +658,21 @@
           },
           {
             "item_id": "weapon_claw_blood",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_iron",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_quick",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_arcane",
             "weight": 6,
             "count": 1
           },
@@ -954,6 +990,21 @@
             "count": 1
           },
           {
+            "item_id": "weapon_pistol_iron",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_quick",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_arcane",
+            "weight": 1,
+            "count": 1
+          },
+          {
             "item_id": "armor_head_guard",
             "weight": 1,
             "count": 1
@@ -1210,6 +1261,21 @@
           },
           {
             "item_id": "weapon_claw_blood",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_iron",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_quick",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_arcane",
             "weight": 6,
             "count": 1
           },

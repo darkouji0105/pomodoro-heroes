@@ -1,0 +1,224 @@
+{
+	"skill_sd_missile": {
+		"name_key": "ui_battle_skill_sd_missile",
+		"user_character_id": "char_student",
+		"unlock_level": 1,
+		"cooldown_sec": 8.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "target",
+			"sort": "nearest",
+			"range": 350.0,
+			"radius": 120.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "magic",
+				"multiplier": 1.4,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "event:hit"
+			}
+		]
+	},
+	"skill_sd_smog": {
+		"name_key": "ui_battle_skill_sd_smog",
+		"user_character_id": "char_student",
+		"unlock_level": 1,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 300.0
+		},
+		"effects": [
+			{
+				"type": "status",
+				"status": "poison",
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "target",
+					"sort": "nearest",
+					"radius": 140.0
+				}
+			},
+			{
+				"type": "dot",
+				"host": "point",
+				"status_id": "st_sd_smog",
+				"stack": "refresh",
+				"duration_sec": 5.0,
+				"interval_sec": 1.0,
+				"multiplier": 0.3,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"stat": "spd",
+				"stat_pct": -30,
+				"zone": {
+					"radius": 140.0,
+					"team": "enemy",
+					"follow": false
+				}
+			}
+		]
+	},
+	"skill_sd_catalyst": {
+		"name_key": "ui_battle_skill_sd_catalyst",
+		"user_character_id": "char_student",
+		"unlock_level": 5,
+		"cooldown_sec": 9.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 300.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 1.2,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "event:hit"
+			},
+			{
+				"type": "refresh_status",
+				"what": "debuff",
+				"trigger": "event:hit"
+			}
+		]
+	},
+	"skill_sd_analyze": {
+		"name_key": "ui_battle_skill_sd_analyze",
+		"user_character_id": "char_student",
+		"unlock_level": 10,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 300.0
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_sd_analyze_def",
+				"duration_sec": 8.0,
+				"stack": "refresh",
+				"stat": "def",
+				"stat_pct": -20
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_sd_analysis",
+				"duration_sec": 99999.0,
+				"stack": "independent",
+				"max_stack": 10,
+				"intervene": {
+					"taken_from_source_pct": 5
+				},
+				"keep_on_dispel": true
+			}
+		]
+	},
+	"skill_sd_chemx": {
+		"name_key": "ui_battle_skill_sd_chemx",
+		"user_character_id": "char_student",
+		"unlock_level": 15,
+		"cooldown_sec": 18.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 300.0
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_sd_chemx",
+				"duration_sec": 6.0,
+				"stack": "refresh",
+				"intervene": {
+					"dot_taken_pct": 300
+				}
+			}
+		]
+	},
+	"skill_sd_laser": {
+		"name_key": "ui_battle_skill_sd_laser",
+		"user_character_id": "char_student",
+		"unlock_level": 20,
+		"cooldown_sec": 10.0,
+		"activation": "toggle",
+		"toggle": {
+			"interval_sec": 0.2,
+			"repress": "off"
+		},
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 350.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 0.15,
+				"attack_type": "magic",
+				"scale_from": "mag"
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_sd_laser",
+				"duration_sec": 3.0,
+				"stack": "independent",
+				"max_stack": 5,
+				"is_debuff": true,
+				"on_stack": {
+					"count": 5,
+					"effects": [
+						{
+							"type": "damage",
+							"delivery": "melee",
+							"multiplier": 1.0,
+							"attack_type": "magic",
+							"scale_from": "mag"
+						},
+						{
+							"type": "buff",
+							"host": "unit",
+							"status_id": "st_sd_analysis",
+							"duration_sec": 99999.0,
+							"stack": "independent",
+							"max_stack": 10,
+							"intervene": {
+								"taken_from_source_pct": 5
+							},
+							"keep_on_dispel": true
+						}
+					]
+				}
+			}
+		]
+	}
+}

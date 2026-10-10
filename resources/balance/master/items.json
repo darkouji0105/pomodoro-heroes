@@ -355,6 +355,33 @@
 	  "sort_order": 158
 	},
 	{
+	  "item_id": "weapon_pistol_iron",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "pistol",
+	  "equip_stats": {"atk": 6, "mag": 2},
+	  "sort_order": 159
+	},
+	{
+	  "item_id": "weapon_pistol_quick",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "pistol",
+	  "equip_stats": {"atk": 4, "atkspd": 8},
+	  "sort_order": 160
+	},
+	{
+	  "item_id": "weapon_pistol_arcane",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "pistol",
+	  "equip_stats": {"mag": 7, "mdef": 2},
+	  "sort_order": 161
+	},
+	{
 	  "item_id": "armor_head_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",

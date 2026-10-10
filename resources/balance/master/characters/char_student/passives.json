@@ -1,0 +1,24 @@
+{
+	"passive_sd_toxicology": {
+		"name_key": "ui_battle_passive_sd_toxicology",
+		"user_character_id": "char_student",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_sd_toxicology",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"intervene": {
+					"bonus_per_dot_pct": 4,
+					"bonus_per_dot_cap": 40
+				}
+			}
+		]
+	}
+}

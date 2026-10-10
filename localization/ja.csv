@@ -1954,3 +1954,32 @@ ui_status_ch_st_px_shield,盾
 ui_status_ch_st_px_shield_burn,熱
 ui_status_ch_st_px_rebirth,蘇
 ui_status_ch_st_px_ember,燼
+ui_weapon_genre_pistol,拳銃
+ui_res_weapon_pistol_iron,鉄の拳銃
+ui_icon_weapon_pistol_iron,鉄
+ui_res_weapon_pistol_quick,早撃ちの拳銃
+ui_icon_weapon_pistol_quick,早
+ui_res_weapon_pistol_arcane,魔導拳銃
+ui_icon_weapon_pistol_arcane,魔
+ui_battle_char_student,学者の生徒
+ui_role_char_student,デバフ・火力
+ui_battle_skill_sd_missile,ミサイル
+ui_desc_skill_sd_missile,ミサイルを撃ち、着弾した周りにダメージを与える
+ui_battle_skill_sd_smog,スモッグ
+ui_desc_skill_sd_smog,毒のガスを撃つ。当たった敵は毒になり、ガスの中は移動速度が下がって毎秒ダメージを受ける
+ui_battle_skill_sd_catalyst,触媒発射
+ui_desc_skill_sd_catalyst,謎の薬品をかけてダメージを与え、相手のデバフの時間をすべて最初に戻す
+ui_battle_skill_sd_analyze,アナライズ
+ui_desc_skill_sd_analyze,相手を分析して防御力を下げ、分析を1段進める（分析＝生徒から受けるダメージ +5%・最大10段・この戦闘の間ずっと）
+ui_battle_skill_sd_chemx,ケミカルX
+ui_desc_skill_sd_chemx,薬品をかけ、しばらく毒・火傷・出血などで受けるダメージを4倍にする
+ui_battle_skill_sd_laser,レーザー
+ui_desc_skill_sd_laser,入れている間、敵1体にレーザーを当て続ける。5回当たるごとに追加ダメージと分析1段
+ui_battle_passive_sd_toxicology,毒物学
+ui_desc_passive_sd_toxicology,敵に付いているダメージの出る状態異常（重なりも数える）1つにつき与えるダメージ +4%（最大 +40%）
+ui_status_ch_st_sd_smog,霧
+ui_status_ch_st_sd_analyze_def,析
+ui_status_ch_st_sd_analysis,分
+ui_status_ch_st_sd_chemx,Ｘ
+ui_status_ch_st_sd_laser,光
+ui_status_ch_st_sd_toxicology,毒

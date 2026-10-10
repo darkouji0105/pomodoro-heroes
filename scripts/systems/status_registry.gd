@@ -204,6 +204,12 @@ func add(
 	if effect.get(SkillSchema.FIELD_EVADE, null) is Dictionary:
 		entry["evade"] = (effect[SkillSchema.FIELD_EVADE] as Dictionary).duplicate(true)
 
+	# --- 6-1-5. たまったら・解除で消えない・赤いマス（回ST-1） ---
+	if effect.get(SkillSchema.FIELD_ON_STACK, null) is Dictionary:
+		entry["on_stack"] = (effect[SkillSchema.FIELD_ON_STACK] as Dictionary).duplicate(true)
+	entry["keep_on_dispel"] = bool(effect.get(SkillSchema.FIELD_KEEP_ON_DISPEL, false))
+	entry["is_debuff"] = bool(effect.get(SkillSchema.FIELD_IS_DEBUFF, false))
+
 	# --- 6-1-3. そろったら（回GM-1） ---
 	if effect.get(SkillSchema.FIELD_ON_MEET, null) is Dictionary:
 		entry["on_meet"] = (effect[SkillSchema.FIELD_ON_MEET] as Dictionary).duplicate(true)
@@ -308,7 +314,31 @@ func add(
 	# そろったら（回GM-1）。⚠ 入れ終わってから見る（⚠ どちらが先に付いても同じ＝人間「⚠ １あ」）。
 	if host == SkillSchema.HOST_UNIT:
 		_check_meet(host_unit)
+		_check_stack(host_unit, entry)
 	return true
+
+
+# たまったら（回ST-1）。⚠ 入れ終わってから数える・届いたら全部消して撃つ（⚠ そろったら＝_check_meet と同じ形）。
+func _check_stack(host_unit: BattleUnit, entry: Dictionary) -> void:
+	var on_stack: Dictionary = entry.get("on_stack", {}) as Dictionary
+	if on_stack.is_empty() or host_unit == null or not host_unit.is_alive():
+		return
+	var status_id: String = str(entry.get("status_id", ""))
+	if count_stacks(host_unit.unit_id, status_id) < int(on_stack.get("count", 0)):
+		return
+	var source: BattleUnit = _find_unit(str(entry.get("source_unit_id", "")))
+	remove_status(host_unit.unit_id, status_id)
+	BattleLog.log_intervene("stack", host_unit.unit_id, status_id, str(int(on_stack.get("count", 0))))
+	if source == null:
+		return
+	var results: Array = []
+	for raw: Variant in (on_stack.get("effects", []) as Array):
+		if raw is Dictionary:
+			var fired: Array = SkillResolver.resolve({"effects": [raw]}, source, _session, [host_unit.unit_id], self)
+			BattleLog.log_results(fired, source.unit_id)
+			results.append_array(fired)
+	if not results.is_empty():
+		effects_applied.emit(results)
 
 
 # 宿主にそろった組を探して撃つ（回GM-1）。⚠ 撃ったら両方の状態を宿主から消す（⚠ 同じ組は2度撃たない）。
@@ -373,10 +403,13 @@ func remove_status(unit_id: String, status_id: String) -> int:
 
 
 # 状態の時計を最初に戻す（回GM-1・通常攻撃で聖なる炎の時間を更新）。⚠ 誰が付けたものでも。⚠ 付いていなければ何もしない。
+# ⚠ 回ST-1：status_id に "" を渡すと**デバフ全部**（触媒発射）。
 func refresh_status(unit_id: String, status_id: String) -> int:
 	var count: int = 0
 	for entry: Dictionary in _entries:
-		if str(entry.get("host_unit_id", "")) == unit_id and str(entry.get("status_id", "")) == status_id:
+		if str(entry.get("host_unit_id", "")) != unit_id:
+			continue
+		if (status_id == "" and is_debuff_entry(entry)) or str(entry.get("status_id", "")) == status_id:
 			entry["elapsed"] = 0.0
 			entry["fires_done"] = 0
 			count += 1
@@ -385,6 +418,42 @@ func refresh_status(unit_id: String, status_id: String) -> int:
 
 # 吸収の割合（回GM-1・殴った側）。⚠ その印に効くものだけを足す。
 # ⚠ 回PX-1：印が無い吸収は印を問わず・相手の状態つきはその状態の相手からだけ。
+# 付けた人から受けるダメージ（回ST-1・宿主側）。⚠ 殴った人が付けた状態だけ・重ねたぶん足す。
+func taken_from_source_pct(host_id: String, attacker_id: String) -> int:
+	var total: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) == KIND_BUFF and _applies_to(entry, host_id) \
+				and str(entry.get("source_unit_id", "")) == attacker_id:
+			total += int(entry.get(SkillSchema.INTERVENE_TAKEN_FROM_SOURCE_PCT, 0))
+	return total
+
+
+# 毎秒のダメージを受ける量（回ST-1・宿主側）。
+func dot_taken_pct(host_id: String) -> int:
+	return _intervene_sum(host_id, SkillSchema.INTERVENE_DOT_TAKEN_PCT)
+
+
+# ダメージの出る状態の数だけ強い（回ST-1・殴った側）。⚠ 相手の回復でない dot を重なりも数える・上限は付けた状態ごと。
+func bonus_per_dot_pct(user_id: String, target_id: String) -> int:
+	var dots: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) == KIND_DOT and not bool(entry.get("heals", false)) \
+				and str(entry.get("host", "")) == SkillSchema.HOST_UNIT and str(entry.get("host_unit_id", "")) == target_id:
+			dots += 1
+	if dots == 0:
+		return 0
+	var total: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) != KIND_BUFF or not _applies_to(entry, user_id):
+			continue
+		var per: int = int(entry.get(SkillSchema.INTERVENE_BONUS_PER_DOT_PCT, 0))
+		if per <= 0:
+			continue
+		var cap: int = int(entry.get(SkillSchema.INTERVENE_BONUS_PER_DOT_CAP, 0))
+		total += mini(per * dots, cap) if cap > 0 else per * dots
+	return total
+
+
 func drain_pct(unit_id: String, tag: String, target_id: String = "") -> int:
 	var total: int = 0
 	for entry: Dictionary in _entries:
@@ -474,6 +543,14 @@ func _make_entry(
 		"on_meet": {},
 		# 避けて反撃（回MC-1）。{ "effects" }。
 		"evade": {},
+		# 回ST-1。
+		"taken_from_source_pct": 0,
+		"dot_taken_pct": 0,
+		"bonus_per_dot_pct": 0,
+		"bonus_per_dot_cap": 0,
+		"on_stack": {},
+		"keep_on_dispel": false,
+		"is_debuff": false,
 		# 吸収を状態の相手に絞る（回PX-1）。
 		"drain_vs_status": "",
 		# 相手の状態で常に強い（回VP-1・殴った側）。
@@ -646,6 +723,13 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 			entry[SkillSchema.INTERVENE_CRIT_ALWAYS] = true
 			has_intervene = true
 
+	# 回ST-1 の割合（受ける側・殴る側）。
+	for st_field: String in [SkillSchema.INTERVENE_TAKEN_FROM_SOURCE_PCT, SkillSchema.INTERVENE_DOT_TAKEN_PCT,
+			SkillSchema.INTERVENE_BONUS_PER_DOT_PCT, SkillSchema.INTERVENE_BONUS_PER_DOT_CAP]:
+		if effect_iv.has(st_field):
+			entry[st_field] = int(effect_iv.get(st_field, 0))
+			has_intervene = true
+
 	# 相手の状態で常に強い（回VP-1）。⚠ 状態と割合はそろって来る（E193）。
 	if effect_iv.has(SkillSchema.INTERVENE_BONUS_VS_PCT):
 		entry[SkillSchema.INTERVENE_BONUS_VS_STATUS] = str(effect_iv.get(SkillSchema.INTERVENE_BONUS_VS_STATUS, ""))
@@ -674,8 +758,9 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		entry["counter"] = shield
 		has_intervene = true
 
-	# 避けて反撃・そろったら（回MC-1・回GM-1）だけの状態も書ける。
-	if effect.get(SkillSchema.FIELD_EVADE, null) is Dictionary or effect.get(SkillSchema.FIELD_ON_MEET, null) is Dictionary:
+	# 避けて反撃・そろったら・たまったら（回MC-1・回GM-1・回ST-1）だけの状態も書ける。
+	if effect.get(SkillSchema.FIELD_EVADE, null) is Dictionary or effect.get(SkillSchema.FIELD_ON_MEET, null) is Dictionary \
+			or effect.get(SkillSchema.FIELD_ON_STACK, null) is Dictionary:
 		has_intervene = true
 	if not has_stat and not has_intervene:
 		push_error("[StatusRegistry] buff に stat / value も介入の欄も無い（何も起きない状態は書けない）")
@@ -1702,6 +1787,9 @@ func consume_shield(unit_id: String, amount: int) -> int:
 static func is_debuff_entry(entry: Dictionary) -> bool:
 	if str(entry.get("kind", "")) == KIND_DOT and not bool(entry.get("heals", false)):
 		return true
+	# ⚠ 回ST-1：受けるダメージが増える・印だけの状態（is_debuff）。
+	if bool(entry.get("is_debuff", false)) or int(entry.get("taken_from_source_pct", 0)) > 0 or int(entry.get("dot_taken_pct", 0)) > 0:
+		return true
 	# ⚠ スタン・スネアは悪い状態（回CH-5）。⚠ 無敵・止められないは良い状態のまま。
 	if str(entry.get(SkillSchema.BUFF_CONTROL, "")) in SkillSchema.CONTROLS_STOPPABLE:
 		return true
@@ -1742,7 +1830,7 @@ func dispel(unit_id: String, debuff: bool) -> int:
 	var removed: int = 0
 	for entry: Dictionary in _entries:
 		if str(entry.get("host", "")) == SkillSchema.HOST_UNIT and str(entry.get("host_unit_id", "")) == unit_id \
-				and is_debuff_entry(entry) == debuff:
+				and is_debuff_entry(entry) == debuff and not bool(entry.get("keep_on_dispel", false)):
 			BattleLog.log_status_end(str(entry.get("status_id", "")), unit_id, "dispelled")
 			removed += 1
 			continue

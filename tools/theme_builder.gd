@@ -768,6 +768,8 @@ const AVATAR_COLORS: Dictionary = {
 	"char_vampire": {"bg": "4a1f2a", "fg": "ecb8c4"},
 	# ⚠ フェニックス（回PX-1）。⚠ 炎の朱（⚠ 設計役の仮）。
 	"char_phoenix": {"bg": "6b3a1f", "fg": "f4d0a0"},
+	# ⚠ 学者の生徒（回ST-1）。⚠ 薬品の毒々しい緑（⚠ 設計役の仮）。
+	"char_student": {"bg": "2f4a2a", "fg": "c8ecb8"},
 	"fallback": {"bg": "2a2320", "fg": "7d6f68"},
 }
 const AVATAR_CORNER_RADIUS: int = 8

@@ -372,9 +372,18 @@ static func resolve(
 		elif effect_type == SkillSchema.EFFECT_SUMMON_CONSUME:
 			_apply_summon_consume(effect, user, results, session, registry, is_dot)
 		elif effect_type == SkillSchema.EFFECT_REFRESH_STATUS:
-			# 状態の時計を戻す（回GM-1）。⚠ registry は StatusRegistry（RefCounted で受けている）。
+			# 状態の時計を戻す（回GM-1）。⚠ what: "debuff" ならデバフ全部（回ST-1）＝status_id に "" を渡す。
 			for t: BattleUnit in targets:
 				registry.refresh_status(t.unit_id, str(effect.get("status_id", "")))
+		elif effect_type == SkillSchema.EFFECT_PICK:
+			# 1つを選んで撃つ（回ST-1）。⚠ 同じ確率・この効果の相手に当てる。
+			var choices: Array = effect.get("effects", []) as Array
+			if not choices.is_empty():
+				var chosen: Variant = choices[randi() % choices.size()]
+				var ids: Array = []
+				for t: BattleUnit in targets:
+					ids.append(t.unit_id)
+				results.append_array(resolve({"effects": [chosen]}, user, session, ids, registry, is_dot))
 		elif effect_type == SkillSchema.EFFECT_KNOCKBACK:
 			for t: BattleUnit in targets:
 				_apply_knockback(effect, user, t, results)
@@ -467,9 +476,12 @@ static func _apply_damage(
 			ctx["multiplier"] = float(ctx["multiplier"]) * float(effect.get(SkillSchema.FIELD_WHEN_MULT, 1.0))
 		if bool(effect.get(SkillSchema.FIELD_WHEN_CRIT, false)):
 			ctx["is_crit"] = true
-	# 相手の状態で常に強い（回VP-1）。⚠ 殴った側の状態から（⚠ 和で足す＝この器はみなそう）。
+	# 相手の状態で常に強い（回VP-1）・付けた人から受ける・毎秒の倍・状態の数だけ（回ST-1）。⚠ 和で足す（⚠ この器はみなそう）。
 	if registry != null:
-		var bonus_vs: int = int(registry.bonus_vs_pct(user.unit_id, target.unit_id))
+		var bonus_vs: int = int(registry.bonus_vs_pct(user.unit_id, target.unit_id)) \
+				+ int(registry.taken_from_source_pct(target.unit_id, user.unit_id)) \
+				+ int(registry.bonus_per_dot_pct(user.unit_id, target.unit_id)) \
+				+ (int(registry.dot_taken_pct(target.unit_id)) if is_dot else 0)
 		if bonus_vs != 0:
 			ctx["multiplier"] = float(ctx["multiplier"]) * (1.0 + float(bonus_vs) / 100.0)
 	# 処刑のボス（回CH-8）。⚠ ボスは倒さない代わりにダメージを上げる。

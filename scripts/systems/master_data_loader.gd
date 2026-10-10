@@ -111,6 +111,8 @@ const CHARACTER_DIRS_REQUIRED: Array[String] = [
 	DIR_CHARACTERS + "char_vampire/",
 	# ⚠ フェニックス（2026-10-10・回PX-1）。
 	DIR_CHARACTERS + "char_phoenix/",
+	# ⚠ 学者の生徒（2026-10-10・回ST-1）。
+	DIR_CHARACTERS + "char_student/",
 ]
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const CHARACTER_DIRS_OPTIONAL: Array[String] = [
@@ -1676,7 +1678,9 @@ static func _expand_status_refs(effects: Array, skill_id: String) -> void:
 		if effect.get("react", null) is Dictionary and (effect["react"] as Dictionary).get("effects", null) is Array:
 			_expand_status_refs((effect["react"] as Dictionary)["effects"] as Array, skill_id)
 		# ⚠ 入れ子の効果も展開する（回PX-1・汎用）：倒したら・そろったら・避けて反撃・起き上がるとき。
-		for nested_key: String in [SkillSchema.FIELD_ON_KILL, SkillSchema.FIELD_ON_MEET, SkillSchema.FIELD_EVADE]:
+		if str(effect.get("type", "")) == SkillSchema.EFFECT_PICK and effect.get("effects", null) is Array:
+			_expand_status_refs(effect["effects"] as Array, skill_id)
+		for nested_key: String in [SkillSchema.FIELD_ON_KILL, SkillSchema.FIELD_ON_MEET, SkillSchema.FIELD_EVADE, SkillSchema.FIELD_ON_STACK]:
 			if effect.get(nested_key, null) is Dictionary and (effect[nested_key] as Dictionary).get("effects", null) is Array:
 				_expand_status_refs((effect[nested_key] as Dictionary)["effects"] as Array, skill_id)
 		if effect.get(SkillSchema.BUFF_INTERVENE, null) is Dictionary:

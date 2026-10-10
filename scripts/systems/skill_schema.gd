@@ -165,6 +165,25 @@ const INTERVENE_BONUS_VS_STATUS: String = "bonus_vs_status"
 const INTERVENE_BONUS_VS_PCT: String = "bonus_vs_pct"
 # HP で払う（⚠ cost に書く）。⚠ 最大HPの pct %・⚠ 払うと 0 になるなら撃てない。
 const COST_FIELD_HP_PCT: String = "hp_pct"
+# --- 汎用（回ST-1・学者の生徒で足し、次のキャラに流用する） ---
+# 付けた人から受けるダメージ +pct（⚠ intervene・宿主側）。⚠ 重ねたぶん足す（分析）。
+const INTERVENE_TAKEN_FROM_SOURCE_PCT: String = "taken_from_source_pct"
+# 毎秒のダメージ（dot）を受ける量 +pct（⚠ intervene・宿主側・ケミカルX）。
+const INTERVENE_DOT_TAKEN_PCT: String = "dot_taken_pct"
+# ダメージの出る状態（回復でない dot・重なりも数える）1つにつき +pct・上限 cap（⚠ intervene・殴った側）。
+const INTERVENE_BONUS_PER_DOT_PCT: String = "bonus_per_dot_pct"
+const INTERVENE_BONUS_PER_DOT_CAP: String = "bonus_per_dot_cap"
+# 同じ状態が count 個たまったら effects を撃って全部消す（⚠ 状態に書く・independent・神の使いの on_meet と同じ口）。
+#   "on_stack": {"count": 5, "effects": [...]} ⚠ effects は宿主に当たる・撃つのは付けた人。
+const FIELD_ON_STACK: String = "on_stack"
+# 解除で消えない（⚠ 状態に書く・人間「⚠ このバトル中に解消されない」）。
+const FIELD_KEEP_ON_DISPEL: String = "keep_on_dispel"
+# 赤いマス（デバフ）として扱う（⚠ 中身から決まらない印だけの状態に書く）。
+const FIELD_IS_DEBUFF: String = "is_debuff"
+# いくつかの効果から1つを選んで撃つ。{"type": "pick", "effects": [...]}（⚠ 同じ確率・当たる相手はこの効果の相手）。
+const EFFECT_PICK: String = "pick"
+# 時間を戻すをデバフ全部にも（⚠ refresh_status に status_id の代わりに "what": "debuff"）。
+const REFRESH_WHAT_DEBUFF: String = "debuff"
 const AIM_FIELDS_REQUIRED: Array = ["from", "speed", "to"]
 # 対象を取らない効果（回NC-1）。⚠ 購読の中でも target が要らない（E54 の例外）・実行時も対象を選ばない。
 const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
@@ -228,14 +247,14 @@ const DASH_TOS_KNOWN: Array = [DASH_TO_TARGET, DASH_TO_BACK, DASH_TO_AIM]
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
-	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS,
+	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick",
 	"cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
-	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS,
+	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick",
 ]
 # resource の欄。⚠ amount（足す・負なら減らす）と set_to（その値にする）はどちらか1つ。
 # ⚠ 持ち主にその資源があるか・種類と欄が合うかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
@@ -309,6 +328,7 @@ const INTERVENE_FIELDS_KNOWN: Array = [
 	INTERVENE_SHIELD_HP, INTERVENE_REDUCTION_PCT, INTERVENE_PIERCE_PCT,
 	INTERVENE_CRIT_ALWAYS, INTERVENE_REFLECT_PCT, INTERVENE_REFLECT_FLAT,
 	INTERVENE_DRAIN_TAG, INTERVENE_DRAIN_PCT, INTERVENE_DRAIN_VS_STATUS, INTERVENE_BONUS_VS_STATUS, INTERVENE_BONUS_VS_PCT,
+	INTERVENE_TAKEN_FROM_SOURCE_PCT, INTERVENE_DOT_TAKEN_PCT, INTERVENE_BONUS_PER_DOT_PCT, INTERVENE_BONUS_PER_DOT_CAP,
 	BUFF_ON_DEATH, BUFF_BLOCK_STATUS, BUFF_HEAL_TAKEN_PCT,
 ]
 # ⚠ 軽減の上限。100 にすると amount が必ず 0 になり、誰も死なずに決着しない
@@ -400,6 +420,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	CONSUME_FIELD_UNIT_IDS, CONSUME_FIELD_BLAST_RADIUS, SUMMON_FIELD_MAX_PER_OWNER,
 	FIELD_TAG, FIELD_ON_KILL, FIELD_ON_MEET, FIELD_EVADE,
 	FIELD_DRAIN_PCT, FIELD_WHEN_DRAIN_MULT, FIELD_STAT_PCT_FROM,
+	FIELD_ON_STACK, FIELD_KEEP_ON_DISPEL, FIELD_IS_DEBUFF, "effects",
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -1425,8 +1446,9 @@ static func _validate_effect(
 	if effect_type == EFFECT_DISPEL:
 		if not (str(effect.get("what", "")) in [DISPEL_DEBUFF, DISPEL_BUFF]):
 			_err(issues, skill_id, "%s.what が 'debuff' ／ 'buff' でない（必須）" % where)
-	elif effect.has("what"):
-		_err(issues, skill_id, "%s.type: '%s' に what は書けない（dispel だけ）" % [where, effect_type])
+	elif effect.has("what") and effect_type != EFFECT_REFRESH_STATUS:
+		# ⚠ 回ST-1：時間を戻す（refresh_status）にも what: "debuff" が書ける（⚠ 中身は E186 が見る）。
+		_err(issues, skill_id, "%s.type: '%s' に what は書けない（dispel ／ refresh_status だけ）" % [where, effect_type])
 	if effect_type in [EFFECT_COOLDOWN, EFFECT_DISPEL]:
 		for forbidden: String in ["scale_from", "multiplier", "attack_type", "host"]:
 			if effect.has(forbidden):
@@ -1896,7 +1918,7 @@ static func _validate_status_effect(
 		# ⚠ これが無いと、stat を必須にしなくなった分だけ typo（"stt"）が
 		#   「介入だけを持つ buff」として黙って通る。
 		# ⚠ 避けて反撃・そろったら（回MC-1・回GM-1）だけの buff は書ける（⚠ それ自体が働く）。
-		var has_trigger_only: bool = effect.has(FIELD_EVADE) or effect.has(FIELD_ON_MEET)
+		var has_trigger_only: bool = effect.has(FIELD_EVADE) or effect.has(FIELD_ON_MEET) or effect.has(FIELD_ON_STACK)
 		if not has_stat and not has_atk_mult and not has_intervene and not has_trigger_only:
 			_err(issues, skill_id, "%s は buff なのに stat / value も %s も %s{} も無い" % [
 				where, BUFF_ATK_MULT_PCT, BUFF_INTERVENE
@@ -2067,6 +2089,14 @@ static func _validate_intervene(
 				where, BUFF_INTERVENE, INTERVENE_PIERCE_PCT, PIERCE_PCT_MAX
 			])
 
+	# E196 … 回ST-1 の割合（1〜1000 の整数）・上限は割合と一緒に。
+	for st_field: String in [INTERVENE_TAKEN_FROM_SOURCE_PCT, INTERVENE_DOT_TAKEN_PCT, INTERVENE_BONUS_PER_DOT_PCT, INTERVENE_BONUS_PER_DOT_CAP]:
+		if iv.has(st_field):
+			var sv: Variant = iv.get(st_field, null)
+			if not _is_num(sv) or float(sv) != floor(float(sv)) or int(sv) < 1 or int(sv) > 1000:
+				_err(issues, skill_id, "%s.%s.%s が 1〜1000 の整数でない" % [where, BUFF_INTERVENE, st_field])
+	if iv.has(INTERVENE_BONUS_PER_DOT_CAP) and not iv.has(INTERVENE_BONUS_PER_DOT_PCT):
+		_err(issues, skill_id, "%s.%s.bonus_per_dot_cap は bonus_per_dot_pct と一緒に書く" % [where, BUFF_INTERVENE])
 	# E193 … 相手の状態で常に強い（回VP-1）。⚠ 状態と割合はそろえて書く・割合は 1〜500。
 	if iv.has(INTERVENE_BONUS_VS_STATUS) != iv.has(INTERVENE_BONUS_VS_PCT):
 		_err(issues, skill_id, "%s.%s の bonus_vs_status と bonus_vs_pct はそろえて書く" % [where, BUFF_INTERVENE])
@@ -2277,6 +2307,38 @@ static func _validate_gm_fields(
 			elif meet is Dictionary and str((meet as Dictionary).get("status_id", "")) == str(effect.get("status_id", "")):
 				_err(issues, skill_id, "%s.on_meet.status_id が自分と同じ" % where)
 			_validate_sub_effects(issues, skill_id, meet, where + ".on_meet", ["status_id", "effects"], activation, false)
+	# E197 たまったら（回ST-1）。⚠ 状態（host: unit）だけ・count 2 以上・independent と上限が要る。
+	if effect.has(FIELD_ON_STACK):
+		var on_stack: Variant = effect.get(FIELD_ON_STACK, null)
+		if not (effect_type in [EFFECT_BUFF, EFFECT_DOT]) or str(effect.get("host", "")) != HOST_UNIT:
+			_err(issues, skill_id, "%s.on_stack は host: unit の buff / dot にしか書けない" % where)
+		elif str(effect.get("stack", "")) != STACK_INDEPENDENT:
+			_err(issues, skill_id, "%s.on_stack は stack: 'independent' にしか書けない（たまらない）" % where)
+		elif on_stack is Dictionary:
+			var need: Variant = (on_stack as Dictionary).get("count", null)
+			if not _is_num(need) or float(need) < 2.0 or float(need) != floor(float(need)):
+				_err(issues, skill_id, "%s.on_stack.count が 2 以上の整数でない" % where)
+		_validate_sub_effects(issues, skill_id, on_stack, where + ".on_stack", ["count", "effects"], activation, false)
+	for flag: String in [FIELD_KEEP_ON_DISPEL, FIELD_IS_DEBUFF]:
+		if effect.has(flag):
+			if not (effect_type in [EFFECT_BUFF, EFFECT_DOT]):
+				_err(issues, skill_id, "%s.%s は buff / dot にしか書けない" % [where, flag])
+			elif effect.get(flag, null) != true:
+				_err(issues, skill_id, "%s.%s は true だけ書ける" % [where, flag])
+	# E198 1つを選んで撃つ（回ST-1）。⚠ 2つ以上・入れ子の pick は書けない。
+	if effect_type == EFFECT_PICK:
+		var choices: Variant = effect.get("effects", null)
+		if not (choices is Array) or (choices as Array).size() < 2:
+			_err(issues, skill_id, "%s.effects が2つ以上の配列でない（type: 'pick'）" % where)
+		else:
+			for ci: int in range((choices as Array).size()):
+				var choice: Variant = (choices as Array)[ci]
+				if not (choice is Dictionary) or str((choice as Dictionary).get("type", "")) == EFFECT_PICK:
+					_err(issues, skill_id, "%s.effects[%d] が辞書でない、または pick の入れ子" % [where, ci])
+				else:
+					_validate_effect(issues, skill_id, choice as Dictionary, ci, activation, where, in_react)
+	elif effect.has("effects"):
+		_err(issues, skill_id, "%s.type: '%s' に effects は書けない（pick だけ）" % [where, effect_type])
 	# E192 効果ごとの吸収（回VP-1）。⚠ damage だけ・1〜100・倍率は when_target と一緒に。
 	if effect.has(FIELD_DRAIN_PCT):
 		var dp: Variant = effect.get(FIELD_DRAIN_PCT, null)
@@ -2303,8 +2365,9 @@ static func _validate_gm_fields(
 			_validate_sub_effects(issues, skill_id, evade, where + ".evade", ["effects"], activation, false)
 	# E186 時間を戻す
 	if effect_type == EFFECT_REFRESH_STATUS:
-		if str(effect.get("status_id", "")) == "":
-			_err(issues, skill_id, "%s.status_id が無い（どの状態の時間を戻すか）" % where)
+		# ⚠ 回ST-1：status_id の代わりに "what": "debuff"（デバフ全部）。⚠ どちらか1つ。
+		if (str(effect.get("status_id", "")) == "") == (str(effect.get("what", "")) != REFRESH_WHAT_DEBUFF):
+			_err(issues, skill_id, "%s は status_id か what: 'debuff' のどちらか1つ（どの状態の時間を戻すか）" % where)
 		for forbidden: String in ["scale_from", "multiplier", "attack_type", "host", "duration_sec"]:
 			if effect.has(forbidden):
 				_err(issues, skill_id, "%s.type: 'refresh_status' に %s は書けない" % [where, forbidden])

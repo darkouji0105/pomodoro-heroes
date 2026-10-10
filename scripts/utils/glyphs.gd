@@ -31,6 +31,7 @@ const CHAR_ZEALOT: String = "🔥"
 const CHAR_MERCENARY: String = "⚔"
 const CHAR_VAMPIRE: String = "🧛"
 const CHAR_PHOENIX: String = "🐦"
+const CHAR_STUDENT: String = "🧫"
 ## ⚠ 表に無いキャラ（検証用の char_debug_* を含む）。
 const CHAR_FALLBACK: String = "👤"
 
@@ -148,6 +149,8 @@ static func for_character(character_id: String) -> String:
 			return CHAR_VAMPIRE
 		"char_phoenix":
 			return CHAR_PHOENIX
+		"char_student":
+			return CHAR_STUDENT
 	return CHAR_FALLBACK
 
 

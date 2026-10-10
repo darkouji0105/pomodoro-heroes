@@ -708,6 +708,77 @@
 			"spd": 1
 		}
 	},
+	"char_student": {
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "projectile",
+					"multiplier": 0.8,
+					"attack_type": "magic",
+					"scale_from": "mag",
+					"trigger": "event:hit"
+				},
+				{
+					"type": "pick",
+					"trigger": "event:hit",
+					"effects": [
+						{
+							"type": "status",
+							"status": "shock"
+						},
+						{
+							"type": "status",
+							"status": "poison"
+						},
+						{
+							"type": "status",
+							"status": "burn"
+						}
+					]
+				}
+			]
+		},
+		"name_key": "ui_battle_char_student",
+		"sign_style": "soft",
+		"sign_mark": "cross",
+		"weapon_genre": "pistol",
+		"hp": 85,
+		"atk": 6,
+		"mag": 16,
+		"def": 3,
+		"mdef": 6,
+		"spd": 60,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 5,
+		"crit_dmg": 150,
+		"attack_type": "magic",
+		"attack_range": 220,
+		"attack_interval_sec": 1.6,
+		"skills": [
+			"skill_sd_missile",
+			"skill_sd_smog",
+			"skill_sd_catalyst",
+			"skill_sd_analyze",
+			"skill_sd_chemx",
+			"skill_sd_laser"
+		],
+		"passives": [
+			"passive_sd_toxicology"
+		],
+		"allocatable_stats": [
+			"hp",
+			"mag",
+			"mdef"
+		],
+		"growth_per_level": {
+			"hp": 4,
+			"atk": 1,
+			"def": 1,
+			"spd": 1
+		}
+	},
 	"char_debug_status": {
 		"basic_attack": {
 			"effects": [
