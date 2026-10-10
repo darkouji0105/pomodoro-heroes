@@ -110,6 +110,23 @@ const COOLDOWN_FIELD_EXCEPT: String = "_except"
 # ⚠ デバフ＝状態のマスが赤いもの（人間「⚠ ３い」＝`StatusRegistry.is_debuff_entry()`）・バフ＝それ以外。
 # ⚠ パッシブの状態は消しても次のフレームで付け直る（`_restore_passives()`）＝実質消えない。
 const EFFECT_DISPEL: String = "dispel"
+# 相手の状態で効果が変わる（回CH-8・EXEC_CHAR_RESOURCE.md §15）。⚠ どの効果にも書ける。
+#   "when_target": {"source": "status_has", "status_id": "bleed"}            … 相手がその状態か
+#   "when_target": {"source": "debuff_count", "op": "gte", "value": 2}       … 相手の赤いマスの数
+#   "when_target": {"source": "hp_ratio", "op": "lte", "value": 0.5}         … 相手の HP の割合（0〜1）
+# ⚠ when_mult（倍率）／ when_crit: true（会心確定）を一緒に書くと（⚠ どちらも damage だけ）「満たしたら強くなる」（人間「⚠ １う」の あ・「⚠ ３あ」）。
+# ⚠ どちらも書かなければ「満たした相手にだけ当たる」（「⚠ １う」の い）。
+const FIELD_WHEN_TARGET: String = "when_target"
+const FIELD_WHEN_MULT: String = "when_mult"
+const FIELD_WHEN_CRIT: String = "when_crit"
+const WHEN_STATUS_HAS: String = "status_has"
+const WHEN_DEBUFF_COUNT: String = "debuff_count"
+const WHEN_HP_RATIO: String = "hp_ratio"
+const WHENS_KNOWN: Array = [WHEN_STATUS_HAS, WHEN_DEBUFF_COUNT, WHEN_HP_RATIO]
+# 処刑（回CH-8）。⚠ damage に書く。⚠ 当たったあとの HP が割合以下なら倒す（人間「⚠ ２あ」）。
+# ⚠ ボスは倒さない。⚠ 代わりに execute_boss_mult をダメージに掛ける（⚠ 書かなければ 1.0）。
+const FIELD_EXECUTE_BELOW: String = "execute_below"
+const FIELD_EXECUTE_BOSS_MULT: String = "execute_boss_mult"
 const DISPEL_DEBUFF: String = "debuff"
 const DISPEL_BUFF: String = "buff"
 const DASH_TO_TARGET: String = "target"
@@ -269,6 +286,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	BUFF_INTERVENE, FIELD_ZONE, FIELD_HEALS, BUFF_ATK_MULT_PCT,
 	BUFF_BASIC_ATTACK, BUFF_USES, BUFF_CONTROL, "distance", "to", "offset",
 	"sec", "pct", "all", "skills", "what",
+	FIELD_WHEN_TARGET, FIELD_WHEN_MULT, FIELD_WHEN_CRIT, FIELD_EXECUTE_BELOW, FIELD_EXECUTE_BOSS_MULT,
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to",
 ]
@@ -1114,6 +1132,48 @@ static func _validate_effect(
 		for dash_field: String in ["to", "offset"]:
 			if effect.has(dash_field):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（dash だけ）" % [where, effect_type, dash_field])
+
+	# E169〜E171 相手の状態で変わる・処刑（回CH-8）
+	if effect.has(FIELD_WHEN_TARGET):
+		var raw_when: Variant = effect.get(FIELD_WHEN_TARGET, null)
+		if not (raw_when is Dictionary):
+			_err(issues, skill_id, "%s.when_target が辞書でない" % where)
+		else:
+			var when: Dictionary = raw_when as Dictionary
+			var when_source: String = str(when.get("source", ""))
+			if not (when_source in WHENS_KNOWN):
+				_err(issues, skill_id, "%s.when_target.source が不明: '%s'（%s）" % [where, when_source, str(WHENS_KNOWN)])
+			elif when_source == WHEN_STATUS_HAS:
+				if str(when.get("status_id", "")) == "":
+					_err(issues, skill_id, "%s.when_target に status_id が無い（status_has は必須）" % where)
+			else:
+				if not (str(when.get("op", "")) in COND_OPS_KNOWN):
+					_err(issues, skill_id, "%s.when_target.op が不明: '%s'" % [where, str(when.get("op", ""))])
+				if not _is_num(when.get("value", null)):
+					_err(issues, skill_id, "%s.when_target.value が数値でない" % where)
+	elif effect.has(FIELD_WHEN_MULT) or effect.has(FIELD_WHEN_CRIT):
+		_err(issues, skill_id, "%s の when_mult ／ when_crit は when_target と一緒にしか書けない" % where)
+	if effect.has(FIELD_WHEN_MULT):
+		if effect_type != EFFECT_DAMAGE:
+			_err(issues, skill_id, "%s.when_mult は damage にしか書けない" % where)
+		if not _is_num(effect.get(FIELD_WHEN_MULT, null)) or float(effect.get(FIELD_WHEN_MULT, 0)) <= 0.0:
+			_err(issues, skill_id, "%s.when_mult が正の数でない" % where)
+	if effect.has(FIELD_WHEN_CRIT):
+		if effect_type != EFFECT_DAMAGE:
+			_err(issues, skill_id, "%s.when_crit は damage にしか書けない" % where)
+		if effect.get(FIELD_WHEN_CRIT, null) != true:
+			_err(issues, skill_id, "%s.when_crit は true だけ書ける" % where)
+	if effect.has(FIELD_EXECUTE_BELOW):
+		var below: Variant = effect.get(FIELD_EXECUTE_BELOW, null)
+		if effect_type != EFFECT_DAMAGE:
+			_err(issues, skill_id, "%s.execute_below は damage にしか書けない" % where)
+		if not _is_num(below) or float(below) <= 0.0 or float(below) >= 1.0:
+			_err(issues, skill_id, "%s.execute_below が 0 より大きく 1 未満でない" % where)
+	if effect.has(FIELD_EXECUTE_BOSS_MULT):
+		if not effect.has(FIELD_EXECUTE_BELOW):
+			_err(issues, skill_id, "%s.execute_boss_mult は execute_below と一緒にしか書けない" % where)
+		if not _is_num(effect.get(FIELD_EXECUTE_BOSS_MULT, null)) or float(effect.get(FIELD_EXECUTE_BOSS_MULT, 0)) <= 0.0:
+			_err(issues, skill_id, "%s.execute_boss_mult が正の数でない" % where)
 
 	# E167〜E168 クールダウン・解除（回CH-7）
 	if effect_type == EFFECT_COOLDOWN:

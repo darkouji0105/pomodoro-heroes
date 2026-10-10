@@ -134,6 +134,7 @@
 | **BT-17** | ⚠⚠ **止める・動かす**（10-10・回CH-5・人間「⚠ １あ　２う　３あ　あとスネアも追加するべきかな」）：⚠ バフの `control`＝**スタン**（移動・通常攻撃・スキルを全部止める・味方ならマスが暗い）／ **スネア**（移動だけ止める）／ **無敵**（相手からのダメージも状態も受けない・味方と自分から付くものは通す）／ **止められない**（スタン・スネア・ノックバックを受けない）／ ⚠ 効果 `knockback`（撃った人から遠ざける・戦場の端で止まる）／ ⚠ **ボスには弱く効く**（秒数と距離に倍率）| ⚠ ボスの倍率 **0.5**（`AdventureConfig.boss_control_ratio`・⚠ 設計役の**仮**）／ ⚠ スタン・スネアのマスは赤（デバフの色） | `SkillSchema.BUFF_CONTROL`・`CONTROL_*`・`EFFECT_KNOCKBACK` ／ `BattleUnit.stunned`・`snared`・`invulnerable`・`unstoppable`（⚠ 書くのは `StatusRegistry._rebuild_unit_mods()`）／ `StatusRegistry.add()` の 6-3-0 ／ `SkillResolver._apply_knockback()`・無敵の 0 ／ `SkillActivation.REASON_STUNNED` ／ `BattleController._step_unit()`・`_on_skill_effects_applied()` ／ `StatusChips.tone_of()` ／ 検査 `char_resource` の 16〜20 | **10-10** | — |
 | **BT-18** | ⚠⚠ **自分が動く**（10-10・回CH-6・人間「⚠ １あ　２あ　３い」）：⚠ 効果 `dash`＝`to: "target"`（狙った相手・何体かなら真ん中へ／`offset` だけ手前で止まる＝突進・飛び込み）と `to: "back"`（`distance` だけ下がる＝ステップ）／ ⚠ **一瞬で移る** ／ ⚠ **動いたあと少し止まる**（移動ルーンと同じ秒）／ ⚠ 戦場の端で止まる ／ ⚠ バイクの「突き抜ける通常攻撃」は入れない（バイクの回） | ⚠ **スネア中は動かない**（⚠ 設計役の**仮**）| `SkillSchema.EFFECT_DASH`・`DASH_TO_*` ／ `SkillResolver._apply_dash()` ／ `BattleController._on_skill_effects_applied()`（⚠ `GameManager.get_rune_move_lock_sec()`）／ 検査 `char_resource` の 21〜22 | **10-10** | — |
 | **BT-19** | ⚠⚠ **クールダウンと解除**（10-10・回CH-7・人間「⚠ １う　２あ　３い」）：⚠ 効果 `cooldown`＝量は **秒（`sec`）／ 残りの割合（`pct`）／ 全部消す（`all`）** のどれか ／ どのスキルに＝`skills`（`"all"` ／ `"others"`＝撃ったスキル以外 ／ ID の配列）／ 宛先はスキルの target ／ ⚠ 効果 `dispel`＝`what: "debuff"`／`"buff"` の**当てはまるものを全部消す** ／ ⚠ デバフ＝**状態のマスが赤いもの**・バフ＝それ以外 ／ ⚠ パッシブの状態は消しても次のフレームで付け直る | — | `SkillSchema.EFFECT_COOLDOWN`・`EFFECT_DISPEL` ／ `BattleUnit.reduce_cooldowns()` ／ `StatusRegistry.is_debuff_entry()`（⚠ マスの色 `StatusChips.tone_of()` も使う＝判定は1本）・`dispel()` ／ `SkillRuntime.cast()` の `_except` ／ 検査 `char_resource` の 23〜25 | **10-10** | — |
+| **BT-20** | ⚠⚠ **相手の状態で効果が変わる・処刑**（10-10・回CH-8・人間「⚠ １う　２あ　３あ」）：⚠ 効果の `when_target`＝相手が **その状態か（`status_has`）／ 赤いマスの数（`debuff_count`）／ HP の割合（`hp_ratio`）** ／ ⚠ 一緒に `when_mult`（倍率）か `when_crit: true`（会心確定）を書くと**満たしたら強くなる**・どちらも書かなければ**満たした相手にだけ当たる** ／ ⚠ **処刑**＝ダメージの `execute_below`（当たったあとの HP がその割合以下なら倒す）・**ボスは倒さず** `execute_boss_mult` をダメージに掛ける | ⚠ `when_mult` ／ `when_crit` はダメージだけ（⚠ 吸血鬼の「出血なら2倍回復」は回復の宛先が自分なので、その回で考える）| `SkillSchema.FIELD_WHEN_TARGET`・`FIELD_WHEN_MULT`・`FIELD_WHEN_CRIT`・`FIELD_EXECUTE_BELOW`・`FIELD_EXECUTE_BOSS_MULT` ／ `SkillResolver.when_target_ok()`・`_step_execute()`・`resolve()` の絞り込み ／ `StatusRegistry.debuff_count()` ／ 検査 `char_resource` の 26〜30 | **10-10** | — |
 
 ## 4. 拠点・倉庫・装備（`BS-n`）
 
@@ -380,6 +381,7 @@
 
 ## 更新履歴
 
+- **2026-10-10（8回目）… 回CH-8：`BT-20`（相手の状態で効果が変わる・処刑）を足した**（⚠ 人間「⚠ １う　２あ　３あ」）。
 - **2026-10-10（7回目）… 回CH-7：`BT-19`（クールダウンと解除）を足した**（⚠ 人間「⚠ １う　２あ　３い」）。⚠ ついでに見つけた回CH-3 の不具合（パッシブの付け直しが「スキルを使った」になっていた）を直した＝`BT-15` の中身どおり。
 - **2026-10-10（6回目）… 回CH-6：`BT-18`（自分が動く）を足した**（⚠ 人間「⚠ １あ　２あ　３い」）。
 - **2026-10-10（5回目）… 回CH-5：`BT-17`（止める・動かす）を足した**（⚠ 人間「⚠ １あ　２う　３あ　あとスネアも追加するべきかな」）。

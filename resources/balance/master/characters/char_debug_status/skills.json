@@ -929,5 +929,113 @@
 				"what": "buff"
 			}
 		]
+	},
+	"skill_dbg_if_defdown_x2": {
+		"name_key": "ui_battle_skill_dbg_if_defdown_x2",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"when_target": {
+					"source": "status_has",
+					"status_id": "status_dbg_def_down"
+				},
+				"when_mult": 2.0
+			}
+		]
+	},
+	"skill_dbg_if_debuffed_extra": {
+		"name_key": "ui_battle_skill_dbg_if_debuffed_extra",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			},
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"when_target": {
+					"source": "debuff_count",
+					"op": "gte",
+					"value": 1
+				}
+			}
+		]
+	},
+	"skill_dbg_if_low_crit": {
+		"name_key": "ui_battle_skill_dbg_if_low_crit",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"when_target": {
+					"source": "hp_ratio",
+					"op": "lte",
+					"value": 0.5
+				},
+				"when_crit": true
+			}
+		]
+	},
+	"skill_dbg_execute": {
+		"name_key": "ui_battle_skill_dbg_execute",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"execute_below": 0.4,
+				"execute_boss_mult": 1.5
+			}
+		]
 	}
 }

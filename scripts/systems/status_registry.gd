@@ -1510,6 +1510,16 @@ static func is_debuff_entry(entry: Dictionary) -> bool:
 	return false
 
 
+# そのユニットに宿っている赤いマス（デバフ）の数（回CH-8）。⚠ 判定は is_debuff_entry() の1本。
+func debuff_count(unit_id: String) -> int:
+	var total: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("host", "")) == SkillSchema.HOST_UNIT and str(entry.get("host_unit_id", "")) == unit_id \
+				and is_debuff_entry(entry):
+			total += 1
+	return total
+
+
 # 解除（回CH-7）。⚠ そのユニットに宿っている（host: unit）状態のうち、デバフ／バフを全部消す（人間「⚠ ２あ」）。
 # ⚠ 範囲（host: point）・戦場（host: battle）は消さない（⚠ 宿主が居ない）。⚠ 戻り値は消した数。
 func dispel(unit_id: String, debuff: bool) -> int:

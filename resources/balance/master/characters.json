@@ -268,7 +268,11 @@
 			"skill_dbg_cd_sec",
 			"skill_dbg_cd_reset_others",
 			"skill_dbg_dispel_debuff",
-			"skill_dbg_dispel_buff"
+			"skill_dbg_dispel_buff",
+			"skill_dbg_if_defdown_x2",
+			"skill_dbg_if_debuffed_extra",
+			"skill_dbg_if_low_crit",
+			"skill_dbg_execute"
 		],
 		"passives": [
 			"passive_dbg_atk",

@@ -305,7 +305,7 @@ static func resolve(
 	if (raw_effects as Array).size() != 1:
 		push_warning("[SkillResolver] resolve() に効果が %d 件来た（1件ずつ渡すこと）" % (raw_effects as Array).size())
 
-	var targets: Array = _units_from_ids(target_ids, session)
+	var all_targets: Array = _units_from_ids(target_ids, session)
 
 	for raw_effect: Variant in (raw_effects as Array):
 		if not (raw_effect is Dictionary):
@@ -334,6 +334,18 @@ static func resolve(
 
 		# ⚠ 効果ごとの target 上書きもここでは読まない。cast 時に SkillRuntime が
 		#   解釈して target_ids に落としてある（PLAN 4-4）。
+
+		# 相手の状態で当たるかを絞る（回CH-8・「⚠ １う」の い）。⚠ when_mult ／ when_crit があるときは絞らない（強くなるだけ）。
+		# ⚠ 効果ごとに別の配列で持つ（⚠ 次の効果まで絞らない）。
+		var targets: Array = all_targets
+		if effect.has(SkillSchema.FIELD_WHEN_TARGET) and not effect.has(SkillSchema.FIELD_WHEN_MULT) \
+				and not effect.has(SkillSchema.FIELD_WHEN_CRIT):
+			targets = []
+			for t: BattleUnit in all_targets:
+				if when_target_ok(effect, t, registry):
+					targets.append(t)
+			if targets.is_empty():
+				continue
 
 		# ⚠ 効果の種類の分岐はここ1箇所（PLAN 9章）。
 		#   「状態は SkillRuntime が作る」形にしないこと。分岐が2箇所になり、
@@ -424,6 +436,16 @@ static func _apply_damage(
 		"amount": 0,
 	}
 
+	# 相手の状態で強くなる（回CH-8）。⚠ roll_crit() は振ったあと＝乱数の順番を変えない。
+	if effect.has(SkillSchema.FIELD_WHEN_TARGET) and when_target_ok(effect, target, registry):
+		if effect.has(SkillSchema.FIELD_WHEN_MULT):
+			ctx["multiplier"] = float(ctx["multiplier"]) * float(effect.get(SkillSchema.FIELD_WHEN_MULT, 1.0))
+		if bool(effect.get(SkillSchema.FIELD_WHEN_CRIT, false)):
+			ctx["is_crit"] = true
+	# 処刑のボス（回CH-8）。⚠ ボスは倒さない代わりにダメージを上げる。
+	if effect.has(SkillSchema.FIELD_EXECUTE_BELOW) and target.is_boss:
+		ctx["multiplier"] = float(ctx["multiplier"]) * float(effect.get(SkillSchema.FIELD_EXECUTE_BOSS_MULT, 1.0))
+
 	# 介入点。段階1は全部素通し。
 	# ⚠ 1本の固定式にまとめないこと（PLAN 11-0-1）。まとめると、割り込む位置が
 	#   増えるたびに式を書き換えることになり、途中の値も取り出せなくなる。
@@ -473,6 +495,63 @@ static func _apply_damage(
 		"source_unit_id": user.unit_id,
 		"attack_type": attack_type,
 	})
+	_step_execute(effect, user, target, results)
+
+
+# 処刑（回CH-8）。⚠ 当たったあとの HP で見る（人間「⚠ ２あ」）。⚠ ボス・無敵は倒さない。
+# ⚠ 残りの HP を1件のダメージとして積む（⚠ 数字が出る・「与えた」の合図も出る）。
+static func _step_execute(effect: Dictionary, user: BattleUnit, target: BattleUnit, results: Array) -> void:
+	if not effect.has(SkillSchema.FIELD_EXECUTE_BELOW) or target.is_boss or not target.is_alive():
+		return
+	if target.invulnerable and user.team != target.team:
+		return
+	if target.max_hp <= 0 or float(target.hp) / float(target.max_hp) > float(effect.get(SkillSchema.FIELD_EXECUTE_BELOW, 0.0)):
+		return
+	var rest: int = target.hp
+	target.last_attacker_id = user.unit_id
+	target.take_damage(rest)
+	BattleLog.log_intervene("execute", target.unit_id, "", "%d" % rest)
+	results.append({
+		"unit_id": target.unit_id,
+		"amount": rest,
+		"is_heal": false,
+		"is_crit": false,
+		"is_dot": false,
+		"source_unit_id": user.unit_id,
+		"attack_type": SkillSchema.ATTACK_TYPE_TRUE,
+	})
+
+
+# 相手についての条件（回CH-8）。⚠ registry は StatusRegistry（RefCounted で受けている）。
+static func when_target_ok(effect: Dictionary, target: BattleUnit, registry: RefCounted) -> bool:
+	if target == null:
+		return false
+	var when: Dictionary = effect.get(SkillSchema.FIELD_WHEN_TARGET, {}) as Dictionary
+	var source: String = str(when.get("source", ""))
+	if source == SkillSchema.WHEN_STATUS_HAS:
+		return registry != null and bool(registry.has({
+			"host_unit_id": target.unit_id, "status_id": str(when.get("status_id", "")),
+		}))
+	var value: float = 0.0
+	if source == SkillSchema.WHEN_DEBUFF_COUNT:
+		value = 0.0 if registry == null else float(registry.debuff_count(target.unit_id))
+	elif source == SkillSchema.WHEN_HP_RATIO:
+		value = 0.0 if target.max_hp <= 0 else float(target.hp) / float(target.max_hp)
+	else:
+		return false
+	var limit: float = float(when.get("value", 0.0))
+	match str(when.get("op", "")):
+		SkillSchema.COND_OP_LT:
+			return value < limit
+		SkillSchema.COND_OP_LTE:
+			return value <= limit
+		SkillSchema.COND_OP_GT:
+			return value > limit
+		SkillSchema.COND_OP_GTE:
+			return value >= limit
+		SkillSchema.COND_OP_EQ:
+			return is_equal_approx(value, limit)
+	return false
 
 
 # 確定クリティカル（EXEC_SKILL_MITIGATION.md）。⚠ 読むのは「殴った側」の状態。

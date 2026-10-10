@@ -1499,6 +1499,7 @@ func _ready() -> void:
 			_report_char_control()
 			_report_char_dash()
 			_report_char_cd_dispel()
+			_report_char_when()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7873,6 +7874,100 @@ func _cd_list(unit: BattleUnit, ids: Array) -> String:
 	for sid: Variant in ids:
 		shown.append(snappedf(unit.get_cooldown(str(sid)), 0.01))
 	return str(shown)
+
+# 相手の状態で変わる・処刑（回CH-8）。⚠ 検証用（状態）は会心率 0＝⚠ 乱数で数字が揺れない。
+func _report_char_when() -> void:
+	var status_id: String = "char_debug_status"
+	var me: BattleUnit = _resource_unit(status_id, 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 10000
+	foe_data["def"] = 0
+	var foe: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var boss: BattleUnit = BattleUnit.create("enemy_1", BattleUnit.TEAM_ENEMY, foe_data, foe_data, true, "enemy_slime")
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = [foe, boss]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	# ⚠ 検証用（状態）は攻撃力 1＝ダメージ 1 で倍率が見分けられない。⚠ 攻撃アップ（+50）を掛けてから測る。
+	_control_cast("skill_dbg_buff_refresh", me, [me], session, registry)
+
+	print("[DebugBoot] --- 26. 満たしたら倍率（⚠ 防御ダウン中なら ×2）---")
+	var plain: int = _when_total(_control_cast("skill_dbg_if_defdown_x2", me, [foe], session, registry))
+	_control_cast("skill_dbg_debuff_def", me, [foe], session, registry)
+	var doubled: int = _when_total(_control_cast("skill_dbg_if_defdown_x2", me, [foe], session, registry))
+	print("  防御ダウン無し %d → 有り %d（有りが無しの 2 倍前後が正解・防御ダウン自体は def 0 なので効かない）" % [plain, doubled])
+
+	print("[DebugBoot] --- 27. 満たしたときだけ当たる（⚠ デバフ持ちに追加の一撃）---")
+	registry.dispel(foe.unit_id, true)
+	var hits_clean: int = _when_hits(_control_cast("skill_dbg_if_debuffed_extra", me, [foe], session, registry))
+	_control_cast("skill_dbg_debuff_def", me, [foe], session, registry)
+	var hits_debuffed: int = _when_hits(_control_cast("skill_dbg_if_debuffed_extra", me, [foe], session, registry))
+	print("  デバフ無し %d 発 → 有り %d 発（1 → 2 が正解）" % [hits_clean, hits_debuffed])
+
+	print("[DebugBoot] --- 28. 満たしたら会心（⚠ HP 半分以下）---")
+	foe.hp = foe.max_hp
+	var crit_full: bool = _when_crit(_control_cast("skill_dbg_if_low_crit", me, [foe], session, registry))
+	foe.hp = int(foe.max_hp * 0.4)
+	var crit_low: bool = _when_crit(_control_cast("skill_dbg_if_low_crit", me, [foe], session, registry))
+	print("  HP 満タン %s → 4割 %s（false → true が正解）" % [str(crit_full), str(crit_low)])
+
+	print("[DebugBoot] --- 29. 処刑（⚠ 当たったあとの HP が4割以下なら倒す・ボスは倒さず ×1.5）---")
+	foe.hp = foe.max_hp
+	_control_cast("skill_dbg_execute", me, [foe], session, registry)
+	print("  満タンから：生きている %s（true が正解）" % str(foe.is_alive()))
+	foe.hp = int(foe.max_hp * 0.4) + 5
+	_control_cast("skill_dbg_execute", me, [foe], session, registry)
+	print("  4割の少し上から（当たって4割を切る）：生きている %s・HP %d（false・0 が正解）" % [str(foe.is_alive()), foe.hp])
+	var normal_on_boss: int = _when_total(_control_cast("skill_dbg_if_defdown_x2", me, [boss], session, registry))
+	boss.hp = int(boss.max_hp * 0.3)
+	var exec_on_boss: int = _when_total(_control_cast("skill_dbg_execute", me, [boss], session, registry))
+	print("  ボス：HP 3割でも生きている %s ／ ふつう %d → 処刑の一撃 %d（true ／ 1.5 倍前後が正解）" % [
+		str(boss.is_alive()), normal_on_boss, exec_on_boss
+	])
+
+	print("[DebugBoot] --- 30. 壊した書き方を弾く（⚠ 赤は出さず件数だけ）---")
+	var probes: Array = [
+		["when_target の source が不明", {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "when_target": {"source": "level"}}],
+		["status_has に status_id が無い", {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "when_target": {"source": "status_has"}}],
+		["when_mult だけ", {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "when_mult": 2.0}],
+		["heal に when_crit", {"type": "heal", "multiplier": 1.0, "scale_from": "atk", "when_target": {"source": "hp_ratio", "op": "lte", "value": 0.5}, "when_crit": true}],
+		["execute_below が 1", {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "execute_below": 1.0}],
+		["execute_boss_mult だけ", {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "execute_boss_mult": 1.5}],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": status_id, "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "all"}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(probe[0]), errors])
+
+
+func _when_total(results: Array) -> int:
+	var total: int = 0
+	for r: Variant in results:
+		if r is Dictionary and not (r as Dictionary).has("kind") and not bool((r as Dictionary).get("is_heal", false)):
+			total += int((r as Dictionary).get("amount", 0))
+	return total
+
+
+func _when_hits(results: Array) -> int:
+	var hits: int = 0
+	for r: Variant in results:
+		if r is Dictionary and not (r as Dictionary).has("kind") and not bool((r as Dictionary).get("is_heal", false)):
+			hits += 1
+	return hits
+
+
+func _when_crit(results: Array) -> bool:
+	for r: Variant in results:
+		if r is Dictionary and bool((r as Dictionary).get("is_crit", false)):
+			return true
+	return false
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
