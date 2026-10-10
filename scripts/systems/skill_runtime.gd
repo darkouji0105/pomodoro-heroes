@@ -371,6 +371,19 @@ func _make_entry(
 	var source_unit_id: String = str(react_ctx.get("source_unit_id", ""))
 	var from_reaction: bool = bool(react_ctx.get("from_reaction", false))
 
+	# 上乗せの「相手の周り」（回MG-1）。⚠ 外から来た相手（＝その通常攻撃の相手）が中心。
+	var own_target: Variant = effect.get("target", null)
+	if not fixed_target_ids.is_empty() and own_target is Dictionary \
+			and str((own_target as Dictionary).get("mode", "")) == SkillSchema.MODE_AREA \
+			and str((own_target as Dictionary).get("origin", "")) == SkillSchema.ORIGIN_TARGET:
+		var center: BattleUnit = _find_unit(str(fixed_target_ids[0]))
+		if center != null:
+			return _entry_dict(
+				cast_id, user, skill_id, effect,
+				SkillResolver.area_around(own_target as Dictionary, user, center, _session),
+				source_unit_id, from_reaction
+			)
+
 	# ⚠ 外から対象が来ていれば選び直さない（通常攻撃。cast() の注記を見ること）。
 	if not fixed_target_ids.is_empty():
 		return _entry_dict(

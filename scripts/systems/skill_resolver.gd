@@ -635,6 +635,18 @@ static func _step_execute(effect: Dictionary, user: BattleUnit, target: BattleUn
 	})
 
 
+# 決まった相手の周り（回MG-1・上乗せの「相手の周り」）。⚠ チームは target の team（相手側ならステルスを外す）。
+static func area_around(target_def: Dictionary, user: BattleUnit, center: BattleUnit, session: BattleSession) -> Array:
+	var team: String = user.team
+	if str(target_def.get("team", "")) == SkillSchema.TEAM_ENEMY:
+		team = BattleUnit.TEAM_ENEMY if user.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
+	var ids: Array = []
+	for raw: Variant in session.get_targetable_units(team, user.team):
+		if absf((raw as BattleUnit).x - center.x) <= float(target_def.get("radius", 0.0)):
+			ids.append((raw as BattleUnit).unit_id)
+	return ids
+
+
 # 貫通の対象（回PQ-2）。⚠ 自分から前へ length の中の、生きている相手を近い順に。⚠ ID で返す（select_targets と同じ）。
 static func select_pierce(user: BattleUnit, session: BattleSession, length: float) -> Array:
 	var ids: Array = []

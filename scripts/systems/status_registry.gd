@@ -757,6 +757,12 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		entry[SkillSchema.BUFF_CONTROL] = control
 		has_stat = true
 
+	# 次の通常攻撃に上乗せ（回MG-1）。⚠ 置き換えと同じ uses_left で数える。
+	if effect.get(SkillSchema.BUFF_BASIC_EXTRA, null) is Dictionary:
+		entry[SkillSchema.BUFF_BASIC_EXTRA] = (effect[SkillSchema.BUFF_BASIC_EXTRA] as Dictionary).duplicate(true)
+		entry["uses_left"] = int(effect.get(SkillSchema.BUFF_USES, -1))
+		has_stat = true
+
 	# 通常攻撃を置き換える（回CH-4）。⚠ 残りの回数は uses_left（⚠ counter はシールドの残量なので使わない）。
 	#   ⚠ uses が無ければ -1＝寿命のあいだずっと。
 	if effect.has(SkillSchema.BUFF_BASIC_ATTACK):
@@ -1941,6 +1947,32 @@ func basic_override(unit_id: String) -> Dictionary:
 	if index < 0:
 		return {}
 	return (_entries[index].get(SkillSchema.BUFF_BASIC_ATTACK, {}) as Dictionary).duplicate(true)
+
+
+# 上乗せの効果をまとめて返し、1回使う（回MG-1）。⚠ 効いているもの全部（⚠ 置き換えと違って重ねる）。⚠ uses が尽きたら消す。
+func take_basic_extras(unit_id: String) -> Array:
+	var effects: Array = []
+	var rest: Array = []
+	var removed: bool = false
+	for entry: Dictionary in _entries:
+		var extra: Variant = entry.get(SkillSchema.BUFF_BASIC_EXTRA, null)
+		if not (extra is Dictionary) or str(entry.get("kind", "")) != KIND_BUFF or not _applies_to(entry, unit_id):
+			rest.append(entry)
+			continue
+		effects.append_array(((extra as Dictionary).get("effects", []) as Array).duplicate(true))
+		var left: int = int(entry.get("uses_left", -1))
+		if left > 0:
+			left -= 1
+			entry["uses_left"] = left
+			if left <= 0:
+				BattleLog.log_status_end(str(entry.get("status_id", "")), unit_id, "consumed")
+				removed = true
+				continue
+		rest.append(entry)
+	if removed:
+		_entries = rest
+		_rebuild_unit_mods(unit_id)
+	return effects
 
 
 # 置き換えを1回使う（回CH-4）。⚠ uses が尽きたら消す（why "consumed"＝シールドと同じ）。⚠ uses 無しは減らさない。

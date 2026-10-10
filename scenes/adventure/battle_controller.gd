@@ -1430,6 +1430,11 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	var attack: Dictionary = unit.take_basic_attack(override)
 	if not override.is_empty():
 		_status.consume_basic_override(unit.unit_id)
+	# 上乗せ（回MG-1）。⚠ いつもの攻撃にも、置き換えた攻撃にも足す（⚠ 写しに足す＝マスターを書き換えない）。
+	var extras: Array = _status.take_basic_extras(unit.unit_id)
+	if not extras.is_empty():
+		attack = attack.duplicate(true)
+		(attack["effects"] as Array).append_array(extras)
 	var fixed_ids: Array = []
 	if not attack.has("target"):
 		fixed_ids = [target.unit_id]
@@ -1441,7 +1446,7 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	if unit.basic_cycle:
 		unit.basic_cycled[target.unit_id] = true
 		unit.target_unit_id = ""
-	# 強化した一撃を撃った（回PQ-1）。⚠ 置き換え・「◯回ごと」のどちらでも（⚠ いつもの一撃と違うものを撃ったとき）。
+	# 強化した一撃を撃った（回PQ-1）。⚠ 置き換え・「◯回ごと」・上乗せのどれでも（⚠ いつもの一撃と違うものを撃ったとき）。
 	if attack != unit.basic_attack:
 		_skill_runtime.notify_empowered_basic(unit)
 

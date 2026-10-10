@@ -27,17 +27,11 @@
 							"target": {
 								"team": "self"
 							},
-							"basic_attack": {
-								"target": {
-									"team": "enemy",
-									"mode": "select",
-									"sort": "nearest",
-									"count": 1
-								},
+							"basic_attack_extra": {
 								"effects": [
 									{
 										"type": "damage",
-										"delivery": "projectile",
+										"delivery": "melee",
 										"multiplier": 0.9,
 										"attack_type": "magic",
 										"scale_from": "mag",
@@ -54,7 +48,6 @@
 											"team": "enemy",
 											"mode": "area",
 											"origin": "target",
-											"sort": "nearest",
 											"radius": 80.0
 										}
 									}

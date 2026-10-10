@@ -1711,6 +1711,9 @@ static func _expand_status_refs(effects: Array, skill_id: String) -> void:
 			if nested_death is Dictionary and (nested_death as Dictionary).get("effects", null) is Array:
 				_expand_status_refs((nested_death as Dictionary)["effects"] as Array, skill_id)
 		# ⚠ 通常攻撃を置き換えるバフの中も展開する（回SC-1・オーバードライブの火傷付きの通常攻撃）。
+		if effect.get(SkillSchema.BUFF_BASIC_EXTRA, null) is Dictionary \
+				and (effect[SkillSchema.BUFF_BASIC_EXTRA] as Dictionary).get("effects", null) is Array:
+			_expand_status_refs((effect[SkillSchema.BUFF_BASIC_EXTRA] as Dictionary)["effects"] as Array, skill_id)
 		if effect.get(SkillSchema.BUFF_BASIC_ATTACK, null) is Dictionary \
 				and (effect[SkillSchema.BUFF_BASIC_ATTACK] as Dictionary).get("effects", null) is Array:
 			_expand_status_refs((effect[SkillSchema.BUFF_BASIC_ATTACK] as Dictionary)["effects"] as Array, skill_id)

@@ -404,6 +404,10 @@ const BUFF_ATK_MULT_PCT: String = "atk_mult_pct"
 # ⚠ 置き換え＝人間「⚠ １あ」。⚠ 置き換えた一撃も「◯回ごと」の1回に数える（人間「⚠ ３あ」）。
 # ⚠ 「◯回ごと」と同じ回に重なったら、強化が勝つ（⚠ 設計役の仮）。
 const BUFF_BASIC_ATTACK: String = "basic_attack"
+# 次の通常攻撃に上乗せ（回MG-1・人間「⚠ じゅんばんを変える　特殊弾の強化攻撃は、強化された通常攻撃のこと」）。
+#   "basic_attack_extra": {"effects": [...]} ⚠ 置き換え（basic_attack）とは別＝いつもの攻撃にも、置き換えた攻撃にも足す。⚠ 回数は uses。
+# ⚠ 中の「相手の周り」（mode: area・origin: target）は、その通常攻撃の相手が中心。
+const BUFF_BASIC_EXTRA: String = "basic_attack_extra"
 const BUFF_USES: String = "uses"
 
 # 行動を止める・守る（回CH-5・EXEC_CHAR_RESOURCE.md §12）。⚠ buff の `control` に1つ書く。
@@ -442,7 +446,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	"stat", "value", "target", "trigger", "chance", "charge_scales",
 	"react", "condition",
 	BUFF_INTERVENE, FIELD_ZONE, FIELD_HEALS, BUFF_ATK_MULT_PCT,
-	BUFF_BASIC_ATTACK, BUFF_USES, BUFF_CONTROL, "distance", "to", "offset",
+	BUFF_BASIC_ATTACK, BUFF_BASIC_EXTRA, BUFF_USES, BUFF_CONTROL, "distance", "to", "offset",
 	"sec", "pct", "all", "skills", "what",
 	FIELD_WHEN_TARGET, FIELD_WHEN_MULT, FIELD_WHEN_CRIT, FIELD_EXECUTE_BELOW, FIELD_EXECUTE_BOSS_MULT,
 	FIELD_STAT_PCT, FIELD_MISS_PCT, FIELD_WHEN_USER, FIELD_PIERCE_LENGTH,
@@ -1521,8 +1525,19 @@ static func _validate_effect(
 			if effect.has(forbidden):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない" % [where, effect_type, forbidden])
 
-	# E162〜E163 通常攻撃を置き換える（回CH-4）
-	if effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_USES):
+	# E162〜E163 通常攻撃を置き換える（回CH-4）・上乗せ（回MG-1・E206）
+	if effect.has(BUFF_BASIC_EXTRA):
+		if effect_type != EFFECT_BUFF or effect.has(BUFF_BASIC_ATTACK):
+			_err(issues, skill_id, "%s.%s は buff に、basic_attack と別に書く" % [where, BUFF_BASIC_EXTRA])
+		elif not (effect.get(BUFF_BASIC_EXTRA, null) is Dictionary):
+			_err(issues, skill_id, "%s.%s が辞書でない" % [where, BUFF_BASIC_EXTRA])
+		else:
+			# ⚠ 上乗せは「相手の周り」を書ける＝検査のときだけ直下に target を置いて通常攻撃と同じ検査に通す。
+			var probe_extra: Dictionary = (effect[BUFF_BASIC_EXTRA] as Dictionary).duplicate(true)
+			probe_extra["target"] = {"team": TEAM_ENEMY, "mode": MODE_SELECT, "sort": SORT_NEAREST, "count": 1}
+			for issue: Variant in validate_basic_attack("%s %s.%s" % [skill_id, where, BUFF_BASIC_EXTRA], probe_extra):
+				issues.append(issue)
+	elif effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_USES):
 		_validate_basic_override(issues, skill_id, effect, where, effect_type)
 
 	# E150〜E152 固有の資源（回CH-1）
@@ -1974,7 +1989,7 @@ static func _validate_status_effect(
 		# ⚠ 能力値の欄（stat / value / stat_pct）の検査は _validate_stat_fields() の1本（⚠ dot も同じものを呼ぶ）。
 		var has_stat: bool = _validate_stat_fields(issues, skill_id, effect, where)
 		# ⚠ 新しい補正の欄を足したら、E63（何もしない buff）の判定にも足すこと。
-		var has_atk_mult: bool = effect.has(BUFF_ATK_MULT_PCT) or effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_CONTROL) \
+		var has_atk_mult: bool = effect.has(BUFF_ATK_MULT_PCT) or effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_BASIC_EXTRA) or effect.has(BUFF_CONTROL) \
 				or effect.has(FIELD_MISS_PCT)
 		# E173 … 目くらまし（回DB-1）
 		if effect.has(FIELD_MISS_PCT):
