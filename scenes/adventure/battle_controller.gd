@@ -59,7 +59,7 @@ const SPAWN_WHY_CLEAR: String = "clear"
 # 通常攻撃を待ち行列に積むときの skill_id。⚠ どのスキルファイルにも存在しない。
 # 警告文と待ち行列の中身にしか出ず、マスターを引くのには使わない
 # （通常攻撃の中身は BattleUnit.basic_attack が持っている）。
-const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
+const BASIC_ATTACK_SKILL_ID: String = SkillSchema.BASIC_ATTACK_SKILL_ID
 
 # スキルを撃つキー（2026-09-17・人間「キーでスキルを打てるようにする」
 #   「とりあえず qwerty の順で右から」→ 同日「左からqで」）。
@@ -911,6 +911,9 @@ func _resolve_one_death(unit: Variant) -> void:
 	for skill_id: Variant in u.clear_all_recast():
 		BattleLog.log_recast(u.unit_id, str(skill_id), -1, RECAST_WHY_DEATH)
 	_status.resolve_death(u)
+	# 敵が倒された（回CH-3）。⚠ 復活したら出さない（⚠ resolve_death() の介入点で HP が戻っている）。
+	if not u.is_alive():
+		_skill_runtime.notify_foe_died(u)
 
 
 # ============================================================
@@ -1789,6 +1792,8 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool
 		user, skill_id, phase_data, power_ratio, [], {},
 		-1 if phase_total <= 1 else phase_index
 	)
+	# スキルを使った（回CH-3・本人だけ）。⚠ 撃てたときだけ・段ごとに1回。
+	_skill_runtime.notify_skill_used(user)
 
 	# skills.json の cooldown_sec は base。haste を通してから渡す。
 	# ⚠ 待ち行列が空になるのを待たない。押した時点で回り始めるのが今の挙動。

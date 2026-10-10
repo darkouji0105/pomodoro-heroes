@@ -531,5 +531,98 @@
 				]
 			}
 		]
+	},
+	"passive_dbg_res_foe_died": {
+		"name_key": "ui_battle_passive_dbg_res_foe_died",
+		"user_character_id": "char_debug_status",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_passive_dbg_res_foe_died",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "foe_died",
+					"effects": [
+						{
+							"type": "resource",
+							"resource_id": "dbg_soul",
+							"amount": 1,
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"passive_dbg_res_basic_hit": {
+		"name_key": "ui_battle_passive_dbg_res_basic_hit",
+		"user_character_id": "char_debug_status",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_passive_dbg_res_basic_hit",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "basic_hit",
+					"effects": [
+						{
+							"type": "resource",
+							"resource_id": "dbg_charge",
+							"amount": 5,
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"passive_dbg_res_skill_used": {
+		"name_key": "ui_battle_passive_dbg_res_skill_used",
+		"user_character_id": "char_debug_status",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_passive_dbg_res_skill_used",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "skill_used",
+					"effects": [
+						{
+							"type": "resource",
+							"resource_id": "dbg_charge",
+							"amount": 10,
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
 	}
 }

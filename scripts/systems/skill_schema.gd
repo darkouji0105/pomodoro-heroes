@@ -104,8 +104,9 @@ const RESOURCE_FIELD_ID: String = "resource_id"
 const RESOURCE_FIELD_AMOUNT: String = "amount"
 const RESOURCE_FIELD_SET_TO: String = "set_to"
 const RESOURCE_ONLY_FIELDS: Array = [RESOURCE_FIELD_ID, RESOURCE_FIELD_AMOUNT, RESOURCE_FIELD_SET_TO]
-# ⚠ 威力の式も対象も持たない。書けると「書いたのに効かない」が無音になる。
-const RESOURCE_FIELDS_FORBIDDEN: Array = ["target", "scale_from", "multiplier", "attack_type", "delivery"]
+# ⚠ 威力の式を持たない。書けると「書いたのに効かない」が無音になる。
+# ⚠ target は {"team": "self"} だけ書ける（回CH-3）：⚠ 購読の中の効果は target が必須（E は「購読の効果は各自に要る」）なので。
+const RESOURCE_FIELDS_FORBIDDEN: Array = ["scale_from", "multiplier", "attack_type", "delivery"]
 
 # 召喚（type: "summon"・段階6・PLAN 14-2）の欄。
 #
@@ -255,7 +256,20 @@ const TRIGGER_PREFIX_DELAY: String = "delay:"         # 段階2で実装
 const EVENT_ATTACKED: String = "attacked"            # damage の効果が発火した（空振りでも出る）
 const EVENT_DEALT_DAMAGE: String = "dealt_damage"    # ダメージが1件確定した（攻撃者に配る）
 const EVENT_TOOK_DAMAGE: String = "took_damage"      # ダメージが1件確定した（被害者に配る）
-const EVENTS_KNOWN: Array = [EVENT_ATTACKED, EVENT_DEALT_DAMAGE, EVENT_TOOK_DAMAGE]
+# 回CH-3（2026-10-10・EXEC_CHAR_RESOURCE.md §10）。
+# ⚠ 「敵が倒された」は相手側の生きている全員に配る（人間「⚠ １い　敵が倒されたことをトリガーにする」）。
+#   ⚠ きっかけ（source）＝とどめを刺した人。⚠ 召喚が倒したら召喚した人（人間「⚠ ２あ」）。⚠ 復活したら出ない。
+const EVENT_FOE_DIED: String = "foe_died"
+# ⚠ 通常攻撃のダメージが1件確定した（殴った本人に配る・source＝当たった相手）。
+const EVENT_BASIC_HIT: String = "basic_hit"
+# ⚠ スキルを撃った（本人だけに配る＝人間「⚠ ３あ」）。⚠ 通常攻撃・ルーン・購読の発火は数えない。
+const EVENT_SKILL_USED: String = "skill_used"
+const EVENTS_KNOWN: Array = [
+	EVENT_ATTACKED, EVENT_DEALT_DAMAGE, EVENT_TOOK_DAMAGE,
+	EVENT_FOE_DIED, EVENT_BASIC_HIT, EVENT_SKILL_USED,
+]
+# 通常攻撃を撃つときのスキルID（⚠ BattleController と SkillRuntime の両方が読む＝語彙はここ）。
+const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
 
 # --- effects[].delivery（どう届くか。待ち行列の種別タグ・PLAN 6-8） ---
 #
@@ -1226,6 +1240,11 @@ static func _validate_resource_effect(
 			_err(issues, skill_id, "%s.%s が整数でない" % [where, field])
 	if has_set_to and _is_num(effect.get(RESOURCE_FIELD_SET_TO, null)) and float(effect.get(RESOURCE_FIELD_SET_TO, 0)) < 0.0:
 		_err(issues, skill_id, "%s.set_to が負" % where)
+	# E161 … target は撃った本人だけ（⚠ 資源は持ち主のもの）。
+	if effect.has("target"):
+		var raw_target: Variant = effect.get("target", null)
+		if not (raw_target is Dictionary) or str((raw_target as Dictionary).get("team", "")) != TEAM_SELF or (raw_target as Dictionary).size() != 1:
+			_err(issues, skill_id, "%s.type: 'resource' の target は {\"team\": \"self\"} だけ書ける" % where)
 	for forbidden: String in RESOURCE_FIELDS_FORBIDDEN:
 		if effect.has(forbidden):
 			_err(issues, skill_id, "%s.type: 'resource' に %s は書けない（宛先は撃った本人・威力の式を持たない）" % [where, forbidden])

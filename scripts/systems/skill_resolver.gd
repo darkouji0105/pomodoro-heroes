@@ -425,6 +425,8 @@ static func _apply_damage(
 	# ⚠ シールドは take_damage() の前（amount を減らせるのはここだけ）。
 	# ⚠ 反射は take_damage() の後（「実際に減ったHP」を基準にするため）。
 	_step_shield(ctx, registry)
+	if int(ctx["amount"]) > 0:
+		target.last_attacker_id = user.unit_id
 	target.take_damage(int(ctx["amount"]))
 	_apply_reflect(ctx, registry, results, is_dot)
 
@@ -563,6 +565,7 @@ static func _apply_reflect(
 	if back <= 0:
 		return
 
+	user.last_attacker_id = target.unit_id
 	user.take_damage(back)
 	BattleLog.log_intervene("reflect", target.unit_id, "", "%d to %s" % [back, user.unit_id])
 	# ⚠ 既存4キーの形をそのまま使う（skill_resolver.gd:424）。

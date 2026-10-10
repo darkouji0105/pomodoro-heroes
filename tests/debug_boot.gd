@@ -1494,6 +1494,7 @@ func _ready() -> void:
 		elif report == REPORT_CHAR_RESOURCE:
 			_report_char_resource()
 			_report_char_cost()
+			_report_char_events()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7369,6 +7370,7 @@ func _report_char_resource() -> void:
 		{"type": "resource", "resource_id": "dbg_soul", "amount": 1.5},
 		{"type": "resource", "amount": 1},
 		{"type": "resource", "resource_id": "dbg_soul", "amount": 1, "scale_from": "atk"},
+		{"type": "resource", "resource_id": "dbg_soul", "amount": 1, "target": {"team": "enemy"}},
 		{"type": "damage", "resource_id": "dbg_soul", "multiplier": 1.0, "scale_from": "atk"},
 	]
 	for bad: Dictionary in bad_effects:
@@ -7482,6 +7484,72 @@ func _report_char_cost() -> void:
 	print("  ストックを払う -> '%s'（空が正解）" % MasterDataLoader.cost_owner_issue("skill_probe", owner.merged({"cost": {"resource_id": "dbg_soul", "amount": 1}})))
 	var mix_owner: Dictionary = {"user_character_id": "char_debug_mix"}
 	print("  状態を払う -> '%s'（種類が合わない が正解）" % MasterDataLoader.cost_owner_issue("skill_probe", mix_owner.merged({"cost": {"resource_id": "dbg_stance", "amount": 1}})))
+
+
+# 合図を増やす（回CH-3）。⚠ 本物の SkillRuntime と StatusRegistry を作り、パッシブを宿らせてから合図を起こす。
+# ⚠ 購読は「状態」として宿る＝パッシブを cast すると器に入る（⚠ 戦闘の `_restore_passives()` と同じ入口）。
+func _report_char_events() -> void:
+	var status_id: String = "char_debug_status"
+	print("[DebugBoot] --- 11. 合図（⚠ 敵が倒された＝魂+1 ／ 通常攻撃が当たった＝充電+5 ／ スキルを使った＝充電+10）---")
+	var me: BattleUnit = _resource_unit(status_id, 0)
+	var ally: BattleUnit = _resource_unit("char_debug_mix", 1)
+	var foe_data: Dictionary = MasterDataLoader.get_enemy("enemy_slime")
+	var foe: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var foe2: BattleUnit = BattleUnit.create("enemy_1", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me, ally]
+	session.enemy_units = [foe, foe2]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	for pid: String in ["passive_dbg_res_foe_died", "passive_dbg_res_basic_hit", "passive_dbg_res_skill_used"]:
+		runtime.cast(me, pid, MasterDataLoader.get_skill(pid), 1.0)
+	me.set_resource("dbg_charge", 0)
+	me.set_resource("dbg_soul", 0)
+	print("  始め：充電 %d / 魂 %d（0 / 0）" % [me.get_resource("dbg_charge"), me.get_resource("dbg_soul")])
+
+	var plain: Dictionary = {"effects": [{"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk"}]}
+	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, plain.duplicate(true), 1.0, [foe.unit_id])
+	print("  通常攻撃が当たった：充電 %d（5 が正解）" % me.get_resource("dbg_charge"))
+	runtime.cast(me, "skill_probe", plain.duplicate(true), 1.0, [foe.unit_id])
+	print("  スキルのダメージ（通常攻撃でない）：充電 %d（5 のまま が正解）" % me.get_resource("dbg_charge"))
+	runtime.cast(ally, SkillSchema.BASIC_ATTACK_SKILL_ID, plain.duplicate(true), 1.0, [foe.unit_id])
+	print("  味方の通常攻撃：充電 %d（5 のまま が正解＝本人だけ）" % me.get_resource("dbg_charge"))
+	runtime.notify_skill_used(me)
+	print("  自分がスキルを使った：充電 %d（15 が正解）" % me.get_resource("dbg_charge"))
+	runtime.notify_skill_used(ally)
+	print("  味方がスキルを使った：充電 %d（15 のまま が正解＝人間「⚠ ３あ」）" % me.get_resource("dbg_charge"))
+
+	foe.last_attacker_id = ally.unit_id
+	foe.hp = 0
+	runtime.notify_foe_died(foe)
+	print("  味方が敵を倒した：魂 %d（1 が正解＝人間「⚠ １い」敵が倒されたら届く）" % me.get_resource("dbg_soul"))
+	ally.hp = 0
+	runtime.notify_foe_died(ally)
+	print("  味方が倒された：魂 %d（1 のまま が正解＝敵が倒されたときだけ）" % me.get_resource("dbg_soul"))
+
+	print("[DebugBoot] --- 12. 召喚が倒した（⚠ きっかけは召喚した人＝人間「⚠ ２あ」）---")
+	ally.hp = ally.max_hp
+	var summon_data: Dictionary = MasterDataLoader.get_summon("summon_dbg_guard")
+	var summon: BattleUnit = BattleUnit.create("summon_0", BattleUnit.TEAM_PARTY, summon_data, summon_data, false, "summon_dbg_guard")
+	summon.is_summon = true
+	summon.summon_owner_id = me.unit_id
+	session.summon_units = [summon]
+	# ⚠ きっかけを受け取るため、team: source の効果を持つ購読を1本だけ宿す（⚠ 誰がきっかけかを取り出す）。
+	var probe_react: Dictionary = {"effects": [{
+		"type": "react", "host": "unit", "status_id": "status_probe_killer", "stack": "refresh", "duration_sec": 99.0,
+		"react": {"event": "foe_died", "effects": [{"type": "heal", "multiplier": 1.0, "scale_from": "atk", "target": {"team": "source"}}]},
+	}]}
+	runtime.cast(ally, "probe_react", probe_react, 1.0, [ally.unit_id])
+	me.hp = me.max_hp - 500
+	var before: int = me.hp
+	foe2.last_attacker_id = summon.unit_id
+	foe2.hp = 0
+	runtime.notify_foe_died(foe2)
+	print("  召喚が倒した：魂 %d（2 が正解）／ 味方の購読の source が召喚した人＝その人の HP が %d 増えた（0 より大きいが正解）" % [
+		me.get_resource("dbg_soul"), me.hp - before
+	])
+	print("  ⚠ 「復活したら出ない」は戦闘の側（_resolve_one_death の is_alive）で守っている＝ここでは見ない")
 
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:

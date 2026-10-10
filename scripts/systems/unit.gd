@@ -209,6 +209,9 @@ func sp_ratio() -> float:
 #   （EXEC_SKILL_INTERVENTION.md §1-1）。
 # ⚠ セーブに入らない。ウェーブ交代・リトライは BattleUnit を作り直すので既定値でよい。
 var death_handled: bool = false
+# 最後にダメージを与えた相手（回CH-3）。⚠ 「敵が倒された」のきっかけ（とどめを刺した人）に使う。
+# ⚠ 書くのは SkillResolver のダメージの確定（⚠ 毒も反射も含む）。⚠ 召喚を召喚者へ読み替えるのは配る側。
+var last_attacker_id: String = ""
 var atk_multiplier: float = 1.0
 var attack_timer: float = 0.0
 var x: float = 0.0

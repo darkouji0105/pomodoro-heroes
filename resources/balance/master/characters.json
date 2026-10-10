@@ -243,7 +243,10 @@
 		],
 		"passives": [
 			"passive_dbg_atk",
-			"passive_dbg_cond_alive"
+			"passive_dbg_cond_alive",
+			"passive_dbg_res_foe_died",
+			"passive_dbg_res_basic_hit",
+			"passive_dbg_res_skill_used"
 		],
 		"allocatable_stats": [
 			"hp",

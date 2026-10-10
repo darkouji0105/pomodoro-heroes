@@ -449,6 +449,16 @@ func _dispatch_events(entry: Dictionary, results: Array) -> void:
 	# 2. ダメージを与えた／受けた
 	_dispatch_damage_events(results)
 
+	# 3. 通常攻撃が当たった（回CH-3）。⚠ 殴った本人のダメージだけ（⚠ 反射で返ってきた分は数えない）。
+	if str(entry.get("skill_id", "")) == SkillSchema.BASIC_ATTACK_SKILL_ID:
+		for raw: Variant in results:
+			if not (raw is Dictionary):
+				continue
+			var r: Dictionary = raw as Dictionary
+			if bool(r.get("is_heal", false)) or str(r.get("source_unit_id", "")) != user_id:
+				continue
+			_notify(SkillSchema.EVENT_BASIC_HIT, user_id, str(r.get("unit_id", "")))
+
 
 # 確定したダメージ1件につき「与えた」「受けた」を1回ずつ配る。
 #
@@ -484,6 +494,28 @@ func notify_results(results: Array) -> void:
 	if results.is_empty():
 		return
 	_dispatch_damage_events(results)
+
+
+# スキルを使った（回CH-3）。⚠ 呼ぶのは BattleController._fire_skill() の1か所（⚠ 撃てたときだけ）。
+func notify_skill_used(user: BattleUnit) -> void:
+	if user == null:
+		return
+	_notify(SkillSchema.EVENT_SKILL_USED, user.unit_id, user.unit_id)
+
+
+# 敵が倒された（回CH-3）。⚠ 呼ぶのは BattleController._resolve_one_death() の1か所（⚠ 復活しなかったときだけ）。
+# ⚠ 相手側の生きている全員に配る（⚠ 召喚も入るが、購読を持たないので何も起きない）。
+# ⚠ きっかけ＝とどめを刺した人。⚠ 召喚なら召喚した人（人間「⚠ ２あ」）。
+func notify_foe_died(dead: BattleUnit) -> void:
+	if dead == null or _session == null:
+		return
+	var killer_id: String = dead.last_attacker_id
+	var killer: BattleUnit = _find_unit(killer_id)
+	if killer != null and killer.is_summon and killer.summon_owner_id != "":
+		killer_id = killer.summon_owner_id
+	var foe_team: String = BattleUnit.TEAM_ENEMY if dead.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
+	for raw: Variant in _session.get_alive_units(foe_team):
+		_notify(SkillSchema.EVENT_FOE_DIED, (raw as BattleUnit).unit_id, killer_id)
 
 
 # その出来事を購読しているものを探して撃つ。
