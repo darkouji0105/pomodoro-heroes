@@ -1700,3 +1700,5 @@ ui_report_tower_unit,階
 ui_report_tower_best,最高 %d階
 ui_report_tower_floor,%d階
 ui_tower_fork_descend_button,次の階へ
+ui_dungeon_simple,ふつうに戦う（試作）
+ui_simple_clear_heading,クリアした

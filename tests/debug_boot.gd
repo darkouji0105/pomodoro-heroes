@@ -8598,6 +8598,38 @@ func _report_tower() -> void:
 	print("  網（%s）の入れる深さ = %s（今までどおり＝最深＋1 まで）" % [
 		GameManager.DUNGEON_DEFAULT_ID, str(GameManager.get_dungeon_start_floor_options(GameManager.DUNGEON_DEFAULT_ID))
 	])
+	# 6. ふつうに戦う（案G・2026-10-10）：⚠ 1階だけ＝主を倒したら上れない・帰っても次はまた1階。
+	var simple_id: String = ""
+	for dungeon_id: String in MasterDataLoader.get_all_dungeon_ids():
+		if GameManager.is_tower_dungeon(dungeon_id) and GameManager.get_dungeon_max_floors(dungeon_id) == 1:
+			simple_id = dungeon_id
+	if simple_id == "":
+		push_error("[DebugBoot] ふつうに戦う（max_floors 1）が dungeon.json に無い")
+		bad += 1
+	elif GameManager.start_dungeon_run(simple_id, 1):
+		var simple_kinds: Array[String] = []
+		while not GameManager.get_dungeon_moves().is_empty():
+			var to: String = str(GameManager.get_dungeon_moves()[0])
+			var _go: bool = GameManager.move_in_dungeon(to)
+			var simple_kind: String = str(GameManager.get_dungeon_node(to).get(GameStateKeys.DUNGEON_NODE_KIND, ""))
+			simple_kinds.append(simple_kind)
+			if simple_kind == GameStateKeys.DUNGEON_NODE_KIND_BATTLE:
+				var _w: bool = GameManager.clear_dungeon_battle()
+			elif simple_kind == GameStateKeys.DUNGEON_NODE_KIND_BOSS:
+				var _b: bool = GameManager.clear_dungeon_boss()
+		var can_up: bool = GameManager.can_descend_dungeon_floor()
+		var pending: Dictionary = GameManager.take_all_run_pending_loot(GameManager.RUN_KIND_DUNGEON)
+		var brought: Dictionary = GameManager.retreat_from_dungeon()
+		print("  ふつうに戦う（%s）：%s ／ 主の後に上れる = %s（false が正解）／ 持ち帰った = %s ／ 次に入る階 = %s（[1] が正解）" % [
+			simple_id, " → ".join(simple_kinds), str(can_up), str(brought.get("granted", {})), str(GameManager.get_dungeon_start_floor_options(simple_id)),
+		])
+		if can_up or GameManager.get_dungeon_start_floor_options(simple_id) != [1] or simple_kinds.size() != GameManager.get_tower_battles_per_floor(simple_id) + 1:
+			push_error("[DebugBoot] ふつうに戦うの形が違う")
+			bad += 1
+		var _p: Dictionary = pending
+	else:
+		push_error("[DebugBoot] ふつうに戦うに入れなかった")
+		bad += 1
 	print("  塔の NG = %d（0 が正解）" % bad)
 
 
@@ -11695,6 +11727,20 @@ class UiFlowRunner extends Node:
 			_path_of(r) == REPORT and _label_text(r, "FloorLine", "FloorsLabel") == tr("ui_report_layer_span") % [1, 2]
 			and GameManager.get_dungeon_start_floor_options(tower_id) == [3])
 		GameManager.mark_run_report_seen()
+		# ⚠ ふつうに戦う（案G・2026-10-10）：⚠ 主を倒したら「上る」のカードが無く、持ち帰るだけ。
+		var simple_id: String = "dungeon_simple"
+		_check("ふつうに戦う：掲示板の札がある・dungeon.json にある", not MasterDataLoader.get_dungeon(simple_id).is_empty())
+		if GameManager.start_dungeon_run(simple_id, 1):
+			GameManager.debug_mark_dungeon_boss_cleared()
+			var sfork: Node = await _open(DUNGEON_FLOOR_CLEAR, {})
+			if sfork != null:
+				_check("ふつうに戦う：わかれ道「%s」・「上る」のカードは出ない" % (sfork.get("heading") as Label).text,
+					(sfork.get("heading") as Label).text == tr("ui_simple_clear_heading")
+					and not (sfork.find_child("DescendCard", true, false) as Control).visible)
+				await _press(sfork.find_child("RetreatButton", true, false), OPEN_FRAMES)
+				_check("ふつうに戦う：持ち帰ると報告書・次もまた [1]",
+					_path_of(get_tree().current_scene) == REPORT and GameManager.get_dungeon_start_floor_options(simple_id) == [1])
+				GameManager.mark_run_report_seen()
 
 	# --- 装備の特殊効果（2026-10-02・回UI-仕組み⑦・手本 RichItemFx・人間「⚠ 1い　⚠ 2あ　⚠ 3あ」） ---
 

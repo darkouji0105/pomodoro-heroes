@@ -63,6 +63,9 @@ func _rebuild() -> void:
 	var tower: bool = GameManager.is_tower_dungeon()
 	if tower:
 		heading.text = tr("ui_tower_clear_heading") % GameManager.get_dungeon_floor_index()
+	# ⚠ 「ふつうに戦う」（1階だけ・2026-10-10）は「クリアした」。
+	if tower and GameManager.get_dungeon_max_floors() <= 1:
+		heading.text = tr("ui_simple_clear_heading")
 
 	# ⚠⚠ 何を手に入れたかを見せる（決定48-a・人間「⚠ 何を手に入れたか見れる画面を」）。
 	#   ⚠ 見せるのは**鞄の中身**（⚠ まだ渡していない。⚠ 「ここで戻る」を押したときに渡る）。

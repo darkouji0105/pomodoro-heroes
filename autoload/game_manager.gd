@@ -9079,6 +9079,8 @@ const DUNGEON_MASTER_TOWER: String = "tower"
 const TOWER_BATTLES: String = "battles"
 const TOWER_SPECIAL_FLOOR_PCT: String = "special_floor_pct"
 const TOWER_SPECIAL_FLOOR_WEIGHTS: String = "special_floor_weights"
+# ⚠ 上れる階の上限（⚠ 省くと DungeonConfig.max_floors）。⚠ 1 なら「ふつうに戦う」＝主を倒したら持ち帰るだけ（2026-10-10）。
+const TOWER_MAX_FLOORS: String = "max_floors"
 # 塔のマスの ID（⚠ 入口・戦闘・特別な階のマス。⚠ 主は網と同じ "d_boss"）。
 const TOWER_GATE_ID: String = "t_0"
 const TOWER_NODE_PREFIX: String = "t_"
@@ -9220,7 +9222,7 @@ func get_tower_battle_progress() -> Vector2i:
 func get_tower_resume_floor(dungeon_id: String) -> int:
 	var resume: Variant = _state.get(GameStateKeys.DUNGEON_RESUME_FLOORS, {})
 	var floor_number: int = int((resume as Dictionary).get(dungeon_id, 1)) if resume is Dictionary else 1
-	return clampi(floor_number, 1, get_dungeon_max_floors())
+	return clampi(floor_number, 1, get_dungeon_max_floors(dungeon_id))
 
 
 # 上った先の階の種類を引く（⚠ 人間「⚠ ９らんだむ」「⚠ ４あ」＝続けては出ない）。
@@ -9469,13 +9471,21 @@ func can_descend_dungeon_floor() -> bool:
 	var config: DungeonConfig = _dungeon()
 	if config == null:
 		return false
-	return get_dungeon_floor_index() < maxi(1, int(config.max_floors))
+	return get_dungeon_floor_index() < get_dungeon_max_floors()
 
 
 # 潜れるフロアの数（⚠ 2026-10-03・決定49：入口から数えて 500層＝50フロアまで）。
-func get_dungeon_max_floors() -> int:
+# ⚠ 塔は `tower.max_floors` で縮められる（2026-10-10・「ふつうに戦う」＝1階だけ）。⚠ `dungeon_id` を省くといまのラン。
+func get_dungeon_max_floors(dungeon_id: String = "") -> int:
 	var config: DungeonConfig = _dungeon()
-	return 1 if config == null else maxi(1, int(config.max_floors))
+	var cap: int = 1 if config == null else maxi(1, int(config.max_floors))
+	var id: String = dungeon_id
+	if id == "" and is_in_dungeon():
+		id = str(get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+	if id != "" and is_tower_dungeon(id) and _tower_master(id).has(TOWER_MAX_FLOORS):
+		# ⚠ MasterDataLoader は数値を float で返す。int() で包む（CLAUDE.md 3番）。
+		cap = mini(cap, maxi(1, int(_tower_master(id)[TOWER_MAX_FLOORS])))
+	return cap
 
 
 # --- 層の数え方（2026-10-03・決定49・`EXEC_DUNGEON_SHAPE.md` §5-1） ---
@@ -9536,7 +9546,7 @@ func get_dungeon_start_floor_options(dungeon_id: String = DUNGEON_DEFAULT_ID) ->
 	if is_tower_dungeon(dungeon_id):
 		options.append(get_tower_resume_floor(dungeon_id))
 		return options
-	var deepest: int = mini(get_dungeon_best_floors(dungeon_id) + 1, get_dungeon_max_floors())
+	var deepest: int = mini(get_dungeon_best_floors(dungeon_id) + 1, get_dungeon_max_floors(dungeon_id))
 	for floor_number: int in range(1, maxi(1, deepest) + 1):
 		options.append(floor_number)
 	return options
@@ -9889,7 +9899,7 @@ func retreat_from_dungeon() -> Dictionary:
 	# ⚠ 塔の「次に入る階」＝帰った階の次（⚠ 人間「⚠ ２あ」・⚠ 上限で丸める）。⚠ 書くのはここ1本。
 	if is_tower_dungeon(dungeon_id):
 		var resume: Dictionary = _copy_dict(GameStateKeys.DUNGEON_RESUME_FLOORS)
-		resume[dungeon_id] = mini(floors + 1, get_dungeon_max_floors())
+		resume[dungeon_id] = mini(floors + 1, get_dungeon_max_floors(dungeon_id))
 		_state[GameStateKeys.DUNGEON_RESUME_FLOORS] = resume
 	_record_run_report(REPORT_KIND_DUNGEON, RUN_END_RETURNED, dungeon_id, cleared, _update_dungeon_best(dungeon_id, cleared), {
 		REPORT_GRANTED: result["granted"], REPORT_DISCARDED: result["discarded"],
