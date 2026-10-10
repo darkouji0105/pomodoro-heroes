@@ -196,6 +196,10 @@ func add(
 		push_error("[StatusRegistry] zone{} は host: point にしか書けない (status_id=%s)" % status_id)
 		return false
 
+	# --- 6-1-3. そろったら（回GM-1） ---
+	if effect.get(SkillSchema.FIELD_ON_MEET, null) is Dictionary:
+		entry["on_meet"] = (effect[SkillSchema.FIELD_ON_MEET] as Dictionary).duplicate(true)
+
 	# --- 6-2. 条件（毎フレーム評価する発火源・PLAN 10章） ---
 	if not _fill_condition(entry, effect):
 		return false
@@ -293,7 +297,80 @@ func add(
 		BattleLog.log_condition(
 			status_id, str(entry.get("host_unit_id", "")), bool(entry.get("active", true)), "add"
 		)
+	# そろったら（回GM-1）。⚠ 入れ終わってから見る（⚠ どちらが先に付いても同じ＝人間「⚠ １あ」）。
+	if host == SkillSchema.HOST_UNIT:
+		_check_meet(host_unit)
 	return true
+
+
+# 宿主にそろった組を探して撃つ（回GM-1）。⚠ 撃ったら両方の状態を宿主から消す（⚠ 同じ組は2度撃たない）。
+# ⚠ 撃つのは on_meet を持つ状態を付けた人。⚠ 結果は DoT と同じ口（effects_applied）で流す＝数字と購読の合図が出る。
+func _check_meet(host_unit: BattleUnit) -> void:
+	if host_unit == null or not host_unit.is_alive():
+		return
+	var host_id: String = host_unit.unit_id
+	for entry: Dictionary in _entries.duplicate():
+		var meet: Dictionary = entry.get("on_meet", {}) as Dictionary
+		if meet.is_empty() or str(entry.get("host_unit_id", "")) != host_id:
+			continue
+		var partner: String = str(meet.get("status_id", ""))
+		if not has({"host_unit_id": host_id, "status_id": partner}):
+			continue
+		var source: BattleUnit = _find_unit(str(entry.get("source_unit_id", "")))
+		var own_status: String = str(entry.get("status_id", ""))
+		# ⚠ 先に消す（⚠ 撃った効果がまた状態を付けても、同じ組で回り続けない）。
+		remove_status(host_id, own_status)
+		remove_status(host_id, partner)
+		BattleLog.log_intervene("meet", host_id, own_status, partner)
+		if source == null:
+			return
+		var results: Array = []
+		for raw: Variant in (meet.get("effects", []) as Array):
+			if raw is Dictionary:
+				var fired: Array = SkillResolver.resolve({"effects": [raw]}, source, _session, [host_id], self)
+				BattleLog.log_results(fired, source.unit_id)
+				results.append_array(fired)
+		if not results.is_empty():
+			effects_applied.emit(results)
+		return
+
+
+# 宿主からその状態を全部消す（回GM-1）。⚠ 誰が付けたものでも。戻り値は消した数。
+func remove_status(unit_id: String, status_id: String) -> int:
+	var rest: Array = []
+	var removed: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("host_unit_id", "")) == unit_id and str(entry.get("status_id", "")) == status_id:
+			removed += 1
+			BattleLog.log_status_end(status_id, unit_id, "meet")
+		else:
+			rest.append(entry)
+	if removed > 0:
+		_entries = rest
+		_rebuild_unit_mods(unit_id)
+	return removed
+
+
+# 状態の時計を最初に戻す（回GM-1・通常攻撃で聖なる炎の時間を更新）。⚠ 誰が付けたものでも。⚠ 付いていなければ何もしない。
+func refresh_status(unit_id: String, status_id: String) -> int:
+	var count: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("host_unit_id", "")) == unit_id and str(entry.get("status_id", "")) == status_id:
+			entry["elapsed"] = 0.0
+			entry["fires_done"] = 0
+			count += 1
+	return count
+
+
+# 吸収の割合（回GM-1・殴った側）。⚠ その印に効くものだけを足す。
+func drain_pct(unit_id: String, tag: String) -> int:
+	var total: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) != KIND_BUFF or not _applies_to(entry, unit_id):
+			continue
+		if str(entry.get(SkillSchema.INTERVENE_DRAIN_TAG, "")) == tag:
+			total += int(entry.get(SkillSchema.INTERVENE_DRAIN_PCT, 0))
+	return mini(total, 100)
 
 
 func _make_entry(
@@ -361,6 +438,11 @@ func _make_entry(
 		"on_death": {},
 		"block_status": [],
 		"heal_taken_pct": 0,
+		# 吸収（回GM-1・殴った側）。⚠ 持たない件にも持たせる（query() の注記と同じ）。
+		"drain_tag": "",
+		"drain_pct": 0,
+		# そろったら（回GM-1）。{ "status_id", "effects" }。
+		"on_meet": {},
 		# 攻撃力の倍率（EXEC_SILENT_HOLES.md）。⚠ 持たない件にも必ず持たせる。
 		"atk_mult_pct": 0,
 		# ダメージの介入点（EXEC_SKILL_MITIGATION.md）。⚠ 持たない件にも必ず持たせる
@@ -522,6 +604,17 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 			entry[SkillSchema.INTERVENE_CRIT_ALWAYS] = true
 			has_intervene = true
 
+	# 吸収（回GM-1）。⚠ 印と割合はそろって来る（E182）。
+	if effect_iv.has(SkillSchema.INTERVENE_DRAIN_PCT):
+		var drain: int = int(effect_iv.get(SkillSchema.INTERVENE_DRAIN_PCT, 0))
+		var drain_tag: String = str(effect_iv.get(SkillSchema.INTERVENE_DRAIN_TAG, ""))
+		if drain < 1 or drain_tag == "":
+			push_error("[StatusRegistry] buff の drain が壊れている（印と 1 以上の割合）")
+			return false
+		entry[SkillSchema.INTERVENE_DRAIN_PCT] = drain
+		entry[SkillSchema.INTERVENE_DRAIN_TAG] = drain_tag
+		has_intervene = true
+
 	# ⚠ シールドの残量は counter に入れる（汎用カウンター・呼び出し元がゼロだった）。
 	#   2本目の残量の置き場を作らない。
 	if effect_iv.has(SkillSchema.INTERVENE_SHIELD_HP):
@@ -676,6 +769,9 @@ func _fill_dot(entry: Dictionary, effect: Dictionary, duration_sec: float, life:
 			"attack_type": str(effect.get("attack_type", "")),
 			"scale_from": effect.get("scale_from", null),
 		}
+		# 印（回GM-1）。⚠ 周期のダメージにも乗せる（⚠ 聖なる炎の吸収）。
+		if effect.has(SkillSchema.FIELD_TAG):
+			entry["damage_effect"][SkillSchema.FIELD_TAG] = str(effect.get(SkillSchema.FIELD_TAG, ""))
 	return true
 
 

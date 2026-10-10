@@ -168,7 +168,10 @@ static func _select_area(
 	var center_x: float = 0.0
 	if origin == SkillSchema.ORIGIN_USER:
 		center_x = user.x
-	elif origin == SkillSchema.ORIGIN_TARGET:
+	elif origin == SkillSchema.ORIGIN_AIM and user.has_aim:
+		# 溜めで動かした狙い（回GM-1）。⚠ 狙いが無いとき（自動戦闘・敵）は下の「一番近い相手」と同じ。
+		center_x = user.aim_x
+	elif origin == SkillSchema.ORIGIN_TARGET or origin == SkillSchema.ORIGIN_AIM:
 		# 起点を1体選ぶ。⚠ select と同じ選び方をする（既定は nearest）。
 		#   sort: "all" は起点が1体に決まらないので E79 が赤で弾いている。
 		# ⚠ 起点が居なければ対象0体。警告を出さない（空振りは正常系。
@@ -368,6 +371,10 @@ static func resolve(
 			_apply_resource(effect, user, targets, registry, session, results)
 		elif effect_type == SkillSchema.EFFECT_SUMMON_CONSUME:
 			_apply_summon_consume(effect, user, results, session, registry, is_dot)
+		elif effect_type == SkillSchema.EFFECT_REFRESH_STATUS:
+			# 状態の時計を戻す（回GM-1）。⚠ registry は StatusRegistry（RefCounted で受けている）。
+			for t: BattleUnit in targets:
+				registry.refresh_status(t.unit_id, str(effect.get("status_id", "")))
 		elif effect_type == SkillSchema.EFFECT_KNOCKBACK:
 			for t: BattleUnit in targets:
 				_apply_knockback(effect, user, t, results)
@@ -501,7 +508,48 @@ static func _apply_damage(
 		"source_unit_id": user.unit_id,
 		"attack_type": attack_type,
 	})
+	_step_drain(effect, user, int(ctx["amount"]), results, registry)
 	_step_execute(effect, user, target, results)
+	_step_on_kill(effect, user, target, results, session, registry)
+
+
+# 吸収（回GM-1・神の使いのパッシブ「聖なる炎が与えるダメージの15%を回復」）。⚠ 印（tag）の付いたダメージだけ。
+# ⚠ 回復は被回復の介入点を通す（⚠ ネクロの「回復量低下」も効く）。
+static func _step_drain(effect: Dictionary, user: BattleUnit, amount: int, results: Array, registry: RefCounted) -> void:
+	var tag: String = str(effect.get(SkillSchema.FIELD_TAG, ""))
+	if tag == "" or registry == null or amount <= 0 or not user.is_alive():
+		return
+	var pct: int = int(registry.drain_pct(user.unit_id, tag))
+	if pct <= 0:
+		return
+	var base: int = int(floor(float(amount) * float(pct) / 100.0))
+	var ctx: Dictionary = { "target": user, "base": base, "amount": base, "pct": 0 }
+	_step_heal_taken(ctx, registry)
+	if int(ctx["amount"]) <= 0:
+		return
+	user.heal(int(ctx["amount"]))
+	BattleLog.log_intervene("drain", user.unit_id, tag, "%d" % int(ctx["amount"]))
+	results.append({ "unit_id": user.unit_id, "amount": int(ctx["amount"]), "is_heal": true, "is_crit": false, "is_dot": false })
+
+
+# この攻撃で倒したら（回GM-1）。⚠ 処刑のあとに見る（⚠ 処刑で倒しても数える）。
+# ⚠ when_status は倒れた瞬間の相手の状態（⚠ 状態が消えるのは次の tick＝ここではまだ見える）。
+static func _step_on_kill(
+		effect: Dictionary, user: BattleUnit, target: BattleUnit, results: Array,
+		session: BattleSession, registry: RefCounted
+) -> void:
+	var on_kill: Variant = effect.get(SkillSchema.FIELD_ON_KILL, null)
+	if not (on_kill is Dictionary) or target.is_alive():
+		return
+	var when_status: String = str((on_kill as Dictionary).get("when_status", ""))
+	if when_status != "" and (registry == null or not bool(registry.has({"host_unit_id": target.unit_id, "status_id": when_status}))):
+		return
+	BattleLog.log_intervene("on_kill", target.unit_id, when_status, user.unit_id)
+	for raw: Variant in ((on_kill as Dictionary).get("effects", []) as Array):
+		if not (raw is Dictionary):
+			continue
+		var ids: Array = select_targets((raw as Dictionary).get("target", {}) as Dictionary, user, session)
+		results.append_array(resolve({"effects": [raw]}, user, session, ids, registry))
 
 
 # 処刑（回CH-8）。⚠ 当たったあとの HP で見る（人間「⚠ ２あ」）。⚠ ボス・無敵は倒さない。

@@ -115,6 +115,8 @@ const SHOT_PREPARE_DEBUG_PARTY: String = "debug_party"
 const SHOT_PREPARE_SCHOLAR_PARTY: String = "scholar_party"
 # ⚠ ネクロ（回NC-1）：⚠ ネクロを1番目に入れる（⚠ 内側の `PREPARE_NECRO_PARTY` と同じ字）。
 const SHOT_PREPARE_NECRO_PARTY: String = "necro_party"
+# ⚠ 狂った神の使い（回GM-1）：⚠ 神の使いを1番目に入れる（⚠ 内側の `PREPARE_ZEALOT_PARTY` と同じ字）。
+const SHOT_PREPARE_ZEALOT_PARTY: String = "zealot_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1144,6 +1146,44 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_nc_soul_mend", "prepare": PREPARE_NONE, "gap": 1.0},
 		],
 	},
+	# 狂った神の使い（回GM-1）。⚠ Lv20 に上げてから枠に入れる。
+	"zealot_a": {
+		"kind": KIND_BATTLE,
+		"note": "神の使い A：放射（聖なる炎）→ 聖水（炎とそろって爆発）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_zealot", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_zealot": 20},
+		"skills": {"char_zealot": ["skill_zl_spray", "skill_zl_holy_water"]},
+		"fire": [
+			{"skill": "skill_zl_spray", "prepare": PREPARE_NONE},
+			{"skill": "skill_zl_holy_water", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"zealot_b": {
+		"kind": KIND_BATTLE,
+		"note": "神の使い B：酒を飲む（軽減・失った体力で回復）→ 祝福の炎（味方全員に炎）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_zealot", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_zealot": 20},
+		"skills": {"char_zealot": ["skill_zl_drink", "skill_zl_bless"]},
+		"fire": [
+			{"skill": "skill_zl_drink", "prepare": PREPARE_NONE},
+			{"skill": "skill_zl_bless", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"zealot_c": {
+		"kind": KIND_BATTLE,
+		"note": "神の使い C：銀の散弾（のけぞらせる）→ 審判の十字（0.3 秒溜めて狙いを前へ 150 動かし離す）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_zealot", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_zealot": 20},
+		"skills": {"char_zealot": ["skill_zl_silver", "skill_zl_cross"]},
+		"fire": [
+			{"skill": "skill_zl_silver", "prepare": PREPARE_NONE},
+			{"skill": "skill_zl_cross", "prepare": PREPARE_NONE, "gap": 1.0, "hold_sec": 0.3},
+			{"skill": "skill_zl_silver", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1561,6 +1601,17 @@ const SCENARIOS: Dictionary = {
 				},
 				"settle": 60,
 			},
+			# ⚠ 狂った神の使い（回GM-1）：⚠ 顔・パッシブのマス・スキルのマス。
+			{
+				"name": "91_zealot_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -1681,6 +1732,7 @@ func _ready() -> void:
 			_report_princess()
 			_report_pierce()
 			_report_necro()
+			_report_zealot()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -6366,6 +6418,9 @@ class Driver extends Node:
 		if held < hold:
 			return
 		_dump_charge_bar("離す直前", button_entry)
+		# 狙いが動く溜め（回GM-1）。⚠ 離す直前の狙いの位置。
+		if user.has_aim:
+			print("[DebugBoot] 狙い x=%.1f（使う人 x=%.1f）" % [user.aim_x, user.x])
 		var t: float = float(_battle._charging.get("time", 0.0))
 		var just: bool = _battle._is_just(button_entry, t)
 		_battle._on_charge_button_up(button_entry)
@@ -8608,6 +8663,154 @@ func _report_necro() -> void:
 	soul_def["on_full"] = {"spend": 0, "effects": [{"type": "damage"}]}
 	print("  on_full の spend 0・召喚でない効果 -> %d 件（2 以上）" % MasterDataLoader.character_resource_issues("char_necro", bad_char).size())
 	print("  本物のネクロ -> %d 件（0）" % MasterDataLoader.character_resource_issues("char_necro", MasterDataLoader.get_character("char_necro")).size())
+
+
+# 狂った神の使い（回GM-1）。⚠ 聖なる炎・吸収・爆発・時間を戻す・狙い・倒したら回復。
+func _report_zealot() -> void:
+	var me: BattleUnit = _resource_unit("char_zealot", 0)
+	var ally: BattleUnit = _resource_unit("char_archer", 1)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 1000
+	foe_data["mdef"] = 0
+	var foes: Array = []
+	for i: int in range(3):
+		foes.append(BattleUnit.create("enemy_%d" % i, BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime"))
+	me.x = 300.0
+	ally.x = 250.0
+	(foes[0] as BattleUnit).x = 400.0
+	(foes[1] as BattleUnit).x = 650.0
+	(foes[2] as BattleUnit).x = 1000.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me, ally]
+	session.enemy_units = foes
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	var f0: BattleUnit = foes[0] as BattleUnit
+	var f1: BattleUnit = foes[1] as BattleUnit
+
+	print("[DebugBoot] --- 54. 放射（⚠ 敵＝防御 −20%・割合ダメージ ／ 近くの味方＝防御 +20%・回復）---")
+	var def_foe0: int = f0.get_stat("def")
+	var def_ally0: int = ally.get_stat("def")
+	runtime.cast(me, "skill_zl_spray", MasterDataLoader.get_skill("skill_zl_spray"), 1.0)
+	print("  enemy_0 の炎 %s（true）・防御 %d → %d ／ 遠い enemy_1 の炎 %s（false）" % [
+		str(registry.has({"host_unit_id": "enemy_0", "status_id": "st_zl_holy_foe"})), def_foe0, f0.get_stat("def"),
+		str(registry.has({"host_unit_id": "enemy_1", "status_id": "st_zl_holy_foe"}))])
+	print("  弓兵の炎 %s（true）・防御 %d → %d" % [
+		str(registry.has({"host_unit_id": "party_1", "status_id": "st_zl_holy_ally"})), def_ally0, ally.get_stat("def")])
+
+	print("[DebugBoot] --- 55. 贖罪（⚠ 聖なる炎のダメージの 15% を回復）---")
+	runtime.cast(me, "passive_zl_absolution", MasterDataLoader.get_skill("passive_zl_absolution"), 1.0)
+	me.hp = 10
+	var got: Array = []
+	var on_status: Callable = func(results: Array) -> void:
+		got.append_array(results)
+	registry.effects_applied.connect(on_status)
+	var foe_hp0: int = f0.hp
+	registry.tick(1.0)
+	print("  1秒：enemy_0 の HP %d → %d（−20＝最大 1000 の 2%%）・神の使い 10 → %d（+3＝20 の 15%%）" % [foe_hp0, f0.hp, me.hp])
+	registry.effects_applied.disconnect(on_status)
+
+	print("[DebugBoot] --- 56. 聖水と炎がそろうと爆発（⚠ どちらが先でも・両方消える＝人間「⚠ １あ」）---")
+	var hp_a: int = f0.hp
+	_control_cast("skill_zl_holy_water", me, [f0], session, registry)
+	print("  炎のあとに聖水：enemy_0 の HP %d → %d（−100＝炎の5倍）・炎 %s ／ 聖水 %s（false ／ false）" % [
+		hp_a, f0.hp, str(registry.has({"host_unit_id": "enemy_0", "status_id": "st_zl_holy_foe"})),
+		str(registry.has({"host_unit_id": "enemy_0", "status_id": "st_zl_holy_water"}))])
+	var hp_b: int = f1.hp
+	_control_cast("skill_zl_holy_water", me, [f1], session, registry)
+	print("  聖水だけ：enemy_1 の HP %d（減らない）・聖水 %s（true）" % [f1.hp, str(registry.has({"host_unit_id": "enemy_1", "status_id": "st_zl_holy_water"}))])
+	var spray_foe: Dictionary = ((MasterDataLoader.get_skill("skill_zl_spray").get("effects", []) as Array)[0] as Dictionary).duplicate(true)
+	SkillResolver.resolve({"effects": [spray_foe]}, me, session, ["enemy_1"], registry)
+	print("  聖水のあとに炎：enemy_1 の HP %d → %d（−100）・両方消えた %s（true）" % [
+		hp_b, f1.hp, str(not registry.has({"host_unit_id": "enemy_1", "status_id": "st_zl_holy_water"})
+			and not registry.has({"host_unit_id": "enemy_1", "status_id": "st_zl_holy_foe"}))])
+
+	print("[DebugBoot] --- 57. 通常攻撃で炎の時間を戻す ---")
+	SkillResolver.resolve({"effects": [spray_foe]}, me, session, ["enemy_0"], registry)
+	registry.tick(4.0)
+	var left_before: float = _status_elapsed(registry, "enemy_0", "st_zl_holy_foe")
+	var refresh: Dictionary = (me.basic_attack.get("effects", []) as Array)[1] as Dictionary
+	SkillResolver.resolve({"effects": [refresh]}, me, session, ["enemy_0"], registry)
+	print("  4秒たった炎：経過 %.1f → %.1f（4.0 → 0.0）" % [left_before, _status_elapsed(registry, "enemy_0", "st_zl_holy_foe")])
+	var near_hit: Array = SkillResolver.resolve({"effects": [(me.basic_attack.get("effects", []) as Array)[0]]}, me, session, ["enemy_0"], registry)
+	f1.x = 430.0
+	var far_hit: Array = SkillResolver.resolve({"effects": [(me.basic_attack.get("effects", []) as Array)[0]]}, me, session, ["enemy_1"], registry)
+	f1.x = 650.0
+	print("  ショットガン：100 先 %s ／ 130 先 %s（近いほうが大きい・会心は混ざる）" % [_amounts(near_hit), _amounts(far_hit)])
+
+	print("[DebugBoot] --- 58. 審判の十字（⚠ 狙いの場所・処刑・炎の敵を倒したら最大HPの10%%回復）---")
+	var cross: Dictionary = MasterDataLoader.get_skill("skill_zl_cross")
+	me.has_aim = true
+	me.aim_x = 650.0
+	print("  狙い 650：当たる %s（[enemy_1]）" % str(SkillResolver.select_targets(cross["target"] as Dictionary, me, session)))
+	me.has_aim = false
+	print("  狙いなし：当たる %s（[enemy_0]＝一番近い敵）" % str(SkillResolver.select_targets(cross["target"] as Dictionary, me, session)))
+	me.has_aim = true
+	me.aim_x = 9999.0
+	me.skill_ids = ["skill_zl_cross"]
+	me.skill_cooldowns = {"skill_zl_cross": 0.0}
+	print("  誰もいない場所に狙い：撃てるか '%s'（''＝空振りでも撃つ）" % _cost_reason(me, "skill_zl_cross", session))
+	me.has_aim = false
+	SkillResolver.resolve({"effects": [spray_foe]}, me, session, ["enemy_1"], registry)
+	f1.hp = 400
+	me.hp = 10
+	_control_cast("skill_zl_cross", me, [f1], session, registry)
+	print("  炎の敵 HP 400（40%%）：倒れた %s（true）・神の使い 10 → %d（+%d＝最大 %d の 10%%）" % [str(not f1.is_alive()), me.hp, me.hp - 10, me.max_hp])
+	var f2: BattleUnit = foes[2] as BattleUnit
+	f2.hp = 400
+	me.hp = 10
+	_control_cast("skill_zl_cross", me, [f2], session, registry)
+	print("  炎の無い敵：倒れた %s（true）・神の使い %d（10＝回復しない）" % [str(not f2.is_alive()), me.hp])
+	var boss: BattleUnit = BattleUnit.create("enemy_9", BattleUnit.TEAM_ENEMY, foe_data, foe_data, true, "enemy_slime")
+	session.enemy_units.append(boss)
+	boss.hp = 300
+	_control_cast("skill_zl_cross", me, [boss], session, registry)
+	print("  ボス HP 300（30%%）：生きている %s（true＝処刑しない）" % str(boss.is_alive()))
+
+	print("[DebugBoot] --- 59. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var dmg: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag"}
+	var probes: Array = [
+		["heal に tag", {"type": "heal", "multiplier": 1.0, "scale_from": "mag", "tag": "x"}, {}, true],
+		["on_kill を heal に", {"type": "heal", "multiplier": 1.0, "scale_from": "mag", "on_kill": {"effects": [dmg]}}, {}, true],
+		["on_kill の中に target が無い", (dmg.duplicate() as Dictionary).merged({"on_kill": {"effects": [{"type": "heal", "multiplier": 1.0, "scale_from": "mag"}]}}), {}, true],
+		["on_meet が自分と同じ", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "stat": "atk", "value": 1, "on_meet": {"status_id": "st_a", "effects": [dmg]}}, {}, true],
+		["refresh_status に status_id が無い", {"type": "refresh_status"}, {}, true],
+		["drain_tag だけ", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "intervene": {"drain_tag": "x"}}, {}, true],
+		["aim なのに instant", dmg, {"aim": {"from": 0, "speed": 100, "to": 300}, "target": {"team": "enemy", "mode": "area", "origin": "aim", "radius": 50}}, true],
+		["origin: aim なのに aim が無い", dmg, {"target": {"team": "enemy", "mode": "area", "origin": "aim", "radius": 50}}, true],
+		["on_meet で爆発（正しい）", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "stat": "atk", "value": 1, "on_meet": {"status_id": "st_b", "effects": [dmg]}}, {}, false],
+		["refresh_status（正しい）", {"type": "refresh_status", "status_id": "st_a"}, {}, false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_zealot", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [probe[1]],
+		}
+		data.merge(probe[2] as Dictionary, true)
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[3]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
+func _status_elapsed(registry: StatusRegistry, unit_id: String, status_id: String) -> float:
+	for entry: Variant in registry.query({"host_unit_id": unit_id, "status_id": status_id}):
+		return float((entry as Dictionary).get("elapsed", -1.0))
+	return -1.0
+
+
+func _amounts(results: Array) -> String:
+	var list: Array = []
+	for r: Variant in results:
+		if r is Dictionary and not bool((r as Dictionary).get("is_heal", false)) and not (r as Dictionary).has("kind"):
+			list.append(int((r as Dictionary).get("amount", 0)))
+	return str(list)
 
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
@@ -10873,6 +11076,7 @@ class ShotTaker extends Node:
 	const PREPARE_DEBUG_PARTY: String = "debug_party"
 	const PREPARE_SCHOLAR_PARTY: String = "scholar_party"
 	const PREPARE_NECRO_PARTY: String = "necro_party"
+	const PREPARE_ZEALOT_PARTY: String = "zealot_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
 	const DEBUG_PARTY_SKILLS: Dictionary = {
@@ -11245,6 +11449,11 @@ class ShotTaker extends Node:
 				GameManager._state[GameStateKeys.DUNGEON_RUN] = run
 				return true
 			return GameManager.debug_mark_dungeon_boss_cleared()
+		if kind == PREPARE_ZEALOT_PARTY:
+			for zealot_i: int in range(3):
+				if not GameManager.set_party_member(zealot_i, ["char_zealot", "char_archer", "char_priest"][zealot_i]):
+					return false
+			return true
 		if kind == PREPARE_NECRO_PARTY:
 			for necro_i: int in range(3):
 				if not GameManager.set_party_member(necro_i, ["char_necro", "char_archer", "char_priest"][necro_i]):
@@ -14649,19 +14858,19 @@ class UiFlowRunner extends Node:
 		var rows: int = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：既定は「すべて」で %d 行（タブ %d 枚）" % [rows, 0 if tabs == null else tabs.get_child_count()],
 			tabs != null and tabs.current == 0 and tabs.get_child_count() == GameManager.RECIPE_CATEGORIES.size() + 1 and rows == all)
-		# ⚠ 武器 → 12行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12）。
+		# ⚠ 武器 → 15行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12 ／ 回GM-1 でショットガン3本を足して 15）。
 		await _press(null if tabs == null else tabs.find_child("Tab1", false, false))
 		await _wait()
 		rows = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：「武器」で %d 行（武器のレシピ %d）・装飾は出ない" % [rows, int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0))],
-			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 12
+			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 15
 			and ws.find_child("RecipeRow_craft_weapon_bow_short", true, false) != null and ws.find_child("RecipeRow_craft_part_1", true, false) == null)
 		# ⚠ 出て戻っても「武器」のまま。
 		var _base: Node = await _open(BASE, {})
 		ws = await _open(WORKSHOP_SCREEN, {})
 		tabs = null if ws == null else ws.find_child("CategoryTabs", true, false) as PaperTabs
 		rows = 0 if ws == null else ws.find_children("RecipeRow_*", "", true, false).size()
-		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 12)
+		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 15)
 		# ⚠ くじ → 1行。
 		await _press(null if tabs == null else tabs.find_child("Tab5", false, false))
 		await _wait()

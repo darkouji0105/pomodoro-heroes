@@ -66,7 +66,8 @@ const MODES_KNOWN: Array = [MODE_SELECT, MODE_AREA]
 #   巻き込む（人間の決定・EXEC_SKILL_AREA.md §0）。
 const ORIGIN_USER: String = "user"       # 使用者の位置が中心。sort / range は書けない（E78）
 const ORIGIN_TARGET: String = "target"   # sort で選んだ1体の位置が中心
-const ORIGINS_KNOWN: Array = [ORIGIN_USER, ORIGIN_TARGET]
+const ORIGIN_AIM: String = "aim"         # 溜めで動かした狙いの位置が中心（回GM-1）。sort / range は書けない
+const ORIGINS_KNOWN: Array = [ORIGIN_USER, ORIGIN_TARGET, ORIGIN_AIM]
 
 # --- target.sort（並べ替え） ---
 const SORT_NEAREST: String = "nearest"
@@ -119,6 +120,25 @@ const EFFECT_SUMMON_CONSUME: String = "summon_consume"
 const CONSUME_COUNT_ALL: String = "all"
 const CONSUME_FIELD_UNIT_IDS: String = "unit_ids"
 const CONSUME_FIELD_BLAST_RADIUS: String = "blast_radius"
+# 状態の残り時間を最初に戻す（回GM-1・神の使いの通常攻撃「聖なる炎の効果時間を更新する」）。
+#   {"type": "refresh_status", "status_id": "st_zl_holy_foe"} … 対象に付いているその状態（⚠ 誰が付けたものでも）の時計を 0 に戻す
+# ⚠ 付いていなければ何もしない（⚠ 新しく付けない）。
+const EFFECT_REFRESH_STATUS: String = "refresh_status"
+# ダメージの印（回GM-1・「聖なる炎のダメージとして扱われる」）。⚠ damage と dot に書く。⚠ 吸収（intervene の drain_tag）が読む。
+const FIELD_TAG: String = "tag"
+# この攻撃で倒したら（回GM-1・処刑の一撃「聖なる炎を持つ敵を殺した場合、自身のHPを回復する」）。⚠ damage に書く。
+#   "on_kill": {"when_status": "st_zl_holy_foe", "effects": [{"type": "heal", "target": {"team": "self"}, ...}]}
+# ⚠ when_status は省ける（⚠ 書けば「倒した相手にその状態が付いていたら」）。⚠ effects は撃った本人が撃つ。
+const FIELD_ON_KILL: String = "on_kill"
+# 2つの状態がそろったら（回GM-1・聖水と聖なる炎の爆発＝人間「⚠ １あ」どちらが先でも・そろったら両方消える）。⚠ 状態（buff / dot・host: unit）に書く。
+#   "on_meet": {"status_id": "st_zl_holy_foe", "effects": [{"type": "damage", ...}]}
+# ⚠ effects は宿主に当たる・撃つのはこの状態を付けた人。⚠ 撃ったあと、宿主から両方の状態を消す。
+const FIELD_ON_MEET: String = "on_meet"
+# 狙いが動く溜め（回GM-1・人間「⚠ ２あ」＝溜めている間に狙いの円が右へ動き、離した場所に撃つ）。⚠ スキルの直下・activation: charge だけ。
+#   "aim": {"from": 80, "speed": 300, "to": 700} … 自分の前 from から、毎秒 speed ずつ、to まで
+# ⚠ 範囲の中心は target の origin: "aim"（⚠ 狙いが無いとき＝自動戦闘や敵は、射程の中の一番近い相手の位置）。
+const FIELD_AIM: String = "aim"
+const AIM_FIELDS_REQUIRED: Array = ["from", "speed", "to"]
 # 対象を取らない効果（回NC-1）。⚠ 購読の中でも target が要らない（E54 の例外）・実行時も対象を選ばない。
 const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
 # 召喚の上限（回NC-1・人間「⚠ あ６」＝⚠ 段階6の決定5「上限なし」を召喚ごとに上書きできるようにした）。
@@ -176,14 +196,14 @@ const DASH_TOS_KNOWN: Array = [DASH_TO_TARGET, DASH_TO_BACK]
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
-	EFFECT_SUMMON_CONSUME,
+	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS,
 	"cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
-	EFFECT_SUMMON_CONSUME,
+	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS,
 ]
 # resource の欄。⚠ amount（足す・負なら減らす）と set_to（その値にする）はどちらか1つ。
 # ⚠ 持ち主にその資源があるか・種類と欄が合うかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
@@ -247,10 +267,14 @@ const INTERVENE_PIERCE_PCT: String = "pierce_pct"
 const INTERVENE_CRIT_ALWAYS: String = "crit_always"
 const INTERVENE_REFLECT_PCT: String = "reflect_pct"
 const INTERVENE_REFLECT_FLAT: String = "reflect_flat"
+# 吸収（回GM-1・殴った側）。⚠ 印（tag）の付いたダメージを与えたら、その pct % 回復する。⚠ 2つそろえて書く。
+const INTERVENE_DRAIN_TAG: String = "drain_tag"
+const INTERVENE_DRAIN_PCT: String = "drain_pct"
 # ⚠ 知らない欄を赤にする（E107）ための唯一の正。⚠ 欄を足したらここにも足すこと。
 const INTERVENE_FIELDS_KNOWN: Array = [
 	INTERVENE_SHIELD_HP, INTERVENE_REDUCTION_PCT, INTERVENE_PIERCE_PCT,
 	INTERVENE_CRIT_ALWAYS, INTERVENE_REFLECT_PCT, INTERVENE_REFLECT_FLAT,
+	INTERVENE_DRAIN_TAG, INTERVENE_DRAIN_PCT,
 	BUFF_ON_DEATH, BUFF_BLOCK_STATUS, BUFF_HEAL_TAKEN_PCT,
 ]
 # ⚠ 軽減の上限。100 にすると amount が必ず 0 になり、誰も死なずに決着しない
@@ -340,6 +364,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to", "per_target_stack",
 	CONSUME_FIELD_UNIT_IDS, CONSUME_FIELD_BLAST_RADIUS, SUMMON_FIELD_MAX_PER_OWNER,
+	FIELD_TAG, FIELD_ON_KILL, FIELD_ON_MEET,
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -559,6 +584,8 @@ const SKILL_FIELDS_KNOWN: Array = [
 	FIELD_COST,
 	# 自分の召喚が足りないと撃てない（回NC-1）。
 	FIELD_NEED_SUMMONS,
+	# 狙いが動く溜め（回GM-1）。
+	FIELD_AIM,
 	# トグル型（回CH-9）。
 	FIELD_TOGGLE,
 	# レリック（段階14-d）。⚠ relics.json は skills.json と同じ辞書へマージされるので、
@@ -798,6 +825,7 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	# E156〜E159 資源を払う（回CH-2）
 	_validate_cost(issues, skill_id, data)
 	_validate_need_summons(issues, skill_id, data)
+	_validate_aim(issues, skill_id, data)
 
 	# E3
 	if str(data.get("name_key", "")) == "":
@@ -1236,6 +1264,9 @@ static func _validate_effect(
 		for dash_field: String in ["to", "offset"]:
 			if effect.has(dash_field):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（dash だけ）" % [where, effect_type, dash_field])
+
+	# E183〜E186 神の使い（回GM-1）
+	_validate_gm_fields(issues, skill_id, effect, where, effect_type, activation, in_react)
 
 	# E178 自分の召喚を使う（回NC-1）
 	if effect_type == EFFECT_SUMMON_CONSUME:
@@ -1959,6 +1990,16 @@ static func _validate_intervene(
 				where, BUFF_INTERVENE, INTERVENE_PIERCE_PCT, PIERCE_PCT_MAX
 			])
 
+	# E182 … 吸収（回GM-1）。⚠ 印と割合はそろえて書く・割合は 1〜100。
+	if iv.has(INTERVENE_DRAIN_TAG) != iv.has(INTERVENE_DRAIN_PCT):
+		_err(issues, skill_id, "%s.%s の drain_tag と drain_pct はそろえて書く" % [where, BUFF_INTERVENE])
+	if iv.has(INTERVENE_DRAIN_TAG) and str(iv.get(INTERVENE_DRAIN_TAG, "")) == "":
+		_err(issues, skill_id, "%s.%s.drain_tag が空" % [where, BUFF_INTERVENE])
+	if iv.has(INTERVENE_DRAIN_PCT):
+		var drain: Variant = iv.get(INTERVENE_DRAIN_PCT, null)
+		if not _is_num(drain) or float(drain) != floor(float(drain)) or int(drain) < 1 or int(drain) > 100:
+			_err(issues, skill_id, "%s.%s.drain_pct が 1〜100 の整数でない" % [where, BUFF_INTERVENE])
+
 	# W14 … crit_always: false は書いても何も起きない。消し忘れの合図。
 	if iv.has(INTERVENE_CRIT_ALWAYS):
 		var crit: Variant = iv.get(INTERVENE_CRIT_ALWAYS, null)
@@ -2116,6 +2157,100 @@ static func _validate_scale_from(
 
 
 # cost の形（回CH-2）。
+# 印・倒したら・そろったら・時間を戻す（回GM-1・E183〜E186）。
+static func _validate_gm_fields(
+		issues: Array, skill_id: String, effect: Dictionary, where: String,
+		effect_type: String, activation: String, in_react: bool
+) -> void:
+	# E183 印は damage と dot だけ（⚠ 回復の dot には書けない＝吸収するダメージが無い）。
+	if effect.has(FIELD_TAG):
+		if not (effect_type in [EFFECT_DAMAGE, EFFECT_DOT]) or bool(effect.get(FIELD_HEALS, false)):
+			_err(issues, skill_id, "%s.tag は damage と（回復でない）dot にしか書けない" % where)
+		elif str(effect.get(FIELD_TAG, "")) == "":
+			_err(issues, skill_id, "%s.tag が空" % where)
+	# E184 倒したら（damage だけ）
+	if effect.has(FIELD_ON_KILL):
+		if effect_type != EFFECT_DAMAGE:
+			_err(issues, skill_id, "%s.on_kill は damage にしか書けない" % where)
+		else:
+			_validate_sub_effects(issues, skill_id, effect.get(FIELD_ON_KILL, null), where + ".on_kill",
+				["when_status", "effects"], activation, true)
+	# E185 そろったら（状態・host: unit だけ）
+	if effect.has(FIELD_ON_MEET):
+		if not (effect_type in [EFFECT_BUFF, EFFECT_DOT]) or str(effect.get("host", "")) != HOST_UNIT:
+			_err(issues, skill_id, "%s.on_meet は host: unit の buff / dot にしか書けない" % where)
+		else:
+			var meet: Variant = effect.get(FIELD_ON_MEET, null)
+			if meet is Dictionary and str((meet as Dictionary).get("status_id", "")) == "":
+				_err(issues, skill_id, "%s.on_meet.status_id が無い（どの状態とそろったら）" % where)
+			elif meet is Dictionary and str((meet as Dictionary).get("status_id", "")) == str(effect.get("status_id", "")):
+				_err(issues, skill_id, "%s.on_meet.status_id が自分と同じ" % where)
+			_validate_sub_effects(issues, skill_id, meet, where + ".on_meet", ["status_id", "effects"], activation, false)
+	# E186 時間を戻す
+	if effect_type == EFFECT_REFRESH_STATUS:
+		if str(effect.get("status_id", "")) == "":
+			_err(issues, skill_id, "%s.status_id が無い（どの状態の時間を戻すか）" % where)
+		for forbidden: String in ["scale_from", "multiplier", "attack_type", "host", "duration_sec"]:
+			if effect.has(forbidden):
+				_err(issues, skill_id, "%s.type: 'refresh_status' に %s は書けない" % [where, forbidden])
+
+
+# on_kill / on_meet の中身。⚠ 中の効果は effects[] と同じ検証を通す（⚠ 入れ子の入れ子は書けない）。
+static func _validate_sub_effects(
+		issues: Array, skill_id: String, raw: Variant, where: String, keys: Array,
+		activation: String, need_target: bool
+) -> void:
+	if not (raw is Dictionary):
+		_err(issues, skill_id, "%s が辞書でない" % where)
+		return
+	for key: Variant in (raw as Dictionary):
+		if not (str(key) in keys):
+			_err(issues, skill_id, "%s に知らない欄がある: '%s'" % [where, str(key)])
+	var effects: Variant = (raw as Dictionary).get("effects", null)
+	if not (effects is Array) or (effects as Array).is_empty():
+		_err(issues, skill_id, "%s.effects が空でない配列でない" % where)
+		return
+	for i: int in range((effects as Array).size()):
+		var sub: Variant = (effects as Array)[i]
+		if not (sub is Dictionary):
+			_err(issues, skill_id, "%s.effects[%d] が辞書でない" % [where, i])
+			continue
+		for nested: String in [FIELD_ON_KILL, FIELD_ON_MEET, "react"]:
+			if (sub as Dictionary).has(nested):
+				_err(issues, skill_id, "%s.effects[%d] に %s は書けない（入れ子の入れ子）" % [where, i, nested])
+		if need_target and not (sub as Dictionary).has("target"):
+			_err(issues, skill_id, "%s.effects[%d] に target が無い（⚠ 撃った本人なら {\"team\": \"self\"}）" % [where, i])
+		_validate_effect(issues, skill_id, sub as Dictionary, i, activation, where, true)
+
+
+# 狙いが動く溜め（回GM-1・E187）。⚠ activation: charge だけ・target は origin: "aim" の範囲。
+static func _validate_aim(issues: Array, skill_id: String, data: Dictionary) -> void:
+	var raw_target: Variant = data.get("target", null)
+	var uses_aim: bool = raw_target is Dictionary and str((raw_target as Dictionary).get("origin", "")) == ORIGIN_AIM
+	if not data.has(FIELD_AIM):
+		if uses_aim:
+			_err(issues, skill_id, "target.origin: 'aim' なのに aim{} が無い")
+		return
+	if str(data.get("activation", "")) != ACTIVATION_CHARGE:
+		_err(issues, skill_id, "aim{} は activation: charge にしか書けない（溜めている間に動く）")
+	if not uses_aim:
+		_err(issues, skill_id, "aim{} があるのに target.origin が 'aim' でない（狙いを使わない）")
+	var aim: Variant = data.get(FIELD_AIM, null)
+	if not (aim is Dictionary):
+		_err(issues, skill_id, "aim が辞書でない")
+		return
+	for key: Variant in (aim as Dictionary):
+		if not (str(key) in AIM_FIELDS_REQUIRED):
+			_err(issues, skill_id, "aim に知らない欄がある: '%s'" % str(key))
+	for field: String in AIM_FIELDS_REQUIRED:
+		var v: Variant = (aim as Dictionary).get(field, null)
+		if not _is_num(v) or float(v) < 0.0:
+			_err(issues, skill_id, "aim.%s が 0 以上の数でない" % field)
+	if _is_num((aim as Dictionary).get("from", null)) and _is_num((aim as Dictionary).get("to", null)) \
+			and float((aim as Dictionary)["to"]) < float((aim as Dictionary)["from"]):
+		_err(issues, skill_id, "aim.to が from より手前")
+
+
 # 自分の召喚が足りないと撃てない（回NC-1・E179）。⚠ unit_ids が summons.json にあるかは MasterDataLoader（E100 と同じ場所）。
 static func _validate_need_summons(issues: Array, skill_id: String, data: Dictionary) -> void:
 	if not data.has(FIELD_NEED_SUMMONS):

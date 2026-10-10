@@ -314,6 +314,10 @@ var summon_remaining: float = 0.0
 # 召喚の種類（summons.json のID・回NC-1）。⚠ 「古い順に3体」「ゾンビを全部」の数え分けに使う（⚠ master_id は見た目専用なので別に持つ）。
 var summon_kind_id: String = ""
 
+# 狙いが動く溜め（回GM-1）。⚠ 書くのは BattleController の溜め（⚠ 溜めている間・撃ち終わったら消す）だけ。⚠ セーブに入らない。
+var has_aim: bool = false
+var aim_x: float = 0.0
+
 
 # 生成の唯一の入口。BattleUnit.new() を直接呼ばないこと。
 #

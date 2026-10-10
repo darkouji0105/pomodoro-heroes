@@ -79,6 +79,9 @@ static func blocked_reason(
 	var raw_target: Variant = skill_data.get("target", null)
 	if not (raw_target is Dictionary):
 		return REASON_SKILL_NOT_FOUND
+	# ⚠ 狙いを動かして離した（回GM-1）＝人間が選んだ場所なので、空振りでも撃つ（⚠ クールダウンも回る）。
+	if user.has_aim and str((raw_target as Dictionary).get("origin", "")) == SkillSchema.ORIGIN_AIM:
+		return REASON_OK
 	if SkillResolver.select_targets(raw_target as Dictionary, user, session).is_empty():
 		return REASON_NO_TARGET
 

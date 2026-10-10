@@ -1,0 +1,255 @@
+{
+	"skill_zl_spray": {
+		"name_key": "ui_battle_skill_zl_spray",
+		"user_character_id": "char_zealot",
+		"unlock_level": 1,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "target",
+			"sort": "nearest",
+			"range": 200.0,
+			"radius": 120.0
+		},
+		"effects": [
+			{
+				"type": "dot",
+				"host": "unit",
+				"status_id": "st_zl_holy_foe",
+				"stack": "refresh",
+				"duration_sec": 6.0,
+				"interval_sec": 1.0,
+				"multiplier": 1.0,
+				"attack_type": "magic",
+				"scale_from": [
+					{
+						"source": "hp",
+						"of": "target",
+						"weight": 0.02
+					}
+				],
+				"tag": "holy_fire",
+				"stat": "def",
+				"stat_pct": -20
+			},
+			{
+				"type": "dot",
+				"host": "unit",
+				"status_id": "st_zl_holy_ally",
+				"stack": "refresh",
+				"duration_sec": 6.0,
+				"interval_sec": 1.0,
+				"heals": true,
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "hp",
+						"of": "user",
+						"weight": 0.02
+					}
+				],
+				"stat": "def",
+				"stat_pct": 20,
+				"target": {
+					"team": "ally",
+					"mode": "area",
+					"origin": "user",
+					"radius": 160.0
+				}
+			}
+		]
+	},
+	"skill_zl_drink": {
+		"name_key": "ui_battle_skill_zl_drink",
+		"user_character_id": "char_zealot",
+		"unlock_level": 1,
+		"cooldown_sec": 14.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_zl_drunk",
+				"duration_sec": 6.0,
+				"stack": "refresh",
+				"intervene": {
+					"reduction_pct": 30
+				}
+			},
+			{
+				"type": "heal",
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "hp_lost",
+						"of": "user",
+						"weight": 0.3
+					}
+				]
+			}
+		]
+	},
+	"skill_zl_bless": {
+		"name_key": "ui_battle_skill_zl_bless",
+		"user_character_id": "char_zealot",
+		"unlock_level": 5,
+		"cooldown_sec": 16.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "dot",
+				"host": "unit",
+				"status_id": "st_zl_holy_ally",
+				"stack": "refresh",
+				"duration_sec": 6.0,
+				"interval_sec": 1.0,
+				"heals": true,
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "hp",
+						"of": "user",
+						"weight": 0.02
+					}
+				],
+				"stat": "def",
+				"stat_pct": 20
+			}
+		]
+	},
+	"skill_zl_silver": {
+		"name_key": "ui_battle_skill_zl_silver",
+		"user_character_id": "char_zealot",
+		"unlock_level": 10,
+		"cooldown_sec": 8.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 200.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 1.8,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit"
+			},
+			{
+				"type": "knockback",
+				"distance": 120.0,
+				"trigger": "event:hit"
+			}
+		]
+	},
+	"skill_zl_holy_water": {
+		"name_key": "ui_battle_skill_zl_holy_water",
+		"user_character_id": "char_zealot",
+		"unlock_level": 15,
+		"cooldown_sec": 9.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 300.0
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_zl_holy_water",
+				"duration_sec": 8.0,
+				"stack": "refresh",
+				"stat": "atk",
+				"stat_pct": -10,
+				"on_meet": {
+					"status_id": "st_zl_holy_foe",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 5.0,
+							"attack_type": "magic",
+							"scale_from": [
+								{
+									"source": "hp",
+									"of": "target",
+									"weight": 0.02
+								}
+							],
+							"tag": "holy_fire"
+						}
+					]
+				}
+			}
+		]
+	},
+	"skill_zl_cross": {
+		"name_key": "ui_battle_skill_zl_cross",
+		"user_character_id": "char_zealot",
+		"unlock_level": 20,
+		"cooldown_sec": 18.0,
+		"activation": "charge",
+		"charge": {
+			"just_sec": 1.0,
+			"just_window_sec": 0.15,
+			"min_ratio": 0.6,
+			"just_bonus": 1.3
+		},
+		"aim": {
+			"from": 60.0,
+			"speed": 300.0,
+			"to": 700.0
+		},
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "aim",
+			"radius": 70.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 2.5,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"execute_below": 0.4,
+				"execute_boss_mult": 1.5,
+				"on_kill": {
+					"when_status": "st_zl_holy_foe",
+					"effects": [
+						{
+							"type": "heal",
+							"target": {
+								"team": "self"
+							},
+							"multiplier": 1.0,
+							"scale_from": [
+								{
+									"source": "hp",
+									"of": "user",
+									"weight": 0.1
+								}
+							]
+						}
+					]
+				}
+			}
+		]
+	}
+}

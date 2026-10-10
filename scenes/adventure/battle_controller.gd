@@ -150,6 +150,8 @@ var _skill_tooltip: SkillTooltip = null
 # チャージ中のスキル。{entry: Dictionary, time: float}。未チャージ時は空。
 # 同時に1つしかチャージできない。
 var _charging: Dictionary = {}
+# 狙いの円（回GM-1）。⚠ 溜めている間だけ見える・1つだけ（⚠ 溜めは同時に1本）。
+var _aim_marker: AimMarker = null
 
 # 実行中のスキル層（段階2）。多段・遅延の待ち行列を持つ。
 # ここに待ち行列を直接持たないこと。battle_controller は入力と表示だけ（PLAN 7-1）。
@@ -2268,6 +2270,7 @@ func _on_charge_button_down(entry: Dictionary) -> void:
 	if SkillActivation.is_cost_short(user, skill_id, _session):
 		return
 	_charging = {"entry": entry, "time": 0.0}
+	_update_aim()
 
 	# trigger: "charge_start" の効果だけがここで発火する（PLAN 6-2）。
 	# ⚠ 今は該当する効果を持つスキルが0件なので、実質何も起きない。
@@ -2295,6 +2298,8 @@ func _on_charge_button_up(entry: Dictionary) -> void:
 	# 発動で敵が全滅すると、そのあとでは判定に使う情報が変わりうるため。
 	var is_just: bool = _is_just(entry, t)
 	_fire_skill(user, skill_id, _charge_power_ratio(entry, t))
+	# 狙いを消す（回GM-1）。⚠ 撃ったあと（⚠ 対象は撃った瞬間に決まっている）。
+	_clear_aim(user)
 	if is_just:
 		_pop_just(entry)
 
@@ -2332,6 +2337,41 @@ func _tick_charge(delta: float) -> void:
 		_cancel_charge()
 		return
 	_charging["time"] = float(_charging.get("time", 0.0)) + delta
+	_update_aim()
+
+
+# 狙いが動く溜め（回GM-1）。⚠ 溜めている人の前 from から、毎秒 speed ずつ to まで（⚠ 戦場の端で止まる）。
+# ⚠ 狙いは使う人に書く（⚠ 撃つときに SkillResolver が読む）。⚠ 狙いの無いスキルなら何もしない。
+func _update_aim() -> void:
+	var entry: Dictionary = _charging.get("entry", {})
+	var user: BattleUnit = entry.get("user", null)
+	if user == null:
+		return
+	var data: Dictionary = MasterDataLoader.get_skill(str(entry.get("skill_id", "")))
+	var aim: Variant = data.get(SkillSchema.FIELD_AIM, null)
+	if not (aim is Dictionary):
+		return
+	var t: float = float(_charging.get("time", 0.0))
+	var reach: float = minf(
+		float((aim as Dictionary).get("from", 0.0)) + float((aim as Dictionary).get("speed", 0.0)) * t,
+		float((aim as Dictionary).get("to", 0.0))
+	)
+	var forward: float = 1.0 if user.team == BattleUnit.TEAM_PARTY else -1.0
+	user.aim_x = clampf(user.x + forward * reach, RUNE_MOVE_MIN_X, RUNE_MOVE_MAX_X)
+	user.has_aim = true
+	if _aim_marker == null or not is_instance_valid(_aim_marker):
+		_aim_marker = AimMarker.new()
+		_aim_marker.name = "AimMarker"
+		add_child(_aim_marker)
+	var radius: float = float((data.get("target", {}) as Dictionary).get("radius", 0.0))
+	_aim_marker.show_at(user.aim_x, _ground_y, radius)
+
+
+func _clear_aim(user: BattleUnit) -> void:
+	if user != null:
+		user.has_aim = false
+	if _aim_marker != null and is_instance_valid(_aim_marker):
+		_aim_marker.hide()
 
 
 # チャージを取り消す。⚠ until: "charge_end" の状態もここで剥がす。
@@ -2343,6 +2383,7 @@ func _cancel_charge() -> void:
 	var user: BattleUnit = entry.get("user", null)
 	if user != null and _status != null:
 		_status.end_charge(user.unit_id)
+	_clear_aim(user)
 	_charging.clear()
 
 

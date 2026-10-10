@@ -51,6 +51,9 @@
           { "item_id": "weapon_gauntlet_iron", "weight": 1, "count": 1 },
           { "item_id": "weapon_gauntlet_swift", "weight": 1, "count": 1 },
           { "item_id": "weapon_gauntlet_volt", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_sawed", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_silver", "weight": 1, "count": 1 },
           { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
           { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
           { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
@@ -115,6 +118,9 @@
           { "item_id": "weapon_gauntlet_iron", "weight": 6, "count": 1 },
           { "item_id": "weapon_gauntlet_swift", "weight": 6, "count": 1 },
           { "item_id": "weapon_gauntlet_volt", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_sawed", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_silver", "weight": 6, "count": 1 },
           { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
           { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
           { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
@@ -314,6 +320,21 @@
           },
           {
             "item_id": "weapon_gauntlet_volt",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_iron",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_sawed",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_silver",
             "weight": 1,
             "count": 1
           },
@@ -529,6 +550,21 @@
           },
           {
             "item_id": "weapon_gauntlet_volt",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_iron",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_sawed",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_silver",
             "weight": 6,
             "count": 1
           },
@@ -801,6 +837,21 @@
             "count": 1
           },
           {
+            "item_id": "weapon_shotgun_iron",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_sawed",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_silver",
+            "weight": 1,
+            "count": 1
+          },
+          {
             "item_id": "armor_head_guard",
             "weight": 1,
             "count": 1
@@ -1012,6 +1063,21 @@
           },
           {
             "item_id": "weapon_gauntlet_volt",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_iron",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_sawed",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_silver",
             "weight": 6,
             "count": 1
           },

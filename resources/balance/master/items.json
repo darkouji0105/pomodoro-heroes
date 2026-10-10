@@ -274,6 +274,33 @@
 	  "sort_order": 149
 	},
 	{
+	  "item_id": "weapon_shotgun_iron",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "shotgun",
+	  "equip_stats": {"hp": 15, "atk": 6, "spd": -5},
+	  "sort_order": 150
+	},
+	{
+	  "item_id": "weapon_shotgun_sawed",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "shotgun",
+	  "equip_stats": {"def": -2, "atk": 8},
+	  "sort_order": 151
+	},
+	{
+	  "item_id": "weapon_shotgun_silver",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "shotgun",
+	  "equip_stats": {"atk": 4, "mag": 4, "mdef": 2},
+	  "sort_order": 152
+	},
+	{
 	  "item_id": "armor_head_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",

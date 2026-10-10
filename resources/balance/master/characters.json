@@ -400,6 +400,73 @@
 			"spd": 1
 		}
 	},
+	"char_zealot": {
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "projectile",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": [
+						{
+							"source": "atk",
+							"weight": 1.6
+						},
+						{
+							"source": "distance",
+							"weight": -0.04
+						}
+					],
+					"trigger": "event:hit"
+				},
+				{
+					"type": "refresh_status",
+					"status_id": "st_zl_holy_foe",
+					"trigger": "event:hit"
+				}
+			]
+		},
+		"name_key": "ui_battle_char_zealot",
+		"sign_style": "brush",
+		"sign_mark": "cross",
+		"weapon_genre": "shotgun",
+		"hp": 150,
+		"atk": 15,
+		"mag": 6,
+		"def": 9,
+		"mdef": 7,
+		"spd": 55,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 5,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 140,
+		"attack_interval_sec": 1.8,
+		"skills": [
+			"skill_zl_spray",
+			"skill_zl_drink",
+			"skill_zl_bless",
+			"skill_zl_silver",
+			"skill_zl_holy_water",
+			"skill_zl_cross"
+		],
+		"passives": [
+			"passive_zl_absolution"
+		],
+		"allocatable_stats": [
+			"hp",
+			"def",
+			"mdef"
+		],
+		"growth_per_level": {
+			"hp": 7,
+			"atk": 1,
+			"def": 1,
+			"spd": 1
+		}
+	},
 	"char_debug_status": {
 		"basic_attack": {
 			"effects": [

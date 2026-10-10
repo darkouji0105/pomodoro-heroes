@@ -223,6 +223,33 @@
 	  "category": "weapon"
 	},
 	{
+	  "recipe_id": "craft_weapon_shotgun_iron",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_shotgun_iron", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 35,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_shotgun_sawed",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_shotgun_sawed", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 36,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_shotgun_silver",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_shotgun_silver", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 37,
+	  "category": "weapon"
+	},
+	{
 	  "recipe_id": "craft_armor_head_guard",
 	  "duration_sec": 1800,
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
