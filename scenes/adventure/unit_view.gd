@@ -46,6 +46,8 @@ func setup(unit: BattleUnit) -> void:
 	name_label.add_theme_font_size_override(
 		&"font_size", body.get_theme_constant(&"name_size", THEME_TYPE)
 	)
+	# ⚠ 戦場には名前を出さない（10-10・人間「⚠ 戦場に名前は出さないでいい」）。⚠ 札は残す（⚠ 資源の段の位置と色の更新が使う）。
+	name_label.visible = false
 
 	_paint_body(unit)
 
@@ -69,14 +71,15 @@ func setup(unit: BattleUnit) -> void:
 	sp_bar.visible = unit.sp_max > 0.0
 	sp_bar.size.y = body.get_theme_constant(&"sp_height", THEME_TYPE)
 
-	# 固有の資源（回CH-1・人間「⚠ う」＝戦場のキャラの下にも出す）。⚠ **名前の札の下**から下へ。
+	# 固有の資源（回CH-1・人間「⚠ う」＝戦場のキャラの下にも出す）。⚠ **名前の札があった段**から下へ。
 	#   ⚠ 10-10 の絵で、SP の棒の段（HP の帯のすぐ下）に置くと**駒の上端に重なって読めなかった**ので動かした。
+	#   ⚠ 名前を出さなくなった（10-10）ので、札の高さぶん詰めた。
 	if not unit.resource_defs.is_empty() and _resource_view == null:
 		_resource_view = CharResourceView.new()
 		_resource_view.name = "ResourceView"
 		_resource_view.position = Vector2(
 			name_label.position.x,
-			name_label.position.y + name_label.size.y + body.get_theme_constant(&"name_gap", THEME_TYPE)
+			name_label.position.y + body.get_theme_constant(&"name_gap", THEME_TYPE)
 		)
 		_resource_view.size.x = name_label.size.x
 		add_child(_resource_view)
