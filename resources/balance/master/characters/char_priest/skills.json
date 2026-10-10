@@ -1,64 +1,9 @@
 {
-	"skill_healing_light": {
-		"name_key": "ui_battle_skill_healing_light",
+	"skill_pr_heal": {
+		"name_key": "ui_battle_skill_pr_heal",
 		"user_character_id": "char_priest",
 		"unlock_level": 1,
 		"cooldown_sec": 8.0,
-		"activation": "instant",
-		"target": {
-			"team": "ally",
-			"mode": "select",
-			"sort": "all"
-		},
-		"effects": [
-			{
-				"type": "heal",
-				"multiplier": 1.0,
-				"scale_from": "mag"
-			}
-		]
-	},
-	"skill_holy_ray": {
-		"name_key": "ui_battle_skill_holy_ray",
-		"user_character_id": "char_priest",
-		"unlock_level": 1,
-		"cooldown_sec": 12.0,
-		"activation": "instant",
-		"target": {
-			"team": "enemy",
-			"mode": "select",
-			"sort": "all"
-		},
-		"effects": [
-			{
-				"type": "damage",
-				"delivery": "magic",
-				"multiplier": 1.0,
-				"attack_type": "magic",
-				"scale_from": "mag",
-				"trigger": "event:hit"
-			},
-			{
-				"type": "dot",
-				"host": "unit",
-				"delivery": "magic",
-				"status_id": "status_holy_burn",
-				"multiplier": 0.3,
-				"attack_type": "magic",
-				"scale_from": "mag",
-				"duration_sec": 6.0,
-				"interval_sec": 2.0,
-				"stack": "independent",
-				"max_stack": 5,
-				"trigger": "event:hit"
-			}
-		]
-	},
-	"skill_mend": {
-		"name_key": "ui_battle_skill_mend",
-		"user_character_id": "char_priest",
-		"unlock_level": 5,
-		"cooldown_sec": 6.0,
 		"activation": "instant",
 		"target": {
 			"team": "ally",
@@ -69,106 +14,154 @@
 		"effects": [
 			{
 				"type": "heal",
-				"multiplier": 2.2,
-				"scale_from": "mag"
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "hp",
+						"of": "target",
+						"weight": 0.3
+					}
+				]
 			}
 		]
 	},
-	"skill_drain_life": {
-		"name_key": "ui_battle_skill_drain_life",
+	"skill_pr_thunder": {
+		"name_key": "ui_battle_skill_pr_thunder",
 		"user_character_id": "char_priest",
-		"unlock_level": 10,
-		"cooldown_sec": 9.0,
+		"unlock_level": 1,
+		"cooldown_sec": 12.0,
 		"activation": "instant",
 		"target": {
 			"team": "enemy",
-			"mode": "select",
+			"mode": "area",
+			"origin": "target",
 			"sort": "nearest",
-			"count": 1
+			"range": 300.0,
+			"radius": 80.0
 		},
 		"effects": [
 			{
 				"type": "damage",
 				"delivery": "magic",
-				"multiplier": 1.6,
+				"multiplier": 0.8,
 				"attack_type": "magic",
-				"scale_from": "mag",
-				"trigger": "event:hit"
+				"scale_from": "mag"
 			},
 			{
-				"type": "heal",
-				"target": {
-					"team": "self"
-				},
-				"multiplier": 0.8,
-				"scale_from": "mag"
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_pr_thunder",
+				"duration_sec": 1.2,
+				"stack": "refresh",
+				"control": "stun"
 			}
 		]
 	},
-	"skill_purge_wave": {
-		"name_key": "ui_battle_skill_purge_wave",
+	"skill_pr_shield": {
+		"name_key": "ui_battle_skill_pr_shield",
 		"user_character_id": "char_priest",
-		"unlock_level": 15,
+		"unlock_level": 5,
 		"cooldown_sec": 12.0,
 		"activation": "instant",
 		"target": {
-			"team": "enemy",
+			"team": "ally",
+			"mode": "select",
+			"sort": "front",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_pr_shield",
+				"duration_sec": 6.0,
+				"stack": "refresh",
+				"intervene": {
+					"shield_from": [
+						{
+							"source": "hp",
+							"of": "user",
+							"weight": 0.3
+						}
+					]
+				}
+			}
+		]
+	},
+	"skill_pr_resurrect": {
+		"name_key": "ui_battle_skill_pr_resurrect",
+		"user_character_id": "char_priest",
+		"unlock_level": 10,
+		"cooldown_sec": 40.0,
+		"activation": "instant",
+		"need_fallen": true,
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "revive",
+				"revive_hp_ratio": 0.3,
+				"post_battle_hp_ratio": 0.1
+			}
+		]
+	},
+	"skill_pr_prayer": {
+		"name_key": "ui_battle_skill_pr_prayer",
+		"user_character_id": "char_priest",
+		"unlock_level": 15,
+		"cooldown_sec": 10.0,
+		"activation": "toggle",
+		"toggle": {
+			"interval_sec": 1.0,
+			"repress": "retarget"
+		},
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "lowest_hp",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "heal",
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "mag",
+						"weight": 0.4
+					}
+				]
+			}
+		]
+	},
+	"skill_pr_glory": {
+		"name_key": "ui_battle_skill_pr_glory",
+		"user_character_id": "char_priest",
+		"unlock_level": 20,
+		"cooldown_sec": 18.0,
+		"activation": "charge",
+		"charge": {
+			"just_sec": 1.0,
+			"just_window_sec": 0.15,
+			"min_ratio": 0.5,
+			"just_bonus": 1.3
+		},
+		"target": {
+			"team": "ally",
 			"mode": "select",
 			"sort": "all"
 		},
 		"effects": [
 			{
-				"type": "damage",
-				"delivery": "magic",
-				"attack_type": "magic",
+				"type": "heal",
 				"multiplier": 1.0,
 				"scale_from": [
 					{
 						"source": "mag",
-						"of": "user",
-						"weight": 0.7
-					},
-					{
-						"source": "mdef",
-						"of": "user",
-						"weight": 1.5
-					}
-				],
-				"trigger": "event:hit"
-			}
-		]
-	},
-	"skill_judgement": {
-		"name_key": "ui_battle_skill_judgement",
-		"user_character_id": "char_priest",
-		"unlock_level": 20,
-		"cooldown_sec": 14.0,
-		"activation": "instant",
-		"target": {
-			"team": "enemy",
-			"mode": "select",
-			"sort": "nearest",
-			"count": 1
-		},
-		"effects": [
-			{
-				"type": "damage",
-				"delivery": "magic",
-				"attack_type": "magic",
-				"multiplier": 1.4,
-				"scale_from": [
-					{
-						"source": "mag",
-						"of": "user",
 						"weight": 1.2
-					},
-					{
-						"source": "hp_ratio",
-						"of": "target",
-						"weight": 40.0
 					}
-				],
-				"trigger": "event:hit"
+				]
 			}
 		]
 	}

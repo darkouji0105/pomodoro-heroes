@@ -508,6 +508,12 @@ func _dispatch_events(entry: Dictionary, results: Array) -> void:
 				continue
 			_notify(SkillSchema.EVENT_BASIC_HIT, user_id, str(r.get("unit_id", "")))
 
+	# 3-1. 回復した（回PR-1）。⚠ 回復した人に配る・source＝回復された味方。⚠ 購読から生まれた回復は上で弾いてある。
+	for raw_heal: Variant in results:
+		if raw_heal is Dictionary and bool((raw_heal as Dictionary).get("is_heal", false)) and not (raw_heal as Dictionary).has("kind") \
+				and int((raw_heal as Dictionary).get("amount", 0)) > 0:
+			_notify(SkillSchema.EVENT_HEAL_DONE, user_id, str((raw_heal as Dictionary).get("unit_id", "")))
+
 	# 3-2. スキルが当たった（回GS-1）。⚠ 通常攻撃とパッシブの購読は数えない（⚠ 購読から生まれた行動は上で弾いてある）。
 	if str(entry.get("skill_id", "")) != SkillSchema.BASIC_ATTACK_SKILL_ID and str(effect.get("type", "")) == SkillSchema.EFFECT_DAMAGE:
 		var hit_once: Dictionary = {}

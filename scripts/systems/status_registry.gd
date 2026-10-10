@@ -840,6 +840,16 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		entry[SkillSchema.INTERVENE_DRAIN_VS_STATUS] = str(effect_iv.get(SkillSchema.INTERVENE_DRAIN_VS_STATUS, ""))
 		has_intervene = true
 
+	# シールドの量を式で（回PR-1）。⚠ 付けた人から見た式・相手＝宿主。⚠ 1 未満にはしない。
+	if effect_iv.get(SkillSchema.INTERVENE_SHIELD_FROM, null) is Array:
+		var shield_src: BattleUnit = _find_unit(str(entry.get("source_unit_id", "")))
+		var shield_host: BattleUnit = _find_unit(str(entry.get("host_unit_id", "")))
+		var shield_amount: int = maxi(1, int(floor(SkillResolver._scale_value_sum(
+			{"scale_from": effect_iv[SkillSchema.INTERVENE_SHIELD_FROM]}, shield_src, shield_host, 0.0, _session, self))))
+		entry[SkillSchema.INTERVENE_SHIELD_HP] = shield_amount
+		entry["counter"] = shield_amount
+		has_intervene = true
+
 	# ⚠ シールドの残量は counter に入れる（汎用カウンター・呼び出し元がゼロだった）。
 	#   2本目の残量の置き場を作らない。
 	if effect_iv.has(SkillSchema.INTERVENE_SHIELD_HP):

@@ -76,7 +76,7 @@ const SORT_LOWEST_HP: String = "lowest_hp"
 const SORT_HIGHEST_HP: String = "highest_hp"
 const SORT_ALL: String = "all"
 const SORTS_KNOWN: Array = [
-	SORT_NEAREST, SORT_FARTHEST, SORT_LOWEST_HP, SORT_HIGHEST_HP, SORT_ALL
+	SORT_NEAREST, SORT_FARTHEST, SORT_LOWEST_HP, SORT_HIGHEST_HP, SORT_ALL, "front"
 ]
 
 # --- effects[].type ---
@@ -210,6 +210,18 @@ const FIELD_GROUND: String = "ground"
 # 死体の爆破。{"type": "corpse_blast", "range": 400, "blast_radius": 100, "multiplier": ..., "attack_type": ..., "scale_from": ...}
 # ⚠ 自分から range の中の倒れた相手ごとに、その場所で周りを爆発（⚠ 1体1回＝BattleUnit.corpse_used）。
 const EFFECT_CORPSE_BLAST: String = "corpse_blast"
+# --- 汎用（回PR-1・僧侶で足し、次のキャラに流用する） ---
+# 倒れた味方を起こす。{"type": "revive", "revive_hp_ratio": 0.3, "post_battle_hp_ratio": 0.1}
+# ⚠ 倒れた味方を並び順の先頭から1人（⚠ 召喚は起こさない）。⚠ post_battle_hp_ratio を書けば、戦闘が終わるとその割合の HP になる（⚠ 持ち越す HP）。
+const EFFECT_REVIVE: String = "revive"
+# 倒れた味方が居ないと撃てない（⚠ スキルの直下・true だけ）。
+const FIELD_NEED_FALLEN: String = "need_fallen"
+# 「回復した」の合図（⚠ 回復した人に配る・source＝回復された味方・⚠ 自分を回復しても出る）。
+const EVENT_HEAL_DONE: String = "heal_done"
+# シールドの量を式で決める（⚠ intervene・付けた人から見た式・相手＝宿主）。
+const INTERVENE_SHIELD_FROM: String = "shield_from"
+# いちばん前（⚠ 相手の陣に一番近い）。⚠ 味方を選ぶときに使う。
+const SORT_FRONT: String = "front"
 const AIM_FIELDS_REQUIRED: Array = ["from", "speed", "to"]
 # 対象を取らない効果（回NC-1）。⚠ 購読の中でも target が要らない（E54 の例外）・実行時も対象を選ばない。
 const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
@@ -273,14 +285,14 @@ const DASH_TOS_KNOWN: Array = [DASH_TO_TARGET, DASH_TO_BACK, DASH_TO_AIM]
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
-	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick", "basic_attack", "corpse_blast",
+	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick", "basic_attack", "corpse_blast", "revive",
 	"cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
-	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick", "basic_attack", "corpse_blast",
+	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick", "basic_attack", "corpse_blast", "revive",
 ]
 # resource の欄。⚠ amount（足す・負なら減らす）と set_to（その値にする）はどちらか1つ。
 # ⚠ 持ち主にその資源があるか・種類と欄が合うかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
@@ -355,7 +367,7 @@ const INTERVENE_FIELDS_KNOWN: Array = [
 	INTERVENE_CRIT_ALWAYS, INTERVENE_REFLECT_PCT, INTERVENE_REFLECT_FLAT,
 	INTERVENE_DRAIN_TAG, INTERVENE_DRAIN_PCT, INTERVENE_DRAIN_VS_STATUS, INTERVENE_BONUS_VS_STATUS, INTERVENE_BONUS_VS_PCT,
 	INTERVENE_TAKEN_FROM_SOURCE_PCT, INTERVENE_DOT_TAKEN_PCT, INTERVENE_BONUS_PER_DOT_PCT, INTERVENE_BONUS_PER_DOT_CAP,
-	INTERVENE_BASIC_TAKEN_PCT,
+	INTERVENE_BASIC_TAKEN_PCT, INTERVENE_SHIELD_FROM,
 	BUFF_ON_DEATH, BUFF_BLOCK_STATUS, BUFF_HEAL_TAKEN_PCT,
 ]
 # ⚠ 軽減の上限。100 にすると amount が必ず 0 になり、誰も死なずに決着しない
@@ -458,6 +470,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	FIELD_ON_STACK, FIELD_KEEP_ON_DISPEL, FIELD_IS_DEBUFF, "effects",
 	SUMMON_FIELD_AT, SUMMON_FIELD_SIDE, "control",
 	FIELD_ON_SKILL_HIT, FIELD_GROUND, "range",
+	"revive_hp_ratio", "post_battle_hp_ratio",
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -509,7 +522,7 @@ const EVENT_EMPOWERED_BASIC: String = "empowered_basic"
 const EVENTS_KNOWN: Array = [
 	EVENT_ATTACKED, EVENT_DEALT_DAMAGE, EVENT_TOOK_DAMAGE,
 	EVENT_FOE_DIED, EVENT_BASIC_HIT, EVENT_SKILL_USED, EVENT_EMPOWERED_BASIC,
-	"status_applied", "skill_hit",
+	"status_applied", "skill_hit", "heal_done",
 ]
 # 通常攻撃を撃つときのスキルID（⚠ BattleController と SkillRuntime の両方が読む＝語彙はここ）。
 const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
@@ -684,6 +697,8 @@ const SKILL_FIELDS_KNOWN: Array = [
 	FIELD_AIM,
 	# 使用回数（回GS-1）。
 	FIELD_CHARGES,
+	# 倒れた味方が居ないと撃てない（回PR-1）。
+	FIELD_NEED_FALLEN,
 	# トグル型（回CH-9）。
 	FIELD_TOGGLE,
 	# レリック（段階14-d）。⚠ relics.json は skills.json と同じ辞書へマージされるので、
@@ -929,6 +944,9 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	_validate_cost(issues, skill_id, data)
 	_validate_need_summons(issues, skill_id, data)
 	_validate_aim(issues, skill_id, data)
+	# E207 倒れた味方が居ないと撃てない（回PR-1）。
+	if data.has(FIELD_NEED_FALLEN) and data.get(FIELD_NEED_FALLEN, null) != true:
+		_err(issues, skill_id, "need_fallen は true だけ書ける")
 	# E199 使用回数（回GS-1）。⚠ 2〜9 の整数・ふつうの撃ち方（instant ／ charge）だけ。
 	if data.has(FIELD_CHARGES):
 		var charges: Variant = data.get(FIELD_CHARGES, null)
@@ -2171,6 +2189,11 @@ static func _validate_intervene(
 				where, BUFF_INTERVENE, INTERVENE_PIERCE_PCT, PIERCE_PCT_MAX
 			])
 
+	# E209 … シールドの量を式で（回PR-1）。⚠ shield_hp と一緒に書けない・項の配列。
+	if iv.has(INTERVENE_SHIELD_FROM):
+		var sf: Variant = iv.get(INTERVENE_SHIELD_FROM, null)
+		if iv.has(INTERVENE_SHIELD_HP) or not (sf is Array) or (sf as Array).is_empty():
+			_err(issues, skill_id, "%s.%s.shield_from が項の配列でないか shield_hp と一緒" % [where, BUFF_INTERVENE])
 	# E196 … 回ST-1 の割合（1〜1000 の整数）・上限は割合と一緒に。
 	for st_field: String in [INTERVENE_TAKEN_FROM_SOURCE_PCT, INTERVENE_DOT_TAKEN_PCT, INTERVENE_BONUS_PER_DOT_PCT, INTERVENE_BONUS_PER_DOT_CAP, INTERVENE_BASIC_TAKEN_PCT]:
 		if iv.has(st_field):
@@ -2418,6 +2441,17 @@ static func _validate_gm_fields(
 	# E204 地面を狙う（回MG-1）。⚠ damage だけ・true だけ。
 	if effect.has(FIELD_GROUND) and (effect_type != EFFECT_DAMAGE or effect.get(FIELD_GROUND, null) != true):
 		_err(issues, skill_id, "%s.ground は damage に true だけ書ける" % where)
+	# E208 倒れた味方を起こす（回PR-1）。⚠ 割合は 0 より大きく 1 以下。
+	if effect_type == EFFECT_REVIVE:
+		for rv_field: String in ["revive_hp_ratio", "post_battle_hp_ratio"]:
+			if effect.has(rv_field) or rv_field == "revive_hp_ratio":
+				var rv: Variant = effect.get(rv_field, null)
+				if not _is_num(rv) or float(rv) <= 0.0 or float(rv) > 1.0:
+					_err(issues, skill_id, "%s.%s が 0 より大きく 1 以下でない（type: 'revive'）" % [where, rv_field])
+	else:
+		for rv_field: String in ["revive_hp_ratio", "post_battle_hp_ratio"]:
+			if effect.has(rv_field):
+				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（revive だけ）" % [where, effect_type, rv_field])
 	# E205 死体の爆破（回MG-1）。⚠ range・blast_radius は正の数・威力の式がそろっている。
 	if effect_type == EFFECT_CORPSE_BLAST:
 		for cb_field: String in ["range", "blast_radius"]:

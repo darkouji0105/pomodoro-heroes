@@ -180,6 +180,9 @@ func _process(_delta: float) -> void:
 		# ここで show() に戻す処理を入れないこと。死体が復活表示される。
 		hide()
 		return
+	# 起こされた（回PR-1・リザレクション）。⚠ 倒れて隠したあと、生きていればまた出す（⚠ 死体はここまで来ない＝上で帰る）。
+	if not visible:
+		show()
 	position.x = _unit.x
 	var bar: BattleBar = $Bar
 	var was_low: bool = bar.is_low()

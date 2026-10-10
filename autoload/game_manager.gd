@@ -6274,6 +6274,24 @@ func _normalize_party_preset(presets: Array, index: int, all_characters: Diction
 	return changed
 
 
+# 枠の中の、定義の無いスキル（パッシブ）を "" にする（回PR-1）。⚠ 戻り値は直したか。
+func _drop_unknown_slot_ids(growth: Dictionary) -> bool:
+	var changed: bool = false
+	for kind: String in [SLOT_KIND_SKILL, SLOT_KIND_PASSIVE]:
+		var holder: Variant = growth.get(str(_slot_spec(kind)["state_key"]), null)
+		if not (holder is Dictionary):
+			continue
+		var slots: Variant = (holder as Dictionary).get(GameStateKeys.GROWTH_SKILL_SLOTS, null)
+		if not (slots is Array):
+			continue
+		for i: int in range((slots as Array).size()):
+			var sid: String = str((slots as Array)[i])
+			if sid != "" and not MasterDataLoader.has_skill(sid):
+				(slots as Array)[i] = ""
+				changed = true
+	return changed
+
+
 func _normalize_skill_slots_from_save() -> void:
 	var growth_all: Dictionary = _state.get(GameStateKeys.CHARACTER_GROWTH, {})
 	var fixed: int = 0
@@ -6284,6 +6302,9 @@ func _normalize_skill_slots_from_save() -> void:
 		#   （旧セーブでパッシブ枠だけ生えないまま画面へ行く）。
 		var growth: Dictionary = growth_all[character_id]
 		var changed: bool = _normalize_all_slots(growth)
+		# 定義の無いスキルを枠から外す（回PR-1・汎用）。⚠ スキルを作り直して ID が消えても、古いセーブで戦闘に古い ID が入らない。
+		if _drop_unknown_slot_ids(growth):
+			changed = true
 		# ⚠ rune_move は growth 側にも在る（プリセットは growth の切り出し）。
 		#   ⚠ 片方だけ洗うと、本体が壊れたまま残る。
 		var raw_rune_move: Variant = growth.get(GameStateKeys.GROWTH_RUNE_MOVE, null)

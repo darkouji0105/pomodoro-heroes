@@ -237,6 +237,9 @@ static func _sorted_units(pool: Array, user: BattleUnit, sort_kind: String) -> A
 static func _sort_key(unit: BattleUnit, user: BattleUnit, sort_kind: String) -> float:
 	if sort_kind == SkillSchema.SORT_NEAREST or sort_kind == SkillSchema.SORT_FARTHEST:
 		return absf(unit.x - user.x)
+	# いちばん前（回PR-1）。⚠ 相手の陣に近いほど小さい（⚠ 味方は右＝x が大きいほど前）。
+	if sort_kind == SkillSchema.SORT_FRONT:
+		return -unit.x if unit.team == BattleUnit.TEAM_PARTY else unit.x
 	if sort_kind == SkillSchema.SORT_LOWEST_HP or sort_kind == SkillSchema.SORT_HIGHEST_HP:
 		# ⚠ 割合で比べる（PLAN 4-2）。実数で比べると最大HPの違うユニットで意味が変わる。
 		if unit.max_hp <= 0:
@@ -407,6 +410,8 @@ static func resolve(
 					registry.dispel_control(t.unit_id, str(effect.get("control", "")))
 				else:
 					registry.dispel(t.unit_id, str(effect.get("what", "")) == SkillSchema.DISPEL_DEBUFF)
+		elif effect_type == SkillSchema.EFFECT_REVIVE:
+			_apply_revive(effect, user, results, session)
 		elif effect_type == SkillSchema.EFFECT_CORPSE_BLAST:
 			_apply_corpse_blast(effect, user, results, session, registry, is_dot)
 		elif effect_type == SkillSchema.EFFECT_BASIC_ATTACK:
@@ -885,17 +890,18 @@ static func _apply_heal(
 	if targets.is_empty():
 		return
 	var multiplier: float = float(effect.get("multiplier", 0.0))
-	# スケール元は scale_from から引く。既定値を持たない（決定1-5）。
-	# フォールバックが mag なのは、欄が消えたときに「なぜか1ダメージ/1回復」に
-	# ならないようにするため（赤は出ているので黙って既定値にはならない）。
-	var base_amount: int = int(floor(
-		_scale_value_sum(
-			effect, user, null, float(user.get_stat(GameStateKeys.STAT_MAG)), session, registry
-		) * multiplier
-	))
 	for t: BattleUnit in targets:
 		if t == null:
 			continue
+		# スケール元は scale_from から引く。既定値を持たない（決定1-5）。
+		# フォールバックが mag なのは、欄が消えたときに「なぜか1ダメージ/1回復」に
+		# ならないようにするため（赤は出ているので黙って既定値にはならない）。
+		# ⚠ 回PR-1：相手ごとに計算する（⚠ "of": "target"＝回復される味方の HP で決められる・ヒールの「最大HPの30%」）。
+		var base_amount: int = int(floor(
+			_scale_value_sum(
+				effect, user, t, float(user.get_stat(GameStateKeys.STAT_MAG)), session, registry
+			) * multiplier
+		))
 		var ctx: Dictionary = { "target": t, "base": base_amount, "amount": base_amount, "pct": 0 }
 		_step_heal_taken(ctx, registry)
 		var amount: int = int(ctx["amount"])
@@ -1062,6 +1068,32 @@ static func _apply_summon_consume(
 		"source_unit_id": user.unit_id,
 		"summon_ids": ids,
 	})
+
+
+# 倒れた味方を起こす（回PR-1）。⚠ 並び順の先頭から1人・召喚は起こさない。⚠ HP を戻すだけ（⚠ 状態は倒れたときに捨ててある）。
+static func _apply_revive(effect: Dictionary, user: BattleUnit, results: Array, session: BattleSession) -> void:
+	var pool: Array = session.party_units if user.team == BattleUnit.TEAM_PARTY else session.enemy_units
+	for raw: Variant in pool:
+		var u: BattleUnit = raw as BattleUnit
+		if u == null or u.is_alive():
+			continue
+		var hp: int = maxi(1, int(floor(float(u.max_hp) * float(effect.get("revive_hp_ratio", 0.0)))))
+		# ⚠ hp を直接書かない。heal() を通す（unit.gd「必ず take_damage / heal 経由」・倒れていても効く）。
+		u.heal(hp)
+		u.post_battle_hp_ratio = float(effect.get("post_battle_hp_ratio", 0.0))
+		BattleLog.log_intervene("revive", u.unit_id, "", "%d" % hp)
+		results.append({ "unit_id": u.unit_id, "amount": hp, "is_heal": true, "is_crit": false, "is_dot": false })
+		return
+
+
+# 倒れた味方が居るか（回PR-1・need_fallen）。
+static func has_fallen_ally(user: BattleUnit, session: BattleSession) -> bool:
+	if user == null or session == null:
+		return false
+	for raw: Variant in (session.party_units if user.team == BattleUnit.TEAM_PARTY else session.enemy_units):
+		if raw is BattleUnit and not (raw as BattleUnit).is_alive():
+			return true
+	return false
 
 
 # 死体の爆破（回MG-1）。⚠ 自分から range の中の倒れた相手ごとに、その場所で周りを爆発（⚠ 1体1回）。⚠ 威力は撃った本人。

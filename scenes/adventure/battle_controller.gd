@@ -2918,7 +2918,7 @@ func _save_dungeon_hp() -> bool:
 				continue
 			var u: BattleUnit = unit
 			if u.unit_id == unit_id:
-				hp_by_character[str(members[i])] = int(u.hp)
+				hp_by_character[str(members[i])] = _carried_hp(u)
 				break
 	return GameManager.apply_dungeon_battle_result(hp_by_character)
 
@@ -2960,6 +2960,13 @@ func _is_floor_boss() -> bool:
 # 生き残った味方の残HPをフロアへ書き戻す（段階14-c）。
 #
 # ⚠ 倒れた味方も含めて全員ぶん書く。GameManager 側が 1 に持ち上げる。
+# 持ち越す HP（回PR-1）。⚠ リザレクションで起こされた味方は、戦闘が終わるとその割合（⚠ 生きていれば・今より少ないときだけ）。
+func _carried_hp(u: BattleUnit) -> int:
+	if u.post_battle_hp_ratio > 0.0 and u.is_alive():
+		return mini(int(u.hp), maxi(1, int(ceil(float(u.max_hp) * u.post_battle_hp_ratio))))
+	return int(u.hp)
+
+
 func _save_floor_hp_carry() -> void:
 	if _floor_node_id == "" or _session == null:
 		return
@@ -2972,7 +2979,7 @@ func _save_floor_hp_carry() -> void:
 				continue
 			var u: BattleUnit = unit
 			if u.unit_id == unit_id:
-				hp_by_character[str(members[i])] = int(u.hp)
+				hp_by_character[str(members[i])] = _carried_hp(u)
 				break
 	GameManager.set_floor_hp_carry(hp_by_character)
 

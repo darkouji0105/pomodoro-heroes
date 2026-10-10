@@ -1,122 +1,61 @@
 {
-	"passive_pr_devotion": {
-		"name_key": "ui_battle_passive_pr_devotion",
+	"passive_pr_grace": {
+		"name_key": "ui_battle_passive_pr_grace",
 		"user_character_id": "char_priest",
-		"unlock_total_points": 20,
+		"unlock_total_points": 0,
 		"activation": "passive",
 		"target": {
 			"team": "self"
 		},
 		"effects": [
 			{
-				"type": "buff",
+				"type": "react",
 				"host": "unit",
-				"status_id": "status_pr_devotion",
-				"stat": "mag",
-				"value": 12,
-				"duration_sec": 99999.0,
-				"stack": "refresh"
-			}
-		]
-	},
-	"passive_pr_triage": {
-		"name_key": "ui_battle_passive_pr_triage",
-		"user_character_id": "char_priest",
-		"unlock_total_points": 40,
-		"activation": "passive",
-		"target": {
-			"team": "self"
-		},
-		"effects": [
-			{
-				"type": "buff",
-				"host": "unit",
-				"status_id": "status_pr_triage",
-				"stat": "mag",
-				"value": 25,
-				"duration_sec": 99999.0,
+				"status_id": "st_pr_grace",
 				"stack": "refresh",
-				"condition": {
-					"source": "alive_count_ally",
-					"of": "host",
-					"op": "lte",
-					"value": 2
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "heal_done",
+					"effects": [
+						{
+							"type": "buff",
+							"host": "unit",
+							"status_id": "st_pr_grace_def",
+							"duration_sec": 5.0,
+							"stack": "refresh",
+							"stat": "def",
+							"stat_pct": 20,
+							"target": {
+								"team": "source"
+							}
+						}
+					]
 				}
-			}
-		]
-	},
-	"passive_pr_sanctuary": {
-		"name_key": "ui_battle_passive_pr_sanctuary",
-		"user_character_id": "char_priest",
-		"unlock_total_points": 60,
-		"activation": "passive",
-		"target": {
-			"team": "self"
-		},
-		"effects": [
-			{
-				"type": "buff",
-				"host": "unit",
-				"status_id": "status_pr_sanctuary",
-				"stat": "mdef",
-				"value": 20,
-				"duration_sec": 99999.0,
-				"stack": "refresh"
-			}
-		]
-	},
-	"passive_pr_zeal": {
-		"name_key": "ui_battle_passive_pr_zeal",
-		"user_character_id": "char_priest",
-		"unlock_total_points": 80,
-		"activation": "passive",
-		"target": {
-			"team": "self"
-		},
-		"effects": [
-			{
-				"type": "buff",
-				"host": "unit",
-				"status_id": "status_pr_zeal",
-				"stat": "haste",
-				"value": 15,
-				"duration_sec": 99999.0,
-				"stack": "refresh",
-				"condition": {
-					"source": "elapsed_sec",
-					"of": "host",
-					"op": "gte",
-					"value": 30
-				}
-			}
-		]
-	},
-	"passive_pr_benediction": {
-		"name_key": "ui_battle_passive_pr_benediction",
-		"user_character_id": "char_priest",
-		"unlock_total_points": 100,
-		"activation": "passive",
-		"target": {
-			"team": "self"
-		},
-		"effects": [
-			{
-				"type": "buff",
-				"host": "unit",
-				"status_id": "status_pr_benediction_mag",
-				"stat": "mag",
-				"value": 20,
-				"duration_sec": 99999.0,
-				"stack": "refresh"
 			},
 			{
-				"type": "buff",
+				"type": "react",
 				"host": "unit",
-				"status_id": "status_pr_benediction_haste",
-				"stat": "haste",
-				"value": 10,
+				"status_id": "st_pr_dazzle",
+				"stack": "refresh",
 				"duration_sec": 99999.0,
-				"stack": "refresh"
+				"react": {
+					"event": "status_applied",
+					"status_id": "st_pr_thunder",
+					"effects": [
+						{
+							"type": "buff",
+							"host": "unit",
+							"status_id": "st_pr_dazzle_crit",
+							"duration_sec": 6.0,
+							"stack": "refresh",
+							"stat": "crit_rate",
+							"value": -10,
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
 			}
 		]
 	}

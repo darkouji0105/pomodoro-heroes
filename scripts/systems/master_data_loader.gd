@@ -970,6 +970,12 @@ static func _load_json(path: String) -> Dictionary:
 # 一緒に _cache_skills を埋める）。
 # ========================================================================
 
+# そのスキルがあるか（回PR-1）。⚠ 赤を出さない（⚠ get_skill は無いIDで赤を出す）。
+static func has_skill(skill_id: String) -> bool:
+	_ensure_loaded()
+	return _cache_skills.has(skill_id)
+
+
 static func get_skill(skill_id: String) -> Dictionary:
 	_ensure_loaded()
 	if not _cache_skills.has(skill_id):

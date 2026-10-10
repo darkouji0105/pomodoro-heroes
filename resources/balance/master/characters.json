@@ -148,19 +148,15 @@
 		"attack_range": 180,
 		"attack_interval_sec": 1.8,
 		"skills": [
-			"skill_healing_light",
-			"skill_holy_ray",
-			"skill_mend",
-			"skill_drain_life",
-			"skill_purge_wave",
-			"skill_judgement"
+			"skill_pr_heal",
+			"skill_pr_thunder",
+			"skill_pr_shield",
+			"skill_pr_resurrect",
+			"skill_pr_prayer",
+			"skill_pr_glory"
 		],
 		"passives": [
-			"passive_pr_devotion",
-			"passive_pr_triage",
-			"passive_pr_sanctuary",
-			"passive_pr_zeal",
-			"passive_pr_benediction"
+			"passive_pr_grace"
 		],
 		"allocatable_stats": [
 			"hp",

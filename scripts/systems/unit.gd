@@ -333,6 +333,8 @@ var stealthed: bool = false
 var airborne: bool = false
 # 死体を使った（回MG-1・死体の爆破は1体1回）。
 var corpse_used: bool = false
+# 戦闘が終わったら HP をこの割合にする（回PR-1・リザレクションで起こされた味方）。⚠ 0 なら何もしない。
+var post_battle_hp_ratio: float = 0.0
 # 使用回数（⚠ スキルID → 残り回数）。⚠ 書くのは use_charge() と tick_cooldowns() だけ。
 var skill_charges: Dictionary = {}
 # 使用回数が戻るまでのクールダウン（haste 適用済み）。

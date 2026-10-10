@@ -33,6 +33,9 @@ static func is_cost_short(user: BattleUnit, skill_id: String, session: BattleSes
 	var data: Dictionary = MasterDataLoader.get_skill(skill_id)
 	if not user.can_pay_cost(SkillSchema.cost_of(data)):
 		return true
+	# 倒れた味方が居ないと撃てない（回PR-1）。⚠ 暗転は資源が足りないときと同じ。
+	if bool(data.get(SkillSchema.FIELD_NEED_FALLEN, false)) and session != null and not SkillResolver.has_fallen_ally(user, session):
+		return true
 	var need: Variant = data.get(SkillSchema.FIELD_NEED_SUMMONS, null)
 	if need is Dictionary and session != null:
 		var have: int = SkillResolver.own_summons(

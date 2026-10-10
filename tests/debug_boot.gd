@@ -1431,6 +1431,43 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_mm_corpse", "prepare": PREPARE_NONE, "gap": 2.0},
 		],
 	},
+	# 僧侶（回PR-1・作り直し）。⚠ Lv20 に上げてから枠に入れる。
+	"pr_a": {
+		"kind": KIND_BATTLE,
+		"note": "僧侶 A：招雷（スタン・会心率ダウン）→ ヒール（相手の最大HPの30%）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_priest", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_priest": 20},
+		"skills": {"char_priest": ["skill_pr_heal", "skill_pr_thunder"]},
+		"fire": [
+			{"skill": "skill_pr_thunder", "prepare": PREPARE_NONE},
+			{"skill": "skill_pr_heal", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"pr_b": {
+		"kind": KIND_BATTLE,
+		"note": "僧侶 B：シールド（いちばん前の味方）→ 祈り（トグル）→ もう一度押して一番弱った味方へ",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_priest", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_priest": 20},
+		"skills": {"char_priest": ["skill_pr_shield", "skill_pr_prayer"]},
+		"fire": [
+			{"skill": "skill_pr_shield", "prepare": PREPARE_NONE},
+			{"skill": "skill_pr_prayer", "prepare": PREPARE_NONE, "gap": 0.5},
+			{"skill": "skill_pr_prayer", "prepare": PREPARE_NONE, "gap": 1.5},
+		],
+	},
+	"pr_c": {
+		"kind": KIND_BATTLE,
+		"note": "僧侶 C：威光（1.0 秒溜め・全員回復）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_priest", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_priest": 20},
+		"skills": {"char_priest": ["skill_pr_glory", "skill_pr_heal"]},
+		"fire": [
+			{"skill": "skill_pr_glory", "prepare": PREPARE_NONE, "hold_sec": 1.0},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -2130,6 +2167,7 @@ func _ready() -> void:
 			_report_student()
 			_report_gunslinger()
 			_report_magnum()
+			_report_priest()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -9980,6 +10018,97 @@ func _status_inside(registry: StatusRegistry, status_id: String, unit_id: String
 		if ((entry as Dictionary).get("inside", {}) as Dictionary).has(unit_id):
 			return true
 	return false
+
+
+# 僧侶（回PR-1・作り直し）。⚠ 相手の HP で回復・式のシールド・いちばん前・起こす・回復した合図・古いスキルを枠から外す。
+func _report_priest() -> void:
+	var me: BattleUnit = _resource_unit("char_priest", 0)
+	var a1: BattleUnit = _resource_unit("char_swordsman", 1)
+	var a2: BattleUnit = _resource_unit("char_archer", 2)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 5000
+	# ⚠ スライムの会心率は 0（⚠ 0 より下がらない）＝下がるのを見るため 20 にする。
+	foe_data["crit_rate"] = 20
+	var foe: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	me.x = 200.0
+	a1.x = 400.0
+	a2.x = 300.0
+	foe.x = 500.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me, a1, a2]
+	session.enemy_units = [foe]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+
+	print("[DebugBoot] --- 101. ヒール（⚠ 回復される味方の最大HPの30%%）---")
+	var heal_eff: Dictionary = (MasterDataLoader.get_skill("skill_pr_heal")["effects"] as Array)[0] as Dictionary
+	a1.hp = 1
+	a2.hp = 1
+	SkillResolver.resolve({"effects": [heal_eff]}, me, session, ["party_1", "party_2"], registry)
+	print("  剣士 1 → %d（最大 %d の 30%%）／ 弓兵 1 → %d（最大 %d の 30%%）" % [a1.hp, a1.max_hp, a2.hp, a2.max_hp])
+
+	print("[DebugBoot] --- 102. シールド（⚠ いちばん前の味方に・僧侶の最大HPの30%%）---")
+	var shield_skill: Dictionary = MasterDataLoader.get_skill("skill_pr_shield")
+	var front: Array = SkillResolver.select_targets(shield_skill["target"] as Dictionary, me, session)
+	print("  いちばん前：%s（party_1＝x 400）" % str(front))
+	SkillResolver.resolve({"effects": [(shield_skill["effects"] as Array)[0]]}, me, session, front, registry)
+	print("  シールド %d（僧侶の最大 %d の 30%%）" % [registry.shield_left("party_1"), me.max_hp])
+
+	print("[DebugBoot] --- 103. リザレクション（⚠ 倒れた味方を HP30%% で起こす・戦闘が終わると 10%%・居なければ撃てない）---")
+	me.skill_ids = ["skill_pr_resurrect"]
+	me.skill_cooldowns = {"skill_pr_resurrect": 0.0}
+	print("  倒れた味方なし：'%s'（'cost'）" % _cost_reason(me, "skill_pr_resurrect", session))
+	a2.take_damage(a2.hp)
+	print("  弓兵が倒れた：'%s'（''）" % _cost_reason(me, "skill_pr_resurrect", session))
+	SkillResolver.resolve({"effects": [(MasterDataLoader.get_skill("skill_pr_resurrect")["effects"] as Array)[0]]}, me, session, [], registry)
+	print("  起こした：弓兵 HP %d（最大 %d の 30%%）・戦闘が終わったら %.1f の割合" % [a2.hp, a2.max_hp, a2.post_battle_hp_ratio])
+
+	print("[DebugBoot] --- 104. 恵み（⚠ 回復した味方の防御 +20%%・スタンさせた敵の会心率 −10）---")
+	runtime.cast(me, "passive_pr_grace", MasterDataLoader.get_skill("passive_pr_grace"), 1.0)
+	var def0: int = a1.get_stat("def")
+	a1.hp = 1
+	runtime.cast(me, "skill_pr_heal", MasterDataLoader.get_skill("skill_pr_heal"), 1.0)
+	print("  ヒールした味方（剣士）の防御 %d → %d（+20%%）" % [def0, a1.get_stat("def")])
+	var crit0: int = foe.get_stat("crit_rate")
+	runtime.cast(me, "skill_pr_thunder", MasterDataLoader.get_skill("skill_pr_thunder"), 1.0)
+	print("  招雷でスタン %s・会心率 %d → %d（−10）" % [str(foe.stunned), crit0, foe.get_stat("crit_rate")])
+
+	print("[DebugBoot] --- 105. 古いスキルを枠から外す（⚠ 作り直しで消えた ID・汎用）---")
+	var growth: Dictionary = {
+		str(GameManager._slot_spec(GameManager.SLOT_KIND_SKILL)["state_key"]): {GameStateKeys.GROWTH_SKILL_SLOTS: ["skill_healing_light", "skill_pr_heal"]},
+		str(GameManager._slot_spec(GameManager.SLOT_KIND_PASSIVE)["state_key"]): {GameStateKeys.GROWTH_SKILL_SLOTS: ["passive_pr_devotion"]},
+	}
+	var changed: bool = GameManager._drop_unknown_slot_ids(growth)
+	print("  直した %s・スキル枠 %s・パッシブ枠 %s（1つ目と パッシブは空・skill_pr_heal は残る）" % [
+		str(changed), str((growth[str(GameManager._slot_spec(GameManager.SLOT_KIND_SKILL)["state_key"])] as Dictionary)[GameStateKeys.GROWTH_SKILL_SLOTS]),
+		str((growth[str(GameManager._slot_spec(GameManager.SLOT_KIND_PASSIVE)["state_key"])] as Dictionary)[GameStateKeys.GROWTH_SKILL_SLOTS])])
+
+	print("[DebugBoot] --- 106. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var dm: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag"}
+	var probes: Array = [
+		["revive の割合が 0", {"type": "revive", "revive_hp_ratio": 0}, {}, true],
+		["damage に revive_hp_ratio", (dm.duplicate() as Dictionary).merged({"revive_hp_ratio": 0.3}), {}, true],
+		["need_fallen が false", dm, {"need_fallen": false}, true],
+		["shield_from と shield_hp を一緒に", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "intervene": {"shield_hp": 10, "shield_from": [{"source": "hp", "weight": 0.1}]}}, {}, true],
+		["起こす（正しい）", {"type": "revive", "revive_hp_ratio": 0.5}, {"need_fallen": true}, false],
+		["式のシールド（正しい）", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "intervene": {"shield_from": [{"source": "hp", "weight": 0.1}]}}, {}, false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_priest", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "self"}, "effects": [probe[1]],
+		}
+		data.merge(probe[2] as Dictionary, true)
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[3]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
 
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
