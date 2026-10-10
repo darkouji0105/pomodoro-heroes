@@ -277,6 +277,33 @@
 	  "category": "weapon"
 	},
 	{
+	  "recipe_id": "craft_weapon_claw_iron",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_claw_iron", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 41,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_claw_razor",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_claw_razor", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 42,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_claw_blood",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_claw_blood", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 43,
+	  "category": "weapon"
+	},
+	{
 	  "recipe_id": "craft_armor_head_guard",
 	  "duration_sec": 1800,
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],

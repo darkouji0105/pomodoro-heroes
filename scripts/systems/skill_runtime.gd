@@ -488,6 +488,12 @@ func _dispatch_events(entry: Dictionary, results: Array) -> void:
 				continue
 			_notify(SkillSchema.EVENT_BASIC_HIT, user_id, str(r.get("unit_id", "")))
 
+	# 4. 状態を付けた（回VP-1）。⚠ 付けた本人に配る・status_id で絞れる。
+	for raw_applied: Variant in results:
+		if raw_applied is Dictionary and str((raw_applied as Dictionary).get("kind", "")) == SkillSchema.EVENT_STATUS_APPLIED:
+			var applied: Dictionary = raw_applied as Dictionary
+			_notify(SkillSchema.EVENT_STATUS_APPLIED, user_id, str(applied.get("unit_id", "")), NAN, str(applied.get("status_id", "")))
+
 
 # 確定したダメージ1件につき「与えた」「受けた」を1回ずつ配る。
 #
@@ -565,7 +571,8 @@ func notify_foe_died(dead: BattleUnit) -> void:
 # ⚠ 取り出してから発火する。回しながら撃つと、発火の中で器が増減したときに再入する。
 #   subs は query() が作った別の配列なので、この形で守れている。
 # at_x … 出来事が起きた場所（⚠ 敵が倒された＝倒れた位置・回MC-1 の react.within が読む）。⚠ 無ければ NAN。
-func _notify(event_name: String, host_unit_id: String, source_unit_id: String, at_x: float = NAN) -> void:
+# detail … 出来事の中身（⚠ 状態を付けた＝その status_id・回VP-1 の react.status_id が読む）。
+func _notify(event_name: String, host_unit_id: String, source_unit_id: String, at_x: float = NAN, detail: String = "") -> void:
 	if _registry == null or host_unit_id == "":
 		return
 	# ⚠ "active": true を落とさないこと。条件が偽の間も反応してしまう（無音）。
@@ -589,6 +596,9 @@ func _notify(event_name: String, host_unit_id: String, source_unit_id: String, a
 		var sub: Dictionary = raw as Dictionary
 		var react: Dictionary = sub.get("react", {}) as Dictionary
 		if str(react.get("event", "")) != event_name:
+			continue
+		# 状態で絞る（回VP-1）。
+		if react.has(SkillSchema.REACT_FIELD_STATUS) and str(react.get(SkillSchema.REACT_FIELD_STATUS, "")) != detail:
 			continue
 		# 近くで（回MC-1）。⚠ 場所の無い出来事では絞らない（⚠ ロード時に foe_died だけに閉じてある）。
 		if react.has(SkillSchema.REACT_FIELD_WITHIN) and not is_nan(at_x) \

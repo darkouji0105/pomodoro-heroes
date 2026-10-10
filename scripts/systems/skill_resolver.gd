@@ -346,7 +346,7 @@ static func resolve(
 		# ⚠ 効果ごとに別の配列で持つ（⚠ 次の効果まで絞らない）。
 		var targets: Array = all_targets
 		if effect.has(SkillSchema.FIELD_WHEN_TARGET) and not effect.has(SkillSchema.FIELD_WHEN_MULT) \
-				and not effect.has(SkillSchema.FIELD_WHEN_CRIT):
+				and not effect.has(SkillSchema.FIELD_WHEN_CRIT) and not effect.has(SkillSchema.FIELD_WHEN_DRAIN_MULT):
 			targets = []
 			for t: BattleUnit in all_targets:
 				if when_target_ok(effect, t, registry):
@@ -364,7 +364,7 @@ static func resolve(
 		elif effect_type == SkillSchema.EFFECT_HEAL:
 			_apply_heal(effect, user, targets, results, session, registry)
 		elif effect_type in SkillSchema.EFFECT_TYPES_STATUS:
-			_apply_status(effect, user, targets, session, registry)
+			_apply_status(effect, user, targets, session, registry, results)
 		elif effect_type == SkillSchema.EFFECT_SUMMON:
 			_apply_summon(effect, user, results)
 		elif effect_type == SkillSchema.EFFECT_RESOURCE:
@@ -467,6 +467,11 @@ static func _apply_damage(
 			ctx["multiplier"] = float(ctx["multiplier"]) * float(effect.get(SkillSchema.FIELD_WHEN_MULT, 1.0))
 		if bool(effect.get(SkillSchema.FIELD_WHEN_CRIT, false)):
 			ctx["is_crit"] = true
+	# 相手の状態で常に強い（回VP-1）。⚠ 殴った側の状態から（⚠ 和で足す＝この器はみなそう）。
+	if registry != null:
+		var bonus_vs: int = int(registry.bonus_vs_pct(user.unit_id, target.unit_id))
+		if bonus_vs != 0:
+			ctx["multiplier"] = float(ctx["multiplier"]) * (1.0 + float(bonus_vs) / 100.0)
 	# 処刑のボス（回CH-8）。⚠ ボスは倒さない代わりにダメージを上げる。
 	if effect.has(SkillSchema.FIELD_EXECUTE_BELOW) and target.is_boss:
 		ctx["multiplier"] = float(ctx["multiplier"]) * float(effect.get(SkillSchema.FIELD_EXECUTE_BOSS_MULT, 1.0))
@@ -520,21 +525,29 @@ static func _apply_damage(
 		"source_unit_id": user.unit_id,
 		"attack_type": attack_type,
 	})
-	_step_drain(effect, user, int(ctx["amount"]), results, registry)
+	_step_drain(effect, user, target, int(ctx["amount"]), results, registry)
 	_step_execute(effect, user, target, results)
 	_step_on_kill(effect, user, target, results, session, registry)
 
 
 # 吸収（回GM-1・神の使いのパッシブ「聖なる炎が与えるダメージの15%を回復」）。⚠ 印（tag）の付いたダメージだけ。
 # ⚠ 回復は被回復の介入点を通す（⚠ ネクロの「回復量低下」も効く）。
-static func _step_drain(effect: Dictionary, user: BattleUnit, amount: int, results: Array, registry: RefCounted) -> void:
+# ⚠ 回VP-1：効果ごとの吸収（drain_pct・相手の状態で when_drain_mult 倍）も**同じ口**で足し合わせる＝吸収は1本。
+static func _step_drain(effect: Dictionary, user: BattleUnit, target: BattleUnit, amount: int, results: Array, registry: RefCounted) -> void:
+	if registry == null or amount <= 0 or not user.is_alive():
+		return
+	var pct: float = 0.0
 	var tag: String = str(effect.get(SkillSchema.FIELD_TAG, ""))
-	if tag == "" or registry == null or amount <= 0 or not user.is_alive():
+	if tag != "":
+		pct += float(registry.drain_pct(user.unit_id, tag))
+	if effect.has(SkillSchema.FIELD_DRAIN_PCT):
+		var own: float = float(effect.get(SkillSchema.FIELD_DRAIN_PCT, 0.0))
+		if effect.has(SkillSchema.FIELD_WHEN_DRAIN_MULT) and when_target_ok(effect, target, registry):
+			own *= float(effect.get(SkillSchema.FIELD_WHEN_DRAIN_MULT, 1.0))
+		pct += own
+	if pct <= 0.0:
 		return
-	var pct: int = int(registry.drain_pct(user.unit_id, tag))
-	if pct <= 0:
-		return
-	var base: int = int(floor(float(amount) * float(pct) / 100.0))
+	var base: int = int(floor(float(amount) * pct / 100.0))
 	var ctx: Dictionary = { "target": user, "base": base, "amount": base, "pct": 0 }
 	_step_heal_taken(ctx, registry)
 	if int(ctx["amount"]) <= 0:
@@ -887,7 +900,10 @@ static func _apply_dash(effect: Dictionary, user: BattleUnit, targets: Array, re
 	# ⚠ 前＝相手の陣の向き（味方は右＝正・敵は左＝負）。
 	var forward: float = 1.0 if user.team == BattleUnit.TEAM_PARTY else -1.0
 	var to_x: float = user.x
-	if str(effect.get("to", "")) == SkillSchema.DASH_TO_BACK:
+	if str(effect.get("to", "")) == SkillSchema.DASH_TO_AIM and user.has_aim:
+		# 狙いの場所へ（回VP-1）。⚠ 狙いが無いとき（自動戦闘・敵）は下の to: target と同じ。
+		to_x = user.aim_x
+	elif str(effect.get("to", "")) == SkillSchema.DASH_TO_BACK:
 		to_x = user.x - forward * float(effect.get("distance", 0.0))
 	else:
 		var alive: Array = []
@@ -1051,7 +1067,7 @@ static func _step_heal_taken(ctx: Dictionary, registry: RefCounted) -> void:
 #   add() が無いものを渡すと実行時に落ちる。渡すのは StatusRegistry だけ。
 static func _apply_status(
 		effect: Dictionary, user: BattleUnit, targets: Array,
-		session: BattleSession, registry: RefCounted
+		session: BattleSession, registry: RefCounted, results: Array
 ) -> void:
 	# host: battle は戦場に1つ付く。対象の数だけ増やさない。
 	if str(effect.get("host", "")) == SkillSchema.HOST_BATTLE:
@@ -1060,7 +1076,12 @@ static func _apply_status(
 	for t: BattleUnit in targets:
 		if t == null:
 			continue
-		registry.add(effect, user, t, session)
+		# 「状態を付けたら」（回VP-1）。⚠ 付いたときだけ結果に載せる＝SkillRuntime が付けた人へ合図を配る。
+		if registry.add(effect, user, t, session):
+			results.append({
+				"kind": SkillSchema.EVENT_STATUS_APPLIED, "unit_id": t.unit_id,
+				"source_unit_id": user.unit_id, "status_id": str(effect.get("status_id", "")),
+			})
 
 
 # ============================================================

@@ -1,0 +1,263 @@
+{
+	"skill_vp_bite": {
+		"name_key": "ui_battle_skill_vp_bite",
+		"user_character_id": "char_vampire",
+		"unlock_level": 1,
+		"cooldown_sec": 8.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 80.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 1.4,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"drain_pct": 50
+			},
+			{
+				"type": "status",
+				"status": "bleed"
+			}
+		]
+	},
+	"skill_vp_hex": {
+		"name_key": "ui_battle_skill_vp_hex",
+		"user_character_id": "char_vampire",
+		"unlock_level": 1,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "target",
+			"sort": "nearest",
+			"range": 300.0,
+			"radius": 180.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "magic",
+				"multiplier": 0.6,
+				"attack_type": "magic",
+				"scale_from": "mag"
+			},
+			{
+				"type": "status",
+				"status": "bleed"
+			}
+		]
+	},
+	"skill_vp_bat": {
+		"name_key": "ui_battle_skill_vp_bat",
+		"user_character_id": "char_vampire",
+		"unlock_level": 5,
+		"cooldown_sec": 14.0,
+		"activation": "charge",
+		"charge": {
+			"just_sec": 1.0,
+			"just_window_sec": 0.15,
+			"min_ratio": 0.6,
+			"just_bonus": 1.3
+		},
+		"aim": {
+			"from": 0.0,
+			"speed": 250.0,
+			"to": 400.0
+		},
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "aim",
+			"radius": 80.0
+		},
+		"effects": [
+			{
+				"type": "dash",
+				"to": "aim"
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_vp_bat",
+				"duration_sec": 1.5,
+				"stack": "refresh",
+				"control": "invulnerable",
+				"target": {
+					"team": "self"
+				}
+			},
+			{
+				"type": "dot",
+				"host": "point",
+				"status_id": "st_vp_bat_swarm",
+				"stack": "refresh",
+				"duration_sec": 1.5,
+				"interval_sec": 0.5,
+				"multiplier": 0.4,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"zone": {
+					"radius": 70.0,
+					"team": "enemy",
+					"follow": true
+				},
+				"target": {
+					"team": "self"
+				}
+			}
+		]
+	},
+	"skill_vp_field": {
+		"name_key": "ui_battle_skill_vp_field",
+		"user_character_id": "char_vampire",
+		"unlock_level": 10,
+		"cooldown_sec": 14.0,
+		"activation": "instant",
+		"cost": {
+			"hp_pct": 10
+		},
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "dot",
+				"host": "point",
+				"status_id": "st_vp_field",
+				"stack": "refresh",
+				"duration_sec": 5.0,
+				"interval_sec": 1.0,
+				"multiplier": 0.5,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"zone": {
+					"radius": 150.0,
+					"team": "enemy",
+					"follow": false
+				},
+				"when_target": {
+					"source": "status_has",
+					"status_id": "bleed"
+				},
+				"when_mult": 2.0
+			}
+		]
+	},
+	"skill_vp_frenzy": {
+		"name_key": "ui_battle_skill_vp_frenzy",
+		"user_character_id": "char_vampire",
+		"unlock_level": 15,
+		"cooldown_sec": 16.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_vp_frenzy_atk",
+				"duration_sec": 8.0,
+				"stack": "refresh",
+				"stat": "atk",
+				"stat_pct_from": [
+					{
+						"source": "resource",
+						"resource_id": "blood",
+						"weight": 3
+					}
+				]
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_vp_frenzy_def",
+				"duration_sec": 8.0,
+				"stack": "refresh",
+				"stat": "def",
+				"stat_pct_from": [
+					{
+						"source": "resource",
+						"resource_id": "blood",
+						"weight": 3
+					}
+				]
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_vp_frenzy_spd",
+				"duration_sec": 8.0,
+				"stack": "refresh",
+				"stat": "atkspd",
+				"stat_pct_from": [
+					{
+						"source": "resource",
+						"resource_id": "blood",
+						"weight": 3
+					}
+				]
+			}
+		]
+	},
+	"skill_vp_swarm": {
+		"name_key": "ui_battle_skill_vp_swarm",
+		"user_character_id": "char_vampire",
+		"unlock_level": 20,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 400.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 0.5,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit",
+				"pierce_length": 400.0
+			},
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 0.5,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit",
+				"pierce_length": 400.0
+			},
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 0.5,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit",
+				"pierce_length": 400.0
+			},
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 0.5,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit",
+				"pierce_length": 400.0
+			}
+		]
+	}
+}

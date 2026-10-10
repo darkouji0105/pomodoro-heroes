@@ -128,6 +128,8 @@ const SHOT_PREPARE_NECRO_PARTY: String = "necro_party"
 const SHOT_PREPARE_ZEALOT_PARTY: String = "zealot_party"
 # ⚠ 傭兵（回MC-1）：⚠ 傭兵を1番目に入れる（⚠ 内側の `PREPARE_MERC_PARTY` と同じ字）。
 const SHOT_PREPARE_MERC_PARTY: String = "merc_party"
+# ⚠ 吸血鬼（回VP-1）：⚠ 吸血鬼を1番目に入れる（⚠ 内側の `PREPARE_VAMP_PARTY` と同じ字）。
+const SHOT_PREPARE_VAMP_PARTY: String = "vamp_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1233,6 +1235,43 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_mc_finisher", "prepare": PREPARE_NONE, "gap": 0.5},
 		],
 	},
+	# 吸血鬼（回VP-1）。⚠ Lv20 に上げてから枠に入れる。
+	"vamp_a": {
+		"kind": KIND_BATTLE,
+		"note": "吸血鬼 A：吸血（50%吸収）→ 黒魔術（範囲に出血・血がたまる）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_vampire", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_vampire": 20},
+		"skills": {"char_vampire": ["skill_vp_bite", "skill_vp_hex"]},
+		"fire": [
+			{"skill": "skill_vp_hex", "prepare": PREPARE_NONE},
+			{"skill": "skill_vp_bite", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"vamp_b": {
+		"kind": KIND_BATTLE,
+		"note": "吸血鬼 B：蝙蝠（0.6 秒溜めて狙いの場所へ・無敵）→ 血の結界（HP で払う）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_vampire", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_vampire": 20},
+		"skills": {"char_vampire": ["skill_vp_bat", "skill_vp_field"]},
+		"fire": [
+			{"skill": "skill_vp_bat", "prepare": PREPARE_NONE, "hold_sec": 0.6},
+			{"skill": "skill_vp_field", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"vamp_c": {
+		"kind": KIND_BATTLE,
+		"note": "吸血鬼 C：血の昂り（血の数だけ強化）→ 蝙蝠の群れ（貫通4回）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_vampire", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_vampire": 20},
+		"skills": {"char_vampire": ["skill_vp_frenzy", "skill_vp_swarm"]},
+		"fire": [
+			{"skill": "skill_vp_frenzy", "prepare": PREPARE_NONE},
+			{"skill": "skill_vp_swarm", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1652,6 +1691,16 @@ const SCENARIOS: Dictionary = {
 			},
 			# ⚠ 狂った神の使い（回GM-1）：⚠ 顔・パッシブのマス・スキルのマス。
 			{
+				"name": "99_vampire_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_VAMP_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			{
 				"name": "92_merc_battle",
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_MERC_PARTY,
@@ -1865,6 +1914,7 @@ func _ready() -> void:
 			_report_necro()
 			_report_zealot()
 			_report_mercenary()
+			_report_vampire()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -9075,6 +9125,139 @@ func _hp_dropped(units: Array, before: Array) -> Array:
 	return ids
 
 
+# 吸血鬼（回VP-1）。⚠ 汎用にした仕組み（吸収の一本化・HPで払う・dot の倍率・状態を付けたら・常に強い・狙いへ移動・式で決める割合）を見る。
+func _report_vampire() -> void:
+	var me: BattleUnit = _resource_unit("char_vampire", 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 5000
+	foe_data["def"] = 0
+	var foes: Array = []
+	for i: int in range(3):
+		foes.append(BattleUnit.create("enemy_%d" % i, BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime"))
+	me.x = 300.0
+	var f0: BattleUnit = foes[0] as BattleUnit
+	var f1: BattleUnit = foes[1] as BattleUnit
+	var f2: BattleUnit = foes[2] as BattleUnit
+	f0.x = 350.0
+	f1.x = 420.0
+	f2.x = 1200.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = foes
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	var plain: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "true", "scale_from": "atk"}
+
+	print("[DebugBoot] --- 66. 吸血（⚠ 効果ごとの吸収 50%＝印つきの吸収と同じ口）---")
+	me.hp = 10
+	var f0_hp: int = f0.hp
+	var bite: Dictionary = MasterDataLoader.get_skill("skill_vp_bite")
+	SkillResolver.resolve({"effects": [(bite["effects"] as Array)[0]]}, me, session, ["enemy_0"], registry)
+	print("  与えた %d・回復 10 → %d（与えたダメージの半分）" % [f0_hp - f0.hp, me.hp])
+
+	print("[DebugBoot] --- 67. 3回ごとの吸血（⚠ 出血していれば吸収 2 倍・⚠ 絞り込みにはならない）---")
+	var every: Dictionary = (me.basic_attack_every.get("attack", {}) as Dictionary)
+	var drain_hit: Dictionary = ((every.get("effects", []) as Array)[0] as Dictionary).duplicate(true)
+	drain_hit["attack_type"] = "true"
+	me.hp = 10
+	var r67a: Array = SkillResolver.resolve({"effects": [drain_hit]}, me, session, ["enemy_1"], registry)
+	var heal_a: int = me.hp - 10
+	print("  出血なし：当たった %s・回復 +%d" % [str(_amounts(r67a)), heal_a])
+	var bleed_def: Dictionary = (MasterDataLoader._cache_statuses["bleed"] as Dictionary).duplicate(true)
+	bleed_def["type"] = "dot"
+	bleed_def.erase("kind")
+	bleed_def["host"] = SkillSchema.HOST_UNIT
+	bleed_def["status_id"] = "bleed"
+	registry.add(bleed_def, me, f1, session)
+	me.hp = 10
+	var r67b: Array = SkillResolver.resolve({"effects": [drain_hit]}, me, session, ["enemy_1"], registry)
+	print("  出血あり：当たった %s・回復 +%d（≒ 2 倍・ダメージは夜の貴族が無ければ同じ）" % [str(_amounts(r67b)), me.hp - 10])
+
+	print("[DebugBoot] --- 68. 夜の貴族（⚠ 状態を付けたら＝出血させるたび血 +1・ほかの状態では増えない）---")
+	runtime.cast(me, "passive_vp_noble", MasterDataLoader.get_skill("passive_vp_noble"), 1.0)
+	me.set_resource("blood", 0)
+	runtime.cast(me, "skill_vp_hex", MasterDataLoader.get_skill("skill_vp_hex"), 1.0)
+	print("  黒魔術で enemy_0・enemy_1 を出血：血 %d（2）" % me.get_resource("blood"))
+	runtime.cast(me, "skill_vp_bat_probe", {"target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [
+		{"type": "buff", "host": "unit", "status_id": "st_probe_weak", "duration_sec": 3.0, "stack": "refresh", "stat": "atk", "stat_pct": -5}]}, 1.0)
+	print("  出血でない状態を付けた：血 %d（2 のまま）" % me.get_resource("blood"))
+
+	print("[DebugBoot] --- 69. 式で決める割合（⚠ 血 1 つにつき攻撃 +2%%・ずっと追いかける）---")
+	var atk_base: int = me.get_stat("atk")
+	me.set_resource("blood", 5)
+	registry.tick(0.05)
+	var atk_5: int = me.get_stat("atk")
+	me.set_resource("blood", 10)
+	registry.tick(0.05)
+	print("  血 2 → %d ／ 血 5 → %d ／ 血 10 → %d（2 で +4%%・5 で +10%%・10 で +20%%）" % [atk_base, atk_5, me.get_stat("atk")])
+	_control_cast("skill_vp_frenzy", me, [me], session, registry)
+	registry.tick(0.05)
+	print("  血の昂り（血 10・+30%%）：攻撃 %d（+20%% と +30%% で +50%%）" % me.get_stat("atk"))
+
+	print("[DebugBoot] --- 70. 出血している敵へのダメージ +20%（⚠ 常に強い・殴った側の状態）---")
+	var r70a: Array = SkillResolver.resolve({"effects": [plain]}, me, session, ["enemy_2"], registry)
+	var r70b: Array = SkillResolver.resolve({"effects": [plain]}, me, session, ["enemy_1"], registry)
+	print("  出血なし %s ／ 出血あり %s（1.2 倍・会心は混ざる）" % [str(_amounts(r70a)), str(_amounts(r70b))])
+
+	print("[DebugBoot] --- 71. 血の結界（⚠ HP で払う＝最大HPの10%%）---")
+	me.skill_ids = ["skill_vp_field"]
+	me.skill_cooldowns = {"skill_vp_field": 0.0}
+	me.hp = 100
+	var spent: int = _cost_fire(me, "skill_vp_field", session, registry)
+	print("  HP 100 で：払った %d・HP %d（最大 %d の 10%%）" % [spent, me.hp, me.max_hp])
+	me.skill_cooldowns = {"skill_vp_field": 0.0}
+	me.hp = 5
+	print("  HP 5 で：'%s'（'cost'＝払うと 0 になる）" % _cost_reason(me, "skill_vp_field", session))
+
+	print("[DebugBoot] --- 72. 結界の毎秒ダメージ（⚠ 周期ダメージにも「出血なら 2 倍」）---")
+	var hp_a: int = f0.hp
+	var hp_b: int = f1.hp
+	registry.dispel(f0.unit_id, true)
+	registry.tick(1.0)
+	print("  1秒：出血なしの enemy_0 −%d ／ 出血の enemy_1 −%d（出血の分を引いて ≒ 2 倍＋20%%）" % [hp_a - f0.hp, hp_b - f1.hp])
+
+	print("[DebugBoot] --- 73. 蝙蝠（⚠ 狙いの場所へ移動＝神の使いの aim を移動にも）---")
+	var bat: Dictionary = MasterDataLoader.get_skill("skill_vp_bat")
+	me.x = 300.0
+	me.has_aim = true
+	me.aim_x = 520.0
+	var r73: Array = SkillResolver.resolve({"effects": [(bat["effects"] as Array)[0]]}, me, session, [], registry)
+	print("  狙い 520：行き先 x = %s（520）" % _dash_x(r73))
+	me.has_aim = false
+	var r73b: Array = SkillResolver.resolve({"effects": [(bat["effects"] as Array)[0]]}, me, session, ["enemy_1"], registry)
+	print("  狙いなし（自動戦闘）：行き先 x = %s（420＝狙った相手）" % _dash_x(r73b))
+
+	print("[DebugBoot] --- 74. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var probes: Array = [
+		["heal に drain_pct", {"type": "heal", "multiplier": 1.0, "scale_from": "mag", "drain_pct": 10}, {}, true],
+		["when_drain_mult だけ", (plain.duplicate() as Dictionary).merged({"drain_pct": 10, "when_drain_mult": 2.0}), {}, true],
+		["hp_pct と resource_id を一緒に", plain, {"cost": {"hp_pct": 10, "resource_id": "blood", "amount": 1}}, true],
+		["hp_pct が 0", plain, {"cost": {"hp_pct": 0}}, true],
+		["react.status_id を foe_died に", {"type": "react", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "react": {"event": "foe_died", "status_id": "bleed", "effects": [{"type": "heal", "target": {"team": "self"}, "multiplier": 1.0, "scale_from": "mag"}]}}, {}, true],
+		["bonus_vs_pct だけ", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "intervene": {"bonus_vs_pct": 10}}, {}, true],
+		["stat_pct_from が空", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "stat": "atk", "stat_pct_from": []}, {}, true],
+		["回復の dot に when_mult", {"type": "dot", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "interval_sec": 1.0, "heals": true, "multiplier": 1.0, "scale_from": "mag", "when_target": {"source": "status_has", "status_id": "bleed"}, "when_mult": 2.0}, {}, true],
+		["HP で払う（正しい）", plain, {"cost": {"hp_pct": 10}}, false],
+		["式で決める割合（正しい）", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "stat": "def", "stat_pct_from": [{"source": "flat", "weight": 5}]}, {}, false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_vampire", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [probe[1]],
+		}
+		data.merge(probe[2] as Dictionary, true)
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[3]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
 
@@ -11346,6 +11529,7 @@ class ShotTaker extends Node:
 	const PREPARE_NECRO_PARTY: String = "necro_party"
 	const PREPARE_ZEALOT_PARTY: String = "zealot_party"
 	const PREPARE_MERC_PARTY: String = "merc_party"
+	const PREPARE_VAMP_PARTY: String = "vamp_party"
 	const PREPARE_PRINCESS_PARTY: String = "princess_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
@@ -11722,6 +11906,11 @@ class ShotTaker extends Node:
 		if kind == PREPARE_PRINCESS_PARTY:
 			for princess_i: int in range(3):
 				if not GameManager.set_party_member(princess_i, ["char_princess", "char_archer", "char_priest"][princess_i]):
+					return false
+			return true
+		if kind == PREPARE_VAMP_PARTY:
+			for vamp_i: int in range(3):
+				if not GameManager.set_party_member(vamp_i, ["char_vampire", "char_archer", "char_priest"][vamp_i]):
 					return false
 			return true
 		if kind == PREPARE_MERC_PARTY:
@@ -15209,19 +15398,19 @@ class UiFlowRunner extends Node:
 		var rows: int = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：既定は「すべて」で %d 行（タブ %d 枚）" % [rows, 0 if tabs == null else tabs.get_child_count()],
 			tabs != null and tabs.current == 0 and tabs.get_child_count() == GameManager.RECIPE_CATEGORIES.size() + 1 and rows == all)
-		# ⚠ 武器 → 18行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12 ／ 回GM-1 でショットガン3本を足して 15 ／ 回MC-1 で大剣3本を足して 18）。
+		# ⚠ 武器 → 21行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12 ／ 回GM-1 でショットガン3本を足して 15 ／ 回MC-1 で大剣3本を足して 18 ／ 回VP-1 で爪3本を足して 21）。
 		await _press(null if tabs == null else tabs.find_child("Tab1", false, false))
 		await _wait()
 		rows = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：「武器」で %d 行（武器のレシピ %d）・装飾は出ない" % [rows, int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0))],
-			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 18
+			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 21
 			and ws.find_child("RecipeRow_craft_weapon_bow_short", true, false) != null and ws.find_child("RecipeRow_craft_part_1", true, false) == null)
 		# ⚠ 出て戻っても「武器」のまま。
 		var _base: Node = await _open(BASE, {})
 		ws = await _open(WORKSHOP_SCREEN, {})
 		tabs = null if ws == null else ws.find_child("CategoryTabs", true, false) as PaperTabs
 		rows = 0 if ws == null else ws.find_children("RecipeRow_*", "", true, false).size()
-		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 18)
+		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 21)
 		# ⚠ くじ → 1行。
 		await _press(null if tabs == null else tabs.find_child("Tab5", false, false))
 		await _wait()

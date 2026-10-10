@@ -462,6 +462,11 @@ func _make_entry(
 		"on_meet": {},
 		# 避けて反撃（回MC-1）。{ "effects" }。
 		"evade": {},
+		# 相手の状態で常に強い（回VP-1・殴った側）。
+		"bonus_vs_status": "",
+		"bonus_vs_pct": 0,
+		# 式で決める割合（回VP-1）。⚠ ずっと追いかける＝tick ごとに組み直す。
+		"stat_pct_from": [],
 		# 攻撃力の倍率（EXEC_SILENT_HOLES.md）。⚠ 持たない件にも必ず持たせる。
 		"atk_mult_pct": 0,
 		# ダメージの介入点（EXEC_SKILL_MITIGATION.md）。⚠ 持たない件にも必ず持たせる
@@ -493,6 +498,9 @@ func _fill_stat(entry: Dictionary, effect: Dictionary) -> int:
 	entry["stat"] = stat_key
 	entry["value"] = int(effect.get("value", 0))
 	entry[SkillSchema.FIELD_STAT_PCT] = int(effect.get(SkillSchema.FIELD_STAT_PCT, 0))
+	if effect.get(SkillSchema.FIELD_STAT_PCT_FROM, null) is Array:
+		entry[SkillSchema.FIELD_STAT_PCT_FROM] = (effect[SkillSchema.FIELD_STAT_PCT_FROM] as Array).duplicate(true)
+		return 1
 	if int(entry["value"]) == 0 and int(entry[SkillSchema.FIELD_STAT_PCT]) == 0:
 		push_error("[StatusRegistry] stat に value も stat_pct も無い（何も起きない状態は書けない）")
 		return -1
@@ -502,7 +510,8 @@ func _fill_stat(entry: Dictionary, effect: Dictionary) -> int:
 func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 	var has_stat: bool = effect.has("stat") or effect.has("value")
 	# 割合だけの能力値（回DB-1）。⚠ value を持つ形は下の従来の枝が見る（⚠ 1本に寄せると既存の赤の文言が変わる）。
-	if effect.has(SkillSchema.FIELD_STAT_PCT):
+	# ⚠ 回VP-1：式で決める割合（stat_pct_from）も同じ枝（⚠ value が無くて当然）。
+	if effect.has(SkillSchema.FIELD_STAT_PCT) or effect.has(SkillSchema.FIELD_STAT_PCT_FROM):
 		if _fill_stat(entry, effect) < 0:
 			return false
 		has_stat = true
@@ -623,6 +632,12 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 			entry[SkillSchema.INTERVENE_CRIT_ALWAYS] = true
 			has_intervene = true
 
+	# 相手の状態で常に強い（回VP-1）。⚠ 状態と割合はそろって来る（E193）。
+	if effect_iv.has(SkillSchema.INTERVENE_BONUS_VS_PCT):
+		entry[SkillSchema.INTERVENE_BONUS_VS_STATUS] = str(effect_iv.get(SkillSchema.INTERVENE_BONUS_VS_STATUS, ""))
+		entry[SkillSchema.INTERVENE_BONUS_VS_PCT] = int(effect_iv.get(SkillSchema.INTERVENE_BONUS_VS_PCT, 0))
+		has_intervene = true
+
 	# 吸収（回GM-1）。⚠ 印と割合はそろって来る（E182）。
 	if effect_iv.has(SkillSchema.INTERVENE_DRAIN_PCT):
 		var drain: int = int(effect_iv.get(SkillSchema.INTERVENE_DRAIN_PCT, 0))
@@ -681,9 +696,11 @@ func _fill_react(entry: Dictionary, effect: Dictionary) -> bool:
 		"event": event_name,
 		"effects": (raw_effects as Array).duplicate(true),
 	}
-	# 近くで（回MC-1）。⚠ 写し忘れると「どこで倒れても」になる（⚠ 10-10 に実際に踏んだ）。
+	# 近くで（回MC-1）・状態で絞る（回VP-1）。⚠ 写し忘れると絞りが黙って消える（⚠ 10-10 に within で実際に踏んだ）。
 	if react.has(SkillSchema.REACT_FIELD_WITHIN):
 		entry["react"][SkillSchema.REACT_FIELD_WITHIN] = float(react.get(SkillSchema.REACT_FIELD_WITHIN, 0.0))
+	if react.has(SkillSchema.REACT_FIELD_STATUS):
+		entry["react"][SkillSchema.REACT_FIELD_STATUS] = str(react.get(SkillSchema.REACT_FIELD_STATUS, ""))
 	return true
 
 
@@ -794,9 +811,10 @@ func _fill_dot(entry: Dictionary, effect: Dictionary, duration_sec: float, life:
 			"attack_type": str(effect.get("attack_type", "")),
 			"scale_from": effect.get("scale_from", null),
 		}
-		# 印（回GM-1）。⚠ 周期のダメージにも乗せる（⚠ 聖なる炎の吸収）。
-		if effect.has(SkillSchema.FIELD_TAG):
-			entry["damage_effect"][SkillSchema.FIELD_TAG] = str(effect.get(SkillSchema.FIELD_TAG, ""))
+		# 毎回の1発へ写す欄（回GM-1 の印・回VP-1 の「相手の状態で倍」）。⚠ ダメージの式と同じ欄を同じ名前で写す。
+		for passthrough: String in [SkillSchema.FIELD_TAG, SkillSchema.FIELD_WHEN_TARGET, SkillSchema.FIELD_WHEN_MULT]:
+			if effect.has(passthrough):
+				entry["damage_effect"][passthrough] = effect[passthrough]
 	return true
 
 
@@ -862,6 +880,10 @@ func tick(delta: float) -> void:
 	#   逆にすると、入った同じフレームの条件が1フレーム古い inside を読む。
 	_eval_zones(touched)
 	_eval_conditions(touched)
+	# 式で決める割合（回VP-1）は毎回組み直す（⚠ 資源・状態の数が変われば追いかける）。
+	for entry: Dictionary in _entries:
+		if not (entry.get(SkillSchema.FIELD_STAT_PCT_FROM, []) as Array).is_empty():
+			_touch_affected(entry, touched)
 
 	var results: Array = []
 	_fire_intervals(results)
@@ -1816,7 +1838,7 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 		if stat_key == "":
 			continue
 		mods[stat_key] = int(mods.get(stat_key, 0)) + int(entry.get("value", 0))
-		pct_mods[stat_key] = int(pct_mods.get(stat_key, 0)) + int(entry.get(SkillSchema.FIELD_STAT_PCT, 0))
+		pct_mods[stat_key] = int(pct_mods.get(stat_key, 0)) + int(entry.get(SkillSchema.FIELD_STAT_PCT, 0)) + _stat_pct_from(entry, unit)
 	unit.set_stat_mods(mods, pct_mods)
 
 	# 行動を止める・守る印（回CH-5）。⚠ 書くのはここ1箇所（⚠ 補正と同じく「ゼロから組み直す」）。
@@ -1839,6 +1861,29 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 	#   （stat_mod / heal_taken_pct / 軽減 / 貫通）。
 	# ⚠ 下限 0.0。マイナスを許すと符号が反転して「殴ると回復する」になる。
 	unit.atk_multiplier = maxf(0.0, 1.0 + float(atk_mult_pct(unit_id)) / 100.0)
+
+
+# 式で決める割合（回VP-1）。⚠ 付けた人から見た式（⚠ 相手＝宿主）。⚠ 小数は切り捨て。
+func _stat_pct_from(entry: Dictionary, host: BattleUnit) -> int:
+	var terms: Array = entry.get(SkillSchema.FIELD_STAT_PCT_FROM, []) as Array
+	if terms.is_empty():
+		return 0
+	var source: BattleUnit = _find_unit(str(entry.get("source_unit_id", "")))
+	if source == null:
+		return 0
+	return int(floor(SkillResolver._scale_value_sum({"scale_from": terms}, source, host, 0.0, _session, self)))
+
+
+# 相手の状態で常に強い割合（回VP-1）。⚠ 殴った側の状態のうち、相手に付いている状態に効くものを足す。
+func bonus_vs_pct(user_id: String, target_id: String) -> int:
+	var total: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) != KIND_BUFF or not _applies_to(entry, user_id):
+			continue
+		var want: String = str(entry.get(SkillSchema.INTERVENE_BONUS_VS_STATUS, ""))
+		if want != "" and has({"host_unit_id": target_id, "status_id": want}):
+			total += int(entry.get(SkillSchema.INTERVENE_BONUS_VS_PCT, 0))
+	return total
 
 
 func _rebuild_touched(touched: Dictionary) -> void:

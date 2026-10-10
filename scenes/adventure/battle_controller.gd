@@ -2247,6 +2247,9 @@ func _on_skill_effects_applied(results: Array) -> void:
 				mover.x = clampf(float(r.get("x", mover.x)), RUNE_MOVE_MIN_X, RUNE_MOVE_MAX_X)
 				mover.move_lock_sec = GameManager.get_rune_move_lock_sec()
 			continue
+		# ⚠ ここまでで扱わなかった kind（状態を付けた＝回VP-1 など）は数字ではない＝飛ばす。
+		if r.has("kind"):
+			continue
 		var target: BattleUnit = _find_unit_by_id(str(r.get("unit_id", "")))
 		# 種類で色を分ける（EXEC_DAMAGE_POP_COLOR.md）。分岐はここ1箇所。
 		# ⚠ is_heal を先に見る。将来 HoT（周期回復）が来ると is_heal と is_dot が

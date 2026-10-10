@@ -764,6 +764,8 @@ const AVATAR_COLORS: Dictionary = {
 	"char_zealot": {"bg": "5a3a1f", "fg": "ecd0b0"},
 	# ⚠ 傭兵（回MC-1）。⚠ 鉄の灰（⚠ 設計役の仮）。
 	"char_mercenary": {"bg": "3f4549", "fg": "d0d8dc"},
+	# ⚠ 吸血鬼（回VP-1）。⚠ 血の赤黒（⚠ 設計役の仮）。
+	"char_vampire": {"bg": "4a1f2a", "fg": "ecb8c4"},
 	"fallback": {"bg": "2a2320", "fg": "7d6f68"},
 }
 const AVATAR_CORNER_RADIUS: int = 8

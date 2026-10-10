@@ -186,6 +186,9 @@ func set_resource(resource_id: String, value: int) -> void:
 func can_pay_cost(cost: Dictionary) -> bool:
 	if cost.is_empty():
 		return true
+	# HP で払う（回VP-1）。⚠ 払うと 0 になるなら撃てない（⚠ 自分で倒れない）。
+	if cost.has(SkillSchema.COST_FIELD_HP_PCT):
+		return hp > hp_cost(cost)
 	var have: int = get_resource(str(cost.get(SkillSchema.COST_FIELD_RESOURCE_ID, "")))
 	if bool(cost.get(SkillSchema.COST_FIELD_ALL, false)):
 		return have >= 1
@@ -197,12 +200,21 @@ func can_pay_cost(cost: Dictionary) -> bool:
 func pay_cost(cost: Dictionary) -> int:
 	if cost.is_empty():
 		return -1
+	if cost.has(SkillSchema.COST_FIELD_HP_PCT):
+		var paid: int = hp_cost(cost)
+		hp = maxi(1, hp - paid)
+		return paid
 	var resource_id: String = str(cost.get(SkillSchema.COST_FIELD_RESOURCE_ID, ""))
 	var spent: int = get_resource(resource_id)
 	if not bool(cost.get(SkillSchema.COST_FIELD_ALL, false)):
 		spent = mini(spent, int(cost.get(SkillSchema.COST_FIELD_AMOUNT, 0)))
 	add_resource(resource_id, -spent)
 	return spent
+
+
+# HP で払う量（回VP-1）。⚠ 最大HPの割合・切り上げ（⚠ 0 で払えてしまわない）。
+func hp_cost(cost: Dictionary) -> int:
+	return int(ceil(float(max_hp) * float(cost.get(SkillSchema.COST_FIELD_HP_PCT, 0.0)) / 100.0))
 
 
 # 持ち越しの値を載せる（⚠ 戦闘の始め）。⚠ `carry_over: true` の資源だけ・欄が無ければ始めの値のまま。

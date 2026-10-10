@@ -328,6 +328,33 @@
 	  "sort_order": 155
 	},
 	{
+	  "item_id": "weapon_claw_iron",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claw",
+	  "equip_stats": {"hp": 10, "atk": 6},
+	  "sort_order": 156
+	},
+	{
+	  "item_id": "weapon_claw_razor",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claw",
+	  "equip_stats": {"atk": 5, "crit_rate": 5},
+	  "sort_order": 157
+	},
+	{
+	  "item_id": "weapon_claw_blood",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claw",
+	  "equip_stats": {"hp": -10, "atk": 7, "atkspd": 5},
+	  "sort_order": 158
+	},
+	{
 	  "item_id": "armor_head_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",

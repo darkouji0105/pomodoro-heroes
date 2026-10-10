@@ -147,6 +147,24 @@ const FIELD_EVADE: String = "evade"
 const REACT_FIELD_WITHIN: String = "within"
 # 威力の式の定数（回MC-1・傭兵「10＋失った体力の10%」）。⚠ {"source": "flat", "weight": 10} ＝ 10。
 const SCALE_FLAT: String = "flat"
+# --- 汎用（回VP-1・吸血鬼で足し、次のキャラに流用する＝人間「⚠ 汎用性の高い仕組みにして」） ---
+# 吸収（効果ごと）。⚠ damage に書く・与えたダメージの drain_pct % を撃った本人が回復する。
+# ⚠ 印つきの吸収（intervene の drain_tag／drain_pct）と**同じ口**（SkillResolver._step_drain）で足し合わせる。
+# ⚠ when_drain_mult は when_target を満たした相手から吸うときの倍率（吸血鬼「出血していれば2倍回復」）。
+const FIELD_DRAIN_PCT: String = "drain_pct"
+const FIELD_WHEN_DRAIN_MULT: String = "when_drain_mult"
+# 能力値の割合を式で決め、**ずっと追いかける**（⚠ 付けた瞬間で固まらない）。⚠ buff ／ dot の stat と一緒に書く。
+#   "stat": "atk", "stat_pct_from": [{"source": "resource", "resource_id": "blood", "weight": 3}]
+# ⚠ 式の値は付けた人から見た scale_from と同じ（⚠ 相手は宿主）。⚠ stat_pct と足し合わせる。
+const FIELD_STAT_PCT_FROM: String = "stat_pct_from"
+# 「状態を付けたら」の合図（⚠ 付けた人に配る・source＝付けられた相手）。⚠ react.status_id で絞れる。
+const EVENT_STATUS_APPLIED: String = "status_applied"
+const REACT_FIELD_STATUS: String = "status_id"
+# 相手の状態で常に強い（⚠ intervene・殴った側）。⚠ その状態の相手へのダメージ +pct %。⚠ 2つそろえて書く。
+const INTERVENE_BONUS_VS_STATUS: String = "bonus_vs_status"
+const INTERVENE_BONUS_VS_PCT: String = "bonus_vs_pct"
+# HP で払う（⚠ cost に書く）。⚠ 最大HPの pct %・⚠ 払うと 0 になるなら撃てない。
+const COST_FIELD_HP_PCT: String = "hp_pct"
 const AIM_FIELDS_REQUIRED: Array = ["from", "speed", "to"]
 # 対象を取らない効果（回NC-1）。⚠ 購読の中でも target が要らない（E54 の例外）・実行時も対象を選ばない。
 const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
@@ -204,7 +222,9 @@ const DISPEL_DEBUFF: String = "debuff"
 const DISPEL_BUFF: String = "buff"
 const DASH_TO_TARGET: String = "target"
 const DASH_TO_BACK: String = "back"
-const DASH_TOS_KNOWN: Array = [DASH_TO_TARGET, DASH_TO_BACK]
+# 溜めで動かした狙いの場所へ（回VP-1・吸血鬼の蝙蝠＝神の使いの aim を移動にも使う）。⚠ 狙いが無ければ to: target と同じ。
+const DASH_TO_AIM: String = "aim"
+const DASH_TOS_KNOWN: Array = [DASH_TO_TARGET, DASH_TO_BACK, DASH_TO_AIM]
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
@@ -286,7 +306,7 @@ const INTERVENE_DRAIN_PCT: String = "drain_pct"
 const INTERVENE_FIELDS_KNOWN: Array = [
 	INTERVENE_SHIELD_HP, INTERVENE_REDUCTION_PCT, INTERVENE_PIERCE_PCT,
 	INTERVENE_CRIT_ALWAYS, INTERVENE_REFLECT_PCT, INTERVENE_REFLECT_FLAT,
-	INTERVENE_DRAIN_TAG, INTERVENE_DRAIN_PCT,
+	INTERVENE_DRAIN_TAG, INTERVENE_DRAIN_PCT, INTERVENE_BONUS_VS_STATUS, INTERVENE_BONUS_VS_PCT,
 	BUFF_ON_DEATH, BUFF_BLOCK_STATUS, BUFF_HEAL_TAKEN_PCT,
 ]
 # ⚠ 軽減の上限。100 にすると amount が必ず 0 になり、誰も死なずに決着しない
@@ -377,6 +397,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	"resource_id", "amount", "set_to", "per_target_stack",
 	CONSUME_FIELD_UNIT_IDS, CONSUME_FIELD_BLAST_RADIUS, SUMMON_FIELD_MAX_PER_OWNER,
 	FIELD_TAG, FIELD_ON_KILL, FIELD_ON_MEET, FIELD_EVADE,
+	FIELD_DRAIN_PCT, FIELD_WHEN_DRAIN_MULT, FIELD_STAT_PCT_FROM,
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -428,6 +449,7 @@ const EVENT_EMPOWERED_BASIC: String = "empowered_basic"
 const EVENTS_KNOWN: Array = [
 	EVENT_ATTACKED, EVENT_DEALT_DAMAGE, EVENT_TOOK_DAMAGE,
 	EVENT_FOE_DIED, EVENT_BASIC_HIT, EVENT_SKILL_USED, EVENT_EMPOWERED_BASIC,
+	"status_applied",
 ]
 # 通常攻撃を撃つときのスキルID（⚠ BattleController と SkillRuntime の両方が読む＝語彙はここ）。
 const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
@@ -565,7 +587,7 @@ const FIELD_COST: String = "cost"
 const COST_FIELD_RESOURCE_ID: String = "resource_id"
 const COST_FIELD_AMOUNT: String = "amount"
 const COST_FIELD_ALL: String = "all"
-const COST_FIELDS_KNOWN: Array = [COST_FIELD_RESOURCE_ID, COST_FIELD_AMOUNT, COST_FIELD_ALL]
+const COST_FIELDS_KNOWN: Array = [COST_FIELD_RESOURCE_ID, COST_FIELD_AMOUNT, COST_FIELD_ALL, "hp_pct"]
 
 # 払った量で効果を変える（回CH-2・人間「⚠ ３あ」＝使った量に比例）。scale_from の項に書く：
 #   {"source": "resource_spent", "weight": 1.0}
@@ -1260,6 +1282,10 @@ static func _validate_effect(
 		var to: String = str(effect.get("to", ""))
 		if not (to in DASH_TOS_KNOWN):
 			_err(issues, skill_id, "%s.to が不明: '%s'（%s）" % [where, to, str(DASH_TOS_KNOWN)])
+		elif to == DASH_TO_AIM:
+			for aim_bad: String in ["distance"]:
+				if effect.has(aim_bad):
+					_err(issues, skill_id, "%s.to: 'aim' に %s は書けない" % [where, aim_bad])
 		elif to == DASH_TO_TARGET:
 			var offset: Variant = effect.get("offset", null)
 			if not _is_num(offset) or float(offset) < 0.0:
@@ -1346,8 +1372,9 @@ static func _validate_effect(
 	elif effect.has(FIELD_WHEN_MULT) or effect.has(FIELD_WHEN_CRIT):
 		_err(issues, skill_id, "%s の when_mult ／ when_crit は when_target と一緒にしか書けない" % where)
 	if effect.has(FIELD_WHEN_MULT):
-		if effect_type != EFFECT_DAMAGE:
-			_err(issues, skill_id, "%s.when_mult は damage にしか書けない" % where)
+		# ⚠ 回VP-1：周期ダメージ（回復でない dot）にも書ける（⚠ 毎回の1発に掛かる）。
+		if not (effect_type == EFFECT_DAMAGE or (effect_type == EFFECT_DOT and not bool(effect.get(FIELD_HEALS, false)))):
+			_err(issues, skill_id, "%s.when_mult は damage と（回復でない）dot にしか書けない" % where)
 		if not _is_num(effect.get(FIELD_WHEN_MULT, null)) or float(effect.get(FIELD_WHEN_MULT, 0)) <= 0.0:
 			_err(issues, skill_id, "%s.when_mult が正の数でない" % where)
 	if effect.has(FIELD_WHEN_CRIT):
@@ -1584,6 +1611,12 @@ static func _validate_react_effect(
 	if not (event_name in EVENTS_KNOWN):
 		_err(issues, skill_id, "%s.react.event が無い、または不明: '%s'" % [where, event_name])
 
+	# E194 状態で絞る（回VP-1）。⚠ status_applied だけ。
+	if react.has(REACT_FIELD_STATUS):
+		if event_name != EVENT_STATUS_APPLIED:
+			_err(issues, skill_id, "%s.react.status_id は event: 'status_applied' にしか書けない" % where)
+		elif str(react.get(REACT_FIELD_STATUS, "")) == "":
+			_err(issues, skill_id, "%s.react.status_id が空" % where)
 	# E188 近くで（回MC-1）。⚠ foe_died だけ・正の数。
 	if react.has(REACT_FIELD_WITHIN):
 		var within: Variant = react.get(REACT_FIELD_WITHIN, null)
@@ -1644,7 +1677,18 @@ static func _validate_stat_fields(issues: Array, skill_id: String, effect: Dicti
 		var pct: Variant = effect.get(FIELD_STAT_PCT, null)
 		if not _is_num(pct) or float(pct) != floor(float(pct)) or int(pct) == 0 or float(pct) < -95.0:
 			_err(issues, skill_id, "%s.stat_pct が −95 以上の0以外の整数でない" % where)
-	if not has_value and not has_pct:
+	# E191 式で決める割合（回VP-1）。⚠ 配列で・各項に source。
+	var has_pct_from: bool = effect.has(FIELD_STAT_PCT_FROM)
+	if has_pct_from:
+		var terms: Variant = effect.get(FIELD_STAT_PCT_FROM, null)
+		var terms_ok: bool = terms is Array and not (terms as Array).is_empty()
+		if terms_ok:
+			for term: Variant in (terms as Array):
+				if not (term is Dictionary) or str((term as Dictionary).get("source", "")) == "":
+					terms_ok = false
+		if not terms_ok:
+			_err(issues, skill_id, "%s.stat_pct_from が {source, weight} の配列でない" % where)
+	if not has_value and not has_pct and not has_pct_from:
 		_err(issues, skill_id, "%s.stat に value も stat_pct も無い" % where)
 	return true
 
@@ -2021,6 +2065,13 @@ static func _validate_intervene(
 				where, BUFF_INTERVENE, INTERVENE_PIERCE_PCT, PIERCE_PCT_MAX
 			])
 
+	# E193 … 相手の状態で常に強い（回VP-1）。⚠ 状態と割合はそろえて書く・割合は 1〜500。
+	if iv.has(INTERVENE_BONUS_VS_STATUS) != iv.has(INTERVENE_BONUS_VS_PCT):
+		_err(issues, skill_id, "%s.%s の bonus_vs_status と bonus_vs_pct はそろえて書く" % [where, BUFF_INTERVENE])
+	if iv.has(INTERVENE_BONUS_VS_PCT):
+		var bv: Variant = iv.get(INTERVENE_BONUS_VS_PCT, null)
+		if not _is_num(bv) or float(bv) != floor(float(bv)) or int(bv) < 1 or int(bv) > 500:
+			_err(issues, skill_id, "%s.%s.bonus_vs_pct が 1〜500 の整数でない" % [where, BUFF_INTERVENE])
 	# E182 … 吸収（回GM-1）。⚠ 印と割合はそろえて書く・割合は 1〜100。
 	if iv.has(INTERVENE_DRAIN_TAG) != iv.has(INTERVENE_DRAIN_PCT):
 		_err(issues, skill_id, "%s.%s の drain_tag と drain_pct はそろえて書く" % [where, BUFF_INTERVENE])
@@ -2217,6 +2268,18 @@ static func _validate_gm_fields(
 			elif meet is Dictionary and str((meet as Dictionary).get("status_id", "")) == str(effect.get("status_id", "")):
 				_err(issues, skill_id, "%s.on_meet.status_id が自分と同じ" % where)
 			_validate_sub_effects(issues, skill_id, meet, where + ".on_meet", ["status_id", "effects"], activation, false)
+	# E192 効果ごとの吸収（回VP-1）。⚠ damage だけ・1〜100・倍率は when_target と一緒に。
+	if effect.has(FIELD_DRAIN_PCT):
+		var dp: Variant = effect.get(FIELD_DRAIN_PCT, null)
+		if effect_type != EFFECT_DAMAGE:
+			_err(issues, skill_id, "%s.drain_pct は damage にしか書けない" % where)
+		elif not _is_num(dp) or float(dp) < 1.0 or float(dp) > 100.0:
+			_err(issues, skill_id, "%s.drain_pct が 1〜100 の数でない" % where)
+	if effect.has(FIELD_WHEN_DRAIN_MULT):
+		if not effect.has(FIELD_DRAIN_PCT) or not effect.has(FIELD_WHEN_TARGET):
+			_err(issues, skill_id, "%s.when_drain_mult は drain_pct と when_target と一緒にしか書けない" % where)
+		elif not _is_num(effect.get(FIELD_WHEN_DRAIN_MULT, null)) or float(effect.get(FIELD_WHEN_DRAIN_MULT, 0)) <= 0.0:
+			_err(issues, skill_id, "%s.when_drain_mult が正の数でない" % where)
 	# E189 避けて反撃（回MC-1）。⚠ host: unit の buff だけ・中の効果は攻撃してきた相手に当たる（⚠ target は書かない）。
 	if effect.has(FIELD_EVADE):
 		if effect_type != EFFECT_BUFF or str(effect.get("host", "")) != HOST_UNIT:
@@ -2363,6 +2426,16 @@ static func _validate_cost(issues: Array, skill_id: String, data: Dictionary) ->
 	for key: Variant in cost:
 		if not (str(key) in COST_FIELDS_KNOWN):
 			_err(issues, skill_id, "cost に知らない欄がある: '%s'" % str(key))
+	# E190 HP で払う（回VP-1）。⚠ 資源の欄とは一緒に書けない・1〜99。
+	if cost.has(COST_FIELD_HP_PCT):
+		var hp_pct: Variant = cost.get(COST_FIELD_HP_PCT, null)
+		if not _is_num(hp_pct) or float(hp_pct) < 1.0 or float(hp_pct) > 99.0:
+			_err(issues, skill_id, "cost.hp_pct が 1〜99 の数でない")
+		if cost.size() != 1:
+			_err(issues, skill_id, "cost.hp_pct は資源の欄と一緒に書けない")
+		if str(data.get("activation", "")) == ACTIVATION_PASSIVE:
+			_err(issues, skill_id, "activation: 'passive' に cost は書けない（撃つ瞬間が無い）")
+		return
 	if str(cost.get(COST_FIELD_RESOURCE_ID, "")) == "":
 		_err(issues, skill_id, "cost.resource_id が無い")
 	# E157 amount（1以上の整数）と all: true はどちらか1つ

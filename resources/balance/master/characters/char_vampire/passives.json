@@ -1,0 +1,60 @@
+{
+	"passive_vp_noble": {
+		"name_key": "ui_battle_passive_vp_noble",
+		"user_character_id": "char_vampire",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_vp_noble_atk",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"stat": "atk",
+				"stat_pct_from": [
+					{
+						"source": "resource",
+						"resource_id": "blood",
+						"weight": 2
+					}
+				]
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_vp_noble_vs",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"intervene": {
+					"bonus_vs_status": "bleed",
+					"bonus_vs_pct": 20
+				}
+			},
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_vp_noble_stock",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "status_applied",
+					"status_id": "bleed",
+					"effects": [
+						{
+							"type": "resource",
+							"resource_id": "blood",
+							"amount": 1,
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	}
+}

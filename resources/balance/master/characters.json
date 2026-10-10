@@ -570,6 +570,92 @@
 			"spd": 1
 		}
 	},
+	"char_vampire": {
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		},
+		"basic_attack_every": {
+			"every": 3,
+			"attack": {
+				"effects": [
+					{
+						"type": "damage",
+						"delivery": "melee",
+						"multiplier": 1.0,
+						"attack_type": "physical",
+						"scale_from": "atk",
+						"drain_pct": 30,
+						"when_target": {
+							"source": "status_has",
+							"status_id": "bleed"
+						},
+						"when_drain_mult": 2.0
+					},
+					{
+						"type": "status",
+						"status": "bleed"
+					}
+				]
+			}
+		},
+		"name_key": "ui_battle_char_vampire",
+		"sign_style": "brush",
+		"sign_mark": "cross",
+		"weapon_genre": "claw",
+		"resources": [
+			{
+				"id": "blood",
+				"kind": "stock",
+				"max": 10,
+				"start": 0,
+				"carry_over": false,
+				"name_key": "ui_res_char_vampire_blood"
+			}
+		],
+		"hp": 130,
+		"atk": 16,
+		"mag": 8,
+		"def": 7,
+		"mdef": 6,
+		"spd": 65,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 5,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 60,
+		"attack_interval_sec": 1.5,
+		"skills": [
+			"skill_vp_bite",
+			"skill_vp_hex",
+			"skill_vp_bat",
+			"skill_vp_field",
+			"skill_vp_frenzy",
+			"skill_vp_swarm"
+		],
+		"passives": [
+			"passive_vp_noble"
+		],
+		"allocatable_stats": [
+			"hp",
+			"atk",
+			"atkspd"
+		],
+		"growth_per_level": {
+			"hp": 6,
+			"atk": 2,
+			"def": 1,
+			"spd": 1
+		}
+	},
 	"char_debug_status": {
 		"basic_attack": {
 			"effects": [
