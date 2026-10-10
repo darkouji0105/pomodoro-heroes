@@ -455,7 +455,7 @@ func _dispatch_events(entry: Dictionary, results: Array) -> void:
 			if not (raw is Dictionary):
 				continue
 			var r: Dictionary = raw as Dictionary
-			if bool(r.get("is_heal", false)) or str(r.get("source_unit_id", "")) != user_id:
+			if bool(r.get("is_heal", false)) or r.has("kind") or str(r.get("source_unit_id", "")) != user_id:
 				continue
 			_notify(SkillSchema.EVENT_BASIC_HIT, user_id, str(r.get("unit_id", "")))
 
@@ -472,7 +472,8 @@ func _dispatch_damage_events(results: Array) -> void:
 		if not (raw is Dictionary):
 			continue
 		var r: Dictionary = raw as Dictionary
-		if bool(r.get("is_heal", false)):
+		# ⚠ kind を持つ結果（召喚・ノックバック）はダメージではない（回CH-5）。
+		if bool(r.get("is_heal", false)) or r.has("kind"):
 			continue
 		var victim_id: String = str(r.get("unit_id", ""))
 		var attacker_id: String = str(r.get("source_unit_id", ""))

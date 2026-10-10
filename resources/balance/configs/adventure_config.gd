@@ -114,6 +114,10 @@ extends Resource
 ##   ⚠ 0.0 にすると全部同時に出る（＝前の挙動）。
 @export var pop_stagger_sec: float = 0.06
 
+## ⚠⚠ ボスへの行動妨害の効き目（2026-10-10・回CH-5・人間「⚠ ２う」＝ボスには弱く効く）。
+##   ⚠ スタン・スネアの秒数とノックバックの距離に掛ける。⚠ 1.0 で雑魚と同じ・0.0 で効かない。⚠ 値は設計役の**仮**。
+@export var boss_control_ratio: float = 0.5
+
 # --- 状態のマス（EXEC_STATUS_UI.md） ---
 #
 # ⚠⚠ 色はここに置かない（2026-09-17）。⚠ Theme の `StatusChip` 型（`tools/theme_builder.gd`）。

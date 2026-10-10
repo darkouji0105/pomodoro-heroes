@@ -88,15 +88,18 @@ const EFFECT_SUMMON: String = "summon" # 段階6で実装（召喚・分裂）
 # キャラ固有の資源を足す・決める（2026-10-10・回CH-1・EXEC_CHAR_RESOURCE.md §3）。
 # ⚠ 宛先は撃った本人だけ（⚠ 資源は持ち主のもの）。⚠ target は読まない。
 const EFFECT_RESOURCE: String = "resource"
+# 押し出す（回CH-5）。{"type": "knockback", "distance": 80}。⚠ 撃った人から遠ざける向き。
+# ⚠ 座標を動かすのは戦闘の画面（BattleController）だけ＝⚠ ここは結果に載せるだけ（召喚と同じ）。
+const EFFECT_KNOCKBACK: String = "knockback"
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
-	EFFECT_RESOURCE,
+	EFFECT_RESOURCE, EFFECT_KNOCKBACK,
 	"dispel", "cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
-	EFFECT_RESOURCE,
+	EFFECT_RESOURCE, EFFECT_KNOCKBACK,
 ]
 # resource の欄。⚠ amount（足す・負なら減らす）と set_to（その値にする）はどちらか1つ。
 # ⚠ 持ち主にその資源があるか・種類と欄が合うかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
@@ -208,6 +211,21 @@ const BUFF_ATK_MULT_PCT: String = "atk_mult_pct"
 const BUFF_BASIC_ATTACK: String = "basic_attack"
 const BUFF_USES: String = "uses"
 
+# 行動を止める・守る（回CH-5・EXEC_CHAR_RESOURCE.md §12）。⚠ buff の `control` に1つ書く。
+#   stun         … 移動・通常攻撃・スキルを全部止める（人間「⚠ １あ」）
+#   snare        … 移動だけ止める（人間「⚠ スネアも追加」）
+#   invulnerable … ダメージも、相手から付けられる状態も受けない（人間「⚠ ３あ」）
+#   unstoppable  … スタン・スネア・ノックバックを受けない
+# ⚠ ボスには弱く効く（人間「⚠ ２う」＝`Balance.adventure.boss_control_ratio` を秒数・距離に掛ける）。
+const BUFF_CONTROL: String = "control"
+const CONTROL_STUN: String = "stun"
+const CONTROL_SNARE: String = "snare"
+const CONTROL_INVULNERABLE: String = "invulnerable"
+const CONTROL_UNSTOPPABLE: String = "unstoppable"
+const CONTROLS_KNOWN: Array = [CONTROL_STUN, CONTROL_SNARE, CONTROL_INVULNERABLE, CONTROL_UNSTOPPABLE]
+# ⚠ 止められない（unstoppable）が防ぐもの。
+const CONTROLS_STOPPABLE: Array = [CONTROL_STUN, CONTROL_SNARE]
+
 # 効果の直下に書ける欄の全部（EXEC_SILENT_HOLES.md・W16）。
 #
 # 【なぜ要るか】typo（"stt" / "mutliplier"）が無音で無視される。書いたのに何も
@@ -225,7 +243,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	"stat", "value", "target", "trigger", "chance", "charge_scales",
 	"react", "condition",
 	BUFF_INTERVENE, FIELD_ZONE, FIELD_HEALS, BUFF_ATK_MULT_PCT,
-	BUFF_BASIC_ATTACK, BUFF_USES,
+	BUFF_BASIC_ATTACK, BUFF_USES, BUFF_CONTROL, "distance",
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to",
 ]
@@ -1029,6 +1047,25 @@ static func _validate_effect(
 					where, effect_type, summon_field
 				])
 
+	# E164〜E165 行動を止める・押し出す（回CH-5）
+	if effect.has(BUFF_CONTROL):
+		var control: String = str(effect.get(BUFF_CONTROL, ""))
+		if effect_type != EFFECT_BUFF:
+			_err(issues, skill_id, "%s.type: '%s' に control は書けない（buff だけ）" % [where, effect_type])
+		elif not (control in CONTROLS_KNOWN):
+			_err(issues, skill_id, "%s.control が不明: '%s'（%s）" % [where, control, str(CONTROLS_KNOWN)])
+		elif str(effect.get("host", "")) != HOST_UNIT:
+			_err(issues, skill_id, "%s.control は host: 'unit' にしか書けない" % where)
+	if effect_type == EFFECT_KNOCKBACK:
+		var distance: Variant = effect.get("distance", null)
+		if not _is_num(distance) or float(distance) <= 0.0:
+			_err(issues, skill_id, "%s.distance が正の数でない（type: 'knockback' は必須）" % where)
+		for forbidden: String in ["scale_from", "multiplier", "attack_type", "host"]:
+			if effect.has(forbidden):
+				_err(issues, skill_id, "%s.type: 'knockback' に %s は書けない" % [where, forbidden])
+	elif effect.has("distance"):
+		_err(issues, skill_id, "%s.type: '%s' に distance は書けない（knockback だけ）" % [where, effect_type])
+
 	# E162〜E163 通常攻撃を置き換える（回CH-4）
 	if effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_USES):
 		_validate_basic_override(issues, skill_id, effect, where, effect_type)
@@ -1418,7 +1455,7 @@ static func _validate_status_effect(
 		#   （stat が10軸に無い／value が0以外の整数でない）が誤って出る（実測で踏んだ）。
 		var has_stat: bool = effect.has("stat") or effect.has("value")
 		# ⚠ 新しい補正の欄を足したら、E63（何もしない buff）の判定にも足すこと。
-		var has_atk_mult: bool = effect.has(BUFF_ATK_MULT_PCT) or effect.has(BUFF_BASIC_ATTACK)
+		var has_atk_mult: bool = effect.has(BUFF_ATK_MULT_PCT) or effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_CONTROL)
 		if has_stat:
 			# E37 / E38
 			var stat_key: String = str(effect.get("stat", ""))

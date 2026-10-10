@@ -687,5 +687,107 @@
 				}
 			}
 		]
+	},
+	"skill_dbg_ctl_stun": {
+		"name_key": "ui_battle_skill_dbg_ctl_stun",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_skill_dbg_ctl_stun",
+				"control": "stun",
+				"duration_sec": 2.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"skill_dbg_ctl_snare": {
+		"name_key": "ui_battle_skill_dbg_ctl_snare",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_skill_dbg_ctl_snare",
+				"control": "snare",
+				"duration_sec": 2.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"skill_dbg_ctl_knockback": {
+		"name_key": "ui_battle_skill_dbg_ctl_knockback",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "knockback",
+				"distance": 120.0
+			}
+		]
+	},
+	"skill_dbg_ctl_invuln": {
+		"name_key": "ui_battle_skill_dbg_ctl_invuln",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_skill_dbg_ctl_invuln",
+				"control": "invulnerable",
+				"duration_sec": 3.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"skill_dbg_ctl_unstoppable": {
+		"name_key": "ui_battle_skill_dbg_ctl_unstoppable",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_skill_dbg_ctl_unstoppable",
+				"control": "unstoppable",
+				"duration_sec": 3.0,
+				"stack": "refresh"
+			}
+		]
 	}
 }

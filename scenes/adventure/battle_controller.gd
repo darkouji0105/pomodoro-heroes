@@ -1179,6 +1179,9 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 	var target: BattleUnit = _find_unit_by_id(unit.target_unit_id)
 	if target == null or not target.is_alive():
 		return
+	# スタン中は何もしない（回CH-5・人間「⚠ １あ」）。⚠ 攻撃の間合いの溜めも進めない。
+	if unit.stunned:
+		return
 	var distance: float = abs(target.x - unit.x)
 	if distance <= unit.attack_range:
 		unit.attack_timer += delta
@@ -1190,7 +1193,8 @@ func _step_unit(unit: BattleUnit, delta: float) -> void:
 			#   ⚠ 前は「攻撃間隔と同じ拍でスキルを試し、撃てなければ通常攻撃」だった。
 			_fire_basic_attack(unit, target)
 			unit.attack_timer = 0.0
-	elif unit.move_lock_sec <= 0.0:
+	elif unit.move_lock_sec <= 0.0 and not unit.snared:
+		# ⚠ スネア中は動かない（回CH-5）。⚠ 殴れる間合いなら上の枝で殴る。
 		# ⚠ 移動系ルーンで動いた直後はここへ来ない（move_lock_sec が立っている）。
 		#   ⚠ 止めるのは移動だけ。上の攻撃の枝には条件を足さないこと
 		#     （足すと後退したあと殴れず、ロック中だけ完全に無力になる）。
@@ -1709,6 +1713,9 @@ func _update_skill_buttons() -> void:
 		var alive: bool = false
 		# 資源が足りない（回CH-2・人間「⚠ １あ」＝暗くして押せない）。
 		var short: bool = SkillActivation.is_cost_short(user, skill_id)
+		# スタン中（回CH-5）。⚠ 足りないときと同じく暗く押せない。
+		if user != null and user.stunned:
+			short = true
 		# 構え中（activation: recast の段の途中）か。⚠ 構え中はクールダウンが
 		#   回っていてもボタンを押せる状態に保つこと。disabled にすると、判定
 		#   （blocked_reason）を通しても押せず、再発動が無音でできなくなる。
@@ -2001,6 +2008,12 @@ func _on_skill_effects_applied(results: Array) -> void:
 		# ⚠ kind を持つのは召喚の1件だけ。既存の1件には kind を足していない。
 		if str(r.get("kind", "")) == SkillSchema.EFFECT_SUMMON:
 			_spawn_summon(r as Dictionary)
+			continue
+		# ノックバック（回CH-5）。⚠ 座標を触るのはこの層だけ（ルーンの移動と同じ端で止める）。
+		if str(r.get("kind", "")) == SkillSchema.EFFECT_KNOCKBACK:
+			var pushed: BattleUnit = _find_unit_by_id(str(r.get("unit_id", "")))
+			if pushed != null:
+				pushed.x = clampf(pushed.x + float(r.get("dx", 0.0)), RUNE_MOVE_MIN_X, RUNE_MOVE_MAX_X)
 			continue
 		var target: BattleUnit = _find_unit_by_id(str(r.get("unit_id", "")))
 		# 種類で色を分ける（EXEC_DAMAGE_POP_COLOR.md）。分岐はここ1箇所。

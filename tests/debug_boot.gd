@@ -1496,6 +1496,7 @@ func _ready() -> void:
 			_report_char_cost()
 			_report_char_events()
 			_report_char_basic()
+			_report_char_control()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7639,6 +7640,109 @@ func _basic_kind(unit: BattleUnit, registry: StatusRegistry) -> String:
 	if attack == unit.basic_attack:
 		return "いつも"
 	return "特別"
+
+# 止める・動かす（回CH-5）。⚠ 本物の SkillResolver と StatusRegistry で起こす（⚠ 座標を動かすのは戦闘の画面＝ここは結果の dx を見る）。
+func _report_char_control() -> void:
+	var status_id: String = "char_debug_status"
+	var me: BattleUnit = _resource_unit(status_id, 0)
+	var foe_data: Dictionary = MasterDataLoader.get_enemy("enemy_slime")
+	var foe: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var boss: BattleUnit = BattleUnit.create("enemy_1", BattleUnit.TEAM_ENEMY, foe_data, foe_data, true, "enemy_slime")
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = [foe, boss]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var ratio: float = float(Balance.adventure.boss_control_ratio)
+	# ⚠ 枠に無いスキルは「クールダウン中」扱いになる（is_skill_ready）。⚠ 撃てるかを見るスキルを枠に入れておく。
+	me.skill_ids = ["skill_dbg_res_charge"]
+	me.skill_cooldowns = {"skill_dbg_res_charge": 0.0}
+
+	print("[DebugBoot] --- 16. スタン（⚠ 雑魚 2秒・ボス %.1f秒＝人間「⚠ ２う」）---" % (2.0 * ratio))
+	_control_cast("skill_dbg_ctl_stun", me, [foe, boss], session, registry)
+	print("  かけた直後：雑魚 %s / ボス %s（true / true）" % [str(foe.stunned), str(boss.stunned)])
+	registry.tick(2.0 * ratio + 0.05)
+	print("  %.2f秒後：雑魚 %s / ボス %s（true / false）" % [2.0 * ratio + 0.05, str(foe.stunned), str(boss.stunned)])
+	registry.tick(2.0)
+	print("  さらに2秒後：雑魚 %s（false）" % str(foe.stunned))
+	_control_cast("skill_dbg_ctl_stun", foe, [me], session, registry)
+	print("  味方がスタン：撃てるか = '%s'（stunned が正解＝人間「⚠ １あ」スキルも止まる）" % SkillActivation.blocked_reason(
+		me, "skill_dbg_res_charge", MasterDataLoader.get_skill("skill_dbg_res_charge"), session
+	))
+	registry.tick(3.0)
+
+	print("[DebugBoot] --- 17. スネア（⚠ 移動だけ止める）---")
+	_control_cast("skill_dbg_ctl_snare", foe, [me], session, registry)
+	print("  スネア：snared %s / stunned %s / 撃てるか '%s'（true / false / 空＝撃てる）" % [
+		str(me.snared), str(me.stunned),
+		SkillActivation.blocked_reason(me, "skill_dbg_res_charge", MasterDataLoader.get_skill("skill_dbg_res_charge"), session)
+	])
+	registry.tick(3.0)
+
+	print("[DebugBoot] --- 18. 止められない・無敵 ---")
+	_control_cast("skill_dbg_ctl_unstoppable", me, [me], session, registry)
+	_control_cast("skill_dbg_ctl_stun", foe, [me], session, registry)
+	_control_cast("skill_dbg_ctl_snare", foe, [me], session, registry)
+	var pushed: Array = _control_cast("skill_dbg_ctl_knockback", foe, [me], session, registry)
+	print("  止められない：stunned %s / snared %s / 押し出し %d 件（false / false / 0）" % [str(me.stunned), str(me.snared), pushed.size()])
+	registry.tick(3.5)
+	_control_cast("skill_dbg_ctl_invuln", me, [me], session, registry)
+	var hp_before: int = me.hp
+	var plain: Dictionary = {"effects": [{"type": "damage", "multiplier": 5.0, "attack_type": "physical", "scale_from": "atk"}]}
+	SkillResolver.resolve(plain.duplicate(true), foe, session, [me.unit_id], registry)
+	_control_cast("skill_dbg_ctl_stun", foe, [me], session, registry)
+	_control_cast("skill_dbg_buff_refresh", me, [me], session, registry)
+	print("  無敵：HP %d -> %d（減らない）／ 敵のスタン %s（false）／ 自分のバフ %s（true＝味方・自分から付くものは通す）" % [
+		hp_before, me.hp, str(me.stunned),
+		str(registry.has({"host_unit_id": me.unit_id, "status_id": "status_dbg_atk_refresh"}))
+	])
+	registry.tick(3.5)
+	SkillResolver.resolve(plain.duplicate(true), foe, session, [me.unit_id], registry)
+	print("  無敵が切れたあと：HP %d（減る が正解）" % me.hp)
+
+	print("[DebugBoot] --- 19. ノックバック（⚠ 撃った人から遠ざける・距離 120・ボス %.0f）---" % (120.0 * ratio))
+	me.x = 300.0
+	foe.x = 500.0
+	boss.x = 520.0
+	var results: Array = _control_cast("skill_dbg_ctl_knockback", me, [foe, boss], session, registry)
+	var shown: Array = []
+	for r: Variant in results:
+		shown.append("%s dx=%.0f" % [str((r as Dictionary).get("unit_id", "")), float((r as Dictionary).get("dx", 0.0))])
+	print("  %s（enemy_0 dx=120 / enemy_1 dx=%.0f）" % [str(shown), 120.0 * ratio])
+	foe.x = 200.0
+	results = _control_cast("skill_dbg_ctl_knockback", me, [foe], session, registry)
+	print("  後ろにいる敵：dx=%.0f（-120＝撃った人から遠ざける）" % float((results[0] as Dictionary).get("dx", 0.0)) if not results.is_empty() else "  結果が無い")
+
+	print("[DebugBoot] --- 20. 壊した行動妨害を弾く（⚠ 赤は出さず件数だけ）---")
+	var probes: Array = [
+		["damage に control", {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "control": "stun"}],
+		["知らない control", {"type": "buff", "host": "unit", "status_id": "x", "stack": "refresh", "duration_sec": 1.0, "control": "sleep"}],
+		["knockback に distance が無い", {"type": "knockback"}],
+		["knockback の distance が 0", {"type": "knockback", "distance": 0}],
+		["damage に distance", {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "distance": 10}],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": status_id, "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "all"}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(probe[0]), errors])
+
+
+# スキルの効果を1件ずつ、渡した相手に当てる。⚠ 戻り値は結果（ノックバックの dx を見るため）。
+func _control_cast(skill_id: String, user: BattleUnit, targets: Array, session: BattleSession, registry: StatusRegistry) -> Array:
+	var ids: Array = []
+	for t: Variant in targets:
+		ids.append((t as BattleUnit).unit_id)
+	var data: Dictionary = MasterDataLoader.get_skill(skill_id)
+	var results: Array = []
+	for effect: Variant in (data.get("effects", []) as Array):
+		results.append_array(SkillResolver.resolve({"effects": [effect]}, user, session, ids, registry))
+	return results
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)

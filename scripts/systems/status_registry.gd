@@ -207,6 +207,26 @@ func add(
 	#   status_add がログに出て「付いたのに消えた」と読める。
 	# ⚠ 弾くのは host: unit だけ。battle / point は宿主が居らず、誰の免疫が
 	#   効くのか決まらない。
+	# --- 6-3-0. 行動妨害と無敵（回CH-5） ---
+	# ⚠ ここも状態を1つも触っていないうちに弾く（CLAUDE.md 6番）。
+	if host == SkillSchema.HOST_UNIT:
+		var control: String = str(entry.get(SkillSchema.BUFF_CONTROL, ""))
+		# 無敵：相手から付けられる状態は全部受けない（人間「⚠ ３あ」）。⚠ 味方・自分から付くものは通す。
+		if host_unit.invulnerable and source.team != host_unit.team:
+			BattleLog.log_intervene("status", host_unit.unit_id, status_id, "invulnerable")
+			return false
+		if control in SkillSchema.CONTROLS_STOPPABLE:
+			if host_unit.unstoppable:
+				BattleLog.log_intervene("status", host_unit.unit_id, status_id, "unstoppable")
+				return false
+			# ボスには弱く効く（人間「⚠ ２う」）。⚠ 秒数に掛ける。
+			if host_unit.is_boss:
+				var ratio: float = float(Balance.adventure.boss_control_ratio)
+				if ratio <= 0.0:
+					BattleLog.log_intervene("status", host_unit.unit_id, status_id, "boss")
+					return false
+				entry["duration_sec"] = float(entry.get("duration_sec", 0.0)) * ratio
+
 	if host == SkillSchema.HOST_UNIT:
 		var block_ctx: Dictionary = {
 			"status_id": status_id,
@@ -412,6 +432,15 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 			return false
 		entry["block_status"] = (raw_block as Array).duplicate(true)
 		has_intervene = true
+
+	# 行動を止める・守る（回CH-5）。⚠ 印をユニットへ配るのは _rebuild_unit_mods()。
+	if effect.has(SkillSchema.BUFF_CONTROL):
+		var control: String = str(effect.get(SkillSchema.BUFF_CONTROL, ""))
+		if not (control in SkillSchema.CONTROLS_KNOWN):
+			push_error("[StatusRegistry] buff の control が不明: '%s'" % control)
+			return false
+		entry[SkillSchema.BUFF_CONTROL] = control
+		has_stat = true
 
 	# 通常攻撃を置き換える（回CH-4）。⚠ 残りの回数は uses_left（⚠ counter はシールドの残量なので使わない）。
 	#   ⚠ uses が無ければ -1＝寿命のあいだずっと。
@@ -1575,6 +1604,18 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 			continue
 		mods[stat_key] = int(mods.get(stat_key, 0)) + int(entry.get("value", 0))
 	unit.set_stat_mods(mods)
+
+	# 行動を止める・守る印（回CH-5）。⚠ 書くのはここ1箇所（⚠ 補正と同じく「ゼロから組み直す」）。
+	var controls: Dictionary = {}
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) == KIND_BUFF and _applies_to(entry, unit_id):
+			var control: String = str(entry.get(SkillSchema.BUFF_CONTROL, ""))
+			if control != "":
+				controls[control] = true
+	unit.stunned = controls.has(SkillSchema.CONTROL_STUN)
+	unit.snared = controls.has(SkillSchema.CONTROL_SNARE)
+	unit.invulnerable = controls.has(SkillSchema.CONTROL_INVULNERABLE)
+	unit.unstoppable = controls.has(SkillSchema.CONTROL_UNSTOPPABLE)
 
 	# 攻撃力の倍率（EXEC_SILENT_HOLES.md）。⚠ 書くのはここ1箇所だけ。
 	#

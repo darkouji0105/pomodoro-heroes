@@ -107,6 +107,13 @@ var sp_max: float = 0.0
 var sp_regen: float = 0.0
 
 
+# 行動を止める・守る印（回CH-5）。⚠ 書くのは StatusRegistry._rebuild_unit_mods() だけ（⚠ 状態から毎回組み直す）。
+var stunned: bool = false
+var snared: bool = false
+var invulnerable: bool = false
+var unstoppable: bool = false
+
+
 # 通常攻撃の数（回CH-4）。⚠ 置き換えた一撃も数える（人間「⚠ ３あ」）。⚠ 戦闘ごとに 0 から（⚠ 画面には出さない＝「⚠ ３い」CH-1）。
 var basic_attack_count: int = 0
 # 「◯回ごと」の一撃（回CH-4）。{every: int, attack: {effects}}。⚠ 無ければ空。

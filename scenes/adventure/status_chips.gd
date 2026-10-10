@@ -163,6 +163,9 @@ static func tone_of(entry: Dictionary) -> Tone:
 	var kind: String = str(entry.get("kind", ""))
 	if kind == StatusRegistry.KIND_DOT and not bool(entry.get("heals", false)):
 		return Tone.DEBUFF
+	# ⚠ スタン・スネアは悪い状態（回CH-5）。⚠ 無敵・止められないは良い状態のまま。
+	if str(entry.get(SkillSchema.BUFF_CONTROL, "")) in SkillSchema.CONTROLS_STOPPABLE:
+		return Tone.DEBUFF
 	if str(entry.get("stat", "")) != "" and int(entry.get("value", 0)) < 0:
 		return Tone.DEBUFF
 	for key: String in ["atk_mult_pct", "heal_taken_pct", SkillSchema.INTERVENE_REDUCTION_PCT]:

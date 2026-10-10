@@ -256,7 +256,12 @@
 			"skill_dbg_res_overdrive",
 			"skill_dbg_res_regen",
 			"skill_dbg_res_empower",
-			"skill_dbg_res_empower_timed"
+			"skill_dbg_res_empower_timed",
+			"skill_dbg_ctl_stun",
+			"skill_dbg_ctl_snare",
+			"skill_dbg_ctl_knockback",
+			"skill_dbg_ctl_invuln",
+			"skill_dbg_ctl_unstoppable"
 		],
 		"passives": [
 			"passive_dbg_atk",

@@ -19,6 +19,8 @@ const REASON_COOLDOWN: String = "cooldown"
 const REASON_NO_TARGET: String = "no_target"
 # 資源が足りない（回CH-2・人間「⚠ １あ」＝マスは暗く押せない）。
 const REASON_COST: String = "cost"
+# スタン中（回CH-5・人間「⚠ １あ」＝スキルも止める）。
+const REASON_STUNNED: String = "stunned"
 
 
 # 資源が足りないか（回CH-2）。⚠ 構え中（2段目以降）は見ない（⚠ 払うのは1段目だけ＝クールダウンと同じ）。
@@ -46,6 +48,8 @@ static func blocked_reason(
 		return REASON_NOT_ACTIVE
 	if user == null or not user.is_alive():
 		return REASON_USER_DEAD
+	if user.stunned:
+		return REASON_STUNNED
 	if skill_data == null or skill_data.is_empty():
 		return REASON_SKILL_NOT_FOUND
 	# ⚠ 構え中（recast の2段目以降）はクールダウンを見ない。

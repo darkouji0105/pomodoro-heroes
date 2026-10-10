@@ -350,6 +350,9 @@ static func resolve(
 			_apply_summon(effect, user, results)
 		elif effect_type == SkillSchema.EFFECT_RESOURCE:
 			_apply_resource(effect, user)
+		elif effect_type == SkillSchema.EFFECT_KNOCKBACK:
+			for t: BattleUnit in targets:
+				_apply_knockback(effect, user, t, results)
 		elif effect_type in SkillSchema.EFFECT_TYPES_KNOWN:
 			push_warning("[SkillResolver] 未実装の効果: '%s'。この効果を飛ばす" % effect_type)
 		else:
@@ -424,6 +427,10 @@ static func _apply_damage(
 	# 【第2段】確定した数値を消費する。
 	# ⚠ シールドは take_damage() の前（amount を減らせるのはここだけ）。
 	# ⚠ 反射は take_damage() の後（「実際に減ったHP」を基準にするため）。
+	# 無敵（回CH-5）。⚠ 相手からのダメージを 0 にする（⚠ 数字を出さない＝results に積まない）。
+	if target.invulnerable and user.team != target.team:
+		BattleLog.log_intervene("invulnerable", target.unit_id, "", "%d -> 0" % int(ctx["amount"]))
+		ctx["amount"] = 0
 	_step_shield(ctx, registry)
 	if int(ctx["amount"]) > 0:
 		target.last_attacker_id = user.unit_id
@@ -632,6 +639,31 @@ static func _apply_heal(
 #   （CLAUDE.md 3番）。count だけは体数なので int() に落とす。
 # ⚠ "unit_id" の名前で入れないこと。既存の1件では「殴られた側」の意味で、
 #   battle_controller の _on_skill_effects_applied() が _find_unit_by_id() に渡す。
+# 押し出す（回CH-5）。⚠ 座標はここで触らない（⚠ 戦闘の画面が端で止めて動かす＝結果に載せるだけ）。
+# ⚠ 止められない・無敵（相手から）は受けない。⚠ ボスは距離に `boss_control_ratio` を掛ける（人間「⚠ ２う」）。
+static func _apply_knockback(effect: Dictionary, user: BattleUnit, target: BattleUnit, results: Array) -> void:
+	if target == null or not target.is_alive():
+		return
+	if target.unstoppable or (target.invulnerable and user.team != target.team):
+		BattleLog.log_intervene("knockback", target.unit_id, "", "blocked")
+		return
+	var distance: float = float(effect.get("distance", 0.0))
+	if target.is_boss:
+		distance *= float(Balance.adventure.boss_control_ratio)
+	if distance <= 0.0:
+		return
+	# ⚠ 撃った人から遠ざける。⚠ 同じ位置なら相手の陣の向き（味方は左＝負・敵は右＝正）。
+	var dir: float = sign(target.x - user.x)
+	if dir == 0.0:
+		dir = -1.0 if target.team == BattleUnit.TEAM_PARTY else 1.0
+	results.append({
+		"kind": SkillSchema.EFFECT_KNOCKBACK,
+		"unit_id": target.unit_id,
+		"source_unit_id": user.unit_id,
+		"dx": dir * distance,
+	})
+
+
 # 固有の資源（回CH-1）。⚠ 宛先は撃った本人だけ（⚠ target_ids を読まない）。
 # ⚠ 0〜max に切るのは BattleUnit の側（⚠ ここで切らない）。
 static func _apply_resource(effect: Dictionary, user: BattleUnit) -> void:
