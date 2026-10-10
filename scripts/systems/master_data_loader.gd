@@ -109,6 +109,8 @@ const CHARACTER_DIRS_REQUIRED: Array[String] = [
 	DIR_CHARACTERS + "char_mercenary/",
 	# ⚠ 吸血鬼（2026-10-10・回VP-1）。
 	DIR_CHARACTERS + "char_vampire/",
+	# ⚠ フェニックス（2026-10-10・回PX-1）。
+	DIR_CHARACTERS + "char_phoenix/",
 ]
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const CHARACTER_DIRS_OPTIONAL: Array[String] = [
@@ -1673,6 +1675,14 @@ static func _expand_status_refs(effects: Array, skill_id: String) -> void:
 		# ⚠ 購読の中も展開する。
 		if effect.get("react", null) is Dictionary and (effect["react"] as Dictionary).get("effects", null) is Array:
 			_expand_status_refs((effect["react"] as Dictionary)["effects"] as Array, skill_id)
+		# ⚠ 入れ子の効果も展開する（回PX-1・汎用）：倒したら・そろったら・避けて反撃・起き上がるとき。
+		for nested_key: String in [SkillSchema.FIELD_ON_KILL, SkillSchema.FIELD_ON_MEET, SkillSchema.FIELD_EVADE]:
+			if effect.get(nested_key, null) is Dictionary and (effect[nested_key] as Dictionary).get("effects", null) is Array:
+				_expand_status_refs((effect[nested_key] as Dictionary)["effects"] as Array, skill_id)
+		if effect.get(SkillSchema.BUFF_INTERVENE, null) is Dictionary:
+			var nested_death: Variant = (effect[SkillSchema.BUFF_INTERVENE] as Dictionary).get(SkillSchema.BUFF_ON_DEATH, null)
+			if nested_death is Dictionary and (nested_death as Dictionary).get("effects", null) is Array:
+				_expand_status_refs((nested_death as Dictionary)["effects"] as Array, skill_id)
 		# ⚠ 通常攻撃を置き換えるバフの中も展開する（回SC-1・オーバードライブの火傷付きの通常攻撃）。
 		if effect.get(SkillSchema.BUFF_BASIC_ATTACK, null) is Dictionary \
 				and (effect[SkillSchema.BUFF_BASIC_ATTACK] as Dictionary).get("effects", null) is Array:

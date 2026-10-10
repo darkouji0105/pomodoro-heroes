@@ -1,0 +1,61 @@
+{
+	"passive_px_rebirth": {
+		"name_key": "ui_battle_passive_px_rebirth",
+		"user_character_id": "char_phoenix",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_px_rebirth",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"intervene": {
+					"on_death": {
+						"revive_hp_ratio": 0.3,
+						"effects": [
+							{
+								"type": "damage",
+								"delivery": "melee",
+								"multiplier": 1.5,
+								"attack_type": "magic",
+								"scale_from": "atk",
+								"target": {
+									"team": "enemy",
+									"mode": "area",
+									"origin": "user",
+									"radius": 150.0
+								}
+							},
+							{
+								"type": "status",
+								"status": "burn",
+								"target": {
+									"team": "enemy",
+									"mode": "area",
+									"origin": "user",
+									"radius": 150.0
+								}
+							}
+						]
+					}
+				}
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_px_ember",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"intervene": {
+					"drain_vs_status": "burn",
+					"drain_pct": 15
+				}
+			}
+		]
+	}
+}

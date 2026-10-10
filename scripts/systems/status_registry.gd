@@ -107,6 +107,10 @@ func add(
 	if host == SkillSchema.HOST_UNIT and host_unit == null:
 		push_error("[StatusRegistry] host: unit なのに宿主が居ない")
 		return false
+	# 1戦闘に1回（回PX-1）。⚠ 使い切った状態（復活）は、⚠ どこから付けても入れない（⚠ パッシブの撃ち直しで
+	#   ほかの状態と一緒に付け直されていた＝10-10 に本物の戦闘で踏んだ）。⚠ 正常系なので赤を出さない。
+	if host == SkillSchema.HOST_UNIT and host_unit.spent_status_ids.has(str(effect.get("status_id", ""))):
+		return false
 
 	# --- 2. 種類 ---
 	var effect_type: String = str(effect.get("type", ""))
@@ -380,13 +384,21 @@ func refresh_status(unit_id: String, status_id: String) -> int:
 
 
 # 吸収の割合（回GM-1・殴った側）。⚠ その印に効くものだけを足す。
-func drain_pct(unit_id: String, tag: String) -> int:
+# ⚠ 回PX-1：印が無い吸収は印を問わず・相手の状態つきはその状態の相手からだけ。
+func drain_pct(unit_id: String, tag: String, target_id: String = "") -> int:
 	var total: int = 0
 	for entry: Dictionary in _entries:
 		if str(entry.get("kind", "")) != KIND_BUFF or not _applies_to(entry, unit_id):
 			continue
-		if str(entry.get(SkillSchema.INTERVENE_DRAIN_TAG, "")) == tag:
-			total += int(entry.get(SkillSchema.INTERVENE_DRAIN_PCT, 0))
+		if int(entry.get(SkillSchema.INTERVENE_DRAIN_PCT, 0)) <= 0:
+			continue
+		var want_tag: String = str(entry.get(SkillSchema.INTERVENE_DRAIN_TAG, ""))
+		if want_tag != "" and want_tag != tag:
+			continue
+		var want_status: String = str(entry.get(SkillSchema.INTERVENE_DRAIN_VS_STATUS, ""))
+		if want_status != "" and not has({"host_unit_id": target_id, "status_id": want_status}):
+			continue
+		total += int(entry.get(SkillSchema.INTERVENE_DRAIN_PCT, 0))
 	return mini(total, 100)
 
 
@@ -462,6 +474,8 @@ func _make_entry(
 		"on_meet": {},
 		# 避けて反撃（回MC-1）。{ "effects" }。
 		"evade": {},
+		# 吸収を状態の相手に絞る（回PX-1）。
+		"drain_vs_status": "",
 		# 相手の状態で常に強い（回VP-1・殴った側）。
 		"bonus_vs_status": "",
 		"bonus_vs_pct": 0,
@@ -638,15 +652,15 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		entry[SkillSchema.INTERVENE_BONUS_VS_PCT] = int(effect_iv.get(SkillSchema.INTERVENE_BONUS_VS_PCT, 0))
 		has_intervene = true
 
-	# 吸収（回GM-1）。⚠ 印と割合はそろって来る（E182）。
+	# 吸収（回GM-1・回PX-1）。⚠ 印・相手の状態はどちらも省ける（⚠ 省けば全部から吸う）。
 	if effect_iv.has(SkillSchema.INTERVENE_DRAIN_PCT):
 		var drain: int = int(effect_iv.get(SkillSchema.INTERVENE_DRAIN_PCT, 0))
-		var drain_tag: String = str(effect_iv.get(SkillSchema.INTERVENE_DRAIN_TAG, ""))
-		if drain < 1 or drain_tag == "":
-			push_error("[StatusRegistry] buff の drain が壊れている（印と 1 以上の割合）")
+		if drain < 1:
+			push_error("[StatusRegistry] buff の drain_pct が 1 未満")
 			return false
 		entry[SkillSchema.INTERVENE_DRAIN_PCT] = drain
-		entry[SkillSchema.INTERVENE_DRAIN_TAG] = drain_tag
+		entry[SkillSchema.INTERVENE_DRAIN_TAG] = str(effect_iv.get(SkillSchema.INTERVENE_DRAIN_TAG, ""))
+		entry[SkillSchema.INTERVENE_DRAIN_VS_STATUS] = str(effect_iv.get(SkillSchema.INTERVENE_DRAIN_VS_STATUS, ""))
 		has_intervene = true
 
 	# ⚠ シールドの残量は counter に入れる（汎用カウンター・呼び出し元がゼロだった）。
@@ -1361,6 +1375,8 @@ func _step_death(ctx: Dictionary) -> void:
 		ctx["revived"] = true
 		ctx["revive_hp"] = maxi(1, int(floor(float(unit.max_hp) * ratio)))
 		ctx["by"] = str(entry.get("status_id", ""))
+		ctx["effects"] = (on_death.get("effects", []) as Array).duplicate(true)
+		ctx["source_unit_id"] = str(entry.get("source_unit_id", ""))
 		return
 
 
@@ -1386,6 +1402,17 @@ func resolve_death(unit: BattleUnit) -> bool:
 	# バフもデバフも全部消える（PLAN 14-4）。DoT の持ち越しで復活直後に
 	# また死ぬ事故が構造的に消える。
 	clear_for_unit(unit.unit_id, "revive_clear")
+	# 1戦闘に1回（回PX-1・汎用）。⚠ 使った復活の状態は、パッシブでも付け直さない（⚠ 付け直す側が見る）。
+	unit.spent_status_ids[str(ctx["by"])] = true
+	# 起き上がるときの効果（回PX-1・汎用）。⚠ 全部消したあとに撃つ（⚠ 撃った効果で付いた状態を消さない）。
+	var fired: Array = []
+	for raw: Variant in (ctx.get("effects", []) as Array):
+		if raw is Dictionary:
+			var ids: Array = SkillResolver.select_targets((raw as Dictionary).get("target", {}) as Dictionary, unit, _session)
+			fired.append_array(SkillResolver.resolve({"effects": [raw]}, unit, _session, ids, self))
+	if not fired.is_empty():
+		BattleLog.log_results(fired, unit.unit_id)
+		effects_applied.emit(fired)
 	return true
 
 

@@ -302,11 +302,13 @@ const INTERVENE_REFLECT_FLAT: String = "reflect_flat"
 # 吸収（回GM-1・殴った側）。⚠ 印（tag）の付いたダメージを与えたら、その pct % 回復する。⚠ 2つそろえて書く。
 const INTERVENE_DRAIN_TAG: String = "drain_tag"
 const INTERVENE_DRAIN_PCT: String = "drain_pct"
+# 吸収を「この状態の相手から」に絞る（回PX-1・汎用）。⚠ drain_tag も drain_vs_status も無ければ、与えたダメージ全部から吸う。
+const INTERVENE_DRAIN_VS_STATUS: String = "drain_vs_status"
 # ⚠ 知らない欄を赤にする（E107）ための唯一の正。⚠ 欄を足したらここにも足すこと。
 const INTERVENE_FIELDS_KNOWN: Array = [
 	INTERVENE_SHIELD_HP, INTERVENE_REDUCTION_PCT, INTERVENE_PIERCE_PCT,
 	INTERVENE_CRIT_ALWAYS, INTERVENE_REFLECT_PCT, INTERVENE_REFLECT_FLAT,
-	INTERVENE_DRAIN_TAG, INTERVENE_DRAIN_PCT, INTERVENE_BONUS_VS_STATUS, INTERVENE_BONUS_VS_PCT,
+	INTERVENE_DRAIN_TAG, INTERVENE_DRAIN_PCT, INTERVENE_DRAIN_VS_STATUS, INTERVENE_BONUS_VS_STATUS, INTERVENE_BONUS_VS_PCT,
 	BUFF_ON_DEATH, BUFF_BLOCK_STATUS, BUFF_HEAL_TAKEN_PCT,
 ]
 # ⚠ 軽減の上限。100 にすると amount が必ず 0 になり、誰も死なずに決着しない
@@ -2073,8 +2075,11 @@ static func _validate_intervene(
 		if not _is_num(bv) or float(bv) != floor(float(bv)) or int(bv) < 1 or int(bv) > 500:
 			_err(issues, skill_id, "%s.%s.bonus_vs_pct が 1〜500 の整数でない" % [where, BUFF_INTERVENE])
 	# E182 … 吸収（回GM-1）。⚠ 印と割合はそろえて書く・割合は 1〜100。
-	if iv.has(INTERVENE_DRAIN_TAG) != iv.has(INTERVENE_DRAIN_PCT):
-		_err(issues, skill_id, "%s.%s の drain_tag と drain_pct はそろえて書く" % [where, BUFF_INTERVENE])
+	# ⚠ 回PX-1：drain_pct だけ（全部から吸う）・drain_vs_status との組も書ける。⚠ 絞りだけで割合が無いのは赤。
+	if (iv.has(INTERVENE_DRAIN_TAG) or iv.has(INTERVENE_DRAIN_VS_STATUS)) and not iv.has(INTERVENE_DRAIN_PCT):
+		_err(issues, skill_id, "%s.%s の drain_tag ／ drain_vs_status は drain_pct と一緒に書く" % [where, BUFF_INTERVENE])
+	if iv.has(INTERVENE_DRAIN_VS_STATUS) and str(iv.get(INTERVENE_DRAIN_VS_STATUS, "")) == "":
+		_err(issues, skill_id, "%s.%s.drain_vs_status が空" % [where, BUFF_INTERVENE])
 	if iv.has(INTERVENE_DRAIN_TAG) and str(iv.get(INTERVENE_DRAIN_TAG, "")) == "":
 		_err(issues, skill_id, "%s.%s.drain_tag が空" % [where, BUFF_INTERVENE])
 	if iv.has(INTERVENE_DRAIN_PCT):
@@ -2106,6 +2111,10 @@ static func _validate_intervene(
 				_err(issues, skill_id, "%s.%s.%s.revive_hp_ratio が 0 より大きく 1 以下の数値でない" % [
 					where, BUFF_INTERVENE, BUFF_ON_DEATH
 				])
+			# E195 起き上がるときの効果（回PX-1・汎用）。⚠ 起き上がった本人が撃つ・各効果に target。
+			if (raw_death as Dictionary).has("effects"):
+				_validate_sub_effects(issues, skill_id, raw_death, "%s.%s.%s" % [where, BUFF_INTERVENE, BUFF_ON_DEATH],
+					["revive_hp_ratio", "effects"], ACTIVATION_INSTANT, true)
 
 	# E65 … 免疫。付けさせない status_id の配列。
 	if iv.has(BUFF_BLOCK_STATUS):

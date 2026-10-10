@@ -538,8 +538,8 @@ static func _step_drain(effect: Dictionary, user: BattleUnit, target: BattleUnit
 		return
 	var pct: float = 0.0
 	var tag: String = str(effect.get(SkillSchema.FIELD_TAG, ""))
-	if tag != "":
-		pct += float(registry.drain_pct(user.unit_id, tag))
+	# ⚠ 回PX-1：印の無い吸収・相手の状態つきの吸収もここで足す（⚠ 印が無くても見る）。
+	pct += float(registry.drain_pct(user.unit_id, tag, target.unit_id))
 	if effect.has(SkillSchema.FIELD_DRAIN_PCT):
 		var own: float = float(effect.get(SkillSchema.FIELD_DRAIN_PCT, 0.0))
 		if effect.has(SkillSchema.FIELD_WHEN_DRAIN_MULT) and when_target_ok(effect, target, registry):

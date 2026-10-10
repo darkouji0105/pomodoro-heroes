@@ -326,6 +326,10 @@ var summon_remaining: float = 0.0
 # 召喚の種類（summons.json のID・回NC-1）。⚠ 「古い順に3体」「ゾンビを全部」の数え分けに使う（⚠ master_id は見た目専用なので別に持つ）。
 var summon_kind_id: String = ""
 
+# 使い切った状態（回PX-1・汎用）。⚠ 復活に使った状態の status_id。⚠ パッシブの付け直しはこれを飛ばす＝1戦闘に1回。
+# ⚠ 戦闘ごとにユニットは作り直される（⚠ ウェーブをまたいでは残る＝「1戦闘」）。⚠ セーブに入らない。
+var spent_status_ids: Dictionary = {}
+
 # 狙いが動く溜め（回GM-1）。⚠ 書くのは BattleController の溜め（⚠ 溜めている間・撃ち終わったら消す）だけ。⚠ セーブに入らない。
 var has_aim: bool = false
 var aim_x: float = 0.0

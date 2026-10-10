@@ -766,6 +766,8 @@ const AVATAR_COLORS: Dictionary = {
 	"char_mercenary": {"bg": "3f4549", "fg": "d0d8dc"},
 	# ⚠ 吸血鬼（回VP-1）。⚠ 血の赤黒（⚠ 設計役の仮）。
 	"char_vampire": {"bg": "4a1f2a", "fg": "ecb8c4"},
+	# ⚠ フェニックス（回PX-1）。⚠ 炎の朱（⚠ 設計役の仮）。
+	"char_phoenix": {"bg": "6b3a1f", "fg": "f4d0a0"},
 	"fallback": {"bg": "2a2320", "fg": "7d6f68"},
 }
 const AVATAR_CORNER_RADIUS: int = 8

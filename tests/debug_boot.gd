@@ -130,6 +130,8 @@ const SHOT_PREPARE_ZEALOT_PARTY: String = "zealot_party"
 const SHOT_PREPARE_MERC_PARTY: String = "merc_party"
 # ⚠ 吸血鬼（回VP-1）：⚠ 吸血鬼を1番目に入れる（⚠ 内側の `PREPARE_VAMP_PARTY` と同じ字）。
 const SHOT_PREPARE_VAMP_PARTY: String = "vamp_party"
+# ⚠ フェニックス（回PX-1）：⚠ フェニックスを1番目に入れる（⚠ 内側の `PREPARE_PHOENIX_PARTY` と同じ字）。
+const SHOT_PREPARE_PHOENIX_PARTY: String = "phoenix_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1272,6 +1274,44 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_vp_swarm", "prepare": PREPARE_NONE, "gap": 1.0},
 		],
 	},
+	# フェニックス（回PX-1）。⚠ Lv20 に上げてから枠に入れる。
+	"px_a": {
+		"kind": KIND_BATTLE,
+		"note": "フェニックス A：急降下（真ん中へ飛び込み爆発・火傷）→ 炎の羽ばたき（足元を燃やす）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_phoenix", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_phoenix": 20},
+		"skills": {"char_phoenix": ["skill_px_dive", "skill_px_wing"]},
+		"fire": [
+			{"skill": "skill_px_dive", "prepare": PREPARE_NONE},
+			{"skill": "skill_px_wing", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"px_b": {
+		"kind": KIND_BATTLE,
+		"note": "フェニックス B：炎の蹴り（一番後ろへ）→ 炎の盾（攻撃してきた敵を火傷）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_phoenix", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_phoenix": 20},
+		"skills": {"char_phoenix": ["skill_px_kick", "skill_px_shield"]},
+		"fire": [
+			{"skill": "skill_px_kick", "prepare": PREPARE_NONE},
+			{"skill": "skill_px_shield", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"px_c": {
+		"kind": KIND_BATTLE,
+		"note": "フェニックス C：ひっかき → オーバーヒート（倒れるときに爆発）→ 不死鳥で起き上がって爆発",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_phoenix", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_phoenix": 20},
+		"skills": {"char_phoenix": ["skill_px_claw", "skill_px_overheat"]},
+		"fire": [
+			{"skill": "skill_px_claw", "prepare": PREPARE_NONE},
+			{"skill": "skill_px_overheat", "prepare": PREPARE_NONE, "gap": 1.0},
+			{"skill": "skill_px_claw", "prepare": PREPARE_NONE, "gap": 1.5},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1691,6 +1731,16 @@ const SCENARIOS: Dictionary = {
 			},
 			# ⚠ 狂った神の使い（回GM-1）：⚠ 顔・パッシブのマス・スキルのマス。
 			{
+				"name": "9a_phoenix_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_PHOENIX_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			{
 				"name": "99_vampire_battle",
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_VAMP_PARTY,
@@ -1915,6 +1965,7 @@ func _ready() -> void:
 			_report_zealot()
 			_report_mercenary()
 			_report_vampire()
+			_report_phoenix()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -9258,6 +9309,102 @@ func _report_vampire() -> void:
 		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
 
 
+# フェニックス（回PX-1）。⚠ 吸収の相手の状態・倒れるときの爆発・起き上がりの爆発・1戦闘に1回・入れ子の状態の展開。
+func _report_phoenix() -> void:
+	var me: BattleUnit = _resource_unit("char_phoenix", 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 5000
+	foe_data["def"] = 0
+	foe_data["mdef"] = 0
+	var foes: Array = []
+	for i: int in range(3):
+		foes.append(BattleUnit.create("enemy_%d" % i, BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime"))
+	me.x = 300.0
+	var f0: BattleUnit = foes[0] as BattleUnit
+	var f1: BattleUnit = foes[1] as BattleUnit
+	var f2: BattleUnit = foes[2] as BattleUnit
+	f0.x = 350.0
+	f1.x = 400.0
+	f2.x = 1000.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = foes
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	var plain: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "true", "scale_from": "atk"}
+	runtime.cast(me, "passive_px_rebirth", MasterDataLoader.get_skill("passive_px_rebirth"), 1.0)
+
+	print("[DebugBoot] --- 75. 燼（⚠ 吸収を「火傷の相手から」に絞る＝吸収の口は1本のまま）---")
+	var burn_eff: Dictionary = ((MasterDataLoader.get_skill("skill_px_dive")["effects"] as Array)[2] as Dictionary).duplicate(true)
+	burn_eff.erase("target")
+	SkillResolver.resolve({"effects": [burn_eff]}, me, session, ["enemy_0"], registry)
+	me.hp = 10
+	var r75a: Array = SkillResolver.resolve({"effects": [plain]}, me, session, ["enemy_1"], registry)
+	var heal_a: int = me.hp - 10
+	me.hp = 10
+	var r75b: Array = SkillResolver.resolve({"effects": [plain]}, me, session, ["enemy_0"], registry)
+	print("  火傷なし %s で +%d（0）／ 火傷あり %s で +%d（15%%）" % [str(_amounts(r75a)), heal_a, str(_amounts(r75b)), me.hp - 10])
+
+	print("[DebugBoot] --- 76. ひっかき（⚠ 火傷なら会心確定）---")
+	var claw: Dictionary = (MasterDataLoader.get_skill("skill_px_claw")["effects"] as Array)[0] as Dictionary
+	var crit_burn: Array = SkillResolver.resolve({"effects": [claw]}, me, session, ["enemy_0"], registry)
+	print("  火傷の敵：会心 %s（true）" % str((crit_burn[0] as Dictionary).get("is_crit", false)))
+
+	print("[DebugBoot] --- 77. 入れ子の状態も展開される（⚠ 起き上がりの効果の {type: status} が dot になっている）---")
+	var rebirth: Dictionary = MasterDataLoader.get_skill("passive_px_rebirth")
+	var nested: Dictionary = ((((rebirth["effects"] as Array)[0] as Dictionary)["intervene"] as Dictionary)["on_death"] as Dictionary)
+	print("  on_death.effects[1].type = %s（dot）・status_id = %s（burn）" % [
+		str(((nested["effects"] as Array)[1] as Dictionary).get("type", "")), str(((nested["effects"] as Array)[1] as Dictionary).get("status_id", ""))])
+
+	print("[DebugBoot] --- 78. オーバーヒート（⚠ 倒れるときに爆発＝起き上がりの爆発とは別）---")
+	me.hp = me.max_hp
+	var f1_hp: int = f1.hp
+	var f2_hp: int = f2.hp
+	# ⚠ 効果ごとの範囲は SkillRuntime が決める＝本物の口から撃つ（⚠ _control_cast は全部の効果を渡した相手に当てる）。
+	runtime.cast(me, "skill_px_overheat", MasterDataLoader.get_skill("skill_px_overheat"), 1.0)
+	print("  自分の HP %d（0＝倒れた）・近い enemy_1 %d → %d（爆発）・火傷 %s ／ 遠い enemy_2 %d（変わらず %d）" % [
+		me.hp, f1_hp, f1.hp, str(registry.has({"host_unit_id": "enemy_1", "status_id": "burn"})), f2.hp, f2_hp])
+
+	print("[DebugBoot] --- 79. 不死鳥（⚠ 1戦闘に1回・HP30%%で起き上がり・周りを爆発）---")
+	f1_hp = f1.hp
+	var got: Array = []
+	var on_status: Callable = func(results: Array) -> void:
+		got.append_array(results)
+	registry.effects_applied.connect(on_status)
+	var revived: bool = registry.resolve_death(me)
+	print("  1回目：起き上がった %s（true）・HP %d（最大 %d の 30%%）・enemy_1 %d → %d（爆発）" % [str(revived), me.hp, me.max_hp, f1_hp, f1.hp])
+	print("  使い切った印 %s（true＝パッシブでも付け直さない）" % str(me.spent_status_ids.has("st_px_rebirth")))
+	runtime.cast(me, "passive_px_rebirth", MasterDataLoader.get_skill("passive_px_rebirth"), 1.0)
+	registry.remove_status(me.unit_id, "st_px_rebirth")
+	me.take_damage(me.hp)
+	print("  2回目（復活の状態が無い）：起き上がった %s（false）" % str(registry.resolve_death(me)))
+	registry.effects_applied.disconnect(on_status)
+
+	print("[DebugBoot] --- 80. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var probes: Array = [
+		["drain_vs_status だけ", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "intervene": {"drain_vs_status": "burn"}}, true],
+		["on_death の効果に target が無い", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "intervene": {"on_death": {"revive_hp_ratio": 0.3, "effects": [plain]}}}, true],
+		["on_death に知らない欄", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "intervene": {"on_death": {"revive_hp_ratio": 0.3, "effects": [(plain.duplicate() as Dictionary).merged({"target": {"team": "self"}})], "x": 1}}}, true],
+		["drain_pct だけ（正しい＝全部から吸う）", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "intervene": {"drain_pct": 10}}, false],
+		["起き上がりの爆発（正しい）", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "intervene": {"on_death": {"revive_hp_ratio": 0.3, "effects": [(plain.duplicate() as Dictionary).merged({"target": {"team": "enemy", "mode": "area", "origin": "user", "radius": 100}})]}}}, false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_phoenix", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "self"}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[2]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
 
@@ -11530,6 +11677,7 @@ class ShotTaker extends Node:
 	const PREPARE_ZEALOT_PARTY: String = "zealot_party"
 	const PREPARE_MERC_PARTY: String = "merc_party"
 	const PREPARE_VAMP_PARTY: String = "vamp_party"
+	const PREPARE_PHOENIX_PARTY: String = "phoenix_party"
 	const PREPARE_PRINCESS_PARTY: String = "princess_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
@@ -11906,6 +12054,11 @@ class ShotTaker extends Node:
 		if kind == PREPARE_PRINCESS_PARTY:
 			for princess_i: int in range(3):
 				if not GameManager.set_party_member(princess_i, ["char_princess", "char_archer", "char_priest"][princess_i]):
+					return false
+			return true
+		if kind == PREPARE_PHOENIX_PARTY:
+			for phoenix_i: int in range(3):
+				if not GameManager.set_party_member(phoenix_i, ["char_phoenix", "char_archer", "char_priest"][phoenix_i]):
 					return false
 			return true
 		if kind == PREPARE_VAMP_PARTY:
