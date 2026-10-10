@@ -200,6 +200,10 @@ func add(
 		push_error("[StatusRegistry] zone{} は host: point にしか書けない (status_id=%s)" % status_id)
 		return false
 
+	# --- 6-1-6. スキルが当たったら（回MG-1） ---
+	if effect.get(SkillSchema.FIELD_ON_SKILL_HIT, null) is Dictionary:
+		entry["on_skill_hit"] = (effect[SkillSchema.FIELD_ON_SKILL_HIT] as Dictionary).duplicate(true)
+
 	# --- 6-1-4. 避けて反撃（回MC-1） ---
 	if effect.get(SkillSchema.FIELD_EVADE, null) is Dictionary:
 		entry["evade"] = (effect[SkillSchema.FIELD_EVADE] as Dictionary).duplicate(true)
@@ -327,7 +331,7 @@ func _check_stack(host_unit: BattleUnit, entry: Dictionary) -> void:
 	if count_stacks(host_unit.unit_id, status_id) < int(on_stack.get("count", 0)):
 		return
 	var source: BattleUnit = _find_unit(str(entry.get("source_unit_id", "")))
-	remove_status(host_unit.unit_id, status_id)
+	remove_status(host_unit.unit_id, status_id, "stack")
 	BattleLog.log_intervene("stack", host_unit.unit_id, status_id, str(int(on_stack.get("count", 0))))
 	if source == null:
 		return
@@ -387,13 +391,13 @@ func take_evade(unit_id: String) -> Dictionary:
 
 
 # 宿主からその状態を全部消す（回GM-1）。⚠ 誰が付けたものでも。戻り値は消した数。
-func remove_status(unit_id: String, status_id: String) -> int:
+func remove_status(unit_id: String, status_id: String, why: String = "meet") -> int:
 	var rest: Array = []
 	var removed: int = 0
 	for entry: Dictionary in _entries:
 		if str(entry.get("host_unit_id", "")) == unit_id and str(entry.get("status_id", "")) == status_id:
 			removed += 1
-			BattleLog.log_status_end(status_id, unit_id, "meet")
+			BattleLog.log_status_end(status_id, unit_id, why)
 		else:
 			rest.append(entry)
 	if removed > 0:
@@ -428,24 +432,66 @@ func taken_from_source_pct(host_id: String, attacker_id: String) -> int:
 	return total
 
 
-# 次の通常攻撃で受けるダメージ（回GS-1・宿主側）。⚠ consume が true なら、効いた状態を消す（⚠ 当たった1回で消える）。
-func basic_taken_pct(host_id: String, consume: bool) -> int:
+# 次の通常攻撃で受けるダメージ（回GS-1・宿主側）。⚠ cast_id はその通常攻撃の番号。
+# ⚠ 回MG-1：**その1回の通常攻撃に含まれるダメージ全部**（追加ダメージ・爆発も）に効く（人間「⚠ 追加ダメージも換算」）。
+#   ⚠ 初めて使った通常攻撃の番号を覚え、⚠ 別の番号の通常攻撃が来たら効かない・⚠ 次の tick で消える（_expire_used_basic）。
+func basic_taken_pct(host_id: String, cast_id: int) -> int:
 	var total: int = 0
+	for entry: Dictionary in _entries:
+		var pct: int = int(entry.get(SkillSchema.INTERVENE_BASIC_TAKEN_PCT, 0))
+		if pct <= 0 or str(entry.get("kind", "")) != KIND_BUFF or not _applies_to(entry, host_id):
+			continue
+		var used_by: int = int(entry.get("basic_cast", -1))
+		if used_by >= 0 and used_by != cast_id:
+			continue
+		entry["basic_cast"] = cast_id
+		total += pct
+	return total
+
+
+# 使った「次の通常攻撃で受ける」を消す（回MG-1）。⚠ tick の頭＝その通常攻撃のダメージが全部出たあと。
+func _expire_used_basic(touched: Dictionary) -> void:
 	var rest: Array = []
 	var removed: bool = false
 	for entry: Dictionary in _entries:
-		var pct: int = int(entry.get(SkillSchema.INTERVENE_BASIC_TAKEN_PCT, 0))
-		if pct > 0 and str(entry.get("kind", "")) == KIND_BUFF and _applies_to(entry, host_id):
-			total += pct
-			if consume:
-				BattleLog.log_status_end(str(entry.get("status_id", "")), host_id, "basic_taken")
-				removed = true
-				continue
+		if int(entry.get("basic_cast", -1)) >= 0:
+			BattleLog.log_status_end(str(entry.get("status_id", "")), str(entry.get("host_unit_id", "")), "basic_taken")
+			touched[str(entry.get("host_unit_id", ""))] = true
+			removed = true
+			continue
 		rest.append(entry)
 	if removed:
 		_entries = rest
-		_rebuild_unit_mods(host_id)
-	return total
+
+
+# スキルが当たったら（回MG-1）。⚠ 呼ぶのは SkillRuntime の「スキルが当たった」の1か所。⚠ 撃ったら状態を消す。
+func trigger_skill_hit(host_id: String) -> void:
+	var host: BattleUnit = _find_unit(host_id)
+	if host == null:
+		return
+	for entry: Dictionary in _entries.duplicate():
+		var osh: Dictionary = entry.get("on_skill_hit", {}) as Dictionary
+		if osh.is_empty() or str(entry.get("host_unit_id", "")) != host_id:
+			continue
+		var source: BattleUnit = _find_unit(str(entry.get("source_unit_id", "")))
+		var status_id: String = str(entry.get("status_id", ""))
+		remove_status(host_id, status_id, "skill_hit")
+		BattleLog.log_intervene("skill_hit", host_id, status_id, "")
+		if source == null:
+			continue
+		# ⚠ 当たるのは宿主の周り radius の、宿主の味方（⚠ 宿主自身も入る＝爆発）。
+		var ids: Array = []
+		for raw: Variant in _session.get_alive_units(host.team):
+			if absf((raw as BattleUnit).x - host.x) <= float(osh.get("radius", 0.0)):
+				ids.append((raw as BattleUnit).unit_id)
+		var results: Array = []
+		for raw_eff: Variant in (osh.get("effects", []) as Array):
+			if raw_eff is Dictionary:
+				var fired: Array = SkillResolver.resolve({"effects": [raw_eff]}, source, _session, ids, self)
+				BattleLog.log_results(fired, source.unit_id)
+				results.append_array(fired)
+		if not results.is_empty():
+			effects_applied.emit(results)
 
 
 # その行動妨害・守りの状態だけを消す（回GS-1・投げ縄でステルスを剥がす）。⚠ 戻り値は消した数。
@@ -579,6 +625,10 @@ func _make_entry(
 		"on_meet": {},
 		# 避けて反撃（回MC-1）。{ "effects" }。
 		"evade": {},
+		# スキルが当たったら（回MG-1）。{ "radius", "effects" }。
+		"on_skill_hit": {},
+		# 通常攻撃1回ぶん（回MG-1）。⚠ 使い始めた通常攻撃の番号（⚠ その1回に含まれるダメージ全部に効き、次の tick で消える）。
+		"basic_cast": -1,
 		# 回ST-1・回GS-1。
 		"basic_taken_pct": 0,
 		"taken_from_source_pct": 0,
@@ -795,9 +845,9 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		entry["counter"] = shield
 		has_intervene = true
 
-	# 避けて反撃・そろったら・たまったら（回MC-1・回GM-1・回ST-1）だけの状態も書ける。
+	# 避けて反撃・そろったら・たまったら・スキルが当たったら（回MC-1・回GM-1・回ST-1・回MG-1）だけの状態も書ける。
 	if effect.get(SkillSchema.FIELD_EVADE, null) is Dictionary or effect.get(SkillSchema.FIELD_ON_MEET, null) is Dictionary \
-			or effect.get(SkillSchema.FIELD_ON_STACK, null) is Dictionary:
+			or effect.get(SkillSchema.FIELD_ON_STACK, null) is Dictionary or effect.get(SkillSchema.FIELD_ON_SKILL_HIT, null) is Dictionary:
 		has_intervene = true
 	if not has_stat and not has_intervene:
 		push_error("[StatusRegistry] buff に stat / value も介入の欄も無い（何も起きない状態は書けない）")
@@ -1003,6 +1053,7 @@ func tick(delta: float) -> void:
 	# unit_id -> true。補正を組み直す必要があるユニット。
 	var touched: Dictionary = {}
 
+	_expire_used_basic(touched)
 	_drop_dead_hosts(touched)
 	if _entries.is_empty():
 		_rebuild_touched(touched)
@@ -1190,6 +1241,11 @@ func _eval_zones(touched: Dictionary) -> void:
 				continue
 			if not _zone_team_matches(entry, u):
 				continue
+			# 空中（回MG-1）。⚠ 相手の置いた地面の範囲には入らない（⚠ 味方の回復の場などは効く）。
+			if u.airborne:
+				var zone_src: BattleUnit = _find_unit(str(entry.get("source_unit_id", "")))
+				if zone_src != null and zone_src.team != u.team:
+					continue
 			# ⚠ 1次元（既存の area と同じ）。ここだけ2次元にすると radius の意味が食い違う。
 			if absf(u.x - center) > radius:
 				continue
@@ -2006,6 +2062,7 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 	unit.invulnerable = controls.has(SkillSchema.CONTROL_INVULNERABLE)
 	unit.unstoppable = controls.has(SkillSchema.CONTROL_UNSTOPPABLE)
 	unit.stealthed = controls.has(SkillSchema.CONTROL_STEALTH)
+	unit.airborne = controls.has(SkillSchema.CONTROL_AIRBORNE)
 
 	# 攻撃力の倍率（EXEC_SILENT_HOLES.md）。⚠ 書くのはここ1箇所だけ。
 	#

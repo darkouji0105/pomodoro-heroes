@@ -136,6 +136,8 @@ const SHOT_PREPARE_PHOENIX_PARTY: String = "phoenix_party"
 const SHOT_PREPARE_STUDENT_PARTY: String = "student_party"
 # ⚠ 拳銃使い（回GS-1）：⚠ 拳銃使いを1番目に入れる（⚠ 内側の `PREPARE_GUNSLINGER_PARTY` と同じ字）。
 const SHOT_PREPARE_GUNSLINGER_PARTY: String = "gunslinger_party"
+# ⚠ マグナムメイジ（回MG-1）：⚠ マグナムを1番目に入れる（⚠ 内側の `PREPARE_MAGNUM_PARTY` と同じ字）。
+const SHOT_PREPARE_MAGNUM_PARTY: String = "magnum_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1391,6 +1393,44 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_gs_ricochet", "prepare": PREPARE_NONE, "gap": 1.0, "hold_sec": 0.4},
 		],
 	},
+	# マグナムメイジ（回MG-1）。⚠ Lv20 に上げてから枠に入れる。
+	"mm_a": {
+		"kind": KIND_BATTLE,
+		"note": "マグナム A：爆発魔弾（1.0 秒溜め）→ クイックリロード（ほかのクールダウンを消す）→ 爆発魔弾",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_magnum", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_magnum": 20},
+		"skills": {"char_magnum": ["skill_mm_blast", "skill_mm_reload"]},
+		"fire": [
+			{"skill": "skill_mm_blast", "prepare": PREPARE_NONE, "hold_sec": 1.0},
+			{"skill": "skill_mm_reload", "prepare": PREPARE_NONE, "gap": 0.5},
+			{"skill": "skill_mm_blast", "prepare": PREPARE_NONE, "gap": 0.3, "hold_sec": 0.3},
+		],
+	},
+	"mm_b": {
+		"kind": KIND_BATTLE,
+		"note": "マグナム B：特殊弾（次の通常攻撃で魔印）→ グレネード（魔印が爆発・次の通常攻撃 2 倍）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_magnum", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_magnum": 20},
+		"skills": {"char_magnum": ["skill_mm_grenade", "skill_mm_special"]},
+		"fire": [
+			{"skill": "skill_mm_special", "prepare": PREPARE_NONE},
+			{"skill": "skill_mm_grenade", "prepare": PREPARE_NONE, "gap": 2.5},
+		],
+	},
+	"mm_c": {
+		"kind": KIND_BATTLE,
+		"note": "マグナム C：弾幕（空中・6発）→ 死体爆破",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_magnum", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_magnum": 20},
+		"skills": {"char_magnum": ["skill_mm_barrage", "skill_mm_corpse"]},
+		"fire": [
+			{"skill": "skill_mm_barrage", "prepare": PREPARE_NONE},
+			{"skill": "skill_mm_corpse", "prepare": PREPARE_NONE, "gap": 2.0},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1810,6 +1850,16 @@ const SCENARIOS: Dictionary = {
 			},
 			# ⚠ 狂った神の使い（回GM-1）：⚠ 顔・パッシブのマス・スキルのマス。
 			{
+				"name": "9e_magnum_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_MAGNUM_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			{
 				"name": "9c_gunslinger_battle",
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_GUNSLINGER_PARTY,
@@ -2079,6 +2129,7 @@ func _ready() -> void:
 			_report_phoenix()
 			_report_student()
 			_report_gunslinger()
+			_report_magnum()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -9752,14 +9803,21 @@ func _report_gunslinger() -> void:
 	var mark: Dictionary = ((MasterDataLoader.get_skill("skill_gs_ricochet")["effects"] as Array)[1] as Dictionary).duplicate(true)
 	mark.erase("trigger")
 	SkillResolver.resolve({"effects": [mark]}, me, session, ["enemy_2"], registry)
-	var marked: int = _first_amount(SkillResolver.resolve({"effects": [hit]}, me, session, ["enemy_2"], registry))
-	var after: int = _first_amount(SkillResolver.resolve({"effects": [hit]}, me, session, ["enemy_2"], registry))
+	# ⚠ 回MG-1：その1回の通常攻撃（_basic_cast）のダメージ全部に効き、次の tick で消える。
+	var hit_a: Dictionary = hit.duplicate()
+	hit_a["_basic_cast"] = 101
+	var marked: int = _first_amount(SkillResolver.resolve({"effects": [hit_a]}, me, session, ["enemy_2"], registry))
+	var marked_extra: int = _first_amount(SkillResolver.resolve({"effects": [hit_a]}, me, session, ["enemy_2"], registry))
+	registry.tick(0.01)
+	var hit_b: Dictionary = hit.duplicate()
+	hit_b["_basic_cast"] = 102
+	var after: int = _first_amount(SkillResolver.resolve({"effects": [hit_b]}, me, session, ["enemy_2"], registry))
 	var skill_hit: Dictionary = hit.duplicate()
 	skill_hit.erase("_basic")
 	SkillResolver.resolve({"effects": [mark]}, me, session, ["enemy_2"], registry)
 	var by_skill: int = _first_amount(SkillResolver.resolve({"effects": [skill_hit]}, me, session, ["enemy_2"], registry))
-	print("  ふつう %d ／ 印あり %d（2 倍）／ 次 %d（戻る）／ スキルで殴る %d（倍にならない・印は残る %s）" % [
-		plain_basic, marked, after, by_skill, str(registry.has({"host_unit_id": "enemy_2", "status_id": "st_gs_ricochet_mark"}))])
+	print("  ふつう %d ／ 印あり %d（2 倍）・同じ通常攻撃の追加ダメージ %d（2 倍）／ 次の通常攻撃 %d（戻る）／ スキルで殴る %d（倍にならない・印は残る %s）" % [
+		plain_basic, marked, marked_extra, after, by_skill, str(registry.has({"host_unit_id": "enemy_2", "status_id": "st_gs_ricochet_mark"}))])
 
 	print("[DebugBoot] --- 94. 通常攻撃の追加ダメージ（⚠ 前と違う相手か、HP が満タンの相手）---")
 	var bonus: Dictionary = (me.basic_attack.get("effects", []) as Array)[1] as Dictionary
@@ -9798,6 +9856,130 @@ func _report_gunslinger() -> void:
 					first = str((issue as Dictionary).get("message", ""))
 		var ok: bool = (errors >= 1) if bool(probe[3]) else (errors == 0)
 		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
+# マグナムメイジ（回MG-1）。⚠ 通常攻撃1回ぶん・スキルが当たったら爆発・死体の爆破・空中。
+func _report_magnum() -> void:
+	var me: BattleUnit = _resource_unit("char_magnum", 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 50000
+	foe_data["def"] = 0
+	foe_data["mdef"] = 0
+	var foes: Array = []
+	for i: int in range(4):
+		foes.append(BattleUnit.create("enemy_%d" % i, BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime"))
+	me.x = 300.0
+	var f0: BattleUnit = foes[0] as BattleUnit
+	var f1: BattleUnit = foes[1] as BattleUnit
+	var f2: BattleUnit = foes[2] as BattleUnit
+	var f3: BattleUnit = foes[3] as BattleUnit
+	f0.x = 400.0
+	f1.x = 460.0
+	f2.x = 900.0
+	f3.x = 1300.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = foes
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	var plain: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "true", "scale_from": "mag"}
+
+	print("[DebugBoot] --- 96. グレネード（⚠ 次の通常攻撃1回ぶん＝追加ダメージも2倍・人間「⚠ ２い追加ダメージも換算」）---")
+	var base: int = _first_amount(SkillResolver.resolve({"effects": [plain]}, me, session, ["enemy_0"], registry))
+	var grenade_mark: Dictionary = ((MasterDataLoader.get_skill("skill_mm_grenade")["effects"] as Array)[1] as Dictionary).duplicate(true)
+	grenade_mark.erase("trigger")
+	SkillResolver.resolve({"effects": [grenade_mark]}, me, session, ["enemy_0"], registry)
+	var main_hit: Dictionary = plain.duplicate()
+	main_hit["_basic"] = true
+	main_hit["_basic_cast"] = 301
+	var m1: int = _first_amount(SkillResolver.resolve({"effects": [main_hit]}, me, session, ["enemy_0"], registry))
+	var m2: int = _first_amount(SkillResolver.resolve({"effects": [main_hit]}, me, session, ["enemy_0"], registry))
+	registry.tick(0.01)
+	var next_hit: Dictionary = main_hit.duplicate()
+	next_hit["_basic_cast"] = 302
+	var m3: int = _first_amount(SkillResolver.resolve({"effects": [next_hit]}, me, session, ["enemy_0"], registry))
+	print("  ふつう %d ／ 印のあとの通常攻撃：本体 %d・追加 %d（どちらも 2 倍）／ 次の通常攻撃 %d（戻る）" % [base, m1, m2, m3])
+
+	print("[DebugBoot] --- 97. 特殊弾の魔印（⚠ スキルが当たったら周り 100 が爆発・通常攻撃では爆発しない）---")
+	var special: Dictionary = MasterDataLoader.get_skill("skill_mm_special")
+	var sigil: Dictionary = (((((special["effects"] as Array)[0] as Dictionary)["basic_attack"] as Dictionary)["effects"] as Array)[1] as Dictionary).duplicate(true)
+	sigil.erase("trigger")
+	SkillResolver.resolve({"effects": [sigil]}, me, session, ["enemy_0"], registry)
+	var basic_cast: int = runtime._next_cast_id
+	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, me.basic_attack, 1.0, ["enemy_0"])
+	runtime.notify_event(basic_cast, SkillSchema.EVENT_HIT)
+	print("  通常攻撃が当たった：魔印 %s（true＝残る）" % str(registry.has({"host_unit_id": "enemy_0", "status_id": "st_mm_sigil"})))
+	var hp0: int = f0.hp
+	var hp1: int = f1.hp
+	var hp2: int = f2.hp
+	runtime.cast(me, "skill_probe_hit", {"target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [plain]}, 1.0)
+	print("  スキルが当たった：魔印 %s（false）・enemy_0 −%d（スキル＋爆発）・60 先の enemy_1 −%d（爆発）・遠い enemy_2 −%d（0）" % [
+		str(registry.has({"host_unit_id": "enemy_0", "status_id": "st_mm_sigil"})), hp0 - f0.hp, hp1 - f1.hp, hp2 - f2.hp])
+
+	print("[DebugBoot] --- 98. 死体爆破（⚠ 近くの倒れた敵ごとに・1体1回）---")
+	var c0: BattleUnit = BattleUnit.create("enemy_5", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var c1: BattleUnit = BattleUnit.create("enemy_6", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	c0.x = 420.0
+	c1.x = 1250.0
+	session.enemy_units.append_array([c0, c1])
+	c0.take_damage(c0.hp)
+	c1.take_damage(c1.hp)
+	hp0 = f0.hp
+	hp1 = f1.hp
+	var hp3: int = f3.hp
+	var corpse: Dictionary = MasterDataLoader.get_skill("skill_mm_corpse")
+	SkillResolver.resolve({"effects": [(corpse["effects"] as Array)[0]]}, me, session, [], registry)
+	print("  1回目：近い死体(420)の周り＝enemy_0 −%d・enemy_1 −%d ／ 遠い死体(1250)は range の外＝enemy_3 −%d（0）" % [hp0 - f0.hp, hp1 - f1.hp, hp3 - f3.hp])
+	hp0 = f0.hp
+	SkillResolver.resolve({"effects": [(corpse["effects"] as Array)[0]]}, me, session, [], registry)
+	print("  2回目：enemy_0 −%d（0＝その死体は使った）" % (hp0 - f0.hp))
+
+	print("[DebugBoot] --- 99. 空中（⚠ 地面を狙う攻撃と相手の置いた地面の範囲が当たらない）---")
+	SkillResolver.resolve({"effects": [{"type": "buff", "host": "unit", "status_id": "st_probe_air", "duration_sec": 5.0, "stack": "refresh", "control": "airborne"}]}, me, session, [me.unit_id], registry)
+	var ground: Dictionary = plain.duplicate()
+	ground["ground"] = true
+	var me_hp: int = me.hp
+	SkillResolver.resolve({"effects": [ground]}, f0, session, [me.unit_id], registry)
+	var after_ground: int = me.hp
+	SkillResolver.resolve({"effects": [plain]}, f0, session, [me.unit_id], registry)
+	print("  地面を狙う攻撃：HP %d → %d（変わらない）／ ふつうの攻撃：→ %d（減る）" % [me_hp, after_ground, me.hp])
+	SkillResolver.resolve({"effects": [{"type": "dot", "host": "point", "status_id": "st_probe_pool", "stack": "refresh", "duration_sec": 5.0, "interval_sec": 1.0,
+		"multiplier": 1.0, "attack_type": "true", "scale_from": "atk", "zone": {"radius": 200.0, "team": "enemy", "follow": false}}]}, f0, session, [me.unit_id], registry)
+	me_hp = me.hp
+	registry.tick(1.0)
+	print("  敵の置いた毒の沼：中に居るか %s（false）・HP %d → %d（変わらない）" % [str(registry.has({"status_id": "st_probe_pool"}) and _status_inside(registry, "st_probe_pool", me.unit_id)), me_hp, me.hp])
+
+	print("[DebugBoot] --- 100. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var probes: Array = [
+		["on_skill_hit の radius が無い", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "on_skill_hit": {"effects": [plain]}}, true],
+		["ground を heal に", {"type": "heal", "multiplier": 1.0, "scale_from": "mag", "ground": true}, true],
+		["corpse_blast に range が無い", {"type": "corpse_blast", "blast_radius": 100, "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag"}, true],
+		["damage に range", (plain.duplicate() as Dictionary).merged({"range": 100}), true],
+		["スキルが当たったら爆発（正しい）", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "on_skill_hit": {"radius": 100, "effects": [plain]}}, false],
+		["死体爆破（正しい）", {"type": "corpse_blast", "range": 300, "blast_radius": 100, "multiplier": 1.0, "attack_type": "magic", "scale_from": "mag"}, false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_magnum", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[2]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
+func _status_inside(registry: StatusRegistry, status_id: String, unit_id: String) -> bool:
+	for entry: Variant in registry.query({"status_id": status_id}):
+		if ((entry as Dictionary).get("inside", {}) as Dictionary).has(unit_id):
+			return true
+	return false
 
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
@@ -12075,6 +12257,7 @@ class ShotTaker extends Node:
 	const PREPARE_PHOENIX_PARTY: String = "phoenix_party"
 	const PREPARE_STUDENT_PARTY: String = "student_party"
 	const PREPARE_GUNSLINGER_PARTY: String = "gunslinger_party"
+	const PREPARE_MAGNUM_PARTY: String = "magnum_party"
 	const PREPARE_PRINCESS_PARTY: String = "princess_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
@@ -12451,6 +12634,11 @@ class ShotTaker extends Node:
 		if kind == PREPARE_PRINCESS_PARTY:
 			for princess_i: int in range(3):
 				if not GameManager.set_party_member(princess_i, ["char_princess", "char_archer", "char_priest"][princess_i]):
+					return false
+			return true
+		if kind == PREPARE_MAGNUM_PARTY:
+			for mm_i: int in range(3):
+				if not GameManager.set_party_member(mm_i, ["char_magnum", "char_archer", "char_priest"][mm_i]):
 					return false
 			return true
 		if kind == PREPARE_GUNSLINGER_PARTY:

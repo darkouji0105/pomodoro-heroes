@@ -201,6 +201,15 @@ const SUMMON_FIELD_AT: String = "summon_at"
 const SUMMON_FIELD_SIDE: String = "summon_side"
 # 威力の式の「召喚が最後に受けたダメージ」（⚠ summons.json の death_effects だけ・⚠ 撃つ瞬間に定数へ畳む）。
 const SCALE_LAST_HIT: String = "last_hit"
+# --- 汎用（回MG-1・マグナムメイジで足し、次のキャラに流用する） ---
+# スキルが当たったら（⚠ 状態に書く・宿主にだれかのスキルのダメージが当たったら effects を撃って状態を消す）。
+#   "on_skill_hit": {"radius": 100, "effects": [...]} ⚠ 当たるのは宿主の周り radius の、宿主の味方（＝爆発）。⚠ 撃つのは状態を付けた人。
+const FIELD_ON_SKILL_HIT: String = "on_skill_hit"
+# 地面を狙う攻撃（⚠ damage に書く・空中の相手には当たらない）。
+const FIELD_GROUND: String = "ground"
+# 死体の爆破。{"type": "corpse_blast", "range": 400, "blast_radius": 100, "multiplier": ..., "attack_type": ..., "scale_from": ...}
+# ⚠ 自分から range の中の倒れた相手ごとに、その場所で周りを爆発（⚠ 1体1回＝BattleUnit.corpse_used）。
+const EFFECT_CORPSE_BLAST: String = "corpse_blast"
 const AIM_FIELDS_REQUIRED: Array = ["from", "speed", "to"]
 # 対象を取らない効果（回NC-1）。⚠ 購読の中でも target が要らない（E54 の例外）・実行時も対象を選ばない。
 const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
@@ -264,14 +273,14 @@ const DASH_TOS_KNOWN: Array = [DASH_TO_TARGET, DASH_TO_BACK, DASH_TO_AIM]
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
-	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick", "basic_attack",
+	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick", "basic_attack", "corpse_blast",
 	"cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
-	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick", "basic_attack",
+	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick", "basic_attack", "corpse_blast",
 ]
 # resource の欄。⚠ amount（足す・負なら減らす）と set_to（その値にする）はどちらか1つ。
 # ⚠ 持ち主にその資源があるか・種類と欄が合うかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
@@ -410,7 +419,9 @@ const CONTROL_INVULNERABLE: String = "invulnerable"
 const CONTROL_UNSTOPPABLE: String = "unstoppable"
 # ステルス（回GS-1・人間「⚠ 目くらましというのは…敵からターゲットされなくなる効果　ステルスに変える名前を」）。⚠ 相手から狙われない（⚠ 良い状態）。
 const CONTROL_STEALTH: String = "stealth"
-const CONTROLS_KNOWN: Array = [CONTROL_STUN, CONTROL_SNARE, CONTROL_INVULNERABLE, CONTROL_UNSTOPPABLE, CONTROL_STEALTH]
+# 空中（回MG-1・人間「⚠ 地面を狙った攻撃とかは当たらない」）。⚠ 相手の置いた地面の範囲に入らない・ground: true の攻撃が当たらない（⚠ 良い状態）。
+const CONTROL_AIRBORNE: String = "airborne"
+const CONTROLS_KNOWN: Array = [CONTROL_STUN, CONTROL_SNARE, CONTROL_INVULNERABLE, CONTROL_UNSTOPPABLE, CONTROL_STEALTH, CONTROL_AIRBORNE]
 # ⚠ 止められない（unstoppable）が防ぐもの。
 const CONTROLS_STOPPABLE: Array = [CONTROL_STUN, CONTROL_SNARE]
 
@@ -442,6 +453,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	FIELD_DRAIN_PCT, FIELD_WHEN_DRAIN_MULT, FIELD_STAT_PCT_FROM,
 	FIELD_ON_STACK, FIELD_KEEP_ON_DISPEL, FIELD_IS_DEBUFF, "effects",
 	SUMMON_FIELD_AT, SUMMON_FIELD_SIDE, "control",
+	FIELD_ON_SKILL_HIT, FIELD_GROUND, "range",
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -869,9 +881,9 @@ static func validate_basic_attack(owner_id: String, data: Dictionary) -> Array:
 		#   「歩いて近づいた相手」で、撃つ瞬間に選び直してはいけない。
 		# ⚠ 例外（回MC-1・傭兵「前後に敵がいる場合は剣を振り回す」）：自分の周りの範囲（mode: area・origin: user）は書ける。
 		#   ⚠ ただし通常攻撃の直下に target があるときだけ（⚠ 無いと近づいた相手が対象に固定され、効果ごとの target は読まれない）。
+		# ⚠ 回MG-1：相手の周り（origin: target）も書ける＝範囲（mode: area）なら起点を問わない（⚠ 「近づいた相手を選び直す」ではないため）。
 		var around_self: bool = effect.get("target", null) is Dictionary \
-				and str((effect["target"] as Dictionary).get("mode", "")) == MODE_AREA \
-				and str((effect["target"] as Dictionary).get("origin", "")) == ORIGIN_USER
+				and str((effect["target"] as Dictionary).get("mode", "")) == MODE_AREA
 		if effect.has("target") and not (around_self and data.has("target")):
 			_err(issues, owner_id, "basic_attack.effects[%d] に target は書けない（⚠ 自分の周りの範囲だけは、直下に target があれば書ける）" % index)
 		_validate_effect(issues, owner_id, effect, index, ACTIVATION_INSTANT)
@@ -1377,6 +1389,8 @@ static func _validate_effect(
 		_validate_summon_consume(issues, skill_id, effect, where)
 	else:
 		for consume_field: String in [CONSUME_FIELD_UNIT_IDS, CONSUME_FIELD_BLAST_RADIUS]:
+			if consume_field == CONSUME_FIELD_BLAST_RADIUS and effect_type == EFFECT_CORPSE_BLAST:
+				continue
 			if effect.has(consume_field):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（summon_consume だけ）" % [where, effect_type, consume_field])
 
@@ -1971,7 +1985,7 @@ static func _validate_status_effect(
 		# ⚠ これが無いと、stat を必須にしなくなった分だけ typo（"stt"）が
 		#   「介入だけを持つ buff」として黙って通る。
 		# ⚠ 避けて反撃・そろったら（回MC-1・回GM-1）だけの buff は書ける（⚠ それ自体が働く）。
-		var has_trigger_only: bool = effect.has(FIELD_EVADE) or effect.has(FIELD_ON_MEET) or effect.has(FIELD_ON_STACK)
+		var has_trigger_only: bool = effect.has(FIELD_EVADE) or effect.has(FIELD_ON_MEET) or effect.has(FIELD_ON_STACK) or effect.has(FIELD_ON_SKILL_HIT)
 		if not has_stat and not has_atk_mult and not has_intervene and not has_trigger_only:
 			_err(issues, skill_id, "%s は buff なのに stat / value も %s も %s{} も無い" % [
 				where, BUFF_ATK_MULT_PCT, BUFF_INTERVENE
@@ -2378,6 +2392,27 @@ static func _validate_gm_fields(
 				_err(issues, skill_id, "%s.%s は buff / dot にしか書けない" % [where, flag])
 			elif effect.get(flag, null) != true:
 				_err(issues, skill_id, "%s.%s は true だけ書ける" % [where, flag])
+	# E203 スキルが当たったら（回MG-1）。⚠ host: unit の状態だけ・radius は正の数。
+	if effect.has(FIELD_ON_SKILL_HIT):
+		var osh: Variant = effect.get(FIELD_ON_SKILL_HIT, null)
+		if not (effect_type in [EFFECT_BUFF, EFFECT_DOT]) or str(effect.get("host", "")) != HOST_UNIT:
+			_err(issues, skill_id, "%s.on_skill_hit は host: unit の buff / dot にしか書けない" % where)
+		elif osh is Dictionary and (not _is_num((osh as Dictionary).get("radius", null)) or float((osh as Dictionary).get("radius", 0.0)) <= 0.0):
+			_err(issues, skill_id, "%s.on_skill_hit.radius が正の数でない" % where)
+		_validate_sub_effects(issues, skill_id, osh, where + ".on_skill_hit", ["radius", "effects"], activation, false)
+	# E204 地面を狙う（回MG-1）。⚠ damage だけ・true だけ。
+	if effect.has(FIELD_GROUND) and (effect_type != EFFECT_DAMAGE or effect.get(FIELD_GROUND, null) != true):
+		_err(issues, skill_id, "%s.ground は damage に true だけ書ける" % where)
+	# E205 死体の爆破（回MG-1）。⚠ range・blast_radius は正の数・威力の式がそろっている。
+	if effect_type == EFFECT_CORPSE_BLAST:
+		for cb_field: String in ["range", "blast_radius"]:
+			if not _is_num(effect.get(cb_field, null)) or float(effect.get(cb_field, 0.0)) <= 0.0:
+				_err(issues, skill_id, "%s.%s が正の数でない（type: 'corpse_blast'）" % [where, cb_field])
+		for cb_need: String in ["multiplier", "attack_type", "scale_from"]:
+			if not effect.has(cb_need):
+				_err(issues, skill_id, "%s に %s が無い（type: 'corpse_blast' の威力）" % [where, cb_need])
+	elif effect.has("range"):
+		_err(issues, skill_id, "%s.type: '%s' に range は書けない（corpse_blast だけ）" % [where, effect_type])
 	# E201 自分の通常攻撃を撃つ（回GS-1）。⚠ 威力の式は持たない（⚠ 通常攻撃の式を使う）。
 	if effect_type == EFFECT_BASIC_ATTACK:
 		for forbidden: String in ["scale_from", "multiplier", "attack_type", "host", "delivery"]:

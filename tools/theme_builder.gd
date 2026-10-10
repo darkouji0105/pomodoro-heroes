@@ -772,6 +772,8 @@ const AVATAR_COLORS: Dictionary = {
 	"char_student": {"bg": "2f4a2a", "fg": "c8ecb8"},
 	# ⚠ 拳銃使い（回GS-1）。⚠ 荒野の砂色（⚠ 設計役の仮）。
 	"char_gunslinger": {"bg": "5a4a2f", "fg": "ecdcb8"},
+	# ⚠ マグナムメイジ（回MG-1）。⚠ 魔弾の藍（⚠ 設計役の仮）。
+	"char_magnum": {"bg": "2f2f5a", "fg": "c4c4ec"},
 	"fallback": {"bg": "2a2320", "fg": "7d6f68"},
 }
 const AVATAR_CORNER_RADIUS: int = 8

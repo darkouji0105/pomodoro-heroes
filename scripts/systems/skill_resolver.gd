@@ -407,6 +407,8 @@ static func resolve(
 					registry.dispel_control(t.unit_id, str(effect.get("control", "")))
 				else:
 					registry.dispel(t.unit_id, str(effect.get("what", "")) == SkillSchema.DISPEL_DEBUFF)
+		elif effect_type == SkillSchema.EFFECT_CORPSE_BLAST:
+			_apply_corpse_blast(effect, user, results, session, registry, is_dot)
 		elif effect_type == SkillSchema.EFFECT_BASIC_ATTACK:
 			# 自分の通常攻撃を撃つ（回GS-1）。⚠ 撃つのは戦闘の画面（⚠ 結果に載せるだけ）・近い順。
 			var order: Array = targets.duplicate()
@@ -452,6 +454,11 @@ static func _apply_damage(
 					results.append_array(resolve({"effects": [raw]}, target, session, [user.unit_id], registry))
 			return
 
+	# 空中（回MG-1）。⚠ 地面を狙う攻撃は当たらない（⚠ 数字も出さない）。
+	if bool(effect.get(SkillSchema.FIELD_GROUND, false)) and target.airborne:
+		BattleLog.log_intervene("airborne", target.unit_id, "", user.unit_id)
+		return
+
 	var attack_type: String = str(effect.get("attack_type", BattleUnit.ATTACK_TYPE_PHYSICAL))
 	if not (attack_type in SkillSchema.attack_types_known()):
 		push_error("[SkillResolver] 不明な attack_type: " + attack_type)
@@ -493,7 +500,7 @@ static func _apply_damage(
 	# 相手の状態で常に強い（回VP-1）・付けた人から受ける・毎秒の倍・状態の数だけ（回ST-1）・次の通常攻撃（回GS-1）。⚠ 和で足す（⚠ この器はみなそう）。
 	if registry != null:
 		var bonus_vs: int = int(registry.bonus_vs_pct(user.unit_id, target.unit_id)) \
-				+ (int(registry.basic_taken_pct(target.unit_id, true)) if bool(effect.get("_basic", false)) else 0) \
+				+ (int(registry.basic_taken_pct(target.unit_id, int(effect.get("_basic_cast", 0)))) if bool(effect.get("_basic", false)) else 0) \
 				+ int(registry.taken_from_source_pct(target.unit_id, user.unit_id)) \
 				+ int(registry.bonus_per_dot_pct(user.unit_id, target.unit_id)) \
 				+ (int(registry.dot_taken_pct(target.unit_id)) if is_dot else 0)
@@ -1043,6 +1050,27 @@ static func _apply_summon_consume(
 		"source_unit_id": user.unit_id,
 		"summon_ids": ids,
 	})
+
+
+# 死体の爆破（回MG-1）。⚠ 自分から range の中の倒れた相手ごとに、その場所で周りを爆発（⚠ 1体1回）。⚠ 威力は撃った本人。
+static func _apply_corpse_blast(
+		effect: Dictionary, user: BattleUnit, results: Array,
+		session: BattleSession, registry: RefCounted, is_dot: bool
+) -> void:
+	var foe_team: String = BattleUnit.TEAM_ENEMY if user.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
+	var corpses: Array = []
+	for raw: Variant in (session.enemy_units if foe_team == BattleUnit.TEAM_ENEMY else session.party_units):
+		var c: BattleUnit = raw as BattleUnit
+		if c != null and not c.is_alive() and not c.corpse_used and absf(c.x - user.x) <= float(effect.get("range", 0.0)):
+			corpses.append(c)
+	var radius: float = float(effect.get(SkillSchema.CONSUME_FIELD_BLAST_RADIUS, 0.0))
+	for c: BattleUnit in corpses:
+		c.corpse_used = true
+		BattleLog.log_intervene("corpse_blast", c.unit_id, "", user.unit_id)
+		for raw_foe: Variant in session.get_alive_units(foe_team):
+			var foe: BattleUnit = raw_foe as BattleUnit
+			if absf(foe.x - c.x) <= radius:
+				_apply_damage(effect, user, foe, results, session, registry, is_dot)
 
 
 # 自分の召喚（⚠ 生きているもの・古い順）。⚠ unit_ids の種類だけ（⚠ 撃てるかの判定＝SkillActivation も使う）。

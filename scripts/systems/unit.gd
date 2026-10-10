@@ -329,6 +329,10 @@ var summon_kind_id: String = ""
 # 回GS-1（⚠ 戦闘の間だけ・セーブに入らない）。
 # ステルス（⚠ 書くのは StatusRegistry._rebuild_unit_mods() だけ＝ほかの行動妨害と同じ）。
 var stealthed: bool = false
+# 空中（回MG-1）。⚠ 書くのは StatusRegistry._rebuild_unit_mods() だけ。
+var airborne: bool = false
+# 死体を使った（回MG-1・死体の爆破は1体1回）。
+var corpse_used: bool = false
 # 使用回数（⚠ スキルID → 残り回数）。⚠ 書くのは use_charge() と tick_cooldowns() だけ。
 var skill_charges: Dictionary = {}
 # 使用回数が戻るまでのクールダウン（haste 適用済み）。

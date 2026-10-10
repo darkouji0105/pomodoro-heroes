@@ -1,0 +1,234 @@
+{
+	"skill_mm_blast": {
+		"name_key": "ui_battle_skill_mm_blast",
+		"user_character_id": "char_magnum",
+		"unlock_level": 1,
+		"cooldown_sec": 10.0,
+		"activation": "charge",
+		"charge": {
+			"just_sec": 1.0,
+			"just_window_sec": 0.15,
+			"min_ratio": 0.5,
+			"just_bonus": 1.3
+		},
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "target",
+			"sort": "nearest",
+			"range": 350.0,
+			"radius": 110.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "magic",
+				"multiplier": 1.6,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "event:hit"
+			}
+		]
+	},
+	"skill_mm_reload": {
+		"name_key": "ui_battle_skill_mm_reload",
+		"user_character_id": "char_magnum",
+		"unlock_level": 1,
+		"cooldown_sec": 20.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "cooldown",
+				"all": true,
+				"skills": "others"
+			}
+		]
+	},
+	"skill_mm_grenade": {
+		"name_key": "ui_battle_skill_mm_grenade",
+		"user_character_id": "char_magnum",
+		"unlock_level": 5,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "target",
+			"sort": "nearest",
+			"range": 300.0,
+			"radius": 100.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "magic",
+				"multiplier": 0.8,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "event:hit"
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_mm_grenade",
+				"duration_sec": 6.0,
+				"stack": "refresh",
+				"intervene": {
+					"basic_taken_pct": 100
+				},
+				"trigger": "event:hit"
+			}
+		]
+	},
+	"skill_mm_barrage": {
+		"name_key": "ui_battle_skill_mm_barrage",
+		"user_character_id": "char_magnum",
+		"unlock_level": 10,
+		"cooldown_sec": 14.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1,
+			"range": 350.0
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_mm_air",
+				"duration_sec": 1.2,
+				"stack": "refresh",
+				"control": "airborne",
+				"target": {
+					"team": "self"
+				}
+			},
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 0.45,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "delay:0.15"
+			},
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 0.45,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "delay:0.30"
+			},
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 0.45,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "delay:0.45"
+			},
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 0.45,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "delay:0.60"
+			},
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 0.45,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "delay:0.75"
+			},
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 0.45,
+				"attack_type": "magic",
+				"scale_from": "mag",
+				"trigger": "delay:0.90"
+			}
+		]
+	},
+	"skill_mm_special": {
+		"name_key": "ui_battle_skill_mm_special",
+		"user_character_id": "char_magnum",
+		"unlock_level": 15,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_mm_special",
+				"duration_sec": 10.0,
+				"stack": "refresh",
+				"uses": 1,
+				"basic_attack": {
+					"effects": [
+						{
+							"type": "damage",
+							"delivery": "projectile",
+							"multiplier": 1.0,
+							"attack_type": "magic",
+							"scale_from": "mag",
+							"trigger": "event:hit"
+						},
+						{
+							"type": "buff",
+							"host": "unit",
+							"status_id": "st_mm_sigil",
+							"duration_sec": 8.0,
+							"stack": "refresh",
+							"is_debuff": true,
+							"trigger": "event:hit",
+							"on_skill_hit": {
+								"radius": 100.0,
+								"effects": [
+									{
+										"type": "damage",
+										"delivery": "melee",
+										"multiplier": 1.5,
+										"attack_type": "magic",
+										"scale_from": "mag"
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"skill_mm_corpse": {
+		"name_key": "ui_battle_skill_mm_corpse",
+		"user_character_id": "char_magnum",
+		"unlock_level": 20,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "corpse_blast",
+				"range": 450.0,
+				"blast_radius": 100.0,
+				"multiplier": 1.5,
+				"attack_type": "magic",
+				"scale_from": "mag"
+			}
+		]
+	}
+}

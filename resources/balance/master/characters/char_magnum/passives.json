@@ -1,0 +1,69 @@
+{
+	"passive_mm_afterglow": {
+		"name_key": "ui_battle_passive_mm_afterglow",
+		"user_character_id": "char_magnum",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_mm_afterglow",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "skill_used",
+					"effects": [
+						{
+							"type": "buff",
+							"host": "unit",
+							"status_id": "st_mm_charged",
+							"duration_sec": 8.0,
+							"stack": "refresh",
+							"uses": 1,
+							"target": {
+								"team": "self"
+							},
+							"basic_attack": {
+								"target": {
+									"team": "enemy",
+									"mode": "select",
+									"sort": "nearest",
+									"count": 1
+								},
+								"effects": [
+									{
+										"type": "damage",
+										"delivery": "projectile",
+										"multiplier": 0.9,
+										"attack_type": "magic",
+										"scale_from": "mag",
+										"trigger": "event:hit"
+									},
+									{
+										"type": "damage",
+										"delivery": "melee",
+										"multiplier": 0.6,
+										"attack_type": "magic",
+										"scale_from": "mag",
+										"trigger": "event:hit",
+										"target": {
+											"team": "enemy",
+											"mode": "area",
+											"origin": "target",
+											"sort": "nearest",
+											"radius": 80.0
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		]
+	}
+}

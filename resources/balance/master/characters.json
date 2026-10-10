@@ -854,6 +854,59 @@
 			"spd": 1
 		}
 	},
+	"char_magnum": {
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "projectile",
+					"multiplier": 0.9,
+					"attack_type": "magic",
+					"scale_from": "mag",
+					"trigger": "event:hit"
+				}
+			]
+		},
+		"name_key": "ui_battle_char_magnum",
+		"sign_style": "pen",
+		"sign_mark": "arrow",
+		"weapon_genre": "pistol",
+		"hp": 90,
+		"atk": 8,
+		"mag": 18,
+		"def": 3,
+		"mdef": 5,
+		"spd": 65,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 8,
+		"crit_dmg": 150,
+		"attack_type": "magic",
+		"attack_range": 260,
+		"attack_interval_sec": 1.4,
+		"skills": [
+			"skill_mm_blast",
+			"skill_mm_reload",
+			"skill_mm_grenade",
+			"skill_mm_barrage",
+			"skill_mm_special",
+			"skill_mm_corpse"
+		],
+		"passives": [
+			"passive_mm_afterglow"
+		],
+		"allocatable_stats": [
+			"hp",
+			"mag",
+			"crit_rate"
+		],
+		"growth_per_level": {
+			"hp": 4,
+			"atk": 1,
+			"def": 1,
+			"spd": 1
+		}
+	},
 	"char_debug_status": {
 		"basic_attack": {
 			"effects": [

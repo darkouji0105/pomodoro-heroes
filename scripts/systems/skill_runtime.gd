@@ -438,6 +438,8 @@ func _fire(entry: Dictionary) -> void:
 	if str(entry.get("skill_id", "")) == SkillSchema.BASIC_ATTACK_SKILL_ID:
 		one_effect = one_effect.duplicate()
 		one_effect["_basic"] = true
+		# ⚠ 回MG-1：その1回の通常攻撃の番号（⚠ 追加ダメージ・爆発も同じ番号＝「次の通常攻撃で受ける」がまとめて効く）。
+		one_effect["_basic_cast"] = int(entry.get("cast_id", 0))
 	var one: Dictionary = { "effects": [one_effect] }
 	var results: Array = SkillResolver.resolve(one, user, _session, entry.get("target_ids", []), _registry)
 
@@ -503,6 +505,8 @@ func _dispatch_events(entry: Dictionary, results: Array) -> void:
 				if not hit_once.has(hit_id):
 					hit_once[hit_id] = true
 					_notify(SkillSchema.EVENT_SKILL_HIT, user_id, hit_id)
+					# スキルが当たったら爆発する状態（回MG-1）。
+					_registry.trigger_skill_hit(hit_id)
 
 	# 4. 状態を付けた（回VP-1）。⚠ 付けた本人に配る・status_id で絞れる。
 	for raw_applied: Variant in results:

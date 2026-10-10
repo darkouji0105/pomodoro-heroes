@@ -115,6 +115,8 @@ const CHARACTER_DIRS_REQUIRED: Array[String] = [
 	DIR_CHARACTERS + "char_student/",
 	# ⚠ 拳銃使い（2026-10-10・回GS-1）。
 	DIR_CHARACTERS + "char_gunslinger/",
+	# ⚠ マグナムメイジ（2026-10-10・回MG-1）。
+	DIR_CHARACTERS + "char_magnum/",
 ]
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const CHARACTER_DIRS_OPTIONAL: Array[String] = [
@@ -1701,7 +1703,7 @@ static func _expand_status_refs(effects: Array, skill_id: String) -> void:
 		# ⚠ 入れ子の効果も展開する（回PX-1・汎用）：倒したら・そろったら・避けて反撃・起き上がるとき。
 		if str(effect.get("type", "")) == SkillSchema.EFFECT_PICK and effect.get("effects", null) is Array:
 			_expand_status_refs(effect["effects"] as Array, skill_id)
-		for nested_key: String in [SkillSchema.FIELD_ON_KILL, SkillSchema.FIELD_ON_MEET, SkillSchema.FIELD_EVADE, SkillSchema.FIELD_ON_STACK]:
+		for nested_key: String in [SkillSchema.FIELD_ON_KILL, SkillSchema.FIELD_ON_MEET, SkillSchema.FIELD_EVADE, SkillSchema.FIELD_ON_STACK, SkillSchema.FIELD_ON_SKILL_HIT]:
 			if effect.get(nested_key, null) is Dictionary and (effect[nested_key] as Dictionary).get("effects", null) is Array:
 				_expand_status_refs((effect[nested_key] as Dictionary)["effects"] as Array, skill_id)
 		if effect.get(SkillSchema.BUFF_INTERVENE, null) is Dictionary:
