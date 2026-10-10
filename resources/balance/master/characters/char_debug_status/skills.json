@@ -624,5 +624,68 @@
 				}
 			}
 		]
+	},
+	"skill_dbg_res_empower": {
+		"name_key": "ui_battle_skill_dbg_res_empower",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_dbg_empower",
+				"stack": "refresh",
+				"duration_sec": 10.0,
+				"uses": 1,
+				"basic_attack": {
+					"effects": [
+						{
+							"type": "damage",
+							"delivery": "projectile",
+							"multiplier": 5.0,
+							"attack_type": "physical",
+							"scale_from": "atk",
+							"trigger": "event:hit"
+						}
+					]
+				}
+			}
+		]
+	},
+	"skill_dbg_res_empower_timed": {
+		"name_key": "ui_battle_skill_dbg_res_empower_timed",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_dbg_empower_timed",
+				"stack": "refresh",
+				"duration_sec": 3.0,
+				"basic_attack": {
+					"effects": [
+						{
+							"type": "damage",
+							"delivery": "projectile",
+							"multiplier": 2.0,
+							"attack_type": "physical",
+							"scale_from": "atk",
+							"trigger": "event:hit"
+						}
+					]
+				}
+			}
+		]
 	}
 }

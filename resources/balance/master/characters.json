@@ -187,6 +187,21 @@
 				}
 			]
 		},
+		"basic_attack_every": {
+			"every": 3,
+			"attack": {
+				"effects": [
+					{
+						"type": "damage",
+						"delivery": "projectile",
+						"multiplier": 3.0,
+						"attack_type": "true",
+						"scale_from": "atk",
+						"trigger": "event:hit"
+					}
+				]
+			}
+		},
 		"name_key": "ui_battle_char_debug_status",
 		"resources": [
 			{
@@ -239,7 +254,9 @@
 			"skill_dbg_res_soul_gain",
 			"skill_dbg_res_soul_spend",
 			"skill_dbg_res_overdrive",
-			"skill_dbg_res_regen"
+			"skill_dbg_res_regen",
+			"skill_dbg_res_empower",
+			"skill_dbg_res_empower_timed"
 		],
 		"passives": [
 			"passive_dbg_atk",

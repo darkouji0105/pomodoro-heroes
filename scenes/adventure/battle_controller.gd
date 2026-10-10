@@ -1260,10 +1260,15 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	#   「歩いて近づいた相手」ではなく sort: nearest が選んだ相手に当たる。
 	# ⚠ target を書いてある通常攻撃は範囲攻撃（僧侶など）。固定を渡さず cast() に
 	#   選ばせる。⚠ ここで両方渡すと固定が勝ち、書いた target が黙って無視される。
+	# ⚠ 回CH-4：撃つ一撃を決める（強化 → 「◯回ごと」→ いつもの）。⚠ 数を進めるのは BattleUnit の1か所。
+	var override: Dictionary = _status.basic_override(unit.unit_id)
+	var attack: Dictionary = unit.take_basic_attack(override)
+	if not override.is_empty():
+		_status.consume_basic_override(unit.unit_id)
 	var fixed_ids: Array = []
-	if not unit.basic_attack.has("target"):
+	if not attack.has("target"):
 		fixed_ids = [target.unit_id]
-	_skill_runtime.cast(unit, BASIC_ATTACK_SKILL_ID, unit.basic_attack, 1.0, fixed_ids)
+	_skill_runtime.cast(unit, BASIC_ATTACK_SKILL_ID, attack, 1.0, fixed_ids)
 
 
 # ⚠ is_crit / is_dot は既定値を持つ。既定値を外すと、引数を渡していない

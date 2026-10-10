@@ -1495,6 +1495,7 @@ func _ready() -> void:
 			_report_char_resource()
 			_report_char_cost()
 			_report_char_events()
+			_report_char_basic()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7551,6 +7552,93 @@ func _report_char_events() -> void:
 	])
 	print("  ⚠ 「復活したら出ない」は戦闘の側（_resolve_one_death の is_alive）で守っている＝ここでは見ない")
 
+
+# 通常攻撃が変わる（回CH-4）。⚠ 撃つ一撃を決める口（BattleUnit.take_basic_attack）と、強化の状態（StatusRegistry）を本物で叩く。
+# ⚠ 戦闘の側（_fire_basic_attack）と同じ順：basic_override → take_basic_attack → consume_basic_override。
+func _report_char_basic() -> void:
+	var status_id: String = "char_debug_status"
+	print("[DebugBoot] --- 13. 3回ごと（⚠ 1・2 はいつも・3 は特別・4・5 はいつも・6 は特別）---")
+	var me: BattleUnit = _resource_unit(status_id, 0)
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var seen: Array = []
+	for i: int in range(6):
+		seen.append(_basic_kind(me, registry))
+	print("  %s（[いつも, いつも, 特別, いつも, いつも, 特別] が正解）" % str(seen))
+
+	print("[DebugBoot] --- 14. スキルのあと強くなる（⚠ 人間「⚠ ２ひとによる」＝1回だけ ／ 秒数のあいだ）---")
+	me = _resource_unit(status_id, 0)
+	session.party_units = [me]
+	registry = StatusRegistry.new(session)
+	_resource_cast("skill_dbg_res_empower", me, session, registry)
+	seen = []
+	for i: int in range(3):
+		seen.append(_basic_kind(me, registry))
+	print("  1回だけ：%s（[強化, いつも, 特別] が正解＝3回目は数えている）" % str(seen))
+	print("  使い切ったら状態が消える：%s（false が正解）" % str(registry.has({"host_unit_id": me.unit_id, "status_id": "status_dbg_empower"})))
+
+	me = _resource_unit(status_id, 0)
+	session.party_units = [me]
+	registry = StatusRegistry.new(session)
+	_resource_cast("skill_dbg_res_empower_timed", me, session, registry)
+	seen = []
+	for i: int in range(3):
+		seen.append(_basic_kind(me, registry))
+	print("  3秒のあいだ：%s（[強化, 強化, 強化] が正解＝3回目も強化が勝つ・設計役の仮）" % str(seen))
+	registry.tick(3.1)
+	print("  3.1秒たったあと：%s（いつも が正解）" % _basic_kind(me, registry))
+
+	print("  1回だけを2本重ねる：")
+	me = _resource_unit(status_id, 0)
+	session.party_units = [me]
+	registry = StatusRegistry.new(session)
+	_resource_cast("skill_dbg_res_empower_timed", me, session, registry)
+	_resource_cast("skill_dbg_res_empower", me, session, registry)
+	seen = []
+	for i: int in range(2):
+		seen.append(_basic_kind(me, registry))
+	print("    %s（[強化, 強化（3秒のほう）] が正解＝新しく付いたほうから使う）" % str(seen))
+
+	print("[DebugBoot] --- 15. 壊した通常攻撃の置き換えを弾く（⚠ 赤は出さず件数だけ）---")
+	var dmg: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk"}
+	var probes: Array = [
+		["damage に basic_attack", {"type": "damage", "multiplier": 1.0, "scale_from": "atk", "basic_attack": {"effects": [dmg]}}],
+		["uses だけ", {"type": "buff", "host": "unit", "status_id": "x", "stack": "refresh", "duration_sec": 1.0, "stat": "atk", "value": 1, "uses": 1}],
+		["uses が 0", {"type": "buff", "host": "unit", "status_id": "x", "stack": "refresh", "duration_sec": 1.0, "uses": 0, "basic_attack": {"effects": [dmg]}}],
+		["basic_attack の effects が空", {"type": "buff", "host": "unit", "status_id": "x", "stack": "refresh", "duration_sec": 1.0, "basic_attack": {"effects": []}}],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": status_id, "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "self"}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(probe[0]), errors])
+	for every_probe: Array in [
+		["every が 1", {"every": 1, "attack": {"effects": [dmg]}}],
+		["attack が無い", {"every": 3}],
+		["知らない欄", {"every": 3, "attack": {"effects": [dmg]}, "count": 3}],
+		["正しい", {"every": 3, "attack": {"effects": [dmg]}}],
+	]:
+		print("  3回ごと %s -> 赤 %d 件" % [str(every_probe[0]), SkillSchema.validate_basic_attack_every("char_probe", every_probe[1] as Dictionary).size()])
+	print("  ⚠ 上の4行は 1 以上・1 以上・1 以上・0 が正解")
+
+
+# 撃つ一撃の種類（いつも／特別／強化）。⚠ 戦闘の _fire_basic_attack() と同じ順。
+func _basic_kind(unit: BattleUnit, registry: StatusRegistry) -> String:
+	var override: Dictionary = registry.basic_override(unit.unit_id)
+	var attack: Dictionary = unit.take_basic_attack(override)
+	if not override.is_empty():
+		registry.consume_basic_override(unit.unit_id)
+		return "強化"
+	if attack == unit.basic_attack:
+		return "いつも"
+	return "特別"
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)

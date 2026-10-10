@@ -107,6 +107,26 @@ var sp_max: float = 0.0
 var sp_regen: float = 0.0
 
 
+# 通常攻撃の数（回CH-4）。⚠ 置き換えた一撃も数える（人間「⚠ ３あ」）。⚠ 戦闘ごとに 0 から（⚠ 画面には出さない＝「⚠ ３い」CH-1）。
+var basic_attack_count: int = 0
+# 「◯回ごと」の一撃（回CH-4）。{every: int, attack: {effects}}。⚠ 無ければ空。
+var basic_attack_every: Dictionary = {}
+
+
+# 次に撃つ通常攻撃を決めて、数を1つ進める（回CH-4）。⚠ 撃つ口（_fire_basic_attack）からだけ呼ぶ。
+# override … 強化の一撃（StatusRegistry.basic_override()）。⚠ 「◯回ごと」と重なったら強化が勝つ（設計役の仮）。
+func take_basic_attack(override: Dictionary) -> Dictionary:
+	basic_attack_count += 1
+	if not override.is_empty():
+		return override
+	var every: int = int(basic_attack_every.get("every", 0))
+	if every > 0 and basic_attack_count % every == 0:
+		var special: Variant = basic_attack_every.get("attack", null)
+		if special is Dictionary:
+			return special as Dictionary
+	return basic_attack
+
+
 # キャラ固有の資源（2026-10-10・回CH-1・`EXEC_CHAR_RESOURCE.md`）。
 #
 # ⚠ 定義は `characters.json` の `resources`（⚠ 敵と召喚は持たない＝空）。⚠ 戦闘の間だけの写し。
@@ -331,6 +351,9 @@ static func create(
 	var raw_basic: Variant = p_source.get("basic_attack", null)
 	if raw_basic is Dictionary:
 		unit.basic_attack = (raw_basic as Dictionary).duplicate(true)
+	var raw_every: Variant = p_source.get("basic_attack_every", null)
+	if raw_every is Dictionary:
+		unit.basic_attack_every = (raw_every as Dictionary).duplicate(true)
 
 	# 固有の資源（回CH-1）。⚠ 始めの値から。⚠ 持ち越しは戦闘の側が `load_carried_resources()` で載せる。
 	var raw_resources: Variant = p_source.get("resources", null)

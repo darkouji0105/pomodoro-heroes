@@ -200,6 +200,14 @@ const FIELD_HEALS: String = "heals"
 # ⚠ 下限は 0.0。マイナスで符号を跨がせると「殴ると回復する」になる。
 const BUFF_ATK_MULT_PCT: String = "atk_mult_pct"
 
+# 通常攻撃を置き換える（回CH-4・EXEC_CHAR_RESOURCE.md §11）。⚠ buff にしか書けない。
+#   "basic_attack": { "effects": [...] }  … 次の通常攻撃をこの一撃にする（⚠ 形は characters.json の basic_attack と同じ）
+#   "uses": 1                             … あと何回か（⚠ 書かなければ duration_sec のあいだずっと＝人間「⚠ ２ひとによる」）
+# ⚠ 置き換え＝人間「⚠ １あ」。⚠ 置き換えた一撃も「◯回ごと」の1回に数える（人間「⚠ ３あ」）。
+# ⚠ 「◯回ごと」と同じ回に重なったら、強化が勝つ（⚠ 設計役の仮）。
+const BUFF_BASIC_ATTACK: String = "basic_attack"
+const BUFF_USES: String = "uses"
+
 # 効果の直下に書ける欄の全部（EXEC_SILENT_HOLES.md・W16）。
 #
 # 【なぜ要るか】typo（"stt" / "mutliplier"）が無音で無視される。書いたのに何も
@@ -217,6 +225,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	"stat", "value", "target", "trigger", "chance", "charge_scales",
 	"react", "condition",
 	BUFF_INTERVENE, FIELD_ZONE, FIELD_HEALS, BUFF_ATK_MULT_PCT,
+	BUFF_BASIC_ATTACK, BUFF_USES,
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to",
 ]
@@ -1020,6 +1029,10 @@ static func _validate_effect(
 					where, effect_type, summon_field
 				])
 
+	# E162〜E163 通常攻撃を置き換える（回CH-4）
+	if effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_USES):
+		_validate_basic_override(issues, skill_id, effect, where, effect_type)
+
 	# E150〜E152 固有の資源（回CH-1）
 	if effect_type == EFFECT_RESOURCE:
 		_validate_resource_effect(issues, skill_id, effect, where)
@@ -1220,6 +1233,53 @@ static func _validate_react_effect(
 #
 # ⚠ ここで見るのは「無音で壊れる書き方」だけ。状態は、剥がれない・二重に付く・
 #   一度も発火しない のどれもエラーを出さないので、書いた時点で弾く。
+# 通常攻撃を置き換える buff の欄（回CH-4）。
+static func _validate_basic_override(
+		issues: Array, skill_id: String, effect: Dictionary, where: String, effect_type: String
+) -> void:
+	# E162 … buff だけ・basic_attack は通常攻撃と同じ形
+	if effect_type != EFFECT_BUFF:
+		_err(issues, skill_id, "%s.type: '%s' に %s / %s は書けない（buff だけ）" % [where, effect_type, BUFF_BASIC_ATTACK, BUFF_USES])
+		return
+	if not effect.has(BUFF_BASIC_ATTACK):
+		_err(issues, skill_id, "%s.%s は %s と一緒にしか書けない" % [where, BUFF_USES, BUFF_BASIC_ATTACK])
+		return
+	var raw: Variant = effect.get(BUFF_BASIC_ATTACK, null)
+	if not (raw is Dictionary):
+		_err(issues, skill_id, "%s.%s が辞書でない" % [where, BUFF_BASIC_ATTACK])
+		return
+	for issue: Variant in validate_basic_attack("%s %s.%s" % [skill_id, where, BUFF_BASIC_ATTACK], raw as Dictionary):
+		issues.append(issue)
+	# E163 … uses は1以上の整数（⚠ 書かなければ duration_sec のあいだずっと）
+	if effect.has(BUFF_USES):
+		var uses: Variant = effect.get(BUFF_USES, null)
+		if not _is_num(uses) or float(uses) < 1.0 or float(uses) != floor(float(uses)):
+			_err(issues, skill_id, "%s.%s が1以上の整数でない" % [where, BUFF_USES])
+
+
+# 「◯回ごと」の一撃（回CH-4・characters.json の basic_attack_every）。
+#   "basic_attack_every": { "every": 3, "attack": { "effects": [...] } }
+# ⚠ every 回目の通常攻撃が attack に置き換わる（人間「⚠ １あ」）。⚠ 数えるのは全部の通常攻撃（「⚠ ３あ」）。
+const FIELD_BASIC_EVERY: String = "basic_attack_every"
+
+
+static func validate_basic_attack_every(owner_id: String, data: Dictionary) -> Array:
+	var issues: Array = []
+	var every: Variant = data.get("every", null)
+	if not _is_num(every) or float(every) < 2.0 or float(every) != floor(float(every)):
+		_err(issues, owner_id, "%s.every が2以上の整数でない" % FIELD_BASIC_EVERY)
+	var raw: Variant = data.get("attack", null)
+	if not (raw is Dictionary):
+		_err(issues, owner_id, "%s.attack が辞書でない" % FIELD_BASIC_EVERY)
+		return issues
+	for key: Variant in data:
+		if not (str(key) in ["every", "attack"]):
+			_err(issues, owner_id, "%s に知らない欄がある: '%s'" % [FIELD_BASIC_EVERY, str(key)])
+	for issue: Variant in validate_basic_attack(owner_id + " " + FIELD_BASIC_EVERY + ".attack", raw as Dictionary):
+		issues.append(issue)
+	return issues
+
+
 # type: "resource" の欄（回CH-1）。
 static func _validate_resource_effect(
 		issues: Array, skill_id: String, effect: Dictionary, where: String
@@ -1358,7 +1418,7 @@ static func _validate_status_effect(
 		#   （stat が10軸に無い／value が0以外の整数でない）が誤って出る（実測で踏んだ）。
 		var has_stat: bool = effect.has("stat") or effect.has("value")
 		# ⚠ 新しい補正の欄を足したら、E63（何もしない buff）の判定にも足すこと。
-		var has_atk_mult: bool = effect.has(BUFF_ATK_MULT_PCT)
+		var has_atk_mult: bool = effect.has(BUFF_ATK_MULT_PCT) or effect.has(BUFF_BASIC_ATTACK)
 		if has_stat:
 			# E37 / E38
 			var stat_key: String = str(effect.get("stat", ""))

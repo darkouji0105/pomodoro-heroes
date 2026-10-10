@@ -1477,7 +1477,15 @@ static func _validate_all_basic_attacks() -> void:
 			var basic: Variant = data.get("basic_attack", null)
 			var basic_data: Dictionary = (basic as Dictionary) if basic is Dictionary else {}
 			checked += 1
-			for issue: Variant in SkillSchema.validate_basic_attack(str(owner_id), basic_data):
+			var basic_issues: Array = SkillSchema.validate_basic_attack(str(owner_id), basic_data)
+			# 「◯回ごと」の一撃（回CH-4）。⚠ 書いてあるときだけ。
+			var raw_every: Variant = data.get(SkillSchema.FIELD_BASIC_EVERY, null)
+			if raw_every != null:
+				if raw_every is Dictionary:
+					basic_issues.append_array(SkillSchema.validate_basic_attack_every(str(owner_id), raw_every as Dictionary))
+				else:
+					basic_issues.append({"level": SkillSchema.LEVEL_ERROR, "message": "%s: %s が辞書でない" % [str(owner_id), SkillSchema.FIELD_BASIC_EVERY]})
+			for issue: Variant in basic_issues:
 				if not (issue is Dictionary):
 					continue
 				var message: String = "[MasterDataLoader] basic_attack " + str((issue as Dictionary).get("message", ""))

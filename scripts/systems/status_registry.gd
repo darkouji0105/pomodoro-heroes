@@ -413,6 +413,17 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		entry["block_status"] = (raw_block as Array).duplicate(true)
 		has_intervene = true
 
+	# 通常攻撃を置き換える（回CH-4）。⚠ 残りの回数は uses_left（⚠ counter はシールドの残量なので使わない）。
+	#   ⚠ uses が無ければ -1＝寿命のあいだずっと。
+	if effect.has(SkillSchema.BUFF_BASIC_ATTACK):
+		var raw_basic: Variant = effect.get(SkillSchema.BUFF_BASIC_ATTACK, null)
+		if not (raw_basic is Dictionary):
+			push_error("[StatusRegistry] buff の basic_attack が Dictionary でない")
+			return false
+		entry[SkillSchema.BUFF_BASIC_ATTACK] = (raw_basic as Dictionary).duplicate(true)
+		entry["uses_left"] = int(effect.get(SkillSchema.BUFF_USES, -1))
+		has_stat = true
+
 	# 攻撃力の倍率。⚠ intervene{} の中ではない（介入点ではなく素の補正）。
 	#   ⚠ stat / value と同じ「buff が持つ補正」の仲間なので効果の直下に置く。
 	if effect.has(SkillSchema.BUFF_ATK_MULT_PCT):
@@ -1452,6 +1463,42 @@ func consume_shield(unit_id: String, amount: int) -> int:
 			rest.append(entry)
 		_entries = rest
 	return absorbed
+
+
+# 通常攻撃を置き換える一撃（回CH-4）。⚠ 無ければ空。⚠ 何本かあれば**新しく付いたほう**。
+func basic_override(unit_id: String) -> Dictionary:
+	var index: int = _basic_override_index(unit_id)
+	if index < 0:
+		return {}
+	return (_entries[index].get(SkillSchema.BUFF_BASIC_ATTACK, {}) as Dictionary).duplicate(true)
+
+
+# 置き換えを1回使う（回CH-4）。⚠ uses が尽きたら消す（why "consumed"＝シールドと同じ）。⚠ uses 無しは減らさない。
+func consume_basic_override(unit_id: String) -> void:
+	var index: int = _basic_override_index(unit_id)
+	if index < 0:
+		return
+	var entry: Dictionary = _entries[index]
+	var left: int = int(entry.get("uses_left", -1))
+	if left < 0:
+		return
+	left -= 1
+	entry["uses_left"] = left
+	if left <= 0:
+		BattleLog.log_status_end(str(entry.get("status_id", "")), str(entry.get("host_unit_id", "")), "consumed")
+		_entries.remove_at(index)
+		# ⚠ 同じ buff が能力値の補正も持っていたら剥がす（⚠ 差分で減らさず組み直す）。
+		_rebuild_unit_mods(str(entry.get("host_unit_id", "")))
+
+
+func _basic_override_index(unit_id: String) -> int:
+	for i: int in range(_entries.size() - 1, -1, -1):
+		var entry: Dictionary = _entries[i]
+		if str(entry.get("kind", "")) != KIND_BUFF or not entry.has(SkillSchema.BUFF_BASIC_ATTACK):
+			continue
+		if _applies_to(entry, unit_id):
+			return i
+	return -1
 
 
 # そのユニットの、その軸への合計補正。
