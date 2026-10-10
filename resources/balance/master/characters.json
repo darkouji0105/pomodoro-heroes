@@ -274,7 +274,12 @@
 			"skill_dbg_if_low_crit",
 			"skill_dbg_execute",
 			"skill_dbg_tg_drain",
-			"skill_dbg_tg_prayer"
+			"skill_dbg_tg_prayer",
+			"skill_dbg_db_poison",
+			"skill_dbg_db_burn",
+			"skill_dbg_db_bleed",
+			"skill_dbg_db_shock",
+			"skill_dbg_db_blind"
 		],
 		"passives": [
 			"passive_dbg_atk",

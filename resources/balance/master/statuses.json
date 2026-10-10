@@ -1,0 +1,76 @@
+{
+	"poison": {
+		"kind": "dot",
+		"stack": "independent",
+		"max_stack": 5,
+		"duration_sec": 6.0,
+		"interval_sec": 1.0,
+		"multiplier": 0.1,
+		"attack_type": "magic",
+		"scale_from": [
+			{
+				"source": "atk",
+				"weight": 1.0
+			},
+			{
+				"source": "mag",
+				"weight": 1.0
+			}
+		],
+		"stat": "atk",
+		"stat_pct": -4
+	},
+	"burn": {
+		"kind": "dot",
+		"stack": "refresh",
+		"duration_sec": 4.0,
+		"interval_sec": 1.0,
+		"multiplier": 0.25,
+		"attack_type": "magic",
+		"scale_from": [
+			{
+				"source": "atk",
+				"weight": 1.0
+			},
+			{
+				"source": "mag",
+				"weight": 1.0
+			}
+		],
+		"stat": "def",
+		"stat_pct": -20
+	},
+	"bleed": {
+		"kind": "dot",
+		"stack": "independent",
+		"max_stack": 10,
+		"duration_sec": 5.0,
+		"interval_sec": 1.0,
+		"multiplier": 0.3,
+		"attack_type": "physical",
+		"scale_from": [
+			{
+				"source": "atk",
+				"weight": 1.0
+			},
+			{
+				"source": "mag",
+				"weight": 1.0
+			}
+		]
+	},
+	"shock": {
+		"kind": "buff",
+		"stack": "independent",
+		"max_stack": 5,
+		"duration_sec": 5.0,
+		"stat": "atkspd",
+		"stat_pct": -8
+	},
+	"blind": {
+		"kind": "buff",
+		"stack": "refresh",
+		"duration_sec": 3.0,
+		"miss_pct": 50
+	}
+}

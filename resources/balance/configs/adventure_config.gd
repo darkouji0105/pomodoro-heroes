@@ -118,6 +118,9 @@ extends Resource
 ##   ⚠ スタン・スネアの秒数とノックバックの距離に掛ける。⚠ 1.0 で雑魚と同じ・0.0 で効かない。⚠ 値は設計役の**仮**。
 @export var boss_control_ratio: float = 0.5
 
+## ⚠ 目くらましで通常攻撃が外れたときの「ミス」の色（回DB-1）。⚠ 値は設計役の**仮**。
+@export var pop_miss_color: Color = Color(0.75, 0.75, 0.75)
+
 # --- 状態のマス（EXEC_STATUS_UI.md） ---
 #
 # ⚠⚠ 色はここに置かない（2026-09-17）。⚠ Theme の `StatusChip` 型（`tools/theme_builder.gd`）。

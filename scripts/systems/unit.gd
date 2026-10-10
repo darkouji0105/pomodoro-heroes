@@ -397,7 +397,12 @@ func get_stat(stat_key: String) -> int:
 		return 0
 	# ⚠ 0 で切る。負の防御は BattleFormula 側でも切られるが、負の atk が
 	#   式に入ると表示まで意味が変わる。
-	return maxi(0, int(_stats[stat_key]) + int(_stat_mods.get(stat_key, 0)))
+	var flat: int = int(_stats[stat_key]) + int(_stat_mods.get(stat_key, 0))
+	# 割合（回DB-1）。⚠ atkspd には掛けない（⚠ 攻撃間隔に掛ける＝refresh_derived()）。
+	var pct: int = int(_stat_pct_mods.get(stat_key, 0))
+	if pct != 0 and stat_key != GameStateKeys.STAT_ATKSPD:
+		flat = int(round(float(flat) * maxf(0.0, 1.0 + float(pct) / 100.0)))
+	return maxi(0, flat)
 
 
 # 素の能力値（状態の補正を含まない）。育成・装備・研究が乗った値。
@@ -410,9 +415,18 @@ func get_base_stat(stat_key: String) -> int:
 
 
 # 状態による補正を丸ごと差し替える。⚠ StatusRegistry だけが呼ぶ。
-func set_stat_mods(mods: Dictionary) -> void:
+func set_stat_mods(mods: Dictionary, pct_mods: Dictionary = {}) -> void:
 	_stat_mods = mods.duplicate()
+	_stat_pct_mods = pct_mods.duplicate()
 	refresh_derived()
+
+
+# 割合の補正（回DB-1）。⚠ 書くのは StatusRegistry._rebuild_unit_mods() だけ（set_stat_mods 経由）。
+var _stat_pct_mods: Dictionary = {}
+
+
+func get_stat_pct(stat_key: String) -> int:
+	return int(_stat_pct_mods.get(stat_key, 0))
 
 
 # 派生値を、今の実効ステータスから計算し直す。
@@ -430,6 +444,13 @@ func refresh_derived() -> void:
 		_base_attack_interval_sec,
 		get_stat(GameStateKeys.STAT_ATKSPD)
 	)
+	# 攻撃速度の割合（回DB-1・感電）。⚠ −10% なら間隔を 1/0.9 倍に伸ばす。⚠ 速くなる側も最短で止める。
+	var atkspd_pct: int = get_stat_pct(GameStateKeys.STAT_ATKSPD)
+	if atkspd_pct != 0:
+		attack_interval_sec = maxf(
+			attack_interval_sec / maxf(0.05, 1.0 + float(atkspd_pct) / 100.0),
+			Balance.adventure.min_attack_interval_sec
+		)
 
 
 # 攻撃側が使う軸。物理なら atk、魔法なら mag。

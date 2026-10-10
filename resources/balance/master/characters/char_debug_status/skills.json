@@ -1089,5 +1089,95 @@
 				"scale_from": "atk"
 			}
 		]
+	},
+	"skill_dbg_db_poison": {
+		"name_key": "ui_battle_skill_dbg_db_poison",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "status",
+				"status": "poison"
+			}
+		]
+	},
+	"skill_dbg_db_burn": {
+		"name_key": "ui_battle_skill_dbg_db_burn",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "status",
+				"status": "burn"
+			}
+		]
+	},
+	"skill_dbg_db_bleed": {
+		"name_key": "ui_battle_skill_dbg_db_bleed",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "status",
+				"status": "bleed"
+			}
+		]
+	},
+	"skill_dbg_db_shock": {
+		"name_key": "ui_battle_skill_dbg_db_shock",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "status",
+				"status": "shock"
+			}
+		]
+	},
+	"skill_dbg_db_blind": {
+		"name_key": "ui_battle_skill_dbg_db_blind",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "status",
+				"status": "blind"
+			}
+		]
 	}
 }

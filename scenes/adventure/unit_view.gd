@@ -235,6 +235,12 @@ func pop_heal(amount: int, delay_sec: float = 0.0) -> void:
 # ⚠ `delay_sec` が正なら、⚠ その秒だけ透明で待ってから浮かび始める（2026-09-18・モック §11）。
 #   ⚠ 位置は**押さえた時点**の位置。⚠ 待っているあいだにユニットが動いても字は動かない
 #     （⚠ 元から親に乗せる作りで、⚠ 出たあとも追従しない）。
+# 通常攻撃が外れた（回DB-1・目くらまし）。⚠ 外れた側（＝撃った本人）の頭上に出す。
+func pop_miss() -> void:
+	var cfg: AdventureConfig = Balance.adventure
+	pop_label(tr("ui_battle_miss"), cfg.pop_miss_color, cfg.pop_damage_font_size)
+
+
 func pop_label(text: String, color: Color, font_size: int, delay_sec: float = 0.0) -> void:
 	var parent: Node = get_parent()
 	if parent == null:

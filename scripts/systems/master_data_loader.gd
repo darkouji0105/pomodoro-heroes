@@ -45,6 +45,11 @@ const GUILD_RELIC_AXIS_RARE_DROP: String = "rare_drop_pct"
 # ⚠ エントリの形は enemies.json の1件と同じ（BattleUnit.create() が読む欄が全部そこ）。
 # ⚠ skills / passives は書けない（E101）。段階6では召喚はスキルを撃たない。
 const PATH_SUMMONS: String = DIR_PATH + "summons.json"
+# 共通の状態（回DB-1・人間「⚠ １あ」＝毒・火傷・出血・感電などを1か所で定義）。
+# ⚠ スキルは {"type": "status", "status": "poison"} で付ける。⚠ 読み込むときに _expand_status_refs() が中身へ展開する。
+# ⚠ ID（poison など）がそのまま status_id になる＝⚠ 誰が付けた毒でも同じ「毒」として数える（when_target・マスの字）。
+# ⚠ リリース後に ID を改名しない（⚠ 「出血なら」の条件が黙って外れる）。
+const PATH_STATUSES: String = DIR_PATH + "statuses.json"
 # 難ダンジョン（段階17-a・PLAN_HARD_DUNGEON.md）。⚠ マスター9本目。
 #
 # ⚠ stages.json に足さない（人間の決定・2026-09-02）。あちらは
@@ -141,6 +146,7 @@ static var _cache_enemies: Dictionary = {}
 static var _cache_parties: Dictionary = {}
 static var _cache_stages: Dictionary = {}
 static var _cache_summons: Dictionary = {}
+static var _cache_statuses: Dictionary = {}
 # レリック（段階14-d）。⚠ 中身は _cache_skills にも入っている。
 #   こちらは「レリックだけの一覧」を作るためだけに持つ。
 static var _cache_relics: Dictionary = {}
@@ -355,6 +361,9 @@ static func _ensure_loaded() -> void:
 	# （PLAN_SKILL_TEMPLATE.md 5-4）。characters.json も読み終わっているので、
 	# 射程と attack_range のクロス検証もここでできる。
 	# ⚠ _cache_characters を読むので、この行は _ensure_loaded() の最終行であること。
+	# ⚠ 共通の状態を展開する（回DB-1）。⚠ _validate_all_skills() より前（⚠ 展開したあとの形を検査する）。
+	_cache_statuses = _load_json(PATH_STATUSES)
+	_expand_all_status_refs()
 	_validate_all_skills()
 	# ⚠ 通常攻撃も同じタイミングで見る。スキルと違って「撃てない」が無音なので
 	#   （攻撃間隔だけ回って何も起きない）、ロード時に言わないと気づけない。
@@ -1578,6 +1587,71 @@ static func _validate_all_skills() -> void:
 	print("[MasterDataLoader] skills validated: %d entries, %d errors, %d warnings" % [
 		_cache_skills.size(), error_count, warning_count
 	])
+
+
+# 共通の状態の定義（回DB-1）。⚠ 無ければ空。
+static func get_status_def(status_id: String) -> Dictionary:
+	_ensure_loaded()
+	return (_cache_statuses.get(status_id, {}) as Dictionary).duplicate(true)
+
+
+static func get_all_status_ids() -> Array:
+	_ensure_loaded()
+	return _cache_statuses.keys()
+
+
+# 全スキルの {"type": "status"} を展開する（回DB-1）。⚠ 段（phases）・購読（react）の中も。
+# ⚠ 知らない名前はそのまま残す（⚠ SkillSchema が「type: 'status' は不明」で赤にする）＝⚠ ここで黙って消さない。
+static func _expand_all_status_refs() -> void:
+	for skill_id: Variant in _cache_skills:
+		var data: Variant = _cache_skills[skill_id]
+		if not (data is Dictionary):
+			continue
+		if (data as Dictionary).get("effects", null) is Array:
+			_expand_status_refs((data as Dictionary)["effects"] as Array, str(skill_id))
+		if (data as Dictionary).get("phases", null) is Array:
+			for phase: Variant in ((data as Dictionary)["phases"] as Array):
+				if phase is Dictionary and (phase as Dictionary).get("effects", null) is Array:
+					_expand_status_refs((phase as Dictionary)["effects"] as Array, str(skill_id))
+	# ⚠ 使われていない状態も壊れていないかを見る（⚠ 1件ずつ、展開した形でスキルの検査に通す）。
+	for status_id: Variant in _cache_statuses:
+		var probe: Array = [{SkillSchema.FIELD_STATUS_REF: str(status_id), "type": SkillSchema.EFFECT_STATUS_REF}]
+		_expand_status_refs(probe, "statuses.json")
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "statuses.json", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "all"}, "effects": probe,
+		}
+		for issue: Variant in SkillSchema.validate("status:" + str(status_id), data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				push_error("[MasterDataLoader] statuses.json " + str((issue as Dictionary).get("message", "")))
+
+
+static func _expand_status_refs(effects: Array, skill_id: String) -> void:
+	for i: int in range(effects.size()):
+		if not (effects[i] is Dictionary):
+			continue
+		var effect: Dictionary = effects[i] as Dictionary
+		# ⚠ 購読の中も展開する。
+		if effect.get("react", null) is Dictionary and (effect["react"] as Dictionary).get("effects", null) is Array:
+			_expand_status_refs((effect["react"] as Dictionary)["effects"] as Array, skill_id)
+		if str(effect.get("type", "")) != SkillSchema.EFFECT_STATUS_REF:
+			continue
+		var status_id: String = str(effect.get(SkillSchema.FIELD_STATUS_REF, ""))
+		var def: Variant = _cache_statuses.get(status_id, null)
+		if not (def is Dictionary):
+			push_error("[MasterDataLoader] skills %s: 共通の状態 '%s' が statuses.json に無い" % [skill_id, status_id])
+			continue
+		var expanded: Dictionary = (def as Dictionary).duplicate(true)
+		expanded["type"] = str(expanded.get("kind", ""))
+		expanded.erase("kind")
+		expanded["host"] = SkillSchema.HOST_UNIT
+		expanded["status_id"] = status_id
+		# ⚠ スキル側に書いた欄（trigger・delivery・target・when_target など）は残す。
+		for key: Variant in effect:
+			if str(key) in ["type", SkillSchema.FIELD_STATUS_REF]:
+				continue
+			expanded[key] = effect[key]
+		effects[i] = expanded
 
 
 # 固有の資源の1キャラあたりの上限（回CH-1）。⚠ 下部パネルの枠の高さに収めるため（⚠ 調整つまみではない）。

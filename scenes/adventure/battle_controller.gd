@@ -1271,6 +1271,15 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	#   「歩いて近づいた相手」ではなく sort: nearest が選んだ相手に当たる。
 	# ⚠ target を書いてある通常攻撃は範囲攻撃（僧侶など）。固定を渡さず cast() に
 	#   選ばせる。⚠ ここで両方渡すと固定が勝ち、書いた target が黙って無視される。
+	# 目くらまし（回DB-1・人間「⚠ ５あ」）。⚠ 外れても回数は進める（⚠ 1回撃ったことに変わりはない）。
+	var miss: int = _status.miss_pct(unit.unit_id)
+	if miss > 0 and randf() * 100.0 < float(miss):
+		unit.basic_attack_count += 1
+		BattleLog.log_intervene("miss", unit.unit_id, "", "%d%%" % miss)
+		var miss_view: Variant = _views_by_unit_id.get(unit.unit_id, null)
+		if miss_view is UnitView and is_instance_valid(miss_view):
+			(miss_view as UnitView).pop_miss()
+		return
 	# ⚠ 回CH-4：撃つ一撃を決める（強化 → 「◯回ごと」→ いつもの）。⚠ 数を進めるのは BattleUnit の1か所。
 	var override: Dictionary = _status.basic_override(unit.unit_id)
 	var attack: Dictionary = unit.take_basic_attack(override)

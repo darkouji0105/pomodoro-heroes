@@ -126,6 +126,15 @@ const WHENS_KNOWN: Array = [WHEN_STATUS_HAS, WHEN_DEBUFF_COUNT, WHEN_HP_RATIO]
 # 処刑（回CH-8）。⚠ damage に書く。⚠ 当たったあとの HP が割合以下なら倒す（人間「⚠ ２あ」）。
 # ⚠ ボスは倒さない。⚠ 代わりに execute_boss_mult をダメージに掛ける（⚠ 書かなければ 1.0）。
 const FIELD_EXECUTE_BELOW: String = "execute_below"
+# 能力値を割合で上げ下げする（回DB-1・人間「⚠ ４あ」）。⚠ buff と dot に書ける。⚠ −20 なら −20%。
+# ⚠ 計算は（素の値 ＋ value）×（1 ＋ 割合の合計/100）。⚠ atkspd だけは攻撃間隔に掛ける（⚠ −10 なら間隔が伸びる）。
+const FIELD_STAT_PCT: String = "stat_pct"
+# 目くらまし（回DB-1・人間「⚠ ５あ」）。⚠ buff に書く。⚠ 通常攻撃がこの % で外れる（⚠ 合計は 100 で頭打ち）。
+const FIELD_MISS_PCT: String = "miss_pct"
+# 共通の状態を名前で付ける（回DB-1・人間「⚠ １あ」）。{"type": "status", "status": "poison"}。
+# ⚠ 中身は statuses.json の1か所。⚠ 読み込むときに MasterDataLoader が中身へ展開する（⚠ 実行時にこの型は来ない）。
+const EFFECT_STATUS_REF: String = "status"
+const FIELD_STATUS_REF: String = "status"
 const FIELD_EXECUTE_BOSS_MULT: String = "execute_boss_mult"
 const DISPEL_DEBUFF: String = "debuff"
 const DISPEL_BUFF: String = "buff"
@@ -287,6 +296,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	BUFF_BASIC_ATTACK, BUFF_USES, BUFF_CONTROL, "distance", "to", "offset",
 	"sec", "pct", "all", "skills", "what",
 	FIELD_WHEN_TARGET, FIELD_WHEN_MULT, FIELD_WHEN_CRIT, FIELD_EXECUTE_BELOW, FIELD_EXECUTE_BOSS_MULT,
+	FIELD_STAT_PCT, FIELD_MISS_PCT,
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to",
 ]
@@ -1448,6 +1458,34 @@ static func _validate_react_effect(
 #
 # ⚠ ここで見るのは「無音で壊れる書き方」だけ。状態は、剥がれない・二重に付く・
 #   一度も発火しない のどれもエラーを出さないので、書いた時点で弾く。
+# 能力値の欄（回DB-1 で切り出した・E37〜E39 ＋ E174）。⚠ どれも無ければ false（⚠ 検査もしない）。
+# ⚠ stat は value か stat_pct のどちらか（両方でもよい）と一緒に書く。
+static func _validate_stat_fields(issues: Array, skill_id: String, effect: Dictionary, where: String) -> bool:
+	var has_value: bool = effect.has("value")
+	var has_pct: bool = effect.has(FIELD_STAT_PCT)
+	if not effect.has("stat") and not has_value and not has_pct:
+		return false
+	# E37 / E38
+	var stat_key: String = str(effect.get("stat", ""))
+	if not (stat_key in GameManager.get_stat_keys()):
+		_err(issues, skill_id, "%s.stat が10軸に無い: '%s'" % [where, stat_key])
+	elif stat_key == GameStateKeys.STAT_HP:
+		_err(issues, skill_id, "%s.stat に hp は書けない（max_hp を再計算しないため）" % where)
+	# E39 … 0 も禁止（何も起きない状態を書かせない）
+	if has_value:
+		var value: Variant = effect.get("value", null)
+		if not _is_num(value) or float(value) != floor(float(value)) or int(value) == 0:
+			_err(issues, skill_id, "%s.value が0以外の整数でない" % where)
+	# E174 … 割合（回DB-1）。⚠ −95〜（−100 で 0 になる＝何も起きない状態と同じ扱いにしない）
+	if has_pct:
+		var pct: Variant = effect.get(FIELD_STAT_PCT, null)
+		if not _is_num(pct) or float(pct) != floor(float(pct)) or int(pct) == 0 or float(pct) < -95.0:
+			_err(issues, skill_id, "%s.stat_pct が −95 以上の0以外の整数でない" % where)
+	if not has_value and not has_pct:
+		_err(issues, skill_id, "%s.stat に value も stat_pct も無い" % where)
+	return true
+
+
 # 通常攻撃を置き換える buff の欄（回CH-4）。
 static func _validate_basic_override(
 		issues: Array, skill_id: String, effect: Dictionary, where: String, effect_type: String
@@ -1631,20 +1669,16 @@ static func _validate_status_effect(
 		# ⚠ has_stat は「stat / value の検証を走らせるか」。⚠ 「何かする buff か」とは
 		#   別物にすること。混ぜると、atk_mult_pct だけを持つ buff に E37〜E39
 		#   （stat が10軸に無い／value が0以外の整数でない）が誤って出る（実測で踏んだ）。
-		var has_stat: bool = effect.has("stat") or effect.has("value")
+		# ⚠ 能力値の欄（stat / value / stat_pct）の検査は _validate_stat_fields() の1本（⚠ dot も同じものを呼ぶ）。
+		var has_stat: bool = _validate_stat_fields(issues, skill_id, effect, where)
 		# ⚠ 新しい補正の欄を足したら、E63（何もしない buff）の判定にも足すこと。
-		var has_atk_mult: bool = effect.has(BUFF_ATK_MULT_PCT) or effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_CONTROL)
-		if has_stat:
-			# E37 / E38
-			var stat_key: String = str(effect.get("stat", ""))
-			if not (stat_key in GameManager.get_stat_keys()):
-				_err(issues, skill_id, "%s.stat が10軸に無い: '%s'" % [where, stat_key])
-			elif stat_key == GameStateKeys.STAT_HP:
-				_err(issues, skill_id, "%s.stat に hp は書けない（max_hp を再計算しないため）" % where)
-			# E39 … 0 も禁止（何も起きない状態を書かせない）
-			var value: Variant = effect.get("value", null)
-			if not _is_num(value) or float(value) != floor(float(value)) or int(value) == 0:
-				_err(issues, skill_id, "%s.value が0以外の整数でない" % where)
+		var has_atk_mult: bool = effect.has(BUFF_ATK_MULT_PCT) or effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_CONTROL) \
+				or effect.has(FIELD_MISS_PCT)
+		# E173 … 目くらまし（回DB-1）
+		if effect.has(FIELD_MISS_PCT):
+			var miss: Variant = effect.get(FIELD_MISS_PCT, null)
+			if not _is_num(miss) or float(miss) < 1.0 or float(miss) > 100.0:
+				_err(issues, skill_id, "%s.miss_pct が 1〜100 でない" % where)
 		# E63 … 何もしない buff を書かせない。
 		# ⚠ これが無いと、stat を必須にしなくなった分だけ typo（"stt"）が
 		#   「介入だけを持つ buff」として黙って通る。
@@ -1661,6 +1695,8 @@ static func _validate_status_effect(
 			_validate_intervene(issues, skill_id, where, effect.get(BUFF_INTERVENE, null))
 
 	elif effect_type == EFFECT_DOT:
+		# 能力値も下げる継続ダメージ（回DB-1・毒＝攻撃力・火傷＝防御力）。⚠ 書かなければ何もしない。
+		_validate_stat_fields(issues, skill_id, effect, where)
 		# E40
 		var interval: Variant = effect.get("interval_sec", null)
 		if not _is_num(interval) or float(interval) <= 0.0:

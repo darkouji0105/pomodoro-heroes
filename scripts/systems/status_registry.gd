@@ -381,9 +381,31 @@ func _make_entry(
 #   代わりに介入の欄（on_death / block_status / heal_taken_pct）を持つ。
 # ⚠ どちらも無い buff は false。ロード時検証（E63）と二重に守る。
 #   ここを省くと、stat の typo が「介入だけを持つ buff」として黙って通る。
+# 能力値の欄を写す（回DB-1・buff と dot が使う）。⚠ 戻り値は「写したか」。⚠ 赤は false＋push_error（呼ぶ側が弾く）。
+func _fill_stat(entry: Dictionary, effect: Dictionary) -> int:
+	if not effect.has("stat"):
+		return 0
+	var stat_key: String = str(effect.get("stat", ""))
+	if not (stat_key in GameManager.get_stat_keys()) or stat_key == GameStateKeys.STAT_HP:
+		push_error("[StatusRegistry] stat が使えない: '%s'" % stat_key)
+		return -1
+	entry["stat"] = stat_key
+	entry["value"] = int(effect.get("value", 0))
+	entry[SkillSchema.FIELD_STAT_PCT] = int(effect.get(SkillSchema.FIELD_STAT_PCT, 0))
+	if int(entry["value"]) == 0 and int(entry[SkillSchema.FIELD_STAT_PCT]) == 0:
+		push_error("[StatusRegistry] stat に value も stat_pct も無い（何も起きない状態は書けない）")
+		return -1
+	return 1
+
+
 func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 	var has_stat: bool = effect.has("stat") or effect.has("value")
-	if has_stat:
+	# 割合だけの能力値（回DB-1）。⚠ value を持つ形は下の従来の枝が見る（⚠ 1本に寄せると既存の赤の文言が変わる）。
+	if effect.has(SkillSchema.FIELD_STAT_PCT):
+		if _fill_stat(entry, effect) < 0:
+			return false
+		has_stat = true
+	elif has_stat:
 		var stat_key: String = str(effect.get("stat", ""))
 		if not (stat_key in GameManager.get_stat_keys()):
 			push_error("[StatusRegistry] buff の stat が10軸に無い: '%s'" % stat_key)
@@ -432,6 +454,11 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 			return false
 		entry["block_status"] = (raw_block as Array).duplicate(true)
 		has_intervene = true
+
+	# 目くらまし（回DB-1）。⚠ 合計は miss_pct() が 100 で頭打ちにする。
+	if effect.has(SkillSchema.FIELD_MISS_PCT):
+		entry[SkillSchema.FIELD_MISS_PCT] = int(effect.get(SkillSchema.FIELD_MISS_PCT, 0))
+		has_stat = true
 
 	# 行動を止める・守る（回CH-5）。⚠ 印をユニットへ配るのは _rebuild_unit_mods()。
 	if effect.has(SkillSchema.BUFF_CONTROL):
@@ -604,6 +631,9 @@ func _fill_condition(entry: Dictionary, effect: Dictionary) -> bool:
 
 
 func _fill_dot(entry: Dictionary, effect: Dictionary, duration_sec: float, life: String) -> bool:
+	# 能力値も下げる継続ダメージ（回DB-1・毒＝攻撃力・火傷＝防御力）。
+	if _fill_stat(entry, effect) < 0:
+		return false
 	var interval_sec: float = float(effect.get("interval_sec", 0.0))
 	if interval_sec <= 0.0:
 		push_error("[StatusRegistry] dot の interval_sec が正でない")
@@ -1504,10 +1534,22 @@ static func is_debuff_entry(entry: Dictionary) -> bool:
 		return true
 	if str(entry.get("stat", "")) != "" and int(entry.get("value", 0)) < 0:
 		return true
+	# ⚠ 割合で下げる（回DB-1）・目くらまし。
+	if int(entry.get(SkillSchema.FIELD_STAT_PCT, 0)) < 0 or int(entry.get(SkillSchema.FIELD_MISS_PCT, 0)) > 0:
+		return true
 	for key: String in [SkillSchema.BUFF_ATK_MULT_PCT, "heal_taken_pct", SkillSchema.INTERVENE_REDUCTION_PCT]:
 		if int(entry.get(key, 0)) < 0:
 			return true
 	return false
+
+
+# 通常攻撃が外れる %（回DB-1）。⚠ 100 で頭打ち。
+func miss_pct(unit_id: String) -> int:
+	var total: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("kind", "")) == KIND_BUFF and _applies_to(entry, unit_id):
+			total += int(entry.get(SkillSchema.FIELD_MISS_PCT, 0))
+	return mini(100, total)
 
 
 # そのユニットに宿っている赤いマス（デバフ）の数（回CH-8）。⚠ 判定は is_debuff_entry() の1本。
@@ -1627,8 +1669,11 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 	if unit == null:
 		return
 	var mods: Dictionary = {}
+	var pct_mods: Dictionary = {}
 	for entry: Dictionary in _entries:
-		if str(entry.get("kind", "")) != KIND_BUFF:
+		# ⚠ 回DB-1：継続ダメージも能力値を持てる（毒・火傷）。
+		var entry_kind: String = str(entry.get("kind", ""))
+		if entry_kind != KIND_BUFF and entry_kind != KIND_DOT:
 			continue
 		# ⚠ 効いているかの判定は _applies_to() の1本だけ（EXEC_SKILL_AURA.md §0-1 の1）。
 		#   宿主一致（host: unit）と範囲内（host: point）と条件（active）を全部含む。
@@ -1647,7 +1692,8 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 		if stat_key == "":
 			continue
 		mods[stat_key] = int(mods.get(stat_key, 0)) + int(entry.get("value", 0))
-	unit.set_stat_mods(mods)
+		pct_mods[stat_key] = int(pct_mods.get(stat_key, 0)) + int(entry.get(SkillSchema.FIELD_STAT_PCT, 0))
+	unit.set_stat_mods(mods, pct_mods)
 
 	# 行動を止める・守る印（回CH-5）。⚠ 書くのはここ1箇所（⚠ 補正と同じく「ゼロから組み直す」）。
 	var controls: Dictionary = {}

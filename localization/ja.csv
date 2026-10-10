@@ -1746,3 +1746,14 @@ ui_battle_skill_dbg_execute,HP4割以下を処刑
 ui_battle_skill_dbg_tg_drain,帯電（充電を使い続ける）
 ui_battle_skill_dbg_tg_prayer,祈り（押すと相手が変わる）
 ui_battle_skill_dbg_tg_laser,レーザー（資源なし）
+ui_status_ch_poison,毒
+ui_status_ch_burn,火
+ui_status_ch_bleed,血
+ui_status_ch_shock,電
+ui_status_ch_blind,盲
+ui_battle_miss,ミス
+ui_battle_skill_dbg_db_poison,敵全員に毒
+ui_battle_skill_dbg_db_burn,敵全員に火傷
+ui_battle_skill_dbg_db_bleed,敵全員に出血
+ui_battle_skill_dbg_db_shock,敵全員に感電
+ui_battle_skill_dbg_db_blind,敵全員に目くらまし

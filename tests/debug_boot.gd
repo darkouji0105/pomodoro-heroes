@@ -1011,6 +1011,22 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_dbg_tg_laser", "prepare": PREPARE_NONE, "gap": 0.5},
 		],
 	},
+	# デバフ（回DB-1）。⚠ 目くらましで「実際に外れる」は戦闘の画面の中＝⚠ 本物の戦闘で敵に付けて見る（⚠ 記録の miss）。
+	"debuff": {
+		"kind": KIND_BATTLE,
+		"note": "デバフ（回DB-1）：敵全員に目くらまし・毒を付ける＝敵の通常攻撃が外れる（ミス）・毒で削れる",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_status": ["skill_dbg_db_blind", "skill_dbg_db_poison"],
+		},
+		"fire": [
+			{"skill": "skill_dbg_db_blind", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_db_poison", "prepare": PREPARE_NONE, "gap": 0.2},
+			{"skill": "skill_dbg_db_blind", "prepare": PREPARE_NONE, "gap": 2.5},
+			{"skill": "skill_dbg_db_blind", "prepare": PREPARE_NONE, "gap": 2.5},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1521,6 +1537,7 @@ func _ready() -> void:
 			_report_char_cd_dispel()
 			_report_char_when()
 			_report_char_toggle()
+			_report_debuffs()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -8014,6 +8031,97 @@ func _report_char_toggle() -> void:
 				errors += 1
 		print("  %s -> 赤 %d 件" % [str(probe[0]), errors])
 	print("  ⚠ 上の6行は 1 以上 ×5・最後だけ 0 が正解")
+
+# デバフ（回DB-1）。⚠ スキルは {"type": "status"} で付ける＝読み込みで statuses.json の中身に展開されている。
+func _report_debuffs() -> void:
+	var status_id: String = "char_debug_status"
+	var me: BattleUnit = _resource_unit(status_id, 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 100000
+	foe_data["atk"] = 100
+	foe_data["def"] = 50
+	var foe: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = [foe]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	_control_cast("skill_dbg_buff_refresh", me, [me], session, registry)
+	print("[DebugBoot] --- 32. 展開（⚠ スキルの {type: status} が中身になっている）---")
+	var effect: Dictionary = ((MasterDataLoader.get_skill("skill_dbg_db_poison").get("effects", []) as Array)[0]) as Dictionary
+	print("  毒のスキルの効果：type=%s status_id=%s stat=%s stat_pct=%s（dot / poison / atk / -4）" % [
+		str(effect.get("type", "")), str(effect.get("status_id", "")), str(effect.get("stat", "")), str(effect.get("stat_pct", ""))
+	])
+
+	print("[DebugBoot] --- 33. 毒＝攻撃力を少し下げる（人間「⚠ 毒は攻撃力を少し下げる」・重なる）---")
+	print("  攻撃力 %d" % foe.get_stat("atk"))
+	for i: int in range(3):
+		_control_cast("skill_dbg_db_poison", me, [foe], session, registry)
+	print("  毒 3 つ：攻撃力 %d（100 × 0.88 = 88 が正解）・赤いマス %d（3）" % [foe.get_stat("atk"), registry.debuff_count(foe.unit_id)])
+	var hp0: int = foe.hp
+	registry.tick(1.0)
+	var poison_tick: int = hp0 - foe.hp
+	print("  1秒で減った HP（毒 3 つ）：%d" % poison_tick)
+	registry.dispel(foe.unit_id, true)
+
+	print("[DebugBoot] --- 34. 火傷＝防御力（人間「⚠ 火傷は防御力」・重ならない）---")
+	print("  防御 %d" % foe.get_stat("def"))
+	_control_cast("skill_dbg_db_burn", me, [foe], session, registry)
+	_control_cast("skill_dbg_db_burn", me, [foe], session, registry)
+	print("  火傷を2回：防御 %d（50 × 0.8 = 40 が正解）・赤いマス %d（1＝重ならない）" % [foe.get_stat("def"), registry.debuff_count(foe.unit_id)])
+	registry.dispel(foe.unit_id, true)
+
+	print("[DebugBoot] --- 35. 出血＝ダメージが大きめ（人間「⚠ 出血はダメージが大きめ」）---")
+	_control_cast("skill_dbg_db_poison", me, [foe], session, registry)
+	hp0 = foe.hp
+	registry.tick(1.0)
+	var one_poison: int = hp0 - foe.hp
+	registry.dispel(foe.unit_id, true)
+	_control_cast("skill_dbg_db_bleed", me, [foe], session, registry)
+	hp0 = foe.hp
+	registry.tick(1.0)
+	var one_bleed: int = hp0 - foe.hp
+	print("  1つ・1秒あたり：毒 %d ／ 出血 %d（出血が大きいが正解）" % [one_poison, one_bleed])
+	var bleed_skill: Dictionary = {"effects": [{"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk",
+		"when_target": {"source": "status_has", "status_id": "bleed"}, "when_mult": 2.0}]}
+	var with_bleed: int = _when_total(SkillResolver.resolve(bleed_skill.duplicate(true), me, session, [foe.unit_id], registry))
+	registry.dispel(foe.unit_id, true)
+	var without_bleed: int = _when_total(SkillResolver.resolve(bleed_skill.duplicate(true), me, session, [foe.unit_id], registry))
+	print("  「出血なら ×2」：出血あり %d ／ なし %d（2 倍前後＝別のスキルが付けた出血でも数える）" % [with_bleed, without_bleed])
+
+	print("[DebugBoot] --- 36. 感電＝攻撃速度を少しずつ下げる（人間「⚠ 感電は攻撃速度を少しずつ下げていく」）---")
+	var interval0: float = foe.attack_interval_sec
+	var shown: Array = []
+	for i: int in range(6):
+		_control_cast("skill_dbg_db_shock", me, [foe], session, registry)
+		shown.append(snappedf(foe.attack_interval_sec, 0.01))
+	print("  攻撃間隔 %.2f 秒 → 感電を1つずつ：%s（少しずつ伸びて、5つで止まる）" % [interval0, str(shown)])
+	registry.dispel(foe.unit_id, true)
+	print("  解除したあと：%.2f 秒（元に戻る）" % foe.attack_interval_sec)
+
+	print("[DebugBoot] --- 37. 目くらまし（人間「⚠ ５あ」通常攻撃が外れる）---")
+	_control_cast("skill_dbg_db_blind", me, [foe], session, registry)
+	print("  外れる確率：%d%%（50）・赤いマス %d（1）" % [registry.miss_pct(foe.unit_id), registry.debuff_count(foe.unit_id)])
+	print("  ⚠ 実際に外れて「ミス」が出るのは戦闘の画面（_fire_basic_attack）＝ scenario=area などの本物の戦闘で見る")
+
+	print("[DebugBoot] --- 38. 壊した書き方を弾く（⚠ 赤は出さず件数だけ）---")
+	var probes: Array = [
+		["stat_pct が 0", {"type": "buff", "host": "unit", "status_id": "x", "stack": "refresh", "duration_sec": 1.0, "stat": "atk", "stat_pct": 0}],
+		["stat_pct が −100", {"type": "buff", "host": "unit", "status_id": "x", "stack": "refresh", "duration_sec": 1.0, "stat": "atk", "stat_pct": -100}],
+		["stat だけ", {"type": "buff", "host": "unit", "status_id": "x", "stack": "refresh", "duration_sec": 1.0, "stat": "atk"}],
+		["miss_pct が 120", {"type": "buff", "host": "unit", "status_id": "x", "stack": "refresh", "duration_sec": 1.0, "miss_pct": 120}],
+		["知らない共通の状態", {"type": "status", "status": "freeze"}],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": status_id, "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "all"}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(probe[0]), errors])
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
