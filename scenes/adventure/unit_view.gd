@@ -21,6 +21,8 @@ const BODY_KEY_BOSS: String = "boss"
 const BODY_KEY_FALLBACK: String = "fallback"
 
 var _unit: BattleUnit = null
+# 固有の資源（回CH-1）。⚠ 資源を持つ個体（＝味方の一部）だけ作る。
+var _resource_view: CharResourceView = null
 # ⚠ 行動中（いまチャージを溜めている）か。⚠ 枠線と名前の色が変わる（モック §3-2）。
 var _active: bool = false
 
@@ -66,6 +68,19 @@ func setup(unit: BattleUnit) -> void:
 	var sp_bar: SpBar = $SpBar
 	sp_bar.visible = unit.sp_max > 0.0
 	sp_bar.size.y = body.get_theme_constant(&"sp_height", THEME_TYPE)
+
+	# 固有の資源（回CH-1・人間「⚠ う」＝戦場のキャラの下にも出す）。⚠ **名前の札の下**から下へ。
+	#   ⚠ 10-10 の絵で、SP の棒の段（HP の帯のすぐ下）に置くと**駒の上端に重なって読めなかった**ので動かした。
+	if not unit.resource_defs.is_empty() and _resource_view == null:
+		_resource_view = CharResourceView.new()
+		_resource_view.name = "ResourceView"
+		_resource_view.position = Vector2(
+			name_label.position.x,
+			name_label.position.y + name_label.size.y + body.get_theme_constant(&"name_gap", THEME_TYPE)
+		)
+		_resource_view.size.x = name_label.size.x
+		add_child(_resource_view)
+		_resource_view.set_values(unit.resource_defs, unit.resources)
 
 	# 状態のマスは横並び（本体の下端に重ねる）。⚠ 2026-09-16 から味方も同じ場所
 	#   （⚠ それまでは味方だけスキルボタンの左に縦で出していた）。
@@ -171,6 +186,8 @@ func _process(_delta: float) -> void:
 	# 行動予告のゲージ（2026-09-18）。⚠ 溜めるのは BattleController。⚠ ここは写すだけ。
 	if _unit.sp_max > 0.0:
 		($SpBar as SpBar).set_ratio(_unit.sp_ratio(), _unit.is_sp_full())
+	if _resource_view != null:
+		_resource_view.set_values(_unit.resource_defs, _unit.resources)
 
 
 # 被弾した数値を頭上に浮かべて消す。

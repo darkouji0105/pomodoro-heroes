@@ -401,6 +401,10 @@ const FLOOR_RUN_CHESTS: String = "chests"
 #   ⚠ `DUNGEON_RUN_BAG*` / `FLOOR_RUN_BAG*` はこの別名（⚠ 値を2つに分けない）。
 const RUN_BAG: String = "bag"
 const RUN_BAG_SLOTS: String = "bag_slots"
+# ⚠ キャラ固有の資源の持ち越し（2026-10-10・回CH-1）。{character_id: {resource_id: int}}。
+#   ⚠ 持ち越すのは `characters.json` の資源で `carry_over: true` のものだけ（⚠ 既定は戻す＝人間「３…とりあえずあで　こべつでせっていはできるように」）。
+#   ⚠ 両方のランがこの綴りで持つ（⚠ 鞄と同じ）。⚠ ランを出たら器ごと捨てる。
+const RUN_RESOURCE_CARRY: String = "resource_carry"
 const RUN_PENDING_LOOT: String = "pending_loot"
 
 # ⚠⚠ シナリオの鞄（2026-09-18・人間の決定「難ダンジョンのインベントリをシナリオでも適用」）。

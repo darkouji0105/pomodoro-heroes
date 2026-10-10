@@ -433,5 +433,56 @@
 				"value": 50
 			}
 		]
+	},
+	"skill_dbg_res_charge": {
+		"name_key": "ui_battle_skill_dbg_res_charge",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "resource",
+				"resource_id": "dbg_charge",
+				"amount": 30
+			}
+		]
+	},
+	"skill_dbg_res_soul_gain": {
+		"name_key": "ui_battle_skill_dbg_res_soul_gain",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "resource",
+				"resource_id": "dbg_soul",
+				"amount": 1
+			}
+		]
+	},
+	"skill_dbg_res_soul_spend": {
+		"name_key": "ui_battle_skill_dbg_res_soul_spend",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "resource",
+				"resource_id": "dbg_soul",
+				"amount": -3
+			}
+		]
 	}
 }

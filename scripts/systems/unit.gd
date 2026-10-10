@@ -107,6 +107,64 @@ var sp_max: float = 0.0
 var sp_regen: float = 0.0
 
 
+# キャラ固有の資源（2026-10-10・回CH-1・`EXEC_CHAR_RESOURCE.md`）。
+#
+# ⚠ 定義は `characters.json` の `resources`（⚠ 敵と召喚は持たない＝空）。⚠ 戦闘の間だけの写し。
+# ⚠ 値は {resource_id: int}。⚠ 変えるのは `add_resource()` / `set_resource()` の2本だけ（⚠ 0〜max に切る）。
+# ⚠ セーブに入らない。⚠ 持ち越す資源（`carry_over: true`）は戦闘の側が GameManager へ書き戻す。
+const RESOURCE_KIND_GAUGE: String = "gauge"
+const RESOURCE_KIND_STOCK: String = "stock"
+const RESOURCE_KIND_STATE: String = "state"
+const RESOURCE_KINDS: Array = [RESOURCE_KIND_GAUGE, RESOURCE_KIND_STOCK, RESOURCE_KIND_STATE]
+var resource_defs: Array = []
+var resources: Dictionary = {}
+
+
+# 定義を引く。⚠ 無ければ空。
+func resource_def(resource_id: String) -> Dictionary:
+	for raw: Variant in resource_defs:
+		if raw is Dictionary and str((raw as Dictionary).get("id", "")) == resource_id:
+			return raw as Dictionary
+	return {}
+
+
+func get_resource(resource_id: String) -> int:
+	return int(resources.get(resource_id, 0))
+
+
+# 足す（⚠ 負なら減らす）。⚠ 持っていない資源は赤（⚠ ロード時の検査が守っているので通常は来ない）。
+func add_resource(resource_id: String, amount: int) -> void:
+	set_resource(resource_id, get_resource(resource_id) + amount)
+
+
+func set_resource(resource_id: String, value: int) -> void:
+	var def: Dictionary = resource_def(resource_id)
+	if def.is_empty():
+		push_error("[BattleUnit] 資源 '%s' を持っていない (unit_id=%s)" % [resource_id, unit_id])
+		return
+	resources[resource_id] = clampi(value, 0, int(def.get("max", 0)))
+
+
+# 持ち越しの値を載せる（⚠ 戦闘の始め）。⚠ `carry_over: true` の資源だけ・欄が無ければ始めの値のまま。
+func load_carried_resources(carry: Dictionary) -> void:
+	for raw: Variant in resource_defs:
+		var def: Dictionary = raw as Dictionary
+		var resource_id: String = str(def.get("id", ""))
+		if bool(def.get("carry_over", false)) and carry.has(resource_id):
+			set_resource(resource_id, int(carry[resource_id]))
+
+
+# 書き戻す値（⚠ 戦闘の終わり）。⚠ `carry_over: true` の資源だけ。
+func carried_resources() -> Dictionary:
+	var out: Dictionary = {}
+	for raw: Variant in resource_defs:
+		var def: Dictionary = raw as Dictionary
+		if bool(def.get("carry_over", false)):
+			var resource_id: String = str(def.get("id", ""))
+			out[resource_id] = get_resource(resource_id)
+	return out
+
+
 # SP が満ちているか。⚠ SP を使わない個体（`sp_max` が 0）は常に false。
 func is_sp_full() -> bool:
 	return sp_max > 0.0 and sp >= sp_max
@@ -246,6 +304,17 @@ static func create(
 	var raw_basic: Variant = p_source.get("basic_attack", null)
 	if raw_basic is Dictionary:
 		unit.basic_attack = (raw_basic as Dictionary).duplicate(true)
+
+	# 固有の資源（回CH-1）。⚠ 始めの値から。⚠ 持ち越しは戦闘の側が `load_carried_resources()` で載せる。
+	var raw_resources: Variant = p_source.get("resources", null)
+	if raw_resources is Array:
+		unit.resource_defs = (raw_resources as Array).duplicate(true)
+		for raw: Variant in unit.resource_defs:
+			if raw is Dictionary:
+				var def: Dictionary = raw as Dictionary
+				unit.resources[str(def.get("id", ""))] = clampi(
+					int(def.get("start", 0)), 0, int(def.get("max", 0))
+				)
 
 	return unit
 

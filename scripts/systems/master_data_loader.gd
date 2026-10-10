@@ -361,6 +361,8 @@ static func _ensure_loaded() -> void:
 	_validate_all_basic_attacks()
 	# ⚠ 召喚は通常攻撃しか撃たないので、basic_attack の検証と同じ列に並べる。
 	_validate_all_summons()
+	# ⚠ 固有の資源（回CH-1）。⚠ スキル側の照合（E146）は _validate_all_skills() の中。
+	_validate_character_resources()
 	# ⚠ 素材・アイテムIDのクロス検証（E118）。改名漏れが「加算が黙って消える」形で
 	#   出るため、ロード時に言わないと実機でも気づけない。
 	_validate_all_item_refs()
@@ -1536,6 +1538,9 @@ static func _validate_all_skills() -> void:
 			for raw_effect: Variant in (raw_effects as Array):
 				if not (raw_effect is Dictionary):
 					continue
+				if str((raw_effect as Dictionary).get("type", "")) == SkillSchema.EFFECT_RESOURCE:
+					error_count += _check_resource_effect_owner(str(skill_id), data, raw_effect as Dictionary)
+					continue
 				if str((raw_effect as Dictionary).get("type", "")) != SkillSchema.EFFECT_SUMMON:
 					continue
 				var summon_id: String = str((raw_effect as Dictionary).get("unit_id", ""))
@@ -1563,6 +1568,113 @@ static func _validate_all_skills() -> void:
 	print("[MasterDataLoader] skills validated: %d entries, %d errors, %d warnings" % [
 		_cache_skills.size(), error_count, warning_count
 	])
+
+
+# 固有の資源の1キャラあたりの上限（回CH-1）。⚠ 下部パネルの枠の高さに収めるため（⚠ 調整つまみではない）。
+const CHARACTER_RESOURCE_MAX: int = 2
+
+
+# characters.json の resources の形を見る（回CH-1・E144 / E145）。戻り値は赤の件数。
+#
+# ⚠ 既定値を作らない（召喚の4欄と同じ方針）。⚠ carry_over も必須
+#   （⚠ 書き忘れが「持ち越すはずが戻る」の無音になる）。
+# ⚠ 中身は `character_resource_issues()`（⚠ 検査から赤を出さずに呼べるよう分けてある）。
+static func _validate_character_resources() -> int:
+	var error_count: int = 0
+	for character_id: Variant in _cache_characters:
+		var entry: Variant = _cache_characters[character_id]
+		if not (entry is Dictionary):
+			continue
+		for message: String in character_resource_issues(str(character_id), entry as Dictionary):
+			push_error(message)
+			error_count += 1
+	return error_count
+
+
+# 1キャラぶんの resources の問題（⚠ 無ければ空）。⚠ 赤は出さない（⚠ 出すのは呼ぶ側）。
+static func character_resource_issues(character_id: String, entry: Dictionary) -> Array[String]:
+	var issues: Array[String] = []
+	if not entry.has("resources"):
+		return issues
+	var raw_list: Variant = entry["resources"]
+	var where: String = "[MasterDataLoader] characters %s: resources" % character_id
+	if not (raw_list is Array):
+		issues.append(where + " が配列でない")
+		return issues
+	var list: Array = raw_list as Array
+	if list.size() > CHARACTER_RESOURCE_MAX:
+		issues.append(where + " が %d 本（⚠ 上限 %d）" % [list.size(), CHARACTER_RESOURCE_MAX])
+	var seen: Dictionary = {}
+	for i: int in range(list.size()):
+		var at: String = "%s[%d]" % [where, i]
+		if not (list[i] is Dictionary):
+			issues.append(at + " が辞書でない")
+			continue
+		var def: Dictionary = list[i] as Dictionary
+		var resource_id: String = str(def.get("id", ""))
+		if resource_id == "" or seen.has(resource_id):
+			issues.append(at + ".id が空か重複: '%s'" % resource_id)
+		seen[resource_id] = true
+		var kind: String = str(def.get("kind", ""))
+		if not (kind in BattleUnit.RESOURCE_KINDS):
+			issues.append(at + ".kind が不明: '%s'" % kind)
+		for field: String in ["max", "start"]:
+			var raw: Variant = def.get(field, null)
+			if not ((raw is float or raw is int) and float(raw) == floor(float(raw))):
+				issues.append(at + ".%s が整数でない" % field)
+		var max_value: int = int(def.get("max", 0))
+		if max_value < 1:
+			issues.append(at + ".max が1未満")
+		var start_value: int = int(def.get("start", 0))
+		if start_value < 0 or start_value > max_value:
+			issues.append(at + ".start が 0〜max の外: %d" % start_value)
+		if not (def.get("carry_over", null) is bool):
+			issues.append(at + ".carry_over が bool でない（⚠ 必須）")
+		if str(def.get("name_key", "")) == "":
+			issues.append(at + ".name_key が無い")
+		# E145 … 状態は札の文字を max + 1 個持つ。⚠ 状態以外は書けない。
+		var raw_labels: Variant = def.get("labels", null)
+		if kind == BattleUnit.RESOURCE_KIND_STATE:
+			if not (raw_labels is Array) or (raw_labels as Array).size() != max_value + 1:
+				issues.append(at + ".labels が max + 1 個の配列でない（kind: 'state' は必須）")
+		elif raw_labels != null:
+			issues.append(at + ".labels は kind: 'state' にしか書けない")
+	return issues
+
+
+# スキルの resource 効果が指す資源が、持ち主にあるか（回CH-1・E146）。戻り値は赤の件数。
+static func _check_resource_effect_owner(skill_id: String, data: Dictionary, effect: Dictionary) -> int:
+	var message: String = resource_effect_owner_issue(skill_id, data, effect)
+	if message == "":
+		return 0
+	push_error(message)
+	return 1
+
+
+# 上の中身（⚠ 無ければ ""）。⚠ 赤は出さない。
+#
+# ⚠ SkillSchema 側に書けない（⚠ characters.json を知らない＝E100 と同じ理由）。
+# ⚠ 種類と欄を合わせる：状態は set_to だけ ／ ゲージ・ストックは amount だけ。
+static func resource_effect_owner_issue(skill_id: String, data: Dictionary, effect: Dictionary) -> String:
+	_ensure_loaded()
+	var owner_id: String = str(data.get("user_character_id", ""))
+	var resource_id: String = str(effect.get(SkillSchema.RESOURCE_FIELD_ID, ""))
+	if resource_id == "":
+		return ""  # ⚠ 空は SkillSchema の E142 が言う
+	var owner: Variant = _cache_characters.get(owner_id, null)
+	var defs: Variant = (owner as Dictionary).get("resources", null) if owner is Dictionary else null
+	if defs is Array:
+		for raw: Variant in (defs as Array):
+			if raw is Dictionary and str((raw as Dictionary).get("id", "")) == resource_id:
+				var kind: String = str((raw as Dictionary).get("kind", ""))
+				if (kind == BattleUnit.RESOURCE_KIND_STATE) != effect.has(SkillSchema.RESOURCE_FIELD_SET_TO):
+					return "[MasterDataLoader] skills %s: resource '%s' は %s（状態は set_to・それ以外は amount）" % [
+						skill_id, resource_id, kind
+					]
+				return ""
+	return "[MasterDataLoader] skills %s: resource '%s' を持ち主 '%s' が持っていない" % [
+		skill_id, resource_id, owner_id
+	]
 
 
 # characters.json の passives に並んでいるIDが、本当にパッシブとして定義されて

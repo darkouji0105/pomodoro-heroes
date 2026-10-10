@@ -498,6 +498,11 @@ func _init_party_units() -> void:
 				GameManager.get_dungeon_character_hp(character_id), 1, int(unit.max_hp)
 			)
 
+		# 持ち越した固有の資源（回CH-1）。⚠ `carry_over: true` の資源だけ・ランに居なければ空が返る。
+		var run_kind: String = _run_kind()
+		if run_kind != "":
+			unit.load_carried_resources(GameManager.get_run_resource_carry(run_kind, character_id))
+
 		# スキルの割り当て。⚠ 敵は _spawn_current_wave_enemies() 側で別に割り当てる
 		# （enemies.json の "skills" はそのまま装備枠。プレイヤーが選ぶ2枠が無い）。
 		#
@@ -1357,6 +1362,14 @@ func _build_skill_buttons() -> void:
 
 		_panel_slots_by_unit_id[unit.unit_id] = {"slot": slot, "bar": bar}
 
+		# 固有の資源（回CH-1・人間「⚠ う」＝HP の帯の下）。⚠ 持たないキャラには作らない。
+		if not (unit as BattleUnit).resource_defs.is_empty():
+			var resource_view: CharResourceView = CharResourceView.new()
+			resource_view.custom_minimum_size.x = face_size
+			face_stack.add_child(resource_view)
+			resource_view.set_values((unit as BattleUnit).resource_defs, (unit as BattleUnit).resources)
+			(_panel_slots_by_unit_id[unit.unit_id] as Dictionary)["resources"] = resource_view
+
 		var column: VBoxContainer = VBoxContainer.new()
 		column.theme_type_variation = &"BattleNameStack"
 		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1643,6 +1656,9 @@ func _update_bottom_panel() -> void:
 		var bar: Variant = slot_data.get("bar", null)
 		if bar is BattleBar and is_instance_valid(bar):
 			(bar as BattleBar).set_hp(u.hp, u.max_hp)
+		var resource_view: Variant = slot_data.get("resources", null)
+		if resource_view is CharResourceView and is_instance_valid(resource_view):
+			(resource_view as CharResourceView).set_values(u.resource_defs, u.resources)
 		var slot: Variant = slot_data.get("slot", null)
 		if slot is Control and is_instance_valid(slot):
 			var percent: float = float(
@@ -2175,6 +2191,7 @@ func _enter_victory() -> void:
 		# 残HPをフロアへ書き戻す。⚠ ボスでも書く（降りる前なので実害は無く、
 		#   途中でやめて戻ってきたときの形が揃う）。
 		_save_floor_hp_carry()
+		_save_run_resources()
 
 	var rewards: Dictionary = {}
 	if (not in_floor_run) or is_boss:
@@ -2228,6 +2245,8 @@ func _enter_victory() -> void:
 # ⚠ 負けたら clear_dungeon_boss() を呼ばない（決定・負けたら報酬は入らない）。
 # ⚠ clear_dungeon_boss() を呼ぶ口はここ1本（17-a の決め8）。⚠ 2本目を作らないこと。
 func _finish_dungeon_battle(victory: bool) -> void:
+	# ⚠ 資源は HP より先に書く（⚠ HP の書き戻しで全員脱落するとランが消え、書く先が無くなる）。
+	_save_run_resources()
 	var run_lost: bool = _save_dungeon_hp()
 	if run_lost:
 		print("[Battle] ダンジョン：編成が全員脱落した（ランは終わった）")
@@ -2469,6 +2488,35 @@ func _save_dungeon_hp() -> bool:
 				hp_by_character[str(members[i])] = int(u.hp)
 				break
 	return GameManager.apply_dungeon_battle_result(hp_by_character)
+
+
+# いまの戦闘がどのランの中か（回CH-1）。⚠ ランの外なら ""。
+func _run_kind() -> String:
+	if _dungeon_node_id != "":
+		return GameManager.RUN_KIND_DUNGEON
+	if _floor_node_id != "":
+		return GameManager.RUN_KIND_FLOOR
+	return ""
+
+
+# 持ち越す固有の資源をランへ書き戻す（回CH-1）。⚠ 倒れた味方も書く（⚠ HP と違って 0 でも困らない）。
+# ⚠ 持ち越す資源が無いキャラは書かない（⚠ 器に空の行を作らない）。
+func _save_run_resources() -> void:
+	var run_kind: String = _run_kind()
+	if run_kind == "" or _session == null:
+		return
+	var members: Array = GameManager.get_party_members()
+	var values_by_character: Dictionary = {}
+	for i: int in range(members.size()):
+		var unit_id: String = "party_%d" % i
+		for unit in _session.party_units:
+			if unit is BattleUnit and (unit as BattleUnit).unit_id == unit_id:
+				var carried: Dictionary = (unit as BattleUnit).carried_resources()
+				if not carried.is_empty():
+					values_by_character[str(members[i])] = carried
+				break
+	if not values_by_character.is_empty():
+		GameManager.set_run_resource_carry(run_kind, values_by_character)
 
 
 # フロアのボスのノードから来たか。⚠ 判定は GameManager の1本に聞く。

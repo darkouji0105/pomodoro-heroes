@@ -7791,6 +7791,7 @@ func load_state(data: Dictionary) -> bool:
 			var hp_carry: Dictionary = run[GameStateKeys.FLOOR_RUN_HP_CARRY]
 			for character_id: String in hp_carry:
 				hp_carry[character_id] = int(hp_carry[character_id])
+		_int_resource_carry(run)
 		# ⚠ 鞄と拾い待ち（2026-09-18）。⚠ 前のセーブには欄が無い＝空で足す。
 		for bag_key: String in [GameStateKeys.FLOOR_RUN_BAG, GameStateKeys.FLOOR_RUN_PENDING_LOOT]:
 			if run.has(bag_key) and run[bag_key] is Dictionary:
@@ -7847,6 +7848,7 @@ func load_state(data: Dictionary) -> bool:
 				var number_map: Dictionary = dungeon_run[dict_key]
 				for map_key: String in number_map:
 					number_map[map_key] = int(number_map[map_key])
+		_int_resource_carry(dungeon_run)
 		if dungeon_run.has(GameStateKeys.DUNGEON_RUN_NODES) and dungeon_run[GameStateKeys.DUNGEON_RUN_NODES] is Dictionary:
 			var dungeon_nodes: Dictionary = dungeon_run[GameStateKeys.DUNGEON_RUN_NODES]
 			for dungeon_node_id: String in dungeon_nodes:
@@ -10127,6 +10129,50 @@ func _run_state_key(kind: String) -> String:
 
 func is_in_run(kind: String) -> bool:
 	return is_in_floor() if kind == RUN_KIND_FLOOR else is_in_dungeon()
+
+
+# セーブから戻した持ち越しの資源を int に戻す（CLAUDE.md 3番）。⚠ 入れ子が2段なので鞄の枝と別に書く。
+func _int_resource_carry(run: Dictionary) -> void:
+	var raw: Variant = run.get(GameStateKeys.RUN_RESOURCE_CARRY, null)
+	if not (raw is Dictionary):
+		return
+	for character_id: Variant in (raw as Dictionary):
+		var values: Variant = (raw as Dictionary)[character_id]
+		if not (values is Dictionary):
+			continue
+		for resource_id: Variant in (values as Dictionary):
+			(values as Dictionary)[resource_id] = int((values as Dictionary)[resource_id])
+
+
+# 持ち越している固有の資源（2026-10-10・回CH-1）。{resource_id: int}。
+# ⚠ 欄が無い資源は「始めの値から」の意味。⚠ ランに居なければ空。
+func get_run_resource_carry(kind: String, character_id: String) -> Dictionary:
+	if not is_in_run(kind):
+		return {}
+	var run: Dictionary = _state.get(_run_state_key(kind), {})
+	var carry: Dictionary = run.get(GameStateKeys.RUN_RESOURCE_CARRY, {})
+	return (carry.get(character_id, {}) as Dictionary).duplicate(true)
+
+
+# 戦闘のあとに資源を書き戻す。{character_id: {resource_id: int}}。
+# ⚠ 渡すのは `carry_over: true` の資源だけ（⚠ 選ぶのは戦闘の側＝BattleUnit.carried_resources()）。
+# ⚠ ランに居なければ何もしない（⚠ 検証用のステージがここを通っても無害）。
+func set_run_resource_carry(kind: String, values_by_character: Dictionary) -> void:
+	if not is_in_run(kind):
+		return
+	var key: String = _run_state_key(kind)
+	var run: Dictionary = (_state[key] as Dictionary).duplicate(true)
+	var carry: Dictionary = (run.get(GameStateKeys.RUN_RESOURCE_CARRY, {}) as Dictionary).duplicate(true)
+	for character_id: Variant in values_by_character:
+		var values: Dictionary = {}
+		var raw: Variant = values_by_character[character_id]
+		if raw is Dictionary:
+			for resource_id: Variant in (raw as Dictionary):
+				values[str(resource_id)] = int((raw as Dictionary)[resource_id])
+		carry[str(character_id)] = values
+	run[GameStateKeys.RUN_RESOURCE_CARRY] = carry
+	_state[key] = run
+	print("[GameManager] set_run_resource_carry(%s, %s)" % [kind, str(carry)])
 
 
 # ⚠ 変わったことを知らせる。⚠ 種類ごとの信号をそのまま使う（⚠ 画面の購読を変えない）。

@@ -461,5 +461,22 @@
 				"scale_from": "atk"
 			}
 		]
+	},
+	"skill_dbg_res_stance": {
+		"name_key": "ui_battle_skill_dbg_res_stance",
+		"user_character_id": "char_debug_mix",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "resource",
+				"resource_id": "dbg_stance",
+				"set_to": 1
+			}
+		]
 	}
 }

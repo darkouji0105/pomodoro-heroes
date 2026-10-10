@@ -62,6 +62,8 @@ const REPORT_SUBWINDOW_DRAG: String = "subwindow_drag"
 const REPORT_INVENTORY_WINDOW: String = "inventory_window"
 const REPORT_DRAG_CURSOR: String = "drag_cursor"
 const REPORT_BASE_CHEST: String = "base_chest"
+# ⚠ キャラ固有の資源（2026-10-10・回CH-1・EXEC_CHAR_RESOURCE.md §7）。
+const REPORT_CHAR_RESOURCE: String = "char_resource"
 
 # ⚠⚠ 画面を撮る（2026-09-21・人間の許可「⚠ その実験もいいよ　画面とる」）。
 #
@@ -107,6 +109,8 @@ const SHOT_PREPARE_REPORT_DEFEATED: String = "report_defeated"
 const SHOT_PREPARE_SORTIE_DEPTH: String = "sortie_depth"
 # ⚠ 塔（2026-10-09・回D-塔）：⚠ 塔に入る ／ 主の先 ／ 商人の階 ／ 入る前（3階から）。⚠ 内側の `PREPARE_TOWER*` と同じ字。
 const SHOT_PREPARE_TOWER: String = "tower"
+# ⚠ 固有の資源（2026-10-10・回CH-1）：⚠ 検証用の3人を編成に入れる（⚠ 資源を持つのは検証用だけ）。⚠ 内側の `PREPARE_DEBUG_PARTY` と同じ字。
+const SHOT_PREPARE_DEBUG_PARTY: String = "debug_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -987,6 +991,11 @@ const SCENARIOS: Dictionary = {
 	#   ⚠ segoe-ui-emoji.ttf を fallback に足した（⚠ COLR/CPAL・1,274 字だけ）。
 	#   ⚠⚠ 1,274 字しか無いので「思いついた絵文字が在る」とは限らない。
 	#     ⚠ Glyphs に足したら必ずここを回して、⚠ NG が0件であることを確かめる。
+	"char_resource": {
+		"kind": KIND_REPORT,
+		"report": REPORT_CHAR_RESOURCE,
+		"note": "固有の資源（回CH-1）：始めの値・増える・max と 0 で止まる・状態の切り替え・持ち越し・セーブの往復・壊したデータを弾く",
+	},
 	"glyphs": {
 		"kind": KIND_REPORT,
 		"report": REPORT_GLYPHS,
@@ -1361,6 +1370,22 @@ const SCENARIOS: Dictionary = {
 			{"name": "85_tower_map", "scene": "res://scenes/adventure/dungeon_map.tscn", "prepare": SHOT_PREPARE_TOWER},
 			{"name": "86_tower_floor_clear", "scene": "res://scenes/adventure/dungeon_floor_clear.tscn", "prepare": SHOT_PREPARE_TOWER_BOSS},
 			{"name": "87_tower_merchant_map", "scene": "res://scenes/adventure/dungeon_map.tscn", "prepare": SHOT_PREPARE_TOWER_MERCHANT},
+			# ⚠ 固有の資源（2026-10-10・回CH-1）：⚠ 下部パネルの HP の帯の下・戦場のキャラの下に出ている。
+			#   ⚠ 編成が検証用の3人に変わる＝⚠ 戦闘を撮る枚より後ろに置く。
+			{
+				"name": "88_battle_resource",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_DEBUG_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 90,
+				"measure": [
+					"HUD/Root/Layout/BottomPanel",
+					"HUD/Root/Layout/BottomPanel/SkillButtons",
+				],
+			},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -1466,6 +1491,8 @@ func _ready() -> void:
 			_report_drag_cursor()
 		elif report == REPORT_BASE_CHEST:
 			await _report_base_chest()
+		elif report == REPORT_CHAR_RESOURCE:
+			_report_char_resource()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7258,6 +7285,143 @@ const GLYPH_CANDIDATES: Array[String] = [
 ]
 
 
+# キャラ固有の資源（回CH-1）。⚠ 戦闘を回さず、BattleUnit と SkillResolver を直に叩く。
+# ⚠ 期待値は行ごとに「正解」で書く（⚠ 読むのは設計役）。⚠ 壊したデータは赤を出さない口（`*_issue*`）で見る。
+func _report_char_resource() -> void:
+	var status_id: String = "char_debug_status"
+	var mix_id: String = "char_debug_mix"
+	print("[DebugBoot] --- 1. 始めの値（⚠ 充電 40 / 魂 2 / 構え 0 が正解）---")
+	var status_unit: BattleUnit = _resource_unit(status_id, 0)
+	var mix_unit: BattleUnit = _resource_unit(mix_id, 1)
+	print("  %s = %s / %s = %s" % [status_id, str(status_unit.resources), mix_id, str(mix_unit.resources)])
+	print("  型 = %s（int が正解）" % type_string(typeof(status_unit.resources.get("dbg_charge", null))))
+
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [status_unit, mix_unit]
+	var registry: StatusRegistry = StatusRegistry.new(session)
+
+	print("[DebugBoot] --- 2. ゲージ +30 を3回（⚠ 70 → 100 → 100 で止まる）---")
+	var charge_seen: Array = []
+	for i: int in range(3):
+		_resource_cast("skill_dbg_res_charge", status_unit, session, registry)
+		charge_seen.append(status_unit.get_resource("dbg_charge"))
+	print("  充電 = %s（[70, 100, 100] が正解）" % str(charge_seen))
+
+	print("[DebugBoot] --- 3. ストック +1 を4回 → -3 を2回（⚠ 3,4,5,5 → 2,0 で止まる）---")
+	var soul_seen: Array = []
+	for i: int in range(4):
+		_resource_cast("skill_dbg_res_soul_gain", status_unit, session, registry)
+		soul_seen.append(status_unit.get_resource("dbg_soul"))
+	for i: int in range(2):
+		_resource_cast("skill_dbg_res_soul_spend", status_unit, session, registry)
+		soul_seen.append(status_unit.get_resource("dbg_soul"))
+	print("  魂 = %s（[3, 4, 5, 5, 2, 0] が正解）" % str(soul_seen))
+
+	print("[DebugBoot] --- 4. 状態の切り替え（⚠ 0 → 1）---")
+	var stance_before: int = mix_unit.get_resource("dbg_stance")
+	_resource_cast("skill_dbg_res_stance", mix_unit, session, registry)
+	print("  構え = %d -> %d（0 -> 1 が正解）" % [stance_before, mix_unit.get_resource("dbg_stance")])
+
+	print("[DebugBoot] --- 5. 次の戦闘（⚠ 持ち越さない資源は始めの値に戻る・持ち越す資源は載る）---")
+	status_unit.set_resource("dbg_soul", 4)
+	status_unit.set_resource("dbg_charge", 90)
+	var carried: Dictionary = status_unit.carried_resources()
+	print("  書き戻す値 = %s（{dbg_soul:4} だけが正解＝充電は carry_over: false）" % str(carried))
+	var next_unit: BattleUnit = _resource_unit(status_id, 0)
+	print("  新しい戦闘の始め = %s（充電 40 / 魂 2 が正解）" % str(next_unit.resources))
+	next_unit.load_carried_resources({"dbg_soul": 4, "dbg_charge": 90})
+	print("  持ち越しを載せた = %s（充電 40 / 魂 4 が正解）" % str(next_unit.resources))
+
+	print("[DebugBoot] --- 6. ランに書き戻す → セーブの往復（⚠ int のまま）---")
+	var floor_ids: Array[String] = []
+	for stage_id: Variant in MasterDataLoader._cache_stages:
+		if GameManager.is_floor_stage(str(stage_id)):
+			floor_ids.append(str(stage_id))
+	floor_ids.sort()
+	GameManager.set_run_resource_carry(GameManager.RUN_KIND_FLOOR, {status_id: carried})
+	print("  ランの外で書く -> 読む = %s（{} が正解＝書かない）" % str(
+		GameManager.get_run_resource_carry(GameManager.RUN_KIND_FLOOR, status_id)
+	))
+	if floor_ids.is_empty() or not GameManager.start_floor(floor_ids[0]):
+		push_error("[DebugBoot] フロアに入れない（持ち越しを見られない）")
+	else:
+		GameManager.set_run_resource_carry(GameManager.RUN_KIND_FLOOR, {status_id: carried})
+		print("  ランの中で書く -> 読む = %s（{dbg_soul:4} が正解）" % str(
+			GameManager.get_run_resource_carry(GameManager.RUN_KIND_FLOOR, status_id)
+		))
+		var restored: Variant = JSON.parse_string(JSON.stringify(GameManager.get_state()))
+		if restored is Dictionary and GameManager.load_state(restored as Dictionary):
+			var after: Dictionary = GameManager.get_run_resource_carry(GameManager.RUN_KIND_FLOOR, status_id)
+			print("  セーブの往復のあと = %s / 型 = %s（int が正解）" % [
+				str(after), type_string(typeof(after.get("dbg_soul", null)))
+			])
+		else:
+			push_error("[DebugBoot] セーブの往復に失敗した")
+		GameManager.abandon_floor()
+		print("  ランを出たあと = %s（{} が正解）" % str(
+			GameManager.get_run_resource_carry(GameManager.RUN_KIND_FLOOR, status_id)
+		))
+
+	print("[DebugBoot] --- 7. 壊したデータを弾く（⚠ 赤は出さず、件数と文言だけ）---")
+	var bad_effects: Array = [
+		{"type": "resource", "resource_id": "dbg_soul", "amount": 1, "set_to": 1},
+		{"type": "resource", "resource_id": "dbg_soul", "amount": 1.5},
+		{"type": "resource", "amount": 1},
+		{"type": "resource", "resource_id": "dbg_soul", "amount": 1, "scale_from": "atk"},
+		{"type": "damage", "resource_id": "dbg_soul", "multiplier": 1.0, "scale_from": "atk"},
+	]
+	for bad: Dictionary in bad_effects:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": status_id, "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "self"}, "effects": [bad],
+		}
+		var errors: int = 0
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(bad), errors])
+	var owner_data: Dictionary = {"user_character_id": status_id}
+	for probe: Dictionary in [
+		{"type": "resource", "resource_id": "dbg_stance", "set_to": 1},
+		{"type": "resource", "resource_id": "dbg_soul", "set_to": 1},
+		{"type": "resource", "resource_id": "dbg_soul", "amount": 1},
+	]:
+		print("  持ち主の照合 %s -> '%s'" % [
+			str(probe), MasterDataLoader.resource_effect_owner_issue("skill_probe", owner_data, probe)
+		])
+	print("  ⚠ 上の3行は「持っていない」「種類が合わない」「空（問題なし）」の順が正解")
+	var bad_chars: Array = [
+		{"resources": [{"id": "a", "kind": "gauge", "max": 10, "start": 0, "name_key": "x"}]},
+		{"resources": [{"id": "a", "kind": "state", "max": 1, "start": 0, "carry_over": false, "name_key": "x"}]},
+		{"resources": [{"id": "a", "kind": "stock", "max": 3, "start": 5, "carry_over": false, "name_key": "x"}]},
+		{"resources": [{"id": "a", "kind": "bar", "max": 3, "start": 0, "carry_over": false, "name_key": "x"}]},
+		{"resources": [
+			{"id": "a", "kind": "gauge", "max": 3, "start": 0, "carry_over": false, "name_key": "x"},
+			{"id": "b", "kind": "gauge", "max": 3, "start": 0, "carry_over": false, "name_key": "x"},
+			{"id": "c", "kind": "gauge", "max": 3, "start": 0, "carry_over": false, "name_key": "x"},
+		]},
+	]
+	for bad_char: Dictionary in bad_chars:
+		print("  キャラ -> %s" % str(MasterDataLoader.character_resource_issues("char_probe", bad_char)))
+	print("  ⚠ 上の5行は carry_over 無し ／ labels 無し ／ start が外 ／ kind 不明 ／ 3本 の順が正解")
+	print("  本物のデータ -> %s / %s（[] / [] が正解）" % [
+		str(MasterDataLoader.character_resource_issues(status_id, MasterDataLoader.get_character(status_id))),
+		str(MasterDataLoader.character_resource_issues(mix_id, MasterDataLoader.get_character(mix_id))),
+	])
+
+
+func _resource_unit(character_id: String, index: int) -> BattleUnit:
+	return BattleUnit.create(
+		"party_%d" % index, BattleUnit.TEAM_PARTY, MasterDataLoader.get_character(character_id),
+		GameManager.get_effective_stats(character_id), false, character_id
+	)
+
+
+func _resource_cast(skill_id: String, user: BattleUnit, session: BattleSession, registry: StatusRegistry) -> void:
+	var data: Dictionary = MasterDataLoader.get_skill(skill_id)
+	SkillResolver.resolve(data.duplicate(true), user, session, [user.unit_id], registry)
+
+
 func _report_glyphs() -> void:
 	var theme: Theme = load("res://theme/main_theme.tres")
 	if theme == null:
@@ -9488,6 +9652,8 @@ class ShotTaker extends Node:
 	const PREPARE_TOWER_BOSS: String = "tower_boss"
 	const PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 	const PREPARE_TOWER_OUT: String = "tower_out"
+	const PREPARE_DEBUG_PARTY: String = "debug_party"
+	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	const TOWER_ID: String = "dungeon_tower"
 	const PREPARE_BOARD_CLEARED: String = "board_cleared"
 	const AFTER_CHEST_OPEN: String = "chest_open"
@@ -9854,6 +10020,11 @@ class ShotTaker extends Node:
 				GameManager._state[GameStateKeys.DUNGEON_RUN] = run
 				return true
 			return GameManager.debug_mark_dungeon_boss_cleared()
+		if kind == PREPARE_DEBUG_PARTY:
+			for i: int in range(DEBUG_PARTY.size()):
+				if not GameManager.set_party_member(i, str(DEBUG_PARTY[i])):
+					return false
+			return true
 		if kind == PREPARE_SORTIE_DEPTH:
 			# ⚠ 潜る深さ（2026-10-03・決定49）：⚠ 本番の口でボスを3体倒して持ち帰る＝最深 3（30層）→ ⚠ 札を1枚持たせる。
 			return _prepare_best_floors(3)

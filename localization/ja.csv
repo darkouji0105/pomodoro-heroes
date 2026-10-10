@@ -1702,3 +1702,12 @@ ui_report_tower_floor,%d階
 ui_tower_fork_descend_button,次の階へ
 ui_dungeon_simple,ふつうに戦う（試作）
 ui_simple_clear_heading,クリアした
+ui_res_dbg_charge,充電（検証）
+ui_res_dbg_soul,魂（検証）
+ui_res_dbg_stance,構え（検証）
+ui_res_dbg_stance_0,虎
+ui_res_dbg_stance_1,亀
+ui_battle_skill_dbg_res_charge,充電+30
+ui_battle_skill_dbg_res_soul_gain,魂+1
+ui_battle_skill_dbg_res_soul_spend,魂-3
+ui_battle_skill_dbg_res_stance,構えを亀へ

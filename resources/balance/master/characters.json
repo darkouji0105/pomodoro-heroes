@@ -188,6 +188,24 @@
 			]
 		},
 		"name_key": "ui_battle_char_debug_status",
+		"resources": [
+			{
+				"id": "dbg_charge",
+				"kind": "gauge",
+				"max": 100,
+				"start": 40,
+				"carry_over": false,
+				"name_key": "ui_res_dbg_charge"
+			},
+			{
+				"id": "dbg_soul",
+				"kind": "stock",
+				"max": 5,
+				"start": 2,
+				"carry_over": true,
+				"name_key": "ui_res_dbg_soul"
+			}
+		],
 		"hp": 9999,
 		"atk": 1,
 		"mag": 1,
@@ -216,7 +234,10 @@
 			"skill_dbg_mit_crit",
 			"skill_dbg_mit_thorns",
 			"skill_dbg_mit_reflect_self",
-			"skill_dbg_aura_follow"
+			"skill_dbg_aura_follow",
+			"skill_dbg_res_charge",
+			"skill_dbg_res_soul_gain",
+			"skill_dbg_res_soul_spend"
 		],
 		"passives": [
 			"passive_dbg_atk",
@@ -304,6 +325,20 @@
 			]
 		},
 		"name_key": "ui_battle_char_debug_mix",
+		"resources": [
+			{
+				"id": "dbg_stance",
+				"kind": "state",
+				"max": 1,
+				"start": 0,
+				"carry_over": false,
+				"name_key": "ui_res_dbg_stance",
+				"labels": [
+					"ui_res_dbg_stance_0",
+					"ui_res_dbg_stance_1"
+				]
+			}
+		],
 		"hp": 9999,
 		"atk": 1,
 		"mag": 1,
@@ -334,7 +369,8 @@
 			"skill_dbg_mit_shield",
 			"skill_dbg_aura_atk",
 			"skill_dbg_atk_mult",
-			"skill_dbg_dot_self_mix"
+			"skill_dbg_dot_self_mix",
+			"skill_dbg_res_stance"
 		],
 		"allocatable_stats": [
 			"hp",

@@ -85,14 +85,27 @@ const EFFECT_BUFF: String = "buff"   # 段階3で実装
 const EFFECT_DOT: String = "dot"     # 段階3で実装
 const EFFECT_REACT: String = "react" # 段階3の後半①で実装（購読）
 const EFFECT_SUMMON: String = "summon" # 段階6で実装（召喚・分裂）
+# キャラ固有の資源を足す・決める（2026-10-10・回CH-1・EXEC_CHAR_RESOURCE.md §3）。
+# ⚠ 宛先は撃った本人だけ（⚠ 資源は持ち主のもの）。⚠ target は読まない。
+const EFFECT_RESOURCE: String = "resource"
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
+	EFFECT_RESOURCE,
 	"dispel", "cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
-	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON
+	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
+	EFFECT_RESOURCE,
 ]
+# resource の欄。⚠ amount（足す・負なら減らす）と set_to（その値にする）はどちらか1つ。
+# ⚠ 持ち主にその資源があるか・種類と欄が合うかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
+const RESOURCE_FIELD_ID: String = "resource_id"
+const RESOURCE_FIELD_AMOUNT: String = "amount"
+const RESOURCE_FIELD_SET_TO: String = "set_to"
+const RESOURCE_ONLY_FIELDS: Array = [RESOURCE_FIELD_ID, RESOURCE_FIELD_AMOUNT, RESOURCE_FIELD_SET_TO]
+# ⚠ 威力の式も対象も持たない。書けると「書いたのに効かない」が無音になる。
+const RESOURCE_FIELDS_FORBIDDEN: Array = ["target", "scale_from", "multiplier", "attack_type", "delivery"]
 
 # 召喚（type: "summon"・段階6・PLAN 14-2）の欄。
 #
@@ -204,6 +217,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	"react", "condition",
 	BUFF_INTERVENE, FIELD_ZONE, FIELD_HEALS, BUFF_ATK_MULT_PCT,
 	"unit_id", "count", "offset_x",
+	"resource_id", "amount", "set_to",
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -958,6 +972,17 @@ static func _validate_effect(
 					where, effect_type, summon_field
 				])
 
+	# E141〜E143 固有の資源（回CH-1）
+	if effect_type == EFFECT_RESOURCE:
+		_validate_resource_effect(issues, skill_id, effect, where)
+	else:
+		# E141 … 資源だけの欄を他の効果に書かせない（E99 と同じ形）。
+		for resource_field: String in RESOURCE_ONLY_FIELDS:
+			if effect.has(resource_field):
+				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（type: 'resource' だけの欄）" % [
+					where, effect_type, resource_field
+				])
+
 	if effect_type == EFFECT_DAMAGE or effect_type == EFFECT_HEAL:
 		# E19
 		if not _is_num(effect.get("multiplier", null)):
@@ -1147,6 +1172,31 @@ static func _validate_react_effect(
 #
 # ⚠ ここで見るのは「無音で壊れる書き方」だけ。状態は、剥がれない・二重に付く・
 #   一度も発火しない のどれもエラーを出さないので、書いた時点で弾く。
+# type: "resource" の欄（回CH-1）。
+static func _validate_resource_effect(
+		issues: Array, skill_id: String, effect: Dictionary, where: String
+) -> void:
+	# E142 resource_id は必須
+	if str(effect.get(RESOURCE_FIELD_ID, "")) == "":
+		_err(issues, skill_id, "%s.resource_id が無い（type: 'resource' は必須）" % where)
+	# E143 amount と set_to はどちらか1つ・整数
+	var has_amount: bool = effect.has(RESOURCE_FIELD_AMOUNT)
+	var has_set_to: bool = effect.has(RESOURCE_FIELD_SET_TO)
+	if has_amount == has_set_to:
+		_err(issues, skill_id, "%s は amount と set_to のどちらか1つを書く" % where)
+	for field: String in [RESOURCE_FIELD_AMOUNT, RESOURCE_FIELD_SET_TO]:
+		if not effect.has(field):
+			continue
+		var raw: Variant = effect.get(field, null)
+		if not _is_num(raw) or float(raw) != floor(float(raw)):
+			_err(issues, skill_id, "%s.%s が整数でない" % [where, field])
+	if has_set_to and _is_num(effect.get(RESOURCE_FIELD_SET_TO, null)) and float(effect.get(RESOURCE_FIELD_SET_TO, 0)) < 0.0:
+		_err(issues, skill_id, "%s.set_to が負" % where)
+	for forbidden: String in RESOURCE_FIELDS_FORBIDDEN:
+		if effect.has(forbidden):
+			_err(issues, skill_id, "%s.type: 'resource' に %s は書けない（宛先は撃った本人・威力の式を持たない）" % [where, forbidden])
+
+
 static func _validate_status_effect(
 		issues: Array, skill_id: String, effect: Dictionary, where: String, activation: String
 ) -> void:

@@ -348,6 +348,8 @@ static func resolve(
 			_apply_status(effect, user, targets, session, registry)
 		elif effect_type == SkillSchema.EFFECT_SUMMON:
 			_apply_summon(effect, user, results)
+		elif effect_type == SkillSchema.EFFECT_RESOURCE:
+			_apply_resource(effect, user)
 		elif effect_type in SkillSchema.EFFECT_TYPES_KNOWN:
 			push_warning("[SkillResolver] 未実装の効果: '%s'。この効果を飛ばす" % effect_type)
 		else:
@@ -627,6 +629,20 @@ static func _apply_heal(
 #   （CLAUDE.md 3番）。count だけは体数なので int() に落とす。
 # ⚠ "unit_id" の名前で入れないこと。既存の1件では「殴られた側」の意味で、
 #   battle_controller の _on_skill_effects_applied() が _find_unit_by_id() に渡す。
+# 固有の資源（回CH-1）。⚠ 宛先は撃った本人だけ（⚠ target_ids を読まない）。
+# ⚠ 0〜max に切るのは BattleUnit の側（⚠ ここで切らない）。
+static func _apply_resource(effect: Dictionary, user: BattleUnit) -> void:
+	var resource_id: String = str(effect.get(SkillSchema.RESOURCE_FIELD_ID, ""))
+	var before: int = user.get_resource(resource_id)
+	if effect.has(SkillSchema.RESOURCE_FIELD_SET_TO):
+		user.set_resource(resource_id, int(effect.get(SkillSchema.RESOURCE_FIELD_SET_TO, 0)))
+	else:
+		user.add_resource(resource_id, int(effect.get(SkillSchema.RESOURCE_FIELD_AMOUNT, 0)))
+	print("[SkillResolver] resource %s.%s %d -> %d" % [
+		user.unit_id, resource_id, before, user.get_resource(resource_id)
+	])
+
+
 static func _apply_summon(effect: Dictionary, user: BattleUnit, results: Array) -> void:
 	results.append({
 		# ⚠ kind を持つのは召喚の1件だけ。既存の damage / heal の1件には足さない

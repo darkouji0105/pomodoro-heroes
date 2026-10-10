@@ -419,6 +419,17 @@ const BATTLE_POP_OUTLINE: int = 6                # ⚠ 手本「戦闘の数字�
 const BATTLE_POP_OFFSET: int = -84               # ⚠ 駒の中心から数字が出る高さ（⚠ 状態アイコンの上）
 const BATTLE_SP_FILL: String = ACTIVE_BORDER
 const BATTLE_SP_FULL: String = SKILL_FLASH
+# ⚠ キャラ固有の資源（2026-10-10・回CH-1・`CharResourceView`）。⚠ 値は設計役の**仮**。
+#   ⚠ 溜め中の色は HP（緑）・シールド（青）・SP（真鍮）と分けて紫。⚠ 満タンは SP と同じ明るい真鍮（⚠ 「撃てる」の合図を揃える）。
+const BATTLE_RES_FILL: String = "9b7be0"
+const BATTLE_RES_FULL: String = SKILL_FLASH
+const BATTLE_RES_LABEL: String = TOKEN_LIGHT
+const BATTLE_RES_GAUGE_HEIGHT: int = 3
+const BATTLE_RES_PIP_SIZE: int = 6
+const BATTLE_RES_PIP_GAP: int = 2
+const BATTLE_RES_ROW_GAP: int = 1
+const BATTLE_RES_LABEL_HEIGHT: int = 12
+const BATTLE_RES_LABEL_SIZE: int = 10
 
 # ⚠⚠ HPバーは**味方は緑1色・敵は赤1色**（⚠ モック §4 の3段は 2026-09-17 に人間がやめた
 #   「味方のHPは残量に関係なくいつも緑」）。⚠ `BATTLE_HP_LOW` は瀕死の名前の色として残る。
@@ -1354,9 +1365,18 @@ static func _build_battle(theme: Theme) -> void:
 		"active_width": BATTLE_UNIT_ACTIVE_WIDTH,
 		"hp_low_percent": BATTLE_HP_LOW_PERCENT,
 		"sp_height": BATTLE_SP_HEIGHT,
+		"res_gauge_height": BATTLE_RES_GAUGE_HEIGHT,
+		"res_pip_size": BATTLE_RES_PIP_SIZE,
+		"res_pip_gap": BATTLE_RES_PIP_GAP,
+		"res_row_gap": BATTLE_RES_ROW_GAP,
+		"res_label_height": BATTLE_RES_LABEL_HEIGHT,
+		"res_label_size": BATTLE_RES_LABEL_SIZE,
 	}
 	for key: String in unit.keys():
 		theme.set_constant(StringName(key), &"BattleUnitView", int(unit[key]))
+	theme.set_color(&"res_fill", &"BattleUnitView", _html(BATTLE_RES_FILL))
+	theme.set_color(&"res_full", &"BattleUnitView", _html(BATTLE_RES_FULL))
+	theme.set_color(&"res_label", &"BattleUnitView", _html(BATTLE_RES_LABEL))
 	theme.set_color(&"hp_high", &"BattleUnitView", _html(BATTLE_HP_HIGH))
 	theme.set_color(&"hp_enemy", &"BattleUnitView", _html(BATTLE_HP_ENEMY))
 	theme.set_color(&"shield", &"BattleUnitView", _html(BATTLE_SHIELD))
