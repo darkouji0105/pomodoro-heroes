@@ -8215,6 +8215,13 @@ func _report_scholar() -> void:
 	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, me.take_basic_attack(override), 1.0, [foe.unit_id])
 	print("  強くなった通常攻撃で敵が火傷：%s（true）" % str(registry.has({"host_unit_id": foe.unit_id, "status_id": "burn"})))
 
+	print("[DebugBoot] --- 42. パッシブは最初から全部（⚠ 10-10・人間「⚠ passiveはもう全部開放してていいかも」）---")
+	for cid: String in ["char_swordsman", "char_archer", "char_priest", "char_scholar"]:
+		print("  %s：総ポイント %d で %d / %d 本（全部が正解）" % [
+			cid, GameManager.get_stat_node_total_points(cid), GameManager.get_battle_passives(cid).size(),
+			(MasterDataLoader.get_character(cid).get("passives", []) as Array).size(),
+		])
+
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
 

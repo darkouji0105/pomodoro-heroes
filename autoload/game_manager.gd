@@ -6345,6 +6345,9 @@ func _unlock_progress(character_id: String, kind: String) -> int:
 # MasterDataLoader は float を返すため int() で包む（CLAUDE.md 3番）。
 func _is_candidate_unlocked(skill_data: Dictionary, kind: String, progress: int) -> bool:
 	if kind == SLOT_KIND_PASSIVE:
+		# ⚠ 10-10：パッシブは最初から全部（`CharacterConfig.passives_all_unlocked`・`GR-8`）。
+		if Balance.character != null and Balance.character.passives_all_unlocked:
+			return true
 		return int(skill_data.get(PASSIVE_UNLOCK_TOTAL_POINTS, 0)) <= progress
 	return int(skill_data.get(SKILL_UNLOCK_LEVEL, 1)) <= progress
 

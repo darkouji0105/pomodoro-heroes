@@ -16,6 +16,12 @@ extends Resource
 @export var base_level_up_cost: int
 @export var cost_growth_per_level: float
 
+# --- パッシブの解放 ---
+# ⚠⚠ 2026-10-10（人間「⚠ passiveはもう全部開放してていいかも」）：⚠ true なら**全キャラのパッシブが最初から全部効く**。
+#   ⚠ false に戻すと前の決まり（⚠ 育成の総ポイント 20／40／60／80／100 で1つずつ＝passives.json の unlock_total_points）。
+#   ⚠ 判定は GameManager._is_candidate_unlocked() の1か所。⚠ .tres に行が無い＝効いているのはここの既定値。
+@export var passives_all_unlocked: bool = true
+
 # --- 研究が未実装の間のレベル上限 ---
 # 実効上限 = base_level_cap + 解放済み level_cap_unlock ノードの effect_value 合計。
 # 研究ツリーが空でも 0 にならないようにするための下駄。
