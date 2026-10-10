@@ -12390,6 +12390,16 @@ class ShotTaker extends Node:
 					def["host"] = SkillSchema.HOST_UNIT
 					def["status_id"] = ids[j]
 					registry.add(def, me, foe, session)
+			# ⚠ 重なりの数（2026-10-10・「×N」）：1体目に毒をあと2つ・出血をあと9つ。
+			var stacked: BattleUnit = session.enemy_units[0] as BattleUnit
+			for extra: Array in [["poison", 2], ["bleed", 9]]:
+				for _k: int in range(int(extra[1])):
+					var more: Dictionary = (MasterDataLoader._cache_statuses[str(extra[0])] as Dictionary).duplicate(true)
+					more["type"] = str(more.get("kind", ""))
+					more.erase("kind")
+					more["host"] = SkillSchema.HOST_UNIT
+					more["status_id"] = str(extra[0])
+					registry.add(more, me, stacked, session)
 			var miss_view: Variant = (screen.get("_views_by_unit_id") as Dictionary).get((session.enemy_units[0] as BattleUnit).unit_id, null)
 			if miss_view is UnitView:
 				(miss_view as UnitView).pop_miss()

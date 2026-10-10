@@ -62,7 +62,7 @@ func _rebuild(entries: Array) -> void:
 	for entry: Variant in entries:
 		if entry is Dictionary and tone_of(entry as Dictionary) != Tone.HIDDEN:
 			shown.append(entry)
-	entries = shown
+	entries = _group_same(shown)
 
 	if entries.is_empty():
 		return
@@ -70,7 +70,13 @@ func _rebuild(entries: Array) -> void:
 	var side: int = _chip_side_px(entries.size())
 	var step: float = float(side) + float(Balance.adventure.status_chip_separation_px)
 	# 入る個数。⚠ 0 になることはない（_max_px が side を下回る設定は事故）。
-	var fits: int = int(floor(_max_px / step)) if step > 0.0 else entries.size()
+	# ⚠ 「×N」の付くマスは右に数の幅を取る（2026-10-10）＝⚠ そのぶん入る数を減らす（⚠ 隣のユニットの帯へはみ出さない）。
+	var stacked_groups: int = 0
+	for e: Variant in entries:
+		if int((e as Dictionary).get(GROUP_COUNT_KEY, 1)) >= 2:
+			stacked_groups += 1
+	var room: float = _max_px - float(stacked_groups) * float(side) * 0.9
+	var fits: int = maxi(1, int(floor(room / step))) if step > 0.0 else entries.size()
 	var show_count: int = entries.size()
 	var overflow: int = 0
 	if fits > 0 and entries.size() > fits:
@@ -111,7 +117,56 @@ func _make_chip(entry: Dictionary, side: int) -> Control:
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(label)
-	return box
+
+	# 重なりの数（2026-10-10・人間「⚠ デバフの表記を変える　マスの右下に×10とか書くようにする」）。⚠ 2つ以上のときだけ。
+	var stacks: int = int(entry.get(GROUP_COUNT_KEY, 1))
+	if stacks < 2:
+		return box
+	var count_label: Label = Label.new()
+	count_label.text = "×%d" % stacks
+	count_label.add_theme_font_size_override("font_size", maxi(9, int(round(float(side) * 0.6))))
+	count_label.add_theme_color_override("font_color", get_theme_color(&"text", &"StatusChip"))
+	# ⚠ 地の色の上でも読めるよう、黒い縁を付ける（⚠ ダメージの数字と同じ考え方）。
+	count_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	count_label.add_theme_constant_override("outline_size", 3)
+	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# ⚠ マスの右に数の幅ぶん場所を取る（⚠ 取らないと隣のマスに重なって読めない＝10-10 の絵）。
+	#   ⚠ 地の色はマスの大きさのまま（⚠ 外枠 holder だけ広げる）。
+	var label_size: Vector2 = count_label.get_minimum_size()
+	var holder: Control = Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.custom_minimum_size = Vector2(float(side) + maxf(0.0, label_size.x - float(side) * 0.35), float(side))
+	holder.add_child(box)
+	box.position = Vector2.ZERO
+	box.size = Vector2(side, side)
+	holder.add_child(count_label)
+	# ⚠ 字の左下をマスの右下の少し内側に置く（⚠ 右下に「×10」）。
+	count_label.position = Vector2(float(side) * 0.65, float(side) - label_size.y * 0.45)
+	return holder
+
+
+# 同じ状態（status_id）を1マスにまとめる（2026-10-10）。⚠ 最初に出てきた順のまま・重なりの数を GROUP_COUNT_KEY に入れる。
+# ⚠ 1つでも効いていれば効いている扱い（⚠ 半透明にしない）。⚠ 器の辞書は書き換えない（⚠ 写しを作る）。
+const GROUP_COUNT_KEY: String = "_chip_count"
+
+
+func _group_same(entries: Array) -> Array:
+	var grouped: Array = []
+	var index_of: Dictionary = {}
+	for raw: Variant in entries:
+		var e: Dictionary = raw as Dictionary
+		var sid: String = str(e.get("status_id", ""))
+		if sid != "" and index_of.has(sid):
+			var g: Dictionary = grouped[int(index_of[sid])]
+			g[GROUP_COUNT_KEY] = int(g.get(GROUP_COUNT_KEY, 1)) + 1
+			if bool(e.get("active", true)):
+				g["active"] = true
+			continue
+		var copy: Dictionary = e.duplicate()
+		copy[GROUP_COUNT_KEY] = 1
+		index_of[sid] = grouped.size()
+		grouped.append(copy)
+	return grouped
 
 
 # 入りきらなかった件数を出すマス。⚠ 通常は出ない（人間の指示・2026-08-22）。
