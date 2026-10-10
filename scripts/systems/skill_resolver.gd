@@ -336,6 +336,10 @@ static func resolve(
 		#   解釈して target_ids に落としてある（PLAN 4-4）。
 
 		# 相手の状態で当たるかを絞る（回CH-8・「⚠ １う」の い）。⚠ when_mult ／ when_crit があるときは絞らない（強くなるだけ）。
+		# 自分についての条件（回PQ-1）。⚠ 満たさなければ効果ごと飛ばす。
+		if effect.has(SkillSchema.FIELD_WHEN_USER) and not when_user_ok(effect, user, session):
+			continue
+
 		# ⚠ 効果ごとに別の配列で持つ（⚠ 次の効果まで絞らない）。
 		var targets: Array = all_targets
 		if effect.has(SkillSchema.FIELD_WHEN_TARGET) and not effect.has(SkillSchema.FIELD_WHEN_MULT) \
@@ -520,6 +524,34 @@ static func _step_execute(effect: Dictionary, user: BattleUnit, target: BattleUn
 		"source_unit_id": user.unit_id,
 		"attack_type": SkillSchema.ATTACK_TYPE_TRUE,
 	})
+
+
+# 自分についての条件（回PQ-1）。⚠ いまは「自分の周り radius の中にいる、生きている敵の数」だけ。
+static func when_user_ok(effect: Dictionary, user: BattleUnit, session: BattleSession) -> bool:
+	if user == null or session == null:
+		return false
+	var when: Dictionary = effect.get(SkillSchema.FIELD_WHEN_USER, {}) as Dictionary
+	if str(when.get("source", "")) != SkillSchema.WHEN_ENEMIES_WITHIN:
+		return false
+	var foe_team: String = BattleUnit.TEAM_ENEMY if user.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
+	var radius: float = float(when.get("radius", 0.0))
+	var count: int = 0
+	for raw: Variant in session.get_alive_units(foe_team):
+		if absf((raw as BattleUnit).x - user.x) <= radius:
+			count += 1
+	var limit: float = float(when.get("value", 0.0))
+	match str(when.get("op", "")):
+		SkillSchema.COND_OP_LT:
+			return count < limit
+		SkillSchema.COND_OP_LTE:
+			return count <= limit
+		SkillSchema.COND_OP_GT:
+			return count > limit
+		SkillSchema.COND_OP_GTE:
+			return count >= limit
+		SkillSchema.COND_OP_EQ:
+			return is_equal_approx(float(count), limit)
+	return false
 
 
 # 相手についての条件（回CH-8）。⚠ registry は StatusRegistry（RefCounted で受けている）。

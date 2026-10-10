@@ -1,0 +1,33 @@
+{
+	"passive_pq_victory": {
+		"name_key": "ui_battle_passive_pq_victory",
+		"user_character_id": "char_princess",
+		"unlock_total_points": 20,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_pq_victory",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "foe_died",
+					"effects": [
+						{
+							"type": "cooldown",
+							"sec": 1.0,
+							"skills": "all",
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	}
+}

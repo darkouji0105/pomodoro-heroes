@@ -1,0 +1,257 @@
+{
+	"skill_pq_rapid": {
+		"name_key": "ui_battle_skill_pq_rapid",
+		"user_character_id": "char_princess",
+		"unlock_level": 1,
+		"cooldown_sec": 6.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 0.45,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit"
+			},
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 0.45,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit"
+			},
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 0.45,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit"
+			},
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 0.45,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit"
+			},
+			{
+				"type": "damage",
+				"delivery": "projectile",
+				"multiplier": 0.45,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"trigger": "event:hit"
+			}
+		]
+	},
+	"skill_pq_trump": {
+		"name_key": "ui_battle_skill_pq_trump",
+		"user_character_id": "char_princess",
+		"unlock_level": 1,
+		"cooldown_sec": 14.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "user",
+			"radius": 400.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 2.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_pq_back_off": {
+		"name_key": "ui_battle_skill_pq_back_off",
+		"user_character_id": "char_princess",
+		"unlock_level": 5,
+		"cooldown_sec": 8.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 80.0
+				}
+			},
+			{
+				"type": "knockback",
+				"distance": 120.0,
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 80.0
+				}
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_pq_back_off_shot",
+				"duration_sec": 10.0,
+				"uses": 1,
+				"stack": "refresh",
+				"basic_attack": {
+					"effects": [
+						{
+							"type": "damage",
+							"delivery": "projectile",
+							"multiplier": 1.6,
+							"attack_type": "physical",
+							"scale_from": "atk",
+							"trigger": "event:hit"
+						},
+						{
+							"type": "knockback",
+							"distance": 100.0,
+							"trigger": "event:hit"
+						}
+					]
+				},
+				"when_user": {
+					"source": "enemies_within",
+					"radius": 80.0,
+					"op": "eq",
+					"value": 0
+				}
+			}
+		]
+	},
+	"skill_pq_party_mode": {
+		"name_key": "ui_battle_skill_pq_party_mode",
+		"user_character_id": "char_princess",
+		"unlock_level": 10,
+		"cooldown_sec": 20.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_pq_party",
+				"duration_sec": 8.0,
+				"stack": "refresh",
+				"target": {
+					"team": "ally",
+					"mode": "select",
+					"sort": "all"
+				},
+				"react": {
+					"event": "foe_died",
+					"effects": [
+						{
+							"type": "cooldown",
+							"sec": 1.0,
+							"skills": "all",
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			},
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_pq_party_self",
+				"duration_sec": 8.0,
+				"stack": "refresh",
+				"react": {
+					"event": "empowered_basic",
+					"effects": [
+						{
+							"type": "cooldown",
+							"sec": 1.0,
+							"skills": "all",
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"skill_pq_command": {
+		"name_key": "ui_battle_skill_pq_command",
+		"user_character_id": "char_princess",
+		"unlock_level": 15,
+		"cooldown_sec": 16.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_pq_command",
+				"stat": "atk",
+				"stat_pct": 15,
+				"duration_sec": 8.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"skill_pq_dance": {
+		"name_key": "ui_battle_skill_pq_dance",
+		"user_character_id": "char_princess",
+		"unlock_level": 20,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "dash",
+				"to": "back",
+				"distance": 120.0
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_pq_dance_guard",
+				"control": "invulnerable",
+				"duration_sec": 0.6,
+				"stack": "refresh"
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_pq_dance",
+				"stat": "crit_dmg",
+				"value": 50,
+				"duration_sec": 5.0,
+				"stack": "refresh"
+			}
+		]
+	}
+}

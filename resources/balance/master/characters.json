@@ -255,6 +255,74 @@
 			"spd": 1
 		}
 	},
+	"char_princess": {
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "projectile",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk",
+					"trigger": "event:hit"
+				}
+			]
+		},
+		"basic_attack_every": {
+			"every": 3,
+			"attack": {
+				"effects": [
+					{
+						"type": "damage",
+						"delivery": "projectile",
+						"multiplier": 1.0,
+						"attack_type": "true",
+						"scale_from": "atk",
+						"trigger": "event:hit"
+					}
+				]
+			}
+		},
+		"name_key": "ui_battle_char_princess",
+		"sign_style": "pen",
+		"sign_mark": "arrow",
+		"weapon_genre": "bow",
+		"hp": 85,
+		"atk": 17,
+		"mag": 5,
+		"def": 3,
+		"mdef": 3,
+		"spd": 70,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 10,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 260,
+		"attack_interval_sec": 1.4,
+		"skills": [
+			"skill_pq_rapid",
+			"skill_pq_trump",
+			"skill_pq_back_off",
+			"skill_pq_party_mode",
+			"skill_pq_command",
+			"skill_pq_dance"
+		],
+		"passives": [
+			"passive_pq_victory"
+		],
+		"allocatable_stats": [
+			"hp",
+			"atk",
+			"atkspd"
+		],
+		"growth_per_level": {
+			"hp": 5,
+			"atk": 2,
+			"def": 1,
+			"spd": 1
+		}
+	},
 	"char_debug_status": {
 		"basic_attack": {
 			"effects": [

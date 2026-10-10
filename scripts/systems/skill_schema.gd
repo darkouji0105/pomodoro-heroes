@@ -126,6 +126,11 @@ const WHENS_KNOWN: Array = [WHEN_STATUS_HAS, WHEN_DEBUFF_COUNT, WHEN_HP_RATIO]
 # 処刑（回CH-8）。⚠ damage に書く。⚠ 当たったあとの HP が割合以下なら倒す（人間「⚠ ２あ」）。
 # ⚠ ボスは倒さない。⚠ 代わりに execute_boss_mult をダメージに掛ける（⚠ 書かなければ 1.0）。
 const FIELD_EXECUTE_BELOW: String = "execute_below"
+# 自分についての条件（回PQ-1・王女の「はなれなさい！」＝人間「⚠ ２あ」近くに敵がいなければ）。⚠ どの効果にも書ける。
+#   "when_user": {"source": "enemies_within", "radius": 80, "op": "eq", "value": 0}
+# ⚠ 満たさないと、その効果は当たらない（⚠ 絞り込みではなく、効果ごと飛ばす）。
+const FIELD_WHEN_USER: String = "when_user"
+const WHEN_ENEMIES_WITHIN: String = "enemies_within"
 # 能力値を割合で上げ下げする（回DB-1・人間「⚠ ４あ」）。⚠ buff と dot に書ける。⚠ −20 なら −20%。
 # ⚠ 計算は（素の値 ＋ value）×（1 ＋ 割合の合計/100）。⚠ atkspd だけは攻撃間隔に掛ける（⚠ −10 なら間隔が伸びる）。
 const FIELD_STAT_PCT: String = "stat_pct"
@@ -302,7 +307,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	BUFF_BASIC_ATTACK, BUFF_USES, BUFF_CONTROL, "distance", "to", "offset",
 	"sec", "pct", "all", "skills", "what",
 	FIELD_WHEN_TARGET, FIELD_WHEN_MULT, FIELD_WHEN_CRIT, FIELD_EXECUTE_BELOW, FIELD_EXECUTE_BOSS_MULT,
-	FIELD_STAT_PCT, FIELD_MISS_PCT,
+	FIELD_STAT_PCT, FIELD_MISS_PCT, FIELD_WHEN_USER,
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to", "per_target_stack",
 ]
@@ -350,9 +355,12 @@ const EVENT_FOE_DIED: String = "foe_died"
 const EVENT_BASIC_HIT: String = "basic_hit"
 # ⚠ スキルを撃った（本人だけに配る＝人間「⚠ ３あ」）。⚠ 通常攻撃・ルーン・購読の発火は数えない。
 const EVENT_SKILL_USED: String = "skill_used"
+# ⚠ 強化した一撃を撃った（回PQ-1・王女「⚠ 自身が強化攻撃を行うたびに」＝人間「⚠ ３あ」）。⚠ 本人だけ。
+# ⚠ 「◯回ごと」の一撃か、置き換え（basic_attack のバフ）の一撃を撃ったとき。⚠ 当たったかは見ない（撃った瞬間）。
+const EVENT_EMPOWERED_BASIC: String = "empowered_basic"
 const EVENTS_KNOWN: Array = [
 	EVENT_ATTACKED, EVENT_DEALT_DAMAGE, EVENT_TOOK_DAMAGE,
-	EVENT_FOE_DIED, EVENT_BASIC_HIT, EVENT_SKILL_USED,
+	EVENT_FOE_DIED, EVENT_BASIC_HIT, EVENT_SKILL_USED, EVENT_EMPOWERED_BASIC,
 ]
 # 通常攻撃を撃つときのスキルID（⚠ BattleController と SkillRuntime の両方が読む＝語彙はここ）。
 const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
@@ -1186,6 +1194,22 @@ static func _validate_effect(
 		for dash_field: String in ["to", "offset"]:
 			if effect.has(dash_field):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（dash だけ）" % [where, effect_type, dash_field])
+
+	# E176 自分についての条件（回PQ-1）
+	if effect.has(FIELD_WHEN_USER):
+		var raw_when_user: Variant = effect.get(FIELD_WHEN_USER, null)
+		if not (raw_when_user is Dictionary):
+			_err(issues, skill_id, "%s.when_user が辞書でない" % where)
+		else:
+			var when_user: Dictionary = raw_when_user as Dictionary
+			if str(when_user.get("source", "")) != WHEN_ENEMIES_WITHIN:
+				_err(issues, skill_id, "%s.when_user.source が不明: '%s'（%s）" % [where, str(when_user.get("source", "")), WHEN_ENEMIES_WITHIN])
+			if not _is_num(when_user.get("radius", null)) or float(when_user.get("radius", 0)) <= 0.0:
+				_err(issues, skill_id, "%s.when_user.radius が正の数でない" % where)
+			if not (str(when_user.get("op", "")) in COND_OPS_KNOWN):
+				_err(issues, skill_id, "%s.when_user.op が不明: '%s'" % [where, str(when_user.get("op", ""))])
+			if not _is_num(when_user.get("value", null)):
+				_err(issues, skill_id, "%s.when_user.value が数値でない" % where)
 
 	# E169〜E171 相手の状態で変わる・処刑（回CH-8）
 	if effect.has(FIELD_WHEN_TARGET):

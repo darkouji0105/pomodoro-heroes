@@ -502,6 +502,13 @@ func notify_results(results: Array) -> void:
 	_dispatch_damage_events(results)
 
 
+# 強化した一撃を撃った（回PQ-1）。⚠ 呼ぶのは BattleController._fire_basic_attack() の1か所。
+func notify_empowered_basic(user: BattleUnit) -> void:
+	if user == null:
+		return
+	_notify(SkillSchema.EVENT_EMPOWERED_BASIC, user.unit_id, user.unit_id)
+
+
 # スキルを使った（回CH-3）。⚠ 呼ぶのは BattleController._fire_skill() の1か所（⚠ 撃てたときだけ）。
 func notify_skill_used(user: BattleUnit) -> void:
 	if user == null:

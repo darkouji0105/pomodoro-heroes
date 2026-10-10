@@ -1289,6 +1289,9 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	if not attack.has("target"):
 		fixed_ids = [target.unit_id]
 	_skill_runtime.cast(unit, BASIC_ATTACK_SKILL_ID, attack, 1.0, fixed_ids)
+	# 強化した一撃を撃った（回PQ-1）。⚠ 置き換え・「◯回ごと」のどちらでも（⚠ いつもの一撃と違うものを撃ったとき）。
+	if attack != unit.basic_attack:
+		_skill_runtime.notify_empowered_basic(unit)
 
 
 # ⚠ is_crit / is_dot は既定値を持つ。既定値を外すと、引数を渡していない

@@ -1055,6 +1055,32 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_sc_overdrive", "prepare": PREPARE_NONE, "gap": 3.0},
 		],
 	},
+	# 弓兵の王女（回PQ-1）。⚠ 本物の戦闘で撃つ。⚠ Lv20 に上げてから枠に入れる。
+	"princess_a": {
+		"kind": KIND_BATTLE,
+		"note": "王女 A：はなれなさい！（近くにいれば蹴飛ばす・いなければ次の矢を強化）→ 優雅なダンス（後ろへ・無敵・会心倍率）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_princess", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_princess": 20},
+		"skills": {"char_princess": ["skill_pq_back_off", "skill_pq_dance"]},
+		"fire": [
+			{"skill": "skill_pq_back_off", "prepare": PREPARE_NONE},
+			{"skill": "skill_pq_dance", "prepare": PREPARE_NONE, "gap": 1.0},
+			{"skill": "skill_pq_back_off", "prepare": PREPARE_NONE, "gap": 3.0},
+		],
+	},
+	"princess_b": {
+		"kind": KIND_BATTLE,
+		"note": "王女 B：イケイケモード（味方全員に「倒れたら短縮」）→ 女王の号令（味方全員の攻撃アップ）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_princess", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_princess": 20},
+		"skills": {"char_princess": ["skill_pq_party_mode", "skill_pq_command"]},
+		"fire": [
+			{"skill": "skill_pq_party_mode", "prepare": PREPARE_NONE},
+			{"skill": "skill_pq_command", "prepare": PREPARE_NONE, "gap": 0.5},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1578,6 +1604,7 @@ func _ready() -> void:
 			_report_char_toggle()
 			_report_debuffs()
 			_report_scholar()
+			_report_princess()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -8223,6 +8250,79 @@ func _report_scholar() -> void:
 			cid, GameManager.get_stat_node_total_points(cid), GameManager.get_battle_passives(cid).size(),
 			(MasterDataLoader.get_character(cid).get("passives", []) as Array).size(),
 		])
+
+# 弓兵の王女（回PQ-1）。⚠ 学者と被らない骨組みをまとめて見る（⚠ 人間「⚠ 被ってないものを選んだら全部うまくいってるか一気に確かめられる」）。
+func _report_princess() -> void:
+	var me: BattleUnit = _resource_unit("char_princess", 0)
+	var ally: BattleUnit = _resource_unit("char_archer", 1)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 100000
+	var foe: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var foe2: BattleUnit = BattleUnit.create("enemy_1", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me, ally]
+	session.enemy_units = [foe, foe2]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	runtime.cast(me, "passive_pq_victory", MasterDataLoader.get_skill("passive_pq_victory"), 1.0)
+	for u: BattleUnit in [me, ally]:
+		u.skill_ids = ["skill_x"]
+		u.skill_cooldowns = {"skill_x": 0.0}
+
+	print("[DebugBoot] --- 43. はなれなさい！（⚠ 人間「⚠ ２あ」近くにいれば蹴飛ばす・いなければ次の通常攻撃を強化）---")
+	# ⚠ 効果ごとの狙い（自分の周り 80）は SkillRuntime が決める＝⚠ 本物の SkillRuntime から撃ち、結果は合図で受け取る。
+	var pushed: Array = []
+	var on_results: Callable = func(results: Array) -> void:
+		for r: Variant in results:
+			if r is Dictionary and str((r as Dictionary).get("kind", "")) == SkillSchema.EFFECT_KNOCKBACK:
+				pushed.append(str((r as Dictionary).get("unit_id", "")))
+	runtime.effects_applied.connect(on_results)
+	me.x = 300.0
+	foe.x = 350.0
+	foe2.x = 700.0
+	runtime.cast(me, "skill_pq_back_off", MasterDataLoader.get_skill("skill_pq_back_off"), 1.0)
+	print("  近くに敵（50 先）：押し出し %s ／ 次の通常攻撃の強化 %s（[enemy_0] ／ false）" % [str(pushed), str(not registry.basic_override(me.unit_id).is_empty())])
+	pushed.clear()
+	foe.x = 600.0
+	runtime.cast(me, "skill_pq_back_off", MasterDataLoader.get_skill("skill_pq_back_off"), 1.0)
+	print("  近くにいない：押し出し %s ／ 次の通常攻撃の強化 %s（[] ／ true）" % [str(pushed), str(not registry.basic_override(me.unit_id).is_empty())])
+	runtime.effects_applied.disconnect(on_results)
+
+	print("[DebugBoot] --- 44. パッシブ：敵が倒れたらクールダウン短縮（⚠ 1秒）---")
+	me.start_cooldown("skill_x", 10.0)
+	ally.start_cooldown("skill_x", 10.0)
+	foe2.last_attacker_id = ally.unit_id
+	foe2.hp = 0
+	runtime.notify_foe_died(foe2)
+	print("  味方が倒した：王女 %.1f ／ 弓兵 %.1f（9.0 ／ 10.0＝弓兵はパッシブを持たない）" % [me.get_cooldown("skill_x"), ally.get_cooldown("skill_x")])
+
+	print("[DebugBoot] --- 45. イケイケモード（⚠ 味方全員に「倒れたら短縮」・王女は強化した一撃でも短縮＝人間「⚠ ３あ」）---")
+	foe2.hp = foe2.max_hp
+	_control_cast("skill_pq_party_mode", me, [me, ally], session, registry)
+	_control_cast("skill_pq_party_mode", me, [me], session, registry)
+	foe2.hp = 0
+	runtime.notify_foe_died(foe2)
+	print("  モード中に敵が倒れた：王女 %.1f ／ 弓兵 %.1f（7.0＝パッシブとモードで2秒 ／ 9.0）" % [me.get_cooldown("skill_x"), ally.get_cooldown("skill_x")])
+	var cd0: float = me.get_cooldown("skill_x")
+	for i: int in range(3):
+		var override: Dictionary = registry.basic_override(me.unit_id)
+		var attack: Dictionary = me.take_basic_attack(override)
+		if not override.is_empty():
+			registry.consume_basic_override(me.unit_id)
+		if attack != me.basic_attack:
+			runtime.notify_empowered_basic(me)
+	print("  通常攻撃3回（1回目＝強化の矢・3回目＝銀の弾丸）：%.1f → %.1f（2秒縮む）" % [cd0, me.get_cooldown("skill_x")])
+
+	print("[DebugBoot] --- 46. 女王の号令・優雅なダンス ---")
+	var atk0: int = ally.get_stat("atk")
+	_control_cast("skill_pq_command", me, [me, ally], session, registry)
+	print("  号令：弓兵の攻撃 %d → %d（+15%%）" % [atk0, ally.get_stat("atk")])
+	me.x = 400.0
+	var dance: Array = _control_cast("skill_pq_dance", me, [me], session, registry)
+	print("  ダンス：下がる先 x = %s（280）・無敵 %s（true）・会心倍率 %d（150 + 50 = 200）" % [_dash_x(dance), str(me.invulnerable), me.get_stat("crit_dmg")])
+	registry.tick(0.7)
+	print("  0.7秒後：無敵 %s（false）・会心倍率 %d（200 のまま）" % [str(me.invulnerable), me.get_stat("crit_dmg")])
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)

@@ -99,6 +99,8 @@ const CHARACTER_DIRS_REQUIRED: Array[String] = [
 	DIR_CHARACTERS + "char_priest/",
 	# ⚠ 学者（2026-10-10・回SC-1）。
 	DIR_CHARACTERS + "char_scholar/",
+	# ⚠ 弓兵の王女（2026-10-10・回PQ-1）。
+	DIR_CHARACTERS + "char_princess/",
 ]
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const CHARACTER_DIRS_OPTIONAL: Array[String] = [
