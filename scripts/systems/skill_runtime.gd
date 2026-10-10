@@ -118,6 +118,11 @@ func cast(
 
 	# チャージ倍率は effects[].multiplier に畳み込んでから割る。
 	var effective: Dictionary = SkillResolver.fold_charge_ratio(skill_data, power_ratio)
+	# クールダウンの "others"（回CH-7）。⚠ 撃ったスキルの ID を効果に書く（⚠ resolve() はスキル ID を知らない）。
+	if effective.get("effects", null) is Array:
+		for raw_cd: Variant in (effective["effects"] as Array):
+			if raw_cd is Dictionary and str((raw_cd as Dictionary).get("type", "")) == SkillSchema.EFFECT_COOLDOWN:
+				(raw_cd as Dictionary)[SkillSchema.COOLDOWN_FIELD_EXCEPT] = skill_id
 	var raw_effects: Variant = effective.get("effects", null)
 	if not (raw_effects is Array) or (raw_effects as Array).is_empty():
 		push_error("[SkillRuntime] cast: effects が無い (skill_id=%s)" % skill_id)

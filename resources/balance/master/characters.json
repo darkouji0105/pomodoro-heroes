@@ -264,7 +264,11 @@
 			"skill_dbg_ctl_unstoppable",
 			"skill_dbg_mv_charge",
 			"skill_dbg_mv_dive",
-			"skill_dbg_mv_step"
+			"skill_dbg_mv_step",
+			"skill_dbg_cd_sec",
+			"skill_dbg_cd_reset_others",
+			"skill_dbg_dispel_debuff",
+			"skill_dbg_dispel_buff"
 		],
 		"passives": [
 			"passive_dbg_atk",

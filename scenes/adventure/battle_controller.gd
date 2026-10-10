@@ -1805,7 +1805,9 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool
 		-1 if phase_total <= 1 else phase_index
 	)
 	# スキルを使った（回CH-3・本人だけ）。⚠ 撃てたときだけ・段ごとに1回。
-	_skill_runtime.notify_skill_used(user)
+	# ⚠ パッシブは数えない（回CH-7 で見つけた：パッシブの付け直しもこの口を通るため、そのたびに出ていた）。
+	if str(skill_data.get("activation", "")) != SkillSchema.ACTIVATION_PASSIVE:
+		_skill_runtime.notify_skill_used(user)
 
 	# skills.json の cooldown_sec は base。haste を通してから渡す。
 	# ⚠ 待ち行列が空になるのを待たない。押した時点で回り始めるのが今の挙動。

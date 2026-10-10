@@ -160,17 +160,9 @@ static func tone_of(entry: Dictionary) -> Tone:
 		return Tone.REVIVE
 	if _is_shield_only(entry):
 		return Tone.HIDDEN
-	var kind: String = str(entry.get("kind", ""))
-	if kind == StatusRegistry.KIND_DOT and not bool(entry.get("heals", false)):
+	# ⚠ 赤（デバフ）の条件は器の1本（回CH-7・解除も同じ判定を使う＝人間「⚠ ３い」色で分ける）。
+	if StatusRegistry.is_debuff_entry(entry):
 		return Tone.DEBUFF
-	# ⚠ スタン・スネアは悪い状態（回CH-5）。⚠ 無敵・止められないは良い状態のまま。
-	if str(entry.get(SkillSchema.BUFF_CONTROL, "")) in SkillSchema.CONTROLS_STOPPABLE:
-		return Tone.DEBUFF
-	if str(entry.get("stat", "")) != "" and int(entry.get("value", 0)) < 0:
-		return Tone.DEBUFF
-	for key: String in ["atk_mult_pct", "heal_taken_pct", SkillSchema.INTERVENE_REDUCTION_PCT]:
-		if int(entry.get(key, 0)) < 0:
-			return Tone.DEBUFF
 	return Tone.BUFF
 
 

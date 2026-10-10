@@ -96,18 +96,34 @@ const EFFECT_KNOCKBACK: String = "knockback"
 #   {"type": "dash", "to": "back", "distance": 120} … 後ろへ下がる（ステップ）
 # ⚠ 座標を動かすのは戦闘の画面（⚠ 結果に載せるだけ＝ノックバックと同じ）。⚠ スネア中は動かない（⚠ 設計役の仮）。
 const EFFECT_DASH: String = "dash"
+# クールダウンを縮める・消す（回CH-7・EXEC_CHAR_RESOURCE.md §14）。⚠ 宛先はスキルの target（自分・味方）。
+#   {"type": "cooldown", "sec": 3, "skills": "all"}      … 3秒縮める
+#   {"type": "cooldown", "pct": 30, "skills": "others"}  … 残りの 30% 縮める（⚠ 残りに対して）
+#   {"type": "cooldown", "all": true, "skills": ["skill_x"]} … 全部消す
+# ⚠ 量は sec ／ pct ／ all のどれか1つ（人間「⚠ １う」）。
+# ⚠ skills＝"all"（全部）／ "others"（撃ったスキル以外）／ ID の配列。⚠ "others" の除外は SkillRuntime が撃つ瞬間に書く（`_except`）。
+const EFFECT_COOLDOWN: String = "cooldown"
+const COOLDOWN_SKILLS_ALL: String = "all"
+const COOLDOWN_SKILLS_OTHERS: String = "others"
+const COOLDOWN_FIELD_EXCEPT: String = "_except"
+# 解除（回CH-7）。{"type": "dispel", "what": "debuff"}。⚠ 当てはまるものを全部消す（人間「⚠ ２あ」）。
+# ⚠ デバフ＝状態のマスが赤いもの（人間「⚠ ３い」＝`StatusRegistry.is_debuff_entry()`）・バフ＝それ以外。
+# ⚠ パッシブの状態は消しても次のフレームで付け直る（`_restore_passives()`）＝実質消えない。
+const EFFECT_DISPEL: String = "dispel"
+const DISPEL_DEBUFF: String = "debuff"
+const DISPEL_BUFF: String = "buff"
 const DASH_TO_TARGET: String = "target"
 const DASH_TO_BACK: String = "back"
 const DASH_TOS_KNOWN: Array = [DASH_TO_TARGET, DASH_TO_BACK]
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
-	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH,
-	"dispel", "cancel", "transform", "move"
+	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
+	"cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
-	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH,
+	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
 ]
 # resource の欄。⚠ amount（足す・負なら減らす）と set_to（その値にする）はどちらか1つ。
 # ⚠ 持ち主にその資源があるか・種類と欄が合うかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
@@ -252,6 +268,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	"react", "condition",
 	BUFF_INTERVENE, FIELD_ZONE, FIELD_HEALS, BUFF_ATK_MULT_PCT,
 	BUFF_BASIC_ATTACK, BUFF_USES, BUFF_CONTROL, "distance", "to", "offset",
+	"sec", "pct", "all", "skills", "what",
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to",
 ]
@@ -1097,6 +1114,42 @@ static func _validate_effect(
 		for dash_field: String in ["to", "offset"]:
 			if effect.has(dash_field):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（dash だけ）" % [where, effect_type, dash_field])
+
+	# E167〜E168 クールダウン・解除（回CH-7）
+	if effect_type == EFFECT_COOLDOWN:
+		var amounts: int = 0
+		for amount_field: String in ["sec", "pct", "all"]:
+			if effect.has(amount_field):
+				amounts += 1
+		if amounts != 1:
+			_err(issues, skill_id, "%s は sec ／ pct ／ all のどれか1つを書く" % where)
+		if effect.has("sec") and (not _is_num(effect.get("sec", null)) or float(effect.get("sec", 0)) <= 0.0):
+			_err(issues, skill_id, "%s.sec が正の数でない" % where)
+		if effect.has("pct") and (not _is_num(effect.get("pct", null)) or float(effect.get("pct", 0)) <= 0.0 or float(effect.get("pct", 0)) > 100.0):
+			_err(issues, skill_id, "%s.pct が 0 より大きく 100 以下でない" % where)
+		if effect.has("all") and effect.get("all", null) != true:
+			_err(issues, skill_id, "%s.all は true だけ書ける" % where)
+		var raw_skills: Variant = effect.get("skills", null)
+		if raw_skills is Array:
+			if (raw_skills as Array).is_empty():
+				_err(issues, skill_id, "%s.skills が空の配列" % where)
+		elif not (str(raw_skills) in [COOLDOWN_SKILLS_ALL, COOLDOWN_SKILLS_OTHERS]):
+			_err(issues, skill_id, "%s.skills が 'all' ／ 'others' ／ ID の配列でない（必須）" % where)
+		if effect.has(COOLDOWN_FIELD_EXCEPT):
+			_err(issues, skill_id, "%s.%s はデータに書けない（撃つ瞬間にコードが書く）" % [where, COOLDOWN_FIELD_EXCEPT])
+	else:
+		for cd_field: String in ["sec", "pct", "all", "skills"]:
+			if effect.has(cd_field):
+				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（cooldown だけ）" % [where, effect_type, cd_field])
+	if effect_type == EFFECT_DISPEL:
+		if not (str(effect.get("what", "")) in [DISPEL_DEBUFF, DISPEL_BUFF]):
+			_err(issues, skill_id, "%s.what が 'debuff' ／ 'buff' でない（必須）" % where)
+	elif effect.has("what"):
+		_err(issues, skill_id, "%s.type: '%s' に what は書けない（dispel だけ）" % [where, effect_type])
+	if effect_type in [EFFECT_COOLDOWN, EFFECT_DISPEL]:
+		for forbidden: String in ["scale_from", "multiplier", "attack_type", "host"]:
+			if effect.has(forbidden):
+				_err(issues, skill_id, "%s.type: '%s' に %s は書けない" % [where, effect_type, forbidden])
 
 	# E162〜E163 通常攻撃を置き換える（回CH-4）
 	if effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_USES):

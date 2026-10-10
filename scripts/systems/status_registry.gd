@@ -1494,6 +1494,40 @@ func consume_shield(unit_id: String, amount: int) -> int:
 	return absorbed
 
 
+# 状態のマスが赤い（デバフ）か（回CH-7）。⚠ マスの色（StatusChips.tone_of）と解除がここを使う＝判定は1本。
+# ⚠ 復活・シールドだけの件は赤にならない（⚠ tone_of が先に弾く）。
+static func is_debuff_entry(entry: Dictionary) -> bool:
+	if str(entry.get("kind", "")) == KIND_DOT and not bool(entry.get("heals", false)):
+		return true
+	# ⚠ スタン・スネアは悪い状態（回CH-5）。⚠ 無敵・止められないは良い状態のまま。
+	if str(entry.get(SkillSchema.BUFF_CONTROL, "")) in SkillSchema.CONTROLS_STOPPABLE:
+		return true
+	if str(entry.get("stat", "")) != "" and int(entry.get("value", 0)) < 0:
+		return true
+	for key: String in [SkillSchema.BUFF_ATK_MULT_PCT, "heal_taken_pct", SkillSchema.INTERVENE_REDUCTION_PCT]:
+		if int(entry.get(key, 0)) < 0:
+			return true
+	return false
+
+
+# 解除（回CH-7）。⚠ そのユニットに宿っている（host: unit）状態のうち、デバフ／バフを全部消す（人間「⚠ ２あ」）。
+# ⚠ 範囲（host: point）・戦場（host: battle）は消さない（⚠ 宿主が居ない）。⚠ 戻り値は消した数。
+func dispel(unit_id: String, debuff: bool) -> int:
+	var rest: Array = []
+	var removed: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("host", "")) == SkillSchema.HOST_UNIT and str(entry.get("host_unit_id", "")) == unit_id \
+				and is_debuff_entry(entry) == debuff:
+			BattleLog.log_status_end(str(entry.get("status_id", "")), unit_id, "dispelled")
+			removed += 1
+			continue
+		rest.append(entry)
+	if removed > 0:
+		_entries = rest
+		_rebuild_unit_mods(unit_id)
+	return removed
+
+
 # 通常攻撃を置き換える一撃（回CH-4）。⚠ 無ければ空。⚠ 何本かあれば**新しく付いたほう**。
 func basic_override(unit_id: String) -> Dictionary:
 	var index: int = _basic_override_index(unit_id)

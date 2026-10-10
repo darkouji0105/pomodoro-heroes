@@ -1498,6 +1498,7 @@ func _ready() -> void:
 			_report_char_basic()
 			_report_char_control()
 			_report_char_dash()
+			_report_char_cd_dispel()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7794,6 +7795,84 @@ func _dash_x(results: Array) -> String:
 		if r is Dictionary and str((r as Dictionary).get("kind", "")) == SkillSchema.EFFECT_DASH:
 			return "%.0f" % float((r as Dictionary).get("x", 0.0))
 	return "なし"
+
+# クールダウン・解除（回CH-7）。⚠ "others" の除外は SkillRuntime が撃つ瞬間に書くので、⚠ 本物の SkillRuntime から撃つ。
+func _report_char_cd_dispel() -> void:
+	var status_id: String = "char_debug_status"
+	var me: BattleUnit = _resource_unit(status_id, 0)
+	var foe_data: Dictionary = MasterDataLoader.get_enemy("enemy_slime")
+	var foe: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = [foe]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	var a: String = "skill_dbg_cd_reset_others"
+	var b: String = "skill_dbg_res_charge"
+	var c: String = "skill_dbg_res_soul_gain"
+	me.skill_ids = [a, b, c]
+	for sid: String in [a, b, c]:
+		me.start_cooldown(sid, 10.0)
+
+	print("[DebugBoot] --- 23. クールダウン（⚠ 3つとも残り 10 秒から）---")
+	_control_cast("skill_dbg_cd_sec", me, [me], session, registry)
+	print("  3秒縮める：%s（[7, 7, 7] が正解）" % _cd_list(me, [a, b, c]))
+	SkillResolver.resolve({"effects": [{"type": "cooldown", "pct": 30.0, "skills": [b]}]}, me, session, [me.unit_id], registry)
+	print("  %s だけ 30%%：%s（[7, 4.9, 7] が正解＝残りの 30%%）" % [b, _cd_list(me, [a, b, c])])
+	runtime.cast(me, a, MasterDataLoader.get_skill(a), 1.0)
+	print("  撃ったスキル以外を全部消す（%s を撃った）：%s（[7, 0, 0] が正解）" % [a, _cd_list(me, [a, b, c])])
+	SkillResolver.resolve({"effects": [{"type": "cooldown", "sec": 100.0, "skills": "all"}]}, me, session, [me.unit_id], registry)
+	print("  100秒縮める：%s（[0, 0, 0] が正解＝0 より下にしない）" % _cd_list(me, [a, b, c]))
+
+	print("[DebugBoot] --- 24. 解除（⚠ 人間「⚠ ２あ」全部消す・「⚠ ３い」マスの色で分ける）---")
+	_control_cast("skill_dbg_debuff_def", foe, [me], session, registry)
+	_control_cast("skill_dbg_ctl_snare", foe, [me], session, registry)
+	_control_cast("skill_dbg_buff_refresh", me, [me], session, registry)
+	print("  解除の前：防御ダウン %s・スネア %s・攻撃アップ %s（true / true / true）" % [
+		str(registry.has({"host_unit_id": me.unit_id, "status_id": "status_dbg_def_down"})), str(me.snared),
+		str(registry.has({"host_unit_id": me.unit_id, "status_id": "status_dbg_atk_refresh"})),
+	])
+	_control_cast("skill_dbg_dispel_debuff", me, [me], session, registry)
+	print("  デバフ解除：防御ダウン %s・スネア %s・攻撃アップ %s（false / false / true）" % [
+		str(registry.has({"host_unit_id": me.unit_id, "status_id": "status_dbg_def_down"})), str(me.snared),
+		str(registry.has({"host_unit_id": me.unit_id, "status_id": "status_dbg_atk_refresh"})),
+	])
+	print("  防御が戻った：防御の補正 %d（0 が正解）" % registry.stat_mod(me.unit_id, "def"))
+	_control_cast("skill_dbg_buff_refresh", foe, [foe], session, registry)
+	_control_cast("skill_dbg_ctl_stun", me, [foe], session, registry)
+	_control_cast("skill_dbg_dispel_buff", me, [foe], session, registry)
+	print("  敵のバフ解除：攻撃アップ %s・スタン %s（false / true＝赤いスタンは残る）" % [
+		str(registry.has({"host_unit_id": foe.unit_id, "status_id": "status_dbg_atk_refresh"})), str(foe.stunned),
+	])
+
+	print("[DebugBoot] --- 25. 壊した書き方を弾く（⚠ 赤は出さず件数だけ）---")
+	var probes: Array = [
+		["sec と all の両方", {"type": "cooldown", "sec": 1.0, "all": true, "skills": "all"}],
+		["量が無い", {"type": "cooldown", "skills": "all"}],
+		["pct が 120", {"type": "cooldown", "pct": 120, "skills": "all"}],
+		["skills が無い", {"type": "cooldown", "sec": 1.0}],
+		["_except をデータに書く", {"type": "cooldown", "sec": 1.0, "skills": "others", "_except": "x"}],
+		["what が不明", {"type": "dispel", "what": "all"}],
+		["damage に what", {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "what": "buff"}],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": status_id, "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "self"}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(probe[0]), errors])
+
+
+func _cd_list(unit: BattleUnit, ids: Array) -> String:
+	var shown: Array = []
+	for sid: Variant in ids:
+		shown.append(snappedf(unit.get_cooldown(str(sid)), 0.01))
+	return str(shown)
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)

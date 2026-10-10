@@ -857,5 +857,77 @@
 				"distance": 150.0
 			}
 		]
+	},
+	"skill_dbg_cd_sec": {
+		"name_key": "ui_battle_skill_dbg_cd_sec",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "cooldown",
+				"sec": 3.0,
+				"skills": "all"
+			}
+		]
+	},
+	"skill_dbg_cd_reset_others": {
+		"name_key": "ui_battle_skill_dbg_cd_reset_others",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "cooldown",
+				"all": true,
+				"skills": "others"
+			}
+		]
+	},
+	"skill_dbg_dispel_debuff": {
+		"name_key": "ui_battle_skill_dbg_dispel_debuff",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "dispel",
+				"what": "debuff"
+			}
+		]
+	},
+	"skill_dbg_dispel_buff": {
+		"name_key": "ui_battle_skill_dbg_dispel_buff",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "dispel",
+				"what": "buff"
+			}
+		]
 	}
 }

@@ -355,6 +355,19 @@ static func resolve(
 				_apply_knockback(effect, user, t, results)
 		elif effect_type == SkillSchema.EFFECT_DASH:
 			_apply_dash(effect, user, targets, results)
+		elif effect_type == SkillSchema.EFFECT_COOLDOWN:
+			# クールダウン（回CH-7）。⚠ 宛先はスキルの target。
+			for t: BattleUnit in targets:
+				t.reduce_cooldowns(
+					effect.get("skills", SkillSchema.COOLDOWN_SKILLS_ALL),
+					str(effect.get(SkillSchema.COOLDOWN_FIELD_EXCEPT, "")),
+					float(effect.get("sec", 0.0)), float(effect.get("pct", 0.0)),
+					bool(effect.get("all", false))
+				)
+		elif effect_type == SkillSchema.EFFECT_DISPEL:
+			# 解除（回CH-7）。⚠ registry は StatusRegistry（RefCounted で受けている＝相互参照を避ける）。
+			for t: BattleUnit in targets:
+				registry.dispel(t.unit_id, str(effect.get("what", "")) == SkillSchema.DISPEL_DEBUFF)
 		elif effect_type in SkillSchema.EFFECT_TYPES_KNOWN:
 			push_warning("[SkillResolver] 未実装の効果: '%s'。この効果を飛ばす" % effect_type)
 		else:

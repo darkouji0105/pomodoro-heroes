@@ -520,6 +520,32 @@ func get_cooldown(skill_id: String) -> float:
 	return float(skill_cooldowns.get(skill_id, 0.0))
 
 
+# クールダウンを縮める・消す（回CH-7）。⚠ 戻り値は縮めたスキルの数。
+# skills … "all" ／ "others"（except_id 以外）／ ID の配列。⚠ 持っていないスキルは黙って飛ばす。
+# ⚠ pct は残りに対して（30 なら残りの 30% 縮める）。⚠ 0 より下にしない。
+func reduce_cooldowns(skills: Variant, except_id: String, sec: float, pct: float, reset: bool) -> int:
+	var touched: int = 0
+	for raw: Variant in skill_ids:
+		var skill_id: String = str(raw)
+		if skills is Array:
+			if not (skill_id in (skills as Array)):
+				continue
+		elif str(skills) == SkillSchema.COOLDOWN_SKILLS_OTHERS and skill_id == except_id:
+			continue
+		var left: float = get_cooldown(skill_id)
+		if left <= 0.0:
+			continue
+		if reset:
+			left = 0.0
+		elif pct > 0.0:
+			left -= left * pct / 100.0
+		else:
+			left -= sec
+		skill_cooldowns[skill_id] = maxf(0.0, left)
+		touched += 1
+	return touched
+
+
 # ========================================================================
 # 構え（activation: recast・段階5）
 # ========================================================================
