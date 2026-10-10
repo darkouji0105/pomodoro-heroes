@@ -744,6 +744,10 @@ static func _scale_value_sum(
 		var source: String = str(entry.get("source", ""))
 		var of: String = str(entry.get("of", SkillSchema.SCALE_OF_USER))
 		var weight: float = float(entry.get("weight", 1.0))
+		# 払った量（回CH-2）。⚠ 撃つ瞬間に fold_resource_spent() が項へ書いた値（⚠ 無ければ 0）。
+		if source == SkillSchema.SCALE_RESOURCE_SPENT:
+			total += weight * float(entry.get(SkillSchema.SCALE_FIELD_SPENT, 0.0))
+			continue
 		# ⚠ status_id は source: "stack" のときだけ意味を持つ（E71 / E72 が守る）。
 		var status_id: String = str(entry.get("status_id", ""))
 		total += weight * _scale_variable(source, of, user, target, session, registry, status_id)
@@ -830,6 +834,35 @@ static func _scale_variable(
 # ============================================================
 # チャージ
 # ============================================================
+
+# 払った量を scale_from の resource_spent の項へ書き込んだ実効データを返す（回CH-2）。
+# ⚠ fold_charge_ratio() と同じ形（⚠ resolve() は払ったことを知らずに済む）。
+# ⚠ 撃つ瞬間に1回だけ。⚠ 遅れて発火する効果・購読の中にも同じ値が届く。
+static func fold_resource_spent(skill_data: Dictionary, spent: int) -> Dictionary:
+	var effective: Dictionary = skill_data.duplicate(true)
+	var raw_effects: Variant = effective.get("effects", null)
+	if raw_effects is Array:
+		_fold_spent_into(raw_effects as Array, spent)
+	return effective
+
+
+static func _fold_spent_into(effects: Array, spent: int) -> void:
+	for raw_effect: Variant in effects:
+		if not (raw_effect is Dictionary):
+			continue
+		var effect: Dictionary = raw_effect as Dictionary
+		var raw_scale: Variant = effect.get("scale_from", null)
+		if raw_scale is String and str(raw_scale) == SkillSchema.SCALE_RESOURCE_SPENT:
+			effect["scale_from"] = [{"source": SkillSchema.SCALE_RESOURCE_SPENT}]
+			raw_scale = effect["scale_from"]
+		if raw_scale is Array:
+			for term: Variant in (raw_scale as Array):
+				if term is Dictionary and str((term as Dictionary).get("source", "")) == SkillSchema.SCALE_RESOURCE_SPENT:
+					(term as Dictionary)[SkillSchema.SCALE_FIELD_SPENT] = spent
+		var raw_react: Variant = effect.get("react", null)
+		if raw_react is Dictionary and (raw_react as Dictionary).get("effects", null) is Array:
+			_fold_spent_into((raw_react as Dictionary)["effects"] as Array, spent)
+
 
 # チャージ倍率を effects[].multiplier に畳み込んだ実効スキルデータを返す。
 # こうすると resolve() は「倍率が違うスキル」を解くだけでよく、

@@ -145,6 +145,30 @@ func set_resource(resource_id: String, value: int) -> void:
 	resources[resource_id] = clampi(value, 0, int(def.get("max", 0)))
 
 
+# スキルの cost を払えるか（回CH-2）。⚠ cost が無ければ常に true。
+# ⚠ `all: true` は 1 以上ないと払えない（人間「⚠ ２あ」）。⚠ 状態を変えない。
+func can_pay_cost(cost: Dictionary) -> bool:
+	if cost.is_empty():
+		return true
+	var have: int = get_resource(str(cost.get(SkillSchema.COST_FIELD_RESOURCE_ID, "")))
+	if bool(cost.get(SkillSchema.COST_FIELD_ALL, false)):
+		return have >= 1
+	return have >= int(cost.get(SkillSchema.COST_FIELD_AMOUNT, 0))
+
+
+# 払う。戻り値は払った量（⚠ cost が無ければ -1＝払っていない）。
+# ⚠ 呼ぶ前に `can_pay_cost()` が通っていること（⚠ 判定は SkillActivation に集めてある）。
+func pay_cost(cost: Dictionary) -> int:
+	if cost.is_empty():
+		return -1
+	var resource_id: String = str(cost.get(SkillSchema.COST_FIELD_RESOURCE_ID, ""))
+	var spent: int = get_resource(resource_id)
+	if not bool(cost.get(SkillSchema.COST_FIELD_ALL, false)):
+		spent = mini(spent, int(cost.get(SkillSchema.COST_FIELD_AMOUNT, 0)))
+	add_resource(resource_id, -spent)
+	return spent
+
+
 # 持ち越しの値を載せる（⚠ 戦闘の始め）。⚠ `carry_over: true` の資源だけ・欄が無ければ始めの値のまま。
 func load_carried_resources(carry: Dictionary) -> void:
 	for raw: Variant in resource_defs:

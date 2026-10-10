@@ -1530,6 +1530,8 @@ static func _validate_all_skills() -> void:
 		#   summons.json を知らない（射程 × attack_range と同じ理由でここに置く）。
 		# ⚠ 段（phases）の中の効果も見ること。phases が無いスキルでは
 		#   phase_of() が data をそのまま返すので、書き方は1本で済む。
+		# 資源を払うスキル（回CH-2・E160）。⚠ cost はスキルの直下だけ＝スキルごとに1回。
+		error_count += _check_cost_owner(str(skill_id), data)
 		for phase_index: int in range(SkillSchema.phase_count(data)):
 			var phase: Dictionary = SkillSchema.phase_of(data, phase_index)
 			var raw_effects: Variant = phase.get("effects", null)
@@ -1574,7 +1576,7 @@ static func _validate_all_skills() -> void:
 const CHARACTER_RESOURCE_MAX: int = 2
 
 
-# characters.json の resources の形を見る（回CH-1・E144 / E145）。戻り値は赤の件数。
+# characters.json の resources の形を見る（回CH-1・E153 / E145）。戻り値は赤の件数。
 #
 # ⚠ 既定値を作らない（召喚の4欄と同じ方針）。⚠ carry_over も必須
 #   （⚠ 書き忘れが「持ち越すはずが戻る」の無音になる）。
@@ -1632,7 +1634,7 @@ static func character_resource_issues(character_id: String, entry: Dictionary) -
 			issues.append(at + ".carry_over が bool でない（⚠ 必須）")
 		if str(def.get("name_key", "")) == "":
 			issues.append(at + ".name_key が無い")
-		# E145 … 状態は札の文字を max + 1 個持つ。⚠ 状態以外は書けない。
+		# E154 … 状態は札の文字を max + 1 個持つ。⚠ 状態以外は書けない。
 		var raw_labels: Variant = def.get("labels", null)
 		if kind == BattleUnit.RESOURCE_KIND_STATE:
 			if not (raw_labels is Array) or (raw_labels as Array).size() != max_value + 1:
@@ -1651,6 +1653,33 @@ static func _check_resource_effect_owner(skill_id: String, data: Dictionary, eff
 	return 1
 
 
+# スキルの cost が指す資源が持ち主にあり、ゲージかストックか（回CH-2・E160）。戻り値は赤の件数。
+static func _check_cost_owner(skill_id: String, data: Dictionary) -> int:
+	var message: String = cost_owner_issue(skill_id, data)
+	if message == "":
+		return 0
+	push_error(message)
+	return 1
+
+
+# 上の中身（⚠ 無ければ ""・cost が無くても ""）。⚠ 赤は出さない。
+static func cost_owner_issue(skill_id: String, data: Dictionary) -> String:
+	var cost: Dictionary = SkillSchema.cost_of(data)
+	var resource_id: String = str(cost.get(SkillSchema.COST_FIELD_RESOURCE_ID, ""))
+	if resource_id == "":
+		return ""  # ⚠ cost が無い・空は SkillSchema の E156 が言う
+	var owner_id: String = str(data.get("user_character_id", ""))
+	var owner: Variant = _cache_characters.get(owner_id, null)
+	var defs: Variant = (owner as Dictionary).get("resources", null) if owner is Dictionary else null
+	if defs is Array:
+		for raw: Variant in (defs as Array):
+			if raw is Dictionary and str((raw as Dictionary).get("id", "")) == resource_id:
+				if str((raw as Dictionary).get("kind", "")) == BattleUnit.RESOURCE_KIND_STATE:
+					return "[MasterDataLoader] skills %s: cost '%s' は state（払えるのはゲージかストックだけ）" % [skill_id, resource_id]
+				return ""
+	return "[MasterDataLoader] skills %s: cost '%s' を持ち主 '%s' が持っていない" % [skill_id, resource_id, owner_id]
+
+
 # 上の中身（⚠ 無ければ ""）。⚠ 赤は出さない。
 #
 # ⚠ SkillSchema 側に書けない（⚠ characters.json を知らない＝E100 と同じ理由）。
@@ -1660,7 +1689,7 @@ static func resource_effect_owner_issue(skill_id: String, data: Dictionary, effe
 	var owner_id: String = str(data.get("user_character_id", ""))
 	var resource_id: String = str(effect.get(SkillSchema.RESOURCE_FIELD_ID, ""))
 	if resource_id == "":
-		return ""  # ⚠ 空は SkillSchema の E142 が言う
+		return ""  # ⚠ 空は SkillSchema の E151 が言う
 	var owner: Variant = _cache_characters.get(owner_id, null)
 	var defs: Variant = (owner as Dictionary).get("resources", null) if owner is Dictionary else null
 	if defs is Array:

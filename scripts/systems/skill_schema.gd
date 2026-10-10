@@ -365,10 +365,41 @@ const FIELD_UNLOCK_LEVEL: String = "unlock_level"
 const FIELD_UNLOCK_TOTAL_POINTS: String = "unlock_total_points"
 
 # スキル直下に書いてよい欄。
+# 資源を払って撃つ（2026-10-10・回CH-2・EXEC_CHAR_RESOURCE.md §9）。
+#
+#   "cost": {"resource_id": "charge", "amount": 40} … 40 払う（⚠ 足りなければ撃てない）
+#   "cost": {"resource_id": "charge", "all": true}  … 全部払う（⚠ 1 以上ないと撃てない＝人間「⚠ ２あ」）
+#
+# ⚠ 払うのは1段目だけ（⚠ クールダウンと同じ）。⚠ 足りないとマスは暗く押せない（人間「⚠ １あ」）。
+# ⚠ 持ち主にその資源があるか・ゲージかストックかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
+const FIELD_COST: String = "cost"
+const COST_FIELD_RESOURCE_ID: String = "resource_id"
+const COST_FIELD_AMOUNT: String = "amount"
+const COST_FIELD_ALL: String = "all"
+const COST_FIELDS_KNOWN: Array = [COST_FIELD_RESOURCE_ID, COST_FIELD_AMOUNT, COST_FIELD_ALL]
+
+# 払った量で効果を変える（回CH-2・人間「⚠ ３あ」＝使った量に比例）。scale_from の項に書く：
+#   {"source": "resource_spent", "weight": 1.0}
+# ⚠ 値は撃つ瞬間に `SkillResolver.fold_resource_spent()` が項へ書き込む（⚠ 遅れて発火する効果にも同じ値が届く）。
+# ⚠ `scale_sources()` には足さない（⚠ あちらは condition の語彙も兼ねる＝条件には書けない）。
+# ⚠ `cost` を持つスキルにしか書けない ／ ⚠ 段（phases）のあるスキルには書けない（⚠ 払うのは1段目だけ）。
+const SCALE_RESOURCE_SPENT: String = "resource_spent"
+# ⚠ コードだけが書く欄（⚠ データに書いたら赤）。
+const SCALE_FIELD_SPENT: String = "_spent"
+
+
+# スキルの cost（⚠ 無ければ空）。
+static func cost_of(skill_data: Dictionary) -> Dictionary:
+	var raw: Variant = skill_data.get(FIELD_COST, null)
+	return raw as Dictionary if raw is Dictionary else {}
+
+
 # ⚠ typo を黙って既定値にしないための最後の砦（E26）。
 const SKILL_FIELDS_KNOWN: Array = [
 	"name_key", "user_character_id", "unlock_level", "unlock_total_points", "cooldown_sec",
 	"activation", "charge", "recast", "target", "effects", "phases",
+	# 資源を払う（2026-10-10・回CH-2）。
+	FIELD_COST,
 	# レリック（段階14-d）。⚠ relics.json は skills.json と同じ辞書へマージされるので、
 	#   ここに並べないと E26「知らない欄がある」で全件が赤になる。
 	FIELD_RELIC_SCOPE,
@@ -602,6 +633,9 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 		_err(issues, skill_id, "%s が不明: '%s'（%s のどちらか）" % [
 			FIELD_RELIC_SCOPE, relic_scope, str(RELIC_SCOPES_KNOWN)
 		])
+
+	# E156〜E159 資源を払う（回CH-2）
+	_validate_cost(issues, skill_id, data)
 
 	# E3
 	if str(data.get("name_key", "")) == "":
@@ -972,11 +1006,11 @@ static func _validate_effect(
 					where, effect_type, summon_field
 				])
 
-	# E141〜E143 固有の資源（回CH-1）
+	# E150〜E152 固有の資源（回CH-1）
 	if effect_type == EFFECT_RESOURCE:
 		_validate_resource_effect(issues, skill_id, effect, where)
 	else:
-		# E141 … 資源だけの欄を他の効果に書かせない（E99 と同じ形）。
+		# E150 … 資源だけの欄を他の効果に書かせない（E99 と同じ形）。
 		for resource_field: String in RESOURCE_ONLY_FIELDS:
 			if effect.has(resource_field):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（type: 'resource' だけの欄）" % [
@@ -1176,10 +1210,10 @@ static func _validate_react_effect(
 static func _validate_resource_effect(
 		issues: Array, skill_id: String, effect: Dictionary, where: String
 ) -> void:
-	# E142 resource_id は必須
+	# E151 resource_id は必須
 	if str(effect.get(RESOURCE_FIELD_ID, "")) == "":
 		_err(issues, skill_id, "%s.resource_id が無い（type: 'resource' は必須）" % where)
-	# E143 amount と set_to はどちらか1つ・整数
+	# E152 amount と set_to はどちらか1つ・整数
 	var has_amount: bool = effect.has(RESOURCE_FIELD_AMOUNT)
 	var has_set_to: bool = effect.has(RESOURCE_FIELD_SET_TO)
 	if has_amount == has_set_to:
@@ -1608,8 +1642,11 @@ static func _validate_scale_from(
 			continue
 		var entry: Dictionary = term as Dictionary
 		var source: String = str(entry.get("source", ""))
-		if not (source in known):
+		if not (source in known) and source != SCALE_RESOURCE_SPENT:
 			_err(issues, skill_id, "%s.scale_from の source が不明: '%s'" % [where, source])
+		# E159 … 払った量はコードが書く（⚠ データに書くと払った量と食い違う）。
+		if entry.has(SCALE_FIELD_SPENT):
+			_err(issues, skill_id, "%s.scale_from の %s はデータに書けない（撃つ瞬間にコードが書く）" % [where, SCALE_FIELD_SPENT])
 		if entry.has("of") and not (str(entry.get("of", "")) in SCALE_OF_KNOWN):
 			_err(issues, skill_id, "%s.scale_from の of が不明: '%s'" % [where, str(entry.get("of", ""))])
 		if entry.has("weight") and not _is_num(entry.get("weight", null)):
@@ -1634,6 +1671,71 @@ static func _validate_scale_from(
 		# ⚠ 黄にしてある。赤にすると、既存の distance + of の書き方が全部止まる。
 		if entry.has("of") and (source in SCALE_SOURCES_NO_OF):
 			_warn(issues, skill_id, "%s.scale_from の source: '%s' は of を読まない（無視される）" % [where, source])
+
+
+# cost の形（回CH-2）。
+static func _validate_cost(issues: Array, skill_id: String, data: Dictionary) -> void:
+	var uses_spent: bool = uses_resource_spent(data)
+	if not data.has(FIELD_COST):
+		# E158 … 払った量で変える効果なのに払わない（⚠ 常に 0 になる）。
+		if uses_spent:
+			_err(issues, skill_id, "scale_from に resource_spent があるのに cost が無い（常に 0 になる）")
+		return
+	var raw: Variant = data.get(FIELD_COST, null)
+	# E156 cost の形
+	if not (raw is Dictionary):
+		_err(issues, skill_id, "cost が辞書でない")
+		return
+	var cost: Dictionary = raw as Dictionary
+	for key: Variant in cost:
+		if not (str(key) in COST_FIELDS_KNOWN):
+			_err(issues, skill_id, "cost に知らない欄がある: '%s'" % str(key))
+	if str(cost.get(COST_FIELD_RESOURCE_ID, "")) == "":
+		_err(issues, skill_id, "cost.resource_id が無い")
+	# E157 amount（1以上の整数）と all: true はどちらか1つ
+	var has_amount: bool = cost.has(COST_FIELD_AMOUNT)
+	var has_all: bool = cost.has(COST_FIELD_ALL)
+	if has_amount == has_all:
+		_err(issues, skill_id, "cost は amount と all のどちらか1つを書く")
+	if has_amount:
+		var amount: Variant = cost.get(COST_FIELD_AMOUNT, null)
+		if not _is_num(amount) or float(amount) < 1.0 or float(amount) != floor(float(amount)):
+			_err(issues, skill_id, "cost.amount が1以上の整数でない")
+	if has_all and cost.get(COST_FIELD_ALL, null) != true:
+		_err(issues, skill_id, "cost.all は true だけ書ける")
+	if str(data.get("activation", "")) == ACTIVATION_PASSIVE:
+		_err(issues, skill_id, "activation: 'passive' に cost は書けない（撃つ瞬間が無い）")
+	# E158 … 段のあるスキルで払った量を読む（⚠ 払うのは1段目だけ）。
+	if uses_spent and data.has("phases"):
+		_err(issues, skill_id, "phases のあるスキルに resource_spent は書けない（払うのは1段目だけ）")
+
+
+# scale_from に resource_spent を書いた効果があるか（⚠ 段・購読の中も見る）。
+static func uses_resource_spent(data: Dictionary) -> bool:
+	for phase_index: int in range(phase_count(data)):
+		var raw_effects: Variant = phase_of(data, phase_index).get("effects", null)
+		if raw_effects is Array and _effects_use_spent(raw_effects as Array):
+			return true
+	return false
+
+
+static func _effects_use_spent(effects: Array) -> bool:
+	for raw_effect: Variant in effects:
+		if not (raw_effect is Dictionary):
+			continue
+		var effect: Dictionary = raw_effect as Dictionary
+		var raw_scale: Variant = effect.get("scale_from", null)
+		if raw_scale is String and str(raw_scale) == SCALE_RESOURCE_SPENT:
+			return true
+		if raw_scale is Array:
+			for term: Variant in (raw_scale as Array):
+				if term is Dictionary and str((term as Dictionary).get("source", "")) == SCALE_RESOURCE_SPENT:
+					return true
+		var raw_react: Variant = effect.get("react", null)
+		if raw_react is Dictionary and (raw_react as Dictionary).get("effects", null) is Array:
+			if _effects_use_spent((raw_react as Dictionary)["effects"] as Array):
+				return true
+	return false
 
 
 # trigger は cast / charge_start / event:◯◯ / delay:<数値> のどれか。

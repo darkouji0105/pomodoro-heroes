@@ -17,6 +17,17 @@ const REASON_USER_DEAD: String = "user_dead"
 const REASON_SKILL_NOT_FOUND: String = "skill_not_found"
 const REASON_COOLDOWN: String = "cooldown"
 const REASON_NO_TARGET: String = "no_target"
+# 資源が足りない（回CH-2・人間「⚠ １あ」＝マスは暗く押せない）。
+const REASON_COST: String = "cost"
+
+
+# 資源が足りないか（回CH-2）。⚠ 構え中（2段目以降）は見ない（⚠ 払うのは1段目だけ＝クールダウンと同じ）。
+# ⚠ cost は段ではなくスキルの直下にあるので、⚠ 段のデータではなくマスターから引く。
+# ⚠ マスの暗転とチャージの押し始めもこれを呼ぶ（⚠ 判定を2本にしない）。
+static func is_cost_short(user: BattleUnit, skill_id: String) -> bool:
+	if user == null or user.recast_phase(skill_id) >= 0:
+		return false
+	return not user.can_pay_cost(SkillSchema.cost_of(MasterDataLoader.get_skill(skill_id)))
 
 
 # 撃てない理由を返す。撃てるなら REASON_OK（空文字）。
@@ -44,6 +55,8 @@ static func blocked_reason(
 	#   （PLAN 12章）。bool を引数にすると、呼び出し側が判定を持つことになる。
 	if user.recast_phase(skill_id) < 0 and not user.is_skill_ready(skill_id):
 		return REASON_COOLDOWN
+	if is_cost_short(user, skill_id):
+		return REASON_COST
 
 	# 射程で絞った結果が0体なら発動しない（決定1-6）。
 	# ⚠ 射程が絞るのはスキルの母集団。効果ごとの target 上書きは見ない

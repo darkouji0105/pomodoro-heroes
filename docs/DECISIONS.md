@@ -128,6 +128,7 @@
 | **BT-11** | ⚠⚠ **戦場の駒は丸・縁取り**（⚠ 味方＝真鍮 ／ 敵＝赤 ／ 行動中＝灯りの太い縁）。⚠ 名前は小さな枠。⚠ 状態アイコンは HP バーの上。⚠ 浮かぶ数字は 900・黒い太いふち | ⚠ 直径 74 ／ 縁 2（行動中 3）／ ふち 6 ／ 数字は駒の中心から −84 | `theme_builder.gd`（`BattleUnitView` / `BattleUnitNameLabel` / `BattlePopLabel`）／ `unit_view.tscn` | **09-26** | ~~角丸の四角 74 x 64・縁は行動中だけ（09-16）~~ ⚠ **下のパネルの顔は四角のまま**（`BT-10`） |
 | **BT-12** | ⚠⚠ **戦闘の「自動」と速さ**（10-09・回AUTO-2・人間「⚠ １あ　２あ　３あ　４い」）：⚠ 上の帯の右端に「自動：オン／オフ」「速さ ×1／×2」・⚠ 自動＝押せるスキルを押せた瞬間に全部撃つ（⚠ 溜め技は溜めずに・回復も HP を見ない）・⚠ 自動のあいだも人が押せる・⚠ どちらも次の戦闘でもそのまま | ⚠ 既定 オフ・×1 ／ ⚠ 速さは `Engine.time_scale`（⚠ 戦闘を出ると 1 に戻る・ポモドーロは壁の時計なので狂わない） | `GameSettings.battle_auto()`・`battle_speed()`（`[battle]`）／ `battle_controller.gd` `_auto_fire()` ／ Theme `BattleToggleButton` | **10-09** | — |
 | **BT-13** | ⚠⚠ **キャラ固有の資源**（10-10・回CH-1・人間「⚠ う　２あ　３い　４　あ」→「⚠ ３ものによって違うがとりあえずあで　こべつでせっていはできるようにしといて」）：⚠ 種類は **ゲージ（棒）／ ストック（●○）／ 状態（文字の札）** ／ ⚠ 出す場所は**下部パネルの HP の帯の下**と**戦場の名前の札の下** ／ ⚠ 「◯回ごと」の回数は出さない ／ ⚠ **戦闘ごとに始めの値へ戻す**のが既定・⚠ 資源ごとに `carry_over: true` で**ランの中は持ち越す** ／ ⚠ 増やす・使うはスキルの効果 `resource`（⚠ 宛先は撃った本人） | ⚠ 1キャラ **2本まで** ／ ⚠ 色＝溜め中 紫 `9b7be0`・満タン `f0c04a`（SP の満タンと同じ）・札の字＝灯り（⚠ 設計役の**仮**） | `characters.json` の `resources`（id / kind / max / start / carry_over / name_key / 状態は labels）／ `BattleUnit.resources`・`add_resource()`・`set_resource()`・`carried_resources()`・`load_carried_resources()` ／ `SkillSchema.EFFECT_RESOURCE`・`SkillResolver._apply_resource()` ／ `MasterDataLoader.character_resource_issues()`・`resource_effect_owner_issue()` ／ `GameStateKeys.RUN_RESOURCE_CARRY`・`GameManager.get_run_resource_carry()`・`set_run_resource_carry()` ／ `CharResourceView` ／ Theme `BattleUnitView` の `res_*` ／ 検査 `scenario=char_resource`・`shot` の `88_battle_resource` | **10-10** | ~~戦場は敵の SP の棒と同じ段~~（⚠ 10-10 の絵で駒に重なった＝名前の札の下へ） |
+| **BT-14** | ⚠⚠ **資源を払って撃つ**（10-10・回CH-2・人間「⚠ １あ　２あ　３あ」）：⚠ スキルの `cost`＝決まった量（`amount`）か全部（`all`）／ ⚠ **足りないとマスは暗く押せない**（⚠ 自動戦闘も撃たない・チャージも溜め始めない）／ ⚠ **全部払うは 1 以上ないと撃てない** ／ ⚠ **払った量に比例して効果が変わる**（`scale_from` の `resource_spent`）／ ⚠ 払うのは1段目だけ（⚠ クールダウンと同じ） | ⚠ 払えるのはゲージとストックだけ（⚠ 状態は払えない）| `SkillSchema.FIELD_COST`・`cost_of()`・`SCALE_RESOURCE_SPENT` ／ `SkillActivation.REASON_COST`・`is_cost_short()` ／ `BattleUnit.can_pay_cost()`・`pay_cost()` ／ `SkillResolver.fold_resource_spent()` ／ `BattleController._fire_skill()` ／ `MasterDataLoader.cost_owner_issue()` ／ 検査 `scenario=char_resource` の 8〜10 ／ `shot` の `88_battle_resource` | **10-10** | — |
 
 ## 4. 拠点・倉庫・装備（`BS-n`）
 
@@ -374,6 +375,7 @@
 
 ## 更新履歴
 
+- **2026-10-10（2回目）… 回CH-2：`BT-14`（資源を払って撃つ）を足した**（⚠ 人間「⚠ １あ　２あ　３あ」）。
 - **2026-10-10 … 回CH-1：`BT-13`（キャラ固有の資源の骨組み）を足した**（⚠ 人間「⚠ たぶん固有リソースの表示の骨組みからやったほうがいいとおもう」）。⚠ 案の原文は `PLAN_CHARACTERS.md`・残りの骨組み CH-2〜CH-9 は `EXEC_CHAR_RESOURCE.md` §5-2。
 - **2026-10-09（9回目）… 回D-塔：`DG-3` を2本目のダンジョン `dungeon_tower` として入れた・`DG-4` は塔に出ない形**（⚠ 人間「⚠ １あ　２あ３あ４あ５あ６あ７い　８う　９全部消していい」「⚠ 大前提として、今のダンジョンも残して、テストプレイで比べられるように」）。
 - **2026-10-09（8回目）… 議論の回：難ダンジョンをローグライクから「塔」へ（`DG-3`）・レリック無し（`DG-4`）・シナリオも一本道（`RUN-17`）**（⚠ 人間「⚠ １あ　あとバランスが難しいし方式を変えたほうがいい」→「⚠ ７い　８い　９らんだむ　１０あ」）。⚠ 決定49・`RUN-10`・`RUN-12`・`RUN-16`・決定46・`CN-3` に「覆す」の印。⚠ 実装は回D-塔・回D-道。

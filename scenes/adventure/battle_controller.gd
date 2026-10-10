@@ -1699,6 +1699,8 @@ func _update_skill_buttons() -> void:
 
 		var remaining: float = 0.0
 		var alive: bool = false
+		# 資源が足りない（回CH-2・人間「⚠ １あ」＝暗くして押せない）。
+		var short: bool = SkillActivation.is_cost_short(user, skill_id)
 		# 構え中（activation: recast の段の途中）か。⚠ 構え中はクールダウンが
 		#   回っていてもボタンを押せる状態に保つこと。disabled にすると、判定
 		#   （blocked_reason）を通しても押せず、再発動が無音でできなくなる。
@@ -1722,12 +1724,12 @@ func _update_skill_buttons() -> void:
 			in_just = _is_just(entry, t)
 			tile.disabled = false
 		else:
-			tile.disabled = (not active) or (not alive) or (remaining > 0.0 and recast_left <= 0.0)
+			tile.disabled = (not active) or (not alive) or short or (remaining > 0.0 and recast_left <= 0.0)
 
-		# ⚠ 「押せない」の見た目は戦闘不能のときだけ（モック §6）。
+		# ⚠ 「押せない」の見た目は戦闘不能と資源が足りないとき（モック §6・回CH-2）。
 		#   ⚠ クールダウン中も disabled だが、⚠ そちらは段の色で見せる。
 		tile.set_state(
-			not alive, remaining, float(entry.get("cooldown_sec", 0.0)),
+			(not alive) or short, remaining, float(entry.get("cooldown_sec", 0.0)),
 			charging, in_just,
 			recast_left, float(entry.get("recast_window_sec", 0.0)), phases_left,
 		)
@@ -1772,6 +1774,13 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool
 	# ⚠ ルーンが撃てなくてもスキルは撃つ。blocked_reason() にルーンの条件を
 	#   足さないこと（ルーンのCDでスキルが止まる）。
 	_fire_runes(user, skill_id)
+
+	# 資源を払う（回CH-2）。⚠ 1段目だけ（⚠ クールダウンと同じ）。⚠ 足りるかは blocked_reason() が見終わっている。
+	# ⚠ 払った量を効果へ畳み込む（⚠ scale_from の resource_spent が読む）。
+	if phase_index == 0:
+		var spent: int = user.pay_cost(SkillSchema.cost_of(skill_data))
+		if spent >= 0:
+			phase_data = SkillResolver.fold_resource_spent(phase_data, spent)
 
 	# 発動を1個作って新層に渡す。チャージ倍率の畳み込みも、効果を trigger ごとに
 	# 待ち行列へ割るのも新層の仕事（PLAN 7-1）。ここに待ち行列を持たないこと。
@@ -2016,6 +2025,9 @@ func _on_charge_button_down(entry: Dictionary) -> void:
 	if user == null or not user.is_alive():
 		return
 	if not user.is_skill_ready(skill_id):
+		return
+	# ⚠ 資源が足りないと溜め始めない（回CH-2）。⚠ 溜めてから離して撃てない、を防ぐ。
+	if SkillActivation.is_cost_short(user, skill_id):
 		return
 	_charging = {"entry": entry, "time": 0.0}
 

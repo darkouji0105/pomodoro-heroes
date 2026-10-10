@@ -237,7 +237,9 @@
 			"skill_dbg_aura_follow",
 			"skill_dbg_res_charge",
 			"skill_dbg_res_soul_gain",
-			"skill_dbg_res_soul_spend"
+			"skill_dbg_res_soul_spend",
+			"skill_dbg_res_overdrive",
+			"skill_dbg_res_regen"
 		],
 		"passives": [
 			"passive_dbg_atk",

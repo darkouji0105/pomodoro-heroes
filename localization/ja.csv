@@ -1711,3 +1711,5 @@ ui_battle_skill_dbg_res_charge,充電+30
 ui_battle_skill_dbg_res_soul_gain,魂+1
 ui_battle_skill_dbg_res_soul_spend,魂-3
 ui_battle_skill_dbg_res_stance,構えを亀へ
+ui_battle_skill_dbg_res_overdrive,充電60で回復
+ui_battle_skill_dbg_res_regen,充電を全部で回復

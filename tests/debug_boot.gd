@@ -994,7 +994,7 @@ const SCENARIOS: Dictionary = {
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
-		"note": "固有の資源（回CH-1）：始めの値・増える・max と 0 で止まる・状態の切り替え・持ち越し・セーブの往復・壊したデータを弾く",
+		"note": "固有の資源（回CH-1・CH-2）：始めの値・増える・max と 0 で止まる・状態の切り替え・持ち越し・セーブの往復・払う・払った量で回復・壊したデータを弾く",
 	},
 	"glyphs": {
 		"kind": KIND_REPORT,
@@ -1493,6 +1493,7 @@ func _ready() -> void:
 			await _report_base_chest()
 		elif report == REPORT_CHAR_RESOURCE:
 			_report_char_resource()
+			_report_char_cost()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7410,6 +7411,95 @@ func _report_char_resource() -> void:
 	])
 
 
+# 資源を払う（回CH-2）。⚠ 撃てるかは本物の判定（SkillActivation）・払うのは本物の口（BattleUnit.pay_cost）。
+# ⚠ 払った量の畳み込みは戦闘の側（_fire_skill）と同じ手順をここで踏む。
+func _report_char_cost() -> void:
+	var status_id: String = "char_debug_status"
+	print("[DebugBoot] --- 8. 資源を払う（⚠ 充電60で回復＝60 ／ 充電を全部で回復＝全部・払った分だけ回復）---")
+	var unit: BattleUnit = _resource_unit(status_id, 0)
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [unit]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	unit.skill_ids = ["skill_dbg_res_overdrive", "skill_dbg_res_regen"]
+	unit.skill_cooldowns = {"skill_dbg_res_overdrive": 0.0, "skill_dbg_res_regen": 0.0}
+	var od: String = "skill_dbg_res_overdrive"
+	var rg: String = "skill_dbg_res_regen"
+	print("  充電 %d：60払う = '%s'（cost が正解）／ 全部払う = '%s'（空＝撃てる が正解）" % [
+		unit.get_resource("dbg_charge"), _cost_reason(unit, od, session), _cost_reason(unit, rg, session)
+	])
+	unit.add_resource("dbg_charge", 30)
+	print("  充電 %d：60払う = '%s'（空＝撃てる が正解）" % [unit.get_resource("dbg_charge"), _cost_reason(unit, od, session)])
+	var spent: int = _cost_fire(unit, od, session, registry)
+	print("  60払う を撃った：払った %d・残り %d（60・10 が正解）" % [spent, unit.get_resource("dbg_charge")])
+
+	print("[DebugBoot] --- 9. 払った量で回復（⚠ 人間「⚠ ３あ」＝使った量に比例）---")
+	var gains: Array = []
+	for charge: int in [10, 100]:
+		unit.set_resource("dbg_charge", charge)
+		unit.hp = unit.max_hp - 1000
+		var before: int = unit.hp
+		spent = _cost_fire(unit, rg, session, registry)
+		gains.append(unit.hp - before)
+		print("  充電 %d で全部払う：払った %d・回復 %d・残り %d（払った＝充電・残り 0 が正解）" % [
+			charge, spent, unit.hp - before, unit.get_resource("dbg_charge")
+		])
+	print("  回復の比 = %s（10 倍が正解＝払った量に比例）" % (
+		"%.2f" % (float(gains[1]) / float(gains[0])) if int(gains[0]) > 0 else "0 で割れない"
+	))
+	print("  充電 0：全部払う = '%s'（cost が正解＝人間「⚠ ２あ」1 以上ないと撃てない）" % _cost_reason(unit, rg, session))
+
+	print("[DebugBoot] --- 10. 壊した cost を弾く（⚠ 赤は出さず件数だけ）---")
+	var heal: Dictionary = {"type": "heal", "multiplier": 1.0, "scale_from": "atk"}
+	var spent_heal: Dictionary = {"type": "heal", "multiplier": 1.0, "scale_from": [{"source": "resource_spent"}]}
+	var probes: Array = [
+		["amount と all の両方", {"cost": {"resource_id": "dbg_charge", "amount": 1, "all": true}, "effects": [heal]}],
+		["amount が 0", {"cost": {"resource_id": "dbg_charge", "amount": 0}, "effects": [heal]}],
+		["all が false", {"cost": {"resource_id": "dbg_charge", "all": false}, "effects": [heal]}],
+		["知らない欄", {"cost": {"resource_id": "dbg_charge", "amount": 1, "cnt": 1}, "effects": [heal]}],
+		["cost 無しで resource_spent", {"effects": [spent_heal]}],
+		["_spent をデータに書く", {"cost": {"resource_id": "dbg_charge", "all": true}, "effects": [
+			{"type": "heal", "multiplier": 1.0, "scale_from": [{"source": "resource_spent", "_spent": 5}]}
+		]}],
+		["条件に resource_spent", {"cost": {"resource_id": "dbg_charge", "all": true}, "effects": [
+			{"type": "buff", "host": "unit", "status_id": "x", "stat": "atk", "value": 1, "duration_sec": 1.0, "stack": "refresh",
+				"condition": {"source": "resource_spent", "of": "host", "op": "gt", "value": 0}}
+		]}],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": status_id, "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "self"},
+		}
+		data.merge(probe[1] as Dictionary, true)
+		var errors: int = 0
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(probe[0]), errors])
+	var owner: Dictionary = {"user_character_id": status_id}
+	print("  持っていない資源を払う -> '%s'" % MasterDataLoader.cost_owner_issue("skill_probe", owner.merged({"cost": {"resource_id": "dbg_stance", "amount": 1}})))
+	print("  ストックを払う -> '%s'（空が正解）" % MasterDataLoader.cost_owner_issue("skill_probe", owner.merged({"cost": {"resource_id": "dbg_soul", "amount": 1}})))
+	var mix_owner: Dictionary = {"user_character_id": "char_debug_mix"}
+	print("  状態を払う -> '%s'（種類が合わない が正解）" % MasterDataLoader.cost_owner_issue("skill_probe", mix_owner.merged({"cost": {"resource_id": "dbg_stance", "amount": 1}})))
+
+
+func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
+	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
+
+
+# ⚠ BattleController._fire_skill() と同じ順：判定 → 払う → 畳み込む → 撃つ。
+func _cost_fire(unit: BattleUnit, skill_id: String, session: BattleSession, registry: StatusRegistry) -> int:
+	if _cost_reason(unit, skill_id, session) != SkillActivation.REASON_OK:
+		return -2
+	var data: Dictionary = MasterDataLoader.get_skill(skill_id)
+	var spent: int = unit.pay_cost(SkillSchema.cost_of(data))
+	if spent >= 0:
+		data = SkillResolver.fold_resource_spent(data, spent)
+	SkillResolver.resolve(data, unit, session, [unit.unit_id], registry)
+	return spent
+
+
 func _resource_unit(character_id: String, index: int) -> BattleUnit:
 	return BattleUnit.create(
 		"party_%d" % index, BattleUnit.TEAM_PARTY, MasterDataLoader.get_character(character_id),
@@ -9654,6 +9744,11 @@ class ShotTaker extends Node:
 	const PREPARE_TOWER_OUT: String = "tower_out"
 	const PREPARE_DEBUG_PARTY: String = "debug_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
+	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
+	const DEBUG_PARTY_SKILLS: Dictionary = {
+		"char_debug_status": ["skill_dbg_res_charge", "skill_dbg_res_overdrive"],
+		"char_debug_mix": ["skill_dbg_res_stance", "skill_dbg_area_narrow"],
+	}
 	const TOWER_ID: String = "dungeon_tower"
 	const PREPARE_BOARD_CLEARED: String = "board_cleared"
 	const AFTER_CHEST_OPEN: String = "chest_open"
@@ -10024,6 +10119,11 @@ class ShotTaker extends Node:
 			for i: int in range(DEBUG_PARTY.size()):
 				if not GameManager.set_party_member(i, str(DEBUG_PARTY[i])):
 					return false
+			for character_id: String in DEBUG_PARTY_SKILLS:
+				var slots: Array = DEBUG_PARTY_SKILLS[character_id]
+				for slot: int in range(slots.size()):
+					# ⚠ 同じ枠に入っていると false が返るが正常（`_apply_skills()` と同じ）。
+					var _selected: bool = GameManager.select_skill(character_id, slot, str(slots[slot]))
 			return true
 		if kind == PREPARE_SORTIE_DEPTH:
 			# ⚠ 潜る深さ（2026-10-03・決定49）：⚠ 本番の口でボスを3体倒して持ち帰る＝最深 3（30層）→ ⚠ 札を1枚持たせる。
