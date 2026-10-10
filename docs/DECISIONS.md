@@ -132,6 +132,7 @@
 | **BT-15** | ⚠⚠ **戦闘のできごとを合図にする**（10-10・回CH-3・人間「⚠ １い　敵が倒されたことをトリガーにする　２あ　３あ」）：⚠ **敵が倒された**（`foe_died`）＝相手側の生きている全員に届く・きっかけはとどめを刺した人（⚠ **召喚が倒したら召喚した人**）・復活したら出ない ／ ⚠ **通常攻撃が当たった**（`basic_hit`）＝殴った本人 ／ ⚠ **スキルを使った**（`skill_used`）＝使った本人だけ（⚠ 通常攻撃・ルーン・購読の発火は数えない）／ ⚠ 受けるのは今までの購読（`react`）| ⚠ 資源の効果の `target` は `{"team": "self"}` だけ書ける（⚠ 購読の中は target が必須のため）| `SkillSchema.EVENT_FOE_DIED`・`EVENT_BASIC_HIT`・`EVENT_SKILL_USED`・`BASIC_ATTACK_SKILL_ID` ／ `SkillRuntime.notify_foe_died()`・`notify_skill_used()`・`_dispatch_events()` ／ `BattleUnit.last_attacker_id`（⚠ `SkillResolver` のダメージの確定と反射で書く）／ `BattleController._resolve_one_death()`・`_fire_skill()` ／ 検査 `char_resource` の 11〜12 | **10-10** | — |
 | **BT-16** | ⚠⚠ **通常攻撃が変わる**（10-10・回CH-4・人間「⚠ １あ　２ひとによる　３あ」）：⚠ **◯回ごと**＝その回の通常攻撃が別の一撃に**置き換わる**（`characters.json` の `basic_attack_every`）／ ⚠ **スキルのあと強くなる**＝バフの `basic_attack`（置き換える一撃）＋ `uses`（あと何回・⚠ 書かなければ `duration_sec` のあいだずっと＝**キャラごとに回数か秒数か選べる**）／ ⚠ **強化した一撃も「◯回ごと」の1回に数える** ／ ⚠ 回数は戦闘ごとに 0 から・画面に出さない | ⚠ 「◯回ごと」と強化が同じ回に重なったら**強化が勝つ**（⚠ 設計役の**仮**）／ ⚠ 強化が何本かあれば**新しく付いたほう**から使う | `SkillSchema.FIELD_BASIC_EVERY`・`validate_basic_attack_every()`・`BUFF_BASIC_ATTACK`・`BUFF_USES` ／ `BattleUnit.basic_attack_count`・`basic_attack_every`・`take_basic_attack()` ／ `StatusRegistry.basic_override()`・`consume_basic_override()` ／ `BattleController._fire_basic_attack()` ／ 検査 `char_resource` の 13〜15 | **10-10** | — |
 | **BT-17** | ⚠⚠ **止める・動かす**（10-10・回CH-5・人間「⚠ １あ　２う　３あ　あとスネアも追加するべきかな」）：⚠ バフの `control`＝**スタン**（移動・通常攻撃・スキルを全部止める・味方ならマスが暗い）／ **スネア**（移動だけ止める）／ **無敵**（相手からのダメージも状態も受けない・味方と自分から付くものは通す）／ **止められない**（スタン・スネア・ノックバックを受けない）／ ⚠ 効果 `knockback`（撃った人から遠ざける・戦場の端で止まる）／ ⚠ **ボスには弱く効く**（秒数と距離に倍率）| ⚠ ボスの倍率 **0.5**（`AdventureConfig.boss_control_ratio`・⚠ 設計役の**仮**）／ ⚠ スタン・スネアのマスは赤（デバフの色） | `SkillSchema.BUFF_CONTROL`・`CONTROL_*`・`EFFECT_KNOCKBACK` ／ `BattleUnit.stunned`・`snared`・`invulnerable`・`unstoppable`（⚠ 書くのは `StatusRegistry._rebuild_unit_mods()`）／ `StatusRegistry.add()` の 6-3-0 ／ `SkillResolver._apply_knockback()`・無敵の 0 ／ `SkillActivation.REASON_STUNNED` ／ `BattleController._step_unit()`・`_on_skill_effects_applied()` ／ `StatusChips.tone_of()` ／ 検査 `char_resource` の 16〜20 | **10-10** | — |
+| **BT-18** | ⚠⚠ **自分が動く**（10-10・回CH-6・人間「⚠ １あ　２あ　３い」）：⚠ 効果 `dash`＝`to: "target"`（狙った相手・何体かなら真ん中へ／`offset` だけ手前で止まる＝突進・飛び込み）と `to: "back"`（`distance` だけ下がる＝ステップ）／ ⚠ **一瞬で移る** ／ ⚠ **動いたあと少し止まる**（移動ルーンと同じ秒）／ ⚠ 戦場の端で止まる ／ ⚠ バイクの「突き抜ける通常攻撃」は入れない（バイクの回） | ⚠ **スネア中は動かない**（⚠ 設計役の**仮**）| `SkillSchema.EFFECT_DASH`・`DASH_TO_*` ／ `SkillResolver._apply_dash()` ／ `BattleController._on_skill_effects_applied()`（⚠ `GameManager.get_rune_move_lock_sec()`）／ 検査 `char_resource` の 21〜22 | **10-10** | — |
 
 ## 4. 拠点・倉庫・装備（`BS-n`）
 
@@ -378,6 +379,7 @@
 
 ## 更新履歴
 
+- **2026-10-10（6回目）… 回CH-6：`BT-18`（自分が動く）を足した**（⚠ 人間「⚠ １あ　２あ　３い」）。
 - **2026-10-10（5回目）… 回CH-5：`BT-17`（止める・動かす）を足した**（⚠ 人間「⚠ １あ　２う　３あ　あとスネアも追加するべきかな」）。
 - **2026-10-10（4回目）… 回CH-4：`BT-16`（通常攻撃が変わる）を足した**（⚠ 人間「⚠ １あ　２ひとによる　３あ」）。
 - **2026-10-10（3回目）… 回CH-3：`BT-15`（戦闘のできごとを合図にする）を足した**（⚠ 人間「⚠ １い　敵が倒されたことをトリガーにする　２あ　３あ」）。

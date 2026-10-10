@@ -91,15 +91,23 @@ const EFFECT_RESOURCE: String = "resource"
 # 押し出す（回CH-5）。{"type": "knockback", "distance": 80}。⚠ 撃った人から遠ざける向き。
 # ⚠ 座標を動かすのは戦闘の画面（BattleController）だけ＝⚠ ここは結果に載せるだけ（召喚と同じ）。
 const EFFECT_KNOCKBACK: String = "knockback"
+# 自分が動く（回CH-6・EXEC_CHAR_RESOURCE.md §13）。⚠ 一瞬で移る（人間「⚠ １あ」）・動いたあと少し止まる（「⚠ ２あ」）。
+#   {"type": "dash", "to": "target", "offset": 40} … 狙った相手（何体かなら真ん中）まで。offset だけ手前で止まる（突進・飛び込み）
+#   {"type": "dash", "to": "back", "distance": 120} … 後ろへ下がる（ステップ）
+# ⚠ 座標を動かすのは戦闘の画面（⚠ 結果に載せるだけ＝ノックバックと同じ）。⚠ スネア中は動かない（⚠ 設計役の仮）。
+const EFFECT_DASH: String = "dash"
+const DASH_TO_TARGET: String = "target"
+const DASH_TO_BACK: String = "back"
+const DASH_TOS_KNOWN: Array = [DASH_TO_TARGET, DASH_TO_BACK]
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
-	EFFECT_RESOURCE, EFFECT_KNOCKBACK,
+	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH,
 	"dispel", "cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
-	EFFECT_RESOURCE, EFFECT_KNOCKBACK,
+	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH,
 ]
 # resource の欄。⚠ amount（足す・負なら減らす）と set_to（その値にする）はどちらか1つ。
 # ⚠ 持ち主にその資源があるか・種類と欄が合うかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
@@ -243,7 +251,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	"stat", "value", "target", "trigger", "chance", "charge_scales",
 	"react", "condition",
 	BUFF_INTERVENE, FIELD_ZONE, FIELD_HEALS, BUFF_ATK_MULT_PCT,
-	BUFF_BASIC_ATTACK, BUFF_USES, BUFF_CONTROL, "distance",
+	BUFF_BASIC_ATTACK, BUFF_USES, BUFF_CONTROL, "distance", "to", "offset",
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to",
 ]
@@ -1063,8 +1071,32 @@ static func _validate_effect(
 		for forbidden: String in ["scale_from", "multiplier", "attack_type", "host"]:
 			if effect.has(forbidden):
 				_err(issues, skill_id, "%s.type: 'knockback' に %s は書けない" % [where, forbidden])
+	elif effect_type == EFFECT_DASH:
+		# E166 … to と、それに合う欄（target なら offset・back なら distance）
+		var to: String = str(effect.get("to", ""))
+		if not (to in DASH_TOS_KNOWN):
+			_err(issues, skill_id, "%s.to が不明: '%s'（%s）" % [where, to, str(DASH_TOS_KNOWN)])
+		elif to == DASH_TO_TARGET:
+			var offset: Variant = effect.get("offset", null)
+			if not _is_num(offset) or float(offset) < 0.0:
+				_err(issues, skill_id, "%s.offset が 0 以上の数でない（to: 'target' は必須）" % where)
+			if effect.has("distance"):
+				_err(issues, skill_id, "%s.to: 'target' に distance は書けない（offset で書く）" % where)
+		else:
+			var back: Variant = effect.get("distance", null)
+			if not _is_num(back) or float(back) <= 0.0:
+				_err(issues, skill_id, "%s.distance が正の数でない（to: 'back' は必須）" % where)
+			if effect.has("offset"):
+				_err(issues, skill_id, "%s.to: 'back' に offset は書けない" % where)
+		for forbidden: String in ["scale_from", "multiplier", "attack_type", "host"]:
+			if effect.has(forbidden):
+				_err(issues, skill_id, "%s.type: 'dash' に %s は書けない" % [where, forbidden])
 	elif effect.has("distance"):
-		_err(issues, skill_id, "%s.type: '%s' に distance は書けない（knockback だけ）" % [where, effect_type])
+		_err(issues, skill_id, "%s.type: '%s' に distance は書けない（knockback / dash だけ）" % [where, effect_type])
+	if effect_type != EFFECT_DASH:
+		for dash_field: String in ["to", "offset"]:
+			if effect.has(dash_field):
+				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（dash だけ）" % [where, effect_type, dash_field])
 
 	# E162〜E163 通常攻撃を置き換える（回CH-4）
 	if effect.has(BUFF_BASIC_ATTACK) or effect.has(BUFF_USES):

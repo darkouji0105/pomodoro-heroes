@@ -261,7 +261,10 @@
 			"skill_dbg_ctl_snare",
 			"skill_dbg_ctl_knockback",
 			"skill_dbg_ctl_invuln",
-			"skill_dbg_ctl_unstoppable"
+			"skill_dbg_ctl_unstoppable",
+			"skill_dbg_mv_charge",
+			"skill_dbg_mv_dive",
+			"skill_dbg_mv_step"
 		],
 		"passives": [
 			"passive_dbg_atk",

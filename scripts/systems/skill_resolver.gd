@@ -353,6 +353,8 @@ static func resolve(
 		elif effect_type == SkillSchema.EFFECT_KNOCKBACK:
 			for t: BattleUnit in targets:
 				_apply_knockback(effect, user, t, results)
+		elif effect_type == SkillSchema.EFFECT_DASH:
+			_apply_dash(effect, user, targets, results)
 		elif effect_type in SkillSchema.EFFECT_TYPES_KNOWN:
 			push_warning("[SkillResolver] 未実装の効果: '%s'。この効果を飛ばす" % effect_type)
 		else:
@@ -661,6 +663,41 @@ static func _apply_knockback(effect: Dictionary, user: BattleUnit, target: Battl
 		"unit_id": target.unit_id,
 		"source_unit_id": user.unit_id,
 		"dx": dir * distance,
+	})
+
+
+# 自分が動く（回CH-6）。⚠ 座標はここで触らない（⚠ 行き先 x を結果に載せる・端で止めて動かすのは戦闘の画面）。
+# ⚠ スネア中は動かない（⚠ 設計役の仮）。⚠ スタン中はスキル自体が撃てない（SkillActivation）。
+static func _apply_dash(effect: Dictionary, user: BattleUnit, targets: Array, results: Array) -> void:
+	if user.snared:
+		BattleLog.log_intervene("dash", user.unit_id, "", "snared")
+		return
+	# ⚠ 前＝相手の陣の向き（味方は右＝正・敵は左＝負）。
+	var forward: float = 1.0 if user.team == BattleUnit.TEAM_PARTY else -1.0
+	var to_x: float = user.x
+	if str(effect.get("to", "")) == SkillSchema.DASH_TO_BACK:
+		to_x = user.x - forward * float(effect.get("distance", 0.0))
+	else:
+		var alive: Array = []
+		for t: BattleUnit in targets:
+			if t != null and t.is_alive():
+				alive.append(t)
+		if alive.is_empty():
+			return
+		var center: float = 0.0
+		for t: BattleUnit in alive:
+			center += t.x
+		center /= float(alive.size())
+		# ⚠ 手前で止まる＝来た側へ offset だけ戻す。⚠ 同じ位置なら前から来た扱い。
+		var from_dir: float = sign(center - user.x)
+		if from_dir == 0.0:
+			from_dir = forward
+		to_x = center - from_dir * float(effect.get("offset", 0.0))
+	results.append({
+		"kind": SkillSchema.EFFECT_DASH,
+		"unit_id": user.unit_id,
+		"source_unit_id": user.unit_id,
+		"x": to_x,
 	})
 
 

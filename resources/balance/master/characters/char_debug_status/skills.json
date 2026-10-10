@@ -789,5 +789,73 @@
 				"stack": "refresh"
 			}
 		]
+	},
+	"skill_dbg_mv_charge": {
+		"name_key": "ui_battle_skill_dbg_mv_charge",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "dash",
+				"to": "target",
+				"offset": 40.0
+			},
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_dbg_mv_dive": {
+		"name_key": "ui_battle_skill_dbg_mv_dive",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "dash",
+				"to": "target",
+				"offset": 0.0
+			},
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_dbg_mv_step": {
+		"name_key": "ui_battle_skill_dbg_mv_step",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 1.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "dash",
+				"to": "back",
+				"distance": 150.0
+			}
+		]
 	}
 }

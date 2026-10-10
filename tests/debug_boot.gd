@@ -1497,6 +1497,7 @@ func _ready() -> void:
 			_report_char_events()
 			_report_char_basic()
 			_report_char_control()
+			_report_char_dash()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7743,6 +7744,56 @@ func _control_cast(skill_id: String, user: BattleUnit, targets: Array, session: 
 	for effect: Variant in (data.get("effects", []) as Array):
 		results.append_array(SkillResolver.resolve({"effects": [effect]}, user, session, ids, registry))
 	return results
+
+# 自分が動く（回CH-6）。⚠ 行き先 x は結果に載る（⚠ 端で止めて動かし、少し止めるのは戦闘の画面）。
+func _report_char_dash() -> void:
+	var status_id: String = "char_debug_status"
+	var me: BattleUnit = _resource_unit(status_id, 0)
+	var foe_data: Dictionary = MasterDataLoader.get_enemy("enemy_slime")
+	var foe: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var far: BattleUnit = BattleUnit.create("enemy_1", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = [foe, far]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	me.x = 300.0
+	foe.x = 500.0
+	far.x = 700.0
+	print("[DebugBoot] --- 21. 動く（⚠ 自分 300・敵 500 と 700）---")
+	print("  突進（一番近い敵の 40 手前）：x = %s（460 が正解）" % _dash_x(_control_cast("skill_dbg_mv_charge", me, [foe], session, registry)))
+	print("  飛び込み（敵の真ん中）：x = %s（600 が正解）" % _dash_x(_control_cast("skill_dbg_mv_dive", me, [foe, far], session, registry)))
+	print("  下がる（味方は左へ 150）：x = %s（150 が正解）" % _dash_x(_control_cast("skill_dbg_mv_step", me, [me], session, registry)))
+	var step: Dictionary = {"effects": [{"type": "dash", "to": "back", "distance": 150.0}]}
+	print("  敵が下がる（右へ 150）：x = %s（650 が正解）" % _dash_x(SkillResolver.resolve(step.duplicate(true), foe, session, [foe.unit_id], registry)))
+	_control_cast("skill_dbg_ctl_snare", foe, [me], session, registry)
+	print("  スネア中の突進：結果 = %s（動かない＝なし が正解・設計役の仮）" % _dash_x(_control_cast("skill_dbg_mv_charge", me, [foe], session, registry)))
+
+	print("[DebugBoot] --- 22. 壊した dash を弾く（⚠ 赤は出さず件数だけ）---")
+	var probes: Array = [
+		["to が不明", {"type": "dash", "to": "front", "offset": 10}],
+		["to: target に offset が無い", {"type": "dash", "to": "target"}],
+		["to: back に distance が無い", {"type": "dash", "to": "back"}],
+		["to: back に offset", {"type": "dash", "to": "back", "distance": 10, "offset": 5}],
+		["damage に to", {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk", "to": "back"}],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": status_id, "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "all"}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(probe[0]), errors])
+
+
+func _dash_x(results: Array) -> String:
+	for r: Variant in results:
+		if r is Dictionary and str((r as Dictionary).get("kind", "")) == SkillSchema.EFFECT_DASH:
+			return "%.0f" % float((r as Dictionary).get("x", 0.0))
+	return "なし"
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
