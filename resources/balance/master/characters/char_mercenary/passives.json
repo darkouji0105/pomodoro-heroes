@@ -1,0 +1,68 @@
+{
+	"passive_mc_veteran": {
+		"name_key": "ui_battle_passive_mc_veteran",
+		"user_character_id": "char_mercenary",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "point",
+				"status_id": "st_mc_aura",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"zone": {
+					"radius": 150.0,
+					"team": "enemy",
+					"follow": true
+				},
+				"stat": "atk",
+				"stat_pct": -10
+			},
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_mc_veteran",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "foe_died",
+					"within": 150.0,
+					"effects": [
+						{
+							"type": "heal",
+							"target": {
+								"team": "self"
+							},
+							"multiplier": 1.0,
+							"scale_from": [
+								{
+									"source": "flat",
+									"weight": 10.0
+								},
+								{
+									"source": "hp_lost",
+									"of": "user",
+									"weight": 0.1
+								}
+							]
+						},
+						{
+							"type": "cooldown",
+							"all": true,
+							"skills": [
+								"skill_mc_slaughter"
+							],
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	}
+}

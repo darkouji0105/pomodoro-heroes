@@ -1152,6 +1152,15 @@ func _has_all_passive_statuses(unit: BattleUnit, passive_id: String) -> bool:
 		var status_id: String = str((raw_effect as Dictionary).get("status_id", ""))
 		if status_id == "":
 			continue
+		# ⚠ ついてくる範囲（回MC-1）は付けた人で探す（⚠ 宿主が居ない）。
+		if str((raw_effect as Dictionary).get("host", "")) == SkillSchema.HOST_POINT:
+			if not _status.has({
+				"host": SkillSchema.HOST_POINT,
+				"source_unit_id": unit.unit_id,
+				"status_id": status_id,
+			}):
+				return false
+			continue
 		if not _status.has({
 			"host": SkillSchema.HOST_UNIT,
 			"host_unit_id": unit.unit_id,

@@ -105,6 +105,8 @@ const CHARACTER_DIRS_REQUIRED: Array[String] = [
 	DIR_CHARACTERS + "char_necro/",
 	# ⚠ 狂った神の使い（2026-10-10・回GM-1）。
 	DIR_CHARACTERS + "char_zealot/",
+	# ⚠ 傭兵（2026-10-10・回MC-1）。
+	DIR_CHARACTERS + "char_mercenary/",
 ]
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const CHARACTER_DIRS_OPTIONAL: Array[String] = [

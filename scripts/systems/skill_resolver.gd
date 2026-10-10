@@ -417,6 +417,16 @@ static func _apply_damage(
 	if target == null:
 		return
 
+	# 避けて反撃（回MC-1）。⚠ 相手からの攻撃だけ（⚠ 毒の周期では避けない）。⚠ 乱数を振る前に返す（⚠ 振る回数を変えない）。
+	if not is_dot and user.team != target.team and registry != null:
+		var evade: Dictionary = registry.take_evade(target.unit_id)
+		if not evade.is_empty():
+			BattleLog.log_intervene("evade", target.unit_id, "", user.unit_id)
+			for raw: Variant in (evade.get("effects", []) as Array):
+				if raw is Dictionary:
+					results.append_array(resolve({"effects": [raw]}, target, session, [user.unit_id], registry))
+			return
+
 	var attack_type: String = str(effect.get("attack_type", BattleUnit.ATTACK_TYPE_PHYSICAL))
 	if not (attack_type in SkillSchema.attack_types_known()):
 		push_error("[SkillResolver] 不明な attack_type: " + attack_type)
@@ -600,14 +610,21 @@ static func when_user_ok(effect: Dictionary, user: BattleUnit, session: BattleSe
 	if user == null or session == null:
 		return false
 	var when: Dictionary = effect.get(SkillSchema.FIELD_WHEN_USER, {}) as Dictionary
-	if str(when.get("source", "")) != SkillSchema.WHEN_ENEMIES_WITHIN:
+	var source: String = str(when.get("source", ""))
+	if not (source in SkillSchema.WHEN_USER_SOURCES):
 		return false
 	var foe_team: String = BattleUnit.TEAM_ENEMY if user.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
 	var radius: float = float(when.get("radius", 0.0))
+	# 後ろ（回MC-1）＝前の逆。⚠ 前＝相手の陣の向き（味方は右）。
+	var forward: float = 1.0 if user.team == BattleUnit.TEAM_PARTY else -1.0
 	var count: int = 0
 	for raw: Variant in session.get_alive_units(foe_team):
-		if absf((raw as BattleUnit).x - user.x) <= radius:
-			count += 1
+		var dx: float = (raw as BattleUnit).x - user.x
+		if absf(dx) > radius:
+			continue
+		if source == SkillSchema.WHEN_ENEMIES_BEHIND and dx * forward >= 0.0:
+			continue
+		count += 1
 	var limit: float = float(when.get("value", 0.0))
 	match str(when.get("op", "")):
 		SkillSchema.COND_OP_LT:
@@ -1092,6 +1109,10 @@ static func _scale_value_sum(
 		# 払った量（回CH-2）。⚠ 撃つ瞬間に fold_resource_spent() が項へ書いた値（⚠ 無ければ 0）。
 		if source == SkillSchema.SCALE_RESOURCE_SPENT:
 			total += weight * float(entry.get(SkillSchema.SCALE_FIELD_SPENT, 0.0))
+			continue
+		# 定数（回MC-1）。⚠ weight がそのまま値。
+		if source == SkillSchema.SCALE_FLAT:
+			total += weight
 			continue
 		# いまの資源の量（回SC-1）。⚠ 撃った本人の資源。
 		if source == SkillSchema.SCALE_RESOURCE_NOW:

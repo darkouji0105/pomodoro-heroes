@@ -301,6 +301,33 @@
 	  "sort_order": 152
 	},
 	{
+	  "item_id": "weapon_claymore_iron",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claymore",
+	  "equip_stats": {"hp": 20, "atk": 7, "spd": -8},
+	  "sort_order": 153
+	},
+	{
+	  "item_id": "weapon_claymore_war",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claymore",
+	  "equip_stats": {"def": -2, "atk": 9},
+	  "sort_order": 154
+	},
+	{
+	  "item_id": "weapon_claymore_guard",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claymore",
+	  "equip_stats": {"atk": 5, "def": 3},
+	  "sort_order": 155
+	},
+	{
 	  "item_id": "armor_head_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",

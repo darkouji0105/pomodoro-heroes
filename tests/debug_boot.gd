@@ -117,6 +117,8 @@ const SHOT_PREPARE_SCHOLAR_PARTY: String = "scholar_party"
 const SHOT_PREPARE_NECRO_PARTY: String = "necro_party"
 # ⚠ 狂った神の使い（回GM-1）：⚠ 神の使いを1番目に入れる（⚠ 内側の `PREPARE_ZEALOT_PARTY` と同じ字）。
 const SHOT_PREPARE_ZEALOT_PARTY: String = "zealot_party"
+# ⚠ 傭兵（回MC-1）：⚠ 傭兵を1番目に入れる（⚠ 内側の `PREPARE_MERC_PARTY` と同じ字）。
+const SHOT_PREPARE_MERC_PARTY: String = "merc_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1184,6 +1186,44 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_zl_silver", "prepare": PREPARE_NONE, "gap": 1.0},
 		],
 	},
+	# 傭兵（回MC-1）。⚠ Lv20 に上げてから枠に入れる。
+	"merc_a": {
+		"kind": KIND_BATTLE,
+		"note": "傭兵 A：フェイント（次の攻撃を避けて反撃）→ 横なぎ（1.0 秒溜め）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_mercenary", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_mercenary": 20},
+		"skills": {"char_mercenary": ["skill_mc_feint", "skill_mc_sweep"]},
+		"fire": [
+			{"skill": "skill_mc_feint", "prepare": PREPARE_NONE},
+			{"skill": "skill_mc_sweep", "prepare": PREPARE_NONE, "gap": 3.0, "hold_sec": 1.0},
+		],
+	},
+	"merc_b": {
+		"kind": KIND_BATTLE,
+		"note": "傭兵 B：風神剣（貫通・防御ダウン）→ 強靭（シールド・回復）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_mercenary", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_mercenary": 20},
+		"skills": {"char_mercenary": ["skill_mc_wind", "skill_mc_tough"]},
+		"fire": [
+			{"skill": "skill_mc_wind", "prepare": PREPARE_NONE},
+			{"skill": "skill_mc_tough", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"merc_c": {
+		"kind": KIND_BATTLE,
+		"note": "傭兵 C：虐殺（一番弱った敵へ突進）→ 突進→とどめ（2回押して2段目）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_mercenary", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_mercenary": 20},
+		"skills": {"char_mercenary": ["skill_mc_slaughter", "skill_mc_finisher"]},
+		"fire": [
+			{"skill": "skill_mc_slaughter", "prepare": PREPARE_NONE},
+			{"skill": "skill_mc_finisher", "prepare": PREPARE_NONE, "gap": 1.0},
+			{"skill": "skill_mc_finisher", "prepare": PREPARE_NONE, "gap": 0.5},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1603,6 +1643,16 @@ const SCENARIOS: Dictionary = {
 			},
 			# ⚠ 狂った神の使い（回GM-1）：⚠ 顔・パッシブのマス・スキルのマス。
 			{
+				"name": "92_merc_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_MERC_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			{
 				"name": "91_zealot_battle",
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
@@ -1733,6 +1783,7 @@ func _ready() -> void:
 			_report_pierce()
 			_report_necro()
 			_report_zealot()
+			_report_mercenary()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -8813,6 +8864,136 @@ func _amounts(results: Array) -> String:
 	return str(list)
 
 
+# 傭兵（回MC-1）。⚠ 避けて反撃・近くで倒れたら・前後に敵・ついてくる範囲・定数。
+func _report_mercenary() -> void:
+	var me: BattleUnit = _resource_unit("char_mercenary", 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 1000
+	var foes: Array = []
+	for i: int in range(3):
+		foes.append(BattleUnit.create("enemy_%d" % i, BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime"))
+	me.x = 300.0
+	var f0: BattleUnit = foes[0] as BattleUnit
+	var f1: BattleUnit = foes[1] as BattleUnit
+	var f2: BattleUnit = foes[2] as BattleUnit
+	f0.x = 350.0
+	f1.x = 900.0
+	f2.x = 1200.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = foes
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	var hit: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk"}
+
+	print("[DebugBoot] --- 60. フェイント（⚠ 次の攻撃1回を 0 にして反撃＝人間「⚠ １あ」）---")
+	_control_cast("skill_mc_feint", me, [me], session, registry)
+	var hp0: int = me.hp
+	var foe_hp0: int = f0.hp
+	var atk0: int = f0.get_stat("atk")
+	var r60: Array = SkillResolver.resolve({"effects": [hit]}, f0, session, [me.unit_id], registry)
+	print("  殴られた：傭兵 %d → %d（減らない）・敵 %d → %d（反撃）・敵のスタン %s ／ 攻撃 %d → %d（−20%%）" % [
+		hp0, me.hp, foe_hp0, f0.hp, str(f0.stunned), atk0, f0.get_stat("atk")])
+	print("  構えは消えた %s（true）" % str(not registry.has({"host_unit_id": me.unit_id, "status_id": "st_mc_feint"})))
+	SkillResolver.resolve({"effects": [hit]}, f0, session, [me.unit_id], registry)
+	print("  2回目は当たる：傭兵 %d（減る）" % me.hp)
+	_control_cast("skill_mc_feint", me, [me], session, registry)
+	var hp1: int = me.hp
+	SkillResolver.resolve({"effects": [hit]}, f0, session, [me.unit_id], registry, true)
+	print("  毒の周期では避けない：傭兵 %d → %d（減る）・構えは残る %s（true）" % [hp1, me.hp, str(registry.has({"host_unit_id": me.unit_id, "status_id": "st_mc_feint"}))])
+	r60.clear()
+
+	print("[DebugBoot] --- 61. 歴戦（⚠ 近く 150 で倒れたら 10＋失った体力の10% 回復・虐殺のクールダウンが消える）---")
+	runtime.cast(me, "passive_mc_veteran", MasterDataLoader.get_skill("passive_mc_veteran"), 1.0)
+	me.skill_ids = ["skill_mc_slaughter"]
+	me.skill_cooldowns = {"skill_mc_slaughter": 0.0}
+	me.start_cooldown("skill_mc_slaughter", 14.0)
+	me.hp = me.max_hp - 50
+	f2.hp = 0
+	f2.last_attacker_id = me.unit_id
+	runtime.notify_foe_died(f2)
+	print("  遠く（900 先）で倒れた：HP %d（変わらず %d）・クールダウン %.1f（14.0）" % [me.hp, me.max_hp - 50, me.get_cooldown("skill_mc_slaughter")])
+	var dead_near: BattleUnit = BattleUnit.create("enemy_8", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	dead_near.x = 400.0
+	session.enemy_units.append(dead_near)
+	dead_near.hp = 0
+	runtime.notify_foe_died(dead_near)
+	print("  近く（100 先）で倒れた：HP %d → %d（+15＝10 + 50 の 10%%）・クールダウン %.1f（0.0）" % [me.max_hp - 50, me.hp, me.get_cooldown("skill_mc_slaughter")])
+
+	print("[DebugBoot] --- 62. 前後に敵がいると通常攻撃が範囲になる ---")
+	var basic: Dictionary = me.basic_attack
+	var before: Array = [f0.hp, f1.hp]
+	f1.x = 380.0
+	_basic_once(runtime, me, basic)
+	print("  前だけ（350・380）：当たった %s（[enemy_0]＝1体）" % str(_hp_dropped([f0, f1], before)))
+	f1.x = 250.0
+	before = [f0.hp, f1.hp]
+	_basic_once(runtime, me, basic)
+	print("  前 350・後ろ 250：当たった %s（[enemy_0, enemy_1]＝範囲）" % str(_hp_dropped([f0, f1], before)))
+	f1.x = 900.0
+
+	print("[DebugBoot] --- 63. 周りの敵の攻撃 −10%（⚠ ついてくる範囲・半径 150）---")
+	var far_atk0: int = f1.get_stat("atk")
+	registry.tick(0.1)
+	print("  近い enemy_0 の攻撃 %d（−10%%）・遠い enemy_1 %d → %d（変わらない）" % [f0.get_stat("atk"), far_atk0, f1.get_stat("atk")])
+	me.x = 850.0
+	registry.tick(0.1)
+	print("  傭兵が 850 へ動いた：enemy_1 %d（下がる）・enemy_0 %d（戻る）（⚠ 反撃の −20%% は残っている）" % [f1.get_stat("atk"), f0.get_stat("atk")])
+	me.x = 300.0
+
+	print("[DebugBoot] --- 64. 突進→とどめの2段目（⚠ 相手の減った HP ×0.3 が乗る）---")
+	var finisher: Dictionary = MasterDataLoader.get_skill("skill_mc_finisher")
+	var second: Dictionary = ((finisher["phases"] as Array)[1] as Dictionary)
+	var blow: Dictionary = ((second["effects"] as Array)[1] as Dictionary).duplicate(true)
+	blow.erase("target")
+	var full: BattleUnit = BattleUnit.create("enemy_5", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var hurt: BattleUnit = BattleUnit.create("enemy_6", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	session.enemy_units.append_array([full, hurt])
+	hurt.hp = 400
+	var full0: int = full.hp
+	var hurt0: int = hurt.hp
+	SkillResolver.resolve({"effects": [blow]}, me, session, ["enemy_5", "enemy_6"], registry)
+	print("  満タンの敵 −%d ／ 600 減った敵 −%d（差 ≒ 180 から防御の分）" % [full0 - full.hp, hurt0 - hurt.hp])
+
+	print("[DebugBoot] --- 65. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var probes: Array = [
+		["evade を damage に", (hit.duplicate() as Dictionary).merged({"evade": {"effects": [hit]}}), true],
+		["evade の中に target", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "evade": {"effects": [(hit.duplicate() as Dictionary).merged({"target": {"team": "self"}})]}}, true],
+		["within を skill_used に", {"type": "react", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "react": {"event": "skill_used", "within": 100, "effects": [{"type": "heal", "target": {"team": "self"}, "multiplier": 1.0, "scale_from": "mag"}]}}, true],
+		["when_user の source が不明", (hit.duplicate() as Dictionary).merged({"when_user": {"source": "x", "radius": 100, "op": "eq", "value": 0}}), true],
+		["evade だけの buff（正しい）", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "evade": {"effects": [hit]}}, false],
+		["flat の回復（正しい）", {"type": "heal", "multiplier": 1.0, "scale_from": [{"source": "flat", "weight": 10}]}, false],
+		["後ろの敵（正しい）", (hit.duplicate() as Dictionary).merged({"when_user": {"source": "enemies_behind", "radius": 100, "op": "gte", "value": 1}}), false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_mercenary", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[2]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
+func _basic_once(runtime: SkillRuntime, me: BattleUnit, basic: Dictionary) -> void:
+	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, basic, 1.0)
+
+
+func _hp_dropped(units: Array, before: Array) -> Array:
+	var ids: Array = []
+	for i: int in range(units.size()):
+		if (units[i] as BattleUnit).hp < int(before[i]):
+			ids.append((units[i] as BattleUnit).unit_id)
+	return ids
+
+
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
 
@@ -11077,6 +11258,7 @@ class ShotTaker extends Node:
 	const PREPARE_SCHOLAR_PARTY: String = "scholar_party"
 	const PREPARE_NECRO_PARTY: String = "necro_party"
 	const PREPARE_ZEALOT_PARTY: String = "zealot_party"
+	const PREPARE_MERC_PARTY: String = "merc_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
 	const DEBUG_PARTY_SKILLS: Dictionary = {
@@ -11449,6 +11631,11 @@ class ShotTaker extends Node:
 				GameManager._state[GameStateKeys.DUNGEON_RUN] = run
 				return true
 			return GameManager.debug_mark_dungeon_boss_cleared()
+		if kind == PREPARE_MERC_PARTY:
+			for merc_i: int in range(3):
+				if not GameManager.set_party_member(merc_i, ["char_mercenary", "char_archer", "char_priest"][merc_i]):
+					return false
+			return true
 		if kind == PREPARE_ZEALOT_PARTY:
 			for zealot_i: int in range(3):
 				if not GameManager.set_party_member(zealot_i, ["char_zealot", "char_archer", "char_priest"][zealot_i]):
@@ -14858,19 +15045,19 @@ class UiFlowRunner extends Node:
 		var rows: int = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：既定は「すべて」で %d 行（タブ %d 枚）" % [rows, 0 if tabs == null else tabs.get_child_count()],
 			tabs != null and tabs.current == 0 and tabs.get_child_count() == GameManager.RECIPE_CATEGORIES.size() + 1 and rows == all)
-		# ⚠ 武器 → 15行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12 ／ 回GM-1 でショットガン3本を足して 15）。
+		# ⚠ 武器 → 18行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12 ／ 回GM-1 でショットガン3本を足して 15 ／ 回MC-1 で大剣3本を足して 18）。
 		await _press(null if tabs == null else tabs.find_child("Tab1", false, false))
 		await _wait()
 		rows = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：「武器」で %d 行（武器のレシピ %d）・装飾は出ない" % [rows, int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0))],
-			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 15
+			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 18
 			and ws.find_child("RecipeRow_craft_weapon_bow_short", true, false) != null and ws.find_child("RecipeRow_craft_part_1", true, false) == null)
 		# ⚠ 出て戻っても「武器」のまま。
 		var _base: Node = await _open(BASE, {})
 		ws = await _open(WORKSHOP_SCREEN, {})
 		tabs = null if ws == null else ws.find_child("CategoryTabs", true, false) as PaperTabs
 		rows = 0 if ws == null else ws.find_children("RecipeRow_*", "", true, false).size()
-		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 15)
+		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 18)
 		# ⚠ くじ → 1行。
 		await _press(null if tabs == null else tabs.find_child("Tab5", false, false))
 		await _wait()

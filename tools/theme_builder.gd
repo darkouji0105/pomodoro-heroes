@@ -762,6 +762,8 @@ const AVATAR_COLORS: Dictionary = {
 	"char_necro": {"bg": "3a2f4a", "fg": "d4c4ec"},
 	# ⚠ 狂った神の使い（回GM-1）。⚠ 聖なる炎の橙（⚠ 設計役の仮）。
 	"char_zealot": {"bg": "5a3a1f", "fg": "ecd0b0"},
+	# ⚠ 傭兵（回MC-1）。⚠ 鉄の灰（⚠ 設計役の仮）。
+	"char_mercenary": {"bg": "3f4549", "fg": "d0d8dc"},
 	"fallback": {"bg": "2a2320", "fg": "7d6f68"},
 }
 const AVATAR_CORNER_RADIUS: int = 8

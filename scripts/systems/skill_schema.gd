@@ -138,6 +138,15 @@ const FIELD_ON_MEET: String = "on_meet"
 #   "aim": {"from": 80, "speed": 300, "to": 700} … 自分の前 from から、毎秒 speed ずつ、to まで
 # ⚠ 範囲の中心は target の origin: "aim"（⚠ 狙いが無いとき＝自動戦闘や敵は、射程の中の一番近い相手の位置）。
 const FIELD_AIM: String = "aim"
+# 次の攻撃を避けて反撃（回MC-1・傭兵のフェイント＝人間「⚠ １あ」）。⚠ buff（host: unit）に書く。
+#   "evade": {"effects": [...]} … 相手からのダメージ1回を 0 にし、⚠ この状態を消して、⚠ 攻撃してきた相手へ effects を撃つ
+# ⚠ 毒の周期では避けない（⚠ 攻撃ではない）。⚠ effects の target は書かない（⚠ 攻撃してきた相手に当たる）。
+const FIELD_EVADE: String = "evade"
+# 購読の「近くで」（回MC-1・人間「⚠ ２あ」）。⚠ react{} の中に書く・foe_died だけ。
+#   "react": {"event": "foe_died", "within": 150, "effects": [...]} … 宿主の周り within の中で倒れたときだけ
+const REACT_FIELD_WITHIN: String = "within"
+# 威力の式の定数（回MC-1・傭兵「10＋失った体力の10%」）。⚠ {"source": "flat", "weight": 10} ＝ 10。
+const SCALE_FLAT: String = "flat"
 const AIM_FIELDS_REQUIRED: Array = ["from", "speed", "to"]
 # 対象を取らない効果（回NC-1）。⚠ 購読の中でも target が要らない（E54 の例外）・実行時も対象を選ばない。
 const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
@@ -178,6 +187,9 @@ const EVENT_PIERCE_HIT_PREFIX: String = "hit:"
 # ⚠ damage の矢に乗せられる効果（回NC-1・ネクロのビーム＝当たった相手の回復量を下げ、1体ごとに魂）。
 const PIERCE_RIDER_TYPES: Array = [EFFECT_BUFF, EFFECT_RESOURCE]
 const WHEN_ENEMIES_WITHIN: String = "enemies_within"
+# 自分の後ろ radius の中にいる敵の数（回MC-1・傭兵「前後に敵がいる場合」）。⚠ 後ろ＝自分の陣の向き。
+const WHEN_ENEMIES_BEHIND: String = "enemies_behind"
+const WHEN_USER_SOURCES: Array = [WHEN_ENEMIES_WITHIN, WHEN_ENEMIES_BEHIND]
 # 能力値を割合で上げ下げする（回DB-1・人間「⚠ ４あ」）。⚠ buff と dot に書ける。⚠ −20 なら −20%。
 # ⚠ 計算は（素の値 ＋ value）×（1 ＋ 割合の合計/100）。⚠ atkspd だけは攻撃間隔に掛ける（⚠ −10 なら間隔が伸びる）。
 const FIELD_STAT_PCT: String = "stat_pct"
@@ -364,7 +376,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to", "per_target_stack",
 	CONSUME_FIELD_UNIT_IDS, CONSUME_FIELD_BLAST_RADIUS, SUMMON_FIELD_MAX_PER_OWNER,
-	FIELD_TAG, FIELD_ON_KILL, FIELD_ON_MEET,
+	FIELD_TAG, FIELD_ON_KILL, FIELD_ON_MEET, FIELD_EVADE,
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -785,8 +797,13 @@ static func validate_basic_attack(owner_id: String, data: Dictionary) -> Array:
 		#
 		# ⚠ 効果ごとの target 上書きは引き続き書けない。通常攻撃が狙うのは
 		#   「歩いて近づいた相手」で、撃つ瞬間に選び直してはいけない。
-		if effect.has("target"):
-			_err(issues, owner_id, "basic_attack.effects[%d] に target は書けない" % index)
+		# ⚠ 例外（回MC-1・傭兵「前後に敵がいる場合は剣を振り回す」）：自分の周りの範囲（mode: area・origin: user）は書ける。
+		#   ⚠ ただし通常攻撃の直下に target があるときだけ（⚠ 無いと近づいた相手が対象に固定され、効果ごとの target は読まれない）。
+		var around_self: bool = effect.get("target", null) is Dictionary \
+				and str((effect["target"] as Dictionary).get("mode", "")) == MODE_AREA \
+				and str((effect["target"] as Dictionary).get("origin", "")) == ORIGIN_USER
+		if effect.has("target") and not (around_self and data.has("target")):
+			_err(issues, owner_id, "basic_attack.effects[%d] に target は書けない（⚠ 自分の周りの範囲だけは、直下に target があれば書ける）" % index)
 		_validate_effect(issues, owner_id, effect, index, ACTIVATION_INSTANT)
 		index += 1
 
@@ -1299,8 +1316,8 @@ static func _validate_effect(
 			_err(issues, skill_id, "%s.when_user が辞書でない" % where)
 		else:
 			var when_user: Dictionary = raw_when_user as Dictionary
-			if str(when_user.get("source", "")) != WHEN_ENEMIES_WITHIN:
-				_err(issues, skill_id, "%s.when_user.source が不明: '%s'（%s）" % [where, str(when_user.get("source", "")), WHEN_ENEMIES_WITHIN])
+			if not (str(when_user.get("source", "")) in WHEN_USER_SOURCES):
+				_err(issues, skill_id, "%s.when_user.source が不明: '%s'（%s）" % [where, str(when_user.get("source", "")), str(WHEN_USER_SOURCES)])
 			if not _is_num(when_user.get("radius", null)) or float(when_user.get("radius", 0)) <= 0.0:
 				_err(issues, skill_id, "%s.when_user.radius が正の数でない" % where)
 			if not (str(when_user.get("op", "")) in COND_OPS_KNOWN):
@@ -1470,8 +1487,12 @@ static func _validate_effect(
 			if str(effect.get("stack", "")) != STACK_REFRESH:
 				_err(issues, skill_id, "%s.stack: activation: 'passive' の効果は 'refresh' だけ（毎フレーム積み上がる）" % where)
 			# host: unit 以外だと「宿主に付いているか」で判定できない
-			if str(effect.get("host", HOST_NONE)) != HOST_UNIT:
-				_err(issues, skill_id, "%s.host: activation: 'passive' の効果は 'unit' だけ" % where)
+			# ⚠ 例外：自分についてくる範囲（host: point・zone.follow: true）＝付けた人で探せる（回MC-1・傭兵の「周りの敵の攻撃力低下」）。
+			var passive_host: String = str(effect.get("host", HOST_NONE))
+			var follows: bool = passive_host == HOST_POINT and effect.get(FIELD_ZONE, null) is Dictionary \
+					and (effect[FIELD_ZONE] as Dictionary).get(ZONE_FOLLOW, false) == true
+			if passive_host != HOST_UNIT and not follows:
+				_err(issues, skill_id, "%s.host: activation: 'passive' の効果は 'unit' だけ（⚠ ついてくる範囲は書ける）" % where)
 
 	# E25 / E30 / W6 / W9 host
 	var host: String = str(effect.get("host", HOST_NONE))
@@ -1562,6 +1583,14 @@ static func _validate_react_effect(
 	var event_name: String = str(react.get("event", ""))
 	if not (event_name in EVENTS_KNOWN):
 		_err(issues, skill_id, "%s.react.event が無い、または不明: '%s'" % [where, event_name])
+
+	# E188 近くで（回MC-1）。⚠ foe_died だけ・正の数。
+	if react.has(REACT_FIELD_WITHIN):
+		var within: Variant = react.get(REACT_FIELD_WITHIN, null)
+		if event_name != EVENT_FOE_DIED:
+			_err(issues, skill_id, "%s.react.within は event: 'foe_died' にしか書けない" % where)
+		elif not _is_num(within) or float(within) <= 0.0:
+			_err(issues, skill_id, "%s.react.within が正の数でない" % where)
 
 	# E48
 	var raw_effects: Variant = react.get("effects", null)
@@ -1820,7 +1849,9 @@ static func _validate_status_effect(
 		# E63 … 何もしない buff を書かせない。
 		# ⚠ これが無いと、stat を必須にしなくなった分だけ typo（"stt"）が
 		#   「介入だけを持つ buff」として黙って通る。
-		if not has_stat and not has_atk_mult and not has_intervene:
+		# ⚠ 避けて反撃・そろったら（回MC-1・回GM-1）だけの buff は書ける（⚠ それ自体が働く）。
+		var has_trigger_only: bool = effect.has(FIELD_EVADE) or effect.has(FIELD_ON_MEET)
+		if not has_stat and not has_atk_mult and not has_intervene and not has_trigger_only:
 			_err(issues, skill_id, "%s は buff なのに stat / value も %s も %s{} も無い" % [
 				where, BUFF_ATK_MULT_PCT, BUFF_INTERVENE
 			])
@@ -2120,7 +2151,7 @@ static func _validate_scale_from(
 			continue
 		var entry: Dictionary = term as Dictionary
 		var source: String = str(entry.get("source", ""))
-		if not (source in known) and source != SCALE_RESOURCE_SPENT and source != SCALE_RESOURCE_NOW:
+		if not (source in known) and source != SCALE_RESOURCE_SPENT and source != SCALE_RESOURCE_NOW and source != SCALE_FLAT:
 			_err(issues, skill_id, "%s.scale_from の source が不明: '%s'" % [where, source])
 		# E175 … いまの資源の量には resource_id が要る（回SC-1）。
 		if source == SCALE_RESOURCE_NOW and str(entry.get(RESOURCE_FIELD_ID, "")) == "":
@@ -2186,6 +2217,18 @@ static func _validate_gm_fields(
 			elif meet is Dictionary and str((meet as Dictionary).get("status_id", "")) == str(effect.get("status_id", "")):
 				_err(issues, skill_id, "%s.on_meet.status_id が自分と同じ" % where)
 			_validate_sub_effects(issues, skill_id, meet, where + ".on_meet", ["status_id", "effects"], activation, false)
+	# E189 避けて反撃（回MC-1）。⚠ host: unit の buff だけ・中の効果は攻撃してきた相手に当たる（⚠ target は書かない）。
+	if effect.has(FIELD_EVADE):
+		if effect_type != EFFECT_BUFF or str(effect.get("host", "")) != HOST_UNIT:
+			_err(issues, skill_id, "%s.evade は host: unit の buff にしか書けない" % where)
+		else:
+			var evade: Variant = effect.get(FIELD_EVADE, null)
+			if evade is Dictionary:
+				for i: int in range(((evade as Dictionary).get("effects", []) as Array).size()):
+					var sub: Variant = ((evade as Dictionary)["effects"] as Array)[i]
+					if sub is Dictionary and (sub as Dictionary).has("target"):
+						_err(issues, skill_id, "%s.evade.effects[%d] に target は書けない（攻撃してきた相手に当たる）" % [where, i])
+			_validate_sub_effects(issues, skill_id, evade, where + ".evade", ["effects"], activation, false)
 	# E186 時間を戻す
 	if effect_type == EFFECT_REFRESH_STATUS:
 		if str(effect.get("status_id", "")) == "":

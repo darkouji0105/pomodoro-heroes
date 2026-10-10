@@ -467,6 +467,109 @@
 			"spd": 1
 		}
 	},
+	"char_mercenary": {
+		"basic_attack": {
+			"target": {
+				"team": "enemy",
+				"mode": "select",
+				"sort": "nearest",
+				"count": 1
+			},
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk",
+					"when_user": {
+						"source": "enemies_behind",
+						"radius": 100.0,
+						"op": "eq",
+						"value": 0
+					}
+				},
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 0.9,
+					"attack_type": "physical",
+					"scale_from": "atk",
+					"target": {
+						"team": "enemy",
+						"mode": "area",
+						"origin": "user",
+						"radius": 100.0
+					},
+					"when_user": {
+						"source": "enemies_behind",
+						"radius": 100.0,
+						"op": "gte",
+						"value": 1
+					}
+				}
+			]
+		},
+		"basic_attack_every": {
+			"every": 3,
+			"attack": {
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 100.0
+				},
+				"effects": [
+					{
+						"type": "damage",
+						"delivery": "melee",
+						"multiplier": 0.9,
+						"attack_type": "physical",
+						"scale_from": "atk"
+					}
+				]
+			}
+		},
+		"name_key": "ui_battle_char_mercenary",
+		"sign_style": "brush",
+		"sign_mark": "cross",
+		"weapon_genre": "claymore",
+		"hp": 140,
+		"atk": 18,
+		"mag": 3,
+		"def": 10,
+		"mdef": 6,
+		"spd": 65,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 5,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 60,
+		"attack_interval_sec": 1.6,
+		"skills": [
+			"skill_mc_sweep",
+			"skill_mc_feint",
+			"skill_mc_wind",
+			"skill_mc_tough",
+			"skill_mc_slaughter",
+			"skill_mc_finisher"
+		],
+		"passives": [
+			"passive_mc_veteran"
+		],
+		"allocatable_stats": [
+			"hp",
+			"atk",
+			"def"
+		],
+		"growth_per_level": {
+			"hp": 7,
+			"atk": 2,
+			"def": 1,
+			"spd": 1
+		}
+	},
 	"char_debug_status": {
 		"basic_attack": {
 			"effects": [

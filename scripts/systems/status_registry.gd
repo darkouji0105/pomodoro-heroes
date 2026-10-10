@@ -196,6 +196,10 @@ func add(
 		push_error("[StatusRegistry] zone{} は host: point にしか書けない (status_id=%s)" % status_id)
 		return false
 
+	# --- 6-1-4. 避けて反撃（回MC-1） ---
+	if effect.get(SkillSchema.FIELD_EVADE, null) is Dictionary:
+		entry["evade"] = (effect[SkillSchema.FIELD_EVADE] as Dictionary).duplicate(true)
+
 	# --- 6-1-3. そろったら（回GM-1） ---
 	if effect.get(SkillSchema.FIELD_ON_MEET, null) is Dictionary:
 		entry["on_meet"] = (effect[SkillSchema.FIELD_ON_MEET] as Dictionary).duplicate(true)
@@ -335,6 +339,19 @@ func _check_meet(host_unit: BattleUnit) -> void:
 		return
 
 
+# 避けて反撃の状態を1つ使う（回MC-1）。⚠ あれば消して中身（{ "effects" }）を返す・無ければ空。
+func take_evade(unit_id: String) -> Dictionary:
+	for i: int in range(_entries.size()):
+		var entry: Dictionary = _entries[i]
+		if str(entry.get("host_unit_id", "")) != unit_id or (entry.get("evade", {}) as Dictionary).is_empty():
+			continue
+		_entries.remove_at(i)
+		BattleLog.log_status_end(str(entry.get("status_id", "")), unit_id, "evade")
+		_rebuild_unit_mods(unit_id)
+		return entry["evade"] as Dictionary
+	return {}
+
+
 # 宿主からその状態を全部消す（回GM-1）。⚠ 誰が付けたものでも。戻り値は消した数。
 func remove_status(unit_id: String, status_id: String) -> int:
 	var rest: Array = []
@@ -443,6 +460,8 @@ func _make_entry(
 		"drain_pct": 0,
 		# そろったら（回GM-1）。{ "status_id", "effects" }。
 		"on_meet": {},
+		# 避けて反撃（回MC-1）。{ "effects" }。
+		"evade": {},
 		# 攻撃力の倍率（EXEC_SILENT_HOLES.md）。⚠ 持たない件にも必ず持たせる。
 		"atk_mult_pct": 0,
 		# ダメージの介入点（EXEC_SKILL_MITIGATION.md）。⚠ 持たない件にも必ず持たせる
@@ -626,6 +645,9 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		entry["counter"] = shield
 		has_intervene = true
 
+	# 避けて反撃・そろったら（回MC-1・回GM-1）だけの状態も書ける。
+	if effect.get(SkillSchema.FIELD_EVADE, null) is Dictionary or effect.get(SkillSchema.FIELD_ON_MEET, null) is Dictionary:
+		has_intervene = true
 	if not has_stat and not has_intervene:
 		push_error("[StatusRegistry] buff に stat / value も介入の欄も無い（何も起きない状態は書けない）")
 		return false
@@ -659,6 +681,9 @@ func _fill_react(entry: Dictionary, effect: Dictionary) -> bool:
 		"event": event_name,
 		"effects": (raw_effects as Array).duplicate(true),
 	}
+	# 近くで（回MC-1）。⚠ 写し忘れると「どこで倒れても」になる（⚠ 10-10 に実際に踏んだ）。
+	if react.has(SkillSchema.REACT_FIELD_WITHIN):
+		entry["react"][SkillSchema.REACT_FIELD_WITHIN] = float(react.get(SkillSchema.REACT_FIELD_WITHIN, 0.0))
 	return true
 
 

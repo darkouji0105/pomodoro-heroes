@@ -552,7 +552,7 @@ func notify_foe_died(dead: BattleUnit) -> void:
 		killer_id = killer.summon_owner_id
 	var foe_team: String = BattleUnit.TEAM_ENEMY if dead.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
 	for raw: Variant in _session.get_alive_units(foe_team):
-		_notify(SkillSchema.EVENT_FOE_DIED, (raw as BattleUnit).unit_id, killer_id)
+		_notify(SkillSchema.EVENT_FOE_DIED, (raw as BattleUnit).unit_id, killer_id, dead.x)
 
 
 # その出来事を購読しているものを探して撃つ。
@@ -564,7 +564,8 @@ func notify_foe_died(dead: BattleUnit) -> void:
 # ⚠ query() は器の辞書を参照で返す（status_registry.gd）。書き換えないこと。
 # ⚠ 取り出してから発火する。回しながら撃つと、発火の中で器が増減したときに再入する。
 #   subs は query() が作った別の配列なので、この形で守れている。
-func _notify(event_name: String, host_unit_id: String, source_unit_id: String) -> void:
+# at_x … 出来事が起きた場所（⚠ 敵が倒された＝倒れた位置・回MC-1 の react.within が読む）。⚠ 無ければ NAN。
+func _notify(event_name: String, host_unit_id: String, source_unit_id: String, at_x: float = NAN) -> void:
 	if _registry == null or host_unit_id == "":
 		return
 	# ⚠ "active": true を落とさないこと。条件が偽の間も反応してしまう（無音）。
@@ -588,6 +589,10 @@ func _notify(event_name: String, host_unit_id: String, source_unit_id: String) -
 		var sub: Dictionary = raw as Dictionary
 		var react: Dictionary = sub.get("react", {}) as Dictionary
 		if str(react.get("event", "")) != event_name:
+			continue
+		# 近くで（回MC-1）。⚠ 場所の無い出来事では絞らない（⚠ ロード時に foe_died だけに閉じてある）。
+		if react.has(SkillSchema.REACT_FIELD_WITHIN) and not is_nan(at_x) \
+				and absf(host.x - at_x) > float(react.get(SkillSchema.REACT_FIELD_WITHIN, 0.0)):
 			continue
 		var effects: Variant = react.get("effects", null)
 		if not (effects is Array) or (effects as Array).is_empty():
