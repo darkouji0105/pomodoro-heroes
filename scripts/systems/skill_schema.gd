@@ -24,7 +24,7 @@ const LEVEL_WARNING: String = "warning"
 # --- activation（発動の型） ---
 const ACTIVATION_INSTANT: String = "instant"
 const ACTIVATION_CHARGE: String = "charge"
-# recast は段階5で動く。⚠ toggle は器に載せるだけ（まだ動かない）。
+# recast は段階5で動く。⚠ toggle は回CH-9（2026-10-10）で動くようになった（⚠ 下の FIELD_TOGGLE）。
 const ACTIVATION_RECAST: String = "recast"
 const ACTIVATION_TOGGLE: String = "toggle"
 # パッシブ（PLAN 7-2・19章）。⚠ 「発動の型」であって効果の trigger ではない。
@@ -449,6 +449,20 @@ const FIELD_UNLOCK_LEVEL: String = "unlock_level"
 const FIELD_UNLOCK_TOTAL_POINTS: String = "unlock_total_points"
 
 # スキル直下に書いてよい欄。
+# トグル型（回CH-9・EXEC_CHAR_RESOURCE.md §16）。⚠ activation: "toggle" には必須。
+#   "toggle": {"interval_sec": 1.0, "repress": "off"}
+# ⚠ 入れている間、interval_sec ごとに effects が出る（⚠ 入れた瞬間に1回目）。
+# ⚠ cost を書けば**1回出るごとに払う**・払えなくなったら自動で切れる（人間「⚠ １あ」）。⚠ 書かなければ資源を使わない（生徒のレーザー）。
+# ⚠ クールダウンは**切ったとき**に始まる（「⚠ ２あ」）。
+# ⚠ もう一度押したとき＝repress：off（切れる）／ retarget（狙う相手を選び直す＝僧侶の祈り）（「⚠ ３スキルごとに違う」）。
+# ⚠ スタン・戦闘不能・ウェーブ交代で切れる。
+const FIELD_TOGGLE: String = "toggle"
+const TOGGLE_INTERVAL: String = "interval_sec"
+const TOGGLE_REPRESS: String = "repress"
+const REPRESS_OFF: String = "off"
+const REPRESS_RETARGET: String = "retarget"
+
+
 # 資源を払って撃つ（2026-10-10・回CH-2・EXEC_CHAR_RESOURCE.md §9）。
 #
 #   "cost": {"resource_id": "charge", "amount": 40} … 40 払う（⚠ 足りなければ撃てない）
@@ -484,6 +498,8 @@ const SKILL_FIELDS_KNOWN: Array = [
 	"activation", "charge", "recast", "target", "effects", "phases",
 	# 資源を払う（2026-10-10・回CH-2）。
 	FIELD_COST,
+	# トグル型（回CH-9）。
+	FIELD_TOGGLE,
 	# レリック（段階14-d）。⚠ relics.json は skills.json と同じ辞書へマージされるので、
 	#   ここに並べないと E26「知らない欄がある」で全件が赤になる。
 	FIELD_RELIC_SCOPE,
@@ -731,8 +747,25 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	var activation: String = str(data.get("activation", ""))
 	if not (activation in ACTIVATIONS_KNOWN):
 		_err(issues, skill_id, "activation が不明: '%s'" % activation)
-	elif activation == ACTIVATION_TOGGLE:
-		_warn(issues, skill_id, "activation: '%s' は段階5以降。段階1では動かない" % activation)
+	# E172 トグル型（回CH-9）
+	if activation == ACTIVATION_TOGGLE:
+		var raw_toggle: Variant = data.get(FIELD_TOGGLE, null)
+		if not (raw_toggle is Dictionary):
+			_err(issues, skill_id, "activation: 'toggle' なのに toggle{} が無い")
+		else:
+			var toggle: Dictionary = raw_toggle as Dictionary
+			var interval: Variant = toggle.get(TOGGLE_INTERVAL, null)
+			if not _is_num(interval) or float(interval) <= 0.0:
+				_err(issues, skill_id, "toggle.interval_sec が正の数でない")
+			if not (str(toggle.get(TOGGLE_REPRESS, "")) in [REPRESS_OFF, REPRESS_RETARGET]):
+				_err(issues, skill_id, "toggle.repress が 'off' ／ 'retarget' でない（必須）")
+			for key: Variant in toggle:
+				if not (str(key) in [TOGGLE_INTERVAL, TOGGLE_REPRESS]):
+					_err(issues, skill_id, "toggle{} に知らない欄がある: '%s'" % str(key))
+			if data.has("phases"):
+				_err(issues, skill_id, "activation: 'toggle' に phases は書けない")
+	elif data.has(FIELD_TOGGLE):
+		_err(issues, skill_id, "activation が toggle 以外なのに toggle{} がある")
 
 	var is_passive: bool = (activation == ACTIVATION_PASSIVE)
 

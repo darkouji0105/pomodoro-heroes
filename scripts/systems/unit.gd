@@ -107,6 +107,15 @@ var sp_max: float = 0.0
 var sp_regen: float = 0.0
 
 
+# 入れているトグル（回CH-9）。{skill_id: {elapsed: float, target_ids: Array}}。
+# ⚠ 入れる・切るのは BattleController の口（_toggle_on ／ _toggle_off）だけ。⚠ セーブに入らない。
+var toggles_on: Dictionary = {}
+
+
+func is_toggle_on(skill_id: String) -> bool:
+	return toggles_on.has(skill_id)
+
+
 # 行動を止める・守る印（回CH-5）。⚠ 書くのは StatusRegistry._rebuild_unit_mods() だけ（⚠ 状態から毎回組み直す）。
 var stunned: bool = false
 var snared: bool = false

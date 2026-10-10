@@ -352,7 +352,9 @@ func _auto_fire() -> void:
 	for entry: Dictionary in _skill_buttons:
 		var tile: Variant = entry.get("button", null)
 		var user: Variant = entry.get("user", null)
-		if tile is BaseButton and is_instance_valid(tile) and not (tile as BaseButton).disabled and user is BattleUnit and (user as BattleUnit).is_alive():
+		# ⚠ 入れているトグルは押さない（回CH-9・押すと切れる／選び直しになる）。
+		if tile is BaseButton and is_instance_valid(tile) and not (tile as BaseButton).disabled and user is BattleUnit and (user as BattleUnit).is_alive() \
+				and not (user as BattleUnit).is_toggle_on(str(entry.get("skill_id", ""))):
 			_on_skill_button_pressed(user as BattleUnit, str(entry.get("skill_id", "")))
 
 
@@ -764,6 +766,9 @@ func _process(delta: float) -> void:
 	# ⚠ 切れたら「そのまま終わる」（人間の決定）。最終段を自動で出さない。
 	_step_recast_windows(delta)
 
+	# トグル（回CH-9）。⚠ クールダウンと同じ delta で進める。
+	_step_toggles(delta)
+
 	# 1. 対象再選択（味方→敵→召喚の順）
 	for unit in _all_units():
 		if unit is BattleUnit:
@@ -885,6 +890,8 @@ func _clear_all_recast() -> void:
 	for unit in _all_units():
 		if unit is BattleUnit:
 			(unit as BattleUnit).clear_all_recast()
+			# ⚠ トグルもここで切る（回CH-9・ウェーブ交代・リトライ・勝敗確定）。⚠ クールダウンは回さない。
+			(unit as BattleUnit).toggles_on.clear()
 
 
 # ⚠ death_handled を書いてよいのはここだけ（unit.gd の注記）。
@@ -1730,7 +1737,8 @@ func _update_skill_buttons() -> void:
 				# ⚠ phase は「次に出す段」の番号。⚠ 残りの回数は 段の数 − 次の段。
 				phases_left = maxi(int(entry.get("phase_count", 1)) - phase, 0)
 
-		var charging: bool = entry == charging_entry
+		# ⚠ 入れているトグルは溜め中と同じ見た目（太い枠で沈む＝押し込まれている）（回CH-9）。
+		var charging: bool = entry == charging_entry or (user != null and user.is_toggle_on(skill_id))
 		var in_just: bool = false
 		if charging:
 			# チャージ中はボタンを押しっぱなしなので disabled にしない。
@@ -1772,6 +1780,12 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool
 	var phase_data: Dictionary = SkillSchema.phase_of(skill_data, phase_index)
 	var phase_total: int = SkillSchema.phase_count(skill_data)
 
+	# 入れているトグルをもう一度押した（回CH-9）。⚠ blocked_reason() より前（⚠ 切るのは資源が無くてもできる）。
+	var is_toggle: bool = str(skill_data.get("activation", "")) == SkillSchema.ACTIVATION_TOGGLE
+	if is_toggle and user.is_toggle_on(skill_id):
+		_press_active_toggle(user, skill_id, skill_data)
+		return true
+
 	# 撃てるかの判定は SkillActivation に集約してある。
 	# ここに条件を書き足さないこと（PLAN_SKILL_TEMPLATE.md 12章）。
 	# 撃てなかったらクールダウンは回さない。押せなかっただけ。
@@ -1789,6 +1803,12 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool
 	# ⚠ ルーンが撃てなくてもスキルは撃つ。blocked_reason() にルーンの条件を
 	#   足さないこと（ルーンのCDでスキルが止まる）。
 	_fire_runes(user, skill_id)
+
+	# トグルを入れる（回CH-9）。⚠ 払うのは1回出るごと（_toggle_pulse）。⚠ クールダウンは切ったとき。
+	if is_toggle:
+		_toggle_on(user, skill_id, skill_data)
+		_skill_runtime.notify_skill_used(user)
+		return true
 
 	# 資源を払う（回CH-2）。⚠ 1段目だけ（⚠ クールダウンと同じ）。⚠ 足りるかは blocked_reason() が見終わっている。
 	# ⚠ 払った量を効果へ畳み込む（⚠ scale_from の resource_spent が読む）。
@@ -1833,6 +1853,95 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool
 	else:
 		user.clear_recast(skill_id)
 	return true
+
+
+# ============================================================
+# トグル型（回CH-9・EXEC_CHAR_RESOURCE.md §16）
+# ============================================================
+
+# 入れる。⚠ 入れた瞬間に1回目を出す。⚠ retarget は狙う相手をここで決めて固定する。
+func _toggle_on(user: BattleUnit, skill_id: String, skill_data: Dictionary) -> void:
+	user.toggles_on[skill_id] = {"elapsed": 0.0, "target_ids": _toggle_pick(user, skill_data)}
+	BattleLog.log_recast(user.unit_id, skill_id, 0, "toggle_on")
+	_toggle_pulse(user, skill_id, skill_data)
+
+
+# もう一度押した。⚠ repress: off＝切る ／ retarget＝狙う相手を選び直す（⚠ 切らない）。
+func _press_active_toggle(user: BattleUnit, skill_id: String, skill_data: Dictionary) -> void:
+	var toggle: Dictionary = skill_data.get(SkillSchema.FIELD_TOGGLE, {}) as Dictionary
+	if str(toggle.get(SkillSchema.TOGGLE_REPRESS, "")) == SkillSchema.REPRESS_RETARGET:
+		(user.toggles_on[skill_id] as Dictionary)["target_ids"] = _toggle_pick(user, skill_data)
+		return
+	_toggle_off(user, skill_id)
+
+
+# 切る。⚠ クールダウンはここで始まる（人間「⚠ ２あ」）。
+func _toggle_off(user: BattleUnit, skill_id: String) -> void:
+	if not user.toggles_on.has(skill_id):
+		return
+	user.toggles_on.erase(skill_id)
+	BattleLog.log_recast(user.unit_id, skill_id, -1, "toggle_off")
+	user.start_cooldown(skill_id, BattleFormula.cooldown(
+		float(MasterDataLoader.get_skill(skill_id).get("cooldown_sec", 0.0)),
+		user.get_stat(GameStateKeys.STAT_HASTE)
+	))
+
+
+# retarget のトグルが狙う相手（⚠ off のトグルは空＝出るたびに選び直す）。
+func _toggle_pick(user: BattleUnit, skill_data: Dictionary) -> Array:
+	var toggle: Dictionary = skill_data.get(SkillSchema.FIELD_TOGGLE, {}) as Dictionary
+	if str(toggle.get(SkillSchema.TOGGLE_REPRESS, "")) != SkillSchema.REPRESS_RETARGET:
+		return []
+	# ⚠ select_targets() が返すのは ID（⚠ ユニットではない）。
+	var raw_target: Variant = skill_data.get("target", null)
+	if raw_target is Dictionary:
+		return SkillResolver.select_targets(raw_target as Dictionary, user, _session).duplicate()
+	return []
+
+
+# 1回出す。⚠ cost があれば1回ごとに払う・払えなければ切る（人間「⚠ １あ」）。⚠ 戻り値は出せたか。
+func _toggle_pulse(user: BattleUnit, skill_id: String, skill_data: Dictionary) -> bool:
+	var cost: Dictionary = SkillSchema.cost_of(skill_data)
+	if not user.can_pay_cost(cost):
+		_toggle_off(user, skill_id)
+		return false
+	var data: Dictionary = skill_data
+	var spent: int = user.pay_cost(cost)
+	if spent >= 0:
+		data = SkillResolver.fold_resource_spent(skill_data, spent)
+	var state: Dictionary = user.toggles_on.get(skill_id, {}) as Dictionary
+	var fixed: Array = []
+	for raw_id: Variant in (state.get("target_ids", []) as Array):
+		var t: BattleUnit = _find_unit_by_id(str(raw_id))
+		if t != null and t.is_alive():
+			fixed.append(t.unit_id)
+	# ⚠ retarget で狙っていた相手が全員倒れたら、選び直す。
+	if fixed.is_empty() and not (state.get("target_ids", []) as Array).is_empty():
+		state["target_ids"] = _toggle_pick(user, skill_data)
+		fixed = (state["target_ids"] as Array).duplicate()
+	_skill_runtime.cast(user, skill_id, data, 1.0, fixed)
+	return true
+
+
+# 入れているトグルを進める。⚠ スタン・戦闘不能で切る。
+func _step_toggles(delta: float) -> void:
+	for unit in _all_units():
+		if not (unit is BattleUnit):
+			continue
+		var u: BattleUnit = unit as BattleUnit
+		for skill_id: Variant in u.toggles_on.keys():
+			var sid: String = str(skill_id)
+			if not u.is_alive() or u.stunned:
+				_toggle_off(u, sid)
+				continue
+			var skill_data: Dictionary = MasterDataLoader.get_skill(sid)
+			var interval: float = float((skill_data.get(SkillSchema.FIELD_TOGGLE, {}) as Dictionary).get(SkillSchema.TOGGLE_INTERVAL, 1.0))
+			var state: Dictionary = u.toggles_on[sid] as Dictionary
+			state["elapsed"] = float(state.get("elapsed", 0.0)) + delta
+			while float(state["elapsed"]) >= interval and u.is_toggle_on(sid):
+				state["elapsed"] = float(state["elapsed"]) - interval
+				if not _toggle_pulse(u, sid, skill_data):
+					break
 
 
 # スキルの直前にルーンを発動する（段階8・GAME_DESIGN.md 7-5 / 7-7）。

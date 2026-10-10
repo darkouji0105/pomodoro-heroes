@@ -1037,5 +1037,57 @@
 				"execute_boss_mult": 1.5
 			}
 		]
+	},
+	"skill_dbg_tg_drain": {
+		"name_key": "ui_battle_skill_dbg_tg_drain",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 3.0,
+		"activation": "toggle",
+		"toggle": {
+			"interval_sec": 1.0,
+			"repress": "off"
+		},
+		"cost": {
+			"resource_id": "dbg_charge",
+			"amount": 20
+		},
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			}
+		]
+	},
+	"skill_dbg_tg_prayer": {
+		"name_key": "ui_battle_skill_dbg_tg_prayer",
+		"user_character_id": "char_debug_status",
+		"unlock_level": 1,
+		"cooldown_sec": 3.0,
+		"activation": "toggle",
+		"toggle": {
+			"interval_sec": 1.0,
+			"repress": "retarget"
+		},
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "lowest_hp",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "heal",
+				"multiplier": 1.0,
+				"scale_from": "atk"
+			}
+		]
 	}
 }

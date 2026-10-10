@@ -272,7 +272,9 @@
 			"skill_dbg_if_defdown_x2",
 			"skill_dbg_if_debuffed_extra",
 			"skill_dbg_if_low_crit",
-			"skill_dbg_execute"
+			"skill_dbg_execute",
+			"skill_dbg_tg_drain",
+			"skill_dbg_tg_prayer"
 		],
 		"passives": [
 			"passive_dbg_atk",
@@ -408,7 +410,8 @@
 			"skill_dbg_aura_atk",
 			"skill_dbg_atk_mult",
 			"skill_dbg_dot_self_mix",
-			"skill_dbg_res_stance"
+			"skill_dbg_res_stance",
+			"skill_dbg_tg_laser"
 		],
 		"allocatable_stats": [
 			"hp",

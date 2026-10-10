@@ -991,6 +991,26 @@ const SCENARIOS: Dictionary = {
 	#   ⚠ segoe-ui-emoji.ttf を fallback に足した（⚠ COLR/CPAL・1,274 字だけ）。
 	#   ⚠⚠ 1,274 字しか無いので「思いついた絵文字が在る」とは限らない。
 	#     ⚠ Glyphs に足したら必ずここを回して、⚠ NG が0件であることを確かめる。
+	# トグル型（回CH-9）。⚠ トグルは戦闘の画面の中にあるので、⚠ 本物の戦闘でキーを押して確かめる。
+	# ⚠ 帯電＝1秒ごとに充電 20（始め 40・通常攻撃とスキルで少し戻る＝数回で尽きて自動で切れる）／ 祈り＝押すと相手を選び直す ／ レーザー＝資源なし・0.5秒ごと。
+	"toggle": {
+		"kind": KIND_BATTLE,
+		"note": "トグル型（回CH-9）：入れる・出続ける・資源が尽きて切れる・押して切る／選び直す・切ったらクールダウン",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_mix", "char_debug_life", "char_debug_status"],
+		"skills": {
+			"char_debug_mix": ["skill_dbg_tg_laser", "skill_dbg_area_narrow"],
+			"char_debug_status": ["skill_dbg_tg_drain", "skill_dbg_tg_prayer"],
+		},
+		"fire": [
+			{"skill": "skill_dbg_tg_drain", "prepare": PREPARE_NONE},
+			{"skill": "skill_dbg_tg_laser", "prepare": PREPARE_NONE, "gap": 0.2},
+			{"skill": "skill_dbg_tg_prayer", "prepare": PREPARE_DAMAGE_PARTY, "gap": 0.2},
+			{"skill": "skill_dbg_tg_prayer", "prepare": PREPARE_NONE, "gap": 2.0},
+			{"skill": "skill_dbg_tg_laser", "prepare": PREPARE_NONE, "gap": 1.0},
+			{"skill": "skill_dbg_tg_laser", "prepare": PREPARE_NONE, "gap": 0.5},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1500,6 +1520,7 @@ func _ready() -> void:
 			_report_char_dash()
 			_report_char_cd_dispel()
 			_report_char_when()
+			_report_char_toggle()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -7968,6 +7989,31 @@ func _when_crit(results: Array) -> bool:
 		if r is Dictionary and bool((r as Dictionary).get("is_crit", false)):
 			return true
 	return false
+
+# トグル型の書き方（回CH-9）。⚠ 動き（入れる・出続ける・切れる）は scenario=toggle（本物の戦闘）が見る。
+func _report_char_toggle() -> void:
+	print("[DebugBoot] --- 31. 壊したトグルを弾く（⚠ 赤は出さず件数だけ）---")
+	var dmg: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk"}
+	var probes: Array = [
+		["toggle{} が無い", {"activation": "toggle"}],
+		["interval_sec が 0", {"activation": "toggle", "toggle": {"interval_sec": 0, "repress": "off"}}],
+		["repress が不明", {"activation": "toggle", "toggle": {"interval_sec": 1.0, "repress": "pause"}}],
+		["知らない欄", {"activation": "toggle", "toggle": {"interval_sec": 1.0, "repress": "off", "max_sec": 5}}],
+		["instant に toggle{}", {"activation": "instant", "toggle": {"interval_sec": 1.0, "repress": "off"}}],
+		["正しい", {"activation": "toggle", "toggle": {"interval_sec": 1.0, "repress": "retarget"}}],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_debug_status", "unlock_level": 1, "cooldown_sec": 1.0,
+			"target": {"team": "enemy", "mode": "select", "sort": "all"}, "effects": [dmg],
+		}
+		data.merge(probe[1] as Dictionary, true)
+		var errors: int = 0
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+		print("  %s -> 赤 %d 件" % [str(probe[0]), errors])
+	print("  ⚠ 上の6行は 1 以上 ×5・最後だけ 0 が正解")
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
