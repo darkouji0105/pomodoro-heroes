@@ -72,6 +72,7 @@ func _build_ui() -> void:
 		"[J] 味方全員に物理の一撃（威力%d）" % DEBUG_DAMAGE_POWER,
 		"[M] 味方全員に魔法の一撃（威力%d）" % DEBUG_DAMAGE_POWER,
 		"[S] スキルCD全リセット",
+		"[H] 味方全員を全回復  [D] 味方を1人倒す（3枠目から）",
 		"[P] 状態の一覧をコンソールへ出す（1回だけ）",
 		"[O] 戦闘ログの記録 On/Off（user://logs/battle_last.jsonl）",
 		"[V] 強制的に勝利  [B] 強制的に敗北",
@@ -355,6 +356,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_call_controller("debug_kill_all_enemies")
 		KEY_S:
 			_call_controller("debug_reset_cooldowns")
+		KEY_H:
+			_call_controller("debug_heal_party")
+		KEY_D:
+			_call_controller("debug_down_one_ally")
 		KEY_P:
 			_print_statuses()
 		KEY_O:

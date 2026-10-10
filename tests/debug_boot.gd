@@ -16033,6 +16033,42 @@ class UiFlowRunner extends Node:
 			picker != null and str(made_view.get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "weapon_dragon_greatsword"
 			and int(made_view.get(GameStateKeys.INSTANCE_GRADE, 0)) == 7
 			and (picker.find_child("EquipmentPick", true, false) as OptionButton).item_count == GameManager.get_codex_ids(GameManager.CODEX_KIND_EQUIPMENT).size())
+		# ⚠ 見る回を楽にする3つ（10-11・人間「⚠ デバッグで楽にしたい全部」）。⚠ 「準備（一発）」はセーブを書くので押さない（⚠ 中身の3つを押す）。
+		# ⚠ 終わりに状態を戻す（⚠ 後の検査の数を動かさない）。
+		var snapshot: Dictionary = GameManager.get_state()
+		overlay.call("_unlock_all_research")
+		overlay.call("_max_all_levels")
+		var cap: int = 20
+		var off: Array = []
+		for id: String in GameManager.get_party_candidates():
+			var want: int = int(overlay.call("_all_skills_level", id))
+			if int(GameManager.get_character_growth(id).get(GameStateKeys.GROWTH_LEVEL, 1)) != want:
+				off.append(id)
+		_check("デバッグ：「全員 スキルがそろうLv」で名簿の全員がちょうどそのレベル（僧侶 Lv%d・ずれ %s）" % [
+			int(GameManager.get_character_growth("char_priest").get(GameStateKeys.GROWTH_LEVEL, 1)), str(off)],
+			off.is_empty() and int(GameManager.get_character_growth("char_priest").get(GameStateKeys.GROWTH_LEVEL, 1)) == cap)
+		var party_line: Node = overlay.find_child("PartyPicker", true, false)
+		var pick: OptionButton = null if party_line == null else party_line.find_child("PartyPick", true, false) as OptionButton
+		var priest_at: int = -1
+		if pick != null:
+			for i: int in range(pick.item_count):
+				if str(pick.get_item_metadata(i)) == "char_priest":
+					priest_at = i
+		if pick != null and priest_at >= 0:
+			pick.select(priest_at)
+		overlay.call("_put_in_party", 0)
+		_check("デバッグ：「パーティに入れる」で1枠目が僧侶（%s）" % str(GameManager.get_party_members()), str(GameManager.get_party_members()[0]) == "char_priest")
+		var all: Array = GameManager.get_skill_candidates("char_priest")
+		var seen: Array = [GameManager.get_battle_skills("char_priest")]
+		for _i: int in range(3):
+			overlay.call("_rotate_skill_pairs")
+			seen.append(GameManager.get_battle_skills("char_priest"))
+		_check("デバッグ：「スキル枠 次の組へ」で 1・2 → 3・4 → 5・6 → 1・2 と回る（%s）" % str(seen),
+			all.size() == 6 and seen[1] == [all[2], all[3]] and seen[2] == [all[4], all[5]] and seen[3] == [all[0], all[1]])
+		overlay.call("_refresh_info")
+		var info: Label = overlay.get("_info_label") as Label
+		_check("デバッグ：情報の欄にパーティの Lv とスキル枠が出る", info != null and info.text.contains("パーティ") and info.text.contains("Lv%d" % cap))
+		var _restored: bool = GameManager.load_state(snapshot)
 
 	# --- タスクのメモ（2026-10-04・DECISIONS.md `TK-1`〜`TK-14`・PLAN_TASK_MEMO.md §5） ---
 	#   ⚠ 拠点の紙 → タスクの画面 → 足す・チェック・並べ替え・名前・色・期限・タグ → 拠点の紙 → ポモドーロで選ぶ・足す → 🍅 → 朝4:00 → 記録。

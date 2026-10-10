@@ -154,6 +154,11 @@ func _build_ui() -> void:
 	grid.add_theme_constant_override("h_separation", 4)
 	grid.add_theme_constant_override("v_separation", 4)
 	_base_box.add_child(grid)
+	# ⚠ 2026-10-11（人間「⚠ デバッグで楽にしたい全部　⚠ 必要なものを追加して」）：⚠ 見る回の準備を1回で。
+	var prepare: Button = _make_button("★ 見る回の準備（一発）", _prepare_review)
+	prepare.tooltip_text = "資源・素材・消費品・研究・画面・全員スキルがそろうLv・セーブ（装備は配らない）"
+	_base_box.add_child(prepare)
+	_base_box.move_child(prepare, 0)
 	grid.add_child(_make_button("資源（金・石・体）", _grant_currencies))
 	grid.add_child(_make_button("素材 全種", _grant_all_materials))
 	grid.add_child(_make_button("消費品 全種", _grant_all_consumables))
@@ -168,8 +173,11 @@ func _build_ui() -> void:
 	# ⚠ 2026-10-03（人間「⚠ デバッグにショップの在庫回復を」）：⚠ 日替わり・週・月の棚の「買った数」を 0 に（⚠ ノルマ札を何度も買える）。
 	grid.add_child(_make_button("ショップ 在庫を戻す", GameManager.debug_restock_shops))
 	grid.add_child(_make_button("セーブ", _save))
+	grid.add_child(_make_button("全員 スキルがそろうLv", _max_all_levels))
+	grid.add_child(_make_button("スキル枠 次の組へ", _rotate_skill_pairs))
 	# ⚠ 2026-10-02（人間「⚠ すきなそうびをげっとできるようにしたい」）：⚠ 装備と等級を選んでもらう。
 	_base_box.add_child(_build_equipment_picker())
+	_base_box.add_child(_build_party_picker())
 
 	# ⚠⚠ 難ダンジョンの中だけで出す（2026-09-21・人間の指示
 	#   「⚠ あとデバッグ用に難ダンジョンの好きな位置に移動できるように」）。
@@ -424,7 +432,30 @@ func _refresh_info() -> void:
 			GameManager.get_max_queue_slots(),
 			_completed_craft_count(),
 		],
-	])
+	] + _party_lines())
+
+
+# ⚠ パーティの3人と、いま枠に入っているスキル（10-11）。⚠ 「次の組へ」を押した結果がログを見ずに分かる。
+func _party_lines() -> Array:
+	var lines: Array = ["パーティ（Lv・スキル枠）"]
+	var index: int = 1
+	for member: Variant in GameManager.get_party_members():
+		var id: String = str(member)
+		var names: Array = []
+		for skill_id: Variant in GameManager.get_battle_skills(id):
+			names.append(tr(str(MasterDataLoader.get_skill(str(skill_id)).get("name_key", skill_id))))
+		lines.append(" %d %s Lv%d：%s" % [
+			index, _character_name(id),
+			int(GameManager.get_character_growth(id).get(GameStateKeys.GROWTH_LEVEL, 1)),
+			"・".join(names),
+		])
+		index += 1
+	return lines
+
+
+func _character_name(character_id: String) -> String:
+	var data: Dictionary = MasterDataLoader.get_all_characters().get(character_id, {})
+	return tr(str(data.get("name_key", character_id)))
 
 
 # 完成していて受け取っていない製作の件数。
@@ -584,6 +615,8 @@ func _build_equipment_picker() -> HBoxContainer:
 	_equip_pick.add_theme_font_size_override("font_size", 11)
 	_equip_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_equip_pick.clip_text = true
+	# ⚠ 一番長い名前に合わせて広がらないように（⚠ 窓が右へはみ出していた・10-11）。
+	_equip_pick.fit_to_longest_item = false
 	_equip_pick.custom_minimum_size.y = COMPACT_BUTTON_HEIGHT
 	for item_id: String in GameManager.get_codex_ids(GameManager.CODEX_KIND_EQUIPMENT):
 		_equip_pick.add_item(tr(GameManager.item_name_key(item_id)))
@@ -680,6 +713,109 @@ func _complete_all_crafts() -> void:
 	GameManager._state[GameStateKeys.CRAFTING_QUEUE] = queue
 	GameManager.refresh_crafting_queue_if_needed()
 	print("[DebugOverlay] 製作 %d件 を完成にした（受け取りは「受け取る」を押す）" % rewound)
+
+
+# --- 見る回を楽にする（2026-10-11・人間「⚠ デバッグで楽にしたい全部」）---
+#
+# ⚠ どれも本物の口を通す（⚠ レベルは `level_up_character()`・枠は `select_skill()`・編成は `set_party_member()`）。
+
+# ⚠ 1回で見る回の準備（⚠ レベルはスキルがそろうところまで）。⚠ 装備は配らない（⚠ 「作業場・持ち物に武器が出ているか」を見る項目を汚さないため）。
+func _prepare_review() -> void:
+	_grant_currencies()
+	_grant_all_materials()
+	_grant_all_consumables()
+	_unlock_all_research()
+	_unlock_all_screens()
+	_max_all_levels()
+	_save()
+	print("[DebugOverlay] 見る回の準備ができた")
+
+
+# ⚠ 1キャラで回すレベル上げの上限（⚠ 無限に回らないための保険）。
+const LEVEL_UP_GUARD: int = 200
+
+
+# ⚠ 名簿の全員を「スキルが全部そろうレベル」まで上げる（⚠ キャラごとに一番遅い解放レベル・いまは 20）。
+# ⚠ 上限（研究で 100）までは上げない（⚠ 強くなりすぎて手応えを見られない）。⚠ 上限が低ければそこで止まる（⚠ 先に「研究 全解放」）。
+# ⚠ 1段ごとに要る素材を足してから上げる（⚠ 段で素材が変わる＝`get_level_up_cost()` に聞く）。
+func _max_all_levels() -> void:
+	var raised: int = 0
+	for character_id: String in GameManager.get_party_candidates():
+		var goal: int = _all_skills_level(character_id)
+		var guard: int = 0
+		while guard < LEVEL_UP_GUARD and int(GameManager.get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1)) < goal:
+			var cost: Dictionary = GameManager.get_level_up_cost(character_id)
+			var material_id: String = str(cost.get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
+			var amount: int = int(cost.get(GameManager.LEVEL_UP_COST_AMOUNT, 0))
+			if material_id != "" and amount > 0:
+				GameManager.add_material(material_id, amount)
+			if not GameManager.level_up_character(character_id):
+				break
+			guard += 1
+			raised += 1
+	print("[DebugOverlay] 全員をスキルがそろうレベルまで上げた（合計 +%d レベル）" % raised)
+
+
+func _all_skills_level(character_id: String) -> int:
+	var level: int = 1
+	for skill_id: String in GameManager.get_all_skill_candidates(character_id):
+		level = maxi(level, GameManager.get_skill_unlock_level(skill_id))
+	return level
+
+
+# ⚠ パーティの3人のスキル枠を「次の組」へ（⚠ 1・2本目 → 3・4本目 → 5・6本目 → 1・2本目）。
+# ⚠ 並びは characters.json の順（＝解放の順）。⚠ 解放されていないものは飛ばす。
+func _rotate_skill_pairs() -> void:
+	var count: int = GameManager.get_skill_slot_count()
+	for member: Variant in GameManager.get_party_members():
+		var id: String = str(member)
+		var all: Array = GameManager.get_skill_candidates(id)
+		if all.size() <= count:
+			continue
+		var now: Array = GameManager.get_battle_skills(id)
+		var at: int = all.find(str(now[0])) if not now.is_empty() else -1
+		var start: int = (at - at % count + count) if at >= 0 else 0
+		if start >= all.size():
+			start = 0
+		for i: int in range(count):
+			var _picked: bool = GameManager.select_skill(id, i, str(all[mini(start + i, all.size() - 1)]))
+		print("[DebugOverlay] %s のスキル枠 → %s" % [id, str(GameManager.get_battle_skills(id))])
+
+
+# 「パーティに入れる」の行：⚠ キャラの一覧 ／ 1・2・3枠目へ。
+var _party_pick: OptionButton = null
+
+
+func _build_party_picker() -> HBoxContainer:
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = "PartyPicker"
+	_party_pick = OptionButton.new()
+	_party_pick.name = "PartyPick"
+	_party_pick.focus_mode = Control.FOCUS_NONE
+	_party_pick.add_theme_font_size_override("font_size", 11)
+	_party_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_party_pick.clip_text = true
+	# ⚠ 一番長い名前に合わせて広がらないように（⚠ 窓が右へはみ出していた・10-11）。
+	_party_pick.fit_to_longest_item = false
+	_party_pick.custom_minimum_size.y = COMPACT_BUTTON_HEIGHT
+	for character_id: String in GameManager.get_party_candidates():
+		_party_pick.add_item(_character_name(character_id))
+		_party_pick.set_item_metadata(_party_pick.item_count - 1, character_id)
+	line.add_child(_party_pick)
+	for slot: int in range(GameStateKeys.PARTY_SLOT_COUNT):
+		var button: Button = _make_button("%d枠" % (slot + 1), _put_in_party.bind(slot))
+		button.size_flags_horizontal = Control.SIZE_SHRINK_END
+		button.custom_minimum_size.x = 36.0
+		line.add_child(button)
+	return line
+
+
+func _put_in_party(slot: int) -> void:
+	if _party_pick == null or _party_pick.selected < 0:
+		return
+	var id: String = str(_party_pick.get_item_metadata(_party_pick.selected))
+	var ok: bool = GameManager.set_party_member(slot, id)
+	print("[DebugOverlay] %d 枠目に %s → %s（%s）" % [slot + 1, id, str(ok), str(GameManager.get_party_members())])
 
 
 func _save() -> void:

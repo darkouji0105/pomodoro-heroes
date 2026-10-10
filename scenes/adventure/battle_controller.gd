@@ -3082,6 +3082,39 @@ func debug_damage_party(power: int, attack_type: String) -> void:
 		])
 
 
+# 検証用：味方全員の HP を満タンに（10-11・人間「⚠ デバッグで楽にしたい全部」）。⚠ 長く眺めるため。
+func debug_heal_party() -> void:
+	if _session == null:
+		return
+	for u in _session.party_units:
+		if not (u is BattleUnit) or not u.is_alive():
+			continue
+		var unit: BattleUnit = u
+		var amount: int = unit.max_hp - unit.hp
+		if amount <= 0:
+			continue
+		unit.heal(amount)
+		_pop_heal(unit, amount)
+	print("[BattleDebug] 味方全員を全回復した")
+
+
+# 検証用：生きている味方を後ろの枠から1人倒す（10-11・⚠ リザレクション・起き上がりを試すため）。
+# ⚠ 3枠目から倒す＝⚠ 起こす役は1・2枠目に置く。
+func debug_down_one_ally() -> void:
+	if _session == null:
+		return
+	for i: int in range(_session.party_units.size() - 1, -1, -1):
+		var u: Variant = _session.party_units[i]
+		if u is BattleUnit and (u as BattleUnit).is_alive():
+			var unit: BattleUnit = u
+			var dmg: int = unit.hp
+			unit.take_damage(dmg)
+			_pop_damage(unit, dmg)
+			print("[BattleDebug] 味方 %s を倒した" % unit.unit_id)
+			return
+	print("[BattleDebug] 生きている味方がいない")
+
+
 func debug_reset_cooldowns() -> void:
 	if _session == null:
 		return
