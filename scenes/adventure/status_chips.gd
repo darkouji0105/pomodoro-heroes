@@ -31,9 +31,16 @@ var _signature: String = ""
 var _max_px: float = 0.0
 
 
-func setup(is_vertical: bool, max_px: float) -> void:
-	vertical = is_vertical
+# ⚠ 2026-10-10 から**行に分けて並べる**（人間「⚠ 二行目にするとかどうか」）。⚠ この箱は行を縦に積むだけ（⚠ is_vertical は使わない＝互換で受け取る）。
+# ⚠ 箱は上へ伸びる（⚠ 2行目が HP の帯や駒に重ならない）。
+const MAX_ROWS: int = 2
+
+
+func setup(_is_vertical: bool, max_px: float) -> void:
+	vertical = true
 	_max_px = max_px
+	grow_vertical = Control.GROW_DIRECTION_BEGIN
+	alignment = BoxContainer.ALIGNMENT_END
 	add_theme_constant_override("separation", Balance.adventure.status_chip_separation_px)
 	# ⚠ 帯そのものは入力を受け取らない。味方の帯はスキルボタンの隣に並ぶので、
 	#   ここが押せると「ボタンを押したつもりが外れた」が起きる。
@@ -68,30 +75,57 @@ func _rebuild(entries: Array) -> void:
 		return
 
 	var side: int = _chip_side_px(entries.size())
-	var step: float = float(side) + float(Balance.adventure.status_chip_separation_px)
-	# 入る個数。⚠ 0 になることはない（_max_px が side を下回る設定は事故）。
-	# ⚠ 「×N」の付くマスは右に数の幅を取る（2026-10-10）＝⚠ そのぶん入る数を減らす（⚠ 隣のユニットの帯へはみ出さない）。
-	var stacked_groups: int = 0
+	var sep: float = float(Balance.adventure.status_chip_separation_px)
+	# 行に詰める（2026-10-10・人間「⚠ 二行目にするとかどうか」）。⚠ 1行の幅は _max_px（＝駒の幅）・⚠ MAX_ROWS 行まで。
+	# ⚠ 「×N」の付くマスは右に数の幅を取る＝マスごとに幅が違う＝⚠ 作ってから幅を見て詰める。
+	var chips: Array = []
 	for e: Variant in entries:
-		if int((e as Dictionary).get(GROUP_COUNT_KEY, 1)) >= 2:
-			stacked_groups += 1
-	var room: float = _max_px - float(stacked_groups) * float(side) * 0.9
-	var fits: int = maxi(1, int(floor(room / step))) if step > 0.0 else entries.size()
-	var show_count: int = entries.size()
+		chips.append(_make_chip(e as Dictionary, side))
+	var rows: Array = [[]]
+	var row_w: float = 0.0
 	var overflow: int = 0
-	if fits > 0 and entries.size() > fits:
-		# 最後の1マスを「＋N」に使う。
-		show_count = fits - 1
-		overflow = entries.size() - show_count
-
-	for i in range(show_count):
-		var entry: Variant = entries[i]
-		if not (entry is Dictionary):
-			continue
-		add_child(_make_chip(entry as Dictionary, side))
-
+	for i: int in range(chips.size()):
+		var chip: Control = chips[i]
+		var w: float = chip.custom_minimum_size.x
+		var add_w: float = w if (rows.back() as Array).is_empty() else w + sep
+		if row_w + add_w > _max_px and not (rows.back() as Array).is_empty():
+			if rows.size() >= MAX_ROWS:
+				overflow = chips.size() - i
+				break
+			rows.append([])
+			row_w = 0.0
+			add_w = w
+		(rows.back() as Array).append(chip)
+		row_w += add_w
 	if overflow > 0:
-		add_child(_make_overflow_chip(overflow, side))
+		# 最後の1マスを「＋N」に使う。⚠ 入らなかったマスは捨てる（⚠ ツリーに入れていない）。
+		var last_row: Array = rows.back()
+		var dropped: Control = last_row.pop_back()
+		dropped.queue_free()
+		overflow += 1
+		last_row.append(_make_overflow_chip(overflow, side))
+	for i: int in range(chips.size()):
+		var c: Control = chips[i]
+		if c.get_parent() == null and not _in_rows(rows, c):
+			c.queue_free()
+
+	# ⚠ 1行目を HP の帯の側（下）に置き、2行目はその上（⚠ 箱は上へ伸びる＝setup の grow_vertical）。
+	for r: int in range(rows.size() - 1, -1, -1):
+		var line: HBoxContainer = HBoxContainer.new()
+		line.alignment = BoxContainer.ALIGNMENT_CENTER
+		line.add_theme_constant_override("separation", int(sep))
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for c: Variant in (rows[r] as Array):
+			line.add_child(c as Control)
+		add_child(line)
+
+
+# 行の中にあるか（⚠ 「＋N」に置き換えて捨てたマスを見分ける）。
+func _in_rows(rows: Array, chip: Control) -> bool:
+	for row: Variant in rows:
+		if chip in (row as Array):
+			return true
+	return false
 
 
 # 1件ぶんのマス。ColorRect の上に漢字を1文字。
