@@ -361,7 +361,7 @@ static func resolve(
 		elif effect_type == SkillSchema.EFFECT_SUMMON:
 			_apply_summon(effect, user, results)
 		elif effect_type == SkillSchema.EFFECT_RESOURCE:
-			_apply_resource(effect, user)
+			_apply_resource(effect, user, targets, registry)
 		elif effect_type == SkillSchema.EFFECT_KNOCKBACK:
 			for t: BattleUnit in targets:
 				_apply_knockback(effect, user, t, results)
@@ -795,13 +795,21 @@ static func _apply_dash(effect: Dictionary, user: BattleUnit, targets: Array, re
 
 # 固有の資源（回CH-1）。⚠ 宛先は撃った本人だけ（⚠ target_ids を読まない）。
 # ⚠ 0〜max に切るのは BattleUnit の側（⚠ ここで切らない）。
-static func _apply_resource(effect: Dictionary, user: BattleUnit) -> void:
+static func _apply_resource(effect: Dictionary, user: BattleUnit, targets: Array, registry: RefCounted) -> void:
 	var resource_id: String = str(effect.get(SkillSchema.RESOURCE_FIELD_ID, ""))
 	var before: int = user.get_resource(resource_id)
 	if effect.has(SkillSchema.RESOURCE_FIELD_SET_TO):
 		user.set_resource(resource_id, int(effect.get(SkillSchema.RESOURCE_FIELD_SET_TO, 0)))
 	else:
-		user.add_resource(resource_id, int(effect.get(SkillSchema.RESOURCE_FIELD_AMOUNT, 0)))
+		var amount: int = int(effect.get(SkillSchema.RESOURCE_FIELD_AMOUNT, 0))
+		# 相手の状態の数を掛ける（回SC-1）。⚠ 0 なら増えない。
+		if effect.has(SkillSchema.RESOURCE_FIELD_PER_STACK):
+			var stacks: int = 0
+			if registry != null:
+				for t: BattleUnit in targets:
+					stacks += int(registry.count_stacks(t.unit_id, str(effect.get(SkillSchema.RESOURCE_FIELD_PER_STACK, ""))))
+			amount *= stacks
+		user.add_resource(resource_id, amount)
 	print("[SkillResolver] resource %s.%s %d -> %d" % [
 		user.unit_id, resource_id, before, user.get_resource(resource_id)
 	])
@@ -911,6 +919,10 @@ static func _scale_value_sum(
 		# 払った量（回CH-2）。⚠ 撃つ瞬間に fold_resource_spent() が項へ書いた値（⚠ 無ければ 0）。
 		if source == SkillSchema.SCALE_RESOURCE_SPENT:
 			total += weight * float(entry.get(SkillSchema.SCALE_FIELD_SPENT, 0.0))
+			continue
+		# いまの資源の量（回SC-1）。⚠ 撃った本人の資源。
+		if source == SkillSchema.SCALE_RESOURCE_NOW:
+			total += weight * float(user.get_resource(str(entry.get(SkillSchema.RESOURCE_FIELD_ID, ""))) if user != null else 0.0)
 			continue
 		# ⚠ status_id は source: "stack" のときだけ意味を持つ（E71 / E72 が守る）。
 		var status_id: String = str(entry.get("status_id", ""))

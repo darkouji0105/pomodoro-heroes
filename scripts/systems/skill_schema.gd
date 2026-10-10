@@ -156,7 +156,11 @@ const EFFECT_TYPES_IMPLEMENTED: Array = [
 const RESOURCE_FIELD_ID: String = "resource_id"
 const RESOURCE_FIELD_AMOUNT: String = "amount"
 const RESOURCE_FIELD_SET_TO: String = "set_to"
-const RESOURCE_ONLY_FIELDS: Array = [RESOURCE_FIELD_ID, RESOURCE_FIELD_AMOUNT, RESOURCE_FIELD_SET_TO]
+# ⚠ 相手の状態の数を掛ける（回SC-1・学者「⚠ ゲージの獲得量は敵の感電ストックの影響を受ける」）。
+#   {"type": "resource", "resource_id": "charge", "amount": 3, "per_target_stack": "shock", "target": {"team": "source"}}
+# ⚠ amount × 相手（target）に積まれている数。⚠ 資源が入るのは撃った本人。⚠ target は source（購読のきっかけ）だけ。
+const RESOURCE_FIELD_PER_STACK: String = "per_target_stack"
+const RESOURCE_ONLY_FIELDS: Array = [RESOURCE_FIELD_ID, RESOURCE_FIELD_AMOUNT, RESOURCE_FIELD_SET_TO, RESOURCE_FIELD_PER_STACK]
 # ⚠ 威力の式を持たない。書けると「書いたのに効かない」が無音になる。
 # ⚠ target は {"team": "self"} だけ書ける（回CH-3）：⚠ 購読の中の効果は target が必須（E は「購読の効果は各自に要る」）なので。
 const RESOURCE_FIELDS_FORBIDDEN: Array = ["scale_from", "multiplier", "attack_type", "delivery"]
@@ -236,7 +240,9 @@ const ZONE_FIELDS_REQUIRED: Array = [ZONE_RADIUS, ZONE_TEAM, ZONE_FOLLOW]
 const ZONE_TEAM_ALLY: String = "ally"
 const ZONE_TEAM_ENEMY: String = "enemy"
 const ZONE_TEAM_ALL: String = "all"
-const ZONE_TEAMS_KNOWN: Array = [ZONE_TEAM_ALLY, ZONE_TEAM_ENEMY, ZONE_TEAM_ALL]
+# ⚠ 置いた本人だけ（回SC-1・学者の感電スモーク「⚠ ４い」＝煙の中で再生するのは学者だけ）。
+const ZONE_TEAM_SELF: String = "self"
+const ZONE_TEAMS_KNOWN: Array = [ZONE_TEAM_ALLY, ZONE_TEAM_ENEMY, ZONE_TEAM_ALL, ZONE_TEAM_SELF]
 
 # 周期の効果を回復にする（EXEC_SKILL_AURA.md）。⚠ dot にしか書けない。
 #
@@ -298,7 +304,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	FIELD_WHEN_TARGET, FIELD_WHEN_MULT, FIELD_WHEN_CRIT, FIELD_EXECUTE_BELOW, FIELD_EXECUTE_BOSS_MULT,
 	FIELD_STAT_PCT, FIELD_MISS_PCT,
 	"unit_id", "count", "offset_x",
-	"resource_id", "amount", "set_to",
+	"resource_id", "amount", "set_to", "per_target_stack",
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -492,6 +498,11 @@ const COST_FIELDS_KNOWN: Array = [COST_FIELD_RESOURCE_ID, COST_FIELD_AMOUNT, COS
 # ⚠ `scale_sources()` には足さない（⚠ あちらは condition の語彙も兼ねる＝条件には書けない）。
 # ⚠ `cost` を持つスキルにしか書けない ／ ⚠ 段（phases）のあるスキルには書けない（⚠ 払うのは1段目だけ）。
 const SCALE_RESOURCE_SPENT: String = "resource_spent"
+# いま持っている資源の量（回SC-1・学者のパッシブ「⚠ 充電の量に応じて回復量は変わる」）。
+#   {"source": "resource", "resource_id": "charge", "weight": 0.2}
+# ⚠ 撃った本人の資源（⚠ of は読まない）。⚠ 発火のたびに今の量を読む（⚠ 継続回復なら毎回）。
+# ⚠ scale_sources() には足さない（⚠ 条件には書けない＝resource_spent と同じ）。
+const SCALE_RESOURCE_NOW: String = "resource"
 # ⚠ コードだけが書く欄（⚠ データに書いたら赤）。
 const SCALE_FIELD_SPENT: String = "_spent"
 
@@ -1553,11 +1564,15 @@ static func _validate_resource_effect(
 			_err(issues, skill_id, "%s.%s が整数でない" % [where, field])
 	if has_set_to and _is_num(effect.get(RESOURCE_FIELD_SET_TO, null)) and float(effect.get(RESOURCE_FIELD_SET_TO, 0)) < 0.0:
 		_err(issues, skill_id, "%s.set_to が負" % where)
-	# E161 … target は撃った本人だけ（⚠ 資源は持ち主のもの）。
-	if effect.has("target"):
+	# E161 … target は撃った本人だけ（⚠ 資源は持ち主のもの）。⚠ per_target_stack のときだけ source（数を数える相手）。
+	var per_stack: bool = effect.has(RESOURCE_FIELD_PER_STACK)
+	var want_team: String = TEAM_SOURCE if per_stack else TEAM_SELF
+	if effect.has("target") or per_stack:
 		var raw_target: Variant = effect.get("target", null)
-		if not (raw_target is Dictionary) or str((raw_target as Dictionary).get("team", "")) != TEAM_SELF or (raw_target as Dictionary).size() != 1:
-			_err(issues, skill_id, "%s.type: 'resource' の target は {\"team\": \"self\"} だけ書ける" % where)
+		if not (raw_target is Dictionary) or str((raw_target as Dictionary).get("team", "")) != want_team or (raw_target as Dictionary).size() != 1:
+			_err(issues, skill_id, "%s.type: 'resource' の target は {\"team\": \"%s\"} だけ書ける" % [where, want_team])
+	if per_stack and (str(effect.get(RESOURCE_FIELD_PER_STACK, "")) == "" or effect.has(RESOURCE_FIELD_SET_TO)):
+		_err(issues, skill_id, "%s.per_target_stack は状態の ID を amount と一緒に書く" % where)
 	for forbidden: String in RESOURCE_FIELDS_FORBIDDEN:
 		if effect.has(forbidden):
 			_err(issues, skill_id, "%s.type: 'resource' に %s は書けない（宛先は撃った本人・威力の式を持たない）" % [where, forbidden])
@@ -1972,8 +1987,13 @@ static func _validate_scale_from(
 			continue
 		var entry: Dictionary = term as Dictionary
 		var source: String = str(entry.get("source", ""))
-		if not (source in known) and source != SCALE_RESOURCE_SPENT:
+		if not (source in known) and source != SCALE_RESOURCE_SPENT and source != SCALE_RESOURCE_NOW:
 			_err(issues, skill_id, "%s.scale_from の source が不明: '%s'" % [where, source])
+		# E175 … いまの資源の量には resource_id が要る（回SC-1）。
+		if source == SCALE_RESOURCE_NOW and str(entry.get(RESOURCE_FIELD_ID, "")) == "":
+			_err(issues, skill_id, "%s.scale_from の source: 'resource' に resource_id が無い" % where)
+		elif source != SCALE_RESOURCE_NOW and entry.has(RESOURCE_FIELD_ID):
+			_err(issues, skill_id, "%s.scale_from の resource_id は source: 'resource' のときだけ書ける" % where)
 		# E159 … 払った量はコードが書く（⚠ データに書くと払った量と食い違う）。
 		if entry.has(SCALE_FIELD_SPENT):
 			_err(issues, skill_id, "%s.scale_from の %s はデータに書けない（撃つ瞬間にコードが書く）" % [where, SCALE_FIELD_SPENT])

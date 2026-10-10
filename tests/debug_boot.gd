@@ -111,6 +111,8 @@ const SHOT_PREPARE_SORTIE_DEPTH: String = "sortie_depth"
 const SHOT_PREPARE_TOWER: String = "tower"
 # ⚠ 固有の資源（2026-10-10・回CH-1）：⚠ 検証用の3人を編成に入れる（⚠ 資源を持つのは検証用だけ）。⚠ 内側の `PREPARE_DEBUG_PARTY` と同じ字。
 const SHOT_PREPARE_DEBUG_PARTY: String = "debug_party"
+# ⚠ 学者（回SC-1）：⚠ 学者を1番目に入れる（⚠ 内側の `PREPARE_SCHOLAR_PARTY` と同じ字）。
+const SHOT_PREPARE_SCHOLAR_PARTY: String = "scholar_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1027,6 +1029,32 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_dbg_db_blind", "prepare": PREPARE_NONE, "gap": 2.5},
 		],
 	},
+	# 学者（回SC-1）。⚠ 本物の戦闘で撃つ。⚠ A＝感電スモーク・エレクトリックスラム ／ B＝帯電（トグル）・オーバードライブ。
+	# ⚠ 学者のスキルは Lv1／5／10／15／20 で解放＝Lv20 に上げてから枠に入れる。
+	"scholar_a": {
+		"kind": KIND_BATTLE,
+		"note": "学者 A：感電スモーク（周りに感電・霧の中で再生）→ スラム（突進・スタン・感電）→ 通常攻撃で充電がたまる",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_scholar", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_scholar": 20},
+		"skills": {"char_scholar": ["skill_sc_shock_smoke", "skill_sc_slam"]},
+		"fire": [
+			{"skill": "skill_sc_shock_smoke", "prepare": PREPARE_NONE, "gap": 1.5},
+			{"skill": "skill_sc_slam", "prepare": PREPARE_NONE, "gap": 0.5},
+		],
+	},
+	"scholar_b": {
+		"kind": KIND_BATTLE,
+		"note": "学者 B：帯電（トグル・充電を使い続けて周りを削り感電）→ 充電がたまったらオーバードライブ（充電40）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_scholar", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_scholar": 20},
+		"skills": {"char_scholar": ["skill_sc_charged", "skill_sc_overdrive"]},
+		"fire": [
+			{"skill": "skill_sc_charged", "prepare": PREPARE_NONE, "gap": 1.5},
+			{"skill": "skill_sc_overdrive", "prepare": PREPARE_NONE, "gap": 3.0},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1422,6 +1450,17 @@ const SCENARIOS: Dictionary = {
 					"HUD/Root/Layout/BottomPanel/SkillButtons",
 				],
 			},
+			# ⚠ 学者（回SC-1）：⚠ 顔・名前・充電のゲージ・スキルのマス。
+			{
+				"name": "89_scholar_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_SCHOLAR_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -1538,6 +1577,7 @@ func _ready() -> void:
 			_report_char_when()
 			_report_char_toggle()
 			_report_debuffs()
+			_report_scholar()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -8123,6 +8163,58 @@ func _report_debuffs() -> void:
 				errors += 1
 		print("  %s -> 赤 %d 件（1 以上が正解）" % [str(probe[0]), errors])
 
+# 学者（回SC-1）。⚠ 本物の戦闘は敵がすぐ倒れて充電が溜まらない＝⚠ 学者の仕組みは部品を直に叩いて数を見る。
+func _report_scholar() -> void:
+	var me: BattleUnit = _resource_unit("char_scholar", 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 100000
+	var foe: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = [foe]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	for pid: String in ["passive_sc_conductor", "passive_sc_regen"]:
+		runtime.cast(me, pid, MasterDataLoader.get_skill(pid), 1.0)
+	print("[DebugBoot] --- 39. 学者：感電している敵を殴ると充電（⚠ 感電1つにつき 10）---")
+	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, me.basic_attack, 1.0, [foe.unit_id])
+	print("  感電なし：充電 %d（0）" % me.get_resource("charge"))
+	for i: int in range(3):
+		_control_cast("skill_dbg_db_shock", me, [foe], session, registry)
+	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, me.basic_attack, 1.0, [foe.unit_id])
+	print("  感電3つ：充電 %d（30）" % me.get_resource("charge"))
+
+	print("[DebugBoot] --- 40. 学者：自己修復（⚠ 毎秒 最大HPの1% ＋ 充電×0.1）---")
+	me.set_resource("charge", 100)
+	# ⚠ 学者の最大 HP は 140 前後＝⚠ 大きく減らすと戦闘不能になる（⚠ 1 にする）。
+	me.hp = 1
+	var before: int = me.hp
+	registry.tick(1.0)
+	var healed_full: int = me.hp - before
+	me.set_resource("charge", 0)
+	before = me.hp
+	registry.tick(1.0)
+	print("  充電 100：%d 回復 ／ 充電 0：%d 回復（多い方が充電 100・差は 10 前後）" % [healed_full, me.hp - before])
+
+	print("[DebugBoot] --- 41. 学者：オーバードライブ（⚠ 充電40・自分が火傷・攻撃速度アップ・通常攻撃で火傷）---")
+	me.hp = me.max_hp
+	me.skill_ids = ["skill_sc_overdrive"]
+	me.skill_cooldowns = {"skill_sc_overdrive": 0.0}
+	me.set_resource("charge", 30)
+	print("  充電 30：撃てるか '%s'（cost）" % _cost_reason(me, "skill_sc_overdrive", session))
+	me.set_resource("charge", 45)
+	var interval0: float = me.attack_interval_sec
+	var spent: int = _cost_fire(me, "skill_sc_overdrive", session, registry)
+	print("  充電 45 で撃った：払った %d・残り %d（40・5）" % [spent, me.get_resource("charge")])
+	print("  自分が火傷 %s・攻撃間隔 %.2f → %.2f 秒（短くなる）・通常攻撃の置き換え %s（true / true）" % [
+		str(registry.has({"host_unit_id": me.unit_id, "status_id": "burn"})), interval0, me.attack_interval_sec,
+		str(not registry.basic_override(me.unit_id).is_empty()),
+	])
+	var override: Dictionary = registry.basic_override(me.unit_id)
+	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, me.take_basic_attack(override), 1.0, [foe.unit_id])
+	print("  強くなった通常攻撃で敵が火傷：%s（true）" % str(registry.has({"host_unit_id": foe.unit_id, "status_id": "burn"})))
+
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
 
@@ -8135,7 +8227,9 @@ func _cost_fire(unit: BattleUnit, skill_id: String, session: BattleSession, regi
 	var spent: int = unit.pay_cost(SkillSchema.cost_of(data))
 	if spent >= 0:
 		data = SkillResolver.fold_resource_spent(data, spent)
-	SkillResolver.resolve(data, unit, session, [unit.unit_id], registry)
+	# ⚠ resolve() は効果1件ずつ（⚠ まとめて渡すと黄が出る）。
+	for effect: Variant in (data.get("effects", []) as Array):
+		SkillResolver.resolve({"effects": [effect]}, unit, session, [unit.unit_id], registry)
 	return spent
 
 
@@ -10382,6 +10476,7 @@ class ShotTaker extends Node:
 	const PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 	const PREPARE_TOWER_OUT: String = "tower_out"
 	const PREPARE_DEBUG_PARTY: String = "debug_party"
+	const PREPARE_SCHOLAR_PARTY: String = "scholar_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
 	const DEBUG_PARTY_SKILLS: Dictionary = {
@@ -10754,6 +10849,12 @@ class ShotTaker extends Node:
 				GameManager._state[GameStateKeys.DUNGEON_RUN] = run
 				return true
 			return GameManager.debug_mark_dungeon_boss_cleared()
+		if kind == PREPARE_SCHOLAR_PARTY:
+			for scholar_i: int in range(3):
+				var scholar_member: String = ["char_scholar", "char_archer", "char_priest"][scholar_i]
+				if not GameManager.set_party_member(scholar_i, scholar_member):
+					return false
+			return true
 		if kind == PREPARE_DEBUG_PARTY:
 			for i: int in range(DEBUG_PARTY.size()):
 				if not GameManager.set_party_member(i, str(DEBUG_PARTY[i])):
@@ -14147,19 +14248,19 @@ class UiFlowRunner extends Node:
 		var rows: int = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：既定は「すべて」で %d 行（タブ %d 枚）" % [rows, 0 if tabs == null else tabs.get_child_count()],
 			tabs != null and tabs.current == 0 and tabs.get_child_count() == GameManager.RECIPE_CATEGORIES.size() + 1 and rows == all)
-		# ⚠ 武器 → 9行（⚠ 着手前に書いた数字：25 → 9）。
+		# ⚠ 武器 → 12行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12）。
 		await _press(null if tabs == null else tabs.find_child("Tab1", false, false))
 		await _wait()
 		rows = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：「武器」で %d 行（武器のレシピ %d）・装飾は出ない" % [rows, int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0))],
-			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 9
+			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 12
 			and ws.find_child("RecipeRow_craft_weapon_bow_short", true, false) != null and ws.find_child("RecipeRow_craft_part_1", true, false) == null)
 		# ⚠ 出て戻っても「武器」のまま。
 		var _base: Node = await _open(BASE, {})
 		ws = await _open(WORKSHOP_SCREEN, {})
 		tabs = null if ws == null else ws.find_child("CategoryTabs", true, false) as PaperTabs
 		rows = 0 if ws == null else ws.find_children("RecipeRow_*", "", true, false).size()
-		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 9)
+		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 12)
 		# ⚠ くじ → 1行。
 		await _press(null if tabs == null else tabs.find_child("Tab5", false, false))
 		await _wait()

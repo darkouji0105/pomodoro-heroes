@@ -97,6 +97,8 @@ const CHARACTER_DIRS_REQUIRED: Array[String] = [
 	DIR_CHARACTERS + "char_swordsman/",
 	DIR_CHARACTERS + "char_archer/",
 	DIR_CHARACTERS + "char_priest/",
+	# ⚠ 学者（2026-10-10・回SC-1）。
+	DIR_CHARACTERS + "char_scholar/",
 ]
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const CHARACTER_DIRS_OPTIONAL: Array[String] = [
@@ -1613,6 +1615,20 @@ static func _expand_all_status_refs() -> void:
 			for phase: Variant in ((data as Dictionary)["phases"] as Array):
 				if phase is Dictionary and (phase as Dictionary).get("effects", null) is Array:
 					_expand_status_refs((phase as Dictionary)["effects"] as Array, str(skill_id))
+	# ⚠ キャラと敵の通常攻撃・「◯回ごと」の一撃も展開する（回SC-1・学者の3回ごとの感電）。
+	for source: Dictionary in [_cache_characters, _cache_enemies]:
+		for owner_id: Variant in source:
+			var owner: Variant = source[owner_id]
+			if not (owner is Dictionary):
+				continue
+			var basic: Variant = (owner as Dictionary).get("basic_attack", null)
+			if basic is Dictionary and (basic as Dictionary).get("effects", null) is Array:
+				_expand_status_refs((basic as Dictionary)["effects"] as Array, str(owner_id))
+			var every: Variant = (owner as Dictionary).get(SkillSchema.FIELD_BASIC_EVERY, null)
+			if every is Dictionary and (every as Dictionary).get("attack", null) is Dictionary:
+				var every_attack: Dictionary = (every as Dictionary)["attack"] as Dictionary
+				if every_attack.get("effects", null) is Array:
+					_expand_status_refs(every_attack["effects"] as Array, str(owner_id))
 	# ⚠ 使われていない状態も壊れていないかを見る（⚠ 1件ずつ、展開した形でスキルの検査に通す）。
 	for status_id: Variant in _cache_statuses:
 		var probe: Array = [{SkillSchema.FIELD_STATUS_REF: str(status_id), "type": SkillSchema.EFFECT_STATUS_REF}]
@@ -1634,6 +1650,10 @@ static func _expand_status_refs(effects: Array, skill_id: String) -> void:
 		# ⚠ 購読の中も展開する。
 		if effect.get("react", null) is Dictionary and (effect["react"] as Dictionary).get("effects", null) is Array:
 			_expand_status_refs((effect["react"] as Dictionary)["effects"] as Array, skill_id)
+		# ⚠ 通常攻撃を置き換えるバフの中も展開する（回SC-1・オーバードライブの火傷付きの通常攻撃）。
+		if effect.get(SkillSchema.BUFF_BASIC_ATTACK, null) is Dictionary \
+				and (effect[SkillSchema.BUFF_BASIC_ATTACK] as Dictionary).get("effects", null) is Array:
+			_expand_status_refs((effect[SkillSchema.BUFF_BASIC_ATTACK] as Dictionary)["effects"] as Array, skill_id)
 		if str(effect.get("type", "")) != SkillSchema.EFFECT_STATUS_REF:
 			continue
 		var status_id: String = str(effect.get(SkillSchema.FIELD_STATUS_REF, ""))

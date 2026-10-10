@@ -754,6 +754,8 @@ const AVATAR_COLORS: Dictionary = {
 	"char_swordsman": {"bg": "4a3a6b", "fg": "d4bcec"},
 	"char_archer": {"bg": "2f5a3a", "fg": "bcecc4"},
 	"char_priest": {"bg": "2f4a6b", "fg": "bcd4ec"},
+	# ⚠ 学者（回SC-1）。⚠ 電気の青緑（⚠ 設計役の仮）。
+	"char_scholar": {"bg": "2f5a5a", "fg": "bcecec"},
 	"fallback": {"bg": "2a2320", "fg": "7d6f68"},
 }
 const AVATAR_CORNER_RADIUS: int = 8

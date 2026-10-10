@@ -24,6 +24,7 @@ extends RefCounted
 const CHAR_SWORDSMAN: String = "💂"
 const CHAR_ARCHER: String = "🎯"
 const CHAR_PRIEST: String = "😇"
+const CHAR_SCHOLAR: String = "🧪"
 ## ⚠ 表に無いキャラ（検証用の char_debug_* を含む）。
 const CHAR_FALLBACK: String = "👤"
 
@@ -127,6 +128,8 @@ static func for_character(character_id: String) -> String:
 			return CHAR_ARCHER
 		"char_priest":
 			return CHAR_PRIEST
+		"char_scholar":
+			return CHAR_SCHOLAR
 	return CHAR_FALLBACK
 
 

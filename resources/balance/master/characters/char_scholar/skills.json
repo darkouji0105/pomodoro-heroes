@@ -1,0 +1,245 @@
+{
+	"skill_sc_shock_smoke": {
+		"name_key": "ui_battle_skill_sc_shock_smoke",
+		"user_character_id": "char_scholar",
+		"unlock_level": 1,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "status",
+				"status": "shock",
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 150.0
+				}
+			},
+			{
+				"type": "dot",
+				"host": "point",
+				"status_id": "st_sc_smoke",
+				"stack": "refresh",
+				"duration_sec": 6.0,
+				"interval_sec": 1.0,
+				"heals": true,
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "hp",
+						"weight": 0.03
+					}
+				],
+				"zone": {
+					"radius": 150.0,
+					"team": "self",
+					"follow": false
+				}
+			}
+		]
+	},
+	"skill_sc_analyze": {
+		"name_key": "ui_battle_skill_sc_analyze",
+		"user_character_id": "char_scholar",
+		"unlock_level": 1,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "user",
+			"radius": 180.0
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_sc_analyze",
+				"stat": "atk",
+				"stat_pct": -15,
+				"duration_sec": 6.0,
+				"stack": "refresh"
+			},
+			{
+				"type": "dispel",
+				"what": "buff"
+			}
+		]
+	},
+	"skill_sc_regen": {
+		"name_key": "ui_battle_skill_sc_regen",
+		"user_character_id": "char_scholar",
+		"unlock_level": 5,
+		"cooldown_sec": 6.0,
+		"activation": "toggle",
+		"toggle": {
+			"interval_sec": 1.0,
+			"repress": "off"
+		},
+		"cost": {
+			"resource_id": "charge",
+			"amount": 10
+		},
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "heal",
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "resource_spent",
+						"weight": 3.0
+					}
+				]
+			}
+		]
+	},
+	"skill_sc_overdrive": {
+		"name_key": "ui_battle_skill_sc_overdrive",
+		"user_character_id": "char_scholar",
+		"unlock_level": 10,
+		"cooldown_sec": 15.0,
+		"activation": "instant",
+		"cost": {
+			"resource_id": "charge",
+			"amount": 40
+		},
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "status",
+				"status": "burn"
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_sc_overdrive",
+				"stat": "atkspd",
+				"stat_pct": 50,
+				"duration_sec": 8.0,
+				"stack": "refresh"
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_sc_overdrive_hit",
+				"duration_sec": 8.0,
+				"stack": "refresh",
+				"basic_attack": {
+					"effects": [
+						{
+							"type": "damage",
+							"delivery": "melee",
+							"multiplier": 1.0,
+							"attack_type": "physical",
+							"scale_from": "atk"
+						},
+						{
+							"type": "status",
+							"status": "burn"
+						}
+					]
+				}
+			}
+		]
+	},
+	"skill_sc_slam": {
+		"name_key": "ui_battle_skill_sc_slam",
+		"user_character_id": "char_scholar",
+		"unlock_level": 15,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "nearest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "dash",
+				"to": "target",
+				"offset": 30.0
+			},
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 1.2,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 120.0
+				}
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_sc_slam_stun",
+				"control": "stun",
+				"duration_sec": 1.0,
+				"stack": "refresh",
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 120.0
+				}
+			},
+			{
+				"type": "status",
+				"status": "shock",
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 120.0
+				}
+			}
+		]
+	},
+	"skill_sc_charged": {
+		"name_key": "ui_battle_skill_sc_charged",
+		"user_character_id": "char_scholar",
+		"unlock_level": 20,
+		"cooldown_sec": 8.0,
+		"activation": "toggle",
+		"toggle": {
+			"interval_sec": 1.0,
+			"repress": "off"
+		},
+		"cost": {
+			"resource_id": "charge",
+			"amount": 8
+		},
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "user",
+			"radius": 120.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 0.6,
+				"attack_type": "physical",
+				"scale_from": "atk"
+			},
+			{
+				"type": "status",
+				"status": "shock"
+			}
+		]
+	}
+}

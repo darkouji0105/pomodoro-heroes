@@ -196,6 +196,33 @@
 	  "category": "weapon"
 	},
 	{
+	  "recipe_id": "craft_weapon_gauntlet_iron",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_gauntlet_iron", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 32,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_gauntlet_swift",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_gauntlet_swift", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 33,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_gauntlet_volt",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_gauntlet_volt", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 34,
+	  "category": "weapon"
+	},
+	{
 	  "recipe_id": "craft_armor_head_guard",
 	  "duration_sec": 1800,
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],

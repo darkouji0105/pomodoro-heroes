@@ -247,6 +247,33 @@
 	  "sort_order": 31
 	},
 	{
+	  "item_id": "weapon_gauntlet_iron",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "gauntlet",
+	  "equip_stats": {"hp": 20, "atk": 5, "spd": -5},
+	  "sort_order": 147
+	},
+	{
+	  "item_id": "weapon_gauntlet_swift",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "gauntlet",
+	  "equip_stats": {"def": -2, "atk": 4, "atkspd": 10},
+	  "sort_order": 148
+	},
+	{
+	  "item_id": "weapon_gauntlet_volt",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "gauntlet",
+	  "equip_stats": {"hp": -10, "atk": 5, "haste": 8},
+	  "sort_order": 149
+	},
+	{
 	  "item_id": "armor_head_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",

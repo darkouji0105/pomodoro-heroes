@@ -952,6 +952,9 @@ func _zone_team_matches(entry: Dictionary, unit: BattleUnit) -> bool:
 		return false
 	if team == SkillSchema.ZONE_TEAM_ALLY:
 		return unit.team == owner.team
+	# ⚠ 置いた本人だけ（回SC-1）。
+	if team == SkillSchema.ZONE_TEAM_SELF:
+		return unit.unit_id == owner.unit_id
 	return unit.team != owner.team
 
 

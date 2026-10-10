@@ -1,0 +1,66 @@
+{
+	"passive_sc_conductor": {
+		"name_key": "ui_battle_passive_sc_conductor",
+		"user_character_id": "char_scholar",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_sc_conductor",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "basic_hit",
+					"effects": [
+						{
+							"type": "resource",
+							"resource_id": "charge",
+							"amount": 10,
+							"per_target_stack": "shock",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"passive_sc_regen": {
+		"name_key": "ui_battle_passive_sc_regen",
+		"user_character_id": "char_scholar",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "dot",
+				"host": "unit",
+				"status_id": "st_sc_regen",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"interval_sec": 1.0,
+				"heals": true,
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "hp",
+						"weight": 0.01
+					},
+					{
+						"source": "resource",
+						"resource_id": "charge",
+						"weight": 0.1
+					}
+				]
+			}
+		]
+	}
+}
