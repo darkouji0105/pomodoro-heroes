@@ -49,6 +49,9 @@ var _done: bool = false
 var _pierce_ids: Array = []
 var _pierce_end: Vector2 = Vector2.ZERO
 var _pierce_dir: float = 0.0
+# 天井で跳ね返る（回GS-1）。⚠ 先にここへ飛び、着いたら相手へ向かう。
+var _bounce_point: Vector2 = Vector2.ZERO
+var _bouncing: bool = false
 
 
 # from_position … 発射位置
@@ -65,6 +68,12 @@ func setup(
 	_color = color
 	position = from_position
 	queue_redraw()
+
+
+# 天井で跳ね返る（回GS-1）。⚠ setup() のあとに呼ぶ。
+func set_bounce(point: Vector2) -> void:
+	_bounce_point = point
+	_bouncing = true
 
 
 # 貫通の矢（回PQ-2）。⚠ 誘導しない。⚠ end へまっすぐ飛び、通り過ぎた敵ごとに合図を返す。
@@ -90,6 +99,17 @@ func _process(delta: float) -> void:
 	# 貫通（回PQ-2）。⚠ 通り過ぎた敵の分を返しながら、終点まで飛ぶ。
 	if _pierce_dir != 0.0:
 		_step_pierce(delta)
+		return
+	# 天井まで上がる（回GS-1）。⚠ 着いたらいつもの飛び方（相手を追う）へ。
+	if _bouncing:
+		var to_ceiling: Vector2 = _bounce_point - position
+		var step_len: float = _speed * delta
+		if to_ceiling.length() <= step_len:
+			position = _bounce_point
+			_bouncing = false
+		else:
+			position += to_ceiling.normalized() * step_len
+		queue_redraw()
 		return
 	if _life_sec >= MAX_LIFE_SEC:
 		# 届かないまま時間切れ。⚠ それでも合図は返す（外れても合図を出す規約）。

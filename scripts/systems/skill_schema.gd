@@ -184,6 +184,23 @@ const FIELD_IS_DEBUFF: String = "is_debuff"
 const EFFECT_PICK: String = "pick"
 # 時間を戻すをデバフ全部にも（⚠ refresh_status に status_id の代わりに "what": "debuff"）。
 const REFRESH_WHAT_DEBUFF: String = "debuff"
+# --- 汎用（回GS-1・拳銃使いで足し、次のキャラに流用する） ---
+# 使用回数（⚠ スキルの直下）。⚠ 続けて count 回使え、クールダウンが終わるたびに1回ずつ戻る。
+const FIELD_CHARGES: String = "charges"
+# 自分の通常攻撃を撃つ（⚠ 効果の相手へ1回ずつ・近い順に少しずつずらす＝はいぬーん・スキル後の追撃）。
+const EFFECT_BASIC_ATTACK: String = "basic_attack"
+# 「スキルが当たった」の合図（⚠ 撃った本人に配る・source＝当たった相手・⚠ 通常攻撃と購読は数えない）。
+const EVENT_SKILL_HIT: String = "skill_hit"
+# 次の通常攻撃で受けるダメージ +pct（⚠ intervene・宿主側・⚠ 通常攻撃が1回当たると消える）。
+const INTERVENE_BASIC_TAKEN_PCT: String = "basic_taken_pct"
+# 相手の条件に「前と違う相手」「どれか1つ」を足す（⚠ when_target の source）。
+const WHEN_NEW_TARGET: String = "new_target"
+const WHEN_ANY: String = "any"
+# 召喚を相手の真ん中に・相手側に置く（⚠ 樽）。"summon_at": "target" ／ "summon_side": "foe"
+const SUMMON_FIELD_AT: String = "summon_at"
+const SUMMON_FIELD_SIDE: String = "summon_side"
+# 威力の式の「召喚が最後に受けたダメージ」（⚠ summons.json の death_effects だけ・⚠ 撃つ瞬間に定数へ畳む）。
+const SCALE_LAST_HIT: String = "last_hit"
 const AIM_FIELDS_REQUIRED: Array = ["from", "speed", "to"]
 # 対象を取らない効果（回NC-1）。⚠ 購読の中でも target が要らない（E54 の例外）・実行時も対象を選ばない。
 const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
@@ -205,7 +222,7 @@ const FIELD_WHEN_CRIT: String = "when_crit"
 const WHEN_STATUS_HAS: String = "status_has"
 const WHEN_DEBUFF_COUNT: String = "debuff_count"
 const WHEN_HP_RATIO: String = "hp_ratio"
-const WHENS_KNOWN: Array = [WHEN_STATUS_HAS, WHEN_DEBUFF_COUNT, WHEN_HP_RATIO]
+const WHENS_KNOWN: Array = [WHEN_STATUS_HAS, WHEN_DEBUFF_COUNT, WHEN_HP_RATIO, "new_target", "any"]
 # 処刑（回CH-8）。⚠ damage に書く。⚠ 当たったあとの HP が割合以下なら倒す（人間「⚠ ２あ」）。
 # ⚠ ボスは倒さない。⚠ 代わりに execute_boss_mult をダメージに掛ける（⚠ 書かなければ 1.0）。
 const FIELD_EXECUTE_BELOW: String = "execute_below"
@@ -247,14 +264,14 @@ const DASH_TOS_KNOWN: Array = [DASH_TO_TARGET, DASH_TO_BACK, DASH_TO_AIM]
 const EFFECT_TYPES_KNOWN: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
-	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick",
+	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick", "basic_attack",
 	"cancel", "transform", "move"
 ]
 # 実際に当たるもの。他は「書けるが飛ばす」（黄）。
 const EFFECT_TYPES_IMPLEMENTED: Array = [
 	EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_DOT, EFFECT_REACT, EFFECT_SUMMON,
 	EFFECT_RESOURCE, EFFECT_KNOCKBACK, EFFECT_DASH, EFFECT_COOLDOWN, EFFECT_DISPEL,
-	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick",
+	EFFECT_SUMMON_CONSUME, EFFECT_REFRESH_STATUS, "pick", "basic_attack",
 ]
 # resource の欄。⚠ amount（足す・負なら減らす）と set_to（その値にする）はどちらか1つ。
 # ⚠ 持ち主にその資源があるか・種類と欄が合うかは MasterDataLoader が見る（⚠ ここは characters.json を知らない）。
@@ -329,6 +346,7 @@ const INTERVENE_FIELDS_KNOWN: Array = [
 	INTERVENE_CRIT_ALWAYS, INTERVENE_REFLECT_PCT, INTERVENE_REFLECT_FLAT,
 	INTERVENE_DRAIN_TAG, INTERVENE_DRAIN_PCT, INTERVENE_DRAIN_VS_STATUS, INTERVENE_BONUS_VS_STATUS, INTERVENE_BONUS_VS_PCT,
 	INTERVENE_TAKEN_FROM_SOURCE_PCT, INTERVENE_DOT_TAKEN_PCT, INTERVENE_BONUS_PER_DOT_PCT, INTERVENE_BONUS_PER_DOT_CAP,
+	INTERVENE_BASIC_TAKEN_PCT,
 	BUFF_ON_DEATH, BUFF_BLOCK_STATUS, BUFF_HEAL_TAKEN_PCT,
 ]
 # ⚠ 軽減の上限。100 にすると amount が必ず 0 になり、誰も死なずに決着しない
@@ -390,7 +408,9 @@ const CONTROL_STUN: String = "stun"
 const CONTROL_SNARE: String = "snare"
 const CONTROL_INVULNERABLE: String = "invulnerable"
 const CONTROL_UNSTOPPABLE: String = "unstoppable"
-const CONTROLS_KNOWN: Array = [CONTROL_STUN, CONTROL_SNARE, CONTROL_INVULNERABLE, CONTROL_UNSTOPPABLE]
+# ステルス（回GS-1・人間「⚠ 目くらましというのは…敵からターゲットされなくなる効果　ステルスに変える名前を」）。⚠ 相手から狙われない（⚠ 良い状態）。
+const CONTROL_STEALTH: String = "stealth"
+const CONTROLS_KNOWN: Array = [CONTROL_STUN, CONTROL_SNARE, CONTROL_INVULNERABLE, CONTROL_UNSTOPPABLE, CONTROL_STEALTH]
 # ⚠ 止められない（unstoppable）が防ぐもの。
 const CONTROLS_STOPPABLE: Array = [CONTROL_STUN, CONTROL_SNARE]
 
@@ -421,6 +441,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	FIELD_TAG, FIELD_ON_KILL, FIELD_ON_MEET, FIELD_EVADE,
 	FIELD_DRAIN_PCT, FIELD_WHEN_DRAIN_MULT, FIELD_STAT_PCT_FROM,
 	FIELD_ON_STACK, FIELD_KEEP_ON_DISPEL, FIELD_IS_DEBUFF, "effects",
+	SUMMON_FIELD_AT, SUMMON_FIELD_SIDE, "control",
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -472,7 +493,7 @@ const EVENT_EMPOWERED_BASIC: String = "empowered_basic"
 const EVENTS_KNOWN: Array = [
 	EVENT_ATTACKED, EVENT_DEALT_DAMAGE, EVENT_TOOK_DAMAGE,
 	EVENT_FOE_DIED, EVENT_BASIC_HIT, EVENT_SKILL_USED, EVENT_EMPOWERED_BASIC,
-	"status_applied",
+	"status_applied", "skill_hit",
 ]
 # 通常攻撃を撃つときのスキルID（⚠ BattleController と SkillRuntime の両方が読む＝語彙はここ）。
 const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
@@ -487,7 +508,9 @@ const BASIC_ATTACK_SKILL_ID: String = "basic_attack"
 const DELIVERY_MELEE: String = "melee"
 const DELIVERY_PROJECTILE: String = "projectile"
 const DELIVERY_MAGIC: String = "magic"
-const DELIVERIES_KNOWN: Array = [DELIVERY_MELEE, DELIVERY_PROJECTILE, DELIVERY_MAGIC]
+# 天井で跳ね返って落ちる球（回GS-1・人間「⚠ 上に天井を追加して、反射する球を打つ」）。⚠ 飛ぶもの。
+const DELIVERY_BOUNCE: String = "bounce"
+const DELIVERIES_KNOWN: Array = [DELIVERY_MELEE, DELIVERY_PROJECTILE, DELIVERY_MAGIC, DELIVERY_BOUNCE]
 
 # --- effects[].stack（重ねがけ規則・PLAN 13-2） ---
 #
@@ -643,6 +666,8 @@ const SKILL_FIELDS_KNOWN: Array = [
 	FIELD_NEED_SUMMONS,
 	# 狙いが動く溜め（回GM-1）。
 	FIELD_AIM,
+	# 使用回数（回GS-1）。
+	FIELD_CHARGES,
 	# トグル型（回CH-9）。
 	FIELD_TOGGLE,
 	# レリック（段階14-d）。⚠ relics.json は skills.json と同じ辞書へマージされるので、
@@ -888,6 +913,13 @@ static func validate(skill_id: String, data: Dictionary) -> Array:
 	_validate_cost(issues, skill_id, data)
 	_validate_need_summons(issues, skill_id, data)
 	_validate_aim(issues, skill_id, data)
+	# E199 使用回数（回GS-1）。⚠ 2〜9 の整数・ふつうの撃ち方（instant ／ charge）だけ。
+	if data.has(FIELD_CHARGES):
+		var charges: Variant = data.get(FIELD_CHARGES, null)
+		if not _is_num(charges) or float(charges) < 2.0 or float(charges) > 9.0 or float(charges) != floor(float(charges)):
+			_err(issues, skill_id, "charges が 2〜9 の整数でない")
+		if not (str(data.get("activation", "")) in [ACTIVATION_INSTANT, ACTIVATION_CHARGE]):
+			_err(issues, skill_id, "charges は activation: instant ／ charge にしか書けない")
 
 	# E3
 	if str(data.get("name_key", "")) == "":
@@ -1215,6 +1247,12 @@ static func _validate_summon_effect(
 		elif float(raw_count) != float(int(float(raw_count))) or int(float(raw_count)) < 1:
 			_err(issues, skill_id, "%s.count は 1 以上の整数であること: %s" % [where, str(raw_count)])
 
+	# E200 … 置き場所・置く側（回GS-1）。
+	if effect.has(SUMMON_FIELD_AT) and str(effect.get(SUMMON_FIELD_AT, "")) != "target":
+		_err(issues, skill_id, "%s.summon_at は 'target' だけ（相手の真ん中に置く）" % where)
+	if effect.has(SUMMON_FIELD_SIDE) and str(effect.get(SUMMON_FIELD_SIDE, "")) != "foe":
+		_err(issues, skill_id, "%s.summon_side は 'foe' だけ（相手側に置く＝味方が殴れる置物）" % where)
+
 	# E179 … 召喚の上限（回NC-1）。⚠ 書かなければ上限なし。
 	if effect.has(SUMMON_FIELD_MAX_PER_OWNER):
 		var cap: Variant = effect.get(SUMMON_FIELD_MAX_PER_OWNER, null)
@@ -1276,7 +1314,7 @@ static func _validate_effect(
 		# ⚠ unit_id は「召喚するID」の意味で、results が持つ unit_id（＝殴られた側）と
 		#   紛らわしい。1つの語が2つの意味を持つ状態を作らない（PLAN 1章の病気）。
 		# ⚠ count だけは召喚を使う効果（summon_consume）にも書く（⚠ 何体使うか）。
-		for summon_field: String in SUMMON_ONLY_FIELDS + [SUMMON_FIELD_MAX_PER_OWNER]:
+		for summon_field: String in SUMMON_ONLY_FIELDS + [SUMMON_FIELD_MAX_PER_OWNER, SUMMON_FIELD_AT, SUMMON_FIELD_SIDE]:
 			if summon_field == "count" and effect_type == EFFECT_SUMMON_CONSUME:
 				continue
 			if effect.has(summon_field):
@@ -1285,7 +1323,7 @@ static func _validate_effect(
 				])
 
 	# E164〜E165 行動を止める・押し出す（回CH-5）
-	if effect.has(BUFF_CONTROL):
+	if effect.has(BUFF_CONTROL) and effect_type != EFFECT_DISPEL:
 		var control: String = str(effect.get(BUFF_CONTROL, ""))
 		if effect_type != EFFECT_BUFF:
 			_err(issues, skill_id, "%s.type: '%s' に control は書けない（buff だけ）" % [where, effect_type])
@@ -1384,6 +1422,17 @@ static func _validate_effect(
 			var when_source: String = str(when.get("source", ""))
 			if not (when_source in WHENS_KNOWN):
 				_err(issues, skill_id, "%s.when_target.source が不明: '%s'（%s）" % [where, when_source, str(WHENS_KNOWN)])
+			elif when_source == WHEN_NEW_TARGET:
+				pass
+			elif when_source == WHEN_ANY:
+				# ⚠ どれか1つ（回GS-1）。⚠ 中身は1段だけ（any の入れ子は書けない）。
+				var of: Variant = when.get("of", null)
+				if not (of is Array) or (of as Array).size() < 2:
+					_err(issues, skill_id, "%s.when_target.of が2つ以上の配列でない（source: 'any'）" % where)
+				else:
+					for sub_when: Variant in (of as Array):
+						if not (sub_when is Dictionary) or str((sub_when as Dictionary).get("source", "")) in ["", WHEN_ANY]:
+							_err(issues, skill_id, "%s.when_target.of の中身が壊れている（any の入れ子は書けない）" % where)
 			elif when_source == WHEN_STATUS_HAS:
 				if str(when.get("status_id", "")) == "":
 					_err(issues, skill_id, "%s.when_target に status_id が無い（status_has は必須）" % where)
@@ -1444,7 +1493,11 @@ static func _validate_effect(
 			if effect.has(cd_field):
 				_err(issues, skill_id, "%s.type: '%s' に %s は書けない（cooldown だけ）" % [where, effect_type, cd_field])
 	if effect_type == EFFECT_DISPEL:
-		if not (str(effect.get("what", "")) in [DISPEL_DEBUFF, DISPEL_BUFF]):
+		# ⚠ 回GS-1：what の代わりに control（その行動妨害・守りの状態だけを消す＝投げ縄でステルスを剥がす）。
+		if effect.has("control"):
+			if effect.has("what") or not (str(effect.get("control", "")) in CONTROLS_KNOWN):
+				_err(issues, skill_id, "%s.control が不明か what と一緒（%s）" % [where, str(CONTROLS_KNOWN)])
+		elif not (str(effect.get("what", "")) in [DISPEL_DEBUFF, DISPEL_BUFF]):
 			_err(issues, skill_id, "%s.what が 'debuff' ／ 'buff' でない（必須）" % where)
 	elif effect.has("what") and effect_type != EFFECT_REFRESH_STATUS:
 		# ⚠ 回ST-1：時間を戻す（refresh_status）にも what: "debuff" が書ける（⚠ 中身は E186 が見る）。
@@ -2090,7 +2143,7 @@ static func _validate_intervene(
 			])
 
 	# E196 … 回ST-1 の割合（1〜1000 の整数）・上限は割合と一緒に。
-	for st_field: String in [INTERVENE_TAKEN_FROM_SOURCE_PCT, INTERVENE_DOT_TAKEN_PCT, INTERVENE_BONUS_PER_DOT_PCT, INTERVENE_BONUS_PER_DOT_CAP]:
+	for st_field: String in [INTERVENE_TAKEN_FROM_SOURCE_PCT, INTERVENE_DOT_TAKEN_PCT, INTERVENE_BONUS_PER_DOT_PCT, INTERVENE_BONUS_PER_DOT_CAP, INTERVENE_BASIC_TAKEN_PCT]:
 		if iv.has(st_field):
 			var sv: Variant = iv.get(st_field, null)
 			if not _is_num(sv) or float(sv) != floor(float(sv)) or int(sv) < 1 or int(sv) > 1000:
@@ -2241,7 +2294,7 @@ static func _validate_scale_from(
 			continue
 		var entry: Dictionary = term as Dictionary
 		var source: String = str(entry.get("source", ""))
-		if not (source in known) and source != SCALE_RESOURCE_SPENT and source != SCALE_RESOURCE_NOW and source != SCALE_FLAT:
+		if not (source in known) and not (source in [SCALE_RESOURCE_SPENT, SCALE_RESOURCE_NOW, SCALE_FLAT, "last_hit"]):
 			_err(issues, skill_id, "%s.scale_from の source が不明: '%s'" % [where, source])
 		# E175 … いまの資源の量には resource_id が要る（回SC-1）。
 		if source == SCALE_RESOURCE_NOW and str(entry.get(RESOURCE_FIELD_ID, "")) == "":
@@ -2325,6 +2378,11 @@ static func _validate_gm_fields(
 				_err(issues, skill_id, "%s.%s は buff / dot にしか書けない" % [where, flag])
 			elif effect.get(flag, null) != true:
 				_err(issues, skill_id, "%s.%s は true だけ書ける" % [where, flag])
+	# E201 自分の通常攻撃を撃つ（回GS-1）。⚠ 威力の式は持たない（⚠ 通常攻撃の式を使う）。
+	if effect_type == EFFECT_BASIC_ATTACK:
+		for forbidden: String in ["scale_from", "multiplier", "attack_type", "host", "delivery"]:
+			if effect.has(forbidden):
+				_err(issues, skill_id, "%s.type: 'basic_attack' に %s は書けない（通常攻撃の式を使う）" % [where, forbidden])
 	# E198 1つを選んで撃つ（回ST-1）。⚠ 2つ以上・入れ子の pick は書けない。
 	if effect_type == EFFECT_PICK:
 		var choices: Variant = effect.get("effects", null)

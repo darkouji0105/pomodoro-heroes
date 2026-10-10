@@ -1,0 +1,31 @@
+{
+	"passive_gs_showman": {
+		"name_key": "ui_battle_passive_gs_showman",
+		"user_character_id": "char_gunslinger",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_gs_showman",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "skill_hit",
+					"effects": [
+						{
+							"type": "basic_attack",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	}
+}

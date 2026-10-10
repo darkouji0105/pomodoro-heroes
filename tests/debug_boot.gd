@@ -134,6 +134,8 @@ const SHOT_PREPARE_VAMP_PARTY: String = "vamp_party"
 const SHOT_PREPARE_PHOENIX_PARTY: String = "phoenix_party"
 # ⚠ 学者の生徒（回ST-1）：⚠ 生徒を1番目に入れる（⚠ 内側の `PREPARE_STUDENT_PARTY` と同じ字）。
 const SHOT_PREPARE_STUDENT_PARTY: String = "student_party"
+# ⚠ 拳銃使い（回GS-1）：⚠ 拳銃使いを1番目に入れる（⚠ 内側の `PREPARE_GUNSLINGER_PARTY` と同じ字）。
+const SHOT_PREPARE_GUNSLINGER_PARTY: String = "gunslinger_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1351,6 +1353,44 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_sd_laser", "prepare": PREPARE_NONE, "gap": 0.5},
 		],
 	},
+	# 拳銃使い（回GS-1）。⚠ Lv20 に上げてから枠に入れる。
+	"gs_a": {
+		"kind": KIND_BATTLE,
+		"note": "拳銃使い A：ナイフ投げを2回続けて（使用回数）→ はいぬーん（全員へ通常攻撃）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_gunslinger", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_gunslinger": 20},
+		"skills": {"char_gunslinger": ["skill_gs_knife", "skill_gs_highnoon"]},
+		"fire": [
+			{"skill": "skill_gs_knife", "prepare": PREPARE_NONE},
+			{"skill": "skill_gs_knife", "prepare": PREPARE_NONE, "gap": 0.3},
+			{"skill": "skill_gs_highnoon", "prepare": PREPARE_NONE, "gap": 0.5},
+		],
+	},
+	"gs_b": {
+		"kind": KIND_BATTLE,
+		"note": "拳銃使い B：樽（敵の真ん中に置く）→ 鞭（樽に当たって爆発）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_gunslinger", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_gunslinger": 20},
+		"skills": {"char_gunslinger": ["skill_gs_barrel", "skill_gs_whip"]},
+		"fire": [
+			{"skill": "skill_gs_barrel", "prepare": PREPARE_NONE},
+			{"skill": "skill_gs_whip", "prepare": PREPARE_NONE, "gap": 0.5},
+		],
+	},
+	"gs_c": {
+		"kind": KIND_BATTLE,
+		"note": "拳銃使い C：投げ縄 → 跳弾（0.4 秒溜め・天井で跳ね返る）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_gunslinger", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_gunslinger": 20},
+		"skills": {"char_gunslinger": ["skill_gs_lasso", "skill_gs_ricochet"]},
+		"fire": [
+			{"skill": "skill_gs_lasso", "prepare": PREPARE_NONE},
+			{"skill": "skill_gs_ricochet", "prepare": PREPARE_NONE, "gap": 1.0, "hold_sec": 0.4},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1770,6 +1810,28 @@ const SCENARIOS: Dictionary = {
 			},
 			# ⚠ 狂った神の使い（回GM-1）：⚠ 顔・パッシブのマス・スキルのマス。
 			{
+				"name": "9c_gunslinger_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_GUNSLINGER_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			# ⚠ 跳弾を溜めている途中（回GS-1）：⚠ 天井と跳ね返りの線。
+			{
+				"name": "9d_gunslinger_aim",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_GUNSLINGER_PARTY,
+				"after": SHOT_AFTER_BATTLE_AIM,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			{
 				"name": "9b_student_battle",
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_STUDENT_PARTY,
@@ -2016,6 +2078,7 @@ func _ready() -> void:
 			_report_vampire()
 			_report_phoenix()
 			_report_student()
+			_report_gunslinger()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -9611,6 +9674,132 @@ func _status_effect(status_id: String) -> Dictionary:
 	return def
 
 
+# 拳銃使い（回GS-1）。⚠ 使用回数・ステルス・通常攻撃を撃つ効果・スキルが当たった・次の通常攻撃で受ける・前と違う相手。
+func _report_gunslinger() -> void:
+	var me: BattleUnit = _resource_unit("char_gunslinger", 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 50000
+	foe_data["def"] = 0
+	var foes: Array = []
+	for i: int in range(3):
+		foes.append(BattleUnit.create("enemy_%d" % i, BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime"))
+	me.x = 300.0
+	var f0: BattleUnit = foes[0] as BattleUnit
+	var f1: BattleUnit = foes[1] as BattleUnit
+	var f2: BattleUnit = foes[2] as BattleUnit
+	f0.x = 380.0
+	f1.x = 450.0
+	f2.x = 520.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = foes
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+
+	print("[DebugBoot] --- 89. ナイフ投げ（⚠ 使用回数 2・クールダウンで1回ずつ戻る）---")
+	me.skill_ids = ["skill_gs_knife"]
+	me.skill_cooldowns = {"skill_gs_knife": 0.0}
+	var ready0: bool = me.is_skill_ready("skill_gs_knife")
+	me.use_charge("skill_gs_knife", 2, 6.0)
+	var ready1: bool = me.is_skill_ready("skill_gs_knife")
+	me.use_charge("skill_gs_knife", 2, 6.0)
+	var ready2: bool = me.is_skill_ready("skill_gs_knife")
+	me.tick_cooldowns(6.1)
+	print("  最初 %s ／ 1回目のあと %s ／ 2回目のあと %s ／ 6秒後 %s・残り %d（true／true／false／true・1）" % [
+		str(ready0), str(ready1), str(ready2), str(me.is_skill_ready("skill_gs_knife")), int(me.skill_charges["skill_gs_knife"])])
+	me.tick_cooldowns(6.1)
+	print("  さらに 6秒後：残り %d（2＝満タンで止まる）・クールダウン %.1f（0.0）" % [int(me.skill_charges["skill_gs_knife"]), me.get_cooldown("skill_gs_knife")])
+
+	print("[DebugBoot] --- 90. ステルス（⚠ 相手から狙われない・投げ縄で剥がす）---")
+	var near: Dictionary = {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}
+	SkillResolver.resolve({"effects": [{"type": "buff", "host": "unit", "status_id": "st_probe_stealth", "duration_sec": 10.0, "stack": "refresh", "control": "stealth"}]},
+		f0, session, ["enemy_0"], registry)
+	print("  enemy_0 がステルス：一番近い敵 = %s（enemy_1）" % str(SkillResolver.select_targets(near, me, session)))
+	SkillResolver.resolve({"effects": [{"type": "dispel", "control": "stealth"}]}, me, session, ["enemy_0"], registry)
+	print("  投げ縄で剥がした：一番近い敵 = %s（enemy_0）" % str(SkillResolver.select_targets(near, me, session)))
+
+	print("[DebugBoot] --- 91. はいぬーん（⚠ 自分の通常攻撃を近い順に全員へ）---")
+	var noon: Array = SkillResolver.resolve({"effects": [{"type": "basic_attack"}]}, me, session, ["enemy_2", "enemy_0", "enemy_1"], registry)
+	print("  撃つ相手：%s（enemy_0, enemy_1, enemy_2＝近い順）" % str((noon[0] as Dictionary).get("target_ids", [])))
+
+	print("[DebugBoot] --- 92. 見世物（⚠ スキルが当たった敵ごとに通常攻撃で追い撃ち）---")
+	runtime.cast(me, "passive_gs_showman", MasterDataLoader.get_skill("passive_gs_showman"), 1.0)
+	var got: Array = []
+	var on_results: Callable = func(results: Array) -> void:
+		got.append_array(results)
+	runtime.effects_applied.connect(on_results)
+	runtime.cast(me, "skill_gs_whip", MasterDataLoader.get_skill("skill_gs_whip"), 1.0)
+	var chase: Array = []
+	for r: Variant in got:
+		if r is Dictionary and str((r as Dictionary).get("kind", "")) == SkillSchema.EFFECT_BASIC_ATTACK:
+			chase.append_array((r as Dictionary).get("target_ids", []))
+	print("  鞭が当たった敵へ追い撃ち：%s（鞭の範囲の敵それぞれ・通常攻撃では増えない）" % str(chase))
+	got.clear()
+	var basic_cast: int = runtime._next_cast_id
+	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, me.basic_attack, 1.0, ["enemy_0"])
+	runtime.notify_event(basic_cast, SkillSchema.EVENT_HIT)
+	var chase_basic: int = 0
+	for r: Variant in got:
+		if r is Dictionary and str((r as Dictionary).get("kind", "")) == SkillSchema.EFFECT_BASIC_ATTACK:
+			chase_basic += 1
+	print("  通常攻撃が当たっても追い撃ちしない：%d（0）" % chase_basic)
+	runtime.effects_applied.disconnect(on_results)
+
+	print("[DebugBoot] --- 93. 跳弾の印（⚠ 次の通常攻撃で受けるダメージ 2 倍・1回で消える）---")
+	var hit: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "true", "scale_from": "atk", "_basic": true}
+	var plain_basic: int = _first_amount(SkillResolver.resolve({"effects": [hit]}, me, session, ["enemy_2"], registry))
+	var mark: Dictionary = ((MasterDataLoader.get_skill("skill_gs_ricochet")["effects"] as Array)[1] as Dictionary).duplicate(true)
+	mark.erase("trigger")
+	SkillResolver.resolve({"effects": [mark]}, me, session, ["enemy_2"], registry)
+	var marked: int = _first_amount(SkillResolver.resolve({"effects": [hit]}, me, session, ["enemy_2"], registry))
+	var after: int = _first_amount(SkillResolver.resolve({"effects": [hit]}, me, session, ["enemy_2"], registry))
+	var skill_hit: Dictionary = hit.duplicate()
+	skill_hit.erase("_basic")
+	SkillResolver.resolve({"effects": [mark]}, me, session, ["enemy_2"], registry)
+	var by_skill: int = _first_amount(SkillResolver.resolve({"effects": [skill_hit]}, me, session, ["enemy_2"], registry))
+	print("  ふつう %d ／ 印あり %d（2 倍）／ 次 %d（戻る）／ スキルで殴る %d（倍にならない・印は残る %s）" % [
+		plain_basic, marked, after, by_skill, str(registry.has({"host_unit_id": "enemy_2", "status_id": "st_gs_ricochet_mark"}))])
+
+	print("[DebugBoot] --- 94. 通常攻撃の追加ダメージ（⚠ 前と違う相手か、HP が満タンの相手）---")
+	var bonus: Dictionary = (me.basic_attack.get("effects", []) as Array)[1] as Dictionary
+	me.prev_basic_target_id = "enemy_1"
+	f1.hp = 100
+	print("  前と同じ・HP 満タンでない：%s（false）" % str(SkillResolver.when_target_ok(bonus, f1, registry, me)))
+	print("  前と違う相手：%s（true）" % str(SkillResolver.when_target_ok(bonus, f0, registry, me)))
+	f1.hp = f1.max_hp
+	print("  前と同じ・HP 満タン：%s（true）" % str(SkillResolver.when_target_ok(bonus, f1, registry, me)))
+
+	print("[DebugBoot] --- 95. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var dm: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk"}
+	var probes: Array = [
+		["charges が 1", dm, {"charges": 1}, true],
+		["charges をトグルに", dm, {"charges": 2, "activation": "toggle", "toggle": {"interval_sec": 1.0, "repress": "off"}}, true],
+		["basic_attack に multiplier", {"type": "basic_attack", "multiplier": 1.0}, {}, true],
+		["dispel に control と what", {"type": "dispel", "control": "stealth", "what": "buff"}, {}, true],
+		["summon_side が self", {"type": "summon", "unit_id": "summon_gs_barrel", "count": 1, "duration_sec": 5.0, "offset_x": 10.0, "summon_side": "self"}, {}, true],
+		["any が1つだけ", (dm.duplicate() as Dictionary).merged({"when_target": {"source": "any", "of": [{"source": "new_target"}]}}), {}, true],
+		["使用回数（正しい）", dm, {"charges": 3}, false],
+		["ステルスを剥がす（正しい）", {"type": "dispel", "control": "stealth"}, {}, false],
+		["天井で跳ね返る球（正しい）", (dm.duplicate() as Dictionary).merged({"delivery": "bounce", "trigger": "event:hit"}), {}, false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_gunslinger", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [probe[1]],
+		}
+		data.merge(probe[2] as Dictionary, true)
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[3]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
 
@@ -11885,6 +12074,7 @@ class ShotTaker extends Node:
 	const PREPARE_VAMP_PARTY: String = "vamp_party"
 	const PREPARE_PHOENIX_PARTY: String = "phoenix_party"
 	const PREPARE_STUDENT_PARTY: String = "student_party"
+	const PREPARE_GUNSLINGER_PARTY: String = "gunslinger_party"
 	const PREPARE_PRINCESS_PARTY: String = "princess_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
@@ -12263,6 +12453,11 @@ class ShotTaker extends Node:
 				if not GameManager.set_party_member(princess_i, ["char_princess", "char_archer", "char_priest"][princess_i]):
 					return false
 			return true
+		if kind == PREPARE_GUNSLINGER_PARTY:
+			for gs_i: int in range(3):
+				if not GameManager.set_party_member(gs_i, ["char_gunslinger", "char_archer", "char_priest"][gs_i]):
+					return false
+			return true
 		if kind == PREPARE_STUDENT_PARTY:
 			for student_i: int in range(3):
 				if not GameManager.set_party_member(student_i, ["char_student", "char_archer", "char_priest"][student_i]):
@@ -12362,11 +12557,13 @@ class ShotTaker extends Node:
 			for _i: int in range(12):
 				await get_tree().process_frame
 		elif kind == AFTER_BATTLE_AIM:
-			var cross: Dictionary = MasterDataLoader.get_skill("skill_zl_cross")
-			if not ("skill_zl_cross" in me.skill_ids):
-				me.skill_ids.append("skill_zl_cross")
-			me.skill_cooldowns["skill_zl_cross"] = 0.0
-			screen.call("_on_charge_button_down", {"user": me, "skill_id": "skill_zl_cross", "charge": cross.get("charge", {}), "charge_row": -1})
+			# ⚠ 1番目のキャラの狙いのスキル（神の使い＝十字・拳銃使い＝跳弾）。
+			var aim_skill: String = "skill_gs_ricochet" if me.master_id == "char_gunslinger" else "skill_zl_cross"
+			var cross: Dictionary = MasterDataLoader.get_skill(aim_skill)
+			if not (aim_skill in me.skill_ids):
+				me.skill_ids.append(aim_skill)
+			me.skill_cooldowns[aim_skill] = 0.0
+			screen.call("_on_charge_button_down", {"user": me, "skill_id": aim_skill, "charge": cross.get("charge", {}), "charge_row": -1})
 			for _i: int in range(30):
 				await get_tree().process_frame
 			print("[DebugBoot] %s：狙い x=%.1f（使う人 x=%.1f）" % [shot_name, me.aim_x, me.x])

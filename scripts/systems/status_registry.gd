@@ -428,6 +428,42 @@ func taken_from_source_pct(host_id: String, attacker_id: String) -> int:
 	return total
 
 
+# 次の通常攻撃で受けるダメージ（回GS-1・宿主側）。⚠ consume が true なら、効いた状態を消す（⚠ 当たった1回で消える）。
+func basic_taken_pct(host_id: String, consume: bool) -> int:
+	var total: int = 0
+	var rest: Array = []
+	var removed: bool = false
+	for entry: Dictionary in _entries:
+		var pct: int = int(entry.get(SkillSchema.INTERVENE_BASIC_TAKEN_PCT, 0))
+		if pct > 0 and str(entry.get("kind", "")) == KIND_BUFF and _applies_to(entry, host_id):
+			total += pct
+			if consume:
+				BattleLog.log_status_end(str(entry.get("status_id", "")), host_id, "basic_taken")
+				removed = true
+				continue
+		rest.append(entry)
+	if removed:
+		_entries = rest
+		_rebuild_unit_mods(host_id)
+	return total
+
+
+# その行動妨害・守りの状態だけを消す（回GS-1・投げ縄でステルスを剥がす）。⚠ 戻り値は消した数。
+func dispel_control(unit_id: String, control: String) -> int:
+	var rest: Array = []
+	var removed: int = 0
+	for entry: Dictionary in _entries:
+		if str(entry.get("host_unit_id", "")) == unit_id and str(entry.get(SkillSchema.BUFF_CONTROL, "")) == control:
+			BattleLog.log_status_end(str(entry.get("status_id", "")), unit_id, "dispelled")
+			removed += 1
+			continue
+		rest.append(entry)
+	if removed > 0:
+		_entries = rest
+		_rebuild_unit_mods(unit_id)
+	return removed
+
+
 # 毎秒のダメージを受ける量（回ST-1・宿主側）。
 func dot_taken_pct(host_id: String) -> int:
 	return _intervene_sum(host_id, SkillSchema.INTERVENE_DOT_TAKEN_PCT)
@@ -543,7 +579,8 @@ func _make_entry(
 		"on_meet": {},
 		# 避けて反撃（回MC-1）。{ "effects" }。
 		"evade": {},
-		# 回ST-1。
+		# 回ST-1・回GS-1。
+		"basic_taken_pct": 0,
 		"taken_from_source_pct": 0,
 		"dot_taken_pct": 0,
 		"bonus_per_dot_pct": 0,
@@ -725,7 +762,7 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 
 	# 回ST-1 の割合（受ける側・殴る側）。
 	for st_field: String in [SkillSchema.INTERVENE_TAKEN_FROM_SOURCE_PCT, SkillSchema.INTERVENE_DOT_TAKEN_PCT,
-			SkillSchema.INTERVENE_BONUS_PER_DOT_PCT, SkillSchema.INTERVENE_BONUS_PER_DOT_CAP]:
+			SkillSchema.INTERVENE_BONUS_PER_DOT_PCT, SkillSchema.INTERVENE_BONUS_PER_DOT_CAP, SkillSchema.INTERVENE_BASIC_TAKEN_PCT]:
 		if effect_iv.has(st_field):
 			entry[st_field] = int(effect_iv.get(st_field, 0))
 			has_intervene = true
@@ -1788,7 +1825,8 @@ static func is_debuff_entry(entry: Dictionary) -> bool:
 	if str(entry.get("kind", "")) == KIND_DOT and not bool(entry.get("heals", false)):
 		return true
 	# ⚠ 回ST-1：受けるダメージが増える・印だけの状態（is_debuff）。
-	if bool(entry.get("is_debuff", false)) or int(entry.get("taken_from_source_pct", 0)) > 0 or int(entry.get("dot_taken_pct", 0)) > 0:
+	if bool(entry.get("is_debuff", false)) or int(entry.get("taken_from_source_pct", 0)) > 0 or int(entry.get("dot_taken_pct", 0)) > 0 \
+			or int(entry.get("basic_taken_pct", 0)) > 0:
 		return true
 	# ⚠ スタン・スネアは悪い状態（回CH-5）。⚠ 無敵・止められないは良い状態のまま。
 	if str(entry.get(SkillSchema.BUFF_CONTROL, "")) in SkillSchema.CONTROLS_STOPPABLE:
@@ -1967,6 +2005,7 @@ func _rebuild_unit_mods(unit_id: String) -> void:
 	unit.snared = controls.has(SkillSchema.CONTROL_SNARE)
 	unit.invulnerable = controls.has(SkillSchema.CONTROL_INVULNERABLE)
 	unit.unstoppable = controls.has(SkillSchema.CONTROL_UNSTOPPABLE)
+	unit.stealthed = controls.has(SkillSchema.CONTROL_STEALTH)
 
 	# 攻撃力の倍率（EXEC_SILENT_HOLES.md）。⚠ 書くのはここ1箇所だけ。
 	#

@@ -779,6 +779,81 @@
 			"spd": 1
 		}
 	},
+	"char_gunslinger": {
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "projectile",
+					"multiplier": 1.0,
+					"attack_type": "physical",
+					"scale_from": "atk",
+					"trigger": "event:hit"
+				},
+				{
+					"type": "damage",
+					"delivery": "projectile",
+					"multiplier": 0.5,
+					"attack_type": "physical",
+					"scale_from": "atk",
+					"trigger": "event:hit",
+					"when_target": {
+						"source": "any",
+						"of": [
+							{
+								"source": "new_target"
+							},
+							{
+								"source": "hp_ratio",
+								"op": "gte",
+								"value": 1.0
+							}
+						]
+					}
+				}
+			]
+		},
+		"name_key": "ui_battle_char_gunslinger",
+		"sign_style": "pen",
+		"sign_mark": "arrow",
+		"weapon_genre": "pistol",
+		"basic_cycle": true,
+		"hp": 95,
+		"atk": 18,
+		"mag": 4,
+		"def": 4,
+		"mdef": 4,
+		"spd": 70,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 10,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 240,
+		"attack_interval_sec": 1.0,
+		"skills": [
+			"skill_gs_knife",
+			"skill_gs_highnoon",
+			"skill_gs_lasso",
+			"skill_gs_barrel",
+			"skill_gs_whip",
+			"skill_gs_ricochet"
+		],
+		"passives": [
+			"passive_gs_showman"
+		],
+		"allocatable_stats": [
+			"hp",
+			"atk",
+			"crit_rate"
+		],
+		"growth_per_level": {
+			"hp": 5,
+			"atk": 2,
+			"def": 1,
+			"spd": 1
+		}
+	},
 	"char_debug_status": {
 		"basic_attack": {
 			"effects": [

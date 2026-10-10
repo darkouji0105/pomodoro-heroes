@@ -40,7 +40,7 @@ signal projectile_requested(cast_id: int, delivery: String, user_id: String, tar
 signal pierce_requested(cast_id: int, delivery: String, user_id: String, length: float, target_ids: Array)
 
 # 飛ぶ送り方。melee はその場で当たるので飛ばさない。
-const DELIVERIES_FLYING: Array = [SkillSchema.DELIVERY_PROJECTILE, SkillSchema.DELIVERY_MAGIC]
+const DELIVERIES_FLYING: Array = [SkillSchema.DELIVERY_PROJECTILE, SkillSchema.DELIVERY_MAGIC, SkillSchema.DELIVERY_BOUNCE]
 
 # 待ち行列の要素が「何を待っているか」。
 const WAIT_DELAY: String = "delay"
@@ -433,7 +433,12 @@ func _fire(entry: Dictionary) -> void:
 	# ⚠ SkillResolver に渡すのは「効果1つぶんの実効スキルデータ」だけ。
 	#   歯止め（PLAN 7-3）：実効スキルデータは skills.json に書ける欄しか含まない。
 	#   対象 ID は skill_data の中に入れず、引数で横から渡す。
-	var one: Dictionary = { "effects": [entry.get("effect", {})] }
+	var one_effect: Dictionary = entry.get("effect", {})
+	# 通常攻撃の印（回GS-1）。⚠ 「次の通常攻撃で受けるダメージ」が読む。⚠ 写しに付ける（⚠ マスターの辞書を書き換えない）。
+	if str(entry.get("skill_id", "")) == SkillSchema.BASIC_ATTACK_SKILL_ID:
+		one_effect = one_effect.duplicate()
+		one_effect["_basic"] = true
+	var one: Dictionary = { "effects": [one_effect] }
 	var results: Array = SkillResolver.resolve(one, user, _session, entry.get("target_ids", []), _registry)
 
 	# 検証用のログ（EXEC_BATTLE_LOG.md）。⚠ 観測点はここ（results を受け取る側）。
@@ -487,6 +492,17 @@ func _dispatch_events(entry: Dictionary, results: Array) -> void:
 			if bool(r.get("is_heal", false)) or r.has("kind") or str(r.get("source_unit_id", "")) != user_id:
 				continue
 			_notify(SkillSchema.EVENT_BASIC_HIT, user_id, str(r.get("unit_id", "")))
+
+	# 3-2. スキルが当たった（回GS-1）。⚠ 通常攻撃とパッシブの購読は数えない（⚠ 購読から生まれた行動は上で弾いてある）。
+	if str(entry.get("skill_id", "")) != SkillSchema.BASIC_ATTACK_SKILL_ID and str(effect.get("type", "")) == SkillSchema.EFFECT_DAMAGE:
+		var hit_once: Dictionary = {}
+		for raw_hit: Variant in results:
+			if raw_hit is Dictionary and not (raw_hit as Dictionary).has("kind") and not bool((raw_hit as Dictionary).get("is_heal", false)) \
+					and str((raw_hit as Dictionary).get("source_unit_id", "")) == user_id:
+				var hit_id: String = str((raw_hit as Dictionary).get("unit_id", ""))
+				if not hit_once.has(hit_id):
+					hit_once[hit_id] = true
+					_notify(SkillSchema.EVENT_SKILL_HIT, user_id, hit_id)
 
 	# 4. 状態を付けた（回VP-1）。⚠ 付けた本人に配る・status_id で絞れる。
 	for raw_applied: Variant in results:

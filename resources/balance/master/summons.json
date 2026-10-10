@@ -87,5 +87,61 @@
 				}
 			]
 		}
+	},
+	"summon_gs_barrel": {
+		"name_key": "ui_battle_summon_gs_barrel",
+		"hp": 1,
+		"atk": 0,
+		"mag": 0,
+		"def": 0,
+		"mdef": 0,
+		"spd": 0,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 0,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 0,
+		"attack_interval_sec": 999.0,
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 0.01,
+					"attack_type": "physical",
+					"scale_from": "atk"
+				}
+			]
+		},
+		"death_effects": [
+			{
+				"type": "damage",
+				"multiplier": 1.0,
+				"attack_type": "true",
+				"scale_from": [
+					{
+						"source": "last_hit",
+						"weight": 1.0
+					}
+				],
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 120.0
+				}
+			},
+			{
+				"type": "status",
+				"status": "burn",
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 120.0
+				}
+			}
+		]
 	}
 }

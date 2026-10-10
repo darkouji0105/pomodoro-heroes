@@ -91,7 +91,8 @@ static func select_targets(
 	#   （人間の決定・EXEC_SKILL_AREA.md §0）。同じ変数を使い回すと、
 	#   「起点選び」と「巻き込み」のどちらかが必ず間違う。
 	var pool_all: Array = []
-	for u in session.get_alive_units(team):
+	# ⚠ 回GS-1：相手側を狙うときはステルスを外す（get_targetable_units の1本）。
+	for u in session.get_targetable_units(team, user.team):
 		if u is BattleUnit:
 			pool_all.append(u)
 
@@ -349,7 +350,7 @@ static func resolve(
 				and not effect.has(SkillSchema.FIELD_WHEN_CRIT) and not effect.has(SkillSchema.FIELD_WHEN_DRAIN_MULT):
 			targets = []
 			for t: BattleUnit in all_targets:
-				if when_target_ok(effect, t, registry):
+				if when_target_ok(effect, t, registry, user):
 					targets.append(t)
 			if targets.is_empty():
 				continue
@@ -366,7 +367,7 @@ static func resolve(
 		elif effect_type in SkillSchema.EFFECT_TYPES_STATUS:
 			_apply_status(effect, user, targets, session, registry, results)
 		elif effect_type == SkillSchema.EFFECT_SUMMON:
-			_apply_summon(effect, user, results)
+			_apply_summon(effect, user, results, targets)
 		elif effect_type == SkillSchema.EFFECT_RESOURCE:
 			_apply_resource(effect, user, targets, registry, session, results)
 		elif effect_type == SkillSchema.EFFECT_SUMMON_CONSUME:
@@ -400,8 +401,21 @@ static func resolve(
 				)
 		elif effect_type == SkillSchema.EFFECT_DISPEL:
 			# 解除（回CH-7）。⚠ registry は StatusRegistry（RefCounted で受けている＝相互参照を避ける）。
+			# ⚠ 回GS-1：control があればその状態だけ（投げ縄でステルス）。
 			for t: BattleUnit in targets:
-				registry.dispel(t.unit_id, str(effect.get("what", "")) == SkillSchema.DISPEL_DEBUFF)
+				if effect.has("control"):
+					registry.dispel_control(t.unit_id, str(effect.get("control", "")))
+				else:
+					registry.dispel(t.unit_id, str(effect.get("what", "")) == SkillSchema.DISPEL_DEBUFF)
+		elif effect_type == SkillSchema.EFFECT_BASIC_ATTACK:
+			# 自分の通常攻撃を撃つ（回GS-1）。⚠ 撃つのは戦闘の画面（⚠ 結果に載せるだけ）・近い順。
+			var order: Array = targets.duplicate()
+			order.sort_custom(func(a: BattleUnit, b: BattleUnit) -> bool: return absf(a.x - user.x) < absf(b.x - user.x))
+			var ids: Array = []
+			for t: BattleUnit in order:
+				ids.append(t.unit_id)
+			if not ids.is_empty():
+				results.append({"kind": SkillSchema.EFFECT_BASIC_ATTACK, "source_unit_id": user.unit_id, "target_ids": ids})
 		elif effect_type in SkillSchema.EFFECT_TYPES_KNOWN:
 			push_warning("[SkillResolver] 未実装の効果: '%s'。この効果を飛ばす" % effect_type)
 		else:
@@ -471,14 +485,15 @@ static func _apply_damage(
 	}
 
 	# 相手の状態で強くなる（回CH-8）。⚠ roll_crit() は振ったあと＝乱数の順番を変えない。
-	if effect.has(SkillSchema.FIELD_WHEN_TARGET) and when_target_ok(effect, target, registry):
+	if effect.has(SkillSchema.FIELD_WHEN_TARGET) and when_target_ok(effect, target, registry, user):
 		if effect.has(SkillSchema.FIELD_WHEN_MULT):
 			ctx["multiplier"] = float(ctx["multiplier"]) * float(effect.get(SkillSchema.FIELD_WHEN_MULT, 1.0))
 		if bool(effect.get(SkillSchema.FIELD_WHEN_CRIT, false)):
 			ctx["is_crit"] = true
-	# 相手の状態で常に強い（回VP-1）・付けた人から受ける・毎秒の倍・状態の数だけ（回ST-1）。⚠ 和で足す（⚠ この器はみなそう）。
+	# 相手の状態で常に強い（回VP-1）・付けた人から受ける・毎秒の倍・状態の数だけ（回ST-1）・次の通常攻撃（回GS-1）。⚠ 和で足す（⚠ この器はみなそう）。
 	if registry != null:
 		var bonus_vs: int = int(registry.bonus_vs_pct(user.unit_id, target.unit_id)) \
+				+ (int(registry.basic_taken_pct(target.unit_id, true)) if bool(effect.get("_basic", false)) else 0) \
 				+ int(registry.taken_from_source_pct(target.unit_id, user.unit_id)) \
 				+ int(registry.bonus_per_dot_pct(user.unit_id, target.unit_id)) \
 				+ (int(registry.dot_taken_pct(target.unit_id)) if is_dot else 0)
@@ -668,11 +683,20 @@ static func when_user_ok(effect: Dictionary, user: BattleUnit, session: BattleSe
 
 
 # 相手についての条件（回CH-8）。⚠ registry は StatusRegistry（RefCounted で受けている）。
-static func when_target_ok(effect: Dictionary, target: BattleUnit, registry: RefCounted) -> bool:
+static func when_target_ok(effect: Dictionary, target: BattleUnit, registry: RefCounted, user: BattleUnit = null) -> bool:
 	if target == null:
 		return false
 	var when: Dictionary = effect.get(SkillSchema.FIELD_WHEN_TARGET, {}) as Dictionary
 	var source: String = str(when.get("source", ""))
+	# どれか1つ（回GS-1）。⚠ 中身を1つずつ同じ関数で見る。
+	if source == SkillSchema.WHEN_ANY:
+		for sub_when: Variant in (when.get("of", []) as Array):
+			if sub_when is Dictionary and when_target_ok({SkillSchema.FIELD_WHEN_TARGET: sub_when}, target, registry, user):
+				return true
+		return false
+	# 前と違う相手（回GS-1）。⚠ 撃つ前の相手と比べる（⚠ 撃った瞬間に今の相手へ書き換わるため）。
+	if source == SkillSchema.WHEN_NEW_TARGET:
+		return user != null and target.unit_id != user.prev_basic_target_id
 	if source == SkillSchema.WHEN_STATUS_HAS:
 		return registry != null and bool(registry.has({
 			"host_unit_id": target.unit_id, "status_id": str(when.get("status_id", "")),
@@ -1033,7 +1057,7 @@ static func own_summons(user: BattleUnit, session: BattleSession, unit_ids: Arra
 	return list
 
 
-static func _apply_summon(effect: Dictionary, user: BattleUnit, results: Array) -> void:
+static func _apply_summon(effect: Dictionary, user: BattleUnit, results: Array, targets: Array = []) -> void:
 	results.append({
 		# ⚠ kind を持つのは召喚の1件だけ。既存の damage / heal の1件には足さない
 		#   （battle_last.jsonl が1バイト変わる）。
@@ -1045,7 +1069,20 @@ static func _apply_summon(effect: Dictionary, user: BattleUnit, results: Array) 
 		"offset_x": float(effect.get("offset_x", 0.0)),
 		# 上限（回NC-1）。⚠ 0＝上限なし（⚠ 書かなければいままでどおり）。
 		"max_per_owner": int(float(effect.get(SkillSchema.SUMMON_FIELD_MAX_PER_OWNER, 0))),
+		# 置き場所・置く側（回GS-1）。⚠ 相手の真ん中＝この効果の相手の平均。
+		"at_x": _center_x(targets, user.x) if str(effect.get(SkillSchema.SUMMON_FIELD_AT, "")) == "target" else NAN,
+		"foe_side": str(effect.get(SkillSchema.SUMMON_FIELD_SIDE, "")) == "foe",
 	})
+
+
+static func _center_x(targets: Array, fallback: float) -> float:
+	var sum: float = 0.0
+	var n: int = 0
+	for t: Variant in targets:
+		if t is BattleUnit and (t as BattleUnit).is_alive():
+			sum += (t as BattleUnit).x
+			n += 1
+	return fallback if n == 0 else sum / float(n)
 
 
 # 回復の介入点（PLAN 11-1）。被回復低下・回復量増加はここ。

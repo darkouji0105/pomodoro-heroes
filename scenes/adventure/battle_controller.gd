@@ -150,8 +150,13 @@ var _skill_tooltip: SkillTooltip = null
 # チャージ中のスキル。{entry: Dictionary, time: float}。未チャージ時は空。
 # 同時に1つしかチャージできない。
 var _charging: Dictionary = {}
+# 自分の通常攻撃を撃つ効果（回GS-1）の待ち行列。⚠ { "user_id", "target_id", "wait" }。⚠ 少しずつずらして撃つ（⚠ 順番に）。
+var _basic_queue: Array = []
+const BASIC_QUEUE_STAGGER_SEC: float = 0.12
 # 狙いの円（回GM-1）。⚠ 溜めている間だけ見える・1つだけ（⚠ 溜めは同時に1本）。
 var _aim_marker: AimMarker = null
+# 天井（回GS-1・人間「⚠ 上に天井を追加して、反射する球を打つ」）。⚠ 地面からの高さ（⚠ 跳ね返る球と狙いの線が使う）。
+const CEILING_HEIGHT_PX: float = 230.0
 
 # 実行中のスキル層（段階2）。多段・遅延の待ち行列を持つ。
 # ここに待ち行列を直接持たないこと。battle_controller は入力と表示だけ（PLAN 7-1）。
@@ -726,6 +731,27 @@ func _current_layer() -> int:
 	return 0
 
 
+# 自分の通常攻撃を撃つ待ち行列を進める（回GS-1）。⚠ 撃つ人・相手が居なければ捨てる。
+func _step_basic_queue(delta: float) -> void:
+	if _basic_queue.is_empty():
+		return
+	var rest: Array = []
+	var ready: Array = []
+	for raw: Variant in _basic_queue:
+		var q: Dictionary = raw as Dictionary
+		q["wait"] = float(q.get("wait", 0.0)) - delta
+		if float(q["wait"]) <= 0.0:
+			ready.append(q)
+		else:
+			rest.append(q)
+	_basic_queue = rest
+	for q: Dictionary in ready:
+		var user: BattleUnit = _find_unit_by_id(str(q.get("user_id", "")))
+		var target: BattleUnit = _find_unit_by_id(str(q.get("target_id", "")))
+		if user != null and user.is_alive() and target != null and target.is_alive():
+			_fire_basic_attack(user, target)
+
+
 # 毎フレームの戦闘処理
 func _process(delta: float) -> void:
 	if _session == null:
@@ -758,6 +784,7 @@ func _process(delta: float) -> void:
 	# ⚠ _status.tick(delta) と同じ delta を使う（速度変更に自動で追従する）。
 	# ⚠ ウェーブ交代で戻さない。「戦闘開始から」であって「ウェーブ開始から」ではない。
 	_session.elapsed_sec += delta
+	_step_basic_queue(delta)
 
 	# クールダウンは戦闘中だけ進む（決定事項 8-1）
 	# ⚠ 敵も回すこと（EXEC_ENEMY_PARITY.md §4）。回さないと敵は最初の1回しか
@@ -960,12 +987,17 @@ func _spawn_summon(r: Dictionary) -> void:
 	var offset_x: float = float(r.get("offset_x", 0.0))
 	var duration_sec: float = float(r.get("duration_sec", 0.0))
 
+	# 相手側に置く（回GS-1・樽＝味方が殴れる置物）。⚠ 召喚した人は変わらない（⚠ 召喚した人が倒れたら消える）。
+	var side: String = owner.team
+	if bool(r.get("foe_side", false)):
+		side = BattleUnit.TEAM_ENEMY if owner.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
+	var at_x: float = float(r.get("at_x", NAN))
 	for n: int in range(int(r.get("count", 0))):
 		# ⚠ 素データと能力値に同じ辞書を渡す（敵の生成と同じ。summons.json の
 		#   エントリがそのまま能力値）。
 		var unit: BattleUnit = BattleUnit.create(
 			"summon_%d" % _next_summon_serial,
-			owner.team,
+			side,
 			data,
 			data,
 			false,
@@ -978,6 +1010,9 @@ func _spawn_summon(r: Dictionary) -> void:
 		unit.summon_remaining = duration_sec
 		# ⚠ N体目は offset_x * (n+1)。同じ x に重ねると数字が読めない（宿題28）。
 		unit.x = owner.x + dir * offset_x * float(n + 1)
+		# 相手の真ん中に置く（回GS-1）。⚠ 2体目からは offset_x ずつずらす。
+		if not is_nan(at_x):
+			unit.x = clampf(at_x + dir * offset_x * float(n), RUNE_MOVE_MIN_X, RUNE_MOVE_MAX_X)
 
 		_session.summon_units.append(unit)
 		_summon_views.append(_make_unit_view(unit, self))
@@ -1046,6 +1081,7 @@ func _step_summons(delta: float) -> void:
 		# ⚠ 死亡は _step_deaths() が先に通してある。ここで見ているのは
 		#   「介入点まで通してなお死んでいる」個体（復活したら生きている）。
 		if not u.is_alive():
+			_fire_summon_death_effects(u)
 			doomed.append({"unit": u, "why": SPAWN_WHY_DEATH})
 			continue
 		var owner: BattleUnit = _find_unit_by_id(u.summon_owner_id)
@@ -1057,6 +1093,37 @@ func _step_summons(delta: float) -> void:
 			doomed.append({"unit": u, "why": SPAWN_WHY_EXPIRE})
 	for entry: Variant in doomed:
 		_remove_summon((entry as Dictionary)["unit"], str((entry as Dictionary)["why"]))
+
+
+# 召喚が倒れたときの効果（回GS-1・樽）。⚠ summons.json の death_effects。⚠ 撃つのは召喚した人・位置は召喚の場所。
+# ⚠ 威力の式の last_hit（召喚が最後に受けたダメージ）は、ここで定数（flat）へ畳む（⚠ 撃つ人と受けた召喚が違うため）。
+func _fire_summon_death_effects(summon: BattleUnit) -> void:
+	var effects: Variant = MasterDataLoader.get_summon(summon.summon_kind_id).get("death_effects", null)
+	if not (effects is Array) or (effects as Array).is_empty():
+		return
+	var owner: BattleUnit = _find_unit_by_id(summon.summon_owner_id)
+	if owner == null or not owner.is_alive():
+		return
+	# ⚠ 範囲の中心を召喚の場所にする＝撃つ瞬間だけ召喚した人を召喚の場所に置いて戻す（⚠ origin: user の範囲がそこになる）。
+	var home_x: float = owner.x
+	owner.x = summon.x
+	var results: Array = []
+	for raw: Variant in (effects as Array):
+		if not (raw is Dictionary):
+			continue
+		var eff: Dictionary = (raw as Dictionary).duplicate(true)
+		if eff.get("scale_from", null) is Array:
+			for term: Variant in (eff["scale_from"] as Array):
+				if term is Dictionary and str((term as Dictionary).get("source", "")) == SkillSchema.SCALE_LAST_HIT:
+					(term as Dictionary)["source"] = SkillSchema.SCALE_FLAT
+					(term as Dictionary)["weight"] = float((term as Dictionary).get("weight", 1.0)) * float(summon.last_hit_amount)
+		var ids: Array = SkillResolver.select_targets(eff.get("target", {}) as Dictionary, owner, _session)
+		results.append_array(SkillResolver.resolve({"effects": [eff]}, owner, _session, ids, _status))
+	owner.x = home_x
+	BattleLog.log_intervene("summon_death", summon.unit_id, summon.summon_kind_id, str(summon.last_hit_amount))
+	BattleLog.log_results(results, owner.unit_id)
+	if not results.is_empty():
+		_on_status_effects_applied(results)
 
 
 # 召喚を1体消す。⚠ 消える経路5本の唯一の出口
@@ -1211,16 +1278,28 @@ func _acquire_target_if_needed(unit: BattleUnit) -> void:
 			# ⚠ 元は無条件の return だった。そのため狙う相手は戦闘開始の1回で決まり、
 			#   あとから追い越してきた敵の脇を通り過ぎて奥の敵を殴りに行っていた
 			#   （実測：剣士が 17.6 先の狼を無視して 59.8 先の敵を殴る）。
-			if absf(t.x - unit.x) <= unit.attack_range:
+			# ⚠ 回GS-1：ステルスになった相手は見失う（⚠ 下で選び直す）。
+			if absf(t.x - unit.x) <= unit.attack_range and not (t.stealthed and t.team != unit.team):
 				return
 		else:
 			# ⚠ else にすること。無条件で捨てると、射程外の生きている相手を捨てた
 			#   あとに下の選抜が同じ相手を選ばなかった場合、1フレーム対象が空になる。
 			unit.target_unit_id = ""
 
-	var opponents: Array = _session.get_alive_units(BattleUnit.TEAM_ENEMY if unit.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY)
+	# ⚠ 回GS-1：ステルスは狙えない（get_targetable_units の1本）。
+	var opponents: Array = _session.get_targetable_units(BattleUnit.TEAM_ENEMY if unit.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY, unit.team)
 	if opponents.is_empty():
 		return
+	# 近い順に回す（回GS-1・拳銃使い「近い敵から順番に通常攻撃していく」）。⚠ まだ撃っていない相手から選ぶ・一巡したら最初から。
+	if unit.basic_cycle:
+		var fresh: Array = []
+		for o: Variant in opponents:
+			if not unit.basic_cycled.has((o as BattleUnit).unit_id):
+				fresh.append(o)
+		if fresh.is_empty():
+			unit.basic_cycled.clear()
+		else:
+			opponents = fresh
 
 	var nearest: BattleUnit = null
 	var nearest_dist: float = INF
@@ -1354,7 +1433,14 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	var fixed_ids: Array = []
 	if not attack.has("target"):
 		fixed_ids = [target.unit_id]
+	# 前と違う相手（回GS-1）。⚠ 撃つ前の相手を残してから書き換える（⚠ 当たった瞬間に比べる）。
+	unit.prev_basic_target_id = unit.last_basic_target_id
+	unit.last_basic_target_id = target.unit_id
 	_skill_runtime.cast(unit, BASIC_ATTACK_SKILL_ID, attack, 1.0, fixed_ids)
+	# 近い順に回す（回GS-1）。⚠ 撃った相手を覚えて、次のフレームで選び直させる。
+	if unit.basic_cycle:
+		unit.basic_cycled[target.unit_id] = true
+		unit.target_unit_id = ""
 	# 強化した一撃を撃った（回PQ-1）。⚠ 置き換え・「◯回ごと」のどちらでも（⚠ いつもの一撃と違うものを撃ったとき）。
 	if attack != unit.basic_attack:
 		_skill_runtime.notify_empowered_basic(unit)
@@ -1825,7 +1911,9 @@ func _update_skill_buttons() -> void:
 			in_just = _is_just(entry, t)
 			tile.disabled = false
 		else:
-			tile.disabled = (not active) or (not alive) or short or (remaining > 0.0 and recast_left <= 0.0)
+			# ⚠ 回GS-1：使用回数が残っていればクールダウン中でも押せる。
+			var has_charge: bool = user != null and user.skill_charges.has(skill_id) and int(user.skill_charges[skill_id]) > 0
+			tile.disabled = (not active) or (not alive) or short or (remaining > 0.0 and recast_left <= 0.0 and not has_charge)
 
 		# ⚠ 「押せない」の見た目は戦闘不能と資源が足りないとき（モック §6・回CH-2）。
 		#   ⚠ クールダウン中も disabled だが、⚠ そちらは段の色で見せる。
@@ -1913,10 +2001,15 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool
 	#   構えていた時間ぶんCDが伸びる。構え中は blocked_reason() がCDを見ないので、
 	#   回っていても再発動は通る（skill_activation.gd）。
 	if phase_index == 0:
-		user.start_cooldown(skill_id, BattleFormula.cooldown(
+		var cd_sec: float = BattleFormula.cooldown(
 			float(skill_data.get("cooldown_sec", 0.0)),
 			user.get_stat(GameStateKeys.STAT_HASTE)
-		))
+		)
+		# 使用回数（回GS-1）。⚠ 1つ使い、クールダウンが止まっていれば回し始める（⚠ 戻るのは BattleUnit.tick_cooldowns）。
+		if skill_data.has(SkillSchema.FIELD_CHARGES):
+			user.use_charge(skill_id, int(float(skill_data.get(SkillSchema.FIELD_CHARGES, 1))), cd_sec)
+		else:
+			user.start_cooldown(skill_id, cd_sec)
 
 	# 構えを進める。次の段があれば window_sec のあいだ受け付ける。
 	# ⚠ 最終段まで撃ったら必ず捨てる。残すと窓が切れるまで撃ち直せてしまう。
@@ -2103,6 +2196,9 @@ func _on_projectile_requested(
 			_projectile_speed(delivery),
 			_projectile_color(delivery)
 		)
+		# 天井で跳ね返る（回GS-1）。⚠ 使う人と相手の真ん中の真上（天井）を経由する。
+		if delivery == SkillSchema.DELIVERY_BOUNCE:
+			view.set_bounce(Vector2((user.x + target.x) * 0.5, _ground_y - CEILING_HEIGHT_PX))
 		_projectile_views.append(view)
 
 
@@ -2223,6 +2319,17 @@ func _on_skill_effects_applied(results: Array) -> void:
 		# ⚠ kind を持つのは召喚の1件だけ。既存の1件には kind を足していない。
 		if str(r.get("kind", "")) == SkillSchema.EFFECT_SUMMON:
 			_spawn_summon(r as Dictionary)
+			continue
+		# 自分の通常攻撃を撃つ（回GS-1）。⚠ 近い順に少しずつずらして待ち行列へ。
+		if str(r.get("kind", "")) == SkillSchema.EFFECT_BASIC_ATTACK:
+			# ⚠ 待ち行列に先客があれば、その最後のさらに後ろへ（⚠ 先客が 0 秒でも＝同じフレームの追撃を重ねない）。
+			var start_wait: float = 0.0
+			for q: Variant in _basic_queue:
+				start_wait = maxf(start_wait, float((q as Dictionary).get("wait", 0.0)) + BASIC_QUEUE_STAGGER_SEC)
+			var ids: Array = r.get("target_ids", []) as Array
+			for qi: int in range(ids.size()):
+				_basic_queue.append({"user_id": str(r.get("source_unit_id", "")), "target_id": str(ids[qi]),
+					"wait": start_wait + BASIC_QUEUE_STAGGER_SEC * float(qi)})
 			continue
 		# 避けた（回MC-1）。⚠ 避けた本人の頭上に「回避」（⚠ 数字の並びには数えない）。
 		if str(r.get("kind", "")) == SkillSchema.FIELD_EVADE:
@@ -2386,6 +2493,12 @@ func _update_aim() -> void:
 		add_child(_aim_marker)
 	var radius: float = float((data.get("target", {}) as Dictionary).get("radius", 0.0))
 	_aim_marker.show_at(user.aim_x, _ground_y, radius)
+	# 天井で跳ね返る球なら、跳ね返りの道筋も出す（回GS-1）。
+	var bounces: bool = false
+	for raw_eff: Variant in (data.get("effects", []) as Array):
+		if raw_eff is Dictionary and str((raw_eff as Dictionary).get("delivery", "")) == SkillSchema.DELIVERY_BOUNCE:
+			bounces = true
+	_aim_marker.set_bounce(user.x - user.aim_x, CEILING_HEIGHT_PX if bounces else 0.0)
 
 
 func _clear_aim(user: BattleUnit) -> void:
@@ -2451,6 +2564,7 @@ func _enter_wave_clear() -> void:
 	#   捨てるのは正常な中断なので警告を出さない（PLAN 6-6）。
 	_skill_runtime.clear_all()
 	_clear_projectiles()
+	_basic_queue.clear()
 	# ⚠ 状態も捨てる。HP とクールダウンとは扱いが違う（引き継がない）。
 	#   待ち行列と同じく _reset_party_positions() より前。
 	_status.clear_all()

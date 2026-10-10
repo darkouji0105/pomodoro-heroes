@@ -121,6 +121,16 @@ func is_final_wave() -> bool:
 #   同じ入力で違うログが出る（再現性が落ちる）。
 # ⚠ PLAN 14-5 の2欄（敵に狙われるか／味方の支援対象になるか）はまだ無い。
 #   今はどちらも「入る」で固定（ゾンビ型＝支援を吸わない召喚は書けない）。
+# 狙える相手（回GS-1）。⚠ 相手側から見るときはステルスを外す（⚠ 味方どうしは見える）。
+func get_targetable_units(team: String, viewer_team: String) -> Array:
+	var list: Array = []
+	for u in get_alive_units(team):
+		if viewer_team != team and (u as BattleUnit).stealthed:
+			continue
+		list.append(u)
+	return list
+
+
 func get_alive_units(team: String) -> Array:
 	var list: Array = []
 	var source: Array = party_units if team == BattleUnit.TEAM_PARTY else enemy_units

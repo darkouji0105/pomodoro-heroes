@@ -113,6 +113,8 @@ const CHARACTER_DIRS_REQUIRED: Array[String] = [
 	DIR_CHARACTERS + "char_phoenix/",
 	# ⚠ 学者の生徒（2026-10-10・回ST-1）。
 	DIR_CHARACTERS + "char_student/",
+	# ⚠ 拳銃使い（2026-10-10・回GS-1）。
+	DIR_CHARACTERS + "char_gunslinger/",
 ]
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const CHARACTER_DIRS_OPTIONAL: Array[String] = [
@@ -842,6 +844,20 @@ static func _validate_all_summons() -> void:
 				push_error("[MasterDataLoader] summons %s: '%s' は書けない（段階6では召喚はスキルを撃たない）" % [
 					str(summon_id), forbidden
 				])
+		# E202 … 倒れたときの効果（回GS-1・樽）。⚠ 召喚した人が撃つ・各効果に target。⚠ 中身は撃つ前と同じ検査に通す。
+		if (entry as Dictionary).has("death_effects"):
+			var death_effects: Variant = (entry as Dictionary)["death_effects"]
+			if not (death_effects is Array) or (death_effects as Array).is_empty():
+				push_error("[MasterDataLoader] summons %s: death_effects が空でない配列でない" % str(summon_id))
+			else:
+				var probe: Dictionary = {"name_key": "x", "user_character_id": "summon_probe", "activation": "instant", "cooldown_sec": 1.0,
+					"unlock_level": 1, "target": {"team": "self"}, "effects": death_effects}
+				for issue: Variant in SkillSchema.validate(str(summon_id) + "#death", probe):
+					if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+						push_error("[MasterDataLoader] summons %s: %s" % [str(summon_id), str((issue as Dictionary).get("message", ""))])
+				for raw_de: Variant in (death_effects as Array):
+					if not (raw_de is Dictionary) or not (raw_de as Dictionary).has("target"):
+						push_error("[MasterDataLoader] summons %s: death_effects の効果に target が無い" % str(summon_id))
 		# E180 … 敵がいなくなったら資源に戻る（回NC-1）。⚠ 資源が持ち主にあるかは戦闘の中で見る（⚠ 召喚は誰が呼ぶか決まっていない）。
 		if (entry as Dictionary).has("clear_refund"):
 			var refund: Variant = (entry as Dictionary)["clear_refund"]
@@ -1642,6 +1658,11 @@ static func _expand_all_status_refs() -> void:
 			for phase: Variant in ((data as Dictionary)["phases"] as Array):
 				if phase is Dictionary and (phase as Dictionary).get("effects", null) is Array:
 					_expand_status_refs((phase as Dictionary)["effects"] as Array, str(skill_id))
+	# ⚠ 召喚が倒れたときの効果も展開する（回GS-1・樽の火傷）。
+	for summon_id: Variant in _cache_summons:
+		var summon_def: Variant = _cache_summons[summon_id]
+		if summon_def is Dictionary and (summon_def as Dictionary).get("death_effects", null) is Array:
+			_expand_status_refs((summon_def as Dictionary)["death_effects"] as Array, str(summon_id))
 	# ⚠ キャラと敵の通常攻撃・「◯回ごと」の一撃も展開する（回SC-1・学者の3回ごとの感電）。
 	for source: Dictionary in [_cache_characters, _cache_enemies]:
 		for owner_id: Variant in source:

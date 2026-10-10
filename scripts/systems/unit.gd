@@ -326,6 +326,22 @@ var summon_remaining: float = 0.0
 # 召喚の種類（summons.json のID・回NC-1）。⚠ 「古い順に3体」「ゾンビを全部」の数え分けに使う（⚠ master_id は見た目専用なので別に持つ）。
 var summon_kind_id: String = ""
 
+# 回GS-1（⚠ 戦闘の間だけ・セーブに入らない）。
+# ステルス（⚠ 書くのは StatusRegistry._rebuild_unit_mods() だけ＝ほかの行動妨害と同じ）。
+var stealthed: bool = false
+# 使用回数（⚠ スキルID → 残り回数）。⚠ 書くのは use_charge() と tick_cooldowns() だけ。
+var skill_charges: Dictionary = {}
+# 使用回数が戻るまでのクールダウン（haste 適用済み）。
+var skill_charge_cd: Dictionary = {}
+# 最後に受けたダメージ（⚠ HP で切る前の量＝樽が「その攻撃のダメージ」を知るため）。
+var last_hit_amount: int = 0
+# 通常攻撃の相手（⚠ 前と違う相手か＝when_target の new_target）。⚠ 書くのは BattleController._fire_basic_attack() だけ。
+var last_basic_target_id: String = ""
+var prev_basic_target_id: String = ""
+# 通常攻撃の相手を近い順に回す（⚠ characters.json の basic_cycle）。⚠ 一巡したら空に戻す。
+var basic_cycle: bool = false
+var basic_cycled: Dictionary = {}
+
 # 使い切った状態（回PX-1・汎用）。⚠ 復活に使った状態の status_id。⚠ パッシブの付け直しはこれを飛ばす＝1戦闘に1回。
 # ⚠ 戦闘ごとにユニットは作り直される（⚠ ウェーブをまたいでは残る＝「1戦闘」）。⚠ セーブに入らない。
 var spent_status_ids: Dictionary = {}
@@ -389,6 +405,8 @@ static func create(
 	var raw_basic: Variant = p_source.get("basic_attack", null)
 	if raw_basic is Dictionary:
 		unit.basic_attack = (raw_basic as Dictionary).duplicate(true)
+	# 通常攻撃の相手を近い順に回す（回GS-1）。⚠ characters.json の basic_cycle（⚠ 書かなければいままでどおり）。
+	unit.basic_cycle = bool(p_source.get("basic_cycle", false))
 	var raw_every: Variant = p_source.get("basic_attack_every", null)
 	if raw_every is Dictionary:
 		unit.basic_attack_every = (raw_every as Dictionary).duplicate(true)
@@ -491,6 +509,8 @@ func get_defense(p_attack_type: String) -> int:
 
 # hp を減らす。0 未満にしない。
 func take_damage(amount: int) -> void:
+	# 最後に受けたダメージ（回GS-1・樽）。⚠ HP で切る前の量。
+	last_hit_amount = maxi(0, int(amount))
 	if amount <= 0:
 		return
 	damage_taken += mini(amount, hp)
@@ -524,7 +544,14 @@ func tick_cooldowns(delta: float) -> void:
 	if not is_alive():
 		return
 	for skill_id in skill_cooldowns:
-		skill_cooldowns[skill_id] = max(0.0, float(skill_cooldowns[skill_id]) - delta)
+		var before: float = float(skill_cooldowns[skill_id])
+		skill_cooldowns[skill_id] = max(0.0, before - delta)
+		# 使用回数（回GS-1）。⚠ クールダウンが終わるたびに1回戻し、まだ満タンでなければ回し直す。
+		if before > 0.0 and float(skill_cooldowns[skill_id]) <= 0.0 and skill_charges.has(skill_id):
+			var info: Vector2 = skill_charge_cd.get(skill_id, Vector2.ZERO)
+			skill_charges[skill_id] = mini(int(info.x), int(skill_charges[skill_id]) + 1)
+			if int(skill_charges[skill_id]) < int(info.x):
+				skill_cooldowns[skill_id] = info.y
 	# ⚠ 移動のロックもここで減らす。_process に2本目の tick を足さない。
 	move_lock_sec = max(0.0, move_lock_sec - delta)
 
@@ -541,7 +568,20 @@ func tick_cooldowns(delta: float) -> void:
 func is_skill_ready(skill_id: String) -> bool:
 	if not (skill_id in skill_ids) and not (skill_id in passive_ids):
 		return false
+	# 使用回数（回GS-1）。⚠ 残っていればクールダウン中でも撃てる。
+	if skill_charges.has(skill_id):
+		return int(skill_charges[skill_id]) > 0
 	return float(skill_cooldowns.get(skill_id, 0.0)) <= 0.0
+
+
+# 使用回数を1つ使う（回GS-1）。⚠ max_charges は初めて使うときに入れる。⚠ クールダウンが止まっていれば回し始める。
+func use_charge(skill_id: String, max_charges: int, cooldown_sec: float) -> void:
+	if not skill_charges.has(skill_id):
+		skill_charges[skill_id] = max_charges
+	skill_charges[skill_id] = maxi(0, int(skill_charges[skill_id]) - 1)
+	skill_charge_cd[skill_id] = Vector2(float(max_charges), cooldown_sec)
+	if float(skill_cooldowns.get(skill_id, 0.0)) <= 0.0:
+		skill_cooldowns[skill_id] = cooldown_sec
 
 
 # クールダウン残り時間をセットする。skill_ids 外の ID は何もしない。
