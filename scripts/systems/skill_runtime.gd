@@ -150,6 +150,8 @@ func cast(
 	var flying_sent: Dictionary = {}
 	# 貫通の矢も長さ1つにつき1本（回NC-1）。⚠ damage に乗せた buff・resource は同じ矢を待つ（⚠ 頼み直すと矢が2本飛ぶ）。
 	var pierce_sent: Dictionary = {}
+	# 飛んでいく攻撃の相手が0体だった（回SOAK-1）。⚠ 弾が1本も出なければ、同じ弾の着弾に乗る効果（跳弾の印など）も捨てる。
+	var flying_empty: bool = false
 
 	# 先頭から順に。effects の並び順が多段の順番になる（PLAN 6-2）。
 	for raw_effect: Variant in (raw_effects as Array):
@@ -202,6 +204,11 @@ func cast(
 			#   （黄が出る。ダメージは消えない）。
 			var delivery: String = str(entry.get("delivery", ""))
 			var event_name: String = trigger.substr(SkillSchema.TRIGGER_PREFIX_EVENT.length())
+			# ⚠ 飛んでいく攻撃で相手が0体なら、撃ったあと何も起きない（回SOAK-1・人間「⚠ １敵がいなかったら攻撃を打ったあと何も起きない」）。
+			#   ⚠ 矢が1本も出ないので合図は来ない＝積むと5秒後に黄が出ていた（⚠ PLAN 6-6「対象0体＝正常・静かに空振り」）。
+			if event_name == SkillSchema.EVENT_HIT and delivery in DELIVERIES_FLYING and (entry.get("target_ids", []) as Array).is_empty():
+				flying_empty = true
+				continue
 			if event_name == SkillSchema.EVENT_HIT and delivery in DELIVERIES_FLYING and not flying_sent.has(delivery):
 				flying_sent[delivery] = true
 				projectile_requested.emit(cast_id, delivery, user.unit_id, entry.get("target_ids", []))
@@ -212,6 +219,16 @@ func cast(
 		else:
 			# ロード時検証（E24）が守っているので通常は来ない。二重に守る。
 			push_error("[SkillRuntime] 不明な trigger: '%s' (skill_id=%s)" % [trigger, skill_id])
+
+	# 弾が1本も出なかった（回SOAK-1）。⚠ この発動の着弾待ちは合図が来ない＝捨てる（⚠ 空振り・黄を出さない）。
+	if flying_empty and flying_sent.is_empty():
+		var rest: Array = []
+		for pending_entry: Dictionary in _pending:
+			if int(pending_entry.get("cast_id", 0)) == cast_id and str(pending_entry.get("wait", "")) == WAIT_EVENT \
+					and str(pending_entry.get("event_name", "")) == SkillSchema.EVENT_HIT:
+				continue
+			rest.append(pending_entry)
+		_pending = rest
 
 
 # trigger: "charge_start" の効果だけを、チャージ開始時に発火させる。
