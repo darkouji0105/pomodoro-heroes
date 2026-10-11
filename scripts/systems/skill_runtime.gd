@@ -125,6 +125,9 @@ func cast(
 		for raw_cd: Variant in (effective["effects"] as Array):
 			if raw_cd is Dictionary and str((raw_cd as Dictionary).get("type", "")) == SkillSchema.EFFECT_COOLDOWN:
 				(raw_cd as Dictionary)[SkillSchema.COOLDOWN_FIELD_EXCEPT] = skill_id
+			# 走って移る（回BK-1）。⚠ 通り過ぎた相手への効果を同じスキルとして撃つために ID を運ぶ。
+			if raw_cd is Dictionary and str((raw_cd as Dictionary).get("type", "")) == SkillSchema.EFFECT_DASH:
+				(raw_cd as Dictionary)[SkillSchema.FIELD_CODE_SKILL_ID] = skill_id
 	var raw_effects: Variant = effective.get("effects", null)
 	if not (raw_effects is Array) or (raw_effects as Array).is_empty():
 		push_error("[SkillRuntime] cast: effects が無い (skill_id=%s)" % skill_id)

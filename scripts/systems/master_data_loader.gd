@@ -117,6 +117,8 @@ const CHARACTER_DIRS_REQUIRED: Array[String] = [
 	DIR_CHARACTERS + "char_gunslinger/",
 	# ⚠ マグナムメイジ（2026-10-10・回MG-1）。
 	DIR_CHARACTERS + "char_magnum/",
+	# ⚠ バイク（2026-10-11・回BK-1）。
+	DIR_CHARACTERS + "char_biker/",
 ]
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const CHARACTER_DIRS_OPTIONAL: Array[String] = [
@@ -1541,6 +1543,10 @@ static func _validate_all_basic_attacks() -> void:
 					basic_issues.append_array(SkillSchema.validate_basic_attack_every(str(owner_id), raw_every as Dictionary))
 				else:
 					basic_issues.append({"level": SkillSchema.LEVEL_ERROR, "message": "%s: %s が辞書でない" % [str(owner_id), SkillSchema.FIELD_BASIC_EVERY]})
+			# 通常攻撃の相手の選び方（回BK-1・E215）。⚠ 書いてあるときだけ。
+			if data.has(SkillSchema.FIELD_BASIC_TARGET) and not (str(data.get(SkillSchema.FIELD_BASIC_TARGET, "")) in SkillSchema.BASIC_TARGETS_KNOWN):
+				basic_issues.append({"level": SkillSchema.LEVEL_ERROR, "message": "%s: %s が不明: '%s'（%s）" % [
+					str(owner_id), SkillSchema.FIELD_BASIC_TARGET, str(data.get(SkillSchema.FIELD_BASIC_TARGET, "")), str(SkillSchema.BASIC_TARGETS_KNOWN)]})
 			for issue: Variant in basic_issues:
 				if not (issue is Dictionary):
 					continue
@@ -1709,7 +1715,8 @@ static func _expand_status_refs(effects: Array, skill_id: String) -> void:
 		# ⚠ 入れ子の効果も展開する（回PX-1・汎用）：倒したら・そろったら・避けて反撃・起き上がるとき。
 		if str(effect.get("type", "")) == SkillSchema.EFFECT_PICK and effect.get("effects", null) is Array:
 			_expand_status_refs(effect["effects"] as Array, skill_id)
-		for nested_key: String in [SkillSchema.FIELD_ON_KILL, SkillSchema.FIELD_ON_MEET, SkillSchema.FIELD_EVADE, SkillSchema.FIELD_ON_STACK, SkillSchema.FIELD_ON_SKILL_HIT]:
+		for nested_key: String in [SkillSchema.FIELD_ON_KILL, SkillSchema.FIELD_ON_MEET, SkillSchema.FIELD_EVADE, SkillSchema.FIELD_ON_STACK, SkillSchema.FIELD_ON_SKILL_HIT,
+				SkillSchema.FIELD_PASS, SkillSchema.FIELD_PULSE]:
 			if effect.get(nested_key, null) is Dictionary and (effect[nested_key] as Dictionary).get("effects", null) is Array:
 				_expand_status_refs((effect[nested_key] as Dictionary)["effects"] as Array, skill_id)
 		if effect.get(SkillSchema.BUFF_INTERVENE, null) is Dictionary:

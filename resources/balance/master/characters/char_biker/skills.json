@@ -1,0 +1,283 @@
+{
+	"skill_bk_rally": {
+		"name_key": "ui_battle_skill_bk_rally",
+		"user_character_id": "char_biker",
+		"unlock_level": 1,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bk_rally_spd",
+				"until": "basic_end",
+				"stack": "refresh",
+				"stat": "spd",
+				"stat_pct": 50
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bk_rally_atk",
+				"until": "basic_end",
+				"stack": "refresh",
+				"stat": "atk",
+				"stat_pct": 30
+			},
+			{
+				"type": "heal",
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "hp_lost",
+						"of": "user",
+						"weight": 0.3
+					}
+				]
+			}
+		]
+	},
+	"skill_bk_horn": {
+		"name_key": "ui_battle_skill_bk_horn",
+		"user_character_id": "char_biker",
+		"unlock_level": 1,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "user",
+			"radius": 160.0
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bk_horn_atk",
+				"duration_sec": 5.0,
+				"stack": "refresh",
+				"stat": "atk",
+				"stat_pct": -20
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bk_horn_def",
+				"duration_sec": 5.0,
+				"stack": "refresh",
+				"stat": "def",
+				"stat_pct": -20
+			}
+		]
+	},
+	"skill_bk_flip": {
+		"name_key": "ui_battle_skill_bk_flip",
+		"user_character_id": "char_biker",
+		"unlock_level": 5,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "all",
+			"range": 500.0
+		},
+		"effects": [
+			{
+				"type": "dash",
+				"to": "target",
+				"offset": 0.0
+			},
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 1.2,
+				"attack_type": "physical",
+				"scale_from": "atk",
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 120.0
+				}
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bk_flip",
+				"duration_sec": 1.0,
+				"stack": "refresh",
+				"control": "stun",
+				"target": {
+					"team": "enemy",
+					"mode": "area",
+					"origin": "user",
+					"radius": 120.0
+				}
+			}
+		]
+	},
+	"skill_bk_ignite": {
+		"name_key": "ui_battle_skill_bk_ignite",
+		"user_character_id": "char_biker",
+		"unlock_level": 10,
+		"cooldown_sec": 16.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bk_ignite",
+				"duration_sec": 5.0,
+				"stack": "refresh",
+				"stat": "spd",
+				"stat_pct": 30,
+				"pulse": {
+					"interval_sec": 0.4,
+					"effects": [
+						{
+							"type": "dot",
+							"host": "point",
+							"status_id": "st_bk_trail",
+							"stack": "independent",
+							"max_stack": 20,
+							"duration_sec": 3.0,
+							"interval_sec": 1.0,
+							"multiplier": 0.3,
+							"attack_type": "physical",
+							"scale_from": "atk",
+							"zone": {
+								"radius": 45.0,
+								"team": "enemy",
+								"follow": false
+							},
+							"target": {
+								"team": "self"
+							}
+						},
+						{
+							"type": "status",
+							"status": "burn",
+							"target": {
+								"team": "enemy",
+								"mode": "area",
+								"origin": "user",
+								"radius": 45.0
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"skill_bk_rampage": {
+		"name_key": "ui_battle_skill_bk_rampage",
+		"user_character_id": "char_biker",
+		"unlock_level": 15,
+		"cooldown_sec": 18.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bk_rampage",
+				"duration_sec": 5.0,
+				"stack": "refresh",
+				"stat": "spd",
+				"stat_pct": 80
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bk_rampage_cc",
+				"duration_sec": 5.0,
+				"stack": "refresh",
+				"control": "unstoppable"
+			}
+		]
+	},
+	"skill_bk_charge": {
+		"name_key": "ui_battle_skill_bk_charge",
+		"user_character_id": "char_biker",
+		"unlock_level": 20,
+		"cooldown_sec": 14.0,
+		"activation": "charge",
+		"charge": {
+			"just_sec": 1.0,
+			"just_window_sec": 0.15,
+			"min_ratio": 0.6,
+			"just_bonus": 1.3
+		},
+		"target": {
+			"team": "enemy",
+			"mode": "select",
+			"sort": "farthest",
+			"count": 1
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bk_charge_shield",
+				"duration_sec": 5.0,
+				"stack": "refresh",
+				"trigger": "charge_start",
+				"intervene": {
+					"shield_from": [
+						{
+							"source": "hp",
+							"of": "user",
+							"weight": 0.25
+						}
+					]
+				},
+				"target": {
+					"team": "self"
+				}
+			},
+			{
+				"type": "dash",
+				"to": "target",
+				"through": 60.0,
+				"speed_mult": 4.0,
+				"pass": {
+					"effects": [
+						{
+							"type": "damage",
+							"delivery": "melee",
+							"multiplier": 1.0,
+							"attack_type": "physical",
+							"scale_from": "atk"
+						}
+					]
+				}
+			},
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bk_charge_spd",
+				"until": "basic_end",
+				"stack": "refresh",
+				"stat": "spd",
+				"stat_pct_from": [
+					{
+						"source": "charge_ratio",
+						"weight": 60
+					}
+				],
+				"target": {
+					"team": "self"
+				}
+			}
+		]
+	}
+}

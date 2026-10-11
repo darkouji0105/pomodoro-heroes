@@ -347,6 +347,13 @@ var prev_basic_target_id: String = ""
 # 通常攻撃の相手を近い順に回す（⚠ characters.json の basic_cycle）。⚠ 一巡したら空に戻す。
 var basic_cycle: bool = false
 var basic_cycled: Dictionary = {}
+# 通常攻撃の相手の選び方（回BK-1・⚠ characters.json の basic_target）。⚠ "" ＝一番近い相手（いままでどおり）。
+var basic_target: String = ""
+# 走って移っている途中（回BK-1・dash の speed_mult）。⚠ 空＝走っていない。⚠ 書くのは BattleController だけ。
+#   { "to_x", "speed_mult", "pass": Array, "skill_id", "hit": {unit_id: true}, "basic_seq": int（通常攻撃の走りなら番号・ほかは -1） }
+var ride: Dictionary = {}
+# 走りを始めた回数（⚠ 通常攻撃が走りを始めたかを見分けるだけ）。
+var ride_serial: int = 0
 
 # 使い切った状態（回PX-1・汎用）。⚠ 復活に使った状態の status_id。⚠ パッシブの付け直しはこれを飛ばす＝1戦闘に1回。
 # ⚠ 戦闘ごとにユニットは作り直される（⚠ ウェーブをまたいでは残る＝「1戦闘」）。⚠ セーブに入らない。
@@ -413,6 +420,7 @@ static func create(
 		unit.basic_attack = (raw_basic as Dictionary).duplicate(true)
 	# 通常攻撃の相手を近い順に回す（回GS-1）。⚠ characters.json の basic_cycle（⚠ 書かなければいままでどおり）。
 	unit.basic_cycle = bool(p_source.get("basic_cycle", false))
+	unit.basic_target = str(p_source.get(SkillSchema.FIELD_BASIC_TARGET, ""))
 	var raw_every: Variant = p_source.get("basic_attack_every", null)
 	if raw_every is Dictionary:
 		unit.basic_attack_every = (raw_every as Dictionary).duplicate(true)

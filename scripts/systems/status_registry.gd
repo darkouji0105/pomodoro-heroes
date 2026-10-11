@@ -200,6 +200,13 @@ func add(
 		push_error("[StatusRegistry] zone{} は host: point にしか書けない (status_id=%s)" % status_id)
 		return false
 
+	# --- 6-1-7. 次の通常攻撃が終わるまで・◯秒ごと（回BK-1） ---
+	# ⚠ 付いた時点の通常攻撃の番号を覚える（⚠ これより後に始まった通常攻撃が終わったら消える＝end_basic()）。
+	if life == SkillSchema.UNTIL_BASIC_END and host_unit != null:
+		entry["basic_seq"] = host_unit.basic_attack_count
+	if effect.get(SkillSchema.FIELD_PULSE, null) is Dictionary:
+		entry["pulse"] = (effect[SkillSchema.FIELD_PULSE] as Dictionary).duplicate(true)
+
 	# --- 6-1-6. スキルが当たったら（回MG-1） ---
 	if effect.get(SkillSchema.FIELD_ON_SKILL_HIT, null) is Dictionary:
 		entry["on_skill_hit"] = (effect[SkillSchema.FIELD_ON_SKILL_HIT] as Dictionary).duplicate(true)
@@ -627,6 +634,11 @@ func _make_entry(
 		"evade": {},
 		# スキルが当たったら（回MG-1）。{ "radius", "effects" }。
 		"on_skill_hit": {},
+		# 次の通常攻撃が終わるまで（回BK-1）。⚠ 付いた時点の通常攻撃の番号（⚠ until: basic_end のときだけ使う）。
+		"basic_seq": -1,
+		# 状態のあいだ◯秒ごと（回BK-1）。{ "interval_sec", "effects" } と出した回数。
+		"pulse": {},
+		"pulse_done": 0,
 		# 通常攻撃1回ぶん（回MG-1）。⚠ 使い始めた通常攻撃の番号（⚠ その1回に含まれるダメージ全部に効き、次の tick で消える）。
 		"basic_cast": -1,
 		# 回ST-1・回GS-1。
@@ -1090,6 +1102,7 @@ func tick(delta: float) -> void:
 
 	var results: Array = []
 	_fire_intervals(results)
+	_fire_pulses(results)
 	_expire(touched)
 	_rebuild_touched(touched)
 
@@ -1487,6 +1500,57 @@ func _fire_intervals(results: Array) -> void:
 
 		rest.append(entry)
 	_entries = rest
+
+
+# 状態のあいだ◯秒ごと（回BK-1）。⚠ ここでは撃たない＝結果に載せるだけ（⚠ 撃つのは戦闘の画面・付けた人が撃つ）。
+# ⚠ 条件が偽の間は出さない（⚠ 周期ダメージと同じく、偽だった間ぶんを後でまとめて出さない）。
+func _fire_pulses(results: Array) -> void:
+	for entry: Dictionary in _entries:
+		var pulse: Dictionary = entry.get("pulse", {}) as Dictionary
+		if pulse.is_empty():
+			continue
+		var interval_sec: float = float(pulse.get("interval_sec", 0.0))
+		if interval_sec <= 0.0:
+			continue
+		# ⚠ 寿命より先の回は出さない（⚠ 1フレームで寿命を跨いだとき＝速度8倍など）。
+		var until_sec: float = float(entry.get("elapsed", 0.0))
+		if str(entry.get("life", "")) == LIFE_SEC:
+			until_sec = minf(until_sec, float(entry.get("duration_sec", 0.0)))
+		var due: int = int(floor(until_sec / interval_sec))
+		if not bool(entry.get("active", true)):
+			entry["pulse_done"] = due
+			continue
+		while int(entry.get("pulse_done", 0)) < due:
+			entry["pulse_done"] = int(entry.get("pulse_done", 0)) + 1
+			results.append({
+				"kind": SkillSchema.FIELD_PULSE,
+				"source_unit_id": str(entry.get("source_unit_id", "")),
+				"host_unit_id": str(entry.get("host_unit_id", "")),
+				"status_id": str(entry.get("status_id", "")),
+				"effects": (pulse.get("effects", []) as Array).duplicate(true),
+			})
+
+
+# 次の通常攻撃が終わった（回BK-1）。⚠ 呼ぶのは戦闘の画面（⚠ ふつうの通常攻撃は撃った直後・走る通常攻撃は着いたとき）。
+# ⚠ seq＝終わった通常攻撃の番号。⚠ それより前に付いた until: basic_end だけ消す（⚠ 走っている間に付いたものは次の1回まで残る）。
+func end_basic(unit_id: String, seq: int) -> int:
+	var rest: Array = []
+	var touched: Dictionary = {}
+	for entry: Dictionary in _entries:
+		var hit: bool = (
+			str(entry.get("life", "")) == SkillSchema.UNTIL_BASIC_END
+			and str(entry.get("host_unit_id", "")) == unit_id
+			and int(entry.get("basic_seq", -1)) < seq
+		)
+		if not hit:
+			rest.append(entry)
+			continue
+		touched[unit_id] = true
+		BattleLog.log_status_end(str(entry.get("status_id", "")), unit_id, "basic_end")
+	var dropped: int = _entries.size() - rest.size()
+	_entries = rest
+	_rebuild_touched(touched)
+	return dropped
 
 
 # 寿命が切れたものを捨てる。

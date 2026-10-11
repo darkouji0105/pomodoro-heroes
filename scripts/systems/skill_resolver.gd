@@ -982,12 +982,21 @@ static func _apply_dash(effect: Dictionary, user: BattleUnit, targets: Array, re
 		if from_dir == 0.0:
 			from_dir = forward
 		to_x = center - from_dir * float(effect.get("offset", 0.0))
-	results.append({
+		# 通り抜ける（回BK-1）。⚠ 相手の向こう側へ through だけ進む。
+		if effect.has(SkillSchema.DASH_FIELD_THROUGH):
+			to_x = center + from_dir * float(effect.get(SkillSchema.DASH_FIELD_THROUGH, 0.0))
+	var dash: Dictionary = {
 		"kind": SkillSchema.EFFECT_DASH,
 		"unit_id": user.unit_id,
 		"source_unit_id": user.unit_id,
 		"x": to_x,
-	})
+	}
+	# 走って移る（回BK-1）。⚠ 動かすのは戦闘の画面（⚠ 座標を触るのはあの層だけ）。⚠ 撃ったスキルの ID も運ぶ（通り過ぎた相手への効果を同じスキルとして撃つ）。
+	if effect.has(SkillSchema.DASH_FIELD_SPEED_MULT):
+		dash[SkillSchema.DASH_FIELD_SPEED_MULT] = float(effect.get(SkillSchema.DASH_FIELD_SPEED_MULT, 1.0))
+		dash[SkillSchema.FIELD_PASS] = ((effect.get(SkillSchema.FIELD_PASS, {}) as Dictionary).get("effects", []) as Array).duplicate(true) 				if effect.get(SkillSchema.FIELD_PASS, null) is Dictionary else []
+		dash["skill_id"] = str(effect.get(SkillSchema.FIELD_CODE_SKILL_ID, ""))
+	results.append(dash)
 
 
 # 固有の資源（回CH-1）。⚠ 宛先は撃った本人だけ（⚠ target_ids を読まない）。
@@ -1254,6 +1263,19 @@ static func _scale_value_sum(
 		if source == SkillSchema.SCALE_RESOURCE_SPENT:
 			total += weight * float(entry.get(SkillSchema.SCALE_FIELD_SPENT, 0.0))
 			continue
+		# 溜めた割合（回BK-1）。⚠ 撃つ瞬間に fold_charge_ratio() が項へ書いた値（⚠ 溜めないスキルは 1.0）。
+		if source == SkillSchema.SCALE_CHARGE_RATIO:
+			total += weight * float(entry.get(SkillSchema.SCALE_FIELD_CHARGE, 1.0))
+			continue
+		# 能力値が状態で何％上がっているか（回BK-1）。⚠ 素の値から・下がっているときは 0。
+		if source == SkillSchema.SCALE_STAT_GAIN_PCT:
+			var gu: BattleUnit = target if of == SkillSchema.SCALE_OF_TARGET else user
+			if gu != null:
+				var stat_key: String = str(entry.get("stat", ""))
+				var base: int = gu.get_base_stat(stat_key)
+				if base > 0:
+					total += weight * maxf(0.0, float(gu.get_stat(stat_key) - base) * 100.0 / float(base))
+			continue
 		# 定数（回MC-1）。⚠ weight がそのまま値。
 		if source == SkillSchema.SCALE_FLAT:
 			total += weight
@@ -1389,14 +1411,27 @@ static func fold_charge_ratio(skill_data: Dictionary, power_ratio: float) -> Dic
 	var raw_effects: Variant = effective.get("effects", null)
 	if not (raw_effects is Array):
 		return effective
-	for raw_effect: Variant in (raw_effects as Array):
+	_fold_charge_into(raw_effects as Array, power_ratio)
+	return effective
+
+
+# 溜めた割合を効果へ畳む（⚠ 通り過ぎた相手への効果＝pass の中も・回BK-1）。
+static func _fold_charge_into(effects: Array, power_ratio: float) -> void:
+	for raw_effect: Variant in effects:
 		if not (raw_effect is Dictionary):
 			continue
 		var effect: Dictionary = raw_effect as Dictionary
+		# 溜めた割合の項（回BK-1）。⚠ charge_scales: false でも書く（⚠ 倍率を掛けないだけ）。
+		for terms_key: String in ["scale_from", SkillSchema.FIELD_STAT_PCT_FROM]:
+			if effect.get(terms_key, null) is Array:
+				for term: Variant in (effect[terms_key] as Array):
+					if term is Dictionary and str((term as Dictionary).get("source", "")) == SkillSchema.SCALE_CHARGE_RATIO:
+						(term as Dictionary)[SkillSchema.SCALE_FIELD_CHARGE] = power_ratio
+		if effect.get(SkillSchema.FIELD_PASS, null) is Dictionary and (effect[SkillSchema.FIELD_PASS] as Dictionary).get("effects", null) is Array:
+			_fold_charge_into((effect[SkillSchema.FIELD_PASS] as Dictionary)["effects"] as Array, power_ratio)
 		if effect.has("charge_scales") and not bool(effect.get("charge_scales", true)):
 			continue
 		effect["multiplier"] = float(effect.get("multiplier", 0.0)) * power_ratio
-	return effective
 
 
 # ============================================================

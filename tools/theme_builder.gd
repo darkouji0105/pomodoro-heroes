@@ -774,6 +774,8 @@ const AVATAR_COLORS: Dictionary = {
 	"char_gunslinger": {"bg": "5a4a2f", "fg": "ecdcb8"},
 	# ⚠ マグナムメイジ（回MG-1）。⚠ 魔弾の藍（⚠ 設計役の仮）。
 	"char_magnum": {"bg": "2f2f5a", "fg": "c4c4ec"},
+	# ⚠ バイク（回BK-1）。⚠ アスファルトの灰と前照灯の黄（⚠ 設計役の仮）。
+	"char_biker": {"bg": "3a3a3a", "fg": "f0c070"},
 	"fallback": {"bg": "2a2320", "fg": "7d6f68"},
 }
 const AVATAR_CORNER_RADIUS: int = 8

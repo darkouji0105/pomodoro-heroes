@@ -903,6 +903,69 @@
 			"spd": 1
 		}
 	},
+	"char_biker": {
+		"basic_attack": {
+			"effects": [
+				{
+					"type": "dash",
+					"to": "target",
+					"through": 60.0,
+					"speed_mult": 3.0,
+					"pass": {
+						"effects": [
+							{
+								"type": "damage",
+								"delivery": "melee",
+								"multiplier": 0.7,
+								"attack_type": "physical",
+								"scale_from": "atk"
+							}
+						]
+					}
+				}
+			]
+		},
+		"basic_target": "farthest",
+		"name_key": "ui_battle_char_biker",
+		"sign_style": "brush",
+		"sign_mark": "arrow",
+		"weapon_genre": "gauntlet",
+		"hp": 140,
+		"atk": 15,
+		"mag": 4,
+		"def": 8,
+		"mdef": 5,
+		"spd": 80,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 5,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 500,
+		"attack_interval_sec": 1.2,
+		"skills": [
+			"skill_bk_rally",
+			"skill_bk_horn",
+			"skill_bk_flip",
+			"skill_bk_ignite",
+			"skill_bk_rampage",
+			"skill_bk_charge"
+		],
+		"passives": [
+			"passive_bk_speed"
+		],
+		"allocatable_stats": [
+			"hp",
+			"atk",
+			"def"
+		],
+		"growth_per_level": {
+			"hp": 6,
+			"atk": 2,
+			"def": 1,
+			"spd": 1
+		}
+	},
 	"char_debug_status": {
 		"basic_attack": {
 			"effects": [

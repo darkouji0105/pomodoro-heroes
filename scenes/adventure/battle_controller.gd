@@ -926,6 +926,8 @@ func _clear_all_recast() -> void:
 			(unit as BattleUnit).clear_all_recast()
 			# ⚠ トグルもここで切る（回CH-9・ウェーブ交代・リトライ・勝敗確定）。⚠ クールダウンは回さない。
 			(unit as BattleUnit).toggles_on.clear()
+			# ⚠ 走っている途中も捨てる（回BK-1）。⚠ 通常攻撃の走りなら、その通常攻撃は終わった扱い。
+			_end_ride(unit as BattleUnit)
 
 
 # ⚠ death_handled を書いてよいのはここだけ（unit.gd の注記）。
@@ -1265,7 +1267,11 @@ func _step_shield_views() -> void:
 func _acquire_target_if_needed(unit: BattleUnit) -> void:
 	if not unit.is_alive():
 		return
-	if unit.target_unit_id != "":
+	# 走っている途中は選び直さない（回BK-1）。⚠ 途中の位置から選ぶと、着いた先から見て一番遠い相手にならない。
+	if not unit.ride.is_empty():
+		return
+	# 選び方を持つ通常攻撃（回BK-1・一番遠い相手）は固定しない＝毎フレーム選び直す（⚠ 近づく間に順番が変わる）。
+	if unit.target_unit_id != "" and unit.basic_target == "":
 		var t: BattleUnit = _find_unit_by_id(unit.target_unit_id)
 		if t != null and t.is_alive():
 			# ⚠ 攻撃を始めたら固定（人間の決定・案B。EXEC_BATTLE_RETARGET.md）。
@@ -1303,10 +1309,14 @@ func _acquire_target_if_needed(unit: BattleUnit) -> void:
 
 	var nearest: BattleUnit = null
 	var nearest_dist: float = INF
+	# 一番遠い相手（回BK-1・バイク「一番遠い敵めがけて走る」）。⚠ 比べる向きを逆にするだけ。
+	var farthest: bool = unit.basic_target == SkillSchema.BASIC_TARGET_FARTHEST
 	for o in opponents:
 		if not (o is BattleUnit):
 			continue
 		var d: float = abs(unit.x - o.x)
+		if farthest:
+			d = -d
 		if d < nearest_dist:
 			nearest_dist = d
 			nearest = o
@@ -1325,6 +1335,11 @@ func _find_unit_by_id(id: String) -> BattleUnit:
 # 1 ユニットの 1 フレーム分の処理（攻撃 or 移動）
 func _step_unit(unit: BattleUnit, delta: float) -> void:
 	if not unit.is_alive():
+		_end_ride(unit)
+		return
+	# 走っている途中（回BK-1）。⚠ 相手が倒れても走り切る・走っている間は通常攻撃も歩きもしない。
+	if not unit.ride.is_empty():
+		_step_ride(unit, delta)
 		return
 	if unit.target_unit_id == "":
 		return
@@ -1388,6 +1403,62 @@ func _try_enemy_skill(unit: BattleUnit) -> bool:
 	return false
 
 
+# 走って移る（回BK-1・dash の speed_mult）。⚠ 走っている途中に別の走りが来たら、前の走りは終わった扱いにして乗り換える。
+func _start_ride(unit: BattleUnit, r: Dictionary) -> void:
+	_end_ride(unit)
+	unit.ride_serial += 1
+	unit.ride = {
+		"to_x": clampf(float(r.get("x", unit.x)), RUNE_MOVE_MIN_X, RUNE_MOVE_MAX_X),
+		"speed_mult": float(r.get(SkillSchema.DASH_FIELD_SPEED_MULT, 1.0)),
+		"pass": (r.get(SkillSchema.FIELD_PASS, []) as Array).duplicate(true),
+		"skill_id": str(r.get("skill_id", "")),
+		"hit": {},
+		"basic_seq": -1,
+	}
+	BattleLog.log_intervene("ride", unit.unit_id, str(unit.ride["skill_id"]), "%.0f->%.0f" % [unit.x, float(unit.ride["to_x"])])
+
+
+# 1フレームぶん走る。⚠ 通り過ぎた相手に1回ずつ pass の効果（⚠ 同じスキルとして撃つ＝通常攻撃の走りなら通常攻撃）。
+# ⚠ スタン・スネアで止まる（⚠ 止められない状態なら止まらない＝そもそも付かない）。
+func _step_ride(unit: BattleUnit, delta: float) -> void:
+	if unit.stunned or unit.snared:
+		_end_ride(unit)
+		return
+	var to_x: float = float(unit.ride.get("to_x", unit.x))
+	var step: float = unit.speed * float(unit.ride.get("speed_mult", 1.0)) * delta
+	var from_x: float = unit.x
+	var arrived: bool = step <= 0.0 or absf(to_x - from_x) <= step
+	unit.x = to_x if arrived else from_x + signf(to_x - from_x) * step
+	var pass_effects: Array = unit.ride.get("pass", []) as Array
+	if not pass_effects.is_empty():
+		var lo: float = minf(from_x, unit.x)
+		var hi: float = maxf(from_x, unit.x)
+		var hit: Dictionary = unit.ride.get("hit", {}) as Dictionary
+		var foe_team: String = BattleUnit.TEAM_ENEMY if unit.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
+		for foe: Variant in _session.get_alive_units(foe_team):
+			var f: BattleUnit = foe as BattleUnit
+			if f == null or hit.has(f.unit_id) or f.x < lo or f.x > hi:
+				continue
+			hit[f.unit_id] = true
+			_skill_runtime.cast(unit, str(unit.ride.get("skill_id", "")), {"effects": pass_effects.duplicate(true)}, 1.0, [f.unit_id])
+			# ⚠ 当てた効果で走りが終わった（倒れた・スタン）なら止める。
+			if unit.ride.is_empty():
+				return
+	if arrived:
+		_end_ride(unit)
+
+
+# 走り終わる。⚠ 通常攻撃の走りなら、ここで通常攻撃が1回終わる（until: basic_end）。⚠ 動いたあとは少し止まる（⚠ 一瞬で移るときと同じ）。
+func _end_ride(unit: BattleUnit) -> void:
+	if unit.ride.is_empty():
+		return
+	var seq: int = int(unit.ride.get("basic_seq", -1))
+	unit.ride = {}
+	unit.move_lock_sec = GameManager.get_rune_move_lock_sec()
+	if seq >= 0 and _status != null:
+		_status.end_basic(unit.unit_id, seq)
+
+
 # 通常攻撃を1発撃つ。
 #
 # ⚠ 式をここに書かない。スキルとまったく同じ経路（SkillResolver）を通す。
@@ -1424,6 +1495,10 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 		var miss_view: Variant = _views_by_unit_id.get(unit.unit_id, null)
 		if miss_view is UnitView and is_instance_valid(miss_view):
 			(miss_view as UnitView).pop_miss()
+		# ⚠ 外れても通常攻撃は1回終わった（回BK-1・until: basic_end）。
+		_status.end_basic(unit.unit_id, unit.basic_attack_count)
+		if unit.basic_target != "":
+			unit.target_unit_id = ""
 		return
 	# ⚠ 回CH-4：撃つ一撃を決める（強化 → 「◯回ごと」→ いつもの）。⚠ 数を進めるのは BattleUnit の1か所。
 	var override: Dictionary = _status.basic_override(unit.unit_id)
@@ -1441,10 +1516,19 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	# 前と違う相手（回GS-1）。⚠ 撃つ前の相手を残してから書き換える（⚠ 当たった瞬間に比べる）。
 	unit.prev_basic_target_id = unit.last_basic_target_id
 	unit.last_basic_target_id = target.unit_id
+	var ride_before: int = unit.ride_serial
 	_skill_runtime.cast(unit, BASIC_ATTACK_SKILL_ID, attack, 1.0, fixed_ids)
+	# 次の通常攻撃が終わるまで（回BK-1）。⚠ 走りを始めた通常攻撃は着いたときに終わる（_end_ride()）・ほかは撃った直後。
+	if unit.ride_serial != ride_before and not unit.ride.is_empty():
+		unit.ride["basic_seq"] = unit.basic_attack_count
+	else:
+		_status.end_basic(unit.unit_id, unit.basic_attack_count)
 	# 近い順に回す（回GS-1）。⚠ 撃った相手を覚えて、次のフレームで選び直させる。
 	if unit.basic_cycle:
 		unit.basic_cycled[target.unit_id] = true
+		unit.target_unit_id = ""
+	# 選び方を持つ通常攻撃（回BK-1・一番遠い相手）。⚠ 毎回選び直す（⚠ 着いた先から見て一番遠い相手＝往復する）。
+	if unit.basic_target != "":
 		unit.target_unit_id = ""
 	# 強化した一撃を撃った（回PQ-1）。⚠ 置き換え・「◯回ごと」・上乗せのどれでも（⚠ いつもの一撃と違うものを撃ったとき）。
 	if attack != unit.basic_attack:
@@ -2358,9 +2442,20 @@ func _on_skill_effects_applied(results: Array) -> void:
 		# 自分が動く（回CH-6）。⚠ 一瞬で移り、移動ルーンと同じ時間だけ止まる（人間「⚠ １あ　２あ」）。
 		if str(r.get("kind", "")) == SkillSchema.EFFECT_DASH:
 			var mover: BattleUnit = _find_unit_by_id(str(r.get("unit_id", "")))
-			if mover != null:
+			if mover != null and r.has(SkillSchema.DASH_FIELD_SPEED_MULT):
+				_start_ride(mover, r as Dictionary)
+			elif mover != null:
+				# ⚠ 走っている途中に一瞬で移ったら、その走りは終わり（回BK-1・フリップ）。
+				_end_ride(mover)
 				mover.x = clampf(float(r.get("x", mover.x)), RUNE_MOVE_MIN_X, RUNE_MOVE_MAX_X)
 				mover.move_lock_sec = GameManager.get_rune_move_lock_sec()
+			continue
+		# 状態のあいだ◯秒ごと（回BK-1）。⚠ 撃つのは付けた人・自分が起点（⚠ 効果ごとに target を書けば上書き）。
+		if str(r.get("kind", "")) == SkillSchema.FIELD_PULSE:
+			var pulser: BattleUnit = _find_unit_by_id(str(r.get("source_unit_id", "")))
+			if pulser != null and pulser.is_alive():
+				_skill_runtime.cast(pulser, str(r.get("status_id", "")),
+					{"target": {"team": SkillSchema.TEAM_SELF}, "effects": r.get("effects", [])}, 1.0)
 			continue
 		# ⚠ ここまでで扱わなかった kind（状態を付けた＝回VP-1 など）は数字ではない＝飛ばす。
 		if r.has("kind"):

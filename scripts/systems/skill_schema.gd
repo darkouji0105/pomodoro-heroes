@@ -222,6 +222,29 @@ const EVENT_HEAL_DONE: String = "heal_done"
 const INTERVENE_SHIELD_FROM: String = "shield_from"
 # いちばん前（⚠ 相手の陣に一番近い）。⚠ 味方を選ぶときに使う。
 const SORT_FRONT: String = "front"
+
+# --- 回BK-1（バイク）で足した汎用の仕組み（BT-34） ---
+# 走って移る（dash の speed_mult）。⚠ 一瞬で移らず、移動速度 × speed_mult で着くまで走る（⚠ 走っている間は通常攻撃も歩きもしない）。
+const DASH_FIELD_SPEED_MULT: String = "speed_mult"
+# 相手を通り抜けて、その先 through だけ進んで止まる（⚠ to: target だけ・offset の逆向き）。
+const DASH_FIELD_THROUGH: String = "through"
+# 通り過ぎた相手に1回ずつ出す効果（⚠ speed_mult のある dash だけ）。{"effects": [...]}
+# ⚠ 撃つのは通り過ぎた瞬間・相手は通り過ぎた1体（⚠ target は書かない）。⚠ 通常攻撃の走りなら通常攻撃として当たる。
+const FIELD_PASS: String = "pass"
+# ⚠ コードだけが書く欄（⚠ 撃ったスキルの ID を dash の結果へ運ぶ・データに書いたら赤＝E26）。
+const FIELD_CODE_SKILL_ID: String = "_skill_id"
+# 状態のあいだ interval_sec ごとに効果を出す（⚠ buff だけ・撃つのは付けた人）。{"interval_sec": 0.4, "effects": [...]}
+# ⚠ 結果の kind にも使う（⚠ 戦闘の画面が受け取って撃つ）。
+const FIELD_PULSE: String = "pulse"
+# 溜めた割合（⚠ scale_from / stat_pct_from の項・撃つ瞬間に fold_charge_ratio() が書く・溜めないスキルは 1.0）。
+const SCALE_CHARGE_RATIO: String = "charge_ratio"
+const SCALE_FIELD_CHARGE: String = "_charge"
+# 能力値が状態で何％上がっているか（⚠ 項に stat を書く・素の値から・下がっているときは 0）。
+const SCALE_STAT_GAIN_PCT: String = "stat_gain_pct"
+# 通常攻撃の相手の選び方（⚠ characters.json の basic_target・書かなければ一番近い相手）。
+const FIELD_BASIC_TARGET: String = "basic_target"
+const BASIC_TARGET_FARTHEST: String = "farthest"
+const BASIC_TARGETS_KNOWN: Array = [BASIC_TARGET_FARTHEST]
 const AIM_FIELDS_REQUIRED: Array = ["from", "speed", "to"]
 # 対象を取らない効果（回NC-1）。⚠ 購読の中でも target が要らない（E54 の例外）・実行時も対象を選ばない。
 const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
@@ -471,6 +494,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	SUMMON_FIELD_AT, SUMMON_FIELD_SIDE, "control",
 	FIELD_ON_SKILL_HIT, FIELD_GROUND, "range",
 	"revive_hp_ratio", "post_battle_hp_ratio",
+	DASH_FIELD_SPEED_MULT, DASH_FIELD_THROUGH, FIELD_PASS, FIELD_PULSE,
 ]
 
 # --- attack_type（どの防御で受けるか。攻撃側の参照元は scale_from） ---
@@ -559,7 +583,9 @@ const UNTIL_CHARGE_END: String = "charge_end"
 # ⚠ skill_end は語彙だけ。剥がすには「その cast_id の待ち行列が空か」を
 #   SkillRuntime に聞く配線が要る。段階3の後半でまとめる（書くと黄で飛ばされる）。
 const UNTIL_SKILL_END: String = "skill_end"
-const UNTILS_KNOWN: Array = [UNTIL_CHARGE_END, UNTIL_SKILL_END]
+# 次の通常攻撃が終わるまで（回BK-1）。⚠ 付いたあとに始まった通常攻撃が終わると消える（⚠ 走る通常攻撃なら着いたとき）。⚠ host: unit だけ。
+const UNTIL_BASIC_END: String = "basic_end"
+const UNTILS_KNOWN: Array = [UNTIL_CHARGE_END, UNTIL_SKILL_END, UNTIL_BASIC_END]
 
 # --- effects[].condition（毎フレーム評価する発火源・PLAN 10章） ---
 #
@@ -1382,9 +1408,17 @@ static func _validate_effect(
 				if effect.has(aim_bad):
 					_err(issues, skill_id, "%s.to: 'aim' に %s は書けない" % [where, aim_bad])
 		elif to == DASH_TO_TARGET:
-			var offset: Variant = effect.get("offset", null)
-			if not _is_num(offset) or float(offset) < 0.0:
-				_err(issues, skill_id, "%s.offset が 0 以上の数でない（to: 'target' は必須）" % where)
+			# E210 … 通り抜ける（回BK-1）。⚠ through（先へ進む）と offset（手前で止まる）はどちらか一方。
+			if effect.has(DASH_FIELD_THROUGH):
+				var through: Variant = effect.get(DASH_FIELD_THROUGH, null)
+				if not _is_num(through) or float(through) <= 0.0:
+					_err(issues, skill_id, "%s.through が正の数でない" % where)
+				if effect.has("offset"):
+					_err(issues, skill_id, "%s に through と offset の両方がある（通り抜けるか手前で止まるか）" % where)
+			else:
+				var offset: Variant = effect.get("offset", null)
+				if not _is_num(offset) or float(offset) < 0.0:
+					_err(issues, skill_id, "%s.offset が 0 以上の数でない（to: 'target' は必須）" % where)
 			if effect.has("distance"):
 				_err(issues, skill_id, "%s.to: 'target' に distance は書けない（offset で書く）" % where)
 		else:
@@ -1396,6 +1430,19 @@ static func _validate_effect(
 		for forbidden: String in ["scale_from", "multiplier", "attack_type", "host"]:
 			if effect.has(forbidden):
 				_err(issues, skill_id, "%s.type: 'dash' に %s は書けない" % [where, forbidden])
+		# E211 … 走って移る・通り過ぎた相手への効果（回BK-1）。
+		if to != DASH_TO_TARGET and effect.has(DASH_FIELD_THROUGH):
+			_err(issues, skill_id, "%s.through は to: 'target' にしか書けない" % where)
+		if effect.has(DASH_FIELD_SPEED_MULT):
+			var sm: Variant = effect.get(DASH_FIELD_SPEED_MULT, null)
+			if not _is_num(sm) or float(sm) <= 0.0:
+				_err(issues, skill_id, "%s.speed_mult が正の数でない" % where)
+		if effect.has(FIELD_PASS):
+			if not effect.has(DASH_FIELD_SPEED_MULT):
+				_err(issues, skill_id, "%s.pass は speed_mult と一緒にしか書けない（一瞬で移ると通り過ぎない）" % where)
+			_validate_sub_effects(issues, skill_id, effect.get(FIELD_PASS, null), where + ".pass", ["effects"], activation, false)
+	elif effect.has(DASH_FIELD_SPEED_MULT) or effect.has(DASH_FIELD_THROUGH) or effect.has(FIELD_PASS):
+		_err(issues, skill_id, "%s.type: '%s' に speed_mult / through / pass は書けない（dash だけ）" % [where, effect_type])
 	elif effect.has("distance"):
 		_err(issues, skill_id, "%s.type: '%s' に distance は書けない（knockback / dash だけ）" % [where, effect_type])
 	if effect_type != EFFECT_DASH:
@@ -1978,6 +2025,9 @@ static func _validate_status_effect(
 			_err(issues, skill_id, "%s.until: 'charge_end' は activation: charge のスキルにしか書けない" % where)
 		elif until == UNTIL_SKILL_END:
 			_warn(issues, skill_id, "%s.until: 'skill_end' は未実装（剥がす配線が無い）。この効果は飛ばされる" % where)
+		elif until == UNTIL_BASIC_END and str(effect.get("host", "")) != HOST_UNIT:
+			# E212 … 剥がすのは宿主の通常攻撃（回BK-1）。⚠ 宿主の居ない状態には書けない。
+			_err(issues, skill_id, "%s.until: 'basic_end' は host: 'unit' にしか書けない" % where)
 
 	# 介入点の欄（PLAN 11-1・段階3の後半③ ＋ EXEC_SKILL_MITIGATION.md）。
 	# ⚠ 一覧はここ1本。status_registry.gd に2本目を作らないこと。
@@ -2018,7 +2068,7 @@ static func _validate_status_effect(
 		# ⚠ これが無いと、stat を必須にしなくなった分だけ typo（"stt"）が
 		#   「介入だけを持つ buff」として黙って通る。
 		# ⚠ 避けて反撃・そろったら（回MC-1・回GM-1）だけの buff は書ける（⚠ それ自体が働く）。
-		var has_trigger_only: bool = effect.has(FIELD_EVADE) or effect.has(FIELD_ON_MEET) or effect.has(FIELD_ON_STACK) or effect.has(FIELD_ON_SKILL_HIT)
+		var has_trigger_only: bool = effect.has(FIELD_EVADE) or effect.has(FIELD_ON_MEET) or effect.has(FIELD_ON_STACK) or effect.has(FIELD_ON_SKILL_HIT) 				or effect.has(FIELD_PULSE)
 		if not has_stat and not has_atk_mult and not has_intervene and not has_trigger_only:
 			_err(issues, skill_id, "%s は buff なのに stat / value も %s も %s{} も無い" % [
 				where, BUFF_ATK_MULT_PCT, BUFF_INTERVENE
@@ -2346,8 +2396,16 @@ static func _validate_scale_from(
 			continue
 		var entry: Dictionary = term as Dictionary
 		var source: String = str(entry.get("source", ""))
-		if not (source in known) and not (source in [SCALE_RESOURCE_SPENT, SCALE_RESOURCE_NOW, SCALE_FLAT, "last_hit"]):
+		if not (source in known) and not (source in [SCALE_RESOURCE_SPENT, SCALE_RESOURCE_NOW, SCALE_FLAT, "last_hit", SCALE_CHARGE_RATIO, SCALE_STAT_GAIN_PCT]):
 			_err(issues, skill_id, "%s.scale_from の source が不明: '%s'" % [where, source])
+		# E214 … 上がった割合には stat が要る（回BK-1）・溜めた割合はコードが書く。
+		if source == SCALE_STAT_GAIN_PCT:
+			if not (str(entry.get("stat", "")) in GameManager.get_stat_keys()):
+				_err(issues, skill_id, "%s.scale_from の source: 'stat_gain_pct' の stat が10軸に無い: '%s'" % [where, str(entry.get("stat", ""))])
+		elif entry.has("stat"):
+			_err(issues, skill_id, "%s.scale_from の stat は source: 'stat_gain_pct' のときだけ書ける" % where)
+		if entry.has(SCALE_FIELD_CHARGE):
+			_err(issues, skill_id, "%s.scale_from の %s はデータに書けない（撃つ瞬間にコードが書く）" % [where, SCALE_FIELD_CHARGE])
 		# E175 … いまの資源の量には resource_id が要る（回SC-1）。
 		if source == SCALE_RESOURCE_NOW and str(entry.get(RESOURCE_FIELD_ID, "")) == "":
 			_err(issues, skill_id, "%s.scale_from の source: 'resource' に resource_id が無い" % where)
@@ -2438,6 +2496,14 @@ static func _validate_gm_fields(
 		elif osh is Dictionary and (not _is_num((osh as Dictionary).get("radius", null)) or float((osh as Dictionary).get("radius", 0.0)) <= 0.0):
 			_err(issues, skill_id, "%s.on_skill_hit.radius が正の数でない" % where)
 		_validate_sub_effects(issues, skill_id, osh, where + ".on_skill_hit", ["radius", "effects"], activation, false)
+	# E213 状態のあいだ◯秒ごと（回BK-1）。⚠ host: unit の buff だけ・interval_sec は正の数。
+	if effect.has(FIELD_PULSE):
+		var pulse: Variant = effect.get(FIELD_PULSE, null)
+		if effect_type != EFFECT_BUFF or str(effect.get("host", "")) != HOST_UNIT:
+			_err(issues, skill_id, "%s.pulse は host: unit の buff にしか書けない" % where)
+		elif pulse is Dictionary and (not _is_num((pulse as Dictionary).get("interval_sec", null)) or float((pulse as Dictionary).get("interval_sec", 0.0)) <= 0.0):
+			_err(issues, skill_id, "%s.pulse.interval_sec が正の数でない" % where)
+		_validate_sub_effects(issues, skill_id, pulse, where + ".pulse", ["interval_sec", "effects"], activation, false)
 	# E204 地面を狙う（回MG-1）。⚠ damage だけ・true だけ。
 	if effect.has(FIELD_GROUND) and (effect_type != EFFECT_DAMAGE or effect.get(FIELD_GROUND, null) != true):
 		_err(issues, skill_id, "%s.ground は damage に true だけ書ける" % where)

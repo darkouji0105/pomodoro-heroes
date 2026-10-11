@@ -138,6 +138,8 @@ const SHOT_PREPARE_STUDENT_PARTY: String = "student_party"
 const SHOT_PREPARE_GUNSLINGER_PARTY: String = "gunslinger_party"
 # ⚠ マグナムメイジ（回MG-1）：⚠ マグナムを1番目に入れる（⚠ 内側の `PREPARE_MAGNUM_PARTY` と同じ字）。
 const SHOT_PREPARE_MAGNUM_PARTY: String = "magnum_party"
+# ⚠ バイク（回BK-1）：⚠ バイクを1番目に入れる（⚠ 内側の `PREPARE_BIKER_PARTY` と同じ字）。
+const SHOT_PREPARE_BIKER_PARTY: String = "biker_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1468,6 +1470,43 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_pr_glory", "prepare": PREPARE_NONE, "hold_sec": 1.0},
 		],
 	},
+	# バイク（回BK-1）。⚠ Lv20 に上げてから枠に入れる。
+	"bk_a": {
+		"kind": KIND_BATTLE,
+		"note": "バイク A：通常攻撃で一番遠い敵へ走って往復 → 突撃の号令（次の走りが終わるまで）→ クラクション",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_biker", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_biker": 20},
+		"skills": {"char_biker": ["skill_bk_rally", "skill_bk_horn"]},
+		"fire": [
+			{"skill": "skill_bk_rally", "prepare": PREPARE_NONE, "gap": 1.0},
+			{"skill": "skill_bk_horn", "prepare": PREPARE_NONE, "gap": 2.0},
+		],
+	},
+	"bk_b": {
+		"kind": KIND_BATTLE,
+		"note": "バイク B：フリップ（真ん中へ・スタン）→ 引火（走った跡に炎）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_biker", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_biker": 20},
+		"skills": {"char_biker": ["skill_bk_flip", "skill_bk_ignite"]},
+		"fire": [
+			{"skill": "skill_bk_flip", "prepare": PREPARE_NONE, "gap": 1.0},
+			{"skill": "skill_bk_ignite", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"bk_c": {
+		"kind": KIND_BATTLE,
+		"note": "バイク C：爆走（止められない）→ チャージ突進（1.0 秒溜め・シールド・通り抜け・次の走りが速い）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_biker", "char_debug_life", "char_debug_mix"],
+		"levels": {"char_biker": 20},
+		"skills": {"char_biker": ["skill_bk_rampage", "skill_bk_charge"]},
+		"fire": [
+			{"skill": "skill_bk_rampage", "prepare": PREPARE_NONE, "gap": 1.0},
+			{"skill": "skill_bk_charge", "prepare": PREPARE_NONE, "gap": 1.0, "hold_sec": 1.0},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1886,6 +1925,17 @@ const SCENARIOS: Dictionary = {
 				"settle": 60,
 			},
 			# ⚠ 狂った神の使い（回GM-1）：⚠ 顔・パッシブのマス・スキルのマス。
+			# ⚠ バイク（回BK-1）：⚠ 顔・パッシブのマス・走っている姿。
+			{
+				"name": "9f_biker_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_BIKER_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
 			{
 				"name": "9e_magnum_battle",
 				"scene": SCENE_BATTLE,
@@ -2168,6 +2218,7 @@ func _ready() -> void:
 			_report_gunslinger()
 			_report_magnum()
 			_report_priest()
+			_report_biker()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -10111,6 +10162,113 @@ func _report_priest() -> void:
 		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
 
 
+# バイク（回BK-1）。⚠ 走る通常攻撃・次の通常攻撃が終わるまで・◯秒ごと・溜めた割合・上がった割合。
+# ⚠ 走る途中（座標が動く・通り過ぎた相手に当たる）は戦闘の画面の仕事＝本物の戦闘 bk_a〜bk_c が見る。
+func _report_biker() -> void:
+	var me: BattleUnit = _resource_unit("char_biker", 0)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 5000
+	var near: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var far: BattleUnit = BattleUnit.create("enemy_1", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	me.x = 200.0
+	near.x = 500.0
+	far.x = 700.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me]
+	session.enemy_units = [near, far]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+
+	print("[DebugBoot] --- 107. 走る通常攻撃（⚠ 一番遠い相手・その先 60 まで・通り過ぎた相手への効果を運ぶ）---")
+	print("  選び方 '%s'（'farthest'）" % me.basic_target)
+	var dash_results: Array = []
+	runtime.effects_applied.connect(func(rs: Array) -> void: dash_results.append_array(rs))
+	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, me.basic_attack, 1.0, ["enemy_1"])
+	for r: Variant in dash_results:
+		if r is Dictionary and str((r as Dictionary).get("kind", "")) == SkillSchema.EFFECT_DASH:
+			print("  行き先 x=%.0f（700 + 60）・速さ ×%.1f・通り過ぎた相手への効果 %d 件・スキル '%s'・まだ動いていない x=%.0f" % [
+				float(r["x"]), float(r.get(SkillSchema.DASH_FIELD_SPEED_MULT, 0.0)),
+				(r.get(SkillSchema.FIELD_PASS, []) as Array).size(), str(r.get("skill_id", "")), me.x])
+
+	print("[DebugBoot] --- 108. 次の通常攻撃が終わるまで（⚠ 付いたあとに始まった通常攻撃が終わると消える）---")
+	var spd0: int = me.get_stat("spd")
+	var atk0: int = me.get_stat("atk")
+	me.basic_attack_count = 3
+	runtime.cast(me, "skill_bk_rally", MasterDataLoader.get_skill("skill_bk_rally"), 1.0)
+	print("  号令：移動 %d → %d・攻撃 %d → %d" % [spd0, me.get_stat("spd"), atk0, me.get_stat("atk")])
+	print("  付く前の通常攻撃（3 回目）が終わった：消えた %d 件（0）" % registry.end_basic("party_0", 3))
+	me.basic_attack_count = 4
+	print("  次の通常攻撃（4 回目）が終わった：消えた %d 件（2）・移動 %d" % [registry.end_basic("party_0", 4), me.get_stat("spd")])
+
+	print("[DebugBoot] --- 109. 状態のあいだ◯秒ごと（⚠ 引火＝0.4 秒ごと・5 秒）---")
+	var pulses: Array = []
+	registry.effects_applied.connect(func(rs: Array) -> void:
+		for r: Variant in rs:
+			if r is Dictionary and str((r as Dictionary).get("kind", "")) == SkillSchema.FIELD_PULSE:
+				pulses.append(r))
+	runtime.cast(me, "skill_bk_ignite", MasterDataLoader.get_skill("skill_bk_ignite"), 1.0)
+	registry.tick(1.0)
+	print("  1.0 秒で %d 回（2）・効果 %d 件（炎の床と火傷）" % [pulses.size(), (pulses[0]["effects"] as Array).size() if not pulses.is_empty() else 0])
+	registry.tick(4.5)
+	print("  5.5 秒で %d 回（12＝5 秒で切れる）" % pulses.size())
+
+	print("[DebugBoot] --- 110. 溜めた割合（⚠ チャージ突進＝溜め × 60%% の移動速度・通り過ぎた相手へのダメージにも倍率）---")
+	for ratio: float in [0.6, 1.3]:
+		var folded: Dictionary = SkillResolver.fold_charge_ratio(MasterDataLoader.get_skill("skill_bk_charge"), ratio)
+		var spd_eff: Dictionary = {}
+		var pass_mult: float = 0.0
+		for e: Variant in (folded["effects"] as Array):
+			if str((e as Dictionary).get("status_id", "")) == "st_bk_charge_spd":
+				spd_eff = e as Dictionary
+			if str((e as Dictionary).get("type", "")) == SkillSchema.EFFECT_DASH:
+				pass_mult = float((((e as Dictionary)[SkillSchema.FIELD_PASS] as Dictionary)["effects"] as Array)[0]["multiplier"])
+		var before: int = me.get_stat("spd")
+		SkillResolver.resolve({"effects": [spd_eff]}, me, session, ["party_0"], registry)
+		registry.tick(0.01)
+		print("  溜め %.1f：移動 %d → %d（+%d%%）・通り過ぎた相手へのダメージ ×%.2f" % [ratio, before, me.get_stat("spd"), me.get_stat_pct("spd"), pass_mult])
+		me.basic_attack_count += 1
+		registry.end_basic("party_0", me.basic_attack_count)
+
+	print("[DebugBoot] --- 111. 上がった割合（⚠ スピード狂＝移動速度が上がった割合の半分を攻撃・防御に）---")
+	runtime.cast(me, "passive_bk_speed", MasterDataLoader.get_skill("passive_bk_speed"), 1.0)
+	registry.tick(0.01)
+	print("  素のまま：移動 %d・攻撃 +%d%%・防御 +%d%%（0・0）" % [me.get_stat("spd"), me.get_stat_pct("atk"), me.get_stat_pct("def")])
+	runtime.cast(me, "skill_bk_rampage", MasterDataLoader.get_skill("skill_bk_rampage"), 1.0)
+	registry.tick(0.01)
+	registry.tick(0.01)
+	print("  爆走：移動 %d（+80%%）・攻撃 +%d%%・防御 +%d%%（40・40）・止められない %s" % [me.get_stat("spd"), me.get_stat_pct("atk"), me.get_stat_pct("def"), str(me.unstoppable)])
+
+	print("[DebugBoot] --- 112. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var dm: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk"}
+	var probes: Array = [
+		["through と offset を一緒に", {"type": "dash", "to": "target", "through": 60, "offset": 10}, true],
+		["pass なのに speed_mult が無い", {"type": "dash", "to": "target", "through": 60, "pass": {"effects": [dm]}}, true],
+		["damage に speed_mult", (dm.duplicate() as Dictionary).merged({"speed_mult": 2.0}), true],
+		["dot に pulse", {"type": "dot", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "interval_sec": 1.0, "multiplier": 0.1, "attack_type": "physical", "scale_from": "atk", "pulse": {"interval_sec": 1.0, "effects": [dm]}}, true],
+		["pulse の間隔が 0", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "stat": "spd", "stat_pct": 10, "pulse": {"interval_sec": 0, "effects": [dm]}}, true],
+		["basic_end を point に", {"type": "dot", "host": "point", "status_id": "st_a", "stack": "refresh", "until": "basic_end", "interval_sec": 1.0, "multiplier": 0.1, "attack_type": "physical", "scale_from": "atk", "zone": {"radius": 50.0, "team": "enemy", "follow": false}}, true],
+		["stat_gain_pct に stat が無い", (dm.duplicate() as Dictionary).merged({"scale_from": [{"source": "stat_gain_pct"}]}, true), true],
+		["_charge をデータに書く", (dm.duplicate() as Dictionary).merged({"scale_from": [{"source": "charge_ratio", "_charge": 1.0}]}, true), true],
+		["走って通り抜ける（正しい）", {"type": "dash", "to": "target", "through": 60, "speed_mult": 3.0, "pass": {"effects": [dm]}}, false],
+		["◯秒ごと・次の通常攻撃まで（正しい）", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "until": "basic_end", "stat": "spd", "stat_pct_from": [{"source": "charge_ratio", "weight": 60}], "pulse": {"interval_sec": 0.5, "effects": [dm]}}, false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_biker", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[2]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
 
@@ -12387,6 +12545,7 @@ class ShotTaker extends Node:
 	const PREPARE_STUDENT_PARTY: String = "student_party"
 	const PREPARE_GUNSLINGER_PARTY: String = "gunslinger_party"
 	const PREPARE_MAGNUM_PARTY: String = "magnum_party"
+	const PREPARE_BIKER_PARTY: String = "biker_party"
 	const PREPARE_PRINCESS_PARTY: String = "princess_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
@@ -12763,6 +12922,11 @@ class ShotTaker extends Node:
 		if kind == PREPARE_PRINCESS_PARTY:
 			for princess_i: int in range(3):
 				if not GameManager.set_party_member(princess_i, ["char_princess", "char_archer", "char_priest"][princess_i]):
+					return false
+			return true
+		if kind == PREPARE_BIKER_PARTY:
+			for bk_i: int in range(3):
+				if not GameManager.set_party_member(bk_i, ["char_biker", "char_archer", "char_priest"][bk_i]):
 					return false
 			return true
 		if kind == PREPARE_MAGNUM_PARTY:
