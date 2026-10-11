@@ -41,7 +41,7 @@ const KIND_CLOSE: String = "close"
 # ⚠ 難ダンジョンを自動で潜って数字を取る枝（2026-10-03・回6）。⚠ 係（`DungeonSimRunner`）を root に置く。
 const KIND_DUNGEON_SIM: String = "dungeon_sim"
 # ⚠ 総当たりの戦闘（2026-10-11・回SOAK-1・人間「⚠ 大規模なテストをしたい　人間がするテストを減らすため」→「⚠ １い　２あ　３あ」）。
-# ⚠ 係（`SoakRunner`）を root に置く。⚠ 引数 from= count=（⚠ 何戦目から何戦）・give_up=（⚠ 決着しない上限の秒）。
+# ⚠ 係（`SoakRunner`）を root に置く。⚠ 引数 from= count=（⚠ 何戦目から何戦）・give_up=（⚠ 決着しない上限の秒）・mode=（⚠ pairs＝2人ずつ全部（既定）／ triples＝3人の組み合わせ全部）。
 const KIND_SOAK: String = "soak"
 # ⚠ 総当たりに入れる本物のキャラ（⚠ 検証用の char_debug_* は入れない）。⚠ キャラを足したらここにも足す。
 const SOAK_CHARACTERS: Array = [
@@ -1612,11 +1612,12 @@ const SCENARIOS: Dictionary = {
 		"note": "難ダンジョンを自動で潜る（スキルは撃てたら撃つ・休憩・ポーション・商人）→ 何層で倒れるか・コイン・ポーションの数字",
 		"party": ["char_swordsman", "char_archer", "char_priest"],
 	},
-	# ⚠ 総当たりの戦闘（2026-10-11・回SOAK-1）。⚠ 15人から3人 ＝ 455 パーティ × スキルの組 3 ＝ 1365 戦。
+	# ⚠ 総当たりの戦闘（2026-10-11・回SOAK-1）。⚠ 既定は「2人ずつ全部」＝15人から2人 105 組 × 2人のスキルの組 3×3 ＝ 945 戦（⚠ 人間「⚠ 味方に作用するものとかはもっとほかの組み合わせを試したほうがいい」→「⚠ １あ」）。
+	# ⚠ mode=triples で前の形（3人の組み合わせ全部 × 全員そろえた組 3 ＝ 1365 戦）。
 	# ⚠ 見張るもの・書き出す先は `SoakRunner` の頭。⚠ 長いので `from=` `count=` で分けて回せる。
 	"soak": {
 		"kind": KIND_SOAK,
-		"note": "総当たりの戦闘：3人の組み合わせ全部 × スキルの組3つを本物のステージで戦わせ、赤・黄・HP・座標・状態・待ち行列・決着を見張る",
+		"note": "総当たりの戦闘：2人ずつ全部 × 2人のスキルの組 3×3（3人目は順番）を本物のステージで戦わせ、赤・黄・HP・座標・状態・待ち行列・決着・撃てたスキル・味方に効いたかを見張る",
 		"party": ["char_swordsman", "char_archer", "char_priest"],
 		"levels": {
 			"char_swordsman": 20, "char_archer": 20, "char_priest": 20, "char_scholar": 20, "char_princess": 20,
@@ -2291,6 +2292,7 @@ func _ready() -> void:
 			_report_priest()
 			_report_biker()
 			_report_bodybuilder()
+			_report_heal_at_zero()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -6351,6 +6353,16 @@ class SoakRunner extends Node:
 	const IGNORE_MESSAGES: Array = ["skill_dbg_dot_odd"]
 
 	var characters: Array = []
+	# ⚠ pairs＝2人ずつ全部（既定）／ triples＝3人の組み合わせ全部。
+	var mode: String = "pairs"
+	# 1戦ぶんの割り当て（⚠ _ready() で全部作る）。{"party": [3人], "groups": [3つ]}
+	var _plan: Array = []
+	# 味方に作用するスキル（⚠ 自分以外の味方に状態か回復を出す）→ そのスキルの status_id の一覧。
+	var _ally_skills: Dictionary = {}
+	# 自分以外の味方に効いたことがあるスキル。
+	var _ally_landed: Dictionary = {}
+	# 本当に撃てた回数（⚠ 戦闘のログの cast から数える）。
+	var _cast_counts: Dictionary = {}
 	var from_index: int = 0
 	var count: int = -1
 	# ⚠ この秒で区切る（⚠ 敵を底上げしているので、区切るのが普通＝「時間で区切った」・バグとは数えない）。
@@ -6370,16 +6382,16 @@ class SoakRunner extends Node:
 				count = int(arg.substr(6))
 			elif arg.begins_with("give_up="):
 				give_up_sec = maxf(10.0, float(arg.substr(8)))
+			elif arg.begins_with("mode="):
+				mode = arg.substr(5)
 		ResourceGainEffect.set_muted(true)
 		SoundManager.set("_config", null)
-		for a: int in range(characters.size()):
-			for b: int in range(a + 1, characters.size()):
-				for c: int in range(b + 1, characters.size()):
-					_parties.append([characters[a], characters[b], characters[c]])
-		var total: int = _parties.size() * GROUPS
+		_build_plan()
+		_find_ally_skills()
+		var total: int = _plan.size()
 		var last: int = total if count < 0 else mini(total, from_index + count)
-		print("[Soak] %d 人 → %d パーティ × スキルの組 %d ＝ %d 戦 ／ 今回 %d〜%d 戦目" % [
-			characters.size(), _parties.size(), GROUPS, total, from_index, last - 1])
+		print("[Soak] mode=%s ／ %d 人 → %d 戦 ／ 今回 %d〜%d 戦目 ／ 味方に作用するスキル %d 本" % [
+			mode, characters.size(), total, from_index, last - 1, _ally_skills.size()])
 		_catcher = SoakLogCatcher.new()
 		OS.add_logger(_catcher)
 		if from_index == 0:
@@ -6395,23 +6407,84 @@ class SoakRunner extends Node:
 		_summary()
 		get_tree().quit()
 
+	# 1戦ぶんの割り当てを全部作る。
+	# ⚠ pairs：2人（a・b）の組 105 × スキルの組 3×3。⚠ 3人目は順番に替え（⚠ 2人以外から）、組は (ga + gb) % 3。
+	#   ⚠ 並び（前・真ん中・後ろ）も 3 通りに回す＝前に立つ人が替わる。
+	# ⚠ triples：前の形（3人の組み合わせ全部 × 全員そろえた組 3）。
+	func _build_plan() -> void:
+		_plan = []
+		var n: int = characters.size()
+		if mode == "triples":
+			for a: int in range(n):
+				for b: int in range(a + 1, n):
+					for c: int in range(b + 1, n):
+						for g: int in range(GROUPS):
+							_plan.append({"party": [characters[a], characters[b], characters[c]], "groups": [g, g, g]})
+			return
+		var pair_index: int = 0
+		for a2: int in range(n):
+			for b2: int in range(a2 + 1, n):
+				for ga: int in range(GROUPS):
+					for gb: int in range(GROUPS):
+						var k: int = pair_index * GROUPS * GROUPS + ga * GROUPS + gb
+						var others: Array = []
+						for c2: int in range(n):
+							if c2 != a2 and c2 != b2:
+								others.append(characters[c2])
+						var third: String = str(others[k % others.size()])
+						var members: Array = [characters[a2], characters[b2], third]
+						var groups: Array = [ga, gb, (ga + gb) % GROUPS]
+						var rot: int = k % 3
+						var party: Array = []
+						var party_groups: Array = []
+						for r: int in range(3):
+							party.append(members[(r + rot) % 3])
+							party_groups.append(groups[(r + rot) % 3])
+						_plan.append({"party": party, "groups": party_groups})
+				pair_index += 1
+
+	# 味方に作用するスキル＝効果のどこかに「team: ally」がある（⚠ 自分以外の味方に届く）。⚠ 中の status_id を集める（⚠ 効いたかを見るとき使う）。
+	func _find_ally_skills() -> void:
+		for member: Variant in characters:
+			for raw_id: Variant in (MasterDataLoader.get_character(str(member)) as Dictionary).get("skills", []):
+				var data: Dictionary = MasterDataLoader.get_skill(str(raw_id))
+				if JSON.stringify(data).contains("\"team\":\"ally\""):
+					var ids: Array = []
+					_collect_status_ids(data, ids)
+					_ally_skills[str(raw_id)] = ids
+
+	func _collect_status_ids(node: Variant, out: Array) -> void:
+		if node is Dictionary:
+			for key: Variant in (node as Dictionary):
+				if str(key) == "status_id":
+					out.append(str((node as Dictionary)[key]))
+				else:
+					_collect_status_ids((node as Dictionary)[key], out)
+		elif node is Array:
+			for item: Variant in (node as Array):
+				_collect_status_ids(item, out)
+
 	func _one(index: int) -> void:
-		var party: Array = _parties[index / GROUPS]
-		var group: int = index % GROUPS
+		var party: Array = (_plan[index] as Dictionary)["party"]
+		var groups: Array = (_plan[index] as Dictionary)["groups"]
+		var group: int = int(groups[0])
 		var stage_id: String = str(STAGES[index % STAGES.size()])
 		for i: int in range(3):
 			if not GameManager.set_party_member(i, str(party[i])):
 				push_error("[Soak] set_party_member(%d, %s) が false" % [i, str(party[i])])
 		var skills_used: Array = []
-		for member: Variant in party:
+		for mi: int in range(party.size()):
+			var member: Variant = party[mi]
 			var all_skills: Array = (MasterDataLoader.get_character(str(member)) as Dictionary).get("skills", [])
 			for slot: int in range(GameManager.get_skill_slot_count()):
-				var k: int = group * GameManager.get_skill_slot_count() + slot
+				var k: int = int(groups[mi]) * GameManager.get_skill_slot_count() + slot
 				if k < all_skills.size():
 					GameManager.select_skill(str(member), slot, str(all_skills[k]))
 					skills_used.append(str(all_skills[k]))
+		# ⚠ スタミナを満タンに（⚠ 入口の確認を通らずに何百回も勝つ＝勝ったときの消費に失敗して黄が出ていた・検査側の問題）。
+		GameManager.add_stamina(99999)
 		seed(SEED_BASE + index)
-		_current = {"index": index, "party": party, "group": group, "stage": stage_id, "issues": [], "result": "", "sec": 0.0, "skills": skills_used}
+		_current = {"index": index, "party": party, "groups": groups, "group": group, "stage": stage_id, "issues": [], "result": "", "sec": 0.0, "skills": skills_used}
 		# ⚠ フロア（floor_1〜5）は波を持たない＝マスから敵を組む（⚠ ui_flow の _flow_battle_auto() と同じ形）。
 		# ⚠ 4戦に1回はボスのマス。⚠ 終わったらフロアを抜ける（⚠ 状態は保存しない）。
 		if GameManager.is_in_floor():
@@ -6509,9 +6582,54 @@ class SoakRunner extends Node:
 		if registry != null and registry.effects_applied.is_connected(on_results):
 			registry.effects_applied.disconnect(on_results)
 		_check_after(party)
+		_read_battle_log(session)
 		if GameManager.is_in_floor():
 			GameManager.abandon_floor()
 		_finish()
+
+	# 戦闘のログから、本当に撃てたスキルと、味方に作用するスキルが自分以外の味方に効いたかを数える。
+	# ⚠ 効いた＝そのスキルの status_id が自分以外の味方に付いた、か、撃ってから 1.5 秒の間に自分以外の味方を回復した。
+	func _read_battle_log(session: BattleSession) -> void:
+		var unit_char: Dictionary = {}
+		var party_ids: Dictionary = {}
+		for raw: Variant in session.party_units:
+			if raw is BattleUnit:
+				unit_char[(raw as BattleUnit).unit_id] = (raw as BattleUnit).master_id
+				party_ids[(raw as BattleUnit).unit_id] = true
+		var last_cast: Dictionary = {}
+		for line: String in FileAccess.get_file_as_string(BattleLog.FILE_PATH).split("\n"):
+			if line.strip_edges() == "":
+				continue
+			var parsed: Variant = JSON.parse_string(line)
+			if not (parsed is Dictionary):
+				continue
+			var ev: Dictionary = parsed as Dictionary
+			var kind: String = str(ev.get("ev", ""))
+			var t: float = float(ev.get("t", 0.0))
+			if kind == "cast":
+				var skill_id: String = str(ev.get("skill", ""))
+				var unit_id: String = str(ev.get("unit", ""))
+				if party_ids.has(unit_id) and skill_id.begins_with("skill_"):
+					_cast_counts[skill_id] = int(_cast_counts.get(skill_id, 0)) + 1
+					last_cast[unit_id] = {"skill": skill_id, "t": t}
+			elif kind == "status_add":
+				var host: String = str(ev.get("unit", ""))
+				var src: String = str(ev.get("src", ""))
+				if party_ids.has(host) and host != src and last_cast.has(src):
+					var sk: String = str((last_cast[src] as Dictionary)["skill"])
+					if _ally_skills.has(sk) and str(ev.get("status", "")) in (_ally_skills[sk] as Array):
+						_ally_landed[sk] = true
+					# ⚠ 同じ人の別のスキルの状態でも、その status_id を持つスキルなら効いたことにする。
+					for other_sk: Variant in _ally_skills:
+						if str(ev.get("status", "")) in (_ally_skills[other_sk] as Array):
+							_ally_landed[str(other_sk)] = true
+			elif kind == "heal":
+				var dst: String = str(ev.get("dst", ""))
+				var src2: String = str(ev.get("src", ""))
+				if party_ids.has(dst) and dst != src2 and last_cast.has(src2):
+					var lc: Dictionary = last_cast[src2] as Dictionary
+					if _ally_skills.has(str(lc["skill"])) and t - float(lc["t"]) <= 1.5:
+						_ally_landed[str(lc["skill"])] = true
 
 	func _boost_enemies(session: BattleSession, boosted: Dictionary) -> void:
 		for raw: Variant in session.enemy_units:
@@ -6658,13 +6776,23 @@ class SoakRunner extends Node:
 				fired[str(sk)] = true
 		var never: Array = []
 		for sk2: Variant in fired:
-			if int(_skill_casts.get(str(sk2), 0)) == 0:
+			if int(_cast_counts.get(str(sk2), 0)) == 0:
 				never.append(str(sk2))
+		var not_landed: Array = []
+		for sk3: Variant in _ally_skills:
+			if fired.has(str(sk3)) and not _ally_landed.has(str(sk3)):
+				not_landed.append(str(sk3))
 		var lines: Array = []
 		lines.append("[Soak] ===== まとめ（%d 戦・%.0f 秒）=====" % [_summary_rows.size(), float(Time.get_ticks_msec() - _started_msec) / 1000.0])
 		lines.append("  結果 = %s" % str(results))
 		lines.append("  見張りの種類 = %s" % str(by_kind))
-		lines.append("  一度も撃たれなかったスキル（枠に入れたのに）= %s" % str(never))
+		lines.append("  一度も撃てなかったスキル（枠に入れたのに・⚠ 戦闘のログの cast で数えた）= %s" % str(never))
+		lines.append("  味方に作用するスキル %d 本のうち、自分以外の味方に一度も効かなかったもの（⚠ 状態か回復で見た）= %s" % [_ally_skills.size(), str(not_landed)])
+		var counts: Array = []
+		for sk4: Variant in fired:
+			counts.append("%s:%d" % [str(sk4), int(_cast_counts.get(str(sk4), 0))])
+		counts.sort()
+		lines.append("  撃てた回数 = %s" % ", ".join(counts))
 		lines.append("  --- 見張りに当たった中身（多い順・最初の戦闘の番号）---")
 		var keys: Array = by_message.keys()
 		keys.sort_custom(func(a: Variant, b: Variant) -> bool: return int((by_message[a] as Dictionary)["count"]) > int((by_message[b] as Dictionary)["count"]))
@@ -10850,6 +10978,25 @@ func _report_bodybuilder() -> void:
 					first = str((issue as Dictionary).get("message", ""))
 		var ok: bool = (errors >= 1) if bool(probe[2]) else (errors == 0)
 		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
+# HP 0 の人に毎秒回復が入るか（回SOAK-1 の ②・総当たりの 1015 戦目で狂信者が起き上がった）。
+# ⚠ 1フレームの順番は「殴る → スキルの待ち行列 → 状態の毎秒の処理 → 倒れる判定」＝HP 0 にされた同じフレームに毎秒回復が入ると、倒れる判定のときには戻っている。
+func _report_heal_at_zero() -> void:
+	var zealot: BattleUnit = _resource_unit("char_zealot", 0)
+	var mate: BattleUnit = _resource_unit("char_archer", 1)
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [zealot, mate]
+	session.enemy_units = []
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	print("[DebugBoot] --- 119. HP 0 の人に毎秒回復が入るか（⚠ 狂信者の祝福＝味方全員に毎秒回復）---")
+	runtime.cast(zealot, "skill_zl_bless", MasterDataLoader.get_skill("skill_zl_bless"), 1.0)
+	mate.take_damage(mate.hp)
+	print("  殴られて HP %d（倒れる判定の前）" % mate.hp)
+	registry.tick(1.0)
+	print("  同じフレームの毎秒回復のあと HP %d（0 のまま＝直した。⚠ 0 より大きければ、倒れる判定を通らずに起き上がる）" % mate.hp)
 
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:

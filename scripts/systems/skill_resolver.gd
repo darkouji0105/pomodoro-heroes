@@ -893,6 +893,10 @@ static func _apply_heal(
 	for t: BattleUnit in targets:
 		if t == null:
 			continue
+		# ⚠ HP 0 の人には入れない（回SOAK-1・人間「⚠ ２をなおして」）。⚠ 殴られて HP 0 になった同じフレームに毎秒回復が入ると、
+		#   倒れる判定（_step_deaths）を通らずに起き上がっていた。⚠ 起き上がり（復活・リザレクション）は heal() を直に呼ぶ別の経路。
+		if not t.is_alive():
+			continue
 		# スケール元は scale_from から引く。既定値を持たない（決定1-5）。
 		# フォールバックが mag なのは、欄が消えたときに「なぜか1ダメージ/1回復」に
 		# ならないようにするため（赤は出ているので黙って既定値にはならない）。
