@@ -99,12 +99,16 @@ func _build_chips() -> void:
 	_chips = HBoxContainer.new()
 	_chips.name = "Chips"
 	_chips.theme_type_variation = &"TrainingChips"
-	var spacer: Control = Control.new()
-	spacer.name = "ChipSpacer"
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(spacer)
-	header.add_child(_chips)
+	# ⚠ 10-11（人間「⚠ はみ出ていて操作ができない」）：⚠ キャラが17人に増え、札の列が画面を左右に押し広げていた。
+	#   ⚠ 札の列は横にスクロールする枠に入れる（⚠ 入りきるときは今まで通り右寄せ・⚠ 入りきらないと下にバーが出る）。
+	_chips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_chips.alignment = BoxContainer.ALIGNMENT_END
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "ChipScroll"
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.add_child(_chips)
+	header.add_child(scroll)
 	# ⚠ 右の HUD の場所は空けたまま（⚠ `ScreenHeader.hud_spacer` を一番右に残す）。
 	if header.hud_spacer != null:
 		header.move_child(header.hud_spacer, header.get_child_count() - 1)
