@@ -875,7 +875,9 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 
 	# 避けて反撃・そろったら・たまったら・スキルが当たったら（回MC-1・回GM-1・回ST-1・回MG-1）だけの状態も書ける。
 	if effect.get(SkillSchema.FIELD_EVADE, null) is Dictionary or effect.get(SkillSchema.FIELD_ON_MEET, null) is Dictionary \
-			or effect.get(SkillSchema.FIELD_ON_STACK, null) is Dictionary or effect.get(SkillSchema.FIELD_ON_SKILL_HIT, null) is Dictionary:
+			or effect.get(SkillSchema.FIELD_ON_STACK, null) is Dictionary or effect.get(SkillSchema.FIELD_ON_SKILL_HIT, null) is Dictionary \
+			or effect.get(SkillSchema.FIELD_PULSE, null) is Dictionary:
+		# ⚠ ◯秒ごとだけの状態も（回BB-1・全員に再生）。⚠ 検査（SkillSchema）は前から通していた。
 		has_intervene = true
 	if not has_stat and not has_intervene:
 		push_error("[StatusRegistry] buff に stat / value も介入の欄も無い（何も起きない状態は書けない）")
@@ -1528,6 +1530,7 @@ func _fire_pulses(results: Array) -> void:
 				"host_unit_id": str(entry.get("host_unit_id", "")),
 				"status_id": str(entry.get("status_id", "")),
 				"effects": (pulse.get("effects", []) as Array).duplicate(true),
+				SkillSchema.PULSE_FIELD_FROM: str(pulse.get(SkillSchema.PULSE_FIELD_FROM, "")),
 			})
 
 

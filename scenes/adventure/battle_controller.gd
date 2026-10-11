@@ -2025,7 +2025,7 @@ func _on_skill_button_pressed(user: BattleUnit, skill_id: String) -> void:
 # ⚠ 戻り値は「撃てたか」。敵のAI（_try_enemy_skill）が、撃てなかったときに
 #   通常攻撃へ回すために見る。判定を呼び出し側にコピーさせないための戻り値であって、
 #   ここ以外に blocked_reason() を書かないこと（EXEC_ENEMY_PARITY.md §3-2）。
-func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool:
+func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float, charge_taken: int = 0) -> bool:
 	var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
 
 	# 撃つ段を決める（段階5・PLAN 8章）。構えていなければ1段目。
@@ -2071,6 +2071,8 @@ func _fire_skill(user: BattleUnit, skill_id: String, power_ratio: float) -> bool
 		var spent: int = user.pay_cost(SkillSchema.cost_of(skill_data))
 		if spent >= 0:
 			phase_data = SkillResolver.fold_resource_spent(phase_data, spent)
+	# 溜め始めから受けたダメージを畳み込む（回BB-1）。⚠ 溜めないで撃ったら 0。
+	phase_data = SkillResolver.fold_charge_taken(phase_data, charge_taken)
 
 	# 発動を1個作って新層に渡す。チャージ倍率の畳み込みも、効果を trigger ごとに
 	# 待ち行列へ割るのも新層の仕事（PLAN 7-1）。ここに待ち行列を持たないこと。
@@ -2451,8 +2453,10 @@ func _on_skill_effects_applied(results: Array) -> void:
 				mover.move_lock_sec = GameManager.get_rune_move_lock_sec()
 			continue
 		# 状態のあいだ◯秒ごと（回BK-1）。⚠ 撃つのは付けた人・自分が起点（⚠ 効果ごとに target を書けば上書き）。
+		# ⚠ from: "host" なら付けられた人が撃つ（回BB-1・全員に再生）。
 		if str(r.get("kind", "")) == SkillSchema.FIELD_PULSE:
-			var pulser: BattleUnit = _find_unit_by_id(str(r.get("source_unit_id", "")))
+			var pulser_key: String = "host_unit_id" if str(r.get(SkillSchema.PULSE_FIELD_FROM, "")) == SkillSchema.PULSE_FROM_HOST else "source_unit_id"
+			var pulser: BattleUnit = _find_unit_by_id(str(r.get(pulser_key, "")))
 			if pulser != null and pulser.is_alive():
 				_skill_runtime.cast(pulser, str(r.get("status_id", "")),
 					{"target": {"team": SkillSchema.TEAM_SELF}, "effects": r.get("effects", [])}, 1.0)
@@ -2498,6 +2502,8 @@ func _on_charge_button_down(entry: Dictionary) -> void:
 	if SkillActivation.is_cost_short(user, skill_id, _session):
 		return
 	_charging = {"entry": entry, "time": 0.0}
+	# 溜め始めから受けたダメージを数え始める（回BB-1）。
+	user.charge_taken_from = user.damage_taken
 	_update_aim()
 
 	# trigger: "charge_start" の効果だけがここで発火する（PLAN 6-2）。
@@ -2525,11 +2531,21 @@ func _on_charge_button_up(entry: Dictionary) -> void:
 	# ジャストかどうかは発動の前に確かめる。
 	# 発動で敵が全滅すると、そのあとでは判定に使う情報が変わりうるため。
 	var is_just: bool = _is_just(entry, t)
-	_fire_skill(user, skill_id, _charge_power_ratio(entry, t))
+	# 溜め始めから受けたダメージ（回BB-1）。⚠ _fire_skill() が畳み込む・撃ったら -1 に戻す。
+	_fire_skill(user, skill_id, _charge_power_ratio(entry, t), _charge_taken(user))
+	if user != null:
+		user.charge_taken_from = -1
 	# 狙いを消す（回GM-1）。⚠ 撃ったあと（⚠ 対象は撃った瞬間に決まっている）。
 	_clear_aim(user)
 	if is_just:
 		_pop_just(entry)
+
+
+# 溜め始めから受けたダメージ（回BB-1）。⚠ HP が実際に減った分（⚠ シールドが吸った分は入らない）。
+func _charge_taken(user: BattleUnit) -> int:
+	if user == null or user.charge_taken_from < 0:
+		return 0
+	return maxi(0, user.damage_taken - user.charge_taken_from)
 
 
 func _is_just(entry: Dictionary, t: float) -> bool:
@@ -2617,6 +2633,8 @@ func _cancel_charge() -> void:
 	var user: BattleUnit = entry.get("user", null)
 	if user != null and _status != null:
 		_status.end_charge(user.unit_id)
+	if user != null:
+		user.charge_taken_from = -1
 	_clear_aim(user)
 	_charging.clear()
 

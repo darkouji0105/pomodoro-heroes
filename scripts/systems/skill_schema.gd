@@ -236,6 +236,13 @@ const FIELD_CODE_SKILL_ID: String = "_skill_id"
 # 状態のあいだ interval_sec ごとに効果を出す（⚠ buff だけ・撃つのは付けた人）。{"interval_sec": 0.4, "effects": [...]}
 # ⚠ 結果の kind にも使う（⚠ 戦闘の画面が受け取って撃つ）。
 const FIELD_PULSE: String = "pulse"
+# ◯秒ごとを撃つ人（回BB-1）。⚠ 書かなければ付けた人。"host"＝付けられた人が自分を起点に撃つ（⚠ 全員に再生）。
+const PULSE_FIELD_FROM: String = "from"
+const PULSE_FROM_HOST: String = "host"
+# 溜め始めから受けたダメージ（回BB-1・⚠ scale_from の項・撃つ瞬間に fold_charge_taken() が書く・溜めないスキルは 0）。
+# ⚠ 数えるのは HP が実際に減った分（⚠ BattleUnit.damage_taken の差＝シールドが吸った分は入らない）。
+const SCALE_CHARGE_TAKEN: String = "charge_taken"
+const SCALE_FIELD_TAKEN: String = "_taken"
 # 溜めた割合（⚠ scale_from / stat_pct_from の項・撃つ瞬間に fold_charge_ratio() が書く・溜めないスキルは 1.0）。
 const SCALE_CHARGE_RATIO: String = "charge_ratio"
 const SCALE_FIELD_CHARGE: String = "_charge"
@@ -2396,7 +2403,7 @@ static func _validate_scale_from(
 			continue
 		var entry: Dictionary = term as Dictionary
 		var source: String = str(entry.get("source", ""))
-		if not (source in known) and not (source in [SCALE_RESOURCE_SPENT, SCALE_RESOURCE_NOW, SCALE_FLAT, "last_hit", SCALE_CHARGE_RATIO, SCALE_STAT_GAIN_PCT]):
+		if not (source in known) and not (source in [SCALE_RESOURCE_SPENT, SCALE_RESOURCE_NOW, SCALE_FLAT, "last_hit", SCALE_CHARGE_RATIO, SCALE_STAT_GAIN_PCT, SCALE_CHARGE_TAKEN]):
 			_err(issues, skill_id, "%s.scale_from の source が不明: '%s'" % [where, source])
 		# E214 … 上がった割合には stat が要る（回BK-1）・溜めた割合はコードが書く。
 		if source == SCALE_STAT_GAIN_PCT:
@@ -2406,6 +2413,9 @@ static func _validate_scale_from(
 			_err(issues, skill_id, "%s.scale_from の stat は source: 'stat_gain_pct' のときだけ書ける" % where)
 		if entry.has(SCALE_FIELD_CHARGE):
 			_err(issues, skill_id, "%s.scale_from の %s はデータに書けない（撃つ瞬間にコードが書く）" % [where, SCALE_FIELD_CHARGE])
+		# E217 … 溜め始めから受けたダメージもコードが書く（回BB-1）。
+		if entry.has(SCALE_FIELD_TAKEN):
+			_err(issues, skill_id, "%s.scale_from の %s はデータに書けない（撃つ瞬間にコードが書く）" % [where, SCALE_FIELD_TAKEN])
 		# E175 … いまの資源の量には resource_id が要る（回SC-1）。
 		if source == SCALE_RESOURCE_NOW and str(entry.get(RESOURCE_FIELD_ID, "")) == "":
 			_err(issues, skill_id, "%s.scale_from の source: 'resource' に resource_id が無い" % where)
@@ -2503,7 +2513,10 @@ static func _validate_gm_fields(
 			_err(issues, skill_id, "%s.pulse は host: unit の buff にしか書けない" % where)
 		elif pulse is Dictionary and (not _is_num((pulse as Dictionary).get("interval_sec", null)) or float((pulse as Dictionary).get("interval_sec", 0.0)) <= 0.0):
 			_err(issues, skill_id, "%s.pulse.interval_sec が正の数でない" % where)
-		_validate_sub_effects(issues, skill_id, pulse, where + ".pulse", ["interval_sec", "effects"], activation, false)
+		elif pulse is Dictionary and (pulse as Dictionary).has(PULSE_FIELD_FROM) and str((pulse as Dictionary).get(PULSE_FIELD_FROM, "")) != PULSE_FROM_HOST:
+			# E216 撃つ人（回BB-1）。⚠ 書けるのは "host" だけ（⚠ 書かなければ付けた人）。
+			_err(issues, skill_id, "%s.pulse.from は 'host' だけ書ける" % where)
+		_validate_sub_effects(issues, skill_id, pulse, where + ".pulse", ["interval_sec", "effects", PULSE_FIELD_FROM], activation, false)
 	# E204 地面を狙う（回MG-1）。⚠ damage だけ・true だけ。
 	if effect.has(FIELD_GROUND) and (effect_type != EFFECT_DAMAGE or effect.get(FIELD_GROUND, null) != true):
 		_err(issues, skill_id, "%s.ground は damage に true だけ書ける" % where)

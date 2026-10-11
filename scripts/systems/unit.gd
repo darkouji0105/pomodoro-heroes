@@ -360,6 +360,8 @@ var ride_serial: int = 0
 var spent_status_ids: Dictionary = {}
 
 # 狙いが動く溜め（回GM-1）。⚠ 書くのは BattleController の溜め（⚠ 溜めている間・撃ち終わったら消す）だけ。⚠ セーブに入らない。
+# 溜め始めたときの damage_taken（回BB-1）。⚠ -1＝溜めていない。⚠ 書くのは戦闘の画面の溜め始め・離す・取り消しだけ。
+var charge_taken_from: int = -1
 var has_aim: bool = false
 var aim_x: float = 0.0
 

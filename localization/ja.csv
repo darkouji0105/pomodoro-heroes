@@ -2075,3 +2075,27 @@ ui_status_ch_st_bk_charge_shield,盾
 ui_status_ch_st_bk_charge_spd,突
 ui_status_ch_st_bk_speed_atk,速
 ui_status_ch_st_bk_speed_def,堅
+ui_battle_char_bodybuilder,ボディビルダー
+ui_role_char_bodybuilder,バッファー・タンク
+ui_battle_skill_bb_regen,パンプアップ
+ui_desc_skill_bb_regen,味方全員に再生を与える。5秒のあいだ毎秒、それぞれの最大体力の3%を回復する
+ui_battle_skill_bb_cheer,マッスルエール
+ui_desc_skill_bb_cheer,味方全員の攻撃力 +20%（6秒）
+ui_battle_skill_bb_guard,鋼の大胸筋
+ui_desc_skill_bb_guard,自分に最大体力の30%のシールドを張る（6秒）
+ui_battle_skill_bb_cleanse,スマイル
+ui_desc_skill_bb_cleanse,味方全員のデバフを解除する
+ui_battle_skill_bb_hype,ナイスバルク
+ui_desc_skill_bb_hype,味方全員のスキルのクールダウンを3秒縮める
+ui_battle_skill_bb_pose,ポージング
+ui_desc_skill_bb_pose,溜めている間ポーズをとり、離すとまたポーズ。溜めている間に受けたダメージの半分を回復し、周りの敵に受けたダメージと攻撃力の分のダメージを与える
+ui_battle_passive_bb_pose,見せる筋肉
+ui_desc_passive_bb_pose,スキルを使うと、味方全員の受けるダメージ −10%（3秒）
+ui_battle_passive_bb_pump,筋肉の回復
+ui_desc_passive_bb_pump,通常攻撃が敵に当たるたび、最大体力の2%を回復する
+ui_status_ch_st_bb_regen,再
+ui_status_ch_st_bb_cheer,援
+ui_status_ch_st_bb_guard,胸
+ui_status_ch_st_bb_pose_guard,筋
+ui_status_ch_st_bb_pose_watch,見
+ui_status_ch_st_bb_pump_watch,肉

@@ -1267,6 +1267,10 @@ static func _scale_value_sum(
 		if source == SkillSchema.SCALE_CHARGE_RATIO:
 			total += weight * float(entry.get(SkillSchema.SCALE_FIELD_CHARGE, 1.0))
 			continue
+		# 溜め始めから受けたダメージ（回BB-1）。⚠ 撃つ瞬間に fold_charge_taken() が項へ書いた値（⚠ 溜めないスキルは 0）。
+		if source == SkillSchema.SCALE_CHARGE_TAKEN:
+			total += weight * float(entry.get(SkillSchema.SCALE_FIELD_TAKEN, 0.0))
+			continue
 		# 能力値が状態で何％上がっているか（回BK-1）。⚠ 素の値から・下がっているときは 0。
 		if source == SkillSchema.SCALE_STAT_GAIN_PCT:
 			var gu: BattleUnit = target if of == SkillSchema.SCALE_OF_TARGET else user
@@ -1398,6 +1402,20 @@ static func _fold_spent_into(effects: Array, spent: int) -> void:
 		var raw_react: Variant = effect.get("react", null)
 		if raw_react is Dictionary and (raw_react as Dictionary).get("effects", null) is Array:
 			_fold_spent_into((raw_react as Dictionary)["effects"] as Array, spent)
+
+
+# 溜め始めから受けたダメージを scale_from の項へ畳み込んだ実効スキルデータを返す（回BB-1）。
+# ⚠ 呼ぶのは戦闘の画面の _fire_skill() だけ（⚠ 溜めないスキルは 0 で畳む）。
+static func fold_charge_taken(skill_data: Dictionary, taken: int) -> Dictionary:
+	var effective: Dictionary = skill_data.duplicate(true)
+	var raw_effects: Variant = effective.get("effects", null)
+	if raw_effects is Array:
+		for raw_effect: Variant in (raw_effects as Array):
+			if raw_effect is Dictionary and (raw_effect as Dictionary).get("scale_from", null) is Array:
+				for term: Variant in ((raw_effect as Dictionary)["scale_from"] as Array):
+					if term is Dictionary and str((term as Dictionary).get("source", "")) == SkillSchema.SCALE_CHARGE_TAKEN:
+						(term as Dictionary)[SkillSchema.SCALE_FIELD_TAKEN] = taken
+	return effective
 
 
 # チャージ倍率を effects[].multiplier に畳み込んだ実効スキルデータを返す。

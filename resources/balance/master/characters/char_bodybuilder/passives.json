@@ -1,0 +1,77 @@
+{
+	"passive_bb_pose": {
+		"name_key": "ui_battle_passive_bb_pose",
+		"user_character_id": "char_bodybuilder",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_bb_pose_watch",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "skill_used",
+					"effects": [
+						{
+							"type": "buff",
+							"host": "unit",
+							"status_id": "st_bb_pose_guard",
+							"duration_sec": 3.0,
+							"stack": "refresh",
+							"intervene": {
+								"reduction_pct": 10
+							},
+							"target": {
+								"team": "ally",
+								"mode": "select",
+								"sort": "all"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"passive_bb_pump": {
+		"name_key": "ui_battle_passive_bb_pump",
+		"user_character_id": "char_bodybuilder",
+		"unlock_total_points": 0,
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "st_bb_pump_watch",
+				"stack": "refresh",
+				"duration_sec": 99999.0,
+				"react": {
+					"event": "basic_hit",
+					"effects": [
+						{
+							"type": "heal",
+							"multiplier": 1.0,
+							"scale_from": [
+								{
+									"source": "hp",
+									"of": "user",
+									"weight": 0.02
+								}
+							],
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	}
+}

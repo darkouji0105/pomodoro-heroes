@@ -140,6 +140,8 @@ const SHOT_PREPARE_GUNSLINGER_PARTY: String = "gunslinger_party"
 const SHOT_PREPARE_MAGNUM_PARTY: String = "magnum_party"
 # ⚠ バイク（回BK-1）：⚠ バイクを1番目に入れる（⚠ 内側の `PREPARE_BIKER_PARTY` と同じ字）。
 const SHOT_PREPARE_BIKER_PARTY: String = "biker_party"
+# ⚠ ボディビルダー（回BB-1）：⚠ ボディビルダーを1番目に入れる（⚠ 内側の `PREPARE_BODYBUILDER_PARTY` と同じ字）。
+const SHOT_PREPARE_BODYBUILDER_PARTY: String = "bodybuilder_party"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -1507,6 +1509,43 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_bk_charge", "prepare": PREPARE_NONE, "gap": 1.0, "hold_sec": 1.0},
 		],
 	},
+	# ボディビルダー（回BB-1）。⚠ Lv20 に上げてから枠に入れる。⚠ いちばん前（3番目）に置く＝殴られる。
+	"bb_a": {
+		"kind": KIND_BATTLE,
+		"note": "ボディビルダー A：パンプアップ（全員に再生＝それぞれが毎秒回復）→ マッスルエール（全員の攻撃）・見せる筋肉（スキルのたびに全員の軽減）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_life", "char_debug_mix", "char_bodybuilder"],
+		"levels": {"char_bodybuilder": 20},
+		"skills": {"char_bodybuilder": ["skill_bb_regen", "skill_bb_cheer"]},
+		"fire": [
+			{"skill": "skill_bb_regen", "prepare": PREPARE_NONE, "gap": 2.0},
+			{"skill": "skill_bb_cheer", "prepare": PREPARE_NONE, "gap": 1.0},
+		],
+	},
+	"bb_b": {
+		"kind": KIND_BATTLE,
+		"note": "ボディビルダー B：鋼の大胸筋（シールド）→ スマイル（全員のデバフ解除）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_life", "char_debug_mix", "char_bodybuilder"],
+		"levels": {"char_bodybuilder": 20},
+		"skills": {"char_bodybuilder": ["skill_bb_guard", "skill_bb_cleanse"]},
+		"fire": [
+			{"skill": "skill_bb_guard", "prepare": PREPARE_NONE, "gap": 2.0},
+			{"skill": "skill_bb_cleanse", "prepare": PREPARE_NONE, "gap": 2.0},
+		],
+	},
+	"bb_c": {
+		"kind": KIND_BATTLE,
+		"note": "ボディビルダー C：ナイスバルク（全員のクールダウン −3 秒）→ ポージング（1.0 秒溜め・受けた分で回復と反撃）",
+		"stage_id": "stage_dbg_area",
+		"party": ["char_debug_life", "char_debug_mix", "char_bodybuilder"],
+		"levels": {"char_bodybuilder": 20},
+		"skills": {"char_bodybuilder": ["skill_bb_hype", "skill_bb_pose"]},
+		"fire": [
+			{"skill": "skill_bb_hype", "prepare": PREPARE_NONE, "gap": 3.0},
+			{"skill": "skill_bb_pose", "prepare": PREPARE_NONE, "gap": 1.0, "hold_sec": 1.0},
+		],
+	},
 	"char_resource": {
 		"kind": KIND_REPORT,
 		"report": REPORT_CHAR_RESOURCE,
@@ -1925,6 +1964,17 @@ const SCENARIOS: Dictionary = {
 				"settle": 60,
 			},
 			# ⚠ 狂った神の使い（回GM-1）：⚠ 顔・パッシブのマス・スキルのマス。
+			# ⚠ ボディビルダー（回BB-1）：⚠ 顔・パッシブのマス・スキルのマス。
+			{
+				"name": "9g_bodybuilder_battle",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_BODYBUILDER_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
 			# ⚠ バイク（回BK-1）：⚠ 顔・パッシブのマス・走っている姿。
 			{
 				"name": "9f_biker_battle",
@@ -2219,6 +2269,7 @@ func _ready() -> void:
 			_report_magnum()
 			_report_priest()
 			_report_biker()
+			_report_bodybuilder()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -10269,6 +10320,120 @@ func _report_biker() -> void:
 		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
 
 
+# ボディビルダー（回BB-1）。⚠ 付けられた人が撃つ◯秒ごと・溜め始めから受けたダメージ・スキルのたびに全員の軽減・通常攻撃が当たるたびに回復。
+# ⚠ 本当に回復する（付けられた人が撃つ）のは戦闘の画面の仕事＝本物の戦闘 bb_a〜bb_c が見る。
+func _report_bodybuilder() -> void:
+	var me: BattleUnit = _resource_unit("char_bodybuilder", 0)
+	var mate: BattleUnit = _resource_unit("char_archer", 1)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 5000
+	var near: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var near2: BattleUnit = BattleUnit.create("enemy_1", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	var far: BattleUnit = BattleUnit.create("enemy_2", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	me.x = 400.0
+	mate.x = 300.0
+	near.x = 460.0
+	near2.x = 490.0
+	far.x = 700.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [me, mate]
+	session.enemy_units = [near, near2, far]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+	var results: Array = []
+	runtime.effects_applied.connect(func(rs: Array) -> void: results.append_array(rs))
+	registry.effects_applied.connect(func(rs: Array) -> void: results.append_array(rs))
+
+	print("[DebugBoot] --- 113. 付けられた人が撃つ◯秒ごと（⚠ パンプアップ＝全員・1 秒ごと・5 秒）---")
+	runtime.cast(me, "skill_bb_regen", MasterDataLoader.get_skill("skill_bb_regen"), 1.0)
+	results.clear()
+	registry.tick(1.0)
+	var hosts: Array = []
+	for r: Variant in results:
+		if r is Dictionary and str((r as Dictionary).get("kind", "")) == SkillSchema.FIELD_PULSE:
+			hosts.append("%s(from=%s・付けた人 %s)" % [str(r["host_unit_id"]), str(r.get(SkillSchema.PULSE_FIELD_FROM, "")), str(r["source_unit_id"])])
+	print("  1.0 秒で %d 回（2＝2 人）：%s" % [hosts.size(), ", ".join(hosts)])
+
+	print("[DebugBoot] --- 114. 溜め始めから受けたダメージ（⚠ ポージング＝受けた分 ×1.0 ＋ 攻撃 ×0.8 で周りへ・受けた分の半分を回復）---")
+	for taken: int in [0, 40]:
+		me.hp = me.max_hp - 60
+		var hp0: int = me.hp
+		var folded: Dictionary = SkillResolver.fold_charge_taken(MasterDataLoader.get_skill("skill_bb_pose"), taken)
+		var dmg: Array = []
+		var healed: int = 0
+		results.clear()
+		# ⚠ 相手を固定しない（⚠ 固定すると回復まで敵に向く）＝本物と同じく cast() に選ばせる。
+		runtime.cast(me, "skill_bb_pose", folded, 1.0)
+		for r: Variant in results:
+			if r is Dictionary and not (r as Dictionary).has("kind"):
+				if bool((r as Dictionary).get("is_heal", false)):
+					healed += int(r.get("amount", 0))
+				else:
+					dmg.append("%s:%d" % [str(r.get("unit_id", "")), int(r.get("amount", 0))])
+		print("  受けた %d：ダメージ %s・回復 %d（%d）・HP %d → %d" % [taken, ", ".join(dmg), healed, taken / 2, hp0, me.hp])
+	print("  溜めないスキル（パンプアップ）に畳んでも変わらない：%s" % str(SkillResolver.fold_charge_taken(MasterDataLoader.get_skill("skill_bb_regen"), 40) == MasterDataLoader.get_skill("skill_bb_regen")))
+
+	print("[DebugBoot] --- 115. 見せる筋肉（⚠ スキルを使うたびに全員の受けるダメージ −10%%・3 秒）---")
+	runtime.cast(me, "passive_bb_pose", MasterDataLoader.get_skill("passive_bb_pose"), 1.0)
+	print("  使う前：自分 %s・弓兵 %s（false・false）" % [str(registry.count_stacks("party_0", "st_bb_pose_guard") > 0), str(registry.count_stacks("party_1", "st_bb_pose_guard") > 0)])
+	runtime.notify_skill_used(me)
+	registry.tick(0.01)
+	print("  使った：自分 %s・弓兵 %s（true・true）" % [str(registry.count_stacks("party_0", "st_bb_pose_guard") > 0), str(registry.count_stacks("party_1", "st_bb_pose_guard") > 0)])
+	registry.tick(3.1)
+	print("  3.1 秒後：自分 %s（false）" % str(registry.count_stacks("party_0", "st_bb_pose_guard") > 0))
+
+	print("[DebugBoot] --- 116. 筋肉の回復（⚠ 通常攻撃が当たるたびに最大体力の 2%%＝周り 100 の 2 体に当たる）---")
+	runtime.cast(me, "passive_bb_pump", MasterDataLoader.get_skill("passive_bb_pump"), 1.0)
+	me.hp = me.max_hp - 60
+	var hp_before: int = me.hp
+	results.clear()
+	# ⚠ target を書いた通常攻撃は相手を固定しない（⚠ 戦闘の画面の _fire_basic_attack() と同じ）。
+	runtime.cast(me, SkillSchema.BASIC_ATTACK_SKILL_ID, me.basic_attack, 1.0)
+	registry.tick(0.01)
+	var hit_ids: Array = []
+	for r: Variant in results:
+		if r is Dictionary and not (r as Dictionary).has("kind") and not bool((r as Dictionary).get("is_heal", false)) and str(r.get("source_unit_id", "")) == "party_0":
+			hit_ids.append(str(r.get("unit_id", "")))
+	print("  当たった %s（enemy_0・enemy_1・遠い enemy_2 には当たらない）・HP %d → %d（+%d＝最大 %d の 2%% × %d）" % [
+		str(hit_ids), hp_before, me.hp, me.hp - hp_before, me.max_hp, hit_ids.size()])
+
+	print("[DebugBoot] --- 118. ナイスバルク（⚠ 味方全員のスキルのクールダウン −3 秒）---")
+	# ⚠ 縮むのは持っているスキルだけ＝枠に入れてから（⚠ _resource_unit() の枠は空）。
+	var my_cd: String = "skill_bb_cheer"
+	var mate_cd: String = "skill_pr_heal"
+	me.skill_ids = [my_cd, "skill_bb_hype"]
+	mate.skill_ids = [mate_cd]
+	me.start_cooldown(my_cd, 10.0)
+	mate.start_cooldown(mate_cd, 10.0)
+	runtime.cast(me, "skill_bb_hype", MasterDataLoader.get_skill("skill_bb_hype"), 1.0)
+	print("  自分の %s 10.0 → %.1f・弓兵の %s 10.0 → %.1f（7.0・7.0）" % [my_cd, me.get_cooldown(my_cd), mate_cd, mate.get_cooldown(mate_cd)])
+
+	print("[DebugBoot] --- 117. 壊した書き方（⚠ 赤が要るもの・要らないもの）---")
+	var heal_self: Dictionary = {"type": "heal", "multiplier": 1.0, "scale_from": [{"source": "hp", "of": "user", "weight": 0.03}], "target": {"team": "self"}}
+	var dm: Dictionary = {"type": "damage", "multiplier": 1.0, "attack_type": "physical", "scale_from": "atk"}
+	var probes: Array = [
+		["pulse.from が 'source'", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "pulse": {"interval_sec": 1.0, "from": "source", "effects": [heal_self]}}, true],
+		["_taken をデータに書く", (dm.duplicate() as Dictionary).merged({"scale_from": [{"source": "charge_taken", "_taken": 10}]}, true), true],
+		["付けられた人が撃つ再生（正しい）", {"type": "buff", "host": "unit", "status_id": "st_a", "stack": "refresh", "duration_sec": 3.0, "pulse": {"interval_sec": 1.0, "from": "host", "effects": [heal_self]}}, false],
+		["受けた分で殴る（正しい）", (dm.duplicate() as Dictionary).merged({"scale_from": [{"source": "charge_taken", "weight": 1.0}]}, true), false],
+	]
+	for probe: Array in probes:
+		var data: Dictionary = {
+			"name_key": "x", "user_character_id": "char_bodybuilder", "unlock_level": 1, "cooldown_sec": 1.0,
+			"activation": "instant", "target": {"team": "enemy", "mode": "select", "sort": "nearest", "count": 1}, "effects": [probe[1]],
+		}
+		var errors: int = 0
+		var first: String = ""
+		for issue: Variant in SkillSchema.validate("skill_probe", data):
+			if issue is Dictionary and str((issue as Dictionary).get("level", "")) == SkillSchema.LEVEL_ERROR:
+				errors += 1
+				if first == "":
+					first = str((issue as Dictionary).get("message", ""))
+		var ok: bool = (errors >= 1) if bool(probe[2]) else (errors == 0)
+		print("  %s -> 赤 %d 件 %s %s" % [str(probe[0]), errors, "OK" if ok else "NG", first])
+
+
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:
 	return SkillActivation.blocked_reason(unit, skill_id, MasterDataLoader.get_skill(skill_id), session)
 
@@ -12546,6 +12711,7 @@ class ShotTaker extends Node:
 	const PREPARE_GUNSLINGER_PARTY: String = "gunslinger_party"
 	const PREPARE_MAGNUM_PARTY: String = "magnum_party"
 	const PREPARE_BIKER_PARTY: String = "biker_party"
+	const PREPARE_BODYBUILDER_PARTY: String = "bodybuilder_party"
 	const PREPARE_PRINCESS_PARTY: String = "princess_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
@@ -12922,6 +13088,11 @@ class ShotTaker extends Node:
 		if kind == PREPARE_PRINCESS_PARTY:
 			for princess_i: int in range(3):
 				if not GameManager.set_party_member(princess_i, ["char_princess", "char_archer", "char_priest"][princess_i]):
+					return false
+			return true
+		if kind == PREPARE_BODYBUILDER_PARTY:
+			for bb_i: int in range(3):
+				if not GameManager.set_party_member(bb_i, ["char_bodybuilder", "char_archer", "char_priest"][bb_i]):
 					return false
 			return true
 		if kind == PREPARE_BIKER_PARTY:

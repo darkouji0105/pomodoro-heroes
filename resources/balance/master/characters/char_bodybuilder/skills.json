@@ -1,0 +1,181 @@
+{
+	"skill_bb_regen": {
+		"name_key": "ui_battle_skill_bb_regen",
+		"user_character_id": "char_bodybuilder",
+		"unlock_level": 1,
+		"cooldown_sec": 12.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bb_regen",
+				"duration_sec": 5.0,
+				"stack": "refresh",
+				"pulse": {
+					"interval_sec": 1.0,
+					"from": "host",
+					"effects": [
+						{
+							"type": "heal",
+							"multiplier": 1.0,
+							"scale_from": [
+								{
+									"source": "hp",
+									"of": "user",
+									"weight": 0.03
+								}
+							],
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"skill_bb_cheer": {
+		"name_key": "ui_battle_skill_bb_cheer",
+		"user_character_id": "char_bodybuilder",
+		"unlock_level": 1,
+		"cooldown_sec": 14.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bb_cheer",
+				"duration_sec": 6.0,
+				"stack": "refresh",
+				"stat": "atk",
+				"stat_pct": 20
+			}
+		]
+	},
+	"skill_bb_guard": {
+		"name_key": "ui_battle_skill_bb_guard",
+		"user_character_id": "char_bodybuilder",
+		"unlock_level": 5,
+		"cooldown_sec": 10.0,
+		"activation": "instant",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "st_bb_guard",
+				"duration_sec": 6.0,
+				"stack": "refresh",
+				"intervene": {
+					"shield_from": [
+						{
+							"source": "hp",
+							"of": "user",
+							"weight": 0.3
+						}
+					]
+				}
+			}
+		]
+	},
+	"skill_bb_cleanse": {
+		"name_key": "ui_battle_skill_bb_cleanse",
+		"user_character_id": "char_bodybuilder",
+		"unlock_level": 10,
+		"cooldown_sec": 16.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "dispel",
+				"what": "debuff"
+			}
+		]
+	},
+	"skill_bb_hype": {
+		"name_key": "ui_battle_skill_bb_hype",
+		"user_character_id": "char_bodybuilder",
+		"unlock_level": 15,
+		"cooldown_sec": 20.0,
+		"activation": "instant",
+		"target": {
+			"team": "ally",
+			"mode": "select",
+			"sort": "all"
+		},
+		"effects": [
+			{
+				"type": "cooldown",
+				"sec": 3.0,
+				"skills": "all"
+			}
+		]
+	},
+	"skill_bb_pose": {
+		"name_key": "ui_battle_skill_bb_pose",
+		"user_character_id": "char_bodybuilder",
+		"unlock_level": 20,
+		"cooldown_sec": 18.0,
+		"activation": "charge",
+		"charge": {
+			"just_sec": 1.0,
+			"just_window_sec": 0.15,
+			"min_ratio": 0.6,
+			"just_bonus": 1.3
+		},
+		"target": {
+			"team": "enemy",
+			"mode": "area",
+			"origin": "user",
+			"radius": 150.0
+		},
+		"effects": [
+			{
+				"type": "damage",
+				"delivery": "melee",
+				"multiplier": 1.0,
+				"attack_type": "physical",
+				"scale_from": [
+					{
+						"source": "charge_taken",
+						"weight": 1.0
+					},
+					{
+						"source": "atk",
+						"weight": 0.8
+					}
+				]
+			},
+			{
+				"type": "heal",
+				"multiplier": 1.0,
+				"scale_from": [
+					{
+						"source": "charge_taken",
+						"weight": 0.5
+					}
+				],
+				"target": {
+					"team": "self"
+				}
+			}
+		]
+	}
+}

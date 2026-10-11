@@ -966,6 +966,71 @@
 			"spd": 1
 		}
 	},
+	"char_bodybuilder": {
+		"basic_attack": {
+			"target": {
+				"team": "enemy",
+				"mode": "select",
+				"sort": "nearest",
+				"count": 1
+			},
+			"effects": [
+				{
+					"type": "damage",
+					"delivery": "melee",
+					"multiplier": 0.8,
+					"attack_type": "physical",
+					"scale_from": "atk",
+					"target": {
+						"team": "enemy",
+						"mode": "area",
+						"origin": "user",
+						"radius": 100.0
+					}
+				}
+			]
+		},
+		"name_key": "ui_battle_char_bodybuilder",
+		"sign_style": "brush",
+		"sign_mark": "cross",
+		"weapon_genre": "gauntlet",
+		"hp": 170,
+		"atk": 11,
+		"mag": 4,
+		"def": 10,
+		"mdef": 8,
+		"spd": 55,
+		"atkspd": 0,
+		"haste": 0,
+		"crit_rate": 5,
+		"crit_dmg": 150,
+		"attack_type": "physical",
+		"attack_range": 90,
+		"attack_interval_sec": 1.6,
+		"skills": [
+			"skill_bb_regen",
+			"skill_bb_cheer",
+			"skill_bb_guard",
+			"skill_bb_cleanse",
+			"skill_bb_hype",
+			"skill_bb_pose"
+		],
+		"passives": [
+			"passive_bb_pose",
+			"passive_bb_pump"
+		],
+		"allocatable_stats": [
+			"hp",
+			"atk",
+			"def"
+		],
+		"growth_per_level": {
+			"hp": 8,
+			"atk": 1,
+			"def": 1,
+			"spd": 1
+		}
+	},
 	"char_debug_status": {
 		"basic_attack": {
 			"effects": [

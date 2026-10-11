@@ -119,6 +119,8 @@ const CHARACTER_DIRS_REQUIRED: Array[String] = [
 	DIR_CHARACTERS + "char_magnum/",
 	# ⚠ バイク（2026-10-11・回BK-1）。
 	DIR_CHARACTERS + "char_biker/",
+	# ⚠ ボディビルダー（2026-10-11・回BB-1）。
+	DIR_CHARACTERS + "char_bodybuilder/",
 ]
 # 検証用。⚠ 無いのが正常（リリース前にフォルダごと消す）。
 const CHARACTER_DIRS_OPTIONAL: Array[String] = [
