@@ -40,6 +40,15 @@ const KIND_UI_FLOW: String = "ui_flow"
 const KIND_CLOSE: String = "close"
 # ⚠ 難ダンジョンを自動で潜って数字を取る枝（2026-10-03・回6）。⚠ 係（`DungeonSimRunner`）を root に置く。
 const KIND_DUNGEON_SIM: String = "dungeon_sim"
+# ⚠ 総当たりの戦闘（2026-10-11・回SOAK-1・人間「⚠ 大規模なテストをしたい　人間がするテストを減らすため」→「⚠ １い　２あ　３あ」）。
+# ⚠ 係（`SoakRunner`）を root に置く。⚠ 引数 from= count=（⚠ 何戦目から何戦）・give_up=（⚠ 決着しない上限の秒）。
+const KIND_SOAK: String = "soak"
+# ⚠ 総当たりに入れる本物のキャラ（⚠ 検証用の char_debug_* は入れない）。⚠ キャラを足したらここにも足す。
+const SOAK_CHARACTERS: Array = [
+	"char_swordsman", "char_archer", "char_priest", "char_scholar", "char_princess", "char_necro", "char_zealot",
+	"char_mercenary", "char_vampire", "char_phoenix", "char_student", "char_gunslinger", "char_magnum", "char_biker",
+	"char_bodybuilder",
+]
 
 # KIND_REPORT の中でどの報告を出すか。
 # ⚠ 枝が増えたら _ready() の match に1行足す。シーンもスクリプトも増やさないこと。
@@ -1603,6 +1612,18 @@ const SCENARIOS: Dictionary = {
 		"note": "難ダンジョンを自動で潜る（スキルは撃てたら撃つ・休憩・ポーション・商人）→ 何層で倒れるか・コイン・ポーションの数字",
 		"party": ["char_swordsman", "char_archer", "char_priest"],
 	},
+	# ⚠ 総当たりの戦闘（2026-10-11・回SOAK-1）。⚠ 15人から3人 ＝ 455 パーティ × スキルの組 3 ＝ 1365 戦。
+	# ⚠ 見張るもの・書き出す先は `SoakRunner` の頭。⚠ 長いので `from=` `count=` で分けて回せる。
+	"soak": {
+		"kind": KIND_SOAK,
+		"note": "総当たりの戦闘：3人の組み合わせ全部 × スキルの組3つを本物のステージで戦わせ、赤・黄・HP・座標・状態・待ち行列・決着を見張る",
+		"party": ["char_swordsman", "char_archer", "char_priest"],
+		"levels": {
+			"char_swordsman": 20, "char_archer": 20, "char_priest": 20, "char_scholar": 20, "char_princess": 20,
+			"char_necro": 20, "char_zealot": 20, "char_mercenary": 20, "char_vampire": 20, "char_phoenix": 20,
+			"char_student": 20, "char_gunslinger": 20, "char_magnum": 20, "char_biker": 20, "char_bodybuilder": 20,
+		},
+	},
 	"close": {
 		"kind": KIND_CLOSE,
 		"note": "窓を閉じる道（回P-1）：ポモドーロを開いて閉じる合図 → 確定 → 検査用のファイルに書いて終わる",
@@ -2288,6 +2309,13 @@ func _ready() -> void:
 		taker.only = _read_user_arg("shot_only=")
 		# ⚠ Driver と同じ理由で root に残す。⚠ 画面を差し替えると自分（＝debug_boot）は消える。
 		get_tree().root.add_child.call_deferred(taker)
+		return
+
+	if str(scenario.get("kind", KIND_BATTLE)) == KIND_SOAK:
+		var soak: SoakRunner = SoakRunner.new()
+		soak.name = "DebugBootSoak"
+		soak.characters = SOAK_CHARACTERS.duplicate()
+		get_tree().root.add_child.call_deferred(soak)
 		return
 
 	if str(scenario.get("kind", KIND_BATTLE)) == KIND_DUNGEON_SIM:
@@ -6291,6 +6319,396 @@ func _owner_of(instance_id: String) -> String:
 # ⚠ 引数：`runs=`（既定 10）・`level=`（3人の Lv・既定 1＝新しいセーブのまま）・`floors=`（ここまで潜ったら持ち帰る・既定 10）・`speed=`（既定 8）。
 # ⚠ 状態は書き換えるが保存しない（⚠ debug_boot の約束）。
 # ============================================================
+# 総当たりの戦闘（2026-10-11・回SOAK-1・人間「⚠ 大規模なテストをしたい　人間がするテストを減らすため一回　たとえばパーティー間での作用でバグがあるかもしれないから」→「⚠ １い　２あ　３あ」）。
+#
+# ⚠ 1つの Godot の中で、3人の組み合わせ全部 × スキルの組（枠2つ × 3組）を本物のステージ（floor_1〜5 を順に）で戦わせる。
+# ⚠ スキルは撃てたら撃つ（⚠ オートと同じ）。⚠ 溜めのスキルだけは本物のボタンの入口から 0.2〜1.6 秒溜めて離す（⚠ オートは溜めない）。
+# ⚠ 毎フレーム見張るもの：HP（負・最大超え・数でない）・座標（戦場の外・数でない）・状態（1人に多すぎる・時間切れなのに残る）・
+#   待ち行列（多すぎる・倒れた人の分が残る）・倒れた人が走る／トグルが入ったまま・倒れた人が起き上がる（⚠ 起こせるキャラが居ないのに）・
+#   ありえない数字（最大HPの10倍以上・負）。⚠ 赤・黄は Logger で横取りして、その戦闘に紐づける。
+# ⚠ 決着しない（give_up 秒）は「決着せず」として数え、全員を倒させて次へ（⚠ バグとは分ける＝バランスの問題かもしれない）。
+# ⚠ 書き出す先：`user://logs/soak_results.jsonl`（1戦1行・⚠ 途中で落ちても残る）／ `user://logs/soak_summary.txt`（まとめ）。
+# ⚠ 同じ戦闘をもう一度起こす：`-- scenario=soak from=<番号> count=1`（⚠ 乱数の種は番号で決まる）。
+class SoakRunner extends Node:
+	const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
+	const STAGES: Array = ["floor_1", "floor_2", "floor_3", "floor_4", "floor_5"]
+	const GROUPS: int = 3
+	const RESULTS_PATH: String = "user://logs/soak_results.jsonl"
+	const SUMMARY_PATH: String = "user://logs/soak_summary.txt"
+	const SEED_BASE: int = 70000
+	const MAX_STATUSES_PER_UNIT: int = 60
+	const MAX_PENDING: int = 300
+	const ABSURD_RATIO: float = 10.0
+	# ⚠ 敵の底上げ（⚠ Lv20 の3人だと floor の敵は 0.03〜3 秒で倒れ、クールダウンの長いスキルが撃たれない）。
+	# ⚠ 種類・スキルは本物のまま、HP と攻撃・魔力だけ倍にする。⚠ 途中で出てきた敵（召喚など）も最初に見たときに倍にする。
+	const ENEMY_HP_MULT: int = 40
+	const ENEMY_POWER_MULT: int = 2
+	const X_MIN: float = -200.0
+	const X_MAX: float = 1500.0
+	# ⚠ 倒れた味方を起こせるキャラ（⚠ フェニックスは自分・僧侶はリザレクション）。⚠ 居ないのに起き上がったら見張りに当たる。
+	const REVIVERS: Array = ["char_phoenix", "char_priest"]
+	# ⚠ ロード時に必ず出る黄（⚠ 前からの `skill_dbg_dot_odd`）は戦闘と関係ないので数えない。
+	const IGNORE_MESSAGES: Array = ["skill_dbg_dot_odd"]
+
+	var characters: Array = []
+	var from_index: int = 0
+	var count: int = -1
+	# ⚠ この秒で区切る（⚠ 敵を底上げしているので、区切るのが普通＝「時間で区切った」・バグとは数えない）。
+	var give_up_sec: float = 40.0
+	var _parties: Array = []
+	var _catcher: SoakLogCatcher = null
+	var _current: Dictionary = {}
+	var _summary_rows: Array = []
+	var _skill_casts: Dictionary = {}
+	var _started_msec: int = 0
+
+	func _ready() -> void:
+		for arg: String in OS.get_cmdline_user_args():
+			if arg.begins_with("from="):
+				from_index = maxi(0, int(arg.substr(5)))
+			elif arg.begins_with("count="):
+				count = int(arg.substr(6))
+			elif arg.begins_with("give_up="):
+				give_up_sec = maxf(10.0, float(arg.substr(8)))
+		ResourceGainEffect.set_muted(true)
+		SoundManager.set("_config", null)
+		for a: int in range(characters.size()):
+			for b: int in range(a + 1, characters.size()):
+				for c: int in range(b + 1, characters.size()):
+					_parties.append([characters[a], characters[b], characters[c]])
+		var total: int = _parties.size() * GROUPS
+		var last: int = total if count < 0 else mini(total, from_index + count)
+		print("[Soak] %d 人 → %d パーティ × スキルの組 %d ＝ %d 戦 ／ 今回 %d〜%d 戦目" % [
+			characters.size(), _parties.size(), GROUPS, total, from_index, last - 1])
+		_catcher = SoakLogCatcher.new()
+		OS.add_logger(_catcher)
+		if from_index == 0:
+			var f: FileAccess = FileAccess.open(RESULTS_PATH, FileAccess.WRITE)
+			if f != null:
+				f.close()
+		_started_msec = Time.get_ticks_msec()
+		for index: int in range(from_index, last):
+			await _one(index)
+			if (index - from_index + 1) % 25 == 0:
+				print("[Soak] %d / %d 戦（%.0f 秒）" % [index - from_index + 1, last - from_index, float(Time.get_ticks_msec() - _started_msec) / 1000.0])
+		OS.remove_logger(_catcher)
+		_summary()
+		get_tree().quit()
+
+	func _one(index: int) -> void:
+		var party: Array = _parties[index / GROUPS]
+		var group: int = index % GROUPS
+		var stage_id: String = str(STAGES[index % STAGES.size()])
+		for i: int in range(3):
+			if not GameManager.set_party_member(i, str(party[i])):
+				push_error("[Soak] set_party_member(%d, %s) が false" % [i, str(party[i])])
+		var skills_used: Array = []
+		for member: Variant in party:
+			var all_skills: Array = (MasterDataLoader.get_character(str(member)) as Dictionary).get("skills", [])
+			for slot: int in range(GameManager.get_skill_slot_count()):
+				var k: int = group * GameManager.get_skill_slot_count() + slot
+				if k < all_skills.size():
+					GameManager.select_skill(str(member), slot, str(all_skills[k]))
+					skills_used.append(str(all_skills[k]))
+		seed(SEED_BASE + index)
+		_current = {"index": index, "party": party, "group": group, "stage": stage_id, "issues": [], "result": "", "sec": 0.0, "skills": skills_used}
+		# ⚠ フロア（floor_1〜5）は波を持たない＝マスから敵を組む（⚠ ui_flow の _flow_battle_auto() と同じ形）。
+		# ⚠ 4戦に1回はボスのマス。⚠ 終わったらフロアを抜ける（⚠ 状態は保存しない）。
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		var node_id: String = ""
+		if GameManager.start_floor(stage_id):
+			var want: String = GameStateKeys.FLOOR_NODE_KIND_BOSS if index % 4 == 3 else GameStateKeys.FLOOR_NODE_KIND_BATTLE
+			var nodes: Dictionary = GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_NODES, {})
+			for raw_id: Variant in nodes:
+				if str((nodes[raw_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == want:
+					node_id = str(raw_id)
+					break
+		_current["node"] = node_id
+		if node_id == "":
+			_issue("open", "%s に戦闘のマスが無い" % stage_id)
+			_finish()
+			return
+		_catcher.begin()
+		SceneManager.change_scene_with_data(BATTLE_PATH, {
+			TransferKeys.STAGE_ID: stage_id,
+			TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY,
+			TransferKeys.FLOOR_NODE_ID: node_id,
+		})
+		var battle: Node = null
+		for _i: int in range(600):
+			await get_tree().process_frame
+			var scene: Node = get_tree().current_scene
+			if scene != null and scene.scene_file_path == BATTLE_PATH and scene.has_method("get_session") and scene.call("get_session") != null:
+				battle = scene
+				break
+		if battle == null:
+			_issue("open", "戦闘画面が開かなかった")
+			_finish()
+			return
+		var session: BattleSession = battle.call("get_session")
+		var runtime: SkillRuntime = battle.get("_skill_runtime")
+		var registry: StatusRegistry = battle.get("_status")
+		var on_results: Callable = func(rs: Array) -> void: _check_results(rs, session)
+		if runtime != null:
+			runtime.effects_applied.connect(on_results)
+		if registry != null:
+			registry.effects_applied.connect(on_results)
+		var holding: Dictionary = {}
+		var hold_left: float = 0.0
+		var dead_since: Dictionary = {}
+		var boosted: Dictionary = {}
+		while session.state != BattleSession.STATE_VICTORY and session.state != BattleSession.STATE_DEFEAT:
+			if session.elapsed_sec > give_up_sec:
+				_current["result"] = "時間で区切った"
+				battle.call("debug_kill_all_enemies")
+				for _w: int in range(30):
+					await get_tree().process_frame
+					if session.state == BattleSession.STATE_VICTORY or session.state == BattleSession.STATE_DEFEAT:
+						break
+				break
+			_boost_enemies(session, boosted)
+			var delta: float = get_process_delta_time()
+			# 溜めているなら、時間が来たら離す（⚠ 本物のボタンの入口）。
+			if not holding.is_empty():
+				hold_left -= delta
+				if hold_left <= 0.0 or not (battle.get("_charging") as Dictionary).has("entry"):
+					battle.call("_on_charge_button_up", holding)
+					holding = {}
+			else:
+				for raw: Variant in battle.get("_skill_buttons"):
+					var entry: Dictionary = raw as Dictionary
+					var tile: Variant = entry.get("button", null)
+					var user: Variant = entry.get("user", null)
+					if not (tile is BaseButton and is_instance_valid(tile) and not (tile as BaseButton).disabled and user is BattleUnit and (user as BattleUnit).is_alive()):
+						continue
+					var skill_id: String = str(entry.get("skill_id", ""))
+					if (user as BattleUnit).is_toggle_on(skill_id):
+						continue
+					if not (entry.get("charge", {}) as Dictionary).is_empty():
+						battle.call("_on_charge_button_down", entry)
+						if (battle.get("_charging") as Dictionary).has("entry"):
+							holding = entry
+							hold_left = randf_range(0.2, 1.6)
+							_skill_casts[skill_id] = int(_skill_casts.get(skill_id, 0)) + 1
+							break
+						continue
+					var ready_before: bool = (user as BattleUnit).is_skill_ready(skill_id)
+					battle.call("_on_skill_button_pressed", user, skill_id)
+					if ready_before:
+						_skill_casts[skill_id] = int(_skill_casts.get(skill_id, 0)) + 1
+			await get_tree().process_frame
+			_check_frame(session, runtime, registry, dead_since)
+		if _current["result"] == "":
+			_current["result"] = "勝ち" if session.state == BattleSession.STATE_VICTORY else "負け"
+		_current["sec"] = snappedf(session.elapsed_sec, 0.01)
+		for _i: int in range(5):
+			await get_tree().process_frame
+		if runtime != null and runtime.effects_applied.is_connected(on_results):
+			runtime.effects_applied.disconnect(on_results)
+		if registry != null and registry.effects_applied.is_connected(on_results):
+			registry.effects_applied.disconnect(on_results)
+		_check_after(party)
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		_finish()
+
+	func _boost_enemies(session: BattleSession, boosted: Dictionary) -> void:
+		for raw: Variant in session.enemy_units:
+			if not (raw is BattleUnit) or boosted.has((raw as BattleUnit).unit_id):
+				continue
+			var u: BattleUnit = raw as BattleUnit
+			boosted[u.unit_id] = true
+			u._stats[GameStateKeys.STAT_HP] = int(u._stats.get(GameStateKeys.STAT_HP, 1)) * ENEMY_HP_MULT
+			for key: String in [GameStateKeys.STAT_ATK, GameStateKeys.STAT_MAG]:
+				u._stats[key] = int(u._stats.get(key, 0)) * ENEMY_POWER_MULT
+			u.refresh_derived()
+			u.hp = u.max_hp
+
+	func _all_units(session: BattleSession) -> Array:
+		var units: Array = []
+		units.append_array(session.party_units)
+		units.append_array(session.enemy_units)
+		return units
+
+	func _check_frame(session: BattleSession, runtime: SkillRuntime, registry: StatusRegistry, dead_since: Dictionary) -> void:
+		var t: float = session.elapsed_sec
+		for raw: Variant in _all_units(session):
+			if not (raw is BattleUnit):
+				continue
+			var u: BattleUnit = raw as BattleUnit
+			if is_nan(float(u.hp)) or u.hp < 0 or u.hp > u.max_hp or u.max_hp <= 0:
+				_issue("hp", "%s(%s) の HP がおかしい：%d / %d" % [u.unit_id, u.master_id, u.hp, u.max_hp], t)
+			if is_nan(u.x) or u.x < X_MIN or u.x > X_MAX:
+				_issue("x", "%s(%s) が戦場の外：x=%.1f" % [u.unit_id, u.master_id, u.x], t)
+			if u.hp <= 0:
+				if not dead_since.has(u.unit_id):
+					dead_since[u.unit_id] = t
+				elif t - float(dead_since[u.unit_id]) > 0.2:
+					if not u.ride.is_empty():
+						_issue("dead_ride", "%s(%s) が倒れたあとも走っている" % [u.unit_id, u.master_id], t)
+					if not u.toggles_on.is_empty():
+						_issue("dead_toggle", "%s(%s) が倒れたあともトグルが入っている：%s" % [u.unit_id, u.master_id, str(u.toggles_on.keys())], t)
+			elif dead_since.has(u.unit_id):
+				dead_since.erase(u.unit_id)
+				var can_revive: bool = u.team != BattleUnit.TEAM_PARTY
+				for member: Variant in _current["party"]:
+					if str(member) in REVIVERS:
+						can_revive = true
+				if not can_revive:
+					_issue("revive", "%s(%s) が起こせるキャラが居ないのに起き上がった" % [u.unit_id, u.master_id], t)
+			if registry != null:
+				var entries: Array = registry.entries_for(u.unit_id)
+				if entries.size() > MAX_STATUSES_PER_UNIT:
+					_issue("status_many", "%s(%s) の状態が %d 個" % [u.unit_id, u.master_id, entries.size()], t)
+				for e: Variant in entries:
+					if not (e is Dictionary):
+						continue
+					var ed: Dictionary = e as Dictionary
+					if str(ed.get("life", "")) == StatusRegistry.LIFE_SEC and float(ed.get("elapsed", 0.0)) > float(ed.get("duration_sec", 0.0)) + 0.5:
+						_issue("status_stuck", "%s(%s) の状態 %s が時間切れなのに残っている（%.1f / %.1f 秒）" % [
+							u.unit_id, u.master_id, str(ed.get("status_id", "")), float(ed.get("elapsed", 0.0)), float(ed.get("duration_sec", 0.0))], t)
+		if runtime != null:
+			var pending: Array = runtime.get("_pending")
+			if pending.size() > MAX_PENDING:
+				_issue("pending_many", "待ち行列が %d 件" % pending.size(), t)
+			for raw_p: Variant in pending:
+				if not (raw_p is Dictionary):
+					continue
+				var user_id: String = str((raw_p as Dictionary).get("user_id", ""))
+				var dead: bool = dead_since.has(user_id) and t - float(dead_since[user_id]) > 0.2
+				if dead:
+					_issue("pending_dead", "倒れた %s の待ち行列が残っている（%s）" % [user_id, str((raw_p as Dictionary).get("skill_id", ""))], t)
+
+	func _check_results(results: Array, session: BattleSession) -> void:
+		for raw: Variant in results:
+			if not (raw is Dictionary) or (raw as Dictionary).has("kind"):
+				continue
+			var r: Dictionary = raw as Dictionary
+			var amount: int = int(r.get("amount", 0))
+			var target: BattleUnit = null
+			for u: Variant in _all_units(session):
+				if u is BattleUnit and (u as BattleUnit).unit_id == str(r.get("unit_id", "")):
+					target = u as BattleUnit
+			if amount < 0:
+				_issue("amount_negative", "%s の数字が負：%d（%s → %s）" % ["回復" if bool(r.get("is_heal", false)) else "ダメージ", amount, str(r.get("source_unit_id", "")), str(r.get("unit_id", ""))], session.elapsed_sec)
+			elif target != null and amount > int(float(target.max_hp) * ABSURD_RATIO):
+				_issue("amount_absurd", "%s が最大HPの %.0f 倍：%d（%s → %s(%s)・最大 %d）" % [
+					"回復" if bool(r.get("is_heal", false)) else "ダメージ", float(amount) / float(maxi(1, target.max_hp)), amount,
+					str(r.get("source_unit_id", "")), target.unit_id, target.master_id, target.max_hp], session.elapsed_sec)
+
+	# 戦闘のあと（⚠ セーブに float が乗っていないか＝CLAUDE.md 3番）。
+	func _check_after(party: Array) -> void:
+		for member: Variant in party:
+			var stats: Dictionary = GameManager.get_effective_stats(str(member))
+			for key: Variant in stats:
+				if typeof(stats[key]) == TYPE_FLOAT:
+					_issue("float_stat", "%s の %s が float：%s" % [str(member), str(key), str(stats[key])])
+
+	func _issue(kind: String, message: String, t: float = -1.0) -> void:
+		var issues: Array = _current.get("issues", [])
+		# ⚠ 同じ戦闘で同じ見張りに当たったら最初の1回だけ（⚠ 毎フレーム出ると何万行になる）。
+		for existing: Variant in issues:
+			if str((existing as Dictionary).get("kind", "")) == kind and str((existing as Dictionary).get("message", "")) == message:
+				return
+		for existing2: Variant in issues:
+			if str((existing2 as Dictionary).get("kind", "")) == kind and issues.size() > 40:
+				return
+		issues.append({"kind": kind, "message": message, "t": snappedf(t, 0.01)})
+
+	func _finish() -> void:
+		for logged: Variant in _catcher.take():
+			var d: Dictionary = logged as Dictionary
+			var text: String = str(d.get("text", ""))
+			var skip: bool = false
+			for ignore: Variant in IGNORE_MESSAGES:
+				if text.contains(str(ignore)):
+					skip = true
+			if not skip:
+				_issue("red" if int(d.get("type", 0)) == 0 else "yellow", text)
+		var f: FileAccess = FileAccess.open(RESULTS_PATH, FileAccess.READ_WRITE)
+		if f == null:
+			f = FileAccess.open(RESULTS_PATH, FileAccess.WRITE)
+		if f != null:
+			f.seek_end()
+			f.store_line(JSON.stringify(_current))
+			f.close()
+		_summary_rows.append(_current.duplicate(true))
+		if not (_current["issues"] as Array).is_empty():
+			print("[Soak] %d 戦目 %s 組%d %s：%s・見張りに %d 件（最初：%s）" % [
+				int(_current["index"]), str(_current["party"]), int(_current["group"]), str(_current["stage"]), str(_current["result"]),
+				(_current["issues"] as Array).size(), str((_current["issues"] as Array)[0].get("message", ""))])
+
+	func _summary() -> void:
+		var results: Dictionary = {}
+		var by_kind: Dictionary = {}
+		var by_message: Dictionary = {}
+		var fired: Dictionary = {}
+		for row: Variant in _summary_rows:
+			var r: Dictionary = row as Dictionary
+			results[str(r["result"])] = int(results.get(str(r["result"]), 0)) + 1
+			for raw_i: Variant in r["issues"]:
+				var i: Dictionary = raw_i as Dictionary
+				by_kind[str(i["kind"])] = int(by_kind.get(str(i["kind"]), 0)) + 1
+				var key: String = "[%s] %s" % [str(i["kind"]), str(i["message"])]
+				if not by_message.has(key):
+					by_message[key] = {"count": 0, "first": int(r["index"]), "party": r["party"]}
+				(by_message[key] as Dictionary)["count"] = int((by_message[key] as Dictionary)["count"]) + 1
+			for sk: Variant in r.get("skills", []):
+				fired[str(sk)] = true
+		var never: Array = []
+		for sk2: Variant in fired:
+			if int(_skill_casts.get(str(sk2), 0)) == 0:
+				never.append(str(sk2))
+		var lines: Array = []
+		lines.append("[Soak] ===== まとめ（%d 戦・%.0f 秒）=====" % [_summary_rows.size(), float(Time.get_ticks_msec() - _started_msec) / 1000.0])
+		lines.append("  結果 = %s" % str(results))
+		lines.append("  見張りの種類 = %s" % str(by_kind))
+		lines.append("  一度も撃たれなかったスキル（枠に入れたのに）= %s" % str(never))
+		lines.append("  --- 見張りに当たった中身（多い順・最初の戦闘の番号）---")
+		var keys: Array = by_message.keys()
+		keys.sort_custom(func(a: Variant, b: Variant) -> bool: return int((by_message[a] as Dictionary)["count"]) > int((by_message[b] as Dictionary)["count"]))
+		for k: Variant in keys:
+			var m: Dictionary = by_message[k] as Dictionary
+			lines.append("  %4d 回 ／ 最初 %d 戦目 %s ／ %s" % [int(m["count"]), int(m["first"]), str(m["party"]), str(k).left(300)])
+		var f: FileAccess = FileAccess.open(SUMMARY_PATH, FileAccess.WRITE)
+		for line: Variant in lines:
+			print(str(line))
+			if f != null:
+				f.store_line(str(line))
+		if f != null:
+			f.close()
+		print("[Soak] 書き出した -> %s ／ %s" % [ProjectSettings.globalize_path(RESULTS_PATH), ProjectSettings.globalize_path(SUMMARY_PATH)])
+
+
+# 総当たりの戦闘の赤・黄を横取りする（回SOAK-1）。⚠ 別のスレッドから呼ばれることがあるので Mutex で守る。
+# ⚠ 横取りしても Godot の出力には今までどおり出る（⚠ 消さない）。
+class SoakLogCatcher extends Logger:
+	var _mutex: Mutex = Mutex.new()
+	var _got: Array = []
+
+	func begin() -> void:
+		_mutex.lock()
+		_got.clear()
+		_mutex.unlock()
+
+	func take() -> Array:
+		_mutex.lock()
+		var out: Array = _got.duplicate()
+		_got.clear()
+		_mutex.unlock()
+		return out
+
+	func _log_error(function: String, file: String, line: int, code: String, rationale: String, editor_notify: bool, error_type: int, script_backtraces: Array[ScriptBacktrace]) -> void:
+		_mutex.lock()
+		if _got.size() < 200:
+			_got.append({"type": error_type, "text": ("%s %s" % [code, rationale]).strip_edges() + "（%s:%d）" % [file.get_file(), line]})
+		_mutex.unlock()
+
+	func _log_message(message: String, error: bool) -> void:
+		pass
+
+
 class DungeonSimRunner extends Node:
 	const BATTLE_PATH: String = "res://scenes/adventure/battle.tscn"
 	const POTION_HEAL: String = "dungeon_potion_heal"
