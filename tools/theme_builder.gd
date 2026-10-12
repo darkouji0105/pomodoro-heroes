@@ -379,13 +379,12 @@ const BATTLE_CENTER_GAP: int = 50
 # ⚠ ユニットの本体の中心の高さ。⚠ 下にチャージバー（次の回）が入る余地を残してある。
 const BATTLE_GROUND_Y: int = 300
 # ⚠ 少し上から見下ろす床（2026-10-12・`DepthFloor`）。⚠ 重なった駒は奥と手前へ分かれる（⚠ 見た目だけ）。
-# ⚠ 奥行き 1 ぶんの上下のずれ・奥と手前の大きさ（％）・奥の横の縮み（％）・重なりとみなす横の距離・寄る速さ（1秒あたり）。
+# ⚠ 奥行き 1 ぶんの上下のずれ・奥と手前の大きさ（％）・奥の横の縮み（％）・重なりとみなす横の距離。⚠ 奥・手前へは各キャラの移動速度で歩く（2026-10-12）。
 const BATTLE_DEPTH_PX: int = 88
 const BATTLE_DEPTH_BACK_PCT: int = 82
 const BATTLE_DEPTH_FRONT_PCT: int = 112
 const BATTLE_DEPTH_WIDTH_PCT: int = 86
 const BATTLE_DEPTH_OVERLAP: int = 70
-const BATTLE_DEPTH_RATE: int = 10
 const BATTLE_DEPTH_FLOOR: String = "2a2320"
 const BATTLE_DEPTH_LINE: String = "3a302b"
 # ⚠ 足元の影（2026-10-12・切り絵が床に立っている感じ）。
@@ -1392,7 +1391,6 @@ static func _build_battle(theme: Theme) -> void:
 		"depth_front_pct": BATTLE_DEPTH_FRONT_PCT,
 		"depth_width_pct": BATTLE_DEPTH_WIDTH_PCT,
 		"depth_overlap": BATTLE_DEPTH_OVERLAP,
-		"depth_rate": BATTLE_DEPTH_RATE,
 		"face_size": BATTLE_FACE_SIZE,
 		"face_bar_height": BATTLE_FACE_BAR_HEIGHT,
 		"face_shield_height": BATTLE_FACE_SHIELD_HEIGHT,

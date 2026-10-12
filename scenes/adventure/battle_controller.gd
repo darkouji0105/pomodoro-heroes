@@ -16,9 +16,10 @@ var _ground_y: float = 0.0
 # 少し上から見下ろす床（2026-10-12）。⚠ 見た目だけ（⚠ 計算は横の位置だけのまま）。
 var _depth_floor: DepthFloor = null
 var _depth_overlap: float = 70.0
-var _depth_rate: float = 10.0
 # 戦場の見た目（2026-10-12）＝"depth"（見下ろし・切り絵）／"line"（前の直線）。⚠ 戦闘のデバッグの [G] で切り替える。
 var _view_mode: String = GameSettings.BATTLE_VIEW_DEPTH
+# ⚠ ずれる向きを選ぶ乱数（⚠ 戦闘の乱数と分ける＝見た目のために戦闘の結果が変わらない）。
+var _depth_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _party_base_x: float = 0.0
 var _party_step_x: float = 0.0
 var _enemy_base_x: float = 0.0
@@ -317,7 +318,7 @@ func _apply_hud_theme() -> void:
 		src.get_theme_color(&"depth_floor", hud), src.get_theme_color(&"depth_line", hud)
 	)
 	_depth_overlap = float(src.get_theme_constant(&"depth_overlap", hud))
-	_depth_rate = float(src.get_theme_constant(&"depth_rate", hud))
+	_depth_rng.randomize()
 	var shadow: Color = src.get_theme_color(&"depth_shadow", hud)
 	shadow.a = 0.6
 	_depth_floor.shadow_color = shadow
@@ -472,17 +473,34 @@ func _update_depths(delta: float) -> void:
 		order += 1
 		if not (raw is BattleUnit) or not (raw as BattleUnit).is_alive():
 			continue
-		var view: Variant = _views_by_unit_id.get((raw as BattleUnit).unit_id, null)
-		if view is UnitView and is_instance_valid(view):
-			items.append({"id": (raw as BattleUnit).unit_id, "x": (raw as BattleUnit).x, "order": order})
+		var u: BattleUnit = raw as BattleUnit
+		var view: Variant = _views_by_unit_id.get(u.unit_id, null)
+		if not (view is UnitView and is_instance_valid(view)):
+			continue
+		# ⚠ 殴り始めた時刻（2026-10-12・人間「⚠ ずれるのは、あとで近接攻撃をし始めたキャラクター」）。
+		#   ⚠ 相手が間合いに入って止まった最初の時刻。⚠ 歩いている間は「まだ」＝一番あと（⚠ 歩いて重なった方がずれる）。
+		var v: UnitView = view as UnitView
+		var target: BattleUnit = _find_unit_by_id(u.target_unit_id)
+		var engaged: bool = target != null and target.is_alive() and absf(target.x - u.x) <= u.attack_range and u.ride.is_empty()
+		if engaged and v.engaged_since < 0.0:
+			v.engaged_since = _session.elapsed_sec
+		elif not engaged:
+			v.engaged_since = -1.0
+		var since: float = v.engaged_since if v.engaged_since >= 0.0 else 1.0e9
+		items.append({"id": u.unit_id, "x": u.x, "order": since * 1000.0 + float(order), "side": v.depth_side, "speed": u.speed, "group": u.team})
 	var targets: Dictionary = DepthFloor.spread_depths(items, _depth_overlap)
 	# ⚠ 足元の影（⚠ 切り絵が床に立っている感じ）。⚠ 横の半径は丸の半分 × 奥行きの大きさ。
 	var shadows: Array = []
 	for item: Dictionary in items:
-		var v: UnitView = _views_by_unit_id[item["id"]] as UnitView
-		v.depth = DepthFloor.approach(v.depth, float(targets.get(item["id"], 0.0)), delta, _depth_rate)
-		var feet: Vector2 = _depth_floor.screen_pos(float(item["x"]), v.depth)
-		shadows.append(Vector3(feet.x, feet.y, v.standing_lift() * 0.8 * _depth_floor.scale_at(v.depth)))
+		var v2: UnitView = _views_by_unit_id[item["id"]] as UnitView
+		var goal: float = float(targets.get(item["id"], 0.0))
+		# ⚠ ずれる向き（奥か手前か）は真ん中にいる間にランダムに選び直す＝⚠ 重なっている間は変えない（2026-10-12・人間「⚠ ランダムに左右に動く」）。
+		if goal == 0.0 and absf(v2.depth) < 0.01:
+			v2.depth_side = -1.0 if _depth_rng.randf() < 0.5 else 1.0
+		# ⚠ 目的地をずらすだけ＝⚠ そのキャラの移動速度で奥・手前へ歩く（⚠ 一瞬で寄らない）。
+		v2.depth = _depth_floor.walk_depth(v2.depth, goal, delta, float(item["speed"]))
+		var feet: Vector2 = _depth_floor.screen_pos(float(item["x"]), v2.depth)
+		shadows.append(Vector3(feet.x, feet.y, v2.standing_lift() * 0.8 * _depth_floor.scale_at(v2.depth)))
 	_depth_floor.set_shadows(shadows)
 
 

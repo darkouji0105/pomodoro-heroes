@@ -2023,7 +2023,7 @@ const SCENARIOS: Dictionary = {
 					TransferKeys.STAGE_ID: "stage_dbg_review",
 					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
 				},
-				"settle": 300,
+				"settle": 480,
 			},
 			# ⚠ 比べる用：⚠ 同じ場面を直線の戦場（前の形）で。
 			{

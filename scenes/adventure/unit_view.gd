@@ -27,6 +27,9 @@ var _resource_view: CharResourceView = null
 var depth_floor: DepthFloor = null
 # 奥行き（⚠ -1 奥〜 1 手前）。⚠ 決めるのは戦闘の画面（⚠ 重なったときだけ分かれる）。
 var depth: float = 0.0
+# 殴り始めた時刻（⚠ 戦闘の秒・-1＝まだ）と、ずれるときの向き（-1 奥 ／ 1 手前）。⚠ 決めるのは戦闘の画面。
+var engaged_since: float = -1.0
+var depth_side: float = -1.0
 # 直線の戦場のときの高さ（⚠ 前の形・作ったときの y）。
 var _line_y: float = 0.0
 # ⚠ 行動中（いまチャージを溜めている）か。⚠ 枠線と名前の色が変わる（モック §3-2）。

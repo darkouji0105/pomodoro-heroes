@@ -71,38 +71,41 @@ func _width_at(depth: float) -> float:
 
 
 # 重なったものの奥行き（⚠ 重なっていなければ 0＝真ん中）。
-# items：[{"id", "x", "order"}]（⚠ order＝段を決める順＝いつも同じ順にする。⚠ 横の位置の順にすると、
-#   ほぼ同じ位置の2つがフレームごとに入れ替わり、段も入れ替わって重なったまま止まる）。
+# items：[{"id", "x", "order", "side"}]
+#   ⚠ order＝段を決める順（⚠ 小さいほど先に置く＝動かない側。⚠ 戦闘では「先に殴り始めた方」）。⚠ 同じ値のときの順も使う側がいつも同じにする（⚠ 入れ替わるとちらつく）。
+#   ⚠ side＝ずれるときに先に試す向き（-1 奥 ／ 1 手前）。⚠ 使う側がランダムに1回決めて、重なっている間は変えない。
+#   ⚠ group＝同じ group どうしだけを重なりとして数える（⚠ 戦闘では味方・敵＝殴り合う相手とは段を取り合わない）。⚠ 書かなければ全部同じ。
 # width：これより近いと重なりとみなす横の距離。⚠ 返すのは {id: 奥行き}。
-# ⚠ order の順に1つずつ、すでに置いたものと重ならない段に置く（⚠ 段は LANES の順に試す）。⚠ 全部ふさがっていたら一番重なりの少ない段。
-const LANES: Array = [0.0, -1.0, 1.0, -0.5, 0.5]
-
-
+# ⚠ order の順に1つずつ、すでに置いたものと重ならない段に置く（⚠ 真ん中 → side → 反対 → その間）。⚠ 全部ふさがっていたら一番重なりの少ない段。
 static func spread_depths(items: Array, width: float) -> Dictionary:
 	var sorted: Array = items.duplicate()
-	sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["order"]) < int(b["order"]))
+	sorted.sort_custom(func(p: Dictionary, q: Dictionary) -> bool: return float(p["order"]) < float(q["order"]))
 	var out: Dictionary = {}
 	var placed: Array = []
 	for item: Dictionary in sorted:
 		var near: Array = []
 		for other: Dictionary in placed:
-			if absf(float(item["x"]) - float(other["x"])) < width:
+			if str(other["group"]) == str(item.get("group", "")) and absf(float(item["x"]) - float(other["x"])) < width:
 				near.append(float(other["lane"]))
+		var side: float = -1.0 if float(item.get("side", -1.0)) < 0.0 else 1.0
 		var lane: float = 0.0
 		var best_count: int = 999
-		for raw_lane: Variant in LANES:
+		for raw_lane: Variant in [0.0, side, -side, side * 0.5, -side * 0.5]:
 			var count: int = near.count(float(raw_lane))
 			if count < best_count:
 				lane = float(raw_lane)
 				best_count = count
 		out[item["id"]] = lane
-		placed.append({"x": item["x"], "lane": lane})
+		placed.append({"x": item["x"], "lane": lane, "group": str(item.get("group", ""))})
 	return out
 
 
-# 今の奥行きを目標へなめらかに近づける（⚠ rate＝1秒あたりの寄り方）。
-static func approach(current: float, target: float, delta: float, rate: float) -> float:
-	return lerpf(current, target, clampf(delta * rate, 0.0, 1.0))
+# 奥行きを目標へ歩いて近づける（2026-10-12・人間「⚠ ずれ方があまりにも一瞬で自然な感じがしない　キャラの目的地をずらす形で歩き方とかは変えずに」）。
+# ⚠ speed_px＝そのものの歩く速さ（1秒あたりの px）。⚠ 奥行き 1 は depth_px ぶん＝同じ速さで床の上を歩く。
+func walk_depth(current: float, target: float, delta: float, speed_px: float) -> float:
+	if depth_px <= 0.0:
+		return target
+	return move_toward(current, target, delta * maxf(speed_px, 1.0) / depth_px)
 
 
 # 床：⚠ 奥が狭い台形 ＋ ⚠ 奥・真ん中・手前の薄い線。
