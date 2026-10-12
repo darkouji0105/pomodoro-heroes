@@ -1023,10 +1023,27 @@ static func _apply_resource(
 					stacks += int(registry.count_stacks(t.unit_id, str(effect.get(SkillSchema.RESOURCE_FIELD_PER_STACK, ""))))
 			amount *= stacks
 		user.add_resource(resource_id, amount)
+		_resource_overflow_heal(user, resource_id, before, amount, results)
 	print("[SkillResolver] resource %s.%s %d -> %d" % [
 		user.unit_id, resource_id, before, user.get_resource(resource_id)
 	])
 	_resource_on_full(user, resource_id, registry, session, results)
+
+
+# 満タンからあふれた分で回復（2026-10-12・学者）。⚠ 資源の定義の `overflow_heal_pct`＝あふれた 1 につき最大HPの◯％。
+# ⚠ 倒れている人は回復しない（回SOAK-1 と同じ）。⚠ 回復の数字が出るよう results に足す。
+static func _resource_overflow_heal(user: BattleUnit, resource_id: String, before: int, amount: int, results: Array) -> void:
+	var def: Dictionary = user.resource_def(resource_id)
+	if amount <= 0 or not def.has("overflow_heal_pct") or not user.is_alive():
+		return
+	var overflow: int = maxi(0, before + amount - int(def.get("max", 0)))
+	if overflow <= 0:
+		return
+	var heal_amount: int = int(floor(float(user.max_hp) * float(def.get("overflow_heal_pct", 0.0)) / 100.0 * float(overflow)))
+	if heal_amount <= 0:
+		return
+	user.heal(heal_amount)
+	results.append({"unit_id": user.unit_id, "amount": heal_amount, "is_heal": true, "is_crit": false, "is_dot": false})
 
 
 # 満タンになったら払って効果を撃つ（回NC-1・ネクロ「⚠ 魂ストックがたまるとゾンビを召喚する」）。

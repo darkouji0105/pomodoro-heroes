@@ -3,8 +3,12 @@
 		"name_key": "ui_battle_skill_sc_shock_smoke",
 		"user_character_id": "char_scholar",
 		"unlock_level": 1,
-		"cooldown_sec": 10.0,
+		"cooldown_sec": 5.0,
 		"activation": "instant",
+		"cost": {
+			"resource_id": "charge",
+			"amount": 20
+		},
 		"target": {
 			"team": "self"
 		},
@@ -46,8 +50,12 @@
 		"name_key": "ui_battle_skill_sc_analyze",
 		"user_character_id": "char_scholar",
 		"unlock_level": 1,
-		"cooldown_sec": 12.0,
+		"cooldown_sec": 6.0,
 		"activation": "instant",
+		"cost": {
+			"resource_id": "charge",
+			"amount": 20
+		},
 		"target": {
 			"team": "enemy",
 			"mode": "area",
@@ -74,7 +82,7 @@
 		"name_key": "ui_battle_skill_sc_regen",
 		"user_character_id": "char_scholar",
 		"unlock_level": 5,
-		"cooldown_sec": 6.0,
+		"cooldown_sec": 3.0,
 		"activation": "toggle",
 		"toggle": {
 			"interval_sec": 1.0,
@@ -104,7 +112,7 @@
 		"name_key": "ui_battle_skill_sc_overdrive",
 		"user_character_id": "char_scholar",
 		"unlock_level": 10,
-		"cooldown_sec": 15.0,
+		"cooldown_sec": 8.0,
 		"activation": "instant",
 		"cost": {
 			"resource_id": "charge",
@@ -155,8 +163,12 @@
 		"name_key": "ui_battle_skill_sc_slam",
 		"user_character_id": "char_scholar",
 		"unlock_level": 15,
-		"cooldown_sec": 12.0,
+		"cooldown_sec": 6.0,
 		"activation": "instant",
+		"cost": {
+			"resource_id": "charge",
+			"amount": 20
+		},
 		"target": {
 			"team": "enemy",
 			"mode": "select",
@@ -212,7 +224,7 @@
 		"name_key": "ui_battle_skill_sc_charged",
 		"user_character_id": "char_scholar",
 		"unlock_level": 20,
-		"cooldown_sec": 8.0,
+		"cooldown_sec": 4.0,
 		"activation": "toggle",
 		"toggle": {
 			"interval_sec": 1.0,

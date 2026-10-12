@@ -1824,6 +1824,11 @@ static func character_resource_issues(character_id: String, entry: Dictionary) -
 		# E181 満タンで払って召喚（回NC-1）。⚠ 撃てるのは召喚だけ・払う量は 1〜max。
 		if def.has("on_full"):
 			issues.append_array(_on_full_issues(at, def.get("on_full", null), max_value))
+		# E218 満タンからあふれた分で回復（2026-10-12・学者・人間「⚠ 充電満タンの時に充電を得ると回復するように」）。⚠ 正の数（最大HPの％／あふれた 1 につき）。
+		if def.has("overflow_heal_pct"):
+			var raw_pct: Variant = def.get("overflow_heal_pct", null)
+			if not (raw_pct is float or raw_pct is int) or float(raw_pct) <= 0.0:
+				issues.append(at + ".overflow_heal_pct が正の数でない")
 	return issues
 
 

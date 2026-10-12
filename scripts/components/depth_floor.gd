@@ -83,6 +83,10 @@ static func spread_depths(items: Array, width: float) -> Dictionary:
 	var out: Dictionary = {}
 	var placed: Array = []
 	for item: Dictionary in sorted:
+		# ⚠ 段を固定したもの（"lane"）はその段のまま・ほかの邪魔にならない（2026-10-12・バイク＝真ん中の線だけを走る）。
+		if item.has("lane"):
+			out[item["id"]] = float(item["lane"])
+			continue
 		var near: Array = []
 		for other: Dictionary in placed:
 			if str(other["group"]) == str(item.get("group", "")) and absf(float(item["x"]) - float(other["x"])) < width:

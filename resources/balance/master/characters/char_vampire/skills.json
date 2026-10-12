@@ -70,7 +70,8 @@
 		"aim": {
 			"from": 0.0,
 			"speed": 250.0,
-			"to": 400.0
+			"to": 400.0,
+			"back_if_clear": true
 		},
 		"target": {
 			"team": "enemy",
@@ -87,6 +88,7 @@
 				"type": "buff",
 				"host": "unit",
 				"status_id": "st_vp_bat",
+				"look_glyph": "🦇",
 				"duration_sec": 1.5,
 				"stack": "refresh",
 				"control": "invulnerable",

@@ -487,7 +487,11 @@ func _update_depths(delta: float) -> void:
 		elif not engaged:
 			v.engaged_since = -1.0
 		var since: float = v.engaged_since if v.engaged_since >= 0.0 else 1.0e9
-		items.append({"id": u.unit_id, "x": u.x, "order": since * 1000.0 + float(order), "side": v.depth_side, "speed": u.speed, "group": u.team})
+		var item: Dictionary = {"id": u.unit_id, "x": u.x, "order": since * 1000.0 + float(order), "side": v.depth_side, "speed": u.speed, "group": u.team}
+		# ⚠ 真ん中の線だけを走るキャラ（2026-10-12・バイク「⚠ バイクだけ例外で真ん中だけ通る」）＝段を真ん中に固定・ほかは避けない（⚠ 速く行き来するので避けるとちらつく）。
+		if u.depth_center:
+			item["lane"] = 0.0
+		items.append(item)
 	var targets: Dictionary = DepthFloor.spread_depths(items, _depth_overlap)
 	# ⚠ 足元の影（⚠ 切り絵が床に立っている感じ）。⚠ 横の半径は丸の半分 × 奥行きの大きさ。
 	var shadows: Array = []
@@ -502,6 +506,17 @@ func _update_depths(delta: float) -> void:
 		var feet: Vector2 = _depth_floor.screen_pos(float(item["x"]), v2.depth)
 		shadows.append(Vector3(feet.x, feet.y, v2.standing_lift() * 0.8 * _depth_floor.scale_at(v2.depth)))
 	_depth_floor.set_shadows(shadows)
+
+
+# 状態で替わった顔を駒へ配る（2026-10-12・吸血鬼の蝙蝠）。
+func _update_looks() -> void:
+	if _status == null:
+		return
+	for unit_id: Variant in _views_by_unit_id:
+		var view: Variant = _views_by_unit_id[unit_id]
+		if view is UnitView and is_instance_valid(view):
+			(view as UnitView).set_look_glyph(_status.look_glyph_for(str(unit_id)))
+			(view as UnitView).modulate.a = _status.look_alpha_for(str(unit_id))
 
 
 # 戦場の見た目を切り替える（2026-10-12・人間「⚠ 2パターン用意して、既存のやつと比べたい」）。⚠ 戦闘のデバッグの [G]。⚠ 次の戦闘にも残す。
@@ -872,6 +887,7 @@ func _process(delta: float) -> void:
 	_update_bottom_panel()
 	_update_charge_bar()
 	_update_depths(delta)
+	_update_looks()
 
 	if _result_applied:
 		return
@@ -1400,15 +1416,23 @@ func _acquire_target_if_needed(unit: BattleUnit) -> void:
 	if opponents.is_empty():
 		return
 	# 近い順に回す（回GS-1・拳銃使い「近い敵から順番に通常攻撃していく」）。⚠ まだ撃っていない相手から選ぶ・一巡したら最初から。
+	# ⚠ 回すのは射程の中の敵だけ（2026-10-12・人間「⚠ 拳銃使いが近接になってる」＝射程の外の「まだ撃っていない相手」まで歩いて近づいていた）。
+	#   ⚠ 射程の中に誰もいなければ、今までどおり一番近い敵へ近づく。
 	if unit.basic_cycle:
-		var fresh: Array = []
-		for o: Variant in opponents:
-			if not unit.basic_cycled.has((o as BattleUnit).unit_id):
-				fresh.append(o)
-		if fresh.is_empty():
-			unit.basic_cycled.clear()
-		else:
-			opponents = fresh
+		var in_range: Array = []
+		for o_in: Variant in opponents:
+			if absf((o_in as BattleUnit).x - unit.x) <= unit.attack_range:
+				in_range.append(o_in)
+		if not in_range.is_empty():
+			var fresh: Array = []
+			for o: Variant in in_range:
+				if not unit.basic_cycled.has((o as BattleUnit).unit_id):
+					fresh.append(o)
+			if fresh.is_empty():
+				unit.basic_cycled.clear()
+				opponents = in_range
+			else:
+				opponents = fresh
 
 	var nearest: BattleUnit = null
 	var nearest_dist: float = INF
@@ -1548,6 +1572,10 @@ func _step_ride(unit: BattleUnit, delta: float) -> void:
 			if unit.ride.is_empty():
 				return
 	if arrived:
+		# ⚠ 着いたらドリフトして向きを変える（2026-10-12・見た目だけ）。⚠ 走ってきた向き。
+		var drift_view: Variant = _views_by_unit_id.get(unit.unit_id, null)
+		if drift_view is UnitView and is_instance_valid(drift_view) and absf(to_x - from_x) > 0.0:
+			(drift_view as UnitView).play_drift(signf(to_x - from_x))
 		_end_ride(unit)
 
 
@@ -2705,6 +2733,14 @@ func _update_aim() -> void:
 		float((aim as Dictionary).get("to", 0.0))
 	)
 	var forward: float = 1.0 if user.team == BattleUnit.TEAM_PARTY else -1.0
+	# ⚠ 前に敵がいなければ後ろへ（2026-10-12・吸血鬼の蝙蝠「⚠ 敵が前にいないときは後ろで」）。
+	if bool((aim as Dictionary).get(SkillSchema.AIM_FIELD_BACK_IF_CLEAR, false)):
+		var ahead: bool = false
+		for o: Variant in _session.get_targetable_units(BattleUnit.TEAM_ENEMY if user.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY, user.team):
+			if o is BattleUnit and ((o as BattleUnit).x - user.x) * forward > 0.0:
+				ahead = true
+		if not ahead:
+			forward = -forward
 	user.aim_x = clampf(user.x + forward * reach, RUNE_MOVE_MIN_X, RUNE_MOVE_MAX_X)
 	user.has_aim = true
 	if _aim_marker == null or not is_instance_valid(_aim_marker):

@@ -2343,6 +2343,7 @@ func _ready() -> void:
 			_report_biker()
 			_report_bodybuilder()
 			_report_heal_at_zero()
+			_report_feedback_1012()
 		else:
 			push_error("[DebugBoot] 知らない report: " + report)
 		get_tree().quit()
@@ -11047,6 +11048,72 @@ func _report_heal_at_zero() -> void:
 	print("  殴られて HP %d（倒れる判定の前）" % mate.hp)
 	registry.tick(1.0)
 	print("  同じフレームの毎秒回復のあと HP %d（0 のまま＝直した。⚠ 0 より大きければ、倒れる判定を通らずに起き上がる）" % mate.hp)
+
+
+# 見る回の手直し（2026-10-12）。⚠ 充電があふれたら回復・ナイフは2段・蝙蝠の顔・復活を待つ。
+func _report_feedback_1012() -> void:
+	var sc: BattleUnit = _resource_unit("char_scholar", 0)
+	var vp: BattleUnit = _resource_unit("char_vampire", 1)
+	var px: BattleUnit = _resource_unit("char_phoenix", 2)
+	var foe_data: Dictionary = (MasterDataLoader.get_enemy("enemy_slime") as Dictionary).duplicate(true)
+	foe_data["hp"] = 5000
+	var foe: BattleUnit = BattleUnit.create("enemy_0", BattleUnit.TEAM_ENEMY, foe_data, foe_data, false, "enemy_slime")
+	sc.x = 300.0
+	vp.x = 350.0
+	px.x = 400.0
+	foe.x = 480.0
+	var session: BattleSession = BattleSession.new("stage_dbg_area", GameStateKeys.STAGE_TYPE_TRAINING, "", 1)
+	session.party_units = [sc, vp, px]
+	session.enemy_units = [foe]
+	session.state = BattleSession.STATE_BATTLE_ACTIVE
+	var registry: StatusRegistry = StatusRegistry.new(session)
+	var runtime: SkillRuntime = SkillRuntime.new(session, registry)
+
+	print("[DebugBoot] --- 120. 充電があふれたら回復（⚠ あふれた 1 につき最大HPの 0.5%%）---")
+	sc.hp = sc.max_hp - 50
+	for start: int in [80, 95, 100]:
+		sc.set_resource("charge", start)
+		var hp0: int = sc.hp
+		SkillResolver.resolve({"effects": [{"type": "resource", "resource_id": "charge", "amount": 10, "target": {"team": "self"}}]}, sc, session, [sc.unit_id], registry)
+		print("  充電 %d に +10：充電 %d・HP %d → %d（あふれ %d × 最大 %d の 0.5%%）" % [start, sc.get_resource("charge"), hp0, sc.hp, maxi(0, start + 10 - 100), sc.max_hp])
+
+	print("[DebugBoot] --- 121. ナイフは2段（⚠ 再発動・3 秒）・学者は全部充電を払う ---")
+	var knife: Dictionary = MasterDataLoader.get_skill("skill_gs_knife")
+	print("  ナイフ：%s・段 %d・窓 %.1f 秒" % [str(knife.get("activation", "")), SkillSchema.phase_count(knife), float((knife.get("recast", {}) as Dictionary).get("window_sec", 0.0))])
+	var costs: Array = []
+	for sid: Variant in (MasterDataLoader.get_character("char_scholar") as Dictionary).get("skills", []):
+		costs.append("%s:%d/%.0f秒" % [str(sid).replace("skill_sc_", ""), int((SkillSchema.cost_of(MasterDataLoader.get_skill(str(sid))) as Dictionary).get("amount", 0)), float(MasterDataLoader.get_skill(str(sid)).get("cooldown_sec", 0.0))])
+	print("  学者：%s" % ", ".join(costs))
+
+	print("[DebugBoot] --- 122. 蝙蝠の顔（⚠ 状態のあいだ 🦇）---")
+	var bat_buff: Dictionary = {}
+	for e: Variant in (MasterDataLoader.get_skill("skill_vp_bat").get("effects", []) as Array):
+		if str((e as Dictionary).get("status_id", "")) == "st_vp_bat":
+			bat_buff = e as Dictionary
+	print("  前：'%s'" % registry.look_glyph_for(vp.unit_id))
+	SkillResolver.resolve({"effects": [bat_buff]}, vp, session, [vp.unit_id], registry)
+	print("  蝙蝠：'%s'（🦇）・狙いの back_if_clear %s" % [registry.look_glyph_for(vp.unit_id), str((MasterDataLoader.get_skill("skill_vp_bat").get("aim", {}) as Dictionary).get("back_if_clear", false))])
+	registry.tick(1.6)
+	print("  1.6 秒後：'%s'（''）" % registry.look_glyph_for(vp.unit_id))
+
+	print("[DebugBoot] --- 123. フェニックスの復活は 2 秒待つ（⚠ 待つ間は HP 1・無敵・止まる・狙われない・半透明）---")
+	var results: Array = []
+	registry.effects_applied.connect(func(rs: Array) -> void: results.append_array(rs))
+	runtime.cast(px, "passive_px_rebirth", MasterDataLoader.get_skill("passive_px_rebirth"), 1.0)
+	registry.tick(0.01)
+	px.take_damage(px.hp)
+	registry.resolve_death(px)
+	registry.tick(0.01)
+	print("  倒れた直後：HP %d・無敵 %s・止まる %s・狙われない %s・透け %.2f" % [px.hp, str(px.invulnerable), str(px.stunned), str(px.stealthed), registry.look_alpha_for(px.unit_id)])
+	results.clear()
+	registry.tick(1.0)
+	print("  1 秒後：HP %d（1 のまま）" % px.hp)
+	registry.tick(1.1)
+	var dmg: int = 0
+	for r: Variant in results:
+		if r is Dictionary and not (r as Dictionary).has("kind") and not bool((r as Dictionary).get("is_heal", false)) and str(r.get("unit_id", "")) == "enemy_0":
+			dmg += int(r.get("amount", 0))
+	print("  2.1 秒後：HP %d（最大 %d の 30%%）・周りへの爆発 %d・透け %.2f" % [px.hp, px.max_hp, dmg, registry.look_alpha_for(px.unit_id)])
 
 
 func _cost_reason(unit: BattleUnit, skill_id: String, session: BattleSession) -> String:

@@ -253,6 +253,8 @@ const FIELD_BASIC_TARGET: String = "basic_target"
 const BASIC_TARGET_FARTHEST: String = "farthest"
 const BASIC_TARGETS_KNOWN: Array = [BASIC_TARGET_FARTHEST]
 const AIM_FIELDS_REQUIRED: Array = ["from", "speed", "to"]
+# ⚠ 前に敵がいなければ狙いが後ろへ動く（2026-10-12・吸血鬼の蝙蝠「⚠ 敵が前にいないときは後ろで」）。⚠ true だけ書ける。
+const AIM_FIELD_BACK_IF_CLEAR: String = "back_if_clear"
 # 対象を取らない効果（回NC-1）。⚠ 購読の中でも target が要らない（E54 の例外）・実行時も対象を選ばない。
 const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
 # 召喚の上限（回NC-1・人間「⚠ あ６」＝⚠ 段階6の決定5「上限なし」を召喚ごとに上書きできるようにした）。
@@ -483,6 +485,8 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	# ⚠ max_stack はリテラル。FIELD_MAX_STACK の宣言がこの下にあり、
 	#   const は前方参照できない（並べ替えると他の参照が壊れるのでこちらを直した）。
 	"type", "host", "status_id", "stack", "max_stack",
+	# ⚠ 状態のあいだ駒の顔を替える（2026-10-12・吸血鬼の蝙蝠「⚠ 蝙蝠状態に変身して」）。⚠ buff（host: unit）だけ・絵文字1つ。
+	"look_glyph", "look_alpha",
 	"duration_sec", "until", "interval_sec",
 	"multiplier", "attack_type", "scale_from", "delivery",
 	"stat", "value", "target", "trigger", "chance", "charge_scales",
@@ -2303,10 +2307,15 @@ static func _validate_intervene(
 				_err(issues, skill_id, "%s.%s.%s.revive_hp_ratio が 0 より大きく 1 以下の数値でない" % [
 					where, BUFF_INTERVENE, BUFF_ON_DEATH
 				])
+			# E220 起き上がるまで待つ秒（2026-10-12）。⚠ 正の数。
+			if (raw_death as Dictionary).has("revive_delay_sec"):
+				var delay_v: Variant = (raw_death as Dictionary).get("revive_delay_sec", null)
+				if not _is_num(delay_v) or float(delay_v) <= 0.0:
+					_err(issues, skill_id, "%s.%s.%s.revive_delay_sec が正の数でない" % [where, BUFF_INTERVENE, BUFF_ON_DEATH])
 			# E195 起き上がるときの効果（回PX-1・汎用）。⚠ 起き上がった本人が撃つ・各効果に target。
 			if (raw_death as Dictionary).has("effects"):
 				_validate_sub_effects(issues, skill_id, raw_death, "%s.%s.%s" % [where, BUFF_INTERVENE, BUFF_ON_DEATH],
-					["revive_hp_ratio", "effects"], ACTIVATION_INSTANT, true)
+					["revive_hp_ratio", "effects", "revive_delay_sec"], ACTIVATION_INSTANT, true)
 
 	# E65 … 免疫。付けさせない status_id の配列。
 	if iv.has(BUFF_BLOCK_STATUS):
@@ -2506,6 +2515,9 @@ static func _validate_gm_fields(
 		elif osh is Dictionary and (not _is_num((osh as Dictionary).get("radius", null)) or float((osh as Dictionary).get("radius", 0.0)) <= 0.0):
 			_err(issues, skill_id, "%s.on_skill_hit.radius が正の数でない" % where)
 		_validate_sub_effects(issues, skill_id, osh, where + ".on_skill_hit", ["radius", "effects"], activation, false)
+	# E219 状態のあいだ顔を替える（2026-10-12）。⚠ host: unit の buff だけ・空でない文字。
+	if effect.has("look_glyph") and (effect_type != EFFECT_BUFF or str(effect.get("host", "")) != HOST_UNIT or str(effect.get("look_glyph", "")) == ""):
+		_err(issues, skill_id, "%s.look_glyph は host: unit の buff に空でない文字で書く" % where)
 	# E213 状態のあいだ◯秒ごと（回BK-1）。⚠ host: unit の buff だけ・interval_sec は正の数。
 	if effect.has(FIELD_PULSE):
 		var pulse: Variant = effect.get(FIELD_PULSE, null)
@@ -2639,6 +2651,10 @@ static func _validate_aim(issues: Array, skill_id: String, data: Dictionary) -> 
 		_err(issues, skill_id, "aim が辞書でない")
 		return
 	for key: Variant in (aim as Dictionary):
+		if str(key) == AIM_FIELD_BACK_IF_CLEAR:
+			if (aim as Dictionary).get(key, null) != true:
+				_err(issues, skill_id, "aim.back_if_clear は true だけ書ける")
+			continue
 		if not (str(key) in AIM_FIELDS_REQUIRED):
 			_err(issues, skill_id, "aim に知らない欄がある: '%s'" % str(key))
 	for field: String in AIM_FIELDS_REQUIRED:

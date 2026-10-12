@@ -2102,3 +2102,6 @@ ui_status_ch_st_bb_pose_guard,筋
 ui_status_ch_st_bb_pose_watch,見
 ui_status_ch_st_bb_pump_watch,肉
 ui_battle_panel_hp,HP
+ui_status_ch_st_revive_wait_invulnerable,蘇
+ui_status_ch_st_revive_wait_stun,眠
+ui_status_ch_st_revive_wait_stealth,隠

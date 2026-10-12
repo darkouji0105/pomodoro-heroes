@@ -30,6 +30,11 @@ var depth: float = 0.0
 # 殴り始めた時刻（⚠ 戦闘の秒・-1＝まだ）と、ずれるときの向き（-1 奥 ／ 1 手前）。⚠ 決めるのは戦闘の画面。
 var engaged_since: float = -1.0
 var depth_side: float = -1.0
+# ドリフト（2026-10-12・バイク「⚠ 方向転換の時自然にしたいドリフトして」）。⚠ -1＝していない。⚠ 見た目だけ。
+var _drift_t: float = -1.0
+var _drift_dir: float = 1.0
+# いつもの顔（⚠ 状態で替わったあと戻すため）。
+var _base_glyph: String = ""
 # 直線の戦場のときの高さ（⚠ 前の形・作ったときの y）。
 var _line_y: float = 0.0
 # ⚠ 行動中（いまチャージを溜めている）か。⚠ 枠線と名前の色が変わる（モック §3-2）。
@@ -70,6 +75,7 @@ func setup(unit: BattleUnit) -> void:
 	glyph_label.add_theme_font_size_override(
 		&"font_size", body.get_theme_constant(&"glyph", THEME_TYPE)
 	)
+	_base_glyph = glyph_label.text
 
 	bar.setup(is_party, true)
 	bar.set_values(unit.hp, unit.max_hp, 0, 0)
@@ -101,6 +107,35 @@ func setup(unit: BattleUnit) -> void:
 	_line_y = position.y
 	_refresh_name_color()
 	show()
+
+
+# 走り終えて向きを変えるときのドリフト（2026-10-12）。⚠ dir＝走ってきた向き（+1 右 ／ -1 左）。
+# ⚠ 少し滑って前へ出て、下へ弧を描き、傾いてから戻る。⚠ 寸法は Theme（`drift_*`）。
+func play_drift(dir: float) -> void:
+	_drift_dir = 1.0 if dir >= 0.0 else -1.0
+	_drift_t = 0.0
+
+
+func _step_drift(delta: float) -> void:
+	if _drift_t < 0.0:
+		return
+	var body: Panel = $Body
+	var total: float = float(body.get_theme_constant(&"drift_ms", THEME_TYPE)) / 1000.0
+	_drift_t += delta
+	if total <= 0.0 or _drift_t >= total:
+		_drift_t = -1.0
+		rotation = 0.0
+		return
+	var s: float = sin(PI * _drift_t / total)
+	position += Vector2(_drift_dir * float(body.get_theme_constant(&"drift_px", THEME_TYPE)), float(body.get_theme_constant(&"drift_drop", THEME_TYPE))) * s
+	rotation = -_drift_dir * deg_to_rad(float(body.get_theme_constant(&"drift_deg", THEME_TYPE))) * s
+
+
+# 状態で顔を替える（2026-10-12・吸血鬼の蝙蝠）。⚠ "" ならいつもの顔。
+func set_look_glyph(glyph: String) -> void:
+	var text: String = glyph if glyph != "" else _base_glyph
+	if $GlyphLabel.text != text:
+		$GlyphLabel.text = text
 
 
 # 足元から丸の真ん中までの高さ（⚠ 丸の半分）。⚠ 影の大きさにも使う。
@@ -187,7 +222,7 @@ func set_status_entries(entries: Array) -> void:
 
 
 # 毎フレーム位置と HP バーを同期する
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _unit == null:
 		return
 	if not _unit.is_alive():
@@ -209,6 +244,7 @@ func _process(_delta: float) -> void:
 		position = Vector2(_unit.x, _line_y)
 		scale = Vector2.ONE
 		z_index = 0
+	_step_drift(delta)
 	var bar: BattleBar = $Bar
 	var was_low: bool = bar.is_low()
 	bar.set_hp(_unit.hp, _unit.max_hp)

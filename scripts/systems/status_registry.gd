@@ -45,6 +45,10 @@ const FIRES_UNLIMITED: int = -1
 var _session: BattleSession = null
 
 # 状態の一覧。要素の形は _make_entry() を見ること。
+# 起き上がるのを待っている復活（2026-10-12）。⚠ [{unit_id, remaining, hp, effects}]。
+var _pending_revives: Array = []
+const REVIVE_DELAY_FIELD: String = "revive_delay_sec"
+const REVIVE_WAIT_ALPHA: float = 0.4
 var _entries: Array = []
 
 var _next_instance_id: int = 1
@@ -760,6 +764,12 @@ func _fill_buff(entry: Dictionary, effect: Dictionary) -> bool:
 		entry[SkillSchema.FIELD_MISS_PCT] = int(effect.get(SkillSchema.FIELD_MISS_PCT, 0))
 		has_stat = true
 
+	# 状態のあいだ顔を替える（2026-10-12）。⚠ 読むのは戦闘の画面（look_glyph_for）。
+	if effect.has("look_glyph"):
+		entry["look_glyph"] = str(effect.get("look_glyph", ""))
+	if effect.has("look_alpha"):
+		entry["look_alpha"] = float(effect.get("look_alpha", 1.0))
+
 	# 行動を止める・守る（回CH-5）。⚠ 印をユニットへ配るのは _rebuild_unit_mods()。
 	if effect.has(SkillSchema.BUFF_CONTROL):
 		var control: String = str(effect.get(SkillSchema.BUFF_CONTROL, ""))
@@ -1068,6 +1078,7 @@ func _find_same(entry: Dictionary) -> int:
 # ⚠ 3を4より先にやること。逆順だと、条件が偽になったフレームに DoT が
 #   1発だけ余計に出る。1発なので数字を見ても気づけない。
 func tick(delta: float) -> void:
+	_step_pending_revives(delta)
 	if _entries.is_empty():
 		# ⚠ 空でも、範囲の顔ぶれが残っていたら leave を出し切ってから帰る。
 		#   ⚠ 実測で踏んだ：最後の1件（回復地帯）が消えたフレーム以降 tick() が
@@ -1637,6 +1648,8 @@ func _step_death(ctx: Dictionary) -> void:
 		ctx["revive_hp"] = maxi(1, int(floor(float(unit.max_hp) * ratio)))
 		ctx["by"] = str(entry.get("status_id", ""))
 		ctx["effects"] = (on_death.get("effects", []) as Array).duplicate(true)
+		# 起き上がるまで待つ（2026-10-12・フェニックス「⚠ しばらく無敵になってから復活２秒で　復活中は半透明に」）。
+		ctx["delay"] = float(on_death.get(REVIVE_DELAY_FIELD, 0.0))
 		ctx["source_unit_id"] = str(entry.get("source_unit_id", ""))
 		return
 
@@ -1657,24 +1670,73 @@ func resolve_death(unit: BattleUnit) -> bool:
 	if not bool(ctx["revived"]):
 		return false
 
+	var delay: float = float(ctx.get("delay", 0.0))
 	# ⚠ hp を直接書かない。heal() を通す（unit.gd「必ず take_damage / heal 経由」）。
-	unit.heal(int(ctx["revive_hp"]))
+	# ⚠ 待つときは HP 1 で持ちこたえ、起き上がるときに残りを戻す（⚠ 倒れた扱いにしない＝状態・狙いの器が捨てない）。
+	unit.heal(1 if delay > 0.0 else int(ctx["revive_hp"]))
 	BattleLog.log_intervene("death", unit.unit_id, str(ctx["by"]), str(int(ctx["revive_hp"])))
 	# バフもデバフも全部消える（PLAN 14-4）。DoT の持ち越しで復活直後に
 	# また死ぬ事故が構造的に消える。
 	clear_for_unit(unit.unit_id, "revive_clear")
 	# 1戦闘に1回（回PX-1・汎用）。⚠ 使った復活の状態は、パッシブでも付け直さない（⚠ 付け直す側が見る）。
 	unit.spent_status_ids[str(ctx["by"])] = true
-	# 起き上がるときの効果（回PX-1・汎用）。⚠ 全部消したあとに撃つ（⚠ 撃った効果で付いた状態を消さない）。
+	if delay > 0.0:
+		# ⚠ 待つ間は無敵・動けない・狙われない・半透明（⚠ 状態を3つ付ける＝それぞれ今ある仕組み）。
+		for control: String in [SkillSchema.CONTROL_INVULNERABLE, SkillSchema.CONTROL_STUN, SkillSchema.CONTROL_STEALTH]:
+			var wait: Dictionary = {
+				"type": SkillSchema.EFFECT_BUFF, "host": SkillSchema.HOST_UNIT, "status_id": "st_revive_wait_" + control,
+				"duration_sec": delay, "stack": "refresh", SkillSchema.BUFF_CONTROL: control,
+			}
+			if control == SkillSchema.CONTROL_INVULNERABLE:
+				wait["look_alpha"] = REVIVE_WAIT_ALPHA
+			add(wait, unit, unit, _session)
+		_pending_revives.append({"unit_id": unit.unit_id, "remaining": delay, "hp": int(ctx["revive_hp"]), "effects": ctx.get("effects", [])})
+		return true
+	_fire_revive_effects(unit, ctx.get("effects", []) as Array)
+	return true
+
+
+# 起き上がるときの効果（回PX-1・汎用）。⚠ 全部消したあとに撃つ（⚠ 撃った効果で付いた状態を消さない）。
+func _fire_revive_effects(unit: BattleUnit, effects: Array) -> void:
 	var fired: Array = []
-	for raw: Variant in (ctx.get("effects", []) as Array):
+	for raw: Variant in effects:
 		if raw is Dictionary:
 			var ids: Array = SkillResolver.select_targets((raw as Dictionary).get("target", {}) as Dictionary, unit, _session)
 			fired.append_array(SkillResolver.resolve({"effects": [raw]}, unit, _session, ids, self))
 	if not fired.is_empty():
 		BattleLog.log_results(fired, unit.unit_id)
 		effects_applied.emit(fired)
-	return true
+
+
+# 待っている復活を進める（2026-10-12）。⚠ 時間が来たら HP を戻して起き上がりの効果を撃つ。
+func _step_pending_revives(delta: float) -> void:
+	if _pending_revives.is_empty():
+		return
+	var rest: Array = []
+	var ready: Array = []
+	for item: Dictionary in _pending_revives:
+		item["remaining"] = float(item["remaining"]) - delta
+		if float(item["remaining"]) > 0.0:
+			rest.append(item)
+		else:
+			ready.append(item)
+	_pending_revives = rest
+	for item2: Dictionary in ready:
+		var unit: BattleUnit = _find_unit(str(item2["unit_id"]))
+		if unit == null or not unit.is_alive():
+			continue
+		unit.heal(maxi(0, int(item2["hp"]) - unit.hp))
+		BattleLog.log_intervene("revive_end", unit.unit_id, "", str(unit.hp))
+		_fire_revive_effects(unit, item2["effects"] as Array)
+
+
+# 状態で替わった透け具合（2026-10-12・復活を待つ間の半透明）。⚠ 無ければ 1.0。⚠ 一番薄いもの。
+func look_alpha_for(unit_id: String) -> float:
+	var alpha: float = 1.0
+	for entry: Dictionary in _entries:
+		if entry.has("look_alpha") and str(entry.get("host_unit_id", "")) == unit_id:
+			alpha = minf(alpha, float(entry["look_alpha"]))
+	return alpha
 
 
 # ============================================================
@@ -1685,6 +1747,12 @@ func resolve_death(unit: BattleUnit) -> bool:
 func clear_all() -> int:
 	var dropped: int = _entries.size()
 	_entries.clear()
+	# ⚠ 待っている復活はその場で HP を戻して終える（2026-10-12）。⚠ 爆発は出さない（⚠ 相手はもう居ない）。⚠ HP 1 のまま残さない。
+	for pending: Dictionary in _pending_revives:
+		var revived: BattleUnit = _find_unit(str(pending["unit_id"]))
+		if revived != null and revived.is_alive():
+			revived.heal(maxi(0, int(pending["hp"]) - revived.hp))
+	_pending_revives.clear()
 	# ⚠ 状態を捨てただけでは補正は消えない。全ユニットぶん組み直す。
 	if _session != null:
 		for u in _session.party_units:
@@ -1787,6 +1855,15 @@ func count(filter: Dictionary) -> int:
 # ⚠ active が偽の件も返す。呼ぶ側が半透明で描き分ける
 #   （消すと「条件で切れた」のか「寿命で消えた」のかが画面から区別できない）。
 # ⚠ 並べ替えない。_entries の順＝付いた順。並びが揺れるとマスが入れ替わる。
+# 状態で替わった顔（2026-10-12）。⚠ 無ければ ""（⚠ いつもの顔）。⚠ 後から付いたものを優先。
+func look_glyph_for(unit_id: String) -> String:
+	var glyph: String = ""
+	for entry: Dictionary in _entries:
+		if str(entry.get("look_glyph", "")) != "" and str(entry.get("host", "")) == SkillSchema.HOST_UNIT 				and str(entry.get("host_unit_id", "")) == unit_id:
+			glyph = str(entry["look_glyph"])
+	return glyph
+
+
 func entries_for(unit_id: String) -> Array:
 	var found: Array = []
 	if unit_id == "":

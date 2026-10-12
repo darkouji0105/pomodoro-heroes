@@ -165,7 +165,7 @@
 		"name_key": "ui_battle_skill_sd_laser",
 		"user_character_id": "char_student",
 		"unlock_level": 20,
-		"cooldown_sec": 10.0,
+		"cooldown_sec": 1.0,
 		"activation": "toggle",
 		"toggle": {
 			"interval_sec": 0.2,

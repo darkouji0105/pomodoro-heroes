@@ -1422,6 +1422,11 @@ static func _build_battle(theme: Theme) -> void:
 		"hp_low_percent": BATTLE_HP_LOW_PERCENT,
 		"sp_height": BATTLE_SP_HEIGHT,
 		"res_gauge_height": BATTLE_RES_GAUGE_HEIGHT,
+		# ⚠ 走り終えて向きを変えるドリフト（2026-10-12・バイク）。⚠ 前へ滑る px・下へ弧 px・傾き（度）・長さ（ms）。
+		"drift_px": 28,
+		"drift_drop": 14,
+		"drift_deg": 18,
+		"drift_ms": 500,
 		"res_pip_size": BATTLE_RES_PIP_SIZE,
 		"res_pip_gap": BATTLE_RES_PIP_GAP,
 		"res_row_gap": BATTLE_RES_ROW_GAP,

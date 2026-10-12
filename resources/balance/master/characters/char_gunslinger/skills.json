@@ -4,28 +4,58 @@
 		"user_character_id": "char_gunslinger",
 		"unlock_level": 1,
 		"cooldown_sec": 6.0,
-		"activation": "instant",
-		"charges": 2,
-		"target": {
-			"team": "enemy",
-			"mode": "select",
-			"sort": "nearest",
-			"count": 1,
-			"range": 300.0
+		"activation": "recast",
+		"recast": {
+			"window_sec": 3.0
 		},
-		"effects": [
+		"phases": [
 			{
-				"type": "damage",
-				"delivery": "projectile",
-				"multiplier": 0.9,
-				"attack_type": "physical",
-				"scale_from": "atk",
-				"trigger": "event:hit"
+				"target": {
+					"team": "enemy",
+					"mode": "select",
+					"sort": "nearest",
+					"count": 1,
+					"range": 300.0
+				},
+				"effects": [
+					{
+						"type": "damage",
+						"delivery": "projectile",
+						"multiplier": 0.9,
+						"attack_type": "physical",
+						"scale_from": "atk",
+						"trigger": "event:hit"
+					},
+					{
+						"type": "status",
+						"status": "bleed",
+						"trigger": "event:hit"
+					}
+				]
 			},
 			{
-				"type": "status",
-				"status": "bleed",
-				"trigger": "event:hit"
+				"target": {
+					"team": "enemy",
+					"mode": "select",
+					"sort": "nearest",
+					"count": 1,
+					"range": 300.0
+				},
+				"effects": [
+					{
+						"type": "damage",
+						"delivery": "projectile",
+						"multiplier": 0.9,
+						"attack_type": "physical",
+						"scale_from": "atk",
+						"trigger": "event:hit"
+					},
+					{
+						"type": "status",
+						"status": "bleed",
+						"trigger": "event:hit"
+					}
+				]
 			}
 		]
 	},

@@ -195,7 +195,8 @@
 					},
 					{
 						"type": "status",
-						"status": "shock"
+						"status": "shock",
+						"duration_sec": 10.0
 					}
 				]
 			}
@@ -211,7 +212,7 @@
 				"max": 100,
 				"start": 0,
 				"carry_over": false,
-				"name_key": "ui_res_char_scholar_charge"
+				"name_key": "ui_res_char_scholar_charge", "overflow_heal_pct": 0.5
 			}
 		],
 		"hp": 140,
@@ -926,6 +927,7 @@
 			]
 		},
 		"basic_target": "farthest",
+		"depth_center": true,
 		"name_key": "ui_battle_char_biker",
 		"sign_style": "brush",
 		"sign_mark": "arrow",
