@@ -1518,6 +1518,30 @@ const SCENARIOS: Dictionary = {
 			{"skill": "skill_bk_charge", "prepare": PREPARE_NONE, "gap": 1.0, "hold_sec": 1.0},
 		],
 	},
+	# 見る回のステージ（2026-10-12・人間「⚠ いい感じの敵がいるステージを出してほしい　検証用エリアに」→「⚠ 両方足す」）。⚠ Lv20 の3人で戦えるか。
+	"dbg_review": {
+		"kind": KIND_BATTLE,
+		"note": "見る回（しっかり戦える）：3ウェーブ（スライムとオオカミ → 毒の敵つき → スライムキング）を Lv20 の3人で",
+		"stage_id": "stage_dbg_review",
+		"party": ["char_bodybuilder", "char_archer", "char_priest"],
+		"levels": {"char_bodybuilder": 20, "char_archer": 20, "char_priest": 20},
+		"skills": {"char_bodybuilder": ["skill_bb_regen", "skill_bb_cheer"]},
+		"fire": [
+			{"skill": "skill_bb_regen", "prepare": PREPARE_NONE, "gap": 2.0},
+			{"skill": "skill_bb_cheer", "prepare": PREPARE_NONE, "gap": 2.0},
+		],
+	},
+	"dbg_sandbag": {
+		"kind": KIND_BATTLE,
+		"note": "見る回（殴られ役）：HP 99999・攻撃 1 の4体（ボスつき）",
+		"stage_id": "stage_dbg_sandbag",
+		"party": ["char_bodybuilder", "char_archer", "char_priest"],
+		"levels": {"char_bodybuilder": 20},
+		"skills": {"char_bodybuilder": ["skill_bb_regen", "skill_bb_cheer"]},
+		"fire": [
+			{"skill": "skill_bb_regen", "prepare": PREPARE_NONE, "gap": 2.0},
+		],
+	},
 	# ボディビルダー（回BB-1）。⚠ Lv20 に上げてから枠に入れる。⚠ いちばん前（3番目）に置く＝殴られる。
 	"bb_a": {
 		"kind": KIND_BATTLE,

@@ -11,6 +11,10 @@ extends Control
 # ⚠ 高さは中身で決まる（⚠ 行の数と種類）。⚠ 資源が無ければ隠す（⚠ 高さも取らない）。
 
 const THEME_TYPE: StringName = &"BattleUnitView"
+# ⚠ 寸法と色を引く型（2026-10-12）。⚠ 下部パネルの大きな帯（`PanelStatusStrip`）は `BattlePanelStatus` に替える。⚠ 戦場は既定のまま。
+var theme_type: StringName = THEME_TYPE
+# ⚠ 丸を左に寄せる（2026-10-12・下部パネルの帯＝名前のすぐ右から並べる）。⚠ 戦場は真ん中のまま。
+var pips_left: bool = false
 
 var _defs: Array = []
 var _values: Dictionary = {}
@@ -39,7 +43,7 @@ func content_height() -> float:
 	var total: float = 0.0
 	for i: int in range(_defs.size()):
 		if i > 0:
-			total += get_theme_constant(&"res_row_gap", THEME_TYPE)
+			total += get_theme_constant(&"res_row_gap", theme_type)
 		total += _row_height(_defs[i] as Dictionary)
 	return total
 
@@ -47,11 +51,11 @@ func content_height() -> float:
 func _row_height(def: Dictionary) -> float:
 	match str(def.get("kind", "")):
 		BattleUnit.RESOURCE_KIND_GAUGE:
-			return get_theme_constant(&"res_gauge_height", THEME_TYPE)
+			return get_theme_constant(&"res_gauge_height", theme_type)
 		BattleUnit.RESOURCE_KIND_STOCK:
-			return get_theme_constant(&"res_pip_size", THEME_TYPE)
+			return get_theme_constant(&"res_pip_size", theme_type)
 		BattleUnit.RESOURCE_KIND_STATE:
-			return get_theme_constant(&"res_label_height", THEME_TYPE)
+			return get_theme_constant(&"res_label_height", theme_type)
 	return 0.0
 
 
@@ -59,7 +63,7 @@ func _draw() -> void:
 	var y: float = 0.0
 	for i: int in range(_defs.size()):
 		if i > 0:
-			y += get_theme_constant(&"res_row_gap", THEME_TYPE)
+			y += get_theme_constant(&"res_row_gap", theme_type)
 		var def: Dictionary = _defs[i] as Dictionary
 		var height: float = _row_height(def)
 		var value: int = int(_values.get(str(def.get("id", "")), 0))
@@ -75,43 +79,43 @@ func _draw() -> void:
 
 
 func _draw_gauge(y: float, height: float, value: int, max_value: int) -> void:
-	draw_rect(Rect2(0.0, y, size.x, height), get_theme_color(&"groove", THEME_TYPE))
+	draw_rect(Rect2(0.0, y, size.x, height), get_theme_color(&"groove", theme_type))
 	if value <= 0:
 		return
-	var fill: Color = get_theme_color(&"res_full" if value >= max_value else &"res_fill", THEME_TYPE)
+	var fill: Color = get_theme_color(&"res_full" if value >= max_value else &"res_fill", theme_type)
 	draw_rect(Rect2(0.0, y, size.x * float(value) / float(max_value), height), fill)
 
 
 # ⚠ 丸の大きさは幅に収まるまで縮める（⚠ max が多いキャラでも1行に収める）。
 func _draw_pips(y: float, height: float, value: int, max_value: int) -> void:
-	var gap: float = get_theme_constant(&"res_pip_gap", THEME_TYPE)
+	var gap: float = get_theme_constant(&"res_pip_gap", theme_type)
 	var pip: float = minf(height, (size.x - gap * float(max_value - 1)) / float(max_value))
 	pip = maxf(1.0, pip)
 	var total_width: float = pip * float(max_value) + gap * float(max_value - 1)
-	var x: float = (size.x - total_width) * 0.5
+	var x: float = 0.0 if pips_left else (size.x - total_width) * 0.5
 	var full: bool = value >= max_value
 	for i: int in range(max_value):
 		var color: Color
 		if i < value:
-			color = get_theme_color(&"res_full" if full else &"res_fill", THEME_TYPE)
+			color = get_theme_color(&"res_full" if full else &"res_fill", theme_type)
 		else:
-			color = get_theme_color(&"groove", THEME_TYPE)
+			color = get_theme_color(&"groove", theme_type)
 		draw_circle(Vector2(x + pip * 0.5, y + height * 0.5), pip * 0.5, color)
 		x += pip + gap
 
 
 func _draw_label(y: float, height: float, def: Dictionary, value: int) -> void:
-	draw_rect(Rect2(0.0, y, size.x, height), get_theme_color(&"groove", THEME_TYPE))
+	draw_rect(Rect2(0.0, y, size.x, height), get_theme_color(&"groove", theme_type))
 	var labels: Variant = def.get("labels", [])
 	if not (labels is Array) or value < 0 or value >= (labels as Array).size():
 		return
 	var text: String = tr(str((labels as Array)[value]))
 	var font: Font = get_theme_font(&"font", &"Label")
-	var font_size: int = get_theme_constant(&"res_label_size", THEME_TYPE)
+	var font_size: int = get_theme_constant(&"res_label_size", theme_type)
 	var ascent: float = font.get_ascent(font_size)
 	var text_height: float = font.get_height(font_size)
 	var baseline: float = y + (height - text_height) * 0.5 + ascent
 	draw_string(
 		font, Vector2(0.0, baseline), text, HORIZONTAL_ALIGNMENT_CENTER, size.x, font_size,
-		get_theme_color(&"res_label", THEME_TYPE)
+		get_theme_color(&"res_label", theme_type)
 	)

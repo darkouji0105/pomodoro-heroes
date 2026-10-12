@@ -388,6 +388,8 @@ ui_battle_passive_edbg_def,硬い皮膚（敵）
 ui_battle_passive_edbg_revive_mark,不死の刻印（敵）
 ui_battle_skill_dbg_scale_battle,戦況依存（経過・波・敵数・スタック）
 ui_stage_dbg_area,検証用・範囲
+ui_stage_dbg_review,検証用・見る回（しっかり戦える）
+ui_stage_dbg_sandbag,検証用・見る回（殴られ役）
 ui_battle_skill_dbg_area_narrow,範囲・狭い（起点＝最寄り）
 ui_battle_skill_dbg_area_wide,範囲・広い（起点＝最寄り）
 ui_battle_skill_dbg_area_far,範囲・射程外まで巻き込む
@@ -2099,3 +2101,4 @@ ui_status_ch_st_bb_guard,胸
 ui_status_ch_st_bb_pose_guard,筋
 ui_status_ch_st_bb_pose_watch,見
 ui_status_ch_st_bb_pump_watch,肉
+ui_battle_panel_hp,HP

@@ -366,7 +366,7 @@ const TIER_DOT_GROUP_GAP: int = 8
 #   ⚠ 今は小さすぎる」→「スキルのマスそのもの」）。⚠ 余白12×2 ＋ 名前の行 ＋ 間6 ＋ マス56。
 const BATTLE_HEADER_HEIGHT: int = 40
 const BATTLE_SIDE_MARGIN: int = 32
-const BATTLE_PANEL_HEIGHT: int = 102
+const BATTLE_PANEL_HEIGHT: int = 150  # ⚠ 2026-10-12 上側に HP と資源の帯を足した（前 102）
 const BATTLE_PANEL_PAD: int = 12
 # ⚠ 戦場の地。⚠ 他の画面より一段暗い（⚠ 画面の地 `BACKGROUND_BG` は 16110f）。
 const BATTLE_FIELD_BG: String = TOKEN_FLOOR  # ⚠ 2026-09-26（回UI-4）手本の地へ（前 0f0c0b）
@@ -430,6 +430,19 @@ const BATTLE_RES_PIP_GAP: int = 2
 const BATTLE_RES_ROW_GAP: int = 1
 const BATTLE_RES_LABEL_HEIGHT: int = 12
 const BATTLE_RES_LABEL_SIZE: int = 10
+# ⚠ 下部パネルの各キャラの区画の上側の帯（2026-10-12・人間「⚠ 固有リソースはキャラのエリアの上側に○○使う感じで見れるように　HPもそういう感じで大きく」）。
+# ⚠ 1段目 HP・2段目から資源。⚠ 色は戦場の帯と同じ（⚠ ここは寸法だけ大きくする）。
+const BATTLE_STATUS_HP_HEIGHT: int = 12
+const BATTLE_STATUS_PIP_SIZE: int = 14
+const BATTLE_STATUS_PIP_GAP: int = 4
+const BATTLE_STATUS_GAUGE_HEIGHT: int = 10
+const BATTLE_STATUS_STATE_HEIGHT: int = 18
+const BATTLE_STATUS_STATE_SIZE: int = 13
+const BATTLE_STATUS_ROW_GAP: int = 4
+const BATTLE_STATUS_COL_GAP: int = 8
+const BATTLE_STATUS_LABEL_SIZE: int = 13
+const BATTLE_STATUS_NAME_WIDTH: int = 36
+const BATTLE_STATUS_VALUE_WIDTH: int = 64
 
 # ⚠⚠ HPバーは**味方は緑1色・敵は赤1色**（⚠ モック §4 の3段は 2026-09-17 に人間がやめた
 #   「味方のHPは残量に関係なくいつも緑」）。⚠ `BATTLE_HP_LOW` は瀕死の名前の色として残る。
@@ -1399,6 +1412,28 @@ static func _build_battle(theme: Theme) -> void:
 	for key: String in unit.keys():
 		theme.set_constant(StringName(key), &"BattleUnitView", int(unit[key]))
 	theme.set_color(&"res_fill", &"BattleUnitView", _html(BATTLE_RES_FILL))
+	# ⚠ 下部パネルの上側の帯（2026-10-12・`PanelStatusStrip`）。⚠ `CharResourceView` が同じ名前の定数を引く。
+	var status: Dictionary = {
+		"hp_bar_height": BATTLE_STATUS_HP_HEIGHT,
+		"res_gauge_height": BATTLE_STATUS_GAUGE_HEIGHT,
+		"res_pip_size": BATTLE_STATUS_PIP_SIZE,
+		"res_pip_gap": BATTLE_STATUS_PIP_GAP,
+		"res_row_gap": 0,
+		"res_label_height": BATTLE_STATUS_STATE_HEIGHT,
+		"res_label_size": BATTLE_STATUS_STATE_SIZE,
+		"row_gap": BATTLE_STATUS_ROW_GAP,
+		"col_gap": BATTLE_STATUS_COL_GAP,
+		"label_size": BATTLE_STATUS_LABEL_SIZE,
+		"name_width": BATTLE_STATUS_NAME_WIDTH,
+		"value_width": BATTLE_STATUS_VALUE_WIDTH,
+	}
+	for status_key: String in status.keys():
+		theme.set_constant(StringName(status_key), &"BattlePanelStatus", int(status[status_key]))
+	theme.set_color(&"res_fill", &"BattlePanelStatus", _html(BATTLE_RES_FILL))
+	theme.set_color(&"res_full", &"BattlePanelStatus", _html(BATTLE_RES_FULL))
+	theme.set_color(&"res_label", &"BattlePanelStatus", _html(BATTLE_RES_LABEL))
+	theme.set_color(&"groove", &"BattlePanelStatus", _html(BATTLE_BAR_GROOVE))
+	theme.set_color(&"label", &"BattlePanelStatus", _html(BATTLE_RES_LABEL))
 	theme.set_color(&"res_full", &"BattleUnitView", _html(BATTLE_RES_FULL))
 	theme.set_color(&"res_label", &"BattleUnitView", _html(BATTLE_RES_LABEL))
 	theme.set_color(&"hp_high", &"BattleUnitView", _html(BATTLE_HP_HIGH))

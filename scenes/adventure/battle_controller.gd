@@ -1259,9 +1259,9 @@ func _step_shield_views() -> void:
 		# ⚠ 下部パネルの帯にも同じ値を配る（2026-09-16）。⚠ 引く先は器の1本だけ
 		#   （⚠ ここで2回引かないこと）。
 		if _panel_slots_by_unit_id.has(u.unit_id):
-			var bar: Variant = (_panel_slots_by_unit_id[u.unit_id] as Dictionary).get("bar", null)
-			if bar is BattleBar and is_instance_valid(bar):
-				(bar as BattleBar).set_values(u.hp, u.max_hp, left, total)
+			var strip: Variant = (_panel_slots_by_unit_id[u.unit_id] as Dictionary).get("strip", null)
+			if strip is PanelStatusStrip and is_instance_valid(strip):
+				(strip as PanelStatusStrip).set_shield(u.hp, u.max_hp, left, total)
 
 
 func _acquire_target_if_needed(unit: BattleUnit) -> void:
@@ -1590,6 +1590,11 @@ func _build_skill_buttons() -> void:
 
 	var hud: StringName = &"BattleHud"
 	var first: bool = true
+	# ⚠ 上側の帯の段の数をそろえる（2026-10-12）＝パーティの中で一番多い資源の数。
+	var max_resource_rows: int = 0
+	for counted in _session.party_units:
+		if counted is BattleUnit:
+			max_resource_rows = maxi(max_resource_rows, (counted as BattleUnit).resource_defs.size())
 	for unit in _session.party_units:
 		if not (unit is BattleUnit):
 			continue
@@ -1610,9 +1615,20 @@ func _build_skill_buttons() -> void:
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		skill_buttons_container.add_child(slot)
 
+		# ⚠ 区画の上側に大きな HP と固有の資源（2026-10-12・人間「⚠ あ：2段」「⚠ 消す」）＝`PanelStatusStrip`。⚠ その下に今までの顔・名前・スキルの行。
+		var slot_stack: VBoxContainer = VBoxContainer.new()
+		slot_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(slot_stack)
+		var strip: PanelStatusStrip = PanelStatusStrip.new()
+		slot_stack.add_child(strip)
+		# ⚠ setup() はツリーに入れてから呼ぶ（⚠ Theme を引くため）。
+		strip.setup((unit as BattleUnit).resource_defs, max_resource_rows)
+		strip.set_hp(unit.hp, unit.max_hp)
+		strip.set_resources((unit as BattleUnit).resource_defs, (unit as BattleUnit).resources)
+
 		var row: HBoxContainer = HBoxContainer.new()
 		row.theme_type_variation = &"BattleFaceRow"
-		slot.add_child(row)
+		slot_stack.add_child(row)
 
 		# ⚠ 顔とHPバーは隙間なく積む（モック §6「密着」）。
 		var face_stack: VBoxContainer = VBoxContainer.new()
@@ -1622,25 +1638,9 @@ func _build_skill_buttons() -> void:
 
 		var face_size: int = slot.get_theme_constant(&"face_size", hud)
 		face_stack.add_child(CharacterAvatar.create(unit.master_id, face_size))
+		# ⚠ 顔の下の細い HP の帯と小さな資源は消した（2026-10-12・人間「⚠ 消す」）＝上側の帯（strip）に出す。
 
-		var bar_height: int = slot.get_theme_constant(&"face_bar_height", hud)
-		var shield_height: int = slot.get_theme_constant(&"face_shield_height", hud)
-		var bar: BattleBar = BattleBar.new()
-		bar.custom_minimum_size = Vector2(face_size, bar_height + shield_height)
-		face_stack.add_child(bar)
-		# ⚠ setup() はツリーに入れてから呼ぶ（⚠ Theme を引くため）。
-		bar.setup(true, false, float(shield_height))
-		bar.set_values(unit.hp, unit.max_hp, 0, 0)
-
-		_panel_slots_by_unit_id[unit.unit_id] = {"slot": slot, "bar": bar}
-
-		# 固有の資源（回CH-1・人間「⚠ う」＝HP の帯の下）。⚠ 持たないキャラには作らない。
-		if not (unit as BattleUnit).resource_defs.is_empty():
-			var resource_view: CharResourceView = CharResourceView.new()
-			resource_view.custom_minimum_size.x = face_size
-			face_stack.add_child(resource_view)
-			resource_view.set_values((unit as BattleUnit).resource_defs, (unit as BattleUnit).resources)
-			(_panel_slots_by_unit_id[unit.unit_id] as Dictionary)["resources"] = resource_view
+		_panel_slots_by_unit_id[unit.unit_id] = {"slot": slot, "strip": strip}
 
 		var column: VBoxContainer = VBoxContainer.new()
 		column.theme_type_variation = &"BattleNameStack"
@@ -1925,12 +1925,10 @@ func _update_bottom_panel() -> void:
 		if not _panel_slots_by_unit_id.has(u.unit_id):
 			continue
 		var slot_data: Dictionary = _panel_slots_by_unit_id[u.unit_id]
-		var bar: Variant = slot_data.get("bar", null)
-		if bar is BattleBar and is_instance_valid(bar):
-			(bar as BattleBar).set_hp(u.hp, u.max_hp)
-		var resource_view: Variant = slot_data.get("resources", null)
-		if resource_view is CharResourceView and is_instance_valid(resource_view):
-			(resource_view as CharResourceView).set_values(u.resource_defs, u.resources)
+		var strip: Variant = slot_data.get("strip", null)
+		if strip is PanelStatusStrip and is_instance_valid(strip):
+			(strip as PanelStatusStrip).set_hp(u.hp, u.max_hp)
+			(strip as PanelStatusStrip).set_resources(u.resource_defs, u.resources)
 		var slot: Variant = slot_data.get("slot", null)
 		if slot is Control and is_instance_valid(slot):
 			var percent: float = float(
