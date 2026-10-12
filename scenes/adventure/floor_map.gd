@@ -291,6 +291,10 @@ func _node_text(node_id: String, node: Dictionary) -> String:
 #   ⚠ ここで受けてから遷移の前に演出を出す（段階14-g）。
 var _found_chest_id: String = ""
 var _found_rarity: String = ""
+# ⚠ 10-12（100ループのテストプレイ）：⚠ 動いたあと画面が切り替わるまでの押下を受けない。
+#   ⚠ 受けると2マス進み、⚠ ボスへ「移動済み」なのに戦闘が始まらず、⚠ 全部のマスが押せなくなった。
+#   ⚠ 地図に留まるマス（⚠ 休憩・知らない種類）だけ、⚠ 入ったあとで外す。
+var _moved: bool = false
 
 
 # 宝箱が出た。⚠ ここでは記録するだけ。演出は _on_node_pressed() が出す。
@@ -305,6 +309,8 @@ func _on_chest_found(chest_id: String, rarity: String) -> void:
 # マスを押した。⚠ 進んでから種類で分ける。
 #   ⚠ 進めなければ GameManager が false を返すので、こちらでは判定しない。
 func _on_node_pressed(node_id: String) -> void:
+	if _moved:
+		return
 	_found_chest_id = ""
 	_found_rarity = ""
 	# ⚠ 前の移動でレアリティの色に染めているので、必ず白へ戻す。
@@ -313,6 +319,7 @@ func _on_node_pressed(node_id: String) -> void:
 	if not GameManager.move_to_node(node_id):
 		message_label.text = tr("ui_floor_cannot_move")
 		return
+	_moved = true
 
 	# 宝箱が出ていたら、⚠ 先に見せてから先へ進む（段階14-g）。
 	#   ⚠ 戦闘マスへの移動はすぐ遷移するので、⚠ 待たせないと一度も見えない。
@@ -364,6 +371,7 @@ func _enter_node(node_id: String) -> void:
 			_enter_battle(node_id)
 		GameStateKeys.FLOOR_NODE_KIND_REST:
 			var _ok: bool = GameManager.rest_at_node()
+			_moved = false
 			message_label.text = tr("ui_floor_rested")
 			# ⚠ 休憩はマップに留まる。⚠ 途中で拾った宝箱があればここで選ばせる（2026-09-18）。
 			_open_pickup_if_needed()
@@ -381,6 +389,7 @@ func _enter_node(node_id: String) -> void:
 			#   踏むと詰むノードがあるとフロアがクリアできない。
 			push_warning("[FloorMap] 知らないノードの種類: " + kind)
 			message_label.text = tr("ui_floor_node_not_ready")
+			_moved = false
 			_rebuild()
 
 
