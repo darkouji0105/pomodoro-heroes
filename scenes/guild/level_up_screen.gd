@@ -17,6 +17,9 @@ const THEME_TYPE: StringName = &"Training"
 var _character_id: String = ""
 # ⚠ 判を押したあとか（⚠ 状態ではなく画面の都合）。
 var _done: bool = false
+# ⚠ 10-12（100ループのテストプレイ）：⚠ 判のあとに出す「点 +N」の N（⚠ 「上げられるだけ」で何段上げたか）。
+#   ⚠ 前は +1 の固定で、⚠ 1→20 に上げても +1 と出ていた。⚠ 1段で点は1（⚠ `get_stat_node_total_points()` が「レベル-1」）。
+var _raised: int = 1
 # ⚠ 目標の「Lv◯まで」（2026-10-09・回AUTO-1・入口の案 E3）。⚠ -1 ＝まだ決めていない。
 var _goal_level: int = -1
 const GOAL_LEVEL_STEP_DEFAULT: int = 5
@@ -133,8 +136,8 @@ func _create_gain_row() -> LedgerRow:
 	line.add_child(label)
 	var gain: Label = Label.new()
 	gain.theme_type_variation = &"GainLabel"
-	# ⚠ ポイントは必ず +1（⚠ `get_stat_node_total_points()` が「レベル-1」）。
-	gain.text = tr("ui_level_up_point_gain")
+	# ⚠ 1段で点は1（⚠ `get_stat_node_total_points()` が「レベル-1」）＝⚠ 上げた段の数がそのまま点。
+	gain.text = tr("ui_level_up_point_gain") % (_raised if _done else 1)
 	line.add_child(gain)
 	if _done:
 		var go: Button = UiButton.create_paper_choice("ui_level_up_go_nodes_short")
@@ -397,6 +400,7 @@ func _on_press_pressed() -> void:
 		return
 	if not GameManager.level_up_character(_character_id):
 		return
+	_raised = 1
 	_done = true
 	_rebuild()
 
@@ -412,6 +416,7 @@ func _on_max_pressed() -> void:
 		raised += 1
 	if raised <= 0:
 		return
+	_raised = raised
 	_done = true
 	_rebuild()
 

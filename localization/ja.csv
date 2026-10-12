@@ -1193,7 +1193,7 @@ ui_level_up_done_level,Lv %d
 ui_level_up_next_skill,次に覚えるスキル（Lv%d）
 ui_level_up_approver,承認　ギルドマスター
 ui_level_up_point,ステータスノードの点
-ui_level_up_point_gain,+1
+ui_level_up_point_gain,+%d
 ui_level_up_go_nodes_short,振りに行く ›
 ui_stamp_level_up_done,昇級
 ui_level_up_seal_here,ここに判
