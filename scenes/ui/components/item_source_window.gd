@@ -288,5 +288,23 @@ func _on_go_pressed(kind: String, ref: String) -> void:
 			SceneManager.change_scene(POMODORO_PATH)
 		GameManager.ITEM_SOURCE_USE_POTION:
 			# ⚠ その場で使う（⚠ 画面を移らない）。⚠ 使えたら数を描き直す。
-			if GameManager.use_stamina_potion():
-				_rebuild()
+			if not GameManager.use_stamina_potion():
+				return
+			# ⚠ 10-12（100ループのテストプレイ）：⚠ 要る数に届いたら窓を閉じる（⚠ 開いたままだと続けて押して余分に使う）。
+			#   ⚠ 要る数を渡されていない窓（⚠ アイコンから開いた窓）は今までどおり描き直すだけ。
+			if _need > 0 and GameManager.get_resource_amount(_item_id) >= _need:
+				var dialog: ModalDialog = _owner_dialog()
+				if dialog != null:
+					dialog.close()
+					return
+			_rebuild()
+
+
+# ⚠ 自分を入れている窓（⚠ `goal_sheet.gd` と同じ探し方）。⚠ 窓の外に置かれたときは null。
+func _owner_dialog() -> ModalDialog:
+	var node: Node = get_parent()
+	while node != null:
+		if node is ModalDialog:
+			return node as ModalDialog
+		node = node.get_parent()
+	return null
