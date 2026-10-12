@@ -27,6 +27,8 @@ var _resource_view: CharResourceView = null
 var depth_floor: DepthFloor = null
 # 奥行き（⚠ -1 奥〜 1 手前）。⚠ 決めるのは戦闘の画面（⚠ 重なったときだけ分かれる）。
 var depth: float = 0.0
+# 直線の戦場のときの高さ（⚠ 前の形・作ったときの y）。
+var _line_y: float = 0.0
 # ⚠ 行動中（いまチャージを溜めている）か。⚠ 枠線と名前の色が変わる（モック §3-2）。
 var _active: bool = false
 
@@ -93,8 +95,14 @@ func setup(unit: BattleUnit) -> void:
 	#   （⚠ それまでは味方だけスキルボタンの左に縦で出していた）。
 	$StatusChips.setup(false, Balance.adventure.status_chip_max_px)
 	position.x = unit.x
+	_line_y = position.y
 	_refresh_name_color()
 	show()
+
+
+# 足元から丸の真ん中までの高さ（⚠ 丸の半分）。⚠ 影の大きさにも使う。
+func standing_lift() -> float:
+	return float(($Body as Panel).get_theme_constant(&"body_height", THEME_TYPE)) * 0.5
 
 
 # 本体の色（モック §3）。⚠ 味方は `CharacterAvatar` の色表をそのまま使う
@@ -188,12 +196,16 @@ func _process(_delta: float) -> void:
 	if not visible:
 		show()
 	if depth_floor != null:
-		position = depth_floor.screen_pos(_unit.x, depth)
+		# ⚠ 切り絵として床に立つ（2026-10-12）：⚠ 床の点＝足元。⚠ 丸はその上に立つ（⚠ 丸の半分ぶん持ち上げる）。
 		var s: float = depth_floor.scale_at(depth)
+		position = depth_floor.screen_pos(_unit.x, depth) - Vector2(0.0, standing_lift() * s)
 		scale = Vector2(s, s)
 		z_index = depth_floor.z_at(depth)
 	else:
-		position.x = _unit.x
+		# ⚠ 直線の戦場（前の形）。⚠ 見下ろしから切り替えたときのために高さ・大きさ・描く順も戻す。
+		position = Vector2(_unit.x, _line_y)
+		scale = Vector2.ONE
+		z_index = 0
 	var bar: BattleBar = $Bar
 	var was_low: bool = bar.is_low()
 	bar.set_hp(_unit.hp, _unit.max_hp)

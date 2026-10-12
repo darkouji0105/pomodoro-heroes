@@ -17,6 +17,8 @@ var _ground_y: float = 0.0
 var _depth_floor: DepthFloor = null
 var _depth_overlap: float = 70.0
 var _depth_rate: float = 10.0
+# 戦場の見た目（2026-10-12）＝"depth"（見下ろし・切り絵）／"line"（前の直線）。⚠ 戦闘のデバッグの [G] で切り替える。
+var _view_mode: String = GameSettings.BATTLE_VIEW_DEPTH
 var _party_base_x: float = 0.0
 var _party_step_x: float = 0.0
 var _enemy_base_x: float = 0.0
@@ -316,6 +318,11 @@ func _apply_hud_theme() -> void:
 	)
 	_depth_overlap = float(src.get_theme_constant(&"depth_overlap", hud))
 	_depth_rate = float(src.get_theme_constant(&"depth_rate", hud))
+	var shadow: Color = src.get_theme_color(&"depth_shadow", hud)
+	shadow.a = 0.6
+	_depth_floor.shadow_color = shadow
+	_view_mode = GameSettings.battle_view()
+	_depth_floor.visible = _view_mode == GameSettings.BATTLE_VIEW_DEPTH
 	var step: float = float(
 		src.get_theme_constant(&"width", uv) + src.get_theme_constant(&"gap", uv)
 	)
@@ -445,8 +452,9 @@ func _make_unit_view(unit: BattleUnit, parent: Node) -> Node:
 	view.position = Vector2(unit.x, _ground_y)
 	# ⚠ 見下ろす床（2026-10-12）。⚠ 位置・大きさ・描く順は床からもらう。
 	if _depth_floor != null and view is UnitView:
-		(view as UnitView).depth_floor = _depth_floor
 		view.position = _depth_floor.screen_pos(unit.x, 0.0)
+		if _view_mode == GameSettings.BATTLE_VIEW_DEPTH:
+			(view as UnitView).depth_floor = _depth_floor
 	parent.add_child(view)
 	view.setup(unit)
 	_views_by_unit_id[unit.unit_id] = view
@@ -456,7 +464,7 @@ func _make_unit_view(unit: BattleUnit, parent: Node) -> Node:
 # 重なった駒を奥と手前へ分ける（2026-10-12・人間「⚠ 重なった時だけわかれる」）。⚠ 見た目だけ。
 # ⚠ 重なっていなければ真ん中（0）へ戻る。⚠ 重なったときの並びは出てきた順（⚠ 味方・敵・召喚の順＝毎回同じ）。
 func _update_depths(delta: float) -> void:
-	if _depth_floor == null or _session == null:
+	if _depth_floor == null or _session == null or _view_mode != GameSettings.BATTLE_VIEW_DEPTH:
 		return
 	var items: Array = []
 	var order: int = 0
@@ -468,9 +476,29 @@ func _update_depths(delta: float) -> void:
 		if view is UnitView and is_instance_valid(view):
 			items.append({"id": (raw as BattleUnit).unit_id, "x": (raw as BattleUnit).x, "order": order})
 	var targets: Dictionary = DepthFloor.spread_depths(items, _depth_overlap)
+	# ⚠ 足元の影（⚠ 切り絵が床に立っている感じ）。⚠ 横の半径は丸の半分 × 奥行きの大きさ。
+	var shadows: Array = []
 	for item: Dictionary in items:
 		var v: UnitView = _views_by_unit_id[item["id"]] as UnitView
 		v.depth = DepthFloor.approach(v.depth, float(targets.get(item["id"], 0.0)), delta, _depth_rate)
+		var feet: Vector2 = _depth_floor.screen_pos(float(item["x"]), v.depth)
+		shadows.append(Vector3(feet.x, feet.y, v.standing_lift() * 0.8 * _depth_floor.scale_at(v.depth)))
+	_depth_floor.set_shadows(shadows)
+
+
+# 戦場の見た目を切り替える（2026-10-12・人間「⚠ 2パターン用意して、既存のやつと比べたい」）。⚠ 戦闘のデバッグの [G]。⚠ 次の戦闘にも残す。
+func debug_toggle_view() -> void:
+	var next: String = GameSettings.BATTLE_VIEW_LINE if _view_mode == GameSettings.BATTLE_VIEW_DEPTH else GameSettings.BATTLE_VIEW_DEPTH
+	GameSettings.set_value(GameSettings.SECTION_BATTLE, GameSettings.KEY_BATTLE_VIEW, next)
+	_view_mode = next
+	if _depth_floor != null:
+		_depth_floor.visible = next == GameSettings.BATTLE_VIEW_DEPTH
+		_depth_floor.set_shadows([])
+	for raw: Variant in _views_by_unit_id.values():
+		if raw is UnitView and is_instance_valid(raw):
+			(raw as UnitView).depth = 0.0
+			(raw as UnitView).depth_floor = _depth_floor if next == GameSettings.BATTLE_VIEW_DEPTH else null
+	print("[BattleDebug] 戦場の見た目を %s にした（depth＝見下ろし ／ line＝直線）" % next)
 
 
 # 駒の画面上の足元（2026-10-12・見下ろす床）。⚠ 矢・弾が奥行きのある駒へ飛ぶために使う。⚠ 駒が無ければ床の真ん中。

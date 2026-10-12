@@ -44,6 +44,10 @@ const SECTION_BATTLE: String = "battle"
 const KEY_BATTLE_AUTO: String = "auto"
 const KEY_BATTLE_SPEED: String = "speed"
 const BATTLE_SPEEDS: Array[int] = [1, 2]
+# ⚠ 戦場の見た目（2026-10-12・人間「⚠ 2パターン用意して、既存のやつと比べたい　前の前の直線の戦場のやつね」）。⚠ 戦闘のデバッグの [G] で切り替える。
+const KEY_BATTLE_VIEW: String = "view"
+const BATTLE_VIEW_DEPTH: String = "depth"
+const BATTLE_VIEW_LINE: String = "line"
 const WEEK_END_CHOICES: Array[int] = [5, 6, 0]
 const VOLUME_MAX_PCT: int = 100
 # ⚠ 演出の速さの5段（⚠ ふつう・1.5倍・2倍・3倍・とばす）。⚠ 「とばす」は 20倍＝ほぼ一瞬（⚠ 演出の終わりで次へ進む作りを崩さない）。
@@ -120,6 +124,8 @@ static func _default(section: String, key: String) -> Variant:
 			return false
 		KEY_BATTLE_SPEED:
 			return 1
+		KEY_BATTLE_VIEW:
+			return BATTLE_VIEW_DEPTH
 	push_warning("[GameSettings] 知らない設定 %s/%s" % [section, key])
 	return null
 
@@ -184,6 +190,12 @@ static func battle_auto() -> bool:
 static func battle_speed() -> int:
 	var speed: int = int(get_value(SECTION_BATTLE, KEY_BATTLE_SPEED))
 	return speed if speed in BATTLE_SPEEDS else 1
+
+
+# ⚠ "depth"（少し上から見下ろす床・切り絵）か "line"（前の直線の戦場）。⚠ 知らない値は "depth"。
+static func battle_view() -> String:
+	var view: String = str(get_value(SECTION_BATTLE, KEY_BATTLE_VIEW))
+	return view if view in [BATTLE_VIEW_DEPTH, BATTLE_VIEW_LINE] else BATTLE_VIEW_DEPTH
 
 
 static func goal_style() -> String:

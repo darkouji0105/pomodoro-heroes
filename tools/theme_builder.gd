@@ -381,13 +381,15 @@ const BATTLE_GROUND_Y: int = 300
 # ⚠ 少し上から見下ろす床（2026-10-12・`DepthFloor`）。⚠ 重なった駒は奥と手前へ分かれる（⚠ 見た目だけ）。
 # ⚠ 奥行き 1 ぶんの上下のずれ・奥と手前の大きさ（％）・奥の横の縮み（％）・重なりとみなす横の距離・寄る速さ（1秒あたり）。
 const BATTLE_DEPTH_PX: int = 88
-const BATTLE_DEPTH_BACK_PCT: int = 90
-const BATTLE_DEPTH_FRONT_PCT: int = 108
-const BATTLE_DEPTH_WIDTH_PCT: int = 94
+const BATTLE_DEPTH_BACK_PCT: int = 82
+const BATTLE_DEPTH_FRONT_PCT: int = 112
+const BATTLE_DEPTH_WIDTH_PCT: int = 86
 const BATTLE_DEPTH_OVERLAP: int = 70
 const BATTLE_DEPTH_RATE: int = 10
 const BATTLE_DEPTH_FLOOR: String = "2a2320"
 const BATTLE_DEPTH_LINE: String = "3a302b"
+# ⚠ 足元の影（2026-10-12・切り絵が床に立っている感じ）。
+const BATTLE_DEPTH_SHADOW: String = "0c0908"
 
 # ⚠ 下部パネル（モック §6・A案「顔の直下にHPバーを密着」）。
 const BATTLE_FACE_SIZE: int = 40
@@ -1405,6 +1407,7 @@ static func _build_battle(theme: Theme) -> void:
 	theme.set_color(&"field_bg", &"BattleHud", _html(BATTLE_FIELD_BG))
 	theme.set_color(&"depth_floor", &"BattleHud", _html(BATTLE_DEPTH_FLOOR))
 	theme.set_color(&"depth_line", &"BattleHud", _html(BATTLE_DEPTH_LINE))
+	theme.set_color(&"depth_shadow", &"BattleHud", _html(BATTLE_DEPTH_SHADOW))
 	theme.set_color(&"divider", &"BattleHud", _html(DIVIDER_COLOR))
 
 	var unit: Dictionary = {

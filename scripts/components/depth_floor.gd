@@ -24,6 +24,15 @@ var floor_left: float = 0.0
 var floor_right: float = 1280.0
 var floor_color: Color = Color(1, 1, 1, 0.04)
 var line_color: Color = Color(1, 1, 1, 0.06)
+var shadow_color: Color = Color(0, 0, 0, 0.35)
+# 足元の影（⚠ 床に立っている感じを出す）。⚠ [Vector3(足元の x, 足元の y, 横の半径)]。⚠ 使う側が毎フレーム渡す。
+var _shadows: Array = []
+
+
+# 影を差し替える。⚠ 縦の半径は横の 0.3 倍（⚠ 斜めから見た円）。
+func set_shadows(shadows: Array) -> void:
+	_shadows = shadows
+	queue_redraw()
 
 
 func setup(p_center_x: float, p_center_y: float, p_depth_px: float, p_back_scale: float, p_front_scale: float,
@@ -109,3 +118,10 @@ func _draw() -> void:
 		var y: float = center_y + d * depth_px
 		var w: float = _width_at(d)
 		draw_line(Vector2(center_x + (floor_left - center_x) * w, y), Vector2(center_x + (floor_right - center_x) * w, y), line_color, 1.0)
+	for raw: Variant in _shadows:
+		var sh: Vector3 = raw as Vector3
+		var points: PackedVector2Array = PackedVector2Array()
+		for i: int in range(24):
+			var a: float = TAU * float(i) / 24.0
+			points.append(Vector2(sh.x + cos(a) * sh.z, sh.y + sin(a) * sh.z * 0.3))
+		draw_colored_polygon(points, shadow_color)

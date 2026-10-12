@@ -153,6 +153,8 @@ const SHOT_PREPARE_BIKER_PARTY: String = "biker_party"
 const SHOT_PREPARE_BODYBUILDER_PARTY: String = "bodybuilder_party"
 # ⚠ 見下ろす床（2026-10-12）：⚠ 近接3人（⚠ 内側の `PREPARE_MELEE_PARTY` と同じ字）。
 const SHOT_PREPARE_MELEE_PARTY: String = "melee_party"
+# ⚠ 同じ近接3人を直線の戦場（前の形）で（⚠ 見下ろしと比べる）。
+const SHOT_PREPARE_MELEE_LINE: String = "melee_line"
 const SHOT_PREPARE_TOWER_BOSS: String = "tower_boss"
 const SHOT_PREPARE_TOWER_MERCHANT: String = "tower_merchant"
 const SHOT_PREPARE_TOWER_OUT: String = "tower_out"
@@ -2017,6 +2019,17 @@ const SCENARIOS: Dictionary = {
 				"name": "9h_depth_overlap",
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_MELEE_PARTY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_review",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 300,
+			},
+			# ⚠ 比べる用：⚠ 同じ場面を直線の戦場（前の形）で。
+			{
+				"name": "9i_depth_line",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_MELEE_LINE,
 				"data": {
 					TransferKeys.STAGE_ID: "stage_dbg_review",
 					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
@@ -13315,6 +13328,7 @@ class ShotTaker extends Node:
 	const PREPARE_BIKER_PARTY: String = "biker_party"
 	const PREPARE_BODYBUILDER_PARTY: String = "bodybuilder_party"
 	const PREPARE_MELEE_PARTY: String = "melee_party"
+	const PREPARE_MELEE_LINE: String = "melee_line"
 	const PREPARE_PRINCESS_PARTY: String = "princess_party"
 	const DEBUG_PARTY: Array = ["char_debug_mix", "char_debug_life", "char_debug_status"]
 	# ⚠ 資源のスキルを枠に入れる（回CH-2）。⚠ 「充電60で回復」は始め 40 なので暗い＝足りないマスの絵。
@@ -13418,6 +13432,8 @@ class ShotTaker extends Node:
 
 	func _take_one(shot: Dictionary) -> void:
 		var shot_name: String = str(shot.get("name", "shot"))
+		# ⚠ 戦場の見た目は毎回既定（見下ろし）に戻す（2026-10-12）。⚠ 直線の絵だけが下ごしらえで直線にする（⚠ 後の絵に漏らさない）。
+		GameSettings.set_value(GameSettings.SECTION_BATTLE, GameSettings.KEY_BATTLE_VIEW, GameSettings.BATTLE_VIEW_DEPTH)
 		if not _prepare(str(shot.get("prepare", ""))):
 			push_error("[DebugBoot] ⚠ %s の下ごしらえが通らなかった" % shot_name)
 			return
@@ -13691,6 +13707,12 @@ class ShotTaker extends Node:
 		if kind == PREPARE_PRINCESS_PARTY:
 			for princess_i: int in range(3):
 				if not GameManager.set_party_member(princess_i, ["char_princess", "char_archer", "char_priest"][princess_i]):
+					return false
+			return true
+		if kind == PREPARE_MELEE_LINE:
+			GameSettings.set_value(GameSettings.SECTION_BATTLE, GameSettings.KEY_BATTLE_VIEW, GameSettings.BATTLE_VIEW_LINE)
+			for ml2_i: int in range(3):
+				if not GameManager.set_party_member(ml2_i, ["char_swordsman", "char_mercenary", "char_bodybuilder"][ml2_i]):
 					return false
 			return true
 		if kind == PREPARE_MELEE_PARTY:
