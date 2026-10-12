@@ -14980,6 +14980,7 @@ class UiFlowRunner extends Node:
 		await _flow_goal()
 		await _flow_battle_auto()
 		await _flow_goal_runner()
+		await _flow_qol_1012()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -17868,6 +17869,89 @@ class UiFlowRunner extends Node:
 		await _open(BASE, {})
 
 	# --- 入手先の窓（2026-10-06・`NAV-19`） ---
+
+	# --- QOL（2026-10-12・100ループのテストプレイ・人間「⚠ QOL関連は直したい」） ---
+	# ⚠ 最後に置く（⚠ 第1話をクリア済みにするので、⚠ 前の手の前提を崩さない）。
+
+	func _flow_qol_1012() -> void:
+		# ① 周回でスタミナが足りないと入手先の窓（⚠ 前は「スタミナが足りない」の1行だけ）。
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		if not GameManager.is_stage_cleared("floor_1"):
+			GameManager.mark_stage_cleared("floor_1")
+		var spare: int = GameManager.get_resource_amount(GameStateKeys.STAMINA)
+		GameManager.add_stamina(-spare)
+		var a: Node = await _open(ADVENTURE, {})
+		var repeat: Node = null if a == null else a.find_child("RepeatButton", true, false)
+		await _press(repeat)
+		var window: Node = null if a == null else _source_window(a)
+		_check("QOL：周回でスタミナが足りないと入手先の窓（窓 %s・スタミナ %d）" % [str(window != null), GameManager.get_resource_amount(GameStateKeys.STAMINA)],
+			repeat is BaseButton and window != null and not GameManager.is_in_floor() and GameManager.get_resource_amount(GameStateKeys.STAMINA) == 0)
+		# ② 窓の「使う」で足りたら窓が閉じる（⚠ 前は開いたまま＝続けて押して余分に使えた）。
+		GameManager.add_to_inventory(POTION_ID, 2, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+		if a != null and window != null:
+			await _close_modal(a)
+			await _press(repeat)
+			window = _source_window(a)
+		var potions: int = GameManager.get_stamina_potion_count()
+		var use: Node = null if window == null else _source_go(window, GameStateKeys.STAMINA, GameManager.ITEM_SOURCE_USE_POTION)
+		# ⚠ 押したあとは窓ごと消える（⚠ それが期待どおり）＝⚠ ボタンを見るのは押す前。
+		var use_ok: bool = use is BaseButton and not (use as BaseButton).disabled
+		await _press(use)
+		_check("QOL：窓でポーションを使って足りたら窓が閉じる（スタミナ %d・ポーション %d → %d）" % [GameManager.get_resource_amount(GameStateKeys.STAMINA), potions, GameManager.get_stamina_potion_count()],
+			use_ok and a != null and _source_window(a) == null and GameManager.get_stamina_potion_count() == potions - 1
+			and GameManager.get_resource_amount(GameStateKeys.STAMINA) >= int(Balance.adventure.stamina_cost_per_stage))
+		GameManager.add_stamina(spare)
+		# ③ 地図：動いたあと画面が切り替わるまでの押下を受けない（⚠ 前は2マス進んで、⚠ 抜けられなくなった）。
+		var started: bool = GameManager.start_floor("floor_1")
+		var m: Node = await _open(FLOOR_MAP, {})
+		var first: BaseButton = null
+		if m != null:
+			for node: Node in m.find_children("Node_*", "", true, false):
+				if node is BaseButton and not (node as BaseButton).disabled:
+					first = node as BaseButton
+					break
+		var first_id: String = "" if first == null else str(first.name).trim_prefix("Node_")
+		var next_ids: Array = GameManager.get_floor_node(first_id).get(GameStateKeys.FLOOR_NODE_NEXT, [])
+		# ⚠ 同じフレームのうちに押す（⚠ 画面が切り替わる前＝実機の素早い2回押し）。
+		if first != null:
+			first.pressed.emit()
+			for next_id: Variant in next_ids:
+				var second: Node = m.find_child("Node_" + str(next_id), true, false)
+				if second is BaseButton:
+					(second as BaseButton).pressed.emit()
+		var position: String = str(GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_POSITION, ""))
+		_check("QOL：地図のマスを続けて押しても1マスだけ進む（%s → 次 %s・いま %s）" % [first_id, str(next_ids), position],
+			started and first != null and not next_ids.is_empty() and position == first_id)
+		await _wait(OPEN_FRAMES)
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		# ④ 昇級の紙の「点 +N」は上げた段の数（⚠ 前は +1 の固定）。
+		var growth: Dictionary = GameManager.get_character_growth(OTHER)
+		var before: int = int(growth.get(GameStateKeys.GROWTH_LEVEL, 1))
+		var cost: Dictionary = GameManager.get_level_up_cost(OTHER)
+		GameManager.add_material(str(cost.get(GameManager.LEVEL_UP_COST_MATERIAL_ID, "")), 999)
+		var l: Node = await _open(LEVEL_UP, {TransferKeys.CHARACTER_ID: OTHER})
+		await _press(null if l == null else l.find_child("MaxButton", true, false))
+		var after: int = int(GameManager.get_character_growth(OTHER).get(GameStateKeys.GROWTH_LEVEL, 1))
+		var gain_text: String = ""
+		var row: Node = null if l == null else l.find_child("PointRow", true, false)
+		if row != null:
+			for node: Node in row.find_children("*", "Label", true, false):
+				if (node as Label).theme_type_variation == &"GainLabel":
+					gain_text = (node as Label).text
+		_check("QOL：「上げられるだけ」の昇級の紙は点 +%d（Lv %d → %d・表示 %s）" % [after - before, before, after, gain_text],
+			after - before > 1 and gain_text == tr("ui_level_up_point_gain") % (after - before))
+		# ⑤ ポモドーロの「拠点へ戻る」窓の取り消しは「続ける」（⚠ 前は押してきた「やめる」と同じ言葉）。
+		var pomo: Node = await _open(POMODORO, {})
+		await _press(null if pomo == null else pomo.find_child("QuitButton", true, false))
+		var modal: ModalDialog = null if pomo == null else _modal_of(pomo)
+		var keep_text: String = "" if modal == null else modal.close_button.text
+		_check("QOL：ポモドーロの「拠点へ戻る」窓の取り消しは「%s」" % keep_text, keep_text == tr("ui_pomodoro_quit_keep"))
+		if pomo != null and modal != null:
+			await _close_modal(pomo)
+		_check("QOL：「続ける」でポモドーロに残る", _path_of(get_tree().current_scene) == POMODORO)
+		await _open(BASE, {})
 
 	func _source_window(scene: Node) -> Node:
 		var modal: ModalDialog = _modal_of(scene)
