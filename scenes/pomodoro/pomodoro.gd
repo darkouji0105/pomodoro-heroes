@@ -887,8 +887,10 @@ func quit_session() -> void:
 	if _quit_confirming:
 		return
 	_quit_confirming = true
+	# ⚠ 10-12（100ループのテストプレイ）：⚠ 取り消しは「続ける」（⚠ 既定の「やめる」は、⚠ 押してきた「やめる」と同じ言葉で逆の意味になる）。
 	var confirmed: bool = await Modal.confirm(self, "ui_pomodoro_quit_confirm", [], false, {
 		Modal.OPTION_TITLE: tr("ui_pomodoro_quit_title"),
+		Modal.OPTION_CLOSE_LABEL: "ui_pomodoro_quit_keep",
 	})
 	_quit_confirming = false
 	if not confirmed:
