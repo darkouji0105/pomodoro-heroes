@@ -210,7 +210,7 @@
 				"id": "charge",
 				"kind": "gauge",
 				"max": 100,
-				"start": 0,
+				"start": 40,
 				"carry_over": false,
 				"name_key": "ui_res_char_scholar_charge", "overflow_heal_pct": 0.5
 			}
