@@ -170,6 +170,9 @@ func _goal_position() -> Vector2:
 	var target: BattleUnit = _find_target()
 	if target == null or not target.is_alive():
 		return _fallback_position
+	# ⚠ 見下ろす床（2026-10-12）：⚠ 相手の駒の画面上の足元（⚠ 奥行きで上下にずれている）。
+	if _controller != null and _controller.has_method("view_point"):
+		return _controller.call("view_point", target.unit_id)
 	return Vector2(target.x, _fallback_position.y)
 
 

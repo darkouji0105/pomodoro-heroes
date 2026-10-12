@@ -23,6 +23,10 @@ const BODY_KEY_FALLBACK: String = "fallback"
 var _unit: BattleUnit = null
 # 固有の資源（回CH-1）。⚠ 資源を持つ個体（＝味方の一部）だけ作る。
 var _resource_view: CharResourceView = null
+# 見下ろす床（2026-10-12）。⚠ 戦闘の画面が渡す。⚠ 無ければ今までどおり横の位置だけ動く。
+var depth_floor: DepthFloor = null
+# 奥行き（⚠ -1 奥〜 1 手前）。⚠ 決めるのは戦闘の画面（⚠ 重なったときだけ分かれる）。
+var depth: float = 0.0
 # ⚠ 行動中（いまチャージを溜めている）か。⚠ 枠線と名前の色が変わる（モック §3-2）。
 var _active: bool = false
 
@@ -183,7 +187,13 @@ func _process(_delta: float) -> void:
 	# 起こされた（回PR-1・リザレクション）。⚠ 倒れて隠したあと、生きていればまた出す（⚠ 死体はここまで来ない＝上で帰る）。
 	if not visible:
 		show()
-	position.x = _unit.x
+	if depth_floor != null:
+		position = depth_floor.screen_pos(_unit.x, depth)
+		var s: float = depth_floor.scale_at(depth)
+		scale = Vector2(s, s)
+		z_index = depth_floor.z_at(depth)
+	else:
+		position.x = _unit.x
 	var bar: BattleBar = $Bar
 	var was_low: bool = bar.is_low()
 	bar.set_hp(_unit.hp, _unit.max_hp)

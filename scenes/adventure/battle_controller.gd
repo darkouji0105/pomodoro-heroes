@@ -13,6 +13,10 @@ extends Node2D
 #   `unit.x += dir * speed * delta` で寄せるので、⚠ 毎フレームの位置ではない。
 # ⚠ 味方は画面の中央の左、敵は右。⚠ どちらも中央に向かって並ぶ（モック §2。⚠ 縦線は 2026-09-16 に消した）。
 var _ground_y: float = 0.0
+# 少し上から見下ろす床（2026-10-12）。⚠ 見た目だけ（⚠ 計算は横の位置だけのまま）。
+var _depth_floor: DepthFloor = null
+var _depth_overlap: float = 70.0
+var _depth_rate: float = 10.0
 var _party_base_x: float = 0.0
 var _party_step_x: float = 0.0
 var _enemy_base_x: float = 0.0
@@ -294,6 +298,24 @@ func _apply_hud_theme() -> void:
 	# ⚠ 並び始めの位置。⚠ 画面の中央に向かって両陣営が並ぶ（モック §2）。
 	#   ⚠ 味方は index が大きいほど線に近い（＝前衛が前に出る）。
 	_ground_y = float(src.get_theme_constant(&"ground_y", hud))
+	# 見下ろす床（2026-10-12）。⚠ 背景のすぐ上（⚠ 駒より下）に置く。
+	_depth_floor = DepthFloor.new()
+	_depth_floor.name = "DepthFloor"
+	add_child(_depth_floor)
+	if background is ColorRect:
+		move_child(_depth_floor, (background as ColorRect).get_index() + 1)
+		# ⚠ 奥の駒は描く順がマイナスになる（DepthFloor.z_at）＝⚠ 背景と床はそれより下へ（⚠ 下げないと奥の駒が背景に隠れる）。
+		(background as ColorRect).z_index = -1000
+	_depth_floor.z_index = -999
+	var field_width: float = get_viewport_rect().size.x
+	_depth_floor.setup(
+		field_width * 0.5, _ground_y, float(src.get_theme_constant(&"depth_px", hud)),
+		float(src.get_theme_constant(&"depth_back_pct", hud)) / 100.0, float(src.get_theme_constant(&"depth_front_pct", hud)) / 100.0,
+		float(src.get_theme_constant(&"depth_width_pct", hud)) / 100.0, 0.0, field_width,
+		src.get_theme_color(&"depth_floor", hud), src.get_theme_color(&"depth_line", hud)
+	)
+	_depth_overlap = float(src.get_theme_constant(&"depth_overlap", hud))
+	_depth_rate = float(src.get_theme_constant(&"depth_rate", hud))
 	var step: float = float(
 		src.get_theme_constant(&"width", uv) + src.get_theme_constant(&"gap", uv)
 	)
@@ -421,10 +443,44 @@ func _all_units() -> Array:
 func _make_unit_view(unit: BattleUnit, parent: Node) -> Node:
 	var view: Node = UNIT_VIEW_SCENE.instantiate()
 	view.position = Vector2(unit.x, _ground_y)
+	# ⚠ 見下ろす床（2026-10-12）。⚠ 位置・大きさ・描く順は床からもらう。
+	if _depth_floor != null and view is UnitView:
+		(view as UnitView).depth_floor = _depth_floor
+		view.position = _depth_floor.screen_pos(unit.x, 0.0)
 	parent.add_child(view)
 	view.setup(unit)
 	_views_by_unit_id[unit.unit_id] = view
 	return view
+
+
+# 重なった駒を奥と手前へ分ける（2026-10-12・人間「⚠ 重なった時だけわかれる」）。⚠ 見た目だけ。
+# ⚠ 重なっていなければ真ん中（0）へ戻る。⚠ 重なったときの並びは出てきた順（⚠ 味方・敵・召喚の順＝毎回同じ）。
+func _update_depths(delta: float) -> void:
+	if _depth_floor == null or _session == null:
+		return
+	var items: Array = []
+	var order: int = 0
+	for raw: Variant in _all_units():
+		order += 1
+		if not (raw is BattleUnit) or not (raw as BattleUnit).is_alive():
+			continue
+		var view: Variant = _views_by_unit_id.get((raw as BattleUnit).unit_id, null)
+		if view is UnitView and is_instance_valid(view):
+			items.append({"id": (raw as BattleUnit).unit_id, "x": (raw as BattleUnit).x, "order": order})
+	var targets: Dictionary = DepthFloor.spread_depths(items, _depth_overlap)
+	for item: Dictionary in items:
+		var v: UnitView = _views_by_unit_id[item["id"]] as UnitView
+		v.depth = DepthFloor.approach(v.depth, float(targets.get(item["id"], 0.0)), delta, _depth_rate)
+
+
+# 駒の画面上の足元（2026-10-12・見下ろす床）。⚠ 矢・弾が奥行きのある駒へ飛ぶために使う。⚠ 駒が無ければ床の真ん中。
+func view_point(unit_id: String) -> Vector2:
+	var view: Variant = _views_by_unit_id.get(unit_id, null)
+	if view is Node2D and is_instance_valid(view):
+		return to_local((view as Node2D).global_position)
+	var unit: BattleUnit = _find_unit_by_id(unit_id)
+	var x: float = unit.x if unit != null else 0.0
+	return _depth_floor.screen_pos(x, 0.0) if _depth_floor != null else Vector2(x, _ground_y)
 
 
 # 状態の器を返す。⚠ 検証用（BattleDebugPanel が状態の行を出すのに使う）。
@@ -769,6 +825,7 @@ func _process(delta: float) -> void:
 	_update_active_units()
 	_update_bottom_panel()
 	_update_charge_bar()
+	_update_depths(delta)
 
 	if _result_applied:
 		return
@@ -2276,18 +2333,21 @@ func _on_projectile_requested(
 		view.set_script(PROJECTILE_VIEW_SCRIPT)
 		# ⚠ 味方のコンテナに入れない。ウェーブ交代で敵のビューごと消えるため。
 		add_child(view)
+		# ⚠ 見下ろす床（2026-10-12）：⚠ 駒の画面上の足元から足元へ。
+		var from_point: Vector2 = view_point(user.unit_id)
+		var to_point: Vector2 = view_point(target.unit_id)
 		view.setup(
 			self,
 			cast_id,
 			target.unit_id,
-			Vector2(user.x, _ground_y),
-			Vector2(target.x, _ground_y),
+			from_point,
+			to_point,
 			_projectile_speed(delivery),
 			_projectile_color(delivery)
 		)
 		# 天井で跳ね返る（回GS-1）。⚠ 使う人と相手の真ん中の真上（天井）を経由する。
 		if delivery == SkillSchema.DELIVERY_BOUNCE:
-			view.set_bounce(Vector2((user.x + target.x) * 0.5, _ground_y - CEILING_HEIGHT_PX))
+			view.set_bounce(Vector2((from_point.x + to_point.x) * 0.5, minf(from_point.y, to_point.y) - CEILING_HEIGHT_PX))
 		_projectile_views.append(view)
 
 
