@@ -106,6 +106,8 @@ const SHOT_AFTER_BATTLE_EVADE: String = "battle_evade"
 const SHOT_AFTER_BATTLE_AIM: String = "battle_aim"
 const SHOT_AFTER_BATTLE_SUMMON: String = "battle_summon"
 const SHOT_AFTER_BATTLE_HOLY: String = "battle_holy"
+# ⚠ 地面の範囲（2026-10-12）：⚠ 骨の結界（味方に効く）とスモッグ（敵に効く）を撃ってから撮る（⚠ 内側の `AFTER_BATTLE_ZONES` と同じ字）。
+const SHOT_AFTER_BATTLE_ZONES: String = "battle_zones"
 const SHOT_AFTER_BATTLE_DEBUFF: String = "battle_debuff"
 const SHOT_AFTER_BATTLE_PIERCE: String = "battle_pierce"
 # ⚠ 王女（回PQ-1）：⚠ 王女を1番目に入れる（⚠ 内側の `PREPARE_PRINCESS_PARTY` と同じ字）。
@@ -2182,6 +2184,18 @@ const SCENARIOS: Dictionary = {
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
 				"after": SHOT_AFTER_BATTLE_HOLY,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			# ⚠ 地面の範囲（2026-10-12・人間「⚠ 地面の範囲の絵」）。⚠ 青＝味方に効く（骨の結界）・赤＝敵に効く（スモッグ）。
+			{
+				"name": "9j_ground_zones",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
+				"after": SHOT_AFTER_BATTLE_ZONES,
 				"data": {
 					TransferKeys.STAGE_ID: "stage_dbg_area",
 					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
@@ -13365,6 +13379,7 @@ class ShotTaker extends Node:
 	const AFTER_BATTLE_AIM: String = "battle_aim"
 	const AFTER_BATTLE_SUMMON: String = "battle_summon"
 	const AFTER_BATTLE_HOLY: String = "battle_holy"
+	const AFTER_BATTLE_ZONES: String = "battle_zones"
 	const AFTER_BATTLE_DEBUFF: String = "battle_debuff"
 	const AFTER_BATTLE_PIERCE: String = "battle_pierce"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
@@ -13916,6 +13931,13 @@ class ShotTaker extends Node:
 			for _i: int in range(30):
 				await get_tree().process_frame
 			print("[DebugBoot] %s：狙い x=%.1f（使う人 x=%.1f）" % [shot_name, me.aim_x, me.x])
+		elif kind == AFTER_BATTLE_ZONES:
+			# ⚠ 本物の SkillRuntime から撃つ（⚠ データはどのキャラでも撃てる＝1番目の味方が使う）。
+			var zone_runtime: SkillRuntime = screen.get("_skill_runtime") as SkillRuntime
+			zone_runtime.cast(me, "skill_nc_bone_ward", MasterDataLoader.get_skill("skill_nc_bone_ward"), 1.0)
+			zone_runtime.cast(me, "skill_sd_smog", MasterDataLoader.get_skill("skill_sd_smog"), 1.0)
+			for _i: int in range(10):
+				await get_tree().process_frame
 		elif kind == AFTER_BATTLE_HOLY:
 			# ⚠ 放射の2つの効果（敵＝一番近い敵の周り・味方＝自分の周り）を本物の SkillRuntime から撃つ。
 			var runtime: SkillRuntime = screen.get("_skill_runtime") as SkillRuntime
@@ -13977,7 +13999,7 @@ class ShotTaker extends Node:
 			# ⚠ `call()` で呼ぶ。⚠ `Node` 型の変数から直に呼ぶと**静的解析で通らない**
 			#   （⚠ `dungeon_map.gd` に `class_name` が無いため）。
 			screen.call("_open_loot_overlay", node_id, false)
-		elif kind in [AFTER_BATTLE_EVADE, AFTER_BATTLE_AIM, AFTER_BATTLE_SUMMON, AFTER_BATTLE_HOLY, AFTER_BATTLE_DEBUFF, AFTER_BATTLE_PIERCE]:
+		elif kind in [AFTER_BATTLE_EVADE, AFTER_BATTLE_AIM, AFTER_BATTLE_SUMMON, AFTER_BATTLE_HOLY, AFTER_BATTLE_DEBUFF, AFTER_BATTLE_PIERCE, AFTER_BATTLE_ZONES]:
 			# ⚠ 戦闘の途中（2026-10-10）。⚠ 表示は本物の口（結果の表示・溜めのボタン）を通す。
 			if not await _after_battle(kind, screen, shot_name):
 				return false

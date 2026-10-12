@@ -389,6 +389,9 @@ const BATTLE_DEPTH_FLOOR: String = "2a2320"
 const BATTLE_DEPTH_LINE: String = "3a302b"
 # ⚠ 足元の影（2026-10-12・切り絵が床に立っている感じ）。
 const BATTLE_DEPTH_SHADOW: String = "0c0908"
+# ⚠ 地面の範囲（2026-10-12）。⚠ 相手に効く（炎・毒の霧）＝暖色 ／ 味方に効く（結界・回復の場）＝寒色。⚠ 透け具合は DepthFloor が掛ける。
+const BATTLE_ZONE_HARM: String = "e0703a"
+const BATTLE_ZONE_HELP: String = "5aa8e0"
 
 # ⚠ 下部パネル（モック §6・A案「顔の直下にHPバーを密着」）。
 const BATTLE_FACE_SIZE: int = 40
@@ -1406,6 +1409,8 @@ static func _build_battle(theme: Theme) -> void:
 	theme.set_color(&"depth_floor", &"BattleHud", _html(BATTLE_DEPTH_FLOOR))
 	theme.set_color(&"depth_line", &"BattleHud", _html(BATTLE_DEPTH_LINE))
 	theme.set_color(&"depth_shadow", &"BattleHud", _html(BATTLE_DEPTH_SHADOW))
+	theme.set_color(&"zone_harm", &"BattleHud", _html(BATTLE_ZONE_HARM))
+	theme.set_color(&"zone_help", &"BattleHud", _html(BATTLE_ZONE_HELP))
 	theme.set_color(&"divider", &"BattleHud", _html(DIVIDER_COLOR))
 
 	var unit: Dictionary = {

@@ -1864,6 +1864,23 @@ func look_glyph_for(unit_id: String) -> String:
 	return glyph
 
 
+# 地面の範囲の形（2026-10-12・人間「⚠ 地面の範囲の絵」）。⚠ 描くのは戦闘の画面。
+# ⚠ [{"x": 中心の横位置, "radius": 半径, "harm": 相手に効くか}]。⚠ 当たり判定と同じ値（⚠ 1次元の半径）。
+func zone_shapes() -> Array:
+	var shapes: Array = []
+	for entry: Dictionary in _entries:
+		var zone: Dictionary = entry.get("zone", {}) as Dictionary
+		if zone.is_empty():
+			continue
+		var team: String = str(zone.get(SkillSchema.ZONE_TEAM, ""))
+		shapes.append({
+			"x": float(entry.get("host_x", 0.0)),
+			"radius": float(zone.get(SkillSchema.ZONE_RADIUS, 0.0)),
+			"harm": not (team in [SkillSchema.ZONE_TEAM_ALLY, SkillSchema.ZONE_TEAM_SELF]),
+		})
+	return shapes
+
+
 func entries_for(unit_id: String) -> Array:
 	var found: Array = []
 	if unit_id == "":

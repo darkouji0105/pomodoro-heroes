@@ -25,8 +25,22 @@ var floor_right: float = 1280.0
 var floor_color: Color = Color(1, 1, 1, 0.04)
 var line_color: Color = Color(1, 1, 1, 0.06)
 var shadow_color: Color = Color(0, 0, 0, 0.35)
+# 床そのもの（台形と線）を描くか（⚠ 直線の戦場では描かない＝影と範囲だけ）。
+var show_floor: bool = true
+# 範囲を楕円で描く高さ（⚠ 床を描かないとき＝直線の戦場の縦の半径 px）。
+var flat_zone_half_height: float = 18.0
+# 地面の範囲（2026-10-12）。⚠ [{"x", "radius", "color"}]。⚠ 横は本当の半径・縦は奥〜手前の段を覆う。
+var _zones: Array = []
 # 足元の影（⚠ 床に立っている感じを出す）。⚠ [Vector3(足元の x, 足元の y, 横の半径)]。⚠ 使う側が毎フレーム渡す。
 var _shadows: Array = []
+
+
+# 範囲を差し替える。⚠ 毎フレーム呼んでよい。
+func set_zones(zones: Array) -> void:
+	if zones.is_empty() and _zones.is_empty():
+		return
+	_zones = zones
+	queue_redraw()
 
 
 # 影を差し替える。⚠ 縦の半径は横の 0.3 倍（⚠ 斜めから見た円）。
@@ -114,6 +128,34 @@ func walk_depth(current: float, target: float, delta: float, speed_px: float) ->
 
 # 床：⚠ 奥が狭い台形 ＋ ⚠ 奥・真ん中・手前の薄い線。
 func _draw() -> void:
+	if show_floor:
+		_draw_floor()
+	_draw_zones()
+	_draw_shadows()
+
+
+# 範囲：⚠ 塗りは薄く・縁は濃く。⚠ 縦は奥（-1）〜手前（1）の段を覆う（⚠ 床を描かないときは低く）。
+func _draw_zones() -> void:
+	for raw: Variant in _zones:
+		var z: Dictionary = raw as Dictionary
+		var center: Vector2 = screen_pos(float(z["x"]), 0.0)
+		var rx: float = float(z["radius"]) * _width_at(0.0)
+		var ry: float = depth_px * 1.3 if show_floor else flat_zone_half_height
+		var color: Color = z["color"] as Color
+		var points: PackedVector2Array = PackedVector2Array()
+		for i: int in range(40):
+			var a: float = TAU * float(i) / 40.0
+			points.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+		var fill: Color = color
+		fill.a = 0.16
+		draw_colored_polygon(points, fill)
+		var edge: Color = color
+		edge.a = 0.55
+		points.append(points[0])
+		draw_polyline(points, edge, 2.0)
+
+
+func _draw_floor() -> void:
 	var back_y: float = center_y - depth_px * 1.6
 	var front_y: float = center_y + depth_px * 1.6
 	var back_l: float = center_x + (floor_left - center_x) * back_width
@@ -125,6 +167,9 @@ func _draw() -> void:
 		var y: float = center_y + d * depth_px
 		var w: float = _width_at(d)
 		draw_line(Vector2(center_x + (floor_left - center_x) * w, y), Vector2(center_x + (floor_right - center_x) * w, y), line_color, 1.0)
+
+
+func _draw_shadows() -> void:
 	for raw: Variant in _shadows:
 		var sh: Vector3 = raw as Vector3
 		var points: PackedVector2Array = PackedVector2Array()

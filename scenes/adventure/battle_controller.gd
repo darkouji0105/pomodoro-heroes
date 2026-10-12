@@ -20,6 +20,9 @@ var _depth_overlap: float = 70.0
 var _view_mode: String = GameSettings.BATTLE_VIEW_DEPTH
 # ⚠ ずれる向きを選ぶ乱数（⚠ 戦闘の乱数と分ける＝見た目のために戦闘の結果が変わらない）。
 var _depth_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+# 地面の範囲の色（2026-10-12）。⚠ 相手に効く＝暖色 ／ 味方に効く＝寒色。⚠ 値は Theme。
+var _zone_harm_color: Color = Color(0.8, 0.4, 0.2)
+var _zone_help_color: Color = Color(0.35, 0.6, 0.85)
 var _party_base_x: float = 0.0
 var _party_step_x: float = 0.0
 var _enemy_base_x: float = 0.0
@@ -323,7 +326,10 @@ func _apply_hud_theme() -> void:
 	shadow.a = 0.6
 	_depth_floor.shadow_color = shadow
 	_view_mode = GameSettings.battle_view()
-	_depth_floor.visible = _view_mode == GameSettings.BATTLE_VIEW_DEPTH
+	# ⚠ 直線の戦場でも範囲は描く＝部品は出したまま、床だけ消す（2026-10-12）。
+	_depth_floor.show_floor = _view_mode == GameSettings.BATTLE_VIEW_DEPTH
+	_zone_harm_color = src.get_theme_color(&"zone_harm", hud)
+	_zone_help_color = src.get_theme_color(&"zone_help", hud)
 	var step: float = float(
 		src.get_theme_constant(&"width", uv) + src.get_theme_constant(&"gap", uv)
 	)
@@ -508,6 +514,17 @@ func _update_depths(delta: float) -> void:
 	_depth_floor.set_shadows(shadows)
 
 
+# 地面の範囲を床に描かせる（2026-10-12・人間「⚠ 地面の範囲の絵」）。⚠ 見た目だけ（⚠ 当たり判定と同じ中心・半径）。
+func _update_zones() -> void:
+	if _depth_floor == null or _status == null:
+		return
+	var zones: Array = []
+	for raw: Variant in _status.zone_shapes():
+		var z: Dictionary = raw as Dictionary
+		zones.append({"x": z["x"], "radius": z["radius"], "color": _zone_harm_color if bool(z["harm"]) else _zone_help_color})
+	_depth_floor.set_zones(zones)
+
+
 # 状態で替わった顔を駒へ配る（2026-10-12・吸血鬼の蝙蝠）。
 func _update_looks() -> void:
 	if _status == null:
@@ -525,7 +542,7 @@ func debug_toggle_view() -> void:
 	GameSettings.set_value(GameSettings.SECTION_BATTLE, GameSettings.KEY_BATTLE_VIEW, next)
 	_view_mode = next
 	if _depth_floor != null:
-		_depth_floor.visible = next == GameSettings.BATTLE_VIEW_DEPTH
+		_depth_floor.show_floor = next == GameSettings.BATTLE_VIEW_DEPTH
 		_depth_floor.set_shadows([])
 	for raw: Variant in _views_by_unit_id.values():
 		if raw is UnitView and is_instance_valid(raw):
@@ -888,6 +905,7 @@ func _process(delta: float) -> void:
 	_update_charge_bar()
 	_update_depths(delta)
 	_update_looks()
+	_update_zones()
 
 	if _result_applied:
 		return
