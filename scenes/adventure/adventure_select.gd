@@ -299,6 +299,10 @@ func _on_repeat_pressed(stage_id: String) -> void:
 	var reason: String = GameManager.get_floor_auto_reject_reason(stage_id)
 	if reason != "":
 		message_label.text = tr("ui_floor_repeat_reject_" + reason)
+		# ⚠ 10-12（100ループのテストプレイ）：⚠ スタミナ不足は1行だけだと、ポーションを持っていても気づけない。
+		#   ⚠ 出撃する（`party_preset_screen.gd` `_on_sortie_pressed()`）と同じく入手先の窓も出す（`NAV-19`）。
+		if reason == "stamina":
+			var _shown: bool = ItemSourceWindow.open_if_short(self, GameStateKeys.STAMINA, int(Balance.adventure.stamina_cost_per_stage))
 		return
 	var result: Dictionary = GameManager.run_floor_auto(stage_id)
 	var rewards: Dictionary = result.get(GameManager.AUTO_RUN_REWARDS, {})
