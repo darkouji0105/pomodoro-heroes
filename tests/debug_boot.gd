@@ -17932,7 +17932,25 @@ class UiFlowRunner extends Node:
 		# ⚠ 10-14（人間「⚠ 宝箱開けるような、演出付きの窓に」）：⚠ 窓の中で箱が開き、⚠ ポーションの札が浮かぶ。
 		var reward_modal: ModalDialog = _modal_of(base)
 		var reveal: Node = null if reward_modal == null else reward_modal.find_child("RewardReveal", true, false)
-		await get_tree().create_timer(4.0).timeout
+		# ⚠ 10-14（人間「⚠ スキップもできるように」）：⚠ 演出の途中で押すと、⚠ 箱がすぐ開いて札が並ぶ。
+		await _wait()
+		var playing_before: bool = reveal != null and bool((reveal.find_child("RewardBox", true, false) as ChestBox).is_playing_fx())
+		if reveal is Control:
+			var click: InputEventMouseButton = InputEventMouseButton.new()
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = true
+			(reveal as Control).call("_gui_input", click)
+		await _wait()
+		var skip_box: Node = null if reveal == null else reveal.find_child("RewardBox", true, false)
+		var skip_cards: Node = null if reveal == null else reveal.find_child("Cards", true, false)
+		var all_shown: bool = skip_cards != null and skip_cards.get_child_count() > 0
+		if skip_cards != null:
+			for card: Node in skip_cards.get_children():
+				all_shown = all_shown and (card as CanvasItem).modulate.a >= 1.0
+		_check("受け取り窓：演出の途中で押すと箱がすぐ開いて札が並ぶ（押す前は演出中 %s・開いた %s・札が全部見える %s）" % [
+				str(playing_before), str(skip_box.get("opened")) if skip_box != null else "?", str(all_shown)],
+			playing_before and skip_box is ChestBox and bool(skip_box.get("opened")) and all_shown)
+		await get_tree().create_timer(1.0).timeout
 		var box: Node = null if reveal == null or not is_instance_valid(reveal) else reveal.find_child("RewardBox", true, false)
 		var cards: Node = null if reveal == null or not is_instance_valid(reveal) else reveal.find_child("Cards", true, false)
 		var potion_card: Node = null if cards == null else cards.find_child("Card_0", true, false)

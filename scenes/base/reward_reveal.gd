@@ -17,6 +17,9 @@ const KIND_OTHER: String = "other"
 var _entries: Array = []   # ⚠ [item_id, 個数, 種類]
 var _box: ChestBox = null
 var _cards: HBoxContainer = null
+var _hint: Label = null
+# ⚠ 10-14（人間「⚠ スキップもできるように」）：⚠ 演出の途中で押したら飛ばす（⚠ 宝箱の画面の「台を押すと飛ばす」と同じ）。
+var _skipped: bool = false
 
 
 static func create(potions: int, chest_ids: Array) -> RewardReveal:
@@ -40,9 +43,16 @@ static func create(potions: int, chest_ids: Array) -> RewardReveal:
 func _ready() -> void:
 	alignment = BoxContainer.ALIGNMENT_CENTER
 	theme_type_variation = &"TightList"
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	_box = ChestBox.new()
 	_box.name = "RewardBox"
 	add_child(_box)
+	_hint = Label.new()
+	_hint.name = "SkipHint"
+	_hint.theme_type_variation = &"CaptionLabel"
+	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hint.text = tr("ui_reward_fx_skip_hint")
+	add_child(_hint)
 	_cards = HBoxContainer.new()
 	_cards.name = "Cards"
 	_cards.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -64,8 +74,31 @@ func _play() -> void:
 		return
 	_box.stop_fx()
 	_box.opened = true
+	# ⚠ 案内は消さずに透明（⚠ 消すと下が詰まって窓が縮む）。
+	_hint.modulate.a = 0.0
 	for index: int in range(_cards.get_child_count()):
-		_rise(_cards.get_child(index) as TiltedSheet, index)
+		var card: TiltedSheet = _cards.get_child(index) as TiltedSheet
+		if _skipped:
+			card.modulate.a = 1.0
+		else:
+			_rise(card, index)
+
+
+# ⚠ 演出の途中で窓の中を押したら飛ばす（⚠ 箱はすぐ開き、⚠ 札は浮かぶ動きを待たずに並ぶ）。
+func _gui_input(event: InputEvent) -> void:
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if _box != null and _box.is_playing_fx():
+		accept_event()
+	skip()
+
+
+func skip() -> void:
+	if _skipped or _box == null or not _box.is_playing_fx():
+		return
+	_skipped = true
+	_box.stop_fx()
 
 
 # 札1枚：上の色の帯 ／ 種類 ／ 絵 ／ 名前 ／ ×個数（⚠ `ChestScreen._add_card()` と同じ並び）。
