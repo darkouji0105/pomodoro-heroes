@@ -17903,7 +17903,7 @@ class UiFlowRunner extends Node:
 				str(p.get("is_timer_active")) if p != null else "?", str(p.get("current_state")) if p != null else "?",
 				str(p.get("_focus_started")) if p != null else "?", view_now.name if view_now != null else "?"],
 			had_select and p != null and bool(p.get("is_timer_active")) and int(p.get("current_state")) == int(p.State.FOCUS) and bool(p.get("_focus_started")))
-		# B：休憩中の「やめる」は確かめずに拠点へ・受け取りは窓でなく上の知らせ（⚠ 前は「はい」と「閉じる」を押した）。
+		# B：休憩中の「やめる」は確かめずに拠点へ（⚠ 前は「はい」を押した）。⚠ 受け取りの窓は残す（10-14・人間「⚠ これは報酬だから手に入れたという実感を与えたい」）。
 		if p != null:
 			await _close_modal(p)
 			p.call("_on_timer_finished")   # 集中が終わった扱い → 振り返り
@@ -17913,9 +17913,9 @@ class UiFlowRunner extends Node:
 		var in_break: bool = p != null and int(p.get("current_state")) == int(p.State.BREAK)
 		await _press(null if p == null else p.find_child("QuitButton", true, false), OPEN_FRAMES)
 		var base: Node = get_tree().current_scene
-		_check("操作量 B：休憩中の「やめる」は確かめずに拠点へ・受け取りの窓は出ない（休憩 %s・いま %s・窓 %s）" % [
+		_check("操作量 B：休憩中の「やめる」は確かめずに拠点へ・受け取りの窓は出る（休憩 %s・いま %s・窓 %s）" % [
 				str(in_break), _path_of(base).get_file(), str(_modal_of(base) != null)],
-			in_break and _path_of(base) == BASE and _modal_of(base) == null)
+			in_break and _path_of(base) == BASE and _modal_of(base) != null)
 		await _open(BASE, {})
 		# C：拾いものが全部鞄に入るときは窓を出さずに入れる（⚠ 前は毎回「閉じる」）。⚠ シナリオの地図。
 		if GameManager.is_in_floor():
