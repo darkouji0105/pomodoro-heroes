@@ -294,7 +294,47 @@ func _build_forge_page() -> VBoxContainer:
 	forge.disabled = at_max
 	forge.pressed.connect(_on_forge_pressed)
 	foot.add_child(forge)
+	# ⚠ 10-14（操作量を減らす D・人間「⚠ D」）：⚠ 失敗しない所まで まとめて鍛える（⚠ 前は1回ずつ押した）。
+	#   ⚠ 失敗がある段（⚠ 札を使うか決める段）からは今までどおり1回ずつ。⚠ 1回ずつ本番の口（`forge_equipment_roll()`）。
+	var forge_max: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_forge_do_safe")
+	forge_max.name = "ForgeSafeButton"
+	forge_max.disabled = at_max or _use_token or not _can_forge_safely()
+	forge_max.pressed.connect(_on_forge_safe_pressed)
+	foot.add_child(forge_max)
 	return page
+
+
+# ⚠ 失敗しない（成功 100%）で、⚠ 素材が足りる。
+func _can_forge_safely() -> bool:
+	var grade: int = int(GameManager.get_equipment_instance(_selected).get(GameStateKeys.INSTANCE_GRADE, 1))
+	return grade < GameManager.get_max_equipment_grade() and GameManager.get_forge_success_pct(_selected) >= 100 and GameManager.can_forge(_selected)
+
+
+# ⚠ まとめて鍛える。⚠ 結果の画面は1枚（⚠ 前の値は1回目の前・あとの値は最後）。⚠ 演出も1回。
+func _on_forge_safe_pressed() -> void:
+	if not _can_forge_safely():
+		return
+	var stats_before: Dictionary = GameManager.get_instance_stats(_selected)
+	var slots_before: int = GameManager.get_part_entries(_selected).size()
+	var first: Dictionary = {}
+	var last: Dictionary = {}
+	while _can_forge_safely():
+		var roll: Dictionary = GameManager.forge_equipment_roll(_selected, false)
+		if not bool(roll.get(GameManager.FORGE_RESULT_OK, false)):
+			break
+		if first.is_empty():
+			first = roll
+		last = roll
+	if last.is_empty():
+		_rebuild()
+		return
+	var result: Dictionary = last.duplicate()
+	result[GameManager.FORGE_RESULT_GRADE_BEFORE] = first.get(GameManager.FORGE_RESULT_GRADE_BEFORE, 1)
+	result[RESULT_STATS_BEFORE] = stats_before
+	result[RESULT_SLOTS_BEFORE] = slots_before
+	var item_id: String = str(GameManager.get_equipment_instance(_selected).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
+	var strike: ForgeStrike = ForgeStrike.play(self, item_id, int(result.get(GameManager.FORGE_RESULT_GRADE_BEFORE, 1)), true)
+	strike.finished.connect(_show_result.bind(result))
 
 
 func _on_token_toggled(pressed: bool) -> void:

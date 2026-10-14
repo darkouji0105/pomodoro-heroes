@@ -159,6 +159,19 @@ func _create_branch_row(stat_key: String, all_nodes: Dictionary, unlocked: Array
 		add.disabled = not (can_unlock and remaining >= int(next_entry.get("cost", 0)))
 		add.pressed.connect(_on_node_pressed.bind(node_id))
 	line.add_child(add)
+	# ⚠ 10-14（操作量を減らす D・人間「⚠ D」）：⚠ この能力に振れるだけ振る（⚠ 前は＋を1段ずつ押した）。
+	#   ⚠ ＋は今までどおり1回1段（`GR-3`）。⚠ どの能力に振るかは遊ぶ人が選ぶ（⚠ 全部に割り振る口は作らない）。
+	var rest_ids: Array = []
+	for entry: Dictionary in entries:
+		if not (str(entry.get("id", "")) in unlocked):
+			rest_ids.append(str(entry.get("id", "")))
+	var fill: Button = UiButton.create_paper_choice("ui_stat_node_fill")
+	fill.name = "FillButton"
+	fill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	fill.disabled = add.disabled
+	if not fill.disabled:
+		fill.pressed.connect(_on_fill_pressed.bind(rest_ids))
+	line.add_child(fill)
 	return row
 
 
@@ -263,6 +276,13 @@ func _value_text(stat_key: String, value: int) -> String:
 func _on_node_pressed(node_id: String) -> void:
 	# 戻り値は見ない。成功なら character_growth_changed 経由で描画し直される。
 	GameManager.unlock_stat_node(_character_id, node_id)
+
+
+# ⚠ 振れるだけ：⚠ 1段ずつ本番の口（`unlock_stat_node()`）。⚠ 点が尽きるか、⚠ 振れない段に当たったら止まる。
+func _on_fill_pressed(node_ids: Array) -> void:
+	for node_id: Variant in node_ids:
+		if not GameManager.unlock_stat_node(_character_id, str(node_id)):
+			break
 
 
 func _on_reset_pressed() -> void:

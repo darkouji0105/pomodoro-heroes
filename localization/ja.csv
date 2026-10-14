@@ -974,6 +974,7 @@ ui_stat_node_tier,段%d
 ui_stat_node_after,振ったあとのステータス
 ui_stat_node_spent,振り分け済み
 ui_stat_node_add,＋
+ui_stat_node_fill,振れるだけ
 ui_battle_layer,%d層
 ui_battle_wave,波
 ui_uitest_skill_tiles,戦闘のスキルのマス
@@ -1272,6 +1273,7 @@ ui_forge_use_token_on,確定成功の札を使う（使う）
 ui_forge_token_left,のこり %d
 ui_forge_note,等級5→6 から失敗がある。失敗しても等級は下がらない
 ui_forge_do,鍛える
+ui_forge_do_safe,失敗しない所まで鍛える
 ui_forge_record,鍛　冶　の　記　録
 ui_forge_result_subtitle,鍛えた結果
 ui_forge_striking,鍛えている…
