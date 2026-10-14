@@ -14126,7 +14126,9 @@ class ShotTaker extends Node:
 			# ⚠ 10-05：⚠ 選ぶ窓は消した＝⚠ 集中を始める前のサイドバーの姿（⚠ 加護だけ進める）。
 			var pick_select: Node = screen.find_child("ProtectionSelectView", true, false)
 			if pick_select != null:
-				(pick_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				# ⚠ 10-14：⚠ 加護の「始める」は集中まで始める（操作量を減らす A）＝⚠ 始める前の姿は加護だけ決めて集中のビューへ。
+				GameManager.set_protection_type("light")
+				screen.call("_switch_view", screen.State.FOCUS)
 				for _i: int in range(3):
 					await get_tree().process_frame
 			for _i: int in range(3):
@@ -14135,7 +14137,9 @@ class ShotTaker extends Node:
 			# ⚠ 加護（⚠ 出ていれば「始める」）→ サイドバーの1件目（⚠ 期限切れ）を押す。⚠ 始めない。
 			var linked_select: Node = screen.find_child("ProtectionSelectView", true, false)
 			if linked_select != null:
-				(linked_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				# ⚠ 10-14：⚠ 加護の「始める」は集中まで始める（操作量を減らす A）＝⚠ 始める前の姿は加護だけ決めて集中のビューへ。
+				GameManager.set_protection_type("light")
+				screen.call("_switch_view", screen.State.FOCUS)
 				for _i: int in range(3):
 					await get_tree().process_frame
 			var linked_row: Node = null
@@ -14153,7 +14157,9 @@ class ShotTaker extends Node:
 			# ⚠ 加護 → サイドバーの1件目 →「はじめる」→ その行の「詳しく」。
 			var detail_select: Node = screen.find_child("ProtectionSelectView", true, false)
 			if detail_select != null:
-				(detail_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				# ⚠ 10-14：⚠ 加護の「始める」は集中まで始める（操作量を減らす A）＝⚠ 始める前の姿は加護だけ決めて集中のビューへ。
+				GameManager.set_protection_type("light")
+				screen.call("_switch_view", screen.State.FOCUS)
 				for _i: int in range(3):
 					await get_tree().process_frame
 			var detail_row: Node = null
@@ -14216,7 +14222,9 @@ class ShotTaker extends Node:
 			# ⚠ 加護 → サイドバーの1件目 →「はじめる」→ ⚠ 残りを6割にして集中中の姿。
 			var list_select: Node = screen.find_child("ProtectionSelectView", true, false)
 			if list_select != null:
-				(list_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				# ⚠ 10-14：⚠ 加護の「始める」は集中まで始める（操作量を減らす A）＝⚠ 始める前の姿は加護だけ決めて集中のビューへ。
+				GameManager.set_protection_type("light")
+				screen.call("_switch_view", screen.State.FOCUS)
 				for _i: int in range(3):
 					await get_tree().process_frame
 			var list_row: Node = null
@@ -14335,7 +14343,9 @@ class ShotTaker extends Node:
 			GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, true)
 			var mini_select: Node = screen.find_child("ProtectionSelectView", true, false)
 			if mini_select != null:
-				(mini_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				# ⚠ 10-14：⚠ 加護の「始める」は集中まで始める（操作量を減らす A）＝⚠ 始める前の姿は加護だけ決めて集中のビューへ。
+				GameManager.set_protection_type("light")
+				screen.call("_switch_view", screen.State.FOCUS)
 				for _i: int in range(3):
 					await get_tree().process_frame
 			# ⚠ 2026-10-05（回P-2）：⚠ タスクを選んでから始める（⚠ 小窓にタスクの行と「タスクを終える」を写す）。
@@ -14396,7 +14406,9 @@ class ShotTaker extends Node:
 			GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, false)
 			var ask_select: Node = screen.find_child("ProtectionSelectView", true, false)
 			if ask_select != null:
-				(ask_select.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				# ⚠ 10-14：⚠ 加護の「始める」は集中まで始める（操作量を減らす A）＝⚠ 始める前の姿は加護だけ決めて集中のビューへ。
+				GameManager.set_protection_type("light")
+				screen.call("_switch_view", screen.State.FOCUS)
 				for _i: int in range(3):
 					await get_tree().process_frame
 			var ask_start: Node = screen.find_child("StartButton", true, false)
@@ -14410,7 +14422,9 @@ class ShotTaker extends Node:
 			# ⚠ 加護を選ぶ（⚠ 出ていれば「始める」）→ ⚠ 集中の「開始」→ ⚠ 残りを4割にして道具の進みを見せる。
 			var select_view: Node = screen.find_child("ProtectionSelectView", true, false)
 			if select_view != null:
-				(select_view.find_child("StartButton", true, false) as BaseButton).pressed.emit()
+				# ⚠ 10-14：⚠ 加護の「始める」は集中まで始める（操作量を減らす A）＝⚠ 始める前の姿は加護だけ決めて集中のビューへ。
+				GameManager.set_protection_type("light")
+				screen.call("_switch_view", screen.State.FOCUS)
 				for _i: int in range(3):
 					await get_tree().process_frame
 			var focus_start: Node = screen.find_child("StartButton", true, false)
@@ -14982,6 +14996,7 @@ class UiFlowRunner extends Node:
 		await _flow_goal_runner()
 		await _flow_qol_1012()
 		await _flow_tower_treasure_close()
+		await _flow_fewer_presses()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -15975,9 +15990,11 @@ class UiFlowRunner extends Node:
 		p = get_tree().current_scene
 		_check("集中の道具：「戻る」でポモドーロ", _path_of(p) == POMODORO)
 		# ⚠ 加護を選ぶビューなら「始める」を押して集中のビューへ（⚠ 本物のボタン）。
-		var start: Node = p.find_child("ProtectionSelectView", true, false)
-		if start != null:
-			await _press(start.find_child("StartButton", true, false), OPEN_FRAMES)
+		# ⚠ 10-14：⚠ 加護の「始める」は集中まで始める（操作量を減らす A）＝⚠ 始める前の画面を見たいので加護だけ決めて集中のビューへ。
+		if p.find_child("ProtectionSelectView", true, false) != null:
+			GameManager.set_protection_type("light")
+			p.call("_switch_view", p.State.FOCUS)
+			await _wait(OPEN_FRAMES)
 		var tool: Node = p.find_child("FocusTool", true, false)
 		_check("ポモドーロ：集中の画面は輪の代わりに選んだ道具（%s・進み %s）" % [str(tool.get("tool_id")) if tool != null else "無い", str(tool.get("progress")) if tool != null else "?"],
 			tool is FocusTool and (tool as FocusTool).tool_id == "candle" and (tool as FocusTool).progress == 0.0)
@@ -17871,6 +17888,106 @@ class UiFlowRunner extends Node:
 
 	# --- 入手先の窓（2026-10-06・`NAV-19`） ---
 
+	# --- 操作量を減らす（2026-10-14・ペルソナのテストプレイ・人間「⚠ 操作量で無駄に多いのを減らしたい」→ A・B・C・D） ---
+
+	func _flow_fewer_presses() -> void:
+		# A：加護の「◯で集中を始める」でそのまま集中が始まる（⚠ 前は「はじめる」をもう1回）。
+		GameManager._state[GameStateKeys.LAST_PROTECTION_SELECTED_AT] = ""
+		var p: Node = await _open(POMODORO, {})
+		var select: Node = null if p == null else p.find_child("ProtectionSelectView", true, false)
+		# ⚠ 押すと加護のビューは消える＝⚠ 有ったかは押す前に控える。
+		var had_select: bool = select != null
+		await _press(null if select == null else select.find_child("StartButton", true, false), OPEN_FRAMES)
+		var view_now: Node = null if p == null else p.get("_current_view")
+		_check("操作量 A：加護の「始める」1回で集中が始まる（タイマー %s・状態 %s・始めた %s・ビュー %s）" % [
+				str(p.get("is_timer_active")) if p != null else "?", str(p.get("current_state")) if p != null else "?",
+				str(p.get("_focus_started")) if p != null else "?", view_now.name if view_now != null else "?"],
+			had_select and p != null and bool(p.get("is_timer_active")) and int(p.get("current_state")) == int(p.State.FOCUS) and bool(p.get("_focus_started")))
+		# B：休憩中の「やめる」は確かめずに拠点へ・受け取りは窓でなく上の知らせ（⚠ 前は「はい」と「閉じる」を押した）。
+		if p != null:
+			await _close_modal(p)
+			p.call("_on_timer_finished")   # 集中が終わった扱い → 振り返り
+			await _wait()
+			p.call("_on_reflection_completed", "今日の作業を進めた。次にやることも決めてメモに残した。")
+			await _wait()
+		var in_break: bool = p != null and int(p.get("current_state")) == int(p.State.BREAK)
+		await _press(null if p == null else p.find_child("QuitButton", true, false), OPEN_FRAMES)
+		var base: Node = get_tree().current_scene
+		_check("操作量 B：休憩中の「やめる」は確かめずに拠点へ・受け取りの窓は出ない（休憩 %s・いま %s・窓 %s）" % [
+				str(in_break), _path_of(base).get_file(), str(_modal_of(base) != null)],
+			in_break and _path_of(base) == BASE and _modal_of(base) == null)
+		await _open(BASE, {})
+		# C：拾いものが全部鞄に入るときは窓を出さずに入れる（⚠ 前は毎回「閉じる」）。⚠ シナリオの地図。
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		GameManager.add_stamina(int(Balance.adventure.stamina_cost_per_stage))
+		var floor_ok: bool = GameManager.start_floor("floor_1")
+		var floor_run: Dictionary = (GameManager._state[GameStateKeys.FLOOR_RUN] as Dictionary).duplicate(true)
+		floor_run[GameStateKeys.RUN_PENDING_LOOT] = {"training_material_1": 3}
+		GameManager._state[GameStateKeys.FLOOR_RUN] = floor_run
+		var used_before: int = GameManager.get_run_bag_used(GameManager.RUN_KIND_FLOOR)
+		var fm: Node = await _open(FLOOR_MAP, {})
+		_check("操作量 C：シナリオの地図で、全部入る拾いものは窓を出さずに鞄へ（窓 %s・鞄 %d → %d）" % [
+				str(fm != null and fm.find_child("LootOverlayLayer", true, false) != null), used_before, GameManager.get_run_bag_used(GameManager.RUN_KIND_FLOOR)],
+			floor_ok and fm != null and fm.find_child("LootOverlayLayer", true, false) == null
+			and not GameManager.has_run_pending_loot(GameManager.RUN_KIND_FLOOR)
+			and GameManager.get_run_bag_used(GameManager.RUN_KIND_FLOOR) > used_before)
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		# D：鍛冶「失敗しない所まで鍛える」。
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		var fresh: String = ""
+		for raw: Variant in (GameManager._state.get(GameStateKeys.EQUIPMENT_INSTANCES, {}) as Dictionary).keys():
+			var inst: Dictionary = GameManager.get_equipment_instance(str(raw))
+			if str(inst.get(GameStateKeys.INSTANCE_ITEM_ID, "")) == WEAPON_ID and int(inst.get(GameStateKeys.INSTANCE_GRADE, 1)) == 1:
+				fresh = str(raw)
+		var cost: Dictionary = GameManager.get_forge_cost(fresh)
+		GameManager.add_material(str(cost.get(GameManager.FORGE_COST_MATERIAL_ID, "")), 999)
+		var fg: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: fresh})
+		var safe: Node = null if fg == null else fg.find_child("ForgeSafeButton", true, false)
+		# ⚠ 押すと描き直しでボタンが消える＝⚠ 押せたかは押す前に控える。
+		var safe_ok: bool = safe is BaseButton and not (safe as BaseButton).disabled
+		await _forge_press(safe)
+		var grade: int = int(GameManager.get_equipment_instance(fresh).get(GameStateKeys.INSTANCE_GRADE, 1))
+		_check("操作量 D：「失敗しない所まで鍛える」1回で等級 1 → %d・次は失敗がある段（成功 %d%%）" % [grade, GameManager.get_forge_success_pct(fresh)],
+			safe_ok and grade > 2 and (GameManager.get_forge_success_pct(fresh) < 100 or grade >= GameManager.get_max_equipment_grade()))
+		# D：⚠ 失敗がある段で止まる（⚠ 下ごしらえで成功は全部 100% にしてある＝⚠ 一時的に「等級5→6 から 80%」にして戻す）。
+		var saved_pct: Array[int] = Balance.equipment.forge_success_pct_by_grade.duplicate()
+		var risky: Array[int] = []
+		for i: int in range(saved_pct.size()):
+			risky.append(100 if i < 4 else 80)
+		Balance.equipment.forge_success_pct_by_grade = risky
+		GameManager.add_to_inventory(WEAPON_ID, 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+		var fresh2: String = ""
+		for raw: Variant in (GameManager._state.get(GameStateKeys.EQUIPMENT_INSTANCES, {}) as Dictionary).keys():
+			var inst2: Dictionary = GameManager.get_equipment_instance(str(raw))
+			if str(inst2.get(GameStateKeys.INSTANCE_ITEM_ID, "")) == WEAPON_ID and int(inst2.get(GameStateKeys.INSTANCE_GRADE, 1)) == 1:
+				fresh2 = str(raw)
+		var fg2: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: fresh2})
+		await _forge_press(null if fg2 == null else fg2.find_child("ForgeSafeButton", true, false))
+		var grade2: int = int(GameManager.get_equipment_instance(fresh2).get(GameStateKeys.INSTANCE_GRADE, 1))
+		var fg2_now: Node = get_tree().current_scene
+		# ⚠ ボタンの押せる／押せないを決めている判定を見る（⚠ 結果の画面へ切り替わる途中は古いボタンが残っている）。
+		var still_safe: bool = fg2_now != null and bool(fg2_now.call("_can_forge_safely"))
+		_check("操作量 D：失敗がある段（等級5→6 が 80%%）の手前で止まる（等級 1 → %d・まだまとめて鍛えられる %s）" % [grade2, str(still_safe)],
+			grade2 == 5 and not still_safe)
+		Balance.equipment.forge_success_pct_by_grade = saved_pct
+		# D：点振り「振れるだけ」。
+		var points_before: int = GameManager.get_stat_node_remaining_points(OTHER)
+		var tr_scene: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: OTHER, TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_NODES})
+		var fill: Node = null
+		if tr_scene != null:
+			for node: Node in tr_scene.find_children("FillButton", "", true, false):
+				if node is BaseButton and not (node as BaseButton).disabled:
+					fill = node
+					break
+		var fill_ok: bool = fill != null
+		await _press(fill)
+		var points_after: int = GameManager.get_stat_node_remaining_points(OTHER)
+		_check("操作量 D：点振りの「振れるだけ」1回で点 %d → %d" % [points_before, points_after],
+			fill_ok and points_before >= 4 and points_before - points_after >= 4)
+		await _open(BASE, {})
+
 	# --- 塔の宝の階：宝箱を開けずに閉じても先へ進める（2026-10-14・ペルソナのテストプレイ・人間「⚠ すぐ直したい」） ---
 	# ⚠ 前は開けずに閉じると階が済みにならず、⚠ 押せるマスが無くなった（G2 の3日目）。
 
@@ -18004,6 +18121,10 @@ class UiFlowRunner extends Node:
 			after - before > 1 and gain_text == tr("ui_level_up_point_gain") % (after - before))
 		# ⑤ ポモドーロの「拠点へ戻る」窓の取り消しは「続ける」（⚠ 前は押してきた「やめる」と同じ言葉）。
 		var pomo: Node = await _open(POMODORO, {})
+		# ⚠ 10-14（操作量 B）：⚠ 始める前・休憩中は確かめない＝⚠ 集中を始めてから「やめる」。
+		var focus_view: Node = null if pomo == null else pomo.find_child("FocusView", true, false)
+		await _press(null if focus_view == null else focus_view.find_child("StartButton", true, false))
+		await _close_modal(pomo)
 		await _press(null if pomo == null else pomo.find_child("QuitButton", true, false))
 		var modal: ModalDialog = null if pomo == null else _modal_of(pomo)
 		var keep_text: String = "" if modal == null else modal.close_button.text
