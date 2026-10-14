@@ -684,7 +684,22 @@ func _on_node_pressed(node_id: String) -> void:
 # ⚠ 宝箱と同じ画面（⚠ 人間の裁き「宝箱の画面を使い回す」）。
 # ⚠ どのマスかも通路かも渡さない。⚠ 拾い待ちの欄が正（⚠ 出どころに紐づかない）。
 func _enter_pickup() -> void:
-	_open_loot_overlay("", false)
+	# ⚠ 10-14（操作量を減らす C・人間「⚠ C」）：⚠ 先に入るだけ入れる。⚠ 全部入ったら窓を出さず1行で知らせる。
+	#   ⚠ 入りきらないときだけ残りで窓を出す。⚠ 窓を閉じたあとの続き（`_on_loot_overlay_closed()`）と同じ順で進める。
+	var taken: Dictionary = GameManager.take_all_run_pending_loot(GameManager.RUN_KIND_DUNGEON)
+	if GameManager.has_dungeon_pending_loot():
+		_open_loot_overlay("", false)
+		return
+	var line: String = RunLootWindow.present_auto_result(self, {RunLootWindow.AUTO_TAKEN: taken, RunLootWindow.AUTO_LOST: {}})
+	if line != "":
+		_say(line, Tone.GOOD)
+	_rebuild()
+	if _pending_node_entry == "":
+		_auto_enter_shop_after_boss()
+		return
+	var next_node_id: String = _pending_node_entry
+	_pending_node_entry = ""
+	_enter_node(next_node_id)
 
 
 # ⚠⚠ 拾いもの・宝箱をマップの上に重ねて出す（決定36・2026-09-05）。

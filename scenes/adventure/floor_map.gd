@@ -149,6 +149,16 @@ func _open_pickup_if_needed() -> void:
 		return
 	if _loot_overlay != null and is_instance_valid(_loot_overlay):
 		return
+	# ⚠ 10-14（操作量を減らす C・人間「⚠ C」）：⚠ 先に入るだけ入れる。⚠ 全部入ったら窓を出さず1行で知らせる（⚠ 前は毎回「閉じる」を押した）。
+	#   ⚠ 入りきらないときだけ、⚠ 残りで窓を出す（⚠ 何を置いていくか選ぶ）。⚠ 窓の「入るだけ全部入れる」と同じ口。
+	var taken: Dictionary = GameManager.take_all_run_pending_loot(GameManager.RUN_KIND_FLOOR)
+	if not GameManager.has_run_pending_loot(GameManager.RUN_KIND_FLOOR):
+		var line: String = RunLootWindow.present_auto_result(self, {RunLootWindow.AUTO_TAKEN: taken, RunLootWindow.AUTO_LOST: {}})
+		if line != "":
+			message_label.modulate = Color.WHITE
+			message_label.text = line
+		_rebuild()
+		return
 	var layer: CanvasLayer = CanvasLayer.new()
 	layer.name = "LootOverlayLayer"
 	var overlay: RunLootWindow = LOOT_WINDOW_SCENE.instantiate()
