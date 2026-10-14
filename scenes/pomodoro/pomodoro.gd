@@ -917,6 +917,7 @@ func _return_to_base() -> void:
 	SceneManager.change_scene_with_data(BASE_PATH, {
 		TransferKeys.POMODORO_POTIONS: _settled_potions,
 		TransferKeys.POMODORO_CHESTS: _settled_chests,
+		TransferKeys.POMODORO_CHEST_IDS: _settled_chest_ids,
 	})
 
 
@@ -925,6 +926,7 @@ func _return_to_base() -> void:
 var _settled: bool = false
 var _settled_potions: int = 0
 var _settled_chests: int = 0
+var _settled_chest_ids: Array = []
 
 
 func _settle_session() -> void:
@@ -940,6 +942,8 @@ func _settle_session() -> void:
 
 	_settled_potions = GameManager.grant_stamina_potions(session_accumulated_focus_min)
 	GameManager.apply_pomodoro_rewards({})
+	# ⚠ 受け取る前に ID を控える（⚠ 拠点の受け取り窓の札の絵・10-14）。
+	_settled_chest_ids = (GameManager.get_state().get(GameStateKeys.UNCLAIMED_CHESTS, []) as Array).duplicate()
 	_settled_chests = GameManager.claim_pending_chests()
 	print("[Pomodoro] settled: potions=%d, claimed_chests=%d" % [_settled_potions, _settled_chests])
 

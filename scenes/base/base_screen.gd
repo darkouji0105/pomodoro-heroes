@@ -230,9 +230,12 @@ func _show_arrival_rewards() -> void:
 	# ⚠ 0 のほうを読み上げない（2026-09-06・宿題「宝箱を0個」が不格好）。
 	#   ⚠ 文の組み立てをコード側でつなげない（AGENTS.md）。⚠ 文ごとキーを分ける。
 	# ⚠ 窓の指定は1つにまとめる（⚠ 3本とも同じ形。⚠ 決定 `MD-1` / `MD-3`）。
+	# ⚠ 10-14（人間「⚠ 宝箱開けるような、演出付きの窓に」）：⚠ 窓の中で箱が開き、札が浮かび上がる（`RewardReveal`）。
+	var chest_ids: Array = data.get(TransferKeys.POMODORO_CHEST_IDS, [])
 	var options: Dictionary = {
 		Modal.OPTION_TITLE: tr("ui_common_title_received"),
 		Modal.OPTION_WIDTH: Modal.WIDTH_MEDIUM,
+		Modal.OPTION_CONTENT: RewardReveal.create(potions, chest_ids),
 	}
 	if chests <= 0:
 		Modal.notify(self, "ui_base_potion_received", [potions], false, options)

@@ -15,6 +15,8 @@ const STAGE_TYPE: String = "stage_type"
 # ポモドーロから拠点へ渡す受け取り数（PLAN_MODAL.md タスク2）
 const POMODORO_POTIONS: String = "pomodoro_potions"
 const POMODORO_CHESTS: String = "pomodoro_chests"
+# ⚠ 10-14：⚠ 受け取った加護の宝箱の ID（⚠ 拠点の受け取り窓で札の絵に使う・人間「⚠ 宝箱開けるような、演出付きの窓に」）。
+const POMODORO_CHEST_IDS: String = "pomodoro_chest_ids"
 const CHARACTER_ID: String = "character_id"
 
 # パーティ選択画面から「戻る」で帰る先（EXEC_PARTY_PRESETS.md §7）。

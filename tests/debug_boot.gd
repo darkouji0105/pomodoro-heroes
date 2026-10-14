@@ -2226,6 +2226,19 @@ const SCENARIOS: Dictionary = {
 				},
 				"settle": 60,
 			},
+			# ⚠ ポモドーロから戻ったときの受け取り窓（2026-10-14・人間「⚠ 宝箱開けるような、演出付きの窓に」）。⚠ 光っている途中と、開いて札が並んだ後。
+			{
+				"name": "99_pomodoro_reward_opening",
+				"scene": SCENE_BASE,
+				"data": {TransferKeys.POMODORO_POTIONS: 2, TransferKeys.POMODORO_CHESTS: 2, TransferKeys.POMODORO_CHEST_IDS: ["bonus_large", "generic"]},
+				"settle": 40,
+			},
+			{
+				"name": "99_pomodoro_reward_opened",
+				"scene": SCENE_BASE,
+				"data": {TransferKeys.POMODORO_POTIONS: 2, TransferKeys.POMODORO_CHESTS: 2, TransferKeys.POMODORO_CHEST_IDS: ["bonus_large", "generic"]},
+				"settle": 300,
+			},
 			# ⚠ デバッグの窓（2026-10-03）。⚠ 出したままになる＝⚠ いちばん最後。
 			{"name": "57_debug_overlay", "scene": "res://scenes/base/base_screen.tscn", "after": SHOT_AFTER_DEBUG_OVERLAY},
 		],
@@ -17916,6 +17929,18 @@ class UiFlowRunner extends Node:
 		_check("操作量 B：休憩中の「やめる」は確かめずに拠点へ・受け取りの窓は出る（休憩 %s・いま %s・窓 %s）" % [
 				str(in_break), _path_of(base).get_file(), str(_modal_of(base) != null)],
 			in_break and _path_of(base) == BASE and _modal_of(base) != null)
+		# ⚠ 10-14（人間「⚠ 宝箱開けるような、演出付きの窓に」）：⚠ 窓の中で箱が開き、⚠ ポーションの札が浮かぶ。
+		var reward_modal: ModalDialog = _modal_of(base)
+		var reveal: Node = null if reward_modal == null else reward_modal.find_child("RewardReveal", true, false)
+		await get_tree().create_timer(4.0).timeout
+		var box: Node = null if reveal == null or not is_instance_valid(reveal) else reveal.find_child("RewardBox", true, false)
+		var cards: Node = null if reveal == null or not is_instance_valid(reveal) else reveal.find_child("Cards", true, false)
+		var potion_card: Node = null if cards == null else cards.find_child("Card_0", true, false)
+		var potion_name: String = "" if potion_card == null else (potion_card.find_child("NameLabel", true, false) as Label).text
+		_check("受け取り窓：箱が開いて札が浮かぶ（箱 %s・開いた %s・札 %d・1枚目「%s」）" % [
+				str(box != null), str(box.get("opened")) if box != null else "?", cards.get_child_count() if cards != null else 0, potion_name],
+			box is ChestBox and bool(box.get("opened")) and cards != null and cards.get_child_count() >= 1
+			and potion_name == tr(GameManager.item_name_key(GameStateKeys.ITEM_STAMINA_POTION)))
 		await _open(BASE, {})
 		# C：拾いものが全部鞄に入るときは窓を出さずに入れる（⚠ 前は毎回「閉じる」）。⚠ シナリオの地図。
 		if GameManager.is_in_floor():
