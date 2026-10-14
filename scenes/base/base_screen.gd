@@ -230,16 +230,24 @@ func _show_arrival_rewards() -> void:
 	# ⚠ 0 のほうを読み上げない（2026-09-06・宿題「宝箱を0個」が不格好）。
 	#   ⚠ 文の組み立てをコード側でつなげない（AGENTS.md）。⚠ 文ごとキーを分ける。
 	# ⚠ 窓の指定は1つにまとめる（⚠ 3本とも同じ形。⚠ 決定 `MD-1` / `MD-3`）。
-	var options: Dictionary = {
+	var key: String = "ui_base_pomodoro_rewards"
+	var args: Array = [potions, chests]
+	if chests <= 0:
+		key = "ui_base_potion_received"
+		args = [potions]
+	elif potions <= 0:
+		key = "ui_base_chest_received"
+		args = [chests]
+	# ⚠ 10-14（操作量を減らす B・人間「⚠ B」）：⚠ 窓ではなく上の知らせ（`Toast`）で流す（⚠ 前は毎回「閉じる」を押した）。
+	#   ⚠ 知らせの係が居ないとき（⚠ 検査で単体に開いたなど）だけ今までの窓。
+	var toast: Toast = Toast.get_instance()
+	if toast != null:
+		var _line: PanelContainer = toast.show_message(tr(key) % args)
+		return
+	Modal.notify(self, key, args, false, {
 		Modal.OPTION_TITLE: tr("ui_common_title_received"),
 		Modal.OPTION_WIDTH: Modal.WIDTH_MEDIUM,
-	}
-	if chests <= 0:
-		Modal.notify(self, "ui_base_potion_received", [potions], false, options)
-	elif potions <= 0:
-		Modal.notify(self, "ui_base_chest_received", [chests], false, options)
-	else:
-		Modal.notify(self, "ui_base_pomodoro_rewards", [potions, chests], false, options)
+	})
 
 # --- シグナルハンドラ ---
 

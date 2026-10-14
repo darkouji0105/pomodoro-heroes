@@ -890,6 +890,11 @@ func quit_session() -> void:
 	# ⚠ 二重に開かない（⚠ Modal は積むので、⚠ 連打すると窓が2枚並ぶ）。
 	if _quit_confirming:
 		return
+	# ⚠ 10-14（操作量を減らす B・人間「⚠ B」）：⚠ 休憩中・まだ集中を始めていないときは確かめない（⚠ 失うものが無い＝集中の分は数え済み）。
+	#   ⚠ 確かめるのは集中の途中と振り返り（⚠ 誤って押すと戻せない）。
+	if current_state == State.BREAK or (current_state == State.FOCUS and not _focus_started):
+		_return_to_base()
+		return
 	_quit_confirming = true
 	# ⚠ 10-12（100ループのテストプレイ）：⚠ 取り消しは「続ける」（⚠ 既定の「やめる」は、⚠ 押してきた「やめる」と同じ言葉で逆の意味になる）。
 	var confirmed: bool = await Modal.confirm(self, "ui_pomodoro_quit_confirm", [], false, {
