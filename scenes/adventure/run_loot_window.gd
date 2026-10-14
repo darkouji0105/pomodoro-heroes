@@ -381,6 +381,12 @@ func get_auto_result() -> Dictionary:
 # ⚠⚠ 開けていない通路の宝箱は、⚠ 出た時点で捨てる（決定31・2026-09-05）。
 #   ⚠ 人間の指示「宝箱はあとから開けれないようにしたい」。⚠ マップに案内は出ない。
 func _on_back_pressed() -> void:
+	# ⚠⚠ 10-14（ペルソナのテストプレイ）：⚠ マスの宝箱を開けずに閉じたら、⚠ 開けてから入るだけ入れる。
+	#   ⚠ 窓の上に「閉じると入るだけ自動で鞄へ」と書いてある（⚠ 開けていない箱だけ何も入らなかった）。
+	#   ⚠ 塔の宝の階は宝箱を開けて済みになる（`open_dungeon_chest()`）ので、⚠ 開けずに閉じると押せるマスが無くなった。
+	#   ⚠ 通路の宝箱は今までどおり捨てる（決定31）。
+	if _run_kind == GameManager.RUN_KIND_DUNGEON and not _is_corridor and _node_id != "" and not _was_opened():
+		var _opened: Dictionary = GameManager.open_dungeon_chest(_node_id)
 	var taken: Dictionary = GameManager.take_all_run_pending_loot(_run_kind)
 	var lost: Dictionary = GameManager.clear_run_pending_loot(_run_kind)
 	_auto_result = {AUTO_TAKEN: taken, AUTO_LOST: lost}

@@ -14981,6 +14981,7 @@ class UiFlowRunner extends Node:
 		await _flow_battle_auto()
 		await _flow_goal_runner()
 		await _flow_qol_1012()
+		await _flow_tower_treasure_close()
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -17869,6 +17870,65 @@ class UiFlowRunner extends Node:
 		await _open(BASE, {})
 
 	# --- 入手先の窓（2026-10-06・`NAV-19`） ---
+
+	# --- 塔の宝の階：宝箱を開けずに閉じても先へ進める（2026-10-14・ペルソナのテストプレイ・人間「⚠ すぐ直したい」） ---
+	# ⚠ 前は開けずに閉じると階が済みにならず、⚠ 押せるマスが無くなった（G2 の3日目）。
+
+	func _flow_tower_treasure_close() -> void:
+		var tower_id: String = ""
+		for candidate: String in MasterDataLoader.get_all_dungeon_ids():
+			if GameManager.is_tower_dungeon(candidate):
+				tower_id = candidate
+		if GameManager.is_in_dungeon():
+			GameManager.abandon_dungeon_run()
+		GameManager.add_to_inventory(GameStateKeys.ITEM_QUOTA_TICKET, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+		# ⚠ 前の手（`_flow_tower`）が「次は3階から」を残すので、⚠ 選べる最初の階から入る。
+		var floors: Array = GameManager.get_dungeon_start_floor_options(tower_id) if tower_id != "" else []
+		var started: bool = not floors.is_empty() and GameManager.start_dungeon_run(tower_id, int(floors[0]))
+		if not started:
+			_check("塔の宝の階：塔に入れた（%s）" % tower_id, false)
+			return
+		# 宝の階（⚠ 線を直に載せる＝`_flow_tower` の商人の階と同じ形）。
+		var run: Dictionary = (GameManager._state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+		run[GameStateKeys.DUNGEON_RUN_FLOOR_KIND] = GameStateKeys.DUNGEON_FLOOR_KIND_TREASURE
+		GameManager._apply_dungeon_map(run, GameManager._build_tower_map(tower_id, GameStateKeys.DUNGEON_FLOOR_KIND_TREASURE))
+		GameManager._state[GameStateKeys.DUNGEON_RUN] = run
+		var m: Node = await _open(DUNGEON_MAP, {})
+		if m == null:
+			return
+		var chest_id: String = str(GameManager.get_dungeon_moves()[0])
+		(m.get("map_view") as RunMapView).node_pressed.emit(chest_id)
+		await _wait(OPEN_FRAMES)
+		var layer: Node = m.find_child("LootOverlayLayer", true, false)
+		var close: Node = null if layer == null else layer.find_child("CloseButton", true, false)
+		_check("塔の宝の階：宝箱のマスで窓・まだ開けていない", close is BaseButton and not GameManager.was_dungeon_chest_opened(chest_id))
+		# 「開ける」を押さずに「閉じる」。
+		await _press(close, OPEN_FRAMES)
+		await _wait(OPEN_FRAMES)
+		_check("塔の宝の階：開けずに閉じても宝箱は開いて、わかれ道へ（%s・撤退できる %s）" % [_path_of(get_tree().current_scene).get_file(), str(GameManager.can_retreat_from_dungeon())],
+			GameManager.was_dungeon_chest_opened(chest_id) and GameManager.can_retreat_from_dungeon()
+			and _path_of(get_tree().current_scene) == DUNGEON_FLOOR_CLEAR)
+		if GameManager.is_in_dungeon():
+			GameManager.abandon_dungeon_run()
+		# 前の作りで止まったセーブ（⚠ 宝箱のマスに立ったまま・開けていない）→ 地図を開くと窓が出直す。
+		GameManager.add_to_inventory(GameStateKeys.ITEM_QUOTA_TICKET, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
+		floors = GameManager.get_dungeon_start_floor_options(tower_id)
+		if floors.is_empty() or not GameManager.start_dungeon_run(tower_id, int(floors[0])):
+			_check("塔の宝の階：2回目に塔に入れた", false)
+			return
+		run = (GameManager._state[GameStateKeys.DUNGEON_RUN] as Dictionary).duplicate(true)
+		run[GameStateKeys.DUNGEON_RUN_FLOOR_KIND] = GameStateKeys.DUNGEON_FLOOR_KIND_TREASURE
+		GameManager._apply_dungeon_map(run, GameManager._build_tower_map(tower_id, GameStateKeys.DUNGEON_FLOOR_KIND_TREASURE))
+		GameManager._state[GameStateKeys.DUNGEON_RUN] = run
+		chest_id = str(GameManager.get_dungeon_moves()[0])
+		var _moved: bool = GameManager.move_in_dungeon(chest_id)
+		var m2: Node = await _open(DUNGEON_MAP, {})
+		var layer2: Node = null if m2 == null else m2.find_child("LootOverlayLayer", true, false)
+		_check("塔の宝の階：開けていない宝箱のマスに立ったままのセーブは、地図を開くと窓が出直す",
+			layer2 != null and layer2.find_child("CloseButton", true, false) is BaseButton and not GameManager.was_dungeon_chest_opened(chest_id))
+		if GameManager.is_in_dungeon():
+			GameManager.abandon_dungeon_run()
+		await _open(BASE, {})
 
 	# --- QOL（2026-10-12・100ループのテストプレイ・人間「⚠ QOL関連は直したい」） ---
 	# ⚠ 最後に置く（⚠ 第1話をクリア済みにするので、⚠ 前の手の前提を崩さない）。

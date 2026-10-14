@@ -152,8 +152,28 @@ func _ready() -> void:
 		_enter_corridor_chest()
 	elif GameManager.has_dungeon_pending_loot():
 		_enter_pickup()
+	elif _standing_on_unopened_treasure() != "":
+		# ⚠ 10-14：⚠ 前の作り（開けずに閉じると何も起きない）で止まったセーブを救う。
+		_enter_chest_node(_standing_on_unopened_treasure())
 	else:
 		_auto_enter_shop_after_boss()
+
+
+# ⚠⚠ 10-14（ペルソナのテストプレイ）：⚠ 塔の宝の階で、⚠ 開けていない宝箱のマスに立っているか（⚠ 居ればそのマスの ID・居なければ ""）。
+#   ⚠ 宝の階は「入口 → 宝箱」だけで、⚠ 宝箱のマスでは次に押せるマスが無い＝⚠ 窓が出ないと抜けられない。
+#   ⚠ 網の宝箱のマスは先へ進めるので見ない（⚠ 地図を開くたびに窓が出てしまう）。
+func _standing_on_unopened_treasure() -> String:
+	if not GameManager.is_tower_dungeon():
+		return ""
+	if GameManager.get_dungeon_floor_kind() != GameStateKeys.DUNGEON_FLOOR_KIND_TREASURE:
+		return ""
+	var position: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_POSITION, ""))
+	var node: Dictionary = GameManager.get_dungeon_node(position)
+	if str(node.get(GameStateKeys.DUNGEON_NODE_KIND, "")) != GameStateKeys.DUNGEON_NODE_KIND_CHEST:
+		return ""
+	if GameManager.was_dungeon_chest_opened(position):
+		return ""
+	return position
 
 
 # ⚠ ランが終わったとき（撤退・全ロスト）は dungeon_id が "" で飛んでくる。
