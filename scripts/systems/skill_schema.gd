@@ -68,6 +68,8 @@ const ORIGIN_USER: String = "user"       # 使用者の位置が中心。sort / 
 const ORIGIN_TARGET: String = "target"   # sort で選んだ1体の位置が中心
 const ORIGIN_AIM: String = "aim"         # 溜めで動かした狙いの位置が中心（回GM-1）。sort / range は書けない
 const ORIGINS_KNOWN: Array = [ORIGIN_USER, ORIGIN_TARGET, ORIGIN_AIM]
+# ⚠ 10-16：⚠ 範囲を使う人の前だけにする（⚠ 扇形・ショットガン）。⚠ origin: user のときだけ書ける。
+const TARGET_FRONT_ONLY: String = "front_only"
 
 # --- target.sort（並べ替え） ---
 const SORT_NEAREST: String = "nearest"
@@ -1233,6 +1235,12 @@ static func _validate_target(
 
 			# E77 origin … 省略できない（既定値を作らない・ORIGINS_KNOWN の注記）
 			var origin: String = str(target.get("origin", ""))
+			# front_only（10-16）… 真偽で書く・origin: user のときだけ
+			if target.has(TARGET_FRONT_ONLY):
+				if not (target.get(TARGET_FRONT_ONLY) is bool):
+					_err(issues, skill_id, "%s.front_only が true / false でない" % where)
+				elif origin != ORIGIN_USER:
+					_err(issues, skill_id, "%s.front_only は origin: user のときだけ書ける" % where)
 			if not (origin in ORIGINS_KNOWN):
 				_err(issues, skill_id, "%s.mode: area の origin が無い、または不明: '%s'（'user' か 'target'）" % [where, origin])
 			elif origin == ORIGIN_USER:

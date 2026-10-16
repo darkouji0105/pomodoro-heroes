@@ -399,10 +399,17 @@
 	},
 	"char_zealot": {
 		"basic_attack": {
+			"target": {
+				"team": "enemy",
+				"mode": "area",
+				"origin": "user",
+				"radius": 160,
+				"front_only": true
+			},
 			"effects": [
 				{
 					"type": "damage",
-					"delivery": "projectile",
+					"delivery": "melee",
 					"multiplier": 1.0,
 					"attack_type": "physical",
 					"scale_from": [
@@ -414,13 +421,11 @@
 							"source": "distance",
 							"weight": -0.04
 						}
-					],
-					"trigger": "event:hit"
+					]
 				},
 				{
 					"type": "refresh_status",
-					"status_id": "st_zl_holy_foe",
-					"trigger": "event:hit"
+					"status_id": "st_zl_holy_foe"
 				}
 			]
 		},

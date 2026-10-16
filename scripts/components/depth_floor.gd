@@ -31,6 +31,8 @@ var show_floor: bool = true
 var flat_zone_half_height: float = 18.0
 # 地面の範囲（2026-10-12）。⚠ [{"x", "radius", "color"}]。⚠ 横は本当の半径・縦は奥〜手前の段を覆う。
 var _zones: Array = []
+# 一瞬光る扇形（2026-10-16・ショットガン）。⚠ [{"x", "dir", "radius", "color", "left", "life"}]。⚠ 時間で薄れて消える。
+var _fans: Array = []
 # 足元の影（⚠ 床に立っている感じを出す）。⚠ [Vector3(足元の x, 足元の y, 横の半径)]。⚠ 使う側が毎フレーム渡す。
 var _shadows: Array = []
 
@@ -40,6 +42,29 @@ func set_zones(zones: Array) -> void:
 	if zones.is_empty() and _zones.is_empty():
 		return
 	_zones = zones
+	queue_redraw()
+
+
+# 扇形を一瞬光らせる（2026-10-16・人間「⚠ 範囲ダメージ用の表示もいると思う」）。⚠ 見た目だけ（⚠ 当たり判定は横の位置と半径）。
+#   ⚠ dir は前の向き（1 か -1）。⚠ life 秒で薄れて消える。
+#   ⚠ depth は撃った人の今の奥行き（⚠ 重なりを避けて奥・手前へ寄っていても足元から開く）。
+func flash_fan(x: float, dir: float, radius: float, color: Color, life: float, depth: float = 0.0) -> void:
+	_fans.append({"x": x, "dir": signf(dir) if dir != 0.0 else 1.0, "radius": radius, "color": color, "left": life, "life": maxf(life, 0.01), "depth": depth})
+	set_process(true)
+	queue_redraw()
+
+
+func _process(delta: float) -> void:
+	if _fans.is_empty():
+		set_process(false)
+		return
+	var keep: Array = []
+	for raw: Variant in _fans:
+		var f: Dictionary = raw as Dictionary
+		f["left"] = float(f["left"]) - delta
+		if float(f["left"]) > 0.0:
+			keep.append(f)
+	_fans = keep
 	queue_redraw()
 
 
@@ -131,7 +156,32 @@ func _draw() -> void:
 	if show_floor:
 		_draw_floor()
 	_draw_zones()
+	_draw_fans()
 	_draw_shadows()
+
+
+# 扇形：⚠ 使う人の足元から前へ開く（⚠ ±40°・縦は床に沿って平たく＝奥行きの段の 0.7 倍）。⚠ 残り時間で薄れる。
+func _draw_fans() -> void:
+	for raw: Variant in _fans:
+		var f: Dictionary = raw as Dictionary
+		var depth: float = float(f.get("depth", 0.0))
+		var apex: Vector2 = screen_pos(float(f["x"]), depth)
+		var rx: float = float(f["radius"]) * _width_at(depth)
+		var ry: float = depth_px * 0.7 if show_floor else flat_zone_half_height
+		var dir: float = float(f["dir"])
+		var fade: float = clampf(float(f["left"]) / float(f["life"]), 0.0, 1.0)
+		var points: PackedVector2Array = PackedVector2Array([apex])
+		for i: int in range(17):
+			var a: float = deg_to_rad(-40.0 + 80.0 * float(i) / 16.0)
+			points.append(apex + Vector2(cos(a) * rx * dir, sin(a) * ry))
+		var color: Color = f["color"] as Color
+		var fill: Color = color
+		fill.a = 0.35 * fade
+		draw_colored_polygon(points, fill)
+		var edge: Color = color
+		edge.a = 0.8 * fade
+		points.append(apex)
+		draw_polyline(points, edge, 2.0)
 
 
 # 範囲：⚠ 塗りは薄く・縁は濃く。⚠ 縦は奥（-1）〜手前（1）の段を覆う（⚠ 床を描かないときは低く）。

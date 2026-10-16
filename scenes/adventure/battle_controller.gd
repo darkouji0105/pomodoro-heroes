@@ -1667,6 +1667,8 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	unit.last_basic_target_id = target.unit_id
 	var ride_before: int = unit.ride_serial
 	_skill_runtime.cast(unit, BASIC_ATTACK_SKILL_ID, attack, 1.0, fixed_ids)
+	# ⚠ 10-16（見る回・狂った神の使い）：⚠ 前だけの範囲（`front_only`）は床に扇形を一瞬光らせる（⚠ 見た目だけ）。
+	_flash_front_area(unit, target, attack)
 	# 次の通常攻撃が終わるまで（回BK-1）。⚠ 走りを始めた通常攻撃は着いたときに終わる（_end_ride()）・ほかは撃った直後。
 	if unit.ride_serial != ride_before and not unit.ride.is_empty():
 		unit.ride["basic_seq"] = unit.basic_attack_count
@@ -1682,6 +1684,22 @@ func _fire_basic_attack(unit: BattleUnit, target: BattleUnit) -> void:
 	# 強化した一撃を撃った（回PQ-1）。⚠ 置き換え・「◯回ごと」・上乗せのどれでも（⚠ いつもの一撃と違うものを撃ったとき）。
 	if attack != unit.basic_attack:
 		_skill_runtime.notify_empowered_basic(unit)
+
+
+# 前だけの範囲の扇形（10-16）。⚠ 向きは狙った相手の側・⚠ 半径は当たり判定と同じ・⚠ 色は「相手に効く」床の範囲と同じ橙。
+func _flash_front_area(unit: BattleUnit, target: BattleUnit, attack: Dictionary, life: float = 0.35) -> void:
+	if _depth_floor == null or target == null:
+		return
+	var target_def: Variant = attack.get("target", null)
+	if not (target_def is Dictionary) or not bool((target_def as Dictionary).get(SkillSchema.TARGET_FRONT_ONLY, false)):
+		return
+	var radius: float = float((target_def as Dictionary).get("radius", 0.0))
+	var dir: float = 1.0 if target.x >= unit.x else -1.0
+	var depth: float = 0.0
+	var view: Variant = _views_by_unit_id.get(unit.unit_id, null)
+	if view is UnitView and is_instance_valid(view):
+		depth = (view as UnitView).depth
+	_depth_floor.flash_fan(unit.x, dir, radius, _zone_harm_color, life, depth)
 
 
 # ⚠ is_crit / is_dot は既定値を持つ。既定値を外すと、引数を渡していない

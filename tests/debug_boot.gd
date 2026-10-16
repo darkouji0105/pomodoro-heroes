@@ -110,6 +110,10 @@ const SHOT_AFTER_BATTLE_HOLY: String = "battle_holy"
 const SHOT_AFTER_BATTLE_ZONES: String = "battle_zones"
 const SHOT_AFTER_BATTLE_DEBUFF: String = "battle_debuff"
 const SHOT_AFTER_BATTLE_PIERCE: String = "battle_pierce"
+# ⚠ ショットガンの扇形（2026-10-16）。⚠ 一瞬なので長めに光らせて撮る。
+const SHOT_AFTER_BATTLE_FAN: String = "battle_fan"
+# ⚠ 育成のスキルタブを一番下まで送る（2026-10-16・通常攻撃とパッシブの欄）。
+const SHOT_AFTER_SKILLS_BOTTOM: String = "skills_bottom"
 # ⚠ 王女（回PQ-1）：⚠ 王女を1番目に入れる（⚠ 内側の `PREPARE_PRINCESS_PARTY` と同じ字）。
 const SHOT_PREPARE_PRINCESS_PARTY: String = "princess_party"
 const SHOT_AFTER_MODAL_CONFIRM: String = "modal_confirm"
@@ -1728,6 +1732,13 @@ const SCENARIOS: Dictionary = {
 				"scene": "res://scenes/guild/training_screen.tscn",
 				"data": {TransferKeys.CHARACTER_ID: "char_swordsman", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_SKILLS},
 			},
+			# ⚠ 下まで送って、通常攻撃とパッシブ（2026-10-16・人間「⚠ キャラの通常攻撃と、パッシブを見る場所が欲しい」）。⚠ パッシブを持つキャラ。
+			{
+				"name": "28b_training_skills_bottom",
+				"scene": "res://scenes/guild/training_screen.tscn",
+				"data": {TransferKeys.CHARACTER_ID: "char_zealot", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_SKILLS},
+				"after": SHOT_AFTER_SKILLS_BOTTOM,
+			},
 			# ⚠ 昇級申請書（人間「⚠ 3あ」）。⚠ 31 は画面の口で判を押した姿（⚠ 素材は初期の分で足りる。⚠ 保存はしない）。
 			{
 				"name": "30_level_up",
@@ -2196,6 +2207,18 @@ const SCENARIOS: Dictionary = {
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
 				"after": SHOT_AFTER_BATTLE_ZONES,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			# ⚠ 狂った神の使いのショットガンの扇形（2026-10-16）。
+			{
+				"name": "9k_zealot_fan",
+				"scene": SCENE_BATTLE,
+				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
+				"after": SHOT_AFTER_BATTLE_FAN,
 				"data": {
 					TransferKeys.STAGE_ID: "stage_dbg_area",
 					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
@@ -9899,6 +9922,20 @@ func _report_zealot() -> void:
 	var far_hit: Array = SkillResolver.resolve({"effects": [(me.basic_attack.get("effects", []) as Array)[0]]}, me, session, ["enemy_1"], registry)
 	f1.x = 650.0
 	print("  ショットガン：100 先 %s ／ 130 先 %s（近いほうが大きい・会心は混ざる）" % [_amounts(near_hit), _amounts(far_hit)])
+	# ⚠ 10-16（見る回・人間「⚠ 狂った神の使いの攻撃はショットガンで、範囲ダメージを与える」）：⚠ 前の扇形（`front_only`）に入る敵は全員・⚠ 後ろは当たらない。
+	var fan_def: Dictionary = me.basic_attack.get("target", {}) as Dictionary
+	var x0: float = f0.x
+	var x1: float = f1.x
+	f0.x = me.x + 60.0
+	f1.x = me.x + 120.0
+	var both: Array = SkillResolver.select_targets(fan_def, me, session)
+	f1.x = me.x - 60.0
+	var front_only: Array = SkillResolver.select_targets(fan_def, me, session)
+	f0.x = x0
+	f1.x = x1
+	print("  ショットガンの扇形：前に2体 %s（enemy_0・enemy_1）／ 1体を後ろへ %s（enemy_0 だけ）" % [str(both), str(front_only)])
+	if not (both.has("enemy_0") and both.has("enemy_1") and front_only == ["enemy_0"]):
+		push_error("[DebugBoot] ショットガンの扇形が前の敵全員・後ろは外す になっていない: %s / %s" % [str(both), str(front_only)])
 
 	print("[DebugBoot] --- 58. 審判の十字（⚠ 狙いの場所・処刑・炎の敵を倒したら最大HPの10%%回復）---")
 	var cross: Dictionary = MasterDataLoader.get_skill("skill_zl_cross")
@@ -13395,6 +13432,8 @@ class ShotTaker extends Node:
 	const AFTER_BATTLE_ZONES: String = "battle_zones"
 	const AFTER_BATTLE_DEBUFF: String = "battle_debuff"
 	const AFTER_BATTLE_PIERCE: String = "battle_pierce"
+	const AFTER_BATTLE_FAN: String = "battle_fan"
+	const AFTER_SKILLS_BOTTOM: String = "skills_bottom"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
 	const AFTER_LEVEL_UP_PRESS: String = "level_up_press"
 	const AFTER_RELIC_PICK: String = "relic_pick"
@@ -13986,6 +14025,14 @@ class ShotTaker extends Node:
 				(miss_view as UnitView).pop_miss()
 			for _i: int in range(10):
 				await get_tree().process_frame
+		elif kind == AFTER_BATTLE_FAN:
+			# ⚠ 敵2体を前へ寄せ、⚠ 本物の口（`_flash_front_area()`）で扇形を光らせる（⚠ 撮るために 5 秒）。
+			var near_foes: Array = session.enemy_units.slice(0, 2)
+			for i: int in range(near_foes.size()):
+				(near_foes[i] as BattleUnit).x = me.x + 70.0 + 60.0 * float(i)
+			screen.call("_flash_front_area", me, near_foes[0], me.basic_attack, 5.0)
+			for _i: int in range(10):
+				await get_tree().process_frame
 		elif kind == AFTER_BATTLE_PIERCE:
 			var runtime_p: SkillRuntime = screen.get("_skill_runtime") as SkillRuntime
 			runtime_p.cast(me, "skill_pq_trump", MasterDataLoader.get_skill("skill_pq_trump"), 1.0)
@@ -14002,6 +14049,15 @@ class ShotTaker extends Node:
 	func _after(kind: String, screen: Node, shot_name: String) -> bool:
 		if kind == "":
 			return true
+		if kind == AFTER_SKILLS_BOTTOM:
+			var skills_scroll: ScrollContainer = screen.find_child("SkillsScroll", true, false) as ScrollContainer
+			if skills_scroll == null:
+				push_error("[DebugBoot] ⚠ %s にスキルタブの送りが無い" % shot_name)
+				return false
+			skills_scroll.scroll_vertical = int(skills_scroll.get_v_scroll_bar().max_value)
+			for _i: int in range(4):
+				await get_tree().process_frame
+			return true
 		if kind == AFTER_LOOT_OVERLAY:
 			# ⚠ マップ自身の口を呼ぶ（⚠ 本番も `_enter_chest_node()` からこれを呼ぶ）。
 			#   ⚠ 宝箱のマスが無いランなら、⚠ 拾い待ち（通路の資源）の側で出す。
@@ -14012,7 +14068,7 @@ class ShotTaker extends Node:
 			# ⚠ `call()` で呼ぶ。⚠ `Node` 型の変数から直に呼ぶと**静的解析で通らない**
 			#   （⚠ `dungeon_map.gd` に `class_name` が無いため）。
 			screen.call("_open_loot_overlay", node_id, false)
-		elif kind in [AFTER_BATTLE_EVADE, AFTER_BATTLE_AIM, AFTER_BATTLE_SUMMON, AFTER_BATTLE_HOLY, AFTER_BATTLE_DEBUFF, AFTER_BATTLE_PIERCE, AFTER_BATTLE_ZONES]:
+		elif kind in [AFTER_BATTLE_EVADE, AFTER_BATTLE_AIM, AFTER_BATTLE_SUMMON, AFTER_BATTLE_HOLY, AFTER_BATTLE_DEBUFF, AFTER_BATTLE_PIERCE, AFTER_BATTLE_ZONES, AFTER_BATTLE_FAN]:
 			# ⚠ 戦闘の途中（2026-10-10）。⚠ 表示は本物の口（結果の表示・溜めのボタン）を通す。
 			if not await _after_battle(kind, screen, shot_name):
 				return false

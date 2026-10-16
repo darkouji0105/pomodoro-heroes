@@ -186,10 +186,22 @@ static func _select_area(
 		push_error("[SkillResolver] 不明な origin: " + origin)
 		return ids
 
+	# ⚠ 10-16（見る回・狂った神の使いのショットガン）：⚠ `front_only`＝使う人の前だけ（⚠ 一番近い相手の側）。
+	#   ⚠ 距離は1次元なので、⚠ 扇形の判定は「前の側・radius の中」と同じ（⚠ 扇の角度は見た目だけ）。
+	var front: float = 0.0
+	if bool(target_def.get(SkillSchema.TARGET_FRONT_ONLY, false)):
+		if pool_in.is_empty():
+			return ids
+		var nearest: BattleUnit = _sorted_units(pool_in, user, SkillSchema.SORT_NEAREST)[0] as BattleUnit
+		front = 1.0 if nearest.x >= user.x else -1.0
+
 	# 2. 巻き込む。⚠ pool_all から拾う（radius は range を越える）
 	for u: BattleUnit in pool_all:
-		if absf(u.x - center_x) <= radius:
-			ids.append(u.unit_id)
+		if absf(u.x - center_x) > radius:
+			continue
+		if front != 0.0 and (u.x - user.x) * front < 0.0:
+			continue
+		ids.append(u.unit_id)
 	return ids
 
 
