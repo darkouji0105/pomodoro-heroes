@@ -18145,13 +18145,14 @@ class UiFlowRunner extends Node:
 		var t: Node = await _open(TASK_SCREEN, {})
 		if t == null:
 			return
-		var data: Variant = t.call("_drag_task", Vector2.ZERO, c_id, "DRG検査C")
-		_check("ドラッグ：行をつまむと運ぶデータ（%s）" % str(data), data is Dictionary and str((data as Dictionary).get(t.DRAG_TASK_ID, "")) == c_id)
+		# ⚠ 10-17：⚠ 3つの画面が同じ部品（`TaskDrag`）を通す＝⚠ 部品の口を呼ぶ。
+		var data: Dictionary = TaskDrag.drag_data(t as Control, c_id, "DRG検査C")
+		_check("ドラッグ：行をつまむと運ぶデータ（%s）" % str(data), str(data.get(TaskDrag.DATA_TASK_ID, "")) == c_id)
 		_check("ドラッグ：自分の行には落とせない・ほかの行には落とせる",
-			not bool(t.call("_can_drop_task", Vector2.ZERO, data, c_id)) and bool(t.call("_can_drop_task", Vector2.ZERO, data, a_id)))
+			not TaskDrag.can_drop(data, c_id) and TaskDrag.can_drop(data, a_id))
 		# C を A の行の上半分へ＝A の前。
 		var row_a: Control = t.find_child("Task_" + a_id, true, false) as Control
-		t.call("_drop_on_row", Vector2(0, 1), data, a_id, "", row_a)
+		var _moved_a: bool = TaskDrag.drop_on_row(Vector2(0, 1), data, a_id, "", row_a)
 		var order: Array = []
 		for task: Variant in GameManager.get_tasks():
 			var id: String = str((task as Dictionary).get(GameStateKeys.TASK_ID, ""))
@@ -18159,13 +18160,20 @@ class UiFlowRunner extends Node:
 				order.append(id)
 		_check("ドラッグ：A の行の上半分に落とすと A の前（%s）" % str(order), order == [c_id, a_id, b_id])
 		# B をフォルダの箱へ＝そのフォルダの一番後ろ。
-		t.call("_drop_on_folder", Vector2.ZERO, {t.DRAG_TASK_ID: b_id}, folder)
+		var _moved_b: bool = TaskDrag.drop_on_folder({TaskDrag.DATA_TASK_ID: b_id}, folder)
 		_check("ドラッグ：フォルダの箱に落とすとそのフォルダへ（%s）" % str(GameManager.get_task(b_id).get(GameStateKeys.TASK_FOLDER, "")),
 			str(GameManager.get_task(b_id).get(GameStateKeys.TASK_FOLDER, "")) == folder)
-		# 絞っているときはつままない。
+		# 絞っているときはつままない（⚠ タスクの画面だけ）。
 		t.set("_filter_tag", "x")
-		_check("ドラッグ：タグで絞っているときはつままない", t.call("_drag_task", Vector2.ZERO, a_id, "DRG検査A") == null)
+		_check("ドラッグ：タグで絞っているときはつままない", not bool(t.call("_can_drag")))
 		t.set("_filter_tag", "")
+		# ⚠ ポモドーロのサイドバー・拠点の紙にも行が出ている（⚠ 同じ部品を付けた行）。⚠ つまむ手触りは人間（`HUMAN_CHECK_STEPS.md`）。
+		var p: Node = await _open(POMODORO, {})
+		# ⚠ 画面を移ると行は消える＝⚠ 見つかったかはその場で控える。
+		var side_ok: bool = p != null and p.find_child("Side_" + a_id, true, false) is Control
+		var base: Node = await _open(BASE, {})
+		var note_ok: bool = base != null and base.find_child("Note_" + a_id, true, false) is Control
+		_check("ドラッグ：ポモドーロのサイドバー・拠点の紙にも行がある（%s ／ %s）" % [str(side_ok), str(note_ok)], side_ok and note_ok)
 		for id: String in [a_id, b_id, c_id]:
 			var _gone: bool = GameManager.delete_task(id)
 		await _open(BASE, {})

@@ -123,6 +123,7 @@ func _rebuild() -> void:
 			continue
 		var box: TaskFolderBox = TaskFolderBox.create(group, members.size())
 		_list.add_child(box)
+		TaskDrag.attach_folder(box)
 		if not bool(group.get(GameManager.TASK_GROUP_COLLAPSED, false)):
 			for raw: Variant in members:
 				_add_task_row(raw as Dictionary, current, box.rows)
@@ -141,6 +142,8 @@ func _add_task_row(task: Dictionary, current: String, parent: Node) -> void:
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	else:
 		row.pressed.connect(_on_row_pressed.bind(task_id))
+		# ⚠ 10-17（人間「⚠ サイドバーと拠点のdragも」・`TK-19`）：⚠ つまんで並べ替え・フォルダへ（⚠ 終えた行はつままない）。
+		TaskDrag.attach_row(row, task)
 	var line: HBoxContainer = HBoxContainer.new()
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(line)
