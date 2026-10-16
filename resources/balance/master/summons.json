@@ -58,6 +58,7 @@
 		}
 	},
 	"summon_nc_zombie_elite": {
+		"glyph": "👹",
 		"name_key": "ui_battle_summon_nc_zombie_elite",
 		"hp": 200,
 		"atk": 22,

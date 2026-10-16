@@ -864,6 +864,9 @@ static func _validate_all_summons() -> void:
 				for raw_de: Variant in (death_effects as Array):
 					if not (raw_de is Dictionary) or not (raw_de as Dictionary).has("target"):
 						push_error("[MasterDataLoader] summons %s: death_effects の効果に target が無い" % str(summon_id))
+		# 顔（10-16）… 空でない文字（⚠ フォントに在るかは scenario=glyphs）。
+		if (entry as Dictionary).has("glyph") and (not ((entry as Dictionary)["glyph"] is String) or str((entry as Dictionary)["glyph"]) == ""):
+			push_error("[MasterDataLoader] summons %s: glyph が空でない文字でない" % str(summon_id))
 		# E180 … 敵がいなくなったら資源に戻る（回NC-1）。⚠ 資源が持ち主にあるかは戦闘の中で見る（⚠ 召喚は誰が呼ぶか決まっていない）。
 		if (entry as Dictionary).has("clear_refund"):
 			var refund: Variant = (entry as Dictionary)["clear_refund"]

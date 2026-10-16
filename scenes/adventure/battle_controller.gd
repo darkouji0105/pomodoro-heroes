@@ -1131,14 +1131,22 @@ func _spawn_summon(r: Dictionary) -> void:
 	if bool(r.get("foe_side", false)):
 		side = BattleUnit.TEAM_ENEMY if owner.team == BattleUnit.TEAM_PARTY else BattleUnit.TEAM_PARTY
 	var at_x: float = float(r.get("at_x", NAN))
+	# ⚠ 10-16（見る回・上級ゾンビ）：⚠ 消した数で強くなる（`power_mult`）。⚠ 写しに掛ける（⚠ マスターを書き換えない）。
+	var stats: Dictionary = data
+	var power: float = float(r.get("power_mult", 1.0))
+	if power != 1.0:
+		stats = data.duplicate(true)
+		for key: String in [GameStateKeys.STAT_HP, GameStateKeys.STAT_ATK, GameStateKeys.STAT_MAG, GameStateKeys.STAT_DEF, GameStateKeys.STAT_MDEF]:
+			if stats.has(key):
+				stats[key] = int(round(float(stats[key]) * power))
 	for n: int in range(int(r.get("count", 0))):
 		# ⚠ 素データと能力値に同じ辞書を渡す（敵の生成と同じ。summons.json の
-		#   エントリがそのまま能力値）。
+		#   エントリがそのまま能力値）。⚠ 強くなるときだけ能力値は写し。
 		var unit: BattleUnit = BattleUnit.create(
 			"summon_%d" % _next_summon_serial,
 			side,
 			data,
-			data,
+			stats,
 			false,
 			source_id
 		)

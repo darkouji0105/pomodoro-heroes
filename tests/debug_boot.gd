@@ -9770,10 +9770,24 @@ func _report_necro() -> void:
 	session.summon_units = zs.duplicate()
 	print("  ゾンビ4体：上級に '%s'（''＝撃てる）" % _cost_reason(me, "skill_nc_elite", session))
 	var r50: Array = _control_cast("skill_nc_elite", me, [me], session, registry)
+	var eaten: Array = []
+	var elite_power: float = 0.0
 	for r: Variant in r50:
 		if r is Dictionary and (r as Dictionary).has("kind"):
 			print("  上級：%s %s" % [str((r as Dictionary)["kind"]), str((r as Dictionary).get("summon_ids", (r as Dictionary).get("summon_unit_id", "")))])
-	print("  （summon_consume [summon_0, summon_1, summon_2]＝古い3体 ／ summon summon_nc_zombie_elite）")
+			if str((r as Dictionary)["kind"]) == SkillSchema.EFFECT_SUMMON_CONSUME:
+				eaten = (r as Dictionary).get("summon_ids", []) as Array
+			elif str((r as Dictionary)["kind"]) == SkillSchema.EFFECT_SUMMON:
+				elite_power = float((r as Dictionary).get("power_mult", 0.0))
+	# ⚠ 10-16（見る回・人間「⚠ 上級ゾンビは下級をまとめて１体にまとめる」→「⚠ 下級を全部食べて1体」）：⚠ 4体全部・⚠ 1体ごとに +10%＝1.4 倍。
+	print("  （summon_consume [summon_0〜summon_3]＝4体全部 ／ summon summon_nc_zombie_elite・強さ ×%.1f（×1.4））" % elite_power)
+	if eaten.size() != 4 or not is_equal_approx(elite_power, 1.4):
+		push_error("[DebugBoot] 上級ゾンビが下級を全部消して強くなっていない: 消した %d 体・×%.2f" % [eaten.size(), elite_power])
+	# ⚠ 顔（10-16）：⚠ 下級 👻・上級 👹（⚠ summons.json の glyph）。
+	var faces: Array = [Glyphs.for_unit("summon_nc_zombie", true, true), Glyphs.for_unit("summon_nc_zombie_elite", true, true)]
+	print("  顔：下級 %s ／ 上級 %s（違う字）" % faces)
+	if faces[0] == faces[1]:
+		push_error("[DebugBoot] 上級ゾンビと下級ゾンビの顔が同じ: %s" % str(faces))
 	var r50b: Array = _control_cast("skill_nc_detonate", me, [me], session, registry)
 	var hits: Array = []
 	for r: Variant in r50b:
@@ -11272,6 +11286,11 @@ func _report_glyphs() -> void:
 	# ⚠ Glyphs の表を全部見る。⚠ 1つでも NG なら豆腐が出る。
 	print("[DebugBoot] --- Glyphs の字がフォントに在るか（⚠ NG が0件で正解）---")
 	var table: Dictionary = Glyphs.all_for_check()
+	# ⚠ 10-16：⚠ 召喚の顔（summons.json の glyph）も同じ検査に通す（⚠ 上級ゾンビ 👹）。
+	for summon_id: Variant in MasterDataLoader._cache_summons:
+		var summon_glyph: String = str((MasterDataLoader._cache_summons[summon_id] as Dictionary).get("glyph", ""))
+		if summon_glyph != "":
+			table["SUMMON:" + str(summon_id)] = summon_glyph
 	var names: Array = table.keys()
 	names.sort()
 	var ng: Array[String] = []

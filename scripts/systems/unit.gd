@@ -319,6 +319,8 @@ var recast_pending: Dictionary = {}
 # 召喚ユニットか。⚠ 勝敗判定はこれを見ない。召喚は summon_units に居るので
 #   is_party_wiped() / is_wave_cleared() には最初から混ざらない。
 var is_summon: bool = false
+# ⚠ 10-16（見る回・上級ゾンビ）：⚠ 直前に消した自分の召喚の数（⚠ summon_consume が書き、⚠ 同じスキルの次の summon が per_consumed_pct で読む）。
+var last_summon_consumed: int = 0
 # 召喚者の unit_id。⚠ 召喚者が死んだら召喚も消える（人間の決定・2026-08-21）。
 var summon_owner_id: String = ""
 # 期限の残り秒。⚠ 0以下になったら「死亡ではなく」静かに消える（人間の決定）。

@@ -185,7 +185,9 @@ static func for_enemy(enemy_type_id: String) -> String:
 #   召喚＝summon_unit_id）。⚠ unit_id（"party_0" 等）ではない。
 static func for_unit(master_id: String, is_party: bool, is_summon: bool) -> String:
 	if is_summon:
-		return SUMMON
+		# ⚠ 10-16（見る回・人間「⚠ 上級ゾンビと下級ゾンビの見分けがつかない」）：⚠ summons.json の `glyph` があればそれ（⚠ 無ければ 👻）。
+		var glyph: String = str(MasterDataLoader.get_summon(master_id).get("glyph", ""))
+		return glyph if glyph != "" else SUMMON
 	if is_party:
 		return for_character(master_id)
 	return for_enemy(master_id)

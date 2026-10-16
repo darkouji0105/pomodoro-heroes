@@ -1853,7 +1853,7 @@ ui_desc_skill_nc_detonate,いるゾンビを全員爆発させ、周りの敵に
 ui_battle_skill_nc_soul_mend,魂の慰め
 ui_desc_skill_nc_soul_mend,魂を全部使い、味方全員を回復する。魂が多いほどよく治る
 ui_battle_skill_nc_elite,屍の継ぎ接ぎ
-ui_desc_skill_nc_elite,ゾンビが3体以上いるとき、古い3体をまとめて上級ゾンビにする
+ui_desc_skill_nc_elite,ゾンビが3体以上いるとき、全部まとめて上級ゾンビ1体にする（まとめた1体ごとに10%強い）
 ui_battle_passive_nc_undead,終わらない葬列
 ui_desc_passive_nc_undead,スキルを使うたびゾンビを1体呼ぶ。敵がいなくなるとゾンビは崩れ、半分が魂に戻る
 ui_battle_passive_nc_harvest,魂の収穫

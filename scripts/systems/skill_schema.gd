@@ -262,6 +262,8 @@ const TARGETLESS_EFFECT_TYPES: Array = [EFFECT_SUMMON, EFFECT_SUMMON_CONSUME]
 # 召喚の上限（回NC-1・人間「⚠ あ６」＝⚠ 段階6の決定5「上限なし」を召喚ごとに上書きできるようにした）。
 # ⚠ 召喚した人1人ぶんの召喚の数（⚠ 種類を問わない）。⚠ 超えたら古いほうから消える。⚠ 書かなければ上限なし（⚠ いままでどおり）。
 const SUMMON_FIELD_MAX_PER_OWNER: String = "max_per_owner"
+# ⚠ 10-16：⚠ 同じスキルで直前に消した召喚1体ごとに何%強くするか（⚠ 上級ゾンビ）。⚠ 0 以上の数。
+const SUMMON_FIELD_PER_CONSUMED_PCT: String = "per_consumed_pct"
 # 自分の召喚が足りないと撃てない（回NC-1）。⚠ スキルの直下に書く（⚠ cost と同じ場所・同じ暗転）。
 #   "need_summons": {"unit_ids": ["summon_nc_zombie"], "count": 3}
 const FIELD_NEED_SUMMONS: String = "need_summons"
@@ -500,7 +502,7 @@ const EFFECT_FIELDS_KNOWN: Array = [
 	FIELD_STAT_PCT, FIELD_MISS_PCT, FIELD_WHEN_USER, FIELD_PIERCE_LENGTH,
 	"unit_id", "count", "offset_x",
 	"resource_id", "amount", "set_to", "per_target_stack",
-	CONSUME_FIELD_UNIT_IDS, CONSUME_FIELD_BLAST_RADIUS, SUMMON_FIELD_MAX_PER_OWNER,
+	CONSUME_FIELD_UNIT_IDS, CONSUME_FIELD_BLAST_RADIUS, SUMMON_FIELD_MAX_PER_OWNER, SUMMON_FIELD_PER_CONSUMED_PCT,
 	FIELD_TAG, FIELD_ON_KILL, FIELD_ON_MEET, FIELD_EVADE,
 	FIELD_DRAIN_PCT, FIELD_WHEN_DRAIN_MULT, FIELD_STAT_PCT_FROM,
 	FIELD_ON_STACK, FIELD_KEEP_ON_DISPEL, FIELD_IS_DEBUFF, "effects",
@@ -1337,6 +1339,11 @@ static func _validate_summon_effect(
 		var cap: Variant = effect.get(SUMMON_FIELD_MAX_PER_OWNER, null)
 		if not _is_num(cap) or float(cap) < 1.0 or float(cap) != floor(float(cap)):
 			_err(issues, skill_id, "%s.max_per_owner が1以上の整数でない" % where)
+	# per_consumed_pct（10-16）… 0 以上の数
+	if effect.has(SUMMON_FIELD_PER_CONSUMED_PCT):
+		var per: Variant = effect.get(SUMMON_FIELD_PER_CONSUMED_PCT, null)
+		if not _is_num(per) or float(per) < 0.0:
+			_err(issues, skill_id, "%s.per_consumed_pct が 0 以上の数でない" % where)
 
 	# E98 … 召喚は対象を取らず、威力の式も持たない
 	for forbidden: String in SUMMON_FIELDS_FORBIDDEN:
@@ -1393,7 +1400,7 @@ static func _validate_effect(
 		# ⚠ unit_id は「召喚するID」の意味で、results が持つ unit_id（＝殴られた側）と
 		#   紛らわしい。1つの語が2つの意味を持つ状態を作らない（PLAN 1章の病気）。
 		# ⚠ count だけは召喚を使う効果（summon_consume）にも書く（⚠ 何体使うか）。
-		for summon_field: String in SUMMON_ONLY_FIELDS + [SUMMON_FIELD_MAX_PER_OWNER, SUMMON_FIELD_AT, SUMMON_FIELD_SIDE]:
+		for summon_field: String in SUMMON_ONLY_FIELDS + [SUMMON_FIELD_MAX_PER_OWNER, SUMMON_FIELD_AT, SUMMON_FIELD_SIDE, SUMMON_FIELD_PER_CONSUMED_PCT]:
 			if summon_field == "count" and effect_type == EFFECT_SUMMON_CONSUME:
 				continue
 			if effect.has(summon_field):

@@ -173,11 +173,12 @@
 				"unit_ids": [
 					"summon_nc_zombie"
 				],
-				"count": 3
+				"count": "all"
 			},
 			{
 				"type": "summon",
 				"unit_id": "summon_nc_zombie_elite",
+				"per_consumed_pct": 10,
 				"count": 1,
 				"duration_sec": 30.0,
 				"offset_x": 40.0,

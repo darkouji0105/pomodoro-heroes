@@ -1092,6 +1092,8 @@ static func _apply_summon_consume(
 	var raw_count: Variant = effect.get("count", 0)
 	if not (raw_count is String and str(raw_count) == SkillSchema.CONSUME_COUNT_ALL):
 		picked = picked.slice(0, int(float(raw_count)))
+	# ⚠ 10-16：⚠ 消した数を覚える（⚠ resolve() は効果を1件ずつ受けるので、⚠ 次の召喚へは使った人の駒で渡す）。
+	user.last_summon_consumed = picked.size()
 	if picked.is_empty():
 		return
 	if effect.has(SkillSchema.CONSUME_FIELD_BLAST_RADIUS):
@@ -1172,7 +1174,13 @@ static func own_summons(user: BattleUnit, session: BattleSession, unit_ids: Arra
 
 
 static func _apply_summon(effect: Dictionary, user: BattleUnit, results: Array, targets: Array = []) -> void:
+	# ⚠ 10-16：⚠ 消した1体ごとに強くなる（`per_consumed_pct`）。⚠ HP・攻撃・魔力・防御に掛ける倍率（⚠ 掛けるのは battle_controller）。
+	var power: float = 1.0
+	if effect.has(SkillSchema.SUMMON_FIELD_PER_CONSUMED_PCT):
+		power += float(user.last_summon_consumed) * float(effect.get(SkillSchema.SUMMON_FIELD_PER_CONSUMED_PCT, 0.0)) / 100.0
+		user.last_summon_consumed = 0
 	results.append({
+		"power_mult": power,
 		# ⚠ kind を持つのは召喚の1件だけ。既存の damage / heal の1件には足さない
 		#   （battle_last.jsonl が1バイト変わる）。
 		"kind": SkillSchema.EFFECT_SUMMON,
