@@ -1176,6 +1176,24 @@ ui_training_nodes_remaining,残り %d pt
 ui_training_nodes_next,%dpt で %s
 ui_training_passive_road,修練の道
 ui_training_skills_heading,持ち込むスキル
+ui_training_basic_heading,通常攻撃
+ui_training_basic_numbers,射程 %d ・ %.1f 秒ごと
+ui_training_passive_heading,パッシブ（いつも効く）
+ui_desc_basic_char_swordsman,近くの敵1体を斬る（攻撃力の170%）
+ui_desc_basic_char_archer,矢を撃つ（攻撃力の100%）
+ui_desc_basic_char_priest,敵全員に光を落とす（1体ずつ魔力の50%）
+ui_desc_basic_char_scholar,殴る（攻撃力の100%）。3回目ごとに強く殴り（130%）、感電させる
+ui_desc_basic_char_princess,矢を撃つ（攻撃力の100%）。3回目ごとに防御を無視する矢
+ui_desc_basic_char_necro,魔法の弾を撃つ（魔力の80%）
+ui_desc_basic_char_zealot,ショットガン。前へ扇形に広がり、範囲の敵全員に当たる。近いほど強い（攻撃力の160%から離れるほど下がる）。当たった敵の聖なる炎の時間を戻す
+ui_desc_basic_char_mercenary,一番近い敵を斬る（攻撃力の100%）。後ろにも敵がいると周りを薙ぐ（90%）。3回目ごとに周りを薙ぐ（90%）
+ui_desc_basic_char_vampire,斬る（攻撃力の100%）。3回目ごとに出血させ、与えた分の30%を吸う（出血中の敵なら2倍吸う）
+ui_desc_basic_char_phoenix,殴る（攻撃力の100%）
+ui_desc_basic_char_student,魔法の弾を撃つ（魔力の80%）。当たると感電・毒・火傷のどれか1つ
+ui_desc_basic_char_gunslinger,まだ撃っていない敵を順番に撃つ（攻撃力の100%）。新しい相手・HPが満タンの相手には追い撃ち（50%）
+ui_desc_basic_char_magnum,魔法の弾を撃つ（魔力の90%）
+ui_desc_basic_char_biker,一番遠い敵へ走り抜け、通り過ぎた敵を斬る（攻撃力の70%）
+ui_desc_basic_char_bodybuilder,周りの敵全員を殴る（攻撃力の80%）
 ui_training_skills_known,覚えている %d ／ %d
 ui_training_skill_in_slot,枠%d
 ui_training_skill_pick,下から選ぶ

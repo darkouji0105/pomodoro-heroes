@@ -213,7 +213,15 @@ func _rebuild_page() -> void:
 			var skills: TrainingSkillsPage = TrainingSkillsPage.new()
 			skills.name = "SkillsPage"
 			skills.setup(_selected_id)
-			_page.add_child(skills)
+			# ⚠ 10-16：⚠ 通常攻撃とパッシブの欄を足して紙の下からはみ出した＝⚠ 縦に送る（⚠ 横は送らない）。
+			var skills_scroll: ScrollContainer = ScrollContainer.new()
+			skills_scroll.name = "SkillsScroll"
+			skills_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			skills_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			skills_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			skills.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			skills_scroll.add_child(skills)
+			_page.add_child(skills_scroll)
 		TransferKeys.TRAINING_TAB_EQUIP:
 			var equip: TrainingEquipPage = TrainingEquipPage.new()
 			equip.name = "EquipPage"

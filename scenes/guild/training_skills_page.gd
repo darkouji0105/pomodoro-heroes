@@ -59,6 +59,64 @@ func _rebuild() -> void:
 	for entry: Variant in all_candidates:
 		var skill_id: String = str(entry)
 		candidates.add_child(_create_candidate(skill_id, skill_id in unlocked, selected.find(skill_id)))
+	# ⚠ 10-16（見る回・人間「⚠ キャラの通常攻撃と、パッシブを見る場所が欲しい　どっちもスキルで見れるように」）。
+	_add_basic_attack()
+	_add_passives()
+
+
+# 通常攻撃：⚠ 説明は `ui_desc_basic_<キャラ>`（⚠ キャラごとに書く）・⚠ 射程と間隔はマスターから毎回引く（⚠ 書き写さない）。
+func _add_basic_attack() -> void:
+	var heading: SheetHeading = SheetHeading.new()
+	heading.name = "BasicHeading"
+	heading.title_key = "ui_training_basic_heading"
+	var data: Dictionary = MasterDataLoader.get_character(_character_id)
+	heading.right_text = tr("ui_training_basic_numbers") % [
+		int(data.get("attack_range", 0)), float(data.get("attack_interval_sec", 0.0)),
+	]
+	add_child(heading)
+	var text: String = _description_of("basic_" + _character_id)
+	if text == "":
+		return
+	var label: Label = Label.new()
+	label.name = "BasicLabel"
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.text = text
+	add_child(label)
+
+
+# パッシブ：⚠ 名前と効果（⚠ ステータスノードのタブの「修練の道」と同じ中身）。⚠ まだ効かないものは薄く。
+func _add_passives() -> void:
+	var all_passives: Array = GameManager.get_all_skill_candidates(_character_id, GameManager.SLOT_KIND_PASSIVE)
+	if all_passives.is_empty():
+		return
+	var unlocked: Array = GameManager.get_skill_candidates(_character_id, GameManager.SLOT_KIND_PASSIVE)
+	var heading: SheetHeading = SheetHeading.new()
+	heading.name = "PassiveHeading"
+	heading.title_key = "ui_training_passive_heading"
+	add_child(heading)
+	var list: GridContainer = GridContainer.new()
+	list.name = "Passives"
+	list.columns = CANDIDATE_COLUMNS
+	add_child(list)
+	for entry: Variant in all_passives:
+		var passive_id: String = str(entry)
+		var column: VBoxContainer = VBoxContainer.new()
+		column.name = "Passive_" + passive_id
+		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		column.modulate.a = 1.0 if passive_id in unlocked else 0.5
+		var name_label: Label = Label.new()
+		name_label.name = "NameLabel"
+		name_label.text = _skill_name(passive_id)
+		column.add_child(name_label)
+		var effect: String = _description_of(passive_id)
+		if effect != "":
+			var caption: Label = Label.new()
+			caption.name = "EffectLabel"
+			caption.theme_type_variation = &"CaptionLabel"
+			caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			caption.text = effect
+			column.add_child(caption)
+		list.add_child(column)
 
 
 func _create_slot(slot_index: int, skill_id: String) -> LedgerRow:
