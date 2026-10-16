@@ -90,11 +90,14 @@ func _on_start_pressed() -> void:
 	work_title.text = title
 	work_title.visible = true
 	start_button.disabled = true
-	# ⚠ 始めたら道具と設定へは行かせない（⚠ 消さずに透明＝上が跳ねない）。
+	# ⚠ 始めたら道具へは行かせない（⚠ 消さずに透明＝上が跳ねない）。
+	# ⚠⚠ 10-16（見る回・人間「⚠ ポモドーロ中に画面の設定をいじれるようにしたい」→「⚠ ポモドーロの設定」）：⚠ 設定は残す。
+	#   ⚠ 変えた長さは次の集中・休憩から効く（⚠ 動いている時計は変えない＝`pomodoro.gd` `apply_settings()`）。
 	if _links != null:
-		_links.modulate.a = 0.0
-		for child: Node in _links.get_children():
-			(child as BaseButton).disabled = true
+		var tools: Node = _links.find_child("FocusToolsButton", false, false)
+		if tools is BaseButton:
+			(tools as BaseButton).modulate.a = 0.0
+			(tools as BaseButton).disabled = true
 	start_requested.emit(title, _task_id)
 
 

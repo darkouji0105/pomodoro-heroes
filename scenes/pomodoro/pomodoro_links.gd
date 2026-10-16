@@ -9,13 +9,15 @@ extends HBoxContainer
 const FOCUS_TOOLS_PATH: String = "res://scenes/pomodoro/focus_tools_screen.tscn"
 
 
-static func create() -> PomodoroLinks:
+# ⚠ `with_tools`＝「集中の道具」も出すか（⚠ 10-16：⚠ 休憩の画面は設定だけ＝道具は画面を移るので出さない）。
+static func create(with_tools: bool = true) -> PomodoroLinks:
 	var links: PomodoroLinks = PomodoroLinks.new()
 	links.name = "PomodoroLinks"
-	var tools: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_focus_tools_open")
-	tools.name = "FocusToolsButton"
-	tools.pressed.connect(links._on_tools_pressed)
-	links.add_child(tools)
+	if with_tools:
+		var tools: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_focus_tools_open")
+		tools.name = "FocusToolsButton"
+		tools.pressed.connect(links._on_tools_pressed)
+		links.add_child(tools)
 	var settings: UiButton = UiButton.create(UiButton.Variant.GHOST, "ui_pomodoro_settings_open")
 	settings.name = "PomodoroSettingsButton"
 	settings.pressed.connect(links._on_settings_pressed)

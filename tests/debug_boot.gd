@@ -17904,18 +17904,32 @@ class UiFlowRunner extends Node:
 	# --- 操作量を減らす（2026-10-14・ペルソナのテストプレイ・人間「⚠ 操作量で無駄に多いのを減らしたい」→ A・B・C・D） ---
 
 	func _flow_fewer_presses() -> void:
-		# A：加護の「◯で集中を始める」でそのまま集中が始まる（⚠ 前は「はじめる」をもう1回）。
+		# A（⚠ 10-16 に取り消し・人間「⚠ 加護からはすぐに始めないほうがいい」）：⚠ 加護の「始める」は集中の画面へ移るだけ＝⚠ まだ始まらない。
 		GameManager._state[GameStateKeys.LAST_PROTECTION_SELECTED_AT] = ""
 		var p: Node = await _open(POMODORO, {})
 		var select: Node = null if p == null else p.find_child("ProtectionSelectView", true, false)
 		# ⚠ 押すと加護のビューは消える＝⚠ 有ったかは押す前に控える。
 		var had_select: bool = select != null
 		await _press(null if select == null else select.find_child("StartButton", true, false), OPEN_FRAMES)
-		var view_now: Node = null if p == null else p.get("_current_view")
-		_check("操作量 A：加護の「始める」1回で集中が始まる（タイマー %s・状態 %s・始めた %s・ビュー %s）" % [
-				str(p.get("is_timer_active")) if p != null else "?", str(p.get("current_state")) if p != null else "?",
-				str(p.get("_focus_started")) if p != null else "?", view_now.name if view_now != null else "?"],
-			had_select and p != null and bool(p.get("is_timer_active")) and int(p.get("current_state")) == int(p.State.FOCUS) and bool(p.get("_focus_started")))
+		_check("加護：「始める」は集中の画面へ移るだけ・まだ始まらない（状態 %s・始めた %s）" % [
+				str(p.get("current_state")) if p != null else "?", str(p.get("_focus_started")) if p != null else "?"],
+			had_select and p != null and int(p.get("current_state")) == int(p.State.FOCUS) and not bool(p.get("_focus_started")))
+		# ⚠ 下の B は集中を始めてから（⚠ 「はじめる」を押す）。
+		var fv: Node = null if p == null else p.find_child("FocusView", true, false)
+		await _press(null if fv == null else fv.find_child("StartButton", true, false))
+		if p != null:
+			await _close_modal(p)
+		# ⚠ 10-16（見る回・人間「⚠ ポモドーロ中に画面の設定をいじれるようにしたい」）：⚠ 集中中も「ポモドーロの設定」は押せる・⚠ 「集中の道具」は押せない。
+		var set_btn: Node = null if p == null else p.find_child("PomodoroSettingsButton", true, false)
+		var tool_btn: Node = null if p == null else p.find_child("FocusToolsButton", true, false)
+		var set_ok: bool = set_btn is BaseButton and not (set_btn as BaseButton).disabled and (set_btn as CanvasItem).modulate.a > 0.5
+		await _press(set_btn)
+		var set_modal: ModalDialog = null if p == null else _modal_of(p)
+		_check("集中中：「ポモドーロの設定」は押せて窓が出る・「集中の道具」は押せない・時計は動いたまま（タイマー %s）" % str(p.get("is_timer_active")) if p != null else "?",
+			set_ok and set_modal != null and set_modal.find_child("PomodoroSettingsPanel", true, false) != null
+			and tool_btn is BaseButton and (tool_btn as BaseButton).disabled and bool(p.get("is_timer_active")))
+		if p != null:
+			await _close_modal(p)
 		# B：休憩中の「やめる」は確かめずに拠点へ（⚠ 前は「はい」を押した）。⚠ 受け取りの窓は残す（10-14・人間「⚠ これは報酬だから手に入れたという実感を与えたい」）。
 		if p != null:
 			await _close_modal(p)
@@ -17924,6 +17938,11 @@ class UiFlowRunner extends Node:
 			p.call("_on_reflection_completed", "今日の作業を進めた。次にやることも決めてメモに残した。")
 			await _wait()
 		var in_break: bool = p != null and int(p.get("current_state")) == int(p.State.BREAK)
+		var break_set: Node = null if p == null else p.find_child("BreakView", true, false)
+		break_set = null if break_set == null else break_set.find_child("PomodoroSettingsButton", true, false)
+		_check("休憩中：「ポモドーロの設定」がある・「集中の道具」は無い",
+			in_break and break_set is BaseButton and not (break_set as BaseButton).disabled
+			and p.find_child("BreakView", true, false).find_child("FocusToolsButton", true, false) == null)
 		await _press(null if p == null else p.find_child("QuitButton", true, false), OPEN_FRAMES)
 		var base: Node = get_tree().current_scene
 		_check("操作量 B：休憩中の「やめる」は確かめずに拠点へ・受け取りの窓は出る（休憩 %s・いま %s・窓 %s）" % [
