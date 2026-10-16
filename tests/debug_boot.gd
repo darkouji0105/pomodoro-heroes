@@ -18131,6 +18131,44 @@ class UiFlowRunner extends Node:
 			fill_ok and points_before >= 4 and points_before - points_after >= 4)
 		await _open(BASE, {})
 		await _flow_slide_on_jump()
+		await _flow_task_drag()
+
+
+	# --- タスクのドラッグ（2026-10-16・人間「⚠ タスクは、ドラッグで移動させられるように」→「⚠ 並べ替え＋フォルダへ移す」） ---
+	# ⚠ 行・フォルダが受ける本物の口（⚠ `set_drag_forwarding()` が呼ぶ関数）を呼ぶ。⚠ マウスでつまむ手触りは人間。
+
+	func _flow_task_drag() -> void:
+		var a_id: String = GameManager.add_task("DRG検査A")
+		var b_id: String = GameManager.add_task("DRG検査B")
+		var c_id: String = GameManager.add_task("DRG検査C")
+		var folder: String = GameManager.add_task_folder("DRG検査の箱")
+		var t: Node = await _open(TASK_SCREEN, {})
+		if t == null:
+			return
+		var data: Variant = t.call("_drag_task", Vector2.ZERO, c_id, "DRG検査C")
+		_check("ドラッグ：行をつまむと運ぶデータ（%s）" % str(data), data is Dictionary and str((data as Dictionary).get(t.DRAG_TASK_ID, "")) == c_id)
+		_check("ドラッグ：自分の行には落とせない・ほかの行には落とせる",
+			not bool(t.call("_can_drop_task", Vector2.ZERO, data, c_id)) and bool(t.call("_can_drop_task", Vector2.ZERO, data, a_id)))
+		# C を A の行の上半分へ＝A の前。
+		var row_a: Control = t.find_child("Task_" + a_id, true, false) as Control
+		t.call("_drop_on_row", Vector2(0, 1), data, a_id, "", row_a)
+		var order: Array = []
+		for task: Variant in GameManager.get_tasks():
+			var id: String = str((task as Dictionary).get(GameStateKeys.TASK_ID, ""))
+			if id in [a_id, b_id, c_id]:
+				order.append(id)
+		_check("ドラッグ：A の行の上半分に落とすと A の前（%s）" % str(order), order == [c_id, a_id, b_id])
+		# B をフォルダの箱へ＝そのフォルダの一番後ろ。
+		t.call("_drop_on_folder", Vector2.ZERO, {t.DRAG_TASK_ID: b_id}, folder)
+		_check("ドラッグ：フォルダの箱に落とすとそのフォルダへ（%s）" % str(GameManager.get_task(b_id).get(GameStateKeys.TASK_FOLDER, "")),
+			str(GameManager.get_task(b_id).get(GameStateKeys.TASK_FOLDER, "")) == folder)
+		# 絞っているときはつままない。
+		t.set("_filter_tag", "x")
+		_check("ドラッグ：タグで絞っているときはつままない", t.call("_drag_task", Vector2.ZERO, a_id, "DRG検査A") == null)
+		t.set("_filter_tag", "")
+		for id: String in [a_id, b_id, c_id]:
+			var _gone: bool = GameManager.delete_task(id)
+		await _open(BASE, {})
 
 	# --- 一瞬で移る動きを見た目だけ滑らせる（2026-10-16・人間「⚠ 突進や、移動系が一瞬で移動するのが気になる」） ---
 	# ⚠ 中身（当たり判定）は一瞬で動く・⚠ 駒は滑って追いかける。

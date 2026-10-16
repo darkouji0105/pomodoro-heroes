@@ -1964,6 +1964,38 @@ func move_task(task_id: String, delta: int) -> bool:
 	return true
 
 
+# ドラッグで動かす（2026-10-16・見る回・人間「⚠ タスクは、ドラッグで移動させられるように」→「⚠ 並べ替え＋フォルダへ移す」）。
+#   ⚠ `folder_id` へ入れて、⚠ `anchor_id` の前（`after` なら後ろ）に置く。⚠ `anchor_id` が "" ならそのフォルダの一番後ろ。
+#   ⚠ 判定を全部終えてから状態を変える（CLAUDE.md 6番）。⚠ 動かなければ false（⚠ 自分の上に落とした・無いフォルダ・無いタスク）。
+func move_task_to(task_id: String, folder_id: String, anchor_id: String = "", after: bool = false) -> bool:
+	var index: int = _task_index(task_id)
+	if index < 0 or anchor_id == task_id:
+		return false
+	if folder_id != "" and _task_folder_index(folder_id) < 0:
+		return false
+	if anchor_id != "" and _task_index(anchor_id) < 0:
+		return false
+	# --- ここから状態を変える ---
+	var tasks: Array = _copy_array(GameStateKeys.TASKS)
+	var moving: Dictionary = (tasks[index] as Dictionary).duplicate(true)
+	tasks.remove_at(index)
+	moving[GameStateKeys.TASK_FOLDER] = folder_id
+	var insert_at: int = tasks.size()
+	if anchor_id != "":
+		for i: int in range(tasks.size()):
+			if str((tasks[i] as Dictionary).get(GameStateKeys.TASK_ID, "")) == anchor_id:
+				insert_at = i + (1 if after else 0)
+				break
+	else:
+		for i: int in range(tasks.size()):
+			if str((tasks[i] as Dictionary).get(GameStateKeys.TASK_FOLDER, "")) == folder_id:
+				insert_at = i + 1
+	tasks.insert(insert_at, moving)
+	_state[GameStateKeys.TASKS] = tasks
+	tasks_changed.emit()
+	return true
+
+
 # 終えた・戻した（`TK-4`＝自分でチェック）。⚠ 終えたものはその日のうちは一覧に残る（`TK-6`）。
 func set_task_done(task_id: String, done: bool) -> bool:
 	var task: Dictionary = get_task(task_id)

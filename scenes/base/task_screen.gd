@@ -17,6 +17,8 @@ extends Control
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const POMODORO_PATH: String = "res://scenes/pomodoro/pomodoro.tscn"
 const THEME_TYPE: StringName = &"Task"
+# ⚠ ドラッグで運ぶデータの鍵（10-16）。
+const DRAG_TASK_ID: String = "drag_task_id"
 
 @onready var header: ScreenHeader = $Margin/Layout/Header
 @onready var list_sheet: PaperSheet = $Margin/Layout/Main/ListSheet
@@ -200,6 +202,9 @@ func _folder_box(group: Dictionary, count: int) -> TaskFolderBox:
 	var box: TaskFolderBox = TaskFolderBox.create(group, count)
 	var header: TaskFolderHeader = box.header
 	var folder_id: String = header.folder_id
+	# ⚠ 10-16：⚠ フォルダの箱（⚠ 見出し・空き）に落とすと、⚠ そのフォルダの一番後ろ（⚠ 畳んでいても入る）。
+	for target: Control in [box, header]:
+		target.set_drag_forwarding(Callable(), _can_drop_task.bind(""), _drop_on_folder.bind(folder_id))
 	if folder_id == "":
 		return box
 	if folder_id == _renaming_folder:
@@ -305,6 +310,13 @@ func _task_row(task: Dictionary, is_first: bool, is_last: bool) -> LedgerRow:
 	row.compact = true
 	row.selected = task_id == _selected_id
 	row.pressed.connect(_on_row_pressed.bind(task_id))
+	# ⚠ 10-16（見る回・人間「⚠ タスクは、ドラッグで移動させられるように」→「⚠ 並べ替え＋フォルダへ移す」）：⚠ つまんで動かす。
+	#   ⚠ 行に落とすと、⚠ その行のフォルダの、⚠ 上半分なら前・下半分なら後ろ。
+	row.set_drag_forwarding(
+		_drag_task.bind(task_id, str(task.get(GameStateKeys.TASK_TITLE, ""))),
+		_can_drop_task.bind(task_id),
+		_drop_on_row.bind(task_id, str(task.get(GameStateKeys.TASK_FOLDER, "")), row),
+	)
 	var line: HBoxContainer = HBoxContainer.new()
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(line)
@@ -353,6 +365,32 @@ func _task_row(task: Dictionary, is_first: bool, is_last: bool) -> LedgerRow:
 			move.pressed.connect(_on_move_pressed.bind(task_id, int(spec[2])))
 			line.add_child(move)
 	return row
+
+
+# ⚠ つまんだ。⚠ 絞っているときはつままない（⚠ ▲▼ と同じ＝見えていない行と並びが入れ替わるため）。
+func _drag_task(_at_position: Vector2, task_id: String, title: String) -> Variant:
+	if _filter_tag != "":
+		return null
+	# ⚠ 指に付ける題は本当にドラッグしているときだけ（⚠ ドラッグの外で呼ぶと赤になり、⚠ 作った字が行き場を失って残る）。
+	if get_viewport() != null and get_viewport().gui_is_dragging():
+		var preview: Label = Label.new()
+		preview.text = title
+		set_drag_preview(preview)
+	return {DRAG_TASK_ID: task_id}
+
+
+# ⚠ 落とせるのはタスクだけ・⚠ 自分の行には落とせない。
+func _can_drop_task(_at_position: Vector2, data: Variant, onto_task_id: String) -> bool:
+	return data is Dictionary and (data as Dictionary).has(DRAG_TASK_ID) and str((data as Dictionary)[DRAG_TASK_ID]) != onto_task_id
+
+
+func _drop_on_row(at_position: Vector2, data: Variant, onto_task_id: String, folder_id: String, row: Control) -> void:
+	var after: bool = is_instance_valid(row) and at_position.y > row.size.y * 0.5
+	var _moved: bool = GameManager.move_task_to(str((data as Dictionary)[DRAG_TASK_ID]), folder_id, onto_task_id, after)
+
+
+func _drop_on_folder(_at_position: Vector2, data: Variant, folder_id: String) -> void:
+	var _moved: bool = GameManager.move_task_to(str((data as Dictionary)[DRAG_TASK_ID]), folder_id)
 
 
 func _row_caption(label_name: String, text: String) -> Label:
