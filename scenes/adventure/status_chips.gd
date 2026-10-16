@@ -48,12 +48,41 @@ func setup(_is_vertical: bool, max_px: float) -> void:
 
 
 # 表示する状態を差し替える。⚠ 毎フレーム呼んでよい。
+# ⚠ 10-16（見る回・人間「⚠ デバフは、継続時間をスキルのクールタイムのように表示したい　経過時間に応じて上から下に明るい部分が消えていく」）：
+#   ⚠ 顔ぶれが同じでも、⚠ 毎フレーム残りの膜だけ伸ばす（⚠ 組み直さない）。
 func set_entries(entries: Array) -> void:
 	var sig: String = _make_signature(entries)
-	if sig == _signature:
-		return
-	_signature = sig
-	_rebuild(entries)
+	if sig != _signature:
+		_signature = sig
+		_rebuild(entries)
+	_update_shades()
+
+
+# 経過の膜：⚠ 上から下へ「経過 ÷ 長さ」の高さ（⚠ 明るい所が上から消えていく）。⚠ 長さの無い・とても長い状態は出さない。
+# ⚠ まとめた札は、⚠ 中でいちばん長く残る件で見せる。⚠ 中身は StatusRegistry の本物（⚠ 経過は毎フレーム進む）。
+const SHADE_META: StringName = &"chip_members"
+const ENDLESS_SEC: float = 9999.0
+
+
+func _update_shades() -> void:
+	for shade: Node in find_children("Shade", "ColorRect", true, false):
+		var box: Control = shade.get_parent() as Control
+		var members: Array = box.get_meta(SHADE_META, []) as Array
+		var ratio: float = 0.0
+		var best_left: float = -1.0
+		for raw: Variant in members:
+			if not (raw is Dictionary):
+				continue
+			var m: Dictionary = raw as Dictionary
+			var duration: float = float(m.get("duration_sec", 0.0))
+			if duration <= 0.0 or duration >= ENDLESS_SEC:
+				continue
+			var left: float = duration - float(m.get("elapsed", 0.0))
+			if left > best_left:
+				best_left = left
+				ratio = clampf(float(m.get("elapsed", 0.0)) / duration, 0.0, 1.0)
+		(shade as ColorRect).visible = best_left >= 0.0
+		(shade as ColorRect).size = Vector2(box.size.x, box.size.y * ratio)
 
 
 # ⚠ remove_child() してから queue_free() する（CLAUDE.md 5番）。
@@ -142,6 +171,16 @@ func _make_chip(entry: Dictionary, side: int) -> Control:
 	if not bool(entry.get("active", true)):
 		box.modulate.a = cfg.status_chip_inactive_alpha
 
+	# 経過の膜（10-16）。⚠ 字の下に敷く（⚠ 字は読めたまま）。⚠ 高さは毎フレーム `_update_shades()` が決める。
+	var shade: ColorRect = ColorRect.new()
+	shade.name = "Shade"
+	shade.color = get_theme_color(&"shade", &"StatusChip")
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.position = Vector2.ZERO
+	shade.size = Vector2(side, 0.0)
+	box.add_child(shade)
+	box.set_meta(SHADE_META, entry.get(MEMBERS_KEY, [entry]))
+
 	var label: Label = Label.new()
 	label.text = _chip_char(str(entry.get("status_id", "")))
 	label.add_theme_font_size_override("font_size", int(round(float(side) * 0.6)))
@@ -182,6 +221,8 @@ func _make_chip(entry: Dictionary, side: int) -> Control:
 # 同じ状態（status_id）を1マスにまとめる（2026-10-10）。⚠ 最初に出てきた順のまま・重なりの数を GROUP_COUNT_KEY に入れる。
 # ⚠ 1つでも効いていれば効いている扱い（⚠ 半透明にしない）。⚠ 器の辞書は書き換えない（⚠ 写しを作る）。
 const GROUP_COUNT_KEY: String = "_chip_count"
+# ⚠ まとめた件の本物（⚠ 経過の膜が読む・10-16）。
+const MEMBERS_KEY: String = "_chip_members"
 
 
 func _group_same(entries: Array) -> Array:
@@ -193,11 +234,13 @@ func _group_same(entries: Array) -> Array:
 		if sid != "" and index_of.has(sid):
 			var g: Dictionary = grouped[int(index_of[sid])]
 			g[GROUP_COUNT_KEY] = int(g.get(GROUP_COUNT_KEY, 1)) + 1
+			(g[MEMBERS_KEY] as Array).append(e)
 			if bool(e.get("active", true)):
 				g["active"] = true
 			continue
 		var copy: Dictionary = e.duplicate()
 		copy[GROUP_COUNT_KEY] = 1
+		copy[MEMBERS_KEY] = [e]
 		index_of[sid] = grouped.size()
 		grouped.append(copy)
 	return grouped

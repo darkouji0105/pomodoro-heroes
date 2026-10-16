@@ -609,6 +609,8 @@ const STATUS_CHIP_BUFF: String = TOKEN_BUFF  # ⚠⚠ 2026-09-26 `BT-3` を覆�
 const STATUS_CHIP_DEBUFF: String = TOKEN_DEBUFF  # ⚠ 同（前 c4534a）
 const STATUS_CHIP_REVIVE: String = TOKEN_REVIVE  # ⚠ 同（前 f0c04a）
 const STATUS_CHIP_TEXT: String = "ffffff"
+# ⚠ 経過の膜（2026-10-16・人間「⚠ スキルのクールタイムのように」）。⚠ 黒の半透明＝明るい所が上から消えていく。
+const STATUS_CHIP_SHADE: String = "0000008c"
 
 # --- 窓の縁と題の帯（2026-09-17 に戦闘の結果窓で作り、⚠ 2026-09-18 に全部のモーダルへ広げた）---
 #
@@ -1648,6 +1650,7 @@ static func _build_status_chip(theme: Theme) -> void:
 	theme.set_color(&"debuff", t, _html(STATUS_CHIP_DEBUFF))
 	theme.set_color(&"revive", t, _html(STATUS_CHIP_REVIVE))
 	theme.set_color(&"text", t, _html(STATUS_CHIP_TEXT))
+	theme.set_color(&"shade", t, _html(STATUS_CHIP_SHADE))
 
 
 # ⚠ 戦闘の結果窓（`BattleResult` 型・2026-09-17）。⚠ 部品は `battle_result_view.gd`。

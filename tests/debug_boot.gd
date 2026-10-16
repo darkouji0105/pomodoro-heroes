@@ -14020,6 +14020,12 @@ class ShotTaker extends Node:
 					more["host"] = SkillSchema.HOST_UNIT
 					more["status_id"] = str(extra[0])
 					registry.add(more, me, stacked, session)
+			# ⚠ 10-16（見る回・人間「⚠ デバフは、継続時間をスキルのクールタイムのように表示したい」）：⚠ 1体目は経過を長さの6割まで進めて撮る（⚠ 膜が上から6割）。
+			for live: Variant in registry.entries_for(stacked.unit_id):
+				var live_entry: Dictionary = live as Dictionary
+				var live_duration: float = float(live_entry.get("duration_sec", 0.0))
+				if live_duration > 0.0 and live_duration < 9999.0:
+					live_entry["elapsed"] = live_duration * 0.6
 			var miss_view: Variant = (screen.get("_views_by_unit_id") as Dictionary).get((session.enemy_units[0] as BattleUnit).unit_id, null)
 			if miss_view is UnitView:
 				(miss_view as UnitView).pop_miss()
