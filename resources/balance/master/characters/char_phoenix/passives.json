@@ -17,7 +17,7 @@
 				"intervene": {
 					"on_death": {
 						"revive_hp_ratio": 0.3,
-						"revive_delay_sec": 2.0,
+						"revive_delay_sec": 3.0,
 						"effects": [
 							{
 								"type": "damage",
