@@ -602,10 +602,6 @@ func _reflection_time_limit_sec() -> float:
 func _on_protection_selected(protection_id: String) -> void:
 	GameManager.set_protection_type(protection_id)
 	_switch_view(State.FOCUS)
-	# ⚠ 10-14（操作量を減らす・人間「⚠ A」）：⚠ 「◯で集中を始める」でそのまま始める（⚠ 前は「はじめる」をもう1回押した）。
-	#   ⚠ タスクは集中の画面が選んでいるもの（⚠ 集中中もサイドバーで替えられる）。
-	if _current_view != null and _current_view.has_method("start_now"):
-		_current_view.call_deferred("start_now")
 
 
 func _on_focus_started(title: String, task_id: String) -> void:
