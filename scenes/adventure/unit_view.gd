@@ -37,6 +37,8 @@ var _drift_dir: float = 1.0
 var _base_glyph: String = ""
 # 直線の戦場のときの高さ（⚠ 前の形・作ったときの y）。
 var _line_y: float = 0.0
+# ⚠ 見えている横の位置（2026-10-16）。⚠ 中身（_unit.x）が大きく飛んだときだけ、滑って追いかける。⚠ NAN＝まだ置いていない。
+var shown_x: float = NAN
 # ⚠ 行動中（いまチャージを溜めている）か。⚠ 枠線と名前の色が変わる（モック §3-2）。
 var _active: bool = false
 
@@ -221,6 +223,23 @@ func set_status_entries(entries: Array) -> void:
 	$StatusChips.set_entries(entries)
 
 
+# 見えている位置を中身へ寄せる（2026-10-16・人間「⚠ 突進や、移動系が一瞬で移動するのが気になる　これらも一括で手を付けたい」）。
+# ⚠ ふつうの歩き（1フレームの差が jump_px 以下）はそのまま追う。⚠ 大きく飛んだら slide_px_per_sec で滑る。⚠ 見た目だけ。
+func _step_shown_x(delta: float) -> void:
+	if is_nan(shown_x):
+		shown_x = _unit.x
+		return
+	var gap: float = _unit.x - shown_x
+	# ⚠ Node2D は Theme を引けない＝⚠ 丸の本体（Control）から引く（⚠ ドリフトと同じ）。
+	var body: Control = $Body
+	var jump: float = float(body.get_theme_constant(&"jump_px", THEME_TYPE))
+	if absf(gap) <= jump:
+		shown_x = _unit.x
+		return
+	var step: float = float(body.get_theme_constant(&"slide_px_per_sec", THEME_TYPE)) * delta
+	shown_x = _unit.x if absf(gap) <= step else shown_x + signf(gap) * step
+
+
 # 毎フレーム位置と HP バーを同期する
 func _process(delta: float) -> void:
 	if _unit == null:
@@ -233,15 +252,16 @@ func _process(delta: float) -> void:
 	# 起こされた（回PR-1・リザレクション）。⚠ 倒れて隠したあと、生きていればまた出す（⚠ 死体はここまで来ない＝上で帰る）。
 	if not visible:
 		show()
+	_step_shown_x(delta)
 	if depth_floor != null:
 		# ⚠ 切り絵として床に立つ（2026-10-12）：⚠ 床の点＝足元。⚠ 丸はその上に立つ（⚠ 丸の半分ぶん持ち上げる）。
 		var s: float = depth_floor.scale_at(depth)
-		position = depth_floor.screen_pos(_unit.x, depth) - Vector2(0.0, standing_lift() * s)
+		position = depth_floor.screen_pos(shown_x, depth) - Vector2(0.0, standing_lift() * s)
 		scale = Vector2(s, s)
 		z_index = depth_floor.z_at(depth)
 	else:
 		# ⚠ 直線の戦場（前の形）。⚠ 見下ろしから切り替えたときのために高さ・大きさ・描く順も戻す。
-		position = Vector2(_unit.x, _line_y)
+		position = Vector2(shown_x, _line_y)
 		scale = Vector2.ONE
 		z_index = 0
 	_step_drift(delta)

@@ -509,7 +509,9 @@ func _update_depths(delta: float) -> void:
 			v2.depth_side = -1.0 if _depth_rng.randf() < 0.5 else 1.0
 		# ⚠ 目的地をずらすだけ＝⚠ そのキャラの移動速度で奥・手前へ歩く（⚠ 一瞬で寄らない）。
 		v2.depth = _depth_floor.walk_depth(v2.depth, goal, delta, float(item["speed"]))
-		var feet: Vector2 = _depth_floor.screen_pos(float(item["x"]), v2.depth)
+		# ⚠ 影は見えている位置に（2026-10-16・飛んだ駒は滑って追う＝`UnitView.shown_x`）。
+		var feet_x: float = float(item["x"]) if is_nan(v2.shown_x) else v2.shown_x
+		var feet: Vector2 = _depth_floor.screen_pos(feet_x, v2.depth)
 		shadows.append(Vector3(feet.x, feet.y, v2.standing_lift() * 0.8 * _depth_floor.scale_at(v2.depth)))
 	_depth_floor.set_shadows(shadows)
 

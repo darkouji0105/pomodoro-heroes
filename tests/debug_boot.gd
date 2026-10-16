@@ -18130,6 +18130,42 @@ class UiFlowRunner extends Node:
 		_check("操作量 D：点振りの「振れるだけ」1回で点 %d → %d" % [points_before, points_after],
 			fill_ok and points_before >= 4 and points_before - points_after >= 4)
 		await _open(BASE, {})
+		await _flow_slide_on_jump()
+
+	# --- 一瞬で移る動きを見た目だけ滑らせる（2026-10-16・人間「⚠ 突進や、移動系が一瞬で移動するのが気になる」） ---
+	# ⚠ 中身（当たり判定）は一瞬で動く・⚠ 駒は滑って追いかける。
+
+	func _flow_slide_on_jump() -> void:
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		var _started: bool = GameManager.start_floor("floor_1")
+		var node_id: String = ""
+		var nodes: Dictionary = GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_NODES, {})
+		for raw_id: Variant in nodes:
+			if str((nodes[raw_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+				node_id = str(raw_id)
+				break
+		var b: Node = await _open(BATTLE, {
+			TransferKeys.STAGE_ID: "floor_1", TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY, TransferKeys.FLOOR_NODE_ID: node_id,
+		})
+		var session: BattleSession = null if b == null else b.get("_session") as BattleSession
+		if session == null or session.party_units.is_empty():
+			_check("滑る：戦闘が開いた", false)
+			return
+		var me: BattleUnit = session.party_units[0] as BattleUnit
+		var view: UnitView = (b.get("_views_by_unit_id") as Dictionary).get(me.unit_id, null) as UnitView
+		await _wait()
+		var before: float = view.shown_x
+		me.x += 150.0
+		await get_tree().process_frame
+		var mid: float = view.shown_x
+		await get_tree().create_timer(0.5).timeout
+		var after: float = view.shown_x
+		_check("滑る：中身が 150 飛ぶと、駒は次のフレームでは途中（%.0f → %.0f → %.0f・中身 %.0f）" % [before, mid, after, me.x],
+			mid > before and mid < me.x - 1.0 and absf(after - me.x) < 1.0)
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		await _open(BASE, {})
 
 	# --- 塔の宝の階：宝箱を開けずに閉じても先へ進める（2026-10-14・ペルソナのテストプレイ・人間「⚠ すぐ直したい」） ---
 	# ⚠ 前は開けずに閉じると階が済みにならず、⚠ 押せるマスが無くなった（G2 の3日目）。

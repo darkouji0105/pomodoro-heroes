@@ -1434,6 +1434,10 @@ static func _build_battle(theme: Theme) -> void:
 		"drift_drop": 14,
 		"drift_deg": 18,
 		"drift_ms": 500,
+		# ⚠ 一瞬で移る動き（突進・飛び込み・下がる・押し出し・瞬間移動）を見た目だけ滑らせる（2026-10-16・人間「⚠ 突進や、移動系が一瞬で移動するのが気になる」）。
+		#   ⚠ 1フレームでこれより大きく動いたら「飛んだ」とみなす px ・滑る速さ（px／秒）。⚠ 当たり判定は動かさない。
+		"jump_px": 24,
+		"slide_px_per_sec": 900,
 		"res_pip_size": BATTLE_RES_PIP_SIZE,
 		"res_pip_gap": BATTLE_RES_PIP_GAP,
 		"res_row_gap": BATTLE_RES_ROW_GAP,
