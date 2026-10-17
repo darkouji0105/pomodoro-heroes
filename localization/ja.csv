@@ -2312,3 +2312,69 @@ ui_eqfx_lucky,幸運
 ui_eqfx_lucky_desc,会心率 +10
 ui_status_ch_status_eqfx_lucky,幸
 ui_eqfx_trigger_battle_start_10,戦闘の始め 10 秒
+ui_res_armor_head_keen,狩人の帽子
+ui_icon_armor_head_keen,狩
+ui_res_armor_head_heavy,鉄兜
+ui_icon_armor_head_heavy,兜
+ui_res_armor_body_keen,狩人の革鎧
+ui_icon_armor_body_keen,革
+ui_res_armor_body_heavy,板金の鎧
+ui_icon_armor_body_heavy,板
+ui_res_armor_legs_keen,狩人の脚絆
+ui_icon_armor_legs_keen,絆
+ui_res_armor_legs_heavy,鉄の具足
+ui_icon_armor_legs_heavy,具
+ui_res_acc_keen,鷹の羽飾り
+ui_icon_acc_keen,羽
+ui_res_acc_heavy,鉄の腕輪
+ui_icon_acc_heavy,輪
+ui_res_armor_head_sentinel,見張りの兜
+ui_icon_armor_head_sentinel,見
+ui_eqfx_sentinel,見張り
+ui_eqfx_sentinel_desc,受けるダメージ −20%
+ui_status_ch_status_eqfx_sentinel,見
+ui_res_armor_head_crown,賢者の冠
+ui_icon_armor_head_crown,冠
+ui_eqfx_wisdom,叡智
+ui_eqfx_wisdom_desc,魔力 +10
+ui_status_ch_status_eqfx_wisdom,叡
+ui_res_armor_head_mask,鬼の面
+ui_icon_armor_head_mask,鬼
+ui_eqfx_demon,鬼気
+ui_eqfx_demon_desc,攻撃 +12
+ui_status_ch_status_eqfx_demon,鬼
+ui_res_armor_body_saint,聖者の衣
+ui_icon_armor_body_saint,聖
+ui_eqfx_blessing,祝福
+ui_eqfx_blessing_desc,受ける回復 +30%
+ui_status_ch_status_eqfx_blessing,祝
+ui_res_armor_body_mirror,鏡の鎧
+ui_icon_armor_body_mirror,鏡
+ui_eqfx_mirror,鏡返し
+ui_eqfx_mirror_desc,受けたダメージの 15% を返す
+ui_status_ch_status_eqfx_mirror,鏡
+ui_res_armor_legs_wind,疾風の具足
+ui_icon_armor_legs_wind,疾
+ui_eqfx_gale_step,疾風
+ui_eqfx_gale_step_desc,移動速度 +15
+ui_status_ch_status_eqfx_gale_step,疾
+ui_res_armor_legs_iron,不動の脚甲
+ui_icon_armor_legs_iron,動
+ui_eqfx_steadfast,不動
+ui_eqfx_steadfast_desc,受けるダメージ −15%
+ui_status_ch_status_eqfx_steadfast,不
+ui_res_armor_legs_shadow,忍びの脚絆
+ui_icon_armor_legs_shadow,忍
+ui_eqfx_nimble,身軽
+ui_eqfx_nimble_desc,攻撃速度 +20
+ui_status_ch_status_eqfx_nimble,軽
+ui_res_acc_ruby_ring,紅玉の指輪
+ui_icon_acc_ruby_ring,紅
+ui_eqfx_ruby,紅玉
+ui_eqfx_ruby_desc,会心倍率 +20
+ui_status_ch_status_eqfx_ruby,紅
+ui_res_acc_hourglass,砂時計の首飾り
+ui_icon_acc_hourglass,砂
+ui_eqfx_time_grace,時の加護
+ui_eqfx_time_grace_desc,CD短縮 +10
+ui_status_ch_status_eqfx_time_grace,時

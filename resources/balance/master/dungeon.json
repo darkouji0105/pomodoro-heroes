@@ -80,6 +80,14 @@
           { "item_id": "weapon_pistol_quick", "weight": 1, "count": 1 },
           { "item_id": "weapon_pistol_arcane", "weight": 1, "count": 1 },
           { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_keen", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_heavy", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_keen", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_heavy", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_keen", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_heavy", "weight": 1, "count": 1 },
+          { "item_id": "acc_keen", "weight": 1, "count": 1 },
+          { "item_id": "acc_heavy", "weight": 1, "count": 1 },
           { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
           { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
           { "item_id": "armor_body_guard", "weight": 1, "count": 1 },
@@ -116,6 +124,16 @@
           { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
           { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
           { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_sentinel", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_crown", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_mask", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_saint", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_mirror", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_wind", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_iron", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_shadow", "weight": 1, "count": 1 },
+          { "item_id": "acc_ruby_ring", "weight": 1, "count": 1 },
+          { "item_id": "acc_hourglass", "weight": 1, "count": 1 },
           { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
         ]
       },
@@ -193,6 +211,14 @@
           { "item_id": "weapon_pistol_quick", "weight": 6, "count": 1 },
           { "item_id": "weapon_pistol_arcane", "weight": 6, "count": 1 },
           { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_keen", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_heavy", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_keen", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_heavy", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_keen", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_heavy", "weight": 6, "count": 1 },
+          { "item_id": "acc_keen", "weight": 6, "count": 1 },
+          { "item_id": "acc_heavy", "weight": 6, "count": 1 },
           { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
           { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
           { "item_id": "armor_body_guard", "weight": 6, "count": 1 },
@@ -229,6 +255,16 @@
           { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
           { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
           { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
+          { "item_id": "armor_head_sentinel", "weight": 3, "count": 1 },
+          { "item_id": "armor_head_crown", "weight": 3, "count": 1 },
+          { "item_id": "armor_head_mask", "weight": 3, "count": 1 },
+          { "item_id": "armor_body_saint", "weight": 3, "count": 1 },
+          { "item_id": "armor_body_mirror", "weight": 3, "count": 1 },
+          { "item_id": "armor_legs_wind", "weight": 3, "count": 1 },
+          { "item_id": "armor_legs_iron", "weight": 3, "count": 1 },
+          { "item_id": "armor_legs_shadow", "weight": 3, "count": 1 },
+          { "item_id": "acc_ruby_ring", "weight": 3, "count": 1 },
+          { "item_id": "acc_hourglass", "weight": 3, "count": 1 },
           { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
           { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
           { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 }
@@ -561,6 +597,46 @@
             "count": 1
           },
           {
+            "item_id": "armor_head_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
             "item_id": "armor_head_swift",
             "weight": 1,
             "count": 1
@@ -737,6 +813,56 @@
           },
           {
             "item_id": "armor_thorn_mail",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_sentinel",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_crown",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_mask",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_saint",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_mirror",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_wind",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_iron",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_shadow",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_ruby_ring",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_hourglass",
             "weight": 1,
             "count": 1
           },
@@ -1021,6 +1147,46 @@
             "count": 1
           },
           {
+            "item_id": "armor_head_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "acc_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "acc_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
             "item_id": "armor_head_swift",
             "weight": 6,
             "count": 1
@@ -1197,6 +1363,56 @@
           },
           {
             "item_id": "armor_thorn_mail",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_sentinel",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_crown",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_mask",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_saint",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_mirror",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_wind",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_iron",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_shadow",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "acc_ruby_ring",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "acc_hourglass",
             "weight": 3,
             "count": 1
           },
@@ -1534,6 +1750,46 @@
             "count": 1
           },
           {
+            "item_id": "armor_head_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
             "item_id": "armor_head_swift",
             "weight": 1,
             "count": 1
@@ -1710,6 +1966,56 @@
           },
           {
             "item_id": "armor_thorn_mail",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_sentinel",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_crown",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_mask",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_saint",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_mirror",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_wind",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_iron",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_shadow",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_ruby_ring",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "acc_hourglass",
             "weight": 1,
             "count": 1
           },
@@ -1994,6 +2300,46 @@
             "count": 1
           },
           {
+            "item_id": "armor_head_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "acc_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "acc_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
             "item_id": "armor_head_swift",
             "weight": 6,
             "count": 1
@@ -2170,6 +2516,56 @@
           },
           {
             "item_id": "armor_thorn_mail",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_sentinel",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_crown",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_head_mask",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_saint",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_body_mirror",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_wind",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_iron",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "armor_legs_shadow",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "acc_ruby_ring",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "acc_hourglass",
             "weight": 3,
             "count": 1
           },

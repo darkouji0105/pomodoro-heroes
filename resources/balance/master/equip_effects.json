@@ -696,5 +696,233 @@
 				"stack": "refresh"
 			}
 		]
+	},
+	"eqfx_sentinel": {
+		"name_key": "ui_eqfx_sentinel",
+		"trigger_key": "ui_eqfx_trigger_battle_start",
+		"desc_key": "ui_eqfx_sentinel_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_sentinel",
+				"intervene": {
+					"reduction_pct": 20
+				},
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "elapsed_sec",
+					"of": "host",
+					"op": "lte",
+					"value": 20
+				}
+			}
+		]
+	},
+	"eqfx_wisdom": {
+		"name_key": "ui_eqfx_wisdom",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_wisdom_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_wisdom",
+				"stat": "mag",
+				"value": 10,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"eqfx_demon": {
+		"name_key": "ui_eqfx_demon",
+		"trigger_key": "ui_eqfx_trigger_low_hp",
+		"desc_key": "ui_eqfx_demon_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_demon",
+				"stat": "atk",
+				"value": 12,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "lte",
+					"value": 0.5
+				}
+			}
+		]
+	},
+	"eqfx_blessing": {
+		"name_key": "ui_eqfx_blessing",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_blessing_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_blessing",
+				"intervene": {
+					"heal_taken_pct": 30
+				},
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"eqfx_mirror": {
+		"name_key": "ui_eqfx_mirror",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_mirror_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_mirror",
+				"intervene": {
+					"reflect_pct": 15
+				},
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"eqfx_gale_step": {
+		"name_key": "ui_eqfx_gale_step",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_gale_step_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_gale_step",
+				"stat": "spd",
+				"value": 15,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"eqfx_steadfast": {
+		"name_key": "ui_eqfx_steadfast",
+		"trigger_key": "ui_eqfx_trigger_high_hp",
+		"desc_key": "ui_eqfx_steadfast_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_steadfast",
+				"intervene": {
+					"reduction_pct": 15
+				},
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "gte",
+					"value": 0.8
+				}
+			}
+		]
+	},
+	"eqfx_nimble": {
+		"name_key": "ui_eqfx_nimble",
+		"trigger_key": "ui_eqfx_trigger_battle_start_10",
+		"desc_key": "ui_eqfx_nimble_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_nimble",
+				"stat": "atkspd",
+				"value": 20,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "elapsed_sec",
+					"of": "host",
+					"op": "lte",
+					"value": 10
+				}
+			}
+		]
+	},
+	"eqfx_ruby": {
+		"name_key": "ui_eqfx_ruby",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_ruby_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_ruby",
+				"stat": "crit_dmg",
+				"value": 20,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"eqfx_time_grace": {
+		"name_key": "ui_eqfx_time_grace",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_time_grace_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_time_grace",
+				"stat": "haste",
+				"value": 10,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
 	}
 }

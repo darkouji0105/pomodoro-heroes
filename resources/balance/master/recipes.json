@@ -583,6 +583,78 @@
 	  "category": "accessory"
 	},
 	{
+	  "recipe_id": "craft_armor_head_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "armor_head_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 63,
+	  "category": "armor"
+	},
+	{
+	  "recipe_id": "craft_armor_head_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "armor_head_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 64,
+	  "category": "armor"
+	},
+	{
+	  "recipe_id": "craft_armor_body_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "armor_body_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 65,
+	  "category": "armor"
+	},
+	{
+	  "recipe_id": "craft_armor_body_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "armor_body_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 66,
+	  "category": "armor"
+	},
+	{
+	  "recipe_id": "craft_armor_legs_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "armor_legs_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 67,
+	  "category": "armor"
+	},
+	{
+	  "recipe_id": "craft_armor_legs_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "armor_legs_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 68,
+	  "category": "armor"
+	},
+	{
+	  "recipe_id": "craft_acc_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "acc_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 69,
+	  "category": "accessory"
+	},
+	{
+	  "recipe_id": "craft_acc_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "acc_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 70,
+	  "category": "accessory"
+	},
+	{
 	  "recipe_id": "craft_equip_rare",
 	  "duration_sec": 10800,
 	  "inputs": [ { "item_id": "forging_material_3", "count": 10 } ],
@@ -614,6 +686,16 @@
 		  { "item_id": "weapon_claw_frenzy", "weight": 1 },
 		  { "item_id": "weapon_pistol_ice", "weight": 1 },
 		  { "item_id": "weapon_pistol_lucky", "weight": 1 },
+		  { "item_id": "armor_head_sentinel", "weight": 1 },
+		  { "item_id": "armor_head_crown", "weight": 1 },
+		  { "item_id": "armor_head_mask", "weight": 1 },
+		  { "item_id": "armor_body_saint", "weight": 1 },
+		  { "item_id": "armor_body_mirror", "weight": 1 },
+		  { "item_id": "armor_legs_wind", "weight": 1 },
+		  { "item_id": "armor_legs_iron", "weight": 1 },
+		  { "item_id": "armor_legs_shadow", "weight": 1 },
+		  { "item_id": "acc_ruby_ring", "weight": 1 },
+		  { "item_id": "acc_hourglass", "weight": 1 },
 		  { "item_id": "armor_thorn_mail", "weight": 1 },
 		  { "item_id": "acc_guardian_charm", "weight": 1 }
 		]

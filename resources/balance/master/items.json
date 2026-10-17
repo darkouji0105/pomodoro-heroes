@@ -757,6 +757,170 @@
 	  "sort_order": 198
 	},
 	{
+	  "item_id": "armor_head_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": {"hp": -5, "def": 1, "crit_rate": 4},
+	  "sort_order": 199
+	},
+	{
+	  "item_id": "armor_head_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": {"hp": 15, "def": 8, "atkspd": -5},
+	  "sort_order": 200
+	},
+	{
+	  "item_id": "armor_body_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": {"hp": -10, "def": 3, "crit_rate": 5},
+	  "sort_order": 201
+	},
+	{
+	  "item_id": "armor_body_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": {"hp": 40, "def": 12, "spd": -8},
+	  "sort_order": 202
+	},
+	{
+	  "item_id": "armor_legs_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": {"def": 1, "crit_rate": 3, "spd": 3},
+	  "sort_order": 203
+	},
+	{
+	  "item_id": "armor_legs_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": {"hp": 15, "def": 7, "spd": -6},
+	  "sort_order": 204
+	},
+	{
+	  "item_id": "acc_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": {"hp": -10, "crit_rate": 6},
+	  "sort_order": 205
+	},
+	{
+	  "item_id": "acc_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": {"hp": 15, "def": 5, "atkspd": -5},
+	  "sort_order": 206
+	},
+	{
+	  "item_id": "armor_head_sentinel",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": {"hp": 15, "def": 6},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_sentinel",
+	  "sort_order": 207
+	},
+	{
+	  "item_id": "armor_head_crown",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": {"mdef": 6},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_wisdom",
+	  "sort_order": 208
+	},
+	{
+	  "item_id": "armor_head_mask",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "head",
+	  "equip_stats": {"hp": 10, "def": 4},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_demon",
+	  "sort_order": 209
+	},
+	{
+	  "item_id": "armor_body_saint",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": {"hp": 25, "def": 6, "mdef": 6},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_blessing",
+	  "sort_order": 210
+	},
+	{
+	  "item_id": "armor_body_mirror",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "armor",
+	  "equip_stats": {"hp": 25, "def": 9},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_mirror",
+	  "sort_order": 211
+	},
+	{
+	  "item_id": "armor_legs_wind",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": {"def": 3, "spd": 5},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_gale_step",
+	  "sort_order": 212
+	},
+	{
+	  "item_id": "armor_legs_iron",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": {"hp": 15, "def": 6},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_steadfast",
+	  "sort_order": 213
+	},
+	{
+	  "item_id": "armor_legs_shadow",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "legs",
+	  "equip_stats": {"def": 2, "spd": 4},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_nimble",
+	  "sort_order": 214
+	},
+	{
+	  "item_id": "acc_ruby_ring",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": {"hp": 10},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_ruby",
+	  "sort_order": 215
+	},
+	{
+	  "item_id": "acc_hourglass",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "accessory",
+	  "equip_stats": {"hp": 10},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_time_grace",
+	  "sort_order": 216
+	},
+	{
 	  "item_id": "armor_head_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",

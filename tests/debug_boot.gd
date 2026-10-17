@@ -16115,13 +16115,18 @@ class UiFlowRunner extends Node:
 			if not holders.has(genre):
 				holders[genre] = []
 			(holders[genre] as Array).append(cid)
+			# ⚠ 防具・アクセは誰でも着けられる（10-17・人間「⚠ 防具とアクセも増やしていく」）。
+			if not holders.has("*"):
+				holders["*"] = []
+			(holders["*"] as Array).append(cid)
 		var rows: Array = []
 		var used: Dictionary = {}
 		for raw_i: Variant in MasterDataLoader.get_all_items():
 			var def: Dictionary = MasterDataLoader.get_all_items()[raw_i] as Dictionary
-			if str(def.get("equip_slot", "")) != GameStateKeys.EQUIP_WEAPON or str(def.get("special_effect", "")) == "":
+			if str(def.get("special_effect", "")) == "" or str(def.get("equip_slot", "")) == "":
 				continue
-			var cands: Array = holders.get(str(def.get("weapon_genre", "")), []) as Array
+			var slot: String = str(def.get("equip_slot", ""))
+			var cands: Array = holders.get(str(def.get("weapon_genre", "")) if slot == GameStateKeys.EQUIP_WEAPON else "*", []) as Array
 			if cands.is_empty():
 				_check("特殊効果：%s を持てるキャラがいない" % str(raw_i), false)
 				continue
@@ -16131,7 +16136,7 @@ class UiFlowRunner extends Node:
 				if int(used.get(c, 0)) < int(used.get(pick, 0)):
 					pick = str(c)
 			used[pick] = int(used.get(pick, 0)) + 1
-			rows.append([pick, str(raw_i), "status_" + str(def.get("special_effect", ""))])
+			rows.append([pick, str(raw_i), "status_" + str(def.get("special_effect", "")), slot])
 		var battles: Array = []
 		for row: Array in rows:
 			var placed: bool = false
@@ -16151,7 +16156,7 @@ class UiFlowRunner extends Node:
 				var row: Array = group[i]
 				var _p: bool = GameManager.set_party_member(i, str(row[0]))
 				GameManager.add_to_inventory(str(row[1]), 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
-				if not GameManager.equip_instance(str(row[0]), GameStateKeys.EQUIP_WEAPON, _instance_of(str(row[1]))):
+				if not GameManager.equip_instance(str(row[0]), str(row[3]), _instance_of(str(row[1]))):
 					_check("特殊効果：%s を %s が着けられる" % [row[1], row[0]], false)
 			var b: Node = await _open(BATTLE, {
 				TransferKeys.STAGE_ID: "stage_dbg_area",
@@ -16177,9 +16182,9 @@ class UiFlowRunner extends Node:
 				else:
 					_check("特殊効果：戦闘で %s（%s）に %s が付く" % [row[0], row[1], row[2]], false)
 			for row: Array in group:
-				GameManager.unequip_instance(str(row[0]), GameStateKeys.EQUIP_WEAPON)
-		_check("特殊効果の武器：%d 本すべて、持てるキャラが着けて戦闘で状態が付く（%d 本・戦闘 %d 回）" % [rows.size(), ok_count, battles.size()],
-			rows.size() == 24 and ok_count == rows.size())
+				GameManager.unequip_instance(str(row[0]), str(row[3]))
+		_check("特殊効果の品（武器・防具・アクセ）：%d 品すべて、持てるキャラが着けて戦闘で状態が付く（%d 本・戦闘 %d 回）" % [rows.size(), ok_count, battles.size()],
+			rows.size() == 36 and ok_count == rows.size())
 		for i: int in range(mini(3, party_before.size())):
 			var _back: bool = GameManager.set_party_member(i, str(party_before[i]))
 		await _open(BASE, {})
@@ -16195,10 +16200,23 @@ class UiFlowRunner extends Node:
 		for key: Variant in per_genre:
 			shape_ok = shape_ok and int(per_genre[key]) == (3 if str(key).ends_with("特殊") else 5)
 		_check("武器の数：8 ジャンル × 通常5・特殊3（%s）" % str(per_genre), shape_ok)
+		# 防具・アクセの数（10-17・人間「⚠ 武器と同じ 通常5・特殊3」）。
+		var per_slot: Dictionary = {}
+		for raw_i: Variant in MasterDataLoader.get_all_items():
+			var def: Dictionary = MasterDataLoader.get_all_items()[raw_i] as Dictionary
+			var slot: String = str(def.get("equip_slot", ""))
+			if slot == "" or slot == GameStateKeys.EQUIP_WEAPON:
+				continue
+			var key: String = "%s/%s" % [slot, "特殊" if str(def.get("special_effect", "")) != "" else "通常"]
+			per_slot[key] = int(per_slot.get(key, 0)) + 1
+		var slot_ok: bool = per_slot.size() == 8
+		for key: Variant in per_slot:
+			slot_ok = slot_ok and int(per_slot[key]) == (3 if str(key).ends_with("特殊") else 5)
+		_check("防具・アクセの数：4 部位 × 通常5・特殊3（%s）" % str(per_slot), slot_ok)
 		# くじの候補（⚠ 特殊効果の品が全部）。
 		var draw: Dictionary = MasterDataLoader.get_recipe("craft_equip_rare").get("draw", {}) as Dictionary
 		var entries: Array = draw.get("entries", []) as Array
-		_check("特殊効果のくじ：候補 %d 品（特殊効果の武器 24・防具 1・アクセ 1）" % entries.size(), entries.size() == 26)
+		_check("特殊効果のくじ：候補 %d 品（特殊効果の武器 24・防具とアクセ 12）" % entries.size(), entries.size() == 36)
 
 	# --- 集中の道具（2026-09-29・回UI-仕組み⑤・手本 PomoSkin / Focus・人間「⚠ 1あ　⚠ 2あ　⚠ 3あ　⚠ 4い」） ---
 	#   ⚠ 選んだ道具は設定のファイル（⚠ 検査用に差し替えてある）。
