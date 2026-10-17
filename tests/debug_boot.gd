@@ -16101,6 +16101,39 @@ class UiFlowRunner extends Node:
 		for wielder: String in special_weapons:
 			GameManager.unequip_instance(wielder, GameStateKeys.EQUIP_WEAPON)
 		await _flow_special_weapons_more()
+		_flow_material_drops()
+
+	# 強化素材がダンジョンで全部落ちる（10-18・人間「⚠ 強化素材も落ちるかどうか確認して全部落ちるようにして」→「⚠ 深さで段が上がる」）。
+	# ⚠ 本物の口：⚠ 深さの帯を選ぶ `_dungeon_master_at()` → ⚠ 抽選の本体 `_roll_weighted_table()`。⚠ 各深さ・戦闘とボスを 400 回ずつ。
+	func _flow_material_drops() -> void:
+		var all_mats: Array[String] = GameManager.get_material_ids()
+		var seen_all: Dictionary = {}
+		var bad: Array = []
+		# 層 → 落ちてよい段（⚠ 1〜3＝1・2段目 ／ 4〜6＝2・3段目 ／ 7〜＝3・4段目）。
+		var want_tiers: Dictionary = {1: [1, 2], 3: [1, 2], 4: [2, 3], 6: [2, 3], 7: [3, 4], 30: [3, 4]}
+		for dungeon_id: String in MasterDataLoader.get_all_dungeon_ids():
+			var dungeon: Dictionary = MasterDataLoader.get_dungeon(dungeon_id)
+			for layer: int in want_tiers:
+				var loot: Variant = GameManager._dungeon_master_at(dungeon, GameManager.DUNGEON_MASTER_LOOT, layer)
+				for kind: String in ["battle", "boss"]:
+					var draw: Dictionary = (loot as Dictionary).get(kind, {}) as Dictionary
+					var seen: Dictionary = {}
+					for _i: int in range(400):
+						for raw_id: Variant in GameManager._roll_weighted_table(draw.get("entries", []), 1):
+							if str(raw_id) in all_mats:
+								seen[str(raw_id)] = true
+					var families: Dictionary = {}
+					for raw_id: Variant in seen:
+						seen_all[raw_id] = true
+						var tier: int = int(str(raw_id).get_slice("_", str(raw_id).get_slice_count("_") - 1))
+						families[str(raw_id).trim_suffix("_%d" % tier)] = true
+						if not (tier in (want_tiers[layer] as Array)):
+							bad.append("%s %d層 %s に %s" % [dungeon_id, layer, kind, raw_id])
+					if families.size() != 4:
+						bad.append("%s %d層 %s の素材が %d 種（%s）" % [dungeon_id, layer, kind, families.size(), str(seen.keys())])
+		var missing: Array = all_mats.filter(func(m: String) -> bool: return not seen_all.has(m))
+		_check("強化素材：ダンジョンで 16 種すべて落ちる（落ちない %s）" % str(missing), all_mats.size() == 16 and missing.is_empty())
+		_check("強化素材：深さで段が上がる・戦闘とボスの両方で4種（%s）" % (" ／ ".join(bad) if not bad.is_empty() else "ずれ無し"), bad.is_empty())
 
 	# 特殊効果の武器を全部（10-17・人間「⚠ A」→「⚠ 武器の数を倍にしたい」＝各ジャンル 通常5・特殊3）。
 	# ⚠ 表はデータから組む（⚠ 武器を足しても書き足さない）＝⚠ そのジャンルを持つキャラに着け、⚠ 戦闘で器にその状態が付くか。
@@ -17803,7 +17836,9 @@ class UiFlowRunner extends Node:
 			await _press(calendar.find_child("CalPrev", true, false))
 		var today_cell: Node = null if calendar == null else calendar.find_child("Day_" + today, true, false)
 		_check("期限：「日付を選ぶ」でカレンダー（今日＝真鍮の輪）", calendar is TaskCalendar and (calendar as TaskCalendar).visible
-			and (today_cell == null or (today_cell as Button).theme_type_variation == &"TaskCalToday"))
+			and (today_cell == null or (today_cell as Button).theme_type_variation == &"TaskCalToday"
+				# ⚠ 日曜は「今週中」＝今日＝選んでいる日（⚠ 選んでいる色が先・`task_calendar.gd`）。⚠ 10-18（日曜）に落ちた。
+				or (week_due == today and (today_cell as Button).theme_type_variation == &"TaskCalSelected")))
 		await _press(null if calendar == null else calendar.find_child("Day_" + yesterday, true, false))
 		b_row = t.find_child("Task_" + b_id, true, false)
 		b_stamp = null if b_row == null else b_row.find_child("DueStamp", true, false)

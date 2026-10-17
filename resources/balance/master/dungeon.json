@@ -3,20 +3,584 @@
     "name_key": "ui_dungeon_hard",
     "_layers_note": "⚠⚠ 2026-10-03（決定49・人間「⚠ 1い」）：⚠ 1フロア＝この9層＋ボスの層＝10層。⚠ 区画はやめた（DungeonConfig.segment_count 0）＝⚠ 層は全部「合流ありの普通の層」。⚠ 層1は入口の1マス・あとは3マス（⚠ 数を揃えておく。⚠ 層ごとに数がばらばらだと index の隣が離れて長い斜め線が出る＝09-20 に人間が実機で指摘した症状）。⚠ 長さを変えるときは DungeonConfig.layer_weight_* も同じ長さに（W31）。",
     "layers": [
-      { "node_count": 1 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 },
-      { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }, { "node_count": 3 }
+      {
+        "node_count": 1
+      },
+      {
+        "node_count": 3
+      },
+      {
+        "node_count": 3
+      },
+      {
+        "node_count": 3
+      },
+      {
+        "node_count": 3
+      },
+      {
+        "node_count": 3
+      },
+      {
+        "node_count": 3
+      },
+      {
+        "node_count": 3
+      },
+      {
+        "node_count": 3
+      }
     ],
     "_depth_bands_note": "⚠⚠ 2026-10-03（決定47・人間「⚠ １あ」・EXEC_DUNGEON_DEPTH.md）：⚠ 深さの帯。⚠ 行の形は { \"from_layer\": 51, \"battle_pool\": [...], \"boss\": {...}, \"loot\": {...} }（⚠ battle_pool / boss / loot はどれも省いてよい＝省いた鍵は下の入口の表のまま）。⚠ from_layer は 2 以上・昇順（⚠ 1層からは下の入口の表）。⚠ 敵の強さは帯ではなく DungeonConfig.enemy_stat_growth_pct_per_floor（1フロアごと）。⚠ 宝箱の中身（loot.chest / loot.edge_chest）は拠点で開けるときに入口の表から引く＝帯で変えても効かない。⚠ いまは1本も無い（⚠ 帯の境目と顔ぶれは回6 で決める）。",
-    "depth_bands": [],
+    "depth_bands": [
+      {
+        "from_layer": 4,
+        "loot": {
+          "battle": {
+            "rolls": 1,
+            "entries": [
+              { "item_id": "construction_material_2", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_3", "weight": 12, "count": 1 },
+              { "item_id": "training_material_2", "weight": 18, "count": 1 },
+              { "item_id": "training_material_3", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_2", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 10, "count": 1 },
+              { "item_id": "decor_material_2", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 6, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 1, "count": 1 },
+              { "item_id": "acc_keen", "weight": 1, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 1, "count": 1 },
+              { "item_id": "acc_guard", "weight": 1, "count": 1 },
+              { "item_id": "acc_swift", "weight": 1, "count": 1 },
+              { "item_id": "acc_sage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 1, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 1, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 1, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
+            ]
+          },
+          "relic": {
+            "rolls": 0,
+            "entries": []
+          },
+          "rest": {
+            "rolls": 0,
+            "entries": []
+          },
+          "edge_chest": {
+            "rolls": 1,
+            "entries": [
+              { "item_id": "construction_material_4", "weight": 25, "count": 1 },
+              { "item_id": "training_material_4", "weight": 25, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 20, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 15, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+              { "item_id": "forge_guarantee_token", "weight": 2, "count": 1 }
+            ]
+          },
+          "chest": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_4", "weight": 20, "count": 1 },
+              { "item_id": "training_material_4", "weight": 20, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 18, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 12, "count": 1 },
+              { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 },
+              { "item_id": "forge_guarantee_token", "weight": 3, "count": 1 }
+            ]
+          },
+          "boss": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_2", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_3", "weight": 12, "count": 1 },
+              { "item_id": "training_material_2", "weight": 18, "count": 1 },
+              { "item_id": "training_material_3", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_2", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 10, "count": 1 },
+              { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 6, "count": 1 },
+              { "item_id": "acc_keen", "weight": 6, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 6, "count": 1 },
+              { "item_id": "acc_guard", "weight": 6, "count": 1 },
+              { "item_id": "acc_swift", "weight": 6, "count": 1 },
+              { "item_id": "acc_sage", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 3, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 3, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 3, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 },
+              { "item_id": "decor_material_2", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 6, "count": 1 }
+            ]
+          }
+        }
+      },
+      {
+        "from_layer": 7,
+        "loot": {
+          "battle": {
+            "rolls": 1,
+            "entries": [
+              { "item_id": "construction_material_3", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_4", "weight": 12, "count": 1 },
+              { "item_id": "training_material_3", "weight": 18, "count": 1 },
+              { "item_id": "training_material_4", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 10, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 6, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 1, "count": 1 },
+              { "item_id": "acc_keen", "weight": 1, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 1, "count": 1 },
+              { "item_id": "acc_guard", "weight": 1, "count": 1 },
+              { "item_id": "acc_swift", "weight": 1, "count": 1 },
+              { "item_id": "acc_sage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 1, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 1, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 1, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
+            ]
+          },
+          "relic": {
+            "rolls": 0,
+            "entries": []
+          },
+          "rest": {
+            "rolls": 0,
+            "entries": []
+          },
+          "edge_chest": {
+            "rolls": 1,
+            "entries": [
+              { "item_id": "construction_material_4", "weight": 25, "count": 1 },
+              { "item_id": "training_material_4", "weight": 25, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 20, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 15, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+              { "item_id": "forge_guarantee_token", "weight": 2, "count": 1 }
+            ]
+          },
+          "chest": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_4", "weight": 20, "count": 1 },
+              { "item_id": "training_material_4", "weight": 20, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 18, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 12, "count": 1 },
+              { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 },
+              { "item_id": "forge_guarantee_token", "weight": 3, "count": 1 }
+            ]
+          },
+          "boss": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_3", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_4", "weight": 12, "count": 1 },
+              { "item_id": "training_material_3", "weight": 18, "count": 1 },
+              { "item_id": "training_material_4", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 10, "count": 1 },
+              { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 6, "count": 1 },
+              { "item_id": "acc_keen", "weight": 6, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 6, "count": 1 },
+              { "item_id": "acc_guard", "weight": 6, "count": 1 },
+              { "item_id": "acc_swift", "weight": 6, "count": 1 },
+              { "item_id": "acc_sage", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 3, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 3, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 3, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 6, "count": 1 }
+            ]
+          }
+        }
+      }
+    ],
     "_equip_grade_note": "⚠⚠ 2026-10-03（回4-b・EQ-13・人間「⚠ １あ　⚠ ２あ」）：⚠ 落ちる装備の等級 [下限, 上限]（⚠ 拾った瞬間に1個ずつ振る）。⚠ 帯（depth_bands）で上書きできる。⚠ 品ごとの最低等級は items.json の drop_min_grade（⚠ 帯の上限に届かない品は表から外れる＝特殊効果の3品は 9）。⚠ 値は仮（回6）。",
     "equip_grade": [1, 2],
     "battle_pool": [
-      { "enemies": [{ "enemy_type_id": "enemy_slime", "count": 3 }] },
-      { "enemies": [{ "enemy_type_id": "enemy_wolf", "count": 2 }] },
       {
         "enemies": [
-          { "enemy_type_id": "enemy_slime", "count": 2 },
-          { "enemy_type_id": "enemy_wolf", "count": 1 }
+          {
+            "enemy_type_id": "enemy_slime",
+            "count": 3
+          }
+        ]
+      },
+      {
+        "enemies": [
+          {
+            "enemy_type_id": "enemy_wolf",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "enemies": [
+          {
+            "enemy_type_id": "enemy_slime",
+            "count": 2
+          },
+          {
+            "enemy_type_id": "enemy_wolf",
+            "count": 1
+          }
         ]
       }
     ],
@@ -26,7 +590,9 @@
           "enemy_type_id": "boss_slime_king",
           "count": 1,
           "is_boss": true,
-          "stat_overrides": { "atk": 30 }
+          "stat_overrides": {
+            "atk": 30
+          }
         }
       ]
     },
@@ -34,10 +600,14 @@
       "battle": {
         "rolls": 1,
         "entries": [
-          { "item_id": "construction_material_4", "weight": 30, "count": 1 },
-          { "item_id": "training_material_4", "weight": 30, "count": 1 },
-          { "item_id": "forging_material_4", "weight": 25, "count": 1 },
-          { "item_id": "decor_material_4", "weight": 15, "count": 1 },
+          { "item_id": "construction_material_1", "weight": 18, "count": 1 },
+          { "item_id": "construction_material_2", "weight": 12, "count": 1 },
+          { "item_id": "training_material_1", "weight": 18, "count": 1 },
+          { "item_id": "training_material_2", "weight": 12, "count": 1 },
+          { "item_id": "forging_material_1", "weight": 15, "count": 1 },
+          { "item_id": "forging_material_2", "weight": 10, "count": 1 },
+          { "item_id": "decor_material_1", "weight": 9, "count": 1 },
+          { "item_id": "decor_material_2", "weight": 6, "count": 1 },
           { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
           { "item_id": "weapon_sword_guard", "weight": 1, "count": 1 },
           { "item_id": "weapon_sword_swift", "weight": 1, "count": 1 },
@@ -137,8 +707,14 @@
           { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
         ]
       },
-      "relic": { "rolls": 0, "entries": [] },
-      "rest": { "rolls": 0, "entries": [] },
+      "relic": {
+        "rolls": 0,
+        "entries": []
+      },
+      "rest": {
+        "rolls": 0,
+        "entries": []
+      },
       "edge_chest": {
         "rolls": 1,
         "entries": [
@@ -166,9 +742,12 @@
       "boss": {
         "rolls": 3,
         "entries": [
-          { "item_id": "construction_material_4", "weight": 30, "count": 1 },
-          { "item_id": "training_material_4", "weight": 30, "count": 1 },
-          { "item_id": "forging_material_4", "weight": 25, "count": 1 },
+          { "item_id": "construction_material_1", "weight": 18, "count": 1 },
+          { "item_id": "construction_material_2", "weight": 12, "count": 1 },
+          { "item_id": "training_material_1", "weight": 18, "count": 1 },
+          { "item_id": "training_material_2", "weight": 12, "count": 1 },
+          { "item_id": "forging_material_1", "weight": 15, "count": 1 },
+          { "item_id": "forging_material_2", "weight": 10, "count": 1 },
           { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
           { "item_id": "weapon_sword_guard", "weight": 6, "count": 1 },
           { "item_id": "weapon_sword_swift", "weight": 6, "count": 1 },
@@ -267,31 +846,83 @@
           { "item_id": "acc_hourglass", "weight": 3, "count": 1 },
           { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
           { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
-          { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 }
+          { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 },
+          { "item_id": "decor_material_1", "weight": 9, "count": 1 },
+          { "item_id": "decor_material_2", "weight": 6, "count": 1 }
         ]
       }
     },
     "edges": {
       "effects": [
-        { "effect": "trap_hp", "weight": 22 },
-        { "effect": "trap_currency", "weight": 14 },
-        { "effect": "chest", "weight": 20 },
-        { "effect": "resource", "weight": 35 }
+        {
+          "effect": "trap_hp",
+          "weight": 22
+        },
+        {
+          "effect": "trap_currency",
+          "weight": 14
+        },
+        {
+          "effect": "chest",
+          "weight": 20
+        },
+        {
+          "effect": "resource",
+          "weight": 35
+        }
       ],
       "resource": [
-        { "kind": "currency", "weight": 45 },
-        { "kind": "item", "item_id": "construction_material_4", "weight": 15, "count": 2 },
-        { "kind": "item", "item_id": "training_material_4", "weight": 15, "count": 2 },
-        { "kind": "item", "item_id": "forging_material_4", "weight": 15, "count": 2 },
-        { "kind": "item", "item_id": "decor_material_4", "weight": 10, "count": 2 }
+        {
+          "kind": "currency",
+          "weight": 45
+        },
+        {
+          "kind": "item",
+          "item_id": "construction_material_4",
+          "weight": 15,
+          "count": 2
+        },
+        {
+          "kind": "item",
+          "item_id": "training_material_4",
+          "weight": 15,
+          "count": 2
+        },
+        {
+          "kind": "item",
+          "item_id": "forging_material_4",
+          "weight": 15,
+          "count": 2
+        },
+        {
+          "kind": "item",
+          "item_id": "decor_material_4",
+          "weight": 10,
+          "count": 2
+        }
       ]
     },
     "shop": {
       "entries": [
-        { "kind": "item", "item_id": "dungeon_potion_heal", "cost": 60 },
-        { "kind": "item", "item_id": "dungeon_potion_revive", "cost": 120 },
-        { "kind": "bag_slot", "cost": 80, "amount": 2 },
-        { "kind": "torch", "cost": 70 }
+        {
+          "kind": "item",
+          "item_id": "dungeon_potion_heal",
+          "cost": 60
+        },
+        {
+          "kind": "item",
+          "item_id": "dungeon_potion_revive",
+          "cost": 120
+        },
+        {
+          "kind": "bag_slot",
+          "cost": 80,
+          "amount": 2
+        },
+        {
+          "kind": "torch",
+          "cost": 70
+        }
       ]
     },
     "currency": {
@@ -315,11 +946,489 @@
       }
     },
     "_depth_bands_note": "⚠ 塔では from_layer は「階」（⚠ 1階＝1）。⚠ いまは1本も無い。",
-    "depth_bands": [],
-    "equip_grade": [
-      1,
-      2
+    "depth_bands": [
+      {
+        "from_layer": 4,
+        "loot": {
+          "battle": {
+            "rolls": 1,
+            "entries": [
+              { "item_id": "construction_material_2", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_3", "weight": 12, "count": 1 },
+              { "item_id": "training_material_2", "weight": 18, "count": 1 },
+              { "item_id": "training_material_3", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_2", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 10, "count": 1 },
+              { "item_id": "decor_material_2", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 6, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 1, "count": 1 },
+              { "item_id": "acc_keen", "weight": 1, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 1, "count": 1 },
+              { "item_id": "acc_guard", "weight": 1, "count": 1 },
+              { "item_id": "acc_swift", "weight": 1, "count": 1 },
+              { "item_id": "acc_sage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 1, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 1, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 1, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
+            ]
+          },
+          "chest": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_4", "weight": 20, "count": 1 },
+              { "item_id": "training_material_4", "weight": 20, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 18, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 12, "count": 1 },
+              { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 },
+              { "item_id": "forge_guarantee_token", "weight": 3, "count": 1 }
+            ]
+          },
+          "boss": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_2", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_3", "weight": 12, "count": 1 },
+              { "item_id": "training_material_2", "weight": 18, "count": 1 },
+              { "item_id": "training_material_3", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_2", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 10, "count": 1 },
+              { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 6, "count": 1 },
+              { "item_id": "acc_keen", "weight": 6, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 6, "count": 1 },
+              { "item_id": "acc_guard", "weight": 6, "count": 1 },
+              { "item_id": "acc_swift", "weight": 6, "count": 1 },
+              { "item_id": "acc_sage", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 3, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 3, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 3, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 },
+              { "item_id": "decor_material_2", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 6, "count": 1 }
+            ]
+          }
+        }
+      },
+      {
+        "from_layer": 7,
+        "loot": {
+          "battle": {
+            "rolls": 1,
+            "entries": [
+              { "item_id": "construction_material_3", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_4", "weight": 12, "count": 1 },
+              { "item_id": "training_material_3", "weight": 18, "count": 1 },
+              { "item_id": "training_material_4", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 10, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 6, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 1, "count": 1 },
+              { "item_id": "acc_keen", "weight": 1, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 1, "count": 1 },
+              { "item_id": "acc_guard", "weight": 1, "count": 1 },
+              { "item_id": "acc_swift", "weight": 1, "count": 1 },
+              { "item_id": "acc_sage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 1, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 1, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 1, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
+            ]
+          },
+          "chest": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_4", "weight": 20, "count": 1 },
+              { "item_id": "training_material_4", "weight": 20, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 18, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 12, "count": 1 },
+              { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 },
+              { "item_id": "forge_guarantee_token", "weight": 3, "count": 1 }
+            ]
+          },
+          "boss": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_3", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_4", "weight": 12, "count": 1 },
+              { "item_id": "training_material_3", "weight": 18, "count": 1 },
+              { "item_id": "training_material_4", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 10, "count": 1 },
+              { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 6, "count": 1 },
+              { "item_id": "acc_keen", "weight": 6, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 6, "count": 1 },
+              { "item_id": "acc_guard", "weight": 6, "count": 1 },
+              { "item_id": "acc_swift", "weight": 6, "count": 1 },
+              { "item_id": "acc_sage", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 3, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 3, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 3, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 6, "count": 1 }
+            ]
+          }
+        }
+      }
     ],
+    "equip_grade": [1, 2],
     "battle_pool": [
       {
         "enemies": [
@@ -366,1071 +1475,236 @@
       "battle": {
         "rolls": 1,
         "entries": [
-          {
-            "item_id": "construction_material_4",
-            "weight": 30,
-            "count": 1
-          },
-          {
-            "item_id": "training_material_4",
-            "weight": 30,
-            "count": 1
-          },
-          {
-            "item_id": "forging_material_4",
-            "weight": 25,
-            "count": 1
-          },
-          {
-            "item_id": "decor_material_4",
-            "weight": 15,
-            "count": 1
-          },
-          {
-            "item_id": "dungeon_potion_heal",
-            "weight": 20,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_rune",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_short",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_hunter",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_oak",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_quick",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_prayer",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_volt",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_sawed",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_silver",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_war",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_siege",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_razor",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_blood",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_quick",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_arcane",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_sage",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_sage",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_sage",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_sage",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_gale",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_titan",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_steady",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_vampiric",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_berserk",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_holy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_aegis",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_flame",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_moon",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_wind",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_sun",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_abyss",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_spike",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_rage",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_dragon",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_giant",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_bulwark",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_shadow",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_frenzy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_ice",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_lucky",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_grove",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_dragon_greatsword",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_thorn_mail",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_sentinel",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_crown",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_mask",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_saint",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_mirror",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_wind",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_shadow",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_ruby_ring",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_hourglass",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_guardian_charm",
-            "weight": 1,
-            "count": 1
-          }
+          { "item_id": "construction_material_1", "weight": 18, "count": 1 },
+          { "item_id": "construction_material_2", "weight": 12, "count": 1 },
+          { "item_id": "training_material_1", "weight": 18, "count": 1 },
+          { "item_id": "training_material_2", "weight": 12, "count": 1 },
+          { "item_id": "forging_material_1", "weight": 15, "count": 1 },
+          { "item_id": "forging_material_2", "weight": 10, "count": 1 },
+          { "item_id": "decor_material_1", "weight": 9, "count": 1 },
+          { "item_id": "decor_material_2", "weight": 6, "count": 1 },
+          { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+          { "item_id": "weapon_sword_guard", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_swift", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_rune", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_short", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_hunter", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_oak", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_quick", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_prayer", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_swift", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_volt", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_sawed", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_silver", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_war", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_guard", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_siege", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_razor", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_blood", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_quick", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_arcane", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_keen", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_heavy", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_keen", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_heavy", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_keen", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_heavy", "weight": 1, "count": 1 },
+          { "item_id": "acc_keen", "weight": 1, "count": 1 },
+          { "item_id": "acc_heavy", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_guard", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_swift", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_sage", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_guard", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_swift", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_sage", "weight": 1, "count": 1 },
+          { "item_id": "acc_guard", "weight": 1, "count": 1 },
+          { "item_id": "acc_swift", "weight": 1, "count": 1 },
+          { "item_id": "acc_sage", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_gale", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_titan", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_steady", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_vampiric", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_berserk", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_holy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_aegis", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_flame", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_moon", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_wind", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_sun", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_abyss", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_spike", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_rage", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_dragon", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_guard", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_giant", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_bulwark", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_shadow", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_frenzy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_ice", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_lucky", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
+          { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
+          { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_sentinel", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_crown", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_mask", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_saint", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_mirror", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_wind", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_iron", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_shadow", "weight": 1, "count": 1 },
+          { "item_id": "acc_ruby_ring", "weight": 1, "count": 1 },
+          { "item_id": "acc_hourglass", "weight": 1, "count": 1 },
+          { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
         ]
       },
       "chest": {
         "rolls": 3,
         "entries": [
-          {
-            "item_id": "construction_material_4",
-            "weight": 20,
-            "count": 1
-          },
-          {
-            "item_id": "training_material_4",
-            "weight": 20,
-            "count": 1
-          },
-          {
-            "item_id": "forging_material_4",
-            "weight": 18,
-            "count": 1
-          },
-          {
-            "item_id": "decor_material_4",
-            "weight": 12,
-            "count": 1
-          },
-          {
-            "item_id": "part_gem_atk_1",
-            "weight": 10,
-            "count": 1
-          },
-          {
-            "item_id": "dungeon_potion_heal",
-            "weight": 15,
-            "count": 1
-          },
-          {
-            "item_id": "dungeon_potion_revive",
-            "weight": 5,
-            "count": 1
-          },
-          {
-            "item_id": "forge_guarantee_token",
-            "weight": 3,
-            "count": 1
-          }
+          { "item_id": "construction_material_4", "weight": 20, "count": 1 },
+          { "item_id": "training_material_4", "weight": 20, "count": 1 },
+          { "item_id": "forging_material_4", "weight": 18, "count": 1 },
+          { "item_id": "decor_material_4", "weight": 12, "count": 1 },
+          { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
+          { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+          { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 },
+          { "item_id": "forge_guarantee_token", "weight": 3, "count": 1 }
         ]
       },
       "boss": {
         "rolls": 3,
         "entries": [
-          {
-            "item_id": "construction_material_4",
-            "weight": 30,
-            "count": 1
-          },
-          {
-            "item_id": "training_material_4",
-            "weight": 30,
-            "count": 1
-          },
-          {
-            "item_id": "forging_material_4",
-            "weight": 25,
-            "count": 1
-          },
-          {
-            "item_id": "part_gem_atk_2",
-            "weight": 10,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_rune",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_short",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_hunter",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_oak",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_quick",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_prayer",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_iron",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_volt",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_iron",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_sawed",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_silver",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_iron",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_war",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_iron",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_siege",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_razor",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_blood",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_iron",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_quick",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_arcane",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "acc_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "acc_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_sage",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_sage",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_sage",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "acc_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "acc_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "acc_sage",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_gale",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_titan",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_steady",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_vampiric",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_berserk",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_holy",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_aegis",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_flame",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_moon",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_wind",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_sun",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_abyss",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_spike",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_rage",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_dragon",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_guard",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_giant",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_bulwark",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_shadow",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_frenzy",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_ice",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_lucky",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_grove",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_dragon_greatsword",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_thorn_mail",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_sentinel",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_crown",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_mask",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_saint",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_mirror",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_wind",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_iron",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_shadow",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "acc_ruby_ring",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "acc_hourglass",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "acc_guardian_charm",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "dungeon_potion_heal",
-            "weight": 20,
-            "count": 1
-          },
-          {
-            "item_id": "dungeon_potion_revive",
-            "weight": 8,
-            "count": 1
-          }
+          { "item_id": "construction_material_1", "weight": 18, "count": 1 },
+          { "item_id": "construction_material_2", "weight": 12, "count": 1 },
+          { "item_id": "training_material_1", "weight": 18, "count": 1 },
+          { "item_id": "training_material_2", "weight": 12, "count": 1 },
+          { "item_id": "forging_material_1", "weight": 15, "count": 1 },
+          { "item_id": "forging_material_2", "weight": 10, "count": 1 },
+          { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
+          { "item_id": "weapon_sword_guard", "weight": 6, "count": 1 },
+          { "item_id": "weapon_sword_swift", "weight": 6, "count": 1 },
+          { "item_id": "weapon_sword_rune", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_short", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_hunter", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_oak", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_quick", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_prayer", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_swift", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_volt", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_sawed", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_silver", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_war", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_guard", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_sword_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_sword_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_siege", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_razor", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_blood", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_quick", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_arcane", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_keen", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_heavy", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_keen", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_heavy", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_keen", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_heavy", "weight": 6, "count": 1 },
+          { "item_id": "acc_keen", "weight": 6, "count": 1 },
+          { "item_id": "acc_heavy", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_guard", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_swift", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_sage", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_guard", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_swift", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_sage", "weight": 6, "count": 1 },
+          { "item_id": "acc_guard", "weight": 6, "count": 1 },
+          { "item_id": "acc_swift", "weight": 6, "count": 1 },
+          { "item_id": "acc_sage", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_gale", "weight": 3, "count": 1 },
+          { "item_id": "weapon_gauntlet_titan", "weight": 3, "count": 1 },
+          { "item_id": "weapon_pistol_steady", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claw_vampiric", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claymore_berserk", "weight": 3, "count": 1 },
+          { "item_id": "weapon_shotgun_holy", "weight": 3, "count": 1 },
+          { "item_id": "weapon_sword_aegis", "weight": 3, "count": 1 },
+          { "item_id": "weapon_sword_flame", "weight": 3, "count": 1 },
+          { "item_id": "weapon_bow_moon", "weight": 3, "count": 1 },
+          { "item_id": "weapon_bow_wind", "weight": 3, "count": 1 },
+          { "item_id": "weapon_staff_sun", "weight": 3, "count": 1 },
+          { "item_id": "weapon_staff_abyss", "weight": 3, "count": 1 },
+          { "item_id": "weapon_gauntlet_spike", "weight": 3, "count": 1 },
+          { "item_id": "weapon_gauntlet_rage", "weight": 3, "count": 1 },
+          { "item_id": "weapon_shotgun_dragon", "weight": 3, "count": 1 },
+          { "item_id": "weapon_shotgun_guard", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claymore_giant", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claymore_bulwark", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claw_shadow", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claw_frenzy", "weight": 3, "count": 1 },
+          { "item_id": "weapon_pistol_ice", "weight": 3, "count": 1 },
+          { "item_id": "weapon_pistol_lucky", "weight": 3, "count": 1 },
+          { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
+          { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
+          { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
+          { "item_id": "armor_head_sentinel", "weight": 3, "count": 1 },
+          { "item_id": "armor_head_crown", "weight": 3, "count": 1 },
+          { "item_id": "armor_head_mask", "weight": 3, "count": 1 },
+          { "item_id": "armor_body_saint", "weight": 3, "count": 1 },
+          { "item_id": "armor_body_mirror", "weight": 3, "count": 1 },
+          { "item_id": "armor_legs_wind", "weight": 3, "count": 1 },
+          { "item_id": "armor_legs_iron", "weight": 3, "count": 1 },
+          { "item_id": "armor_legs_shadow", "weight": 3, "count": 1 },
+          { "item_id": "acc_ruby_ring", "weight": 3, "count": 1 },
+          { "item_id": "acc_hourglass", "weight": 3, "count": 1 },
+          { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
+          { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+          { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 },
+          { "item_id": "decor_material_1", "weight": 9, "count": 1 },
+          { "item_id": "decor_material_2", "weight": 6, "count": 1 }
         ]
       }
     },
@@ -1468,11 +1742,489 @@
       "special_floor_pct": 0,
       "max_floors": 1
     },
-    "depth_bands": [],
-    "equip_grade": [
-      1,
-      2
+    "depth_bands": [
+      {
+        "from_layer": 4,
+        "loot": {
+          "battle": {
+            "rolls": 1,
+            "entries": [
+              { "item_id": "construction_material_2", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_3", "weight": 12, "count": 1 },
+              { "item_id": "training_material_2", "weight": 18, "count": 1 },
+              { "item_id": "training_material_3", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_2", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 10, "count": 1 },
+              { "item_id": "decor_material_2", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 6, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 1, "count": 1 },
+              { "item_id": "acc_keen", "weight": 1, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 1, "count": 1 },
+              { "item_id": "acc_guard", "weight": 1, "count": 1 },
+              { "item_id": "acc_swift", "weight": 1, "count": 1 },
+              { "item_id": "acc_sage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 1, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 1, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 1, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
+            ]
+          },
+          "chest": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_4", "weight": 20, "count": 1 },
+              { "item_id": "training_material_4", "weight": 20, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 18, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 12, "count": 1 },
+              { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 },
+              { "item_id": "forge_guarantee_token", "weight": 3, "count": 1 }
+            ]
+          },
+          "boss": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_2", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_3", "weight": 12, "count": 1 },
+              { "item_id": "training_material_2", "weight": 18, "count": 1 },
+              { "item_id": "training_material_3", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_2", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 10, "count": 1 },
+              { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 6, "count": 1 },
+              { "item_id": "acc_keen", "weight": 6, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 6, "count": 1 },
+              { "item_id": "acc_guard", "weight": 6, "count": 1 },
+              { "item_id": "acc_swift", "weight": 6, "count": 1 },
+              { "item_id": "acc_sage", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 3, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 3, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 3, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 },
+              { "item_id": "decor_material_2", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 6, "count": 1 }
+            ]
+          }
+        }
+      },
+      {
+        "from_layer": 7,
+        "loot": {
+          "battle": {
+            "rolls": 1,
+            "entries": [
+              { "item_id": "construction_material_3", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_4", "weight": 12, "count": 1 },
+              { "item_id": "training_material_3", "weight": 18, "count": 1 },
+              { "item_id": "training_material_4", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 10, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 6, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 1, "count": 1 },
+              { "item_id": "acc_keen", "weight": 1, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 1, "count": 1 },
+              { "item_id": "acc_guard", "weight": 1, "count": 1 },
+              { "item_id": "acc_swift", "weight": 1, "count": 1 },
+              { "item_id": "acc_sage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 1, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 1, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 1, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 1, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 1, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 1, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 1, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 1, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 1, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 1, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 1, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 1, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
+            ]
+          },
+          "chest": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_4", "weight": 20, "count": 1 },
+              { "item_id": "training_material_4", "weight": 20, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 18, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 12, "count": 1 },
+              { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 },
+              { "item_id": "forge_guarantee_token", "weight": 3, "count": 1 }
+            ]
+          },
+          "boss": {
+            "rolls": 3,
+            "entries": [
+              { "item_id": "construction_material_3", "weight": 18, "count": 1 },
+              { "item_id": "construction_material_4", "weight": 12, "count": 1 },
+              { "item_id": "training_material_3", "weight": 18, "count": 1 },
+              { "item_id": "training_material_4", "weight": 12, "count": 1 },
+              { "item_id": "forging_material_3", "weight": 15, "count": 1 },
+              { "item_id": "forging_material_4", "weight": 10, "count": 1 },
+              { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
+              { "item_id": "weapon_sword_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_rune", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_short", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_hunter", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_oak", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_prayer", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_swift", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_volt", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_sawed", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_silver", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_war", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_guard", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_sword_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_siege", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_staff_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_gauntlet_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_shotgun_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claymore_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_keen", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_heavy", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_razor", "weight": 6, "count": 1 },
+              { "item_id": "weapon_claw_blood", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_iron", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_quick", "weight": 6, "count": 1 },
+              { "item_id": "weapon_pistol_arcane", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_keen", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_heavy", "weight": 6, "count": 1 },
+              { "item_id": "acc_keen", "weight": 6, "count": 1 },
+              { "item_id": "acc_heavy", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_body_sage", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_guard", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_swift", "weight": 6, "count": 1 },
+              { "item_id": "armor_legs_sage", "weight": 6, "count": 1 },
+              { "item_id": "acc_guard", "weight": 6, "count": 1 },
+              { "item_id": "acc_swift", "weight": 6, "count": 1 },
+              { "item_id": "acc_sage", "weight": 6, "count": 1 },
+              { "item_id": "weapon_bow_gale", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_titan", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_steady", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_vampiric", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_berserk", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_holy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_aegis", "weight": 3, "count": 1 },
+              { "item_id": "weapon_sword_flame", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_moon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_bow_wind", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_sun", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_abyss", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_spike", "weight": 3, "count": 1 },
+              { "item_id": "weapon_gauntlet_rage", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_dragon", "weight": 3, "count": 1 },
+              { "item_id": "weapon_shotgun_guard", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_giant", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claymore_bulwark", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_shadow", "weight": 3, "count": 1 },
+              { "item_id": "weapon_claw_frenzy", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_ice", "weight": 3, "count": 1 },
+              { "item_id": "weapon_pistol_lucky", "weight": 3, "count": 1 },
+              { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
+              { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
+              { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_sentinel", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_crown", "weight": 3, "count": 1 },
+              { "item_id": "armor_head_mask", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_saint", "weight": 3, "count": 1 },
+              { "item_id": "armor_body_mirror", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_wind", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_iron", "weight": 3, "count": 1 },
+              { "item_id": "armor_legs_shadow", "weight": 3, "count": 1 },
+              { "item_id": "acc_ruby_ring", "weight": 3, "count": 1 },
+              { "item_id": "acc_hourglass", "weight": 3, "count": 1 },
+              { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
+              { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+              { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 },
+              { "item_id": "decor_material_3", "weight": 9, "count": 1 },
+              { "item_id": "decor_material_4", "weight": 6, "count": 1 }
+            ]
+          }
+        }
+      }
     ],
+    "equip_grade": [1, 2],
     "battle_pool": [
       {
         "enemies": [
@@ -1519,1071 +2271,236 @@
       "battle": {
         "rolls": 1,
         "entries": [
-          {
-            "item_id": "construction_material_4",
-            "weight": 30,
-            "count": 1
-          },
-          {
-            "item_id": "training_material_4",
-            "weight": 30,
-            "count": 1
-          },
-          {
-            "item_id": "forging_material_4",
-            "weight": 25,
-            "count": 1
-          },
-          {
-            "item_id": "decor_material_4",
-            "weight": 15,
-            "count": 1
-          },
-          {
-            "item_id": "dungeon_potion_heal",
-            "weight": 20,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_rune",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_short",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_hunter",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_oak",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_quick",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_prayer",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_volt",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_sawed",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_silver",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_war",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_siege",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_razor",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_blood",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_quick",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_arcane",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_keen",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_heavy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_sage",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_sage",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_sage",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_swift",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_sage",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_gale",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_titan",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_steady",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_vampiric",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_berserk",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_holy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_aegis",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_flame",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_moon",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_wind",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_sun",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_abyss",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_spike",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_rage",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_dragon",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_guard",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_giant",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_bulwark",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_shadow",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_frenzy",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_ice",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_lucky",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_grove",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_dragon_greatsword",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_thorn_mail",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_sentinel",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_crown",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_mask",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_saint",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_mirror",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_wind",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_iron",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_shadow",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_ruby_ring",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_hourglass",
-            "weight": 1,
-            "count": 1
-          },
-          {
-            "item_id": "acc_guardian_charm",
-            "weight": 1,
-            "count": 1
-          }
+          { "item_id": "construction_material_1", "weight": 18, "count": 1 },
+          { "item_id": "construction_material_2", "weight": 12, "count": 1 },
+          { "item_id": "training_material_1", "weight": 18, "count": 1 },
+          { "item_id": "training_material_2", "weight": 12, "count": 1 },
+          { "item_id": "forging_material_1", "weight": 15, "count": 1 },
+          { "item_id": "forging_material_2", "weight": 10, "count": 1 },
+          { "item_id": "decor_material_1", "weight": 9, "count": 1 },
+          { "item_id": "decor_material_2", "weight": 6, "count": 1 },
+          { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+          { "item_id": "weapon_sword_guard", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_swift", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_rune", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_short", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_hunter", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_oak", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_quick", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_prayer", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_swift", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_volt", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_sawed", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_silver", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_war", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_guard", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_siege", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_razor", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_blood", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_quick", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_arcane", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_guard", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_keen", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_heavy", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_keen", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_heavy", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_keen", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_heavy", "weight": 1, "count": 1 },
+          { "item_id": "acc_keen", "weight": 1, "count": 1 },
+          { "item_id": "acc_heavy", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_swift", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_sage", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_guard", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_swift", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_sage", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_guard", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_swift", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_sage", "weight": 1, "count": 1 },
+          { "item_id": "acc_guard", "weight": 1, "count": 1 },
+          { "item_id": "acc_swift", "weight": 1, "count": 1 },
+          { "item_id": "acc_sage", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_gale", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_titan", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_steady", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_vampiric", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_berserk", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_holy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_aegis", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_flame", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_moon", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_wind", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_sun", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_abyss", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_spike", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_rage", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_dragon", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_guard", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_giant", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_bulwark", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_shadow", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_frenzy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_ice", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_lucky", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
+          { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
+          { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_sentinel", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_crown", "weight": 1, "count": 1 },
+          { "item_id": "armor_head_mask", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_saint", "weight": 1, "count": 1 },
+          { "item_id": "armor_body_mirror", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_wind", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_iron", "weight": 1, "count": 1 },
+          { "item_id": "armor_legs_shadow", "weight": 1, "count": 1 },
+          { "item_id": "acc_ruby_ring", "weight": 1, "count": 1 },
+          { "item_id": "acc_hourglass", "weight": 1, "count": 1 },
+          { "item_id": "acc_guardian_charm", "weight": 1, "count": 1 }
         ]
       },
       "chest": {
         "rolls": 3,
         "entries": [
-          {
-            "item_id": "construction_material_4",
-            "weight": 20,
-            "count": 1
-          },
-          {
-            "item_id": "training_material_4",
-            "weight": 20,
-            "count": 1
-          },
-          {
-            "item_id": "forging_material_4",
-            "weight": 18,
-            "count": 1
-          },
-          {
-            "item_id": "decor_material_4",
-            "weight": 12,
-            "count": 1
-          },
-          {
-            "item_id": "part_gem_atk_1",
-            "weight": 10,
-            "count": 1
-          },
-          {
-            "item_id": "dungeon_potion_heal",
-            "weight": 15,
-            "count": 1
-          },
-          {
-            "item_id": "dungeon_potion_revive",
-            "weight": 5,
-            "count": 1
-          },
-          {
-            "item_id": "forge_guarantee_token",
-            "weight": 3,
-            "count": 1
-          }
+          { "item_id": "construction_material_4", "weight": 20, "count": 1 },
+          { "item_id": "training_material_4", "weight": 20, "count": 1 },
+          { "item_id": "forging_material_4", "weight": 18, "count": 1 },
+          { "item_id": "decor_material_4", "weight": 12, "count": 1 },
+          { "item_id": "part_gem_atk_1", "weight": 10, "count": 1 },
+          { "item_id": "dungeon_potion_heal", "weight": 15, "count": 1 },
+          { "item_id": "dungeon_potion_revive", "weight": 5, "count": 1 },
+          { "item_id": "forge_guarantee_token", "weight": 3, "count": 1 }
         ]
       },
       "boss": {
         "rolls": 3,
         "entries": [
-          {
-            "item_id": "construction_material_4",
-            "weight": 30,
-            "count": 1
-          },
-          {
-            "item_id": "training_material_4",
-            "weight": 30,
-            "count": 1
-          },
-          {
-            "item_id": "forging_material_4",
-            "weight": 25,
-            "count": 1
-          },
-          {
-            "item_id": "part_gem_atk_2",
-            "weight": 10,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_rune",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_short",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_hunter",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_oak",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_quick",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_prayer",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_iron",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_volt",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_iron",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_sawed",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_silver",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_iron",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_war",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_iron",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_siege",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_razor",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_blood",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_iron",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_quick",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_arcane",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "acc_keen",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "acc_heavy",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_sage",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_sage",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_sage",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "acc_guard",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "acc_swift",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "acc_sage",
-            "weight": 6,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_gale",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_titan",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_steady",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_vampiric",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_berserk",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_holy",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_aegis",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_sword_flame",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_moon",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_bow_wind",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_sun",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_abyss",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_spike",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_gauntlet_rage",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_dragon",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_shotgun_guard",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_giant",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claymore_bulwark",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_shadow",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_claw_frenzy",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_ice",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_pistol_lucky",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_staff_grove",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "weapon_dragon_greatsword",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_thorn_mail",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_sentinel",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_crown",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_head_mask",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_saint",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_body_mirror",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_wind",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_iron",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "armor_legs_shadow",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "acc_ruby_ring",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "acc_hourglass",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "acc_guardian_charm",
-            "weight": 3,
-            "count": 1
-          },
-          {
-            "item_id": "dungeon_potion_heal",
-            "weight": 20,
-            "count": 1
-          },
-          {
-            "item_id": "dungeon_potion_revive",
-            "weight": 8,
-            "count": 1
-          }
+          { "item_id": "construction_material_1", "weight": 18, "count": 1 },
+          { "item_id": "construction_material_2", "weight": 12, "count": 1 },
+          { "item_id": "training_material_1", "weight": 18, "count": 1 },
+          { "item_id": "training_material_2", "weight": 12, "count": 1 },
+          { "item_id": "forging_material_1", "weight": 15, "count": 1 },
+          { "item_id": "forging_material_2", "weight": 10, "count": 1 },
+          { "item_id": "part_gem_atk_2", "weight": 10, "count": 1 },
+          { "item_id": "weapon_sword_guard", "weight": 6, "count": 1 },
+          { "item_id": "weapon_sword_swift", "weight": 6, "count": 1 },
+          { "item_id": "weapon_sword_rune", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_short", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_hunter", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_oak", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_quick", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_prayer", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_swift", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_volt", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_sawed", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_silver", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_war", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_guard", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_sword_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_sword_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_siege", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_razor", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_blood", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_quick", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_arcane", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_guard", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_keen", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_heavy", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_keen", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_heavy", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_keen", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_heavy", "weight": 6, "count": 1 },
+          { "item_id": "acc_keen", "weight": 6, "count": 1 },
+          { "item_id": "acc_heavy", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_swift", "weight": 6, "count": 1 },
+          { "item_id": "armor_head_sage", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_guard", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_swift", "weight": 6, "count": 1 },
+          { "item_id": "armor_body_sage", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_guard", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_swift", "weight": 6, "count": 1 },
+          { "item_id": "armor_legs_sage", "weight": 6, "count": 1 },
+          { "item_id": "acc_guard", "weight": 6, "count": 1 },
+          { "item_id": "acc_swift", "weight": 6, "count": 1 },
+          { "item_id": "acc_sage", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_gale", "weight": 3, "count": 1 },
+          { "item_id": "weapon_gauntlet_titan", "weight": 3, "count": 1 },
+          { "item_id": "weapon_pistol_steady", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claw_vampiric", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claymore_berserk", "weight": 3, "count": 1 },
+          { "item_id": "weapon_shotgun_holy", "weight": 3, "count": 1 },
+          { "item_id": "weapon_sword_aegis", "weight": 3, "count": 1 },
+          { "item_id": "weapon_sword_flame", "weight": 3, "count": 1 },
+          { "item_id": "weapon_bow_moon", "weight": 3, "count": 1 },
+          { "item_id": "weapon_bow_wind", "weight": 3, "count": 1 },
+          { "item_id": "weapon_staff_sun", "weight": 3, "count": 1 },
+          { "item_id": "weapon_staff_abyss", "weight": 3, "count": 1 },
+          { "item_id": "weapon_gauntlet_spike", "weight": 3, "count": 1 },
+          { "item_id": "weapon_gauntlet_rage", "weight": 3, "count": 1 },
+          { "item_id": "weapon_shotgun_dragon", "weight": 3, "count": 1 },
+          { "item_id": "weapon_shotgun_guard", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claymore_giant", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claymore_bulwark", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claw_shadow", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claw_frenzy", "weight": 3, "count": 1 },
+          { "item_id": "weapon_pistol_ice", "weight": 3, "count": 1 },
+          { "item_id": "weapon_pistol_lucky", "weight": 3, "count": 1 },
+          { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
+          { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
+          { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
+          { "item_id": "armor_head_sentinel", "weight": 3, "count": 1 },
+          { "item_id": "armor_head_crown", "weight": 3, "count": 1 },
+          { "item_id": "armor_head_mask", "weight": 3, "count": 1 },
+          { "item_id": "armor_body_saint", "weight": 3, "count": 1 },
+          { "item_id": "armor_body_mirror", "weight": 3, "count": 1 },
+          { "item_id": "armor_legs_wind", "weight": 3, "count": 1 },
+          { "item_id": "armor_legs_iron", "weight": 3, "count": 1 },
+          { "item_id": "armor_legs_shadow", "weight": 3, "count": 1 },
+          { "item_id": "acc_ruby_ring", "weight": 3, "count": 1 },
+          { "item_id": "acc_hourglass", "weight": 3, "count": 1 },
+          { "item_id": "acc_guardian_charm", "weight": 3, "count": 1 },
+          { "item_id": "dungeon_potion_heal", "weight": 20, "count": 1 },
+          { "item_id": "dungeon_potion_revive", "weight": 8, "count": 1 },
+          { "item_id": "decor_material_1", "weight": 9, "count": 1 },
+          { "item_id": "decor_material_2", "weight": 6, "count": 1 }
         ]
       }
     },
