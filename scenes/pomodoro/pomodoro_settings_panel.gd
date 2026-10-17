@@ -95,7 +95,8 @@ func _row(row_name: String, caption_key: String, note_key: String, control: Cont
 	return row
 
 
-# 並んだ札から1つ選ぶ（⚠ 手本の「25分｜45分｜50分」）。⚠ 選んでいる札は `PaperChoiceSelected`。
+# 並んだ札から1つ選ぶ（⚠ 手本の「25分｜45分｜50分」）。⚠ 効いている札は `PaperChoiceApplied`
+#   （⚠ 10-17 の見る回・人間「⚠ ポモドーロ設定で、適用されてるものはもっと派手な色に」＝⚠ 真鍮で塗る・`NAV-30`）。
 func _choices(prefix: String, values: Array, labels: Array[String], current: Variant, handler: Callable) -> HBoxContainer:
 	var box: HBoxContainer = HBoxContainer.new()
 	box.name = prefix + "Choices"
@@ -106,7 +107,7 @@ func _choices(prefix: String, values: Array, labels: Array[String], current: Var
 		button.text = labels[i]
 		button.custom_minimum_size.x = float(get_theme_constant(&"choice_width", THEME_TYPE))
 		if values[i] == current:
-			button.theme_type_variation = &"PaperChoiceSelected"
+			button.theme_type_variation = &"PaperChoiceApplied"
 		# ⚠ `handler` は鍵が bind 済み（`_on_chosen.bind(key)`）＝⚠ 値を前に足して呼ぶ。
 		button.pressed.connect(_apply.bind(handler, values[i]))
 		box.add_child(button)

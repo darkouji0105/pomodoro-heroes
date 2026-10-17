@@ -43,3 +43,8 @@ extends Resource
 # ⚠ タスクのメモの色の数（2026-10-04・`TK-12`・人間「⚠ ６色で」）。⚠ 色そのものは Theme の `TaskColor` 型（`tools/theme_builder.gd`）。
 #   ⚠ Theme に並べた色より多くしない（⚠ 足りない番号は色が引けない）。
 @export var task_color_count: int = 6
+
+# ⚠ 受け取りの窓（`RewardReveal`）で「レア」として演出する宝箱と、その等級（1〜10・⚠ 色は `Balance.icon` の等級の色）。
+#   ⚠ 2026-10-17（見る回・人間「⚠ レアなものが出たら専用の演出を入れる」・`NAV-29`）。⚠ 加護の最後の宝箱＝⚠ 大きいほど高い等級。
+#   ⚠ 演出は Theme の `ChestScreen` の `fx_grade`（5）以上・⚠ 強い演出は `fx_strong_grade`（8）以上（⚠ 宝箱の画面と同じ線）。⚠ 値は仮。
+@export var reveal_chest_grades: Dictionary[String, int] = {"bonus_small": 5, "bonus_medium": 6, "bonus_large": 8}

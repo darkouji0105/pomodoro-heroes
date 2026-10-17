@@ -16642,9 +16642,10 @@ class UiFlowRunner extends Node:
 		_check("設定：集中 45分・休憩 10分を選ぶと残る（%d・%d）" % [GameSettings.focus_minutes(), GameSettings.break_minutes()],
 			GameSettings.focus_minutes() == 45 and GameSettings.break_minutes() == 10)
 		# ⚠ 09-29（回UI-仕組み⑥）：⚠ 小窓の2行はオフ｜オン（⚠ 既定オフ・いつも前はオン）／ ⚠ 「話しかける」だけ「まだ」。
+		# ⚠ 10-17：⚠ ポモドーロの行は同じ部品（`PomodoroSettingsPanel`）＝⚠ 効いている札は `PaperChoiceApplied`（`NAV-30`）。
 		_check("設定：小窓はオフ｜オン（既定オフ）・いつも前は既定オン・「話しかける」だけ「まだ」",
-			s.find_child("Mini_false", true, false) is Button and (s.find_child("Mini_false", true, false) as Button).theme_type_variation == &"PaperChoiceSelected"
-			and s.find_child("MiniTop_true", true, false) is Button and (s.find_child("MiniTop_true", true, false) as Button).theme_type_variation == &"PaperChoiceSelected"
+			s.find_child("Mini_false", true, false) is Button and (s.find_child("Mini_false", true, false) as Button).theme_type_variation == &"PaperChoiceApplied"
+			and s.find_child("MiniTop_true", true, false) is Button and (s.find_child("MiniTop_true", true, false) as Button).theme_type_variation == &"PaperChoiceApplied"
 			and s.find_child("TalkRow", true, false) != null and s.find_children("LaterLabel", "", true, false).size() == 1)
 		# データ：⚠ セーブを消すは置かない（「⚠ 3い」）。
 		await _press(_tab_button(s, 3))
@@ -18132,6 +18133,7 @@ class UiFlowRunner extends Node:
 		await _open(BASE, {})
 		await _flow_slide_on_jump()
 		await _flow_task_drag()
+		await _flow_see_28()
 
 
 	# --- タスクのドラッグ（2026-10-16・人間「⚠ タスクは、ドラッグで移動させられるように」→「⚠ 並べ替え＋フォルダへ移す」） ---
@@ -18152,6 +18154,23 @@ class UiFlowRunner extends Node:
 			not TaskDrag.can_drop(data, c_id) and TaskDrag.can_drop(data, a_id))
 		# C を A の行の上半分へ＝A の前。
 		var row_a: Control = t.find_child("Task_" + a_id, true, false) as Control
+		# ⚠ 10-17（見る回・人間「⚠ つまむ乙須が分かんない　目印を出して」）：⚠ 上半分＝行の上に線 ／ 下半分＝行の下に線 ／ フォルダ＝箱の枠。⚠ 目印は1つだけ。
+		# ⚠ 落とすと行が描き直される＝⚠ 目印は落とす前にその場で控える。
+		var mark_top: TaskDrag.DropMarker = TaskDrag.show_marker(row_a, TaskDrag.Mark.AFTER if TaskDrag.is_after(row_a, Vector2(0, 1)) else TaskDrag.Mark.BEFORE)
+		var top_ok: bool = mark_top.visible and mark_top.get_parent() == row_a and mark_top.mark == TaskDrag.Mark.BEFORE and mark_top.top_level 			and mark_top.mouse_filter == Control.MOUSE_FILTER_IGNORE
+		var bottom_after: bool = TaskDrag.is_after(row_a, Vector2(0, row_a.size.y - 1.0))
+		var folder_box: TaskFolderBox = null
+		for node: Node in t.find_children("*", "TaskFolderBox", true, false):
+			if (node as TaskFolderBox).header.folder_id == folder:
+				folder_box = node as TaskFolderBox
+		var mark_box: TaskDrag.DropMarker = null if folder_box == null else TaskDrag.show_marker(folder_box, TaskDrag.Mark.FOLDER)
+		var box_ok: bool = mark_box != null and mark_box.visible and mark_box.mark == TaskDrag.Mark.FOLDER
+		var one_only: bool = not mark_top.visible
+		var color_ok: bool = mark_top.get_theme_constant(&"marker_px", TaskDrag.THEME_TYPE) > 0
+		mark_top.notification(Node.NOTIFICATION_DRAG_END)
+		_check("ドラッグの目印：上半分＝行の上の線・下半分＝後ろ・フォルダ＝枠・目印は1つ・太さは Theme（上 %s・下は後ろ %s・枠 %s・1つ %s・太さ %s）" % [
+				str(top_ok), str(bottom_after), str(box_ok), str(one_only), str(color_ok)],
+			top_ok and bottom_after and box_ok and one_only and color_ok)
 		var _moved_a: bool = TaskDrag.drop_on_row(Vector2(0, 1), data, a_id, "", row_a)
 		var order: Array = []
 		for task: Variant in GameManager.get_tasks():
@@ -18177,6 +18196,50 @@ class UiFlowRunner extends Node:
 		for id: String in [a_id, b_id, c_id]:
 			var _gone: bool = GameManager.delete_task(id)
 		await _open(BASE, {})
+
+	# --- 見る回28の手直し（2026-10-17・`NAV-29` `NAV-30` `TK-20` `GR-8`） ---
+
+	func _flow_see_28() -> void:
+		# パッシブの見出しから「（いつも効く）」を外した（人間「⚠ passiveの文言に（いつもきく）はいらない」）。
+		_check("スキルタブ：パッシブの見出しは「%s」" % tr("ui_training_passive_heading"), tr("ui_training_passive_heading") == "パッシブ")
+		# ポモドーロの設定：効いている札は真鍮で塗る（人間「⚠ 適用されてるものはもっと派手な色に」）。
+		var panel: PomodoroSettingsPanel = PomodoroSettingsPanel.new()
+		add_child(panel)
+		await _wait()
+		var on: Node = panel.find_child("Focus_%d" % GameSettings.focus_minutes(), true, false)
+		var off: Node = panel.find_child("Focus_50" if GameSettings.focus_minutes() != 50 else "Focus_25", true, false)
+		var on_box: StyleBoxFlat = null if not (on is Button) else (on as Button).get_theme_stylebox(&"normal") as StyleBoxFlat
+		var sel_box: StyleBoxFlat = panel.get_theme_stylebox(&"normal", &"PaperChoiceSelected") as StyleBoxFlat
+		_check("ポモドーロの設定：効いている札は PaperChoiceApplied（ふつうの「選んでいる」より濃い・ほかの札は違う）",
+			on is Button and (on as Button).theme_type_variation == &"PaperChoiceApplied" and off is Button
+			and (off as Button).theme_type_variation != &"PaperChoiceApplied"
+			and on_box != null and sel_box != null and on_box.bg_color.get_luminance() < sel_box.bg_color.get_luminance() - 0.2)
+		remove_child(panel)
+		panel.queue_free()
+		# 受け取りの窓：レアな宝箱・右上のスキップ・名前を折り返さない。
+		var holder: Control = Control.new()
+		add_child(holder)
+		var reveal: RewardReveal = RewardReveal.create(3, ["generic", "bonus_large"])
+		holder.add_child(reveal)
+		await _wait()
+		var skip: Button = reveal.find_child("SkipButton", true, false) as Button
+		var skip_ok: bool = skip != null and skip.text == "" and skip.icon != null and skip.tooltip_text == "スキップ" 			and reveal.find_child("SkipHint", true, false) == null
+		var rare_card: Node = reveal.find_child("Card_2", true, false)
+		var rare_name: Label = null if rare_card == null else rare_card.find_child("NameLabel", true, false) as Label
+		var plain_name: Label = (reveal.find_child("Card_1", true, false) as Node).find_child("NameLabel", true, false) as Label
+		var rare_ok: bool = reveal.is_rare() and reveal.top_grade() == 8 and RewardReveal.rare_grade_of("generic") == 0 			and rare_name != null and rare_name.has_theme_color_override(&"font_color") and not plain_name.has_theme_color_override(&"font_color")
+		var potion_name: Label = (reveal.find_child("Card_0", true, false) as Node).find_child("NameLabel", true, false) as Label
+		var no_wrap: bool = potion_name.autowrap_mode == TextServer.AUTOWRAP_OFF and potion_name.get_line_count() == 1
+		var was_playing: bool = (reveal.find_child("RewardBox", true, false) as ChestBox).is_playing_fx()
+		skip.pressed.emit()
+		await _wait()
+		var opened: bool = bool((reveal.find_child("RewardBox", true, false) as ChestBox).opened)
+		_check("受け取りの窓：右上はアイコンだけのスキップ（説明「スキップ」）・押すと箱が開く（%s・演出中 %s → 開いた %s）" % [str(skip_ok), str(was_playing), str(opened)],
+			skip_ok and was_playing and opened)
+		_check("受け取りの窓：大きい宝箱はレア（等級 %d）・名前がその色・ふつうの箱は色なし" % reveal.top_grade(), rare_ok)
+		_check("受け取りの窓：名前は折り返さない（「%s」・%d 行・字 %d）" % [potion_name.text, potion_name.get_line_count(), potion_name.get_theme_font_size(&"font_size")], no_wrap)
+		remove_child(holder)
+		holder.queue_free()
 
 	# --- 一瞬で移る動きを見た目だけ滑らせる（2026-10-16・人間「⚠ 突進や、移動系が一瞬で移動するのが気になる」） ---
 	# ⚠ 中身（当たり判定）は一瞬で動く・⚠ 駒は滑って追いかける。

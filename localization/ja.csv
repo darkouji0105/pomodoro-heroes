@@ -1178,7 +1178,7 @@ ui_training_passive_road,修練の道
 ui_training_skills_heading,持ち込むスキル
 ui_training_basic_heading,通常攻撃
 ui_training_basic_numbers,射程 %d ・ %.1f 秒ごと
-ui_training_passive_heading,パッシブ（いつも効く）
+ui_training_passive_heading,パッシブ
 ui_desc_basic_char_swordsman,近くの敵1体を斬る（攻撃力の170%）
 ui_desc_basic_char_archer,矢を撃つ（攻撃力の100%）
 ui_desc_basic_char_priest,敵全員に光を落とす（1体ずつ魔力の50%）
@@ -1278,7 +1278,7 @@ ui_chest_kind_gift,贈り物
 ui_chest_kind_chest,宝箱
 ui_chest_kind_currency,通貨
 ui_chest_fx_skip_hint,台を押すと飛ばす
-ui_reward_fx_skip_hint,押すと飛ばす
+ui_reward_fx_skip,スキップ
 ui_forge_tab_forge,鍛える
 ui_forge_tab_make,作る
 ui_forge_list,鍛える装備

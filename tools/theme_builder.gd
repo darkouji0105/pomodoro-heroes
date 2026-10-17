@@ -2064,6 +2064,8 @@ static func _build_paper_parts(theme: Theme) -> void:
 	for spec: Dictionary in [
 		{"name": "PaperChoice", "bg": "", "border": TOKEN_INK_SUB, "width": 1},
 		{"name": "PaperChoiceSelected", "bg": TOKEN_PAPER_SELECTED, "border": TOKEN_BRASS_INK, "width": 2},
+		# ⚠ 10-17（見る回・人間「⚠ ポモドーロ設定で、適用されてるものはもっと派手な色に」）：⚠ 効いている値＝真鍮で塗る（⚠ ふつうの「選んでいる」より強い）。
+		{"name": "PaperChoiceApplied", "bg": TOKEN_BRASS, "border": TOKEN_BRASS_INK, "width": 2, "hover": TOKEN_BRASS},
 	]:
 		var type_name: StringName = StringName(str(spec["name"]))
 		theme.set_type_variation(type_name, &"Button")
@@ -2071,7 +2073,7 @@ static func _build_paper_parts(theme: Theme) -> void:
 			var pill: StyleBoxFlat = StyleBoxFlat.new()
 			var bg: String = str(spec["bg"])
 			if state == "hover":
-				bg = TOKEN_PAPER_SELECTED
+				bg = str(spec.get("hover", TOKEN_PAPER_SELECTED))
 			pill.bg_color = Color(0, 0, 0, 0) if (bg == "" or state == "focus") else _html(bg)
 			pill.set_corner_radius_all(PAPER_CHOICE_CORNER)
 			pill.content_margin_left = PAPER_TAB_PAD_H
@@ -2624,6 +2626,11 @@ const CHEST_FX: Dictionary = {
 const CHEST_RIBBON_W: int = 14
 const CHEST_RIBBON_H: int = 30
 const CHEST_RIBBON_INSET: int = 14
+# ⚠ 受け取りの窓（`RewardReveal`・10-17 の見る回）：⚠ 名前は折り返さず、⚠ 入らなければこの大きさまで字を小さく（人間「⚠ 名前はできるだけ折り返さないように」）。
+#   ⚠ レアな札は浮かびきったところで弾む（人間「⚠ レアなものが出たら専用の演出を入れる」）。⚠ 値は設計役の値。
+const CHEST_NAME_MIN_SIZE: int = 14
+const CHEST_RARE_POP_PCT: int = 125
+const CHEST_RARE_POP_MS: int = 450
 
 
 static func _build_chest(theme: Theme) -> void:
@@ -2635,6 +2642,7 @@ static func _build_chest(theme: Theme) -> void:
 		["rise_ms", CHEST_RISE_MS], ["rise_step_ms", CHEST_RISE_STEP_MS], ["rise_px", CHEST_RISE_PX],
 		["currency_icon", CHEST_CURRENCY_ICON], ["band", CHEST_BAND], ["rise_max_steps", CHEST_RISE_MAX_STEPS],
 		["ribbon_w", CHEST_RIBBON_W], ["ribbon_h", CHEST_RIBBON_H], ["ribbon_inset", CHEST_RIBBON_INSET],
+		["name_min_size", CHEST_NAME_MIN_SIZE], ["rare_pop_pct", CHEST_RARE_POP_PCT], ["rare_pop_ms", CHEST_RARE_POP_MS],
 	]:
 		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
 	for fx_name: String in CHEST_FX:
@@ -2993,6 +3001,9 @@ static func _build_task(theme: Theme) -> void:
 		small.content_margin_bottom = 1
 		theme.set_stylebox(StringName(state), &"TaskMoveButton", small)
 	theme.set_font_size(&"font_size", &"TaskMoveButton", SMALL_FONT_SIZE)
+	# ⚠ ドラッグで落とす場所の目印（10-17・見る回・人間「⚠ つまむ乙須が分かんない　目印を出して」・`TaskDrag`）：⚠ 封蝋の色の線・⚠ フォルダは枠。
+	theme.set_color(&"marker", &"TaskDrag", _html(TOKEN_WAX))
+	theme.set_constant(&"marker_px", &"TaskDrag", 3)
 	# ⚠ メモのアイコンの札（2026-10-05・ポモドーロのサイドバー）。⚠ 線画は白1色＝墨を着せる。
 	theme.set_type_variation(&"TaskMemoButton", &"TaskMoveButton")
 	for key: String in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
