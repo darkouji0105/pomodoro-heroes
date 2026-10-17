@@ -15,6 +15,7 @@ var _hp_text: Label = null
 var _res_views: Array = []
 var _res_texts: Array = []
 var _defs: Array = []
+var _chips: StatusChips = null
 
 
 # ⚠ ツリーに入れてから呼ぶ（⚠ Theme を引くため）。
@@ -46,6 +47,23 @@ func setup(defs: Array, rows: int = 0) -> void:
 		_res_texts.append(_add_label(row, "", false))
 	for _i: int in range(maxi(0, rows - defs.size())):
 		_add_label(_make_row(), "", true)
+
+
+# 状態の札の段（10-17・`BT-40`・人間「⚠ 味方のばふでばふを画面の下側から確認できるように詳細も書く」→「⚠ １あ」）。
+# ⚠ 駒の下と同じ札（`StatusChips`）・⚠ マウスを乗せると吹き出し（⚠ 文は describer が作る）。⚠ 1行まで（⚠ 区画の高さをそろえる）。
+# ⚠ 資源の段の下に置く（⚠ 札が無くても段を取る）。
+func add_status_row(describer: Callable) -> void:
+	_chips = StatusChips.new()
+	_chips.name = "PanelStatusChips"
+	_chips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(_chips)
+	_chips.setup(false, 0.0)
+	_chips.set_hoverable(describer, 1)
+
+
+func set_status_entries(entries: Array) -> void:
+	if _chips != null:
+		_chips.set_entries(entries)
 
 
 func set_hp(hp: int, max_hp: int) -> void:

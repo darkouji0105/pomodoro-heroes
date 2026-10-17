@@ -235,6 +235,9 @@ const DASH_FIELD_THROUGH: String = "through"
 const FIELD_PASS: String = "pass"
 # ⚠ コードだけが書く欄（⚠ 撃ったスキルの ID を dash の結果へ運ぶ・データに書いたら赤＝E26）。
 const FIELD_CODE_SKILL_ID: String = "_skill_id"
+# ⚠ コードだけが書く欄（10-17・`BT-40`）：⚠ その効果を出したスキルの ID（⚠ 状態の器が entry の from_skill_id に写す＝下部パネルの吹き出しが名前を引く）。
+# ⚠ `_skill_id`（dash の結果へ運ぶ）とは別にする（⚠ 購読の発火は ID を「状態#react:出来事」に差し替えるため）。
+const FIELD_CODE_FROM_SKILL: String = "_from_skill"
 # 状態のあいだ interval_sec ごとに効果を出す（⚠ buff だけ・撃つのは付けた人）。{"interval_sec": 0.4, "effects": [...]}
 # ⚠ 結果の kind にも使う（⚠ 戦闘の画面が受け取って撃つ）。
 const FIELD_PULSE: String = "pulse"

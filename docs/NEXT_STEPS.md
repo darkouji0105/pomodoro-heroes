@@ -59,7 +59,7 @@
 ✅ ⚠⚠ **回OP-1 塔の宝の階・操作量 A〜D**（10-14・`NAV-27`・§0-OP-1）
 ✅ ⚠⚠ **見る回27回目の手直し 9 件**（10-16・§0-SEE-27）
 ✅ ⚠⚠ **見る回28回目の手直し 5 件**（10-17・§0-SEE-28）
-【次】⚠⚠ **回SEE-28b 味方のバフ・デバフの詳細を下部パネルに**（10-17・人間「⚠ １あ」＝⚠ 札＋マウスを乗せると吹き出し・`BT-40`）＝⚠ **引き継ぎは §0-SEE-28b**（⚠ 会話が長くなったので次のセッションで・人間「⚠ 次のセッションでできるようにしたい」）
+✅ ⚠⚠ **回SEE-28b 味方のバフ・デバフの詳細を下部パネルに**（10-17・`BT-40`・§0-SEE-28b）
 ✅ ⚠⚠ **回PT-1 ペルソナ10人×7日のテストプレイ**（10-14・§0-PT-1・⚠ コードは触っていない）
 ✅ ⚠⚠ **回QOL-1 100ループのテストプレイ → QOL 5件**（10-12・`NAV-26`・§0-QOL-1）
 【次】⚠⚠ **人間が次にやることを考えている**（10-12・人間「⚠ 次何するか考える」）
@@ -137,22 +137,18 @@
 
 ---
 
-## 0-SEE-28b. ⏳ **味方のバフ・デバフの詳細を下部パネルに（次のセッション）**　⚠ `BT-40`
+## 0-SEE-28b. ✅ **味方のバフ・デバフの詳細を下部パネルに（2026-10-17）**　⚠ `BT-40`
 
-⚠ 人間：「⚠ 味方のばふでばふを画面の下側から確認できるように詳細も書く」→ 案 あ／い のうち「⚠ １あ」（10-17）。
+⚠ 人間：「⚠ 味方のばふでばふを画面の下側から確認できるように詳細も書く」→ 案 あ／い のうち「⚠ １あ」→ ⚠ セッションの最初に聞いた「付けたスキルの名前を出すか」は「⚠ ホバーするとつけたスキルの名前も出る」。
 
-- ⚠ **決まったこと（あ）**：⚠ 下部パネルの各キャラの区画（`PanelStatusStrip` の HP の帯の下）に、⚠ 駒の下と同じ札（`StatusChips`）を並べる ／ ⚠ 札に**マウスを乗せると吹き出し**で詳細（⚠ 効果の文・残り秒）
-- ⚠ **今のコード（10-17 に読んだ）**
-	- ⚠ 下部パネルの区画は `battle_controller.gd` の `_build_skill_buttons` 付近（`PanelStatusStrip.new()` → `strip.setup()`）。⚠ 毎フレームの更新は `_update_bottom_panel()`（HP と資源）／ 駒の札は `_update_status_chips()` が `_status.entries_for(u.unit_id)` を `UnitView.set_status_entries()` へ
-	- ⚠ `StatusChips` は ⚠ **札が入力を受けない**（`MOUSE_FILTER_IGNORE`・⚠ 駒の下ではスキルボタンの邪魔をしないため）＝⚠ パネル用は札を押せる（乗せられる）形に切り替える口が要る ／ ⚠ 札の字は `ui_status_ch_<status_id>`（1文字）・色は `tone_of()`・同じ状態は `_group_same()` でまとめる（`chip_members` に中身）・残りの膜は `_update_shades()`
-	- ⚠⚠ **状態には名前も説明も無い**。⚠ entry の欄（`status_registry.gd` `_make_entry()`・`_fill_buff()`・`_fill_dot()`）：`status_id` `kind`（buff／dot／react）`duration_sec` `elapsed` `life` `source_unit_id` `stack` ／ buff＝`stat` `value`・割合 `stat_pct`・`atk_mult_pct` `heal_taken_pct`・介入 `reduction_pct` `pierce_pct` `reflect_pct` `reflect_flat` `shield_hp`・`control`（止める類）・`on_death`（復活）・`block_status`・`miss_pct` ／ dot＝`damage_effect` `interval_sec` `fires_total` `heals` ／ `is_debuff` `keep_on_dispel` `active`（条件）
-	- ⚠ **どのスキルで付いたかは entry に無い**（⚠ `StatusRegistry.add(effect, source, host_unit, session)` にスキルの ID が来ない）
-- ⚠ **作るもの（案）**
-	1. ⚠ **状態 → 文**の汎用の1本（⚠ 例 `scripts/systems/status_text.gd` の `StatusText.describe(entry) -> Array[String]`）：⚠ 欄ごとに1行（「攻撃 +20%」「受けるダメージ −30%」「毎 1.0 秒 ◯ダメージ」「動けない」「倒れたら起き上がる」…）・⚠ 文言は `ja.csv`（`ui_status_line_*`）・⚠ 欄の名前（攻撃・防御…）は既存の能力値の鍵を使い回す ／ ⚠ 残り秒は `duration_sec − elapsed`（⚠ 長さ無し・9999 以上は「戦闘中ずっと」）／ ⚠ まとめた札は件数（×N）
-	2. ⚠ `StatusChips` に「乗せられる」切り替え（⚠ 駒の下は今のまま IGNORE）＋ ⚠ 吹き出し（⚠ Godot の `tooltip_text` か `_make_custom_tooltip()`・⚠ 残り秒が動くので毎フレームの文を返す形）
-	3. ⚠ `PanelStatusStrip` に札の段を足す（⚠ 3人の区画の高さをそろえる＝⚠ 札が無くても段を取る）
-- ⚠ **聞いてから決めること（⚠ 次のセッションの最初に）**：⚠ 吹き出しに**付けたスキルの名前**を出すか（⚠ 出すなら `add()` まで skill_id を通す配線が要る＝⚠ 呼び出し元を全部 grep。⚠ 出さないなら付けた人の名前は `source_unit_id` から引ける）
-- ⚠ **終わりの合図**：⚠ ログ＝`ui_flow` に手（⚠ パネルの区画に札が出る・`describe()` が buff／dot／止める／復活で空でない文を返す・残り秒が減る）・0 落ちた ／ ⚠ `char_resource` 赤 0 ／ ⚠ 画面＝`shot` に1枚（⚠ 下部パネルに札が並んだ戦闘・⚠ 吹き出しは撮れるなら）／ ⚠ 人間＝`HUMAN_CHECK.md` #34（⚠ 吹き出しの読みやすさ・気づけるか）
+- ⚠ **入ったもの**（⚠ 値は `DECISIONS.md` `BT-40`）
+	- ⚠ 下部パネルの各キャラの区画（⚠ HP・資源の下）に駒の下と同じ札を1行（`PanelStatusStrip.add_status_row()`）。⚠ 札に**マウスを乗せると吹き出し**（`StatusChips.set_hoverable()`・札は `ChipBox`・中身は `LiveTooltip`＝出ている間も毎フレーム文を組み直す）。⚠ 駒の下の札は今までどおり入力を受けない
+	- ⚠ **状態 → 文**の汎用の1本 `scripts/systems/status_text.gd`（`StatusText.describe_group()`・`describe()`）。⚠ 文言は `ja.csv` の `ui_status_line_*`（45 行）・⚠ 能力値の名前は `ui_training_stat_*` を使い回す
+	- ⚠ **付けたスキル**：⚠ `SkillRuntime._fire()` が効果に印 `_from_skill`（`SkillSchema.FIELD_CODE_FROM_SKILL`）を付け、⚠ `StatusRegistry.add()` が entry の `from_skill_id` に写す。⚠ 状態から撃ち直す効果（購読・たまったら・そろったら・スキルが当たったら・◯秒ごと）は `StatusRegistry.tag_from_skill()` で元のスキルの印を持って行く。⚠ 引けないもの（ルーン・召喚・検査で直に付けたもの）は見出しが「付けた人 から」
+	- ⚠ **ついでに直したもの（⚠ 吹き出しと同じ道なので）**：⚠ 札は器の辞書を握っていたが、⚠ refresh の重ねがけは器の中で**辞書ごと置き換わる**（⚠ instance_id は同じ＝札は組み直されない）＝⚠ 掛け直したあと**残りの膜が止まっていた**はず。⚠ 札は instance_id だけを持ち、毎フレーム器の本物を引き直す形にした（`StatusChips._live`・`_members_of()`）
+- ⚠ **検査**：⚠ `ui_flow` 通った 584 ／ 落ちた 0 ／ 赤 0（⚠ 足した手 `_flow_panel_status`＝強撃を本物の SkillRuntime から撃って `from_skill_id`・区画に札・パネルは入力を受け駒の下は受けない・吹き出し（`_make_custom_tooltip()`）に「強撃（剣士）」「攻撃 +6」「残り」・残り秒が 7.95 → 7.44 に減る・毒／止める／復活の文が「効果あり」に落ちない）／ ⚠ `char_resource` 赤 0 ／ ⚠ 絵 `97b_panel_status`（⚠ 設計役が見た＝区画に札・弓兵に赤い札・**Godot の本物の吹き出し**「恵み（僧侶）／きっかけがあると効果が出る／戦闘中ずっと」が写った）
+- ⚠ **人間に残したもの**：⚠ `HUMAN_CHECK.md` #34（⚠ 吹き出しの読みやすさ・出るまでの間・スキルボタンを隠さないか）
+- ⚠ **残り**：⚠ 購読（react）の文は「きっかけがあると効果が出る」の汎用（⚠ 出来事ごとの文にするなら `ui_status_line_react_<event>`）／ ⚠ 継続ダメージの量は出していない（⚠ 秒ごとだけ）／ ⚠ 吹き出しは Godot の既定の見た目（⚠ Theme に `TooltipPanel` を足すなら theme_builder）
 
 ---
 

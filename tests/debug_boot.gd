@@ -112,6 +112,8 @@ const SHOT_AFTER_BATTLE_DEBUFF: String = "battle_debuff"
 const SHOT_AFTER_BATTLE_PIERCE: String = "battle_pierce"
 # ⚠ ショットガンの扇形（2026-10-16）。⚠ 一瞬なので長めに光らせて撮る。
 const SHOT_AFTER_BATTLE_FAN: String = "battle_fan"
+# ⚠ 下部パネルの札と吹き出し（2026-10-17・`BT-40`）。
+const SHOT_AFTER_BATTLE_PANEL_STATUS: String = "battle_panel_status"
 # ⚠ 育成のスキルタブを一番下まで送る（2026-10-16・通常攻撃とパッシブの欄）。
 const SHOT_AFTER_SKILLS_BOTTOM: String = "skills_bottom"
 # ⚠ 王女（回PQ-1）：⚠ 王女を1番目に入れる（⚠ 内側の `PREPARE_PRINCESS_PARTY` と同じ字）。
@@ -2231,6 +2233,17 @@ const SCENARIOS: Dictionary = {
 				"scene": SCENE_BATTLE,
 				"prepare": SHOT_PREPARE_ZEALOT_PARTY,
 				"after": SHOT_AFTER_BATTLE_DEBUFF,
+				"data": {
+					TransferKeys.STAGE_ID: "stage_dbg_area",
+					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+				},
+				"settle": 60,
+			},
+			# ⚠ 下部パネルの札と吹き出し（2026-10-17・`BT-40`）。
+			{
+				"name": "97b_panel_status",
+				"scene": SCENE_BATTLE,
+				"after": SHOT_AFTER_BATTLE_PANEL_STATUS,
 				"data": {
 					TransferKeys.STAGE_ID: "stage_dbg_area",
 					TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
@@ -13452,6 +13465,7 @@ class ShotTaker extends Node:
 	const AFTER_BATTLE_DEBUFF: String = "battle_debuff"
 	const AFTER_BATTLE_PIERCE: String = "battle_pierce"
 	const AFTER_BATTLE_FAN: String = "battle_fan"
+	const AFTER_BATTLE_PANEL_STATUS: String = "battle_panel_status"
 	const AFTER_SKILLS_BOTTOM: String = "skills_bottom"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
 	const AFTER_LEVEL_UP_PRESS: String = "level_up_press"
@@ -14050,6 +14064,37 @@ class ShotTaker extends Node:
 				(miss_view as UnitView).pop_miss()
 			for _i: int in range(10):
 				await get_tree().process_frame
+		elif kind == AFTER_BATTLE_PANEL_STATUS:
+			# ⚠ 味方に本物のスキルで状態を付ける（⚠ 1番目＝強撃・自分に攻撃）＋ ⚠ 2番目に毒と目くらまし（⚠ 赤い札）。
+			var panel_runtime: SkillRuntime = screen.get("_skill_runtime") as SkillRuntime
+			panel_runtime.cast(me, "skill_power_slash", MasterDataLoader.get_skill("skill_power_slash"), 1.0)
+			if session.party_units.size() > 1 and not session.enemy_units.is_empty():
+				var ally: BattleUnit = session.party_units[1] as BattleUnit
+				for sid: String in ["poison", "blind"]:
+					var bad: Dictionary = (MasterDataLoader._cache_statuses[sid] as Dictionary).duplicate(true)
+					bad["type"] = str(bad.get("kind", ""))
+					bad.erase("kind")
+					bad["host"] = SkillSchema.HOST_UNIT
+					bad["status_id"] = sid
+					registry.add(bad, session.enemy_units[0] as BattleUnit, ally, session)
+			for _i: int in range(10):
+				await get_tree().process_frame
+			# ⚠ 吹き出し：⚠ 1番目の区画の札にマウスを置いて待つ（⚠ Godot の本物の吹き出し）。
+			var slot: Dictionary = (screen.get("_panel_slots_by_unit_id") as Dictionary).get(me.unit_id, {}) as Dictionary
+			var strip: Node = slot.get("strip", null) as Node
+			var chip: Control = null
+			if strip != null:
+				for n: Node in strip.find_children("*", "ColorRect", true, false):
+					if n is StatusChips.ChipBox:
+						chip = n as Control
+						break
+			if chip != null:
+				get_viewport().warp_mouse(chip.get_global_rect().get_center())
+				var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+				motion.position = chip.get_global_rect().get_center()
+				motion.global_position = motion.position
+				Input.parse_input_event(motion)
+			await get_tree().create_timer(1.2).timeout
 		elif kind == AFTER_BATTLE_FAN:
 			# ⚠ 敵2体を前へ寄せ、⚠ 本物の口（`_flash_front_area()`）で扇形を光らせる（⚠ 撮るために 5 秒）。
 			var near_foes: Array = session.enemy_units.slice(0, 2)
@@ -14093,7 +14138,7 @@ class ShotTaker extends Node:
 			# ⚠ `call()` で呼ぶ。⚠ `Node` 型の変数から直に呼ぶと**静的解析で通らない**
 			#   （⚠ `dungeon_map.gd` に `class_name` が無いため）。
 			screen.call("_open_loot_overlay", node_id, false)
-		elif kind in [AFTER_BATTLE_EVADE, AFTER_BATTLE_AIM, AFTER_BATTLE_SUMMON, AFTER_BATTLE_HOLY, AFTER_BATTLE_DEBUFF, AFTER_BATTLE_PIERCE, AFTER_BATTLE_ZONES, AFTER_BATTLE_FAN]:
+		elif kind in [AFTER_BATTLE_EVADE, AFTER_BATTLE_AIM, AFTER_BATTLE_SUMMON, AFTER_BATTLE_HOLY, AFTER_BATTLE_DEBUFF, AFTER_BATTLE_PIERCE, AFTER_BATTLE_ZONES, AFTER_BATTLE_FAN, AFTER_BATTLE_PANEL_STATUS]:
 			# ⚠ 戦闘の途中（2026-10-10）。⚠ 表示は本物の口（結果の表示・溜めのボタン）を通す。
 			if not await _after_battle(kind, screen, shot_name):
 				return false
@@ -18134,6 +18179,7 @@ class UiFlowRunner extends Node:
 		await _flow_slide_on_jump()
 		await _flow_task_drag()
 		await _flow_see_28()
+		await _flow_panel_status()
 
 
 	# --- タスクのドラッグ（2026-10-16・人間「⚠ タスクは、ドラッグで移動させられるように」→「⚠ 並べ替え＋フォルダへ移す」） ---
@@ -18196,6 +18242,118 @@ class UiFlowRunner extends Node:
 		for id: String in [a_id, b_id, c_id]:
 			var _gone: bool = GameManager.delete_task(id)
 		await _open(BASE, {})
+
+	# --- 味方のバフ・デバフを下部パネルで（2026-10-17・`BT-40`・人間「⚠ １あ」「⚠ ホバーするとつけたスキルの名前も出る」） ---
+	# ⚠ 本物の SkillRuntime からスキルを撃ち、⚠ 区画の札・吹き出しの文・付けたスキルの名前・残り秒を見る。⚠ マウスを乗せる手触りは人間。
+
+	func _flow_panel_status() -> void:
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		var _started: bool = GameManager.start_floor("floor_1")
+		var node_id: String = ""
+		var nodes: Dictionary = GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_NODES, {})
+		for raw_id: Variant in nodes:
+			if str((nodes[raw_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+				node_id = str(raw_id)
+				break
+		var b: Node = await _open(BATTLE, {
+			TransferKeys.STAGE_ID: "floor_1", TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY, TransferKeys.FLOOR_NODE_ID: node_id,
+		})
+		var session: BattleSession = null if b == null else b.get("_session") as BattleSession
+		if session == null or session.party_units.is_empty():
+			_check("下部パネルの札：戦闘が開いた", false)
+			return
+		var registry: StatusRegistry = b.get("_status") as StatusRegistry
+		var runtime: SkillRuntime = b.get("_skill_runtime") as SkillRuntime
+		var me: BattleUnit = session.party_units[0] as BattleUnit
+		# ⚠ 敵は開いてから出てくる（⚠ 最初の波）。
+		for _i: int in range(120):
+			if not session.enemy_units.is_empty():
+				break
+			await get_tree().process_frame
+		if session.enemy_units.is_empty():
+			_check("下部パネルの札：敵が出た", false)
+			return
+		# 1. 本物のスキル（強撃＝自分に攻撃 +6）を撃つ → 器の件に付けたスキルの ID。
+		runtime.cast(me, "skill_power_slash", MasterDataLoader.get_skill("skill_power_slash"), 1.0)
+		for _i: int in range(5):
+			await get_tree().process_frame
+		var buff: Dictionary = {}
+		for raw: Variant in registry.entries_for(me.unit_id):
+			if str((raw as Dictionary).get("status_id", "")) == "status_power_slash_atk_up":
+				buff = raw as Dictionary
+		_check("下部パネルの札：強撃の状態に付けたスキルの ID（from_skill_id=%s）" % str(buff.get("from_skill_id", "")),
+			str(buff.get("from_skill_id", "")) == "skill_power_slash")
+		# 2. 区画の札（⚠ 本物の区画の StatusChips の中の ChipBox）。
+		var slot: Dictionary = (b.get("_panel_slots_by_unit_id") as Dictionary).get(me.unit_id, {}) as Dictionary
+		var strip: Node = slot.get("strip", null) as Node
+		var chips: Node = null if strip == null else strip.find_child("PanelStatusChips", true, false)
+		var boxes: Array = [] if chips == null else chips.find_children("*", "ColorRect", true, false).filter(
+			func(n: Node) -> bool: return n is StatusChips.ChipBox)
+		_check("下部パネルの札：区画に札が出る（%d 枚）" % boxes.size(), boxes.size() >= 1)
+		var hover_ok: bool = not boxes.is_empty() and (boxes[0] as Control).mouse_filter != Control.MOUSE_FILTER_IGNORE \
+			and (boxes[0] as Control).tooltip_text != ""
+		_check("下部パネルの札：マウスを受ける（駒の下は受けない）", hover_ok and _unit_view_chips_ignore(b, me.unit_id))
+		# 3. 吹き出し（⚠ Godot が呼ぶ本物の口 `_make_custom_tooltip()`）。⚠ 見出しにスキルの名前と付けた人。
+		var tip: Label = null
+		for box: Variant in boxes:
+			if (box as StatusChips.ChipBox).ids.has(int(buff.get("instance_id", -1))):
+				tip = (box as StatusChips.ChipBox)._make_custom_tooltip(" ") as Label
+		var tip_text: String = "" if tip == null else tip.text
+		print("[DebugBoot] 下部パネルの吹き出し：\n%s" % tip_text)
+		_check("下部パネルの札：吹き出しにスキルの名前「%s」・付けた人・攻撃 +6・残り秒" % tr("ui_battle_skill_power_slash"),
+			tip_text.contains(tr("ui_battle_skill_power_slash")) and tip_text.contains(tr(me.unit_name_key))
+			and tip_text.contains(tr("ui_training_stat_atk") + " +6") and tip_text.contains("残り"))
+		# 4. 残り秒が減る（⚠ 器の本物の経過で）。
+		var left_before: float = StatusText._left_sec(buff)
+		await get_tree().create_timer(0.5).timeout
+		var left_after: float = StatusText._left_sec(registry.entries_for(me.unit_id).filter(
+			func(e: Dictionary) -> bool: return str(e.get("status_id", "")) == "status_power_slash_atk_up")[0])
+		_check("下部パネルの札：残り秒が減る（%.2f → %.2f）" % [left_before, left_after], left_after < left_before - 0.2)
+		if tip != null:
+			tip.free()
+		# 5. 種類ごとの文（⚠ 継続ダメージ・止める・復活）。⚠ 「効果あり」に落ちない。
+		var foe: BattleUnit = session.enemy_units[0] as BattleUnit
+		var poison: Dictionary = (MasterDataLoader._cache_statuses["poison"] as Dictionary).duplicate(true)
+		poison["type"] = str(poison.get("kind", ""))
+		poison.erase("kind")
+		poison["host"] = SkillSchema.HOST_UNIT
+		poison["status_id"] = "poison"
+		registry.add(poison, me, foe, session)
+		registry.add({"type": SkillSchema.EFFECT_BUFF, "host": SkillSchema.HOST_UNIT, "status_id": "st_flow_stun",
+			"duration_sec": 3.0, "stack": "refresh", SkillSchema.BUFF_CONTROL: SkillSchema.CONTROL_STUN}, me, foe, session)
+		registry.add({"type": SkillSchema.EFFECT_BUFF, "host": SkillSchema.HOST_UNIT, "status_id": "st_flow_revive",
+			"duration_sec": 9999.0, "stack": "refresh",
+			SkillSchema.BUFF_INTERVENE: {SkillSchema.BUFF_ON_DEATH: {"revive_hp_ratio": 0.5}}}, me, me, session)
+		var unknown: String = tr("ui_status_line_unknown")
+		for want: Array in [["poison", foe, "ui_status_line_dot_damage"], ["st_flow_stun", foe, "ui_status_line_control_stun"],
+				["st_flow_revive", me, "ui_status_line_revive"]]:
+			var lines: Array[String] = []
+			for raw: Variant in registry.entries_for((want[1] as BattleUnit).unit_id):
+				if str((raw as Dictionary).get("status_id", "")) == str(want[0]):
+					lines = StatusText.describe(raw as Dictionary)
+			# ⚠ 文言の「%s」でない側のいちばん長いかけらが入っているか。
+			var piece: String = ""
+			for part: String in tr(str(want[2])).split("%s"):
+				if part.strip_edges().length() > piece.length():
+					piece = part.strip_edges()
+			_check("下部パネルの札：%s の文（%s）" % [want[0], " / ".join(lines)],
+				not lines.is_empty() and not (unknown in lines) and " ".join(lines).contains(piece))
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		await _open(BASE, {})
+
+
+	# 駒の下の札は入力を受けない（⚠ スキルボタンの邪魔をしない）。
+	func _unit_view_chips_ignore(b: Node, unit_id: String) -> bool:
+		var view: Node = (b.get("_views_by_unit_id") as Dictionary).get(unit_id, null)
+		if view == null:
+			return false
+		for n: Node in view.find_children("*", "ColorRect", true, false):
+			if n is StatusChips.ChipBox and (n as Control).mouse_filter != Control.MOUSE_FILTER_IGNORE:
+				return false
+		return true
+
 
 	# --- 見る回28の手直し（2026-10-17・`NAV-29` `NAV-30` `TK-20` `GR-8`） ---
 

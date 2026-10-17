@@ -167,6 +167,8 @@ func add(
 
 	# --- 6. 種類ごとの欄 ---
 	var entry: Dictionary = _make_entry(kind, host, status_id, stack, life, duration_sec, source, host_unit)
+	# 付けたスキル（10-17・`BT-40`）。⚠ 印の無い経路（召喚・検査）は空のまま。
+	entry["from_skill_id"] = str(effect.get(SkillSchema.FIELD_CODE_FROM_SKILL, ""))
 	# 上限は種類（buff / dot / react）に関係なく効くので、_fill_* ではなくここで写す。
 	# ⚠ ロード時検証 E69 が independent に必須・E70 が refresh に禁止を見ている。
 	if effect.has(SkillSchema.FIELD_MAX_STACK):
@@ -347,7 +349,7 @@ func _check_stack(host_unit: BattleUnit, entry: Dictionary) -> void:
 	if source == null:
 		return
 	var results: Array = []
-	for raw: Variant in (on_stack.get("effects", []) as Array):
+	for raw: Variant in tag_from_skill(on_stack.get("effects", []) as Array, str(entry.get("from_skill_id", ""))):
 		if raw is Dictionary:
 			var fired: Array = SkillResolver.resolve({"effects": [raw]}, source, _session, [host_unit.unit_id], self)
 			BattleLog.log_results(fired, source.unit_id)
@@ -378,7 +380,7 @@ func _check_meet(host_unit: BattleUnit) -> void:
 		if source == null:
 			return
 		var results: Array = []
-		for raw: Variant in (meet.get("effects", []) as Array):
+		for raw: Variant in tag_from_skill(meet.get("effects", []) as Array, str(entry.get("from_skill_id", ""))):
 			if raw is Dictionary:
 				var fired: Array = SkillResolver.resolve({"effects": [raw]}, source, _session, [host_id], self)
 				BattleLog.log_results(fired, source.unit_id)
@@ -496,7 +498,7 @@ func trigger_skill_hit(host_id: String) -> void:
 			if absf((raw as BattleUnit).x - host.x) <= float(osh.get("radius", 0.0)):
 				ids.append((raw as BattleUnit).unit_id)
 		var results: Array = []
-		for raw_eff: Variant in (osh.get("effects", []) as Array):
+		for raw_eff: Variant in tag_from_skill(osh.get("effects", []) as Array, str(entry.get("from_skill_id", ""))):
 			if raw_eff is Dictionary:
 				var fired: Array = SkillResolver.resolve({"effects": [raw_eff]}, source, _session, ids, self)
 				BattleLog.log_results(fired, source.unit_id)
@@ -585,6 +587,8 @@ func _make_entry(
 		"host_unit_id": host_unit.unit_id if host_unit != null else "",
 		"host_x": host_x,
 		"source_unit_id": source.unit_id,
+		# 付けたスキルの ID（10-17・`BT-40`）。⚠ 持たない件にも持たせる（"active" の注記と同じ）。
+		"from_skill_id": "",
 		"stack": stack,
 		# independent の上限（PLAN 13-2）。⚠ refresh の件にも 0 で必ず持たせる。
 		#   持たない件があると query() が黙って外す（"active" と同じ理由）。
@@ -1540,7 +1544,7 @@ func _fire_pulses(results: Array) -> void:
 				"source_unit_id": str(entry.get("source_unit_id", "")),
 				"host_unit_id": str(entry.get("host_unit_id", "")),
 				"status_id": str(entry.get("status_id", "")),
-				"effects": (pulse.get("effects", []) as Array).duplicate(true),
+				"effects": tag_from_skill((pulse.get("effects", []) as Array).duplicate(true), str(entry.get("from_skill_id", ""))),
 				SkillSchema.PULSE_FIELD_FROM: str(pulse.get(SkillSchema.PULSE_FIELD_FROM, "")),
 			})
 
@@ -2054,6 +2058,21 @@ func consume_shield(unit_id: String, amount: int) -> int:
 
 # 状態のマスが赤い（デバフ）か（回CH-7）。⚠ マスの色（StatusChips.tone_of）と解除がここを使う＝判定は1本。
 # ⚠ 復活・シールドだけの件は赤にならない（⚠ tone_of が先に弾く）。
+# 状態から撃つ効果に「付けたスキル」の印を写す（10-17・`BT-40`）。⚠ 写しを返す（⚠ entry の中の配列を書き換えない）。
+# ⚠ 印がもうある効果は触らない（⚠ 元のスキルのまま）。⚠ skill_id が空なら写しだけ。
+static func tag_from_skill(effects: Array, skill_id: String) -> Array:
+	var out: Array = []
+	for raw: Variant in effects:
+		if not (raw is Dictionary):
+			out.append(raw)
+			continue
+		var copy: Dictionary = (raw as Dictionary).duplicate()
+		if skill_id != "" and not copy.has(SkillSchema.FIELD_CODE_FROM_SKILL):
+			copy[SkillSchema.FIELD_CODE_FROM_SKILL] = skill_id
+		out.append(copy)
+	return out
+
+
 static func is_debuff_entry(entry: Dictionary) -> bool:
 	if str(entry.get("kind", "")) == KIND_DOT and not bool(entry.get("heals", false)):
 		return true

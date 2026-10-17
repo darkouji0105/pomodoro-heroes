@@ -473,6 +473,10 @@ func _fire(entry: Dictionary) -> void:
 		one_effect["_basic"] = true
 		# ⚠ 回MG-1：その1回の通常攻撃の番号（⚠ 追加ダメージ・爆発も同じ番号＝「次の通常攻撃で受ける」がまとめて効く）。
 		one_effect["_basic_cast"] = int(entry.get("cast_id", 0))
+	# 付けたスキル（10-17・`BT-40`・下部パネルの吹き出し）。⚠ 状態から撃ち直した効果は元のスキルの印を持って来る＝上書きしない。
+	if not one_effect.has(SkillSchema.FIELD_CODE_FROM_SKILL):
+		one_effect = one_effect.duplicate()
+		one_effect[SkillSchema.FIELD_CODE_FROM_SKILL] = str(entry.get("skill_id", ""))
 	var one: Dictionary = { "effects": [one_effect] }
 	var results: Array = SkillResolver.resolve(one, user, _session, entry.get("target_ids", []), _registry)
 
@@ -680,7 +684,7 @@ func _notify(event_name: String, host_unit_id: String, source_unit_id: String, a
 		# ⚠ 専用の発火関数を作らない（PLAN 6-5）。既存の cast() から入る。
 		#   印を付けて渡すので、ここから生まれた行動はさらなる反応を生まない。
 		cast(
-			host, react_skill_id, { "effects": (effects as Array).duplicate(true) }, 1.0, [],
+			host, react_skill_id, { "effects": StatusRegistry.tag_from_skill((effects as Array).duplicate(true), str(sub.get("from_skill_id", ""))) }, 1.0, [],
 			{ "source_unit_id": source_unit_id, "from_reaction": true }
 		)
 

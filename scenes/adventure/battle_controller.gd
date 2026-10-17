@@ -1802,6 +1802,8 @@ func _build_skill_buttons() -> void:
 		strip.setup((unit as BattleUnit).resource_defs, max_resource_rows)
 		strip.set_hp(unit.hp, unit.max_hp)
 		strip.set_resources((unit as BattleUnit).resource_defs, (unit as BattleUnit).resources)
+		# ⚠ 資源の下に状態の札（10-17・`BT-40`）。⚠ 札は `_update_status_chips()` が配る。
+		strip.add_status_row(_describe_status_chip)
 
 		var row: HBoxContainer = HBoxContainer.new()
 		row.theme_type_variation = &"BattleFaceRow"
@@ -2079,11 +2081,21 @@ func _update_status_chips() -> void:
 			continue
 		var u: BattleUnit = unit as BattleUnit
 		var entries: Array = _status.entries_for(u.unit_id)
+		# ⚠ 下部パネルの区画にも同じ札（10-17・`BT-40`）。⚠ 引く先は器の1本だけ（⚠ ここで2回引かない）。
+		if _panel_slots_by_unit_id.has(u.unit_id):
+			var strip: Variant = (_panel_slots_by_unit_id[u.unit_id] as Dictionary).get("strip", null)
+			if strip is PanelStatusStrip and is_instance_valid(strip):
+				(strip as PanelStatusStrip).set_status_entries(entries)
 		if not _views_by_unit_id.has(u.unit_id):
 			continue
 		var view: Node = _views_by_unit_id[u.unit_id]
 		if is_instance_valid(view) and view.has_method("set_status_entries"):
 			view.set_status_entries(entries)
+
+
+# 下部パネルの札の吹き出しの文（10-17・`BT-40`）。⚠ 文の組み立ては `StatusText` の1本。
+func _describe_status_chip(members: Array) -> String:
+	return StatusText.describe_group(members, _session)
 
 
 # 下部パネルの残量と戦闘不能（2026-09-16・モック §6）。

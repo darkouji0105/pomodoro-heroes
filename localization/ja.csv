@@ -2127,3 +2127,48 @@ ui_battle_panel_hp,HP
 ui_status_ch_st_revive_wait_invulnerable,蘇
 ui_status_ch_st_revive_wait_stun,眠
 ui_status_ch_st_revive_wait_stealth,隠
+ui_status_line_header,%s（%s）
+ui_status_line_from_unit,%s から
+ui_status_line_basic_attack_name,通常攻撃
+ui_status_line_stacks,%s 個 重なっている
+ui_status_line_inactive,（いまは条件を満たしていない）
+ui_status_line_left_sec,残り %s 秒
+ui_status_line_endless,戦闘中ずっと
+ui_status_line_until_basic,次の通常攻撃まで
+ui_status_line_until_charge,溜め終わるまで
+ui_status_line_unknown,効果あり
+ui_status_line_stat_varies,%s が状況で変わる
+ui_status_line_dot_damage,%s 秒ごとにダメージ
+ui_status_line_dot_heal,%s 秒ごとに回復
+ui_status_line_react,きっかけがあると効果が出る
+ui_status_line_control_stun,動けない
+ui_status_line_control_snare,移動できない
+ui_status_line_control_invulnerable,無敵
+ui_status_line_control_unstoppable,止められない
+ui_status_line_control_stealth,狙われない
+ui_status_line_control_airborne,宙に浮いている
+ui_status_line_miss,攻撃が %s 外れる
+ui_status_line_atk_mult,与えるダメージ %s
+ui_status_line_heal_taken,受ける回復 %s
+ui_status_line_reduction,受けるダメージ −%s
+ui_status_line_pierce,防御を %s 無視
+ui_status_line_reflect_pct,受けたダメージの %s を返す
+ui_status_line_reflect_flat,受けるたびに %s ダメージを返す
+ui_status_line_shield,シールド 残り %s
+ui_status_line_crit_always,必ず会心
+ui_status_line_drain,与えたダメージの %s を吸収
+ui_status_line_taken_from_source,付けた相手から受けるダメージ %s
+ui_status_line_dot_taken,継続ダメージで受ける量 %s
+ui_status_line_basic_taken,通常攻撃で受けるダメージ %s
+ui_status_line_bonus_per_dot,相手の継続ダメージ1つにつき与えるダメージ %s
+ui_status_line_bonus_vs,特定の状態の相手に与えるダメージ %s
+ui_status_line_block_status,一部の状態を受けない
+ui_status_line_revive,倒れたら HP %s で起き上がる
+ui_status_line_basic_attack,通常攻撃が変わる
+ui_status_line_basic_extra,通常攻撃に効果が上乗せ
+ui_status_line_uses,あと %s 回
+ui_status_line_pulse,%s 秒ごとに効果が出る
+ui_status_line_evade,攻撃を避けて反撃する
+ui_status_line_on_meet,別の状態とそろうと効果が出る
+ui_status_line_on_stack,%s 個たまると効果が出る
+ui_status_line_on_skill_hit,スキルが当たると周りに効果が出る

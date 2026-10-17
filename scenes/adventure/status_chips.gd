@@ -35,6 +35,15 @@ var _max_px: float = 0.0
 # ⚠ 箱は上へ伸びる（⚠ 2行目が HP の帯や駒に重ならない）。
 const MAX_ROWS: int = 2
 
+# 下部パネル用（10-17・`BT-40`）：⚠ 札にマウスを乗せると吹き出し。⚠ 空なら今までどおり入力を受けない（⚠ 駒の下）。
+# ⚠ 文はこのノードが作らない（⚠ 器を知らないため）＝外から渡す `describer(members: Array) -> String`。
+var _describer: Callable = Callable()
+var _max_rows: int = MAX_ROWS
+var _line_align: BoxContainer.AlignmentMode = BoxContainer.ALIGNMENT_CENTER
+# いま器にある件（instance_id → 器の本物）。⚠ 毎フレーム差し替える。
+# ⚠ refresh の重ねがけは器の中で辞書ごと置き換わる（⚠ instance_id は同じ＝組み直さない）。⚠ 札が古い辞書を握ると、膜と残り秒が止まる。
+var _live: Dictionary = {}
+
 
 func setup(_is_vertical: bool, max_px: float) -> void:
 	vertical = true
@@ -47,10 +56,42 @@ func setup(_is_vertical: bool, max_px: float) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
+# 下部パネル用の切り替え（10-17・`BT-40`）。⚠ setup() のあとに呼ぶ。
+# ⚠ 1行の幅は自分の幅（⚠ 区画の幅は組み立てた時点で決まっていない＝広がったら組み直す）。⚠ 行は左から。
+func set_hoverable(describer: Callable, max_rows: int) -> void:
+	_describer = describer
+	_max_rows = maxi(1, max_rows)
+	_line_align = BoxContainer.ALIGNMENT_BEGIN
+	alignment = BoxContainer.ALIGNMENT_BEGIN
+	# ⚠ 札が無くても1行ぶんの高さを取る（⚠ 3人の区画の高さをそろえる）。
+	custom_minimum_size.y = float(Balance.adventure.status_chip_size_large_px) * float(_max_rows) \
+		+ float(Balance.adventure.status_chip_separation_px) * float(_max_rows - 1)
+	if not resized.is_connected(_on_resized):
+		resized.connect(_on_resized)
+
+
+func _on_resized() -> void:
+	if absf(size.x - _max_px) < 1.0:
+		return
+	_max_px = size.x
+	_signature = ""
+
+
+# 吹き出しの文（⚠ 札が持つ instance_id から、いまの器の本物を引いて渡す）。
+func describe_ids(ids: Array) -> String:
+	if not _describer.is_valid():
+		return ""
+	return str(_describer.call(_members_of(ids)))
+
+
 # 表示する状態を差し替える。⚠ 毎フレーム呼んでよい。
 # ⚠ 10-16（見る回・人間「⚠ デバフは、継続時間をスキルのクールタイムのように表示したい　経過時間に応じて上から下に明るい部分が消えていく」）：
 #   ⚠ 顔ぶれが同じでも、⚠ 毎フレーム残りの膜だけ伸ばす（⚠ 組み直さない）。
 func set_entries(entries: Array) -> void:
+	_live.clear()
+	for raw: Variant in entries:
+		if raw is Dictionary:
+			_live[int((raw as Dictionary).get("instance_id", 0))] = raw
 	var sig: String = _make_signature(entries)
 	if sig != _signature:
 		_signature = sig
@@ -67,7 +108,7 @@ const ENDLESS_SEC: float = 9999.0
 func _update_shades() -> void:
 	for shade: Node in find_children("Shade", "ColorRect", true, false):
 		var box: Control = shade.get_parent() as Control
-		var members: Array = box.get_meta(SHADE_META, []) as Array
+		var members: Array = _members_of(box.get_meta(SHADE_META, []) as Array)
 		var ratio: float = 0.0
 		var best_left: float = -1.0
 		for raw: Variant in members:
@@ -83,6 +124,15 @@ func _update_shades() -> void:
 				ratio = clampf(float(m.get("elapsed", 0.0)) / duration, 0.0, 1.0)
 		(shade as ColorRect).visible = best_left >= 0.0
 		(shade as ColorRect).size = Vector2(box.size.x, box.size.y * ratio)
+
+
+# 札が持つ instance_id → いまの器の本物（⚠ 消えた件は飛ばす）。
+func _members_of(ids: Array) -> Array:
+	var out: Array = []
+	for id: Variant in ids:
+		if _live.has(int(id)):
+			out.append(_live[int(id)])
+	return out
 
 
 # ⚠ remove_child() してから queue_free() する（CLAUDE.md 5番）。
@@ -103,7 +153,8 @@ func _rebuild(entries: Array) -> void:
 	if entries.is_empty():
 		return
 
-	var side: int = _chip_side_px(entries.size())
+	# ⚠ 下部パネルは幅がある＝いつも大きいマス（⚠ 件数で縮めない・10-17）。
+	var side: int = Balance.adventure.status_chip_size_large_px if _describer.is_valid() else _chip_side_px(entries.size())
 	var sep: float = float(Balance.adventure.status_chip_separation_px)
 	# 行に詰める（2026-10-10・人間「⚠ 二行目にするとかどうか」）。⚠ 1行の幅は _max_px（＝駒の幅）・⚠ MAX_ROWS 行まで。
 	# ⚠ 「×N」の付くマスは右に数の幅を取る＝マスごとに幅が違う＝⚠ 作ってから幅を見て詰める。
@@ -118,7 +169,7 @@ func _rebuild(entries: Array) -> void:
 		var w: float = chip.custom_minimum_size.x
 		var add_w: float = w if (rows.back() as Array).is_empty() else w + sep
 		if row_w + add_w > _max_px and not (rows.back() as Array).is_empty():
-			if rows.size() >= MAX_ROWS:
+			if rows.size() >= _max_rows:
 				overflow = chips.size() - i
 				break
 			rows.append([])
@@ -141,7 +192,7 @@ func _rebuild(entries: Array) -> void:
 	# ⚠ 1行目を HP の帯の側（下）に置き、2行目はその上（⚠ 箱は上へ伸びる＝setup の grow_vertical）。
 	for r: int in range(rows.size() - 1, -1, -1):
 		var line: HBoxContainer = HBoxContainer.new()
-		line.alignment = BoxContainer.ALIGNMENT_CENTER
+		line.alignment = _line_align
 		line.add_theme_constant_override("separation", int(sep))
 		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		for c: Variant in (rows[r] as Array):
@@ -160,10 +211,19 @@ func _in_rows(rows: Array, chip: Control) -> bool:
 # 1件ぶんのマス。ColorRect の上に漢字を1文字。
 func _make_chip(entry: Dictionary, side: int) -> Control:
 	var cfg: AdventureConfig = Balance.adventure
-	var box: ColorRect = ColorRect.new()
+	var box: ChipBox = ChipBox.new()
 	box.custom_minimum_size = Vector2(side, side)
 	box.color = _chip_color(entry)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ids: Array = []
+	for m: Variant in (entry.get(MEMBERS_KEY, [entry]) as Array):
+		ids.append(int((m as Dictionary).get("instance_id", 0)))
+	# 吹き出し（10-17・`BT-40`）。⚠ 下部パネルだけ。⚠ tooltip_text が空だと Godot は吹き出しを出さない＝空白1つ。
+	if _describer.is_valid():
+		box.mouse_filter = Control.MOUSE_FILTER_PASS
+		box.tooltip_text = " "
+		box.chips = self
+		box.ids = ids
 
 	# 条件が偽の状態は半透明にする（消さない）。
 	# ⚠ 消すと「条件で切れた」のか「寿命で消えた」のかが画面から区別できない。
@@ -179,7 +239,7 @@ func _make_chip(entry: Dictionary, side: int) -> Control:
 	shade.position = Vector2.ZERO
 	shade.size = Vector2(side, 0.0)
 	box.add_child(shade)
-	box.set_meta(SHADE_META, entry.get(MEMBERS_KEY, [entry]))
+	box.set_meta(SHADE_META, ids)
 
 	var label: Label = Label.new()
 	label.text = _chip_char(str(entry.get("status_id", "")))
@@ -364,3 +424,38 @@ func _make_signature(entries: Array) -> String:
 		var e: Dictionary = entry as Dictionary
 		parts.append("%d:%d" % [int(e.get("instance_id", 0)), 1 if bool(e.get("active", true)) else 0])
 	return ",".join(parts)
+
+
+# 札1枚（10-17・`BT-40`）。⚠ 駒の下ではただの ColorRect と同じ（⚠ chips が null・入力を受けない）。
+# ⚠ 下部パネルでは Godot の吹き出しを自前の中身に差し替える（⚠ 残り秒が動くので、出ている間も毎フレーム文を組み直す）。
+class ChipBox extends ColorRect:
+	var chips: StatusChips = null
+	var ids: Array = []
+
+	func _make_custom_tooltip(_for_text: String) -> Object:
+		if chips == null or not is_instance_valid(chips):
+			return null
+		var tip: LiveTooltip = LiveTooltip.new()
+		tip.chips = chips
+		tip.ids = ids.duplicate()
+		tip.refresh()
+		return tip
+
+
+# 吹き出しの中身。⚠ 札が組み直されても、器に件が残っている間は文を出し続ける（⚠ 消えたら最後の文のまま）。
+class LiveTooltip extends Label:
+	var chips: StatusChips = null
+	var ids: Array = []
+
+	func _ready() -> void:
+		theme_type_variation = &"TooltipLabel"
+
+	func _process(_delta: float) -> void:
+		refresh()
+
+	func refresh() -> void:
+		if chips == null or not is_instance_valid(chips):
+			return
+		var t: String = chips.describe_ids(ids)
+		if t != "":
+			text = t
