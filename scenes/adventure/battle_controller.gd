@@ -834,6 +834,9 @@ func _enter_wave_intro() -> void:
 		return
 	_spawn_current_wave_enemies()
 	_session.state = BattleSession.STATE_BATTLE_ACTIVE
+	# ⚠ 戦闘中にしたその場でパッシブを付ける（10-17）。⚠ 付けないと、次の _process で自動戦闘・ボタンが
+	#   パッシブより先に撃てる（⚠ フェニックスがオーバーヒートで倒れ、復活の状態が無いまま倒れきった＝ルーンの全キャラ検査）。
+	_step_passives()
 
 
 # ヘッダーの文言（2026-09-16・モック §1「1/1 が何の数字か分からない」）。
@@ -2418,6 +2421,10 @@ func _fire_runes(user: BattleUnit, skill_id: String) -> void:
 		# ⚠ 瞬間移動させ、そのあと自動移動を秒で止める。止めないと次のフレームに
 		#   _step_unit() が歩き直し、後退のルーンが無意味になる。
 		var move: int = int(payload.get(GameManager.RUNE_PAYLOAD_MOVE, 0))
+		# 足止め中は移動のルーンを出さない（10-17・人間「⚠ スネア中は移動ルーンは発動しない」）。
+		# ⚠ クールダウンも始めない（⚠ 出ていないので）。⚠ 走る技（_step_ride）が足止めで止まるのと同じ考え方。
+		if move != 0 and user.snared:
+			continue
 		if move != 0:
 			# 味方は右を向いている。正が前進（敵の側）、負が後退。
 			# ⚠ 画面の外へ出さない。出すと当たり判定は生きたまま絵だけ消える。

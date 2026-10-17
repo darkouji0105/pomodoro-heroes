@@ -18365,6 +18365,134 @@ class UiFlowRunner extends Node:
 					int(r["fired"]) > 0 and (r["bad"] as Array).is_empty())
 		print("[DebugBoot] ルーン：スキルが撃てなかった（⚠ ルーンの不具合ではない＝撃てないならルーンも出ないのが正しい）：%s" % str(blocked))
 		await _rune_snare_probe(chars)
+		await _rune_phoenix_probe()
+		await _rune_biker_probe()
+
+	# バイクがスキルのあと「ずっと止まったまま」に見えた件（10-17）。⚠ 5 秒の間、走っている・止まっている・位置の幅を数える。
+	func _rune_biker_probe() -> void:
+		var party_before: Array = GameManager.get_party_members().duplicate()
+		var _p: bool = GameManager.set_party_member(0, "char_biker")
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		var _started: bool = GameManager.start_floor("floor_1")
+		var node_id: String = ""
+		var nodes: Dictionary = GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_NODES, {})
+		for raw_id: Variant in nodes:
+			if str((nodes[raw_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+				node_id = str(raw_id)
+				break
+		var b: Node = await _open(BATTLE, {
+			TransferKeys.STAGE_ID: "floor_1", TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY, TransferKeys.FLOOR_NODE_ID: node_id,
+		})
+		var session: BattleSession = null if b == null else b.get("_session") as BattleSession
+		var bk: BattleUnit = null
+		if session != null:
+			for raw_u: Variant in session.party_units:
+				if (raw_u as BattleUnit).master_id == "char_biker":
+					bk = raw_u as BattleUnit
+		if bk == null:
+			_check("バイク：戦闘にいる", false)
+			return
+		for _i: int in range(600):
+			if not session.enemy_units.is_empty():
+				break
+			await get_tree().process_frame
+		for raw_foe: Variant in session.enemy_units:
+			(raw_foe as BattleUnit).max_hp = 999999
+			(raw_foe as BattleUnit).hp = 999999
+		for label: String in ["何もしない", "skill_bk_flip"]:
+			if label != "何もしない":
+				bk.skill_cooldowns[label] = 0.0
+				var _f: Variant = b.call("_fire_skill", bk, label, 1.0)
+			var frames: int = 0
+			var riding: int = 0
+			var locked: int = 0
+			var free_frames: int = 0
+			var lo: float = bk.x
+			var hi: float = bk.x
+			var t: float = 0.0
+			while t < 5.0:
+				await get_tree().process_frame
+				t += get_process_delta_time()
+				frames += 1
+				if not bk.ride.is_empty():
+					riding += 1
+				elif bk.move_lock_sec > 0.0:
+					locked += 1
+				else:
+					free_frames += 1
+				lo = minf(lo, bk.x)
+				hi = maxf(hi, bk.x)
+			print("[DebugBoot] バイク（%s）：%d フレーム中 走る %d・止まる %d・自由 %d・位置 %.0f〜%.0f" % [label, frames, riding, locked, free_frames, lo, hi])
+		for i: int in range(mini(3, party_before.size())):
+			var _back: bool = GameManager.set_party_member(i, str(party_before[i]))
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		await _open(BASE, {})
+
+	# フェニックスはオーバーヒートで倒れても起き上がる（10-17・ルーンの検査で 5 秒倒れたままだった件）。
+	# ⚠ 復活の状態（パッシブ）が付いてから撃つ ／ ⚠ 開いた直後に撃つ、の2通りを見る。
+	func _rune_phoenix_probe() -> void:
+		var party_before: Array = GameManager.get_party_members().duplicate()
+		var _p: bool = GameManager.set_party_member(0, "char_phoenix")
+		for wait_passive: bool in [true, false]:
+			if GameManager.is_in_floor():
+				GameManager.abandon_floor()
+			var _started: bool = GameManager.start_floor("floor_1")
+			var node_id: String = ""
+			var nodes: Dictionary = GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_NODES, {})
+			for raw_id: Variant in nodes:
+				if str((nodes[raw_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+					node_id = str(raw_id)
+					break
+			var b: Node = await _open(BATTLE, {
+				TransferKeys.STAGE_ID: "floor_1", TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY, TransferKeys.FLOOR_NODE_ID: node_id,
+			})
+			var session: BattleSession = null if b == null else b.get("_session") as BattleSession
+			var registry: StatusRegistry = null if b == null else b.get("_status") as StatusRegistry
+			var px: BattleUnit = null
+			if session != null:
+				for raw_u: Variant in session.party_units:
+					if (raw_u as BattleUnit).master_id == "char_phoenix":
+						px = raw_u as BattleUnit
+			if px == null:
+				_check("フェニックス：戦闘にいる", false)
+				continue
+			for _i: int in range(600):
+				var ready: bool = not session.enemy_units.is_empty()
+				if wait_passive:
+					ready = ready and registry.has({"host_unit_id": px.unit_id, "status_id": "st_px_rebirth"})
+				if ready:
+					break
+				await get_tree().process_frame
+			var had_rebirth: bool = registry.has({"host_unit_id": px.unit_id, "status_id": "st_px_rebirth"})
+			var active: String = SkillActivation.blocked_reason(px, "skill_px_overheat",
+				MasterDataLoader.get_skill("skill_px_overheat"), session)
+			if not ("skill_px_overheat" in px.skill_ids):
+				px.skill_ids.append("skill_px_overheat")
+			px.skill_cooldowns["skill_px_overheat"] = 0.0
+			var fired: bool = bool(b.call("_fire_skill", px, "skill_px_overheat", 1.0))
+			var died: bool = false
+			var back_at: float = -1.0
+			var t: float = 0.0
+			while t < 6.0:
+				await get_tree().process_frame
+				t += get_process_delta_time()
+				if px.hp <= 1 or not px.is_alive():
+					died = true
+				if died and back_at < 0.0 and px.hp > 1:
+					back_at = t
+			print("[DebugBoot] フェニックス（パッシブを待つ %s）：撃つ前に復活の状態 %s・撃てる「%s」・撃った %s・倒れた %s・起きた %.1f 秒・最後 HP %d/%d 生きている %s" % [
+				str(wait_passive), str(had_rebirth), active, str(fired), str(died), back_at, px.hp, px.max_hp, str(px.is_alive())])
+			# ⚠ 10-17：⚠ 戦闘中になった瞬間にパッシブを付ける＝⚠ 開いた直後に撃っても起き上がる。
+			_check("フェニックス：%s オーバーヒート → 倒れて 6 秒以内に起き上がる（復活の状態 %s・起きた %.1f 秒）" % [
+				"パッシブを待ってから" if wait_passive else "戦闘になった直後に", str(had_rebirth), back_at],
+				had_rebirth and fired and died and back_at > 0.0)
+		for i: int in range(mini(3, party_before.size())):
+			var _back: bool = GameManager.set_party_member(i, str(party_before[i]))
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		await _open(BASE, {})
 
 	# 1人ぶんの装備（⚠ その回の組のスキルを枠1・2へ・武器とアクセにルーン）。
 	func _rune_equip(overlay: Node, id: String, round: Array) -> void:
@@ -18510,6 +18638,7 @@ class UiFlowRunner extends Node:
 		var freed: Dictionary = {}
 		var caught: Dictionary = {}
 		var out_at: Dictionary = {}
+		var start_x: Dictionary = {}
 		var left_sec: float = RUNE_WATCH_SEC
 		while left_sec > 0.0:
 			await get_tree().process_frame
@@ -18518,8 +18647,12 @@ class UiFlowRunner extends Node:
 				var u: BattleUnit = p["u"] as BattleUnit
 				if not is_finite(u.x) or u.x < 0.0 or u.x > 1280.0:
 					out_at[u.unit_id] = u.x
-				# ⚠ 走っている間はロックが 0 のまま＝⚠ 走り終わってからを数える。
-				if u.move_lock_sec <= 0.0 and u.ride.is_empty() and left_sec < RUNE_WATCH_SEC - 0.5:
+				# ⚠ 「動ける」＝⚠ ロックが明けた ／ ⚠ または位置が動いている（⚠ バイクは通常攻撃が走る技＝走る→止まる→走るを繰り返し、
+				#   ⚠ 自由なフレームが無いまま 630〜830 を動き回る＝10-17 に観察・仕様どおり）。
+				if not start_x.has(u.unit_id):
+					start_x[u.unit_id] = u.x
+				var roamed: bool = absf(u.x - float(start_x[u.unit_id])) > 10.0
+				if (u.move_lock_sec <= 0.0 and u.ride.is_empty() and left_sec < RUNE_WATCH_SEC - 0.5) or roamed:
 					freed[u.unit_id] = true
 				var view: Variant = views.get(u.unit_id, null)
 				if not (view is UnitView) or absf((view as UnitView).shown_x - u.x) <= 1.0:
@@ -18572,9 +18705,10 @@ class UiFlowRunner extends Node:
 		(r["bad"] as Array).append(why)
 		results[id][family] = r
 
-	# 足止め（snare）中に移動のルーンが出たらどうなるか（⚠ 決まりが無い＝落とさず出すだけ）。
+	# 足止め（snare）中は移動のルーンが出ない（10-17）。
 	func _rune_snare_probe(chars: Array) -> void:
 		var observed: Array = []
+		var moved_any: bool = false
 		for id: Variant in chars.slice(0, 1):
 			var u_id: String = str(id)
 			var _p: bool = GameManager.set_party_member(0, u_id)
@@ -18603,9 +18737,12 @@ class UiFlowRunner extends Node:
 						u.snared = true
 						var x0: float = u.x
 						b.call("_fire_runes", u, str(sid))
-						observed.append("%s：足止め中に %.0f → %.0f" % [u.master_id, x0, u.x])
+						observed.append("%s：%.0f → %.0f・まだ撃てる %s" % [u.master_id, x0, u.x, str(u.is_rune_ready(rune_id))])
+						if absf(u.x - x0) > 0.01 or not u.is_rune_ready(rune_id):
+							moved_any = true
 						u.snared = false
-		print("[DebugBoot] ルーン：足止め中の移動ルーン（⚠ 観察だけ）：%s" % str(observed))
+		# ⚠ 10-17 人間「⚠ スネア中は移動ルーンは発動しない」＝⚠ 動かない・クールダウンも始まらない。
+		_check("ルーン：足止め中は移動のルーンが出ない（%s）" % " ／ ".join(observed), not observed.is_empty() and not moved_any)
 		if GameManager.is_in_floor():
 			GameManager.abandon_floor()
 		await _open(BASE, {})
