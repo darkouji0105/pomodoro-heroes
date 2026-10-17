@@ -76,6 +76,11 @@
           { "item_id": "acc_swift", "weight": 1, "count": 1 },
           { "item_id": "acc_sage", "weight": 1, "count": 1 },
           { "item_id": "weapon_bow_gale", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_titan", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_steady", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_vampiric", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_berserk", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_holy", "weight": 1, "count": 1 },
           { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
           { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
           { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
@@ -152,6 +157,11 @@
           { "item_id": "acc_swift", "weight": 6, "count": 1 },
           { "item_id": "acc_sage", "weight": 6, "count": 1 },
           { "item_id": "weapon_bow_gale", "weight": 3, "count": 1 },
+          { "item_id": "weapon_gauntlet_titan", "weight": 3, "count": 1 },
+          { "item_id": "weapon_pistol_steady", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claw_vampiric", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claymore_berserk", "weight": 3, "count": 1 },
+          { "item_id": "weapon_shotgun_holy", "weight": 3, "count": 1 },
           { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
           { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
           { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
@@ -467,6 +477,31 @@
             "count": 1
           },
           {
+            "item_id": "weapon_gauntlet_titan",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_steady",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_vampiric",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_berserk",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_holy",
+            "weight": 1,
+            "count": 1
+          },
+          {
             "item_id": "weapon_staff_grove",
             "weight": 1,
             "count": 1
@@ -738,6 +773,31 @@
           },
           {
             "item_id": "weapon_bow_gale",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_titan",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_steady",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_vampiric",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_berserk",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_holy",
             "weight": 3,
             "count": 1
           },
@@ -1070,6 +1130,31 @@
             "count": 1
           },
           {
+            "item_id": "weapon_gauntlet_titan",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_steady",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_vampiric",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_berserk",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_holy",
+            "weight": 1,
+            "count": 1
+          },
+          {
             "item_id": "weapon_staff_grove",
             "weight": 1,
             "count": 1
@@ -1341,6 +1426,31 @@
           },
           {
             "item_id": "weapon_bow_gale",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_titan",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_steady",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_vampiric",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_berserk",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_holy",
             "weight": 3,
             "count": 1
           },

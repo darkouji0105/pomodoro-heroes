@@ -2172,3 +2172,30 @@ ui_status_line_evade,攻撃を避けて反撃する
 ui_status_line_on_meet,別の状態とそろうと効果が出る
 ui_status_line_on_stack,%s 個たまると効果が出る
 ui_status_line_on_skill_hit,スキルが当たると周りに効果が出る
+ui_res_weapon_gauntlet_titan,巨人の籠手
+ui_icon_weapon_gauntlet_titan,巨
+ui_res_weapon_pistol_steady,照準の拳銃
+ui_icon_weapon_pistol_steady,照
+ui_res_weapon_claw_vampiric,血吸いの爪
+ui_icon_weapon_claw_vampiric,吸
+ui_res_weapon_claymore_berserk,狂戦士の大剣
+ui_icon_weapon_claymore_berserk,狂
+ui_res_weapon_shotgun_holy,聖銀の散弾銃
+ui_icon_weapon_shotgun_holy,聖
+ui_eqfx_trigger_always,いつも
+ui_eqfx_trigger_high_hp,HP が 8 割以上のあいだ
+ui_eqfx_iron_body,鉄の体
+ui_eqfx_iron_body_desc,受けるダメージ −15%
+ui_eqfx_steady_aim,落ち着いた照準
+ui_eqfx_steady_aim_desc,与えるダメージ +25%
+ui_eqfx_blood_drain,吸血
+ui_eqfx_blood_drain_desc,与えたダメージの 10% だけ HP を回復する
+ui_eqfx_berserk,狂戦士の血
+ui_eqfx_berserk_desc,与えるダメージ +30%
+ui_eqfx_armor_break,鎧砕き
+ui_eqfx_armor_break_desc,相手の防御を 20% 無視する
+ui_status_ch_status_eqfx_iron_body,鉄
+ui_status_ch_status_eqfx_steady_aim,照
+ui_status_ch_status_eqfx_blood_drain,吸
+ui_status_ch_status_eqfx_berserk,狂
+ui_status_ch_status_eqfx_armor_break,砕

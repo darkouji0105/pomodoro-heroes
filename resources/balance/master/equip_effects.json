@@ -144,5 +144,118 @@
 				}
 			}
 		]
+	},
+	"eqfx_iron_body": {
+		"name_key": "ui_eqfx_iron_body",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_iron_body_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_iron_body",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"intervene": {
+					"reduction_pct": 15
+				}
+			}
+		]
+	},
+	"eqfx_steady_aim": {
+		"name_key": "ui_eqfx_steady_aim",
+		"trigger_key": "ui_eqfx_trigger_high_hp",
+		"desc_key": "ui_eqfx_steady_aim_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_steady_aim",
+				"atk_mult_pct": 25,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "gte",
+					"value": 0.8
+				}
+			}
+		]
+	},
+	"eqfx_blood_drain": {
+		"name_key": "ui_eqfx_blood_drain",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_blood_drain_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_blood_drain",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"intervene": {
+					"drain_pct": 10
+				}
+			}
+		]
+	},
+	"eqfx_berserk": {
+		"name_key": "ui_eqfx_berserk",
+		"trigger_key": "ui_eqfx_trigger_low_hp",
+		"desc_key": "ui_eqfx_berserk_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_berserk",
+				"atk_mult_pct": 30,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "lte",
+					"value": 0.5
+				}
+			}
+		]
+	},
+	"eqfx_armor_break": {
+		"name_key": "ui_eqfx_armor_break",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_armor_break_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_armor_break",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"intervene": {
+					"pierce_pct": 20
+				}
+			}
+		]
 	}
 }

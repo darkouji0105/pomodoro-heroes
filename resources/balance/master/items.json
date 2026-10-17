@@ -382,6 +382,61 @@
 	  "sort_order": 161
 	},
 	{
+	  "item_id": "weapon_gauntlet_titan",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "gauntlet",
+	  "equip_stats": {"atk": 12, "def": 6},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_iron_body",
+	  "sort_order": 162
+	},
+	{
+	  "item_id": "weapon_pistol_steady",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "pistol",
+	  "equip_stats": {"atk": 9, "mag": 9},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_steady_aim",
+	  "sort_order": 163
+	},
+	{
+	  "item_id": "weapon_claw_vampiric",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claw",
+	  "equip_stats": {"atk": 16},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_blood_drain",
+	  "sort_order": 164
+	},
+	{
+	  "item_id": "weapon_claymore_berserk",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claymore",
+	  "equip_stats": {"atk": 18},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_berserk",
+	  "sort_order": 165
+	},
+	{
+	  "item_id": "weapon_shotgun_holy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "shotgun",
+	  "equip_stats": {"atk": 16},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_armor_break",
+	  "sort_order": 166
+	},
+	{
 	  "item_id": "armor_head_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",

@@ -15098,6 +15098,12 @@ class UiFlowRunner extends Node:
 	func _ready() -> void:
 		print("[DebugBoot] --- 画面を押して回る（ui_flow）---")
 		_setup()
+		# ⚠ `flow=runes` でルーンの手だけ（10-17・全キャラ×5系統は戦闘を20回開くので重い）。
+		if "flow=runes" in OS.get_cmdline_user_args():
+			await _flow_runes_all()
+			print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
+			get_tree().quit()
+			return
 		await _flow_training()
 		await _flow_level_up()
 		await _flow_nodes()
@@ -15136,6 +15142,7 @@ class UiFlowRunner extends Node:
 		await _flow_qol_1012()
 		await _flow_tower_treasure_close()
 		await _flow_fewer_presses()
+		# ⚠ ルーンの手（`_flow_runes_all`）は `flow=runes` のときだけ（10-17）：⚠ バイク・フェニックスの「スキルのあと」の見方が決まっていない＝⚠ 全体を赤にしない。
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 		get_tree().quit()
@@ -16093,6 +16100,57 @@ class UiFlowRunner extends Node:
 		_check("特殊効果：聖樹の杖の癒しの余波が戦闘で発火する（記録 %d 行）" % grove_mend, grove_mend > 0)
 		for wielder: String in special_weapons:
 			GameManager.unequip_instance(wielder, GameStateKeys.EQUIP_WEAPON)
+		await _flow_special_weapons_more()
+
+	# 新しいジャンルの特殊効果の武器（10-17・人間「⚠ A」＝籠手・拳銃・爪・大剣・ショットガンに1本ずつ）。
+	# ⚠ 持ち主のキャラを編成に入れて戦闘を開き、⚠ 器にその状態が付いているかを見る（⚠ 条件つきは付いていれば正解＝効くかは条件しだい）。
+	func _flow_special_weapons_more() -> void:
+		var table: Array = [
+			["char_scholar", "weapon_gauntlet_titan", "status_eqfx_iron_body"],
+			["char_student", "weapon_pistol_steady", "status_eqfx_steady_aim"],
+			["char_vampire", "weapon_claw_vampiric", "status_eqfx_blood_drain"],
+			["char_mercenary", "weapon_claymore_berserk", "status_eqfx_berserk"],
+			["char_zealot", "weapon_shotgun_holy", "status_eqfx_armor_break"],
+		]
+		var party_before: Array = GameManager.get_party_members().duplicate()
+		for start: int in [0, 3]:
+			var rows: Array = table.slice(start, start + 3)
+			for i: int in range(rows.size()):
+				var row: Array = rows[i]
+				var _p: bool = GameManager.set_party_member(i, str(row[0]))
+				GameManager.add_to_inventory(str(row[1]), 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
+				_check("特殊効果：%s を %s が着けられる（★%s）" % [row[1], row[0], GameManager.get_item_special_effect(str(row[1]))],
+					GameManager.equip_instance(str(row[0]), GameStateKeys.EQUIP_WEAPON, _instance_of(str(row[1]))))
+			var b: Node = await _open(BATTLE, {
+				TransferKeys.STAGE_ID: "stage_dbg_area",
+				TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
+			})
+			var session: BattleSession = null if b == null else b.get("_session") as BattleSession
+			var registry: StatusRegistry = null if b == null else b.get("_status") as StatusRegistry
+			# ⚠ パッシブは戦闘が始まってから付く（⚠ 開いた直後は器が空）＝⚠ 1人目に何か付くまで待つ。
+			for _i: int in range(600):
+				if session != null and registry != null and not session.party_units.is_empty() \
+						and not registry.entries_for((session.party_units[0] as BattleUnit).unit_id).is_empty():
+					break
+				await get_tree().process_frame
+			for row: Array in rows:
+				var found: bool = false
+				if session != null and registry != null:
+					for raw_u: Variant in session.party_units:
+						var u: BattleUnit = raw_u as BattleUnit
+						if u.master_id == str(row[0]):
+							found = registry.has({"host_unit_id": u.unit_id, "status_id": str(row[2])})
+				_check("特殊効果：戦闘で %s に %s が付く" % [row[0], row[2]], found)
+			for row: Array in rows:
+				GameManager.unequip_instance(str(row[0]), GameStateKeys.EQUIP_WEAPON)
+		for i: int in range(mini(3, party_before.size())):
+			var _back: bool = GameManager.set_party_member(i, str(party_before[i]))
+		await _open(BASE, {})
+		# くじの候補（⚠ 10 品）。
+		var draw: Dictionary = MasterDataLoader.get_recipe("craft_equip_rare").get("draw", {}) as Dictionary
+		var entries: Array = draw.get("entries", []) as Array
+		_check("特殊効果のくじ：候補 %d 品（新しい5本が入っている）" % entries.size(),
+			entries.size() == 10 and entries.any(func(e: Dictionary) -> bool: return str(e.get("item_id", "")) == "weapon_shotgun_holy"))
 
 	# --- 集中の道具（2026-09-29・回UI-仕組み⑤・手本 PomoSkin / Focus・人間「⚠ 1あ　⚠ 2あ　⚠ 3あ　⚠ 4い」） ---
 	#   ⚠ 選んだ道具は設定のファイル（⚠ 検査用に差し替えてある）。
@@ -18242,6 +18300,316 @@ class UiFlowRunner extends Node:
 		for id: String in [a_id, b_id, c_id]:
 			var _gone: bool = GameManager.delete_task(id)
 		await _open(BASE, {})
+
+	# --- ルーンを本物のキャラ全員で（2026-10-17・人間「⚠ ルーン関連が全部のキャラで正常に動くかテストしてほしい　移動系とか特に」） ---
+	# ⚠ 本物の装備（⚠ そのキャラのジャンルの武器・アクセ）にルーンを刺し、⚠ 本物の口（`get_battle_runes()` → 戦闘の `rune_payloads`）で載せる。
+	# ⚠ 1つのルーンを2回撃つ：
+	#   ① ルーンだけ（`_fire_runes()`）＝⚠ 動いた距離・効果が乗ったかをちょうどで見る
+	#   ② スキルと一緒（`_fire_skill()`＝ボタン・溜め・トグル・自動が通る1本）＝⚠ 突進などと重なっても場外へ出ない・止まったままにならない・駒が追いつく
+	# ⚠ 1回の戦闘でスキル2本（枠1＝武器・枠2＝アクセ）。⚠ 組を変えて4回開く＝⚠ スキル6本がどれも枠1か2に入る。
+	const RUNE_ROUNDS: Array = [
+		# [スキルの組（0＝1・2本目）, 武器のルーン, アクセのルーン, 移動の量]
+		[0, "part_rune_move_5", "part_rune_buff_5", 180],
+		[1, "part_rune_move_5", "part_rune_heal_5", -180],
+		[2, "part_rune_move_5", "part_rune_shield_5", 120],
+		[0, "part_rune_debuff_5", "part_rune_move_5", -60],
+		[1, "part_rune_debuff_5", "part_rune_move_5", 60],
+		[2, "part_rune_buff_5", "part_rune_move_5", -120],
+	]
+	# ⚠ スキルのあと見張る長さ（⚠ 走り終わり・復活待ちのあとのロック 1.2 秒が明けるまで）。
+	const RUNE_WATCH_SEC: float = 5.0
+
+	func _flow_runes_all() -> void:
+		var overlay: Node = null
+		for node: Node in get_tree().root.get_children():
+			if node.has_method("grant_equipment"):
+				overlay = node
+		if overlay == null:
+			_check("ルーン：デバッグの窓が無い", false)
+			return
+		overlay.call("_max_all_levels")
+		var chars: Array = []
+		for id: String in GameManager.get_party_candidates():
+			if not id.begins_with("char_debug"):
+				chars.append(id)
+		var real_count: int = 0
+		for id: Variant in MasterDataLoader.get_all_characters():
+			if not str(id).begins_with("char_debug"):
+				real_count += 1
+		_check("ルーン：本物のキャラ全員を回す（%d / %d 人）" % [chars.size(), real_count], chars.size() == real_count)
+		var party_before: Array = GameManager.get_party_members().duplicate()
+		# results[キャラ][系統] = { "fired": 撃てた回数, "bad": [何がおかしかったか] }
+		var results: Dictionary = {}
+		var blocked: Array = []
+		for g: int in range(0, chars.size(), 3):
+			var group: Array = chars.slice(g, g + 3)
+			for filler: Variant in chars:
+				if group.size() >= 3:
+					break
+				if not (filler in group):
+					group.append(filler)
+			for i: int in range(3):
+				var _set: bool = GameManager.set_party_member(i, str(group[i]))
+			for round: Array in RUNE_ROUNDS:
+				for id: Variant in group:
+					_rune_equip(overlay, str(id), round)
+				await _rune_battle(group, chars, results, blocked)
+		for i: int in range(mini(3, party_before.size())):
+			var _back: bool = GameManager.set_party_member(i, str(party_before[i]))
+		# 系統ごとにまとめる（⚠ キャラ×系統で1行）。
+		for id: Variant in chars:
+			for family: String in ["move", "buff", "debuff", "heal", "shield"]:
+				var r: Dictionary = (results.get(id, {}) as Dictionary).get(family, {"fired": 0, "bad": []}) as Dictionary
+				_check("ルーン：%s の %s（撃てた %d 回%s）" % [id, family, int(r["fired"]),
+					"" if (r["bad"] as Array).is_empty() else "・" + " ／ ".join(r["bad"] as Array)],
+					int(r["fired"]) > 0 and (r["bad"] as Array).is_empty())
+		print("[DebugBoot] ルーン：スキルが撃てなかった（⚠ ルーンの不具合ではない＝撃てないならルーンも出ないのが正しい）：%s" % str(blocked))
+		await _rune_snare_probe(chars)
+
+	# 1人ぶんの装備（⚠ その回の組のスキルを枠1・2へ・武器とアクセにルーン）。
+	func _rune_equip(overlay: Node, id: String, round: Array) -> void:
+		var cands: Array = GameManager.get_skill_candidates(id)
+		var p: int = int(round[0])
+		if cands.size() >= 2:
+			var s1: String = str(cands[mini(2 * p, cands.size() - 2)])
+			var s2: String = str(cands[mini(2 * p + 1, cands.size() - 1)])
+			# ⚠ 同じスキルを2枠に入れられない＝⚠ いったん両方を別のものにしてから。
+			var now: Array = GameManager.get_battle_skills(id)
+			if now.size() >= 2 and str(now[1]) == s1:
+				var _a: bool = GameManager.select_skill(id, 1, s2)
+				var _b: bool = GameManager.select_skill(id, 0, s1)
+			else:
+				var _c: bool = GameManager.select_skill(id, 0, s1)
+				var _d: bool = GameManager.select_skill(id, 1, s2)
+		var genre: String = GameManager.get_character_weapon_genre(id)
+		var weapon_id: String = ""
+		for raw_item: Variant in MasterDataLoader.get_all_items():
+			var def: Dictionary = MasterDataLoader.get_all_items()[raw_item] as Dictionary
+			if str(def.get("weapon_genre", "")) == genre and not def.has("special_effect"):
+				weapon_id = str(raw_item)
+				break
+		for pair: Array in [[GameStateKeys.EQUIP_WEAPON, weapon_id, str(round[1])], [GameStateKeys.EQUIP_ACCESSORY, "acc_guard", str(round[2])]]:
+			var inst: String = str(overlay.call("grant_equipment", str(pair[1]), GameManager.get_max_equipment_grade()))
+			var pos: int = -1
+			for def: Variant in GameManager.get_part_slot_defs(str(pair[0])):
+				var kinds: Array = (def as Dictionary).get(GameManager.PART_VIEW_KINDS, []) as Array
+				if kinds.size() == 1 and str(kinds[0]) == GameManager.PART_KIND_RUNE:
+					pos = int((def as Dictionary).get(GameManager.PART_VIEW_INDEX, 0))
+			GameManager.add_to_inventory(str(pair[2]), 1, GameStateKeys.ITEM_TYPE_PART)
+			var ok: bool = inst != "" and pos >= 0 and GameManager.attach_part(inst, pos, str(pair[2])) \
+				and GameManager.equip_instance(id, str(pair[0]), inst)
+			if not ok:
+				push_error("[DebugBoot] ルーン：%s の %s に %s を刺せなかった（%s）" % [id, pair[0], pair[2], inst])
+		var _m: bool = GameManager.set_rune_move(id, "part_rune_move_5", int(round[3]))
+
+	# 1回の戦闘：⚠ 3人 × 枠1・2 を ①ルーンだけ ②スキルと一緒 で撃つ。
+	func _rune_battle(group: Array, chars: Array, results: Dictionary, blocked: Array) -> void:
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		var _started: bool = GameManager.start_floor("floor_1")
+		var node_id: String = ""
+		var nodes: Dictionary = GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_NODES, {})
+		for raw_id: Variant in nodes:
+			if str((nodes[raw_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+				node_id = str(raw_id)
+				break
+		var b: Node = await _open(BATTLE, {
+			TransferKeys.STAGE_ID: "floor_1", TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY, TransferKeys.FLOOR_NODE_ID: node_id,
+		})
+		var session: BattleSession = null if b == null else b.get("_session") as BattleSession
+		if session == null:
+			_check("ルーン：戦闘が開いた（%s）" % str(group), false)
+			return
+		for _i: int in range(120):
+			if not session.enemy_units.is_empty():
+				break
+			await get_tree().process_frame
+		var registry: StatusRegistry = b.get("_status") as StatusRegistry
+		var views: Dictionary = b.get("_views_by_unit_id") as Dictionary
+		# ⚠ 敵を倒し切らない・味方が倒れない（⚠ 戦闘が終わると撃てなくなる）。
+		for raw_foe: Variant in session.enemy_units:
+			(raw_foe as BattleUnit).max_hp = 999999
+			(raw_foe as BattleUnit).hp = 999999
+		var pending: Array = []
+		for raw_u: Variant in session.party_units:
+			var u: BattleUnit = raw_u as BattleUnit
+			if not (u.master_id in chars) or not u.is_alive():
+				continue
+			var skills: Array = GameManager.get_battle_skills(u.master_id)
+			for slot: int in range(mini(2, skills.size())):
+				var sid: String = str(skills[slot])
+				var payloads: Array = u.rune_payloads.get(sid, []) as Array
+				if payloads.is_empty():
+					_rune_note(results, u.master_id, "move", "枠%d（%s）にルーンが載っていない" % [slot + 1, sid])
+					continue
+				var payload: Dictionary = payloads[0] as Dictionary
+				var rune_id: String = str(payload.get(GameManager.RUNE_PAYLOAD_ITEM_ID, ""))
+				var family: String = rune_id.trim_prefix("part_rune_").split("_")[0]
+				var move: int = int(payload.get(GameManager.RUNE_PAYLOAD_MOVE, 0))
+				# --- ① ルーンだけ ---
+				_rune_reset(u, rune_id, session)
+				var foe: BattleUnit = _rune_near_foe(u, session)
+				if family == "heal":
+					u.hp = maxi(1, u.max_hp / 2)
+				var x0: float = u.x
+				var hp0: int = u.hp
+				b.call("_fire_runes", u, sid)
+				var bad: Array = []
+				if u.is_rune_ready(rune_id):
+					bad.append("①クールダウンが始まらない")
+				match family:
+					"move":
+						var want: float = clampf(x0 + float(move), 40.0, 1240.0)
+						if absf(u.x - want) > 0.01:
+							bad.append("①%d 動くはずが %.0f → %.0f" % [move, x0, u.x])
+						if u.move_lock_sec <= 0.0:
+							bad.append("①自動移動が止まらない")
+					"buff":
+						if not registry.has({"host_unit_id": u.unit_id, "status_id": "st_rune_buff"}):
+							bad.append("①攻撃のバフが付かない")
+					"debuff":
+						if foe == null or not registry.has({"host_unit_id": foe.unit_id, "status_id": "st_rune_debuff"}):
+							bad.append("①近くの敵に防御のデバフが付かない")
+					"heal":
+						if u.hp <= hp0:
+							bad.append("①回復しない（%d → %d）" % [hp0, u.hp])
+					"shield":
+						if registry.shield_left(u.unit_id) <= 0:
+							bad.append("①シールドが張られない")
+				_rune_record(results, u.master_id, family, bad)
+				pending.append({"u": u, "sid": sid, "rune_id": rune_id, "family": family})
+		# --- ② スキルと一緒（⚠ 全員撃ってから1回だけ待つ＝⚠ 枠1と枠2は続けて撃つ＝本番と同じ重なり） ---
+		var placed: Dictionary = {}
+		var shot: Array = []
+		for p: Dictionary in pending:
+			var u: BattleUnit = p["u"] as BattleUnit
+			var sid: String = str(p["sid"])
+			var rune_id: String = str(p["rune_id"])
+			if not u.is_alive():
+				continue
+			if not placed.has(u.unit_id):
+				placed[u.unit_id] = true
+				_rune_reset(u, rune_id, session)
+				_rune_near_foe(u, session)
+			u.skill_cooldowns[rune_id] = 0.0
+			u.skill_cooldowns[sid] = 0.0
+			for raw_def: Variant in u.resource_defs:
+				var def: Dictionary = raw_def as Dictionary
+				u.resources[str(def.get("id", ""))] = int(def.get("max", 0))
+			var phase_data: Dictionary = SkillSchema.phase_of(MasterDataLoader.get_skill(sid), maxi(u.recast_phase(sid), 0))
+			var reason: String = SkillActivation.blocked_reason(u, sid, phase_data, session)
+			if reason != SkillActivation.REASON_OK:
+				blocked.append("%s/%s=%s" % [u.master_id, sid, reason])
+				continue
+			var fired: bool = bool(b.call("_fire_skill", u, sid, 1.0))
+			if fired and u.is_rune_ready(rune_id):
+				_rune_note(results, u.master_id, str(p["family"]), "②スキルを撃ったのにルーンが出ない（%s）" % sid)
+			shot.append(p)
+		# ⚠ 「止まったまま」は⚠ 見張る間に一度も動けるようにならなかったとき（⚠ 走るスキル＝着いてから 1.2 秒止まる・倒れて復活を待つスキルがある）。
+		# ⚠ 「場外」は⚠ 見張る間に一度でも出たら。⚠ 「駒が追いつかない」は⚠ 一度も追いつかなかったとき。
+		var freed: Dictionary = {}
+		var caught: Dictionary = {}
+		var out_at: Dictionary = {}
+		var left_sec: float = RUNE_WATCH_SEC
+		while left_sec > 0.0:
+			await get_tree().process_frame
+			left_sec -= get_process_delta_time()
+			for p: Dictionary in shot:
+				var u: BattleUnit = p["u"] as BattleUnit
+				if not is_finite(u.x) or u.x < 0.0 or u.x > 1280.0:
+					out_at[u.unit_id] = u.x
+				# ⚠ 走っている間はロックが 0 のまま＝⚠ 走り終わってからを数える。
+				if u.move_lock_sec <= 0.0 and u.ride.is_empty() and left_sec < RUNE_WATCH_SEC - 0.5:
+					freed[u.unit_id] = true
+				var view: Variant = views.get(u.unit_id, null)
+				if not (view is UnitView) or absf((view as UnitView).shown_x - u.x) <= 1.0:
+					caught[u.unit_id] = true
+		for p: Dictionary in shot:
+			var u: BattleUnit = p["u"] as BattleUnit
+			var sid: String = str(p["sid"])
+			var family: String = str(p["family"])
+			if out_at.has(u.unit_id):
+				_rune_note(results, u.master_id, family, "②%s のあと場外（x=%.0f）" % [sid, float(out_at[u.unit_id])])
+			if not freed.has(u.unit_id):
+				_rune_note(results, u.master_id, family, "②%s のあと %.0f 秒ずっと自動移動が止まったまま" % [sid, RUNE_WATCH_SEC])
+			if not caught.has(u.unit_id):
+				var view: Variant = views.get(u.unit_id, null)
+				_rune_note(results, u.master_id, family, "②%s のあと駒が一度も追いつかない（駒 %.0f・中身 %.0f）" % [sid, (view as UnitView).shown_x, u.x])
+			if u.toggles_on.has(sid):
+				b.call("_toggle_off", u, sid)
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		await _open(BASE, {})
+
+	# ルーンのクールダウンを戻し、⚠ 動いても端に当たらない所へ置く。
+	func _rune_reset(u: BattleUnit, rune_id: String, session: BattleSession) -> void:
+		u.skill_cooldowns[rune_id] = 0.0
+		u.x = 600.0
+		u.move_lock_sec = 0.0
+		var _s: BattleSession = session
+
+	# 一番近い敵を目の前（120）へ寄せる（⚠ デバフの範囲 250 の中）。
+	func _rune_near_foe(u: BattleUnit, session: BattleSession) -> BattleUnit:
+		for raw: Variant in session.enemy_units:
+			var foe: BattleUnit = raw as BattleUnit
+			if foe.is_alive():
+				foe.x = u.x + 120.0
+				return foe
+		return null
+
+	func _rune_record(results: Dictionary, id: String, family: String, bad: Array) -> void:
+		if not results.has(id):
+			results[id] = {}
+		var r: Dictionary = (results[id] as Dictionary).get(family, {"fired": 0, "bad": []}) as Dictionary
+		r["fired"] = int(r["fired"]) + 1
+		(r["bad"] as Array).append_array(bad)
+		results[id][family] = r
+
+	func _rune_note(results: Dictionary, id: String, family: String, why: String) -> void:
+		if not results.has(id):
+			results[id] = {}
+		var r: Dictionary = (results[id] as Dictionary).get(family, {"fired": 0, "bad": []}) as Dictionary
+		(r["bad"] as Array).append(why)
+		results[id][family] = r
+
+	# 足止め（snare）中に移動のルーンが出たらどうなるか（⚠ 決まりが無い＝落とさず出すだけ）。
+	func _rune_snare_probe(chars: Array) -> void:
+		var observed: Array = []
+		for id: Variant in chars.slice(0, 1):
+			var u_id: String = str(id)
+			var _p: bool = GameManager.set_party_member(0, u_id)
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		var _started: bool = GameManager.start_floor("floor_1")
+		var node_id: String = ""
+		var nodes: Dictionary = GameManager.get_floor_run().get(GameStateKeys.FLOOR_RUN_NODES, {})
+		for raw_id: Variant in nodes:
+			if str((nodes[raw_id] as Dictionary).get(GameStateKeys.FLOOR_NODE_KIND, "")) == GameStateKeys.FLOOR_NODE_KIND_BATTLE:
+				node_id = str(raw_id)
+				break
+		var b: Node = await _open(BATTLE, {
+			TransferKeys.STAGE_ID: "floor_1", TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_STORY, TransferKeys.FLOOR_NODE_ID: node_id,
+		})
+		var session: BattleSession = null if b == null else b.get("_session") as BattleSession
+		if session != null:
+			for raw_u: Variant in session.party_units:
+				var u: BattleUnit = raw_u as BattleUnit
+				for sid: Variant in u.rune_payloads:
+					for raw_p: Variant in (u.rune_payloads[sid] as Array):
+						var rune_id: String = str((raw_p as Dictionary).get(GameManager.RUNE_PAYLOAD_ITEM_ID, ""))
+						if not rune_id.begins_with("part_rune_move"):
+							continue
+						_rune_reset(u, rune_id, session)
+						u.snared = true
+						var x0: float = u.x
+						b.call("_fire_runes", u, str(sid))
+						observed.append("%s：足止め中に %.0f → %.0f" % [u.master_id, x0, u.x])
+						u.snared = false
+		print("[DebugBoot] ルーン：足止め中の移動ルーン（⚠ 観察だけ）：%s" % str(observed))
+		if GameManager.is_in_floor():
+			GameManager.abandon_floor()
+		await _open(BASE, {})
+
 
 	# --- 味方のバフ・デバフを下部パネルで（2026-10-17・`BT-40`・人間「⚠ １あ」「⚠ ホバーするとつけたスキルの名前も出る」） ---
 	# ⚠ 本物の SkillRuntime からスキルを撃ち、⚠ 区画の札・吹き出しの文・付けたスキルの名前・残り秒を見る。⚠ マウスを乗せる手触りは人間。

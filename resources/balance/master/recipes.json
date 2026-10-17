@@ -449,6 +449,11 @@
 		  { "item_id": "weapon_dragon_greatsword", "weight": 1 },
 		  { "item_id": "weapon_bow_gale", "weight": 1 },
 		  { "item_id": "weapon_staff_grove", "weight": 1 },
+		  { "item_id": "weapon_gauntlet_titan", "weight": 1 },
+		  { "item_id": "weapon_pistol_steady", "weight": 1 },
+		  { "item_id": "weapon_claw_vampiric", "weight": 1 },
+		  { "item_id": "weapon_claymore_berserk", "weight": 1 },
+		  { "item_id": "weapon_shotgun_holy", "weight": 1 },
 		  { "item_id": "armor_thorn_mail", "weight": 1 },
 		  { "item_id": "acc_guardian_charm", "weight": 1 }
 		]
