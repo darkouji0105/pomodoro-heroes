@@ -331,6 +331,150 @@
 	  "category": "weapon"
 	},
 	{
+	  "recipe_id": "craft_weapon_sword_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_sword_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 47,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_sword_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_sword_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 48,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_bow_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_bow_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 49,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_bow_siege",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_bow_siege", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 50,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_staff_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_staff_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 51,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_staff_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_staff_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 52,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_gauntlet_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_gauntlet_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 53,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_gauntlet_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_gauntlet_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 54,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_shotgun_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_shotgun_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 55,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_shotgun_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_shotgun_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 56,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_claymore_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_claymore_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 57,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_claymore_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_claymore_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 58,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_claw_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_claw_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 59,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_claw_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_claw_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 60,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_pistol_keen",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_pistol_keen", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 61,
+	  "category": "weapon"
+	},
+	{
+	  "recipe_id": "craft_weapon_pistol_heavy",
+	  "duration_sec": 1800,
+	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
+	  "outputs": [ { "item_id": "weapon_pistol_heavy", "count": 1 } ],
+	  "unlocked_by_default": true,
+	  "sort_order": 62,
+	  "category": "weapon"
+	},
+	{
 	  "recipe_id": "craft_armor_head_guard",
 	  "duration_sec": 1800,
 	  "inputs": [ { "item_id": "forging_material_1", "count": 10 } ],
@@ -454,6 +598,22 @@
 		  { "item_id": "weapon_claw_vampiric", "weight": 1 },
 		  { "item_id": "weapon_claymore_berserk", "weight": 1 },
 		  { "item_id": "weapon_shotgun_holy", "weight": 1 },
+		  { "item_id": "weapon_sword_aegis", "weight": 1 },
+		  { "item_id": "weapon_sword_flame", "weight": 1 },
+		  { "item_id": "weapon_bow_moon", "weight": 1 },
+		  { "item_id": "weapon_bow_wind", "weight": 1 },
+		  { "item_id": "weapon_staff_sun", "weight": 1 },
+		  { "item_id": "weapon_staff_abyss", "weight": 1 },
+		  { "item_id": "weapon_gauntlet_spike", "weight": 1 },
+		  { "item_id": "weapon_gauntlet_rage", "weight": 1 },
+		  { "item_id": "weapon_shotgun_dragon", "weight": 1 },
+		  { "item_id": "weapon_shotgun_guard", "weight": 1 },
+		  { "item_id": "weapon_claymore_giant", "weight": 1 },
+		  { "item_id": "weapon_claymore_bulwark", "weight": 1 },
+		  { "item_id": "weapon_claw_shadow", "weight": 1 },
+		  { "item_id": "weapon_claw_frenzy", "weight": 1 },
+		  { "item_id": "weapon_pistol_ice", "weight": 1 },
+		  { "item_id": "weapon_pistol_lucky", "weight": 1 },
 		  { "item_id": "armor_thorn_mail", "weight": 1 },
 		  { "item_id": "acc_guardian_charm", "weight": 1 }
 		]

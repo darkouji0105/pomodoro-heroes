@@ -58,6 +58,22 @@
           { "item_id": "weapon_claymore_war", "weight": 1, "count": 1 },
           { "item_id": "weapon_claymore_guard", "weight": 1, "count": 1 },
           { "item_id": "weapon_claw_iron", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_siege", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_heavy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_keen", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_heavy", "weight": 1, "count": 1 },
           { "item_id": "weapon_claw_razor", "weight": 1, "count": 1 },
           { "item_id": "weapon_claw_blood", "weight": 1, "count": 1 },
           { "item_id": "weapon_pistol_iron", "weight": 1, "count": 1 },
@@ -81,6 +97,22 @@
           { "item_id": "weapon_claw_vampiric", "weight": 1, "count": 1 },
           { "item_id": "weapon_claymore_berserk", "weight": 1, "count": 1 },
           { "item_id": "weapon_shotgun_holy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_aegis", "weight": 1, "count": 1 },
+          { "item_id": "weapon_sword_flame", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_moon", "weight": 1, "count": 1 },
+          { "item_id": "weapon_bow_wind", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_sun", "weight": 1, "count": 1 },
+          { "item_id": "weapon_staff_abyss", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_spike", "weight": 1, "count": 1 },
+          { "item_id": "weapon_gauntlet_rage", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_dragon", "weight": 1, "count": 1 },
+          { "item_id": "weapon_shotgun_guard", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_giant", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claymore_bulwark", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_shadow", "weight": 1, "count": 1 },
+          { "item_id": "weapon_claw_frenzy", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_ice", "weight": 1, "count": 1 },
+          { "item_id": "weapon_pistol_lucky", "weight": 1, "count": 1 },
           { "item_id": "weapon_staff_grove", "weight": 1, "count": 1 },
           { "item_id": "weapon_dragon_greatsword", "weight": 1, "count": 1 },
           { "item_id": "armor_thorn_mail", "weight": 1, "count": 1 },
@@ -139,6 +171,22 @@
           { "item_id": "weapon_claymore_war", "weight": 6, "count": 1 },
           { "item_id": "weapon_claymore_guard", "weight": 6, "count": 1 },
           { "item_id": "weapon_claw_iron", "weight": 6, "count": 1 },
+          { "item_id": "weapon_sword_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_sword_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_bow_siege", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_staff_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_gauntlet_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_shotgun_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claymore_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_claw_heavy", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_keen", "weight": 6, "count": 1 },
+          { "item_id": "weapon_pistol_heavy", "weight": 6, "count": 1 },
           { "item_id": "weapon_claw_razor", "weight": 6, "count": 1 },
           { "item_id": "weapon_claw_blood", "weight": 6, "count": 1 },
           { "item_id": "weapon_pistol_iron", "weight": 6, "count": 1 },
@@ -162,6 +210,22 @@
           { "item_id": "weapon_claw_vampiric", "weight": 3, "count": 1 },
           { "item_id": "weapon_claymore_berserk", "weight": 3, "count": 1 },
           { "item_id": "weapon_shotgun_holy", "weight": 3, "count": 1 },
+          { "item_id": "weapon_sword_aegis", "weight": 3, "count": 1 },
+          { "item_id": "weapon_sword_flame", "weight": 3, "count": 1 },
+          { "item_id": "weapon_bow_moon", "weight": 3, "count": 1 },
+          { "item_id": "weapon_bow_wind", "weight": 3, "count": 1 },
+          { "item_id": "weapon_staff_sun", "weight": 3, "count": 1 },
+          { "item_id": "weapon_staff_abyss", "weight": 3, "count": 1 },
+          { "item_id": "weapon_gauntlet_spike", "weight": 3, "count": 1 },
+          { "item_id": "weapon_gauntlet_rage", "weight": 3, "count": 1 },
+          { "item_id": "weapon_shotgun_dragon", "weight": 3, "count": 1 },
+          { "item_id": "weapon_shotgun_guard", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claymore_giant", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claymore_bulwark", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claw_shadow", "weight": 3, "count": 1 },
+          { "item_id": "weapon_claw_frenzy", "weight": 3, "count": 1 },
+          { "item_id": "weapon_pistol_ice", "weight": 3, "count": 1 },
+          { "item_id": "weapon_pistol_lucky", "weight": 3, "count": 1 },
           { "item_id": "weapon_staff_grove", "weight": 3, "count": 1 },
           { "item_id": "weapon_dragon_greatsword", "weight": 3, "count": 1 },
           { "item_id": "armor_thorn_mail", "weight": 3, "count": 1 },
@@ -387,6 +451,86 @@
             "count": 1
           },
           {
+            "item_id": "weapon_sword_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_siege",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
             "item_id": "weapon_claw_razor",
             "weight": 1,
             "count": 1
@@ -498,6 +642,86 @@
           },
           {
             "item_id": "weapon_shotgun_holy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_aegis",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_flame",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_moon",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_wind",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_sun",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_abyss",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_spike",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_rage",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_dragon",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_guard",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_giant",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_bulwark",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_shadow",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_frenzy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_ice",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_lucky",
             "weight": 1,
             "count": 1
           },
@@ -687,6 +911,86 @@
             "count": 1
           },
           {
+            "item_id": "weapon_sword_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_siege",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
             "item_id": "weapon_claw_razor",
             "weight": 6,
             "count": 1
@@ -798,6 +1102,86 @@
           },
           {
             "item_id": "weapon_shotgun_holy",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_aegis",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_flame",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_moon",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_wind",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_sun",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_abyss",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_spike",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_rage",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_dragon",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_guard",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_giant",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_bulwark",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_shadow",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_frenzy",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_ice",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_lucky",
             "weight": 3,
             "count": 1
           },
@@ -1040,6 +1424,86 @@
             "count": 1
           },
           {
+            "item_id": "weapon_sword_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_siege",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_keen",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_heavy",
+            "weight": 1,
+            "count": 1
+          },
+          {
             "item_id": "weapon_claw_razor",
             "weight": 1,
             "count": 1
@@ -1151,6 +1615,86 @@
           },
           {
             "item_id": "weapon_shotgun_holy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_aegis",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_flame",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_moon",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_wind",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_sun",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_abyss",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_spike",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_rage",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_dragon",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_guard",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_giant",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_bulwark",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_shadow",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_frenzy",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_ice",
+            "weight": 1,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_lucky",
             "weight": 1,
             "count": 1
           },
@@ -1340,6 +1884,86 @@
             "count": 1
           },
           {
+            "item_id": "weapon_sword_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_siege",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_keen",
+            "weight": 6,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_heavy",
+            "weight": 6,
+            "count": 1
+          },
+          {
             "item_id": "weapon_claw_razor",
             "weight": 6,
             "count": 1
@@ -1451,6 +2075,86 @@
           },
           {
             "item_id": "weapon_shotgun_holy",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_aegis",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_sword_flame",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_moon",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_bow_wind",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_sun",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_staff_abyss",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_spike",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_gauntlet_rage",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_dragon",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_shotgun_guard",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_giant",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claymore_bulwark",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_shadow",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_claw_frenzy",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_ice",
+            "weight": 3,
+            "count": 1
+          },
+          {
+            "item_id": "weapon_pistol_lucky",
             "weight": 3,
             "count": 1
           },

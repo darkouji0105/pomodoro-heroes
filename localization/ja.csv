@@ -2199,3 +2199,116 @@ ui_status_ch_status_eqfx_steady_aim,照
 ui_status_ch_status_eqfx_blood_drain,吸
 ui_status_ch_status_eqfx_berserk,狂
 ui_status_ch_status_eqfx_armor_break,砕
+ui_res_weapon_sword_keen,鋭刃の剣
+ui_icon_weapon_sword_keen,鋭
+ui_res_weapon_sword_heavy,重鉄の剣
+ui_icon_weapon_sword_heavy,重
+ui_res_weapon_bow_keen,鷹目の弓
+ui_icon_weapon_bow_keen,鷹
+ui_res_weapon_bow_siege,攻城の弓
+ui_icon_weapon_bow_siege,城
+ui_res_weapon_staff_keen,星読みの杖
+ui_icon_weapon_staff_keen,星
+ui_res_weapon_staff_heavy,重樫の杖
+ui_icon_weapon_staff_heavy,樫
+ui_res_weapon_gauntlet_keen,鋲打ちの籠手
+ui_icon_weapon_gauntlet_keen,鋲
+ui_res_weapon_gauntlet_heavy,鉄塊の籠手
+ui_icon_weapon_gauntlet_heavy,塊
+ui_res_weapon_shotgun_keen,狙いの散弾銃
+ui_icon_weapon_shotgun_keen,狙
+ui_res_weapon_shotgun_heavy,大口径の散弾銃
+ui_icon_weapon_shotgun_heavy,口
+ui_res_weapon_claymore_keen,刃研ぎの大剣
+ui_icon_weapon_claymore_keen,研
+ui_res_weapon_claymore_heavy,巨岩の大剣
+ui_icon_weapon_claymore_heavy,岩
+ui_res_weapon_claw_keen,毒牙の爪
+ui_icon_weapon_claw_keen,牙
+ui_res_weapon_claw_heavy,熊手の爪
+ui_icon_weapon_claw_heavy,熊
+ui_res_weapon_pistol_keen,照星の拳銃
+ui_icon_weapon_pistol_keen,照
+ui_res_weapon_pistol_heavy,重砲の拳銃
+ui_icon_weapon_pistol_heavy,砲
+ui_res_weapon_sword_aegis,聖盾の剣
+ui_icon_weapon_sword_aegis,盾
+ui_eqfx_vow,守護の誓い
+ui_eqfx_vow_desc,受けるダメージ −25%
+ui_status_ch_status_eqfx_vow,誓
+ui_res_weapon_sword_flame,炎の剣
+ui_icon_weapon_sword_flame,炎
+ui_eqfx_flame_edge,炎の刃
+ui_eqfx_flame_edge_desc,攻撃力の 25% の魔法の追撃
+ui_status_ch_status_eqfx_flame_edge,炎
+ui_res_weapon_bow_moon,月光の弓
+ui_icon_weapon_bow_moon,月
+ui_eqfx_moonlight,月光
+ui_eqfx_moonlight_desc,必ず会心
+ui_status_ch_status_eqfx_moonlight,月
+ui_res_weapon_bow_wind,追い風の弓
+ui_icon_weapon_bow_wind,追
+ui_eqfx_tailwind,追い風
+ui_eqfx_tailwind_desc,攻撃速度 +15
+ui_status_ch_status_eqfx_tailwind,風
+ui_res_weapon_staff_sun,陽光の杖
+ui_icon_weapon_staff_sun,陽
+ui_eqfx_sunlight,陽だまり
+ui_eqfx_sunlight_desc,魔力の 20% だけ自分の HP を回復する
+ui_status_ch_status_eqfx_sunlight,陽
+ui_res_weapon_staff_abyss,深淵の杖
+ui_icon_weapon_staff_abyss,淵
+ui_eqfx_abyss,深淵の目覚め
+ui_eqfx_abyss_desc,魔力 +15
+ui_status_ch_status_eqfx_abyss,淵
+ui_res_weapon_gauntlet_spike,棘の籠手
+ui_icon_weapon_gauntlet_spike,棘
+ui_eqfx_spike_guard,棘の拳
+ui_eqfx_spike_guard_desc,受けたダメージの 20% を返す
+ui_status_ch_status_eqfx_spike_guard,棘
+ui_res_weapon_gauntlet_rage,怒りの籠手
+ui_icon_weapon_gauntlet_rage,怒
+ui_eqfx_rage,怒りの拳
+ui_eqfx_rage_desc,攻撃速度 +25
+ui_status_ch_status_eqfx_rage,怒
+ui_res_weapon_shotgun_dragon,竜息の散弾銃
+ui_icon_weapon_shotgun_dragon,竜
+ui_eqfx_dragon_breath,竜の息
+ui_eqfx_dragon_breath_desc,攻撃力の 20% の魔法の追撃
+ui_status_ch_status_eqfx_dragon_breath,竜
+ui_res_weapon_shotgun_guard,守り手の散弾銃
+ui_icon_weapon_shotgun_guard,守
+ui_eqfx_brace,盾構え
+ui_eqfx_brace_desc,受けるダメージ −30%
+ui_status_ch_status_eqfx_brace,構
+ui_res_weapon_claymore_giant,巨人殺しの大剣
+ui_icon_weapon_claymore_giant,殺
+ui_eqfx_cleave,一刀両断
+ui_eqfx_cleave_desc,必ず会心
+ui_status_ch_status_eqfx_cleave,断
+ui_res_weapon_claymore_bulwark,城壁の大剣
+ui_icon_weapon_claymore_bulwark,壁
+ui_eqfx_bulwark,城壁
+ui_eqfx_bulwark_desc,防御の 50% のダメージを相手に返す
+ui_status_ch_status_eqfx_bulwark,壁
+ui_res_weapon_claw_shadow,影の爪
+ui_icon_weapon_claw_shadow,影
+ui_eqfx_shadow_step,影走り
+ui_eqfx_shadow_step_desc,攻撃速度 +30
+ui_status_ch_status_eqfx_shadow_step,影
+ui_res_weapon_claw_frenzy,狂乱の爪
+ui_icon_weapon_claw_frenzy,乱
+ui_eqfx_frenzy,狂乱
+ui_eqfx_frenzy_desc,与えたダメージの 15% だけ HP を回復する
+ui_status_ch_status_eqfx_frenzy,乱
+ui_res_weapon_pistol_ice,氷結の拳銃
+ui_icon_weapon_pistol_ice,氷
+ui_eqfx_frost_shot,冷気弾
+ui_eqfx_frost_shot_desc,魔力の 20% の魔法の追撃
+ui_status_ch_status_eqfx_frost_shot,氷
+ui_res_weapon_pistol_lucky,幸運の拳銃
+ui_icon_weapon_pistol_lucky,運
+ui_eqfx_lucky,幸運
+ui_eqfx_lucky_desc,会心率 +10
+ui_status_ch_status_eqfx_lucky,幸
+ui_eqfx_trigger_battle_start_10,戦闘の始め 10 秒

@@ -437,6 +437,326 @@
 	  "sort_order": 166
 	},
 	{
+	  "item_id": "weapon_sword_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "sword",
+	  "equip_stats": {"atk": 5, "crit_rate": 6, "def": -2},
+	  "sort_order": 167
+	},
+	{
+	  "item_id": "weapon_sword_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "sword",
+	  "equip_stats": {"atk": 10, "atkspd": -10},
+	  "sort_order": 168
+	},
+	{
+	  "item_id": "weapon_bow_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "bow",
+	  "equip_stats": {"hp": -10, "atk": 5, "crit_rate": 6},
+	  "sort_order": 169
+	},
+	{
+	  "item_id": "weapon_bow_siege",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "bow",
+	  "equip_stats": {"atk": 10, "atkspd": -10},
+	  "sort_order": 170
+	},
+	{
+	  "item_id": "weapon_staff_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "staff",
+	  "equip_stats": {"hp": -10, "mag": 5, "crit_rate": 6},
+	  "sort_order": 171
+	},
+	{
+	  "item_id": "weapon_staff_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "staff",
+	  "equip_stats": {"mag": 10, "atkspd": -10},
+	  "sort_order": 172
+	},
+	{
+	  "item_id": "weapon_gauntlet_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "gauntlet",
+	  "equip_stats": {"def": -2, "atk": 5, "crit_rate": 6},
+	  "sort_order": 173
+	},
+	{
+	  "item_id": "weapon_gauntlet_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "gauntlet",
+	  "equip_stats": {"atk": 9, "def": 3, "atkspd": -10},
+	  "sort_order": 174
+	},
+	{
+	  "item_id": "weapon_shotgun_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "shotgun",
+	  "equip_stats": {"hp": -10, "atk": 5, "crit_rate": 6},
+	  "sort_order": 175
+	},
+	{
+	  "item_id": "weapon_shotgun_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "shotgun",
+	  "equip_stats": {"atk": 10, "atkspd": -10},
+	  "sort_order": 176
+	},
+	{
+	  "item_id": "weapon_claymore_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claymore",
+	  "equip_stats": {"atk": 6, "crit_dmg": 15, "spd": -5},
+	  "sort_order": 177
+	},
+	{
+	  "item_id": "weapon_claymore_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claymore",
+	  "equip_stats": {"atk": 12, "atkspd": -12, "spd": -5},
+	  "sort_order": 178
+	},
+	{
+	  "item_id": "weapon_claw_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claw",
+	  "equip_stats": {"atk": 4, "crit_rate": 4, "crit_dmg": 10},
+	  "sort_order": 179
+	},
+	{
+	  "item_id": "weapon_claw_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claw",
+	  "equip_stats": {"atk": 9, "atkspd": -8},
+	  "sort_order": 180
+	},
+	{
+	  "item_id": "weapon_pistol_keen",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "pistol",
+	  "equip_stats": {"atk": 4, "mag": 4, "crit_rate": 5},
+	  "sort_order": 181
+	},
+	{
+	  "item_id": "weapon_pistol_heavy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "pistol",
+	  "equip_stats": {"atk": 7, "mag": 3, "atkspd": -10},
+	  "sort_order": 182
+	},
+	{
+	  "item_id": "weapon_sword_aegis",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "sword",
+	  "equip_stats": {"hp": 20, "atk": 14},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_vow",
+	  "sort_order": 183
+	},
+	{
+	  "item_id": "weapon_sword_flame",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "sword",
+	  "equip_stats": {"atk": 16},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_flame_edge",
+	  "sort_order": 184
+	},
+	{
+	  "item_id": "weapon_bow_moon",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "bow",
+	  "equip_stats": {"atk": 16},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_moonlight",
+	  "sort_order": 185
+	},
+	{
+	  "item_id": "weapon_bow_wind",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "bow",
+	  "equip_stats": {"atk": 14, "spd": 5},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_tailwind",
+	  "sort_order": 186
+	},
+	{
+	  "item_id": "weapon_staff_sun",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "staff",
+	  "equip_stats": {"hp": 10, "mag": 15},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_sunlight",
+	  "sort_order": 187
+	},
+	{
+	  "item_id": "weapon_staff_abyss",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "staff",
+	  "equip_stats": {"mag": 17},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_abyss",
+	  "sort_order": 188
+	},
+	{
+	  "item_id": "weapon_gauntlet_spike",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "gauntlet",
+	  "equip_stats": {"hp": 20, "atk": 12},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_spike_guard",
+	  "sort_order": 189
+	},
+	{
+	  "item_id": "weapon_gauntlet_rage",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "gauntlet",
+	  "equip_stats": {"atk": 14},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_rage",
+	  "sort_order": 190
+	},
+	{
+	  "item_id": "weapon_shotgun_dragon",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "shotgun",
+	  "equip_stats": {"atk": 16},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_dragon_breath",
+	  "sort_order": 191
+	},
+	{
+	  "item_id": "weapon_shotgun_guard",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "shotgun",
+	  "equip_stats": {"hp": 20, "atk": 13},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_brace",
+	  "sort_order": 192
+	},
+	{
+	  "item_id": "weapon_claymore_giant",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claymore",
+	  "equip_stats": {"atk": 18},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_cleave",
+	  "sort_order": 193
+	},
+	{
+	  "item_id": "weapon_claymore_bulwark",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claymore",
+	  "equip_stats": {"hp": 30, "atk": 14},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_bulwark",
+	  "sort_order": 194
+	},
+	{
+	  "item_id": "weapon_claw_shadow",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claw",
+	  "equip_stats": {"atk": 15, "spd": 5},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_shadow_step",
+	  "sort_order": 195
+	},
+	{
+	  "item_id": "weapon_claw_frenzy",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "claw",
+	  "equip_stats": {"atk": 16},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_frenzy",
+	  "sort_order": 196
+	},
+	{
+	  "item_id": "weapon_pistol_ice",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "pistol",
+	  "equip_stats": {"atk": 8, "mag": 9},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_frost_shot",
+	  "sort_order": 197
+	},
+	{
+	  "item_id": "weapon_pistol_lucky",
+	  "storage": "inventory",
+	  "item_type": "equipment",
+	  "equip_slot": "weapon",
+	  "weapon_genre": "pistol",
+	  "equip_stats": {"atk": 9, "mag": 8},
+	  "drop_min_grade": 9,
+	  "special_effect": "eqfx_lucky",
+	  "sort_order": 198
+	},
+	{
 	  "item_id": "armor_head_guard",
 	  "storage": "inventory",
 	  "item_type": "equipment",

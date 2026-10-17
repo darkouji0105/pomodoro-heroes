@@ -16102,55 +16102,103 @@ class UiFlowRunner extends Node:
 			GameManager.unequip_instance(wielder, GameStateKeys.EQUIP_WEAPON)
 		await _flow_special_weapons_more()
 
-	# 新しいジャンルの特殊効果の武器（10-17・人間「⚠ A」＝籠手・拳銃・爪・大剣・ショットガンに1本ずつ）。
-	# ⚠ 持ち主のキャラを編成に入れて戦闘を開き、⚠ 器にその状態が付いているかを見る（⚠ 条件つきは付いていれば正解＝効くかは条件しだい）。
+	# 特殊効果の武器を全部（10-17・人間「⚠ A」→「⚠ 武器の数を倍にしたい」＝各ジャンル 通常5・特殊3）。
+	# ⚠ 表はデータから組む（⚠ 武器を足しても書き足さない）＝⚠ そのジャンルを持つキャラに着け、⚠ 戦闘で器にその状態が付くか。
+	# ⚠ 条件つきは付いていれば正解（⚠ 効くかは条件しだい）。⚠ 1回の戦闘は同じキャラを2人入れられない＝⚠ 詰めて組む。
 	func _flow_special_weapons_more() -> void:
-		var table: Array = [
-			["char_scholar", "weapon_gauntlet_titan", "status_eqfx_iron_body"],
-			["char_student", "weapon_pistol_steady", "status_eqfx_steady_aim"],
-			["char_vampire", "weapon_claw_vampiric", "status_eqfx_blood_drain"],
-			["char_mercenary", "weapon_claymore_berserk", "status_eqfx_berserk"],
-			["char_zealot", "weapon_shotgun_holy", "status_eqfx_armor_break"],
-		]
+		var holders: Dictionary = {}
+		for raw_c: Variant in MasterDataLoader.get_all_characters():
+			var cid: String = str(raw_c)
+			if cid.begins_with("char_debug"):
+				continue
+			var genre: String = GameManager.get_character_weapon_genre(cid)
+			if not holders.has(genre):
+				holders[genre] = []
+			(holders[genre] as Array).append(cid)
+		var rows: Array = []
+		var used: Dictionary = {}
+		for raw_i: Variant in MasterDataLoader.get_all_items():
+			var def: Dictionary = MasterDataLoader.get_all_items()[raw_i] as Dictionary
+			if str(def.get("equip_slot", "")) != GameStateKeys.EQUIP_WEAPON or str(def.get("special_effect", "")) == "":
+				continue
+			var cands: Array = holders.get(str(def.get("weapon_genre", "")), []) as Array
+			if cands.is_empty():
+				_check("特殊効果：%s を持てるキャラがいない" % str(raw_i), false)
+				continue
+			# ⚠ 一番使っていないキャラ（⚠ 同じジャンルの2本目以降を別の人に回す）。
+			var pick: String = str(cands[0])
+			for c: Variant in cands:
+				if int(used.get(c, 0)) < int(used.get(pick, 0)):
+					pick = str(c)
+			used[pick] = int(used.get(pick, 0)) + 1
+			rows.append([pick, str(raw_i), "status_" + str(def.get("special_effect", ""))])
+		var battles: Array = []
+		for row: Array in rows:
+			var placed: bool = false
+			for bt: Variant in battles:
+				var group: Array = bt as Array
+				if group.size() < 3 and not group.any(func(r: Array) -> bool: return str(r[0]) == str(row[0])):
+					group.append(row)
+					placed = true
+					break
+			if not placed:
+				battles.append([row])
 		var party_before: Array = GameManager.get_party_members().duplicate()
-		for start: int in [0, 3]:
-			var rows: Array = table.slice(start, start + 3)
-			for i: int in range(rows.size()):
-				var row: Array = rows[i]
+		var ok_count: int = 0
+		for bt: Variant in battles:
+			var group: Array = bt as Array
+			for i: int in range(group.size()):
+				var row: Array = group[i]
 				var _p: bool = GameManager.set_party_member(i, str(row[0]))
 				GameManager.add_to_inventory(str(row[1]), 1, GameStateKeys.ITEM_TYPE_EQUIPMENT)
-				_check("特殊効果：%s を %s が着けられる（★%s）" % [row[1], row[0], GameManager.get_item_special_effect(str(row[1]))],
-					GameManager.equip_instance(str(row[0]), GameStateKeys.EQUIP_WEAPON, _instance_of(str(row[1]))))
+				if not GameManager.equip_instance(str(row[0]), GameStateKeys.EQUIP_WEAPON, _instance_of(str(row[1]))):
+					_check("特殊効果：%s を %s が着けられる" % [row[1], row[0]], false)
 			var b: Node = await _open(BATTLE, {
 				TransferKeys.STAGE_ID: "stage_dbg_area",
 				TransferKeys.STAGE_TYPE: GameStateKeys.STAGE_TYPE_TRAINING,
 			})
 			var session: BattleSession = null if b == null else b.get("_session") as BattleSession
 			var registry: StatusRegistry = null if b == null else b.get("_status") as StatusRegistry
-			# ⚠ パッシブは戦闘が始まってから付く（⚠ 開いた直後は器が空）＝⚠ 1人目に何か付くまで待つ。
+			# ⚠ パッシブは戦闘中になってから付く＝⚠ 1人目に何か付くまで待つ。
 			for _i: int in range(600):
 				if session != null and registry != null and not session.party_units.is_empty() \
 						and not registry.entries_for((session.party_units[0] as BattleUnit).unit_id).is_empty():
 					break
 				await get_tree().process_frame
-			for row: Array in rows:
+			for row: Array in group:
 				var found: bool = false
 				if session != null and registry != null:
 					for raw_u: Variant in session.party_units:
 						var u: BattleUnit = raw_u as BattleUnit
 						if u.master_id == str(row[0]):
 							found = registry.has({"host_unit_id": u.unit_id, "status_id": str(row[2])})
-				_check("特殊効果：戦闘で %s に %s が付く" % [row[0], row[2]], found)
-			for row: Array in rows:
+				if found:
+					ok_count += 1
+				else:
+					_check("特殊効果：戦闘で %s（%s）に %s が付く" % [row[0], row[1], row[2]], false)
+			for row: Array in group:
 				GameManager.unequip_instance(str(row[0]), GameStateKeys.EQUIP_WEAPON)
+		_check("特殊効果の武器：%d 本すべて、持てるキャラが着けて戦闘で状態が付く（%d 本・戦闘 %d 回）" % [rows.size(), ok_count, battles.size()],
+			rows.size() == 24 and ok_count == rows.size())
 		for i: int in range(mini(3, party_before.size())):
 			var _back: bool = GameManager.set_party_member(i, str(party_before[i]))
 		await _open(BASE, {})
-		# くじの候補（⚠ 10 品）。
+		# 武器の数（⚠ 各ジャンル 通常5・特殊3）。
+		var per_genre: Dictionary = {}
+		for raw_i: Variant in MasterDataLoader.get_all_items():
+			var def: Dictionary = MasterDataLoader.get_all_items()[raw_i] as Dictionary
+			if str(def.get("equip_slot", "")) != GameStateKeys.EQUIP_WEAPON:
+				continue
+			var key: String = "%s/%s" % [str(def.get("weapon_genre", "")), "特殊" if str(def.get("special_effect", "")) != "" else "通常"]
+			per_genre[key] = int(per_genre.get(key, 0)) + 1
+		var shape_ok: bool = per_genre.size() == 16
+		for key: Variant in per_genre:
+			shape_ok = shape_ok and int(per_genre[key]) == (3 if str(key).ends_with("特殊") else 5)
+		_check("武器の数：8 ジャンル × 通常5・特殊3（%s）" % str(per_genre), shape_ok)
+		# くじの候補（⚠ 特殊効果の品が全部）。
 		var draw: Dictionary = MasterDataLoader.get_recipe("craft_equip_rare").get("draw", {}) as Dictionary
 		var entries: Array = draw.get("entries", []) as Array
-		_check("特殊効果のくじ：候補 %d 品（新しい5本が入っている）" % entries.size(),
-			entries.size() == 10 and entries.any(func(e: Dictionary) -> bool: return str(e.get("item_id", "")) == "weapon_shotgun_holy"))
+		_check("特殊効果のくじ：候補 %d 品（特殊効果の武器 24・防具 1・アクセ 1）" % entries.size(), entries.size() == 26)
 
 	# --- 集中の道具（2026-09-29・回UI-仕組み⑤・手本 PomoSkin / Focus・人間「⚠ 1あ　⚠ 2あ　⚠ 3あ　⚠ 4い」） ---
 	#   ⚠ 選んだ道具は設定のファイル（⚠ 検査用に差し替えてある）。
@@ -17594,19 +17642,19 @@ class UiFlowRunner extends Node:
 		var rows: int = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：既定は「すべて」で %d 行（タブ %d 枚）" % [rows, 0 if tabs == null else tabs.get_child_count()],
 			tabs != null and tabs.current == 0 and tabs.get_child_count() == GameManager.RECIPE_CATEGORIES.size() + 1 and rows == all)
-		# ⚠ 武器 → 24行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12 ／ 回GM-1 でショットガン3本を足して 15 ／ 回MC-1 で大剣3本を足して 18 ／ 回VP-1 で爪3本を足して 21 ／ 回ST-1 で拳銃3本を足して 24）。
+		# ⚠ 武器 → 24行（⚠ 着手前に書いた数字：25 → 9 ／ ⚠ 10-10 回SC-1 で籠手3本を足して 12 ／ 回GM-1 でショットガン3本を足して 15 ／ 回MC-1 で大剣3本を足して 18 ／ 回VP-1 で爪3本を足して 21 ／ 回ST-1 で拳銃3本を足して 24 ／ 10-17 武器を倍に＝各ジャンル通常2本を足して 40）。
 		await _press(null if tabs == null else tabs.find_child("Tab1", false, false))
 		await _wait()
 		rows = ws.find_children("RecipeRow_*", "", true, false).size()
 		_check("作業場のタブ：「武器」で %d 行（武器のレシピ %d）・装飾は出ない" % [rows, int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0))],
-			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 24
+			rows == int(counts.get(GameManager.RECIPE_CATEGORY_WEAPON, 0)) and rows == 40
 			and ws.find_child("RecipeRow_craft_weapon_bow_short", true, false) != null and ws.find_child("RecipeRow_craft_part_1", true, false) == null)
 		# ⚠ 出て戻っても「武器」のまま。
 		var _base: Node = await _open(BASE, {})
 		ws = await _open(WORKSHOP_SCREEN, {})
 		tabs = null if ws == null else ws.find_child("CategoryTabs", true, false) as PaperTabs
 		rows = 0 if ws == null else ws.find_children("RecipeRow_*", "", true, false).size()
-		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 24)
+		_check("作業場のタブ：出て戻っても「武器」のまま（%d 行）" % rows, tabs != null and tabs.current == 1 and rows == 40)
 		# ⚠ くじ → 1行。
 		await _press(null if tabs == null else tabs.find_child("Tab5", false, false))
 		await _wait()

@@ -257,5 +257,444 @@
 				}
 			}
 		]
+	},
+	"eqfx_vow": {
+		"name_key": "ui_eqfx_vow",
+		"trigger_key": "ui_eqfx_trigger_low_hp",
+		"desc_key": "ui_eqfx_vow_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_vow",
+				"intervene": {
+					"reduction_pct": 25
+				},
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "lte",
+					"value": 0.5
+				}
+			}
+		]
+	},
+	"eqfx_flame_edge": {
+		"name_key": "ui_eqfx_flame_edge",
+		"trigger_key": "ui_eqfx_trigger_dealt_damage",
+		"desc_key": "ui_eqfx_flame_edge_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_eqfx_flame_edge",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "dealt_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 0.25,
+							"attack_type": "magic",
+							"scale_from": "atk",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"eqfx_moonlight": {
+		"name_key": "ui_eqfx_moonlight",
+		"trigger_key": "ui_eqfx_trigger_battle_start_10",
+		"desc_key": "ui_eqfx_moonlight_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_moonlight",
+				"intervene": {
+					"crit_always": true
+				},
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "elapsed_sec",
+					"of": "host",
+					"op": "lte",
+					"value": 10
+				}
+			}
+		]
+	},
+	"eqfx_tailwind": {
+		"name_key": "ui_eqfx_tailwind",
+		"trigger_key": "ui_eqfx_trigger_high_hp",
+		"desc_key": "ui_eqfx_tailwind_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_tailwind",
+				"stat": "atkspd",
+				"value": 15,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "gte",
+					"value": 0.8
+				}
+			}
+		]
+	},
+	"eqfx_sunlight": {
+		"name_key": "ui_eqfx_sunlight",
+		"trigger_key": "ui_eqfx_trigger_took_damage",
+		"desc_key": "ui_eqfx_sunlight_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_eqfx_sunlight",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "took_damage",
+					"effects": [
+						{
+							"type": "heal",
+							"multiplier": 0.2,
+							"scale_from": "mag",
+							"target": {
+								"team": "self"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"eqfx_abyss": {
+		"name_key": "ui_eqfx_abyss",
+		"trigger_key": "ui_eqfx_trigger_battle_start",
+		"desc_key": "ui_eqfx_abyss_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_abyss",
+				"stat": "mag",
+				"value": 15,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "elapsed_sec",
+					"of": "host",
+					"op": "lte",
+					"value": 20
+				}
+			}
+		]
+	},
+	"eqfx_spike_guard": {
+		"name_key": "ui_eqfx_spike_guard",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_spike_guard_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_spike_guard",
+				"intervene": {
+					"reflect_pct": 20
+				},
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
+	},
+	"eqfx_rage": {
+		"name_key": "ui_eqfx_rage",
+		"trigger_key": "ui_eqfx_trigger_low_hp",
+		"desc_key": "ui_eqfx_rage_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_rage",
+				"stat": "atkspd",
+				"value": 25,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "lte",
+					"value": 0.5
+				}
+			}
+		]
+	},
+	"eqfx_dragon_breath": {
+		"name_key": "ui_eqfx_dragon_breath",
+		"trigger_key": "ui_eqfx_trigger_dealt_damage",
+		"desc_key": "ui_eqfx_dragon_breath_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_eqfx_dragon_breath",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "dealt_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 0.2,
+							"attack_type": "magic",
+							"scale_from": "atk",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"eqfx_brace": {
+		"name_key": "ui_eqfx_brace",
+		"trigger_key": "ui_eqfx_trigger_battle_start",
+		"desc_key": "ui_eqfx_brace_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_brace",
+				"intervene": {
+					"reduction_pct": 30
+				},
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "elapsed_sec",
+					"of": "host",
+					"op": "lte",
+					"value": 20
+				}
+			}
+		]
+	},
+	"eqfx_cleave": {
+		"name_key": "ui_eqfx_cleave",
+		"trigger_key": "ui_eqfx_trigger_high_hp",
+		"desc_key": "ui_eqfx_cleave_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_cleave",
+				"intervene": {
+					"crit_always": true
+				},
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "gte",
+					"value": 0.8
+				}
+			}
+		]
+	},
+	"eqfx_bulwark": {
+		"name_key": "ui_eqfx_bulwark",
+		"trigger_key": "ui_eqfx_trigger_took_damage",
+		"desc_key": "ui_eqfx_bulwark_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_eqfx_bulwark",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "took_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 0.5,
+							"attack_type": "physical",
+							"scale_from": "def",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"eqfx_shadow_step": {
+		"name_key": "ui_eqfx_shadow_step",
+		"trigger_key": "ui_eqfx_trigger_battle_start_10",
+		"desc_key": "ui_eqfx_shadow_step_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_shadow_step",
+				"stat": "atkspd",
+				"value": 30,
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "elapsed_sec",
+					"of": "host",
+					"op": "lte",
+					"value": 10
+				}
+			}
+		]
+	},
+	"eqfx_frenzy": {
+		"name_key": "ui_eqfx_frenzy",
+		"trigger_key": "ui_eqfx_trigger_low_hp",
+		"desc_key": "ui_eqfx_frenzy_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_frenzy",
+				"intervene": {
+					"drain_pct": 15
+				},
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"condition": {
+					"source": "hp_ratio",
+					"of": "host",
+					"op": "lte",
+					"value": 0.5
+				}
+			}
+		]
+	},
+	"eqfx_frost_shot": {
+		"name_key": "ui_eqfx_frost_shot",
+		"trigger_key": "ui_eqfx_trigger_dealt_damage",
+		"desc_key": "ui_eqfx_frost_shot_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "react",
+				"host": "unit",
+				"status_id": "status_eqfx_frost_shot",
+				"duration_sec": 99999.0,
+				"stack": "refresh",
+				"react": {
+					"event": "dealt_damage",
+					"effects": [
+						{
+							"type": "damage",
+							"multiplier": 0.2,
+							"attack_type": "magic",
+							"scale_from": "mag",
+							"target": {
+								"team": "source"
+							}
+						}
+					]
+				}
+			}
+		]
+	},
+	"eqfx_lucky": {
+		"name_key": "ui_eqfx_lucky",
+		"trigger_key": "ui_eqfx_trigger_always",
+		"desc_key": "ui_eqfx_lucky_desc",
+		"activation": "passive",
+		"target": {
+			"team": "self"
+		},
+		"effects": [
+			{
+				"type": "buff",
+				"host": "unit",
+				"status_id": "status_eqfx_lucky",
+				"stat": "crit_rate",
+				"value": 10,
+				"duration_sec": 99999.0,
+				"stack": "refresh"
+			}
+		]
 	}
 }
