@@ -102,6 +102,8 @@ const MEMORY_ROSTER_ROLE: String = "memory_roster_role"
 const MEMORY_TASK_FILTER: String = "memory_task_filter"
 # ⚠ 10-07（回HB-1）：⚠ 本部の見え方（⚠ 机 ／ 拠点の全体）。
 const MEMORY_BASE_VIEW: String = "memory_base_view"
+# ⚠ 本部をどの見え方で開くか（2026-10-18・回UI-1018-6・`NAV-34`）。⚠ 値は `"desk"`（本部）／ `"town"`（ギルド）。⚠ 帯のタブが渡す。
+const BASE_VIEW: String = "base_view"
 # ⚠ 10-09（回SYS-1）：⚠ 作業場のレシピの分類のタブ（⚠ "" ＝すべて）。
 const MEMORY_WORKSHOP_CATEGORY: String = "memory_workshop_category"
 # ⚠ 目標のサイドバーを開いているか（2026-10-09・回AUTO-1・`GoalHud`）。⚠ 画面をまたいでも開いたまま。

@@ -872,6 +872,7 @@ static func build() -> void:
 	_build_special_effect(theme)
 	_build_task(theme)
 	_build_item_parts(theme)
+	_build_hq(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -1966,6 +1967,8 @@ const HEADING_FONT_TYPES: Array[String] = [
 	"Stamp",
 	# ⚠ 10-09（回TK-F2）：⚠ フォルダの見出し（⚠ 字間は詰めたまま＝紙の見出しと格を分ける）。
 	"TaskFolderTitleLabel",
+	# ⚠ 10-18（回UI-1018-6）：⚠ 本部の札の題・掲示板の紙の題・ギルドの街の名札（⚠ 手本は明朝）。
+	"DeskCardTitleLabel", "QuestCardTitleLabel", "QuestDetailTitleLabel", "TownPlateLabel", "TownPlateBigLabel",
 ]
 const SHEET_HEADING_SPACING: int = 3
 
@@ -2571,8 +2574,8 @@ static func _build_barracks(theme: Theme) -> void:
 # --- ⚠⚠ 依頼掲示板（2026-09-27・回UI-組 掲示板・手本 QuestBoard・決定 `NAV-12`）---
 #
 # ⚠ 板（`ShopBoardPanel` を借りる）に傾いた紙の札を 3 × 2。⚠ 解放前の札は薄く。
-const QUEST_CARD_GAP_H: int = 40         # ⚠ 札どうしの横の間（⚠ 手本 3列で板いっぱい）
-const QUEST_CARD_GAP_V: int = 26
+const QUEST_CARD_GAP_H: int = 18         # ⚠ 10-18：⚠ コルク板に4列（⚠ 手本 .qboard gap 18）
+const QUEST_CARD_GAP_V: int = 22
 const QUEST_LOCKED_ALPHA_PCT: int = 55   # ⚠ 手本の暗い札
 const QUEST_STAMINA_ICON: int = 14
 
@@ -2960,8 +2963,15 @@ const TASK_MONTH_BAND: String = "dccdaa"
 # ⚠ 机＝壁の紙（`TASK` の wall_*）の右に「今日の紙」。⚠ 全体＝建物の札を並べ、⚠ 下の道を編成の3人の顔が歩く。
 # ⚠ 建物と歩く人の絵はまだ無い（⚠ 段階13・素材待ち）＝札と顔の仮の形。
 const BASE_DESK: Dictionary = {
-	"today_width": 340,       # ⚠ 今日の紙（⚠ 高さは壁の紙と揃える＝`TASK.wall_height`）
-	"today_gap": 24,          # ⚠ 壁の紙との間
+	"today_width": 276,       # ⚠ 今日の紙（⚠ 10-18 から机の左の1枚＝手本 290 を少し詰めた）
+	"today_gap": 18,          # ⚠ 左・真ん中・右の間（⚠ 手本 gap 18）
+	"right_width": 270,       # ⚠ 右の札の列（⚠ 10-18）
+	"icon_box": 52,           # ⚠ 札の左のアイコンの箱（⚠ 手本 56）
+	"badge": 24,              # ⚠ 箱の右上の数（⚠ 手本 26）
+	"glass_width": 40,        # ⚠ 集中の砂時計の札の砂時計
+	"glass_height": 60,
+	"face": 26,               # ⚠ 札の中の顔
+	"grow_faces": 3,          # ⚠ 「育てる」に並べる顔の数
 	"top": 72,                # ⚠ 右上の小さいボタンの列（⚠ 通貨の下）
 	"building_width": 120,
 	"building_height": 112,
@@ -3414,6 +3424,245 @@ static func _build_heading_font(theme: Theme) -> void:
 	theme.set_font(&"font", &"HeaderTitleLabel", spaced)
 
 
+# --- ⚠⚠ 本部・ギルドの街・依頼掲示板（2026-10-18・回UI-1018-6・手本 `docs/pomodoro-heroes-ui-docs/2026-10-18/mocks/Main.html`）---
+#
+# ⚠ 値は手本の CSS（`.card` `.mini .ico` `.cnt` `.note` `.bar` `.iconbtn` `.qboard` `.town`）。
+const HQ_ICON_BUTTON: int = 40               # ⚠ 右上のセーブ・設定・タイトルへ（⚠ 手本 .iconbtn 40×40）
+const HQ_ICON_PAD: int = 9
+const HQ_CARD_PAD_H: int = 16                # ⚠ 手本 .card padding 14px 16px
+const HQ_CARD_PAD_V: int = 12
+const HQ_ICON_BOX_BG: String = "2b2118"
+const HQ_ICON_BOX_BORDER: String = "d4a640"
+const HQ_ICON_TINT: String = "f3d58a"
+const HQ_BADGE_FONT: int = 13
+const HQ_NOTE_BG: String = "f4ead3b3"        # ⚠ 手本 rgba(244,234,211,.7)
+const HQ_NOTE_BORDER: String = "b39d74"
+const HQ_NOTE_FONT: int = 13
+const HQ_GOAL_BAR_H: int = 8
+const HQ_GOAL_BAR_BG: String = "6e5a4333"    # ⚠ 手本 rgba(110,90,67,.2)
+const HQ_BIG_NUMBER: int = 26
+const HQ_CARD_TITLE: int = 17
+const HQ_BIG_BUTTON_FONT: int = 18
+const HQ_BIG_BUTTON_PAD_H: int = 26
+const HQ_BIG_BUTTON_PAD_V: int = 12
+const HQ_LINK_FONT: int = 12
+# ⚠ 掲示板（⚠ コルク板に紙）。
+const QUEST_BOARD: Dictionary = {
+	"detail_width": 320, "pin": 7, "reward_items": 3, "face": 30,
+}
+const QUEST_CORK: String = "b48a5c"
+const QUEST_CORK_BORDER: String = "3a2c22"
+const QUEST_CORK_PAD: int = 18
+const QUEST_PAPER_PAD_H: int = 14
+const QUEST_PAPER_PAD_V: int = 14
+const QUEST_CARD_TITLE: int = 16
+const QUEST_DETAIL_TITLE: int = 21
+const QUEST_DETAIL_VALUE: int = 14
+const QUEST_TAG_FONT: int = 11
+const QUEST_TAG_TEXT: String = "f1e6cf"
+const QUEST_TAG_COLORS: Dictionary = {
+	"story": "4a3526", "training": "4f7a3a", "hard": "9c3a2e", "debug": "3d5a80",
+}
+const QUEST_PIN_COLORS: Dictionary = {"pin": "c0473a", "pin_shadow": "00000059", "pin_light": "f0a59c"}
+# ⚠ ギルドの街（⚠ 緑の地・道・建物）。
+const TOWN: Dictionary = {
+	"walker": 36, "walker_offset": 2, "walker_side": 34, "walk_speed": 40, "road_width": 16, "legend_pad": 14,
+	"big_shape": 92, "small_shape": 60, "line_width": 3,
+}
+const TOWN_COLORS: Dictionary = {
+	"road": "c8bb92a6", "wall": "6b4a2e", "line": "d4a640", "dark": "2b2118", "light": "e8c25a",
+	"hall": "4a3a6a", "awning": "9c3a2e", "forge": "6e2c22", "fire": "e07a2c", "lab": "34507a", "spark": "b08ad8",
+}
+const TOWN_MAP_BG: String = "2f4a2f"
+const TOWN_MAP_BORDER: String = "1d1612"
+const TOWN_PLATE_BG: String = "efe0b8"
+const TOWN_PILL_BG: String = "1d1612d9"
+
+
+static func _build_hq(theme: Theme) -> void:
+	var t: StringName = &"BaseDesk"
+	theme.set_color(&"icon", t, _html(HQ_ICON_TINT))
+	theme.set_type_variation(&"BaseDeskColumn", &"VBoxContainer")
+	theme.set_constant(&"separation", &"BaseDeskColumn", 12)
+	# ⚠ 右上のアイコンだけのボタン（⚠ 革の面を四角く）。
+	var leather: Dictionary = BUTTON_LEVELS["Button"]
+	theme.set_type_variation(&"HqIconButton", &"Button")
+	for state: String in BUTTON_STATES:
+		var style: StyleBoxFlat = _button_style(leather[state])
+		style.set_content_margin_all(HQ_ICON_PAD)
+		theme.set_stylebox(StringName(state), &"HqIconButton", style)
+	theme.set_constant(&"icon_max_width", &"HqIconButton", HQ_ICON_BUTTON - HQ_ICON_PAD * 2)
+	theme.set_color(&"icon_normal_color", &"HqIconButton", _html(str(leather["font_color"])))
+	theme.set_color(&"icon_hover_color", &"HqIconButton", _html(TOKEN_LIGHT))
+	# ⚠ 机の札・掲示板の紙（⚠ 紙の余白を詰めたもの）。
+	var paper: StyleBox = theme.get_stylebox(&"panel", &"PaperPanel")
+	if paper is StyleBoxFlat:
+		theme.set_type_variation(&"DeskCardPanel", &"PanelContainer")
+		theme.set_stylebox(&"panel", &"DeskCardPanel", _pad_panel(paper as StyleBoxFlat, HQ_CARD_PAD_H, HQ_CARD_PAD_V))
+		theme.set_type_variation(&"QuestPaperPanel", &"PanelContainer")
+		theme.set_stylebox(&"panel", &"QuestPaperPanel", _pad_panel(paper as StyleBoxFlat, QUEST_PAPER_PAD_H, QUEST_PAPER_PAD_V))
+		var chosen: StyleBoxFlat = _pad_panel(paper as StyleBoxFlat, QUEST_PAPER_PAD_H, QUEST_PAPER_PAD_V)
+		chosen.set_border_width_all(3)
+		chosen.border_color = _html(TOKEN_LIGHT)
+		chosen.bg_color = _html(TOKEN_PAPER_SELECTED)
+		theme.set_type_variation(&"QuestPaperChosenPanel", &"PanelContainer")
+		theme.set_stylebox(&"panel", &"QuestPaperChosenPanel", chosen)
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = _html(HQ_ICON_BOX_BG)
+	box.set_border_width_all(2)
+	box.border_color = _html(HQ_ICON_BOX_BORDER)
+	box.set_corner_radius_all(10)
+	box.set_content_margin_all(12)
+	theme.set_type_variation(&"DeskIconBox", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"DeskIconBox", box)
+	var badge: StyleBoxFlat = StyleBoxFlat.new()
+	badge.bg_color = _html(TOKEN_WAX)
+	badge.set_corner_radius_all(int(BASE_DESK["badge"]) / 2)
+	badge.set_border_width_all(2)
+	badge.border_color = _html("f5ecd8")
+	theme.set_type_variation(&"DeskCountBadge", &"Label")
+	theme.set_stylebox(&"normal", &"DeskCountBadge", badge)
+	theme.set_font_size(&"font_size", &"DeskCountBadge", HQ_BADGE_FONT)
+	theme.set_color(&"font_color", &"DeskCountBadge", _html("fbeee6"))
+	theme.set_type_variation(&"DeskCardTitleLabel", &"Label")
+	theme.set_font_size(&"font_size", &"DeskCardTitleLabel", HQ_CARD_TITLE)
+	theme.set_type_variation(&"DeskBigNumberLabel", &"Label")
+	theme.set_font_size(&"font_size", &"DeskBigNumberLabel", HQ_BIG_NUMBER)
+	if theme.has_font(&"font", &"PriceLabel"):
+		theme.set_font(&"font", &"DeskBigNumberLabel", theme.get_font(&"font", &"PriceLabel"))
+	# ⚠ 今日の集中の棒。
+	var bar_bg: StyleBoxFlat = StyleBoxFlat.new()
+	bar_bg.bg_color = _html(HQ_GOAL_BAR_BG)
+	bar_bg.set_corner_radius_all(HQ_GOAL_BAR_H / 2)
+	bar_bg.content_margin_top = HQ_GOAL_BAR_H / 2
+	bar_bg.content_margin_bottom = HQ_GOAL_BAR_H / 2
+	var bar_fill: StyleBoxFlat = StyleBoxFlat.new()
+	bar_fill.bg_color = _html(TOKEN_BRASS_INK)
+	bar_fill.set_corner_radius_all(HQ_GOAL_BAR_H / 2)
+	theme.set_type_variation(&"DeskGoalBar", &"ProgressBar")
+	theme.set_stylebox(&"background", &"DeskGoalBar", bar_bg)
+	theme.set_stylebox(&"fill", &"DeskGoalBar", bar_fill)
+	# ⚠ 知らせの1行（⚠ 薄い紙に罫の縁・左寄せ）。
+	theme.set_type_variation(&"DeskNoteButton", &"Button")
+	for state: String in BUTTON_STATES:
+		var note: StyleBoxFlat = StyleBoxFlat.new()
+		note.bg_color = _html(HQ_NOTE_BG)
+		note.set_border_width_all(1)
+		note.border_color = _html(TOKEN_BRASS_INK if state == "hover" or state == "pressed" else HQ_NOTE_BORDER)
+		note.set_corner_radius_all(5)
+		note.content_margin_left = 10
+		note.content_margin_right = 10
+		note.content_margin_top = 6
+		note.content_margin_bottom = 6
+		theme.set_stylebox(StringName(state), &"DeskNoteButton", note)
+	for key: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		theme.set_color(StringName(key), &"DeskNoteButton", _html(TOKEN_INK))
+	theme.set_font_size(&"font_size", &"DeskNoteButton", HQ_NOTE_FONT)
+	# ⚠ 紙の上の文字だけのリンク（⚠ 「詰所で替える」）。
+	theme.set_type_variation(&"DeskLinkButton", &"Button")
+	for state: String in BUTTON_STATES:
+		var flat: StyleBoxEmpty = StyleBoxEmpty.new()
+		flat.content_margin_left = 4
+		flat.content_margin_right = 4
+		theme.set_stylebox(StringName(state), &"DeskLinkButton", flat)
+	for key: String in ["font_color", "font_focus_color", "font_pressed_color"]:
+		theme.set_color(StringName(key), &"DeskLinkButton", _html(TOKEN_BRASS_INK))
+	theme.set_color(&"font_hover_color", &"DeskLinkButton", _html(TOKEN_INK))
+	theme.set_font_size(&"font_size", &"DeskLinkButton", HQ_LINK_FONT)
+	# ⚠ 大きい真鍮のボタン（⚠ 「始める」「出撃する」「この依頼で出撃」）。
+	var brass: Dictionary = BUTTON_LEVELS["PrimaryButton"]
+	theme.set_type_variation(&"DeskBigButton", &"Button")
+	for state: String in BUTTON_STATES:
+		var big: StyleBoxFlat = _button_style(brass[state])
+		big.content_margin_left = HQ_BIG_BUTTON_PAD_H
+		big.content_margin_right = HQ_BIG_BUTTON_PAD_H
+		big.content_margin_top = HQ_BIG_BUTTON_PAD_V
+		big.content_margin_bottom = HQ_BIG_BUTTON_PAD_V
+		theme.set_stylebox(StringName(state), &"DeskBigButton", big)
+	for key: String in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
+		theme.set_color(StringName(key), &"DeskBigButton", _html(str(brass[key])))
+	theme.set_color(&"font_focus_color", &"DeskBigButton", _html(str(brass["font_color"])))
+	theme.set_font_size(&"font_size", &"DeskBigButton", HQ_BIG_BUTTON_FONT)
+
+	# ⚠ 掲示板。
+	var q: StringName = &"QuestBoard"
+	for key: String in QUEST_BOARD:
+		theme.set_constant(StringName(key), q, int(QUEST_BOARD[key]))
+	for key: String in QUEST_PIN_COLORS:
+		theme.set_color(StringName(key), q, _html(str(QUEST_PIN_COLORS[key])))
+	var cork: StyleBoxFlat = StyleBoxFlat.new()
+	cork.bg_color = _html(QUEST_CORK)
+	cork.set_border_width_all(8)
+	cork.border_color = _html(QUEST_CORK_BORDER)
+	cork.set_corner_radius_all(4)
+	cork.set_content_margin_all(QUEST_CORK_PAD)
+	theme.set_type_variation(&"CorkBoardPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"CorkBoardPanel", cork)
+	theme.set_type_variation(&"QuestCardTitleLabel", &"Label")
+	theme.set_font_size(&"font_size", &"QuestCardTitleLabel", QUEST_CARD_TITLE)
+	theme.set_type_variation(&"QuestDetailTitleLabel", &"Label")
+	theme.set_font_size(&"font_size", &"QuestDetailTitleLabel", QUEST_DETAIL_TITLE)
+	theme.set_type_variation(&"QuestDetailValueLabel", &"Label")
+	theme.set_font_size(&"font_size", &"QuestDetailValueLabel", QUEST_DETAIL_VALUE)
+	for kind: String in QUEST_TAG_COLORS:
+		var tag_name: StringName = StringName("QuestTag_" + kind)
+		var tag: StyleBoxFlat = StyleBoxFlat.new()
+		tag.bg_color = _html(str(QUEST_TAG_COLORS[kind]))
+		tag.set_corner_radius_all(3)
+		tag.content_margin_left = 6
+		tag.content_margin_right = 6
+		tag.content_margin_top = 1
+		tag.content_margin_bottom = 1
+		theme.set_type_variation(tag_name, &"Label")
+		theme.set_stylebox(&"normal", tag_name, tag)
+		theme.set_font_size(&"font_size", tag_name, QUEST_TAG_FONT)
+		theme.set_color(&"font_color", tag_name, _html(QUEST_TAG_TEXT))
+
+	# ⚠ ギルドの街。
+	var town: StringName = &"BaseTown"
+	for key: String in TOWN:
+		theme.set_constant(StringName(key), town, int(TOWN[key]))
+	for key: String in TOWN_COLORS:
+		theme.set_color(StringName(key), town, _html(str(TOWN_COLORS[key])))
+	var map_bg: StyleBoxFlat = StyleBoxFlat.new()
+	map_bg.bg_color = _html(TOWN_MAP_BG)
+	map_bg.set_border_width_all(6)
+	map_bg.border_color = _html(TOWN_MAP_BORDER)
+	map_bg.set_corner_radius_all(4)
+	theme.set_type_variation(&"TownMapPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"TownMapPanel", map_bg)
+	theme.set_type_variation(&"TownBuildingButton", &"Button")
+	for state: String in BUTTON_STATES:
+		theme.set_stylebox(StringName(state), &"TownBuildingButton", StyleBoxEmpty.new())
+	var plate: StyleBoxFlat = StyleBoxFlat.new()
+	plate.bg_color = _html(TOWN_PLATE_BG)
+	plate.set_border_width_all(1)
+	plate.border_color = _html(TOKEN_BRASS_INK)
+	plate.set_corner_radius_all(2)
+	plate.content_margin_left = 10
+	plate.content_margin_right = 10
+	plate.content_margin_top = 2
+	plate.content_margin_bottom = 2
+	theme.set_type_variation(&"TownPlatePanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"TownPlatePanel", plate)
+	for spec: Array in [["TownPlateLabel", 14], ["TownPlateBigLabel", 17]]:
+		theme.set_type_variation(StringName(str(spec[0])), &"Label")
+		theme.set_font_size(&"font_size", StringName(str(spec[0])), int(spec[1]))
+		theme.set_color(&"font_color", StringName(str(spec[0])), _html(TOKEN_INK))
+	for spec: Array in [["TownNoteLabel", 11, 8, 1], ["TownLegendLabel", 12, 12, 6]]:
+		var pill: StyleBoxFlat = StyleBoxFlat.new()
+		pill.bg_color = _html(TOWN_PILL_BG)
+		pill.set_corner_radius_all(8)
+		pill.content_margin_left = int(spec[2])
+		pill.content_margin_right = int(spec[2])
+		pill.content_margin_top = int(spec[3])
+		pill.content_margin_bottom = int(spec[3])
+		theme.set_type_variation(StringName(str(spec[0])), &"Label")
+		theme.set_stylebox(&"normal", StringName(str(spec[0])), pill)
+		theme.set_font_size(&"font_size", StringName(str(spec[0])), int(spec[1]))
+		theme.set_color(&"font_color", StringName(str(spec[0])), _html(TOKEN_TEXT_ON_DARK))
+
+
 # --- ⚠⚠ 紙の上のテーマ（2026-09-26・決定 `UI-14`）---
 #
 # ⚠ 紙の部品が `theme` にこれを持つと、⚠ 子孫は**先にこちらを引き、無ければ `main_theme.tres`** へ落ちる
@@ -3697,6 +3946,17 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"SpecialStarLabel": SPECIAL_GOLD,
 	# ⚠ 品の一覧の欄の見出し（2026-10-18）。
 	"FieldCaptionLabel": TOKEN_INK_SUB,
+	# ⚠ 本部の机・掲示板（2026-10-18・回UI-1018-6）。
+	"DeskCardTitleLabel": TOKEN_INK,
+	"DeskBigNumberLabel": TOKEN_INK,
+	"DeskCountBadge": "fbeee6",
+	"QuestCardTitleLabel": TOKEN_INK,
+	"QuestDetailTitleLabel": TOKEN_INK,
+	"QuestDetailValueLabel": TOKEN_INK,
+	"QuestTag_story": "f1e6cf",
+	"QuestTag_training": "f1e6cf",
+	"QuestTag_hard": "f1e6cf",
+	"QuestTag_debug": "f1e6cf",
 }
 
 

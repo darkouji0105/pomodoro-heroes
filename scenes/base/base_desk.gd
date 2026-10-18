@@ -1,0 +1,380 @@
+class_name BaseDesk
+extends HBoxContainer
+
+# 本部の机（2026-10-18・回UI-1018-6・web版の手本 `05_base_desk.png`・決定 `NAV-34`）。
+#
+# ⚠ 左＝今日の紙（`BaseTodaySheet`）／ ⚠ 真ん中＝⚠ **上は空けておく**（⚠ 人間「あ：空けたまま」）・⚠ 下に細い札3枚
+#   （⚠ 集中の砂時計 ／ ⚠ 冒険 ／ ⚠ 依頼掲示板）／ ⚠ 右＝宝箱・育てる・研究の札と、ほかの施設。
+# ⚠ 用事の判定は帯のしおり紐と同じ口（`BaseFacilityBar.attention_of()`）。⚠ 行き先も帯の表（`BaseFacilityBar.path_of()`）。
+# ⚠ 寸法と色は Theme の `BaseDesk` 型。⚠ 拠点の画面だけで使う＝scenes/base/（AGENTS.md 置き場のルール）。
+# ⚠ 描き直しに await を持たせない（CLAUDE.md 5番）。
+
+const THEME_TYPE: StringName = &"BaseDesk"
+const POMODORO_PATH: String = "res://scenes/pomodoro/pomodoro.tscn"
+const BOARD_PATH: String = "res://scenes/adventure/adventure_select.tscn"
+const SORTIE_PATH: String = "res://scenes/adventure/party_preset_screen.tscn"
+const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
+const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
+const CHEST_PATH: String = "res://scenes/base/chest_screen.tscn"
+const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
+# ⚠ 右下の「ほかの施設」の並び（⚠ 手本の順）。⚠ 開けない施設は出さない。
+const OTHER_IDS: Array[String] = [
+	BaseFacilityBar.BARRACKS, BaseFacilityBar.FORGE, BaseFacilityBar.GUILD_RELIC,
+	BaseFacilityBar.BELONGINGS, BaseFacilityBar.RECORDS, BaseFacilityBar.SHOP,
+]
+
+
+static func create() -> BaseDesk:
+	var desk: BaseDesk = BaseDesk.new()
+	desk.name = "DeskView"
+	return desk
+
+
+var _middle: VBoxContainer = null
+var _right: VBoxContainer = null
+
+
+func _ready() -> void:
+	theme_type_variation = &"BaseDeskRow"
+	var today: BaseTodaySheet = BaseTodaySheet.create()
+	add_child(today)
+	_middle = VBoxContainer.new()
+	_middle.name = "Middle"
+	_middle.theme_type_variation = &"BaseDeskColumn"
+	_middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(_middle)
+	_right = VBoxContainer.new()
+	_right.name = "Right"
+	_right.theme_type_variation = &"BaseDeskColumn"
+	_right.custom_minimum_size.x = float(get_theme_constant(&"right_width", THEME_TYPE))
+	add_child(_right)
+	_rebuild()
+	GameManager.pending_chests_changed.connect(_on_changed_int)
+	GameManager.material_changed.connect(_on_material_changed)
+	GameManager.crafting_queue_changed.connect(_rebuild)
+	GameManager.research_node_unlocked.connect(_on_changed_str)
+	GameManager.character_growth_changed.connect(_on_changed_str)
+	GameManager.shop_changed.connect(_on_changed_str)
+	GameManager.inventory_changed.connect(_on_changed_str)
+
+
+func _rebuild() -> void:
+	for column: VBoxContainer in [_middle, _right]:
+		for child: Node in column.get_children():
+			column.remove_child(child)
+			child.queue_free()
+	# ⚠ 真ん中の上は空けておく（⚠ 決まったら入れる＝手本「あとで入れる場所」）。
+	var free_space: Control = Control.new()
+	free_space.name = "FreeSpace"
+	free_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	free_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_middle.add_child(free_space)
+	if GameManager.is_screen_unlocked(GameStateKeys.SCREEN_POMODORO):
+		_middle.add_child(_build_pomodoro_strip())
+	if GameManager.is_screen_unlocked(GameStateKeys.SCREEN_ADVENTURE_SELECT):
+		_middle.add_child(_build_adventure_strip())
+		_middle.add_child(_build_board_strip())
+	_right.add_child(_build_chest_card())
+	if BaseFacilityBar.is_open(BaseFacilityBar.TRAINING) and BaseFacilityBar.training_path() != "":
+		_right.add_child(_build_grow_card())
+	if BaseFacilityBar.is_open(BaseFacilityBar.RESEARCH):
+		_right.add_child(_build_research_card())
+	_right.add_child(_build_others())
+
+
+# --- 部品 ---
+
+# ⚠ 札の器（⚠ 紙・左にアイコンの箱・真ん中に題と説明・右にボタン）。⚠ 用事があればしおり紐。
+func _card(card_name: String, icon: Texture2D, count: int, title_key: String, sub_text: String, attention: bool) -> Dictionary:
+	var sheet: PaperSheet = PaperSheet.new()
+	sheet.name = card_name
+	sheet.show_corners = false
+	sheet.theme_type_variation = &"DeskCardPanel"
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "Row"
+	sheet.add_child(row)
+	row.add_child(_icon_box(icon, count))
+	var texts: VBoxContainer = VBoxContainer.new()
+	texts.name = "Texts"
+	texts.theme_type_variation = &"TightList"
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(texts)
+	var title: Label = Label.new()
+	title.name = "TitleLabel"
+	title.theme_type_variation = &"DeskCardTitleLabel"
+	title.text = tr(title_key)
+	texts.add_child(title)
+	if sub_text != "":
+		var sub: Label = Label.new()
+		sub.name = "SubLabel"
+		sub.theme_type_variation = &"CaptionLabel"
+		sub.text = sub_text
+		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		texts.add_child(sub)
+	RibbonMark.set_on(sheet, attention)
+	return {"sheet": sheet, "row": row, "texts": texts}
+
+
+# ⚠ 箱は並べない器（`Control`）に入れる＝⚠ 数の札を箱の右上にはみ出して置ける（⚠ `PanelContainer` の子にすると全面に広げられた）。
+func _icon_box(icon: Texture2D, count: int) -> Control:
+	var holder: Control = Control.new()
+	holder.name = "IconBox"
+	var side: float = float(get_theme_constant(&"icon_box", THEME_TYPE))
+	holder.custom_minimum_size = Vector2(side, side)
+	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box: PanelContainer = PanelContainer.new()
+	box.name = "Box"
+	box.theme_type_variation = &"DeskIconBox"
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	holder.add_child(box)
+	if icon != null:
+		var picture: TextureRect = TextureRect.new()
+		picture.texture = icon
+		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		picture.self_modulate = get_theme_color(&"icon", THEME_TYPE)
+		box.add_child(picture)
+	if count > 0:
+		var badge: Label = Label.new()
+		badge.name = "CountBadge"
+		badge.theme_type_variation = &"DeskCountBadge"
+		badge.text = str(count)
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		var badge_side: float = float(get_theme_constant(&"badge", THEME_TYPE))
+		badge.size = Vector2(badge_side, badge_side)
+		badge.position = Vector2(side - badge_side * 0.6, -badge_side * 0.4)
+		holder.add_child(badge)
+	return holder
+
+
+# ⚠ 大きい真鍮のボタン（⚠ 素の `Button`＝`UiButton` は木に入ると色を付け直すため）。
+func _big_button(button_name: String, label_key: String, handler: Callable) -> Button:
+	var button: Button = Button.new()
+	button.name = button_name
+	button.theme_type_variation = &"DeskBigButton"
+	button.text = tr(label_key)
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.pressed.connect(handler)
+	return button
+
+
+func _button(button_name: String, label_key: String, variant: UiButton.Variant, handler: Callable) -> UiButton:
+	var button: UiButton = UiButton.create(variant, label_key)
+	button.name = button_name
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.pressed.connect(handler)
+	return button
+
+
+# --- 真ん中の札 ---
+
+# 集中の砂時計：⚠ 集中の長さ（⚠ 設定と同じ値＝押すと設定が変わる）／ ⚠ いま片づけるやること（⚠ 一覧の一番上）／ ⚠ 始める。
+func _build_pomodoro_strip() -> PaperSheet:
+	var parts: Dictionary = _card("PomodoroStrip", null, 0, "ui_hq_pomodoro_title", "", false)
+	var sheet: PaperSheet = parts["sheet"]
+	var row: HBoxContainer = parts["row"]
+	var texts: VBoxContainer = parts["texts"]
+	# ⚠ アイコンの箱の代わりに砂時計（⚠ ポモドーロの加護の札と同じ絵）。
+	var box: Node = row.get_node("IconBox")
+	row.remove_child(box)
+	box.queue_free()
+	var glass: Hourglass = Hourglass.create(0)
+	glass.name = "Hourglass"
+	# ⚠ 砂時計は木に入ったとき自分の大きさ（Theme `Hourglass`）を当てる＝⚠ そのあとで机の大きさに直す。
+	glass.ready.connect(_fit_glass.bind(glass))
+	row.add_child(glass)
+	row.move_child(glass, 0)
+	var choices: HBoxContainer = HBoxContainer.new()
+	choices.name = "FocusChoices"
+	choices.theme_type_variation = &"ButtonRow"
+	texts.add_child(choices)
+	var current: int = GameSettings.focus_minutes()
+	for raw: Variant in Balance.pomodoro.focus_minute_choices:
+		var minutes: int = int(raw)
+		var chip: Button = Button.new()
+		chip.name = "Focus_%d" % minutes
+		chip.theme_type_variation = &"PaperToggle"
+		chip.toggle_mode = true
+		chip.focus_mode = Control.FOCUS_NONE
+		chip.set_pressed_no_signal(minutes == current)
+		chip.text = tr("ui_settings_minutes") % minutes
+		chip.pressed.connect(_on_focus_minutes_picked.bind(minutes))
+		choices.add_child(chip)
+	var open_tasks: Array = GameManager.get_open_tasks()
+	var task_id: String = ""
+	if not open_tasks.is_empty():
+		task_id = str((open_tasks[0] as Dictionary).get(GameStateKeys.TASK_ID, ""))
+		var now: Label = Label.new()
+		now.name = "NowTaskLabel"
+		now.theme_type_variation = &"CaptionLabel"
+		now.text = tr("ui_hq_pomodoro_now") % str((open_tasks[0] as Dictionary).get(GameStateKeys.TASK_TITLE, ""))
+		now.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		now.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		now.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		choices.add_child(now)
+	row.add_child(_big_button("PomodoroButton", "ui_hq_pomodoro_start", _on_pomodoro_pressed.bind(task_id)))
+	return sheet
+
+
+func _fit_glass(glass: Hourglass) -> void:
+	glass.custom_minimum_size = Vector2(float(get_theme_constant(&"glass_width", THEME_TYPE)), float(get_theme_constant(&"glass_height", THEME_TYPE)))
+
+
+func _on_focus_minutes_picked(minutes: int) -> void:
+	GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_FOCUS_MINUTES, minutes)
+	_rebuild()
+
+
+func _on_pomodoro_pressed(task_id: String) -> void:
+	if task_id == "":
+		SceneManager.change_scene(POMODORO_PATH)
+	else:
+		SceneManager.change_scene_with_data(POMODORO_PATH, {TransferKeys.TASK_ID: task_id})
+
+
+# 冒険：⚠ 次に受ける話（⚠ 途中のランがあればその続き）／ ⚠ 出る3人 ／ ⚠ スタミナ ／ ⚠ 出撃する（⚠ 出撃の準備を通す）。
+func _build_adventure_strip() -> PaperSheet:
+	var in_dungeon: bool = GameManager.is_in_dungeon()
+	var in_floor: bool = GameManager.is_in_floor()
+	var stage_id: String = GameManager.get_next_story_stage()
+	var title_text: String = ""
+	if in_dungeon:
+		var dungeon_id: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
+		title_text = tr(str(MasterDataLoader.get_dungeon(dungeon_id).get("name_key", dungeon_id)))
+	elif stage_id != "":
+		var order: Array = MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)
+		title_text = "%s　%s" % [tr("ui_quest_episode") % (order.find(stage_id) + 1), tr(str(MasterDataLoader.get_stage(stage_id).get("name_key", stage_id)))]
+	var parts: Dictionary = _card("AdventureStrip", IconTextures.for_hq(IconTextures.NAME_HQ_ADVENTURE), 0, "ui_hq_adventure_title", "", false)
+	var sheet: PaperSheet = parts["sheet"]
+	var row: HBoxContainer = parts["row"]
+	var texts: VBoxContainer = parts["texts"]
+	(texts.get_node("TitleLabel") as Label).text = title_text if title_text != "" else tr("ui_hq_adventure_title")
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = "PartyLine"
+	texts.add_child(line)
+	var face: int = get_theme_constant(&"face", THEME_TYPE)
+	for raw: Variant in GameManager.get_party_members():
+		if str(raw) != "":
+			line.add_child(CharacterAvatar.create(str(raw), face))
+	var note: Label = Label.new()
+	note.name = "StaminaLabel"
+	note.theme_type_variation = &"CaptionLabel"
+	note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	note.text = tr("ui_hq_run_in_progress") if in_floor or in_dungeon else tr("ui_hq_stamina_note") % [int(Balance.adventure.stamina_cost_per_stage), GameManager.get_stamina()]
+	line.add_child(note)
+	if not (in_floor or in_dungeon):
+		var change: Button = Button.new()
+		change.name = "ChangePartyButton"
+		change.theme_type_variation = &"DeskLinkButton"
+		change.text = tr("ui_hq_change_party")
+		change.focus_mode = Control.FOCUS_NONE
+		change.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		change.pressed.connect(SceneManager.change_scene.bind(SORTIE_PATH))
+		line.add_child(change)
+	if in_dungeon:
+		row.add_child(_button("ContinueRunButton", "ui_base_continue_run", UiButton.Variant.PRIMARY, SceneManager.change_scene.bind(DUNGEON_MAP_PATH)))
+	elif in_floor:
+		row.add_child(_button("ContinueRunButton", "ui_base_continue_run", UiButton.Variant.PRIMARY, SceneManager.change_scene.bind(FLOOR_MAP_PATH)))
+	elif stage_id != "":
+		row.add_child(_big_button("AdventureSortieButton", "ui_quest_sortie_go", _open_sortie.bind(stage_id)))
+	return sheet
+
+
+# ⚠ 出撃の準備へ（⚠ 掲示板の「受ける」と同じ口・戻ると本部）。
+func _open_sortie(stage_id: String) -> void:
+	SceneManager.change_scene_with_data(SORTIE_PATH, {
+		TransferKeys.SORTIE_STAGE_ID: stage_id,
+		TransferKeys.SORTIE_DUNGEON_ID: "",
+		TransferKeys.RETURN_PATH: BASE_PATH,
+	})
+
+
+# 依頼掲示板：⚠ 受けられる話（⚠ まだ済んでいないもの）と高難度の数。
+func _build_board_strip() -> PaperSheet:
+	var open_stories: int = 0
+	for raw: Variant in MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY):
+		if GameManager.is_story_stage_unlocked(str(raw)) and not GameManager.is_stage_cleared(str(raw)):
+			open_stories += 1
+	var sub: String = tr("ui_hq_board_sub") % [open_stories, MasterDataLoader.get_all_dungeon_ids().size()]
+	var parts: Dictionary = _card("BoardStrip", IconTextures.for_hq(IconTextures.NAME_HQ_BOARD), 0, "ui_quest_board_title", sub, false)
+	(parts["row"] as HBoxContainer).add_child(_button("BoardButton", "ui_hq_board_open", UiButton.Variant.SECONDARY, SceneManager.change_scene.bind(BOARD_PATH)))
+	return parts["sheet"]
+
+
+# --- 右の札 ---
+
+func _build_chest_card() -> PaperSheet:
+	var count: int = GameManager.get_pending_chest_count()
+	var sub: String = tr("ui_hq_chest_sub") % count if count > 0 else tr("ui_hq_chest_none")
+	var parts: Dictionary = _card("ChestCard", IconTextures.for_chest(), count, "ui_hq_chest_title", sub, count > 0)
+	var open: UiButton = _button("ChestBadge", "ui_hq_chest_open", UiButton.Variant.PRIMARY if count > 0 else UiButton.Variant.SECONDARY, SceneManager.change_scene.bind(CHEST_PATH))
+	open.disabled = count <= 0
+	(parts["row"] as HBoxContainer).add_child(open)
+	return parts["sheet"]
+
+
+func _build_grow_card() -> PaperSheet:
+	var ready: Array[String] = GameManager.get_level_up_ready_characters()
+	var sub: String = tr("ui_hq_grow_sub") % ready.size() if not ready.is_empty() else tr("ui_hq_grow_none")
+	var parts: Dictionary = _card("GrowCard", IconTextures.for_hq(IconTextures.NAME_HQ_GROW), 0, "ui_hq_grow_title", sub, not ready.is_empty())
+	if not ready.is_empty():
+		var faces: HBoxContainer = HBoxContainer.new()
+		faces.name = "ReadyFaces"
+		(parts["texts"] as VBoxContainer).add_child(faces)
+		var face: int = get_theme_constant(&"face", THEME_TYPE)
+		for i: int in range(mini(ready.size(), int(get_theme_constant(&"grow_faces", THEME_TYPE)))):
+			faces.add_child(CharacterAvatar.create(ready[i], face))
+	(parts["row"] as HBoxContainer).add_child(_button("GrowButton", "ui_hq_grow_open", UiButton.Variant.SECONDARY, SceneManager.change_scene.bind(BaseFacilityBar.training_path())))
+	return parts["sheet"]
+
+
+func _build_research_card() -> PaperSheet:
+	var count: int = GameManager.get_unlockable_research_count()
+	var sub: String = tr("ui_hq_research_sub") % count if count > 0 else tr("ui_hq_research_none")
+	var parts: Dictionary = _card("ResearchCard", IconTextures.for_screen(GameStateKeys.SCREEN_RESEARCH), 0, "ui_facility_research", sub, count > 0)
+	(parts["row"] as HBoxContainer).add_child(_button("ResearchButton", "ui_hq_research_open", UiButton.Variant.SECONDARY, SceneManager.change_scene.bind(BaseFacilityBar.path_of(BaseFacilityBar.RESEARCH))))
+	return parts["sheet"]
+
+
+func _build_others() -> PaperSheet:
+	var sheet: PaperSheet = PaperSheet.new()
+	sheet.name = "OtherFacilities"
+	sheet.theme_type_variation = &"DeskCardPanel"
+	sheet.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var body: VBoxContainer = VBoxContainer.new()
+	body.theme_type_variation = &"TightList"
+	sheet.add_child(body)
+	var heading: SheetHeading = SheetHeading.new()
+	heading.title_key = "ui_hq_others_title"
+	heading.right_text = tr("ui_hq_others_hint")
+	body.add_child(heading)
+	var grid: GridContainer = GridContainer.new()
+	grid.name = "OtherGrid"
+	grid.columns = 2
+	body.add_child(grid)
+	for id: String in OTHER_IDS:
+		if not BaseFacilityBar.is_open(id):
+			continue
+		var button: Button = UiButton.create_paper_choice(BaseFacilityBar.label_key_of(id))
+		button.name = "Other_" + id
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(SceneManager.change_scene.bind(BaseFacilityBar.path_of(id)))
+		RibbonMark.set_on(button, BaseFacilityBar.attention_of(id))
+		grid.add_child(button)
+	return sheet
+
+
+func _on_changed_int(_value: int) -> void:
+	_rebuild()
+
+
+func _on_changed_str(_value: String) -> void:
+	_rebuild()
+
+
+func _on_material_changed(_material_id: String, _amount: int) -> void:
+	_rebuild()

@@ -1,216 +1,83 @@
 # res://scenes/base/base_screen.gd
-# 拠点画面（下部：リソース表示と遷移ボタン）の実装
-# AGENTS.md 準拠。
-# ⚠ 2026-10-05（回P-1）から自動セーブがある（`SaveManager.autosave()`）。⚠ SaveButton は人間の決定で残す（「⚠ ｑ２　あ」）。
+# 本部（ギルド本部）の画面。AGENTS.md 準拠。
+#
+# ⚠⚠ 10-18（回UI-1018-6・web版の手本 `docs/pomodoro-heroes-ui-docs/2026-10-18/` `05_base_*`・決定 `NAV-34`）：⚠ **作り直した**。
+#   ⚠ 2つの見え方は**帯のタブで分ける**：⚠ 「本部」＝机（`BaseDesk`）／ ⚠ 「ギルド」＝ギルドを見渡す街（`BaseTownView`）。
+#     ⚠ 前の右上の「拠点を見渡す／机に戻る」はやめた。⚠ 帯で押すと同じ画面を見え方つきで開き直す（`TransferKeys.BASE_VIEW`）。
+#   ⚠ 右上はセーブ・設定・タイトルへの**アイコンだけ**（⚠ 名前は触れると出る）。⚠ 「シナリオ」「UIテスト」は外した。
+#   ⚠ 下の列（宝箱・掲示板・ポモドーロ・続きから）はやめた＝⚠ 机の札が持つ。
+# ⚠ 2026-10-05（回P-1）から自動セーブがある（`SaveManager.autosave()`）。⚠ セーブのボタンは人間の決定で残す（「⚠ ｑ２　あ」）。
 
 extends Control
 
-# 定数
-const PLACEHOLDER_PATH: String = "res://scenes/ui/placeholder_screen.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 const TITLE_PATH: String = "res://scenes/title/title_screen.tscn"
-const CHEST_PATH: String = "res://scenes/base/chest_screen.tscn"
-const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
-const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
-# ⚠ UI テストのページ（デバッグビルドのみ。⚠ リリース前に消す）。
-const UI_TEST_PAGE_PATH: String = "res://tests/ui_test_page.tscn"
+const SETTINGS_PATH: String = "res://scenes/base/settings_screen.tscn"
 
-# ⚠ 10-07（回HB-1・人間「⚠ ２じゃあ」）：⚠ 「冒険」のボタンは消した。
-# ⚠ 10-07（人間「⚠ 掲示板とポモドーロを同列に扱ってほしい」「⚠ 同じぐらいの重要度だという意味だった、上側で隣同士において」）：
-#   ⚠ 下の列に「掲示板」（⚠ 帯の掲示板と同じ画面・同じ字）をポモドーロの隣に置く。
-const SCREEN_SCENES: Dictionary = {
-	GameStateKeys.SCREEN_ADVENTURE_SELECT: "res://scenes/adventure/adventure_select.tscn",
-	GameStateKeys.SCREEN_POMODORO: "res://scenes/pomodoro/pomodoro.tscn",
-	# ⚠ 2026-09-28（回UI-仕組み③）：⚠ 設定の画面。
-	GameStateKeys.SCREEN_SETTINGS: "res://scenes/base/settings_screen.tscn",
-	GameStateKeys.SCREEN_SCENARIO: PLACEHOLDER_PATH,
-}
-
-# ノード参照
-# ⚠⚠ 金・スタミナは**右上の `ResourceBar` へ移した**（2026-09-09・人間の決定
-#   「資源は、右上に表示する」「右上へ移して下段からは消す」）。
-#   ⚠ 下段に残るのはポーション（⚠ 「使う」ボタンと対になっているため）と素材の行。
-# ⚠⚠ 10-07（回HB-1・人間「⚠ ４あ」）：⚠ 下の列は 掲示板とポモドーロ（⚠ 同じ重さ＝どちらも真鍮・2倍の幅）・シナリオ・届いた宝箱。
-#   ⚠ 設定・セーブ・タイトルへ は右上の小さいボタン（`SystemButtons`・通貨の下）。⚠ 下段の資源の列は消した。
-@onready var top_area: Control = $Layout/TopArea
-@onready var chest_badge: Button = $Layout/BottomArea/BottomLayout/NavigationButtons/ChestBadge
-@onready var chest_count_label: Label = $Layout/BottomArea/BottomLayout/NavigationButtons/ChestBadge/ChestCountLabel
-
-@onready var system_buttons: HBoxContainer = $SystemButtons
-@onready var view_toggle: UiButton = $SystemButtons/ViewToggle
-@onready var save_button: UiButton = $SystemButtons/SaveButton
-@onready var back_to_title_button: UiButton = $SystemButtons/BackToTitleButton
-@onready var settings_button: UiButton = $SystemButtons/SettingsButton
-
-@onready var board_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/BoardButton
-@onready var pomodoro_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/PomodoroButton
-@onready var scenario_button: UiButton = $Layout/BottomArea/BottomLayout/NavigationButtons/ScenarioButton
-
-# ⚠ 本部の見え方（10-07・回HB-1・人間「⚠ ５あだけど　拠点が見れるビューもとグルで見れるようにする」）。
 const VIEW_DESK: String = "desk"
 const VIEW_TOWN: String = "town"
 
-# 内部状態
-var _navigation_buttons: Dictionary = {} # screen_id -> UiButton
-var _desk_view: Control = null
+@onready var header: ScreenHeader = $Margin/Layout/Header
+@onready var body: MarginContainer = $Margin/Layout/Body
+
+var _view: String = VIEW_DESK
+var _desk: BaseDesk = null
 var _town_view: BaseTownView = null
 
-func _ready() -> void:
-	# GameManager の状態を取得
-	var state: Dictionary = GameManager.get_state()
 
+func _ready() -> void:
 	# ⚠ 朝4:00 の移し（2026-10-04・`TK-6`）。⚠ 紙を描く前に（⚠ 昨日終えたものを紙に残さない）。
 	var _moved: int = GameManager.roll_over_done_tasks()
-
-	_init_resource_displays(state)
-	_init_views()
-	_init_system_buttons()
-	_init_navigation_buttons()
-	# ⚠ 2026-09-26（回UI-3・`NAV-6`）：⚠ 施設の帯。⚠ ギルドのボタンと編成のボタンは帯へ移した。
-	BaseFacilityBar.attach(self, $Layout, BaseFacilityBar.HQ)
-	_init_chest_badge()
-	_connect_signals()
-	_show_arrival_rewards()
-
-
-func _init_resource_displays(_state: Dictionary) -> void:
-	# ⚠⚠ 2026-10-06：⚠ 右上の素材16件の帯をやめた（⚠ 人間「⚠ 拠点では書かずに、関連する画面でのみ表示するように　リソースは」）。
-	#   ⚠ 素材は使う画面の見出しに出る（`ScreenHeader.show_materials()`・育成／鍛冶場／作業場／研究）。⚠ 通貨は今までどおり `ResourceHud`。
-	# ⚠⚠ 2026-10-07：⚠ 下段の「スタミナポーション 使う」もやめた（⚠ 人間「⚠ 片方にまとめて」）＝右上のスタミナの「＋」→「使う」。
-	pass
-
-# ⚠⚠ 本部の2つの見え方（10-07・回HB-1・`NAV-21`）。⚠ 切り替えは右上の「拠点を見渡す」／「机に戻る」。
-#   ⚠ 机＝壁の紙（2026-10-04・`TK-3`・左上）＋ 今日の紙（その右）。⚠ 全体＝建物と歩く人（`BaseTownView`）。
-#   ⚠ どちらを見ていたかは画面を出ても覚える（`SceneManager.remember()`）。
-func _init_views() -> void:
-	# ⚠ 10-09（回TK-F の絵）：⚠ 壁の紙と今日の紙を横並びの器に入れる（⚠ 間は `BaseDesk/today_gap`＝`BaseDeskRow`）。
-	#   ⚠ 前は今日の紙を「壁の紙の幅 300 の右」に決め打ちで置いていた＝⚠ 壁の紙の見出しに「期限切れ・今日まで」が入ると
-	#     ⚠ 紙が広がって今日の紙に重なった（⚠ HB-1 からあった・タスクのある絵 `59` で見つけた）。
-	_desk_view = HBoxContainer.new()
-	_desk_view.name = "DeskView"
-	_desk_view.theme_type_variation = &"BaseDeskRow"
-	_desk_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top_area.add_child(_desk_view)
-	# ⚠ 壁の紙。⚠ 位置と大きさは Theme の `Task/wall_*`。
-	var note: TaskWallNote = TaskWallNote.create()
-	note.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	_desk_view.add_child(note)
-	var margin: float = float(note.get_theme_constant(&"wall_left", TaskWallNote.THEME_TYPE))
-	_desk_view.position = Vector2(margin, margin)
-	var today: BaseTodaySheet = BaseTodaySheet.create()
-	today.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	_desk_view.add_child(today)
-
-	_town_view = BaseTownView.create()
-	top_area.add_child(_town_view)
-	_town_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_town_view.offset_left = margin
-	_town_view.offset_right = -margin
-	_town_view.offset_top = margin
-	view_toggle.pressed.connect(_on_view_toggle_pressed)
-	_show_view(str(SceneManager.recall(TransferKeys.MEMORY_BASE_VIEW, VIEW_DESK)))
-
-
-func _show_view(view: String) -> void:
-	var town: bool = view == VIEW_TOWN
-	_town_view.visible = town
-	_desk_view.visible = not town
-	view_toggle.label_key = "ui_base_view_desk" if town else "ui_base_view_town"
-	SceneManager.remember(TransferKeys.MEMORY_BASE_VIEW, VIEW_TOWN if town else VIEW_DESK)
-
-
-func _on_view_toggle_pressed() -> void:
-	_show_view(VIEW_DESK if _town_view.visible else VIEW_TOWN)
+	var data: Dictionary = SceneManager.consume_transfer_data()
+	_view = str(data.get(TransferKeys.BASE_VIEW, SceneManager.recall(TransferKeys.MEMORY_BASE_VIEW, VIEW_DESK)))
+	if _view != VIEW_TOWN:
+		_view = VIEW_DESK
+	SceneManager.remember(TransferKeys.MEMORY_BASE_VIEW, _view)
+	header.set_subtitle_text(tr("ui_hq_sub_town" if _view == VIEW_TOWN else "ui_hq_sub_desk"))
+	_build_system_buttons()
+	if _view == VIEW_TOWN:
+		_town_view = BaseTownView.create()
+		body.add_child(_town_view)
+	else:
+		_desk = BaseDesk.create()
+		body.add_child(_desk)
+	BaseFacilityBar.attach(self, $Margin, BaseFacilityBar.GUILD if _view == VIEW_TOWN else BaseFacilityBar.HQ)
+	_show_arrival_rewards(data)
 
 
 # ⚠ 検査用：⚠ いまの見え方。
 func current_view() -> String:
-	return VIEW_TOWN if _town_view != null and _town_view.visible else VIEW_DESK
+	return _view
 
 
-# ⚠ 右上（⚠ 通貨の下）。⚠ 余白は画面ルートの余白（`ScreenMargin`）・高さは `BaseDesk/top`。
-func _init_system_buttons() -> void:
-	var margin: float = float(get_theme_constant(&"margin_right", &"ScreenMargin"))
-	system_buttons.offset_right = -margin
-	system_buttons.offset_left = -margin
-	system_buttons.offset_top = float(get_theme_constant(&"top", BaseTodaySheet.THEME_TYPE))
+# ⚠ 右上（⚠ 通貨の左）：⚠ セーブ・設定・タイトルへ（⚠ アイコンだけ・名前は触れると出る）。
+func _build_system_buttons() -> void:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "SystemButtons"
+	row.theme_type_variation = &"ButtonRow"
+	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for spec: Array in [
+		["SaveButton", IconTextures.NAME_SYS_SAVE, "ui_base_save", _on_save_pressed],
+		["SettingsButton", IconTextures.NAME_SYS_SETTINGS, "ui_nav_settings", _on_settings_pressed],
+		["BackToTitleButton", IconTextures.NAME_SYS_TITLE, "ui_base_back_to_title", _on_back_to_title_pressed],
+	]:
+		var button: Button = Button.new()
+		button.name = str(spec[0])
+		button.theme_type_variation = &"HqIconButton"
+		button.icon = IconTextures.for_hq(str(spec[1]))
+		button.tooltip_text = tr(str(spec[2]))
+		button.focus_mode = Control.FOCUS_NONE
+		button.pressed.connect(spec[3] as Callable)
+		row.add_child(button)
+	# ⚠ 右上の通貨の手前（⚠ 見出しの「HUD のぶん空ける」より左）。
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(spacer)
+	header.add_child(row)
+	header.move_child(spacer, header.hud_spacer.get_index())
+	header.move_child(row, header.hud_spacer.get_index())
 
-
-func _init_navigation_buttons() -> void:
-	_navigation_buttons = {
-		GameStateKeys.SCREEN_ADVENTURE_SELECT: board_button,
-		GameStateKeys.SCREEN_POMODORO: pomodoro_button,
-		GameStateKeys.SCREEN_SETTINGS: settings_button,
-		GameStateKeys.SCREEN_SCENARIO: scenario_button,
-	}
-
-	for screen_id: String in _navigation_buttons:
-		var btn: UiButton = _navigation_buttons[screen_id]
-		# 解放状態の反映
-		# ⚠ 設定はいつも出す（2026-09-28・設定の画面を作った回）。⚠ 設定を解放するステージは無い＝前は出なかった。
-		btn.visible = screen_id == GameStateKeys.SCREEN_SETTINGS or GameManager.is_screen_unlocked(screen_id)
-		# 遷移イベント接続
-		btn.pressed.connect(_go_to_screen.bind(screen_id))
-
-	_add_ui_test_button()
-	_add_continue_button()
-
-
-# ⚠⚠ 途中のランへ1回で（2026-10-07・人間「⚠ 判断がいらないものをとりあえずぜんぶ」＝回UI-便 G）。
-#   ⚠ 前は 掲示板 → 札の「続きから」の2回。⚠ 入り方は掲示板の「続きから」と同じ（⚠ 地図へ移るだけ・出撃届は挟まない）。
-#   ⚠ 途中のランが無ければ出さない。
-func _add_continue_button() -> void:
-	var path: String = ""
-	if GameManager.is_in_dungeon():
-		path = DUNGEON_MAP_PATH
-	elif GameManager.is_in_floor():
-		path = FLOOR_MAP_PATH
-	if path == "":
-		return
-	# ⚠ 10-07（回HB-1）：⚠ 真鍮は掲示板とポモドーロ＝⚠ 続きからは並の革（⚠ 人間「⚠ 通常のボタンのままでいい」）。
-	var button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_base_continue_run")
-	button.name = "ContinueRunButton"
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.pressed.connect(SceneManager.change_scene.bind(path))
-	pomodoro_button.get_parent().add_child(button)
-	pomodoro_button.get_parent().move_child(button, 0)
-
-# ⚠⚠ UI テストのページへの入口（2026-09-06・人間の決定「拠点にデバッグ入口」）。
-#
-# ⚠ `OS.is_debug_build()` のガード付き＝⚠ 製品には出ない
-#   （⚠ ポモドーロの「残り1秒にする」ボタンと同じ扱い）。
-# ⚠⚠ リリース前に消す。⚠ 消すのは3箇所：⚠ この関数と呼び出し ／
-#   ⚠ `tests/ui_test_page.gd` ／ `tests/ui_test_page.tscn`。
-# ⚠ `_navigation_buttons` / `SCREEN_SCENES` に足さないこと（⚠ 解放判定の道ではない）。
-func _add_ui_test_button() -> void:
-	if not OS.is_debug_build():
-		return
-	var button: UiButton = UiButton.new()
-	button.name = "UiTestButton"
-	button.text = "ui_uitest_open"
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.clip_text = true
-	button.pressed.connect(_on_ui_test_pressed)
-	pomodoro_button.get_parent().add_child(button)
-
-func _on_ui_test_pressed() -> void:
-	SceneManager.change_scene(UI_TEST_PAGE_PATH)
-
-func _init_chest_badge() -> void:
-	var count: int = GameManager.get_pending_chest_count()
-	_update_chest_badge(count)
-
-func _connect_signals() -> void:
-	# GameManager からの通知
-	# ⚠ `resource_changed` はもう繋がない（2026-09-09）。⚠ 金・スタミナは右上へ移り、
-	#   ⚠ 更新は `ResourceBar` が自分で受ける。⚠ ここに残すと二重に更新することになる。
-	GameManager.screen_unlocked.connect(_on_screen_unlocked)
-	GameManager.pending_chests_changed.connect(_on_pending_chests_changed)
-
-	# その他ボタン
-	chest_badge.pressed.connect(_on_chest_badge_pressed)
-	save_button.pressed.connect(_on_save_pressed)
-	back_to_title_button.pressed.connect(_on_back_to_title_pressed)
 
 # ポモドーロから戻ってきたときの受け取り報告。
 #
@@ -219,8 +86,7 @@ func _connect_signals() -> void:
 # 数だけを転送データで受け取り、拠点に着いてから出す。
 #
 # 拠点へは他の画面からも戻ってくるので、キーが無ければ何もしない。
-func _show_arrival_rewards() -> void:
-	var data: Dictionary = SceneManager.consume_transfer_data()
+func _show_arrival_rewards(data: Dictionary) -> void:
 	if data.is_empty():
 		return
 	var potions: int = int(data.get(TransferKeys.POMODORO_POTIONS, 0))
@@ -244,43 +110,10 @@ func _show_arrival_rewards() -> void:
 	else:
 		Modal.notify(self, "ui_base_pomodoro_rewards", [potions, chests], false, options)
 
-# --- シグナルハンドラ ---
 
-func _on_screen_unlocked(screen_id: String) -> void:
-	if _navigation_buttons.has(screen_id):
-		_navigation_buttons[screen_id].visible = true
-	else:
-		push_warning("[BaseScreen] unlocked screen_id not in navigation: " + screen_id)
+func _on_settings_pressed() -> void:
+	SceneManager.change_scene(SETTINGS_PATH)
 
-func _on_pending_chests_changed(pending_count: int) -> void:
-	_update_chest_badge(pending_count)
-
-# --- ヘルパー ---
-
-func _update_chest_badge(count: int) -> void:
-	if count > 0:
-		chest_badge.visible = true
-		# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 本部の紐の行き先＝届いた宝箱にも紐。
-		RibbonMark.attach(chest_badge)
-		chest_count_label.text = str(count)
-	else:
-		chest_badge.visible = false
-
-func _go_to_screen(screen_id: String) -> void:
-	var path: String = str(SCREEN_SCENES.get(screen_id, ""))
-	if path == "":
-		push_warning("[BaseScreen] unknown screen_id: %s" % screen_id)
-		return
-
-	# データ付きで遷移
-	SceneManager.change_scene_with_data(path, {TransferKeys.SCREEN_ID: screen_id})
-
-# 宝箱のバッジ（2026-09-15・人間の指示「宝箱は、倉庫側ではなく拠点から直接開けるように」）。
-#
-# ⚠ 前は倉庫の宝箱タブへ移っていた。⚠ 倉庫は別窓だけになり、⚠ 宝箱タブは消した。
-# ⚠ 2026-09-27（決定 `BS-21`・人間「⚠ 1あ」）：⚠ 拠点の上に重ねる一覧（`ChestPanel`）をやめ、⚠ 「届いた宝箱」の画面へ移る。
-func _on_chest_badge_pressed() -> void:
-	SceneManager.change_scene(CHEST_PATH)
 
 func _on_save_pressed() -> void:
 	var save_options: Dictionary = {Modal.OPTION_TITLE: tr("ui_common_title_save")}
@@ -288,6 +121,7 @@ func _on_save_pressed() -> void:
 		Modal.notify(self, "ui_base_save_completed", [], false, save_options)
 	else:
 		Modal.notify(self, "ui_base_save_failed", [], false, save_options)
+
 
 # タイトルへ戻る前に確認する。
 # ⚠ 戻るときに自動セーブされる（`SceneManager.change_scene()`・回P-1）。⚠ 確かめの窓は押し間違いのため残す。

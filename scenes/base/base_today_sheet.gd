@@ -3,11 +3,12 @@ extends PaperSheet
 
 # 本部の机の「今日の紙」（2026-10-07・回HB-1・`NAV-21`・人間「⚠ ５あ」）。
 #
-# ⚠ 今日の集中の分 ／ ⚠ 用事のある施設の一覧（⚠ 1行＝1つの用事。⚠ 押すとその画面へ）。
-# ⚠ 用事の判定は帯のしおり紐と**同じ口**（`BaseFacilityBar.attention_of()`）＝⚠ ここに2本目を書かない。
+# ⚠⚠ 10-18（回UI-1018-6・web版の手本 `05_base_desk.png`・`NAV-34`）：⚠ 机の左の1枚に**まとめた**。
+#   ⚠ 上から：⚠ 見出し（今日の日付）／ ⚠ 今日の集中（⚠ 1日の目標があれば「◯ / ◯ 分」と棒）／ ⚠ やること（`TaskWallNote`）／ ⚠ 知らせ。
+# ⚠ 知らせ＝用事のある施設（⚠ 1行＝1つの用事。⚠ 押すとその画面へ）。
+#   ⚠ 用事の判定は帯のしおり紐と**同じ口**（`BaseFacilityBar.attention_of()`）＝⚠ ここに2本目を書かない。
 #   ⚠ 帯の紐が「どこに用事があるか」、⚠ この紙が「何の用事か」を読ませる。
-# ⚠ 大きさは Theme の `BaseDesk` 型（⚠ 高さは壁の紙と揃える＝`Task/wall_height`）。
-# ⚠ 拠点の画面だけで使う＝scenes/base/（AGENTS.md 置き場のルール）。
+# ⚠ 大きさは Theme の `BaseDesk` 型。⚠ 拠点の画面だけで使う＝scenes/base/（AGENTS.md 置き場のルール）。
 # ⚠ 描き直しに await を持たせない（CLAUDE.md 5番＝`remove_child()` してから `queue_free()`）。
 
 const THEME_TYPE: StringName = &"BaseDesk"
@@ -37,29 +38,28 @@ var _list: VBoxContainer = null
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(
-		float(get_theme_constant(&"today_width", THEME_TYPE)),
-		float(get_theme_constant(&"wall_height", &"Task")))
+	custom_minimum_size.x = float(get_theme_constant(&"today_width", THEME_TYPE))
 	var body: VBoxContainer = VBoxContainer.new()
 	body.name = "Body"
 	add_child(body)
 	var heading: SheetHeading = SheetHeading.new()
 	heading.name = "TodayHeading"
 	heading.title_key = "ui_base_today_title"
+	heading.right_text = TaskParts.long_date(GameDate.get_game_date_string())
 	body.add_child(heading)
-	body.add_child(ValueRow.create(tr("ui_records_focus_today"), tr("ui_records_minutes") % GameManager.get_cumulative_focus_minutes_today()))
+	_add_focus(body)
+	var note: TaskWallNote = TaskWallNote.create()
+	note.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_child(note)
 	var caption: Label = Label.new()
 	caption.theme_type_variation = &"CaptionLabel"
 	caption.text = tr("ui_base_today_errands")
 	body.add_child(caption)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_child(scroll)
 	_list = VBoxContainer.new()
 	_list.name = "Errands"
+	_list.theme_type_variation = &"TightList"
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_list)
+	body.add_child(_list)
 	_rebuild()
 	GameManager.pending_chests_changed.connect(_on_changed_int)
 	GameManager.material_changed.connect(_on_material_changed)
@@ -68,6 +68,39 @@ func _ready() -> void:
 	GameManager.character_growth_changed.connect(_on_changed_str)
 	GameManager.shop_changed.connect(_on_changed_str)
 	GameManager.inventory_changed.connect(_on_changed_str)
+
+
+# ⚠ 今日の集中（⚠ 1日の目標＝設定の `daily_goal_minutes`・0 なら棒を出さない）。
+func _add_focus(body: VBoxContainer) -> void:
+	var minutes: int = GameManager.get_cumulative_focus_minutes_today()
+	var goal: int = GameSettings.daily_goal_minutes()
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "FocusRow"
+	body.add_child(row)
+	var caption: Label = Label.new()
+	caption.text = tr("ui_records_focus_today")
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caption.size_flags_vertical = Control.SIZE_SHRINK_END
+	row.add_child(caption)
+	var big: Label = Label.new()
+	big.name = "FocusMinutes"
+	big.theme_type_variation = &"DeskBigNumberLabel"
+	big.text = str(minutes)
+	row.add_child(big)
+	var unit: Label = Label.new()
+	unit.theme_type_variation = &"CaptionLabel"
+	unit.size_flags_vertical = Control.SIZE_SHRINK_END
+	unit.text = tr("ui_hq_focus_goal") % goal if goal > 0 else tr("ui_hq_focus_unit")
+	row.add_child(unit)
+	if goal <= 0:
+		return
+	var bar: ProgressBar = ProgressBar.new()
+	bar.name = "FocusGoalBar"
+	bar.theme_type_variation = &"DeskGoalBar"
+	bar.show_percentage = false
+	bar.max_value = float(goal)
+	bar.value = float(mini(minutes, goal))
+	body.add_child(bar)
 
 
 # ⚠ いま出す用事（⚠ 検査からも引く）。
@@ -88,14 +121,18 @@ func _rebuild() -> void:
 	if shown.is_empty():
 		var none: Label = Label.new()
 		none.name = "NoErrands"
+		none.theme_type_variation = &"CaptionLabel"
 		none.text = tr("ui_base_today_none")
 		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_list.add_child(none)
 		return
 	for entry: Dictionary in shown:
-		var button: Button = UiButton.create_paper_choice(str(entry[KEY_TEXT]))
+		var button: Button = Button.new()
 		button.name = "Errand_" + str(entry[KEY_ID])
+		button.theme_type_variation = &"DeskNoteButton"
+		button.text = tr(str(entry[KEY_TEXT]))
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.clip_text = true
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(SceneManager.change_scene.bind(str(entry[KEY_PATH])))
 		_list.add_child(button)

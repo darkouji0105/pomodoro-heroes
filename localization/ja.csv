@@ -1534,7 +1534,7 @@ ui_training_tab_characters,キャラ
 ui_base_view_town,拠点を見渡す
 ui_base_view_desk,机に戻る
 ui_base_today_title,今日の紙
-ui_base_today_errands,用事
+ui_base_today_errands,知らせ
 ui_base_today_none,いまの用事はありません
 ui_base_today_hq,本部：届いた宝箱がある
 ui_base_today_training,育成：昇級できる人がいる
@@ -2561,3 +2561,75 @@ ui_build_window_discard,残さずに閉じる
 ui_build_window_save_other,別の番号に残す…
 ui_build_window_save,ビルド%d に残して閉じる
 ui_build_window_saved,%s のビルド%d に残した
+ui_hq_title,ギルド本部
+ui_hq_sub_desk,机
+ui_hq_sub_town,ギルドを見渡す
+ui_facility_guild,ギルド
+ui_hq_todo_caption,やること（ポモドーロで片づける）
+ui_hq_todo_add,＋ やることを足す
+ui_hq_todo_empty_hint,「＋ やることを足す」から書けます
+ui_hq_focus_goal,/ %d 分
+ui_hq_focus_unit,分
+ui_hq_pomodoro_title,集中の砂時計
+ui_hq_pomodoro_now,いま：%s
+ui_hq_pomodoro_start,▶ 始める
+ui_hq_adventure_title,冒険
+ui_hq_run_in_progress,ランの途中
+ui_hq_stamina_note,スタミナ %d（のこり %d）
+ui_hq_change_party,詰所で替える
+ui_hq_board_sub,受けられる話 %d・高難度 %d
+ui_hq_board_open,掲示板を見る ›
+ui_hq_chest_title,宝箱
+ui_hq_chest_sub,ごほうびが %d 個届いた
+ui_hq_chest_none,いまは無い
+ui_hq_chest_open,開ける
+ui_hq_grow_title,育てる
+ui_hq_grow_sub,昇級できる %d 人
+ui_hq_grow_none,いまはいない
+ui_hq_grow_open,育成へ
+ui_hq_research_sub,開ける %d
+ui_hq_research_none,いまは無い
+ui_hq_research_open,見る
+ui_hq_others_title,ほかの施設
+ui_hq_others_hint,押すとそこへ
+ui_town_records,記録庫
+ui_town_board,冒険の門
+ui_town_shop,ショップ
+ui_town_pomodoro,集中の塔
+ui_town_training,訓練場（育成）
+ui_town_chest,宝物庫
+ui_town_research,研究所
+ui_town_relic,遺物の祭壇
+ui_town_legend,大きい建物＝毎日すること　赤い栞＝知らせがある
+ui_town_note_board,依頼 %d つ
+ui_town_note_pomodoro,ポモドーロ
+ui_town_note_chest,宝箱 %d
+ui_town_note_training,昇級できる %d人
+ui_town_note_research,開ける %d
+ui_town_note_shop,品揃えが替わった
+ui_quest_board_hint,押すと右に詳しく出る
+ui_quest_kind_story,本編
+ui_quest_kind_training,練習
+ui_quest_kind_hard,高難度
+ui_quest_kind_debug,検証
+ui_quest_training_desc,練習場（いまは仮の画面）
+ui_quest_reward_line,報酬　%s
+ui_quest_reward_gold,ゴールド %d
+ui_quest_reward_item,%s×%d
+ui_quest_reward_sep,・
+ui_quest_reward_more,%s ほか
+ui_quest_enemy_boss,%s（ボス）
+ui_quest_reward_dungeon,装備・素材・遺物
+ui_quest_reward,報酬
+ui_quest_enemies,敵
+ui_quest_party,出る人
+ui_quest_take_this,この依頼で出撃
+ui_quest_back_to_base,本部に戻る
+ui_floor_1_desc,村の外れにスライムが増えた
+ui_floor_2_desc,丘を越える道に狼が出る
+ui_floor_3_desc,荒野で獣の群れが暴れている
+ui_floor_4_desc,霧の森で旅人が戻らない
+ui_floor_5_desc,森の奥に主がいるという
+ui_dungeon_hard_desc,深く潜るほど良い装備が出る
+ui_dungeon_tower_desc,一階ずつ上る塔（試作）
+ui_dungeon_simple_desc,地図を歩かず戦うだけ（試作）

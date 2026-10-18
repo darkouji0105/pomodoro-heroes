@@ -248,6 +248,19 @@ static func for_timer(name: String) -> Texture2D:
 	return _load(name)
 
 
+# ⚠ 本部（2026-10-18・回UI-1018-6・web版の手本 `05_base_desk.png`）：⚠ 右上のセーブ・設定・タイトルへ ／ ⚠ 机の札（冒険・掲示板・育てる）。
+const NAME_SYS_SAVE: String = "sys_save"
+const NAME_SYS_SETTINGS: String = "sys_settings"
+const NAME_SYS_TITLE: String = "sys_title"
+const NAME_HQ_ADVENTURE: String = "hq_adventure"
+const NAME_HQ_BOARD: String = "hq_board"
+const NAME_HQ_GROW: String = "hq_grow"
+
+
+static func for_hq(name: String) -> Texture2D:
+	return _load(name)
+
+
 # ⚠⚠ 絵文字 -> ファイル名。⚠ ここが `Glyphs` と線画をつなぐ唯一の場所。
 #   ⚠ こうすると「どの品がどの種類か」の判定が `Glyphs` の1本のままになる。
 static func _name_of_glyph(glyph: String) -> String:

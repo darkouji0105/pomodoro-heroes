@@ -175,6 +175,8 @@ func _build_ui() -> void:
 	grid.add_child(_make_button("セーブ", _save))
 	grid.add_child(_make_button("全員 スキルがそろうLv", _max_all_levels))
 	grid.add_child(_make_button("スキル枠 次の組へ", _rotate_skill_pairs))
+	# ⚠ 10-18（回UI-1018-6）：⚠ 本部の「UIテスト」ボタンを外した＝⚠ 入口はここ（⚠ リリース前に消す＝宿題16）。
+	grid.add_child(_make_button("UIテストのページ", _open_ui_test_page))
 	# ⚠ 2026-10-02（人間「⚠ すきなそうびをげっとできるようにしたい」）：⚠ 装備と等級を選んでもらう。
 	_base_box.add_child(_build_equipment_picker())
 	_base_box.add_child(_build_party_picker())
@@ -193,6 +195,10 @@ func _build_ui() -> void:
 	_apply_scene_group()
 	# ⚠ 中身が揃ってから本体の枠の高さを合わせる。
 	_place_top_right.call_deferred()
+
+
+func _open_ui_test_page() -> void:
+	SceneManager.change_scene("res://tests/ui_test_page.tscn")
 
 
 func _make_separator() -> HSeparator:

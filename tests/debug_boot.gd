@@ -1942,7 +1942,7 @@ const SCENARIOS: Dictionary = {
 				"measure": ["Margin/Layout/Middle/Side", "Margin/Layout/Middle/Side/Depth", "Margin/Layout/Middle/Side/Reserve"],
 			},
 			# ⚠ タスクのメモ（2026-10-04・`TK-3`・`TK-7`・`TK-10`・`TK-8`）。⚠ 拠点（紙あり・溢れて送る）／ タスクの画面（詳しく）／ ポモドーロの選ぶ窓 ／ 記録のタブ。
-			{"name": "59_base_tasks", "scene": SCENE_BASE, "prepare": SHOT_PREPARE_TASKS, "measure": ["Layout/TopArea/DeskView/TaskWallNote", "Layout/TopArea/DeskView/TodaySheet"]},
+			{"name": "59_base_tasks", "scene": SCENE_BASE, "prepare": SHOT_PREPARE_TASKS, "measure": ["Margin/Layout/Body/DeskView/TodaySheet", "Margin/Layout/Body/DeskView/Middle", "Margin/Layout/Body/DeskView/Right"]},
 			{"name": "60_task_screen", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DETAIL},
 			# ⚠ 10-05（人間「⚠ やることリストはサイドバーにする」）：⚠ 選ぶ窓 → 右のサイドバー。⚠ 集中を始める前の姿。
 			{"name": "61_pomodoro_sidebar", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_PICK, "measure": ["Margin", "TaskSidebar", "Margin/Layout/CurrentViewContainer/FocusView/Layout/StartButton"]},
@@ -1993,7 +1993,7 @@ const SCENARIOS: Dictionary = {
 			{"name": "73_plus_hover", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_PLUS_HOVER},
 			{"name": "72_board_quick", "scene": "res://scenes/adventure/adventure_select.tscn", "prepare": SHOT_PREPARE_BOARD_CLEARED},
 			{"name": "69_mini_reflection", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_REFLECTION},
-			{"name": "74_base_town", "scene": SCENE_BASE, "after": SHOT_AFTER_BASE_TOWN, "measure": ["Layout/TopArea/TownView"]},
+			{"name": "74_base_town", "scene": SCENE_BASE, "data": {TransferKeys.BASE_VIEW: "town"}, "after": SHOT_AFTER_BASE_TOWN, "measure": ["Margin/Layout/Body/TownView"]},
 			{"name": "75_guild_relic", "scene": "res://scenes/guild/guild_relic_screen.tscn", "after": SHOT_AFTER_GUILD_RELIC},
 			# ⚠ 目標（2026-10-09・回AUTO-1・人間「⚠ ５い」＝形を撮って見比べる）。⚠ 表示＝上の帯（鍛冶場・本部・押した紙）／ サイドバー（閉・開）。
 			{"name": "76_goal_strip_forge", "scene": "res://scenes/guild/forge_screen.tscn", "prepare": SHOT_PREPARE_GOAL_ITEM},
@@ -6069,19 +6069,17 @@ func _report_layout() -> void:
 # 測る器。⚠ 増やすときはここに1行足す（関数の中に決め打ちしない）。
 const LAYOUT_PATHS: Array[String] = [
 	".",
-	"Layout",
-	"Layout/BottomArea",
-	"Layout/BottomArea/BottomLayout",
+	"Margin/Layout",
 	# ⚠ `MaterialsScroll` / `MaterialsDisplay` は消した（2026-09-10）。
 	#   ⚠ 素材16件は右上の `ResourceBar` へ移り、⚠ 拠点の下段から無くなったため。
 	# ⚠ `ResourceRow` は消した（2026-10-07・回HB-1）。⚠ 宝箱は下の列へ・設定たちは右上の `SystemButtons` へ。
-	"Layout/BottomArea/BottomLayout/NavigationButtons",
-	"SystemButtons",
+	# ⚠ 10-18（回UI-1018-6）：⚠ 下の列はやめ、⚠ 机（`DeskView`）と右上のアイコン（見出しの中）。
+	"Margin/Layout/Header/SystemButtons",
+	"Margin/Layout/Body/DeskView",
 ]
 
 const LAYOUT_ROWS: Array[String] = [
-	"Layout/BottomArea/BottomLayout/NavigationButtons",
-	"SystemButtons",
+	"Margin/Layout/Header/SystemButtons",
 ]
 
 # 手書きした .tscn が本当に開くかも、ついでにここで見る。
@@ -14590,11 +14588,10 @@ class ShotTaker extends Node:
 			for _i: int in range(4):
 				await get_tree().process_frame
 		elif kind == AFTER_BASE_TOWN:
-			var toggle: Node = screen.find_child("ViewToggle", true, false)
-			if not (toggle is BaseButton):
-				push_error("[DebugBoot] ⚠ %s に「拠点を見渡す」が無い" % shot_name)
+			# ⚠ 10-18（回UI-1018-6）：⚠ 街は帯の「ギルド」＝見え方つきで開く（⚠ 行の `data`）。
+			if screen.find_child("TownView", true, false) == null:
+				push_error("[DebugBoot] ⚠ %s にギルドの街が無い" % shot_name)
 				return false
-			(toggle as BaseButton).pressed.emit()
 			# ⚠ 覚えた見え方は机へ戻しておく（⚠ 後の本部の絵が全体で撮れてしまう）。⚠ いま出ている姿は変わらない。
 			SceneManager.remember(TransferKeys.MEMORY_BASE_VIEW, "desk")
 			# ⚠ 歩き出すまで（⚠ 道の大きさが決まってから）。
@@ -15902,37 +15899,47 @@ class UiFlowRunner extends Node:
 		var ids: Array[String] = []
 		for entry: Dictionary in BaseFacilityBar.visible_facilities():
 			ids.append(str(entry.get(FacilityBar.ENTRY_ID, "")))
-		_check("帯：本部・掲示板・育成・持ち物・記録・ショップの6つ（%s）" % ",".join(ids), ",".join(ids) == "hq,board,training,belongings,records,shop")
+		_check("帯：本部・ギルド・掲示板・育成・持ち物・記録・ショップの7つ（%s）" % ",".join(ids), ",".join(ids) == "hq,guild,board,training,belongings,records,shop")
+		SceneManager.remember(TransferKeys.MEMORY_BASE_VIEW, "desk")
 		var base: Node = await _open(BASE, {})
 		if base == null:
 			return
 		_check("本部：育成の中のタブは出さない", base.find_child("TrainingTabs", false, false) == null
 			and base.find_child("Facility_" + BaseFacilityBar.FORGE, true, false) == null)
-		# ② 「冒険」は消した ／ ③ シナリオは残す ／ ④ ポモドーロが主役・設定たちは右上。
-		var pomodoro: Node = base.find_child("PomodoroButton", true, false)
-		var system: Node = base.find_child("SystemButtons", false, false)
-		# ⚠ 10-07（人間「⚠ 同じぐらいの重要度だという意味だった、上側で隣同士において」）：⚠ 掲示板とポモドーロは隣で同じ扱い。
-		var board_button: Node = base.find_child("BoardButton", true, false)
-		_check("本部：「冒険」のボタンが無い", base.find_child("AdventureButton", true, false) == null)
-		_check("本部：「シナリオ」のボタンは残る", base.find_child("ScenarioButton", true, false) != null)
-		_check("本部：掲示板とポモドーロは隣同士・どちらも真鍮・2倍の幅", pomodoro is UiButton and board_button is UiButton
-			and board_button.get_index() + 1 == pomodoro.get_index()
-			and (pomodoro as UiButton).variant == UiButton.Variant.PRIMARY and (board_button as UiButton).variant == UiButton.Variant.PRIMARY
-			and is_equal_approx((pomodoro as Control).size_flags_stretch_ratio, 2.0) and is_equal_approx((board_button as Control).size_flags_stretch_ratio, 2.0))
-		await _press(board_button, OPEN_FRAMES)
-		_check("本部：下の列の「掲示板」で依頼掲示板", _path_of(get_tree().current_scene) == ADVENTURE)
+		# ⚠ 10-18（回UI-1018-6・`NAV-34`）：⚠ 右上はアイコンだけ ／ ⚠ シナリオ・UIテスト・切り替えは無い。
+		var system: Node = base.find_child("SystemButtons", true, false)
+		var icons_ok: bool = system != null
+		for button_name: String in ["SaveButton", "SettingsButton", "BackToTitleButton"]:
+			var icon_button: Button = null if system == null else system.find_child(button_name, false, false) as Button
+			icons_ok = icons_ok and icon_button != null and icon_button.icon != null and icon_button.text == "" and icon_button.tooltip_text != ""
+		_check("本部：右上はセーブ・設定・タイトルへのアイコンだけ（名前は触れると出る）", icons_ok)
+		_check("本部：「シナリオ」「UIテスト」「拠点を見渡す」は無い", base.find_child("ScenarioButton", true, false) == null
+			and base.find_child("UiTestButton", true, false) == null and base.find_child("ViewToggle", true, false) == null)
+		_check("本部：机＝左に今日の紙（やること・知らせ）・真ん中の上は空き・下に砂時計／冒険／掲示板・右に宝箱と施設",
+			str(base.call("current_view")) == "desk" and base.find_child("TodaySheet", true, false) != null and base.find_child("TaskWallNote", true, false) != null
+			and base.find_child("FreeSpace", true, false) != null and base.find_child("PomodoroStrip", true, false) != null
+			and base.find_child("AdventureStrip", true, false) != null and base.find_child("BoardStrip", true, false) != null
+			and base.find_child("ChestCard", true, false) != null and base.find_child("OtherFacilities", true, false) != null)
+		# ⚠ 砂時計の長さは設定と同じ値。
+		var chip_on: Node = base.find_child("Focus_%d" % GameSettings.focus_minutes(), true, false)
+		_check("本部：砂時計の長さの札が %d 分で入っている" % GameSettings.focus_minutes(), chip_on is Button and (chip_on as Button).button_pressed)
+		# ⚠ 冒険の札＝次に受ける話 → 出撃の準備（⚠ まだ出ない）。
+		var next_stage: String = GameManager.get_next_story_stage()
+		var strip_title: String = _label_text(base, "AdventureStrip", "TitleLabel")
+		_check("本部：冒険の札に次の話（%s）" % strip_title, strip_title.contains(tr(str(MasterDataLoader.get_stage(next_stage).get("name_key", "")))))
+		await _press(base.find_child("AdventureSortieButton", true, false), OPEN_FRAMES)
+		_check("本部：冒険の「出撃する」で出撃の準備（まだ出ない）", _path_of(get_tree().current_scene) == BARRACKS and not GameManager.is_in_floor())
 		base = await _open(BASE, {})
 		if base == null:
 			return
-		system = base.find_child("SystemButtons", false, false)
-		_check("本部：設定・セーブ・タイトルへは右上", system != null and system.find_child("SettingsButton", false, false) != null
-			and system.find_child("SaveButton", false, false) != null and system.find_child("BackToTitleButton", false, false) != null)
-		# ⑤ 机：壁の紙と今日の紙。⚠ 用事の行は帯の紐と同じ口。
-		_check("本部：はじめは机（壁の紙と今日の紙）", str(base.call("current_view")) == "desk"
-			and base.find_child("TaskWallNote", true, false) != null and base.find_child("TodaySheet", true, false) != null)
+		await _press(base.find_child("BoardButton", true, false), OPEN_FRAMES)
+		_check("本部：掲示板の札で依頼掲示板", _path_of(get_tree().current_scene) == ADVENTURE)
+		base = await _open(BASE, {})
+		if base == null:
+			return
 		var errands: Array[Dictionary] = BaseTodaySheet.current_errands()
 		var rows: Array[Node] = base.find_children("Errand_*", "", true, false)
-		_check("今日の紙：用事の行が %d 本（紐と同じ口）" % errands.size(), rows.size() == errands.size()
+		_check("今日の紙：知らせの行が %d 本（紐と同じ口）" % errands.size(), rows.size() == errands.size()
 			and (not errands.is_empty() or base.find_child("NoErrands", true, false) != null))
 		if not errands.is_empty():
 			var first: Dictionary = errands[0]
@@ -15941,27 +15948,33 @@ class UiFlowRunner extends Node:
 			base = await _open(BASE, {})
 			if base == null:
 				return
-		# ⑤ 拠点の全体：切り替え ／ 建物 ／ 歩く人 ／ 覚える。
-		await _press(base.find_child("ViewToggle", true, false))
+		# ⚠ ギルド＝帯のタブ ／ 建物 ／ 歩く人 ／ 覚える。
+		var hub_bar: Node = base.find_child("FacilityBar", false, false)
+		await _press(null if hub_bar == null else hub_bar.find_child("Facility_" + BaseFacilityBar.GUILD, true, false), OPEN_FRAMES)
+		base = get_tree().current_scene
 		var town: Node = base.find_child("TownView", true, false)
+		var guild_bar: FacilityBar = base.find_child("FacilityBar", false, false) as FacilityBar
 		var walkers: int = 0
 		for raw: Variant in GameManager.get_party_members():
 			if str(raw) != "":
 				walkers += 1
-		_check("全体：「拠点を見渡す」で全体（机は隠れる）", str(base.call("current_view")) == "town" and town is Control and (town as Control).visible
-			and not (base.find_child("DeskView", true, false) as Control).visible)
-		_check("全体：建物が並ぶ（掲示板・育成・詰所・鍛冶場・研究）", town != null and town.find_child("Building_" + BaseFacilityBar.BOARD, true, false) != null
+		_check("ギルド：帯の「ギルド」で街（机は無い・灯りはギルド）", _path_of(base) == BASE and str(base.call("current_view")) == "town" and town != null
+			and base.find_child("DeskView", true, false) == null and guild_bar != null and guild_bar.active_id() == BaseFacilityBar.GUILD)
+		_check("ギルド：建物が並ぶ（冒険の門・宝物庫・詰所・鍛冶場・研究所・本部は無い）", town != null and town.find_child("Building_" + BaseFacilityBar.BOARD, true, false) != null
+			and town.find_child("Building_" + BaseTownView.CHEST, true, false) != null
 			and town.find_child("Building_" + BaseFacilityBar.BARRACKS, true, false) != null and town.find_child("Building_" + BaseFacilityBar.FORGE, true, false) != null
 			and town.find_child("Building_" + BaseFacilityBar.RESEARCH, true, false) != null and town.find_child("Building_" + BaseFacilityBar.HQ, true, false) == null)
-		_check("全体：編成の %d 人が道を歩く" % walkers, town != null and town.find_children("Walker_*", "", true, false).size() == walkers)
-		await _press(town.find_child("Building_" + BaseFacilityBar.BOARD, true, false), OPEN_FRAMES)
-		_check("全体：建物「掲示板」で依頼掲示板", _path_of(get_tree().current_scene) == ADVENTURE)
+		_check("ギルド：編成の %d 人が歩く" % walkers, town != null and town.find_children("Walker_*", "", true, false).size() == walkers)
+		await _press(null if town == null else town.find_child("Building_" + BaseFacilityBar.BOARD, true, false), OPEN_FRAMES)
+		_check("ギルド：「冒険の門」で依頼掲示板", _path_of(get_tree().current_scene) == ADVENTURE)
 		base = await _open(BASE, {})
 		if base == null:
 			return
-		_check("全体：本部に戻っても全体のまま（覚える）", str(base.call("current_view")) == "town")
-		await _press(base.find_child("ViewToggle", true, false))
-		_check("机：「机に戻る」で机", str(base.call("current_view")) == "desk")
+		_check("ギルド：本部に戻っても街のまま（覚える）", str(base.call("current_view")) == "town")
+		hub_bar = base.find_child("FacilityBar", false, false)
+		await _press(null if hub_bar == null else hub_bar.find_child("Facility_" + BaseFacilityBar.HQ, true, false), OPEN_FRAMES)
+		base = get_tree().current_scene
+		_check("本部：帯の「本部」で机", _path_of(base) == BASE and str(base.call("current_view")) == "desk")
 		# 育成の中のタブ（⚠ 帯の灯りは「育成」）。
 		var l: Node = await _open(TRAINING_LIST, {})
 		if l == null:
@@ -16006,7 +16019,7 @@ class UiFlowRunner extends Node:
 		# 0 枚：⚠ 10-07（人間「⚠ 同じ作りで」「⚠ 数字の色で」）＝「受ける」は押せる・札の数は赤・押すと札の入手先の窓（⚠ 準備へは移らない）。
 		var q: Node = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
-		var take: Node = q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false)
+		var take: Node = await _quest_button(q, "DungeonCard_" + dungeon_id, "DungeonButton")
 		var ticket_label: Node = q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("QuotaTicketLabel", true, false)
 		_check("ノルマ札：0 枚でも「受ける」は押せる・札の数は赤（%s）" % _label_text(q, "DungeonCard_" + dungeon_id, "QuotaTicketLabel"),
 			take is BaseButton and not (take as BaseButton).disabled and ticket_label is Label and (ticket_label as Label).theme_type_variation == &"SmallErrorLabel")
@@ -16026,7 +16039,7 @@ class UiFlowRunner extends Node:
 		# 1 枚：⚠ 掲示板の「受ける」→ 出撃の準備（⚠ 帯に「1枚（1 → 0）」）→ 出撃すると0枚。
 		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
-		take = q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false)
+		take = await _quest_button(q, "DungeonCard_" + dungeon_id, "DungeonButton")
 		_check("ノルマ札：1 枚なら「受ける」が押せる・「%s」" % _label_text(q, "DungeonCard_" + dungeon_id, "QuotaTicketLabel"),
 			take is BaseButton and not (take as BaseButton).disabled)
 		await _press(take, OPEN_FRAMES)
@@ -16042,7 +16055,7 @@ class UiFlowRunner extends Node:
 		# 続きから：⚠ 札は使わない。
 		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
-		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
+		await _press(await _quest_button(q, "DungeonCard_" + dungeon_id, "DungeonButton"), OPEN_FRAMES)
 		_check("ノルマ札：「続きから」は札が無くても入れる", _path_of(get_tree().current_scene) == DUNGEON_MAP)
 		GameManager.abandon_dungeon_run()
 
@@ -16076,7 +16089,7 @@ class UiFlowRunner extends Node:
 		# 掲示板の「受ける」→ 出撃の準備に「潜る深さ」（⚠ 最初は最深の次）。
 		var q: Node = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
-		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
+		await _press(await _quest_button(q, "DungeonCard_" + dungeon_id, "DungeonButton"), OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
 		var deepest_layer: int = best * per_floor + 1
 		_check("深さ：出撃の準備に「%s 層から」・「%s」・「%s」" % [_label_text(b, "Depth", "StartLayerLabel"), _label_text(b, "Depth", "FromExitLabel"), _label_text(b, "Depth", "NextExitLabel")],
@@ -16166,7 +16179,7 @@ class UiFlowRunner extends Node:
 		await _press(_tab_button(q, 1))
 		_check("塔：掲示板に網と塔の札が両方ある",
 			q.find_child("DungeonCard_" + tower_id, true, false) != null and q.find_child("DungeonCard_" + GameManager.DUNGEON_DEFAULT_ID, true, false) != null)
-		await _press(q.find_child("DungeonCard_" + tower_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
+		await _press(await _quest_button(q, "DungeonCard_" + tower_id, "DungeonButton"), OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
 		_check("塔：出撃の準備に「%s %s」・縦図は無い" % [_label_text(b, "Depth", "StartLayerLabel"), tr("ui_tower_depth_from")],
 			_label_text(b, "Depth", "StartLayerLabel") == "1" and b.find_child("DepthGauge", true, false) == null
@@ -17373,7 +17386,7 @@ class UiFlowRunner extends Node:
 		await _press(_tab_button(q, 0))
 
 		# 受ける → 出撃の準備（⚠ まだ出ない）→ 戻ると掲示板（⚠ 2026-09-28・モック）。
-		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false), OPEN_FRAMES)
+		await _press(await _quest_button(q, "StageCard_" + first, "ChallengeButton"), OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
 		var quest_title: String = _label_text(b, "Strip", "QuestTitle")
 		_check("掲示板：「受ける」で出撃の準備（依頼=%s・まだ出ない）" % quest_title,
@@ -17392,7 +17405,7 @@ class UiFlowRunner extends Node:
 			q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
 		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
-		await _press(q.find_child("DungeonCard_" + dungeon_id, true, false).find_child("DungeonButton", true, false), OPEN_FRAMES)
+		await _press(await _quest_button(q, "DungeonCard_" + dungeon_id, "DungeonButton"), OPEN_FRAMES)
 		b = get_tree().current_scene
 		_check("掲示板：難ダンジョンの「受ける」で出撃の準備", _path_of(b) == BARRACKS and _label_text(b, "Strip", "QuestTitle") == tr(str(MasterDataLoader.get_dungeon(dungeon_id).get("name_key", ""))))
 		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
@@ -17400,7 +17413,7 @@ class UiFlowRunner extends Node:
 			return
 
 		# 出撃する → ⚠ 署名（1番から順）→「受理」の判 → フロアのマップ（⚠ 2026-09-28・手本 Sign・人間「⚠ 2い　⚠ 3あ」）。
-		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false), OPEN_FRAMES)
+		await _press(await _quest_button(q, "StageCard_" + first, "ChallengeButton"), OPEN_FRAMES)
 		b = get_tree().current_scene
 		var sigs: Array = b.find_children("Signature_*", "", true, false)
 		var styles: Dictionary = {}
@@ -17439,7 +17452,7 @@ class UiFlowRunner extends Node:
 		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		if q == null:
 			return
-		var resume: Node = q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false)
+		var resume: Node = await _quest_button(q, "StageCard_" + first, "ChallengeButton")
 		_check("掲示板：途中のフロアは「続きから」", resume is Button and (resume as Button).text == tr("ui_floor_resume"))
 		await _press(resume, OPEN_FRAMES)
 		_check("掲示板：「続きから」は出撃届を挟まずマップ", _path_of(get_tree().current_scene) == FLOOR_MAP)
@@ -17449,7 +17462,7 @@ class UiFlowRunner extends Node:
 		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		if q == null:
 			return
-		await _press(q.find_child("StageCard_" + first, true, false).find_child("ChallengeButton", true, false), OPEN_FRAMES)
+		await _press(await _quest_button(q, "StageCard_" + first, "ChallengeButton"), OPEN_FRAMES)
 		b = get_tree().current_scene
 		await _press(b.find_child("SortieButton", true, false))
 		var blocker: Node = b.find_child("SignBlocker", true, false)
@@ -17480,7 +17493,7 @@ class UiFlowRunner extends Node:
 		var base: Node = await _open(BASE, {})
 		if base == null:
 			return
-		await _press(base.get("chest_badge"), OPEN_FRAMES)
+		await _press(base.find_child("ChestBadge", true, false), OPEN_FRAMES)
 		var c: Node = get_tree().current_scene
 		_check("宝箱：拠点のバッジで「届いた宝箱」の画面", _path_of(c) == CHEST)
 		if _path_of(c) != CHEST:
@@ -18081,10 +18094,13 @@ class UiFlowRunner extends Node:
 		var header: Node = t.find_child("Header", true, false)
 		await _press(null if header == null else header.find_child("BackButton", true, false), OPEN_FRAMES)
 		b = get_tree().current_scene
-		var open_count: int = GameManager.get_open_tasks().size()
+		# ⚠ 10-18（回UI-1018-6・手本 `05_base_desk.png`）：⚠ 今日終えたものも線を引いて残る（⚠ 朝4:00 に記録へ）。
+		var open_count: int = GameManager.get_tasks().size()
 		var note_rows: int = 0 if b == null else b.find_children("Note_*", "", true, false).size()
-		_check("タスク：「戻る」で拠点・紙にまだのタスクが全部（%d 行 ／ まだ %d）・終えた A は出ない" % [note_rows, open_count],
-			_path_of(b) == BASE and note_rows == open_count and b.find_child("Note_" + a_id, true, false) == null)
+		var a_note: Node = null if b == null else b.find_child("Note_" + a_id, true, false)
+		var a_note_title: Node = null if a_note == null else a_note.find_child("TitleLabel", true, false)
+		_check("タスク：「戻る」で拠点・紙に今日のタスクが全部（%d 行 ／ %d）・終えた A は線を引いて残る" % [note_rows, open_count],
+			_path_of(b) == BASE and note_rows == open_count and a_note_title is Label and (a_note_title as Label).theme_type_variation == &"TaskDoneLabel")
 		var b_note: Node = null if b == null else b.find_child("Note_" + b_id, true, false)
 		_check("タスク：紙の B に「期限切れ」の判", b_note != null and b_note.find_child("DueStamp", true, false) is Stamp)
 		# ポモドーロ（`TK-10`・10-05 サイドバー）：⚠ 右のサイドバーの行を押す → 題がタスクの名前 → 書き換えると名前が変わる。
@@ -19906,7 +19922,7 @@ class UiFlowRunner extends Node:
 		var spare: int = GameManager.get_resource_amount(GameStateKeys.STAMINA)
 		GameManager.add_stamina(-spare)
 		var a: Node = await _open(ADVENTURE, {})
-		var repeat: Node = null if a == null else a.find_child("RepeatButton", true, false)
+		var repeat: Node = await _quest_button(a, "StageCard_floor_1", "RepeatButton")
 		await _press(repeat)
 		var window: Node = null if a == null else _source_window(a)
 		_check("QOL：周回でスタミナが足りないと入手先の窓（窓 %s・スタミナ %d）" % [str(window != null), GameManager.get_resource_amount(GameStateKeys.STAMINA)],
@@ -20595,7 +20611,7 @@ class UiFlowRunner extends Node:
 		_check("NEW：図鑑のマスを押すとその品だけ「見た」", GameManager.is_item_seen("construction_material_2") and not GameManager.is_item_seen("construction_material_3"))
 		# 入った先の紐（10-07・人間「⚠ そこから言ったページで何を見ればいいのかわかんなかった」）。
 		var base_page: Node = await _open(BASE, {})
-		var badge: Node = null if base_page == null else base_page.find_child("ChestBadge", true, false)
+		var badge: Node = null if base_page == null else base_page.find_child("ChestCard", true, false)
 		_check("入った先：本部の届いた宝箱に紐", badge is Control and RibbonMark.has_ribbon(badge as Control))
 		var list: Node = await _open(TRAINING_LIST, {})
 		var other_card: Node = null if list == null else list.find_child("Card_" + OTHER, true, false)
@@ -20886,8 +20902,7 @@ class UiFlowRunner extends Node:
 		GameManager.add_stamina(9999)
 		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		var stage_id: String = str(MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)[0])
-		var card: Node = q.find_child("StageCard_" + stage_id, true, false)
-		var quick: Node = null if card == null else card.find_child("QuickSortieButton", true, false)
+		var quick: Node = await _quest_button(q, "StageCard_" + stage_id, "QuickSortieButton")
 		_check("掲示板：札に「すぐ出撃」", quick is BaseButton)
 		await _press(quick, OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
@@ -20931,6 +20946,18 @@ class UiFlowRunner extends Node:
 		return count
 
 	# --- 小さい道具 ---
+
+	# ⚠ 10-18（回UI-1018-6・`NAV-35`）：⚠ 掲示板の紙を押して選び、⚠ 右の紙（`QuestDetail`）からボタンを引く。
+	func _quest_button(q: Node, card_name: String, button_name: String) -> Node:
+		if q == null:
+			return null
+		var card: Node = q.find_child(card_name, true, false)
+		var hit: Node = null if card == null else card.find_child("Hit", true, false)
+		if hit is BaseButton:
+			(hit as BaseButton).pressed.emit()
+			await _wait()
+		var detail: Node = q.find_child("QuestDetail", true, false)
+		return null if detail == null else detail.find_child(button_name, true, false)
 
 	func _open(path: String, data: Dictionary) -> Node:
 		SceneManager.change_scene_with_data(path, data)

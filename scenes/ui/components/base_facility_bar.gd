@@ -18,6 +18,8 @@ extends FacilityBar
 # ⚠ 施設のID。⚠ 本部・詰所・記録は画面IDを持たないので、⚠ 帯の中だけの名前を付ける。
 # ⚠ `BARRACKS` / `FORGE` / `RESEARCH` は 10-07 から育成の中のタブの ID（⚠ 帯には出ない）。
 const HQ: String = "hq"
+# ⚠ 10-18（回UI-1018-6・`NAV-34`）：⚠ ギルドを見渡す街（⚠ 本部と同じ画面の別の見え方）。
+const GUILD: String = "guild"
 const BOARD: String = "board"
 const BARRACKS: String = "barracks"
 const TRAINING: String = "training"
@@ -35,12 +37,14 @@ const KEY_DATA: String = "data"
 
 const SUB_THEME_TYPE: StringName = &"FacilitySubBar"
 
-# ⚠⚠ 並び（`NAV-6`・仮）。⚠ 10-07 から6つ（⚠ 研究・鍛冶場・詰所は育成の中のタブへ）。
+# ⚠⚠ 並び（`NAV-6`・仮）。⚠ 10-07 から6つ（⚠ 研究・鍛冶場・詰所は育成の中のタブへ）。⚠ 10-18 から7つ（⚠ 本部の隣に「ギルド」）。
 # ⚠ 「育成」はいつも出す（⚠ 中の「編成」がいつも開ける）。⚠ 押すと中のタブの先頭（⚠ 開けるもの）へ。
 static func facilities() -> Array[Dictionary]:
 	return [
 		{ENTRY_ID: HQ, ENTRY_LABEL_KEY: "ui_facility_hq",
-			KEY_PATH: "res://scenes/base/base_screen.tscn", KEY_UNLOCK: ""},
+			KEY_PATH: "res://scenes/base/base_screen.tscn", KEY_UNLOCK: "", KEY_DATA: {TransferKeys.BASE_VIEW: "desk"}},
+		{ENTRY_ID: GUILD, ENTRY_LABEL_KEY: "ui_facility_guild",
+			KEY_PATH: "res://scenes/base/base_screen.tscn", KEY_UNLOCK: "", KEY_DATA: {TransferKeys.BASE_VIEW: "town"}},
 		# ⚠ 2026-10-06（`NAV-6`）：⚠ 依頼掲示板。⚠ 10-07（回HB-1・人間「⚠ ２じゃあ」）から本部の「冒険」は無い＝⚠ 出撃の入口はここだけ。
 		{ENTRY_ID: BOARD, ENTRY_LABEL_KEY: "ui_facility_board",
 			KEY_PATH: "res://scenes/adventure/adventure_select.tscn", KEY_UNLOCK: GameStateKeys.SCREEN_ADVENTURE_SELECT},
@@ -107,6 +111,27 @@ static func is_open(id: String) -> bool:
 			var unlock: String = str(entry.get(KEY_UNLOCK, ""))
 			return unlock == "" or GameManager.is_screen_unlocked(unlock)
 	return false
+
+
+# ⚠ その施設（⚠ 帯・育成の中のタブ・ほかの部屋）の行き先（2026-10-18・回UI-1018-6・本部の机とギルドの街が引く）。
+#   ⚠ 「育成」は中のタブの先頭（⚠ 帯と同じ）。⚠ 無ければ ""。
+static func path_of(id: String) -> String:
+	if id == TRAINING:
+		return training_path()
+	for entry: Dictionary in facilities() + training_tabs() + other_rooms():
+		if str(entry.get(ENTRY_ID, "")) == id:
+			return str(entry.get(KEY_PATH, ""))
+	return ""
+
+
+# ⚠ その施設の名前のキー（⚠ 帯・育成の中のタブ・ほかの部屋の順に探す）。
+static func label_key_of(id: String) -> String:
+	if id == TRAINING:
+		return "ui_facility_training"
+	for entry: Dictionary in facilities() + training_tabs() + other_rooms():
+		if str(entry.get(ENTRY_ID, "")) == id:
+			return str(entry.get(ENTRY_LABEL_KEY, ""))
+	return ""
 
 
 # ⚠ その ID が育成の中のタブか。

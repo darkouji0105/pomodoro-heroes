@@ -681,6 +681,11 @@ func add_gems(amount: int) -> void:
 	print("[GameManager] add_gems(%d) -> %d" % [amount, _state[GameStateKeys.GEMS]])
 	resource_changed.emit(GameStateKeys.GEMS, _state[GameStateKeys.GEMS])
 
+# ⚠ いまのスタミナ（2026-10-18・回UI-1018-6・本部の冒険の札・掲示板の「のこり」）。
+func get_stamina() -> int:
+	return int(_copy_dict(GameStateKeys.STAMINA).get(GameStateKeys.STAMINA_CURRENT, 0))
+
+
 func add_stamina(amount: int) -> void:
 	var stamina: Dictionary = _copy_dict(GameStateKeys.STAMINA)
 	var current: int = int(stamina.get(GameStateKeys.STAMINA_CURRENT, 0))
@@ -1306,6 +1311,18 @@ func _master_mentions_item(data: Variant, item_id: String) -> bool:
 	return false
 
 
+# ⚠ 次に受ける物語の話（2026-10-18・回UI-1018-6・本部の「冒険」の札・掲示板の最初に選ぶ札）。
+#   ⚠ 途中のフロアがあればその話 ／ ⚠ 無ければ受けられてまだ済んでいない最初の話 ／ ⚠ 全部済んでいれば最後の話。
+func get_next_story_stage() -> String:
+	if is_in_floor():
+		return str(get_floor_run().get(GameStateKeys.FLOOR_RUN_FLOOR_ID, ""))
+	var order: Array = MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)
+	for raw: Variant in order:
+		if is_story_stage_unlocked(str(raw)) and not is_stage_cleared(str(raw)):
+			return str(raw)
+	return "" if order.is_empty() else str(order[order.size() - 1])
+
+
 # 物語の話を受けられるか（⚠ stage_order の並びで、前の話をクリアしていれば）。
 # ⚠ 10-06 に依頼掲示板（`_is_unlocked()`）から移した＝入手先の窓も同じ判定を使う（⚠ 2本目を書かない）。
 func is_story_stage_unlocked(stage_id: String) -> bool:
@@ -1769,6 +1786,12 @@ func can_level_up_now(character_id: String) -> bool:
 
 # ⚠ いま解放できる研究があるか（⚠ 前提 ／ 素材）。
 func has_unlockable_research() -> bool:
+	return get_unlockable_research_count() > 0
+
+
+# ⚠ いま解放できる研究の数（2026-10-18・回UI-1018-6・本部の研究の札「開ける ◯」）。⚠ 判定は `has_unlockable_research()` と同じ1本。
+func get_unlockable_research_count() -> int:
+	var count: int = 0
 	var tree: Dictionary = get_research_tree()
 	for node_id: String in tree:
 		var node: Dictionary = tree[node_id]
@@ -1776,8 +1799,17 @@ func has_unlockable_research() -> bool:
 			continue
 		var cost: Dictionary = get_research_unlock_cost(node_id)
 		if get_material_count(str(cost.get(RESEARCH_COST_MATERIAL_ID, ""))) >= int(cost.get(RESEARCH_COST_AMOUNT, 0)):
-			return true
-	return false
+			count += 1
+	return count
+
+
+# ⚠ いま昇級できる人（2026-10-18・回UI-1018-6・本部の「育てる」の札）。⚠ 並びは名簿の候補の順。
+func get_level_up_ready_characters() -> Array[String]:
+	var ready: Array[String] = []
+	for raw: Variant in get_party_candidates():
+		if can_level_up_now(str(raw)):
+			ready.append(str(raw))
+	return ready
 
 
 # ⚠ 受け取れる作業場の品があるか。

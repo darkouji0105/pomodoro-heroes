@@ -39,20 +39,30 @@ theme_type_variation = &"SectionGap"
 layout_mode = 2
 title_key = "ui_quest_board_title"
 
-[node name="BoardStack" type="VBoxContainer" parent="Margin/Layout"]
+[node name="Body" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_type_variation = &"WideRow"
+
+[node name="BoardStack" type="VBoxContainer" parent="Margin/Layout/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"PaperTabStack"
 
-[node name="Board" type="PanelContainer" parent="Margin/Layout/BoardStack"]
+[node name="Board" type="PanelContainer" parent="Margin/Layout/Body/BoardStack"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_type_variation = &"ShopBoardPanel"
+theme_type_variation = &"CorkBoardPanel"
 
-[node name="Grid" type="GridContainer" parent="Margin/Layout/BoardStack/Board"]
+[node name="Scroll" type="ScrollContainer" parent="Margin/Layout/Body/BoardStack/Board"]
 layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Grid" type="GridContainer" parent="Margin/Layout/Body/BoardStack/Board/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"QuestGrid"
-columns = 3
+columns = 4
 
 [node name="MessageLabel" type="Label" parent="Margin/Layout"]
 layout_mode = 2
