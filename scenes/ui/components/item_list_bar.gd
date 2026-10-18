@@ -37,6 +37,7 @@ const FIELD_SLOT: String = "slot"
 const FIELD_MIN_GRADE: String = "min_grade"
 const FIELD_SPECIAL: String = "special"
 const FIELD_EQUIPPED: String = "equipped"
+const FIELD_OWNED: String = "owned"
 
 var kind: String = KIND_EQUIP
 var show_view_toggle: bool = true
@@ -70,6 +71,8 @@ func _ready() -> void:
 	first.add_child(_seg("SortSeg", sorts, sort_keys, sort_of(kind), _on_sort_picked))
 	if kind == KIND_EQUIP:
 		first.add_child(_toggle("SpecialOnly", "ui_item_filter_special", special_only(kind), FIELD_SPECIAL))
+	if kind == KIND_MATERIAL:
+		first.add_child(_toggle("OwnedOnly", "ui_item_filter_owned", owned_only(kind), FIELD_OWNED))
 	if kind != KIND_EQUIP:
 		if trailing != null:
 			first.add_child(_spacer())
@@ -198,6 +201,10 @@ static func special_only(p_kind: String) -> bool:
 	return bool(_recall(p_kind, FIELD_SPECIAL, false))
 
 
+static func owned_only(p_kind: String) -> bool:
+	return bool(_recall(p_kind, FIELD_OWNED, false))
+
+
 static func equipped_only(p_kind: String) -> bool:
 	return bool(_recall(p_kind, FIELD_EQUIPPED, false))
 
@@ -209,9 +216,14 @@ static func is_filtering(p_kind: String, with_equipped: bool = false, with_slot:
 	return (with_slot and slot_filter(p_kind) != "") or min_grade(p_kind) > 1 or special_only(p_kind) or (with_equipped and equipped_only(p_kind))
 
 
+# ⚠ 見せ方を決める（⚠ 検査が使う）。
+static func set_view(p_kind: String, view: String) -> void:
+	SceneManager.remember(_memory_key(p_kind, FIELD_VIEW), view)
+
+
 # ⚠ 選びを全部はじめに戻す（⚠ 検査が使う）。
 static func reset_memory(p_kind: String) -> void:
-	for field: String in [FIELD_VIEW, FIELD_SORT, FIELD_SLOT, FIELD_MIN_GRADE, FIELD_SPECIAL, FIELD_EQUIPPED]:
+	for field: String in [FIELD_VIEW, FIELD_SORT, FIELD_SLOT, FIELD_MIN_GRADE, FIELD_SPECIAL, FIELD_EQUIPPED, FIELD_OWNED]:
 		SceneManager.remember(_memory_key(p_kind, field), null)
 
 
@@ -279,9 +291,13 @@ static func _by(compare: int, a: Dictionary, b: Dictionary, order: Dictionary) -
 	return int(order.get(a.get(GameManager.INSTANCE_VIEW_ID, ""), 0)) < int(order.get(b.get(GameManager.INSTANCE_VIEW_ID, ""), 0))
 
 
-# 装飾・素材（⚠ マスの形の配列）を並べた新しい配列。⚠ 絞り込みは無い。
+# 装飾・素材（⚠ マスの形の配列）を並べた新しい配列。⚠ 絞り込みは素材の「持っている物だけ」だけ。
 static func apply_entries(entries: Array, p_kind: String) -> Array:
-	var result: Array = entries.duplicate()
+	var result: Array = []
+	for raw: Variant in entries:
+		if p_kind == KIND_MATERIAL and owned_only(p_kind) and ItemView.count_of(raw as Dictionary) == 0:
+			continue
+		result.append(raw)
 	var order: Dictionary = {}
 	for i: int in range(result.size()):
 		order[ItemView.key_of(result[i] as Dictionary)] = i

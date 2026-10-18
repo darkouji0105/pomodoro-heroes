@@ -14,6 +14,8 @@ extends VBoxContainer
 
 # ⚠ 装飾の枠を押した・「刺す」を押した（⚠ 刺せる装飾を並べるのは画面の仕事）。
 signal attach_requested(instance_id: String, slot_index: int)
+# ⚠ 装飾の「装備に刺す…」（⚠ 刺す先の装備を並べるのは画面の仕事・10-18）。
+signal attach_part_requested(item_id: String)
 
 const THEME_TYPE: StringName = &"Belongings"
 const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
@@ -24,6 +26,8 @@ const DESCRIPTION_PREFIX: String = "ui_desc_"
 var host: Control = null
 
 var _entry: Dictionary = {}
+# ⚠ 「だれが着けると」で選んでいる人（⚠ 画面の控え・状態には無い）。⚠ 空なら持ち主か編成の先頭。
+var _who: String = ""
 
 
 # ⚠ 2つ目の引数（持ち物のマスを使うか）は「捨てる」にだけ使っていた（⚠ 10-03 に消した・`EQ-14`）。⚠ 呼び手を変えないため残す。
@@ -57,72 +61,59 @@ func _rebuild() -> void:
 
 
 # --- 装備の個体 ---
+# ⚠⚠ 10-18（回UI-1018-2・手本 `06_belongings_eq_grid.png` の右の紙）：⚠ 頭 ／ 主な値 ／ ほかの能力 ／ ★ ／ 装飾の枠
+#   ／ だれが着けると（⚠ 編成の3人・押すと比べる）／ 着ける・鍛える・分解。
+# ⚠⚠ 09-27 に消した「キャラ3人の札」を戻した（⚠ web版の手本＝人間が作ったもの）。⚠ 着けられるかは `get_equip_reject_reason()` の1本
+#   ＝⚠ ほかの人が着けている品は着けられない（⚠ 1個につき1人のまま・09-27 の人間の決定）。
 
 func _build_instance(instance_id: String) -> void:
 	var instance: Dictionary = GameManager.get_equipment_instance(instance_id)
 	var item_id: String = str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
 	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
 	var equip_slot: String = str(MasterDataLoader.get_item(item_id).get(GameManager.ITEM_MASTER_EQUIP_SLOT, ""))
-	var stats: Dictionary = GameManager.get_instance_stats(instance_id)
-	var main_key: String = BelongingsDetail.main_stat_of(stats)
-	var main_text: String = ""
-	if main_key != "":
-		main_text = "%s %s" % [tr("ui_training_stat_" + main_key), BelongingsDetail.stat_text(main_key, int(stats.get(main_key, 0)))]
-	var sub_text: String = tr("ui_equipment_grade") % grade
-	if equip_slot != "":
-		sub_text += "　" + tr("ui_equipment_slot_" + equip_slot)
-	_add_head(_entry, tr(GameManager.item_name_key(item_id)), sub_text, main_text)
+	_add_head(_entry, tr(GameManager.item_name_key(item_id)), ItemView.sub_text(_entry), "")
 
-	# 全部の値（⚠ 0 の軸は出さない）。
-	var grid: GridContainer = GridContainer.new()
-	grid.name = "StatGrid"
-	grid.columns = get_theme_constant(&"stat_columns", THEME_TYPE)
-	for stat_key: String in GameManager.get_stat_keys():
-		var value: int = int(stats.get(stat_key, 0))
-		if value == 0:
-			continue
-		var cell: Label = Label.new()
-		cell.text = "%s %s" % [tr("ui_training_stat_" + stat_key), BelongingsDetail.stat_text(stat_key, value)]
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.add_child(cell)
-	add_child(grid)
+	var main_key: String = ItemView.main_stat_key(_entry)
+	if main_key != "":
+		add_child(_value_line("MainLine", tr("ui_training_stat_" + main_key), ItemView.main_value_text(_entry), true, IconTextures.for_stat(main_key)))
+	var others: String = ItemView.other_stats_text(_entry)
+	if others != "":
+		add_child(_value_line("OtherLine", tr("ui_item_tip_other"), others, false, null))
 	# ⚠ 特殊効果の札（2026-10-02・回UI-仕組み⑦・手本 RichItemFx＝値の下・装飾の上）。
 	var effect_card: SpecialEffectCard = SpecialEffectCard.create_for_item(item_id)
 	if effect_card != null:
 		add_child(effect_card)
-	add_child(HSeparator.new())
 	_build_part_slots(instance_id, equip_slot, grade)
+	_build_who(instance_id, equip_slot)
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(spacer)
-
 	var forge_note: Label = Label.new()
 	forge_note.name = "ForgeNote"
 	forge_note.theme_type_variation = &"CaptionLabel"
 	forge_note.text = _forge_note(instance_id)
 	add_child(forge_note)
-	add_child(_build_owner_line())
 
 	var buttons: HBoxContainer = HBoxContainer.new()
 	buttons.name = "Actions"
+	var wear: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_belongings_wear")
+	wear.name = "WearButton"
+	wear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var who: String = _who_of(instance_id)
+	wear.disabled = who == "" or GameManager.get_equipped_instance_id(who, equip_slot) == instance_id \
+		or GameManager.get_equip_reject_reason(who, equip_slot, instance_id) != ""
+	wear.pressed.connect(_on_wear_pressed.bind(who, equip_slot, instance_id))
+	buttons.add_child(wear)
 	var forge: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_equipment_forge")
 	forge.name = "ForgeButton"
 	forge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ ここでは鍛えない。⚠ 鍛冶場をこの品を選んだ状態で開く（⚠ 素材の足りる・足りないは鍛冶場が出す）。
-	forge.disabled = int(GameManager.get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_GRADE, 1)) >= GameManager.get_max_equipment_grade()
+	forge.disabled = grade >= GameManager.get_max_equipment_grade()
 	forge.pressed.connect(_on_forge_pressed.bind(instance_id))
 	buttons.add_child(forge)
-	var attach: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_belongings_attach")
-	attach.name = "AttachButton"
-	attach.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var empty_slot: int = _first_empty_slot(instance_id)
-	attach.disabled = empty_slot < 0 or not GameManager.is_part_kind_unlocked(GameManager.PART_KIND_GEM)
-	attach.pressed.connect(_on_attach_pressed.bind(instance_id, empty_slot))
-	buttons.add_child(attach)
 	# ⚠ 分解は戻らない＝赤（決定 `MD-5`）。⚠ 着けている個体は外してから（⚠ 前と同じ）。
-	# ⚠ 10-07（見る回23回目・人間「⚠ 持ち物の画面から武器を分解できるが、ささげると同じに」）：⚠ 遺物に点数が入る品（等級5以上）は「捧げる」。
-	#   ⚠ 口は同じ `dismantle_equipment()`・⚠ 確かめの窓と知らせも遺物の画面と同じ（`GuildRelicScreen.notify_offered()`）。
+	# ⚠ 10-07（見る回23回目）：⚠ 遺物に点数が入る品（等級5以上）は「捧げる」（⚠ 口は同じ `dismantle_equipment()`）。
 	var offerable: bool = not GameManager.get_offer_preview(instance_id).is_empty()
 	var melt: UiButton = UiButton.create(UiButton.Variant.DANGER, "ui_grelic_offer" if offerable else "ui_belongings_dismantle")
 	melt.name = "DismantleButton"
@@ -131,6 +122,113 @@ func _build_instance(instance_id: String) -> void:
 	melt.pressed.connect(_on_dismantle_pressed.bind(instance_id))
 	buttons.add_child(melt)
 	add_child(buttons)
+
+
+# 「だれが着けると」：⚠ 編成の3人の札（⚠ 押すとその人で比べる）＋ ⚠ 比べた1行（「剣士：18 → 76 +58」）。
+func _build_who(instance_id: String, equip_slot: String) -> void:
+	var members: Array[String] = []
+	for raw: Variant in GameManager.get_party_members():
+		if str(raw) != "":
+			members.append(str(raw))
+	if members.is_empty():
+		return
+	var caption: Label = Label.new()
+	caption.theme_type_variation = &"CaptionLabel"
+	caption.text = tr("ui_belongings_who")
+	add_child(caption)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "WhoRow"
+	add_child(row)
+	var who: String = _who_of(instance_id)
+	var face: int = get_theme_constant(&"who_face", THEME_TYPE)
+	for character_id: String in members:
+		var button: Button = Button.new()
+		button.name = "Who_" + character_id
+		button.theme_type_variation = &"PaperChoiceSelected" if character_id == who else &"PaperChoice"
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_on_who_pressed.bind(character_id))
+		# ⚠ 顔と名前を横に（⚠ ボタンは子を並べないので、⚠ 押下を通す横の器を全面に敷く）。
+		var inner: HBoxContainer = HBoxContainer.new()
+		inner.alignment = BoxContainer.ALIGNMENT_CENTER
+		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var avatar: CharacterAvatar = CharacterAvatar.create(character_id, face)
+		avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(avatar)
+		var label: Label = Label.new()
+		label.text = tr(str(MasterDataLoader.get_character(character_id).get("name_key", character_id)))
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(label)
+		button.add_child(inner)
+		button.custom_minimum_size.y = inner.get_combined_minimum_size().y + 12.0
+		row.add_child(button)
+	var line: Label = Label.new()
+	line.name = "CompareLine"
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var main_key: String = ItemView.main_stat_key(_entry)
+	var reason: String = GameManager.get_equip_reject_reason(who, equip_slot, instance_id)
+	var who_name: String = tr(str(MasterDataLoader.get_character(who).get("name_key", who)))
+	if main_key == "":
+		line.text = ""
+	elif reason != "" and GameManager.get_equipped_instance_id(who, equip_slot) != instance_id:
+		line.theme_type_variation = &"CaptionLabel"
+		var owner: String = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
+		line.text = tr("ui_belongings_who_worn") % tr(str(MasterDataLoader.get_character(owner).get("name_key", owner))) if owner != "" and owner != who \
+			else tr("ui_belongings_who_cannot") % who_name
+	else:
+		var now: int = int(GameManager.get_effective_stats(who).get(main_key, 0))
+		var current: String = GameManager.get_equipped_instance_id(who, equip_slot)
+		var mine: int = int(ItemView.stats_of(_entry).get(main_key, 0))
+		var theirs: int = 0 if current == "" else int(GameManager.get_instance_stats(current).get(main_key, 0))
+		var after: int = now if current == instance_id else now - theirs + mine
+		line.theme_type_variation = &"GainLabel" if after >= now else &"ErrorLabel"
+		line.text = tr("ui_belongings_who_compare") % [tr("ui_training_stat_" + main_key), who_name, now, after, BelongingsDetail.stat_text(main_key, after - now)]
+	add_child(line)
+
+
+# ⚠ 比べる人：⚠ 選んだ人 ／ ⚠ 無ければ持ち主（⚠ 編成にいれば）／ ⚠ 無ければ編成の先頭。
+func _who_of(_instance_id: String) -> String:
+	var members: Array[String] = []
+	for raw: Variant in GameManager.get_party_members():
+		if str(raw) != "":
+			members.append(str(raw))
+	if _who in members:
+		return _who
+	var owner: String = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
+	if owner in members:
+		return owner
+	return members[0] if not members.is_empty() else ""
+
+
+# 1行：（絵）見出し …… 値。⚠ 主な値は大きく。
+func _value_line(line_name: String, caption_text: String, value_text: String, big: bool, texture: Texture2D) -> HBoxContainer:
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = line_name
+	if texture != null:
+		var icon: TextureRect = TextureRect.new()
+		icon.texture = texture
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var side: float = float(get_theme_constant(&"row_icon", &"Training"))
+		icon.custom_minimum_size = Vector2(side, side)
+		icon.modulate = get_theme_color(&"row_icon", &"Training")
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(icon)
+	var caption: Label = Label.new()
+	caption.theme_type_variation = &"" if big else &"CaptionLabel"
+	caption.text = caption_text
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(caption)
+	var value: Label = Label.new()
+	value.name = "Value"
+	value.theme_type_variation = &"DossierLevelLabel" if big else &""
+	value.text = value_text
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(value)
+	return line
 
 
 # 装飾の枠（⚠ 刺さっている・空き・次に開く鍵＝決定 `BS-17`）。⚠ 並びは `ItemDetail.merged_part_defs()` の1本。
@@ -162,22 +260,6 @@ func _build_part_slots(instance_id: String, equip_slot: String, grade: int) -> v
 		add_child(hint)
 
 
-# 誰が着けているか（⚠ 1行だけ）。
-# ⚠⚠ 2026-09-27：⚠ キャラ3人の札（押すと着ける／外す）は**やめた**。⚠ 人間「⚠ 装備１個につき一人分しか装備できないようにするつもりだった」。
-#   ⚠ 着けるのは育成の装備タブ（⚠ その人の部位に1つ）。⚠ ここでは持ち主を見せるだけ。
-func _build_owner_line() -> Label:
-	var line: Label = Label.new()
-	line.name = "OwnerLine"
-	var owner: String = str(_entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
-	if owner == "":
-		line.theme_type_variation = &"CaptionLabel"
-		line.text = tr("ui_belongings_not_equipped")
-	else:
-		line.theme_type_variation = &"AccentLabel"
-		line.text = tr("ui_equipment_equipped_by") % tr(str(MasterDataLoader.get_character(owner).get("name_key", owner)))
-	return line
-
-
 # 「鍛える：鉄の塊 8 ／ 24」。⚠ 素材と数は `get_forge_cost()` の1本。
 func _forge_note(instance_id: String) -> String:
 	var cost: Dictionary = GameManager.get_forge_cost(instance_id)
@@ -188,13 +270,6 @@ func _forge_note(instance_id: String) -> String:
 	return tr("ui_belongings_forge_note") % [tr("ui_res_" + material_id), amount, GameManager.get_material_count(material_id)]
 
 
-func _first_empty_slot(instance_id: String) -> int:
-	for view: Variant in GameManager.get_part_entries(instance_id):
-		if not ((view as Dictionary).get(GameManager.PART_VIEW_ENTRY, null) is Dictionary):
-			return int((view as Dictionary).get(GameManager.PART_VIEW_INDEX, -1))
-	return -1
-
-
 # --- 装飾 ---
 
 func _build_part(item_id: String) -> void:
@@ -203,12 +278,22 @@ func _build_part(item_id: String) -> void:
 	var main_text: String = ""
 	if stat_key != "":
 		main_text = "%s %s" % [tr("ui_training_stat_" + stat_key), BelongingsDetail.part_range_text(item_id)]
-	_add_head(_entry, tr(GameManager.item_name_key(item_id)), tr("ui_belongings_owned") % GameManager.get_item_count(item_id), main_text)
+	_add_head(_entry, tr(GameManager.item_name_key(item_id)), ItemView.sub_text(_entry), "")
+	if main_text != "":
+		add_child(_value_line("EffectLine", tr("ui_belongings_effect"), main_text, true, IconTextures.for_stat(stat_key)))
+	add_child(_value_line("CountLine", tr("ui_item_tip_owned"), tr("ui_item_count_mark") % GameManager.get_item_count(item_id), true, null))
 	_add_description(item_id)
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(spacer)
 
+	# ⚠ 10-18（回UI-1018-2・手本 `06_belongings_part_grid.png`）：⚠ 装飾から刺す先を選ぶ（⚠ 空き枠のある装備を並べてもらう）。
+	var attach_to: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_belongings_attach_to")
+	attach_to.name = "AttachToButton"
+	attach_to.disabled = GameManager.get_item_count(item_id) <= 0 \
+		or not GameManager.is_part_kind_unlocked(str(definition.get(GameManager.ITEM_MASTER_PART_KIND, "")))
+	attach_to.pressed.connect(_on_attach_to_pressed.bind(item_id))
+	add_child(attach_to)
 	var buttons: HBoxContainer = HBoxContainer.new()
 	buttons.name = "Actions"
 	add_child(buttons)
@@ -259,7 +344,8 @@ func _build_part(item_id: String) -> void:
 
 func _build_item(item_id: String) -> void:
 	var count: int = int(_entry.get(GameManager.SLOT_ENTRY_COUNT, 0))
-	_add_head(_entry, tr(GameManager.item_name_key(item_id)), tr("ui_belongings_owned") % count, "")
+	_add_head(_entry, tr(GameManager.item_name_key(item_id)), ItemView.sub_text(_entry), "")
+	add_child(_value_line("CountLine", tr("ui_item_tip_owned"), str(count), true, null))
 	_add_description(item_id)
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -279,11 +365,8 @@ func _build_item(item_id: String) -> void:
 func _add_head(entry: Dictionary, name_text: String, sub_text: String, main_text: String) -> void:
 	var head: HBoxContainer = HBoxContainer.new()
 	head.name = "Head"
-	var icon: ItemSlot = ItemSlot.create(entry)
+	var icon: ItemCell = ItemCell.create(entry, get_theme_constant(&"head_icon", THEME_TYPE))
 	icon.name = "HeadIcon"
-	var side: float = float(get_theme_constant(&"head_icon", THEME_TYPE))
-	icon.custom_minimum_size = Vector2(side, side)
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# ⚠ 10-07：⚠ アイコンを押しても入手先の窓（⚠ 装備の個体は品のIDで引く）。
 	ItemSourceWindow.attach_to(icon, str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, "")))
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -361,9 +444,18 @@ func _on_forge_pressed(instance_id: String) -> void:
 		WAREHOUSE_PATH, {TransferKeys.WAREHOUSE_INSTANCE_ID: instance_id})
 
 
-func _on_attach_pressed(instance_id: String, slot_index: int) -> void:
-	if slot_index >= 0:
-		attach_requested.emit(instance_id, slot_index)
+func _on_attach_to_pressed(item_id: String) -> void:
+	attach_part_requested.emit(item_id)
+
+
+func _on_who_pressed(character_id: String) -> void:
+	_who = character_id
+	_rebuild()
+
+
+# ⚠ 着ける（⚠ 判定は `equip_instance()` の1本。⚠ 描き直しは画面がシグナルで受ける）。
+func _on_wear_pressed(character_id: String, slot: String, instance_id: String) -> void:
+	GameManager.equip_instance(character_id, slot, instance_id)
 
 
 # ⚠ 分解は戻らない。⚠ 確かめの窓を通す（決定 `MD-10`・手本 Confirm「分解する」）。

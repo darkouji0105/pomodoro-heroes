@@ -2527,6 +2527,7 @@ const BELONGINGS_DETAIL_WIDTH: int = 380
 const BELONGINGS_FILTER_WIDTH: int = 120
 const BELONGINGS_STAT_COLUMNS: int = 3
 const BELONGINGS_HEAD_ICON: int = 56
+const BELONGINGS_WHO_FACE: int = 20   # ⚠ 「だれが着けると」の札の顔（10-18・手本）
 
 
 static func _build_belongings(theme: Theme) -> void:
@@ -2535,6 +2536,7 @@ static func _build_belongings(theme: Theme) -> void:
 	theme.set_constant(&"filter_width", t, BELONGINGS_FILTER_WIDTH)
 	theme.set_constant(&"stat_columns", t, BELONGINGS_STAT_COLUMNS)
 	theme.set_constant(&"head_icon", t, BELONGINGS_HEAD_ICON)
+	theme.set_constant(&"who_face", t, BELONGINGS_WHO_FACE)
 
 
 # --- ⚠⚠ 詰所（2026-09-27・回UI-組 詰所・手本 Barracks・決定 `NAV-11`）---
@@ -3406,7 +3408,7 @@ static func _build_item_parts(theme: Theme) -> void:
 		theme.set_color(StringName(key), t, _html(str(ITEM_CELL_COLORS[key])))
 
 	# ⚠ マス目の間（⚠ 横 10・縦 16）と、⚠ はみ出す印（顔・札・選んだ縁）のぶんの内側の余白。
-	theme.set_type_variation(&"ItemCellGrid", &"GridContainer")
+	theme.set_type_variation(&"ItemCellGrid", &"HFlowContainer")
 	theme.set_constant(&"h_separation", &"ItemCellGrid", int(ITEM_CELL["gap_h"]))
 	theme.set_constant(&"v_separation", &"ItemCellGrid", int(ITEM_CELL["gap_v"]))
 	var cell_pad: int = int(ITEM_CELL["owner_out"]) + int(ITEM_CELL["ring_out"])

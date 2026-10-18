@@ -2416,3 +2416,18 @@ ui_item_tag_max,最大
 ui_item_tag_equipped,着用中
 ui_item_tag_relic,遺物
 ui_uitest_item_parts,品の一覧の部品（並べ替えの欄・マス目・行・一括分解）
+ui_belongings_wear,着ける
+ui_belongings_who,だれが着けると（押すと比べる）
+ui_belongings_who_worn,%sが着けている（外してから）
+ui_belongings_who_cannot,%sは着けられない
+ui_belongings_who_compare,%s　%s：%d → %d　%s
+ui_belongings_attach_to,装備に刺す…
+ui_belongings_attach_to_heading,「%s」を刺す装備を選ぶ
+ui_belongings_effect,効果
+ui_bulk_scrap_open,一括分解
+ui_belongings_legend_equip,左上の数＝等級　★＝特殊効果　右上の顔＝着けている人
+ui_belongings_legend_touch,触れると詳しく出る・押すと右に出る
+ui_belongings_legend_stack,右下の数＝持っている数（薄いマス＝0）
+ui_belongings_legend_press,押すと右に出る
+ui_belongings_legend_scrap,着けている物は選べない（暗いマス）・★つきは「まとめて」に入らない（押せば選べる）
+ui_item_filter_owned,持っている物だけ

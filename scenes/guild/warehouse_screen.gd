@@ -1,16 +1,15 @@
 # res://scenes/guild/warehouse_screen.gd
 # 持ち物（⚠ ファイル名は前の「倉庫」のまま＝決定 `BS-15`「画面は増やさず、いまの倉庫画面を作り替える」）。
 #
-# ⚠⚠ 2026-09-27（回UI-組 持ち物・手本 Belongings / RichItemMulti・人間「⚠ 1あ 2あ 3あ 4あ」）：⚠ **作り替えた**。
-#   ⚠ 左：紙のタブ（装備・装飾・素材）。⚠ 装備は部位の縦タブ（すべて・頭・…）で絞る。⚠ 中は台帳の行。
-#   ⚠ 右：説明の紙（`BelongingsDetail`）＝ ⚠ 着ける・外す・鍛える・刺す・外す・分解・段階を上げる・重ねる・捨てる。
-#   ⚠ マス目・ページ・「マス 0/500」・「枠を買う」は画面から消した（決定 `BS-10`）。
-#   ⚠ **容量の判定は `GameManager` に残っている**（人間「⚠ 1あ」＝判定を消す `BS-20` は別の回に EXEC を書いてから）。
-#   ⚠ 図鑑は 2026-09-28 に記録の画面へ移した（⚠ 人間「⚠ 4あ」＝持ち物のタブから外した）。
-#   ⚠ 前の装備画面（仮の鍛冶場）と説明の窓（`ItemActionPanel`）は消した（人間「⚠ 3あ」）。
-#   ⚠ 「捨てる」は持ち物のマスを使う品だけに残した（人間「⚠ 4あ」・`EQ-14` は判定を消す回で）。
+# ⚠⚠ 2026-10-18（回UI-1018-2・web版の手本 `docs/pomodoro-heroes-ui-docs/2026-10-18/mocks/Belongings.html`・NOTES §6）：⚠ **作り替えた**。
+#   ⚠ 左：紙のタブ（装備・装飾・素材＝数つき）／ 並べ替えの欄（`ItemListBar`・⚠ 全タブでマス目｜行）／ 品の並び（`ItemCollection`）／ 凡例。
+#   ⚠ 右：説明の紙（`BelongingsDetail`）＝ ⚠ 押した品を詳しく。⚠ 一括分解のあいだは `BulkScrapSummary`。
+#   ⚠ 部位の縦タブはやめた（⚠ 欄の「しぼる」へ）。⚠ 触れると出る札（`ItemTipCard`）。
+#   ⚠ 前の作り（09-27・回UI-組 持ち物）の決まりは残す：⚠ マス目・ページ・容量の字は出さない（`BS-10`）／ ⚠ 図鑑は記録の画面。
 # ⚠ 何が何個あるかは全部 `GameManager` の口（⚠ 装備＝`get_owned_instances()` ／ 持ち物＝`get_inventory_slot_entries()` ／
-#   ⚠ 素材＝`get_material_slot_entries()`）。⚠ ここで数え直さない。
+#   ⚠ 素材＝`get_material_slot_entries()`）。⚠ ここで数え直さない。⚠ 並べ替えと絞り込みは `ItemListBar` の1か所。
+# ⚠ 刺すのは2通り：⚠ 装備の空き枠を押す → 刺せる装飾を並べる（`_attach_instance`）／ ⚠ 装飾の「装備に刺す…」→ 空き枠のある装備を並べる（`_attach_part_id`）。
+# ⚠ 再描画に await を持たせない（AGENTS.md）。⚠ remove_child してから queue_free。
 
 class_name WarehouseScreen
 extends Control
@@ -26,23 +25,27 @@ const TAB_IDS: Array[String] = [
 const TAB_KEYS: Array[String] = [
 	"ui_belongings_tab_equip", "ui_belongings_tab_part", "ui_belongings_tab_material",
 ]
-# ⚠ 行の中身の鍵（⚠ 行と右の紙で同じ品を指すため）。
-const ROW_ENTRY: String = "entry"
-const ROW_KEY: String = "key"
-const ROW_IN_INVENTORY: String = "in_inventory"
 
 var _tab: String = TransferKeys.WAREHOUSE_TAB_EQUIP
-# ⚠ 装備の部位の絞り込み（⚠ 空＝すべて）。
-var _slot_filter: String = ""
 # ⚠ いま選んでいる品の鍵（⚠ 個体なら instance_id・それ以外は item_id）。
 var _selected_key: String = ""
 # ⚠ 刺せる装飾を並べているあいだの相手（⚠ 空なら並べていない）。⚠ 状態ではなく画面の都合。
 var _attach_instance: String = ""
 var _attach_slot: int = -1
+# ⚠ 「装備に刺す…」で、⚠ 刺す先の装備を並べているあいだの装飾（⚠ 空なら並べていない）。
+var _attach_part_id: String = ""
+# ⚠ 一括分解のあいだか ／ 選んだ個体。
+var _scrapping: bool = false
+var _picked: Array[String] = []
 
 var tabs: PaperTabs = null
-var _page: HBoxContainer = null
+var _page: VBoxContainer = null
 var _detail: BelongingsDetail = null
+var _detail_holder: TiltedSheet = null
+var _summary: BulkScrapSummary = null
+var _tip: ItemTipCard = null
+# ⚠ いま並べている装備（⚠ 「見えている物ぜんぶ」「等級◯以下」が見る）。
+var _shown_views: Array = []
 
 @onready var header: ScreenHeader = $Margin/Layout/Header
 @onready var body: HBoxContainer = $Margin/Layout/Body
@@ -66,26 +69,27 @@ func _ready() -> void:
 
 	tabs = PaperTabs.new()
 	tabs.name = "Tabs"
-	tabs.set_tabs(TAB_KEYS, TAB_IDS.find(_tab))
 	tabs.tab_changed.connect(_on_tab_changed)
 	left.add_child(tabs)
 	var sheet: PaperSheet = PaperSheet.new()
 	sheet.name = "Page"
 	sheet.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_child(sheet)
-	_page = HBoxContainer.new()
+	_page = VBoxContainer.new()
 	_page.name = "PageBody"
 	sheet.add_child(_page)
 
-	var holder: TiltedSheet = TiltedSheet.create(1)
-	holder.name = "DetailHolder"
-	holder.sheet.custom_minimum_size.x = float(get_theme_constant(&"detail_width", THEME_TYPE))
+	_detail_holder = TiltedSheet.create(1)
+	_detail_holder.name = "DetailHolder"
+	_detail_holder.sheet.custom_minimum_size.x = float(get_theme_constant(&"detail_width", THEME_TYPE))
 	_detail = BelongingsDetail.new()
 	_detail.name = "Detail"
 	_detail.host = self
 	_detail.attach_requested.connect(_on_attach_requested)
-	holder.sheet.add_child(_detail)
-	body.add_child(holder)
+	_detail.attach_part_requested.connect(_on_attach_part_requested)
+	_detail_holder.sheet.add_child(_detail)
+	body.add_child(_detail_holder)
+	_tip = ItemTipCard.attach(self)
 
 	# ⚠ 1操作で2本飛ぶことがある（⚠ 分解＝素材と個体）。⚠ 再描画に await を持たせない（AGENTS.md）。
 	GameManager.inventory_changed.connect(_on_state_changed.unbind(1))
@@ -103,97 +107,221 @@ func _rebuild() -> void:
 	for child: Node in _page.get_children():
 		_page.remove_child(child)
 		child.queue_free()
-	if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP and _attach_instance == "":
-		_page.add_child(_build_filter())
-		_page.add_child(VSeparator.new())
+	if _tip != null:
+		_tip.hide_tip()
+	_refresh_tabs()
+	header.set_subtitle_text(tr(TAB_KEYS[TAB_IDS.find(_tab)]))
 
-	var rows: Array[Dictionary] = _rows()
+	var entries: Array = _entries()
 	# ⚠ 選んでいたものが無くなっていることがある（壊した・分解した）。⚠ そのときは先頭を選ぶ。
 	var selected: Dictionary = {}
-	for row: Dictionary in rows:
-		if str(row.get(ROW_KEY, "")) == _selected_key:
-			selected = row
-	if selected.is_empty() and _attach_instance == "" and not rows.is_empty():
-		selected = rows[0]
-		_selected_key = str(selected.get(ROW_KEY, ""))
-	# ⚠ 10-07（人間「⚠ そのページの紐が全部一気に消えてしまう　一個ずつ消えていくように確認したら」）：⚠ 「見た」にするのは右の紙に出した品だけ（⚠ 前は一覧に出した品を全部＝紐が一気に消えた）。
-	if not selected.is_empty() and _attach_instance == "":
-		GameManager.mark_items_seen([str((selected.get(ROW_ENTRY, {}) as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))])
+	for entry: Variant in entries:
+		if ItemView.key_of(entry as Dictionary) == _selected_key:
+			selected = entry
+	if selected.is_empty() and not _in_pick_mode() and not entries.is_empty():
+		selected = entries[0]
+		_selected_key = ItemView.key_of(selected)
+	# ⚠ 10-07：⚠ 「見た」にするのは右の紙に出した品だけ（⚠ 紐が一気に消えないように）。
+	if not selected.is_empty() and not _in_pick_mode():
+		GameManager.mark_items_seen([ItemView.item_id_of(selected)])
 
-	var column: VBoxContainer = VBoxContainer.new()
-	column.name = "ListColumn"
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_page.add_child(column)
-	column.add_child(_build_heading(rows.size()))
-	# ⚠ 10-18（人間「⚠ 装備をソートできるように　レア度でフィルターなど」）：⚠ 装備だけ並べ替えと絞り込み（`ItemListBar`）。
-	#   ⚠ 部位は左の縦タブが持つ＝欄には出さない。⚠ マス目は回UI-1018-2（持ち物の作り直し）で入れる。
-	if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP and _attach_instance == "":
-		var sort_bar: ItemListBar = ItemListBar.create(ItemListBar.KIND_EQUIP, {"view": false, "slot": false})
-		sort_bar.changed.connect(_on_sort_changed)
-		column.add_child(sort_bar)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.name = "ListScroll"
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_child(scroll)
-	var list: VBoxContainer = VBoxContainer.new()
-	list.name = "Rows"
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(list)
-	if rows.is_empty():
-		var empty_key: String = "ui_part_none_hint" if _attach_instance != "" else "ui_warehouse_empty"
-		if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP and _attach_instance == "" and ItemListBar.is_filtering(ItemListBar.KIND_EQUIP, false, false):
-			empty_key = "ui_equip_filter_hidden"
-		list.add_child(EmptyState.create(empty_key))
-	for row: Dictionary in rows:
-		list.add_child(_create_row(row))
-	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ NEW の品があるタブに紐（⚠ いま見ているタブは「見た」になったので消える）。
-	if tabs != null:
-		for index: int in range(TAB_IDS.size()):
-			tabs.set_attention(index, _tab_has_new(TAB_IDS[index]))
+	if _scrapping:
+		var scrap: BulkScrapBar = BulkScrapBar.create()
+		scrap.grade_chosen.connect(_on_scrap_grade_chosen)
+		scrap.visible_all_pressed.connect(_on_scrap_visible_all)
+		scrap.reset_pressed.connect(_on_scrap_reset)
+		_page.add_child(scrap)
+	if _attach_instance != "" or _attach_part_id != "":
+		_page.add_child(_build_attach_heading())
+	_page.add_child(_build_list_bar())
+
+	var collection: ItemCollection = ItemCollection.create(ItemListBar.view_of(_bar_kind()))
+	collection.tip = _tip
+	collection.selected_key = "" if _in_pick_mode() else _selected_key
+	collection.empty_key = _empty_key()
+	_mark_collection(collection, entries)
+	collection.item_pressed.connect(_on_item_pressed)
+	collection.set_entries(entries)
+	_page.add_child(collection)
+	_page.add_child(_build_legend())
+
 	var facility: Node = get_node_or_null("FacilityBar")
 	if facility is BaseFacilityBar:
 		(facility as BaseFacilityBar).refresh_attention()
 
-	# ⚠ 刺せる装飾を並べているあいだも、⚠ 右の紙は刺す相手（装備）のまま。
-	if _attach_instance != "":
-		_detail.setup(_instance_entry(_attach_instance), false)
+	# 右：⚠ 一括分解のあいだは選んだ物の見積もり ／ ⚠ 刺す相手を並べているあいだも、⚠ 右の紙は刺す元のまま。
+	if _summary != null:
+		_detail_holder.sheet.remove_child(_summary)
+		_summary.queue_free()
+		_summary = null
+	_detail.visible = not _scrapping
+	if _scrapping:
+		_summary = BulkScrapSummary.create(_picked.duplicate())
+		_summary.confirm_pressed.connect(_on_scrap_confirm)
+		_summary.cancel_pressed.connect(_end_scrap)
+		_detail_holder.sheet.add_child(_summary)
+	elif _attach_instance != "":
+		_detail.setup(ItemView.instance_entry(_attach_instance), false)
+	elif _attach_part_id != "":
+		_detail.setup(_part_entry(_attach_part_id), true)
 	else:
-		_detail.setup(selected.get(ROW_ENTRY, {}) as Dictionary, bool(selected.get(ROW_IN_INVENTORY, false)))
+		_detail.setup(selected, false)
 	ScrollKeeper.restore(self, kept)
 
 
-# 部位の縦タブ（⚠ すべて・頭・上半身・下半身・武器・アクセサリー）。⚠ 並びは `get_equip_slots()`。
-func _build_filter() -> VBoxContainer:
-	var column: VBoxContainer = VBoxContainer.new()
-	column.name = "SlotFilter"
-	column.custom_minimum_size.x = float(get_theme_constant(&"filter_width", THEME_TYPE))
-	var slots: Array[String] = [""]
-	for slot: String in GameManager.get_equip_slots():
-		slots.append(slot)
-	for slot: String in slots:
-		var row: LedgerRow = LedgerRow.new()
-		row.name = "Filter_" + (slot if slot != "" else "all")
-		row.selected = slot == _slot_filter
-		row.show_rule = false
-		row.pressed.connect(_on_filter_pressed.bind(slot))
-		var label: Label = Label.new()
-		label.text = tr("ui_equipment_slot_" + slot) if slot != "" else tr("ui_belongings_filter_all")
-		row.add_child(label)
-		column.add_child(row)
-	return column
+func _in_pick_mode() -> bool:
+	return _scrapping or _attach_instance != "" or _attach_part_id != ""
 
 
-func _build_heading(count: int) -> Control:
+# ⚠ いま並べるもの（⚠ マスの形）。
+func _entries() -> Array:
+	_shown_views = []
+	if _attach_instance != "":
+		return _attachable_part_entries()
+	match _tab:
+		TransferKeys.WAREHOUSE_TAB_PART:
+			if _attach_part_id != "":
+				return _equip_entries()
+			return ItemListBar.apply_entries(_part_entries(), ItemListBar.KIND_PART)
+		TransferKeys.WAREHOUSE_TAB_MATERIAL:
+			return ItemListBar.apply_entries(_material_entries(), ItemListBar.KIND_MATERIAL)
+	return _equip_entries()
+
+
+func _bar_kind() -> String:
+	if _attach_instance != "":
+		return ItemListBar.KIND_PART
+	match _tab:
+		TransferKeys.WAREHOUSE_TAB_PART:
+			return ItemListBar.KIND_EQUIP if _attach_part_id != "" else ItemListBar.KIND_PART
+		TransferKeys.WAREHOUSE_TAB_MATERIAL:
+			return ItemListBar.KIND_MATERIAL
+	return ItemListBar.KIND_EQUIP
+
+
+func _equip_entries() -> Array:
+	_shown_views = ItemListBar.apply_views(GameManager.get_owned_instances())
+	var entries: Array = []
+	for view: Variant in _shown_views:
+		entries.append(ItemView.entry_of_view(view as Dictionary))
+	return entries
+
+
+func _part_entries() -> Array:
+	var entries: Array = []
+	for raw: Variant in GameManager.get_inventory_slot_entries():
+		var entry: Dictionary = raw
+		if str(entry.get(GameManager.SLOT_ENTRY_KIND, "")) != GameManager.SLOT_KIND_ITEM:
+			continue
+		if GameManager.get_part_definition(ItemView.item_id_of(entry)).is_empty():
+			continue
+		entries.append(entry)
+	return entries
+
+
+# ⚠ 素材（⚠ 持っていない素材も薄く並ぶ）＋ ⚠ 持ち物のマスを使うその他の品（消耗品など）。
+func _material_entries() -> Array:
+	var entries: Array = []
+	for raw: Variant in GameManager.get_material_slot_entries():
+		entries.append(raw)
+	for raw: Variant in GameManager.get_inventory_slot_entries():
+		var entry: Dictionary = raw
+		if str(entry.get(GameManager.SLOT_ENTRY_KIND, "")) != GameManager.SLOT_KIND_ITEM:
+			continue
+		if not GameManager.get_part_definition(ItemView.item_id_of(entry)).is_empty():
+			continue
+		entries.append(entry)
+	return entries
+
+
+# 刺せる装飾だけ（⚠ 判定は `get_part_reject_reason()` の1本。⚠ 刺さらない種類・解放されていない種類は並べない）。
+func _attachable_part_entries() -> Array:
+	var entries: Array = []
+	for entry: Variant in ItemListBar.apply_entries(_part_entries(), ItemListBar.KIND_PART):
+		var item_id: String = ItemView.item_id_of(entry as Dictionary)
+		if GameManager.get_part_reject_reason(_attach_instance, _attach_slot, item_id) == GameManager.PART_REJECT_KIND:
+			continue
+		var definition: Dictionary = GameManager.get_part_definition(item_id)
+		if not GameManager.is_part_kind_unlocked(str(definition.get(GameManager.ITEM_MASTER_PART_KIND, ""))):
+			continue
+		entries.append(entry)
+	return entries
+
+
+func _part_entry(item_id: String) -> Dictionary:
+	for entry: Variant in _part_entries():
+		if ItemView.item_id_of(entry as Dictionary) == item_id:
+			return entry
+	return {}
+
+
+# ⚠ その装備のうち、⚠ この装飾が刺さる最初の空き枠（⚠ 無ければ -1）。⚠ 判定は `get_part_reject_reason()`。
+func _open_slot_for(instance_id: String, part_id: String) -> int:
+	for view: Variant in GameManager.get_part_entries(instance_id):
+		if (view as Dictionary).get(GameManager.PART_VIEW_ENTRY, null) is Dictionary:
+			continue
+		var index: int = int((view as Dictionary).get(GameManager.PART_VIEW_INDEX, -1))
+		if GameManager.get_part_reject_reason(instance_id, index, part_id) == "":
+			return index
+	return -1
+
+
+# ⚠ マスの印（⚠ 選べない・分解で選んだ・札）。⚠ 決めるのはここ（⚠ 部品は描くだけ）。
+func _mark_collection(collection: ItemCollection, entries: Array) -> void:
+	var locked: Dictionary = {}
+	var picked: Dictionary = {}
+	var tags: Dictionary = {}
+	for raw: Variant in entries:
+		var entry: Dictionary = raw
+		var key: String = ItemView.key_of(entry)
+		if _scrapping and ItemView.is_instance(entry):
+			if ItemView.owner_name(entry) != "":
+				locked[key] = true
+				tags[key] = [tr("ui_item_tag_equipped"), ItemCell.Tag.PLAIN]
+			if key in _picked:
+				picked[key] = true
+		elif _attach_part_id != "" and ItemView.is_instance(entry):
+			if _open_slot_for(key, _attach_part_id) < 0:
+				locked[key] = true
+		elif _tab == TransferKeys.WAREHOUSE_TAB_MATERIAL and ItemView.count_of(entry) == 0:
+			locked[key] = true
+	collection.locked = locked
+	collection.picked = picked
+	collection.tags = tags
+
+
+func _empty_key() -> String:
+	if _attach_instance != "":
+		return "ui_part_none_hint"
+	if _bar_kind() == ItemListBar.KIND_EQUIP and ItemListBar.is_filtering(ItemListBar.KIND_EQUIP):
+		return "ui_equip_filter_hidden"
+	return "ui_warehouse_empty"
+
+
+func _build_list_bar() -> ItemListBar:
+	var kind: String = _bar_kind()
+	var bar: ItemListBar = ItemListBar.create(kind)
+	# ⚠ 一括分解（⚠ 装備タブだけ・⚠ 手本 NOTES §6）。⚠ 分解しているあいだは「やめる」。
+	if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP and _attach_instance == "":
+		var scrap: Button = Button.new()
+		scrap.name = "ScrapToggle"
+		scrap.theme_type_variation = &"PaperToggle"
+		scrap.focus_mode = Control.FOCUS_NONE
+		scrap.text = tr("ui_common_cancel") if _scrapping else tr("ui_bulk_scrap_open")
+		scrap.pressed.connect(_end_scrap if _scrapping else _start_scrap)
+		bar.trailing = scrap
+	bar.changed.connect(_on_bar_changed)
+	return bar
+
+
+# ⚠ 刺す相手を並べているあいだの見出し（⚠ 「やめる」で戻る）。
+func _build_attach_heading() -> Control:
 	var heading: SheetHeading = SheetHeading.new()
 	heading.name = "Heading"
-	heading.ornament = true
-	heading.right_text = tr("ui_belongings_count") % count
-	if _attach_instance == "":
-		heading.title_key = TAB_KEYS[TAB_IDS.find(_tab)]
-		return heading
-	# ⚠ 刺せる装飾を並べているあいだ（⚠ 2手＝枠か「刺す」を押す → 装飾を押す）。⚠ 「やめる」で戻る。
-	heading.title_text = tr("ui_belongings_attach_heading") % (_attach_slot + 1)
+	if _attach_instance != "":
+		heading.title_text = tr("ui_belongings_attach_heading") % (_attach_slot + 1)
+	else:
+		heading.title_text = tr("ui_belongings_attach_to_heading") % ItemView.name_text(_part_entry(_attach_part_id))
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "AttachHead"
@@ -206,189 +334,71 @@ func _build_heading(count: int) -> Control:
 	return row
 
 
-# --- 行 ---
+# 凡例（⚠ 手本の紙の下の1行）。
+func _build_legend() -> Control:
+	var column: VBoxContainer = VBoxContainer.new()
+	column.name = "Legend"
+	column.add_child(HSeparator.new())
+	var row: HBoxContainer = HBoxContainer.new()
+	column.add_child(row)
+	var left_label: Label = Label.new()
+	left_label.theme_type_variation = &"ErrorLabel" if _scrapping else &"FieldCaptionLabel"
+	left_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var right_label: Label = Label.new()
+	right_label.theme_type_variation = &"FieldCaptionLabel"
+	if _scrapping:
+		left_label.text = tr("ui_belongings_legend_scrap")
+	elif _bar_kind() == ItemListBar.KIND_EQUIP:
+		left_label.text = tr("ui_belongings_legend_equip")
+		right_label.text = tr("ui_belongings_legend_touch")
+	else:
+		left_label.text = tr("ui_belongings_legend_stack")
+		right_label.text = tr("ui_belongings_legend_press")
+	row.add_child(left_label)
+	row.add_child(right_label)
+	return column
 
-# ⚠ そのタブに NEW の品があるか（⚠ 装備は部位の絞り込みを見ない）。
-func _tab_has_new(tab_id: String) -> bool:
+
+# ⚠ タブの字（⚠ 「装備 35」）と NEW の紐。
+func _refresh_tabs() -> void:
+	var labels: Array[String] = []
+	for i: int in range(TAB_IDS.size()):
+		labels.append("%s %d" % [tr(TAB_KEYS[i]), _tab_count(TAB_IDS[i])])
+	tabs.set_tabs(labels, TAB_IDS.find(_tab))
+	# ⚠ 10-07：⚠ NEW の品があるタブに紐（⚠ いま見ているタブは「見た」になったので消える）。
+	for index: int in range(TAB_IDS.size()):
+		tabs.set_attention(index, _tab_has_new(TAB_IDS[index]))
+
+
+func _tab_count(tab_id: String) -> int:
 	match tab_id:
 		TransferKeys.WAREHOUSE_TAB_PART:
-			for row: Dictionary in _part_rows():
-				if GameManager.is_item_new(str((row.get(ROW_ENTRY, {}) as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))):
-					return true
+			return _part_entries().size()
 		TransferKeys.WAREHOUSE_TAB_MATERIAL:
-			for row: Dictionary in _material_rows():
-				if GameManager.is_item_new(str((row.get(ROW_ENTRY, {}) as Dictionary).get(GameManager.SLOT_ENTRY_ITEM_ID, ""))):
-					return true
+			var owned: int = 0
+			for entry: Variant in _material_entries():
+				if ItemView.count_of(entry as Dictionary) != 0:
+					owned += 1
+			return owned
+	return GameManager.get_owned_instances().size()
+
+
+# ⚠ そのタブに NEW の品があるか（⚠ 装備は絞り込みを見ない）。
+func _tab_has_new(tab_id: String) -> bool:
+	var entries: Array = []
+	match tab_id:
+		TransferKeys.WAREHOUSE_TAB_PART:
+			entries = _part_entries()
+		TransferKeys.WAREHOUSE_TAB_MATERIAL:
+			entries = _material_entries()
 		_:
-			for raw: Variant in GameManager.get_owned_instances():
-				if GameManager.is_item_new(str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, ""))):
-					return true
+			for view: Variant in GameManager.get_owned_instances():
+				entries.append(ItemView.entry_of_view(view as Dictionary))
+	for entry: Variant in entries:
+		if GameManager.is_item_new(ItemView.item_id_of(entry as Dictionary)):
+			return true
 	return false
 
-
-func _rows() -> Array[Dictionary]:
-	if _attach_instance != "":
-		return _attachable_rows()
-	match _tab:
-		TransferKeys.WAREHOUSE_TAB_PART:
-			return _part_rows()
-		TransferKeys.WAREHOUSE_TAB_MATERIAL:
-			return _material_rows()
-	return _equip_rows()
-
-
-# ⚠ 装備は着けている個体も並べる（⚠ 手本＝誰が着けているかを行に出す）。⚠ 並びと絞り込みは `ItemListBar.apply_views()`（10-18）。
-func _equip_rows() -> Array[Dictionary]:
-	var rows: Array[Dictionary] = []
-	for raw: Variant in ItemListBar.apply_views(GameManager.get_owned_instances(), false, false):
-		var view: Dictionary = raw
-		var instance_id: String = str(view.get(GameManager.INSTANCE_VIEW_ID, ""))
-		var item_id: String = str(view.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
-		var slot: String = str(MasterDataLoader.get_item(item_id).get(GameManager.ITEM_MASTER_EQUIP_SLOT, ""))
-		if _slot_filter != "" and slot != _slot_filter:
-			continue
-		rows.append({ROW_KEY: instance_id, ROW_ENTRY: _instance_entry(instance_id), ROW_IN_INVENTORY: false})
-	return rows
-
-
-func _part_rows() -> Array[Dictionary]:
-	var rows: Array[Dictionary] = []
-	for raw: Variant in GameManager.get_inventory_slot_entries():
-		var entry: Dictionary = raw
-		if str(entry.get(GameManager.SLOT_ENTRY_KIND, "")) != GameManager.SLOT_KIND_ITEM:
-			continue
-		var item_id: String = str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-		if GameManager.get_part_definition(item_id).is_empty():
-			continue
-		rows.append({ROW_KEY: item_id, ROW_ENTRY: entry, ROW_IN_INVENTORY: true})
-	return rows
-
-
-# ⚠ 素材（⚠ 持っていない素材も薄く並ぶ＝前の素材タブと同じ）＋ ⚠ 持ち物のマスを使うその他の品（消耗品など）。
-func _material_rows() -> Array[Dictionary]:
-	var rows: Array[Dictionary] = []
-	for raw: Variant in GameManager.get_material_slot_entries():
-		var entry: Dictionary = raw
-		rows.append({ROW_KEY: str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, "")), ROW_ENTRY: entry, ROW_IN_INVENTORY: false})
-	for raw: Variant in GameManager.get_inventory_slot_entries():
-		var entry: Dictionary = raw
-		if str(entry.get(GameManager.SLOT_ENTRY_KIND, "")) != GameManager.SLOT_KIND_ITEM:
-			continue
-		var item_id: String = str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-		if not GameManager.get_part_definition(item_id).is_empty():
-			continue
-		rows.append({ROW_KEY: item_id, ROW_ENTRY: entry, ROW_IN_INVENTORY: true})
-	return rows
-
-
-# 刺せる装飾だけ（⚠ 判定は `get_part_reject_reason()` の1本。⚠ 刺さらない種類・解放されていない種類は並べない）。
-func _attachable_rows() -> Array[Dictionary]:
-	var rows: Array[Dictionary] = []
-	for row: Dictionary in _part_rows():
-		var item_id: String = str(row.get(ROW_KEY, ""))
-		if GameManager.get_part_reject_reason(_attach_instance, _attach_slot, item_id) == GameManager.PART_REJECT_KIND:
-			continue
-		var definition: Dictionary = GameManager.get_part_definition(item_id)
-		if not GameManager.is_part_kind_unlocked(str(definition.get(GameManager.ITEM_MASTER_PART_KIND, ""))):
-			continue
-		rows.append(row)
-	return rows
-
-
-# 台帳の1行：マス ／ 名前・添え書き ／ 主な値 ／ 誰が着けているか（⚠ 装備だけ）。
-func _create_row(row_data: Dictionary) -> LedgerRow:
-	var entry: Dictionary = row_data.get(ROW_ENTRY, {})
-	var key: String = str(row_data.get(ROW_KEY, ""))
-	var item_id: String = str(entry.get(GameManager.SLOT_ENTRY_ITEM_ID, ""))
-	var row: LedgerRow = LedgerRow.new()
-	row.name = "Row_" + key
-	# ⚠ 10-07（人間「⚠ EはAとおなじ」）：⚠ 新しく手に入れた品にしおり紐。
-	if GameManager.is_item_new(item_id):
-		RibbonMark.attach(row)
-	row.selected = key == _selected_key and _attach_instance == ""
-	row.pressed.connect(_on_row_pressed.bind(key))
-	var line: HBoxContainer = HBoxContainer.new()
-	row.add_child(line)
-	var icon: ItemSlot = ItemSlot.create(entry)
-	var side: float = float(get_theme_constant(&"item_icon", &"Training"))
-	icon.custom_minimum_size = Vector2(side, side)
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(icon)
-
-	var column: VBoxContainer = VBoxContainer.new()
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(column)
-	var name_label: Label = Label.new()
-	name_label.name = "NameLabel"
-	name_label.theme_type_variation = &"SheetHeadingLabel"
-	name_label.text = tr(GameManager.item_name_key(item_id))
-	column.add_child(name_label)
-	var sub: Label = Label.new()
-	sub.theme_type_variation = &"CaptionLabel"
-	column.add_child(sub)
-
-	var value: Label = Label.new()
-	value.name = "ValueLabel"
-	value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(value)
-
-	if str(entry.get(GameManager.SLOT_ENTRY_KIND, "")) == GameManager.SLOT_KIND_INSTANCE:
-		var instance_id: String = str(entry.get(GameManager.SLOT_ENTRY_INSTANCE_ID, ""))
-		var slot: String = str(MasterDataLoader.get_item(item_id).get(GameManager.ITEM_MASTER_EQUIP_SLOT, ""))
-		sub.text = tr("ui_equipment_slot_" + slot) if slot != "" else ""
-		var stats: Dictionary = GameManager.get_instance_stats(instance_id)
-		var main_key: String = BelongingsDetail.main_stat_of(stats)
-		value.text = "%s %s" % [tr("ui_training_stat_" + main_key), BelongingsDetail.stat_text(main_key, int(stats.get(main_key, 0)))] if main_key != "" else ""
-		# ⚠ 特殊効果の星（2026-10-02・回UI-仕組み⑦・手本 RichItemFx）。⚠ 値の右。
-		var star: Label = SpecialEffectCard.star(item_id)
-		if star != null:
-			line.add_child(star)
-		var owner: String = str(entry.get(GameManager.SLOT_ENTRY_EQUIPPED_BY, ""))
-		var owner_label: Label = Label.new()
-		owner_label.name = "OwnerLabel"
-		owner_label.theme_type_variation = &"CaptionLabel"
-		owner_label.custom_minimum_size.x = side * 2.0
-		owner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		owner_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		if owner != "":
-			owner_label.text = tr(str(MasterDataLoader.get_character(owner).get("name_key", owner)))
-		line.add_child(owner_label)
-	elif not GameManager.get_part_definition(item_id).is_empty():
-		var definition: Dictionary = GameManager.get_part_definition(item_id)
-		var stat_key: String = str(definition.get(GameManager.ITEM_MASTER_PART_STAT, ""))
-		sub.text = tr("ui_belongings_owned") % int(entry.get(GameManager.SLOT_ENTRY_COUNT, 0))
-		value.text = "%s %s" % [tr("ui_training_stat_" + stat_key), BelongingsDetail.part_range_text(item_id)] if stat_key != "" else ""
-	else:
-		var count: int = int(entry.get(GameManager.SLOT_ENTRY_COUNT, 0))
-		value.theme_type_variation = &"DossierLevelLabel"
-		value.text = str(count)
-		# ⚠ 持っていない素材は薄く（⚠ 消さない＝何が要るかは見せる）。
-		if count <= 0:
-			row.modulate.a = 0.5
-	return row
-
-
-# ⚠ 個体をマスの形に包む（⚠ 行と右の紙に渡す形。⚠ 状態には入らない）。
-func _instance_entry(instance_id: String) -> Dictionary:
-	var instance: Dictionary = GameManager.get_equipment_instance(instance_id)
-	if instance.is_empty():
-		return {}
-	var owner: String = ""
-	for view: Variant in GameManager.get_owned_instances():
-		if str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")) == instance_id:
-			owner = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_EQUIPPED_BY, ""))
-	return {
-		GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_INSTANCE,
-		GameManager.SLOT_ENTRY_ITEM_ID: str(instance.get(GameStateKeys.INSTANCE_ITEM_ID, "")),
-		GameManager.SLOT_ENTRY_INSTANCE_ID: instance_id,
-		GameManager.SLOT_ENTRY_GRADE: int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)),
-		GameManager.SLOT_ENTRY_EQUIPPED_BY: owner,
-	}
-
-
-# ⚠ 図鑑は 2026-09-28 に記録の画面（`records_screen`）へ移した（⚠ 人間「⚠ 4あ」）。
 
 # --- 操作 ---
 
@@ -398,33 +408,53 @@ func _on_tab_changed(index: int) -> void:
 	_selected_key = ""
 	_attach_instance = ""
 	_attach_slot = -1
+	_attach_part_id = ""
+	_scrapping = false
+	_picked.clear()
 	ScrollKeeper.reset(self)
 	_rebuild()
 
 
-func _on_filter_pressed(slot: String) -> void:
-	if slot == _slot_filter:
+func _on_bar_changed() -> void:
+	ScrollKeeper.reset(self)
+	_rebuild()
+
+
+func _on_item_pressed(key: String) -> void:
+	# ⚠ 一括分解：⚠ 押すと選ぶ／外す（⚠ 着けている物は選べない）。
+	if _scrapping:
+		var view: Dictionary = {}
+		for raw: Variant in _shown_views:
+			if str((raw as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")) == key:
+				view = raw
+		if view.is_empty() or not BulkScrapBar.can_pick(view):
+			return
+		if key in _picked:
+			_picked.erase(key)
+		else:
+			_picked.append(key)
+		_rebuild()
 		return
-	_slot_filter = slot
-	_selected_key = ""
-	ScrollKeeper.reset(self)
-	_rebuild()
-
-
-func _on_sort_changed() -> void:
-	_selected_key = ""
-	ScrollKeeper.reset(self)
-	_rebuild()
-
-
-func _on_row_pressed(key: String) -> void:
 	# ⚠ 刺せる装飾を並べているあいだは、⚠ 押した装飾をそのまま刺す（⚠ 2手目）。
 	if _attach_instance != "":
 		var target: String = _attach_instance
 		var slot_index: int = _attach_slot
-		_end_attach()
+		_attach_instance = ""
+		_attach_slot = -1
 		# ⚠ 描き直しはシグナル側（⚠ 刺すと個体と持ち物の2本が飛ぶ）。
-		GameManager.attach_part(target, slot_index, key)
+		if not GameManager.attach_part(target, slot_index, key):
+			_rebuild()
+		return
+	# ⚠ 「装備に刺す…」：⚠ 押した装備の最初の空き枠へ（⚠ 刺さらない装備は押しても何もしない）。
+	if _attach_part_id != "":
+		var slot: int = _open_slot_for(key, _attach_part_id)
+		if slot < 0:
+			return
+		var part_id: String = _attach_part_id
+		_attach_part_id = ""
+		_selected_key = part_id
+		if not GameManager.attach_part(key, slot, part_id):
+			_rebuild()
 		return
 	if key == _selected_key:
 		return
@@ -432,24 +462,75 @@ func _on_row_pressed(key: String) -> void:
 	_rebuild()
 
 
-# ⚠ 刺せる装飾を並べる（⚠ 右の紙の「刺す」か空きの枠から）。⚠ 刺す相手の装備は選んだまま。
+# ⚠ 装備の空き枠か「刺す」から（⚠ 刺す相手の装備は選んだまま）。
 func _on_attach_requested(instance_id: String, slot_index: int) -> void:
 	_attach_instance = instance_id
 	_attach_slot = slot_index
+	ScrollKeeper.reset(self)
+	_rebuild()
+
+
+# ⚠ 装飾の「装備に刺す…」から。⚠ 装備を並べる（⚠ タブは装飾のまま＝やめると装飾へ戻る）。
+func _on_attach_part_requested(item_id: String) -> void:
+	_attach_part_id = item_id
+	ScrollKeeper.reset(self)
 	_rebuild()
 
 
 func _end_attach() -> void:
 	_attach_instance = ""
 	_attach_slot = -1
+	_attach_part_id = ""
 	_rebuild()
 
 
-# ⚠ 「捨てる」は消した（2026-10-03・回3-d・`EQ-14`・人間「⚠ 4あ」＝拠点に容量が無いので捨てる理由が無い）。
-#   ⚠ 装備は「素材にする」（分解）が残る。
+# --- 一括分解（`EQ-20`） ---
+
+func _start_scrap() -> void:
+	_scrapping = true
+	_picked.clear()
+	_rebuild()
+
+
+func _end_scrap() -> void:
+	_scrapping = false
+	_picked.clear()
+	_rebuild()
+
+
+func _on_scrap_grade_chosen(max_grade: int) -> void:
+	_picked = BulkScrapBar.pick_by_grade(_shown_views, max_grade)
+	_rebuild()
+
+
+func _on_scrap_visible_all() -> void:
+	_picked = BulkScrapBar.pick_visible(_shown_views)
+	_rebuild()
+
+
+func _on_scrap_reset() -> void:
+	_picked.clear()
+	_rebuild()
+
+
+func _on_scrap_confirm() -> void:
+	var ids: Array[String] = _picked.duplicate()
+	if not await BulkScrapSummary.run(self, ids):
+		return
+	if not is_instance_valid(self):
+		return
+	_scrapping = false
+	_picked.clear()
+	_rebuild()
 
 
 func _on_state_changed() -> void:
+	# ⚠ 一括分解のあいだに選んだ物が消えたら外す。
+	var kept: Array[String] = []
+	for instance_id: String in _picked:
+		if GameManager.can_dismantle_equipment(instance_id):
+			kept.append(instance_id)
+	_picked = kept
 	_rebuild()
 
 

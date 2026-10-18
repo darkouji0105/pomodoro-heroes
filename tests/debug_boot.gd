@@ -14601,11 +14601,11 @@ class ShotTaker extends Node:
 			var thorn_row: Node = null
 			for raw: Variant in GameManager.get_owned_instances():
 				if str((raw as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "armor_thorn_mail":
-					thorn_row = screen.find_child("Row_" + str((raw as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")), true, false)
-			if not (thorn_row is LedgerRow):
-				push_error("[DebugBoot] ⚠ %s にいばらの鎧の行が無い" % shot_name)
+					thorn_row = screen.find_child("Cell_" + str((raw as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")), true, false)
+			if not (thorn_row is ItemCell):
+				push_error("[DebugBoot] ⚠ %s にいばらの鎧のマスが無い" % shot_name)
 				return false
-			(thorn_row as LedgerRow).pressed.emit()
+			(thorn_row as ItemCell).pressed.emit()
 			for _i: int in range(3):
 				await get_tree().process_frame
 		elif kind == AFTER_MINI_WINDOW or kind == AFTER_MINI_LIST or kind == AFTER_MINI_REFLECTION:
@@ -15234,6 +15234,7 @@ class UiFlowRunner extends Node:
 		if "flow=ui_1018" in OS.get_cmdline_user_args():
 			await _flow_ui_1018()
 			await _flow_item_parts()
+			await _flow_belongings_v2()
 			print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 			get_tree().quit()
 			return
@@ -15282,6 +15283,7 @@ class UiFlowRunner extends Node:
 		await _flow_fewer_presses()
 		await _flow_ui_1018()
 		await _flow_item_parts()
+		await _flow_belongings_v2()
 		# ⚠ ルーンの手（`_flow_runes_all`）は `flow=runes` のときだけ（10-17）：⚠ バイク・フェニックスの「スキルのあと」の見方が決まっていない＝⚠ 全体を赤にしない。
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
@@ -15506,7 +15508,8 @@ class UiFlowRunner extends Node:
 		if _path_of(w) != BELONGINGS:
 			return
 		var hero_name: String = tr(str(MasterDataLoader.get_character(HERO).get("name_key", "")))
-		_check("持ち物：右の紙に「装備中：%s」" % hero_name, _label_text(w, "Detail", "OwnerLine").contains(hero_name))
+		_check("持ち物：右の紙の「だれが着けると」に %s（%s）" % [hero_name, _label_text(w, "Detail", "CompareLine")],
+			w.find_child("Who_" + HERO, true, false) != null and _label_text(w, "Detail", "CompareLine").contains(hero_name))
 		_check("持ち物：キャラの札は出ない", w.find_child("Chip_" + HERO, true, false) == null)
 		# ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ 「鍛える」は鍛冶場をその品を選んで開く（⚠ ここでは鍛えない）。⚠ 「持ち物で見る」で戻る。
 		var grade: int = _grade(instance_id)
@@ -15519,9 +15522,17 @@ class UiFlowRunner extends Node:
 			_check("持ち物：鍛冶場から持ち物へ戻れない", false)
 			return
 		var filled: int = _filled(instance_id)
-		await _press(w.find_child("AttachButton", true, false))
-		_check("持ち物：「刺す」で左が刺せる装飾になる", str(w.get("_attach_instance")) == instance_id)
-		await _press(w.find_child("Row_" + PART_ID, true, false))
+		# ⚠ 10-18：⚠ 「刺す」ボタンはやめた（⚠ 手本）＝⚠ 空いている枠を押す。
+		var open_icon: PartSlotIcon = null
+		for node: Node in w.find_children("PartSlot_*", "", true, false):
+			if node is PartSlotIcon and not ((node as PartSlotIcon).get_part_entry() is Dictionary and not ((node as PartSlotIcon).get_part_entry() as Dictionary).is_empty()):
+				open_icon = node as PartSlotIcon
+				break
+		if open_icon != null:
+			open_icon.pressed.emit(open_icon.get_part_view())
+			await _wait()
+		_check("持ち物：空いている枠を押すと左が刺せる装飾になる", str(w.get("_attach_instance")) == instance_id)
+		await _press(_belongings_item(w, PART_ID))
 		_check("持ち物：装飾を押すと刺さる（%d → %d）" % [filled, _filled(instance_id)], _filled(instance_id) == filled + 1)
 		_check("持ち物：刺したら一覧が戻る", str(w.get("_attach_instance")) == "")
 		# 刺さっている枠 → 吹き出し → 外す → 確かめの窓の「はい」。
@@ -15555,12 +15566,12 @@ class UiFlowRunner extends Node:
 		if _path_of(w) != BELONGINGS:
 			return
 		await _press(_tab_button(w, 1))
-		await _press(w.find_child("Row_" + PART_ID, true, false))
+		await _press(_belongings_item(w, PART_ID))
 		var before: int = GameManager.get_item_count(PART_ID)
 		await _press(w.find_child("PartUpgradeButton", true, false))
 		_check("持ち物：装飾の「段階を上げる」で %s が減る（%d → %d）" % [PART_ID, before, GameManager.get_item_count(PART_ID)], GameManager.get_item_count(PART_ID) < before)
 		await _press(_tab_button(w, 2))
-		await _press(w.find_child("Row_" + POTION_ID, true, false))
+		await _press(_belongings_item(w, POTION_ID))
 		# ⚠ 「捨てる」は消した（2026-10-03・回3-d・`EQ-14`）＝ボタンが無いのが正解。
 		_check("持ち物：消耗品に「捨てる」が無い（拠点に容量は無い）", w.find_child("DiscardButton", true, false) == null)
 		# ⚠ 2026-09-28（人間「⚠ 4あ」）：⚠ 図鑑タブは記録の画面へ移した＝持ち物は3枚。
@@ -16168,14 +16179,14 @@ class UiFlowRunner extends Node:
 			"eqfx_thorn" in GameManager.get_equipment_effect_passives(HERO))
 		# 持ち物：⚠ 行に星・右の紙に札。
 		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_INSTANCE_ID: thorn_id})
-		var row: Node = w.find_child("Row_" + thorn_id, true, false)
+		var row: Node = _belongings_item(w, thorn_id)
 		var card: Node = w.find_child("SpecialEffectCard", true, false)
 		_check("特殊効果：持ち物の行に星・説明の紙に札（%s）" % _label_text(w, "SpecialEffectCard", "EffectName"),
-			row != null and row.find_child("SpecialStar", true, false) != null and card != null
+			row is ItemCell and (row as ItemCell).has_star() and card != null
 			and _label_text(w, "SpecialEffectCard", "EffectTrigger") == tr("ui_eqfx_trigger_took_damage"))
 		var iron_rows: int = 0
-		for node: Node in w.find_children("Row_*", "", true, false):
-			if node.find_child("SpecialStar", true, false) != null:
+		for node: Node in w.find_children("Cell_*", "ItemCell", true, false):
+			if (node as ItemCell).has_star():
 				iron_rows += 1
 		# ⚠ ほかの手で特殊効果つきの装備が手に入っていることがある（⚠ 伝説の宝箱）＝⚠ 持っている数と比べる。
 		var with_effect: int = 0
@@ -18493,10 +18504,12 @@ class UiFlowRunner extends Node:
 		ItemListBar.reset_memory(ItemListBar.KIND_EQUIP)
 
 		# 持ち物：⚠ 下まで送って一番下の行を押しても、⚠ 位置が残る（⚠ 枠は作り直されている）。
+		# ⚠ 10-18（回UI-1018-2）：⚠ 持ち物はマス目が既定になった＝⚠ この検査は「行」で見る。
+		ItemListBar.set_view(ItemListBar.KIND_EQUIP, ItemListBar.VIEW_LIST)
 		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_EQUIP})
 		if w == null:
 			return
-		var scroll: ScrollContainer = w.find_child("ListScroll", true, false) as ScrollContainer
+		var scroll: ScrollContainer = w.find_child("ItemScroll", true, false) as ScrollContainer
 		var bar: ScrollBar = null if scroll == null else scroll.get_v_scroll_bar()
 		var room: int = 0 if bar == null else int(bar.max_value - bar.page)
 		if scroll != null:
@@ -18506,14 +18519,14 @@ class UiFlowRunner extends Node:
 		var rows: Node = null if scroll == null else scroll.find_child("Rows", true, false)
 		var last: Node = null if rows == null or rows.get_child_count() == 0 else rows.get_child(rows.get_child_count() - 1)
 		await _press(last)
-		var again: ScrollContainer = w.find_child("ListScroll", true, false) as ScrollContainer
+		var again: ScrollContainer = w.find_child("ItemScroll", true, false) as ScrollContainer
 		var after: int = 0 if again == null else again.scroll_vertical
 		_check("スクロール：持ち物の一番下の行を押しても位置が残る（%d → %d・枠は作り直し %s）" % [before, after, str(again != scroll)],
 			before > 0 and again != scroll and absi(after - before) <= 2)
 		# ⚠ タブを替えたら先頭から（⚠ 別の一覧に前の位置を持ち越さない）。
 		await _press(_tab_button(w, 2))
 		await _press(_tab_button(w, 0))
-		var top: ScrollContainer = w.find_child("ListScroll", true, false) as ScrollContainer
+		var top: ScrollContainer = w.find_child("ItemScroll", true, false) as ScrollContainer
 		_check("スクロール：タブを替えると先頭から（%d）" % (-1 if top == null else top.scroll_vertical), top != null and top.scroll_vertical == 0)
 
 		# 持ち物：並べ替え（等級の高い順）。
@@ -18693,9 +18706,10 @@ class UiFlowRunner extends Node:
 			and star_cell != null and star_cell.has_star() and worn_cell.has_star() == ItemView.is_special(worn_cell.entry))
 		_check("マス目：選べない・分解で選んだ の印が渡した通り", worn_cell != null and worn_cell.is_locked() and star_cell != null and star_cell.is_picked())
 		var grid_scroll: ScrollContainer = grid.find_child("ItemScroll", false, false) as ScrollContainer
-		var grid_node: GridContainer = grid.find_child("Grid", true, false) as GridContainer
-		_check("マス目：列は幅で決まる（%d 列・最大 %d）" % [0 if grid_node == null else grid_node.columns, grid.get_theme_constant(&"columns", &"ItemCell")],
-			grid_scroll != null and grid_node != null and grid_node.columns >= 1 and grid_node.columns <= grid.get_theme_constant(&"columns", &"ItemCell"))
+		var grid_node: HFlowContainer = grid.find_child("Grid", true, false) as HFlowContainer
+		# ⚠ 折り返して流す＝⚠ 器の幅より広くならない（⚠ 列を決めて並べたときは画面がはみ出した）。
+		_check("マス目：折り返して流れ、器の幅を超えない（%s ≦ %s）" % ["-" if grid_node == null else str(grid_node.get_combined_minimum_size().x), str(grid.size.x)],
+			grid_scroll != null and grid_node != null and grid_node.get_combined_minimum_size().x <= grid.size.x)
 		# 触れると出る札（⚠ 比べる相手があれば増分）。
 		if first != null:
 			tip.show_entry(first.entry, worn_key if worn_key != first_key else "")
@@ -18762,6 +18776,101 @@ class UiFlowRunner extends Node:
 			result == [true] and gone and refund_ok and GameManager.get_owned_instances().size() == count_before - low.size())
 		base.remove_child(holder)
 		holder.queue_free()
+
+	# --- 10-18 回UI-1018-2：持ち物の作り直し（手本 `mocks/Belongings.html`・NOTES §6） ---
+
+	func _flow_belongings_v2() -> void:
+		for kind: String in [ItemListBar.KIND_EQUIP, ItemListBar.KIND_PART, ItemListBar.KIND_MATERIAL]:
+			ItemListBar.reset_memory(kind)
+		var _a: int = GameManager.add_to_inventory("armor_head_keen", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 1)
+		var _b: int = GameManager.add_to_inventory("acc_keen", 2, GameStateKeys.ITEM_TYPE_EQUIPMENT, 1)
+		var _p: int = GameManager.add_to_inventory(PART_ID, 2, GameStateKeys.ITEM_TYPE_PART)
+		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_EQUIP})
+		if w == null:
+			return
+		var cells: int = w.find_children("Cell_*", "ItemCell", true, false).size()
+		_check("持ち物：既定はマス目（%d マス・持っている装備 %d）・タブに数「%s」" % [cells, GameManager.get_owned_instances().size(), _tab_button(w, 0).get("text") if _tab_button(w, 0) != null else ""],
+			cells >= GameManager.get_owned_instances().size() and str(_tab_button(w, 0).get("text")).contains(str(GameManager.get_owned_instances().size())))
+		await _press(w.find_child("ViewSeg_" + ItemListBar.VIEW_LIST, true, false))
+		_check("持ち物：「行」で行に変わる（%d 行）" % w.find_children("Row_*", "LedgerRow", true, false).size(),
+			w.find_children("Row_*", "LedgerRow", true, false).size() == GameManager.get_owned_instances().size())
+		await _press(w.find_child("ViewSeg_" + ItemListBar.VIEW_GRID, true, false))
+
+		# 着ける：⚠ 「だれが着けると」で選んだ人に（⚠ 本番の口 `equip_instance()`）。
+		var free_id: String = ""
+		for view: Variant in GameManager.get_owned_instances():
+			if str((view as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, "")) == "armor_head_keen" and str((view as Dictionary).get(GameManager.INSTANCE_VIEW_EQUIPPED_BY, "")) == "":
+				free_id = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+		await _press(_belongings_item(w, free_id))
+		var members: Array = GameManager.get_party_members()
+		var who: String = str(members[members.size() - 1])
+		await _press(w.find_child("Who_" + who, true, false))
+		await _press(w.find_child("WearButton", true, false))
+		_check("持ち物：「だれが着けると」で選んだ人に「着ける」（%s の頭 = %s）" % [who, GameManager.get_equipped_instance_id(who, GameStateKeys.EQUIP_HEAD)],
+			GameManager.get_equipped_instance_id(who, GameStateKeys.EQUIP_HEAD) == free_id)
+
+		# 一括分解：⚠ 「一括分解」→ 等級1以下をまとめて → 右に「選んだ N 個」→ 分解する → はい。
+		await _press(w.find_child("ScrapToggle", true, false))
+		_check("持ち物：「一括分解」で選ぶ帯と右の見積もり", w.find_child("BulkScrapBar", true, false) != null and w.find_child("BulkScrapSummary", true, false) != null)
+		await _press(w.find_child("Grade_1", true, false))
+		var picked: Array = w.get("_picked")
+		var picked_ok: bool = not picked.is_empty()
+		for instance_id: Variant in picked:
+			if _grade(str(instance_id)) > 1 or ItemView.owner_name(ItemView.instance_entry(str(instance_id))) != "":
+				picked_ok = false
+		_check("持ち物：「1以下」で等級1の着けていない物が選ばれる（%d 個）・右の欄の数" % picked.size(),
+			picked_ok and w.find_child("ScrapGoButton", true, false) is Button and not (w.find_child("ScrapGoButton", true, false) as Button).disabled)
+		var worn: Node = _belongings_item(w, free_id)
+		await _press(worn)
+		_check("持ち物：着けている物は押しても選ばれない", not (free_id in (w.get("_picked") as Array)))
+		var before: int = GameManager.get_owned_instances().size()
+		var count: int = (w.get("_picked") as Array).size()
+		await _press(w.find_child("ScrapGoButton", true, false))
+		await _confirm_modal()
+		await _wait()
+		_check("持ち物：「分解する」→ はい で選んだ %d 個が消え、帯が閉じる（%d → %d）" % [count, before, GameManager.get_owned_instances().size()],
+			GameManager.get_owned_instances().size() == before - count and not bool(w.get("_scrapping")))
+
+		# 装飾 → 「装備に刺す…」→ 空き枠のある装備を押すと刺さる。
+		await _press(_tab_button(w, 1))
+		await _press(_belongings_item(w, PART_ID))
+		await _press(w.find_child("AttachToButton", true, false))
+		_check("持ち物：装飾の「装備に刺す…」で装備が並ぶ", str(w.get("_attach_part_id")) == PART_ID and w.find_child("AttachHead", true, false) != null)
+		var target: String = ""
+		for view: Variant in GameManager.get_owned_instances():
+			var id: String = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
+			if w.call("_open_slot_for", id, PART_ID) >= 0:
+				target = id
+				break
+		var filled: int = _filled(target) if target != "" else -1
+		await _press(_belongings_item(w, target))
+		_check("持ち物：空き枠のある装備を押すと刺さる（%d → %d）" % [filled, _filled(target) if target != "" else -1],
+			target != "" and _filled(target) == filled + 1 and str(w.get("_attach_part_id")) == "")
+
+		# 素材：⚠ 「持っている物だけ」で 0 個の素材が消える。
+		await _press(_tab_button(w, 2))
+		var all_count: int = w.find_children("Cell_*", "ItemCell", true, false).size()
+		var owned: Button = w.find_child("OwnedOnly", true, false) as Button
+		# ⚠ 押すと欄は作り直されて消える＝⚠ 見つかったかは先に取っておく。
+		var has_owned: bool = owned != null
+		if has_owned:
+			owned.button_pressed = true
+			await _wait()
+		var zero: int = 0
+		for node: Node in w.find_children("Cell_*", "ItemCell", true, false):
+			if ItemView.count_of((node as ItemCell).entry) == 0:
+				zero += 1
+		_check("持ち物：素材の「持っている物だけ」で 0 個が消える（%d → %d・0 個 %d）" % [all_count, w.find_children("Cell_*", "ItemCell", true, false).size(), zero],
+			has_owned and zero == 0 and w.find_children("Cell_*", "ItemCell", true, false).size() <= all_count)
+		ItemListBar.reset_memory(ItemListBar.KIND_MATERIAL)
+		await _open(BASE, {})
+
+	# ⚠ 持ち物の品（⚠ 行なら Row_・マス目なら Cell_）。
+	func _belongings_item(scene: Node, key: String) -> Node:
+		if scene == null:
+			return null
+		var row: Node = scene.find_child("Row_" + key, true, false)
+		return row if row != null else scene.find_child("Cell_" + key, true, false)
 
 	# 持ち物の行の等級（⚠ 上から）。⚠ 行の鍵は個体の ID。
 	func _belongings_grades(w: Node) -> Array[int]:
@@ -20038,7 +20147,7 @@ class UiFlowRunner extends Node:
 		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL})
 		if w == null:
 			return
-		await _press(w.find_child("Row_forging_material_4", true, false))
+		await _press(_belongings_item(w, "forging_material_4"))
 		await _press(w.find_child("SourceButton", true, false))
 		window = _source_window(w)
 		await _press(_source_go(window, "forging_material_4", GameManager.ITEM_SOURCE_DUNGEON) if window != null else null, OPEN_FRAMES)
@@ -20208,13 +20317,13 @@ class UiFlowRunner extends Node:
 		seen.erase("forging_material_1")
 		seen.erase("forging_material_2")
 		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL})
-		var row_a: Node = null if w == null else w.find_child("Row_forging_material_1", true, false)
-		var row_b: Node = null if w == null else w.find_child("Row_forging_material_2", true, false)
+		var row_a: Node = null if w == null else _belongings_item(w, "forging_material_1")
+		var row_b: Node = null if w == null else _belongings_item(w, "forging_material_2")
 		_check("NEW：見ていない2つの行にしおり紐", row_a is Control and RibbonMark.has_ribbon(row_a as Control) and row_b is Control and RibbonMark.has_ribbon(row_b as Control))
 		await _press(row_a)
 		w = get_tree().current_scene
-		row_a = w.find_child("Row_forging_material_1", true, false)
-		row_b = w.find_child("Row_forging_material_2", true, false)
+		row_a = _belongings_item(w, "forging_material_1")
+		row_b = _belongings_item(w, "forging_material_2")
 		_check("NEW：選んだ1つだけ紐が消える（もう1つは残る）", row_a is Control and not RibbonMark.has_ribbon(row_a as Control)
 			and row_b is Control and RibbonMark.has_ribbon(row_b as Control) and GameManager.is_item_seen("forging_material_1") and not GameManager.is_item_seen("forging_material_2"))
 		await _press(row_b)
@@ -20368,7 +20477,7 @@ class UiFlowRunner extends Node:
 			await _close_modal(screen)
 		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL})
 		if w != null:
-			await _press(w.find_child("Row_forging_material_1", true, false))
+			await _press(_belongings_item(w, "forging_material_1"))
 			await _click(w.find_child("HeadIcon", true, false))
 			_check("アイコン：持ち物の右の紙のアイコンを押すと窓", _source_window(w) != null)
 			await _close_modal(w)
@@ -20491,7 +20600,7 @@ class UiFlowRunner extends Node:
 			await _close_modal(ws)
 		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART})
 		if w != null:
-			await _press(w.find_child("Row_" + PART_ID, true, false))
+			await _press(_belongings_item(w, PART_ID))
 			var part_cost: Node = w.find_child("PartUpgradeCostLabel", true, false)
 			_check("足りない：装飾は「入手先を見る」無し・素材の数が赤",
 				w.find_child("SourceButton", true, false) == null and part_cost is Label and (part_cost as Label).theme_type_variation == &"ErrorLabel")

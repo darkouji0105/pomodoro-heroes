@@ -4,7 +4,7 @@
 # ⚠ 中身は「マスの形」の Dictionary の配列（`ItemView`）。⚠ 何を並べるか・どの順かは画面と `ItemListBar` が決める。
 # ⚠ 状態（選んでいる・選べない・一括分解で選んだ・札）は画面が渡す。⚠ ここは描いて、押された鍵を返すだけ。
 # ⚠ 送り（ScrollContainer）を自分で持つ（⚠ 名前は `ItemScroll`＝`ScrollKeeper` が戻せる）。
-# ⚠ マス目の列の数は幅から決める（⚠ 持ち物・鍛冶場は 12 列・育成の右は狭い）。
+# ⚠ マス目は折り返して流す（`HFlowContainer`）。⚠ 列の数を決めて並べると、⚠ 決める前の1回で 12 列ぶんの幅を要求して画面がはみ出した（10-18 の絵）。
 # ⚠ 触れると出る札（`ItemTipCard`）を渡されていれば、⚠ ここが出し入れする。
 # ⚠ 再描画は画面が丸ごと作り直す（⚠ await を持たない・CLAUDE.md 5番）。
 
@@ -29,7 +29,7 @@ var compare_with: Callable = Callable()
 var empty_key: String = "ui_warehouse_empty"
 
 var _entries: Array = []
-var _grid: GridContainer = null
+var _grid: HFlowContainer = null
 var _cells: Dictionary = {}
 
 
@@ -95,30 +95,17 @@ func _build() -> void:
 	margin.theme_type_variation = &"ItemCellGridMargin"
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(margin)
-	_grid = GridContainer.new()
+	_grid = HFlowContainer.new()
 	_grid.name = "Grid"
 	_grid.theme_type_variation = &"ItemCellGrid"
-	_grid.columns = get_theme_constant(&"columns", THEME_TYPE)
+	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(_grid)
 	for entry: Variant in _entries:
 		var cell: ItemCell = _make_cell(entry as Dictionary, 0)
+		# ⚠ NEW のしおり紐（⚠ 行と同じ）。
+		if GameManager.is_item_new(ItemView.item_id_of(entry as Dictionary)):
+			RibbonMark.attach(cell)
 		_grid.add_child(cell)
-	scroll.resized.connect(_fit_columns.bind(scroll))
-	_fit_columns.call_deferred(scroll)
-
-
-# ⚠ 幅に入るだけの列（⚠ 最大は Theme の `columns`）。
-func _fit_columns(scroll: ScrollContainer) -> void:
-	if _grid == null or not is_instance_valid(_grid) or not is_instance_valid(scroll):
-		return
-	var cell: float = float(get_theme_constant(&"cell", THEME_TYPE))
-	var gap: float = float(get_theme_constant(&"gap_h", THEME_TYPE))
-	var pad: float = float(get_theme_constant(&"owner_out", THEME_TYPE) + get_theme_constant(&"ring_out", THEME_TYPE)) * 2.0
-	var room: float = scroll.size.x - pad
-	if room <= 0.0:
-		return
-	var fit: int = maxi(1, int(floor((room + gap) / (cell + gap))))
-	_grid.columns = mini(fit, get_theme_constant(&"columns", THEME_TYPE))
 
 
 func _make_cell(entry: Dictionary, side: int) -> ItemCell:
