@@ -4042,6 +4042,51 @@ func dismantle_equipment(instance_id: String) -> bool:
 	return true
 
 
+# ============================================================
+# 素材の使い道（2026-10-18・回UI-1018-2b・人間「⚠ １あつくって」＝web版の手本 `06_belongings_mat_grid.png` の「使い道」）
+# ============================================================
+#
+# ⚠ 使い道のデータは持たない。⚠ 今ある費用（研究・レシピ・鍛える・昇級・装飾の段階）から**毎回拾う**（CLAUDE.md 4番）。
+#   ⚠ 費用を足すとここも勝手に追いつく（⚠ 表を二重に持たない）。⚠ 並びは USES の順（⚠ 「使い道」で並べるときの順）。
+
+const MATERIAL_USE_RESEARCH: String = "research"
+const MATERIAL_USE_CRAFT: String = "craft"
+const MATERIAL_USE_FORGE: String = "forge"
+const MATERIAL_USE_LEVEL_UP: String = "level_up"
+const MATERIAL_USE_PART_UPGRADE: String = "part_upgrade"
+const MATERIAL_USES: Array[String] = [
+	MATERIAL_USE_LEVEL_UP, MATERIAL_USE_FORGE, MATERIAL_USE_CRAFT, MATERIAL_USE_PART_UPGRADE, MATERIAL_USE_RESEARCH,
+]
+
+
+func get_material_uses(material_id: String) -> Array[String]:
+	var found: Dictionary = {}
+	for raw: Variant in MasterDataLoader.get_all_research_nodes().values():
+		if str((raw as Dictionary).get(RESEARCH_NODE_COST_MATERIAL_ID, "")) == material_id:
+			found[MATERIAL_USE_RESEARCH] = true
+			break
+	for raw: Variant in MasterDataLoader.get_all_recipes().values():
+		for io: Variant in ((raw as Dictionary).get(RECIPE_INPUTS, []) as Array):
+			if str((io as Dictionary).get(RECIPE_IO_ITEM_ID, "")) == material_id:
+				found[MATERIAL_USE_CRAFT] = true
+	for grade: int in range(2, get_max_equipment_grade() + 1):
+		if get_forge_material_id(grade) == material_id:
+			found[MATERIAL_USE_FORGE] = true
+	var max_level: int = int(Balance.character.max_character_level) if Balance != null and Balance.character != null else 0
+	for level: int in range(1, max_level):
+		if get_level_up_material_id(level) == material_id:
+			found[MATERIAL_USE_LEVEL_UP] = true
+			break
+	for tier: int in range(1, get_max_part_tier()):
+		if get_decor_material_id(tier) == material_id:
+			found[MATERIAL_USE_PART_UPGRADE] = true
+	var uses: Array[String] = []
+	for use: String in MATERIAL_USES:
+		if found.has(use):
+			uses.append(use)
+	return uses
+
+
 # ⚠ 分解できるか（⚠ 在る・誰も着けていない）。⚠ 判定は `dismantle_equipment()` と同じ。
 func can_dismantle_equipment(instance_id: String) -> bool:
 	return not get_equipment_instance(instance_id).is_empty() and _equipped_owner(instance_id) == ""

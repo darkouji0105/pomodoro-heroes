@@ -346,10 +346,22 @@ func _build_item(item_id: String) -> void:
 	var count: int = int(_entry.get(GameManager.SLOT_ENTRY_COUNT, 0))
 	_add_head(_entry, tr(GameManager.item_name_key(item_id)), ItemView.sub_text(_entry), "")
 	add_child(_value_line("CountLine", tr("ui_item_tip_owned"), str(count), true, null))
+	# ⚠ 10-18（人間「⚠ １あつくって」）：⚠ 使い道（⚠ 今ある費用から拾う＝`get_material_uses()`）。
+	var uses: Array[String] = GameManager.get_material_uses(item_id)
+	if not uses.is_empty():
+		var names: Array[String] = []
+		for use: String in uses:
+			names.append(tr("ui_material_use_" + use))
+		add_child(_value_line("UseLine", tr("ui_material_uses"), tr("ui_barracks_skill_separator").join(names), false, null))
 	_add_description(item_id)
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(spacer)
+	if not uses.is_empty():
+		var go: UiButton = UiButton.create(UiButton.Variant.PRIMARY, "ui_material_go_use")
+		go.name = "GoUseButton"
+		go.pressed.connect(_on_go_use_pressed.bind(item_id, uses))
+		add_child(go)
 	# ⚠ 「捨てる」は消した（2026-10-03・回3-d・`EQ-14`＝拠点に容量が無い）。
 	# ⚠ 10-06（`NAV-19`）：⚠ 入手先の窓（⚠ 行った先の「戻る」で持ち物の素材タブへ戻る）。
 	if GameManager.get_material_ids().has(item_id):
@@ -442,6 +454,39 @@ static func part_range_text(item_id: String) -> String:
 func _on_forge_pressed(instance_id: String) -> void:
 	SceneManager.open_detour(FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: instance_id},
 		WAREHOUSE_PATH, {TransferKeys.WAREHOUSE_INSTANCE_ID: instance_id})
+
+
+# ⚠ 使い道ごとの行き先（⚠ 寄り道＝行った先の「戻る」で持ち物の素材タブへ）。
+static func use_path(use: String) -> String:
+	match use:
+		GameManager.MATERIAL_USE_RESEARCH:
+			return "res://scenes/guild/research_screen.tscn"
+		GameManager.MATERIAL_USE_CRAFT:
+			return "res://scenes/guild/workshop_screen.tscn"
+		GameManager.MATERIAL_USE_FORGE:
+			return FORGE_PATH
+		GameManager.MATERIAL_USE_LEVEL_UP:
+			return "res://scenes/guild/training_screen.tscn"
+	return WAREHOUSE_PATH
+
+
+# 「使う所へ行く」：⚠ 使い道が1つならそこへ ／ ⚠ 2つ以上なら吹き出しで選ぶ。
+func _on_go_use_pressed(item_id: String, uses: Array[String]) -> void:
+	if uses.size() == 1 or host == null:
+		go_to_use(uses[0])
+		return
+	var anchor: Control = find_child("GoUseButton", true, false) as Control
+	var pop: SlotActionPopover = SlotActionPopover.open(host, anchor.get_global_rect() if anchor != null else Rect2(), tr(GameManager.item_name_key(item_id)), tr("ui_material_go_use_pick"))
+	for use: String in uses:
+		var button: UiButton = pop.add_action(tr("ui_material_use_" + use), UiButton.Variant.SECONDARY, go_to_use.bind(use))
+		button.name = "GoUse_" + use
+
+
+func go_to_use(use: String) -> void:
+	var data: Dictionary = {}
+	if use == GameManager.MATERIAL_USE_PART_UPGRADE:
+		data[TransferKeys.WAREHOUSE_TAB] = TransferKeys.WAREHOUSE_TAB_PART
+	SceneManager.open_detour(use_path(use), data, WAREHOUSE_PATH, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL})
 
 
 func _on_attach_to_pressed(item_id: String) -> void:

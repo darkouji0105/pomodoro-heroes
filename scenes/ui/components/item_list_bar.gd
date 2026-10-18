@@ -27,8 +27,11 @@ const SORT_GRADE: String = "grade"
 const SORT_SLOT: String = "slot"
 const SORT_NAME: String = "name"
 const SORT_COUNT: String = "count"
+const SORT_USE: String = "use"
 const EQUIP_SORTS: Array[String] = [SORT_DEFAULT, SORT_GRADE, SORT_SLOT, SORT_NAME]
 const STACK_SORTS: Array[String] = [SORT_DEFAULT, SORT_GRADE, SORT_COUNT, SORT_NAME]
+# ⚠ 素材は「使い道」で並べられる（⚠ 手本 `06_belongings_mat_grid.png`・`GameManager.get_material_uses()`）。
+const MATERIAL_SORTS: Array[String] = [SORT_DEFAULT, SORT_COUNT, SORT_USE, SORT_NAME]
 
 # ⚠ 覚える欄（⚠ `TransferKeys.MEMORY_ITEM_BAR` ＋ 種類 ＋ これ）。
 const FIELD_VIEW: String = "view"
@@ -64,7 +67,7 @@ func _ready() -> void:
 		first.add_child(_caption("ui_item_bar_view"))
 		first.add_child(_seg("ViewSeg", VIEWS, VIEW_KEYS, view_of(kind), _on_view_picked))
 	first.add_child(_caption("ui_item_bar_sort"))
-	var sorts: Array[String] = EQUIP_SORTS if kind == KIND_EQUIP else STACK_SORTS
+	var sorts: Array[String] = sorts_of(kind)
 	var sort_keys: Array[String] = []
 	for sort: String in sorts:
 		sort_keys.append("ui_item_sort_" + sort)
@@ -181,8 +184,17 @@ static func view_of(p_kind: String) -> String:
 	return view if view in VIEWS else VIEW_GRID
 
 
+static func sorts_of(p_kind: String) -> Array[String]:
+	match p_kind:
+		KIND_EQUIP:
+			return EQUIP_SORTS
+		KIND_MATERIAL:
+			return MATERIAL_SORTS
+	return STACK_SORTS
+
+
 static func sort_of(p_kind: String) -> String:
-	var sorts: Array[String] = EQUIP_SORTS if p_kind == KIND_EQUIP else STACK_SORTS
+	var sorts: Array[String] = sorts_of(p_kind)
 	var sort: String = str(_recall(p_kind, FIELD_SORT, SORT_DEFAULT))
 	return sort if sort in sorts else SORT_DEFAULT
 
@@ -314,6 +326,14 @@ static func apply_entries(entries: Array, p_kind: String) -> Array:
 				var count_a: int = ItemView.count_of(a)
 				var count_b: int = ItemView.count_of(b)
 				return count_a > count_b if count_a != count_b else bool(keep.call(a, b)))
+		SORT_USE:
+			var rank: Callable = func(entry: Dictionary) -> int:
+				var uses: Array[String] = GameManager.get_material_uses(ItemView.item_id_of(entry))
+				return GameManager.MATERIAL_USES.size() if uses.is_empty() else GameManager.MATERIAL_USES.find(uses[0])
+			result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+				var rank_a: int = int(rank.call(a))
+				var rank_b: int = int(rank.call(b))
+				return rank_a < rank_b if rank_a != rank_b else bool(keep.call(a, b)))
 		SORT_NAME:
 			result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 				var name_a: String = ItemView.name_text(a)

@@ -2431,3 +2431,12 @@ ui_belongings_legend_stack,右下の数＝持っている数（薄いマス＝0�
 ui_belongings_legend_press,押すと右に出る
 ui_belongings_legend_scrap,着けている物は選べない（暗いマス）・★つきは「まとめて」に入らない（押せば選べる）
 ui_item_filter_owned,持っている物だけ
+ui_item_sort_use,使い道
+ui_material_uses,使い道
+ui_material_use_research,研究
+ui_material_use_craft,作る
+ui_material_use_forge,鍛える
+ui_material_use_level_up,昇級
+ui_material_use_part_upgrade,装飾の段階
+ui_material_go_use,使う所へ行く ›
+ui_material_go_use_pick,どこで使う？

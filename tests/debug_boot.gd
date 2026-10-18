@@ -18863,6 +18863,30 @@ class UiFlowRunner extends Node:
 		_check("持ち物：素材の「持っている物だけ」で 0 個が消える（%d → %d・0 個 %d）" % [all_count, w.find_children("Cell_*", "ItemCell", true, false).size(), zero],
 			has_owned and zero == 0 and w.find_children("Cell_*", "ItemCell", true, false).size() <= all_count)
 		ItemListBar.reset_memory(ItemListBar.KIND_MATERIAL)
+
+		# 素材の使い道（10-18・人間「⚠ １あつくって」）：⚠ 今ある費用から拾う。
+		_check("使い道：研究の素材＝研究・鍛冶の素材＝鍛える・修練の証＝昇級・飾りの素材＝作る＋装飾の段階（%s / %s / %s / %s）" % [
+			str(GameManager.get_material_uses("construction_material_1")), str(GameManager.get_material_uses("forging_material_2")),
+			str(GameManager.get_material_uses("training_material_1")), str(GameManager.get_material_uses("decor_material_1"))],
+			GameManager.MATERIAL_USE_RESEARCH in GameManager.get_material_uses("construction_material_1")
+			and GameManager.MATERIAL_USE_FORGE in GameManager.get_material_uses("forging_material_2")
+			and GameManager.MATERIAL_USE_LEVEL_UP in GameManager.get_material_uses("training_material_1")
+			and GameManager.MATERIAL_USE_CRAFT in GameManager.get_material_uses("decor_material_1")
+			and GameManager.MATERIAL_USE_PART_UPGRADE in GameManager.get_material_uses("decor_material_1"))
+		w = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL})
+		if w == null:
+			return
+		await _press(_belongings_item(w, "decor_material_1"))
+		_check("使い道：右の紙に「使い道」（%s）" % _label_text(w, "UseLine", "Value"), _label_text(w, "UseLine", "Value").contains(tr("ui_material_use_craft")))
+		await _press(w.find_child("GoUseButton", true, false))
+		var pop: Node = _first_of_type(w, "SlotActionPopover")
+		_check("使い道：2つ以上なら「使う所へ行く」で選ぶ吹き出し", pop != null and pop.find_child("GoUse_" + GameManager.MATERIAL_USE_CRAFT, true, false) != null)
+		await _press(null if pop == null else pop.find_child("GoUse_" + GameManager.MATERIAL_USE_CRAFT, true, false), OPEN_FRAMES)
+		_check("使い道：「作る」で作業場が開く", _path_of(get_tree().current_scene) == "res://scenes/guild/workshop_screen.tscn")
+		SceneManager.go_back_or(BASE)
+		await _wait(OPEN_FRAMES)
+		var back: Node = get_tree().current_scene
+		_check("使い道：行った先の「戻る」で持ち物の素材タブ", _path_of(back) == BELONGINGS and str(back.get("_tab")) == TransferKeys.WAREHOUSE_TAB_MATERIAL)
 		await _open(BASE, {})
 
 	# ⚠ 持ち物の品（⚠ 行なら Row_・マス目なら Cell_）。
