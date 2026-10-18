@@ -73,6 +73,8 @@ const REPORT_DRAG_CURSOR: String = "drag_cursor"
 const REPORT_BASE_CHEST: String = "base_chest"
 # ⚠ キャラ固有の資源（2026-10-10・回CH-1・EXEC_CHAR_RESOURCE.md §7）。
 const REPORT_CHAR_RESOURCE: String = "char_resource"
+# レベルの上がり方（10-18・人間「⚠ レベルの上がり方もテストしたい」→「⚠ 設計役が測る」）。
+const REPORT_LEVEL_PACE: String = "level_pace"
 
 # ⚠⚠ 画面を撮る（2026-09-21・人間の許可「⚠ その実験もいいよ　画面とる」）。
 #
@@ -291,6 +293,12 @@ const SCENARIOS: Dictionary = {
 		"kind": KIND_REPORT,
 		"report": REPORT_PARTS,
 		"note": "装飾36件 / 部位ごとの種類 / 刺す→加算→外して壊れる / ロールの範囲 / 段階上げ",
+	},
+	# レベルの上がり方（10-18）。⚠ 戦闘を回さない。⚠ 本物の費用（get_level_up_cost_at）と本物の抽選で、⚠ Lv1→100 に何階・何箱要るか。
+	"level_pace": {
+		"kind": KIND_REPORT,
+		"report": REPORT_LEVEL_PACE,
+		"note": "Lv1→100 の修練の素材（段ごと）／ 上限の研究の費用 ／ 塔の1階・ポモドーロの宝箱1箱の平均 ／ 帯ごとに何階・何箱",
 	},
 	# ステージの抽選ドロップの検証（EXEC_STAGE_DROPS.md §6-A / §6-B）。
 	# ⚠ 抽選は戦闘の外（apply_battle_rewards）で起きるので、materials / parts と同じ report の枝を使う。
@@ -2380,6 +2388,8 @@ func _ready() -> void:
 			_report_drag_cursor()
 		elif report == REPORT_BASE_CHEST:
 			await _report_base_chest()
+		elif report == REPORT_LEVEL_PACE:
+			_report_level_pace()
 		elif report == REPORT_CHAR_RESOURCE:
 			_report_char_resource()
 			_report_char_cost()
@@ -3794,6 +3804,110 @@ func _rune_slot_positions(equip_slot: String) -> Array[int]:
 func _newest_instance() -> String:
 	var next_id: int = int(GameManager.get_state().get(GameStateKeys.NEXT_EQUIPMENT_INSTANCE_ID, 1))
 	return GameManager.INSTANCE_ID_PREFIX + str(next_id - 1)
+
+
+# レベルの上がり方（10-18・人間「⚠ レベルの上がり方もテストしたい」→「⚠ 設計役が測る」）。
+# ⚠ 本物の口だけ：費用＝`get_level_up_cost_at()` ／ 上限＝research.json の level_cap_unlock ／
+#   ⚠ 塔の1階＝4戦＋ボス（⚠ 落ちる確率 `_dungeon_loot_chance_pct()`・表 `_dungeon_master_at()`・等級の絞り `_filter_drop_rows()`・抽選 `_roll_weighted_table()`）／
+#   ⚠ ポモドーロの宝箱＝`_roll_chest_rewards()`。⚠ 平均は 2000 回。
+# ⚠ 入れていないもの：⚠ ショップで買う・シナリオの階の報酬（1回きり）・宝の階（20%）・鞄が満杯で置いてくるぶん。
+const PACE_SAMPLES: int = 2000
+const PACE_TOWER_ID: String = "dungeon_tower"
+
+
+func _report_level_pace() -> void:
+	print("[DebugBoot] --- レベルの上がり方（Lv1→100）---")
+	# 1. 費用：段ごとの合計と、帯（20 刻み）ごとの合計。
+	var need: Dictionary = {}          # material_id -> 個数（Lv1→100 の合計）
+	var band_need: Array = []          # [Lv の帯, material_id, 個数]
+	# ⚠ 帯は「その帯のレベルから1つ上げる費用」（⚠ Lv1〜20＝Lv21 になるまで ／ 最後は Lv81〜99＝Lv100 まで）。
+	for from_lv: int in [1, 21, 41, 61, 81]:
+		var sub: Dictionary = {}
+		for lv: int in range(from_lv, from_lv + 20):
+			if lv >= 100:
+				break
+			var cost: Dictionary = GameManager.get_level_up_cost_at(lv)
+			var mid: String = str(cost.get(GameManager.LEVEL_UP_COST_MATERIAL_ID, ""))
+			var amount: int = int(cost.get(GameManager.LEVEL_UP_COST_AMOUNT, 0))
+			sub[mid] = int(sub.get(mid, 0)) + amount
+			need[mid] = int(need.get(mid, 0)) + amount
+		for mid: Variant in sub:
+			band_need.append(["Lv%d→%d" % [from_lv, mini(from_lv + 20, 100)], str(mid), int(sub[mid])])
+	# ⚠ 1→100 は 99 回上げる。⚠ 帯の数え漏れ・数えすぎを見張る。
+	var ups: int = 0
+	for from_lv: int in [1, 21, 41, 61, 81]:
+		ups += mini(20, 100 - from_lv)
+	print("  上げる回数：%d（⚠ 99 が正）" % ups)
+	print("  費用（Lv1→100 の合計）：%s" % str(need))
+	for row: Array in band_need:
+		print("    %s：%s × %d" % [row[0], row[1], row[2]])
+	print("  1レベルの費用：Lv1=%s ／ Lv20=%s ／ Lv40=%s ／ Lv60=%s ／ Lv99=%s" % [
+		str(GameManager.get_level_up_cost_at(1)), str(GameManager.get_level_up_cost_at(20)), str(GameManager.get_level_up_cost_at(40)),
+		str(GameManager.get_level_up_cost_at(60)), str(GameManager.get_level_up_cost_at(99))])
+	# 2. 上限の研究。
+	var cap_cost: Dictionary = {}
+	var nodes: Dictionary = MasterDataLoader.get_all_research_nodes()
+	for node_id: Variant in nodes:
+		var def: Dictionary = nodes[node_id] as Dictionary
+		if str(def.get(GameStateKeys.NODE_EFFECT_TYPE, "")) != GameStateKeys.EFFECT_LEVEL_CAP_UNLOCK:
+			continue
+		var mid: String = str(def.get("cost_material_id", ""))
+		cap_cost[mid] = int(cap_cost.get(mid, 0)) + int(def.get("cost_amount", 0))
+		print("    上限の研究 %s：+%d（%s × %d・前提 %s）" % [node_id, int(def.get(GameStateKeys.NODE_EFFECT_VALUE, 0)),
+			mid, int(def.get("cost_amount", 0)), str(def.get("prerequisites", []))])
+	print("  上限の研究の合計：%s" % str(cap_cost))
+	# 3. 塔の1階あたり（4戦＋ボス）の平均。
+	var dungeon: Dictionary = MasterDataLoader.get_dungeon(PACE_TOWER_ID)
+	var per_floor: Dictionary = {}     # floor -> {material_id: 平均}
+	for floor_no: int in [1, 3, 4, 6, 7, 10]:
+		var loot: Dictionary = GameManager._dungeon_master_at(dungeon, GameManager.DUNGEON_MASTER_LOOT, floor_no) as Dictionary
+		var grade_range: Vector2i = GameManager.get_dungeon_equip_grade_range(PACE_TOWER_ID, floor_no)
+		var sum: Dictionary = {}
+		for _s: int in range(PACE_SAMPLES):
+			for kind: String in ["battle", "battle", "battle", "battle", "boss"]:
+				if randi_range(1, 100) > GameManager._dungeon_loot_chance_pct(kind):
+					continue
+				var draw: Dictionary = loot.get(kind, {}) as Dictionary
+				var got: Dictionary = GameManager._roll_weighted_table(
+					GameManager._filter_drop_rows(draw.get("entries", []), grade_range), int(draw.get("rolls", 0)))
+				for mid: Variant in got:
+					if str(mid).contains("_material_"):
+						sum[mid] = int(sum.get(mid, 0)) + int(got[mid])
+		var avg: Dictionary = {}
+		for mid: Variant in sum:
+			avg[mid] = snappedf(float(sum[mid]) / float(PACE_SAMPLES), 0.01)
+		per_floor[floor_no] = avg
+		print("  塔 %d階（4戦＋ボス）の平均：%s" % [floor_no, str(avg)])
+	print("  落ちる確率（%%）：戦闘 %d ／ ボス %d" % [GameManager._dungeon_loot_chance_pct("battle"), GameManager._dungeon_loot_chance_pct("boss")])
+	# 4. ポモドーロの宝箱1箱の平均。
+	var per_chest: Dictionary = {}
+	for chest_id: String in ["generic", "bonus_small", "bonus_medium", "bonus_large"]:
+		var sum: Dictionary = {}
+		for _s: int in range(PACE_SAMPLES):
+			var rewards: Dictionary = GameManager._roll_chest_rewards(chest_id)
+			var mats: Dictionary = rewards.get(GameStateKeys.REWARD_MATERIALS, {}) as Dictionary
+			for mid: Variant in mats:
+				sum[mid] = int(sum.get(mid, 0)) + int(mats[mid])
+		var avg: Dictionary = {}
+		for mid: Variant in sum:
+			avg[mid] = snappedf(float(sum[mid]) / float(PACE_SAMPLES), 0.01)
+		per_chest[chest_id] = avg
+		print("  宝箱 %s 1箱の平均：%s" % [chest_id, str(avg)])
+	# 5. 帯ごとに何階・何箱要るか（⚠ その段がいちばん多く出る階で数える）。
+	print("  --- 帯ごとに要る数（⚠ 修練の素材だけで数える）---")
+	for row: Array in band_need:
+		var mid: String = str(row[1])
+		var best_floor: int = 0
+		var best_rate: float = 0.0
+		for floor_no: Variant in per_floor:
+			var rate: float = float((per_floor[floor_no] as Dictionary).get(mid, 0.0))
+			if rate > best_rate:
+				best_rate = rate
+				best_floor = int(floor_no)
+		var chest_rate: float = float((per_chest["generic"] as Dictionary).get(mid, 0.0))
+		print("    %s：%s × %d ＝ 塔 %s ／ ふつうの宝箱 %s" % [row[0], mid, int(row[2]),
+			("%d階を %.0f 回（1階 %.2f 個）" % [best_floor, ceil(float(row[2]) / best_rate), best_rate]) if best_rate > 0.0 else "出ない",
+			("%.0f 箱（1箱 %.2f 個）" % [ceil(float(row[2]) / chest_rate), chest_rate]) if chest_rate > 0.0 else "出ない"])
 
 
 # --- kind=report ------------------------------------------------
