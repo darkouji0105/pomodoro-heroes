@@ -32,6 +32,9 @@ func _ready() -> void:
 
 
 func _rebuild() -> void:
+	# ⚠ 10-18：⚠ 外側の送り（育成の `SkillsScroll`）の位置を保つ（⚠ 中身が一瞬空になり 0 に丸められるため）。
+	var outer: ScrollContainer = get_parent() as ScrollContainer
+	ScrollKeeper.restore_one(outer, ScrollKeeper.capture_one(outer))
 	for child: Node in get_children():
 		remove_child(child)
 		child.queue_free()

@@ -103,11 +103,14 @@ func _is_barracks() -> bool:
 
 
 func _rebuild() -> void:
+	# ⚠ 10-18：⚠ 名簿・控えを押しても先頭へ戻らない（`ScrollKeeper`）。
+	var kept: Dictionary = ScrollKeeper.capture(self)
 	SlotActionPopover.close_in(self)
 	_rebuild_strip()
 	_rebuild_slots()
 	_rebuild_side()
 	_rebuild_roster()
+	ScrollKeeper.restore(self, kept)
 
 
 func _clear(box: Node) -> void:
@@ -902,6 +905,12 @@ func _rebuild_roster() -> void:
 	open.name = "OpenTrainingButton"
 	open.pressed.connect(_on_open_training_pressed)
 	actions.add_child(open)
+	# ⚠ 10-18（人間「⚠ 装備も着替えられるように　詰所から」）：⚠ 育成の装備タブを直に開く（⚠ 装備の解放前は出さない）。
+	if GameManager.is_screen_unlocked(GameStateKeys.SCREEN_EQUIPMENT):
+		var equip: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_sortie_open_equip")
+		equip.name = "OpenEquipButton"
+		equip.pressed.connect(_on_open_training_pressed.bind(TransferKeys.TRAINING_TAB_EQUIP))
+		actions.add_child(equip)
 	if _is_barracks():
 		return
 	# ⚠ 「周回する」は置かない（⚠ 2026-09-28・人間「⚠ 周回の時は編成画面はいらない」＝周回は掲示板でその場で回す）。
@@ -930,13 +939,16 @@ func _on_roster_pressed(character_id: String) -> void:
 	_rebuild()
 
 
-func _on_open_training_pressed() -> void:
+func _on_open_training_pressed(tab_id: String = "") -> void:
 	var target: String = _roster_pick
 	if target == "":
 		var members: Array = GameManager.get_party_members()
 		target = str(members[0]) if not members.is_empty() else ""
+	var data: Dictionary = {TransferKeys.CHARACTER_ID: target}
+	if tab_id != "":
+		data[TransferKeys.TRAINING_TAB] = tab_id
 	# ⚠ 10-06（`NAV-18`）：⚠ 寄り道＝育成の「戻る」で、この画面（⚠ 同じ依頼・同じ深さ）へ戻る。
-	SceneManager.open_detour(TRAINING_PATH, {TransferKeys.CHARACTER_ID: target}, PARTY_PRESET_PATH, {
+	SceneManager.open_detour(TRAINING_PATH, data, PARTY_PRESET_PATH, {
 		TransferKeys.RETURN_PATH: _return_path,
 		TransferKeys.SORTIE_STAGE_ID: _stage_id,
 		TransferKeys.SORTIE_DUNGEON_ID: _dungeon_id,

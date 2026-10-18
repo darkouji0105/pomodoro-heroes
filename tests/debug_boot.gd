@@ -15213,6 +15213,12 @@ class UiFlowRunner extends Node:
 		print("[DebugBoot] --- 画面を押して回る（ui_flow）---")
 		_setup()
 		# ⚠ `flow=runes` でルーンの手だけ（10-17・全キャラ×5系統は戦闘を20回開くので重い）。
+		# ⚠ `flow=ui_1018` で 10-18 の手だけ（⚠ スクロール・装備の並べ替え・詰所から装備）。
+		if "flow=ui_1018" in OS.get_cmdline_user_args():
+			await _flow_ui_1018()
+			print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
+			get_tree().quit()
+			return
 		if "flow=runes" in OS.get_cmdline_user_args():
 			await _flow_runes_all()
 			print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
@@ -15256,6 +15262,7 @@ class UiFlowRunner extends Node:
 		await _flow_qol_1012()
 		await _flow_tower_treasure_close()
 		await _flow_fewer_presses()
+		await _flow_ui_1018()
 		# ⚠ ルーンの手（`_flow_runes_all`）は `flow=runes` のときだけ（10-17）：⚠ バイク・フェニックスの「スキルのあと」の見方が決まっていない＝⚠ 全体を赤にしない。
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
@@ -18453,6 +18460,139 @@ class UiFlowRunner extends Node:
 		await _flow_task_drag()
 		await _flow_see_28()
 		await _flow_panel_status()
+
+
+	# --- 10-18：スクロールが戻らない ／ 装備の並べ替えと絞り込み ／ 詰所から装備を着替える ---
+	# ⚠ 人間「⚠ スクロールのあるもので項目を選んだら　スクロールを上に戻される」「⚠ 装備をソートできるように　レア度でフィルターなど」「⚠ 装備も着替えられるように　詰所から」。
+
+	func _flow_ui_1018() -> void:
+		# ⚠ 一覧が送れるだけ装備を増やす（⚠ 個体を作るのは本番の口 `add_to_inventory()`）。⚠ 等級をばらし、★の品も混ぜる。
+		var plain: Array[String] = ["weapon_sword_swift", "armor_head_guard"]
+		for i: int in range(16):
+			var _added: int = GameManager.add_to_inventory(plain[i % plain.size()], 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 1 + (i % 6))
+		var _rare: int = GameManager.add_to_inventory("weapon_dragon_greatsword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 9)
+		SceneManager.remember(TransferKeys.MEMORY_EQUIP_SORT, EquipSortBar.SORT_DEFAULT)
+		SceneManager.remember(TransferKeys.MEMORY_EQUIP_MIN_GRADE, 1)
+		SceneManager.remember(TransferKeys.MEMORY_EQUIP_SPECIAL_ONLY, false)
+
+		# 持ち物：⚠ 下まで送って一番下の行を押しても、⚠ 位置が残る（⚠ 枠は作り直されている）。
+		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_EQUIP})
+		if w == null:
+			return
+		var scroll: ScrollContainer = w.find_child("ListScroll", true, false) as ScrollContainer
+		var bar: ScrollBar = null if scroll == null else scroll.get_v_scroll_bar()
+		var room: int = 0 if bar == null else int(bar.max_value - bar.page)
+		if scroll != null:
+			scroll.scroll_vertical = room
+		await _wait()
+		var before: int = 0 if scroll == null else scroll.scroll_vertical
+		var rows: Node = null if scroll == null else scroll.find_child("Rows", true, false)
+		var last: Node = null if rows == null or rows.get_child_count() == 0 else rows.get_child(rows.get_child_count() - 1)
+		await _press(last)
+		var again: ScrollContainer = w.find_child("ListScroll", true, false) as ScrollContainer
+		var after: int = 0 if again == null else again.scroll_vertical
+		_check("スクロール：持ち物の一番下の行を押しても位置が残る（%d → %d・枠は作り直し %s）" % [before, after, str(again != scroll)],
+			before > 0 and again != scroll and absi(after - before) <= 2)
+		# ⚠ タブを替えたら先頭から（⚠ 別の一覧に前の位置を持ち越さない）。
+		await _press(_tab_button(w, 2))
+		await _press(_tab_button(w, 0))
+		var top: ScrollContainer = w.find_child("ListScroll", true, false) as ScrollContainer
+		_check("スクロール：タブを替えると先頭から（%d）" % (-1 if top == null else top.scroll_vertical), top != null and top.scroll_vertical == 0)
+
+		# 持ち物：並べ替え（等級の高い順）。
+		var sort_picker: OptionButton = w.find_child("SortPicker", true, false) as OptionButton
+		# ⚠ 選ぶと画面が作り直され、⚠ 欄は消える＝⚠ 見つかったかは先に取っておく。
+		var has_sort: bool = sort_picker != null
+		if has_sort:
+			sort_picker.select(EquipSortBar.SORTS.find(EquipSortBar.SORT_GRADE))
+			sort_picker.item_selected.emit(EquipSortBar.SORTS.find(EquipSortBar.SORT_GRADE))
+			await _wait()
+		var grades: Array[int] = _belongings_grades(w)
+		var descending: bool = grades.size() >= 2
+		for i: int in range(1, grades.size()):
+			if grades[i] > grades[i - 1]:
+				descending = false
+		_check("並べ替え：持ち物の「等級の高い順」で上から等級が下がっていく（%s）" % str(grades), has_sort and descending)
+		# 絞り込み：等級5以上。
+		var grade_picker: OptionButton = w.find_child("GradePicker", true, false) as OptionButton
+		var has_grade: bool = grade_picker != null
+		if has_grade:
+			grade_picker.select(4)
+			grade_picker.item_selected.emit(4)
+			await _wait()
+		grades = _belongings_grades(w)
+		var all_high: bool = not grades.is_empty()
+		for grade: int in grades:
+			if grade < 5:
+				all_high = false
+		_check("絞り込み：「等級5以上」で 5 未満が消える（%s）" % str(grades), has_grade and all_high)
+		# 絞り込み：★だけ。
+		var special: CheckBox = w.find_child("SpecialOnly", true, false) as CheckBox
+		var has_special: bool = special != null
+		if has_special:
+			special.button_pressed = true
+			await _wait()
+		var only_star: bool = true
+		var star_rows: int = 0
+		var list: Node = w.find_child("Rows", true, false)
+		for row: Node in ([] if list == null else list.get_children()):
+			if not str(row.name).begins_with("Row_"):
+				continue
+			star_rows += 1
+			if GameManager.get_item_special_effect(str(GameManager.get_equipment_instance(str(row.name).trim_prefix("Row_")).get(GameStateKeys.INSTANCE_ITEM_ID, ""))) == "":
+				only_star = false
+		_check("絞り込み：「★だけ」で特殊効果の品だけ残る（%d 件）" % star_rows, has_special and star_rows >= 1 and only_star)
+		# 育成の装備タブ：⚠ 同じ選びが効く ／ ⚠ 着けている品は絞り込みで隠れない。
+		var worn: String = GameManager.get_equipped_instance_id(HERO, GameStateKeys.EQUIP_WEAPON)
+		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO, TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_EQUIP})
+		if t != null:
+			var bar_here: bool = t.find_child("EquipSortBar", true, false) is EquipSortBar
+			var worn_shown: bool = worn == "" or t.find_child("Candidate_" + worn, true, false) != null
+			_check("並べ替え：育成の装備タブにも同じ欄（着けている品 %s は隠れない）" % worn, bar_here and worn_shown)
+		SceneManager.remember(TransferKeys.MEMORY_EQUIP_SORT, EquipSortBar.SORT_DEFAULT)
+		SceneManager.remember(TransferKeys.MEMORY_EQUIP_MIN_GRADE, 1)
+		SceneManager.remember(TransferKeys.MEMORY_EQUIP_SPECIAL_ONLY, false)
+
+		# 育成のスキル：⚠ 下まで送って枠を押しても位置が残る（⚠ 外側の枠は作り直さない＝中身だけ）。
+		t = await _open(TRAINING, {TransferKeys.CHARACTER_ID: "char_zealot", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_SKILLS})
+		if t != null:
+			var skills_scroll: ScrollContainer = t.find_child("SkillsScroll", true, false) as ScrollContainer
+			var skills_bar: ScrollBar = null if skills_scroll == null else skills_scroll.get_v_scroll_bar()
+			# ⚠ ヘッドレスは窓が大きく（⚠ 高さ 988）紙がはみ出さない＝⚠ 検査の中だけページの最低の高さを伸ばす（⚠ ページ自身は描き直しで消えない）。
+			var page: Node = t.find_child("SkillsPage", true, false)
+			if page is Control:
+				(page as Control).custom_minimum_size.y = 3000.0
+			await _wait()
+			if skills_scroll != null:
+				skills_scroll.scroll_vertical = int(skills_bar.max_value - skills_bar.page)
+			await _wait()
+			var skills_before: int = 0 if skills_scroll == null else skills_scroll.scroll_vertical
+			await _press(t.find_child("Slot_1", true, false))
+			var skills_after: int = 0 if skills_scroll == null else skills_scroll.scroll_vertical
+			_check("スクロール：育成のスキルで枠を押しても位置が残る（%d → %d・送れる幅 %d・枠 %s・高さ %s）" % [skills_before, skills_after, 0 if skills_bar == null else int(skills_bar.max_value - skills_bar.page), str(skills_scroll != null), "-" if skills_scroll == null else str(skills_scroll.size)],
+				skills_before > 0 and absi(skills_after - skills_before) <= 2)
+
+		# 詰所：「選んだ人の装備を着替える」で育成の装備タブが開く。
+		GameManager.mark_guide_seen(GameManager.GUIDE_SORTIE)
+		var b: Node = await _open(BARRACKS, {})
+		if b != null:
+			await _press(b.find_child("OpenEquipButton", true, false), OPEN_FRAMES)
+			var opened: Node = get_tree().current_scene
+			_check("詰所：「選んだ人の装備を着替える」で育成の装備タブが開く",
+				_path_of(opened) == TRAINING and str(opened.get("_tab")) == TransferKeys.TRAINING_TAB_EQUIP)
+		await _open(BASE, {})
+
+	# 持ち物の行の等級（⚠ 上から）。⚠ 行の鍵は個体の ID。
+	func _belongings_grades(w: Node) -> Array[int]:
+		var grades: Array[int] = []
+		var rows: Node = w.find_child("Rows", true, false)
+		if rows == null:
+			return grades
+		for row: Node in rows.get_children():
+			if not str(row.name).begins_with("Row_"):
+				continue
+			grades.append(_grade(str(row.name).trim_prefix("Row_")))
+		return grades
 
 
 	# --- タスクのドラッグ（2026-10-16・人間「⚠ タスクは、ドラッグで移動させられるように」→「⚠ 並べ替え＋フォルダへ移す」） ---

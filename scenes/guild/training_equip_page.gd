@@ -35,6 +35,8 @@ func _ready() -> void:
 
 
 func _rebuild() -> void:
+	# ⚠ 10-18：⚠ 候補を選んでも上へ戻らない（`ScrollKeeper`）。
+	var kept: Dictionary = ScrollKeeper.capture(self)
 	for child: Node in get_children():
 		remove_child(child)
 		child.queue_free()
@@ -67,6 +69,10 @@ func _rebuild() -> void:
 	var right: VBoxContainer = VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(right)
+	# ⚠ 10-18（人間「⚠ 装備をソートできるように　レア度でフィルターなど」）：⚠ 並べ替えと絞り込み（`EquipSortBar`）。
+	var sort_bar: EquipSortBar = EquipSortBar.create()
+	sort_bar.changed.connect(_on_sort_changed)
+	right.add_child(sort_bar)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "CandidateScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -77,10 +83,11 @@ func _rebuild() -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(list)
 	if candidates.is_empty():
-		list.add_child(EmptyState.create("ui_training_equip_none"))
+		list.add_child(EmptyState.create("ui_equip_filter_hidden" if EquipSortBar.is_filtering() else "ui_training_equip_none"))
 	for view: Variant in candidates:
 		list.add_child(_create_candidate_row(view as Dictionary))
 	right.add_child(_build_footer(equipped_id))
+	ScrollKeeper.restore(self, kept)
 
 
 # 部位の1行。⚠ 押すとその部位を選ぶ（⚠ 着けている品を右で選んだ状態にする）。
@@ -194,10 +201,17 @@ func _build_footer(equipped_id: String) -> HBoxContainer:
 	return footer
 
 
-# その部位に着けられる個体（⚠ 他の人が着けている品も並べる＝手本）。⚠ 並びは `get_owned_instances()` のまま。
+# その部位に着けられる個体（⚠ 他の人が着けている品も並べる＝手本）。⚠ 並びと絞り込みは `EquipSortBar.apply()`（10-18）。
+# ⚠ いま着けている品は絞り込みで隠さない（⚠ 「外す」の相手が消えるため）。
 func _candidates_of(slot: String) -> Array:
 	var result: Array = []
-	for entry: Variant in GameManager.get_owned_instances():
+	var equipped_id: String = GameManager.get_equipped_instance_id(_character_id, slot)
+	var shown: Array = EquipSortBar.apply(GameManager.get_owned_instances())
+	if equipped_id != "" and not _has_instance(shown, equipped_id):
+		for entry: Variant in GameManager.get_owned_instances():
+			if str((entry as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")) == equipped_id:
+				shown.push_front(entry)
+	for entry: Variant in shown:
 		var view: Dictionary = entry
 		var item_id: String = str(view.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
 		var definition: Dictionary = MasterDataLoader.get_item(item_id)
@@ -251,6 +265,13 @@ func _on_slot_pressed(slot: String) -> void:
 		return
 	_selected_slot = slot
 	_selected_instance = ""
+	ScrollKeeper.reset(self)
+	_rebuild()
+
+
+func _on_sort_changed() -> void:
+	_selected_instance = ""
+	ScrollKeeper.reset(self)
 	_rebuild()
 
 

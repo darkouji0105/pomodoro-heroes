@@ -42,8 +42,11 @@ func _ready() -> void:
 
 
 func _rebuild() -> void:
+	# ⚠ 10-18：⚠ 祭壇のマスを選んでも上へ戻らない（`ScrollKeeper`）。
+	var kept: Dictionary = ScrollKeeper.capture(self)
 	_fill(relic_sheet, _build_relics())
 	_fill(altar_sheet, _build_altar())
+	ScrollKeeper.restore(self, kept)
 
 
 func _fill(sheet: PaperSheet, body: Control) -> void:
@@ -63,6 +66,7 @@ func _build_relics() -> VBoxContainer:
 	body.add_child(heading)
 	# ⚠ 送れる形（⚠ 1回目の絵：6つ目が帯の裏に隠れ、⚠ その高さに引っ張られて右の「捧げる」も隠れた）。
 	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "RelicScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(scroll)
@@ -191,6 +195,7 @@ func _build_altar() -> VBoxContainer:
 		body.add_child(EmptyState.create("ui_grelic_altar_empty", "ui_grelic_altar_empty_hint"))
 	else:
 		var scroll: ScrollContainer = ScrollContainer.new()
+		scroll.name = "AltarScroll"
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		body.add_child(scroll)

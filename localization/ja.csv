@@ -2378,3 +2378,11 @@ ui_icon_acc_hourglass,砂
 ui_eqfx_time_grace,時の加護
 ui_eqfx_time_grace_desc,CD短縮 +10
 ui_status_ch_status_eqfx_time_grace,時
+ui_equip_sort_default,並び：いつもの順
+ui_equip_sort_grade,並び：等級の高い順
+ui_equip_sort_name,並び：名前順
+ui_equip_filter_grade_all,すべての等級
+ui_equip_filter_grade_min,等級%d以上
+ui_equip_filter_special,★だけ
+ui_equip_filter_hidden,絞り込みで隠れています（上の欄で戻せます）
+ui_sortie_open_equip,選んだ人の装備を着替える

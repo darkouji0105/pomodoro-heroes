@@ -62,10 +62,13 @@ func _ready() -> void:
 func _on_tab_changed(index: int) -> void:
 	_tab = index
 	SceneManager.remember(TransferKeys.MEMORY_RECORDS_TAB, _tab)
+	ScrollKeeper.reset(self)
 	_rebuild()
 
 
 func _rebuild() -> void:
+	# ⚠ 10-18：⚠ 図鑑の品・タスクの帯を押しても上へ戻らない（`ScrollKeeper`）。
+	var kept: Dictionary = ScrollKeeper.capture(self)
 	for child: Node in sheet_body.get_children():
 		sheet_body.remove_child(child)
 		child.queue_free()
@@ -80,6 +83,7 @@ func _rebuild() -> void:
 			_build_tasks()
 		_:
 			_build_codex()
+	ScrollKeeper.restore(self, kept)
 
 
 func _heading(title_key: String, right: String = "") -> SheetHeading:
@@ -92,6 +96,7 @@ func _heading(title_key: String, right: String = "") -> SheetHeading:
 
 func _scroll_list(parent: Control = null) -> VBoxContainer:
 	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "ListScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	(sheet_body if parent == null else parent).add_child(scroll)

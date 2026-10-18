@@ -98,6 +98,8 @@ func _ready() -> void:
 # --- 描き直し ---
 
 func _rebuild() -> void:
+	# ⚠ 10-18（人間「⚠ スクロールのあるもので項目を選んだら　スクロールを上に戻される」）：⚠ 描き直しの前の位置へ戻す。
+	var kept: Dictionary = ScrollKeeper.capture(self)
 	for child: Node in _page.get_children():
 		_page.remove_child(child)
 		child.queue_free()
@@ -123,6 +125,11 @@ func _rebuild() -> void:
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_page.add_child(column)
 	column.add_child(_build_heading(rows.size()))
+	# ⚠ 10-18（人間「⚠ 装備をソートできるように　レア度でフィルターなど」）：⚠ 装備だけ並べ替えと絞り込み（`EquipSortBar`）。
+	if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP and _attach_instance == "":
+		var sort_bar: EquipSortBar = EquipSortBar.create()
+		sort_bar.changed.connect(_on_sort_changed)
+		column.add_child(sort_bar)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "ListScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -133,7 +140,10 @@ func _rebuild() -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(list)
 	if rows.is_empty():
-		list.add_child(EmptyState.create("ui_part_none_hint" if _attach_instance != "" else "ui_warehouse_empty"))
+		var empty_key: String = "ui_part_none_hint" if _attach_instance != "" else "ui_warehouse_empty"
+		if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP and _attach_instance == "" and EquipSortBar.is_filtering():
+			empty_key = "ui_equip_filter_hidden"
+		list.add_child(EmptyState.create(empty_key))
 	for row: Dictionary in rows:
 		list.add_child(_create_row(row))
 	# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ NEW の品があるタブに紐（⚠ いま見ているタブは「見た」になったので消える）。
@@ -149,6 +159,7 @@ func _rebuild() -> void:
 		_detail.setup(_instance_entry(_attach_instance), false)
 	else:
 		_detail.setup(selected.get(ROW_ENTRY, {}) as Dictionary, bool(selected.get(ROW_IN_INVENTORY, false)))
+	ScrollKeeper.restore(self, kept)
 
 
 # 部位の縦タブ（⚠ すべて・頭・上半身・下半身・武器・アクセサリー）。⚠ 並びは `get_equip_slots()`。
@@ -225,10 +236,10 @@ func _rows() -> Array[Dictionary]:
 	return _equip_rows()
 
 
-# ⚠ 装備は着けている個体も並べる（⚠ 手本＝誰が着けているかを行に出す）。⚠ 並びは `get_owned_instances()` のまま。
+# ⚠ 装備は着けている個体も並べる（⚠ 手本＝誰が着けているかを行に出す）。⚠ 並びと絞り込みは `EquipSortBar.apply()`（10-18）。
 func _equip_rows() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
-	for raw: Variant in GameManager.get_owned_instances():
+	for raw: Variant in EquipSortBar.apply(GameManager.get_owned_instances()):
 		var view: Dictionary = raw
 		var instance_id: String = str(view.get(GameManager.INSTANCE_VIEW_ID, ""))
 		var item_id: String = str(view.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
@@ -386,6 +397,7 @@ func _on_tab_changed(index: int) -> void:
 	_selected_key = ""
 	_attach_instance = ""
 	_attach_slot = -1
+	ScrollKeeper.reset(self)
 	_rebuild()
 
 
@@ -394,6 +406,13 @@ func _on_filter_pressed(slot: String) -> void:
 		return
 	_slot_filter = slot
 	_selected_key = ""
+	ScrollKeeper.reset(self)
+	_rebuild()
+
+
+func _on_sort_changed() -> void:
+	_selected_key = ""
+	ScrollKeeper.reset(self)
 	_rebuild()
 
 

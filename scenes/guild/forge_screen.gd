@@ -105,6 +105,8 @@ func _clear(box: Node) -> void:
 
 
 func _rebuild() -> void:
+	# ⚠ 10-18：⚠ 一覧で選んでも上へ戻らない（`ScrollKeeper`）。
+	var kept: Dictionary = ScrollKeeper.capture(self)
 	_clear(sheet_body)
 	_clear(side)
 	var showing: bool = not _result.is_empty()
@@ -121,6 +123,7 @@ func _rebuild() -> void:
 	sheet_body.add_child(VSeparator.new())
 	sheet_body.add_child(_build_forge_page())
 	_build_side_forge()
+	ScrollKeeper.restore(self, kept)
 
 
 # --- 左：鍛える装備 -----------------------------------------------------
@@ -138,6 +141,7 @@ func _build_list(views: Array) -> VBoxContainer:
 		column.add_child(EmptyState.create("ui_forge_no_equipment", "ui_forge_no_equipment_hint"))
 		return column
 	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "ListScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	column.add_child(scroll)
