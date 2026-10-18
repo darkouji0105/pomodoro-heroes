@@ -3,7 +3,8 @@
 #
 # ⚠⚠ 2026-09-27（回UI-組 育成・手本 Character / Nodes / Skills / Equip）：⚠ **作り替えた**。
 #   ⚠ 左に身上書（`CharacterDossier`）・右に紙のタブ4枚（概要・ステータスノード・スキル・装備）。
-#   ⚠ 右上にキャラの札（⚠ 押すと切り替わる）。⚠ 前の「一覧 → 詳細」はやめた（⚠ 手本に一覧が無い）。
+#   ⚠ ~~右上にキャラの札~~ ⚠⚠ 10-18（回UI-1018-4・web版の手本・人間「⚠ ステータスノードの上側にキャラのアイコンがあるがそれはいらない」）：
+#   ⚠ 札の列はやめた ＝ ⚠ 身上書の一番上の「◀ 前の人｜n / 18 人・一覧へ｜次の人 ▶」で切り替える。
 #   ⚠ 人間「⚠ 1い」＝**1画面の中でタブを切り替える**。⚠ 前は割り振り・スキル・装備が別の画面だった。
 #   ⚠ 人間「⚠ 4あ」＝検証用のキャラは札を薄くして後ろに並べる（⚠ リリースビルドでは出さない）。
 #   ⚠ 昇級は別の画面（`level_up_screen`＝昇級申請書・人間「⚠ 3あ」）。⚠ 概要の「昇級させる」から入る。
@@ -36,15 +37,14 @@ var _selected_id: String = ""
 var _tab_ids: Array[String] = []
 var _tab: String = TransferKeys.TRAINING_TAB_OVERVIEW
 
-var _chips: HBoxContainer = null
 var _dossier: CharacterDossier = null
+var _tip: ItemTipCard = null
 var _tabs: PaperTabs = null
 var _page: VBoxContainer = null
 
 # ビルド（キャラプリセット）の行（EXEC_PARTY_PRESETS.md）。
 # ⚠ 判定も文面も GameManager 側の1本を通る。⚠ ここに書いてあるのは器の組み立てだけ。
 # ⚠ 「焼く」と「適用」は向きが逆（焼く＝現在→ビルド／適用＝ビルド→現在）。⚠ 1つのボタンにまとめないこと。
-var _build_picker: OptionButton = null
 var _selected_build: int = 0
 # ⚠ 結果の1行。⚠ 概要を組み直すたびに作り直すので、⚠ 文言は変数で持ち越す。
 var _notice_text: String = ""
@@ -62,12 +62,19 @@ func _ready() -> void:
 	GameManager.character_growth_changed.connect(_on_character_growth_changed)
 	GameManager.material_changed.connect(_on_material_changed)
 
-	_build_chips()
+	# ⚠ 10-06（`NAV-19`）：⚠ この画面で使う素材を見出しに（⚠ 本部の右上の素材16件はやめた）。
+	var _bar: ResourceBar = header.show_materials(GameManager.get_material_ids_of_series(GameStateKeys.ITEM_TRAINING_MATERIAL_PREFIX))
+	_tip = ItemTipCard.attach(self)
 	var holder: TiltedSheet = TiltedSheet.create(0)
 	holder.name = "DossierHolder"
 	holder.sheet.custom_minimum_size.x = float(get_theme_constant(&"dossier_width", THEME_TYPE))
 	_dossier = CharacterDossier.new()
 	_dossier.name = "Dossier"
+	_dossier.tip = _tip
+	_dossier.prev_pressed.connect(_on_nav.bind(-1))
+	_dossier.next_pressed.connect(_on_nav.bind(1))
+	_dossier.list_pressed.connect(_on_list_pressed)
+	_dossier.loadout_pressed.connect(_on_loadout_pressed)
 	holder.sheet.add_child(_dossier)
 	body.add_child(holder)
 	body.move_child(holder, 0)
@@ -91,49 +98,6 @@ func _ready() -> void:
 		passed_id = _default_character()
 	_tab = str(data.get(TransferKeys.TRAINING_TAB, TransferKeys.TRAINING_TAB_OVERVIEW))
 	_select_character(passed_id)
-
-
-# --- キャラの札（右上） ---
-
-func _build_chips() -> void:
-	_chips = HBoxContainer.new()
-	_chips.name = "Chips"
-	_chips.theme_type_variation = &"TrainingChips"
-	# ⚠ 10-11（人間「⚠ はみ出ていて操作ができない」）：⚠ キャラが17人に増え、札の列が画面を左右に押し広げていた。
-	#   ⚠ 札の列は横にスクロールする枠に入れる（⚠ 入りきるときは今まで通り右寄せ・⚠ 入りきらないと下にバーが出る）。
-	_chips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_chips.alignment = BoxContainer.ALIGNMENT_END
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.name = "ChipScroll"
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.add_child(_chips)
-	header.add_child(scroll)
-	# ⚠ 右の HUD の場所は空けたまま（⚠ `ScreenHeader.hud_spacer` を一番右に残す）。
-	if header.hud_spacer != null:
-		header.move_child(header.hud_spacer, header.get_child_count() - 1)
-	# ⚠ 10-06（`NAV-19`）：⚠ この画面で使う素材を見出しに（⚠ 本部の右上の素材16件はやめた）。
-	var _bar: ResourceBar = header.show_materials(GameManager.get_material_ids_of_series(GameStateKeys.ITEM_TRAINING_MATERIAL_PREFIX))
-
-
-func _rebuild_chips() -> void:
-	for child: Node in _chips.get_children():
-		_chips.remove_child(child)
-		child.queue_free()
-	var side: int = get_theme_constant(&"chip", THEME_TYPE)
-	var debug_alpha: float = float(get_theme_constant(&"chip_debug_alpha_pct", THEME_TYPE)) / 100.0
-	for character_id: String in _character_order():
-		var chip: CharacterAvatar = CharacterAvatar.create(character_id, side)
-		chip.name = "Chip_" + character_id
-		# ⚠ 10-07（人間「⚠ しおり紐は気づいたんだけど　そこから言ったページで何を見ればいいのかわかんなかった」）：⚠ 昇級できる人の札に紐。
-		RibbonMark.set_on(chip, GameManager.can_level_up_now(character_id))
-		chip.tooltip_text = tr(str(MasterDataLoader.get_character(character_id).get("name_key", character_id)))
-		if GameManager.is_debug_character(character_id):
-			chip.modulate.a = debug_alpha
-		if character_id == _selected_id:
-			chip.set_border(get_theme_color(&"chip_selected", THEME_TYPE), get_theme_constant(&"chip_border", THEME_TYPE))
-		UiButton.attach_hit(chip, _select_character.bind(character_id))
-		_chips.add_child(chip)
 
 
 # ⚠ 本番のキャラ → 検証用（⚠ 検証用はリリースビルドでは出さない＝編成の候補と同じ扱い）。
@@ -165,7 +129,12 @@ func _select_character(character_id: String) -> void:
 	_notice_text = ""
 	var char_data: Dictionary = MasterDataLoader.get_character(character_id)
 	header.set_subtitle_text(tr(str(char_data.get("name_key", ""))))
-	_rebuild_chips()
+	var order: Array[String] = _character_order()
+	var at: int = order.find(character_id)
+	_dossier.prev_id = order[at - 1] if at > 0 else ""
+	_dossier.next_id = order[at + 1] if at >= 0 and at + 1 < order.size() else ""
+	_dossier.nav_index = at + 1
+	_dossier.nav_total = order.size()
 	_dossier.setup(character_id)
 	# ⚠ 装備のタブは装備が解放されてから（段階解放・GAME_DESIGN.md 9-5 の #2。⚠ 「出さない」）。
 	_tab_ids.clear()
@@ -178,7 +147,32 @@ func _select_character(character_id: String) -> void:
 	if not (_tab in _tab_ids):
 		_tab = TransferKeys.TRAINING_TAB_OVERVIEW
 	_tabs.set_tabs(keys, _tab_ids.find(_tab))
+	_refresh_badges()
 	_rebuild_page()
+
+
+# ⚠ 「ステータスノード ③」（⚠ 振っていない点の数・手本 `02_training_nd.png`）。
+func _refresh_badges() -> void:
+	var index: int = _tab_ids.find(TransferKeys.TRAINING_TAB_NODES)
+	if index >= 0:
+		_tabs.set_badge(index, GameManager.get_stat_node_remaining_points(_selected_id))
+
+
+# ⚠ 身上書の ◀ ▶（⚠ 並びは `_character_order()`）。⚠ タブはそのまま。
+func _on_nav(step: int) -> void:
+	var order: Array[String] = _character_order()
+	var at: int = order.find(_selected_id) + step
+	if at < 0 or at >= order.size():
+		return
+	_select_character(order[at])
+
+
+func _on_list_pressed() -> void:
+	SceneManager.swap_scene(LIST_PATH)
+
+
+func _on_loadout_pressed(kind: String) -> void:
+	_open_tab(TransferKeys.TRAINING_TAB_SKILLS if kind == LoadoutIcons.KIND_SKILL else TransferKeys.TRAINING_TAB_EQUIP)
 
 
 # --- タブ ---
@@ -202,7 +196,6 @@ func _rebuild_page() -> void:
 	for child: Node in _page.get_children():
 		_page.remove_child(child)
 		child.queue_free()
-	_build_picker = null
 	match _tab:
 		TransferKeys.TRAINING_TAB_NODES:
 			var nodes: TrainingNodesPage = TrainingNodesPage.new()
@@ -242,28 +235,24 @@ func _build_overview() -> void:
 
 	var heading: SheetHeading = SheetHeading.new()
 	heading.title_key = "ui_training_tab_overview"
-	heading.ornament = true
+	heading.right_text = tr("ui_training_overview_hint")
 	overview.add_child(heading)
 
 	var rows: VBoxContainer = VBoxContainer.new()
 	rows.name = "Rows"
 	overview.add_child(rows)
-	var remaining: int = GameManager.get_stat_node_remaining_points(_selected_id)
-	rows.add_child(_create_overview_row(
-		"ui_training_nodes", IconTextures.for_screen(GameStateKeys.SCREEN_TRAINING),
-		tr("ui_training_points_value") % remaining, remaining > 0, TransferKeys.TRAINING_TAB_NODES
-	))
-	rows.add_child(_create_overview_row(
-		"ui_training_skill", _skill_icon(),
-		"%d / %d" % [_selected_skill_count(), GameManager.get_skill_slot_count()], false,
-		TransferKeys.TRAINING_TAB_SKILLS
-	))
+	rows.add_child(_build_overview_nodes())
+	var skill_icons: LoadoutIcons = LoadoutIcons.skills(_selected_id, get_theme_constant(&"loadout_icon", THEME_TYPE))
+	var skill_names: Array[String] = []
+	for raw: Variant in GameManager.get_selected_skills(_selected_id):
+		if raw != null and str(raw) != "":
+			skill_names.append(tr(str(MasterDataLoader.get_skill(str(raw)).get("name_key", ""))))
+	rows.add_child(_create_overview_row("ui_training_skill", skill_icons, tr("ui_barracks_skill_separator").join(skill_names),
+		"%d / %d" % [_selected_skill_count(), GameManager.get_skill_slot_count()], TransferKeys.TRAINING_TAB_SKILLS))
 	if TransferKeys.TRAINING_TAB_EQUIP in _tab_ids:
-		rows.add_child(_create_overview_row(
-			"ui_training_equipment", IconTextures.for_screen(GameStateKeys.SCREEN_EQUIPMENT),
-			"%d / %d" % [_equipped_count(), GameManager.get_equip_slots().size()], false,
-			TransferKeys.TRAINING_TAB_EQUIP
-		))
+		var equip_icons: LoadoutIcons = LoadoutIcons.equipment(_selected_id, get_theme_constant(&"loadout_icon", THEME_TYPE), _tip)
+		rows.add_child(_create_overview_row("ui_training_equipment", equip_icons, "",
+			"%d / %d" % [_equipped_count(), GameManager.get_equip_slots().size()], TransferKeys.TRAINING_TAB_EQUIP))
 
 	overview.add_child(_build_application())
 
@@ -281,33 +270,103 @@ func _build_overview() -> void:
 	overview.add_child(_build_preset_row())
 
 
-# 「[絵] ステータスノード ………… 0 pt ›」。⚠ 押すとそのタブを開く。
-func _create_overview_row(label_key: String, texture: Texture2D, value_text: String, accent: bool, tab_id: String) -> LedgerRow:
+# 「▷ ステータスノード　振った 7 pt・残り 3 pt …… 押して振る ›」＋ 振った軸の札（「[♡ +5] HP 4 pt +20」）。
+func _build_overview_nodes() -> LedgerRow:
+	var row: LedgerRow = LedgerRow.new()
+	row.name = "Row_" + TransferKeys.TRAINING_TAB_NODES
+	row.pressed.connect(_open_tab.bind(TransferKeys.TRAINING_TAB_NODES))
+	var column: VBoxContainer = VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(column)
+	var head: HBoxContainer = HBoxContainer.new()
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(head)
+	var title: Label = Label.new()
+	title.name = "NameLabel"
+	title.theme_type_variation = &"SheetHeadingLabel"
+	title.text = tr("ui_training_nodes")
+	head.add_child(title)
+	var remaining: int = GameManager.get_stat_node_remaining_points(_selected_id)
+	var used: int = 0
+	var all_nodes: Dictionary = MasterDataLoader.get_all_character_nodes()
+	var per_stat: Dictionary = {}
+	for raw: Variant in GameManager.get_stat_nodes(_selected_id):
+		var definition: Dictionary = all_nodes.get(str(raw), {})
+		var cost: int = int(definition.get(GameManager.STAT_NODE_COST, 0))
+		used += cost
+		var stat_key: String = str(definition.get(GameManager.STAT_NODE_STAT, ""))
+		var bucket: Array = per_stat.get(stat_key, [0, 0])
+		per_stat[stat_key] = [int(bucket[0]) + cost, int(bucket[1]) + int(definition.get(GameManager.STAT_NODE_VALUE, 0))]
+	var points: Label = Label.new()
+	points.name = "ValueLabel"
+	points.theme_type_variation = &"AccentLabel" if remaining > 0 else &"CaptionLabel"
+	points.text = tr("ui_training_overview_points") % [used, remaining]
+	points.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	points.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(points)
+	var go: Label = Label.new()
+	go.theme_type_variation = &"CaptionLabel"
+	go.text = tr("ui_training_overview_go_nodes")
+	go.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(go)
+	if per_stat.is_empty():
+		return row
+	var chips: HFlowContainer = HFlowContainer.new()
+	chips.name = "NodeChips"
+	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(chips)
+	for stat_key: Variant in per_stat:
+		var bucket: Array = per_stat[stat_key]
+		var chip: PanelContainer = PanelContainer.new()
+		chip.name = "NodeChip_" + str(stat_key)
+		chip.theme_type_variation = &"NodeChipPanel"
+		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chips.add_child(chip)
+		var line: HBoxContainer = HBoxContainer.new()
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chip.add_child(line)
+		var step_value: int = int(GameManager.get_stat_node_step_value(_selected_id, str(stat_key)))
+		line.add_child(StatNodeCell.create(str(stat_key), step_value, get_theme_constant(&"node_chip_cell", THEME_TYPE), false))
+		var texts: VBoxContainer = VBoxContainer.new()
+		texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.add_child(texts)
+		var spent: Label = Label.new()
+		spent.theme_type_variation = &"CaptionLabel"
+		spent.text = tr("ui_training_overview_chip") % [tr("ui_training_stat_" + str(stat_key)), int(bucket[0])]
+		texts.add_child(spent)
+		var total: Label = Label.new()
+		total.theme_type_variation = &"GainLabel"
+		total.text = BelongingsDetail.stat_text(str(stat_key), int(bucket[1]))
+		texts.add_child(total)
+	return row
+
+
+# 「[絵] スキル　強撃・横薙ぎ ……… 2 / 2 ›」。⚠ 押すとそのタブを開く。⚠ 絵は持ち物の並び（`LoadoutIcons`）。
+func _create_overview_row(label_key: String, icons: Control, note_text: String, value_text: String, tab_id: String) -> LedgerRow:
 	var row: LedgerRow = LedgerRow.new()
 	row.name = "Row_" + tab_id
 	row.pressed.connect(_open_tab.bind(tab_id))
 	var line: HBoxContainer = HBoxContainer.new()
+	line.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_child(line)
-	if texture != null:
-		var side: float = float(get_theme_constant(&"row_icon", THEME_TYPE))
-		var icon: TextureRect = TextureRect.new()
-		icon.texture = texture
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.custom_minimum_size = Vector2(side, side)
-		icon.modulate = get_theme_color(&"row_icon", THEME_TYPE)
-		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		line.add_child(icon)
+	if icons != null:
+		icons.custom_minimum_size.x = float(get_theme_constant(&"overview_icons", THEME_TYPE))
+		line.add_child(icons)
 	var label: Label = Label.new()
 	label.name = "NameLabel"
 	label.theme_type_variation = &"SheetHeadingLabel"
 	label.text = tr(label_key)
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(label)
+	var note: Label = Label.new()
+	note.theme_type_variation = &"CaptionLabel"
+	note.text = note_text
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.add_child(note)
 	var value: Label = Label.new()
 	value.name = "ValueLabel"
-	# ⚠ 「まだ振っていないポイントが在る」だけ強調（⚠ 次にやることを1つに絞る）。
-	value.theme_type_variation = &"AccentLabel" if accent else &""
+	value.theme_type_variation = &"DossierLevelLabel"
 	value.text = value_text
 	value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(value)
@@ -380,73 +439,65 @@ func _build_application() -> VBoxContainer:
 	return block
 
 
-# 「ビルド [ビルド1 ▼] [焼く] [適用]」。
+# 「ビルド [1][2][3 ＋] 押すと切り替わる（詰所と同じ） …… [いまの形をビルドに残す]」（⚠ 手本 `02_training_ov.png`）。
+# ⚠ 押すとそのビルドを当てる（`apply_character_preset()`）。⚠ 空きのビルドを押すと、いまの形をそこへ残す。
+# ⚠ いまの形と同じ中身のビルドが真鍮（`get_matching_character_preset()`＝セーブに持たない）。
+# ⚠ 「いまの形をビルドに残す」＝ ⚠ 同じ中身のビルドが在ればそこ・無ければ最後に押したビルド（⚠ 既定は1）。
 func _build_preset_row() -> HBoxContainer:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "PresetRow"
 	var caption: Label = Label.new()
-	caption.theme_type_variation = &"CaptionLabel"
+	caption.theme_type_variation = &"SheetHeadingLabel"
 	caption.text = tr("ui_training_build")
 	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(caption)
-	_build_picker = OptionButton.new()
-	_build_picker.name = "BuildPicker"
-	_build_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# ⚠ 接続は項目を入れる前でよい（add_item / select は item_selected を出さない）。
-	_build_picker.item_selected.connect(_on_build_selected)
-	row.add_child(_build_picker)
-	var burn: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_party_preset_burn")
+	var presets: Array = GameManager.get_character_presets(_selected_id)
+	var matching: int = GameManager.get_matching_character_preset(_selected_id)
+	for i: int in range(GameManager.get_character_preset_count()):
+		var saved: bool = bool((presets[i] as Dictionary).get(GameStateKeys.PRESET_SAVED, false))
+		var button: Button = UiButton.create_paper_choice("")
+		button.name = "Build_%d" % i
+		button.text = tr("ui_training_build_slot") % (i + 1) if saved else tr("ui_training_build_empty") % (i + 1)
+		if i == matching:
+			button.theme_type_variation = &"PaperChoiceApplied"
+		button.pressed.connect(_on_build_pressed.bind(i, saved))
+		row.add_child(button)
+	var hint: Label = Label.new()
+	hint.theme_type_variation = &"CaptionLabel"
+	hint.text = tr("ui_training_build_hint")
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(hint)
+	var burn: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_training_build_save")
 	burn.name = "BurnButton"
 	burn.tooltip_text = tr("ui_party_preset_burn_hint")
 	burn.pressed.connect(_on_burn_pressed)
 	row.add_child(burn)
-	var apply: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "ui_party_preset_apply")
-	apply.name = "ApplyButton"
-	apply.tooltip_text = tr("ui_party_preset_apply_hint")
-	apply.pressed.connect(_on_apply_pressed)
-	row.add_child(apply)
-	_refresh_preset_row()
 	return row
 
 
-# 選択肢の「（空き）」表示を、いまの保存状態に合わせて作り直す。
-func _refresh_preset_row() -> void:
-	if _build_picker == null or _selected_id == "":
+# ⚠ 押したビルドを当てる（⚠ 空きなら、いまの形を残す）。
+func _on_build_pressed(index: int, saved: bool) -> void:
+	_selected_build = index
+	if not saved:
+		_on_burn_pressed()
 		return
-	var presets: Array = GameManager.get_character_presets(_selected_id)
-	var count: int = GameManager.get_character_preset_count()
-	if _selected_build >= count:
-		_selected_build = 0
-	_build_picker.clear()
-	for i: int in range(count):
-		var label: String = tr("ui_party_preset_build") % (i + 1)
-		var entry: Variant = presets[i] if i < presets.size() else null
-		var saved: bool = entry is Dictionary and bool((entry as Dictionary).get(GameStateKeys.PRESET_SAVED, false))
-		if not saved:
-			label += "（%s）" % tr("ui_party_preset_empty")
-		_build_picker.add_item(label)
-	_build_picker.select(_selected_build)
-
-
-func _on_build_selected(item_index: int) -> void:
-	# ⚠ ここでは状態を触らない。焼く先が変わるだけ。
-	_selected_build = item_index
-
-
-func _on_burn_pressed() -> void:
-	if not GameManager.save_character_preset(_selected_id, _selected_build):
-		# 失敗の理由は GameManager 側が push_error 済み。
-		return
-	# ⚠ 保存したことが分かる合図を出す。出さないと「押しても何も起きない」に見える。
-	_notice_text = tr("ui_party_preset_burned") % (_selected_build + 1)
+	var report: Dictionary = GameManager.apply_character_preset(_selected_id, index)
+	# ⚠ 文面は GameManager が組む（適用の口が3つあるため）。
+	_notice_text = GameManager.format_apply_report(report)
+	_dossier.setup(_selected_id)
+	_refresh_badges()
 	_rebuild_page()
 
 
-# ビルドを当て直す。⚠ 編成は触らない（このキャラの中身だけ）。
-func _on_apply_pressed() -> void:
-	var report: Dictionary = GameManager.apply_character_preset(_selected_id, _selected_build)
-	# ⚠ 文面は GameManager が組む（適用の口が3つあるため）。
-	_notice_text = GameManager.format_apply_report(report)
+func _on_burn_pressed() -> void:
+	var matching: int = GameManager.get_matching_character_preset(_selected_id)
+	var index: int = matching if matching >= 0 else _selected_build
+	if not GameManager.save_character_preset(_selected_id, index):
+		# 失敗の理由は GameManager 側が push_error 済み。
+		return
+	# ⚠ 保存したことが分かる合図を出す。出さないと「押しても何も起きない」に見える。
+	_notice_text = tr("ui_party_preset_burned") % (index + 1)
 	_rebuild_page()
 
 
@@ -486,6 +537,7 @@ func _on_character_growth_changed(character_id: String) -> void:
 	if character_id != _selected_id:
 		return
 	_dossier.setup(_selected_id)
+	_refresh_badges()
 	if _tab == TransferKeys.TRAINING_TAB_OVERVIEW:
 		_rebuild_page()
 
@@ -507,14 +559,6 @@ func _selected_skill_count() -> int:
 		if str(entry) != "":
 			count += 1
 	return count
-
-
-# ⚠ スキルの行の絵は、いま持ち込んでいる1つ目のスキルの絵（⚠ 無ければ絵なし）。
-func _skill_icon() -> Texture2D:
-	for entry: Variant in GameManager.get_selected_skills(_selected_id, GameManager.SLOT_KIND_SKILL):
-		if str(entry) != "":
-			return IconTextures.for_skill(str(entry))
-	return null
 
 
 func _equipped_count() -> int:

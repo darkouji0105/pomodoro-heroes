@@ -3478,6 +3478,23 @@ static func _build_item_parts(theme: Theme) -> void:
 		theme.set_color(&"font_disabled_color", type_name, _html(TOKEN_RULE))
 		theme.set_font_size(&"font_size", type_name, ITEM_SEG_FONT)
 	theme.set_color(&"arrow_modulate", &"PaperPick", _html(TOKEN_INK_SUB))
+	# ⚠ 真鍮の小さい札（10-18・ステータスノードの「＋」＝手本 `02_training_nd.png`）。
+	theme.set_type_variation(&"PaperToggleBrass", &"Button")
+	for state: String in BUTTON_STATES:
+		var brass: StyleBoxFlat = StyleBoxFlat.new()
+		brass.bg_color = Color(0, 0, 0, 0) if state == "focus" else _html(TOKEN_RULE if state == "disabled" else (TOKEN_LIGHT if state == "hover" else TOKEN_BRASS))
+		brass.set_corner_radius_all(ITEM_SEG_CORNER)
+		brass.set_border_width_all(FOCUS_BORDER_WIDTH if state == "focus" else 1)
+		brass.border_color = _html(TOKEN_LIGHT if state == "focus" else TOKEN_BRASS_INK)
+		brass.content_margin_left = ITEM_TOGGLE_PAD_H + 4
+		brass.content_margin_right = ITEM_TOGGLE_PAD_H + 4
+		brass.content_margin_top = ITEM_SEG_HEIGHT_PAD_V
+		brass.content_margin_bottom = ITEM_SEG_HEIGHT_PAD_V
+		theme.set_stylebox(StringName(state), &"PaperToggleBrass", brass)
+	for color_name: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		theme.set_color(StringName(color_name), &"PaperToggleBrass", _html(TOKEN_INK))
+	theme.set_color(&"font_disabled_color", &"PaperToggleBrass", _html(TOKEN_INK_SUB))
+	theme.set_font_size(&"font_size", &"PaperToggleBrass", ITEM_SEG_FONT + 4)
 
 	# ⚠ 欄の見出し（「見せ方」「並び」「しぼる」）。⚠ 紙の上の薄墨は紙のテーマ（`PAPER_LABEL_COLORS` の `FieldCaptionLabel`）。
 	theme.set_type_variation(&"FieldCaptionLabel", &"Label")
@@ -3502,6 +3519,92 @@ static func _build_item_parts(theme: Theme) -> void:
 	slot_empty.border_color = _html(ITEM_SEG_BORDER)
 	slot_empty.set_corner_radius_all(ITEM_SEG_CORNER)
 	theme.set_stylebox(&"panel", &"MergeSlotEmptyPanel", slot_empty)
+
+	# ⚠ キャラの持ち物の並び（10-18・`LoadoutIcons`・手本 `02_training_ov.png`）：⚠ スキルはふちで囲む（⚠ 空きは薄いふち）。
+	theme.set_type_variation(&"LoadoutRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"LoadoutRow", 4)
+	theme.set_color(&"skill_icon", &"Loadout", _html(TOKEN_INK))
+	for spec: Dictionary in [{"name": "SkillFrame", "border": TOKEN_INK, "bg": TOKEN_PAPER_SELECTED}, {"name": "SkillFrameEmpty", "border": ITEM_SEG_BORDER, "bg": ""}]:
+		var frame: StyleBoxFlat = StyleBoxFlat.new()
+		frame.bg_color = Color(0, 0, 0, 0) if str(spec["bg"]) == "" else _html(str(spec["bg"]))
+		frame.set_border_width_all(2)
+		frame.border_color = _html(str(spec["border"]))
+		frame.set_corner_radius_all(ITEM_SEG_CORNER)
+		frame.set_content_margin_all(4)
+		theme.set_type_variation(StringName(str(spec["name"])), &"PanelContainer")
+		theme.set_stylebox(&"panel", StringName(str(spec["name"])), frame)
+
+	# ⚠ 身上書の「スキル・装備」の枠（10-18・手本 `02_training_ov.png`）＝⚠ 薄い紙に罫の細い縁。
+	theme.set_type_variation(&"LoadoutPanel", &"PanelContainer")
+	var loadout: StyleBoxFlat = StyleBoxFlat.new()
+	loadout.bg_color = _html(ITEM_TOGGLE_BG)
+	loadout.set_border_width_all(1)
+	loadout.border_color = _html(ITEM_SEG_BORDER)
+	loadout.set_corner_radius_all(4)
+	loadout.set_content_margin_all(6)
+	theme.set_stylebox(&"panel", &"LoadoutPanel", loadout)
+	theme.set_constant(&"loadout_icon", &"Training", 26)
+	theme.set_constant(&"loadout_caption", &"Training", 40)
+
+	# ⚠ ステータスノードの暗いマス（10-18・`StatNodeCell`・手本 `02_training_nd.png`）。
+	var node_cell: StringName = &"StatNodeCell"
+	theme.set_color(&"bg", node_cell, _html(SPECIAL_INK))
+	theme.set_color(&"border", node_cell, _html(TOKEN_BRASS_INK))
+	theme.set_color(&"ink", node_cell, _html("f1e6cf"))
+	theme.set_color(&"tag_bg", node_cell, _html(TOKEN_PAPER))
+	theme.set_color(&"tag_border", node_cell, _html(ITEM_SEG_BORDER))
+	theme.set_color(&"tag_ink", node_cell, _html(TOKEN_INK))
+	theme.set_constant(&"border", node_cell, 2)
+	theme.set_constant(&"corner", node_cell, 6)
+	theme.set_constant(&"icon_pct", node_cell, 34)
+	theme.set_constant(&"value_pct", node_cell, 34)
+	theme.set_constant(&"tag_font", node_cell, 9)
+	theme.set_constant(&"tag_height", node_cell, 14)
+	theme.set_constant(&"node_cell", &"Training", 60)
+	theme.set_constant(&"node_chip_cell", &"Training", 36)
+	theme.set_constant(&"overview_icons", &"Training", 72)
+	# ⚠ 概要の「振った軸の札」（⚠ 薄い紙に細い縁）。
+	theme.set_type_variation(&"NodeChipPanel", &"PanelContainer")
+	var chip: StyleBoxFlat = StyleBoxFlat.new()
+	chip.bg_color = _html(TOKEN_PAPER_SELECTED)
+	chip.set_border_width_all(1)
+	chip.border_color = _html(ITEM_SEG_BORDER)
+	chip.set_corner_radius_all(4)
+	chip.set_content_margin_all(5)
+	theme.set_stylebox(&"panel", &"NodeChipPanel", chip)
+
+	# ⚠ スキルの枠（10-18・手本 `02_training_skp.png`＝ふちつきのスロット）。⚠ 一覧を開いている枠は真鍮のふち。
+	for spec: Dictionary in [{"name": "SkillSlotPanel", "border": ITEM_SEG_BORDER, "width": 2}, {"name": "SkillSlotSelectedPanel", "border": TOKEN_BRASS_INK, "width": 3}]:
+		var slot_box: StyleBoxFlat = StyleBoxFlat.new()
+		slot_box.bg_color = _html(TOKEN_PAPER_SELECTED)
+		slot_box.set_border_width_all(int(spec["width"]))
+		slot_box.border_color = _html(str(spec["border"]))
+		slot_box.set_corner_radius_all(ITEM_SEG_CORNER)
+		slot_box.set_content_margin_all(10)
+		theme.set_type_variation(StringName(str(spec["name"])), &"PanelContainer")
+		theme.set_stylebox(&"panel", StringName(str(spec["name"])), slot_box)
+	theme.set_constant(&"skill_frame", &"Training", 44)
+
+	# ⚠ 育成の装備の「比べる欄」（10-18・手本 `02_training_eq.png`＝破線の囲み＝⚠ 面は破線を引けないので細い実線）。
+	theme.set_type_variation(&"CompareBoxPanel", &"PanelContainer")
+	var compare: StyleBoxFlat = StyleBoxFlat.new()
+	compare.bg_color = _html(ITEM_TOGGLE_BG)
+	compare.set_border_width_all(1)
+	compare.border_color = _html(ITEM_SEG_BORDER)
+	compare.set_corner_radius_all(4)
+	compare.set_content_margin_all(10)
+	theme.set_stylebox(&"panel", &"CompareBoxPanel", compare)
+
+	# ⚠ タブの赤い丸の数（10-18・`PaperTabs.set_badge()`・手本 `02_training_nd.png`）。⚠ 丸は Label の面で描く。
+	theme.set_type_variation(&"PaperTabBadge", &"Label")
+	var badge: StyleBoxFlat = StyleBoxFlat.new()
+	badge.bg_color = _html(TOKEN_WAX)
+	badge.set_corner_radius_all(int(ITEM_CELL["owner"]))
+	theme.set_stylebox(&"normal", &"PaperTabBadge", badge)
+	theme.set_color(&"font_color", &"PaperTabBadge", _html("fbeee6"))
+	theme.set_font_size(&"font_size", &"PaperTabBadge", ITEM_CAPTION_FONT + 1)
+	theme.set_constant(&"badge_size", &"PaperTabBadge", 20)
+	theme.set_constant(&"badge_inset", &"PaperTabBadge", 10)
 
 	# ⚠ 一括分解の帯（⚠ 封蝋の薄い面・封蝋の細い縁。⚠ 手本は破線＝⚠ 面は破線を引けないので実線）。
 	theme.set_type_variation(&"ScrapBarPanel", &"PanelContainer")

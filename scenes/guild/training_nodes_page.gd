@@ -12,6 +12,9 @@ extends VBoxContainer
 # ⚠ パッシブは総ポイントで自動解放（決定 `GR-1`）。⚠ 表示はここ（`GR-2`）。
 # ⚠ 購読するシグナルは character_growth_changed の1本だけ（⚠ 解放も振り直しも素材を触らない）。
 # ⚠ 育成でしか使わないので scenes/guild/（AGENTS.md）。
+# ⚠⚠ 10-18（回UI-1018-4・web版の手本 `02_training_nd.png`・人間「⚠ ステータスノードもアイコンにプラス○○って書いてほしい」）：
+#   ⚠ 行の頭は暗いマス（`StatNodeCell`＝絵と「+5」・下に「1ptごと」）／ 名前・振った数・点 ／ 合計 ／ −（1段戻す）／ ＋ ／ 振れるだけ。
+#   ⚠ 「−」は `remove_last_stat_node()`（⚠ 「振り直す」と同じく素材は要らない）。⚠ 残りの点は見出しの右に大きく。
 
 const DESCRIPTION_PREFIX: String = "ui_desc_"
 
@@ -42,10 +45,25 @@ func _rebuild() -> void:
 	head.name = "Head"
 	var heading: SheetHeading = SheetHeading.new()
 	heading.title_key = "ui_training_nodes_heading"
-	heading.right_text = tr("ui_training_nodes_remaining") % remaining
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(heading)
-	var reset: Button = UiButton.create_paper_choice("ui_stat_node_reset")
+	var left_caption: Label = Label.new()
+	left_caption.theme_type_variation = &"CaptionLabel"
+	left_caption.text = tr("ui_training_nodes_left")
+	left_caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(left_caption)
+	var left_value: Label = Label.new()
+	left_value.name = "RemainingLabel"
+	left_value.theme_type_variation = &"DossierLevelLabel"
+	left_value.text = str(remaining)
+	left_value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(left_value)
+	var pt: Label = Label.new()
+	pt.theme_type_variation = &"CaptionLabel"
+	pt.text = tr("ui_training_nodes_pt")
+	pt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(pt)
+	var reset: Button = _small_button("ui_stat_node_reset", &"PaperToggle")
 	reset.name = "ResetButton"
 	reset.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	# ⚠ 解放が0件のときに押しても何も起きないので、押せなくしておく。
@@ -69,7 +87,15 @@ func _rebuild() -> void:
 	var passives: VBoxContainer = _build_passives()
 	if passives != null:
 		body.add_child(VSeparator.new())
-		body.add_child(passives)
+		# ⚠ 10-18：⚠ 縦に送る（⚠ 名前を折り返すと縦に伸び、⚠ 紙が画面の下へはみ出した）。
+		var passive_scroll: ScrollContainer = ScrollContainer.new()
+		passive_scroll.name = "PassiveScroll"
+		passive_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		passive_scroll.custom_minimum_size.x = passives.custom_minimum_size.x
+		passive_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		passives.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		passive_scroll.add_child(passives)
+		body.add_child(passive_scroll)
 
 
 func _build_branches(branches: VBoxContainer, remaining: int) -> void:
@@ -91,7 +117,7 @@ func _build_branches(branches: VBoxContainer, remaining: int) -> void:
 		branches.add_child(_create_branch_row(str(stat_key), all_nodes, unlocked, remaining))
 
 
-# 1つの軸ぶんの行。⚠ 押す場所は＋の1つだけ（⚠ 行ぜんぶは押せない）。
+# 1つの軸ぶんの行（⚠ 手本 `02_training_nd.png`）。⚠ 押す場所は −・＋・振れるだけ（⚠ 行ぜんぶは押せない）。
 func _create_branch_row(stat_key: String, all_nodes: Dictionary, unlocked: Array, remaining: int) -> LedgerRow:
 	var entries: Array = _branch_nodes(stat_key, all_nodes)
 	var done: int = 0
@@ -109,29 +135,39 @@ func _create_branch_row(stat_key: String, all_nodes: Dictionary, unlocked: Array
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	var line: HBoxContainer = HBoxContainer.new()
 	row.add_child(line)
-	var icon: TextureRect = _icon(IconTextures.for_stat(stat_key))
-	if icon != null:
-		line.add_child(icon)
+	var step: int = int((entries[0] as Dictionary).get("value", 0)) if not entries.is_empty() else 0
+	line.add_child(StatNodeCell.create(stat_key, step, get_theme_constant(&"node_cell", &"Training"), true))
 
 	var column: VBoxContainer = VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(column)
 	var title_row: HBoxContainer = HBoxContainer.new()
 	var title: Label = Label.new()
 	title.name = "TitleLabel"
+	title.theme_type_variation = &"SheetHeadingLabel"
 	title.text = tr("ui_training_stat_" + stat_key)
 	title_row.add_child(title)
 	var next_label: Label = Label.new()
 	next_label.name = "NextLabel"
 	next_label.theme_type_variation = &"CaptionLabel"
 	next_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	if next_entry.is_empty():
-		next_label.text = tr("ui_stat_node_taken")
-	else:
-		next_label.text = tr("ui_training_nodes_next") % [
-			int(next_entry.get("cost", 0)), _value_text(stat_key, int(next_entry.get("value", 0))),
-		]
+	next_label.text = tr("ui_training_nodes_done") % [done, entries.size()]
+	if not next_entry.is_empty() and int(next_entry.get("cost", 0)) > 1:
+		next_label.text += "　" + tr("ui_training_nodes_next_cost") % int(next_entry.get("cost", 0))
 	title_row.add_child(next_label)
+	var total_caption: Label = Label.new()
+	total_caption.theme_type_variation = &"CaptionLabel"
+	total_caption.text = tr("ui_training_nodes_total")
+	total_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	total_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	total_caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	title_row.add_child(total_caption)
+	var total_label: Label = Label.new()
+	total_label.name = "TotalLabel"
+	total_label.theme_type_variation = &"GainLabel" if total_value > 0 else &"MutedLabel"
+	total_label.text = _value_text(stat_key, total_value)
+	title_row.add_child(total_label)
 	column.add_child(title_row)
 	# ⚠ 段が1つも無い軸は点を出さない（⚠ 0個の器を置くと行の高さだけが空く）。
 	if not entries.is_empty():
@@ -140,15 +176,15 @@ func _create_branch_row(stat_key: String, all_nodes: Dictionary, unlocked: Array
 		dots.setup(entries.size(), done)
 		column.add_child(dots)
 
-	var total_label: Label = Label.new()
-	total_label.name = "TotalLabel"
-	total_label.theme_type_variation = &"GainLabel" if total_value > 0 else &"MutedLabel"
-	total_label.text = _value_text(stat_key, total_value)
-	total_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(total_label)
-
-	# ⚠ 押せてから失敗するより、押せないほうが分かりやすい。⚠ 紙の上なので `PaperChoice`（⚠ Ghost は字が明るすぎる）。
-	var add: Button = UiButton.create_paper_choice("ui_stat_node_add")
+	# −（⚠ 1段戻す・⚠ 外せる段が無ければ押せない）。
+	var minus: Button = _small_button("ui_stat_node_remove", &"PaperToggle")
+	minus.name = "RemoveButton"
+	minus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	minus.disabled = GameManager.get_removable_stat_node(_character_id, stat_key) == ""
+	minus.pressed.connect(_on_remove_pressed.bind(stat_key))
+	line.add_child(minus)
+	# ＋（⚠ 1回に1段＝`GR-3`）。⚠ 押せてから失敗するより、押せないほうが分かりやすい。
+	var add: Button = _small_button("ui_stat_node_add", &"PaperToggleBrass")
 	add.name = "AddButton"
 	add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	if next_entry.is_empty():
@@ -159,13 +195,12 @@ func _create_branch_row(stat_key: String, all_nodes: Dictionary, unlocked: Array
 		add.disabled = not (can_unlock and remaining >= int(next_entry.get("cost", 0)))
 		add.pressed.connect(_on_node_pressed.bind(node_id))
 	line.add_child(add)
-	# ⚠ 10-14（操作量を減らす D・人間「⚠ D」）：⚠ この能力に振れるだけ振る（⚠ 前は＋を1段ずつ押した）。
-	#   ⚠ ＋は今までどおり1回1段（`GR-3`）。⚠ どの能力に振るかは遊ぶ人が選ぶ（⚠ 全部に割り振る口は作らない）。
+	# ⚠ 10-14（操作量を減らす D）：⚠ この能力に振れるだけ振る。
 	var rest_ids: Array = []
 	for entry: Dictionary in entries:
 		if not (str(entry.get("id", "")) in unlocked):
 			rest_ids.append(str(entry.get("id", "")))
-	var fill: Button = UiButton.create_paper_choice("ui_stat_node_fill")
+	var fill: Button = _small_button("ui_stat_node_fill", &"PaperToggle")
 	fill.name = "FillButton"
 	fill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	fill.disabled = add.disabled
@@ -184,7 +219,7 @@ func _build_passives() -> VBoxContainer:
 	var unlocked: Array = GameManager.get_skill_candidates(_character_id, GameManager.SLOT_KIND_PASSIVE)
 	var column: VBoxContainer = VBoxContainer.new()
 	column.name = "Passives"
-	column.custom_minimum_size.x = float(get_theme_constant(&"dossier_width", &"Training")) * 0.8
+	column.custom_minimum_size.x = float(get_theme_constant(&"dossier_width", &"Training")) * 0.55
 	var title: Label = Label.new()
 	title.theme_type_variation = &"SectionLabel"
 	title.text = tr("ui_training_passive_road")
@@ -216,6 +251,8 @@ func _create_passive_row(passive_id: String, is_unlocked: bool) -> HBoxContainer
 	row.add_child(column)
 	var name_label: Label = Label.new()
 	name_label.name = "NameLabel"
+	# ⚠ 10-18：⚠ 折り返す（⚠ 長い名前が列を押し広げ、⚠ 画面が左へずれた）。
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var skill_data: Dictionary = MasterDataLoader.get_skill(passive_id)
 	name_label.text = tr(str(skill_data.get("name_key", passive_id)))
 	column.add_child(name_label)
@@ -283,6 +320,19 @@ func _on_fill_pressed(node_ids: Array) -> void:
 	for node_id: Variant in node_ids:
 		if not GameManager.unlock_stat_node(_character_id, str(node_id)):
 			break
+
+
+# ⚠ 行のボタンは小さい札（⚠ `PaperChoice` は横に広く、⚠ 行が画面の右へはみ出した）。
+func _small_button(key: String, variation: StringName) -> Button:
+	var button: Button = Button.new()
+	button.theme_type_variation = variation
+	button.focus_mode = Control.FOCUS_NONE
+	button.text = tr(key)
+	return button
+
+
+func _on_remove_pressed(stat_key: String) -> void:
+	GameManager.remove_last_stat_node(_character_id, stat_key)
 
 
 func _on_reset_pressed() -> void:

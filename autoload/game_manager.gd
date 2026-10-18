@@ -5326,6 +5326,65 @@ func reset_stat_nodes(character_id: String) -> bool:
 	return true
 
 
+# ⚠⚠ 1段だけ戻す（2026-10-18・回UI-1018-4・web版の手本 `02_training_nd.png` の「−」）。
+# ⚠ その軸でいま振ってある一番上の段を外す（⚠ 点は戻る＝「振り直す」と同じく素材は要らない）。
+# ⚠ ほかの振ってある段の前提になっている段は外さない（⚠ 前提が切れた段が残らないように）。
+func get_removable_stat_node(character_id: String, stat_key: String) -> String:
+	var unlocked: Array = get_stat_nodes(character_id)
+	var all_nodes: Dictionary = MasterDataLoader.get_all_character_nodes()
+	var best: String = ""
+	var best_tier: int = -1
+	for raw: Variant in unlocked:
+		var node_id: String = str(raw)
+		var definition: Dictionary = all_nodes.get(node_id, {})
+		if str(definition.get(STAT_NODE_CHARACTER_ID, "")) != character_id or str(definition.get(STAT_NODE_STAT, "")) != stat_key:
+			continue
+		var tier: int = int(definition.get(STAT_NODE_TIER, 0))
+		if tier > best_tier:
+			best_tier = tier
+			best = node_id
+	if best == "":
+		return ""
+	for raw: Variant in unlocked:
+		var prerequisites: Variant = (all_nodes.get(str(raw), {}) as Dictionary).get(STAT_NODE_PREREQUISITES, [])
+		if prerequisites is Array and best in (prerequisites as Array):
+			return ""
+	return best
+
+
+# ⚠ その軸の1段で上がる値（⚠ 一番下の段の値＝手本の「+5 1ptごと」）。⚠ 段が無ければ 0。
+func get_stat_node_step_value(character_id: String, stat_key: String) -> int:
+	var best_tier: int = 1 << 30
+	var value: int = 0
+	for raw: Variant in MasterDataLoader.get_all_character_nodes().values():
+		var definition: Dictionary = raw
+		if str(definition.get(STAT_NODE_CHARACTER_ID, "")) != character_id or str(definition.get(STAT_NODE_STAT, "")) != stat_key:
+			continue
+		var tier: int = int(definition.get(STAT_NODE_TIER, 0))
+		if tier < best_tier:
+			best_tier = tier
+			value = int(definition.get(STAT_NODE_VALUE, 0))
+	return value
+
+
+func remove_last_stat_node(character_id: String, stat_key: String) -> bool:
+	var node_id: String = get_removable_stat_node(character_id, stat_key)
+	if node_id == "":
+		print("[GameManager] remove_last_stat_node('%s', '%s') -> false (外せる段が無い)" % [character_id, stat_key])
+		return false
+
+	# --- ここから状態を変える ---
+
+	var growth: Dictionary = get_character_growth(character_id)
+	var nodes: Array = (growth.get(GameStateKeys.GROWTH_NODES, []) as Array).duplicate()
+	nodes.erase(node_id)
+	growth[GameStateKeys.GROWTH_NODES] = nodes
+	_write_growth(character_id, growth)
+	print("[GameManager] remove_last_stat_node('%s', '%s') -> true (%s)" % [character_id, stat_key, node_id])
+	character_growth_changed.emit(character_id)
+	return true
+
+
 # --- 育成：スキル選択（EXEC_SKILL_SELECT.md） ---
 #
 # 候補6個から2枠を選んで戦闘に持ち込む（GAME_DESIGN.md 3-2）。
@@ -5713,6 +5772,43 @@ func _write_character_presets(character_id: String, presets: Array) -> void:
 	var all_presets: Dictionary = _copy_dict(GameStateKeys.CHARACTER_PRESETS)
 	all_presets[character_id] = presets
 	_state[GameStateKeys.CHARACTER_PRESETS] = all_presets
+
+
+# ⚠⚠ いまの形と同じ中身のビルド（2026-10-18・回UI-1018-4）。⚠ 無ければ -1。
+# ⚠ 「いまどのビルドか」はセーブに持たない（⚠ 状態に写しを持たない・CLAUDE.md 4番）＝⚠ 毎回くらべる。
+# ⚠ くらべるのは焼く5つ（割り振り・スキル・パッシブ・装備・移動量）。⚠ 割り振りは順番を見ない。
+func get_matching_character_preset(character_id: String) -> int:
+	var nodes: Array = get_stat_nodes(character_id).duplicate()
+	nodes.sort()
+	var skills: Array = get_selected_skills(character_id)
+	var passives: Array = get_selected_passives(character_id)
+	var rune_move: Dictionary = _current_rune_move(character_id)
+	var presets: Array = get_character_presets(character_id)
+	for index: int in range(presets.size()):
+		var preset: Dictionary = presets[index]
+		if not bool(preset.get(GameStateKeys.PRESET_SAVED, false)):
+			continue
+		var preset_nodes: Array = (preset.get(GameStateKeys.GROWTH_NODES, []) as Array).duplicate()
+		preset_nodes.sort()
+		if str(preset_nodes) != str(nodes):
+			continue
+		if str((preset.get(GameStateKeys.GROWTH_SKILLS, {}) as Dictionary).get(GameStateKeys.GROWTH_SKILL_SLOTS, [])) != str(skills):
+			continue
+		if str((preset.get(GameStateKeys.GROWTH_PASSIVES, {}) as Dictionary).get(GameStateKeys.GROWTH_SKILL_SLOTS, [])) != str(passives):
+			continue
+		if PRESET_EQUIPMENT_ENABLED:
+			var same: bool = true
+			var equipment: Dictionary = preset.get(GameStateKeys.GROWTH_EQUIPMENT, {})
+			for slot: String in _equip_slots():
+				var saved: Variant = equipment.get(slot, null)
+				if (str(saved) if saved != null else "") != get_equipped_instance_id(character_id, slot):
+					same = false
+			if not same:
+				continue
+		if str(preset.get(GameStateKeys.GROWTH_RUNE_MOVE, {})) != str(rune_move):
+			continue
+		return index
+	return -1
 
 
 # 現在の状態をビルドへ焼く（人間の決定8）。

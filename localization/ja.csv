@@ -2474,3 +2474,29 @@ ui_forge_result_offer_reached,等級%dになった。遺物に捧げられる
 ui_bulk_scrap_empty_hint,左のマスを押して選ぶ（「等級◯以下」でまとめて選べる）
 ui_bulk_scrap_star_note,★つきが %d 個入っている。特殊効果も消える。
 ui_bulk_scrap_high_note,等級%d以上が %d 個。遺物に捧げても同じ素材が戻り、遺物も育つ。
+ui_training_overview_hint,押すとそのタブへ
+ui_training_overview_points,振った %d pt・残り %d pt
+ui_training_overview_go_nodes,押して振る ›
+ui_training_overview_chip,%s %d pt
+ui_training_build_slot,%d
+ui_training_build_empty,%d ＋
+ui_training_build_hint,押すと切り替わる（詰所と同じ）
+ui_training_build_save,いまの形をビルドに残す
+ui_dossier_nav_count,%d / %d 人
+ui_dossier_nav_list,一覧へ
+ui_dossier_no_skill,まだ選んでいない
+ui_stat_node_per_point,1ptごと
+ui_training_nodes_left,残り
+ui_training_nodes_pt,pt
+ui_training_nodes_done,振った %d / %d
+ui_training_nodes_next_cost,次は %d pt
+ui_training_nodes_total,合計
+ui_stat_node_remove,−
+ui_training_skills_open_hint,枠を押すと一覧が開く
+ui_training_skills_picker_title,枠%dに入れるスキル
+ui_training_skills_picker_hint,ほかの枠のスキルを選ぶと、枠どうしで入れ替わる
+ui_training_skills_picker_close,閉じる ×
+ui_training_equip_legend,暗いマス＝ほかの人が着けている（右上の顔）・触れると詳しく出る
+ui_training_equip_forge_short,鍛える
+ui_training_equip_compare,%s　%d → %d　%s
+ui_training_equip_current,いま　%s

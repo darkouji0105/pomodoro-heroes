@@ -10,6 +10,10 @@ extends VBoxContainer
 # ⚠ チャージは `activation` が `charge` のスキルだけが持つ（⚠ 無い値は出さない）。
 # ⚠ 購読するシグナルは character_growth_changed の1本だけ。
 # ⚠ 育成でしか使わないので scenes/guild/（AGENTS.md）。
+# ⚠⚠ 10-18（回UI-1018-4・web版の手本 `02_training_skp.png`・人間「⚠ スキルのアイコンは、ふちで囲んで　あと１２の部分もふちでかこむ　スロットにして選ぶときにスキルの一覧を見れるように」）：
+#   ⚠ 枠1・枠2をふちつきのスロットに（⚠ 番号もふちで囲む・スキルの絵もふちで囲む）。⚠ 候補はふだん出さない。
+#   ⚠ 枠を押すと「枠◯に入れるスキル」の一覧が開く（⚠ ほかの枠のスキルを選ぶと枠どうしで入れ替わる＝`select_skill()` の決まり）。
+#   ⚠ 選ぶと一覧は閉じる。⚠ 「閉じる ×」でも閉じる。
 
 const DESCRIPTION_PREFIX: String = "ui_desc_"
 const CANDIDATE_COLUMNS: int = 2
@@ -17,6 +21,8 @@ const CANDIDATE_COLUMNS: int = 2
 var _character_id: String = ""
 # 次に選んだスキルを入れる枠。⚠ 状態ではなく画面の都合なのでセーブしない。
 var _active_slot: int = 0
+# ⚠ 一覧を開いているか（⚠ 枠を押すと開く）。
+var _picking: bool = false
 
 
 func setup(character_id: String) -> void:
@@ -45,23 +51,20 @@ func _rebuild() -> void:
 
 	var heading: SheetHeading = SheetHeading.new()
 	heading.title_key = "ui_training_skills_heading"
-	heading.right_text = tr("ui_training_skills_known") % [unlocked.size(), all_candidates.size()]
+	heading.right_text = tr("ui_training_skills_known") % [unlocked.size(), all_candidates.size()] + "　・　" + tr("ui_training_skills_open_hint")
 	add_child(heading)
 
 	var selected: Array = GameManager.get_selected_skills(_character_id, GameManager.SLOT_KIND_SKILL)
 	var slots: HBoxContainer = HBoxContainer.new()
 	slots.name = "Slots"
+	slots.theme_type_variation = &"WideRow"
 	add_child(slots)
 	for i: int in range(GameManager.get_skill_slot_count()):
 		slots.add_child(_create_slot(i, "" if i >= selected.size() else str(selected[i])))
 
-	var candidates: GridContainer = GridContainer.new()
-	candidates.name = "Candidates"
-	candidates.columns = CANDIDATE_COLUMNS
-	add_child(candidates)
-	for entry: Variant in all_candidates:
-		var skill_id: String = str(entry)
-		candidates.add_child(_create_candidate(skill_id, skill_id in unlocked, selected.find(skill_id)))
+	if _picking:
+		add_child(_build_picker(all_candidates, unlocked, selected))
+		return
 	# ⚠ 10-16（見る回・人間「⚠ キャラの通常攻撃と、パッシブを見る場所が欲しい　どっちもスキルで見れるように」）。
 	_add_basic_attack()
 	_add_passives()
@@ -122,29 +125,36 @@ func _add_passives() -> void:
 		list.add_child(column)
 
 
-func _create_slot(slot_index: int, skill_id: String) -> LedgerRow:
-	var row: LedgerRow = LedgerRow.new()
-	row.name = "Slot_%d" % slot_index
-	row.selected = slot_index == _active_slot
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.custom_minimum_size.y = float(get_theme_constant(&"skill_slot_height", &"Training"))
-	row.pressed.connect(_on_slot_pressed.bind(slot_index))
+# 枠（⚠ ふちつきのスロット：⚠ ふちで囲んだ番号 ／ ふちで囲んだ絵 ／ 名前・CD ／ 外す）。⚠ 押すと一覧が開く。
+func _create_slot(slot_index: int, skill_id: String) -> PanelContainer:
+	var card: PanelContainer = PanelContainer.new()
+	card.name = "Slot_%d" % slot_index
+	card.theme_type_variation = &"SkillSlotSelectedPanel" if (_picking and slot_index == _active_slot) else &"SkillSlotPanel"
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var line: HBoxContainer = HBoxContainer.new()
-	row.add_child(line)
-
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(line)
+	var number_box: PanelContainer = PanelContainer.new()
+	number_box.theme_type_variation = &"SkillFrame"
+	number_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	number_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(number_box)
 	var number: Label = Label.new()
 	number.name = "NumberLabel"
 	number.theme_type_variation = &"DossierLevelLabel"
+	number.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	number.text = str(slot_index + 1)
-	number.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(number)
-	var icon: TextureRect = _icon(IconTextures.for_skill(skill_id) if skill_id != "" else null)
-	if icon != null:
-		line.add_child(icon)
+	number.custom_minimum_size.x = float(get_theme_constant(&"loadout_icon", &"Training"))
+	number_box.add_child(number)
+	var frame: PanelContainer = LoadoutIcons.skill_frame(skill_id, get_theme_constant(&"skill_frame", &"Training"))
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(frame)
 
 	var column: VBoxContainer = VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	line.add_child(column)
 	var name_label: Label = Label.new()
 	name_label.name = "NameLabel"
@@ -160,13 +170,49 @@ func _create_slot(slot_index: int, skill_id: String) -> LedgerRow:
 		cooldown.theme_type_variation = &"CaptionLabel"
 		cooldown.text = _cooldown_text(skill_id)
 		column.add_child(cooldown)
+	UiButton.attach_hit(card, _on_slot_pressed.bind(slot_index))
+	if skill_id != "":
 		# ⚠ 空の枠を外しても何も起きないので、ボタンごと出さない。⚠ 紙の上なので `PaperChoice`。
 		var clear_button: Button = UiButton.create_paper_choice("ui_equipment_unequip")
 		clear_button.name = "ClearButton"
 		clear_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		clear_button.pressed.connect(_on_clear_pressed.bind(slot_index))
 		line.add_child(clear_button)
-	return row
+	return card
+
+
+# 「枠◯に入れるスキル」の一覧（⚠ 手本 `02_training_skp.png`）。⚠ 2列のカード。
+func _build_picker(all_candidates: Array, unlocked: Array, selected: Array) -> PanelContainer:
+	var panel: PanelContainer = PanelContainer.new()
+	panel.name = "Picker"
+	panel.theme_type_variation = &"PaperPanelChosen"
+	var column: VBoxContainer = VBoxContainer.new()
+	panel.add_child(column)
+	var head: HBoxContainer = HBoxContainer.new()
+	column.add_child(head)
+	var title: SheetHeading = SheetHeading.new()
+	title.title_text = tr("ui_training_skills_picker_title") % (_active_slot + 1)
+	title.right_text = tr("ui_training_skills_picker_hint")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var close: Button = UiButton.create_paper_choice("ui_training_skills_picker_close")
+	close.name = "PickerClose"
+	close.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	close.pressed.connect(_on_picker_close)
+	head.add_child(close)
+	var candidates: GridContainer = GridContainer.new()
+	candidates.name = "Candidates"
+	candidates.columns = CANDIDATE_COLUMNS
+	column.add_child(candidates)
+	for entry: Variant in all_candidates:
+		var skill_id: String = str(entry)
+		candidates.add_child(_create_candidate(skill_id, skill_id in unlocked, selected.find(skill_id)))
+	return panel
+
+
+func _on_picker_close() -> void:
+	_picking = false
+	_rebuild()
 
 
 func _create_candidate(skill_id: String, is_unlocked: bool, slot_index: int) -> LedgerRow:
@@ -181,9 +227,10 @@ func _create_candidate(skill_id: String, is_unlocked: bool, slot_index: int) -> 
 	row.pressed.connect(_on_candidate_pressed.bind(skill_id))
 	var line: HBoxContainer = HBoxContainer.new()
 	row.add_child(line)
-	var icon: TextureRect = _icon(IconTextures.for_skill(skill_id))
-	if icon != null:
-		line.add_child(icon)
+	var frame: PanelContainer = LoadoutIcons.skill_frame(skill_id, get_theme_constant(&"skill_frame", &"Training"))
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(frame)
 
 	var column: VBoxContainer = VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -242,21 +289,6 @@ func _cooldown_text(skill_id: String) -> String:
 	return tr("ui_skill_select_cooldown") % float(data.get(SkillSchema.FIELD_COOLDOWN_SEC, 0.0))
 
 
-func _icon(texture: Texture2D) -> TextureRect:
-	if texture == null:
-		return null
-	var side: float = float(get_theme_constant(&"row_icon", &"Training")) * 1.5
-	var rect: TextureRect = TextureRect.new()
-	rect.name = "Icon"
-	rect.texture = texture
-	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	rect.custom_minimum_size = Vector2(side, side)
-	rect.modulate = get_theme_color(&"row_icon", &"Training")
-	rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	return rect
-
-
 func _skill_name(skill_id: String) -> String:
 	var skill_data: Dictionary = MasterDataLoader.get_skill(skill_id)
 	if skill_data.is_empty():
@@ -273,14 +305,19 @@ func _description_of(skill_id: String) -> String:
 
 
 # 枠を押す。状態は触らず、次にスキルを選んだときの行き先を変えるだけ。
+# ⚠ 10-18：⚠ 押すとその枠の一覧が開く（⚠ 同じ枠をもう一度押すと閉じる）。
 func _on_slot_pressed(slot_index: int) -> void:
-	if slot_index == _active_slot:
-		return
-	_active_slot = slot_index
+	if _picking and slot_index == _active_slot:
+		_picking = false
+	else:
+		_active_slot = slot_index
+		_picking = true
 	_rebuild()
 
 
 func _on_candidate_pressed(skill_id: String) -> void:
+	# ⚠ 選んだら一覧は閉じる（⚠ 描き直しは character_growth_changed から）。
+	_picking = false
 	# 戻り値は見ない。成功なら character_growth_changed 経由で描画し直される。
 	# 既に別の枠に入っているスキルを選ぶと、2つの枠が入れ替わる（GameManager 側の仕様）。
 	GameManager.select_skill(_character_id, _active_slot, skill_id, GameManager.SLOT_KIND_SKILL)

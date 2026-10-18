@@ -50,6 +50,52 @@ func set_attention(index: int, on: bool) -> void:
 		RibbonMark.set_on(_buttons[index], on)
 
 
+# ⚠ タブに赤い丸の数（2026-10-18・回UI-1018-4・手本 `02_training_nd.png` の「ステータスノード ③」）。⚠ 0 なら消す。
+#   ⚠ 字の右に封蝋の丸＋白い数字。⚠ 値は Theme の `PaperTabBadge`。
+func set_badge(index: int, count: int) -> void:
+	if index < 0 or index >= _buttons.size():
+		return
+	var button: Button = _buttons[index]
+	var old: Node = button.get_node_or_null("Badge")
+	if old != null:
+		button.remove_child(old)
+		old.queue_free()
+	if count <= 0:
+		return
+	var badge: Label = Label.new()
+	badge.name = "Badge"
+	badge.theme_type_variation = &"PaperTabBadge"
+	badge.text = str(count)
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var side: float = float(get_theme_constant(&"badge_size", &"PaperTabBadge"))
+	badge.custom_minimum_size = Vector2(side, side)
+	badge.size = badge.custom_minimum_size
+	button.add_child(badge)
+	# ⚠ 字の右へ（⚠ 字の幅ぶん右へ寄せた余白を足す）。
+	button.text = button.text.strip_edges() + "        "
+	_place_badge(button)
+	# ⚠ 丸は作り直すので、⚠ 位置合わせは名前で引く（⚠ 消えた丸を掴まない）。
+	if not button.resized.is_connected(_place_badge.bind(button)):
+		button.resized.connect(_place_badge.bind(button))
+
+
+func _place_badge(button: Button) -> void:
+	var badge: Control = button.get_node_or_null("Badge") as Control
+	if badge == null:
+		return
+	var side: float = badge.custom_minimum_size.x
+	badge.position = Vector2(button.size.x - side - float(get_theme_constant(&"badge_inset", &"PaperTabBadge")), (button.size.y - side) * 0.5)
+
+
+func get_badge(index: int) -> int:
+	if index < 0 or index >= _buttons.size():
+		return 0
+	var badge: Label = _buttons[index].get_node_or_null("Badge") as Label
+	return 0 if badge == null else int(badge.text)
+
+
 func _apply() -> void:
 	for index: int in _buttons.size():
 		_buttons[index].theme_type_variation = StringName(variation_prefix + ("Open" if index == current else "Closed"))

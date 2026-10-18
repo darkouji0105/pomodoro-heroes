@@ -15332,13 +15332,21 @@ class UiFlowRunner extends Node:
 		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO})
 		if t == null:
 			return
-		var chips: Node = t.find_child("Chips", true, false)
-		_check("育成：右上の札が3枚以上", chips != null and chips.get_child_count() >= 3)
-		await _press(_hit_of(t, "Chip_" + OTHER))
-		var other_name: String = tr(str(MasterDataLoader.get_character(OTHER).get("name_key", "")))
-		_check("育成：札を押すと副題が %s" % other_name, (t as TrainingScreen).header.subtitle_label.text == other_name)
-		_check("育成：札を押すと身上書の名前が %s" % other_name, _label_text(t, "Dossier", "NameLabel") == other_name)
-		await _press(_hit_of(t, "Chip_" + HERO))
+		# ⚠ 10-18（回UI-1018-4・人間「⚠ ステータスノードの上側にキャラのアイコンがあるがそれはいらない」）：⚠ 札の列は無い・身上書の ◀ ▶ で切り替える。
+		_check("育成：上の顔の列が無い", t.find_child("Chips", true, false) == null and t.find_child("Chip_" + HERO, true, false) == null)
+		var next_id: String = str((t.get("_dossier") as CharacterDossier).next_id)
+		await _press(t.find_child("NextButton", true, false))
+		var next_name: String = tr(str(MasterDataLoader.get_character(next_id).get("name_key", "")))
+		_check("育成：身上書の「次の人 ▶」で副題が %s" % next_name, (t as TrainingScreen).header.subtitle_label.text == next_name)
+		_check("育成：「次の人 ▶」で身上書の名前が %s" % next_name, _label_text(t, "Dossier", "NameLabel") == next_name)
+		await _press(t.find_child("PrevButton", true, false))
+		_check("育成：「◀ 前の人」で戻る（%s）" % str(t.get("_selected_id")), str(t.get("_selected_id")) == HERO)
+		_check("育成：身上書にスキルの枠と装備5つ（%d）" % t.find_children("Equip_*", "", true, false).size(),
+			t.find_child("Dossier", true, false).find_child("SkillIcons", true, false) != null
+			and t.find_child("Dossier", true, false).find_children("Equip_*", "", true, false).size() == GameManager.get_equip_slots().size())
+		var tabs_node: PaperTabs = t.find_child("Tabs", true, false) as PaperTabs
+		_check("育成：ステータスノードのタブに残りの点の数（%d）" % (0 if tabs_node == null else tabs_node.get_badge(1)),
+			tabs_node != null and tabs_node.get_badge(1) == GameManager.get_stat_node_remaining_points(HERO))
 		await _press(_tab_button(t, 1))
 		_check("育成：2枚目のタブでステータスノード", t.find_child("NodesPage", true, false) != null)
 		await _press(_tab_button(t, 0))
@@ -15379,17 +15387,33 @@ class UiFlowRunner extends Node:
 				break
 		await _press(add)
 		_check("割り振り：＋で使った点が増える（%d → %d）" % [spent, GameManager.get_stat_node_spent_points(HERO)], GameManager.get_stat_node_spent_points(HERO) > spent)
+		# ⚠ 10-18（回UI-1018-4）：⚠ 「−」で1段戻す（⚠ 点が戻る）。⚠ もう1段振ってから（⚠ 戻したあと「振り直す」で 0 を見るため）。
+		for node: Node in t.find_children("AddButton", "", true, false):
+			if not (node as Button).disabled:
+				await _press(node)
+				break
+		var spent_after: int = GameManager.get_stat_node_spent_points(HERO)
+		var minus: Button = null
+		for node: Node in t.find_children("RemoveButton", "", true, false):
+			if not (node as Button).disabled:
+				minus = node as Button
+				break
+		await _press(minus)
+		_check("割り振り：−で1段戻る（%d → %d）" % [spent_after, GameManager.get_stat_node_spent_points(HERO)], GameManager.get_stat_node_spent_points(HERO) < spent_after)
 		await _press(t.find_child("ResetButton", true, false))
 		_check("割り振り：振り直すで 0 に戻る", GameManager.get_stat_node_spent_points(HERO) == 0)
+		_check("割り振り：行の頭に暗いマス（%s）" % ((t.find_child("NodeCell_hp", true, false) as StatNodeCell).get_value_text() if t.find_child("NodeCell_hp", true, false) is StatNodeCell else "-"),
+			t.find_child("NodeCell_hp", true, false) is StatNodeCell and (t.find_child("NodeCell_hp", true, false) as StatNodeCell).get_value_text().begins_with("+"))
 
 	# --- スキル：枠 → 候補 → 外す ---
 
 	func _flow_skills() -> void:
 		var t: Node = get_tree().current_scene
 		await _press(_tab_button(t, 2))
-		await _press(t.find_child("Slot_1", true, false))
-		var slot: Node = t.find_child("Slot_1", true, false)
-		_check("スキル：枠2を押すと行き先になる", slot is LedgerRow and (slot as LedgerRow).selected)
+		# ⚠ 10-18（回UI-1018-4）：⚠ 枠はふちつきのスロット・⚠ 押すと「枠2に入れるスキル」の一覧が開く。
+		_check("スキル：ふだんは候補の一覧を出さない", t.find_child("Picker", true, false) == null and t.find_child("Candidates", true, false) == null)
+		await _press(_hit_of(t, "Slot_1"))
+		_check("スキル：枠2を押すと一覧が開く（行き先＝枠2）", t.find_child("Picker", true, false) != null and int(t.find_child("SkillsPage", true, false).get("_active_slot")) == 1)
 		var pick: String = ""
 		var selected: Array = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
 		for raw: Variant in GameManager.get_skill_candidates(HERO, GameManager.SLOT_KIND_SKILL):
@@ -15398,7 +15422,7 @@ class UiFlowRunner extends Node:
 				break
 		await _press(t.find_child("Candidate_" + pick, true, false))
 		selected = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
-		_check("スキル：候補 %s を押すと枠2に入る" % pick, selected.size() > 1 and str(selected[1]) == pick)
+		_check("スキル：候補 %s を押すと枠2に入り、一覧が閉じる" % pick, selected.size() > 1 and str(selected[1]) == pick and t.find_child("Picker", true, false) == null)
 		var slot_now: Node = t.find_child("Slot_1", true, false)
 		await _press(slot_now.find_child("ClearButton", true, false) if slot_now != null else null)
 		selected = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
@@ -15411,13 +15435,13 @@ class UiFlowRunner extends Node:
 		await _press(_tab_button(t, 3))
 		await _press(t.find_child("Slot_" + GameStateKeys.EQUIP_WEAPON, true, false))
 		var instance_id: String = _instance_of(WEAPON_ID)
-		await _press(t.find_child("Candidate_" + instance_id, true, false))
+		await _press(t.find_child("Cell_" + instance_id, true, false))
 		await _press(t.find_child("EquipButton", true, false))
 		_check("装備：「◯を着ける」で武器に着く", GameManager.get_equipped_instance_id(HERO, GameStateKeys.EQUIP_WEAPON) == instance_id)
 		_check("装備：身上書の攻撃に緑の増分が出る", _label_text(t, "Stat_atk", "DeltaLabel") != "")
 		await _press(t.find_child("UnequipButton", true, false))
 		_check("装備：「外す」で外れる", GameManager.get_equipped_instance_id(HERO, GameStateKeys.EQUIP_WEAPON) == "")
-		await _press(t.find_child("Candidate_" + instance_id, true, false))
+		await _press(t.find_child("Cell_" + instance_id, true, false))
 		await _press(t.find_child("EquipButton", true, false))
 		await _press(t.find_child("ForgeButton", true, false), OPEN_FRAMES)
 		var f: Node = get_tree().current_scene
@@ -15649,7 +15673,7 @@ class UiFlowRunner extends Node:
 			return
 		await _press(_tab_button(t, 3))
 		await _press(t.find_child("Slot_" + weapon_slot, true, false))
-		_check("ジャンル：弓兵の武器の候補に剣が出ない", t.find_child("Candidate_" + sword, true, false) == null)
+		_check("ジャンル：弓兵の武器の候補に剣が出ない", t.find_child("Cell_" + sword, true, false) == null)
 		# ③ 等級の伸び（⚠ マイナスは伸ばさない＝人間「⚠ ６あ」）。
 		var g1: Dictionary = GameManager.get_item_stats_at_grade("weapon_sword_swift", 1)
 		var g5: Dictionary = GameManager.get_item_stats_at_grade("weapon_sword_swift", 5)
@@ -18269,7 +18293,7 @@ class UiFlowRunner extends Node:
 		if t == null:
 			return
 		await _press(t.find_child("Slot_" + GameStateKeys.EQUIP_WEAPON, true, false))
-		await _press(t.find_child("Candidate_" + instance_id, true, false))
+		await _press(t.find_child("Cell_" + instance_id, true, false))
 		await _press(t.find_child("EquipButton", true, false))
 		await _press(t.find_child("ForgeButton", true, false), OPEN_FRAMES)
 		var f: Node = get_tree().current_scene
@@ -18610,7 +18634,7 @@ class UiFlowRunner extends Node:
 		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO, TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_EQUIP})
 		if t != null:
 			var bar_here: bool = t.find_child("ItemListBar", true, false) is ItemListBar
-			var worn_shown: bool = worn == "" or t.find_child("Candidate_" + worn, true, false) != null
+			var worn_shown: bool = worn == "" or t.find_child("Cell_" + worn, true, false) != null
 			_check("並べ替え：育成の装備タブにも同じ欄（着けている品 %s は隠れない）" % worn, bar_here and worn_shown)
 		ItemListBar.reset_memory(ItemListBar.KIND_EQUIP)
 
@@ -20464,10 +20488,10 @@ class UiFlowRunner extends Node:
 		_check("入った先：育成の一覧で昇級できる人の札に紐（%s）" % str(GameManager.can_level_up_now(OTHER)),
 			other_sheet is Control and RibbonMark.has_ribbon(other_sheet as Control) == GameManager.can_level_up_now(OTHER))
 		var to: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: OTHER})
-		var other_chip: Node = null if to == null else to.find_child("Chip_" + OTHER, true, false)
+		# ⚠ 10-18：⚠ 上の顔の列はやめた＝⚠ 紐は「昇級させる」だけ。
 		var level_button: Node = null if to == null else to.find_child("LevelUpButton", true, false)
-		_check("入った先：育成で昇級できる人の札と「昇級させる」に紐",
-			other_chip is Control and RibbonMark.has_ribbon(other_chip as Control) and level_button is Control and RibbonMark.has_ribbon(level_button as Control))
+		_check("入った先：育成で昇級できる人の「昇級させる」に紐",
+			level_button is Control and RibbonMark.has_ribbon(level_button as Control))
 		var rs_page: Node = await _open("res://scenes/guild/research_screen.tscn", {})
 		var ribboned: int = 0
 		if rs_page != null:

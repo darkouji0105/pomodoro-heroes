@@ -9,10 +9,24 @@ extends VBoxContainer
 # ⚠ 手本の値の横の棒は出さない（⚠ 棒の最大がデータに無い）。
 # ⚠ 値は `get_effective_stats()`（⚠ 素＋研究＋装備＋割り振り）、⚠ 緑は装備で増えた分（⚠ 前の育成の詳細と同じ）。
 # ⚠ 育成でしか使わないので scenes/guild/（AGENTS.md）。
+# ⚠⚠ 10-18（回UI-1018-4・web版の手本 `02_training_ov.png`）：⚠ 一番上に「◀ 前の人｜n / 18 人・一覧へ｜次の人 ▶」（⚠ 上の顔の列をやめた代わり）。
+#   ⚠ 名前の下にスキル2つ（ふちつき）と装備5つ（触れると札・押すとそのタブ）。⚠ 本人署名はやめた（⚠ 縦が足りない）。
+
+signal prev_pressed
+signal next_pressed
+signal list_pressed
+# ⚠ スキル・装備のアイコンを押した（⚠ "skill" / "equip"＝画面がそのタブを開く）。
+signal loadout_pressed(kind: String)
 
 const THEME_TYPE: StringName = &"Training"
 
 var _character_id: String = ""
+# ⚠ 前後の人と、何人目か（⚠ 画面が渡す）。⚠ 空なら矢印は押せない。
+var prev_id: String = ""
+var next_id: String = ""
+var nav_index: int = 0
+var nav_total: int = 0
+var tip: ItemTipCard = null
 
 
 func setup(character_id: String) -> void:
@@ -30,36 +44,107 @@ func _rebuild() -> void:
 	var char_data: Dictionary = MasterDataLoader.get_character(_character_id)
 	var name_text: String = tr(str(char_data.get("name_key", _character_id)))
 
-	var guild: Label = Label.new()
-	guild.theme_type_variation = &"CaptionLabel"
-	guild.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	guild.text = tr("ui_title_guild")
-	add_child(guild)
-
-	var heading: SheetHeading = SheetHeading.new()
-	heading.name = "Heading"
-	heading.title_key = "ui_dossier_title"
-	heading.ornament = true
-	heading.ornament_below = true
-	heading.centered = true
-	add_child(heading)
+	add_child(_build_nav())
+	add_child(HSeparator.new())
 
 	add_child(_build_hero(name_text))
+	add_child(_build_loadout())
 	add_child(_build_stats())
 
-	var sign_row: HBoxContainer = HBoxContainer.new()
-	sign_row.name = "SignRow"
-	var sign_caption: Label = Label.new()
-	sign_caption.theme_type_variation = &"CaptionLabel"
-	sign_caption.text = tr("ui_dossier_signature")
-	sign_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sign_caption.size_flags_vertical = Control.SIZE_SHRINK_END
-	sign_row.add_child(sign_caption)
-	var signature: Label = Label.new()
-	signature.theme_type_variation = &"SheetHeadingLabel"
-	signature.text = name_text
-	sign_row.add_child(signature)
-	add_child(sign_row)
+
+# 「◀ [顔] 前の人 ｜ n / 18 人 ・ 一覧へ ｜ 次の人 [顔] ▶」。
+func _build_nav() -> HBoxContainer:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "Nav"
+	var prev: Button = _small_button()
+	prev.name = "PrevButton"
+	prev.text = "◀ " + _short_name(prev_id)
+	prev.disabled = prev_id == ""
+	prev.pressed.connect(func() -> void: prev_pressed.emit())
+	row.add_child(prev)
+	var middle: HBoxContainer = HBoxContainer.new()
+	middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	middle.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(middle)
+	var count: Label = Label.new()
+	count.name = "NavCount"
+	count.theme_type_variation = &"CaptionLabel"
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.text = tr("ui_dossier_nav_count") % [nav_index, nav_total]
+	middle.add_child(count)
+	var list: Button = _small_button()
+	list.text = tr("ui_dossier_nav_list")
+	list.name = "ListButton"
+	list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	list.pressed.connect(func() -> void: list_pressed.emit())
+	middle.add_child(list)
+	var next: Button = _small_button()
+	next.name = "NextButton"
+	next.text = _short_name(next_id) + " ▶"
+	next.disabled = next_id == ""
+	next.pressed.connect(func() -> void: next_pressed.emit())
+	row.add_child(next)
+	return row
+
+
+# ⚠ 小さい紙の札（⚠ `PaperChoice` は丸くて背が高い＝身上書が画面の下へはみ出した）。
+func _small_button() -> Button:
+	var button: Button = Button.new()
+	button.theme_type_variation = &"PaperToggle"
+	button.focus_mode = Control.FOCUS_NONE
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return button
+
+
+func _short_name(character_id: String) -> String:
+	if character_id == "":
+		return ""
+	return tr(str(MasterDataLoader.get_character(character_id).get("name_key", character_id)))
+
+
+# 「スキル [枠][枠] 強撃・横薙ぎ ／ 装備 [5つ]」（⚠ 押すとそのタブ）。
+func _build_loadout() -> PanelContainer:
+	var panel: PanelContainer = PanelContainer.new()
+	panel.name = "Loadout"
+	panel.theme_type_variation = &"LoadoutPanel"
+	var column: VBoxContainer = VBoxContainer.new()
+	panel.add_child(column)
+	var side: int = get_theme_constant(&"loadout_icon", THEME_TYPE)
+	var skill_row: HBoxContainer = HBoxContainer.new()
+	skill_row.name = "SkillRow"
+	column.add_child(skill_row)
+	skill_row.add_child(_loadout_caption("ui_training_skill"))
+	var skills: LoadoutIcons = LoadoutIcons.skills(_character_id, side)
+	skills.pressed.connect(func(kind: String) -> void: loadout_pressed.emit(kind))
+	skill_row.add_child(skills)
+	var names: Array[String] = []
+	for raw: Variant in GameManager.get_selected_skills(_character_id):
+		if raw != null and str(raw) != "":
+			names.append(tr(str(MasterDataLoader.get_skill(str(raw)).get("name_key", ""))))
+	var skill_names: Label = Label.new()
+	skill_names.name = "SkillNames"
+	skill_names.theme_type_variation = &"CaptionLabel"
+	skill_names.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	skill_names.text = "\n".join(names) if not names.is_empty() else tr("ui_dossier_no_skill")
+	skill_row.add_child(skill_names)
+	if GameManager.is_screen_unlocked(GameStateKeys.SCREEN_EQUIPMENT):
+		var equip_row: HBoxContainer = HBoxContainer.new()
+		equip_row.name = "EquipRow"
+		column.add_child(equip_row)
+		equip_row.add_child(_loadout_caption("ui_training_equipment"))
+		var equipment: LoadoutIcons = LoadoutIcons.equipment(_character_id, side, tip)
+		equipment.pressed.connect(func(kind: String) -> void: loadout_pressed.emit(kind))
+		equip_row.add_child(equipment)
+	return panel
+
+
+func _loadout_caption(key: String) -> Label:
+	var caption: Label = Label.new()
+	caption.theme_type_variation = &"CaptionLabel"
+	caption.text = tr(key)
+	caption.custom_minimum_size.x = float(get_theme_constant(&"loadout_caption", THEME_TYPE))
+	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return caption
 
 
 # 写真・名前・役割・Lv。
