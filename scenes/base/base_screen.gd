@@ -28,6 +28,8 @@ var _town_view: BaseTownView = null
 func _ready() -> void:
 	# ⚠ 朝4:00 の移し（2026-10-04・`TK-6`）。⚠ 紙を描く前に（⚠ 昨日終えたものを紙に残さない）。
 	var _moved: int = GameManager.roll_over_done_tasks()
+	# ⚠ 自動で研究（10-18・回UI-1018-7・`GR-12`）：⚠ 本部に着いたとき（⚠ ポモドーロや冒険から戻ったとき）に開く。⚠ 窓は出さず赤い栞。
+	var _opened: Array[String] = GameManager.run_research_auto()
 	var data: Dictionary = SceneManager.consume_transfer_data()
 	_view = str(data.get(TransferKeys.BASE_VIEW, SceneManager.recall(TransferKeys.MEMORY_BASE_VIEW, VIEW_DESK)))
 	if _view != VIEW_TOWN:

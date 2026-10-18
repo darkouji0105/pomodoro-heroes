@@ -213,6 +213,9 @@ const SHOT_AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
 const SHOT_AFTER_DEBUG_OVERLAY: String = "debug_overlay"
 # ⚠ 本部の「拠点の全体」（2026-10-07・回HB-1）。⚠ 内側の `AFTER_BASE_TOWN` と同じ字。
 const SHOT_AFTER_BASE_TOWN: String = "base_town"
+# ⚠ 研究（2026-10-18・回UI-1018-7）。⚠ 内側の `AFTER_RESEARCH_*` と同じ字。
+const SHOT_AFTER_RESEARCH_REWARD: String = "research_reward"
+const SHOT_AFTER_RESEARCH_AUTO: String = "research_auto"
 # ⚠ 拠点の遺物の画面（2026-10-07・回HB-3）。⚠ 内側の `AFTER_GUILD_RELIC` と同じ字。
 const SHOT_AFTER_GUILD_RELIC: String = "guild_relic"
 # ⚠ 目標（2026-10-09・回AUTO-1・`EXEC_GOAL.md`）。⚠ 内側の `PREPARE_GOAL_*` / `AFTER_GOAL_*` と同じ字。⚠ `shot_only=goal` で目標の枚だけ撮れる。
@@ -1772,6 +1775,9 @@ const SCENARIOS: Dictionary = {
 			{"name": "09_shop", "scene": "res://scenes/guild/shop_screen.tscn"},
 			{"name": "10_workshop", "scene": "res://scenes/guild/workshop_screen.tscn"},
 			{"name": "11_research", "scene": "res://scenes/guild/research_screen.tscn"},
+			# ⚠ 研究（2026-10-18・回UI-1018-7）：⚠ ボード1を開けるだけ開いて「完成の報酬」を選んだ姿 ／ ⚠ 自動で研究の窓。
+			{"name": "11b_research_reward", "scene": "res://scenes/guild/research_screen.tscn", "after": SHOT_AFTER_RESEARCH_REWARD},
+			{"name": "11c_research_auto", "scene": "res://scenes/guild/research_screen.tscn", "after": SHOT_AFTER_RESEARCH_AUTO},
 			# ⚠ 2026-09-23：⚠ 倉庫を別窓からふつうの画面に戻した（⚠ 別窓のころは撮れなかった）。
 			{"name": "19_warehouse", "scene": "res://scenes/guild/warehouse_screen.tscn"},
 			# ⚠ 2026-09-26（回UI-2）：⚠ 紙の部品。⚠ UI テストのページの一番上に並べてある。
@@ -13652,6 +13658,8 @@ class ShotTaker extends Node:
 	const AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
 	const AFTER_DEBUG_OVERLAY: String = "debug_overlay"
 	const AFTER_BASE_TOWN: String = "base_town"
+	const AFTER_RESEARCH_REWARD: String = "research_reward"
+	const AFTER_RESEARCH_AUTO: String = "research_auto"
 	const AFTER_GUILD_RELIC: String = "guild_relic"
 	const PREPARE_GOAL_ITEM: String = "goal_item"
 	const PREPARE_GOAL_LEVEL: String = "goal_level"
@@ -14587,6 +14595,29 @@ class ShotTaker extends Node:
 			(offer_row as BaseButton).pressed.emit()
 			for _i: int in range(4):
 				await get_tree().process_frame
+		elif kind == AFTER_RESEARCH_REWARD:
+			# ⚠ 素材を配ってボード1を開けるだけ開く（⚠ 撮るための状態＝保存しない）→ ⚠ 右端の「完成の報酬」を押す。
+			for material_id: String in GameManager.get_material_ids_of_series(GameStateKeys.ITEM_CONSTRUCTION_MATERIAL_PREFIX):
+				GameManager.add_material(material_id, 999)
+			var _opened: Array[String] = GameManager.unlock_research_all(1)
+			for _i: int in range(4):
+				await get_tree().process_frame
+			var reward: Node = screen.find_child("RewardCard", true, false)
+			var reward_hit: Node = null if reward == null else reward.find_child("Hit", false, false)
+			if not (reward_hit is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に完成の報酬の札が無い" % shot_name)
+				return false
+			(reward_hit as BaseButton).pressed.emit()
+			for _i: int in range(6):
+				await get_tree().process_frame
+		elif kind == AFTER_RESEARCH_AUTO:
+			var gear: Node = screen.find_child("AutoSettingsButton", true, false)
+			if not (gear is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に自動の ⚙ が無い" % shot_name)
+				return false
+			(gear as BaseButton).pressed.emit()
+			for _i: int in range(10):
+				await get_tree().process_frame
 		elif kind == AFTER_BASE_TOWN:
 			# ⚠ 10-18（回UI-1018-6）：⚠ 街は帯の「ギルド」＝見え方つきで開く（⚠ 行の `data`）。
 			if screen.find_child("TownView", true, false) == null:
@@ -15289,6 +15320,7 @@ class UiFlowRunner extends Node:
 		await _flow_guild_relic()
 		await _flow_facility()
 		await _flow_base_hub()
+		await _flow_research_v2()
 		await _flow_barracks()
 		await _flow_quest_board()
 		await _flow_chest()
@@ -19040,6 +19072,88 @@ class UiFlowRunner extends Node:
 
 	# --- 10-18 回UI-1018-5：詰所の作り直し（枠を空ける `NAV-31`・名簿・役割・戦力・ビルドと装備の窓・控えの空き） ---
 
+	# --- 10-18 回UI-1018-7：研究の作り直し（コルク板・右に詳しく・開けるだけ開く・完成の報酬・自動・赤い栞 `GR-10`〜`GR-12`） ---
+	# ⚠ 状態は最後に戻す（⚠ 宝石・素材・研究の数を後の検査に持ち込まない）。
+
+	func _research_card_hit(rs: Node, node_id: String) -> Node:
+		var card: Node = null if rs == null else rs.find_child("ResearchCard_" + node_id, true, false)
+		return null if card == null else card.find_child("Hit", false, false)
+
+	func _flow_research_v2() -> void:
+		const RESEARCH_SCREEN: String = "res://scenes/guild/research_screen.tscn"
+		var snapshot: Dictionary = GameManager.get_state()
+		var board_ids: Array[String] = []
+		for node_id: Variant in MasterDataLoader.get_all_research_nodes():
+			if GameManager.get_research_board_of(str(node_id)) == 1:
+				board_ids.append(str(node_id))
+		for material_id: String in GameManager.get_material_ids_of_series(GameStateKeys.ITEM_CONSTRUCTION_MATERIAL_PREFIX):
+			GameManager.add_material(material_id, 9999)
+		SceneManager.remember(TransferKeys.MEMORY_RESEARCH_BOARD, 1)
+		var rs: Node = await _open(RESEARCH_SCREEN, {})
+		if rs == null:
+			var _back: bool = GameManager.load_state(snapshot)
+			return
+		var cards: int = rs.find_children("ResearchCard_*", "", true, false).size()
+		_check("研究：ボード1の札が %d 枚・右端に完成の報酬" % cards, cards == board_ids.size() and rs.find_child("RewardCard", true, false) != null)
+		var unlocked_before: int = int(GameManager.get_research_board_progress(1).get("unlocked", 0))
+		var need: int = GameManager.get_research_board_open_need(1)
+		_check("研究：ボード2は「ボード1を %d つ開くと」（いま %d・閉じている）" % [need, unlocked_before],
+			need < board_ids.size() and (unlocked_before >= need or not GameManager.is_research_board_open(2)))
+		# ⚠ いま開ける札を押す → 右に詳しく → 解放する → 済み＋赤い栞 → 押すと栞が消える。
+		var target: String = ""
+		for node_id: String in board_ids:
+			if ResearchCard.state_of(node_id) == ResearchCard.State.OPEN:
+				target = node_id
+				break
+		_check("研究：いま開ける札がある（%s）" % target, target != "")
+		if target != "":
+			await _press(_research_card_hit(rs, target))
+			_check("研究：札を押すと右に詳しく（%s）" % _label_text(rs, "Detail", "DetailTitle"), _label_text(rs, "Detail", "DetailTitle") == ResearchCard.name_of(target))
+			await _press(rs.find_child("UnlockButton", true, false))
+			var card: Node = rs.find_child("ResearchCard_" + target, true, false)
+			var mark: Node = null if card == null else card.find_child("Overlay", false, false)
+			_check("研究：「解放する」で開く・札は済み・赤い栞", ResearchCard.state_of(target) == ResearchCard.State.DONE
+				and mark is Control and RibbonMark.has_ribbon(mark as Control) and GameManager.is_research_new(target))
+			await _press(_research_card_hit(rs, target))
+			card = rs.find_child("ResearchCard_" + target, true, false)
+			mark = null if card == null else card.find_child("Overlay", false, false)
+			_check("研究：札を押すと栞が消える", not GameManager.is_research_new(target) and mark is Control and not RibbonMark.has_ribbon(mark as Control))
+		# ⚠ 開けるだけ開く（⚠ 確かめの窓）。
+		var all_button: Node = rs.find_child("UnlockAllButton", true, false)
+		var had_all: bool = all_button is BaseButton and not (all_button as BaseButton).disabled
+		await _press(all_button)
+		await _confirm_modal()
+		await _wait(OPEN_FRAMES)
+		rs = get_tree().current_scene
+		_check("研究：「開けるだけ開く」でボード1を全部（%d / %d）・ボード2が開く" % [int(GameManager.get_research_board_progress(1).get("unlocked", 0)), board_ids.size()],
+			had_all and GameManager.is_research_board_complete(1) and GameManager.is_research_board_open(2))
+		# ⚠ 完成の報酬。
+		var reward: Node = rs.find_child("RewardCard", true, false)
+		await _press(null if reward == null else reward.find_child("Hit", false, false))
+		var gems_before: int = GameManager.get_resource_amount(GameStateKeys.GEMS)
+		var claim: Node = rs.find_child("ClaimRewardButton", true, false)
+		var could_claim: bool = claim is BaseButton and not (claim as BaseButton).disabled
+		await _press(claim)
+		var gained: int = GameManager.get_resource_amount(GameStateKeys.GEMS) - gems_before
+		_check("研究：完成の報酬を押すと「受け取る」・宝石 +%d・2回目は受け取れない" % gained, could_claim
+			and gained == int(GameManager.get_research_board_reward(1).get(GameManager.RESEARCH_REWARD_GEMS, 0))
+			and GameManager.is_research_board_reward_claimed(1) and not GameManager.claim_research_board_reward(1))
+		# ⚠ ▶ で次のボード。
+		await _press(rs.find_child("NextBoardButton", true, false))
+		_check("研究：▶ でボード2（%s）" % _label_text(rs, "BoardPill", "BoardName"), _label_text(rs, "BoardPill", "BoardName").contains(tr("ui_research_board_name") % 2))
+		# ⚠ 自動：オンにする（窓）→ 本部に着くと開く・赤い栞。
+		await _press(rs.find_child("AutoToggle", true, false))
+		await _confirm_modal()
+		_check("研究：「自動」を押すと窓 → オンになる", bool(GameManager.get_research_auto()[GameManager.RESEARCH_AUTO_ENABLED]))
+		var left_before: int = GameManager.get_affordable_research_count()
+		var _base: Node = await _open(BASE, {})
+		_check("研究：自動＝本部に着くと開く（開けた %d 件 → 残り %d）・栞" % [left_before, GameManager.get_affordable_research_count()],
+			left_before == 0 or (GameManager.get_affordable_research_count() < left_before and GameManager.has_new_research()))
+		_check("研究：本部の研究の札に紐", _base != null and _base.find_child("ResearchCard", true, false) is Control
+			and RibbonMark.has_ribbon(_base.find_child("ResearchCard", true, false) as Control) == BaseFacilityBar.attention_of(BaseFacilityBar.RESEARCH))
+		var _restored: bool = GameManager.load_state(snapshot)
+		SceneManager.remember(TransferKeys.MEMORY_RESEARCH_BOARD, 1)
+
 	func _flow_barracks_v2(b: Node) -> void:
 		var members: Array = GameManager.get_party_members()
 		# 枠を空ける：⚠ 「✕ 外す」で空き ／ ⚠ 名簿で出ていない人を押すと空きに入る ／ ⚠ 出ている人を押すと外れる ／ ⚠ 最後の1人は外せない。
@@ -20841,17 +20955,17 @@ class UiFlowRunner extends Node:
 		saved = _zero_series(GameStateKeys.ITEM_CONSTRUCTION_MATERIAL_PREFIX)
 		var rs: Node = await _open(RESEARCH_SCREEN, {})
 		if rs != null:
-			var unlock: Node = null
-			for actions: Node in rs.find_children("Actions_*", "", true, false):
-				var candidate: Node = actions.get_child(0) if actions.get_child_count() > 0 else null
-				if candidate is BaseButton and not (candidate as BaseButton).disabled:
-					unlock = candidate
+			# ⚠ 10-18（回UI-1018-7）：⚠ 素材が足りない札を押して、右の紙の「解放する」。
+			var short_id: String = ""
+			for node_id: Variant in MasterDataLoader.get_all_research_nodes():
+				if rs.find_child("ResearchCard_" + str(node_id), true, false) != null and ResearchCard.state_of(str(node_id)) == ResearchCard.State.SHORT:
+					short_id = str(node_id)
 					break
-			var red: bool = false
-			for label: Node in rs.find_children("CostLabel_*", "", true, false):
-				if label is Label and (label as Label).theme_type_variation == &"ErrorLabel":
-					red = true
-			_check("足りない：研究は「入手先を見る」無し・必要素材が赤", rs.find_children("SourceButton*", "", true, false).is_empty() and red)
+			await _press(_research_card_hit(rs, short_id))
+			var unlock: Node = rs.find_child("UnlockButton", true, false)
+			var need_label: Node = rs.find_child("CostLabel_" + short_id, true, false)
+			var red: bool = need_label is Label and (need_label as Label).theme_type_variation == &"ResearchShortNumberLabel"
+			_check("足りない：研究は必要素材が赤・「あと◯足りない」（%s）" % short_id, short_id != "" and red and rs.find_child("SourceLink", true, false) != null)
 			await _press(unlock)
 			_check("足りない：研究の「解放する」で窓", _source_window(rs) != null)
 			await _close_modal(rs)

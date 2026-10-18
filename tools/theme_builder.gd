@@ -873,6 +873,7 @@ static func build() -> void:
 	_build_task(theme)
 	_build_item_parts(theme)
 	_build_hq(theme)
+	_build_research(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -3663,6 +3664,170 @@ static func _build_hq(theme: Theme) -> void:
 		theme.set_color(&"font_color", StringName(str(spec[0])), _html(TOKEN_TEXT_ON_DARK))
 
 
+# --- ⚠⚠ 研究（2026-10-18・回UI-1018-7・手本 `docs/pomodoro-heroes-ui-docs/2026-10-18/mocks/Research.html`）---
+#
+# ⚠ コルク板に画鋲で留めた札。⚠ 済み＝墨の札 ／ いま開ける＝光る札 ／ 素材が足りない＝ふつう ／ 前の研究が先＝薄い。
+const RESEARCH: Dictionary = {
+	"card_width": 168, "card_height": 60, "col_gap": 46, "row_gap": 20, "label_col": 56, "label_width": 30,
+	"board_top": 64, "board_pad": 14, "icon": 32, "pin": 6, "seal": 26, "seal_font": 13, "chip_inset": 8,
+	"thread_width": 2, "arrow": 7, "side_width": 316, "pill_bar": 70, "detail_icon": 44, "material_icon": 22,
+	"legend_swatch": 12, "ribbon_left": 10, "wait_alpha_pct": 70, "closed_alpha_pct": 50, "full_alpha_pct": 100,
+}
+const RESEARCH_COLORS: Dictionary = {
+	"icon_on_dark": "f3d58a", "icon_on_paper": TOKEN_INK, "pin_red": "c0473a", "pin_dark": "3a2c22", "pin_shadow": "00000059",
+	"seal": TOKEN_WAX, "seal_text": "fbeee6", "thread_done": "b5372b", "thread_next": TOKEN_INK, "thread_wait": "4f403099",
+}
+const RESEARCH_CARD_DONE_BG: String = "2b2118"
+const RESEARCH_CARD_SHORT_BG: String = "e9dcc0"
+const RESEARCH_CARD_WAIT_BG: String = "e9dcc099"
+
+
+static func _research_card_style(bg: String, border: String, width: int) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = _html(bg)
+	style.set_border_width_all(width)
+	style.border_color = _html(border)
+	style.set_corner_radius_all(3)
+	style.shadow_color = Color(0, 0, 0, 0.35)
+	style.shadow_size = 4
+	style.shadow_offset = Vector2(0, 3)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 6
+	style.content_margin_bottom = 8
+	return style
+
+
+static func _build_research(theme: Theme) -> void:
+	var t: StringName = &"Research"
+	for key: String in RESEARCH:
+		theme.set_constant(StringName(key), t, int(RESEARCH[key]))
+	for key: String in RESEARCH_COLORS:
+		theme.set_color(StringName(key), t, _html(str(RESEARCH_COLORS[key])))
+	# ⚠ 札の4つの姿 ＋ 選んでいる姿（⚠ 灯りの太い縁）。
+	for spec: Array in [
+		["ResearchCardDone", RESEARCH_CARD_DONE_BG, TOKEN_BRASS_INK, 2],
+		["ResearchCardOpen", TOKEN_PAPER_SELECTED, TOKEN_LIGHT, 3],
+		["ResearchCardShort", RESEARCH_CARD_SHORT_BG, ITEM_SEG_BORDER, 1],
+		["ResearchCardWait", RESEARCH_CARD_WAIT_BG, ITEM_SEG_BORDER, 1],
+	]:
+		var name: StringName = StringName(str(spec[0]))
+		theme.set_type_variation(name, &"PanelContainer")
+		theme.set_stylebox(&"panel", name, _research_card_style(str(spec[1]), str(spec[2]), int(spec[3])))
+		var chosen: StringName = StringName(str(spec[0]) + "Selected")
+		var ring: StyleBoxFlat = _research_card_style(str(spec[1]), TOKEN_LIGHT, 3)
+		ring.expand_margin_left = 3
+		ring.expand_margin_right = 3
+		ring.expand_margin_top = 3
+		ring.expand_margin_bottom = 3
+		theme.set_type_variation(chosen, &"PanelContainer")
+		theme.set_stylebox(&"panel", chosen, ring)
+	theme.set_type_variation(&"ResearchLegendRibbon", &"PanelContainer")
+	var ribbon: StyleBoxFlat = StyleBoxFlat.new()
+	ribbon.bg_color = _html(TOKEN_WAX)
+	theme.set_stylebox(&"panel", &"ResearchLegendRibbon", ribbon)
+	# ⚠ 札の左の丸（⚠ 墨の札＝真鍮の縁の暗い丸 ／ 紙の札＝墨の縁の明るい丸）。
+	for spec: Array in [["ResearchIconDark", "b98a2c", TOKEN_LIGHT], ["ResearchIconLight", TOKEN_PAPER_SELECTED, TOKEN_INK]]:
+		var circle: StyleBoxFlat = StyleBoxFlat.new()
+		circle.bg_color = _html(str(spec[1]))
+		circle.set_border_width_all(2)
+		circle.border_color = _html(str(spec[2]))
+		circle.set_corner_radius_all(64)
+		circle.set_content_margin_all(6)
+		theme.set_type_variation(StringName(str(spec[0])), &"PanelContainer")
+		theme.set_stylebox(&"panel", StringName(str(spec[0])), circle)
+	# ⚠ 札の字（⚠ 札は紙の器の外＝色をここで持つ）。
+	for spec: Array in [
+		["ResearchCardTitleLabel", 13, TOKEN_INK], ["ResearchCardTitleDarkLabel", 13, TOKEN_PAPER_SELECTED],
+		["ResearchCardEffectLabel", 11, TOKEN_INK_SUB], ["ResearchCardEffectDarkLabel", 11, "d9ccb4"],
+		["ResearchLegendLabel", 11, TOKEN_INK], ["ResearchCapLabel", 14, TOKEN_TEXT_ON_DARK],
+		["ResearchPillTitleLabel", 17, TOKEN_INK], ["ResearchPillLabel", 12, TOKEN_INK_SUB],
+	]:
+		theme.set_type_variation(StringName(str(spec[0])), &"Label")
+		theme.set_font_size(&"font_size", StringName(str(spec[0])), int(spec[1]))
+		theme.set_color(&"font_color", StringName(str(spec[0])), _html(str(spec[2])))
+	# ⚠ 素材の札（⚠ 足りなければ赤）。
+	for spec: Array in [["ResearchChip", TOKEN_PAPER_SELECTED, TOKEN_INK, TOKEN_INK_SUB], ["ResearchChipShort", "fbeee6", TOKEN_WAX, TOKEN_WAX]]:
+		var chip: StyleBoxFlat = StyleBoxFlat.new()
+		chip.bg_color = _html(str(spec[1]))
+		chip.set_border_width_all(1)
+		chip.border_color = _html(str(spec[3]))
+		chip.set_corner_radius_all(8)
+		chip.content_margin_left = 6
+		chip.content_margin_right = 6
+		chip.content_margin_top = 0
+		chip.content_margin_bottom = 0
+		theme.set_type_variation(StringName(str(spec[0])), &"Label")
+		theme.set_stylebox(&"normal", StringName(str(spec[0])), chip)
+		theme.set_font_size(&"font_size", StringName(str(spec[0])), 11)
+		theme.set_color(&"font_color", StringName(str(spec[0])), _html(str(spec[2])))
+	# ⚠ 分類の縦の札・ボードの題の紙。
+	for spec: Array in [["ResearchCategoryLabel", 13, 4, 6], ["ResearchBoardTitleLabel", 18, 12, 6]]:
+		var paper: StyleBoxFlat = StyleBoxFlat.new()
+		paper.bg_color = _html(TOKEN_PAPER_SELECTED)
+		paper.set_corner_radius_all(2)
+		paper.shadow_color = Color(0, 0, 0, 0.35)
+		paper.shadow_size = 3
+		paper.shadow_offset = Vector2(0, 2)
+		paper.content_margin_left = int(spec[2])
+		paper.content_margin_right = int(spec[2])
+		paper.content_margin_top = int(spec[3])
+		paper.content_margin_bottom = int(spec[3])
+		theme.set_type_variation(StringName(str(spec[0])), &"Label")
+		theme.set_stylebox(&"normal", StringName(str(spec[0])), paper)
+		theme.set_font_size(&"font_size", StringName(str(spec[0])), int(spec[1]))
+		theme.set_color(&"font_color", StringName(str(spec[0])), _html(TOKEN_INK))
+	# ⚠ コルク板・下の凡例・上のボードの札。
+	var cork: StyleBoxFlat = StyleBoxFlat.new()
+	cork.bg_color = _html(QUEST_CORK)
+	cork.set_border_width_all(8)
+	cork.border_color = _html(QUEST_CORK_BORDER)
+	cork.set_corner_radius_all(4)
+	cork.set_content_margin_all(4)
+	theme.set_type_variation(&"ResearchCorkPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"ResearchCorkPanel", cork)
+	for spec: Array in [["ResearchLegendPanel", 12, 6], ["ResearchPillPanel", 14, 4], ["ResearchRewardRowPanel", 10, 6]]:
+		var strip: StyleBoxFlat = StyleBoxFlat.new()
+		strip.bg_color = _html(TOKEN_PAPER)
+		strip.set_border_width_all(1)
+		strip.border_color = _html(ITEM_SEG_BORDER)
+		strip.set_corner_radius_all(4)
+		strip.content_margin_left = int(spec[1])
+		strip.content_margin_right = int(spec[1])
+		strip.content_margin_top = int(spec[2])
+		strip.content_margin_bottom = int(spec[2])
+		theme.set_type_variation(StringName(str(spec[0])), &"PanelContainer")
+		theme.set_stylebox(&"panel", StringName(str(spec[0])), strip)
+	# ⚠ 右の紙の字。
+	theme.set_type_variation(&"ResearchEffectLabel", &"Label")
+	theme.set_font_size(&"font_size", &"ResearchEffectLabel", 18)
+	theme.set_type_variation(&"ResearchShortNumberLabel", &"Label")
+	theme.set_font_size(&"font_size", &"ResearchShortNumberLabel", HQ_BIG_NUMBER)
+	if theme.has_font(&"font", &"PriceLabel"):
+		theme.set_font(&"font", &"ResearchShortNumberLabel", theme.get_font(&"font", &"PriceLabel"))
+	for spec: Array in [
+		["ResearchStatusDone", TOKEN_INK, TOKEN_PAPER_SELECTED], ["ResearchStatusOpen", "4f7a3a", "f1e6cf"],
+		["ResearchStatusShort", TOKEN_WAX, "fbeee6"], ["ResearchStatusWait", ITEM_SEG_BORDER, "f1e6cf"],
+	]:
+		var status: StyleBoxFlat = StyleBoxFlat.new()
+		status.bg_color = _html(str(spec[1]))
+		status.set_corner_radius_all(3)
+		status.content_margin_left = 6
+		status.content_margin_right = 6
+		status.content_margin_top = 1
+		status.content_margin_bottom = 1
+		theme.set_type_variation(StringName(str(spec[0])), &"Label")
+		theme.set_stylebox(&"normal", StringName(str(spec[0])), status)
+		theme.set_font_size(&"font_size", StringName(str(spec[0])), 11)
+		theme.set_color(&"font_color", StringName(str(spec[0])), _html(str(spec[2])))
+	# ⚠ ⚙（⚠ 紙の札にアイコンだけ）。
+	theme.set_type_variation(&"ResearchIconButton", &"PaperChoice")
+	theme.set_constant(&"icon_max_width", &"ResearchIconButton", 18)
+	theme.set_color(&"icon_normal_color", &"ResearchIconButton", _html(TOKEN_INK))
+	theme.set_color(&"icon_hover_color", &"ResearchIconButton", _html(TOKEN_BRASS_INK))
+	theme.set_color(&"icon_pressed_color", &"ResearchIconButton", _html(TOKEN_INK))
+
+
 # --- ⚠⚠ 紙の上のテーマ（2026-09-26・決定 `UI-14`）---
 #
 # ⚠ 紙の部品が `theme` にこれを持つと、⚠ 子孫は**先にこちらを引き、無ければ `main_theme.tres`** へ落ちる
@@ -3957,6 +4122,13 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"QuestTag_training": "f1e6cf",
 	"QuestTag_hard": "f1e6cf",
 	"QuestTag_debug": "f1e6cf",
+	# ⚠ 研究の右の紙（2026-10-18・回UI-1018-7）。
+	"ResearchEffectLabel": TOKEN_INK,
+	"ResearchShortNumberLabel": TOKEN_WAX,
+	"ResearchStatusDone": TOKEN_PAPER_SELECTED,
+	"ResearchStatusOpen": "f1e6cf",
+	"ResearchStatusShort": "fbeee6",
+	"ResearchStatusWait": "f1e6cf",
 }
 
 

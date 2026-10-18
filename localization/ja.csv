@@ -2633,3 +2633,60 @@ ui_floor_5_desc,森の奥に主がいるという
 ui_dungeon_hard_desc,深く潜るほど良い装備が出る
 ui_dungeon_tower_desc,一階ずつ上る塔（試作）
 ui_dungeon_simple_desc,地図を歩かず戦うだけ（試作）
+ui_research_subtitle,素材を払って拠点を育てる
+ui_research_prev,◀
+ui_research_next,▶
+ui_research_board_name,ボード%d
+ui_research_closed_mark,閉・
+ui_research_pill_count,%d / %d 開いた
+ui_research_cap_short,レベル上限 Lv.%d
+ui_research_board_title,ボード%d　%d / %d
+ui_research_board_locked,ボード%dを %d つ開くと開く（いま %d）
+ui_research_can_open,いま開ける %d
+ui_research_unlock_all,開けるだけ開く %d
+ui_research_unlock_all_title,開けるだけ開く
+ui_research_unlock_all_confirm,ボード%d でいま開ける %d 件を開きます。開くと次が開けるものも続けて開きます。
+ui_research_unlock_all_go,開く
+ui_research_auto_on,自動 オン
+ui_research_auto_off,自動 オフ
+ui_research_auto_title,自動で研究する
+ui_research_auto_desc,素材がたまったら、開ける研究を自動で開く。ポモドーロや冒険から本部に戻ったときに動く。
+ui_research_auto_categories,自動で開く分類
+ui_research_auto_keep,素材を残す
+ui_research_auto_keep_none,残さない
+ui_research_auto_keep_n,%dずつ
+ui_research_auto_keep_note,鍛冶やショップのために残す
+ui_research_auto_turn_on,自動をオンにする
+ui_research_auto_save,この設定にする
+ui_research_legend_done,済み
+ui_research_legend_new,新しく開いた
+ui_research_legend_open,いま開ける
+ui_research_legend_short,素材が足りない
+ui_research_legend_wait,前の研究が先
+ui_research_legend_move,◀ ▶ でボードを移る
+ui_research_status_done,開いた
+ui_research_status_open,いま開ける
+ui_research_status_short,素材が足りない
+ui_research_status_wait,前の研究が先
+ui_research_status_closed,ボードが閉じている
+ui_research_effect,効果
+ui_research_prereq,先に開く研究
+ui_research_prereq_none,なし（最初から開ける）
+ui_research_prereq_done,開いた
+ui_research_prereq_not,まだ
+ui_research_check,✓
+ui_research_dot,・
+ui_research_owned_n,/ %d 持ち
+ui_research_short_link,あと %d 足りない・入手先を見る ›
+ui_research_next_opens,開くと次が開けるように：%s
+ui_research_board_open_to_press,ボード%dが開くと押せる
+ui_research_category_base,拠点
+ui_research_reward_title,完成の報酬
+ui_research_reward_short,全部開くと受け取れる
+ui_research_reward_chip,全部で %d / %d
+ui_research_reward_caption,ボード%dの研究を全部開くと
+ui_research_reward_remain,あと %d つ（%s）
+ui_research_reward_claim,受け取る
+ui_research_reward_claimed,受け取った
+ui_research_reward_need_all,全部開くと受け取れる
+ui_hq_research_new,新しく開いた %d・開ける %d

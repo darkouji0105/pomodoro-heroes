@@ -67,6 +67,10 @@ const WEEKLY_SHOP: String = "weekly_shop"
 const MONTHLY_SHOP: String = "monthly_shop"
 const CHARACTER_GROWTH: String = "character_growth"
 const RESEARCH_TREE: String = "research_tree"
+# ⚠ 研究（2026-10-18・回UI-1018-7・`GR-11`・`GR-12`）：⚠ 受け取った完成の報酬（ボード番号の配列）／ ⚠ 新しく開いた研究（ID の配列・赤い栞）／ ⚠ 自動で研究（{enabled, categories, keep}）。
+const RESEARCH_REWARDS_CLAIMED: String = "research_rewards_claimed"
+const RESEARCH_NEW: String = "research_new"
+const RESEARCH_AUTO: String = "research_auto"
 const RECIPES_UNLOCKED: String = "recipes_unlocked"
 const CRAFTING_QUEUE: String = "crafting_queue"
 

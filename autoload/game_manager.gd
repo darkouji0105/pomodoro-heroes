@@ -24,7 +24,7 @@ signal character_growth_changed(character_id: String)
 signal equipment_instances_changed(instance_id: String)
 # 研究ノードの解放。素材の増減は material_changed 側で通知されるため、こちらには含めない。
 # 実効レベル上限・ステータス上昇は都度計算のため、解放の通知だけで全画面が追従できる。
-signal research_node_unlocked(node_id: String)
+signal research_node_unlocked(node_id: String)  # ⚠ 10-18：⚠ 報酬・自動・栞が変わったときは node_id が ""（⚠ 描き直しの合図）
 # ショップのラインナップの変化（購入・リフレッシュの両方）。
 # 所持金・素材・アイテムの増減は resource_changed / material_changed / inventory_changed 側で
 # 通知されるため、こちらは purchased_count と refresh_at の変化だけを担当する。
@@ -633,6 +633,10 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.CHARACTER_PRESETS: {},
 		GameStateKeys.PARTY_PRESETS: [],
 		GameStateKeys.RESEARCH_TREE: {},
+		# ⚠ 研究（2026-10-18・回UI-1018-7）：⚠ 受け取った完成の報酬・新しく開いた研究（赤い栞）・自動で研究。⚠ 前のセーブも空で読まれる。
+		GameStateKeys.RESEARCH_REWARDS_CLAIMED: [],
+		GameStateKeys.RESEARCH_NEW: [],
+		GameStateKeys.RESEARCH_AUTO: {},
 		GameStateKeys.RECIPES_UNLOCKED: {},
 		GameStateKeys.CRAFTING_QUEUE: [],
 		GameStateKeys.EQUIPMENT_INSTANCES: {},
@@ -7112,8 +7116,18 @@ func get_current_research_board() -> int:
 	return highest if lowest_open < 0 else lowest_open
 
 
+# ⚠⚠ 10-18（回UI-1018-7・人間「い：手本どおり一部で開く」・`GR-10`）：⚠ 前のボードを全部ではなく**一部**（`ResearchConfig.board_open_pct`）開くと開く。
+#   ⚠ 前は「今のボード（未解放を持つ最小）以下」＝前を全部開くまで閉じていた。
 func is_research_board_open(board: int) -> bool:
-	return board <= get_current_research_board()
+	if board <= RESEARCH_DEFAULT_BOARD:
+		return true
+	var before: int = RESEARCH_DEFAULT_BOARD
+	for candidate: int in get_research_boards():
+		if candidate < board:
+			before = candidate
+	if before >= board:
+		return true
+	return is_research_board_open(before) and int(get_research_board_progress(before).get("unlocked", 0)) >= get_research_board_open_need(before)
 
 
 # そのボードの {全件, 解放済み}。画面のヘッダと scenario=research が使う。
@@ -7232,6 +7246,12 @@ func unlock_research_node(node_id: String) -> bool:
 	if amount > 0:
 		add_material(material_id, -amount)
 
+	# ⚠ 10-18（`GR-12`）：⚠ 開いた研究は赤い栞（⚠ 札を押すと外れる）。
+	var fresh: Array = _copy_array(GameStateKeys.RESEARCH_NEW)
+	if not fresh.has(node_id):
+		fresh.append(node_id)
+	_state[GameStateKeys.RESEARCH_NEW] = fresh
+
 	print("[GameManager] unlock_research_node('%s') -> true (cost %s x%d, effect %s +%d)" % [
 		node_id, material_id, amount,
 		str(new_node.get(GameStateKeys.NODE_EFFECT_TYPE, "")),
@@ -7239,6 +7259,249 @@ func unlock_research_node(node_id: String) -> bool:
 	])
 	research_node_unlocked.emit(node_id)
 	return true
+
+# --- 研究：回UI-1018-7（2026-10-18・web版の手本 `04_research_*.png`・決定 `GR-10`〜`GR-12`）---
+#
+# ⚠ ボードは「前のボードを一部（`ResearchConfig.board_open_pct`）開くと」開く（⚠ 人間「い：手本どおり一部で開く」）。
+# ⚠ ボードを全部開くと「完成の報酬」（`ResearchConfig.board_rewards`・宝石・素材・金で仮＝人間「あ」）。
+# ⚠ 「開けるだけ開く」と「自動で研究」（⚠ 分類ごと・素材を残す量）。⚠ 開いた研究は赤い栞（`RESEARCH_NEW`）。
+
+const RESEARCH_REWARD_GOLD: String = "gold"
+const RESEARCH_REWARD_GEMS: String = "gems"
+const RESEARCH_REWARD_MATERIALS: String = "materials"
+# ⚠ 分類の並び（⚠ 画面の段・自動の札）。⚠ マスターに無い分類は出さない（`get_research_categories()`）。
+const RESEARCH_CATEGORIES: Array[String] = ["combat", "chest", "workshop", "base"]
+const RESEARCH_AUTO_ENABLED: String = "enabled"
+const RESEARCH_AUTO_CATEGORIES: String = "categories"
+const RESEARCH_AUTO_KEEP: String = "keep"
+
+
+# ⚠ マスターにある分類（⚠ `RESEARCH_CATEGORIES` の順）。
+func get_research_categories() -> Array[String]:
+	var present: Dictionary = {}
+	for node_id: Variant in MasterDataLoader.get_all_research_nodes():
+		present[str(MasterDataLoader.get_research_node(str(node_id)).get(RESEARCH_NODE_CATEGORY, ""))] = true
+	var result: Array[String] = []
+	for category: String in RESEARCH_CATEGORIES:
+		if present.has(category):
+			result.append(category)
+	for category: Variant in present:
+		if not (str(category) in result):
+			result.append(str(category))
+	return result
+
+
+# ⚠ ボードの番号の一覧（⚠ 小さい順）。
+func get_research_boards() -> Array[int]:
+	var boards: Array[int] = []
+	for node_id: Variant in MasterDataLoader.get_all_research_nodes():
+		var board: int = get_research_board_of(str(node_id))
+		if not (board in boards):
+			boards.append(board)
+	boards.sort()
+	return boards
+
+
+# ⚠ 次のボードを開くのに、このボードで開く数（⚠ 全件 × `board_open_pct` を切り上げ）。
+func get_research_board_open_need(board: int) -> int:
+	var total: int = int(get_research_board_progress(board).get("total", 0))
+	var pct: int = int(Balance.research.board_open_pct) if Balance.research != null else 100
+	return mini(total, (total * pct + 99) / 100)
+
+
+# ⚠ 完成の報酬（⚠ 無ければ空）。⚠ 値は int にそろえる（CLAUDE.md 3番）。
+func get_research_board_reward(board: int) -> Dictionary:
+	if Balance.research == null:
+		return {}
+	var raw: Variant = Balance.research.board_rewards.get(board, Balance.research.board_rewards.get(str(board), {}))
+	if not (raw is Dictionary):
+		return {}
+	var source: Dictionary = raw
+	var materials: Dictionary = {}
+	for material_id: Variant in (source.get(RESEARCH_REWARD_MATERIALS, {}) as Dictionary):
+		materials[str(material_id)] = int((source[RESEARCH_REWARD_MATERIALS] as Dictionary)[material_id])
+	return {
+		RESEARCH_REWARD_GOLD: int(source.get(RESEARCH_REWARD_GOLD, 0)),
+		RESEARCH_REWARD_GEMS: int(source.get(RESEARCH_REWARD_GEMS, 0)),
+		RESEARCH_REWARD_MATERIALS: materials,
+	}
+
+
+func is_research_board_complete(board: int) -> bool:
+	var progress: Dictionary = get_research_board_progress(board)
+	return int(progress.get("total", 0)) > 0 and int(progress.get("unlocked", 0)) >= int(progress.get("total", 0))
+
+
+func is_research_board_reward_claimed(board: int) -> bool:
+	for raw: Variant in _state.get(GameStateKeys.RESEARCH_REWARDS_CLAIMED, []):
+		if int(raw) == board:
+			return true
+	return false
+
+
+# ⚠ 受け取れる完成の報酬があるか（⚠ 研究の紐）。
+func has_claimable_research_reward() -> bool:
+	for board: int in get_research_boards():
+		if is_research_board_complete(board) and not is_research_board_reward_claimed(board) and not get_research_board_reward(board).is_empty():
+			return true
+	return false
+
+
+# ⚠ 完成の報酬を受け取る（⚠ 判定を全部終えてから状態を変える＝CLAUDE.md 6番）。
+func claim_research_board_reward(board: int) -> bool:
+	var reward: Dictionary = get_research_board_reward(board)
+	if reward.is_empty() or not is_research_board_complete(board) or is_research_board_reward_claimed(board):
+		return false
+	var claimed: Array = _copy_array(GameStateKeys.RESEARCH_REWARDS_CLAIMED)
+	claimed.append(board)
+	_state[GameStateKeys.RESEARCH_REWARDS_CLAIMED] = claimed
+	if int(reward[RESEARCH_REWARD_GOLD]) > 0:
+		add_gold(int(reward[RESEARCH_REWARD_GOLD]))
+	if int(reward[RESEARCH_REWARD_GEMS]) > 0:
+		add_gems(int(reward[RESEARCH_REWARD_GEMS]))
+	var materials: Dictionary = reward[RESEARCH_REWARD_MATERIALS]
+	for material_id: String in materials:
+		add_material(material_id, int(materials[material_id]))
+	print("[GameManager] claim_research_board_reward(%d) -> %s" % [board, str(reward)])
+	research_node_unlocked.emit("")
+	return true
+
+
+# ⚠ いま素材もそろっていて開ける研究か（⚠ 前提・ボード・素材）。
+func can_afford_research_node(node_id: String, keep: int = 0) -> bool:
+	if not can_unlock_research_node(node_id):
+		return false
+	var cost: Dictionary = get_research_unlock_cost(node_id)
+	var material_id: String = str(cost.get(RESEARCH_COST_MATERIAL_ID, ""))
+	var amount: int = int(cost.get(RESEARCH_COST_AMOUNT, 0))
+	return amount <= 0 or get_material_count(material_id) - amount >= keep
+
+
+# ⚠ そのボード（⚠ 0 なら開いているボード全部）の研究を、開けるだけ開く（⚠ 分類の順 → sort_order の順）。
+#   ⚠ 開くと次が開ける研究もあるので、開けなくなるまで回す。⚠ 返すのは開いた研究の ID。
+func unlock_research_all(board: int = 0, categories: Dictionary = {}, keep: int = 0) -> Array[String]:
+	var opened: Array[String] = []
+	var ids: Array[String] = _research_ids_in_order()
+	for _pass: int in range(ids.size()):
+		var this_pass: int = 0
+		for node_id: String in ids:
+			if board > 0 and get_research_board_of(node_id) != board:
+				continue
+			if not categories.is_empty() and not bool(categories.get(str(MasterDataLoader.get_research_node(node_id).get(RESEARCH_NODE_CATEGORY, "")), false)):
+				continue
+			if not can_afford_research_node(node_id, keep):
+				continue
+			if unlock_research_node(node_id):
+				opened.append(node_id)
+				this_pass += 1
+		if this_pass == 0:
+			break
+	return opened
+
+
+# ⚠ いま開ける数（⚠ 開けるだけ開くの見込み＝1回目に開ける数ではなく、開けなくなるまで回した数ではない・⚠ 今すぐ押せる数）。
+func get_affordable_research_count(board: int = 0) -> int:
+	var count: int = 0
+	for node_id: String in _research_ids_in_order():
+		if board > 0 and get_research_board_of(node_id) != board:
+			continue
+		if can_afford_research_node(node_id):
+			count += 1
+	return count
+
+
+func _research_ids_in_order() -> Array[String]:
+	var ids: Array[String] = []
+	for node_id: Variant in MasterDataLoader.get_all_research_nodes():
+		ids.append(str(node_id))
+	var order: Array[String] = get_research_categories()
+	ids.sort_custom(func(a: String, b: String) -> bool:
+		var da: Dictionary = MasterDataLoader.get_research_node(a)
+		var db: Dictionary = MasterDataLoader.get_research_node(b)
+		var ba: int = int(da.get(RESEARCH_NODE_BOARD, RESEARCH_DEFAULT_BOARD))
+		var bb: int = int(db.get(RESEARCH_NODE_BOARD, RESEARCH_DEFAULT_BOARD))
+		if ba != bb:
+			return ba < bb
+		var ca: int = order.find(str(da.get(RESEARCH_NODE_CATEGORY, "")))
+		var cb: int = order.find(str(db.get(RESEARCH_NODE_CATEGORY, "")))
+		if ca != cb:
+			return ca < cb
+		return int(da.get("sort_order", 9999)) < int(db.get("sort_order", 9999)))
+	return ids
+
+
+# --- 自動で研究 ---
+
+func get_research_auto() -> Dictionary:
+	var raw: Variant = _state.get(GameStateKeys.RESEARCH_AUTO, {})
+	var saved: Dictionary = raw if raw is Dictionary else {}
+	var categories: Dictionary = {}
+	var saved_categories: Dictionary = saved.get(RESEARCH_AUTO_CATEGORIES, {}) if saved.get(RESEARCH_AUTO_CATEGORIES, {}) is Dictionary else {}
+	for category: String in get_research_categories():
+		categories[category] = bool(saved_categories.get(category, true))
+	var keep_default: int = int(Balance.research.auto_keep_default) if Balance.research != null else 0
+	return {
+		RESEARCH_AUTO_ENABLED: bool(saved.get(RESEARCH_AUTO_ENABLED, false)),
+		RESEARCH_AUTO_CATEGORIES: categories,
+		RESEARCH_AUTO_KEEP: int(saved.get(RESEARCH_AUTO_KEEP, keep_default)),
+	}
+
+
+func set_research_auto(enabled: bool, categories: Dictionary, keep: int) -> void:
+	var clean: Dictionary = {}
+	for category: Variant in categories:
+		clean[str(category)] = bool(categories[category])
+	_state[GameStateKeys.RESEARCH_AUTO] = {
+		RESEARCH_AUTO_ENABLED: enabled,
+		RESEARCH_AUTO_CATEGORIES: clean,
+		RESEARCH_AUTO_KEEP: maxi(0, keep),
+	}
+	research_node_unlocked.emit("")
+
+
+# ⚠ 自動で開く（⚠ オンのときだけ・本部に着いたとき＝ポモドーロや冒険から戻ったとき）。⚠ 開いた ID を返す。
+func run_research_auto() -> Array[String]:
+	var auto: Dictionary = get_research_auto()
+	if not bool(auto[RESEARCH_AUTO_ENABLED]):
+		return []
+	var categories: Dictionary = auto[RESEARCH_AUTO_CATEGORIES]
+	var any_on: bool = false
+	for category: Variant in categories:
+		any_on = any_on or bool(categories[category])
+	if not any_on:
+		return []
+	return unlock_research_all(0, categories, int(auto[RESEARCH_AUTO_KEEP]))
+
+
+# --- 新しく開いた研究（赤い栞） ---
+
+func get_new_research() -> Array[String]:
+	var result: Array[String] = []
+	for raw: Variant in _state.get(GameStateKeys.RESEARCH_NEW, []):
+		result.append(str(raw))
+	return result
+
+
+func is_research_new(node_id: String) -> bool:
+	return node_id in get_new_research()
+
+
+func has_new_research(board: int = 0) -> bool:
+	for node_id: String in get_new_research():
+		if board <= 0 or get_research_board_of(node_id) == board:
+			return true
+	return false
+
+
+# ⚠ 札を押して見た（⚠ 栞を外す）。
+func mark_research_seen(node_id: String) -> void:
+	var list: Array = _copy_array(GameStateKeys.RESEARCH_NEW)
+	if not list.has(node_id):
+		return
+	list.erase(node_id)
+	_state[GameStateKeys.RESEARCH_NEW] = list
+	research_node_unlocked.emit("")
+
 
 # --- 研究：内部ヘルパー ---
 

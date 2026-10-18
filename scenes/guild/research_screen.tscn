@@ -1,11 +1,10 @@
 [gd_scene load_steps=3 format=3 uid="uid://bresearch_scr01"]
 
 [ext_resource type="Script" path="res://scenes/guild/research_screen.gd" id="1_research"]
-[ext_resource type="PackedScene" uid="uid://b1uibutton0001" path="res://scenes/ui/components/ui_button.tscn" id="2_primary_btn"]
-
 [ext_resource type="PackedScene" uid="uid://b1screenheader01" path="res://scenes/ui/components/screen_header.tscn" id="9_screen_header"]
 
 [node name="ResearchScreen" type="Control"]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -14,14 +13,17 @@ grow_vertical = 2
 script = ExtResource("1_research")
 
 [node name="Background" type="PanelContainer" parent="."]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 theme_type_variation = &"BackgroundPanel"
 
 [node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -31,24 +33,17 @@ theme_type_variation = &"ScreenMargin"
 
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
+theme_type_variation = &"TightList"
 
 [node name="Header" parent="Margin/Layout" instance=ExtResource("9_screen_header")]
 layout_mode = 2
 title_key = "ui_research_title"
+subtitle_key = "ui_research_subtitle"
 
-[node name="MaterialLabel" type="Label" parent="Margin/Layout"]
+[node name="BoardNav" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 
-[node name="CapLabel" type="Label" parent="Margin/Layout"]
-layout_mode = 2
-
-[node name="Scroll" type="ScrollContainer" parent="Margin/Layout"]
+[node name="Body" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3
-
-[node name="NodeList" type="VBoxContainer" parent="Margin/Layout/Scroll"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="NoticeLabel" type="Label" parent="Margin/Layout"]
-layout_mode = 2
+theme_type_variation = &"WideRow"

@@ -334,8 +334,13 @@ func _build_grow_card() -> PaperSheet:
 
 func _build_research_card() -> PaperSheet:
 	var count: int = GameManager.get_unlockable_research_count()
+	var fresh: int = GameManager.get_new_research().size()
 	var sub: String = tr("ui_hq_research_sub") % count if count > 0 else tr("ui_hq_research_none")
-	var parts: Dictionary = _card("ResearchCard", IconTextures.for_screen(GameStateKeys.SCREEN_RESEARCH), 0, "ui_facility_research", sub, count > 0)
+	# ⚠ 10-18（回UI-1018-7）：⚠ 新しく開いた研究（⚠ 自動で開いたものも）を先に書く。
+	if fresh > 0:
+		sub = tr("ui_hq_research_new") % [fresh, count]
+	var parts: Dictionary = _card("ResearchCard", IconTextures.for_screen(GameStateKeys.SCREEN_RESEARCH), 0, "ui_facility_research", sub,
+		BaseFacilityBar.attention_of(BaseFacilityBar.RESEARCH))
 	(parts["row"] as HBoxContainer).add_child(_button("ResearchButton", "ui_hq_research_open", UiButton.Variant.SECONDARY, SceneManager.change_scene.bind(BaseFacilityBar.path_of(BaseFacilityBar.RESEARCH))))
 	return parts["sheet"]
 

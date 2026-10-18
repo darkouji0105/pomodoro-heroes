@@ -264,7 +264,8 @@ static func attention_of(id: String) -> bool:
 		BELONGINGS:
 			return GameManager.has_new_items()
 		RESEARCH:
-			return GameManager.has_unlockable_research()
+			# ⚠ 10-18（回UI-1018-7・`GR-12`）：⚠ 新しく開いた研究（赤い栞）・受け取れる完成の報酬も。
+			return GameManager.has_unlockable_research() or GameManager.has_new_research() or GameManager.has_claimable_research_reward()
 		SHOP:
 			return not GameManager.is_shop_line_up_seen()
 	return false
