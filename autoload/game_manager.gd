@@ -3794,10 +3794,24 @@ func can_forge(instance_id: String) -> bool:
 # ⚠ 添字は `forge_cost_by_grade` と同じ（⚠ 0 が「等級2へ上げる」）。⚠ 足りないときは末尾で埋めて赤。
 func get_forge_success_pct(instance_id: String) -> int:
 	var instance: Dictionary = get_equipment_instance(instance_id)
-	var config: EquipmentConfig = _equipment()
-	if instance.is_empty() or config == null:
+	if instance.is_empty():
 		return 100
-	var grade: int = int(instance.get(GameStateKeys.INSTANCE_GRADE, 1))
+	return get_forge_success_pct_from(int(instance.get(GameStateKeys.INSTANCE_GRADE, 1)))
+
+
+# ⚠ 失敗しないで上がれる一番上の等級（10-18・鍛冶場の「失敗しない所まで鍛える（等級◯まで）」）。⚠ 素材は見ない。
+func get_forge_safe_limit(instance_id: String) -> int:
+	var grade: int = int(get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_GRADE, 1))
+	while grade < get_max_equipment_grade() and get_forge_success_pct_from(grade) >= 100:
+		grade += 1
+	return grade
+
+
+# 等級 `grade` から1つ上げる成功率（⚠ 表は `EquipmentConfig.forge_success_pct_by_grade` の1本）。
+func get_forge_success_pct_from(grade: int) -> int:
+	var config: EquipmentConfig = _equipment()
+	if config == null:
+		return 100
 	if grade >= get_max_equipment_grade():
 		return 100
 	var table: Array[int] = config.forge_success_pct_by_grade

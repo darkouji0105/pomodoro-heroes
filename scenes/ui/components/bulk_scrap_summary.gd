@@ -54,8 +54,37 @@ func _ready() -> void:
 		amount.text = "+%d" % int(refund[material_id])
 		line.add_child(amount)
 	var points: int = 0
+	var stars: int = 0
+	var high: int = 0
 	for instance_id: String in _ids:
 		points += int(GameManager.get_offer_preview(instance_id).get(GameManager.OFFER_POINTS, 0))
+		var entry: Dictionary = ItemView.instance_entry(instance_id)
+		if ItemView.is_special(entry):
+			stars += 1
+		if int(entry.get(GameManager.SLOT_ENTRY_GRADE, 1)) >= GameManager.get_guild_relic_grade_min():
+			high += 1
+	if _ids.is_empty():
+		var hint: Label = Label.new()
+		hint.name = "PickHint"
+		hint.theme_type_variation = &"CaptionLabel"
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hint.text = tr("ui_bulk_scrap_empty_hint")
+		add_child(hint)
+	# ⚠ 手本の注意（⚠ ★つきが入っている ／ 等級5以上が入っている）。
+	if stars > 0:
+		var star_note: Label = Label.new()
+		star_note.name = "StarNote"
+		star_note.theme_type_variation = &"ErrorLabel"
+		star_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		star_note.text = tr("ui_bulk_scrap_star_note") % stars
+		add_child(star_note)
+	if high > 0:
+		var high_note: Label = Label.new()
+		high_note.name = "HighNote"
+		high_note.theme_type_variation = &"CaptionLabel"
+		high_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		high_note.text = tr("ui_bulk_scrap_high_note") % [GameManager.get_guild_relic_grade_min(), high]
+		add_child(high_note)
 	if points > 0:
 		var relic: Label = Label.new()
 		relic.name = "RelicPoints"

@@ -1281,7 +1281,7 @@ ui_chest_fx_skip_hint,台を押すと飛ばす
 ui_reward_fx_skip,スキップ
 ui_forge_tab_forge,鍛える
 ui_forge_tab_make,作る
-ui_forge_list,鍛える装備
+ui_forge_list,鍛える装備をえらぶ
 ui_forge_no_equipment,鍛えられる装備が無い
 ui_forge_no_equipment_hint,装備は難ダンジョンや宝箱で手に入る
 ui_forge_reject_max,これ以上は鍛えられない
@@ -2450,3 +2450,27 @@ ui_part_merge_chosen,作る：%s　%s
 ui_part_merge_go,合わせる
 ui_part_merge_tag,%d つ選んだ
 ui_part_merge_confirm,装飾 %d つを合わせて「%s」を作ります。材料はなくなります。よろしいですか？
+ui_forge_back_training,育成に戻る
+ui_forge_from_character,%sの装備から来た
+ui_forge_subtitle,装備を鍛える
+ui_forge_list_count,持っている %d 個・いま %d 個を表示
+ui_forge_legend,左上の数＝等級　★＝特殊効果　右上の顔＝着けている人（着けたままでも鍛えられる）
+ui_forge_legend_touch,触れると詳しく出る
+ui_forge_worn_by,%sが着けている
+ui_forge_now_caption,いま
+ui_forge_after_caption,鍛えたら
+ui_forge_note_safe,等級%dまでは失敗しない
+ui_forge_do_safe_to,失敗しない所まで鍛える（等級%dまで）
+ui_forge_max_title,等級%d。これ以上は鍛えられない
+ui_forge_max_offer_hint,遺物に捧げると、%sが育つ
+ui_forge_offer_go,遺物に捧げる ›
+ui_forge_result_outside,外を押しても閉じる
+ui_forge_result_title,%s　等級 %d → %d
+ui_forge_result_not_lowered,失敗しても等級は下がらない。素材は使った。
+ui_forge_result_steps,%d 回 鍛えた（失敗しない所まで）
+ui_forge_result_used,使った%s %d
+ui_forge_result_used_token,確定成功の札 1
+ui_forge_result_offer_reached,等級%dになった。遺物に捧げられる
+ui_bulk_scrap_empty_hint,左のマスを押して選ぶ（「等級◯以下」でまとめて選べる）
+ui_bulk_scrap_star_note,★つきが %d 個入っている。特殊効果も消える。
+ui_bulk_scrap_high_note,等級%d以上が %d 個。遺物に捧げても同じ素材が戻り、遺物も育つ。

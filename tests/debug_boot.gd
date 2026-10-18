@@ -14812,7 +14812,7 @@ class ShotTaker extends Node:
 				(strike as ForgeStrike).skip()
 			# ⚠ 09-28 から結果は結果の画面（⚠ 紙が記録に変わる）。⚠ 判が押されて紙が光る・震えるまで待つ。
 			await get_tree().process_frame
-			var record: Node = screen.find_child("RecordPage", true, false)
+			var record: Node = screen.find_child("ForgeResultWindow", true, false)
 			if record == null:
 				push_error("[DebugBoot] ⚠ %s で鍛えられなかった（⚠ 記録の窓が出ない）" % shot_name)
 				return false
@@ -15432,47 +15432,46 @@ class UiFlowRunner extends Node:
 		var f: Node = get_tree().current_scene
 		if _path_of(f) != FORGE:
 			return
-		var row: Node = f.find_child("Item_" + instance_id, true, false)
-		_check("鍛冶場：左の一覧でその品が選ばれている", row is LedgerRow and (row as LedgerRow).selected)
+		# ⚠ 10-18（回UI-1018-3）：⚠ 左はマス目（`Cell_<id>`）。⚠ 選んでいる品は灯りの縁。
+		var cell: Node = f.find_child("Cell_" + instance_id, true, false)
+		_check("鍛冶場：左のマス目でその品が選ばれている", cell is ItemCell and (cell as ItemCell).is_selected())
+		_check("鍛冶場：育成から来たので見出しに「◯◯の装備から来た」・戻るは「育成に戻る」",
+			str((f.get("header") as ScreenHeader).back_label_key) == "ui_forge_back_training")
 		var grade: int = _grade(instance_id)
-		# ⚠ 09-28（人間「⚠ 鍛冶場で鍛えるとき、演出を入れたい　⚠ 別の画面でやる」）：⚠ 押すと演出の画面が被さり、⚠ 結果はまだ出ない。
+		# ⚠ 09-28：⚠ 押すと演出が被さり、⚠ 結果はまだ出ない。
 		await _press(f.find_child("ForgeButton", true, false))
 		var strike: Node = f.find_child("ForgeStrike", true, false)
 		_check("鍛冶場：「鍛える」で演出の画面が被さる（結果はまだ・押すと飛ばす）",
-			strike is ForgeStrike and (strike as ForgeStrike).is_playing() and f.find_child("RecordPage", true, false) == null)
+			strike is ForgeStrike and (strike as ForgeStrike).is_playing() and f.find_child("ForgeResultWindow", true, false) == null)
 		var click: InputEventMouseButton = InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
 		click.pressed = true
 		if strike is Control:
 			(strike as Control).gui_input.emit(click)
 		await _wait()
-		_check("鍛冶場：演出を押すと飛ばして結果の画面", f.find_child("ForgeStrike", true, false) == null and f.find_child("RecordPage", true, false) != null)
+		_check("鍛冶場：演出を押すと飛ばして結果の窓", f.find_child("ForgeStrike", true, false) == null and f.find_child("ForgeResultWindow", true, false) != null)
 		_check("鍛冶場：「鍛える」で等級 %d → %d" % [grade, _grade(instance_id)], _grade(instance_id) == grade + 1)
-		# ⚠ 図鑑に新しい等級が載る（2026-09-28・`EXEC_CODEX_GRADES.md` §4）。
 		var forged_item: String = str(GameManager.get_equipment_instance(instance_id).get(GameStateKeys.INSTANCE_ITEM_ID, ""))
 		_check("鍛冶場：鍛えると図鑑にその等級が載る（%s %s）" % [forged_item, str(GameManager.get_codex_grades(forged_item))],
 			_grade(instance_id) in GameManager.get_codex_grades(forged_item))
-		# ⚠ 09-28（人間「⚠ 鍛冶の演出は、これも専用画面がいる」）：⚠ 結果は窓でなく結果の画面（⚠ タブと一覧が消え、紙いっぱいに記録）。
+		# ⚠ 10-18：⚠ 結果は鍛冶場の上の窓（⚠ 一覧も右の紙も後ろに残る）。
 		var seal: Node = f.find_child("ResultStamp", true, false)
-		var tabs: Node = f.find_child("Tabs", true, false)
-		_check("鍛冶場：鍛えると結果の画面（記録・「成功」の判・タブと一覧が消える・窓は出ない）",
-			_modal_of(f) == null and f.find_child("RecordPage", true, false) != null and f.find_child("ForgePage", true, false) == null
-			and f.find_child("List", true, false) == null and tabs is Control and not (tabs as Control).visible
-			and seal is Stamp and (seal as Stamp).label_key == "ui_forge_success")
+		_check("鍛冶場：結果の窓に「成功」の判・後ろに一覧が残る（%s）" % _label_text(f, "ForgeResultWindow", "TitleLabel"),
+			seal is Stamp and (seal as Stamp).label_key == "ui_forge_success" and f.find_child("List", true, false) != null
+			and _label_text(f, "ForgeResultWindow", "TitleLabel").contains("%d → %d" % [grade, grade + 1]))
 		var again: Node = f.find_child("ContinueButton", true, false)
-		_check("鍛冶場：結果の画面に「続けて鍛える」", again is Button and (again as Button).text == tr("ui_forge_continue") and not (again as Button).disabled)
-		# ⚠ 09-28 人間「⚠ 続けて鍛えるで元の画面に戻らないで」＝⚠ その場でもう一度鍛え、結果の画面のまま。
+		_check("鍛冶場：結果の窓に「続けて鍛える」", again is Button and (again as Button).text == tr("ui_forge_continue") and not (again as Button).disabled)
+		# ⚠ 09-28 人間「⚠ 続けて鍛えるで元の画面に戻らないで」＝⚠ その場でもう一度鍛え、また結果の窓。
 		grade = _grade(instance_id)
 		await _forge_press(again)
-		_check("鍛冶場：「続けて鍛える」でその場でもう一度鍛える（等級 %d → %d・結果の画面のまま）" % [grade, _grade(instance_id)],
-			_grade(instance_id) == grade + 1 and f.find_child("RecordPage", true, false) != null and f.find_child("ForgePage", true, false) == null
-			and str(f.get("_selected")) == instance_id and not (tabs as Control).visible)
-		# ⚠ 「戻る」は結果の画面から鍛える紙へ戻る（⚠ 拠点へは出ない）。
+		_check("鍛冶場：「続けて鍛える」でその場でもう一度鍛える（等級 %d → %d・また結果の窓）" % [grade, _grade(instance_id)],
+			_grade(instance_id) == grade + 1 and f.find_child("ForgeResultWindow", true, false) != null and str(f.get("_selected")) == instance_id)
+		# ⚠ 「戻る」は窓を閉じるだけ（⚠ 育成へは出ない）。
 		f.call("_on_back_pressed")
-		await get_tree().process_frame
-		_check("鍛冶場：結果の画面で「戻る」は鍛える紙へ（拠点へは出ない）",
-			get_tree().current_scene == f and f.find_child("ForgePage", true, false) != null and (tabs as Control).visible)
-		# ⚠ 枠が開くまで鍛える（⚠ 等級3から・GAME_DESIGN.md 6-4）。⚠ 1回目は「鍛える」・あとは結果の画面の「続けて鍛える」。
+		await _wait()
+		_check("鍛冶場：結果の窓で「戻る」は窓を閉じる（育成へは出ない）",
+			get_tree().current_scene == f and f.find_child("ForgeResultWindow", true, false) == null and f.find_child("ForgePage", true, false) != null)
+		# ⚠ 枠が開くまで鍛える（⚠ 等級3から・GAME_DESIGN.md 6-4）。⚠ 1回目は「鍛える」・あとは窓の「続けて鍛える」。
 		if _first_empty(instance_id) < 0:
 			await _forge_press(f.find_child("ForgeButton", true, false))
 			for _i: int in range(4):
@@ -15480,9 +15479,9 @@ class UiFlowRunner extends Node:
 					break
 				await _forge_press(f.find_child("ContinueButton", true, false))
 			f.call("_on_back_pressed")
-			await get_tree().process_frame
+			await _wait()
 
-		# 失敗（`EQ-6`）：⚠ 成功率を 0 にして押す（⚠ メモリの中だけ。⚠ debug_boot は既定で 100 に置いている）。
+		# 失敗（`EQ-6`）：⚠ 成功率を 0 にして押す（⚠ メモリの中だけ）。
 		var saved: Array[int] = Balance.equipment.forge_success_pct_by_grade.duplicate()
 		var never: Array[int] = []
 		for _i: int in range(saved.size()):
@@ -15497,17 +15496,24 @@ class UiFlowRunner extends Node:
 		again = f.find_child("ContinueButton", true, false)
 		_check("鍛冶場：失敗すると等級はそのまま（%d）・素材は減る（%d → %d）・「失敗」の判・「もう一度鍛える」" % [_grade(instance_id), before_material, GameManager.get_material_count(material_id)],
 			_grade(instance_id) == grade and GameManager.get_material_count(material_id) < before_material and seal is Stamp and (seal as Stamp).label_key == "ui_forge_fail"
-			and again is Button and (again as Button).text == tr("ui_forge_retry"))
+			and again is Button and (again as Button).text == tr("ui_forge_retry") and f.find_child("NotLowered", true, false) != null)
 		before_material = GameManager.get_material_count(material_id)
 		await _forge_press(again)
-		_check("鍛冶場：「もう一度鍛える」もその場で鍛える（素材 %d → %d・結果の画面のまま）" % [before_material, GameManager.get_material_count(material_id)],
-			GameManager.get_material_count(material_id) < before_material and f.find_child("RecordPage", true, false) != null)
-		f.call("_on_back_pressed")
-		await get_tree().process_frame
+		_check("鍛冶場：「もう一度鍛える」もその場で鍛える（素材 %d → %d・また結果の窓）" % [before_material, GameManager.get_material_count(material_id)],
+			GameManager.get_material_count(material_id) < before_material and f.find_child("ForgeResultWindow", true, false) != null)
+		# ⚠ 窓の外を押しても閉じる（⚠ 手本「外を押しても閉じる」）。⚠ 暗幕は窓の中から探す（⚠ ほかの部品も「Scrim」を持つ）。
+		var result_window: Node = f.find_child("ForgeResultWindow", true, false)
+		var scrim: Node = null if result_window == null else result_window.find_child("Scrim", false, false)
+		# ⚠ 押すと窓ごと消える＝⚠ 見つかったかは先に控える（⚠ 消えた物を `!= null` で見ると false になる）。
+		var has_scrim: bool = scrim is Control
+		if has_scrim:
+			(scrim as Control).gui_input.emit(click)
+		await _wait()
+		_check("鍛冶場：結果の窓の外を押すと閉じる", has_scrim and f.find_child("ForgeResultWindow", true, false) == null)
 		# 確定成功の札（`EQ-7`）：⚠ 1枚持たせ、⚠ 札を使うに切り替えて押す → ⚠ 成功率 0 でも成功・札が減る。
 		GameManager.add_to_inventory(GameStateKeys.ITEM_FORGE_GUARANTEE_TOKEN, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
-		# ⚠ 札が増えたのを画面へ見せる（⚠ 画面は自分の操作でしか描き直さない＝一覧の行を押し直す）。
-		await _press(f.find_child("Item_" + instance_id, true, false))
+		# ⚠ 札が増えたのを画面へ見せる（⚠ 画面は自分の操作でしか描き直さない＝並べ替えの欄を押し直す）。
+		f.call("_rebuild")
 		var tokens: int = GameManager.get_forge_token_count()
 		await _press(f.find_child("TokenCheck", true, false))
 		_check("鍛冶場：札を使うに切り替えると成功 100%%（%s）" % _label_text(f, "ForgePage", "ChanceLabel"), _label_text(f, "ForgePage", "ChanceLabel") == tr("ui_forge_chance") % 100)
@@ -15515,7 +15521,9 @@ class UiFlowRunner extends Node:
 		_check("鍛冶場：確定成功の札で成功（等級 %d → %d・札 %d → %d）" % [grade, _grade(instance_id), tokens, GameManager.get_forge_token_count()],
 			_grade(instance_id) == grade + 1 and GameManager.get_forge_token_count() == tokens - 1)
 		Balance.equipment.forge_success_pct_by_grade = saved
-		# ⚠ 「持ち物で見る」は結果の画面からも押せる（⚠ 手本の右下）。
+		f.call("_on_back_pressed")
+		await _wait()
+		# ⚠ 「持ち物で見る」（⚠ 右の紙の頭）。
 		await _press(f.find_child("BelongingsButton", true, false), OPEN_FRAMES)
 		var w: Node = get_tree().current_scene
 		_check("鍛冶場：「持ち物で見る」で持ち物がその品を選んで開く", _path_of(w) == BELONGINGS and str(w.get("_selected_key")) == instance_id)
@@ -15764,14 +15772,21 @@ class UiFlowRunner extends Node:
 			var id_b: String = str((view as Dictionary).get(GameManager.INSTANCE_VIEW_ID, ""))
 			if not (id_b in before_items) and id_b != g5 and id_b != g4 and int((view as Dictionary).get(GameStateKeys.INSTANCE_GRADE, 0)) == 5:
 				g5b = id_b
+		# ⚠ 10-18（回UI-1018-3・手本 `03_forge_max.png`）：⚠ 鍛冶場で捧げるのは等級10（⚠ これ以上は鍛えられない品）だけ＝⚠ 等級5は持ち物の「捧げる」へ。
+		var fo_mid: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: g5b})
+		_check("遺物：鍛冶場は等級10でなければ捧げるを出さない", fo_mid != null and fo_mid.find_child("ForgeOfferButton", true, false) == null)
+		(GameManager.get("_state")[GameStateKeys.EQUIPMENT_INSTANCES][g5b] as Dictionary)[GameStateKeys.INSTANCE_GRADE] = GameManager.get_max_equipment_grade()
 		var fo: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: g5b})
 		var forge_offer: Node = null if fo == null else fo.find_child("ForgeOfferButton", true, false)
-		_check("遺物：鍛冶場の「鍛える」に捧げるの紙（%s）" % (_label_text(fo, "OfferSheet", "OfferText") if fo != null else ""), forge_offer is BaseButton and not (forge_offer as BaseButton).disabled)
+		var offer_relic: String = str(GameManager.get_offer_preview(g5b).get(GameManager.OFFER_RELIC_ID, ""))
+		var offer_before: int = GameManager.get_guild_relic_points(offer_relic)
+		_check("遺物：鍛冶場の等級10は「これ以上は鍛えられない」と「遺物に捧げる ›」（%s）" % (_label_text(fo, "ForgePage", "OfferText") if fo != null else ""),
+			forge_offer is BaseButton and not (forge_offer as BaseButton).disabled and fo.find_child("MaxLabel", true, false) != null)
 		await _press(forge_offer)
 		await _confirm_modal()
 		await _wait()
-		_check("遺物：鍛冶場から捧げても力の遺物に点数（%d 点）・知らせの窓" % GameManager.get_guild_relic_points("grelic_power"),
-			GameManager.get_guild_relic_points("grelic_power") == 2 and GameManager.get_equipment_instance(g5b).is_empty() and _modal_of(get_tree().current_scene) != null)
+		_check("遺物：鍛冶場から捧げると等級10の遺物に点数（%s %d → %d）・知らせの窓" % [offer_relic, offer_before, GameManager.get_guild_relic_points(offer_relic)],
+			GameManager.get_guild_relic_points(offer_relic) > offer_before and GameManager.get_equipment_instance(g5b).is_empty() and _modal_of(get_tree().current_scene) != null)
 		await _close_modal(get_tree().current_scene)
 		# ⑧ 鍛えるのに失敗すると遺物に点数（⚠ 10-07 見る回23回目・人間「⚠ 火事が失敗すると遺物にポイントが入るように、その際、遺物にポイントがたまる様子も見せる」）。
 		#   ⚠ 成功率はメモリの中だけ 0 にして、⚠ 押したらすぐ戻す（⚠ 撮影の失敗の窓と同じ手）。
@@ -15798,8 +15813,8 @@ class UiFlowRunner extends Node:
 		await _wait(OPEN_FRAMES)
 		_check("遺物：鍛えるのに失敗すると力の遺物に点数（%d → %d）・等級は下がらない" % [power_before, GameManager.get_guild_relic_points("grelic_power")],
 			GameManager.get_guild_relic_points("grelic_power") > power_before and int(GameManager.get_equipment_instance(g5c).get(GameStateKeys.INSTANCE_GRADE, 0)) == 5)
-		_check("遺物：失敗の結果に「遺物に残った」紙と目盛り（%s）" % (_label_text(ff, "RelicGainSheet", "RelicGainText") if ff != null else ""),
-			ff != null and ff.find_child("RelicGainSheet", true, false) != null and ff.find_child("RelicGauge", true, false) != null)
+		_check("遺物：失敗の結果の窓に「遺物に入った点」（%s）" % (_label_text(ff, "ForgeResultWindow", "RelicGainText") if ff != null else ""),
+			ff != null and ff.find_child("RelicGainText", true, false) != null)
 		# ⚠ 10-09（見る回24回目・人間「⚠ 鍛えたら成功でも遺物がたまるように」）：⚠ 成功率をメモリの中だけ 100 にして、もう一度。
 		var power_mid: int = GameManager.get_guild_relic_points("grelic_power")
 		var fs2: Node = await _open(FORGE, {TransferKeys.FORGE_INSTANCE_ID: g5c})
@@ -15816,7 +15831,7 @@ class UiFlowRunner extends Node:
 		await _wait(OPEN_FRAMES)
 		_check("遺物：鍛えるのに成功しても力の遺物に点数（%d → %d）・等級は上がる・結果に紙" % [power_mid, GameManager.get_guild_relic_points("grelic_power")],
 			GameManager.get_guild_relic_points("grelic_power") > power_mid and int(GameManager.get_equipment_instance(g5c).get(GameStateKeys.INSTANCE_GRADE, 0)) == 6
-			and fs2 != null and fs2.find_child("RelicGainSheet", true, false) != null)
+			and fs2 != null and fs2.find_child("RelicGainText", true, false) != null)
 		# ⑤ 富の遺物（⚠ 点数は状態に直に入れる＝等級9の装備を作らずに見る）。
 		var points: Dictionary = GameManager.get("_state")[GameStateKeys.GUILD_RELICS]
 		points["grelic_fortune"] = 1
@@ -18944,6 +18959,22 @@ class UiFlowRunner extends Node:
 		await _wait(OPEN_FRAMES)
 		var back: Node = get_tree().current_scene
 		_check("使い道：行った先の「戻る」で持ち物の素材タブ", _path_of(back) == BELONGINGS and str(back.get("_tab")) == TransferKeys.WAREHOUSE_TAB_MATERIAL)
+
+		# 鍛冶場（10-18・回UI-1018-3）：⚠ 持っている装備がマス目で全部 ／ ⚠ 一括分解も同じ部品。
+		var _s1: int = GameManager.add_to_inventory("acc_keen", 2, GameStateKeys.ITEM_TYPE_EQUIPMENT, 1)
+		var fg: Node = await _open(FORGE, {})
+		if fg == null:
+			return
+		_check("鍛冶場：持っている装備がマス目で全部（%d / %d）・育成から来ていないので戻るは「戻る」" % [fg.find_children("Cell_*", "ItemCell", true, false).size(), GameManager.get_owned_instances().size()],
+			fg.find_children("Cell_*", "ItemCell", true, false).size() >= GameManager.get_owned_instances().size()
+			and str((fg.get("header") as ScreenHeader).back_label_key) == "ui_common_back")
+		await _press(fg.find_child("ScrapToggle", true, false))
+		await _press(fg.find_child("Grade_1", true, false))
+		var forge_picked: Array = fg.get("_picked")
+		_check("鍛冶場：一括分解の「1以下」で選ばれ、右に見積もり（%d 個）" % forge_picked.size(),
+			not forge_picked.is_empty() and fg.find_child("BulkScrapSummary", true, false) != null and fg.find_child("ForgePage", true, false) == null)
+		await _press(fg.find_child("ScrapCancelButton", true, false))
+		_check("鍛冶場：「やめる」で鍛える紙に戻る", not bool(fg.get("_scrapping")) and fg.find_child("ForgePage", true, false) != null)
 		await _open(BASE, {})
 
 	# ⚠ 持ち物の品（⚠ 行なら Row_・マス目なら Cell_）。

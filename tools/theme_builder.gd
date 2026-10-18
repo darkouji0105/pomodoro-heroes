@@ -2666,7 +2666,12 @@ static func _build_chest(theme: Theme) -> void:
 # ⚠ 紙のタブ 鍛える｜作る（⚠ 作るは作業場）／ ⚠ 紙の左に鍛える装備の一覧・右に「前 → 後・成功率・素材・札」／ ⚠ 右の列に札の数。
 # ⚠ 鍛えたあとは紙が「鍛冶の記録」に変わる（⚠ 前 → いま・成功／失敗の判・値・等級・使った素材）。
 const FORGE_LIST_WIDTH: int = 240
-const FORGE_SIDE_WIDTH: int = 280
+const FORGE_SIDE_WIDTH: int = 370   # ⚠ 10-18：⚠ 右の列に鍛える紙が入った（手本 `03_forge.png`）
+const FORGE_RESULT_WIDTH: int = 620
+const FORGE_HEAD_ICON: int = 44     # ⚠ 右の紙の頭の絵（⚠ 持ち物の 56 だと紙が下へはみ出した）
+const FORGE_RESULT_ICON: int = 64
+const FORGE_RESULT_HINT_LIFT: int = 40
+const FORGE_RESULT_SCRIM: Color = Color(0.04, 0.03, 0.02, 0.72)
 const FORGE_ARROW_GAP: int = 28          # ⚠ 前の絵・矢印・後の絵の間
 # ⚠ 鍛冶の記録の演出（2026-09-27 の見る回・人間「⚠ 個別の演出を」）。⚠ 値は設計役の値（⚠ 手本に無い）。
 #   ⚠ 判：遅れて大きく現れ、押し付けられる ／ ⚠ 成功は新しい絵がふくらんで光る ／ ⚠ 失敗は判が震え、絵が灰色に沈む。
@@ -2696,6 +2701,12 @@ static func _build_forge(theme: Theme) -> void:
 	var t: StringName = &"Forge"
 	theme.set_constant(&"list_width", t, FORGE_LIST_WIDTH)
 	theme.set_constant(&"side_width", t, FORGE_SIDE_WIDTH)
+	# ⚠ 結果の窓（10-18・`ForgeResultWindow`・手本 `03_forge_result_ok.png`）。
+	theme.set_constant(&"head_icon", t, FORGE_HEAD_ICON)
+	theme.set_constant(&"result_width", t, FORGE_RESULT_WIDTH)
+	theme.set_constant(&"result_icon", t, FORGE_RESULT_ICON)
+	theme.set_constant(&"result_hint_lift", t, FORGE_RESULT_HINT_LIFT)
+	theme.set_color(&"result_scrim", t, FORGE_RESULT_SCRIM)
 	theme.set_type_variation(&"ForgeArrowRow", &"HBoxContainer")
 	theme.set_constant(&"separation", &"ForgeArrowRow", FORGE_ARROW_GAP)
 	for fx_name: String in FORGE_FX:

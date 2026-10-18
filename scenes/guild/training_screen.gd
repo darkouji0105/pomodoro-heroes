@@ -464,7 +464,8 @@ func _on_level_up_pressed() -> void:
 # ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ 鍛冶場をその品を選んだ状態で開く（⚠ 前は持ち物を開いていた）。
 #   ⚠ 10-06（`NAV-18`）：⚠ 寄り道で開く＝鍛冶場の「戻る」でこのキャラの装備タブへ戻る（⚠ 前は本部へ飛んだ）。
 func _on_forge_requested(instance_id: String) -> void:
-	SceneManager.open_detour(FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: instance_id}, TRAINING_PATH, _return_data())
+	# ⚠ 10-18（回UI-1018-3）：⚠ 鍛冶場の見出しに「◯◯の装備から来た」・戻るは「育成に戻る」＝キャラを渡す。
+	SceneManager.open_detour(FORGE_PATH, {TransferKeys.FORGE_INSTANCE_ID: instance_id, TransferKeys.CHARACTER_ID: _selected_id}, TRAINING_PATH, _return_data())
 
 
 # ⚠ 寄り道から戻ったときに、⚠ いまのキャラとタブで開き直すためのデータ。
