@@ -38,6 +38,25 @@ static func equipment(character_id: String, side: int, p_tip: ItemTipCard = null
 	return row
 
 
+# ⚠ 焼いたビルドの中身（⚠ スキル2つ ｜ 装備5つ・10-18 回UI-1018-5・手本 `01_barracks.png`）。⚠ いまの形ではなくビルドの形。
+static func from_preset(preset: Dictionary, side: int, p_tip: ItemTipCard = null) -> LoadoutIcons:
+	var row: LoadoutIcons = LoadoutIcons.new()
+	row.name = "PresetIcons"
+	row.tip = p_tip
+	var skills_holder: Variant = (preset.get(GameStateKeys.GROWTH_SKILLS, {}) as Dictionary).get(GameStateKeys.GROWTH_SKILL_SLOTS, [])
+	for raw: Variant in (skills_holder as Array if skills_holder is Array else []):
+		row.add_child(skill_frame(str(raw) if raw != null else "", side))
+	var line: VSeparator = VSeparator.new()
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(line)
+	var equipment: Dictionary = preset.get(GameStateKeys.GROWTH_EQUIPMENT, {})
+	for slot: String in GameManager.get_equip_slots():
+		var instance: Variant = equipment.get(slot, null)
+		var entry: Dictionary = {} if instance == null else ItemView.instance_entry(str(instance))
+		row.add_child(row._equip_slot(slot, entry, side))
+	return row
+
+
 # ふちで囲んだスキルのアイコン（⚠ 空きは薄いふちだけ）。
 static func skill_frame(skill_id: String, side: int) -> PanelContainer:
 	var frame: PanelContainer = PanelContainer.new()
@@ -61,8 +80,8 @@ static func skill_frame(skill_id: String, side: int) -> PanelContainer:
 func _ready() -> void:
 	theme_type_variation = &"LoadoutRow"
 	for child: Node in get_children():
-		# ⚠ 品のマスは自分の `pressed` を持つ（⚠ 二重に飛ばさない）。
-		if child is Control and not (child is ItemCell):
+		# ⚠ 品のマスは自分の `pressed` を持つ（⚠ 二重に飛ばさない）。⚠ 仕切りは押せない。
+		if child is Control and not (child is ItemCell) and not (child is Separator):
 			var kind: String = KIND_SKILL if str(child.name).begins_with("Skill_") else KIND_EQUIP
 			(child as Control).gui_input.connect(_on_child_input.bind(kind))
 

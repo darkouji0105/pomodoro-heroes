@@ -72,7 +72,8 @@ func _ready() -> void:
 	for sort: String in sorts:
 		sort_keys.append("ui_item_sort_" + sort)
 	first.add_child(_seg("SortSeg", sorts, sort_keys, sort_of(kind), _on_sort_picked))
-	if kind == KIND_EQUIP:
+	# ⚠ 部位の絞り込みが無い所（⚠ 狭い列）では、⚠ ★だけを2行目へ回す（10-18・ビルドと装備の窓）。
+	if kind == KIND_EQUIP and show_slot_filter:
 		first.add_child(_toggle("SpecialOnly", "ui_item_filter_special", special_only(kind), FIELD_SPECIAL))
 	if kind == KIND_MATERIAL:
 		first.add_child(_toggle("OwnedOnly", "ui_item_filter_owned", owned_only(kind), FIELD_OWNED))
@@ -100,6 +101,8 @@ func _ready() -> void:
 	grade_pick.select(maxi(0, min_grade(kind) - 1))
 	grade_pick.item_selected.connect(_on_grade_picked)
 	second.add_child(grade_pick)
+	if not show_slot_filter:
+		second.add_child(_toggle("SpecialOnly", "ui_item_filter_special", special_only(kind), FIELD_SPECIAL))
 	if show_equipped_only:
 		second.add_child(_toggle("EquippedOnly", "ui_item_filter_equipped", equipped_only(kind), FIELD_EQUIPPED))
 	if trailing != null:

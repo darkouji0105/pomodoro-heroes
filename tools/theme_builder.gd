@@ -3340,6 +3340,50 @@ static func _build_sortie(theme: Theme) -> void:
 		box.content_margin_bottom = int(spec[3])
 		theme.set_type_variation(StringName(str(spec[0])), &"PanelContainer")
 		theme.set_stylebox(&"panel", StringName(str(spec[0])), box)
+	# ⚠⚠ 10-18（回UI-1018-5・web版の手本 `01_barracks.png` / `01_barracks_window.png`）。
+	for spec: Array in [
+		["roster_width", 360], ["build_icon", 15], ["build_name", 52], ["build_left", 250], ["build_right", 400], ["build_slot_icon", 34],
+	]:
+		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
+	# ⚠ 空きの枠（⚠ 暗い板に薄い縁）／ 名簿の札（⚠ 薄い紙）／ 出ている人・選んだ控えの札（⚠ 明るい紙に真鍮の縁）。
+	var empty_slot: StyleBoxFlat = StyleBoxFlat.new()
+	empty_slot.bg_color = Color(0.1, 0.08, 0.06, 0.55)
+	empty_slot.set_border_width_all(2)
+	empty_slot.border_color = _html(ITEM_SEG_BORDER)
+	empty_slot.set_corner_radius_all(4)
+	empty_slot.set_content_margin_all(SORTIE_PAPER_PAD_H)
+	theme.set_type_variation(&"SortieEmptySlotPanel", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"SortieEmptySlotPanel", empty_slot)
+	for spec: Array in [["SortieRosterPanel", ITEM_SEG_BORDER, 1, TOKEN_PAPER_SELECTED], ["SortieRosterOutPanel", TOKEN_BRASS_INK, 2, "f0dfb8"]]:
+		var card: StyleBoxFlat = StyleBoxFlat.new()
+		card.bg_color = _html(str(spec[3]))
+		card.set_border_width_all(int(spec[2]))
+		card.border_color = _html(str(spec[1]))
+		card.set_corner_radius_all(4)
+		card.content_margin_left = 8
+		card.content_margin_right = 8
+		card.content_margin_top = 5
+		card.content_margin_bottom = 5
+		theme.set_type_variation(StringName(str(spec[0])), &"PanelContainer")
+		theme.set_stylebox(&"panel", StringName(str(spec[0])), card)
+	# ⚠ ビルドと装備の窓の外の余白。
+	_set_margin(theme, "BuildWindowMargin", 24, 34)
+	theme.set_type_variation(&"BuildWindowMargin", &"MarginContainer")
+	# ⚠ 紙の上の入力欄（⚠ ビルドの名前）＝⚠ 明るい紙に墨の下線。
+	theme.set_type_variation(&"PaperLineEdit", &"LineEdit")
+	for state: String in ["normal", "focus", "read_only"]:
+		var edit: StyleBoxFlat = StyleBoxFlat.new()
+		edit.bg_color = _html(TOKEN_PAPER_SELECTED)
+		edit.border_width_bottom = 2
+		edit.border_color = _html(TOKEN_BRASS_INK if state == "focus" else TOKEN_INK)
+		edit.content_margin_left = 6
+		edit.content_margin_right = 6
+		edit.content_margin_top = 3
+		edit.content_margin_bottom = 3
+		theme.set_stylebox(StringName(state), &"PaperLineEdit", edit)
+	theme.set_color(&"font_color", &"PaperLineEdit", _html(TOKEN_INK))
+	theme.set_color(&"font_placeholder_color", &"PaperLineEdit", _html(TOKEN_INK_SUB))
+	theme.set_color(&"caret_color", &"PaperLineEdit", _html(TOKEN_INK))
 	var number: Font = theme.get_font(&"font", &"PriceLabel") if theme.has_font(&"font", &"PriceLabel") else null
 	for type_name: StringName in [&"SortieNumberLabel", &"SortieFrontNumberLabel"]:
 		theme.set_type_variation(type_name, &"Label")

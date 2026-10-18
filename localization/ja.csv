@@ -2500,3 +2500,64 @@ ui_training_equip_legend,暗いマス＝ほかの人が着けている（右上�
 ui_training_equip_forge_short,鍛える
 ui_training_equip_compare,%s　%d → %d　%s
 ui_training_equip_current,いま　%s
+ui_sortie_empty_plus,＋
+ui_sortie_empty_slot,空き
+ui_sortie_empty_hint,右の名簿から押すと、ここに入る
+ui_sortie_remove,✕ 外す
+ui_sortie_remove_last,最後の1人は外せない
+ui_sortie_power,戦力
+ui_sortie_use_build,使うビルド
+ui_sortie_use_build_hint,押すと切り替わる
+ui_sortie_build_no,%d
+ui_sortie_build_new,＋ 組む
+ui_sortie_open_training_short,育成 ›
+ui_sortie_edit_build,組む・着替える ›
+ui_sortie_roster_count,%d 人・出撃 %d / %d
+ui_sortie_roster_hint_v2,押すと空いている枠に入る。出撃している人を押すと外れる。
+ui_sortie_sort_caption,並び
+ui_sortie_role_caption,役割
+ui_role_kind_front,前衛
+ui_role_kind_ranged,遠距離
+ui_role_kind_heal,回復
+ui_role_kind_support,支援
+ui_role_kind_debuff,妨害
+ui_role_kind_summon,召喚
+ui_sortie_press_to_remove,出撃%d・押すと外す
+ui_sortie_press_to_slot,押すと %d 番へ
+ui_sortie_no_empty_slot,空いている枠が無い。先に外すか、枠を押して入れる先を選ぶ
+ui_sortie_reserve_hint,%d件　押して選んでから「呼ぶ」
+ui_sortie_reserve_delete,消す
+ui_sortie_reserve_builds,ビルド %s
+ui_sortie_reserve_delete_title,控え%d を消す？
+ui_sortie_reserve_delete_confirm,控え%d の並びを消します。キャラのビルドは消えません。
+ui_sortie_reserve_deleted,控え%d を消した
+ui_sortie_no_member,出撃する人がいない
+ui_build_window_title,%s　ビルドと装備
+ui_build_window_close,閉じる ×
+ui_build_window_builds,ビルドを切り替える
+ui_build_window_builds_max,%dつまで
+ui_build_window_stats,ステータス
+ui_build_window_nodes_note,ステータスノードとパッシブの振り直しは 育成 で
+ui_build_window_empty,%d　空き・押して組む
+ui_build_window_in_use,出撃で使う
+ui_build_window_delete,消す
+ui_build_window_delete_title,ビルド%d「%s」を消す？
+ui_build_window_delete_confirm,スキル・装備・ノードの振り方の組み合わせが消える。装備そのものは持ち物に残る。
+ui_build_window_delete_go,消す
+ui_build_window_deleted,ビルド%d を消した
+ui_build_window_content,ビルド%d の中身
+ui_build_window_content_hint,枠を押すと右に候補が出る
+ui_build_window_name,名前
+ui_build_window_skills,スキル　%dつ
+ui_build_window_equipment,装備　%dつ
+ui_build_window_pick_right,右で選ぶ ›
+ui_build_window_right_hint,真ん中のスキルや装備の枠を押すと、ここに候補が出る
+ui_build_window_pick_equip,%s を選ぶ
+ui_build_window_owned,持っている %d 本
+ui_build_window_skill_changed,スキル%d
+ui_build_window_changes,変えたところ：%s（まだビルドに残していない）
+ui_build_window_no_change,変えたところ：なし
+ui_build_window_discard,残さずに閉じる
+ui_build_window_save_other,別の番号に残す…
+ui_build_window_save,ビルド%d に残して閉じる
+ui_build_window_saved,%s のビルド%d に残した

@@ -97,6 +97,8 @@ const MEMORY_WAREHOUSE_TAB: String = "memory_warehouse_tab"
 const MEMORY_RECORDS_TAB: String = "memory_records_tab"
 const MEMORY_QUEST_TAB: String = "memory_quest_tab"
 const MEMORY_ROSTER_SORT: String = "memory_roster_sort"
+# ⚠ 名簿の役割の絞り込み（2026-10-18・回UI-1018-5）。
+const MEMORY_ROSTER_ROLE: String = "memory_roster_role"
 const MEMORY_TASK_FILTER: String = "memory_task_filter"
 # ⚠ 10-07（回HB-1）：⚠ 本部の見え方（⚠ 机 ／ 拠点の全体）。
 const MEMORY_BASE_VIEW: String = "memory_base_view"

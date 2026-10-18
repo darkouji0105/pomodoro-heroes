@@ -1,5 +1,6 @@
 {
 	"char_swordsman": {
+		"roles": ["front"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -56,6 +57,7 @@
 		}
 	},
 	"char_archer": {
+		"roles": ["ranged"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -113,6 +115,7 @@
 		}
 	},
 	"char_priest": {
+		"roles": ["heal", "support"],
 		"basic_attack": {
 			"target": {
 				"team": "enemy",
@@ -171,6 +174,7 @@
 		}
 	},
 	"char_scholar": {
+		"roles": ["front", "debuff"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -253,6 +257,7 @@
 		}
 	},
 	"char_princess": {
+		"roles": ["ranged", "support"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -321,6 +326,7 @@
 		}
 	},
 	"char_necro": {
+		"roles": ["debuff", "support", "summon"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -398,6 +404,7 @@
 		}
 	},
 	"char_zealot": {
+		"roles": ["front", "debuff"],
 		"basic_attack": {
 			"target": {
 				"team": "enemy",
@@ -470,6 +477,7 @@
 		}
 	},
 	"char_mercenary": {
+		"roles": ["front", "debuff"],
 		"basic_attack": {
 			"target": {
 				"team": "enemy",
@@ -573,6 +581,7 @@
 		}
 	},
 	"char_vampire": {
+		"roles": ["front", "heal"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -659,6 +668,7 @@
 		}
 	},
 	"char_phoenix": {
+		"roles": ["front"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -711,6 +721,7 @@
 		}
 	},
 	"char_student": {
+		"roles": ["ranged", "debuff"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -782,6 +793,7 @@
 		}
 	},
 	"char_gunslinger": {
+		"roles": ["ranged"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -857,6 +869,7 @@
 		}
 	},
 	"char_magnum": {
+		"roles": ["ranged"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -910,6 +923,7 @@
 		}
 	},
 	"char_biker": {
+		"roles": ["front", "debuff"],
 		"basic_attack": {
 			"effects": [
 				{
@@ -974,6 +988,7 @@
 		}
 	},
 	"char_bodybuilder": {
+		"roles": ["front", "support"],
 		"basic_attack": {
 			"target": {
 				"team": "enemy",

@@ -122,6 +122,8 @@ const SHOT_AFTER_SKILLS_BOTTOM: String = "skills_bottom"
 const SHOT_AFTER_ITEM_PARTS: String = "item_parts"
 # ⚠ 持ち物の装飾を合わせる欄（2026-10-18・`BS-23`）。
 const SHOT_AFTER_PART_MERGE: String = "part_merge"
+# ⚠ 詰所のビルドと装備の窓（2026-10-18・回UI-1018-5）。
+const SHOT_AFTER_BUILD_WINDOW: String = "build_window"
 # ⚠ 王女（回PQ-1）：⚠ 王女を1番目に入れる（⚠ 内側の `PREPARE_PRINCESS_PARTY` と同じ字）。
 const SHOT_PREPARE_PRINCESS_PARTY: String = "princess_party"
 const SHOT_AFTER_MODAL_CONFIRM: String = "modal_confirm"
@@ -1776,6 +1778,7 @@ const SCENARIOS: Dictionary = {
 			{"name": "20_ui_parts", "scene": "res://tests/ui_test_page.tscn"},
 			# ⚠ 品の一覧の共通の部品（2026-10-18・回UI-1018-1）。⚠ 同じページを部品の所まで送る。
 			{"name": "20b_item_parts", "scene": "res://tests/ui_test_page.tscn", "after": SHOT_AFTER_ITEM_PARTS},
+			{"name": "34b_barracks_window", "scene": "res://scenes/adventure/party_preset_screen.tscn", "after": SHOT_AFTER_BUILD_WINDOW},
 			{
 				"name": "32b_belongings_merge", "scene": "res://scenes/guild/warehouse_screen.tscn",
 				"data": {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART}, "after": SHOT_AFTER_PART_MERGE,
@@ -13593,6 +13596,7 @@ class ShotTaker extends Node:
 	const AFTER_SKILLS_BOTTOM: String = "skills_bottom"
 	const AFTER_ITEM_PARTS: String = "item_parts"
 	const AFTER_PART_MERGE: String = "part_merge"
+	const AFTER_BUILD_WINDOW: String = "build_window"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
 	const AFTER_LEVEL_UP_PRESS: String = "level_up_press"
 	const AFTER_RELIC_PICK: String = "relic_pick"
@@ -14244,6 +14248,21 @@ class ShotTaker extends Node:
 
 	func _after(kind: String, screen: Node, shot_name: String) -> bool:
 		if kind == "":
+			return true
+		if kind == AFTER_BUILD_WINDOW:
+			# ⚠ 画面の口で窓を開き、⚠ 武器の枠を押して右に候補を出した姿。
+			GameManager.mark_guide_seen(GameManager.GUIDE_SORTIE)
+			var first_member: String = str(GameManager.get_party_members()[0])
+			screen.call("_open_build_window", first_member, 0)
+			for _i: int in range(4):
+				await get_tree().process_frame
+			var window: Node = screen.find_child("BuildEditWindow", true, false)
+			if window == null:
+				push_error("[DebugBoot] ⚠ %s でビルドと装備の窓が出ない" % shot_name)
+				return false
+			window.call("_on_target_pressed", "equip_" + GameStateKeys.EQUIP_WEAPON)
+			for _i: int in range(4):
+				await get_tree().process_frame
 			return true
 		if kind == AFTER_PART_MERGE:
 			# ⚠ 段1の装飾を3つ用意して、⚠ 画面の口で合わせる欄を開き、⚠ 2つ選んで作るものを選んだ姿。
@@ -17234,9 +17253,9 @@ class UiFlowRunner extends Node:
 		_check("詰所：「はじめる」でガイドが消えて「見た」になる", b.find_child("SortieGuide", true, false) == null and GameManager.is_guide_seen(GameManager.GUIDE_SORTIE))
 
 		var members: Array = GameManager.get_party_members()
-		_check("詰所：3つの枠・控え %d 件・「選んだ人を育成で開く」（出撃する・署名の行・受理の判は無い）" % b.find_children("Preset_*", "", true, false).size(),
+		_check("詰所：3つの枠・控え %d 件・枠ごとに「育成 ›」（出撃する・署名の行・受理の判は無い）" % b.find_children("Preset_*", "", true, false).size(),
 			b.find_children("Slot_*", "", true, false).size() == 3 and b.find_children("Preset_*", "", true, false).size() == GameManager.get_party_preset_count()
-			and b.find_child("OpenTrainingButton", true, false) != null and b.find_child("SortieButton", true, false) == null
+			and b.find_children("OpenTraining_*", "", true, false).size() == 3 and b.find_child("SortieButton", true, false) == null
 			and b.find_children("Signature_*", "", true, false).is_empty() and b.find_child("AcceptStamp", true, false) == null)
 
 		# 光り方（⚠ 09-28 人間「⚠ ハイライトするのは入れ替えもとだけでいい」「⚠ 出撃してない人だけハイライト」）：
@@ -17245,13 +17264,12 @@ class UiFlowRunner extends Node:
 		for i: int in range(3):
 			if b.find_child("Slot_%d" % i, true, false).find_child("PulseFrame", false, false) != null:
 				lit_slots += 1
-		var lit_ok: bool = true
-		for character_id: String in GameManager.get_party_candidates():
-			var card: Node = b.find_child("Roster_" + character_id, true, false)
-			var lit: bool = card != null and card.find_child("PulseFrame", false, false) != null
-			if lit == (character_id in members):
-				lit_ok = false
-		_check("詰所：選ぶ前は枠が光らない（%d）・名簿は出撃していない人だけ光る" % lit_slots, lit_slots == 0 and lit_ok)
+		# ⚠ 10-18（回UI-1018-5）：⚠ 名簿は光らせない代わりに、⚠ 出ている人の札に「出撃◯・押すと外す」。
+		var out_ok: bool = true
+		for character_id: Variant in members:
+			if not _label_text(b, "Roster_" + str(character_id), "Badge").contains(tr("ui_sortie_press_to_remove") % (members.find(character_id) + 1)):
+				out_ok = false
+		_check("詰所：選ぶ前は枠が光らない（%d）・名簿の出ている人に「出撃◯・押すと外す」" % lit_slots, lit_slots == 0 and out_ok)
 		# ◀ ▶（⚠ 09-28 人間「⚠ 入れ替えは、上側でできるように　⚠ 右と左にボタンを作ってそこと入れ替え」）。
 		_check("詰所：1番の「◀」と3番の「▶」は押せない",
 			(b.find_child("MoveLeft_0", true, false) as Button).disabled and (b.find_child("MoveRight_2", true, false) as Button).disabled)
@@ -17272,29 +17290,25 @@ class UiFlowRunner extends Node:
 		var swapped: Array = GameManager.get_party_members()
 		_check("詰所：名簿で1番の人を選ぶと入れ替わる（%s → %s）" % [str(members), str(swapped)], swapped[2] == members[0] and swapped[0] == members[2] and swapped[1] == members[1])
 
-		# ビルド ▼：吹き出しで選ぶと当てる（⚠ 中身の無いビルドは押せない）。
-		await _press(b.find_child("Build_" + HERO, true, false))
-		var pop: Node = _first_of_type(b, "SlotActionPopover")
-		var empty_choice: Node = null if pop == null else pop.find_child("BuildChoice_2", true, false)
-		_check("詰所：ビルドの吹き出し・中身の無いビルド3は押せない", pop != null and empty_choice is Button and (empty_choice as Button).disabled)
-		await _press(null if pop == null else pop.find_child("BuildChoice_1", true, false))
-		var build_button: Node = b.find_child("Build_" + HERO, true, false)
-		_check("詰所：ビルド2を選ぶと当たる（%s）" % ((build_button as Button).text if build_button is Button else ""), int(b.get("_selected_builds").get(HERO, -1)) == 1)
+		# ⚠ 10-18（回UI-1018-5）：⚠ 使うビルドは枠の中の行（⚠ 押すとすぐ切り替わる）。⚠ 空きは「＋ 組む」。
+		_check("詰所：英雄のビルド3は「＋ 組む」", _label_text(b, "Build_%s_2" % HERO, "Label") == "" or b.find_child("Build_%s_2" % HERO, true, false) != null)
+		await _press(b.find_child("Build_%s_1" % HERO, true, false))
+		_check("詰所：ビルド2の行を押すと当たる（いまの形＝ビルド%d）" % (GameManager.get_matching_character_preset(HERO) + 1), GameManager.get_matching_character_preset(HERO) == 1)
 
 		# 控え：1件目で「いまを残す」→「いまと同じ」の判 ／ 並びを変えて「呼ぶ」→ 予告の窓 → 呼ぶで戻る ／ 上書きは確かめる。
-		await _press(b.find_child("Preset_0", true, false))
+		await _press(_hit_of(b, "Preset_0"))
 		await _press(b.find_child("KeepButton", true, false))
 		var preset: Dictionary = GameManager.get_party_presets()[0]
 		var hero_index: int = -1
 		for entry: Variant in preset.get(GameStateKeys.PRESET_SLOTS, []):
 			if str((entry as Dictionary).get(GameStateKeys.PRESET_CHARACTER_ID, "")) == HERO:
 				hero_index = int((entry as Dictionary).get(GameStateKeys.PRESET_INDEX, -1))
-		_check("詰所：「いまを残す」で控え1に残る（ビルド番号 %d）・「いまと同じ」の判" % (hero_index + 1),
-			bool(preset.get(GameStateKeys.PRESET_SAVED, false)) and hero_index == 1 and b.find_child("Preset_0", true, false).find_child("SameStamp", true, false) != null)
+		_check("詰所：「いまを残す」で控え1に残る（ビルド番号 %d）・「いまと同じ」" % (hero_index + 1),
+			bool(preset.get(GameStateKeys.PRESET_SAVED, false)) and hero_index == 1 and bool(b.call("_matches_now", preset)))
 		var kept: Array = GameManager.get_party_members()
 		await _press(_slot_hit(b, 0))
 		await _press(_roster_hit(b, str(kept[1])))
-		_check("詰所：並びを変えると「いまと同じ」が消える", b.find_child("Preset_0", true, false).find_child("SameStamp", true, false) == null)
+		_check("詰所：並びを変えると「いまと同じ」が消える", not bool(b.call("_matches_now", GameManager.get_party_presets()[0])))
 		await _press(b.find_child("CallButton", true, false))
 		var modal: ModalDialog = _modal_of(b)
 		_check("詰所：「呼ぶ」で予告の窓（並び・ビルド）", modal != null and modal.find_child("CallPreview", true, false) != null)
@@ -17304,11 +17318,13 @@ class UiFlowRunner extends Node:
 		_check("詰所：保存済みの控えに「いまを残す」は上書きを確かめる", _modal_of(b) != null)
 		await _confirm_modal()
 
-		# 詰所：名簿で人を押して「選んだ人を育成で開く」→ その人の育成。⚠ 戻ると育成の一覧（⚠ 下の手へ続く）。
-		await _press(_roster_hit(b, OTHER))
-		await _press(b.find_child("OpenTrainingButton", true, false), OPEN_FRAMES)
+		await _flow_barracks_v2(b)
+		# 詰所：枠の「育成 ›」→ その人の育成。⚠ 戻ると育成の一覧（⚠ 下の手へ続く）。
+		b = get_tree().current_scene
+		var first_member: String = str(GameManager.get_party_members()[0])
+		await _press(b.find_child("OpenTraining_" + first_member, true, false), OPEN_FRAMES)
 		var opened: Node = get_tree().current_scene
-		_check("詰所：「選んだ人を育成で開く」で %s の育成" % OTHER, _path_of(opened) == TRAINING and str(opened.get("_selected_id")) == OTHER)
+		_check("詰所：枠の「育成 ›」で %s の育成" % first_member, _path_of(opened) == TRAINING and str(opened.get("_selected_id")) == first_member)
 		b = await _open(BARRACKS, {})
 		if b == null:
 			return
@@ -18346,7 +18362,7 @@ class UiFlowRunner extends Node:
 		var b: Node = await _open(BARRACKS, {})
 		if b == null:
 			return
-		await _press(b.find_child("OpenTrainingButton", true, false), OPEN_FRAMES)
+		await _press(_first_named(b, "OpenTraining_*"), OPEN_FRAMES)
 		await _back(get_tree().current_scene)
 		b = get_tree().current_scene
 		_check("戻り先：詰所 → 育成 →「戻る」で詰所（帯つき）", _path_of(b) == BARRACKS and b.find_child("FacilityBar", false, false) != null)
@@ -18355,8 +18371,8 @@ class UiFlowRunner extends Node:
 		b = await _open(BARRACKS, {TransferKeys.SORTIE_STAGE_ID: stage_id, TransferKeys.RETURN_PATH: ADVENTURE})
 		if b == null:
 			return
-		_check("戻り先：出撃の準備にも「育成」がある", b.find_child("OpenTrainingButton", true, false) != null and b.find_child("SortieButton", true, false) != null)
-		await _press(b.find_child("OpenTrainingButton", true, false), OPEN_FRAMES)
+		_check("戻り先：出撃の準備にも「育成」がある", _first_named(b, "OpenTraining_*") != null and b.find_child("SortieButton", true, false) != null)
+		await _press(_first_named(b, "OpenTraining_*"), OPEN_FRAMES)
 		await _back(get_tree().current_scene)
 		b = get_tree().current_scene
 		_check("戻り先：出撃の準備 → 育成 →「戻る」で同じ依頼の準備（%s・戻り先 %s）" % [str(b.get("_stage_id")), str(b.get("_return_path")).get_file()],
@@ -18657,14 +18673,12 @@ class UiFlowRunner extends Node:
 			_check("スクロール：育成のスキルで枠を押しても位置が残る（%d → %d・送れる幅 %d・枠 %s・高さ %s）" % [skills_before, skills_after, 0 if skills_bar == null else int(skills_bar.max_value - skills_bar.page), str(skills_scroll != null), "-" if skills_scroll == null else str(skills_scroll.size)],
 				skills_before > 0 and absi(skills_after - skills_before) <= 2)
 
-		# 詰所：「選んだ人の装備を着替える」で育成の装備タブが開く。
+		# 詰所：⚠ 10-18（回UI-1018-5）から「組む・着替える ›」＝ビルドと装備の窓（⚠ 詰所の中で着替える）。
 		GameManager.mark_guide_seen(GameManager.GUIDE_SORTIE)
 		var b: Node = await _open(BARRACKS, {})
 		if b != null:
-			await _press(b.find_child("OpenEquipButton", true, false), OPEN_FRAMES)
-			var opened: Node = get_tree().current_scene
-			_check("詰所：「選んだ人の装備を着替える」で育成の装備タブが開く",
-				_path_of(opened) == TRAINING and str(opened.get("_tab")) == TransferKeys.TRAINING_TAB_EQUIP)
+			await _press(_first_named(b, "EditBuild_*"), OPEN_FRAMES)
+			_check("詰所：「組む・着替える ›」でビルドと装備の窓", b.find_child("BuildEditWindow", true, false) is BuildEditWindow)
 		await _open(BASE, {})
 
 	# --- 10-18 回UI-1018-1：品の一覧の共通の部品（並べ替えの欄・マス・行・触れると出る札・一括分解） ---
@@ -19000,6 +19014,107 @@ class UiFlowRunner extends Node:
 		await _press(fg.find_child("ScrapCancelButton", true, false))
 		_check("鍛冶場：「やめる」で鍛える紙に戻る", not bool(fg.get("_scrapping")) and fg.find_child("ForgePage", true, false) != null)
 		await _open(BASE, {})
+
+	# ⚠ 名前の型に合う最初の子（⚠ 無ければ null）。
+	func _first_named(scene: Node, pattern: String) -> Node:
+		if scene == null:
+			return null
+		var found: Array[Node] = scene.find_children(pattern, "", true, false)
+		return found[0] if not found.is_empty() else null
+
+	# --- 10-18 回UI-1018-5：詰所の作り直し（枠を空ける `NAV-31`・名簿・役割・戦力・ビルドと装備の窓・控えの空き） ---
+
+	func _flow_barracks_v2(b: Node) -> void:
+		var members: Array = GameManager.get_party_members()
+		# 枠を空ける：⚠ 「✕ 外す」で空き ／ ⚠ 名簿で出ていない人を押すと空きに入る ／ ⚠ 出ている人を押すと外れる ／ ⚠ 最後の1人は外せない。
+		await _press(b.find_child("RemoveButton_1", true, false))
+		_check("詰所：「✕ 外す」で2番が空き（%s）" % str(GameManager.get_party_members()), str(GameManager.get_party_members()[1]) == "" and b.find_child("Slot_1", true, false).find_child("EmptyLabel", true, false) != null)
+		var outsider: String = ""
+		for candidate: Variant in GameManager.get_party_candidates():
+			if not (str(candidate) in members) and not GameManager.is_debug_character(str(candidate)):
+				outsider = str(candidate)
+				break
+		await _press(_roster_hit(b, outsider))
+		_check("詰所：名簿で出ていない %s を押すと空いている2番に入る" % outsider, str(GameManager.get_party_members()[1]) == outsider)
+		await _press(_roster_hit(b, outsider))
+		await _press(_roster_hit(b, str(members[2])))
+		_check("詰所：名簿で出ている人を押すと外れる（%s）" % str(GameManager.get_party_members()), GameManager.get_party_member_count() == 1)
+		var last_remove: Node = b.find_child("RemoveButton_0", true, false)
+		_check("詰所：最後の1人の「✕ 外す」は押せない・外せない", last_remove is Button and (last_remove as Button).disabled and not GameManager.set_party_member(0, ""))
+		# ⚠ 空きのある並びも控えに残せる・呼べる。
+		await _press(_hit_of(b, "Preset_5"))
+		await _press(b.find_child("KeepButton", true, false))
+		var holey: Dictionary = GameManager.get_party_presets()[5]
+		var empties: int = 0
+		for entry: Variant in holey.get(GameStateKeys.PRESET_SLOTS, []):
+			if str((entry as Dictionary).get(GameStateKeys.PRESET_CHARACTER_ID, "")) == "":
+				empties += 1
+		_check("詰所：空きのある並びを控え6に残せる（空き %d）" % empties, bool(holey.get(GameStateKeys.PRESET_SAVED, false)) and empties == 2)
+		# 戻す：⚠ 3人の並びに。
+		GameManager.set_party_member(1, str(members[1]))
+		GameManager.set_party_member(2, str(members[2]))
+		GameManager.set_party_member(0, str(members[0]))
+		b.call("_rebuild")
+		await _wait()
+		var report: Dictionary = GameManager.apply_party_preset(5)
+		_check("詰所：空きのある控えを呼ぶと枠が空く（%s）" % str(GameManager.get_party_members()), bool(report.get(GameManager.APPLY_OK, false)) and GameManager.get_party_member_count() == 1)
+		GameManager.set_party_member(1, str(members[1]))
+		GameManager.set_party_member(2, str(members[2]))
+		GameManager.set_party_member(0, str(members[0]))
+		GameManager.clear_party_preset(5)
+		b.call("_rebuild")
+		await _wait()
+		_check("詰所：並びが戻る（%s）" % str(GameManager.get_party_members()), GameManager.get_party_members() == members)
+
+		# 役割と戦力：⚠ 「回復」で絞ると回復の人だけ ／ ⚠ 戦力で並べると上から下がる。
+		await _press(b.find_child("RoleSeg_heal", true, false))
+		var heal_only: bool = true
+		var shown: int = 0
+		for node: Node in b.find_children("Roster_*", "", true, false):
+			shown += 1
+			if not ("heal" in GameManager.get_character_roles(str(node.name).trim_prefix("Roster_"))):
+				heal_only = false
+		_check("詰所：役割「回復」で回復の人だけ（%d 人）" % shown, shown >= 1 and heal_only)
+		await _press(b.find_child("RoleSeg_all", true, false))
+		await _press(b.find_child("SortSeg_" + "power", true, false))
+		var powers: Array[int] = []
+		for node: Node in b.find_child("RosterCards", true, false).get_children():
+			var id: String = str(node.name).trim_prefix("Roster_")
+			if not GameManager.is_debug_character(id):
+				powers.append(GameManager.get_character_power(id))
+		var descending: bool = powers.size() >= 3
+		for i: int in range(1, powers.size()):
+			if powers[i] > powers[i - 1]:
+				descending = false
+		_check("詰所：「戦力」で並べると上から戦力が下がる（%s）" % str(powers.slice(0, 5)), descending and powers[0] > 0)
+		await _press(b.find_child("SortSeg_level", true, false))
+
+		# ビルドと装備の窓：⚠ 名前を付けてビルド3に残す ／ ⚠ ビルド3を消す（確かめの窓）。
+		await _press(b.find_child("EditBuild_" + HERO, true, false))
+		var window: Node = b.find_child("BuildEditWindow", true, false)
+		_check("詰所：「組む・着替える ›」でビルドと装備の窓（スキル2・装備5）", window is BuildEditWindow
+			and window.find_children("SkillSlot_*", "", true, false).size() == 2 and window.find_children("EquipSlot_*", "", true, false).size() == GameManager.get_equip_slots().size())
+		await _press(_hit_of(window, "BuildCard_2"))
+		var name_edit: LineEdit = window.find_child("NameEdit", true, false) as LineEdit
+		if name_edit != null:
+			name_edit.text = "前に立つ"
+			name_edit.text_changed.emit("前に立つ")
+		await _press(window.find_child("EquipSlot_" + GameStateKeys.EQUIP_WEAPON, true, false))
+		_check("詰所の窓：装備の枠を押すと右に候補（並べ替えの欄つき）", window.find_child("ItemListBar", true, false) != null)
+		await _press(window.find_child("SaveButton", true, false))
+		_check("詰所の窓：「ビルド3に残して閉じる」で名前つきで残る（%s）" % GameManager.get_character_preset_name(HERO, 2),
+			b.find_child("BuildEditWindow", true, false) == null and bool(GameManager.get_character_preset(HERO, 2).get(GameStateKeys.PRESET_SAVED, false))
+			and GameManager.get_character_preset_name(HERO, 2) == "前に立つ")
+		_check("詰所：枠のビルドの行に名前（%s）" % _label_text(b, "Build_%s_2" % HERO, "BuildName"), _label_text(b, "Build_%s_2" % HERO, "BuildName") == "前に立つ")
+		await _press(b.find_child("EditBuild_" + HERO, true, false))
+		window = b.find_child("BuildEditWindow", true, false)
+		await _press(null if window == null else window.find_child("DeleteBuild_2", true, false))
+		await _confirm_modal()
+		await _wait()
+		_check("詰所の窓：ゴミ箱 → はい でビルド3が空きに戻る", not bool(GameManager.get_character_preset(HERO, 2).get(GameStateKeys.PRESET_SAVED, false)))
+		window = b.find_child("BuildEditWindow", true, false)
+		await _press(null if window == null else window.find_child("DiscardButton", true, false))
+		_check("詰所の窓：「残さずに閉じる」で閉じる", b.find_child("BuildEditWindow", true, false) == null)
 
 	# ⚠ 持ち物の品（⚠ 行なら Row_・マス目なら Cell_）。
 	func _belongings_item(scene: Node, key: String) -> Node:

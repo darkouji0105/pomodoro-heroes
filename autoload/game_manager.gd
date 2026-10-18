@@ -5522,6 +5522,15 @@ func get_party_members() -> Array:
 	return (members as Array).duplicate(true)
 
 
+# 編成に出ている人数（⚠ 空きの枠は数えない）。
+func get_party_member_count() -> int:
+	var count: int = 0
+	for member: Variant in get_party_members():
+		if str(member) != "":
+			count += 1
+	return count
+
+
 # 枠 index のキャラを差し替える。差し替えた（または既に同じだった）なら true。
 #
 # ⚠ 状態を変える前に全部の判定を終える（CLAUDE.md 6番）。途中で1枠だけ書いてから
@@ -5534,7 +5543,8 @@ func set_party_member(index: int, character_id: String) -> bool:
 		return false
 	# ⚠ get_character() を使わないこと。見つからないと push_error を出す口なので、
 	#   「候補にあるか確かめる」用途に使うと正常系で赤が出る。
-	if not MasterDataLoader.get_all_characters().has(character_id):
+	# ⚠⚠ 10-18（回UI-1018-5・人間「い：空けられるようにする」・決定 `NAV-31`）：⚠ "" ＝枠を空ける。
+	if character_id != "" and not MasterDataLoader.get_all_characters().has(character_id):
 		push_error("[GameManager] set_party_member: 知らない character_id: " + character_id)
 		return false
 
@@ -5549,8 +5559,13 @@ func set_party_member(index: int, character_id: String) -> bool:
 	if str(members[index]) == character_id:
 		return true
 
+	# ⚠ 最後の1人は外せない（⚠ 0人では出撃も戦闘もできない）。
+	if character_id == "" and get_party_member_count() <= 1:
+		print("[GameManager] set_party_member(%d, \"\") -> false (最後の1人は外せない)" % index)
+		return false
+
 	# ここまで判定だけ。ここから状態を作る。
-	var other: int = members.find(character_id)
+	var other: int = members.find(character_id) if character_id != "" else -1
 	if other >= 0:
 		members[other] = members[index]
 	members[index] = character_id
@@ -5608,12 +5623,15 @@ func _is_party_members_valid() -> bool:
 	var seen: Dictionary = {}
 	for entry: Variant in members:
 		var character_id: String = str(entry)
+		# ⚠ 10-18（`NAV-31`）：⚠ 空きの枠は在ってよい（⚠ 1人は要る）。
+		if character_id == "":
+			continue
 		if not all_characters.has(character_id):
 			return false
 		if seen.has(character_id):
 			return false
 		seen[character_id] = true
-	return true
+	return not seen.is_empty()
 
 
 # 編成に出せるキャラ（character_id の配列）。並び順は characters.json の記述順。
@@ -5774,6 +5792,73 @@ func _write_character_presets(character_id: String, presets: Array) -> void:
 	_state[GameStateKeys.CHARACTER_PRESETS] = all_presets
 
 
+# ⚠⚠ ビルドの名前（2026-10-18・回UI-1018-5・web版の手本「前に立つ」・決定 `NAV-32`）。⚠ 空なら「ビルド◯」。
+# ⚠ 名前は焼いたビルドの中にだけ持つ（⚠ 空きのビルドには付けない）。⚠ 長さは `CHARACTER_PRESET_NAME_MAX` まで。
+const CHARACTER_PRESET_NAME_MAX: int = 12
+
+
+func get_character_preset_name(character_id: String, index: int) -> String:
+	return str(get_character_preset(character_id, index).get(GameStateKeys.PRESET_NAME, ""))
+
+
+func set_character_preset_name(character_id: String, index: int, preset_name: String) -> bool:
+	var trimmed: String = preset_name.strip_edges().left(CHARACTER_PRESET_NAME_MAX)
+	var presets: Array = get_character_presets(character_id)
+	if index < 0 or index >= presets.size() or not bool((presets[index] as Dictionary).get(GameStateKeys.PRESET_SAVED, false)):
+		return false
+
+	# --- ここから状態を変える ---
+
+	var preset: Dictionary = (presets[index] as Dictionary).duplicate(true)
+	preset[GameStateKeys.PRESET_NAME] = trimmed
+	presets[index] = preset
+	_write_character_presets(character_id, presets)
+	return true
+
+
+# ⚠⚠ ビルドを消す（2026-10-18・手本 `01_barracks_build_delete.png`）。⚠ 空きに戻す（⚠ 装備そのものは持ち物に残る＝ビルドは個体の ID を指すだけ）。
+# ⚠ 編成の控えが指していても消せる（⚠ 呼ぶと「参照先が空」で弾かれる＝`PRESET_REJECT_REF_UNSAVED`）。
+func clear_character_preset(character_id: String, index: int) -> bool:
+	var presets: Array = get_character_presets(character_id)
+	if index < 0 or index >= presets.size() or not bool((presets[index] as Dictionary).get(GameStateKeys.PRESET_SAVED, false)):
+		return false
+
+	# --- ここから状態を変える ---
+
+	presets[index] = _empty_character_preset()
+	_write_character_presets(character_id, presets)
+	print("[GameManager] clear_character_preset('%s', %d) -> true" % [character_id, index])
+	return true
+
+
+# ⚠⚠ 戦力（2026-10-18・回UI-1018-5・人間「あ：ステータスの重み付き合計」・決定 `NAV-33`）。⚠ 名簿に出すだけ（⚠ 戦闘には効かない）。
+# ⚠ 重みは `CharacterConfig.power_weights`（⚠ 値は仮）。⚠ いまの形（装備・割り振りを含む＝`get_effective_stats()`）から毎回。
+func get_character_power(character_id: String) -> int:
+	if Balance == null or Balance.character == null:
+		return 0
+	var weights: Dictionary = Balance.character.power_weights
+	var stats: Dictionary = get_effective_stats(character_id)
+	var total: float = 0.0
+	for stat_key: Variant in weights:
+		total += float(stats.get(str(stat_key), 0)) * float(weights[stat_key])
+	return int(round(total))
+
+
+# ⚠⚠ 役割（2026-10-18・回UI-1018-5・人間「４あ」＝キャラのデータに欄を足す・中身は設計役が振り分けた）。
+# ⚠ `characters.json` の "roles"（⚠ `CHARACTER_ROLES` の字の並び）。⚠ 名簿の「役割」で絞るのに使う。
+const CHARACTER_ROLES: Array[String] = ["front", "ranged", "heal", "support", "debuff", "summon"]
+
+
+func get_character_roles(character_id: String) -> Array[String]:
+	var roles: Array[String] = []
+	var raw: Variant = MasterDataLoader.get_character(character_id).get("roles", [])
+	if raw is Array:
+		for role: Variant in (raw as Array):
+			if str(role) in CHARACTER_ROLES:
+				roles.append(str(role))
+	return roles
+
+
 # ⚠⚠ いまの形と同じ中身のビルド（2026-10-18・回UI-1018-4）。⚠ 無ければ -1。
 # ⚠ 「いまどのビルドか」はセーブに持たない（⚠ 状態に写しを持たない・CLAUDE.md 4番）＝⚠ 毎回くらべる。
 # ⚠ くらべるのは焼く5つ（割り振り・スキル・パッシブ・装備・移動量）。⚠ 割り振りは順番を見ない。
@@ -5847,6 +5932,8 @@ func save_character_preset(character_id: String, index: int) -> bool:
 	}
 
 	var presets: Array = get_character_presets(character_id)
+	# ⚠ 10-18（`NAV-32`）：⚠ 焼き直しても名前は残す。
+	preset[GameStateKeys.PRESET_NAME] = str((presets[index] as Dictionary).get(GameStateKeys.PRESET_NAME, ""))
 	presets[index] = preset
 	_write_character_presets(character_id, presets)
 
@@ -5881,6 +5968,10 @@ func save_party_preset(index: int, slots: Array) -> bool:
 		var slot: Dictionary = entry
 		var character_id: String = str(slot.get(GameStateKeys.PRESET_CHARACTER_ID, ""))
 		var preset_index: int = int(slot.get(GameStateKeys.PRESET_INDEX, -1))
+		# ⚠ 10-18（`NAV-31`）：⚠ 空きの枠もそのまま残す。
+		if character_id == "":
+			normalized.append({GameStateKeys.PRESET_CHARACTER_ID: "", GameStateKeys.PRESET_INDEX: 0})
+			continue
 		if not all_characters.has(character_id):
 			push_error("[GameManager] save_party_preset: 知らない character_id: " + character_id)
 			return false
@@ -5912,6 +6003,8 @@ func save_party_preset(index: int, slots: Array) -> bool:
 		var slot: Dictionary = entry
 		var character_id: String = str(slot[GameStateKeys.PRESET_CHARACTER_ID])
 		var preset_index: int = int(slot[GameStateKeys.PRESET_INDEX])
+		if character_id == "":
+			continue
 		if bool(get_character_preset(character_id, preset_index).get(GameStateKeys.PRESET_SAVED, false)):
 			continue
 		if save_character_preset(character_id, preset_index):
@@ -6023,6 +6116,11 @@ func get_party_preset_apply_report(index: int) -> Dictionary:
 		var slot_data: Dictionary = slot_entry
 		var character_id: String = str(slot_data.get(GameStateKeys.PRESET_CHARACTER_ID, ""))
 		var preset_index: int = int(slot_data.get(GameStateKeys.PRESET_INDEX, -1))
+		# ⚠ 10-18（`NAV-31`）：⚠ 空きの枠はそのまま空ける。
+		if character_id == "":
+			members.append("")
+			builds.append({})
+			continue
 		if not all_characters.has(character_id) or seen.has(character_id):
 			report[APPLY_REASON] = PRESET_REJECT_BROKEN
 			return report
@@ -6045,7 +6143,12 @@ func get_party_preset_apply_report(index: int) -> Dictionary:
 	# 同じ個体を2人が要求したときに、先に取ったほうを覚えておく（枠の若いほうが勝つ）。
 	var claimed: Dictionary = {}
 
+	if seen.is_empty():
+		report[APPLY_REASON] = PRESET_REJECT_BROKEN
+		return report
 	for i: int in range(members.size()):
+		if str(members[i]) == "":
+			continue
 		_plan_build(
 			str(members[i]), builds[i], members, claimed,
 			conflicts, missing, nodes_skipped, plan
@@ -6159,12 +6262,19 @@ func apply_party_preset(index: int) -> Dictionary:
 	# 2. 編成を書く。⚠ set_party_member() が唯一の口。_state を直接書かない。
 	#    ⚠ 3人が互いに違えば、枠0→1→2 の順に呼ぶと必ず目標どおりになる
 	#      （枠0を確定させると、以降の交換は枠1以上しか触らないため）。
+	#    ⚠ 10-18（`NAV-31`）：⚠ 先に人の居る枠を書き、⚠ 空きはあとで空ける（⚠ 最後の1人は外せないため）。
 	for i: int in range(members.size()):
-		set_party_member(i, str(members[i]))
+		if str(members[i]) != "":
+			set_party_member(i, str(members[i]))
+	for i: int in range(members.size()):
+		if str(members[i]) == "":
+			set_party_member(i, "")
 
 	# 3. 各キャラの中身を当てる。⚠ 書き込みは1キャラ1回。
 	for i: int in range(members.size()):
 		var character_id: String = str(members[i])
+		if character_id == "":
+			continue
 		_write_build(
 			character_id,
 			get_character_preset(character_id, _referenced_preset_index(index, character_id)),
@@ -6572,6 +6682,10 @@ func _normalize_party_preset(presets: Array, index: int, all_characters: Diction
 		var slot: Dictionary = entry
 		var character_id: String = str(slot.get(GameStateKeys.PRESET_CHARACTER_ID, ""))
 		var preset_index: int = int(slot.get(GameStateKeys.PRESET_INDEX, -1))
+		# ⚠ 10-18（`NAV-31`）：⚠ 空きの枠は在ってよい。
+		if character_id == "":
+			slots.append({GameStateKeys.PRESET_CHARACTER_ID: "", GameStateKeys.PRESET_INDEX: 0})
+			continue
 		if not all_characters.has(character_id) or seen.has(character_id):
 			presets[index] = _empty_party_preset()
 			return true

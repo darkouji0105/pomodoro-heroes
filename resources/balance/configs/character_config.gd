@@ -22,6 +22,13 @@ extends Resource
 #   ⚠ 判定は GameManager._is_candidate_unlocked() の1か所。⚠ .tres に行が無い＝効いているのはここの既定値。
 @export var passives_all_unlocked: bool = true
 
+# --- 戦力（2026-10-18・回UI-1018-5・人間「あ：ステータスの重み付き合計」・決定 `NAV-32`）---
+# ⚠ 名簿に出すだけ（⚠ 戦闘には効かない）。⚠ 値は仮。⚠ 全員が同じ値の軸（移動速度・会心倍率）は差が出ないので 0。
+@export var power_weights: Dictionary = {
+	"hp": 1.0, "atk": 10.0, "mag": 10.0, "def": 8.0, "mdef": 8.0,
+	"atkspd": 5.0, "haste": 5.0, "crit_rate": 6.0, "crit_dmg": 0.0, "spd": 0.0,
+}
+
 # --- 研究が未実装の間のレベル上限 ---
 # 実効上限 = base_level_cap + 解放済み level_cap_unlock ノードの effect_value 合計。
 # 研究ツリーが空でも 0 にならないようにするための下駄。

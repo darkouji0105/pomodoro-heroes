@@ -594,6 +594,9 @@ func _init_party_units() -> void:
 
 	for i: int in range(members.size()):
 		var character_id: String = str(members[i])
+		# ⚠ 10-18（`NAV-31`）：⚠ 空きの枠は飛ばす（⚠ 添字 i は編成の位置のまま＝unit_id がずれない）。
+		if character_id == "":
+			continue
 		var char_data: Dictionary = MasterDataLoader.get_character(character_id)
 		if char_data.is_empty():
 			push_error("[Battle] character not found: " + character_id)

@@ -649,6 +649,8 @@ const PARTY_PRESETS: String = "party_presets"
 # ⚠ saved が false の枠が「空き」。中身が空かどうかで空き判定をしないこと
 #   （全部外した状態を焼いたら中身は空になるが、それは保存済み）。
 const PRESET_SAVED: String = "saved"
+# ⚠ ビルドの名前（2026-10-18・`NAV-32`）。⚠ 空なら「ビルド◯」。
+const PRESET_NAME: String = "name"
 # ⚠ 中身の4項目は GROWTH_NODES / GROWTH_SKILLS / GROWTH_PASSIVES / GROWTH_EQUIPMENT を
 #   そのまま使い回す。キャラプリセットは「growth の一部を切り出したもの」なので、
 #   同じ値の定数を2組並べない（並べると片方だけ直したときに黙ってズレる）。
