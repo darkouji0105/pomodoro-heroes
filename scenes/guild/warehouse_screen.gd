@@ -37,12 +37,16 @@ var _attach_part_id: String = ""
 # ⚠ 一括分解のあいだか ／ 選んだ個体。
 var _scrapping: bool = false
 var _picked: Array[String] = []
+# ⚠ 装飾を合わせるあいだか ／ 選んだ材料（⚠ item_id の並び・同じ物を重ねてよい）／ 作るもの（10-18・`BS-23`）。
+var _merging: bool = false
+var _merge_picks: Array[String] = []
+var _merge_target: String = ""
 
 var tabs: PaperTabs = null
 var _page: VBoxContainer = null
 var _detail: BelongingsDetail = null
 var _detail_holder: TiltedSheet = null
-var _summary: BulkScrapSummary = null
+var _summary: Control = null
 var _tip: ItemTipCard = null
 # ⚠ いま並べている装備（⚠ 「見えている物ぜんぶ」「等級◯以下」が見る）。
 var _shown_views: Array = []
@@ -87,6 +91,7 @@ func _ready() -> void:
 	_detail.host = self
 	_detail.attach_requested.connect(_on_attach_requested)
 	_detail.attach_part_requested.connect(_on_attach_part_requested)
+	_detail.merge_requested.connect(_on_merge_requested)
 	_detail_holder.sheet.add_child(_detail)
 	body.add_child(_detail_holder)
 	_tip = ItemTipCard.attach(self)
@@ -131,7 +136,7 @@ func _rebuild() -> void:
 		scrap.visible_all_pressed.connect(_on_scrap_visible_all)
 		scrap.reset_pressed.connect(_on_scrap_reset)
 		_page.add_child(scrap)
-	if _attach_instance != "" or _attach_part_id != "":
+	if _attach_instance != "" or _attach_part_id != "" or _merging:
 		_page.add_child(_build_attach_heading())
 	_page.add_child(_build_list_bar())
 
@@ -154,11 +159,20 @@ func _rebuild() -> void:
 		_detail_holder.sheet.remove_child(_summary)
 		_summary.queue_free()
 		_summary = null
-	_detail.visible = not _scrapping
+	_detail.visible = not (_scrapping or _merging)
 	if _scrapping:
-		_summary = BulkScrapSummary.create(_picked.duplicate())
-		_summary.confirm_pressed.connect(_on_scrap_confirm)
-		_summary.cancel_pressed.connect(_end_scrap)
+		var scrap_summary: BulkScrapSummary = BulkScrapSummary.create(_picked.duplicate())
+		scrap_summary.confirm_pressed.connect(_on_scrap_confirm)
+		scrap_summary.cancel_pressed.connect(_end_scrap)
+		_summary = scrap_summary
+		_detail_holder.sheet.add_child(_summary)
+	elif _merging:
+		var merge_panel: PartMergePanel = PartMergePanel.create(_merge_picks.duplicate(), _merge_target)
+		merge_panel.pick_removed.connect(_on_merge_pick_removed)
+		merge_panel.target_chosen.connect(_on_merge_target_chosen)
+		merge_panel.confirm_pressed.connect(_on_merge_confirm)
+		merge_panel.cancel_pressed.connect(_end_merge)
+		_summary = merge_panel
 		_detail_holder.sheet.add_child(_summary)
 	elif _attach_instance != "":
 		_detail.setup(ItemView.instance_entry(_attach_instance), false)
@@ -170,7 +184,7 @@ func _rebuild() -> void:
 
 
 func _in_pick_mode() -> bool:
-	return _scrapping or _attach_instance != "" or _attach_part_id != ""
+	return _scrapping or _merging or _attach_instance != "" or _attach_part_id != ""
 
 
 # ⚠ いま並べるもの（⚠ マスの形）。
@@ -283,6 +297,14 @@ func _mark_collection(collection: ItemCollection, entries: Array) -> void:
 		elif _attach_part_id != "" and ItemView.is_instance(entry):
 			if _open_slot_for(key, _attach_part_id) < 0:
 				locked[key] = true
+		elif _merging:
+			# ⚠ 材料になれない物・段が違う物・もう全部選んだ物は暗く。⚠ 選んだ数は札に。
+			var chosen: int = _merge_picks.count(key)
+			if not _can_add_merge_pick(key, entry):
+				locked[key] = true
+			if chosen > 0:
+				picked[key] = true
+				tags[key] = [tr("ui_part_merge_tag") % chosen, ItemCell.Tag.PLAIN]
 		elif _tab == TransferKeys.WAREHOUSE_TAB_MATERIAL and ItemView.count_of(entry) == 0:
 			locked[key] = true
 	collection.locked = locked
@@ -318,7 +340,9 @@ func _build_list_bar() -> ItemListBar:
 func _build_attach_heading() -> Control:
 	var heading: SheetHeading = SheetHeading.new()
 	heading.name = "Heading"
-	if _attach_instance != "":
+	if _merging:
+		heading.title_text = tr("ui_part_merge_heading") % GameManager.get_part_merge_count()
+	elif _attach_instance != "":
 		heading.title_text = tr("ui_belongings_attach_heading") % (_attach_slot + 1)
 	else:
 		heading.title_text = tr("ui_belongings_attach_to_heading") % ItemView.name_text(_part_entry(_attach_part_id))
@@ -329,7 +353,7 @@ func _build_attach_heading() -> Control:
 	var cancel: Button = UiButton.create_paper_choice("ui_common_cancel")
 	cancel.name = "AttachCancel"
 	cancel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	cancel.pressed.connect(_end_attach)
+	cancel.pressed.connect(_end_merge if _merging else _end_attach)
 	row.add_child(cancel)
 	return row
 
@@ -411,6 +435,9 @@ func _on_tab_changed(index: int) -> void:
 	_attach_part_id = ""
 	_scrapping = false
 	_picked.clear()
+	_merging = false
+	_merge_picks.clear()
+	_merge_target = ""
 	ScrollKeeper.reset(self)
 	_rebuild()
 
@@ -421,6 +448,12 @@ func _on_bar_changed() -> void:
 
 
 func _on_item_pressed(key: String) -> void:
+	# ⚠ 合わせる：⚠ 押すと材料に1つ足す（⚠ 段が違う・持っている数を超える・もう足りている は足さない）。
+	if _merging:
+		if _can_add_merge_pick(key, _part_entry(key)):
+			_merge_picks.append(key)
+			_rebuild()
+		return
 	# ⚠ 一括分解：⚠ 押すと選ぶ／外す（⚠ 着けている物は選べない）。
 	if _scrapping:
 		var view: Dictionary = {}
@@ -481,6 +514,64 @@ func _end_attach() -> void:
 	_attach_instance = ""
 	_attach_slot = -1
 	_attach_part_id = ""
+	_rebuild()
+
+
+# --- 装飾を合わせる（`BS-23`） ---
+
+# ⚠ 材料に足せるか（⚠ 材料になれる・段がそろう・持っている数を超えない・まだ足りていない）。⚠ 決めるのは `GameManager` の材料の口と、ここの数え。
+func _can_add_merge_pick(item_id: String, entry: Dictionary) -> bool:
+	if entry.is_empty() or not GameManager.can_be_merge_input(item_id):
+		return false
+	if _merge_picks.size() >= GameManager.get_part_merge_count():
+		return false
+	if _merge_picks.count(item_id) >= ItemView.count_of(entry):
+		return false
+	if not _merge_picks.is_empty():
+		var pick_tier: int = int(GameManager.get_part_definition(_merge_picks[0]).get(GameManager.ITEM_MASTER_PART_TIER, 0))
+		if int(GameManager.get_part_definition(item_id).get(GameManager.ITEM_MASTER_PART_TIER, 0)) != pick_tier:
+			return false
+	return true
+
+
+func _on_merge_requested(item_id: String) -> void:
+	_merging = true
+	_merge_picks = [item_id]
+	_merge_target = ""
+	_rebuild()
+
+
+func _end_merge() -> void:
+	_merging = false
+	_merge_picks.clear()
+	_merge_target = ""
+	_rebuild()
+
+
+func _on_merge_pick_removed(index: int) -> void:
+	if index >= 0 and index < _merge_picks.size():
+		_merge_picks.remove_at(index)
+	if _merge_picks.is_empty():
+		_merge_target = ""
+	_rebuild()
+
+
+func _on_merge_target_chosen(item_id: String) -> void:
+	_merge_target = item_id
+	_rebuild()
+
+
+func _on_merge_confirm() -> void:
+	var picks: Array[String] = _merge_picks.duplicate()
+	var target: String = _merge_target
+	if not await PartMergePanel.run(self, picks, target):
+		return
+	if not is_instance_valid(self):
+		return
+	_merging = false
+	_merge_picks.clear()
+	_merge_target = ""
+	_selected_key = target
 	_rebuild()
 
 

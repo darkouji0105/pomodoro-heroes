@@ -2440,3 +2440,13 @@ ui_material_use_level_up,昇級
 ui_material_use_part_upgrade,装飾の段階
 ui_material_go_use,使う所へ行く ›
 ui_material_go_use_pick,どこで使う？
+ui_part_merge_open,%dつ合わせて上の等級にする
+ui_part_merge_title,%dつ合わせる
+ui_part_merge_heading,合わせる装飾を選ぶ（同じ段を%dつ）
+ui_part_merge_hint,同じ段の装飾ならどれでも。できるものは下から選ぶ（素材は要らない）
+ui_part_merge_targets,できるもの（段%d）
+ui_part_merge_targets_wait,材料を選ぶと、できるものが出ます
+ui_part_merge_chosen,作る：%s　%s
+ui_part_merge_go,合わせる
+ui_part_merge_tag,%d つ選んだ
+ui_part_merge_confirm,装飾 %d つを合わせて「%s」を作ります。材料はなくなります。よろしいですか？

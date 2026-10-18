@@ -4812,6 +4812,82 @@ func upgrade_part(item_id: String) -> bool:
 	])
 	return true
 
+# ============================================================
+# 装飾を合わせる（2026-10-18・回UI-1018-2c・人間「⚠ ２う　で…合成も楽しそう」・決定 `BS-23`）
+# ============================================================
+#
+# ⚠ 同じ段の装飾を `part_merge_count` 個（⚠ 種類は問わない・同じ物を重ねてもよい）→ ⚠ 1つ上の段を1個（⚠ 種類は選ぶ）。素材は払わない。
+# ⚠ 素材で上げる道（`upgrade_part()`）は残す（⚠ 両方）。⚠ ルーンは入らない（⚠ ルーンは `merge_runes()`）。
+# ⚠ 全部の判定を先に終える（CLAUDE.md 6番）。
+
+func get_part_merge_count() -> int:
+	var config: PartConfig = _part()
+	return config.part_merge_count if config != null else 0
+
+
+# ⚠ 合わせる材料になれるか（⚠ 装飾で・ルーンでなく・上の段がある）。
+func can_be_merge_input(item_id: String) -> bool:
+	var definition: Dictionary = get_part_definition(item_id)
+	if definition.is_empty() or not MasterDataLoader.get_rune(item_id).is_empty():
+		return false
+	var tier: int = int(definition.get(ITEM_MASTER_PART_TIER, 0))
+	return tier >= 1 and tier < get_max_part_tier()
+
+
+# 段 `tier` の材料で作れるもの（⚠ 1つ上の段の装飾・ルーンでない・その種類が解放済み）。⚠ 並びは items.json の順。
+func get_part_merge_targets(tier: int) -> Array[String]:
+	var targets: Array[String] = []
+	for raw_id: Variant in MasterDataLoader.get_all_items():
+		var item_id: String = str(raw_id)
+		var definition: Dictionary = get_part_definition(item_id)
+		if definition.is_empty() or not MasterDataLoader.get_rune(item_id).is_empty():
+			continue
+		if int(definition.get(ITEM_MASTER_PART_TIER, 0)) != tier + 1:
+			continue
+		if not is_part_kind_unlocked(str(definition.get(ITEM_MASTER_PART_KIND, ""))):
+			continue
+		targets.append(item_id)
+	return targets
+
+
+# ⚠ 合わせられない理由（⚠ 空なら合わせられる）。⚠ `inputs` は item_id の並び（⚠ 同じ物を重ねてよい）。
+func get_part_merge_reject_reason(inputs: Array, target_id: String) -> String:
+	if inputs.size() != get_part_merge_count() or get_part_merge_count() <= 0:
+		return "need %d inputs" % get_part_merge_count()
+	var tier: int = -1
+	var need: Dictionary = {}
+	for raw: Variant in inputs:
+		var item_id: String = str(raw)
+		if not can_be_merge_input(item_id):
+			return "not mergeable: " + item_id
+		var input_tier: int = int(get_part_definition(item_id).get(ITEM_MASTER_PART_TIER, 0))
+		if tier >= 0 and input_tier != tier:
+			return "tier mismatch"
+		tier = input_tier
+		need[item_id] = int(need.get(item_id, 0)) + 1
+	for item_id: Variant in need:
+		if get_item_count(str(item_id)) < int(need[item_id]):
+			return "not enough: " + str(item_id)
+	if not (target_id in get_part_merge_targets(tier)):
+		return "bad target: " + target_id
+	return ""
+
+
+func merge_parts(inputs: Array, target_id: String) -> bool:
+	var reason: String = get_part_merge_reject_reason(inputs, target_id)
+	if reason != "":
+		print("[GameManager] merge_parts(%s -> %s) -> false (%s)" % [str(inputs), target_id, reason])
+		return false
+
+	# --- ここから状態を変える ---
+
+	for raw: Variant in inputs:
+		_remove_from_inventory(str(raw), 1)
+	add_to_inventory(target_id, 1, GameStateKeys.ITEM_TYPE_PART)
+	print("[GameManager] merge_parts(%s -> %s) -> true" % [str(inputs), target_id])
+	return true
+
+
 # 装飾を壊したときに返る素材。{material_id: count}
 # （get_dismantle_refund() と同じ形。外したとき・在庫で壊したときの両方が使う）。
 func get_part_dismantle_refund(item_id: String, count: int) -> Dictionary:

@@ -120,6 +120,8 @@ const SHOT_AFTER_BATTLE_PANEL_STATUS: String = "battle_panel_status"
 const SHOT_AFTER_SKILLS_BOTTOM: String = "skills_bottom"
 # ⚠ UI テストのページを「品の一覧の部品」まで送る（2026-10-18・回UI-1018-1）。
 const SHOT_AFTER_ITEM_PARTS: String = "item_parts"
+# ⚠ 持ち物の装飾を合わせる欄（2026-10-18・`BS-23`）。
+const SHOT_AFTER_PART_MERGE: String = "part_merge"
 # ⚠ 王女（回PQ-1）：⚠ 王女を1番目に入れる（⚠ 内側の `PREPARE_PRINCESS_PARTY` と同じ字）。
 const SHOT_PREPARE_PRINCESS_PARTY: String = "princess_party"
 const SHOT_AFTER_MODAL_CONFIRM: String = "modal_confirm"
@@ -1774,6 +1776,10 @@ const SCENARIOS: Dictionary = {
 			{"name": "20_ui_parts", "scene": "res://tests/ui_test_page.tscn"},
 			# ⚠ 品の一覧の共通の部品（2026-10-18・回UI-1018-1）。⚠ 同じページを部品の所まで送る。
 			{"name": "20b_item_parts", "scene": "res://tests/ui_test_page.tscn", "after": SHOT_AFTER_ITEM_PARTS},
+			{
+				"name": "32b_belongings_merge", "scene": "res://scenes/guild/warehouse_screen.tscn",
+				"data": {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART}, "after": SHOT_AFTER_PART_MERGE,
+			},
 			# ⑥ 窓（2026-09-22・回1）。⚠ ここから下は「重ねるもの」と「ボスの先のもの」。
 			#
 			# ⚠⚠ 拾いもの。⚠ 本番は**マップの上に重ねる**（決定36）ので、⚠ マップを開いてから
@@ -13586,6 +13592,7 @@ class ShotTaker extends Node:
 	const AFTER_BATTLE_PANEL_STATUS: String = "battle_panel_status"
 	const AFTER_SKILLS_BOTTOM: String = "skills_bottom"
 	const AFTER_ITEM_PARTS: String = "item_parts"
+	const AFTER_PART_MERGE: String = "part_merge"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
 	const AFTER_LEVEL_UP_PRESS: String = "level_up_press"
 	const AFTER_RELIC_PICK: String = "relic_pick"
@@ -14237,6 +14244,18 @@ class ShotTaker extends Node:
 
 	func _after(kind: String, screen: Node, shot_name: String) -> bool:
 		if kind == "":
+			return true
+		if kind == AFTER_PART_MERGE:
+			# ⚠ 段1の装飾を3つ用意して、⚠ 画面の口で合わせる欄を開き、⚠ 2つ選んで作るものを選んだ姿。
+			GameManager.add_to_inventory("part_gem_hp_1", 2, GameStateKeys.ITEM_TYPE_PART)
+			GameManager.add_to_inventory("part_gem_atk_1", 2, GameStateKeys.ITEM_TYPE_PART)
+			for _i: int in range(3):
+				await get_tree().process_frame
+			screen.call("_on_merge_requested", "part_gem_hp_1")
+			screen.call("_on_item_pressed", "part_gem_atk_1")
+			screen.call("_on_merge_target_chosen", "part_gem_atk_2")
+			for _i: int in range(4):
+				await get_tree().process_frame
 			return true
 		if kind == AFTER_ITEM_PARTS:
 			var catalog: Control = screen.find_child("ItemPartsCatalog", true, false) as Control
@@ -18863,6 +18882,44 @@ class UiFlowRunner extends Node:
 		_check("持ち物：素材の「持っている物だけ」で 0 個が消える（%d → %d・0 個 %d）" % [all_count, w.find_children("Cell_*", "ItemCell", true, false).size(), zero],
 			has_owned and zero == 0 and w.find_children("Cell_*", "ItemCell", true, false).size() <= all_count)
 		ItemListBar.reset_memory(ItemListBar.KIND_MATERIAL)
+
+		# 装飾を合わせる（10-18・人間「⚠ ２う」・`BS-23`）：⚠ 同じ段なら種類を問わず3つ → 1つ上（種類は選ぶ）。
+		var _g1: int = GameManager.add_to_inventory("part_gem_hp_1", 2, GameStateKeys.ITEM_TYPE_PART)
+		var _g2: int = GameManager.add_to_inventory("part_gem_atk_1", 2, GameStateKeys.ITEM_TYPE_PART)
+		var _g3: int = GameManager.add_to_inventory("part_gem_atk_2", 1, GameStateKeys.ITEM_TYPE_PART)
+		_check("合わせる：段が違う・数が足りない・作れない物 は弾く（%s / %s / %s）" % [
+			GameManager.get_part_merge_reject_reason(["part_gem_hp_1", "part_gem_atk_1", "part_gem_atk_2"], "part_gem_hp_2"),
+			GameManager.get_part_merge_reject_reason(["part_gem_hp_1", "part_gem_atk_1"], "part_gem_hp_2"),
+			GameManager.get_part_merge_reject_reason(["part_gem_hp_1", "part_gem_atk_1", "part_gem_atk_1"], "part_gem_hp_3")],
+			GameManager.get_part_merge_reject_reason(["part_gem_hp_1", "part_gem_atk_1", "part_gem_atk_2"], "part_gem_hp_2") != ""
+			and GameManager.get_part_merge_reject_reason(["part_gem_hp_1", "part_gem_atk_1"], "part_gem_hp_2") != ""
+			and GameManager.get_part_merge_reject_reason(["part_gem_hp_1", "part_gem_atk_1", "part_gem_atk_1"], "part_gem_hp_3") != ""
+			and GameManager.get_part_merge_reject_reason(["part_gem_hp_1", "part_gem_atk_1", "part_gem_atk_1"], "part_gem_hp_2") == "")
+		w = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_PART})
+		if w == null:
+			return
+		var hp1: int = GameManager.get_item_count("part_gem_hp_1")
+		var atk1: int = GameManager.get_item_count("part_gem_atk_1")
+		var hp2: int = GameManager.get_item_count("part_gem_hp_2")
+		await _press(_belongings_item(w, "part_gem_hp_1"))
+		await _press(w.find_child("PartMergeButton", true, false))
+		_check("合わせる：「3つ合わせて上の等級にする」で右に合わせる欄・押した品が1つ入る", w.find_child("PartMergePanel", true, false) != null and (w.get("_merge_picks") as Array) == ["part_gem_hp_1"])
+		var other_tier: Node = _belongings_item(w, "part_gem_atk_2")
+		_check("合わせる：段が違う品は暗い", other_tier is ItemCell and (other_tier as ItemCell).is_locked())
+		await _press(_belongings_item(w, "part_gem_atk_1"))
+		await _press(_belongings_item(w, "part_gem_atk_1"))
+		await _press(_belongings_item(w, "part_gem_atk_2"))
+		_check("合わせる：種類を問わず3つまで・段が違う品は入らない（%s）" % str(w.get("_merge_picks")),
+			(w.get("_merge_picks") as Array) == ["part_gem_hp_1", "part_gem_atk_1", "part_gem_atk_1"])
+		await _press(w.find_child("Target_part_gem_hp_2", true, false))
+		await _press(w.find_child("MergeGoButton", true, false))
+		await _confirm_modal()
+		await _wait()
+		_check("合わせる：「合わせる」→ はい で材料3つが減り、選んだ段2が1つ増える（HP1 %d→%d・攻撃1 %d→%d・HP2 %d→%d）" % [
+			hp1, GameManager.get_item_count("part_gem_hp_1"), atk1, GameManager.get_item_count("part_gem_atk_1"), hp2, GameManager.get_item_count("part_gem_hp_2")],
+			GameManager.get_item_count("part_gem_hp_1") == hp1 - 1 and GameManager.get_item_count("part_gem_atk_1") == atk1 - 2
+			and GameManager.get_item_count("part_gem_hp_2") == hp2 + 1 and not bool(w.get("_merging")))
+		_check("合わせる：素材で上げる道も残っている", w.find_child("PartUpgradeButton", true, false) != null or GameManager.get_upgraded_part_id(str(w.get("_selected_key"))) == "")
 
 		# 素材の使い道（10-18・人間「⚠ １あつくって」）：⚠ 今ある費用から拾う。
 		_check("使い道：研究の素材＝研究・鍛冶の素材＝鍛える・修練の証＝昇級・飾りの素材＝作る＋装飾の段階（%s / %s / %s / %s）" % [

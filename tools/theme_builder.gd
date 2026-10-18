@@ -3483,6 +3483,15 @@ static func _build_item_parts(theme: Theme) -> void:
 	tip.content_margin_bottom = 12
 	theme.set_stylebox(&"panel", &"ItemTipPanel", tip)
 
+	# ⚠ 装飾を合わせる欄の空きの枠（10-18・`BS-23`）。⚠ 手本の `.slotd`（破線＝⚠ 面は破線を引けないので実線）。
+	theme.set_type_variation(&"MergeSlotEmptyPanel", &"PanelContainer")
+	var slot_empty: StyleBoxFlat = StyleBoxFlat.new()
+	slot_empty.bg_color = Color(0, 0, 0, 0)
+	slot_empty.set_border_width_all(2)
+	slot_empty.border_color = _html(ITEM_SEG_BORDER)
+	slot_empty.set_corner_radius_all(ITEM_SEG_CORNER)
+	theme.set_stylebox(&"panel", &"MergeSlotEmptyPanel", slot_empty)
+
 	# ⚠ 一括分解の帯（⚠ 封蝋の薄い面・封蝋の細い縁。⚠ 手本は破線＝⚠ 面は破線を引けないので実線）。
 	theme.set_type_variation(&"ScrapBarPanel", &"PanelContainer")
 	var scrap: StyleBoxFlat = StyleBoxFlat.new()

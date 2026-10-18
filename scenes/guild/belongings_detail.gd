@@ -16,6 +16,8 @@ extends VBoxContainer
 signal attach_requested(instance_id: String, slot_index: int)
 # ⚠ 装飾の「装備に刺す…」（⚠ 刺す先の装備を並べるのは画面の仕事・10-18）。
 signal attach_part_requested(item_id: String)
+# ⚠ 装飾の「3つ合わせて上の等級にする」（⚠ 材料を選ぶのは画面の仕事・10-18・`BS-23`）。
+signal merge_requested(item_id: String)
 
 const THEME_TYPE: StringName = &"Belongings"
 const FORGE_PATH: String = "res://scenes/guild/forge_screen.tscn"
@@ -294,6 +296,14 @@ func _build_part(item_id: String) -> void:
 		or not GameManager.is_part_kind_unlocked(str(definition.get(GameManager.ITEM_MASTER_PART_KIND, "")))
 	attach_to.pressed.connect(_on_attach_to_pressed.bind(item_id))
 	add_child(attach_to)
+	# ⚠ 10-18（人間「⚠ ２う」）：⚠ 合わせる道（⚠ 素材で上げる道は下の「段階を上げる」に残す）。
+	if GameManager.can_be_merge_input(item_id):
+		var merge_button: UiButton = UiButton.create(UiButton.Variant.SECONDARY, "")
+		merge_button.name = "PartMergeButton"
+		merge_button.text = tr("ui_part_merge_open") % GameManager.get_part_merge_count()
+		merge_button.disabled = GameManager.get_item_count(item_id) <= 0
+		merge_button.pressed.connect(_on_merge_pressed.bind(item_id))
+		add_child(merge_button)
 	var buttons: HBoxContainer = HBoxContainer.new()
 	buttons.name = "Actions"
 	add_child(buttons)
@@ -487,6 +497,10 @@ func go_to_use(use: String) -> void:
 	if use == GameManager.MATERIAL_USE_PART_UPGRADE:
 		data[TransferKeys.WAREHOUSE_TAB] = TransferKeys.WAREHOUSE_TAB_PART
 	SceneManager.open_detour(use_path(use), data, WAREHOUSE_PATH, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_MATERIAL})
+
+
+func _on_merge_pressed(item_id: String) -> void:
+	merge_requested.emit(item_id)
 
 
 func _on_attach_to_pressed(item_id: String) -> void:

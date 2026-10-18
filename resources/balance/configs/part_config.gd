@@ -46,6 +46,11 @@ extends Resource
 # ⚠ 数値は勘（EXEC_DECORATION.md §0-3 の13）。バランスの実測が来たらここを直す。
 @export var upgrade_cost_by_tier: Array[int] = [10, 20, 40]
 
+# --- 合わせる（2026-10-18・人間「⚠ ２う」＝素材で上げる道と両方残す） ---
+# 同じ段階の装飾（⚠ 種類は問わない）を何個合わせると、1つ上の段階を1個（⚠ 種類は選ぶ）にするか。
+# ⚠ 素材は払わない（⚠ 素材の道は `upgrade_cost_by_tier` に別にある）。⚠ ルーンは入らない（⚠ ルーンは `rune_merge_count`）。
+@export var part_merge_count: int = 3
+
 # --- 壊す（外したとき・在庫で壊したとき） ---
 # 添字 0 が「段階1 の装飾を壊したときに返る decor_material_1 の数」。
 # 長さは max_part_tier。
