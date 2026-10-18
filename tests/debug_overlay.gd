@@ -168,6 +168,8 @@ func _build_ui() -> void:
 	grid.add_child(_make_button("宝箱 高レア", _grant_rare_chests))
 	grid.add_child(_make_button("鍛冶の一式（等級5）", _grant_forge_set))
 	grid.add_child(_make_button("研究 全解放", _unlock_all_research))
+	# ⚠ 10-19（見る回の手順）：⚠ 研究の画面を見るため、全部閉じる（⚠ 「見る回の準備」が全解放するので）。
+	grid.add_child(_make_button("研究 全部閉じる", GameManager.debug_reset_research))
 	grid.add_child(_make_button("画面 全解放", _unlock_all_screens))
 	grid.add_child(_make_button("製作 すぐ完了", _complete_all_crafts))
 	# ⚠ 2026-10-03（人間「⚠ デバッグにショップの在庫回復を」）：⚠ 日替わり・週・月の棚の「買った数」を 0 に（⚠ ノルマ札を何度も買える）。

@@ -7473,6 +7473,22 @@ func run_research_auto() -> Array[String]:
 	return unlock_research_all(0, categories, int(auto[RESEARCH_AUTO_KEEP]))
 
 
+# ⚠ 検証用（10-19・見る回の手順）：⚠ 研究を全部閉じ、完成の報酬・栞・自動も空にする（⚠ 研究の画面の姿を見るため）。
+#   ⚠ デバッグの窓からだけ呼ぶ。⚠ リリース前に消す（宿題16）。
+func debug_reset_research() -> void:
+	var tree: Dictionary = _copy_dict(GameStateKeys.RESEARCH_TREE)
+	for node_id: Variant in tree:
+		var node: Dictionary = (tree[node_id] as Dictionary).duplicate(true)
+		node[GameStateKeys.NODE_UNLOCKED] = false
+		tree[node_id] = node
+	_state[GameStateKeys.RESEARCH_TREE] = tree
+	_state[GameStateKeys.RESEARCH_NEW] = []
+	_state[GameStateKeys.RESEARCH_REWARDS_CLAIMED] = []
+	_state[GameStateKeys.RESEARCH_AUTO] = {}
+	print("[GameManager] debug_reset_research() -> 研究を全部閉じた（⚠ 検証用）")
+	research_node_unlocked.emit("")
+
+
 # --- 新しく開いた研究（赤い栞） ---
 
 func get_new_research() -> Array[String]:
