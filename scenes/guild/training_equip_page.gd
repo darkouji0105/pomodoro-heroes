@@ -69,8 +69,8 @@ func _rebuild() -> void:
 	var right: VBoxContainer = VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(right)
-	# ⚠ 10-18（人間「⚠ 装備をソートできるように　レア度でフィルターなど」）：⚠ 並べ替えと絞り込み（`EquipSortBar`）。
-	var sort_bar: EquipSortBar = EquipSortBar.create()
+	# ⚠ 10-18（人間「⚠ 装備をソートできるように　レア度でフィルターなど」）：⚠ 並べ替えと絞り込み（`ItemListBar`・⚠ 部位は左の列が持つ）。
+	var sort_bar: ItemListBar = ItemListBar.create(ItemListBar.KIND_EQUIP, {"view": false, "slot": false})
 	sort_bar.changed.connect(_on_sort_changed)
 	right.add_child(sort_bar)
 	var scroll: ScrollContainer = ScrollContainer.new()
@@ -83,7 +83,7 @@ func _rebuild() -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(list)
 	if candidates.is_empty():
-		list.add_child(EmptyState.create("ui_equip_filter_hidden" if EquipSortBar.is_filtering() else "ui_training_equip_none"))
+		list.add_child(EmptyState.create("ui_equip_filter_hidden" if ItemListBar.is_filtering(ItemListBar.KIND_EQUIP, false, false) else "ui_training_equip_none"))
 	for view: Variant in candidates:
 		list.add_child(_create_candidate_row(view as Dictionary))
 	right.add_child(_build_footer(equipped_id))
@@ -201,12 +201,12 @@ func _build_footer(equipped_id: String) -> HBoxContainer:
 	return footer
 
 
-# その部位に着けられる個体（⚠ 他の人が着けている品も並べる＝手本）。⚠ 並びと絞り込みは `EquipSortBar.apply()`（10-18）。
+# その部位に着けられる個体（⚠ 他の人が着けている品も並べる＝手本）。⚠ 並びと絞り込みは `ItemListBar.apply_views()`（10-18）。
 # ⚠ いま着けている品は絞り込みで隠さない（⚠ 「外す」の相手が消えるため）。
 func _candidates_of(slot: String) -> Array:
 	var result: Array = []
 	var equipped_id: String = GameManager.get_equipped_instance_id(_character_id, slot)
-	var shown: Array = EquipSortBar.apply(GameManager.get_owned_instances())
+	var shown: Array = ItemListBar.apply_views(GameManager.get_owned_instances(), false, false)
 	if equipped_id != "" and not _has_instance(shown, equipped_id):
 		for entry: Variant in GameManager.get_owned_instances():
 			if str((entry as Dictionary).get(GameManager.INSTANCE_VIEW_ID, "")) == equipped_id:

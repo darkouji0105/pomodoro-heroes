@@ -2378,11 +2378,41 @@ ui_icon_acc_hourglass,砂
 ui_eqfx_time_grace,時の加護
 ui_eqfx_time_grace_desc,CD短縮 +10
 ui_status_ch_status_eqfx_time_grace,時
-ui_equip_sort_default,並び：いつもの順
-ui_equip_sort_grade,並び：等級の高い順
-ui_equip_sort_name,並び：名前順
-ui_equip_filter_grade_all,すべての等級
-ui_equip_filter_grade_min,等級%d以上
-ui_equip_filter_special,★だけ
 ui_equip_filter_hidden,絞り込みで隠れています（上の欄で戻せます）
 ui_sortie_open_equip,選んだ人の装備を着替える
+ui_item_count_mark,×%d
+ui_item_view_grid,マス目
+ui_item_view_list,行
+ui_item_bar_view,見せ方
+ui_item_bar_sort,並び
+ui_item_bar_filter,しぼる
+ui_item_sort_default,いつもの順
+ui_item_sort_grade,等級 ↓
+ui_item_sort_slot,部位
+ui_item_sort_name,名前
+ui_item_sort_count,数
+ui_item_filter_special,★だけ
+ui_item_filter_equipped,着けている物だけ
+ui_item_filter_grade_all,等級 すべて
+ui_item_filter_grade_min,等級 %d以上
+ui_item_tip_other,ほかの能力
+ui_item_tip_owned,持っている
+ui_item_tip_parts,装飾の枠
+ui_item_tip_owner,着けている人
+ui_item_tip_compare,比べている：いまの「%s」
+ui_bulk_scrap_pick,分解するものを選ぶ
+ui_bulk_scrap_grade,等級
+ui_bulk_scrap_grade_max,%d以下
+ui_bulk_scrap_together,をまとめて
+ui_bulk_scrap_visible_all,見えている物ぜんぶ
+ui_bulk_scrap_reset,選び直す
+ui_bulk_scrap_title,一括分解
+ui_bulk_scrap_count,選んだ %d 個
+ui_bulk_scrap_refund,戻ってくる　%s
+ui_bulk_scrap_relic,遺物に入る点　+%d
+ui_bulk_scrap_go,選んだ %d 個を分解する
+ui_bulk_scrap_confirm,選んだ %d 個を分解します。元には戻せません。よろしいですか？
+ui_item_tag_max,最大
+ui_item_tag_equipped,着用中
+ui_item_tag_relic,遺物
+ui_uitest_item_parts,品の一覧の部品（並べ替えの欄・マス目・行・一括分解）

@@ -104,7 +104,5 @@ const MEMORY_BASE_VIEW: String = "memory_base_view"
 const MEMORY_WORKSHOP_CATEGORY: String = "memory_workshop_category"
 # ⚠ 目標のサイドバーを開いているか（2026-10-09・回AUTO-1・`GoalHud`）。⚠ 画面をまたいでも開いたまま。
 const MEMORY_GOAL_SIDEBAR_OPEN: String = "memory_goal_sidebar_open"
-# ⚠ 10-18：⚠ 装備の一覧の並べ替えと絞り込み（`EquipSortBar`・⚠ 持ち物と育成の装備タブで共通）。
-const MEMORY_EQUIP_SORT: String = "memory_equip_sort"
-const MEMORY_EQUIP_MIN_GRADE: String = "memory_equip_min_grade"
-const MEMORY_EQUIP_SPECIAL_ONLY: String = "memory_equip_special_only"
+# ⚠ 10-18：⚠ 品の一覧の欄（`ItemListBar`）。⚠ 実際の鍵は「これ_種類_欄」（⚠ 種類ごとに持ち物・鍛冶場・育成で共通）。
+const MEMORY_ITEM_BAR: String = "memory_item_bar"

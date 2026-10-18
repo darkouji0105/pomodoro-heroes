@@ -153,6 +153,10 @@ func _ready() -> void:
 	_add_heading("ui_uitest_paper")
 	_build_paper_catalog()
 
+	# ⚠ 品の一覧の共通の部品（2026-10-18・回UI-1018-1）。⚠ `shot` の `20b_item_parts` がここまで送って撮る。
+	_add_heading("ui_uitest_item_parts")
+	_build_item_parts_catalog()
+
 	_add_heading("ui_uitest_screens")
 	for path: String in PLAIN_SCENES:
 		_add_action(path.get_file(), _on_plain_scene_pressed.bind(path), false)
@@ -738,6 +742,66 @@ func _sorted_by_grade(item_ids: Array) -> Array:
 
 
 # 等級10色ぶんの個体 ＋ 素材 ＋ レリック（⚠ ItemDetail の3つの枝を全部出す）。
+# ⚠ 品の一覧の部品の見本（⚠ 状態は作らない＝⚠ 見本の個体は ID だけの仮のもの。⚠ 値は出ない）。
+const ITEM_PARTS_SAMPLES: Array = [
+	["weapon_dragon_greatsword", 10, ""], ["armor_head_crown", 9, ""], ["weapon_sword_guard", 8, ""], ["acc_ruby_ring", 7, "char_archer"],
+	["armor_body_saint", 6, "char_swordsman"], ["armor_legs_wind", 5, ""], ["weapon_sword_swift", 4, "char_priest"], ["armor_head_keen", 3, ""],
+	["armor_body_keen", 2, ""], ["armor_legs_heavy", 1, ""], ["acc_keen", 1, ""], ["weapon_sword_rune", 2, ""],
+]
+
+
+func _item_parts_entries() -> Array:
+	var entries: Array = []
+	for i: int in range(ITEM_PARTS_SAMPLES.size()):
+		var sample: Array = ITEM_PARTS_SAMPLES[i]
+		entries.append({
+			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_INSTANCE,
+			GameManager.SLOT_ENTRY_ITEM_ID: str(sample[0]),
+			GameManager.SLOT_ENTRY_INSTANCE_ID: "uitest_parts_%d" % i,
+			GameManager.SLOT_ENTRY_GRADE: int(sample[1]),
+			GameManager.SLOT_ENTRY_EQUIPPED_BY: str(sample[2]),
+		})
+	for tier: int in range(1, 5):
+		entries.append({
+			GameManager.SLOT_ENTRY_KIND: GameManager.SLOT_KIND_ITEM,
+			GameManager.SLOT_ENTRY_ITEM_ID: "part_gem_atk_%d" % mini(tier, 2) if tier <= 2 else "part_gem_hp_%d" % tier,
+			GameManager.SLOT_ENTRY_COUNT: tier * 2 - 1,
+		})
+	return entries
+
+
+func _build_item_parts_catalog() -> void:
+	var sheet: PaperSheet = PaperSheet.new()
+	sheet.name = "ItemPartsCatalog"
+	layout.add_child(sheet)
+	var body: VBoxContainer = VBoxContainer.new()
+	sheet.add_child(body)
+	var scrap_button: Button = Button.new()
+	scrap_button.theme_type_variation = &"PaperToggle"
+	scrap_button.text = tr("ui_bulk_scrap_title")
+	var bar: ItemListBar = ItemListBar.create(ItemListBar.KIND_EQUIP, {"equipped": true})
+	bar.trailing = scrap_button
+	body.add_child(bar)
+	var entries: Array = _item_parts_entries()
+	var tip: ItemTipCard = ItemTipCard.attach(self)
+	for view: String in ItemListBar.VIEWS:
+		var collection: ItemCollection = ItemCollection.create(view)
+		collection.name = "ItemPartsCollection_" + view
+		collection.custom_minimum_size.y = 170.0
+		collection.tip = tip
+		collection.selected_key = "uitest_parts_0"
+		collection.picked = {"uitest_parts_9": true, "uitest_parts_10": true}
+		collection.locked = {"uitest_parts_3": true, "uitest_parts_4": true}
+		collection.tags = {
+			"uitest_parts_0": [tr("ui_item_tag_max"), ItemCell.Tag.MAX],
+			"uitest_parts_3": [tr("ui_item_tag_equipped"), ItemCell.Tag.PLAIN],
+			"uitest_parts_1": [tr("ui_item_tag_relic"), ItemCell.Tag.RELIC],
+		}
+		collection.set_entries(entries)
+		body.add_child(collection)
+	body.add_child(BulkScrapBar.create())
+
+
 func _build_sample_entries() -> Array:
 	var entries: Array = []
 	for grade: int in range(1, 11):

@@ -871,6 +871,7 @@ static func build() -> void:
 	_build_mini_window(theme)
 	_build_special_effect(theme)
 	_build_task(theme)
+	_build_item_parts(theme)
 
 	var err: int = ResourceSaver.save(theme, THEME_PATH)
 	if err != OK:
@@ -3364,6 +3365,137 @@ static func _build_heading_font(theme: Theme) -> void:
 # ⚠⚠ **`PanelContainer` をここに置かないこと。** ⚠ 置くと `ListRowPanel` など `main` の
 #   ⚠ 面の variation が全部これに負ける（⚠ 探す順は「テーマごと」が外側で「型ごと」が内側）。
 #   ⚠ 同じ理由で、⚠ 色を持つ字の variation は**全部ここにも書く**（⚠ 書かないと素の `Label`＝墨に落ちる）。
+# --- ⚠⚠ 品の一覧の共通の部品（2026-10-18・回UI-1018-1・手本 `docs/pomodoro-heroes-ui-docs/2026-10-18/mocks/Belongings.html`）---
+#
+# ⚠ 持ち物・鍛冶場・育成・詰所で同じものを使う：⚠ 並べ替えの欄（見せ方・並び・しぼる）／ 品のマス ／ 触れると出る札 ／ 一括分解。
+# ⚠ 値は手本の CSS（`.seg` `.tool .chk` `.cell` `.who-dot` `.tagb` `.tipcard` `.scrapbar`）。
+const ITEM_SEG_BG: String = "f4ead38c"        # ⚠ 手本 rgba(244,234,211,.55)
+const ITEM_SEG_ON_BG: String = "dccaa3"
+const ITEM_SEG_BORDER: String = "8a7458"
+const ITEM_SEG_INK: String = "4f4030"
+const ITEM_SEG_HEIGHT_PAD_V: int = 4          # ⚠ 字 12 ＋ 上下 4 ＋ 線 ＝ 手本の高さ 26
+const ITEM_SEG_PAD_H: int = 8
+const ITEM_SEG_FONT: int = 12
+const ITEM_SEG_CORNER: int = 6
+const ITEM_SEG_ON_LINE: int = 2               # ⚠ 選んでいる札の下の真鍮の線
+const ITEM_TOGGLE_BG: String = "f4ead399"     # ⚠ 手本 rgba(244,234,211,.6)
+const ITEM_TOGGLE_PAD_H: int = 10
+const ITEM_CAPTION_FONT: int = 11             # ⚠ 「見せ方」「並び」「しぼる」
+const ITEM_CELL: Dictionary = {
+	"cell": 56, "gap_h": 10, "gap_v": 16, "columns": 12,
+	"badge_font": 10, "badge_pad": 2, "star": 16, "star_font": 10, "owner": 22, "owner_out": 6,
+	"tag_font": 10, "tag_height": 15, "tag_drop": 8, "count_font": 11,
+	"ring": 2, "ring_out": 4, "pick_ring": 3, "pick_mark": 28,
+	"lock_alpha_pct": 45, "row_height": 52, "row_icon": 44,
+	"tip_width": 270, "tip_offset": 16,
+	"row_main": 120, "row_other": 150, "row_owner": 90,
+}
+const ITEM_CELL_COLORS: Dictionary = {
+	"badge_text": "1b1512", "ring": TOKEN_LIGHT, "pick_ring": TOKEN_WAX, "pick_mark": "8a3327",
+	"pick_mark_text": "fbeee6", "tag_bg": TOKEN_LEATHER, "tag_text": "d9ccb4", "tag_max_bg": TOKEN_INK_SUB,
+	"tag_max_text": "f1e6cf", "tag_relic_bg": "5b3f7a", "tag_relic_text": "efe4ff", "count_text": "f1e6cf",
+	"owner_border": "f5ecd8", "star_bg": SPECIAL_INK, "star": SPECIAL_GOLD,
+}
+
+
+static func _build_item_parts(theme: Theme) -> void:
+	var t: StringName = &"ItemCell"
+	for key: String in ITEM_CELL:
+		theme.set_constant(StringName(key), t, int(ITEM_CELL[key]))
+	for key: String in ITEM_CELL_COLORS:
+		theme.set_color(StringName(key), t, _html(str(ITEM_CELL_COLORS[key])))
+
+	# ⚠ マス目の間（⚠ 横 10・縦 16）と、⚠ はみ出す印（顔・札・選んだ縁）のぶんの内側の余白。
+	theme.set_type_variation(&"ItemCellGrid", &"GridContainer")
+	theme.set_constant(&"h_separation", &"ItemCellGrid", int(ITEM_CELL["gap_h"]))
+	theme.set_constant(&"v_separation", &"ItemCellGrid", int(ITEM_CELL["gap_v"]))
+	var cell_pad: int = int(ITEM_CELL["owner_out"]) + int(ITEM_CELL["ring_out"])
+	_set_margin(theme, "ItemCellGridMargin", cell_pad, cell_pad)
+	theme.set_type_variation(&"ItemCellGridMargin", &"MarginContainer")
+
+	# ⚠ 切り替えの札（⚠ 「マス目｜行」「いつもの順｜等級｜部位｜名前」「すべて｜頭｜…」）。⚠ 枠は `SegGroup` が持ち、⚠ 札は角も枠も持たない。
+	theme.set_type_variation(&"SegGroup", &"PanelContainer")
+	var group: StyleBoxFlat = StyleBoxFlat.new()
+	group.bg_color = Color(0, 0, 0, 0)
+	group.set_border_width_all(1)
+	group.border_color = _html(ITEM_SEG_BORDER)
+	group.set_corner_radius_all(ITEM_SEG_CORNER)
+	group.set_content_margin_all(1)
+	theme.set_stylebox(&"panel", &"SegGroup", group)
+	theme.set_type_variation(&"SegRow", &"HBoxContainer")
+	theme.set_constant(&"separation", &"SegRow", 0)
+	theme.set_type_variation(&"SegButton", &"Button")
+	for state: String in BUTTON_STATES + ["hover_pressed"]:
+		var seg: StyleBoxFlat = StyleBoxFlat.new()
+		var on: bool = state == "pressed" or state == "hover_pressed"
+		seg.bg_color = Color(0, 0, 0, 0) if state == "focus" else _html(ITEM_SEG_ON_BG if (on or state == "hover") else ITEM_SEG_BG)
+		seg.content_margin_left = ITEM_SEG_PAD_H
+		seg.content_margin_right = ITEM_SEG_PAD_H
+		seg.content_margin_top = ITEM_SEG_HEIGHT_PAD_V
+		seg.content_margin_bottom = ITEM_SEG_HEIGHT_PAD_V
+		if on:
+			seg.border_width_bottom = ITEM_SEG_ON_LINE
+			seg.border_color = _html(TOKEN_BRASS_INK)
+		theme.set_stylebox(StringName(state), &"SegButton", seg)
+	theme.set_color(&"font_color", &"SegButton", _html(ITEM_SEG_INK))
+	theme.set_color(&"font_hover_color", &"SegButton", _html(TOKEN_INK))
+	theme.set_color(&"font_pressed_color", &"SegButton", _html(TOKEN_INK))
+	theme.set_color(&"font_hover_pressed_color", &"SegButton", _html(TOKEN_INK))
+	theme.set_color(&"font_focus_color", &"SegButton", _html(ITEM_SEG_INK))
+	theme.set_color(&"font_disabled_color", &"SegButton", _html(TOKEN_RULE))
+	theme.set_font_size(&"font_size", &"SegButton", ITEM_SEG_FONT)
+
+	# ⚠ 紙の上の入り切り（⚠ 「★だけ」「着けている物だけ」）と ⚠ 選ぶ欄（⚠ 「等級 すべて ▼」）。⚠ 角の丸い薄い紙・墨の細い縁。
+	for type_name: StringName in [&"PaperToggle", &"PaperPick"]:
+		theme.set_type_variation(type_name, &"OptionButton" if type_name == &"PaperPick" else &"Button")
+		for state: String in BUTTON_STATES + ["hover_pressed"]:
+			var box: StyleBoxFlat = StyleBoxFlat.new()
+			var on: bool = state == "pressed" or state == "hover_pressed"
+			box.bg_color = Color(0, 0, 0, 0) if state == "focus" else _html(ITEM_SEG_ON_BG if (on or state == "hover") else ITEM_TOGGLE_BG)
+			box.set_corner_radius_all(ITEM_SEG_CORNER)
+			box.set_border_width_all(FOCUS_BORDER_WIDTH if state == "focus" else 1)
+			box.border_color = _html(TOKEN_LIGHT if state == "focus" else (TOKEN_BRASS_INK if on else ITEM_SEG_BORDER))
+			box.content_margin_left = ITEM_TOGGLE_PAD_H
+			box.content_margin_right = ITEM_TOGGLE_PAD_H
+			box.content_margin_top = ITEM_SEG_HEIGHT_PAD_V
+			box.content_margin_bottom = ITEM_SEG_HEIGHT_PAD_V
+			theme.set_stylebox(StringName(state), type_name, box)
+		for color_name: String in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+			theme.set_color(StringName(color_name), type_name, _html(TOKEN_INK))
+		theme.set_color(&"font_disabled_color", type_name, _html(TOKEN_RULE))
+		theme.set_font_size(&"font_size", type_name, ITEM_SEG_FONT)
+	theme.set_color(&"arrow_modulate", &"PaperPick", _html(TOKEN_INK_SUB))
+
+	# ⚠ 欄の見出し（「見せ方」「並び」「しぼる」）。⚠ 紙の上の薄墨は紙のテーマ（`PAPER_LABEL_COLORS` の `FieldCaptionLabel`）。
+	theme.set_type_variation(&"FieldCaptionLabel", &"Label")
+	theme.set_font_size(&"font_size", &"FieldCaptionLabel", ITEM_CAPTION_FONT)
+
+	# ⚠ 触れると出る札（⚠ 紙＋革の細い縁＋影）。
+	theme.set_type_variation(&"ItemTipPanel", &"PanelContainer")
+	var tip: StyleBoxFlat = (theme.get_stylebox(&"panel", &"PaperPanel") as StyleBoxFlat).duplicate()
+	tip.set_border_width_all(1)
+	tip.border_color = _html("5a4330")
+	tip.content_margin_left = 14
+	tip.content_margin_right = 14
+	tip.content_margin_top = 12
+	tip.content_margin_bottom = 12
+	theme.set_stylebox(&"panel", &"ItemTipPanel", tip)
+
+	# ⚠ 一括分解の帯（⚠ 封蝋の薄い面・封蝋の細い縁。⚠ 手本は破線＝⚠ 面は破線を引けないので実線）。
+	theme.set_type_variation(&"ScrapBarPanel", &"PanelContainer")
+	var scrap: StyleBoxFlat = StyleBoxFlat.new()
+	var wax: Color = _html(TOKEN_WAX)
+	scrap.bg_color = Color(wax.r, wax.g, wax.b, 0.1)
+	scrap.set_border_width_all(1)
+	scrap.border_color = wax
+	scrap.set_corner_radius_all(5)
+	scrap.content_margin_left = 10
+	scrap.content_margin_right = 10
+	scrap.content_margin_top = 6
+	scrap.content_margin_bottom = 6
+	theme.set_stylebox(&"panel", &"ScrapBarPanel", scrap)
+
+
 const PAPER_LABEL_COLORS: Dictionary = {
 	"Label": TOKEN_INK,
 	"HeadingLabel": TOKEN_INK,
@@ -3394,6 +3526,8 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"SpecialEffectTagLabel": SPECIAL_GOLD,
 	"SpecialEffectTextLabel": SPECIAL_TEXT,
 	"SpecialStarLabel": SPECIAL_GOLD,
+	# ⚠ 品の一覧の欄の見出し（2026-10-18）。
+	"FieldCaptionLabel": TOKEN_INK_SUB,
 }
 
 

@@ -118,6 +118,8 @@ const SHOT_AFTER_BATTLE_FAN: String = "battle_fan"
 const SHOT_AFTER_BATTLE_PANEL_STATUS: String = "battle_panel_status"
 # ⚠ 育成のスキルタブを一番下まで送る（2026-10-16・通常攻撃とパッシブの欄）。
 const SHOT_AFTER_SKILLS_BOTTOM: String = "skills_bottom"
+# ⚠ UI テストのページを「品の一覧の部品」まで送る（2026-10-18・回UI-1018-1）。
+const SHOT_AFTER_ITEM_PARTS: String = "item_parts"
 # ⚠ 王女（回PQ-1）：⚠ 王女を1番目に入れる（⚠ 内側の `PREPARE_PRINCESS_PARTY` と同じ字）。
 const SHOT_PREPARE_PRINCESS_PARTY: String = "princess_party"
 const SHOT_AFTER_MODAL_CONFIRM: String = "modal_confirm"
@@ -1770,6 +1772,8 @@ const SCENARIOS: Dictionary = {
 			{"name": "19_warehouse", "scene": "res://scenes/guild/warehouse_screen.tscn"},
 			# ⚠ 2026-09-26（回UI-2）：⚠ 紙の部品。⚠ UI テストのページの一番上に並べてある。
 			{"name": "20_ui_parts", "scene": "res://tests/ui_test_page.tscn"},
+			# ⚠ 品の一覧の共通の部品（2026-10-18・回UI-1018-1）。⚠ 同じページを部品の所まで送る。
+			{"name": "20b_item_parts", "scene": "res://tests/ui_test_page.tscn", "after": SHOT_AFTER_ITEM_PARTS},
 			# ⑥ 窓（2026-09-22・回1）。⚠ ここから下は「重ねるもの」と「ボスの先のもの」。
 			#
 			# ⚠⚠ 拾いもの。⚠ 本番は**マップの上に重ねる**（決定36）ので、⚠ マップを開いてから
@@ -13581,6 +13585,7 @@ class ShotTaker extends Node:
 	const AFTER_BATTLE_FAN: String = "battle_fan"
 	const AFTER_BATTLE_PANEL_STATUS: String = "battle_panel_status"
 	const AFTER_SKILLS_BOTTOM: String = "skills_bottom"
+	const AFTER_ITEM_PARTS: String = "item_parts"
 	const AFTER_MODAL_CONFIRM: String = "modal_confirm"
 	const AFTER_LEVEL_UP_PRESS: String = "level_up_press"
 	const AFTER_RELIC_PICK: String = "relic_pick"
@@ -14232,6 +14237,18 @@ class ShotTaker extends Node:
 
 	func _after(kind: String, screen: Node, shot_name: String) -> bool:
 		if kind == "":
+			return true
+		if kind == AFTER_ITEM_PARTS:
+			var catalog: Control = screen.find_child("ItemPartsCatalog", true, false) as Control
+			var page_scroll: ScrollContainer = screen.find_child("Scroll", false, false) as ScrollContainer
+			if catalog == null or page_scroll == null:
+				push_error("[DebugBoot] ⚠ %s に品の一覧の部品が無い" % shot_name)
+				return false
+			for _i: int in range(4):
+				await get_tree().process_frame
+			page_scroll.scroll_vertical = int(catalog.global_position.y - page_scroll.global_position.y) - 40
+			for _i: int in range(4):
+				await get_tree().process_frame
 			return true
 		if kind == AFTER_SKILLS_BOTTOM:
 			var skills_scroll: ScrollContainer = screen.find_child("SkillsScroll", true, false) as ScrollContainer
@@ -15216,6 +15233,7 @@ class UiFlowRunner extends Node:
 		# ⚠ `flow=ui_1018` で 10-18 の手だけ（⚠ スクロール・装備の並べ替え・詰所から装備）。
 		if "flow=ui_1018" in OS.get_cmdline_user_args():
 			await _flow_ui_1018()
+			await _flow_item_parts()
 			print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 			get_tree().quit()
 			return
@@ -15263,6 +15281,7 @@ class UiFlowRunner extends Node:
 		await _flow_tower_treasure_close()
 		await _flow_fewer_presses()
 		await _flow_ui_1018()
+		await _flow_item_parts()
 		# ⚠ ルーンの手（`_flow_runes_all`）は `flow=runes` のときだけ（10-17）：⚠ バイク・フェニックスの「スキルのあと」の見方が決まっていない＝⚠ 全体を赤にしない。
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
@@ -18471,9 +18490,7 @@ class UiFlowRunner extends Node:
 		for i: int in range(16):
 			var _added: int = GameManager.add_to_inventory(plain[i % plain.size()], 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 1 + (i % 6))
 		var _rare: int = GameManager.add_to_inventory("weapon_dragon_greatsword", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 9)
-		SceneManager.remember(TransferKeys.MEMORY_EQUIP_SORT, EquipSortBar.SORT_DEFAULT)
-		SceneManager.remember(TransferKeys.MEMORY_EQUIP_MIN_GRADE, 1)
-		SceneManager.remember(TransferKeys.MEMORY_EQUIP_SPECIAL_ONLY, false)
+		ItemListBar.reset_memory(ItemListBar.KIND_EQUIP)
 
 		# 持ち物：⚠ 下まで送って一番下の行を押しても、⚠ 位置が残る（⚠ 枠は作り直されている）。
 		var w: Node = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_EQUIP})
@@ -18500,12 +18517,11 @@ class UiFlowRunner extends Node:
 		_check("スクロール：タブを替えると先頭から（%d）" % (-1 if top == null else top.scroll_vertical), top != null and top.scroll_vertical == 0)
 
 		# 持ち物：並べ替え（等級の高い順）。
-		var sort_picker: OptionButton = w.find_child("SortPicker", true, false) as OptionButton
+		var sort_button: Button = w.find_child("SortSeg_" + ItemListBar.SORT_GRADE, true, false) as Button
 		# ⚠ 選ぶと画面が作り直され、⚠ 欄は消える＝⚠ 見つかったかは先に取っておく。
-		var has_sort: bool = sort_picker != null
+		var has_sort: bool = sort_button != null
 		if has_sort:
-			sort_picker.select(EquipSortBar.SORTS.find(EquipSortBar.SORT_GRADE))
-			sort_picker.item_selected.emit(EquipSortBar.SORTS.find(EquipSortBar.SORT_GRADE))
+			sort_button.pressed.emit()
 			await _wait()
 		var grades: Array[int] = _belongings_grades(w)
 		var descending: bool = grades.size() >= 2
@@ -18527,7 +18543,7 @@ class UiFlowRunner extends Node:
 				all_high = false
 		_check("絞り込み：「等級5以上」で 5 未満が消える（%s）" % str(grades), has_grade and all_high)
 		# 絞り込み：★だけ。
-		var special: CheckBox = w.find_child("SpecialOnly", true, false) as CheckBox
+		var special: Button = w.find_child("SpecialOnly", true, false) as Button
 		var has_special: bool = special != null
 		if has_special:
 			special.button_pressed = true
@@ -18546,12 +18562,10 @@ class UiFlowRunner extends Node:
 		var worn: String = GameManager.get_equipped_instance_id(HERO, GameStateKeys.EQUIP_WEAPON)
 		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: HERO, TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_EQUIP})
 		if t != null:
-			var bar_here: bool = t.find_child("EquipSortBar", true, false) is EquipSortBar
+			var bar_here: bool = t.find_child("ItemListBar", true, false) is ItemListBar
 			var worn_shown: bool = worn == "" or t.find_child("Candidate_" + worn, true, false) != null
 			_check("並べ替え：育成の装備タブにも同じ欄（着けている品 %s は隠れない）" % worn, bar_here and worn_shown)
-		SceneManager.remember(TransferKeys.MEMORY_EQUIP_SORT, EquipSortBar.SORT_DEFAULT)
-		SceneManager.remember(TransferKeys.MEMORY_EQUIP_MIN_GRADE, 1)
-		SceneManager.remember(TransferKeys.MEMORY_EQUIP_SPECIAL_ONLY, false)
+		ItemListBar.reset_memory(ItemListBar.KIND_EQUIP)
 
 		# 育成のスキル：⚠ 下まで送って枠を押しても位置が残る（⚠ 外側の枠は作り直さない＝中身だけ）。
 		t = await _open(TRAINING, {TransferKeys.CHARACTER_ID: "char_zealot", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_SKILLS})
@@ -18581,6 +18595,173 @@ class UiFlowRunner extends Node:
 			_check("詰所：「選んだ人の装備を着替える」で育成の装備タブが開く",
 				_path_of(opened) == TRAINING and str(opened.get("_tab")) == TransferKeys.TRAINING_TAB_EQUIP)
 		await _open(BASE, {})
+
+	# --- 10-18 回UI-1018-1：品の一覧の共通の部品（並べ替えの欄・マス・行・触れると出る札・一括分解） ---
+	# ⚠ 手本 `docs/pomodoro-heroes-ui-docs/2026-10-18/`。⚠ 画面に組み込むのは回2〜（⚠ ここは部品そのもの）。
+
+	func _flow_item_parts() -> void:
+		var base: Node = await _open(BASE, {})
+		if base == null:
+			return
+		ItemListBar.reset_memory(ItemListBar.KIND_EQUIP)
+		var _a: int = GameManager.add_to_inventory("armor_head_keen", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 2)
+		var _b: int = GameManager.add_to_inventory("weapon_sword_guard", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 1)
+		var _c: int = GameManager.add_to_inventory("acc_ruby_ring", 1, GameStateKeys.ITEM_TYPE_EQUIPMENT, 1)
+		# ⚠ 着けている品を1つ作る（⚠ 単独で回すと誰も着けていない）。⚠ 本番の口。
+		if GameManager.get_equipped_instance_id(HERO, GameStateKeys.EQUIP_HEAD) == "":
+			var _worn: bool = GameManager.equip_instance(HERO, GameStateKeys.EQUIP_HEAD, _instance_of("armor_head_keen"))
+		var holder: Control = Control.new()
+		holder.name = "ItemPartsHolder"
+		holder.size = Vector2(900, 600)
+		base.add_child(holder)
+
+		# 並べ替えの欄：⚠ 押すと覚える ／ ⚠ 並びと絞り込みは `apply_views()` の1か所。
+		var bar: ItemListBar = ItemListBar.create(ItemListBar.KIND_EQUIP, {"equipped": true})
+		holder.add_child(bar)
+		await _wait()
+		await _press(bar.find_child("SortSeg_" + ItemListBar.SORT_SLOT, true, false))
+		var slots: Array[String] = GameManager.get_equip_slots()
+		var by_slot: Array = ItemListBar.apply_views(GameManager.get_owned_instances())
+		var slot_order_ok: bool = by_slot.size() >= 3
+		for i: int in range(1, by_slot.size()):
+			var before: int = slots.find(str(MasterDataLoader.get_item(str((by_slot[i - 1] as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, ""))).get(GameManager.ITEM_MASTER_EQUIP_SLOT, "")))
+			var now: int = slots.find(str(MasterDataLoader.get_item(str((by_slot[i] as Dictionary).get(GameStateKeys.INSTANCE_ITEM_ID, ""))).get(GameManager.ITEM_MASTER_EQUIP_SLOT, "")))
+			if now < before:
+				slot_order_ok = false
+		_check("品の欄：「部位」で部位の順に並ぶ（%d 件）" % by_slot.size(), ItemListBar.sort_of(ItemListBar.KIND_EQUIP) == ItemListBar.SORT_SLOT and slot_order_ok)
+		await _press(bar.find_child("SlotSeg_" + GameStateKeys.EQUIP_WEAPON, true, false))
+		var weapons: Array = ItemListBar.apply_views(GameManager.get_owned_instances())
+		var only_weapons: bool = not weapons.is_empty()
+		for view: Variant in weapons:
+			if ItemView.slot_of(ItemView.entry_of_view(view as Dictionary)) != GameStateKeys.EQUIP_WEAPON:
+				only_weapons = false
+		var ignore_slot: int = ItemListBar.apply_views(GameManager.get_owned_instances(), false, false).size()
+		_check("品の欄：「しぼる 武器」で武器だけ（%d 件）・部位の欄を出さない画面には効かない（%d 件）" % [weapons.size(), ignore_slot],
+			only_weapons and ignore_slot > weapons.size())
+		var equipped_toggle: Button = bar.find_child("EquippedOnly", true, false) as Button
+		if equipped_toggle != null:
+			equipped_toggle.button_pressed = true
+			await _wait()
+		var worn_only: Array = ItemListBar.apply_views(GameManager.get_owned_instances(), true, false)
+		var all_worn: bool = true
+		for view: Variant in worn_only:
+			if str((view as Dictionary).get(GameManager.INSTANCE_VIEW_EQUIPPED_BY, "")) == "":
+				all_worn = false
+		_check("品の欄：「着けている物だけ」（%d 件）・その欄を出さない画面には効かない" % worn_only.size(),
+			equipped_toggle != null and all_worn and ItemListBar.apply_views(GameManager.get_owned_instances(), false, false).size() > worn_only.size())
+		await _press(bar.find_child("ViewSeg_" + ItemListBar.VIEW_LIST, true, false))
+		_check("品の欄：「行」を覚える", ItemListBar.view_of(ItemListBar.KIND_EQUIP) == ItemListBar.VIEW_LIST)
+		ItemListBar.reset_memory(ItemListBar.KIND_EQUIP)
+		_check("品の欄：はじめに戻すと マス目・いつもの順・しぼらない",
+			ItemListBar.view_of(ItemListBar.KIND_EQUIP) == ItemListBar.VIEW_GRID and ItemListBar.sort_of(ItemListBar.KIND_EQUIP) == ItemListBar.SORT_DEFAULT
+			and not ItemListBar.is_filtering(ItemListBar.KIND_EQUIP, true))
+		holder.remove_child(bar)
+		bar.queue_free()
+
+		# マス目：⚠ 品の数だけマス ／ ⚠ ★・着けている人の顔 ／ ⚠ 押すと鍵が返る ／ ⚠ 選んだ・選べない・分解で選んだ。
+		var entries: Array = []
+		for view: Variant in GameManager.get_owned_instances():
+			entries.append(ItemView.entry_of_view(view as Dictionary))
+		var worn_key: String = ""
+		var star_key: String = ""
+		for entry: Variant in entries:
+			if worn_key == "" and str((entry as Dictionary).get(GameManager.SLOT_ENTRY_EQUIPPED_BY, "")) != "":
+				worn_key = ItemView.key_of(entry as Dictionary)
+			if star_key == "" and ItemView.is_special(entry as Dictionary):
+				star_key = ItemView.key_of(entry as Dictionary)
+		var tip: ItemTipCard = ItemTipCard.attach(holder)
+		var grid: ItemCollection = ItemCollection.create(ItemListBar.VIEW_GRID)
+		grid.size = Vector2(800, 400)
+		grid.tip = tip
+		grid.picked = {star_key: true}
+		grid.locked = {worn_key: true}
+		grid.set_entries(entries)
+		holder.add_child(grid)
+		await _wait()
+		var pressed_keys: Array[String] = []
+		grid.item_pressed.connect(func(key: String) -> void: pressed_keys.append(key))
+		var first_key: String = ItemView.key_of(entries[0] as Dictionary)
+		var first: ItemCell = grid.get_cell(first_key)
+		if first != null:
+			first.pressed.emit()
+		var worn_cell: ItemCell = grid.get_cell(worn_key)
+		var star_cell: ItemCell = grid.get_cell(star_key)
+		_check("マス目：品の数だけマス（%d / %d）・押すと鍵が返る" % [grid.find_children("Cell_*", "ItemCell", true, false).size(), entries.size()],
+			grid.find_children("Cell_*", "ItemCell", true, false).size() == entries.size() and pressed_keys == [first_key])
+		_check("マス目：着けている品に顔・★の品に★（顔 %s・★ %s）" % [worn_key, star_key],
+			worn_cell != null and worn_cell.find_child("Owner", false, false) is CharacterAvatar
+			and star_cell != null and star_cell.has_star() and worn_cell.has_star() == ItemView.is_special(worn_cell.entry))
+		_check("マス目：選べない・分解で選んだ の印が渡した通り", worn_cell != null and worn_cell.is_locked() and star_cell != null and star_cell.is_picked())
+		var grid_scroll: ScrollContainer = grid.find_child("ItemScroll", false, false) as ScrollContainer
+		var grid_node: GridContainer = grid.find_child("Grid", true, false) as GridContainer
+		_check("マス目：列は幅で決まる（%d 列・最大 %d）" % [0 if grid_node == null else grid_node.columns, grid.get_theme_constant(&"columns", &"ItemCell")],
+			grid_scroll != null and grid_node != null and grid_node.columns >= 1 and grid_node.columns <= grid.get_theme_constant(&"columns", &"ItemCell"))
+		# 触れると出る札（⚠ 比べる相手があれば増分）。
+		if first != null:
+			tip.show_entry(first.entry, worn_key if worn_key != first_key else "")
+		await _wait()
+		var tip_name: String = _label_text(tip, "Head", "NameLabel")
+		_check("触れると出る札：名前「%s」が出る" % tip_name, tip.is_open() and tip_name == ItemView.name_text(entries[0] as Dictionary))
+		_check("触れると出る札：比べる相手があれば増分", worn_key == first_key or tip.find_child("DeltaLabel", true, false) != null)
+		tip.hide_tip()
+		_check("触れると出る札：外すと消える", not tip.is_open())
+		holder.remove_child(grid)
+		grid.queue_free()
+		# 行：⚠ 品の数だけ行 ／ ⚠ 名前と着けている人。
+		var rows: ItemCollection = ItemCollection.create(ItemListBar.VIEW_LIST)
+		rows.size = Vector2(800, 400)
+		rows.set_entries(entries)
+		holder.add_child(rows)
+		await _wait()
+		var worn_row: Node = rows.find_child("Row_" + worn_key, true, false)
+		_check("行：品の数だけ行・着けている人の名前（%s）" % _label_text(rows, "Row_" + worn_key, "OwnerLabel"),
+			rows.find_children("Row_*", "LedgerRow", true, false).size() == entries.size() and worn_row != null
+			and _label_text(rows, "Row_" + worn_key, "OwnerLabel") == ItemView.owner_name(ItemView.instance_entry(worn_key)))
+		holder.remove_child(rows)
+		rows.queue_free()
+
+		# 一括分解：⚠ まとめては 着けている物・★ を選ばない ／ ⚠ 着けている物・重なりが混じったら何もしない ／ ⚠ 戻る素材は見積もり通り。
+		var views: Array = GameManager.get_owned_instances()
+		var low: Array[String] = BulkScrapBar.pick_by_grade(views, 2)
+		var low_ok: bool = not low.is_empty()
+		for instance_id: String in low:
+			var entry: Dictionary = ItemView.instance_entry(instance_id)
+			if ItemView.owner_name(entry) != "" or ItemView.is_special(entry) or int(entry.get(GameManager.SLOT_ENTRY_GRADE, 1)) > 2:
+				low_ok = false
+		_check("一括分解：「等級2以下をまとめて」は着けている物・★・等級3以上を選ばない（%d 個）" % low.size(), low_ok and not (worn_key in low))
+		var count_before: int = GameManager.get_owned_instances().size()
+		var bad: Array[String] = []
+		var twice: Array[String] = []
+		if not low.is_empty() and worn_key != "":
+			bad.append_array([low[0], worn_key])
+			twice.append_array([low[0], low[0]])
+		var refused: bool = not bad.is_empty() and not GameManager.dismantle_equipment_bulk(bad)
+		var refused_twice: bool = not twice.is_empty() and not GameManager.dismantle_equipment_bulk(twice)
+		_check("一括分解：着けている物・同じ品が2回 が混じると何もしない（%d 個のまま）" % GameManager.get_owned_instances().size(),
+			refused and refused_twice and GameManager.get_owned_instances().size() == count_before)
+		var refund: Dictionary = GameManager.get_bulk_dismantle_refund(low)
+		var material_before: Dictionary = {}
+		for material_id: Variant in refund:
+			material_before[material_id] = GameManager.get_material_count(str(material_id))
+		# ⚠ 右の欄の口（⚠ 確かめの窓の「はい」）。⚠ 結果は箱で受け取る（⚠ ラムダの中の代入は外へ出ない）。
+		var result: Array = []
+		var run: Callable = func() -> void:
+			result.append(await BulkScrapSummary.run(get_tree().current_scene, low))
+		run.call()
+		await _confirm_modal()
+		await _wait()
+		var refund_ok: bool = not refund.is_empty()
+		for material_id: Variant in refund:
+			if GameManager.get_material_count(str(material_id)) != int(material_before[material_id]) + int(refund[material_id]):
+				refund_ok = false
+		var gone: bool = true
+		for instance_id: String in low:
+			if not GameManager.get_equipment_instance(instance_id).is_empty():
+				gone = false
+		_check("一括分解：確かめの窓の「はい」で全部消え、素材が見積もり通り戻る（%d 個・%s）" % [low.size(), str(refund)],
+			result == [true] and gone and refund_ok and GameManager.get_owned_instances().size() == count_before - low.size())
+		base.remove_child(holder)
+		holder.queue_free()
 
 	# 持ち物の行の等級（⚠ 上から）。⚠ 行の鍵は個体の ID。
 	func _belongings_grades(w: Node) -> Array[int]:

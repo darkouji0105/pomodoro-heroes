@@ -39,6 +39,7 @@ var _grade: int = 0
 #   ⚠ **等級は枠線の色が持つ**（⚠ 2026-09-08 に地から枠線へ移したときのまま）。
 #     ⚠ 数字での等級は詳細パネルの「等級N」が出す。⚠ ここには2つ目の意味を持たせない。
 var _count: int = NO_COUNT
+var _letter_visible: bool = true
 
 # 中央の線画（2026-09-08）。⚠ SVG が在ればこちら、⚠ 無ければ絵文字の Label。
 #   ⚠ `.tscn` を触らずコードで作る（⚠ 3つの Label と同じ流儀）。
@@ -108,6 +109,13 @@ func setup(item_id: String, grade: int = 0, count: int = NO_COUNT) -> void:
 	#   その場合は _ready() 側が描く。
 	if is_inside_tree():
 		_refresh()
+
+
+# ⚠ 左上の1文字を出すか（2026-10-18・`ItemCell`）。⚠ マスはそこに等級の数字の札を重ねるので消す。⚠ 既定は出す。
+func set_letter_visible(value: bool) -> void:
+	_letter_visible = value
+	if is_inside_tree():
+		text_label.visible = value
 
 
 # 検証用（⚠ 設計役は絵を見られない）。⚠ いま中央に何を出しているかを文字で返す。
@@ -181,6 +189,7 @@ func _refresh() -> void:
 	# ⚠ 宝箱は1文字を持たない（⚠ 絵とレアリティの枠の色で見分ける・2026-09-18）。
 	var is_chest: bool = GameManager.is_chest_item(_item_id)
 	text_label.text = "" if is_chest else tr("ui_icon_" + _item_id)
+	text_label.visible = _letter_visible
 	text_label.add_theme_font_size_override("font_size", config.icon_font_size)
 	text_label.add_theme_color_override("font_color", config.icon_text_color)
 	text_label.set_anchors_preset(Control.PRESET_TOP_LEFT)

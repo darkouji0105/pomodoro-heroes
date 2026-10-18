@@ -4042,6 +4042,60 @@ func dismantle_equipment(instance_id: String) -> bool:
 	return true
 
 
+# ⚠ 分解できるか（⚠ 在る・誰も着けていない）。⚠ 判定は `dismantle_equipment()` と同じ。
+func can_dismantle_equipment(instance_id: String) -> bool:
+	return not get_equipment_instance(instance_id).is_empty() and _equipped_owner(instance_id) == ""
+
+
+# ⚠⚠ 一括分解の戻りの合計（2026-10-18・回UI-1018-1）。⚠ 1つずつの戻り（`get_dismantle_refund()`）を足すだけ。
+func get_bulk_dismantle_refund(instance_ids: Array) -> Dictionary:
+	var total: Dictionary = {}
+	for raw: Variant in instance_ids:
+		var refund: Dictionary = get_dismantle_refund(str(raw))
+		for material_id: Variant in refund:
+			total[material_id] = int(total.get(material_id, 0)) + int(refund[material_id])
+	return total
+
+
+# ⚠⚠ 一括分解（2026-10-18・回UI-1018-1・手本 `docs/pomodoro-heroes-ui-docs/2026-10-18/images/06_belongings_scrap.png`）。
+# ⚠ 全部の判定を先に終える（CLAUDE.md 6番）：⚠ 1つでも分解できない個体（無い・着けている・重なり）があれば何もしない。
+# ⚠ 中身は1つずつの分解と同じ（⚠ 素材が戻る・等級5以上はその等級の遺物に点＝`EQ-8`）。
+# ⚠ シグナルはまとめて1回ずつ（⚠ 1つずつ出すと、画面が個数ぶん描き直す）。
+# ⚠ 「★はまとめに入らない」「着けている物は選べない」は**選ぶ側**の決まり（`BulkScrap.pick_by_grade()`）。⚠ ここは★も分解できる。
+func dismantle_equipment_bulk(instance_ids: Array) -> bool:
+	var ids: Array[String] = []
+	for raw: Variant in instance_ids:
+		var instance_id: String = str(raw)
+		if instance_id in ids or not can_dismantle_equipment(instance_id):
+			print("[GameManager] dismantle_equipment_bulk -> false (%s は分解できない)" % instance_id)
+			return false
+		ids.append(instance_id)
+	if ids.is_empty():
+		return false
+	var refund: Dictionary = get_bulk_dismantle_refund(ids)
+	var offers: Dictionary = {}
+	for instance_id: String in ids:
+		var offer: Dictionary = get_offer_preview(instance_id)
+		if not offer.is_empty():
+			var relic_id: String = str(offer[OFFER_RELIC_ID])
+			offers[relic_id] = int(offers.get(relic_id, 0)) + int(offer[OFFER_POINTS])
+
+	# --- ここから状態を変える ---
+
+	var instances: Dictionary = _copy_dict(GameStateKeys.EQUIPMENT_INSTANCES)
+	for instance_id: String in ids:
+		instances.erase(instance_id)
+	_state[GameStateKeys.EQUIPMENT_INSTANCES] = instances
+	for material_id: Variant in refund:
+		add_material(str(material_id), int(refund[material_id]))
+	for relic_id: Variant in offers:
+		_add_guild_relic_points(str(relic_id), int(offers[relic_id]))
+	print("[GameManager] dismantle_equipment_bulk(%d 個) -> true (refund=%s offer=%s)" % [ids.size(), str(refund), str(offers)])
+	equipment_instances_changed.emit(ids[0])
+	for relic_id: Variant in offers:
+		guild_relic_changed.emit(str(relic_id))
+	return true
+
 # ============================================================
 # 拠点の遺物（2026-10-07・回HB-3・`EQ-8`・`EXEC_GUILD_RELIC.md`）
 # ============================================================

@@ -125,9 +125,10 @@ func _rebuild() -> void:
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_page.add_child(column)
 	column.add_child(_build_heading(rows.size()))
-	# ⚠ 10-18（人間「⚠ 装備をソートできるように　レア度でフィルターなど」）：⚠ 装備だけ並べ替えと絞り込み（`EquipSortBar`）。
+	# ⚠ 10-18（人間「⚠ 装備をソートできるように　レア度でフィルターなど」）：⚠ 装備だけ並べ替えと絞り込み（`ItemListBar`）。
+	#   ⚠ 部位は左の縦タブが持つ＝欄には出さない。⚠ マス目は回UI-1018-2（持ち物の作り直し）で入れる。
 	if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP and _attach_instance == "":
-		var sort_bar: EquipSortBar = EquipSortBar.create()
+		var sort_bar: ItemListBar = ItemListBar.create(ItemListBar.KIND_EQUIP, {"view": false, "slot": false})
 		sort_bar.changed.connect(_on_sort_changed)
 		column.add_child(sort_bar)
 	var scroll: ScrollContainer = ScrollContainer.new()
@@ -141,7 +142,7 @@ func _rebuild() -> void:
 	scroll.add_child(list)
 	if rows.is_empty():
 		var empty_key: String = "ui_part_none_hint" if _attach_instance != "" else "ui_warehouse_empty"
-		if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP and _attach_instance == "" and EquipSortBar.is_filtering():
+		if _tab == TransferKeys.WAREHOUSE_TAB_EQUIP and _attach_instance == "" and ItemListBar.is_filtering(ItemListBar.KIND_EQUIP, false, false):
 			empty_key = "ui_equip_filter_hidden"
 		list.add_child(EmptyState.create(empty_key))
 	for row: Dictionary in rows:
@@ -236,10 +237,10 @@ func _rows() -> Array[Dictionary]:
 	return _equip_rows()
 
 
-# ⚠ 装備は着けている個体も並べる（⚠ 手本＝誰が着けているかを行に出す）。⚠ 並びと絞り込みは `EquipSortBar.apply()`（10-18）。
+# ⚠ 装備は着けている個体も並べる（⚠ 手本＝誰が着けているかを行に出す）。⚠ 並びと絞り込みは `ItemListBar.apply_views()`（10-18）。
 func _equip_rows() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
-	for raw: Variant in EquipSortBar.apply(GameManager.get_owned_instances()):
+	for raw: Variant in ItemListBar.apply_views(GameManager.get_owned_instances(), false, false):
 		var view: Dictionary = raw
 		var instance_id: String = str(view.get(GameManager.INSTANCE_VIEW_ID, ""))
 		var item_id: String = str(view.get(GameStateKeys.INSTANCE_ITEM_ID, ""))
