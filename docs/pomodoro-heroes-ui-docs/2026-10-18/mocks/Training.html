@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>育成の手直し</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#2b2118;--ink2:#4f4030;--mute:#6e5a43;--faint:#a8987f;
+  --paper:#e9dcc0;--paper-hi:#f4ead3;--rule:#c2ae88;--rule2:#b39d74;
+  --brass:#9c7424;--brass-hi:#d4a640;--gold:#b98a2c;--seal:#9c3a2e;
+  --leather:#4a3526;--leather-b:#5a4330;--wood:#1d1612;--cream:#f1e6cf;
+  --ptex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.3  0 0 0 0 0.14  0 0 0 0.22 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
+  --wtex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.012 0.4' numOctaves='3' seed='8'/><feColorMatrix values='0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.12  0 0 0 0.35 0'/></filter><rect width='300' height='300' filter='url(%23w)'/></svg>");
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0e0a08;font-family:"Noto Sans JP","Hiragino Sans",sans-serif;color:#eadfca;padding:16px 0 40px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.num{font-family:"Noto Sans JP",sans-serif;font-weight:900;font-variant-numeric:tabular-nums}
+.min{font-family:"Shippori Mincho B1",serif;font-weight:800}
+
+/* ---------- 枠 ---------- */
+.frame{position:relative;width:1280px;height:720px;margin:0 auto;display:flex;flex-direction:column;background:var(--wood) var(--wtex);overflow:hidden}
+header{height:60px;flex-shrink:0;padding:0 24px;display:flex;align-items:center;justify-content:space-between;background:#16100d;border-bottom:1px solid var(--leather-b)}
+.back{height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:6px;border:1.5px solid #a8791f;background:var(--leather);color:var(--cream);font-size:14px}
+.ttl{display:flex;align-items:center;gap:12px}
+.ttl .dia{width:7px;height:7px;transform:rotate(45deg);background:var(--brass-hi)}
+.ttl b{font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:23px;letter-spacing:.25em;color:var(--cream);text-shadow:0 2px 0 #000}
+.ttl small{display:block;font-size:11px;letter-spacing:.2em;color:var(--faint)}
+.money{display:flex;gap:2px;padding:3px;background:#33261d;border:1px solid var(--leather-b);border-radius:10px}
+.money span{display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:15px}
+.money i{width:1px;background:var(--leather-b)}
+.ftabs{height:32px;flex-shrink:0;display:flex;align-items:flex-end;gap:4px;padding:0 24px}
+.ftab{height:26px;padding:0 20px;border:none;border-radius:7px 7px 0 0;background:#b59e74;color:var(--ink);font-size:13px;position:relative}
+.ftab.on{height:32px;background:var(--paper);font-weight:700}
+.ftab .mark{position:absolute;right:6px;top:0;width:9px;height:18px;background:var(--seal);clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)}
+nav.fac{height:44px;flex-shrink:0;display:flex;background:#231a15;border-top:2px solid #3a2c22}
+nav.fac a{flex:1;display:flex;align-items:center;justify-content:center;color:#b3a48c;font-size:14px;text-decoration:none;border-top:3px solid transparent;margin-top:-2px;position:relative}
+nav.fac a.on{color:var(--cream);border-top-color:var(--brass-hi);background:#2f241c}
+nav.fac a .mark{position:absolute;right:22%;top:-2px;width:10px;height:22px;background:var(--seal);clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)}
+main{position:relative;flex-grow:1;min-height:0;padding:8px 24px 8px;display:flex;flex-direction:column;gap:8px}
+
+/* ---------- 紙 ---------- */
+.paper{position:relative;background:var(--paper) var(--ptex);color:var(--ink);border-radius:3px;box-shadow:inset 0 0 36px rgba(120,88,40,.3),0 10px 22px rgba(0,0,0,.5)}
+.corner{position:absolute;width:14px;height:14px;border:0 solid var(--brass)}
+.c1{top:6px;left:6px;border-top-width:2px;border-left-width:2px}.c2{top:6px;right:6px;border-top-width:2px;border-right-width:2px}
+.c3{bottom:6px;left:6px;border-bottom-width:2px;border-left-width:2px}.c4{bottom:6px;right:6px;border-bottom-width:2px;border-right-width:2px}
+
+.btn{height:32px;padding:0 14px;border-radius:6px;border:1.5px solid var(--leather-b);background:var(--leather);color:var(--cream);font-size:13px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn.brass{border-color:#7a5716;background:var(--gold);color:#1f160f;font-weight:700;box-shadow:inset 0 1px 0 #e0b85c}
+.btn.ghost{background:transparent;border:1px solid #8a7458;color:var(--ink)}
+.btn.big{height:34px;padding:0 28px;font-size:15px;letter-spacing:.15em}
+.btn[disabled]{opacity:.45;cursor:default}
+.face{flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:6px;border:2px solid #f5ecd8;box-shadow:0 2px 5px rgba(0,0,0,.35);line-height:1}
+.icons{display:flex;align-items:center;gap:4px}
+.icons .sep{width:1px;height:26px;background:var(--rule2);margin:0 3px}
+.seg{display:inline-flex;border:1px solid #8a7458;border-radius:6px;overflow:hidden;height:26px}
+.seg button{border:none;background:rgba(244,234,211,.55);font-size:11.5px;padding:0 8px;color:var(--ink2)}
+.seg button+button{border-left:1px solid var(--rule2)}
+.seg button.on{background:#dccaa3;color:var(--ink);font-weight:700;box-shadow:inset 0 -2px 0 var(--brass)}
+.flabel{font-size:11px;color:var(--mute)}
+/* ---------- 小さなアイコン ---------- */
+.ic{position:relative;flex-shrink:0;display:inline-flex}
+.ic .g{position:absolute;top:1px;left:1px;min-width:11px;height:11px;padding:0 2px;border-radius:3px 0 3px 0;font-size:8px;font-weight:700;color:#1b1512;display:flex;align-items:center;justify-content:center}
+.ic .st{position:absolute;right:-3px;bottom:-3px}
+.up{color:#3f7a2e;font-weight:900}.down{color:var(--seal);font-weight:900}
+.btn.danger{background:#8a3327;border-color:#6e2219;color:#fbeee6;font-weight:700}
+.demo{width:1280px;margin:12px auto 0;display:flex;gap:8px;align-items:center;font-size:13px;color:#b3a48c}
+.demo button{height:32px;padding:0 14px;border-radius:6px;border:1px solid #6a5340;background:#2a1f18;color:#d9ccb4}
+.demo button.on{background:var(--gold);color:#1f160f;border-color:#7a5716;font-weight:700}
+
+/* ---------- 育成 ---------- */
+main{flex-direction:row;gap:24px;padding:10px 24px 10px}
+.sheet{width:360px;flex-shrink:0;padding:12px 18px 12px;display:flex;flex-direction:column;gap:8px;transform:rotate(-.6deg)}
+.cnav{display:flex;align-items:center;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--rule2)}
+.cnav .nb{height:30px;padding:0 8px;border-radius:15px;border:1px solid #8a7458;background:rgba(244,234,211,.6);font-size:11.5px;color:var(--ink);display:flex;align-items:center;gap:5px;max-width:112px}
+.cnav .nb span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cnav .nb:hover{border-color:var(--brass);background:var(--paper-hi)}
+.cnav .mid{flex-grow:1;text-align:center;font-size:11px;color:var(--mute)}
+.cnav .mid b{font-size:14px;color:var(--ink)}
+.ident{display:flex;gap:14px;align-items:center}
+.ident .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ident .t b{font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:28px;line-height:1.05}
+.ident .t small{font-size:12px;color:var(--mute)}
+.lvbar{height:5px;background:rgba(110,90,67,.2);margin-top:3px}.lvbar i{display:block;height:100%;width:5%;background:var(--brass)}
+.load{display:flex;flex-direction:column;gap:5px;padding:8px 10px;background:rgba(244,234,211,.7);border:1px solid var(--rule2);border-radius:3px}
+.load .lr{display:flex;align-items:center;gap:6px}
+.load .lk{width:34px;font-size:10.5px;color:var(--mute)}
+.load button.ib{padding:0;border:none;background:none;border-radius:6px}
+.load button.ib:hover{box-shadow:0 0 0 2px var(--brass-hi)}
+.srow{display:flex;align-items:center;gap:9px;height:22px;border-bottom:1px dotted var(--rule2);font-size:12.5px}
+.srow .l{flex-grow:1;color:var(--ink2)}
+.srow b{font-size:15px}
+.srow .d{width:34px;text-align:right;font-size:11px}
+
+.right{flex-grow:1;min-width:0;display:flex;flex-direction:column}
+.ttabs{height:40px;flex-shrink:0;display:flex;align-items:flex-end;gap:4px;padding-left:12px}
+.tt{height:33px;padding:0 18px;border:none;border-radius:9px 9px 0 0;background:#b59e74;color:var(--ink);font-size:14px;display:flex;align-items:center;gap:7px;box-shadow:0 -3px 8px rgba(0,0,0,.35)}
+.tt.on{height:40px;background:var(--paper);font-weight:700}
+.tt .badge{min-width:18px;height:18px;border-radius:9px;background:var(--seal);color:#fbeee6;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.panel{position:relative;flex-grow:1;min-height:0;padding:16px 24px;border-radius:0 3px 3px 3px;display:flex;flex-direction:column;gap:10px}
+.ph{display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid var(--ink);padding-bottom:6px}
+.ph b{font-size:19px;letter-spacing:.15em}
+.ph small{font-size:12px;color:var(--mute)}
+
+/* 概要 */
+.orow{display:flex;align-items:center;gap:14px;height:50px;padding:0 6px;border:none;border-bottom:1px dotted var(--rule2);background:transparent;color:var(--ink);text-align:left;width:100%}
+.orow .on1{font-family:"Shippori Mincho B1",serif;font-weight:700;font-size:17px;width:150px}
+.promo{position:relative;margin-top:8px;padding:14px 16px;border:2px solid var(--brass);background:rgba(244,234,211,.75);display:flex;align-items:center;gap:16px}
+.promo .lab{position:absolute;top:-10px;left:16px;padding:0 8px;background:var(--paper);font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:12px;letter-spacing:.3em;color:#7a5716}
+
+.mini{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1px solid var(--rule2);border-radius:5px;background:rgba(244,234,211,.6)}
+.mini.zero{opacity:.55}
+.mt{width:38px;height:38px;border-radius:6px;background:#241b16;border:1.5px solid var(--brass-hi);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#f3d58a;font-size:12px;line-height:1}
+/* 装備の詳しい札（ホバー） */
+.tipcard{position:absolute;z-index:9;width:270px;padding:12px 14px;pointer-events:none;display:none;flex-direction:column;gap:6px;box-shadow:0 0 0 1px #5a4330,0 14px 30px rgba(0,0,0,.6);font-size:12px}
+.tipcard.show{display:flex}
+.tipcard .tr{display:flex;justify-content:space-between;align-items:baseline}
+.tipcard hr{border:none;border-top:1px dashed var(--rule);margin:2px 0;width:100%}
+.hov{display:inline-flex;border-radius:6px}.hov:hover{box-shadow:0 0 0 2px var(--brass-hi)}
+.forge{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;width:44px;height:44px;justify-content:center;border-radius:6px;border:1.5px solid var(--leather-b);background:var(--leather);color:var(--cream);font-size:9.5px;padding:0}
+.forge:hover{background:#5d4331;border-color:var(--brass-hi)}
+.forge.wide{flex-direction:row;width:auto;height:30px;padding:0 10px;gap:5px;font-size:12px;margin-right:6px}
+.toast{position:absolute;left:50%;top:80px;transform:translateX(-50%);z-index:10;padding:10px 18px;border-radius:6px;background:#2a1f18;border:1.5px solid var(--brass);color:var(--cream);font-size:14px;box-shadow:0 10px 24px rgba(0,0,0,.6);display:none}
+.toast.show{display:block}
+/* ステータスノード */
+.node{display:flex;align-items:center;gap:14px;padding:10px 4px;border-bottom:1px dashed var(--rule)}
+.ntile{position:relative;width:74px;height:74px;flex-shrink:0;border-radius:10px;background:#241b16;border:2.5px solid var(--brass-hi);box-shadow:inset 0 0 0 3px #241b16,inset 0 0 0 4px rgba(212,166,64,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#efe5d2}
+.ntile b{font-size:24px;line-height:1;color:#f3d58a}
+.ntile small{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);padding:0 6px;border-radius:8px;background:var(--paper);border:1px solid #8a7458;font-size:9.5px;color:var(--mute);white-space:nowrap}
+.dots{display:flex;gap:3px}
+.dots i{width:10px;height:10px;border-radius:50%;border:1.5px solid #8a7458;box-sizing:border-box}
+.dots i.f{background:var(--brass);border-color:var(--brass)}
+.dots i.g5{margin-left:6px}
+.pm{width:42px;height:42px;border-radius:6px;font-size:22px;padding:0;border:1.5px solid #7a5716;background:var(--gold);color:#1f160f;font-weight:700}
+.pm.minus{background:transparent;border:1px solid #8a7458;color:var(--ink)}
+.pm[disabled]{opacity:.35;cursor:default}
+
+/* スキル */
+.sslots{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+.sslot{position:relative;display:flex;gap:14px;align-items:center;padding:16px 14px 12px;border:2px solid var(--ink);border-radius:6px;background:var(--paper-hi);text-align:left;color:var(--ink);box-shadow:inset 0 0 0 4px var(--paper-hi),inset 0 0 0 5px var(--rule2)}
+.sslot:hover,.sslot.on{border-color:var(--brass);box-shadow:inset 0 0 0 4px var(--paper-hi),inset 0 0 0 5px var(--brass-hi),0 0 14px rgba(224,184,92,.45)}
+.sslot .tag{position:absolute;top:-12px;left:12px;height:22px;padding:0 10px;border-radius:4px;background:var(--ink);color:var(--cream);font-size:12px;font-weight:700;display:flex;align-items:center;letter-spacing:.1em}
+.sslot .chg{margin-left:auto;align-self:flex-end;font-size:11px;color:#7a5716;font-weight:700;white-space:nowrap}
+.sframe{flex-shrink:0;padding:4px;border-radius:10px;background:#efe3c6;border:2px solid var(--brass);box-shadow:0 2px 4px rgba(0,0,0,.2)}
+.sframe.empty{border-style:dashed;background:transparent}
+.info{padding:10px 12px;border:1px solid var(--rule2);border-radius:4px;background:rgba(244,234,211,.55);font-size:12.5px;line-height:1.6}
+.info h5{margin:0 0 3px;display:flex;justify-content:space-between;font-size:14px}
+.info h5 small{font-weight:400;color:var(--mute);font-size:11px}
+.pop{position:absolute;inset:60px 24px 16px;z-index:3;display:none;flex-direction:column;gap:8px;padding:14px 16px;box-shadow:0 0 0 1px #5a4330,0 18px 40px rgba(0,0,0,.55)}
+.pop.show{display:flex}
+.pscrim{position:absolute;inset:0;background:rgba(20,14,10,.45);z-index:2;display:none;border-radius:inherit}
+.pscrim.show{display:block}
+.slist{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:auto}
+.sitem{display:flex;align-items:center;gap:12px;padding:8px 10px;border:1px solid var(--rule2);border-radius:5px;background:rgba(244,234,211,.7);text-align:left;color:var(--ink)}
+.sitem:hover{border-color:var(--brass)}
+.sitem.cur{background:var(--paper-hi);box-shadow:inset 0 0 0 2px var(--brass)}
+.sitem[disabled]{opacity:.5;cursor:default}
+.sitem .n{font-size:14px;font-weight:700}
+.sitem .d{font-size:11px;color:var(--mute);line-height:1.45}
+.mark2{font-size:10px;font-weight:700;color:var(--seal);border:1.2px solid var(--seal);border-radius:2px;padding:0 4px;margin-left:6px}
+
+/* 装備（並べ替えの欄は持ち物・鍛冶場と同じ部品） */
+.eqwrap{flex-grow:1;min-height:0;display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px}
+.parts{display:flex;flex-direction:column;gap:6px;padding-right:18px;border-right:1px solid var(--rule)}
+.part{cursor:pointer;display:flex;align-items:center;gap:10px;height:62px;padding:0 10px;border:1.5px solid var(--rule2);border-radius:5px;background:rgba(244,234,211,.55);text-align:left;color:var(--ink)}
+.part.on{border-color:var(--brass);background:var(--paper-hi);box-shadow:inset 3px 0 0 var(--brass)}
+.part .k{font-size:10.5px;color:var(--mute)}.part .v{font-size:13.5px;font-weight:700}
+.tool{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tool .pick{height:28px;padding:0 26px 0 10px;border-radius:6px;border:1px solid #8a7458;background:rgba(244,234,211,.6) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1 L5 5 L9 1' fill='none' stroke='%236e5a43' stroke-width='1.5'/></svg>") no-repeat right 9px center;font-size:12px;color:var(--ink);display:flex;align-items:center}
+.tool .pick em{font-style:normal;color:var(--mute);margin-right:4px}
+.tool .chk{height:28px;padding:0 10px;border-radius:6px;border:1px solid #8a7458;background:rgba(244,234,211,.6);font-size:12px;color:var(--ink);display:flex;align-items:center;gap:6px}
+.tool .chk i{width:13px;height:13px;border:1.5px solid #6e5a43;border-radius:2px;display:inline-block;box-sizing:border-box}
+.tool .chk.on i{background:var(--ink);border-color:var(--ink)}
+.egrid{display:grid;grid-template-columns:repeat(8,56px);gap:16px 10px;padding-top:6px;align-content:start}
+.cell{position:relative;width:56px;height:56px;padding:0;border:none;background:none}
+.cell.on::after{content:"";position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 2px var(--brass-hi),0 0 12px rgba(224,184,92,.6)}
+.cell.other .ico{filter:brightness(.5) saturate(.5);opacity:.75}
+.cell.other:hover .ico{filter:brightness(.8) saturate(.8);opacity:.95}
+.mine{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);padding:0 5px;height:15px;border-radius:8px;background:var(--brass);color:#fbeee6;font-size:9.5px;font-weight:700;white-space:nowrap;display:flex;align-items:center}
+.who-dot{position:absolute;right:-6px;top:-6px;width:24px;height:24px;font-size:13px !important;box-shadow:0 1px 3px rgba(0,0,0,.5);border-radius:50%;border:1.5px solid #f5ecd8;font-size:10px;display:flex;align-items:center;justify-content:center}
+.edet{margin-top:auto;display:flex;align-items:center;gap:14px;padding:10px 12px;border:1px dashed #8a7458;border-radius:4px;background:rgba(244,234,211,.7)}
+.edet .cmp{flex-grow:1;display:grid;grid-template-columns:auto auto auto;gap:2px 14px;font-size:12px;align-items:baseline}
+</style>
+</head>
+<body>
+<div class="frame" id="frame">
+  <header>
+    <div style="display:flex;align-items:center;gap:18px">
+      <button class="back"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="#d4a640" stroke-width="2"><path d="M9 2 L4 7 L9 12"/></svg>戻る</button>
+      <div class="ttl"><span class="dia"></span><div><b>育成</b><small id="sub">剣士</small></div><span class="dia"></span></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div class="money" title="昇級に使う素材"><span><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#d9ccb4" stroke-width="1.6"><path d="M3 11 C3 7 6 5 10 5 C14 5 17 7 17 11 C17 14 14 15 10 15 L6 17 L7 14 C4 13 3 12 3 11 Z"/></svg>修練の証 <b class="num">50</b></span></div>
+      <div class="money">
+        <span><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="#d4a640" stroke-width="1.6"><circle cx="9" cy="9" r="7"/><circle cx="9" cy="9" r="3.5"/></svg><b class="num">100</b></span><i></i>
+        <span><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="#9cc98a" stroke-width="1.6"><path d="M10 2 L4 10 H9 L8 16 L14 8 H9 Z"/></svg><b class="num">20</b><small style="color:#a8987f;font-size:11px">/ 100</small></span>
+      </div>
+    </div>
+  </header>
+  <div class="ftabs">
+    <button class="ftab on">キャラ<span class="mark"></span></button><button class="ftab">詰所</button><button class="ftab">鍛冶場</button><button class="ftab">研究<span class="mark"></span></button>
+  </div>
+  <main>
+    <section class="paper sheet" id="sheet"></section>
+    <section class="right">
+      <div class="ttabs" id="ttabs"></div>
+      <div class="paper panel" id="panel"></div>
+    </section>
+  </main>
+  <div class="paper tipcard" id="tip"></div>
+  <div class="toast" id="toast"></div>
+  <nav class="fac"><a>本部</a><a>冒険</a><a class="on">育成<span class="mark"></span></a><a>持ち物<span class="mark"></span></a><a>記録</a><a>ショップ<span class="mark"></span></a></nav>
+</div>
+
+<div class="demo">見本の切り替え：
+  <button data-v="ov">概要</button>
+  <button data-v="nd" class="on">ステータスノード</button>
+  <button data-v="sk">スキル</button>
+  <button data-v="skp">スキル（枠1を押した）</button>
+  <button data-v="eq">装備</button>
+</div>
+
+<script>
+const GRADE={1:'#d8d0c2',2:'#7fbf6a',3:'#5aa0e6',4:'#4f7fe0',5:'#9a6ce0',6:'#d066b0',7:'#e05a5a',8:'#e08a3a',9:'#e0b040',10:'#f2e6a0'};
+const PART={head:'頭',body:'上半身',legs:'下半身',weapon:'武器',acc:'アクセサリー'};
+const PARTS=['head','body','legs','weapon','acc'];
+const GLYPH={
+  head:'<path d="M18 36 C18 24 24 18 32 18 C40 18 46 24 46 36 Z"/><path d="M16 36 H48 V41 H16 Z"/>',
+  body:'<path d="M22 20 L28 18 C29 22 35 22 36 18 L42 20 L47 29 L41 31 V46 H23 V31 L17 29 Z"/>',
+  legs:'<path d="M23 18 H31 V44 L21 46 V40 L23 38 Z"/><path d="M33 18 H41 V38 L43 40 V46 L33 44 Z"/>',
+  weapon:'<path d="M19 45 L41 23 L45 19"/><path d="M38 19 L45 26"/><path d="M21 38 L26 43"/>',
+  acc:'<circle cx="32" cy="37" r="9"/><path d="M28 24 L32 19 L36 24 L32 28 Z"/>'
+};
+const SK={ /* スキルの線アイコン（24枠） */
+  strike:'<path d="M5 19 L19 5 M12 5 H19 V12"/>',
+  sweep:'<path d="M4 16 C7 8 17 8 20 16"/><path d="M16 12 L20 16 L15 18"/>',
+  heal:'<path d="M12 20 C6 16 4 12 6 8 C8 5 11 6 12 8 C13 6 16 5 18 8 C20 12 18 16 12 20 Z"/><path d="M12 10.5 V15.5 M9.5 13 H14.5"/>',
+  shield:'<path d="M12 3 L19 6 V11 C19 16 15.5 19 12 21 C8.5 19 5 16 5 11 V6 Z"/>',
+  arrow:'<path d="M4 20 L18 6 M12 5 H19 V12 M4 14 L8 18"/>',
+  rain:'<path d="M6 4 V12 M12 4 V14 M18 4 V12 M4 18 H20"/>',
+  bolt:'<path d="M13 3 L6 13 H11 L10 21 L18 10 H13 Z"/>',
+  skull:'<circle cx="12" cy="10" r="6"/><path d="M9 16 V20 H15 V16"/>',
+  fire:'<path d="M12 21 C7 19 6 14 9 10 C10 13 12 13 12 9 C12 6 14 4 15 3 C15 8 19 10 18 15 C17 19 14 21 12 21 Z"/>',
+  star:'<path d="M12 3 L14 9 L20 9 L15 13 L17 20 L12 16 L7 20 L9 13 L4 9 L10 9 Z"/>',
+};
+const face=(c,s)=>`<span class="face" style="width:${s}px;height:${s}px;background:${c.c};font-size:${Math.round(s*.55)}px">${c.e}</span>`;
+function eqIcon(part,grade,s=26,opt={}){
+  if(!grade) return `<span class="ic" title="${PART[part]}：空き"><svg width="${s}" height="${s}" viewBox="0 0 64 64"><rect x="3" y="3" width="58" height="58" rx="9" fill="none" stroke="#a8987f" stroke-width="3" stroke-dasharray="6 5"/><g fill="none" stroke="#b3a48c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".8">${GLYPH[part]}</g></svg></span>`;
+  const col=GRADE[grade];
+  return `<span class="ic" title="${PART[part]}・等級${grade}"><svg width="${s}" height="${s}" viewBox="0 0 64 64"><rect x="3" y="3" width="58" height="58" rx="8" fill="#241b16" stroke="${col}" stroke-width="${s<34?4:2.5}"/><g fill="none" stroke="#efe5d2" stroke-width="${s<34?3.4:2.4}" stroke-linecap="round" stroke-linejoin="round">${GLYPH[part]}</g></svg>${s>=34?`<span class="g" style="background:${col};font-size:${s>=48?11:9}px;min-width:${s>=48?17:13}px;height:${s>=48?17:13}px">${grade}</span>`:''}${opt.star?`<span class="st"><svg width="${s>=48?18:12}" height="${s>=48?18:12}" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7.3" fill="#1f1a17" stroke="#d4a640" stroke-width="1.2"/><path d="M8 3.2 L9.3 6.4 L12.6 6.6 L10.1 8.7 L10.9 12 L8 10.2 L5.1 12 L5.9 8.7 L3.4 6.6 L6.7 6.4 Z" fill="#e0b85c"/></svg></span>`:''}</span>`;
+}
+function skIcon(k,s=26){
+  if(!k) return `<span class="ic" title="スキル：空き"><svg width="${s}" height="${s}" viewBox="0 0 26 26"><rect x="1" y="1" width="24" height="24" rx="4" fill="none" stroke="#a8987f" stroke-width="1.4" stroke-dasharray="3 2.5"/><path d="M13 9 V17 M9 13 H17" stroke="#b3a48c" stroke-width="1.4"/></svg></span>`;
+  return `<span class="ic"><svg width="${s}" height="${s}" viewBox="0 0 26 26"><rect x="1" y="1" width="24" height="24" rx="4" fill="#f4ead3" stroke="#2b2118" stroke-width="1.6"/><g transform="translate(3 3) scale(.83)" fill="none" stroke="#2b2118" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SK[k]}</g></svg></span>`;
+}
+const STI={
+ hp:'<path d="M8 13.5 C3 10 1.5 6.5 3.5 4.5 C5 3 7 3.5 8 5 C9 3.5 11 3 12.5 4.5 C14.5 6.5 13 10 8 13.5 Z"/>',
+ atk:'<path d="M4 3 L12 8 L4 13 Z"/>', mag:'<path d="M8 2 V14 M2 8 H14 M4 4 L6 6 M12 4 L10 6 M4 12 L6 10 M12 12 L10 10"/>',
+ pdef:'<path d="M8 2 L13 4 V8 C13 11 10.5 13 8 14 C5.5 13 3 11 3 8 V4 Z"/>', mdef:'<path d="M8 2 L13 4 V8 C13 11 10.5 13 8 14 C5.5 13 3 11 3 8 V4 Z"/><path d="M8 6 V10 M6 8 H10"/>',
+ aspd:'<path d="M3 4 L7 8 L3 12 M9 4 L13 8 L9 12"/>', cd:'<path d="M4 2 H12 M4 14 H12 M5 2 C5 6 11 7 11 8 C11 9 5 10 5 14 M11 2 C11 6 5 7 5 8 C5 9 11 10 11 14"/>',
+ crit:'<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="1.5"/>', critx:'<path d="M8 2 L9.5 6 L14 6.5 L10.5 9.5 L11.5 14 L8 11.5 L4.5 14 L5.5 9.5 L2 6.5 L6.5 6 Z"/>',
+ move:'<path d="M9 2 L4 9 H8 L7 14 L12 7 H8 Z"/>'};
+
+const C=[['剣士','近接・前衛','#4b3a63','🧑',2],['弓兵','遠距離','#34553b','🎯',1],['僧侶','回復・支援','#2f4666','😇',1],['学者','タンク・妨害','#2f5a5a','🧪',1],['王女','支援・単体火力','#6a2e4e','👸',1],['ネクロマンサー','妨害・支援・召喚','#3a3350','💀',1],['狂った神の使い','吸収タンク・妨害','#5a3a1e','🔥',1],['騎士','タンク・前衛','#3d4a5c','🛡️',3],['盗賊','近接・会心','#4a3a2a','🗝️',1],['魔導士','範囲火力','#352a5c','🔮',2],['狩人','遠距離・罠','#3e5a2e','🏹',1],['吟遊詩人','支援・加速','#5a4a2a','🎻',1],['拳闘士','近接・連打','#5c2e2a','👊',1],['錬金術師','妨害・回復','#2e4a4a','⚗️',1],['槍兵','近接・貫通','#4a4030','🔱',1],['占い師','妨害・運','#4a2e5a','🃏',1],['竜騎士','近接・跳躍','#2e3a5a','🐉',1],['人形使い','召喚・妨害','#5a3a4a','🎎',1]].map(([n,r,c,e,lv])=>({n,r,c,e,lv}));
+const ITEM=x=>x.main?x:{...x,p:'weapon',main:['atk','攻撃',x.atk],subs:x.sub?[x.sub]:[],slots:x.g>=5?[1,0]:[0],fx:x.st?({'細身の剣':'3回攻撃するごとに、次の一撃が会心になる','竜殺しの大剣':'竜の敵に与えるダメージ +30%','炎の剣':'当てた敵を3秒間燃やす'}[x.n]):null};
+let sortK='grade', desc=true, starOnly=false;
+function sorted(){const idx=INV.map((_,k)=>k);const f={def:k=>k,grade:k=>INV[k].g,atk:k=>INV[k].atk,name:k=>INV[k].n}[sortK];idx.sort((a,b)=>{const A=f(a),B=f(b);const c=typeof A==='string'?A.localeCompare(B,'ja'):A-B;return sortK==='def'?c:(desc?-c:c)});return idx;}
+let ci=0, tab='nd', pop=false, popSlot=0, part='weapon', cell=2;
+let skills=['strike','sweep'];
+let pts={hp:4,atk:2,pdef:1}, left=3;
+const SKL={strike:['強撃','一番近い1体に攻撃力200%の一撃。自分の攻撃力が8秒間+6','6.0',1],sweep:['横薙ぎ','敵全体に攻撃力90%。ためているあいだ自分の物理防御+20','8.0',1],bolt:['捨て身の一撃','一番近い1体に攻撃力340%。代わりに自分のHPの12%を失う','10.0',5],fire:['背水の刃','一番近い1体に一撃。失ったHPが多いほど威力が上がる','9.0',10],shield:['盾撃','一番近い1体に一撃。攻撃力より物理防御のほうが強く効く','7.0',15],star:['兜割り','HPが一番多い1体に、防御を無視する攻撃力220%の一撃','14.0',20]};
+const EQ={head:{n:'鉄の兜',g:2,p:'head',main:['pdef','物理防御',8],subs:['HP +12'],slots:[0,0]},body:{n:'革の鎧',g:1,p:'body',main:['hp','HP',30],subs:[],slots:[0]},legs:null,weapon:null,acc:null};
+const INV=[{n:'細身の剣',g:6,st:1,w:0,atk:11,sub:'攻撃速度 +17%'},{n:'竜殺しの大剣',g:10,st:1,atk:58,sub:'竜に +30%'},{n:'鋼の剣',g:5,atk:24,sub:''},{n:'HPの剣',g:3,atk:6,sub:'HP +160'},{n:'速さの剣',g:1,w:7,atk:4,sub:'攻撃速度 +14%'},{n:'見習いの剣',g:2,atk:8,sub:''},{n:'炎の剣',g:7,st:1,atk:30,sub:'炎ダメージ +12%'},{n:'石の斧',g:4,atk:18,sub:''},{n:'銀の短剣',g:3,w:8,atk:10,sub:'会心率 +4%'},{n:'古い剣',g:1,atk:3,sub:''},{n:'騎士の剣',g:8,atk:40,sub:''},{n:'錆びた剣',g:1,atk:2,sub:''}];
+const NODE=[['hp','HP',5,''],['atk','攻撃',1,''],['pdef','物理防御',1,'']];
+const ST=[['hp','HP',120],['atk','攻撃',18],['mag','魔力',4],['pdef','物理防御',6],['mdef','魔法防御',4],['aspd','攻撃速度',17,'%'],['cd','CD短縮',0,'%'],['crit','会心率',5,'%'],['critx','会心倍率',150,'%'],['move','移動速度',60]];
+const stIcon=(k,s=14,c='#6e5a43')=>`<svg width="${s}" height="${s}" viewBox="0 0 16 16" fill="none" stroke="${c}" stroke-width="1.4" stroke-linejoin="round">${STI[k]}</svg>`;
+const sFramed=(k,s)=>`<span class="sframe ${k?'':'empty'}">${skIcon(k,s)}</span>`;
+
+function drawSheet(){
+  const c=C[ci], p=C[(ci+C.length-1)%C.length], n=C[(ci+1)%C.length];
+  document.getElementById('sub').textContent=c.n;
+  const val=k=>{const r=ST.find(x=>x[0]===k);const add=(NODE.find(x=>x[0]===k)||[0,0,0])[2]*(pts[k]||0);return [r[2]+add,add];};
+  document.getElementById('sheet').innerHTML=`<span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+    <div class="cnav">
+      <button class="nb" data-cn="-1" title="前の人">◀ ${face(p,20)}<span>${p.n}</span></button>
+      <span class="mid"><b class="num">${ci+1}</b> / ${C.length} 人<br><button class="link" data-list style="border:none;background:none;padding:0;font-size:11px;color:#7a5716;font-weight:700">▦ 一覧へ</button></span>
+      <button class="nb" data-cn="1" title="次の人"><span>${n.n}</span>${face(n,20)} ▶</button>
+    </div>
+    <div style="text-align:center;font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:14px;letter-spacing:.6em;color:#4f4030">身 上 書</div>
+    <div class="ident">${face(c,78)}<div class="t" style="flex-grow:1"><b>${c.n}</b><small>${c.r}</small>
+      <span style="display:flex;align-items:baseline;gap:5px;margin-top:4px"><small>Lv</small><b class="num" style="font-family:inherit;font-size:24px">${c.lv}</b><small>/ 20</small></span><div class="lvbar"><i></i></div></div></div>
+    <div class="load">
+      <div class="lr"><span class="lk">スキル</span>${skills.map((k,i)=>`<button class="ib" data-go="sk" title="${k?SKL[k][0]:'空き'}">${skIcon(k,34)}</button>`).join('')}
+        <span style="font-size:11px;color:#6e5a43;margin-left:4px;line-height:1.3">${skills.map(k=>k?SKL[k][0]:'空き').join('<br>')}</span></div>
+      <div class="lr"><span class="lk">装備</span>${PARTS.map(p=>`<button class="ib" data-go="eq" data-part="${p}" data-tip="eq:${p}">${eqIcon(p,EQ[p]?EQ[p].g:0,34,{star:EQ[p]&&EQ[p].st})}</button>`).join('')}</div>
+    </div>
+    <div>${ST.map(([k,l,v,u=''])=>{const [vv,add]=k in pts?val(k):[v,0];return `<div class="srow">${stIcon(k)}<span class="l">${l}</span><b class="num">${vv}${u}</b><span class="d up">${add?'+'+add:''}</span></div>`}).join('')}</div>`;
+}
+function drawTabs(){
+  const T=[['ov','概要'],['nd','ステータスノード',left],['sk','スキル'],['eq','装備']];
+  document.getElementById('ttabs').innerHTML=T.map(([k,l,b])=>`<button class="tt ${tab===k?'on':''}" data-tab="${k}">${l}${b?`<span class="badge">${b}</span>`:''}</button>`).join('');
+}
+const ANVIL=`<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7 H14 C14 10 12 11 10 11 H8 L7 14 H13 V17 H5 V14 L6 11 C4 11 3 9 3 7 Z"/><path d="M14 7 L17 5"/></svg>`;
+const tot=()=>Object.values(pts).reduce((a,b)=>a+b,0);
+function panelOV(){
+  return `<div class="ph"><b class="min">概要</b><small>押すとそのタブへ</small></div>
+  <button class="orow" data-tab="nd" style="height:auto;padding:10px 6px;align-items:flex-start;flex-direction:column;gap:8px">
+    <span style="display:flex;align-items:center;gap:14px;width:100%">${stIcon('atk',20,'#2b2118')}<span class="on1">ステータスノード</span><span class="flabel" style="flex-grow:1">振った ${tot()} pt・残り <b class="num" style="font-size:15px;color:#9c3a2e">${left}</b> pt</span><span class="flabel">押して振る ›</span></span>
+    <span style="display:flex;gap:10px;width:100%;padding-left:34px">${NODE.map(([k,l,per])=>`<span class="mini ${pts[k]?'':'zero'}"><span class="mt">${stIcon(k,13,'#efe5d2')}<b class="num">+${per}</b></span><span style="display:flex;flex-direction:column;line-height:1.25"><span style="font-size:12px">${l} <b class="num">${pts[k]}</b> pt</span><span class="num" style="font-size:15px;color:${pts[k]?'#3f7a2e':'#a8987f'}">+${per*pts[k]}</span></span></span>`).join('')}
+      <span class="mini" style="margin-left:auto;border-style:dashed"><span style="display:flex;flex-direction:column;line-height:1.3"><span class="flabel">修練の道</span><span style="font-size:12px">次「研ぎ澄まし」まで <b class="num">${20-tot()}</b> pt</span></span></span></span>
+  </button>
+  <button class="orow" data-tab="sk"><span style="display:flex;gap:4px">${skills.map(k=>skIcon(k,28)).join('')}</span><span class="on1">スキル</span><span class="flabel" style="flex-grow:1">${skills.map(k=>k?SKL[k][0]:'空き').join('・')}</span><b class="num" style="font-size:20px">${skills.filter(Boolean).length} / 2</b> ›</button>
+  <div class="orow" role="button" data-tab="eq" style="cursor:pointer"><span style="display:flex;gap:4px">${PARTS.map(p=>`<span class="hov" data-tip="eq:${p}">${eqIcon(p,EQ[p]?EQ[p].g:0,32,{star:EQ[p]&&EQ[p].st})}</span>`).join('')}</span><span class="on1" style="width:auto">装備</span><span class="flabel" style="flex-grow:1">触れると詳しく出る</span><button class="forge wide" data-forge="weapon">${ANVIL}<span>鍛冶場へ</span></button><b class="num" style="font-size:20px">3 / 5</b> ›</div>
+  <div class="promo"><span class="lab">昇 級 の 申 請</span><b class="num" style="font-size:36px;line-height:1">2 → 3</b>
+    <span style="flex-grow:1;padding-left:12px;border-left:1px dotted #b39d74;display:flex;flex-direction:column;gap:2px"><span class="flabel">必要なもの</span><span>修練の証 <b class="num" style="font-size:18px">50</b> / 50</span></span>
+    <button class="btn brass big" style="height:48px">昇級させる</button></div>
+  <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding-top:10px;border-top:1px solid #b39d74">
+    <span class="min" style="font-size:15px">ビルド</span>
+    <span style="display:flex;gap:6px">${[['1','前に立つ'],['2','捨て身'],['3','']].map(([k,n],i)=>`<button class="btn ${i===0?'brass':'ghost'}" style="height:34px">${k} ${n||'＋'}</button>`).join('')}</span>
+    <span class="flabel" style="flex-grow:1">押すと切り替わる（詰所と同じ）</span>
+    <button class="btn" style="height:34px">いまの形をビルドに残す</button></div>`;
+}
+function panelND(){
+  return `<div class="ph"><b class="min">ステータスの割り振り</b><span style="display:flex;align-items:center;gap:10px"><small>残り</small><b class="num" style="font-size:26px;line-height:1">${left}</b><small>pt</small><button class="btn ghost" style="height:32px">振り直す</button></span></div>
+  <div style="flex-grow:1;display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:22px">
+   <div>${NODE.map(([k,l,per])=>{const n=pts[k];return `<div class="node">
+      <div class="ntile" title="${l}：1pt で +${per}">${stIcon(k,22,'#efe5d2')}<b class="num">+${per}</b><small>1ptごと</small></div>
+      <div style="flex-grow:1;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:17px;font-weight:700">${l}</span><span class="flabel">振った ${n} / 20</span>
+          <span style="margin-left:auto;font-size:12px;color:#6e5a43">合計 <b class="num" style="font-size:20px;color:#3f7a2e">+${per*n}</b></span></div>
+        <div class="dots">${Array.from({length:20},(_,i)=>`<i class="${i<n?'f':''} ${i%5===0&&i?'g5':''}"></i>`).join('')}</div>
+      </div>
+      <button class="pm minus" data-pt="${k}:-1" ${n?'':'disabled'}>−</button>
+      <button class="pm" data-pt="${k}:1" ${left?'':'disabled'}>＋</button>
+      <button class="btn ghost" data-pt="${k}:9" ${left?'':'disabled'} style="height:42px">振れるだけ</button>
+    </div>`}).join('')}</div>
+   <div style="padding-left:18px;border-left:1px solid var(--rule)"><div class="flabel" style="letter-spacing:.2em;margin-bottom:6px">修練の道（振った合計で開く）</div>
+    ${[['20','研ぎ澄まし','攻撃力 +10%'],['40','背水の壁','HP半分以下で物理防御 +25'],['60','棘の鎧','受けたら物理防御の40%を返す'],['80','血の昂り','敵2体以下で攻撃速度 +15'],['100','先陣','物理防御 +20・魔法防御 +20']].map(([a,b,c])=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 0"><span class="num" style="width:34px;height:34px;flex-shrink:0;border-radius:50%;border:1.5px solid #8a7458;display:flex;align-items:center;justify-content:center;font-size:12px;color:#6e5a43">${a}</span><span style="display:flex;flex-direction:column"><span style="font-size:13.5px">${b}</span><span class="flabel">${c}</span></span></div>`).join('')}
+   </div></div>`;
+}
+function panelSK(){
+  const slot=(i)=>{const k=skills[i], s=k&&SKL[k];return `<button class="sslot ${pop&&popSlot===i?'on':''}" data-slot="${i}"><span class="tag">枠 ${i+1}</span>${sFramed(k,56)}
+     <span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:19px;font-weight:700">${s?s[0]:'空き'}</span><span class="flabel">${s?'CD <b class="num" style="font-size:14px;color:#2b2118">'+s[2]+'</b> 秒':'押して選ぶ'}</span><span style="font-size:11.5px;color:#4f4030;line-height:1.5">${s?s[1]:''}</span></span>
+     <span class="chg">押して替える ▾</span></button>`};
+  return `<div class="ph"><b class="min">持ち込むスキル</b><small>覚えている 2 / 6　・　枠を押すと一覧が開く</small></div>
+   <div class="sslots">${slot(0)}${slot(1)}</div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
+     <div class="info"><h5>通常攻撃<small>射程 60・2.4 秒ごと</small></h5>一番近い1体に攻撃力100%。</div>
+     <div class="info"><h5>パッシブ<small>いつも効く</small></h5><b>剣の心得</b>　近くの敵が多いほど物理防御が上がる。</div>
+   </div>
+   <div style="margin-top:6px"><div class="flabel" style="letter-spacing:.15em;padding-bottom:6px;border-bottom:1px dashed var(--rule)">覚えるスキル　（Lv で増える・枠を押すとこの中から選ぶ）</div>
+     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding-top:10px">${Object.entries(SKL).map(([k,[n,d,cd,lv]])=>{const lock=lv>2,at=skills.indexOf(k);return `<div style="display:flex;flex-direction:column;align-items:center;gap:5px;${lock?'opacity:.45':''}">${sFramed(k,44)}<span style="font-size:12px;font-weight:700">${n}</span><span class="flabel">${lock?'🔒 Lv'+lv:at>=0?'<span style="color:#9c3a2e;font-weight:700">枠'+(at+1)+'</span>':'覚えた'}</span></div>`}).join('')}</div></div>
+   <div class="pscrim ${pop?'show':''}" data-close></div>
+   <div class="paper pop ${pop?'show':''}"><span class="corner c1"></span><span class="corner c4"></span>
+     <div class="ph"><b class="min">枠${popSlot+1}に入れるスキル</b><span style="display:flex;gap:10px;align-items:center"><small>ほかの枠のスキルを選ぶと、枠どうしで入れ替わる</small><button class="btn ghost" data-close style="height:30px">閉じる ✕</button></span></div>
+     <div class="slist">${Object.entries(SKL).map(([k,[n,d,cd,lv]])=>{const lock=lv>2, at=skills.indexOf(k);return `<button class="sitem ${skills[popSlot]===k?'cur':''}" data-pick="${k}" ${lock?'disabled':''}>${sFramed(k,40)}<span style="flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span class="n">${n}${at>=0?`<span class="mark2">枠${at+1}</span>`:''}${lock?`<span style="font-size:10.5px;font-weight:400;color:#6e5a43;margin-left:6px">🔒 Lv${lv}で解放</span>`:''}</span><span class="d">${d}</span></span><span class="num" style="font-size:15px">${cd}</span></button>`}).join('')}</div>
+   </div>`;
+}
+function panelEQ(){
+  const it=INV[cell], cur=INV[0];
+  return `<div class="ph"><b class="min">装備の割り当て</b><small>${PART[part]} ${INV.length} 本　・　暗いマス＝ほかの人が着けている（右上の顔）　・　触れると詳しく出る</small></div>
+   <div class="eqwrap">
+    <div class="parts">${PARTS.map(p=>`<div class="part ${p===part?'on':''}" role="button" data-part="${p}"><span data-tip="eq:${p}" style="display:inline-flex">${eqIcon(p,EQ[p]?EQ[p].g:0,44,{star:EQ[p]&&EQ[p].st})}</span><span style="display:flex;flex-direction:column;flex-grow:1;min-width:0"><span class="k">${PART[p]}</span><span class="v" style="${EQ[p]?'':'color:#a8987f;font-weight:400'}">${EQ[p]?EQ[p].n:'空き'}</span></span>${EQ[p]?`<button class="forge" data-forge="${p}" title="鍛冶場で${EQ[p].n}を鍛える">${ANVIL}<span>鍛える</span></button>`:''}</div>`).join('')}</div>
+    <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+      <div class="tool">
+        <span class="seg"><button class="on">▦ マス目</button><button>☰ 行</button></span>
+        <span class="flabel">並び</span><span class="seg">${[['def','いつもの順'],['grade','等級'],['atk','攻撃'],['name','名前']].map(([k,l])=>`<button class="${sortK===k?'on':''}" data-sort="${k}">${l}${sortK===k&&k!=='def'?(desc?' ↓':' ↑'):''}</button>`).join('')}</span>
+        <button class="pick"><em>等級</em>すべて</button>
+        <button class="chk ${starOnly?'on':''}" data-star><i></i>★だけ</button>
+        
+      </div>
+      <div class="egrid">${sorted().filter(k=>!starOnly||INV[k].st).map(k=>{const x=INV[k];const other=x.w!=null&&x.w!==ci, mine=x.w===ci;return `<button class="cell ${k===cell?'on':''} ${other?'other':''}" data-cell="${k}" data-tip="inv:${k}"><span class="ico">${eqIcon('weapon',x.g,56,{star:x.st})}</span>${other?`<span class="who-dot" style="background:${C[x.w].c}">${C[x.w].e}</span>`:''}${mine?'<span class="mine">着用中</span>':''}</button>`}).join('')}</div>
+      <div class="edet">${eqIcon('weapon',it.g,52,{star:it.st})}
+        <span style="display:flex;flex-direction:column;gap:2px;width:150px"><b style="font-size:16px">${it.n}</b><span class="flabel">等級${it.g}${it.sub?'・'+it.sub:''}</span>${it.w!=null&&it.w!==ci?`<span style="font-size:11px;color:#9c3a2e">${C[it.w].n}が着けている</span>`:''}</span>
+        <span class="cmp"><span class="flabel">攻撃</span><b class="num">18 → ${18-cur.atk+it.atk}</b><b class="num ${it.atk>=cur.atk?'up':'down'}">${it.atk>=cur.atk?'+':''}${it.atk-cur.atk}</b>
+          <span class="flabel" style="white-space:nowrap">いま</span><span style="grid-column:span 2;white-space:nowrap">${cur.n}（等級${cur.g}）</span></span>
+        <span style="display:flex;flex-direction:column;gap:6px"><button class="btn brass" style="height:38px;padding:0 20px;font-size:14px">着ける</button><button class="btn ghost" style="height:30px;justify-content:center">鍛冶場で鍛える</button></span>
+      </div>
+    </div>
+   </div>`;
+}
+function draw(){
+  drawSheet(); drawTabs();
+  const P=document.getElementById('panel');
+  P.innerHTML=`<span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>`+({ov:panelOV,nd:panelND,sk:panelSK,eq:panelEQ}[tab])();
+  document.querySelectorAll('.demo button').forEach(b=>b.classList.toggle('on',b.dataset.v===(tab==='sk'&&pop?'skp':tab)));
+}
+document.getElementById('frame').addEventListener('click',e=>{
+  const t=e.target.closest('button,[data-close],[data-part],[data-tab]'); if(!t) return; const d=t.dataset;
+  if(d.cn){ ci=(ci+ +d.cn+C.length)%C.length; }
+  else if(d.forge){ location.href='Forge.html?from=ken&item='+d.forge; return; const T=document.getElementById('toast'); T.innerHTML=`鍛冶場へ移る → 「<b>${EQ[d.forge].n}</b>」を選んだ状態で開く（戻ると育成に帰る）`; T.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>T.classList.remove('show'),2600); return; }
+  else if(d.go){ tab=d.go; if(d.part) part=d.part; pop=false; }
+  else if(d.tab){ tab=d.tab; pop=false; }
+  else if(d.pt){ const [k,v]=d.pt.split(':'); const n=+v; if(n<0&&pts[k]>0){pts[k]--;left++;} else if(n===1&&left){pts[k]++;left--;} else if(n===9){const a=Math.min(left,20-pts[k]);pts[k]+=a;left-=a;} }
+  else if(d.slot){ pop=true; popSlot=+d.slot; }
+  else if(d.close!==undefined){ pop=false; }
+  else if(d.pick){ const at=skills.indexOf(d.pick); if(at>=0&&at!==popSlot){ skills[at]=skills[popSlot]; } skills[popSlot]=d.pick; pop=false; }
+  else if(d.part){ part=d.part; }
+  else if(d.cell){ cell=+d.cell; }
+  else if(d.sort){ if(sortK===d.sort) desc=!desc; else { sortK=d.sort; desc=true; } }
+  else if(d.star!==undefined){ starOnly=!starOnly; }
+  else return;
+  draw();
+});
+document.querySelectorAll('.demo button').forEach(b=>b.onclick=()=>{const v=b.dataset.v; pop=v==='skp'; popSlot=0; tab=v==='skp'?'sk':v; draw();});
+EQ.weapon=INV[0]; INV.forEach(x=>{x.p='weapon'});
+function eqCard(x,cmp){
+  x=ITEM(x); const c=(cmp&&cmp!==x)?ITEM(cmp):null;
+  const d=c&&c.main[0]===x.main[0]?x.main[2]-c.main[2]:null;
+  return `<div style="display:flex;gap:10px;align-items:center">${eqIcon(x.p,x.g,46,{star:x.st})}<span style="display:flex;flex-direction:column;gap:2px"><b class="min" style="font-size:16px">${x.n}</b><span class="flabel">等級${x.g}・${PART[x.p]}</span></span></div>
+   <hr><div class="tr"><span style="display:flex;align-items:center;gap:5px">${stIcon(x.main[0],14)}${x.main[1]}</span><span><b class="num" style="font-size:18px">+${x.main[2]}</b>${d!=null?` <b class="num ${d>=0?'up':'down'}">（${d>=0?'+':''}${d}）</b>`:''}</span></div>
+   ${x.subs.map(t=>`<div class="tr"><span class="flabel">ほかの能力</span><span>${t}</span></div>`).join('')}
+   ${x.fx?`<div style="padding:6px 8px;border:1px solid #d4a640;border-radius:4px;background:rgba(224,184,92,.12)"><b style="color:#7a5716">★ 特殊効果</b><br>${x.fx}</div>`:''}
+   <div class="tr"><span class="flabel">装飾の枠</span><span style="display:flex;gap:4px">${x.slots.map(f=>`<i style="width:12px;height:12px;transform:rotate(45deg);border:1.5px solid #8a7458;${f?'background:#5aa0e6':''};display:inline-block"></i>`).join('')}</span></div>
+   ${x.w!=null?`<div class="tr"><span class="flabel">着けている人</span><span style="display:flex;align-items:center;gap:5px;white-space:nowrap">${face(C[x.w],18)}${C[x.w].n}</span></div>`:''}
+   ${c?`<hr><div class="flabel">比べている：いまの${PART[x.p]}「${c.n}」</div>`:''}`;
+}
+const F=document.getElementById('frame'), TIP=document.getElementById('tip');
+F.addEventListener('mouseover',e=>{
+  const t=e.target.closest('[data-tip]'); if(!t){TIP.classList.remove('show');return;}
+  const [k,v]=t.dataset.tip.split(':'); const x=k==='inv'?INV[+v]:EQ[v]; if(!x){TIP.classList.remove('show');return;}
+  TIP.innerHTML=eqCard(x,k==='inv'?EQ[x.p]:null); TIP.classList.add('show');
+  const fr=F.getBoundingClientRect(), r=t.getBoundingClientRect();
+  let L=r.right-fr.left+10, T=r.top-fr.top; if(L+280>1280) L=r.left-fr.left-280; if(T+TIP.offsetHeight>700) T=700-TIP.offsetHeight;
+  TIP.style.left=L+'px'; TIP.style.top=T+'px';
+});
+F.addEventListener('mouseleave',()=>TIP.classList.remove('show'));
+draw();
+</script>
+</body>
+</html>

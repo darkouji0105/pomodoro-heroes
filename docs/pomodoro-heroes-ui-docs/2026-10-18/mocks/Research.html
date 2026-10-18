@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>研究（コルク板案）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#2b2118;--ink2:#4f4030;--mute:#6e5a43;--faint:#a8987f;
+  --paper:#e9dcc0;--paper-hi:#f4ead3;--rule:#c2ae88;--rule2:#b39d74;
+  --brass:#9c7424;--brass-hi:#d4a640;--gold:#b98a2c;--seal:#9c3a2e;
+  --leather:#4a3526;--leather-b:#5a4330;--wood:#1d1612;--cream:#f1e6cf;
+  --ptex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.3  0 0 0 0 0.14  0 0 0 0.22 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
+  --wtex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.012 0.4' numOctaves='3' seed='8'/><feColorMatrix values='0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.12  0 0 0 0.35 0'/></filter><rect width='300' height='300' filter='url(%23w)'/></svg>");
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0e0a08;font-family:"Noto Sans JP","Hiragino Sans",sans-serif;color:#eadfca;padding:16px 0 40px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.num{font-family:"Noto Sans JP",sans-serif;font-weight:900;font-variant-numeric:tabular-nums}
+.min{font-family:"Shippori Mincho B1",serif;font-weight:800}
+
+/* ---------- 枠 ---------- */
+.frame{position:relative;width:1280px;height:720px;margin:0 auto;display:flex;flex-direction:column;background:var(--wood) var(--wtex);overflow:hidden}
+header{height:60px;flex-shrink:0;padding:0 24px;display:flex;align-items:center;justify-content:space-between;background:#16100d;border-bottom:1px solid var(--leather-b)}
+.back{height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:6px;border:1.5px solid #a8791f;background:var(--leather);color:var(--cream);font-size:14px}
+.ttl{display:flex;align-items:center;gap:12px}
+.ttl .dia{width:7px;height:7px;transform:rotate(45deg);background:var(--brass-hi)}
+.ttl b{font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:23px;letter-spacing:.25em;color:var(--cream);text-shadow:0 2px 0 #000}
+.ttl small{display:block;font-size:11px;letter-spacing:.2em;color:var(--faint)}
+.money{display:flex;gap:2px;padding:3px;background:#33261d;border:1px solid var(--leather-b);border-radius:10px}
+.money span{display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:15px}
+.money i{width:1px;background:var(--leather-b)}
+.ftabs{height:32px;flex-shrink:0;display:flex;align-items:flex-end;gap:4px;padding:0 24px}
+.ftab{height:26px;padding:0 20px;border:none;border-radius:7px 7px 0 0;background:#b59e74;color:var(--ink);font-size:13px;position:relative}
+.ftab.on{height:32px;background:var(--paper);font-weight:700}
+.ftab .mark{position:absolute;right:6px;top:0;width:9px;height:18px;background:var(--seal);clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)}
+nav.fac{height:44px;flex-shrink:0;display:flex;background:#231a15;border-top:2px solid #3a2c22}
+nav.fac a{flex:1;display:flex;align-items:center;justify-content:center;color:#b3a48c;font-size:14px;text-decoration:none;border-top:3px solid transparent;margin-top:-2px;position:relative}
+nav.fac a.on{color:var(--cream);border-top-color:var(--brass-hi);background:#2f241c}
+nav.fac a .mark{position:absolute;right:22%;top:-2px;width:10px;height:22px;background:var(--seal);clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)}
+main{position:relative;flex-grow:1;min-height:0;padding:8px 24px 8px;display:flex;flex-direction:column;gap:8px}
+
+/* ---------- 紙 ---------- */
+.paper{position:relative;background:var(--paper) var(--ptex);color:var(--ink);border-radius:3px;box-shadow:inset 0 0 36px rgba(120,88,40,.3),0 10px 22px rgba(0,0,0,.5)}
+.corner{position:absolute;width:14px;height:14px;border:0 solid var(--brass)}
+.c1{top:6px;left:6px;border-top-width:2px;border-left-width:2px}.c2{top:6px;right:6px;border-top-width:2px;border-right-width:2px}
+.c3{bottom:6px;left:6px;border-bottom-width:2px;border-left-width:2px}.c4{bottom:6px;right:6px;border-bottom-width:2px;border-right-width:2px}
+
+.btn{height:32px;padding:0 14px;border-radius:6px;border:1.5px solid var(--leather-b);background:var(--leather);color:var(--cream);font-size:13px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn.brass{border-color:#7a5716;background:var(--gold);color:#1f160f;font-weight:700;box-shadow:inset 0 1px 0 #e0b85c}
+.btn.ghost{background:transparent;border:1px solid #8a7458;color:var(--ink)}
+.btn.big{height:34px;padding:0 28px;font-size:15px;letter-spacing:.15em}
+.btn[disabled]{opacity:.45;cursor:default}
+.face{flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:6px;border:2px solid #f5ecd8;box-shadow:0 2px 5px rgba(0,0,0,.35);line-height:1}
+.icons{display:flex;align-items:center;gap:4px}
+.icons .sep{width:1px;height:26px;background:var(--rule2);margin:0 3px}
+.seg{display:inline-flex;border:1px solid #8a7458;border-radius:6px;overflow:hidden;height:26px}
+.seg button{border:none;background:rgba(244,234,211,.55);font-size:11.5px;padding:0 8px;color:var(--ink2)}
+.seg button+button{border-left:1px solid var(--rule2)}
+.seg button.on{background:#dccaa3;color:var(--ink);font-weight:700;box-shadow:inset 0 -2px 0 var(--brass)}
+.flabel{font-size:11px;color:var(--mute)}
+/* ---------- 小さなアイコン ---------- */
+.ic{position:relative;flex-shrink:0;display:inline-flex}
+.ic .g{position:absolute;top:1px;left:1px;min-width:11px;height:11px;padding:0 2px;border-radius:3px 0 3px 0;font-size:8px;font-weight:700;color:#1b1512;display:flex;align-items:center;justify-content:center}
+.ic .st{position:absolute;right:-3px;bottom:-3px}
+.up{color:#3f7a2e;font-weight:900}.down{color:var(--seal);font-weight:900}
+.btn.danger{background:#8a3327;border-color:#6e2219;color:#fbeee6;font-weight:700}
+.demo{width:1280px;margin:12px auto 0;display:flex;gap:8px;align-items:center;font-size:13px;color:#b3a48c}
+.demo button{height:32px;padding:0 14px;border-radius:6px;border:1px solid #6a5340;background:#2a1f18;color:#d9ccb4}
+.demo button.on{background:var(--gold);color:#1f160f;border-color:#7a5716;font-weight:700}
+
+/* ---------- 研究 ---------- */
+main{flex-direction:row;gap:16px;padding:6px 24px 10px}
+.left{flex-grow:1;min-width:0;display:flex;flex-direction:column}
+.ttabs{height:40px;flex-shrink:0;display:flex;align-items:center;gap:4px;padding-left:0}
+.tt{height:33px;padding:0 18px;border:none;border-radius:9px 9px 0 0;background:#b59e74;color:var(--ink);font-size:14px;display:flex;align-items:center;gap:8px;box-shadow:0 -3px 8px rgba(0,0,0,.35)}
+.tt.on{height:40px;background:var(--paper);font-weight:700}
+.tt small{font-size:11px;color:var(--mute);font-weight:400}
+.board{position:relative;flex-grow:1;min-height:0;border-radius:0 3px 3px 3px;overflow:hidden}
+.board .grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(156,116,36,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(156,116,36,.08) 1px,transparent 1px);background-size:24px 24px}
+.lane{position:absolute;left:0;width:100%;border-top:1px dashed rgba(156,116,36,.35)}
+.lane span{position:absolute;left:14px;top:8px;font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:13px;letter-spacing:.3em;color:#8a7458;writing-mode:vertical-rl}
+svg.links{position:absolute;inset:0;pointer-events:none}
+.node{position:absolute;width:146px;height:66px;display:flex;align-items:center;gap:7px;padding:0 8px;border-radius:8px;text-align:left;color:var(--ink);font-family:inherit;transition:transform .1s}
+.node:hover{transform:translateY(-2px)}
+.node .ic2{width:34px;height:34px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.node .t{display:flex;flex-direction:column;gap:1px;min-width:0}
+.node .t b{font-size:12.5px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.node .t small{font-size:10.5px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node.done{background:#2b2118;border:2px solid var(--brass-hi);color:var(--cream)}
+.node.done .t small{color:#d9c08a}
+.node.done .ic2{background:var(--gold);color:#1f160f}
+.node.open{background:var(--paper-hi);border:2.5px solid var(--brass-hi);box-shadow:0 0 0 3px rgba(224,184,92,.35),0 0 18px rgba(224,184,92,.55);animation:glow 1.8s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 0 3px rgba(224,184,92,.15),0 0 8px rgba(224,184,92,.3)}}
+.node.open .ic2{background:#efe3c6;border:2px solid var(--brass);color:#7a5716}
+.node.short{background:rgba(244,234,211,.85);border:2px solid #8a7458}
+.node.short .ic2{background:transparent;border:2px solid #8a7458;color:#6e5a43}
+.node.lock{background:rgba(233,220,192,.5);border:1.5px dashed #a8987f;color:#8a7a62}
+.node.lock .ic2{background:transparent;border:1.5px dashed #a8987f;color:#a8987f}
+.node.sel{outline:3px solid #2b2118;outline-offset:3px}
+.chk2{position:absolute;right:-8px;top:-8px;width:22px;height:22px;border-radius:50%;background:var(--gold);border:2px solid #f5ecd8;color:#1f160f;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.cost{position:absolute;right:6px;bottom:-9px;padding:0 6px;height:17px;border-radius:9px;font-size:10px;display:flex;align-items:center;gap:3px;background:#f4ead3;border:1px solid #8a7458;color:var(--ink);white-space:nowrap}
+.cost.no{border-color:#9c3a2e;color:#9c3a2e}
+.lockm{position:absolute;right:-6px;top:-7px;font-size:13px}
+.node.block{background:rgba(233,220,192,.7);border:1.5px dashed #8a7458;color:#4f4030;filter:saturate(.4)}
+.node.block .ic2{background:transparent;border:1.5px dashed #8a7458;color:#6e5a43}
+.bban{position:absolute;right:16px;bottom:44px;display:flex;align-items:center;gap:14px;padding:10px 16px;border-radius:6px;background:#f4ead3;border:2px solid #8a7458;box-shadow:0 8px 20px rgba(0,0,0,.3);white-space:nowrap;z-index:2}
+.tools2{flex-basis:100%;min-width:0;display:flex;align-items:center;gap:6px;padding-top:8px;border-top:1px dashed var(--rule)}
+.sw{flex-shrink:0;height:34px;padding:0 8px 0 5px;border-radius:17px;border:1.5px solid #8a7458;background:rgba(244,234,211,.7);display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink);white-space:nowrap}
+.sw i{width:34px;height:20px;border-radius:10px;background:#b3a48c;position:relative;transition:.15s}
+.sw i::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#f4ead3;box-shadow:0 1px 2px rgba(0,0,0,.4);transition:.15s}
+.sw.on{border-color:#3f7a2e;color:#2e5a22;font-weight:700}
+.sw.on i{background:#3f7a2e}.sw.on i::after{left:16px}
+.autobadge{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:12px;background:#2e5a22;color:#e6f5e4;font-size:11.5px;font-weight:700}
+.goal{position:absolute;width:96px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:6px;padding:10px 6px;border-radius:10px;border:2px solid #9c7424;background:linear-gradient(#f4ead3,#e6d6b2);color:var(--ink);font-family:inherit;box-shadow:0 6px 14px rgba(0,0,0,.25);z-index:1}
+.goal:hover{box-shadow:0 0 0 3px rgba(224,184,92,.5),0 6px 14px rgba(0,0,0,.25)}
+.goal.sel{outline:3px solid #2b2118;outline-offset:3px}
+.goal.all{background:linear-gradient(#f3d58a,#d4a640);box-shadow:0 0 18px rgba(224,184,92,.8)}
+.goal .gt{font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:12px;letter-spacing:.1em;line-height:1.3;text-align:center}
+.goal .gchest{width:52px;height:52px;border-radius:10px;background:#2b2118;color:#f3d58a;display:flex;align-items:center;justify-content:center;border:2px solid #d4a640}
+.goal .gbar{width:10px;flex-grow:1;max-height:70px;border-radius:5px;background:rgba(110,90,67,.25);display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.goal .gbar i{display:block;width:100%;background:var(--brass)}
+.rstrip{display:flex;align-items:center;gap:10px;padding:6px 12px;border:none;text-align:left;color:var(--ink);font-family:inherit;transform:rotate(.3deg)}
+.rstrip:hover{box-shadow:0 0 0 2px var(--brass-hi),0 10px 22px rgba(0,0,0,.5)}
+.scroller{position:absolute;left:40px;right:0;top:0;bottom:34px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#8a7458 transparent;cursor:grab}
+.canvas{position:relative;height:100%}
+.lanefix{position:absolute;left:0;top:0;bottom:34px;width:40px;z-index:3;background:linear-gradient(90deg,#e9dcc0 70%,rgba(233,220,192,0));}
+.lanefix span{position:absolute;left:12px;font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:13px;letter-spacing:.3em;color:#8a7458;writing-mode:vertical-rl}
+.sect{position:absolute;top:0;bottom:0;border-left:2px dashed rgba(156,116,36,.45)}
+.sect.closed{background:rgba(110,90,67,.08)}
+.shead{position:absolute;left:10px;top:8px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mute);white-space:nowrap}
+.shead b{font-size:15px;letter-spacing:.15em;color:var(--ink)}
+.shead .need{padding:1px 8px;border-radius:10px;background:#f4ead3;border:1px solid #8a7458;color:#6e5a43;font-size:11px}
+.node.reward .ic2{border-radius:8px}
+.node.reward.lock{border-style:solid;border-color:#9c7424;background:rgba(244,234,211,.8);color:var(--ink)}
+.node.reward.lock .ic2{border:2px solid #9c7424;color:#9c7424}
+.road{display:flex;align-items:center;gap:6px;min-width:0;flex-shrink:1;overflow:hidden;padding:0 4px 4px 12px}
+.chips{display:flex;align-items:center;gap:0;overflow-x:auto;scrollbar-width:none}
+.bchip{flex-shrink:0;height:30px;display:flex;align-items:center;gap:6px;padding:0 8px;border-radius:15px;border:1.5px solid #6a5340;background:#2a1f18;color:#d9ccb4;font-size:12px}
+.bchip .mb{width:34px;height:4px;border-radius:2px;background:#4a3526;overflow:hidden}.bchip .mb i{display:block;height:100%;background:var(--brass-hi)}
+.bchip .mc{font-size:10.5px;color:#a8987f}
+.bchip.lk{opacity:.7}
+.bchip.full{border-color:#3f7a2e}
+.bchip.on,.bchip.view{border-color:var(--brass-hi);background:#4a3526;color:#f1e6cf}
+.rline{width:14px;height:2px;background:#6a5340;flex-shrink:0}.rline.on{background:var(--brass-hi)}
+.rbtn{width:28px;height:28px;border-radius:50%;border:1px solid #6a5340;background:#2a1f18;color:#d9ccb4;font-size:11px;padding:0;flex-shrink:0}
+.board{background:#5b4330 !important}
+.stage.wb{position:absolute;left:0;right:0;top:0;bottom:34px;overflow:hidden;
+  background-color:#b48a5c;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='c'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.22  0 0 0 0 0.1  0 0 0 0.55 0'/></filter><rect width='160' height='160' filter='url(%23c)'/></svg>");
+  box-shadow:inset 0 0 0 10px #4a3526,inset 0 0 0 12px #2a1f18,inset 0 0 40px rgba(0,0,0,.45)}
+.stage.inR{animation:inR .25s ease-out}.stage.inL{animation:inL .25s ease-out}
+@keyframes inR{from{transform:translateX(40px);opacity:0}}@keyframes inL{from{transform:translateX(-40px);opacity:0}}
+.grp{position:absolute;border:none}
+.grp .gt{position:absolute;left:4px;top:4px;display:flex;align-items:baseline;gap:12px;padding:6px 16px 6px 14px;background:#e9dcc0 var(--ptex);color:var(--ink);box-shadow:0 4px 8px rgba(0,0,0,.35);transform:rotate(-1.2deg);white-space:nowrap}
+.grp .gt b{font-family:"Shippori Mincho B1",serif;font-size:20px;letter-spacing:.2em}
+.grp .gt span{font-size:13px;color:var(--mute)}
+.grp .gt .need{font-size:12px;color:var(--seal);font-weight:700}
+.grp.closed .gt{filter:saturate(.5)}
+.grp .ln{position:absolute;left:32px;width:22px;height:60px;display:flex;align-items:center;justify-content:center;padding:0;background:#e9dcc0;color:#4f4030;font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:12px;letter-spacing:.2em;writing-mode:vertical-rl;box-shadow:0 2px 4px rgba(0,0,0,.35)}
+.mag{display:none}
+.node.note{width:128px;height:60px;padding:0 7px;gap:6px;border-radius:2px;background:#e9dcc0 var(--ptex);color:var(--ink);box-shadow:0 5px 8px rgba(0,0,0,.4);border:none;animation:none}
+.node.note .t b{font-size:12px;line-height:1.2;font-weight:700}
+.node.note .t small{font-size:10px;color:var(--mute)}
+.node.note .ic2{width:28px !important;height:28px !important;border-radius:50%;border:1.5px solid var(--brass) !important;background:transparent !important;color:#7a5716}
+.node.note::before{content:"";position:absolute;left:50%;top:-6px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#e9c46a,#7a5716);box-shadow:0 2px 2px rgba(0,0,0,.5)}
+.node.note.done{background:#2b2118;color:#f1e6cf}
+.node.note.done .t small{color:#d9c08a}
+.node.note.done .ic2{background:var(--gold) !important;border-color:var(--gold) !important;color:#1f160f}
+.node.note.open{background:#f8efd9 var(--ptex);box-shadow:0 0 0 3px #e0b85c,0 0 18px rgba(255,214,120,.85),0 5px 8px rgba(0,0,0,.4);animation:glow 1.8s ease-in-out infinite}
+.node.note.open::before{background:radial-gradient(circle at 35% 35%,#ff8a7a,#9c3a2e)}
+.node.note.short{background:#e9dcc0 var(--ptex)}
+.node.note.lock{background:rgba(233,220,192,.55);box-shadow:0 2px 4px rgba(0,0,0,.25);color:#6e5a43;outline:1.5px dashed #6e5a43;outline-offset:-4px}
+.node.note.lock .ic2{border-style:dashed !important;color:#8a7458}
+.node.note.block{background:rgba(233,220,192,.4);box-shadow:none;color:#5a4330;outline:1.5px dashed #4a3526;outline-offset:-4px}
+.node.note.block::before,.node.note.lock::before{background:#6e5a43}
+.node.note.reward{background:#f3d58a var(--ptex)}
+.node.note.reward .ic2{border-radius:6px;background:#2b2118 !important;color:#f3d58a;border-color:#2b2118 !important}
+.node.note.reward.lock{background:rgba(243,213,138,.6)}
+.node.note.sel{outline:3px solid #f1e6cf;outline-offset:4px}
+.node.note .cost{bottom:-9px;right:4px;background:#f4ead3;border:1px solid #8a7458;border-radius:9px;font-size:9.5px;color:var(--ink)}
+.node.note .cost.no{color:#9c3a2e;border-color:#9c3a2e}
+.fresh{position:absolute;left:10px;top:-4px;width:12px;height:26px;background:#9c3a2e;clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%);box-shadow:0 2px 2px rgba(0,0,0,.4);z-index:2}
+.stampok{position:absolute;right:-8px;top:-9px;width:26px;height:26px;border-radius:50%;background:#9c3a2e;border:2px solid #7a2a22;color:#fbeee6;font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;transform:rotate(-12deg);box-shadow:0 2px 3px rgba(0,0,0,.4)}
+.pin{display:none}
+.legend.wbl{background:#e9dcc0;border-top:1px solid var(--rule);color:var(--mute)}
+.lg{display:inline-block;width:22px;height:13px;margin-right:5px;vertical-align:-2px}
+.lg.d{background:#2b2118;border:1.5px solid #d4a640}.lg.o{background:#f8efd9;box-shadow:0 0 0 2px #e0b85c}.lg.s{background:#e9dcc0;border:1px solid #8a7458}.lg.l{border:1.5px dashed #6e5a43}.lg.b{background:rgba(110,90,67,.25);border:1px dashed #4a3526}
+.side-arr{position:absolute;top:50%;transform:translateY(-55%);z-index:4;width:34px;height:110px;border-radius:6px;border:1.5px solid var(--brass-hi);background:#4a3526;color:#f1e6cf;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:0;box-shadow:0 4px 10px rgba(0,0,0,.4)}
+.side-arr span{font-size:16px}.side-arr small{font-size:11px;writing-mode:vertical-rl;letter-spacing:.1em}
+.side-arr.l{left:8px}.side-arr.r{right:8px}
+.side-arr:hover{background:#5d4331}
+.curb{display:flex;align-items:center;gap:10px;padding-left:12px}
+.cb{display:flex;align-items:center;gap:10px;height:34px;padding:0 16px;border-radius:17px;background:#2a1f18;border:1.5px solid var(--brass-hi);color:#f1e6cf;white-space:nowrap}
+.cb b{font-family:"Shippori Mincho B1",serif;font-size:16px;letter-spacing:.15em}
+.cb small{font-size:11px;color:#b3a48c}
+.mb2{width:70px;height:5px;border-radius:3px;background:#4a3526;overflow:hidden}.mb2 i{display:block;height:100%;background:var(--brass-hi)}
+.carr{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--brass-hi);background:#4a3526;color:#f1e6cf;font-size:13px;padding:0}
+.carr[disabled]{opacity:.3;cursor:default}
+.legend{position:absolute;left:0;right:0;bottom:0;display:flex;gap:18px;align-items:center;padding:8px 16px;font-size:11px;color:var(--mute);background:rgba(233,220,192,.92);border-top:1px solid var(--rule)}
+.legend i{display:inline-block;width:22px;height:13px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+.side{width:316px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;padding-top:40px}
+.sum{padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;transform:rotate(-.4deg)}
+.det{flex-grow:1;min-height:0;padding:12px 18px;display:flex;flex-direction:column;gap:6px;transform:rotate(.3deg)}
+.prow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;border:1px solid var(--rule2);font-size:12.5px}
+.mrow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--rule);font-size:13px}
+.lockpane{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(233,220,192,.6);backdrop-filter:blur(1.5px);text-align:center;color:var(--ink)}
+.res{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(10,7,5,.7)}
+.res.show{display:flex}
+</style>
+</head>
+<body>
+<div class="frame" id="frame">
+  <header>
+    <div style="display:flex;align-items:center;gap:18px">
+      <button class="back"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="#d4a640" stroke-width="2"><path d="M9 2 L4 7 L9 12"/></svg>戻る</button>
+      <div class="ttl"><span class="dia"></span><div><b>研究</b><small>素材を払って拠点を育てる</small></div><span class="dia"></span></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div class="money" id="mats"></div>
+      <div class="money"><span><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="#d4a640" stroke-width="1.6"><circle cx="9" cy="9" r="7"/><circle cx="9" cy="9" r="3.5"/></svg><b class="num">100</b></span></div>
+    </div>
+  </header>
+  <div class="ftabs"><button class="ftab">キャラ<span class="mark"></span></button><button class="ftab">詰所</button><button class="ftab">鍛冶場</button><button class="ftab on" id="rtab">研究</button></div>
+  <main>
+    <section class="left">
+      <div class="ttabs" id="btabs"></div>
+      <div class="paper board" id="board"></div>
+    </section>
+    <section class="side" id="side"></section>
+  </main>
+  <div class="res" id="res"></div>
+  <nav class="fac"><a>本部</a><a>冒険</a><a class="on">育成<span class="mark"></span></a><a>持ち物<span class="mark"></span></a><a>記録</a><a>ショップ<span class="mark"></span></a></nav>
+</div>
+<div class="demo">見本の切り替え：
+  <button data-v="b1" class="on">ボード1（3つ開いた）</button>
+  <button data-v="short">素材が足りない研究を選ぶ</button>
+  <button data-v="lock">まだ開けない研究を選ぶ</button>
+  <button data-v="b2">ボード2（閉じているが中身が見える）</button><button data-v="b3">ボード3</button><button data-v="rw">ボード1のコンプリート報酬</button><button data-v="many">開けるだけ開く（確認）</button><button data-v="auto">自動の決まり</button>
+</div>
+<script>
+const MAT={wood:['木材','#8a6a44'],stone:['石材','#5aa0e6'],iron:['鉄材','#b07ae0'],gold:['金材','#e0b040']};
+const matIcon=(k,s=16)=>`<svg width="${s}" height="${s}" viewBox="0 0 20 20" fill="none" stroke="${MAT[k][1]}" stroke-width="1.6"><rect x="3" y="11" width="6" height="6"/><rect x="11" y="11" width="6" height="6"/><rect x="7" y="4" width="6" height="6"/></svg>`;
+let have={wood:45,stone:12,iron:0,gold:0};
+const IC={
+ lv:'<path d="M4 15 L10 4 L16 15 Z"/><path d="M10 9 V12"/>', all:'<path d="M10 3 V17 M3 10 H17"/><circle cx="10" cy="10" r="6"/>', cd:'<path d="M5 3 H15 M5 17 H15 M6 3 C6 8 14 8 14 10 C14 12 6 12 6 17 M14 3 C14 8 6 8 6 10"/>',
+ box:'<rect x="3" y="7" width="14" height="10" rx="1"/><path d="M3 10 H17 M10 7 V17 M5 7 C5 3 15 3 15 7"/>', shelf:'<path d="M3 4 H17 M3 10 H17 M3 16 H17 M4 4 V16 M16 4 V16"/>', plan:'<path d="M5 3 H13 L16 6 V17 H5 Z"/><path d="M8 9 H13 M8 12 H13"/>',
+ fire:'<path d="M10 17 C6 15 5 11 8 8 C8 11 10 11 10 8 C10 5 12 4 13 3 C13 7 16 9 15 13 C14 16 12 17 10 17 Z"/>', anvil:'<path d="M3 7 H14 C14 10 12 11 10 11 H8 L7 14 H13 V17 H5 V14 L6 11 C4 11 3 9 3 7 Z"/>', star:'<path d="M10 3 L12 8 L17 8 L13 11 L15 16 L10 13 L5 16 L7 11 L3 8 L8 8 Z"/>',
+ board:'<rect x="3" y="4" width="14" height="11"/><path d="M7 8 H13 M7 11 H11"/>', glass:'<path d="M6 3 H14 M6 17 H14 M7 3 C7 8 13 8 13 10 C13 12 7 12 7 17 M13 3 C13 8 7 8 7 10"/>'};
+const LANES=['戦闘','宝箱','鍛冶','拠点'];
+const N=[
+ {id:'tr1',n:'訓練場の拡張',e:'レベル上限 +10',ic:'lv',c:0,r:0,cost:['wood',20],pre:[],done:1},
+ {id:'hp',n:'基礎体力の底上げ',e:'全ステータス +3',ic:'all',c:1,r:0,cost:['wood',50],pre:['tr1']},
+ {id:'book',n:'戦術書',e:'スキルのCD −5%',ic:'cd',c:2,r:0,cost:['stone',20],pre:['hp']},
+ {id:'tr2',n:'訓練場の拡張 II',e:'レベル上限 +10',ic:'lv',c:3,r:0,cost:['iron',20],pre:['book','plan']},
+ {id:'shelf',n:'倉庫の整理',e:'持ち物の上限 +20',ic:'shelf',c:0,r:1,cost:['wood',10],pre:[],done:1},
+ {id:'plan',n:'総合強化計画',e:'冒険の報酬 +5%',ic:'plan',c:1,r:1,cost:['wood',25],pre:['tr1','shelf']},
+ {id:'eye',n:'宝箱の目利き',e:'宝箱の抽選回数 +1',ic:'box',c:2,r:1,cost:['stone',30],pre:['plan']},
+ {id:'fire',n:'炉の改良',e:'鍛冶の塊 +10%',ic:'fire',c:0,r:2,cost:['wood',15],pre:[],done:1},
+ {id:'anvil',n:'金床の補強',e:'鍛える成功率 +5%',ic:'anvil',c:1,r:2,cost:['stone',10],pre:['fire']},
+ {id:'master',n:'名工の技',e:'作る装備の等級 +1',ic:'star',c:2,r:2,cost:['gold',10],pre:['anvil','plan']},
+ {id:'post',n:'掲示板',e:'受けられる依頼 +1',ic:'board',c:0,r:3,cost:['wood',10],pre:[]},
+ {id:'glass',n:'集中の砂時計',e:'ポモドーロの報酬 +10%',ic:'glass',c:1,r:3,cost:['stone',15],pre:['post']},
+];
+N.forEach(n=>n.b=1);
+N.push(
+ {b:2,id:'tr3',n:'訓練場の拡張 III',e:'レベル上限 +10',ic:'lv',c:0,r:0,cost:['iron',40],pre:[]},
+ {b:2,id:'kata',n:'達人の型',e:'会心率 +5%',ic:'star',c:1,r:0,cost:['gold',20],pre:['tr3']},
+ {b:2,id:'hero',n:'英雄の器',e:'レベル上限 +10',ic:'lv',c:2,r:0,cost:['gold',40],pre:['kata']},
+ {b:2,id:'keys',n:'鍵束',e:'宝箱の鍵 +1 / 日',ic:'box',c:0,r:1,cost:['stone',40],pre:[]},
+ {b:2,id:'goldeye',n:'黄金の目利き',e:'★つきが出やすい +3%',ic:'box',c:1,r:1,cost:['gold',25],pre:['keys']},
+ {b:2,id:'altar',n:'遺物の祭壇',e:'遺物の上限 Lv +5',ic:'fire',c:0,r:2,cost:['iron',30],pre:[]},
+ {b:2,id:'ticket',n:'確定札の工房',e:'確定成功の札を作れる',ic:'anvil',c:1,r:2,cost:['gold',30],pre:['altar','goldeye']},
+ {b:2,id:'dorm',n:'寄宿舎',e:'編成の控え +4',ic:'shelf',c:0,r:3,cost:['iron',20],pre:[]},
+ {b:3,id:'legend',n:'伝説の訓練',e:'レベル上限 +20',ic:'lv',c:0,r:0,cost:['gold',80],pre:[]},
+ {b:3,id:'allin',n:'総攻撃の号令',e:'全ステータス +10',ic:'all',c:1,r:0,cost:['gold',100],pre:['legend']},
+ {b:3,id:'vault',n:'宝物庫',e:'持ち物の上限 +100',ic:'shelf',c:0,r:1,cost:['iron',80],pre:[]},
+ {b:3,id:'god',n:'神鍛冶',e:'鍛える成功率 +15%',ic:'anvil',c:0,r:2,cost:['gold',60],pre:[]},
+ {b:3,id:'hall',n:'大広間',e:'冒険の報酬 +15%',ic:'board',c:0,r:3,cost:['gold',50],pre:[]},
+ {b:3,id:'clock',n:'時の砂時計',e:'ポモドーロの報酬 +25%',ic:'glass',c:1,r:3,cost:['gold',70],pre:['hall']}
+);
+[4,5,6].forEach(b=>{const nm=[['古の剣術','攻撃 +5%','lv'],['秘伝書','スキルのCD −5%','cd'],['大金庫','宝箱の鍵 +1','box'],['宝の地図','★が出やすい +2%','box'],['星の炉','鍛冶の塊 +20%','fire'],['夜の灯','ポモドーロの報酬 +10%','glass']];
+  nm.forEach(([n,e,ic],i)=>N.push({b,id:'b'+b+'_'+i,n:n+(b>4?' '+'ⅠⅡⅢ'[b-4]:''),e,ic,c:i%2,r:Math.floor(i/2)+(i>3?1:0)>3?3:Math.floor(i/2),cost:['gold',60+b*10],pre:i%2?['b'+b+'_'+(i-1)]:[]}));});
+const BOARD={1:{need:null},2:{need:[1,8]},3:{need:[2,6]},4:{need:[3,6]},5:{need:[4,6]},6:{need:[5,6]}};
+const BIDS=Object.keys(BOARD).map(Number);
+const cnt=b=>N.filter(n=>n.b===b&&n.done).length, tot=b=>N.filter(n=>n.b===b).length;
+const bopen=b=>!BOARD[b].need||cnt(BOARD[b].need[0])>=BOARD[b].need[1];
+const by=Object.fromEntries(N.map(x=>[x.id,x]));
+const face=(c,s)=>`<span class="face" style="width:${s}px;height:${s}px;background:${c.c};font-size:${Math.round(s*.55)}px">${c.e}</span>`;
+const CHEST=`<svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="8" width="15" height="9" rx="1"/><path d="M2.5 11 H17.5 M2.5 8 C2.5 4 17.5 4 17.5 8"/><rect x="8.5" y="9.5" width="3" height="3"/></svg>`;
+const REWARD={4:[['gem','宝石 ×300'],['mat','金材 ×100']],5:[['gem','宝石 ×400'],['title','称号「賢者」']],6:[['face','新しい仲間「？？？」','#2b2118','❔'],['gem','宝石 ×500']],
+ 1:[['face','新しい仲間「騎士」','#3d4a5c','🛡️'],['gem','宝石 ×50'],['mat','鉄材 ×40'],['title','称号「見習い研究者」']],
+ 2:[['face','新しい仲間「竜騎士」','#2e3a5a','🐉'],['gem','宝石 ×100'],['mat','金材 ×60'],['up','研究の素材 −10%（ずっと）']],
+ 3:[['face','新しい仲間「人形使い」','#5a3a4a','🎎'],['gem','宝石 ×200'],['up','編成が4人になる'],['title','称号「大研究者」']]};
+const rIcon=x=>x[0]==='face'?face({c:x[2],e:x[3]},34):`<span style="width:34px;height:34px;border-radius:6px;background:#241b16;border:2px solid #d4a640;display:flex;align-items:center;justify-content:center;color:#f3d58a;font-size:16px">${{gem:'◆',mat:'▦',title:'✒',up:'▲'}[x[0]]}</span>`;
+let showReward=false, auto=false, autoLanes=[1,1,1,1], autoOpen=false;
+function plan(b){ // いま開けるものを素材が尽きるまで順に
+  const h={...have}, done=new Set(N.filter(n=>n.done).map(n=>n.id)), out=[];
+  let moved=true; while(moved){ moved=false;
+    for(const n of N.filter(n=>n.b===b&&bopen(b)).sort((x,y)=>x.c-y.c||x.r-y.r)){
+      if(done.has(n.id)) continue; if(!n.pre.every(p=>done.has(p))) continue; if(h[n.cost[0]]<n.cost[1]) continue;
+      if(b===board&&auto&&!autoLanes[n.r]&&out.__auto) continue;
+      h[n.cost[0]]-=n.cost[1]; done.add(n.id); out.push(n); moved=true; } }
+  return out;
+}
+function sumCost(L){ const c={}; L.forEach(n=>c[n.cost[0]]=(c[n.cost[0]]||0)+n.cost[1]); return c; }
+function openMany(L){ L.forEach(n=>{ have[n.cost[0]]-=n.cost[1]; n.done=1; }); }
+let board=1, sel='plan', anim=null;
+const DX=160, DY=100, NW=128, GW=820, GH=440;
+const cols=b=>Math.max(...N.filter(n=>n.b===b).map(n=>n.c))+1;
+const bw=b=>(cols(b)+1)*DX+40;
+const BO0={1:[60,70],2:[60+GW+60,70],3:[60,70+GH+60],4:[60+GW+60,70+GH+60],5:[60+2*(GW+60),70],6:[60+2*(GW+60),70+GH+60]};
+const ox=b=>84, oy=b=>76;
+const pos=n=>({x:ox(n.b)+n.c*DX, y:oy(n.b)+n.r*DY});
+const rpos=b=>({x:ox(b)+cols(b)*DX, y:oy(b)+1.5*DY});
+let claimed={};
+const rstate=b=>claimed[b]?'done':!bopen(b)?'block':cnt(b)===tot(b)?'open':'lock';
+function state(n){ if(n.done) return 'done'; if(!bopen(n.b)) return 'block'; if(!n.pre.every(p=>by[p].done)) return 'lock'; return have[n.cost[0]]>=n.cost[1]?'open':'short'; }
+function drawMats(){ document.getElementById('mats').innerHTML=Object.keys(MAT).map((k,i)=>`${i?'<i></i>':''}<span title="${MAT[k][0]}">${matIcon(k)}<b class="num">${have[k]}</b></span>`).join(''); }
+function drawTabs(){
+  const i=BIDS.indexOf(board), b=board, op=bopen(b);
+  document.getElementById('btabs').innerHTML=`<div class="curb">
+     <button class="carr" data-step="-1" ${i?'':'disabled'}>◀</button>
+     <span class="cb"><b>${op?'':'🔒 '}ボード${b}</b>${N.some(n=>n.b===b&&n.fresh)?'<span style="width:9px;height:18px;background:#9c3a2e;clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)"></span>':''}<small>${i+1} / ${BIDS.length}</small><span class="mb2"><i style="width:${cnt(b)/tot(b)*100}%"></i></span><small>${cnt(b)} / ${tot(b)} 開いた</small></span>
+     <button class="carr" data-step="1" ${i<BIDS.length-1?'':'disabled'}>▶</button></div>
+   <span style="margin-left:auto;align-self:center;display:flex;align-items:center;gap:12px">${auto?'<span class="autobadge">● 自動で研究中</span>':''}<span style="font-size:12px;color:#b3a48c;padding-right:6px;white-space:nowrap">レベル上限 <b class="num" style="color:#f1e6cf;font-size:15px">Lv.20</b></span></span>`;
+}
+const wob=(x1,y1,x2,y2,seed)=>{const mx=(x1+x2)/2, j=((seed*37)%7)-3; return `M${x1} ${y1} C${mx+j} ${y1+j} ${mx-j} ${y2-j} ${x2-6} ${y2}`;};
+let seedN=1;
+function link(x1,y1,x2,y2,st,op){
+  const col=!op?'rgba(58,42,30,.45)':{done:'#b8352a',next:'#2b2118',half:'rgba(58,42,30,.6)',lock:'rgba(58,42,30,.5)'}[st], w=st==='done'?3:st==='next'?2.4:1.8, dash=st==='lock'||st==='half'||!op?'5 6':'';
+  return `<path d="${wob(x1,y1,x2,y2,seedN++)}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" ${dash?`stroke-dasharray="${dash}"`:''}/><path d="M${x2-12} ${y2-6} L${x2-3} ${y2} L${x2-12} ${y2+6}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+let slideDir=0;
+function drawBoard(){
+  seedN=1;
+  const B=document.getElementById('board'); const b=board, i=BIDS.indexOf(b), op=bopen(b), NB=N.filter(n=>n.b===b);
+  const links=[];
+  NB.forEach(n=>n.pre.forEach(p=>{const a=pos(by[p]), q=pos(n), st=by[p].done?(n.done?'done':state(n)==='lock'?'half':'next'):'lock'; links.push(link(a.x+NW,a.y+30,q.x,q.y+30,st,op));}));
+  const R=rpos(b); NB.filter(n=>!NB.some(m=>m.pre.includes(n.id))).forEach(n=>{const a=pos(n); links.push(link(a.x+NW,a.y+30,R.x,R.y+30,n.done?'done':'lock',op));});
+  const nb=BIDS[i+1], prev=BIDS[i-1];
+  const nodes=NB.map((n,k)=>{const st=state(n), p=pos(n), ok=have[n.cost[0]]>=n.cost[1], rot=((k*53)%5-2)*.6;return `<button class="node note ${st} ${sel===n.id&&!showReward?'sel':''}" data-n="${n.id}" style="left:${p.x}px;top:${p.y}px;transform:rotate(${rot}deg)">
+      <span class="ic2"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">${IC[n.ic]}</svg></span>
+      <span class="t"><b>${n.n}</b><small>${n.e}</small></span>
+      ${st==='done'?'<span class="stampok">済</span>':`<span class="cost ${ok?'':'no'}">${MAT[n.cost[0]][0]} ${n.cost[1]}</span>`}${n.fresh?'<span class="fresh"></span>':''}
+      ${st==='open'?'<span class="pin"></span>':''}${st==='lock'?'<span class="lockm">🔒</span>':''}</button>`}).join('');
+  const rs=rstate(b), rp=rpos(b);
+  const reward=`<button class="node note reward ${rs} ${showReward?'sel':''}" data-reward="${b}" style="left:${rp.x}px;top:${rp.y}px;transform:rotate(1.5deg)">
+      <span class="ic2">${CHEST}</span><span class="t"><b>完成の報酬</b><small>${REWARD[b].map(x=>x[1]).join('・')}</small></span>
+      ${rs==='done'?'<span class="stampok">済</span>':`<span class="cost">全部で ${cnt(b)}/${tot(b)}</span>`}${rs==='lock'?'<span class="lockm">🔒</span>':''}</button>`;
+  B.innerHTML=`<div class="stage wb ${slideDir>0?'inR':slideDir<0?'inL':''}">
+     <div class="grp ${op?'':'closed'}" style="left:22px;top:22px;right:22px;bottom:16px">
+       <div class="gt"><b>ボード${b}</b><span>${cnt(b)} / ${tot(b)}</span>${op?'':`<span class="need">🔒 ボード${BOARD[b].need[0]}を ${BOARD[b].need[1]}つ開くと開く（いま ${cnt(BOARD[b].need[0])}）</span>`}</div>
+       ${LANES.map((l,r)=>`<span class="ln" style="top:${oy(b)-22+r*DY+4}px">${l}</span>`).join('')}
+       <span class="mag" style="left:50%"></span></div>
+     <svg class="links" width="100%" height="100%">${links.join('')}</svg>
+     ${nodes}${reward}
+   </div>
+   ${prev?`<button class="side-arr l" data-step="-1"><span>◀</span><small>ボード${prev}</small></button>`:''}
+   ${nb?`<button class="side-arr r" data-step="1"><span>▶</span><small>${bopen(nb)?'':'🔒'}ボード${nb}</small></button>`:''}
+   <div class="legend wbl"><span><i class="lg d"></i>済み</span><span><i style="display:inline-block;width:8px;height:14px;background:#9c3a2e;clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%);margin-right:5px;vertical-align:-2px"></i>新しく開いた</span><span><i class="lg o"></i>いま開ける</span><span><i class="lg l"></i>前の研究が先</span><span><i class="lg b"></i>ボード閉</span><span style="margin-left:auto">◀ ▶ でボードを移る</span></div>`;
+  slideDir=0;
+}
+let pendingJump=true;
+function drawSide(){
+  if(showReward) return drawReward();
+  const n=by[sel], st=state(n), ok=have[n.cost[0]]>=n.cost[1];
+  const next=N.filter(m=>m.pre.includes(n.id));
+  const label={block:['ボードが閉じている','#6e5a43'],done:['開いた','#7a5716'],open:['いま開ける','#3f7a2e'],short:['素材が足りない','#9c3a2e'],lock:['前の研究が先','#6e5a43']}[st];
+  document.getElementById('side').innerHTML=`
+  <div class="paper sum"><span class="flabel">ボード${board}</span><b class="num" style="font-size:22px">${cnt(board)}<small style="font-size:12px;color:#6e5a43"> / ${tot(board)}</small></b>
+    <span style="flex-grow:1;height:6px;background:rgba(110,90,67,.2)"><i style="display:block;height:100%;width:${cnt(board)/tot(board)*100}%;background:var(--brass)"></i></span>
+    <span class="flabel">いま開ける <b class="num" style="color:#3f7a2e;font-size:15px">${N.filter(m=>m.b===board&&state(m)==='open').length}</b></span>
+  ${toolsStrip()}</div>
+  <div class="paper det"><span class="corner c1"></span><span class="corner c4"></span>
+    <div style="display:flex;align-items:center;gap:12px;border-bottom:2px solid #2b2118;padding-bottom:8px">
+      <span style="width:48px;height:48px;border-radius:50%;background:${st==='done'?'#b98a2c':'#efe3c6'};border:2px solid #9c7424;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#2b2118" stroke-width="1.6">${IC[n.ic]}</svg></span>
+      <span style="display:flex;flex-direction:column;gap:2px"><span class="flabel">ボード${n.b}・${LANES[n.r]}</span><b class="min" style="font-size:17px;white-space:nowrap">${n.n}</b></span>
+      <span style="margin-left:auto;font-size:10px;white-space:nowrap;font-weight:700;color:${label[1]};border:1.5px solid ${label[1]};border-radius:3px;padding:1px 5px;transform:rotate(-4deg)">${label[0]}</span></div>
+    <div style="font-size:12px;color:#6e5a43">効果</div><b style="font-size:17px">${n.e}</b>
+    <div class="flabel" style="margin-top:4px">先に開く研究</div>
+    ${n.pre.length?n.pre.map(p=>`<div class="prow" style="${by[p].done?'':'border-color:#9c3a2e'}"><span style="color:${by[p].done?'#3f7a2e':'#9c3a2e'};font-weight:900">${by[p].done?'✓':'✕'}</span><button style="border:none;background:none;padding:0;font-size:12.5px;text-decoration:underline;color:#2b2118" data-n="${p}">${by[p].n}</button><span class="flabel" style="margin-left:auto">${by[p].done?'開いた':'まだ'}</span></div>`).join(''):'<div class="prow"><span class="flabel">なし（最初から開ける）</span></div>'}
+    <div class="flabel" style="margin-top:4px">必要な素材</div>
+    <div class="mrow">${matIcon(n.cost[0],20)}<span style="flex-grow:1">${MAT[n.cost[0]][0]}</span><b class="num" style="font-size:17px;color:${ok||st==='done'?'#2b2118':'#9c3a2e'}">${n.cost[1]}</b><span class="flabel">/ ${have[n.cost[0]]} 持ち</span></div>
+    ${!ok&&st!=='done'?`<span style="font-size:11.5px;color:#9c3a2e">あと ${n.cost[1]-have[n.cost[0]]} 足りない・<span style="text-decoration:underline">入手先を見る</span></span>`:''}
+    ${next.length?`<div class="flabel" style="margin-top:2px">開くと次が開けるように：${next.map(m=>`<button style="border:none;background:none;padding:0 2px;font-size:11.5px;text-decoration:underline;color:#2b2118" data-n="${m.id}">${m.n}</button>`).join('・')}</div>`:''}
+    <button class="btn brass" data-open="${n.id}" style="margin-top:auto;height:46px;justify-content:center;font-size:16px;letter-spacing:.15em" ${st==='open'?'':'disabled'}>${st==='done'?'開いた':st==='block'?'ボード'+n.b+'が開くと押せる':st==='lock'?'前の研究を開くと押せる':st==='short'?'素材が足りない':'解放する'}</button>
+  </div>`;
+}
+function toolsStrip(){
+  const L=plan(board);
+  return `<div class="tools2">
+    <button class="btn ${L.length?'brass':''}" data-many style="flex:1;min-width:0;height:34px;justify-content:center;padding:0 6px;font-size:12px" ${L.length?'':'disabled'}>⏩ 開けるだけ開く <b class="num">${L.length}</b></button>
+    <button class="sw ${auto?'on':''}" data-auto title="素材がたまったら自動で開く"><i></i><span>自動 ${auto?'オン':'オフ'}</span></button>
+    <button class="btn ghost" data-autoset style="height:34px;width:30px;padding:0;justify-content:center;flex-shrink:0" title="自動の決まり">⚙</button></div>`;
+}
+function rewardStrip(){
+  return `<button class="paper rstrip" data-reward><span style="color:#9c7424">${CHEST}</span><span style="display:flex;flex-direction:column;align-items:flex-start;gap:1px"><span class="flabel">全部開くと（あと ${tot(board)-cnt(board)}）</span><b style="font-size:12.5px;white-space:nowrap">コンプリート報酬</b></span><span style="margin-left:auto;display:flex;gap:3px">${REWARD[board].map(x=>`<span style="transform:scale(.75);margin:-4px">${rIcon(x)}</span>`).join('')}</span><span class="flabel">›</span></button>`;
+}
+function drawReward(){
+  const d=cnt(board), t=tot(board), all=d===t;
+  document.getElementById('side').innerHTML=`
+  <div class="paper sum"><span class="flabel">ボード${board}</span><b class="num" style="font-size:22px">${d}<small style="font-size:12px;color:#6e5a43"> / ${t}</small></b>
+    <span style="flex-grow:1;height:6px;background:rgba(110,90,67,.2)"><i style="display:block;height:100%;width:${d/t*100}%;background:var(--brass)"></i></span></div>
+  <div class="paper det"><span class="corner c1"></span><span class="corner c4"></span>
+    <div style="display:flex;align-items:center;gap:12px;border-bottom:2px solid #2b2118;padding-bottom:8px">
+      <span style="width:52px;height:52px;border-radius:10px;background:#2b2118;border:2px solid #d4a640;color:#f3d58a;display:flex;align-items:center;justify-content:center;transform:scale(1)">${CHEST.replace('width="22" height="22"','width="30" height="30"')}</span>
+      <span style="display:flex;flex-direction:column;gap:2px"><span class="flabel">ボード${board}の研究を全部開くと</span><b class="min" style="font-size:19px;white-space:nowrap">コンプリート報酬</b></span></div>
+    <div style="display:flex;flex-direction:column;gap:8px">${REWARD[board].map(x=>`<div style="display:flex;align-items:center;gap:12px;padding:6px 8px;border:1px solid var(--rule2);border-radius:5px;background:rgba(244,234,211,.7)">${rIcon(x)}<b style="font-size:14px">${x[1]}</b></div>`).join('')}</div>
+    <div class="flabel" style="margin-top:4px">あと ${t-d} つ（${N.filter(n=>n.b===board&&!n.done).map(n=>n.n).slice(0,4).join('・')}${t-d>4?' ほか':''}）</div>
+    <div style="height:8px;background:rgba(110,90,67,.2);border-radius:4px"><i style="display:block;height:100%;width:${d/t*100}%;background:var(--brass);border-radius:4px"></i></div>
+    <button class="btn brass" data-claim="${board}" style="margin-top:auto;height:46px;justify-content:center;font-size:16px;letter-spacing:.1em" ${all&&!claimed[board]?'':'disabled'}>${claimed[board]?'受け取った':all?'受け取る':'全部開くと受け取れる'}</button>
+    <button class="btn ghost" data-rback style="height:32px;justify-content:center">研究の説明に戻る</button>
+  </div>`;
+}
+function modal(html){ const R=document.getElementById('res'); R.innerHTML=`<div class="paper" style="width:480px;padding:22px 26px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center"><span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>${html}</div>`; R.classList.add('show'); }
+const costLine=c=>Object.entries(c).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:4px;margin:0 6px">${matIcon(k,16)}${MAT[k][0]} <b class="num">${v}</b><span class="flabel">/ ${have[k]}</span></span>`).join('');
+function askMany(){
+  const L=plan(board);
+  modal(`<b class="min" style="font-size:21px;letter-spacing:.1em">${L.length} つまとめて開く？</b>
+   <div style="width:100%;display:flex;flex-direction:column;gap:5px;max-height:220px;overflow:auto">${L.map((n,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:5px 10px;border:1px solid var(--rule2);border-radius:4px;background:rgba(244,234,211,.7);text-align:left"><span class="num" style="width:18px;color:#6e5a43">${i+1}</span><b style="font-size:13px;flex-grow:1">${n.n}</b><span class="flabel">${n.e}</span><span style="font-size:11px">${matIcon(n.cost[0],12)} ${n.cost[1]}</span></div>`).join('')}</div>
+   <div style="font-size:13px">使う素材：${costLine(sumCost(L))}</div>
+   <div style="font-size:11.5px;color:#6e5a43">左の列から順に開く。素材が足りなくなった所で止まる。</div>
+   <div style="display:flex;gap:12px;width:100%"><button class="btn ghost" data-rc style="flex:1;height:44px;justify-content:center">やめる</button><button class="btn brass" data-manyok style="flex:1;height:44px;justify-content:center;font-size:15px">まとめて開く</button></div>`);
+}
+function askAuto(){
+  modal(`<b class="min" style="font-size:21px;letter-spacing:.1em">自動で研究する</b>
+   <div style="font-size:13px;color:#4f4030;line-height:1.7">素材がたまったら、開ける研究を自動で開く。<br>ポモドーロや冒険から戻ったときに動く。</div>
+   <div style="width:100%;text-align:left"><div class="flabel" style="margin-bottom:6px">自動で開く分類</div>
+   <div style="display:flex;gap:8px">${LANES.map((l,i)=>`<button class="sw ${autoLanes[i]?'on':''}" data-lane="${i}" style="flex:1;justify-content:center"><i></i>${l}</button>`).join('')}</div></div>
+   <div style="width:100%;text-align:left"><div class="flabel" style="margin-bottom:6px">素材を残す</div>
+   <div style="display:flex;gap:8px;align-items:center;font-size:13px"><span class="seg"><button>残さない</button><button class="on">10ずつ</button><button>30ずつ</button><button>50ずつ</button></span><span class="flabel">鍛冶やショップのために残す</span></div></div>
+   <div style="display:flex;gap:12px;width:100%;margin-top:4px"><button class="btn ghost" data-rc style="flex:1;height:44px;justify-content:center">閉じる</button><button class="btn ${auto?'':'brass'}" data-autoon style="flex:1;height:44px;justify-content:center;font-size:15px">${auto?'自動をオフにする':'自動をオンにする'}</button></div>`);
+}
+function doneMsg(L,head){
+  modal(`<span style="font-size:13px;color:#6e5a43;letter-spacing:.3em">${head}</span><b class="min" style="font-size:22px">${L.length} つの研究を開いた</b>
+   <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${L.map(n=>`<span style="padding:3px 10px;border-radius:12px;background:#2b2118;color:#f3d58a;font-size:12px">${n.n}　<span style="color:#e6f5e4">${n.e}</span></span>`).join('')}</div>
+   <button class="btn brass" data-rc style="width:100%;height:42px;justify-content:center">閉じる</button>`);
+}
+function draw(){ const fr=N.some(n=>n.fresh); document.getElementById('rtab').innerHTML='研究'+(fr?'<span class="mark"></span>':''); drawMats();drawTabs();drawBoard();drawSide();}
+const F=document.getElementById('frame');
+F.addEventListener('click',e=>{
+  const t=e.target.closest('button'); if(!t) return; const d=t.dataset;
+  if(d.n){ by[d.n].fresh=0; sel=d.n; board=by[d.n].b; showReward=false; }
+  else if(d.reward!==undefined){ showReward=true; board=+d.reward; }
+  else if(d.many!==undefined){ askMany(); return; }
+  else if(d.manyok!==undefined){ const L=plan(board); openMany(L); L.forEach(n=>n.fresh=1); document.getElementById('res').classList.remove('show'); }
+  else if(d.auto!==undefined){ if(auto){ auto=false; } else { askAuto(); return; } }
+  else if(d.autoset!==undefined){ askAuto(); return; }
+  else if(d.lane){ autoLanes[+d.lane]=autoLanes[+d.lane]?0:1; askAuto(); return; }
+  else if(d.autoon!==undefined){ auto=!auto; if(auto){ const L=plan(board).filter(n=>autoLanes[n.r]); if(L.length){ openMany(L); L.forEach(n=>n.fresh=1); } } document.getElementById('res').classList.remove('show'); }
+  else if(d.rback!==undefined){ showReward=false; }
+  else if(d.claim){ claimed[+d.claim]=1; }
+  else if(d.board||d.jump){ board=+(d.board||d.jump); pendingJump=true; const f=N.find(n=>n.b===board); if(by[sel].b!==board) sel=f.id; showReward=false; }
+  else if(d.step){ slideDir=+d.step; const i=BIDS.indexOf(board)+ +d.step; if(i>=0&&i<BIDS.length){ board=BIDS[i]; pendingJump=true; sel=N.find(n=>n.b===board).id; showReward=false; } }
+  else if(d.open){ const n=by[d.open]; have[n.cost[0]]-=n.cost[1]; n.done=1; n.fresh=1; }
+  else if(d.rc!==undefined){ document.getElementById('res').classList.remove('show'); }
+  else return;
+  draw();
+});
+document.querySelectorAll('.demo button').forEach(b=>b.onclick=()=>{const v=b.dataset.v; document.getElementById('res').classList.remove('show'); if(v==='many'||v==='auto'){ board=1; showReward=false; draw(); v==='many'?askMany():askAuto(); document.querySelectorAll('.demo button').forEach(c=>c.classList.toggle('on',c===b)); return; } board=v==='b2'?2:v==='b3'?3:1; sel={b1:'plan',short:'hp',lock:'tr2',b2:'ticket',b3:'legend',rw:'plan'}[v]; showReward=v==='rw'; pendingJump=true; draw(); document.querySelectorAll('.demo button').forEach(c=>c.classList.toggle('on',c===b));});
+by.hp.fresh=0; ['tr1','fire'].forEach(id=>by[id].fresh=1);
+draw();
+</script>
+</body>
+</html>

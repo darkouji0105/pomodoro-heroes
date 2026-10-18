@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>鍛冶場の手直し</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#2b2118;--ink2:#4f4030;--mute:#6e5a43;--faint:#a8987f;
+  --paper:#e9dcc0;--paper-hi:#f4ead3;--rule:#c2ae88;--rule2:#b39d74;
+  --brass:#9c7424;--brass-hi:#d4a640;--gold:#b98a2c;--seal:#9c3a2e;
+  --leather:#4a3526;--leather-b:#5a4330;--wood:#1d1612;--cream:#f1e6cf;
+  --ptex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.3  0 0 0 0 0.14  0 0 0 0.22 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
+  --wtex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.012 0.4' numOctaves='3' seed='8'/><feColorMatrix values='0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.12  0 0 0 0.35 0'/></filter><rect width='300' height='300' filter='url(%23w)'/></svg>");
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0e0a08;font-family:"Noto Sans JP","Hiragino Sans",sans-serif;color:#eadfca;padding:16px 0 40px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.num{font-family:"Noto Sans JP",sans-serif;font-weight:900;font-variant-numeric:tabular-nums}
+.min{font-family:"Shippori Mincho B1",serif;font-weight:800}
+
+/* ---------- 枠 ---------- */
+.frame{position:relative;width:1280px;height:720px;margin:0 auto;display:flex;flex-direction:column;background:var(--wood) var(--wtex);overflow:hidden}
+header{height:60px;flex-shrink:0;padding:0 24px;display:flex;align-items:center;justify-content:space-between;background:#16100d;border-bottom:1px solid var(--leather-b)}
+.back{height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:6px;border:1.5px solid #a8791f;background:var(--leather);color:var(--cream);font-size:14px}
+.ttl{display:flex;align-items:center;gap:12px}
+.ttl .dia{width:7px;height:7px;transform:rotate(45deg);background:var(--brass-hi)}
+.ttl b{font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:23px;letter-spacing:.25em;color:var(--cream);text-shadow:0 2px 0 #000}
+.ttl small{display:block;font-size:11px;letter-spacing:.2em;color:var(--faint)}
+.money{display:flex;gap:2px;padding:3px;background:#33261d;border:1px solid var(--leather-b);border-radius:10px}
+.money span{display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:15px}
+.money i{width:1px;background:var(--leather-b)}
+.ftabs{height:32px;flex-shrink:0;display:flex;align-items:flex-end;gap:4px;padding:0 24px}
+.ftab{height:26px;padding:0 20px;border:none;border-radius:7px 7px 0 0;background:#b59e74;color:var(--ink);font-size:13px;position:relative}
+.ftab.on{height:32px;background:var(--paper);font-weight:700}
+.ftab .mark{position:absolute;right:6px;top:0;width:9px;height:18px;background:var(--seal);clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)}
+nav.fac{height:44px;flex-shrink:0;display:flex;background:#231a15;border-top:2px solid #3a2c22}
+nav.fac a{flex:1;display:flex;align-items:center;justify-content:center;color:#b3a48c;font-size:14px;text-decoration:none;border-top:3px solid transparent;margin-top:-2px;position:relative}
+nav.fac a.on{color:var(--cream);border-top-color:var(--brass-hi);background:#2f241c}
+nav.fac a .mark{position:absolute;right:22%;top:-2px;width:10px;height:22px;background:var(--seal);clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)}
+main{position:relative;flex-grow:1;min-height:0;padding:8px 24px 8px;display:flex;flex-direction:column;gap:8px}
+
+/* ---------- 紙 ---------- */
+.paper{position:relative;background:var(--paper) var(--ptex);color:var(--ink);border-radius:3px;box-shadow:inset 0 0 36px rgba(120,88,40,.3),0 10px 22px rgba(0,0,0,.5)}
+.corner{position:absolute;width:14px;height:14px;border:0 solid var(--brass)}
+.c1{top:6px;left:6px;border-top-width:2px;border-left-width:2px}.c2{top:6px;right:6px;border-top-width:2px;border-right-width:2px}
+.c3{bottom:6px;left:6px;border-bottom-width:2px;border-left-width:2px}.c4{bottom:6px;right:6px;border-bottom-width:2px;border-right-width:2px}
+
+.btn{height:32px;padding:0 14px;border-radius:6px;border:1.5px solid var(--leather-b);background:var(--leather);color:var(--cream);font-size:13px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn.brass{border-color:#7a5716;background:var(--gold);color:#1f160f;font-weight:700;box-shadow:inset 0 1px 0 #e0b85c}
+.btn.ghost{background:transparent;border:1px solid #8a7458;color:var(--ink)}
+.btn.big{height:34px;padding:0 28px;font-size:15px;letter-spacing:.15em}
+.btn[disabled]{opacity:.45;cursor:default}
+.face{flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:6px;border:2px solid #f5ecd8;box-shadow:0 2px 5px rgba(0,0,0,.35);line-height:1}
+.icons{display:flex;align-items:center;gap:4px}
+.icons .sep{width:1px;height:26px;background:var(--rule2);margin:0 3px}
+.seg{display:inline-flex;border:1px solid #8a7458;border-radius:6px;overflow:hidden;height:26px}
+.seg button{border:none;background:rgba(244,234,211,.55);font-size:11.5px;padding:0 8px;color:var(--ink2)}
+.seg button+button{border-left:1px solid var(--rule2)}
+.seg button.on{background:#dccaa3;color:var(--ink);font-weight:700;box-shadow:inset 0 -2px 0 var(--brass)}
+.flabel{font-size:11px;color:var(--mute)}
+/* ---------- 小さなアイコン ---------- */
+.ic{position:relative;flex-shrink:0;display:inline-flex}
+.ic .g{position:absolute;top:1px;left:1px;min-width:11px;height:11px;padding:0 2px;border-radius:3px 0 3px 0;font-size:8px;font-weight:700;color:#1b1512;display:flex;align-items:center;justify-content:center}
+.ic .st{position:absolute;right:-3px;bottom:-3px}
+.up{color:#3f7a2e;font-weight:900}.down{color:var(--seal);font-weight:900}
+.btn.danger{background:#8a3327;border-color:#6e2219;color:#fbeee6;font-weight:700}
+.demo{width:1280px;margin:12px auto 0;display:flex;gap:8px;align-items:center;font-size:13px;color:#b3a48c}
+.demo button{height:32px;padding:0 14px;border-radius:6px;border:1px solid #6a5340;background:#2a1f18;color:#d9ccb4}
+.demo button.on{background:var(--gold);color:#1f160f;border-color:#7a5716;font-weight:700}
+
+/* ---------- 鍛冶場 ---------- */
+main{flex-direction:row;gap:18px;padding:6px 24px 10px}
+.left{flex-grow:1;min-width:0;display:flex;flex-direction:column}
+.ttabs{height:40px;flex-shrink:0;display:flex;align-items:flex-end;gap:4px;padding-left:12px}
+.tt{height:33px;padding:0 20px;border:none;border-radius:9px 9px 0 0;background:#b59e74;color:var(--ink);font-size:14px;box-shadow:0 -3px 8px rgba(0,0,0,.35)}
+.tt.on{height:40px;background:var(--paper);font-weight:700}
+.panel{position:relative;flex-grow:1;min-height:0;padding:14px 20px 12px;border-radius:0 3px 3px 3px;display:flex;flex-direction:column;gap:10px}
+.ph{display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid var(--ink);padding-bottom:6px}
+.ph b{font-size:19px;letter-spacing:.15em}.ph small{font-size:12px;color:var(--mute)}
+/* 並べ替えの欄（育成・持ち物と同じ部品） */
+.tool{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tool .pick{height:26px;padding:0 24px 0 10px;border-radius:6px;border:1px solid #8a7458;background:rgba(244,234,211,.6) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1 L5 5 L9 1' fill='none' stroke='%236e5a43' stroke-width='1.5'/></svg>") no-repeat right 8px center;font-size:12px;color:var(--ink)}
+.tool .pick em{font-style:normal;color:var(--mute);margin-right:4px}
+.tool .chk{height:26px;padding:0 10px;border-radius:6px;border:1px solid #8a7458;background:rgba(244,234,211,.6);font-size:12px;color:var(--ink);display:flex;align-items:center;gap:6px}
+.tool .chk i{width:13px;height:13px;border:1.5px solid #6e5a43;border-radius:2px;display:inline-block}
+.tool .chk.on i{background:var(--ink);border-color:var(--ink)}
+.box{flex-grow:1;min-height:0;overflow-y:auto;padding:8px 6px 6px 4px;scrollbar-width:thin;scrollbar-color:#8a7458 transparent}
+.egrid{display:grid;grid-template-columns:repeat(12,56px);gap:16px 10px;align-content:start}
+.cell{position:relative;width:56px;height:56px;padding:0;border:none;background:none}
+.cell .ico{display:inline-flex}
+.cell.on::after{content:"";position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 2px var(--brass-hi),0 0 12px rgba(224,184,92,.6)}
+.cell.max .ico{opacity:.55}
+.who-dot{position:absolute;right:-6px;top:-6px;width:22px;height:22px;border-radius:50%;border:1.5px solid #f5ecd8;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.tagb{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);padding:0 5px;height:15px;border-radius:8px;font-size:9.5px;font-weight:700;white-space:nowrap;display:flex;align-items:center}
+.tagb.max{background:#6e5a43;color:#f1e6cf}
+.tagb.relic{background:#5b3f7a;color:#efe4ff}
+.erow{display:grid;grid-template-columns:44px minmax(0,1fr) 90px 150px 110px;align-items:center;gap:12px;height:52px;padding:0 10px;border:none;border-bottom:1px dotted var(--rule2);background:transparent;width:100%;text-align:left;color:var(--ink)}
+.erow.on{background:var(--paper-hi);box-shadow:inset 3px 0 0 var(--brass)}
+.legend{display:flex;gap:16px;font-size:11px;color:var(--mute);padding-top:6px;border-top:1px dashed var(--rule)}
+/* 右：鍛える紙 */
+.side{width:372px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;padding-top:40px;padding-bottom:2px}
+.skill{padding:10px 16px;display:flex;align-items:center;gap:14px;transform:rotate(-.5deg)}
+.work{flex-grow:1;min-height:0;padding:14px 18px;display:flex;flex-direction:column;gap:10px;transform:rotate(.3deg)}
+.vs{display:grid;grid-template-columns:1fr 34px 1fr;align-items:center;justify-items:center;padding:6px 0}
+.vs .c{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px}
+.stamp{display:flex;flex-direction:column;align-items:center;padding:6px 14px;border:2px solid #3f7a2e;border-radius:50%;color:#3f7a2e;transform:rotate(-6deg)}
+.stamp.risk{border-color:#9c6a1e;color:#9c6a1e}
+.mat{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--rule);font-size:13px}
+.tick{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px dashed #8a7458;border-radius:4px;font-size:13px;background:transparent;color:var(--ink);width:100%;text-align:left}
+.tick i{width:18px;height:18px;border:1.5px solid var(--ink);border-radius:3px}
+.tick[disabled]{opacity:.45;cursor:default}
+.tipcard{position:absolute;z-index:9;width:270px;padding:12px 14px;pointer-events:none;display:none;flex-direction:column;gap:6px;box-shadow:0 0 0 1px #5a4330,0 14px 30px rgba(0,0,0,.6);font-size:12px}
+.tipcard.show{display:flex}
+.tipcard .tr{display:flex;justify-content:space-between;align-items:baseline}
+.tipcard hr{border:none;border-top:1px dashed var(--rule);margin:2px 0;width:100%}
+/* 鍛えた結果（押すと飛ばせる） */
+.res{position:absolute;inset:0;z-index:20;display:none;background:radial-gradient(ellipse at 50% 45%,rgba(60,36,18,.88),rgba(8,5,3,.95));align-items:center;justify-content:center;flex-direction:column;gap:18px;cursor:pointer}
+.res.show{display:flex}
+.skip{position:absolute;right:28px;bottom:24px;height:34px;padding:0 16px;border-radius:17px;border:1px solid #8a7458;background:rgba(27,21,18,.7);color:#d9ccb4;font-size:13px;display:flex;align-items:center;gap:8px}
+.anvil{position:relative;width:240px;height:200px}
+.hammer{position:absolute;left:120px;top:0;transform-origin:20px 90px;animation:swing .5s ease-in infinite}
+@keyframes swing{0%{transform:rotate(-55deg)}70%{transform:rotate(8deg)}100%{transform:rotate(-55deg)}}
+.spark{position:absolute;left:112px;top:96px;width:6px;height:6px;border-radius:50%;background:#ffd36b;box-shadow:0 0 8px #ffb02e;opacity:0;animation:spark .5s ease-out infinite}
+@keyframes spark{0%,60%{opacity:0;transform:translate(0,0)}70%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y))}}
+.rcard{width:620px;padding:26px 34px 22px;display:flex;flex-direction:column;align-items:center;gap:14px;cursor:default;animation:pop .35s ease-out}
+@keyframes pop{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}
+.bigstamp{padding:8px 26px;border:4px solid #3f7a2e;border-radius:8px;color:#3f7a2e;font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:34px;letter-spacing:.3em;transform:rotate(-6deg);animation:stamp .4s cubic-bezier(.2,1.6,.4,1)}
+.bigstamp.ng{border-color:#9c3a2e;color:#9c3a2e}
+@keyframes stamp{0%{transform:rotate(-6deg) scale(2.2);opacity:0}100%{transform:rotate(-6deg) scale(1);opacity:1}}
+.cell.lock .ico{filter:brightness(.45) saturate(.4);opacity:.6}
+.cell.lock{cursor:not-allowed}
+.cell.pk .ico{filter:sepia(.6) hue-rotate(-30deg) brightness(.75)}
+.cell.pk::after{content:"";position:absolute;inset:-3px;border-radius:10px;box-shadow:0 0 0 2.5px #9c3a2e}
+.chkm{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:#8a3327;border:2px solid #fbeee6;color:#fbeee6;font-size:16px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.lockm{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);padding:0 5px;height:15px;border-radius:8px;background:#4a3526;color:#d9ccb4;font-size:9.5px;white-space:nowrap;display:flex;align-items:center}
+.scrapbar{white-space:nowrap;display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:5px;background:rgba(156,58,46,.1);border:1px dashed #9c3a2e}
+.scrapbar .chk{height:26px;padding:0 10px;border-radius:6px;border:1px solid #8a7458;background:rgba(244,234,211,.6);font-size:12px;color:var(--ink);display:flex;align-items:center;gap:6px}
+.scrapbar .chk i{display:none}
+.ask{position:absolute;left:50%;top:50%;width:520px;transform:translate(-50%,-50%);z-index:25;padding:24px 28px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;box-shadow:0 0 0 1px #5a4330,0 24px 60px rgba(0,0,0,.8)}
+.askscrim{position:absolute;inset:0;z-index:24;background:rgba(10,7,5,.7)}
+.btn.danger{background:#8a3327;border-color:#6e2219;color:#fbeee6;font-weight:700}
+.from{display:flex;align-items:center;gap:8px;height:30px;padding:0 6px 0 12px;border-radius:15px;background:#2a1f18;border:1px solid var(--brass);font-size:12px;color:var(--cream)}
+</style>
+</head>
+<body>
+<div class="frame" id="frame">
+  <header>
+    <div style="display:flex;align-items:center;gap:18px">
+      <button class="back" id="back"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="#d4a640" stroke-width="2"><path d="M9 2 L4 7 L9 12"/></svg><span id="backl">戻る</span></button>
+      <div class="ttl"><span class="dia"></span><div><b>鍛冶場</b><small id="sub">装備を鍛える</small></div><span class="dia"></span></div>
+      <span id="from"></span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div class="money" title="鍛えるのに使う素材"><span><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#5aa0e6" stroke-width="1.6"><path d="M3 14 L6 8 H14 L17 14 Z"/><path d="M8 8 L7 14 M12 8 L13 14"/></svg>鍛冶の塊 <b class="num">99,983</b></span></div>
+      <div class="money"><span><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="#d4a640" stroke-width="1.6"><circle cx="9" cy="9" r="7"/><circle cx="9" cy="9" r="3.5"/></svg><b class="num">100</b></span><i></i><span><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="#9cc98a" stroke-width="1.6"><path d="M10 2 L4 10 H9 L8 16 L14 8 H9 Z"/></svg><b class="num">20</b><small style="color:#a8987f;font-size:11px">/ 100</small></span></div>
+    </div>
+  </header>
+  <div class="ftabs"><button class="ftab">キャラ<span class="mark"></span></button><button class="ftab">詰所</button><button class="ftab on">鍛冶場</button><button class="ftab">研究<span class="mark"></span></button></div>
+  <main>
+    <section class="left">
+      <div class="ttabs"><button class="tt on">鍛える</button><button class="tt">作る</button><button class="tt">遺物</button></div>
+      <div class="paper panel" id="panel"></div>
+    </section>
+    <section class="side" id="side"></section>
+  </main>
+  <div class="paper tipcard" id="tip"></div>
+  <div class="res" id="res"></div>
+  <nav class="fac"><a>本部</a><a>冒険</a><a class="on">育成<span class="mark"></span></a><a>持ち物<span class="mark"></span></a><a>記録</a><a>ショップ<span class="mark"></span></a></nav>
+</div>
+<div class="demo">見本の切り替え：
+  <button data-v="grid" class="on">マス目</button>
+  <button data-v="list">行</button>
+  <button data-v="from">育成（剣士）から来た</button><button data-v="anim">鍛えている途中</button><button data-v="ok">結果：成功</button><button data-v="ng">結果：失敗</button><button data-v="scrap">一括分解（等級2以下を選んだ）</button><button data-v="scrapask">分解の確認</button>
+</div>
+<script>
+const GRADE={1:'#d8d0c2',2:'#7fbf6a',3:'#5aa0e6',4:'#4f7fe0',5:'#9a6ce0',6:'#d066b0',7:'#e05a5a',8:'#e08a3a',9:'#e0b040',10:'#f2e6a0'};
+const PART={head:'頭',body:'上半身',legs:'下半身',weapon:'武器',acc:'アクセサリー'};
+const PARTS=['head','body','legs','weapon','acc'];
+const GLYPH={
+  head:'<path d="M18 36 C18 24 24 18 32 18 C40 18 46 24 46 36 Z"/><path d="M16 36 H48 V41 H16 Z"/>',
+  body:'<path d="M22 20 L28 18 C29 22 35 22 36 18 L42 20 L47 29 L41 31 V46 H23 V31 L17 29 Z"/>',
+  legs:'<path d="M23 18 H31 V44 L21 46 V40 L23 38 Z"/><path d="M33 18 H41 V38 L43 40 V46 L33 44 Z"/>',
+  weapon:'<path d="M19 45 L41 23 L45 19"/><path d="M38 19 L45 26"/><path d="M21 38 L26 43"/>',
+  acc:'<circle cx="32" cy="37" r="9"/><path d="M28 24 L32 19 L36 24 L32 28 Z"/>'
+};
+const SK={ /* スキルの線アイコン（24枠） */
+  strike:'<path d="M5 19 L19 5 M12 5 H19 V12"/>',
+  sweep:'<path d="M4 16 C7 8 17 8 20 16"/><path d="M16 12 L20 16 L15 18"/>',
+  heal:'<path d="M12 20 C6 16 4 12 6 8 C8 5 11 6 12 8 C13 6 16 5 18 8 C20 12 18 16 12 20 Z"/><path d="M12 10.5 V15.5 M9.5 13 H14.5"/>',
+  shield:'<path d="M12 3 L19 6 V11 C19 16 15.5 19 12 21 C8.5 19 5 16 5 11 V6 Z"/>',
+  arrow:'<path d="M4 20 L18 6 M12 5 H19 V12 M4 14 L8 18"/>',
+  rain:'<path d="M6 4 V12 M12 4 V14 M18 4 V12 M4 18 H20"/>',
+  bolt:'<path d="M13 3 L6 13 H11 L10 21 L18 10 H13 Z"/>',
+  skull:'<circle cx="12" cy="10" r="6"/><path d="M9 16 V20 H15 V16"/>',
+  fire:'<path d="M12 21 C7 19 6 14 9 10 C10 13 12 13 12 9 C12 6 14 4 15 3 C15 8 19 10 18 15 C17 19 14 21 12 21 Z"/>',
+  star:'<path d="M12 3 L14 9 L20 9 L15 13 L17 20 L12 16 L7 20 L9 13 L4 9 L10 9 Z"/>',
+};
+const face=(c,s)=>`<span class="face" style="width:${s}px;height:${s}px;background:${c.c};font-size:${Math.round(s*.55)}px">${c.e}</span>`;
+function eqIcon(part,grade,s=26,opt={}){
+  if(!grade) return `<span class="ic" title="${PART[part]}：空き"><svg width="${s}" height="${s}" viewBox="0 0 64 64"><rect x="3" y="3" width="58" height="58" rx="9" fill="none" stroke="#a8987f" stroke-width="3" stroke-dasharray="6 5"/><g fill="none" stroke="#b3a48c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".8">${GLYPH[part]}</g></svg></span>`;
+  const col=GRADE[grade];
+  return `<span class="ic" title="${PART[part]}・等級${grade}"><svg width="${s}" height="${s}" viewBox="0 0 64 64"><rect x="3" y="3" width="58" height="58" rx="8" fill="#241b16" stroke="${col}" stroke-width="${s<34?4:2.5}"/><g fill="none" stroke="#efe5d2" stroke-width="${s<34?3.4:2.4}" stroke-linecap="round" stroke-linejoin="round">${GLYPH[part]}</g></svg>${s>=34?`<span class="g" style="background:${col};font-size:${s>=48?11:9}px;min-width:${s>=48?17:13}px;height:${s>=48?17:13}px">${grade}</span>`:''}${opt.star?`<span class="st"><svg width="${s>=48?18:12}" height="${s>=48?18:12}" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7.3" fill="#1f1a17" stroke="#d4a640" stroke-width="1.2"/><path d="M8 3.2 L9.3 6.4 L12.6 6.6 L10.1 8.7 L10.9 12 L8 10.2 L5.1 12 L5.9 8.7 L3.4 6.6 L6.7 6.4 Z" fill="#e0b85c"/></svg></span>`:''}</span>`;
+}
+function skIcon(k,s=26){
+  if(!k) return `<span class="ic" title="スキル：空き"><svg width="${s}" height="${s}" viewBox="0 0 26 26"><rect x="1" y="1" width="24" height="24" rx="4" fill="none" stroke="#a8987f" stroke-width="1.4" stroke-dasharray="3 2.5"/><path d="M13 9 V17 M9 13 H17" stroke="#b3a48c" stroke-width="1.4"/></svg></span>`;
+  return `<span class="ic"><svg width="${s}" height="${s}" viewBox="0 0 26 26"><rect x="1" y="1" width="24" height="24" rx="4" fill="#f4ead3" stroke="#2b2118" stroke-width="1.6"/><g transform="translate(3 3) scale(.83)" fill="none" stroke="#2b2118" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SK[k]}</g></svg></span>`;
+}
+const STI={
+ hp:'<path d="M8 13.5 C3 10 1.5 6.5 3.5 4.5 C5 3 7 3.5 8 5 C9 3.5 11 3 12.5 4.5 C14.5 6.5 13 10 8 13.5 Z"/>',
+ atk:'<path d="M4 3 L12 8 L4 13 Z"/>', mag:'<path d="M8 2 V14 M2 8 H14 M4 4 L6 6 M12 4 L10 6 M4 12 L6 10 M12 12 L10 10"/>',
+ pdef:'<path d="M8 2 L13 4 V8 C13 11 10.5 13 8 14 C5.5 13 3 11 3 8 V4 Z"/>', mdef:'<path d="M8 2 L13 4 V8 C13 11 10.5 13 8 14 C5.5 13 3 11 3 8 V4 Z"/><path d="M8 6 V10 M6 8 H10"/>',
+ aspd:'<path d="M3 4 L7 8 L3 12 M9 4 L13 8 L9 12"/>', cd:'<path d="M4 2 H12 M4 14 H12 M5 2 C5 6 11 7 11 8 C11 9 5 10 5 14 M11 2 C11 6 5 7 5 8 C5 9 11 10 11 14"/>',
+ crit:'<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="1.5"/>', critx:'<path d="M8 2 L9.5 6 L14 6.5 L10.5 9.5 L11.5 14 L8 11.5 L4.5 14 L5.5 9.5 L2 6.5 L6.5 6 Z"/>',
+ move:'<path d="M9 2 L4 9 H8 L7 14 L12 7 H8 Z"/>'};
+
+const stIcon=(k,s=14,c='#6e5a43')=>`<svg width="${s}" height="${s}" viewBox="0 0 16 16" fill="none" stroke="${c}" stroke-width="1.4" stroke-linejoin="round">${STI[k]}</svg>`;
+const CH={ken:['剣士','#4b3a63','🧑'],yumi:['弓兵','#34553b','🎯'],so:['僧侶','#2f4666','😇'],kishi:['騎士','#3d4a5c','🛡️'],zoku:['盗賊','#4a3a2a','🗝️'],mado:['魔導士','#352a5c','🔮']};
+const faceOf=id=>face({c:CH[id][1],e:CH[id][2]},18);
+const STAT={weapon:['atk','攻撃'],head:['pdef','物理防御'],body:['hp','HP'],legs:['mdef','魔法防御'],acc:['crit','会心率']};
+const RAW=[
+ ['細身の剣','weapon',6,1,'ken',11,'攻撃速度 +17%','3回攻撃するごとに、次の一撃が会心になる'],['竜殺しの大剣','weapon',10,1,null,58,'竜に +30%','竜の敵に与えるダメージ +30%'],['鋼の剣','weapon',5,0,null,24,''],['HPの剣','weapon',3,0,null,6,'HP +160'],
+ ['速さの剣','weapon',1,0,'kishi',4,'攻撃速度 +14%'],['炎の剣','weapon',7,1,null,30,'炎ダメージ +12%','当てた敵を3秒間燃やす'],['銀の短剣','weapon',3,0,'zoku',10,'会心率 +4%'],['騎士の剣','weapon',8,0,null,40,''],
+ ['速射の弓','weapon',4,0,'yumi',14,'攻撃速度 +10%'],['祈りの杖','weapon',2,0,'so',6,'回復 +8%'],['星の杖','weapon',6,1,'mado',22,'魔力 +12','技を使うと次の技のCDが1秒縮む'],
+ ['鉄の兜','head',2,0,'ken',8,'HP +12'],['羽根の帽子','head',4,0,null,5,'移動速度 +6'],['竜鱗の兜','head',9,1,null,34,'炎に強い','受ける炎ダメージ −25%'],['革の頭巾','head',1,0,'zoku',3,''],
+ ['革の鎧','body',1,0,'ken',30,''],['いばらの鎧','body',6,1,'kishi',120,'物理防御 +40','受けた物理ダメージの10%を返す'],['鎖かたびら','body',3,0,null,70,''],['聖衣','body',5,0,'so',60,'魔法防御 +18'],
+ ['旅の脚絆','legs',2,0,null,6,'移動速度 +4'],['鉄の脛当て','legs',4,0,'kishi',14,''],['影の靴','legs',7,1,null,20,'回避 +5%','敵の背後にいると攻撃 +15%'],
+ ['王者の指輪','acc',8,0,null,6,'攻撃 +24'],['会心の指輪','acc',5,0,'yumi',5,''],['古い護符','acc',1,0,null,1,''],['月の首飾り','acc',3,0,null,2,'魔力 +6'],['幸運の札','acc',2,0,'zoku',2,'宝箱 +1%'],['錆びた剣','weapon',1,0,null,2,''],['古い剣','weapon',1,0,null,3,''],['見習いの剣','weapon',2,0,null,8,''],['破れた頭巾','head',1,0,null,2,''],['すり切れた服','body',1,0,null,18,''],['木の指輪','acc',1,0,null,1,''],['革の靴','legs',2,0,null,5,''],['石の斧','weapon',3,0,null,18,''],
+];
+const INV=RAW.map(([n,p,g,st,w,v,sub,fx],k)=>({k,n,p,g,st,w,v,sub,fx}));
+const fmt=(p,v)=>p==='acc'?v+'%':v;
+let scrap=false, picked=new Set(), askScrap=false, scrapDone=null;
+const ret=x=>x.g*3+2;
+let view='grid', sortK='grade', desc=true, partF='all', starOnly=false, sel=0, ticket=false, from=false;
+
+function list(){
+  let L=INV.filter(x=>(partF==='all'||x.p===partF)&&(!starOnly||x.st));
+  const f={def:x=>x.k,grade:x=>x.g,name:x=>x.n,part:x=>PARTS.indexOf(x.p)*20-x.g}[sortK];
+  L.sort((a,b)=>{const A=f(a),B=f(b);const c=typeof A==='string'?A.localeCompare(B,'ja'):A-B;return (sortK==='def'||sortK==='part')?c:(desc?-c:c)});
+  return L;
+}
+function drawPanel(){
+  const L=list();
+  const tool=`<div class="tool"><span class="flabel">見せ方</span>
+    <span class="seg"><button class="${view==='grid'?'on':''}" data-view="grid">▦ マス目</button><button class="${view==='list'?'on':''}" data-view="list">☰ 行</button></span>
+    <span class="flabel">並び</span><span class="seg">${[['def','いつもの順'],['grade','等級'],['part','部位'],['name','名前']].map(([k,l])=>`<button class="${sortK===k?'on':''}" data-sort="${k}">${l}${sortK===k&&(k==='grade'||k==='name')?(desc?' ↓':' ↑'):''}</button>`).join('')}</span>
+  </div><div class="tool"><span class="flabel">しぼる</span><span class="seg">${[['all','すべて'],...PARTS.map(p=>[p,PART[p].replace('アクセサリー','アクセ')])].map(([k,l])=>`<button class="${partF===k?'on':''}" data-part="${k}">${l}</button>`).join('')}</span>
+    <button class="pick"><em>等級</em>すべて</button>
+    <button class="chk ${starOnly?'on':''}" data-star><i></i>★だけ</button>
+    <button class="chk"><i></i>着けている物だけ</button>
+  </div>`;
+  const grid=`<div class="egrid">${L.map(x=>`<button class="cell ${!scrap&&x.k===sel?'on':''} ${!scrap&&x.g>=10?'max':''} ${scrap&&x.w?'lock':''} ${scrap&&picked.has(x.k)?'pk':''}" data-cell="${x.k}" data-tip="${x.k}"><span class="ico">${eqIcon(x.p,x.g,56,{star:x.st})}</span>${scrap&&picked.has(x.k)?'<span class="chkm">✓</span>':''}${scrap&&x.w?'<span class="lockm">着用中</span>':''}${x.w?`<span class="who-dot" style="background:${CH[x.w][1]}">${CH[x.w][2]}</span>`:''}${!scrap&&x.g>=10?'<span class="tagb max">最大</span>':''}</button>`).join('')}</div>`;
+  const rows=`<div>${L.map(x=>`<button class="erow ${x.k===sel?'on':''}" data-cell="${x.k}" data-tip="${x.k}">${eqIcon(x.p,x.g,40,{star:x.st})}<span style="display:flex;flex-direction:column;min-width:0"><b class="min" style="font-size:15px">${x.n}</b><span class="flabel">${PART[x.p]}・等級${x.g}${x.st?'・★':''}</span></span><span style="display:flex;align-items:center;gap:5px">${stIcon(STAT[x.p][0])}<b class="num">+${fmt(x.p,x.v)}</b></span><span class="flabel">${x.sub||'—'}</span><span style="display:flex;align-items:center;gap:6px;font-size:12px">${x.w?faceOf(x.w)+CH[x.w][0]:'<span class="flabel">だれも着けていない</span>'}</span></button>`).join('')}</div>`;
+  document.getElementById('panel').innerHTML=`<span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+   <div class="ph">${scrap?'<b class="min" style="color:#8a3327">分解するものを選ぶ</b>':'<b class="min">鍛える装備をえらぶ</b>'}<span style="display:flex;align-items:center;gap:10px"><small>持っている <b class="num" style="color:#2b2118">${INV.length}</b> 個・いま ${L.length} 個を表示</small>
+     ${scrap?'<button class="btn ghost" data-scrap style="height:30px">やめる</button>':'<button class="btn" data-scrap style="height:30px">'+SCRAPI+'一括分解</button>'}</span></div>
+   ${scrap?`<div class="scrapbar"><span class="flabel">等級</span><span class="seg">${[1,2,3,4].map(g=>`<button data-upto="${g}">${g}以下</button>`).join('')}</span><span class="flabel">をまとめて選ぶ</span><button class="chk" data-allp>見えている物ぜんぶ</button><button class="chk" data-none>選び直す</button></div>`:''}
+   ${tool}<div class="box">${view==='grid'?grid:rows}</div>
+   <div class="legend">${scrap?'<span style="color:#9c3a2e">着けている物は選べない（暗いマス）・★つきは「まとめて選ぶ」に入らない（押せば選べる）</span>':'<span>左上の数＝等級</span><span>★＝特殊効果</span><span>右上の顔＝着けている人（着けたままでも鍛えられる）</span><span style="margin-left:auto">触れると詳しく出る</span>'}</div>`;
+}
+function drawSide(){
+  if(scrap) return drawScrapSide();
+  const x=INV[sel], max=x.g>=10, ng=Math.min(10,x.g+1);
+  const rate=max?0:x.g<5?100:ticket?100:Math.max(40,100-(x.g-4)*12);
+  const nv=Math.round(x.v*1.18+1), cost=[10,12,15,20,20,26,34,45,60][x.g-1]||0;
+  document.getElementById('side').innerHTML=`
+  <div class="paper skill"><span class="flabel">鍛冶の腕</span><b class="num" style="font-size:26px;line-height:1">Lv2</b><span style="display:flex;flex-direction:column;font-size:11px;color:#6e5a43;line-height:1.4"><span>次まで あと <b class="num" style="color:#2b2118">5</b> 回</span><span>上がるたび 全員 HP +3</span></span>
+    <span style="margin-left:auto;width:70px;height:5px;background:rgba(110,90,67,.2)"><i style="display:block;width:50%;height:100%;background:var(--brass)"></i></span></div>
+  <div class="paper work"><span class="corner c1"></span><span class="corner c4"></span>
+    <div style="display:flex;align-items:center;gap:12px;border-bottom:2px solid #2b2118;padding-bottom:8px">${eqIcon(x.p,x.g,48,{star:x.st})}<span style="display:flex;flex-direction:column;gap:2px;min-width:0;flex-grow:1"><b class="min" style="font-size:19px">${x.n}</b><span class="flabel">${PART[x.p]}・等級${x.g}${x.w?'・'+CH[x.w][0]+'が着けている':''}</span></span><button class="btn ghost" style="height:26px;padding:0 8px;font-size:11px">持ち物で見る</button></div>
+    ${max?`<div style="flex-grow:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#6e5a43;text-align:center"><b style="font-size:16px;color:#2b2118">等級10。これ以上は鍛えられない</b><span style="font-size:12px">遺物に捧げると、等級10の遺物が育つ</span><button class="btn" style="height:36px">遺物に捧げる ›</button></div>`:`
+    <div class="vs">
+      <div class="c">${eqIcon(x.p,x.g,52,{star:x.st})}<span class="flabel">いま</span><b class="num" style="font-size:15px">${STAT[x.p][1]} +${fmt(x.p,x.v)}</b></div>
+      <svg width="30" height="18" viewBox="0 0 48 20" fill="none" stroke="#2b2118" stroke-width="2.5"><path d="M2 10 H44 M36 3 L44 10 L36 17"/></svg>
+      <div class="c">${eqIcon(x.p,ng,52,{star:x.st})}<span class="flabel">鍛えたら</span><b class="num" style="font-size:15px;color:#3f7a2e">${STAT[x.p][1]} +${fmt(x.p,nv)}</b></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="stamp ${rate<100?'risk':''}"><span style="font-size:10px">成功</span><b class="num" style="font-size:20px;line-height:1">${rate}%</b></span>
+      <span style="font-size:11.5px;color:#6e5a43;line-height:1.6">${x.g<5?'等級5までは失敗しない':'等級5→6 から失敗がある。<br>失敗しても等級は下がらない'}${ng===5?'<br><b style="color:#5b3f7a">鍛えると遺物に捧げられるようになる</b>':''}</span>
+    </div>
+    <div class="mat"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#5aa0e6" stroke-width="1.6"><path d="M3 14 L6 8 H14 L17 14 Z"/><path d="M8 8 L7 14 M12 8 L13 14"/></svg><span style="flex-grow:1">鍛冶の塊</span><b class="num" style="font-size:16px">${cost}</b><span class="flabel">/ 99,983 持ち</span></div>
+    <button class="tick" ${x.g<5?'disabled':''} data-ticket><i style="${ticket?'background:#2b2118':''}"></i><span style="flex-grow:1">確定成功の札を使う</span><span class="flabel">のこり <b class="num" style="color:#2b2118">2</b></span></button>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
+      <button class="btn brass" data-hit="1" style="height:44px;justify-content:center;font-size:17px;letter-spacing:.2em">鍛える</button>
+      <button class="btn" data-hit="safe" style="height:34px;justify-content:center">失敗しない所まで鍛える（等級5まで）</button>
+    </div>`}
+  </div>
+`;
+}
+const SCRAPI=`<svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 16 L10 4 L16 16"/><path d="M7 11 H13 M2 18 H18"/></svg>`;
+function drawScrapSide(){
+  const P=[...picked].map(k=>INV[k]); const sum=P.reduce((a,x)=>a+ret(x),0); const hi=P.filter(x=>x.g>=5), st=P.filter(x=>x.st);
+  document.getElementById('side').innerHTML=`<div class="paper work" style="margin-top:0"><span class="corner c1"></span><span class="corner c4"></span>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid #2b2118;padding-bottom:6px"><b class="min" style="font-size:19px;letter-spacing:.15em">一括分解</b><span class="flabel">選んだ <b class="num" style="font-size:20px;color:#8a3327">${P.length}</b> 個</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;min-height:90px;align-content:flex-start;padding:4px 0">${P.length?P.map(x=>eqIcon(x.p,x.g,34,{star:x.st})).join(''):'<span class="flabel" style="padding:20px 0;width:100%;text-align:center">左のマスを押して選ぶ<br>（「等級◯以下」でまとめて選べる）</span>'}</div>
+    <div class="flabel" style="letter-spacing:.2em;border-top:1px dashed var(--rule);padding-top:8px">戻ってくる素材</div>
+    <div class="mat"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#5aa0e6" stroke-width="1.6"><path d="M3 14 L6 8 H14 L17 14 Z"/><path d="M8 8 L7 14 M12 8 L13 14"/></svg><span style="flex-grow:1">鍛冶の塊</span><b class="num" style="font-size:20px;color:#3f7a2e">+${sum}</b></div>
+    ${st.length?`<div style="font-size:12px;color:#7a5716;padding:6px 8px;border:1px solid #d4a640;border-radius:4px;background:rgba(224,184,92,.12)">★つきが <b>${st.length}</b> 個入っている。特殊効果も消える。</div>`:''}
+    ${hi.length?`<div style="font-size:12px;color:#5b3f7a;padding:6px 8px;border:1px solid #8a78a8;border-radius:4px;background:rgba(138,120,168,.12)">等級5以上が <b>${hi.length}</b> 個。遺物に捧げても同じ素材が戻り、遺物も育つ。</div>`:''}
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
+      <button class="btn danger" data-doscrap style="height:46px;justify-content:center;font-size:16px;letter-spacing:.1em" ${P.length?'':'disabled'}>${SCRAPI} 選んだ ${P.length} 個を分解する</button>
+      <button class="btn ghost" data-scrap style="height:34px;justify-content:center;color:#d9ccb4;border-color:#6a5340;background:#2a1f18">分解をやめて鍛えるに戻る</button>
+    </div></div>`;
+}
+function drawAsk(){
+  let el=document.getElementById('askw'); if(el) el.remove(); el=document.getElementById('asks'); if(el) el.remove();
+  if(!askScrap&&!scrapDone) return;
+  const F=document.getElementById('frame');
+  F.insertAdjacentHTML('beforeend','<div class="askscrim" id="asks"></div>');
+  const P=[...picked].map(k=>INV[k]); const sum=P.reduce((a,x)=>a+ret(x),0);
+  const html= scrapDone? `<h4 class="min" style="margin:0;font-size:22px;letter-spacing:.15em">${scrapDone.n} 個を分解した</h4>
+      <div class="mat" style="width:100%;justify-content:center;font-size:15px">鍛冶の塊 <b class="num" style="font-size:24px;color:#3f7a2e">+${scrapDone.sum}</b></div>
+      <button class="btn brass" data-okdone style="width:100%;height:44px;justify-content:center">閉じる</button>`
+   : `<h4 class="min" style="margin:0;font-size:21px;letter-spacing:.12em">${P.length} 個を分解する？</h4>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:10px;width:100%;background:rgba(244,234,211,.8);border:1px solid #b39d74;border-radius:4px;max-height:150px;overflow:auto">${P.map(x=>eqIcon(x.p,x.g,38,{star:x.st})).join('')}</div>
+      <div style="font-size:14px">戻ってくる素材　鍛冶の塊 <b class="num" style="font-size:20px;color:#3f7a2e">+${sum}</b></div>
+      ${P.some(x=>x.st)?'<div style="font-size:13px;color:#9c3a2e;font-weight:700">★つきの装備が入っている。分解すると元に戻せない。</div>':'<div style="font-size:13px;color:#6e5a43">分解した装備は元に戻せない。</div>'}
+      <div style="display:flex;gap:12px;width:100%"><button class="btn ghost" data-askno style="flex:1;height:46px;justify-content:center;font-size:15px">やめる</button><button class="btn danger" data-askok style="flex:1;height:46px;justify-content:center;font-size:15px">分解する</button></div>`;
+  F.insertAdjacentHTML('beforeend',`<div class="paper ask" id="askw"><span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>${html}</div>`);
+}
+function drawHead(){
+  document.getElementById('backl').textContent=from?'育成に戻る':'戻る';
+  document.getElementById('from').innerHTML=from?`<span class="from">${faceOf('ken')} 剣士の装備から来た<button class="btn ghost" data-from style="height:22px;padding:0 8px;font-size:11px;color:#d9ccb4;border-color:#6a5340">✕</button></span>`:'';
+}
+function draw(){drawHead();drawPanel();drawSide();drawAsk();
+  document.querySelectorAll('.demo button').forEach(b=>b.classList.toggle('on',b.dataset.v===(from?'from':view)));}
+const F=document.getElementById('frame'), TIP=document.getElementById('tip');
+F.addEventListener('click',e=>{
+  const t=e.target.closest('button'); if(!t) return; const d=t.dataset;
+  if(d.view) view=d.view;
+  else if(d.sort){ if(sortK===d.sort) desc=!desc; else { sortK=d.sort; desc=true; } }
+  else if(d.part) partF=d.part;
+  else if(d.star!==undefined) starOnly=!starOnly;
+  else if(d.cell){ const x=INV[+d.cell]; if(scrap){ if(!x.w){ picked.has(x.k)?picked.delete(x.k):picked.add(x.k); } } else sel=+d.cell; }
+  else if(d.scrap!==undefined){ scrap=!scrap; picked.clear(); }
+  else if(d.upto){ list().forEach(x=>{ if(!x.w&&!x.st&&x.g<=+d.upto) picked.add(x.k); }); }
+  else if(d.allp!==undefined){ list().forEach(x=>{ if(!x.w&&!x.st) picked.add(x.k); }); }
+  else if(d.none!==undefined){ picked.clear(); }
+  else if(d.doscrap!==undefined){ askScrap=true; }
+  else if(d.askno!==undefined){ askScrap=false; }
+  else if(d.askok!==undefined){ const P=[...picked].map(k=>INV[k]); scrapDone={n:P.length,sum:P.reduce((a,x)=>a+ret(x),0)}; P.forEach(x=>{const i=INV.indexOf(x); INV.splice(i,1);}); INV.forEach((x,i)=>x.k=i); picked.clear(); askScrap=false; sel=0; }
+  else if(d.okdone!==undefined){ scrapDone=null; }
+  else if(d.ticket!==undefined) ticket=!ticket;
+  else if(d.from!==undefined) from=false;
+  else if(d.hit){ startForge(d.hit==='safe'); return; }
+  else if(d.again!==undefined){ startForge(false); return; }
+  else if(d.rclose!==undefined){ closeRes(); return; }
+  else return;
+  draw();
+});
+function card(x){
+  return `<div style="display:flex;gap:10px;align-items:center">${eqIcon(x.p,x.g,46,{star:x.st})}<span style="display:flex;flex-direction:column;gap:2px"><b class="min" style="font-size:16px">${x.n}</b><span class="flabel">等級${x.g}・${PART[x.p]}</span></span></div><hr>
+   <div class="tr"><span style="display:flex;align-items:center;gap:5px">${stIcon(STAT[x.p][0])}${STAT[x.p][1]}</span><b class="num" style="font-size:18px">+${fmt(x.p,x.v)}</b></div>
+   ${x.sub?`<div class="tr"><span class="flabel">ほかの能力</span><span>${x.sub}</span></div>`:''}
+   ${x.fx?`<div style="padding:6px 8px;border:1px solid #d4a640;border-radius:4px;background:rgba(224,184,92,.12)"><b style="color:#7a5716">★ 特殊効果</b><br>${x.fx}</div>`:''}
+   <div class="tr"><span class="flabel">次の等級</span><span>${x.g>=10?'最大':'等級'+(x.g+1)+'（成功 '+(x.g<5?100:Math.max(40,100-(x.g-4)*12))+'%）'}</span></div>
+   ${x.w?`<div class="tr"><span class="flabel">着けている人</span><span style="display:flex;align-items:center;gap:5px">${faceOf(x.w)}${CH[x.w][0]}</span></div>`:''}`;
+}
+F.addEventListener('mouseover',e=>{
+  const t=e.target.closest('[data-tip]'); if(!t){TIP.classList.remove('show');return;}
+  TIP.innerHTML=card(INV[+t.dataset.tip]); TIP.classList.add('show');
+  const fr=F.getBoundingClientRect(), r=t.getBoundingClientRect();
+  let L=r.right-fr.left+10, T=r.top-fr.top; if(L+280>1280) L=r.left-fr.left-280; if(T+TIP.offsetHeight>700) T=700-TIP.offsetHeight;
+  TIP.style.left=L+'px'; TIP.style.top=T+'px';
+});
+F.addEventListener('mouseleave',()=>TIP.classList.remove('show'));
+document.querySelectorAll('.demo button').forEach(b=>b.onclick=()=>{const v=b.dataset.v; if(v==='from'){from=true;view='grid';partF='weapon';sel=0;} else {from=false;view=v;partF='all';} draw();});
+if(location.search.includes('from=')){from=true;partF='weapon';sel=0;}
+document.getElementById('back').onclick=()=>{ if(from) location.href='Training.html'; };
+const RES=document.getElementById('res'); let rt=null, pending=null;
+function startForge(safe){
+  const x=INV[sel]; if(x.g>=10) return;
+  const steps=[]; let g=x.g, v=x.v;
+  const one=()=>{const rate=g<5?100:ticket?100:Math.max(40,100-(g-4)*12); const ok=Math.random()*100<rate||forceRes==='ok'; const res=forceRes==='ng'?false:ok; const nv=res?Math.round(v*1.18+1):v; steps.push({g0:g,g1:res?g+1:g,v0:v,v1:nv,ok:res,rate}); if(res){g++;v=nv;} };
+  if(safe){ while(g<5) one(); if(!steps.length) one(); } else one();
+  pending={x,steps};
+  RES.innerHTML=`<div class="anvil"><svg width="240" height="200" viewBox="0 0 240 200"><path d="M40 120 H190 C190 140 170 148 150 148 H130 L124 172 H160 V188 H70 V172 H106 L100 148 C70 148 40 140 40 120 Z" fill="#3a2c22" stroke="#d4a640" stroke-width="2"/><path d="M190 120 L224 110" stroke="#d4a640" stroke-width="3"/></svg>
+    <svg class="hammer" width="60" height="110" viewBox="0 0 60 110"><rect x="16" y="20" width="8" height="80" rx="3" fill="#8a6a44"/><rect x="0" y="4" width="44" height="22" rx="3" fill="#5b5048" stroke="#cfc6b8" stroke-width="2"/></svg>
+    ${[[-60,-40],[50,-50],[-30,-70],[70,-20],[-80,-10]].map(([a,b],i)=>`<span class="spark" style="--x:${a}px;--y:${b}px;animation-delay:${i*.04}s"></span>`).join('')}</div>
+    <div style="font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:22px;letter-spacing:.3em;color:#f1e6cf">${x.n} を鍛えている…</div>
+    <button class="skip" data-skip>押すと飛ばす ▶▶</button>`;
+  RES.classList.add('show'); clearTimeout(rt); rt=setTimeout(showResult,1800);
+}
+function showResult(){
+  clearTimeout(rt); if(!pending) return; const {x,steps}=pending; pending=null;
+  const last=steps[steps.length-1], first=steps[0], okAll=steps.some(s=>s.ok), allOk=steps.every(s=>s.ok);
+  const g1=last.g1, v1=last.v1;
+  if(okAll){ x.g=g1; x.v=v1; }
+  const cost=steps.length*20;
+  RES.innerHTML=`<div class="paper rcard" data-stop><span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+    <span class="bigstamp ${okAll?'':'ng'}">${okAll?(allOk?'成功':'一部成功'):'失敗'}</span>
+    <div style="display:flex;align-items:center;gap:26px">
+      <span style="display:flex;flex-direction:column;align-items:center;gap:4px">${eqIcon(x.p,first.g0,72,{star:x.st})}<span class="flabel">鍛える前</span><b class="num">${STAT[x.p][1]} +${fmt(x.p,first.v0)}</b></span>
+      <svg width="44" height="20" viewBox="0 0 48 20" fill="none" stroke="#2b2118" stroke-width="2.5"><path d="M2 10 H44 M36 3 L44 10 L36 17"/></svg>
+      <span style="display:flex;flex-direction:column;align-items:center;gap:4px">${eqIcon(x.p,g1,72,{star:x.st})}<span class="flabel">いま</span><b class="num" style="color:${okAll?'#3f7a2e':'#2b2118'}">${STAT[x.p][1]} +${fmt(x.p,v1)}${okAll?` <span class="up">（+${fmt(x.p,v1-first.v0)}）</span>`:''}</b></span>
+    </div>
+    <b class="min" style="font-size:20px">${x.n}　等級 ${first.g0} → ${g1}</b>
+    ${steps.length>1?`<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">${steps.map(s=>`<span style="padding:2px 8px;border-radius:10px;font-size:11px;border:1px solid ${s.ok?'#3f7a2e':'#9c3a2e'};color:${s.ok?'#3f7a2e':'#9c3a2e'}">${s.g0}→${s.g1} ${s.ok?'成功':'失敗'}</span>`).join('')}</div>`:''}
+    ${okAll?'':'<span style="font-size:13px;color:#6e5a43">失敗しても等級は下がらない。素材は使った。</span>'}
+    <div style="display:flex;gap:20px;font-size:12px;color:#6e5a43"><span>使った鍛冶の塊 <b class="num" style="color:#2b2118">${cost}</b></span><span>鍛冶の腕　次まで あと <b class="num" style="color:#2b2118">${Math.max(0,5-steps.length)}</b> 回</span></div>
+    ${g1===5&&okAll?'<span style="font-size:12px;color:#5b3f7a;font-weight:700">等級5になった。遺物に捧げられる</span>':''}
+    <div style="display:flex;gap:10px;width:100%;margin-top:4px"><button class="btn ghost" data-rclose style="flex:1;justify-content:center;height:42px">閉じる</button><button class="btn brass" data-again style="flex:2;justify-content:center;height:42px;font-size:15px" ${g1>=10?'disabled':''}>続けて鍛える</button></div>
+  </div><span style="position:absolute;bottom:22px;color:#a8987f;font-size:12px">外を押しても閉じる</span>`;
+  draw();
+}
+function closeRes(){ RES.classList.remove('show'); RES.innerHTML=''; pending=null; clearTimeout(rt); draw(); }
+let forceRes=null;
+RES.addEventListener('click',e=>{
+  const b=e.target.closest('button'); 
+  if(b&&b.dataset.again!==undefined){ e.stopPropagation(); forceRes=null; startForge(false); return; }
+  if(b&&b.dataset.rclose!==undefined){ e.stopPropagation(); closeRes(); return; }
+  if(e.target.closest('[data-stop]')) { e.stopPropagation(); return; }
+  e.stopPropagation();
+  if(pending) showResult(); else closeRes();   // 途中で押す→飛ばす／結果の外を押す→閉じる
+});
+document.querySelectorAll('.demo button').forEach(b=>{ const v=b.dataset.v; if(v==='scrap'||v==='scrapask') b.onclick=()=>{ closeRes(); view='grid'; partF='all'; scrap=true; picked.clear(); list().forEach(x=>{ if(!x.w&&!x.st&&x.g<=2) picked.add(x.k); }); askScrap=v==='scrapask'; scrapDone=null; draw(); document.querySelectorAll('.demo button').forEach(c=>c.classList.toggle('on',c===b)); }; if(['anim','ok','ng'].includes(v)) b.onclick=()=>{ closeRes(); sel=0; INV[0].g=6; INV[0].v=11; forceRes=v==='ng'?'ng':'ok'; startForge(false); if(v!=='anim') showResult(); else clearTimeout(rt); }; });
+draw();
+</script>
+</body>
+</html>
