@@ -6087,6 +6087,7 @@ Sortie/constants/build_left = 250
 Sortie/constants/build_name = 52
 Sortie/constants/build_right = 400
 Sortie/constants/build_slot_icon = 34
+Sortie/constants/depth_screen_width = 560
 Sortie/constants/guide_hole_pad = 8
 Sortie/constants/guide_width = 360
 Sortie/constants/mini_photo = 22

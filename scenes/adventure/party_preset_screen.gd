@@ -937,81 +937,40 @@ func _build_depth_sheet() -> TiltedSheet:
 	# ⚠ 塔は選べない＝縦図を出さず「12階から」の1枚（2026-10-09・回D-塔・人間「⚠ ２あ」）。
 	if GameManager.is_tower_dungeon(_dungeon_id):
 		return _build_tower_sheet()
-	var options: Array[int] = GameManager.get_dungeon_start_floor_options(_dungeon_id)
-	var chosen: int = _chosen_start_floor()
+	# ⚠⚠ 10-19（回SEE29-E・`NAV-38`・人間「⚠ 狭い　深さを選ぶ画面に分ける1っ回画面を挟む」）：⚠ 深さは前の画面（`DepthSelectScreen`）で選ぶ。
+	#   ⚠ ここは「◯層から」と「深さを変える ›」の1行だけ（⚠ 名簿が縦に広く使える）。
 	var per_floor: int = GameManager.get_dungeon_layers_per_floor(_dungeon_id)
-	var first_layer: int = (chosen - 1) * per_floor + 1
 	var holder: TiltedSheet = TiltedSheet.create(1)
 	holder.name = "Depth"
 	holder.sheet.theme_type_variation = &"SortiePaperPanel"
-	var body: VBoxContainer = VBoxContainer.new()
-	holder.sheet.add_child(body)
-	var heading: SheetHeading = SheetHeading.new()
-	heading.title_key = "ui_depth_title"
-	heading.right_text = tr("ui_depth_step") % per_floor
-	body.add_child(heading)
-	var row: HBoxContainer = HBoxContainer.new()
-	body.add_child(row)
-	var gauge: DepthGauge = DepthGauge.new()
-	gauge.name = "DepthGauge"
-	gauge.max_floors = GameManager.get_dungeon_max_floors()
-	gauge.layers_per_floor = per_floor
-	gauge.best_floor = GameManager.get_dungeon_best_floors(_dungeon_id)
-	gauge.deepest_start = options[options.size() - 1] if not options.is_empty() else 1
-	gauge.start_floor = chosen
-	gauge.floor_picked.connect(_on_depth_picked)
-	row.add_child(gauge)
-	var info: VBoxContainer = VBoxContainer.new()
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_child(info)
-	var from: Label = Label.new()
-	from.name = "FromExitLabel"
-	from.theme_type_variation = &"CaptionLabel"
-	from.text = tr("ui_depth_from_entrance") if chosen <= 1 else tr("ui_depth_from_exit") % (first_layer - 1)
-	info.add_child(from)
-	var big_line: HBoxContainer = HBoxContainer.new()
-	info.add_child(big_line)
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = "DepthLine"
+	holder.sheet.add_child(line)
+	var caption: Label = Label.new()
+	caption.theme_type_variation = &"CaptionLabel"
+	caption.text = tr("ui_depth_title")
+	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(caption)
 	var big: Label = Label.new()
 	big.name = "StartLayerLabel"
 	big.theme_type_variation = &"DepthBigLabel"
-	big.text = str(first_layer)
-	big_line.add_child(big)
+	big.text = str((_chosen_start_floor() - 1) * per_floor + 1)
+	line.add_child(big)
 	var unit: Label = Label.new()
 	unit.text = tr("ui_depth_from")
+	unit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	unit.size_flags_vertical = Control.SIZE_SHRINK_END
-	big_line.add_child(unit)
-	var next_exit: Label = Label.new()
-	next_exit.name = "NextExitLabel"
-	next_exit.theme_type_variation = &"SmallLabel"
-	next_exit.text = tr("ui_depth_next_exit") % (chosen * per_floor)
-	info.add_child(next_exit)
-	# ⚠ 出るものの下限（2026-10-03・回4-b・手本 DungeonGate「出るものの下限［等級◯以上］」）。⚠ 入る層の帯で決まる。
-	var equip_floor: Label = Label.new()
-	equip_floor.name = "EquipGradeLabel"
-	equip_floor.theme_type_variation = &"SmallLabel"
-	equip_floor.text = tr("ui_depth_equip_grade") % GameManager.get_dungeon_equip_grade_range(_dungeon_id, first_layer).x
-	info.add_child(equip_floor)
-	# −10 ／ +10 ／ 最深へ（⚠ 端は押せない）。
-	# ⚠ 10-18（回UI-1018-5）：⚠ 名簿と縦を分け合うので、⚠ ボタンは縦図の右の列へ寄せる。
-	var buttons: HBoxContainer = HBoxContainer.new()
-	buttons.name = "DepthButtons"
-	info.add_child(buttons)
-	var deepest: int = options[options.size() - 1] if not options.is_empty() else 1
-	for spec: Array in [
-		["DepthMinusButton", tr("ui_depth_minus") % per_floor, chosen - 1, chosen <= 1],
-		["DepthPlusButton", tr("ui_depth_plus") % per_floor, chosen + 1, chosen >= deepest],
-		["DepthDeepestButton", tr("ui_depth_deepest"), deepest, chosen >= deepest],
-	]:
-		var button: Button = UiButton.create_paper_choice("")
-		button.theme_type_variation = &"DepthStepButton"
-		button.name = str(spec[0])
-		button.text = str(spec[1])
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.disabled = bool(spec[3])
-		button.pressed.connect(_on_depth_picked.bind(int(spec[2])))
-		buttons.add_child(button)
+	line.add_child(unit)
+	var change: Button = UiButton.create_paper_choice("ui_depth_change")
+	change.name = "ChangeDepthButton"
+	change.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	change.pressed.connect(_on_change_depth_pressed)
+	line.add_child(change)
 	return holder
+
+
+func _on_change_depth_pressed() -> void:
+	DepthSelectScreen.open(_dungeon_id, _chosen_start_floor())
 
 
 # 塔の入る階（⚠ 最後に帰った階の次・選べない）。⚠ 名前は縦図の紙と同じ（⚠ 検査が名前で探す）。
@@ -1043,14 +1002,6 @@ func _build_tower_sheet() -> TiltedSheet:
 	best.text = tr("ui_tower_depth_best") % GameManager.get_dungeon_best_floors(_dungeon_id)
 	body.add_child(best)
 	return holder
-
-
-func _on_depth_picked(start_floor: int) -> void:
-	if not (start_floor in GameManager.get_dungeon_start_floor_options(_dungeon_id)):
-		return
-	_start_floor = start_floor
-	# ⚠ 押したボタンを押している最中に作り直さない（⚠ 次のフレームで）。
-	_rebuild_side.call_deferred()
 
 
 func _is_saved(preset: Variant) -> bool:
@@ -1407,6 +1358,10 @@ func _on_back_pressed() -> void:
 	# ⚠ 10-06（`NAV-19`）：⚠ 入手先の窓から寄り道で来た（＝戻り先が積んである）なら、窓を開いた画面へ。
 	if SceneManager.has_return():
 		SceneManager.go_back_or(_return_path)
+		return
+	# ⚠ 10-19（回SEE29-E）：⚠ 深さを選ぶ画面から来たなら、選んでいた深さのままそこへ（⚠ 難ダンジョンの番号を持って戻る）。
+	if _return_path == DepthSelectScreen.SCENE_PATH:
+		DepthSelectScreen.open(_dungeon_id, _start_floor)
 		return
 	SceneManager.change_scene(_return_path)
 

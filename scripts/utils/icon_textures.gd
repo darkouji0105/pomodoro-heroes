@@ -218,8 +218,22 @@ static func for_run_node(kind: String) -> Texture2D:
 #   ⚠ 品のように「種類」でまとめられない（⚠ 1つ1つ絵が違うもの）ので、
 #   ⚠ 対応表を作るとスキルを足すたびに2箇所へ書くことになる。
 # ⚠ 無ければ null＝⚠ 呼ぶ側が絵の枠ごと出さない（⚠ パッシブと検証用のスキルはまだ無い）。
+# ⚠ 10-19（回SEE29-E・`GR-13`・人間「⚠ ７い」）：⚠ スキルの絵が無ければ役割の共通アイコン（`SkillRole`・`icon_skill_role_<役割>.svg`）。
+#   ⚠ 育成・詰所・戦闘のスキルのマスが全部ここを通る（⚠ 前は絵の無いスキルは空の枠＝「ビルドのアイコンが読み込まれない？」）。
 static func for_skill(skill_id: String) -> Texture2D:
-	return _load(skill_id)
+	if skill_id == "":
+		return null
+	var own: Texture2D = _load(skill_id)
+	if own != null:
+		return own
+	return for_skill_role(SkillRole.of(skill_id))
+
+
+static func for_skill_role(role: String) -> Texture2D:
+	return _load(SKILL_ROLE_PREFIX + role)
+
+
+const SKILL_ROLE_PREFIX: String = "skill_role_"
 
 
 # ⚠ タスクを書く・直す（2026-10-05・人間「⚠ メモのアイコンにしてほしい」→ 10-06「⚠ ペンのアイコンに変える」）。⚠ ポモドーロのサイドバーの行の右。
@@ -363,6 +377,8 @@ static func all_for_check() -> Dictionary:
 		NAME_VIEW_GRID, NAME_VIEW_LIST,
 	]:
 		result[name] = _load(name)
+	for role: String in SkillRole.ALL:
+		result[SKILL_ROLE_PREFIX + role] = for_skill_role(role)
 	for prefix: String in MATERIAL_SERIES:
 		result[str(MATERIAL_SERIES[prefix])] = _load(str(MATERIAL_SERIES[prefix]))
 	for kind: String in RUNE_INNER_NAMES:

@@ -742,6 +742,9 @@ ui_dungeon_resume,続きから
 ui_dungeon_start_failed,ダンジョンに入れなかった
 ui_dungeon_other_in_progress,別のランの途中です
 ui_depth_title,潜る深さ
+ui_depth_screen_title,潜る深さを選ぶ
+ui_depth_to_sortie,%d 層から出撃の準備へ ›
+ui_depth_change,深さを変える ›
 ui_depth_step,%d層ごと
 ui_depth_from,層から
 ui_depth_from_exit,%d層の出口から

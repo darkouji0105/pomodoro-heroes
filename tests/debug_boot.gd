@@ -1960,6 +1960,13 @@ const SCENARIOS: Dictionary = {
 				"data": {TransferKeys.SORTIE_DUNGEON_ID: "dungeon_hard", TransferKeys.RETURN_PATH: "res://scenes/adventure/adventure_select.tscn"},
 				"measure": ["Margin/Layout/Middle/Side", "Margin/Layout/Middle/Side/Depth", "Margin/Layout/Middle/Side/Reserve"],
 			},
+			# ⚠ 10-19（回SEE29-E・`NAV-38`）：⚠ 深さは1枚前の画面で選ぶ。
+			{
+				"name": "58b_depth_select",
+				"scene": "res://scenes/adventure/depth_select_screen.tscn",
+				"prepare": SHOT_PREPARE_SORTIE_DEPTH,
+				"data": {TransferKeys.SORTIE_DUNGEON_ID: "dungeon_hard"},
+			},
 			# ⚠ タスクのメモ（2026-10-04・`TK-3`・`TK-7`・`TK-10`・`TK-8`）。⚠ 拠点（紙あり・溢れて送る）／ タスクの画面（詳しく）／ ポモドーロの選ぶ窓 ／ 記録のタブ。
 			{"name": "59_base_tasks", "scene": SCENE_BASE, "prepare": SHOT_PREPARE_TASKS, "measure": ["Margin/Layout/Body/DeskView/TodaySheet", "Margin/Layout/Body/DeskView/Middle", "Margin/Layout/Body/DeskView/Right"]},
 			{"name": "60_task_screen", "scene": "res://scenes/base/task_screen.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_TASK_DETAIL},
@@ -15503,6 +15510,35 @@ class UiFlowRunner extends Node:
 		var picker_modal: ModalDialog = _modal_of(t)
 		_check("スキル：一覧は窓の中（%s）" % ("窓" if picker_modal != null else "無し"), picker_modal != null and picker_modal.find_child("Picker", true, false) != null
 			and (t.find_child("SkillsPage", true, false) as TrainingSkillsPage).picker_dialog() == picker_modal)
+		# ⚠ 10-19（回SEE29-E・`GR-13`・「⚠ ７い」）：⚠ 絵の無いスキルも役割の共通アイコン＝⚠ 枠が全部絵を持つ。
+		var frames_total: int = 0
+		var frames_drawn: int = 0
+		var roles_seen: Dictionary = {}
+		if picker_modal != null:
+			for row: Node in picker_modal.find_children("Candidate_*", "", true, false):
+				var frame: Node = row.find_child("Skill_*", true, false)
+				frames_total += 1
+				if frame != null and frame.find_children("*", "TextureRect", true, false).size() > 0:
+					frames_drawn += 1
+				roles_seen[SkillRole.of(str(row.name).trim_prefix("Candidate_"))] = true
+		_check("スキル：候補の枠は全部絵を持つ（%d / %d・役割 %s）" % [frames_drawn, frames_total, ",".join(roles_seen.keys())], frames_total > 0 and frames_drawn == frames_total)
+		# ⚠ 剣士は全部自分の絵を持つ＝⚠ 全キャラのスキル枠のスキルで、絵が引けるか（⚠ 自分の絵か役割の絵）と、役割が5つとも出るか。
+		var skill_total: int = 0
+		var skill_drawn: int = 0
+		var own_drawn: int = 0
+		var role_count: Dictionary = {}
+		for character_id: Variant in MasterDataLoader.get_all_characters():
+			for raw: Variant in GameManager.get_all_skill_candidates(str(character_id), GameManager.SLOT_KIND_SKILL):
+				var skill_id: String = str(raw)
+				skill_total += 1
+				if IconTextures.for_skill(skill_id) != null:
+					skill_drawn += 1
+				if ResourceLoader.exists("res://assets/images/icon_" + skill_id + ".svg"):
+					own_drawn += 1
+				var role: String = SkillRole.of(skill_id)
+				role_count[role] = int(role_count.get(role, 0)) + 1
+		_check("スキル：全キャラのスキル %d 個が絵を持つ（自分の絵 %d・役割の絵 %d・役割 %s）" % [skill_total, own_drawn, skill_drawn - own_drawn, str(role_count)],
+			skill_total > 0 and skill_drawn == skill_total and role_count.size() == SkillRole.ALL.size())
 		var pick: String = ""
 		var selected: Array = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
 		for raw: Variant in GameManager.get_skill_candidates(HERO, GameManager.SLOT_KIND_SKILL):
@@ -16153,6 +16189,10 @@ class UiFlowRunner extends Node:
 		_check("ノルマ札：1 枚なら「受ける」が押せる・「%s」" % _label_text(q, "DungeonCard_" + dungeon_id, "QuotaTicketLabel"),
 			take is BaseButton and not (take as BaseButton).disabled)
 		await _press(take, OPEN_FRAMES)
+		# ⚠ 10-19（回SEE29-E）：⚠ 先に深さを選ぶ画面 →「この深さで出撃の準備へ」。
+		var depth_first: Node = get_tree().current_scene
+		if _path_of(depth_first) == DepthSelectScreen.SCENE_PATH:
+			await _press(depth_first.find_child("ToSortieButton", true, false), OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
 		_check("ノルマ札：出撃の準備の帯に「%s」" % _label_text(b, "Strip", "QuotaTicketLabel"),
 			_label_text(b, "Strip", "QuotaTicketLabel") == tr("ui_quota_ticket_use") % [1, 1, 0])
@@ -16196,17 +16236,17 @@ class UiFlowRunner extends Node:
 		GameManager.add_to_inventory(TICKET, 1, GameStateKeys.ITEM_TYPE_CONSUMABLE)
 		_check("深さ：開いていない深さ（%d）では入れず札も減らない" % (best + 2),
 			not GameManager.enter_dungeon_with_ticket(dungeon_id, best + 2) and not GameManager.is_in_dungeon() and GameManager.get_quota_ticket_count() == 1)
-		# 掲示板の「受ける」→ 出撃の準備に「潜る深さ」（⚠ 最初は最深の次）。
+		# 掲示板の「受ける」→ ⚠ 10-19（回SEE29-E・`NAV-38`）：⚠ 先に深さを選ぶ画面（⚠ 最初は最深の次）→ 出撃の準備。
 		var q: Node = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})
 		await _press(_tab_button(q, 1))
 		await _press(await _quest_button(q, "DungeonCard_" + dungeon_id, "DungeonButton"), OPEN_FRAMES)
 		var b: Node = get_tree().current_scene
 		var deepest_layer: int = best * per_floor + 1
-		_check("深さ：出撃の準備に「%s 層から」・「%s」・「%s」" % [_label_text(b, "Depth", "StartLayerLabel"), _label_text(b, "Depth", "FromExitLabel"), _label_text(b, "Depth", "NextExitLabel")],
+		_check("深さ：掲示板の「この依頼で出撃」で深さを選ぶ画面（%s）" % _path_of(b), _path_of(b) == DepthSelectScreen.SCENE_PATH and b.find_child("DepthGauge", true, false) != null)
+		_check("深さ：深さの画面に「%s 層から」・「%s」・「%s」" % [_label_text(b, "Depth", "StartLayerLabel"), _label_text(b, "Depth", "FromExitLabel"), _label_text(b, "Depth", "NextExitLabel")],
 			_label_text(b, "Depth", "StartLayerLabel") == str(deepest_layer)
 			and _label_text(b, "Depth", "FromExitLabel") == tr("ui_depth_from_exit") % (deepest_layer - 1)
-			and _label_text(b, "Depth", "NextExitLabel") == tr("ui_depth_next_exit") % ((best + 1) * per_floor)
-			and _label_text(b, "Strip", "CarryLabel") != "")
+			and _label_text(b, "Depth", "NextExitLabel") == tr("ui_depth_next_exit") % ((best + 1) * per_floor))
 		_check("深さ：最深の次なら「+10」「最深へ」は押せない・「−10」は押せる",
 			(b.find_child("DepthPlusButton", true, false) as BaseButton).disabled and (b.find_child("DepthDeepestButton", true, false) as BaseButton).disabled
 			and not (b.find_child("DepthMinusButton", true, false) as BaseButton).disabled)
@@ -16225,6 +16265,19 @@ class UiFlowRunner extends Node:
 		await _press(b.find_child("DepthDeepestButton", true, false))
 		await _wait(OPEN_FRAMES)
 		_check("深さ：「最深へ」で %s 層から" % _label_text(b, "Depth", "StartLayerLabel"), _label_text(b, "Depth", "StartLayerLabel") == str(deepest_layer))
+		# ⚠ 「この深さで出撃の準備へ」→ 準備は「◯層から」の1行だけ（⚠ 縦図は無い＝名簿が広い）→ 「戻る」で深さの画面（深さはそのまま）→ もう一度準備へ。
+		await _press(b.find_child("ToSortieButton", true, false), OPEN_FRAMES)
+		b = get_tree().current_scene
+		_check("深さ：準備は「%s 層から」と「深さを変える」だけ（縦図は無い）・持ち込みの一言" % _label_text(b, "Depth", "StartLayerLabel"),
+			_path_of(b) == BARRACKS and _label_text(b, "Depth", "StartLayerLabel") == str(deepest_layer) and b.find_child("DepthGauge", true, false) == null
+			and b.find_child("ChangeDepthButton", true, false) != null and _label_text(b, "Strip", "CarryLabel") != "")
+		var header_node: Node = b.find_child("Header", true, false)
+		await _press(null if header_node == null else header_node.find_child("BackButton", true, false), OPEN_FRAMES)
+		var back_depth: Node = get_tree().current_scene
+		_check("深さ：準備の「戻る」で深さの画面（%s 層から のまま）" % _label_text(back_depth, "Depth", "StartLayerLabel"),
+			_path_of(back_depth) == DepthSelectScreen.SCENE_PATH and _label_text(back_depth, "Depth", "StartLayerLabel") == str(deepest_layer))
+		await _press(back_depth.find_child("ToSortieButton", true, false), OPEN_FRAMES)
+		b = get_tree().current_scene
 		# 出撃 → 選んだ深さから（⚠ 札を1枚使う）。
 		await _press(b.find_child("SortieButton", true, false))
 		if b.has_method("skip_sign"):
@@ -17565,6 +17618,11 @@ class UiFlowRunner extends Node:
 		await _press(_tab_button(q, 1))
 		var dungeon_id: String = MasterDataLoader.get_all_dungeon_ids()[0]
 		await _press(await _quest_button(q, "DungeonCard_" + dungeon_id, "DungeonButton"), OPEN_FRAMES)
+		# ⚠ 10-19（回SEE29-E）：⚠ 塔でなければ先に深さを選ぶ画面。
+		var via_depth: bool = _path_of(get_tree().current_scene) == DepthSelectScreen.SCENE_PATH
+		_check("掲示板：難ダンジョン（塔でない）の「受ける」は先に深さを選ぶ画面", via_depth == not GameManager.is_tower_dungeon(dungeon_id))
+		if via_depth:
+			await _press(get_tree().current_scene.find_child("ToSortieButton", true, false), OPEN_FRAMES)
 		b = get_tree().current_scene
 		_check("掲示板：難ダンジョンの「受ける」で出撃の準備", _path_of(b) == BARRACKS and _label_text(b, "Strip", "QuestTitle") == tr(str(MasterDataLoader.get_dungeon(dungeon_id).get("name_key", ""))))
 		q = await _open(ADVENTURE, {TransferKeys.QUEST_TAB: 0})

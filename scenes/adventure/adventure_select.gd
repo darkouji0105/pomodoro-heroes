@@ -577,6 +577,10 @@ func _open_sortie(stage_id: String, dungeon_id: String, auto_go: bool = false) -
 	if dungeon_id != "" and not GameManager.is_in_dungeon() and ItemSourceWindow.open_if_short(
 			self, GameStateKeys.ITEM_QUOTA_TICKET, GameManager.get_quota_tickets_per_entry(), {TransferKeys.QUEST_TAB: _tab}):
 		return
+	# ⚠ 10-19（回SEE29-E・`NAV-38`）：⚠ 難ダンジョンに新しく入るときは、先に深さを選ぶ画面（⚠ 塔・「すぐ出撃」・ランの途中は通らない）。
+	if dungeon_id != "" and not auto_go and not GameManager.is_in_dungeon() and not GameManager.is_tower_dungeon(dungeon_id):
+		DepthSelectScreen.open(dungeon_id, 0)
+		return
 	SceneManager.change_scene_with_data(PARTY_PRESET_PATH, {
 		TransferKeys.SORTIE_STAGE_ID: stage_id,
 		TransferKeys.SORTIE_DUNGEON_ID: dungeon_id,
