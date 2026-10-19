@@ -10,6 +10,10 @@
 #   ⚠ 昇級は別の画面（`level_up_screen`＝昇級申請書・人間「⚠ 3あ」）。⚠ 概要の「昇級させる」から入る。
 #   ⚠ 装備のタブの「鍛冶場で鍛える」は**鍛冶場をその品を選んだ状態で開く**（⚠ 09-27 回UI-仕組み①・人間「⚠ 3あ」）。
 #
+# ⚠⚠ 10-19（回SEE29-E・`GR-15`・人間「⚠ ６同じものを使うが、少し処理を変えるだけにする　呼び出し元が２個」→「⚠ １い」）：
+#   ⚠ タブ「スキル」「装備」を **「スキル・装備」の1枚**にした＝⚠ 中身は詰所の窓と同じ共通の部品 `LoadoutEditor`（真ん中に枠・右に候補）。
+#   ⚠ この画面が変えるのは：真ん中の上の見出し ／ 何も選んでいない右＝通常攻撃とパッシブ（`GR-8`）／ 「鍛える」を出す。
+#   ⚠ 外から「スキル」「装備」のタブを指して開く口はそのまま通る（⚠ 「装備」なら武器の枠を選んだ姿）。
 # ⚠ キャラの一覧は `MasterDataLoader.get_all_characters()` から引く（⚠ 決め打ちしない）。
 # ⚠ 検証用（`char_debug_*`）の判定は `GameManager.is_debug_character()`。
 
@@ -25,19 +29,23 @@ const TRAINING_PATH: String = "res://scenes/guild/training_screen.tscn"
 const THEME_TYPE: StringName = &"Training"
 
 # ⚠ タブの並び。⚠ 外から開くときは `TransferKeys.TRAINING_TAB_*` の字で指す（⚠ 番号を漏らさない）。
+# ⚠ 10-19：⚠ 「スキル・装備」の1枚＝`TRAINING_TAB_SKILLS`（⚠ `TRAINING_TAB_EQUIP` で開かれてもこの1枚）。
 const TAB_IDS: Array[String] = [
-	TransferKeys.TRAINING_TAB_OVERVIEW, TransferKeys.TRAINING_TAB_NODES,
-	TransferKeys.TRAINING_TAB_SKILLS, TransferKeys.TRAINING_TAB_EQUIP,
+	TransferKeys.TRAINING_TAB_OVERVIEW, TransferKeys.TRAINING_TAB_NODES, TransferKeys.TRAINING_TAB_SKILLS,
 ]
 const TAB_KEYS: Array[String] = [
-	"ui_training_tab_overview", "ui_training_nodes", "ui_training_skill", "ui_training_equipment",
+	"ui_training_tab_overview", "ui_training_nodes", "ui_training_tab_loadout",
 ]
+const DESCRIPTION_PREFIX: String = "ui_desc_"
 
 var _selected_id: String = ""
 var _tab_ids: Array[String] = []
 var _tab: String = TransferKeys.TRAINING_TAB_OVERVIEW
 
 var _dossier: CharacterDossier = null
+# ⚠ 「スキル・装備」で選んでいる枠（⚠ 装備のタブを指して開かれたら武器・キャラを替えても装備の枠は保つ）。
+var _loadout_target: String = ""
+var _editor: LoadoutEditor = null
 var _tip: ItemTipCard = null
 var _tabs: PaperTabs = null
 var _page: VBoxContainer = null
@@ -96,8 +104,20 @@ func _ready() -> void:
 	var passed_id: String = str(data.get(TransferKeys.CHARACTER_ID, ""))
 	if passed_id == "" or MasterDataLoader.get_character(passed_id).is_empty():
 		passed_id = _default_character()
-	_tab = str(data.get(TransferKeys.TRAINING_TAB, TransferKeys.TRAINING_TAB_OVERVIEW))
+	_set_tab(str(data.get(TransferKeys.TRAINING_TAB, TransferKeys.TRAINING_TAB_OVERVIEW)))
 	_select_character(passed_id)
+
+
+# ⚠ 「装備」のタブを指されたら「スキル・装備」の1枚・武器の枠を選んだ姿（⚠ 外から開く口は前のまま通す）。
+func _set_tab(tab_id: String) -> void:
+	if tab_id == TransferKeys.TRAINING_TAB_EQUIP:
+		_tab = TransferKeys.TRAINING_TAB_SKILLS
+		_loadout_target = LoadoutEditor.TARGET_EQUIP + GameStateKeys.EQUIP_WEAPON
+	elif tab_id == TransferKeys.TRAINING_TAB_SKILLS:
+		_tab = tab_id
+		_loadout_target = ""
+	else:
+		_tab = tab_id
 
 
 # ⚠ 本番のキャラ → 検証用（⚠ 検証用はリリースビルドでは出さない＝編成の候補と同じ扱い）。
@@ -136,14 +156,12 @@ func _select_character(character_id: String) -> void:
 	_dossier.nav_index = at + 1
 	_dossier.nav_total = order.size()
 	_dossier.setup(character_id)
-	# ⚠ 装備のタブは装備が解放されてから（段階解放・GAME_DESIGN.md 9-5 の #2。⚠ 「出さない」）。
+	# ⚠ 装備の欄は装備が解放されてから（段階解放・GAME_DESIGN.md 9-5 の #2）＝⚠ 10-19 から部品の中で出し分ける（`LoadoutEditor.equipment_open()`）。
 	_tab_ids.clear()
 	var keys: Array[String] = []
 	for i: int in TAB_IDS.size():
-		if TAB_IDS[i] == TransferKeys.TRAINING_TAB_EQUIP and not GameManager.is_screen_unlocked(GameStateKeys.SCREEN_EQUIPMENT):
-			continue
 		_tab_ids.append(TAB_IDS[i])
-		keys.append(TAB_KEYS[i])
+		keys.append(TAB_KEYS[i] if TAB_IDS[i] != TransferKeys.TRAINING_TAB_SKILLS or LoadoutEditor.equipment_open() else "ui_training_skill")
 	if not (_tab in _tab_ids):
 		_tab = TransferKeys.TRAINING_TAB_OVERVIEW
 	_tabs.set_tabs(keys, _tab_ids.find(_tab))
@@ -175,6 +193,11 @@ func _on_loadout_pressed(kind: String) -> void:
 	_open_tab(TransferKeys.TRAINING_TAB_SKILLS if kind == LoadoutIcons.KIND_SKILL else TransferKeys.TRAINING_TAB_EQUIP)
 
 
+# ⚠ 検査用：⚠ 「スキル・装備」の部品（⚠ 無ければ null）。
+func loadout_editor() -> LoadoutEditor:
+	return _editor if _editor != null and is_instance_valid(_editor) and _editor.is_inside_tree() else null
+
+
 # --- タブ ---
 
 func _on_tab_changed(index: int) -> void:
@@ -184,11 +207,13 @@ func _on_tab_changed(index: int) -> void:
 
 
 func _open_tab(tab_id: String) -> void:
-	var index: int = _tab_ids.find(tab_id)
+	_set_tab(tab_id)
+	var index: int = _tab_ids.find(_tab)
 	if index < 0:
 		return
 	_tabs.current = index
-	_on_tab_changed(index)
+	_notice_text = ""
+	_rebuild_page()
 
 
 # remove_child してから queue_free する（AGENTS.md「再描画は await を持たせない」）。
@@ -203,26 +228,102 @@ func _rebuild_page() -> void:
 			nodes.setup(_selected_id)
 			_page.add_child(nodes)
 		TransferKeys.TRAINING_TAB_SKILLS:
-			var skills: TrainingSkillsPage = TrainingSkillsPage.new()
-			skills.name = "SkillsPage"
-			skills.setup(_selected_id)
-			# ⚠ 10-16：⚠ 通常攻撃とパッシブの欄を足して紙の下からはみ出した＝⚠ 縦に送る（⚠ 横は送らない）。
-			var skills_scroll: ScrollContainer = ScrollContainer.new()
-			skills_scroll.name = "SkillsScroll"
-			skills_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-			skills_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			skills_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			skills.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			skills_scroll.add_child(skills)
-			_page.add_child(skills_scroll)
-		TransferKeys.TRAINING_TAB_EQUIP:
-			var equip: TrainingEquipPage = TrainingEquipPage.new()
-			equip.name = "EquipPage"
-			equip.setup(_selected_id)
-			equip.forge_requested.connect(_on_forge_requested)
-			_page.add_child(equip)
+			# ⚠ 10-19（`GR-15`）：⚠ 詰所の窓と同じ部品。⚠ キャラを替えても装備の枠を選んでいれば保つ。
+			if _editor != null and is_instance_valid(_editor) and _editor.target().begins_with(LoadoutEditor.TARGET_EQUIP):
+				_loadout_target = _editor.target()
+			_editor = LoadoutEditor.create(_selected_id, _loadout_target)
+			_editor.tip = _tip
+			_editor.forge = true
+			_editor.top_builder = _build_loadout_top
+			_editor.idle_builder = _build_abilities
+			_editor.forge_requested.connect(_on_forge_requested)
+			_page.add_child(_editor)
 		_:
 			_build_overview()
+
+
+# --- スキル・装備（⚠ 共通の部品 `LoadoutEditor` に渡す2つ） ---
+
+func _build_loadout_top(column: VBoxContainer) -> void:
+	var heading: SheetHeading = SheetHeading.new()
+	heading.name = "LoadoutHeading"
+	heading.title_key = "ui_training_tab_loadout" if LoadoutEditor.equipment_open() else "ui_training_skill"
+	heading.right_text = tr("ui_training_skills_known") % [
+		GameManager.get_skill_candidates(_selected_id, GameManager.SLOT_KIND_SKILL).size(),
+		GameManager.get_all_skill_candidates(_selected_id, GameManager.SLOT_KIND_SKILL).size(),
+	]
+	column.add_child(heading)
+
+
+# 何も選んでいない右：通常攻撃とパッシブ（⚠ 10-16・人間「⚠ キャラの通常攻撃と、パッシブを見る場所が欲しい」＝`GR-8`）。⚠ 長いので縦に送る。
+func _build_abilities(column: VBoxContainer) -> void:
+	var hint: Label = Label.new()
+	hint.name = "RightHint"
+	hint.theme_type_variation = &"CaptionLabel"
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.text = tr("ui_build_window_right_hint")
+	column.add_child(hint)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "AbilitiesScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(scroll)
+	var body: VBoxContainer = VBoxContainer.new()
+	body.name = "Abilities"
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(body)
+	var basic_heading: SheetHeading = SheetHeading.new()
+	basic_heading.name = "BasicHeading"
+	basic_heading.title_key = "ui_training_basic_heading"
+	var data: Dictionary = MasterDataLoader.get_character(_selected_id)
+	basic_heading.right_text = tr("ui_training_basic_numbers") % [
+		int(data.get("attack_range", 0)), float(data.get("attack_interval_sec", 0.0)),
+	]
+	body.add_child(basic_heading)
+	var basic_text: String = _description_of("basic_" + _selected_id)
+	if basic_text != "":
+		var basic_label: Label = Label.new()
+		basic_label.name = "BasicLabel"
+		basic_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		basic_label.text = basic_text
+		body.add_child(basic_label)
+	var all_passives: Array = GameManager.get_all_skill_candidates(_selected_id, GameManager.SLOT_KIND_PASSIVE)
+	if all_passives.is_empty():
+		return
+	var unlocked: Array = GameManager.get_skill_candidates(_selected_id, GameManager.SLOT_KIND_PASSIVE)
+	var passive_heading: SheetHeading = SheetHeading.new()
+	passive_heading.name = "PassiveHeading"
+	passive_heading.title_key = "ui_training_passive_heading"
+	body.add_child(passive_heading)
+	var list: VBoxContainer = VBoxContainer.new()
+	list.name = "Passives"
+	body.add_child(list)
+	for entry: Variant in all_passives:
+		var passive_id: String = str(entry)
+		var passive: VBoxContainer = VBoxContainer.new()
+		passive.name = "Passive_" + passive_id
+		passive.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		passive.modulate.a = 1.0 if passive_id in unlocked else 0.5
+		var name_label: Label = Label.new()
+		name_label.name = "NameLabel"
+		name_label.text = tr(str(MasterDataLoader.get_skill(passive_id).get("name_key", passive_id)))
+		passive.add_child(name_label)
+		var effect: String = _description_of(passive_id)
+		if effect != "":
+			var caption: Label = Label.new()
+			caption.name = "EffectLabel"
+			caption.theme_type_variation = &"CaptionLabel"
+			caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			caption.text = effect
+			passive.add_child(caption)
+		list.add_child(passive)
+
+
+# ⚠ 効果文は `ui_desc_<id>`。⚠ 無ければ空（⚠ `tr()` は表に無いキーをそのまま返す）。
+func _description_of(id: String) -> String:
+	var key: String = DESCRIPTION_PREFIX + id
+	var text: String = tr(key)
+	return "" if text == key else text
 
 
 # --- 概要（手本 Character） ---
@@ -521,7 +622,12 @@ func _on_forge_requested(instance_id: String) -> void:
 
 # ⚠ 寄り道から戻ったときに、⚠ いまのキャラとタブで開き直すためのデータ。
 func _return_data() -> Dictionary:
-	return {TransferKeys.CHARACTER_ID: _selected_id, TransferKeys.TRAINING_TAB: _tab}
+	# ⚠ 「スキル・装備」で装備の枠を選んでいたら「装備」のタブで開き直す（⚠ 鍛冶場の「育成に戻る」で同じ姿）。
+	var tab: String = _tab
+	var editor: LoadoutEditor = loadout_editor()
+	if _tab == TransferKeys.TRAINING_TAB_SKILLS and editor != null and editor.target().begins_with(LoadoutEditor.TARGET_EQUIP):
+		tab = TransferKeys.TRAINING_TAB_EQUIP
+	return {TransferKeys.CHARACTER_ID: _selected_id, TransferKeys.TRAINING_TAB: tab}
 
 
 # ⚠ 2026-09-27（人間「⚠ 3あ」）：⚠ 戻る先は育成の一覧（⚠ 身上書カード）。

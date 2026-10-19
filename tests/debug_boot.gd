@@ -14293,7 +14293,10 @@ class ShotTaker extends Node:
 			if window == null:
 				push_error("[DebugBoot] ⚠ %s でビルドと装備の窓が出ない" % shot_name)
 				return false
-			window.call("_on_target_pressed", "equip_" + GameStateKeys.EQUIP_WEAPON)
+			# ⚠ 10-19（回SEE29-E）：⚠ 真ん中と右は共通の部品＝⚠ 部品の口で武器の枠を選ぶ。
+			var window_editor: LoadoutEditor = window.find_child("LoadoutEditor", true, false) as LoadoutEditor
+			if window_editor != null:
+				window_editor.select_target(LoadoutEditor.TARGET_EQUIP + GameStateKeys.EQUIP_WEAPON)
 			for _i: int in range(4):
 				await get_tree().process_frame
 			return true
@@ -14343,7 +14346,7 @@ class ShotTaker extends Node:
 				await get_tree().process_frame
 			return true
 		if kind == AFTER_SKILL_PICKER:
-			var slot: Node = screen.find_child("Slot_1", true, false)
+			var slot: Node = screen.find_child("SkillSlot_1", true, false)
 			var hit: Node = null if slot == null else slot.find_child("Hit", false, false)
 			if not (hit is BaseButton):
 				push_error("[DebugBoot] ⚠ %s にスキルの枠2が無い" % shot_name)
@@ -14353,7 +14356,8 @@ class ShotTaker extends Node:
 				await get_tree().process_frame
 			return true
 		if kind == AFTER_SKILLS_BOTTOM:
-			var skills_scroll: ScrollContainer = screen.find_child("SkillsScroll", true, false) as ScrollContainer
+			# ⚠ 10-19（回SEE29-E）：⚠ 通常攻撃とパッシブは「スキル・装備」の右（`AbilitiesScroll`）。
+			var skills_scroll: ScrollContainer = screen.find_child("AbilitiesScroll", true, false) as ScrollContainer
 			if skills_scroll == null:
 				push_error("[DebugBoot] ⚠ %s にスキルタブの送りが無い" % shot_name)
 				return false
@@ -15457,7 +15461,9 @@ class UiFlowRunner extends Node:
 		_check("育成：2枚目のタブでステータスノード", t.find_child("NodesPage", true, false) != null)
 		await _press(_tab_button(t, 0))
 		await _press(t.find_child("Row_" + TransferKeys.TRAINING_TAB_SKILLS, true, false))
-		_check("育成：概要のスキルの行を押すとスキルのタブ", t.find_child("SkillsPage", true, false) != null)
+		# ⚠ 10-19（回SEE29-E・`GR-15`）：⚠ タブは3枚（概要・ステータスノード・スキル・装備）＝⚠ 共通の部品。
+		_check("育成：概要のスキルの行を押すと「スキル・装備」（共通の部品・タブ %d 枚）" % (0 if tabs_node == null else tabs_node.get_child_count()),
+			(t as TrainingScreen).loadout_editor() != null and _tab_button(t, 2) != null and _tab_button(t, 3) == null)
 		await _press(_tab_button(t, 0))
 
 	# --- 昇級：申請書 → 判 → 続けて → 点を振りに行く ---
@@ -15517,13 +15523,15 @@ class UiFlowRunner extends Node:
 		var t: Node = get_tree().current_scene
 		await _press(_tab_button(t, 2))
 		# ⚠ 10-18（回UI-1018-4）：⚠ 枠はふちつきのスロット・⚠ 押すと「枠2に入れるスキル」の一覧が開く。
-		_check("スキル：ふだんは候補の一覧を出さない", t.find_child("Picker", true, false) == null and t.find_child("Candidates", true, false) == null)
-		await _press(_hit_of(t, "Slot_1"))
-		_check("スキル：枠2を押すと一覧が開く（行き先＝枠2）", t.find_child("Picker", true, false) != null and int(t.find_child("SkillsPage", true, false).get("_active_slot")) == 1)
+		var editor: LoadoutEditor = (t as TrainingScreen).loadout_editor()
+		_check("スキル：ふだんは候補の一覧を出さない・右に通常攻撃とパッシブ", t.find_child("Picker", true, false) == null and t.find_child("Candidates", true, false) == null
+			and editor != null and editor.find_child("BasicHeading", true, false) != null)
+		await _press(_hit_of(t, "SkillSlot_1"))
+		_check("スキル：枠2を押すと一覧が開く（行き先＝枠2）", t.find_child("Picker", true, false) != null and editor != null and editor.target() == LoadoutEditor.TARGET_SKILL + "1")
 		# ⚠ 10-19（見る回29回目・「⚠ スキル選択は、モーダルにして」）：⚠ 一覧は紙の窓の中・外を押しても閉じる。
 		var picker_modal: ModalDialog = _modal_of(t)
 		_check("スキル：一覧は窓の中（%s）" % ("窓" if picker_modal != null else "無し"), picker_modal != null and picker_modal.find_child("Picker", true, false) != null
-			and (t.find_child("SkillsPage", true, false) as TrainingSkillsPage).picker_dialog() == picker_modal)
+			and editor.picker_dialog() == picker_modal)
 		# ⚠ 10-19（回SEE29-E・`GR-13`・「⚠ ７い」）：⚠ 絵の無いスキルも役割の共通アイコン＝⚠ 枠が全部絵を持つ。
 		var frames_total: int = 0
 		var frames_drawn: int = 0
@@ -15562,9 +15570,9 @@ class UiFlowRunner extends Node:
 		await _press(t.find_child("Candidate_" + pick, true, false))
 		selected = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
 		_check("スキル：候補 %s を押すと枠2に入り、一覧が閉じる" % pick, selected.size() > 1 and str(selected[1]) == pick and t.find_child("Picker", true, false) == null)
-		var slot_now: Node = t.find_child("Slot_1", true, false)
+		var slot_now: Node = t.find_child("SkillSlot_1", true, false)
 		# ⚠ 10-19（「⚠ スキルをホバーすると何も表示されない」）：⚠ 枠の当たりが吹き出しの文（名前・CD）を持つ。
-		var slot_hit: Control = _hit_of(t, "Slot_1") as Control
+		var slot_hit: Control = _hit_of(t, "SkillSlot_1") as Control
 		var tip_text: String = "" if slot_hit == null else slot_hit.tooltip_text
 		_check("スキル：枠に触れると吹き出し（%s）" % tip_text.replace("
 ", "／"), tip_text.contains(tr(str(MasterDataLoader.get_skill(pick).get("name_key", "")))) and tip_text.contains("CD"))
@@ -15576,8 +15584,11 @@ class UiFlowRunner extends Node:
 
 	func _flow_equip_tab() -> String:
 		var t: Node = get_tree().current_scene
-		await _press(_tab_button(t, 3))
-		await _press(t.find_child("Slot_" + GameStateKeys.EQUIP_WEAPON, true, false))
+		# ⚠ 10-19（回SEE29-E・`GR-15`）：⚠ 「スキル・装備」の1枚（3枚目）の装備の枠 → 右に候補。
+		await _press(_tab_button(t, 2))
+		await _press(t.find_child("EquipSlot_" + GameStateKeys.EQUIP_WEAPON, true, false))
+		_check("装備：装備の枠を押すと右に候補（詰所の窓と同じ部品）", t.find_child("ItemListBar", true, false) != null
+			and (t as TrainingScreen).loadout_editor().target() == LoadoutEditor.TARGET_EQUIP + GameStateKeys.EQUIP_WEAPON)
 		var instance_id: String = _instance_of(WEAPON_ID)
 		await _press(t.find_child("Cell_" + instance_id, true, false))
 		await _press(t.find_child("EquipButton", true, false))
@@ -15815,9 +15826,10 @@ class UiFlowRunner extends Node:
 		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: OTHER})
 		if t == null:
 			return
-		await _press(_tab_button(t, 3))
-		await _press(t.find_child("Slot_" + weapon_slot, true, false))
-		_check("ジャンル：弓兵の武器の候補に剣が出ない", t.find_child("Cell_" + sword, true, false) == null)
+		# ⚠ 10-19（回SEE29-E）：⚠ 「スキル・装備」（3枚目）の武器の枠。
+		await _press(_tab_button(t, 2))
+		await _press(t.find_child("EquipSlot_" + weapon_slot, true, false))
+		_check("ジャンル：弓兵の武器の候補に剣が出ない", t.find_child("ItemListBar", true, false) != null and t.find_child("Cell_" + sword, true, false) == null)
 		# ③ 等級の伸び（⚠ マイナスは伸ばさない＝人間「⚠ ６あ」）。
 		var g1: Dictionary = GameManager.get_item_stats_at_grade("weapon_sword_swift", 1)
 		var g5: Dictionary = GameManager.get_item_stats_at_grade("weapon_sword_swift", 5)
@@ -18555,16 +18567,18 @@ class UiFlowRunner extends Node:
 		var t: Node = await _open(TRAINING, {TransferKeys.CHARACTER_ID: OTHER, TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_EQUIP})
 		if t == null:
 			return
-		await _press(t.find_child("Slot_" + GameStateKeys.EQUIP_WEAPON, true, false))
+		# ⚠ 10-19：⚠ 「装備」のタブを指して開くと「スキル・装備」の武器の枠を選んだ姿。
 		await _press(t.find_child("Cell_" + instance_id, true, false))
 		await _press(t.find_child("EquipButton", true, false))
 		await _press(t.find_child("ForgeButton", true, false), OPEN_FRAMES)
 		var f: Node = get_tree().current_scene
-		_check("戻り先：育成の「鍛冶場で鍛える」で鍛冶場", _path_of(f) == FORGE)
+		_check("戻り先：育成の「鍛える」で鍛冶場", _path_of(f) == FORGE)
 		await _back(f)
 		t = get_tree().current_scene
-		_check("戻り先：鍛冶場の「戻る」で育成（%s・%s）に戻る（前は本部）" % [str(t.get("_selected_id")), str(t.get("_tab"))],
-			_path_of(t) == TRAINING and str(t.get("_selected_id")) == OTHER and str(t.get("_tab")) == TransferKeys.TRAINING_TAB_EQUIP)
+		var back_editor: LoadoutEditor = null if not (t is TrainingScreen) else (t as TrainingScreen).loadout_editor()
+		_check("戻り先：鍛冶場の「戻る」で育成（%s・%s・%s）に戻る（前は本部）" % [str(t.get("_selected_id")), str(t.get("_tab")), "-" if back_editor == null else back_editor.target()],
+			_path_of(t) == TRAINING and str(t.get("_selected_id")) == OTHER and str(t.get("_tab")) == TransferKeys.TRAINING_TAB_SKILLS
+			and back_editor != null and back_editor.target() == LoadoutEditor.TARGET_EQUIP + GameStateKeys.EQUIP_WEAPON)
 		await _back(t)
 		_check("戻り先：もう一度「戻る」で育成の一覧（積んだものは尽きた）", _path_of(get_tree().current_scene) == TRAINING_LIST)
 		GameManager.unequip_instance(OTHER, GameStateKeys.EQUIP_WEAPON)
@@ -18901,24 +18915,13 @@ class UiFlowRunner extends Node:
 			_check("並べ替え：育成の装備タブにも同じ欄（着けている品 %s は隠れない）" % worn, bar_here and worn_shown)
 		ItemListBar.reset_memory(ItemListBar.KIND_EQUIP)
 
-		# 育成のスキル：⚠ 下まで送って枠を押しても位置が残る（⚠ 外側の枠は作り直さない＝中身だけ）。
+		# 育成の「スキル・装備」：⚠ 10-19（回SEE29-E）から通常攻撃とパッシブは何も選んでいない右（⚠ 縦に送る）。
 		t = await _open(TRAINING, {TransferKeys.CHARACTER_ID: "char_zealot", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_SKILLS})
 		if t != null:
-			var skills_scroll: ScrollContainer = t.find_child("SkillsScroll", true, false) as ScrollContainer
-			var skills_bar: ScrollBar = null if skills_scroll == null else skills_scroll.get_v_scroll_bar()
-			# ⚠ ヘッドレスは窓が大きく（⚠ 高さ 988）紙がはみ出さない＝⚠ 検査の中だけページの最低の高さを伸ばす（⚠ ページ自身は描き直しで消えない）。
-			var page: Node = t.find_child("SkillsPage", true, false)
-			if page is Control:
-				(page as Control).custom_minimum_size.y = 3000.0
-			await _wait()
-			if skills_scroll != null:
-				skills_scroll.scroll_vertical = int(skills_bar.max_value - skills_bar.page)
-			await _wait()
-			var skills_before: int = 0 if skills_scroll == null else skills_scroll.scroll_vertical
-			await _press(t.find_child("Slot_1", true, false))
-			var skills_after: int = 0 if skills_scroll == null else skills_scroll.scroll_vertical
-			_check("スクロール：育成のスキルで枠を押しても位置が残る（%d → %d・送れる幅 %d・枠 %s・高さ %s）" % [skills_before, skills_after, 0 if skills_bar == null else int(skills_bar.max_value - skills_bar.page), str(skills_scroll != null), "-" if skills_scroll == null else str(skills_scroll.size)],
-				skills_before > 0 and absi(skills_after - skills_before) <= 2)
+			var passives_shown: int = t.find_children("Passive_*", "", true, false).size()
+			_check("スキル・装備：何も選んでいない右に通常攻撃とパッシブ（パッシブ %d・送る枠 %s）" % [passives_shown, str(t.find_child("AbilitiesScroll", true, false) != null)],
+				passives_shown == GameManager.get_all_skill_candidates("char_zealot", GameManager.SLOT_KIND_PASSIVE).size() and passives_shown > 0
+				and t.find_child("AbilitiesScroll", true, false) is ScrollContainer and t.find_child("BasicHeading", true, false) != null)
 
 		# 詰所：⚠ 10-18（回UI-1018-5）から「組む・着替える ›」＝ビルドと装備の窓（⚠ 詰所の中で着替える）。
 		GameManager.mark_guide_seen(GameManager.GUIDE_SORTIE)
@@ -19526,6 +19529,18 @@ class UiFlowRunner extends Node:
 			name_edit.text_changed.emit("前に立つ")
 		await _press(window.find_child("EquipSlot_" + GameStateKeys.EQUIP_WEAPON, true, false))
 		_check("詰所の窓：装備の枠を押すと右に候補（並べ替えの欄つき）", window.find_child("ItemListBar", true, false) != null)
+		# ⚠ 10-19（回SEE29-E・`GR-15`・「⚠ １い」）：⚠ 真ん中と右は育成と同じ部品 ／ ⚠ スキルの枠は窓で選ぶ（⚠ 閉じるボタンは3つのまま＝「２い」）。
+		var window_editor: LoadoutEditor = window.find_child("LoadoutEditor", true, false) as LoadoutEditor
+		_check("詰所の窓：真ん中と右は育成と同じ部品（LoadoutEditor・鍛えるは出さない）・閉じるボタンは3つ", window_editor != null and not window_editor.forge
+			and window.find_child("ForgeButton", true, false) == null and window.find_child("DiscardButton", true, false) != null
+			and window.find_child("SaveOtherButton", true, false) != null and window.find_child("SaveButton", true, false) != null)
+		await _press(_hit_of(window, "SkillSlot_0"))
+		var window_picker: ModalDialog = _modal_of(b)
+		_check("詰所の窓：スキルの枠を押すと窓で選ぶ", window_picker != null and window_picker.find_child("Candidates", true, false) != null
+			and window_editor != null and window_editor.picker_dialog() == window_picker)
+		await _close_modal(b)
+		_check("詰所の窓：窓を閉じても装備の枠を選び直せる（窓は閉じた）", _modal_of(b) == null and window.find_child("NameEdit", true, false) != null)
+		await _press(window.find_child("EquipSlot_" + GameStateKeys.EQUIP_WEAPON, true, false))
 		await _press(window.find_child("SaveButton", true, false))
 		_check("詰所の窓：「ビルド3に残して閉じる」で名前つきで残る（%s）" % GameManager.get_character_preset_name(HERO, 2),
 			b.find_child("BuildEditWindow", true, false) == null and bool(GameManager.get_character_preset(HERO, 2).get(GameStateKeys.PRESET_SAVED, false))
