@@ -66,6 +66,8 @@ signal first_record_added(item_id: String)
 signal goal_changed()
 # ⚠ 目標に届いた（⚠ 届いた目標の写しを渡す・状態からはもう消えている）。⚠ `Toast` が受ける。
 signal goal_achieved(goal: Dictionary)
+# ⚠ メールボックスが変わった（⚠ 届いた・読んだ）。⚠ 10-19・回SEE29-B。
+signal mailbox_changed()
 
 # get_level_up_cost() が返す Dictionary のキー。
 # 呼び出し側が文字列リテラルを書かなくて済むようにここで公開する。
@@ -604,6 +606,9 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.CODEX: {},
 		# 見たガイド（2026-09-28）。⚠ 空＝どれもまだ見ていない（⚠ 前のセーブも空で読まれる）。
 		GameStateKeys.GUIDES_SEEN: {},
+		# ⚠ メールボックス（2026-10-19・回SEE29-B）。⚠ 前のセーブは空で読まれる。
+		GameStateKeys.MAILBOX: [],
+		GameStateKeys.MAIL_SEQ: 0,
 		# ⚠ 見た品（2026-10-07・NEW のしおり紐）。⚠ 前のセーブは load_state() で図鑑から埋める。
 		GameStateKeys.SEEN_ITEMS: {},
 		GameStateKeys.GUILD_RELICS: {},
@@ -7470,7 +7475,69 @@ func run_research_auto() -> Array[String]:
 		any_on = any_on or bool(categories[category])
 	if not any_on:
 		return []
-	return unlock_research_all(0, categories, int(auto[RESEARCH_AUTO_KEEP]))
+	var opened: Array[String] = unlock_research_all(0, categories, int(auto[RESEARCH_AUTO_KEEP]))
+	# ⚠ 10-19（見る回29回目・人間「⚠ 窓を出さないでいいがメールボックスに送って」）：⚠ 開いた研究をメールボックスへ。
+	if not opened.is_empty():
+		add_mail(MAIL_KIND_RESEARCH_AUTO, opened)
+	return opened
+
+
+# --- メールボックス（2026-10-19・回SEE29-B・`NAV-36`） ---
+
+# ⚠ 知らせの種類（⚠ リリース後に改名しない＝改名すると前の知らせの文が出ない）。
+const MAIL_KIND_RESEARCH_AUTO: String = "research_auto"
+# ⚠ 残す数（⚠ 人間「⚠ ２アだが１００件」）。⚠ 遊びの数値ではなく器の上限＝`CHARACTER_PRESET_COUNT` と同じくここに置く。⚠ 超えたら古いものから消える。
+const MAIL_KEEP_COUNT: int = 100
+
+
+# 知らせを1通入れる。⚠ 入れる口はここ1本。⚠ args は ID と数字だけ（⚠ 文は読むときに組み立てる）。
+func add_mail(kind: String, args: Array) -> void:
+	var mails: Array = _copy_array(GameStateKeys.MAILBOX)
+	var seq: int = int(_state.get(GameStateKeys.MAIL_SEQ, 0)) + 1
+	mails.append({
+		GameStateKeys.MAIL_ID: seq,
+		GameStateKeys.MAIL_KIND: kind,
+		GameStateKeys.MAIL_ARGS: args.duplicate(true),
+		GameStateKeys.MAIL_AT: Time.get_datetime_string_from_system(),
+		GameStateKeys.MAIL_READ: false,
+	})
+	while mails.size() > MAIL_KEEP_COUNT:
+		mails.remove_at(0)
+	_state[GameStateKeys.MAILBOX] = mails
+	_state[GameStateKeys.MAIL_SEQ] = seq
+	print("[GameManager] add_mail(%s, %d 件) -> いま %d 通" % [kind, args.size(), mails.size()])
+	mailbox_changed.emit()
+
+
+# 届いた知らせ（⚠ 新しい順・複製）。
+func get_mails() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for raw: Variant in _state.get(GameStateKeys.MAILBOX, []):
+		if raw is Dictionary:
+			result.push_front((raw as Dictionary).duplicate(true))
+	return result
+
+
+func get_unread_mail_count() -> int:
+	var count: int = 0
+	for raw: Variant in _state.get(GameStateKeys.MAILBOX, []):
+		if raw is Dictionary and not bool((raw as Dictionary).get(GameStateKeys.MAIL_READ, false)):
+			count += 1
+	return count
+
+
+# 全部読んだことにする（⚠ 窓を開いたとき）。⚠ 何も変わらなければ合図を出さない。
+func mark_mails_read() -> void:
+	if get_unread_mail_count() == 0:
+		return
+	var mails: Array = []
+	for raw: Variant in _state.get(GameStateKeys.MAILBOX, []):
+		if raw is Dictionary:
+			var mail: Dictionary = (raw as Dictionary).duplicate(true)
+			mail[GameStateKeys.MAIL_READ] = true
+			mails.append(mail)
+	_state[GameStateKeys.MAILBOX] = mails
+	mailbox_changed.emit()
 
 
 # ⚠ 検証用（10-19・見る回の手順）：⚠ 研究を全部閉じ、完成の報酬・栞・自動も空にする（⚠ 研究の画面の姿を見るため）。

@@ -5,6 +5,8 @@ extends PaperSheet
 #
 # ⚠⚠ 10-18（回UI-1018-6・web版の手本 `05_base_desk.png`・`NAV-34`）：⚠ 机の左の1枚に**まとめた**。
 #   ⚠ 上から：⚠ 見出し（今日の日付）／ ⚠ 今日の集中（⚠ 1日の目標があれば「◯ / ◯ 分」と棒）／ ⚠ やること（`TaskWallNote`）／ ⚠ 知らせ。
+# ⚠⚠ 10-19（回SEE29-B・`NAV-36`・人間「⚠ ３ア」）：⚠ 「知らせ」の欄はメールボックス（`MailboxWindow`）へ移した＝⚠ 空いたぶん「やること」が広がる。
+#   ⚠ 用事の一覧（`current_errands()`）はここに残す（⚠ メールボックスの「いまの用事」が引く）。
 # ⚠ 知らせ＝用事のある施設（⚠ 1行＝1つの用事。⚠ 押すとその画面へ）。
 #   ⚠ 用事の判定は帯のしおり紐と**同じ口**（`BaseFacilityBar.attention_of()`）＝⚠ ここに2本目を書かない。
 #   ⚠ 帯の紐が「どこに用事があるか」、⚠ この紙が「何の用事か」を読ませる。
@@ -34,9 +36,6 @@ static func create() -> BaseTodaySheet:
 	return sheet
 
 
-var _list: VBoxContainer = null
-
-
 func _ready() -> void:
 	custom_minimum_size.x = float(get_theme_constant(&"today_width", THEME_TYPE))
 	var body: VBoxContainer = VBoxContainer.new()
@@ -51,23 +50,6 @@ func _ready() -> void:
 	var note: TaskWallNote = TaskWallNote.create()
 	note.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(note)
-	var caption: Label = Label.new()
-	caption.theme_type_variation = &"CaptionLabel"
-	caption.text = tr("ui_base_today_errands")
-	body.add_child(caption)
-	_list = VBoxContainer.new()
-	_list.name = "Errands"
-	_list.theme_type_variation = &"TightList"
-	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_child(_list)
-	_rebuild()
-	GameManager.pending_chests_changed.connect(_on_changed_int)
-	GameManager.material_changed.connect(_on_material_changed)
-	GameManager.crafting_queue_changed.connect(_rebuild)
-	GameManager.research_node_unlocked.connect(_on_changed_str)
-	GameManager.character_growth_changed.connect(_on_changed_str)
-	GameManager.shop_changed.connect(_on_changed_str)
-	GameManager.inventory_changed.connect(_on_changed_str)
 
 
 # ⚠ 今日の集中（⚠ 1日の目標＝設定の `daily_goal_minutes`・0 なら棒を出さない）。
@@ -111,40 +93,3 @@ static func current_errands() -> Array[Dictionary]:
 		if BaseFacilityBar.is_open(id) and BaseFacilityBar.attention_of(id):
 			result.append(entry)
 	return result
-
-
-func _rebuild() -> void:
-	for child: Node in _list.get_children():
-		_list.remove_child(child)
-		child.queue_free()
-	var shown: Array[Dictionary] = current_errands()
-	if shown.is_empty():
-		var none: Label = Label.new()
-		none.name = "NoErrands"
-		none.theme_type_variation = &"CaptionLabel"
-		none.text = tr("ui_base_today_none")
-		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_list.add_child(none)
-		return
-	for entry: Dictionary in shown:
-		var button: Button = Button.new()
-		button.name = "Errand_" + str(entry[KEY_ID])
-		button.theme_type_variation = &"DeskNoteButton"
-		button.text = tr(str(entry[KEY_TEXT]))
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.clip_text = true
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.pressed.connect(SceneManager.change_scene.bind(str(entry[KEY_PATH])))
-		_list.add_child(button)
-
-
-func _on_changed_int(_value: int) -> void:
-	_rebuild()
-
-
-func _on_changed_str(_value: String) -> void:
-	_rebuild()
-
-
-func _on_material_changed(_material_id: String, _amount: int) -> void:
-	_rebuild()

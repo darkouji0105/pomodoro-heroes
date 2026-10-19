@@ -71,6 +71,16 @@ const RESEARCH_TREE: String = "research_tree"
 const RESEARCH_REWARDS_CLAIMED: String = "research_rewards_claimed"
 const RESEARCH_NEW: String = "research_new"
 const RESEARCH_AUTO: String = "research_auto"
+# ⚠ メールボックス（2026-10-19・回SEE29-B・`NAV-36`・人間「⚠ 知らせは、メールボックスにして、開いたら全部見えるように」）：
+#   [{id: int, kind: String, args: Array, at: String, read: bool}]（⚠ 新しいものが後ろ）。⚠ 文は持たない（⚠ kind と args から毎回組み立てる＝CLAUDE.md 4番）。
+#   ⚠ 読み書きは `GameManager.add_mail()` / `get_mails()` / `mark_mails_read()` の口だけ。⚠ kind はリリース後に改名しない。
+const MAILBOX: String = "mailbox"
+const MAIL_SEQ: String = "mail_seq"
+const MAIL_ID: String = "id"
+const MAIL_KIND: String = "kind"
+const MAIL_ARGS: String = "args"
+const MAIL_AT: String = "at"
+const MAIL_READ: String = "read"
 const RECIPES_UNLOCKED: String = "recipes_unlocked"
 const CRAFTING_QUEUE: String = "crafting_queue"
 

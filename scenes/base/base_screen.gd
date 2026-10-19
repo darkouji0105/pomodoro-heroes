@@ -23,6 +23,7 @@ const VIEW_TOWN: String = "town"
 var _view: String = VIEW_DESK
 var _desk: BaseDesk = null
 var _town_view: BaseTownView = null
+var _mail_button: Button = null
 
 
 func _ready() -> void:
@@ -52,13 +53,15 @@ func current_view() -> String:
 	return _view
 
 
-# ⚠ 右上（⚠ 通貨の左）：⚠ 設定（⚠ アイコンだけ・名前は触れると出る）。
+# ⚠ 右上（⚠ 通貨の左）：⚠ メールボックス・設定（⚠ アイコンだけ・名前は触れると出る）。
+# ⚠ 10-19（回SEE29-B・`NAV-36`）：⚠ 封筒の右上に読んでいない知らせの数（⚠ 人間「⚠ １い」＝いまの用事は数えない）。
 func _build_system_buttons() -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "SystemButtons"
 	row.theme_type_variation = &"ButtonRow"
 	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	for spec: Array in [
+		["MailButton", IconTextures.NAME_SYS_MAIL, "ui_mail_open", _on_mail_pressed],
 		["SettingsButton", IconTextures.NAME_SYS_SETTINGS, "ui_nav_settings", _on_settings_pressed],
 	]:
 		var button: Button = Button.new()
@@ -69,6 +72,10 @@ func _build_system_buttons() -> void:
 		button.focus_mode = Control.FOCUS_NONE
 		button.pressed.connect(spec[3] as Callable)
 		row.add_child(button)
+		if button.name == "MailButton":
+			_mail_button = button
+	_refresh_mail_badge()
+	GameManager.mailbox_changed.connect(_refresh_mail_badge)
 	# ⚠ 右上の通貨の手前（⚠ 見出しの「HUD のぶん空ける」より左）。
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -109,6 +116,34 @@ func _show_arrival_rewards(data: Dictionary) -> void:
 		Modal.notify(self, "ui_base_chest_received", [chests], false, options)
 	else:
 		Modal.notify(self, "ui_base_pomodoro_rewards", [potions, chests], false, options)
+
+
+# ⚠ 封筒の数（⚠ 0 なら出さない）。⚠ 数の札は机の箱の数と同じ型（`DeskCountBadge`）。
+func _refresh_mail_badge() -> void:
+	if _mail_button == null or not is_instance_valid(_mail_button):
+		return
+	var old: Node = _mail_button.get_node_or_null("CountBadge")
+	if old != null:
+		_mail_button.remove_child(old)
+		old.queue_free()
+	var count: int = GameManager.get_unread_mail_count()
+	if count <= 0:
+		return
+	var badge: Label = Label.new()
+	badge.name = "CountBadge"
+	badge.theme_type_variation = &"DeskCountBadge"
+	badge.text = str(count)
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var side: float = float(get_theme_constant(&"badge", &"BaseDesk"))
+	badge.size = Vector2(side, side)
+	badge.position = Vector2(_mail_button.get_combined_minimum_size().x - side * 0.6, -side * 0.4)
+	_mail_button.add_child(badge)
+
+
+func _on_mail_pressed() -> void:
+	var _dialog: ModalDialog = MailboxWindow.open(self)
 
 
 func _on_settings_pressed() -> void:

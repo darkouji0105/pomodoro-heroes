@@ -93,6 +93,10 @@ func _ready() -> void:
 
 
 func _is_open(id: String) -> bool:
+	return is_building_open(id)
+
+
+static func is_building_open(id: String) -> bool:
 	match id:
 		POMODORO:
 			return GameManager.is_screen_unlocked(GameStateKeys.SCREEN_POMODORO)
@@ -121,8 +125,22 @@ func refresh_attention() -> void:
 	for id: String in _buildings:
 		var building: TownBuilding = _buildings[id]
 		building.set_note(_note_of(id))
-		var on: bool = GameManager.get_pending_chest_count() > 0 if id == CHEST else BaseFacilityBar.attention_of(id)
-		RibbonMark.set_on(building.shape_control(), on)
+		RibbonMark.set_on(building.shape_control(), building_attention(id))
+
+
+# ⚠ 建物のしおり紐（⚠ 宝物庫＝届いた宝箱 ／ ほか＝帯の紐と同じ口）。
+static func building_attention(id: String) -> bool:
+	return GameManager.get_pending_chest_count() > 0 if id == CHEST else BaseFacilityBar.attention_of(id)
+
+
+# ⚠ ギルドのどこかに知らせがあるか（10-19・回SEE29-B・人間「⚠ ギルドに何か通知があるなら画面の下部のタブにしおりを」）。
+#   ⚠ 帯の「ギルド」の紐が引く（⚠ 建てている建物だけ）。
+static func has_attention() -> bool:
+	for entry: Dictionary in BUILDINGS:
+		var id: String = str(entry[KEY_ID])
+		if is_building_open(id) and building_attention(id):
+			return true
+	return false
 
 
 func _note_of(id: String) -> String:

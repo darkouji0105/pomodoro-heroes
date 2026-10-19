@@ -1969,7 +1969,7 @@ const HEADING_FONT_TYPES: Array[String] = [
 	# ⚠ 10-09（回TK-F2）：⚠ フォルダの見出し（⚠ 字間は詰めたまま＝紙の見出しと格を分ける）。
 	"TaskFolderTitleLabel",
 	# ⚠ 10-18（回UI-1018-6）：⚠ 本部の札の題・掲示板の紙の題・ギルドの街の名札（⚠ 手本は明朝）。
-	"DeskCardTitleLabel", "QuestCardTitleLabel", "QuestDetailTitleLabel", "TownPlateLabel", "TownPlateBigLabel",
+	"DeskCardTitleLabel", "DeskFeatureTitleLabel", "QuestCardTitleLabel", "QuestDetailTitleLabel", "TownPlateLabel", "TownPlateBigLabel",
 ]
 const SHEET_HEADING_SPACING: int = 3
 
@@ -2983,6 +2983,7 @@ const BASE_DESK: Dictionary = {
 	"walker": 48,             # ⚠ 歩く人の顔の大きさ
 	"road": 72,               # ⚠ 建物の下の道の高さ
 	"walk_speed": 36,         # ⚠ 歩く速さ（px／秒）
+	"mail_height": 420,       # ⚠ メールボックスの窓の中（⚠ 送る）の高さ（10-19・回SEE29-B）
 }
 
 
@@ -3446,6 +3447,10 @@ const HQ_GOAL_BAR_H: int = 8
 const HQ_GOAL_BAR_BG: String = "6e5a4333"    # ⚠ 手本 rgba(110,90,67,.2)
 const HQ_BIG_NUMBER: int = 26
 const HQ_CARD_TITLE: int = 17
+# ⚠ 目立つ札（10-19・回SEE29-B・人間「⚠ ポモドーロと冒険は目立つように」）：⚠ 真鍮の太い縁・縦の余白・大きい題。
+const HQ_FEATURE_BORDER: int = 3
+const HQ_FEATURE_PAD_V: int = 22
+const HQ_FEATURE_TITLE: int = 22
 const HQ_BIG_BUTTON_FONT: int = 18
 const HQ_BIG_BUTTON_PAD_H: int = 26
 const HQ_BIG_BUTTON_PAD_V: int = 12
@@ -3503,6 +3508,11 @@ static func _build_hq(theme: Theme) -> void:
 	if paper is StyleBoxFlat:
 		theme.set_type_variation(&"DeskCardPanel", &"PanelContainer")
 		theme.set_stylebox(&"panel", &"DeskCardPanel", _pad_panel(paper as StyleBoxFlat, HQ_CARD_PAD_H, HQ_CARD_PAD_V))
+		var feature: StyleBoxFlat = _pad_panel(paper as StyleBoxFlat, HQ_CARD_PAD_H, HQ_FEATURE_PAD_V)
+		feature.set_border_width_all(HQ_FEATURE_BORDER)
+		feature.border_color = _html(TOKEN_BRASS)
+		theme.set_type_variation(&"DeskFeaturePanel", &"PanelContainer")
+		theme.set_stylebox(&"panel", &"DeskFeaturePanel", feature)
 		theme.set_type_variation(&"QuestPaperPanel", &"PanelContainer")
 		theme.set_stylebox(&"panel", &"QuestPaperPanel", _pad_panel(paper as StyleBoxFlat, QUEST_PAPER_PAD_H, QUEST_PAPER_PAD_V))
 		var chosen: StyleBoxFlat = _pad_panel(paper as StyleBoxFlat, QUEST_PAPER_PAD_H, QUEST_PAPER_PAD_V)
@@ -3530,6 +3540,8 @@ static func _build_hq(theme: Theme) -> void:
 	theme.set_color(&"font_color", &"DeskCountBadge", _html("fbeee6"))
 	theme.set_type_variation(&"DeskCardTitleLabel", &"Label")
 	theme.set_font_size(&"font_size", &"DeskCardTitleLabel", HQ_CARD_TITLE)
+	theme.set_type_variation(&"DeskFeatureTitleLabel", &"Label")
+	theme.set_font_size(&"font_size", &"DeskFeatureTitleLabel", HQ_FEATURE_TITLE)
 	theme.set_type_variation(&"DeskBigNumberLabel", &"Label")
 	theme.set_font_size(&"font_size", &"DeskBigNumberLabel", HQ_BIG_NUMBER)
 	if theme.has_font(&"font", &"PriceLabel"):

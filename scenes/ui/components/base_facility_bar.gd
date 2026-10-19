@@ -268,6 +268,9 @@ static func attention_of(id: String) -> bool:
 			return GameManager.has_unlockable_research() or GameManager.has_new_research() or GameManager.has_claimable_research_reward()
 		SHOP:
 			return not GameManager.is_shop_line_up_seen()
+		GUILD:
+			# ⚠ 10-19（回SEE29-B）：⚠ ギルドの建物のどれかに紐があれば（⚠ 判定は街の側 `BaseTownView.has_attention()` の1本）。
+			return BaseTownView.has_attention()
 	return false
 
 

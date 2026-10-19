@@ -6,15 +6,17 @@ extends HBoxContainer
 # ⚠ 左＝今日の紙（`BaseTodaySheet`）／ ⚠ 真ん中＝⚠ **上は空けておく**（⚠ 人間「あ：空けたまま」）・⚠ 下に細い札3枚
 #   （⚠ 集中の砂時計 ／ ⚠ 冒険 ／ ⚠ 依頼掲示板）／ ⚠ 右＝宝箱・育てる・研究の札と、ほかの施設。
 # ⚠ 用事の判定は帯のしおり紐と同じ口（`BaseFacilityBar.attention_of()`）。⚠ 行き先も帯の表（`BaseFacilityBar.path_of()`）。
+# ⚠⚠ 10-19（回SEE29-B・`NAV-34`・見る回29回目・人間「⚠ ポモドーロと冒険は目立つように　シナリオの続きからはいらない
+#   あとポモドーロの設定を拠点から簡易的にできるがいらない」→「⚠ ２あ」＝冒険は押すと依頼掲示板が開くだけ）：
+#   ⚠ 真ん中の下は**2枚**＝⚠ 集中の砂時計 ／ ⚠ 冒険（⚠ 依頼掲示板の札とまとめた＝行き先が同じ）。⚠ 2枚とも真鍮の太い縁と大きい題（`DeskFeaturePanel`）。
+#   ⚠ 集中の長さの札（15・25・45・50分）・冒険の「次の話」「出撃する」「続きから」・編成の顔とスタミナはやめた
+#   （⚠ 顔とスタミナの行が長いと机が画面より広がり、題「ギルド本部」が左で切れていた＝10-19 の絵）。
 # ⚠ 寸法と色は Theme の `BaseDesk` 型。⚠ 拠点の画面だけで使う＝scenes/base/（AGENTS.md 置き場のルール）。
 # ⚠ 描き直しに await を持たせない（CLAUDE.md 5番）。
 
 const THEME_TYPE: StringName = &"BaseDesk"
 const POMODORO_PATH: String = "res://scenes/pomodoro/pomodoro.tscn"
 const BOARD_PATH: String = "res://scenes/adventure/adventure_select.tscn"
-const SORTIE_PATH: String = "res://scenes/adventure/party_preset_screen.tscn"
-const FLOOR_MAP_PATH: String = "res://scenes/adventure/floor_map.tscn"
-const DUNGEON_MAP_PATH: String = "res://scenes/adventure/dungeon_map.tscn"
 const CHEST_PATH: String = "res://scenes/base/chest_screen.tscn"
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 # ⚠ 右下の「ほかの施設」の並び（⚠ 手本の順）。⚠ 開けない施設は出さない。
@@ -73,7 +75,6 @@ func _rebuild() -> void:
 		_middle.add_child(_build_pomodoro_strip())
 	if GameManager.is_screen_unlocked(GameStateKeys.SCREEN_ADVENTURE_SELECT):
 		_middle.add_child(_build_adventure_strip())
-		_middle.add_child(_build_board_strip())
 	_right.add_child(_build_chest_card())
 	if BaseFacilityBar.is_open(BaseFacilityBar.TRAINING) and BaseFacilityBar.training_path() != "":
 		_right.add_child(_build_grow_card())
@@ -85,11 +86,12 @@ func _rebuild() -> void:
 # --- 部品 ---
 
 # ⚠ 札の器（⚠ 紙・左にアイコンの箱・真ん中に題と説明・右にボタン）。⚠ 用事があればしおり紐。
-func _card(card_name: String, icon: Texture2D, count: int, title_key: String, sub_text: String, attention: bool) -> Dictionary:
+# ⚠ `feature` で目立つ札（⚠ 真鍮の太い縁・大きい題＝ポモドーロと冒険）。
+func _card(card_name: String, icon: Texture2D, count: int, title_key: String, sub_text: String, attention: bool, feature: bool = false) -> Dictionary:
 	var sheet: PaperSheet = PaperSheet.new()
 	sheet.name = card_name
 	sheet.show_corners = false
-	sheet.theme_type_variation = &"DeskCardPanel"
+	sheet.theme_type_variation = &"DeskFeaturePanel" if feature else &"DeskCardPanel"
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "Row"
 	sheet.add_child(row)
@@ -102,7 +104,7 @@ func _card(card_name: String, icon: Texture2D, count: int, title_key: String, su
 	row.add_child(texts)
 	var title: Label = Label.new()
 	title.name = "TitleLabel"
-	title.theme_type_variation = &"DeskCardTitleLabel"
+	title.theme_type_variation = &"DeskFeatureTitleLabel" if feature else &"DeskCardTitleLabel"
 	title.text = tr(title_key)
 	texts.add_child(title)
 	if sub_text != "":
@@ -172,12 +174,22 @@ func _button(button_name: String, label_key: String, variant: UiButton.Variant, 
 
 # --- 真ん中の札 ---
 
-# 集中の砂時計：⚠ 集中の長さ（⚠ 設定と同じ値＝押すと設定が変わる）／ ⚠ いま片づけるやること（⚠ 一覧の一番上）／ ⚠ 始める。
+# 集中の砂時計：⚠ いま片づけるやること（⚠ 一覧の一番上）／ ⚠ 始める。⚠ 長さは変えない（⚠ 設定はポモドーロの画面から＝10-19）。
 func _build_pomodoro_strip() -> PaperSheet:
-	var parts: Dictionary = _card("PomodoroStrip", null, 0, "ui_hq_pomodoro_title", "", false)
+	var open_tasks: Array = GameManager.get_open_tasks()
+	var task_id: String = ""
+	var sub: String = tr("ui_hq_pomodoro_free")
+	if not open_tasks.is_empty():
+		task_id = str((open_tasks[0] as Dictionary).get(GameStateKeys.TASK_ID, ""))
+		sub = tr("ui_hq_pomodoro_now") % str((open_tasks[0] as Dictionary).get(GameStateKeys.TASK_TITLE, ""))
+	var parts: Dictionary = _card("PomodoroStrip", null, 0, "ui_hq_pomodoro_title", sub, false, true)
 	var sheet: PaperSheet = parts["sheet"]
 	var row: HBoxContainer = parts["row"]
-	var texts: VBoxContainer = parts["texts"]
+	var sub_label: Label = (parts["texts"] as VBoxContainer).get_node_or_null("SubLabel") as Label
+	if sub_label != null:
+		sub_label.name = "NowTaskLabel"
+		sub_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	# ⚠ アイコンの箱の代わりに砂時計（⚠ ポモドーロの加護の札と同じ絵）。
 	var box: Node = row.get_node("IconBox")
 	row.remove_child(box)
@@ -188,45 +200,12 @@ func _build_pomodoro_strip() -> PaperSheet:
 	glass.ready.connect(_fit_glass.bind(glass))
 	row.add_child(glass)
 	row.move_child(glass, 0)
-	var choices: HBoxContainer = HBoxContainer.new()
-	choices.name = "FocusChoices"
-	choices.theme_type_variation = &"ButtonRow"
-	texts.add_child(choices)
-	var current: int = GameSettings.focus_minutes()
-	for raw: Variant in Balance.pomodoro.focus_minute_choices:
-		var minutes: int = int(raw)
-		var chip: Button = Button.new()
-		chip.name = "Focus_%d" % minutes
-		chip.theme_type_variation = &"PaperToggle"
-		chip.toggle_mode = true
-		chip.focus_mode = Control.FOCUS_NONE
-		chip.set_pressed_no_signal(minutes == current)
-		chip.text = tr("ui_settings_minutes") % minutes
-		chip.pressed.connect(_on_focus_minutes_picked.bind(minutes))
-		choices.add_child(chip)
-	var open_tasks: Array = GameManager.get_open_tasks()
-	var task_id: String = ""
-	if not open_tasks.is_empty():
-		task_id = str((open_tasks[0] as Dictionary).get(GameStateKeys.TASK_ID, ""))
-		var now: Label = Label.new()
-		now.name = "NowTaskLabel"
-		now.theme_type_variation = &"CaptionLabel"
-		now.text = tr("ui_hq_pomodoro_now") % str((open_tasks[0] as Dictionary).get(GameStateKeys.TASK_TITLE, ""))
-		now.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		now.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		now.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		choices.add_child(now)
 	row.add_child(_big_button("PomodoroButton", "ui_hq_pomodoro_start", _on_pomodoro_pressed.bind(task_id)))
 	return sheet
 
 
 func _fit_glass(glass: Hourglass) -> void:
 	glass.custom_minimum_size = Vector2(float(get_theme_constant(&"glass_width", THEME_TYPE)), float(get_theme_constant(&"glass_height", THEME_TYPE)))
-
-
-func _on_focus_minutes_picked(minutes: int) -> void:
-	GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_FOCUS_MINUTES, minutes)
-	_rebuild()
 
 
 func _on_pomodoro_pressed(task_id: String) -> void:
@@ -236,72 +215,18 @@ func _on_pomodoro_pressed(task_id: String) -> void:
 		SceneManager.change_scene_with_data(POMODORO_PATH, {TransferKeys.TASK_ID: task_id})
 
 
-# 冒険：⚠ 次に受ける話（⚠ 途中のランがあればその続き）／ ⚠ 出る3人 ／ ⚠ スタミナ ／ ⚠ 出撃する（⚠ 出撃の準備を通す）。
+# 冒険（⚠ 10-19「⚠ ２あ」）：⚠ 押すと依頼掲示板が開くだけ。⚠ 受けられる話と高難度の数（⚠ 前の「依頼掲示板」の札の中身）。
+#   ⚠ ランの途中なら一言（⚠ 続きは掲示板の「続きから」）。
 func _build_adventure_strip() -> PaperSheet:
-	var in_dungeon: bool = GameManager.is_in_dungeon()
-	var in_floor: bool = GameManager.is_in_floor()
-	var stage_id: String = GameManager.get_next_story_stage()
-	var title_text: String = ""
-	if in_dungeon:
-		var dungeon_id: String = str(GameManager.get_dungeon_run().get(GameStateKeys.DUNGEON_RUN_DUNGEON_ID, ""))
-		title_text = tr(str(MasterDataLoader.get_dungeon(dungeon_id).get("name_key", dungeon_id)))
-	elif stage_id != "":
-		var order: Array = MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)
-		title_text = "%s　%s" % [tr("ui_quest_episode") % (order.find(stage_id) + 1), tr(str(MasterDataLoader.get_stage(stage_id).get("name_key", stage_id)))]
-	var parts: Dictionary = _card("AdventureStrip", IconTextures.for_hq(IconTextures.NAME_HQ_ADVENTURE), 0, "ui_hq_adventure_title", "", false)
-	var sheet: PaperSheet = parts["sheet"]
-	var row: HBoxContainer = parts["row"]
-	var texts: VBoxContainer = parts["texts"]
-	(texts.get_node("TitleLabel") as Label).text = title_text if title_text != "" else tr("ui_hq_adventure_title")
-	var line: HBoxContainer = HBoxContainer.new()
-	line.name = "PartyLine"
-	texts.add_child(line)
-	var face: int = get_theme_constant(&"face", THEME_TYPE)
-	for raw: Variant in GameManager.get_party_members():
-		if str(raw) != "":
-			line.add_child(CharacterAvatar.create(str(raw), face))
-	var note: Label = Label.new()
-	note.name = "StaminaLabel"
-	note.theme_type_variation = &"CaptionLabel"
-	note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	note.text = tr("ui_hq_run_in_progress") if in_floor or in_dungeon else tr("ui_hq_stamina_note") % [int(Balance.adventure.stamina_cost_per_stage), GameManager.get_stamina()]
-	line.add_child(note)
-	if not (in_floor or in_dungeon):
-		var change: Button = Button.new()
-		change.name = "ChangePartyButton"
-		change.theme_type_variation = &"DeskLinkButton"
-		change.text = tr("ui_hq_change_party")
-		change.focus_mode = Control.FOCUS_NONE
-		change.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		change.pressed.connect(SceneManager.change_scene.bind(SORTIE_PATH))
-		line.add_child(change)
-	if in_dungeon:
-		row.add_child(_button("ContinueRunButton", "ui_base_continue_run", UiButton.Variant.PRIMARY, SceneManager.change_scene.bind(DUNGEON_MAP_PATH)))
-	elif in_floor:
-		row.add_child(_button("ContinueRunButton", "ui_base_continue_run", UiButton.Variant.PRIMARY, SceneManager.change_scene.bind(FLOOR_MAP_PATH)))
-	elif stage_id != "":
-		row.add_child(_big_button("AdventureSortieButton", "ui_quest_sortie_go", _open_sortie.bind(stage_id)))
-	return sheet
-
-
-# ⚠ 出撃の準備へ（⚠ 掲示板の「受ける」と同じ口・戻ると本部）。
-func _open_sortie(stage_id: String) -> void:
-	SceneManager.change_scene_with_data(SORTIE_PATH, {
-		TransferKeys.SORTIE_STAGE_ID: stage_id,
-		TransferKeys.SORTIE_DUNGEON_ID: "",
-		TransferKeys.RETURN_PATH: BASE_PATH,
-	})
-
-
-# 依頼掲示板：⚠ 受けられる話（⚠ まだ済んでいないもの）と高難度の数。
-func _build_board_strip() -> PaperSheet:
 	var open_stories: int = 0
 	for raw: Variant in MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY):
 		if GameManager.is_story_stage_unlocked(str(raw)) and not GameManager.is_stage_cleared(str(raw)):
 			open_stories += 1
 	var sub: String = tr("ui_hq_board_sub") % [open_stories, MasterDataLoader.get_all_dungeon_ids().size()]
-	var parts: Dictionary = _card("BoardStrip", IconTextures.for_hq(IconTextures.NAME_HQ_BOARD), 0, "ui_quest_board_title", sub, false)
-	(parts["row"] as HBoxContainer).add_child(_button("BoardButton", "ui_hq_board_open", UiButton.Variant.SECONDARY, SceneManager.change_scene.bind(BOARD_PATH)))
+	if GameManager.is_in_floor() or GameManager.is_in_dungeon():
+		sub = tr("ui_hq_run_in_progress") + "　・　" + sub
+	var parts: Dictionary = _card("AdventureStrip", IconTextures.for_hq(IconTextures.NAME_HQ_ADVENTURE), 0, "ui_hq_adventure_title", sub, false, true)
+	(parts["row"] as HBoxContainer).add_child(_big_button("BoardButton", "ui_hq_adventure_open", SceneManager.change_scene.bind(BOARD_PATH)))
 	return parts["sheet"]
 
 

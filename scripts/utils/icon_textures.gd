@@ -260,6 +260,8 @@ static func for_timer(name: String) -> Texture2D:
 # ⚠ 本部（2026-10-18・回UI-1018-6・web版の手本 `05_base_desk.png`）：⚠ 右上のセーブ・設定・タイトルへ ／ ⚠ 机の札（冒険・掲示板・育てる）。
 const NAME_SYS_SAVE: String = "sys_save"
 const NAME_SYS_SETTINGS: String = "sys_settings"
+# ⚠ メールボックス（10-19・回SEE29-B・`NAV-36`）：⚠ 封筒。
+const NAME_SYS_MAIL: String = "sys_mail"
 const NAME_SYS_TITLE: String = "sys_title"
 const NAME_HQ_ADVENTURE: String = "hq_adventure"
 const NAME_HQ_BOARD: String = "hq_board"

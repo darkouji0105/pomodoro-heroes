@@ -121,6 +121,8 @@ const SHOT_AFTER_SKILLS_BOTTOM: String = "skills_bottom"
 # ⚠ 10-19（見る回29回目）：⚠ スキルを選ぶ一覧は紙の窓（⚠ 枠2の当たりを押す）／ ⚠ 設定のデータのタブ（「タイトルへ戻る」が移った）。
 const SHOT_AFTER_SKILL_PICKER: String = "skill_picker"
 const SHOT_AFTER_SETTINGS_DATA: String = "settings_data"
+# ⚠ 10-19（回SEE29-B・`NAV-36`）：⚠ メールボックスの窓（⚠ 知らせを2通入れてから封筒を押す）。
+const SHOT_AFTER_MAILBOX: String = "mailbox"
 # ⚠ UI テストのページを「品の一覧の部品」まで送る（2026-10-18・回UI-1018-1）。
 const SHOT_AFTER_ITEM_PARTS: String = "item_parts"
 # ⚠ 持ち物の装飾を合わせる欄（2026-10-18・`BS-23`）。
@@ -1735,6 +1737,7 @@ const SCENARIOS: Dictionary = {
 			},
 			# ③ 拠点の入口。
 			{"name": "04_base", "scene": SCENE_BASE},
+			{"name": "04c_base_mailbox", "scene": SCENE_BASE, "after": SHOT_AFTER_MAILBOX},
 			# ⚠ タイトル（2026-09-27・回UI-4・手本 Title）。⚠ セーブの有無でボタンが変わる（⚠ 撮る側の PC のセーブ次第）。
 			{"name": "25_title", "scene": "res://scenes/title/title_screen.tscn"},
 			# ⚠ 加護を選ぶ（2026-09-27・回UI-4・手本 Pomodoro）。⚠ 今日まだ選んでいない状態なら加護のカードが出る。
@@ -13610,6 +13613,7 @@ class ShotTaker extends Node:
 	const AFTER_SKILLS_BOTTOM: String = "skills_bottom"
 	const AFTER_SKILL_PICKER: String = "skill_picker"
 	const AFTER_SETTINGS_DATA: String = "settings_data"
+	const AFTER_MAILBOX: String = "mailbox"
 	const AFTER_ITEM_PARTS: String = "item_parts"
 	const AFTER_PART_MERGE: String = "part_merge"
 	const AFTER_BUILD_WINDOW: String = "build_window"
@@ -14304,6 +14308,17 @@ class ShotTaker extends Node:
 				await get_tree().process_frame
 			page_scroll.scroll_vertical = int(catalog.global_position.y - page_scroll.global_position.y) - 40
 			for _i: int in range(4):
+				await get_tree().process_frame
+			return true
+		if kind == AFTER_MAILBOX:
+			GameManager.add_mail(GameManager.MAIL_KIND_RESEARCH_AUTO, ["res_cap_1", "res_stat_1"])
+			GameManager.add_mail(GameManager.MAIL_KIND_RESEARCH_AUTO, ["res_cap_2"])
+			var mail_button: Node = screen.find_child("MailButton", true, false)
+			if not (mail_button is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に封筒が無い" % shot_name)
+				return false
+			(mail_button as BaseButton).pressed.emit()
+			for _i: int in range(6):
 				await get_tree().process_frame
 			return true
 		if kind == AFTER_SKILL_PICKER:
@@ -15973,45 +15988,72 @@ class UiFlowRunner extends Node:
 		var system: Node = base.find_child("SystemButtons", true, false)
 		var icons_ok: bool = system != null
 		# ⚠ 10-19（見る回29回目・人間「⚠ 右上のみっつんぼボタンは全部設定にする」）：⚠ 設定の1つだけ。
-		var icon_button: Button = null if system == null else system.find_child("SettingsButton", false, false) as Button
-		icons_ok = icons_ok and system.get_child_count() == 1 and icon_button != null and icon_button.icon != null and icon_button.text == "" and icon_button.tooltip_text != ""
-		_check("本部：右上は設定のアイコンだけ（名前は触れると出る・セーブとタイトルへは無い）", icons_ok
+		# ⚠ 10-19（回SEE29-B）：⚠ メールボックスの封筒が設定の左に。
+		for button_name: String in ["MailButton", "SettingsButton"]:
+			var icon_button: Button = null if system == null else system.find_child(button_name, false, false) as Button
+			icons_ok = icons_ok and icon_button != null and icon_button.icon != null and icon_button.text == "" and icon_button.tooltip_text != ""
+		icons_ok = icons_ok and system.get_child_count() == 2
+		_check("本部：右上はメールボックスと設定のアイコンだけ（名前は触れると出る・セーブとタイトルへは無い）", icons_ok
 			and base.find_child("SaveButton", true, false) == null and base.find_child("BackToTitleButton", true, false) == null)
 		_check("本部：「シナリオ」「UIテスト」「拠点を見渡す」は無い", base.find_child("ScenarioButton", true, false) == null
 			and base.find_child("UiTestButton", true, false) == null and base.find_child("ViewToggle", true, false) == null)
-		_check("本部：机＝左に今日の紙（やること・知らせ）・真ん中の上は空き・下に砂時計／冒険／掲示板・右に宝箱と施設",
+		# ⚠ 10-19（回SEE29-B・見る回29回目）：⚠ 真ん中の下は砂時計と冒険の2枚（⚠ 目立つ札）・⚠ 掲示板の札は冒険とまとめた・⚠ 今日の紙に知らせの欄は無い。
+		var feature_ok: bool = true
+		for strip_name: String in ["PomodoroStrip", "AdventureStrip"]:
+			var strip: Node = base.find_child(strip_name, true, false)
+			feature_ok = feature_ok and strip is PanelContainer and (strip as PanelContainer).theme_type_variation == &"DeskFeaturePanel"
+		_check("本部：机＝左に今日の紙（やることだけ）・真ん中の上は空き・下に砂時計と冒険（目立つ札）・右に宝箱と施設",
 			str(base.call("current_view")) == "desk" and base.find_child("TodaySheet", true, false) != null and base.find_child("TaskWallNote", true, false) != null
-			and base.find_child("FreeSpace", true, false) != null and base.find_child("PomodoroStrip", true, false) != null
-			and base.find_child("AdventureStrip", true, false) != null and base.find_child("BoardStrip", true, false) != null
+			and base.find_child("FreeSpace", true, false) != null and feature_ok and base.find_child("BoardStrip", true, false) == null
+			and base.find_child("Errands", true, false) == null and base.find_children("Errand_*", "", true, false).is_empty()
 			and base.find_child("ChestCard", true, false) != null and base.find_child("OtherFacilities", true, false) != null)
-		# ⚠ 砂時計の長さは設定と同じ値。
-		var chip_on: Node = base.find_child("Focus_%d" % GameSettings.focus_minutes(), true, false)
-		_check("本部：砂時計の長さの札が %d 分で入っている" % GameSettings.focus_minutes(), chip_on is Button and (chip_on as Button).button_pressed)
-		# ⚠ 冒険の札＝次に受ける話 → 出撃の準備（⚠ まだ出ない）。
-		var next_stage: String = GameManager.get_next_story_stage()
-		var strip_title: String = _label_text(base, "AdventureStrip", "TitleLabel")
-		_check("本部：冒険の札に次の話（%s）" % strip_title, strip_title.contains(tr(str(MasterDataLoader.get_stage(next_stage).get("name_key", "")))))
-		await _press(base.find_child("AdventureSortieButton", true, false), OPEN_FRAMES)
-		_check("本部：冒険の「出撃する」で出撃の準備（まだ出ない）", _path_of(get_tree().current_scene) == BARRACKS and not GameManager.is_in_floor())
-		base = await _open(BASE, {})
-		if base == null:
-			return
+		_check("本部：集中の長さの札・冒険の「出撃する」「続きから」は無い", base.find_children("Focus_*", "", true, false).is_empty()
+			and base.find_child("AdventureSortieButton", true, false) == null and base.find_child("ContinueRunButton", true, false) == null)
+		# ⚠ 机が画面より広がらない（⚠ 前は冒険の札の行が長いと題が左で切れた）。
+		var desk_view: Control = base.find_child("DeskView", true, false) as Control
+		var desk_left: float = 0.0 if desk_view == null else desk_view.get_global_rect().position.x
+		var desk_right: float = 0.0 if desk_view == null else desk_view.get_global_rect().end.x
+		_check("本部：机が画面の幅に収まる（机 %.0f〜%.0f ／ 画面 %.0f）" % [desk_left, desk_right, (base as Control).size.x],
+			desk_view != null and desk_left >= 0.0 and desk_right <= (base as Control).size.x)
 		await _press(base.find_child("BoardButton", true, false), OPEN_FRAMES)
-		_check("本部：掲示板の札で依頼掲示板", _path_of(get_tree().current_scene) == ADVENTURE)
+		_check("本部：冒険の札で依頼掲示板", _path_of(get_tree().current_scene) == ADVENTURE)
 		base = await _open(BASE, {})
 		if base == null:
 			return
+		# ⚠ メールボックス（10-19・回SEE29-B・`NAV-36`）：⚠ 封筒の数＝読んでいない知らせ ／ ⚠ 窓＝いまの用事＋届いた知らせ ／ ⚠ 開くと読んだ。
+		var mails_before: int = GameManager.get_mails().size()
+		GameManager.add_mail(GameManager.MAIL_KIND_RESEARCH_AUTO, ["res_cap_1", "res_stat_1"])
+		var unread: int = GameManager.get_unread_mail_count()
+		var mail_button: Node = base.find_child("MailButton", true, false)
+		var badge: Node = null if mail_button == null else mail_button.find_child("CountBadge", false, false)
+		_check("メールボックス：知らせが届くと封筒に読んでいない数（%s）" % ("-" if not (badge is Label) else (badge as Label).text), badge is Label and (badge as Label).text == str(unread) and unread >= 1)
+		await _press(mail_button)
+		var mail_modal: ModalDialog = _modal_of(base)
 		var errands: Array[Dictionary] = BaseTodaySheet.current_errands()
-		var rows: Array[Node] = base.find_children("Errand_*", "", true, false)
-		_check("今日の紙：知らせの行が %d 本（紐と同じ口）" % errands.size(), rows.size() == errands.size()
-			and (not errands.is_empty() or base.find_child("NoErrands", true, false) != null))
+		var errand_rows: Array[Node] = [] if mail_modal == null else mail_modal.find_children("Errand_*", "", true, false)
+		var mail_rows: Array[Node] = [] if mail_modal == null else mail_modal.find_children("Mail_*", "", true, false)
+		var first_label: Label = null if mail_rows.is_empty() else (mail_rows[0] as Node).find_child("MailText", true, false) as Label
+		var first_text: String = "" if first_label == null else first_label.text
+		_check("メールボックス：窓にいまの用事 %d 本・届いた知らせ %d 通（新しい順・「%s」・新の印）" % [errand_rows.size(), mail_rows.size(), first_text],
+			mail_modal != null and errand_rows.size() == errands.size() and mail_rows.size() == mails_before + 1
+			and first_text.contains(ResearchCard.name_of("res_cap_1")) and (mail_rows[0] as Node).find_child("NewMark", true, false) != null)
+		_check("メールボックス：開くと全部読んだ・封筒の数が消える", GameManager.get_unread_mail_count() == 0 and mail_button.find_child("CountBadge", false, false) == null)
 		if not errands.is_empty():
 			var first: Dictionary = errands[0]
-			await _press(base.find_child("Errand_" + str(first[BaseTodaySheet.KEY_ID]), true, false), OPEN_FRAMES)
-			_check("今日の紙：「%s」でその画面へ" % tr(str(first[BaseTodaySheet.KEY_TEXT])), _path_of(get_tree().current_scene) == str(first[BaseTodaySheet.KEY_PATH]))
-			base = await _open(BASE, {})
-			if base == null:
-				return
+			await _press(mail_modal.find_child("Errand_" + str(first[BaseTodaySheet.KEY_ID]), true, false), OPEN_FRAMES)
+			_check("メールボックス：用事「%s」でその画面へ" % tr(str(first[BaseTodaySheet.KEY_TEXT])), _path_of(get_tree().current_scene) == str(first[BaseTodaySheet.KEY_PATH]))
+		else:
+			await _close_modal(base)
+		# ⚠ 「⚠ ２アだが１００件」：⚠ 超えたら古いものから消える。
+		for _i: int in range(GameManager.MAIL_KEEP_COUNT + 5):
+			GameManager.add_mail(GameManager.MAIL_KIND_RESEARCH_AUTO, ["res_cap_1"])
+		var kept: Array[Dictionary] = GameManager.get_mails()
+		_check("メールボックス：%d 通を超えると古いものから消える（%d 通）" % [GameManager.MAIL_KEEP_COUNT, kept.size()],
+			kept.size() == GameManager.MAIL_KEEP_COUNT and int(kept[0].get(GameStateKeys.MAIL_ID, 0)) > int(kept[kept.size() - 1].get(GameStateKeys.MAIL_ID, 0)))
+		GameManager.mark_mails_read()
+		base = await _open(BASE, {})
+		if base == null:
+			return
 		# ⚠ ギルド＝帯のタブ ／ 建物 ／ 歩く人 ／ 覚える。
 		var hub_bar: Node = base.find_child("FacilityBar", false, false)
 		await _press(null if hub_bar == null else hub_bar.find_child("Facility_" + BaseFacilityBar.GUILD, true, false), OPEN_FRAMES)
@@ -16024,6 +16066,10 @@ class UiFlowRunner extends Node:
 				walkers += 1
 		_check("ギルド：帯の「ギルド」で街（机は無い・灯りはギルド）", _path_of(base) == BASE and str(base.call("current_view")) == "town" and town != null
 			and base.find_child("DeskView", true, false) == null and guild_bar != null and guild_bar.active_id() == BaseFacilityBar.GUILD)
+		# ⚠ 10-19（回SEE29-B・「⚠ ギルドに何か通知があるなら画面の下部のタブにしおりを」）：⚠ 帯の「ギルド」の紐＝街の建物のどれかの紐。
+		var town_on: bool = BaseTownView.has_attention()
+		_check("ギルド：帯の「ギルド」の紐は街の建物の紐と同じ（%s）" % str(town_on), guild_bar != null and guild_bar.has_attention(BaseFacilityBar.GUILD) == town_on
+			and BaseFacilityBar.attention_of(BaseFacilityBar.GUILD) == town_on)
 		_check("ギルド：建物が並ぶ（冒険の門・宝物庫・詰所・鍛冶場・研究所・本部は無い）", town != null and town.find_child("Building_" + BaseFacilityBar.BOARD, true, false) != null
 			and town.find_child("Building_" + BaseTownView.CHEST, true, false) != null
 			and town.find_child("Building_" + BaseFacilityBar.BARRACKS, true, false) != null and town.find_child("Building_" + BaseFacilityBar.FORGE, true, false) != null
@@ -19265,7 +19311,13 @@ class UiFlowRunner extends Node:
 		await _confirm_modal()
 		_check("研究：「自動」を押すと窓 → オンになる", bool(GameManager.get_research_auto()[GameManager.RESEARCH_AUTO_ENABLED]))
 		var left_before: int = GameManager.get_affordable_research_count()
+		var unread_before: int = GameManager.get_unread_mail_count()
 		var _base: Node = await _open(BASE, {})
+		# ⚠ 10-19（「⚠ 窓を出さないでいいがメールボックスに送って」）：⚠ 開いたら知らせが1通・窓は出ない。
+		var mails_now: Array[Dictionary] = GameManager.get_mails()
+		_check("研究：自動で開くとメールボックスに知らせが1通（読んでいない %d → %d）・窓は出ない" % [unread_before, GameManager.get_unread_mail_count()],
+			left_before == 0 or (GameManager.get_unread_mail_count() == unread_before + 1 and not mails_now.is_empty()
+			and str(mails_now[0].get(GameStateKeys.MAIL_KIND, "")) == GameManager.MAIL_KIND_RESEARCH_AUTO and _base != null and _modal_of(_base) == null))
 		_check("研究：自動＝本部に着くと開く（開けた %d 件 → 残り %d）・栞" % [left_before, GameManager.get_affordable_research_count()],
 			left_before == 0 or (GameManager.get_affordable_research_count() < left_before and GameManager.has_new_research()))
 		_check("研究：本部の研究の札に紐", _base != null and _base.find_child("ResearchCard", true, false) is Control
@@ -20957,14 +21009,12 @@ class UiFlowRunner extends Node:
 		# G：本部の「続きから」。
 		if not GameManager.is_in_floor():
 			var _entered: bool = GameManager.start_floor(str(MasterDataLoader.get_stage_order(GameStateKeys.STAGE_TYPE_STORY)[0]))
+		# ⚠ 10-19（回SEE29-B・「⚠ シナリオの続きからはいらない」「⚠ ２あ」）：⚠ 本部の冒険の札は「ランの途中」の一言だけ・続きは掲示板。
 		var base: Node = await _open(BASE, {})
-		var cont: Node = null if base == null else base.find_child("ContinueRunButton", true, false)
-		var had_cont: bool = cont is BaseButton
-		await _press(cont, OPEN_FRAMES)
-		_check("続きから：本部の「続きから」で途中のフロアへ1回で", had_cont and _path_of(get_tree().current_scene) == FLOOR_MAP)
+		var strip_sub: String = "" if base == null else _label_text(base, "AdventureStrip", "SubLabel")
+		_check("続きから：ランの途中は本部の冒険の札に一言（%s）・「続きから」のボタンは無い" % strip_sub,
+			base != null and strip_sub.contains(tr("ui_hq_run_in_progress")) and base.find_child("ContinueRunButton", true, false) == null)
 		GameManager.abandon_floor()
-		base = await _open(BASE, {})
-		_check("続きから：途中のランが無ければ出さない", base != null and base.find_child("ContinueRunButton", true, false) == null)
 
 	# --- アイコンを押しても窓（2026-10-07・人間「⚠ アイコンをクリックしても窓が出るように」） ---
 

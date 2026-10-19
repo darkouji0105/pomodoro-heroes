@@ -1520,7 +1520,6 @@ ui_guild_workshop_collected_all,%d個まとめて受け取った
 ui_level_up_max,上げられるだけ上げる
 ui_guild_shop_buy_bulk,まとめて買う（%d）
 ui_guild_shop_purchased_bulk,%d回まとめて買った
-ui_base_continue_run,続きから
 ui_guild_shop_next_refresh,次の更新まで %d時間%d分
 ui_toast_craft_done,作業場の品が完成した（%d個）
 ui_settings_effect_speed,演出の速さ
@@ -1534,8 +1533,14 @@ ui_training_tab_characters,キャラ
 ui_base_view_town,拠点を見渡す
 ui_base_view_desk,机に戻る
 ui_base_today_title,今日の紙
-ui_base_today_errands,知らせ
 ui_base_today_none,いまの用事はありません
+ui_mail_title,メールボックス
+ui_mail_open,メールボックス
+ui_mail_errands,いまの用事
+ui_mail_received,届いた知らせ
+ui_mail_none,まだ届いた知らせはありません
+ui_mail_new,新
+ui_mail_research_auto,研究が自動で %d つ開いた：%s
 ui_base_today_hq,本部：届いた宝箱がある
 ui_base_today_training,育成：昇級できる人がいる
 ui_base_today_forge,鍛冶場：作業場の品ができた
@@ -2570,13 +2575,14 @@ ui_hq_focus_goal,/ %d 分
 ui_hq_focus_unit,分
 ui_hq_pomodoro_title,集中の砂時計
 ui_hq_pomodoro_now,いま：%s
+ui_hq_pomodoro_free,やることを決めずに始めてもよい
+ui_hq_adventure_open,冒険へ ›
 ui_hq_pomodoro_start,▶ 始める
 ui_hq_adventure_title,冒険
 ui_hq_run_in_progress,ランの途中
 ui_hq_stamina_note,スタミナ %d（のこり %d）
 ui_hq_change_party,詰所で替える
 ui_hq_board_sub,受けられる話 %d・高難度 %d
-ui_hq_board_open,掲示板を見る ›
 ui_hq_chest_title,宝箱
 ui_hq_chest_sub,ごほうびが %d 個届いた
 ui_hq_chest_none,いまは無い
