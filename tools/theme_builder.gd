@@ -3736,10 +3736,13 @@ const RESEARCH: Dictionary = {
 	"legend_swatch": 12, "ribbon_left": 10, "wait_alpha_pct": 70, "closed_alpha_pct": 50, "full_alpha_pct": 100,
 	# ⚠ 板をつまんで送るとき、ここまで動いたらドラッグ（10-19・見る回29回目「⚠ ドラッグも追加」）。
 	"drag_start": 6,
+	# ⚠ 区切りの研究（10-19・回SEE29-F・`GR-14`）：⚠ 左右に広げる量（⚠ 上下はその半分）・金の枠の太さ。
+	"milestone_grow": 8, "milestone_frame": 3,
 }
 const RESEARCH_COLORS: Dictionary = {
 	"icon_on_dark": "f3d58a", "icon_on_paper": TOKEN_INK, "pin_red": "c0473a", "pin_dark": "3a2c22", "pin_shadow": "00000059",
 	"seal": TOKEN_WAX, "seal_text": "fbeee6", "thread_done": "b5372b", "thread_next": TOKEN_INK, "thread_wait": "4f403099",
+	"milestone_frame": "d4a640",
 }
 const RESEARCH_CARD_DONE_BG: String = "2b2118"
 const RESEARCH_CARD_SHORT_BG: String = "e9dcc0"

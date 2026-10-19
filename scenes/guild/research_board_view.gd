@@ -140,7 +140,7 @@ func _build() -> void:
 			var card: ResearchCard = ResearchCard.create(node_id)
 			card.pressed.connect(_on_card_pressed.bind(node_id))
 			add_child(card)
-			card.position = Vector2(left + float(d) * (card_w + col_gap), y + float(line) * (card_h + row_gap))
+			card.position = Vector2(left + float(d) * (card_w + col_gap), y + float(line) * (card_h + row_gap)) - card.grow_offset()
 			_cards[node_id] = card
 		if lines == 0:
 			continue
@@ -227,28 +227,31 @@ func _draw() -> void:
 	# ⚠ いちばん右の列の札（⚠ 後ろに続く研究が無いもの）→ 完成の報酬。⚠ 浅い列の行き止まりからは引かない（⚠ 板を横切る長い糸になる）。
 	if _reward != null:
 		var claimed: bool = GameManager.is_research_board_reward_claimed(_board)
-		var right: float = 0.0
-		for node_id: String in _cards:
-			right = maxf(right, (_cards[node_id] as Control).position.x)
-		for node_id: String in _cards:
-			if not has_next.has(node_id) and is_equal_approx((_cards[node_id] as Control).position.x, right):
-				_thread(_cards[node_id] as Control, _reward, bool(done[node_id]), claimed)
+		for node_id: String in reward_thread_sources():
+			_thread(_cards[node_id] as Control, _reward, bool(done[node_id]), claimed)
 
 
-# ⚠ 検査用：⚠ 完成の報酬へ糸を引く札。
+# ⚠ 完成の報酬へ糸を引く札（⚠ いちばん右の列の行き止まり）。⚠ 糸を引くのも検査もここ。
 func reward_thread_sources() -> Array[String]:
 	var has_next: Dictionary = {}
 	for node_id: String in _cards:
 		for raw: Variant in MasterDataLoader.get_research_node(node_id).get(GameStateKeys.NODE_PREREQUISITES, []):
 			has_next[str(raw)] = true
+	# ⚠ 列は札の真ん中で比べる（⚠ 区切りの札は大きいぶん左へずれている＝`ResearchCard.grow_offset()`）。
 	var right: float = 0.0
 	for node_id: String in _cards:
-		right = maxf(right, (_cards[node_id] as Control).position.x)
+		right = maxf(right, center_of(node_id).x)
 	var out: Array[String] = []
 	for node_id: String in _cards:
-		if not has_next.has(node_id) and is_equal_approx((_cards[node_id] as Control).position.x, right):
+		if not has_next.has(node_id) and is_equal_approx(center_of(node_id).x, right):
 			out.append(node_id)
 	return out
+
+
+# ⚠ 札の真ん中（⚠ 板の中の座標）。⚠ 検査からも引く。
+func center_of(node_id: String) -> Vector2:
+	var card: Control = _cards.get(node_id, null) as Control
+	return Vector2.ZERO if card == null else card.position + card.size * 0.5
 
 
 # ⚠ 板をつまんで送る（⚠ 外側の `ScrollContainer`）。⚠ `_input` で取る＝札の上から始めても効く。

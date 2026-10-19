@@ -245,6 +245,7 @@
 | **GR-11** | ⚠⚠ **ボードを全部開くと「完成の報酬」**（10-18・回UI-1018-7・人間「あ：宝石・素材・金で仮」）：⚠ 各ボードの右端に札（⚠ 押すと右に報酬の一覧・あと◯つ・「受け取る」）／ ⚠ 1回だけ ／ ⚠ 仲間・称号はまだ無い＝表に欄を足せる形 | ⚠ ボード1＝金300・宝石50・鍛冶の素材2段×20・修練の素材2段×20 ／ ボード2＝金600・宝石100・3段×20（`ResearchConfig.board_rewards`・仮） | `GameManager.claim_research_board_reward()`・`get_research_board_reward()`・`has_claimable_research_reward()` ／ `GameStateKeys.RESEARCH_REWARDS_CLAIMED` ／ `shot` の `11b` | **10-18** | — |
 | **GR-12** | ⚠⚠ **「開けるだけ開く」「自動で研究」・開いた研究は赤い栞**（10-18・回UI-1018-7・人間「あ：作る」）：⚠ 開けるだけ開く＝確かめの窓のあと、そのボードで開けるものを開けなくなるまで開く ／ ⚠ 自動＝分類ごとのオン・オフと素材を残す量（窓）・**本部に着いたとき**（ポモドーロや冒険から戻ったとき）に開く ／ ⚠ 開いた研究は窓を出さず赤い栞（札の左上・ボードの札・「研究」タブ・本部の研究の札）・札を押すと消える（⚠ 自分で開いたものも） | ⚠ 残す量の札 0・10・30・50・はじめ10（`ResearchConfig.auto_keep_*`） | `GameManager.unlock_research_all()`・`run_research_auto()`・`get/set_research_auto()`・`mark_research_seen()` ／ `GameStateKeys.RESEARCH_NEW`・`RESEARCH_AUTO` ／ `base_screen.gd` ／ `ui_flow` の `_flow_research_v2` ／ `shot` の `11c` | **10-18** | — |
 | **GR-13** | ⚠⚠ **絵の無いスキルは役割の共通アイコン**（10-19・回SEE29-E・見る回29回目・人間「⚠ ビルドのアイコンが読み込まれない？」→ 原因＝スキルの絵が 18 枚 →「⚠ ７い」） | ⚠ 役割は5つ＝攻撃・回復・強化・弱体・召喚 ／ ⚠ データに欄を足さず、**最初の効果の種類と相手**から毎回決める（回復＝heal・revive ／ 召喚＝summon・summon_consume ／ 攻撃＝damage・dash・knockback・通常攻撃・死体爆破と敵への dot ／ 敵への残り＝弱体 ／ ほか＝強化）／ ⚠ 育成・詰所・戦闘のスキルのマスが全部同じ口を通る ／ ⚠ 絵（`icon_skill_<ID>.svg`）を置けばそちらが勝つ | `SkillRole.of()` ／ `IconTextures.for_skill()`・`for_skill_role()` ／ `assets/images/icon_skill_role_<役割>.svg` | **10-19** | — |
+| **GR-14** | ⚠⚠ **区切りの研究の札は金の枠で一回り大きく**（10-19・回SEE29-F・見る回29回目・人間「⚠ 特別感を出したい」→「⚠ ８あ」） | ⚠ 区切り＝マスターの `milestone`（中間 `mid`・最後 `final`）／ ⚠ 左右に 8・上下に 4 ずつ広げ、板の升目の真ん中は保つ（⚠ 糸と隣の札を崩さない）／ ⚠ 金の枠 3px・最後は内側にもう1本 ／ ⚠ 「★ 中間」の字は戻さない | `ResearchCard.milestone_of()`・`grow_offset()` ／ `ResearchBoardView.center_of()` ／ Theme `Research/milestone_grow`・`milestone_frame` | **10-19** | — |
 
 ## 6. ラン共通（`RUN-n`）（**⚠ シナリオと難ダンジョンの両方に効く**）
 
@@ -465,6 +466,7 @@
 
 ## 更新履歴
 
+- **2026-10-19（43回目）… 回SEE29-F：`GR-14`（区切りの研究の札は金の枠で大きく）を足した**。
 - **2026-10-19（42回目）… 回SEE29-E（前半）：`NAV-38`（深さは1枚前の画面）・`GR-13`（絵の無いスキルは役割のアイコン）を足した**。
 - **2026-10-19（41回目）… 回SEE29-D：`RUN-18`（話の報酬の数に幅）を足し、`NAV-35`（紙の色・報酬のアイコン）を書き足した**。
 - **2026-10-19（40回目）… 回SEE29-C：`NAV-37`（ポモドーロの左上の「いまの設定」の札）を足した**。

@@ -123,6 +123,8 @@ const SHOT_AFTER_SKILL_PICKER: String = "skill_picker"
 const SHOT_AFTER_SETTINGS_DATA: String = "settings_data"
 # ⚠ 10-19（回SEE29-B・`NAV-36`）：⚠ メールボックスの窓（⚠ 知らせを2通入れてから封筒を押す）。
 const SHOT_AFTER_MAILBOX: String = "mailbox"
+# ⚠ 10-19（回SEE29-F・`GR-14`）：⚠ 研究の板を区切りの札（中間）まで右へ送る。
+const SHOT_AFTER_RESEARCH_MILESTONE: String = "research_milestone"
 # ⚠ UI テストのページを「品の一覧の部品」まで送る（2026-10-18・回UI-1018-1）。
 const SHOT_AFTER_ITEM_PARTS: String = "item_parts"
 # ⚠ 持ち物の装飾を合わせる欄（2026-10-18・`BS-23`）。
@@ -1790,6 +1792,7 @@ const SCENARIOS: Dictionary = {
 			# ⚠ 研究（2026-10-18・回UI-1018-7）：⚠ ボード1を開けるだけ開いて「完成の報酬」を選んだ姿 ／ ⚠ 自動で研究の窓。
 			{"name": "11b_research_reward", "scene": "res://scenes/guild/research_screen.tscn", "after": SHOT_AFTER_RESEARCH_REWARD},
 			{"name": "11c_research_auto", "scene": "res://scenes/guild/research_screen.tscn", "after": SHOT_AFTER_RESEARCH_AUTO},
+			{"name": "11d_research_milestone", "scene": "res://scenes/guild/research_screen.tscn", "after": SHOT_AFTER_RESEARCH_MILESTONE},
 			# ⚠ 2026-09-23：⚠ 倉庫を別窓からふつうの画面に戻した（⚠ 別窓のころは撮れなかった）。
 			{"name": "19_warehouse", "scene": "res://scenes/guild/warehouse_screen.tscn"},
 			# ⚠ 2026-09-26（回UI-2）：⚠ 紙の部品。⚠ UI テストのページの一番上に並べてある。
@@ -13621,6 +13624,7 @@ class ShotTaker extends Node:
 	const AFTER_SKILL_PICKER: String = "skill_picker"
 	const AFTER_SETTINGS_DATA: String = "settings_data"
 	const AFTER_MAILBOX: String = "mailbox"
+	const AFTER_RESEARCH_MILESTONE: String = "research_milestone"
 	const AFTER_ITEM_PARTS: String = "item_parts"
 	const AFTER_PART_MERGE: String = "part_merge"
 	const AFTER_BUILD_WINDOW: String = "build_window"
@@ -14314,6 +14318,16 @@ class ShotTaker extends Node:
 			for _i: int in range(4):
 				await get_tree().process_frame
 			page_scroll.scroll_vertical = int(catalog.global_position.y - page_scroll.global_position.y) - 40
+			for _i: int in range(4):
+				await get_tree().process_frame
+			return true
+		if kind == AFTER_RESEARCH_MILESTONE:
+			var board_view: ResearchBoardView = screen.find_child("BoardView", true, false) as ResearchBoardView
+			var board_scroll: ScrollContainer = screen.find_child("BoardScroll", true, false) as ScrollContainer
+			if board_view == null or board_scroll == null:
+				push_error("[DebugBoot] ⚠ %s に研究の板が無い" % shot_name)
+				return false
+			board_scroll.scroll_horizontal = int(board_view.center_of("res_stat_2").x - board_scroll.size.x * 0.5)
 			for _i: int in range(4):
 				await get_tree().process_frame
 			return true
@@ -19313,7 +19327,7 @@ class UiFlowRunner extends Node:
 				if not (before in board_ids) or ResearchCard.category_of(before) != ResearchCard.category_of(node_id):
 					continue
 				children_of[before] = int(children_of.get(before, 0)) + 1
-				if view != null and not is_equal_approx(view.card_of(before).position.y, view.card_of(node_id).position.y):
+				if view != null and not is_equal_approx(view.center_of(before).y, view.center_of(node_id).y):
 					slanted += 1
 		for before: Variant in children_of:
 			branches += int(children_of[before]) - 1
@@ -19322,11 +19336,21 @@ class UiFlowRunner extends Node:
 		var rightmost: float = 0.0
 		for node_id: String in board_ids:
 			if view != null:
-				rightmost = maxf(rightmost, view.card_of(node_id).position.x)
+				rightmost = maxf(rightmost, view.center_of(node_id).x)
 		var sources_ok: bool = not sources.is_empty()
 		for node_id: String in sources:
-			sources_ok = sources_ok and is_equal_approx(view.card_of(node_id).position.x, rightmost)
+			sources_ok = sources_ok and is_equal_approx(view.center_of(node_id).x, rightmost)
 		_check("研究：完成の報酬への糸はいちばん右の列の札からだけ（%s）" % ",".join(sources), sources_ok)
+		# ⚠ 10-19（回SEE29-F・`GR-14`・「⚠ ８あ」）：⚠ 区切りの研究の札は大きい（金の枠）・真ん中は升目のまま。
+		var milestones: Array[String] = []
+		var grown_ok: bool = view != null
+		for node_id: String in board_ids:
+			if ResearchCard.milestone_of(node_id) == "" or view == null:
+				continue
+			milestones.append(node_id)
+			var card: ResearchCard = view.card_of(node_id)
+			grown_ok = grown_ok and card.is_milestone() and card.size.x > float(card.get_theme_constant(&"card_width", &"Research"))
+		_check("研究：区切りの札（%s）は大きい" % ",".join(milestones), not milestones.is_empty() and grown_ok)
 		# ⚠ 「⚠ ドラッグも追加」：⚠ 板をつまんで左へ動かすと右へ送られ、札は選ばれない。
 		var board_scroll: ScrollContainer = rs.find_child("BoardScroll", true, false) as ScrollContainer
 		var selected_before: String = str(rs.get("_selected"))

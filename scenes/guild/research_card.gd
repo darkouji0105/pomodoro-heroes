@@ -34,6 +34,23 @@ static func name_of(node_id: String) -> String:
 	return TranslationServer.translate(str(MasterDataLoader.get_research_node(node_id).get(NAME_KEY, node_id)))
 
 
+# ⚠ 区切りの研究（10-19・回SEE29-F・`GR-14`・人間「⚠ 特別感を出したい」→「⚠ ８あ」）：⚠ "mid"・"final"・""（⚠ マスターの `milestone`）。
+static func milestone_of(node_id: String) -> String:
+	return str(MasterDataLoader.get_research_node(node_id).get(GameManager.RESEARCH_NODE_MILESTONE, ""))
+
+
+func is_milestone() -> bool:
+	return not is_reward() and milestone_of(_node_id) != ""
+
+
+# ⚠ 区切りの札は大きいぶん左上へずらす（⚠ 板の升目の真ん中を保つ＝糸と隣の札を崩さない）。⚠ 板が置くときに引く。
+func grow_offset() -> Vector2:
+	if not is_milestone():
+		return Vector2.ZERO
+	var grow: float = float(get_theme_constant(&"milestone_grow", THEME_TYPE))
+	return Vector2(grow, grow * 0.5)
+
+
 static func category_of(node_id: String) -> String:
 	return str(MasterDataLoader.get_research_node(node_id).get(GameManager.RESEARCH_NODE_CATEGORY, ""))
 
@@ -111,7 +128,7 @@ func is_reward() -> bool:
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	custom_minimum_size = Vector2(float(get_theme_constant(&"card_width", THEME_TYPE)), float(get_theme_constant(&"card_height", THEME_TYPE)))
+	custom_minimum_size = Vector2(float(get_theme_constant(&"card_width", THEME_TYPE)), float(get_theme_constant(&"card_height", THEME_TYPE))) + grow_offset() * 2.0
 	size = custom_minimum_size
 	_panel = PanelContainer.new()
 	_panel.name = "Panel"
@@ -232,6 +249,14 @@ func _apply_style() -> void:
 
 # ⚠ 画鋲（⚠ いま開ける＝赤・ほか＝墨）と「済」の判。
 func _draw_marks() -> void:
+	# ⚠ 区切りの研究は金の枠（⚠ 最後は二重）。⚠ 画鋲と判より下に引く。
+	if is_milestone():
+		var frame: float = float(get_theme_constant(&"milestone_frame", THEME_TYPE))
+		var gold: Color = get_theme_color(&"milestone_frame", THEME_TYPE)
+		_overlay.draw_rect(Rect2(Vector2.ONE * frame * 0.5, size - Vector2.ONE * frame), gold, false, frame)
+		if milestone_of(_node_id) == GameManager.RESEARCH_MILESTONE_FINAL:
+			var inner: float = frame * 2.0
+			_overlay.draw_rect(Rect2(Vector2.ONE * (inner + frame * 0.5), size - Vector2.ONE * (inner * 2.0 + frame)), gold, false, maxf(1.0, frame * 0.5))
 	var radius: float = float(get_theme_constant(&"pin", THEME_TYPE))
 	var center: Vector2 = Vector2(size.x * 0.5, 0.0)
 	_overlay.draw_circle(center + Vector2(1.0, 2.0), radius, get_theme_color(&"pin_shadow", THEME_TYPE))
