@@ -112,3 +112,5 @@ const MEMORY_WORKSHOP_CATEGORY: String = "memory_workshop_category"
 const MEMORY_GOAL_SIDEBAR_OPEN: String = "memory_goal_sidebar_open"
 # ⚠ 10-18：⚠ 品の一覧の欄（`ItemListBar`）。⚠ 実際の鍵は「これ_種類_欄」（⚠ 種類ごとに持ち物・鍛冶場・育成で共通）。
 const MEMORY_ITEM_BAR: String = "memory_item_bar"
+# ⚠ 10-20（回SKD-1・`GR-16`）：⚠ スキルの「詳細」（係数の行）を出すか。⚠ 選ぶ窓・吹き出し・敵の解説で共通。
+const MEMORY_SKILL_DETAIL: String = "memory_skill_detail"

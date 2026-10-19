@@ -2702,3 +2702,67 @@ ui_research_reward_claim,受け取る
 ui_research_reward_claimed,受け取った
 ui_research_reward_need_all,全部開くと受け取れる
 ui_hq_research_new,新しく開いた %d・開ける %d
+ui_skd_toggle,詳細
+ui_skd_toggle_hint,係数（何を元に何倍か）・相手・秒を出す
+ui_skd_ratio,%s ×%d%%
+ui_skd_heal,回復 %s
+ui_skd_drain,与えた分の %d%% を吸収
+ui_skd_every,%s秒ごと
+ui_skd_dot,%s %s のダメージ
+ui_skd_dot_heal,%s %s 回復
+ui_skd_sep,・
+ui_skd_summon,召喚 %d体
+ui_skd_dash,移動して近づく
+ui_skd_other,効果あり
+ui_skd_type_cooldown,クールダウンを縮める
+ui_skd_type_resource,資源を増やす
+ui_skd_type_dispel,状態を消す
+ui_skd_type_knockback,押し出す
+ui_skd_type_revive,倒れた味方を起こす
+ui_skd_type_summon_consume,召喚を取り込む
+ui_skd_type_basic_attack,通常攻撃を撃つ
+ui_skd_type_pick,いくつかから1つ
+ui_skd_type_refresh_status,状態の時間を戻す
+ui_skd_stat_atk,攻撃力
+ui_skd_stat_mag,魔力
+ui_skd_stat_hp,最大HP
+ui_skd_stat_hp_lost,失ったHP
+ui_skd_stat_hp_current,今のHP
+ui_skd_stat_resource_spent,使った資源
+ui_skd_stat_charge_taken,溜め中に受けたダメージ
+ui_skd_stat_distance,動いた距離
+ui_skd_stat_elapsed_sec,経った秒
+ui_skd_stat_wave_index,ウェーブの番号
+ui_skd_stat_alive_count_enemy,残っている敵の数
+ui_skd_stat_stack,重ねた数
+ui_skd_stat_resource,資源の量
+ui_skd_attack_physical,物理
+ui_skd_attack_magic,魔法
+ui_skd_seconds,%s秒
+ui_skd_until_basic_end,次の通常攻撃まで
+ui_skd_until_charge_end,溜め終わるまで
+ui_skd_target_self,自分
+ui_skd_target_source,付けた相手
+ui_skd_side_enemy,敵
+ui_skd_side_ally,味方
+ui_skd_target_area,範囲（半径%d）の%s
+ui_skd_target_all,%s全員
+ui_skd_target_count,%s%s %d体
+ui_skd_sort_nearest,一番近い
+ui_skd_sort_farthest,一番遠い
+ui_skd_sort_lowest_hp,HPが一番低い
+ui_skd_sort_highest_hp,HPが一番高い
+ui_skd_sort_front,一番前の
+ui_status_name_poison,毒
+ui_status_name_burn,火傷
+ui_status_name_bleed,出血
+ui_status_name_shock,感電
+ui_status_name_blind,目くらまし
+ui_enemy_info_boss,ボス
+ui_enemy_info_stats,強さ
+ui_enemy_info_basic,通常攻撃
+ui_enemy_info_basic_numbers,射程 %d ・ %.1f 秒ごと
+ui_enemy_info_skills,スキル
+ui_enemy_info_no_skill,スキルは持っていない
+ui_enemy_info_cooldown,CD %.1f秒
+ui_quest_enemy_hint,敵を押すと解説

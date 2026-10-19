@@ -336,9 +336,10 @@ func _desc_key_of(stage_id: String) -> String:
 	return str(MasterDataLoader.get_stage(stage_id).get("name_key", stage_id)) + "_desc"
 
 
-# ⚠ 敵（⚠ 出てくる敵の名前を1回ずつ・ボスは「（ボス）」）。
-func _enemy_text(stage_data: Dictionary) -> String:
-	var names: Array[String] = []
+# ⚠ 敵（⚠ 出てくる敵を1回ずつ・道中 → ボス）。⚠ [{id, boss}]。
+func _enemy_entries(stage_data: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var seen: Dictionary = {}
 	var groups: Array = []
 	for raw: Variant in stage_data.get("battle_pool", []):
 		groups.append(raw)
@@ -346,17 +347,46 @@ func _enemy_text(stage_data: Dictionary) -> String:
 		groups.append(raw)
 	for raw: Variant in groups:
 		for enemy: Variant in (raw as Dictionary).get("enemies", []):
-			var enemy_name: String = tr(str(MasterDataLoader.get_enemy(str((enemy as Dictionary).get("enemy_type_id", ""))).get("name_key", "")))
-			if not names.has(enemy_name):
-				names.append(enemy_name)
+			var enemy_id: String = str((enemy as Dictionary).get("enemy_type_id", ""))
+			if enemy_id != "" and not seen.has(enemy_id):
+				seen[enemy_id] = true
+				result.append({"id": enemy_id, "boss": false})
 	for enemy: Variant in (stage_data.get("boss", {}) as Dictionary).get("enemies", []):
 		var boss: Dictionary = enemy as Dictionary
-		var boss_name: String = tr(str(MasterDataLoader.get_enemy(str(boss.get("enemy_type_id", ""))).get("name_key", "")))
-		if bool(boss.get("is_boss", false)):
-			boss_name = tr("ui_quest_enemy_boss") % boss_name
-		if not names.has(boss_name):
-			names.append(boss_name)
-	return tr("ui_quest_reward_sep").join(names)
+		var boss_id: String = str(boss.get("enemy_type_id", ""))
+		if boss_id != "" and not seen.has(boss_id):
+			seen[boss_id] = true
+			result.append({"id": boss_id, "boss": bool(boss.get("is_boss", false))})
+	return result
+
+
+# ⚠ 敵の札（10-20・回SKD-1・`GR-16`・人間「⚠ 敵も後々クリックしたら解説を出す予定」）：⚠ 押すと敵の解説の窓（`EnemyInfoWindow`）。
+func _add_enemy_buttons(column: VBoxContainer, stage_data: Dictionary) -> void:
+	var entries: Array[Dictionary] = _enemy_entries(stage_data)
+	if entries.is_empty():
+		return
+	var caption_row: HBoxContainer = HBoxContainer.new()
+	column.add_child(caption_row)
+	var caption: Label = Label.new()
+	caption.theme_type_variation = &"CaptionLabel"
+	caption.text = tr("ui_quest_enemies")
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caption_row.add_child(caption)
+	var hint: Label = Label.new()
+	hint.theme_type_variation = &"CaptionLabel"
+	hint.text = tr("ui_quest_enemy_hint")
+	caption_row.add_child(hint)
+	var flow: HFlowContainer = HFlowContainer.new()
+	flow.name = "Enemies"
+	column.add_child(flow)
+	for entry: Dictionary in entries:
+		var enemy_id: String = str(entry["id"])
+		var enemy_name: String = tr(str(MasterDataLoader.get_enemy(enemy_id).get("name_key", enemy_id)))
+		var button: Button = UiButton.create_paper_choice("")
+		button.name = "Enemy_" + enemy_id
+		button.text = tr("ui_quest_enemy_boss") % enemy_name if bool(entry["boss"]) else enemy_name
+		button.pressed.connect(func() -> void: var _w: ModalDialog = EnemyInfoWindow.open(self, enemy_id, bool(entry["boss"])))
+		flow.add_child(button)
 
 
 # --- 高難度の依頼（難ダンジョンごとに札） --------------------------------
@@ -449,7 +479,7 @@ func _rebuild_detail() -> void:
 			var stage_id: String = str(entry.get(KEY_STAGE, ""))
 			title.text = tr(str(MasterDataLoader.get_stage(stage_id).get("name_key", stage_id)))
 			desc.text = stage_id
-			_add_field(column, "ui_quest_enemies", _enemy_text(MasterDataLoader.get_stage(stage_id)))
+			_add_enemy_buttons(column, MasterDataLoader.get_stage(stage_id))
 			_add_button(actions, "ChallengeButton", "ui_adventure_challenge", _on_debug_challenge_pressed.bind(stage_id), UiButton.Variant.PRIMARY)
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -520,7 +550,7 @@ func _fill_story_detail(entry: Dictionary, title: Label, desc: Label, column: VB
 	reward_caption.text = tr("ui_quest_reward_spread")
 	column.add_child(reward_caption)
 	column.add_child(QuestRewardIcons.create(stage_id))
-	_add_field(column, "ui_quest_enemies", _enemy_text(stage_data))
+	_add_enemy_buttons(column, stage_data)
 	_add_party(column)
 	var stamina: Label = Label.new()
 	stamina.name = "StaminaLabel"

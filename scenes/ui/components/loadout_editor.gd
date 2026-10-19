@@ -352,11 +352,17 @@ func _build_picker(slot_index: int) -> ScrollContainer:
 	var column: VBoxContainer = VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(column)
+	var hint_row: HBoxContainer = HBoxContainer.new()
+	column.add_child(hint_row)
 	var hint: Label = Label.new()
 	hint.name = "PickerHint"
 	hint.theme_type_variation = &"CaptionLabel"
 	hint.text = tr("ui_training_skills_picker_hint")
-	column.add_child(hint)
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hint_row.add_child(hint)
+	# ⚠ 10-20（回SKD-1・`GR-16`）：⚠ 「詳細」＝係数の行（⚠ 窓は閉じずに中身だけ組み直す）。
+	hint_row.add_child(SkillDetailLines.toggle(func() -> void: _refill_picker(scroll, slot_index)))
 	var candidates: GridContainer = GridContainer.new()
 	candidates.name = "Candidates"
 	candidates.columns = CANDIDATE_COLUMNS
@@ -366,6 +372,20 @@ func _build_picker(slot_index: int) -> ScrollContainer:
 		var skill_id: String = str(entry)
 		candidates.add_child(_create_candidate(skill_id, skill_id in unlocked, selected.find(skill_id), slot_index))
 	return scroll
+
+
+# ⚠ 「詳細」を押したとき：⚠ 窓の中身（送りの中）だけ作り直す（⚠ await を持たない）。
+func _refill_picker(scroll: ScrollContainer, slot_index: int) -> void:
+	if not is_instance_valid(scroll):
+		return
+	var fresh: ScrollContainer = _build_picker(slot_index)
+	var body: Node = fresh.get_child(0)
+	fresh.remove_child(body)
+	fresh.free()
+	for child: Node in scroll.get_children():
+		scroll.remove_child(child)
+		child.queue_free()
+	scroll.add_child(body)
 
 
 func _create_candidate(skill_id: String, is_unlocked: bool, slot_index: int, target_slot: int) -> LedgerRow:
@@ -414,6 +434,8 @@ func _create_candidate(skill_id: String, is_unlocked: bool, slot_index: int, tar
 		caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		caption.text = tr(desc_key)
 		column.add_child(caption)
+	if SkillDetailLines.is_on():
+		column.add_child(SkillDetailLines.for_skill(skill_id))
 	var timing: VBoxContainer = VBoxContainer.new()
 	timing.name = "TimingColumn"
 	timing.size_flags_vertical = Control.SIZE_SHRINK_CENTER

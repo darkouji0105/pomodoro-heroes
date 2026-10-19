@@ -125,6 +125,9 @@ const SHOT_AFTER_SETTINGS_DATA: String = "settings_data"
 const SHOT_AFTER_MAILBOX: String = "mailbox"
 # ⚠ 10-19（回SEE29-F・`GR-14`）：⚠ 研究の板を区切りの札（中間）まで右へ送る。
 const SHOT_AFTER_RESEARCH_MILESTONE: String = "research_milestone"
+# ⚠ 10-20（回SKD-1・`GR-16`）：⚠ 敵の解説の窓（「詳細」を入れた姿）／ ⚠ スキルを選ぶ窓（「詳細」を入れた姿）。
+const SHOT_AFTER_ENEMY_INFO: String = "enemy_info"
+const SHOT_AFTER_SKILL_PICKER_DETAIL: String = "skill_picker_detail"
 # ⚠ UI テストのページを「品の一覧の部品」まで送る（2026-10-18・回UI-1018-1）。
 const SHOT_AFTER_ITEM_PARTS: String = "item_parts"
 # ⚠ 持ち物の装飾を合わせる欄（2026-10-18・`BS-23`）。
@@ -1745,6 +1748,7 @@ const SCENARIOS: Dictionary = {
 			# ⚠ 加護を選ぶ（2026-09-27・回UI-4・手本 Pomodoro）。⚠ 今日まだ選んでいない状態なら加護のカードが出る。
 			{"name": "26_pomodoro", "scene": "res://scenes/pomodoro/pomodoro.tscn"},
 			# ⚠ `05_guild` は 2026-09-26（回UI-3）に消した（⚠ ギルドの画面ごと無い）。⚠ 番号は空けたまま。
+			{"name": "06b_enemy_info", "scene": "res://scenes/adventure/adventure_select.tscn", "after": SHOT_AFTER_ENEMY_INFO},
 			{"name": "06_adventure_select", "scene": "res://scenes/adventure/adventure_select.tscn"},
 			# ④ 育てる。⚠ 装備は「誰の」が要るので渡す。
 			{"name": "07_training", "scene": "res://scenes/guild/training_screen.tscn"},
@@ -1771,6 +1775,12 @@ const SCENARIOS: Dictionary = {
 				"scene": "res://scenes/guild/training_screen.tscn",
 				"data": {TransferKeys.CHARACTER_ID: "char_swordsman", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_SKILLS},
 				"after": SHOT_AFTER_SKILL_PICKER,
+			},
+			{
+				"name": "28d_training_skill_picker_detail",
+				"scene": "res://scenes/guild/training_screen.tscn",
+				"data": {TransferKeys.CHARACTER_ID: "char_swordsman", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_SKILLS},
+				"after": SHOT_AFTER_SKILL_PICKER_DETAIL,
 			},
 			# ⚠ 昇級申請書（人間「⚠ 3あ」）。⚠ 31 は画面の口で判を押した姿（⚠ 素材は初期の分で足りる。⚠ 保存はしない）。
 			{
@@ -13625,6 +13635,8 @@ class ShotTaker extends Node:
 	const AFTER_SETTINGS_DATA: String = "settings_data"
 	const AFTER_MAILBOX: String = "mailbox"
 	const AFTER_RESEARCH_MILESTONE: String = "research_milestone"
+	const AFTER_ENEMY_INFO: String = "enemy_info"
+	const AFTER_SKILL_PICKER_DETAIL: String = "skill_picker_detail"
 	const AFTER_ITEM_PARTS: String = "item_parts"
 	const AFTER_PART_MERGE: String = "part_merge"
 	const AFTER_BUILD_WINDOW: String = "build_window"
@@ -14344,6 +14356,35 @@ class ShotTaker extends Node:
 			(mail_button as BaseButton).pressed.emit()
 			for _i: int in range(6):
 				await get_tree().process_frame
+			return true
+		if kind == AFTER_ENEMY_INFO:
+			SkillDetailLines.set_on(true)
+			var enemy_button: Node = null
+			for node: Node in screen.find_children("Enemy_*", "", true, false):
+				if node is BaseButton and str(node.name).begins_with("Enemy_boss"):
+					enemy_button = node
+			if enemy_button == null:
+				var any: Array[Node] = screen.find_children("Enemy_*", "", true, false)
+				enemy_button = null if any.is_empty() else any[0]
+			if not (enemy_button is BaseButton):
+				push_error("[DebugBoot] ⚠ %s に敵の札が無い" % shot_name)
+				return false
+			(enemy_button as BaseButton).pressed.emit()
+			for _i: int in range(6):
+				await get_tree().process_frame
+			SkillDetailLines.set_on(false)
+			return true
+		if kind == AFTER_SKILL_PICKER_DETAIL:
+			SkillDetailLines.set_on(true)
+			var detail_slot: Node = screen.find_child("SkillSlot_1", true, false)
+			var detail_hit: Node = null if detail_slot == null else detail_slot.find_child("Hit", false, false)
+			if not (detail_hit is BaseButton):
+				push_error("[DebugBoot] ⚠ %s にスキルの枠2が無い" % shot_name)
+				return false
+			(detail_hit as BaseButton).pressed.emit()
+			for _i: int in range(6):
+				await get_tree().process_frame
+			SkillDetailLines.set_on(false)
 			return true
 		if kind == AFTER_SKILL_PICKER:
 			var slot: Node = screen.find_child("SkillSlot_1", true, false)
@@ -15532,6 +15573,15 @@ class UiFlowRunner extends Node:
 		var picker_modal: ModalDialog = _modal_of(t)
 		_check("スキル：一覧は窓の中（%s）" % ("窓" if picker_modal != null else "無し"), picker_modal != null and picker_modal.find_child("Picker", true, false) != null
 			and editor.picker_dialog() == picker_modal)
+		# ⚠ 10-20（回SKD-1・`GR-16`）：⚠ 窓の「詳細」で候補に係数の行（⚠ 窓は閉じない）・吹き出しにも。
+		SkillDetailLines.set_on(false)
+		var detail_before: int = 0 if picker_modal == null else picker_modal.find_children("SkillDetail", "", true, false).size()
+		await _press(null if picker_modal == null else picker_modal.find_child("DetailToggle", true, false))
+		var detail_after: int = 0 if picker_modal == null else picker_modal.find_children("SkillDetail", "", true, false).size()
+		_check("スキル：窓の「詳細」で候補に係数の行（%d → %d）・窓は開いたまま" % [detail_before, detail_after],
+			detail_before == 0 and detail_after > 0 and editor.picker_dialog() == picker_modal)
+		_check("スキル：「詳細」なら吹き出しにも係数の行", LoadoutIcons.skill_tip_text("skill_power_slash").contains("×200%"))
+		SkillDetailLines.set_on(false)
 		# ⚠ 10-19（回SEE29-E・`GR-13`・「⚠ ７い」）：⚠ 絵の無いスキルも役割の共通アイコン＝⚠ 枠が全部絵を持つ。
 		var frames_total: int = 0
 		var frames_drawn: int = 0
@@ -15574,8 +15624,7 @@ class UiFlowRunner extends Node:
 		# ⚠ 10-19（「⚠ スキルをホバーすると何も表示されない」）：⚠ 枠の当たりが吹き出しの文（名前・CD）を持つ。
 		var slot_hit: Control = _hit_of(t, "SkillSlot_1") as Control
 		var tip_text: String = "" if slot_hit == null else slot_hit.tooltip_text
-		_check("スキル：枠に触れると吹き出し（%s）" % tip_text.replace("
-", "／"), tip_text.contains(tr(str(MasterDataLoader.get_skill(pick).get("name_key", "")))) and tip_text.contains("CD"))
+		_check("スキル：枠に触れると吹き出し（%s）" % tip_text.replace("\n", "／"), tip_text.contains(tr(str(MasterDataLoader.get_skill(pick).get("name_key", "")))) and tip_text.contains("CD"))
 		await _press(slot_now.find_child("ClearButton", true, false) if slot_now != null else null)
 		selected = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
 		_check("スキル：外すで枠2が空く", selected.size() < 2 or str(selected[1]) == "")
@@ -17605,6 +17654,46 @@ class UiFlowRunner extends Node:
 		var detail: Node = q.find_child("QuestDetail", true, false)
 		var detail_icons: int = 0 if detail == null else detail.find_children("Reward_*", "", true, false).size()
 		_check("掲示板：右の紙は報酬を全部アイコンで（%d / %d）" % [detail_icons, all_rewards], detail_icons == all_rewards)
+		# ⚠ 10-20（回SKD-1・`GR-16`・「⚠ 敵も後々クリックしたら解説を出す予定」）：⚠ 敵は札・押すと解説の窓 ／ ⚠ 「詳細」で係数の行。
+		SkillDetailLines.set_on(false)
+		var enemy_buttons: Array[Node] = [] if detail == null else detail.find_children("Enemy_*", "", true, false)
+		_check("掲示板：右の紙の敵は札（%d 枚）" % enemy_buttons.size(), not enemy_buttons.is_empty() and enemy_buttons[0] is BaseButton)
+		if not enemy_buttons.is_empty():
+			await _press(enemy_buttons[0])
+			var info: ModalDialog = _modal_of(q)
+			var basic_detail: SkillDetailLines = null if info == null else info.find_child("BasicDetail", true, false) as SkillDetailLines
+			var basic_texts: Array[String] = [] if basic_detail == null else basic_detail.texts()
+			_check("敵の解説：窓に強さ・通常攻撃の係数（%s）" % " ／ ".join(basic_texts), info != null and info.find_child("Stat_hp", true, false) != null
+				and not basic_texts.is_empty() and basic_texts[0].contains("×"))
+			var skills_before: int = 0 if info == null else info.find_children("SkillDetail", "", true, false).size()
+			await _press(null if info == null else info.find_child("DetailToggle", true, false))
+			var skills_after: int = 0 if info == null else info.find_children("SkillDetail", "", true, false).size()
+			_check("敵の解説：「詳細」でスキルの係数の行が増える（%d → %d）・覚えている" % [skills_before, skills_after], SkillDetailLines.is_on() and skills_after > skills_before)
+			await _close_modal(q)
+			SkillDetailLines.set_on(false)
+		# ⚠ 係数の行の書き方（⚠ 強撃＝一番近い1体に攻撃力 200%・自分の攻撃 +6 を 8 秒）。
+		var slash: Array[Dictionary] = SkillDetailText.lines_of_skill("skill_power_slash")
+		var slash_texts: Array[String] = []
+		for line: Dictionary in slash:
+			slash_texts.append(str(line.get(SkillDetailText.KEY_TEXT, "")))
+		_check("詳細の行：強撃は「%s」" % " ／ ".join(slash_texts), slash_texts.size() == 2
+			and slash_texts[0].contains(tr("ui_skd_stat_atk") + " ×200%") and slash_texts[0].contains(tr("ui_skd_sort_nearest")) and slash_texts[0].contains(tr("ui_skd_attack_physical"))
+			and slash_texts[1].contains(tr("ui_training_stat_atk") + " +6") and slash_texts[1].contains(tr("ui_skd_target_self")) and slash_texts[1].contains("8")
+			and slash[0].get(SkillDetailText.KEY_ICON, null) != null)
+		# ⚠ 全部のスキル（味方・敵）で、行が「効果あり」に落ちる数（⚠ 0 でなくてもよい・増えたら気づくために出す）。
+		var all_lines: int = 0
+		var fallback_lines: int = 0
+		var leaks: Array[String] = []
+		for skill_id: Variant in MasterDataLoader._cache_skills:
+			for line: Dictionary in SkillDetailText.lines_of_skill(str(skill_id)):
+				all_lines += 1
+				var line_text: String = str(line.get(SkillDetailText.KEY_TEXT, ""))
+				if line_text.begins_with(tr("ui_skd_other")):
+					fallback_lines += 1
+				if line_text.contains("ui_") and leaks.size() < 5:
+					leaks.append("%s：%s" % [str(skill_id), line_text])
+		print("[DebugBoot] 詳細の行：全 %d 行のうち汎用 %d 行 ／ キー漏れ %s" % [all_lines, fallback_lines, str(leaks)])
+		_check("詳細の行：全スキルで翻訳キーがそのまま出る行は無い（全 %d 行・汎用 %d 行）" % [all_lines, fallback_lines], all_lines > 0 and leaks.is_empty())
 		var in_span: bool = true
 		var seen_gold: Dictionary = {}
 		for _i: int in range(40):
@@ -20171,8 +20260,7 @@ class UiFlowRunner extends Node:
 				click_text = (shown.get_child(0) as Label).text
 			target_box.mouse_exited.emit()
 			click_ok = click_ok and (chips as StatusChips).click_tip() == null and target_box.tooltip_text != ""
-		_check("下部パネルの札：押すとすぐ吹き出し（%s）・外れると消える" % click_text.get_slice("
-", 0),
+		_check("下部パネルの札：押すとすぐ吹き出し（%s）・外れると消える" % click_text.get_slice("\n", 0),
 			click_ok and click_text.contains(tr("ui_battle_skill_power_slash")))
 		# 5. 種類ごとの文（⚠ 継続ダメージ・止める・復活）。⚠ 「効果あり」に落ちない。
 		var foe: BattleUnit = session.enemy_units[0] as BattleUnit

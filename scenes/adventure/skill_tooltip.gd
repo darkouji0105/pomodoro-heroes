@@ -109,6 +109,14 @@ func show_for(skill_id: String, name_text: String, key_label: String, tile: Cont
 	var text: String = tr(key)
 	_desc_label.text = "" if text == key else text
 	_desc_label.visible = _desc_label.text != ""
+	# ⚠ 10-20（回SKD-1・`GR-16`）：⚠ 「詳細」を入れていれば係数の行（⚠ 切り替えは育成・詰所・掲示板の「詳細」と共通）。
+	var old_detail: Node = _desc_label.get_parent().get_node_or_null("SkillDetail")
+	if old_detail != null:
+		old_detail.get_parent().remove_child(old_detail)
+		old_detail.queue_free()
+	if SkillDetailLines.is_on():
+		_desc_label.get_parent().add_child(SkillDetailLines.for_skill(skill_id))
+	reset_size()
 
 	visible = true
 	_place_above(tile)

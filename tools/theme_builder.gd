@@ -3463,6 +3463,8 @@ const QUEST_BOARD: Dictionary = {
 	"detail_width": 320, "pin": 7, "reward_items": 3, "face": 30,
 	# ⚠ 報酬のアイコン（10-19・回SEE29-D・`RUN-18`）：⚠ 箱の大きさ・右下の数を箱の下へ出す量。
 	"reward_cell": 38, "reward_count_out": 6,
+	# ⚠ 敵の解説の窓の中（⚠ 送る）の高さ（10-20・回SKD-1）。
+	"enemy_info_height": 420,
 }
 # ⚠ 紙の色を種類ごとに（10-19・回SEE29-D・人間「⚠ かみのデザインを変えてみる」→「⚠ ４あ」）。⚠ 本編＝羊皮紙のまま。
 const QUEST_PAPER_COLORS: Dictionary = {
@@ -3640,6 +3642,10 @@ static func _build_hq(theme: Theme) -> void:
 	theme.set_type_variation(&"QuestCardTitleLabel", &"Label")
 	theme.set_font_size(&"font_size", &"QuestCardTitleLabel", QUEST_CARD_TITLE)
 	# ⚠ 報酬のアイコン（10-19・回SEE29-D）：⚠ 並び ／ 暗い箱 ／ 右下の数（⚠ 縁取りで紙の上でも箱の上でも読める）。
+	# ⚠ スキルの詳細表示（10-20・回SKD-1・`GR-16`）：⚠ 1効果1行のアイコンの大きさ・字。⚠ 字の色は紙のテーマ（墨）／ 暗い吹き出し（既定）。
+	theme.set_constant(&"icon", &"SkillDetail", 16)
+	theme.set_type_variation(&"SkillDetailLabel", &"Label")
+	theme.set_font_size(&"font_size", &"SkillDetailLabel", 13)
 	theme.set_type_variation(&"QuestRewardRow", &"HFlowContainer")
 	theme.set_constant(&"h_separation", &"QuestRewardRow", 6)
 	theme.set_constant(&"v_separation", &"QuestRewardRow", 6)
@@ -4201,6 +4207,8 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"QuestTag_debug": "f1e6cf",
 	# ⚠ 依頼の報酬の数の札（10-19・回SEE29-D）：⚠ 暗い下地の上＝明るい字（⚠ 紙の墨に負けて読めなかった＝撮った絵）。
 	"QuestRewardCountLabel": "f1e6cf",
+	# ⚠ スキルの詳細表示の行（10-20・回SKD-1）：⚠ 紙の上は墨。
+	"SkillDetailLabel": TOKEN_INK,
 	# ⚠ 研究の右の紙（2026-10-18・回UI-1018-7）。
 	"ResearchEffectLabel": TOKEN_INK,
 	"ResearchShortNumberLabel": TOKEN_WAX,

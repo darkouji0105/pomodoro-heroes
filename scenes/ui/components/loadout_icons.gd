@@ -91,8 +91,10 @@ static func skill_tip_text(skill_id: String) -> String:
 	if desc != desc_key:
 		lines.append(desc)
 	lines.append(TranslationServer.translate("ui_skill_select_cooldown") % float(data.get(SkillSchema.FIELD_COOLDOWN_SEC, 0.0)))
-	return "
-".join(lines)
+	# ⚠ 10-20（回SKD-1・`GR-16`）：⚠ 「詳細」を入れていれば係数の行も（⚠ 素の吹き出しなので絵は出さず字だけ）。
+	if SkillDetailLines.is_on():
+		lines.append(SkillDetailText.plain_text(SkillDetailText.lines_of_skill(skill_id)))
+	return "\n".join(lines)
 
 
 func _ready() -> void:
