@@ -250,8 +250,56 @@ const STAGE_MASTER_CHEST_IDS: String = "chest_ids"
 const STAGE_MASTER_NODE_REWARDS: String = "node_rewards"
 # 道中の戦闘の戦利品に使う宝箱の表（2026-09-18）。⚠ chests.json の chest_id（⚠ 表を二重に持たない）。
 const STAGE_MASTER_NODE_LOOT_CHEST: String = "node_loot_chest"
-# ⚠ 話をクリアしたときの報酬（⚠ 戦闘は `_stage_data.get("rewards")` で読んでいる＝同じ字）。
+# ⚠ 話をクリアしたときの報酬（⚠ 10-19 から戦闘も周回も `roll_stage_rewards()` を通す）。
 const STAGE_MASTER_REWARDS: String = "rewards"
+
+
+# --- 話の報酬の幅（2026-10-19・回SEE29-D・`RUN-18`・人間「⚠ ５あ」） ---
+#
+# ⚠ マスターの数を真ん中に、`Balance.adventure.stage_reward_spread_pct` だけ上下に散らす。
+# ⚠ 幅の計算は `reward_span()` の1本（⚠ 紙の「10〜14」と、払う数の抽選が同じ式を通る）。
+# ⚠ 形は報酬 Dictionary と同じ（gold・materials・inventory）。⚠ 幅は [下, 上] の配列。
+
+static func reward_span(base: int) -> Vector2i:
+	var pct: float = float(Balance.adventure.stage_reward_spread_pct) / 100.0 if Balance.adventure != null else 0.0
+	if base <= 0 or pct <= 0.0:
+		return Vector2i(base, base)
+	return Vector2i(maxi(1, roundi(float(base) * (1.0 - pct))), maxi(1, roundi(float(base) * (1.0 + pct))))
+
+
+# 紙に出す幅：{gold: Vector2i, materials: {id: Vector2i}, inventory: {id: Vector2i}}。
+func get_stage_reward_spans(stage_id: String) -> Dictionary:
+	var base: Dictionary = MasterDataLoader.get_stage(stage_id).get(STAGE_MASTER_REWARDS, {}) as Dictionary
+	var result: Dictionary = {}
+	if base.has(GameStateKeys.REWARD_GOLD):
+		result[GameStateKeys.REWARD_GOLD] = reward_span(int(base[GameStateKeys.REWARD_GOLD]))
+	for group: String in [GameStateKeys.REWARD_MATERIALS, GameStateKeys.REWARD_INVENTORY]:
+		var spans: Dictionary = {}
+		var entries: Variant = base.get(group, {})
+		if entries is Dictionary:
+			for item_id: Variant in (entries as Dictionary):
+				spans[str(item_id)] = reward_span(int((entries as Dictionary)[item_id]))
+		if not spans.is_empty():
+			result[group] = spans
+	return result
+
+
+# 払う数を振る（⚠ 戦闘の勝ち・周回が呼ぶ）。⚠ 返す形はマスターの rewards と同じ（int）。⚠ ほかの欄はそのまま写す。
+func roll_stage_rewards(stage_id: String) -> Dictionary:
+	var rewards: Dictionary = (MasterDataLoader.get_stage(stage_id).get(STAGE_MASTER_REWARDS, {}) as Dictionary).duplicate(true)
+	var spans: Dictionary = get_stage_reward_spans(stage_id)
+	if spans.has(GameStateKeys.REWARD_GOLD):
+		var gold: Vector2i = spans[GameStateKeys.REWARD_GOLD]
+		rewards[GameStateKeys.REWARD_GOLD] = randi_range(gold.x, gold.y)
+	for group: String in [GameStateKeys.REWARD_MATERIALS, GameStateKeys.REWARD_INVENTORY]:
+		if not spans.has(group):
+			continue
+		var rolled: Dictionary = {}
+		for item_id: String in (spans[group] as Dictionary):
+			var span: Vector2i = (spans[group] as Dictionary)[item_id]
+			rolled[item_id] = randi_range(span.x, span.y)
+		rewards[group] = rolled
+	return rewards
 
 # レアリティの綴り。⚠ chests.json の chest_id の後半と stages.json の chest_ids の
 #   キーが、この4つで揃っていること。
@@ -9549,7 +9597,8 @@ func run_floor_auto(floor_id: String) -> Dictionary:
 			break
 
 	var chests: int = get_floor_chest_count()
-	var rewards: Dictionary = (MasterDataLoader.get_stage(floor_id).get(GameStateKeys.BATTLE_REWARDS, {}) as Dictionary).duplicate(true)
+	# ⚠ 10-19（回SEE29-D）：⚠ 戦闘の勝ちと同じ口で数を振る（⚠ 周回だけ幅が無い、にしない）。
+	var rewards: Dictionary = roll_stage_rewards(floor_id)
 	# ⚠ ボスのぶんに道中のぶんを足して1回で配る（宿題63）。
 	#   ⚠ apply_battle_rewards() を2回呼ばない。⚠ battle_finished が2本飛び、
 	#     結果画面と購読側が二重に動く。

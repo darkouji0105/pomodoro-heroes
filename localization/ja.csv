@@ -2620,13 +2620,15 @@ ui_quest_kind_hard,高難度
 ui_quest_kind_debug,検証
 ui_quest_training_desc,練習場（いまは仮の画面）
 ui_quest_reward_line,報酬　%s
-ui_quest_reward_gold,ゴールド %d
 ui_quest_reward_item,%s×%d
 ui_quest_reward_sep,・
 ui_quest_reward_more,%s ほか
 ui_quest_enemy_boss,%s（ボス）
 ui_quest_reward_dungeon,装備・素材・遺物
 ui_quest_reward,報酬
+ui_quest_reward_span,%d〜%d
+ui_quest_reward_more_count,ほか%d
+ui_quest_reward_spread,報酬（数はこの幅の中で決まる）
 ui_quest_enemies,敵
 ui_quest_party,出る人
 ui_quest_take_this,この依頼で出撃

@@ -17506,6 +17506,38 @@ class UiFlowRunner extends Node:
 		if story.size() > 1 and not GameManager.is_stage_cleared(first):
 			var second: Node = q.find_child("StageCard_" + str(story[1]), true, false)
 			_check("掲示板：解放前の話は「前の話を終えると」でボタンなし", second != null and second.find_child("LockedLabel", true, false) != null and second.find_child("ChallengeButton", true, false) == null)
+		# ⚠ 10-19（回SEE29-D・`RUN-18`）：⚠ 紙の色は種類ごと ／ ⚠ 報酬はアイコンと右下の数（幅）／ ⚠ 払う数は幅の中。
+		var first_card: TiltedSheet = q.find_child("StageCard_" + first, true, false) as TiltedSheet
+		var training_card: TiltedSheet = q.find_child("TrainingCard", true, false) as TiltedSheet
+		_check("掲示板：紙の色は種類ごと（本編 %s ／ 練習 %s）" % [str(first_card.sheet.theme_type_variation) if first_card != null else "-", str(training_card.sheet.theme_type_variation) if training_card != null else "-"],
+			first_card != null and training_card != null and str(first_card.sheet.theme_type_variation).ends_with("_story")
+			and str(training_card.sheet.theme_type_variation) == "QuestPaperPanel_training")
+		var spans: Dictionary = GameManager.get_stage_reward_spans(first)
+		var gold_span: Vector2i = spans.get(GameStateKeys.REWARD_GOLD, Vector2i.ZERO)
+		var gold_cell: Node = null if first_card == null else first_card.find_child("Reward_" + GameStateKeys.REWARD_GOLD, true, false)
+		var gold_count: String = "" if gold_cell == null else (gold_cell.find_child("CountLabel", false, false) as Label).text
+		var limit: int = q.get_theme_constant(&"reward_items", &"QuestBoard")
+		var shown_icons: int = 0 if first_card == null else first_card.find_children("Reward_*", "", true, false).size()
+		_check("掲示板：紙の報酬はアイコン %d 個まで（%d 個）・金の右下に幅「%s」" % [limit, shown_icons, gold_count],
+			first_card != null and first_card.find_child("RewardLabel", true, false) == null and shown_icons > 0 and shown_icons <= limit
+			and gold_count == QuestRewardIcons.span_text(gold_span) and gold_span.y > gold_span.x)
+		var all_rewards: int = 1 + (spans.get(GameStateKeys.REWARD_MATERIALS, {}) as Dictionary).size() + (spans.get(GameStateKeys.REWARD_INVENTORY, {}) as Dictionary).size()
+		await _press(first_card.sheet.find_child("Hit", false, false) if first_card != null else null)
+		var detail: Node = q.find_child("QuestDetail", true, false)
+		var detail_icons: int = 0 if detail == null else detail.find_children("Reward_*", "", true, false).size()
+		_check("掲示板：右の紙は報酬を全部アイコンで（%d / %d）" % [detail_icons, all_rewards], detail_icons == all_rewards)
+		var in_span: bool = true
+		var seen_gold: Dictionary = {}
+		for _i: int in range(40):
+			var rolled: Dictionary = GameManager.roll_stage_rewards(first)
+			var g: int = int(rolled.get(GameStateKeys.REWARD_GOLD, -1))
+			seen_gold[g] = true
+			in_span = in_span and g >= gold_span.x and g <= gold_span.y
+			for item_id: Variant in (rolled.get(GameStateKeys.REWARD_MATERIALS, {}) as Dictionary):
+				var m_span: Vector2i = (spans[GameStateKeys.REWARD_MATERIALS] as Dictionary)[str(item_id)]
+				var m: int = int((rolled[GameStateKeys.REWARD_MATERIALS] as Dictionary)[item_id])
+				in_span = in_span and m >= m_span.x and m <= m_span.y
+		_check("掲示板：払う数は幅の中で振る（金 %d〜%d で %d 通り・40 回）" % [gold_span.x, gold_span.y, seen_gold.size()], in_span and seen_gold.size() > 1)
 		await _press(_tab_button(q, 1))
 		_check("掲示板：「高難度の依頼」に難ダンジョンの札", q.find_children("DungeonCard_*", "", true, false).size() == MasterDataLoader.get_all_dungeon_ids().size())
 		await _press(_tab_button(q, 2))

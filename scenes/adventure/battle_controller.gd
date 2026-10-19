@@ -2949,7 +2949,8 @@ func _enter_victory() -> void:
 
 	var rewards: Dictionary = {}
 	if (not in_floor_run) or is_boss:
-		rewards = _stage_data.get("rewards", {})
+		# ⚠ 10-19（回SEE29-D・`RUN-18`）：⚠ 数は幅の中で振る（⚠ 周回と同じ口）。
+		rewards = GameManager.roll_stage_rewards(_stage_id)
 	else:
 		# ⚠ 戦闘ノードかどうかは GameManager が決める（戦闘以外は空が返る）。
 		#   ⚠ ここで kind を見ないこと。判定が2箇所になる（CLAUDE.md 6番）。

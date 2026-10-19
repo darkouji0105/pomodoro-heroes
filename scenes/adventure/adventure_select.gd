@@ -149,10 +149,16 @@ func _refresh_selection() -> void:
 	for child: Node in grid.get_children():
 		var card: TiltedSheet = child as TiltedSheet
 		if card != null:
-			card.sheet.theme_type_variation = &"QuestPaperChosenPanel" if str(card.name) == _selected else &"QuestPaperPanel"
+			card.sheet.theme_type_variation = _paper_type(str(card.name), str(card.name) == _selected)
 
 
 # --- 札の器（コルク板に留めた紙） -----------------------------------------
+
+# ⚠ 紙の色は種類ごと（10-19・回SEE29-D・`RUN-18`・人間「⚠ かみのデザインを変えてみる」→「⚠ ４あ」）：⚠ `QuestPaperPanel_<種類>`。
+func _paper_type(card_name: String, chosen: bool) -> StringName:
+	var kind: String = str((_entries.get(card_name, {}) as Dictionary).get(KEY_KIND, KIND_STORY))
+	return StringName(("QuestPaperChosenPanel_" if chosen else "QuestPaperPanel_") + kind)
+
 
 # 紙1枚：⚠ 左上に種類の札 ／ 題 ／ ひとこと ／ 点線 ／ 報酬 ／ 足（⚡・判）。⚠ 押すと右に詳しく。
 func _make_card(index: int, card_name: String, entry: Dictionary, title: String, desc: String, reward: String, caption: String = "") -> Dictionary:
@@ -160,7 +166,7 @@ func _make_card(index: int, card_name: String, entry: Dictionary, title: String,
 	card.name = card_name
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.sheet.show_corners = false
-	card.sheet.theme_type_variation = &"QuestPaperPanel"
+	card.sheet.theme_type_variation = StringName("QuestPaperPanel_" + str(entry.get(KEY_KIND, KIND_STORY)))
 	card.sheet.draw.connect(_draw_pin.bind(card.sheet))
 	var card_body: VBoxContainer = VBoxContainer.new()
 	card_body.name = "Body"
@@ -297,9 +303,15 @@ func _add_story_card(index: int, stage_id: String, stage_data: Dictionary) -> vo
 	var desc: String = tr(_desc_key_of(stage_id)) if unlocked else ""
 	var parts: Dictionary = _make_card(index, "StageCard_" + stage_id,
 		{KEY_KIND: KIND_STORY, KEY_STAGE: stage_id, KEY_INDEX: index}, tr(str(stage_data.get("name_key", stage_id))), desc,
-		_reward_text(stage_data) if unlocked else "", tr("ui_quest_episode") % (index + 1))
+		"", tr("ui_quest_episode") % (index + 1))
 	var card: TiltedSheet = parts["card"]
 	var foot: HBoxContainer = parts["foot"]
+	# ⚠ 報酬はアイコンと右下の数（10-19・回SEE29-D・`RUN-18`）。⚠ 紙には先頭から `reward_items` 個まで。
+	if unlocked:
+		var icons: QuestRewardIcons = QuestRewardIcons.create(stage_id, get_theme_constant(&"reward_items", THEME_TYPE))
+		var body: Node = card.sheet.get_node("Body")
+		body.add_child(icons)
+		body.move_child(icons, foot.get_index())
 	# 解放判定（EXEC §4.2）。⚠ 解放前は薄くして「前の話を終えると」（⚠ 右の紙にもボタンを出さない）。
 	if not unlocked:
 		card.modulate.a = float(get_theme_constant(&"locked_alpha_pct", THEME_TYPE)) / 100.0
@@ -322,23 +334,6 @@ func _add_story_card(index: int, stage_id: String, stage_data: Dictionary) -> vo
 # ⚠ ひとこと（⚠ 無ければ空）。⚠ キーは `<name_key>_desc`。
 func _desc_key_of(stage_id: String) -> String:
 	return str(MasterDataLoader.get_stage(stage_id).get("name_key", stage_id)) + "_desc"
-
-
-# ⚠ 報酬（⚠ クリアの報酬＝金と素材・品の先頭から `reward_items` 個まで）。
-func _reward_text(stage_data: Dictionary) -> String:
-	var rewards: Dictionary = stage_data.get("rewards", {})
-	var parts: Array[String] = []
-	var gold: int = int(rewards.get(GameStateKeys.REWARD_GOLD, 0))
-	if gold > 0:
-		parts.append(tr("ui_quest_reward_gold") % gold)
-	var limit: int = get_theme_constant(&"reward_items", THEME_TYPE)
-	for group: String in ["materials", "inventory"]:
-		var items: Dictionary = rewards.get(group, {})
-		for item_id: String in items:
-			if parts.size() >= limit:
-				return tr("ui_quest_reward_more") % tr("ui_quest_reward_sep").join(parts)
-			parts.append(tr("ui_quest_reward_item") % [tr(GameManager.item_name_key(item_id)), int(items[item_id])])
-	return tr("ui_quest_reward_sep").join(parts)
 
 
 # ⚠ 敵（⚠ 出てくる敵の名前を1回ずつ・ボスは「（ボス）」）。
@@ -519,7 +514,12 @@ func _fill_story_detail(entry: Dictionary, title: Label, desc: Label, column: VB
 		desc.text = tr("ui_quest_locked")
 		return
 	desc.text = tr(_desc_key_of(stage_id))
-	_add_field(column, "ui_quest_reward", _reward_text(stage_data))
+	# ⚠ 報酬は全部アイコンで（10-19・回SEE29-D）。⚠ 数は幅（⚠ 払うときにこの中で振る）。
+	var reward_caption: Label = Label.new()
+	reward_caption.theme_type_variation = &"CaptionLabel"
+	reward_caption.text = tr("ui_quest_reward_spread")
+	column.add_child(reward_caption)
+	column.add_child(QuestRewardIcons.create(stage_id))
 	_add_field(column, "ui_quest_enemies", _enemy_text(stage_data))
 	_add_party(column)
 	var stamina: Label = Label.new()

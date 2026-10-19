@@ -3461,7 +3461,17 @@ const HQ_LINK_FONT: int = 12
 # ⚠ 掲示板（⚠ コルク板に紙）。
 const QUEST_BOARD: Dictionary = {
 	"detail_width": 320, "pin": 7, "reward_items": 3, "face": 30,
+	# ⚠ 報酬のアイコン（10-19・回SEE29-D・`RUN-18`）：⚠ 箱の大きさ・右下の数を箱の下へ出す量。
+	"reward_cell": 38, "reward_count_out": 6,
 }
+# ⚠ 紙の色を種類ごとに（10-19・回SEE29-D・人間「⚠ かみのデザインを変えてみる」→「⚠ ４あ」）。⚠ 本編＝羊皮紙のまま。
+const QUEST_PAPER_COLORS: Dictionary = {
+	"story": TOKEN_PAPER, "training": "d9e3c2", "hard": "ecc9bb", "debug": "cfd9e6",
+}
+const QUEST_PAPER_CHOSEN_COLORS: Dictionary = {
+	"story": TOKEN_PAPER_SELECTED, "training": "e6eed3", "hard": "f4dbcf", "debug": "dfe6f0",
+}
+const QUEST_REWARD_COUNT_FONT: int = 11
 const QUEST_CORK: String = "b48a5c"
 const QUEST_CORK_BORDER: String = "3a2c22"
 const QUEST_CORK_PAD: int = 18
@@ -3524,6 +3534,16 @@ static func _build_hq(theme: Theme) -> void:
 		chosen.bg_color = _html(TOKEN_PAPER_SELECTED)
 		theme.set_type_variation(&"QuestPaperChosenPanel", &"PanelContainer")
 		theme.set_stylebox(&"panel", &"QuestPaperChosenPanel", chosen)
+		# ⚠ 種類ごとの紙（10-19）：⚠ `QuestPaperPanel_<種類>` ／ ⚠ 選んでいる紙 `QuestPaperChosenPanel_<種類>`。
+		for kind: String in QUEST_PAPER_COLORS:
+			var kind_paper: StyleBoxFlat = _pad_panel(paper as StyleBoxFlat, QUEST_PAPER_PAD_H, QUEST_PAPER_PAD_V)
+			kind_paper.bg_color = _html(str(QUEST_PAPER_COLORS[kind]))
+			theme.set_type_variation(StringName("QuestPaperPanel_" + kind), &"PanelContainer")
+			theme.set_stylebox(&"panel", StringName("QuestPaperPanel_" + kind), kind_paper)
+			var kind_chosen: StyleBoxFlat = chosen.duplicate()
+			kind_chosen.bg_color = _html(str(QUEST_PAPER_CHOSEN_COLORS[kind]))
+			theme.set_type_variation(StringName("QuestPaperChosenPanel_" + kind), &"PanelContainer")
+			theme.set_stylebox(&"panel", StringName("QuestPaperChosenPanel_" + kind), kind_chosen)
 	var box: StyleBoxFlat = StyleBoxFlat.new()
 	box.bg_color = _html(HQ_ICON_BOX_BG)
 	box.set_border_width_all(2)
@@ -3619,6 +3639,30 @@ static func _build_hq(theme: Theme) -> void:
 	theme.set_stylebox(&"panel", &"CorkBoardPanel", cork)
 	theme.set_type_variation(&"QuestCardTitleLabel", &"Label")
 	theme.set_font_size(&"font_size", &"QuestCardTitleLabel", QUEST_CARD_TITLE)
+	# ⚠ 報酬のアイコン（10-19・回SEE29-D）：⚠ 並び ／ 暗い箱 ／ 右下の数（⚠ 縁取りで紙の上でも箱の上でも読める）。
+	theme.set_type_variation(&"QuestRewardRow", &"HFlowContainer")
+	theme.set_constant(&"h_separation", &"QuestRewardRow", 6)
+	theme.set_constant(&"v_separation", &"QuestRewardRow", 6)
+	var reward_box: StyleBoxFlat = StyleBoxFlat.new()
+	reward_box.bg_color = _html(HQ_ICON_BOX_BG)
+	reward_box.set_border_width_all(1)
+	reward_box.border_color = _html(HQ_ICON_BOX_BORDER)
+	reward_box.set_corner_radius_all(6)
+	reward_box.set_content_margin_all(7)
+	theme.set_type_variation(&"QuestRewardBox", &"PanelContainer")
+	theme.set_stylebox(&"panel", &"QuestRewardBox", reward_box)
+	theme.set_type_variation(&"QuestRewardCountLabel", &"Label")
+	theme.set_font_size(&"font_size", &"QuestRewardCountLabel", QUEST_REWARD_COUNT_FONT)
+	theme.set_color(&"font_color", &"QuestRewardCountLabel", _html(QUEST_TAG_TEXT))
+	# ⚠ 数は暗い下地の札（⚠ 紙の上でも箱の上でも読める）。
+	var count_pill: StyleBoxFlat = StyleBoxFlat.new()
+	count_pill.bg_color = _html(TOKEN_INK)
+	count_pill.set_corner_radius_all(6)
+	count_pill.content_margin_left = 4
+	count_pill.content_margin_right = 4
+	count_pill.content_margin_top = 0
+	count_pill.content_margin_bottom = 0
+	theme.set_stylebox(&"normal", &"QuestRewardCountLabel", count_pill)
 	theme.set_type_variation(&"QuestDetailTitleLabel", &"Label")
 	theme.set_font_size(&"font_size", &"QuestDetailTitleLabel", QUEST_DETAIL_TITLE)
 	theme.set_type_variation(&"QuestDetailValueLabel", &"Label")
@@ -4152,6 +4196,8 @@ const PAPER_LABEL_COLORS: Dictionary = {
 	"QuestTag_training": "f1e6cf",
 	"QuestTag_hard": "f1e6cf",
 	"QuestTag_debug": "f1e6cf",
+	# ⚠ 依頼の報酬の数の札（10-19・回SEE29-D）：⚠ 暗い下地の上＝明るい字（⚠ 紙の墨に負けて読めなかった＝撮った絵）。
+	"QuestRewardCountLabel": "f1e6cf",
 	# ⚠ 研究の右の紙（2026-10-18・回UI-1018-7）。
 	"ResearchEffectLabel": TOKEN_INK,
 	"ResearchShortNumberLabel": TOKEN_WAX,

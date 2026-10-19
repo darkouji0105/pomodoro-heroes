@@ -18,6 +18,11 @@ extends Resource
 ## 初期値の目安：5（スタミナ初期値20に対して4回挑める）
 @export var stamina_cost_per_stage: int = 5
 
+## 話の報酬の数の幅（%）。⚠ stages.json の数を真ん中に、上下にこの割合だけ散らす（10-19・回SEE29-D・`RUN-18`）。
+## ⚠ 人間「⚠ 報酬もアイコンで、右下に個数を表す数字で表記ある程度ランダム」→「⚠ ５あ」（紙には「10〜14」）。
+## ⚠ 0 で固定。⚠ 1個の品（装飾など）は幅が出ない（⚠ 四捨五入で1のまま）。
+@export var stage_reward_spread_pct: int = 20
+
 # --- ステータスの上限（GAME_DESIGN.md 8-2-2） ---
 #
 # 【なぜ StatConfig を新設せず、ここに置くか】
