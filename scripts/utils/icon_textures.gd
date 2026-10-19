@@ -240,6 +240,15 @@ const NAME_MINI_EXPAND: String = "mini_expand"
 const NAME_TASK_FINISH: String = "task_finish"
 
 
+# ⚠ 品の一覧の見え方（10-19・見る回29回目・人間「⚠ 切り替えのやつはアイコンで」）：⚠ マス目 ／ 行。
+const NAME_VIEW_GRID: String = "view_grid"
+const NAME_VIEW_LIST: String = "view_list"
+
+
+static func for_view(name: String) -> Texture2D:
+	return _load(name)
+
+
 static func for_task_finish() -> Texture2D:
 	return _load(NAME_TASK_FINISH)
 
@@ -349,6 +358,7 @@ static func all_for_check() -> Dictionary:
 		NAME_ITEM_RUNE, NAME_ITEM_MATERIAL, NAME_ITEM_CONSUMABLE,
 		NAME_ITEM_RELIC, NAME_ITEM_CHEST, NAME_TASK_EDIT,
 		NAME_TIMER_PAUSE, NAME_TIMER_PLAY, NAME_TIMER_NEXT, NAME_MINI_LIST, NAME_MINI_EXPAND, NAME_TASK_FINISH,
+		NAME_VIEW_GRID, NAME_VIEW_LIST,
 	]:
 		result[name] = _load(name)
 	for prefix: String in MATERIAL_SERIES:

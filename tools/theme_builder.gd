@@ -2638,6 +2638,8 @@ const CHEST_RIBBON_INSET: int = 14
 const CHEST_NAME_MIN_SIZE: int = 14
 const CHEST_RARE_POP_PCT: int = 125
 const CHEST_RARE_POP_MS: int = 450
+# ⚠ レアな札の名前は等級の色を紙の上で暗くする（10-19・見る回29回目・人間「⚠ ピンクの名前＝もうちょっと暗くする」）。⚠ 百分率。
+const CHEST_RARE_NAME_DARKEN_PCT: int = 30
 
 
 static func _build_chest(theme: Theme) -> void:
@@ -2650,6 +2652,7 @@ static func _build_chest(theme: Theme) -> void:
 		["currency_icon", CHEST_CURRENCY_ICON], ["band", CHEST_BAND], ["rise_max_steps", CHEST_RISE_MAX_STEPS],
 		["ribbon_w", CHEST_RIBBON_W], ["ribbon_h", CHEST_RIBBON_H], ["ribbon_inset", CHEST_RIBBON_INSET],
 		["name_min_size", CHEST_NAME_MIN_SIZE], ["rare_pop_pct", CHEST_RARE_POP_PCT], ["rare_pop_ms", CHEST_RARE_POP_MS],
+		["rare_name_darken_pct", CHEST_RARE_NAME_DARKEN_PCT],
 	]:
 		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
 	for fx_name: String in CHEST_FX:
@@ -3672,6 +3675,8 @@ const RESEARCH: Dictionary = {
 	"board_top": 64, "board_pad": 14, "icon": 32, "pin": 6, "seal": 26, "seal_font": 13, "chip_inset": 8,
 	"thread_width": 2, "arrow": 7, "side_width": 316, "pill_bar": 70, "detail_icon": 44, "material_icon": 22,
 	"legend_swatch": 12, "ribbon_left": 10, "wait_alpha_pct": 70, "closed_alpha_pct": 50, "full_alpha_pct": 100,
+	# ⚠ 板をつまんで送るとき、ここまで動いたらドラッグ（10-19・見る回29回目「⚠ ドラッグも追加」）。
+	"drag_start": 6,
 }
 const RESEARCH_COLORS: Dictionary = {
 	"icon_on_dark": "f3d58a", "icon_on_paper": TOKEN_INK, "pin_red": "c0473a", "pin_dark": "3a2c22", "pin_shadow": "00000059",
@@ -3915,6 +3920,14 @@ static func _build_item_parts(theme: Theme) -> void:
 	theme.set_color(&"font_focus_color", &"SegButton", _html(ITEM_SEG_INK))
 	theme.set_color(&"font_disabled_color", &"SegButton", _html(TOKEN_RULE))
 	theme.set_font_size(&"font_size", &"SegButton", ITEM_SEG_FONT)
+	# ⚠ 絵だけの札（10-19・持ち物の見え方「マス目｜行」）：⚠ 字と同じ墨・大きさは字に合わせる。
+	theme.set_color(&"icon_normal_color", &"SegButton", _html(ITEM_SEG_INK))
+	theme.set_color(&"icon_hover_color", &"SegButton", _html(TOKEN_INK))
+	theme.set_color(&"icon_pressed_color", &"SegButton", _html(TOKEN_INK))
+	theme.set_color(&"icon_hover_pressed_color", &"SegButton", _html(TOKEN_INK))
+	theme.set_color(&"icon_focus_color", &"SegButton", _html(ITEM_SEG_INK))
+	theme.set_color(&"icon_disabled_color", &"SegButton", _html(TOKEN_RULE))
+	theme.set_constant(&"icon_max_width", &"SegButton", 18)
 
 	# ⚠ 紙の上の入り切り（⚠ 「★だけ」「着けている物だけ」）と ⚠ 選ぶ欄（⚠ 「等級 すべて ▼」）。⚠ 角の丸い薄い紙・墨の細い縁。
 	for type_name: StringName in [&"PaperToggle", &"PaperPick"]:
@@ -4042,6 +4055,8 @@ static func _build_item_parts(theme: Theme) -> void:
 		theme.set_type_variation(StringName(str(spec["name"])), &"PanelContainer")
 		theme.set_stylebox(&"panel", StringName(str(spec["name"])), slot_box)
 	theme.set_constant(&"skill_frame", &"Training", 44)
+	# ⚠ スキルを選ぶ紙の窓の高さ（10-19・見る回29回目「⚠ スキル選択は、モーダルにして」）。⚠ 中は送る。
+	theme.set_constant(&"skill_picker_height", &"Training", 440)
 
 	# ⚠ 育成の装備の「比べる欄」（10-18・手本 `02_training_eq.png`＝破線の囲み＝⚠ 面は破線を引けないので細い実線）。
 	theme.set_type_variation(&"CompareBoxPanel", &"PanelContainer")

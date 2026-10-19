@@ -6,7 +6,6 @@ ui_title_delete_save,セーブを消す
 ui_title_load_failed,セーブを読み込めませんでした。新しく始めます。
 ui_title_delete_done,セーブを削除しました。
 ui_title_delete_failed,セーブの削除に失敗しました。
-ui_base_save,セーブする
 ui_base_back_to_title,タイトルへ戻る
 ui_common_ok,決定
 ui_common_close,閉じる
@@ -189,7 +188,6 @@ ui_floor_repeat_reject_not_cleared,一度クリアすると周回できる
 ui_floor_repeat_reject_in_floor,別のフロアの途中。先に降りること
 ui_floor_repeat_reject_stamina,スタミナが足りない
 ui_floor_chest_found,宝箱を見つけた！
-ui_base_save_completed,セーブしました
 ui_base_save_failed,セーブに失敗しました
 ui_base_chest_received,宝箱を%d個受け取りました
 ui_base_potion_received,ポーションを%d個受け取りました
@@ -1095,6 +1093,9 @@ ui_settings_data_reset,セーブを消す
 ui_settings_data_reset_note,タイトルの「はじめから」を長押しすると、最初からやり直せる
 ui_settings_data_separate,設定はセーブと別に残る
 ui_settings_data_separate_note,セーブを消しても、この画面の設定は消えない
+ui_settings_data_autosave,自動でセーブする
+ui_settings_data_autosave_note,画面を移るたび・ゲームを閉じるときに、進み具合を自動で残す
+ui_settings_data_title_note,進み具合は自動でセーブされる
 ui_records_tab_focus,集中の履歴
 ui_records_tab_characters,キャラの情報
 ui_records_tab_dungeons,ダンジョンの情報
@@ -1296,7 +1297,6 @@ ui_forge_do_safe,失敗しない所まで鍛える
 ui_forge_record,鍛　冶　の　記　録
 ui_forge_result_subtitle,鍛えた結果
 ui_forge_striking,鍛えている…
-ui_forge_strike_skip,押すと飛ばす
 ui_forge_continue,続けて鍛える
 ui_forge_retry,もう一度鍛える
 ui_forge_before,前
@@ -2423,7 +2423,6 @@ ui_belongings_who_cannot,%sは着けられない
 ui_belongings_who_compare,%s　%s：%d → %d　%s
 ui_belongings_attach_to,装備に刺す…
 ui_belongings_attach_to_heading,「%s」を刺す装備を選ぶ
-ui_belongings_effect,効果
 ui_bulk_scrap_open,一括分解
 ui_belongings_legend_equip,左上の数＝等級　★＝特殊効果　右上の顔＝着けている人
 ui_belongings_legend_touch,触れると詳しく出る・押すと右に出る
@@ -2495,7 +2494,6 @@ ui_stat_node_remove,−
 ui_training_skills_open_hint,枠を押すと一覧が開く
 ui_training_skills_picker_title,枠%dに入れるスキル
 ui_training_skills_picker_hint,ほかの枠のスキルを選ぶと、枠どうしで入れ替わる
-ui_training_skills_picker_close,閉じる ×
 ui_training_equip_legend,暗いマス＝ほかの人が着けている（右上の顔）・触れると詳しく出る
 ui_training_equip_forge_short,鍛える
 ui_training_equip_compare,%s　%d → %d　%s

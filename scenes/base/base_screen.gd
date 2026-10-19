@@ -4,14 +4,14 @@
 # ⚠⚠ 10-18（回UI-1018-6・web版の手本 `docs/pomodoro-heroes-ui-docs/2026-10-18/` `05_base_*`・決定 `NAV-34`）：⚠ **作り直した**。
 #   ⚠ 2つの見え方は**帯のタブで分ける**：⚠ 「本部」＝机（`BaseDesk`）／ ⚠ 「ギルド」＝ギルドを見渡す街（`BaseTownView`）。
 #     ⚠ 前の右上の「拠点を見渡す／机に戻る」はやめた。⚠ 帯で押すと同じ画面を見え方つきで開き直す（`TransferKeys.BASE_VIEW`）。
-#   ⚠ 右上はセーブ・設定・タイトルへの**アイコンだけ**（⚠ 名前は触れると出る）。⚠ 「シナリオ」「UIテスト」は外した。
+#   ⚠ 右上は**設定のアイコンだけ**（⚠ 名前は触れると出る）。⚠ 「シナリオ」「UIテスト」は外した。
+#   ⚠ 10-19（見る回29回目・人間「⚠ 右上のみっつんぼボタンは全部設定にする　セーブ保存はオートセーブにしたい」）：⚠ セーブのボタンをやめた（⚠ 自動セーブは画面を移るたび）・⚠ 「タイトルへ戻る」は設定のデータのタブへ。
 #   ⚠ 下の列（宝箱・掲示板・ポモドーロ・続きから）はやめた＝⚠ 机の札が持つ。
-# ⚠ 2026-10-05（回P-1）から自動セーブがある（`SaveManager.autosave()`）。⚠ セーブのボタンは人間の決定で残す（「⚠ ｑ２　あ」）。
+# ⚠ 2026-10-05（回P-1）から自動セーブがある（`SaveManager.autosave()`）。⚠ ~~セーブのボタンは残す（「⚠ ｑ２　あ」）~~ → 10-19 にやめた。
 
 extends Control
 
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
-const TITLE_PATH: String = "res://scenes/title/title_screen.tscn"
 const SETTINGS_PATH: String = "res://scenes/base/settings_screen.tscn"
 
 const VIEW_DESK: String = "desk"
@@ -52,16 +52,14 @@ func current_view() -> String:
 	return _view
 
 
-# ⚠ 右上（⚠ 通貨の左）：⚠ セーブ・設定・タイトルへ（⚠ アイコンだけ・名前は触れると出る）。
+# ⚠ 右上（⚠ 通貨の左）：⚠ 設定（⚠ アイコンだけ・名前は触れると出る）。
 func _build_system_buttons() -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "SystemButtons"
 	row.theme_type_variation = &"ButtonRow"
 	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	for spec: Array in [
-		["SaveButton", IconTextures.NAME_SYS_SAVE, "ui_base_save", _on_save_pressed],
 		["SettingsButton", IconTextures.NAME_SYS_SETTINGS, "ui_nav_settings", _on_settings_pressed],
-		["BackToTitleButton", IconTextures.NAME_SYS_TITLE, "ui_base_back_to_title", _on_back_to_title_pressed],
 	]:
 		var button: Button = Button.new()
 		button.name = str(spec[0])
@@ -116,21 +114,3 @@ func _show_arrival_rewards(data: Dictionary) -> void:
 func _on_settings_pressed() -> void:
 	SceneManager.change_scene(SETTINGS_PATH)
 
-
-func _on_save_pressed() -> void:
-	var save_options: Dictionary = {Modal.OPTION_TITLE: tr("ui_common_title_save")}
-	if SaveManager.save_game():
-		Modal.notify(self, "ui_base_save_completed", [], false, save_options)
-	else:
-		Modal.notify(self, "ui_base_save_failed", [], false, save_options)
-
-
-# タイトルへ戻る前に確認する。
-# ⚠ 戻るときに自動セーブされる（`SceneManager.change_scene()`・回P-1）。⚠ 確かめの窓は押し間違いのため残す。
-func _on_back_to_title_pressed() -> void:
-	var ok: bool = await Modal.confirm(self, "ui_title_back_confirm", [], false, {
-		Modal.OPTION_TITLE: tr("ui_base_back_to_title"),
-	})
-	if not ok:
-		return
-	SceneManager.change_scene(TITLE_PATH)

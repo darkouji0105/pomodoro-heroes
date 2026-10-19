@@ -118,6 +118,9 @@ const SHOT_AFTER_BATTLE_FAN: String = "battle_fan"
 const SHOT_AFTER_BATTLE_PANEL_STATUS: String = "battle_panel_status"
 # ⚠ 育成のスキルタブを一番下まで送る（2026-10-16・通常攻撃とパッシブの欄）。
 const SHOT_AFTER_SKILLS_BOTTOM: String = "skills_bottom"
+# ⚠ 10-19（見る回29回目）：⚠ スキルを選ぶ一覧は紙の窓（⚠ 枠2の当たりを押す）／ ⚠ 設定のデータのタブ（「タイトルへ戻る」が移った）。
+const SHOT_AFTER_SKILL_PICKER: String = "skill_picker"
+const SHOT_AFTER_SETTINGS_DATA: String = "settings_data"
 # ⚠ UI テストのページを「品の一覧の部品」まで送る（2026-10-18・回UI-1018-1）。
 const SHOT_AFTER_ITEM_PARTS: String = "item_parts"
 # ⚠ 持ち物の装飾を合わせる欄（2026-10-18・`BS-23`）。
@@ -1758,6 +1761,12 @@ const SCENARIOS: Dictionary = {
 				"data": {TransferKeys.CHARACTER_ID: "char_zealot", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_SKILLS},
 				"after": SHOT_AFTER_SKILLS_BOTTOM,
 			},
+			{
+				"name": "28c_training_skill_picker",
+				"scene": "res://scenes/guild/training_screen.tscn",
+				"data": {TransferKeys.CHARACTER_ID: "char_swordsman", TransferKeys.TRAINING_TAB: TransferKeys.TRAINING_TAB_SKILLS},
+				"after": SHOT_AFTER_SKILL_PICKER,
+			},
 			# ⚠ 昇級申請書（人間「⚠ 3あ」）。⚠ 31 は画面の口で判を押した姿（⚠ 素材は初期の分で足りる。⚠ 保存はしない）。
 			{
 				"name": "30_level_up",
@@ -1932,6 +1941,7 @@ const SCENARIOS: Dictionary = {
 			# ⚠ 設定（2026-09-28・回UI-仕組み③・手本 Settings）。⚠ 手本と同じ「ポモドーロと小窓」タブ ／ ⚠ 音のタブ（つまみ）。
 			{"name": "46_settings", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_POMODORO},
 			{"name": "47_settings_audio", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_AUDIO},
+			{"name": "47b_settings_data", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_DATA},
 			# ⚠ 集中の道具（2026-09-29・回UI-仕組み⑤・手本 PomoSkin / Focus）。
 			{"name": "51_focus_tools", "scene": "res://scenes/pomodoro/focus_tools_screen.tscn", "after": SHOT_AFTER_FOCUS_TOOLS_CLOCK},
 			{"name": "52_focus_running", "scene": "res://scenes/pomodoro/pomodoro.tscn", "after": SHOT_AFTER_POMODORO_RUNNING},
@@ -13598,6 +13608,8 @@ class ShotTaker extends Node:
 	const AFTER_BATTLE_FAN: String = "battle_fan"
 	const AFTER_BATTLE_PANEL_STATUS: String = "battle_panel_status"
 	const AFTER_SKILLS_BOTTOM: String = "skills_bottom"
+	const AFTER_SKILL_PICKER: String = "skill_picker"
+	const AFTER_SETTINGS_DATA: String = "settings_data"
 	const AFTER_ITEM_PARTS: String = "item_parts"
 	const AFTER_PART_MERGE: String = "part_merge"
 	const AFTER_BUILD_WINDOW: String = "build_window"
@@ -14294,6 +14306,16 @@ class ShotTaker extends Node:
 			for _i: int in range(4):
 				await get_tree().process_frame
 			return true
+		if kind == AFTER_SKILL_PICKER:
+			var slot: Node = screen.find_child("Slot_1", true, false)
+			var hit: Node = null if slot == null else slot.find_child("Hit", false, false)
+			if not (hit is BaseButton):
+				push_error("[DebugBoot] ⚠ %s にスキルの枠2が無い" % shot_name)
+				return false
+			(hit as BaseButton).pressed.emit()
+			for _i: int in range(6):
+				await get_tree().process_frame
+			return true
 		if kind == AFTER_SKILLS_BOTTOM:
 			var skills_scroll: ScrollContainer = screen.find_child("SkillsScroll", true, false) as ScrollContainer
 			if skills_scroll == null:
@@ -14796,9 +14818,9 @@ class ShotTaker extends Node:
 			until = Time.get_ticks_msec() + int(float(strike_ms) * (0.4 + 1.0 + 0.3)) + 60
 			while Time.get_ticks_msec() < until and is_instance_valid(strike_node):
 				await get_tree().process_frame
-		elif kind == AFTER_SETTINGS_POMODORO or kind == AFTER_SETTINGS_AUDIO:
-			# ⚠ ポモドーロ＝3枚目 ／ 音＝2枚目のタブ（⚠ 本物のタブの札を押す）。
-			var tab_index: int = 2 if kind == AFTER_SETTINGS_POMODORO else 1
+		elif kind == AFTER_SETTINGS_POMODORO or kind == AFTER_SETTINGS_AUDIO or kind == AFTER_SETTINGS_DATA:
+			# ⚠ ポモドーロ＝3枚目 ／ 音＝2枚目 ／ データ＝4枚目のタブ（⚠ 本物のタブの札を押す）。
+			var tab_index: int = 2 if kind == AFTER_SETTINGS_POMODORO else (3 if kind == AFTER_SETTINGS_DATA else 1)
 			var tabs: Node = screen.find_child("Tabs", true, false)
 			if tabs == null or tabs.get_child_count() <= tab_index or not (tabs.get_child(tab_index) is BaseButton):
 				push_error("[DebugBoot] ⚠ %s の設定のタブが無い" % shot_name)
@@ -15462,6 +15484,10 @@ class UiFlowRunner extends Node:
 		_check("スキル：ふだんは候補の一覧を出さない", t.find_child("Picker", true, false) == null and t.find_child("Candidates", true, false) == null)
 		await _press(_hit_of(t, "Slot_1"))
 		_check("スキル：枠2を押すと一覧が開く（行き先＝枠2）", t.find_child("Picker", true, false) != null and int(t.find_child("SkillsPage", true, false).get("_active_slot")) == 1)
+		# ⚠ 10-19（見る回29回目・「⚠ スキル選択は、モーダルにして」）：⚠ 一覧は紙の窓の中・外を押しても閉じる。
+		var picker_modal: ModalDialog = _modal_of(t)
+		_check("スキル：一覧は窓の中（%s）" % ("窓" if picker_modal != null else "無し"), picker_modal != null and picker_modal.find_child("Picker", true, false) != null
+			and (t.find_child("SkillsPage", true, false) as TrainingSkillsPage).picker_dialog() == picker_modal)
 		var pick: String = ""
 		var selected: Array = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
 		for raw: Variant in GameManager.get_skill_candidates(HERO, GameManager.SLOT_KIND_SKILL):
@@ -15472,6 +15498,11 @@ class UiFlowRunner extends Node:
 		selected = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
 		_check("スキル：候補 %s を押すと枠2に入り、一覧が閉じる" % pick, selected.size() > 1 and str(selected[1]) == pick and t.find_child("Picker", true, false) == null)
 		var slot_now: Node = t.find_child("Slot_1", true, false)
+		# ⚠ 10-19（「⚠ スキルをホバーすると何も表示されない」）：⚠ 枠の当たりが吹き出しの文（名前・CD）を持つ。
+		var slot_hit: Control = _hit_of(t, "Slot_1") as Control
+		var tip_text: String = "" if slot_hit == null else slot_hit.tooltip_text
+		_check("スキル：枠に触れると吹き出し（%s）" % tip_text.replace("
+", "／"), tip_text.contains(tr(str(MasterDataLoader.get_skill(pick).get("name_key", "")))) and tip_text.contains("CD"))
 		await _press(slot_now.find_child("ClearButton", true, false) if slot_now != null else null)
 		selected = GameManager.get_selected_skills(HERO, GameManager.SLOT_KIND_SKILL)
 		_check("スキル：外すで枠2が空く", selected.size() < 2 or str(selected[1]) == "")
@@ -15941,10 +15972,11 @@ class UiFlowRunner extends Node:
 		# ⚠ 10-18（回UI-1018-6・`NAV-34`）：⚠ 右上はアイコンだけ ／ ⚠ シナリオ・UIテスト・切り替えは無い。
 		var system: Node = base.find_child("SystemButtons", true, false)
 		var icons_ok: bool = system != null
-		for button_name: String in ["SaveButton", "SettingsButton", "BackToTitleButton"]:
-			var icon_button: Button = null if system == null else system.find_child(button_name, false, false) as Button
-			icons_ok = icons_ok and icon_button != null and icon_button.icon != null and icon_button.text == "" and icon_button.tooltip_text != ""
-		_check("本部：右上はセーブ・設定・タイトルへのアイコンだけ（名前は触れると出る）", icons_ok)
+		# ⚠ 10-19（見る回29回目・人間「⚠ 右上のみっつんぼボタンは全部設定にする」）：⚠ 設定の1つだけ。
+		var icon_button: Button = null if system == null else system.find_child("SettingsButton", false, false) as Button
+		icons_ok = icons_ok and system.get_child_count() == 1 and icon_button != null and icon_button.icon != null and icon_button.text == "" and icon_button.tooltip_text != ""
+		_check("本部：右上は設定のアイコンだけ（名前は触れると出る・セーブとタイトルへは無い）", icons_ok
+			and base.find_child("SaveButton", true, false) == null and base.find_child("BackToTitleButton", true, false) == null)
 		_check("本部：「シナリオ」「UIテスト」「拠点を見渡す」は無い", base.find_child("ScenarioButton", true, false) == null
 			and base.find_child("UiTestButton", true, false) == null and base.find_child("ViewToggle", true, false) == null)
 		_check("本部：机＝左に今日の紙（やること・知らせ）・真ん中の上は空き・下に砂時計／冒険／掲示板・右に宝箱と施設",
@@ -17125,8 +17157,15 @@ class UiFlowRunner extends Node:
 		# データ：⚠ セーブを消すは置かない（「⚠ 3い」）。
 		await _press(_tab_button(s, 3))
 		var sheet_body: Node = s.find_child("SheetBody", true, false)
-		_check("設定：データはセーブを消すボタンが無く案内だけ", s.find_child("DataNoteRow", true, false) != null
-			and sheet_body != null and sheet_body.find_children("*", "BaseButton", true, false).is_empty())
+		# ⚠ 10-19（見る回29回目）：⚠ ボタンは「タイトルへ戻る」の1つだけ（⚠ 本部の右上から移した）・自動セーブの1行。
+		var data_buttons: Array[Node] = [] if sheet_body == null else sheet_body.find_children("*", "BaseButton", true, false)
+		_check("設定：データはセーブを消すボタンが無く、ボタンは「タイトルへ戻る」だけ・自動セーブの1行（%d）" % data_buttons.size(), s.find_child("DataNoteRow", true, false) != null
+			and s.find_child("AutoSaveRow", true, false) != null and data_buttons.size() == 1 and data_buttons[0].name == "BackToTitleButton")
+		await _press(s.find_child("BackToTitleButton", true, false))
+		var title_modal: ModalDialog = _modal_of(s)
+		_check("設定：「タイトルへ戻る」で確かめの窓", title_modal != null)
+		await _close_modal(s)
+		_check("設定：確かめの窓を閉じると設定の画面のまま", get_tree().current_scene == s and _modal_of(s) == null)
 		var header: Node = s.find_child("Header", true, false)
 		await _press(null if header == null else header.find_child("BackButton", true, false), OPEN_FRAMES)
 		_check("設定：「戻る」で本部", _path_of(get_tree().current_scene) == BASE)
@@ -18911,6 +18950,12 @@ class UiFlowRunner extends Node:
 		var cells: int = w.find_children("Cell_*", "ItemCell", true, false).size()
 		_check("持ち物：既定はマス目（%d マス・持っている装備 %d）・タブに数「%s」" % [cells, GameManager.get_owned_instances().size(), _tab_button(w, 0).get("text") if _tab_button(w, 0) != null else ""],
 			cells >= GameManager.get_owned_instances().size() and str(_tab_button(w, 0).get("text")).contains(str(GameManager.get_owned_instances().size())))
+		# ⚠ 10-19（見る回29回目「⚠ 切り替えのやつはアイコンで」）：⚠ 札は絵だけ・名前は触れると出る。
+		var seg_ok: bool = true
+		for view_value: String in ItemListBar.VIEWS:
+			var seg_button: Button = w.find_child("ViewSeg_" + view_value, true, false) as Button
+			seg_ok = seg_ok and seg_button != null and seg_button.icon != null and seg_button.text == "" and seg_button.tooltip_text != ""
+		_check("持ち物：見え方の札（マス目｜行）は絵だけ・名前は触れると出る", seg_ok)
 		await _press(w.find_child("ViewSeg_" + ItemListBar.VIEW_LIST, true, false))
 		_check("持ち物：「行」で行に変わる（%d 行）" % w.find_children("Row_*", "LedgerRow", true, false).size(),
 			w.find_children("Row_*", "LedgerRow", true, false).size() == GameManager.get_owned_instances().size())
@@ -18930,6 +18975,11 @@ class UiFlowRunner extends Node:
 			GameManager.get_equipped_instance_id(who, GameStateKeys.EQUIP_HEAD) == free_id)
 
 		# 一括分解：⚠ 「一括分解」→ 等級1以下をまとめて → 右に「選んだ N 個」→ 分解する → はい。
+		# ⚠ 10-19（見る回29回目「⚠ 一括分解でモノが多すぎると下の分解が見えない」）：⚠ 等級1を 40 個足して選ぶ数を増やす（⚠ ここで全部分解される）。
+		var _many: int = GameManager.add_to_inventory("acc_keen", 40, GameStateKeys.ITEM_TYPE_EQUIPMENT, 1)
+		w = await _open(BELONGINGS, {TransferKeys.WAREHOUSE_TAB: TransferKeys.WAREHOUSE_TAB_EQUIP})
+		if w == null:
+			return
 		await _press(w.find_child("ScrapToggle", true, false))
 		_check("持ち物：「一括分解」で選ぶ帯と右の見積もり", w.find_child("BulkScrapBar", true, false) != null and w.find_child("BulkScrapSummary", true, false) != null)
 		await _press(w.find_child("Grade_1", true, false))
@@ -18940,6 +18990,11 @@ class UiFlowRunner extends Node:
 				picked_ok = false
 		_check("持ち物：「1以下」で等級1の着けていない物が選ばれる（%d 個）・右の欄の数" % picked.size(),
 			picked_ok and w.find_child("ScrapGoButton", true, false) is Button and not (w.find_child("ScrapGoButton", true, false) as Button).disabled)
+		var go_button: Control = w.find_child("ScrapGoButton", true, false) as Control
+		# ⚠ 画面の下端＝画面の根の大きさ（⚠ ヘッドレスの窓は 1280×720 とは限らない）。
+		var view_bottom: float = (w as Control).get_global_rect().end.y
+		_check("持ち物：%d 個選んでも「分解する」が画面の中（下端 %.0f ／ 画面 %.0f）" % [picked.size(), 0.0 if go_button == null else go_button.get_global_rect().end.y, view_bottom],
+			picked.size() >= 40 and go_button != null and go_button.get_global_rect().end.y <= view_bottom and w.find_child("ScrapScroll", true, false) is ScrollContainer)
 		var worn: Node = _belongings_item(w, free_id)
 		await _press(worn)
 		_check("持ち物：着けている物は押しても選ばれない", not (free_id in (w.get("_picked") as Array)))
@@ -19003,6 +19058,12 @@ class UiFlowRunner extends Node:
 		var atk1: int = GameManager.get_item_count("part_gem_atk_1")
 		var hp2: int = GameManager.get_item_count("part_gem_hp_2")
 		await _press(_belongings_item(w, "part_gem_hp_1"))
+		# ⚠ 10-19（見る回29回目「⚠ 装飾はなんか上がるステータスの数字以外まで大きく」）：⚠ 左にステータスの名前・右に数だけ。
+		var effect_line: Node = w.find_child("EffectLine", true, false)
+		var effect_value: String = _label_text(w, "EffectLine", "Value")
+		_check("装飾：効果の行は左に「%s」・右に数だけ（%s）" % [tr("ui_training_stat_hp"), effect_value], effect_line != null
+			and not effect_value.contains(tr("ui_training_stat_hp")) and effect_value.begins_with("+")
+			and effect_line.find_children("*", "Label", false, false).any(func(l: Node) -> bool: return (l as Label).text == tr("ui_training_stat_hp")))
 		await _press(w.find_child("PartMergeButton", true, false))
 		_check("合わせる：「3つ合わせて上の等級にする」で右に合わせる欄・押した品が1つ入る", w.find_child("PartMergePanel", true, false) != null and (w.get("_merge_picks") as Array) == ["part_gem_hp_1"])
 		var other_tier: Node = _belongings_item(w, "part_gem_atk_2")
@@ -19095,6 +19156,64 @@ class UiFlowRunner extends Node:
 			return
 		var cards: int = rs.find_children("ResearchCard_*", "", true, false).size()
 		_check("研究：ボード1の札が %d 枚・右端に完成の報酬" % cards, cards == board_ids.size() and rs.find_child("RewardCard", true, false) != null)
+		# ⚠ 10-19（見る回29回目「⚠ 糸が不自然に引き延ばされてタリ配置が変」）：⚠ 斜めの糸は枝分かれの数まで ／ ⚠ 報酬への糸はいちばん右の列からだけ。
+		var view: ResearchBoardView = rs.find_child("BoardView", true, false) as ResearchBoardView
+		var slanted: int = 0
+		var branches: int = 0
+		var children_of: Dictionary = {}
+		for node_id: String in board_ids:
+			for raw: Variant in MasterDataLoader.get_research_node(node_id).get(GameStateKeys.NODE_PREREQUISITES, []):
+				var before: String = str(raw)
+				if not (before in board_ids) or ResearchCard.category_of(before) != ResearchCard.category_of(node_id):
+					continue
+				children_of[before] = int(children_of.get(before, 0)) + 1
+				if view != null and not is_equal_approx(view.card_of(before).position.y, view.card_of(node_id).position.y):
+					slanted += 1
+		for before: Variant in children_of:
+			branches += int(children_of[before]) - 1
+		_check("研究：同じ段の斜めの糸は枝分かれの数まで（斜め %d ／ 枝 %d）" % [slanted, branches], view != null and slanted <= branches)
+		var sources: Array[String] = [] if view == null else view.reward_thread_sources()
+		var rightmost: float = 0.0
+		for node_id: String in board_ids:
+			if view != null:
+				rightmost = maxf(rightmost, view.card_of(node_id).position.x)
+		var sources_ok: bool = not sources.is_empty()
+		for node_id: String in sources:
+			sources_ok = sources_ok and is_equal_approx(view.card_of(node_id).position.x, rightmost)
+		_check("研究：完成の報酬への糸はいちばん右の列の札からだけ（%s）" % ",".join(sources), sources_ok)
+		# ⚠ 「⚠ ドラッグも追加」：⚠ 板をつまんで左へ動かすと右へ送られ、札は選ばれない。
+		var board_scroll: ScrollContainer = rs.find_child("BoardScroll", true, false) as ScrollContainer
+		var selected_before: String = str(rs.get("_selected"))
+		var scroll_before: int = 0 if board_scroll == null else board_scroll.scroll_horizontal
+		var drag_seen: bool = false
+		if board_scroll != null:
+			var at: Vector2 = board_scroll.get_global_rect().get_center()
+			var down: InputEventMouseButton = InputEventMouseButton.new()
+			down.button_index = MOUSE_BUTTON_LEFT
+			down.pressed = true
+			down.position = at
+			down.global_position = at
+			get_viewport().push_input(down, true)
+			for step: int in range(4):
+				var move: InputEventMouseMotion = InputEventMouseMotion.new()
+				move.button_mask = MOUSE_BUTTON_MASK_LEFT
+				move.relative = Vector2(-40.0, 0.0)
+				move.position = at + Vector2(-40.0 * float(step + 1), 0.0)
+				move.global_position = move.position
+				get_viewport().push_input(move, true)
+			drag_seen = view != null and view.is_dragging()
+			var up: InputEventMouseButton = InputEventMouseButton.new()
+			up.button_index = MOUSE_BUTTON_LEFT
+			up.pressed = false
+			up.position = at + Vector2(-160.0, 0.0)
+			up.global_position = up.position
+			get_viewport().push_input(up, true)
+			await _wait()
+		# ⚠ 送れる余地は窓の大きさしだい（⚠ ヘッドレスの窓は広いことがある）＝⚠ 余地があるときだけ動いた量を見る。
+		var room: float = 0.0 if board_scroll == null else board_scroll.get_h_scroll_bar().max_value - board_scroll.get_h_scroll_bar().page
+		_check("研究：板をつまんで左へ動かすとドラッグになり送られる（%d → %d・余地 %.0f）・札は選ばれない" % [scroll_before, 0 if board_scroll == null else board_scroll.scroll_horizontal, room],
+			board_scroll != null and drag_seen and (room <= 0.0 or board_scroll.scroll_horizontal > scroll_before) and str(rs.get("_selected")) == selected_before
+			and not view.is_dragging())
 		var unlocked_before: int = int(GameManager.get_research_board_progress(1).get("unlocked", 0))
 		var need: int = GameManager.get_research_board_open_need(1)
 		_check("研究：ボード2は「ボード1を %d つ開くと」（いま %d・閉じている）" % [need, unlocked_before],
@@ -19843,6 +19962,27 @@ class UiFlowRunner extends Node:
 		_check("下部パネルの札：残り秒が減る（%.2f → %.2f）" % [left_before, left_after], left_after < left_before - 0.2)
 		if tip != null:
 			tip.free()
+		# 4b. ⚠ 10-19（見る回29回目「⚠ ばふでばふはclickしたらすぐ出るように」）：⚠ 札を押すとその場で吹き出し（⚠ 待たない）・外れると消える。
+		var target_box: StatusChips.ChipBox = null
+		for box: Variant in boxes:
+			if (box as StatusChips.ChipBox).ids.has(int(buff.get("instance_id", -1))):
+				target_box = box as StatusChips.ChipBox
+		var click_text: String = ""
+		var click_ok: bool = false
+		if target_box != null:
+			var click: InputEventMouseButton = InputEventMouseButton.new()
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = true
+			target_box._gui_input(click)
+			var shown: PanelContainer = (chips as StatusChips).click_tip()
+			click_ok = shown != null and target_box.tooltip_text == ""
+			if shown != null:
+				click_text = (shown.get_child(0) as Label).text
+			target_box.mouse_exited.emit()
+			click_ok = click_ok and (chips as StatusChips).click_tip() == null and target_box.tooltip_text != ""
+		_check("下部パネルの札：押すとすぐ吹き出し（%s）・外れると消える" % click_text.get_slice("
+", 0),
+			click_ok and click_text.contains(tr("ui_battle_skill_power_slash")))
 		# 5. 種類ごとの文（⚠ 継続ダメージ・止める・復活）。⚠ 「効果あり」に落ちない。
 		var foe: BattleUnit = session.enemy_units[0] as BattleUnit
 		var poison: Dictionary = (MasterDataLoader._cache_statuses["poison"] as Dictionary).duplicate(true)

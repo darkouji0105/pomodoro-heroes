@@ -277,12 +277,11 @@ func _forge_note(instance_id: String) -> String:
 func _build_part(item_id: String) -> void:
 	var definition: Dictionary = GameManager.get_part_definition(item_id)
 	var stat_key: String = str(definition.get(GameManager.ITEM_MASTER_PART_STAT, ""))
-	var main_text: String = ""
-	if stat_key != "":
-		main_text = "%s %s" % [tr("ui_training_stat_" + stat_key), BelongingsDetail.part_range_text(item_id)]
 	_add_head(_entry, tr(GameManager.item_name_key(item_id)), ItemView.sub_text(_entry), "")
-	if main_text != "":
-		add_child(_value_line("EffectLine", tr("ui_belongings_effect"), main_text, true, IconTextures.for_stat(stat_key)))
+	# ⚠ 10-19（見る回29回目・人間「⚠ 装飾はなんか上がるステータスの数字以外まで大きくなってしまっている」）：
+	#   ⚠ 装備の主な値と同じ形＝左にステータスの名前（ふつうの字）・右に数だけ大きく（⚠ 前は「効果」の右に「攻撃 +3〜+4」をまとめて大きく）。
+	if stat_key != "":
+		add_child(_value_line("EffectLine", tr("ui_training_stat_" + stat_key), BelongingsDetail.part_range_text(item_id), true, IconTextures.for_stat(stat_key)))
 	add_child(_value_line("CountLine", tr("ui_item_tip_owned"), tr("ui_item_count_mark") % GameManager.get_item_count(item_id), true, null))
 	_add_description(item_id)
 	var spacer: Control = Control.new()

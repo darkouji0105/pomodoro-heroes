@@ -7,6 +7,8 @@
 #   ⚠ 小窓の2行と「休憩に入ったら話しかける」は薄く「まだ」（⚠ 小窓は回UI-仕組み⑥・話しかける仲間は仕組みが無い）。
 #   ⚠ データ＝セーブを消すは置かない（「⚠ 3い」＝タイトルの「はじめから」だけ）・案内の1行だけ。
 #   ⚠ 入口は本部の「設定」（「⚠ 4あ」）。⚠ 「戻る」で本部。
+#   ⚠ 10-19（見る回29回目・人間「⚠ 右上のみっつんぼボタンは全部設定にする　セーブ保存はオートセーブにしたい」）：
+#     ⚠ データのタブに「自動でセーブ」の1行と「タイトルへ戻る」（⚠ 本部の右上から移した・確かめの窓は残す）。
 # ⚠ 値は `GameSettings`（⚠ セーブと別のファイル `user://settings.cfg`）。⚠ 押したらすぐ書く・すぐ効かせる。
 # ⚠ 再描画に await を持たせない（AGENTS.md）。
 
@@ -14,6 +16,7 @@ class_name SettingsScreen
 extends Control
 
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
+const TITLE_PATH: String = "res://scenes/title/title_screen.tscn"
 const THEME_TYPE: StringName = &"Settings"
 const TAB_KEYS: Array[String] = ["ui_settings_tab_display", "ui_settings_tab_audio", "ui_settings_tab_pomodoro", "ui_settings_tab_data"]
 const TAB_DISPLAY: int = 0
@@ -226,8 +229,26 @@ func _on_week_end_chosen(weekday: int) -> void:
 # --- データ（⚠ セーブを消すは置かない＝「⚠ 3い」） ---
 
 func _build_data() -> void:
+	_row("AutoSaveRow", "ui_settings_data_autosave", "ui_settings_data_autosave_note", null)
 	_row("DataNoteRow", "ui_settings_data_reset", "ui_settings_data_reset_note", null)
 	_row("SettingsFileRow", "ui_settings_data_separate", "ui_settings_data_separate_note", null)
+	var title_button: Button = Button.new()
+	title_button.name = "BackToTitleButton"
+	title_button.text = tr("ui_base_back_to_title")
+	title_button.focus_mode = Control.FOCUS_NONE
+	title_button.pressed.connect(_on_back_to_title_pressed)
+	_row("BackToTitleRow", "ui_base_back_to_title", "ui_settings_data_title_note", title_button)
+
+
+# タイトルへ戻る前に確認する（⚠ 10-19 に本部の右上から移した）。
+# ⚠ 戻るときに自動セーブされる（`SceneManager.change_scene()`・回P-1）。⚠ 確かめの窓は押し間違いのため残す。
+func _on_back_to_title_pressed() -> void:
+	var ok: bool = await Modal.confirm(self, "ui_title_back_confirm", [], false, {
+		Modal.OPTION_TITLE: tr("ui_base_back_to_title"),
+	})
+	if not ok:
+		return
+	SceneManager.change_scene(TITLE_PATH)
 
 
 func _on_back_pressed() -> void:

@@ -21,6 +21,8 @@ const VIEW_GRID: String = "grid"
 const VIEW_LIST: String = "list"
 const VIEWS: Array[String] = [VIEW_GRID, VIEW_LIST]
 const VIEW_KEYS: Array[String] = ["ui_item_view_grid", "ui_item_view_list"]
+# ⚠ 見え方の札はアイコンだけ（10-19・見る回29回目・人間「⚠ 切り替えのやつはアイコンで」）。⚠ 名前は触れると出る（`VIEW_KEYS`）。
+const VIEW_ICONS: Array[String] = [IconTextures.NAME_VIEW_GRID, IconTextures.NAME_VIEW_LIST]
 
 const SORT_DEFAULT: String = "default"
 const SORT_GRADE: String = "grade"
@@ -65,7 +67,7 @@ func _ready() -> void:
 	var first: HBoxContainer = _row("ToolRow")
 	if show_view_toggle:
 		first.add_child(_caption("ui_item_bar_view"))
-		first.add_child(_seg("ViewSeg", VIEWS, VIEW_KEYS, view_of(kind), _on_view_picked))
+		first.add_child(_seg("ViewSeg", VIEWS, VIEW_KEYS, view_of(kind), _on_view_picked, VIEW_ICONS))
 	first.add_child(_caption("ui_item_bar_sort"))
 	var sorts: Array[String] = sorts_of(kind)
 	var sort_keys: Array[String] = []
@@ -135,7 +137,8 @@ func _spacer() -> Control:
 
 
 # 切り替えの札（⚠ 1つだけ押されている）。⚠ 札の名前は `<seg名>_<値>`（⚠ 値が空なら all）。
-func _seg(seg_name: String, values: Array[String], keys: Array[String], current: String, handler: Callable) -> PanelContainer:
+# ⚠ `icons` を渡すと札は絵だけ（⚠ 名前は触れると出る）。
+func _seg(seg_name: String, values: Array[String], keys: Array[String], current: String, handler: Callable, icons: Array[String] = []) -> PanelContainer:
 	var box: PanelContainer = PanelContainer.new()
 	box.name = seg_name
 	box.theme_type_variation = &"SegGroup"
@@ -151,7 +154,11 @@ func _seg(seg_name: String, values: Array[String], keys: Array[String], current:
 		button.toggle_mode = true
 		button.button_group = group
 		button.focus_mode = Control.FOCUS_NONE
-		button.text = tr(keys[i])
+		if i < icons.size():
+			button.icon = IconTextures.for_view(icons[i])
+			button.tooltip_text = tr(keys[i])
+		else:
+			button.text = tr(keys[i])
 		button.button_pressed = values[i] == current
 		button.pressed.connect(handler.bind(values[i]))
 		row.add_child(button)

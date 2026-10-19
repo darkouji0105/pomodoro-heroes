@@ -61,16 +61,7 @@ func _start(item_id: String, grade: int) -> void:
 	caption.offset_top = float(get_theme_constant(&"strike_caption_y", THEME_TYPE))
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(caption)
-	var hint: Label = Label.new()
-	hint.name = "SkipHint"
-	hint.theme_type_variation = &"CaptionLabel"
-	hint.text = tr("ui_forge_strike_skip")
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	hint.offset_top = -float(get_theme_constant(&"strike_caption_y", THEME_TYPE)) - 24.0
-	hint.offset_bottom = -float(get_theme_constant(&"strike_caption_y", THEME_TYPE))
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(hint)
+	# ⚠ 「押すと飛ばす」の字は出さない（10-19・見る回29回目・人間「⚠ 気づくが露骨　表示しないでもいい」）。⚠ 押すと飛ばすのはそのまま。
 	resized.connect(_place_icon)
 	gui_input.connect(_on_gui_input)
 	_place_icon()

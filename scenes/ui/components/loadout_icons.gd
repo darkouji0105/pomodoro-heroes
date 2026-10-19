@@ -64,7 +64,7 @@ static func skill_frame(skill_id: String, side: int) -> PanelContainer:
 	frame.theme_type_variation = &"SkillFrame" if skill_id != "" else &"SkillFrameEmpty"
 	frame.custom_minimum_size = Vector2(side, side)
 	frame.mouse_filter = Control.MOUSE_FILTER_PASS
-	frame.tooltip_text = TranslationServer.translate(str(MasterDataLoader.get_skill(skill_id).get("name_key", ""))) if skill_id != "" else ""
+	frame.tooltip_text = skill_tip_text(skill_id)
 	var texture: Texture2D = IconTextures.for_skill(skill_id) if skill_id != "" else null
 	if texture != null:
 		var icon: TextureRect = TextureRect.new()
@@ -75,6 +75,24 @@ static func skill_frame(skill_id: String, side: int) -> PanelContainer:
 		icon.modulate = ThemeDB.get_project_theme().get_color(&"skill_icon", THEME_TYPE)
 		frame.add_child(icon)
 	return frame
+
+
+# ⚠ スキルに触れると出る文（10-19・見る回29回目・人間「⚠ スキルをホバーすると何も表示されない」）：名前 ／ 効果文 ／ CD。
+#   ⚠ 育成のスキルのタブの枠と、身上書・ビルドの札のスキルで同じ文（⚠ 2か所で組み立てない）。⚠ 空きは空文字（⚠ 吹き出しを出さない）。
+static func skill_tip_text(skill_id: String) -> String:
+	if skill_id == "":
+		return ""
+	var data: Dictionary = MasterDataLoader.get_skill(skill_id)
+	if data.is_empty():
+		return skill_id
+	var lines: Array[String] = [TranslationServer.translate(str(data.get("name_key", "")))]
+	var desc_key: String = "ui_desc_" + skill_id
+	var desc: String = TranslationServer.translate(desc_key)
+	if desc != desc_key:
+		lines.append(desc)
+	lines.append(TranslationServer.translate("ui_skill_select_cooldown") % float(data.get(SkillSchema.FIELD_COOLDOWN_SEC, 0.0)))
+	return "
+".join(lines)
 
 
 func _ready() -> void:

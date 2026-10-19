@@ -173,7 +173,8 @@ func _add_card(index: int, item_id: String, count: int, kind: String, grade: int
 	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name_label.text = tr(GameManager.item_name_key(item_id))
 	if grade >= get_theme_constant(&"fx_grade", THEME_TYPE) and Balance.icon != null:
-		name_label.add_theme_color_override(&"font_color", Balance.icon.color_of_grade(grade))
+		# ⚠ 10-19（見る回29回目「⚠ ピンクの名前＝もうちょっと暗くする」）：⚠ 等級の色を紙の上で読めるよう暗くする（⚠ 箱の光はそのままの色）。
+		name_label.add_theme_color_override(&"font_color", Balance.icon.color_of_grade(grade).darkened(float(get_theme_constant(&"rare_name_darken_pct", THEME_TYPE)) / 100.0))
 		card.set_meta(RARE_META, grade)
 	column.add_child(name_label)
 	var count_label: Label = Label.new()

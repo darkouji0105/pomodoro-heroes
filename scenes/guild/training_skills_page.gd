@@ -14,6 +14,9 @@ extends VBoxContainer
 #   ⚠ 枠1・枠2をふちつきのスロットに（⚠ 番号もふちで囲む・スキルの絵もふちで囲む）。⚠ 候補はふだん出さない。
 #   ⚠ 枠を押すと「枠◯に入れるスキル」の一覧が開く（⚠ ほかの枠のスキルを選ぶと枠どうしで入れ替わる＝`select_skill()` の決まり）。
 #   ⚠ 選ぶと一覧は閉じる。⚠ 「閉じる ×」でも閉じる。
+# ⚠⚠ 10-19（見る回29回目・人間「⚠ スキルをホバーすると何も表示されない　クリックはできるが　後スキル選択は、モーダルにして」）：
+#   ⚠ 枠に触れると吹き出し（名前・効果・CD＝`LoadoutIcons.skill_tip_text()`）。⚠ 前は押す当たり（Hit）が文を持たず何も出なかった。
+#   ⚠ 一覧は紙の窓（`Modal`）で開く（⚠ 外を押しても閉じる）。⚠ 選ぶと窓を閉じる。
 
 const DESCRIPTION_PREFIX: String = "ui_desc_"
 const CANDIDATE_COLUMNS: int = 2
@@ -21,8 +24,8 @@ const CANDIDATE_COLUMNS: int = 2
 var _character_id: String = ""
 # 次に選んだスキルを入れる枠。⚠ 状態ではなく画面の都合なのでセーブしない。
 var _active_slot: int = 0
-# ⚠ 一覧を開いているか（⚠ 枠を押すと開く）。
-var _picking: bool = false
+# ⚠ 開いている一覧の窓（⚠ 無ければ null）。
+var _picker: ModalDialog = null
 
 
 func setup(character_id: String) -> void:
@@ -62,9 +65,6 @@ func _rebuild() -> void:
 	for i: int in range(GameManager.get_skill_slot_count()):
 		slots.add_child(_create_slot(i, "" if i >= selected.size() else str(selected[i])))
 
-	if _picking:
-		add_child(_build_picker(all_candidates, unlocked, selected))
-		return
 	# ⚠ 10-16（見る回・人間「⚠ キャラの通常攻撃と、パッシブを見る場所が欲しい　どっちもスキルで見れるように」）。
 	_add_basic_attack()
 	_add_passives()
@@ -129,7 +129,7 @@ func _add_passives() -> void:
 func _create_slot(slot_index: int, skill_id: String) -> PanelContainer:
 	var card: PanelContainer = PanelContainer.new()
 	card.name = "Slot_%d" % slot_index
-	card.theme_type_variation = &"SkillSlotSelectedPanel" if (_picking and slot_index == _active_slot) else &"SkillSlotPanel"
+	card.theme_type_variation = &"SkillSlotSelectedPanel" if (_is_picking() and slot_index == _active_slot) else &"SkillSlotPanel"
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var line: HBoxContainer = HBoxContainer.new()
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -170,7 +170,8 @@ func _create_slot(slot_index: int, skill_id: String) -> PanelContainer:
 		cooldown.theme_type_variation = &"CaptionLabel"
 		cooldown.text = _cooldown_text(skill_id)
 		column.add_child(cooldown)
-	UiButton.attach_hit(card, _on_slot_pressed.bind(slot_index))
+	var hit: Button = UiButton.attach_hit(card, _on_slot_pressed.bind(slot_index))
+	hit.tooltip_text = LoadoutIcons.skill_tip_text(skill_id)
 	if skill_id != "":
 		# ⚠ 空の枠を外しても何も起きないので、ボタンごと出さない。⚠ 紙の上なので `PaperChoice`。
 		var clear_button: Button = UiButton.create_paper_choice("ui_equipment_unequip")
@@ -181,38 +182,60 @@ func _create_slot(slot_index: int, skill_id: String) -> PanelContainer:
 	return card
 
 
-# 「枠◯に入れるスキル」の一覧（⚠ 手本 `02_training_skp.png`）。⚠ 2列のカード。
-func _build_picker(all_candidates: Array, unlocked: Array, selected: Array) -> PanelContainer:
-	var panel: PanelContainer = PanelContainer.new()
-	panel.name = "Picker"
-	panel.theme_type_variation = &"PaperPanelChosen"
+# 「枠◯に入れるスキル」の一覧（⚠ 手本 `02_training_skp.png`）。⚠ 2列のカード。⚠ 10-19 から紙の窓の中身。
+func _build_picker() -> ScrollContainer:
+	var all_candidates: Array = GameManager.get_all_skill_candidates(_character_id, GameManager.SLOT_KIND_SKILL)
+	var unlocked: Array = GameManager.get_skill_candidates(_character_id, GameManager.SLOT_KIND_SKILL)
+	var selected: Array = GameManager.get_selected_skills(_character_id, GameManager.SLOT_KIND_SKILL)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "Picker"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size.y = float(get_theme_constant(&"skill_picker_height", &"Training"))
 	var column: VBoxContainer = VBoxContainer.new()
-	panel.add_child(column)
-	var head: HBoxContainer = HBoxContainer.new()
-	column.add_child(head)
-	var title: SheetHeading = SheetHeading.new()
-	title.title_text = tr("ui_training_skills_picker_title") % (_active_slot + 1)
-	title.right_text = tr("ui_training_skills_picker_hint")
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(title)
-	var close: Button = UiButton.create_paper_choice("ui_training_skills_picker_close")
-	close.name = "PickerClose"
-	close.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	close.pressed.connect(_on_picker_close)
-	head.add_child(close)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(column)
+	var hint: Label = Label.new()
+	hint.name = "PickerHint"
+	hint.theme_type_variation = &"CaptionLabel"
+	hint.text = tr("ui_training_skills_picker_hint")
+	column.add_child(hint)
 	var candidates: GridContainer = GridContainer.new()
 	candidates.name = "Candidates"
 	candidates.columns = CANDIDATE_COLUMNS
+	candidates.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_child(candidates)
 	for entry: Variant in all_candidates:
 		var skill_id: String = str(entry)
 		candidates.add_child(_create_candidate(skill_id, skill_id in unlocked, selected.find(skill_id)))
-	return panel
+	return scroll
 
 
-func _on_picker_close() -> void:
-	_picking = false
-	_rebuild()
+func _is_picking() -> bool:
+	return _picker != null and is_instance_valid(_picker) and not _picker.is_queued_for_deletion()
+
+
+# ⚠ 検査用：⚠ 開いている一覧の窓（⚠ 無ければ null）。
+func picker_dialog() -> ModalDialog:
+	return _picker if _is_picking() else null
+
+
+func _open_picker() -> void:
+	var host: Node = get_tree().current_scene
+	_picker = Modal.notify(host if host != null else self, "", [], false, {
+		Modal.OPTION_TITLE: tr("ui_training_skills_picker_title") % (_active_slot + 1),
+		Modal.OPTION_CONTENT: _build_picker(),
+		Modal.OPTION_PAPER: true,
+		Modal.OPTION_WIDTH: Modal.WIDTH_LARGE,
+		Modal.OPTION_CLOSE_OUTSIDE: true,
+	})
+	if _picker != null:
+		_picker.closed.connect(_on_picker_closed, CONNECT_ONE_SHOT)
+
+
+func _on_picker_closed(_result: bool) -> void:
+	_picker = null
+	if is_inside_tree():
+		_rebuild()
 
 
 func _create_candidate(skill_id: String, is_unlocked: bool, slot_index: int) -> LedgerRow:
@@ -305,19 +328,19 @@ func _description_of(skill_id: String) -> String:
 
 
 # 枠を押す。状態は触らず、次にスキルを選んだときの行き先を変えるだけ。
-# ⚠ 10-18：⚠ 押すとその枠の一覧が開く（⚠ 同じ枠をもう一度押すと閉じる）。
+# ⚠ 10-18：⚠ 押すとその枠の一覧が開く。⚠ 10-19 から紙の窓（⚠ 窓が出ている間は後ろを押せない）。
 func _on_slot_pressed(slot_index: int) -> void:
-	if _picking and slot_index == _active_slot:
-		_picking = false
-	else:
-		_active_slot = slot_index
-		_picking = true
+	if _is_picking():
+		return
+	_active_slot = slot_index
+	_open_picker()
 	_rebuild()
 
 
 func _on_candidate_pressed(skill_id: String) -> void:
-	# ⚠ 選んだら一覧は閉じる（⚠ 描き直しは character_growth_changed から）。
-	_picking = false
+	# ⚠ 選んだら一覧の窓は閉じる（⚠ 描き直しは character_growth_changed と窓の closed から）。
+	if _is_picking():
+		_picker.close()
 	# 戻り値は見ない。成功なら character_growth_changed 経由で描画し直される。
 	# 既に別の枠に入っているスキルを選ぶと、2つの枠が入れ替わる（GameManager 側の仕様）。
 	GameManager.select_skill(_character_id, _active_slot, skill_id, GameManager.SLOT_KIND_SKILL)

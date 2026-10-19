@@ -43,6 +43,9 @@ var _line_align: BoxContainer.AlignmentMode = BoxContainer.ALIGNMENT_CENTER
 # いま器にある件（instance_id → 器の本物）。⚠ 毎フレーム差し替える。
 # ⚠ refresh の重ねがけは器の中で辞書ごと置き換わる（⚠ instance_id は同じ＝組み直さない）。⚠ 札が古い辞書を握ると、膜と残り秒が止まる。
 var _live: Dictionary = {}
+# ⚠ 押したらすぐ出す吹き出し（10-19・見る回29回目・人間「⚠ ばふでばふはclickしたらすぐ出るように」）。⚠ 1つだけ。
+var _click_tip: PanelContainer = null
+var _click_chip: ChipBox = null
 
 
 func setup(_is_vertical: bool, max_px: float) -> void:
@@ -426,11 +429,74 @@ func _make_signature(entries: Array) -> String:
 	return ",".join(parts)
 
 
+# ⚠ 札を押したらすぐ吹き出しを出す（⚠ Godot の吹き出しは乗せて 0.5 秒待つ）。⚠ 札から外れたら消す。
+#   ⚠ 置き場所は画面の根（⚠ 帯は札を組み直すたびに子を捨てる）。⚠ 札の上・画面の外へ出さない。
+func show_click_tip(ids: Array, chip: ChipBox) -> void:
+	hide_click_tip()
+	var host: Node = get_tree().current_scene
+	if host == null:
+		return
+	var panel: PanelContainer = PanelContainer.new()
+	panel.name = "StatusClickTip"
+	panel.theme_type_variation = &"TooltipPanel"
+	panel.top_level = true
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.z_index = RenderingServer.CANVAS_ITEM_Z_MAX
+	var tip: LiveTooltip = LiveTooltip.new()
+	tip.chips = self
+	tip.ids = ids.duplicate()
+	tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tip.refresh()
+	panel.add_child(tip)
+	host.add_child(panel)
+	panel.reset_size()
+	var rect: Rect2 = chip.get_global_rect()
+	var view: Vector2 = get_viewport_rect().size
+	var at: Vector2 = Vector2(rect.position.x, rect.position.y - panel.size.y - float(Balance.adventure.status_chip_separation_px))
+	if at.y < 0.0:
+		at.y = rect.end.y + float(Balance.adventure.status_chip_separation_px)
+	at.x = clampf(at.x, 0.0, maxf(0.0, view.x - panel.size.x))
+	panel.global_position = at
+	_click_tip = panel
+	_click_chip = chip
+	# ⚠ 出ている間は Godot の吹き出しを止める（⚠ 2枚重なる）。
+	chip.tooltip_text = ""
+	if not chip.mouse_exited.is_connected(hide_click_tip):
+		chip.mouse_exited.connect(hide_click_tip, CONNECT_ONE_SHOT)
+
+
+func hide_click_tip() -> void:
+	if _click_chip != null and is_instance_valid(_click_chip):
+		_click_chip.tooltip_text = " "
+		if _click_chip.mouse_exited.is_connected(hide_click_tip):
+			_click_chip.mouse_exited.disconnect(hide_click_tip)
+	_click_chip = null
+	if _click_tip != null and is_instance_valid(_click_tip):
+		_click_tip.queue_free()
+	_click_tip = null
+
+
+# ⚠ 検査用：⚠ 押して出した吹き出し（⚠ 無ければ null）。
+func click_tip() -> PanelContainer:
+	return _click_tip if _click_tip != null and is_instance_valid(_click_tip) and not _click_tip.is_queued_for_deletion() else null
+
+
+func _exit_tree() -> void:
+	hide_click_tip()
+
+
 # 札1枚（10-17・`BT-40`）。⚠ 駒の下ではただの ColorRect と同じ（⚠ chips が null・入力を受けない）。
 # ⚠ 下部パネルでは Godot の吹き出しを自前の中身に差し替える（⚠ 残り秒が動くので、出ている間も毎フレーム文を組み直す）。
 class ChipBox extends ColorRect:
 	var chips: StatusChips = null
 	var ids: Array = []
+
+	func _gui_input(event: InputEvent) -> void:
+		if chips == null or not is_instance_valid(chips):
+			return
+		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			chips.show_click_tip(ids, self)
+			accept_event()
 
 	func _make_custom_tooltip(_for_text: String) -> Object:
 		if chips == null or not is_instance_valid(chips):
