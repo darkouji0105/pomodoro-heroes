@@ -2849,6 +2849,9 @@ static func _build_settings(theme: Theme) -> void:
 	# ⚠ ポモドーロの画面の設定の窓（2026-10-02・`PomodoroSettingsPanel`）。
 	theme.set_constant(&"panel_width", &"PomodoroSettings", SETTINGS_POMODORO_PANEL_WIDTH)
 	theme.set_constant(&"panel_height", &"PomodoroSettings", SETTINGS_POMODORO_PANEL_HEIGHT)
+	# ⚠ ポモドーロの画面の左上の「いまの設定」の札（10-19・回SEE29-C）。
+	theme.set_constant(&"card_left", &"PomodoroSettings", 16)
+	theme.set_constant(&"card_top", &"PomodoroSettings", 16)
 	# ⚠ 並んだ札はくっつける（⚠ 手本の「25分｜45分｜50分」）。
 	theme.set_type_variation(&"SettingsChoices", &"HBoxContainer")
 	theme.set_constant(&"separation", &"SettingsChoices", 0)

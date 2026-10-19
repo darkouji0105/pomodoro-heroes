@@ -82,6 +82,9 @@ func _ready() -> void:
 	set_task_ids.resize(current_total_sets)
 	set_task_ids.fill("")
 
+	# ⚠ 左上に「いまの設定」の札（10-19・回SEE29-C・`NAV-37`）。⚠ デバッグパネルは左下へ移した。
+	_settings_card = PomodoroSettingsCard.create()
+	add_child(_settings_card)
 	_build_debug_panel()
 	_build_sidebar()
 	_build_controls()
@@ -338,6 +341,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 #   ⚠ 変えるのは3つだけ：⚠ 上の「小窓にする」＝オン ／ ⚠ 小窓の「大きく」＝オフ ／ ⚠ 設定「ポモドーロ中は小窓にする」＝**この回の最初の集中を始めたとき**にオン。
 #   ⚠ 前は「大きく」がそのフェーズだけで、⚠ フェーズが変わるとまた小窓になった（⚠ 設定の小窓は始める前・振り返りでは大きかった）。
 
+# ⚠ 左上の「いまの設定」の札（10-19・回SEE29-C）。
+var _settings_card: PomodoroSettingsCard = null
 var _mini: MiniWindow = null
 var _mini_on: bool = false
 # ⚠ 設定の小窓をもう効かせたか（⚠ この回の最初の集中で1回だけ）。
@@ -399,6 +404,8 @@ func _on_mini_reflection_submitted() -> void:
 # 設定の窓で長さを変えたとき（2026-10-02・`PomodoroLinks`）。⚠ 集中を始める前なら、⚠ 待っている時間もすぐ変える。
 #   ⚠ 動いているタイマーは変えない（⚠ 設定の窓は始める前にしか開けない＝念のため）。
 func apply_settings() -> void:
+	if _settings_card != null and is_instance_valid(_settings_card):
+		_settings_card.refresh()
 	if current_preset == null:
 		return
 	current_preset.focus_duration_sec = GameSettings.focus_minutes() * 60
@@ -984,8 +991,9 @@ func _build_debug_panel() -> void:
 
 	var panel: VBoxContainer = VBoxContainer.new()
 	panel.name = "DebugPanel"
-	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	panel.position = Vector2(16, 16)
+	# ⚠ 10-19（回SEE29-C）：⚠ 左上は「いまの設定」の札に譲った＝左下へ（⚠ 下から積む）。
+	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 16)
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(panel)
 
 	var label: Label = Label.new()

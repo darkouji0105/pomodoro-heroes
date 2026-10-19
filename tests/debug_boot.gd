@@ -16657,7 +16657,17 @@ class UiFlowRunner extends Node:
 		await _wait()
 		_check("ポモドーロ：窓で集中 50分を選ぶと、始める前の時間がすぐ 50:00（%s 秒）" % str(p.get("time_left_sec")),
 			GameSettings.focus_minutes() == 50 and int(p.get("time_left_sec")) == 50 * 60)
+		# ⚠ 10-19（回SEE29-C・`NAV-37`）：⚠ 左上の「いまの設定」の札は窓で変えた長さに追いつく・押すと同じ窓。
+		var card: Node = p.find_child("PomodoroSettingsCard", true, false)
+		var card_text: String = _label_text(p, "PomodoroSettingsCard", "MinutesLabel")
+		_check("ポモドーロ：左上の札に集中 50分・休憩・長い休憩（%s）" % card_text, card is Control and card_text.contains("50") and (card as Control).position.y < 100.0)
 		await _close_modal(p)
+		await _press(_hit_of(p, "PomodoroSettingsCard"))
+		var card_modal: ModalDialog = _modal_of(p)
+		_check("ポモドーロ：左上の札を押すと設定の窓", card_modal != null and card_modal.find_child("PomodoroSettingsPanel", true, false) != null)
+		await _close_modal(p)
+		var debug_panel: Control = p.find_child("DebugPanel", true, false) as Control
+		_check("ポモドーロ：デバッグパネルは左下（左上は札に譲った）", debug_panel == null or debug_panel.get_global_rect().position.y > (card as Control).get_global_rect().end.y)
 		GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_FOCUS_MINUTES, 25)
 		await _flow_mini_window()
 

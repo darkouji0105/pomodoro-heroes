@@ -1022,6 +1022,8 @@ ui_focus_tools_title,集中の道具
 ui_focus_tools_subtitle,ポモドーロの見た目を選ぶ
 ui_focus_tools_open,集中の道具
 ui_pomodoro_settings_open,ポモドーロの設定
+ui_pomodoro_settings_card_line,集中 %d分・休憩 %d分・長い休憩 %d分
+ui_pomodoro_settings_card_hint,押すと設定を変えられる
 ui_focus_tools_preview,見本（集中中）
 ui_focus_tool_caption,集　中
 ui_focus_tools_catalog,道具の目録

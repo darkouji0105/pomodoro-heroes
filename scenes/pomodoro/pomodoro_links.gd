@@ -32,20 +32,27 @@ func _on_tools_pressed() -> void:
 # ⚠ 2026-10-02（人間「⚠ ポモドーロ関連の設定はポモドーロ画面からできるように」）：⚠ 画面を移らず、⚠ 紙の窓で設定する。
 #   ⚠ 変えたらポモドーロの画面に今の長さを効かせる（`apply_settings()`）。
 func _on_settings_pressed() -> void:
+	var _dialog: ModalDialog = open_settings(get_tree().current_scene)
+
+
+# ⚠ 設定の窓を開く口（10-19・回SEE29-C：⚠ 左上の「いまの設定」の札 `PomodoroSettingsCard` からも開く＝窓の組み立てはここ1つ）。
+static func open_settings(host: Node) -> ModalDialog:
+	if host == null:
+		return null
+	var theme: Theme = ThemeDB.get_project_theme()
 	var panel: PomodoroSettingsPanel = PomodoroSettingsPanel.new()
-	panel.custom_minimum_size.x = float(get_theme_constant(&"panel_width", &"PomodoroSettings"))
+	panel.custom_minimum_size.x = float(theme.get_constant(&"panel_width", &"PomodoroSettings"))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var host: Node = get_tree().current_scene
-	if host != null and host.has_method("apply_settings"):
+	if host.has_method("apply_settings"):
 		panel.changed.connect(Callable(host, "apply_settings"))
 	# ⚠ 中は送る（10-06・⚠ 長い休憩の行を足したら紙が縦 720 からはみ出し、題と「閉じる」が切れた＝撮った絵）。
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "PomodoroSettingsScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size.y = float(get_theme_constant(&"panel_height", &"PomodoroSettings"))
+	scroll.custom_minimum_size.y = float(theme.get_constant(&"panel_height", &"PomodoroSettings"))
 	scroll.add_child(panel)
-	Modal.notify(host, "", [], false, {
-		Modal.OPTION_TITLE: tr("ui_pomodoro_settings_open"),
+	return Modal.notify(host, "", [], false, {
+		Modal.OPTION_TITLE: TranslationServer.translate("ui_pomodoro_settings_open"),
 		Modal.OPTION_CONTENT: scroll,
 		Modal.OPTION_PAPER: true,
 		Modal.OPTION_WIDTH: Modal.WIDTH_MEDIUM,
