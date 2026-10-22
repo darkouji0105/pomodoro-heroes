@@ -139,6 +139,8 @@ func _refresh_mail_badge() -> void:
 	var side: float = float(get_theme_constant(&"badge", &"BaseDesk"))
 	badge.size = Vector2(side, side)
 	badge.position = Vector2(_mail_button.get_combined_minimum_size().x - side * 0.6, -side * 0.4)
+	# ⚠ 10-23（人間「⚠ 設定の右上の数字アイコンが裏にある」）：⚠ 札は封筒の右上からはみ出す＝⚠ 右隣の設定のボタンがあとから描かれて上に重なっていた。⚠ 前へ出す。
+	badge.z_index = 1
 	_mail_button.add_child(badge)
 
 

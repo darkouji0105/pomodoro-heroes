@@ -519,13 +519,31 @@ func _build_characters() -> void:
 		level.text = "%s ／ %s %d" % [role, tr("ui_dossier_lv"), int(GameManager.get_character_growth(character_id).get(GameStateKeys.GROWTH_LEVEL, 1))]
 		column.add_child(level)
 		var stats: Dictionary = GameManager.get_effective_stats(character_id)
+		# ⚠ 10-23（人間「⚠ 記録ガメンノキャラ情報のステータスもアイコンで」）：⚠ アイコン＋数（⚠ 名前は触れると出る）。
 		for stat_key: String in stat_keys:
-			var stat: Label = Label.new()
+			var stat: HBoxContainer = HBoxContainer.new()
 			stat.name = "Stat_" + stat_key
 			stat.custom_minimum_size.x = float(get_theme_constant(&"stat_width", THEME_TYPE))
 			stat.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			stat.text = "%s %d" % [tr("ui_training_stat_" + stat_key), int(stats.get(stat_key, 0))]
+			stat.tooltip_text = tr("ui_training_stat_" + stat_key)
+			stat.mouse_filter = Control.MOUSE_FILTER_PASS
 			line.add_child(stat)
+			var icon: TextureRect = TextureRect.new()
+			icon.name = "Icon"
+			icon.texture = IconTextures.for_stat(stat_key)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			var side: float = float(get_theme_constant(&"stat_icon", THEME_TYPE))
+			icon.custom_minimum_size = Vector2(side, side)
+			icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			stat.add_child(icon)
+			var value: Label = Label.new()
+			value.name = "Value"
+			value.text = str(int(stats.get(stat_key, 0)))
+			value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			stat.add_child(value)
+			SkillDetailLines.tint(icon, value)
 		list.add_child(row)
 
 

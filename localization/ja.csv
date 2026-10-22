@@ -2614,7 +2614,7 @@ ui_town_training,訓練場（育成）
 ui_town_chest,宝物庫
 ui_town_research,研究所
 ui_town_relic,遺物の祭壇
-ui_town_legend,大きい建物＝毎日すること　赤い栞＝知らせがある
+ui_town_legend,大きいパネル＝毎日すること　赤い栞＝知らせがある
 ui_town_note_board,依頼 %d つ
 ui_town_note_pomodoro,ポモドーロ
 ui_town_note_chest,宝箱 %d

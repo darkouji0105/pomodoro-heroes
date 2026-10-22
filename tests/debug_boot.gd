@@ -1954,6 +1954,8 @@ const SCENARIOS: Dictionary = {
 			},
 			# ⚠ 記録（2026-09-28・回UI-仕組み②・手本 Records）。⚠ 図鑑のタブ。
 			{"name": "45_records", "scene": "res://scenes/guild/records_screen.tscn", "after": SHOT_AFTER_RECORDS_PICK},
+			# ⚠ 10-23（人間「⚠ 記録ガメンノキャラ情報のステータスもアイコンで」）：⚠ キャラの情報のタブ。
+			{"name": "45b_records_characters", "scene": "res://scenes/guild/records_screen.tscn", "data": {TransferKeys.RECORDS_TAB: RecordsScreen.TAB_CHARACTERS}},
 			# ⚠ 設定（2026-09-28・回UI-仕組み③・手本 Settings）。⚠ 手本と同じ「ポモドーロと小窓」タブ ／ ⚠ 音のタブ（つまみ）。
 			{"name": "46_settings", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_POMODORO},
 			{"name": "47_settings_audio", "scene": "res://scenes/base/settings_screen.tscn", "after": SHOT_AFTER_SETTINGS_AUDIO},
@@ -14728,8 +14730,8 @@ class ShotTaker extends Node:
 				return false
 			# ⚠ 覚えた見え方は机へ戻しておく（⚠ 後の本部の絵が全体で撮れてしまう）。⚠ いま出ている姿は変わらない。
 			SceneManager.remember(TransferKeys.MEMORY_BASE_VIEW, "desk")
-			# ⚠ 歩き出すまで（⚠ 道の大きさが決まってから）。
-			for _i: int in range(30):
+			# ⚠ パネルが並ぶまで。
+			for _i: int in range(8):
 				await get_tree().process_frame
 		elif kind == AFTER_DEBUG_OVERLAY:
 			var overlay: Node = get_tree().root.find_child("DebugOverlay", true, false)
@@ -16213,8 +16215,16 @@ class UiFlowRunner extends Node:
 			and town.find_child("Building_" + BaseTownView.CHEST, true, false) != null
 			and town.find_child("Building_" + BaseFacilityBar.BARRACKS, true, false) != null and town.find_child("Building_" + BaseFacilityBar.FORGE, true, false) != null
 			and town.find_child("Building_" + BaseFacilityBar.RESEARCH, true, false) != null and town.find_child("Building_" + BaseFacilityBar.HQ, true, false) == null)
-		_check("ギルド：編成の %d 人が歩く" % walkers, town != null and town.find_children("Walker_*", "", true, false).size() == walkers)
-		await _press(null if town == null else town.find_child("Building_" + BaseFacilityBar.BOARD, true, false), OPEN_FRAMES)
+		# ⚠ 10-23（人間「⚠ ギルドは建物形式ではなく複数panelから選ぶようにしたい」）：⚠ 毎日すること4つは上の大きいパネル・ほかは下の小さいパネル・歩く人は無い。
+		var daily: Node = null if town == null else town.find_child("DailyRow", true, false)
+		var others: Node = null if town == null else town.find_child("OtherGrid", true, false)
+		var daily_count: int = 0 if daily == null else daily.get_child_count()
+		_check("ギルド：毎日すること %d 枚は大きいパネル・ほかは小さいパネル（%d 枚）・歩く人は無い（編成 %d 人）" % [daily_count, 0 if others == null else others.get_child_count(), walkers],
+			daily_count == 4 and daily.find_child("Building_" + BaseFacilityBar.BOARD, false, false) != null
+			and (daily.find_child("Building_" + BaseFacilityBar.BOARD, false, false) as PanelContainer).theme_type_variation == &"DeskFeaturePanel"
+			and others != null and others.find_child("Building_" + BaseFacilityBar.FORGE, false, false) != null
+			and town.find_children("Walker_*", "", true, false).is_empty())
+		await _press(null if town == null else _hit_of(town, "Building_" + BaseFacilityBar.BOARD), OPEN_FRAMES)
 		_check("ギルド：「冒険の門」で依頼掲示板", _path_of(get_tree().current_scene) == ADVENTURE)
 		base = await _open(BASE, {})
 		if base == null:
@@ -17592,8 +17602,13 @@ class UiFlowRunner extends Node:
 		_check("詰所：ビルド2の行を押すと当たる（いまの形＝ビルド%d）" % (GameManager.get_matching_character_preset(HERO) + 1), GameManager.get_matching_character_preset(HERO) == 1)
 
 		# 控え：1件目で「いまを残す」→「いまと同じ」の判 ／ 並びを変えて「呼ぶ」→ 予告の窓 → 呼ぶで戻る ／ 上書きは確かめる。
+		# ⚠ 10-23（人間「⚠ ひかえを登録すると横幅が広くなる」）：⚠ 登録しても控えの枠の幅と画面の幅は変わらない。
+		var widths_before: Array[int] = _reserve_widths(b)
 		await _press(_hit_of(b, "Preset_0"))
 		await _press(b.find_child("KeepButton", true, false))
+		await _wait()
+		var widths_after: Array[int] = _reserve_widths(b)
+		_check("詰所：控えを登録しても枠の幅と画面の幅は変わらない（前 %s ／ 後 %s）" % [str(widths_before), str(widths_after)], widths_before == widths_after)
 		var preset: Dictionary = GameManager.get_party_presets()[0]
 		var hero_index: int = -1
 		for entry: Variant in preset.get(GameStateKeys.PRESET_SLOTS, []):
@@ -21551,6 +21566,16 @@ class UiFlowRunner extends Node:
 		return null if card == null else card.find_child("Hit", false, false)
 
 	# ⚠ 画面の子に積まれた窓（⚠ 無ければ null）。
+	# ⚠ 控えの枠の幅（8枠）＋ 画面の中身の幅（⚠ 最後の値）。
+	func _reserve_widths(scene: Node) -> Array[int]:
+		var out: Array[int] = []
+		for i: int in range(GameManager.get_party_preset_count()):
+			var card: Control = scene.find_child("Preset_%d" % i, true, false) as Control
+			out.append(0 if card == null else int(card.size.x))
+		var margin: Control = scene.get_node_or_null("Margin") as Control
+		out.append(0 if margin == null else int(margin.get_combined_minimum_size().x))
+		return out
+
 	# ⚠ メールボックスの、ある種類のいちばん新しい知らせの番号（⚠ 無ければ 0）。
 	func _newest_mail_id_of(kind: String) -> int:
 		for mail: Dictionary in GameManager.get_mails():

@@ -438,7 +438,12 @@ func _build_box(character_id: String) -> PanelContainer:
 		row.show_rule = false
 		var line: HBoxContainer = HBoxContainer.new()
 		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(line)
+		# ⚠ 10-23（人間「⚠ ひかえを登録すると横幅が広くなる」）：⚠ ビルドのアイコンは2段目（⚠ 1段目に番号・名前と横一列だと 309px になり、3人の枠ごと画面を押し広げていた）。
+		var stack: VBoxContainer = VBoxContainer.new()
+		stack.theme_type_variation = &"TightList"
+		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(stack)
+		stack.add_child(line)
 		var number: Label = Label.new()
 		number.theme_type_variation = &"AccentLabel" if index == matching else &"CaptionLabel"
 		number.text = tr("ui_sortie_build_no") % (index + 1)
@@ -449,6 +454,8 @@ func _build_box(character_id: String) -> PanelContainer:
 			title.name = "BuildName"
 			title.text = _preset_name(character_id, index)
 			title.custom_minimum_size.x = float(get_theme_constant(&"build_name", THEME_TYPE))
+			title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			title.clip_text = true
 			title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			line.add_child(title)
@@ -456,7 +463,7 @@ func _build_box(character_id: String) -> PanelContainer:
 			icons.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			for child: Node in icons.get_children():
 				(child as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
-			line.add_child(icons)
+			stack.add_child(icons)
 			row.pressed.connect(_on_build_chosen.bind(character_id, index))
 		else:
 			var empty: Label = Label.new()

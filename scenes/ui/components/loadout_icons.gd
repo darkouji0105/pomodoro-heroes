@@ -99,6 +99,11 @@ static func skill_tip_text(skill_id: String) -> String:
 
 func _ready() -> void:
 	theme_type_variation = &"LoadoutRow"
+	# ⚠ 10-23（人間「⚠ びるどあいこんはあいこんにちかいかんじで見たい　今は縦の長方形で表示されてる」）：
+	#   ⚠ 並びが行の高さいっぱいに縦へ伸ばしていた＝⚠ 枠は正方形のまま真ん中に（⚠ 仕切りの線だけは伸ばす）。
+	for child: Node in get_children():
+		if child is Control and not (child is Separator):
+			(child as Control).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	for child: Node in get_children():
 		# ⚠ 品のマスは自分の `pressed` を持つ（⚠ 二重に飛ばさない）。⚠ 仕切りは押せない。
 		if child is Control and not (child is ItemCell) and not (child is Separator):

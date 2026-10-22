@@ -2788,6 +2788,8 @@ static func _build_records(theme: Theme) -> void:
 	theme.set_constant(&"cell", t, RECORDS_CELL)
 	theme.set_constant(&"photo", t, RECORDS_PHOTO)
 	theme.set_constant(&"stat_width", t, RECORDS_STAT_WIDTH)
+	# ⚠ キャラの情報のステータスのアイコン（10-23・人間「⚠ 記録ガメンノキャラ情報のステータスもアイコンで」）。
+	theme.set_constant(&"stat_icon", t, 16)
 	theme.set_type_variation(&"RecordsCells", &"HFlowContainer")
 	theme.set_constant(&"h_separation", &"RecordsCells", RECORDS_CELL_GAP)
 	theme.set_constant(&"v_separation", &"RecordsCells", RECORDS_CELL_GAP)
@@ -3360,7 +3362,7 @@ static func _build_sortie(theme: Theme) -> void:
 		theme.set_stylebox(&"panel", StringName(str(spec[0])), box)
 	# ⚠⚠ 10-18（回UI-1018-5・web版の手本 `01_barracks.png` / `01_barracks_window.png`）。
 	for spec: Array in [
-		["roster_width", 360], ["depth_screen_width", 560], ["build_icon", 15], ["build_name", 52], ["build_left", 250], ["build_right", 400], ["build_slot_icon", 34],
+		["roster_width", 360], ["depth_screen_width", 560], ["build_icon", 18], ["build_name", 52], ["build_left", 250], ["build_right", 400], ["build_slot_icon", 34],
 	]:
 		theme.set_constant(StringName(str(spec[0])), t, int(spec[1]))
 	# ⚠ 空きの枠（⚠ 暗い板に薄い縁）／ 名簿の札（⚠ 薄い紙）／ 出ている人・選んだ控えの札（⚠ 明るい紙に真鍮の縁）。
