@@ -16161,6 +16161,34 @@ class UiFlowRunner extends Node:
 		var kept: Array[Dictionary] = GameManager.get_mails()
 		_check("メールボックス：%d 通を超えると古いものから消える（%d 通）" % [GameManager.MAIL_KEEP_COUNT, kept.size()],
 			kept.size() == GameManager.MAIL_KEEP_COUNT and int(kept[0].get(GameStateKeys.MAIL_ID, 0)) > int(kept[kept.size() - 1].get(GameStateKeys.MAIL_ID, 0)))
+		# ⚠ 10-23（回MAIL-2）：⚠ ほかの出来事も届く（⚠ 本物の口を呼ぶ）。⚠ 文は全部の種類で組める（キー漏れ 0）。
+		var snapshot_mail: Dictionary = GameManager.get_state()
+		var first_before: int = _mail_count_of(GameManager.MAIL_KIND_FIRST_RECORD)
+		GameManager.call("_note_first_record", "acc_keen")
+		var level_before: int = GameManager.get_forge_level()
+		for _i: int in range(200):
+			GameManager.call("_add_forge_exp")
+			if GameManager.get_forge_level() > level_before:
+				break
+		var newest: Array[Dictionary] = GameManager.get_mails()
+		var kinds_text: Array[String] = []
+		var texts_ok: bool = true
+		for kind: String in [GameManager.MAIL_KIND_RESEARCH_AUTO, GameManager.MAIL_KIND_CRAFT_DONE, GameManager.MAIL_KIND_SHOP_REFRESH,
+				GameManager.MAIL_KIND_FIRST_RECORD, GameManager.MAIL_KIND_FORGE_LEVEL, GameManager.MAIL_KIND_GOAL]:
+			var sample_args: Array = ["acc_keen"]
+			if kind == GameManager.MAIL_KIND_FORGE_LEVEL:
+				sample_args = [3]
+			elif kind == GameManager.MAIL_KIND_RESEARCH_AUTO:
+				sample_args = ["res_cap_1"]
+			var sample: String = MailboxWindow.text_of({GameStateKeys.MAIL_KIND: kind, GameStateKeys.MAIL_ARGS: sample_args})
+			kinds_text.append(sample)
+			texts_ok = texts_ok and sample != "" and sample != kind and not sample.contains("ui_")
+		_check("メールボックス：初回の記録・鍛冶の腕が上がったも届く（初回 %d → %d・いちばん新しい「%s」）" % [first_before, _mail_count_of(GameManager.MAIL_KIND_FIRST_RECORD),
+				"" if newest.is_empty() else MailboxWindow.text_of(newest[0])],
+			_mail_count_of(GameManager.MAIL_KIND_FIRST_RECORD) == first_before + 1
+			and GameManager.get_forge_level() > level_before and not newest.is_empty() and str(newest[0].get(GameStateKeys.MAIL_KIND, "")) == GameManager.MAIL_KIND_FORGE_LEVEL)
+		_check("メールボックス：6種類の知らせの文が組める（%s）" % " ／ ".join(kinds_text), texts_ok)
+		var _restored_mail: bool = GameManager.load_state(snapshot_mail)
 		GameManager.mark_mails_read()
 		base = await _open(BASE, {})
 		if base == null:
@@ -19527,13 +19555,13 @@ class UiFlowRunner extends Node:
 		await _confirm_modal()
 		_check("研究：「自動」を押すと窓 → オンになる", bool(GameManager.get_research_auto()[GameManager.RESEARCH_AUTO_ENABLED]))
 		var left_before: int = GameManager.get_affordable_research_count()
-		var unread_before: int = GameManager.get_unread_mail_count()
+		var research_seq_before: int = _newest_mail_id_of(GameManager.MAIL_KIND_RESEARCH_AUTO)
 		var _base: Node = await _open(BASE, {})
 		# ⚠ 10-19（「⚠ 窓を出さないでいいがメールボックスに送って」）：⚠ 開いたら知らせが1通・窓は出ない。
-		var mails_now: Array[Dictionary] = GameManager.get_mails()
-		_check("研究：自動で開くとメールボックスに知らせが1通（読んでいない %d → %d）・窓は出ない" % [unread_before, GameManager.get_unread_mail_count()],
-			left_before == 0 or (GameManager.get_unread_mail_count() == unread_before + 1 and not mails_now.is_empty()
-			and str(mails_now[0].get(GameStateKeys.MAIL_KIND, "")) == GameManager.MAIL_KIND_RESEARCH_AUTO and _base != null and _modal_of(_base) == null))
+		# ⚠ 10-23（回MAIL-2）：⚠ 本部を開くとショップの入れ替えなども届きうる＝⚠ 研究の知らせの数で見る。
+		# ⚠ 箱は 100 通で古いものから消える＝⚠ 数ではなく「いちばん新しい研究の知らせの番号」が進んだかで見る。
+		_check("研究：自動で開くとメールボックスに研究の知らせが届く（番号 %d → %d）・窓は出ない" % [research_seq_before, _newest_mail_id_of(GameManager.MAIL_KIND_RESEARCH_AUTO)],
+			left_before == 0 or (_newest_mail_id_of(GameManager.MAIL_KIND_RESEARCH_AUTO) > research_seq_before and _base != null and _modal_of(_base) == null))
 		_check("研究：自動＝本部に着くと開く（開けた %d 件 → 残り %d）・栞" % [left_before, GameManager.get_affordable_research_count()],
 			left_before == 0 or (GameManager.get_affordable_research_count() < left_before and GameManager.has_new_research()))
 		_check("研究：本部の研究の札に紐", _base != null and _base.find_child("ResearchCard", true, false) is Control
@@ -21523,6 +21551,21 @@ class UiFlowRunner extends Node:
 		return null if card == null else card.find_child("Hit", false, false)
 
 	# ⚠ 画面の子に積まれた窓（⚠ 無ければ null）。
+	# ⚠ メールボックスの、ある種類のいちばん新しい知らせの番号（⚠ 無ければ 0）。
+	func _newest_mail_id_of(kind: String) -> int:
+		for mail: Dictionary in GameManager.get_mails():
+			if str(mail.get(GameStateKeys.MAIL_KIND, "")) == kind:
+				return int(mail.get(GameStateKeys.MAIL_ID, 0))
+		return 0
+
+	# ⚠ メールボックスの、ある種類の知らせの数。
+	func _mail_count_of(kind: String) -> int:
+		var count: int = 0
+		for mail: Dictionary in GameManager.get_mails():
+			if str(mail.get(GameStateKeys.MAIL_KIND, "")) == kind:
+				count += 1
+		return count
+
 	func _modal_of(scene: Node) -> ModalDialog:
 		for node: Node in scene.get_children():
 			if node is ModalDialog and not node.is_queued_for_deletion():

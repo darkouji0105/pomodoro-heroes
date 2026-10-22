@@ -1547,6 +1547,10 @@ ui_mail_received,届いた知らせ
 ui_mail_none,まだ届いた知らせはありません
 ui_mail_new,新
 ui_mail_research_auto,研究が自動で %d つ開いた：%s
+ui_mail_craft_done,作業場で「%s」ができた
+ui_mail_shop_refresh,ショップの品揃えが替わった
+ui_mail_first_record,初回の記録：%s
+ui_mail_goal,目標を達成した
 ui_base_today_hq,本部：届いた宝箱がある
 ui_base_today_training,育成：昇級できる人がいる
 ui_base_today_forge,鍛冶場：作業場の品ができた

@@ -1275,6 +1275,7 @@ func _check_goal_achieved() -> void:
 		return
 	_state[GameStateKeys.GOAL] = {}
 	print("[GameManager] goal achieved %s" % str(goal))
+	add_mail(MAIL_KIND_GOAL, [])
 	goal_achieved.emit(goal)
 	goal_changed.emit()
 
@@ -2512,6 +2513,7 @@ func _note_first_record(item_id: String) -> void:
 	var config: EquipmentConfig = _equipment()
 	if config == null or not (get_codex_kind(item_id) in config.first_record_kinds):
 		return
+	add_mail(MAIL_KIND_FIRST_RECORD, [item_id])
 	first_record_added.emit(item_id)
 
 
@@ -2857,6 +2859,9 @@ func refresh_shop_if_needed(shop_type: String) -> void:
 	var new_shop: Dictionary = _copy_dict(key)
 	new_shop[GameStateKeys.SHOP_REFRESH_AT] = today
 	_state[key] = new_shop
+	# ⚠ 初めて棚を作ったとき（⚠ 遊び始め）は知らせない＝入れ替わったときだけ。
+	if last_refreshed != "":
+		add_mail(MAIL_KIND_SHOP_REFRESH, [])
 
 	print("[GameManager] refresh_shop_if_needed('%s') -> refreshed (%s -> %s, %d slots)" % [
 		shop_type, last_refreshed, today, slots
@@ -4445,6 +4450,7 @@ func _add_forge_exp() -> void:
 	var after: int = get_forge_level()
 	print("[GameManager] 鍛冶の経験値 -> %d（Lv%d）" % [get_forge_exp(), after])
 	if after > before:
+		add_mail(MAIL_KIND_FORGE_LEVEL, [after])
 		forge_level_changed.emit(after)
 
 
@@ -7534,6 +7540,12 @@ func run_research_auto() -> Array[String]:
 
 # ⚠ 知らせの種類（⚠ リリース後に改名しない＝改名すると前の知らせの文が出ない）。
 const MAIL_KIND_RESEARCH_AUTO: String = "research_auto"
+# ⚠ 10-23（回MAIL-2・`NAV-36`）：⚠ ほかの出来事も「届いた知らせ」に残す（⚠ args は ID と数字だけ）。
+const MAIL_KIND_CRAFT_DONE: String = "craft_done"          # [出来た品の item_id]
+const MAIL_KIND_SHOP_REFRESH: String = "shop_refresh"      # []
+const MAIL_KIND_FIRST_RECORD: String = "first_record"      # [item_id]
+const MAIL_KIND_FORGE_LEVEL: String = "forge_level"        # [上がったレベル]
+const MAIL_KIND_GOAL: String = "goal"                      # []
 # ⚠ 残す数（⚠ 人間「⚠ ２アだが１００件」）。⚠ 遊びの数値ではなく器の上限＝`CHARACTER_PRESET_COUNT` と同じくここに置く。⚠ 超えたら古いものから消える。
 const MAIL_KEEP_COUNT: int = 100
 
@@ -8084,6 +8096,7 @@ func refresh_crafting_queue_if_needed() -> void:
 	var now: int = int(Time.get_unix_time_from_system())
 	var new_queue: Array = (queue as Array).duplicate(true)
 	var changed: bool = false
+	var completed_items: Array[String] = []
 	for i: int in range(new_queue.size()):
 		if not (new_queue[i] is Dictionary):
 			continue
@@ -8096,11 +8109,15 @@ func refresh_crafting_queue_if_needed() -> void:
 		entry[GameStateKeys.CRAFT_STATUS] = GameStateKeys.CRAFT_STATUS_COMPLETED
 		new_queue[i] = entry
 		changed = true
+		completed_items.append(str(entry.get(GameStateKeys.CRAFT_OUTPUT_ITEM_ID, "")))
 		print("[GameManager] refresh_crafting_queue_if_needed: '%s' -> completed" % str(entry.get(GameStateKeys.CRAFT_QUEUE_ID, "")))
 
 	if not changed:
 		return
 	_state[GameStateKeys.CRAFTING_QUEUE] = new_queue
+	# ⚠ 10-23（回MAIL-2）：⚠ 出来た品をメールボックスへ（⚠ 状態を書いたあと＝1品1通）。
+	for item_id: String in completed_items:
+		add_mail(MAIL_KIND_CRAFT_DONE, [item_id])
 	crafting_queue_changed.emit()
 
 # --- 作業場：内部ヘルパー ---

@@ -8,6 +8,7 @@ extends RefCounted
 # ⚠ 窓の中：⚠ 上＝いまの用事（⚠ 用事のある施設＝`BaseTodaySheet.current_errands()`・押すとその画面へ）
 #   ／ ⚠ 下＝届いた知らせ（⚠ 新しい順・まだ読んでいないものに「新」）。⚠ 開いたら全部読んだことにする。
 # ⚠ 文は kind と args から毎回組み立てる（⚠ セーブに文を持たない＝CLAUDE.md 4番）。
+# ⚠ 10-23（回MAIL-2）：⚠ 届く知らせ＝研究の自動 ／ 作業場の完成 ／ ショップの入れ替え ／ 初回の記録 ／ 鍛冶の腕 ／ 目標の達成。
 # ⚠ 本部でしか使わない＝scenes/base/（AGENTS.md）。⚠ 大きさは Theme の `BaseDesk`。
 
 const THEME_TYPE: StringName = &"BaseDesk"
@@ -115,7 +116,23 @@ static func text_of(mail: Dictionary) -> String:
 			for raw: Variant in args:
 				names.append(ResearchCard.name_of(str(raw)))
 			return TranslationServer.translate("ui_mail_research_auto") % [args.size(), TranslationServer.translate("ui_barracks_skill_separator").join(names)]
+		# ⚠ 10-23（回MAIL-2）：⚠ ほかの出来事。
+		GameManager.MAIL_KIND_CRAFT_DONE:
+			return TranslationServer.translate("ui_mail_craft_done") % _item_name(args)
+		GameManager.MAIL_KIND_SHOP_REFRESH:
+			return TranslationServer.translate("ui_mail_shop_refresh")
+		GameManager.MAIL_KIND_FIRST_RECORD:
+			return TranslationServer.translate("ui_mail_first_record") % _item_name(args)
+		GameManager.MAIL_KIND_FORGE_LEVEL:
+			return TranslationServer.translate("ui_toast_forge_level_up") % (int(args[0]) if not args.is_empty() else 0)
+		GameManager.MAIL_KIND_GOAL:
+			return TranslationServer.translate("ui_mail_goal")
 	return kind
+
+
+static func _item_name(args: Array) -> String:
+	var item_id: String = str(args[0]) if not args.is_empty() else ""
+	return TranslationServer.translate(GameManager.item_name_key(item_id)) if item_id != "" else ""
 
 
 # 「2026-10-19T15:04:05」→「10/19 15:04」。
