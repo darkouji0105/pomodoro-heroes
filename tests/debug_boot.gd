@@ -6665,7 +6665,7 @@ class SoakRunner extends Node:
 			elif arg.begins_with("mode="):
 				mode = arg.substr(5)
 		ResourceGainEffect.set_muted(true)
-		SoundManager.set("_config", null)
+		SoundManager.set_muted(true)
 		_build_plan()
 		_find_ally_skills()
 		var total: int = _plan.size()
@@ -7146,7 +7146,7 @@ class DungeonSimRunner extends Node:
 			elif arg.begins_with("dungeon="):
 				dungeon_key = arg.substr(8)
 		ResourceGainEffect.set_muted(true)
-		SoundManager.set("_config", null)
+		SoundManager.set_muted(true)
 		Engine.time_scale = speed
 		for i: int in range(runs):
 			await _one_run(i)
@@ -15409,6 +15409,12 @@ class UiFlowRunner extends Node:
 			print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
 			get_tree().quit()
 			return
+		# ⚠ `flow=sound` で効果音の土台の手だけ（10-24・回SE-1）。
+		if "flow=sound" in OS.get_cmdline_user_args():
+			await _flow_sound()
+			print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
+			get_tree().quit()
+			return
 		if "flow=runes" in OS.get_cmdline_user_args():
 			await _flow_runes_all()
 			print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
@@ -15456,6 +15462,7 @@ class UiFlowRunner extends Node:
 		await _flow_ui_1018()
 		await _flow_item_parts()
 		await _flow_belongings_v2()
+		await _flow_sound()
 		# ⚠ ルーンの手（`_flow_runes_all`）は `flow=runes` のときだけ（10-17）：⚠ バイク・フェニックスの「スキルのあと」の見方が決まっていない＝⚠ 全体を赤にしない。
 		_flow_debug_tools()
 		print("[DebugBoot] ui_flow: 通った %d ／ 落ちた %d" % [_passed, _failed])
@@ -15468,8 +15475,8 @@ class UiFlowRunner extends Node:
 		# ⚠⚠ 効果音を鳴らさない（2026-10-02）：⚠ ヘッドレスで効果音（集中が終わったアラーム）を鳴らすと、
 		#   ⚠ 終了時に「1 resources still in use at exit」の赤が出たり出なかったりした（⚠ 鳴らすと4回中3回・止めると4回中0回）。
 		#   ⚠ 再生を `stop()` しても消えなかった＝⚠ 音を出す先が無いので、再生が片付かないまま終わる。⚠ 小窓のせいではなかった。
-		#   ⚠ `SoundManager` は設定（`_config`）が無いと何も鳴らさない作り＝⚠ それを使う。
-		SoundManager.set("_config", null)
+		#   ⚠ `SoundManager.set_muted(true)` で音を出さない（⚠ 鳴らした記録は取る＝回SE-1 の手が見る）。
+		SoundManager.set_muted(true)
 		for screen_id: String in GameManager.get_all_screen_ids():
 			GameManager.unlock_screen(screen_id)
 		for material_id: String in GameManager.get_material_ids():
@@ -17334,6 +17341,40 @@ class UiFlowRunner extends Node:
 
 	# --- 設定（2026-09-28・回UI-仕組み③・手本 Settings・人間「⚠ 1あ　⚠ 2あ　⚠ 3い　⚠ 4あ」） ---
 	#   ⚠ 設定のファイルは検査用（`SETTINGS_TEST_PATH`）に差し替えてある。
+
+	# ⚠⚠ 回SE-1（10-24）：⚠ 効果音の土台＝⚠ 口2本・バス2本・台帳・間引き。⚠ 音は出さない（set_muted）＝⚠ 鳴らした記録で見る。
+	func _flow_sound() -> void:
+		for bus_name: String in [SoundManager.SE_BATTLE_BUS_NAME, SoundManager.SE_UI_BUS_NAME]:
+			var index: int = AudioServer.get_bus_index(bus_name)
+			_check("音：バス %s がある・SE につながる" % bus_name, index != -1 and AudioServer.get_bus_send(index) == &"SE")
+		_check("音：台帳にアラーム2つ", SoundManager.has_sound(SoundIds.ALARM_FOCUS_END) and SoundManager.has_sound(SoundIds.ALARM_BREAK_END))
+		var battle_ok: bool = true
+		var ui_ok: bool = true
+		var battle_count: int = 0
+		var ui_count: int = 0
+		for child: Node in SoundManager.get_children():
+			if not (child is AudioStreamPlayer):
+				continue
+			var player: AudioStreamPlayer = child
+			if player.bus == SoundManager.SE_BATTLE_BUS_NAME:
+				battle_count += 1
+				battle_ok = battle_ok and player.process_mode == Node.PROCESS_MODE_PAUSABLE
+			elif player.bus == SoundManager.SE_UI_BUS_NAME:
+				ui_count += 1
+				ui_ok = ui_ok and player.process_mode == Node.PROCESS_MODE_ALWAYS
+		_check("音：戦闘のプレイヤー %d 本＝一時停止で止まる" % battle_count, battle_count == Balance.sound.battle_player_count and battle_ok)
+		_check("音：それ以外のプレイヤー %d 本＝一時停止中も鳴る" % ui_count, ui_count == Balance.sound.se_player_count and ui_ok)
+		SoundManager.clear_history()
+		SoundManager.play_ui_se(SoundIds.ALARM_FOCUS_END)
+		SoundManager.play_ui_se(SoundIds.ALARM_FOCUS_END)
+		_check("音：同じフレームの2回目は間引く", SoundManager.get_history().size() == 1)
+		# ⚠ _ready から直に来ると、1回待っても同じフレームの番号のまま再開することがある＝⚠ 2回待つ。
+		await get_tree().process_frame
+		await get_tree().process_frame
+		SoundManager.play_se(SoundIds.ALARM_FOCUS_END)
+		var history: Array[Dictionary] = SoundManager.get_history()
+		_check("音：次のフレームなら鳴る・前からある口（play_se）は ui", history.size() == 2 and str(history[1]["kind"]) == "ui")
+		SoundManager.clear_history()
 
 	func _flow_settings() -> void:
 		# ⚠ 09-28：⚠ 途中で置き場所が本物へ戻り、本物の設定を書いた（⚠ static 変数が初期値に戻った）＝⚠ ここで見張る。

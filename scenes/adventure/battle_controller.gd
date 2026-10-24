@@ -420,6 +420,8 @@ func _setup_debug_panel() -> void:
 # 戻さずに画面を離れると拠点もポモドーロも 8 倍速のままになる。
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0
+	# ⚠ 戦闘の音は戦闘の画面と一緒に止める（回SE-1）。
+	SoundManager.stop_battle_se()
 	# ⚠ 戦闘ログの取りこぼし対策（EXEC_BATTLE_LOG.md §0）。節目（ウェーブ交代・
 	#   勝敗）だけだと、途中で「戻る」を押した戦闘・シーン遷移・通常終了で
 	#   溜めたぶんが丸ごと消える。

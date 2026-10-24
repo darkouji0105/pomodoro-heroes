@@ -1,0 +1,11 @@
+{
+	"_note": "⚠⚠ 2026-10-24（回SE-1・人間「⚠ １あ ２あ ２－１あ ２－２あ」）：⚠ 効果音の台帳。⚠ 1音＝1行。⚠ 鍵は SoundIds の定数と完全に一致させる。⚠ kind は battle（SoundManager.play_battle_se）か ui（play_ui_se）＝⚠ 違う口から呼ぶと黄を出して鳴らさない。⚠ files は res://assets/sounds/ からの相対（⚠ 戦闘は se/battle/・それ以外は se/ui/ に置く）＝⚠ 複数書くとランダムに鳴らし分ける。⚠ 省いてよい鍵：volume_db（既定 0）／ min_interval_sec（同じ音を最低何秒空けるか・既定は SoundConfig の kind ごとの値）／ pitch_jitter（鳴らすたびに高さを ±この割合ずらす・既定 0）。⚠ 『_』で始まる鍵は注記。",
+	"alarm_focus_end": {
+		"kind": "ui",
+		"files": ["alarm_focus_end.wav"]
+	},
+	"alarm_break_end": {
+		"kind": "ui",
+		"files": ["alarm_break_end.wav"]
+	}
+}

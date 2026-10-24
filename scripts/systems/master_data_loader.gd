@@ -1983,3 +1983,32 @@ static func _validate_character_passives() -> int:
 					str(character_id), passive_id, owner_id
 				])
 	return errors
+
+
+# ========================================================================
+# 効果音の台帳（2026-10-24・回SE-1）。⚠ 読むのは SoundManager の起動時だけ。
+# ⚠ 中身の確かめ（ファイルがあるか・kind が正しいか）は SoundManager 側で黄を出す
+#   （⚠ 音は無くてもゲームは進む＝赤にしない）。
+# ========================================================================
+
+const PATH_SOUNDS: String = DIR_PATH + "sounds.json"
+const SOUND_KIND: String = "kind"
+const SOUND_KIND_BATTLE: String = "battle"
+const SOUND_KIND_UI: String = "ui"
+const SOUND_FILES: String = "files"
+const SOUND_VOLUME_DB: String = "volume_db"
+const SOUND_MIN_INTERVAL_SEC: String = "min_interval_sec"
+const SOUND_PITCH_JITTER: String = "pitch_jitter"
+const SOUND_FILES_DIR: String = "res://assets/sounds/"
+
+
+# { sound_id: { kind, files, ... } }。⚠ 『_』で始まる鍵（注記）は外して返す。
+static func get_all_sounds() -> Dictionary:
+	var raw: Dictionary = _load_json(PATH_SOUNDS)
+	var out: Dictionary = {}
+	for key: Variant in raw.keys():
+		var id: String = str(key)
+		if id.begins_with("_") or not (raw[key] is Dictionary):
+			continue
+		out[id] = raw[key]
+	return out

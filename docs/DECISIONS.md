@@ -390,6 +390,7 @@
 | **RS-6** | **素材16件は拠点だけ**（⚠ 全画面に並べると上の帯が埋まる） | — | 拠点画面 | 09-10 | — |
 | **RS-7** | **「戻る」と重なる件は画面側が `reserved_width()` ぶん空けて避ける**（⚠ 画面側に数値を書かない） | — | `ResourceHud.reserved_width()` | 09-10 | — |
 | **RS-8** | **資源の色の名前を決める口は1本** | 7つとも既存の色の使い回し | `ResourceBar.color_key_for()` | 09-10 | — |
+| **RS-10** | ⚠⚠ **効果音の口は2本＝戦闘用 `play_battle_se` とそれ以外用 `play_ui_se`**（回SE-1・人間「⚠ １あ ２あ ２－１あ ２－２あ」）：⚠ 台帳は `master/sounds.json`（1音＝1行・kind が違う口から呼ぶと黄で鳴らさない・files が複数ならランダム・pitch_jitter で高さをずらす）／ ⚠ 戦闘は一時停止で止まり、戦闘を出たら止める ／ ⚠ それ以外は一時停止中も鳴る ／ ⚠ 同じ音は同じフレームに1回・min_interval_sec で間引く（実時間） | バス `SE_Battle`・`SE_UI`（⚠ どちらも `SE` の下＝「効果音」のつまみが両方に効く）／ 同時発音 戦闘 10・それ以外 4 ／ 間引きの既定 戦闘 0.05秒・それ以外 0秒 | `SoundManager` ／ `SoundConfig` ／ `sounds.json` ／ 音源は `assets/sounds/se/battle/`・`se/ui/` ／ 検査は `ui_flow`（`flow=sound`） | 10-24 | ⚠ `SoundConfig.entries`（`.tres`）は読まなくなった |
 | **RS-9** | ⚠ **バランスの数値は調整のフェーズでまとめて決める** | — | — | — | — |
 
 ---
