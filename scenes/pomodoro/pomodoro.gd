@@ -3,15 +3,12 @@ extends Control
 # PomodoroController
 # ポモドーロ画面のメイン管理。子ビューの切り替え、タイマー進行、報酬計算を行う。
 #
-# 【タイマーの扱い】
-# time_left_sec / is_timer_active を書き換えてよいのは _start_phase_timer() と
-# _stop_phase_timer() と _process() のみ。各ビューの分岐から直接触らないこと。
-# 3箇所から書き換えると、どこか1つ抜けたときにタイマーが止まる。
-# ⚠ 2026-10-05（回P-3）の「＋5分」は 10-06 にやめた（⚠ 人間「⚠ あと5分追加いらない」）＝⚠ 例外は無い。
-#   ⚠ 一時停止は `is_timer_active` を触らない（⚠ `_paused` で `_process()` が減らさないだけ＝小窓もそのまま）。
-#   ⚠ 減らす量はフレームの差分ではなく**時計の差分**（⚠ PC のスリープをまたいでもずれない）。
+# 【タイマーの扱い】（2026-11-08）
+# 時間そのものは Autoload の `PomodoroTimer` が「終わる時刻」で持つ。
+# 下の time_left_sec / phase_total_sec / is_timer_active / _paused は窓口で、値を持たない。
+# ⚠ 画面を閉じてもセーブから続きを始められる（`_write_run()` / `_restore_run()`）。
 
-enum State { PROTECTION_SELECT, FOCUS, REFLECTION, BREAK }
+enum State { PROTECTION_SELECT, FOCUS, BREAK }
 
 const BASE_PATH: String = "res://scenes/base/base_screen.tscn"
 
@@ -19,13 +16,18 @@ var current_state: State = State.PROTECTION_SELECT
 var current_preset: PomodoroPreset = null
 var current_total_sets: int = 4
 var current_set_index: int = 0 # 0-based
-var time_left_sec: float = 0.0
-var is_timer_active: bool = false
+var time_left_sec: float:
+	get:
+		return PomodoroTimer.left_sec()
+	set(value):
+		PomodoroTimer.set_left_sec(value)
+var is_timer_active: bool:
+	get:
+		return PomodoroTimer.is_active()
 var session_accumulated_focus_min: int = 0
 var set_titles: Array[String] = []
 # ⚠ セットごとにリストから選んだタスク（2026-10-04・`TK-5`・`TK-11`）。⚠ "" なら選んでいない＝🍅をどれにも数えない。
 var set_task_ids: Array[String] = []
-var reflections: Array[Dictionary] = [] # { text: String, skipped: bool }
 
 # 現在表示中のビュー。view_container.get_child(0) を使わないこと。
 # queue_free() は遅延実行のため、切り替え直後は古いビューが index 0 に残る。
@@ -38,8 +40,11 @@ var _current_view: Node = null
 @onready var set_dots: SetDots = $Margin/Layout/TopBar/Center/SetDots
 
 # ⚠ いまのフェーズの長さ。⚠ 輪と点が「どこまで満ちたか」を出すのに要る。
-#   ⚠ 書き換えてよいのは _start_phase_timer() と FOCUS の分岐だけ（タイマーと同じ決まり）。
-var phase_total_sec: float = 0.0
+var phase_total_sec: float:
+	get:
+		return PomodoroTimer.total_sec()
+	set(value):
+		PomodoroTimer.set_total_sec(value)
 
 # ⚠ タスクの画面の「これで集中」から来たときに選んでおくタスク（2026-10-06・`NAV-18`）。⚠ 最初の集中のビューで1回だけ使う。
 var _wanted_task_id: String = ""
@@ -88,9 +93,13 @@ func _ready() -> void:
 	_build_debug_panel()
 	_build_sidebar()
 	_build_controls()
-	# ⚠ 窓を閉じたら「やめる」と同じに確定する（2026-10-05・回P-1・人間「⚠ ｑ１　あ」）。⚠ 書くのは SaveManager。
-	SaveManager.quitting.connect(_settle_session)
+	# ⚠ 窓を閉じたら、動いているタイマーは続きを保存する（2026-11-08）。⚠ 書くのは SaveManager。
+	SaveManager.quitting.connect(_on_quitting)
+	PomodoroTimer.finished.connect(_on_phase_timer_finished)
 
+	var run: Dictionary = GameManager.get_pomodoro_run()
+	if not run.is_empty() and _restore_run(run):
+		return
 	if GameManager.has_selected_protection_today():
 		_switch_view(State.FOCUS)
 	else:
@@ -98,25 +107,13 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if not is_timer_active:
-		return
-	# ⚠ 時計の差分で減らす（2026-10-05・回P-3）。⚠ 止めているあいだは減らさない（⚠ 時計の基準だけ進める）。
-	var now: float = Time.get_unix_time_from_system()
-	var elapsed: float = maxf(0.0, now - _last_wall)
-	_last_wall = now
-	if _paused:
-		return
-
-	time_left_sec -= elapsed
-
-	if time_left_sec <= 0.0:
-		time_left_sec = 0.0
-		is_timer_active = false
+	if is_timer_active:
 		_update_view_timer()
-		_on_timer_finished()
-		return
 
+
+func _on_phase_timer_finished() -> void:
 	_update_view_timer()
+	_on_timer_finished()
 
 
 # 現在のビューにだけ残り時間を通知する。
@@ -131,19 +128,14 @@ func _update_view_timer() -> void:
 
 
 func _start_phase_timer(seconds: float) -> void:
-	time_left_sec = seconds
-	phase_total_sec = seconds
-	is_timer_active = true
-	_paused = false
-	_last_wall = Time.get_unix_time_from_system()
+	PomodoroTimer.start(seconds)
 	_update_view_timer()
 	_update_mini_window()
 	_refresh_controls()
 
 
 func _stop_phase_timer() -> void:
-	is_timer_active = false
-	_paused = false
+	PomodoroTimer.stop()
 	# ⚠ 経過分の上乗せを外す（⚠ `_bank_focus()` で足した直後に二重に見えないように）。
 	_refresh_goal()
 	_update_mini_window()
@@ -152,8 +144,9 @@ func _stop_phase_timer() -> void:
 
 # --- 一時停止・延長・目標・キー（2026-10-05・回P-3・人間「⚠ 全部作って一気に確認したい」） ---
 
-var _paused: bool = false
-var _last_wall: float = 0.0
+var _paused: bool:
+	get:
+		return PomodoroTimer.is_paused()
 var _pause_button: Button = null
 var _next_button: Button = null
 var _goal_label: Label = null
@@ -169,10 +162,10 @@ func is_paused() -> bool:
 func toggle_pause() -> void:
 	if not _can_pause():
 		return
-	_paused = not _paused
-	_last_wall = Time.get_unix_time_from_system()
+	PomodoroTimer.toggle_pause()
 	_refresh_controls()
 	_push_mini_state()
+	_write_run()
 
 
 func _can_pause() -> bool:
@@ -180,7 +173,7 @@ func _can_pause() -> bool:
 
 
 # ⚠ いまのフェーズを終わらせる（10-06・人間「⚠ 今のポモドーロのフェーズを終わらせるボタンも　小窓もこれにも」「⚠ 次へ行くボタンは真ん中付近に」）。
-#   ⚠ 始める前＝はじめる ／ ⚠ 集中中＝ここで終えて振り返りへ（⚠ 報酬と今日の分は**集中した分だけ**・⚠ 音は鳴らさない）／ ⚠ 休憩＝とばす。
+#   ⚠ 始める前＝はじめる ／ ⚠ 集中中＝ここで終えて休憩へ（⚠ 報酬と今日の分は**集中した分だけ**・⚠ 音は鳴らさない）／ ⚠ 休憩＝とばす。
 func end_phase() -> void:
 	match current_state:
 		State.FOCUS:
@@ -190,7 +183,7 @@ func end_phase() -> void:
 				return
 			_bank_focus(maxf(0.0, phase_total_sec - time_left_sec))
 			_flush_task_time()
-			_switch_view(State.REFLECTION)
+			_go_to_break()
 		State.BREAK:
 			_on_break_skipped()
 
@@ -350,14 +343,11 @@ var _mini_auto_done: bool = false
 
 
 func _update_mini_window() -> void:
-	# ⚠ 振り返りも小窓のまま（10-06・人間「⚠ 振り返りも小窓でできるように」）＝⚠ 小窓に1行の欄と「確定」。
 	var want: bool = _mini_on and _mini_phase()
 	if want and _mini == null:
 		_mini = MiniWindow.create()
 		_mini.expand_requested.connect(_on_mini_expand)
 		_mini.next_requested.connect(_on_mini_next)
-		_mini.reflection_changed.connect(_on_mini_reflection_changed)
-		_mini.reflection_submitted.connect(_on_mini_reflection_submitted)
 		_mini.finish_task_requested.connect(_on_mini_finish_task)
 		_mini.pause_requested.connect(toggle_pause)
 		# ⚠ 小窓のリスト（10-06）：⚠ サイドバーと同じ口（⚠ 行＝替える・四角＝終える）。
@@ -367,11 +357,7 @@ func _update_mini_window() -> void:
 	if _mini == null:
 		return
 	if want:
-		var was_active: bool = _mini.is_active()
 		_mini.enter()
-		# ⚠ 振り返りの途中で小窓にしたら、⚠ 大きい画面で書いたぶんを小窓の欄へ。
-		if not was_active and current_state == State.REFLECTION:
-			_mini.set_reflection_text(_reflection_view_text())
 		_push_mini_state()
 	else:
 		_mini.leave()
@@ -380,25 +366,7 @@ func _update_mini_window() -> void:
 
 # 小窓にできるフェーズ（⚠ 加護を選ぶあいだ以外）。
 func _mini_phase() -> bool:
-	return current_state == State.FOCUS or current_state == State.BREAK or current_state == State.REFLECTION
-
-
-func _reflection_view_text() -> String:
-	if current_state == State.REFLECTION and _current_view != null and _current_view.has_method("get_text"):
-		return str(_current_view.call("get_text"))
-	return ""
-
-
-# ⚠ 小窓の欄 → 振り返りの画面（⚠ 判定と確定は画面の口を通す）。
-func _on_mini_reflection_changed(text: String) -> void:
-	if current_state == State.REFLECTION and _current_view != null and _current_view.has_method("set_text"):
-		_current_view.call("set_text", text)
-	_push_mini_state()
-
-
-func _on_mini_reflection_submitted() -> void:
-	if current_state == State.REFLECTION and _current_view != null and _current_view.has_method("submit"):
-		var _done: bool = bool(_current_view.call("submit"))
+	return current_state == State.FOCUS or current_state == State.BREAK
 
 
 # 設定の窓で長さを変えたとき（2026-10-02・`PomodoroLinks`）。⚠ 集中を始める前なら、⚠ 待っている時間もすぐ変える。
@@ -442,7 +410,7 @@ func _on_mini_expand() -> void:
 	_refresh_mini_mode_button()
 
 
-# ⚠ 「小窓にする」（10-06）：⚠ 集中（始める前も）・振り返り・休憩のあいだ。⚠ 「大きく」まで続く（⚠ フェーズをまたいでも）。
+# ⚠ 「小窓にする」（10-06）：⚠ 集中（始める前も）・休憩のあいだ。⚠ 「大きく」まで続く（⚠ フェーズをまたいでも）。
 var _mini_mode_button: UiButton = null
 
 
@@ -469,12 +437,6 @@ func _push_mini_state() -> void:
 	# ⚠ 次のフェーズへ（10-06）：⚠ 始める前＝はじめる ／ 集中中＝集中を終える ／ 休憩＝とばす（`end_phase()`）。
 	var waiting: bool = focusing and not _focus_started
 	_mini.set_state(int(ceil(time_left_sec)), focusing, _round_set_index(), current_total_sets, ratio, task, _paused, _can_pause(), waiting, _next_tip())
-	# ⚠ 振り返り（10-06）：⚠ 小窓の欄と「確定」・あと何文字。
-	var reflecting: bool = current_state == State.REFLECTION
-	var remaining: int = 0
-	if reflecting and _current_view != null and _current_view.has_method("remaining_chars"):
-		remaining = int(_current_view.call("remaining_chars"))
-	_mini.set_reflection_state(reflecting, remaining)
 
 
 # ⚠ 小窓の「次へ」（10-06）＝⚠ 画面の真ん中の「次へ」と同じ口。
@@ -515,8 +477,6 @@ func _switch_view(new_state: State) -> void:
 			scene_path = "res://scenes/pomodoro/protection_select_view.tscn"
 		State.FOCUS:
 			scene_path = "res://scenes/pomodoro/focus_view.tscn"
-		State.REFLECTION:
-			scene_path = "res://scenes/pomodoro/reflection_view.tscn"
 		State.BREAK:
 			scene_path = "res://scenes/pomodoro/break_view.tscn"
 
@@ -562,18 +522,13 @@ func _switch_view(new_state: State) -> void:
 			_update_view_timer()
 			_update_mini_window()
 
-		State.REFLECTION:
-			view.reflection_completed.connect(_on_reflection_completed)
-			if _mini != null:
-				_mini.set_reflection_text("")
-			_start_phase_timer(_reflection_time_limit_sec())
-
 		State.BREAK:
 			var is_long: bool = ((current_set_index + 1) % current_preset.long_break_interval == 0)
 			var duration: int = current_preset.long_break_sec if is_long else current_preset.short_break_sec
 			view.setup(duration, is_long)
 			view.skip_requested.connect(_on_break_skipped)
 			_start_phase_timer(float(duration))
+			_write_run()
 
 
 # ⚠ 上部バーのセットの点（2026-09-09・人間のモック「D案＋輪」）。
@@ -596,14 +551,6 @@ func _update_set_dots() -> void:
 			_round_label.text = tr("ui_pomodoro_round") % _round_number()
 
 
-# ⚠⚠ 振り返りの制限時間（2026-09-12・宿題4）。⚠ **前はここに `120.0` を直書きしていた**。
-#   ⚠ `Balance.pomodoro.reflection_time_limit_sec` は**在るのに誰も読んでいなかった**
-#   ⚠ ＝AGENTS.md「欄だけ足して実装しないことを禁止する」に引っかかっていた。
-# ⚠ 引く形は `reflection_view.gd` の `_min_chars()` と揃えてある（⚠ 同じ Config の別の欄）。
-func _reflection_time_limit_sec() -> float:
-	return float(Balance.pomodoro.reflection_time_limit_sec)
-
-
 # --- 各フェーズのハンドラ ---
 
 func _on_protection_selected(protection_id: String) -> void:
@@ -619,13 +566,23 @@ func _on_focus_started(title: String, task_id: String) -> void:
 		_mini_auto_done = true
 		if GameSettings.mini_window():
 			_mini_on = true
-	_start_phase_timer(float(current_preset.focus_duration_sec))
+	var restoring: bool = not _pending_restore.is_empty()
+	if restoring:
+		PomodoroTimer.restore(_pending_restore.get(GameStateKeys.POMODORO_RUN_TIMER, {}) as Dictionary, _pending_frozen)
+		_segment_left = float(_pending_restore.get(GameStateKeys.POMODORO_RUN_SEGMENT_LEFT, 0.0))
+		_pending_restore = {}
+		_update_view_timer()
+		_update_mini_window()
+	else:
+		_start_phase_timer(float(current_preset.focus_duration_sec))
+		_segment_left = time_left_sec
 	_focus_started = true
 	# ⚠ 小窓をまだ知らない人に1回だけ聞く（10-06・不便7）。⚠ もう小窓なら聞かない（⚠ 300×180 に窓は収まらない）。
-	if not _mini_on and not GameSettings.mini_window() and not GameSettings.mini_window_asked():
+	if not restoring and not _mini_on and not GameSettings.mini_window() and not GameSettings.mini_window_asked():
 		_ask_mini_window.call_deferred()
-	_segment_left = time_left_sec
 	_refresh_controls()
+	_write_run()
+	SaveManager.autosave()
 
 
 func _on_timer_finished() -> void:
@@ -635,14 +592,7 @@ func _on_timer_finished() -> void:
 			_bank_focus(phase_total_sec)
 			GameManager.record_focus_completed()
 			_flush_task_time()
-			_switch_view(State.REFLECTION)
-		State.REFLECTION:
-			# 制限時間内に確定しなかった → skipped 扱いで次へ進む
-			# ⚠ 集中の分は集中が終わったときに数え済み（10-06）＝⚠ ここで失うものは無い。⚠ 打ちかけの字も捨てない。
-			print("[Pomodoro] reflection timed out (%.0f sec) -> skipped" % (
-				_reflection_time_limit_sec()
-			))
-			_on_reflection_completed(_reflection_view_text(), true)
+			_go_to_break()
 		State.BREAK:
 			_notify_break_finished()
 			_go_to_next_set()
@@ -651,21 +601,11 @@ func _on_timer_finished() -> void:
 				_current_view.call("start_now")
 
 
-func _on_reflection_completed(text: String, skipped: bool = false) -> void:
-	# 確定ボタンとタイムアウトの両方から呼ばれうるため、
-	# すでに振り返り以外の状態なら二重呼び出しとみなして無視する
-	if current_state != State.REFLECTION:
-		return
-
-	_stop_phase_timer()
-	reflections.append({"text": text, "skipped": skipped})
-
-	# ⚠⚠ 4セットで終わらない（10-06・PLAN_POMODORO_USABILITY 不便2・人間「⚠ ２は続けられるように」）。
-	#   ⚠ 前は最後のセットの振り返りで拠点へ戻った＝⚠ 4回ごとの長い休憩が一度も来なかった。
-	#   ⚠ セット数（`current_total_sets`）は**1周の長さ**（⚠ 点の数）。⚠ 終えるのは「やめる」だけ。
-	# ⚠ セットが終わるたびに自動セーブ（2026-10-05・回P-1）。
-	SaveManager.autosave()
+# ⚠ 集中が終わったら休憩へ（⚠ 振り返りは 2026-11-08 にやめた・人間「振り返りはいらない」）。
+#   ⚠ セットが終わるたびに自動セーブ（2026-10-05・回P-1）。⚠ 終えるのは「やめる」だけ（10-06）。
+func _go_to_break() -> void:
 	_switch_view(State.BREAK)
+	SaveManager.autosave()
 
 
 # ⚠⚠ 集中した分を今日の分・宝箱・報酬へ（10-06・PLAN_POMODORO_USABILITY 不便1・3・人間「⚠ 集中が終わった時点で入れる」「⚠ 集中した分だけ入れる」）。
@@ -873,6 +813,82 @@ func request_attention() -> bool:
 	return true
 
 
+# --- 続きの保存（2026-11-08）---
+#   ⚠ 窓を閉じても、動いている集中・休憩は続く（⚠ 時刻で持っているので閉じていた時間も進む）。
+#   ⚠ 長く放っておいたら（`run_stale_sec`）閉じたときの残りで精算する（⚠ 閉じていた時間を集中に数えない）。
+
+# ⚠ 窓を閉じた合図で立てる（⚠ 閉じるときは `_exit_tree()` で続きを消さない）。
+var _closing: bool = false
+var _pending_restore: Dictionary = {}
+var _pending_frozen: bool = false
+
+
+func _on_quitting() -> void:
+	_closing = true
+	if is_timer_active:
+		_flush_task_time()
+		_write_run()
+	else:
+		_settle_session()
+
+
+func _exit_tree() -> void:
+	if _closing:
+		return
+	PomodoroTimer.stop()
+	GameManager.set_pomodoro_run({})
+
+
+# いま動いている集中・休憩をセーブへ書く（⚠ 動いていなければ何もしない）。
+func _write_run() -> void:
+	if not is_timer_active or (current_state != State.FOCUS and current_state != State.BREAK):
+		return
+	GameManager.set_pomodoro_run({
+		GameStateKeys.POMODORO_RUN_PHASE: GameStateKeys.POMODORO_PHASE_FOCUS if current_state == State.FOCUS else GameStateKeys.POMODORO_PHASE_BREAK,
+		GameStateKeys.POMODORO_RUN_SET_INDEX: current_set_index,
+		GameStateKeys.POMODORO_RUN_TITLE: set_titles[current_set_index],
+		GameStateKeys.POMODORO_RUN_TASK_ID: set_task_ids[current_set_index],
+		GameStateKeys.POMODORO_RUN_SEGMENT_LEFT: _segment_left,
+		GameStateKeys.POMODORO_RUN_SESSION_MIN: session_accumulated_focus_min,
+		GameStateKeys.POMODORO_RUN_SAVED_AT: Time.get_unix_time_from_system(),
+		GameStateKeys.POMODORO_RUN_TIMER: PomodoroTimer.snapshot(),
+	})
+
+
+# セーブの続きから始める（⚠ 始められたら true）。
+func _restore_run(run: Dictionary) -> bool:
+	var phase: String = str(run.get(GameStateKeys.POMODORO_RUN_PHASE, ""))
+	if phase != GameStateKeys.POMODORO_PHASE_FOCUS and phase != GameStateKeys.POMODORO_PHASE_BREAK:
+		GameManager.set_pomodoro_run({})
+		return false
+	current_set_index = int(run.get(GameStateKeys.POMODORO_RUN_SET_INDEX, 0))
+	while set_titles.size() <= current_set_index:
+		set_titles.append("")
+		set_task_ids.append("")
+	var title: String = str(run.get(GameStateKeys.POMODORO_RUN_TITLE, ""))
+	var task_id: String = str(run.get(GameStateKeys.POMODORO_RUN_TASK_ID, ""))
+	set_titles[current_set_index] = title
+	set_task_ids[current_set_index] = task_id
+	session_accumulated_focus_min = int(run.get(GameStateKeys.POMODORO_RUN_SESSION_MIN, 0))
+	var saved_at: float = float(run.get(GameStateKeys.POMODORO_RUN_SAVED_AT, 0.0))
+	var stale: bool = Time.get_unix_time_from_system() - saved_at > float(Balance.pomodoro.run_stale_sec)
+	if phase == GameStateKeys.POMODORO_PHASE_FOCUS:
+		_pending_restore = run
+		_pending_frozen = stale
+		_switch_view(State.FOCUS)
+		_current_view.call("set_title_text", title)
+		_current_view.call("set_task", task_id)
+		_current_view.call("start_now")
+	else:
+		_switch_view(State.BREAK)
+		PomodoroTimer.restore(run.get(GameStateKeys.POMODORO_RUN_TIMER, {}) as Dictionary, stale)
+		_update_view_timer()
+		_refresh_controls()
+	if stale:
+		_return_to_base.call_deferred()
+	return true
+
+
 # --- 終了処理 ---
 
 # ⚠⚠ 「やめる」には確認を挟む（2026-09-12・宿題3）。
@@ -894,7 +910,7 @@ func quit_session() -> void:
 	if _quit_confirming:
 		return
 	# ⚠ 10-14（操作量を減らす B・人間「⚠ B」）：⚠ 休憩中・まだ集中を始めていないときは確かめない（⚠ 失うものが無い＝集中の分は数え済み）。
-	#   ⚠ 確かめるのは集中の途中と振り返り（⚠ 誤って押すと戻せない）。
+	#   ⚠ 確かめるのは集中の途中（⚠ 誤って押すと戻せない）。
 	if current_state == State.BREAK or (current_state == State.FOCUS and not _focus_started):
 		_return_to_base()
 		return
@@ -948,6 +964,7 @@ func _settle_session() -> void:
 	# ⚠ 受け取る前に ID を控える（⚠ 拠点の受け取り窓の札の絵・10-14）。
 	_settled_chest_ids = (GameManager.get_state().get(GameStateKeys.UNCLAIMED_CHESTS, []) as Array).duplicate()
 	_settled_chests = GameManager.claim_pending_chests()
+	GameManager.set_pomodoro_run({})
 	print("[Pomodoro] settled: potions=%d, claimed_chests=%d" % [_settled_potions, _settled_chests])
 
 
@@ -956,8 +973,6 @@ func get_presence_status() -> Dictionary:
 	match current_state:
 		State.FOCUS:
 			status_str = "focus"
-		State.REFLECTION:
-			status_str = "reflection"
 		State.BREAK:
 			status_str = "break"
 
@@ -1054,15 +1069,10 @@ func _on_debug_skip_phase() -> void:
 	if not is_timer_active:
 		print("[Debug] タイマーが動いていません（開始ボタン待ちの可能性）")
 		return
-	time_left_sec = 0.0
-	is_timer_active = false
-	_update_view_timer()
-	_on_timer_finished()
+	PomodoroTimer.set_left_sec(0.0)
 
 
 # 残り1秒にする。アラームの確認用。
-# 「このフェーズを終わらせる」は _on_timer_finished() を直接呼ぶため
-# _process() を通らず、本番と同じ経路にならない。音の確認にはこちらを使う。
 func _on_debug_one_second() -> void:
 	if not is_timer_active:
 		print("[Debug] タイマーが動いていません（開始ボタン待ちの可能性）")

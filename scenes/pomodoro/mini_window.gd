@@ -16,7 +16,6 @@ extends CanvasLayer
 #   ⚠ 次へ＝始める前はじめる ／ 集中中は集中を終える ／ 休憩はとばす（⚠ 器の `end_phase()`）。
 # ⚠ 上の「リスト」「大きく」はアイコン（⚠ 字だと「これから集中」のとき上の行が 300 に入りきらなかった＝人間「⚠ いりきってないボタンがある」）。
 # ⚠ 「タスクを終える」はタスクの行の右の ✓（⚠ 行を1つ減らす）。
-# ⚠ 振り返りも小窓（10-06・人間「⚠ 振り返りも小窓でできるように」）：⚠ 1行の欄と「確定」・あと何文字。⚠ 判定と確定は振り返りの画面の口（器が通す）。
 # ⚠ 窓を動かすときは**小窓にしたときの画面**の右下（10-06・人間「⚠ リストを開くと複数モニターの場合モニター間を移動してしまう」）。
 #   ⚠ 先に位置、あとから大きさ（⚠ 大きさを先に変えると隣の画面へはみ出し、⚠ その画面の右下へ飛んだ）。
 # ⚠ ~~小窓になるのはタイマーが動いている集中と休憩のあいだだけ~~ ⚠ 10-06：⚠ いつ小窓かは器（`pomodoro._mini_on`）が持つ＝⚠ フェーズが変わっても今の大きさのまま。
@@ -29,9 +28,6 @@ const LAYER: int = 90
 signal expand_requested
 # ⚠ 2026-10-05（回P-2）：⚠ 小窓のまま押せるもの。⚠ 中身は器（`pomodoro.gd`）がやる＝ここは知らせるだけ。
 signal next_requested
-# ⚠ 振り返り（10-06）。
-signal reflection_changed(text: String)
-signal reflection_submitted
 signal finish_task_requested
 # ⚠ 回P-3（2026-10-05）：⚠ 一時停止 ⇔ 再開。
 signal pause_requested
@@ -56,10 +52,6 @@ var _task_label: Label = null
 var _finish_button: Button = null
 var _next_button: Button = null
 var _controls: HBoxContainer = null
-var _reflection_line: HBoxContainer = null
-var _reflection_edit: LineEdit = null
-var _reflection_ok: Button = null
-var _reflection_hint: Label = null
 # ⚠ 小窓にしたときの画面（⚠ 伸び縮みしても同じ画面の右下）。
 var _screen: int = -1
 var _pause_button: Button = null
@@ -321,27 +313,6 @@ func _build() -> void:
 	_finish_button.icon = IconTextures.for_task_finish()
 	_finish_button.tooltip_text = tr("ui_mini_finish_task")
 	_task_line.add_child(_finish_button)
-	# ⚠ 振り返り（10-06）：⚠ 1行の欄と「確定」・その下にあと何文字。⚠ 振り返りのあいだだけ。
-	_reflection_line = HBoxContainer.new()
-	_reflection_line.name = "ReflectionLine"
-	_reflection_line.visible = false
-	column.add_child(_reflection_line)
-	_reflection_edit = LineEdit.new()
-	_reflection_edit.name = "MiniReflectionEdit"
-	# ⚠ 下書きにも要る文字数（10-06・PLAN_POMODORO_USABILITY 不便5）：⚠ 前は「何をしたか一言」なのに「あと20文字」と出た。
-	_reflection_edit.placeholder_text = tr("ui_mini_reflection_placeholder").format([int(Balance.pomodoro.reflection_min_chars)])
-	_reflection_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_reflection_edit.text_changed.connect(_on_reflection_text_changed)
-	_reflection_edit.text_submitted.connect(_on_reflection_text_submitted)
-	_reflection_line.add_child(_reflection_edit)
-	_reflection_ok = _make_button("MiniReflectionOk", "ui_mini_reflection_ok", _on_reflection_ok_pressed)
-	_reflection_line.add_child(_reflection_ok)
-	_reflection_hint = Label.new()
-	_reflection_hint.name = "MiniReflectionHint"
-	_reflection_hint.theme_type_variation = &"MiniTimeLabel"
-	_reflection_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_reflection_hint.visible = false
-	column.add_child(_reflection_hint)
 	# ⚠ リスト（10-06）：⚠ ポモドーロのサイドバーと同じ部品。⚠ 開いているあいだだけ。
 	_sidebar = TaskSidebar.create()
 	_sidebar.name = "MiniSidebar"
@@ -374,39 +345,6 @@ func _on_expand_pressed() -> void:
 # ⚠ 押した最中に器が小窓を外すことがある＝⚠ 知らせるのは次のフレーム。
 func _on_next_pressed() -> void:
 	next_requested.emit.call_deferred()
-
-
-# 振り返りの姿（⚠ 器が毎フレーム呼ぶ）。⚠ 振り返りのあいだはタスクの行と [一時停止][次へ] を隠す。
-func set_reflection_state(reflecting: bool, remaining: int) -> void:
-	if _reflection_line == null:
-		return
-	_reflection_line.visible = reflecting
-	_reflection_hint.visible = reflecting
-	_controls.visible = not reflecting
-	if reflecting:
-		_phase_label.text = tr("ui_mini_phase_reflection")
-		_task_line.visible = false
-		_reflection_ok.disabled = remaining > 0
-		_reflection_hint.text = tr("ui_mini_reflection_remaining") % remaining if remaining > 0 else tr("ui_mini_reflection_ready")
-
-
-# 欄の字を入れる（⚠ 振り返りの始まりで空・⚠ 大きい画面から移ったときはその字）。
-func set_reflection_text(value: String) -> void:
-	if _reflection_edit != null and _reflection_edit.text != value:
-		_reflection_edit.text = value
-
-
-func _on_reflection_text_changed(text: String) -> void:
-	reflection_changed.emit(text)
-
-
-func _on_reflection_text_submitted(_text: String) -> void:
-	_on_reflection_ok_pressed()
-
-
-# ⚠ 確定で振り返りが終わり、器が休憩へ移る（⚠ 押している最中に外さない＝次のフレーム）。
-func _on_reflection_ok_pressed() -> void:
-	reflection_submitted.emit.call_deferred()
 
 
 func _on_finish_pressed() -> void:

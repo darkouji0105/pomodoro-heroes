@@ -37,8 +37,8 @@ extends Resource
 @export var potion_focus_minutes_per_unit: int = 25
 @export var stamina_potion_recovery: int = 50
 
-@export var reflection_min_chars: int = 20
-@export var reflection_time_limit_sec: int = 120
+# ⚠ 窓を閉じたままこれより長くたったら、続きから始めず閉じたときの残りで精算する（秒）。
+@export var run_stale_sec: int = 21600
 
 # ⚠ タスクのメモの色の数（2026-10-04・`TK-12`・人間「⚠ ６色で」）。⚠ 色そのものは Theme の `TaskColor` 型（`tools/theme_builder.gd`）。
 #   ⚠ Theme に並べた色より多くしない（⚠ 足りない番号は色が引けない）。

@@ -145,8 +145,9 @@ res://
 | `SceneManager` | 画面遷移の一元管理。各所で直接`change_scene_to_file()`を呼ばない。画面間のデータ受け渡しも一元管理する |
 | `SignalBus` | 画面間通信用のグローバルシグナル中継。循環参照回避のため、画面同士は直接参照しない |
 | `SoundManager` | 効果音の再生（`play_se(sound_id)`）。音源と音量は持たず、`Balance.sound`（`SoundConfig`）から毎回引く。**IDは`SoundIds`の定数を渡す** |
+| `PomodoroTimer` | ポモドーロの時計（2026-11-08 に追加）。残り時間を「終わる時刻」で持つ。画面を変えても止まらない入れ物で、集中か休憩か・報酬は持たない |
 
-AIはこの6つ以外のAutoloadを勝手に追加しない。追加が必要な場合は人間に提案してから登録すること。詳細は`GODOT_SETUP.md`参照。
+AIはこの7つ以外のAutoloadを勝手に追加しない。追加が必要な場合は人間に提案してから登録すること。詳細は`GODOT_SETUP.md`参照。
 
 ### Autoloadの登録順（厳守）
 
@@ -159,6 +160,7 @@ Project SettingsのAutoloadタブでは、必ず以下の順に登録するこ�
 4. SceneManager
 5. SignalBus
 6. SoundManager
+7. PomodoroTimer
 ```
 
 理由：`GameManager`は`_ready()`で`Balance.initial_state`（`InitialStateConfig`）を参照して自身を初期化するため、`Balance`が先に初期化済みでなければならない。Godotは登録順に初期化するため、この順序を崩すとnull参照になる。**`SoundManager`も`_ready()`で`Balance.sound`を読むため、`Balance`より後（末尾）に置く。**

@@ -50,7 +50,6 @@ ui_chest_rare,かがやく宝箱
 ui_chest_epic,ほうぎょくの宝箱
 ui_chest_legendary,でんせつの宝箱
 ui_pomodoro_title_placeholder,何に集中しますか（空のままでも始められます）
-ui_pomodoro_reflection_placeholder,{0}文字以上で入力してください
 ui_pomodoro_break_short,休憩
 ui_pomodoro_break_long,長い休憩
 ui_pomodoro_quit,やめる
@@ -58,11 +57,6 @@ ui_pomodoro_quit_confirm,ここまでの報酬を受け取って拠点に戻り�
 ui_pomodoro_select_protection,今日の加護を選ぶ
 ui_pomodoro_input_title,何に取り組みますか？（任意）
 ui_pomodoro_start_focus,はじめる
-ui_pomodoro_reflection_title,振り返り
-ui_pomodoro_reflection_instruction,今回やったことを{0}文字以上で書いてください
-ui_pomodoro_reflection_warning,あと{0}秒で自動的にスキップされます
-ui_pomodoro_reflection_warning_chars,あと{0}文字必要です
-ui_pomodoro_reflection_complete,確定する
 ui_pomodoro_break_skip,休憩をスキップ
 ui_res_stamina_potion,スタミナポーション
 ui_guild_shop,ショップ
@@ -1476,8 +1470,6 @@ ui_mini_phase_ready,これから集中
 ui_mini_next_start,はじめる
 ui_pomodoro_end_focus,集中を終える（集中した分だけ数える）
 ui_pomodoro_task_selected_stamp,選択中
-ui_mini_phase_reflection,振り返り
-ui_mini_reflection_placeholder,やったこと（{0}字以上）
 ui_pomodoro_default_title,作業
 ui_pomodoro_protection_note,ポモドーロで集中した時間に応じて宝箱がもらえます。今日の目標を選んでください（1日1回）
 ui_pomodoro_protection_minutes_unit,分 集中で
@@ -1490,9 +1482,6 @@ ui_pomodoro_mini_ask_yes,小窓にする
 ui_pomodoro_mini_ask_no,このまま
 ui_settings_long_break,長い休憩の長さ
 ui_settings_long_break_note,4回集中するごとの休憩
-ui_mini_reflection_ok,確定
-ui_mini_reflection_remaining,あと %d文字
-ui_mini_reflection_ready,確定できます
 ui_task_focus_this,これで集中
 ui_source_title,入手先
 ui_source_open,入手先を見る

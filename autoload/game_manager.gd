@@ -641,6 +641,7 @@ func _empty_state_template() -> Dictionary:
 		GameStateKeys.PITY_COUNTERS: {},
 		GameStateKeys.TOTAL_POMODORO_COMPLETED: 0,
 		GameStateKeys.LAST_POMODORO_END_AT: "",
+		GameStateKeys.POMODORO_RUN: {},
 		# ⚠ save_version の出どころは3箇所ある。上げるときは3つとも上げること。
 		#   1. ここ（Balance.initial_state が無いときのフォールバック）
 		#   2. save_manager.gd の CURRENT_SAVE_VERSION
@@ -1421,7 +1422,17 @@ func record_focus_completed() -> void:
 
 # --- ポモドーロ：しきい値と宝箱 ---
 
-# その日の累計作業分を加算する。振り返りが確定したセットのみ呼ばれる想定。
+# 動いている集中・休憩の続き（2026-11-08）。⚠ 書くのは pomodoro.gd だけ。⚠ 空の Dictionary で消す。
+func get_pomodoro_run() -> Dictionary:
+	var run: Variant = _state.get(GameStateKeys.POMODORO_RUN, {})
+	return (run as Dictionary).duplicate(true) if run is Dictionary else {}
+
+
+func set_pomodoro_run(run: Dictionary) -> void:
+	_state[GameStateKeys.POMODORO_RUN] = run.duplicate(true)
+
+
+# その日の累計作業分を加算する。
 func add_focus_minutes(minutes: int) -> void:
 	_refresh_daily_pomodoro_stats_if_needed()
 	

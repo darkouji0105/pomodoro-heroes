@@ -211,8 +211,6 @@ const SHOT_AFTER_PLUS_HOVER: String = "plus_hover"
 const SHOT_AFTER_MINI_WINDOW: String = "mini_window"
 # ⚠ 10-06：⚠ 小窓のリストを開いた姿（⚠ 小窓の枚と同じ手 ＋ 「リスト」）。
 const SHOT_AFTER_MINI_LIST: String = "mini_list"
-# ⚠ 10-06：⚠ 小窓のまま振り返り（⚠ 小窓の枚と同じ手 ＋ 「次へ」で集中を終える）。
-const SHOT_AFTER_MINI_REFLECTION: String = "mini_reflection"
 # ⚠ 装備の特殊効果（2026-10-02）：⚠ いばらの鎧を入れて選んだ持ち物。⚠ 内側の `AFTER_SPECIAL_EFFECT` と同じ字。
 const SHOT_AFTER_SPECIAL_EFFECT: String = "special_effect"
 # ⚠ 掲示板の「高難度の依頼」タブ（2026-10-02・ノルマ札）。⚠ 内側の `AFTER_BOARD_HARD` と同じ字。
@@ -2033,7 +2031,6 @@ const SCENARIOS: Dictionary = {
 			{"name": "71_item_source", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_ITEM_SOURCE},
 			{"name": "73_plus_hover", "scene": "res://scenes/guild/forge_screen.tscn", "after": SHOT_AFTER_PLUS_HOVER},
 			{"name": "72_board_quick", "scene": "res://scenes/adventure/adventure_select.tscn", "prepare": SHOT_PREPARE_BOARD_CLEARED},
-			{"name": "69_mini_reflection", "scene": "res://scenes/pomodoro/pomodoro.tscn", "prepare": SHOT_PREPARE_TASKS, "after": SHOT_AFTER_MINI_REFLECTION},
 			{"name": "74_base_town", "scene": SCENE_BASE, "data": {TransferKeys.BASE_VIEW: "town"}, "after": SHOT_AFTER_BASE_TOWN, "measure": ["Margin/Layout/Body/TownView"]},
 			{"name": "75_guild_relic", "scene": "res://scenes/guild/guild_relic_screen.tscn", "after": SHOT_AFTER_GUILD_RELIC},
 			# ⚠ 目標（2026-10-09・回AUTO-1・人間「⚠ ５い」＝形を撮って見比べる）。⚠ 表示＝上の帯（鍛冶場・本部・押した紙）／ サイドバー（閉・開）。
@@ -5780,19 +5777,6 @@ func _report_layout() -> void:
 				print("    ⚠ タイマーの数字 = %d 枚（1 枚が正解。2 枚なら重なっている）" % labels)
 				if labels != 1:
 					push_error("[DebugBoot] タイマーの数字が %d 枚（1 枚でないと重なる）" % labels)
-			# ⚠⚠ 振り返りの「何文字以上か」（2026-09-10）。⚠ 前はビューに `20` を直書きしていて、
-			#   ⚠ `Balance.pomodoro.reflection_min_chars` の欄は在るのに誰も読んでいなかった
-			#   （⚠ Inspector で変えても何も起きない状態だった）。
-			#   ⚠ 文言の中の数字も Config から入れるので、⚠ ここで文と設定の一致まで見る。
-			#   ⚠ `InstructionLabel` という名前は他の画面にも在るので、⚠ 振り返りに絞る。
-			if scene_path.get_file() == "reflection_view.tscn" and (
-				raw_child is Label and raw_child.name == "InstructionLabel"
-			):
-				var want: int = int(Balance.pomodoro.reflection_min_chars)
-				var shown: String = (raw_child as Label).text
-				print("    ⚠ 振り返りの文言 = '%s'（⚠ Config の %d が入るのが正解）" % [shown, want])
-				if not shown.contains(str(want)):
-					push_error("[DebugBoot] 振り返りの文言に Config の文字数(%d)が入っていない" % want)
 			# ⚠⚠ 育成（2026-09-27・回UI-組 育成・人間「⚠ 1い」）。⚠ 前は一覧の行・ステータスノード・スキルの
 			#   ⚠ 画面を別々に見ていた。⚠ いまは1画面の中のタブなので、⚠ `#タブ` で開き分けて同じ名前を見る。
 			#   ⚠ 絵は取れないが「何行あるか」と「何と書いてあるか」は取れる（⚠ 行はコードで作る＝0 行なら組めていない）。
@@ -6554,7 +6538,6 @@ const LAYOUT_SCENES: Array[String] = [
 	"res://scenes/pomodoro/protection_select_view.tscn",
 	"res://scenes/pomodoro/focus_view.tscn",
 	"res://scenes/pomodoro/break_view.tscn",
-	"res://scenes/pomodoro/reflection_view.tscn",
 	# ⚠⚠ 「まだ一度も測っていない3枚」のうち2枚（2026-09-12・宿題13）。
 	#   ⚠ 拠点は下段（`LAYOUT_PATHS`）だけ測っていて、⚠ **画面全体は測っていなかった**。
 	#   ⚠ タイトルは1枚も測っていなかった。
@@ -13693,7 +13676,6 @@ class ShotTaker extends Node:
 	const AFTER_PLUS_HOVER: String = "plus_hover"
 	const AFTER_MINI_WINDOW: String = "mini_window"
 	const AFTER_MINI_LIST: String = "mini_list"
-	const AFTER_MINI_REFLECTION: String = "mini_reflection"
 	const AFTER_SPECIAL_EFFECT: String = "special_effect"
 	const AFTER_BOARD_HARD: String = "board_hard"
 	const AFTER_POMODORO_SETTINGS: String = "pomodoro_settings"
@@ -14779,7 +14761,7 @@ class ShotTaker extends Node:
 			(thorn_row as ItemCell).pressed.emit()
 			for _i: int in range(3):
 				await get_tree().process_frame
-		elif kind == AFTER_MINI_WINDOW or kind == AFTER_MINI_LIST or kind == AFTER_MINI_REFLECTION:
+		elif kind == AFTER_MINI_WINDOW or kind == AFTER_MINI_LIST:
 			# ⚠ 設定（⚠ 検査用のファイル）で小窓をオン → ⚠ 加護「始める」→ 集中「開始」→ ⚠ 小窓（⚠ 窓が本当に小さくなる）。
 			GameSettings.set_value(GameSettings.SECTION_POMODORO, GameSettings.KEY_MINI_WINDOW, true)
 			var mini_select: Node = screen.find_child("ProtectionSelectView", true, false)
@@ -14803,10 +14785,6 @@ class ShotTaker extends Node:
 			if not bool(screen.call("is_mini_window_active")):
 				push_error("[DebugBoot] ⚠ %s で小窓にならない" % shot_name)
 				return false
-			if kind == AFTER_MINI_REFLECTION:
-				screen.call("end_phase")
-				for _i: int in range(20):
-					await get_tree().process_frame
 			if kind == AFTER_MINI_LIST:
 				var mini_node: Node = screen.find_child("MiniWindow", true, false)
 				if mini_node != null:
@@ -16934,22 +16912,14 @@ class UiFlowRunner extends Node:
 		await _press(mini.find_child("ExpandButton", true, false))
 		_check("小窓：「大きく」で元の大きさ（%s）" % str(root_window.content_scale_size), not bool(p.call("is_mini_window_active")) and root_window.content_scale_size == full_size)
 		# ⚠ 10-06（人間「⚠ フェーズが変わるとき小窓にするかどうかは今の画面が小窓かどうかで判断するように」）：
-		#   ⚠ 大きいまま集中が終わる → 振り返りも大きいまま → 「小窓にする」→ 休憩・次のセットも小窓のまま。
+		#   ⚠ 大きいまま集中が終わる → 休憩も大きいまま → 「小窓にする」→ 次のセットも小窓のまま。
 		p.set("time_left_sec", 0.01)
 		await _wait()
-		_check("小窓：大きくしたあとフェーズが変わっても大きいまま（振り返り）", int(p.get("current_state")) == 2 and not bool(p.call("is_mini_window_active")) and root_window.content_scale_size == full_size)
+		_check("小窓：大きくしたあとフェーズが変わっても大きいまま（休憩）", int(p.get("current_state")) == 2 and not bool(p.call("is_mini_window_active")) and root_window.content_scale_size == full_size)
 		await _press(p.find_child("MiniModeButton", true, false))
 		await _wait()
-		_check("小窓：振り返りも小窓（10-06）・欄と「確定」", bool(p.call("is_mini_window_active"))
-			and (p.find_child("MiniWindow", true, false).find_child("ReflectionLine", true, false) as Control).visible)
-		var reflection: Node = p.find_child("SkipButton", true, false)
-		if reflection == null:
-			p.call("_on_reflection_completed", "", true)
-		else:
-			await _press(reflection)
-		await _wait()
 		mini = p.find_child("MiniWindow", true, false)
-		_check("小窓：小窓のまま振り返りが終わると休憩も小窓・「%s」・「次へ」（とばす）だけ" % _label_text(p, "MiniWindow", "PhaseLabel"),
+		_check("小窓：休憩でも小窓にできる・「%s」・「次へ」（とばす）だけ" % _label_text(p, "MiniWindow", "PhaseLabel"),
 			bool(p.call("is_mini_window_active")) and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_phase_break")
 			and (mini.find_child("MiniNextButton", true, false) as Button).visible and (mini.find_child("MiniNextButton", true, false) as Button).tooltip_text == tr("ui_mini_skip_break")
 			and not (mini.find_child("FinishTaskButton", true, false) as Button).visible)
@@ -17000,27 +16970,7 @@ class UiFlowRunner extends Node:
 		_check("集中の分：タイマーが0になった時点で今日の分に入る（%d → %d・%d分）・回数 +1（%d → %d）" % [today_before_end, GameManager.get_cumulative_focus_minutes(), full_min, count_before_end, GameManager.get_total_pomodoro_completed()],
 			int(p.get("current_state")) == 2 and GameManager.get_cumulative_focus_minutes() == today_before_end + full_min
 			and GameManager.get_total_pomodoro_completed() == count_before_end + 1)
-		# ⚠ 振り返りも小窓で書く（10-06・人間「⚠ 振り返りも小窓でできるように」）：⚠ 足りないと確定できない → ⚠ 書くと画面の欄にも入る → 確定で休憩。
-		var mini_edit: LineEdit = mini.find_child("MiniReflectionEdit", true, false) as LineEdit
-		var mini_ok: Button = mini.find_child("MiniReflectionOk", true, false) as Button
-		_check("いつでも小窓：振り返りの下書きに要る文字数が出る（%s）" % ("" if mini_edit == null else mini_edit.placeholder_text),
-			mini_edit != null and mini_edit.placeholder_text.contains(str(int(Balance.pomodoro.reflection_min_chars))))
-		_check("いつでも小窓：振り返りも小窓・「%s」・欄と「確定」（まだ押せない・%s）" % [_label_text(p, "MiniWindow", "PhaseLabel"), _label_text(p, "MiniWindow", "MiniReflectionHint")],
-			int(p.get("current_state")) == 2 and bool(p.call("is_mini_window_active")) and _label_text(p, "MiniWindow", "PhaseLabel") == tr("ui_mini_phase_reflection")
-			and mini_edit != null and mini_edit.is_visible_in_tree() and mini_ok != null and mini_ok.disabled
-			and not (mini.find_child("Controls", true, false) as Control).visible)
-		var today_before_reflect: int = GameManager.get_cumulative_focus_minutes()
-		mini_edit.text = "小窓から書いた振り返りです。二十字を超えるように書いておく。"
-		mini_edit.text_changed.emit(mini_edit.text)
-		await _wait()
-		var view_text: String = str(p.find_child("ReflectionView", true, false).call("get_text"))
-		_check("いつでも小窓：小窓で書くと画面の欄にも入る・「確定」が押せる（%s）" % _label_text(p, "MiniWindow", "MiniReflectionHint"),
-			view_text == mini_edit.text and not mini_ok.disabled)
-		await _press(mini_ok)
-		await _wait()
-		_check("いつでも小窓：小窓の「確定」で振り返りが終わる・今日の分は二重に足さない（%d → %d）" % [today_before_reflect, GameManager.get_cumulative_focus_minutes()],
-			int(p.get("current_state")) == 3 and GameManager.get_cumulative_focus_minutes() == today_before_reflect)
-		_check("いつでも小窓：振り返りが終わると休憩でまた小窓", int(p.get("current_state")) == 3 and bool(p.call("is_mini_window_active")))
+		_check("いつでも小窓：集中が終わると休憩でも小窓のまま", int(p.get("current_state")) == 2 and bool(p.call("is_mini_window_active")))
 		await _press(mini.find_child("MiniNextButton", true, false))
 		await _wait()
 		_check("いつでも小窓：休憩を「次へ」でとばしても小窓のまま（始める前）", int(p.get("current_state")) == 1 and not bool(p.get("_focus_started")) and bool(p.call("is_mini_window_active")))
@@ -17042,7 +16992,7 @@ class UiFlowRunner extends Node:
 		SaveManager.begin_session()
 		var b: Node = await _open(BASE, {})
 		_check("自動セーブ：始めたあとは画面を移ると書く", b != null and FileAccess.file_exists(SAVE_TEST_PATH))
-		# 閉じたとき：⚠ 集中の途中 → 閉じる合図 → 「やめる」と同じ確定（⚠ タスクの時間・セッションの回数・タイマーが止まる）。
+		# 閉じたとき（2026-11-08）：⚠ 集中の途中 → 閉じる合図 → 続きを保存（⚠ タスクの時間は入る・報酬はまだ）。
 		var task_id: String = GameManager.add_task("自動セーブ検査")
 		var p: Node = await _open(POMODORO, {})
 		if p == null:
@@ -17065,14 +17015,47 @@ class UiFlowRunner extends Node:
 		var task_sec: int = int(GameManager.get_task(task_id).get(GameStateKeys.TASK_FOCUS_SEC, 0))
 		var sessions_after: int = int(GameManager.get_state().get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0))
 		# ⚠ 10-06（不便6）：⚠ 途中で閉じたのは「集中を終えた回数」に数えない。
-		_check("閉じたとき：集中の途中でも確定する（タスクに %d 秒・回数は増えない %d → %d・タイマー止まる）・書く" % [task_sec, sessions_before, sessions_after],
-			absi(task_sec - 120) <= 1 and sessions_after == sessions_before and not bool(p.get("is_timer_active")) and saved and FileAccess.file_exists(SAVE_TEST_PATH))
-		# ⚠ 10-06（`BS-22` を覆した）：⚠ 途中まで集中した分（2分）も今日の分に入る。
-		_check("閉じたとき：途中まで集中した分も今日の分に入る（%d → %d）" % [today_before_close, GameManager.get_cumulative_focus_minutes()],
-			GameManager.get_cumulative_focus_minutes() == today_before_close + 2)
+		var run_after_close: Dictionary = GameManager.get_pomodoro_run()
+		_check("閉じたとき：集中の途中なら続きを保存する（タスクに %d 秒・回数は増えない %d → %d・続き %s）・書く" % [task_sec, sessions_before, sessions_after, str(run_after_close.get(GameStateKeys.POMODORO_RUN_PHASE, ""))],
+			absi(task_sec - 120) <= 1 and sessions_after == sessions_before and str(run_after_close.get(GameStateKeys.POMODORO_RUN_PHASE, "")) == GameStateKeys.POMODORO_PHASE_FOCUS and saved and FileAccess.file_exists(SAVE_TEST_PATH))
+		_check("閉じたとき：続きを保存するだけで、今日の分はまだ増えない（%d → %d）" % [today_before_close, GameManager.get_cumulative_focus_minutes()],
+			GameManager.get_cumulative_focus_minutes() == today_before_close)
+		# ⚠ ファイルに本当に載っているか（⚠ 終わる時刻が JSON を通っても1秒以内のまま・⚠ 整数に .0 が付かない）。
+		var saved_text: String = FileAccess.get_file_as_string(SAVE_TEST_PATH)
+		var saved_data: Variant = JSON.parse_string(saved_text)
+		var saved_run: Dictionary = {} if not (saved_data is Dictionary) else (saved_data as Dictionary).get(GameStateKeys.POMODORO_RUN, {}) as Dictionary
+		var saved_timer: Dictionary = saved_run.get(GameStateKeys.POMODORO_RUN_TIMER, {}) as Dictionary
+		var live_timer: Dictionary = run_after_close.get(GameStateKeys.POMODORO_RUN_TIMER, {}) as Dictionary
+		_check("閉じたとき：セーブのファイルに続きが載る（終わる時刻の差 %.3f 秒）・セットの番号は整数" % absf(float(saved_timer.get(GameStateKeys.POMODORO_TIMER_ENDS_AT, 0.0)) - float(live_timer.get(GameStateKeys.POMODORO_TIMER_ENDS_AT, 0.0))),
+			not saved_run.is_empty() and absf(float(saved_timer.get(GameStateKeys.POMODORO_TIMER_ENDS_AT, 0.0)) - float(live_timer.get(GameStateKeys.POMODORO_TIMER_ENDS_AT, 0.0))) < 1.0
+			and not saved_text.contains("\"set_index\": 0.0"))
 		SaveManager.quitting.emit()
-		_check("閉じたとき：合図が2回来ても二重に配らない（回数 %d）" % int(GameManager.get_state().get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0)),
-			int(GameManager.get_state().get(GameStateKeys.TOTAL_POMODORO_COMPLETED, 0)) == sessions_after)
+		_check("閉じたとき：合図が2回来てもタスクの時間は増えない（%d 秒）" % int(GameManager.get_task(task_id).get(GameStateKeys.TASK_FOCUS_SEC, 0)),
+			absi(int(GameManager.get_task(task_id).get(GameStateKeys.TASK_FOCUS_SEC, 0)) - task_sec) <= 1)
+		# 開き直す：⚠ 終わる時刻のまま続きから。⚠ 閉じていた10分も進んだことにする。
+		PomodoroTimer.shift_clock_for_test(600.0)
+		var run_shifted: Dictionary = GameManager.get_pomodoro_run()
+		(run_shifted[GameStateKeys.POMODORO_RUN_TIMER] as Dictionary)[GameStateKeys.POMODORO_TIMER_ENDS_AT] = float((run_shifted[GameStateKeys.POMODORO_RUN_TIMER] as Dictionary)[GameStateKeys.POMODORO_TIMER_ENDS_AT]) - 600.0
+		GameManager.set_pomodoro_run(run_shifted)
+		var p2: Node = await _open(POMODORO, {})
+		var left_after: float = -1.0 if p2 == null else float(p2.get("time_left_sec"))
+		_check("開き直す：集中の続きから（残り %.0f 秒＝全体 %.0f − 2分 − 閉じていた10分）・同じタスク" % [left_after, total_sec],
+			p2 != null and absf(left_after - (total_sec - 720.0)) < 3.0 and bool(p2.get("_focus_started")) and bool(p2.get("is_timer_active"))
+			and int(p2.get("current_state")) == int(p2.State.FOCUS) and str(p2.call("_current_task_id")) == task_id)
+		# 長く放っておいた：⚠ 閉じたときの残りで精算して拠点へ（⚠ 閉じていたあいだは数えない）。
+		if p2 != null:
+			p2.set("time_left_sec", total_sec - 180.0)
+			await _wait()
+			var today_before_stale: int = GameManager.get_cumulative_focus_minutes()
+			SaveManager.quitting.emit()
+			var run_old: Dictionary = GameManager.get_pomodoro_run()
+			run_old[GameStateKeys.POMODORO_RUN_SAVED_AT] = float(run_old[GameStateKeys.POMODORO_RUN_SAVED_AT]) - float(Balance.pomodoro.run_stale_sec) - 60.0
+			GameManager.set_pomodoro_run(run_old)
+			SceneManager.change_scene_with_data(POMODORO, {})
+			await _wait(OPEN_FRAMES)
+			await _wait(OPEN_FRAMES)
+			_check("長く放っておいた：閉じたときの残りで精算して拠点へ（今日 %d → %d・いま %s・続きは消える）" % [today_before_stale, GameManager.get_cumulative_focus_minutes(), _path_of(get_tree().current_scene).get_file()],
+				GameManager.get_cumulative_focus_minutes() == today_before_stale + 3 and _path_of(get_tree().current_scene) == BASE and GameManager.get_pomodoro_run().is_empty())
 		# ⚠ 後片付け：⚠ 以降の検査では書かない・⚠ 足したタスクは消す・⚠ 検査用のファイルは残さない。
 		SaveManager.end_session()
 		var _deleted: bool = GameManager.delete_task(task_id)
@@ -17128,7 +17111,7 @@ class UiFlowRunner extends Node:
 			not bool(p.call("is_paused")) and float(p.get("time_left_sec")) < held)
 		# 時計の差分：⚠ 2分眠っていたことにする（⚠ 時計の基準を 120 秒前へ）。
 		var before_sleep: float = float(p.get("time_left_sec"))
-		p.set("_last_wall", Time.get_unix_time_from_system() - 120.0)
+		PomodoroTimer.shift_clock_for_test(120.0)
 		await _wait()
 		_check("時計：スリープ明けのように時計が 120 秒進むと残りも 120 秒減る（%.0f → %.0f）" % [before_sleep, float(p.get("time_left_sec"))],
 			absf(before_sleep - float(p.get("time_left_sec")) - 120.0) < 1.0)
@@ -17138,20 +17121,17 @@ class UiFlowRunner extends Node:
 			live_min >= 2 and _label_text(p, "TopBar", "GoalLabel") == tr("ui_pomodoro_goal_progress") % [today_before + live_min, 120]
 			and GameManager.get_cumulative_focus_minutes() == today_before)
 		var count_before_next: int = GameManager.get_total_pomodoro_completed()
-		# 次へ（10-06・人間「⚠ 今のポモドーロのフェーズを終わらせるボタンも」）：⚠ 10分集中したところで「次へ」→ 振り返り → ⚠ 今日の分は集中した分だけ。
+		# 次へ（10-06・人間「⚠ 今のポモドーロのフェーズを終わらせるボタンも」）：⚠ 10分集中したところで「次へ」→ 休憩 → ⚠ 今日の分は集中した分だけ。
 		p.set("time_left_sec", float(p.get("phase_total_sec")) - 600.0)
 		await _wait()
 		var focused_sec: float = float(p.get("phase_total_sec")) - float(p.get("time_left_sec"))
 		await _press(next)
 		await _wait()
 		var focus_min: int = int(focused_sec / 60.0)
-		_check("次へ：集中中に押すとそこで終えて振り返り（集中した %.0f 秒）" % focused_sec, int(p.get("current_state")) == 2)
-		# ⚠ 10-06：⚠ 「次へ」を押した時点で入っている（⚠ 振り返りの前）。
+		_check("次へ：集中中に押すとそこで終えて休憩（集中した %.0f 秒）" % focused_sec, int(p.get("current_state")) == 2)
 		var today_after: int = GameManager.get_cumulative_focus_minutes()
-		p.call("_on_reflection_completed", "途中で終えた分を数えるかの検査です。二十字を超えるように書く。", false)
-		await _wait()
-		_check("次へ：振り返りを確定しても今日の分は二重に足さない（%d → %d）・途中で終えたのは回数に数えない（%d → %d）" % [today_after, GameManager.get_cumulative_focus_minutes(), count_before_next, GameManager.get_total_pomodoro_completed()],
-			GameManager.get_cumulative_focus_minutes() == today_after and GameManager.get_total_pomodoro_completed() == count_before_next)
+		_check("次へ：途中で終えたのは回数に数えない（%d → %d）" % [count_before_next, GameManager.get_total_pomodoro_completed()],
+			GameManager.get_total_pomodoro_completed() == count_before_next)
 		_check("次へ：今日の分は集中した分だけ入る（%d → %d・%d分）・目標の字も変わる（%s）" % [today_before, today_after, focus_min, _label_text(p, "TopBar", "GoalLabel")],
 			today_after == today_before + focus_min and _label_text(p, "TopBar", "GoalLabel").begins_with(tr("ui_pomodoro_goal_progress").split("%")[0])
 			and _label_text(p, "TopBar", "GoalLabel").contains(str(today_after)))
@@ -17159,7 +17139,7 @@ class UiFlowRunner extends Node:
 		pause = p.find_child("PauseButton", true, false) as Button
 		next = p.find_child("NextButton", true, false) as Button
 		var break_view: Node = p.find_child("BreakView", true, false)
-		_check("休憩：真ん中に「一時停止」「次へ」（%s）・「とばす」の札は隠れる" % ("" if next == null else next.tooltip_text), int(p.get("current_state")) == 3 and pause != null and pause.visible
+		_check("休憩：真ん中に「一時停止」「次へ」（%s）・「とばす」の札は隠れる" % ("" if next == null else next.tooltip_text), int(p.get("current_state")) == 2 and pause != null and pause.visible
 			and break_view.is_ancestor_of(pause) and next != null and next.visible and next.tooltip_text == tr("ui_mini_skip_break")
 			and not (break_view.get_node("Layout/SkipButton") as Control).visible)
 		var set_before: int = int(p.get("current_set_index"))
@@ -17167,33 +17147,12 @@ class UiFlowRunner extends Node:
 		await _wait(OPEN_FRAMES)
 		_check("自動開始：休憩が終わると次のセット（%d → %d）の集中が始まっている" % [set_before, int(p.get("current_set_index"))],
 			int(p.get("current_set_index")) == set_before + 1 and int(p.get("current_state")) == 1 and bool(p.get("is_timer_active")) and bool(p.get("_focus_started")))
-		# 振り返りの時間切れ（10-06・PLAN_POMODORO_USABILITY 不便1）：⚠ 集中の分は消えない・⚠ 打ちかけの字は残る。
-		var today_before_timeout: int = GameManager.get_cumulative_focus_minutes()
-		var timeout_min: int = int(float(p.get("phase_total_sec")) / 60.0)
-		p.set("time_left_sec", 0.01)
-		await _wait()
-		var reflection_view: Node = p.find_child("ReflectionView", true, false)
-		var half_text: String = "書きかけの振り返り"
-		if reflection_view != null:
-			reflection_view.call("set_text", half_text)
-		p.set("time_left_sec", 0.01)
-		await _wait()
-		var reflections: Array = p.get("reflections") as Array
-		var last: Dictionary = {} if reflections.is_empty() else reflections[reflections.size() - 1] as Dictionary
-		_check("時間切れ：振り返りが時間切れでも集中の分は入る（%d → %d・%d分）・書きかけの字は残る（%s）・休憩へ" % [today_before_timeout, GameManager.get_cumulative_focus_minutes(), timeout_min, str(last)],
-			GameManager.get_cumulative_focus_minutes() == today_before_timeout + timeout_min and bool(last.get("skipped", false))
-			and str(last.get("text", "")) == half_text and int(p.get("current_state")) == 3)
-		# 続ける（10-06・不便2・人間「⚠ ２は続けられるように」）：⚠ 4セット目の振り返りのあとも拠点へ戻らず長い休憩 → ⚠ 5セット目は「2周目」。
-		p.set("current_set_index", 2)
+		# 続ける（10-06・不便2・人間「⚠ ２は続けられるように」）：⚠ 4セット目のあとも拠点へ戻らず長い休憩 → ⚠ 5セット目は「2周目」。
+		p.set("current_set_index", 3)
 		p.set("time_left_sec", 0.01)
 		await _wait(OPEN_FRAMES)
-		p.set("time_left_sec", 0.01)
-		await _wait()
-		_check("続ける：4セット目（%d）の集中が終わると振り返り" % int(p.get("current_set_index")), int(p.get("current_set_index")) == 3 and int(p.get("current_state")) == 2)
-		p.call("_on_reflection_completed", "四セット目の振り返りです。二十字を超えるように書いておく。", false)
-		await _wait()
 		_check("続ける：4セット目のあとも拠点へ戻らず長い休憩（%.0f 秒・%s）" % [float(p.get("phase_total_sec")), str(get_tree().current_scene == p)],
-			get_tree().current_scene == p and int(p.get("current_state")) == 3 and is_equal_approx(float(p.get("phase_total_sec")), 20.0 * 60.0)
+			get_tree().current_scene == p and int(p.get("current_state")) == 2 and is_equal_approx(float(p.get("phase_total_sec")), 20.0 * 60.0)
 			and _label_text(p, "BreakView", "TypeLabel") == tr("ui_pomodoro_break_long"))
 		p.set("time_left_sec", 0.01)
 		await _wait(OPEN_FRAMES)
@@ -18878,9 +18837,7 @@ class UiFlowRunner extends Node:
 		# B：休憩中の「やめる」は確かめずに拠点へ（⚠ 前は「はい」を押した）。⚠ 受け取りの窓は残す（10-14・人間「⚠ これは報酬だから手に入れたという実感を与えたい」）。
 		if p != null:
 			await _close_modal(p)
-			p.call("_on_timer_finished")   # 集中が終わった扱い → 振り返り
-			await _wait()
-			p.call("_on_reflection_completed", "今日の作業を進めた。次にやることも決めてメモに残した。")
+			p.call("_on_timer_finished")   # 集中が終わった扱い → 休憩
 			await _wait()
 		var in_break: bool = p != null and int(p.get("current_state")) == int(p.State.BREAK)
 		var break_set: Node = null if p == null else p.find_child("BreakView", true, false)

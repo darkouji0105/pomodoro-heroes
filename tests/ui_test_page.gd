@@ -113,7 +113,6 @@ const EMBEDDED_VIEWS: Array[String] = [
 	"res://scenes/pomodoro/protection_select_view.tscn",
 	"res://scenes/pomodoro/focus_view.tscn",
 	"res://scenes/pomodoro/break_view.tscn",
-	"res://scenes/pomodoro/reflection_view.tscn",
 ]
 # 埋め込む枠の高さ（⚠ 見た目の都合だけ。⚠ 中のビューはアンカーで広がる）。
 # ⚠ 2026-09-09 に 260 → 480。⚠ 4ビューをコンテナへ組み替えたら背が測れるようになり、
